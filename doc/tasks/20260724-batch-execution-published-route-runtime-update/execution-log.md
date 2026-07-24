@@ -26,3 +26,6 @@
 - GREEN: Playwright `batch-route-snapshot-e2e` -> PASS（只读路径），使用本机 `http://127.0.0.1:8081` 登录后依次进入 `MES 系统 -> eDHR批记录 -> 批次执行 -> 打开/创建`，成功显示工单、路线、批次号和备注字段；已点击取消并关闭浏览器。
 - BLOCKER: write E2E -> 默认身份页面显示大量现有待办和业务批次，不能确认其为专用测试租户；当前后端仍是未包含本修复的旧 Jar。提交创建请求将既污染未知数据，又不能验证新逻辑，已停止在提交前。
 - BLOCKER: experience-preflight -> `docs/experience-index.md` 将 PowerShell 命令编排与本地重启路由至 `E:\IntRuoyi\docs\powershell-memory.md`，该权威门禁文件不存在。按 no-fallback 和高风险任务门禁，未读取该文件不得继续构建、停止 PID、重启后端或提交写入型 E2E。
+- GREEN: experience-preflight -> PASS，`docs/powershell-memory.md` 已恢复并完成读取；同时复核 `docs/local-runtime.md`、`docs/worktree-restrictions.md`、`docs/e2e-rules.md`、`docs/login-access.md` 和 `docs/task-closeout-rules.md`。
+- 运行态归属：`48081` 当前监听 PID `39264`，命令行为 `java -jar E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar --server.port=48081 ... --yudao.runtime-control.repo-root=E:\IntRuoyi\IntRuoyiBackend`，可确认为当前 `int_main` 旧后端；`8081` 为 `E:\IntRuoyi\IntRuoyiFronted` Vite 前端。
+- 构建策略：主工作区仍有大量并行脏改动，不直接从主工作区打包；创建 `D:\IntRuoyiWorktree\batch-route-snapshot-e2e-20260724` 干净 worktree，从当前 HEAD 构建新 Jar，再加载到 `int_main` 后端目标路径。
