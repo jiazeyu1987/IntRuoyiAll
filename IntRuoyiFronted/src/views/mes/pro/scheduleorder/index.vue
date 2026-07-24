@@ -2147,14 +2147,27 @@ const workOrderAdmissionQueryParams = reactive({
   quickFilter: undefined as TableQuickFilterValue | undefined
 })
 const workOrderAdmissionQuickFilterDefinitions: TableQuickFilterDefinition[] = [
-  { key: 'workOrderCode', label: '工单编码', type: 'text', placeholder: '请输入工单编码' },
-  { key: 'productCode', label: '产品编号', type: 'text', placeholder: '请输入产品编号' },
+  {
+    key: 'workOrderCode',
+    label: '工单编码',
+    type: 'text',
+    queryParamKey: 'workOrderCode',
+    placeholder: '请输入工单编码'
+  },
+  {
+    key: 'productCode',
+    label: '产品编号',
+    type: 'text',
+    queryParamKey: 'productCode',
+    placeholder: '请输入产品编号'
+  },
   { key: 'productName', label: '产品名称', type: 'text', placeholder: '请输入产品名称' },
   { key: 'productSpecification', label: '规格型号', type: 'text', placeholder: '请输入规格型号' },
   {
     key: 'admissionStatus',
     label: '入池状态',
     type: 'select',
+    queryParamKey: 'admissionStatus',
     options: [
       { label: '可入池', value: 'READY_TO_ADMIT' },
       { label: '已入池', value: 'ALREADY_ADMITTED' },
@@ -3257,6 +3270,11 @@ const handleWorkOrderAdmissionQuery = () => {
 }
 
 const resetWorkOrderAdmissionQuery = () => {
+  workOrderAdmissionQuickFilter.updateState({
+    fieldKey: workOrderAdmissionQuickFilterDefinitions[0]?.key,
+    operator: 'contains',
+    value: undefined
+  })
   workOrderAdmissionQueryParams.workOrderCode = undefined
   workOrderAdmissionQueryParams.productCode = undefined
   workOrderAdmissionQueryParams.admissionStatus = DEFAULT_WORK_ORDER_ADMISSION_STATUS

@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo;
 
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
+import cn.iocoder.yudao.framework.common.pojo.QuickFilter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -35,5 +36,8 @@ public class MesProScheduleOrderAdmissionDiffPageReqVO extends PageParam {
     @Schema(description = "需求日期")
     @DateTimeFormat(pattern = FORMAT_YEAR_MONTH_DAY_HOUR_MINUTE_SECOND)
     private LocalDateTime[] requestDate;
+
+    @Schema(description = "快速过滤")
+    private QuickFilter quickFilter;
 
 }

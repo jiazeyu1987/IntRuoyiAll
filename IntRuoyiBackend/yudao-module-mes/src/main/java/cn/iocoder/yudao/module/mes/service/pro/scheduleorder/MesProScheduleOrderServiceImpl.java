@@ -139,6 +139,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_ROUTE_FLOW_CONFIG_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_RESOURCE_CAPACITY_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_WORKER_QUANTITY_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_WORK_ORDER_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_WORK_ORDER_FROZEN;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_WORK_ORDER_NOT_CONFIRMED;
@@ -168,6 +169,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     private static final String RESOURCE_REASON_NORMAL = "正常";
     private static final String RESOURCE_REASON_UNCONFIGURED = "资源未配置";
     private static final String RESOURCE_REASON_SHIFT_HOURS_MISSING = "班次小时未配置";
+    private static final String RESOURCE_REASON_WORKER_QUANTITY_MISSING = "人工数量未配置";
     private static final String RESOURCE_REASON_WORKER_CAPACITY_MISSING = "人工单人产能未配置";
     private static final String RESOURCE_REASON_MACHINE_CAPACITY_MISSING = "设备工序产能未配置";
     private static final String RESOURCE_REASON_MACHINE_QUANTITY_MISSING = "设备数量未配置";
@@ -630,8 +632,9 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     public MesProScheduleOrderAdmissionDiffPageRespVO getAdmissionDiff(
             MesProScheduleOrderAdmissionDiffPageReqVO pageReqVO) {
         MesProWorkOrderPageReqVO workOrderPageReqVO = buildWorkOrderPageReqVO(pageReqVO);
+        List<Long> quickFilterProductIds = applyAdmissionDiffQuickFilter(pageReqVO, workOrderPageReqVO);
         boolean computedFilter = hasComputedAdmissionFilter(pageReqVO);
-        if (StrUtil.isNotBlank(pageReqVO.getProductCode())) {
+        if (CollUtil.isEmpty(quickFilterProductIds) && StrUtil.isNotBlank(pageReqVO.getProductCode())) {
             MesMdItemDO item = itemMapper.selectByCode(pageReqVO.getProductCode());
             if (item == null) {
                 return emptyAdmissionDiffResult();
@@ -639,10 +642,11 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
             workOrderPageReqVO.setProductId(item.getId());
         }
         if (computedFilter) {
-            return getAdmissionDiffWithComputedFilter(pageReqVO, workOrderPageReqVO);
+            return getAdmissionDiffWithComputedFilter(pageReqVO, workOrderPageReqVO, quickFilterProductIds);
         }
 
-        PageResult<MesProWorkOrderDO> workOrderPage = workOrderMapper.selectPage(workOrderPageReqVO);
+        PageResult<MesProWorkOrderDO> workOrderPage =
+                selectAdmissionWorkOrderPage(workOrderPageReqVO, quickFilterProductIds);
         List<MesProWorkOrderDO> workOrders = workOrderPage.getList();
         if (CollUtil.isEmpty(workOrders)) {
             return emptyAdmissionDiffResult();
@@ -669,7 +673,8 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     }
 
     private MesProScheduleOrderAdmissionDiffPageRespVO getAdmissionDiffWithComputedFilter(
-            MesProScheduleOrderAdmissionDiffPageReqVO pageReqVO, MesProWorkOrderPageReqVO workOrderPageReqVO) {
+            MesProScheduleOrderAdmissionDiffPageReqVO pageReqVO, MesProWorkOrderPageReqVO workOrderPageReqVO,
+            List<Long> quickFilterProductIds) {
         int pageNo = Math.max(Objects.requireNonNullElse(pageReqVO.getPageNo(), 1), 1);
         int pageSize = Objects.requireNonNullElse(pageReqVO.getPageSize(), 10);
         int targetOffset = PageParam.PAGE_SIZE_NONE.equals(pageReqVO.getPageSize()) ? 0 : (pageNo - 1) * pageSize;
@@ -684,7 +689,8 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         while (true) {
             workOrderPageReqVO.setPageNo(scanPageNo);
             workOrderPageReqVO.setPageSize(scanPageSize);
-            PageResult<MesProWorkOrderDO> workOrderPage = workOrderMapper.selectPage(workOrderPageReqVO);
+            PageResult<MesProWorkOrderDO> workOrderPage =
+                    selectAdmissionWorkOrderPage(workOrderPageReqVO, quickFilterProductIds);
             List<MesProWorkOrderDO> workOrders = workOrderPage.getList();
             if (CollUtil.isEmpty(workOrders)) {
                 break;
@@ -718,6 +724,52 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         result.setTotal(matchedTotal);
         result.setSummary(summary);
         return result;
+    }
+
+    private List<Long> applyAdmissionDiffQuickFilter(MesProScheduleOrderAdmissionDiffPageReqVO pageReqVO,
+                                                     MesProWorkOrderPageReqVO workOrderPageReqVO) {
+        QuickFilter quickFilter = pageReqVO.getQuickFilter();
+        if (quickFilter == null || StrUtil.isBlank(quickFilter.getFieldKey())) {
+            return Collections.emptyList();
+        }
+        String fieldKey = StrUtil.trim(quickFilter.getFieldKey());
+        String value = StrUtil.trim(quickFilter.getValue());
+        return switch (fieldKey) {
+            case "workOrderCode" -> {
+                if (StrUtil.isNotBlank(value)) {
+                    workOrderPageReqVO.setCode(value);
+                }
+                yield Collections.emptyList();
+            }
+            case "productCode" -> StrUtil.isBlank(value)
+                    ? Collections.emptyList()
+                    : toProductIds(itemMapper.selectListByCodeLike(value));
+            case "productName" -> StrUtil.isBlank(value)
+                    ? Collections.emptyList()
+                    : toProductIds(itemMapper.selectListByNameLike(value));
+            case "productSpecification" -> StrUtil.isBlank(value)
+                    ? Collections.emptyList()
+                    : toProductIds(itemMapper.selectListBySpecificationLike(value));
+            case "admissionStatus" -> {
+                if (StrUtil.isNotBlank(value)) {
+                    pageReqVO.setAdmissionStatus(value);
+                }
+                yield Collections.emptyList();
+            }
+            case "requestDate" -> {
+                workOrderPageReqVO.setQuickFilter(quickFilter);
+                yield Collections.emptyList();
+            }
+            default -> throw new IllegalArgumentException("非法待同步差异快速过滤字段：" + fieldKey);
+        };
+    }
+
+    private PageResult<MesProWorkOrderDO> selectAdmissionWorkOrderPage(MesProWorkOrderPageReqVO workOrderPageReqVO,
+                                                                       List<Long> quickFilterProductIds) {
+        if (CollUtil.isEmpty(quickFilterProductIds)) {
+            return workOrderMapper.selectPage(workOrderPageReqVO);
+        }
+        return workOrderMapper.selectPageByProductIds(workOrderPageReqVO, quickFilterProductIds);
     }
 
     @Override
@@ -982,12 +1034,26 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
             }
             ResourceSnapshot snapshot = resourceContext.snapshotByRouteProcessId.get(routeProcess.getId());
             if (!hasPositiveResourceCapacity(snapshot)) {
-                return AdmissionRouteCheck.blocked("BLOCKED_RESOURCE_CAPACITY_MISSING",
-                        "资源计算工序缺少工作站资源产能，不能加入排产工单池", "工艺维护",
+                return AdmissionRouteCheck.blocked(resolveResourceCapacityBlockedReasonCode(snapshot),
+                        resolveResourceCapacityBlockedMessage(snapshot), "工艺维护",
                         routeConfigAction(route.getId(), routeProcess.getId(), "维护资源产能"));
             }
         }
         return null;
+    }
+
+    private String resolveResourceCapacityBlockedReasonCode(ResourceSnapshot snapshot) {
+        if (snapshot != null && RESOURCE_REASON_WORKER_QUANTITY_MISSING.equals(snapshot.resourceStatusReason)) {
+            return "BLOCKED_WORKER_QUANTITY_REQUIRED";
+        }
+        return "BLOCKED_RESOURCE_CAPACITY_MISSING";
+    }
+
+    private String resolveResourceCapacityBlockedMessage(ResourceSnapshot snapshot) {
+        if (snapshot != null && RESOURCE_REASON_WORKER_QUANTITY_MISSING.equals(snapshot.resourceStatusReason)) {
+            return "资源计算工序缺少人员数量配置，不能加入排产工单池";
+        }
+        return "资源计算工序缺少工作站资源产能，不能加入排产工单池";
     }
 
     private void applyAdmissionIssue(MesProScheduleOrderAdmissionDiffRespVO row, String admissionStatus,
@@ -2678,6 +2744,10 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                 workstation.setProcessId(currentProcessId);
             }
         });
+        Map<Long, List<MesMdWorkstationDO>> workstationsByProcessId = processWorkstations.stream()
+                .filter(workstation -> workstation.getProcessId() != null)
+                .collect(Collectors.groupingBy(MesMdWorkstationDO::getProcessId,
+                        LinkedHashMap::new, Collectors.toList()));
         List<Long> workstationIds = workstations.stream().map(MesMdWorkstationDO::getId).filter(Objects::nonNull).toList();
         List<MesMdWorkstationMachineDO> machineBindings = CollUtil.isEmpty(workstationIds)
                 ? Collections.emptyList()
@@ -2705,14 +2775,19 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         Map<Long, ResourceSnapshot> snapshotMap = new LinkedHashMap<>();
         for (MesProRouteProcessDO routeProcess : routeProcesses) {
             List<MesMdWorkstationDO> routeBoundWorkstations = Collections.emptyList();
+            Long currentRouteProcessProcessId = processIdentityMap.getOrDefault(
+                    routeProcess.getProcessId(), routeProcess.getProcessId());
             if (routeProcess.getWorkstationId() != null) {
                 MesMdWorkstationDO boundWorkstation = workstationById.get(routeProcess.getWorkstationId());
                 if (boundWorkstation != null) {
-                    if (!Objects.equals(boundWorkstation.getProcessId(), routeProcess.getProcessId())) {
+                    if (!Objects.equals(boundWorkstation.getProcessId(), currentRouteProcessProcessId)) {
                         throw exception(PRO_WORKSTATION_PROCESS_MISMATCH);
                     }
                     routeBoundWorkstations = List.of(boundWorkstation);
                 }
+            } else if (currentRouteProcessProcessId != null) {
+                routeBoundWorkstations = workstationsByProcessId.getOrDefault(
+                        currentRouteProcessProcessId, Collections.emptyList());
             }
             snapshotMap.put(routeProcess.getId(), buildResourceSnapshot(routeProcess,
                     routeBoundWorkstations,
@@ -2820,11 +2895,14 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
                     .min(Comparator.comparing(MesMdWorkstationWorkerDO::getId, Comparator.nullsLast(Long::compareTo)))
                     .orElse(null);
             Integer workerQuantity = resolveSnapshotWorkerQuantity(worker);
+            if (workerQuantity == null || workerQuantity <= 0) {
+                hasWorkerQuantityMissing = true;
+            }
             if (!positiveResourceValue(workstation.getSingleStandardHourlyCapacity())) {
                 hasWorkerCapacityMissing = true;
             }
             BigDecimal singleHourly = nullToZero(workstation.getSingleStandardHourlyCapacity());
-            BigDecimal hourly = singleHourly;
+            BigDecimal hourly = singleHourly.multiply(BigDecimal.valueOf(workerQuantity == null ? 0 : workerQuantity));
             hourlyTotal = hourlyTotal.add(hourly);
             Map<String, Object> resource = baseResourcePayload("WORKER", workstation);
             resource.put("workstationWorkerId", worker == null ? null : worker.getId());
@@ -2843,6 +2921,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         String capacitySource = hasMachine ? CAPACITY_SOURCE_MACHINE : hasWorker ? CAPACITY_SOURCE_WORKER : CAPACITY_SOURCE_UNCONFIGURED;
         BigDecimal shiftCapacity = shiftHours == null ? BigDecimal.ZERO : hourlyTotal.multiply(shiftHours);
         String resourceStatusReason = resolveSnapshotResourceStatusReason(capacitySource, hasShiftHoursMissing,
+                hasWorkerQuantityMissing,
                 hasWorkerCapacityMissing, hasMachineCapacityMissing, hasMachineQuantityMissing);
         String resourceStatus = RESOURCE_REASON_NORMAL.equals(resourceStatusReason)
                 ? RESOURCE_STATUS_NORMAL : RESOURCE_STATUS_CAPACITY_MISSING;
@@ -2881,6 +2960,7 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
 
     private String resolveSnapshotResourceStatusReason(String capacitySource,
                                                        boolean hasShiftHoursMissing,
+                                                       boolean hasWorkerQuantityMissing,
                                                        boolean hasWorkerCapacityMissing,
                                                        boolean hasMachineCapacityMissing,
                                                        boolean hasMachineQuantityMissing) {
@@ -2889,6 +2969,9 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
         }
         if (hasShiftHoursMissing) {
             return RESOURCE_REASON_SHIFT_HOURS_MISSING;
+        }
+        if (hasWorkerQuantityMissing) {
+            return RESOURCE_REASON_WORKER_QUANTITY_MISSING;
         }
         if (hasWorkerCapacityMissing) {
             return RESOURCE_REASON_WORKER_CAPACITY_MISSING;
@@ -2938,6 +3021,10 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
             }
             ResourceSnapshot snapshot = resourceContext.snapshotByRouteProcessId.get(routeProcess.getId());
             if (!hasPositiveResourceCapacity(snapshot)) {
+                if (snapshot != null && RESOURCE_REASON_WORKER_QUANTITY_MISSING.equals(snapshot.resourceStatusReason)) {
+                    throw exception(PRO_SCHEDULE_ORDER_WORKER_QUANTITY_REQUIRED,
+                            routeProcess.getId(), resolveFirstResourceWorkstationId(snapshot));
+                }
                 throw exception(PRO_SCHEDULE_ORDER_RESOURCE_CAPACITY_REQUIRED, routeProcess.getId());
             }
         }
@@ -2951,8 +3038,22 @@ public class MesProScheduleOrderServiceImpl implements MesProScheduleOrderServic
     private boolean hasPositiveResourceCapacity(ResourceSnapshot snapshot) {
         return snapshot != null
                 && !CAPACITY_SOURCE_UNCONFIGURED.equals(snapshot.capacitySource)
+                && RESOURCE_STATUS_NORMAL.equals(snapshot.resourceStatus)
                 && snapshot.hourlyCapacityTotal != null
                 && snapshot.hourlyCapacityTotal.compareTo(BigDecimal.ZERO) > 0;
+    }
+
+    private Long resolveFirstResourceWorkstationId(ResourceSnapshot snapshot) {
+        Object resources = snapshot.payload.get("resources");
+        if (!(resources instanceof List<?> resourceList) || resourceList.isEmpty()) {
+            return null;
+        }
+        Object firstResource = resourceList.get(0);
+        if (!(firstResource instanceof Map<?, ?> resource)) {
+            return null;
+        }
+        Object workstationId = resource.get("workstationId");
+        return workstationId instanceof Number ? ((Number) workstationId).longValue() : null;
     }
 
     private Map<String, Object> baseResourcePayload(String resourceType, MesMdWorkstationDO workstation) {

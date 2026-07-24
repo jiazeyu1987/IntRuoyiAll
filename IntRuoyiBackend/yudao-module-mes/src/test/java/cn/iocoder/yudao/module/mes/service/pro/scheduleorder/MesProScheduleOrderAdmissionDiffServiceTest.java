@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.service.pro.scheduleorder;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.PageParam;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.common.pojo.QuickFilter;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderAdmissionDiffPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderAdmissionDiffPageRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.scheduleorder.vo.MesProScheduleOrderAdmissionDiffRespVO;
@@ -18,6 +20,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProSchedu
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationMachineMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationWorkerMapper;
@@ -34,13 +37,16 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesKingdeeProductionO
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleCapacityModeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
+import cn.iocoder.yudao.module.mes.service.pro.schedule.component.ScheduleDefaultCompatibilityPolicy;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteServiceImpl;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -98,6 +104,10 @@ class MesProScheduleOrderAdmissionDiffServiceTest {
     private MesDvMachineryProcessMapper machineryProcessMapper;
     @Mock
     private MesProProcessMapper processMapper;
+    @Mock
+    private MesMdItemMapper itemMapper;
+    @Spy
+    private ScheduleDefaultCompatibilityPolicy scheduleDefaultCompatibilityPolicy = new ScheduleDefaultCompatibilityPolicy();
 
     @org.junit.jupiter.api.BeforeEach
     void setUpProcessIdentity() {
@@ -105,6 +115,15 @@ class MesProScheduleOrderAdmissionDiffServiceTest {
                         org.mockito.ArgumentMatchers.anyCollection()))
                 .thenAnswer(invocation -> identityMap(invocation.getArgument(0)));
         org.mockito.Mockito.lenient().when(routeProcessService.resolveCurrentRouteProcess(
+                        org.mockito.ArgumentMatchers.nullable(Long.class),
+                        org.mockito.ArgumentMatchers.nullable(Long.class),
+                        org.mockito.ArgumentMatchers.nullable(Long.class)))
+                .thenAnswer(invocation -> MesProRouteProcessDO.builder()
+                        .id(invocation.getArgument(0))
+                        .routeId(invocation.getArgument(1))
+                        .processId(invocation.getArgument(2))
+                        .build());
+        org.mockito.Mockito.lenient().when(routeProcessService.resolveFrozenRouteProcess(
                         org.mockito.ArgumentMatchers.nullable(Long.class),
                         org.mockito.ArgumentMatchers.nullable(Long.class),
                         org.mockito.ArgumentMatchers.nullable(Long.class)))
@@ -185,7 +204,8 @@ class MesProScheduleOrderAdmissionDiffServiceTest {
                         .capacityMode("FINITE_HOURLY")
                         .hourlyCapacity(new BigDecimal("10.000000"))
                         .build()));
-        when(workstationMapper.selectListByProcessIds(List.of(501L))).thenReturn(List.of());
+        when(workstationMapper.selectListByProcessIds(List.of(501L), CommonStatusEnum.ENABLE.getStatus()))
+                .thenReturn(List.of());
 
         MesProScheduleOrderAdmissionDiffPageReqVO reqVO = new MesProScheduleOrderAdmissionDiffPageReqVO();
         reqVO.setPageNo(1);
@@ -228,6 +248,62 @@ class MesProScheduleOrderAdmissionDiffServiceTest {
         assertEquals(1, result.getSummary().getBlockedCount());
         assertEquals("MO-MISSING-ROUTE", result.getList().get(0).getWorkOrderCode());
         assertEquals("BLOCKED_MISSING_ROUTE", result.getList().get(0).getReasonCode());
+    }
+
+    @Test
+    void getAdmissionDiff_shouldApplyQuickFilterProductNameToWorkOrderQuery() {
+        MesProWorkOrderDO pump = buildWorkOrder(107L, "MO-PUMP", 17L, Boolean.FALSE,
+                MesProWorkOrderStatusEnum.CONFIRMED.getStatus());
+        when(itemMapper.selectListByNameLike("压力泵")).thenReturn(List.of(MesMdItemDO.builder()
+                .id(17L)
+                .name("压力泵")
+                .build()));
+        when(workOrderMapper.selectPageByProductIds(
+                argThat(req -> req != null && req.getProductId() == null),
+                org.mockito.ArgumentMatchers.eq(List.of(17L))))
+                .thenReturn(new PageResult<>(List.of(pump), 1L));
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(107L))).thenReturn(List.of());
+        mockReadyRoute(17L, 217L, 317L, 417L, 517L);
+
+        MesProScheduleOrderAdmissionDiffPageReqVO reqVO = new MesProScheduleOrderAdmissionDiffPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        reqVO.setQuickFilter(quickFilter("productName", "contains", "压力泵"));
+
+        MesProScheduleOrderAdmissionDiffPageRespVO result = scheduleOrderService.getAdmissionDiff(reqVO);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals("MO-PUMP", result.getList().get(0).getWorkOrderCode());
+        assertEquals("READY_TO_ADMIT", result.getList().get(0).getAdmissionStatus());
+    }
+
+    @Test
+    void getAdmissionDiff_shouldApplyQuickFilterAdmissionStatusOverDefaultReadyStatus() {
+        MesProWorkOrderDO ready = buildWorkOrder(108L, "MO-READY-FILTER", 18L, Boolean.FALSE,
+                MesProWorkOrderStatusEnum.CONFIRMED.getStatus());
+        MesProWorkOrderDO admitted = buildWorkOrder(109L, "MO-ADMITTED-FILTER", 19L, Boolean.FALSE,
+                MesProWorkOrderStatusEnum.CONFIRMED.getStatus());
+        when(workOrderMapper.selectPage(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new PageResult<>(List.of(ready, admitted), 2L));
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(108L, 109L))).thenReturn(List.of(
+                MesProScheduleOrderDO.builder()
+                        .id(909L)
+                        .workOrderId(109L)
+                        .status(MesProScheduleOrderStatusEnum.PREPARE.getStatus())
+                        .build()));
+        mockReadyRoute(18L, 218L, 318L, 418L, 518L);
+
+        MesProScheduleOrderAdmissionDiffPageReqVO reqVO = new MesProScheduleOrderAdmissionDiffPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+        reqVO.setAdmissionStatus("READY_TO_ADMIT");
+        reqVO.setQuickFilter(quickFilter("admissionStatus", "eq", "ALREADY_ADMITTED"));
+
+        MesProScheduleOrderAdmissionDiffPageRespVO result = scheduleOrderService.getAdmissionDiff(reqVO);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals("MO-ADMITTED-FILTER", result.getList().get(0).getWorkOrderCode());
+        assertEquals("ALREADY_ADMITTED", result.getList().get(0).getAdmissionStatus());
     }
 
     @Test
@@ -361,10 +437,10 @@ class MesProScheduleOrderAdmissionDiffServiceTest {
                         .id(605L)
                         .routeVersionId(305L)
                         .routeProcessId(405L)
-                        .capacityMode("FINITE_HOURLY")
-                        .hourlyCapacity(new BigDecimal("1.000000"))
+                        .capacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode())
                         .build()));
-        when(workstationMapper.selectListByProcessIds(List.of(505L))).thenReturn(List.of(
+        when(workstationMapper.selectListByProcessIds(List.of(505L), CommonStatusEnum.ENABLE.getStatus()))
+                .thenReturn(List.of(
                 MesMdWorkstationDO.builder().id(705L).code("WS-705").name("人工工位")
                         .processId(505L).shiftHours(new BigDecimal("8.0"))
                         .singleStandardHourlyCapacity(new BigDecimal("2.0")).build()
@@ -387,6 +463,72 @@ class MesProScheduleOrderAdmissionDiffServiceTest {
         assertFalse(row.getSelectable());
         assertEquals(1, result.getSummary().getBlockedCount());
         assertEquals(0, result.getSummary().getReadyCount());
+    }
+
+    @Test
+    void getAdmissionDiff_shouldUseEnabledProcessWorkstationWhenRouteProcessIsNotExplicitlyBound() {
+        MesProWorkOrderDO workOrder = buildWorkOrder(110L, "MO-PROCESS-WORKSTATION", 20L, Boolean.FALSE,
+                MesProWorkOrderStatusEnum.CONFIRMED.getStatus());
+
+        when(workOrderMapper.selectPage(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new PageResult<>(List.of(workOrder), 1L));
+        when(scheduleOrderMapper.selectListByWorkOrderIds(List.of(110L))).thenReturn(List.of());
+        when(routeProductMapper.selectListByItemId(20L)).thenReturn(List.of(MesProRouteProductDO.builder()
+                .routeId(220L)
+                .itemId(20L)
+                .build()));
+        when(routeMapper.selectById(220L)).thenReturn(MesProRouteDO.builder()
+                .id(220L)
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build());
+        when(routeVersionMapper.selectActiveByRouteId(220L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(320L)
+                .routeId(220L)
+                .active(Boolean.TRUE)
+                .versionNo("V1")
+                .build());
+        when(routeProcessMapper.selectListByRouteId(220L)).thenReturn(List.of(MesProRouteProcessDO.builder()
+                .id(420L)
+                .routeId(220L)
+                .processId(520L)
+                .build()));
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(220L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType()))
+                .thenReturn(List.of(MesProRouteFlowProcessConfigDO.builder()
+                        .routeFlowConfigId(220L)
+                        .routeId(220L)
+                        .routeProcessId(420L)
+                        .useType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())
+                        .enabled(Boolean.TRUE)
+                        .build()));
+        when(routeScheduleConfigMapper.selectListByRouteVersionId(320L)).thenReturn(List.of(
+                MesProRouteScheduleConfigDO.builder()
+                        .id(620L)
+                        .routeVersionId(320L)
+                        .routeProcessId(420L)
+                        .capacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode())
+                        .build()));
+        when(workstationMapper.selectListByProcessIds(List.of(520L), CommonStatusEnum.ENABLE.getStatus()))
+                .thenReturn(List.of(MesMdWorkstationDO.builder().id(720L).code("WS-720").name("默认人工工位")
+                        .processId(520L).shiftHours(new BigDecimal("8.0"))
+                        .singleStandardHourlyCapacity(new BigDecimal("2.0")).build()));
+        when(workstationMachineMapper.selectListByWorkstationIds(List.of(720L))).thenReturn(List.of());
+        when(workstationWorkerMapper.selectListByWorkstationIds(List.of(720L))).thenReturn(List.of(
+                MesMdWorkstationWorkerDO.builder().id(820L).workstationId(720L).quantity(2).build()
+        ));
+        when(machineryProcessMapper.selectListByMachineryIds(Set.of())).thenReturn(List.of());
+
+        MesProScheduleOrderAdmissionDiffPageReqVO reqVO = new MesProScheduleOrderAdmissionDiffPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+
+        MesProScheduleOrderAdmissionDiffPageRespVO result = scheduleOrderService.getAdmissionDiff(reqVO);
+
+        MesProScheduleOrderAdmissionDiffRespVO row = result.getList().get(0);
+        assertEquals("READY_TO_ADMIT", row.getAdmissionStatus());
+        assertEquals("READY_TO_ADMIT", row.getReasonCode());
+        assertTrue(row.getSelectable());
+        assertEquals(1, result.getSummary().getReadyCount());
+        assertEquals(0, result.getSummary().getBlockedCount());
     }
 
     @Test
@@ -448,7 +590,16 @@ class MesProScheduleOrderAdmissionDiffServiceTest {
                         .capacityMode("FINITE_HOURLY")
                         .hourlyCapacity(new BigDecimal("10.000000"))
                         .build()));
-        when(workstationMapper.selectListByProcessIds(List.of(processId))).thenReturn(List.of());
+        when(workstationMapper.selectListByProcessIds(List.of(processId), CommonStatusEnum.ENABLE.getStatus()))
+                .thenReturn(List.of());
+    }
+
+    private QuickFilter quickFilter(String fieldKey, String operator, String value) {
+        QuickFilter quickFilter = new QuickFilter();
+        quickFilter.setFieldKey(fieldKey);
+        quickFilter.setOperator(operator);
+        quickFilter.setValue(value);
+        return quickFilter;
     }
 
     private MesProWorkOrderDO buildWorkOrder(Long id, String code, Long productId, Boolean frozen, Integer status) {
