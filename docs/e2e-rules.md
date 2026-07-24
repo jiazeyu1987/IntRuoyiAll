@@ -33,6 +33,16 @@
 - 写入型 E2E 记录测试数据标识和清理方式。
 - 失败时记录实际失败位置、页面状态、网络响应或控制台错误。
 
+
+## 任务专用 E2E 环境变量与证据文件门禁
+
+- Trigger: 运行 `edhr-batch-execution-real-flow.e2e.js`、真实写入型 E2E、复跑历史 E2E 证据、或脚本默认写入 `doc/tasks/<task-id>/real-e2e-evidence.md`。
+- Preflight check: 运行前必须显式设置任务专用 `EDHR_BATCH_E2E_TASK_ID` 或 `EDHR_BATCH_E2E_EVIDENCE_FILE`，并确认脚本要求的账号、工单、批次、路线和签名密码环境变量全部来自已授权测试租户。
+- Blocker: 任一必需环境变量缺失、目标租户命中受保护租户、或证据路径会覆盖非当前任务历史 PASS 证据时，必须停止，不得进入浏览器。
+- Verification: 记录 E2E 命令、显式证据文件路径、入口 URL、测试租户/账号标签、目标业务数据标识，以及脚本 PASS/BLOCKED 结果。
+- Forbidden action: 禁止用默认任务 ID 覆盖历史证据文件，禁止用受保护租户或默认生产/admin 数据替代任务专用测试数据，禁止把环境变量缺失的 fail-fast 复跑解释为产品 E2E 失败。
+- Evidence: `doc/tasks/fix-batch-record-fill-rule/execution-log.md`，2026-07-24 当前 shell 复跑缺少任务专用 E2E 环境变量并恢复历史证据文件。
+
 ## Element Plus 下拉选择门禁
 
 - Trigger: Playwright 在 Element Plus `el-select` 中选择租户、工单、工艺路线、角色、用户或其他写入型业务对象。

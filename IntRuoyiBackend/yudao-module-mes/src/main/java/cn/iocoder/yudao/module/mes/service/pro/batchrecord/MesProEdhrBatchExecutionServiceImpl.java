@@ -1847,6 +1847,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         LinkedHashMap::new, Collectors.toList()));
         for (Map.Entry<String, List<MesProEdhrBatchExecutionTaskDO>> entry : sharedTaskMap.entrySet()) {
             validateSameSharedFormIdentity(entry.getKey(), entry.getValue());
+            freezeTraditionalBatchSharedExecution(batch, entry.getValue());
         }
     }
 
@@ -1862,6 +1863,40 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .anyMatch(task -> StrUtil.isBlank(task.getFormBindingKey()));
         if (templateIds.size() != 1 || templateIds.contains(null) || bindingKeyMissing || instanceIds.contains(null)) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
+        }
+    }
+
+    private void freezeTraditionalBatchSharedExecution(MesProEdhrBatchExecutionDO batch,
+                                                       List<MesProEdhrBatchExecutionTaskDO> sharedTasks) {
+        List<MesProEdhrBatchExecutionTaskDO> traditionalTasks = sharedTasks.stream()
+                .filter(task -> StrUtil.isNotBlank(task.getBatchRecordReportId()))
+                .toList();
+        if (traditionalTasks.isEmpty()) {
+            return;
+        }
+        Set<String> reportIds = traditionalTasks.stream()
+                .map(MesProEdhrBatchExecutionTaskDO::getBatchRecordReportId)
+                .collect(Collectors.toSet());
+        if (traditionalTasks.size() != sharedTasks.size() || reportIds.size() != 1) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
+        }
+        MesProEdhrBatchExecutionTaskDO representative = traditionalTasks.get(0);
+        MesProBatchRecordExecutionOpenOrCreateByContextRespVO execution =
+                singleExecutionService.openOrCreateByContext(buildOpenOrCreateExecutionReq(batch, representative));
+        if (execution == null || execution.getId() == null) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+        }
+        for (MesProEdhrBatchExecutionTaskDO task : traditionalTasks) {
+            task.setExecutionId(execution.getId())
+                    .setBatchRecordDefinitionId(resolveTaskValue(task.getBatchRecordDefinitionId(),
+                            execution.getBatchRecordDefinitionId()))
+                    .setBatchRecordVersionId(resolveTaskValue(task.getBatchRecordVersionId(),
+                            execution.getBatchRecordVersionId()));
+            batchTaskMapper.updateById(new MesProEdhrBatchExecutionTaskDO()
+                    .setId(task.getId())
+                    .setExecutionId(task.getExecutionId())
+                    .setBatchRecordDefinitionId(task.getBatchRecordDefinitionId())
+                    .setBatchRecordVersionId(task.getBatchRecordVersionId()));
         }
     }
 

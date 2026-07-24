@@ -2884,7 +2884,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void openOrCreate_usesFrozenRouteVersionFormBindingsInsteadOfCurrentDraft() {
+    void openOrCreate_usesCurrentRouteFormBindingsInsteadOfFrozenSnapshot() {
         Fixture fixture = insertRouteFixture(false, false);
         MesProRouteDO route = routeMapper.selectById(fixture.routeId());
         List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(fixture.routeId()).stream()
@@ -2924,19 +2924,19 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
         List<EdhrBatchExecutionTaskRespVO> routeTasks = routeTasks(created);
         assertEquals(2, routeTasks.size());
-        assertEquals("FB_" + firstProcess.getId() + "_1", routeTasks.get(0).getFormBindingKey());
+        assertEquals("CURRENT_DRAFT_1", routeTasks.get(0).getFormBindingKey());
         assertEquals("PROCESS", routeTasks.get(0).getInstanceScope());
         assertEquals("REQUIRED", routeTasks.get(0).getRequiredPolicy());
         assertEquals("PRODUCTION", routeTasks.get(0).getOwnerRoleKey());
-        assertEquals("1111111111111111111111111111111111111111111111111111111111111111",
+        assertEquals("9999999999999999999999999999999999999999999999999999999999999999",
                 routeTasks.get(0).getSlotConfigSnapshotHash());
-        assertEquals("FB_" + firstProcess.getId() + "_2", routeTasks.get(1).getFormBindingKey());
+        assertEquals("CURRENT_DRAFT_2", routeTasks.get(1).getFormBindingKey());
         assertEquals("BATCH_SHARED", routeTasks.get(1).getInstanceScope());
-        assertEquals("FROZEN_SHARED_KEY", routeTasks.get(1).getSharedFormKey());
+        assertEquals("CURRENT_SHARED_KEY", routeTasks.get(1).getSharedFormKey());
         assertEquals(frozenSharedScope, routeTasks.get(1).getFillableScopeJson());
-        assertEquals("OPTIONAL", routeTasks.get(1).getRequiredPolicy());
+        assertEquals("REQUIRED", routeTasks.get(1).getRequiredPolicy());
         assertEquals("QUALITY", routeTasks.get(1).getOwnerRoleKey());
-        assertEquals("3333333333333333333333333333333333333333333333333333333333333333",
+        assertEquals("9999999999999999999999999999999999999999999999999999999999999999",
                 routeTasks.get(1).getSlotConfigSnapshotHash());
     }
 

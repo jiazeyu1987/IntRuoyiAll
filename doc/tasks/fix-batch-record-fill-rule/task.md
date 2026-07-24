@@ -29,7 +29,19 @@
 
 ## Current Status
 
-ready_for_closeout；用户授权纳入的编译前置、损耗报告 Word 解析回归和真实前端 E2E 阻塞均已修复并验证通过。实现与要求验证已完成，剩余为文档校验、任务清理、经验沉淀和提交/推送门禁。
+ready_for_closeout；用户授权纳入的编译前置、损耗报告 Word 解析回归、真实前端 E2E PASS 证据和后续 134 个后端全类回归均已完成。当前 shell 再次复跑真实 E2E 缺少任务专用环境变量而 fail fast，未使用受保护租户替代；剩余为任务清理、经验沉淀和提交/推送门禁。
+
+
+## 经验门禁
+
+### 任务专用 E2E 环境变量与证据文件门禁
+
+- Trigger: 运行 `edhr-batch-execution-real-flow.e2e.js` 或复跑真实写入型 E2E。
+- Preflight check: 显式设置当前任务 `EDHR_BATCH_E2E_TASK_ID` 或 `EDHR_BATCH_E2E_EVIDENCE_FILE`，并确认账号、工单、批次、路线、签名密码环境变量来自已授权测试租户。
+- Blocker: 任一必需环境变量缺失、目标租户受保护、或证据路径会覆盖非当前任务历史 PASS 证据时停止。
+- Verification: 记录 E2E 命令、证据路径、入口 URL、测试租户/账号标签、目标业务数据标识和 PASS/BLOCKED 结果。
+- Forbidden action: 禁止用默认任务 ID 覆盖历史证据，禁止用受保护租户或默认生产/admin 数据替代任务专用测试数据。
+- Evidence: `docs/e2e-rules.md#任务专用-e2e-环境变量与证据文件门禁`。
 
 ## 设计约束检查
 

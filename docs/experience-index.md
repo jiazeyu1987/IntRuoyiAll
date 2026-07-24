@@ -152,6 +152,7 @@
 - Keywords: restart-int-ruoyi-local, Missing int_main frontend path, yudao-ui-admin-vue3, IntRuoyiFronted, local backend restart E2E -> `docs/local-runtime.md#2026-07-24-本地重启脚本路径门禁`
 - Keywords: isolated backend jar, dirty main workspace, int_main 48081, jar SHA256, local E2E reload, clean worktree build -> `docs/local-runtime.md#2026-07-24-隔离构建-jar-加载门禁`
 - Keywords: Element Plus el-table, 表格行复选框, 表头全选误点, indeterminate checkbox, Playwright body-wrapper row selection, 手动重排选中集合断言 -> `docs/e2e-rules.md#element-plus-表格选择门禁`
+- Keywords: EDHR_BATCH_E2E_TASK_ID, EDHR_BATCH_E2E_EVIDENCE_FILE, edhr-batch-execution-real-flow.e2e.js, 真实 E2E 前置条件缺失, 覆盖历史 E2E 证据 -> `docs/e2e-rules.md#任务专用-e2e-环境变量与证据文件门禁`
 - Keywords: Element Plus el-select, Playwright 下拉选择, 租户下拉, 工单下拉, 工艺路线编码, ACTIVE route snapshot, draft independence E2E -> `docs/e2e-rules.md#element-plus-下拉选择门禁`
 - Keywords: Codex Runner, 系统管理 测试管理, 自然语言测试方法, 检查点截图, runner token, parallelSafe, Codex 调用 Playwright -> `docs/e2e-rules.md#codex-runner-自动测试门禁`
 - Keywords: task-closeout status unknown, Current Status completed, cleanup preview apply, worktree Directory not empty -> `docs/release-build-preflight-lessons.md` and `E:\IntRuoyi\docs\worktree-memory.md`
