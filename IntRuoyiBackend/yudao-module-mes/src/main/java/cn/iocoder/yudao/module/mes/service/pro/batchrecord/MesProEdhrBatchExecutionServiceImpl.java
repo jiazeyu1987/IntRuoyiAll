@@ -1900,12 +1900,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         requireOpenWorkTaskContext(reqVO, openWorkTask);
         Long permissionScopeId = resolveTaskPermissionScopeId(task);
         requireTaskFillAbility(batch, task, openWorkTask, permissionScopeId);
-        if (task.getFormCenterInstanceId() == null
-                || task.getFormTemplateId() == null
-                || task.getFormTemplateVersionId() == null
-                || StrUtil.isBlank(task.getFormBindingKey())) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
-        }
+        requireTaskOpenContext(task);
         if (Objects.equals(task.getStatus(), TASK_STATUS_WAITING)) {
             task.setStatus(TASK_STATUS_DRAFT)
                     .setOpenedBy(currentUserId())
@@ -2012,6 +2007,24 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 "mes:pro-edhr-batch-execution:update", "ALLOW", "SUCCESS", null, null,
                 JSON.toJSONString(executionPageQuery));
         return result;
+    }
+
+    private void requireTaskOpenContext(MesProEdhrBatchExecutionTaskDO task) {
+        if (isBatchSharedTask(task) && task.getExecutionId() == null) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+        }
+        if (StrUtil.isNotBlank(task.getBatchRecordReportId())) {
+            if (task.getExecutionId() == null) {
+                throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+            }
+            return;
+        }
+        if (task.getFormCenterInstanceId() == null
+                || task.getFormTemplateId() == null
+                || task.getFormTemplateVersionId() == null
+                || StrUtil.isBlank(task.getFormBindingKey())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+        }
     }
 
     private Long resolveTaskPermissionScopeId(MesProEdhrBatchExecutionTaskDO task) {
