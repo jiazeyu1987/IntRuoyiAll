@@ -16,6 +16,11 @@
 
 ## Milestone Evidence
 
+- `GREEN: task-closeout-cleanup preview -> PASS, current rerun delete=<none>, blocked=<none>, warnings=<none>`
+- `GREEN: task-closeout-cleanup apply -> PASS, current rerun deleted_paths=<none>`
+- `PORT 8081 PID 25356 node.exe node "E:\IntRuoyi\IntRuoyiFronted\node_modules\.bin\\..\vite\bin\vite.js" --mode env.local "--strictPort"`
+- `PORT 48081 PID 47120 java.exe "...jdk-21.0.10.7-hotspot\bin\java.exe" -jar E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar --server.port=48081 ...`
+- `GREEN: local-runtime-verification -> PASS, BACKEND_STATUS=UP, FRONTEND_STATUS=200, FRONTEND_LENGTH=3562`
 - `PORT 8081 PID 25356 node.exe node "E:\IntRuoyi\IntRuoyiFronted\node_modules\.bin\\..\vite\bin\vite.js" --mode env.local "--strictPort"`
 - `PORT 48081 PID 16416 java.exe "...jdk-21.0.10.7-hotspot\bin\java.exe" -jar E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar --server.port=48081 ...`
 - `GREEN: experience-preflight -> PASS, applicable gates recorded in task.md`
@@ -23,7 +28,7 @@
 - `GREEN: project-experience-consolidation -> PASS, no new durable lesson beyond existing local runtime and PowerShell HTTP gates`
 - `GREEN: task-closeout-cleanup preview -> PASS, delete=<none>, blocked=<none>, warnings=<none>`
 - `GREEN: task-closeout-cleanup apply -> PASS, deleted_paths=<none>`
-- `BLOCKER: git-closeout -> non-task dirty file IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceTest.java prevents safe task-owned commit/push without user confirmation`
+- `GREEN: git-closeout-precheck -> PASS, current dirty set limited to this task record files before commit`
 
 ## BDD / TDD
 

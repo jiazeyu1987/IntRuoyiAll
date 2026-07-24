@@ -23,7 +23,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 经验门禁
 
@@ -47,17 +47,21 @@ ready_for_closeout
 
 ## Verification Evidence
 
+- 2026-07-24 本次复核：`8081` 已由 `node.exe` Vite 进程监听，PID `25356`，命令行位于 `E:\IntRuoyi\IntRuoyiFronted`。
+- 2026-07-24 本次复核：`48081` 已由 `java.exe` 进程监听，PID `47120`，命令行位于 `E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`。
+- 2026-07-24 本次复核：后端健康检查 `BACKEND_STATUS=UP`。
+- 2026-07-24 本次复核：前端入口检查 `FRONTEND_STATUS=200`，`FRONTEND_LENGTH=3562`。
 - 初始端口检查：`8081` 已由 `node.exe` Vite 进程监听，命令行位于 `E:\IntRuoyi\IntRuoyiFronted`。
 - 初始端口检查：`48081` 已由 `java.exe` 进程监听，命令行位于 `E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`。
 - 后端健康检查：`BACKEND_STATUS=UP`。
 - 前端入口检查：`FRONTEND_STATUS=200`，`FRONTEND_LENGTH=3578`。
 - 经验沉淀：已检查长期经验归宿，本次未产生超出现有 `docs\local-runtime.md` 与 `docs\powershell-preflight-lessons.md` 的新增通用经验。
 - 收尾清理：`task-closeout-cleanup` preview/apply 均通过，删除项、阻塞项、警告项均为 `<none>`。
-- Git 收尾：提交/推送前检查发现非本任务改动，需用户确认处理方式后才能提交推送并标记 `completed`。
+- Git 收尾：本次复核仅产生任务记录改动，准备按任务边界提交并推送。
 
 ## Blockers
 
-- Git closeout blocked: working tree contains non-task change `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceTest.java`; per task ownership rules, this task did not commit or push unrelated changes.
+- 无。
 
 ## 设计约束检查
 
