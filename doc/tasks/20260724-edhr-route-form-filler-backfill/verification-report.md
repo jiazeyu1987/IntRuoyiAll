@@ -17,3 +17,10 @@
 - Dynamic route form task now returns configured process-form filler `152 / 张可莹（zhangkeying）`.
 - Existing active work task and route-process assignment rule priorities remain covered.
 - Full module `testCompile` remains blocked by unrelated legacy WM/MD test references to missing classes.
+
+## Closeout Verification
+
+- `task-closeout-cleanup --mode preview` -> PASS，无删除项、无 blocker、无 warning。
+- `task-closeout-cleanup --mode apply` -> PASS，无删除项、无 blocker、无 warning。
+- `mvn -pl yudao-module-mes -Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromActiveFillWorkTask+detailTask_includesFillableUsersFromAssignmentRuleWhenWorkTaskNotCreated+detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated test` -> PASS，3 tests, 0 failures, 0 errors。
+- Dirty worktree baseline commit `16892129` recorded and preserved before this final closeout update.

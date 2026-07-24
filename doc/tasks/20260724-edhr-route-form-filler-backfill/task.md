@@ -19,14 +19,14 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-Implementation and required verification passed. Closeout cleanup and final evidence consolidation remain.
+Implementation, required verification, cleanup, experience consolidation, and final task evidence are complete. Final repository push verification is performed after the closeout record commit.
 
 ## Experience Gate
 
-- `docs/experience-index.md`：缺失。
-- Gate decision: 本次为本地后端只读详情接口修复，不涉及远端服务器、发布、数据库结构变更或生产数据写入；记录缺失但不阻塞实施。
+- `docs/experience-index.md`：存在，已补充 eDHR 详情回填门禁索引。
+- Gate decision: 本次为本地后端只读详情接口修复，不涉及远端服务器、发布、数据库结构变更或生产数据写入；已将可复用经验合并到 `docs/backend-development.md`。
 
 ## 设计约束检查
 
