@@ -51,4 +51,4 @@
 
 - 真实 E2E 前仍需核对本机数据库、Runner token、Codex CLI、Playwright 浏览器、目标测试租户和 Runner 本地凭据映射。
 - `pnpm ts:check` / `vue-tsc` 当前被既有无关 DCC 类型错误阻塞：`src/views/dcc/controlled-file/browser/index.vue` 多处 `string | number` 与 `number/string` 类型不匹配。本任务新增页面类型错误已修复。
-- Final closeout: 本任务收尾记录已提交并推送；当前仅保留非本任务文件 `doc/tasks/fix-batch-record-fill-rule/execution-log.md` 的未提交改动。
+- Final closeout: 本任务收尾记录已提交并推送；当前仅保留非本任务文件 `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java` 和 `doc/tasks/fix-batch-record-fill-rule/execution-log.md` 的未提交改动。
