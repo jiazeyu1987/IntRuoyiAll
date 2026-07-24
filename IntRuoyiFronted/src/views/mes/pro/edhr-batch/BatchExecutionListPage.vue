@@ -198,7 +198,7 @@
               </template>
             </el-table-column>
             <el-table-column v-if="isEdhrBatchExecutionColumnVisible('blockedCount')" label="阻塞数" prop="blockedCount" :width="getEdhrBatchExecutionColumnWidthString('blockedCount', 90)" align="center" v-bind="sortColumnAttrs('blockedCount')" />
-            <el-table-column v-if="isEdhrBatchExecutionColumnVisible('updateTime')" label="最近更新时间" prop="updateTime" :width="getEdhrBatchExecutionColumnWidthString('updateTime', 180)" v-bind="sortColumnAttrs('updateTime')" />
+            <el-table-column v-if="isEdhrBatchExecutionColumnVisible('updateTime')" label="最后更新时间" prop="updateTime" :width="getEdhrBatchExecutionColumnWidthString('updateTime', 180)" v-bind="sortColumnAttrs('updateTime')" />
             <el-table-column v-if="isEdhrBatchExecutionColumnVisible('operation')" label="操作" prop="operation" :width="getEdhrBatchExecutionColumnWidthString('operation', 180)" fixed="right">
               <template #default="{ row }">
                 <div
@@ -736,7 +736,7 @@ const edhrBatchExecutionDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'status', label: '状态', width: 110 },
   { key: 'progress', label: '完成进度', width: 150 },
   { key: 'blockedCount', label: '阻塞数', width: 90 },
-  { key: 'updateTime', label: '最近更新时间', width: 180 },
+  { key: 'updateTime', label: '最后更新时间', width: 180 },
   { key: 'operation', label: '操作', width: 180, hideable: false, business: false }
 ]
 const {

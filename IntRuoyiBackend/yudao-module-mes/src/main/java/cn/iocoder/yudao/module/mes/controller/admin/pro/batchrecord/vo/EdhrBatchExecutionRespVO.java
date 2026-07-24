@@ -20,6 +20,10 @@ public class EdhrBatchExecutionRespVO {
 
     private String batchCode;
 
+    private LocalDateTime createTime;
+
+    private LocalDateTime updateTime;
+
     private Integer attemptNo;
 
     private Long sourceRejectedBatchExecutionId;

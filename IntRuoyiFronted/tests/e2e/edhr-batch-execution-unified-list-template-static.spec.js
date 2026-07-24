@@ -120,6 +120,15 @@ for (const column of requiredColumns) {
   expectIncludes(column, `缺少批次执行字段配置：${column}`)
 }
 
+expectIncludes(
+  'label="最后更新时间" prop="updateTime"',
+  '批次执行列表最后更新时间列必须读取后端 updateTime 字段。'
+)
+expectIncludes(
+  "{ key: 'updateTime', label: '最后更新时间', width: 180 }",
+  '批次执行字段配置必须将 updateTime 展示为最后更新时间。'
+)
+
 const preservedBusinessHandlers = [
   'openCreateDialog',
   'openReadinessDialog',

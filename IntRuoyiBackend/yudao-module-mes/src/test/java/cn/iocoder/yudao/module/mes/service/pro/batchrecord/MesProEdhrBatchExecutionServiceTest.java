@@ -318,6 +318,39 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void getPage_exposesInitialUpdateTimeAsBatchRowCreateTime() {
+        LocalDateTime createdAt = LocalDateTime.of(2026, 7, 24, 9, 30, 15);
+        MesProEdhrBatchExecutionDO batch = new MesProEdhrBatchExecutionDO()
+                .setBatchExecutionCode("EDHRB-TIME-CONTRACT")
+                .setWorkOrderId(1001L)
+                .setWorkOrderCode("WO-TIME-CONTRACT")
+                .setBatchCode("BATCH-TIME-CONTRACT")
+                .setAttemptNo(1)
+                .setProductId(2001L)
+                .setProductCode("PROD-TIME")
+                .setProductName("时间契约产品")
+                .setRouteId(3001L)
+                .setRouteCode("ROUTE-TIME")
+                .setRouteName("时间契约路线")
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CREATED)
+                .setTaskTotal(0)
+                .setTaskApprovedCount(0)
+                .setBlockedCount(0);
+        batch.setCreateTime(createdAt);
+        batch.setUpdateTime(createdAt);
+        batchExecutionMapper.insert(batch);
+        EdhrBatchExecutionPageReqVO pageReqVO = new EdhrBatchExecutionPageReqVO();
+        pageReqVO.setBatchExecutionCode("EDHRB-TIME-CONTRACT");
+
+        PageResult<EdhrBatchExecutionRespVO> page = batchExecutionService.getPage(pageReqVO);
+
+        assertEquals(1, page.getTotal());
+        EdhrBatchExecutionRespVO row = page.getList().get(0);
+        assertEquals(createdAt, row.getCreateTime());
+        assertEquals(createdAt, row.getUpdateTime());
+    }
+
+    @Test
     void listRouteOptionsByWorkOrder_returnsEnabledProductRoutesForExplicitOpenOrCreate() {
         Fixture fixture = insertRouteFixture(true, true);
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
