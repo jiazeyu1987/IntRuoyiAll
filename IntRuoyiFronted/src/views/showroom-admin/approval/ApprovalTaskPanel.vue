@@ -104,7 +104,7 @@
             </div>
             <div class="showroom-approval-workbench__summary-item">
               <span class="label">提交时间</span>
-              <span>{{ activeDetail.changeRequest.submittedAt || '未记录' }}</span>
+              <span>{{ formatDateTimeValue(activeDetail.changeRequest.submittedAt, '未记录') }}</span>
             </div>
             <div class="showroom-approval-workbench__summary-item">
               <span class="label">驳回原因</span>
@@ -139,7 +139,7 @@
             <el-table-column label="签名人" width="120" prop="actorId" />
             <el-table-column label="签名方式" width="120" prop="signatureMode" />
             <el-table-column label="签名意见" min-width="220" prop="comment" show-overflow-tooltip />
-            <el-table-column label="签名时间" min-width="180" prop="signedAt" />
+            <el-table-column label="签名时间" min-width="180" prop="signedAt" :formatter="dateTimeValueFormatter" />
           </el-table>
         </template>
       </div>
@@ -158,6 +158,7 @@
 <script setup lang="ts">
 import { ShowroomAdminApi } from '@/api/showroom-admin'
 import { useUserStore } from '@/store/modules/user'
+import { dateTimeValueFormatter, formatDateTimeValue } from '@/utils/formatTime'
 import ShowroomApprovalSignatureDialog from './ShowroomApprovalSignatureDialog.vue'
 import {
   normalizeApprovalDetail,

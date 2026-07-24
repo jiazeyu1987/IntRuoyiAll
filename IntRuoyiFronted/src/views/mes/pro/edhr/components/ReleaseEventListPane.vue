@@ -130,11 +130,11 @@ import {
 } from '@/api/mes/pro/edhr/release'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
-import { formatDate } from '@/utils/formatTime'
 import {
   resolveReleaseEventLabel,
   resolveReleaseStatusLabel
 } from '@/views/mes/pro/edhr/shared/releaseCheckPresentation'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProEdhrReleaseEventListPane' })
 
@@ -213,10 +213,7 @@ const parsePositiveNumber = (value: unknown) => {
 const currentReleaseTransactionId = computed(() => parsePositiveNumber(props.releaseTransactionId))
 
 const formatDateTime = (value?: string | number) => {
-  if (!value) return '--'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '时间格式异常'
-  return formatDate(date, 'YYYY-MM-DD HH:mm:ss')
+  return formatEdhrDateTime(value)
 }
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {

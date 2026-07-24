@@ -1134,6 +1134,7 @@
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import download from '@/utils/download'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import {
   SchedulerWorkbenchApi,
   type SchedulerWorkbenchFullConfigImportRespVO,
@@ -2156,11 +2157,8 @@ const formatProcessWipShiftCapacity = (value?: number) => {
   return Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 0 })
 }
 
-const formatEstimatedTime = (value?: string) => {
-  if (!value) {
-    return '无法估算'
-  }
-  return dayjs(value).format('YYYY-MM-DD HH:mm')
+const formatEstimatedTime = (value?: string | number | Date) => {
+  return formatDateTimeValue(value, '无法估算')
 }
 
 const formatExplanationNumber = (value?: number) => {
@@ -2170,11 +2168,8 @@ const formatExplanationNumber = (value?: number) => {
   return Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 6 })
 }
 
-const formatExplanationDateTime = (value?: string) => {
-  if (!value) {
-    return '—'
-  }
-  return dayjs(value).format('YYYY-MM-DD HH:mm')
+const formatExplanationDateTime = (value?: string | number | Date) => {
+  return formatDateTimeValue(value, '—')
 }
 
 const formatExplanationDuration = (minutes?: number) => {

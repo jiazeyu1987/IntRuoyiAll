@@ -16,6 +16,8 @@ def main():
         "DIRECT",
         "SIGNATURE_REQUIRED",
         "`effect_executor_code`",
+        "`form_policy_type`",
+        "`form_slots_json`",
         "`process_definition_key`",
         "`request_status`",
         "`process_instance_id`",

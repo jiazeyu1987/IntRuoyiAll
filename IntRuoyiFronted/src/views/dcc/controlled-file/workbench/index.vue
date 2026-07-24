@@ -207,6 +207,7 @@ import {
   type ControlledFileVO
 } from '@/api/dcc/controlledFile/workflow'
 import { getMyTrainingTaskPage, type TrainingTaskProgressVO } from '@/api/dcc/controlledFile/training'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import { buildDccTaskCenterRowView, type DccTaskLike } from '../shared/approval'
 import { openControlledFileViewer } from '../shared/viewer-navigation'
 import {
@@ -395,7 +396,7 @@ const loadWorkbench = async () => {
       trainingTodoTotal: trainingTodos.total,
       finalizationFailedTotal: finalizationFailed.total
     })
-    lastLoadedAt.value = new Date().toLocaleString()
+    lastLoadedAt.value = formatDateTimeValue(new Date())
   } catch (error) {
     approvalTodoRows.value = []
     pendingDistributionRows.value = []

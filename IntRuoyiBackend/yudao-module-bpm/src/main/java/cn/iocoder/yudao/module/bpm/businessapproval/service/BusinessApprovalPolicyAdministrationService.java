@@ -56,6 +56,8 @@ public class BusinessApprovalPolicyAdministrationService {
                 .processDefinitionKey(StrUtil.isBlank(reqVO.getProcessDefinitionKey())
                         ? null : StrUtil.trim(reqVO.getProcessDefinitionKey()))
                 .effectExecutorCode(reqVO.getEffectExecutorCode())
+                .formPolicyType(StrUtil.isBlank(reqVO.getFormPolicyType()) ? null : StrUtil.trim(reqVO.getFormPolicyType()))
+                .formSlotsJson(StrUtil.isBlank(reqVO.getFormSlotsJson()) ? null : StrUtil.trim(reqVO.getFormSlotsJson()))
                 .status("DRAFT")
                 .remark(reqVO.getRemark())
                 .build();
@@ -126,6 +128,8 @@ public class BusinessApprovalPolicyAdministrationService {
                 .policyMode(targetMode.name())
                 .processDefinitionKey(processDefinitionKey)
                 .effectExecutorCode(sourcePolicy.getEffectExecutorCode())
+                .formPolicyType(sourcePolicy.getFormPolicyType())
+                .formSlotsJson(sourcePolicy.getFormSlotsJson())
                 .status(BusinessApprovalPolicy.STATUS_PUBLISHED)
                 .remark(sourcePolicy.getRemark())
                 .build();
@@ -226,6 +230,8 @@ public class BusinessApprovalPolicyAdministrationService {
         respVO.setPolicyMode(policy.getPolicyMode());
         respVO.setProcessDefinitionKey(policy.getProcessDefinitionKey());
         respVO.setEffectExecutorCode(policy.getEffectExecutorCode());
+        respVO.setFormPolicyType(policy.getFormPolicyType());
+        respVO.setFormSlotsJson(policy.getFormSlotsJson());
         respVO.setStatus(policy.getStatus());
         respVO.setRemark(policy.getRemark());
         respVO.setUpdatedTime(policy.getUpdateTime());

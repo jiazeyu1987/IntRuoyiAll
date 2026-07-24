@@ -1761,7 +1761,7 @@ import dayjs from 'dayjs'
 import { ElMessageBox } from 'element-plus'
 import download from '@/utils/download'
 import { generateUUID } from '@/utils'
-import { dateFormatter, formatDate } from '@/utils/formatTime'
+import { dateFormatter, formatDate, formatDateTimeValue } from '@/utils/formatTime'
 import {
   MesProScheduleOrderApi,
   type MesProScheduleOrderAdmissionDiffRowVO,
@@ -3883,8 +3883,8 @@ const getProcessProgressRowClass = ({ row }: { row: MesProScheduleOrderProcessVO
   return `schedule-order-pool__process-row--${getProcessProgressStatus(row)}`
 }
 
-const formatDateTime = (value?: string) => {
-  return value ? formatDate(new Date(value), 'YYYY-MM-DD HH:mm') : '-'
+const formatDateTime = (value?: string | number | Date) => {
+  return formatDateTimeValue(value, '-')
 }
 
 const formatIssueDate = (value?: string) => {

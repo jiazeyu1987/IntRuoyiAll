@@ -19,6 +19,17 @@
 - 发布、审计或独立验证任务发现前端无入口时，必须 fail fast，不得临时扩大范围新增入口。
 - 功能或修复任务只有在入口属于用户批准范围，且已完成 BDD + TDD 时，才允许补入口。
 
+
+## 静态合同与真实 E2E 同步门禁
+
+### Windows 换行与脚本行为同步
+
+- Trigger: 修改 `tests/e2e/*static.spec.js`、真实 `*.e2e.js` 脚本、Windows worktree 融合后出现静态合同在目标 worktree 自身失败、CRLF/LF 差异或废弃弹窗流程断言。
+- Preflight check: 先在目标 worktree 和当前工作区分别运行同一静态合同；读取源码时对只检查模板片段的静态合同统一归一化 CRLF 为 LF；确认真实 E2E 脚本与当前页面真实用户路径一致。
+- Blocker: 若静态合同在目标 worktree 自身也失败，必须先判断是合同过期、换行误判还是产品实现失败；不得把目标 worktree 自身失败直接当作融合漏项。
+- Verification: 更新静态合同后必须重跑目标 worktree 涉及的全部静态合同；涉及真实 E2E 脚本行为变更时，至少用静态合同断言真实脚本等待的 API、点击的按钮和禁止的旧弹窗步骤。
+- Forbidden action: 禁止为通过静态合同改产品文案或 DOM 顺序；禁止保留真实脚本里的废弃确认弹窗、签名密码输入或 API-only 替代页面点击。
+- Evidence: `doc/tasks/merge-jiluben-worktree-20260724/verification-report.md`。
 ## 禁止做法
 
 - 禁止 mock 数据冒充真实 E2E。

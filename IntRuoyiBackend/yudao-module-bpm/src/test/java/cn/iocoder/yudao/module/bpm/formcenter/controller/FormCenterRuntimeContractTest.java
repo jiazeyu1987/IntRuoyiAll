@@ -235,10 +235,11 @@ class FormCenterRuntimeContractTest {
         assertArrayEquals(new Class[]{FormCenterException.class}, handler.getAnnotation(ExceptionHandler.class).value());
 
         CommonResult<?> result = new FormCenterExceptionAdvice().handleFormCenterException(new FormCenterException(
-                FormCenterErrorCode.FORM_POLICY_NOT_FOUND, "No published form policy matched action REPLAN"));
+                FormCenterErrorCode.FORM_POLICY_NOT_FOUND,
+                "No published business approval policy matched action REPLAN"));
 
         assertEquals(FormCenterErrorCode.FORM_POLICY_NOT_FOUND.getCode(), result.getCode());
-        assertEquals("No published form policy matched action REPLAN", result.getMsg());
+        assertEquals("No published business approval policy matched action REPLAN", result.getMsg());
     }
 
     @Test

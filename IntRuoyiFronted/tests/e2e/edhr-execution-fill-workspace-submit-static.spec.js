@@ -4,7 +4,7 @@ const assert = require('node:assert/strict')
 
 const pagePath = path.resolve(process.cwd(), 'src/views/mes/pro/edhr/ExecutionPage.vue')
 const apiPath = path.resolve(process.cwd(), 'src/api/mes/pro/feedback/index.ts')
-const source = fs.readFileSync(pagePath, 'utf8')
+const source = fs.readFileSync(pagePath, 'utf8').replace(/\r\n/g, '\n')
 const api = fs.readFileSync(apiPath, 'utf8')
 
 for (const token of [
@@ -22,6 +22,74 @@ assert.ok(/>\s*提交执行\s*<\/el-button>/.test(source), '填写工作区提�
 assert.ok(
   source.indexOf('edhr-fill-workspace__submit-action') > source.indexOf('edhr-fill-workspace__primary-action'),
   '提交执行入口应跟随保存入口，确保填表工作区可完成保存后提交。'
+)
+
+const submitDialogStart = source.indexOf('<el-dialog\n      class="edhr-fill-workspace__submit-sign-dialog"')
+assert.notEqual(submitDialogStart, -1, '提交执行电子签名弹框必须使用专用精简弹框。')
+const submitDialogEnd = source.indexOf('</el-dialog>', submitDialogStart)
+assert.ok(submitDialogEnd > submitDialogStart, '提交执行电子签名弹框模板必须闭合。')
+const submitDialogTemplate = source.slice(submitDialogStart, submitDialogEnd)
+
+for (const token of [
+  'edhr-fill-workspace__submit-sign-row',
+  'edhr-fill-workspace__submit-sign-label">姓名',
+  'submitSignatureUserName',
+  'edhr-fill-workspace__submit-sign-label is-required">电子签名',
+  'v-model="submitForm.password"',
+  '@keyup.enter="handleSubmitExecution"',
+  'edhr-fill-workspace__submit-sign-confirm',
+  '确认'
+]) {
+  assert.ok(submitDialogTemplate.includes(token), `提交弹框必须保留用户要求内容：${token}`)
+}
+
+for (const forbidden of [
+  '提交 eDHR 执行',
+  '普通工序提交',
+  '金手指测试权限',
+  '审核/批准人',
+  '提交备注',
+  '签名显示时间',
+  '签名时间',
+  '签名时区',
+  '时间原因',
+  '取 消',
+  '确认提交'
+]) {
+  assert.ok(!submitDialogTemplate.includes(forbidden), `提交弹框不得显示用户未要求内容：${forbidden}`)
+}
+assert.ok(
+  !submitDialogTemplate.includes('电子签名密码'),
+  '提交弹框标签必须是“电子签名”，不得显示“电子签名密码”。'
+)
+
+assert.ok(
+  /<el-dialog[\s\S]*class="edhr-fill-workspace__submit-sign-dialog"[\s\S]*:show-close="false"[\s\S]*:close-on-click-modal="false"[\s\S]*:close-on-press-escape="false"/.test(submitDialogTemplate),
+  '提交弹框必须禁用右上角关闭、点击遮罩关闭和 ESC 关闭，确保只有一个确认按钮。'
+)
+assert.ok(
+  /<template #footer>[\s\S]*edhr-fill-workspace__submit-sign-confirm[\s\S]*确认[\s\S]*<\/template>/.test(submitDialogTemplate),
+  '提交弹框底部只能提供一个“确认”按钮。'
+)
+assert.ok(
+  !/\s:?title=/.test(submitDialogTemplate),
+  '提交弹框不得显示额外标题。'
+)
+assert.ok(!source.includes('submitForm.comment'), '提交弹框不得保留提交备注字段。')
+assert.ok(!source.includes('submitSignatureTimeForm'), '提交弹框不得保留签名显示时间字段。')
+assert.ok(
+  !source.includes('buildSignatureTimePayload(submitSignatureTimeForm)'),
+  '提交请求不得再发送提交弹框签名显示时间。'
+)
+assert.ok(
+  /\.edhr-fill-workspace__submit-sign-confirm\s*\{[\s\S]*height:\s*56px[\s\S]*font-size:\s*20px/.test(source),
+  '提交确认按钮必须是大按钮。'
+)
+assert.ok(
+  /\.edhr-fill-workspace__submit-sign-row\s*\{[\s\S]*grid-template-columns:\s*104px minmax\(0,\s*1fr\)[\s\S]*align-items:\s*center/.test(source) &&
+    /\.edhr-fill-workspace__submit-sign-label\s*\{[\s\S]*text-align:\s*left[\s\S]*white-space:\s*nowrap/.test(source) &&
+    /\.edhr-fill-workspace__submit-sign-name\s*\{[\s\S]*min-height:\s*48px[\s\S]*align-items:\s*center/.test(source),
+  '姓名行和电子签名输入行必须使用固定两列网格对齐。'
 )
 
 assert.ok(

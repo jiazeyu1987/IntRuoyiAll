@@ -1,17 +1,14 @@
 package cn.iocoder.yudao.module.mes.service.pro.route;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalPolicy;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalPolicyMode;
-import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormPolicySaveReqVO;
-import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormPolicySlotReqVO;
-import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormPolicyRespVO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.businessapproval.BusinessApprovalPolicyDO;
-import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionPolicyDO;
 import cn.iocoder.yudao.module.bpm.dal.mysql.businessapproval.BusinessApprovalPolicyMapper;
-import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionPolicyMapper;
-import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
+import cn.iocoder.yudao.module.bpm.formcenter.model.FormPolicySlot;
+import cn.iocoder.yudao.module.bpm.formcenter.model.FormTemplateVersionRef;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
@@ -42,6 +39,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductBomMapp
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteScheduleConfigMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrRouteFormFillEffectExecutor;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordFormSlotType;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
@@ -52,9 +50,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Projects a publishable route-version snapshot back into the live route tables.
@@ -76,7 +76,6 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
     private static final String FORM_POLICY_OBJECT_TYPE = "EDHR_ROUTE_FORM";
     private static final String FORM_POLICY_OBJECT_STATE = "ACTIVE";
     private static final String FORM_POLICY_TYPE_REQUIRED = "REQUIRED";
-    private static final String FORM_POLICY_APPROVAL_DIRECT = "DIRECT";
     private static final String FORM_POLICY_SLOT_CODE = "EDHR_ROUTE_FORM";
     private static final String INSTANCE_SCOPE_PROCESS = "PROCESS";
     private static final String INSTANCE_SCOPE_BATCH_SHARED = "BATCH_SHARED";
@@ -125,10 +124,6 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
     private MesProProcessMapper processMapper;
     @Resource
     private MesMdItemMapper itemMapper;
-    @Resource
-    private FormCenterRuntimeService formCenterRuntimeService;
-    @Resource
-    private FormActionPolicyMapper formActionPolicyMapper;
     @Resource
     private BusinessApprovalPolicyMapper businessApprovalPolicyMapper;
     @Resource
@@ -475,10 +470,24 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
         if (!BATCH_USE_TYPE.equals(useType)) {
             return;
         }
+        Set<Integer> occupiedReportSorts = new LinkedHashSet<>();
+        String mainBatchRecordReportId = projectBatchRecordReports(routeId, useType, config, routeProcess,
+                processConfig, occupiedReportSorts);
+        if (StrUtil.isNotBlank(mainBatchRecordReportId)) {
+            routeProcess.setBatchRecordReportId(mainBatchRecordReportId);
+            routeProcessMapper.updateById(MesProRouteProcessDO.builder()
+                    .id(routeProcess.getId())
+                    .batchRecordReportId(mainBatchRecordReportId)
+                    .build());
+        }
         for (JSONObject binding : resolveProjectedFormBindings(config)) {
             Long formTemplateId = resolveProjectedFormTemplateId(binding);
             String formBindingKey = resolveProjectedFormBindingKey(routeProcess.getId(), binding);
             String formSlotType = resolveProjectedFormSlotType(binding);
+            if (StrUtil.isNotBlank(mainBatchRecordReportId) && SLOT_TYPE_MAIN.equals(formSlotType)) {
+                throw new IllegalArgumentException("MAIN form binding conflicts with MAIN batch record report: "
+                        + formBindingKey);
+            }
             String instanceScope = resolveProjectedInstanceScope(binding);
             String recordCategory = resolveProjectedRecordCategory(binding, formSlotType);
             String validationProfile = resolveProjectedValidationProfile(binding, recordCategory);
@@ -491,15 +500,16 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
             List<Long> candidateSourceIds = resolveProjectedCandidateSourceIds(binding);
             validateProjectedCandidateSourceOverride(formBindingKey, candidateSourceType, candidateSourceIds);
             String candidateSourceNames = resolveProjectedCandidateSourceNames(binding);
+            Integer reportSort = resolveAvailableProjectedReportSort(
+                    resolveProjectedReportSort(binding), occupiedReportSorts);
             routeFlowProcessBatchRecordMapper.insert(MesProRouteFlowProcessBatchRecordDO.builder()
                     .routeFlowProcessConfigId(processConfig.getId())
                     .routeId(routeId)
                     .routeProcessId(routeProcess.getId())
                     .useType(useType)
-                    .batchRecordReportId(StrUtil.blankToDefault(
-                            StrUtil.trim(binding.getString("batchRecordReportId")), null))
-                    .batchRecordDefinitionId(binding.getLong("batchRecordDefinitionId"))
-                    .batchRecordVersionId(binding.getLong("batchRecordVersionId"))
+                    .batchRecordReportId(null)
+                    .batchRecordDefinitionId(null)
+                    .batchRecordVersionId(null)
                     .formSlotType(formSlotType)
                     .formBindingKey(formBindingKey)
                     .formTemplateId(formTemplateId)
@@ -522,12 +532,99 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                     .candidateSourceType(candidateSourceType)
                     .candidateSourceIds(joinIds(candidateSourceIds))
                     .candidateSourceNames(candidateSourceNames)
-                    .reportSort(resolveProjectedReportSort(binding))
+                    .reportSort(reportSort)
                     .remark(binding.getString("remark"))
                     .build());
             syncRouteFormPolicy(routeVersionId, formBindingKey, formTemplateId, requiredPolicy);
-            syncRouteFormFillRule(routeProcess.getId(), formBindingKey, candidateSourceType, candidateSourceIds);
+            syncRouteFormFillRule(routeVersionId, routeProcess.getId(), formBindingKey,
+                    candidateSourceType, candidateSourceIds);
         }
+    }
+
+    private String projectBatchRecordReports(Long routeId, String useType, JSONObject config,
+                                             MesProRouteProcessDO routeProcess,
+                                             MesProRouteFlowProcessConfigDO processConfig,
+                                             Set<Integer> occupiedReportSorts) {
+        String mainBatchRecordReportId = null;
+        for (JSONObject report : resolveProjectedBatchRecordReports(config)) {
+            String batchRecordReportId = resolveProjectedBatchRecordReportId(report);
+            String formSlotType = resolveProjectedFormSlotType(report);
+            Integer reportSort = resolveProjectedReportSort(report);
+            if (!occupiedReportSorts.add(reportSort)) {
+                throw new IllegalArgumentException("batch record reportSort must be unique: " + reportSort);
+            }
+            if (SLOT_TYPE_MAIN.equals(formSlotType)) {
+                if (mainBatchRecordReportId != null) {
+                    throw new IllegalArgumentException("only one MAIN batch record report is allowed");
+                }
+                mainBatchRecordReportId = batchRecordReportId;
+            }
+            String recordCategory = resolveProjectedRecordCategory(report, formSlotType);
+            routeFlowProcessBatchRecordMapper.insert(MesProRouteFlowProcessBatchRecordDO.builder()
+                    .routeFlowProcessConfigId(processConfig.getId())
+                    .routeId(routeId)
+                    .routeProcessId(routeProcess.getId())
+                    .useType(useType)
+                    .batchRecordReportId(batchRecordReportId)
+                    .batchRecordDefinitionId(report.getLong("batchRecordDefinitionId"))
+                    .batchRecordVersionId(report.getLong("batchRecordVersionId"))
+                    .formSlotType(formSlotType)
+                    .instanceScope(resolveProjectedInstanceScope(report))
+                    .sharedFormKey(StrUtil.blankToDefault(StrUtil.trim(report.getString("sharedFormKey")), null))
+                    .fillableScopeJson(StrUtil.blankToDefault(StrUtil.trim(report.getString("fillableScopeJson")), null))
+                    .recordCategory(recordCategory)
+                    .validationProfile(resolveProjectedValidationProfile(report, recordCategory))
+                    .permissionScopeId(report.getLong("permissionScopeId"))
+                    .recordCategorySnapshotHash(report.getString("recordCategorySnapshotHash"))
+                    .requiredPolicy(resolveProjectedRequiredPolicy(report))
+                    .requiredConditionJson(report.getString("requiredConditionJson"))
+                    .ownerRoleKey(resolveProjectedOwnerRoleKey(report, formSlotType))
+                    .archiveVisibility(resolveProjectedArchiveVisibility(report))
+                    .slotConfigSnapshotHash(report.getString("slotConfigSnapshotHash"))
+                    .reportSort(reportSort)
+                    .remark(report.getString("remark"))
+                    .build());
+        }
+        return mainBatchRecordReportId;
+    }
+
+    private List<JSONObject> resolveProjectedBatchRecordReports(JSONObject config) {
+        JSONArray reports = config.getJSONArray("batchRecordReports");
+        if (reports == null || reports.isEmpty()) {
+            String flatReportId = resolveOptionalProjectedBatchRecordReportId(config);
+            if (StrUtil.isBlank(flatReportId)) {
+                return List.of();
+            }
+            JSONObject legacyReport = new JSONObject(config);
+            legacyReport.put("batchRecordReportId", flatReportId);
+            legacyReport.putIfAbsent("formSlotType", SLOT_TYPE_MAIN);
+            legacyReport.putIfAbsent("reportSort", 1);
+            return List.of(legacyReport);
+        }
+        List<JSONObject> result = new ArrayList<>();
+        for (Object value : reports) {
+            if (!(value instanceof JSONObject report)) {
+                throw new IllegalArgumentException("batchRecordReports must contain objects");
+            }
+            if (StrUtil.isNotBlank(resolveOptionalProjectedBatchRecordReportId(report))) {
+                result.add(report);
+            }
+        }
+        result.sort(Comparator.comparing(this::resolveProjectedReportSort));
+        return result;
+    }
+
+    private String resolveOptionalProjectedBatchRecordReportId(JSONObject report) {
+        return StrUtil.blankToDefault(StrUtil.trim(report.getString("batchRecordReportId")),
+                StrUtil.trim(report.getString("reportId")));
+    }
+
+    private String resolveProjectedBatchRecordReportId(JSONObject report) {
+        String reportId = resolveOptionalProjectedBatchRecordReportId(report);
+        if (StrUtil.isBlank(reportId)) {
+            throw new IllegalArgumentException("batchRecordReportId is required");
+        }
+        return reportId;
     }
 
     private List<JSONObject> resolveProjectedFormBindings(JSONObject config) {
@@ -570,9 +667,27 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
     private Integer resolveProjectedReportSort(JSONObject binding) {
         Integer reportSort = binding.getInteger("reportSort");
         if (reportSort == null || reportSort <= 0) {
-            throw new IllegalArgumentException("form binding reportSort is required");
+            throw new IllegalArgumentException("reportSort is required");
         }
         return reportSort;
+    }
+
+    private Integer resolveAvailableProjectedReportSort(Integer requestedReportSort,
+                                                        Set<Integer> occupiedReportSorts) {
+        int reportSort = requestedReportSort;
+        while (!occupiedReportSorts.add(reportSort)) {
+            reportSort++;
+        }
+        return reportSort;
+    }
+
+    private String resolveProjectedFormSlotType(JSONObject binding) {
+        String formSlotType = MesProBatchRecordFormSlotType.normalize(StrUtil.blankToDefault(
+                binding.getString("formSlotType"), SLOT_TYPE_MAIN));
+        if (StrUtil.isBlank(formSlotType)) {
+            throw new IllegalArgumentException("formSlotType is invalid");
+        }
+        return formSlotType;
     }
 
     private String resolveProjectedCandidateSourceType(JSONObject binding) {
@@ -636,10 +751,6 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
 
     private String resolveProjectedInstanceScope(JSONObject report) {
         return StrUtil.blankToDefault(StrUtil.trim(report.getString("instanceScope")), INSTANCE_SCOPE_PROCESS);
-    }
-
-    private String resolveProjectedFormSlotType(JSONObject report) {
-        return StrUtil.blankToDefault(StrUtil.trim(report.getString("formSlotType")), SLOT_TYPE_MAIN);
     }
 
     private String resolveProjectedRecordCategory(JSONObject report, String formSlotType) {
@@ -713,52 +824,12 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
     private void syncRouteFormPolicy(Long routeVersionId, String formBindingKey, Long formTemplateId,
                                      String requiredPolicy) {
         String actionCode = routeFormActionCode(routeVersionId, formBindingKey);
-        syncRouteFormCenterPolicy(actionCode, formTemplateId, requiredPolicy);
-        syncRouteBusinessApprovalPolicy(actionCode);
-    }
-
-    private void syncRouteFormCenterPolicy(String actionCode, Long formTemplateId, String requiredPolicy) {
-        disablePublishedRouteFormPolicies(actionCode);
-        FormPolicyRespVO policy = formCenterRuntimeService.savePolicy(buildRouteFormPolicyReq(
-                actionCode, formTemplateId, requiredPolicy));
-        formCenterRuntimeService.publishPolicy(policy.getId());
-    }
-
-    private void syncRouteBusinessApprovalPolicy(String actionCode) {
         disablePublishedRouteBusinessApprovalPolicies(actionCode);
-        businessApprovalPolicyMapper.insert(buildRouteBusinessApprovalPolicy(actionCode));
+        businessApprovalPolicyMapper.insert(buildRouteBusinessApprovalPolicy(actionCode, formTemplateId, requiredPolicy));
     }
 
-    private FormPolicySaveReqVO buildRouteFormPolicyReq(String actionCode, Long formTemplateId,
-                                                        String requiredPolicy) {
-        FormPolicySlotReqVO slot = new FormPolicySlotReqVO();
-        slot.setSlotCode(FORM_POLICY_SLOT_CODE);
-        slot.setRequired(REQUIRED_POLICY_REQUIRED.equals(requiredPolicy));
-        slot.setTemplateId(formTemplateId);
-        FormPolicySaveReqVO reqVO = new FormPolicySaveReqVO();
-        reqVO.setDataDomain(FORM_POLICY_DATA_DOMAIN);
-        reqVO.setSystemCode(FORM_POLICY_SYSTEM_CODE);
-        reqVO.setObjectType(FORM_POLICY_OBJECT_TYPE);
-        reqVO.setActionCode(actionCode);
-        reqVO.setObjectState(FORM_POLICY_OBJECT_STATE);
-        reqVO.setPolicyType(FORM_POLICY_TYPE_REQUIRED);
-        reqVO.setApprovalMode(FORM_POLICY_APPROVAL_DIRECT);
-        reqVO.setEffectExecutorCode(MesProEdhrRouteFormFillEffectExecutor.EXECUTOR_CODE);
-        reqVO.setSlots(List.of(slot));
-        reqVO.setRemark("MES route dynamic eDHR form");
-        return reqVO;
-    }
-
-    private void disablePublishedRouteFormPolicies(String actionCode) {
-        for (FormActionPolicyDO policy : formActionPolicyMapper.selectPublishedByAction(
-                TenantContextHolder.getRequiredTenantId(), FORM_POLICY_DATA_DOMAIN, FORM_POLICY_SYSTEM_CODE,
-                FORM_POLICY_OBJECT_TYPE, actionCode, FORM_POLICY_OBJECT_STATE)) {
-            policy.setStatus("DISABLED");
-            formActionPolicyMapper.updateById(policy);
-        }
-    }
-
-    private BusinessApprovalPolicyDO buildRouteBusinessApprovalPolicy(String actionCode) {
+    private BusinessApprovalPolicyDO buildRouteBusinessApprovalPolicy(String actionCode, Long formTemplateId,
+                                                                     String requiredPolicy) {
         return BusinessApprovalPolicyDO.builder()
                 .tenantId(TenantContextHolder.getRequiredTenantId())
                 .dataDomain(FORM_POLICY_DATA_DOMAIN)
@@ -768,6 +839,10 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                 .objectState(FORM_POLICY_OBJECT_STATE)
                 .policyMode(BusinessApprovalPolicyMode.DIRECT.name())
                 .effectExecutorCode(MesProEdhrRouteFormFillEffectExecutor.EXECUTOR_CODE)
+                .formPolicyType(FORM_POLICY_TYPE_REQUIRED)
+                .formSlotsJson(JsonUtils.toJsonString(List.of(new FormPolicySlot(FORM_POLICY_SLOT_CODE,
+                        REQUIRED_POLICY_REQUIRED.equals(requiredPolicy), FormTemplateVersionRef.of(null,
+                        String.valueOf(formTemplateId), null, null)))))
                 .status(BusinessApprovalPolicy.STATUS_PUBLISHED)
                 .remark("MES route dynamic eDHR form")
                 .build();
@@ -789,9 +864,10 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
         return "EDHR_RF_" + routeVersionId + "_" + formBindingKey;
     }
 
-    private void syncRouteFormFillRule(Long routeProcessId, String formBindingKey,
+    private void syncRouteFormFillRule(Long routeVersionId, Long routeProcessId, String formBindingKey,
                                        String candidateSourceType, List<Long> candidateSourceIds) {
-        processFormPermissionRuleMapper.physicalDeleteByRouteProcessAndReport(routeProcessId, formBindingKey);
+        processFormPermissionRuleMapper.physicalDeleteByRouteProcessReportAndVersion(
+                routeProcessId, formBindingKey, routeVersionId);
         if (StrUtil.isBlank(candidateSourceType) && candidateSourceIds.isEmpty()) {
             return;
         }
@@ -799,7 +875,7 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                 .routeProcessId(routeProcessId)
                 .batchRecordReportId(formBindingKey)
                 .batchRecordDefinitionId(null)
-                .batchRecordVersionId(null)
+                .batchRecordVersionId(routeVersionId)
                 .ruleType(RULE_TYPE_FILL)
                 .signatureCellKey("")
                 .signatureRole(null)

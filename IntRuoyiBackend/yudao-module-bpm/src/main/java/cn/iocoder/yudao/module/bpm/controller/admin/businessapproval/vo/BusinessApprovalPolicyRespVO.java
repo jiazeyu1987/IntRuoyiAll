@@ -36,6 +36,12 @@ public class BusinessApprovalPolicyRespVO {
     @Schema(description = "业务生效执行器编码")
     private String effectExecutorCode;
 
+    @Schema(description = "表单策略类型")
+    private String formPolicyType;
+
+    @Schema(description = "表单槽位 JSON")
+    private String formSlotsJson;
+
     @Schema(description = "状态")
     private String status;
 

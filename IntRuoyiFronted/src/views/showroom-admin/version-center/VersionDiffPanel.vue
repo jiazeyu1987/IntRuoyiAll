@@ -72,7 +72,7 @@
           {{ currentRelease?.manifestHash || '未记录' }}
         </el-descriptions-item>
         <el-descriptions-item label="发布时间">
-          {{ currentRelease?.publishedAt || '未发布' }}
+          {{ formatDateTimeValue(currentRelease?.publishedAt, '未发布') }}
         </el-descriptions-item>
         <el-descriptions-item label="公司线上 Revision">
           {{ currentRelease ? `#${currentRelease.companyRevisionId}` : '未记录' }}
@@ -142,6 +142,7 @@ import type {
   VersionCenterSnapshotVO
 } from './contracts'
 import { formatVersionCenterBlocker } from './contracts'
+import { formatDateTimeValue } from '@/utils/formatTime'
 
 defineOptions({ name: 'VersionDiffPanel' })
 

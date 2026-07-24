@@ -385,8 +385,6 @@ class MesProRouteProcessFlowServiceImplTest {
                         }
                         """)
                 .build());
-        when(flowLayoutMapper.selectMaxGraphVersionByRouteId(routeId)).thenReturn(3L);
-
         MesProRouteProcessFlowSaveReqVO reqVO = saveReq(routeId, 3L,
                 List.of(edge(21L, 22L)),
                 List.of(layout(21L, 10, 20), layout(22L, 220, 20)));
@@ -406,6 +404,61 @@ class MesProRouteProcessFlowServiceImplTest {
         verify(flowEdgeMapper, never()).insert(any(MesProRouteProcessFlowEdgeDO.class));
         verify(boundaryEdgeMapper, never()).insert(any(MesProRouteProcessFlowBoundaryEdgeDO.class));
         verify(flowLayoutMapper, never()).insert(any(MesProRouteProcessFlowLayoutDO.class));
+    }
+
+    @Test
+    void saveGraph_shouldUseDraftCandidateSnapshotGraphVersionWhenLiveGraphDiffers() {
+        Long routeId = 9015L;
+        Long candidateRouteVersionId = 9915L;
+        when(routeMapper.selectById(routeId)).thenReturn(route(routeId));
+        when(routeVersionMapper.selectById(candidateRouteVersionId)).thenReturn(MesProRouteVersionDO.builder()
+                .id(candidateRouteVersionId)
+                .routeId(routeId)
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 9015,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "routeId": 9015,
+                              "graphVersion": 12,
+                              "nodes": [
+                                {"routeProcessId": 151, "processId": 1501, "sort": 1, "keyFlag": true, "checkFlag": false},
+                                {"routeProcessId": 152, "processId": 1502, "sort": 2, "keyFlag": false, "checkFlag": false}
+                              ],
+                              "edges": [
+                                {"sourceRouteProcessId": 151, "targetRouteProcessId": 152, "relationType": "NORMAL"}
+                              ],
+                              "boundaryEdges": [
+                                {"boundaryType": "START", "routeProcessId": 151, "sort": 1},
+                                {"boundaryType": "END", "routeProcessId": 152, "sort": 1}
+                              ],
+                              "layouts": [
+                                {"routeProcessId": 151, "x": 10, "y": 20},
+                                {"routeProcessId": 152, "x": 220, "y": 20}
+                              ]
+                            }
+                          }
+                        }
+                        """)
+                .build());
+        MesProRouteProcessFlowSaveReqVO reqVO = saveReq(routeId, 12L,
+                List.of(edge(151L, 152L)),
+                List.of(layout(151L, 10, 20), layout(152L, 220, 20)));
+        reqVO.setRouteVersionId(candidateRouteVersionId);
+
+        MesProRouteProcessFlowValidationRespVO result = flowService.saveGraph(reqVO);
+
+        assertTrue(result.getValid());
+        assertEquals(13L, result.getGraphVersion());
+        verify(routeCandidateConfigService).saveConfigSnapshot(eq(candidateRouteVersionId), eq("flowGraph"),
+                argThat(snapshot -> snapshot.toString().contains("graphVersion=13")
+                        && snapshot.toString().contains("routeProcessId=151")));
+        verify(routeProcessMapper, never()).selectListByRouteId(routeId);
+        verify(flowEdgeMapper, never()).deleteByRouteId(routeId);
+        verify(boundaryEdgeMapper, never()).deleteByRouteId(routeId);
+        verify(flowLayoutMapper, never()).deleteByRouteId(routeId);
     }
 
     @Test
@@ -446,7 +499,6 @@ class MesProRouteProcessFlowServiceImplTest {
                         """)
                 .build());
         when(processService.getProcess(202L)).thenReturn(processDefinition(202L, "PROC-202", "候选新增工序"));
-        when(flowLayoutMapper.selectMaxGraphVersionByRouteId(routeId)).thenReturn(3L);
 
         MesProRouteProcessFlowSaveReqVO reqVO = saveReq(routeId, 3L,
                 List.of(edge(21L, -1L)),
@@ -473,15 +525,12 @@ class MesProRouteProcessFlowServiceImplTest {
     void saveGraph_shouldRejectPendingApprovalCandidateSnapshotWriteWithoutMutatingActiveGraph() {
         Long routeId = 9013L;
         Long candidateRouteVersionId = 9913L;
-        when(routeMapper.selectById(routeId)).thenReturn(route(routeId));
         when(routeVersionMapper.selectById(candidateRouteVersionId)).thenReturn(MesProRouteVersionDO.builder()
                 .id(candidateRouteVersionId)
                 .routeId(routeId)
                 .active(Boolean.FALSE)
                 .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL)
                 .build());
-        when(flowLayoutMapper.selectMaxGraphVersionByRouteId(routeId)).thenReturn(4L);
-
         MesProRouteProcessFlowSaveReqVO reqVO = saveReq(routeId, 4L,
                 List.of(edge(311L, 312L)),
                 List.of(layout(311L, 10, 20), layout(312L, 220, 20)));
@@ -531,8 +580,6 @@ class MesProRouteProcessFlowServiceImplTest {
                         }
                         """)
                 .build());
-        when(flowLayoutMapper.selectMaxGraphVersionByRouteId(routeId)).thenReturn(7L);
-
         MesProRouteProcessFlowSaveReqVO reqVO = saveReq(routeId, 7L,
                 List.of(edge(101L, 102L)),
                 List.of(layout(101L, 10, 20), layout(102L, 220, 20)));
@@ -582,8 +629,6 @@ class MesProRouteProcessFlowServiceImplTest {
                         }
                         """)
                 .build());
-        when(flowLayoutMapper.selectMaxGraphVersionByRouteId(routeId)).thenReturn(9L);
-
         MesProRouteProcessFlowSaveReqVO reqVO = saveReq(routeId, 9L,
                 List.of(edge(141L, 142L)),
                 List.of(layout(141L, 10, 20), layout(142L, 220, 20)));
@@ -690,8 +735,6 @@ class MesProRouteProcessFlowServiceImplTest {
                         }
                         """)
                 .build());
-        when(flowLayoutMapper.selectMaxGraphVersionByRouteId(routeId)).thenReturn(12L);
-
         MesProRouteProcessFlowSaveReqVO reqVO = saveReq(routeId, 12L,
                 List.of(edge(151L, 152L)),
                 List.of(layout(151L, 10, 20), layout(152L, 220, 20)));
@@ -742,6 +785,57 @@ class MesProRouteProcessFlowServiceImplTest {
         assertTrue(result.getValid());
         assertEquals("VALID", result.getValidationStatus());
         assertTrue(result.getValidationMessages().isEmpty());
+    }
+
+    @Test
+    void validateGraph_shouldUseDraftCandidateFlowGraphSnapshotNodes() {
+        Long routeId = 9014L;
+        Long candidateRouteVersionId = 9914L;
+        when(routeMapper.selectById(routeId)).thenReturn(route(routeId));
+        when(routeVersionMapper.selectById(candidateRouteVersionId)).thenReturn(MesProRouteVersionDO.builder()
+                .id(candidateRouteVersionId)
+                .routeId(routeId)
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 9014,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "routeId": 9014,
+                              "graphVersion": 12,
+                              "nodes": [
+                                {"routeProcessId": 141, "processId": 1401, "sort": 1, "keyFlag": true, "checkFlag": false},
+                                {"routeProcessId": 142, "processId": 1402, "sort": 2, "keyFlag": false, "checkFlag": false}
+                              ],
+                              "edges": [
+                                {"sourceRouteProcessId": 141, "targetRouteProcessId": 142, "relationType": "NORMAL"}
+                              ],
+                              "boundaryEdges": [
+                                {"boundaryType": "START", "routeProcessId": 141, "sort": 1},
+                                {"boundaryType": "END", "routeProcessId": 142, "sort": 1}
+                              ],
+                              "layouts": [
+                                {"routeProcessId": 141, "x": 10, "y": 20},
+                                {"routeProcessId": 142, "x": 220, "y": 20}
+                              ]
+                            }
+                          }
+                        }
+                        """)
+                .build());
+        MesProRouteProcessFlowSaveReqVO reqVO = saveReq(routeId, 12L,
+                List.of(edge(141L, 142L)),
+                List.of(layout(141L, 10, 20), layout(142L, 220, 20)));
+        reqVO.setRouteVersionId(candidateRouteVersionId);
+
+        MesProRouteProcessFlowValidationRespVO result = flowService.validateGraph(reqVO);
+
+        assertTrue(result.getValid());
+        assertEquals("VALID", result.getValidationStatus());
+        assertEquals(12L, result.getGraphVersion());
+        assertTrue(result.getValidationMessages().isEmpty());
+        verify(routeProcessMapper, never()).selectListByRouteId(routeId);
     }
 
     @Test

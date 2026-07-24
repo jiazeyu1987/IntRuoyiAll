@@ -34,7 +34,7 @@
             </span>
             <span class="status-chip">
               <label>最近更新时间</label>
-              <strong>{{ monthData.currentScheduleStatus?.updatedAt || '--' }}</strong>
+              <strong>{{ formatDateTimeValue(monthData.currentScheduleStatus?.updatedAt, '--') }}</strong>
             </span>
           </div>
           <div class="toolbar-block toolbar-block-right">
@@ -900,6 +900,7 @@
 
 <script setup lang="ts">
 import dayjs from 'dayjs'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import {
   ProScheduleCalendarApi,
   type ProScheduleCalendarCapacityGenerateRespVO,

@@ -281,6 +281,7 @@ export interface ProFeedbackEdhrEntryContextVO {
   formSlotType?: EdhrExecutionFormSlotType
   recordCategory?: EdhrRecordCategory
   validationProfile?: EdhrValidationProfile
+  recordbookEnabled?: boolean | null
   requiredPolicy?: EdhrExecutionRequiredPolicy
   ownerRoleKey?: EdhrExecutionOwnerRoleKey
   archiveVisibility?: EdhrExecutionArchiveVisibility
@@ -327,6 +328,7 @@ export interface ProFeedbackEdhrOpenOrCreateRespVO {
   slotConfigSnapshotHash?: string | null
   routeBindingId?: number
   routeBindingSnapshotHash?: string
+  recordbookEnabled?: boolean | null
   canOpen?: boolean
   bindingResolved?: boolean
   created?: boolean

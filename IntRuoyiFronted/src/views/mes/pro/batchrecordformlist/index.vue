@@ -307,6 +307,20 @@
       @closed="resetWordImportDialog"
     >
       <el-form label-width="120px" class="batch-record-word-import-form">
+        <el-form-item label="表单类型" required>
+          <el-select
+            v-model="wordImportDialog.selectedFormSlotType"
+            class="batch-record-word-import-form__slot-select"
+            placeholder="请选择表单类型"
+          >
+            <el-option
+              v-for="item in formSlotTypeOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="产品名称" required>
           <el-select
             v-model="wordImportDialog.selectedProjectName"
@@ -531,7 +545,7 @@
 <script setup lang="ts">
 import { ElLoading, ElMessageBox } from 'element-plus'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { formatDate } from '@/utils/formatTime'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
@@ -672,6 +686,12 @@ const formSlotTypeLabels: Record<BatchRecordFormSlotType, string> = {
   PROCESS_INSPECTION: '过程检验单',
   PARAMETER_RECORD: '参数记录表'
 }
+const formSlotTypeOptions: Array<{ label: string; value: BatchRecordFormSlotType }> = [
+  { label: formSlotTypeLabels.MAIN, value: 'MAIN' },
+  { label: formSlotTypeLabels.LOSS_REPORT, value: 'LOSS_REPORT' },
+  { label: formSlotTypeLabels.PROCESS_INSPECTION, value: 'PROCESS_INSPECTION' },
+  { label: formSlotTypeLabels.PARAMETER_RECORD, value: 'PARAMETER_RECORD' }
+]
 
 type FillRuleStatusTagType = 'success' | 'warning' | 'danger' | 'info' | 'primary'
 type VersionStatusTagType = FillRuleStatusTagType
@@ -1210,10 +1230,7 @@ const selectReport = async (row: RecordFormListRow) => {
 const resolveFormSlotTypeLabel = (formSlotType?: BatchRecordFormSlotType) =>
   formSlotTypeLabels[formSlotType || 'MAIN'] || formSlotType || '-'
 
-const formatNullableDate = (value?: Date | string) => {
-  if (!value) return '-'
-  return formatDate(new Date(value), 'YYYY-MM-DD HH:mm')
-}
+const formatNullableDate = (value?: Date | string | number) => formatDateTimeValue(value, '-')
 
 const resolveVersionStatusPresentation = (status?: string): { label: string; type: VersionStatusTagType } => {
   const statusMap: Record<string, { label: string; type: VersionStatusTagType }> = {
@@ -1679,6 +1696,10 @@ const cancelWordImportDialog = () => {
 
 const confirmWordImportDialog = async () => {
   const selectedProjectName = wordImportDialog.selectedProjectName.trim()
+  if (!wordImportDialog.selectedFormSlotType) {
+    message.warning('请选择表单类型。')
+    return
+  }
   if (!selectedProjectName) {
     message.warning('请选择产品名称。')
     return

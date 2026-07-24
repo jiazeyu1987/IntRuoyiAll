@@ -22,6 +22,9 @@ public class MesProRouteFlowFormBindingSaveReqVO {
     @Schema(description = "表单中心模板名称快照", example = "清洗记录")
     private String formTemplateName;
 
+    @Schema(description = "表单槽位类型：MAIN/LOSS_REPORT/PROCESS_INSPECTION/PARAMETER_RECORD，缺省 MAIN", example = "MAIN")
+    private String formSlotType;
+
     @Schema(description = "最后校验到的发布版本 ID，由后端填充", example = "20001")
     private Long lastPublishedTemplateVersionId;
 

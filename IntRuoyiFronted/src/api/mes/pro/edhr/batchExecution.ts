@@ -191,6 +191,7 @@ export interface EdhrBatchExecutionTaskOpenRespVO {
   permissionScopeId?: number | null
   routeBindingId?: number
   routeBindingSnapshotHash?: string
+  recordbookEnabled?: boolean | null
   batchRecordSort?: number
   instanceScope?: 'PROCESS' | 'BATCH_SHARED' | string
   sharedFormKey?: string
@@ -281,6 +282,7 @@ export interface EdhrBatchExecutionTaskRespVO {
   slotBlockerMessage?: string | null
   routeBindingId?: number
   routeBindingSnapshotHash?: string
+  recordbookEnabled?: boolean | null
   batchRecordSort?: number
   instanceScope?: 'PROCESS' | 'BATCH_SHARED' | string
   sharedFormKey?: string

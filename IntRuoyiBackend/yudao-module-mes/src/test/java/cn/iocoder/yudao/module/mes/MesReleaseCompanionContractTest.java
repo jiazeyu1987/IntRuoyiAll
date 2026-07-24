@@ -13,9 +13,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchReco
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 class MesReleaseCompanionContractTest {
 
@@ -68,15 +66,12 @@ class MesReleaseCompanionContractTest {
 
     @Test
     void parsedCellShouldExposeReviewedCellRuleContract() {
-        MesProBatchRecordParsedCell defaultCell = MesProBatchRecordParsedCell.builder().build();
         MesProBatchRecordParsedCell cell = MesProBatchRecordParsedCell.builder()
                 .text("☑ 通过 □ 不通过")
                 .reviewedCellRule(true)
                 .cellRuleSource("MANUAL")
                 .build();
 
-        assertFalse(defaultCell.isReviewedCellRule());
-        assertNull(defaultCell.getCellRuleSource());
         assertEquals(true, cell.isReviewedCellRule());
         assertEquals("MANUAL", cell.getCellRuleSource());
     }

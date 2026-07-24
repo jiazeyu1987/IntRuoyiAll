@@ -10,15 +10,15 @@ BEGIN
     SELECT 1
     FROM information_schema.tables
     WHERE table_schema = DATABASE()
-      AND table_name = 'bpm_form_action_policy'
+      AND table_name = 'bpm_business_approval_policy'
   ) THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'EDHR release policy retirement requires bpm_form_action_policy';
+      SET MESSAGE_TEXT = 'EDHR release policy retirement requires bpm_business_approval_policy';
   END IF;
 
-  UPDATE `bpm_form_action_policy`
+  UPDATE `bpm_business_approval_policy`
   SET
-    `status` = 'RETIRED',
+    `status` = 'DISABLED',
     `remark` = 'eDHR release uses owner electronic signature submit; no form-center release approval',
     `updater` = '1',
     `update_time` = NOW()
@@ -33,7 +33,7 @@ BEGIN
 
   IF EXISTS (
     SELECT 1
-    FROM `bpm_form_action_policy`
+    FROM `bpm_business_approval_policy`
     WHERE `data_domain` = 'MES'
       AND `system_code` = 'MES'
       AND `object_type` = 'EDHR_BATCH_EXECUTION'
@@ -44,7 +44,7 @@ BEGIN
       AND `deleted` = b'0'
   ) THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'EDHR release must not keep a published form-center approval policy';
+      SET MESSAGE_TEXT = 'EDHR release must not keep a published business approval policy';
   END IF;
 END//
 DELIMITER ;

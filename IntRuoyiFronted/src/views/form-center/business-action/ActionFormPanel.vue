@@ -81,7 +81,7 @@
               <el-tag>{{ snapshotTypeLabel(row.snapshotType) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="时间" prop="createdTime" width="180" />
+          <el-table-column label="时间" prop="createdTime" width="180" :formatter="dateTimeValueFormatter" />
           <el-table-column label="表单数据" min-width="260">
             <template #default="{ row }">
               <span class="form-action-panel__json-preview">{{ stringifySnapshot(row.formData) }}</span>
@@ -130,6 +130,7 @@ import {
   type FormInstanceStatus,
   type SubmitFormInstanceReqVO
 } from '@/api/form-center/instance'
+import { dateTimeValueFormatter } from '@/utils/formatTime'
 
 defineOptions({ name: 'FormCenterBusinessActionPanel' })
 

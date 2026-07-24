@@ -99,7 +99,7 @@ for (const token of [
 
 assert.match(
   workspaceRail,
-  /openFieldAuditSignatureDialog[\s\S]*openSubmitDialog[\s\S]*edhr-fill-workspace__fullscreen-action/,
+  /handleSaveFieldAuditChanges[\s\S]*openSubmitDialog[\s\S]*edhr-fill-workspace__fullscreen-action/,
   '精简控制栏必须保留保存、提交执行和最大化'
 )
 assert.match(

@@ -1,10 +1,10 @@
 package cn.iocoder.yudao.module.mes.service.pro.route;
 
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.businessapproval.BusinessApprovalPolicyDO;
-import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormPolicyRespVO;
 import cn.iocoder.yudao.module.bpm.dal.mysql.businessapproval.BusinessApprovalPolicyMapper;
-import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionPolicyMapper;
+import cn.iocoder.yudao.module.bpm.formcenter.model.FormPolicySlot;
 import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
@@ -40,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 
@@ -77,8 +78,6 @@ class MesProRouteVersionPublishProjectionServiceImplTest {
     private MesMdItemMapper itemMapper;
     @Mock
     private FormCenterRuntimeService formCenterRuntimeService;
-    @Mock
-    private FormActionPolicyMapper formActionPolicyMapper;
     @Mock
     private BusinessApprovalPolicyMapper businessApprovalPolicyMapper;
     @Mock
@@ -145,13 +144,8 @@ class MesProRouteVersionPublishProjectionServiceImplTest {
     @Test
     void projectCandidate_shouldProjectDynamicFormBindingFillerRule() {
         TenantContextHolder.setTenantId(122L);
-        FormPolicyRespVO policy = new FormPolicyRespVO();
-        policy.setId(9901L);
-        when(formActionPolicyMapper.selectPublishedByAction(any(), any(), any(), any(), any(), any()))
-                .thenReturn(List.of());
         when(businessApprovalPolicyMapper.selectPublishedByAction(any(), any(), any(), any(), any(), any()))
                 .thenReturn(List.of());
-        when(formCenterRuntimeService.savePolicy(any())).thenReturn(policy);
         MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
                 .id(9202L)
                 .routeId(9002L)
@@ -238,24 +232,151 @@ class MesProRouteVersionPublishProjectionServiceImplTest {
 
         ArgumentCaptor<MesProEdhrProcessFormPermissionRuleDO> ruleCaptor =
                 ArgumentCaptor.forClass(MesProEdhrProcessFormPermissionRuleDO.class);
-        verify(processFormPermissionRuleMapper).physicalDeleteByRouteProcessAndReport(9502L, "FB-IPQC");
+        verify(processFormPermissionRuleMapper).physicalDeleteByRouteProcessReportAndVersion(9502L, "FB-IPQC", 9202L);
         verify(processFormPermissionRuleMapper).insert(ruleCaptor.capture());
         MesProEdhrProcessFormPermissionRuleDO rule = ruleCaptor.getValue();
         assertEquals(9502L, rule.getRouteProcessId());
         assertEquals("FB-IPQC", rule.getBatchRecordReportId());
+        assertEquals(9202L, rule.getBatchRecordVersionId());
         assertEquals("FILL", rule.getRuleType());
         assertEquals("ROLE", rule.getCandidateSourceType());
         assertEquals("8001", rule.getCandidateSourceIds());
         assertEquals("ANY_ONE", rule.getCompletionPolicy());
         assertEquals(Integer.MAX_VALUE, rule.getDueMinutes());
-        verify(formCenterRuntimeService).publishPolicy(9901L);
+        verify(formCenterRuntimeService, never()).savePolicy(any());
+        verify(formCenterRuntimeService, never()).publishPolicy(any());
         ArgumentCaptor<BusinessApprovalPolicyDO> businessPolicyCaptor =
                 ArgumentCaptor.forClass(BusinessApprovalPolicyDO.class);
         verify(businessApprovalPolicyMapper).insert(businessPolicyCaptor.capture());
-        assertEquals("EDHR_RF_9202_FB-IPQC", businessPolicyCaptor.getValue().getActionCode());
-        assertEquals("DIRECT", businessPolicyCaptor.getValue().getPolicyMode());
-        assertEquals("MES_EDHR_ROUTE_FORM_FILL", businessPolicyCaptor.getValue().getEffectExecutorCode());
-        assertEquals("PUBLISHED", businessPolicyCaptor.getValue().getStatus());
+        BusinessApprovalPolicyDO businessPolicy = businessPolicyCaptor.getValue();
+        assertEquals("EDHR_RF_9202_FB-IPQC", businessPolicy.getActionCode());
+        assertEquals("DIRECT", businessPolicy.getPolicyMode());
+        assertEquals("MES_EDHR_ROUTE_FORM_FILL", businessPolicy.getEffectExecutorCode());
+        assertEquals("REQUIRED", businessPolicy.getFormPolicyType());
+        assertEquals("PUBLISHED", businessPolicy.getStatus());
+        List<FormPolicySlot> slots = JsonUtils.parseArray(businessPolicy.getFormSlotsJson(), FormPolicySlot.class);
+        assertEquals("EDHR_ROUTE_FORM", slots.get(0).getSlotCode());
+        assertEquals(false, slots.get(0).isRequired());
+        assertEquals("2001", slots.get(0).getTemplateVersionRef().getTemplateCode());
+    }
+
+    @Test
+    void projectCandidate_shouldRestoreMainBatchRecordAndKeepLossFormInIndependentSlot() {
+        TenantContextHolder.setTenantId(122L);
+        when(businessApprovalPolicyMapper.selectPublishedByAction(any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of());
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(9204L)
+                .routeId(9004L)
+                .versionNo("V5")
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 9004,
+                          "routeCode": "RT-PUBLISH-LEGACY-MAIN",
+                          "routeName": "发布保留主批记录",
+                          "status": 1,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "graphVersion": 3,
+                              "nodes": [
+                                {
+                                  "routeProcessId": 9304,
+                                  "processId": 9404,
+                                  "sort": 1
+                                }
+                              ],
+                              "edges": [],
+                              "boundaryEdges": [],
+                              "layouts": []
+                            },
+                            "products": [],
+                            "productBoms": [],
+                            "scheduleConfigs": [],
+                            "batchUseConfigs": [
+                              {
+                                "routeProcessId": 9304,
+                                "executionMode": "SEQUENTIAL",
+                                "batchRecordReports": [
+                                  {
+                                    "batchRecordReportId": "REPORT-MAIN",
+                                    "batchRecordDefinitionId": 1001,
+                                    "batchRecordVersionId": 2001,
+                                    "formSlotType": "MAIN",
+                                    "instanceScope": "PROCESS",
+                                    "recordCategory": "BATCH_RECORD",
+                                    "validationProfile": "CONTROLLED_BATCH",
+                                    "permissionScopeId": 3001,
+                                    "recordCategorySnapshotHash": "record-hash",
+                                    "requiredPolicy": "REQUIRED",
+                                    "ownerRoleKey": "PRODUCTION",
+                                    "archiveVisibility": "FINAL_DHR",
+                                    "slotConfigSnapshotHash": "slot-hash",
+                                    "reportSort": 1,
+                                    "remark": "主批记录"
+                                  }
+                                ],
+                                "formBindings": [
+                                  {
+                                    "formBindingKey": "FB-LOSS",
+                                    "formTemplateId": 2002,
+                                    "formTemplateName": "损耗单",
+                                    "formSlotType": "LOSS_REPORT",
+                                    "lastPublishedTemplateVersionId": 3002,
+                                    "lastPublishedTemplateVersionNo": "V2",
+                                    "instanceScope": "BATCH_SHARED",
+                                    "sharedFormKey": "LOSS_SHARED",
+                                    "recordCategory": "INTERNAL_RECORD",
+                                    "validationProfile": "INTERNAL_TRACE",
+                                    "requiredPolicy": "OPTIONAL",
+                                    "ownerRoleKey": "PRODUCTION",
+                                    "archiveVisibility": "FINAL_DHR",
+                                    "candidateSourceType": "USERS",
+                                    "candidateSourceIds": [8002],
+                                    "candidateSourceNames": ["生产人员"],
+                                    "reportSort": 1
+                                  }
+                                ]
+                              }
+                            ],
+                            "scheduleUseConfigs": []
+                          }
+                        }
+                        """)
+                .build();
+        doAnswer(invocation -> {
+            MesProRouteProcessDO process = invocation.getArgument(0);
+            process.setId(9504L);
+            return 1;
+        }).when(routeProcessMapper).insert(any(MesProRouteProcessDO.class));
+
+        service.projectCandidate(candidate);
+
+        ArgumentCaptor<MesProRouteProcessDO> routeProcessUpdateCaptor =
+                ArgumentCaptor.forClass(MesProRouteProcessDO.class);
+        verify(routeProcessMapper).updateById(routeProcessUpdateCaptor.capture());
+        assertEquals(9504L, routeProcessUpdateCaptor.getValue().getId());
+        assertEquals("REPORT-MAIN", routeProcessUpdateCaptor.getValue().getBatchRecordReportId());
+
+        ArgumentCaptor<MesProRouteFlowProcessBatchRecordDO> recordCaptor =
+                ArgumentCaptor.forClass(MesProRouteFlowProcessBatchRecordDO.class);
+        verify(routeFlowProcessBatchRecordMapper, times(2)).insert(recordCaptor.capture());
+        MesProRouteFlowProcessBatchRecordDO mainRecord = recordCaptor.getAllValues().get(0);
+        assertEquals("REPORT-MAIN", mainRecord.getBatchRecordReportId());
+        assertEquals("MAIN", mainRecord.getFormSlotType());
+        assertEquals(1, mainRecord.getReportSort());
+        assertEquals(1001L, mainRecord.getBatchRecordDefinitionId());
+        assertEquals(2001L, mainRecord.getBatchRecordVersionId());
+        assertEquals(3001L, mainRecord.getPermissionScopeId());
+        assertEquals("record-hash", mainRecord.getRecordCategorySnapshotHash());
+        assertEquals("slot-hash", mainRecord.getSlotConfigSnapshotHash());
+
+        MesProRouteFlowProcessBatchRecordDO lossForm = recordCaptor.getAllValues().get(1);
+        assertEquals(null, lossForm.getBatchRecordReportId());
+        assertEquals("FB-LOSS", lossForm.getFormBindingKey());
+        assertEquals("LOSS_REPORT", lossForm.getFormSlotType());
+        assertEquals("INTERNAL_RECORD", lossForm.getRecordCategory());
+        assertEquals("INTERNAL_TRACE", lossForm.getValidationProfile());
+        assertEquals(2, lossForm.getReportSort());
     }
 
     @Test
@@ -327,5 +448,69 @@ class MesProRouteVersionPublishProjectionServiceImplTest {
         assertTrue(exception.getMessage().contains("FB-MISSING-FILLER"));
         verify(routeFlowProcessBatchRecordMapper, never()).insert(any(MesProRouteFlowProcessBatchRecordDO.class));
         verify(processFormPermissionRuleMapper, never()).insert(any(MesProEdhrProcessFormPermissionRuleDO.class));
+    }
+
+    @Test
+    void projectCandidate_shouldDefaultLegacyFlatBatchRecordSnapshot() {
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(9203L)
+                .routeId(9003L)
+                .versionNo("V4")
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 9003,
+                          "routeCode": "RT-PUBLISH-FLAT-BATCH",
+                          "routeName": "发布扁平批记录快照",
+                          "status": 1,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "graphVersion": 3,
+                              "nodes": [
+                                {
+                                  "routeProcessId": 9303,
+                                  "processId": 9403,
+                                  "sort": 1
+                                }
+                              ],
+                              "edges": [],
+                              "boundaryEdges": [],
+                              "layouts": []
+                            },
+                            "products": [],
+                            "productBoms": [],
+                            "scheduleConfigs": [],
+                            "batchUseConfigs": [
+                              {
+                                "routeProcessId": 9303,
+                                "executionMode": "SEQUENTIAL",
+                                "batchRecordReportId": "RPT-FLAT-BATCH"
+                              }
+                            ],
+                            "scheduleUseConfigs": []
+                          }
+                        }
+                        """)
+                .build();
+        doAnswer(invocation -> {
+            MesProRouteProcessDO process = invocation.getArgument(0);
+            process.setId(9503L);
+            return 1;
+        }).when(routeProcessMapper).insert(any(MesProRouteProcessDO.class));
+
+        service.projectCandidate(candidate);
+
+        ArgumentCaptor<MesProRouteFlowProcessBatchRecordDO> batchRecordCaptor =
+                ArgumentCaptor.forClass(MesProRouteFlowProcessBatchRecordDO.class);
+        verify(routeFlowProcessBatchRecordMapper).insert(batchRecordCaptor.capture());
+        MesProRouteFlowProcessBatchRecordDO inserted = batchRecordCaptor.getValue();
+        assertEquals("RPT-FLAT-BATCH", inserted.getBatchRecordReportId());
+        assertEquals("MAIN", inserted.getFormSlotType());
+        assertEquals("PROCESS", inserted.getInstanceScope());
+        assertEquals("BATCH_RECORD", inserted.getRecordCategory());
+        assertEquals("CONTROLLED_BATCH", inserted.getValidationProfile());
+        assertEquals("REQUIRED", inserted.getRequiredPolicy());
+        assertEquals("PRODUCTION", inserted.getOwnerRoleKey());
+        assertEquals("FINAL_DHR", inserted.getArchiveVisibility());
+        assertEquals(1, inserted.getReportSort());
     }
 }

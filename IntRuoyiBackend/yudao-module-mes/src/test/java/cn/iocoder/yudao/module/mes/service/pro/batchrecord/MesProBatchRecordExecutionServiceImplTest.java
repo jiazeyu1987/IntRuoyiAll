@@ -138,6 +138,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRec
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_STATUS_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_NOT_EXISTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -637,7 +638,7 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
         assertNotNull(snapshot);
         assertEquals("SUBMITTED", snapshot.getApprovalStatus());
         assertEquals("process-submit-bpm", snapshot.getProcessInstanceId());
-        assertNull(snapshot.getCurrentBpmTaskId());
+        assertEquals("task-submit-bpm", snapshot.getCurrentBpmTaskId());
         assertEquals("approveNode", snapshot.getCurrentTaskDefinitionKey());
         assertEquals(1101L, snapshot.getSubmitSignatureId());
         JSONObject snapshotJson = JSON.parseObject(snapshot.getSnapshotJson());
@@ -3286,6 +3287,37 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void openOrCreateByContext_inlinesCellRuleConstraintsWithoutFastjsonReferences() {
+        MesProWorkOrderDO workOrder = insertWorkOrder();
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .routeId(1001L)
+                .processId(2002L)
+                .sort(1)
+                .batchRecordReportId("report-inline-constraints")
+                .remark("default binding")
+                .build();
+        routeProcessMapper.insert(routeProcess);
+        reportMapper.insert(report("report-inline-constraints"));
+        when(jimuReportGateway.getReportJson("report-inline-constraints"))
+                .thenReturn(sampleEditableReportJsonWithReviewedNumberAndDateRules());
+
+        MesProBatchRecordExecutionOpenOrCreateByContextRespVO resp = executionService.openOrCreateByContext(
+                new MesProBatchRecordExecutionOpenOrCreateByContextReqVO()
+                        .setWorkOrderId(workOrder.getId())
+                        .setRouteProcessId(routeProcess.getId())
+                        .setBatchRecordReportId("report-inline-constraints")
+                        .setBatchCode("BATCH-INLINE-CONSTRAINTS"));
+
+        String snapshotJson = executionMapper.selectById(resp.getId()).getExecutionSnapshotJson();
+        assertFalse(snapshotJson.contains("\"$ref\""));
+        JSONObject numberField = JSON.parseObject(snapshotJson).getJSONArray("fields").getJSONObject(0);
+        assertEquals("NUMBER", numberField.getString("valueType"));
+        assertEquals(0, numberField.getJSONObject("constraints").getIntValue("min"));
+        assertEquals(100, numberField.getJSONObject("constraints").getIntValue("max"));
+        assertEquals("重量", numberField.getJSONObject("edhrCellRule").getString("label"));
+    }
+
+    @Test
     void openOrCreateByContext_legacyStaticCheckboxCellsRequireRuleReviewBeforeExecution() {
         MesProWorkOrderDO workOrder = insertWorkOrder();
         MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
@@ -3375,6 +3407,39 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
         assertEquals(6001L, detail.getRouteBindingId());
         assertEquals("2222222222222222222222222222222222222222222222222222222222222222",
                 detail.getRouteBindingSnapshotHash());
+    }
+
+    @Test
+    void openOrCreateByContext_persistsDisabledRecordbookStateToExecutionAndResponse() {
+        MesProWorkOrderDO workOrder = insertWorkOrder();
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .routeId(1001L)
+                .processId(2002L)
+                .sort(1)
+                .batchRecordReportId("report-recordbook-disabled")
+                .remark("recordbook disabled binding")
+                .build();
+        routeProcessMapper.insert(routeProcess);
+        MesProBatchRecordReportDO report = report("report-recordbook-disabled");
+        reportMapper.insert(report);
+        when(jimuReportGateway.getReportJson("report-recordbook-disabled")).thenReturn(sampleEditableReportJson());
+
+        MesProBatchRecordExecutionOpenOrCreateByContextRespVO resp = executionService.openOrCreateByContext(
+                new MesProBatchRecordExecutionOpenOrCreateByContextReqVO()
+                        .setWorkOrderId(workOrder.getId())
+                        .setRouteId(routeProcess.getRouteId())
+                        .setRouteProcessId(routeProcess.getId())
+                        .setBatchRecordReportId("report-recordbook-disabled")
+                        .setRecordCategory("BATCH_RECORD")
+                        .setValidationProfile("CONTROLLED_BATCH")
+                        .setRecordbookEnabled(Boolean.FALSE)
+                        .setBatchCode("BATCH-RECORDBOOK-DISABLED"));
+
+        assertEquals(Boolean.FALSE, resp.getRecordbookEnabled());
+        MesProBatchRecordExecutionDO execution = executionMapper.selectById(resp.getId());
+        assertEquals(Boolean.FALSE, execution.getRecordbookEnabled());
+        assertEquals(Boolean.FALSE,
+                executionService.getBatchRecordExecution(resp.getId()).getRecordbookEnabled());
     }
 
     @Test

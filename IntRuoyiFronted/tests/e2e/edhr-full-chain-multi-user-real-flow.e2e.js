@@ -950,18 +950,10 @@ async function saveFieldAuditIfNeeded(page, signaturePassword, taskIndex) {
   }
   const saveButton = page.locator('.edhr-page-shell__field-audit').getByRole('button', { name: /保存变更/ }).first()
   await saveButton.waitFor({ state: 'visible', timeout: 60000 })
-  await saveButton.click()
-  const dialog = page.locator('.el-dialog:visible').filter({ hasText: '字段变更电子签名' }).first()
-  await dialog.waitFor({ state: 'visible', timeout: 60000 })
-  await fillFirstVisible(dialog.getByPlaceholder('请输入当前账号密码'), signaturePassword, '字段审计签名密码')
-  const confirmButton = dialog.getByRole('button', { name: /确\s*认\s*保\s*存/ }).first()
-  await confirmButton.waitFor({ state: 'visible', timeout: 60000 })
-  assert.equal(await confirmButton.isDisabled(), false, '字段审计确认保存按钮必须可点击。')
   const saveResponsePromise = waitForApiResponse(page, ENDPOINTS.fieldAuditSave, '字段审计保存', 'PUT')
-  await confirmButton.click()
+  await saveButton.click()
   const result = await saveResponsePromise
   assert.equal(result.hashVerification?.status, 'VALID', '字段审计链校验必须为 VALID。')
-  await dialog.waitFor({ state: 'hidden', timeout: 60000 })
   await waitForVisibleEnabledButton(page, '复核签名', `复核签名 T${taskIndex}`)
   return { saved: true, pendingCount, result }
 }

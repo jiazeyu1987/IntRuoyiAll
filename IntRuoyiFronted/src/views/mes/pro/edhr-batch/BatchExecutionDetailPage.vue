@@ -182,6 +182,7 @@
                     批记录
                   </button>
                   <button
+                    v-if="isRecordbookEnabledForCurrentTask"
                     type="button"
                     class="edhr-batch-detail__preview-carrier-option"
                     :class="{ 'is-active': currentProcessFillCarrier === 'RECORDBOOK' }"
@@ -967,6 +968,7 @@
             :object-id="traceRecordBatchExecutionId"
             :batch-execution-id="traceRecordBatchExecutionId"
             :show-object-filters="false"
+            :hide-recordbook-mode="!isRecordbookEnabledForCurrentTask"
           />
           <el-empty v-else description="当前批次不存在，暂无操作审计记录" />
         </el-tab-pane>
@@ -2235,25 +2237,55 @@ const appendDefinedQuery = (query: Record<string, string>, key: string, value: u
   query[key] = String(value)
 }
 
+type RecordbookEnabledContext = {
+  recordCategory?: string | null
+  recordbookEnabled?: boolean | null
+}
+
 const resolveRecordCategoryFromContext = () =>
   selectedTaskForEvidence.value?.recordCategory ||
   selectedTaskForExecution.value?.recordCategory ||
   selectedExecution.value?.recordCategory
 
-const resolveFillCarrier = (recordCategory?: string): FillCarrier => {
-  if (recordCategory === 'BATCH_RECORD') return 'FORM'
+const isRecordbookEnabledForContext = (context?: RecordbookEnabledContext) => {
+  if (!context) return false
+  if (context.recordCategory === 'INTERNAL_RECORD') return context.recordbookEnabled !== false
+  if (context.recordCategory !== 'BATCH_RECORD') return false
+  return context.recordbookEnabled !== false
+}
+
+const resolveRecordbookEnabledFromContext = () => {
+  const contexts: Array<RecordbookEnabledContext | undefined> = [
+    selectedTaskForEvidence.value,
+    selectedTaskForExecution.value,
+    selectedExecution.value
+  ]
+  return contexts.some(isRecordbookEnabledForContext)
+}
+
+const isRecordbookEnabledForCurrentTask = computed(() => resolveRecordbookEnabledFromContext())
+
+const resolveFillCarrier = (recordCategory?: string, recordbookEnabled = false): FillCarrier => {
+  if (recordCategory === 'BATCH_RECORD') return recordbookEnabled ? 'RECORDBOOK' : 'FORM'
   if (recordCategory === 'INTERNAL_RECORD') return 'RECORDBOOK'
   return 'UNCONFIGURED'
 }
 
 const currentProcessFillCarrier = computed<FillCarrier>(() => {
+  if (selectedFillCarrier.value === 'RECORDBOOK' && !isRecordbookEnabledForCurrentTask.value) {
+    return 'FORM'
+  }
   if (selectedFillCarrier.value) return selectedFillCarrier.value
-  return resolveFillCarrier(resolveRecordCategoryFromContext())
+  return resolveFillCarrier(resolveRecordCategoryFromContext(), isRecordbookEnabledForCurrentTask.value)
 })
 
 const selectFillCarrier = (fillCarrier: Exclude<FillCarrier, 'UNCONFIGURED'>) => {
   const row = selectedTaskForEvidence.value
   if (!row || isSpecialNode(row)) return
+  if (fillCarrier === 'RECORDBOOK' && !isRecordbookEnabledForCurrentTask.value) {
+    message.error('当前任务已禁用记录本，只能使用批记录模式。')
+    return
+  }
   selectedFillCarrier.value = fillCarrier
 }
 
@@ -2441,7 +2473,8 @@ const selectedProcessEvidenceItems = computed<ProcessEvidenceItem[]>(() => {
       path: '/mes/pro/feedback/edhr-operation-audit',
       query: buildSelectedProcessEvidenceQuery({
         objectType: 'BATCH_RECORD_EXECUTION',
-        objectId: executionId
+        objectId: executionId,
+        hideRecordbookMode: !isRecordbookEnabledForCurrentTask.value ? 'true' : undefined
       }),
       disabled: executionRequired
     },
@@ -2490,19 +2523,25 @@ const selectedProcessEvidenceItems = computed<ProcessEvidenceItem[]>(() => {
       path: '/mes/pro/feedback/edhr-form',
       query: buildSelectedProcessEvidenceQuery()
     },
-    {
-      key: 'recordbook',
-      label: '记录本填写',
-      description: '在当前批次执行表单中按记录本方式不受控填写。',
-      path: '/mes/pro/feedback/edhr-execution/form',
-      query: buildSelectedProcessEvidenceQuery({
-        id: executionId,
-        executionId,
-        ...buildFillCarrierExecutionQuery('RECORDBOOK'),
-        returnPath: '/mes/pro/feedback/edhr-batch-execution/detail'
-      }),
-      disabled: executionRequired
-    }
+    ...(
+      isRecordbookEnabledForCurrentTask.value
+        ? [
+            {
+              key: 'recordbook',
+              label: '记录本填写',
+              description: '在当前批次执行表单中按记录本方式不受控填写。',
+              path: '/mes/pro/feedback/edhr-execution/form',
+              query: buildSelectedProcessEvidenceQuery({
+                id: executionId,
+                executionId,
+                ...buildFillCarrierExecutionQuery('RECORDBOOK'),
+                returnPath: '/mes/pro/feedback/edhr-batch-execution/detail'
+              }),
+              disabled: executionRequired
+            }
+          ]
+        : []
+    )
   ]
 })
 
@@ -3867,6 +3906,8 @@ const handleOpenTask = async (
   row: EdhrBatchExecutionTaskRespVO,
   fillCarrier: Exclude<FillCarrier, 'UNCONFIGURED'> = 'FORM'
 ) => {
+  const effectiveFillCarrier =
+    fillCarrier === 'RECORDBOOK' && !isRecordbookEnabledForContext(row) ? 'FORM' : fillCarrier
   try {
     if (!row.activeWorkTaskId) {
       throw new Error('当前工序缺少可填写工作任务，无法打开。')
@@ -3901,7 +3942,7 @@ const handleOpenTask = async (
         batchTaskId: String(row.id),
         executionId: String(opened.executionId),
         ...(openedWorkTaskId ? { workTaskId: String(openedWorkTaskId) } : {}),
-        ...buildFillCarrierExecutionQuery(fillCarrier),
+        ...buildFillCarrierExecutionQuery(effectiveFillCarrier),
         returnPath: '/mes/pro/feedback/edhr-batch-execution/detail'
       }
     })
@@ -4159,11 +4200,11 @@ const openPendingTaskByFillCarrier = async (row: EdhrBatchExecutionTaskRespVO, f
     message.error(resolveTaskGateText(row) || '当前工序尚未满足处理条件。')
     return
   }
-  if (fillCarrier === 'RECORDBOOK') {
+  if (fillCarrier === 'RECORDBOOK' && isRecordbookEnabledForContext(row)) {
     await handleOpenTask(row, 'RECORDBOOK')
     return
   }
-  await handlePendingTaskAction(row)
+  await handleOpenTask(row, 'FORM')
 }
 
 const handleSelectedPendingTaskAction = async (row: EdhrBatchExecutionTaskRespVO) => {
@@ -4193,7 +4234,10 @@ const handlePendingTaskAction = async (row: EdhrBatchExecutionTaskRespVO) => {
       await handleSkipOptionalTask(row)
       return
     }
-    await handleOpenTask(row, resolveFillCarrier(row.recordCategory) === 'RECORDBOOK' ? 'RECORDBOOK' : 'FORM')
+    await handleOpenTask(
+      row,
+      resolveFillCarrier(row.recordCategory, isRecordbookEnabledForContext(row)) === 'RECORDBOOK' ? 'RECORDBOOK' : 'FORM'
+    )
     return
   }
   if (isSterilizationNode(row)) {

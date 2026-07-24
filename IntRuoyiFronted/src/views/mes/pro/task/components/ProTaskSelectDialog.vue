@@ -121,13 +121,13 @@
         <el-table-column label="已生产数量" align="center" prop="producedQuantity" width="110" />
         <el-table-column label="开始生产时间" align="center" prop="startTime" width="170">
           <template #default="scope">
-            <span>{{ formatDate(scope.row.startTime, 'YYYY-MM-DD HH:mm') }}</span>
+            <span>{{ formatDateTimeValue(scope.row.startTime, '-') }}</span>
           </template>
         </el-table-column>
         <el-table-column label="生产时长" align="center" prop="duration" width="100" />
         <el-table-column label="预计完成时间" align="center" prop="endTime" width="170">
           <template #default="scope">
-            <span>{{ formatDate(scope.row.endTime, 'YYYY-MM-DD HH:mm') }}</span>
+            <span>{{ formatDateTimeValue(scope.row.endTime, '-') }}</span>
           </template>
         </el-table-column>
         <el-table-column label="任务状态" align="center" prop="status" width="100">
@@ -151,7 +151,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatDate } from '@/utils/formatTime'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import { DICT_TYPE, getDictLabel } from '@/utils/dict'
 import { ProTaskApi, ProTaskVO } from '@/api/mes/pro/task'
 import ProProcessSelect from '@/views/mes/pro/process/components/ProProcessSelect.vue'

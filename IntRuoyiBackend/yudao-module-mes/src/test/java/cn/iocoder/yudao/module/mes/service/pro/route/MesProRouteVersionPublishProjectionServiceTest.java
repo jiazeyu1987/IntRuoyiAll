@@ -1,10 +1,10 @@
 package cn.iocoder.yudao.module.mes.service.pro.route;
 
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
-import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormPolicyRespVO;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.businessapproval.BusinessApprovalPolicyDO;
 import cn.iocoder.yudao.module.bpm.dal.mysql.businessapproval.BusinessApprovalPolicyMapper;
-import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionPolicyMapper;
+import cn.iocoder.yudao.module.bpm.formcenter.model.FormPolicySlot;
 import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
@@ -88,8 +88,6 @@ class MesProRouteVersionPublishProjectionServiceTest {
     private MesMdItemMapper itemMapper;
     @Mock
     private FormCenterRuntimeService formCenterRuntimeService;
-    @Mock
-    private FormActionPolicyMapper formActionPolicyMapper;
     @Mock
     private BusinessApprovalPolicyMapper businessApprovalPolicyMapper;
     @Mock
@@ -229,13 +227,8 @@ class MesProRouteVersionPublishProjectionServiceTest {
         when(processMapper.selectByName("混合")).thenReturn(MesProProcessDO.builder().id(102L).name("混合").build());
         when(itemMapper.selectListByName("产品A")).thenReturn(List.of(MesMdItemDO.builder().id(501L).name("产品A").build()));
         TenantContextHolder.setTenantId(122L);
-        FormPolicyRespVO policy = new FormPolicyRespVO();
-        policy.setId(9901L);
-        when(formActionPolicyMapper.selectPublishedByAction(any(), any(), any(), any(), any(), any()))
-                .thenReturn(List.of());
         when(businessApprovalPolicyMapper.selectPublishedByAction(any(), any(), any(), any(), any(), any()))
                 .thenReturn(List.of());
-        when(formCenterRuntimeService.savePolicy(any())).thenReturn(policy);
 
         service.projectCandidate(candidate);
 
@@ -298,23 +291,31 @@ class MesProRouteVersionPublishProjectionServiceTest {
 
         ArgumentCaptor<MesProEdhrProcessFormPermissionRuleDO> ruleCaptor =
                 ArgumentCaptor.forClass(MesProEdhrProcessFormPermissionRuleDO.class);
-        verify(processFormPermissionRuleMapper).physicalDeleteByRouteProcessAndReport(3001L, "FB-001");
+        verify(processFormPermissionRuleMapper).physicalDeleteByRouteProcessReportAndVersion(3001L, "FB-001", 2002L);
         verify(processFormPermissionRuleMapper).insert(ruleCaptor.capture());
         assertEquals(3001L, ruleCaptor.getValue().getRouteProcessId());
         assertEquals("FB-001", ruleCaptor.getValue().getBatchRecordReportId());
+        assertEquals(2002L, ruleCaptor.getValue().getBatchRecordVersionId());
         assertEquals("FILL", ruleCaptor.getValue().getRuleType());
         assertEquals("USERS", ruleCaptor.getValue().getCandidateSourceType());
         assertEquals("9001", ruleCaptor.getValue().getCandidateSourceIds());
         assertEquals("ANY_ONE", ruleCaptor.getValue().getCompletionPolicy());
         assertEquals(Integer.MAX_VALUE, ruleCaptor.getValue().getDueMinutes());
-        verify(formCenterRuntimeService).publishPolicy(9901L);
+        verify(formCenterRuntimeService, never()).savePolicy(any());
+        verify(formCenterRuntimeService, never()).publishPolicy(any());
         ArgumentCaptor<BusinessApprovalPolicyDO> businessPolicyCaptor =
                 ArgumentCaptor.forClass(BusinessApprovalPolicyDO.class);
         verify(businessApprovalPolicyMapper).insert(businessPolicyCaptor.capture());
-        assertEquals("EDHR_RF_2002_FB-001", businessPolicyCaptor.getValue().getActionCode());
-        assertEquals("DIRECT", businessPolicyCaptor.getValue().getPolicyMode());
-        assertEquals("MES_EDHR_ROUTE_FORM_FILL", businessPolicyCaptor.getValue().getEffectExecutorCode());
-        assertEquals("PUBLISHED", businessPolicyCaptor.getValue().getStatus());
+        BusinessApprovalPolicyDO businessPolicy = businessPolicyCaptor.getValue();
+        assertEquals("EDHR_RF_2002_FB-001", businessPolicy.getActionCode());
+        assertEquals("DIRECT", businessPolicy.getPolicyMode());
+        assertEquals("MES_EDHR_ROUTE_FORM_FILL", businessPolicy.getEffectExecutorCode());
+        assertEquals("REQUIRED", businessPolicy.getFormPolicyType());
+        assertEquals("PUBLISHED", businessPolicy.getStatus());
+        List<FormPolicySlot> slots = JsonUtils.parseArray(businessPolicy.getFormSlotsJson(), FormPolicySlot.class);
+        assertEquals("EDHR_ROUTE_FORM", slots.get(0).getSlotCode());
+        assertEquals(true, slots.get(0).isRequired());
+        assertEquals("2001", slots.get(0).getTemplateVersionRef().getTemplateCode());
     }
 
     @Test

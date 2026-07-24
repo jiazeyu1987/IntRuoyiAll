@@ -360,7 +360,7 @@
         </el-table-column>
         <el-table-column label="发布时间" prop="publishedTime" min-width="170">
           <template #default="{ row: version }">
-            {{ version.publishedTime || '-' }}
+            {{ formatDateTimeValue(version.publishedTime, '-') }}
           </template>
         </el-table-column>
         <el-table-column label="发布阻断项" min-width="260">
@@ -459,7 +459,7 @@
 <script setup lang="ts">
 import { ElMessageBox } from 'element-plus'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
-import { dateFormatter } from '@/utils/formatTime'
+import { dateFormatter, formatDateTimeValue } from '@/utils/formatTime'
 import { CommonStatusEnum } from '@/utils/constants'
 import { checkPermi } from '@/utils/permission'
 import download from '@/utils/download'

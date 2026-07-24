@@ -198,7 +198,7 @@
               </template>
             </el-table-column>
             <el-table-column v-if="isEdhrBatchExecutionColumnVisible('blockedCount')" label="阻塞数" prop="blockedCount" :width="getEdhrBatchExecutionColumnWidthString('blockedCount', 90)" align="center" v-bind="sortColumnAttrs('blockedCount')" />
-            <el-table-column v-if="isEdhrBatchExecutionColumnVisible('updateTime')" label="最后更新时间" prop="updateTime" :width="getEdhrBatchExecutionColumnWidthString('updateTime', 180)" v-bind="sortColumnAttrs('updateTime')" />
+            <el-table-column v-if="isEdhrBatchExecutionColumnVisible('updateTime')" label="最后更新时间" prop="updateTime" :width="getEdhrBatchExecutionColumnWidthString('updateTime', 180)" :formatter="edhrDateTimeFormatter" v-bind="sortColumnAttrs('updateTime')" />
             <el-table-column v-if="isEdhrBatchExecutionColumnVisible('operation')" label="操作" prop="operation" :width="getEdhrBatchExecutionColumnWidthString('operation', 180)" fixed="right">
               <template #default="{ row }">
                 <div
@@ -555,7 +555,7 @@
         <el-descriptions-item label="文件名">{{ archivePreview.fileName || '--' }}</el-descriptions-item>
         <el-descriptions-item label="文件大小">{{ archivePreview.fileSize || '--' }}</el-descriptions-item>
         <el-descriptions-item label="哈希">{{ archivePreview.contentHash || '--' }}</el-descriptions-item>
-        <el-descriptions-item label="生成时间">{{ archivePreview.generatedAt || '--' }}</el-descriptions-item>
+        <el-descriptions-item label="生成时间">{{ formatEdhrDateTime(archivePreview.generatedAt) }}</el-descriptions-item>
       </el-descriptions>
       <template #footer>
         <el-button @click="archiveDialogVisible = false">关 闭</el-button>
@@ -677,8 +677,7 @@ import { ProWorkOrderApi, type ProWorkOrderVO } from '@/api/mes/pro/workorder'
 import * as UserApi from '@/api/system/user'
 import * as DefinitionApi from '@/api/bpm/definition'
 import * as ProcessInstanceApi from '@/api/bpm/processInstance'
-import { resolveBusinessAction, type BusinessActionContextVO } from '@/api/form-center/businessAction'
-import { requestVoidBatchExecution } from '@/api/mes/pro/edhr/change'
+import { requestVoidBatchExecution, resolveVoidBatchExecutionApproval } from '@/api/mes/pro/edhr/change'
 import { CandidateStrategy, NodeId } from '@/components/SimpleProcessDesignerV2/src/consts'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { MesProWorkOrderStatusEnum } from '@/views/mes/utils/constants'
@@ -692,6 +691,7 @@ import {
 } from '@/hooks/web/useTableQuickFilter'
 import { generateUUID } from '@/utils'
 import { useUserStore } from '@/store/modules/user'
+import { edhrDateTimeFormatter, formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProEdhrBatchExecutionListPage' })
 
@@ -848,35 +848,15 @@ const resetVoidStartUserSelectAssignees = () => {
   })
 }
 
-const buildVoidBusinessActionContext = (
-  row: EdhrBatchExecutionRespVO
-): BusinessActionContextVO | null => {
-  if (!row.id) return null
-  return {
-    dataDomain: 'MES',
-    systemCode: 'MES',
-    objectType: 'EDHR_BATCH_EXECUTION',
-    objectId: String(row.id),
-    objectVersion: String(row.id),
-    actionCode: 'VOID',
-    objectState: String(normalizeBatchStatusValue(row.status) ?? row.status ?? ''),
-    orgCode: '',
-    deptCode: '',
-    roleCodes: [],
-    productCode: row.productCode || '',
-    categoryCode: '',
-    reason: 'eDHR batch void approval'
-  }
-}
-
 const loadVoidStartUserSelectTasks = async (row: EdhrBatchExecutionRespVO) => {
   voidStartUserSelectTasks.value = []
   resetVoidStartUserSelectAssignees()
-  const context = buildVoidBusinessActionContext(row)
-  if (!context) {
+  if (!row.id) {
     throw new Error('当前批次缺少平台作废动作上下文，无法解析作废审批人。')
   }
-  const resolution = await resolveBusinessAction(context)
+  const resolution = await resolveVoidBatchExecutionApproval({
+    batchExecutionId: row.id
+  })
   if (!resolution.requiresBpm || !resolution.bpmProcessKey) {
     return
   }
@@ -934,8 +914,7 @@ const readinessPassCount = computed(
   () => readinessResult.value?.items?.filter((item) => item.status === 'PASS').length || 0
 )
 const formatTraceTime = (value?: string | number | null) => {
-  if (value == null || value === '') return '--'
-  return String(value)
+  return formatEdhrDateTime(value)
 }
 
 const batchFlowTraceItems = computed(() => {

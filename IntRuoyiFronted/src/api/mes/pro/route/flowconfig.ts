@@ -38,6 +38,7 @@ export interface ProRouteFlowFormBindingVO {
   fillableScopeJson?: string | null
   recordCategory?: ProRouteFlowRecordCategory | null
   validationProfile?: ProRouteFlowValidationProfile | null
+  recordbookEnabled?: boolean | null
   requiredPolicy?: ProRouteFlowRequiredPolicy | null
   requiredConditionJson?: string | null
   ownerRoleKey?: ProRouteFlowOwnerRoleKey | null
@@ -64,6 +65,7 @@ export interface ProRouteFlowBatchRecordVO {
   fillableScopeJson?: string | null
   recordCategory?: ProRouteFlowRecordCategory | null
   validationProfile?: ProRouteFlowValidationProfile | null
+  recordbookEnabled?: boolean | null
   permissionScopeId?: number | null
   requiredPolicy?: ProRouteFlowRequiredPolicy | null
   requiredConditionJson?: string | null
@@ -76,6 +78,7 @@ export interface ProRouteFlowBatchRecordVO {
 
 export interface ProRouteFlowFormBindingSaveVO {
   formBindingKey?: string | null
+  formSlotType?: ProRouteFlowFormSlotType | null
   formTemplateId: number
   formTemplateName?: string | null
   instanceScope?: 'PROCESS' | 'BATCH_SHARED' | string
@@ -83,6 +86,7 @@ export interface ProRouteFlowFormBindingSaveVO {
   fillableScopeJson?: string | null
   recordCategory?: ProRouteFlowRecordCategory | null
   validationProfile?: ProRouteFlowValidationProfile | null
+  recordbookEnabled?: boolean | null
   requiredPolicy?: ProRouteFlowRequiredPolicy | null
   requiredConditionJson?: string | null
   ownerRoleKey?: ProRouteFlowOwnerRoleKey | null
@@ -127,6 +131,7 @@ export interface ProRouteFlowProcessConfigSaveVO {
   enabled: boolean
   executionMode?: ProRouteFlowExecutionMode | null
   productionQuantityFactor?: number | null
+  batchRecordReports?: ProRouteFlowBatchRecordVO[]
   formBindings?: ProRouteFlowFormBindingSaveVO[]
   remark?: string | null
 }

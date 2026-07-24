@@ -75,6 +75,8 @@
 - 服务器访问 / 重启 / 远端联调：`E:\IntRuoyi\docs\server-access.md`
 - 前端页面 / 表格 / 样式：`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
 - eDHR 批次详情 / 动态表单 / 损耗单 / 工艺路线绑定 / 填写人 / `fillableUsers` / `routeBindingId` / 配置页有值但详情接口为空：`E:\IntRuoyi\docs\backend-development.md#edhr-详情回填门禁`
+- Keywords: eDHR 批次任务配置来源, routeSnapshotJson, batchUseConfigs, 当前 BATCH 工序配置, 陈旧绑定, legacy flat batchRecordReportId, 发布快照不得通用 fallback -> `docs/backend-development.md#edhr-批次任务配置来源门禁`
+- Keywords: Windows CRLF 静态合同, static.spec.js 目标 worktree 自身失败, 真实 E2E 脚本与页面行为同步, 废弃弹窗流程, 字段审计保存直连 API -> `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁`
 - 项目错误预防短记忆：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\agent-memory\project-error-prevention.md`
 
 ## 任务门禁

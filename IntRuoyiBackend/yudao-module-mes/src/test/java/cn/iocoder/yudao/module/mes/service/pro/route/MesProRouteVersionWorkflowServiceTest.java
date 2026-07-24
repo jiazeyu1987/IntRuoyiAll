@@ -12,7 +12,6 @@ import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.MockedStatic;
 import org.mockito.Mock;
@@ -25,8 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
@@ -244,7 +243,8 @@ class MesProRouteVersionWorkflowServiceTest {
                 org.mockito.ArgumentMatchers.eq(503L),
                 org.mockito.ArgumentMatchers.eq("fbede791-8138-11f1-80b5-00155d3585b8"),
                 org.mockito.ArgumentMatchers.anyString());
-        verify(routeVersionMapper).updateApprovalFieldsToDraft(pending.getId());
+        verify(routeVersionMapper, never()).updateApprovalFieldsToDraft(pending.getId());
+        verify(platformAdapter, never()).recordWithdrawn(pending, 503L);
         assertEquals(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT, withdrawn.getLifecycleStatus());
         assertEquals(null, withdrawn.getSubmittedBy());
         assertEquals(null, withdrawn.getSubmittedTime());
@@ -252,23 +252,24 @@ class MesProRouteVersionWorkflowServiceTest {
     }
 
     @Test
-    void withdrawCandidate_shouldPersistDraftBeforeCancellingBpm() {
+    void withdrawCandidate_shouldNotMutateDomainWhenBpmCancelFails() {
         MesProRouteVersionDO pending = openCandidate(activeVersion(),
                 MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL);
         pending.setApprovalProcessInstanceId("fbede791-8138-11f1-80b5-00155d3585b8");
         when(routeVersionMapper.selectById(pending.getId())).thenReturn(pending);
+        doThrow(new IllegalStateException("approval cancel callback failed")).when(bpmProcessInstanceApi)
+                .cancelProcessInstance(
+                        org.mockito.ArgumentMatchers.eq(503L),
+                        org.mockito.ArgumentMatchers.eq("fbede791-8138-11f1-80b5-00155d3585b8"),
+                        org.mockito.ArgumentMatchers.anyString());
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(503L);
-            service.withdrawCandidate(pending.getId());
+            assertThrows(IllegalStateException.class, () -> service.withdrawCandidate(pending.getId()));
         }
 
-        InOrder order = inOrder(routeVersionMapper, bpmProcessInstanceApi);
-        order.verify(routeVersionMapper).updateApprovalFieldsToDraft(pending.getId());
-        order.verify(bpmProcessInstanceApi).cancelProcessInstance(
-                org.mockito.ArgumentMatchers.eq(503L),
-                org.mockito.ArgumentMatchers.eq("fbede791-8138-11f1-80b5-00155d3585b8"),
-                org.mockito.ArgumentMatchers.anyString());
+        verify(routeVersionMapper, never()).updateApprovalFieldsToDraft(pending.getId());
+        verify(platformAdapter, never()).recordWithdrawn(pending, 503L);
     }
 
     @Test

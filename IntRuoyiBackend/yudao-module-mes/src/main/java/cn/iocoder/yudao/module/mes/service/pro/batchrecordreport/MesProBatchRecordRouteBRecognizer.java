@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 
 @Component
+@Slf4j
 public class MesProBatchRecordRouteBRecognizer implements MesProBatchRecordRouteRecognizer {
 
     public static final String ROUTE_KEY = MesProBatchRecordRecognitionRouteKeys.B;
@@ -271,7 +273,7 @@ public class MesProBatchRecordRouteBRecognizer implements MesProBatchRecordRoute
                         "route_b_python_process_interrupted");
             }
             if (!finished) {
-                process.destroyForcibly();
+                destroyProcessTree(process);
                 throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_PARSE_FAILED,
                         "route_b_python_process_timeout");
             }
@@ -1094,6 +1096,39 @@ public class MesProBatchRecordRouteBRecognizer implements MesProBatchRecordRoute
                     });
         } catch (IOException ignored) {
             // keep primary failure visible
+        }
+    }
+
+    private void destroyProcessTree(Process process) {
+        if (process == null) {
+            return;
+        }
+        ProcessHandle root = process.toHandle();
+        List<ProcessHandle> descendants = root.descendants().toList();
+        for (ProcessHandle descendant : descendants) {
+            destroyForcibly(descendant);
+        }
+        destroyForcibly(root);
+        for (ProcessHandle descendant : descendants) {
+            waitForExit(descendant);
+        }
+        waitForExit(root);
+    }
+
+    private void destroyForcibly(ProcessHandle handle) {
+        if (handle != null && handle.isAlive()) {
+            handle.destroyForcibly();
+        }
+    }
+
+    private void waitForExit(ProcessHandle handle) {
+        if (handle == null || !handle.isAlive()) {
+            return;
+        }
+        try {
+            handle.onExit().get(5, TimeUnit.SECONDS);
+        } catch (Exception ex) {
+            log.warn("route_b_process_tree_wait_failed pid={}", handle.pid(), ex);
         }
     }
 

@@ -273,6 +273,38 @@ class MesProBatchRecordRouteBRecognizerTest {
     }
 
     @Test
+    void recognize_whenPythonProcessTimesOut_terminatesChildProcessTree() throws Exception {
+        Path tempDir = Files.createTempDirectory("route-b-timeout-process-tree-");
+        Path fakePython = tempDir.resolve("fake-python-with-child.cmd");
+        Path childPidFile = tempDir.resolve("child.pid");
+        try {
+            Files.writeString(fakePython, """
+                    @echo off
+                    setlocal
+                    set "PID_FILE=%~dp0child.pid"
+                    powershell -NoProfile -ExecutionPolicy Bypass -Command "$child = Start-Process -FilePath powershell -ArgumentList '-NoProfile','-Command','Start-Sleep -Seconds 30' -PassThru; [System.IO.File]::WriteAllText($env:PID_FILE, [string]$child.Id); Start-Sleep -Seconds 30"
+                    """);
+
+            MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer(
+                    fakePython.toString(),
+                    tempDir,
+                    800L);
+
+            ServiceException exception = assertThrows(ServiceException.class, () ->
+                    recognizer.recognize(null, new byte[]{1}, "source.doc"));
+
+            assertEquals(PRO_BATCH_RECORD_REPORT_PARSE_FAILED.getCode(), exception.getCode());
+            assertTrue(exception.getMessage().contains("route_b_python_process_timeout"));
+            long childPid = waitForChildPid(childPidFile);
+            assertTrue(!isProcessAlive(childPid),
+                    "Route B timeout must terminate child process tree; leaked child pid=" + childPid);
+        } finally {
+            cleanupChildProcess(childPidFile);
+            deleteRecursively(tempDir);
+        }
+    }
+
+    @Test
     void routeBTimeoutFieldDeclaresSpringConfigurationProperty() throws Exception {
         Field timeoutField = MesProBatchRecordRouteBRecognizer.class.getDeclaredField("timeoutMs");
 
@@ -367,5 +399,48 @@ class MesProBatchRecordRouteBRecognizerTest {
                 .map(MesProBatchRecordParsedCell::getText)
                 .filter(text -> text != null)
                 .anyMatch(text -> text.contains(expectedText));
+    }
+
+    private static long waitForChildPid(Path childPidFile) throws Exception {
+        long deadline = System.currentTimeMillis() + 5_000L;
+        while (System.currentTimeMillis() < deadline) {
+            if (Files.exists(childPidFile) && Files.size(childPidFile) > 0) {
+                return Long.parseLong(Files.readString(childPidFile).trim());
+            }
+            Thread.sleep(100L);
+        }
+        throw new AssertionError("child pid file was not written: " + childPidFile);
+    }
+
+    private static boolean isProcessAlive(long pid) {
+        return ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false);
+    }
+
+    private static void cleanupChildProcess(Path childPidFile) throws Exception {
+        if (Files.notExists(childPidFile) || Files.size(childPidFile) == 0) {
+            return;
+        }
+        long childPid = Long.parseLong(Files.readString(childPidFile).trim());
+        ProcessHandle.of(childPid).ifPresent(handle -> {
+            if (handle.isAlive()) {
+                handle.destroyForcibly();
+            }
+        });
+    }
+
+    private static void deleteRecursively(Path path) throws Exception {
+        if (path == null || Files.notExists(path)) {
+            return;
+        }
+        try (var stream = Files.walk(path)) {
+            stream.sorted((left, right) -> right.getNameCount() - left.getNameCount())
+                    .forEach(current -> {
+                        try {
+                            Files.deleteIfExists(current);
+                        } catch (Exception ignored) {
+                            // best-effort cleanup for test temp files
+                        }
+                    });
+        }
     }
 }

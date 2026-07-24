@@ -106,13 +106,17 @@
                         <div class="edhr-field-audit__label">填写状态</div>
                         <div class="edhr-field-audit__value">{{ resolveResponsibilityValueOriginLabel(row.valueOrigin) }}</div>
                         <div class="edhr-field-audit__muted">
-                          {{ row.currentValueChangedAt ? '最后更新 ' + row.currentValueChangedAt : '暂无更新时间' }}
+                          {{
+                            row.currentValueChangedAt
+                              ? '最后更新 ' + formatEdhrDateTime(row.currentValueChangedAt)
+                              : '暂无更新时间'
+                          }}
                         </div>
                       </div>
                       <div class="edhr-field-audit__evidence-card">
                         <div class="edhr-field-audit__label">填写责任</div>
                         <div class="edhr-field-audit__value">{{ row.firstHumanActorName || '--' }}</div>
-                        <div class="edhr-field-audit__muted">{{ row.firstHumanChangedAt || '暂无有效填写人' }}</div>
+                        <div class="edhr-field-audit__muted">{{ formatEdhrDateTime(row.firstHumanChangedAt, '暂无有效填写人') }}</div>
                       </div>
                       <div class="edhr-field-audit__evidence-card">
                         <div class="edhr-field-audit__label">操作记录</div>
@@ -121,7 +125,7 @@
                         </div>
                         <div class="edhr-field-audit__muted">
                           历史 {{ row.historyCount || 0 }} 条{{
-                            row.currentValueChangedAt ? ' · ' + row.currentValueChangedAt : ''
+                            row.currentValueChangedAt ? ' · ' + formatEdhrDateTime(row.currentValueChangedAt) : ''
                           }}
                         </div>
                       </div>
@@ -205,13 +209,13 @@
               <el-table-column label="首次有效填写人" min-width="160">
                 <template #default="{ row }">
                   <div class="edhr-field-audit__strong">{{ row.firstHumanActorName || '--' }}</div>
-                  <div class="edhr-field-audit__muted">{{ row.firstHumanChangedAt || '--' }}</div>
+                  <div class="edhr-field-audit__muted">{{ formatEdhrDateTime(row.firstHumanChangedAt) }}</div>
                 </template>
               </el-table-column>
               <el-table-column label="当前值最后操作人" min-width="170">
                 <template #default="{ row }">
                   <div class="edhr-field-audit__strong">{{ row.currentValueActorName || '--' }}</div>
-                  <div class="edhr-field-audit__muted">{{ row.currentValueChangedAt || '--' }}</div>
+                  <div class="edhr-field-audit__muted">{{ formatEdhrDateTime(row.currentValueChangedAt) }}</div>
                 </template>
               </el-table-column>
               <el-table-column label="证据状态" width="120">
@@ -355,18 +359,30 @@
                           rowIndex={{ row.rowIndex }} / columnIndex={{ row.columnIndex }}
                         </div>
                       </div>
-                      <div class="edhr-field-audit__evidence-item">
-                        <div class="edhr-field-audit__label">旧值 JSON</div>
-                        <div class="edhr-field-audit__value">{{ formatJson(row.oldValueJson) }}</div>
-                      </div>
-                      <div class="edhr-field-audit__evidence-item">
-                        <div class="edhr-field-audit__label">旧值 hash</div>
-                        <div class="edhr-field-audit__value">{{ row.oldValueHash || '--' }}</div>
-                      </div>
-                      <div class="edhr-field-audit__evidence-item">
-                        <div class="edhr-field-audit__label">新值 JSON</div>
-                        <div class="edhr-field-audit__value">{{ formatJson(row.newValueJson) }}</div>
-                      </div>
+                      <template v-if="isRecordbookSyncAudit(row)">
+                        <div class="edhr-field-audit__evidence-item">
+                          <div class="edhr-field-audit__label">记录本填写值 JSON</div>
+                          <div class="edhr-field-audit__value">{{ formatJson(row.recordbookValueJson) }}</div>
+                        </div>
+                        <div class="edhr-field-audit__evidence-item">
+                          <div class="edhr-field-audit__label">批记录存储值 JSON</div>
+                          <div class="edhr-field-audit__value">{{ formatJson(row.batchRecordValueJson) }}</div>
+                        </div>
+                      </template>
+                      <template v-else>
+                        <div class="edhr-field-audit__evidence-item">
+                          <div class="edhr-field-audit__label">旧值 JSON</div>
+                          <div class="edhr-field-audit__value">{{ formatJson(row.oldValueJson) }}</div>
+                        </div>
+                        <div class="edhr-field-audit__evidence-item">
+                          <div class="edhr-field-audit__label">旧值 hash</div>
+                          <div class="edhr-field-audit__value">{{ row.oldValueHash || '--' }}</div>
+                        </div>
+                        <div class="edhr-field-audit__evidence-item">
+                          <div class="edhr-field-audit__label">新值 JSON</div>
+                          <div class="edhr-field-audit__value">{{ formatJson(row.newValueJson) }}</div>
+                        </div>
+                      </template>
                       <div class="edhr-field-audit__evidence-item">
                         <div class="edhr-field-audit__label">新值 hash</div>
                         <div class="edhr-field-audit__value">{{ row.newValueHash || '--' }}</div>
@@ -403,9 +419,17 @@
               </el-table-column>
               <el-table-column label="变更值" min-width="210">
                 <template #default="{ row }">
-                  <div class="edhr-field-audit__change-value">{{ row.oldValueDisplay || '--' }}</div>
-                  <div class="edhr-field-audit__change-arrow">→</div>
-                  <div class="edhr-field-audit__change-value">{{ row.newValueDisplay || '--' }}</div>
+                  <template v-if="isRecordbookSyncAudit(row)">
+                    <div class="edhr-field-audit__muted">记录本填写值</div>
+                    <div class="edhr-field-audit__change-value">{{ row.recordbookValueDisplay ?? '--' }}</div>
+                    <div class="edhr-field-audit__muted">批记录存储值</div>
+                    <div class="edhr-field-audit__change-value">{{ row.batchRecordValueDisplay ?? '--' }}</div>
+                  </template>
+                  <template v-else>
+                    <div class="edhr-field-audit__change-value">{{ row.oldValueDisplay || '--' }}</div>
+                    <div class="edhr-field-audit__change-arrow">→</div>
+                    <div class="edhr-field-audit__change-value">{{ row.newValueDisplay || '--' }}</div>
+                  </template>
                 </template>
               </el-table-column>
               <el-table-column label="原因" min-width="180">
@@ -417,7 +441,7 @@
               <el-table-column label="修改人 / 时间" min-width="150">
                 <template #default="{ row }">
                   <div class="edhr-field-audit__strong">{{ row.actorName || '--' }}</div>
-                  <div class="edhr-field-audit__muted">{{ row.changedAt || '--' }}</div>
+                  <div class="edhr-field-audit__muted">{{ formatEdhrDateTime(row.changedAt) }}</div>
                 </template>
               </el-table-column>
               <el-table-column label="hash 状态" width="110">
@@ -462,15 +486,23 @@
           <el-table-column label="审计序号" prop="fieldAuditRevision" width="96" />
           <el-table-column label="变更值" min-width="220">
             <template #default="{ row }">
-              <div class="edhr-field-audit__change-value">{{ row.oldValueDisplay || '--' }}</div>
-              <div class="edhr-field-audit__change-arrow">→</div>
-              <div class="edhr-field-audit__change-value">{{ row.newValueDisplay || '--' }}</div>
+              <template v-if="isRecordbookSyncAudit(row)">
+                <div class="edhr-field-audit__muted">记录本填写值</div>
+                <div class="edhr-field-audit__change-value">{{ row.recordbookValueDisplay ?? '--' }}</div>
+                <div class="edhr-field-audit__muted">批记录存储值</div>
+                <div class="edhr-field-audit__change-value">{{ row.batchRecordValueDisplay ?? '--' }}</div>
+              </template>
+              <template v-else>
+                <div class="edhr-field-audit__change-value">{{ row.oldValueDisplay || '--' }}</div>
+                <div class="edhr-field-audit__change-arrow">→</div>
+                <div class="edhr-field-audit__change-value">{{ row.newValueDisplay || '--' }}</div>
+              </template>
             </template>
           </el-table-column>
           <el-table-column label="操作人 / 时间" min-width="160">
             <template #default="{ row }">
               <div class="edhr-field-audit__strong">{{ row.actorName || '--' }}</div>
-              <div class="edhr-field-audit__muted">{{ row.changedAt || '--' }}</div>
+              <div class="edhr-field-audit__muted">{{ formatEdhrDateTime(row.changedAt) }}</div>
             </template>
           </el-table-column>
           <el-table-column label="签名" min-width="140">
@@ -527,6 +559,7 @@ import {
 } from '@/api/mes/pro/edhr/fieldAudit'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProFeedbackEdhrFieldAudit' })
 
@@ -707,6 +740,11 @@ const resolveVerifyResultTitle = (result: EdhrFieldAuditVerifyRespVO) => {
 }
 
 const formatJson = (value: unknown) => JSON.stringify(value)
+const isRecordbookSyncAudit = (row: EdhrFieldAuditEntryVO) =>
+  row.recordbookValueJson !== undefined ||
+  row.recordbookValueDisplay !== undefined ||
+  row.batchRecordValueJson !== undefined ||
+  row.batchRecordValueDisplay !== undefined
 
 const decodeEdhrFieldAuditExportContent = (exportPayload: EdhrFieldAuditExportRespVO) => {
   const { content } = exportPayload

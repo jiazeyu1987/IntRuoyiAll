@@ -341,10 +341,12 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
     @Override
     public MesProRouteProcessFlowValidationRespVO validateGraph(MesProRouteProcessFlowSaveReqVO reqVO) {
         validateRouteExists(reqVO.getRouteId());
-        Long graphVersion = currentGraphVersion(reqVO.getRouteId());
+        MesProRouteVersionDO candidateVersion = resolveReadableCandidateVersion(
+                reqVO.getRouteVersionId(), reqVO.getRouteId());
+        Long graphVersion = resolveCurrentGraphVersion(reqVO.getRouteId(), candidateVersion);
         MesProRouteProcessFlowValidationRespVO respVO = new MesProRouteProcessFlowValidationRespVO();
         respVO.setGraphVersion(graphVersion);
-        DraftRouteProcessValidation draftValidation = validateRouteProcessDraftChanges(reqVO);
+        DraftRouteProcessValidation draftValidation = validateRouteProcessDraftChanges(reqVO, candidateVersion);
         if (!draftValidation.messages().isEmpty()) {
             return mark(respVO, false, STATUS_INVALID, graphVersion, draftValidation.messages());
         }
@@ -360,7 +362,9 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProRouteProcessFlowValidationRespVO saveGraph(MesProRouteProcessFlowSaveReqVO reqVO) {
-        Long currentVersion = currentGraphVersion(reqVO.getRouteId());
+        MesProRouteVersionDO candidateVersion = resolveDraftCandidateVersion(
+                reqVO.getRouteVersionId(), reqVO.getRouteId());
+        Long currentVersion = resolveCurrentGraphVersion(reqVO.getRouteId(), candidateVersion);
         if (!Objects.equals(currentVersion, reqVO.getGraphVersion())) {
             throw exception(PRO_ROUTE_PROCESS_FLOW_VERSION_CONFLICT);
         }
@@ -368,11 +372,10 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
         if (!Boolean.TRUE.equals(draftValidation.getValid())) {
             throw exception(PRO_ROUTE_PROCESS_FLOW_INVALID);
         }
-        MesProRouteVersionDO candidateVersion = resolveDraftCandidateVersion(
-                reqVO.getRouteVersionId(), reqVO.getRouteId());
         if (candidateVersion != null) {
             Long nextVersion = currentVersion + 1;
-            DraftRouteProcessValidation routeProcessDraftValidation = validateRouteProcessDraftChanges(reqVO);
+            DraftRouteProcessValidation routeProcessDraftValidation =
+                    validateRouteProcessDraftChanges(reqVO, candidateVersion);
             routeCandidateConfigService.saveConfigSnapshot(candidateVersion.getId(), "flowGraph",
                     buildCandidateFlowGraphSnapshot(reqVO, nextVersion, routeProcessDraftValidation.routeProcesses()));
             routeCandidateConfigService.saveConfigSnapshot(candidateVersion.getId(), SCHEDULE_CONFIGS_KEY,
@@ -456,6 +459,32 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
     private MesProRouteVersionDO resolveDraftCandidateVersion(Long routeVersionId, Long routeId) {
         return resolveCandidateVersion(routeVersionId, routeId,
                 Set.of(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT));
+    }
+
+    private Long resolveCurrentGraphVersion(Long routeId, MesProRouteVersionDO candidateVersion) {
+        JSONObject flowGraph = resolveOptionalCandidateFlowGraphSnapshot(candidateVersion);
+        if (flowGraph == null) {
+            return currentGraphVersion(routeId);
+        }
+        Long graphVersion = flowGraph.getLong("graphVersion");
+        if (graphVersion == null) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidateVersion.getId());
+        }
+        return graphVersion;
+    }
+
+    private JSONObject resolveOptionalCandidateFlowGraphSnapshot(MesProRouteVersionDO candidateVersion) {
+        if (candidateVersion == null || StrUtil.isBlank(candidateVersion.getRouteSnapshotJson())) {
+            return null;
+        }
+        JSONObject routeSnapshot;
+        try {
+            routeSnapshot = JSON.parseObject(candidateVersion.getRouteSnapshotJson());
+        } catch (RuntimeException ex) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, candidateVersion.getId());
+        }
+        JSONObject configSnapshots = routeSnapshot == null ? null : routeSnapshot.getJSONObject(SNAPSHOT_CONFIGS_KEY);
+        return configSnapshots == null ? null : configSnapshots.getJSONObject(FLOW_GRAPH_KEY);
     }
 
     private MesProRouteVersionDO resolveCandidateVersion(Long routeVersionId, Long routeId,
@@ -711,12 +740,16 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
     }
 
     private DraftRouteProcessValidation validateRouteProcessDraftChanges(MesProRouteProcessFlowSaveReqVO reqVO) {
-        MesProRouteVersionDO candidateVersion = resolveDraftCandidateVersion(reqVO.getRouteVersionId(), reqVO.getRouteId());
-        if (candidateVersion != null) {
-            return validateRouteProcessDraftChanges(reqVO, parseCandidateRouteProcesses(candidateVersion,
-                    resolveCandidateFlowGraphSnapshot(candidateVersion)));
-        }
-        return validateRouteProcessDraftChanges(reqVO, routeProcessMapper.selectListByRouteId(reqVO.getRouteId()));
+        return validateRouteProcessDraftChanges(reqVO, (MesProRouteVersionDO) null);
+    }
+
+    private DraftRouteProcessValidation validateRouteProcessDraftChanges(MesProRouteProcessFlowSaveReqVO reqVO,
+                                                                         MesProRouteVersionDO candidateVersion) {
+        JSONObject flowGraph = resolveOptionalCandidateFlowGraphSnapshot(candidateVersion);
+        List<MesProRouteProcessDO> currentRouteProcesses = flowGraph == null
+                ? routeProcessMapper.selectListByRouteId(reqVO.getRouteId())
+                : parseCandidateRouteProcesses(candidateVersion, flowGraph);
+        return validateRouteProcessDraftChanges(reqVO, currentRouteProcesses);
     }
 
     private DraftRouteProcessValidation validateRouteProcessDraftChanges(
@@ -728,7 +761,8 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
                         (left, right) -> left, LinkedHashMap::new));
         Set<Long> deleteIds = new LinkedHashSet<>(safeList(reqVO.getRouteProcessDeletes()));
         for (Long routeProcessId : deleteIds) {
-            if (!currentRouteProcessMap.containsKey(routeProcessId)) {
+            MesProRouteProcessDO routeProcess = currentRouteProcessMap.get(routeProcessId);
+            if (routeProcess == null || !Objects.equals(routeProcess.getRouteId(), reqVO.getRouteId())) {
                 messages.add(message("ERROR", "DRAFT_DELETE_NOT_FOUND", "删除草稿包含非当前路线工序", List.of(routeProcessId)));
             }
         }

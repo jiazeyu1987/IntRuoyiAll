@@ -385,6 +385,22 @@ THEN 1 ELSE 0 END;
         ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260626_dcc_access_rule_manual_binding.sql'
     },
     [PSCustomObject]@{
+        Name = 'Business approval policy form slots schema'
+        ProbeSql = @'
+SELECT CASE WHEN (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'bpm_business_approval_policy'
+    AND COLUMN_NAME IN (
+      'form_policy_type',
+      'form_slots_json'
+    )
+) = 2 THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260721_form_action_policy_approval_mode.sql'
+    },
+    [PSCustomObject]@{
         Name = 'MES route version approval BPM user assignment seed'
         ProbeSql = @'
 SELECT CASE WHEN EXISTS (

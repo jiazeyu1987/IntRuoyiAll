@@ -923,6 +923,18 @@
                                 @change="(value) => handleRecordBindingProcessIndependentChange(binding, Boolean(value))"
                               />
                             </div>
+                            <div class="route-flow-graph-designer__record-binding-scope">
+                              <span>记录本</span>
+                              <el-switch
+                                :model-value="binding.recordbookEnabled !== false"
+                                data-route-process-setting-field="recordbook-enabled"
+                                :disabled="recordBindingEditorDisabled"
+                                inline-prompt
+                                active-text="开"
+                                inactive-text="关"
+                                @change="(value) => handleRecordBindingRecordbookEnabledChange(binding, Boolean(value))"
+                              />
+                            </div>
                             <el-select
                               :model-value="binding.candidateSourceType || ''"
                               clearable
@@ -2311,6 +2323,7 @@ const createEmptyRecordBinding = (): RouteFlowRecordBinding => ({
   instanceScope: 'BATCH_SHARED',
   sharedFormKey: null,
   fillableScopeJson: null,
+  recordbookEnabled: true,
   requiredPolicy: 'REQUIRED',
   candidateSourceType: null,
   candidateSourceIds: [],
@@ -2343,6 +2356,7 @@ const normalizeFormBinding = (
       instanceScope === 'BATCH_SHARED'
         ? report.fillableScopeJson || SHARED_FORM_FILLABLE_SCOPE_JSON
         : null,
+    recordbookEnabled: report.recordbookEnabled !== false,
     requiredPolicy: 'REQUIRED',
     candidateSourceType: normalizeRecordBindingCandidateSourceType(report.candidateSourceType),
     candidateSourceIds: normalizeRecordBindingCandidateIds(report.candidateSourceIds),
@@ -3888,6 +3902,12 @@ const resequenceRecordBindings = (bindings: RouteFlowRecordBinding[]) =>
     reportSort: index + 1
   }))
 
+const resequenceLegacyBatchRecords = (records: RouteFlowLegacyBatchRecord[]) =>
+  cloneLegacyBatchRecords(records).map((record, index) => ({
+    ...record,
+    reportSort: index + 1
+  }))
+
 const buildSelectedProcessAttributesDraftSnapshot = (draft: SelectedProcessAttributesDraft) => ({
   routeProcessId: draft.routeProcessId,
   routeVersionId: draft.routeVersionId ?? null,
@@ -3901,6 +3921,14 @@ const buildSelectedProcessAttributesDraftSnapshot = (draft: SelectedProcessAttri
   nightShiftEnabled: draft.nightShiftEnabled ?? false,
   calendarRuleId: draft.calendarRuleId ?? null,
   remark: draft.remark || null,
+  legacyBatchRecords: resequenceLegacyBatchRecords(draft.legacyBatchRecords)
+    .filter(isLegacyBatchRecordConfigured)
+    .map((report) => ({
+      ...report,
+      formSlotType: normalizeRecordBindingSlotType(report.formSlotType, report.batchRecordReportId),
+      reportSort: report.reportSort || null,
+      remark: report.remark || null
+    })),
   recordBindings: resequenceRecordBindings(draft.recordBindings)
     .map((binding) => {
       const instanceScope = normalizeRecordBindingInstanceScope(binding.instanceScope)
@@ -3913,6 +3941,7 @@ const buildSelectedProcessAttributesDraftSnapshot = (draft: SelectedProcessAttri
         sharedFormKey: instanceScope === 'BATCH_SHARED' ? buildSharedRecordBindingKey(binding) : null,
         fillableScopeJson:
           instanceScope === 'BATCH_SHARED' ? SHARED_FORM_FILLABLE_SCOPE_JSON : null,
+        recordbookEnabled: binding.recordbookEnabled !== false,
         requiredPolicy: 'REQUIRED',
         permissionScopeId: binding.permissionScopeId ?? binding.permissionRule?.permissionScopeId ?? null,
         candidateSourceType: binding.candidateSourceType || null,
@@ -3928,13 +3957,21 @@ const serializeSelectedProcessAttributesDraft = (draft: SelectedProcessAttribute
   JSON.stringify(buildSelectedProcessAttributesDraftSnapshot(draft))
 
 const serializeSelectedProcessScheduleDraft = (draft: SelectedProcessAttributesDraft) => {
-  const { recordBindings: _recordBindings, ...scheduleSnapshot } =
-    buildSelectedProcessAttributesDraftSnapshot(draft)
+  const {
+    recordBindings: _recordBindings,
+    legacyBatchRecords: _legacyBatchRecords,
+    ...scheduleSnapshot
+  } = buildSelectedProcessAttributesDraftSnapshot(draft)
   return JSON.stringify(scheduleSnapshot)
 }
 
-const serializeSelectedProcessRecordBindingDraft = (draft: SelectedProcessAttributesDraft) =>
-  JSON.stringify(buildSelectedProcessAttributesDraftSnapshot(draft).recordBindings)
+const serializeSelectedProcessRecordBindingDraft = (draft: SelectedProcessAttributesDraft) => {
+  const snapshot = buildSelectedProcessAttributesDraftSnapshot(draft)
+  return JSON.stringify({
+    legacyBatchRecords: snapshot.legacyBatchRecords,
+    recordBindings: snapshot.recordBindings
+  })
+}
 
 const parseSelectedProcessAttributeBaseline = (baseline?: string) => {
   if (!baseline) return undefined
@@ -3950,17 +3987,27 @@ const hasSelectedProcessScheduleDraftChanged = (draft: SelectedProcessAttributes
     selectedProcessAttributeBaselines[draft.routeProcessId]
   )
   if (!baselineSnapshot) return true
-  const { recordBindings: _recordBindings, ...baselineScheduleSnapshot } = baselineSnapshot
+  const {
+    recordBindings: _recordBindings,
+    legacyBatchRecords: _legacyBatchRecords,
+    ...baselineScheduleSnapshot
+  } = baselineSnapshot
   return JSON.stringify(baselineScheduleSnapshot) !== serializeSelectedProcessScheduleDraft(draft)
 }
+
+const hasSelectedScheduleCapacityDraftChanges = hasSelectedProcessScheduleDraftChanged
 
 const hasSelectedProcessRecordBindingDraftChanged = (draft: SelectedProcessAttributesDraft) => {
   const baselineSnapshot = parseSelectedProcessAttributeBaseline(
     selectedProcessAttributeBaselines[draft.routeProcessId]
   )
   if (!baselineSnapshot) return true
+  const baselineRecordBindingSnapshot = {
+    legacyBatchRecords: baselineSnapshot.legacyBatchRecords || [],
+    recordBindings: baselineSnapshot.recordBindings || []
+  }
   return (
-    JSON.stringify(baselineSnapshot.recordBindings || []) !==
+    JSON.stringify(baselineRecordBindingSnapshot) !==
     serializeSelectedProcessRecordBindingDraft(draft)
   )
 }
@@ -4153,12 +4200,14 @@ const buildFormBindingSaveRows = (
       const instanceScope = normalizeRecordBindingInstanceScope(binding.instanceScope)
       return {
         formBindingKey: binding.formBindingKey || createLocalFormBindingKey(),
+        formSlotType: normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey),
         formTemplateId: Number(binding.formTemplateId),
         formTemplateName: binding.formTemplateName || null,
         instanceScope: instanceScope,
         sharedFormKey: instanceScope === 'BATCH_SHARED' ? buildSharedRecordBindingKey(binding) : null,
         fillableScopeJson:
           instanceScope === 'BATCH_SHARED' ? SHARED_FORM_FILLABLE_SCOPE_JSON : null,
+        recordbookEnabled: binding.recordbookEnabled !== false,
         requiredPolicy: 'REQUIRED',
         permissionScopeId: binding.permissionScopeId ?? binding.permissionRule?.permissionScopeId ?? null,
         candidateSourceType: binding.candidateSourceType,
@@ -4171,6 +4220,19 @@ const buildFormBindingSaveRows = (
   validateDuplicateFormTemplate(rows)
   return rows
 }
+
+const buildLegacyBatchRecordSaveRows = (
+  records: RouteFlowLegacyBatchRecord[]
+): ProRouteFlowBatchRecordVO[] =>
+  resequenceLegacyBatchRecords(records)
+    .filter(isLegacyBatchRecordConfigured)
+    .map((report, index) => ({
+      ...report,
+      batchRecordReportId: report.batchRecordReportId,
+      formSlotType: normalizeRecordBindingSlotType(report.formSlotType, report.batchRecordReportId),
+      reportSort: index + 1,
+      remark: report.remark || null
+    }))
 
 const buildSelectedProcessConfigSaveRow = (
   draft: SelectedProcessAttributesDraft
@@ -4186,6 +4248,22 @@ const buildSelectedProcessConfigSaveRow = (
     routeProcessId: draft.routeProcessId,
     enabled: true,
     productionQuantityFactor,
+    batchRecordReports: buildLegacyBatchRecordSaveRows(draft.legacyBatchRecords),
+    formBindings: buildFormBindingSaveRows(draft.recordBindings),
+    remark: draft.remark || null
+  }
+}
+
+const buildSelectedProcessRecordBindingConfigSaveRow = (
+  draft: SelectedProcessAttributesDraft
+): ProRouteFlowProcessConfigSaveVO => {
+  if (!draft.routeProcessId) {
+    throw new Error('保存工序属性失败：缺少目标路线工序。')
+  }
+  return {
+    routeProcessId: draft.routeProcessId,
+    enabled: true,
+    batchRecordReports: buildLegacyBatchRecordSaveRows(draft.legacyBatchRecords),
     formBindings: buildFormBindingSaveRows(draft.recordBindings),
     remark: draft.remark || null
   }
@@ -4710,7 +4788,7 @@ const getChangedSelectedProcessAttributeDrafts = () =>
   })
 
 const getChangedSelectedProcessScheduleDrafts = () =>
-  Object.values(selectedProcessAttributeDrafts).filter(hasSelectedProcessScheduleDraftChanged)
+  getChangedSelectedProcessAttributeDrafts().filter(hasSelectedScheduleCapacityDraftChanges)
 
 const getChangedSelectedProcessRecordBindingDrafts = () =>
   Object.values(selectedProcessAttributeDrafts).filter(hasSelectedProcessRecordBindingDraftChanged)
@@ -4737,13 +4815,16 @@ const saveSelectedProcessAttributeDrafts = async () => {
       }
     }
     if (recordBindingChangedDrafts.length > 0) {
-      const batchProcessConfigs = recordBindingChangedDrafts.map(buildSelectedProcessConfigSaveRow)
+      const batchProcessConfigs = recordBindingChangedDrafts.map(
+        buildSelectedProcessRecordBindingConfigSaveRow
+      )
       await ProRouteFlowConfigApi.saveBatchRecordConfig({
         routeId: props.routeId,
         routeVersionId: editingRouteVersionId,
         processConfigs: batchProcessConfigs.map((processConfig) => ({
           routeProcessId: processConfig.routeProcessId,
           enabled: true,
+          batchRecordReports: processConfig.batchRecordReports,
           formBindings: processConfig.formBindings,
           remark: processConfig.remark
         }))
@@ -5589,7 +5670,7 @@ const validateBeforeSubmit = async () => {
       }
     })
     getChangedSelectedProcessRecordBindingDrafts().forEach((draft) => {
-      buildSelectedProcessConfigSaveRow(draft)
+      buildSelectedProcessRecordBindingConfigSaveRow(draft)
     })
     const result = await ProRouteApi.validateRouteProcessFlowGraph(buildPayload())
     applyValidation(result)

@@ -50,7 +50,7 @@
         </template>
       </el-table-column>
       <el-table-column label="提交人" prop="submitterName" width="120" />
-      <el-table-column label="提交时间" prop="submittedTime" width="168" />
+      <el-table-column label="提交时间" prop="submittedTime" width="168" :formatter="dateTimeValueFormatter" />
       <el-table-column label="审核意见" prop="auditRemark" min-width="220" show-overflow-tooltip />
       <el-table-column label="操作" fixed="right" width="220">
         <template #default="{ row }">
@@ -129,6 +129,7 @@ import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ContentWrap } from '@/components/ContentWrap'
 import { Dialog } from '@/components/Dialog'
+import { dateTimeValueFormatter } from '@/utils/formatTime'
 import {
   SrmSupplierPortalApi,
   srmSupplierPortalStatusOptions,

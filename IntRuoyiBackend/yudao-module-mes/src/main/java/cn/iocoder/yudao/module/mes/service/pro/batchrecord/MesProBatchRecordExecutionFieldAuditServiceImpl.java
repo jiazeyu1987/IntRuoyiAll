@@ -95,7 +95,6 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRec
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_REASON_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_SIGNATURE_CELL_VALUE_FORBIDDEN;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_SIGNATURE_BIND_FAILED;
-import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_SIGNATURE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_VALUE_CONSTRAINT_VIOLATION;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_VALUE_TYPE_UNSUPPORTED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_ATTACHMENT_FILE_METADATA_INVALID;
@@ -218,13 +217,7 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         String signatureChallengeHash = MesProBatchRecordExecutionFieldAuditHasher.hashSignatureChallenge(
                 command, SecurityFrameworkUtils.getLoginUserId());
         MesProBatchRecordExecutionFieldAuditSignatureResult signature =
-                signatureService.recordFieldChangeSignature(new MesProBatchRecordExecutionFieldAuditSignatureCommand()
-                        .setExecutionId(execution.getId())
-                        .setPassword(command.getSignature().getPassword())
-                        .setReasonCategory(command.getReasonCategory())
-                        .setReasonText(command.getReasonText())
-                        .setSignatureChallengeHash(signatureChallengeHash)
-                        .setSignatureTimeCommand(command.getSignature().getSignatureTimeCommand()));
+                recordFieldAuditSaveEvidence(execution.getId(), command, signatureChallengeHash);
 
         String afterCellValuesJson = buildAfterCellValuesJson(currentCells, resolvedChanges);
         String afterCellValuesHash = MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(afterCellValuesJson);
@@ -1150,9 +1143,25 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         if (!REASON_CATEGORIES.contains(command.getReasonCategory())) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_REASON_CATEGORY_INVALID);
         }
-        if (command.getSignature() == null || StrUtil.isBlank(command.getSignature().getPassword())) {
-            throw exception(PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_SIGNATURE_REQUIRED);
+    }
+
+    private MesProBatchRecordExecutionFieldAuditSignatureResult recordFieldAuditSaveEvidence(
+            Long executionId,
+            MesProBatchRecordExecutionFieldAuditSaveChangesCommand command,
+            String signatureChallengeHash) {
+        MesProBatchRecordExecutionFieldAuditSaveChangesCommand.Signature signature = command.getSignature();
+        MesProBatchRecordExecutionFieldAuditSignatureCommand signatureCommand =
+                new MesProBatchRecordExecutionFieldAuditSignatureCommand()
+                        .setExecutionId(executionId)
+                        .setReasonCategory(command.getReasonCategory())
+                        .setReasonText(command.getReasonText())
+                        .setSignatureChallengeHash(signatureChallengeHash);
+        if (signature != null && StrUtil.isNotBlank(signature.getPassword())) {
+            return signatureService.recordFieldChangeSignature(signatureCommand
+                    .setPassword(signature.getPassword())
+                    .setSignatureTimeCommand(signature.getSignatureTimeCommand()));
         }
+        return signatureService.recordFieldChangeDraftSave(signatureCommand);
     }
 
     private void validateBatchSharedFillScope(MesProBatchRecordExecutionFieldAuditSaveChangesCommand command,

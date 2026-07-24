@@ -154,8 +154,6 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
             throw exception(PRO_ROUTE_VERSION_APPROVAL_PROCESS_NOT_STARTED,
                     ROUTE_VERSION_APPROVAL_PROCESS_DEFINITION_KEY);
         }
-        routeVersionMapper.updateApprovalFieldsToDraft(candidate.getId());
-        platformAdapter.recordWithdrawn(candidate, operatorUserId);
         bpmProcessInstanceApi.cancelProcessInstance(operatorUserId, candidate.getApprovalProcessInstanceId(),
                 "route version approval withdraw: routeVersionId=" + candidate.getId());
         candidate.setLifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT);

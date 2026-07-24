@@ -2091,7 +2091,7 @@ CREATE TABLE IF NOT EXISTS "mes_pro_edhr_batch_dossier_item" (
       "scope_type" varchar(32) DEFAULT NULL,
       "scope_id" bigint DEFAULT NULL,
       "task_type" varchar(32) NOT NULL,
-      "assignee_user_id" bigint NOT NULL,
+      "assignee_user_id" bigint DEFAULT NULL,
       "review_user_id" bigint DEFAULT NULL,
       "candidate_source_type" varchar(32) DEFAULT NULL,
       "candidate_source_id" bigint DEFAULT NULL,

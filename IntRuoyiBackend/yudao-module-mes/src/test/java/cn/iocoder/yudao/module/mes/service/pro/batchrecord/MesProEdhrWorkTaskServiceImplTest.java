@@ -261,6 +261,59 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void createInitialFillTask_usesRouteVersionedFormBindingRuleForDynamicRouteFormSlot() {
+        MesProEdhrBatchExecutionDO batch = batchForInitialFill(3023L, 4123L)
+                .setRouteVersionId(8123L);
+        MesProEdhrBatchExecutionTaskDO routeTask = batchTask(3023L, 9123L, 5123L,
+                null, "ROUTE_FORM", "动态过程单", 10)
+                .setFormBindingKey("FB-SLOT-FILLER")
+                .setFormTemplateVersionId(7123L);
+        insertBatch(batch);
+        batchTaskMapper.insert(routeTask);
+        insertProcessFormFillRule(5123L, "FB-SLOT-FILLER", 8123L, "USERS", "388,389", 180);
+        when(adminUserApi.getUserList(List.of(388L, 389L))).thenReturn(List.of(
+                adminUser(388L, CommonStatusEnum.ENABLE.getStatus()),
+                adminUser(389L, CommonStatusEnum.ENABLE.getStatus())));
+
+        workTaskService.createInitialFillTask(batch);
+
+        MesProEdhrWorkTaskDO fillTask = workTaskMapper.selectList().get(0);
+        assertEquals(routeTask.getId(), fillTask.getBatchTaskId());
+        assertEquals(388L, fillTask.getAssigneeUserId());
+        assertEquals("USERS", fillTask.getCandidateSourceType());
+        assertEquals("388,389", fillTask.getCandidateUserSnapshot());
+        assertEquals("EDHR_PROCESS_FORM_FILLER", fillTask.getResponsibilitySourceType());
+        assertEquals("ROUTE|5123|FB-SLOT-FILLER|8123", fillTask.getResponsibilitySourceKey());
+        assertEquals("8123", fillTask.getResponsibilitySourceVersion());
+    }
+
+    @Test
+    void createInitialFillTask_usesRouteVersionedRuleWhenFormCenterBindingStoredAsReportId() {
+        MesProEdhrBatchExecutionDO batch = batchForInitialFill(3024L, 4124L)
+                .setRouteVersionId(8124L);
+        MesProEdhrBatchExecutionTaskDO routeTask = batchTask(3024L, 9124L, 5124L,
+                "FB-SLOT-FILLER-REPORT", "ROUTE_FORM", "动态过程单", 10)
+                .setFormBindingKey("FB-SLOT-FILLER-REPORT")
+                .setFormTemplateVersionId(7124L);
+        insertBatch(batch);
+        batchTaskMapper.insert(routeTask);
+        insertProcessFormFillRule(5124L, "FB-SLOT-FILLER-REPORT", 8124L, "USERS", "488,489", 180);
+        when(adminUserApi.getUserList(List.of(488L, 489L))).thenReturn(List.of(
+                adminUser(488L, CommonStatusEnum.ENABLE.getStatus()),
+                adminUser(489L, CommonStatusEnum.ENABLE.getStatus())));
+
+        workTaskService.createInitialFillTask(batch);
+
+        MesProEdhrWorkTaskDO fillTask = workTaskMapper.selectList().get(0);
+        assertEquals(routeTask.getId(), fillTask.getBatchTaskId());
+        assertEquals(488L, fillTask.getAssigneeUserId());
+        assertEquals("USERS", fillTask.getCandidateSourceType());
+        assertEquals("EDHR_PROCESS_FORM_FILLER", fillTask.getResponsibilitySourceType());
+        assertEquals("ROUTE|5124|FB-SLOT-FILLER-REPORT|8124", fillTask.getResponsibilitySourceKey());
+        assertEquals("8124", fillTask.getResponsibilitySourceVersion());
+    }
+
+    @Test
     void createInitialFillTask_usesVersionIndependentProcessFormPermissionRuleForVersionedBatchTask() {
         MesProEdhrBatchExecutionDO batch = batchForInitialFill(3022L, 4122L);
         MesProEdhrBatchExecutionTaskDO routeTask = batchTask(3022L, 9122L, 5122L,
@@ -1332,7 +1385,9 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         when(adminUserApi.getUser(188L)).thenReturn(adminUser(188L, CommonStatusEnum.ENABLE.getStatus()));
         when(adminUserApi.getUser(189L)).thenReturn(adminUser(189L, CommonStatusEnum.ENABLE.getStatus()));
 
-        MesProEdhrWorkTaskAssignmentRuleRespVO created = workTaskService.saveArchiveRule(
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            MesProEdhrWorkTaskAssignmentRuleRespVO created = workTaskService.saveArchiveRule(
                 archiveRuleReq(4103L, 188L, 240, true, "最终归档责任人"));
 
         assertNotNull(created.getId());
@@ -1358,6 +1413,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertEquals("暂停最终归档", updated.getRemark());
         assertEquals(1, assignmentRuleMapper.selectListByScopeAndType(
                 "ROUTE", 4103L, MesProEdhrWorkTaskService.TASK_TYPE_ARCHIVE).size());
+        }
     }
 
     @Test
@@ -1365,8 +1421,10 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         insertRoute(4104L);
         when(adminUserApi.getUser(188L)).thenReturn(adminUser(188L, CommonStatusEnum.ENABLE.getStatus()));
 
-        MesProEdhrWorkTaskAssignmentRuleRespVO created = workTaskService.saveReleaseApprovalRule(
-                releaseApprovalRuleReq(4104L, "USER", 188L, true, "最终放行审批责任人"));
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            MesProEdhrWorkTaskAssignmentRuleRespVO created = workTaskService.saveReleaseApprovalRule(
+                    releaseApprovalRuleReq(4104L, "USER", 188L, true, "最终放行审批责任人"));
 
         assertNotNull(created.getId());
         assertEquals("ROUTE", created.getScopeType());
@@ -1377,6 +1435,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertEquals(188L, created.getCandidateSourceId());
         assertNull(created.getDueMinutes());
         assertEquals(true, created.getEnabled());
+        }
     }
 
     @Test
@@ -1387,8 +1446,10 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
                 adminUser(188L, CommonStatusEnum.ENABLE.getStatus()),
                 adminUser(189L, CommonStatusEnum.ENABLE.getStatus())));
 
-        MesProEdhrWorkTaskAssignmentRuleRespVO created = workTaskService.saveReleaseApprovalRule(
-                releaseApprovalRuleReq(4105L, "ROLE_GROUP", 7001L, true, "最终放行审批角色"));
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            MesProEdhrWorkTaskAssignmentRuleRespVO created = workTaskService.saveReleaseApprovalRule(
+                    releaseApprovalRuleReq(4105L, "ROLE_GROUP", 7001L, true, "最终放行审批角色"));
 
         assertNotNull(created.getId());
         assertEquals("ROUTE", created.getScopeType());
@@ -1399,6 +1460,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertEquals(7001L, created.getCandidateSourceId());
         assertNull(created.getDueMinutes());
         verify(roleApi).validRoleList(Set.of(7001L));
+        }
     }
 
     @Test
@@ -1469,7 +1531,9 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         when(adminUserApi.getUser(188L)).thenReturn(adminUser(188L, CommonStatusEnum.ENABLE.getStatus()));
         when(adminUserApi.getUser(189L)).thenReturn(adminUser(189L, CommonStatusEnum.ENABLE.getStatus()));
 
-        MesProEdhrWorkTaskAssignmentRuleRespVO created = workTaskService.saveCloseRule(
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            MesProEdhrWorkTaskAssignmentRuleRespVO created = workTaskService.saveCloseRule(
                 closeRuleReq(4105L, 188L, 120, true, "批次关闭责任人"));
 
         assertNotNull(created.getId());
@@ -1495,6 +1559,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertEquals("暂停批次关闭", updated.getRemark());
         assertEquals(1, assignmentRuleMapper.selectListByScopeAndType(
                 "ROUTE", 4105L, MesProEdhrWorkTaskService.TASK_TYPE_CLOSE).size());
+        }
     }
 
     @Test

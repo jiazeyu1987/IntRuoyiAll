@@ -203,6 +203,8 @@ CREATE TABLE IF NOT EXISTS "bpm_business_approval_policy" (
     "policy_mode" varchar(32) NOT NULL,
     "process_definition_key" varchar(128),
     "effect_executor_code" varchar(128) NOT NULL,
+    "form_policy_type" varchar(32),
+    "form_slots_json" clob,
     "status" varchar(32) NOT NULL,
     "remark" varchar(500),
     "creator" varchar(64) DEFAULT '',

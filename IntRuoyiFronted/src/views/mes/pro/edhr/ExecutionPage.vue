@@ -17,8 +17,8 @@
             v-if="!isTrackingReadonlyMode && !isReadonly"
             v-hasPermi="['mes:pro-batch-record-execution:field-audit-update', 'mes:pro-batch-record-execution:update', 'mes:pro-batch-record-execution:golden-finger']"
             :loading="fieldAuditSaveLoading"
-            :disabled="!canOpenFieldAuditSignatureDialog"
-            @click="openFieldAuditSignatureDialog"
+            :disabled="!canSaveFieldAuditChanges"
+            @click="handleSaveFieldAuditChanges"
           >
             保存变更
           </el-button>
@@ -231,7 +231,7 @@
                       {{ row.rejectReason || row.comment || '--' }}
                     </template>
                   </el-table-column>
-                  <el-table-column label="处理时间" prop="occurredAt" width="180" />
+                  <el-table-column label="处理时间" prop="occurredAt" width="180" :formatter="edhrDateTimeFormatter" />
                 </el-table>
               </section>
             </div>
@@ -337,8 +337,8 @@
                     class="edhr-fill-workspace__primary-action"
                     type="primary"
                     :loading="fieldAuditSaveLoading"
-                    :disabled="!canOpenFieldAuditSignatureDialog"
-                    @click="openFieldAuditSignatureDialog"
+                    :disabled="!canSaveFieldAuditChanges"
+                    @click="handleSaveFieldAuditChanges"
                   >
                     保存草稿
                   </el-button>
@@ -1185,8 +1185,8 @@
                   v-hasPermi="['mes:pro-batch-record-execution:field-audit-update', 'mes:pro-batch-record-execution:update', 'mes:pro-batch-record-execution:golden-finger']"
                   type="primary"
                   :loading="fieldAuditSaveLoading"
-                  :disabled="!canOpenFieldAuditSignatureDialog"
-                  @click="openFieldAuditSignatureDialog"
+                  :disabled="!canSaveFieldAuditChanges"
+                  @click="handleSaveFieldAuditChanges"
                 >
                   保存变更
                 </el-button>
@@ -1369,180 +1369,41 @@
     </div>
 
     <el-dialog
-      class="edhr-fill-workspace__save-signature-dialog"
-      v-model="fieldAuditSignatureDialogVisible"
-      width="720px"
+      class="edhr-fill-workspace__submit-sign-dialog"
+      v-model="submitDialogVisible"
+      width="520px"
       :show-close="false"
       :close-on-click-modal="false"
       :close-on-press-escape="false"
       align-center
       destroy-on-close
     >
-      <el-alert
-        v-if="fieldAuditSaveError"
-        :title="fieldAuditSaveError"
-        type="error"
-        :closable="false"
-        show-icon
-        class="edhr-page-shell__archive-alert"
-      />
-      <div class="edhr-fill-workspace__save-signature-body">
-        <div class="edhr-fill-workspace__save-signature-title">保存草稿</div>
-        <div class="edhr-fill-workspace__save-signature-context">
-          <div>
-            <span>订单</span>
-            <strong>{{ resolveFillActionResultOrderText() }}</strong>
-          </div>
-          <div>
-            <span>工序</span>
-            <strong>{{ resolveFillActionResultProcessText() }}</strong>
-          </div>
-          <div>
-            <span>变更</span>
-            <strong>{{ pendingFieldChanges.length + pendingAttachmentChanges.length }} 项</strong>
-          </div>
+      <div class="edhr-fill-workspace__submit-sign-form">
+        <div class="edhr-fill-workspace__submit-sign-row">
+          <div class="edhr-fill-workspace__submit-sign-label">姓名</div>
+          <div class="edhr-fill-workspace__submit-sign-name">{{ submitSignatureUserName }}</div>
         </div>
-      </div>
-      <el-form label-position="top" class="edhr-fill-workspace__save-signature-form">
-        <el-form-item label="原因分类" required>
-          <el-select
-            v-model="fieldAuditReasonForm.reasonCategory"
-            clearable
-            placeholder="请选择原因分类"
-            class="!w-1/1"
-          >
-            <el-option
-              v-for="option in EDHR_FIELD_CHANGE_REASON_OPTIONS"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="原因说明" required>
-          <el-input
-            v-model="fieldAuditReasonForm.reasonText"
-            clearable
-            placeholder="请输入字段变更原因"
-          />
-        </el-form-item>
-        <el-form-item label="签名密码" required>
-          <el-input
-            v-model="fieldAuditSignatureForm.password"
-            type="password"
-            show-password
-            placeholder="请输入当前账号密码"
-            @keyup.enter="handleSaveFieldAuditChanges"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button class="edhr-fill-workspace__save-signature-cancel" @click="fieldAuditSignatureDialogVisible = false">取消</el-button>
-        <el-button
-          class="edhr-fill-workspace__save-signature-confirm"
-          type="primary"
-          :loading="fieldAuditSaveLoading"
-          @click="handleSaveFieldAuditChanges"
-        >
-          确认保存
-        </el-button>
-      </template>
-    </el-dialog>
-
-    <Dialog title="提交 eDHR 执行" v-model="submitDialogVisible" width="520px">
-      <el-form label-width="90px">
-        <el-alert
-          title="普通工序提交只校验填写完整性和电子签名；审核、批准在放行阶段处理。"
-          type="info"
-          :closable="false"
-          show-icon
-          class="edhr-page-shell__alert"
-        />
-        <el-alert
-          v-if="hasGoldenFingerPermission"
-          title="金手指测试权限：将绕过填写人、必填项、附件、普通检查以及放行、关闭、作废或审批锁定；提交会写入审计记录。"
-          type="warning"
-          :closable="false"
-          show-icon
-          class="edhr-page-shell__alert"
-        />
-        <template v-if="hasSubmitReviewAssigneeOptions">
-          <el-divider content-position="left">审核/批准人</el-divider>
-          <el-alert
-            v-if="execution?.reviewAssigneeOptionError"
-            :title="execution.reviewAssigneeOptionError"
-            type="error"
-            :closable="false"
-            show-icon
-            class="edhr-page-shell__alert"
-          />
-          <el-form-item
-            v-for="option in submitReviewAssigneeOptions"
-            :key="option.signatureCellKey"
-            :label="formatSubmitReviewAssigneeLabel(option)"
-            required
-          >
-            <el-select
-              v-model="submitReviewAssigneeSelections[option.signatureCellKey]"
-              class="edhr-page-shell__submit-select !w-1/1"
-              filterable
-              placeholder="请选择审核/批准人"
-            >
-              <el-option
-                v-for="candidate in option.candidates"
-                :key="candidate.userId"
-                :label="formatSubmitReviewCandidateLabel(candidate)"
-                :value="candidate.userId"
-              />
-            </el-select>
-          </el-form-item>
-        </template>
-        <el-form-item label="提交密码" required>
+        <div class="edhr-fill-workspace__submit-sign-row">
+          <div class="edhr-fill-workspace__submit-sign-label is-required">电子签名</div>
           <el-input
             v-model="submitForm.password"
             type="password"
             show-password
-            placeholder="请输入当前账号密码"
             @keyup.enter="handleSubmitExecution"
           />
-        </el-form-item>
-        <el-form-item label="提交备注">
-          <el-input
-            v-model="submitForm.comment"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入提交备注（可选）"
-          />
-        </el-form-item>
-        <el-divider content-position="left">签名显示时间</el-divider>
-        <el-form-item label="签名时间">
-          <el-date-picker
-            v-model="submitSignatureTimeForm.selectedSignedAt"
-            type="datetime"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            placeholder="可选择人工签名时间"
-            class="!w-1/1"
-          />
-        </el-form-item>
-        <el-form-item label="签名时区">
-          <el-input v-model="submitSignatureTimeForm.selectedTimeZone" placeholder="例如 Asia/Shanghai" />
-        </el-form-item>
-        <el-form-item label="时间原因">
-          <el-input
-            v-model="submitSignatureTimeForm.selectedTimeReason"
-            type="textarea"
-            :rows="2"
-            placeholder="选择人工签名时间时必须说明原因"
-          />
-        </el-form-item>
-      </el-form>
+        </div>
+      </div>
       <template #footer>
-        <el-button @click="submitDialogVisible = false">取 消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmitExecution">
-          确 认 提 交
+        <el-button
+          class="edhr-fill-workspace__submit-sign-confirm"
+          type="primary"
+          :loading="submitLoading"
+          @click="handleSubmitExecution"
+        >
+          确认
         </el-button>
       </template>
-    </Dialog>
+    </el-dialog>
 
     <el-dialog
       class="edhr-fill-workspace__result-dialog"
@@ -1766,9 +1627,13 @@ import {
 } from '@/api/mes/pro/edhr/workTask'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { useUserStore } from '@/store/modules/user'
-import { formatDate } from '@/utils/formatTime'
 import { navigateToEdhrWorkTask } from '@/utils/edhrWorkTaskNavigation'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
+import {
+  edhrDateTimeFormatter,
+  formatEdhrDateTime,
+  toEdhrDateTime
+} from '@/views/mes/pro/edhr/shared/dateTime'
 import { UploadFile, UploadImg, UploadImgs } from '@/components/UploadFile'
 import type { UploadRequestOptions } from 'element-plus/es/components/upload/src/upload'
 import type {
@@ -2022,7 +1887,6 @@ const draftRemark = ref('')
 const submitDialogVisible = ref(false)
 const fillActionResultDialogVisible = ref(false)
 const formReviewSignDialogVisible = ref(false)
-const fieldAuditSignatureDialogVisible = ref(false)
 const archiveDialogVisible = ref(false)
 const fillActionResultDialog = reactive<FillActionResultDialogState>({
   statusText: '',
@@ -2031,14 +1895,12 @@ const fillActionResultDialog = reactive<FillActionResultDialogState>({
   processText: '--',
   fillerText: '--'
 })
+const DEFAULT_FIELD_AUDIT_DRAFT_REASON_CATEGORY: EdhrFieldChangeReasonCategory = 'OPERATOR_ENTRY'
+const DEFAULT_FIELD_AUDIT_DRAFT_REASON_TEXT = '保存草稿'
 const fieldAuditReasonForm = reactive({
   reasonCategory: undefined as EdhrFieldChangeReasonCategory | undefined,
   reasonText: ''
 })
-const fieldAuditSignatureForm = reactive({
-  password: ''
-})
-const fieldAuditSignatureTimeForm = reactive<EdhrSignatureTimeForm>(createSignatureTimeForm())
 const fieldAuditSaveError = ref('')
 const fieldAuditLastResult = ref<EdhrFieldChangeSaveRespVO>()
 const fieldAuditLastSuccessTitle = computed(() => {
@@ -2049,11 +1911,9 @@ const fieldAuditLastSuccessTitle = computed(() => {
 })
 const fieldAuditIdempotencyKey = ref('')
 const submitForm = reactive({
-  password: '',
-  comment: ''
+  password: ''
 })
 const submitReviewAssigneeSelections = reactive<Record<string, number | undefined>>({})
-const submitSignatureTimeForm = reactive<EdhrSignatureTimeForm>(createSignatureTimeForm())
 const formReviewSignForm = reactive({
   password: '',
   comment: ''
@@ -2204,6 +2064,7 @@ const hasSlotContextBlockers = computed(() => slotContextBlockers.value.length >
 
 const isRecordbookUnrestrictedMode = computed(
   () =>
+    execution.value?.recordbookEnabled === true &&
     route.query.fillCarrier === 'RECORDBOOK' &&
     route.query.fillMode === RECORDBOOK_UNRESTRICTED_FILL_MODE
 )
@@ -3024,6 +2885,8 @@ const resolveFillActionResultFillerText = () => {
   const user = userStore.getUser || userStore.user
   return normalizeFillActionResultText(routeFillerName || user?.nickname || (user?.id ? String(user.id) : ''))
 }
+
+const submitSignatureUserName = computed(resolveFillActionResultFillerText)
 
 const showFillActionResultDialog = (type: FillActionResultType) => {
   const result = FILL_ACTION_RESULT_MAP[type]
@@ -3868,14 +3731,7 @@ const formatTrackingReadonlyDate = (value?: string | number | Date) => {
   if (!value) {
     return '--'
   }
-  const parsedDate =
-    typeof value === 'number' || /^\d+$/.test(String(value))
-      ? new Date(Number(value))
-      : new Date(value)
-  if (Number.isNaN(parsedDate.getTime())) {
-    throw new Error(`追踪执行参数时间不可解析：${String(value)}`)
-  }
-  return formatDate(parsedDate, 'YYYY年M月D日')
+  return formatEdhrDateTime(value)
 }
 
 const hasPendingFieldChanges = computed(() => pendingFieldChanges.value.length > 0)
@@ -3883,26 +3739,16 @@ const hasPendingAttachmentChanges = computed(() => pendingAttachmentChanges.valu
 const hasPendingFieldAuditChanges = computed(
   () => hasPendingFieldChanges.value || hasPendingAttachmentChanges.value
 )
-const fieldAuditReasonComplete = computed(() => {
-  if (!fieldAuditReasonForm.reasonCategory || !fieldAuditReasonForm.reasonText.trim()) {
-    return false
-  }
-  return (
-    fieldAuditReasonForm.reasonCategory !== 'OTHER' ||
-    fieldAuditReasonForm.reasonText.trim().length >= 10
-  )
-})
+const resolveFieldAuditDraftReasonCategory = () =>
+  fieldAuditReasonForm.reasonCategory || DEFAULT_FIELD_AUDIT_DRAFT_REASON_CATEGORY
+const resolveFieldAuditDraftReasonText = () =>
+  fieldAuditReasonForm.reasonText.trim() || DEFAULT_FIELD_AUDIT_DRAFT_REASON_TEXT
 const fieldAuditBaseReady = computed(() => {
   return Boolean(
     execution.value?.cellValuesHash &&
       typeof execution.value.fieldAuditRevision === 'number' &&
       execution.value?.fieldAuditHeadHash
   )
-})
-const fieldAuditReasonGateError = computed(() => {
-  return fieldAuditReasonComplete.value
-    ? ''
-    : '原因不能为空；原因类别为 OTHER 时原因说明至少 10 个字符。'
 })
 const fieldAuditOpenGateError = computed(() => {
   if (!execution.value?.id) {
@@ -3941,8 +3787,8 @@ const fieldAuditOpenGateError = computed(() => {
   }
   return ''
 })
-const fieldAuditSaveGateError = computed(() => fieldAuditOpenGateError.value || fieldAuditReasonGateError.value)
-const canOpenFieldAuditSignatureDialog = computed(() => !fieldAuditOpenGateError.value)
+const fieldAuditSaveGateError = computed(() => fieldAuditOpenGateError.value)
+const canSaveFieldAuditChanges = computed(() => !fieldAuditSaveGateError.value)
 
 const normalizeSignatureActionType = (value?: string) => (value || '').trim().toUpperCase()
 
@@ -3952,18 +3798,11 @@ const resolveSignatureCellActionLabel = (field: NormalizedSnapshotField) => {
 }
 
 const toSignatureTime = (value?: string) => {
-  if (!value) return 0
-  const time = new Date(value).getTime()
-  return Number.isNaN(time) ? 0 : time
+  return toEdhrDateTime(value)?.getTime() ?? 0
 }
 
 const formatSignatureCellTime = (value?: string) => {
-  if (!value) return '--'
-  const parsedDate = new Date(value)
-  if (Number.isNaN(parsedDate.getTime())) {
-    return value
-  }
-  return formatDate(parsedDate, 'YYYY-MM-DD HH:mm')
+  return formatEdhrDateTime(value)
 }
 
 const findSignatureCellRecord = (field: NormalizedSnapshotField) => {
@@ -4029,7 +3868,7 @@ const handleSignatureCellAction = (field: NormalizedSnapshotField) => {
   }
   switch (normalizeSignatureActionType(field.signatureActionType)) {
     case 'FIELD_CHANGE':
-      openFieldAuditSignatureDialog()
+      handleSaveFieldAuditChanges()
       return
     case 'FORM_REVIEW':
       openFormReviewSignDialog()
@@ -4408,18 +4247,6 @@ const buildFieldAuditChangeRequest = (change: PendingFieldChange): EdhrFieldChan
   }
 }
 
-const openFieldAuditSignatureDialog = () => {
-  if (fieldAuditOpenGateError.value) {
-    message.error(fieldAuditOpenGateError.value)
-    return
-  }
-  fieldAuditSaveError.value = ''
-  fieldAuditSignatureForm.password = ''
-  resetSignatureTimeForm(fieldAuditSignatureTimeForm)
-  fieldAuditIdempotencyKey.value = createFieldAuditIdempotencyKey()
-  fieldAuditSignatureDialogVisible.value = true
-}
-
 const handleRevertPendingFieldChange = (change: PendingFieldChange) => {
   draftFieldValues.value = {
     ...draftFieldValues.value,
@@ -4437,10 +4264,6 @@ const handleSaveFieldAuditChanges = async () => {
     message.error('工作任务编号缺失，不能保存字段变更。')
     return
   }
-  if (!fieldAuditSignatureForm.password.trim()) {
-    fieldAuditSaveError.value = '签名密码不能为空。'
-    return
-  }
   if (!fieldAuditIdempotencyKey.value) {
     fieldAuditIdempotencyKey.value = createFieldAuditIdempotencyKey()
   }
@@ -4451,18 +4274,20 @@ const handleSaveFieldAuditChanges = async () => {
     const response = await saveEdhrFieldChanges({
       executionId: execution.value!.id,
       workTaskId: workTaskId.value,
+      ...(isRecordbookUnrestrictedMode.value
+        ? {
+            fillCarrier: 'RECORDBOOK',
+            fillMode: RECORDBOOK_UNRESTRICTED_FILL_MODE
+          }
+        : {}),
       idempotencyKey: fieldAuditIdempotencyKey.value,
       baseCellValuesHash: String(execution.value!.cellValuesHash),
       baseFieldAuditRevision: Number(execution.value!.fieldAuditRevision),
       baseFieldAuditHeadHash: String(execution.value!.fieldAuditHeadHash),
-      reasonCategory: fieldAuditReasonForm.reasonCategory!,
-      reasonText: fieldAuditReasonForm.reasonText.trim(),
+      reasonCategory: resolveFieldAuditDraftReasonCategory(),
+      reasonText: resolveFieldAuditDraftReasonText(),
       changes: pendingFieldChanges.value.map(buildFieldAuditChangeRequest),
-      attachmentChanges: pendingAttachmentChanges.value.map(buildAttachmentChangeRequest),
-      signature: {
-        password: fieldAuditSignatureForm.password.trim(),
-        signatureTime: buildSignatureTimePayload(fieldAuditSignatureTimeForm)
-      }
+      attachmentChanges: pendingAttachmentChanges.value.map(buildAttachmentChangeRequest)
     })
     if (response.hashVerification.status !== 'VALID') {
       throw new Error(
@@ -4470,9 +4295,6 @@ const handleSaveFieldAuditChanges = async () => {
       )
     }
     fieldAuditLastResult.value = response
-    fieldAuditSignatureDialogVisible.value = false
-    fieldAuditSignatureForm.password = ''
-    resetSignatureTimeForm(fieldAuditSignatureTimeForm)
     fieldAuditIdempotencyKey.value = ''
     showFillActionResultDialog('save-success')
     await loadExecution()
@@ -4527,9 +4349,7 @@ const hasMissingSubmitReviewAssigneeSelection = () =>
 
 const resetSubmitForm = () => {
   submitForm.password = ''
-  submitForm.comment = ''
   resetSubmitReviewAssigneeSelections()
-  resetSignatureTimeForm(submitSignatureTimeForm)
 }
 
 const openSubmitDialog = () => {
@@ -4587,8 +4407,6 @@ const handleSubmitExecution = async () => {
       id: execution.value.id,
       workTaskId: workTaskId.value,
       password: submitForm.password.trim(),
-      comment: submitForm.comment.trim() || undefined,
-      signatureTime: buildSignatureTimePayload(submitSignatureTimeForm),
       reviewAssigneeSelections: buildSubmitReviewAssigneeSelections()
     })
     submitDialogVisible.value = false
@@ -6482,6 +6300,76 @@ onBeforeUnmount(() => {
   margin-top: 12px;
 }
 
+:global(.edhr-fill-workspace__submit-sign-dialog .el-dialog) {
+  max-width: calc(100vw - 32px);
+  border-radius: 14px;
+}
+
+:global(.edhr-fill-workspace__submit-sign-dialog .el-dialog__header) {
+  display: none;
+}
+
+:global(.edhr-fill-workspace__submit-sign-dialog .el-dialog__body) {
+  padding: 34px 34px 22px;
+}
+
+:global(.edhr-fill-workspace__submit-sign-dialog .el-dialog__footer) {
+  padding: 0 34px 32px;
+}
+
+.edhr-fill-workspace__submit-sign-form {
+  display: grid;
+  gap: 22px;
+}
+
+.edhr-fill-workspace__submit-sign-row {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 26px;
+  align-items: center;
+}
+
+.edhr-fill-workspace__submit-sign-label {
+  position: relative;
+  color: #172033;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 48px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.edhr-fill-workspace__submit-sign-label.is-required::before {
+  content: '*';
+  position: absolute;
+  left: -14px;
+  color: #f56c6c;
+  font-size: 18px;
+  line-height: 48px;
+}
+
+.edhr-fill-workspace__submit-sign-form :deep(.el-input__wrapper) {
+  min-height: 48px;
+  font-size: 20px;
+}
+
+.edhr-fill-workspace__submit-sign-name {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  color: #172033;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.edhr-fill-workspace__submit-sign-confirm {
+  width: 100%;
+  height: 56px;
+  border-radius: 10px;
+  font-size: 20px;
+  font-weight: 900;
+}
+
 :global(.edhr-fill-workspace__result-dialog .el-dialog) {
   max-width: calc(100vw - 32px);
   border-radius: 14px;
@@ -6559,99 +6447,6 @@ onBeforeUnmount(() => {
 }
 
 .edhr-fill-workspace__result-confirm {
-  width: 100%;
-  height: 64px;
-  border-radius: 10px;
-  font-size: 24px;
-  font-weight: 900;
-}
-
-:global(.edhr-fill-workspace__save-signature-dialog .el-dialog) {
-  max-width: calc(100vw - 32px);
-  border-radius: 14px;
-}
-
-:global(.edhr-fill-workspace__save-signature-dialog .el-dialog__header) {
-  display: none;
-}
-
-:global(.edhr-fill-workspace__save-signature-dialog .el-dialog__body) {
-  padding: 36px 36px 24px;
-}
-
-:global(.edhr-fill-workspace__save-signature-dialog .el-dialog__footer) {
-  display: grid;
-  grid-template-columns: 160px minmax(0, 1fr);
-  gap: 16px;
-  padding: 0 36px 34px;
-}
-
-.edhr-fill-workspace__save-signature-body {
-  display: grid;
-  gap: 22px;
-}
-
-.edhr-fill-workspace__save-signature-title {
-  padding: 22px 18px;
-  border: 2px solid #b7ebc6;
-  border-radius: 12px;
-  background: #f0fff4;
-  color: #128044;
-  font-size: 34px;
-  font-weight: 900;
-  line-height: 1.2;
-  text-align: center;
-}
-
-.edhr-fill-workspace__save-signature-context {
-  display: grid;
-  gap: 14px;
-  color: #172033;
-  font-size: 22px;
-  line-height: 1.35;
-}
-
-.edhr-fill-workspace__save-signature-context > div {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  gap: 16px;
-  align-items: center;
-  padding: 14px 18px;
-  border: 1px solid #dbe3ef;
-  border-radius: 10px;
-  background: #fafcff;
-}
-
-.edhr-fill-workspace__save-signature-context span {
-  color: #4b5563;
-  font-weight: 700;
-}
-
-.edhr-fill-workspace__save-signature-context strong {
-  min-width: 0;
-  color: #172033;
-  font-weight: 900;
-  overflow-wrap: anywhere;
-}
-
-.edhr-fill-workspace__save-signature-form {
-  margin-top: 24px;
-}
-
-.edhr-fill-workspace__save-signature-form :deep(.el-form-item__label) {
-  color: #172033;
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.edhr-fill-workspace__save-signature-form :deep(.el-input__wrapper),
-.edhr-fill-workspace__save-signature-form :deep(.el-select__wrapper) {
-  min-height: 52px;
-  font-size: 18px;
-}
-
-.edhr-fill-workspace__save-signature-cancel,
-.edhr-fill-workspace__save-signature-confirm {
   width: 100%;
   height: 64px;
   border-radius: 10px;

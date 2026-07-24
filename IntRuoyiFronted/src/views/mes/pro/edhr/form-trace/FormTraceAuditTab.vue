@@ -235,7 +235,7 @@ import {
 } from '@/api/mes/pro/edhr/tracking'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
-import { formatDate } from '@/utils/formatTime'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 import BatchForm from '@/views/mes/wm/batch/BatchForm.vue'
 import BatchExecutionTraceDrawer from './BatchExecutionTraceDrawer.vue'
 import type { BatchExecutionTraceContext } from './traceContext'
@@ -395,17 +395,8 @@ const formatArchiveStatusType = (archiveStatus?: EdhrTrackingRowVO['archiveStatu
   return 'info'
 }
 
-const formatTrackingLastEventAt = (lastEventAt?: string | number | Date) => {
-  if (!lastEventAt) return '--'
-  const parsedDate =
-    typeof lastEventAt === 'number' || /^\d+$/.test(String(lastEventAt))
-      ? new Date(Number(lastEventAt))
-      : new Date(lastEventAt)
-  if (Number.isNaN(parsedDate.getTime())) {
-    throw new Error(`最后处理时间不可解析：${String(lastEventAt)}`)
-  }
-  return formatDate(parsedDate, 'YYYY年M月D日')
-}
+const formatTrackingLastEventAt = (lastEventAt?: string | number | Date) =>
+  formatEdhrDateTime(lastEventAt)
 
 const resolveExecutionDisplay = (row: EdhrTrackingRowVO) =>
   row.executionCode || (row.executionId ? `#${row.executionId}` : '--')

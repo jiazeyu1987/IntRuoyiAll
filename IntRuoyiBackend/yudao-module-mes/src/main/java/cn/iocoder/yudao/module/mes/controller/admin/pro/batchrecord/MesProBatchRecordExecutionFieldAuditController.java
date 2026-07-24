@@ -121,9 +121,7 @@ public class MesProBatchRecordExecutionFieldAuditController {
                 .setFillMode(reqVO.getFillMode())
                 .setReasonCategory(reqVO.getReasonCategory())
                 .setReasonText(reqVO.getReasonText())
-                .setSignature(new MesProBatchRecordExecutionFieldAuditSaveChangesCommand.Signature()
-                        .setPassword(reqVO.getSignature().getPassword())
-                        .setSignatureTimeCommand(toSignatureTimeCommand(reqVO.getSignature().getSignatureTime())))
+                .setSignature(toSignatureCommand(reqVO.getSignature()))
                 .setChanges((reqVO.getChanges() == null ? java.util.List.<MesProBatchRecordExecutionFieldAuditSaveChangesReqVO.Change>of() : reqVO.getChanges()).stream()
                         .map(change -> new MesProBatchRecordExecutionFieldAuditChange()
                                 .setFieldPath(change.getFieldPath())
@@ -160,6 +158,13 @@ public class MesProBatchRecordExecutionFieldAuditController {
                                 .setStorageRetentionJson(change.getStorageRetentionJson())
                                 .setExpectedPreviousAttachmentHash(change.getExpectedPreviousAttachmentHash()))
                         .toList());
+    }
+
+    private MesProBatchRecordExecutionFieldAuditSaveChangesCommand.Signature toSignatureCommand(
+            MesProBatchRecordExecutionFieldAuditSaveChangesReqVO.Signature signature) {
+        return signature == null ? null : new MesProBatchRecordExecutionFieldAuditSaveChangesCommand.Signature()
+                .setPassword(signature.getPassword())
+                .setSignatureTimeCommand(toSignatureTimeCommand(signature.getSignatureTime()));
     }
 
     private MesProBatchRecordExecutionSignatureTimeCommand toSignatureTimeCommand(

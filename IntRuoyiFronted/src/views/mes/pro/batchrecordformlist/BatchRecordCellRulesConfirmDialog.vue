@@ -173,6 +173,28 @@
                     />
                   </el-select>
                 </el-form-item>
+
+                <el-form-item
+                  v-if="selectedRule.valueType === 'NUMBER'"
+                  label="字段范围"
+                >
+                  <div class="batch-record-cell-rules-editor__range-grid">
+                    <el-input-number
+                      v-model="selectedNumericMin"
+                      :controls="false"
+                      placeholder="最小值"
+                      class="!w-1/1"
+                      @change="setSelectedNumericConstraint('min', $event)"
+                    />
+                    <el-input-number
+                      v-model="selectedNumericMax"
+                      :controls="false"
+                      placeholder="最大值"
+                      class="!w-1/1"
+                      @change="setSelectedNumericConstraint('max', $event)"
+                    />
+                  </div>
+                </el-form-item>
               </el-form>
             </template>
           </template>
@@ -209,6 +231,7 @@ import {
 import {
   cellRuleDefaultComponentMap,
   cellRuleValueTypeOptions,
+  cleanedRuleConstraints,
   normalizeCellRule,
   normalizeTemplateCellMerge,
   stringifyTemplateCell,
@@ -251,6 +274,8 @@ type RuleEditorRow = {
   height: number
   cells: RuleEditorCell[]
 }
+
+type NumericConstraintKey = 'min' | 'max' | 'scale' | 'precision'
 
 const props = defineProps<{
   modelValue: boolean
@@ -345,7 +370,7 @@ const toManualReviewedRule = (rule: BatchRecordReportCellRuleVO): BatchRecordRep
   const normalized = normalizeCellRule(rule)
   return {
     ...normalized,
-    constraints: cloneRecord(normalized.constraints),
+    constraints: cleanedRuleConstraints(normalized.constraints, normalized.valueType),
     attachmentRule: cloneRecord(normalized.attachmentRule),
     source: 'MANUAL',
     confidence: 1,
@@ -553,6 +578,52 @@ const isSelectedCellFillable = computed({
 const handleSelectedValueTypeChange = (value: BatchRecordReportCellValueType) => {
   if (!selectedRule.value) return
   selectedRule.value.componentFlag = cellRuleDefaultComponentMap[value]
+  selectedRule.value.constraints = cleanedRuleConstraints(selectedRule.value.constraints, value)
+}
+
+const ensureSelectedRuleConstraints = () => {
+  if (!selectedRule.value) return null
+  if (!selectedRule.value.constraints) {
+    selectedRule.value.constraints = {}
+  }
+  return selectedRule.value.constraints
+}
+
+const setSelectedNumericConstraint = (key: NumericConstraintKey, value: number | null | undefined) => {
+  const constraints = ensureSelectedRuleConstraints()
+  if (!constraints) return
+  if (value === null || value === undefined || value === '') {
+    delete constraints[key]
+    return
+  }
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue)) {
+    delete constraints[key]
+    return
+  }
+  constraints[key] = numericValue
+}
+
+const selectedNumericMin = computed({
+  get: () => selectedRule.value?.constraints?.min,
+  set: (value: number | null | undefined) => setSelectedNumericConstraint('min', value)
+})
+
+const selectedNumericMax = computed({
+  get: () => selectedRule.value?.constraints?.max,
+  set: (value: number | null | undefined) => setSelectedNumericConstraint('max', value)
+})
+
+const validateRuleRowsBeforeSave = () => {
+  const invalidRule = ruleRows.value.find((rule) => {
+    if (rule.valueType !== 'NUMBER') return false
+    const min = rule.constraints?.min
+    const max = rule.constraints?.max
+    return typeof min === 'number' && typeof max === 'number' && min > max
+  })
+  if (!invalidRule) return
+  const label = invalidRule.label || `第 ${invalidRule.rowIndex + 1} 行第 ${invalidRule.columnIndex + 1} 列`
+  throw new Error(`${label} 的数字最小值不能大于最大值。`)
 }
 
 const loadCellRules = async () => {
@@ -581,6 +652,7 @@ const confirmAllRules = async () => {
   saving.value = true
   errorMessage.value = ''
   try {
+    validateRuleRowsBeforeSave()
     const data = await BatchRecordReportApi.saveCellRules({
       reportId: reportId.value,
       rules: ruleRows.value.map(toManualReviewedRule)
@@ -810,6 +882,12 @@ watch(
 
 .batch-record-cell-rules-editor__form {
   flex: 0 0 auto;
+}
+
+.batch-record-cell-rules-editor__range-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
 }
 
 </style>

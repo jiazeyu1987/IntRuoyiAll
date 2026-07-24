@@ -179,6 +179,7 @@ import {
   type TemplateRuleTypeBadge,
   type TemplateSimulationComponentKind
 } from '@/views/mes/pro/batchrecord-shared/batchRecordTemplateRules'
+import { formatEdhrDateTime, toEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 import EdhrTemplateFitViewport from './EdhrTemplateFitViewport.vue'
 
 defineOptions({ name: 'EdhrExecutionReadonlyForm' })
@@ -725,17 +726,11 @@ const findSignatureRecord = (marker: EdhrSignatureCellMarker | RawSignatureCellM
 }
 
 const formatSignatureTime = (value: string | undefined) => {
-  if (!value) return '--'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  const pad = (item: number) => String(item).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+  return formatEdhrDateTime(value)
 }
 
 const toTime = (value: string | undefined) => {
-  if (!value) return 0
-  const time = new Date(value).getTime()
-  return Number.isNaN(time) ? 0 : time
+  return toEdhrDateTime(value)?.getTime() ?? 0
 }
 
 const stringifyValue = (value: unknown) => {

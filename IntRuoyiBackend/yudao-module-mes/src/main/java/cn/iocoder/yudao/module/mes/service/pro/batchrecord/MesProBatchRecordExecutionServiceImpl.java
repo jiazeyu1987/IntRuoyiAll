@@ -2823,17 +2823,17 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 putIfPresent(field, "helpText", firstNonBlank(
                         cellRule.getString("helpText"),
                         fillForm.getString("helpText")));
-                field.put("constraints", cellRule.getJSONObject("constraints") == null
-                        ? new JSONObject(true) : cellRule.getJSONObject("constraints"));
-                putIfPresent(field, "options", resolveSnapshotFieldOptions(cellRule, fillForm));
-                JSONObject attachmentRule = cellRule.getJSONObject("attachmentRule");
+                JSONObject snapshotCellRule = copySnapshotJsonObject(cellRule);
+                field.put("constraints", copySnapshotJsonObject(snapshotCellRule.getJSONObject("constraints")));
+                putIfPresent(field, "options", resolveSnapshotFieldOptions(snapshotCellRule, fillForm));
+                JSONObject attachmentRule = snapshotCellRule.getJSONObject("attachmentRule");
                 if (attachmentRule != null && !attachmentRule.isEmpty()) {
-                    field.put("attachmentRule", attachmentRule);
+                    field.put("attachmentRule", copySnapshotJsonObject(attachmentRule));
                 }
-                putIfPresent(field, "unit", cellRule.getString("unit"));
-                field.put(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY, cellRule);
-                putIfPresent(field, "defaultValue", fillForm.get("defaultValue"));
-                putIfPresent(field, "value", fillForm.get("value"));
+                putIfPresent(field, "unit", snapshotCellRule.getString("unit"));
+                field.put(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY, snapshotCellRule);
+                putIfPresent(field, "defaultValue", copySnapshotJsonValue(fillForm.get("defaultValue")));
+                putIfPresent(field, "value", copySnapshotJsonValue(fillForm.get("value")));
                 fields.add(field);
             }
         }
@@ -2864,6 +2864,17 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
         if (value != null) {
             target.put(key, value);
         }
+    }
+
+    private JSONObject copySnapshotJsonObject(JSONObject source) {
+        return source == null ? new JSONObject(true) : JSON.parseObject(source.toJSONString());
+    }
+
+    private Object copySnapshotJsonValue(Object value) {
+        if (value instanceof JSONObject || value instanceof JSONArray) {
+            return JSON.parse(JSON.toJSONString(value));
+        }
+        return value;
     }
 
     private Object resolveSnapshotFieldOptions(JSONObject cellRule, JSONObject fillForm) {

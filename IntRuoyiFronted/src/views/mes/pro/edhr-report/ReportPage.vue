@@ -193,7 +193,7 @@
             <el-descriptions v-if="queryResult" :column="2" border>
               <el-descriptions-item label="口径版本">{{ queryResult.caliberVersion || '--' }}</el-descriptions-item>
               <el-descriptions-item label="数据更新时间">
-                {{ formatDateTime(queryResult.dataUpdatedAt) }}
+                {{ formatEdhrDateTime(queryResult.dataUpdatedAt) }}
               </el-descriptions-item>
             <el-descriptions-item label="数据来源" :span="2">
               {{ queryResult.dataSourceSummary || '--' }}
@@ -257,7 +257,7 @@
               {{ row.operatorUsername || row.operatorUserId || '--' }}
             </template>
           </el-table-column>
-          <el-table-column label="发生时间" prop="occurredAt" width="180" />
+          <el-table-column label="发生时间" prop="occurredAt" width="180" :formatter="edhrDateTimeFormatter" />
           <el-table-column type="expand">
             <template #default="{ row }">
               <div class="edhr-report__audit-evidence">
@@ -299,7 +299,7 @@ import {
   type EdhrReportExportAuditRespVO,
   type EdhrReportQueryRespVO
 } from '@/api/mes/pro/edhr/report'
-import { formatDate } from '@/utils/formatTime'
+import { edhrDateTimeFormatter, formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProEdhrReport' })
 
@@ -369,11 +369,6 @@ const assertQueryResult = (data: unknown): EdhrReportQueryRespVO => {
 const formatCell = (value: unknown) => {
   if (value === null || value === undefined || value === '') return '--'
   return String(value)
-}
-
-const formatDateTime = (value?: string | number) => {
-  if (!value) return '--'
-  return formatDate(new Date(value))
 }
 
 const buildCatalogQuery = (): EdhrReportCatalogPageReqVO => ({

@@ -119,6 +119,8 @@ export interface EdhrFieldAuditSignatureReqVO {
 export interface EdhrFieldChangeSaveReqVO {
   executionId: EdhrRouteId
   workTaskId: EdhrRouteId
+  fillCarrier?: string
+  fillMode?: string
   idempotencyKey: string
   baseCellValuesHash: string
   baseFieldAuditRevision: number
@@ -181,6 +183,10 @@ export interface EdhrFieldAuditEntryVO {
   newValueJson: EdhrFieldTypedJsonValue
   newValueDisplay: string
   newValueHash: string
+  recordbookValueJson?: EdhrFieldTypedJsonValue
+  recordbookValueDisplay?: string
+  batchRecordValueJson?: EdhrFieldTypedJsonValue
+  batchRecordValueDisplay?: string
   reasonCategory: EdhrFieldChangeReasonCategory
   reasonText: string
   actorId: number

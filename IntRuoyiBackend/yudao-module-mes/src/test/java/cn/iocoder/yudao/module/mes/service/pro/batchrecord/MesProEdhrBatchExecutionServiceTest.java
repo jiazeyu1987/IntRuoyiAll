@@ -123,6 +123,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST;
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
@@ -749,6 +750,140 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals(fixture.routeVersionNo(), persisted.getRouteVersionNo());
         assertNotNull(persisted.getRouteSnapshotJson());
         assertTrue(persisted.getRouteSnapshotJson().contains("ROUTE-"));
+    }
+
+    @Test
+    void openOrCreate_buildsInitialTasksFromActiveRouteVersionSnapshotWhenLiveBatchConfigEmpty() {
+        Fixture fixture = insertRouteFixture(true, true);
+        MesProRouteDO route = routeMapper.selectById(fixture.routeId());
+        List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(route.getId());
+        String activeSnapshotJson = frozenRouteSnapshotJson(route, routeProcesses);
+        MesProRouteVersionDO update = new MesProRouteVersionDO();
+        update.setId(fixture.routeVersionId());
+        update.setRouteSnapshotJson(activeSnapshotJson);
+        routeVersionMapper.updateById(update);
+        routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(route.getId(), "BATCH")
+                .forEach(record -> routeFlowProcessBatchRecordMapper.deleteById(record.getId()));
+        routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(route.getId(), "BATCH")
+                .forEach(config -> routeFlowProcessConfigMapper.deleteById(config.getId()));
+        MesProRouteFlowConfigDO liveFlowConfig = routeFlowConfigMapper.selectByRouteIdAndUseType(route.getId(), "BATCH");
+        if (liveFlowConfig != null) {
+            routeFlowConfigMapper.deleteById(liveFlowConfig.getId());
+        }
+        assertTrue(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(route.getId(), "BATCH").isEmpty());
+        assertTrue(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(route.getId(), "BATCH").isEmpty());
+        assertNull(routeFlowConfigMapper.selectByRouteIdAndUseType(route.getId(), "BATCH"));
+
+        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-EDHR-ACTIVE-SNAPSHOT")
+                .setRouteId(fixture.routeId()));
+
+        assertEquals(fixture.routeVersionId(), created.getRouteVersionId());
+        assertEquals(6, created.getTaskTotal());
+        List<EdhrBatchExecutionTaskRespVO> routeTasks = routeTasks(created);
+        assertEquals(List.of(fixture.reportId1(), fixture.reportId2()),
+                routeTasks.stream().map(EdhrBatchExecutionTaskRespVO::getBatchRecordReportId).toList());
+        assertEquals(activeSnapshotJson, batchExecutionMapper.selectById(created.getId()).getRouteSnapshotJson());
+    }
+
+    @Test
+    void openOrCreate_buildsInitialTasksFromLegacyFlatActiveRouteVersionSnapshotWhenLiveBatchConfigEmpty() {
+        Fixture fixture = insertRouteFixture(true, true);
+        MesProRouteDO route = routeMapper.selectById(fixture.routeId());
+        MesProRouteProcessDO routeProcess = routeProcessMapper.selectListByRouteId(route.getId()).stream()
+                .min(Comparator.comparing(MesProRouteProcessDO::getSort))
+                .orElseThrow();
+        String activeSnapshotJson = """
+                {
+                  "routeId": %d,
+                  "routeCode": "%s",
+                  "routeName": "%s",
+                  "status": 1,
+                  "configSnapshots": {
+                    "flowGraph": {
+                      "nodes": [
+                        {
+                          "routeProcessId": %d,
+                          "processId": %d,
+                          "sort": %d,
+                          "processCode": "LEGACY",
+                          "processName": "Legacy flat process"
+                        }
+                      ],
+                      "edges": []
+                    },
+                    "batchUseConfigs": [
+                      {
+                        "routeProcessId": %d,
+                        "processId": %d,
+                        "sort": %d,
+                        "useType": "BATCH",
+                        "enabled": true,
+                        "executionMode": "SEQUENTIAL",
+                        "batchRecordReportId": "%s",
+                        "productionQuantityFactor": 1.0
+                      }
+                    ]
+                  }
+                }
+                """.formatted(route.getId(), route.getCode(), route.getName(),
+                routeProcess.getId(), routeProcess.getProcessId(), routeProcess.getSort(),
+                routeProcess.getId(), routeProcess.getProcessId(), routeProcess.getSort(), fixture.reportId1());
+        MesProRouteVersionDO update = new MesProRouteVersionDO();
+        update.setId(fixture.routeVersionId());
+        update.setRouteSnapshotJson(activeSnapshotJson);
+        routeVersionMapper.updateById(update);
+        routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(route.getId(), "BATCH")
+                .forEach(record -> routeFlowProcessBatchRecordMapper.deleteById(record.getId()));
+        routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(route.getId(), "BATCH")
+                .forEach(config -> routeFlowProcessConfigMapper.deleteById(config.getId()));
+        MesProRouteFlowConfigDO liveFlowConfig = routeFlowConfigMapper.selectByRouteIdAndUseType(route.getId(), "BATCH");
+        if (liveFlowConfig != null) {
+            routeFlowConfigMapper.deleteById(liveFlowConfig.getId());
+        }
+
+        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-EDHR-LEGACY-FLAT-SNAPSHOT")
+                .setRouteId(fixture.routeId()));
+
+        assertEquals(fixture.routeVersionId(), created.getRouteVersionId());
+        assertEquals(5, created.getTaskTotal());
+        List<EdhrBatchExecutionTaskRespVO> routeTasks = routeTasks(created);
+        assertEquals(1, routeTasks.size());
+        assertEquals(fixture.reportId1(), routeTasks.get(0).getBatchRecordReportId());
+        assertEquals("MAIN", routeTasks.get(0).getFormSlotType());
+        assertEquals(Boolean.TRUE, routeTasks.get(0).getRecordbookEnabled());
+        assertEquals(activeSnapshotJson, batchExecutionMapper.selectById(created.getId()).getRouteSnapshotJson());
+    }
+
+    @Test
+    void openOrCreate_prefersActiveRouteVersionSnapshotWhenLiveProcessConfigStale() {
+        Fixture fixture = insertRouteFixture(true, true);
+        MesProRouteDO route = routeMapper.selectById(fixture.routeId());
+        List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(route.getId());
+        String activeSnapshotJson = frozenRouteSnapshotJson(route, routeProcesses);
+        MesProRouteVersionDO update = new MesProRouteVersionDO();
+        update.setId(fixture.routeVersionId());
+        update.setRouteSnapshotJson(activeSnapshotJson);
+        routeVersionMapper.updateById(update);
+        assertFalse(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(route.getId(), "BATCH").isEmpty());
+        routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(route.getId(), "BATCH")
+                .forEach(config -> routeFlowProcessConfigMapper.deleteById(config.getId()));
+        assertTrue(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(route.getId(), "BATCH").isEmpty());
+
+        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-EDHR-STALE-LIVE-CONFIG")
+                .setRouteId(fixture.routeId()));
+
+        assertEquals(fixture.routeVersionId(), created.getRouteVersionId());
+        assertEquals(6, created.getTaskTotal());
+        List<EdhrBatchExecutionTaskRespVO> routeTasks = routeTasks(created);
+        assertEquals(List.of(fixture.reportId1(), fixture.reportId2()),
+                routeTasks.stream().map(EdhrBatchExecutionTaskRespVO::getBatchRecordReportId).toList());
+        assertEquals(activeSnapshotJson, batchExecutionMapper.selectById(created.getId()).getRouteSnapshotJson());
     }
 
     @Test
@@ -2191,7 +2326,48 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                         && "BATCH_EXECUTION_TASK".equals(command.getObjectType())
                         && String.valueOf(taskId).equals(command.getObjectId())
                         && workTask.getId().equals(command.getWorkTaskId())
-                        && "SUCCESS".equals(command.getResultStatus())));
+                         && "SUCCESS".equals(command.getResultStatus())));
+    }
+
+    @Test
+    void openTask_freezesDisabledRecordbookStateIntoTaskExecutionAndPageQuery() {
+        Fixture fixture = insertRouteFixture(true, true);
+        MesProRouteProcessDO firstRouteProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).stream()
+                .min(Comparator.comparing(MesProRouteProcessDO::getSort))
+                .orElseThrow();
+        MesProRouteFlowProcessBatchRecordDO binding = routeFlowProcessBatchRecordMapper
+                .selectListByRouteProcessIdsAndUseType(List.of(firstRouteProcess.getId()), "BATCH").stream()
+                .findFirst()
+                .orElseThrow();
+        binding.setRecordbookEnabled(Boolean.FALSE);
+        routeFlowProcessBatchRecordMapper.updateById(binding);
+
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-RECORDBOOK-DISABLED")
+                .setRouteId(fixture.routeId()));
+        skipAllSpecialNodes(batch);
+        EdhrBatchExecutionTaskRespVO batchTask = routeTask(batch, 0);
+        assertEquals(Boolean.FALSE, batchTask.getRecordbookEnabled());
+        assertEquals(Boolean.FALSE, batchTaskMapper.selectById(batchTask.getId()).getRecordbookEnabled());
+        insertProductionTask(fixture.workOrderId(), fixture.routeId(), batchTask.getProcessId(), 80011L);
+        MesProEdhrWorkTaskDO workTask = insertFillWorkTask(batch, batchTask, fixture);
+        when(singleExecutionService.openOrCreateByContext(any()))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO()
+                        .setId(9011L)
+                        .setCreated(true)
+                        .setRecordbookEnabled(Boolean.FALSE)
+                        .setStatus(0));
+
+        EdhrBatchExecutionTaskOpenRespVO opened =
+                openTaskAsFiller(batch.getId(), batchTask.getId(), workTask.getId());
+
+        assertEquals(Boolean.FALSE, opened.getRecordbookEnabled());
+        assertEquals(Boolean.FALSE, opened.getExecutionPageQuery().get("recordbookEnabled"));
+        ArgumentCaptor<MesProBatchRecordExecutionOpenOrCreateByContextReqVO> reqCaptor =
+                ArgumentCaptor.forClass(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class);
+        verify(singleExecutionService).openOrCreateByContext(reqCaptor.capture());
+        assertEquals(Boolean.FALSE, reqCaptor.getValue().getRecordbookEnabled());
     }
 
     @Test
@@ -2806,7 +2982,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void openOrCreate_dynamicFormsResolveLatestPublishedVersionAndCreateInstances() {
+    void openOrCreate_dynamicFormsUseFrozenPublishedVersionFromRouteBindingAndCreateInstances() {
         Fixture fixture = insertRouteFixture(false, false);
         MesProRouteProcessDO routeProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).get(0);
         MesProRouteFlowConfigDO useConfig = MesProRouteFlowConfigDO.builder()
@@ -2863,13 +3039,13 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertNull(routeTask.getBatchRecordReportId());
         assertEquals("FB-DYNAMIC-1", routeTask.getFormBindingKey());
         assertEquals(configuredVersion.getTemplateId(), routeTask.getFormTemplateId());
-        assertEquals("动态生产记录表 V2", routeTask.getFormTemplateName());
-        assertEquals(latestVersion.getId(), routeTask.getFormTemplateVersionId());
-        assertEquals("V2.0", routeTask.getFormTemplateVersionNo());
+        assertEquals("动态生产记录表 V1", routeTask.getFormTemplateName());
+        assertEquals(configuredVersion.getId(), routeTask.getFormTemplateVersionId());
+        assertEquals("V1.0", routeTask.getFormTemplateVersionNo());
         assertNotNull(routeTask.getFormCenterInstanceId());
         MesProEdhrBatchExecutionTaskDO persistedTask = batchTaskMapper.selectById(routeTask.getId());
-        assertEquals(latestVersion.getId(), persistedTask.getFormTemplateVersionId());
-        assertEquals("V2.0", persistedTask.getFormTemplateVersionNo());
+        assertEquals(configuredVersion.getId(), persistedTask.getFormTemplateVersionId());
+        assertEquals("V1.0", persistedTask.getFormTemplateVersionNo());
         assertEquals(routeTask.getFormCenterInstanceId(), persistedTask.getFormCenterInstanceId());
 
         ArgumentCaptor<FormInstanceCreateReqVO> requestCaptor =
@@ -2879,8 +3055,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals("EDHR_RF_" + fixture.routeVersionId() + "_FB-DYNAMIC-1",
                 instanceRequest.getContext().getActionCode());
         assertEquals(configuredVersion.getTemplateId(), instanceRequest.getFormData().get("formTemplateId"));
-        assertEquals(latestVersion.getId(), instanceRequest.getFormData().get("formTemplateVersionId"));
-        assertEquals("V2.0", instanceRequest.getFormData().get("formTemplateVersionNo"));
+        assertEquals(configuredVersion.getId(), instanceRequest.getFormData().get("formTemplateVersionId"));
+        assertEquals("V1.0", instanceRequest.getFormData().get("formTemplateVersionNo"));
     }
 
     @Test
@@ -3383,12 +3559,13 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void openOrCreate_allowsBatchSharedFormCenterTasksWithDifferentBindingKeys() {
+    void openOrCreate_reusesSingleFormCenterInstanceForBatchSharedSlotsWithDifferentBindingKeys() {
         Fixture fixture = insertRouteFixture(false, false);
         List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(fixture.routeId());
         MesProRouteProcessDO firstProcess = routeProcesses.get(0);
         MesProRouteProcessDO secondProcess = routeProcesses.get(1);
         FormTemplateVersionDO sharedTemplate = insertPublishedFormTemplateVersion("批次共享动态主表");
+        stubFormCenterInstanceIds(81001L, 81002L);
         insertBatchSharedFormCenterBinding(fixture.routeId(), firstProcess.getId(), sharedTemplate,
                 "FB_SHARED_MAIN_A", "MAIN_SHARED_TEMPLATE", "{\"ranges\":[{\"sourceTableIndex\":0,\"startRow\":0,\"endRow\":1}]}");
         insertBatchSharedFormCenterBinding(fixture.routeId(), secondProcess.getId(), sharedTemplate,
@@ -3408,6 +3585,41 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals(Set.of("FB_SHARED_MAIN_A", "FB_SHARED_MAIN_B"),
                 sharedTasks.stream().map(MesProEdhrBatchExecutionTaskDO::getFormBindingKey).collect(java.util.stream.Collectors.toSet()));
         assertTrue(sharedTasks.stream().allMatch(task -> task.getFormCenterInstanceId() != null));
+        assertEquals(Set.of(81001L),
+                sharedTasks.stream().map(MesProEdhrBatchExecutionTaskDO::getFormCenterInstanceId)
+                        .collect(java.util.stream.Collectors.toSet()));
+        ArgumentCaptor<FormInstanceCreateReqVO> requestCaptor =
+                ArgumentCaptor.forClass(FormInstanceCreateReqVO.class);
+        verify(formCenterRuntimeService, times(1)).createInstance(requestCaptor.capture(), any());
+        assertEquals("EDHR_ROUTE_FORM_SHARED:" + created.getId() + ":MAIN_SHARED_TEMPLATE:"
+                        + sharedTemplate.getTemplateId() + ":" + sharedTemplate.getId(),
+                requestCaptor.getValue().getIdempotencyKey());
+    }
+
+    @Test
+    void openOrCreate_createsSeparateFormCenterInstancesForProcessScopedSlotsWithSameTemplate() {
+        Fixture fixture = insertRouteFixture(false, false);
+        List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(fixture.routeId());
+        MesProRouteProcessDO firstProcess = routeProcesses.get(0);
+        MesProRouteProcessDO secondProcess = routeProcesses.get(1);
+        FormTemplateVersionDO template = insertPublishedFormTemplateVersion("工序独立动态表单");
+        stubFormCenterInstanceIds(82001L, 82002L);
+        insertBatchProcessFormCenterBinding(fixture.routeId(), firstProcess.getId(), template, "FB_PROCESS_A");
+        insertBatchProcessFormCenterBinding(fixture.routeId(), secondProcess.getId(), template, "FB_PROCESS_B");
+
+        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-PROCESS-FORM-CENTER-BINDINGS")
+                .setRouteId(fixture.routeId()));
+
+        List<MesProEdhrBatchExecutionTaskDO> processTasks = batchTaskMapper.selectListByBatchExecutionId(created.getId()).stream()
+                .filter(task -> "PROCESS".equals(task.getInstanceScope()))
+                .filter(task -> Objects.equals(template.getTemplateId(), task.getFormTemplateId()))
+                .toList();
+        assertEquals(2, processTasks.size());
+        assertEquals(Set.of(82001L, 82002L),
+                processTasks.stream().map(MesProEdhrBatchExecutionTaskDO::getFormCenterInstanceId)
+                        .collect(java.util.stream.Collectors.toSet()));
         verify(formCenterRuntimeService, times(2)).createInstance(any(FormInstanceCreateReqVO.class), any());
     }
 
@@ -5356,6 +5568,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         report.put("fillableScopeJson", record.getFillableScopeJson());
         report.put("recordCategory", record.getRecordCategory());
         report.put("validationProfile", record.getValidationProfile());
+        report.put("recordbookEnabled", record.getRecordbookEnabled());
         report.put("permissionScopeId", record.getPermissionScopeId());
         report.put("recordCategorySnapshotHash", record.getRecordCategorySnapshotHash());
         report.put("requiredPolicy", record.getRequiredPolicy());
@@ -5726,6 +5939,21 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                                                     FormTemplateVersionDO templateVersion,
                                                     String formBindingKey, String sharedFormKey,
                                                     String fillableScopeJson) {
+        insertBatchFormCenterBinding(routeId, routeProcessId, templateVersion, formBindingKey,
+                "BATCH_SHARED", sharedFormKey, fillableScopeJson);
+    }
+
+    private void insertBatchProcessFormCenterBinding(Long routeId, Long routeProcessId,
+                                                     FormTemplateVersionDO templateVersion,
+                                                     String formBindingKey) {
+        insertBatchFormCenterBinding(routeId, routeProcessId, templateVersion, formBindingKey,
+                "PROCESS", null, null);
+    }
+
+    private void insertBatchFormCenterBinding(Long routeId, Long routeProcessId,
+                                              FormTemplateVersionDO templateVersion,
+                                              String formBindingKey, String instanceScope,
+                                              String sharedFormKey, String fillableScopeJson) {
         MesProRouteFlowConfigDO useConfig = routeFlowConfigMapper.selectByRouteIdAndUseType(routeId, "BATCH");
         if (useConfig == null) {
             useConfig = MesProRouteFlowConfigDO.builder()
@@ -5756,7 +5984,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .formTemplateNameSnapshot(templateVersion.getTemplateName())
                 .lastPublishedTemplateVersionId(templateVersion.getId())
                 .lastPublishedTemplateVersionNo(templateVersion.getVersionNo())
-                .instanceScope("BATCH_SHARED")
+                .instanceScope(instanceScope)
                 .sharedFormKey(sharedFormKey)
                 .fillableScopeJson(fillableScopeJson)
                 .recordCategory("BATCH_RECORD")
@@ -5769,6 +5997,20 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .reportSort(1)
                 .build());
         refreshActiveRouteVersionSnapshot(routeId);
+    }
+
+    private void stubFormCenterInstanceIds(Long... instanceIds) {
+        AtomicInteger index = new AtomicInteger();
+        when(formCenterRuntimeService.createInstance(any(FormInstanceCreateReqVO.class), any()))
+                .thenAnswer(invocation -> {
+                    int current = index.getAndIncrement();
+                    if (current >= instanceIds.length) {
+                        throw new AssertionError("unexpected form center instance creation");
+                    }
+                    FormInstanceRespVO respVO = new FormInstanceRespVO();
+                    respVO.setId(instanceIds[current]);
+                    return respVO;
+                });
     }
 
     private void insertBatchUseConfigWithSlots(Long routeId, Long routeProcessId, String executionMode,

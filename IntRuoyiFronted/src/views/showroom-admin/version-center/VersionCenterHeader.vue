@@ -34,7 +34,7 @@
         <span class="showroom-version-center-header__summary-meta">
           {{
             currentRelease
-              ? `${currentRelease.manifestHash} · ${currentRelease.publishedAt}`
+              ? `${currentRelease.manifestHash} · ${formatDateTimeValue(currentRelease.publishedAt)}`
               : '当前没有 active showroom release'
           }}
         </span>
@@ -49,6 +49,7 @@ import type {
   VersionCenterSnapshotVO,
   VersionCenterTargetType
 } from './contracts'
+import { formatDateTimeValue } from '@/utils/formatTime'
 
 defineOptions({ name: 'VersionCenterHeader' })
 

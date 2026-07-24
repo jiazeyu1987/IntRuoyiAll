@@ -14,7 +14,6 @@ import cn.iocoder.yudao.module.bpm.formcenter.model.FormControlledActionApproval
 import cn.iocoder.yudao.module.bpm.formcenter.model.FormPolicyType;
 import cn.iocoder.yudao.module.bpm.formcenter.service.FormBusinessEffectPrecheck;
 import cn.iocoder.yudao.module.bpm.formcenter.service.FormBusinessEffectResult;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeApproveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeRequestReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeRespVO;
 import org.junit.jupiter.api.Test;
@@ -38,7 +37,7 @@ import static org.mockito.Mockito.when;
 class MesProEdhrBatchVoidFormEffectExecutorTest extends BaseMockitoUnitTest {
 
     @Mock
-    private MesProEdhrRecordChangeService recordChangeService;
+    private MesProEdhrBatchVoidEffectService batchVoidEffectService;
 
     @InjectMocks
     private MesProEdhrBatchVoidFormEffectExecutor executor;
@@ -48,8 +47,8 @@ class MesProEdhrBatchVoidFormEffectExecutorTest extends BaseMockitoUnitTest {
         FormBusinessEffectPrecheck precheck = executor.preflight(voidInstance());
 
         assertTrue(precheck.isPassed());
-        verify(recordChangeService).precheckPlatformVoidBatchExecution(any());
-        verify(recordChangeService, never()).requestPlatformVoidBatchExecution(any(), any());
+        verify(batchVoidEffectService).precheckPlatformVoidBatchExecution(any());
+        verify(batchVoidEffectService, never()).requestPlatformVoidBatchExecution(any(), any());
     }
 
     @Test
@@ -62,7 +61,7 @@ class MesProEdhrBatchVoidFormEffectExecutorTest extends BaseMockitoUnitTest {
         assertFalse(wrongContextResult.isPassed());
         assertEquals("EDHR_BATCH_VOID lifecycle adapter only accepts MES EDHR_BATCH_EXECUTION VOID actions",
                 wrongContextResult.getFailureReason());
-        verify(recordChangeService, never()).precheckPlatformVoidBatchExecution(any());
+        verify(batchVoidEffectService, never()).precheckPlatformVoidBatchExecution(any());
 
         FormActionInstance missingReason = voidInstance();
         missingReason.setFormData(Map.of("batchExecutionId", 600L));
@@ -81,15 +80,14 @@ class MesProEdhrBatchVoidFormEffectExecutorTest extends BaseMockitoUnitTest {
 
         ArgumentCaptor<EdhrRecordChangeRequestReqVO> reqCaptor =
                 ArgumentCaptor.forClass(EdhrRecordChangeRequestReqVO.class);
-        verify(recordChangeService).requestPlatformVoidBatchExecution(reqCaptor.capture(), eq("PROC-EDHR-VOID-1"));
+        verify(batchVoidEffectService).requestPlatformVoidBatchExecution(reqCaptor.capture(), eq("PROC-EDHR-VOID-1"));
         assertEquals(600L, reqCaptor.getValue().getBatchExecutionId());
         assertEquals("QUALITY", reqCaptor.getValue().getReasonCategory());
-        verify(recordChangeService, never()).requestVoidBatchExecution(any());
     }
 
     @Test
     void executeBatchVoidAppliesExistingDomainCallbackAfterBpmApprovalOnly() {
-        when(recordChangeService.handleVoidBatchExecutionApprovalCallback(
+        when(batchVoidEffectService.handleVoidBatchExecutionApprovalCallback(
                 "PROC-EDHR-VOID-1", null, "APPROVED", null, 99L))
                 .thenReturn(new EdhrRecordChangeRespVO().setId(800L));
 
@@ -97,7 +95,7 @@ class MesProEdhrBatchVoidFormEffectExecutorTest extends BaseMockitoUnitTest {
 
         assertTrue(result.isSuccess());
         assertEquals("800", result.getResultRef());
-        verify(recordChangeService).handleVoidBatchExecutionApprovalCallback(
+        verify(batchVoidEffectService).handleVoidBatchExecutionApprovalCallback(
                 "PROC-EDHR-VOID-1", null, "APPROVED", null, 99L);
     }
 
@@ -107,7 +105,7 @@ class MesProEdhrBatchVoidFormEffectExecutorTest extends BaseMockitoUnitTest {
         Map<String, Object> formData = new LinkedHashMap<>(instance.getFormData());
         formData.remove("changeEventId");
         instance.setFormData(formData);
-        when(recordChangeService.handleVoidBatchExecutionApprovalCallback(
+        when(batchVoidEffectService.handleVoidBatchExecutionApprovalCallback(
                 "PROC-EDHR-VOID-1", null, "APPROVED", null, 99L))
                 .thenReturn(new EdhrRecordChangeRespVO().setId(801L));
 
@@ -115,7 +113,7 @@ class MesProEdhrBatchVoidFormEffectExecutorTest extends BaseMockitoUnitTest {
 
         assertTrue(result.isSuccess());
         assertEquals("801", result.getResultRef());
-        verify(recordChangeService).handleVoidBatchExecutionApprovalCallback(
+        verify(batchVoidEffectService).handleVoidBatchExecutionApprovalCallback(
                 "PROC-EDHR-VOID-1", null, "APPROVED", null, 99L);
     }
 
@@ -123,7 +121,7 @@ class MesProEdhrBatchVoidFormEffectExecutorTest extends BaseMockitoUnitTest {
     void executeBatchVoidDirectModeCreatesAndAppliesDomainChangeWithoutBpmProcess() {
         FormActionInstance instance = voidInstance();
         instance.setBpmBinding(null);
-        when(recordChangeService.executeDirectPlatformVoidBatchExecution(any(), eq(99L)))
+        when(batchVoidEffectService.executeDirectPlatformVoidBatchExecution(any(), eq(99L)))
                 .thenReturn(new EdhrRecordChangeRespVO().setId(802L));
 
         FormBusinessEffectResult result = executor.execute(instance, "IDEM-EDHR-VOID-1");
@@ -132,10 +130,10 @@ class MesProEdhrBatchVoidFormEffectExecutorTest extends BaseMockitoUnitTest {
         assertEquals("802", result.getResultRef());
         ArgumentCaptor<EdhrRecordChangeRequestReqVO> reqCaptor =
                 ArgumentCaptor.forClass(EdhrRecordChangeRequestReqVO.class);
-        verify(recordChangeService).executeDirectPlatformVoidBatchExecution(reqCaptor.capture(), eq(99L));
+        verify(batchVoidEffectService).executeDirectPlatformVoidBatchExecution(reqCaptor.capture(), eq(99L));
         assertEquals(600L, reqCaptor.getValue().getBatchExecutionId());
         assertEquals("QUALITY", reqCaptor.getValue().getReasonCategory());
-        verify(recordChangeService, never()).handleVoidBatchExecutionApprovalCallback(any(), any(), any(), any(), any());
+        verify(batchVoidEffectService, never()).handleVoidBatchExecutionApprovalCallback(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -149,7 +147,7 @@ class MesProEdhrBatchVoidFormEffectExecutorTest extends BaseMockitoUnitTest {
 
     @Test
     void businessApprovalDirectModeDelegatesToPlatformVoidService() {
-        when(recordChangeService.executeDirectPlatformVoidBatchExecution(any(), eq(99L)))
+        when(batchVoidEffectService.executeDirectPlatformVoidBatchExecution(any(), eq(99L)))
                 .thenReturn(new EdhrRecordChangeRespVO().setId(803L).setChangeStatus("EFFECTIVE"));
 
         BusinessApprovalEffectExecutor businessExecutor = executor;
@@ -159,17 +157,17 @@ class MesProEdhrBatchVoidFormEffectExecutorTest extends BaseMockitoUnitTest {
         assertEquals("EFFECTIVE", result.getResultState());
         ArgumentCaptor<EdhrRecordChangeRequestReqVO> reqCaptor =
                 ArgumentCaptor.forClass(EdhrRecordChangeRequestReqVO.class);
-        verify(recordChangeService).executeDirectPlatformVoidBatchExecution(reqCaptor.capture(), eq(99L));
+        verify(batchVoidEffectService).executeDirectPlatformVoidBatchExecution(reqCaptor.capture(), eq(99L));
         assertEquals(600L, reqCaptor.getValue().getBatchExecutionId());
         assertEquals("QUALITY", reqCaptor.getValue().getReasonCategory());
-        verify(recordChangeService, never()).requestPlatformVoidBatchExecution(any(), any());
+        verify(batchVoidEffectService, never()).requestPlatformVoidBatchExecution(any(), any());
     }
 
     @Test
     void businessApprovalBpmModeDelegatesPendingAndApprovedCallbacks() {
-        when(recordChangeService.requestPlatformVoidBatchExecution(any(), eq("PROC-EDHR-VOID-1")))
+        when(batchVoidEffectService.requestPlatformVoidBatchExecution(any(), eq("PROC-EDHR-VOID-1")))
                 .thenReturn(new EdhrRecordChangeRespVO().setId(804L).setChangeStatus("SUBMITTED"));
-        when(recordChangeService.handleVoidBatchExecutionApprovalCallback(
+        when(batchVoidEffectService.handleVoidBatchExecutionApprovalCallback(
                 "PROC-EDHR-VOID-1", null, "APPROVED", null, 88L))
                 .thenReturn(new EdhrRecordChangeRespVO().setId(804L).setChangeStatus("EFFECTIVE"));
 
@@ -181,15 +179,15 @@ class MesProEdhrBatchVoidFormEffectExecutorTest extends BaseMockitoUnitTest {
 
         assertEquals("SUBMITTED", pending.getResultState());
         assertEquals("EFFECTIVE", approved.getResultState());
-        verify(recordChangeService).requestPlatformVoidBatchExecution(any(), eq("PROC-EDHR-VOID-1"));
-        verify(recordChangeService).handleVoidBatchExecutionApprovalCallback(
+        verify(batchVoidEffectService).requestPlatformVoidBatchExecution(any(), eq("PROC-EDHR-VOID-1"));
+        verify(batchVoidEffectService).handleVoidBatchExecutionApprovalCallback(
                 "PROC-EDHR-VOID-1", null, "APPROVED", null, 88L);
     }
 
     @Test
     void executeBatchVoidDomainFailureBecomesQueryableEffectFailure() {
         doThrow(new IllegalStateException("void domain effect failed"))
-                .when(recordChangeService).handleVoidBatchExecutionApprovalCallback(
+                .when(batchVoidEffectService).handleVoidBatchExecutionApprovalCallback(
                         "PROC-EDHR-VOID-1", null, "APPROVED", null, 99L);
 
         FormBusinessEffectResult result = executor.execute(voidInstance(), "IDEM-EDHR-VOID-1");
@@ -202,9 +200,8 @@ class MesProEdhrBatchVoidFormEffectExecutorTest extends BaseMockitoUnitTest {
     void pendingRejectedClosesBatchVoidWithoutApplyingApproval() {
         executor.onPendingApprovalClosed(voidInstance(), FormControlledActionApprovalOutcome.REJECTED, "reject");
 
-        verify(recordChangeService).handleVoidBatchExecutionApprovalCallback(
+        verify(batchVoidEffectService).handleVoidBatchExecutionApprovalCallback(
                 "PROC-EDHR-VOID-1", null, "REJECTED", "reject", 99L);
-        verify(recordChangeService, never()).requestVoidBatchExecution(any());
     }
 
     @Test
@@ -212,9 +209,8 @@ class MesProEdhrBatchVoidFormEffectExecutorTest extends BaseMockitoUnitTest {
         executor.onPendingApprovalClosed(voidInstance(), FormControlledActionApprovalOutcome.CANCELLED,
                 "applicant cancelled");
 
-        verify(recordChangeService).handleVoidBatchExecutionApprovalCallback(
+        verify(batchVoidEffectService).handleVoidBatchExecutionApprovalCallback(
                 "PROC-EDHR-VOID-1", null, "CANCELLED", "applicant cancelled", 99L);
-        verify(recordChangeService, never()).requestVoidBatchExecution(any());
     }
 
     private FormActionInstance voidInstance() {
@@ -277,6 +273,7 @@ class MesProEdhrBatchVoidFormEffectExecutorTest extends BaseMockitoUnitTest {
                 .applicantUserId(99L)
                 .reason("void batch")
                 .variables(voidFormData())
+                .transientVariables(Map.of("password", "111111"))
                 .build();
     }
 

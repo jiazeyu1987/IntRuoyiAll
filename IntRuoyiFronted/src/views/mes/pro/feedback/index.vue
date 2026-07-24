@@ -457,7 +457,7 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
 import { shallowRef } from 'vue'
-import { dateFormatter } from '@/utils/formatTime'
+import { dateFormatter, formatDateTimeValue } from '@/utils/formatTime'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import download from '@/utils/download'
 import {
@@ -966,14 +966,7 @@ const handleTabChange = async () => {
 }
 
 const formatImportAttributionTime = (value?: string | number | Date) => {
-  if (!value) {
-    return '-'
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return String(value)
-  }
-  return date.toLocaleString('zh-CN', { hour12: false })
+  return formatDateTimeValue(value, '-')
 }
 
 const syncCurrentImportBatchSummary = (summary?: ProFeedbackImportBatchSummaryVO) => {

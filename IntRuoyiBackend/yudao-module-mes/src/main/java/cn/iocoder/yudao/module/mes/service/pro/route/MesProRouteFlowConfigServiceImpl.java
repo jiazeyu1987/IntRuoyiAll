@@ -171,10 +171,15 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 return getRouteVersionSnapshotFlowProcessConfigList(
                         routeVersion, flowConfigType, resolveCandidateBatchBindingReadStrategy(routeVersion));
             }
-            if (isActiveRouteVersion(routeVersion)) {
+            if (isPublishedSnapshotRouteVersion(routeVersion)) {
                 return getRouteVersionSnapshotFlowProcessConfigList(
                         routeVersion, flowConfigType, RouteVersionBatchBindingReadStrategy.SNAPSHOT);
             }
+        }
+        MesProRouteVersionDO activeRouteVersion = routeVersionMapper.selectActiveByRouteId(routeId);
+        if (isActiveRouteVersion(activeRouteVersion)) {
+            return getRouteVersionSnapshotFlowProcessConfigList(
+                    activeRouteVersion, flowConfigType, RouteVersionBatchBindingReadStrategy.SNAPSHOT);
         }
         List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(routeId);
         Map<Long, MesProRouteProcessDO> routeProcessMap =
@@ -262,16 +267,24 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             MesProRouteFlowConfigTypeEnum flowConfigType,
             RouteVersionBatchBindingReadStrategy batchBindingReadStrategy) {
         JSONObject configSnapshots = resolveCandidateConfigSnapshots(routeVersion);
-        List<MesProRouteProcessDO> routeProcesses = parseCandidateRouteProcessesFromConfigSnapshots(routeVersion, configSnapshots);
+        List<MesProRouteProcessDO> snapshotRouteProcesses = parseCandidateRouteProcessesFromConfigSnapshots(
+                routeVersion, configSnapshots);
+        Map<Long, MesProProcessDO> snapshotProcessMap = loadProcessMap(snapshotRouteProcesses);
+        List<MesProRouteProcessDO> routeProcesses = resolveRouteProcessesForSnapshotRead(
+                routeVersion, snapshotRouteProcesses);
+        Map<Long, MesProProcessDO> processMap = routeProcesses == snapshotRouteProcesses
+                ? snapshotProcessMap
+                : loadProcessMap(routeProcesses);
         Map<Long, MesProRouteFlowProcessConfigSaveReqVO> configMap = parseCandidateUseConfigMap(
                 routeVersion,
                 configSnapshots.get(flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH
                         ? BATCH_USE_CONFIGS_KEY : SCHEDULE_USE_CONFIGS_KEY));
-        Map<Long, MesProProcessDO> processMap = convertMap(
-                processMapper.selectBatchIds(convertSet(routeProcesses, MesProRouteProcessDO::getProcessId)),
-                MesProProcessDO::getId);
         boolean readCurrentBatchBindings = batchBindingReadStrategy
                 == RouteVersionBatchBindingReadStrategy.CURRENT_PROCESS_SETTINGS;
+        if (!readCurrentBatchBindings) {
+            configMap = projectCandidateUseConfigMapToRouteProcesses(
+                    routeVersion, configMap, snapshotRouteProcesses, snapshotProcessMap, routeProcesses, processMap);
+        }
         List<MesProRouteFlowProcessBatchRecordDO> dynamicBatchRecords =
                 readCurrentBatchBindings && flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH
                         ? selectCurrentOwnedBatchRecords(routeVersion.getRouteId(), flowConfigType)
@@ -324,9 +337,112 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         return result;
     }
 
+    private List<MesProRouteProcessDO> resolveRouteProcessesForSnapshotRead(
+            MesProRouteVersionDO routeVersion,
+            List<MesProRouteProcessDO> snapshotRouteProcesses) {
+        if (isActiveRouteVersion(routeVersion)) {
+            List<MesProRouteProcessDO> currentRouteProcesses = routeProcessMapper.selectListByRouteId(routeVersion.getRouteId());
+            if (CollUtil.isEmpty(currentRouteProcesses) && CollUtil.isNotEmpty(snapshotRouteProcesses)) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersion.getId());
+            }
+            return currentRouteProcesses;
+        }
+        return snapshotRouteProcesses;
+    }
+
+    private Map<Long, MesProRouteFlowProcessConfigSaveReqVO> projectCandidateUseConfigMapToRouteProcesses(
+            MesProRouteVersionDO routeVersion,
+            Map<Long, MesProRouteFlowProcessConfigSaveReqVO> configMap,
+            List<MesProRouteProcessDO> snapshotRouteProcesses,
+            Map<Long, MesProProcessDO> snapshotProcessMap,
+            List<MesProRouteProcessDO> targetRouteProcesses,
+            Map<Long, MesProProcessDO> targetProcessMap) {
+        if (configMap.isEmpty()) {
+            return configMap;
+        }
+        Map<Long, MesProRouteProcessDO> targetRouteProcessById =
+                convertMap(targetRouteProcesses, MesProRouteProcessDO::getId);
+        Map<String, MesProRouteProcessDO> targetRouteProcessByIdentity = buildRouteProcessByIdentity(
+                routeVersion.getRouteId(), targetRouteProcesses, targetProcessMap);
+        Map<Long, MesProRouteProcessDO> snapshotRouteProcessById =
+                convertMap(snapshotRouteProcesses, MesProRouteProcessDO::getId);
+        Map<Long, MesProRouteFlowProcessConfigSaveReqVO> result = new LinkedHashMap<>();
+        Map<Long, List<Long>> sourceRouteProcessIdsByTargetId = new LinkedHashMap<>();
+        for (Map.Entry<Long, MesProRouteFlowProcessConfigSaveReqVO> entry : configMap.entrySet()) {
+            Long configRouteProcessId = entry.getKey();
+            MesProRouteProcessDO sourceRouteProcess = resolveCandidateUseConfigRouteProcess(
+                    routeVersion, configRouteProcessId, targetRouteProcessById, snapshotRouteProcessById);
+            MesProProcessDO sourceProcess = targetProcessMap.get(sourceRouteProcess.getProcessId());
+            if (sourceProcess == null) {
+                sourceProcess = snapshotProcessMap.get(sourceRouteProcess.getProcessId());
+            }
+            if (sourceProcess == null) {
+                sourceProcess = processMapper.selectById(sourceRouteProcess.getProcessId());
+            }
+            String processIdentity = requireProcessIdentity(routeVersion.getRouteId(), sourceRouteProcess, sourceProcess);
+            MesProRouteProcessDO targetRouteProcess = targetRouteProcessByIdentity.get(processIdentity);
+            if (targetRouteProcess == null) {
+                throw exception(PRO_ROUTE_PROCESS_IDENTITY_NOT_FOUND,
+                        routeVersion.getRouteId(), sourceRouteProcess.getProcessId(), sourceRouteProcess.getId(),
+                        processIdentity);
+            }
+            List<Long> sourceRouteProcessIds = sourceRouteProcessIdsByTargetId.computeIfAbsent(
+                    targetRouteProcess.getId(), key -> new ArrayList<>());
+            sourceRouteProcessIds.add(configRouteProcessId);
+            if (sourceRouteProcessIds.size() > 1) {
+                throw exception(PRO_ROUTE_PROCESS_IDENTITY_AMBIGUOUS,
+                        routeVersion.getRouteId(), targetRouteProcess.getProcessId(), processIdentity,
+                        sourceRouteProcessIds);
+            }
+            result.put(targetRouteProcess.getId(), copyCandidateUseConfig(entry.getValue(), targetRouteProcess.getId()));
+        }
+        return result;
+    }
+
+    private MesProRouteProcessDO resolveCandidateUseConfigRouteProcess(
+            MesProRouteVersionDO routeVersion,
+            Long routeProcessId,
+            Map<Long, MesProRouteProcessDO> targetRouteProcessById,
+            Map<Long, MesProRouteProcessDO> snapshotRouteProcessById) {
+        MesProRouteProcessDO routeProcess = targetRouteProcessById.get(routeProcessId);
+        if (routeProcess != null) {
+            return routeProcess;
+        }
+        routeProcess = snapshotRouteProcessById.get(routeProcessId);
+        if (routeProcess != null) {
+            return routeProcess;
+        }
+        routeProcess = routeProcessMapper.selectById(routeProcessId);
+        if (routeProcess == null || !Objects.equals(routeVersion.getRouteId(), routeProcess.getRouteId())) {
+            throw exception(PRO_ROUTE_PROCESS_IDENTITY_NOT_FOUND,
+                    routeVersion.getRouteId(), null, routeProcessId, null);
+        }
+        return routeProcess;
+    }
+
+    private MesProRouteFlowProcessConfigSaveReqVO copyCandidateUseConfig(
+            MesProRouteFlowProcessConfigSaveReqVO source,
+            Long routeProcessId) {
+        MesProRouteFlowProcessConfigSaveReqVO copy = new MesProRouteFlowProcessConfigSaveReqVO();
+        copy.setRouteProcessId(routeProcessId);
+        copy.setEnabled(source.getEnabled());
+        copy.setExecutionMode(source.getExecutionMode());
+        copy.setProductionQuantityFactor(source.getProductionQuantityFactor());
+        copy.setBatchRecordReports(source.getBatchRecordReports());
+        copy.setFormBindings(source.getFormBindings());
+        copy.setRemark(source.getRemark());
+        return copy;
+    }
+
+    private Map<Long, MesProProcessDO> loadProcessMap(List<MesProRouteProcessDO> routeProcesses) {
+        return convertMap(
+                processMapper.selectBatchIds(convertSet(routeProcesses, MesProRouteProcessDO::getProcessId)),
+                MesProProcessDO::getId);
+    }
+
     private RouteVersionBatchBindingReadStrategy resolveCandidateBatchBindingReadStrategy(
             MesProRouteVersionDO routeVersion) {
-        if (MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(routeVersion.getLifecycleStatus())) {
+        if (isReadableCandidate(routeVersion)) {
             return RouteVersionBatchBindingReadStrategy.CURRENT_PROCESS_SETTINGS;
         }
         return RouteVersionBatchBindingReadStrategy.SNAPSHOT;
@@ -378,23 +494,14 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             List<MesProRouteProcessDO> snapshotRouteProcesses,
             Map<Long, MesProProcessDO> snapshotProcessMap) {
         Map<Long, Long> routeProcessIdMap = new LinkedHashMap<>();
-        Map<String, MesProRouteProcessDO> snapshotRouteProcessByIdentity = new LinkedHashMap<>();
+        Map<String, MesProRouteProcessDO> snapshotRouteProcessByIdentity = buildRouteProcessByIdentity(
+                routeVersion.getRouteId(), snapshotRouteProcesses, snapshotProcessMap);
         for (MesProRouteProcessDO snapshotRouteProcess : snapshotRouteProcesses) {
             routeProcessIdMap.put(snapshotRouteProcess.getId(), snapshotRouteProcess.getId());
-            String processIdentity = requireProcessIdentity(
-                    routeVersion.getRouteId(), snapshotRouteProcess, snapshotProcessMap.get(snapshotRouteProcess.getProcessId()));
-            MesProRouteProcessDO existing = snapshotRouteProcessByIdentity.putIfAbsent(processIdentity, snapshotRouteProcess);
-            if (existing != null) {
-                throw exception(PRO_ROUTE_PROCESS_IDENTITY_AMBIGUOUS,
-                        routeVersion.getRouteId(), snapshotRouteProcess.getProcessId(), processIdentity,
-                        List.of(existing.getId(), snapshotRouteProcess.getId()));
-            }
         }
 
         List<MesProRouteProcessDO> currentRouteProcesses = routeProcessMapper.selectListByRouteId(routeVersion.getRouteId());
-        Map<Long, MesProProcessDO> currentProcessMap = convertMap(
-                processMapper.selectBatchIds(convertSet(currentRouteProcesses, MesProRouteProcessDO::getProcessId)),
-                MesProProcessDO::getId);
+        Map<Long, MesProProcessDO> currentProcessMap = loadProcessMap(currentRouteProcesses);
         Map<String, List<MesProRouteProcessDO>> currentRouteProcessesByIdentity = new LinkedHashMap<>();
         for (MesProRouteProcessDO currentRouteProcess : currentRouteProcesses) {
             String processIdentity = requireProcessIdentity(
@@ -417,6 +524,24 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             routeProcessIdMap.put(currentMatches.get(0).getId(), entry.getValue().getId());
         }
         return routeProcessIdMap;
+    }
+
+    private Map<String, MesProRouteProcessDO> buildRouteProcessByIdentity(
+            Long routeId,
+            List<MesProRouteProcessDO> routeProcesses,
+            Map<Long, MesProProcessDO> processMap) {
+        Map<String, MesProRouteProcessDO> routeProcessByIdentity = new LinkedHashMap<>();
+        for (MesProRouteProcessDO routeProcess : routeProcesses) {
+            String processIdentity = requireProcessIdentity(
+                    routeId, routeProcess, processMap.get(routeProcess.getProcessId()));
+            MesProRouteProcessDO existing = routeProcessByIdentity.putIfAbsent(processIdentity, routeProcess);
+            if (existing != null) {
+                throw exception(PRO_ROUTE_PROCESS_IDENTITY_AMBIGUOUS,
+                        routeId, routeProcess.getProcessId(), processIdentity,
+                        List.of(existing.getId(), routeProcess.getId()));
+            }
+        }
+        return routeProcessByIdentity;
     }
 
     private String requireProcessIdentity(Long routeId, MesProRouteProcessDO routeProcess, MesProProcessDO process) {
@@ -565,6 +690,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .setFormTemplateId(templateId)
                 .setFormTemplateName(StrUtil.blankToDefault(binding.getString("formTemplateName"),
                         binding.getString("formTemplateNameSnapshot")))
+                .setFormSlotType(binding.getString("formSlotType"))
                 .setLastPublishedTemplateVersionId(binding.getLong("lastPublishedTemplateVersionId"))
                 .setLastPublishedTemplateVersionNo(binding.getString("lastPublishedTemplateVersionNo"))
                 .setInstanceScope(binding.getString("instanceScope"))
@@ -593,18 +719,20 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     vo.setFormBindingKey(StrUtil.trim(binding.getFormBindingKey()));
                     vo.setFormTemplateId(binding.getFormTemplateId());
                     vo.setFormTemplateName(StrUtil.trim(binding.getFormTemplateName()));
+                    String formSlotType = resolveConfiguredFormSlotType(binding);
+                    vo.setFormSlotType(formSlotType);
                     vo.setLastPublishedTemplateVersionId(binding.getLastPublishedTemplateVersionId());
                     vo.setLastPublishedTemplateVersionNo(binding.getLastPublishedTemplateVersionNo());
                     vo.setInstanceScope(resolveInstanceScope(binding.getInstanceScope()));
                     vo.setSharedFormKey(StrUtil.blankToDefault(StrUtil.trim(binding.getSharedFormKey()), null));
                     vo.setFillableScopeJson(StrUtil.blankToDefault(StrUtil.trim(binding.getFillableScopeJson()), null));
-                    vo.setRecordCategory(resolveRecordCategory(binding.getRecordCategory(), SLOT_TYPE_MAIN));
+                    vo.setRecordCategory(resolveRecordCategory(binding.getRecordCategory(), formSlotType));
                     vo.setValidationProfile(resolveValidationProfile(vo.getRecordCategory(), binding.getValidationProfile()));
                     vo.setRecordbookEnabled(resolveRecordbookEnabled(binding.getRecordbookEnabled(), vo.getRecordCategory()));
                     vo.setPermissionScopeId(binding.getPermissionScopeId());
                     vo.setRequiredPolicy(resolveRequiredPolicy(binding.getRequiredPolicy()));
                     vo.setRequiredConditionJson(binding.getRequiredConditionJson());
-                    vo.setOwnerRoleKey(resolveOwnerRoleKey(binding.getOwnerRoleKey(), SLOT_TYPE_MAIN));
+                    vo.setOwnerRoleKey(resolveOwnerRoleKey(binding.getOwnerRoleKey(), formSlotType));
                     vo.setArchiveVisibility(resolveArchiveVisibility(binding.getArchiveVisibility()));
                     vo.setCandidateSourceType(normalizeCandidateSourceTypeOptional(binding.getCandidateSourceType()));
                     vo.setCandidateSourceIds(normalizeCandidateSourceIds(binding));
@@ -765,8 +893,9 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         List<MesProRouteProcessDO> routeProcesses = parseCandidateRouteProcessesFromConfigSnapshots(routeVersion, configSnapshots);
         Map<Long, MesProRouteProcessDO> routeProcessMap =
                 convertMap(routeProcesses, MesProRouteProcessDO::getId);
+        Set<Long> validRouteProcessIds = new LinkedHashSet<>(routeProcessMap.keySet());
         for (MesProRouteFlowProcessConfigSaveReqVO processConfig : saveReqVO.getProcessConfigs()) {
-            if (!routeProcessMap.containsKey(processConfig.getRouteProcessId())) {
+            if (!validRouteProcessIds.contains(processConfig.getRouteProcessId())) {
                 throw exception(PRO_ROUTE_FLOW_CONFIG_PROCESS_REQUIRED);
             }
         }
@@ -774,18 +903,28 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         for (MesProRouteFlowProcessConfigSaveReqVO processConfig : saveReqVO.getProcessConfigs()) {
             saveMap.put(processConfig.getRouteProcessId(), processConfig);
         }
-        for (MesProRouteProcessDO routeProcess : routeProcesses) {
-            MesProRouteFlowProcessConfigSaveReqVO saveConfig = saveMap.get(routeProcess.getId());
-            if (saveConfig == null) {
-                continue;
-            }
+        for (MesProRouteFlowProcessConfigSaveReqVO saveConfig : saveMap.values()) {
             validateBatchProcessConfig(flowConfigType, saveConfig);
         }
         String configKey = flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH
                 ? BATCH_USE_CONFIGS_KEY : SCHEDULE_USE_CONFIGS_KEY;
         routeCandidateConfigService.saveConfigSnapshot(routeVersion.getId(), configKey,
                 buildCandidateUseConfigSnapshot(routeVersion, configKey, flowConfigType,
-                        saveReqVO, routeProcessMap.keySet()));
+                        saveReqVO, validRouteProcessIds));
+    }
+
+    private Set<Long> resolveCandidateSaveRouteProcessIds(
+            MesProRouteVersionDO routeVersion, Set<Long> currentRouteProcessIds) {
+        if (routeVersion == null || StrUtil.isBlank(routeVersion.getRouteSnapshotJson())) {
+            return currentRouteProcessIds;
+        }
+        JSONObject flowGraph = resolveCandidateConfigSnapshots(routeVersion).getJSONObject(FLOW_GRAPH_KEY);
+        if (flowGraph == null) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersion.getId());
+        }
+        return parseCandidateRouteProcesses(routeVersion, flowGraph).stream()
+                .map(MesProRouteProcessDO::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private MesProRouteVersionDO requireDraftCandidateVersion(Long routeVersionId, Long routeId) {
@@ -825,7 +964,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     private MesProRouteVersionDO requireReadableRouteVersion(Long routeVersionId, Long routeId) {
         MesProRouteVersionDO routeVersion = requireExistingRouteVersion(routeVersionId);
         if (Objects.equals(routeVersion.getRouteId(), routeId)
-                && (isReadableCandidate(routeVersion) || isActiveRouteVersion(routeVersion))) {
+                && (isReadableCandidate(routeVersion) || isPublishedSnapshotRouteVersion(routeVersion))) {
             return routeVersion;
         }
         throw exception(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE,
@@ -844,13 +983,22 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     }
 
     private boolean isReadableCandidate(MesProRouteVersionDO routeVersion) {
-        return Boolean.FALSE.equals(routeVersion.getActive())
+        return routeVersion != null
+                && Boolean.FALSE.equals(routeVersion.getActive())
                 && READABLE_CANDIDATE_STATUSES.contains(routeVersion.getLifecycleStatus());
     }
 
     private boolean isActiveRouteVersion(MesProRouteVersionDO routeVersion) {
-        return Boolean.TRUE.equals(routeVersion.getActive())
+        return routeVersion != null
+                && Boolean.TRUE.equals(routeVersion.getActive())
                 && MesProRouteVersionLifecycleServiceImpl.STATUS_ACTIVE.equals(routeVersion.getLifecycleStatus());
+    }
+
+    private boolean isPublishedSnapshotRouteVersion(MesProRouteVersionDO routeVersion) {
+        return isActiveRouteVersion(routeVersion)
+                || (routeVersion != null
+                && Boolean.FALSE.equals(routeVersion.getActive())
+                && MesProRouteVersionLifecycleServiceImpl.STATUS_SUPERSEDED.equals(routeVersion.getLifecycleStatus()));
     }
 
     private List<MesProRouteFlowProcessConfigSaveReqVO> buildCandidateUseConfigSnapshot(
@@ -988,6 +1136,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             validateSharedFormBinding(instanceScope, report);
             String recordCategory = resolveRecordCategory(report.getRecordCategory(), formSlotType);
             String validationProfile = resolveValidationProfile(recordCategory, report.getValidationProfile());
+            Boolean recordbookEnabled = resolveRecordbookEnabled(report.getRecordbookEnabled(), recordCategory);
             String requiredPolicy = resolveRequiredPolicy(report.getRequiredPolicy());
             String archiveVisibility = resolveArchiveVisibility(report.getArchiveVisibility());
             String ownerRoleKey = resolveOwnerRoleKey(report.getOwnerRoleKey(), formSlotType);
@@ -1006,6 +1155,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .fillableScopeJson(StrUtil.blankToDefault(StrUtil.trim(report.getFillableScopeJson()), null))
                     .recordCategory(recordCategory)
                     .validationProfile(validationProfile)
+                    .recordbookEnabled(recordbookEnabled)
                     .permissionScopeId(permissionScopeId)
                     .recordCategorySnapshotHash(buildRecordCategorySnapshotHash(route.getId(),
                             processConfig.getRouteProcessId(), report, permissionScopeId,
@@ -1029,10 +1179,12 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 ? Collections.emptyList() : saveConfig.getFormBindings();
         for (int index = 0; index < bindings.size(); index++) {
             MesProRouteFlowFormBindingSaveReqVO binding = bindings.get(index);
-            String recordCategory = resolveRecordCategory(binding.getRecordCategory(), SLOT_TYPE_MAIN);
+            String formSlotType = resolveConfiguredFormSlotType(binding);
+            String recordCategory = resolveRecordCategory(binding.getRecordCategory(), formSlotType);
             String validationProfile = resolveValidationProfile(recordCategory, binding.getValidationProfile());
+            Boolean recordbookEnabled = resolveRecordbookEnabled(binding.getRecordbookEnabled(), recordCategory);
             String requiredPolicy = resolveRequiredPolicy(binding.getRequiredPolicy());
-            String ownerRoleKey = resolveOwnerRoleKey(binding.getOwnerRoleKey(), SLOT_TYPE_MAIN);
+            String ownerRoleKey = resolveOwnerRoleKey(binding.getOwnerRoleKey(), formSlotType);
             String archiveVisibility = resolveArchiveVisibility(binding.getArchiveVisibility());
             routeFlowProcessBatchRecordMapper.insert(MesProRouteFlowProcessBatchRecordDO.builder()
                     .routeFlowProcessConfigId(processConfig.getId())
@@ -1042,7 +1194,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .batchRecordReportId(null)
                     .batchRecordDefinitionId(null)
                     .batchRecordVersionId(null)
-                    .formSlotType(null)
+                    .formSlotType(formSlotType)
                     .formBindingKey(resolveFormBindingKey(processConfig.getRouteProcessId(), binding, index + 1))
                     .formTemplateId(binding.getFormTemplateId())
                     .formTemplateNameSnapshot(StrUtil.trim(binding.getFormTemplateName()))
@@ -1053,6 +1205,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .fillableScopeJson(StrUtil.blankToDefault(StrUtil.trim(binding.getFillableScopeJson()), null))
                     .recordCategory(recordCategory)
                     .validationProfile(validationProfile)
+                    .recordbookEnabled(recordbookEnabled)
                     .permissionScopeId(binding.getPermissionScopeId())
                     .requiredPolicy(requiredPolicy)
                     .requiredConditionJson(StrUtil.blankToDefault(StrUtil.trim(binding.getRequiredConditionJson()), null))
@@ -1158,10 +1311,12 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 throw exception(PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_DUPLICATE);
             }
             FormTemplateVersionDO publishedVersion = resolveLatestPublishedTemplateVersion(binding.getFormTemplateId());
+            String formSlotType = resolveConfiguredFormSlotType(binding);
             String instanceScope = resolveInstanceScope(binding.getInstanceScope());
             validateSharedFormBinding(instanceScope, binding);
-            String recordCategory = resolveRecordCategory(binding.getRecordCategory(), SLOT_TYPE_MAIN);
+            String recordCategory = resolveRecordCategory(binding.getRecordCategory(), formSlotType);
             String validationProfile = resolveValidationProfile(recordCategory, binding.getValidationProfile());
+            Boolean recordbookEnabled = resolveRecordbookEnabled(binding.getRecordbookEnabled(), recordCategory);
             String requiredPolicy = resolveRequiredPolicy(binding.getRequiredPolicy());
             if (REQUIRED_POLICY_CONDITIONAL_REQUIRED.equals(requiredPolicy)
                     && StrUtil.isBlank(binding.getRequiredConditionJson())) {
@@ -1175,6 +1330,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .setFormBindingKey(resolveFormBindingKey(saveConfig.getRouteProcessId(), binding, index + 1))
                     .setFormTemplateId(binding.getFormTemplateId())
                     .setFormTemplateName(StrUtil.trim(publishedVersion.getTemplateName()))
+                    .setFormSlotType(formSlotType)
                     .setLastPublishedTemplateVersionId(publishedVersion.getId())
                     .setLastPublishedTemplateVersionNo(StrUtil.trim(publishedVersion.getVersionNo()))
                     .setInstanceScope(instanceScope)
@@ -1182,10 +1338,11 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .setFillableScopeJson(StrUtil.blankToDefault(StrUtil.trim(binding.getFillableScopeJson()), null))
                     .setRecordCategory(recordCategory)
                     .setValidationProfile(validationProfile)
+                    .setRecordbookEnabled(recordbookEnabled)
                     .setPermissionScopeId(binding.getPermissionScopeId())
                     .setRequiredPolicy(requiredPolicy)
                     .setRequiredConditionJson(StrUtil.blankToDefault(StrUtil.trim(binding.getRequiredConditionJson()), null))
-                    .setOwnerRoleKey(resolveOwnerRoleKey(binding.getOwnerRoleKey(), SLOT_TYPE_MAIN))
+                    .setOwnerRoleKey(resolveOwnerRoleKey(binding.getOwnerRoleKey(), formSlotType))
                     .setArchiveVisibility(archiveVisibility)
                     .setCandidateSourceType(candidateSourceType)
                     .setCandidateSourceIds(candidateSourceIds)
@@ -1365,6 +1522,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     vo.setFillableScopeJson(record.getFillableScopeJson());
                     vo.setRecordCategory(resolveExistingRecordCategory(record));
                     vo.setValidationProfile(resolveExistingValidationProfile(record));
+                    vo.setRecordbookEnabled(resolveRecordbookEnabled(record.getRecordbookEnabled(), vo.getRecordCategory()));
                     vo.setPermissionScopeId(record.getPermissionScopeId());
                     vo.setRequiredPolicy(resolveExistingRequiredPolicy(record));
                     vo.setRequiredConditionJson(record.getRequiredConditionJson());
@@ -1390,6 +1548,8 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .map(record -> {
                     MesProRouteFlowFormBindingRespVO vo = new MesProRouteFlowFormBindingRespVO();
                     vo.setFormBindingKey(record.getFormBindingKey());
+                    String formSlotType = resolveFormSlotType(record, null);
+                    vo.setFormSlotType(formSlotType);
                     vo.setFormTemplateId(record.getFormTemplateId());
                     vo.setFormTemplateName(record.getFormTemplateNameSnapshot());
                     vo.setLastPublishedTemplateVersionId(record.getLastPublishedTemplateVersionId());
@@ -1397,12 +1557,13 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     vo.setInstanceScope(resolveExistingInstanceScope(record));
                     vo.setSharedFormKey(record.getSharedFormKey());
                     vo.setFillableScopeJson(record.getFillableScopeJson());
-                    vo.setRecordCategory(resolveRecordCategory(record.getRecordCategory(), SLOT_TYPE_MAIN));
+                    vo.setRecordCategory(resolveRecordCategory(record.getRecordCategory(), formSlotType));
                     vo.setValidationProfile(resolveValidationProfile(vo.getRecordCategory(), record.getValidationProfile()));
+                    vo.setRecordbookEnabled(resolveRecordbookEnabled(record.getRecordbookEnabled(), vo.getRecordCategory()));
                     vo.setPermissionScopeId(record.getPermissionScopeId());
                     vo.setRequiredPolicy(resolveExistingRequiredPolicy(record));
                     vo.setRequiredConditionJson(record.getRequiredConditionJson());
-                    vo.setOwnerRoleKey(resolveOwnerRoleKey(record.getOwnerRoleKey(), SLOT_TYPE_MAIN));
+                    vo.setOwnerRoleKey(resolveOwnerRoleKey(record.getOwnerRoleKey(), formSlotType));
                     vo.setArchiveVisibility(resolveExistingArchiveVisibility(record));
                     vo.setSlotConfigSnapshotHash(record.getSlotConfigSnapshotHash());
                     vo.setCandidateSourceType(normalizeCandidateSourceTypeOptional(record.getCandidateSourceType()));
@@ -1494,6 +1655,14 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         return resolveConfiguredFormSlotType(report, null);
     }
 
+    private String resolveConfiguredFormSlotType(MesProRouteFlowFormBindingSaveReqVO binding) {
+        String normalized = MesProBatchRecordFormSlotType.normalize(binding == null ? null : binding.getFormSlotType());
+        if (StrUtil.isBlank(normalized)) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_FORM_SLOT_TYPE_INVALID);
+        }
+        return normalized;
+    }
+
     private String resolveConfiguredFormSlotType(MesProRouteFlowBatchRecordSaveReqVO report,
                                                  MesProBatchRecordReportDO metadata) {
         String raw = StrUtil.blankToDefault(StrUtil.trim(report.getFormSlotType()),
@@ -1570,15 +1739,16 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 StrUtil.nullToEmpty(report.getBatchRecordReportId()),
                 StrUtil.nullToEmpty(recordCategory),
                 StrUtil.nullToEmpty(validationProfile),
+                nullToEmpty(resolveRecordbookEnabled(report.getRecordbookEnabled(), recordCategory)),
                 nullToEmpty(permissionScopeId),
                 nullToEmpty(report.getReportSort())));
     }
 
     private String buildSlotConfigSnapshotHash(Long routeId, Long routeProcessId,
                                                MesProRouteFlowBatchRecordSaveReqVO report,
-                                               Long permissionScopeId, String formSlotType,
-                                               String requiredPolicy, String archiveVisibility,
-                                               String recordCategory, String validationProfile) {
+                                                Long permissionScopeId, String formSlotType,
+                                                String requiredPolicy, String archiveVisibility,
+                                                String recordCategory, String validationProfile) {
         return DigestUtil.sha256Hex(String.join("|",
                 nullToEmpty(routeId),
                 nullToEmpty(routeProcessId),
@@ -1586,6 +1756,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 StrUtil.nullToEmpty(formSlotType),
                 StrUtil.nullToEmpty(recordCategory),
                 StrUtil.nullToEmpty(validationProfile),
+                nullToEmpty(resolveRecordbookEnabled(report.getRecordbookEnabled(), recordCategory)),
                 nullToEmpty(permissionScopeId),
                 StrUtil.nullToEmpty(requiredPolicy),
                 StrUtil.nullToEmpty(report.getRequiredConditionJson()),

@@ -68,7 +68,7 @@
             <div class="edhr-domain-trace-detail__summary-item">
               <div class="edhr-domain-trace-detail__label">最近校验</div>
               <div class="edhr-domain-trace-detail__value">
-                {{ detail.verifiedAt || '未校验' }}
+                {{ formatEdhrDateTime(detail.verifiedAt, '未校验') }}
               </div>
             </div>
             <div class="edhr-domain-trace-detail__summary-item">
@@ -218,6 +218,7 @@ import {
 } from '@/api/mes/pro/edhr/domainTrace'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProFeedbackEdhrDomainTraceDetail' })
 

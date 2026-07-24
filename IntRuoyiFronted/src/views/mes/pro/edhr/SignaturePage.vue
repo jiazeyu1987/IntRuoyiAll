@@ -242,8 +242,8 @@ import {
   type EdhrSignatureActionType,
   type EdhrSignatureSummaryVO
 } from '@/api/mes/pro/edhr/signatures'
-import { formatDate } from '@/utils/formatTime'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProFeedbackEdhrSignatures' })
 
@@ -380,17 +380,7 @@ const formatSnapshotValue = (value?: string | number | null) => {
   return text || '旧版证据未记录'
 }
 
-const formatSignatureSignedAt = (signedAt?: string | number | Date) => {
-  if (!signedAt) return ''
-  const parsedDate =
-    typeof signedAt === 'number' || /^\d+$/.test(String(signedAt))
-      ? new Date(Number(signedAt))
-      : new Date(signedAt)
-  if (Number.isNaN(parsedDate.getTime())) {
-    throw new Error(`签名时间不可解析：${String(signedAt)}`)
-  }
-  return formatDate(parsedDate, 'YYYY年M月D日 HH:mm:ss')
-}
+const formatSignatureSignedAt = (signedAt?: string | number | Date) => formatEdhrDateTime(signedAt, '')
 
 const getList = async () => {
   loading.value = true

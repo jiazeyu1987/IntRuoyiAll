@@ -341,7 +341,7 @@ import {
   type EdhrUnifiedChangeRiskLevel,
   type EdhrUnifiedChangeStatus
 } from '@/api/mes/pro/edhr/unifiedChange'
-import { formatDate } from '@/utils/formatTime'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProEdhrUnifiedChange' })
 
@@ -805,14 +805,7 @@ const resolveRiskTag = (risk?: string) => {
 }
 
 const formatDateTime = (value?: string | number) => {
-  if (!value) {
-    return '--'
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return '时间格式异常'
-  }
-  return formatDate(date, 'YYYY-MM-DD HH:mm')
+  return formatEdhrDateTime(value)
 }
 
 onMounted(() => {
