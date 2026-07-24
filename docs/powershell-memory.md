@@ -1,0 +1,67 @@
+# IntRuoyi PowerShell / Git 共同前置经验
+
+## 触发场景
+
+- PowerShell 中编排 Git、提交、推送、清理、长链路命令或多行脚本前，先读本文件。
+- 任务要求提交、推送、基线保存、远端同步、处理脏工作区或检查 `origin` 前，先读本文件。
+- 本文件是共同门禁；涉及中文读写时还必须读取 `docs\powershell-encoding.md`，涉及任务收尾时还必须读取 `docs\task-closeout-rules.md`。
+
+## Git 提交与推送门禁
+
+### 任务提交推送前置门禁
+
+- Trigger: 任何任务进入实现提交、收尾提交、`git push`、处理 `ahead` 状态或保存脏工作区基线。
+- Preflight check: 运行 `git status --short --branch`、`git branch --show-current`、`git remote -v`，并在提交前检查 staged 文件清单。
+- Blocker: 当前目录不是 Git 仓库、当前分支不是预期分支、缺少可用 `origin`、存在无法解释的冲突、推送凭据/网络不可用、或 staged 文件混入不应提交的秘密文件。
+- Verification: 记录每个提交的 commit hash、文件清单和 `git status --short --branch` 结果；推送后必须确认本地分支不再领先 `origin`。
+- Forbidden action: 禁止用 force push、历史重写、destructive reset、丢弃脏改动、跳过 push、或把基线提交与当前任务提交混在一起作为绕过。
+- Evidence: `doc\tasks\<task-id>\execution-log.md`、`docs\task-closeout-rules.md`、当前 Git 命令输出。
+
+### 脏工作区基线门禁
+
+- Trigger: 开始当前任务或准备提交/推送时，`git status --short --branch` 显示 tracked、untracked 或 staged 脏改动。
+- Preflight check: 先识别当前任务自有文件；提交基线前查看 staged 文件清单，确保当前任务实现文件未进入基线提交，除非用户明确要求。
+- Blocker: 无法区分当前任务文件和既有脏改动、发现敏感凭据、发现超大文件、存在合并冲突、或用户未授权把既有脏改动作为独立基线保存。
+- Verification: 基线提交完成后记录 commit hash、`git show --name-status --oneline -1` 文件清单、以及新的 `git status --short --branch`。
+- Forbidden action: 禁止为了获得 clean worktree 而删除、回滚、覆盖或静默忽略别人/并发任务的脏改动。
+- Evidence: 用户授权记录、基线提交 hash、任务日志中的文件清单。
+
+### GitHub 推送大文件门禁
+
+- Trigger: 推送到 GitHub remote、处理 `GH001`、`Large files detected`、`pre-receive hook declined`、Git LFS 或历史大文件问题。
+- Preflight check: 推送前扫描待推送历史中的对象大小，至少确认没有超过 GitHub 100 MB 限制的 blob；必要时检查敏感文件和发布 evidence 是否误入 Git 历史。
+- Blocker: 扫描发现超过 100 MB 的 blob，或 `git push` 返回 `GH001: Large files detected` / `pre-receive hook declined`。
+- Verification: 记录对象扫描结果、`git push origin <branch>` 退出码、以及推送后的 `git status --short --branch`。
+- Forbidden action: 禁止未经用户明确授权就执行历史重写、Git LFS 迁移、快照分支替代、force push 或删除远端历史。
+- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md#2026-07-24-github-推送前历史大文件门禁`。
+
+## PowerShell 编排门禁
+
+### PowerShell 命令编排
+
+- Trigger: 需要在 PowerShell 中串联 Git、构建、测试、清理、SSH、MySQL、Node、Python 或多行命令。
+- Preflight check: 明确 `workdir`、命令退出码、输入输出编码和敏感信息脱敏方式；串联命令用分行或分号。
+- Blocker: 命令依赖未确认、路径未解析、退出码不可见、可能输出凭据、或需要中文 stdin/文件但未设计 UTF-8 路径。
+- Verification: 每个关键命令记录退出码和必要摘要；中文文件写入后使用 UTF-8 方式重新读取。
+- Forbidden action: 禁止使用 `&&`、默认编码 `Set-Content`/`Out-File` 写中文、吞掉错误、或记录密码/token/私钥。
+- Evidence: `docs\powershell-encoding.md`、`doc\tasks\<task-id>\execution-log.md`。
+
+## 执行顺序
+
+1. 阶段 1：任务提交/推送预检
+   必查项: 当前分支、remote、工作区脏状态、staged 文件清单、用户授权边界。
+   推荐命令: `git status --short --branch`、`git branch --show-current`、`git remote -v`。
+   Fail Fast: 缺 Git 仓库、缺 `origin`、分支错误、发现无法归属的敏感文件。
+   必须记录: 分支、remote、脏文件摘要、是否需要基线提交。
+
+2. 阶段 2：基线提交
+   必查项: 当前任务文件不得混入基线；所有既有脏改动必须可追踪。
+   推荐命令: `git diff --cached --name-status`、`git status --short`、`git show --name-status --oneline -1`。
+   Fail Fast: 无法安全分离当前任务文件、存在冲突、存在秘密或大文件风险。
+   必须记录: 基线提交 hash 和文件清单。
+
+3. 阶段 3：任务提交与推送
+   必查项: 当前任务实现、收尾记录、经验沉淀状态、GitHub 大文件门禁。
+   推荐命令: `git diff --check`、对象大小扫描命令、`git push origin <branch>`、`git status --short --branch`。
+   Fail Fast: verification 未通过、推送被拒、仍然 ahead、或缺凭据/网络。
+   必须记录: 实现提交 hash、收尾提交 hash、推送结果和最终状态。

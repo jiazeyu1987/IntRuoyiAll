@@ -33,6 +33,7 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - E2E and Playwright: read `docs\e2e-rules.md` before writing, modifying, running, or judging real-path E2E tests.
 - Database, SQL, menu, and tenant data: read `docs\database-rules.md` before schema checks, SQL, migrations, menu permission changes, tenant bindings, or data repair.
 - PowerShell and encoding: read `docs\powershell-encoding.md` before commands involving Chinese text, here-strings, SQL/stdin, SSH/MySQL stdin, or text file writes.
+- PowerShell and Git orchestration: read `docs\powershell-memory.md` before Git commits, pushes, dirty-worktree baseline commits, multi-command PowerShell orchestration, or long-chain command execution.
 - Task start, commits, cleanup, and closeout: read `docs\task-closeout-rules.md` before task documentation, implementation commits, cleanup preview/apply, or final closeout.
 - Release, backup, restore, and rollback: read `docs\release-backup-restore.md` before build-release, publish, promote, backup, restore, rollback, or release troubleshooting.
 - If a required trigger-read file is missing, fail fast and report the missing file and impact; do not continue with memory or improvised rules.
@@ -113,11 +114,15 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 
 - The primary branch for this workspace is `int_main`; do not treat `main` or `master` as the primary branch unless the user explicitly changes this rule.
 - Check Git status in the exact repository that owns the files before editing or committing.
-- If the owning directory is not a Git repository, record that no commit can be made and continue only if the task can be completed without Git integration.
-- Never revert user changes or unrelated task changes unless the user explicitly asks.
-- Commit only task-owned implementation changes after required verification passes and before destructive closeout or integration when a commit is possible and required.
-- Commit final task/closeout records separately after closeout evidence is complete.
-- If verification fails or prerequisites are missing, do not commit; report the blocker and impact.
+- Every task must finish with all local commits pushed to the current branch's `origin` remote. A task is not complete while local commits are ahead of `origin`, the push fails, or no usable `origin` push remote exists.
+- Before a task implementation commit or a final push, run `git status --short --branch` and inspect the staged file list.
+- If the working tree is dirty, first create a separate dirty-worktree baseline commit containing the current dirty tracked, untracked, and already-staged changes. This user-authorized baseline exception takes precedence over the normal task-ownership commit boundary.
+- Record the dirty-worktree baseline commit hash and file list in the current task log. Do not rewrite, discard, or silently omit dirty changes.
+- After the baseline commit, commit the current task implementation and final closeout records separately.
+- Before the implementation commit and push of a long-running task, run `project-experience-consolidation`; merge reusable experience into the appropriate existing document, or obtain user approval before creating a new long-term document.
+- Push with `git push origin <current-branch>` after all required commits. Verify that `git status --short --branch` no longer reports the branch ahead of `origin`.
+- If the owning directory is not a Git repository, `origin` is missing, the push is rejected, or Git credentials/network are unavailable, fail fast, record the exact blocker and impact, and do not mark the task completed.
+- Never use force-push, history rewriting, or destructive reset as a workaround unless the user explicitly requests it.
 
 ## PowerShell and Encoding Safety
 
