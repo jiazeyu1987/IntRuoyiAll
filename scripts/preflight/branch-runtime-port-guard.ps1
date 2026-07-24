@@ -50,8 +50,12 @@ $ports = Get-BranchRuntimePorts -Profile $profile -Slot 0
 
 Assert-Contains -RelativePath 'docs\branch-runtime-ports.md' -Needles @(
     $script:PortContractVersion,
-    '`int_main`',
+    '`int_main_d`',
     'D:\ProjectPackage\IntRuoyi\IntRuoyiAll',
+    '`8101`',
+    '`48101`',
+    '`int_main`',
+    'E:\IntRuoyi',
     '`8081`',
     '`48081`',
     '`int_batch`',
@@ -69,7 +73,13 @@ Assert-Contains -RelativePath 'docs\branch-runtime-ports.md' -Needles @(
 )
 
 Assert-Contains -RelativePath 'docs\local-runtime.md' -Needles @(
-    'PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1',
+    'PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v2',
+    '`int_main_d`',
+    '`8101`',
+    '`48101`',
+    '`int_main`',
+    '`8081`',
+    '`48081`',
     '`int_batch`',
     '`8041`',
     '`48041`',
@@ -82,7 +92,9 @@ Assert-Contains -RelativePath 'docs\local-runtime.md' -Needles @(
 )
 
 Assert-Contains -RelativePath 'docs\worktree-restrictions.md' -Needles @(
-    'PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1',
+    'PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v2',
+    '`int_main_d` profile',
+    '`int_main` profile',
     '`int_batch` profile',
     '`int_shedule` profile',
     '`int_qms` profile',
@@ -92,7 +104,8 @@ Assert-Contains -RelativePath 'docs\worktree-restrictions.md' -Needles @(
 
 Assert-Contains -RelativePath 'AGENTS.md' -Needles @(
     'Branch runtime port matrix',
-    'docs\branch-runtime-ports.md'
+    'docs\branch-runtime-ports.md',
+    'int_main_d=8101/48101'
 )
 
 Assert-Contains -RelativePath 'IntRuoyiFronted\vite.config.ts' -Needles @(
@@ -103,6 +116,7 @@ Assert-Contains -RelativePath 'IntRuoyiFronted\vite.config.ts' -Needles @(
 Assert-EnvPort -RelativePath 'IntRuoyiFronted\.env.branch-batch' -FrontendPort 8041 -BackendPort 48041
 Assert-EnvPort -RelativePath 'IntRuoyiFronted\.env.branch-shedule' -FrontendPort 8021 -BackendPort 48021
 Assert-EnvPort -RelativePath 'IntRuoyiFronted\.env.branch-qms' -FrontendPort 8061 -BackendPort 48061
+Assert-EnvPort -RelativePath 'IntRuoyiFronted\.env.branch-main-d' -FrontendPort 8101 -BackendPort 48101
 
 $legacySheduleEnv = Join-Path $repoRoot 'IntRuoyiFronted\.env.shedule'
 if (Test-Path $legacySheduleEnv) {

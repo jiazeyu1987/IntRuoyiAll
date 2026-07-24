@@ -8,11 +8,11 @@
 
 ## 固定端口
 
-PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
+PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v2
 
 - `int_main` 前端专属端口：`8081`。
 - int_main 后端专属端口：48081。
-- int_main 主线本地仓库：D:\ProjectPackage\IntRuoyi\IntRuoyiAll。
+- int_main 默认本地仓库：E:\IntRuoyi。
 - 前端本机入口：`http://127.0.0.1:8081` 或 `http://localhost:8081`。
 - 后端健康检查：`http://127.0.0.1:48081/actuator/health`。
 - 前端本机模式应使用 `IntRuoyiFronted\.env.local`：
@@ -22,13 +22,20 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
 
 ## 分支运行端口矩阵
 
-- `int_main`：前端 `8081`，后端 `48081`，对应 `D:\ProjectPackage\IntRuoyi\IntRuoyiAll`，保持原始本机默认设置不变。
+- `int_main_d`：前端 `8101`，后端 `48101`，对应 `D:\ProjectPackage\IntRuoyi\IntRuoyiAll`。
+- `int_main`：前端 `8081`，后端 `48081`，对应 `E:\IntRuoyi`，保持原始本机默认设置不变。
 - `int_batch`：前端 `8041`，后端 `48041`，对应 `E:\IntRuoyiBranch\BatchRecord\IntRuoyiAll`。
 - `int_shedule`：前端 `8021`，后端 `48021`，对应 `E:\IntRuoyiBranch\Shedule\IntRuoyiAll`。
 - `int_qms`：前端 `8061`，后端 `48061`，对应 `E:\IntRuoyiBranch\QMS\IntRuoyiAll`。
 - 分支专属前端调试必须通过 `scripts\runtime\start-branch-frontend.ps1` 或对应 `IntRuoyiFronted\.env.branch-*` 模式启动，不得通过改写共享 `.env` 抢占端口。
 - 分支专属后端调试必须通过 `scripts\runtime\start-branch-backend.ps1` 传入 `--server.port`，不得把后端 `application-local.yaml` 改成分支端口。
 - 合并 `int_main` 或跨分支合并后必须运行 `scripts\preflight\branch-runtime-port-guard.ps1`，确认本矩阵未被覆盖、删除或改回 `8081/48081`。
+
+## D Main Independent Runtime
+
+- `int_main_d` is bound to `D:\ProjectPackage\IntRuoyi\IntRuoyiAll`.
+- Its fixed ports are frontend `8101` and backend `48101`.
+- D-Main must never use `8081/48081`, which remain reserved for `E:\IntRuoyi`.
 
 ## 启动前检查
 

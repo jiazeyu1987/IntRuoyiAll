@@ -8,19 +8,24 @@
 
 ## 固定基线
 
-PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
+PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v2
 
 - 主工作区：`E:\IntRuoyi`。
+- D-Main 工作区：`D:\ProjectPackage\IntRuoyi\IntRuoyiAll`。
 - 主分支：`int_main`。
 - worktree 根目录：`D:\IntRuoyiWorktree\`。
 - 端口登记表：`D:\IntRuoyiWorktree\.ports\worktree-ports.json`。
+- `int_main_d` 固定槽位：`slot = 0`。
+- `int_main_d` 前端专属端口：`8101`。
+- `int_main_d` 后端专属端口：`48101`。
 - `int_main` 固定槽位：`slot = 0`。
 - `int_main` 前端专属端口：`8081`。
 - `int_main` 后端专属端口：`48081`。
 
 ## Runtime Profile 端口矩阵
 
-- `int_main` profile：基准前端 `8081`，基准后端 `48081`。
+- `int_main_d` profile：基准前端 `8101`，基准后端 `48101`，对应 `D:\ProjectPackage\IntRuoyi\IntRuoyiAll`。
+- `int_main` profile：基准前端 `8081`，基准后端 `48081`，对应 `E:\IntRuoyi`。
 - `int_batch` profile：基准前端 `8041`，基准后端 `48041`。
 - `int_shedule` profile：基准前端 `8021`，基准后端 `48021`。
 - `int_qms` profile：基准前端 `8061`，基准后端 `48061`。
@@ -39,6 +44,7 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
 
 ## 端口槽位规则
 
+- `int_main_d` 基准工作区永远使用 `slot = 0`，前端 `8101`，后端 `48101`。
 - `int_main` 基准工作区永远使用 `slot = 0`，前端 `8081`，后端 `48081`。
 - `int_batch` 基准工作区永远使用 `slot = 0`，前端 `8041`，后端 `48041`。
 - `int_shedule` 基准工作区永远使用 `slot = 0`，前端 `8021`，后端 `48021`。
@@ -48,10 +54,12 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
   - 前端端口：profile 前端基准端口 + `slot`
   - 后端端口：profile 后端基准端口 + `slot`
 - 示例：
+  - `int_main_d slot = 1`：前端 `8102`，后端 `48102`
   - `int_main slot = 1`：前端 `8082`，后端 `48082`
   - `int_batch slot = 1`：前端 `8042`，后端 `48042`
   - `int_shedule slot = 1`：前端 `8022`，后端 `48022`
   - `int_qms slot = 1`：前端 `8062`，后端 `48062`
+- `int_main_d` 必须使用 `8101/48101`，不得使用保留给 `E:\IntRuoyi` 的 `8081/48081`。
 - 非 `int_main` profile 永远不得使用 `8081` 或 `48081`。
 
 ## 端口登记表规则
