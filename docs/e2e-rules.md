@@ -33,6 +33,25 @@
 - 写入型 E2E 记录测试数据标识和清理方式。
 - 失败时记录实际失败位置、页面状态、网络响应或控制台错误。
 
+
+## 任务专用 E2E 环境变量与证据文件门禁
+
+- Trigger: 运行 `edhr-batch-execution-real-flow.e2e.js`、真实写入型 E2E、复跑历史 E2E 证据、或脚本默认写入 `doc/tasks/<task-id>/real-e2e-evidence.md`。
+- Preflight check: 运行前必须显式设置任务专用 `EDHR_BATCH_E2E_TASK_ID` 或 `EDHR_BATCH_E2E_EVIDENCE_FILE`，并确认脚本要求的账号、工单、批次、路线和签名密码环境变量全部来自已授权测试租户。
+- Blocker: 任一必需环境变量缺失、目标租户命中受保护租户、或证据路径会覆盖非当前任务历史 PASS 证据时，必须停止，不得进入浏览器。
+- Verification: 记录 E2E 命令、显式证据文件路径、入口 URL、测试租户/账号标签、目标业务数据标识，以及脚本 PASS/BLOCKED 结果。
+- Forbidden action: 禁止用默认任务 ID 覆盖历史证据文件，禁止用受保护租户或默认生产/admin 数据替代任务专用测试数据，禁止把环境变量缺失的 fail-fast 复跑解释为产品 E2E 失败。
+- Evidence: `doc/tasks/fix-batch-record-fill-rule/execution-log.md`，2026-07-24 当前 shell 复跑缺少任务专用 E2E 环境变量并恢复历史证据文件。
+
+## Element Plus 下拉选择门禁
+
+- Trigger: Playwright 在 Element Plus `el-select` 中选择租户、工单、工艺路线、角色、用户或其他写入型业务对象。
+- Preflight check: 优先按页面可见业务唯一文本定位选项，例如租户名称、工单编码、路线编码/名称/ID；填入搜索词后必须等待目标 `.el-select-dropdown__item:visible` 出现并点击该选项。
+- Blocker: 如果只填输入框后按 Enter 未触发真实选项选择、目标选项未出现、或页面显示文本与脚本断言字段不一致，必须停止并记录下拉可见文本和相关接口响应，不得继续提交写入。
+- Verification: 对写入结果使用 UI 响应和最终只读 API/DB 核验；涉及发布版/草稿版差异时，必须核验落库版本 ID、版本号、快照 JSON 和当前草稿仍存在。
+- Forbidden action: 禁止把接口数组下标、隐藏 value、输入框残留文本、API-only 选中或坐标点击当作真实页面选择。
+- Evidence: `doc/tasks/20260724-batch-execution-published-route-runtime-update/execution-log.md`。
+
 ## 表格行定位
 
 - 当页面对列表进行本地排序、过滤或虚拟渲染时，Playwright 必须按页面可见的业务唯一文本定位目标行，再操作同一行的复选框或按钮。

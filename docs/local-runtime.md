@@ -51,6 +51,15 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
 - Forbidden action: 禁止为了绕过脚本硬编码路径创建 `yudao-ui-admin-vue3` 假目录、修改端口、强杀未知进程或把 API-only 验证冒充 E2E。
 - Evidence: `doc/tasks/fix-batch-exec-last-update-created-time/verification-report.md`。
 
+## 2026-07-24 隔离构建 Jar 加载门禁
+
+- Trigger: 主工作区存在并行脏改动，但需要把本任务后端修复加载到 `int_main` 的 `48081` 做真实 E2E。
+- Preflight check: 先确认 `48081` 监听 PID 的命令行属于 `E:\IntRuoyi\IntRuoyiBackend`、端口为 `48081`、`repo-root` 指向本项目；同时确认新 Jar 来自干净任务 worktree 构建产物。
+- Blocker: 如果 PID 归属不明、Jar 来源不明、目标 Jar 哈希与隔离构建 Jar 不一致，或主工作区源码混有其他任务改动，必须停止，不得从脏主工作区重新打包冒充本任务运行态。
+- Verification: 记录旧 PID、停止依据、新 PID、Jar SHA256、启动命令、`http://127.0.0.1:48081/actuator/health`，并在 E2E 后记录真实数据库状态。
+- Forbidden action: 禁止强杀未知进程、随机换端口、用主工作区脏源码重新构建、只看 health 就宣称修复已加载。
+- Evidence: `doc/tasks/20260724-batch-execution-published-route-runtime-update/verification-report.md`。
+
 ## 禁止做法
 
 - 禁止把 `int_main` 改到随机端口启动。

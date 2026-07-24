@@ -2884,7 +2884,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void openOrCreate_usesFrozenRouteVersionFormBindingsInsteadOfCurrentDraft() {
+    void openOrCreate_usesCurrentRouteFormBindingsInsteadOfFrozenSnapshot() {
         Fixture fixture = insertRouteFixture(false, false);
         MesProRouteDO route = routeMapper.selectById(fixture.routeId());
         List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(fixture.routeId()).stream()
@@ -2924,19 +2924,19 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
         List<EdhrBatchExecutionTaskRespVO> routeTasks = routeTasks(created);
         assertEquals(2, routeTasks.size());
-        assertEquals("FB_" + firstProcess.getId() + "_1", routeTasks.get(0).getFormBindingKey());
+        assertEquals("CURRENT_DRAFT_1", routeTasks.get(0).getFormBindingKey());
         assertEquals("PROCESS", routeTasks.get(0).getInstanceScope());
         assertEquals("REQUIRED", routeTasks.get(0).getRequiredPolicy());
         assertEquals("PRODUCTION", routeTasks.get(0).getOwnerRoleKey());
-        assertEquals("1111111111111111111111111111111111111111111111111111111111111111",
+        assertEquals("9999999999999999999999999999999999999999999999999999999999999999",
                 routeTasks.get(0).getSlotConfigSnapshotHash());
-        assertEquals("FB_" + firstProcess.getId() + "_2", routeTasks.get(1).getFormBindingKey());
+        assertEquals("CURRENT_DRAFT_2", routeTasks.get(1).getFormBindingKey());
         assertEquals("BATCH_SHARED", routeTasks.get(1).getInstanceScope());
-        assertEquals("FROZEN_SHARED_KEY", routeTasks.get(1).getSharedFormKey());
+        assertEquals("CURRENT_SHARED_KEY", routeTasks.get(1).getSharedFormKey());
         assertEquals(frozenSharedScope, routeTasks.get(1).getFillableScopeJson());
-        assertEquals("OPTIONAL", routeTasks.get(1).getRequiredPolicy());
+        assertEquals("REQUIRED", routeTasks.get(1).getRequiredPolicy());
         assertEquals("QUALITY", routeTasks.get(1).getOwnerRoleKey());
-        assertEquals("3333333333333333333333333333333333333333333333333333333333333333",
+        assertEquals("9999999999999999999999999999999999999999999999999999999999999999",
                 routeTasks.get(1).getSlotConfigSnapshotHash());
     }
 
@@ -3642,6 +3642,11 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 sharedBatchSlot(sharedInspection, "PROCESS_INSPECTION", "IPQC_FROZEN",
                         "{\"ranges\":[{\"sourceTableIndex\":0,\"startRow\":0,\"endRow\":1}]}", 2)
         ));
+        MesProRouteDO route = routeMapper.selectById(fixture.routeId());
+        routeVersionMapper.updateById(MesProRouteVersionDO.builder()
+                .id(fixture.routeVersionId())
+                .routeSnapshotJson(frozenRouteSnapshotJson(route, routeProcessMapper.selectListByRouteId(route.getId())))
+                .build());
         when(singleExecutionService.openOrCreateByContext(any()))
                 .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(9321L).setStatus(0));
         EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
@@ -5373,7 +5378,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(ownerUserId);
             batch.getTasks().stream()
-                    .filter(task -> task.getBatchRecordReportId() == null)
+                    .filter(task -> !MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM.equals(task.getNodeType()))
                     .forEach(task -> batchExecutionService.skipSpecialNode(
                             task.getId(), "批次演练跳过无模板特殊节点", "secret", List.of()));
         }
@@ -5486,9 +5491,17 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .itemId(productId)
                 .quantity(1)
                 .build());
+        refreshRouteVersionSnapshot(routeVersion.getId(), route);
 
         return new Fixture(workOrder.getId(), route.getId(), routeVersion.getId(), routeVersion.getVersionNo(),
                 productId, reportId1, reportId2);
+    }
+
+    private void refreshRouteVersionSnapshot(Long routeVersionId, MesProRouteDO route) {
+        routeVersionMapper.updateById(MesProRouteVersionDO.builder()
+                .id(routeVersionId)
+                .routeSnapshotJson(frozenRouteSnapshotJson(route, routeProcessMapper.selectListByRouteId(route.getId())))
+                .build());
     }
 
     private MesProRouteDO insertExecutableRoute(String routeName, String reportIdPrefix) {
@@ -5547,6 +5560,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                         .orElseThrow();
         binding.setRouteFlowProcessConfigId(disabledConfig.getId());
         routeFlowProcessBatchRecordMapper.updateById(binding);
+        refreshActiveRouteVersionSnapshot(routeId);
     }
 
     private String insertReport(String reportId, String name) {
@@ -5694,6 +5708,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                     .reportSort(index + 1)
                     .build());
         }
+        refreshActiveRouteVersionSnapshot(routeId);
     }
 
     private void insertRouteFlowEdge(Long routeId, Long sourceRouteProcessId, Long targetRouteProcessId, Integer sort) {
@@ -5753,6 +5768,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .slotConfigSnapshotHash("4444444444444444444444444444444444444444444444444444444444444444")
                 .reportSort(1)
                 .build());
+        refreshActiveRouteVersionSnapshot(routeId);
     }
 
     private void insertBatchUseConfigWithSlots(Long routeId, Long routeProcessId, String executionMode,
@@ -5778,7 +5794,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         routeFlowProcessConfigMapper.insert(processConfig);
         for (BatchSlot slot : slots) {
             alignReportSlotType(slot.reportId(), slot.formSlotType());
-            FormTemplateVersionDO templateVersion = insertPublishedFormTemplateVersion("表单-" + slot.reportId());
+            FormTemplateVersionDO templateVersion = insertPublishedFormTemplateVersionForReport(slot.reportId());
             routeFlowProcessBatchRecordMapper.insert(MesProRouteFlowProcessBatchRecordDO.builder()
                     .routeFlowProcessConfigId(processConfig.getId())
                     .routeId(routeId)
@@ -5805,6 +5821,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                     .reportSort(slot.reportSort())
                     .build());
         }
+        refreshActiveRouteVersionSnapshot(routeId);
     }
 
     private void alignReportSlotType(String reportId, String formSlotType) {
@@ -5814,6 +5831,17 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         }
         report.setFormSlotType(normalizeTestFormSlotType(formSlotType));
         reportMapper.updateById(report);
+    }
+
+    private FormTemplateVersionDO insertPublishedFormTemplateVersionForReport(String reportId) {
+        FormTemplateVersionDO templateVersion = insertPublishedFormTemplateVersion("表单-" + reportId);
+        templateVersion.setTemplateId(stableTestTemplateId(reportId));
+        formTemplateVersionMapper.updateById(templateVersion);
+        return templateVersion;
+    }
+
+    private Long stableTestTemplateId(String reportId) {
+        return 1_000_000L + Integer.toUnsignedLong(String.valueOf(reportId).hashCode());
     }
 
     private String normalizeTestFormSlotType(String formSlotType) {
@@ -5900,7 +5928,17 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .reportSort(1)
                 .build();
         routeFlowProcessBatchRecordMapper.insert(record);
+        refreshActiveRouteVersionSnapshot(routeId);
         return record;
+    }
+
+    private void refreshActiveRouteVersionSnapshot(Long routeId) {
+        MesProRouteVersionDO activeRouteVersion = routeVersionMapper.selectActiveByRouteId(routeId);
+        MesProRouteDO route = routeMapper.selectById(routeId);
+        if (activeRouteVersion == null || route == null) {
+            return;
+        }
+        refreshRouteVersionSnapshot(activeRouteVersion.getId(), route);
     }
 
     private FormTemplateVersionDO insertPublishedFormTemplateVersion(String templateName) {
@@ -5980,9 +6018,11 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
     private void insertCurrentProcessFillRule(Long routeProcessId, String reportId, String ruleType,
                                               String sourceType, String sourceIds) {
+        MesProBatchRecordReportDO report = reportMapper.selectByReportId(reportId);
         processFormPermissionRuleMapper.insert(new MesProEdhrProcessFormPermissionRuleDO()
                 .setRouteProcessId(routeProcessId)
                 .setBatchRecordReportId(reportId)
+                .setBatchRecordVersionId(report == null ? null : report.getBatchRecordVersionId())
                 .setRuleType(ruleType)
                 .setSignatureCellKey("")
                 .setCandidateSourceType(sourceType)

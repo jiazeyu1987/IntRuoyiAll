@@ -13,9 +13,9 @@
 - [x] 新增保存输出到执行规则识别的组合回归用例
 - [x] 实施最小正式修复
 - [x] 运行关键 Maven GREEN 验证并记录结果
-- [ ] 用户授权纳入范围外编译前置：修复 `MesProRouteFlowConfigServiceImpl.resolveRecordbookEnabled(Boolean,String)` 缺失
-- [ ] 修复损耗报告 Word 解析回归：期望保留 `□报废`
-- [ ] 获得或发现任务专用测试账号后完成真实前端 E2E
+- [x] 用户授权纳入范围外编译前置：修复 `MesProRouteFlowConfigServiceImpl.resolveRecordbookEnabled(Boolean,String)` 缺失
+- [x] 修复损耗报告 Word 解析回归：期望保留 `□报废`
+- [x] 获得或发现任务专用测试账号后完成真实前端 E2E
 - [ ] 如需修复历史模板，另行授权 dry run/apply 受控修复任务
 - [ ] 完成收尾与经验沉淀
 
@@ -29,7 +29,19 @@
 
 ## Current Status
 
-in_progress；用户已授权把范围外编译前置纳入当前任务，并要求修复损耗报告 Word 解析回归与真实前端 E2E 阻塞。下一步按 BDD + strict TDD 先补编译前置，再复现并修复 `□报废` 解析断言，最后用真实前端路径验证“打开填写”。
+ready_for_closeout；用户授权纳入的编译前置、损耗报告 Word 解析回归、真实前端 E2E PASS 证据和后续 134 个后端全类回归均已完成。当前 shell 再次复跑真实 E2E 缺少任务专用环境变量而 fail fast，未使用受保护租户替代；剩余为任务清理、经验沉淀和提交/推送门禁。
+
+
+## 经验门禁
+
+### 任务专用 E2E 环境变量与证据文件门禁
+
+- Trigger: 运行 `edhr-batch-execution-real-flow.e2e.js` 或复跑真实写入型 E2E。
+- Preflight check: 显式设置当前任务 `EDHR_BATCH_E2E_TASK_ID` 或 `EDHR_BATCH_E2E_EVIDENCE_FILE`，并确认账号、工单、批次、路线、签名密码环境变量来自已授权测试租户。
+- Blocker: 任一必需环境变量缺失、目标租户受保护、或证据路径会覆盖非当前任务历史 PASS 证据时停止。
+- Verification: 记录 E2E 命令、证据路径、入口 URL、测试租户/账号标签、目标业务数据标识和 PASS/BLOCKED 结果。
+- Forbidden action: 禁止用默认任务 ID 覆盖历史证据，禁止用受保护租户或默认生产/admin 数据替代任务专用测试数据。
+- Evidence: `docs/e2e-rules.md#任务专用-e2e-环境变量与证据文件门禁`。
 
 ## 设计约束检查
 

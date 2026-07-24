@@ -2,42 +2,46 @@
 
 ## Summary
 
-- 已新增保存边界回归用例，覆盖保存接口收到 `source=AUTO` 且 `reviewed=true` 的规则时必须按人工确认落库。
-- 已实施最小修复：已确认规则持久化时将误带的 `AUTO` 来源规范化为 `MANUAL`。
-- 已优化 BDD/TDD 根治设计，范围限定为保存边界归一化和执行层现有 fail fast 校验；历史异常 JSON 的 dry run/apply 明确拆为后续受控任务。
-- 文档已明确自动识别不等于可执行确认，自动建议在确认前仍应被打开填写校验拦截。
-- 关键 Maven 验证已通过，覆盖保存归一化、保存输出被执行规则识别、已确认规则快照冻结和未确认规则 fail fast。
-- 继续复跑时，文档门禁仍通过；关键 Maven 用例当前被范围外 `MesProRouteFlowConfigServiceImpl.resolveRecordbookEnabled(Boolean,String)` 缺失阻塞。
-- 相关回归集此前有一项与本次修改无直接关系的损耗报告 Word 解析断言失败；真实前端 E2E 仍因登录前置条件缺失而未执行。
+- 已修复保存边界：`source=AUTO && reviewed=true` 的已确认规则归一化为 `source=MANUAL && reviewed=true`，执行层继续 fail fast 拦截真正未确认规则。
+- 已修复用户授权纳入范围的两个旧阻塞：`resolveRecordbookEnabled(Boolean,String)` 编译前置可通过，损耗报告 Word 解析回归已恢复 `□报废`。
+- 已修复真实 E2E 新暴露的 `/task/open` 上下文误判：传统批记录任务按 `executionId + batchRecordReportId` 校验，Form Center 任务仍要求完整动态表单上下文，`BATCH_SHARED` 缺少冻结执行仍报错。
+- 已重启本地后端并完成真实前端 E2E：测试租户/aoteman 打开既有批次 `JILUBEN-E2E-1784859323164`，`/task/open` 返回成功并进入 eDHR 执行页。
+- 历史异常 JSON dry run/apply 仍按原设计拆为后续受控任务；本次未静默修复历史模板数据。
 
 ## Commands
 
+- `mvn -pl yudao-module-mes '-Dtest=MesProEdhrBatchExecutionServiceTest' test`
+- `mvn -pl yudao-module-mes '-Dtest=MesProBatchRecordCellRuleSupportTest,MesProBatchRecordReportServiceImplDbTest' test`
+- `mvn -pl yudao-module-mes '-Dtest=MesProRouteVersionPublishProjectionServiceTest,MesProRouteVersionPublishProjectionServiceImplTest,MesProRouteServiceImplTest#buildCurrentRouteSnapshotJson_shouldSerializeCurrentBatchRecordBindingsFromProcessSettings' test`
 - `python C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root doc\tasks\fix-batch-record-fill-rule`
 - `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\fix-batch-record-fill-rule\bug-regression-evidence.md`
 - `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\fix-batch-record-fill-rule\backend-api-evidence.md`
-- `mvn -pl yudao-module-mes -Dtest=MesProBatchRecordReportServiceImplDbTest#saveCellRules_normalizesReviewedAutoSuggestionToManualConfirmation test`
-- `mvn -pl yudao-module-mes '-Dtest=MesProBatchRecordReportServiceImplDbTest#saveCellRules_normalizesReviewedAutoSuggestionToManualConfirmation' '-Dmaven.compiler.testIncludes=cn/iocoder/yudao/module/mes/service/pro/batchrecordreport/MesProBatchRecordReportServiceImplDbTest.java' test`
-- `mvn -pl yudao-module-mes -Dtest=MesProBatchRecordCellRuleSupportTest#toRuleJson_normalizesReviewedAutoSuggestionToExecutableManualRule test`
-- `mvn -pl yudao-module-mes -Dtest=MesProBatchRecordReportServiceImplDbTest#saveCellRules_normalizesReviewedAutoSuggestionToManualConfirmation,MesProBatchRecordExecutionServiceImplTest#openOrCreateByContext_freezesReviewedNumberAndDateCellRulesIntoExecutionSnapshot+openOrCreateByContext_unreviewedFillableCellRule_mustFailFastWithoutCreatingExecution,MesProBatchRecordCellRuleSupportTest#toRuleJson_normalizesReviewedAutoSuggestionToExecutableManualRule+applyAutomaticSuggestions_setsRulesAfterWordImportWithoutMarkingUserReviewed test`
-- `mvn -pl yudao-module-mes -Dtest=MesProBatchRecordCellRuleSupportTest,MesProBatchRecordReportServiceImplDbTest test`
-- 继续复跑：`mvn -pl yudao-module-mes -Dtest=MesProBatchRecordReportServiceImplDbTest#saveCellRules_normalizesReviewedAutoSuggestionToManualConfirmation,MesProBatchRecordExecutionServiceImplTest#openOrCreateByContext_freezesReviewedNumberAndDateCellRulesIntoExecutionSnapshot+openOrCreateByContext_unreviewedFillableCellRule_mustFailFastWithoutCreatingExecution,MesProBatchRecordCellRuleSupportTest#toRuleJson_normalizesReviewedAutoSuggestionToExecutableManualRule+applyAutomaticSuggestions_setsRulesAfterWordImportWithoutMarkingUserReviewed test`
+- `git diff --check`
+
+- `mvn -pl yudao-module-mes '-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_opensLegacyBatchRecordTaskWithFrozenExecutionWithoutFormCenterContext' test`
+- `mvn -pl yudao-module-mes '-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_opensLegacyBatchRecordTaskWithFrozenExecutionWithoutFormCenterContext+openTask_requiresFrozenExecutionForBatchSharedTask' test`
+- `mvn -pl yudao-module-mes '-Dtest=MesProRouteFlowConfigServiceImplTest#getRouteFlowProcessConfigList_shouldReturnInternalRecordMetadata' test`
+- `mvn -pl yudao-module-mes '-Dtest=MesProBatchRecordCellRuleSupportTest,MesProBatchRecordReportServiceImplDbTest' test`
+- `mvn -pl yudao-server -am -DskipTests package`
+- `node --check tests\e2e\edhr-batch-execution-real-flow.e2e.js`
+- `node tests\e2e\edhr-batch-execution-real-flow.e2e.js`
 
 ## Result
 
-- PASS：BDD/TDD acceptance 文档结构校验通过。
-- PASS：bug regression evidence 文档结构校验通过。
-- PASS：backend API evidence 文档结构校验通过。
-- PASS：review 优化后复跑文档结构校验通过。
-- PASS：保存输出到执行识别支持层回归通过，1 个测试通过。
-- PASS：关键真实服务路径回归通过，5 个测试通过。
-- PASS：继续复跑三份文档结构校验均通过。
-- FAIL：规则支持层与报表服务回归集共 129 个测试，其中 1 个损耗报告 Word 解析断言失败。
-- BLOCKED：继续复跑关键 Maven 用例时，compile 阶段失败：`MesProRouteFlowConfigServiceImpl` 第 603、707 行调用的 `resolveRecordbookEnabled(Boolean,String)` 未实现。
-- BLOCKED：真实前端 E2E 未执行，浏览器会话登录超时且未提供任务专用测试账号。
+- PASS：`MesProEdhrBatchExecutionServiceTest` 全类 134/134 通过，实时路线配置、冻结快照历史恢复、共享批记录执行冻结和质量拒收签名校验顺序均已覆盖。
+- PASS：路线发布/快照相关 13/13 通过，当前路线快照继续携带批记录绑定元数据。
+- PASS：三份任务证据结构校验通过，`git diff --check` 退出码 0。
+- BLOCKED：当前 shell 复跑真实 E2E 缺少任务专用环境变量，脚本 fail fast 未进入浏览器；此前 `doc/tasks/fix-batch-record-fill-rule/real-e2e-evidence.md` 的 PASS 证据未被覆盖。
+
+- PASS：传统批记录任务 openTask 回归通过，修复前 RED 为 `1040750412 eDHR 批次缺少唯一批记录路线`，修复后返回真实 executionId。
+- PASS：共享任务冻结执行门禁仍保留，`BATCH_SHARED` 缺少 `executionId` 时仍返回 `PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED`。
+- PASS：编译前置目标测试 1/1 通过。
+- PASS：规则支持层与报表服务回归集 129/129 通过，损耗报告 Word 解析不再失败。
+- PASS：本地后端 48081 新 jar 健康检查 `UP`，前端 8081 返回 200。
+- PASS：真实前端 E2E 通过，证据见 `doc/tasks/fix-batch-record-fill-rule/real-e2e-evidence.md`。
 
 ## Remaining Blockers
 
-- 严格 RED 未在修复前运行取得，不能补记为已完成。
-- `MesProBatchRecordReportServiceImplDbTest.uploadExtraFormSlot_whenLossReportWordHasMergedBody_expandsAllFillableFieldsAndDoesNotReuseOldHashReport` 期望 `□报废`，实际 `报废`；该失败与本次 `source/reviewed` 归一化无直接调用关系，未修改其相关并发代码。
-- 单独复现上述失败或继续复跑本任务关键 Maven 用例时，`MesProRouteFlowConfigServiceImpl` 新增的 `resolveRecordbookEnabled` 调用缺少对应 helper，主代码无法编译；该文件不属于当前批记录填写规则任务范围。
-- 真实 E2E 缺少可用登录会话与任务专用测试账号；本地 `8081`、`48081` 均已监听，但不得使用共享或生产账号替代。
+- 无当前授权范围内验证阻塞。
+- 保留历史事实：最早的 `source/reviewed` 严格 RED 因当时范围外编译错误未能在修复前取得；当前新增的传统批记录 openTask 阻塞已取得 RED/GREEN。
+- 后续可选：历史模板 JSON dry run/apply 需另行授权，不能作为本次最小修复自动执行。

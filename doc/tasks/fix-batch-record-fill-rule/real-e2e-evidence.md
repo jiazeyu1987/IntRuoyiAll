@@ -1,7 +1,7 @@
 # eDHR 批次执行真实路径 E2E Evidence
 
 - Task ID: `fix-batch-record-fill-rule`
-- 状态：FAIL
+- 状态：PASS
 - 前端入口：`http://localhost:8081`
 - 测试租户：`测试租户`；账号名默认 `aoteman`，密码由环境变量注入。
 
@@ -13,7 +13,4 @@
 
 ## Result
 
-- RED: 真实前端路径失败，打开工序任务业务响应必须成功：eDHR 批次缺少唯一批记录路线
-
-1040750412 !== 0
-
+- GREEN: 真实前端路径已完成。

@@ -478,11 +478,14 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
         for (JSONObject binding : resolveProjectedFormBindings(config)) {
             Long formTemplateId = resolveProjectedFormTemplateId(binding);
             String formBindingKey = resolveProjectedFormBindingKey(routeProcess.getId(), binding);
+            String formSlotType = resolveProjectedFormSlotType(binding);
             String instanceScope = resolveProjectedInstanceScope(binding);
-            String recordCategory = resolveProjectedRecordCategory(binding, SLOT_TYPE_MAIN);
+            String recordCategory = resolveProjectedRecordCategory(binding, formSlotType);
             String validationProfile = resolveProjectedValidationProfile(binding, recordCategory);
+            Boolean recordbookEnabled = resolveProjectedRecordbookEnabled(binding.getBoolean("recordbookEnabled"),
+                    recordCategory);
             String requiredPolicy = resolveProjectedRequiredPolicy(binding);
-            String ownerRoleKey = resolveProjectedOwnerRoleKey(binding, SLOT_TYPE_MAIN);
+            String ownerRoleKey = resolveProjectedOwnerRoleKey(binding, formSlotType);
             String archiveVisibility = resolveProjectedArchiveVisibility(binding);
             String candidateSourceType = resolveProjectedCandidateSourceType(binding);
             List<Long> candidateSourceIds = resolveProjectedCandidateSourceIds(binding);
@@ -493,10 +496,11 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                     .routeId(routeId)
                     .routeProcessId(routeProcess.getId())
                     .useType(useType)
-                    .batchRecordReportId(null)
-                    .batchRecordDefinitionId(null)
-                    .batchRecordVersionId(null)
-                    .formSlotType(null)
+                    .batchRecordReportId(StrUtil.blankToDefault(
+                            StrUtil.trim(binding.getString("batchRecordReportId")), null))
+                    .batchRecordDefinitionId(binding.getLong("batchRecordDefinitionId"))
+                    .batchRecordVersionId(binding.getLong("batchRecordVersionId"))
+                    .formSlotType(formSlotType)
                     .formBindingKey(formBindingKey)
                     .formTemplateId(formTemplateId)
                     .formTemplateNameSnapshot(requireText(binding, "formTemplateName"))
@@ -507,6 +511,7 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
                     .fillableScopeJson(StrUtil.blankToDefault(StrUtil.trim(binding.getString("fillableScopeJson")), null))
                     .recordCategory(recordCategory)
                     .validationProfile(validationProfile)
+                    .recordbookEnabled(recordbookEnabled)
                     .permissionScopeId(binding.getLong("permissionScopeId"))
                     .recordCategorySnapshotHash(binding.getString("recordCategorySnapshotHash"))
                     .requiredPolicy(requiredPolicy)
@@ -633,6 +638,10 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
         return StrUtil.blankToDefault(StrUtil.trim(report.getString("instanceScope")), INSTANCE_SCOPE_PROCESS);
     }
 
+    private String resolveProjectedFormSlotType(JSONObject report) {
+        return StrUtil.blankToDefault(StrUtil.trim(report.getString("formSlotType")), SLOT_TYPE_MAIN);
+    }
+
     private String resolveProjectedRecordCategory(JSONObject report, String formSlotType) {
         String recordCategory = StrUtil.trim(report.getString("recordCategory"));
         if (StrUtil.isBlank(recordCategory)
@@ -653,6 +662,13 @@ public class MesProRouteVersionPublishProjectionServiceImpl {
             return expectedProfile;
         }
         return profile;
+    }
+
+    private Boolean resolveProjectedRecordbookEnabled(Boolean recordbookEnabled, String recordCategory) {
+        if (RECORD_CATEGORY_INTERNAL.equals(StrUtil.trim(recordCategory))) {
+            return Boolean.FALSE;
+        }
+        return recordbookEnabled == null ? Boolean.TRUE : recordbookEnabled;
     }
 
     private String resolveProjectedRequiredPolicy(JSONObject report) {
