@@ -7,6 +7,7 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - Workspace root: `E:\IntRuoyi`.
 - Backend root: `E:\IntRuoyi\IntRuoyiBackend`.
 - Frontend root: `E:\IntRuoyi\IntRuoyiFronted`.
+- Main branch: `int_main`.
 - Worktree root: `D:\IntRuoyiWorktree\`.
 - Coordination docs live under root `doc\` and `docs\`; backend and frontend also contain their own `doc\` and `docs\` folders.
 - Do not reuse paths or folder names from prior project instructions unless the user explicitly confirms they are relevant to the current task.
@@ -104,6 +105,7 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 
 ## Git and Commit Policy
 
+- The primary branch for this workspace is `int_main`; do not treat `main` or `master` as the primary branch unless the user explicitly changes this rule.
 - Check Git status in the exact repository that owns the files before editing or committing.
 - If the owning directory is not a Git repository, record that no commit can be made and continue only if the task can be completed without Git integration.
 - Never revert user changes or unrelated task changes unless the user explicitly asks.
