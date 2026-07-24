@@ -52,6 +52,21 @@ public interface ErrorCodeConstants {
     ErrorCode CONFIG_PACKAGE_FORMAT_UNSUPPORTED = new ErrorCode(1_002_030_008, "配置包版本不支持，当前版本：{}");
     ErrorCode CONFIG_PACKAGE_CONTENT_INVALID = new ErrorCode(1_002_030_009, "配置包内容非法，原因：{}");
 
+    // ========== Codex 自动测试管理 1-002-031-000 ==========
+    ErrorCode CODEX_TEST_CASE_NOT_EXISTS = new ErrorCode(1_002_031_000, "测试项不存在");
+    ErrorCode CODEX_TEST_CASE_EMPTY_METHOD = new ErrorCode(1_002_031_001, "自然语言测试方法不能为空");
+    ErrorCode CODEX_TEST_CASE_EMPTY_CHECKPOINT = new ErrorCode(1_002_031_002, "测试项至少需要一个检查点");
+    ErrorCode CODEX_TEST_TARGET_TENANT_INVALID = new ErrorCode(1_002_031_003, "目标测试租户不可用：{}");
+    ErrorCode CODEX_TEST_RUNNER_OFFLINE = new ErrorCode(1_002_031_004, "没有在线 Codex Runner");
+    ErrorCode CODEX_TEST_RUNNER_CAPABILITY_MISSING = new ErrorCode(1_002_031_005, "Codex Runner 缺少能力：{}");
+    ErrorCode CODEX_TEST_PARALLEL_UNSAFE_CASE = new ErrorCode(1_002_031_006, "并行执行包含未标记并行安全的测试项：{}");
+    ErrorCode CODEX_TEST_EXECUTION_RUNNING = new ErrorCode(1_002_031_007, "测试项存在运行中执行，无法执行当前操作");
+    ErrorCode CODEX_TEST_ARTIFACT_NOT_FOUND = new ErrorCode(1_002_031_008, "失败截图不存在或已过期");
+    ErrorCode CODEX_TEST_RESULT_SCHEMA_INVALID = new ErrorCode(1_002_031_009, "Runner 回写结果不符合结构化契约：{}");
+    ErrorCode CODEX_TEST_EXECUTION_NOT_EXISTS = new ErrorCode(1_002_031_010, "测试执行不存在");
+    ErrorCode CODEX_TEST_RUNNER_TOKEN_INVALID = new ErrorCode(1_002_031_011, "Codex Runner token 无效或未配置");
+    ErrorCode CODEX_TEST_DISABLED_CASE = new ErrorCode(1_002_031_012, "禁用测试项不能执行：{}");
+
     // ========== 用户模块 1-002-003-000 ==========
     ErrorCode USER_USERNAME_EXISTS = new ErrorCode(1_002_003_000, "用户账号已经存在");
     ErrorCode USER_MOBILE_EXISTS = new ErrorCode(1_002_003_001, "手机号已经存在");
