@@ -1,0 +1,31 @@
+# DCC 受控浏览页批量识别产品名称编号执行日志
+
+- BDD: 浏览页可创建批量识别任务 -> Given 文控角色进入 DCC 受控浏览页 / When 点击批量识别按钮并确认当前范围与覆盖策略 / Then 后端创建一个异步批量识别任务并返回初始进度。
+- BDD: 当前目录模式扫描目录及全部子目录 -> Given 当前范围为当前目录且已选中目录 / When 创建任务 / Then 候选文件集合必须只来自该目录及其子目录，并遵循当前筛选条件但忽略分页。
+- BDD: 默认不覆盖已有值 -> Given 某文件已存在 dccProjectCodeId、productCode 或 productName / When 用户未勾选覆盖已有值 / Then 该文件直接计入跳过数量，不进入识别调用。
+- BDD: 识别成功完整同步写回 -> Given 某文件识别命中 DCC 基础数据 / When 后端完成识别 / Then 必须同步写回 fileName、title、productName、productCode、dccProjectCodeId 与主表 file_name。
+- BDD: 进度弹窗显示真实统计 -> Given 批量任务运行中 / When 前端轮询任务状态 / Then 必须显示总数、已处理、成功、失败、跳过、剩余、当前状态与最后错误。
+- GREEN: previous-task-check -> PASS，已核对前序 DCC 相关 task 处于完成态，允许在新 branch/worktree 继续功能开发。
+- GREEN: experience-preflight -> PASS，已读取 `experience-index` 与 `worktree-memory`；本轮在独立前后端 worktree 内进行代码和测试修改。
+- GREEN: `mvn --% -f D:\ProjectPackage\Int\IntRuoyiWorktrees\ruoyi-vue-pro-dcc-batch-recognition-browser\pom.xml -pl yudao-module-dcc -Dtest=DccControlledFileBatchRecognitionControllerTest,DccControlledFileBatchRecognitionServiceTest,DccBaseSchemaTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，25 tests run / 0 failures。
+- RED: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence D:\ProjectPackage\Int\IntRuoyiWorktrees\ruoyi-vue-pro-dcc-batch-recognition-browser\doc\tasks\20260623-dcc-browser-batch-recognition\backend-api-evidence.md` -> FAIL，证据文档缺少 `Scope/Contract/Validation/BDD:/RED:/GREEN:/Verification` 标记。
+- GREEN: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence D:\ProjectPackage\Int\IntRuoyiWorktrees\ruoyi-vue-pro-dcc-batch-recognition-browser\doc\tasks\20260623-dcc-browser-batch-recognition\backend-api-evidence.md` -> PASS。
+- RED: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence D:\ProjectPackage\Int\IntRuoyiWorktrees\ruoyi-vue-pro-dcc-batch-recognition-browser\doc\tasks\20260623-dcc-browser-batch-recognition\frontend-feature-evidence.md` -> FAIL，证据文档缺少 `Feature/Acceptance/BDD:/RED:/GREEN:/Verification/Blockers` 标记。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence D:\ProjectPackage\Int\IntRuoyiWorktrees\ruoyi-vue-pro-dcc-batch-recognition-browser\doc\tasks\20260623-dcc-browser-batch-recognition\frontend-feature-evidence.md` -> PASS。
+- CHANGE: user-admin-write-authorization -> 用户于 2026-06-23 明确授权在本机使用 `芋道源码/admin` 执行本次写入型 DCC 批量识别 E2E。
+- GREEN: admin-batch-recognition-real-e2e -> PASS，真实运行态 `8087/48087` 下目录样本 `质量管理/3.DMR/10.产品技术要求` 启动批量任务 `taskId=1`，最终 `COMPLETED`，`processed=24 / success=7 / failed=17 / skipped=0`。
+- GREEN: admin-batch-recognition-db-readback -> PASS，真实库回查 7 条成功记录均已写回 `dcc_project_code_id`、`product_name`、`product_code`，`project_code_recognition_type=PROJECT_CODE`。
+- INFO: admin-batch-recognition-data-blocker -> 同批任务 17 条失败，最后错误为 `S3 404 The specified key does not exist`，说明本地样本存在源文件对象缺失。
+- GREEN: experience-preflight-test-server-release -> PASS，已在测试服发布前读取 `docs/server-access.md`、`docs/release-backup-restore.md`、`docs/login-access.md`；当前任务已获用户明确授权访问测试服并继续验证当前代码链路。
+- GREEN: test-server-deploy-release-20260623-dcc-batch-recognition-test-v1 -> PASS，前后端 code-only 包已部署到测试服，远端 `.env` / backend / frontend tag 与 releaseTag 一致，健康检查通过。
+- RED: test-server-batch-recognition-task-1 -> FAIL，测试服真实目录 `directoryId=909031` 的批量任务 `taskId=1` 最终 `33/33` 失败，错误为 `failed to start Codex CLI command [cmd.exe, /c, codex.cmd]`，确认测试服仍回退到 Windows 默认命令。
+- GREEN: maintenance-release-runtime-codex-hotfix -> PASS，维护仓发布链路已补齐 `DCC_PROJECT_CODE_CODEX_CLI_COMMAND`、`DCC_PROJECT_CODE_CODEX_HOME`、`CODEX_HOME` 与 codex 挂载，并重新发布 backend-only `release-20260624-dcc-batch-recognition-codex-v2` 到测试服。
+- GREEN: test-server-runtime-codex-env -> PASS，测试服远端 `.env` 与 backend 容器环境已存在 `/opt/intruoyi/runtime/tools/codex`、`DCC_PROJECT_CODE_CODEX_CLI_COMMAND`、`DCC_PROJECT_CODE_CODEX_HOME`、`CODEX_HOME`。
+- RED: test-server-batch-recognition-task-2 -> FAIL，同目录批量任务 `taskId=2` 最终 `33/33` 失败，但错误已演进为 `Codex CLI timed out after 120 seconds` 与 `returned no DCC basic-data match`；证明 Linux Codex 启动链路已修复，但测试服内容识别结果仍未放行。
+- BDD: 精确重复候选不得把可识别结果判成歧义 -> Given `dcc_project_code` 存在 `project_code + project_name` 完全相同的重复记录 / When Codex 命中该逻辑候选 / Then 服务层必须先折叠重复候选，再按单一逻辑候选完成写回。
+- BDD: 通用检验/附录文件必须把目录产品上下文送进 Codex -> Given 文件正文和文件名都偏通用，但目录祖先包含明确产品名 / When 后端调用 Codex 识别 / Then 提示词必须带上目录路径作为有效证据。
+- RED: `mvn --% -f D:\ProjectPackage\Int\IntRuoyiWorktrees\ruoyi-vue-pro-dcc-batch-recognition-browser\pom.xml -pl yudao-module-dcc -Dtest=DccControlledFileProjectCodeRecognitionServiceTest,DccProjectCodeCodexCliClientImplTest -Dsurefire.failIfNoSpecifiedTests=false test` -> FAIL，新增回归用例一处报 `DCC project-code recognition is ambiguous: projectCode=IKFDA`，另一处断言提示词未包含目录上下文。
+- GREEN: `mvn --% -f D:\ProjectPackage\Int\IntRuoyiWorktrees\ruoyi-vue-pro-dcc-batch-recognition-browser\pom.xml -pl yudao-module-dcc -Dtest=DccControlledFileProjectCodeRecognitionServiceTest,DccProjectCodeCodexCliClientImplTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，精确重复候选已在识别前折叠，目录路径已随源文件上下文进入 Codex 提示词。
+- RED: `mvn --% -f D:\ProjectPackage\Int\IntRuoyiWorktrees\ruoyi-vue-pro-dcc-batch-recognition-browser\pom.xml -pl yudao-module-dcc -Dtest=DccControlledFileProjectCodeRecognitionServiceTest#recognizeProjectCode_directoryPathUsesUniqueProjectCodeShortcutBeforeCodex -Dsurefire.failIfNoSpecifiedTests=false test` -> FAIL，目录路径虽然已进入 Codex 提示词，但高置信项目编码直连仍只看纯文件名，导致带 `IKFDA` 目录编码的样本仍落到 `source file is missing` 读文件路径。
+- GREEN: `mvn --% -f D:\ProjectPackage\Int\IntRuoyiWorktrees\ruoyi-vue-pro-dcc-batch-recognition-browser\pom.xml -pl yudao-module-dcc -Dtest=DccControlledFileProjectCodeRecognitionServiceTest#recognizeProjectCode_directoryPathUsesUniqueProjectCodeShortcutBeforeCodex -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，目录路径中的唯一长编码已可直接命中，无需再读文件或调用 Codex。
+- GREEN: `mvn --% -f D:\ProjectPackage\Int\IntRuoyiWorktrees\ruoyi-vue-pro-dcc-batch-recognition-browser\pom.xml -pl yudao-module-dcc -Dtest=DccControlledFileBatchRecognitionControllerTest,DccControlledFileBatchRecognitionServiceTest,DccControlledFileProjectCodeRecognitionServiceTest,DccProjectCodeCodexCliClientImplTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，批量任务控制器/服务与单条识别/Codex 客户端回归共 `28` 条全部通过。

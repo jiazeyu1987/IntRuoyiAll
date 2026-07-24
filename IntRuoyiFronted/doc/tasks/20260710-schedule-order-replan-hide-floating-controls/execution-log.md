@@ -1,0 +1,35 @@
+# Execution Log：排产前检查 / 手动重排隐藏浮动列控件
+
+- `INFO: experience-index -> matched docs/powershell-memory.md, docs/worktree-memory.md, D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md, bug-regression-fix-loop, frontend-feature-delivery`
+- `INFO: worktree-bootstrap -> frontend-only worktree D:\ProjectPackage\Int\IntRuoyiWorktrees\r260710rfc\yudao-ui-admin-vue3, branch codex/20260710-schedule-order-replan-hide-floating-controls, planned FE 8086, backend dependency http://127.0.0.1:48081`
+- `GREEN: experience-preflight -> PASS`：适用经验、工作区边界、分支、路径和后续端口目标已明确；后续真实 E2E、融合与清理仍需各自完成运行态和冲突门禁。
+- `BDD: 排产前检查表不显示浮动列控件 -> Given 用户打开排产前检查 / 手动重排抽屉且预检存在问题列表 / When 全局表格列增强器扫描页面表格 / Then 预检问题表必须被识别为显式配置表格，不注入显示字段和重置浮窗。`
+- `BDD: 重排问题表不显示浮动列控件 -> Given 用户完成重排预览且存在问题列表 / When 全局表格列增强器扫描页面表格 / Then 重排问题表必须被识别为显式配置表格，不注入显示字段和重置浮窗。`
+- `BDD: 主列表显示字段能力保持不变 -> Given 用户查看排产工单主列表或同步工单列表 / When 使用页面标题栏的显示字段入口 / Then 原有列显示、重置和宽度持久化能力继续保留。`
+- `RED: node tests/e2e/mes-schedule-order-replan-hide-floating-controls-static.spec.js -> FAIL, 排产前检查问题表缺少 data-user-table-column-explicit，仍会被全局增强器注入浮动“显示字段 / 重置”控件。`
+- `ROOT CAUSE: src/views/mes/pro/scheduleorder/index.vue`：预检问题表和重排问题表均位于抽屉内，但未声明全局列增强器已有的显式排除标记；增强器因此按普通表格自动挂载浮动列控件。
+- `BLOCKER RESOLVED: official login preflight target-text -> 首次使用源码目录风格路径 /mes/pro/scheduleorder，登录后目标文案等待超时；项目真实动态菜单路径为 /mes/pro/schedule-order，已按既有任务证据修正，不改变业务代码。`
+- `CHANGE: src/views/mes/pro/scheduleorder/index.vue`：预检问题表和重排问题表均增加 `data-user-table-column-explicit`，复用全局增强器已有排除契约。
+- `GREEN: node tests/e2e/mes-schedule-order-replan-hide-floating-controls-static.spec.js -> PASS`
+- `GREEN: node tests/e2e/user-table-column-config-static.spec.js -> PASS`
+- `GREEN: node tests/e2e/mes-schedule-order-tab-controls-toolbar-static.spec.js -> PASS`
+- `BASELINE: node tests/e2e/mes-pro-schedule-order-usability-static.spec.js -> FAIL`：失败断言为待同步状态筛选必须保留 `@change="handleWorkOrderAdmissionQuery"`；在未包含本任务改动的 `int_main` 工作区同样失败，本任务仅新增两处表格属性，与该既有断言无关。
+- `GREEN: pnpm.cmd exec eslint src/views/mes/pro/scheduleorder/index.vue --max-warnings=0 -> PASS`
+- `GREEN: node --check tests/e2e/mes-schedule-order-replan-hide-floating-controls-static.spec.js -> PASS`
+- `GREEN: NODE_OPTIONS=--max-old-space-size=8192 pnpm.cmd ts:check:schedule -> PASS`
+- `GREEN: official login preflight -> PASS`：`baseUrl=http://127.0.0.1:8086`，测试租户 `aoteman`，真实动态菜单路径 `/mes/pro/schedule-order`，目标文案“排产工单”可见。
+- `GREEN: experience-preflight -> PASS`：真实 E2E 前已确认 FE `8086` 属于当前 worktree，BE `48081` 健康，DB `127.0.0.1:23306/ruoyi-vue-pro`，Redis `127.0.0.1:26379`，测试租户 `tenant_id=122`。
+- `GREEN: node doc/tasks/20260710-schedule-order-replan-hide-floating-controls/verify-real-e2e.cjs -> PASS`：真实页面选择 5 条可选排产工单，预检返回 `BLOCKED` 和 7 条真实问题；抽屉渲染 1 张诊断表，`explicit=true`、`globalKey=null`、`managed=false`，页面错误和控制台错误均为 0，未调用 `/replan/apply`。
+- `GREEN: visual-review -> PASS`：截图中预检问题表右上方已无“显示字段 / 重置”浮窗，业务表头、问题行和重排操作区无重叠。
+- `GREEN: bug-regression evidence validator -> PASS`
+- `GREEN: frontend-feature evidence validator -> PASS`
+- `GREEN: validator self-tests -> PASS`
+- `STATUS: ready_for_closeout`：实现和必要验证完成，等待实现提交、主线融合复验和 task-closeout 清理。
+- `COMMIT: 7b8f807e7 -> 任务: 隐藏手动重排浮动列控件`
+- `GREEN: int_main overlap gate -> PASS`：任务文件与主工作区既有脏改重叠为 0。
+- `GREEN: int_main ff-only merge -> PASS`：前端主线已快进到 `7b8f807e7`。
+- `GREEN: merged static verification -> PASS`：目标静态测试、列配置回归、工具栏回归和 `ts:check:schedule` 通过。
+- `BLOCKER: merged-main-runtime -> 主工作区 8087 官方登录页面加载超时；既有 8081 主线 Vite 进程 HTTP 同样超时。主工作区存在大量其他任务未提交改动，无法安全清理或重启其共享运行态。`
+- `GREEN: merged-commit clean-worktree E2E -> PASS`：分支与 `int_main` 同为提交 `7b8f807e7`，在干净 worktree 8086 上重新完成官方登录和真实预检页面验证，诊断表仍为 `explicit=true`、`globalKey=null`、`managed=false`。
+- `BLOCKER: task-closeout preview -> 主工作区非干净，自动 ff-only 收尾门禁拒绝 apply；预览计划仅删除本任务 .runtime、临时证据脚本与截图，正式任务记录和静态测试均在 keep 集合。`
+- `STATUS: ready_for_closeout`：实现已融合，worktree 因并行主工作区脏改保留，未执行 destructive cleanup。

@@ -1,0 +1,26 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260513_dcc_base_schema; type=schema; riskLevel=medium
+CREATE TABLE IF NOT EXISTS `dcc_category_view_matrix_rule` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT 'ID',
+  `category_id` BIGINT NOT NULL COMMENT 'DCC file category ID',
+  `excel_file_name` VARCHAR(255) NULL COMMENT 'Excel file name',
+  `excel_row_no` INT NULL COMMENT 'Excel row number',
+  `excel_column_letter` VARCHAR(16) NULL COMMENT 'Excel column letter',
+  `subject_label` VARCHAR(255) NULL COMMENT 'Excel subject label',
+  `subject_top_header` VARCHAR(128) NULL COMMENT 'Excel top header',
+  `subject_sub_header` VARCHAR(128) NULL COMMENT 'Excel sub header',
+  `marker` VARCHAR(8) NULL COMMENT 'Excel marker, ● or ▲',
+  `scope_type` VARCHAR(32) NOT NULL COMMENT 'ALL_MEMBERS or MANAGER_AND_ABOVE',
+  `subject_type` VARCHAR(32) NOT NULL COMMENT 'USER, DEPT, POST, POSITION, DCC_POSITION, UNMAPPED_EXCEL',
+  `subject_id` BIGINT NULL COMMENT 'System subject ID',
+  `active` TINYINT NOT NULL DEFAULT 1 COMMENT 'Active flag',
+  `remark` VARCHAR(255) NULL COMMENT 'Remark',
+  `tenant_id` BIGINT NOT NULL DEFAULT 0 COMMENT 'Tenant ID',
+  `create_time` DATETIME NULL COMMENT 'Create time',
+  `update_time` DATETIME NULL COMMENT 'Update time',
+  `creator` VARCHAR(64) NULL COMMENT 'Creator',
+  `updater` VARCHAR(64) NULL COMMENT 'Updater',
+  `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT 'Deleted flag',
+  PRIMARY KEY (`id`),
+  KEY `idx_dcc_category_view_matrix_rule_category` (`category_id`),
+  KEY `idx_dcc_category_view_matrix_rule_subject` (`subject_type`, `subject_id`)
+) COMMENT='DCC category view matrix rule';

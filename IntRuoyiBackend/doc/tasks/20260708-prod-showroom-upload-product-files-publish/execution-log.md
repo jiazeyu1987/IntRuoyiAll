@@ -1,0 +1,46 @@
+# 执行日志
+
+- READ: docs/powershell-memory.md -> PASS。
+- READ: docs/experience-index.md -> PASS。
+- READ: docs/server-access.md -> PASS。
+- READ: docs/login-access.md -> PASS。
+- READ: docs/release-backup-restore.md -> PASS。
+- READ: docs/agent-memory/project-error-prevention.md -> PASS。
+- BDD: 正式服产品文件上传绑定 -> Given Excel 中 81 条文件到 product_XXX 的对应关系；When 通过正式后台业务接口上传并绑定；Then 正式服对应产品资源完整，不能写入本机路径或丢失一对多关系。
+- BDD: 手动发布展厅成功 -> Given 所有产品文件绑定完成；When 正式后台点击或调用手动发布展厅；Then 发布接口成功且 Website 当前 release 可真实访问。
+- STATUS: 开始确认正式服产品资源接口、分类字段和上一轮正式发布证据。
+- GREEN: experience-preflight -> PASS, 已读取 PowerShell、experience-index、server-access、login-access、release-backup-restore、project-error-prevention；用户目标明确授权正式服上传、产品绑定与手动发布，写入范围限定为展厅产品附件上传、缺失目标产品最小业务补齐、产品发布与展厅 release 发布。
+- GREEN: prod-product-resolution-preflight -> PARTIAL, 正式服 69 个目标产品中 68 个可唯一定位；唯一缺口为 `product_049 / 经导管主动脉瓣膜输送系统`，正式服 `/showroom/product/page` 与 `/mdm/product/page` 均无该产品，附件上传前必须先通过业务接口补齐或记录阻塞。
+- RED: mvn -pl yudao-module-showroom -Dtest=ShowroomProductAttachmentPolicyTest test -> FAIL, `.m4v/.m4V` 视频附件被 `ShowroomProductAttachmentPolicy` 拒绝，错误为 `SHOWROOM_PRODUCT_ATTACHMENT_INVALID: unsupported video attachment extension m4v`。
+- GREEN: mvn -pl yudao-module-showroom -Dtest=ShowroomProductAttachmentPolicyTest test -> PASS, `.m4v/.m4V` 视频附件策略已放行。
+- GREEN: python -X utf8 -m py_compile prod_showroom_upload_attachments.py -> PASS, 上传脚本语法正确。
+- GREEN: upload-script-resume-protection -> PASS, 脚本会按 `/infra/file/page` 查询 `showroom/product-attachments/` 下同名同大小同类型文件，已存在则复用 fileId，避免重复上传前 6 个正式服文件。
+- STATUS: prod-runtime-before-m4v-fix -> 正式服后端当前仍运行 `release-20260707-showroom-legacy-order-c7de28b234`，只重启不会包含 `.m4v` 策略修复；继续上传前必须完成后端代码发布或等效受控热修并验证正式服上传接口接受 `.m4v`。- BLOCKER: build-release-main-workspace -> FAIL, 主工作区存在无关草稿 SQL sql/mysql/20260705_showroom_legacy_product_code_auto_confirmable_draft.sql 缺 release-migration 元数据，发布扫描 fail-fast；改用干净 release worktree 构建本次 .m4v 修复包。
+- GREEN: backend-only-release-worktree -> PASS, 后端 worktree=D:\ProjectPackage\Int\IntRuoyiWorktrees\r260708m4v\b commit=b57ed786b3d0a4e98a1ae13bf71bac7c73cba6e0；因前端主工作区存在无关脏改，本次 .m4v 修复改用后端-only code-only 发布包。
+- GREEN: build-release-m4v-backend-only -> PASS, releaseTag=release-20260708-showroom-m4v-upload-b57ed786b3，component=backend，publishScope=code-only，backendCommit=b57ed786b3d0a4e98a1ae13bf71bac7c73cba6e0，发布包已上传 NAS；跳过数据库与 MinIO 同步。
+- GREEN: deploy-test-m4v-backend-only -> PASS, releaseTag=release-20260708-showroom-m4v-upload-b57ed786b3，测试服后端已部署并健康检查通过。
+- GREEN: test-server-m4v-upload-proof -> PASS, 测试服真实 .m4v 文件通过 /showroom/product/attachment/upload，证明后端上传策略已接受 .m4v。
+- BLOCKER: prod-product-publish -> FAIL, 正式服产品附件绑定发布在 `PUT /admin-api/showroom/product/publish` 首个产品触发 `SHOWROOM_AUDIO_GENERATION_FAILED`，后端日志为 Aliyun NLS `ACCESS_DENIED:The token is invalid`；根因为附件-only 发布携带 `sourceRevisionId` 后进入讲解发布分支，当前后端仅复用草稿音频，未复用已发布音频，导致应保留现有音频的产品误触发 TTS。
+- BDD: 附件-only 发布保留已发布讲解音频 -> Given 产品已有中英文已发布讲解音频；When 只新增产品附件并发布产品修订；Then 新修订应绑定附件并沿用原讲解音频，不调用 TTS。
+- RED: mvn -pl yudao-module-showroom -Dtest=ShowroomProductNarrationRegressionTest#productPublishShouldCarryForwardPublishedNarrationAudioWhenOnlyAttachmentsChange test -> FAIL, 旧逻辑只允许复用草稿音频，附件-only 发布已发布讲解产品时误进入 TTS，错误为 `SHOWROOM_AUDIO_GENERATION_FAILED: aliyun nls configuration is missing`。
+- GREEN: mvn -pl yudao-module-showroom -Dtest=ShowroomProductNarrationRegressionTest#productPublishShouldCarryForwardPublishedNarrationAudioWhenOnlyAttachmentsChange test -> PASS, 发布产品只改附件时可复用已发布讲解音频，且验证未调用 TTS。
+- GREEN: upload-script-attachment-only-publish -> PASS, 上传脚本发布 payload 不再主动携带 `sourceRevisionId`；附件-only 发布由后端按现有讲解状态决定是否复用讲解，无讲解产品不会被脚本强制触发音频生成。
+- GREEN: prod-upload-product-publish -> PASS, 正式服 69 个目标产品均完成产品修订发布；日志 `evidence/prod-upload-write-after-attachment-narration-deploy.log` 显示 27 个文件复用/上传 fileId，69 条 `PUBLISHED product_XXX` 完成。
+- BLOCKER: prod-showroom-release-publish -> FAIL, 正式服 `POST /admin-api/showroom/release/publish` 返回 500；后端日志显示 `java.lang.OutOfMemoryError: Java heap space`，调用链为 `ShowroomReleaseAssembler.resolveProductAttachments -> ShowroomReleaseSourceFileReader.readFileById -> S3FileClient.getContent`，根因为 release 发布把 200MB 级产品附件整文件读入内存并内嵌为 release asset。
+- BDD: 大附件展厅发布不读取文件正文 -> Given 产品已发布视频/PDF/图片附件；When 发布展厅 release；Then 产品详情只保留已上传文件 URL 与元数据，不把附件二进制内嵌为 release asset，也不调用 `FileService.getFileContent` 读取附件正文。
+- RED: mvn -pl yudao-module-showroom -Dtest=ShowroomReleaseWebsiteIndexAssemblyTest#shouldPublishProductDetailAttachmentsAsUploadedFileReferencesWithoutReadingBinaryContent test -> FAIL, 旧逻辑生成的附件 `url` 为 null，仍按 release asset 模式处理附件。
+- GREEN: mvn -pl yudao-module-showroom -Dtest=ShowroomReleaseWebsiteIndexAssemblyTest#shouldPublishProductDetailAttachmentsAsUploadedFileReferencesWithoutReadingBinaryContent test -> PASS, 附件明细保留 `/admin-api/infra/file/{configId}/get/{path}`，不包含 `assetId/contentHash`，视频/PDF 不进入 release assets，且未读取附件正文。
+- GREEN: mvn -pl yudao-module-showroom -Dtest=ShowroomReleaseWebsiteIndexAssemblyTest test -> PASS, 8 tests, 0 failures, 覆盖 website index、产品详情附件、缺失附件 fail-fast 等 release 组装回归。
+
+- GREEN: build-release-showroom-release-oom-backend-only -> PASS, releaseTag=release-20260708-showroom-release-oom-6c7a613b9d, component=backend, publishScope=code-only, backendCommit=6c7a613b9d6260a338e8b6da8e1664c72f86cba1, 发布包已上传 NAS。
+- GREEN: manifest-validation-showroom-release-oom -> PASS, `build-release-showroom-release-oom-manifest-validation.json` 显示 Manifest v1 validation passed。
+- GREEN: deploy-test-showroom-release-oom-backend-only -> PASS, 测试服后端 currentReleaseTag=release-20260708-showroom-release-oom-6c7a613b9d, HTTP 200, health=UP。
+- GREEN: mark-tested-showroom-release-oom-backend-only -> PASS, `mark-tested-showroom-release-oom-backend-only-success.log` 显示发布包已标记测试通过；rollback-compatibility.json status=BLOCKED 为恢复集版本不一致的已知兼容性记录，不阻塞 code-only 正式发布门禁。
+- GREEN: prod-preflight-release-dry-run-showroom-release-oom -> PASS, 正式 dry-run 证据 `release-20260708-showroom-release-oom-6c7a613b9d-prod-preflight-release-dry-run.json` status=passed, targetEnvironment=prod, writeActions=[]；仅在短路径 manifest-only 工作区排除 mark-tested 后生成的 `tested.json` 与 `rollback-compatibility.json`，未修改 NAS 发布包本体。
+- GREEN: deploy-prod-showroom-release-oom-backend-only -> PASS, 正式服部署完成，prod release history 已记录，发布锁 `LOCK_RELEASED`，`prod-backend-status-after-showroom-release-oom-deploy.json` 显示 running / HTTP 200 / currentReleaseTag=release-20260708-showroom-release-oom-6c7a613b9d。
+- GREEN: prod-runtime-showroom-release-oom -> PASS, `prod-backend-runtime-after-showroom-release-oom-deploy.txt` 显示 `IMAGE_TAG=release-20260708-showroom-release-oom-6c7a613b9d`、`intruoyi-backend:release-20260708-showroom-release-oom-6c7a613b9d`、`{"status":"UP"}`；末尾 SSH `IO pending` 为连接关闭噪声，运行态证据已返回。
+- GREEN: prod-showroom-release-publish-after-oom-deploy -> PASS, `POST /admin-api/showroom/release/publish` HTTP 200，releaseId=20260707T203144Z-be276b74dfa8-70f3eea512e2，manifestHash=b242c1d4e9bd894ea27d3d3b3e9de28ff374d3ebb18ac5b809d12e85d6aaae7c，documentCount=194，assetCount=612，installBytes=742474873。
+- GREEN: prod-backend-log-after-release-publish -> PASS, 日志显示 `/admin-api/showroom/release/publish` 20.786s 完成；未再出现 `OutOfMemoryError` 或 `Java heap space`。
+- GREEN: prod-website-verification-after-release-publish -> PASS, `http://172.30.30.57:8083/`、`/showroom`、`/showroom/` 均 HTTP 200，`/assets/index-BLjB6rty.js` 与 `/assets/index-CS7GnnFy.css` 均 HTTP 200。
+- GREEN: prod-release-product-detail-attachment-url-probe -> PASS, public release document endpoint `.../documents/website-index.json` HTTP 200，website-index 中 147 个产品；抽样 20 个产品详情全部 HTTP 200 且包含附件 URL，附件 URL 指向 `/admin-api/infra/file/28/get/showroom/product-attachments/...`，localPathHitCount=0，assetEmbedHitCount=0。
+- STATUS: task completed at 2026-07-08 04:34:45 +08:00; 正式服 Excel 映射上传、产品发布、展厅 release 发布、Website 与产品详情附件 URL 验证全部完成。

@@ -1,0 +1,72 @@
+{
+  "releaseId": "pending-release-id",
+  "currentImageTag": "pending-image-tag",
+  "backupId": "pending-backup-id",
+  "environment": "production",
+  "protectedStorageVerifierEvidence": {
+    "status": "pending",
+    "objectLock": {
+      "enabled": false,
+      "mode": "pending",
+      "evidencePath": "pending-object-lock-evidence.json"
+    },
+    "retention": {
+      "mode": "pending",
+      "days": 0,
+      "evidencePath": "pending-retention-evidence.json"
+    },
+    "legalHold": {
+      "required": false,
+      "evidencePath": "pending-legal-hold-evidence.json"
+    }
+  },
+  "backupNowReport": {
+    "status": "pending",
+    "code": "pending",
+    "currentImageTag": "pending-image-tag",
+    "backupId": "pending-backup-id",
+    "manifestPath": "pending-manifest.json",
+    "checksumsPath": "pending-checksums.sha256"
+  },
+  "rehearsalReport": {
+    "status": "pending",
+    "result": "pending",
+    "backupId": "pending-backup-id",
+    "reportPath": "pending-rehearsal-report.json",
+    "edhrArchiveEvidence": {
+      "archiveId": "pending-archive-id",
+      "archivePath": "pending-archive-path",
+      "evidencePath": "pending-archive-evidence.json"
+    },
+    "edhrHashEvidence": {
+      "algorithm": "pending",
+      "sha256": "pending-hash",
+      "evidencePath": "pending-hash-evidence.json"
+    },
+    "restoreValidationEvidence": {
+      "status": "pending",
+      "validatedArchiveId": "pending-archive-id",
+      "sampleRecord": "pending-sample-record",
+      "evidencePath": "pending-restore-validation-evidence.json"
+    }
+  },
+  "g8g9ConfirmationPath": "g8-g9-confirmation.example.json",
+  "g10g11ConfirmationPath": "g10-g11-confirmation.example.json",
+  "ciEvidence": {
+    "backendTests": {
+      "status": "pending",
+      "command": "pending real backend test command",
+      "reportPath": "pending-backend-report.json"
+    },
+    "frontendTests": {
+      "status": "pending",
+      "command": "pending real frontend test command",
+      "reportPath": "pending-frontend-report.json"
+    },
+    "e2eGates": {
+      "status": "pending",
+      "command": "node scripts/edhr-release-e2e-coverage-gate.mjs --check --report test-results/edhr-release-coverage/report.json",
+      "reportPath": "test-results/edhr-release-coverage/report.json"
+    }
+  }
+}

@@ -1,0 +1,277 @@
+{
+  "results": [
+    {
+      "id": "setup-test-data",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "ownerCreated=0; alert=E2E运行控制台告警-1780017439809",
+      "at": "2026-05-29T01:17:19.865Z"
+    },
+    {
+      "id": "toolbar-refresh",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "overview and operations reloaded",
+      "at": "2026-05-29T01:18:44.945Z"
+    },
+    {
+      "id": "status-matrix-restart",
+      "tenant": "测试租户",
+      "status": "LOGICALLY_BLOCKED",
+      "evidence": "opened=9; missing confirm/reason did not submit",
+      "at": "2026-05-29T01:18:54.140Z"
+    },
+    {
+      "id": "operation-build-release",
+      "tenant": "测试租户",
+      "status": "LOGICALLY_BLOCKED",
+      "evidence": "运行控制台动作参数不合法：releaseTag 不合法：bad/tag",
+      "at": "2026-05-29T01:18:55.471Z"
+    },
+    {
+      "id": "operation-publish-test",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "operation accepted; action=publish-test",
+      "at": "2026-05-29T01:18:56.692Z"
+    },
+    {
+      "id": "operation-mark-release-tested",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "operation accepted; action=mark-release-tested",
+      "at": "2026-05-29T01:19:38.009Z"
+    },
+    {
+      "id": "operation-promote-prod",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "operation accepted; action=promote-prod",
+      "at": "2026-05-29T01:20:20.728Z"
+    },
+    {
+      "id": "operation-backup-now",
+      "tenant": "测试租户",
+      "status": "LOGICALLY_BLOCKED",
+      "evidence": "missing PROD confirmation blocked before submit",
+      "at": "2026-05-29T01:21:03.167Z"
+    },
+    {
+      "id": "operation-rollback-app",
+      "tenant": "测试租户",
+      "status": "LOGICALLY_BLOCKED",
+      "evidence": "回滚版本候选全部被阻断：缺少 manifest.json；缺少镜像标签",
+      "at": "2026-05-29T01:21:04.078Z"
+    },
+    {
+      "id": "operation-restore-data",
+      "tenant": "测试租户",
+      "status": "LOGICALLY_BLOCKED",
+      "evidence": "恢复数据候选全部被阻断：缺少 manifest.json；缺少镜像标签；缺少 checksum 清单；缺少恢复演练报告；缺少恢复前现场快照",
+      "at": "2026-05-29T01:21:05.080Z"
+    },
+    {
+      "id": "operation-log-view-refresh",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "log dialog opened and refreshed",
+      "at": "2026-05-29T01:21:06.101Z"
+    },
+    {
+      "id": "alert-refresh",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "alert page reloaded",
+      "at": "2026-05-29T01:21:06.670Z"
+    },
+    {
+      "id": "alert-acknowledge",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "real alert acknowledged",
+      "at": "2026-05-29T01:21:06.886Z"
+    },
+    {
+      "id": "alert-resend",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "real alert resend requested",
+      "at": "2026-05-29T01:21:07.098Z"
+    },
+    {
+      "id": "owner-matrix-refresh",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "owner matrix reloaded",
+      "at": "2026-05-29T01:21:07.313Z"
+    },
+    {
+      "id": "decision-wizard-recommend",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "recommendation calculated",
+      "at": "2026-05-29T01:21:07.668Z"
+    },
+    {
+      "id": "inspection-run",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "real inspection run created",
+      "at": "2026-05-29T01:21:13.956Z"
+    },
+    {
+      "id": "probe-run",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "real probes executed",
+      "at": "2026-05-29T01:21:20.240Z"
+    },
+    {
+      "id": "backup-drill-refresh",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "backup points reloaded",
+      "at": "2026-05-29T01:21:20.760Z"
+    },
+    {
+      "id": "incident-open",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "incident drawer opened",
+      "at": "2026-05-29T01:21:20.928Z"
+    },
+    {
+      "id": "incident-refresh",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "incident page reloaded",
+      "at": "2026-05-29T01:21:21.520Z"
+    },
+    {
+      "id": "incident-create",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "incident=E2E全按钮事故-1780017680761",
+      "at": "2026-05-29T01:21:21.772Z"
+    },
+    {
+      "id": "incident-record-action",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "incident action recorded",
+      "at": "2026-05-29T01:21:22.046Z"
+    },
+    {
+      "id": "incident-close",
+      "tenant": "测试租户",
+      "status": "PASS",
+      "evidence": "incident closed",
+      "at": "2026-05-29T01:21:22.340Z"
+    },
+    {
+      "id": "toolbar-refresh",
+      "tenant": "芋道源码",
+      "status": "PASS",
+      "evidence": "overview and operations reloaded",
+      "at": "2026-05-29T01:22:47.473Z"
+    },
+    {
+      "id": "status-matrix-restart",
+      "tenant": "芋道源码",
+      "status": "LOGICALLY_BLOCKED",
+      "evidence": "opened=9; missing confirm/reason did not submit",
+      "at": "2026-05-29T01:22:56.819Z"
+    },
+    {
+      "id": "admin-open-构建发布包",
+      "tenant": "芋道源码",
+      "status": "PASS",
+      "evidence": "dialog opened and canceled without write",
+      "at": "2026-05-29T01:22:57.971Z"
+    },
+    {
+      "id": "admin-open-部署发布包到测试服",
+      "tenant": "芋道源码",
+      "status": "PASS",
+      "evidence": "dialog opened and canceled without write",
+      "at": "2026-05-29T01:22:59.136Z"
+    },
+    {
+      "id": "admin-open-标记测试通过",
+      "tenant": "芋道源码",
+      "status": "PASS",
+      "evidence": "dialog opened and canceled without write",
+      "at": "2026-05-29T01:23:00.249Z"
+    },
+    {
+      "id": "admin-open-上线已验证发布包",
+      "tenant": "芋道源码",
+      "status": "PASS",
+      "evidence": "dialog opened and canceled without write",
+      "at": "2026-05-29T01:23:01.363Z"
+    },
+    {
+      "id": "admin-open-立即备份",
+      "tenant": "芋道源码",
+      "status": "PASS",
+      "evidence": "dialog opened and canceled without write",
+      "at": "2026-05-29T01:23:02.464Z"
+    },
+    {
+      "id": "admin-open-回滚版本",
+      "tenant": "芋道源码",
+      "status": "PASS",
+      "evidence": "dialog opened and canceled without write",
+      "at": "2026-05-29T01:23:03.579Z"
+    },
+    {
+      "id": "admin-open-恢复数据",
+      "tenant": "芋道源码",
+      "status": "PASS",
+      "evidence": "dialog opened and canceled without write",
+      "at": "2026-05-29T01:23:04.700Z"
+    },
+    {
+      "id": "operation-log-view-refresh",
+      "tenant": "芋道源码",
+      "status": "PASS",
+      "evidence": "log dialog opened and refreshed",
+      "at": "2026-05-29T01:23:05.864Z"
+    },
+    {
+      "id": "admin-alert-refresh",
+      "tenant": "芋道源码",
+      "status": "PASS",
+      "evidence": "alert page reloaded without mutation",
+      "at": "2026-05-29T01:23:06.471Z"
+    },
+    {
+      "id": "admin-owner-matrix-refresh",
+      "tenant": "芋道源码",
+      "status": "PASS",
+      "evidence": "owner matrix reloaded without mutation",
+      "at": "2026-05-29T01:23:06.673Z"
+    },
+    {
+      "id": "admin-decision-wizard-recommend",
+      "tenant": "芋道源码",
+      "status": "PASS",
+      "evidence": "recommendation calculated",
+      "at": "2026-05-29T01:23:07.059Z"
+    },
+    {
+      "id": "admin-backup-drill-refresh",
+      "tenant": "芋道源码",
+      "status": "PASS",
+      "evidence": "backup points reloaded without mutation",
+      "at": "2026-05-29T01:23:07.751Z"
+    },
+    {
+      "id": "admin-incident-open-refresh",
+      "tenant": "芋道源码",
+      "status": "PASS",
+      "evidence": "incident drawer opened, refreshed, and closed without write",
+      "at": "2026-05-29T01:23:08.531Z"
+    }
+  ]
+}

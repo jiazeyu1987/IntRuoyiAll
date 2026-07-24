@@ -1,0 +1,10 @@
+# Execution Log: BATCH-COVER-OK Showroom Cover Image
+
+BDD: premium showroom cover image -> Given only the provided product facts and visual constraints / When the native image generator is called once to create a square enterprise medical showroom cover / Then the result is a single local PNG suitable for a showroom cover with one clear hero product, no readable branding, and no fabricated technical claims.
+
+INFO: Reused the existing task directory `doc/tasks/2026-05-21-batch-cover-ok-showroom-cover` and reset it to in-progress for a fresh project-local final asset.
+INFO: Native image generation executed exactly once and produced source image `C:\Users\BJB110\.codex\generated_images\019e4a8f-7ba9-7180-ba10-ea651324baa8\ig_02f81d602abf72c8016a0efe4ed51481978696d3e250d365bd.png`.
+GREEN: Copy-Item -LiteralPath 'C:\Users\BJB110\.codex\generated_images\019e4a8f-7ba9-7180-ba10-ea651324baa8\ig_02f81d602abf72c8016a0efe4ed51481978696d3e250d365bd.png' -Destination '..\output\imagegen\showroom-cover-batch-cover-ok-20260521.png' -> PASS, final artifact persisted to `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\output\imagegen\showroom-cover-batch-cover-ok-20260521.png`.
+GREEN: Add-Type -AssemblyName System.Drawing; $img=[System.Drawing.Image]::FromFile('D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\output\imagegen\showroom-cover-batch-cover-ok-20260521.png'); [PSCustomObject]@{Width=$img.Width; Height=$img.Height; RawFormat=$img.RawFormat.Guid}; $img.Dispose() -> PASS, verified PNG dimensions 1254x1254.
+INFO: Visual inspection confirmed one centered premium concept medical-device hero product in a bright clinical showroom scene with no readable text, logos, badges, watermarks, or UI overlays.
+GREEN: python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 2026-05-21-batch-cover-ok-showroom-cover --mode preview -> PASS, keep set limited to task.md, execution-log.md, and output/imagegen/showroom-cover-batch-cover-ok-20260521.png with no deletions, blockers, or warnings.

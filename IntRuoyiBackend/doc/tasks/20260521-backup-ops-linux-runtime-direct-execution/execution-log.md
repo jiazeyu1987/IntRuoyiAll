@@ -1,0 +1,11 @@
+# 执行日志：让 Linux 测试服务器本机可直接执行 backup-ops
+
+BDD: linux native backup-ops runtime -> Given 测试服务器是 Linux 且未安装 pwsh When IT 需要在测试服务器本机直接执行 backup-ops Then 系统必须提供一条不依赖 PowerShell 的直接执行入口，同时不破坏现有 Windows 运维机执行模式
+BDD: linux local backup-now and restore-data -> Given 测试服务器已具备 python3、docker、curl 和本地 runtime 目录 When IT 在测试服务器本机执行 Linux 入口 Then 系统至少能够直接触发 backup-now 和 restore-data
+RED: python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_linux_runtime_tooling.py -q -> FAIL, Linux 本机入口、Linux 示例配置和非 PowerShell 直执行脚本都还不存在
+GREEN: python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_linux_runtime_tooling.py -q -> PASS
+RED: ssh root@172.30.30.58 "cd /opt/intruoyi/ops/backup-ops/linux-native && python3 ./linux/backup_ops_linux.py --mode backup-now --config ./backup-ops.linux-local.runtime.json" -> FAIL, Python 3.6 不支持 subprocess.run(..., text=True)
+GREEN: ssh root@172.30.30.58 "cd /opt/intruoyi/ops/backup-ops/linux-native && python3 ./linux/backup_ops_linux.py --mode backup-now --config ./backup-ops.linux-local.runtime.json" -> PASS, 生成真实备份点 20260521_104400
+GREEN: ssh root@172.30.30.58 "find /backup/int-ruoyi/backups/20260521_104400 -maxdepth 4 | sort" -> PASS, 备份点包含 deploy / manifest / mysql / objects
+GREEN: ssh root@172.30.30.58 "cd /opt/intruoyi/ops/backup-ops/linux-native && python3 ./linux/backup_ops_linux.py --mode restore-data --config ./backup-ops.linux-local.runtime.json --selected-backup-id 20260521_104400" -> PASS, Linux 本机完成真实恢复
+GREEN: python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_tooling.py D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_real_integration_tooling.py D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_rehearsal_tooling.py D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_manifest_tooling.py D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_scheduling_tooling.py D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_notification_flow_tooling.py D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_linux_runtime_tooling.py -q -> PASS, 42 passed

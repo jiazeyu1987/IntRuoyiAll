@@ -1,0 +1,56 @@
+# 执行日志：测试服 DHF 文件夹完整转移到 DCC
+
+- BDD: DHF 可读源树必须进入 DCC -> Given 测试服 NAS 中存在 DHF 文件夹及全部当前账号可读取的子目录/子文件 / When 发起或恢复 DHF 到 DCC 的真实转移任务 / Then 每个可读取 DHF 子目录和子文件都必须在 DCC 目标记录或受控文件中可核对，失败数必须为 0。
+- BDD: 无权限目录按用户授权跳过并记录 -> Given 当前 NAS 配置账号对部分 DHF 子目录返回权限不足 / When 执行 DHF 迁移和完整性校验 / Then 这些目录可以跳过，但必须在任务证据中列出具体路径，不得把跳过项计入成功迁移。
+- BDD: 失败文件必须暴露并驱动修复 -> Given 任一可读取 DHF 文件或目录转移失败 / When 读取转移任务、失败报告、后端日志和 DCC 目标数据 / Then 必须记录具体失败项和原因，并先补失败回归测试再修复，不得跳过失败项或声明成功。
+- BDD: 修复后必须通过测试服真实复测 -> Given 本地修复已通过目标回归 / When 构建后端发布包并部署到测试服 / Then 再次执行真实 DHF 转移和 NAS/DCC 完整性校验，直到可读取范围内失败项为 0。
+- PRECHECK: 上一个同类任务 `20260530-dcc-dmr-nas-transfer-completion` 为 `completed`，已提交 `9439c41765`；当前存在 unrelated dirty changes，本任务不纳入。
+- DOCS: 创建 `doc/tasks/20260530-dcc-dhf-nas-transfer-completion/` 任务文档、需求、计划、测试计划、状态文件和执行日志。
+- VERIFY: 测试服健康检查 -> `IMAGE_TAG=20260530_dmr_repeated_dir_fix_1200`，`curl http://127.0.0.1:48081/actuator/health` 返回 `{"status":"UP"}`。
+- VERIFY: NAS 配置 -> 测试服数据库 `infra_config` 中 `infra.nas.server=172.30.30.4`、`infra.nas.share=质量体系文件`、`infra.nas.username=ceshi`，密码未输出。
+- VERIFY: DCC DHF 分类 -> `dcc_file_category` 中测试租户 `122` 存在 `id=906102`、`code=CODEX_E2E_DHF`、`name=技术文件-DHF`。
+- VERIFY: DHF 历史状态 -> 转移前未查到 `selected_nas_paths_json LIKE '%DHF%'` 的历史转移任务，未查到已存在的 `DHF` DCC 目录。
+- GREEN: DHF 源树可读基线 -> PASS，临时只读 CIFS 挂载 `//172.30.30.4/质量体系文件` 后，确认 DHF 根路径为 `2.DHF`，统计 `directories=2207`、`files=15064`、`file_bytes=81270765861`、`max_depth=11`；未遇到权限不足目录、stat error 或其他读取错误。
+- GREEN: `POST /admin-api/system/auth/login` with `tenant-id=122`, `aoteman/admin123` -> PASS，返回测试租户登录令牌。
+- GREEN: `POST /admin-api/dcc/controlled-files/nas-transfer` with `tenant-id=122`, `selectedNasPaths=["2.DHF"]`, `templateCategoryId=906102`, `effectiveDate=2026-05-30` -> PASS，创建真实转移任务 `5`，初始状态 `WAITING`，`remainingPendingCount=1`。
+- RED: 任务 `5` 真实短轮询 -> FAIL，迁移开始后出现 `FAILED/FILE/submit=87`，错误为 `Duplicate entry 'NASCAT-714577DA57862BC9F36FA6642B63605E573A649B' for key 'dcc_file_category.uk_dcc_file_category_code'`。该 code 在租户 `1` 已存在，测试租户 `122` 生成同一路径 NAS 分类 code 时撞上全局唯一键。
+- RED: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#categoryCodeOf_separatesSameNasPathAcrossTenants" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，新增测试先失败于 `categoryCodeOf(Long,String)` 不存在，暴露 NAS 分类编码未提供租户隔离入口。
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#categoryCodeOf_separatesSameNasPathAcrossTenants" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，NAS 分类编码 hash 输入加入 `tenantId` 与完整目录路径，同一路径跨租户生成不同 `NASCAT` code。
+- GREEN: `mvn -pl yudao-module-infra,yudao-module-dcc -am "-Dtest=S3FileClientPathTest,DccBaseSchemaTest,DccControlledFileNasTransferServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，18 个受影响用例通过。
+- BUILD: `mvn -pl yudao-server -am -DskipTests package` -> PASS，生成 `yudao-server/target/yudao-server.jar`。
+- DEPLOY: 基于当前测试服镜像 `20260530_dmr_repeated_dir_fix_1200` 构建补丁镜像 `20260530_dhf_tenant_category_fix_1240`，仅替换新 `yudao-server.jar`，frontend 镜像同 tag -> PASS；后端 `/actuator/health` 返回 `UP`。
+- RETRY: 停止测试服 backend 后，将任务 `5` 中 `failure_stage='submit'` 文件项与无 DCC 写入记录的 `RUNNING` 文件项重置为 `WAITING`，保留其它证据；启动 backend 后继续真实迁移。
+- POLL: 2026-05-30 12:45 左右任务 `5` 仍为 `RUNNING`，计数为 `COMPLETED/DIRECTORY=695`、`COMPLETED/FILE=1551`、`RUNNING/FILE=1`、`WAITING/DIRECTORY=250`、`WAITING/FILE=5879`；无 `FAILED` 项，跨租户分类 code 冲突未复现。
+- POLL: 2026-05-30 12:52 左右任务 `5` 仍为 `RUNNING`，计数为 `COMPLETED/DIRECTORY=728`、`COMPLETED/FILE=2130`、`RUNNING/FILE=1`、`WAITING/DIRECTORY=217`、`WAITING/FILE=5609`；无 `FAILED` 项。
+- POLL: 2026-05-30 13:03 左右任务 `5` 仍为 `RUNNING`，计数为 `COMPLETED/DIRECTORY=760`、`COMPLETED/FILE=2909`、`RUNNING/FILE=1`、`WAITING/DIRECTORY=185`、`WAITING/FILE=4938`；无 `FAILED` 项。
+- POLL: 2026-05-30 13:14 左右任务 `5` 仍为 `RUNNING`，计数为 `COMPLETED/DIRECTORY=800`、`COMPLETED/FILE=3764`、`RUNNING/FILE=1`、`WAITING/DIRECTORY=170`、`WAITING/FILE=4607`；无 `FAILED` 项。
+- POLL: 2026-05-30 13:25 左右任务 `5` 仍为 `RUNNING`，计数为 `COMPLETED/DIRECTORY=809`、`COMPLETED/FILE=4562`、`RUNNING/FILE=1`、`WAITING/DIRECTORY=161`、`WAITING/FILE=3947`；无 `FAILED` 项。
+- POLL: 2026-05-30 13:45 左右任务 `5` 仍为 `RUNNING`，计数为 `COMPLETED/DIRECTORY=880`、`COMPLETED/FILE=6261`、`RUNNING/FILE=1`、`WAITING/DIRECTORY=205`、`WAITING/FILE=2558`；无 `FAILED` 项。
+- RED: 任务 `5` 真实轮询 -> FAIL，2026-05-30 13:47 后出现 `FAILED/FILE/submit=81`；首个失败路径为 `2.DHF/大文控-研发转移项目/7 指引导丝 CEMEW/4验证阶段/34带翼母螺旋注塑工艺验证OQPQ方案34 Female Luer Connector with Wing Injection Molding Process OQ PQ Validation ProtocolPV-CEMGW-003a-OQPQA0.pdf`，错误为 `Data too long for column 'file_name'`，后续同目录长文件名因分类未提交成功连带报 `Controlled file category does not exist`。这不是 ACL 权限问题，不能跳过。
+- RED: `mvn -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportLongNasFileNames" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，新增 schema 合同测试先失败于缺少 `20260530_dcc_long_file_name_length.sql`，暴露 DCC 控制文件 `file_name/title` 仍为 `varchar(128)`，小于 `infra_file.name` 的 `256` 上限。
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportLongNasFileNames" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，DCC 基础 schema、runtime repair schema、测试 schema 与新增非破坏性迁移均支持 `file_name/title` 至少 `varchar(256)`；运行迁移保持 `dcc_controlled_file.file_name DEFAULT NULL`，避免把扩容变成历史数据空值约束收紧。
+- GREEN: `python -X utf8 -m pytest script/tests/test_dcc_nas_acl_snapshot_restore_sql.py -q` -> PASS，4 个脚本级 SQL 合同测试通过，覆盖 DCC 精确文件名二进制排序规则与长文件名扩容迁移。
+- GREEN: `mvn -pl yudao-module-infra,yudao-module-dcc -am "-Dtest=S3FileClientPathTest,DccBaseSchemaTest,DccControlledFileNasTransferServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，19 个受影响用例通过。
+- BUILD: `mvn -pl yudao-server -am -DskipTests package` -> PASS，生成 `yudao-server/target/yudao-server.jar`。
+- DEPLOY-DB: 测试服 backend 暂停后执行 `20260530_dcc_long_file_name_length.sql` -> PASS；`information_schema.COLUMNS` 验证 `dcc_controlled_file_master.file_name=varchar(256)/utf8mb4_bin/NOT NULL`、`dcc_controlled_file.file_name=varchar(256)/utf8mb4_bin/NULL`、`dcc_controlled_file.title=varchar(256)/NOT NULL`。
+- DEPLOY: 基于测试服现有后端镜像 `20260530_dhf_tenant_category_fix_1240` 构建补丁镜像 `20260530_dhf_long_filename_fix_1358`，仅替换新 `yudao-server.jar`，frontend 镜像同 tag -> PASS；后端 `/actuator/health` 返回 `UP`。
+- RETRY: 将任务 `5` 中 `failure_stage='submit'` 且无 DCC 写入记录的 81 个失败文件项、无 DCC 写入记录的 `RUNNING` 项重置为 `WAITING`，任务状态重置为 `WAITING`；重启后真实迁移继续运行。
+- RED: 任务 `5` 真实轮询 -> FAIL，2026-05-30 15:00 左右出现新的 `FAILED/FILE/submit=6`；首个失败路径为 `2.DHF/大文控-研发转移项目/81 一次性使用指引导管（三类）CEGCT/4验证阶段/IQ/塑形设备IQ/PV-B09273-004-IQ Guiding Catheter Tip Shaping Cooling Equipment Installation/PV-B09273-004a-IQ Guiding Catheter Tip Shaping Cooling Equipment Installation Re-validation Plan (IQ).pdf`，错误为 `Data too long for column 'remark'`。该 remark 用于保存完整 `NAS transfer source` 路径以支持最终逐项核对，不是 ACL 权限问题，不能跳过。
+- RED: `mvn -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportLongNasTransferSourceRemarks" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，新增 schema 合同测试先失败于缺少 `20260530_dcc_long_nas_source_remark.sql`，暴露 `dcc_controlled_file.remark varchar(255)` 无法容纳真实 DHF 长源路径。
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldSupportLongNasTransferSourceRemarks" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，基础 schema、测试 schema 与新增非破坏性迁移均支持 `dcc_controlled_file.remark varchar(1024)`。
+- GREEN: `python -X utf8 -m pytest script/tests/test_dcc_nas_acl_snapshot_restore_sql.py -q` -> PASS，5 个脚本级 SQL 合同测试通过。
+- GREEN: `mvn -pl yudao-module-infra,yudao-module-dcc -am "-Dtest=S3FileClientPathTest,DccBaseSchemaTest,DccControlledFileNasTransferServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，20 个受影响用例通过。
+- GREEN: 数据库证据校验 -> PASS，`python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260530-dcc-dhf-nas-transfer-completion/database-schema-evidence.md` 返回 `Database schema evidence is valid.`
+- BUILD: `mvn -pl yudao-server -am -DskipTests package` -> PASS，生成包含长 remark 修复的 `yudao-server/target/yudao-server.jar`。
+- DEPLOY-DB: 测试服 backend 暂停后执行 `20260530_dcc_long_nas_source_remark.sql` -> PASS；`information_schema.COLUMNS` 验证 `dcc_controlled_file.remark=varchar(1024)/NULL`。
+- DEPLOY: 基于测试服现有后端镜像 `20260530_dhf_long_filename_fix_1358` 构建补丁镜像 `20260530_dhf_long_remark_fix_1515`，仅替换新 `yudao-server.jar`，frontend 镜像同 tag -> PASS；后端 `/actuator/health` 返回 `UP`。
+- RETRY: 将任务 `5` 中 `failure_stage='submit'` 且无 DCC 写入记录的 6 个失败文件项、无 DCC 写入记录的 `RUNNING` 项重置为 `WAITING`，任务状态重置为 `WAITING`；重启后真实迁移继续运行。
+- POLL: 2026-05-30 15:36 左右任务 `5` 仍为 `WAITING`，计数为 `COMPLETED/DIRECTORY=1957`、`COMPLETED/FILE=13445`、`RUNNING/FILE=1`、`WAITING/DIRECTORY=139`、`WAITING/FILE=803`；无非 ACL `FAILED` 项。
+- GREEN: 任务 `5` 终态轮询 -> PASS，2026-05-30 15:49 左右任务状态 `COMPLETED`，计数为 `COMPLETED/DIRECTORY=2207`、`COMPLETED/FILE=15064`，`pending=0`、`non_acl_failed=0`、`last_failure_message=NULL`。
+- GREEN: DHF NAS/DCC 完整性对账 -> PASS，只读挂载 `//172.30.30.4/质量体系文件` 后重新扫描 `2.DHF`，源树为 `directories=2207`、`files=15064`、`file_bytes=81270765861`、`denied_count=0`、`stat_error_count=0`；DCC 中 `remark LIKE 'NAS transfer source: 2.DHF%'` 的文件为 `15064`、唯一路径 `15064`、字节 `81270765861`；任务完成目录为 `2207`、唯一目录 `2207`；缺失文件、额外文件、重复文件路径、大小不一致、缺失目录、额外目录、重复目录路径、失败项、等待项全部为 `0`。
+- GREEN: `POST /admin-api/system/auth/login` with `tenant-id=122`, `aoteman/admin123` -> PASS，返回测试租户登录令牌。
+- GREEN: `GET /admin-api/dcc/controlled-files/nas-transfer/tasks/5` with `tenant-id=122` -> PASS，返回 `code=0`、`status=COMPLETED`、`remainingPendingCount=0`、`lastFailureMessage=null`。
+- GREEN: 提交前回归 `mvn -pl yudao-module-infra,yudao-module-dcc -am "-Dtest=S3FileClientPathTest,DccBaseSchemaTest,DccControlledFileNasTransferServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，20 个受影响用例通过。
+- GREEN: 提交前脚本验证 `python -X utf8 -m pytest script/tests/test_dcc_nas_acl_snapshot_restore_sql.py -q` -> PASS，5 个脚本级 SQL 合同测试通过。
+- CLEANUP: `task-closeout-cleanup --mode preview` -> PASS，仅计划保留 `task.md`、`execution-log.md`，删除同任务目录中间产物，无 blocked/warnings。
+- CLEANUP: `task-closeout-cleanup --mode apply` -> PASS，已删除同任务目录中间产物，保留最终任务记录与执行日志。

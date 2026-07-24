@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesKingdeeProductionMaterialListMapper">
+
+    <sql id="MatchedBillFilters">
+        <if test="reqVO.sourceBillNo != null and reqVO.sourceBillNo != ''">
+            AND matched.source_bill_no LIKE CONCAT('%', #{reqVO.sourceBillNo}, '%')
+        </if>
+        <if test="reqVO.productCode != null and reqVO.productCode != ''">
+            AND matched.product_code LIKE CONCAT('%', #{reqVO.productCode}, '%')
+        </if>
+        <if test="reqVO.productionOrderNo != null and reqVO.productionOrderNo != ''">
+            AND matched.production_order_no LIKE CONCAT('%', #{reqVO.productionOrderNo}, '%')
+        </if>
+        <if test="reqVO.childMaterialCode != null and reqVO.childMaterialCode != ''">
+            AND matched.child_material_code LIKE CONCAT('%', #{reqVO.childMaterialCode}, '%')
+        </if>
+        <if test="reqVO.childMaterialName != null and reqVO.childMaterialName != ''">
+            AND matched.child_material_name LIKE CONCAT('%', #{reqVO.childMaterialName}, '%')
+        </if>
+        <if test="reqVO.sourceModifyTime != null and reqVO.sourceModifyTime.length == 2">
+            AND matched.source_modify_time <![CDATA[>=]]> #{reqVO.sourceModifyTime[0]}
+            AND matched.source_modify_time <![CDATA[<=]]> #{reqVO.sourceModifyTime[1]}
+        </if>
+        <if test="reqVO.lastSyncTime != null and reqVO.lastSyncTime.length == 2">
+            AND matched.last_sync_time <![CDATA[>=]]> #{reqVO.lastSyncTime[0]}
+            AND matched.last_sync_time <![CDATA[<=]]> #{reqVO.lastSyncTime[1]}
+        </if>
+    </sql>
+
+    <sql id="GroupPageQuery">
+        SELECT
+            summary.source_bill_no AS sourceBillNo,
+            summary.line_count AS lineCount,
+            summary.source_modify_time AS sourceModifyTime,
+            summary.last_sync_time AS lastSyncTime,
+            summary.production_order_count AS productionOrderCount,
+            summary.production_order_summary AS productionOrderSummary
+        FROM (
+            SELECT
+                base.source_bill_no,
+                COUNT(*) AS line_count,
+                MAX(base.source_modify_time) AS source_modify_time,
+                MAX(base.last_sync_time) AS last_sync_time,
+                COUNT(DISTINCT NULLIF(base.production_order_no, '')) AS production_order_count,
+                GROUP_CONCAT(DISTINCT NULLIF(base.production_order_no, '') ORDER BY base.production_order_no SEPARATOR '、') AS production_order_summary
+            FROM mes_kingdee_production_material_list base
+            WHERE base.deleted = 0
+            GROUP BY base.source_bill_no
+        ) summary
+        WHERE EXISTS (
+            SELECT 1
+            FROM mes_kingdee_production_material_list matched
+            WHERE matched.deleted = 0
+              AND matched.source_bill_no = summary.source_bill_no
+            <include refid="MatchedBillFilters"/>
+        )
+    </sql>
+
+    <select id="selectGroupPage" resultType="cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.kingdee.MesKingdeeProductionMaterialListGroupRespVO">
+        <include refid="GroupPageQuery"/>
+        ORDER BY summary.source_modify_time DESC, summary.last_sync_time DESC, summary.source_bill_no DESC
+    </select>
+
+    <select id="selectGroupList" resultType="cn.iocoder.yudao.module.mes.controller.admin.pro.workorder.vo.kingdee.MesKingdeeProductionMaterialListGroupRespVO">
+        <include refid="GroupPageQuery"/>
+        ORDER BY summary.source_modify_time DESC, summary.last_sync_time DESC, summary.source_bill_no DESC
+    </select>
+
+</mapper>

@@ -1,0 +1,27 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=medium
+CREATE TABLE IF NOT EXISTS `mes_pro_batch_record_report` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `sample_key` varchar(64) NOT NULL COMMENT '样本标识',
+  `batch_record_name` varchar(100) NOT NULL DEFAULT '棘突球囊' COMMENT '批记录名称',
+  `product_name` varchar(128) DEFAULT NULL COMMENT '产品名称',
+  `form_slot_type` varchar(32) NOT NULL DEFAULT 'MAIN' COMMENT '表单槽位类型：MAIN/LOSS_REPORT/PROCESS_INSPECTION/PARAMETER_RECORD',
+  `route_key` varchar(32) NOT NULL DEFAULT 'LEGACY' COMMENT '识别路线',
+  `source_file_name` varchar(255) NOT NULL COMMENT '来源文件名',
+  `source_file_sha256` char(64) NOT NULL COMMENT '来源文件 SHA-256',
+  `source_table_index` int NOT NULL COMMENT '来源表序号',
+  `table_title` varchar(255) DEFAULT NULL COMMENT '来源表标题',
+  `report_id` varchar(32) NOT NULL COMMENT '积木报表 ID',
+  `report_code` varchar(50) NOT NULL COMMENT '积木报表编码',
+  `report_name` varchar(100) NOT NULL COMMENT '积木报表名称',
+  `report_category_id` varchar(32) NOT NULL COMMENT '积木报表目录 ID',
+  `last_import_time` datetime NOT NULL COMMENT '最近导入时间',
+  `creator` varchar(64) DEFAULT '' COMMENT '创建者',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updater` varchar(64) DEFAULT '' COMMENT '更新者',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+  `tenant_id` bigint NOT NULL DEFAULT '0' COMMENT '租户编号',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_mes_batch_record_report_sample_route_table` (`sample_key`, `form_slot_type`, `route_key`, `source_table_index`),
+  UNIQUE KEY `uk_mes_batch_record_report_report_id` (`report_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='电子批记录生成报表元数据';

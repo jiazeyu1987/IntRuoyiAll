@@ -1,0 +1,14 @@
+# 执行日志: 20260622-edhr-oq-pq-menu-definition-fix
+
+- BDD: OQ/PQ 菜单定义不得与既有 eDHR 菜单冲突 -> Given 真实测试库已存在既有 eDHR 菜单集且当前发布链路在 OQ/PQ SQL 校验按钮菜单定义时失败 / When 执行 20260618_mes_edhr_oq_pq_execution_deviation.sql / Then 迁移必须使用独立且正确的 OQ/PQ 页面与按钮菜单定义，不得复用或污染其他 eDHR 菜单。
+- BDD: 真实页面 deploy-test 在跨过 label print SQL 后仍必须能继续执行 OQ/PQ SQL -> Given 20260618_mes_edhr_label_print_queue.sql 已在真实测试库成功 APPLIED / When 页面 deploy-test 继续执行 20260618_mes_edhr_oq_pq_execution_deviation.sql / Then 不得再因 OQ/PQ system_menu 定义冲突中断整个测试服发布链路。
+
+- GREEN: previous-task-check -> PASS，上一后端任务 `20260622-edhr-label-print-menu-id-collision-fix` 已 `COMPLETED`，且维护仓真实页面 `deploy-test(v5)` 日志已确认 label print SQL 成功跨过，当前阻塞确已切换到新的 OQ/PQ SQL。
+- GREEN: maintenance-failure-read -> PASS，只读核对维护仓 operation `op-2026-06-21T224939775740400Z-71e88cac-530c-41f0-a189-d2ca59292b50` 日志后确认：真实页面 `deploy-test(v5)` 失败于 `20260618_mes_edhr_oq_pq_execution_deviation.sql`，错误为 `Invalid eDHR OQ/PQ button menu definition; cannot merge tenant package menu_ids`。
+- GREEN: experience-preflight -> PASS，已读取 `D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md` 命中的 `release-backup-restore.md` 与 `server-access.md`，并完成对维护仓真实页面失败日志、业务仓源码和测试服只读 `system_menu` 的门禁预检；允许进入本任务的只读根因定位与 RED 契约编写。
+- GREEN: root-cause-readonly -> PASS，只读搜索与测试服核对确认：`sql/mysql/20260618_mes_edhr_oq_pq_execution_deviation.sql` 复用的 OQ/PQ 号段 `900290-900295` 中，`900290-900292` 与 `sql/mysql/20260618_mes_edhr_flow_intervention_log.sql`、`sql/mysql/20260618_mes_edhr_print_policy_reissue_void.sql` 存在直接复用，`900293-900295` 已被 `sql/mysql/20260618_mes_edhr_unified_change_impact.sql` 占用；测试服 `172.30.30.58` 真实 `system_menu` 查询显示 `900290-900292` 为 OQ/PQ 页面与按钮、`900293-900295` 为 `eDHR统一变更`，而 `900332-900337` 为空，说明应将 OQ/PQ 整体迁移到新号段并正式吸收旧残留。
+- RED: `python -X utf8 -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_edhr_oq_pq_schema_sql.py -q` -> FAIL，新增契约要求 OQ/PQ SQL 使用 `900332-900337` 新号段并吸收 legacy 残留，但当前 SQL 仍停留在旧号段实现，且未出现 legacy 映射/清理逻辑。
+- GREEN: oq-pq-menu-definition-fix -> PASS，已最小修改 `sql/mysql/20260618_mes_edhr_oq_pq_execution_deviation.sql`：将 OQ/PQ 正式菜单号段整体切换到独立未占用的 `900332-900337`，新增 `tmp_mes_edhr_oq_pq_legacy_menu_map` 吸收旧 OQ/PQ 页面/按钮残留，在正式插入新菜单前清理 legacy `system_menu`，并在测试租户 `menu_ids` 合并与 `system_role_menu` 绑定阶段把 legacy OQ/PQ 菜单映射到新号段。
+- GREEN: `python -X utf8 -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_edhr_oq_pq_schema_sql.py -q` -> PASS，OQ/PQ SQL 契约 5 项全部通过，确认新号段与 legacy 归一逻辑已落盘。
+- GREEN: `python -X utf8 D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\release\run-release-migration-policy-gate.py --sql-root D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\sql\mysql` -> PASS，迁移策略门禁继续通过，当前主程序基线 `migrationCount=186`。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260622-edhr-oq-pq-menu-definition-fix\bug-regression-evidence.md` -> PASS，缺陷回归证据格式校验通过。

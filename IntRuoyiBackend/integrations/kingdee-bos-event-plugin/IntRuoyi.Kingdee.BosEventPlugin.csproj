@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>IntRuoyi.Kingdee.BosEventPlugin</AssemblyName>
+    <RootNamespace>IntRuoyi.Kingdee.BosEventPlugin</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <KingdeeK3CloudClientDir Condition="'$(KingdeeK3CloudClientDir)' == ''">C:\Program Files (x86)\Kingdee\K3Cloud\DeskClient\K3CloudClient</KingdeeK3CloudClientDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Kingdee.BOS">
+      <HintPath>$(KingdeeK3CloudClientDir)\Kingdee.BOS.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Kingdee.BOS.Core">
+      <HintPath>$(KingdeeK3CloudClientDir)\Kingdee.BOS.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Kingdee.BOS.DataEntity">
+      <HintPath>$(KingdeeK3CloudClientDir)\Kingdee.BOS.DataEntity.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Runtime.Serialization" />
+  </ItemGroup>
+</Project>

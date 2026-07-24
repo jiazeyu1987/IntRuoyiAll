@@ -1,0 +1,135 @@
+@use './var.css';
+@use './FormCreate/index.scss';
+@use './theme.scss';
+
+.reset-margin [class*='el-icon'] + span {
+  margin-left: 2px !important;
+}
+
+// 解决抽屉弹出时，body宽度变化的问题
+.el-popup-parent--hidden {
+  width: 100% !important;
+}
+
+// 解决表格内容超过表格总宽度后，横向滚动条前端顶不到表格边缘的问题
+.el-scrollbar__bar {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.el-tabs__item {
+  font-synthesis-weight: none;
+  font-weight: 600;
+}
+
+.el-tabs__item.is-active {
+  font-weight: 600;
+}
+
+// 确认框可能从业务弹窗中触发，必须高于普通 Dialog，避免按钮被下层表单拦截。
+.app-confirm-message-box-overlay {
+  z-index: 4000 !important;
+}
+
+/* nprogress 适配 element-plus 的主题色 */
+#nprogress {
+  & .bar {
+    background-color: var(--el-color-primary) !important;
+  }
+
+  & .peg {
+    box-shadow:
+      0 0 10px var(--el-color-primary),
+      0 0 5px var(--el-color-primary) !important;
+  }
+
+  & .spinner-icon {
+    border-top-color: var(--el-color-primary);
+    border-left-color: var(--el-color-primary);
+  }
+}
+
+.user-table-column-global-settings {
+  position: absolute;
+  z-index: 2100;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(23, 32, 51, 0.12);
+}
+
+.user-table-column-global-settings__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 13px;
+  color: #263247;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #dbe3ef;
+  border-radius: 6px;
+}
+
+.user-table-column-global-settings__button:hover {
+  color: #1677ff;
+  border-color: #1677ff;
+}
+
+.user-table-column-global-settings__button:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+  border-color: #e5ebf3;
+}
+
+.user-table-column-global-settings__button.is-primary {
+  color: #fff;
+  background: #1677ff;
+  border-color: #1677ff;
+}
+
+.user-table-column-global-settings__popover {
+  position: absolute;
+  right: 0;
+  top: 40px;
+  display: flex;
+  flex-direction: column;
+  min-width: 240px;
+  max-height: 360px;
+  padding: 12px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(23, 32, 51, 0.16);
+}
+
+.user-table-column-global-settings__title {
+  margin-bottom: 4px;
+  font-weight: 600;
+  color: #172033;
+}
+
+.user-table-column-global-settings__hint {
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.user-table-column-global-settings__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  font-size: 13px;
+  color: #263247;
+}
+
+.user-table-column-global-managed {
+  position: relative;
+}

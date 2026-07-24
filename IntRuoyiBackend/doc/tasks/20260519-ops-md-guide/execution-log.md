@@ -1,0 +1,1 @@
+BDD: OPS guide should map directly to the verified launcher behavior -> Given the repository already contains working publish, restart, status, and help entrypoints / When an operator reads `OPS.md` / Then the document should explain the real commands, targets, safety prompts, and expected URLs without inventing unsupported flows.

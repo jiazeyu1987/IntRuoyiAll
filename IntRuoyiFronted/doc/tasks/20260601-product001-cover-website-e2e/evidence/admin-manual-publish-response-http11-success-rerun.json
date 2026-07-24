@@ -1,0 +1,53 @@
+{
+  "startedAt": "2026-05-31T18:34:01.623Z",
+  "baseUrl": "http://127.0.0.1:8081",
+  "targetPath": "/showroom/company",
+  "credentials": {
+    "tenant": "芋道源码",
+    "username": "admin"
+  },
+  "requests": [
+    {
+      "at": "2026-05-31T18:34:21.852Z",
+      "method": "POST",
+      "url": "http://localhost:48081/admin-api/showroom/release/publish",
+      "postData": "{\"siteKey\":\"yingtai-showroom\",\"stage\":\"TEST\"}"
+    }
+  ],
+  "responses": [
+    {
+      "at": "2026-05-31T18:35:58.619Z",
+      "status": 200,
+      "ok": true,
+      "url": "http://localhost:48081/admin-api/showroom/release/publish",
+      "body": "{\"code\":0,\"msg\":\"\",\"data\":{\"releaseId\":\"20260531T183422Z-be276b74dfa8-428f69663d1f\",\"manifestHash\":\"d90939837ba247a1b775971f171c5498b97852a3567055063e36640966256c21\",\"rootDocumentId\":\"website-index\",\"documentCount\":161,\"assetCount\":491,\"installBytes\":580504104,\"publishedAt\":1780252462076}}"
+    }
+  ],
+  "pageErrors": [],
+  "loginResponse": {
+    "status": 200,
+    "body": "{\"code\":0,\"msg\":\"\",\"data\":{\"userId\":1,\"accessToken\":\"39b273a3f4aa4c219582a9b8bd0414be\",\"refreshToken\":\"0431479eb8824c3aa70f4b0f58f186a6\",\"expiresTime\":1780254244857}}"
+  },
+  "companyPageTextPrefix": "瑛泰管理系统\n展厅\n公司信息\n公司版本\n产品管理\n提示管理\n展柜管理\n审批中心\n讲解工作台\n首页\n工作流程\nDCC文控中心\nCRM 系统\nAI 大模型\nMES 系统\n系统管理\n基础设施\n报表管理\nERP 系统\n展厅\n/\n公司信息\n请选择租户\n请输入菜单内容\n瑛泰管理员\n首页\n公司信息\n公司信息\n\n瑛泰\n\n当前版本：V9 · 当前生效版本\n\n编辑公司\n手动发布展厅\n中文\nEnglish\n公司内容\n公司封面\n发展历程\n\n瑛泰医疗从心脏介入植入低值耗材起步，围绕导管、导丝、球囊、支架等底层技术持续积累，逐步形成从研发转化、精密制造到国际化合作的医疗器械平台。集团坚持平台化孵化与绝对控股模式，推动介入医疗、高端制造与创新技术协同发展。\n\n园区介绍\n\n集团现有上海嘉定总部、山东日照基地、珠海产业基地三大产业基地。上海总部承接研发与产能扩张，山东日照围绕化妆品和保健品，珠海基地聚焦非介入类医疗器械制造；各园区以内部企业孵化、实验室与资源赋能为主，不对外招租。\n\n孵化平台\n\n平台不仅提供资金支持，更提供行业资源、创业经验与内部协同能力，帮助初创团队少走弯路。当前已孵化近二十家子公司，围绕介入器械、消费医疗、材料、自动化、海外并购与贸易平台等方向布局。\n\n子公司概览\n\n代表性子公司包括：瑛泰自动化（模具与非标设备）、珠海德瑞（非介入医疗器械）、璞康医疗（精密导管半成品）、七木医疗（耳鼻喉介入植入）、璞慧医疗（神经介入）、璞镁医疗（可降解镁合金）、唯强医疗（外周/大血管介入）、璞跃医疗（泌尿介入）、瑛泰生物（外泌体消费医疗）、吉尔邦医疗（组织粘合）等。\n\n上市信息\n\n现有资料未提及上市主体、上市进度或证券信息；目前披露重点为集团平台化孵化、绝对控股及产业基地建设情况。后续如有正式上市安排，建议以公司公告或法定披露为准。\n\n核心制造能力\n\n公司具备精密挤出、多腔管、精密编织、头端复合、焊接、可",
+  "publishResponse": {
+    "status": 200,
+    "ok": true,
+    "url": "http://localhost:48081/admin-api/showroom/release/publish",
+    "body": "{\"code\":0,\"msg\":\"\",\"data\":{\"releaseId\":\"20260531T183422Z-be276b74dfa8-428f69663d1f\",\"manifestHash\":\"d90939837ba247a1b775971f171c5498b97852a3567055063e36640966256c21\",\"rootDocumentId\":\"website-index\",\"documentCount\":161,\"assetCount\":491,\"installBytes\":580504104,\"publishedAt\":1780252462076}}"
+  },
+  "publishParsed": {
+    "code": 0,
+    "msg": "",
+    "data": {
+      "releaseId": "20260531T183422Z-be276b74dfa8-428f69663d1f",
+      "manifestHash": "d90939837ba247a1b775971f171c5498b97852a3567055063e36640966256c21",
+      "rootDocumentId": "website-index",
+      "documentCount": 161,
+      "assetCount": 491,
+      "installBytes": 580504104,
+      "publishedAt": 1780252462076
+    }
+  },
+  "releaseId": "20260531T183422Z-be276b74dfa8-428f69663d1f",
+  "finishedAt": "2026-05-31T18:35:58.777Z"
+}

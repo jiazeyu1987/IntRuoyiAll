@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>cn.iocoder.boot</groupId>
+        <artifactId>yudao</artifactId>
+        <version>${revision}</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>yudao-module-mes</artifactId>
+    <packaging>jar</packaging>
+
+    <name>${project.artifactId}</name>
+    <description>
+        mes module for manufacturing execution system features.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-module-system</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-module-erp</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-module-report</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-module-dcc</artifactId>
+            <version>${revision}</version>
+        </dependency>
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-module-bpm</artifactId>
+            <version>${revision}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-spring-boot-starter-mybatis</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-spring-boot-starter-redis</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-spring-boot-starter-excel</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.4.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-scratchpad</artifactId>
+            <version>5.4.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>2.0.32</version>
+        </dependency>
+
+        <dependency>
+            <groupId>cn.iocoder.boot</groupId>
+            <artifactId>yudao-spring-boot-starter-test</artifactId>
+        </dependency>
+
+    </dependencies>
+
+    <profiles>
+        <profile>
+            <id>mes-schedule-targeted-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <testIncludes>
+                                <testInclude>**/MesProScheduleOrderControllerTest.java</testInclude>
+                                <testInclude>**/MesProScheduleOrderProgressServiceTest.java</testInclude>
+                                <testInclude>**/MesProScheduleOrderRespVOContractTest.java</testInclude>
+                                <testInclude>**/MesProAutoScheduleAlgorithmContractTest.java</testInclude>
+                                <testInclude>**/MesProAutoScheduleContractTest.java</testInclude>
+                                <testInclude>**/MesProAutoScheduleServiceImplTest.java</testInclude>
+                                <testInclude>**/MesProNightlyReplanServiceImplTest.java</testInclude>
+                                <testInclude>**/MesProScheduleCalendarServiceImplTest.java</testInclude>
+                                <testInclude>**/MesProSchedulerWorkbenchFullConfigPackageServiceTest.java</testInclude>
+                                <testInclude>**/MesProSchedulerWorkbenchMapperXmlTest.java</testInclude>
+                                <testInclude>**/MesProSchedulerWorkbenchRouteConfigPackageServiceTest.java</testInclude>
+                                <testInclude>**/MesProSchedulerWorkbenchServiceImplTest.java</testInclude>
+                                <testInclude>**/MesProSchedulerWorkbenchSmokeTestServiceImplTest.java</testInclude>
+                                <testInclude>**/MesKingdeeProductionMaterialListQueryServiceImplTest.java</testInclude>
+                                <testInclude>**/MesProRouteProcessControllerTest.java</testInclude>
+                                <testInclude>**/MesProRouteProcessServiceImplTest.java</testInclude>
+                                <testInclude>**/MesProRouteProcessControllerWorkstationViewTest.java</testInclude>
+                                <testInclude>**/MesProRouteScheduleConfigServiceTest.java</testInclude>
+                                <testInclude>**/MesProRouteScheduleConfigServiceImplTest.java</testInclude>
+                            </testIncludes>
+                            <testExcludes>
+                                <testExclude>**/*Edhr*.java</testExclude>
+                                <testExclude>**/approval/**</testExclude>
+                                <testExclude>**/batchrecord/**</testExclude>
+                                <testExclude>**/job/batchrecord/**</testExclude>
+                            </testExcludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/MesProScheduleOrderControllerTest.java</include>
+                                <include>**/MesProScheduleOrderProgressServiceTest.java</include>
+                                <include>**/MesProScheduleOrderRespVOContractTest.java</include>
+                                <include>**/MesProAutoScheduleAlgorithmContractTest.java</include>
+                                <include>**/MesProAutoScheduleContractTest.java</include>
+                                <include>**/MesProAutoScheduleServiceImplTest.java</include>
+                                <include>**/MesProNightlyReplanServiceImplTest.java</include>
+                                <include>**/MesProScheduleCalendarServiceImplTest.java</include>
+                                <include>**/MesProSchedulerWorkbenchFullConfigPackageServiceTest.java</include>
+                                <include>**/MesProSchedulerWorkbenchMapperXmlTest.java</include>
+                                <include>**/MesProSchedulerWorkbenchRouteConfigPackageServiceTest.java</include>
+                                <include>**/MesProSchedulerWorkbenchServiceImplTest.java</include>
+                                <include>**/MesProSchedulerWorkbenchSmokeTestServiceImplTest.java</include>
+                                <include>**/MesKingdeeProductionMaterialListQueryServiceImplTest.java</include>
+                                <include>**/MesProRouteProcessControllerTest.java</include>
+                                <include>**/MesProRouteProcessServiceImplTest.java</include>
+                                <include>**/MesProRouteProcessControllerWorkstationViewTest.java</include>
+                                <include>**/MesProRouteScheduleConfigServiceTest.java</include>
+                                <include>**/MesProRouteScheduleConfigServiceImplTest.java</include>
+                            </includes>
+                            <excludes>
+                                <exclude>**/*Edhr*.java</exclude>
+                                <exclude>**/approval/**</exclude>
+                                <exclude>**/batchrecord/**</exclude>
+                                <exclude>**/job/batchrecord/**</exclude>
+                            </excludes>
+                            <systemPropertyVariables>
+                                <yudao.info.base-package>cn.iocoder.yudao.module.mes</yudao.info.base-package>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+</project>

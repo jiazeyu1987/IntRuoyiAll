@@ -1,0 +1,1126 @@
+{
+  "round": 4,
+  "generatedBy": "real frontend clear -> A direct .doc",
+  "sourceWord": "D:\\ProjectPackage\\Int\\IntRuoyi\\resource\\批记录模板.doc",
+  "tenant": {
+    "id": 122,
+    "name": "测试租户",
+    "username": "aoteman"
+  },
+  "route": "A",
+  "reportCount": 15,
+  "latestImportTimes": [
+    "2026-05-26 01:08:38"
+  ],
+  "globalSummary": {
+    "allReportsHaveDocLikeFixedHead": true,
+    "allReportsHaveFixedFooter": true,
+    "reportsWithPagingRows": [
+      "EBR_TN122_A_T01",
+      "EBR_TN122_A_T04",
+      "EBR_TN122_A_T13"
+    ],
+    "pagingRowsWithHeaderClone": [],
+    "pagingRowsContinuingRepeatedMatrixWithoutHeaderClone": [
+      {
+        "reportCode": "EBR_TN122_A_T13",
+        "pagingRowIndex": 19,
+        "rowAfterPagingText": "单包装生产操作及自检记录|封口热合机：□A05199\n封口热合机：(A05203\n热合机：□A05048\n自动热合机：(A03274|□是 □否\n□是 □否\n□是 □否\n□是 □否|(135±10\n(150±5\n(107±10|(1.8±0.5\n(5±1\n(4.5±1|0.5-0.6"
+      }
+    ],
+    "mergeRangesStillCrossPagingOrClonedHeader": []
+  },
+  "comparisonChecklist": {
+    "pageHeader": "generated Jimu uses fixedPrintHeadRows for every Route A report; source Word has two-row doc-like table header repeated per report page",
+    "pageFooter": "generated Jimu uses fixedPrintTailRows for every Route A report and retains 生效日期 footer rows",
+    "paginationRhythm": "T01/T04/T13 have pagingRows in the latest Route A generation; T13 split remains inside the long repeated equipment matrix band",
+    "tableHeaderHierarchy": "Round 4 generic continuation table-header clone is available only when the current continuing detail band has a reusable TABLE_HEADER immediately above it; current source T13 has no such reusable header immediately above the repeated matrix band, so no real header clone is inserted",
+    "detailBlockStructure": "repeated equipment matrix remains split with detail rows after paging instead of moving compact summary/cleanup tail to the next page",
+    "columnWidthRatio": "dataRectWidth and column counts retained from builder calibration; no frontend display override applied",
+    "rowHeightBlockHeight": "paging spacer height and adjacent row heights recorded per report for comparison",
+    "rowColSpans": "root merge ranges are checked so none span a pagingRow or cloned continuation header",
+    "blankSlashCells": "blank fillForm / quiet blank / slash-only cell counts recorded per report",
+    "summaryCleanupPosition": "summary and cleanup row indexes recorded per report; T13 summary stays after the second matrix segment"
+  },
+  "reports": [
+    {
+      "sourceTableIndex": 1,
+      "tableTitle": "产品信息",
+      "reportCode": "EBR_TN122_A_T01",
+      "reportName": "电子批记录[A]-表1-产品信息",
+      "reportId": "34cae20da60d4b5b9c1c91cb5344581e",
+      "lastImportTime": "2026-05-26 01:08:38",
+      "rowCount": 56,
+      "columnCount": 100,
+      "dataRectWidth": 1120,
+      "printLayout": "landscape",
+      "fixedPrintHeadRowCount": 1,
+      "fixedPrintHeadRows": [
+        {
+          "sci": 0,
+          "eci": 5,
+          "sri": 1,
+          "eri": 2
+        }
+      ],
+      "fixedPrintTailRowCount": 1,
+      "fixedPrintTailRows": [
+        {
+          "sci": 0,
+          "eci": 5,
+          "sri": 55,
+          "eri": 55
+        }
+      ],
+      "footerRows": [
+        {
+          "rowIndex": 55,
+          "text": "生效日期：2026年02月02日",
+          "height": 20
+        }
+      ],
+      "pagingRows": [
+        19,
+        38
+      ],
+      "afterPagingRows": [
+        {
+          "pagingRowIndex": 19,
+          "pagingRowHeight": 56,
+          "rowAfterPagingIndex": 20,
+          "rowAfterPagingHeight": 20,
+          "rowAfterPagingText": "球囊扩张压力泵生产记录|记录编号|RE-PP-ID-01",
+          "rowAfterPagingLooksLikeTableHeader": false,
+          "rowAfterPagingLooksLikeRepeatedMatrix": false,
+          "secondRowAfterPagingIndex": 21,
+          "secondRowAfterPagingText": "版本|A/1",
+          "secondRowLooksLikeRepeatedMatrix": false,
+          "mergeRangesSpanningPagingRow": [],
+          "mergeRangesSpanningRowAfterPaging": []
+        },
+        {
+          "pagingRowIndex": 38,
+          "pagingRowHeight": 56,
+          "rowAfterPagingIndex": 39,
+          "rowAfterPagingHeight": 20,
+          "rowAfterPagingText": "球囊扩张压力泵生产记录|记录编号|RE-PP-ID-01",
+          "rowAfterPagingLooksLikeTableHeader": false,
+          "rowAfterPagingLooksLikeRepeatedMatrix": false,
+          "secondRowAfterPagingIndex": 40,
+          "secondRowAfterPagingText": "版本|A/1",
+          "secondRowLooksLikeRepeatedMatrix": false,
+          "mergeRangesSpanningPagingRow": [],
+          "mergeRangesSpanningRowAfterPaging": []
+        }
+      ],
+      "summaryRows": [],
+      "cleanupRows": [],
+      "blankCellSummary": {
+        "blankCells": 126,
+        "fillableBlankCells": 0,
+        "quietBlankCells": 0,
+        "slashOnlyCells": 26
+      }
+    },
+    {
+      "sourceTableIndex": 2,
+      "tableTitle": "粗洗工序生产记录",
+      "reportCode": "EBR_TN122_A_T02",
+      "reportName": "电子批记录[A]-表2-粗洗工序生产记录",
+      "reportId": "56370d87c78141d5848755beed9cfe80",
+      "lastImportTime": "2026-05-26 01:08:38",
+      "rowCount": 23,
+      "columnCount": 100,
+      "dataRectWidth": 1031,
+      "printLayout": "landscape",
+      "fixedPrintHeadRowCount": 1,
+      "fixedPrintHeadRows": [
+        {
+          "sci": 0,
+          "eci": 19,
+          "sri": 1,
+          "eri": 2
+        }
+      ],
+      "fixedPrintTailRowCount": 1,
+      "fixedPrintTailRows": [
+        {
+          "sci": 0,
+          "eci": 19,
+          "sri": 22,
+          "eri": 22
+        }
+      ],
+      "footerRows": [
+        {
+          "rowIndex": 22,
+          "text": "生效日期：2026年02月02日",
+          "height": 20
+        }
+      ],
+      "pagingRows": [],
+      "afterPagingRows": [],
+      "summaryRows": [
+        {
+          "rowIndex": 18,
+          "text": "生产批量汇总",
+          "height": 22
+        }
+      ],
+      "cleanupRows": [
+        {
+          "rowIndex": 6,
+          "text": "1、工作场所无上批遗留的产品、文件或与本批产品生产无关的物料、工具；\n2、墙面、地面、天花板、灯具等环境清洁应符合《INT/PD/6.4 工作环境控制程序》。\n具体清场标准及内容依据《INT/GL/7.5.8-03 清场管理制度》执行。|□符合要求\n□不符合要求",
+          "height": 44
+        },
+        {
+          "rowIndex": 19,
+          "text": "生\n产\n后\n清\n场\n记\n录|项目|要求|结果|操作人/日期|复核人/日期",
+          "height": 44
+        },
+        {
+          "rowIndex": 21,
+          "text": "清洁卫生|按《INT/GL/7.5.8-03 清场管理制度》、《INT/PD/6.4 工作环境控制程序》规程执行清洁设备、工器具及环境。|□是  □否",
+          "height": 40
+        }
+      ],
+      "blankCellSummary": {
+        "blankCells": 88,
+        "fillableBlankCells": 0,
+        "quietBlankCells": 0,
+        "slashOnlyCells": 6
+      }
+    },
+    {
+      "sourceTableIndex": 3,
+      "tableTitle": "精洗工序生产记录",
+      "reportCode": "EBR_TN122_A_T03",
+      "reportName": "电子批记录[A]-表3-精洗工序生产记录",
+      "reportId": "4c8c64a8fd8240e38f009974e091501b",
+      "lastImportTime": "2026-05-26 01:08:38",
+      "rowCount": 23,
+      "columnCount": 100,
+      "dataRectWidth": 1477,
+      "printLayout": "landscape",
+      "fixedPrintHeadRowCount": 1,
+      "fixedPrintHeadRows": [
+        {
+          "sci": 0,
+          "eci": 27,
+          "sri": 1,
+          "eri": 2
+        }
+      ],
+      "fixedPrintTailRowCount": 1,
+      "fixedPrintTailRows": [
+        {
+          "sci": 0,
+          "eci": 27,
+          "sri": 22,
+          "eri": 22
+        }
+      ],
+      "footerRows": [
+        {
+          "rowIndex": 22,
+          "text": "生效日期：2026年02月02日",
+          "height": 20
+        }
+      ],
+      "pagingRows": [],
+      "afterPagingRows": [],
+      "summaryRows": [
+        {
+          "rowIndex": 18,
+          "text": "生产批量汇总",
+          "height": 24
+        }
+      ],
+      "cleanupRows": [
+        {
+          "rowIndex": 6,
+          "text": "工作场所无上批遗留的产品、文件或与本批产品生产无关的物料、工具；\n墙面、地面、天花板、灯具等环境清洁应符合《INT/PD/6.4工作环境控制程序》。\n具体清场标准及内容依据《INT/GL/7.5.8-03清场管理制度》执行。|□符合要求\n□不符合要求",
+          "height": 44
+        },
+        {
+          "rowIndex": 19,
+          "text": "生\n产\n后\n清\n场\n记\n录|项目|要求|结果|操作人/日期|复核人/日期",
+          "height": 44
+        },
+        {
+          "rowIndex": 21,
+          "text": "清洁卫生|按《INT/GL/7.5.8-03清场管理制度》、《INT/PD/6.4工作环境控制程序》规程执行清洁设备、工器具及环境。|□是 □否",
+          "height": 42
+        }
+      ],
+      "blankCellSummary": {
+        "blankCells": 84,
+        "fillableBlankCells": 0,
+        "quietBlankCells": 0,
+        "slashOnlyCells": 6
+      }
+    },
+    {
+      "sourceTableIndex": 4,
+      "tableTitle": "清洗工序生产记录",
+      "reportCode": "EBR_TN122_A_T04",
+      "reportName": "电子批记录[A]-表4-清洗工序生产记录",
+      "reportId": "6f8ca62a054a48e180b8d2200959268f",
+      "lastImportTime": "2026-05-26 01:08:38",
+      "rowCount": 44,
+      "columnCount": 100,
+      "dataRectWidth": 1477,
+      "printLayout": "landscape",
+      "fixedPrintHeadRowCount": 1,
+      "fixedPrintHeadRows": [
+        {
+          "sci": 0,
+          "eci": 31,
+          "sri": 1,
+          "eri": 2
+        }
+      ],
+      "fixedPrintTailRowCount": 1,
+      "fixedPrintTailRows": [
+        {
+          "sci": 0,
+          "eci": 31,
+          "sri": 43,
+          "eri": 43
+        }
+      ],
+      "footerRows": [
+        {
+          "rowIndex": 43,
+          "text": "生效日期：2026年02月02日",
+          "height": 20
+        }
+      ],
+      "pagingRows": [
+        22
+      ],
+      "afterPagingRows": [
+        {
+          "pagingRowIndex": 22,
+          "pagingRowHeight": 56,
+          "rowAfterPagingIndex": 23,
+          "rowAfterPagingHeight": 20,
+          "rowAfterPagingText": "清洗生产操作及自检记录|球囊扩张压力泵生产记录|记录编号|RE-PP-ID-01",
+          "rowAfterPagingLooksLikeTableHeader": false,
+          "rowAfterPagingLooksLikeRepeatedMatrix": false,
+          "secondRowAfterPagingIndex": 24,
+          "secondRowAfterPagingText": "版本|A/1",
+          "secondRowLooksLikeRepeatedMatrix": false,
+          "mergeRangesSpanningPagingRow": [],
+          "mergeRangesSpanningRowAfterPaging": []
+        }
+      ],
+      "summaryRows": [
+        {
+          "rowIndex": 38,
+          "text": "生产批量汇总|胶塞/套筒",
+          "height": 22
+        }
+      ],
+      "cleanupRows": [
+        {
+          "rowIndex": 6,
+          "text": "工作场所无上批遗留的产品、文件或与本批产品生产无关的物料、工具；\n墙面、地面、天花板、灯具等环境清洁应符合《INT/PD/6.4工作环境控制程序》。\n具体清场标准及内容依据《INT/GL/7.5.8-03清场管理制度》执行。|□符合要求\n□不符合要求",
+          "height": 44
+        },
+        {
+          "rowIndex": 40,
+          "text": "生\n产\n后\n清\n场\n记\n录|项目|要求|结果|操作人/日期|复核人/日期",
+          "height": 44
+        },
+        {
+          "rowIndex": 42,
+          "text": "清洁卫生|按《INT/GL/7.5.8-03清场管理制度》、《INT/PD/6.4工作环境控制程序》规程执行清洁设备、工器具及环境。|□是 □否",
+          "height": 18
+        }
+      ],
+      "blankCellSummary": {
+        "blankCells": 163,
+        "fillableBlankCells": 0,
+        "quietBlankCells": 0,
+        "slashOnlyCells": 6
+      }
+    },
+    {
+      "sourceTableIndex": 5,
+      "tableTitle": "清洁工序生产记录",
+      "reportCode": "EBR_TN122_A_T05",
+      "reportName": "电子批记录[A]-表5-清洁工序生产记录",
+      "reportId": "e28b56877c8b47aeaca7a706699e1b64",
+      "lastImportTime": "2026-05-26 01:08:38",
+      "rowCount": 25,
+      "columnCount": 100,
+      "dataRectWidth": 1152,
+      "printLayout": "landscape",
+      "fixedPrintHeadRowCount": 1,
+      "fixedPrintHeadRows": [
+        {
+          "sci": 0,
+          "eci": 15,
+          "sri": 1,
+          "eri": 2
+        }
+      ],
+      "fixedPrintTailRowCount": 1,
+      "fixedPrintTailRows": [
+        {
+          "sci": 0,
+          "eci": 15,
+          "sri": 24,
+          "eri": 24
+        }
+      ],
+      "footerRows": [
+        {
+          "rowIndex": 24,
+          "text": "生效日期：2026年02月02日",
+          "height": 20
+        }
+      ],
+      "pagingRows": [],
+      "afterPagingRows": [],
+      "summaryRows": [
+        {
+          "rowIndex": 20,
+          "text": "生产批量汇总",
+          "height": 22
+        }
+      ],
+      "cleanupRows": [
+        {
+          "rowIndex": 6,
+          "text": "工作场所无上批遗留的产品、文件或与本批产品生产无关的物料、工具；\n墙面、地面、天花板、灯具等环境清洁应符合《INT/PD/6.4工作环境控制程序》。\n具体清场标准及内容依据《INT/GL/7.5.8-03清场管理制度》执行。|□符合要求\n□不符合要求",
+          "height": 44
+        },
+        {
+          "rowIndex": 21,
+          "text": "生\n产\n后\n清\n场\n记\n录|项目|要求",
+          "height": 44
+        },
+        {
+          "rowIndex": 23,
+          "text": "清洁卫生|按《INT/GL/7.5.8-03清场管理制度》、《INT/PD/6.4工作环境控制程序》规程执行清洁设备、工器具及环境。|□是 □否",
+          "height": 44
+        }
+      ],
+      "blankCellSummary": {
+        "blankCells": 110,
+        "fillableBlankCells": 0,
+        "quietBlankCells": 0,
+        "slashOnlyCells": 10
+      }
+    },
+    {
+      "sourceTableIndex": 6,
+      "tableTitle": "组装Ⅰ工序生产记录",
+      "reportCode": "EBR_TN122_A_T06",
+      "reportName": "电子批记录[A]-表6-组装Ⅰ工序生产记录",
+      "reportId": "8acc6f5792d049bc8b410467d7e7e40e",
+      "lastImportTime": "2026-05-26 01:08:38",
+      "rowCount": 24,
+      "columnCount": 100,
+      "dataRectWidth": 1044,
+      "printLayout": "landscape",
+      "fixedPrintHeadRowCount": 1,
+      "fixedPrintHeadRows": [
+        {
+          "sci": 0,
+          "eci": 10,
+          "sri": 1,
+          "eri": 2
+        }
+      ],
+      "fixedPrintTailRowCount": 1,
+      "fixedPrintTailRows": [
+        {
+          "sci": 0,
+          "eci": 10,
+          "sri": 23,
+          "eri": 23
+        }
+      ],
+      "footerRows": [
+        {
+          "rowIndex": 23,
+          "text": "生效日期：2026年02月02日",
+          "height": 20
+        }
+      ],
+      "pagingRows": [],
+      "afterPagingRows": [],
+      "summaryRows": [
+        {
+          "rowIndex": 19,
+          "text": "生产批量汇总",
+          "height": 24
+        }
+      ],
+      "cleanupRows": [
+        {
+          "rowIndex": 6,
+          "text": "工作场所无上批遗留的产品、文件或与本批产品生产无关的物料、工具；\n墙面、地面、天花板、灯具等环境清洁应符合《INT/PD/6.4工作环境控制程序》。\n具体清场标准及内容依据《INT/GL/7.5.8-03清场管理制度》执行。|□符合要求\n□不符合要求",
+          "height": 44
+        },
+        {
+          "rowIndex": 20,
+          "text": "生\n产\n后\n清\n场\n记\n录|项目|要求|结果|操作人/日期|复核人/日期",
+          "height": 44
+        },
+        {
+          "rowIndex": 22,
+          "text": "清洁卫生|按《INT/GL/7.5.8-03清场管理制度》、《INT/PD/6.4工作环境控制程序》规程执行清洁设备、工器具及环境。|□是 □否",
+          "height": 44
+        }
+      ],
+      "blankCellSummary": {
+        "blankCells": 49,
+        "fillableBlankCells": 0,
+        "quietBlankCells": 0,
+        "slashOnlyCells": 6
+      }
+    },
+    {
+      "sourceTableIndex": 7,
+      "tableTitle": "光固Ⅰ工序生产记录",
+      "reportCode": "EBR_TN122_A_T07",
+      "reportName": "电子批记录[A]-表7-光固Ⅰ工序生产记录",
+      "reportId": "c7594f714b224020b88acd3f7c169f76",
+      "lastImportTime": "2026-05-26 01:08:38",
+      "rowCount": 25,
+      "columnCount": 100,
+      "dataRectWidth": 1477,
+      "printLayout": "landscape",
+      "fixedPrintHeadRowCount": 1,
+      "fixedPrintHeadRows": [
+        {
+          "sci": 0,
+          "eci": 21,
+          "sri": 1,
+          "eri": 2
+        }
+      ],
+      "fixedPrintTailRowCount": 1,
+      "fixedPrintTailRows": [
+        {
+          "sci": 0,
+          "eci": 21,
+          "sri": 24,
+          "eri": 24
+        }
+      ],
+      "footerRows": [
+        {
+          "rowIndex": 24,
+          "text": "生效日期：2026年02月02日",
+          "height": 20
+        }
+      ],
+      "pagingRows": [],
+      "afterPagingRows": [],
+      "summaryRows": [
+        {
+          "rowIndex": 20,
+          "text": "生产批量汇总",
+          "height": 22
+        }
+      ],
+      "cleanupRows": [
+        {
+          "rowIndex": 6,
+          "text": "工作场所无上批遗留的产品、文件或与本批产品生产无关的物料、工具；\n墙面、地面、天花板、灯具等环境清洁应符合《INT/PD/6.4工作环境控制程序》。\n具体清场标准及内容依据《INT/GL/7.5.8-03清场管理制度》执行。|□符合要求\n□不符合要求",
+          "height": 44
+        },
+        {
+          "rowIndex": 21,
+          "text": "生\n产\n后\n清\n场\n记\n录|项目|要求|结果|操作人/日期|复核人/日期",
+          "height": 44
+        },
+        {
+          "rowIndex": 23,
+          "text": "清洁卫生|按《INT/GL/7.5.8-03清场管理制度》、《INT/PD/6.4工作环境控制程序》规程执行清洁设备、工器具及环境。|□是 □否",
+          "height": 43
+        }
+      ],
+      "blankCellSummary": {
+        "blankCells": 61,
+        "fillableBlankCells": 0,
+        "quietBlankCells": 0,
+        "slashOnlyCells": 8
+      }
+    },
+    {
+      "sourceTableIndex": 8,
+      "tableTitle": "硅化Ⅰ工序生产记录",
+      "reportCode": "EBR_TN122_A_T08",
+      "reportName": "电子批记录[A]-表8-硅化Ⅰ工序生产记录",
+      "reportId": "3ca95e006bbc4647bdd30846bb82c8d9",
+      "lastImportTime": "2026-05-26 01:08:38",
+      "rowCount": 24,
+      "columnCount": 100,
+      "dataRectWidth": 1152,
+      "printLayout": "landscape",
+      "fixedPrintHeadRowCount": 1,
+      "fixedPrintHeadRows": [
+        {
+          "sci": 0,
+          "eci": 15,
+          "sri": 1,
+          "eri": 2
+        }
+      ],
+      "fixedPrintTailRowCount": 1,
+      "fixedPrintTailRows": [
+        {
+          "sci": 0,
+          "eci": 15,
+          "sri": 23,
+          "eri": 23
+        }
+      ],
+      "footerRows": [
+        {
+          "rowIndex": 23,
+          "text": "生效日期：2026年02月02日",
+          "height": 20
+        }
+      ],
+      "pagingRows": [],
+      "afterPagingRows": [],
+      "summaryRows": [
+        {
+          "rowIndex": 19,
+          "text": "生产批量汇总",
+          "height": 26
+        }
+      ],
+      "cleanupRows": [
+        {
+          "rowIndex": 6,
+          "text": "工作场所无上批遗留的产品、文件或与本批产品生产无关的物料、工具；\n墙面、地面、天花板、灯具等环境清洁应符合《INT/PD/6.4工作环境控制程序》。\n具体清场标准及内容依据《INT/GL/7.5.8-03清场管理制度》执行。|□符合要求\n□不符合要求",
+          "height": 44
+        },
+        {
+          "rowIndex": 20,
+          "text": "生\n产\n后\n清\n场\n记\n录|项目|要求|结果|操作人/日期|复核人/日期",
+          "height": 44
+        },
+        {
+          "rowIndex": 22,
+          "text": "清洁卫生|按《INT/GL/7.5.8-03清场管理制度》、《INT/PD/6.4工作环境控制程序》规程执行清洁设备、工器具及环境。|□是 □否",
+          "height": 43
+        }
+      ],
+      "blankCellSummary": {
+        "blankCells": 59,
+        "fillableBlankCells": 0,
+        "quietBlankCells": 0,
+        "slashOnlyCells": 2
+      }
+    },
+    {
+      "sourceTableIndex": 9,
+      "tableTitle": "硅化Ⅱ工序生产记录",
+      "reportCode": "EBR_TN122_A_T09",
+      "reportName": "电子批记录[A]-表9-硅化Ⅱ工序生产记录",
+      "reportId": "b035e78837bb49eca34c8a4876eb5fda",
+      "lastImportTime": "2026-05-26 01:08:38",
+      "rowCount": 23,
+      "columnCount": 100,
+      "dataRectWidth": 1120,
+      "printLayout": "landscape",
+      "fixedPrintHeadRowCount": 1,
+      "fixedPrintHeadRows": [
+        {
+          "sci": 0,
+          "eci": 7,
+          "sri": 1,
+          "eri": 2
+        }
+      ],
+      "fixedPrintTailRowCount": 1,
+      "fixedPrintTailRows": [
+        {
+          "sci": 0,
+          "eci": 7,
+          "sri": 22,
+          "eri": 22
+        }
+      ],
+      "footerRows": [
+        {
+          "rowIndex": 22,
+          "text": "生效日期：2026年02月02日",
+          "height": 20
+        }
+      ],
+      "pagingRows": [],
+      "afterPagingRows": [],
+      "summaryRows": [
+        {
+          "rowIndex": 18,
+          "text": "生产批量汇总",
+          "height": 26
+        }
+      ],
+      "cleanupRows": [
+        {
+          "rowIndex": 6,
+          "text": "工作场所无上批遗留的产品、文件或与本批产品生产无关的物料、工具；\n墙面、地面、天花板、灯具等环境清洁应符合《INT/PD/6.4工作环境控制程序》。\n具体清场标准及内容依据《INT/GL/7.5.8-03清场管理制度》执行。|□符合要求\n□不符合要求",
+          "height": 44
+        },
+        {
+          "rowIndex": 19,
+          "text": "生\n产\n后\n清\n场\n记\n录|项目|要求|结果|操作人/日期|复核人/日期",
+          "height": 44
+        },
+        {
+          "rowIndex": 21,
+          "text": "清洁卫生|按《INT/GL/7.5.8-03清场管理制度》、《INT/PD/6.4工作环境控制程序》规程执行清洁设备、工器具及环境。|□是 □否",
+          "height": 44
+        }
+      ],
+      "blankCellSummary": {
+        "blankCells": 56,
+        "fillableBlankCells": 0,
+        "quietBlankCells": 0,
+        "slashOnlyCells": 2
+      }
+    },
+    {
+      "sourceTableIndex": 10,
+      "tableTitle": "组装Ⅱ工序生产记录",
+      "reportCode": "EBR_TN122_A_T10",
+      "reportName": "电子批记录[A]-表10-组装Ⅱ工序生产记录",
+      "reportId": "aa880ac10064441e87fff3f06f192f56",
+      "lastImportTime": "2026-05-26 01:08:38",
+      "rowCount": 23,
+      "columnCount": 100,
+      "dataRectWidth": 1044,
+      "printLayout": "landscape",
+      "fixedPrintHeadRowCount": 1,
+      "fixedPrintHeadRows": [
+        {
+          "sci": 0,
+          "eci": 9,
+          "sri": 1,
+          "eri": 2
+        }
+      ],
+      "fixedPrintTailRowCount": 1,
+      "fixedPrintTailRows": [
+        {
+          "sci": 0,
+          "eci": 9,
+          "sri": 22,
+          "eri": 22
+        }
+      ],
+      "footerRows": [
+        {
+          "rowIndex": 22,
+          "text": "生效日期：2026年02月02日",
+          "height": 20
+        }
+      ],
+      "pagingRows": [],
+      "afterPagingRows": [],
+      "summaryRows": [
+        {
+          "rowIndex": 18,
+          "text": "生产批量汇总",
+          "height": 28
+        }
+      ],
+      "cleanupRows": [
+        {
+          "rowIndex": 6,
+          "text": "工作场所无上批遗留的产品、文件或与本批产品生产无关的物料、工具；\n墙面、地面、天花板、灯具等环境清洁应符合《INT/PD/6.4工作环境控制程序》。\n具体清场标准及内容依据《INT/GL/7.5.8-03清场管理制度》执行。|□符合要求\n□不符合要求",
+          "height": 44
+        },
+        {
+          "rowIndex": 19,
+          "text": "生\n产\n后\n清\n场\n记\n录|项目|要求|结果|操作人/日期|复核人/日期",
+          "height": 44
+        },
+        {
+          "rowIndex": 21,
+          "text": "清洁卫生|按《INT/GL/7.5.8-03清场管理制度》、《INT/PD/6.4工作环境控制程序》规程执行清洁设备、工器具及环境。|□是 □否",
+          "height": 44
+        }
+      ],
+      "blankCellSummary": {
+        "blankCells": 66,
+        "fillableBlankCells": 0,
+        "quietBlankCells": 0,
+        "slashOnlyCells": 0
+      }
+    },
+    {
+      "sourceTableIndex": 11,
+      "tableTitle": "检测工序生产记录",
+      "reportCode": "EBR_TN122_A_T11",
+      "reportName": "电子批记录[A]-表11-检测工序生产记录",
+      "reportId": "cba4983f667e485bb4de3bef2605357c",
+      "lastImportTime": "2026-05-26 01:08:38",
+      "rowCount": 23,
+      "columnCount": 100,
+      "dataRectWidth": 1044,
+      "printLayout": "landscape",
+      "fixedPrintHeadRowCount": 1,
+      "fixedPrintHeadRows": [
+        {
+          "sci": 0,
+          "eci": 10,
+          "sri": 1,
+          "eri": 2
+        }
+      ],
+      "fixedPrintTailRowCount": 1,
+      "fixedPrintTailRows": [
+        {
+          "sci": 0,
+          "eci": 10,
+          "sri": 22,
+          "eri": 22
+        }
+      ],
+      "footerRows": [
+        {
+          "rowIndex": 22,
+          "text": "生效日期：2026年02月02日",
+          "height": 20
+        }
+      ],
+      "pagingRows": [],
+      "afterPagingRows": [],
+      "summaryRows": [
+        {
+          "rowIndex": 18,
+          "text": "生产批量汇总",
+          "height": 27
+        }
+      ],
+      "cleanupRows": [
+        {
+          "rowIndex": 6,
+          "text": "工作场所无上批遗留的产品、文件或与本批产品生产无关的物料、工具；\n墙面、地面、天花板、灯具等环境清洁应符合《INT/PD/6.4工作环境控制程序》。\n具体清场标准及内容依据《INT/GL/7.5.8-03清场管理制度》执行。|□符合要求\n□不符合要求",
+          "height": 44
+        },
+        {
+          "rowIndex": 19,
+          "text": "生\n产\n后\n清\n场\n记\n录|项目|要求|结果|操作人/日期|复核人/日期",
+          "height": 44
+        },
+        {
+          "rowIndex": 21,
+          "text": "清洁卫生|按《INT/GL/7.5.8-03清场管理制度》、《INT/PD/6.4工作环境控制程序》规程执行清洁设备、工器具及环境。|□是 □否",
+          "height": 44
+        }
+      ],
+      "blankCellSummary": {
+        "blankCells": 60,
+        "fillableBlankCells": 0,
+        "quietBlankCells": 0,
+        "slashOnlyCells": 0
+      }
+    },
+    {
+      "sourceTableIndex": 12,
+      "tableTitle": "光固Ⅱ工序生产记录",
+      "reportCode": "EBR_TN122_A_T12",
+      "reportName": "电子批记录[A]-表12-光固Ⅱ工序生产记录",
+      "reportId": "98f92cd614ce40c38eae5b1b196722ea",
+      "lastImportTime": "2026-05-26 01:08:38",
+      "rowCount": 24,
+      "columnCount": 100,
+      "dataRectWidth": 1477,
+      "printLayout": "landscape",
+      "fixedPrintHeadRowCount": 1,
+      "fixedPrintHeadRows": [
+        {
+          "sci": 0,
+          "eci": 21,
+          "sri": 1,
+          "eri": 2
+        }
+      ],
+      "fixedPrintTailRowCount": 1,
+      "fixedPrintTailRows": [
+        {
+          "sci": 0,
+          "eci": 21,
+          "sri": 23,
+          "eri": 23
+        }
+      ],
+      "footerRows": [
+        {
+          "rowIndex": 23,
+          "text": "生效日期：2026年02月02日",
+          "height": 20
+        }
+      ],
+      "pagingRows": [],
+      "afterPagingRows": [],
+      "summaryRows": [
+        {
+          "rowIndex": 19,
+          "text": "生产批量汇总",
+          "height": 23
+        }
+      ],
+      "cleanupRows": [
+        {
+          "rowIndex": 6,
+          "text": "工作场所无上批遗留的产品、文件或与本批产品生产无关的物料、工具；\n墙面、地面、天花板、灯具等环境清洁应符合《INT/PD/6.4工作环境控制程序》。\n具体清场标准及内容依据《INT/GL/7.5.8-03清场管理制度》执行。|□符合要求\n□不符合要求",
+          "height": 44
+        },
+        {
+          "rowIndex": 20,
+          "text": "生\n产\n后\n清\n场\n记\n录|项目|要求|结果|操作人/日期|复核人/日期",
+          "height": 44
+        },
+        {
+          "rowIndex": 22,
+          "text": "清洁卫生|按《INT/GL/7.5.8-03清场管理制度》、《INT/PD/6.4工作环境控制程序》规程执行清洁设备、工器具及环境。|□是 □否",
+          "height": 41
+        }
+      ],
+      "blankCellSummary": {
+        "blankCells": 74,
+        "fillableBlankCells": 0,
+        "quietBlankCells": 0,
+        "slashOnlyCells": 2
+      }
+    },
+    {
+      "sourceTableIndex": 13,
+      "tableTitle": "单包装工序生产记录",
+      "reportCode": "EBR_TN122_A_T13",
+      "reportName": "电子批记录[A]-表13-单包装工序生产记录",
+      "reportId": "c1d1764e615c479687711af079273cbe",
+      "lastImportTime": "2026-05-26 01:08:38",
+      "rowCount": 31,
+      "columnCount": 100,
+      "dataRectWidth": 1368,
+      "printLayout": "landscape",
+      "fixedPrintHeadRowCount": 1,
+      "fixedPrintHeadRows": [
+        {
+          "sci": 0,
+          "eci": 18,
+          "sri": 1,
+          "eri": 2
+        }
+      ],
+      "fixedPrintTailRowCount": 1,
+      "fixedPrintTailRows": [
+        {
+          "sci": 0,
+          "eci": 18,
+          "sri": 30,
+          "eri": 30
+        }
+      ],
+      "footerRows": [
+        {
+          "rowIndex": 30,
+          "text": "生效日期：2026年02月02日",
+          "height": 20
+        }
+      ],
+      "pagingRows": [
+        19
+      ],
+      "afterPagingRows": [
+        {
+          "pagingRowIndex": 19,
+          "pagingRowHeight": 56,
+          "rowAfterPagingIndex": 20,
+          "rowAfterPagingHeight": 44,
+          "rowAfterPagingText": "单包装生产操作及自检记录|封口热合机：□A05199\n封口热合机：(A05203\n热合机：□A05048\n自动热合机：(A03274|□是 □否\n□是 □否\n□是 □否\n□是 □否|(135±10\n(150±5\n(107±10|(1.8±0.5\n(5±1\n(4.5±1|0.5-0.6",
+          "rowAfterPagingLooksLikeTableHeader": false,
+          "rowAfterPagingLooksLikeRepeatedMatrix": true,
+          "secondRowAfterPagingIndex": 21,
+          "secondRowAfterPagingText": "封口热合机：□A05199\n封口热合机：(A05203\n热合机：□A05048\n自动热合机：(A03274|□是 □否\n□是 □否\n□是 □否\n□是 □否|(135±10\n(150±5\n(107±10|(1.8±0.5\n(5±1\n(4.5±1|0.5-0.6",
+          "secondRowLooksLikeRepeatedMatrix": true,
+          "mergeRangesSpanningPagingRow": [],
+          "mergeRangesSpanningRowAfterPaging": []
+        }
+      ],
+      "summaryRows": [
+        {
+          "rowIndex": 26,
+          "text": "生产批量汇总",
+          "height": 22
+        }
+      ],
+      "cleanupRows": [
+        {
+          "rowIndex": 6,
+          "text": "工作场所无上批遗留的产品、文件或与本批产品生产无关的物料、工具；\n墙面、地面、天花板、灯具等环境清洁应符合《INT/PD/6.4工作环境控制程序》。\n具体清场标准及内容依据《INT/GL/7.5.8-03清场管理制度》执行。|□符合要求\n□不符合要求",
+          "height": 44
+        },
+        {
+          "rowIndex": 27,
+          "text": "生\n产\n后\n清\n场\n记\n录|项目|要求|结果|操作人/日期|复核人/日期",
+          "height": 44
+        },
+        {
+          "rowIndex": 29,
+          "text": "清洁卫生|按《INT/GL/7.5.8-03清场管理制度》、《INT/PD/6.4工作环境控制程序》规程执行清洁设备、工器具及环境。|□是 □否",
+          "height": 18
+        }
+      ],
+      "blankCellSummary": {
+        "blankCells": 109,
+        "fillableBlankCells": 0,
+        "quietBlankCells": 0,
+        "slashOnlyCells": 6
+      }
+    },
+    {
+      "sourceTableIndex": 14,
+      "tableTitle": "中包装工序生产记录",
+      "reportCode": "EBR_TN122_A_T14",
+      "reportName": "电子批记录[A]-表14-中包装工序生产记录",
+      "reportId": "59fef4335118469692d8c984dab3bffa",
+      "lastImportTime": "2026-05-26 01:08:38",
+      "rowCount": 23,
+      "columnCount": 100,
+      "dataRectWidth": 1044,
+      "printLayout": "landscape",
+      "fixedPrintHeadRowCount": 1,
+      "fixedPrintHeadRows": [
+        {
+          "sci": 0,
+          "eci": 10,
+          "sri": 1,
+          "eri": 2
+        }
+      ],
+      "fixedPrintTailRowCount": 1,
+      "fixedPrintTailRows": [
+        {
+          "sci": 0,
+          "eci": 10,
+          "sri": 22,
+          "eri": 22
+        }
+      ],
+      "footerRows": [
+        {
+          "rowIndex": 22,
+          "text": "生效日期：2026年02月02日",
+          "height": 20
+        }
+      ],
+      "pagingRows": [],
+      "afterPagingRows": [],
+      "summaryRows": [
+        {
+          "rowIndex": 18,
+          "text": "生产批量汇总",
+          "height": 27
+        }
+      ],
+      "cleanupRows": [
+        {
+          "rowIndex": 6,
+          "text": "工作场所无上批遗留的产品、文件或与本批产品生产无关的物料、工具；\n墙面、地面、天花板、灯具等环境清洁应符合《INT/PD/6.4工作环境控制程序》。\n具体清场标准及内容依据《INT/GL/7.5.8-03清场管理制度》执行。|□符合要求\n□不符合要求",
+          "height": 44
+        },
+        {
+          "rowIndex": 19,
+          "text": "生\n产\n后\n清\n场\n记\n录|项目|要求|结果|操作人/日期|复核人/日期",
+          "height": 44
+        },
+        {
+          "rowIndex": 21,
+          "text": "清洁卫生|按《INT/GL/7.5.8-03清场管理制度》、《INT/PD/6.4工作环境控制程序》规程执行清洁设备、工器具及环境。|□是 □否",
+          "height": 44
+        }
+      ],
+      "blankCellSummary": {
+        "blankCells": 53,
+        "fillableBlankCells": 0,
+        "quietBlankCells": 0,
+        "slashOnlyCells": 4
+      }
+    },
+    {
+      "sourceTableIndex": 15,
+      "tableTitle": "大包装工序生产记录",
+      "reportCode": "EBR_TN122_A_T15",
+      "reportName": "电子批记录[A]-表15-大包装工序生产记录",
+      "reportId": "12a52dcc1b0a4ee9b6118cfedd825d67",
+      "lastImportTime": "2026-05-26 01:08:38",
+      "rowCount": 22,
+      "columnCount": 100,
+      "dataRectWidth": 1044,
+      "printLayout": "landscape",
+      "fixedPrintHeadRowCount": 1,
+      "fixedPrintHeadRows": [
+        {
+          "sci": 0,
+          "eci": 10,
+          "sri": 1,
+          "eri": 2
+        }
+      ],
+      "fixedPrintTailRowCount": 1,
+      "fixedPrintTailRows": [
+        {
+          "sci": 0,
+          "eci": 10,
+          "sri": 21,
+          "eri": 21
+        }
+      ],
+      "footerRows": [
+        {
+          "rowIndex": 21,
+          "text": "生效日期：2026年02月02日",
+          "height": 20
+        }
+      ],
+      "pagingRows": [],
+      "afterPagingRows": [],
+      "summaryRows": [
+        {
+          "rowIndex": 17,
+          "text": "生产批量汇总",
+          "height": 28
+        }
+      ],
+      "cleanupRows": [
+        {
+          "rowIndex": 6,
+          "text": "工作场所无上批遗留的产品、文件或与本批产品生产无关的物料、工具；\n墙面、地面、天花板、灯具等环境清洁应符合《INT/PD/6.4工作环境控制程序》。\n具体清场标准及内容依据《INT/GL/7.5.8-03清场管理制度》执行。|□符合要求\n□不符合要求",
+          "height": 44
+        },
+        {
+          "rowIndex": 18,
+          "text": "生\n产\n后\n清\n场\n记\n录|项目|要求|结果|操作人/日期|复核人/日期",
+          "height": 44
+        },
+        {
+          "rowIndex": 20,
+          "text": "清洁卫生|按《INT/GL/7.5.8-03清场管理制度》、《INT/PD/6.4工作环境控制程序》规程执行清洁设备、工器具及环境。|□是 □否",
+          "height": 44
+        }
+      ],
+      "blankCellSummary": {
+        "blankCells": 50,
+        "fillableBlankCells": 0,
+        "quietBlankCells": 0,
+        "slashOnlyCells": 2
+      }
+    }
+  ]
+}

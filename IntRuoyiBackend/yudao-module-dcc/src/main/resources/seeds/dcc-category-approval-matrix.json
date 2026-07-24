@@ -1,0 +1,786 @@
+[
+  {
+    "categoryCode": "INTAUTH-1",
+    "categoryName": "\u4ea7\u54c1\u6280\u672f\u8981\u6c42",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u6ce8\u518c",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-2",
+    "categoryName": "\u751f\u4ea7\u7528\u8bbe\u5907\u6e05\u5355",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u751f\u4ea7",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-3",
+    "categoryName": "\u68c0\u9a8c\u7528\u8bbe\u5907\u6e05\u5355",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QC",
+      "QMS",
+      "\u751f\u4ea7",
+      "\u68c0\u6d4b\u4e2d\u5fc3",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-4",
+    "categoryName": "\u8bf4\u660e\u4e66",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u6ce8\u518c",
+      "\u5e02\u573a",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-5",
+    "categoryName": "\u5305\u88c5\u8bbe\u8ba1",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u6ce8\u518c",
+      "\u5305\u88c5\u8bbe\u8ba1",
+      "\u5e02\u573a",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": "\u6ce8\u518c\u9488\u5bf9\u6ce8\u518c\u4ea7\u54c1\u8fdb\u884c\u4f1a\u7b7e"
+  },
+  {
+    "categoryCode": "INTAUTH-6",
+    "categoryName": "\u6807\u7b7e\u3001\u5408\u683c\u8bc1",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u6ce8\u518c",
+      "\u5e02\u573a",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": "\u6ce8\u518c\u9488\u5bf9\u6ce8\u518c\u4ea7\u54c1\u8fdb\u884c\u4f1a\u7b7e"
+  },
+  {
+    "categoryCode": "INTAUTH-7",
+    "categoryName": "\u7269\u8d44\u91c7\u8d2d\u6e05\u5355",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u751f\u4ea7\u91c7\u8d2d",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-8",
+    "categoryName": "\u91c7\u8d2d\u6280\u672f\u8981\u6c42",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u751f\u4ea7\u91c7\u8d2d",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-9",
+    "categoryName": "\u56fe\u7eb8",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u751f\u4ea7",
+      "\u751f\u4ea7\u8ba1\u5212",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-10",
+    "categoryName": "\u5de5\u827a\u6d41\u7a0b\u56fe",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u751f\u4ea7",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-11",
+    "categoryName": "\u5de5\u5e8f\u5361/\u4f5c\u4e1a\u6307\u5bfc\u4e66",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u751f\u4ea7",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-12",
+    "categoryName": "\u6765\u6599\u68c0\u9a8c\u89c4\u7a0b",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QC",
+      "QMS",
+      "\u65b0\u54c1\u5f00\u53d1",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-13",
+    "categoryName": "\u8fc7\u7a0b\u68c0\u9a8c\u89c4\u7a0b",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QC",
+      "QMS",
+      "\u65b0\u54c1\u5f00\u53d1",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-14",
+    "categoryName": "\u6210\u54c1\u68c0\u9a8c\u89c4\u7a0b",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QMS",
+      "\u65b0\u54c1\u5f00\u53d1",
+      "\u68c0\u6d4b\u4e2d\u5fc3",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-15",
+    "categoryName": "\u68c0\u9a8c\u8bb0\u5f55\u8868\u5355",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QC",
+      "QMS",
+      "\u65b0\u54c1\u5f00\u53d1",
+      "\u68c0\u6d4b\u4e2d\u5fc3",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-16",
+    "categoryName": "\u751f\u4ea7\u8bb0\u5f55\u8868\u5355",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u65b0\u54c1\u5f00\u53d1",
+      "\u751f\u4ea7",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-17",
+    "categoryName": "\u6807\u51c6\u6d4b\u8bd5\u65b9\u6cd5",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u65b0\u54c1\u5f00\u53d1",
+      "\u68c0\u6d4b\u4e2d\u5fc3",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-18",
+    "categoryName": "\u8bbe\u5907\u91c7\u8d2d\u6280\u672f\u8981\u6c42\u8868",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QMS",
+      "\u65b0\u54c1\u5f00\u53d1",
+      "\u8bbe\u5907\u5f00\u53d1",
+      "\u751f\u4ea7",
+      "\u68c0\u6d4b\u4e2d\u5fc3",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-19",
+    "categoryName": "\u751f\u4ea7\u7528\u5de5\u88c5\u6a21\u5177\u91c7\u8d2d\u6280\u672f\u8981\u6c42\u53ca\u8bbe\u8ba1\u56fe\u7eb8",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QMS",
+      "\u65b0\u54c1\u5f00\u53d1",
+      "\u751f\u4ea7",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-20",
+    "categoryName": "\u751f\u4ea7\u7528\u5de5\u88c5\u6a21\u5177\u7ef4\u62a4\u4fdd\u517b\u89c4\u8303",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QMS",
+      "\u751f\u4ea7",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-21",
+    "categoryName": "\u751f\u4ea7\u7528\u5de5\u88c5\u6a21\u5177\u7ef4\u62a4\u4fdd\u517b\u8bb0\u5f55\u8868",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QMS",
+      "\u751f\u4ea7",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-22",
+    "categoryName": "\u68c0\u9a8c\u7528\u5de5\u88c5\u6a21\u5177\u91c7\u8d2d\u6280\u672f\u8981\u6c42\u53ca\u8bbe\u8ba1\u56fe\u7eb8",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QC",
+      "QMS",
+      "\u65b0\u54c1\u5f00\u53d1",
+      "\u68c0\u6d4b\u4e2d\u5fc3",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": "\u6839\u636e\u4f7f\u7528\u533a\u57df"
+  },
+  {
+    "categoryCode": "INTAUTH-23",
+    "categoryName": "\u68c0\u9a8c\u7528\u5de5\u88c5\u6a21\u5177\u7ef4\u62a4\u4fdd\u517b\u89c4\u8303",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QC",
+      "QMS",
+      "\u68c0\u6d4b\u4e2d\u5fc3",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": "\u6839\u636e\u4f7f\u7528\u533a\u57df"
+  },
+  {
+    "categoryCode": "INTAUTH-24",
+    "categoryName": "\u68c0\u9a8c\u7528\u5de5\u88c5\u6a21\u5177\u7ef4\u62a4\u4fdd\u517b\u8bb0\u5f55\u8868\u5355",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QC",
+      "QMS",
+      "\u68c0\u6d4b\u4e2d\u5fc3",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": "\u6839\u636e\u4f7f\u7528\u533a\u57df"
+  },
+  {
+    "categoryCode": "INTAUTH-25",
+    "categoryName": "\u5e02\u573a\u8c03\u7814\u62a5\u544a",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QMS",
+      "\u65b0\u54c1\u5f00\u53d1",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-26",
+    "categoryName": "\u6280\u672f\u8c03\u7814\u62a5\u544a",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QMS",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-27",
+    "categoryName": "\u6ce8\u518c\u4e34\u5e8a\u8def\u5f84\u5206\u6790",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QMS",
+      "\u65b0\u54c1\u5f00\u53d1",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-28",
+    "categoryName": "\u9879\u76ee\u7acb\u9879\u4e66",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7814\u53d1\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u603b\u7ecf\u7406"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-29",
+    "categoryName": "\u9879\u76ee\u7b56\u5212\u4e66",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u6ce8\u518c",
+      "\u8bbe\u5907\u5f00\u53d1",
+      "\u751f\u4ea7",
+      "\u751f\u4ea7\u91c7\u8d2d",
+      "\u68c0\u6d4b\u4e2d\u5fc3",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-30",
+    "categoryName": "\u4e13\u5229\u68c0\u7d22\u4e0e\u5206\u6790\u62a5\u544a(\u5982\u9002\u7528)",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QMS",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-31",
+    "categoryName": "\u540c\u7c7b\u4ea7\u54c1\u6d4b\u8bd5\u65b9\u6848\u53ca\u62a5\u544a(\u5982\u9002\u7528)",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-32",
+    "categoryName": "\u4e0d\u826f\u4e8b\u4ef6\u8c03\u7814\u62a5\u544a(\u5982\u9002\u7528)",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-33",
+    "categoryName": "\u6cd5\u89c4\u3001\u6807\u51c6\u6e05\u5355",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-34",
+    "categoryName": "\u98ce\u9669\u7ba1\u7406\u8ba1\u5212",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u6ce8\u518c",
+      "\u8bbe\u5907\u5f00\u53d1",
+      "\u751f\u4ea7",
+      "\u751f\u4ea7\u91c7\u8d2d",
+      "\u68c0\u6d4b\u4e2d\u5fc3",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-35",
+    "categoryName": "\u98ce\u9669\u7ba1\u7406\u62a5\u544a",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u6ce8\u518c",
+      "\u8bbe\u5907\u5f00\u53d1",
+      "\u751f\u4ea7",
+      "\u751f\u4ea7\u91c7\u8d2d",
+      "\u68c0\u6d4b\u4e2d\u5fc3",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-36",
+    "categoryName": "\u8bbe\u8ba1\u9a8c\u8bc1\u65b9\u6848/\u62a5\u544a",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u751f\u4ea7",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": "\u8ba1\u5212\u6027\u6587\u4ef6"
+  },
+  {
+    "categoryCode": "INTAUTH-37",
+    "categoryName": "\u8fd0\u8f93\u5305\u88c5\u9a8c\u8bc1\u65b9\u6848/\u62a5\u544a",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u6ce8\u518c",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-38",
+    "categoryName": "\u8d27\u67b6\u5bff\u547d\u9a8c\u8bc1\u65b9\u6848/\u62a5\u544a",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u6ce8\u518c",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-39",
+    "categoryName": "\u8bbe\u8ba1\u8f6c\u79fb\u65b9\u6848\u548c\u62a5\u544a",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QC",
+      "QMS",
+      "\u8bbe\u5907\u5f00\u53d1",
+      "\u751f\u4ea7",
+      "\u751f\u4ea7\u8ba1\u5212",
+      "\u751f\u4ea7\u91c7\u8d2d",
+      "\u4ed3\u50a8\u7269\u6d41",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-40",
+    "categoryName": "\u6027\u80fd\u8bc4\u4ef7\u65b9\u6848\u548c\u62a5\u544a",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u6ce8\u518c",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-41",
+    "categoryName": "\u4e34\u5e8a\u8bc4\u4ef7\u65b9\u6848/\u62a5\u544a(\u5982\u9002\u7528)",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u65b0\u54c1\u5f00\u53d1",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-42",
+    "categoryName": "\u4ea7\u54c1\u8fc7\u7a0b\u786e\u8ba4\u4e3b\u8ba1\u5212",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u751f\u4ea7",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-43",
+    "categoryName": "\u8bbe\u5907\u5b89\u88c5\u786e\u8ba4(IQ)\u65b9\u6848/\u62a5\u544a",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u65b0\u54c1\u5f00\u53d1",
+      "\u751f\u4ea7",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-44",
+    "categoryName": "\u8fc7\u7a0b\u8fd0\u884c\u786e\u8ba4(OQ)\u65b9\u6848/\u62a5\u544a",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u751f\u4ea7",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-45",
+    "categoryName": "\u8fc7\u7a0b\u6027\u80fd\u786e\u8ba4(PQ)\u65b9\u6848\u548c\u62a5\u544a",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u751f\u4ea7",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-46",
+    "categoryName": "\u706d\u83cc\u786e\u8ba4\u65b9\u6848\u548c\u62a5\u544a",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QA",
+      "QMS",
+      "\u65b0\u54c1\u5f00\u53d1",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-47",
+    "categoryName": "\u6ce8\u518c/\u4e34\u5e8a\u8d44\u6599\u6c47\u7f16",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QMS",
+      "\u65b0\u54c1\u5f00\u53d1",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  },
+  {
+    "categoryCode": "INTAUTH-48",
+    "categoryName": "\u751f\u4ea7\u8bb8\u53ef/\u5907\u6848\u8d44\u6599\u6c47\u7f16",
+    "signoffPositionNames": [
+      "\u7f16\u5236\u4eba\u76f4\u63a5\u4e3b\u7ba1",
+      "QMS",
+      "\u65b0\u54c1\u5f00\u53d1",
+      "\u6587\u6863\u7ba1\u7406\u5458"
+    ],
+    "approvalPositionNames": [
+      "\u7f16\u5236\u90e8\u95e8\u8d1f\u8d23\u4eba",
+      "\u6388\u6743\u4ee3\u8868"
+    ],
+    "remark": ""
+  }
+]

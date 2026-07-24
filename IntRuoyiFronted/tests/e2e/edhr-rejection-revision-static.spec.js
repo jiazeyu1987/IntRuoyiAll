@@ -1,0 +1,63 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+
+const repoRoot = path.resolve(__dirname, '../..')
+const readSource = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8')
+
+const approvalApi = readSource('src/api/mes/pro/edhr/approval.ts')
+const workTaskApi = readSource('src/api/mes/pro/edhr/workTask.ts')
+const batchExecutionApi = readSource('src/api/mes/pro/edhr/batchExecution.ts')
+const approvalPage = readSource('src/views/mes/pro/edhr/ApprovalPage.vue')
+const approvalDetailPage = readSource('src/views/mes/pro/edhr/ApprovalDetailPage.vue')
+const workTaskBoardPage = readSource('src/views/mes/pro/edhr-work-task/WorkTaskBoardPage.vue')
+const batchListPage = readSource('src/views/mes/pro/edhr-batch/BatchExecutionListPage.vue')
+const batchDetailPage = readSource('src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue')
+const realE2e = readSource('tests/e2e/edhr-rejection-revision-real-flow.e2e.js')
+
+assert.match(approvalApi, /revisionExecutionId\??:\s*number/, '审批动作响应必须返回修订草稿 executionId。')
+assert.match(approvalApi, /reworkTaskId\??:\s*number/, '审批动作响应必须返回返工任务 ID。')
+assert.match(workTaskApi, /sourceExecutionId\??:\s*number/, '工作任务响应必须暴露来源被驳回执行记录。')
+assert.match(workTaskApi, /reason\??:\s*string/, '工作任务响应必须暴露驳回/返工原因。')
+
+assert.match(batchExecutionApi, /EDHR_BATCH_STATUS_REWORK_REQUIRED\s*=\s*25/, '批次 API 必须声明需返工状态 25。')
+assert.match(batchExecutionApi, /EDHR_BATCH_TASK_STATUS_REWORK_REQUIRED\s*=\s*35/, '批次任务 API 必须声明需返工状态 35。')
+
+assert.match(approvalPage, /revisionExecutionId/, '审批列表驳回成功后必须读取新修订执行记录 ID。')
+assert.match(approvalPage, /reworkTaskId/, '审批列表驳回成功后必须读取返工任务 ID。')
+assert.match(approvalPage, /已驳回并创建返工任务/, '审批列表驳回成功提示必须说明已创建返工任务。')
+assert.match(approvalDetailPage, /revisionExecutionId/, '审批详情驳回成功后必须读取新修订执行记录 ID。')
+assert.match(approvalDetailPage, /reworkTaskId/, '审批详情驳回成功后必须读取返工任务 ID。')
+assert.match(approvalDetailPage, /已驳回并创建返工任务/, '审批详情驳回成功提示必须说明已创建返工任务。')
+
+assert.match(workTaskBoardPage, /row\.sourceExecutionId/, '任务看板必须展示返工来源执行记录。')
+assert.match(workTaskBoardPage, /row\.reason/, '任务看板必须展示驳回/返工原因。')
+assert.match(workTaskBoardPage, /EDHR_WORK_TASK_TYPE_REWORK[\s\S]*new URL\(row\.actionUrl/, '返工任务必须沿用后端返回的 actionUrl 进入修订草稿。')
+
+for (const source of [batchListPage, batchDetailPage]) {
+  assert.match(source, /EDHR_BATCH_STATUS_REWORK_REQUIRED/, '批次页面必须识别需返工状态。')
+  assert.match(source, /需返工|需修订/, '批次页面必须展示需返工/需修订状态文案。')
+}
+assert.match(batchDetailPage, /EDHR_BATCH_TASK_STATUS_REWORK_REQUIRED/, '批次详情必须识别工序需返工状态。')
+assert.match(batchDetailPage, /存在返工修订未重新审批通过/, '批次详情必须给出返工关闭阻塞提示。')
+
+assert.match(realE2e, /EDHR_REJECTION_REVISION_E2E_FILLER_SIGN_PASSWORD/, '真实 E2E 必须要求填写人电子签名密码。')
+assert.match(realE2e, /EDHR_REJECTION_REVISION_E2E_REVIEWER_SIGN_PASSWORD/, '真实 E2E 必须要求审批人电子签名密码。')
+assert.match(realE2e, /EDHR_REJECTION_REVISION_E2E_FINAL_REVIEWER_SIGN_PASSWORD/, '真实 E2E 必须支持多人审核闭环的第二审核人签名密码。')
+assert.match(realE2e, /FORBIDDEN_TENANTS/, '真实 E2E 必须保护 live 租户。')
+assert.match(realE2e, /revisionExecutionId/, '真实 E2E 必须断言驳回响应的新修订执行 ID。')
+assert.match(realE2e, /reworkTaskId/, '真实 E2E 必须断言驳回响应的返工任务 ID。')
+assert.match(realE2e, /revisionExecutionCode/, '真实 E2E 必须读取并重新提交新修订执行编号。')
+assert.match(realE2e, /EDHR_REJECTION_REVISION_E2E_REWORK_TASK_ID/, '真实 E2E 必须支持从真实 REWORK/TODO 返工待办继续验证。')
+assert.match(realE2e, /openExistingReworkTask/, '真实 E2E 必须通过任务看板打开既有返工待办。')
+assert.match(realE2e, /locator\('\.edhr-work-task-page'\)/, '真实 E2E 必须限定在 eDHR 工作任务看板内查询和处理任务。')
+assert.match(realE2e, /clickButton\(board,\s*'查询'\)/, '真实 E2E 查询按钮必须从工作任务看板容器内点击，避免误入普通报工页。')
+assert.match(realE2e, /targetTask\.executionId/, '真实 E2E 必须支持工作任务 actionUrl 直达执行详情。')
+assert.match(realE2e, /edhr-batch-execution\/task\/open/, '真实 E2E 必须支持尚未打开的填写任务从批次详情创建执行记录。')
+assert.match(realE2e, /approveResult\.status === 1/, '真实 E2E 必须覆盖多人审核第一签后仍 SUBMITTED 的继续审批分支。')
+assert.match(realE2e, /approveExecution/, '真实 E2E 必须覆盖修订重新提交后的审批通过。')
+assert.match(realE2e, /verifyBatchRecovered/, '真实 E2E 必须校验修订审批通过后批次状态恢复。')
+assert.match(realE2e, /\[10,\s*20,\s*30,\s*40\]/, '真实 E2E 必须允许 IN_PROGRESS/READY_TO_CLOSE/CLOSED/ARCHIVED 作为修订通过后的批次恢复状态。')
+assert.doesNotMatch(realE2e, /admin123|DEFAULT_PASSWORD|page\.route|route\.fulfill/i, '真实 E2E 不得写入默认密码或网络伪造路径。')
+
+console.log('PASS: eDHR rejection revision static contract')

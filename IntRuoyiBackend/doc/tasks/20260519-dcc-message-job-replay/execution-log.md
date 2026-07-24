@@ -1,0 +1,8 @@
+# Execution Log: DCC 历史消息任务补发工具
+
+- 2026-05-19: Created backend task package `20260519-dcc-message-job-replay`.
+- BDD: 管理员按消息任务编号补发历史 DCC 站内信 -> Given 历史 `dcc_controlled_file_message_job` 处于 `PENDING` 或 `FAILED` / When 管理员提交指定消息任务编号执行补发 / Then 系统必须重新解析对应 DCC 业务上下文并调用真实站内信发送 API / And 成功任务回写为 `SENT`.
+- BDD: 不支持的状态或不存在的任务必须失败 -> Given 指定消息任务不存在或状态不是 `PENDING/FAILED` / When 管理员触发补发 / Then 接口必须失败并暴露明确错误，不得静默跳过伪装成功。
+- BDD: 历史补发必须复用统一 DCC 消息发送路径 -> Given DCC 新消息发送与历史补发都面向同一 `message_job` 结构 / When 两条链路执行发送 / Then 它们必须共享同一套状态回写与错误留痕逻辑，避免行为漂移。
+- RED: `mvn --% -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\pom.xml -pl yudao-module-dcc -am -Dtest=DccControlledFileMessageReplayServiceTest,DccControlledFileTaskActionApiTest,DccControlledFileFinalizationServiceImplTest,DccControlledFileMessageOutboxTest,DccControlledFileObsoleteServiceTest -Dsurefire.failIfNoSpecifiedTests=false test` -> FAIL, the replay-capable delivery path was not yet wired into existing DCC services and tests exposed missing replay endpoint / missing shared message dispatch behavior.
+- GREEN: `mvn --% -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\pom.xml -pl yudao-module-dcc -am -Dtest=DccControlledFileMessageReplayServiceTest,DccControlledFileTaskActionApiTest,DccControlledFileFinalizationServiceImplTest,DccControlledFileMessageOutboxTest,DccControlledFileObsoleteServiceTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS, replay by message job id now works for `DISTRIBUTION` / `TRAINING` / `OBSOLETE`, unsupported states fail explicitly, and the shared delivery path preserves the existing finalization/outbox/obsolete behavior.

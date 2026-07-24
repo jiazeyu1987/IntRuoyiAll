@@ -1,0 +1,27 @@
+# 执行日志：应用重排开始日期改为任意日期选择
+
+- 初始化任务：接收用户“应用重排时不再选择今天/明天，而是选择任意日期，默认选择明天日期”的需求。
+- BDD: 应用重排默认从明天日期开始 -> Given 用户在排产工单页已满足应用重排前置条件 / When 点击“应用重排”打开开始日期弹窗 / Then 日期选择器默认显示明天日期，起排时间为明天 `00:00:00`。
+- BDD: 应用重排可选择任意有效日期 -> Given 开始日期弹窗已打开 / When 用户在日期选择器中选择任意有效日期 / Then 当前选择日期与起排时间同步更新为该日期 `00:00:00`。
+- BDD: 应用重排确认链路保持门禁 -> Given 用户确认所选开始日期 / When 点击“确认应用重排” / Then 前端继续按该日期重新执行预检、重新生成预览，并使用本次预览 token 调用应用接口。
+- RED: `node tests/e2e/mes-replan-whole-day-apply-static.spec.js` -> FAIL，失败原因符合预期：旧页面仍包含“从今天开始重排”单选按钮。
+- CHANGE: `src/views/mes/pro/scheduleorder/index.vue`，将“应用重排开始日期”弹窗从 `TODAY/TOMORROW` radio 单选改为 `el-date-picker` 日期选择器，打开时默认 `dayjs().add(1, 'day').format('YYYY-MM-DD')`。
+- CHANGE: `src/views/mes/pro/scheduleorder/index.vue`，确认应用重排时改为 `buildWholeDayReplanStartTime(replanStartDate.value)`，继续按所选日期重新预检、预览并携带本次预览 token 应用。
+- CHANGE: `tests/e2e/mes-replan-whole-day-apply-static.spec.js`，静态契约改为断言旧“今天/明天”单选不存在、日期选择器存在、默认明天且按日期值构造整天开始时间。
+- CHANGE: `tests/e2e/mes-replan-whole-day-apply-real-flow.e2e.js`，真实流脚本交互从点击“今天/明天”按钮改为填写日期选择器。
+- CHANGE: `tests/e2e/mes-pro-schedule-order-replan-apply-timeout-static.spec.js`、`tests/e2e/mes-pro-schedule-order-replan-scope-static.spec.js`，同步当前统一长超时常量与确认时重跑预检的静态合同。
+- GREEN: `node tests/e2e/mes-replan-whole-day-apply-static.spec.js` -> PASS。
+- GREEN: `node --check tests/e2e/mes-replan-whole-day-apply-real-flow.e2e.js` -> PASS。
+- GREEN: `node tests/e2e/mes-pro-schedule-order-replan-apply-timeout-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-pro-schedule-order-replan-settings-progress-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-pro-schedule-order-replan-scope-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-pro-schedule-order-pool-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check:schedule` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260708-replan-apply-start-date-picker/frontend-feature-evidence.md` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260708-replan-apply-start-date-picker --mode preview` -> PASS，无删除项。
+- GREEN: experience-preflight -> PASS，已读取 `docs/login-access.md`、`docs/powershell-memory.md`，本轮真实数据 E2E 仅使用本机 `http://localhost:8081` 测试租户 `测试租户/aoteman`，不访问测试服、备份服或正式服。
+- GREEN: login-preflight -> PASS，真实登录已进入目标页：`baseUrl=http://localhost:8081`，租户 `测试租户`，账号 `aoteman`，路径 `/mes/pro/schedule-order`，目标文案“手动重排”可见。
+- BLOCKER: real-data-e2e -> 测试租户缺少可完成“应用重排”的真实数据前置条件；`node tests/e2e/mes-replan-whole-day-apply-real-flow.e2e.js` 在真实页面同步工单加入排产池阶段失败，原因是没有可通过页面同步工单加入排产池的真实生产工单。
+- BLOCKER: real-data-diagnostic -> 已检查真实接口数据：排产候选共 34 条，抽查前 25 条均无法通过预检/预览；阻塞原因包含“工艺路线已被禁用”和“缺少可用工艺路线”；`admission-diff?admissionStatus=READY_TO_ADMIT` 返回 `total=0`，没有可加入排产池的 READY_TO_ADMIT 生产工单。
+- EVIDENCE: real-data-diagnostic -> 诊断产物：`tests/output/replan-date-data-diagnostic/diagnostic.json`。
+- NOTE: real-data-e2e -> 未使用 mock、未新增 fallback、未绕过预检/预览/token 门禁、未写入正式排程；真实写入 E2E 因测试数据前置条件缺失按 fail fast 阻塞。

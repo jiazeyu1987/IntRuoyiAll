@@ -1,0 +1,55 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=medium
+-- Add showroom product one-click translate and publish task persistence tables.
+
+CREATE TABLE IF NOT EXISTS `showroom_product_translate_publish_batch_task` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Task ID',
+  `operator_user_id` bigint NOT NULL COMMENT 'Operator user ID',
+  `status` varchar(32) NOT NULL COMMENT 'WAITING/RUNNING/COMPLETED',
+  `keyword` varchar(255) DEFAULT NULL COMMENT 'Keyword filter snapshot',
+  `lifecycle_stage` varchar(32) DEFAULT NULL COMMENT 'Lifecycle filter snapshot',
+  `incomplete_status` varchar(32) DEFAULT NULL COMMENT 'Incomplete filter snapshot',
+  `approval_status` varchar(32) DEFAULT NULL COMMENT 'Approval filter snapshot',
+  `matched_count` int NOT NULL DEFAULT 0 COMMENT 'Matched product count',
+  `succeeded_count` int NOT NULL DEFAULT 0 COMMENT 'Succeeded product count',
+  `failed_count` int NOT NULL DEFAULT 0 COMMENT 'Failed product count',
+  `remaining_count` int NOT NULL DEFAULT 0 COMMENT 'Remaining product count',
+  `current_product_id` bigint DEFAULT NULL COMMENT 'Current product ID',
+  `current_product_code` varchar(64) DEFAULT NULL COMMENT 'Current product code',
+  `current_product_name_cn` varchar(255) DEFAULT NULL COMMENT 'Current product Chinese name',
+  `last_run_at` datetime DEFAULT NULL COMMENT 'Last run time',
+  `completed_at` datetime DEFAULT NULL COMMENT 'Completed time',
+  `last_failure_message` varchar(512) DEFAULT NULL COMMENT 'Last failure message',
+  `creator` varchar(64) DEFAULT '' COMMENT 'Creator',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create time',
+  `updater` varchar(64) DEFAULT '' COMMENT 'Updater',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Update time',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT 'Deleted flag',
+  `tenant_id` bigint NOT NULL DEFAULT '0' COMMENT 'Tenant ID',
+  PRIMARY KEY (`id`),
+  KEY `idx_showroom_translate_publish_task_status` (`tenant_id`, `status`, `id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Showroom product translate publish batch task';
+
+CREATE TABLE IF NOT EXISTS `showroom_product_translate_publish_batch_task_item` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'Item ID',
+  `task_id` bigint NOT NULL COMMENT 'Task ID',
+  `product_id` bigint NOT NULL COMMENT 'Product ID',
+  `source_revision_id` bigint DEFAULT NULL COMMENT 'Source revision ID',
+  `product_code` varchar(64) NOT NULL COMMENT 'Product code',
+  `name_cn` varchar(255) DEFAULT NULL COMMENT 'Chinese name',
+  `name_en` varchar(255) DEFAULT NULL COMMENT 'English name',
+  `status` varchar(32) NOT NULL COMMENT 'WAITING/RUNNING/COMPLETED/FAILED',
+  `attempt_count` int NOT NULL DEFAULT 0 COMMENT 'Attempt count',
+  `last_error` varchar(512) DEFAULT NULL COMMENT 'Last error',
+  `published_revision_id` bigint DEFAULT NULL COMMENT 'Published revision ID',
+  `last_attempt_at` datetime DEFAULT NULL COMMENT 'Last attempt time',
+  `completed_at` datetime DEFAULT NULL COMMENT 'Completed time',
+  `creator` varchar(64) DEFAULT '' COMMENT 'Creator',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Create time',
+  `updater` varchar(64) DEFAULT '' COMMENT 'Updater',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Update time',
+  `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT 'Deleted flag',
+  `tenant_id` bigint NOT NULL DEFAULT '0' COMMENT 'Tenant ID',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_showroom_translate_publish_batch_task_item` (`tenant_id`, `task_id`, `product_id`),
+  KEY `idx_showroom_translate_publish_task_item_status` (`tenant_id`, `task_id`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Showroom product translate publish batch task item';

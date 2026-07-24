@@ -1,0 +1,26 @@
+{
+  "databaseName": "ruoyi-vue-pro",
+  "capturedAt": "2026-06-05T10:05:00Z",
+  "schemaHash": "sha256:local-added-column",
+  "tables": [
+    {
+      "tableName": "system_menu",
+      "columns": [
+        {
+          "columnName": "id",
+          "definitionHash": "sha256:menu-id"
+        },
+        {
+          "columnName": "permission",
+          "definitionHash": "sha256:menu-permission"
+        },
+        {
+          "columnName": "icon",
+          "definitionHash": "sha256:menu-icon-local"
+        }
+      ],
+      "indexes": []
+    }
+  ],
+  "views": []
+}

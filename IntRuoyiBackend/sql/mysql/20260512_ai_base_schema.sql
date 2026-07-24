@@ -1,0 +1,306 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=medium
+-- AI base schema repair for MySQL.
+-- Generated from yudao-module-ai DO annotations and fields.
+-- Safe to run repeatedly: creates missing tables only and does not delete data.
+
+CREATE TABLE IF NOT EXISTS `ai_api_key` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `name` varchar(512) DEFAULT NULL,
+  `api_key` longtext DEFAULT NULL,
+  `platform` varchar(128) DEFAULT NULL,
+  `url` varchar(1024) DEFAULT NULL,
+  `status` int DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_ai_api_key_tenant_id` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AiApiKeyDO';
+
+CREATE TABLE IF NOT EXISTS `ai_chat_conversation` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint DEFAULT NULL,
+  `title` varchar(512) DEFAULT NULL,
+  `pinned` bit(1) DEFAULT NULL,
+  `pinned_time` datetime DEFAULT NULL,
+  `role_id` bigint DEFAULT NULL,
+  `model_id` bigint DEFAULT NULL,
+  `model` varchar(128) DEFAULT NULL,
+  `system_message` longtext DEFAULT NULL,
+  `temperature` double DEFAULT NULL,
+  `max_tokens` int DEFAULT NULL,
+  `max_contexts` int DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_ai_chat_conversation_tenant_id` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AiChatConversationDO';
+
+CREATE TABLE IF NOT EXISTS `ai_chat_message` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `conversation_id` bigint DEFAULT NULL,
+  `reply_id` bigint DEFAULT NULL,
+  `type` varchar(128) DEFAULT NULL,
+  `user_id` bigint DEFAULT NULL,
+  `role_id` bigint DEFAULT NULL,
+  `model` varchar(128) DEFAULT NULL,
+  `model_id` bigint DEFAULT NULL,
+  `content` longtext DEFAULT NULL,
+  `reasoning_content` longtext DEFAULT NULL,
+  `use_context` bit(1) DEFAULT NULL,
+  `segment_ids` varchar(1024) DEFAULT NULL,
+  `web_search_pages` longtext,
+  `attachment_urls` varchar(1024) DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_ai_chat_message_tenant_id` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AiChatMessageDO';
+
+CREATE TABLE IF NOT EXISTS `ai_chat_role` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `name` varchar(512) DEFAULT NULL,
+  `avatar` varchar(1024) DEFAULT NULL,
+  `category` varchar(128) DEFAULT NULL,
+  `description` varchar(512) DEFAULT NULL,
+  `system_message` longtext DEFAULT NULL,
+  `user_id` bigint DEFAULT NULL,
+  `model_id` bigint DEFAULT NULL,
+  `knowledge_ids` varchar(1024) DEFAULT NULL,
+  `tool_ids` varchar(1024) DEFAULT NULL,
+  `mcp_client_names` varchar(1024) DEFAULT NULL,
+  `public_status` bit(1) DEFAULT NULL,
+  `sort` int DEFAULT NULL,
+  `status` int DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_ai_chat_role_tenant_id` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AiChatRoleDO';
+
+CREATE TABLE IF NOT EXISTS `ai_image` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint DEFAULT NULL,
+  `prompt` longtext DEFAULT NULL,
+  `platform` varchar(128) DEFAULT NULL,
+  `model_id` bigint DEFAULT NULL,
+  `model` varchar(128) DEFAULT NULL,
+  `width` int DEFAULT NULL,
+  `height` int DEFAULT NULL,
+  `status` int DEFAULT NULL,
+  `finish_time` datetime DEFAULT NULL,
+  `error_message` varchar(512) DEFAULT NULL,
+  `pic_url` varchar(1024) DEFAULT NULL,
+  `public_status` bit(1) DEFAULT NULL,
+  `buttons` longtext,
+  `task_id` varchar(512) DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_ai_image_tenant_id` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AiImageDO';
+
+CREATE TABLE IF NOT EXISTS `ai_knowledge` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `name` varchar(512) DEFAULT NULL,
+  `description` varchar(512) DEFAULT NULL,
+  `embedding_model_id` bigint DEFAULT NULL,
+  `embedding_model` varchar(255) DEFAULT NULL,
+  `top_k` int DEFAULT NULL,
+  `similarity_threshold` double DEFAULT NULL,
+  `status` int DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_ai_knowledge_tenant_id` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AiKnowledgeDO';
+
+CREATE TABLE IF NOT EXISTS `ai_knowledge_document` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `knowledge_id` bigint DEFAULT NULL,
+  `name` varchar(512) DEFAULT NULL,
+  `url` varchar(1024) DEFAULT NULL,
+  `content` longtext DEFAULT NULL,
+  `content_length` int DEFAULT NULL,
+  `tokens` int DEFAULT NULL,
+  `segment_max_tokens` int DEFAULT NULL,
+  `retrieval_count` int DEFAULT NULL,
+  `status` int DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_ai_knowledge_document_tenant_id` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AiKnowledgeDocumentDO';
+
+CREATE TABLE IF NOT EXISTS `ai_knowledge_segment` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `knowledge_id` bigint DEFAULT NULL,
+  `document_id` bigint DEFAULT NULL,
+  `content` longtext DEFAULT NULL,
+  `content_length` int DEFAULT NULL,
+  `vector_id` varchar(512) DEFAULT NULL,
+  `tokens` int DEFAULT NULL,
+  `retrieval_count` int DEFAULT NULL,
+  `status` int DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_ai_knowledge_segment_tenant_id` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AiKnowledgeSegmentDO';
+
+CREATE TABLE IF NOT EXISTS `ai_mind_map` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint DEFAULT NULL,
+  `platform` varchar(128) DEFAULT NULL,
+  `model_id` bigint DEFAULT NULL,
+  `model` varchar(128) DEFAULT NULL,
+  `prompt` longtext DEFAULT NULL,
+  `generated_content` longtext DEFAULT NULL,
+  `error_message` varchar(512) DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_ai_mind_map_tenant_id` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AiMindMapDO';
+
+CREATE TABLE IF NOT EXISTS `ai_model` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `key_id` bigint DEFAULT NULL,
+  `name` varchar(512) DEFAULT NULL,
+  `model` varchar(128) DEFAULT NULL,
+  `platform` varchar(128) DEFAULT NULL,
+  `type` int DEFAULT NULL,
+  `sort` int DEFAULT NULL,
+  `status` int DEFAULT NULL,
+  `temperature` double DEFAULT NULL,
+  `max_tokens` int DEFAULT NULL,
+  `max_contexts` int DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_ai_model_tenant_id` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AiModelDO';
+
+CREATE TABLE IF NOT EXISTS `ai_music` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint DEFAULT NULL,
+  `title` varchar(512) DEFAULT NULL,
+  `lyric` longtext DEFAULT NULL,
+  `image_url` varchar(1024) DEFAULT NULL,
+  `audio_url` varchar(1024) DEFAULT NULL,
+  `video_url` varchar(1024) DEFAULT NULL,
+  `status` int DEFAULT NULL,
+  `generate_mode` int DEFAULT NULL,
+  `description` varchar(512) DEFAULT NULL,
+  `platform` varchar(128) DEFAULT NULL,
+  `model` varchar(128) DEFAULT NULL,
+  `tags` longtext,
+  `duration` double DEFAULT NULL,
+  `public_status` bit(1) DEFAULT NULL,
+  `task_id` varchar(512) DEFAULT NULL,
+  `error_message` varchar(512) DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_ai_music_tenant_id` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AiMusicDO';
+
+CREATE TABLE IF NOT EXISTS `ai_tool` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `name` varchar(512) DEFAULT NULL,
+  `description` varchar(512) DEFAULT NULL,
+  `status` int DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_ai_tool_tenant_id` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AiToolDO';
+
+CREATE TABLE IF NOT EXISTS `ai_workflow` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `name` varchar(512) DEFAULT NULL,
+  `code` varchar(255) DEFAULT NULL,
+  `graph` longtext DEFAULT NULL,
+  `remark` varchar(255) DEFAULT NULL,
+  `status` int DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_ai_workflow_tenant_id` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AiWorkflowDO';
+
+CREATE TABLE IF NOT EXISTS `ai_write` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint DEFAULT NULL,
+  `type` int DEFAULT NULL,
+  `platform` varchar(128) DEFAULT NULL,
+  `model_id` bigint DEFAULT NULL,
+  `model` varchar(128) DEFAULT NULL,
+  `prompt` longtext DEFAULT NULL,
+  `generated_content` longtext DEFAULT NULL,
+  `original_content` varchar(255) DEFAULT NULL,
+  `length` int DEFAULT NULL,
+  `format` int DEFAULT NULL,
+  `tone` int DEFAULT NULL,
+  `language` int DEFAULT NULL,
+  `error_message` varchar(512) DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_ai_write_tenant_id` (`tenant_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AiWriteDO';

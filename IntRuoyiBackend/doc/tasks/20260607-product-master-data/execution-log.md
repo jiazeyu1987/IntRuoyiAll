@@ -1,0 +1,40 @@
+# 执行日志：产品主数据后端
+
+- BDD: Excel 全量导入产品主数据 -> Given 管理员上传包含产品编码和中文名称的 Excel / When 预览并确认导入 / Then 系统新增或更新 Excel 中的产品，停用 Excel 缺失的既有产品，不物理删除。
+- BDD: 产品主数据校验失败直接阻塞 -> Given Excel 存在空产品编码、重复编码、重复 DCC 产品编号或非法 14 位 DCC 产品编号 / When 执行导入预览 / Then 后端返回明确失败原因，不写入产品数据。
+- BDD: DCC 提交必须引用启用产品主数据 -> Given 申请人提交 DCC 受控文件 / When 产品主数据缺失、停用或无合法 DCC 产品编号 / Then 提交失败并暴露前置条件，不保存默认产品快照。
+- BDD: DCC 产品快照保持历史可追溯 -> Given DCC 记录已保存产品主数据引用和名称快照 / When 产品主数据名称后续变更 / Then 历史 DCC 记录继续显示提交时快照，新 DCC 使用最新主数据。
+- BDD: 展厅产品绑定产品主数据 -> Given 展厅产品已绑定产品主数据 / When 展厅列表、展柜选择或 Excel 展示资料导入读取产品 / Then 产品编码和基础名称来自产品主数据，展厅资料继续保存在展厅 revision。
+- BDD: 芋道源码管理员从展厅映射产品主数据 -> Given `芋道源码/admin` 账户已有展厅产品内容 / When 管理员预览并确认展厅映射 / Then 系统按产品编码新增、更新或绑定产品主数据，重复编码或缺少编码/中文名直接失败，展厅产品写入 `product_master_id`。
+
+- RED: `mvn -pl yudao-module-mdm -am test` -> FAIL，expected reason：Maven reactor 中尚不存在 `yudao-module-mdm`。
+- GREEN: `mvn -pl yudao-module-mdm test` -> PASS，3 tests，0 failures，0 errors。
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFileWorkflowServiceImplTest,DccControlledFileMetadataUpdateServiceTest,DccExternalFileReviewServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，79 tests，0 failures，0 errors。
+- GREEN: `mvn -pl yudao-module-showroom -am "-Dtest=*Product*" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，77 tests，0 failures，0 errors。
+- GREEN: `git diff --check` -> PASS，仅有 Windows LF/CRLF 提示，无 whitespace error。
+- BLOCKED: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\worktrees\20260607-product-master-data\ruoyi-vue-pro --task-id 20260607-product-master-data --mode preview` -> BLOCKED，main branch `master-jdk17` 未检出 worktree；预览建议删除额外 evidence 文档，但未 apply。
+- BLOCKED: E2E 前置检查 -> 本任务前端 dev server 已启动在 `http://127.0.0.1:18082`；本机后端 `http://127.0.0.1:48081` 可登录 `测试租户 / aoteman / admin123`，但登录后访问 `/admin-api/mdm/product/simple-list` 返回 `No static resource admin-api/mdm/product/simple-list.`，说明当前运行时未加载本次 MDM 后端接口和菜单权限。本轮不能执行产品主数据导入、DCC 提交和展厅选择真实路径。
+- RED: `mvn -pl yudao-module-mdm -Dtest=MdmProductSchemaContractTest test` -> FAIL，expected reason：迁移脚本缺少 `mdm:product:map-showroom` 权限。
+- RED: `mvn -pl yudao-module-showroom -am "-Dtest=ShowroomMdmProductMappingContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，expected reason：缺少 `ShowroomMdmProductMappingService`、展厅映射端点和 MDM 同步 API。
+- GREEN: `mvn -pl yudao-module-mdm -Dtest=MdmProductSchemaContractTest test` -> PASS。
+- GREEN: `mvn -pl yudao-module-showroom -am "-Dtest=ShowroomMdmProductMappingContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS。
+- GREEN: `mvn -pl yudao-module-mdm test` -> PASS，3 tests，0 failures，0 errors。
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFileWorkflowServiceImplTest,DccControlledFileMetadataUpdateServiceTest,DccExternalFileReviewServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，79 tests，0 failures，0 errors。
+- GREEN: `mvn -pl yudao-module-showroom -am "-Dtest=ShowroomMdmProductMappingServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，2 tests，0 failures，0 errors。
+- GREEN: `mvn -pl yudao-module-showroom -am "-Dtest=*Product*" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，80 tests，0 failures，0 errors。
+- GREEN: `git diff --check` -> PASS，仅有 Windows LF/CRLF 提示，无 whitespace error。
+- RED: `python -m pytest script\tests\test_product_master_sql_contract.py` -> FAIL，expected reason：SQL 中 `mdm_product.dcc_product_code` 与 `mdm_product_import_row.dcc_product_code` 列宽为 `varchar(32)`，不符合 14 位 DCC 产品编号设计。
+- GREEN: `python -m pytest script\tests\test_product_master_sql_contract.py` -> PASS，2 tests，0 failures。
+- GREEN: `mvn -pl yudao-module-mdm test` -> PASS，3 tests，0 failures，0 errors。
+- GREEN: `git rebase int_main` -> PASS，无冲突。
+- GREEN: `python -m pytest script\tests\test_product_master_sql_contract.py` -> PASS，2 tests，0 failures。
+- GREEN: `mvn -pl yudao-module-mdm test` -> PASS，3 tests，0 failures，0 errors。
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFileWorkflowServiceImplTest,DccControlledFileMetadataUpdateServiceTest,DccExternalFileReviewServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，80 tests，0 failures，0 errors。
+- GREEN: `mvn -pl yudao-module-showroom -am "-Dtest=*Product*" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，80 tests，0 failures，0 errors。
+- GREEN: `git diff --check` -> PASS。
+- BLOCKED: `芋道源码/admin` 展厅映射真实路径验证 -> 登录本机 `http://127.0.0.1:48081/admin-api` 后访问 `/admin-api/showroom/product/mdm-mapping-preview` 返回 `No static resource admin-api/showroom/product/mdm-mapping-preview.`，说明当前运行时未加载本分支后端接口。本轮不能执行真实展厅映射确认、cleanup apply 或提交。
+- BLOCKED: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\worktrees\20260607-product-master-data\ruoyi-vue-pro --task-id 20260607-product-master-data --mode preview` -> BLOCKED，linked worktree 主分支 `master-jdk17` 未检出；预览建议删除 `backend-api-evidence.md` 与 `database-schema-evidence.md`，未 apply。
+- GREEN: `mvn -pl yudao-module-mdm test` -> PASS，3 tests，0 failures，0 errors。
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFileWorkflowServiceImplTest,DccControlledFileMetadataUpdateServiceTest,DccExternalFileReviewServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，79 tests，0 failures，0 errors。
+- GREEN: `mvn -pl yudao-module-showroom -am "-Dtest=*Product*" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，80 tests，0 failures，0 errors。
+- GREEN: `git diff --check` -> PASS，仅有 Windows LF/CRLF 提示，无 whitespace error。

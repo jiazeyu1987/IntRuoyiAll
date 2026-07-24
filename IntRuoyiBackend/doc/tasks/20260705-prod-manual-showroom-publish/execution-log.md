@@ -1,0 +1,24 @@
+# 执行日志
+
+## BDD / TDD
+- BDD: 正式服手动发布成功 -> Given 正式服已更新且管理员登录后台, When 点击公司信息页“手动发布展厅”, Then 发布成功且生成可追溯 release 证据。
+- BDD: 发布遇到真实数据/配置问题 -> Given 发布校验发现缺失字段、资源或配置, When 发布失败, Then 返回明确错误并按根因最小修复后复验。
+
+## 门禁
+- GREEN: experience-preflight -> PASS, 已读取 PowerShell、正式服访问、发布备份恢复、登录与 bug 修复门禁。
+
+## 登录与发布前置
+- RED: prod-login-preflight-browser-cache -> FAIL, 本机 Playwright 缓存 headless shell ICU 启动失败，系统 Chrome 可正常打开正式服登录页。
+- RED: prod-login-preflight-default-password -> FAIL, 官方 login-preflight 走正式服真实页面，尝试密码返回“账号密码不正确”；这不是发布接口错误。
+- GREEN: prod-login-preflight-admin123 -> PASS, 官方 login-preflight 使用系统 Chrome 进入正式服 /showroom/company。
+- RED: prod-manual-publish-script-v1 -> FAIL, 页面出现 Element Plus 确认框但脚本只等待浏览器原生 dialog，未发出发布请求并超时；已修正为点击页面确认按钮。
+- RED: final-server-verify-wrapper-v1 -> FAIL, PowerShell 提前展开远端 wk 命令导致本地报错；已改为单引号脚本体和 releaseId 占位符替换。
+
+## GREEN / REGRESSION
+- GREEN: prod-manual-publish-final-e2e -> PASS, Playwright 真实登录正式服 芋道源码/admin，打开 /showroom/company，点击 手动发布展厅，确认弹框，/admin-api/showroom/release/publish 返回 code=0。
+- GREEN: prod-release-result -> PASS, releaseId $(@{ok=True; httpStatus=200; response=; releaseId=20260705T034529Z-be276b74dfa8-a93b25a4d7bf; manifestHash=be164e56b41575837bc0c16d77bf593d7229e894501b43150f8e0cb39d85a05a; documentCount=196; assetCount=618; installBytes=747887446; pageHasSystemError=False; publishResponses=System.Object[]; events=System.Object[]; finalUrl=http://172.30.30.57:8081/showroom/company; screenshotPath=D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260705-prod-manual-showroom-publish\prod-manual-publish-after.png; timestamp=2026-07-05T03:45:54.791Z}.releaseId), manifestHash $(@{ok=True; httpStatus=200; response=; releaseId=20260705T034529Z-be276b74dfa8-a93b25a4d7bf; manifestHash=be164e56b41575837bc0c16d77bf593d7229e894501b43150f8e0cb39d85a05a; documentCount=196; assetCount=618; installBytes=747887446; pageHasSystemError=False; publishResponses=System.Object[]; events=System.Object[]; finalUrl=http://172.30.30.57:8081/showroom/company; screenshotPath=D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260705-prod-manual-showroom-publish\prod-manual-publish-after.png; timestamp=2026-07-05T03:45:54.791Z}.manifestHash), documentCount $(@{ok=True; httpStatus=200; response=; releaseId=20260705T034529Z-be276b74dfa8-a93b25a4d7bf; manifestHash=be164e56b41575837bc0c16d77bf593d7229e894501b43150f8e0cb39d85a05a; documentCount=196; assetCount=618; installBytes=747887446; pageHasSystemError=False; publishResponses=System.Object[]; events=System.Object[]; finalUrl=http://172.30.30.57:8081/showroom/company; screenshotPath=D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260705-prod-manual-showroom-publish\prod-manual-publish-after.png; timestamp=2026-07-05T03:45:54.791Z}.documentCount), assetCount $(@{ok=True; httpStatus=200; response=; releaseId=20260705T034529Z-be276b74dfa8-a93b25a4d7bf; manifestHash=be164e56b41575837bc0c16d77bf593d7229e894501b43150f8e0cb39d85a05a; documentCount=196; assetCount=618; installBytes=747887446; pageHasSystemError=False; publishResponses=System.Object[]; events=System.Object[]; finalUrl=http://172.30.30.57:8081/showroom/company; screenshotPath=D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260705-prod-manual-showroom-publish\prod-manual-publish-after.png; timestamp=2026-07-05T03:45:54.791Z}.assetCount), installBytes $(@{ok=True; httpStatus=200; response=; releaseId=20260705T034529Z-be276b74dfa8-a93b25a4d7bf; manifestHash=be164e56b41575837bc0c16d77bf593d7229e894501b43150f8e0cb39d85a05a; documentCount=196; assetCount=618; installBytes=747887446; pageHasSystemError=False; publishResponses=System.Object[]; events=System.Object[]; finalUrl=http://172.30.30.57:8081/showroom/company; screenshotPath=D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260705-prod-manual-showroom-publish\prod-manual-publish-after.png; timestamp=2026-07-05T03:45:54.791Z}.installBytes), pageHasSystemError $(@{ok=True; httpStatus=200; response=; releaseId=20260705T034529Z-be276b74dfa8-a93b25a4d7bf; manifestHash=be164e56b41575837bc0c16d77bf593d7229e894501b43150f8e0cb39d85a05a; documentCount=196; assetCount=618; installBytes=747887446; pageHasSystemError=False; publishResponses=System.Object[]; events=System.Object[]; finalUrl=http://172.30.30.57:8081/showroom/company; screenshotPath=D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260705-prod-manual-showroom-publish\prod-manual-publish-after.png; timestamp=2026-07-05T03:45:54.791Z}.pageHasSystemError)。
+- GREEN: prod-server-readback -> PASS, 服务器侧读回 showroom_release 与 showroom_release_pointer 均指向本次 release。
+- GREEN: prod-log-regression -> PASS, 近 10 分钟后端日志未发现新的展厅发布失败错误。
+
+## 收尾
+- 待执行 task-closeout cleanup preview/apply，删除任务临时脚本、JSON 与截图，仅保留 task.md / execution-log.md。

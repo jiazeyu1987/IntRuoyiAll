@@ -1,0 +1,13 @@
+BDD: 登录页默认值应统一落到测试租户 -> Given 前端当前默认登录值仍指向正式租户与管理员账号，When 用户打开普通登录页、社交登录页或恢复 remembered loginForm 缓存，Then 可见默认值都应统一为 `测试租户 / aoteman / admin123`，且旧默认租户 `芋道源码` 不应被缓存重新带回。
+BDD: 共享顶层脚本应默认使用测试租户 -> Given 顶层共享测试脚本会被重复用于真实前端验证，When 调用默认登录回归、DCC 目录浏览与电子批记录路由脚本且未传覆盖环境变量，Then 脚本应默认使用 `测试租户(id=122)` 与 `aoteman/admin123`，不再尝试旧租户候选列表。
+RED: `npx.cmd --yes --package @playwright/cli playwright-cli -s=login-tenant-name-default run-code --filename D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\scripts\login-tenant-name-default.test.mjs` -> FAIL，页面默认租户仍为 `芋道源码`，未切到 `测试租户`。
+GREEN: `node --check D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\scripts\login-tenant-name-default.test.mjs` -> PASS。
+GREEN: 重启 `pnpm dev` 后，`npx.cmd --yes --package @playwright/cli playwright-cli -s=login-tenant-name-default run-code --filename D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\scripts\login-tenant-name-default.test.mjs` -> PASS，普通登录页与社交登录页默认值均为 `测试租户 / aoteman / admin123`，且 remembered `芋道源码` 缓存会被迁移回 `测试租户`。
+RED: `npx.cmd --yes --package @playwright/cli playwright-cli -s=login-tenant-name-default run-code --filename D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\scripts\dcc-controlled-browser-directory-display.test.mjs` -> FAIL，真实登录返回“名字为【测试租户】的租户已过期”。
+RED: `node --test D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\scripts\electronic-batch-record-route.test.mjs` -> FAIL，登录断言返回 `code=1002015002`，消息为“名字为【测试租户】的租户已过期”。
+GREEN: 修正测试租户有效期后，`node --test D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\scripts\electronic-batch-record-route.test.mjs` -> PASS，测试租户默认 API 基线切到 `48081` 后可直接通过。
+RED: DCC 浏览真实目录前置条件复核 -> FAIL，测试租户菜单权限缺失时页面落到 404；菜单补齐后，目录树仍为空，页面显示“暂无可见目录”。
+GREEN: 扩充测试租户菜单权限并通过真实 `/dcc/directories/import-intauth` 导入独立目录树后，`npx.cmd --yes --package @playwright/cli playwright-cli -s=login-tenant-name-default run-code --filename D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\scripts\dcc-controlled-browser-directory-display.test.mjs` -> PASS。
+GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260519-test-tenant-login-baseline\frontend-feature-evidence.md` -> PASS。
+GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260519-test-tenant-login-baseline --mode preview` -> PASS。
+GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260519-test-tenant-login-baseline --mode apply` -> PASS，已清理本任务附属前端证据文件。

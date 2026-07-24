@@ -1,0 +1,737 @@
+<template>
+  <ContentWrap>
+    <div class="mb-16px flex items-center gap-8px">
+      <span class="text-18px font-600 text-[var(--el-text-color-primary)]">基础数据 / DCC产品目录</span>
+    </div>
+    <UnifiedListTemplate
+      class="dcc-product-catalog-list-template"
+      table-key="dcc.productCatalog.main"
+      :query-model="queryParams"
+      label-width="76px"
+      :filter-definitions="productCatalogQuickFilterDefinitions"
+      :quick-filter-state="productCatalogQuickFilter.state"
+      :selected-filter-definition="productCatalogQuickFilter.selectedDefinition.value"
+      :operator-options="productCatalogQuickFilter.operatorOptions.value"
+      :columns="productCatalogColumns"
+      :column-saving="productCatalogColumnSaving"
+      :total="total"
+      v-model:page="queryParams.pageNo"
+      v-model:limit="queryParams.pageSize"
+      @update:quick-filter-state="productCatalogQuickFilter.updateState"
+      @quick-filter-query="productCatalogQuickFilter.applyQuickFilter"
+      @column-change="saveProductCatalogColumnConfig"
+      @column-reset="resetProductCatalogColumnConfig"
+      @pagination="getList"
+    >
+      <template #actions>
+        <el-button
+          type="primary"
+          plain
+          @click="openForm('create')"
+          v-hasPermi="['dcc:project-code:create']"
+        >
+          <Icon icon="ep:plus" class="mr-5px" />
+          新增产品目录
+        </el-button>
+        <el-button @click="productCatalogQuickFilter.resetQuickFilter">
+          <Icon icon="ep:refresh" class="mr-5px" />
+          重置
+        </el-button>
+        <el-button
+          plain
+          type="info"
+          :loading="expiryCompareLoading"
+          @click="handleCompareRegistrationExpiry"
+        >
+          <Icon icon="ep:refresh-right" class="mr-5px" />
+          注册证有效期
+        </el-button>
+      </template>
+      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <el-table
+          v-loading="loading"
+          class="dcc-product-catalog-resizable-table"
+          data-user-table-column-explicit
+          data-user-table-key="dcc.productCatalog.main"
+          :data="list"
+          border
+          :allow-drag-last-column="true"
+          :stripe="true"
+          :show-overflow-tooltip="true"
+          @header-dragend="handleProductCatalogHeaderDragend"
+          @sort-change="handleTemplateSortChange"
+        >
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('dataSource')"
+            label="数据来源"
+            prop="dataSource"
+            :width="getProductCatalogColumnWidthString('dataSource')"
+            :min-width="getProductCatalogColumnMinWidthString('dataSource', 120)"
+            v-bind="sortColumnAttrs('dataSource')"
+          />
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('categoryLevel1')"
+            label="产品类别 I"
+            prop="categoryLevel1"
+            :width="getProductCatalogColumnWidthString('categoryLevel1')"
+            :min-width="getProductCatalogColumnMinWidthString('categoryLevel1', 180)"
+            v-bind="sortColumnAttrs('categoryLevel1')"
+          />
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('categoryLevel2')"
+            label="产品类别 II"
+            prop="categoryLevel2"
+            :width="getProductCatalogColumnWidthString('categoryLevel2')"
+            :min-width="getProductCatalogColumnMinWidthString('categoryLevel2', 180)"
+            v-bind="sortColumnAttrs('categoryLevel2')"
+          />
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('productSequence')"
+            label="产品序号"
+            prop="productSequence"
+            :width="getProductCatalogColumnWidthString('productSequence')"
+            :min-width="getProductCatalogColumnMinWidthString('productSequence', 100)"
+            v-bind="sortColumnAttrs('productSequence')"
+          />
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('product')"
+            label="产品"
+            prop="product"
+            :width="getProductCatalogColumnWidthString('product')"
+            :min-width="getProductCatalogColumnMinWidthString('product', 220)"
+            v-bind="sortColumnAttrs('product')"
+          />
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('productCode')"
+            label="产品编码"
+            prop="productCode"
+            :width="getProductCatalogColumnWidthString('productCode')"
+            :min-width="getProductCatalogColumnMinWidthString('productCode', 120)"
+            v-bind="sortColumnAttrs('productCode')"
+          />
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('registrationCertificateName')"
+            label="注册证名称"
+            prop="registrationCertificateName"
+            :width="getProductCatalogColumnWidthString('registrationCertificateName')"
+            :min-width="
+              getProductCatalogColumnMinWidthString('registrationCertificateName', 220)
+            "
+            v-bind="sortColumnAttrs('registrationCertificateName')"
+          />
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('registrationCertificateNumber')"
+            label="注册证号"
+            prop="registrationCertificateNumber"
+            :width="getProductCatalogColumnWidthString('registrationCertificateNumber')"
+            :min-width="
+              getProductCatalogColumnMinWidthString('registrationCertificateNumber', 180)
+            "
+            v-bind="sortColumnAttrs('registrationCertificateNumber')"
+          />
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('certificateHolder')"
+            label="持证人"
+            prop="certificateHolder"
+            :width="getProductCatalogColumnWidthString('certificateHolder')"
+            :min-width="getProductCatalogColumnMinWidthString('certificateHolder', 160)"
+            v-bind="sortColumnAttrs('certificateHolder')"
+          />
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('registrationPlace')"
+            label="注册地"
+            prop="registrationPlace"
+            :width="getProductCatalogColumnWidthString('registrationPlace')"
+            :min-width="getProductCatalogColumnMinWidthString('registrationPlace', 120)"
+            v-bind="sortColumnAttrs('registrationPlace')"
+          />
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('effectiveDate')"
+            label="生效日期"
+            prop="effectiveDate"
+            :width="getProductCatalogColumnWidthString('effectiveDate', 120)"
+            v-bind="sortColumnAttrs('effectiveDate')"
+          />
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('expiryDate')"
+            label="有效期至"
+            prop="expiryDate"
+            :width="getProductCatalogColumnWidthString('expiryDate', 120)"
+            v-bind="sortColumnAttrs('expiryDate')"
+          >
+            <template #default="{ row }">
+              <el-tooltip
+                v-if="getExpiryCompareTooltip(row)"
+                :content="getExpiryCompareTooltip(row)"
+                placement="top"
+              >
+                <span :class="getExpiryCompareClass(row)">{{ row.expiryDate || '-' }}</span>
+              </el-tooltip>
+              <span v-else :class="getExpiryCompareClass(row)">{{ row.expiryDate || '-' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('classification')"
+            label="分类"
+            prop="classification"
+            :width="getProductCatalogColumnWidthString('classification')"
+            :min-width="getProductCatalogColumnMinWidthString('classification', 120)"
+            v-bind="sortColumnAttrs('classification')"
+          />
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('productStatus')"
+            label="产品状态"
+            prop="productStatus"
+            :width="getProductCatalogColumnWidthString('productStatus', 120)"
+            v-bind="sortColumnAttrs('productStatus')"
+          >
+            <template #default="{ row }">{{ formatProductStatus(row.productStatus) }}</template>
+          </el-table-column>
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('registrationInfoLink')"
+            label="注册证信息链接"
+            prop="registrationInfoLink"
+            :width="getProductCatalogColumnWidthString('registrationInfoLink')"
+            :min-width="getProductCatalogColumnMinWidthString('registrationInfoLink', 150)"
+            v-bind="sortColumnAttrs('registrationInfoLink')"
+          >
+            <template #default="{ row }">
+              <el-link
+                v-if="row.registrationInfoLink"
+                :href="row.registrationInfoLink"
+                target="_blank"
+                type="primary"
+              >
+                查看链接
+              </el-link>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('remark')"
+            label="备注"
+            prop="remark"
+            :width="getProductCatalogColumnWidthString('remark')"
+            :min-width="getProductCatalogColumnMinWidthString('remark', 220)"
+            v-bind="sortColumnAttrs('remark')"
+          >
+            <template #default="{ row }">{{ row.remark || '-' }}</template>
+          </el-table-column>
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('actions')"
+            label="操作"
+            prop="actions"
+            fixed="right"
+            :width="getProductCatalogColumnWidthString('actions', 130)"
+          >
+            <template #default="{ row }">
+              <el-button
+                link
+                type="primary"
+                @click="openForm('update', row)"
+                v-hasPermi="['dcc:project-code:update']"
+              >
+                编辑
+              </el-button>
+              <el-button
+                link
+                type="danger"
+                @click="handleDelete(row)"
+                v-hasPermi="['dcc:project-code:delete']"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </UnifiedListTemplate>
+  </ContentWrap>
+
+  <Dialog v-model="formVisible" title="产品目录维护" width="820px">
+    <el-form
+      ref="formRef"
+      v-loading="formLoading"
+      :model="formData"
+      :rules="formRules"
+      label-width="126px"
+    >
+      <el-form-item label="数据来源" prop="dataSource">
+        <el-select
+          v-model="formData.dataSource"
+          class="!w-100%"
+          :disabled="formType === 'update'"
+          placeholder="请选择数据来源"
+        >
+          <el-option
+            v-for="item in dataSourceOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="产品类别 I" prop="categoryLevel1">
+        <el-input v-model="formData.categoryLevel1" placeholder="请输入产品类别 I" />
+      </el-form-item>
+      <el-form-item label="产品类别 II" prop="categoryLevel2">
+        <el-input v-model="formData.categoryLevel2" placeholder="请输入产品类别 II" />
+      </el-form-item>
+      <el-form-item label="产品序号" prop="productSequence">
+        <el-input v-model="formData.productSequence" placeholder="请输入产品序号" />
+      </el-form-item>
+      <el-form-item label="产品" prop="product">
+        <el-input v-model="formData.product" placeholder="请输入产品" />
+      </el-form-item>
+      <el-form-item label="产品编码" prop="productCode">
+        <el-input v-model="formData.productCode" placeholder="请输入产品编码" />
+      </el-form-item>
+      <el-form-item label="注册证名称" prop="registrationCertificateName">
+        <el-input v-model="formData.registrationCertificateName" placeholder="请输入注册证名称" />
+      </el-form-item>
+      <el-form-item label="注册证号" prop="registrationCertificateNumber">
+        <el-input v-model="formData.registrationCertificateNumber" placeholder="请输入注册证号" />
+      </el-form-item>
+      <el-form-item label="持证人" prop="certificateHolder">
+        <el-input v-model="formData.certificateHolder" placeholder="请输入持证人" />
+      </el-form-item>
+      <el-form-item label="注册地" prop="registrationPlace">
+        <el-input v-model="formData.registrationPlace" placeholder="请输入注册地" />
+      </el-form-item>
+      <el-form-item label="生效日期" prop="effectiveDate">
+        <el-input v-model="formData.effectiveDate" placeholder="例如 2026-07-03" />
+      </el-form-item>
+      <el-form-item label="有效期至" prop="expiryDate">
+        <el-input v-model="formData.expiryDate" placeholder="例如 2031-07-03" />
+      </el-form-item>
+      <el-form-item label="分类" prop="classification">
+        <el-input v-model="formData.classification" placeholder="请输入分类" />
+      </el-form-item>
+      <el-form-item label="注册证信息链接" prop="registrationInfoLink">
+        <el-input v-model="formData.registrationInfoLink" placeholder="请输入注册证信息链接" />
+      </el-form-item>
+      <el-form-item label="产品状态" prop="productStatus">
+        <el-select v-model="formData.productStatus" class="!w-100%" clearable placeholder="请选择产品状态">
+          <el-option
+            v-for="item in productStatusOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="备注" prop="remark">
+        <el-input v-model="formData.remark" :rows="3" type="textarea" placeholder="请输入备注" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button type="primary" :disabled="formLoading" @click="submitForm">确定</el-button>
+      <el-button @click="formVisible = false">取消</el-button>
+    </template>
+  </Dialog>
+</template>
+
+<script lang="ts" setup>
+import type { FormRules } from 'element-plus'
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
+import {
+  useTableQuickFilter,
+  type TableQuickFilterDefinition
+} from '@/hooks/web/useTableQuickFilter'
+import type {
+  DccProductCatalogPageReqVO,
+  DccProductCatalogRegistrationExpiryCompareRespVO,
+  DccProductCatalogRespVO,
+  DccProductCatalogSaveReqVO,
+  DccProductCatalogUpdateReqVO
+} from '@/api/dcc/controlledFile/productCatalog'
+import {
+  compareRegistrationExpiry,
+  createProductCatalog,
+  deleteProductCatalog,
+  getProductCatalogPage,
+  updateProductCatalog
+} from '@/api/dcc/controlledFile/productCatalog'
+
+defineOptions({ name: 'ProductCatalogTabPanel' })
+
+const message = useMessage()
+const loading = ref(false)
+const expiryCompareLoading = ref(false)
+const formVisible = ref(false)
+const formLoading = ref(false)
+const formType = ref<'create' | 'update'>('create')
+const total = ref(0)
+const list = ref<DccProductCatalogRespVO[]>([])
+const formRef = ref()
+const expiryCompareResultMap = ref(
+  new Map<string, DccProductCatalogRegistrationExpiryCompareRespVO>()
+)
+
+const productStatusOptions = [
+  { label: '在研(N)', value: 'N' },
+  { label: '在售(S)', value: 'S' },
+  { label: '已取消(C)', value: 'C' }
+]
+
+const dataSourceOptions = [
+  { label: '子公司产品', value: '子公司产品' },
+  { label: '瑛泰产品', value: '瑛泰产品' }
+]
+
+const productCatalogQuickFilterDefinitions: TableQuickFilterDefinition[] = [
+  {
+    key: 'keyword',
+    label: '关键词',
+    type: 'text',
+    queryParamKey: 'keyword',
+    placeholder: '产品、编码、持证人'
+  },
+  {
+    key: 'categoryLevel1',
+    label: '产品类别 I',
+    type: 'text',
+    queryParamKey: 'categoryLevel1',
+    placeholder: '产品类别 I'
+  },
+  {
+    key: 'categoryLevel2',
+    label: '产品类别 II',
+    type: 'text',
+    queryParamKey: 'categoryLevel2',
+    placeholder: '产品类别 II'
+  },
+  {
+    key: 'productStatus',
+    label: '产品状态',
+    type: 'select',
+    queryParamKey: 'productStatus',
+    options: productStatusOptions
+  },
+  {
+    key: 'dataSource',
+    label: '数据来源',
+    type: 'select',
+    queryParamKey: 'dataSource',
+    options: dataSourceOptions
+  }
+]
+
+const productCatalogDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'dataSource', label: '数据来源', minWidth: 120 },
+  { key: 'categoryLevel1', label: '产品类别 I', minWidth: 180 },
+  { key: 'categoryLevel2', label: '产品类别 II', minWidth: 180 },
+  { key: 'productSequence', label: '产品序号', minWidth: 100 },
+  { key: 'product', label: '产品', minWidth: 220 },
+  { key: 'productCode', label: '产品编码', minWidth: 120 },
+  { key: 'registrationCertificateName', label: '注册证名称', minWidth: 220 },
+  { key: 'registrationCertificateNumber', label: '注册证号', minWidth: 180 },
+  { key: 'certificateHolder', label: '持证人', minWidth: 160 },
+  { key: 'registrationPlace', label: '注册地', minWidth: 120 },
+  { key: 'effectiveDate', label: '生效日期', width: 120 },
+  { key: 'expiryDate', label: '有效期至', width: 120 },
+  { key: 'classification', label: '分类', minWidth: 120 },
+  { key: 'productStatus', label: '产品状态', width: 120 },
+  { key: 'registrationInfoLink', label: '注册证信息链接', minWidth: 150 },
+  { key: 'remark', label: '备注', minWidth: 220 },
+  { key: 'actions', label: '操作', width: 130, hideable: false, business: false }
+]
+
+const {
+  columns: productCatalogColumns,
+  saving: productCatalogColumnSaving,
+  isColumnVisible: isProductCatalogColumnVisible,
+  getColumnWidthString: getProductCatalogColumnWidthString,
+  getColumnMinWidthString: getProductCatalogColumnMinWidthString,
+  handleHeaderDragend: handleProductCatalogHeaderDragend,
+  saveConfig: saveProductCatalogColumnConfig,
+  resetConfig: resetProductCatalogColumnConfig
+} = useUserTableColumns('dcc.productCatalog.main', productCatalogDefaultColumns)
+
+type DccProductCatalogPageQuery = DccProductCatalogPageReqVO & {
+  pageNo: number
+  pageSize: number
+}
+
+const queryParams = reactive<DccProductCatalogPageQuery>({
+  pageNo: 1,
+  pageSize: 10,
+  keyword: undefined,
+  categoryLevel1: undefined,
+  categoryLevel2: undefined,
+  productStatus: undefined,
+  dataSource: undefined
+})
+
+const formData = ref<DccProductCatalogUpdateReqVO>({
+  dataSource: '子公司产品',
+  originalRowNo: 0,
+  categoryLevel1: '',
+  categoryLevel2: '',
+  productSequence: '',
+  product: '',
+  productCode: '',
+  registrationCertificateName: '',
+  registrationCertificateNumber: '',
+  certificateHolder: '',
+  registrationPlace: '',
+  effectiveDate: '',
+  expiryDate: '',
+  classification: '',
+  registrationInfoLink: '',
+  productStatus: '',
+  remark: ''
+})
+
+const formRules = reactive<FormRules>({
+  dataSource: [{ required: true, message: '数据来源不能为空', trigger: 'change' }],
+  product: [{ required: true, message: '产品不能为空', trigger: 'blur' }]
+})
+
+const resetFormData = () => {
+  formData.value = {
+    dataSource: '子公司产品',
+    originalRowNo: 0,
+    categoryLevel1: '',
+    categoryLevel2: '',
+    productSequence: '',
+    product: '',
+    productCode: '',
+    registrationCertificateName: '',
+    registrationCertificateNumber: '',
+    certificateHolder: '',
+    registrationPlace: '',
+    effectiveDate: '',
+    expiryDate: '',
+    classification: '',
+    registrationInfoLink: '',
+    productStatus: '',
+    remark: ''
+  }
+  formRef.value?.resetFields()
+}
+
+const getList = async () => {
+  loading.value = true
+  try {
+    const data = await getProductCatalogPage(queryParams)
+    list.value = data.list
+    total.value = data.total
+    clearExpiryCompareResults()
+  } finally {
+    loading.value = false
+  }
+}
+
+const productCatalogQuickFilter = useTableQuickFilter(
+  'dcc.productCatalog.main',
+  productCatalogQuickFilterDefinitions,
+  queryParams,
+  getList
+)
+
+const openForm = (type: 'create' | 'update', row?: DccProductCatalogRespVO) => {
+  formVisible.value = true
+  formType.value = type
+  resetFormData()
+  if (type === 'update' && row) {
+    formData.value = {
+      dataSource: row.dataSource,
+      originalRowNo: row.originalRowNo,
+      categoryLevel1: row.categoryLevel1 || '',
+      categoryLevel2: row.categoryLevel2 || '',
+      productSequence: row.productSequence || '',
+      product: row.product || '',
+      productCode: row.productCode || '',
+      registrationCertificateName: row.registrationCertificateName || '',
+      registrationCertificateNumber: row.registrationCertificateNumber || '',
+      certificateHolder: row.certificateHolder || '',
+      registrationPlace: row.registrationPlace || '',
+      effectiveDate: row.effectiveDate || '',
+      expiryDate: row.expiryDate || '',
+      classification: row.classification || '',
+      registrationInfoLink: row.registrationInfoLink || '',
+      productStatus: row.productStatus || '',
+      remark: row.remark || ''
+    }
+  }
+}
+
+const buildSavePayload = (): DccProductCatalogSaveReqVO => ({
+  dataSource: formData.value.dataSource,
+  categoryLevel1: formData.value.categoryLevel1,
+  categoryLevel2: formData.value.categoryLevel2,
+  productSequence: formData.value.productSequence,
+  product: formData.value.product,
+  productCode: formData.value.productCode,
+  registrationCertificateName: formData.value.registrationCertificateName,
+  registrationCertificateNumber: formData.value.registrationCertificateNumber,
+  certificateHolder: formData.value.certificateHolder,
+  registrationPlace: formData.value.registrationPlace,
+  effectiveDate: formData.value.effectiveDate,
+  expiryDate: formData.value.expiryDate,
+  classification: formData.value.classification,
+  registrationInfoLink: formData.value.registrationInfoLink,
+  productStatus: formData.value.productStatus,
+  remark: formData.value.remark
+})
+
+const submitForm = async () => {
+  const valid = await formRef.value?.validate()
+  if (!valid) {
+    return
+  }
+  formLoading.value = true
+  try {
+    if (formType.value === 'create') {
+      await createProductCatalog(buildSavePayload())
+      message.success('新增产品目录成功')
+    } else {
+      await updateProductCatalog({
+        ...buildSavePayload(),
+        originalRowNo: formData.value.originalRowNo
+      })
+      message.success('编辑产品目录成功')
+    }
+    formVisible.value = false
+    await getList()
+  } finally {
+    formLoading.value = false
+  }
+}
+
+const handleDelete = async (row: DccProductCatalogRespVO) => {
+  try {
+    await message.delConfirm(`确认删除产品目录“${row.product || row.productCode || row.originalRowNo}”吗？`)
+  } catch {
+    return
+  }
+  loading.value = true
+  try {
+    await deleteProductCatalog(row.dataSource, row.originalRowNo)
+    message.success('删除产品目录成功')
+    await getList()
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleCompareRegistrationExpiry = async () => {
+  if (!list.value.length) {
+    message.warning('当前页没有可比对的产品目录数据')
+    return
+  }
+  expiryCompareLoading.value = true
+  try {
+    const rows = list.value.map((row) => ({
+      dataSource: row.dataSource,
+      originalRowNo: row.originalRowNo
+    }))
+    const results = await compareRegistrationExpiry({ rows })
+    expiryCompareResultMap.value = new Map(
+      results.map((result) => [buildExpiryCompareKey(result), result])
+    )
+    message.success('注册证有效期比对完成')
+  } finally {
+    expiryCompareLoading.value = false
+  }
+}
+
+const clearExpiryCompareResults = () => {
+  expiryCompareResultMap.value = new Map()
+}
+
+const buildExpiryCompareKey = (row: Pick<DccProductCatalogRespVO, 'dataSource' | 'originalRowNo'>) =>
+  `${row.dataSource}#${row.originalRowNo}`
+
+const getExpiryCompareResult = (row: DccProductCatalogRespVO) =>
+  expiryCompareResultMap.value.get(buildExpiryCompareKey(row))
+
+const getExpiryCompareClass = (row: DccProductCatalogRespVO) => {
+  const result = getExpiryCompareResult(row)
+  if (result?.status === 'MATCH') {
+    return 'expiry-compare-match'
+  }
+  if (result?.status === 'MISMATCH') {
+    return 'expiry-compare-mismatch'
+  }
+  if (result?.status === 'FETCH_FAILED') {
+    return 'expiry-compare-fetch-failed'
+  }
+  return ''
+}
+
+const getExpiryCompareTooltip = (row: DccProductCatalogRespVO) => {
+  const result = getExpiryCompareResult(row)
+  if (!result || result.status === 'NO_LINK' || result.status === 'UNSUPPORTED') {
+    return ''
+  }
+  if (result.status === 'MATCH') {
+    return `有效期一致：${result.localExpiryDate || row.expiryDate || '-'}`
+  }
+  if (result.status === 'MISMATCH') {
+    return `有效期不一致：当前 ${result.localExpiryDate || row.expiryDate || '-'}，外站 ${
+      result.remoteExpiryDate || '-'
+    }`
+  }
+  if (result.status === 'FETCH_FAILED') {
+    return result.message || '注册证信息链接访问失败'
+  }
+  return ''
+}
+
+const formatProductStatus = (status?: string | null) => {
+  const normalized = status?.trim()
+  const labels: Record<string, string> = {
+    N: '在研(N)',
+    S: '在售(S)',
+    C: '已取消(C)'
+  }
+  if (!normalized) {
+    return '-'
+  }
+  return labels[normalized] || normalized
+}
+
+onMounted(async () => {
+  await getList()
+})
+</script>
+
+<style scoped>
+:deep(.dcc-product-catalog-resizable-table .el-table__header-wrapper th.el-table__cell) {
+  position: relative;
+}
+
+:deep(.dcc-product-catalog-resizable-table .el-table__header-wrapper th.el-table__cell::after) {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  width: 8px;
+  height: 100%;
+  content: '';
+  cursor: col-resize;
+  border-right: 2px solid transparent;
+}
+
+:deep(.dcc-product-catalog-resizable-table .el-table__header-wrapper th.el-table__cell:hover::after) {
+  border-right-color: #1677ff;
+}
+
+.expiry-compare-match {
+  color: #1f9d55;
+  font-weight: 600;
+}
+
+.expiry-compare-mismatch {
+  color: #d93026;
+  font-weight: 600;
+}
+
+.expiry-compare-fetch-failed {
+  color: #8a94a6;
+  font-weight: 600;
+}
+</style>

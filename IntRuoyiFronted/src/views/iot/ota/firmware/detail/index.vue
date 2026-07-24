@@ -1,0 +1,158 @@
+<template>
+  <div class="app-container">
+    <ContentWrap title="固件信息" class="mb-20px">
+      <el-descriptions :column="3" v-loading="firmwareLoading" border>
+        <el-descriptions-item label="固件名称">
+          {{ firmware.name }}
+        </el-descriptions-item>
+        <el-descriptions-item label="所属产品">
+          {{ firmware.productName }}
+        </el-descriptions-item>
+        <el-descriptions-item label="固件版本">
+          {{ firmware.version }}
+        </el-descriptions-item>
+        <el-descriptions-item label="创建时间">
+          {{ firmware.createTime ? formatDate(firmware.createTime) : '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="固件描述" :span="2">
+          {{ firmware.description }}
+        </el-descriptions-item>
+      </el-descriptions>
+    </ContentWrap>
+
+    <ContentWrap title="升级设备统计" class="mb-20px">
+      <el-row :gutter="20" class="py-20px" v-loading="firmwareStatisticsLoading">
+        <el-col :span="6">
+          <div class="text-center p-20px border border-solid border-gray-200 rounded bg-gray-50">
+            <div class="text-32px font-bold mb-8px text-blue-500">
+              {{
+                Object.values(firmwareStatistics).reduce((sum, count) => sum + (count || 0), 0) || 0
+              }}
+            </div>
+            <div class="text-14px text-gray-600">升级设备总数</div>
+          </div>
+        </el-col>
+        <el-col :span="3">
+          <div class="text-center p-20px border border-solid border-gray-200 rounded bg-gray-50">
+            <div class="text-32px font-bold mb-8px text-gray-400">
+              {{ firmwareStatistics[IoTOtaTaskRecordStatusEnum.PENDING.value] || 0 }}
+            </div>
+            <div class="text-14px text-gray-600">待推送</div>
+          </div>
+        </el-col>
+        <el-col :span="3">
+          <div class="text-center p-20px border border-solid border-gray-200 rounded bg-gray-50">
+            <div class="text-32px font-bold mb-8px text-blue-400">
+              {{ firmwareStatistics[IoTOtaTaskRecordStatusEnum.PUSHED.value] || 0 }}
+            </div>
+            <div class="text-14px text-gray-600">已推送</div>
+          </div>
+        </el-col>
+        <el-col :span="3">
+          <div class="text-center p-20px border border-solid border-gray-200 rounded bg-gray-50">
+            <div class="text-32px font-bold mb-8px text-yellow-500">
+              {{ firmwareStatistics[IoTOtaTaskRecordStatusEnum.UPGRADING.value] || 0 }}
+            </div>
+            <div class="text-14px text-gray-600">正在升级</div>
+          </div>
+        </el-col>
+        <el-col :span="3">
+          <div class="text-center p-20px border border-solid border-gray-200 rounded bg-gray-50">
+            <div class="text-32px font-bold mb-8px text-green-500">
+              {{ firmwareStatistics[IoTOtaTaskRecordStatusEnum.SUCCESS.value] || 0 }}
+            </div>
+            <div class="text-14px text-gray-600">升级成功</div>
+          </div>
+        </el-col>
+        <el-col :span="3">
+          <div class="text-center p-20px border border-solid border-gray-200 rounded bg-gray-50">
+            <div class="text-32px font-bold mb-8px text-red-500">
+              {{ firmwareStatistics[IoTOtaTaskRecordStatusEnum.FAILURE.value] || 0 }}
+            </div>
+            <div class="text-14px text-gray-600">升级失败</div>
+          </div>
+        </el-col>
+        <el-col :span="3">
+          <div class="text-center p-20px border border-solid border-gray-200 rounded bg-gray-50">
+            <div class="text-32px font-bold mb-8px text-gray-400">
+              {{ firmwareStatistics[IoTOtaTaskRecordStatusEnum.CANCELED.value] || 0 }}
+            </div>
+            <div class="text-14px text-gray-600">升级取消</div>
+          </div>
+        </el-col>
+      </el-row>
+    </ContentWrap>
+
+    <OtaTaskList
+      v-if="firmwareTaskListProps"
+      :firmware-id="firmwareTaskListProps.firmwareId"
+      :product-id="firmwareTaskListProps.productId"
+      @success="getStatistics"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { formatDate } from '@/utils/formatTime'
+import { IoTOtaFirmwareApi, IoTOtaFirmware } from '@/api/iot/ota/firmware'
+import { IoTOtaTaskRecordApi } from '@/api/iot/ota/task/record'
+import { IoTOtaTaskRecordStatusEnum } from '@/views/iot/utils/constants'
+import OtaTaskList from '../../task/OtaTaskList.vue'
+
+defineOptions({ name: 'IoTOtaFirmwareDetail' })
+
+const route = useRoute()
+const resolveRouteNumber = (value: string | string[] | undefined) => {
+  const routeValue = Array.isArray(value) ? value[0] : value
+  if (!routeValue) {
+    return undefined
+  }
+  const parsedValue = Number(routeValue)
+  return Number.isNaN(parsedValue) ? undefined : parsedValue
+}
+
+const firmwareId = resolveRouteNumber(route.params.id)
+const firmwareLoading = ref(false)
+const firmware = ref<IoTOtaFirmware>({} as IoTOtaFirmware)
+
+const firmwareStatisticsLoading = ref(false)
+const firmwareStatistics = ref<Record<string, number>>({})
+const firmwareTaskListProps = computed(() => {
+  if (firmwareId === undefined || typeof firmware.value.productId !== 'number') {
+    return undefined
+  }
+  return {
+    firmwareId,
+    productId: firmware.value.productId
+  }
+})
+
+const getFirmwareInfo = async () => {
+  if (firmwareId === undefined) {
+    return
+  }
+  firmwareLoading.value = true
+  try {
+    firmware.value = await IoTOtaFirmwareApi.getOtaFirmware(firmwareId)
+  } finally {
+    firmwareLoading.value = false
+  }
+}
+
+const getStatistics = async () => {
+  if (firmwareId === undefined) {
+    return
+  }
+  firmwareStatisticsLoading.value = true
+  try {
+    firmwareStatistics.value = await IoTOtaTaskRecordApi.getOtaTaskRecordStatusStatistics(firmwareId)
+  } finally {
+    firmwareStatisticsLoading.value = false
+  }
+}
+
+onMounted(() => {
+  getFirmwareInfo()
+  getStatistics()
+})
+</script>

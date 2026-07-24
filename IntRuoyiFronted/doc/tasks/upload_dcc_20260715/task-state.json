@@ -1,0 +1,11 @@
+{
+  "taskId": "upload_dcc_20260715",
+  "currentPhase": "M1",
+  "phases": [
+    { "id": "M1", "title": "任务记录、经验门禁和前端 RED 测试", "status": "completed" },
+    { "id": "M2", "title": "上传页现行版本面板、变更方式和编号联动", "status": "completed" },
+    { "id": "M3", "title": "文控归档前部门勾选交互与 payload", "status": "completed" },
+    { "id": "M4", "title": "前端 GREEN/REGRESSION、提交、合并与合并后验证", "status": "in_progress" }
+  ],
+  "testStatus": "passed"
+}

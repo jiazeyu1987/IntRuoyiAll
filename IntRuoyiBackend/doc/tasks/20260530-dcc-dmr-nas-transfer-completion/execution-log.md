@@ -1,0 +1,60 @@
+# 执行日志：测试服 DMR 文件夹完整转移到 DCC
+
+- BDD: DMR 源树必须完整进入 DCC -> Given 测试服 NAS 中存在 DMR 文件夹及全部子目录/子文件 / When 发起或恢复 DMR 到 DCC 的真实转移任务 / Then 每个 DMR 子目录和子文件都必须在 DCC 目标记录或受控文件中可核对，失败数必须为 0。
+- BDD: 失败文件必须暴露并驱动修复 -> Given 任一 DMR 文件或目录转移失败 / When 读取转移任务、失败报告、后端日志和 DCC 目标数据 / Then 必须记录具体失败项和原因，并先补失败回归测试再修复，不得跳过失败项或声明成功。
+- BDD: 修复后必须通过测试服真实复测 -> Given 本地修复已通过目标回归 / When 使用运行控制台构建发布包并部署到测试服 / Then 再次执行真实 DMR 转移和 NAS/DCC 完整性校验，直到失败项为 0。
+- PRECHECK: 后端最近任务 `20260530-runtime-control-candidate-directory-filter` 为 Completed；历史 NAS 任务 `20260525-dcc-nas-active-task-stuck` 为 completed，但存在 `FAILED/FILE/submit=5`，本次必须执行逐项完整性核对。
+- VERIFY: 测试服健康检查 -> `docker ps` 显示 `intruoyi-backend`、`intruoyi-frontend`、`intruoyi-mysql` 运行，`curl http://127.0.0.1:48081/actuator/health` 返回 `{"status":"UP"}`。
+- VERIFY: NAS 配置 -> 测试服数据库 `infra_config` 中 `infra.nas.server=172.30.30.4`、`infra.nas.share=质量体系文件`、`infra.nas.username=ceshi`，密码未输出。
+- VERIFY: DMR 历史转移状态 -> `dcc_controlled_file_nas_transfer_task` 只有 `["1. QMS documents"]` 历史任务；`dcc_controlled_file_nas_transfer_task_item WHERE nas_path LIKE '%DMR%'` 仅有 6 条文件名含 DMR 的记录，没有 `3.DMR` 目录任务。
+- RED: DMR 源树完整读取 -> FAIL/BLOCKED，使用当前 NAS 配置账号只读 CIFS 挂载 `//172.30.30.4/质量体系文件` 后，`3.DMR` 可访问部分统计为 `directories=2734`、`files=16507`、`file_bytes=21341542591`，但 `find` 返回权限不足：
+  - `3.DMR/11.作废文件`
+  - `3.DMR/10.产品技术要求/导管类/注册版（来自注册）——按产品申请只读权限`
+- BLOCKED: 当前账号无法列出上述目录内部内容，无法建立完整源树基线，也无法确认或迁移 DMR 下所有子文件夹和子文件；这属于 NAS 权限前置条件缺失，不是本地代码修复或重新部署可以补齐的输入。
+- RECHECK: 继续目标后复查测试服 -> `http://127.0.0.1:48081/actuator/health` 返回 `{"status":"UP"}`；数据库仍只有 3 个 `1. QMS documents` 历史转移任务，`3.DMR` 转移任务行数为 0，DCC 目录中未查询到 `3.DMR`。
+- RECHECK: 继续目标后复查 DMR 源树 -> 当前 NAS 配置账号再次只读挂载 `//172.30.30.4/质量体系文件`，可访问部分仍为 `directories=2734`、`files=16507`、`file_bytes=21341542591`；`3.DMR/11.作废文件` 与 `3.DMR/10.产品技术要求/导管类/注册版（来自注册）——按产品申请只读权限` 仍返回 `权限不够`。
+- THIRD BLOCKED AUDIT: 第三轮当前态复查 -> 测试服 `intruoyi-backend` 运行且 `/actuator/health` 返回 `UP`；`dcc_controlled_file_nas_transfer_task` 中 `selected_nas_paths_json LIKE '%3.DMR%'` 为 0，`dcc_controlled_file_nas_transfer_task_item` 中 `nas_path LIKE '3.DMR%'` 为 0，DCC 目录未出现 `3.DMR`；当前 NAS 配置账号 `ceshi` 只读挂载后仍只能统计到可访问部分 `directories=2734`、`files=16507`、`file_bytes=21341542591`，同两个目录继续返回 `权限不够`。
+- BLOCKED DECISION: 同一外部前置条件已连续三轮阻塞，无法在不补齐 NAS 读取权限或不提供完整权限 NAS 配置的情况下建立完整源树基线、执行完整迁移或证明所有 DMR 子文件夹/子文件迁移成功。
+- SCOPE UPDATE: 用户明确授权“没有权限的可以跳过去”。本任务按最小降级执行：无权限 DMR 目录可以跳过，但必须记录具体路径；可读取范围内的 DMR 子目录和子文件仍必须全部真实迁移成功，不能用跳过项冒充成功。
+- BDD: DMR 可读源树必须进入 DCC -> Given 测试服 NAS 中存在 DMR 文件夹及全部当前账号可读取的子目录/子文件 / When 发起或恢复 DMR 到 DCC 的真实转移任务 / Then 每个可读取 DMR 子目录和子文件都必须在 DCC 目标记录或受控文件中可核对，失败数必须为 0。
+- BDD: 无权限目录按用户授权跳过并记录 -> Given 当前 NAS 配置账号对部分 DMR 子目录返回权限不足 / When 执行 DMR 迁移和完整性校验 / Then 这些目录可以跳过，但必须在任务证据中列出具体路径，不得把跳过项计入成功迁移。
+- GREEN: `POST /admin-api/system/auth/login` with `tenant-id=122`, `aoteman/admin123` -> PASS，返回测试租户用户 `113` 登录令牌。
+- GREEN: `POST /admin-api/dcc/controlled-files/nas-transfer` with `tenant-id=122`, `selectedNasPaths=["3.DMR"]`, `templateCategoryId=906103`, `effectiveDate=2026-05-30` -> PASS，创建真实转移任务 `4`，初始状态 `WAITING`，`remainingPendingCount=1`。
+- RED: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#processWaitingTasks_fitsLongNasFileNameIntoFileNumberLimit" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，新增真实长文件名回归已走到 DCC 提交，`fileNumber.length() <= 64` 断言失败，对应测试服 `submit` 阶段 `Data too long for column 'file_number'`。
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#processWaitingTasks_fitsLongNasFileNameIntoFileNumberLimit" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，NAS 导入长文件名生成不超过 64 字符的稳定 `fileNumber`，完整原文件名仍保留在 `fileName`。
+- RED: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#processWaitingTasks_deduplicatesDuplicateNasChildrenBeforeInsert" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，同一 NAS 目录列表内重复 child path 会导致目录项失败，复现测试服 `uk_dcc_nas_transfer_task_item_path` 重复键。
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#processWaitingTasks_deduplicatesDuplicateNasChildrenBeforeInsert" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，目录展开阶段对本批 child path 与历史任务项统一去重。
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，NAS 转移服务 9 个单测通过。
+- BUILD: `publish-int-ruoyi.ps1 -Environment test -SkipDatabaseSync -SkipMinioSync` -> FAIL，后端 jar、前端和 Website 静态构建已成功，但 Docker 构建拉取 `maven:3.9.9-eclipse-temurin-21` 基础镜像时 Docker Hub 连接失败；未同步数据库或 MinIO，未完成部署。
+- DEPLOY: 基于测试服现有 `intruoyi-backend:20260530_0205_dcc_p7` 构建补丁镜像，仅替换新 `yudao-server.jar`，并将 frontend 镜像打同名标签 `20260530_dmr_nas_fix_1052` -> PASS。
+- DEPLOY: 停止测试服 backend 后，将任务 `4` 中旧代码造成的 `submit` / `directory` 失败项重置为 `WAITING`，保留 `acl` 无权限失败项；启动 backend 后 `/actuator/health` 返回 `UP`。
+- RED: `mvn -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldUseBinaryCollationForExactNasIdentifiers" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，缺少 NAS 精确标识符二进制排序规则迁移文件，测试服 `uk_dcc_nas_transfer_task_item_path` 因 `utf8mb4_unicode_ci` 将 ASCII `I` 与罗马数字 `Ⅰ` 判等而重复键。
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldUseBinaryCollationForExactNasIdentifiers" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，新增 `20260530_dcc_exact_nas_identifier_collation.sql`，并同步 base schema、runtime repair schema、test schema。
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest,DccControlledFileNasTransferServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`DccBaseSchemaTest` 7 个用例、`DccControlledFileNasTransferServiceTest` 9 个用例通过。
+- DEPLOY-DB: 测试服停后端后执行 `20260530_dcc_exact_nas_identifier_collation.sql` 等价 ALTER -> PASS，`dcc_controlled_file_nas_transfer_task_item.nas_path`、`dcc_controlled_file_master.file_name`、`dcc_controlled_file.file_name` 均验证为 `utf8mb4_bin`。
+- RETRY: 任务 `4` 中 `failure_stage IN ('directory','submit')` 的失败项重置为 `WAITING`，保留两个 `acl` 无权限跳过项；后端重启后 `/actuator/health` 返回 `UP`，真实迁移继续运行。
+- POLL: 2026-05-30 11:11 左右任务 `4` 仍为 `RUNNING`，计数为 `COMPLETED/DIRECTORY=2300`、`COMPLETED/FILE=7811`、`FAILED/DIRECTORY/acl=2`、`RUNNING/FILE=1`、`WAITING/DIRECTORY=359`、`WAITING/FILE=6215`；失败列表仅有两个用户授权跳过 ACL 目录。
+- RED: `mvn -pl yudao-module-infra -am "-Dtest=S3FileClientPathTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，新增测试先因 `S3FileClient#resolveObjectKeyForPresign` 不存在而编译失败，随后暴露 `HttpUtils.removeUrlQuery` 对相对对象 key 转为 `file:/...` 的问题。
+- GREEN: `mvn -pl yudao-module-infra -am "-Dtest=S3FileClientPathTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，S3 原始对象 key 保留 `%` 与 `+` 字面字符，完整 URL 输入仍去 query 并 decode path。
+- GREEN: `mvn -pl yudao-module-infra,yudao-module-dcc -am "-Dtest=S3FileClientPathTest,DccBaseSchemaTest,DccControlledFileNasTransferServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，18 个受影响用例通过。
+- BUILD: `mvn -pl yudao-server -am -DskipTests package` -> PASS，生成 `yudao-server/target/yudao-server.jar`。
+- DEPLOY: 基于当前测试服镜像 `20260530_dmr_nas_fix_1052` 构建补丁镜像 `20260530_dmr_s3_percent_fix_1136`，仅替换新 `yudao-server.jar`，frontend 镜像同 tag -> PASS。
+- RETRY: 停止测试服 backend 后，将任务 `4` 中 `failure_stage='submit'` 与无 DCC 写入记录的 `RUNNING` 项重置为 `WAITING`，保留 `acl` 无权限跳过项；启动 backend 后 `/actuator/health` 返回 `UP`。
+- POLL: 2026-05-30 11:39 左右任务 `4` 为 `RUNNING`，计数为 `COMPLETED/DIRECTORY=2633`、`COMPLETED/FILE=13199`、`FAILED/DIRECTORY/acl=2`、`RUNNING/FILE=1`、`WAITING/DIRECTORY=78`、`WAITING/FILE=2746`；失败列表仅有两个用户授权跳过 ACL 目录。
+- RED: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#buildDirectoryPath_keepsRepeatedDirectoryNamesForCategoryCodeHash" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，`buildDirectoryPath` 使用 `LinkedHashSet` 去重重复目录名，期望 `3.DMR/FQC-001/FQC-001`，实际为 `3.DMR/FQC-001`，对应测试服重复目录名下分类编码冲突。
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFileNasTransferServiceTest#buildDirectoryPath_keepsRepeatedDirectoryNamesForCategoryCodeHash" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，目录路径构建保留重复层级名称。
+- GREEN: `mvn -pl yudao-module-infra,yudao-module-dcc -am "-Dtest=S3FileClientPathTest,DccBaseSchemaTest,DccControlledFileNasTransferServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，17 个受影响用例通过。
+- BUILD: `mvn -pl yudao-server -am -DskipTests package` -> PASS，生成 `yudao-server/target/yudao-server.jar`。
+- DEPLOY: 基于当前测试服镜像 `20260530_dmr_s3_percent_fix_1136` 构建补丁镜像 `20260530_dmr_repeated_dir_fix_1200`，仅替换新 `yudao-server.jar`，frontend 镜像同 tag -> PASS；后端 `/actuator/health` 返回 `UP`。
+- RETRY: 停止测试服 backend 后，将任务 `4` 中 14 个 `failure_stage='submit'` 文件项重置为 `WAITING`，保留两个 `acl` 无权限跳过目录；重启后真实迁移恢复。
+- POLL: 2026-05-30 12:02:45 左右任务 `4` 文件完成数达到 `COMPLETED/FILE=16507`，目录为 `COMPLETED/DIRECTORY=2732` 与 `FAILED/DIRECTORY/acl=2`，无 `WAITING/RUNNING` 项。
+- GREEN: 任务终态数据库核对 -> PASS，任务 `4` 状态 `COMPLETED`，`completed_at=2026-05-30 12:02:46`，仅两个 `FAILED/DIRECTORY/acl` 项。
+- GREEN: NAS/DCC 逐路径完整性核对 -> PASS，临时只读 CIFS 现读源树 `SOURCE_FILE_COUNT=16507`、`SOURCE_FILE_BYTES=21341542591`、`SOURCE_MIGRATABLE_DIRS=2732`；DCC `DB_FILE_COUNT=16507`、`DB_FILE_UNIQUE_BINARY_PATHS=16507`、`DB_FILE_BYTES=21341542591`、`DB_COMPLETED_DIRS=2732`；缺失文件、额外文件、大小不一致、重复二进制路径、缺失目录、额外目录均为 `0`。
+- GREEN: ACL 跳过核对 -> PASS，现读权限拒绝目录与任务失败列表一致：`3.DMR/11.作废文件`、`3.DMR/10.产品技术要求/导管类/注册版（来自注册）——按产品申请只读权限`。
+- GREEN: 管理 API 最终验证 -> PASS，`GET /admin-api/dcc/controlled-files/nas-transfer/tasks/4` 返回 `status=COMPLETED`、`createdDirectoryCount=2732`、`createdFileCount=16507`、`remainingPendingCount=0`，失败列表仅包含两个授权跳过 ACL 目录。
+- GREEN: 数据库证据校验 -> PASS，`python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260530-dcc-dmr-nas-transfer-completion/database-schema-evidence.md` 返回 `Database schema evidence is valid.`
+- CLOSEOUT PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260530-dcc-dmr-nas-transfer-completion --mode preview` -> PASS，预览仅保留 `task.md` 与 `execution-log.md`，删除任务中间附件，无 blocked/warnings。
+- CLOSEOUT APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260530-dcc-dmr-nas-transfer-completion --mode apply` -> PASS，清理任务中间附件，仅保留 `task.md` 与 `execution-log.md`。
+- RED: `git commit -m "任务: 完成DMR迁移修复验证"` -> FAIL，仓库 TDD 钩子要求设置 `TDD_TASK_DIR`。
+- RED: `TDD_TASK_DIR=doc/tasks/20260530-dcc-dmr-nas-transfer-completion git commit -m "任务: 完成DMR迁移修复验证"` -> FAIL，仓库 TDD 钩子要求 `sql/mysql` 变更必须同时修改 `script/tests/` 脚本级测试。
+- GREEN: `python -X utf8 -m pytest script/tests/test_dcc_nas_acl_snapshot_restore_sql.py -q` -> PASS，3 个脚本级 SQL 合同测试通过，覆盖 DCC 精确 NAS 标识符 `utf8mb4_bin` 排序规则。

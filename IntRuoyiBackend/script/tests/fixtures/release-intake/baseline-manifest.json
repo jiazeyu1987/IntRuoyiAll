@@ -1,0 +1,30 @@
+{
+  "manifestVersion": "1.0",
+  "manifestId": "baseline-manifest-20260605",
+  "packageId": "baseline-package-20260605",
+  "packageType": "full-release",
+  "database": {
+    "schemaFingerprint": {
+      "databaseName": "ruoyi-vue-pro",
+      "capturedAt": "2026-06-05T10:00:00Z",
+      "schemaHash": "sha256:baseline-schema",
+      "tables": [
+        {
+          "tableName": "system_menu",
+          "columns": [
+            {
+              "columnName": "id",
+              "definitionHash": "sha256:menu-id"
+            },
+            {
+              "columnName": "permission",
+              "definitionHash": "sha256:menu-permission"
+            }
+          ],
+          "indexes": []
+        }
+      ],
+      "views": []
+    }
+  }
+}

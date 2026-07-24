@@ -1,0 +1,35 @@
+node_modules
+.DS_Store
+dist
+dist-ssr
+/dist*
+pnpm-debug
+auto-*.d.ts
+!src/types/auto-imports.d.ts
+.idea
+.history
+.worktrees/
+.playwright-cli/
+/output/
+
+# frontend caches and reports
+.eslintcache
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# task byproducts
+doc/tasks/**/frontend-feature-evidence.md
+doc/tasks/**/bug-regression-evidence.md
+doc/tasks/**/verification-report.md
+doc/tasks/**/review-checklist.md
+doc/tasks/**/worker-*.md
+doc/tasks/**/e2e-screenshots/
+doc/tasks/**/scripts/
+doc/tasks/**/*.mjs
+doc/tasks/**/*.cjs
+doc/tasks/**/*.png
+doc/tasks/**/*.jpg
+doc/tasks/**/*.jpeg
+doc/tasks/**/*.webp

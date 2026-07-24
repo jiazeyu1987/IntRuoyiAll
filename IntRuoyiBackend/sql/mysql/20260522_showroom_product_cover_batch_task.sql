@@ -1,0 +1,60 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=medium
+-- Add showroom product cover batch task persistence tables.
+-- Safe to run repeatedly on MySQL runtime schemas.
+
+CREATE TABLE IF NOT EXISTS `showroom_product_cover_batch_task` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `operator_user_id` bigint NOT NULL,
+  `status` varchar(32) NOT NULL,
+  `keyword` varchar(255) DEFAULT NULL,
+  `lifecycle_stage` varchar(32) DEFAULT NULL,
+  `incomplete_status` varchar(32) DEFAULT NULL,
+  `approval_status` varchar(32) DEFAULT NULL,
+  `cover_generation_mode` varchar(32) NOT NULL,
+  `prompt_version_id` bigint DEFAULT NULL,
+  `matched_count` int NOT NULL DEFAULT 0,
+  `published_count` int NOT NULL DEFAULT 0,
+  `skipped_unpublished_count` int NOT NULL DEFAULT 0,
+  `skipped_existing_count` int NOT NULL DEFAULT 0,
+  `succeeded_count` int NOT NULL DEFAULT 0,
+  `failed_count` int NOT NULL DEFAULT 0,
+  `remaining_pending_count` int NOT NULL DEFAULT 0,
+  `next_check_at` datetime DEFAULT NULL,
+  `last_run_at` datetime DEFAULT NULL,
+  `completed_at` datetime DEFAULT NULL,
+  `last_failure_message` varchar(512) DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_showroom_cover_batch_task_status` (`status`, `next_check_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `showroom_product_cover_batch_task_item` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `task_id` bigint NOT NULL,
+  `product_id` bigint NOT NULL,
+  `source_revision_id` bigint DEFAULT NULL,
+  `product_code` varchar(64) NOT NULL,
+  `name_cn` varchar(255) DEFAULT NULL,
+  `name_en` varchar(255) DEFAULT NULL,
+  `prompt_fields_json` longtext NOT NULL,
+  `status` varchar(32) NOT NULL,
+  `attempt_count` int NOT NULL DEFAULT 0,
+  `last_error` varchar(512) DEFAULT NULL,
+  `generated_cover_image` text DEFAULT NULL,
+  `last_attempt_at` datetime DEFAULT NULL,
+  `completed_at` datetime DEFAULT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_showroom_cover_batch_task_item` (`task_id`, `product_id`),
+  KEY `idx_showroom_cover_batch_task_item_status` (`task_id`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

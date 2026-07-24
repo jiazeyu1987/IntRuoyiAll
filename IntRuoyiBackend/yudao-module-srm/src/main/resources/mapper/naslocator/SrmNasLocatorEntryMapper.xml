@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.iocoder.yudao.module.srm.dal.mysql.naslocator.SrmNasLocatorEntryMapper">
+
+    <sql id="filePageWhereClause">
+        WHERE deleted = 0
+          AND refresh_task_id = #{successTaskId}
+          AND entry_type = 'FILE'
+        <if test="wildcardMode">
+            AND UPPER(name) LIKE UPPER(#{likeKeyword})
+        </if>
+        <if test="!wildcardMode and keyword != null and keyword != ''">
+            AND UPPER(name) LIKE CONCAT('%', UPPER(#{keyword}), '%')
+        </if>
+    </sql>
+
+    <select id="selectFileCount" resultType="long">
+        SELECT COUNT(1)
+        FROM srm_nas_locator_entry
+        <include refid="filePageWhereClause"/>
+    </select>
+
+    <select id="selectFilePageList"
+            resultType="cn.iocoder.yudao.module.srm.dal.dataobject.naslocator.SrmNasLocatorEntryDO">
+        SELECT
+            id,
+            tenant_id,
+            refresh_task_id,
+            entry_type,
+            name,
+            path,
+            parent_path,
+            size,
+            modified_at,
+            creator,
+            create_time,
+            updater,
+            update_time,
+            deleted
+        FROM srm_nas_locator_entry
+        <include refid="filePageWhereClause"/>
+        <choose>
+            <when test="wildcardMode">
+                ORDER BY name ASC, parent_path ASC
+            </when>
+            <when test="keyword != null and keyword != ''">
+                ORDER BY
+                    CASE
+                        WHEN UPPER(name) = UPPER(#{keyword}) THEN 1
+                        WHEN UPPER(name) LIKE CONCAT(UPPER(#{keyword}), '%') THEN 2
+                        WHEN UPPER(name) LIKE CONCAT('%', UPPER(#{keyword}), '%') THEN 3
+                        ELSE 4
+                    END ASC,
+                    name ASC,
+                    parent_path ASC
+            </when>
+            <otherwise>
+                ORDER BY name ASC, parent_path ASC
+            </otherwise>
+        </choose>
+        LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+
+</mapper>

@@ -1,0 +1,49 @@
+# 执行日志：流转关系图进入自动布局与自动生成按钮调整
+
+- BDD: 进入流转关系图默认自动布局 -> Given 用户打开已有工艺路线并进入“流转关系图”页签 / When 流转关系图数据加载完成 / Then 页面自动执行一次布局并适配画布。
+- BDD: 工具栏不再显示添加连接线按钮 -> Given 用户查看流转关系图顶部工具栏 / When 页面渲染完成 / Then 不再出现“添加连接线”按钮，仍可通过画布节点手柄拖拽建立连接。
+- BDD: 线性关系生成入口改名 -> Given 用户查看流转关系图顶部工具栏 / When 路线至少包含两个工序 / Then 原“根据序号生成线性关系”按钮显示为“自动生成”，点击后仍生成线性关系草稿。
+- RED: `node tests/e2e/mes-route-flow-auto-layout-auto-generate-static.spec.js` -> FAIL, expected reason: 旧组件缺少 `completeGraphLoadViewport`，且仍保留“添加连接线”和旧文案。
+- IMPLEMENTED: 图数据加载完成且 `loading=false` 后执行 pending 自动布局；删除顶部“添加连接线”按钮和弹窗状态；“根据序号生成线性关系”改为“自动生成”。
+- GREEN: `node tests/e2e/mes-route-flow-auto-layout-auto-generate-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-route-flow-graph-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-route-flow-graph-one-screen-static.spec.js` -> PASS。
+- GREEN: `node node_modules/eslint/bin/eslint.js src/views/mes/pro/route/RouteFlowGraphDesigner.vue tests/e2e/mes-route-flow-auto-layout-auto-generate-static.spec.js tests/e2e/mes-route-flow-graph-static.spec.js` -> PASS。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260709-route-flow-auto-layout-auto-generate/frontend-feature-evidence.md` -> PASS。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260709-route-flow-auto-layout-auto-generate --mode preview` -> PASS，preview 保留 `task.md`、`execution-log.md`，候选清理 `frontend-feature-evidence.md`，无 blocked。
+- BLOCKER: commit -> 前端子仓存在同文件历史脏改与多任务混合改动，无法安全只提交本轮变更；本轮未强行提交。
+- BDD: 各入口进入流转关系图都执行一次自动布局 -> Given 用户从编辑页默认进入、URL tab 参数进入、弹框切换页签进入或已加载表单切回“流转关系图” / When 流转关系图组件和图数据可用 / Then 统一请求一次 `autoLayoutOnEntry()`，并复用“自动布局”按钮逻辑完成布局。
+- BDD: 延迟挂载不漏触发 -> Given 工艺路线数据加载后才渲染流转关系图组件 / When 表单 loading 状态结束并进入 flow 页签 / Then 自动布局请求等待组件 ref 稳定后执行，若用户已切走页签则不触发旧请求。
+- RED: `node tests/e2e/mes-route-flow-entry-auto-layout-static.spec.js` -> FAIL, expected reason: existing route open still triggered flow auto layout before form loading cleared, and parent trigger did not wait for a stable graph ref.
+- IMPLEMENTED: `RouteFormContent.vue` 将初始 flow 页签的自动布局触发延后到 `formLoading=false` 之后，并让 `triggerFlowAutoLayout()` 等待两个 `nextTick()` 后再调用 `autoLayoutOnEntry()`，覆盖编辑页默认进入、URL tab 进入、弹框切换和回切页签场景。
+- GREEN: `node tests/e2e/mes-route-flow-entry-auto-layout-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-route-flow-auto-layout-auto-generate-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-route-edit-default-flow-tab-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-route-flow-graph-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-route-flow-graph-one-screen-static.spec.js` -> PASS。
+- GREEN: `node node_modules\eslint\bin\eslint.js src\views\mes\pro\route\RouteFormContent.vue src\views\mes\pro\route\RouteFlowGraphDesigner.vue tests\e2e\mes-route-flow-entry-auto-layout-static.spec.js tests\e2e\mes-route-flow-auto-layout-auto-generate-static.spec.js` -> PASS。
+- RED: `node tests/e2e/mes-route-flow-entry-auto-layout-static.spec.js` -> FAIL, expected reason: graph missing `fitGraphAfterLayout`, pending entry auto layout did not await the same complete layout/fit path as manual auto layout.
+- IMPLEMENTED: `RouteFlowGraphDesigner.vue` 将 `handleAutoLayout()` 改为 async，统一通过 `fitGraphAfterLayout()` 等待 `nextTick` 和两帧 `requestAnimationFrame` 后再 `fitView`；入口 pending 自动布局现在 await 完整自动布局路径，线性关系自动生成后的适配也复用同一函数。
+- GREEN: `node tests/e2e/mes-route-flow-entry-auto-layout-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-route-flow-auto-layout-auto-generate-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-route-edit-default-flow-tab-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-route-flow-graph-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-route-flow-graph-one-screen-static.spec.js` -> PASS。
+- GREEN: `node node_modules\eslint\bin\eslint.js src\views\mes\pro\route\RouteFormContent.vue src\views\mes\pro\route\RouteFlowGraphDesigner.vue tests\e2e\mes-route-flow-entry-auto-layout-static.spec.js tests\e2e\mes-route-flow-auto-layout-auto-generate-static.spec.js` -> PASS。
+- GREEN: real-route-edit-entry-auto-layout -> PASS，真实页面点击工艺路线第一行“编辑”进入 `/mes/pro/route/edit/922111` 后，再点击“自动布局”移动节点数为 0/14，`consoleErrors=0`。
+- BLOCKER: task-closeout apply -> BLOCKED，收尾脚本未识别中文 `COMPLETED：...` 状态，返回 `current status: unknown`；已补充 `## Current Status / completed` 作为脚本可识别状态。
+- BDD: 编辑入口进入后布局状态等同手动自动布局 -> Given 用户在工艺路线列表点击“编辑”进入默认流转关系图 / When 图数据加载完成且入口自动布局执行 / Then 再点击“自动布局”不应再次移动节点或改变缩放适配。
+- GREEN: experience-preflight -> PASS，官方登录预检进入 `http://localhost:8081/mes/pro/route`，tenant=测试租户，username=aoteman。
+- RED: real-route-edit-entry-auto-layout -> FAIL，真实页面点击第一条路线编辑进入 `/mes/pro/route/edit/922111` 后，手动点击“自动布局”仍移动 14/14 个节点；截图保存在 `tests/output/route-flow-entry-auto-layout-real/before-click-auto-layout.png` 与 `after-click-auto-layout.png`。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260709-route-flow-auto-layout-auto-generate/frontend-feature-evidence.md` -> PASS。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260709-route-flow-auto-layout-auto-generate --mode preview` -> PASS，preview 保留 `task.md`、`execution-log.md`，候选清理 `frontend-feature-evidence.md`，无 blocked。
+- BDD: 工艺流程列表编辑入口默认自动布局 -> Given 用户在工艺流程/工艺路线列表点击“编辑”进入默认流转关系图 / When 表单数据先加载、流转关系图组件随后挂载 / Then 父表单保留一次待执行自动布局请求，直到图组件 ref 稳定后调用 `autoLayoutOnEntry()`，不得因 ref 暂未挂载而静默丢弃。
+- RED: `node tests/e2e/mes-route-flow-entry-auto-layout-static.spec.js` -> FAIL, expected reason: route form lacked `pendingFlowAutoLayout` and still used optional-chain direct call, so the entry auto-layout request could be dropped before graph ref mounted.
+- ROOT_CAUSE: `RouteFormContent.vue` 在编辑页默认 flow 入口中只等待固定 `nextTick()` 后通过 `routeFlowGraphDesignerRef.value?.autoLayoutOnEntry()` 调用子组件；当表单 loading、tab pane 渲染和子组件 ref 挂载存在时序差时，可选链会静默跳过本次自动布局请求。
+- IMPLEMENTED: `RouteFormContent.vue` 新增 `pendingFlowAutoLayout`，进入 flow 时先入队请求；`runPendingFlowAutoLayout()` 在表单 loading 结束、route id 存在、仍停留 flow 且图组件 ref 已挂载后才清除 pending 并调用 `autoLayoutOnEntry()`；同时通过 `routeFlowGraphDesignerRef` 的 `flush: 'post'` watcher 在延迟挂载时重试。
+- GREEN: `node tests/e2e/mes-route-flow-entry-auto-layout-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-route-flow-auto-layout-auto-generate-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-route-edit-default-flow-tab-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-route-flow-graph-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-route-flow-graph-one-screen-static.spec.js` -> PASS。
+- GREEN: `node node_modules\eslint\bin\eslint.js src\views\mes\pro\route\RouteFormContent.vue src\views\mes\pro\route\RouteFlowGraphDesigner.vue tests\e2e\mes-route-flow-entry-auto-layout-static.spec.js tests\e2e\mes-route-flow-auto-layout-auto-generate-static.spec.js` -> PASS。

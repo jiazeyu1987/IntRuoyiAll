@@ -1,0 +1,22 @@
+# 执行日志：恢复 DCC 查阅矩阵为 Excel 文件查阅矩阵模式
+
+- 用户需求：`帮我改成符合文件里的查阅矩阵的模式,可以实现吗`
+- BDD: tenant 1 只保留 Excel 矩阵主体查看权限 -> Given Excel 文件查阅矩阵定义了 59 类文件和 231 条授权 / When 恢复本机 tenant 1 的查阅矩阵模式 / Then tenant 1 的矩阵范围分类 VIEW 只允许原矩阵主体 231 条，不能保留 wenkong/wenkong_download 额外 118 条矩阵 VIEW。
+- BDD: tenant 1 矩阵目录权限重新生效 -> Given 原矩阵主体目录 QUERY/PREVIEW 规则曾被逻辑删除 / When 恢复查阅矩阵模式 / Then 68 条矩阵目录规则必须恢复为有效，wenkong/wenkong_download 的矩阵覆盖目录规则不得继续作为矩阵真实生效口径。
+- BDD: tenant 122 继续 fail-fast 未启用 -> Given tenant 122 缺少矩阵部门前置 / When 本机恢复 Excel 查阅矩阵模式 / Then tenant 122 的矩阵范围 VIEW 仍保持 0，不得顺手启用或用测试分类替代。
+- GREEN: 读取 `docs/experience-index.md` -> PASS
+- GREEN: 读取 `docs/agent-memory/project-error-prevention.md` 命中 DCC 查阅矩阵三层复验门禁 -> PASS
+- GREEN: 检查上一后端任务 `20260622-showroom-publish-audio-integrity-gate` 为 completed -> PASS
+- GREEN: 创建本任务 `ruoyi-vue-pro/doc/tasks/20260622-dcc-view-matrix-restore/` -> PASS
+- RED: python -X utf8 -m pytest script\tests\test_dcc_view_matrix_restore_sql.py -q -> FAIL，预期原因：缺少 script/dcc_view_matrix_restore_sql.py，无法执行受控恢复。
+- GREEN: python -X utf8 -m pytest script\tests\test_dcc_view_matrix_restore_sql.py -q -> PASS，3 passed，恢复脚本固定为 UTF-8 bytes 执行 MySQL，且不生成新的 dcc_directory_access_rule 批量插入。
+- RED: local-matrix-precheck -> FAIL，当前 tenant 1 仍存在 wenkong/wenkong_download 矩阵范围额外 VIEW，原 68 条矩阵目录规则均为 deleted，tenant 122 矩阵 VIEW 仍为 0。
+- GREEN: experience-preflight -> PASS，target=local/int-ruoyi-mysql/ruoyi-vue-pro/tenant_id=1，write scope=dcc_file_category_permission_rule、dcc_directory_access_rule、必要时补齐 seed 内矩阵分类/矩阵角色；不写服务器，不启用 tenant 122。
+- 回滚边界：如需撤销本次恢复，可按 updater='dcc_view_matrix_restore_20260622' 审计本次修改；恢复前 wenkong/wenkong_download 目录规则已由 2026-06-17 任务写入，矩阵原目录规则依据 change_reason='文件查阅矩阵：允许查询与预览，不自动开放下载' 可重新定位。
+- GREEN: `python -X utf8 script\dcc_view_matrix_restore_sql.py --apply-local-mysql` -> PASS?`expected_matrix_view_rules=231`?`active_matrix_view_rules=231`?`unexpected_matrix_active_rules=0`?`restored_matrix_directory_rules=45713`?`active_wenkong_directory_rules=0`?`tenant122_matrix_view_rules=0`?
+- GREEN: `python -X utf8 -m pytest script\tests\test_dcc_file_view_matrix_seed.py script\tests\test_dcc_view_matrix_restore_sql.py -q` -> PASS?11 passed?
+- GREEN: post-restore-readonly-sql -> PASS?active matrix DOWNLOAD=0?active wenkong directory=0?
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence ...\bug-regression-evidence.md` -> PASS?
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence ...\database-schema-evidence.md` -> PASS?
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260622-dcc-view-matrix-restore --mode preview --workspace ...\ruoyi-vue-pro` -> PASS?blocked=<none>?warnings=<none>??????? evidence?
+- ?????completed??? DCC ???????? Excel ?????????

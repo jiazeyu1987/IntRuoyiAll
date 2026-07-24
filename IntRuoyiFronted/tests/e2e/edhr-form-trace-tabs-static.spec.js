@@ -1,0 +1,65 @@
+const assert = require('node:assert/strict')
+const fs = require('node:fs')
+const path = require('node:path')
+
+const repoRoot = path.resolve(__dirname, '../..')
+const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8')
+
+const formTracePage = read('src/views/mes/pro/edhr/FormTracePage.vue')
+const changeTab = read('src/views/mes/pro/edhr/form-trace/FormTraceChangeTab.vue')
+const releaseTab = read('src/views/mes/pro/edhr/form-trace/FormTraceReleaseTab.vue')
+const router = read('src/router/modules/remaining.ts')
+const batchDetail = read('src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue')
+
+assert.match(formTracePage, /defineOptions\(\{\s*name:\s*'MesProFeedbackEdhrFormTrace'\s*\}\)/)
+assert.match(formTracePage, /<el-tabs[\s\S]*v-model="activeTab"/)
+assert.doesNotMatch(formTracePage, /<el-tab-pane\s+label="审计"\s+name="audit"/)
+assert.doesNotMatch(formTracePage, /FormTraceAuditTab/)
+assert.doesNotMatch(formTracePage, /<el-tab-pane\s+label="变更"\s+name="change"/)
+assert.match(formTracePage, /<el-tab-pane\s+label="作废"\s+name="change"/)
+assert.match(formTracePage, /<el-tab-pane\s+label="驳回"\s+name="reject"/)
+assert.match(formTracePage, /<el-tab-pane\s+label="放行"\s+name="release"/)
+assert.match(formTracePage, /FormTraceChangeTab/)
+assert.match(formTracePage, /<FormTraceReleaseTab\s+trace-mode="reject"\s*\/>/)
+assert.match(formTracePage, /FormTraceReleaseTab/)
+assert.match(formTracePage, /type FormTraceTabName = 'change' \| 'reject' \| 'release'/)
+assert.match(formTracePage, /return 'change'/)
+
+assert.match(changeTab, /UnifiedListTemplate/)
+assert.match(changeTab, /table-key="mes\.pro\.edhr\.formTrace\.change"/)
+for (const label of ['变更编号', '类型', '状态', '对象', '状态变化', '原因', '申请时间', '生效时间', '操作']) {
+  assert.match(changeTab, new RegExp(`label="${label}"`), `变更 Tab 必须保留 ${label} 列。`)
+}
+assert.match(changeTab, /getEdhrRecordChangePage/)
+assert.doesNotMatch(changeTab, /getEdhrTrackingPage/)
+assert.doesNotMatch(changeTab, /getEdhrReleasePage/)
+
+assert.match(releaseTab, /UnifiedListTemplate/)
+assert.match(releaseTab, /defineProps<\{\s*traceMode\?: 'release' \| 'reject'\s*\}>/)
+assert.match(releaseTab, /mes\.pro\.edhr\.formTrace\.reject/)
+assert.match(releaseTab, /mes\.pro\.edhr\.formTrace\.release/)
+for (const label of ['产品/路线', '检查摘要', '质量门禁', '事务时间', '追溯']) {
+  assert.match(releaseTab, new RegExp(`label="${label}"`), `放行 Tab 必须保留 ${label} 列。`)
+}
+assert.match(releaseTab, /objectColumnLabel/)
+assert.match(releaseTab, /statusColumnLabel/)
+assert.match(releaseTab, /getEdhrReleasePage/)
+assert.match(releaseTab, /getEdhrReleaseCheckItemPage/)
+assert.match(releaseTab, /getEdhrReleaseEventPage/)
+assert.doesNotMatch(releaseTab, /getEdhrTrackingPage/)
+assert.match(releaseTab, /EDHR_REJECT_TRACE_BATCH_STATUSES[\s\S]*EDHR_BATCH_STATUS_REJECTED/)
+assert.match(releaseTab, /EDHR_RELEASE_TRACE_EXCLUDED_BATCH_STATUSES[\s\S]*EDHR_BATCH_STATUS_REJECTED/)
+assert.match(releaseTab, /batchExecutionStatuses:\s*isRejectTrace[\s\S]*EDHR_REJECT_TRACE_BATCH_STATUSES/)
+assert.match(releaseTab, /excludeBatchExecutionStatuses:\s*isRejectTrace[\s\S]*EDHR_RELEASE_TRACE_EXCLUDED_BATCH_STATUSES/)
+
+assert.match(router, /path:\s*'pro\/feedback\/edhr-form-trace'/)
+assert.match(router, /component:\s*\(\)\s*=>\s*import\('@\/views\/mes\/pro\/edhr\/FormTracePage\.vue'\)/)
+assert.match(router, /name:\s*'MesProFeedbackEdhrFormTrace'/)
+assert.match(router, /title:\s*'表单追溯'/)
+
+assert.match(batchDetail, /path:\s*'\/mes\/pro\/feedback\/edhr-form-trace'/)
+assert.doesNotMatch(batchDetail, /tab:\s*'audit'/)
+assert.doesNotMatch(batchDetail, /key:\s*'tracking'/)
+assert.doesNotMatch(batchDetail, /label:\s*'执行追踪'/)
+
+console.log('PASS: eDHR form trace tabs without audit static contract')

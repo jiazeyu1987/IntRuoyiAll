@@ -1,0 +1,8 @@
+# Execution Log: 20260522-batch-cover-fail-showroom-cover-refresh
+
+BDD: Premium medical showroom cover artifact refresh -> Given only the provided product facts and strict visual constraints / When exactly one native image generation request is executed / Then one square PNG showroom cover is saved in the workspace with no added text, branding, or fabricated technical claims
+RED: `Test-Path 'D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\batch-cover-fail-showroom-cover-20260522-refresh.png'` -> FAIL, expected output file does not exist before generation
+GREEN: `Copy-Item -LiteralPath 'C:\Users\BJB110\.codex\generated_images\019e4ba2-8846-7853-86fa-1ff6097e705a\ig_01f0785300c6cfac016a0f4489be3c8197902aaa74e54ffd8b.png' -Destination 'D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\batch-cover-fail-showroom-cover-20260522-refresh.png' -Force` -> PASS, final artifact copied into the workspace
+GREEN: `Test-Path 'D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\batch-cover-fail-showroom-cover-20260522-refresh.png'` -> PASS
+GREEN: `Add-Type -AssemblyName System.Drawing; $img=[System.Drawing.Image]::FromFile('D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\batch-cover-fail-showroom-cover-20260522-refresh.png'); try { Write-Output ($img.Width.ToString() + 'x' + $img.Height.ToString()) } finally { $img.Dispose() }` -> PASS, 1254x1254
+GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260522-batch-cover-fail-showroom-cover-refresh --mode preview` -> PASS, status ready and cleanup preview kept the task records and final PNG with no deletions

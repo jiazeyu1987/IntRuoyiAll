@@ -1,0 +1,9 @@
+BDD: status script should inspect the existing remote runtime without mutating it -> Given `intruoyi-*` containers may already be running on a remote server / When the operator runs the status script / Then it should report runtime directory presence, container state, backend health, and frontend reachability without rebuilding, restarting, or importing data.
+BDD: unified ops launcher should expose status routes -> Given operators need read-only visibility into test and production before making changes / When they use the repository-root launcher / Then it should expose `test-status` and `prod-status` routes in addition to publish and restart routes.
+- RED: `python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_publish_int_ruoyi_to_test_tooling.py -q` -> FAIL, no status PowerShell script, no test/prod status wrappers, and no unified launcher status routes existed yet.
+- GREEN: added `script/deploy/show-int-ruoyi-remote-status.ps1` plus `show-int-ruoyi-test-status.bat` and `show-int-ruoyi-prod-status.bat`.
+- GREEN: extended repository-root `运维工具.bat` with `test-status` and `prod-status` routes and matching menu items.
+- GREEN: hardened `show-int-ruoyi-remote-status.ps1` against Windows OpenSSH socket-noise lines by switching to process-level stdout/stderr capture and filtering.
+- GREEN: `python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_publish_int_ruoyi_to_test_tooling.py -q` -> PASS, `12 passed`.
+- GREEN: test status query -> PASS, reported `/opt/intruoyi/runtime` present, `intruoyi-*` container state, backend `HTTP 200`, and frontend `HTTP 200` on `172.30.30.58`.
+- GREEN: production status query -> PASS, reported `/opt/intruoyi/runtime` present, `intruoyi-*` container state, backend `HTTP 200`, and frontend `HTTP 200` on `172.30.30.57`.

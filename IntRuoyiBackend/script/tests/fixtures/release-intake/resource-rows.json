@@ -1,0 +1,19 @@
+{
+  "references": [
+    {
+      "sourceTable": "infra_file",
+      "sourceColumn": "url",
+      "rowBusinessKey": "config_id=28,path=showroom/example.png",
+      "tenantCode": null,
+      "fileConfigIdReadback": 28,
+      "storageProfileId": "minio-yudao-default",
+      "bucket": "yudao",
+      "path": "showroom/example.png",
+      "url": "http://127.0.0.1:9000/yudao/showroom/example.png",
+      "size": null,
+      "sha256": null,
+      "contentType": null,
+      "requiredForRelease": true
+    }
+  ]
+}

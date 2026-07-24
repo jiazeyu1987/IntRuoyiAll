@@ -1,0 +1,23 @@
+# 执行日志：删除运行控制台决策巡检健康卡片
+
+- BDD: 三个诊断卡片不再渲染 -> Given 操作员进入运行控制台 / When 页面加载完成 / Then 页面不显示 `决策向导`、`巡检报告`、`业务健康` 三个卡片。
+- BDD: 删除诊断卡片不破坏剩余运维功能 -> Given 操作员进入运行控制台 / When 页面加载 foolproof 数据 / Then 发布候选、探针状态、日志磁盘风险、事故闭环等剩余功能仍按原入口工作。
+- BDD: 删除诊断卡片不隐藏错误 -> Given 运行控制台其它接口失败 / When 页面加载或操作 / Then 仍通过现有错误机制暴露失败，不新增 fallback 或静默成功。
+- VERIFY: 上一前端任务 `doc/tasks/20260604-runtime-control-remove-ops-cards/task.md` 状态为 `completed`。
+- RED: `node tests/e2e/runtime-control-remove-health-guide-cards-static.spec.js` -> FAIL，原因：页面仍 import `OpsDecisionWizard`，三个卡片尚未删除。
+- FIX: 删除 `OpsDecisionWizard`、`OpsInspectionReportPanel`、`OpsBusinessHealthPanel` 的页面使用、imports、组件文件和卡片专用 wizard/inspection/business-health 状态与加载函数。
+- FIX: 更新 `runtime-control-foolproof-static.spec.js`，把三个卡片改为禁止项；更新真实 E2E 脚本，不再要求决策向导、巡检报告、业务健康卡片。
+- FIX: 收紧删除契约，禁止真实 E2E 继续等待 `/wizard/*`、`/inspection-runs`、`/business-health` 等已移除卡片专用页面请求；同步移除真实 E2E 对上一批已删除运维卡片的 UI/API 等待。
+- GREEN: `node tests/e2e/runtime-control-remove-health-guide-cards-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/runtime-control-remove-ops-cards-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/runtime-control-foolproof-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/runtime-control-foolproof-timeout-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/runtime-control-ops-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/runtime-control-static.spec.js` -> PASS。
+- GREEN: `node --check tests/e2e/runtime-control-all-buttons-real.e2e.js`、`node --check tests/e2e/runtime-control-real-data-all-features.e2e.js`、`node --check tests/e2e/runtime-control-yudao-admin-readonly.e2e.js` -> PASS。
+- REGRESSION: `node tests/e2e/runtime-control-remove-health-guide-cards-static.spec.js` -> PASS。
+- REGRESSION: `node tests/e2e/runtime-control-foolproof-static.spec.js` -> PASS。
+- REGRESSION: `node --check tests/e2e/runtime-control-all-buttons-real.e2e.js`、`node --check tests/e2e/runtime-control-real-data-all-features.e2e.js`、`node --check tests/e2e/runtime-control-yudao-admin-readonly.e2e.js` -> PASS。
+- GREEN: `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm ts:check` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260604-runtime-control-remove-health-guide-cards\frontend-feature-evidence.md` -> PASS。
+- CLOSEOUT PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260604-runtime-control-remove-health-guide-cards --mode preview` -> READY，delete `<none>`，blocked `<none>`，warnings `<none>`。

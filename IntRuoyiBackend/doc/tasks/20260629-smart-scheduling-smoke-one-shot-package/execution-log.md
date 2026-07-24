@@ -1,0 +1,20 @@
+# Execution Log：排产冒烟单次导出导入准备包
+
+BDD: 最小配置包不会覆盖测试租户既有烟测账号 -> Given 测试租户已有可登录烟测账号 / When 执行一次导入准备 / Then 账号本体与密码保持可用，只补齐其所需菜单、角色范围与路线配置。
+BDD: 最小配置包可完成排产冒烟权限准备 -> Given 芋道源码租户已有排产相关菜单/角色/套餐配置 / When 脚本导出并导入测试租户 / Then 测试租户现有烟测账号可得到排产冒烟所需的正式权限与菜单范围。
+BDD: 路线配置包可跨租户完成排产配置准备 -> Given 芋道源码租户已有路线用途/排产配置/路线资源 / When 脚本导出路线配置包并导入测试租户 / Then 测试租户可得到自动排产所需的路线配置基础。
+BDD: 单次准备链路输出可追溯证据 -> Given 脚本执行完成 / When 查看任务产物目录 / Then 能看到导出文件、预检结果、导入结果与执行汇总，支持后续直接复跑烟测。
+GREEN: experience-preflight -> PASS，本机真实烟测已于 `2026-06-29` 在 `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260629-smart-scheduling-smoke-route-config-cross-tenant\artifacts\full-smoke-SMART-SCHED-20260629-LOCAL-FULL-13` 完整通过；本轮在此基础上仅沉淀单次导出/导入准备链路。
+GREEN: `mvn -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\pom.xml -pl yudao-module-system "-Dtest=SystemConfigPackageServiceImplTest" test` -> PASS，已修复 `system-config-package` 导出遗漏被真实用户引用岗位的合同缺口。
+RED: `node D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260629-smart-scheduling-smoke-one-shot-package\prepare-smart-scheduling-smoke-package.mjs` -> FAIL，全量 `system-config-package` 虽已可导入，但会把测试租户既有烟测账号体系覆盖为源租户账号集合，导致 `showroomsupervisor/showroomviewer` 消失且 `route-config import` 执行账号权限失真，不满足“一次导入后直接冒烟”目标。
+GREEN: root-cause-confirmed -> PASS，真实库核对显示测试租户导入后仅保留 `aoteman/edhrmatrixapprover/admin/smoke*` 等账号，其中 `aoteman` 与 `edhrmatrixapprover` 无 `mes:pro-scheduler-workbench:update`，说明本任务后续必须改为“保留测试租户用户，只迁移最小角色/菜单/套餐/路线范围”。
+RED: `node D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260629-smart-scheduling-smoke-one-shot-package\prepare-smart-scheduling-smoke-package.mjs` -> FAIL，尝试把源租户角色菜单全集回写到测试租户套餐 `113` 时，`system_tenant_package.menu_ids` 命中 MySQL `Data too long for column 'menu_ids'`；说明“一次导入即可冒烟”的正式最小解不应依赖本轮强制扩容套餐字段。
+GREEN: `node D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260629-smart-scheduling-smoke-one-shot-package\prepare-smart-scheduling-smoke-package.mjs` -> PASS，最小正式准备链路已改为岗位配置包 + 角色配置包 + smoke 用户角色绑定 + 路线配置包；真实产物位于 `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260629-smart-scheduling-smoke-one-shot-package\artifacts\2026-06-29T13-50-09-314Z\summary.json`。
+GREEN: `node D:\ProjectPackage\Int\IntRuoyi\scripts\preflight\login-preflight.mjs --base-url http://localhost:8081 --tenant 测试租户 --username smokeplan1 --password 111111 --target-path /mes/pro/scheduler-workbench --target-text 生产排产` -> PASS，planner 角色最小登录前置通过。
+GREEN: `node D:\ProjectPackage\Int\IntRuoyi\scripts\preflight\login-preflight.mjs --base-url http://localhost:8081 --tenant 测试租户 --username smokeappr1 --password 111111 --target-path /mes/pro/feedback --target-text 正式报工` -> PASS，supervisor 角色最小登录前置通过。
+GREEN: `node D:\ProjectPackage\Int\IntRuoyi\scripts\preflight\login-preflight.mjs --base-url http://localhost:8081 --tenant 测试租户 --username smokeread1 --password 111111 --target-path /mes/pro/feedback --target-text 正式报工` -> PASS，non-approver 角色最小登录前置通过。
+GREEN: `node D:\ProjectPackage\Int\IntRuoyi\scripts\preflight\login-preflight.mjs --base-url http://localhost:8081 --tenant 测试租户 --username smokeerp1 --password 111111 --target-path /erp/kingdee-sync --target-text 金蝶` -> PASS，ERP 创建角色最小登录前置通过。
+RED: `node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\smart-scheduling-smoke-real-flow.e2e.js` -> FAIL，未显式传 `MES_SMOKE_FEEDBACK_APPROVER_NAME` 时，脚本默认写入昵称 `eDHR矩阵-审批人`，第三方报工归属在 `/admin-api/mes/pro/feedback/import-record/attribute` 返回“工段长不存在”，证明“一次导入后直接跑”仍缺一项运行默认合同收口。
+RED: `node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\smart-scheduling-smoke-real-flow-static.spec.js` -> FAIL，新增静态门禁后确认当前 E2E 默认审批人仍未跟随 supervisor 用户名。
+GREEN: `node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\smart-scheduling-smoke-real-flow-static.spec.js` -> PASS，E2E 默认审批人已收口为 `roles.supervisor.username`，静态门禁通过。
+GREEN: `node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\smart-scheduling-smoke-real-flow.e2e.js` -> PASS，在不传 `MES_SMOKE_FEEDBACK_APPROVER_NAME` 的前提下，以 `smokeerp1/smokeplan1/smokeappr1/smokeread1` 和导入后的真实测试租户数据完成完整烟测；产物位于 `D:\ProjectPackage\Int\IntRuoyi\output\smart-scheduling-smoke\SMART-SCHED-20260629140340\smoke-report.json`。

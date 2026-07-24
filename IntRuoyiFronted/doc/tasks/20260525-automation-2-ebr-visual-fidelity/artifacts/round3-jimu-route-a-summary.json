@@ -1,0 +1,474 @@
+[
+  {
+    "sourceTableIndex": 1,
+    "reportCode": "EBR_TN122_A_T01",
+    "reportName": "电子批记录[A]-表1-产品信息",
+    "lastImportTime": "2026-05-25 23:55:39",
+    "fixedPrintHeadRows": [
+      {
+        "sci": 0,
+        "eci": 5,
+        "sri": 1,
+        "eri": 2
+      }
+    ],
+    "fixedPrintTailRows": [
+      {
+        "sci": 0,
+        "eci": 5,
+        "sri": 55,
+        "eri": 55
+      }
+    ],
+    "fixedPrintTailRowCount": 1,
+    "footerRows": [
+      {
+        "row": 55,
+        "text": "生效日期：2026年02月02日",
+        "height": 20
+      }
+    ],
+    "pagingRows": [
+      19,
+      38
+    ]
+  },
+  {
+    "sourceTableIndex": 2,
+    "reportCode": "EBR_TN122_A_T02",
+    "reportName": "电子批记录[A]-表2-粗洗工序生产记录",
+    "lastImportTime": "2026-05-25 23:55:39",
+    "fixedPrintHeadRows": [
+      {
+        "sci": 0,
+        "eci": 19,
+        "sri": 1,
+        "eri": 2
+      }
+    ],
+    "fixedPrintTailRows": [
+      {
+        "sci": 0,
+        "eci": 19,
+        "sri": 22,
+        "eri": 22
+      }
+    ],
+    "fixedPrintTailRowCount": 1,
+    "footerRows": [
+      {
+        "row": 22,
+        "text": "生效日期：2026年02月02日",
+        "height": 20
+      }
+    ],
+    "pagingRows": []
+  },
+  {
+    "sourceTableIndex": 3,
+    "reportCode": "EBR_TN122_A_T03",
+    "reportName": "电子批记录[A]-表3-精洗工序生产记录",
+    "lastImportTime": "2026-05-25 23:55:39",
+    "fixedPrintHeadRows": [
+      {
+        "sci": 0,
+        "eci": 27,
+        "sri": 1,
+        "eri": 2
+      }
+    ],
+    "fixedPrintTailRows": [
+      {
+        "sci": 0,
+        "eci": 27,
+        "sri": 22,
+        "eri": 22
+      }
+    ],
+    "fixedPrintTailRowCount": 1,
+    "footerRows": [
+      {
+        "row": 22,
+        "text": "生效日期：2026年02月02日",
+        "height": 20
+      }
+    ],
+    "pagingRows": []
+  },
+  {
+    "sourceTableIndex": 4,
+    "reportCode": "EBR_TN122_A_T04",
+    "reportName": "电子批记录[A]-表4-清洗工序生产记录",
+    "lastImportTime": "2026-05-25 23:55:39",
+    "fixedPrintHeadRows": [
+      {
+        "sci": 0,
+        "eci": 31,
+        "sri": 1,
+        "eri": 2
+      }
+    ],
+    "fixedPrintTailRows": [
+      {
+        "sci": 0,
+        "eci": 31,
+        "sri": 43,
+        "eri": 43
+      }
+    ],
+    "fixedPrintTailRowCount": 1,
+    "footerRows": [
+      {
+        "row": 43,
+        "text": "生效日期：2026年02月02日",
+        "height": 20
+      }
+    ],
+    "pagingRows": [
+      22
+    ]
+  },
+  {
+    "sourceTableIndex": 5,
+    "reportCode": "EBR_TN122_A_T05",
+    "reportName": "电子批记录[A]-表5-清洁工序生产记录",
+    "lastImportTime": "2026-05-25 23:55:39",
+    "fixedPrintHeadRows": [
+      {
+        "sci": 0,
+        "eci": 15,
+        "sri": 1,
+        "eri": 2
+      }
+    ],
+    "fixedPrintTailRows": [
+      {
+        "sci": 0,
+        "eci": 15,
+        "sri": 24,
+        "eri": 24
+      }
+    ],
+    "fixedPrintTailRowCount": 1,
+    "footerRows": [
+      {
+        "row": 24,
+        "text": "生效日期：2026年02月02日",
+        "height": 20
+      }
+    ],
+    "pagingRows": []
+  },
+  {
+    "sourceTableIndex": 6,
+    "reportCode": "EBR_TN122_A_T06",
+    "reportName": "电子批记录[A]-表6-组装Ⅰ工序生产记录",
+    "lastImportTime": "2026-05-25 23:55:39",
+    "fixedPrintHeadRows": [
+      {
+        "sci": 0,
+        "eci": 10,
+        "sri": 1,
+        "eri": 2
+      }
+    ],
+    "fixedPrintTailRows": [
+      {
+        "sci": 0,
+        "eci": 10,
+        "sri": 23,
+        "eri": 23
+      }
+    ],
+    "fixedPrintTailRowCount": 1,
+    "footerRows": [
+      {
+        "row": 23,
+        "text": "生效日期：2026年02月02日",
+        "height": 20
+      }
+    ],
+    "pagingRows": []
+  },
+  {
+    "sourceTableIndex": 7,
+    "reportCode": "EBR_TN122_A_T07",
+    "reportName": "电子批记录[A]-表7-光固Ⅰ工序生产记录",
+    "lastImportTime": "2026-05-25 23:55:39",
+    "fixedPrintHeadRows": [
+      {
+        "sci": 0,
+        "eci": 21,
+        "sri": 1,
+        "eri": 2
+      }
+    ],
+    "fixedPrintTailRows": [
+      {
+        "sci": 0,
+        "eci": 21,
+        "sri": 24,
+        "eri": 24
+      }
+    ],
+    "fixedPrintTailRowCount": 1,
+    "footerRows": [
+      {
+        "row": 24,
+        "text": "生效日期：2026年02月02日",
+        "height": 20
+      }
+    ],
+    "pagingRows": []
+  },
+  {
+    "sourceTableIndex": 8,
+    "reportCode": "EBR_TN122_A_T08",
+    "reportName": "电子批记录[A]-表8-硅化Ⅰ工序生产记录",
+    "lastImportTime": "2026-05-25 23:55:39",
+    "fixedPrintHeadRows": [
+      {
+        "sci": 0,
+        "eci": 15,
+        "sri": 1,
+        "eri": 2
+      }
+    ],
+    "fixedPrintTailRows": [
+      {
+        "sci": 0,
+        "eci": 15,
+        "sri": 23,
+        "eri": 23
+      }
+    ],
+    "fixedPrintTailRowCount": 1,
+    "footerRows": [
+      {
+        "row": 23,
+        "text": "生效日期：2026年02月02日",
+        "height": 20
+      }
+    ],
+    "pagingRows": []
+  },
+  {
+    "sourceTableIndex": 9,
+    "reportCode": "EBR_TN122_A_T09",
+    "reportName": "电子批记录[A]-表9-硅化Ⅱ工序生产记录",
+    "lastImportTime": "2026-05-25 23:55:39",
+    "fixedPrintHeadRows": [
+      {
+        "sci": 0,
+        "eci": 7,
+        "sri": 1,
+        "eri": 2
+      }
+    ],
+    "fixedPrintTailRows": [
+      {
+        "sci": 0,
+        "eci": 7,
+        "sri": 22,
+        "eri": 22
+      }
+    ],
+    "fixedPrintTailRowCount": 1,
+    "footerRows": [
+      {
+        "row": 22,
+        "text": "生效日期：2026年02月02日",
+        "height": 20
+      }
+    ],
+    "pagingRows": []
+  },
+  {
+    "sourceTableIndex": 10,
+    "reportCode": "EBR_TN122_A_T10",
+    "reportName": "电子批记录[A]-表10-组装Ⅱ工序生产记录",
+    "lastImportTime": "2026-05-25 23:55:39",
+    "fixedPrintHeadRows": [
+      {
+        "sci": 0,
+        "eci": 9,
+        "sri": 1,
+        "eri": 2
+      }
+    ],
+    "fixedPrintTailRows": [
+      {
+        "sci": 0,
+        "eci": 9,
+        "sri": 22,
+        "eri": 22
+      }
+    ],
+    "fixedPrintTailRowCount": 1,
+    "footerRows": [
+      {
+        "row": 22,
+        "text": "生效日期：2026年02月02日",
+        "height": 20
+      }
+    ],
+    "pagingRows": []
+  },
+  {
+    "sourceTableIndex": 11,
+    "reportCode": "EBR_TN122_A_T11",
+    "reportName": "电子批记录[A]-表11-检测工序生产记录",
+    "lastImportTime": "2026-05-25 23:55:39",
+    "fixedPrintHeadRows": [
+      {
+        "sci": 0,
+        "eci": 10,
+        "sri": 1,
+        "eri": 2
+      }
+    ],
+    "fixedPrintTailRows": [
+      {
+        "sci": 0,
+        "eci": 10,
+        "sri": 22,
+        "eri": 22
+      }
+    ],
+    "fixedPrintTailRowCount": 1,
+    "footerRows": [
+      {
+        "row": 22,
+        "text": "生效日期：2026年02月02日",
+        "height": 20
+      }
+    ],
+    "pagingRows": []
+  },
+  {
+    "sourceTableIndex": 12,
+    "reportCode": "EBR_TN122_A_T12",
+    "reportName": "电子批记录[A]-表12-光固Ⅱ工序生产记录",
+    "lastImportTime": "2026-05-25 23:55:39",
+    "fixedPrintHeadRows": [
+      {
+        "sci": 0,
+        "eci": 21,
+        "sri": 1,
+        "eri": 2
+      }
+    ],
+    "fixedPrintTailRows": [
+      {
+        "sci": 0,
+        "eci": 21,
+        "sri": 23,
+        "eri": 23
+      }
+    ],
+    "fixedPrintTailRowCount": 1,
+    "footerRows": [
+      {
+        "row": 23,
+        "text": "生效日期：2026年02月02日",
+        "height": 20
+      }
+    ],
+    "pagingRows": []
+  },
+  {
+    "sourceTableIndex": 13,
+    "reportCode": "EBR_TN122_A_T13",
+    "reportName": "电子批记录[A]-表13-单包装工序生产记录",
+    "lastImportTime": "2026-05-25 23:55:39",
+    "fixedPrintHeadRows": [
+      {
+        "sci": 0,
+        "eci": 18,
+        "sri": 1,
+        "eri": 2
+      }
+    ],
+    "fixedPrintTailRows": [
+      {
+        "sci": 0,
+        "eci": 18,
+        "sri": 30,
+        "eri": 30
+      }
+    ],
+    "fixedPrintTailRowCount": 1,
+    "footerRows": [
+      {
+        "row": 30,
+        "text": "生效日期：2026年02月02日",
+        "height": 20
+      }
+    ],
+    "pagingRows": [
+      19
+    ]
+  },
+  {
+    "sourceTableIndex": 14,
+    "reportCode": "EBR_TN122_A_T14",
+    "reportName": "电子批记录[A]-表14-中包装工序生产记录",
+    "lastImportTime": "2026-05-25 23:55:39",
+    "fixedPrintHeadRows": [
+      {
+        "sci": 0,
+        "eci": 10,
+        "sri": 1,
+        "eri": 2
+      }
+    ],
+    "fixedPrintTailRows": [
+      {
+        "sci": 0,
+        "eci": 10,
+        "sri": 22,
+        "eri": 22
+      }
+    ],
+    "fixedPrintTailRowCount": 1,
+    "footerRows": [
+      {
+        "row": 22,
+        "text": "生效日期：2026年02月02日",
+        "height": 20
+      }
+    ],
+    "pagingRows": []
+  },
+  {
+    "sourceTableIndex": 15,
+    "reportCode": "EBR_TN122_A_T15",
+    "reportName": "电子批记录[A]-表15-大包装工序生产记录",
+    "lastImportTime": "2026-05-25 23:55:39",
+    "fixedPrintHeadRows": [
+      {
+        "sci": 0,
+        "eci": 10,
+        "sri": 1,
+        "eri": 2
+      }
+    ],
+    "fixedPrintTailRows": [
+      {
+        "sci": 0,
+        "eci": 10,
+        "sri": 21,
+        "eri": 21
+      }
+    ],
+    "fixedPrintTailRowCount": 1,
+    "footerRows": [
+      {
+        "row": 21,
+        "text": "生效日期：2026年02月02日",
+        "height": 20
+      }
+    ],
+    "pagingRows": []
+  }
+]

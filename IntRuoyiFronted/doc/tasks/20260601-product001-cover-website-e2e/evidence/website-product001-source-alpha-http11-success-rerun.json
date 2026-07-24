@@ -1,0 +1,33 @@
+{
+  "runId": "http11-success-rerun",
+  "files": {
+    "card": {
+      "path": "D:\\ProjectPackage\\Int\\IntRuoyi\\yudao-ui-admin-vue3\\doc\\tasks\\20260601-product001-cover-website-e2e\\evidence\\website-product001-card-source-http11-success-rerun.png",
+      "sha256": "b7a35f69730887ead9da9e7866834635161afa8286783e9fa63dff718769d611",
+      "format": "PNG",
+      "mode": "RGBA",
+      "width": 120,
+      "height": 90,
+      "alphaMin": 0,
+      "alphaMax": 255,
+      "transparentPixels": 9679,
+      "translucentPixels": 0,
+      "totalPixels": 10800,
+      "transparentRatio": 0.8962037037037037
+    },
+    "detail": {
+      "path": "D:\\ProjectPackage\\Int\\IntRuoyi\\yudao-ui-admin-vue3\\doc\\tasks\\20260601-product001-cover-website-e2e\\evidence\\website-product001-detail-source-http11-success-rerun.png",
+      "sha256": "b7a35f69730887ead9da9e7866834635161afa8286783e9fa63dff718769d611",
+      "format": "PNG",
+      "mode": "RGBA",
+      "width": 120,
+      "height": 90,
+      "alphaMin": 0,
+      "alphaMax": 255,
+      "transparentPixels": 9679,
+      "translucentPixels": 0,
+      "totalPixels": 10800,
+      "transparentRatio": 0.8962037037037037
+    }
+  }
+}

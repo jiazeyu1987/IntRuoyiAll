@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "targetConfigId": "prod-default",
+  "environmentCode": "prod",
+  "hostRef": "runtime-control-managed-host-prod",
+  "dockerProfileId": "intruoyi-docker-compose",
+  "storageProfileIds": [
+    "minio-yudao-default"
+  ],
+  "artifactCacheProfiles": [
+    "nas-release-cache"
+  ],
+  "remoteReadOnlyProbe": {
+    "enabled": false,
+    "authorizationRef": null
+  }
+}

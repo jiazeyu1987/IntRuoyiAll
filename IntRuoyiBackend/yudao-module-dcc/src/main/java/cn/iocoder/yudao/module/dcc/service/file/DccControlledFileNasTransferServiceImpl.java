@@ -1,0 +1,1980 @@
+package cn.iocoder.yudao.module.dcc.service.file;
+
+import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.framework.tenant.core.util.TenantUtils;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileLocalFolderImportReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileLocalFolderImportBatchReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileLocalFolderImportChunkReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileLocalFolderImportChunkRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileLocalFolderImportSessionCreateReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileLocalFolderImportUploadStateRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileNasTransferReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileNasTransferRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileSubmitReqVO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccCategoryDirectoryBindingDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDistributionRuleDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryPermissionRuleDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryTrainingRuleDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.directory.DccDirectoryAccessRuleDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.directory.DccFileDirectoryDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileLocalFolderUploadChunkDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasTransferTaskDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasTransferTaskItemDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteNodeDO;
+import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccCategoryDirectoryBindingMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryDistributionRuleMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryPermissionRuleMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryTrainingRuleMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.directory.DccDirectoryAccessRuleMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.directory.DccFileDirectoryMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileLocalFolderUploadChunkMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasTransferTaskItemMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasTransferTaskMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteNodeMapper;
+import cn.iocoder.yudao.module.dcc.enums.DccControlledFileChangeTypeEnum;
+import cn.iocoder.yudao.module.dcc.enums.DccControlledFilePreviewKindEnum;
+import cn.iocoder.yudao.module.dcc.service.permission.DccNasPermissionSnapshotCaptureService;
+import cn.iocoder.yudao.module.infra.controller.admin.file.vo.file.FileNasListRespVO;
+import cn.iocoder.yudao.module.infra.service.file.FileService;
+import cn.iocoder.yudao.module.infra.service.file.NasAclReadResult;
+import cn.iocoder.yudao.module.infra.service.file.NasBrowserService;
+import cn.iocoder.yudao.module.infra.service.file.NasFileReadResult;
+import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
+
+@Service
+@Validated
+@Slf4j
+public class DccControlledFileNasTransferServiceImpl implements DccControlledFileNasTransferService {
+
+    public static final String TASK_STATUS_WAITING = "WAITING";
+    public static final String TASK_STATUS_UPLOADING = "UPLOADING";
+    public static final String TASK_STATUS_RUNNING = "RUNNING";
+    public static final String TASK_STATUS_COMPLETED = "COMPLETED";
+    public static final String TASK_STATUS_FAILED = "FAILED";
+    public static final String TASK_STATUS_CANCELLING = "CANCELLING";
+    public static final String TASK_STATUS_CANCELLED = "CANCELLED";
+    public static final String ITEM_STATUS_WAITING = "WAITING";
+    public static final String ITEM_STATUS_RUNNING = "RUNNING";
+    public static final String ITEM_STATUS_COMPLETED = "COMPLETED";
+    public static final String ITEM_STATUS_FAILED = "FAILED";
+    public static final String ITEM_STATUS_CANCELLED = "CANCELLED";
+    public static final String ITEM_TYPE_DIRECTORY = "DIRECTORY";
+    public static final String ITEM_TYPE_FILE = "FILE";
+    public static final String SOURCE_TYPE_NAS = "NAS";
+    public static final String SOURCE_TYPE_LOCAL_FOLDER = "LOCAL_FOLDER";
+    public static final String CHUNK_STATUS_COMPLETED = "COMPLETED";
+    static final String OUTCOME_CREATED = "CREATED";
+    static final String OUTCOME_REUSED = "REUSED";
+    private static final int TASK_RETRY_DELAY_SECONDS = 30;
+    private static final String ORIGINAL_DIRECTORY = "dcc/original";
+    private static final String LOCAL_FOLDER_UPLOAD_CHUNK_DIRECTORY = "dcc-local-folder-import-chunks";
+    private static final String DIRECTORY_CODE_PREFIX = "NASDIR-";
+    private static final int FILE_NUMBER_MAX_LENGTH = 64;
+    private static final int FILE_NUMBER_HASH_LENGTH = 12;
+    private static final int DATABASE_ERROR_MESSAGE_MAX_LENGTH = 512;
+    private static final String DATABASE_ERROR_MESSAGE_TRUNCATED_SUFFIX = "...[truncated]";
+    private static final String CANCEL_REASON = "Stopped before deleting DCC directory subtree";
+    private static final String SELECTED_CATEGORY_DIRECTORY_BINDING_REQUIRED_MESSAGE =
+            "当前 DCC 模板类别未绑定受控目录，请先在 DCC 文件类别维护目录绑定";
+
+    @Resource
+    private NasBrowserService nasBrowserService;
+    @Resource
+    private FileService fileService;
+    @Resource
+    private DccControlledFileWorkflowService workflowService;
+    @Resource
+    private DccFileDirectoryMapper directoryMapper;
+    @Resource
+    private DccDirectoryAccessRuleMapper directoryAccessRuleMapper;
+    @Resource
+    private DccFileCategoryMapper categoryMapper;
+    @Resource
+    private DccCategoryDirectoryBindingMapper categoryDirectoryBindingMapper;
+    @Resource
+    private DccFileCategoryPermissionRuleMapper permissionRuleMapper;
+    @Resource
+    private DccFileCategoryDistributionRuleMapper distributionRuleMapper;
+    @Resource
+    private DccFileCategoryTrainingRuleMapper trainingRuleMapper;
+    @Resource
+    private DccCategoryApprovalRouteMapper routeMapper;
+    @Resource
+    private DccCategoryApprovalRouteNodeMapper routeNodeMapper;
+    @Resource
+    private DccControlledFileNasTransferFailureReportService failureReportService;
+    @Resource
+    private DccControlledFileNasTransferTaskMapper taskMapper;
+    @Resource
+    private DccControlledFileNasTransferTaskItemMapper taskItemMapper;
+    @Resource
+    private DccControlledFileLocalFolderUploadChunkMapper uploadChunkMapper;
+    @Resource
+    private DccNasPermissionSnapshotCaptureService snapshotCaptureService;
+    @Resource
+    private PlatformTransactionManager transactionManager;
+    @Value("${spring.servlet.multipart.location:${java.io.tmpdir}}")
+    private String multipartLocation;
+
+    private final ReentrantLock schedulerLock = new ReentrantLock();
+
+    @Override
+    public DccControlledFileNasTransferRespVO transfer(Long userId, DccControlledFileNasTransferReqVO reqVO) {
+        requireSelectedCategoryContext(reqVO.getTemplateCategoryId());
+        if (taskMapper.selectActiveTask() != null) {
+            DccControlledFileNasTransferTaskDO activeTask = taskMapper.selectActiveTask();
+            throw new IllegalStateException("nas transfer task already active: " + activeTask.getId());
+        }
+        List<String> collapsedRoots = collapseSelectedRoots(reqVO.getSelectedNasPaths());
+        if (collapsedRoots.isEmpty()) {
+            throw new IllegalStateException("selected nas paths empty after normalization");
+        }
+        Long taskId = createTask(userId, reqVO, collapsedRoots);
+        triggerTaskAsync(TenantContextHolder.getRequiredTenantId());
+        return getTask(userId, taskId);
+    }
+
+    @Override
+    public DccControlledFileNasTransferRespVO importLocalFolder(Long userId,
+                                                               DccControlledFileLocalFolderImportReqVO reqVO) {
+        List<ValidatedLocalFolderPath> validatedPaths = validateLocalFolderPaths(reqVO);
+        requireSelectedCategoryContext(reqVO.getTemplateCategoryId());
+        DccControlledFileNasTransferTaskDO activeTask = taskMapper.selectActiveTask();
+        if (activeTask != null) {
+            throw new IllegalStateException("nas transfer task already active: " + activeTask.getId());
+        }
+        List<LocalFolderFileEntry> fileEntries = buildLocalFolderFileEntries(reqVO.getFiles(), validatedPaths);
+        Long taskId = createLocalFolderTask(userId, reqVO, fileEntries);
+        triggerTaskAsync(TenantContextHolder.getRequiredTenantId());
+        return getTask(userId, taskId);
+    }
+
+    @Override
+    public DccControlledFileNasTransferRespVO createLocalFolderImportSession(
+            Long userId, DccControlledFileLocalFolderImportSessionCreateReqVO reqVO) {
+        requireSelectedCategoryContext(reqVO.getTemplateCategoryId());
+        String rootDirectoryName = requireLocalFolderRootDirectoryName(reqVO.getRootDirectoryName());
+        long expectedFileCount = requirePositiveCount(reqVO.getExpectedFileCount(), "expectedFileCount");
+        long expectedTotalBytes = requireNonNegativeCount(reqVO.getExpectedTotalBytes(), "expectedTotalBytes");
+        DccControlledFileNasTransferTaskDO activeTask = taskMapper.selectActiveTask();
+        if (activeTask != null) {
+            if (Objects.equals(activeTask.getOperatorUserId(), userId)
+                    && SOURCE_TYPE_LOCAL_FOLDER.equals(activeTask.getSourceType())
+                    && TASK_STATUS_UPLOADING.equals(activeTask.getStatus())
+                    && Objects.equals(JsonUtils.parseArray(activeTask.getSelectedNasPathsJson(), String.class)
+                    .stream().findFirst().orElse(null), rootDirectoryName)) {
+                return getTask(userId, activeTask.getId());
+            }
+            throw new IllegalStateException("nas transfer task already active: " + activeTask.getId());
+        }
+        Long taskId = tx().execute(status -> {
+            DccControlledFileNasTransferTaskDO task = DccControlledFileNasTransferTaskDO.builder()
+                    .operatorUserId(userId)
+                    .templateCategoryId(reqVO.getTemplateCategoryId())
+                    .productMasterId(reqVO.getProductMasterId())
+                    .effectiveDate(reqVO.getEffectiveDate())
+                    .selectedNasPathsJson(JsonUtils.toJsonString(List.of(rootDirectoryName)))
+                    .sourceType(SOURCE_TYPE_LOCAL_FOLDER)
+                    .status(TASK_STATUS_UPLOADING)
+                    .expectedFileCount(expectedFileCount)
+                    .expectedTotalBytes(expectedTotalBytes)
+                    .uploadedFileCount(0L)
+                    .uploadedTotalBytes(0L)
+                    .build();
+            taskMapper.insert(task);
+            return task.getId();
+        });
+        return getTask(userId, taskId);
+    }
+
+    @Override
+    public DccControlledFileNasTransferRespVO uploadLocalFolderImportBatch(
+            Long userId, Long taskId, DccControlledFileLocalFolderImportBatchReqVO reqVO) {
+        DccControlledFileNasTransferTaskDO task = requireLocalFolderUploadingTask(userId, taskId);
+        String rootDirectoryName = requireSingleLocalFolderRoot(task);
+        List<ValidatedLocalFolderPath> validatedPaths = validateLocalFolderPaths(
+                reqVO.getFiles(), reqVO.getRelativePaths(), rootDirectoryName);
+        MultipartFile[] files = reqVO.getFiles();
+        long batchFileCount = files.length;
+        long batchTotalBytes = totalFileSize(files);
+        tx().executeWithoutResult(status -> {
+            DccControlledFileNasTransferTaskDO current = requireLocalFolderUploadingTask(userId, taskId);
+            long currentUploadedFileCount =
+                    requireNonNegativeCount(defaultLong(current.getUploadedFileCount()), "uploadedFileCount");
+            long currentUploadedTotalBytes =
+                    requireNonNegativeCount(defaultLong(current.getUploadedTotalBytes()), "uploadedTotalBytes");
+            long currentExpectedFileCount =
+                    requirePositiveCount(defaultLong(current.getExpectedFileCount()), "expectedFileCount");
+            long currentExpectedTotalBytes =
+                    requireNonNegativeCount(defaultLong(current.getExpectedTotalBytes()), "expectedTotalBytes");
+            if (currentUploadedFileCount + batchFileCount > currentExpectedFileCount) {
+                throw new IllegalStateException("local folder uploaded file count exceeds expected count");
+            }
+            if (currentUploadedTotalBytes + batchTotalBytes > currentExpectedTotalBytes) {
+                throw new IllegalStateException("local folder uploaded total bytes exceeds expected total bytes");
+            }
+            List<DccControlledFileNasTransferTaskItemDO> existingItems = requireExistingTaskItems(taskId);
+            assertNoDuplicateLocalFolderPaths(existingItems, validatedPaths);
+            List<LocalFolderFileEntry> fileEntries = buildLocalFolderFileEntries(files, validatedPaths);
+            insertLocalFolderTaskItems(current.getId(), fileEntries, existingItems);
+            current.setUploadedFileCount(currentUploadedFileCount + batchFileCount);
+            current.setUploadedTotalBytes(currentUploadedTotalBytes + batchTotalBytes);
+            current.setLastFailureMessage(null);
+            taskMapper.updateById(current);
+        });
+        return getTask(userId, taskId);
+    }
+
+    @Override
+    public DccControlledFileLocalFolderImportUploadStateRespVO getLocalFolderImportUploadState(
+            Long userId, Long taskId) {
+        DccControlledFileNasTransferTaskDO task = requireLocalFolderUploadingTask(userId, taskId);
+        return buildLocalFolderUploadState(task);
+    }
+
+    @Override
+    public DccControlledFileLocalFolderImportChunkRespVO uploadLocalFolderImportChunk(
+            Long userId, Long taskId, DccControlledFileLocalFolderImportChunkReqVO reqVO) {
+        DccControlledFileNasTransferTaskDO task = requireLocalFolderUploadingTask(userId, taskId);
+        String rootDirectoryName = requireSingleLocalFolderRoot(task);
+        ValidatedLocalFolderChunk validatedChunk = validateLocalFolderChunkReq(reqVO, rootDirectoryName);
+        if (isLocalFolderPathAlreadyUploaded(taskId, validatedChunk.relativePath())) {
+            return buildLocalFolderChunkResponse(userId, taskId, validatedChunk, true);
+        }
+
+        StoredChunkFile storedChunk = storeLocalFolderUploadChunkFile(taskId, validatedChunk, reqVO.getChunk());
+        boolean fileCompleted;
+        try {
+            fileCompleted = Boolean.TRUE.equals(tx().execute(status -> {
+                DccControlledFileNasTransferTaskDO current = requireLocalFolderUploadingTask(userId, taskId);
+                if (isLocalFolderPathAlreadyUploaded(taskId, validatedChunk.relativePath())) {
+                    deleteIfExists(storedChunk.tempPath());
+                    return true;
+                }
+                DccControlledFileLocalFolderUploadChunkDO existingChunk =
+                        uploadChunkMapper.selectByTaskIdAndRelativePathAndChunkIndex(
+                                taskId, validatedChunk.relativePath(), validatedChunk.chunkIndex());
+                if (existingChunk != null) {
+                    requireSameLocalFolderChunk(existingChunk, validatedChunk);
+                    deleteIfExists(storedChunk.tempPath());
+                    return isLocalFolderFileChunkSetComplete(taskId, validatedChunk);
+                }
+
+                Path finalPath = finalLocalFolderChunkPath(taskId, validatedChunk);
+                moveStoredChunkToFinalPath(storedChunk.tempPath(), finalPath);
+                uploadChunkMapper.insert(DccControlledFileLocalFolderUploadChunkDO.builder()
+                        .taskId(taskId)
+                        .relativePath(validatedChunk.relativePath())
+                        .fileName(validatedChunk.fileName())
+                        .fileSize(validatedChunk.fileSize())
+                        .chunkIndex(validatedChunk.chunkIndex())
+                        .totalChunks(validatedChunk.totalChunks())
+                        .chunkSize(validatedChunk.chunkSize())
+                        .chunkSha256(validatedChunk.chunkSha256())
+                        .chunkTempPath(finalPath.toString())
+                        .status(CHUNK_STATUS_COMPLETED)
+                        .build());
+                if (!isLocalFolderFileChunkSetComplete(taskId, validatedChunk)) {
+                    return false;
+                }
+                completeLocalFolderFileFromChunks(current, validatedChunk, reqVO.getContentType());
+                return true;
+            }));
+        } catch (RuntimeException exception) {
+            deleteIfExists(storedChunk.tempPath());
+            throw exception;
+        }
+        if (fileCompleted) {
+            deleteCompletedLocalFolderChunkFiles(taskId, validatedChunk.relativePath());
+        }
+        return buildLocalFolderChunkResponse(userId, taskId, validatedChunk, fileCompleted);
+    }
+
+    @Override
+    public DccControlledFileNasTransferRespVO completeLocalFolderImportSession(Long userId, Long taskId) {
+        DccControlledFileNasTransferTaskDO task = requireLocalFolderUploadingTask(userId, taskId);
+        long expectedFileCount = requirePositiveCount(defaultLong(task.getExpectedFileCount()), "expectedFileCount");
+        long expectedTotalBytes = requireNonNegativeCount(defaultLong(task.getExpectedTotalBytes()), "expectedTotalBytes");
+        long uploadedFileCount = requireNonNegativeCount(defaultLong(task.getUploadedFileCount()), "uploadedFileCount");
+        long uploadedTotalBytes = requireNonNegativeCount(defaultLong(task.getUploadedTotalBytes()), "uploadedTotalBytes");
+        if (uploadedFileCount != expectedFileCount || uploadedTotalBytes != expectedTotalBytes) {
+            throw new IllegalStateException("local folder upload progress does not match expected totals");
+        }
+        if (taskItemMapper.selectPendingItemCountByTaskId(taskId) <= 0) {
+            throw new IllegalStateException("local folder upload has no pending task items");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        task.setStatus(TASK_STATUS_WAITING);
+        task.setUploadCompletedAt(now);
+        task.setNextCheckAt(null);
+        task.setLastFailureMessage(null);
+        taskMapper.updateById(task);
+        triggerTaskAsync(TenantContextHolder.getRequiredTenantId());
+        return getTask(userId, taskId);
+    }
+
+    @Override
+    public DccControlledFileNasTransferRespVO getTask(Long userId, Long taskId) {
+        return buildTaskResponse(requireOwnedTask(userId, taskId));
+    }
+
+    @Override
+    public void recoverInterruptedTasksOnStartup() {
+        LocalDateTime nextCheckAt = nextScheduledCheckTime();
+        int recoveredTaskCount = taskMapper.recoverRunningTasksToWaiting(nextCheckAt);
+        int recoveredItemCount = 0;
+        for (DccControlledFileNasTransferTaskDO task : taskMapper.selectUnfinishedTasks()) {
+            recoveredItemCount += taskItemMapper.recoverRunningItemsToWaiting(task.getId());
+        }
+        if (recoveredTaskCount > 0) {
+            log.info("[recoverInterruptedTasksOnStartup][recoveredTaskCount({})][nextCheckAt({})]",
+                    recoveredTaskCount, nextCheckAt);
+        }
+        if (recoveredItemCount > 0) {
+            log.info("[recoverInterruptedTasksOnStartup][recoveredItemCount({})]", recoveredItemCount);
+        }
+    }
+
+    @Override
+    public void processWaitingTasks() {
+        if (!schedulerLock.tryLock()) {
+            return;
+        }
+        try {
+            for (DccControlledFileNasTransferTaskDO task : taskMapper.selectWaitingTasks(LocalDateTime.now())) {
+                try {
+                    executeTask(task.getId());
+                } catch (RuntimeException exception) {
+                    log.error("[processWaitingTasks][taskId({}) DCC NAS transfer task execution failed]",
+                            task.getId(), exception);
+                }
+            }
+        } finally {
+            schedulerLock.unlock();
+        }
+    }
+
+    private Long createTask(Long userId, DccControlledFileNasTransferReqVO reqVO, List<String> collapsedRoots) {
+        return tx().execute(status -> {
+            DccControlledFileNasTransferTaskDO task = DccControlledFileNasTransferTaskDO.builder()
+                    .operatorUserId(userId)
+                    .templateCategoryId(reqVO.getTemplateCategoryId())
+                    .productMasterId(reqVO.getProductMasterId())
+                    .effectiveDate(reqVO.getEffectiveDate())
+                    .selectedNasPathsJson(JsonUtils.toJsonString(collapsedRoots))
+                    .sourceType(SOURCE_TYPE_NAS)
+                    .status(TASK_STATUS_WAITING)
+                    .build();
+            taskMapper.insert(task);
+            Map<String, Long> insertedItemIds = new LinkedHashMap<>();
+            for (String rootPath : collapsedRoots) {
+                Long parentItemId = null;
+                StringBuilder builtPath = new StringBuilder();
+                for (String segment : rootPath.split("/")) {
+                    if (builtPath.length() > 0) {
+                        builtPath.append('/');
+                    }
+                    builtPath.append(segment);
+                    String currentPath = builtPath.toString();
+                    Long existingItemId = insertedItemIds.get(currentPath);
+                    if (existingItemId != null) {
+                        parentItemId = existingItemId;
+                        continue;
+                    }
+                    DccControlledFileNasTransferTaskItemDO item = DccControlledFileNasTransferTaskItemDO.builder()
+                            .taskId(task.getId())
+                            .parentItemId(parentItemId)
+                            .itemType(ITEM_TYPE_DIRECTORY)
+                            .nasPath(currentPath)
+                            .itemName(segment)
+                            .status(ITEM_STATUS_WAITING)
+                            .attemptCount(0)
+                            .previewDownloadOnly(Boolean.FALSE)
+                            .build();
+                    taskItemMapper.insert(item);
+                    insertedItemIds.put(currentPath, item.getId());
+                    parentItemId = item.getId();
+                }
+            }
+            return task.getId();
+        });
+    }
+
+    private Long createLocalFolderTask(Long userId,
+                                       DccControlledFileLocalFolderImportReqVO reqVO,
+                                       List<LocalFolderFileEntry> fileEntries) {
+        String rootDirectoryName = requireLocalFolderRootDirectoryName(reqVO.getRootDirectoryName());
+        return tx().execute(status -> {
+            DccControlledFileNasTransferTaskDO task = DccControlledFileNasTransferTaskDO.builder()
+                    .operatorUserId(userId)
+                    .templateCategoryId(reqVO.getTemplateCategoryId())
+                    .productMasterId(reqVO.getProductMasterId())
+                    .effectiveDate(reqVO.getEffectiveDate())
+                    .selectedNasPathsJson(JsonUtils.toJsonString(List.of(rootDirectoryName)))
+                    .sourceType(SOURCE_TYPE_LOCAL_FOLDER)
+                    .status(TASK_STATUS_WAITING)
+                    .expectedFileCount((long) fileEntries.size())
+                    .expectedTotalBytes(fileEntries.stream().mapToLong(LocalFolderFileEntry::fileSize).sum())
+                    .uploadedFileCount((long) fileEntries.size())
+                    .uploadedTotalBytes(fileEntries.stream().mapToLong(LocalFolderFileEntry::fileSize).sum())
+                    .uploadCompletedAt(LocalDateTime.now())
+                    .build();
+            taskMapper.insert(task);
+            insertLocalFolderTaskItems(task.getId(), fileEntries, List.of());
+            return task.getId();
+        });
+    }
+
+    private void insertLocalFolderTaskItems(Long taskId,
+                                            List<LocalFolderFileEntry> fileEntries,
+                                            List<DccControlledFileNasTransferTaskItemDO> existingItems) {
+        Map<String, Long> insertedDirectoryItemIds = existingItems.stream()
+                .filter(item -> ITEM_TYPE_DIRECTORY.equals(item.getItemType()))
+                .filter(item -> StrUtil.isNotBlank(item.getNasPath()))
+                .collect(Collectors.toMap(DccControlledFileNasTransferTaskItemDO::getNasPath,
+                        DccControlledFileNasTransferTaskItemDO::getId, (left, right) -> left, LinkedHashMap::new));
+        for (LocalFolderFileEntry fileEntry : fileEntries) {
+            Long parentItemId = null;
+            StringBuilder builtPath = new StringBuilder();
+            String[] segments = fileEntry.relativePath().split("/");
+            for (int index = 0; index < segments.length - 1; index++) {
+                String segment = segments[index];
+                if (builtPath.length() > 0) {
+                    builtPath.append('/');
+                }
+                builtPath.append(segment);
+                String currentPath = builtPath.toString();
+                Long existingItemId = insertedDirectoryItemIds.get(currentPath);
+                if (existingItemId != null) {
+                    parentItemId = existingItemId;
+                    continue;
+                }
+                DccControlledFileNasTransferTaskItemDO directoryItem =
+                        DccControlledFileNasTransferTaskItemDO.builder()
+                                .taskId(taskId)
+                                .parentItemId(parentItemId)
+                                .itemType(ITEM_TYPE_DIRECTORY)
+                                .nasPath(currentPath)
+                                .itemName(segment)
+                                .status(ITEM_STATUS_WAITING)
+                                .attemptCount(0)
+                                .previewDownloadOnly(Boolean.FALSE)
+                                .build();
+                taskItemMapper.insert(directoryItem);
+                insertedDirectoryItemIds.put(currentPath, directoryItem.getId());
+                parentItemId = directoryItem.getId();
+            }
+
+            DccControlledFileNasTransferTaskItemDO fileItem =
+                    DccControlledFileNasTransferTaskItemDO.builder()
+                            .taskId(taskId)
+                            .parentItemId(parentItemId)
+                            .itemType(ITEM_TYPE_FILE)
+                            .nasPath(fileEntry.relativePath())
+                            .itemName(fileEntry.fileName())
+                            .sourceFileId(fileEntry.sourceFileId())
+                            .status(ITEM_STATUS_WAITING)
+                            .attemptCount(0)
+                            .previewDownloadOnly(Boolean.FALSE)
+                            .build();
+            taskItemMapper.insert(fileItem);
+        }
+    }
+
+    private List<ValidatedLocalFolderPath> validateLocalFolderPaths(
+            DccControlledFileLocalFolderImportReqVO reqVO) {
+        return validateLocalFolderPaths(reqVO.getFiles(), reqVO.getRelativePaths(), reqVO.getRootDirectoryName());
+    }
+
+    private List<ValidatedLocalFolderPath> validateLocalFolderPaths(
+            MultipartFile[] files,
+            List<String> relativePaths,
+            String rawRootDirectoryName) {
+        if (files == null || files.length == 0) {
+            throw new IllegalStateException("local folder files required");
+        }
+        if (relativePaths == null || relativePaths.isEmpty()) {
+            throw new IllegalStateException("local folder relativePaths required");
+        }
+        if (files.length != relativePaths.size()) {
+            throw new IllegalStateException("local folder files and relative paths count mismatch");
+        }
+
+        String rootDirectoryName = requireLocalFolderRootDirectoryName(rawRootDirectoryName);
+        Set<String> seenRelativePaths = new HashSet<>();
+        List<ValidatedLocalFolderPath> validatedPaths = new ArrayList<>();
+        for (int index = 0; index < relativePaths.size(); index++) {
+            MultipartFile file = files[index];
+            if (file == null) {
+                throw new IllegalStateException("local folder file missing at index: " + index);
+            }
+            String relativePath = requireLocalFolderRelativePath(relativePaths.get(index), rootDirectoryName);
+            if (!seenRelativePaths.add(relativePath)) {
+                throw new IllegalStateException("duplicate local folder relative path: " + relativePath);
+            }
+            validatedPaths.add(new ValidatedLocalFolderPath(relativePath, lastPathSegment(relativePath)));
+        }
+        return validatedPaths;
+    }
+
+    private List<LocalFolderFileEntry> buildLocalFolderFileEntries(
+            MultipartFile[] files,
+            List<ValidatedLocalFolderPath> validatedPaths) {
+        List<LocalFolderFileEntry> fileEntries = new ArrayList<>();
+        for (int index = 0; index < files.length; index++) {
+            MultipartFile file = files[index];
+            ValidatedLocalFolderPath validatedPath = validatedPaths.get(index);
+            try {
+                Long sourceFileId = fileService.createFileAndReturnId(
+                        file.getBytes(),
+                        validatedPath.fileName(),
+                        ORIGINAL_DIRECTORY,
+                        file.getContentType()
+                );
+                fileEntries.add(new LocalFolderFileEntry(
+                        validatedPath.relativePath(),
+                        validatedPath.fileName(),
+                        sourceFileId,
+                        file.getSize()
+                ));
+            } catch (IOException exception) {
+                throw new IllegalStateException("local folder file read failed: "
+                        + validatedPath.relativePath(), exception);
+            }
+        }
+        return fileEntries;
+    }
+
+    private DccControlledFileLocalFolderImportUploadStateRespVO buildLocalFolderUploadState(
+            DccControlledFileNasTransferTaskDO task) {
+        String rootDirectoryName = requireSingleLocalFolderRoot(task);
+        List<DccControlledFileNasTransferTaskItemDO> existingItems = requireExistingTaskItems(task.getId());
+        Set<String> uploadedRelativePathSet = existingItems.stream()
+                .filter(item -> ITEM_TYPE_FILE.equals(item.getItemType()))
+                .filter(item -> item.getSourceFileId() != null)
+                .map(DccControlledFileNasTransferTaskItemDO::getNasPath)
+                .filter(StrUtil::isNotBlank)
+                .collect(Collectors.toCollection(HashSet::new));
+        List<String> uploadedRelativePaths = existingItems.stream()
+                .filter(item -> ITEM_TYPE_FILE.equals(item.getItemType()))
+                .filter(item -> item.getSourceFileId() != null)
+                .map(DccControlledFileNasTransferTaskItemDO::getNasPath)
+                .filter(StrUtil::isNotBlank)
+                .distinct()
+                .toList();
+        Map<String, List<DccControlledFileLocalFolderUploadChunkDO>> chunksByRelativePath =
+                uploadChunkMapper.selectListByTaskId(task.getId()).stream()
+                        .collect(Collectors.groupingBy(DccControlledFileLocalFolderUploadChunkDO::getRelativePath,
+                                LinkedHashMap::new, Collectors.toList()));
+        Map<String, DccControlledFileLocalFolderImportUploadStateRespVO.FileState> fileStates =
+                new LinkedHashMap<>();
+        for (Map.Entry<String, List<DccControlledFileLocalFolderUploadChunkDO>> entry : chunksByRelativePath.entrySet()) {
+            List<DccControlledFileLocalFolderUploadChunkDO> chunks = entry.getValue();
+            DccControlledFileLocalFolderUploadChunkDO firstChunk = chunks.get(0);
+            fileStates.put(entry.getKey(), DccControlledFileLocalFolderImportUploadStateRespVO.FileState.builder()
+                    .relativePath(entry.getKey())
+                    .fileSize(firstChunk.getFileSize())
+                    .totalChunks(firstChunk.getTotalChunks())
+                    .uploadedChunkIndexes(chunks.stream()
+                            .map(DccControlledFileLocalFolderUploadChunkDO::getChunkIndex)
+                            .sorted()
+                            .toList())
+                    .completed(uploadedRelativePathSet.contains(entry.getKey()))
+                    .build());
+        }
+        for (String uploadedRelativePath : uploadedRelativePaths) {
+            fileStates.computeIfAbsent(uploadedRelativePath,
+                    relativePath -> DccControlledFileLocalFolderImportUploadStateRespVO.FileState.builder()
+                            .relativePath(relativePath)
+                            .uploadedChunkIndexes(List.of())
+                            .completed(true)
+                            .build());
+        }
+        return DccControlledFileLocalFolderImportUploadStateRespVO.builder()
+                .taskId(task.getId())
+                .rootDirectoryName(rootDirectoryName)
+                .status(task.getStatus())
+                .expectedFileCount(defaultLong(task.getExpectedFileCount()))
+                .expectedTotalBytes(defaultLong(task.getExpectedTotalBytes()))
+                .uploadedFileCount(defaultLong(task.getUploadedFileCount()))
+                .uploadedTotalBytes(defaultLong(task.getUploadedTotalBytes()))
+                .uploadedRelativePaths(uploadedRelativePaths)
+                .files(new ArrayList<>(fileStates.values()))
+                .build();
+    }
+
+    private DccControlledFileLocalFolderImportChunkRespVO buildLocalFolderChunkResponse(
+            Long userId, Long taskId, ValidatedLocalFolderChunk validatedChunk, boolean fileCompleted) {
+        int uploadedChunkCount = (int) uploadChunkMapper
+                .selectListByTaskIdAndRelativePath(taskId, validatedChunk.relativePath()).stream()
+                .map(DccControlledFileLocalFolderUploadChunkDO::getChunkIndex)
+                .distinct()
+                .count();
+        return DccControlledFileLocalFolderImportChunkRespVO.builder()
+                .taskId(taskId)
+                .relativePath(validatedChunk.relativePath())
+                .uploadedChunkCount(fileCompleted ? validatedChunk.totalChunks() : uploadedChunkCount)
+                .totalChunks(validatedChunk.totalChunks())
+                .fileCompleted(fileCompleted)
+                .task(getTask(userId, taskId))
+                .build();
+    }
+
+    private ValidatedLocalFolderChunk validateLocalFolderChunkReq(
+            DccControlledFileLocalFolderImportChunkReqVO reqVO, String rootDirectoryName) {
+        String relativePath = requireLocalFolderRelativePath(reqVO.getRelativePath(), rootDirectoryName);
+        String fileName = StrUtil.trimToEmpty(reqVO.getFileName());
+        if (StrUtil.isBlank(fileName) || !fileName.equals(lastPathSegment(relativePath))) {
+            throw new IllegalStateException("local folder chunk fileName mismatch: " + relativePath);
+        }
+        long fileSize = requireNonNegativeCount(reqVO.getFileSize(), "fileSize");
+        int chunkIndex = reqVO.getChunkIndex() == null ? -1 : reqVO.getChunkIndex();
+        int totalChunks = reqVO.getTotalChunks() == null ? 0 : reqVO.getTotalChunks();
+        if (chunkIndex < 0 || totalChunks <= 0 || chunkIndex >= totalChunks) {
+            throw new IllegalStateException("local folder chunk index invalid: " + relativePath);
+        }
+        MultipartFile chunk = reqVO.getChunk();
+        if (chunk == null) {
+            throw new IllegalStateException("local folder chunk file required: " + relativePath);
+        }
+        long chunkSize = chunk.getSize();
+        if (fileSize == 0) {
+            if (chunkIndex != 0 || totalChunks != 1 || chunkSize != 0) {
+                throw new IllegalStateException("local folder empty file chunk invalid: " + relativePath);
+            }
+        } else {
+            if (chunkSize <= 0 || chunkSize > fileSize) {
+                throw new IllegalStateException("local folder chunk size invalid: " + relativePath);
+            }
+            if (totalChunks == 1 && chunkSize != fileSize) {
+                throw new IllegalStateException("local folder single chunk size mismatch: " + relativePath);
+            }
+        }
+        String chunkSha256 = StrUtil.trimToEmpty(reqVO.getChunkSha256()).toLowerCase();
+        if (!chunkSha256.matches("^[0-9a-f]{64}$")) {
+            throw new IllegalStateException("local folder chunk sha256 invalid: " + relativePath);
+        }
+        return new ValidatedLocalFolderChunk(relativePath, fileName, fileSize,
+                chunkIndex, totalChunks, chunkSize, chunkSha256);
+    }
+
+    private StoredChunkFile storeLocalFolderUploadChunkFile(
+            Long taskId, ValidatedLocalFolderChunk validatedChunk, MultipartFile chunk) {
+        Path tempPath = localFolderChunkDirectory(taskId, validatedChunk.relativePath())
+                .resolve(validatedChunk.chunkIndex() + "." + System.nanoTime() + ".uploading");
+        try {
+            Files.createDirectories(tempPath.getParent());
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            long copied = 0L;
+            byte[] buffer = new byte[1024 * 1024];
+            try (InputStream inputStream = chunk.getInputStream();
+                 OutputStream outputStream = Files.newOutputStream(tempPath)) {
+                int read;
+                while ((read = inputStream.read(buffer)) != -1) {
+                    digest.update(buffer, 0, read);
+                    outputStream.write(buffer, 0, read);
+                    copied += read;
+                }
+            }
+            if (copied != validatedChunk.chunkSize()) {
+                deleteIfExists(tempPath);
+                throw new IllegalStateException("local folder chunk copied size mismatch: "
+                        + validatedChunk.relativePath());
+            }
+            String actualSha256 = HexFormat.of().formatHex(digest.digest());
+            if (!actualSha256.equals(validatedChunk.chunkSha256())) {
+                deleteIfExists(tempPath);
+                throw new IllegalStateException("local folder chunk sha256 mismatch: "
+                        + validatedChunk.relativePath());
+            }
+            return new StoredChunkFile(tempPath);
+        } catch (IOException | NoSuchAlgorithmException exception) {
+            deleteIfExists(tempPath);
+            throw new IllegalStateException("local folder chunk persist failed: "
+                    + validatedChunk.relativePath(), exception);
+        }
+    }
+
+    private void requireSameLocalFolderChunk(DccControlledFileLocalFolderUploadChunkDO existingChunk,
+                                             ValidatedLocalFolderChunk validatedChunk) {
+        if (!Objects.equals(existingChunk.getFileName(), validatedChunk.fileName())
+                || !Objects.equals(existingChunk.getFileSize(), validatedChunk.fileSize())
+                || !Objects.equals(existingChunk.getTotalChunks(), validatedChunk.totalChunks())
+                || !Objects.equals(existingChunk.getChunkSize(), validatedChunk.chunkSize())
+                || !Objects.equals(existingChunk.getChunkSha256(), validatedChunk.chunkSha256())) {
+            throw new IllegalStateException("local folder chunk conflicts with persisted state: "
+                    + validatedChunk.relativePath() + "#" + validatedChunk.chunkIndex());
+        }
+    }
+
+    private boolean isLocalFolderFileChunkSetComplete(Long taskId, ValidatedLocalFolderChunk validatedChunk) {
+        List<DccControlledFileLocalFolderUploadChunkDO> chunks =
+                uploadChunkMapper.selectListByTaskIdAndRelativePath(taskId, validatedChunk.relativePath());
+        if (chunks.size() < validatedChunk.totalChunks()) {
+            return false;
+        }
+        Set<Integer> uploadedIndexes = chunks.stream()
+                .map(DccControlledFileLocalFolderUploadChunkDO::getChunkIndex)
+                .collect(Collectors.toSet());
+        for (int index = 0; index < validatedChunk.totalChunks(); index++) {
+            if (!uploadedIndexes.contains(index)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void completeLocalFolderFileFromChunks(DccControlledFileNasTransferTaskDO current,
+                                                   ValidatedLocalFolderChunk validatedChunk,
+                                                   String contentType) {
+        List<DccControlledFileNasTransferTaskItemDO> existingItems = requireExistingTaskItems(current.getId());
+        assertNoDuplicateLocalFolderPaths(existingItems, List.of(
+                new ValidatedLocalFolderPath(validatedChunk.relativePath(), validatedChunk.fileName())));
+        long currentUploadedFileCount =
+                requireNonNegativeCount(defaultLong(current.getUploadedFileCount()), "uploadedFileCount");
+        long currentUploadedTotalBytes =
+                requireNonNegativeCount(defaultLong(current.getUploadedTotalBytes()), "uploadedTotalBytes");
+        long currentExpectedFileCount =
+                requirePositiveCount(defaultLong(current.getExpectedFileCount()), "expectedFileCount");
+        long currentExpectedTotalBytes =
+                requireNonNegativeCount(defaultLong(current.getExpectedTotalBytes()), "expectedTotalBytes");
+        if (currentUploadedFileCount + 1 > currentExpectedFileCount) {
+            throw new IllegalStateException("local folder uploaded file count exceeds expected count");
+        }
+        if (currentUploadedTotalBytes + validatedChunk.fileSize() > currentExpectedTotalBytes) {
+            throw new IllegalStateException("local folder uploaded total bytes exceeds expected total bytes");
+        }
+
+        Long sourceFileId = mergeLocalFolderChunksAndCreateFile(current.getId(), validatedChunk, contentType);
+        insertLocalFolderTaskItems(current.getId(), List.of(new LocalFolderFileEntry(
+                validatedChunk.relativePath(),
+                validatedChunk.fileName(),
+                sourceFileId,
+                validatedChunk.fileSize()
+        )), existingItems);
+        current.setUploadedFileCount(currentUploadedFileCount + 1);
+        current.setUploadedTotalBytes(currentUploadedTotalBytes + validatedChunk.fileSize());
+        current.setLastFailureMessage(null);
+        taskMapper.updateById(current);
+    }
+
+    private Long mergeLocalFolderChunksAndCreateFile(Long taskId,
+                                                     ValidatedLocalFolderChunk validatedChunk,
+                                                     String contentType) {
+        List<DccControlledFileLocalFolderUploadChunkDO> chunks =
+                new ArrayList<>(uploadChunkMapper.selectListByTaskIdAndRelativePath(
+                        taskId, validatedChunk.relativePath()));
+        chunks.sort(Comparator.comparing(DccControlledFileLocalFolderUploadChunkDO::getChunkIndex));
+        if (chunks.size() != validatedChunk.totalChunks()) {
+            throw new IllegalStateException("local folder chunk set incomplete: " + validatedChunk.relativePath());
+        }
+        Path mergedPath = localFolderChunkDirectory(taskId, validatedChunk.relativePath())
+                .resolve("merged-" + System.nanoTime() + ".tmp");
+        try {
+            long mergedSize = 0L;
+            Files.createDirectories(mergedPath.getParent());
+            try (OutputStream outputStream = Files.newOutputStream(mergedPath)) {
+                for (int index = 0; index < validatedChunk.totalChunks(); index++) {
+                    DccControlledFileLocalFolderUploadChunkDO chunk = chunks.get(index);
+                    if (!Objects.equals(index, chunk.getChunkIndex())) {
+                        throw new IllegalStateException("local folder chunk index gap: "
+                                + validatedChunk.relativePath());
+                    }
+                    Path chunkPath = Path.of(chunk.getChunkTempPath());
+                    if (!Files.exists(chunkPath)) {
+                        throw new IllegalStateException("local folder chunk file missing: " + chunkPath);
+                    }
+                    Files.copy(chunkPath, outputStream);
+                    mergedSize += Files.size(chunkPath);
+                }
+            }
+            if (mergedSize != validatedChunk.fileSize()) {
+                throw new IllegalStateException("local folder merged file size mismatch: "
+                        + validatedChunk.relativePath());
+            }
+            return fileService.createFileAndReturnId(mergedPath, validatedChunk.fileSize(),
+                    validatedChunk.fileName(), ORIGINAL_DIRECTORY, contentType);
+        } catch (IOException exception) {
+            throw new IllegalStateException("local folder chunk merge failed: "
+                    + validatedChunk.relativePath(), exception);
+        } finally {
+            deleteIfExists(mergedPath);
+        }
+    }
+
+    private void deleteCompletedLocalFolderChunkFiles(Long taskId, String relativePath) {
+        for (DccControlledFileLocalFolderUploadChunkDO chunk :
+                uploadChunkMapper.selectListByTaskIdAndRelativePath(taskId, relativePath)) {
+            deleteIfExists(Path.of(chunk.getChunkTempPath()));
+        }
+    }
+
+    private boolean isLocalFolderPathAlreadyUploaded(Long taskId, String relativePath) {
+        return requireExistingTaskItems(taskId).stream()
+                .anyMatch(item -> ITEM_TYPE_FILE.equals(item.getItemType())
+                        && Objects.equals(item.getNasPath(), relativePath)
+                        && item.getSourceFileId() != null);
+    }
+
+    private Path localFolderChunkDirectory(Long taskId, String relativePath) {
+        String root = StrUtil.blankToDefault(multipartLocation, System.getProperty("java.io.tmpdir"));
+        return Path.of(root, LOCAL_FOLDER_UPLOAD_CHUNK_DIRECTORY, String.valueOf(taskId), sha1(relativePath));
+    }
+
+    private Path finalLocalFolderChunkPath(Long taskId, ValidatedLocalFolderChunk validatedChunk) {
+        return localFolderChunkDirectory(taskId, validatedChunk.relativePath())
+                .resolve(validatedChunk.chunkIndex() + ".part");
+    }
+
+    private void moveStoredChunkToFinalPath(Path tempPath, Path finalPath) {
+        try {
+            Files.createDirectories(finalPath.getParent());
+            Files.move(tempPath, finalPath, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException exception) {
+            throw new IllegalStateException("local folder chunk finalization failed: " + finalPath, exception);
+        }
+    }
+
+    private void deleteIfExists(Path path) {
+        if (path == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException exception) {
+            log.warn("[deleteIfExists][path({}) temporary file deletion failed]", path, exception);
+        }
+    }
+
+    private DccControlledFileNasTransferTaskDO requireLocalFolderUploadingTask(Long userId, Long taskId) {
+        DccControlledFileNasTransferTaskDO task = requireOwnedTask(userId, taskId);
+        if (!SOURCE_TYPE_LOCAL_FOLDER.equals(sourceTypeOf(task))) {
+            throw new IllegalStateException("nas transfer task is not local folder import: " + taskId);
+        }
+        if (!TASK_STATUS_UPLOADING.equals(task.getStatus())) {
+            throw new IllegalStateException("local folder import session is not uploading: " + taskId);
+        }
+        return task;
+    }
+
+    private String requireSingleLocalFolderRoot(DccControlledFileNasTransferTaskDO task) {
+        List<String> roots = JsonUtils.parseArray(
+                StrUtil.blankToDefault(task.getSelectedNasPathsJson(), "[]"), String.class);
+        if (roots.size() != 1) {
+            throw new IllegalStateException("local folder import session root count invalid: " + task.getId());
+        }
+        return requireLocalFolderRootDirectoryName(roots.get(0));
+    }
+
+    private List<DccControlledFileNasTransferTaskItemDO> requireExistingTaskItems(Long taskId) {
+        List<DccControlledFileNasTransferTaskItemDO> existingItems = taskItemMapper.selectListByTaskId(taskId);
+        if (existingItems == null) {
+            throw new IllegalStateException("local folder task items query returned null: " + taskId);
+        }
+        return existingItems;
+    }
+
+    private void assertNoDuplicateLocalFolderPaths(List<DccControlledFileNasTransferTaskItemDO> existingItems,
+                                                   List<ValidatedLocalFolderPath> validatedPaths) {
+        Set<String> existingPaths = existingItems.stream()
+                .map(DccControlledFileNasTransferTaskItemDO::getNasPath)
+                .filter(StrUtil::isNotBlank)
+                .collect(Collectors.toSet());
+        for (ValidatedLocalFolderPath validatedPath : validatedPaths) {
+            if (existingPaths.contains(validatedPath.relativePath())) {
+                throw new IllegalStateException("duplicate local folder relative path: "
+                        + validatedPath.relativePath());
+            }
+        }
+    }
+
+    private long totalFileSize(MultipartFile[] files) {
+        long total = 0L;
+        for (MultipartFile file : files) {
+            if (file.getSize() < 0) {
+                throw new IllegalStateException("local folder file size invalid: " + file.getOriginalFilename());
+            }
+            total = Math.addExact(total, file.getSize());
+        }
+        return total;
+    }
+
+    private long requirePositiveCount(Long value, String fieldName) {
+        long count = defaultLong(value);
+        if (count <= 0) {
+            throw new IllegalStateException("local folder " + fieldName + " must be positive");
+        }
+        return count;
+    }
+
+    private long requireNonNegativeCount(Long value, String fieldName) {
+        long count = defaultLong(value);
+        if (count < 0) {
+            throw new IllegalStateException("local folder " + fieldName + " must be non-negative");
+        }
+        return count;
+    }
+
+    private long defaultLong(Long value) {
+        return value == null ? 0L : value;
+    }
+
+    private String requireLocalFolderRootDirectoryName(String rootDirectoryName) {
+        String root = StrUtil.trimToEmpty(rootDirectoryName);
+        if (StrUtil.isBlank(root) || root.contains("/") || root.contains("\\")
+                || ".".equals(root) || "..".equals(root) || isAbsoluteLocalFolderPath(root)) {
+            throw new IllegalStateException("invalid local folder rootDirectoryName: " + rootDirectoryName);
+        }
+        return root;
+    }
+
+    private String requireLocalFolderRelativePath(String rawRelativePath, String rootDirectoryName) {
+        String relativePath = StrUtil.trimToEmpty(rawRelativePath);
+        if (StrUtil.isBlank(relativePath) || relativePath.contains("\\")
+                || relativePath.startsWith("/") || isAbsoluteLocalFolderPath(relativePath)
+                || relativePath.endsWith("/")) {
+            throw new IllegalStateException("unsafe local folder relative path: " + rawRelativePath);
+        }
+        String[] segments = relativePath.split("/", -1);
+        if (segments.length < 2) {
+            throw new IllegalStateException("unsafe local folder relative path: " + rawRelativePath);
+        }
+        for (String segment : segments) {
+            if (StrUtil.isBlank(segment) || ".".equals(segment) || "..".equals(segment)) {
+                throw new IllegalStateException("unsafe local folder relative path: " + rawRelativePath);
+            }
+        }
+        if (!rootDirectoryName.equals(segments[0])) {
+            throw new IllegalStateException("local folder relative path root mismatch: " + rawRelativePath);
+        }
+        return relativePath;
+    }
+
+    private boolean isAbsoluteLocalFolderPath(String path) {
+        return StrUtil.isNotBlank(path) && path.matches("^[A-Za-z]:.*");
+    }
+
+    private void triggerTaskAsync(Long tenantId) {
+        CompletableFuture.runAsync(() -> TenantUtils.execute(tenantId, () -> {
+            try {
+                processWaitingTasks();
+            } catch (RuntimeException exception) {
+                log.error("[triggerTaskAsync][tenantId({}) DCC NAS transfer async execution failed]", tenantId, exception);
+            }
+        }));
+    }
+
+    private void executeTask(Long taskId) {
+        DccControlledFileNasTransferTaskDO task = taskMapper.selectById(taskId);
+        if (task == null || TASK_STATUS_COMPLETED.equals(task.getStatus())
+                || TASK_STATUS_FAILED.equals(task.getStatus())
+                || TASK_STATUS_CANCELLED.equals(task.getStatus())) {
+            return;
+        }
+        if (taskMapper.claimWaitingTask(taskId, LocalDateTime.now()) == 0) {
+            return;
+        }
+
+        Snapshot snapshot = Snapshot.load(
+                directoryMapper.selectList(),
+                directoryAccessRuleMapper.selectList(),
+                categoryMapper.selectList(),
+                categoryDirectoryBindingMapper.selectList(),
+                permissionRuleMapper.selectList(),
+                distributionRuleMapper.selectList(),
+                trainingRuleMapper.selectList(),
+                routeMapper.selectList(),
+                routeNodeMapper.selectList()
+        );
+        TaskRuntime runtime = TaskRuntime.fromItems(taskItemMapper.selectListByTaskId(taskId));
+        SelectedCategoryContext selectedCategory;
+        try {
+            selectedCategory = requireSelectedCategoryContext(task.getTemplateCategoryId(), snapshot);
+        } catch (RuntimeException exception) {
+            log.error("[executeTask][taskId({}) DCC NAS transfer selected category validation failed]",
+                    taskId, exception);
+            markTaskFailed(taskId, resolveThrowableMessage(exception));
+            return;
+        }
+
+        try {
+            boolean localFolderTask = isLocalFolderTask(task);
+            while (true) {
+                if (isTaskCancelling(taskId)) {
+                    markTaskCancelled(taskId, CANCEL_REASON);
+                    return;
+                }
+                DccControlledFileNasTransferTaskItemDO nextItem = taskItemMapper.selectFirstWaitingItemByTaskId(taskId);
+                if (nextItem == null) {
+                    if (isTaskCancelling(taskId)) {
+                        markTaskCancelled(taskId, CANCEL_REASON);
+                    } else {
+                        finalizeTask(taskId);
+                    }
+                    return;
+                }
+                if (ITEM_TYPE_DIRECTORY.equals(nextItem.getItemType())) {
+                    if (localFolderTask) {
+                        processLocalFolderDirectoryItem(nextItem, selectedCategory, snapshot);
+                    } else {
+                        processDirectoryItem(nextItem, snapshot, runtime);
+                    }
+                } else {
+                    if (localFolderTask) {
+                        processLocalFolderFileItem(task, nextItem, selectedCategory, snapshot);
+                    } else {
+                        processFileItem(task, nextItem, selectedCategory, snapshot);
+                    }
+                }
+            }
+        } catch (RuntimeException exception) {
+            log.error("[executeTask][taskId({}) DCC NAS transfer task failed]", taskId, exception);
+            markTaskFailed(taskId, resolveThrowableMessage(exception));
+        }
+    }
+
+    private void processDirectoryItem(DccControlledFileNasTransferTaskItemDO item,
+                                      Snapshot snapshot,
+                                      TaskRuntime runtime) {
+        if (taskItemMapper.claimWaitingItem(item.getId()) == 0) {
+            return;
+        }
+        NasAclReadResult acl;
+        try {
+            acl = nasBrowserService.readDirectoryAcl(item.getNasPath());
+        } catch (Exception exception) {
+            markItemFailed(item.getId(), "acl", resolveThrowableMessage(exception));
+            return;
+        }
+
+        FileNasListRespVO listing;
+        try {
+            listing = nasBrowserService.listFiles(item.getNasPath());
+        } catch (Exception exception) {
+            markItemFailed(item.getId(), "list", resolveThrowableMessage(exception));
+            return;
+        }
+
+        List<PendingChildItem> childItems = new ArrayList<>();
+        Set<String> knownOrQueuedNasPaths = new HashSet<>(runtime.knownNasPaths());
+        for (FileNasListRespVO.Item child : listing.getItems()) {
+            String childPath = normalizePath(child.getPath());
+            if (StrUtil.isBlank(childPath) || !knownOrQueuedNasPaths.add(childPath)) {
+                continue;
+            }
+            childItems.add(new PendingChildItem(
+                    Boolean.TRUE.equals(child.getDir()) ? ITEM_TYPE_DIRECTORY : ITEM_TYPE_FILE,
+                    childPath,
+                    StrUtil.blankToDefault(StrUtil.trimToEmpty(child.getName()), lastPathSegment(childPath))
+            ));
+        }
+
+        List<String> insertedPaths = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+        try {
+            tx().executeWithoutResult(status -> {
+                DccControlledFileNasTransferTaskItemDO current = taskItemMapper.selectById(item.getId());
+                DirectoryResolution directoryResolution = resolveDirectoryForItem(current, snapshot);
+                current.setResolvedDirectoryId(directoryResolution.directory().getId());
+                current.setDirectoryOutcome(directoryResolution.outcome());
+                snapshotCaptureService.captureDirectorySnapshot(current.getTaskId(), current.getId(),
+                        current.getNasPath(), directoryResolution.directory().getId(), acl);
+                current.setStatus(ITEM_STATUS_COMPLETED);
+                current.setAttemptCount(incrementCount(current.getAttemptCount()));
+                current.setLastAttemptAt(now);
+                current.setCompletedAt(now);
+                current.setFailureStage(null);
+                current.setLastError(null);
+                taskItemMapper.updateById(current);
+                for (PendingChildItem childItem : childItems) {
+                    DccControlledFileNasTransferTaskItemDO child = DccControlledFileNasTransferTaskItemDO.builder()
+                            .taskId(current.getTaskId())
+                            .parentItemId(current.getId())
+                            .itemType(childItem.itemType())
+                            .nasPath(childItem.nasPath())
+                            .itemName(childItem.itemName())
+                            .status(ITEM_STATUS_WAITING)
+                            .attemptCount(0)
+                            .previewDownloadOnly(Boolean.FALSE)
+                            .build();
+                    taskItemMapper.insert(child);
+                    insertedPaths.add(childItem.nasPath());
+                }
+            });
+        } catch (RuntimeException exception) {
+            markItemFailed(item.getId(), "directory", resolveThrowableMessage(exception));
+            return;
+        }
+
+        runtime.knownNasPaths().addAll(insertedPaths);
+    }
+
+    private void processLocalFolderDirectoryItem(DccControlledFileNasTransferTaskItemDO item,
+                                                 SelectedCategoryContext selectedCategory,
+                                                 Snapshot snapshot) {
+        if (taskItemMapper.claimWaitingItem(item.getId()) == 0) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        try {
+            tx().executeWithoutResult(status -> {
+                DccControlledFileNasTransferTaskItemDO current = taskItemMapper.selectById(item.getId());
+                DirectoryResolution directoryResolution = resolveLocalFolderDirectoryForItem(current,
+                        selectedCategory, snapshot);
+                current.setResolvedDirectoryId(directoryResolution.directory().getId());
+                current.setDirectoryOutcome(directoryResolution.outcome());
+                current.setStatus(ITEM_STATUS_COMPLETED);
+                current.setAttemptCount(incrementCount(current.getAttemptCount()));
+                current.setLastAttemptAt(now);
+                current.setCompletedAt(now);
+                current.setFailureStage(null);
+                current.setLastError(null);
+                taskItemMapper.updateById(current);
+            });
+        } catch (RuntimeException exception) {
+            markItemFailed(item.getId(), "directory", resolveThrowableMessage(exception));
+        }
+    }
+
+    private void processFileItem(DccControlledFileNasTransferTaskDO task,
+                                 DccControlledFileNasTransferTaskItemDO item,
+                                 SelectedCategoryContext selectedCategory,
+                                 Snapshot snapshot) {
+        if (taskItemMapper.claimWaitingItem(item.getId()) == 0) {
+            return;
+        }
+        DccControlledFileNasTransferTaskItemDO parentDirectoryItem = taskItemMapper.selectById(item.getParentItemId());
+        if (parentDirectoryItem == null || parentDirectoryItem.getResolvedDirectoryId() == null) {
+            markItemFailed(item.getId(), "directory",
+                    "parent directory item unresolved: " + item.getParentItemId());
+            return;
+        }
+
+        try {
+            assignSelectedCategoryForFileItem(item, selectedCategory, snapshot);
+        } catch (RuntimeException exception) {
+            markItemFailed(item.getId(), "category", resolveThrowableMessage(exception));
+            return;
+        }
+
+        NasFileReadResult sourceFile;
+        try {
+            sourceFile = nasBrowserService.readFile(item.getNasPath());
+        } catch (Exception exception) {
+            markItemFailed(item.getId(), "read", resolveThrowableMessage(exception));
+            return;
+        }
+
+        DccControlledFilePreviewKindEnum previewKind = DccControlledFilePreviewKindEnum.resolve(
+                sourceFile.name(), sourceFile.contentType());
+        LocalDateTime now = LocalDateTime.now();
+        try {
+            tx().executeWithoutResult(status -> {
+                DccControlledFileNasTransferTaskItemDO current = taskItemMapper.selectById(item.getId());
+                DccControlledFileNasTransferTaskItemDO latestParent = taskItemMapper.selectById(item.getParentItemId());
+                if (latestParent == null || latestParent.getResolvedDirectoryId() == null) {
+                    throw new IllegalStateException("parent directory item unresolved: " + item.getParentItemId());
+                }
+                if (latestParent.getResolvedCategoryId() == null) {
+                    throw new IllegalStateException("parent category item unresolved: " + item.getParentItemId());
+                }
+                if (!snapshot.directoriesById().containsKey(latestParent.getResolvedDirectoryId())) {
+                    throw new IllegalStateException("dcc directory missing: " + latestParent.getResolvedDirectoryId());
+                }
+                Long originalFileId = fileService.createFileAndReturnId(
+                        sourceFile.bytes(),
+                        sourceFile.name(),
+                        ORIGINAL_DIRECTORY,
+                        sourceFile.contentType()
+                );
+                DccControlledFileSubmitReqVO submitReqVO = new DccControlledFileSubmitReqVO();
+                submitReqVO.setCategoryId(latestParent.getResolvedCategoryId());
+                submitReqVO.setDirectoryId(latestParent.getResolvedDirectoryId());
+                submitReqVO.setProductMasterId(task.getProductMasterId());
+                submitReqVO.setOriginalFileId(originalFileId);
+                submitReqVO.setChangeType(DccControlledFileChangeTypeEnum.NEW.getCode());
+                submitReqVO.setFileName(sourceFile.name());
+                submitReqVO.setFileNumber(fileNumberOf(sourceFile.name(), item.getNasPath()));
+                submitReqVO.setVersionNo("V1.0");
+                submitReqVO.setEffectiveDate(task.getEffectiveDate());
+                submitReqVO.setRemark("NAS transfer source: " + item.getNasPath());
+                workflowService.submitControlledFileWithoutApproval(task.getOperatorUserId(), submitReqVO);
+
+                current.setStatus(ITEM_STATUS_COMPLETED);
+                current.setAttemptCount(incrementCount(current.getAttemptCount()));
+                current.setLastAttemptAt(now);
+                current.setCompletedAt(now);
+                current.setFailureStage(null);
+                current.setLastError(null);
+                current.setPreviewDownloadOnly(previewKind == DccControlledFilePreviewKindEnum.DOWNLOAD_ONLY);
+                taskItemMapper.updateById(current);
+            });
+        } catch (ServiceException exception) {
+            markItemFailed(item.getId(), "submit", resolveThrowableMessage(exception));
+        } catch (RuntimeException exception) {
+            markItemFailed(item.getId(), "submit", resolveThrowableMessage(exception));
+        }
+    }
+
+    private void processLocalFolderFileItem(DccControlledFileNasTransferTaskDO task,
+                                            DccControlledFileNasTransferTaskItemDO item,
+                                            SelectedCategoryContext selectedCategory,
+                                            Snapshot snapshot) {
+        if (taskItemMapper.claimWaitingItem(item.getId()) == 0) {
+            return;
+        }
+        DccControlledFileNasTransferTaskItemDO parentDirectoryItem = taskItemMapper.selectById(item.getParentItemId());
+        if (parentDirectoryItem == null || parentDirectoryItem.getResolvedDirectoryId() == null) {
+            markItemFailed(item.getId(), "directory",
+                    "parent directory item unresolved: " + item.getParentItemId());
+            return;
+        }
+        if (item.getSourceFileId() == null) {
+            markItemFailed(item.getId(), "source-file",
+                    "local folder source file missing: " + item.getNasPath());
+            return;
+        }
+
+        try {
+            assignSelectedCategoryForFileItem(item, selectedCategory, snapshot);
+        } catch (RuntimeException exception) {
+            markItemFailed(item.getId(), "category", resolveThrowableMessage(exception));
+            return;
+        }
+
+        String fileName = StrUtil.blankToDefault(item.getItemName(), lastPathSegment(item.getNasPath()));
+        DccControlledFilePreviewKindEnum previewKind =
+                DccControlledFilePreviewKindEnum.resolve(fileName, null);
+        LocalDateTime now = LocalDateTime.now();
+        try {
+            tx().executeWithoutResult(status -> {
+                DccControlledFileNasTransferTaskItemDO current = taskItemMapper.selectById(item.getId());
+                DccControlledFileNasTransferTaskItemDO latestParent = taskItemMapper.selectById(item.getParentItemId());
+                if (latestParent == null || latestParent.getResolvedDirectoryId() == null) {
+                    throw new IllegalStateException("parent directory item unresolved: " + item.getParentItemId());
+                }
+                if (latestParent.getResolvedCategoryId() == null) {
+                    throw new IllegalStateException("parent category item unresolved: " + item.getParentItemId());
+                }
+                if (!snapshot.directoriesById().containsKey(latestParent.getResolvedDirectoryId())) {
+                    throw new IllegalStateException("dcc directory missing: " + latestParent.getResolvedDirectoryId());
+                }
+                if (current.getSourceFileId() == null) {
+                    throw new IllegalStateException("local folder source file missing: " + item.getNasPath());
+                }
+                DccControlledFileSubmitReqVO submitReqVO = new DccControlledFileSubmitReqVO();
+                submitReqVO.setCategoryId(latestParent.getResolvedCategoryId());
+                submitReqVO.setDirectoryId(latestParent.getResolvedDirectoryId());
+                submitReqVO.setProductMasterId(task.getProductMasterId());
+                submitReqVO.setOriginalFileId(current.getSourceFileId());
+                submitReqVO.setChangeType(DccControlledFileChangeTypeEnum.NEW.getCode());
+                submitReqVO.setFileName(fileName);
+                submitReqVO.setFileNumber(fileNumberOf(fileName, item.getNasPath()));
+                submitReqVO.setVersionNo("V1.0");
+                submitReqVO.setEffectiveDate(task.getEffectiveDate());
+                submitReqVO.setRemark("Local folder import source: " + item.getNasPath());
+                workflowService.submitControlledFileWithoutApproval(task.getOperatorUserId(), submitReqVO);
+
+                current.setStatus(ITEM_STATUS_COMPLETED);
+                current.setAttemptCount(incrementCount(current.getAttemptCount()));
+                current.setLastAttemptAt(now);
+                current.setCompletedAt(now);
+                current.setFailureStage(null);
+                current.setLastError(null);
+                current.setPreviewDownloadOnly(previewKind == DccControlledFilePreviewKindEnum.DOWNLOAD_ONLY);
+                taskItemMapper.updateById(current);
+            });
+        } catch (ServiceException exception) {
+            markItemFailed(item.getId(), "submit", resolveThrowableMessage(exception));
+        } catch (RuntimeException exception) {
+            markItemFailed(item.getId(), "submit", resolveThrowableMessage(exception));
+        }
+    }
+
+    private Long assignSelectedCategoryForFileItem(DccControlledFileNasTransferTaskItemDO item,
+                                                   SelectedCategoryContext selectedCategory,
+                                                   Snapshot snapshot) {
+        Long categoryId = tx().execute(status -> {
+            DccControlledFileNasTransferTaskItemDO latestParent = taskItemMapper.selectById(item.getParentItemId());
+            if (latestParent == null || latestParent.getResolvedDirectoryId() == null) {
+                throw new IllegalStateException("parent directory item unresolved: " + item.getParentItemId());
+            }
+            DccFileDirectoryDO directory = snapshot.directoriesById().get(latestParent.getResolvedDirectoryId());
+            if (directory == null) {
+                throw new IllegalStateException("dcc directory missing: " + latestParent.getResolvedDirectoryId());
+            }
+            if (!isDirectoryCoveredByBinding(directory.getId(), selectedCategory.bindingDirectoryId(), snapshot)) {
+                throw new IllegalStateException("selected category directory binding does not cover target directory: "
+                        + "categoryId=" + selectedCategory.category().getId()
+                        + ", bindingDirectoryId=" + selectedCategory.bindingDirectoryId()
+                        + ", targetDirectoryId=" + directory.getId());
+            }
+            if (!selectedCategory.category().getId().equals(latestParent.getResolvedCategoryId())) {
+                latestParent.setResolvedCategoryId(selectedCategory.category().getId());
+                latestParent.setCategoryOutcome(OUTCOME_REUSED);
+                if (taskItemMapper.updateById(latestParent) != 1) {
+                    throw new IllegalStateException("parent category item update failed: " + item.getParentItemId());
+                }
+            }
+            return selectedCategory.category().getId();
+        });
+        if (categoryId == null) {
+            throw new IllegalStateException("parent category item unresolved: " + item.getParentItemId());
+        }
+        return categoryId;
+    }
+
+    private void finalizeTask(Long taskId) {
+        DccControlledFileNasTransferTaskDO current = taskMapper.selectById(taskId);
+        if (current == null) {
+            return;
+        }
+        if (!isLocalFolderTask(current)) {
+            snapshotCaptureService.completeSnapshotForTask(taskId);
+        }
+        current.setStatus(TASK_STATUS_COMPLETED);
+        current.setCompletedAt(LocalDateTime.now());
+        current.setNextCheckAt(null);
+        DccControlledFileNasTransferRespVO response = buildTaskResponse(current);
+        refreshFailureReport(current, response);
+        taskMapper.updateById(current);
+    }
+
+    private boolean isTaskCancelling(Long taskId) {
+        DccControlledFileNasTransferTaskDO current = taskMapper.selectById(taskId);
+        return current != null && TASK_STATUS_CANCELLING.equals(current.getStatus());
+    }
+
+    private void markTaskCancelled(Long taskId, String reason) {
+        DccControlledFileNasTransferTaskDO current = taskMapper.selectById(taskId);
+        if (current == null) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        taskItemMapper.cancelWaitingItemsByTaskId(taskId, now);
+        current.setStatus(TASK_STATUS_CANCELLED);
+        current.setCompletedAt(now);
+        current.setNextCheckAt(null);
+        current.setLastFailureMessage(fitDatabaseErrorMessage(reason));
+        DccControlledFileNasTransferRespVO response = buildTaskResponse(current);
+        refreshFailureReport(current, response);
+        taskMapper.updateById(current);
+    }
+
+    private void markTaskFailed(Long taskId, String reason) {
+        DccControlledFileNasTransferTaskDO current = taskMapper.selectById(taskId);
+        if (current == null) {
+            return;
+        }
+        current.setStatus(TASK_STATUS_FAILED);
+        current.setCompletedAt(LocalDateTime.now());
+        current.setNextCheckAt(null);
+        current.setLastFailureMessage(fitDatabaseErrorMessage(reason));
+        DccControlledFileNasTransferRespVO response = buildTaskResponse(current);
+        refreshFailureReport(current, response);
+        taskMapper.updateById(current);
+    }
+
+    private void refreshFailureReport(DccControlledFileNasTransferTaskDO task,
+                                      DccControlledFileNasTransferRespVO response) {
+        if (response.getFailures().isEmpty()) {
+            task.setFailureReportPath(null);
+            task.setFailureReportGeneratedAt(null);
+            task.setFailureReportError(null);
+            return;
+        }
+        try {
+            DccControlledFileNasTransferFailureReportService.FailureReport report =
+                    failureReportService.write(toReqVO(task), response);
+            task.setFailureReportPath(report.path());
+            task.setFailureReportGeneratedAt(report.generatedAt());
+            task.setFailureReportError(null);
+        } catch (Exception exception) {
+            task.setFailureReportPath(null);
+            task.setFailureReportGeneratedAt(null);
+            task.setFailureReportError(fitDatabaseErrorMessage(resolveThrowableMessage(exception)));
+        }
+    }
+
+    private void markItemFailed(Long itemId, String stage, String reason) {
+        LocalDateTime now = LocalDateTime.now();
+        tx().executeWithoutResult(status -> {
+            DccControlledFileNasTransferTaskItemDO item = taskItemMapper.selectById(itemId);
+            if (item == null) {
+                return;
+            }
+            item.setStatus(ITEM_STATUS_FAILED);
+            item.setAttemptCount(incrementCount(item.getAttemptCount()));
+            item.setFailureStage(stage);
+            item.setLastError(fitDatabaseErrorMessage(reason));
+            item.setLastAttemptAt(now);
+            item.setCompletedAt(now);
+            taskItemMapper.updateById(item);
+        });
+    }
+
+    private DccControlledFileNasTransferRespVO buildTaskResponse(DccControlledFileNasTransferTaskDO task) {
+        DccControlledFileNasTransferRespVO response = new DccControlledFileNasTransferRespVO();
+        response.setTaskId(task.getId());
+        response.setStatus(StrUtil.blankToDefault(task.getStatus(), TASK_STATUS_WAITING));
+        response.setSourceType(sourceTypeOf(task));
+        response.setSelectedNasPaths(JsonUtils.parseArray(
+                StrUtil.blankToDefault(task.getSelectedNasPathsJson(), "[]"), String.class));
+        response.setExpectedFileCount(defaultLong(task.getExpectedFileCount()));
+        response.setExpectedTotalBytes(defaultLong(task.getExpectedTotalBytes()));
+        response.setUploadedFileCount(defaultLong(task.getUploadedFileCount()));
+        response.setUploadedTotalBytes(defaultLong(task.getUploadedTotalBytes()));
+        response.setUploadCompletedAt(task.getUploadCompletedAt() == null ? null : task.getUploadCompletedAt().toString());
+        response.setLastFailureMessage(task.getLastFailureMessage());
+        response.setCompletedAt(task.getCompletedAt() == null ? null : task.getCompletedAt().toString());
+        response.setFailureReportPath(task.getFailureReportPath());
+        response.setFailureReportGeneratedAt(task.getFailureReportGeneratedAt());
+        response.setFailureReportError(task.getFailureReportError());
+
+        Long taskId = task.getId();
+        response.setCreatedDirectoryCount(toIntegerCount(
+                taskItemMapper.selectCountByTaskIdAndItemTypeAndDirectoryOutcome(taskId, ITEM_TYPE_DIRECTORY, OUTCOME_CREATED),
+                "createdDirectoryCount"));
+        response.setReusedDirectoryCount(toIntegerCount(
+                taskItemMapper.selectCountByTaskIdAndItemTypeAndDirectoryOutcome(taskId, ITEM_TYPE_DIRECTORY, OUTCOME_REUSED),
+                "reusedDirectoryCount"));
+        response.setCreatedCategoryCount(toIntegerCount(
+                taskItemMapper.selectCountByTaskIdAndItemTypeAndCategoryOutcome(taskId, ITEM_TYPE_DIRECTORY, OUTCOME_CREATED),
+                "createdCategoryCount"));
+        response.setReusedCategoryCount(toIntegerCount(
+                taskItemMapper.selectCountByTaskIdAndItemTypeAndCategoryOutcome(taskId, ITEM_TYPE_DIRECTORY, OUTCOME_REUSED),
+                "reusedCategoryCount"));
+        response.setCreatedFileCount(toIntegerCount(
+                taskItemMapper.selectCompletedFileCountByTaskId(taskId), "createdFileCount"));
+        response.setSkippedPreviewOnlyCount(toIntegerCount(
+                taskItemMapper.selectPreviewDownloadOnlyCompletedFileCountByTaskId(taskId), "skippedPreviewOnlyCount"));
+        response.setRemainingPendingCount(toIntegerCount(
+                taskItemMapper.selectPendingItemCountByTaskId(taskId), "remainingPendingCount"));
+
+        List<DccControlledFileNasTransferTaskItemDO> failedItems = taskItemMapper.selectFailedItemsByTaskId(taskId);
+        for (DccControlledFileNasTransferTaskItemDO item : failedItems) {
+            DccControlledFileNasTransferRespVO.FailureItem failureItem =
+                    new DccControlledFileNasTransferRespVO.FailureItem();
+            failureItem.setNasPath(item.getNasPath());
+            failureItem.setStage(StrUtil.blankToDefault(item.getFailureStage(), "task"));
+            failureItem.setReason(StrUtil.blankToDefault(item.getLastError(), "unknown error"));
+            response.getFailures().add(failureItem);
+        }
+        response.setFailedFileCount(toIntegerCount(failedItems.size(), "failedFileCount"));
+        return response;
+    }
+
+    private boolean isLocalFolderTask(DccControlledFileNasTransferTaskDO task) {
+        return SOURCE_TYPE_LOCAL_FOLDER.equals(sourceTypeOf(task));
+    }
+
+    private String sourceTypeOf(DccControlledFileNasTransferTaskDO task) {
+        return StrUtil.blankToDefault(task.getSourceType(), SOURCE_TYPE_NAS);
+    }
+
+    private Integer toIntegerCount(long value, String fieldName) {
+        try {
+            return Math.toIntExact(value);
+        } catch (ArithmeticException exception) {
+            throw new IllegalStateException("nas transfer " + fieldName + " exceeds integer range: " + value,
+                    exception);
+        }
+    }
+
+    private DccControlledFileNasTransferTaskDO requireOwnedTask(Long userId, Long taskId) {
+        DccControlledFileNasTransferTaskDO task = taskMapper.selectById(taskId);
+        if (task == null || !Objects.equals(task.getOperatorUserId(), userId)) {
+            throw new IllegalStateException("nas transfer task not found: " + taskId);
+        }
+        return task;
+    }
+
+    private DccControlledFileNasTransferReqVO toReqVO(DccControlledFileNasTransferTaskDO task) {
+        DccControlledFileNasTransferReqVO reqVO = new DccControlledFileNasTransferReqVO();
+        reqVO.setSelectedNasPaths(JsonUtils.parseArray(
+                StrUtil.blankToDefault(task.getSelectedNasPathsJson(), "[]"), String.class));
+        reqVO.setTemplateCategoryId(task.getTemplateCategoryId());
+        reqVO.setProductMasterId(task.getProductMasterId());
+        reqVO.setEffectiveDate(task.getEffectiveDate());
+        return reqVO;
+    }
+
+    private DccFileCategoryDO requireSelectedCategory(Long selectedCategoryId) {
+        DccFileCategoryDO category = categoryMapper.selectById(selectedCategoryId);
+        if (category == null || !Boolean.TRUE.equals(category.getActive())) {
+            throw new IllegalStateException("selected category missing or inactive: " + selectedCategoryId);
+        }
+        return category;
+    }
+
+    private SelectedCategoryContext requireSelectedCategoryContext(Long selectedCategoryId) {
+        DccFileCategoryDO category = requireSelectedCategory(selectedCategoryId);
+        DccCategoryDirectoryBindingDO binding = categoryDirectoryBindingMapper.selectActiveByCategoryId(selectedCategoryId);
+        if (binding == null || binding.getDirectoryId() == null) {
+            throw new IllegalStateException(SELECTED_CATEGORY_DIRECTORY_BINDING_REQUIRED_MESSAGE);
+        }
+        return new SelectedCategoryContext(category, binding.getDirectoryId());
+    }
+
+    private SelectedCategoryContext requireSelectedCategoryContext(Long selectedCategoryId, Snapshot snapshot) {
+        DccFileCategoryDO category = requireSelectedCategory(selectedCategoryId);
+        Long bindingDirectoryId = snapshot.categoryBindingDirectoryId().get(selectedCategoryId);
+        if (bindingDirectoryId == null) {
+            throw new IllegalStateException(SELECTED_CATEGORY_DIRECTORY_BINDING_REQUIRED_MESSAGE);
+        }
+        DccFileDirectoryDO bindingDirectory = snapshot.directoriesById().get(bindingDirectoryId);
+        if (bindingDirectory == null || !Boolean.TRUE.equals(bindingDirectory.getActive())) {
+            throw new IllegalStateException("selected category bound directory missing or inactive: "
+                    + bindingDirectoryId);
+        }
+        return new SelectedCategoryContext(category, bindingDirectoryId);
+    }
+
+    private boolean isDirectoryCoveredByBinding(Long directoryId, Long bindingDirectoryId, Snapshot snapshot) {
+        Long currentDirectoryId = directoryId;
+        while (currentDirectoryId != null) {
+            if (currentDirectoryId.equals(bindingDirectoryId)) {
+                return true;
+            }
+            DccFileDirectoryDO currentDirectory = snapshot.directoriesById().get(currentDirectoryId);
+            if (currentDirectory == null) {
+                return false;
+            }
+            currentDirectoryId = currentDirectory.getParentId();
+        }
+        return false;
+    }
+
+    private DirectoryResolution resolveDirectoryForItem(DccControlledFileNasTransferTaskItemDO item,
+                                                        Snapshot snapshot) {
+        return resolveDirectoryForItem(item, snapshot, null, "Created from NAS transfer task");
+    }
+
+    private DirectoryResolution resolveLocalFolderDirectoryForItem(DccControlledFileNasTransferTaskItemDO item,
+                                                                   SelectedCategoryContext selectedCategory,
+                                                                   Snapshot snapshot) {
+        DccFileDirectoryDO bindingDirectory = snapshot.directoriesById().get(selectedCategory.bindingDirectoryId());
+        if (bindingDirectory == null || !Boolean.TRUE.equals(bindingDirectory.getActive())) {
+            throw new IllegalStateException("selected category bound directory missing or inactive: "
+                    + selectedCategory.bindingDirectoryId());
+        }
+        if (item.getResolvedDirectoryId() == null && item.getParentItemId() == null
+                && Objects.equals(bindingDirectory.getName(), item.getItemName())) {
+            return new DirectoryResolution(bindingDirectory, OUTCOME_REUSED);
+        }
+        return resolveDirectoryForItem(item, snapshot, selectedCategory.bindingDirectoryId(),
+                "Created from local folder import task");
+    }
+
+    private DirectoryResolution resolveDirectoryForItem(DccControlledFileNasTransferTaskItemDO item,
+                                                        Snapshot snapshot,
+                                                        Long rootParentDirectoryId,
+                                                        String createdRemark) {
+        if (item.getResolvedDirectoryId() != null) {
+            DccFileDirectoryDO existing = snapshot.directoriesById().get(item.getResolvedDirectoryId());
+            if (existing != null) {
+                return new DirectoryResolution(existing,
+                        StrUtil.blankToDefault(item.getDirectoryOutcome(), OUTCOME_REUSED));
+            }
+        }
+        Long parentDirectoryId = rootParentDirectoryId;
+        if (item.getParentItemId() != null) {
+            DccControlledFileNasTransferTaskItemDO parentItem = taskItemMapper.selectById(item.getParentItemId());
+            if (parentItem == null || parentItem.getResolvedDirectoryId() == null) {
+                throw new IllegalStateException("parent directory item unresolved: " + item.getParentItemId());
+            }
+            parentDirectoryId = parentItem.getResolvedDirectoryId();
+        }
+        List<DccFileDirectoryDO> candidates = snapshot.directoriesByParentAndName()
+                .getOrDefault(directoryKey(parentDirectoryId, item.getItemName()), List.of());
+        if (candidates.size() > 1) {
+            throw new IllegalStateException("duplicate dcc directory: " + item.getNasPath());
+        }
+        if (candidates.size() == 1) {
+            return new DirectoryResolution(candidates.get(0), OUTCOME_REUSED);
+        }
+        DccFileDirectoryDO created = DccFileDirectoryDO.builder()
+                .parentId(parentDirectoryId)
+                .code(DIRECTORY_CODE_PREFIX + sha1(item.getNasPath()))
+                .name(item.getItemName())
+                .active(Boolean.TRUE)
+                .sort(snapshot.nextDirectorySort(parentDirectoryId))
+                .remark(createdRemark)
+                .accessRuleManuallyBound(Boolean.FALSE)
+                .build();
+        directoryMapper.insert(created);
+        cloneDirectoryAccessRules(parentDirectoryId, created.getId(), snapshot);
+        snapshot.addDirectory(created);
+        return new DirectoryResolution(created, OUTCOME_CREATED);
+    }
+
+    private void cloneDirectoryAccessRules(Long parentId, Long newDirectoryId, Snapshot snapshot) {
+        if (parentId == null) {
+            return;
+        }
+        List<DccDirectoryAccessRuleDO> parentRules = snapshot.directoryAccessRulesByDirectoryId()
+                .getOrDefault(parentId, List.of());
+        for (DccDirectoryAccessRuleDO parentRule : parentRules) {
+            DccDirectoryAccessRuleDO cloned = DccDirectoryAccessRuleDO.builder()
+                    .directoryId(newDirectoryId)
+                    .subjectType(parentRule.getSubjectType())
+                    .subjectId(parentRule.getSubjectId())
+                    .canQuery(parentRule.getCanQuery())
+                    .canPreview(parentRule.getCanPreview())
+                    .canDownload(parentRule.getCanDownload())
+                    .active(parentRule.getActive())
+                    .changeReason(parentRule.getChangeReason())
+                    .build();
+            directoryAccessRuleMapper.insert(cloned);
+            snapshot.addDirectoryAccessRule(cloned);
+        }
+    }
+
+    private List<String> collapseSelectedRoots(List<String> selectedNasPaths) {
+        List<String> normalized = selectedNasPaths.stream()
+                .map(this::normalizePath)
+                .filter(StrUtil::isNotBlank)
+                .distinct()
+                .sorted(Comparator.comparingInt(String::length))
+                .toList();
+        List<String> collapsed = new ArrayList<>();
+        for (String candidate : normalized) {
+            boolean covered = collapsed.stream()
+                    .anyMatch(parent -> candidate.equals(parent) || candidate.startsWith(parent + "/"));
+            if (!covered) {
+                collapsed.add(candidate);
+            }
+        }
+        return collapsed;
+    }
+
+    private String normalizePath(String rawPath) {
+        String normalized = StrUtil.trimToEmpty(rawPath).replace("\\", "/");
+        List<String> parts = new ArrayList<>();
+        for (String token : normalized.split("/")) {
+            String clean = StrUtil.trimToEmpty(token);
+            if (StrUtil.isBlank(clean) || ".".equals(clean)) {
+                continue;
+            }
+            if ("..".equals(clean)) {
+                if (!parts.isEmpty()) {
+                    parts.remove(parts.size() - 1);
+                }
+                continue;
+            }
+            parts.add(clean);
+        }
+        return String.join("/", parts);
+    }
+
+    private String lastPathSegment(String path) {
+        int index = StrUtil.nullToEmpty(path).lastIndexOf('/');
+        return index >= 0 ? path.substring(index + 1) : path;
+    }
+
+    private String fileNumberOf(String fileName, String nasPath) {
+        String cleanName = StrUtil.nullToEmpty(fileName).trim();
+        int index = cleanName.lastIndexOf('.');
+        String stem = index > 0 ? cleanName.substring(0, index) : cleanName;
+        if (stem.length() <= FILE_NUMBER_MAX_LENGTH) {
+            return stem;
+        }
+        String suffix = "-" + sha1(StrUtil.blankToDefault(nasPath, cleanName))
+                .substring(0, FILE_NUMBER_HASH_LENGTH);
+        int prefixLength = FILE_NUMBER_MAX_LENGTH - suffix.length();
+        return stem.substring(0, prefixLength).trim() + suffix;
+    }
+
+    private String directoryKey(Long parentId, String name) {
+        return String.valueOf(parentId) + "::" + StrUtil.nullToEmpty(name).trim();
+    }
+
+    private String categoryKey(Long directoryId, String name) {
+        return String.valueOf(directoryId) + "::" + StrUtil.nullToEmpty(name).trim();
+    }
+
+    private String categoryCodeKey(String code) {
+        return StrUtil.nullToEmpty(code).trim();
+    }
+
+    private String resolveThrowableMessage(Throwable throwable) {
+        return StrUtil.blankToDefault(throwable.getMessage(), throwable.getClass().getSimpleName());
+    }
+
+    private String fitDatabaseErrorMessage(String message) {
+        String normalizedMessage = StrUtil.blankToDefault(message, "unknown error");
+        if (normalizedMessage.length() <= DATABASE_ERROR_MESSAGE_MAX_LENGTH) {
+            return normalizedMessage;
+        }
+        int contentLength = DATABASE_ERROR_MESSAGE_MAX_LENGTH - DATABASE_ERROR_MESSAGE_TRUNCATED_SUFFIX.length();
+        return normalizedMessage.substring(0, contentLength) + DATABASE_ERROR_MESSAGE_TRUNCATED_SUFFIX;
+    }
+
+    private String sha1(String raw) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-1");
+            return HexFormat.of().formatHex(digest.digest(raw.getBytes(StandardCharsets.UTF_8))).toUpperCase();
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-1 unavailable", ex);
+        }
+    }
+
+    private int incrementCount(Integer count) {
+        return count == null ? 1 : count + 1;
+    }
+
+    private LocalDateTime nextScheduledCheckTime() {
+        return LocalDateTime.now().plusSeconds(TASK_RETRY_DELAY_SECONDS);
+    }
+
+    private TransactionTemplate tx() {
+        return new TransactionTemplate(transactionManager);
+    }
+
+    private record PendingChildItem(String itemType, String nasPath, String itemName) {
+    }
+
+    private record ValidatedLocalFolderPath(String relativePath, String fileName) {
+    }
+
+    private record ValidatedLocalFolderChunk(String relativePath, String fileName, Long fileSize,
+                                             Integer chunkIndex, Integer totalChunks, Long chunkSize,
+                                             String chunkSha256) {
+    }
+
+    private record StoredChunkFile(Path tempPath) {
+    }
+
+    private record LocalFolderFileEntry(String relativePath, String fileName, Long sourceFileId, Long fileSize) {
+    }
+
+    private record DirectoryResolution(DccFileDirectoryDO directory, String outcome) {
+    }
+
+    private record SelectedCategoryContext(DccFileCategoryDO category, Long bindingDirectoryId) {
+    }
+
+    static final class TaskRuntime {
+        private final Set<String> knownNasPaths;
+
+        private TaskRuntime(Set<String> knownNasPaths) {
+            this.knownNasPaths = knownNasPaths;
+        }
+
+        static TaskRuntime fromItems(List<DccControlledFileNasTransferTaskItemDO> items) {
+            return new TaskRuntime(items.stream()
+                    .map(DccControlledFileNasTransferTaskItemDO::getNasPath)
+                    .filter(StrUtil::isNotBlank)
+                    .collect(Collectors.toCollection(HashSet::new)));
+        }
+
+        Set<String> knownNasPaths() {
+            return knownNasPaths;
+        }
+    }
+
+    static final class Snapshot {
+        private final Map<String, List<DccFileDirectoryDO>> directoriesByParentAndName = new LinkedHashMap<>();
+        private final Map<Long, DccFileDirectoryDO> directoriesById = new LinkedHashMap<>();
+        private final Map<Long, List<DccDirectoryAccessRuleDO>> directoryAccessRulesByDirectoryId = new LinkedHashMap<>();
+        private final Map<String, List<DccFileCategoryDO>> categoriesByDirectoryAndName = new LinkedHashMap<>();
+        private final Map<Long, DccFileCategoryDO> categoriesById = new LinkedHashMap<>();
+        private final Map<String, List<DccFileCategoryDO>> categoriesByCode = new LinkedHashMap<>();
+        private final Map<Long, Integer> nextDirectorySortByParent = new HashMap<>();
+        private final Map<Long, Long> categoryBindingDirectoryId = new HashMap<>();
+        private final Map<Long, List<DccFileCategoryPermissionRuleDO>> permissionRulesByCategoryId = new LinkedHashMap<>();
+        private final Map<Long, List<DccFileCategoryDistributionRuleDO>> distributionRulesByCategoryId = new LinkedHashMap<>();
+        private final Map<Long, List<DccFileCategoryTrainingRuleDO>> trainingRulesByCategoryId = new LinkedHashMap<>();
+        private final Map<Long, List<DccCategoryApprovalRouteDO>> routesByCategoryId = new LinkedHashMap<>();
+        private final Map<Long, List<DccCategoryApprovalRouteNodeDO>> routeNodesByRouteId = new LinkedHashMap<>();
+        private int nextCategorySort;
+
+        static Snapshot load(List<DccFileDirectoryDO> directories,
+                             List<DccDirectoryAccessRuleDO> directoryAccessRules,
+                             List<DccFileCategoryDO> categories,
+                             List<DccCategoryDirectoryBindingDO> bindings,
+                             List<DccFileCategoryPermissionRuleDO> permissionRules,
+                             List<DccFileCategoryDistributionRuleDO> distributionRules,
+                             List<DccFileCategoryTrainingRuleDO> trainingRules,
+                             List<DccCategoryApprovalRouteDO> routes,
+                             List<DccCategoryApprovalRouteNodeDO> routeNodes) {
+            Snapshot snapshot = new Snapshot();
+            for (DccFileDirectoryDO directory : directories) {
+                snapshot.addDirectory(directory);
+            }
+            for (DccDirectoryAccessRuleDO rule : directoryAccessRules) {
+                snapshot.addDirectoryAccessRule(rule);
+            }
+            snapshot.nextCategorySort = categories.stream()
+                    .map(DccFileCategoryDO::getSort)
+                    .filter(Objects::nonNull)
+                    .max(Integer::compareTo)
+                    .orElse(0);
+            Map<Long, Long> bindingMap = bindings.stream()
+                    .filter(item -> Boolean.TRUE.equals(item.getActive()))
+                    .collect(Collectors.toMap(DccCategoryDirectoryBindingDO::getCategoryId,
+                            DccCategoryDirectoryBindingDO::getDirectoryId, (left, right) -> left));
+            snapshot.categoryBindingDirectoryId.putAll(bindingMap);
+            for (DccFileCategoryDO category : categories) {
+                Long directoryId = bindingMap.get(category.getId());
+                snapshot.categoriesById.put(category.getId(), category);
+                snapshot.categoriesByCode
+                        .computeIfAbsent(snapshot.categoryCodeKey(category.getCode()), key -> new ArrayList<>())
+                        .add(category);
+                if (directoryId == null) {
+                    continue;
+                }
+                snapshot.categoriesByDirectoryAndName
+                        .computeIfAbsent(snapshot.categoryKey(directoryId, category.getName()), key -> new ArrayList<>())
+                        .add(category);
+            }
+            for (DccFileCategoryPermissionRuleDO rule : permissionRules) {
+                snapshot.permissionRulesByCategoryId.computeIfAbsent(rule.getCategoryId(), key -> new ArrayList<>()).add(rule);
+            }
+            for (DccFileCategoryDistributionRuleDO rule : distributionRules) {
+                snapshot.distributionRulesByCategoryId.computeIfAbsent(rule.getCategoryId(), key -> new ArrayList<>()).add(rule);
+            }
+            for (DccFileCategoryTrainingRuleDO rule : trainingRules) {
+                snapshot.trainingRulesByCategoryId.computeIfAbsent(rule.getCategoryId(), key -> new ArrayList<>()).add(rule);
+            }
+            for (DccCategoryApprovalRouteDO route : routes) {
+                snapshot.routesByCategoryId.computeIfAbsent(route.getCategoryId(), key -> new ArrayList<>()).add(route);
+            }
+            for (DccCategoryApprovalRouteNodeDO node : routeNodes) {
+                snapshot.routeNodesByRouteId.computeIfAbsent(node.getRouteId(), key -> new ArrayList<>()).add(node);
+            }
+            return snapshot;
+        }
+
+        void addDirectory(DccFileDirectoryDO directory) {
+            directoriesById.put(directory.getId(), directory);
+            directoriesByParentAndName
+                    .computeIfAbsent(directoryKey(directory.getParentId(), directory.getName()), key -> new ArrayList<>())
+                    .add(directory);
+            int nextSort = directory.getSort() == null ? 0 : directory.getSort();
+            nextDirectorySortByParent.merge(directory.getParentId(), nextSort, Math::max);
+        }
+
+        void addDirectoryAccessRule(DccDirectoryAccessRuleDO rule) {
+            directoryAccessRulesByDirectoryId.computeIfAbsent(rule.getDirectoryId(), key -> new ArrayList<>()).add(rule);
+        }
+
+        void addCategory(DccFileCategoryDO category, DccCategoryDirectoryBindingDO binding) {
+            if (!categoriesById.containsKey(category.getId())) {
+                categoriesById.put(category.getId(), category);
+                categoriesByCode
+                        .computeIfAbsent(categoryCodeKey(category.getCode()), key -> new ArrayList<>())
+                        .add(category);
+            }
+            categoryBindingDirectoryId.put(category.getId(), binding.getDirectoryId());
+            categoriesByDirectoryAndName
+                    .computeIfAbsent(categoryKey(binding.getDirectoryId(), category.getName()), key -> new ArrayList<>())
+                    .add(category);
+        }
+
+        int nextDirectorySort(Long parentId) {
+            int next = nextDirectorySortByParent.getOrDefault(parentId, 0) + 1;
+            nextDirectorySortByParent.put(parentId, next);
+            return next;
+        }
+
+        int nextCategorySort() {
+            nextCategorySort += 1;
+            return nextCategorySort;
+        }
+
+        Map<String, List<DccFileDirectoryDO>> directoriesByParentAndName() {
+            return directoriesByParentAndName;
+        }
+
+        Map<Long, DccFileDirectoryDO> directoriesById() {
+            return directoriesById;
+        }
+
+        Map<Long, List<DccDirectoryAccessRuleDO>> directoryAccessRulesByDirectoryId() {
+            return directoryAccessRulesByDirectoryId;
+        }
+
+        Map<String, List<DccFileCategoryDO>> categoriesByDirectoryAndName() {
+            return categoriesByDirectoryAndName;
+        }
+
+        Map<String, List<DccFileCategoryDO>> categoriesByCode() {
+            return categoriesByCode;
+        }
+
+        Map<Long, Long> categoryBindingDirectoryId() {
+            return categoryBindingDirectoryId;
+        }
+
+        Map<Long, List<DccFileCategoryPermissionRuleDO>> permissionRulesByCategoryId() {
+            return permissionRulesByCategoryId;
+        }
+
+        Map<Long, List<DccFileCategoryDistributionRuleDO>> distributionRulesByCategoryId() {
+            return distributionRulesByCategoryId;
+        }
+
+        Map<Long, List<DccFileCategoryTrainingRuleDO>> trainingRulesByCategoryId() {
+            return trainingRulesByCategoryId;
+        }
+
+        Map<Long, List<DccCategoryApprovalRouteDO>> routesByCategoryId() {
+            return routesByCategoryId;
+        }
+
+        Map<Long, List<DccCategoryApprovalRouteNodeDO>> routeNodesByRouteId() {
+            return routeNodesByRouteId;
+        }
+
+        private String directoryKey(Long parentId, String name) {
+            return String.valueOf(parentId) + "::" + StrUtil.nullToEmpty(name).trim();
+        }
+
+        private String categoryKey(Long directoryId, String name) {
+            return String.valueOf(directoryId) + "::" + StrUtil.nullToEmpty(name).trim();
+        }
+
+        private String categoryCodeKey(String code) {
+            return StrUtil.nullToEmpty(code).trim();
+        }
+    }
+}

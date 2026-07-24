@@ -1,0 +1,23 @@
+{
+  "product": {
+    "id": 5319,
+    "revision_no": 47,
+    "name_cn": "一次性使用三通旋塞",
+    "name_en": "Manifold for Single use-OFF",
+    "cover_image": "/admin-api/infra/file/28/get/showroom/product/cover/20260601/product-product_001-imported-cover-b7a35f69730887ea.png"
+  },
+  "coverStats": {
+    "url": "http://127.0.0.1:8081/admin-api/infra/file/28/get/showroom/product/cover/20260601/product-product_001-imported-cover-b7a35f69730887ea.png",
+    "bytes": 4235,
+    "sha256": "b7a35f69730887ead9da9e7866834635161afa8286783e9fa63dff718769d611",
+    "width": 120,
+    "height": 90,
+    "alphaMin": 0,
+    "alphaMax": 255,
+    "transparentPixels": 9679,
+    "partialAlphaPixels": 0,
+    "opaquePixels": 1121,
+    "totalPixels": 10800,
+    "transparentRatio": 0.8962037037037037
+  }
+}

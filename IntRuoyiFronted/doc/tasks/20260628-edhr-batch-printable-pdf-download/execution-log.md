@@ -1,0 +1,28 @@
+# 执行日志：eDHR 批次打印版 PDF 前端收口
+
+- `BDD: 三个入口统一显示下载打印版PDF -> Given 用户位于批次列表、详情页或归档预览弹窗 / When 页面渲染下载入口 / Then 按钮文案统一显示“下载打印版PDF”。`
+- `BDD: 旧归档错误原样提示 -> Given 后端返回“请先重新生成最终归档后再下载打印版 PDF” / When 用户点击下载或打印 / Then 前端 toast 或弹窗原样展示该错误，不改写为通用失败。`
+- `GREEN: previous-task-blocked -> PASS，已确认前端上一任务 20260628-edhr-batch-progress-over-100-fix 因当前更高优先级需求切换而阻塞。`
+- `GREEN: experience-index-hit -> PASS，已命中并读取 powershell-memory / login-access / FRONTEND_STYLE 门禁。`
+- `GREEN: experience-preflight -> PASS，真实下载/打印验收限定本机 http://localhost:8081 与测试租户，已按门禁完成 experience 命中检查，允许执行官方 login-preflight。`
+- `GREEN: node D:\ProjectPackage\Int\IntRuoyi\scripts\preflight\login-preflight.mjs --base-url http://localhost:8081 --tenant 测试租户 --username aoteman --password 111111 --target-path /mes/pro/feedback/edhr-batch-execution --target-text 下载打印版PDF --timeout 90000 -> PASS`
+- `GREEN: node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\edhr-final-archive-work-task-static.spec.js -> PASS`
+- `GREEN: t11-secret-boundary-review -> PASS，已确认当前 T11 最终归档下载链路不发生现场签名输入，移除对 T9/T10/T11 签名密码环境变量的伪前置依赖；若未来新增签名动作，改为当次人工输入且不持久化。`
+- `GREEN: node D:\ProjectPackage\Int\IntRuoyi\scripts\preflight\login-preflight.mjs --base-url http://localhost:8081 --tenant 测试租户 --username aoteman --password 111111 --target-path /mes/pro/feedback/edhr-batch-execution/detail --timeout 90000 -> PASS`
+- `RED: node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\edhr-t11-final-archive-pdf-real-flow.e2e.js -> FAIL，脚本默认登录密码仍为 admin123，login waitForFunction 30s 超时，未进入真实归档下载验证。`
+- `GREEN: t11-login-default-aligned -> PASS，已将 T11 测试租户默认登录密码与 login-access 基线对齐为 111111，避免把旧默认值误报为业务链路失败。`
+- `GREEN: node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\edhr-t11-final-archive-pdf-real-flow.e2e.js -> PASS，真实批次 900000000445 已从详情页下载打印版 PDF，archiveId=26，archiveVersion=1，contentHash=012cb8f59b0647fb97ff4922450ea19c048af289eff63ed1b689d1a31951b95a，测试租户流程无额外 MES 写请求。`
+- `GREEN: t10-secret-boundary-review -> PASS，已确认 T10 只读复盘链路不发生现场签名输入，移除对 T7/T8/T9/T10 签名密码环境变量的伪前置依赖，并将测试租户默认登录密码对齐为 111111。`
+- `RED: node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\edhr-t10-readonly-review-real-flow.e2e.js -> FAIL，已进入真实页面链路，但等待文本“eDHR 批次执行详情”60s 超时；当前暴露的是详情页断言/可见性问题，不再是签名变量或登录前置问题。`
+- `GREEN: t10-detail-assertion-aligned -> PASS，已将只读详情页断言从过时标题“eDHR 批次执行详情”改为当前真实页面结构“eDHR批次详情 + 批次号标题”，避免把页面文案演进误报为业务失败。`
+- `GREEN: node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\edhr-t10-readonly-review-real-flow.e2e.js -> PASS，真实批次 900000000445 只读复盘、详情只读校验与 admin 只读隔离均通过。`
+- `GREEN: t12-gap-secret-boundary-review -> PASS，已确认 T12 缺口总验收脚本仅汇总前序真实门禁，不发生现场签名输入，移除对 T6-T11 签名密码环境变量的伪前置依赖，并将测试租户默认登录密码对齐为 111111。`
+- `GREEN: node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\edhr-batch-record-gap-real-flow.e2e.js -> PASS，系统级缺口总验收已按 T4/T5/T8/T9/T10/T11 真实门禁串联并完成 admin 只读验证。`
+- `GREEN: t12-regression-secret-boundary-review -> PASS，已确认 T12 AC-17 回归脚本只验证门禁覆盖与只读访问，不应要求额外签名密码环境变量。`
+- `GREEN: node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\edhr-batch-record-regression-real-flow.e2e.js -> PASS，AC-17 回归总验收已输出覆盖面与命令覆盖清单并完成 admin 只读验证。`
+- `GREEN: t9-secret-boundary-review -> PASS，已将 T9 批次关闭前置收紧为“仅要求当前脚本实际使用的 EDHR_T9_E2E_SIGNATURE_PASSWORD”，不再因 T6/T7/T8 前序密码缺失而连坐阻塞；同时将 T7/T8/T9 测试租户默认登录密码统一对齐为 111111。`
+- `BLOCKER: node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\edhr-t9-close-blockers-real-flow.e2e.js -> 仅剩缺少 EDHR_T9_E2E_SIGNATURE_PASSWORD；当前阻塞已精确收敛到 T9 自身真实签名依赖。`
+- `GREEN: t6-t8-secret-boundary-audit -> PASS，已核对 T6/T7/T8 当前实现均只要求各自脚本真实会输入的签名密码，不存在前序签名密码连坐残留；并将 T6 测试租户默认登录密码对齐为 111111。`
+- `BLOCKER: node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\edhr-t6-work-task-integrity-real-flow.e2e.js -> 仅剩缺少 EDHR_T6_E2E_SIGNATURE_PASSWORD；阻塞已精确收敛到 T6 自身字段审计 / FORM_REVIEW / 提交签名依赖。`
+- `BLOCKER: node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\edhr-t7-review-assignee-real-flow.e2e.js -> 仅剩缺少 EDHR_T7_E2E_SIGNATURE_PASSWORD；阻塞已精确收敛到 T7 自身提交签名依赖。`
+- `BLOCKER: node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\tests\e2e\edhr-t8-advance-gate-real-flow.e2e.js -> 仅剩缺少 EDHR_T8_E2E_SIGNATURE_PASSWORD；阻塞已精确收敛到 T8 自身提交签名依赖。`

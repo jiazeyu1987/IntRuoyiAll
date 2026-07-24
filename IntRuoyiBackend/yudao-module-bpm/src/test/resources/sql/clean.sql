@@ -1,0 +1,11 @@
+DELETE FROM "bpm_form_action_snapshot";
+DELETE FROM "bpm_form_task_permission";
+DELETE FROM "bpm_form_effect_execution";
+DELETE FROM "bpm_form_action_instance";
+DELETE FROM "bpm_form_action_policy";
+DELETE FROM "bpm_business_approval_request";
+DELETE FROM "bpm_business_approval_policy";
+DELETE FROM "bpm_form_template_version";
+DELETE FROM "bpm_form";
+DELETE FROM "bpm_user_group";
+DELETE FROM "bpm_category";

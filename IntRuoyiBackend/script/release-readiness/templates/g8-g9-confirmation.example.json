@@ -1,0 +1,76 @@
+{
+  "releaseId": "20260524-int-ruoyi-ops",
+  "currentFaultImageTag": "20260524_035800",
+  "g8": {
+    "rollbackTriggerId": "未指定（BLOCKED）",
+    "rollbackTriggerCondition": "未指定（BLOCKED）",
+    "SelectedImageTag": "未指定（BLOCKED）",
+    "imageTagSelectionRule": "未指定（BLOCKED）",
+    "releaseOwnerApproval": {
+      "ownerName": "未指定（BLOCKED）",
+      "approvalTime": "未指定（BLOCKED）",
+      "approvalEvidence": "未指定（BLOCKED）"
+    },
+    "backupRecoveryOperatorApproval": {
+      "ownerName": "未指定（BLOCKED）",
+      "operatorName": "未指定（BLOCKED）",
+      "approvalTime": "未指定（BLOCKED）",
+      "approvalEvidence": "未指定（BLOCKED）"
+    },
+    "rollbackValidationEvidence": {
+      "action": "rollback-app",
+      "status": "未指定（BLOCKED）",
+      "code": "未指定（BLOCKED）",
+      "context": {
+        "imageTag": "未指定（BLOCKED）"
+      },
+      "logPath": "未指定（BLOCKED）",
+      "reportPath": "未指定（BLOCKED）",
+      "backendHealthEvidence": "未指定（BLOCKED）",
+      "frontendAccessEvidence": "未指定（BLOCKED）"
+    }
+  },
+  "g9": {
+    "restoreTriggerId": "未指定（BLOCKED）",
+    "restoreTriggerCondition": "未指定（BLOCKED）",
+    "SelectedBackupId": "未指定（BLOCKED）",
+    "backupIdSelectionRule": "未指定（BLOCKED）",
+    "preRestoreSnapshotId": "未指定（BLOCKED）",
+    "dataOwnerApproval": {
+      "ownerName": "未指定（BLOCKED）",
+      "approvalTime": "未指定（BLOCKED）",
+      "approvalEvidence": "未指定（BLOCKED）"
+    },
+    "releaseOwnerApproval": {
+      "ownerName": "未指定（BLOCKED）",
+      "approvalTime": "未指定（BLOCKED）",
+      "approvalEvidence": "未指定（BLOCKED）"
+    },
+    "backupRecoveryOperatorApproval": {
+      "ownerName": "未指定（BLOCKED）",
+      "operatorName": "未指定（BLOCKED）",
+      "approvalTime": "未指定（BLOCKED）",
+      "approvalEvidence": "未指定（BLOCKED）"
+    },
+    "businessImpactScope": "未指定（BLOCKED）",
+    "restoreValidationEvidence": {
+      "action": "restore-data",
+      "status": "未指定（BLOCKED）",
+      "code": "未指定（BLOCKED）",
+      "context": {
+        "backupId": "未指定（BLOCKED）",
+        "restorePoint": "未指定（BLOCKED）",
+        "preRestoreSnapshotId": "未指定（BLOCKED）",
+        "imageTag": "未指定（BLOCKED）"
+      },
+      "logPath": "未指定（BLOCKED）",
+      "reportPath": "未指定（BLOCKED）",
+      "mysqlRestoreEvidence": "未指定（BLOCKED）",
+      "objectRestoreEvidence": "未指定（BLOCKED）",
+      "backendHealthEvidence": "未指定（BLOCKED）",
+      "frontendAccessEvidence": "未指定（BLOCKED）",
+      "loginValidationEvidence": "未指定（BLOCKED）",
+      "sampleFileEvidence": "未指定（BLOCKED）"
+    }
+  }
+}

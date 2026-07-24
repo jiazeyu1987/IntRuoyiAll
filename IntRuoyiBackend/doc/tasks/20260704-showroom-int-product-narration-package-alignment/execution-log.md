@@ -1,0 +1,10 @@
+# 执行日志：展厅 INT 产品资源包语音对齐
+
+- `BDD: INT 产品 zip 导入缺少产品语音必须失败 -> Given zip 产品列表存在 INT-12 / When 讲解音频和 manifest 没有 INT-12 的中英文 PRODUCT 语音 / Then 导入失败并返回 INT-12 缺中文和英文语音。`
+- `BDD: INT 产品 zip 导入混入旧产品语音必须失败 -> Given zip 产品列表只存在 INT-12 / When 讲解音频或 manifest 出现 product_049 的 PRODUCT 语音 / Then 导入失败并提示语音目标编码不在产品列表中。`
+- `BDD: INT 产品 zip 导出缺少产品语音必须失败 -> Given 当前筛选导出的产品包含 INT-12 / When INT-12 缺中文或英文已发布语音 / Then 导出 zip 失败并列出缺失语言，不产出不完整资源包。`
+- `GREEN: experience-preflight -> PASS，已读取 experience-index、powershell-memory、bug-regression-fix-loop、backend-api-delivery 门禁；当前仅执行本地 TDD，不操作服务器。`
+- RED: mvn -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\pom.xml -pl yudao-module-showroom "-Dtest=ShowroomProductExcelImportExportIntegrationTest#exportProductExcelShouldFailWhenIntProductNarrationIncomplete+importProductResourcePackageShouldRejectIntProductWithoutNarrationAssets+importProductResourcePackageShouldRejectProductNarrationCodeOutsideProductList" test -> FAIL, 3 个新增断言暴露旧 zip 合同未阻断 INT 产品缺语音与 product_049 错配。
+- GREEN: mvn -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\pom.xml -pl yudao-module-showroom "-Dtest=ShowroomProductExcelImportExportIntegrationTest#exportProductExcelShouldFailWhenIntProductNarrationIncomplete+importProductResourcePackageShouldRejectIntProductWithoutNarrationAssets+importProductResourcePackageShouldRejectProductNarrationCodeOutsideProductList" test -> PASS, 3 tests。
+- GREEN: mvn -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\pom.xml -pl yudao-module-showroom "-Dtest=ShowroomProductExcelImportExportIntegrationTest#importProductExcelShouldImportNarrationSheetAndKeywordSheet+exportProductExcelShouldIncludeKeywordSheetAndBilingualNarrationAudioSheet+exportProductExcelShouldFailWhenIntProductNarrationIncomplete+importProductResourcePackageShouldRejectIntProductWithoutNarrationAssets+importProductResourcePackageShouldRejectProductNarrationCodeOutsideProductList" test -> PASS, 5 tests。
+- GREEN: mvn -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\pom.xml -pl yudao-module-showroom "-Dtest=ShowroomProductExcelImportExportIntegrationTest" test -> PASS, 46 tests。

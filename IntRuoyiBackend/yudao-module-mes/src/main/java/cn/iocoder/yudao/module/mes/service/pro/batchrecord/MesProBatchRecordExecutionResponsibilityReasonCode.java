@@ -1,0 +1,16 @@
+package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
+
+public enum MesProBatchRecordExecutionResponsibilityReasonCode {
+
+    EXECUTION_SNAPSHOT_MISSING,
+    FIELD_DEFINITION_MISSING,
+    BASELINE_MISSING,
+    FIELD_AUDIT_MISSING,
+    SIGNATURE_MISSING,
+    SIGNATURE_INVALID,
+    CHAIN_INVALID,
+    CURRENT_VALUE_MISMATCH,
+    FIELD_IDENTITY_AMBIGUOUS,
+    CROSS_TENANT_ASSOCIATION,
+    CROSS_EXECUTION_ASSOCIATION
+}

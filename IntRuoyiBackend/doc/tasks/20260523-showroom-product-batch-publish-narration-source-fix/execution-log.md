@@ -1,0 +1,11 @@
+# Execution Log: 20260523-showroom-product-batch-publish-narration-source-fix
+
+BDD: 批量发布应复用当前可用讲解稿 source revision -> Given 产品当前已发布 revision 已有完整中英文讲解稿，而最新 revision 仅新增字段草稿尚未保存讲解稿 When 用户触发产品发布链路 Then 系统必须基于当前可用双语讲解稿 source revision 复制并发布到新 revision，而不是把最新字段 revision 误判为缺稿。
+BDD: 真实缺稿仍需显式失败 -> Given 产品当前既没有可复用的中文讲解稿，也没有可复用的英文讲解稿 When 用户触发发布 Then 后端必须继续报出缺少最新讲解稿，不得静默跳过或发布空讲解。
+RED: `mvn -pl yudao-module-showroom "-Dtest=ShowroomHttpApiIntegrationTest#batchPublishProductsShouldReuseCurrentPublishedNarrationWhenLatestRevisionOnlyChangesFields" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，批量发布命中“最新字段 revision 无讲解稿”的产品时，`publishProduct` 仍按最新 revisionId 查 `requireLatestNarrationForRevision(...)`，导致成功数为 0，无法把当前已发布 revision 上的双语讲解稿复制到新 revision。
+GREEN: 最小修复 -> `ShowroomApiRuntime.toBatchPublishReq(...)` 不再把 `row.revision().revisionId()` 直接当作 `sourceRevisionId`；`resolveProductNarrationSourceRevisionId(...)` 在 source 为空时改为解析“当前最新可用且中英文 source 一致”的产品讲解稿 revision。
+GREEN: `mvn -pl yudao-module-showroom "-Dtest=ShowroomHttpApiIntegrationTest#batchPublishProductsShouldReuseCurrentPublishedNarrationWhenLatestRevisionOnlyChangesFields" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS。
+GREEN: `mvn -pl yudao-module-showroom "-Dtest=ShowroomApiRuntimeBatchPublishTest,ShowroomHttpApiIntegrationTest#batchPublishProductsShouldReuseCurrentPublishedNarrationWhenLatestRevisionOnlyChangesFields" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，批量发布单测和新回归集成用例均通过。
+GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260523-showroom-product-batch-publish-narration-source-fix\bug-regression-evidence.md` -> PASS。
+GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro --task-id 20260523-showroom-product-batch-publish-narration-source-fix --mode preview` -> PASS，仅预览删除本次临时 `bug-regression-evidence.md`。
+GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro --task-id 20260523-showroom-product-batch-publish-narration-source-fix --mode apply` -> PASS，已删除临时 `bug-regression-evidence.md`，仅保留 `task.md / execution-log.md`。

@@ -1,0 +1,27 @@
+# Execution Log: 生产工单列表替换标准列表模板
+
+- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\SKILL.md` -> PASS，读取前端交付技能。
+- `Get-Content -Encoding utf8 docs/powershell-memory.md` -> PASS，读取 PowerShell / UTF-8 门禁。
+- `Get-Content -Encoding utf8 D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md` -> PASS，读取统一前端样式。
+- `Get-Content -Encoding utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\references\frontend-contract.md` -> PASS，读取前端证据契约。
+- `Get-Content -Encoding utf8 docs/experience-index.md` -> PASS，读取项目经验索引并命中 PowerShell 与前端页面 / 表格 / 样式门禁。
+- `BDD: workorder_list_uses_unified_template -> Given 用户打开 MES 生产工单列表 / When 页面渲染主列表 / Then 快速过滤、显示字段、表格和分页应由 UnifiedListTemplate 统一承载。`
+- `BDD: workorder_business_actions_are_preserved -> Given 管理员查看生产工单列表 / When 页面切换到标准模板后 / Then 导出、增量同步、列宽拖拽和行级业务动作仍保留原权限与事件。`
+- `apply_patch` -> PASS，创建 `doc/tasks/20260709-workorder-unified-list-template/`、`frontend-feature-evidence.md` 和 `tests/e2e/mes-pro-workorder-unified-list-template-static.spec.js`。
+- `RED: node tests/e2e/mes-pro-workorder-unified-list-template-static.spec.js -> FAIL, 生产工单页尚未导入并使用 UnifiedListTemplate。`
+- `apply_patch` -> PASS，将 `src/views/mes/pro/workorder/index.vue` 接入 `UnifiedListTemplate`，保留同步状态栏、导出、增量同步、重置、表格列、列宽拖拽和分页。
+- `apply_patch` -> PASS，更新生产工单列契约、工具栏清理契约和显示字段配置契约，使其识别通过 `UnifiedListTemplate` 渲染的标准列表结构。
+- `GREEN: node tests/e2e/mes-pro-workorder-unified-list-template-static.spec.js -> PASS`
+- `GREEN: node tests/e2e/workorder-key-columns-static.spec.js -> PASS`
+- `GREEN: node tests/e2e/workorder-toolbar-red-box-cleanup-static.spec.js -> PASS`
+- `GREEN: node tests/e2e/unified-list-template-static.spec.js -> PASS`
+- `GREEN: node tests/e2e/user-table-column-config-static.spec.js -> PASS`
+- `GREEN: node tests/e2e/table-quick-filter-static.spec.js -> PASS`
+- `GREEN: pnpm ts:check:schedule -> PASS`
+- `GREEN: NODE_OPTIONS=--max-old-space-size=8192 pnpm ts:check -> PASS`
+- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260709-workorder-unified-list-template/frontend-feature-evidence.md` -> BLOCKER，证据文件缺少 `RED:` / `GREEN:` 标记；类型检查命令已执行完成，无 TypeScript 错误输出。
+- `apply_patch` -> PASS，补齐 `frontend-feature-evidence.md` 的 `RED:` / `GREEN:` 标记，并更新任务记录。
+- `GREEN: python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260709-workorder-unified-list-template/frontend-feature-evidence.md -> PASS`
+- `GREEN: python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260709-workorder-unified-list-template --mode preview -> PASS, delete=frontend-feature-evidence.md, blocked=<none>`
+- GREEN: python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260709-workorder-unified-list-template --mode apply -> PASS, deleted=frontend-feature-evidence.md, blocked=<none>
+- `git commit` -> BLOCKED，当前前端仓存在大量前置未提交改动，且本轮修改的生产工单页与相关静态测试存在文件级重叠；为避免混入非本轮改动，未创建提交。

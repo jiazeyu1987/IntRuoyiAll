@@ -1,0 +1,27 @@
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=; type=schema; riskLevel=medium
+CREATE TABLE IF NOT EXISTS `erp_kingdee_event_callback` (
+    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '编号',
+    `event_key` varchar(191) NOT NULL COMMENT '事件幂等键',
+    `event_id` varchar(128) DEFAULT NULL COMMENT 'Kingdee 事件编号',
+    `source_form_id` varchar(64) NOT NULL COMMENT 'Kingdee FormId',
+    `source_fid` varchar(64) DEFAULT NULL COMMENT 'Kingdee FID',
+    `source_bill_no` varchar(128) DEFAULT NULL COMMENT 'Kingdee 单据编号',
+    `operation` varchar(64) NOT NULL COMMENT 'Kingdee 操作类型',
+    `event_time` datetime NOT NULL COMMENT 'Kingdee 事件时间',
+    `signature` varchar(128) NOT NULL COMMENT '回调签名',
+    `nonce` varchar(64) NOT NULL COMMENT '回调随机串',
+    `callback_timestamp` varchar(64) NOT NULL COMMENT '回调时间戳',
+    `status` tinyint NOT NULL DEFAULT '0' COMMENT '处理状态：0 待处理',
+    `failure_message` varchar(512) DEFAULT NULL COMMENT '失败信息',
+    `raw_payload` longtext NOT NULL COMMENT '原始请求体',
+    `creator` varchar(64) DEFAULT '' COMMENT '创建者',
+    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updater` varchar(64) DEFAULT '' COMMENT '更新者',
+    `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted` bit(1) NOT NULL DEFAULT b'0' COMMENT '是否删除',
+    `tenant_id` bigint NOT NULL DEFAULT '0' COMMENT '租户编号',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_erp_kingdee_event_callback_event_key` (`event_key`),
+    KEY `idx_erp_kingdee_event_callback_form_bill` (`source_form_id`, `source_bill_no`),
+    KEY `idx_erp_kingdee_event_callback_status_time` (`status`, `event_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='ERP Kingdee K3Cloud 事件回调';

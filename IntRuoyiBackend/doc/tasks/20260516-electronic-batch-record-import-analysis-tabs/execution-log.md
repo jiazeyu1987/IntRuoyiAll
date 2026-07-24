@@ -1,0 +1,4 @@
+BDD: 导入接口权限对齐 -> Given 用户具有 `mes:pro-batch-record-template:import` 权限, When 调用本地模板导入 `parse` 或 `commit`, Then 请求通过权限校验并保持原有响应结构。
+BDD: 无导入权限时快速失败 -> Given 用户缺少 `mes:pro-batch-record-template:import` 权限, When 调用本地模板导入 `parse` 或 `commit`, Then 接口被拒绝且不执行导入逻辑。
+RED: `mvn --% -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\pom.xml -pl yudao-module-mes -Dtest=MesProBatchRecordTemplateControllerTest -Dsurefire.failIfNoSpecifiedTests=false test` -> FAIL, `MesProBatchRecordTemplateImportController.parse` 仍声明 `mes:pro-batch-record-template:create`，与菜单导入权限不一致。
+GREEN: `mvn --% -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\pom.xml -pl yudao-module-mes -Dtest=MesProBatchRecordTemplateControllerTest,MesProBatchRecordTemplateServiceImplTest -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS, 控制器权限断言通过，且本地模板导入解析/提交服务回归 6/6 通过。

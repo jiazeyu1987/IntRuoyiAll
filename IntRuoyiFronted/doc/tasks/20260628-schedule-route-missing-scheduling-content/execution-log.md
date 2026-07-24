@@ -1,0 +1,28 @@
+# 执行日志：工艺排产路线补齐遗漏的排产内容
+
+- 2026-06-28：收到用户反馈“之前工艺路线里的排产相关的内容没有完全加到工艺排产路线里面”，创建前端任务包并收敛到 `RouteUsePage.vue` / `schedule-route/index.vue`。
+- `BDD: 工艺排产路线承接排产维护缺失内容 -> Given 用户进入工艺排产路线列表 / When 查看路线列表与操作入口 / Then 页面展示拆分后仍应由排产专用页承接的排产相关内容，不要求用户回到基础工艺路线补做。`
+- `BDD: 基础工艺路线职责边界不回退 -> Given 用户进入基础工艺路线页 / When 查看列表与详情入口 / Then 仍不重新出现已收口的排产用途、批记录用途和资源维护大表写入口。`
+- `BDD: 工艺路线详情仍可看到设备信息 -> Given 用户从基础工艺路线打开某条路线详情 / When 查找该路线对应的设备信息 / Then 页面提供只读设备信息页签，并按当前路线过滤展示，不要求用户凭记忆切换到工艺排产路线资源维护页。`
+- `RED: node tests/e2e/mes-schedule-route-missing-scheduling-content-static.spec.js -> FAIL, 工艺排产路线列表未承接状态筛选/状态展示，且缺少复制路线入口。`
+- `GREEN: apply_patch -> PASS, 在 RouteUsePage.vue 的 SCHEDULE 分支补回状态筛选、状态列、复制路线按钮和复制弹窗，继续复用既有 copyRoute API。`
+- `GREEN: node tests/e2e/mes-schedule-route-missing-scheduling-content-static.spec.js -> PASS`
+- `GREEN: node tests/e2e/mes-process-use-route-tabs-static.spec.js -> PASS`
+- `GREEN: node scripts/mes-route-responsibility-split-static.test.mjs -> PASS`
+- `RED: node tests/e2e/mes-route-equipment-visibility-static.spec.js -> FAIL, 基础工艺路线详情缺少设备信息入口，用户无法从旧心智路径找到该路线设备资源。`
+- `GREEN: apply_patch -> PASS, 在 RouteForm.vue 增加只读设备信息页签；在 RouteResourceTable.vue 增加 routeId 过滤与 readonly 模式，继续复用既有资源分页接口。`
+- `GREEN: node tests/e2e/mes-route-equipment-visibility-static.spec.js -> PASS`
+- `GREEN: node tests/e2e/mes-schedule-route-missing-scheduling-content-static.spec.js -> PASS`
+- `GREEN: node tests/e2e/mes-process-use-route-tabs-static.spec.js -> PASS`
+- `GREEN: node scripts/mes-route-responsibility-split-static.test.mjs -> PASS`
+- `纠偏: 用户补充截图后确认诉求并非新增设备信息页签，而是组成工序主表中原有的资源类型/标准资源/工作站等列缺失。`
+- `RED: node tests/e2e/mes-route-structured-scheduling-resource-static.spec.js -> FAIL, RouteProcessList.vue 已被回退到精简版接口与精简列，缺少资源类型/标准资源/标准班次产能/资源状态等主表列。`
+- `RED: node tests/e2e/mes-pro-route-process-machinery-column.spec.js -> FAIL, 组成工序主表缺少标准资源列与设备详情链路。`
+- `RED: node tests/e2e/mes-pro-route-process-shift-capacity-display.spec.js -> FAIL, 组成工序主表缺少标准班次产能列与人工产能编辑链路。`
+- `GREEN: apply_patch -> PASS, 撤回误加的设备信息页签，并将 RouteProcessList.vue 恢复为完整工序资源版：主表重新展示资源类型/标准资源/标准班次产能/资源状态/工作站，继续支持设备详情、人工产能编辑和短缺比值展示。`
+- `GREEN: node tests/e2e/mes-route-structured-scheduling-resource-static.spec.js -> PASS`
+- `GREEN: node tests/e2e/mes-pro-route-process-machinery-column.spec.js -> PASS`
+- `GREEN: node tests/e2e/mes-pro-route-process-shift-capacity-display.spec.js -> PASS`
+- `GREEN: node tests/e2e/mes-route-process-hide-wait-color-columns.spec.js -> PASS`
+- `GREEN: node tests/e2e/mes-route-process-remove-today-columns.spec.js -> PASS`
+- `GREEN: node tests/e2e/mes-route-process-shortage-inline-ratio.spec.js -> PASS`

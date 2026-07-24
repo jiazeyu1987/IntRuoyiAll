@@ -1,0 +1,28 @@
+INFO: experience-index -> matched `docs/worktree-memory.md`, `docs/login-access.md`, `docs/powershell-memory.md`
+BDD: 灰色空白结构格自动成为规则候选 -> Given Word 导入后的结构化表格内存在灰色、空文本、应填写的骨架单元格 / When 后端生成 batchrecordreport JSON 与单元格规则候选 / Then 这些格子必须统一生成 fillForm 或等价规则候选，并出现在模板页 getCellRules 返回中。
+BDD: 非填写占位格不得误识别 -> Given 表格中存在纯 /、静态标题、说明文本、纯装饰格或纵向 merge 覆盖从属格 / When 后端计算候选规则 / Then 这些格子不得被误生成为可填写单元格规则候选。
+BDD: 模板页直接消费新增候选 -> Given getCellRules 已返回新增灰色空白格候选 / When 用户在电子批记录模板页打开 单元格规则 / Then 对应单元格必须可以看到、选中并进入编辑，不需要新增手工补录入口。
+GREEN: experience-preflight -> PASS，已阅读 `experience-index/worktree-memory/login-access/powershell-memory`，允许创建 `edhr_table` 成对 worktree 并继续后续真实登录预检与本机导入验证。
+RED: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordReportJsonBuilderTest#build_shouldAutoFillStructuredHeaderBlankCellsWhenRowCarriesEntryCues,MesProBatchRecordCellRuleSupportTest#buildSuggestions_includesStructuredHeaderBlankCellsWithEntryCues" -Dsurefire.failIfNoSpecifiedTests=false test` -> FAIL，初始缺陷下，这类结构化灰色空白格不会进入 `fillForm/suggestions`，模板页也无法配置。
+GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordReportJsonBuilderTest#build_shouldAutoFillStructuredHeaderBlankCellsWhenRowCarriesEntryCues,MesProBatchRecordCellRuleSupportTest#buildSuggestions_includesStructuredHeaderBlankCellsWithEntryCues" -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS。
+RED: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordReportServiceImplDbTest#getCellRules_returnsStructuredHeaderBlankSuggestions" -Dsurefire.failIfNoSpecifiedTests=false test` -> FAIL，首次失败原因为测试夹具 `report_id` 超过 H2 列长度限制，不属于业务逻辑回退。
+GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordReportJsonBuilderTest#build_shouldAutoFillStructuredHeaderBlankCellsWhenRowCarriesEntryCues,MesProBatchRecordCellRuleSupportTest#buildSuggestions_includesStructuredHeaderBlankCellsWithEntryCues,MesProBatchRecordReportServiceImplDbTest#getCellRules_returnsStructuredHeaderBlankSuggestions" -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，确认 `JSON -> suggestions -> getCellRules` 三层都已返回结构化灰色空白格候选。
+GREEN: `python -X utf8 -m pytest script/tests/test_restart_int_ruoyi_local_schema.py script/tests/test_system_nas_menu_sql.py -q` -> PASS，确认本地重启脚本 `ProbeSql` here-string 修复与菜单 SQL 结构门禁通过。
+GREEN: `mvn -pl yudao-module-dcc "-Dtest=DccNasPermissionSnapshotCaptureServiceImplTest" -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，确认 DCC NAS 权限测试夹具已适配最新 `NasConnectionConfig` 构造签名。
+GREEN: `mvn -pl yudao-server -am -DskipTests package` -> PASS，确认后端全量打包通过，运行态依赖未被本任务破坏。
+GREEN: `node D:\ProjectPackage\Int\IntRuoyi\scripts\preflight\login-preflight.mjs --base-url http://127.0.0.1:8139 --tenant 测试租户 --username aoteman --password 111111 --target-path /index` -> PASS，真实登录已进入目标页。
+GREEN: 真实导入验证 -> 使用 `C:\Users\BJB110\Desktop\2\2\RE-PP-ID-01（A 1）球囊扩张压力泵生产记录(1).doc` 导入后，进入 `组装Ⅰ工序生产记录 -> 单元格规则`，确认 `操作日期`、`生产数量/pcs`、`操作人`、`复核人` 等灰色空白格均可直接选中并进入右侧规则编辑，规则来源为 `AUTO`。
+INFO: 次级问题辨析 -> `是否在计量效期内 -> □是 □否` 当前解析为静态说明单元格，不属于本轮“灰色空白填写格缺候选”同类问题；如需转成布尔规则，需单独建模。
+GREEN: `node D:\ProjectPackage\Int\IntRuoyi\scripts\preflight\login-preflight.mjs --base-url http://127.0.0.1:8139 --tenant 芋道源码 --username admin --password admin123 --target-path /index` -> PASS，`芋道源码/admin` 最终只读复验身份可登录。
+GREEN: `mvn --% -pl yudao-module-mes "-Dtest=MesProBatchRecordReportJsonBuilderTest#build_shouldAutoFillStructuredHeaderBlankCellsWhenRowCarriesEntryCues,MesProBatchRecordCellRuleSupportTest#buildSuggestions_includesStructuredHeaderBlankCellsWithEntryCues,MesProBatchRecordReportServiceImplDbTest#getCellRules_returnsStructuredHeaderBlankSuggestions" -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，收尾前定向回归复跑通过。
+GREEN: `python -X utf8 -m pytest D:\ProjectPackage\Int\IntRuoyi-worktrees\edhr_table\ruoyi-vue-pro\script\tests\test_restart_int_ruoyi_local_schema.py D:\ProjectPackage\Int\IntRuoyi-worktrees\edhr_table\ruoyi-vue-pro\script\tests\test_system_nas_menu_sql.py -q` -> PASS，收尾前脚本门禁复跑通过。
+GREEN: `mvn --% -pl yudao-module-dcc "-Dtest=DccNasPermissionSnapshotCaptureServiceImplTest" -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，收尾前 DCC 定向回归复跑通过。
+GREEN: `mvn -pl yudao-server -am -DskipTests package` -> PASS，收尾前后端全量打包复跑通过。
+BLOCKER: merge-preflight -> 目标主工作区 `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro` 的 `int_main` 仍存在未提交脏改（`MesProWorkOrderDO.java`、`MesKingdeeProductionMaterialListSyncServiceImpl.java`、对应测试与 `doc/tasks/20260630-schedule-order-replan-production-material-required/`），按 worktree 门禁不得在脏主工作区上执行最终融合，也不得为绕过脏改新建临时 merge worktree。
+GREEN: main-workspace cleanup -> 已先把主工作区独立任务 `20260630-schedule-order-replan-production-material-required` 标记为阻塞并单独提交，释放 `int_main` 的融合门禁。
+GREEN: `git -C D:\ProjectPackage\Int\IntRuoyi-worktrees\edhr_table\ruoyi-vue-pro rebase int_main` -> PASS，任务分支已对齐主线；任务文档 `add/add` 冲突已按当前任务完整版本解决。
+GREEN: `git -C D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro merge --ff-only codex/edhr_table` -> PASS，`edhr_table` 已快进融合进主工作区 `int_main`。
+INFO: merge-verification note -> `mvn -pl yudao-module-mes ... test` 单独执行会因未带起 `yudao-module-erp` 依赖模块而误报编译错误，不属于本任务回归失败。
+GREEN: `mvn --% -pl yudao-module-mes -am "-Dtest=MesProBatchRecordReportJsonBuilderTest#build_shouldAutoFillStructuredHeaderBlankCellsWhenRowCarriesEntryCues,MesProBatchRecordCellRuleSupportTest#buildSuggestions_includesStructuredHeaderBlankCellsWithEntryCues,MesProBatchRecordReportServiceImplDbTest#getCellRules_returnsStructuredHeaderBlankSuggestions" -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，融合后主工作区正确命令下的定向回归通过。
+GREEN: `mvn --% -pl yudao-module-dcc "-Dtest=DccNasPermissionSnapshotCaptureServiceImplTest" -Dsurefire.failIfNoSpecifiedTests=false test` -> PASS，融合后 DCC 定向回归通过。
+GREEN: `mvn -pl yudao-server -am -DskipTests package` -> PASS，融合后主工作区全量打包通过。

@@ -1,0 +1,598 @@
+{
+  "taskId": "20260625-dcc-review-matrix-owner-role-triangle-alignment",
+  "startedAt": "2026-06-26T05:19:09.029Z",
+  "baseUrl": "http://localhost:8081",
+  "tenant": "测试租户",
+  "username": "aoteman",
+  "categoryCode": "DCC_OTHER_TEMPLATE_T122",
+  "categoryId": 907178,
+  "steps": [
+    {
+      "status": "PASS",
+      "label": "login",
+      "detail": {
+        "url": "http://localhost:8081/index"
+      },
+      "at": "2026-06-26T05:19:14.816Z"
+    },
+    {
+      "status": "PASS",
+      "label": "capture auth headers",
+      "detail": {
+        "Authorization": "Bearer 287b5b10cf6c446abc027555742b2590",
+        "tenant-id": "122"
+      },
+      "at": "2026-06-26T05:19:14.827Z"
+    },
+    {
+      "status": "PASS",
+      "label": "find usable department leader and role samples",
+      "detail": {
+        "departmentId": 910304,
+        "departmentName": "质量体系中心",
+        "departmentCompanyRootName": "瑛泰医疗",
+        "leaderUserId": 910251,
+        "roleId": 111,
+        "roleName": "租户管理员"
+      },
+      "at": "2026-06-26T05:19:14.993Z"
+    },
+    {
+      "status": "PASS",
+      "label": "read matrix before save",
+      "detail": {
+        "categoryId": 907178,
+        "routeVersionNo": 12,
+        "effectiveTime": 0,
+        "remark": "DCC 审阅矩阵真实 E2E owner-role 20260626002258",
+        "signoffPositionIds": null,
+        "approvalPositionIds": null,
+        "rules": [
+          {
+            "stageType": "SIGNOFF",
+            "active": true,
+            "subjectLabel": "DCC E2E Department",
+            "marker": "▲",
+            "subjectType": "DEPT",
+            "subjectId": 906400,
+            "subjectName": "DCC E2E Department",
+            "subjectDepartmentPath": "顶级部门-DCC E2E Department",
+            "remark": null
+          },
+          {
+            "stageType": "APPROVAL",
+            "active": true,
+            "subjectLabel": "租户管理员",
+            "marker": "▲",
+            "subjectType": "ROLE",
+            "subjectId": 111,
+            "subjectName": "租户管理员",
+            "subjectDepartmentPath": null,
+            "remark": null
+          }
+        ]
+      },
+      "at": "2026-06-26T05:19:15.386Z"
+    },
+    {
+      "status": "PASS",
+      "label": "configure matrix in UI",
+      "detail": {
+        "effectiveTime": "2026-06-26 13:29:00",
+        "remark": "DCC 审阅矩阵真实 E2E owner-role 20260626131920"
+      },
+      "at": "2026-06-26T05:19:30.316Z"
+    },
+    {
+      "status": "PASS",
+      "label": "read matrix after save",
+      "detail": {
+        "categoryId": 907178,
+        "routeVersionNo": 13,
+        "effectiveTime": 0,
+        "remark": "DCC 审阅矩阵真实 E2E owner-role 20260626131920",
+        "signoffPositionIds": null,
+        "approvalPositionIds": null,
+        "rules": [
+          {
+            "stageType": "SIGNOFF",
+            "active": true,
+            "subjectLabel": "质量体系中心",
+            "marker": "▲",
+            "subjectType": "DEPT",
+            "subjectId": 910304,
+            "subjectName": "质量体系中心",
+            "subjectDepartmentPath": "顶级部门-瑛泰医疗-质量体系中心",
+            "remark": null
+          },
+          {
+            "stageType": "APPROVAL",
+            "active": true,
+            "subjectLabel": "租户管理员",
+            "marker": "▲",
+            "subjectType": "ROLE",
+            "subjectId": 111,
+            "subjectName": "租户管理员",
+            "subjectDepartmentPath": null,
+            "remark": null
+          }
+        ]
+      },
+      "at": "2026-06-26T05:19:30.436Z"
+    },
+    {
+      "status": "PASS",
+      "label": "verify saved matrix contract",
+      "detail": {
+        "signoffRules": [
+          {
+            "stageType": "SIGNOFF",
+            "active": true,
+            "subjectLabel": "质量体系中心",
+            "marker": "▲",
+            "subjectType": "DEPT",
+            "subjectId": 910304,
+            "subjectName": "质量体系中心",
+            "subjectDepartmentPath": "顶级部门-瑛泰医疗-质量体系中心",
+            "remark": null
+          }
+        ],
+        "approvalRules": [
+          {
+            "stageType": "APPROVAL",
+            "active": true,
+            "subjectLabel": "租户管理员",
+            "marker": "▲",
+            "subjectType": "ROLE",
+            "subjectId": 111,
+            "subjectName": "租户管理员",
+            "subjectDepartmentPath": null,
+            "remark": null
+          }
+        ]
+      },
+      "at": "2026-06-26T05:19:30.436Z"
+    }
+  ],
+  "sample": {
+    "departmentId": 910304,
+    "departmentName": "质量体系中心",
+    "departmentCompanyRootName": "瑛泰医疗",
+    "leaderUserId": 910251,
+    "roleId": 111,
+    "roleName": "租户管理员"
+  },
+  "matrixBefore": {
+    "categoryId": 907178,
+    "routeVersionNo": 12,
+    "effectiveTime": 0,
+    "remark": "DCC 审阅矩阵真实 E2E owner-role 20260626002258",
+    "signoffPositionIds": null,
+    "approvalPositionIds": null,
+    "rules": [
+      {
+        "stageType": "SIGNOFF",
+        "active": true,
+        "subjectLabel": "DCC E2E Department",
+        "marker": "▲",
+        "subjectType": "DEPT",
+        "subjectId": 906400,
+        "subjectName": "DCC E2E Department",
+        "subjectDepartmentPath": "顶级部门-DCC E2E Department",
+        "remark": null
+      },
+      {
+        "stageType": "APPROVAL",
+        "active": true,
+        "subjectLabel": "租户管理员",
+        "marker": "▲",
+        "subjectType": "ROLE",
+        "subjectId": 111,
+        "subjectName": "租户管理员",
+        "subjectDepartmentPath": null,
+        "remark": null
+      }
+    ]
+  },
+  "matrixAfter": {
+    "categoryId": 907178,
+    "routeVersionNo": 13,
+    "effectiveTime": 0,
+    "remark": "DCC 审阅矩阵真实 E2E owner-role 20260626131920",
+    "signoffPositionIds": null,
+    "approvalPositionIds": null,
+    "rules": [
+      {
+        "stageType": "SIGNOFF",
+        "active": true,
+        "subjectLabel": "质量体系中心",
+        "marker": "▲",
+        "subjectType": "DEPT",
+        "subjectId": 910304,
+        "subjectName": "质量体系中心",
+        "subjectDepartmentPath": "顶级部门-瑛泰医疗-质量体系中心",
+        "remark": null
+      },
+      {
+        "stageType": "APPROVAL",
+        "active": true,
+        "subjectLabel": "租户管理员",
+        "marker": "▲",
+        "subjectType": "ROLE",
+        "subjectId": 111,
+        "subjectName": "租户管理员",
+        "subjectDepartmentPath": null,
+        "remark": null
+      }
+    ]
+  },
+  "previewBeforeSave": {
+    "categoryId": 907178,
+    "nextRouteVersionNo": 13,
+    "viewRuleSummary": "当前审阅矩阵参与人可浏览、查看详情和预览已发布受控副本",
+    "pendingPreviewRuleSummary": "进行中文件待审原件预览继续按提交时 route snapshot 参与人放行",
+    "downloadRuleSubjects": [],
+    "downloadRuleSummary": "下载规则单独治理，仅展示类别 DOWNLOAD 规则，不改变下载判定逻辑",
+    "blocking": false,
+    "stages": [
+      {
+        "stageNo": 1,
+        "stageName": "文控审核",
+        "stageType": "APPROVAL",
+        "approveMethod": "ANY",
+        "positionIds": [
+          900339
+        ],
+        "positionNames": [
+          "文控 ▲"
+        ],
+        "sourceRule": "按 DCC 岗位解析",
+        "resolvedSubjects": [
+          {
+            "userId": 113,
+            "userName": "芋道1",
+            "source": "CURRENT_REVIEW_MATRIX",
+            "stageNo": 1,
+            "stageName": "文控审核",
+            "stageType": null,
+            "positionId": 900339,
+            "positionName": "文控",
+            "subjectLabel": "文控",
+            "marker": "▲",
+            "subjectType": "DCC_POSITION",
+            "subjectId": 900339,
+            "reason": "当前审阅矩阵阶段通过 DCC 岗位分配解析"
+          }
+        ]
+      },
+      {
+        "stageNo": 2,
+        "stageName": "审核会签",
+        "stageType": "SIGNOFF",
+        "approveMethod": "ALL",
+        "positionIds": [
+          910304
+        ],
+        "positionNames": [
+          "质量体系中心 ▲"
+        ],
+        "sourceRule": "按部门负责人解析",
+        "resolvedSubjects": [
+          {
+            "userId": 910251,
+            "userName": "DCC矩阵-质量主管",
+            "source": "CURRENT_REVIEW_MATRIX",
+            "stageNo": 2,
+            "stageName": "审核会签",
+            "stageType": "SIGNOFF",
+            "positionId": null,
+            "positionName": null,
+            "subjectLabel": "质量体系中心",
+            "marker": "▲",
+            "subjectType": "DEPT",
+            "subjectId": 910304,
+            "reason": "当前审阅矩阵阶段通过部门“质量体系中心”负责人解析"
+          }
+        ]
+      },
+      {
+        "stageNo": 3,
+        "stageName": "批准",
+        "stageType": "APPROVAL",
+        "approveMethod": "ANY",
+        "positionIds": [
+          111
+        ],
+        "positionNames": [
+          "租户管理员 ▲"
+        ],
+        "sourceRule": "按系统角色解析",
+        "resolvedSubjects": [
+          {
+            "userId": 113,
+            "userName": "芋道1",
+            "source": "CURRENT_REVIEW_MATRIX",
+            "stageNo": 3,
+            "stageName": "批准",
+            "stageType": "APPROVAL",
+            "positionId": null,
+            "positionName": null,
+            "subjectLabel": "租户管理员",
+            "marker": "▲",
+            "subjectType": "ROLE",
+            "subjectId": 111,
+            "reason": "当前审阅矩阵阶段通过系统角色解析"
+          },
+          {
+            "userId": 910204,
+            "userName": "showroomviewer",
+            "source": "CURRENT_REVIEW_MATRIX",
+            "stageNo": 3,
+            "stageName": "批准",
+            "stageType": "APPROVAL",
+            "positionId": null,
+            "positionName": null,
+            "subjectLabel": "租户管理员",
+            "marker": "▲",
+            "subjectType": "ROLE",
+            "subjectId": 111,
+            "reason": "当前审阅矩阵阶段通过系统角色解析"
+          },
+          {
+            "userId": 910203,
+            "userName": "showroomsup",
+            "source": "CURRENT_REVIEW_MATRIX",
+            "stageNo": 3,
+            "stageName": "批准",
+            "stageType": "APPROVAL",
+            "positionId": null,
+            "positionName": null,
+            "subjectLabel": "租户管理员",
+            "marker": "▲",
+            "subjectType": "ROLE",
+            "subjectId": 111,
+            "reason": "当前审阅矩阵阶段通过系统角色解析"
+          },
+          {
+            "userId": 910202,
+            "userName": "展厅编辑",
+            "source": "CURRENT_REVIEW_MATRIX",
+            "stageNo": 3,
+            "stageName": "批准",
+            "stageType": "APPROVAL",
+            "positionId": null,
+            "positionName": null,
+            "subjectLabel": "租户管理员",
+            "marker": "▲",
+            "subjectType": "ROLE",
+            "subjectId": 111,
+            "reason": "当前审阅矩阵阶段通过系统角色解析"
+          },
+          {
+            "userId": 910245,
+            "userName": "eDHR矩阵-审批人",
+            "source": "CURRENT_REVIEW_MATRIX",
+            "stageNo": 3,
+            "stageName": "批准",
+            "stageType": "APPROVAL",
+            "positionId": null,
+            "positionName": null,
+            "subjectLabel": "租户管理员",
+            "marker": "▲",
+            "subjectType": "ROLE",
+            "subjectId": 111,
+            "reason": "当前审阅矩阵阶段通过系统角色解析"
+          },
+          {
+            "userId": 910246,
+            "userName": "eDHR矩阵-归档员",
+            "source": "CURRENT_REVIEW_MATRIX",
+            "stageNo": 3,
+            "stageName": "批准",
+            "stageType": "APPROVAL",
+            "positionId": null,
+            "positionName": null,
+            "subjectLabel": "租户管理员",
+            "marker": "▲",
+            "subjectType": "ROLE",
+            "subjectId": 111,
+            "reason": "当前审阅矩阵阶段通过系统角色解析"
+          }
+        ]
+      },
+      {
+        "stageNo": 4,
+        "stageName": "文控批准",
+        "stageType": "APPROVAL",
+        "approveMethod": "ANY",
+        "positionIds": [
+          900339
+        ],
+        "positionNames": [
+          "文控 ▲"
+        ],
+        "sourceRule": "按 DCC 岗位解析",
+        "resolvedSubjects": [
+          {
+            "userId": 113,
+            "userName": "芋道1",
+            "source": "CURRENT_REVIEW_MATRIX",
+            "stageNo": 4,
+            "stageName": "文控批准",
+            "stageType": null,
+            "positionId": 900339,
+            "positionName": "文控",
+            "subjectLabel": "文控",
+            "marker": "▲",
+            "subjectType": "DCC_POSITION",
+            "subjectId": 900339,
+            "reason": "当前审阅矩阵阶段通过 DCC 岗位分配解析"
+          }
+        ]
+      }
+    ],
+    "viewSubjects": [
+      {
+        "userId": 113,
+        "userName": "芋道1",
+        "source": "CURRENT_REVIEW_MATRIX",
+        "stageNo": 1,
+        "stageName": "文控审核",
+        "stageType": null,
+        "positionId": 900339,
+        "positionName": "文控",
+        "subjectLabel": "文控",
+        "marker": "▲",
+        "subjectType": "DCC_POSITION",
+        "subjectId": 900339,
+        "reason": "当前审阅矩阵阶段通过 DCC 岗位分配解析"
+      },
+      {
+        "userId": 910251,
+        "userName": "DCC矩阵-质量主管",
+        "source": "CURRENT_REVIEW_MATRIX",
+        "stageNo": 2,
+        "stageName": "审核会签",
+        "stageType": "SIGNOFF",
+        "positionId": null,
+        "positionName": null,
+        "subjectLabel": "质量体系中心",
+        "marker": "▲",
+        "subjectType": "DEPT",
+        "subjectId": 910304,
+        "reason": "当前审阅矩阵阶段通过部门“质量体系中心”负责人解析"
+      },
+      {
+        "userId": 910204,
+        "userName": "showroomviewer",
+        "source": "CURRENT_REVIEW_MATRIX",
+        "stageNo": 3,
+        "stageName": "批准",
+        "stageType": "APPROVAL",
+        "positionId": null,
+        "positionName": null,
+        "subjectLabel": "租户管理员",
+        "marker": "▲",
+        "subjectType": "ROLE",
+        "subjectId": 111,
+        "reason": "当前审阅矩阵阶段通过系统角色解析"
+      },
+      {
+        "userId": 910203,
+        "userName": "showroomsup",
+        "source": "CURRENT_REVIEW_MATRIX",
+        "stageNo": 3,
+        "stageName": "批准",
+        "stageType": "APPROVAL",
+        "positionId": null,
+        "positionName": null,
+        "subjectLabel": "租户管理员",
+        "marker": "▲",
+        "subjectType": "ROLE",
+        "subjectId": 111,
+        "reason": "当前审阅矩阵阶段通过系统角色解析"
+      },
+      {
+        "userId": 910202,
+        "userName": "展厅编辑",
+        "source": "CURRENT_REVIEW_MATRIX",
+        "stageNo": 3,
+        "stageName": "批准",
+        "stageType": "APPROVAL",
+        "positionId": null,
+        "positionName": null,
+        "subjectLabel": "租户管理员",
+        "marker": "▲",
+        "subjectType": "ROLE",
+        "subjectId": 111,
+        "reason": "当前审阅矩阵阶段通过系统角色解析"
+      },
+      {
+        "userId": 910245,
+        "userName": "eDHR矩阵-审批人",
+        "source": "CURRENT_REVIEW_MATRIX",
+        "stageNo": 3,
+        "stageName": "批准",
+        "stageType": "APPROVAL",
+        "positionId": null,
+        "positionName": null,
+        "subjectLabel": "租户管理员",
+        "marker": "▲",
+        "subjectType": "ROLE",
+        "subjectId": 111,
+        "reason": "当前审阅矩阵阶段通过系统角色解析"
+      },
+      {
+        "userId": 910246,
+        "userName": "eDHR矩阵-归档员",
+        "source": "CURRENT_REVIEW_MATRIX",
+        "stageNo": 3,
+        "stageName": "批准",
+        "stageType": "APPROVAL",
+        "positionId": null,
+        "positionName": null,
+        "subjectLabel": "租户管理员",
+        "marker": "▲",
+        "subjectType": "ROLE",
+        "subjectId": 111,
+        "reason": "当前审阅矩阵阶段通过系统角色解析"
+      }
+    ],
+    "risks": [
+      {
+        "code": "DUPLICATE_SUBJECT",
+        "message": "用户#113 同时出现在多个查阅阶段 [1, 3, 4]，请确认是否符合岗位职责分离。",
+        "severity": "WARNING",
+        "blocking": false
+      },
+      {
+        "code": "SNAPSHOT_DRIFT",
+        "message": "当前类别有 7 个进行中文件的 route snapshot 与当前矩阵解析结果不同，待审原件预览和审批仍将按历史 snapshot 执行。",
+        "severity": "WARNING",
+        "blocking": false
+      }
+    ],
+    "rules": [
+      {
+        "stageType": "SIGNOFF",
+        "active": true,
+        "subjectLabel": "质量体系中心",
+        "marker": "▲",
+        "subjectType": "DEPT",
+        "subjectId": 910304,
+        "subjectName": "质量体系中心",
+        "subjectDepartmentPath": "质量体系中心",
+        "remark": null
+      },
+      {
+        "stageType": "APPROVAL",
+        "active": true,
+        "subjectLabel": "租户管理员",
+        "marker": "▲",
+        "subjectType": "ROLE",
+        "subjectId": 111,
+        "subjectName": "租户管理员",
+        "subjectDepartmentPath": null,
+        "remark": null
+      }
+    ]
+  },
+  "sampleProbeFindings": [
+    {
+      "roleId": 111,
+      "roleName": "租户管理员",
+      "blocking": false,
+      "riskCodes": [
+        "DUPLICATE_SUBJECT",
+        "SNAPSHOT_DRIFT"
+      ],
+      "stageSourceRules": [
+        "按 DCC 岗位解析",
+        "按部门负责人解析",
+        "按系统角色解析",
+        "按 DCC 岗位解析"
+      ]
+    }
+  ],
+  "finishedAt": "2026-06-26T05:19:30.701Z"
+}

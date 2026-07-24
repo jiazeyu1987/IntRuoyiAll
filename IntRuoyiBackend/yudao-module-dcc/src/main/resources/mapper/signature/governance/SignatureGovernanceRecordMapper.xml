@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.iocoder.yudao.module.dcc.dal.mysql.signature.governance.SignatureGovernanceRecordMapper">
+
+    <select id="selectSignatureRecordPage"
+            resultType="cn.iocoder.yudao.module.dcc.controller.admin.signature.governance.vo.SignatureGovernanceRecordRespVO">
+        SELECT
+            merged.global_id,
+            merged.source_code,
+            merged.source_label,
+            merged.source_table,
+            merged.source_record_id,
+            merged.business_record_id,
+            merged.business_record_code,
+            merged.business_record_name,
+            merged.signer_user_id,
+            merged.signer_name,
+            merged.actor_username_snapshot,
+            merged.actor_nickname_snapshot,
+            merged.actor_dept_name_snapshot,
+            merged.actor_post_names_snapshot,
+            merged.actor_role_names_snapshot,
+            merged.action_code,
+            merged.action_label,
+            merged.meaning_code,
+            merged.meaning_label,
+            merged.comment,
+            merged.signed_at,
+            merged.evidence_hash,
+            merged.evidence_status,
+            merged.signature_image_id,
+            merged.signature_image_version_no,
+            merged.signature_image_file_id,
+            merged.signature_image_file_url,
+            merged.signature_image_sha256,
+            merged.signature_image_content_type,
+            merged.signature_image_file_size,
+            merged.signature_image_status_snapshot,
+            merged.signature_image_verified_status,
+            merged.detail_route_name,
+            merged.detail_path
+        FROM (
+            SELECT
+                CONVERT(CONCAT('FILE-', sig.id) USING utf8mb4) AS global_id,
+                CONVERT('FILE' USING utf8mb4) AS source_code,
+                CONVERT('文件' USING utf8mb4) AS source_label,
+                CONVERT('dcc_controlled_file_signature' USING utf8mb4) AS source_table,
+                sig.id AS source_record_id,
+                sig.controlled_file_id AS business_record_id,
+                CONVERT(COALESCE(file.file_number, CAST(sig.controlled_file_id AS CHAR)) USING utf8mb4) AS business_record_code,
+                CONVERT(COALESCE(file.title, file.file_name, CONCAT('文件ID ', sig.controlled_file_id)) USING utf8mb4) AS business_record_name,
+                sig.actor_id AS signer_user_id,
+                CONVERT(COALESCE(sig.actor_nickname_snapshot, sig.actor_username_snapshot, CAST(sig.actor_id AS CHAR)) USING utf8mb4) AS signer_name,
+                CONVERT(sig.actor_username_snapshot USING utf8mb4) AS actor_username_snapshot,
+                CONVERT(sig.actor_nickname_snapshot USING utf8mb4) AS actor_nickname_snapshot,
+                CONVERT(sig.actor_dept_name_snapshot USING utf8mb4) AS actor_dept_name_snapshot,
+                CONVERT(sig.actor_post_names_snapshot USING utf8mb4) AS actor_post_names_snapshot,
+                CONVERT(sig.actor_role_names_snapshot USING utf8mb4) AS actor_role_names_snapshot,
+                CONVERT(sig.action_type USING utf8mb4) AS action_code,
+                CONVERT(COALESCE(sig.meaning_label, sig.action_type) USING utf8mb4) AS action_label,
+                CONVERT(sig.meaning_code USING utf8mb4) AS meaning_code,
+                CONVERT(sig.meaning_label USING utf8mb4) AS meaning_label,
+                CONVERT(sig.comment USING utf8mb4) AS comment,
+                sig.signed_at AS signed_at,
+                CONVERT(sig.evidence_hash USING utf8mb4) AS evidence_hash,
+                CONVERT(sig.evidence_status USING utf8mb4) AS evidence_status,
+                sig.signature_image_id AS signature_image_id,
+                sig.signature_image_version_no AS signature_image_version_no,
+                sig.signature_image_file_id AS signature_image_file_id,
+                CONVERT(sig.signature_image_file_url USING utf8mb4) AS signature_image_file_url,
+                CONVERT(sig.signature_image_sha256 USING utf8mb4) AS signature_image_sha256,
+                CONVERT(sig.signature_image_content_type USING utf8mb4) AS signature_image_content_type,
+                sig.signature_image_file_size AS signature_image_file_size,
+                CONVERT(sig.signature_image_status_snapshot USING utf8mb4) AS signature_image_status_snapshot,
+                CONVERT(sig.signature_image_verified_status USING utf8mb4) AS signature_image_verified_status,
+                CONVERT('DccControlledFileDetail' USING utf8mb4) AS detail_route_name,
+                CONVERT(CONCAT('/dcc/controlled-file/detail/', sig.controlled_file_id,
+                    '?viewer=1&amp;from=signature-governance') USING utf8mb4) AS detail_path
+            FROM dcc_controlled_file_signature sig
+            LEFT JOIN dcc_controlled_file file
+              ON file.id = sig.controlled_file_id
+             AND file.deleted = b'0'
+            WHERE sig.deleted = b'0'
+            UNION ALL
+            SELECT
+                CONVERT(CONCAT('BATCH_RECORD-', sig.id) USING utf8mb4) AS global_id,
+                CONVERT('BATCH_RECORD' USING utf8mb4) AS source_code,
+                CONVERT('批记录' USING utf8mb4) AS source_label,
+                CONVERT('mes_pro_batch_record_execution_signature' USING utf8mb4) AS source_table,
+                sig.id AS source_record_id,
+                sig.execution_id AS business_record_id,
+                CONVERT(COALESCE(execution.execution_code, CAST(sig.execution_id AS CHAR)) USING utf8mb4) AS business_record_code,
+                CONVERT(COALESCE(execution.template_name, execution.work_order_code, execution.batch_code,
+                         CONCAT('批记录执行ID ', sig.execution_id)) USING utf8mb4) AS business_record_name,
+                sig.actor_id AS signer_user_id,
+                CONVERT(COALESCE(sig.actor_name, sig.actor_nickname_snapshot, sig.actor_username_snapshot,
+                         CAST(sig.actor_id AS CHAR)) USING utf8mb4) AS signer_name,
+                CONVERT(sig.actor_username_snapshot USING utf8mb4) AS actor_username_snapshot,
+                CONVERT(sig.actor_nickname_snapshot USING utf8mb4) AS actor_nickname_snapshot,
+                CONVERT(sig.actor_dept_name_snapshot USING utf8mb4) AS actor_dept_name_snapshot,
+                CONVERT(sig.actor_post_names_snapshot USING utf8mb4) AS actor_post_names_snapshot,
+                CONVERT(sig.actor_role_names_snapshot USING utf8mb4) AS actor_role_names_snapshot,
+                CONVERT(sig.action_type USING utf8mb4) AS action_code,
+                CONVERT(COALESCE(sig.approval_result, sig.action_type) USING utf8mb4) AS action_label,
+                CONVERT(sig.approval_result USING utf8mb4) AS meaning_code,
+                CONVERT(COALESCE(sig.approval_result, sig.reason, sig.action_type) USING utf8mb4) AS meaning_label,
+                CONVERT(COALESCE(sig.comment, sig.reason) USING utf8mb4) AS comment,
+                sig.signed_at AS signed_at,
+                CONVERT(COALESCE(sig.signature_challenge_hash, sig.field_audit_head_hash, sig.cell_values_hash,
+                         execution.cell_values_hash, execution.domain_trace_hash) USING utf8mb4) AS evidence_hash,
+                CONVERT(COALESCE(sig.snapshot_status, execution.domain_trace_status) USING utf8mb4) AS evidence_status,
+                NULL AS signature_image_id,
+                NULL AS signature_image_version_no,
+                NULL AS signature_image_file_id,
+                CONVERT(NULL USING utf8mb4) AS signature_image_file_url,
+                CONVERT(NULL USING utf8mb4) AS signature_image_sha256,
+                CONVERT(NULL USING utf8mb4) AS signature_image_content_type,
+                NULL AS signature_image_file_size,
+                CONVERT(NULL USING utf8mb4) AS signature_image_status_snapshot,
+                CONVERT(NULL USING utf8mb4) AS signature_image_verified_status,
+                CONVERT('MesProFeedbackEdhrSignatures' USING utf8mb4) AS detail_route_name,
+                CONVERT(CONCAT('/mes/pro/feedback/edhr-signatures?executionId=', sig.execution_id) USING utf8mb4) AS detail_path
+            FROM mes_pro_batch_record_execution_signature sig
+            LEFT JOIN mes_pro_batch_record_execution execution
+              ON execution.id = sig.execution_id
+             AND execution.deleted = b'0'
+            WHERE sig.deleted = b'0'
+            UNION ALL
+            SELECT
+                CONVERT(CONCAT('SHOWROOM-', sig.id) USING utf8mb4) AS global_id,
+                CONVERT('SHOWROOM' USING utf8mb4) AS source_code,
+                CONVERT('展厅' USING utf8mb4) AS source_label,
+                CONVERT('showroom_change_request_signature' USING utf8mb4) AS source_table,
+                sig.id AS source_record_id,
+                sig.change_request_id AS business_record_id,
+                CONVERT(CONCAT('SHOWROOM-', sig.change_request_id) USING utf8mb4) AS business_record_code,
+                CONVERT(CONCAT_WS(' / ', request.module_code, request.request_type, request.status) USING utf8mb4) AS business_record_name,
+                sig.actor_id AS signer_user_id,
+                CONVERT(CAST(sig.actor_id AS CHAR) USING utf8mb4) AS signer_name,
+                CONVERT(NULL USING utf8mb4) AS actor_username_snapshot,
+                CONVERT(NULL USING utf8mb4) AS actor_nickname_snapshot,
+                CONVERT(NULL USING utf8mb4) AS actor_dept_name_snapshot,
+                CONVERT(NULL USING utf8mb4) AS actor_post_names_snapshot,
+                CONVERT(NULL USING utf8mb4) AS actor_role_names_snapshot,
+                CONVERT(sig.action_type USING utf8mb4) AS action_code,
+                CONVERT(sig.action_type USING utf8mb4) AS action_label,
+                CONVERT(sig.approval_stage USING utf8mb4) AS meaning_code,
+                CONVERT(sig.approval_stage USING utf8mb4) AS meaning_label,
+                CONVERT(sig.comment USING utf8mb4) AS comment,
+                sig.signed_at AS signed_at,
+                CONVERT(NULL USING utf8mb4) AS evidence_hash,
+                CONVERT(NULL USING utf8mb4) AS evidence_status,
+                NULL AS signature_image_id,
+                NULL AS signature_image_version_no,
+                NULL AS signature_image_file_id,
+                CONVERT(NULL USING utf8mb4) AS signature_image_file_url,
+                CONVERT(NULL USING utf8mb4) AS signature_image_sha256,
+                CONVERT(NULL USING utf8mb4) AS signature_image_content_type,
+                NULL AS signature_image_file_size,
+                CONVERT(NULL USING utf8mb4) AS signature_image_status_snapshot,
+                CONVERT(NULL USING utf8mb4) AS signature_image_verified_status,
+                CONVERT('ShowroomChangeRequestDetail' USING utf8mb4) AS detail_route_name,
+                CONVERT(CONCAT('/showroom/change-request/detail?id=', sig.change_request_id) USING utf8mb4) AS detail_path
+            FROM showroom_change_request_signature sig
+            LEFT JOIN showroom_change_request request
+              ON request.id = sig.change_request_id
+             AND request.deleted = b'0'
+            WHERE sig.deleted = b'0'
+            UNION ALL
+            SELECT
+                CONVERT(CONCAT(sig.module_code, '-', sig.id) USING utf8mb4) AS global_id,
+                CONVERT(sig.module_code USING utf8mb4) AS source_code,
+                CONVERT(CASE
+                    WHEN sig.module_code = 'BPM' THEN 'BPM审批'
+                    WHEN sig.module_code = 'MES_FEEDBACK' THEN '报工审批'
+                    ELSE sig.module_code
+                END USING utf8mb4) AS source_label,
+                CONVERT('bpm_approval_signature_record' USING utf8mb4) AS source_table,
+                sig.id AS source_record_id,
+                CASE
+                    WHEN sig.module_code = 'MES_FEEDBACK'
+                     AND sig.source_task_id REGEXP '^[0-9]+$'
+                    THEN CAST(sig.source_task_id AS UNSIGNED)
+                    ELSE NULL
+                END AS business_record_id,
+                CONVERT(COALESCE(sig.business_key, sig.process_instance_id, sig.source_task_id,
+                         CONCAT(sig.module_code, '-', sig.id)) USING utf8mb4) AS business_record_code,
+                CONVERT(CASE
+                    WHEN sig.module_code = 'BPM' THEN CONCAT('BPM审批 ', COALESCE(sig.process_instance_id, sig.source_task_id, sig.business_key, sig.id))
+                    WHEN sig.module_code = 'MES_FEEDBACK' THEN CONCAT('生产报工审批 ', COALESCE(sig.source_task_id, sig.business_key, sig.id))
+                    ELSE CONCAT(sig.module_code, ' 审批')
+                END USING utf8mb4) AS business_record_name,
+                sig.signer_user_id AS signer_user_id,
+                CONVERT(COALESCE(sys_user.nickname, CAST(sig.signer_user_id AS CHAR)) USING utf8mb4) AS signer_name,
+                CONVERT(NULL USING utf8mb4) AS actor_username_snapshot,
+                CONVERT(sys_user.nickname USING utf8mb4) AS actor_nickname_snapshot,
+                CONVERT(NULL USING utf8mb4) AS actor_dept_name_snapshot,
+                CONVERT(NULL USING utf8mb4) AS actor_post_names_snapshot,
+                CONVERT(NULL USING utf8mb4) AS actor_role_names_snapshot,
+                CONVERT(sig.review_result USING utf8mb4) AS action_code,
+                CONVERT(CASE
+                    WHEN sig.review_result = 'APPROVE' THEN '审批通过'
+                    WHEN sig.review_result = 'REJECT' THEN '审批驳回'
+                    ELSE sig.review_result
+                END USING utf8mb4) AS action_label,
+                CONVERT(sig.review_result USING utf8mb4) AS meaning_code,
+                CONVERT(CASE
+                    WHEN sig.password_verified = b'1' THEN '电子签名密码已验证'
+                    ELSE '电子签名密码未验证'
+                END USING utf8mb4) AS meaning_label,
+                CONVERT(sig.reason USING utf8mb4) AS comment,
+                sig.signed_at AS signed_at,
+                CONVERT(NULL USING utf8mb4) AS evidence_hash,
+                CONVERT(CASE
+                    WHEN sig.password_verified = b'1' THEN 'PASSWORD_VERIFIED'
+                    ELSE 'PASSWORD_NOT_VERIFIED'
+                END USING utf8mb4) AS evidence_status,
+                sig.signature_image_id AS signature_image_id,
+                sig.signature_image_version_no AS signature_image_version_no,
+                sig.signature_image_file_id AS signature_image_file_id,
+                CONVERT(sig.signature_image_file_url USING utf8mb4) AS signature_image_file_url,
+                CONVERT(sig.signature_image_sha256 USING utf8mb4) AS signature_image_sha256,
+                CONVERT(sig.signature_image_content_type USING utf8mb4) AS signature_image_content_type,
+                sig.signature_image_file_size AS signature_image_file_size,
+                CONVERT(sig.signature_image_status_snapshot USING utf8mb4) AS signature_image_status_snapshot,
+                CONVERT(sig.signature_image_verified_status USING utf8mb4) AS signature_image_verified_status,
+                CONVERT(CASE
+                    WHEN sig.module_code = 'BPM' THEN 'BpmProcessInstanceDetail'
+                    WHEN sig.module_code = 'MES_FEEDBACK' THEN 'MesProFeedback'
+                    ELSE NULL
+                END USING utf8mb4) AS detail_route_name,
+                CONVERT(CASE
+                    WHEN sig.module_code = 'BPM' THEN CONCAT('/bpm/process-instance/detail?id=', sig.process_instance_id, '&amp;taskId=', sig.source_task_id)
+                    WHEN sig.module_code = 'MES_FEEDBACK' THEN CONCAT('/mes/pro/feedback?feedbackId=', sig.source_task_id)
+                    ELSE NULL
+                END USING utf8mb4) AS detail_path
+            FROM bpm_approval_signature_record sig
+            LEFT JOIN system_users sys_user
+              ON sys_user.id = sig.signer_user_id
+             AND sys_user.deleted = b'0'
+            WHERE sig.deleted = b'0'
+        ) merged
+        <where>
+            <if test="reqVO.sourceCodes != null and reqVO.sourceCodes.size() > 0">
+                AND merged.source_code IN
+                <foreach collection="reqVO.sourceCodes" item="sourceCode" open="(" separator="," close=")">
+                    #{sourceCode}
+                </foreach>
+            </if>
+            <if test="reqVO.keyword != null and reqVO.keyword != ''">
+                AND (
+                    merged.global_id LIKE CONCAT('%', #{reqVO.keyword}, '%')
+                    OR merged.business_record_code LIKE CONCAT('%', #{reqVO.keyword}, '%')
+                    OR merged.business_record_name LIKE CONCAT('%', #{reqVO.keyword}, '%')
+                )
+            </if>
+            <if test="reqVO.signerUserId != null">
+                AND merged.signer_user_id = #{reqVO.signerUserId}
+            </if>
+            <if test="reqVO.signerKeyword != null and reqVO.signerKeyword != ''">
+                AND (
+                    merged.signer_name LIKE CONCAT('%', #{reqVO.signerKeyword}, '%')
+                    OR merged.actor_username_snapshot LIKE CONCAT('%', #{reqVO.signerKeyword}, '%')
+                    OR merged.actor_nickname_snapshot LIKE CONCAT('%', #{reqVO.signerKeyword}, '%')
+                )
+            </if>
+            <if test="reqVO.actionCode != null and reqVO.actionCode != ''">
+                AND merged.action_code = #{reqVO.actionCode}
+            </if>
+            <if test="reqVO.evidenceHash != null and reqVO.evidenceHash != ''">
+                AND merged.evidence_hash LIKE CONCAT('%', #{reqVO.evidenceHash}, '%')
+            </if>
+            <if test="reqVO.signedAt != null and reqVO.signedAt.length == 2">
+                AND merged.signed_at BETWEEN #{reqVO.signedAt[0]} AND #{reqVO.signedAt[1]}
+            </if>
+        </where>
+        ORDER BY merged.signed_at DESC, merged.source_record_id DESC
+    </select>
+
+    <select id="selectSignatureRecordByGlobalId"
+            resultType="cn.iocoder.yudao.module.dcc.controller.admin.signature.governance.vo.SignatureGovernanceRecordRespVO">
+        SELECT
+            merged.global_id,
+            merged.source_code,
+            merged.source_label,
+            merged.source_table,
+            merged.source_record_id,
+            merged.business_record_id,
+            merged.business_record_code,
+            merged.business_record_name,
+            merged.signer_user_id,
+            merged.signer_name,
+            merged.actor_username_snapshot,
+            merged.actor_nickname_snapshot,
+            merged.actor_dept_name_snapshot,
+            merged.actor_post_names_snapshot,
+            merged.actor_role_names_snapshot,
+            merged.action_code,
+            merged.action_label,
+            merged.meaning_code,
+            merged.meaning_label,
+            merged.comment,
+            merged.signed_at,
+            merged.evidence_hash,
+            merged.evidence_status,
+            merged.signature_image_id,
+            merged.signature_image_version_no,
+            merged.signature_image_file_id,
+            merged.signature_image_file_url,
+            merged.signature_image_sha256,
+            merged.signature_image_content_type,
+            merged.signature_image_file_size,
+            merged.signature_image_status_snapshot,
+            merged.signature_image_verified_status,
+            merged.detail_route_name,
+            merged.detail_path
+        FROM (
+            SELECT
+                CONVERT(CONCAT('FILE-', sig.id) USING utf8mb4) AS global_id,
+                CONVERT('FILE' USING utf8mb4) AS source_code,
+                CONVERT('文件' USING utf8mb4) AS source_label,
+                CONVERT('dcc_controlled_file_signature' USING utf8mb4) AS source_table,
+                sig.id AS source_record_id,
+                sig.controlled_file_id AS business_record_id,
+                CONVERT(COALESCE(file.file_number, CAST(sig.controlled_file_id AS CHAR)) USING utf8mb4) AS business_record_code,
+                CONVERT(COALESCE(file.title, file.file_name, CONCAT('文件ID ', sig.controlled_file_id)) USING utf8mb4) AS business_record_name,
+                sig.actor_id AS signer_user_id,
+                CONVERT(COALESCE(sig.actor_nickname_snapshot, sig.actor_username_snapshot, CAST(sig.actor_id AS CHAR)) USING utf8mb4) AS signer_name,
+                CONVERT(sig.actor_username_snapshot USING utf8mb4) AS actor_username_snapshot,
+                CONVERT(sig.actor_nickname_snapshot USING utf8mb4) AS actor_nickname_snapshot,
+                CONVERT(sig.actor_dept_name_snapshot USING utf8mb4) AS actor_dept_name_snapshot,
+                CONVERT(sig.actor_post_names_snapshot USING utf8mb4) AS actor_post_names_snapshot,
+                CONVERT(sig.actor_role_names_snapshot USING utf8mb4) AS actor_role_names_snapshot,
+                CONVERT(sig.action_type USING utf8mb4) AS action_code,
+                CONVERT(COALESCE(sig.meaning_label, sig.action_type) USING utf8mb4) AS action_label,
+                CONVERT(sig.meaning_code USING utf8mb4) AS meaning_code,
+                CONVERT(sig.meaning_label USING utf8mb4) AS meaning_label,
+                CONVERT(sig.comment USING utf8mb4) AS comment,
+                sig.signed_at AS signed_at,
+                CONVERT(sig.evidence_hash USING utf8mb4) AS evidence_hash,
+                CONVERT(sig.evidence_status USING utf8mb4) AS evidence_status,
+                sig.signature_image_id AS signature_image_id,
+                sig.signature_image_version_no AS signature_image_version_no,
+                sig.signature_image_file_id AS signature_image_file_id,
+                CONVERT(sig.signature_image_file_url USING utf8mb4) AS signature_image_file_url,
+                CONVERT(sig.signature_image_sha256 USING utf8mb4) AS signature_image_sha256,
+                CONVERT(sig.signature_image_content_type USING utf8mb4) AS signature_image_content_type,
+                sig.signature_image_file_size AS signature_image_file_size,
+                CONVERT(sig.signature_image_status_snapshot USING utf8mb4) AS signature_image_status_snapshot,
+                CONVERT(sig.signature_image_verified_status USING utf8mb4) AS signature_image_verified_status,
+                CONVERT('DccControlledFileDetail' USING utf8mb4) AS detail_route_name,
+                CONVERT(CONCAT('/dcc/controlled-file/detail/', sig.controlled_file_id,
+                    '?viewer=1&amp;from=signature-governance') USING utf8mb4) AS detail_path
+            FROM dcc_controlled_file_signature sig
+            LEFT JOIN dcc_controlled_file file
+              ON file.id = sig.controlled_file_id
+             AND file.deleted = b'0'
+            WHERE sig.deleted = b'0'
+            UNION ALL
+            SELECT
+                CONVERT(CONCAT('BATCH_RECORD-', sig.id) USING utf8mb4) AS global_id,
+                CONVERT('BATCH_RECORD' USING utf8mb4) AS source_code,
+                CONVERT('批记录' USING utf8mb4) AS source_label,
+                CONVERT('mes_pro_batch_record_execution_signature' USING utf8mb4) AS source_table,
+                sig.id AS source_record_id,
+                sig.execution_id AS business_record_id,
+                CONVERT(COALESCE(execution.execution_code, CAST(sig.execution_id AS CHAR)) USING utf8mb4) AS business_record_code,
+                CONVERT(COALESCE(execution.template_name, execution.work_order_code, execution.batch_code,
+                         CONCAT('批记录执行ID ', sig.execution_id)) USING utf8mb4) AS business_record_name,
+                sig.actor_id AS signer_user_id,
+                CONVERT(COALESCE(sig.actor_name, sig.actor_nickname_snapshot, sig.actor_username_snapshot,
+                         CAST(sig.actor_id AS CHAR)) USING utf8mb4) AS signer_name,
+                CONVERT(sig.actor_username_snapshot USING utf8mb4) AS actor_username_snapshot,
+                CONVERT(sig.actor_nickname_snapshot USING utf8mb4) AS actor_nickname_snapshot,
+                CONVERT(sig.actor_dept_name_snapshot USING utf8mb4) AS actor_dept_name_snapshot,
+                CONVERT(sig.actor_post_names_snapshot USING utf8mb4) AS actor_post_names_snapshot,
+                CONVERT(sig.actor_role_names_snapshot USING utf8mb4) AS actor_role_names_snapshot,
+                CONVERT(sig.action_type USING utf8mb4) AS action_code,
+                CONVERT(COALESCE(sig.approval_result, sig.action_type) USING utf8mb4) AS action_label,
+                CONVERT(sig.approval_result USING utf8mb4) AS meaning_code,
+                CONVERT(COALESCE(sig.approval_result, sig.reason, sig.action_type) USING utf8mb4) AS meaning_label,
+                CONVERT(COALESCE(sig.comment, sig.reason) USING utf8mb4) AS comment,
+                sig.signed_at AS signed_at,
+                CONVERT(COALESCE(sig.signature_challenge_hash, sig.field_audit_head_hash, sig.cell_values_hash,
+                         execution.cell_values_hash, execution.domain_trace_hash) USING utf8mb4) AS evidence_hash,
+                CONVERT(COALESCE(sig.snapshot_status, execution.domain_trace_status) USING utf8mb4) AS evidence_status,
+                NULL AS signature_image_id,
+                NULL AS signature_image_version_no,
+                NULL AS signature_image_file_id,
+                CONVERT(NULL USING utf8mb4) AS signature_image_file_url,
+                CONVERT(NULL USING utf8mb4) AS signature_image_sha256,
+                CONVERT(NULL USING utf8mb4) AS signature_image_content_type,
+                NULL AS signature_image_file_size,
+                CONVERT(NULL USING utf8mb4) AS signature_image_status_snapshot,
+                CONVERT(NULL USING utf8mb4) AS signature_image_verified_status,
+                CONVERT('MesProFeedbackEdhrSignatures' USING utf8mb4) AS detail_route_name,
+                CONVERT(CONCAT('/mes/pro/feedback/edhr-signatures?executionId=', sig.execution_id) USING utf8mb4) AS detail_path
+            FROM mes_pro_batch_record_execution_signature sig
+            LEFT JOIN mes_pro_batch_record_execution execution
+              ON execution.id = sig.execution_id
+             AND execution.deleted = b'0'
+            WHERE sig.deleted = b'0'
+            UNION ALL
+            SELECT
+                CONVERT(CONCAT('SHOWROOM-', sig.id) USING utf8mb4) AS global_id,
+                CONVERT('SHOWROOM' USING utf8mb4) AS source_code,
+                CONVERT('展厅' USING utf8mb4) AS source_label,
+                CONVERT('showroom_change_request_signature' USING utf8mb4) AS source_table,
+                sig.id AS source_record_id,
+                sig.change_request_id AS business_record_id,
+                CONVERT(CONCAT('SHOWROOM-', sig.change_request_id) USING utf8mb4) AS business_record_code,
+                CONVERT(CONCAT_WS(' / ', request.module_code, request.request_type, request.status) USING utf8mb4) AS business_record_name,
+                sig.actor_id AS signer_user_id,
+                CONVERT(CAST(sig.actor_id AS CHAR) USING utf8mb4) AS signer_name,
+                CONVERT(NULL USING utf8mb4) AS actor_username_snapshot,
+                CONVERT(NULL USING utf8mb4) AS actor_nickname_snapshot,
+                CONVERT(NULL USING utf8mb4) AS actor_dept_name_snapshot,
+                CONVERT(NULL USING utf8mb4) AS actor_post_names_snapshot,
+                CONVERT(NULL USING utf8mb4) AS actor_role_names_snapshot,
+                CONVERT(sig.action_type USING utf8mb4) AS action_code,
+                CONVERT(sig.action_type USING utf8mb4) AS action_label,
+                CONVERT(sig.approval_stage USING utf8mb4) AS meaning_code,
+                CONVERT(sig.approval_stage USING utf8mb4) AS meaning_label,
+                CONVERT(sig.comment USING utf8mb4) AS comment,
+                sig.signed_at AS signed_at,
+                CONVERT(NULL USING utf8mb4) AS evidence_hash,
+                CONVERT(NULL USING utf8mb4) AS evidence_status,
+                NULL AS signature_image_id,
+                NULL AS signature_image_version_no,
+                NULL AS signature_image_file_id,
+                CONVERT(NULL USING utf8mb4) AS signature_image_file_url,
+                CONVERT(NULL USING utf8mb4) AS signature_image_sha256,
+                CONVERT(NULL USING utf8mb4) AS signature_image_content_type,
+                NULL AS signature_image_file_size,
+                CONVERT(NULL USING utf8mb4) AS signature_image_status_snapshot,
+                CONVERT(NULL USING utf8mb4) AS signature_image_verified_status,
+                CONVERT('ShowroomChangeRequestDetail' USING utf8mb4) AS detail_route_name,
+                CONVERT(CONCAT('/showroom/change-request/detail?id=', sig.change_request_id) USING utf8mb4) AS detail_path
+            FROM showroom_change_request_signature sig
+            LEFT JOIN showroom_change_request request
+              ON request.id = sig.change_request_id
+             AND request.deleted = b'0'
+            WHERE sig.deleted = b'0'
+            UNION ALL
+            SELECT
+                CONVERT(CONCAT(sig.module_code, '-', sig.id) USING utf8mb4) AS global_id,
+                CONVERT(sig.module_code USING utf8mb4) AS source_code,
+                CONVERT(CASE
+                    WHEN sig.module_code = 'BPM' THEN 'BPM审批'
+                    WHEN sig.module_code = 'MES_FEEDBACK' THEN '报工审批'
+                    ELSE sig.module_code
+                END USING utf8mb4) AS source_label,
+                CONVERT('bpm_approval_signature_record' USING utf8mb4) AS source_table,
+                sig.id AS source_record_id,
+                CASE
+                    WHEN sig.module_code = 'MES_FEEDBACK'
+                     AND sig.source_task_id REGEXP '^[0-9]+$'
+                    THEN CAST(sig.source_task_id AS UNSIGNED)
+                    ELSE NULL
+                END AS business_record_id,
+                CONVERT(COALESCE(sig.business_key, sig.process_instance_id, sig.source_task_id,
+                         CONCAT(sig.module_code, '-', sig.id)) USING utf8mb4) AS business_record_code,
+                CONVERT(CASE
+                    WHEN sig.module_code = 'BPM' THEN CONCAT('BPM审批 ', COALESCE(sig.process_instance_id, sig.source_task_id, sig.business_key, sig.id))
+                    WHEN sig.module_code = 'MES_FEEDBACK' THEN CONCAT('生产报工审批 ', COALESCE(sig.source_task_id, sig.business_key, sig.id))
+                    ELSE CONCAT(sig.module_code, ' 审批')
+                END USING utf8mb4) AS business_record_name,
+                sig.signer_user_id AS signer_user_id,
+                CONVERT(COALESCE(sys_user.nickname, CAST(sig.signer_user_id AS CHAR)) USING utf8mb4) AS signer_name,
+                CONVERT(NULL USING utf8mb4) AS actor_username_snapshot,
+                CONVERT(sys_user.nickname USING utf8mb4) AS actor_nickname_snapshot,
+                CONVERT(NULL USING utf8mb4) AS actor_dept_name_snapshot,
+                CONVERT(NULL USING utf8mb4) AS actor_post_names_snapshot,
+                CONVERT(NULL USING utf8mb4) AS actor_role_names_snapshot,
+                CONVERT(sig.review_result USING utf8mb4) AS action_code,
+                CONVERT(CASE
+                    WHEN sig.review_result = 'APPROVE' THEN '审批通过'
+                    WHEN sig.review_result = 'REJECT' THEN '审批驳回'
+                    ELSE sig.review_result
+                END USING utf8mb4) AS action_label,
+                CONVERT(sig.review_result USING utf8mb4) AS meaning_code,
+                CONVERT(CASE
+                    WHEN sig.password_verified = b'1' THEN '电子签名密码已验证'
+                    ELSE '电子签名密码未验证'
+                END USING utf8mb4) AS meaning_label,
+                CONVERT(sig.reason USING utf8mb4) AS comment,
+                sig.signed_at AS signed_at,
+                CONVERT(NULL USING utf8mb4) AS evidence_hash,
+                CONVERT(CASE
+                    WHEN sig.password_verified = b'1' THEN 'PASSWORD_VERIFIED'
+                    ELSE 'PASSWORD_NOT_VERIFIED'
+                END USING utf8mb4) AS evidence_status,
+                sig.signature_image_id AS signature_image_id,
+                sig.signature_image_version_no AS signature_image_version_no,
+                sig.signature_image_file_id AS signature_image_file_id,
+                CONVERT(sig.signature_image_file_url USING utf8mb4) AS signature_image_file_url,
+                CONVERT(sig.signature_image_sha256 USING utf8mb4) AS signature_image_sha256,
+                CONVERT(sig.signature_image_content_type USING utf8mb4) AS signature_image_content_type,
+                sig.signature_image_file_size AS signature_image_file_size,
+                CONVERT(sig.signature_image_status_snapshot USING utf8mb4) AS signature_image_status_snapshot,
+                CONVERT(sig.signature_image_verified_status USING utf8mb4) AS signature_image_verified_status,
+                CONVERT(CASE
+                    WHEN sig.module_code = 'BPM' THEN 'BpmProcessInstanceDetail'
+                    WHEN sig.module_code = 'MES_FEEDBACK' THEN 'MesProFeedback'
+                    ELSE NULL
+                END USING utf8mb4) AS detail_route_name,
+                CONVERT(CASE
+                    WHEN sig.module_code = 'BPM' THEN CONCAT('/bpm/process-instance/detail?id=', sig.process_instance_id, '&amp;taskId=', sig.source_task_id)
+                    WHEN sig.module_code = 'MES_FEEDBACK' THEN CONCAT('/mes/pro/feedback?feedbackId=', sig.source_task_id)
+                    ELSE NULL
+                END USING utf8mb4) AS detail_path
+            FROM bpm_approval_signature_record sig
+            LEFT JOIN system_users sys_user
+              ON sys_user.id = sig.signer_user_id
+             AND sys_user.deleted = b'0'
+            WHERE sig.deleted = b'0'
+        ) merged
+        WHERE merged.global_id = #{globalId}
+        LIMIT 1
+    </select>
+
+</mapper>

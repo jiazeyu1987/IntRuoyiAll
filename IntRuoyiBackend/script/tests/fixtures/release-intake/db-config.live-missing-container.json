@@ -1,0 +1,7 @@
+{
+  "driver": "mysql",
+  "database": "ruoyi-vue-pro",
+  "usernameEnv": "INTRUOYI_INTAKE_TEST_USER",
+  "passwordEnv": "INTRUOYI_INTAKE_TEST_PASSWORD",
+  "readOnly": true
+}

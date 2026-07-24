@@ -1,0 +1,23 @@
+# 执行日志：DCC 租户隔离与唯一键风险审计
+
+- BDD: 自动生成的 DCC NAS 分类 code 必须租户隔离 -> Given 两个租户迁移相同 NAS 路径 / When 系统生成自动分类 code / Then 不同租户必须生成不同 code，不能因全局唯一键互相阻塞。
+- BDD: DCC 用户只能看到本租户迁移结果 -> Given 租户 1 与租户 2 都存在 DCC 迁移数据 / When 用户在某个租户下查询 DCC 分类、受控文件或 NAS 转移任务 / Then 查询必须限制在当前租户，不能返回其它租户数据。
+- BDD: 全局唯一约束必须有明确业务边界 -> Given 数据表带 `tenant_id` 且存在唯一索引 / When 唯一索引未包含 `tenant_id` / Then 必须确认该字段确实是全局唯一业务标识，否则记录为风险或缺陷。
+- PRECHECK: 上一个 DHF 迁移任务 `20260530-dcc-dhf-nas-transfer-completion` 为 `completed`，提交 `655e36b09d`；当前存在 unrelated dirty changes，本任务不回退。
+- REVIEW: 测试服 `information_schema.STATISTICS` 扫描 DCC 含 `tenant_id` 表的非主键唯一索引；多数不含 `tenant_id` 的索引由租户内父对象 ID 限定，重点风险为 `dcc_file_category.uk_dcc_file_category_code(code)` 与 `dcc_approval_position.uk_dcc_approval_position_code(code)`。
+- REVIEW: 代码扫描发现 `DccFileCategoryAdminServiceImpl#buildIntAuthCode(Long)` 生成 `INTAUTH-<id>`，`DccApprovalPositionAdminServiceImpl#createSyncedPosition` 生成 `INTAUTH-<id>`；在全局唯一 `code` 索引下，多租户导入同一 IntAuth 来源会与 DHF NAS 分类相同地互相阻塞。
+- RED: `mvn -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldScopeDccCodeUniquenessByTenant" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，预期原因：缺少 `20260530_dcc_tenant_scoped_code_indexes.sql`，且 DCC base schema 仍使用全局 `code` 唯一键。
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccBaseSchemaTest#mysqlSchemaShouldScopeDccCodeUniquenessByTenant" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，新增迁移、基线 schema、H2 测试 schema 均要求 `uk_dcc_file_category_tenant_code(tenant_id, code)` 与 `uk_dcc_approval_position_tenant_code(tenant_id, code)`。
+- IMPLEMENTATION: 新增 `sql/mysql/20260530_dcc_tenant_scoped_code_indexes.sql`，将测试服旧唯一键 `uk_dcc_file_category_code(code)`、`uk_dcc_approval_position_code(code)` 替换为租户内唯一键；同步更新 `20260513_dcc_base_schema.sql` 与 `yudao-module-dcc/src/test/resources/sql/create_tables.sql`。
+- REGRESSION: `mvn -pl yudao-module-infra,yudao-module-dcc -am "-Dtest=S3FileClientPathTest,DccBaseSchemaTest,DccControlledFileNasTransferServiceTest,DccFileCategoryAdminServiceImplTest,DccApprovalPositionAdminServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，42 tests。
+- REGRESSION: `python -X utf8 -m pytest script/tests/test_dcc_nas_acl_snapshot_restore_sql.py script/tests/test_tenant_clone_schema.py -q` -> PASS，7 tests。
+- REGRESSION: `python -X utf8 -m pytest script/tests/test_dcc_sql_scripts.py script/tests/test_dcc_nas_acl_snapshot_restore_sql.py script/tests/test_tenant_clone_schema.py -q` -> PASS，13 tests；`test_dcc_sql_scripts.py` 固定校验两个 DCC 自动同步 code 唯一键必须包含 `tenant_id`。
+- TEST-SERVER PRECHECK: `172.30.30.58` 数据库中 `dcc_file_category` 与 `dcc_approval_position` 按 `tenant_id, code` 分组无重复；迁移前唯一键仍为旧的全局 `code` 唯一键。
+- TEST-SERVER MIGRATION: 上传并执行 `20260530_dcc_tenant_scoped_code_indexes.sql`；迁移后 `information_schema.STATISTICS` 显示 `dcc_file_category.uk_dcc_file_category_tenant_code(tenant_id,code)`、`dcc_approval_position.uk_dcc_approval_position_tenant_code(tenant_id,code)`。
+- REVIEW: `TenantDatabaseInterceptor` 默认对未 `@TenantIgnore` 的项目表追加租户条件；DCC 表未加入 `yudao.tenant.ignore-tables`，且测试服 `dcc_%` 表均存在 `tenant_id`。
+- REVIEW: DCC/NAS 定时任务 `DccControlledFileNasTransferTaskScheduler`、`DccNasPermissionRestoreExecutionScheduler` 均通过 `TenantUtils.execute(tenantId, ...)` 逐租户执行；`DccControlledFileNasTransferServiceImpl` 异步任务使用当前 `TenantContextHolder` 租户并在后台线程恢复该租户上下文。
+- REVIEW: DCC 控制器仅 OnlyOffice token 文件读取入口标注 `@TenantIgnore + @PermitAll`；普通 DCC 分类、审批岗位、受控文件、NAS 转移任务列表接口未忽略租户，不属于租户 2 可见租户 1 数据的查询路径。
+- TEST-SERVER AUDIT: `information_schema` 检查所有 `dcc_%` 表缺失 `tenant_id` 数量为 0；剩余不含 `tenant_id` 的非主键唯一索引均由 `category_id`、`directory_id`、`task_id`、`plan_id`、`snapshot_id`、`descriptor_id`、`user_id` 等对象 ID 链路限定，未发现新的全局业务 code 冲突。
+- TEST-SERVER VERIFY: 事务烟雾测试插入两个不同租户的同一 `code` 到 `dcc_file_category` 与 `dcc_approval_position` 均成功，回滚后 `CODEX_SMOKE` 行数为 0。
+- TEST-SERVER HEALTH: `curl.exe -sS http://172.30.30.58:48081/actuator/health` -> `{"status":"UP"}`。
+- RESULT: 已修复本次发现的类似潜在问题；当前证据显示普通 DCC/NAS 迁移数据不会跨租户可见。

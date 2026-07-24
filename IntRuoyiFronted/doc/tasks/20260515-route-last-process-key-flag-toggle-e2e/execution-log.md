@@ -1,0 +1,13 @@
+# Execution Log: 两条工艺路线末道工序设为关键工序并验证开关
+
+BDD: imported routes can be toggled after the last process becomes key -> Given `ROUTE-XLSX-00001` and `ROUTE-XLSX-00002` currently fail enable because they have no key process, When the last process of each route is marked as key process through the real route edit flow, Then an operator can enable and disable both routes successfully from the real route list page.
+
+- M1: Completed. The previous frontend task `doc/tasks/20260515-dcc-file-category-list-e2e-verification/task.md` was explicitly blocked because the user switched priority to this MES route task.
+- M2: Completed. This task document and execution log were created before any real data changes.
+- RED: `npx.cmd --yes --package @playwright/cli playwright-cli --session route-key-flag-toggle-e2e run-code --filename D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260515-route-last-process-key-flag-toggle-e2e\scripts\verify-two-routes-toggle-e2e.mjs` -> FAIL, the first route `ROUTE-XLSX-00001` could not be enabled and surfaced `工艺路线必须要有关键工序`.
+- M3 GREEN: Real process-row inspection inside the route edit dialog located the last rows that needed configuration. `ROUTE-XLSX-00001` and `ROUTE-XLSX-00002` both showed the last process key flag as `false` before the fix.
+- M4 GREEN: `npx.cmd --yes --package @playwright/cli playwright-cli --session route-key-flag-toggle-e2e run-code --filename D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260515-route-last-process-key-flag-toggle-e2e\scripts\set-last-process-key-flag-via-ui.mjs` -> PASS, both routes saved the last-process `keyFlag=true` through the real edit dialogs.
+- RED: same two-route toggle command after the key-process fix -> FAIL, `ROUTE-XLSX-00001` now fails enable with the more specific blocker `产品 PTCA球囊扩张导管 未配置工序的 BOM 消耗`.
+- BLOCKER CHECK: `npx.cmd --yes --package @playwright/cli playwright-cli --session route-key-flag-toggle-e2e run-code --filename D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260515-route-last-process-key-flag-toggle-e2e\scripts\ensure-route-product-bom-via-ui.mjs` -> FAIL, the real `BOM 物料` selector for `ROUTE-XLSX-00001` returned no selectable BOM candidates, so the missing prerequisite is product BOM master data rather than another route-page bug.
+- PARTIAL GREEN: `ROUTE-XLSX-00002` was enabled successfully on the live route list page; the row switch became checked and row actions were disabled.
+- PARTIAL GREEN: `ROUTE-XLSX-00002` was then disabled successfully on the same live page; the row switch returned to unchecked and the row `编辑` action became enabled again.

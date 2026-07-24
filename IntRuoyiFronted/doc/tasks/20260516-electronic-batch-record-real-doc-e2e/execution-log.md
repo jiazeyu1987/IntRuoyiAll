@@ -1,0 +1,7 @@
+BDD: 真实 DOC 上传后出现解析摘要 -> Given 管理员进入 `/mes/pro/batch-record-template` 并切换到 `文件解析导入`, When 上传用户指定的真实 `.doc`, Then 页面展示导入摘要、候选表列表和右侧只读版式预览。
+BDD: 清空勾选时主提交动作被显式阻止 -> Given 已解析出候选表, When 用户清空所有候选勾选, Then `提交选中` 主按钮保持禁用，页面不允许空提交。
+BDD: 真实 DOC 候选可提交并回到列表 -> Given 至少一个真实候选表被勾选, When 用户点击 `提交选中`, Then 页面提交成功、切回 `模板列表`、并显示新创建模板。
+BDD: 提交生成模板可查看并删除 -> Given 列表中出现本次真实 DOC 生成的模板, When 用户打开 `查看版式` 并随后删除该模板, Then 只读预览可见且删除成功。
+RED: `git -C D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 cat-file -e HEAD:doc/tasks/20260516-electronic-batch-record-real-doc-e2e/scripts/verify-electronic-batch-record-real-doc-e2e.mjs` -> FAIL, this task-specific real DOC E2E script did not exist in the previously committed tree.
+GREEN: `npx.cmd --yes --package @playwright/cli playwright-cli run-code --filename D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260516-electronic-batch-record-real-doc-e2e\scripts\verify-electronic-batch-record-real-doc-e2e.mjs` -> PASS, real admin login reached `/mes/pro/batch-record-template`, uploaded `RE-PP-ID-01（A 1）球囊扩张压力泵生产记录(1).doc`, rendered 10 candidates, disabled submit after clearing selection, committed one candidate, returned to `tab=list`, opened `查看版式`, and deleted the created template for cleanup.
+NOTE: Playwright console reported an unrelated `502 Bad Gateway` avatar resource request to `http://test.yudao.iocoder.cn/user/avatar/...jpg`; it did not block the electronic batch record import-analysis flow.

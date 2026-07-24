@@ -1,0 +1,9 @@
+{
+  "driver": "mysql",
+  "host": "127.0.0.1",
+  "port": 3306,
+  "database": "ruoyi-vue-pro",
+  "usernameEnv": "INTRUOYI_INTAKE_DB_USER",
+  "passwordEnv": "INTRUOYI_INTAKE_DB_PASSWORD",
+  "readOnly": true
+}

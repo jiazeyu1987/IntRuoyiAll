@@ -1,0 +1,366 @@
+package cn.iocoder.yudao.module.bpm.approval.service;
+
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalModuleCode;
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskReviewResult;
+import cn.iocoder.yudao.module.bpm.approval.core.ApprovalTaskViewType;
+import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.instance.BpmProcessInstanceCopyPageReqVO;
+import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.instance.BpmProcessInstancePageReqVO;
+import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskApproveReqVO;
+import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskPageReqVO;
+import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskRejectReqVO;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.task.BpmProcessInstanceCopyDO;
+import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceCopyService;
+import cn.iocoder.yudao.module.bpm.service.task.BpmProcessInstanceService;
+import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
+import org.flowable.engine.history.HistoricProcessInstance;
+import org.flowable.task.api.Task;
+import org.flowable.task.api.history.HistoricTaskInstance;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.time.LocalDateTime;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class BpmNativeApprovalTaskProviderTest {
+
+    @Mock
+    private BpmProcessInstanceService processInstanceService;
+    @Mock
+    private BpmProcessInstanceCopyService copyService;
+    @Mock
+    private BpmTaskService taskService;
+    @InjectMocks
+    private BpmNativeApprovalTaskProvider provider;
+
+    @Test
+    void pageTodoMapsNativeBpmTodoTasksToUnifiedSummary() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-100");
+        when(task.getName()).thenReturn("通用审批");
+        when(task.getTaskDefinitionKey()).thenReturn("userTask");
+        when(task.getProcessInstanceId()).thenReturn("pi-100");
+        when(task.getAssignee()).thenReturn("910272");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "通用", 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        ApprovalTaskSummary summary = page.getList().get(0);
+        assertEquals("BPM:BPM_TASK_TODO:task-100", summary.getId());
+        assertEquals(ApprovalModuleCode.BPM, summary.getModuleCode());
+        assertEquals("BPM_TASK_TODO", summary.getSourceTaskType());
+        assertEquals("通用审批", summary.getBusinessTitle());
+        assertEquals("TODO", summary.getBusinessStatus());
+        assertEquals(910272L, summary.getAssigneeUserId());
+        assertEquals(Boolean.TRUE, summary.getRequiresSignature());
+        assertEquals("/bpm/process-instance/detail", summary.getDetailRoute());
+        assertEquals("pi-100", summary.getDetailQuery().get("id"));
+        assertEquals("task-100", summary.getDetailQuery().get("taskId"));
+        assertTrue(summary.getAvailableActions().contains("OPEN_DETAIL"));
+        assertTrue(summary.getAvailableActions().contains("APPROVE"));
+        assertTrue(summary.getAvailableActions().contains("REJECT"));
+
+        ArgumentCaptor<BpmTaskPageReqVO> captor = ArgumentCaptor.forClass(BpmTaskPageReqVO.class);
+        verify(taskService).getTaskTodoPage(eq(100L), captor.capture());
+        assertEquals("通用", captor.getValue().getName());
+    }
+
+    @Test
+    void pageTodoUsesBatchRecordVersionVariablesForBusinessTitle() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-batch-version");
+        when(task.getName()).thenReturn("批记录升版审核");
+        when(task.getTaskDefinitionKey()).thenReturn("batchRecordVersionApprove");
+        when(task.getProcessInstanceId()).thenReturn("pi-batch-version");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.of(
+                "businessType", "BATCH_RECORD_VERSION_APPROVAL",
+                "batchRecordName", "球囊扩张压力泵",
+                "versionNo", "V4.0"));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "球囊", 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        ApprovalTaskSummary summary = page.getList().get(0);
+        assertEquals("批记录升版 球囊扩张压力泵 V4.0", summary.getBusinessTitle());
+        assertEquals("批记录升版审核", summary.getCurrentNodeName());
+    }
+
+    @Test
+    void pageTodoMapsBatchRecordVersionVariablesToDecisionDetailRoute() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-batch-version-detail");
+        when(task.getName()).thenReturn("批记录升版审核");
+        when(task.getTaskDefinitionKey()).thenReturn("batchRecordVersionApprove");
+        when(task.getProcessInstanceId()).thenReturn("pi-batch-version-detail");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.of(
+                "businessType", "BATCH_RECORD_VERSION_APPROVAL",
+                "batchRecordDefinitionId", 501L,
+                "batchRecordName", "PTCA球囊扩张导管",
+                "batchRecordVersionId", 9001L,
+                "versionNo", "V5.0",
+                "sourceVersionId", 8001L,
+                "sourceVersionNo", "V4.0"));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "PTCA", 1, 10)).getList().get(0);
+
+        assertEquals("/bpm/process-instance/detail", summary.getDetailRoute());
+        assertEquals("pi-batch-version-detail", summary.getDetailQuery().get("id"));
+        assertEquals("/mes/pro/batch-record-form-list", summary.getDecisionDetailRoute());
+        assertEquals("BATCH_RECORD_VERSION_APPROVAL", summary.getDecisionDetailQuery().get("businessType"));
+        assertEquals("9001", summary.getDecisionDetailQuery().get("batchRecordVersionId"));
+        assertEquals("V5.0", summary.getDecisionDetailQuery().get("versionNo"));
+        assertEquals("8001", summary.getDecisionDetailQuery().get("sourceVersionId"));
+        assertEquals("V4.0", summary.getDecisionDetailQuery().get("sourceVersionNo"));
+        assertEquals("pi-batch-version-detail", summary.getDecisionDetailQuery().get("processInstanceId"));
+    }
+
+    @Test
+    void pageTodoMapsRouteVersionPublishVariablesToReadableTitleAndRouteDetail() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-route-version-detail");
+        when(task.getName()).thenReturn("${routeName}发布审批");
+        when(task.getTaskDefinitionKey()).thenReturn("routeVersionPublishApprove");
+        when(task.getProcessInstanceId()).thenReturn("pi-route-version-detail");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.of(
+                "businessType", "MES_ROUTE_VERSION_PUBLISH",
+                "objectId", "1002",
+                "objectVersion", "V2",
+                "routeId", 9001L,
+                "routeVersionId", 1002L,
+                "routeVersionNo", "V2",
+                "routeCode", "RT-001",
+                "routeName", "球囊扩张压力泵工艺路线"));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "工艺路线", 1, 10)).getList().get(0);
+
+        assertEquals("工艺路线发布 球囊扩张压力泵工艺路线 V2", summary.getBusinessTitle());
+        assertFalse(summary.getBusinessTitle().contains("${"));
+        assertEquals("/bpm/process-instance/detail", summary.getDetailRoute());
+        assertEquals("/mes/pro/route/edit/9001", summary.getDecisionDetailRoute());
+        assertEquals("MES_ROUTE_VERSION_PUBLISH", summary.getDecisionDetailQuery().get("businessType"));
+        assertEquals("9001", summary.getDecisionDetailQuery().get("routeId"));
+        assertEquals("1002", summary.getDecisionDetailQuery().get("routeVersionId"));
+        assertEquals("V2", summary.getDecisionDetailQuery().get("routeVersionNo"));
+        assertEquals("PENDING_APPROVAL", summary.getDecisionDetailQuery().get("routeVersionStatus"));
+        assertEquals("flow", summary.getDecisionDetailQuery().get("tab"));
+        assertEquals("pi-route-version-detail", summary.getDecisionDetailQuery().get("processInstanceId"));
+    }
+
+    @Test
+    void pageTodoMapsEdhrBatchVoidVariablesToDecisionDetailRoute() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-void-detail");
+        when(task.getName()).thenReturn("作废审核");
+        when(task.getTaskDefinitionKey()).thenReturn("batchExecutionVoidApprove");
+        when(task.getProcessInstanceId()).thenReturn("pi-void-detail");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getProcessVariables()).thenReturn(Map.of(
+                "businessType", "EDHR_BATCH_EXECUTION_VOID",
+                "batchExecutionId", 7001L,
+                "batchExecutionCode", "EDHRB-1783609501380",
+                "workOrderId", 6001L,
+                "workOrderCode", "WO-20260717",
+                "batchCode", "BATCH-VOID-001",
+                "reasonCategory", "QUALITY_REVIEW",
+                "reasonText", "质量复核要求作废"));
+        when(taskService.getTaskTodoPage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+
+        ApprovalTaskSummary summary = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "作废", 1, 10)).getList().get(0);
+
+        assertEquals("/mes/pro/feedback/edhr-change", summary.getDecisionDetailRoute());
+        assertEquals("EDHR_BATCH_EXECUTION_VOID", summary.getDecisionDetailQuery().get("businessType"));
+        assertEquals("VOID", summary.getDecisionDetailQuery().get("changeType"));
+        assertEquals("7001", summary.getDecisionDetailQuery().get("batchExecutionId"));
+        assertEquals("EDHRB-1783609501380", summary.getDecisionDetailQuery().get("batchExecutionCode"));
+        assertEquals("WO-20260717", summary.getDecisionDetailQuery().get("workOrderCode"));
+        assertEquals("BATCH-VOID-001", summary.getDecisionDetailQuery().get("batchCode"));
+        assertEquals("pi-void-detail", summary.getDecisionDetailQuery().get("processInstanceId"));
+    }
+
+    @Test
+    void reviewApprovesNativeBpmTodoTaskThroughTaskService() {
+        provider.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.BPM,
+                "BPM_TASK_TODO", "task-approve-100", "pi-approve-100", "pi-approve-100",
+                ApprovalTaskReviewResult.APPROVE, null, "secret", false)
+                .setSignatureImageFileUrl("http://127.0.0.1:9000/yudao/signature/user-100.png"));
+
+        ArgumentCaptor<BpmTaskApproveReqVO> captor = ArgumentCaptor.forClass(BpmTaskApproveReqVO.class);
+        verify(taskService).approveTask(eq(100L), captor.capture());
+        assertEquals("task-approve-100", captor.getValue().getId());
+    }
+
+    @Test
+    void reviewApprovesNativeBpmTodoTaskWithApprovalCenterSignatureImageUrl() {
+        ApprovalTaskReviewContext context = ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.BPM,
+                "BPM_TASK_TODO", "task-approve-101", "pi-approve-101", "pi-approve-101",
+                ApprovalTaskReviewResult.APPROVE, null, "secret", false)
+                .setSignatureImageFileUrl("http://127.0.0.1:9000/yudao/signature/user-100.png");
+
+        provider.review(context);
+
+        ArgumentCaptor<BpmTaskApproveReqVO> captor = ArgumentCaptor.forClass(BpmTaskApproveReqVO.class);
+        verify(taskService).approveTask(eq(100L), captor.capture());
+        assertEquals("task-approve-101", captor.getValue().getId());
+        assertEquals("http://127.0.0.1:9000/yudao/signature/user-100.png", captor.getValue().getSignPicUrl());
+    }
+
+    @Test
+    void reviewRejectsNativeBpmTodoTaskThroughTaskService() {
+        provider.review(ApprovalTaskReviewContext.of(100L, ApprovalModuleCode.BPM,
+                "BPM_TASK_TODO", "task-reject-100", "pi-reject-100", "pi-reject-100",
+                ApprovalTaskReviewResult.REJECT, "资料不完整", "secret", false));
+
+        ArgumentCaptor<BpmTaskRejectReqVO> captor = ArgumentCaptor.forClass(BpmTaskRejectReqVO.class);
+        verify(taskService).rejectTask(eq(100L), captor.capture());
+        assertEquals("task-reject-100", captor.getValue().getId());
+        assertEquals("资料不完整", captor.getValue().getReason());
+    }
+
+    @Test
+    void pageDoneMapsNativeBpmDoneTasksToUnifiedSummary() {
+        HistoricTaskInstance task = mock(HistoricTaskInstance.class);
+        when(task.getId()).thenReturn("task-done-100");
+        when(task.getName()).thenReturn("已办审批");
+        when(task.getTaskDefinitionKey()).thenReturn("archiveTask");
+        when(task.getProcessInstanceId()).thenReturn("pi-done-100");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(task.getEndTime()).thenReturn(new Date(1782180300000L));
+        when(task.getTaskLocalVariables()).thenReturn(Map.of("TASK_STATUS", 3, "TASK_REASON", "资料不完整"));
+        when(taskService.getTaskDonePage(eq(100L), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.DONE, ApprovalModuleCode.BPM, "已办", 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        ApprovalTaskSummary summary = page.getList().get(0);
+        assertEquals("BPM:BPM_TASK_DONE:task-done-100", summary.getId());
+        assertEquals("BPM_TASK_DONE", summary.getSourceTaskType());
+        assertEquals("已办审批", summary.getBusinessTitle());
+        assertEquals("DONE", summary.getBusinessStatus());
+        assertEquals(ApprovalTaskReviewResult.REJECT, summary.getApprovalResult());
+        assertEquals("资料不完整", summary.getApprovalRemark());
+        assertEquals(Boolean.TRUE, summary.getRequiresSignature());
+        assertEquals("pi-done-100", summary.getDetailQuery().get("id"));
+        assertEquals("task-done-100", summary.getDetailQuery().get("taskId"));
+
+        ArgumentCaptor<BpmTaskPageReqVO> captor = ArgumentCaptor.forClass(BpmTaskPageReqVO.class);
+        verify(taskService).getTaskDonePage(eq(100L), captor.capture());
+        assertEquals("已办", captor.getValue().getName());
+    }
+
+    @Test
+    void pageTodoUsesNullUserFilterWhenGlobalViewEnabled() {
+        Task task = mock(Task.class);
+        when(task.getId()).thenReturn("task-global-100");
+        when(task.getName()).thenReturn("全量待办审批");
+        when(task.getTaskDefinitionKey()).thenReturn("userTask");
+        when(task.getProcessInstanceId()).thenReturn("pi-global-100");
+        when(task.getCreateTime()).thenReturn(new Date(1782180000000L));
+        when(taskService.getTaskTodoPage(eq(null), any(BpmTaskPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(task), 1L));
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.TODO, ApprovalModuleCode.BPM, "全量", 1, 10, true));
+
+        assertEquals(1L, page.getTotal());
+        verify(taskService).getTaskTodoPage(eq(null), any(BpmTaskPageReqVO.class));
+    }
+
+    @Test
+    void pageMyInitiatedMapsProcessInstancesToUnifiedSummary() {
+        HistoricProcessInstance instance = mock(HistoricProcessInstance.class);
+        when(instance.getId()).thenReturn("pi-100");
+        when(instance.getName()).thenReturn("流程申请");
+        when(instance.getBusinessKey()).thenReturn("biz-100");
+        when(instance.getStartUserId()).thenReturn("100");
+        when(instance.getStartTime()).thenReturn(new Date(1782180000000L));
+        when(processInstanceService.getProcessInstancePage(eq(100L), any(BpmProcessInstancePageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(instance), 1L));
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.MY_INITIATED, ApprovalModuleCode.BPM, "流程", 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        ApprovalTaskSummary summary = page.getList().get(0);
+        assertEquals("BPM:BPM_PROCESS_INSTANCE:pi-100", summary.getId());
+        assertEquals(ApprovalModuleCode.BPM, summary.getModuleCode());
+        assertEquals("BPM_PROCESS_INSTANCE", summary.getSourceTaskType());
+        assertEquals("流程申请", summary.getBusinessTitle());
+        assertEquals("/bpm/process-instance/detail", summary.getDetailRoute());
+        assertEquals("pi-100", summary.getDetailQuery().get("id"));
+
+        ArgumentCaptor<BpmProcessInstancePageReqVO> captor =
+                ArgumentCaptor.forClass(BpmProcessInstancePageReqVO.class);
+        verify(processInstanceService).getProcessInstancePage(eq(100L), captor.capture());
+        assertEquals("流程", captor.getValue().getName());
+    }
+
+    @Test
+    void pageCcMapsCopiedProcessInstancesToUnifiedSummary() {
+        BpmProcessInstanceCopyDO copy = new BpmProcessInstanceCopyDO();
+        copy.setId(10L);
+        copy.setStartUserId(501L);
+        copy.setProcessInstanceId("pi-copy");
+        copy.setProcessInstanceName("抄送流程");
+        copy.setActivityId("activity-a");
+        copy.setActivityName("知会");
+        copy.setTaskId("task-copy");
+        copy.setReason("请关注");
+        copy.setCreateTime(LocalDateTime.parse("2026-06-23T12:30:00"));
+        when(copyService.getProcessInstanceCopyPage(eq(100L), any(BpmProcessInstanceCopyPageReqVO.class)))
+                .thenReturn(new PageResult<>(List.of(copy), 1L));
+
+        PageResult<ApprovalTaskSummary> page = provider.page(ApprovalTaskQueryContext.of(100L,
+                ApprovalTaskViewType.CC, ApprovalModuleCode.BPM, "抄送", 1, 10));
+
+        assertEquals(1L, page.getTotal());
+        ApprovalTaskSummary summary = page.getList().get(0);
+        assertEquals("BPM:BPM_PROCESS_INSTANCE_COPY:10", summary.getId());
+        assertEquals("BPM_PROCESS_INSTANCE_COPY", summary.getSourceTaskType());
+        assertEquals("抄送流程", summary.getBusinessTitle());
+        assertEquals("知会", summary.getCurrentNodeName());
+        assertEquals("pi-copy", summary.getDetailQuery().get("id"));
+        assertEquals("task-copy", summary.getDetailQuery().get("taskId"));
+        assertEquals("activity-a", summary.getDetailQuery().get("activityId"));
+
+        ArgumentCaptor<BpmProcessInstanceCopyPageReqVO> captor =
+                ArgumentCaptor.forClass(BpmProcessInstanceCopyPageReqVO.class);
+        verify(copyService).getProcessInstanceCopyPage(eq(100L), captor.capture());
+        assertEquals("抄送", captor.getValue().getProcessInstanceName());
+    }
+}

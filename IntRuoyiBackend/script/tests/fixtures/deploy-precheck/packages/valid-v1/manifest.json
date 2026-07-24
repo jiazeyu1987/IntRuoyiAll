@@ -1,0 +1,185 @@
+{
+  "manifestVersion": "1.0",
+  "packageId": "deploy-precheck-valid-v1",
+  "releaseTag": "deploy-precheck-valid-v1",
+  "packageType": "full-release",
+  "createdAt": "2026-06-05T00:00:00Z",
+  "createdBy": "pytest",
+  "sourceRepos": [
+    {
+      "name": "ruoyi-vue-pro",
+      "pathRole": "backend",
+      "commit": "abc123",
+      "branch": "int_main",
+      "dirty": false,
+      "dirtySummaryHash": null
+    }
+  ],
+  "changeSet": {
+    "summary": "deploy precheck fixture"
+  },
+  "publishScope": "code-only",
+  "components": [
+    "backend",
+    "admin-frontend",
+    "database-contract",
+    "required-sql",
+    "runtime-env",
+    "packaging-manifest"
+  ],
+  "artifacts": [
+    {
+      "artifactId": "backend-app",
+      "componentName": "backend-app",
+      "artifactType": "fixture-file",
+      "path": "backend/app.txt",
+      "includedInPackage": true,
+      "artifactCacheUri": null,
+      "sha256": "sha256:094c89e3bb8ff11d31388e75dcbd72e05cb96b089cbba957a9213934440e48a6",
+      "artifactHash": "sha256:094c89e3bb8ff11d31388e75dcbd72e05cb96b089cbba957a9213934440e48a6",
+      "size": 25,
+      "digest": "sha256:094c89e3bb8ff11d31388e75dcbd72e05cb96b089cbba957a9213934440e48a6",
+      "buildCacheKey": "backend-app:deploy-precheck",
+      "sourceHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "dependencyHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "buildParameterHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "contractHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "dependencyClosureHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "buildToolchainHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "database": {
+    "schemaMigrations": [
+      {
+        "version": "V20260605_001",
+        "file": "database/schema/V20260605_001__precheck.sql",
+        "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "order": 1,
+        "idempotencyMode": "precheck",
+        "irreversible": false
+      }
+    ],
+    "requiredDataSets": [
+      {
+        "dataSetId": "system-menu-20260605",
+        "registryEntryId": "system-menu",
+        "tenantScope": "all-tenants",
+        "file": "database/required-data/D20260605_001__precheck.sql",
+        "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ]
+  },
+  "schemaVersion": "schema-deploy-precheck-valid-v1",
+  "schemaDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "migrationPlan": [
+    {
+      "id": "V20260605_001",
+      "type": "schema",
+      "direction": "forward",
+      "fromSchemaVersion": "schema-deploy-precheck-base",
+      "toSchemaVersion": "schema-deploy-precheck-valid-v1",
+      "checksum": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "repeatable": false,
+      "destructive": false,
+      "requiredPreconditions": [],
+      "rollbackScript": null,
+      "verificationCommand": "schema-preflight --migration V20260605_001",
+      "approvalRequired": false
+    }
+  ],
+  "requiredSql": [
+    {
+      "id": "system-menu-20260605",
+      "scope": "tenant",
+      "tenantRequired": true,
+      "targetTenant": "测试租户",
+      "checksum": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "idempotent": true,
+      "destructive": false,
+      "expectedRows": 1,
+      "verificationQuery": "select 1"
+    }
+  ],
+  "buildModules": [
+    {
+      "moduleName": "backend",
+      "buildAction": "rebuilt",
+      "artifactHash": "sha256:094c89e3bb8ff11d31388e75dcbd72e05cb96b089cbba957a9213934440e48a6"
+    }
+  ],
+  "compatibilityMatrix": [
+    {
+      "frontendVersion": "pytest",
+      "backendVersion": "pytest",
+      "schemaVersion": "schema-deploy-precheck-valid-v1",
+      "allowed": true,
+      "evidenceOperationId": "op-deploy-precheck-valid-v1"
+    }
+  ],
+  "operationEvidencePolicy": {
+    "requiredOperationTypes": [
+      "manifest-validation",
+      "deploy-precheck"
+    ]
+  },
+  "resources": {
+    "resourcePayloadMode": "reference-check-only",
+    "resourceReferenceManifest": "resources/resource-reference-manifest.json",
+    "resourceSnapshotId": null,
+    "resourceDeltaId": null,
+    "resourceDeltaPrepared": false,
+    "resourceDeltaProofPath": null
+  },
+  "targetRequirements": {
+    "environmentCodes": [
+      "test"
+    ],
+    "serverConfigSchemaVersion": "1.0",
+    "storageProfileIds": [
+      "minio-yudao-default"
+    ],
+    "dockerProfileId": "intruoyi-docker-compose",
+    "requiresDatabaseMigrationPrecheck": true,
+    "requiresRequiredDataPrecheck": true,
+    "requiresResourceDeltaProof": false
+  },
+  "buildContract": {
+    "mode": "report-only",
+    "intakeReportPath": "intake/intake-result.json",
+    "manifestValidationResultPath": "manifest-validation-result.json",
+    "changesBuildExitCode": false,
+    "writesDatabase": false,
+    "syncsResources": false
+  },
+  "deployContract": {
+    "mode": "report-only",
+    "deployPrecheckResultPath": "deploy-precheck-result.json",
+    "changesDeployExitCode": false,
+    "targetConfigSource": "server-side-runtime-control-config",
+    "allowsRemoteMutation": false,
+    "allowsRemoteReadOnlyProbe": "authorized-only"
+  },
+  "precheckPlan": {
+    "checks": [
+      "manifest",
+      "target-config",
+      "artifact",
+      "resource"
+    ]
+  },
+  "verifyPlan": {
+    "checks": [
+      "manifest"
+    ]
+  },
+  "rollbackPlan": {
+    "mode": "manual"
+  },
+  "forbiddenFieldsCheck": {
+    "status": "passed",
+    "hardcodedIpMatches": [],
+    "secretPatternMatches": [],
+    "packageExternalPathReferences": []
+  },
+  "manifestChecksum": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}

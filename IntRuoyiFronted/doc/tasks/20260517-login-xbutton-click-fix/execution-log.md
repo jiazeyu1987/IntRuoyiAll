@@ -1,0 +1,2 @@
+BDD: clicking XButton should trigger parent click handlers -> Given a page uses `XButton` with a parent `@click` binding, When the operator clicks the rendered button, Then the parent click handler should run exactly once.
+BDD: login button click should issue a real login request -> Given the login form contains valid tenant, username, and password values with captcha disabled, When the operator clicks the main login button, Then the frontend should send `/admin-api/system/auth/login`.

@@ -1,0 +1,30 @@
+{
+  "task_id": "20260526-foolproof-ops-implementation",
+  "scope": "frontend",
+  "status": "completed",
+  "current_stage": "T6 closeout",
+  "frontend_scope_status": "pass_with_scope_waiver",
+  "authoritative_state": "D:/ProjectPackage/Int/IntRuoyi/worktrees/20260526-foolproof-ops-implementation/ruoyi-vue-pro/doc/tasks/20260526-foolproof-ops-implementation/task-state.json",
+  "completed_items": [
+    "frontend canonical API",
+    "runtime-control components",
+    "candidate-only rollback and restore UI",
+    "explicit paired worktree target gate",
+    "explicit post-action health proof URL gate",
+    "historical 8081 evidence marked as historical",
+    "promote-prod explicit production target gate"
+  ],
+  "blocking_prereqs": [],
+  "updated_at": "2026-05-27T01:30:00+08:00",
+  "authoritative_scope_note": "Frontend mirror only; overall release is PASS_WITH_SCOPE_WAIVER per backend control task directory and user waiver. Real DR remains unverified residual risk.",
+  "waived_prereqs": [
+    {
+      "id": "REAL_DR_APPROVAL_AND_EVIDENCE",
+      "waived_by_user": true,
+      "waiver_text": "允许不执行真实 DR，仅按当前非破坏性证据放行。",
+      "impact": "前端镜像随主控任务按 scope waiver 放行；真实 DR 未验证。"
+    }
+  ],
+  "release_decision": "PASS_WITH_SCOPE_WAIVER",
+  "real_dr_verified": false
+}

@@ -1,0 +1,10 @@
+BDD: repository should reject accidentally mixed showroom scaffold on int_main -> Given the IntRuoyi operations work does not require a showroom module or showroom SQL scaffold / When repository guard tests inspect the Maven structure and script-test inventory / Then the repository should fail if `yudao-module-showroom`, `sql/showroom`, or the showroom SQL guard test are still present.
+RED: `python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_no_accidental_showroom_scaffold.py -q` -> FAIL, `pom.xml` still declared `yudao-module-showroom`, proving the mixed scaffold was still attached to `int_main`.
+GREEN: added `script/tests/test_no_accidental_showroom_scaffold.py` as a repository guard against accidental showroom scaffold leftovers.
+GREEN: removed the mixed showroom module entry from `pom.xml` and the mixed showroom dependency from `yudao-server/pom.xml`.
+GREEN: removed the mixed showroom SQL scaffold, the mixed showroom module directory, and the old showroom SQL test that only validated the accidental scaffold.
+GREEN: `python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_no_accidental_showroom_scaffold.py -q` -> PASS, `1 passed`.
+GREEN: `python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_publish_int_ruoyi_to_test_tooling.py D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_no_accidental_showroom_scaffold.py -q` -> PASS, `14 passed`.
+GREEN: `rg -n "yudao-module-showroom|sql/showroom|showroom_v1_schema" pom.xml yudao-server/pom.xml script/tests -g !test_no_accidental_showroom_scaffold.py; if ($LASTEXITCODE -eq 1) { Write-Output 'NO_FORBIDDEN_SHOWROOM_REFERENCES'; exit 0 } else { exit $LASTEXITCODE }` -> PASS, `NO_FORBIDDEN_SHOWROOM_REFERENCES`.
+GREEN: `mvn -q -pl yudao-server -am -DskipTests validate` -> PASS.
+GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro --task-id 20260519-clean-showroom-commit-mixup --mode preview` -> PASS, `status: ready`.

@@ -1,0 +1,4 @@
+BDD: bat wrapper should preserve the verified publish flow -> Given the PowerShell publish script already succeeds end to end / When the operator runs the new `.bat` entrypoint / Then the wrapper must pass through the same script and arguments without changing release behavior.
+- GREEN: added `script/deploy/publish-int-ruoyi-to-test.bat` as a thin Windows wrapper around `publish-int-ruoyi-to-test.ps1`, with explicit missing-script failure and exit-code pass-through.
+- GREEN: `python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_publish_int_ruoyi_to_test_tooling.py -q` -> PASS, `4 passed`.
+- GREEN: `cmd /c D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\deploy\publish-int-ruoyi-to-test.bat` -> PASS, the wrapper successfully drove the full publish flow through the real test server and ended with `Publish completed.`.

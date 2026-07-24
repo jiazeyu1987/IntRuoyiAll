@@ -1,0 +1,4 @@
+BDD: zip 产品资源包应全量导出产品 -> Given 存在一个 INT 产品未挂任何展柜且有中英文语音, When 导出产品 zip, Then 产品列表、讲解音频、manifest/assets 均包含该产品；展柜名称可以为空。
+RED: mvn -pl yudao-module-showroom -Dtest=ShowroomProductExcelImportExportIntegrationTest#exportProductExcelShouldIgnorePaginationAndExcludeMediaColumns+exportProductExcelShouldIncludeNarrationsForAllExportedProducts -Dsurefire.failIfNoSpecifiedTests=false test -> FAIL, 现有实现仍按展柜关联过滤产品；未入展柜产品 EXCEL-003 未导出，未入展柜 INT-99 语音未进入讲解音频 sheet。
+GREEN: mvn -pl yudao-module-showroom -Dtest=ShowroomProductExcelImportExportIntegrationTest#exportProductExcelShouldIgnorePaginationAndExcludeMediaColumns+exportProductExcelShouldIncludeNarrationsForAllExportedProducts -Dsurefire.failIfNoSpecifiedTests=false test -> PASS, 移除展柜映射过滤后，EXCEL-003 进入产品列表与产品主数据，INT-99 产品语音进入讲解音频 sheet。
+GREEN: mvn -pl yudao-module-showroom -Dtest=ShowroomProductExcelImportExportIntegrationTest -Dsurefire.failIfNoSpecifiedTests=false test -> PASS, 展厅产品导入导出整类 55 个用例通过。

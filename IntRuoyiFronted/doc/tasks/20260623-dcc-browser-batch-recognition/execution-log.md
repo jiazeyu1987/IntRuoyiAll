@@ -1,0 +1,40 @@
+# DCC 受控浏览页批量识别产品名称编号前端执行日志
+
+- BDD: 文控角色可见批量识别按钮 -> Given 文控角色进入 DCC 受控浏览页 / When 页面渲染查询操作区 / Then 刷新列表右侧显示批量识别产品名称/编号按钮，非文控角色不可见。
+- BDD: 当前目录未选中时阻断创建 -> Given 当前范围为当前目录且左侧未选中目录 / When 用户点击批量识别按钮 / Then 页面提示请先选择目录，不创建任务。
+- BDD: 创建任务后显示确认上下文与默认覆盖策略 -> Given 用户已处于可识别的浏览上下文 / When 点击批量识别按钮 / Then 弹窗展示范围、目录、筛选条件、默认仅识别空值，并固定说明成功后会同步 fileName/title/productName/productCode。
+- BDD: 存在活动任务时直接回到进度 -> Given 已有 WAITING 或 RUNNING 的批量识别任务 / When 用户再次点击批量识别按钮 / Then 页面直接打开该任务进度，不重复创建任务。
+- BDD: 前端进度展示真实统计 -> Given 批量任务运行中 / When 前端轮询任务状态 / Then 页面显示总数、已处理、成功、失败、跳过、剩余、当前状态与最后错误，并在完成后自动刷新列表。
+- GREEN: previous-task-check -> PASS，已核对前端最近任务 `20260623-test-randomized-erp-order-create` 为 COMPLETED。
+- GREEN: experience-preflight -> PASS，已读取 `experience-index`、`worktree-memory` 与 `FRONTEND_STYLE`，本轮只在当前前端 worktree 内修改。
+- RED: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence D:\ProjectPackage\Int\IntRuoyiWorktrees\yudao-ui-admin-vue3-dcc-batch-recognition-browser\doc\tasks\20260623-dcc-browser-batch-recognition\frontend-feature-evidence.md` -> FAIL，证据文档缺少 `Feature/Acceptance/BDD:/RED:/GREEN:/Verification/Blockers` 标记。
+- GREEN: `node tests/e2e/dcc-browser-batch-recognition-static.spec.js` -> PASS，按钮、请求参数、进度字段与终态刷新静态契约通过。
+- RED: `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm ts:check` -> FAIL，当前前端 worktree 缺少 `node_modules`，无法解析 `vue-tsc`。
+- GREEN: `pnpm install` -> PASS，补齐当前前端 worktree `node_modules`；同时暴露坏锁文件并自动修复 `pnpm-lock.yaml`。
+- RED: `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm ts:check` -> FAIL，`src/views/dcc/controlled-file/browser/index.vue(1192,3)` 报 `Type 'number' is not assignable to type 'Timeout'`。
+- GREEN: `apply_patch` -> PASS，将批量任务轮询计时器句柄收紧为浏览器 `number` 类型。
+- GREEN: `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm ts:check` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence D:\ProjectPackage\Int\IntRuoyiWorktrees\yudao-ui-admin-vue3-dcc-batch-recognition-browser\doc\tasks\20260623-dcc-browser-batch-recognition\frontend-feature-evidence.md` -> PASS。
+- GREEN: local-runtime-prep -> PASS，本地已独立启动当前 worktree 运行态 `frontend=http://127.0.0.1:8087`、`backend=http://127.0.0.1:48087`，并将批量识别任务表迁入本地 `ruoyi-vue-pro`。
+- GREEN: `node D:\ProjectPackage\Int\IntRuoyi\scripts\preflight\login-preflight.mjs --base-url http://127.0.0.1:8087 --tenant 测试租户 --username aoteman --password 111111 --target-path /dcc/controlled-file/browser --target-text 刷新列表` -> PASS。
+- BLOCKER: doc-control-test-tenant-user-missing -> 本机测试租户 `tenant_id=122` 下无任何用户绑定 `doc_control`；查询 `system_users/system_user_role/system_role` 后，仅 `tenant_id=1 / username=admin` 绑定该角色，而 `aoteman` 无 `doc_control`，因此浏览页按钮按设计不会显示，无法继续用测试租户执行写入型批量识别 E2E。
+- CHANGE: user-admin-write-authorization -> 用户于 2026-06-23 明确授权在本机使用 `芋道源码/admin` 执行本次写入型 DCC 批量识别 E2E。
+- GREEN: `node D:\ProjectPackage\Int\IntRuoyiWorktrees\yudao-ui-admin-vue3-dcc-batch-recognition-browser\doc\tasks\20260623-dcc-browser-batch-recognition\verify-dcc-browser-batch-recognition-admin.e2e.mjs` -> PASS，真实登录 `http://127.0.0.1:8087` 的 `芋道源码/admin/admin123`，目录样本 `质量管理/3.DMR/10.产品技术要求` 共 `24` 条；批量任务 `taskId=1` 最终 `COMPLETED`，`processed=24 / success=7 / failed=17 / skipped=0`，浏览页自动刷新，证据落盘到 `output/playwright/20260623-dcc-browser-batch-recognition/admin-batch-recognition-evidence.json`。
+- INFO: e2e-db-readback -> 真实库 `dcc_controlled_file` 核验 7 条成功记录已写回 `product_name / product_code / dcc_project_code_id / project_code_recognition_type=PROJECT_CODE`。
+- INFO: e2e-data-blocker -> 失败的 17 条记录最后错误为 `S3 404 The specified key does not exist`，说明本地样本存在源文件对象缺失。
+- GREEN: experience-preflight-test-server-release -> PASS，已在测试服发布前读取 `docs/server-access.md`、`docs/release-backup-restore.md`、`docs/login-access.md`；当前任务已获用户明确授权访问测试服并继续验证当前代码链路。
+- GREEN: clean-release-worktree -> PASS，已从前后端提交 `d64ffc65983f011a542d10649b6e095257f18735 / 36a5203478467e980c674067524492b0c32e7248` 创建干净发布 worktree，避免本地运行态与临时产物混入发布包。
+- RED: maintenance-build-release-direct-vite -> FAIL，维护仓 `ops/deploy/publish-int-ruoyi.ps1` 在 `Invoke-FrontendViteBuild` 中直调 `node vite.js build --mode test`，前端构建在发布链路内异常退出。
+- GREEN: maintenance-build-release-pnpm-fix -> PASS，将维护仓发布脚本的前端构建入口改为 `pnpm build:test` 后，`release-20260623-dcc-batch-recognition-test-v1` 构建发布包成功上传 NAS。
+- GREEN: test-server-deploy-v1 -> PASS，`release-20260623-dcc-batch-recognition-test-v1` 已部署到测试服，远端 `.env`、backend/frontend 镜像 tag、`/actuator/health` 与 `http://172.30.30.58:8081/` 均通过。
+- GREEN: test-server-login-preflight -> PASS，测试服 `测试租户/aoteman/111111` 真实登录 `http://172.30.30.58:8081/dcc/controlled-file/browser` 成功，且远端 DB 证实该账号带 `doc_control`。
+- RED: test-server-batch-recognition-v1 -> FAIL，真实目录 `DCC E2E Documents/1. QMS documents/3 RE 扫描件`（`directoryId=909031`，`33` 条）批量任务 `taskId=1` 最终 `33/33` 失败，最后错误为 `failed to start Codex CLI command [cmd.exe, /c, codex.cmd]`；证明测试服仍回退到 Windows 默认命令。
+- GREEN: maintenance-release-codex-runtime-fix -> PASS，维护仓发布脚本与 compose 已补 `DCC_PROJECT_CODE_CODEX_CLI_COMMAND / DCC_PROJECT_CODE_CODEX_HOME / CODEX_HOME` 和 codex 挂载；`release-20260624-dcc-batch-recognition-codex-v2` backend-only 包已构建并部署到测试服。
+- GREEN: test-server-runtime-codex-env -> PASS，测试服 `/opt/intruoyi/runtime/.env` 与 `docker exec intruoyi-backend printenv` 已显示：
+  - `DCC_PROJECT_CODE_CODEX_CLI_COMMAND=/opt/intruoyi/runtime/tools/codex`
+  - `DCC_PROJECT_CODE_CODEX_HOME=/opt/intruoyi/runtime/backend-codex-home`
+  - `CODEX_HOME=/opt/intruoyi/runtime/backend-codex-home`
+- RED: test-server-batch-recognition-v2 -> FAIL，同一目录真实批量任务 `taskId=2` 最终 `33/33` 失败，但错误已从 `cmd.exe` 演化为：
+  - `Codex CLI timed out after 120 seconds`
+  - `DCC project-code recognition returned no DCC basic-data match`
+  说明 Linux Codex 启动链路已生效，但测试服内容识别结果仍未跑通。

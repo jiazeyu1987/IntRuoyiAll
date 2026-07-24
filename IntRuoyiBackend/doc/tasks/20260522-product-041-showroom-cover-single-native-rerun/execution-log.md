@@ -1,0 +1,8 @@
+# Execution Log: 20260522-product-041-showroom-cover-single-native-rerun
+
+BDD: Premium medical showroom single cover generation -> Given only the provided facts for product_041 and strict no-text/no-branding/no-fabrication constraints / When exactly one native image generation request is executed / Then one square PNG showroom cover is saved in the workspace with one clear hero product and no fabricated technical claims or exact device internals
+RED: `Test-Path 'D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260522-product-041-showroom-cover-single-native-rerun\product_041-showroom-cover-single-native-rerun.png'` -> FAIL, expected output file does not exist before generation
+GREEN: native image generation -> PASS, produced `C:\Users\BJB110\.codex\generated_images\019e5027-1473-7770-9fc6-3a6fe6a617be\ig_0c9de48da85a8215016a106e4430fc8191bb63c766d57ec465.png`
+GREEN: `Test-Path 'D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260522-product-041-showroom-cover-single-native-rerun\product_041-showroom-cover-single-native-rerun.png'` -> PASS
+GREEN: `Add-Type -AssemblyName System.Drawing; $img=[System.Drawing.Image]::FromFile('D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260522-product-041-showroom-cover-single-native-rerun\product_041-showroom-cover-single-native-rerun.png'); try { Write-Output ($img.Width.ToString() + 'x' + $img.Height.ToString()) } finally { $img.Dispose() }` -> PASS, `1254x1254`
+GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro --task-id 20260522-product-041-showroom-cover-single-native-rerun --mode preview` -> PASS, status: ready

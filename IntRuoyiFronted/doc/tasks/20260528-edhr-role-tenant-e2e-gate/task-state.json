@@ -1,0 +1,78 @@
+{
+  "task_id": "20260528-edhr-role-tenant-e2e-gate",
+  "goal": "Add a real eDHR role and tenant matrix E2E gate with explicit fixture setup and reviewer evidence.",
+  "status": "completed",
+  "current_stage": "closed",
+  "planner_review_status": "approved",
+  "plan_review_status": "approved",
+  "blocking_prereqs": [],
+  "iteration_counts": {
+    "planner_revisions": 0,
+    "plan_revisions": 0,
+    "executor_loops": 0,
+    "test_loops": 0
+  },
+  "tasks": [
+    {
+      "task_id": "T1",
+      "title": "Static contract and package script wiring",
+      "status": "completed",
+      "dependency_ids": [],
+      "write_scope": [
+        "package.json",
+        "scripts/edhr-permission-tenant-matrix-contract.test.mjs"
+      ],
+      "acceptance_ids": ["AC-01", "AC-02", "AC-03", "AC-07"],
+      "owner_agent": "019e6c37-4409-7a92-a3f7-94ea6c28b5c6",
+      "last_outcome": "PASS: package scripts and static contract verified"
+    },
+    {
+      "task_id": "T2",
+      "title": "Test-tenant role fixture script",
+      "status": "completed",
+      "dependency_ids": [],
+      "write_scope": [
+        "doc/tasks/20260528-edhr-role-tenant-e2e-gate/scripts/prepare-edhr-role-matrix-fixtures.cjs"
+      ],
+      "acceptance_ids": ["AC-05", "AC-06"],
+      "owner_agent": "019e6c37-4409-7a92-a3f7-94ea6c28b5c6",
+      "last_outcome": "PASS: dry-run, apply, and DB role/user matrix verified for tenant 122"
+    },
+    {
+      "task_id": "T3",
+      "title": "Runtime Playwright permission matrix E2E",
+      "status": "completed",
+      "dependency_ids": ["T1", "T2"],
+      "write_scope": [
+        "tests/e2e/edhr-permission-tenant-matrix.e2e.js"
+      ],
+      "acceptance_ids": ["AC-01", "AC-02", "AC-03", "AC-04", "AC-05"],
+      "owner_agent": "019e6c37-4409-7a92-a3f7-94ea6c28b5c6",
+      "last_outcome": "PASS: real Playwright role/tenant matrix E2E passed"
+    },
+    {
+      "task_id": "T4",
+      "title": "Independent reviewer evidence",
+      "status": "completed",
+      "dependency_ids": ["T1", "T2", "T3"],
+      "write_scope": [
+        "doc/tasks/20260528-edhr-role-tenant-e2e-gate/*"
+      ],
+      "acceptance_ids": ["AC-01", "AC-02", "AC-03", "AC-04", "AC-05", "AC-06", "AC-07"],
+      "owner_agent": "main-reviewer",
+      "last_outcome": "PASS: independent tester wrote test-report.md and found no release blocker for this gate"
+    }
+  ],
+  "updated_at": "2026-05-28T10:20:00+08:00",
+  "final_verification": {
+    "status": "PASS",
+    "commands": [
+      "node --test scripts\\edhr-permission-tenant-matrix-contract.test.mjs",
+      "pnpm e2e:edhr:permission-matrix:check",
+      "node doc\\tasks\\20260528-edhr-role-tenant-e2e-gate\\scripts\\prepare-edhr-role-matrix-fixtures.cjs",
+      "node doc\\tasks\\20260528-edhr-role-tenant-e2e-gate\\scripts\\prepare-edhr-role-matrix-fixtures.cjs --apply",
+      "pnpm e2e:edhr:permission-matrix"
+    ],
+    "independent_report": "doc/tasks/20260528-edhr-role-tenant-e2e-gate/test-report.md"
+  }
+}

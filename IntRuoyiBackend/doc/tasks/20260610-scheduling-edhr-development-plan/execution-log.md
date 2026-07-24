@@ -1,0 +1,21 @@
+# 排产闭环与 eDHR 边界开发计划执行日志
+
+- BDD: 排产工单承接排产决策 -> Given ERP 同步生产工单已存在 / When 排产员选择生产工单并填写承诺交期 / Then 系统生成唯一排产工单，排产数量等于生产工单数量，ERP 后续变更只生成差异提示。
+- BDD: eDHR 执行上下文不被重排破坏 -> Given 某生产任务已经打开 eDHR 批记录或单工序批记录 / When 夜间重排执行 / Then 该任务不被删除、移动或覆盖，相关执行快照、签名、审批、归档仍可追溯。
+- BDD: 外部 MES Excel 报工先待归属 -> Given 班组长导入外部 MES Excel / When 系统解析 Excel / Then 只生成待归属记录，不直接创建正式报工，不更新排产工单进度。
+- BDD: 工艺路线下维护排产资源配置 -> Given 排产员在工艺路线页面查看某路线 / When 编辑排产相关资源、人工人数、班次小时和当日维修/增减设备 / Then 系统只影响排产配置和日资源调整，不改变批处理/eDHR 基础工艺执行记录。
+- READONLY: 已读取 `doc/tasks/20260609-next-scheduling-requirements/task.md`，确认生产工单/排产工单边界、ERP 工单编码唯一键、承诺交期由排产员填写、排产工单不允许拆分、每天 2 点 ERP 更新、每天夜间重排、已报工任务不动等规则。
+- READONLY: 已读取 `doc/tasks/20260609-scheduling-order-mvp-design/docs/system/*.md`，确认已有排产工单池 MVP 设计，但仍需根据最新 eDHR 冲突做阶段计划。
+- READONLY: 已读取 `doc/tasks/20260609-feedback-excel-attribution-design/task.md` 与 `20260609-feedback-attribution-product-model-reason/task.md`，确认外部 MES Excel 报工必须由班组长选择排产工单和工序，原因是同工艺流程同工序可能有不同产品型号。
+- READONLY: 已检查 `MesProWorkOrderDO`，现有生产工单具备 `code`、`orderSourceCode`、`quantity`、`requestDate`、`quantityScheduled`、`status`、`temporaryFrozen`，适合作 ERP 镜像和排产来源。
+- READONLY: 已检查 `MesProTaskDO`、`MesProTaskScheduleExtDO`、`MesProScheduleIssueDO`、`MesProTaskDependencyDO`，现有生产任务、排程扩展、问题和依赖可复用，但缺 `scheduleOrderId` 或排产工单工序关联。
+- READONLY: 已检查 `MesProRouteDO`、`MesProRouteProcessDO`、`MesProRouteProductDO`、`MesDvMachineryProcessDO`、`MesMdWorkstationWorkerDO`，现有路线、工序、产品、设备工序产能和人工数量可复用。
+- READONLY: 已检查 `MesProRouteProcessController`，当前 `/mes/pro/route-process/list-by-route` 已返回设备/人工产能、班次小时和今日可用产能相关字段，可作为路线下排产配置页面基础。
+- READONLY: 已检查 `MesProAutoScheduleController` 和 `MesProAutoScheduleServiceImpl`，当前自动排程以 `workOrderIds` 输入，应用时会删除可替换任务并重建任务，后续必须新增排产工单输入和 eDHR/已归属报工保护。
+- READONLY: 已检查 `ThirdPartyFeedbackImportServiceImpl`，当前导入后会按任务编码创建报工并提交，与最新需求冲突，必须改为待归属。
+- CHANGE: 按用户补充授权，记录后续开发验证允许将 `芋道源码/admin` 中排产相关真实数据受控平移到 `测试租户`；写入目标限定测试租户，admin 只作为只读来源。
+- READONLY: 当前后端实际库连接来自进程参数 `127.0.0.2:23306/ruoyi-vue-pro`；使用只读查询盘点关键 MES/eDHR 表，未执行写入。
+- GREEN: 数据盘点 -> PASS，路线/工序/设备/工位在 tenant `1` 与 `122` 基本对齐；测试租户主要缺口为 `mes_pro_work_order_bom=0`、`mes_pro_feedback=0`、`mes_pro_feedback_import_record=0`，并且目标新表 `mes_pro_schedule_order%`、`mes_pro_route_schedule%`、`mes_pro_schedule_resource_adjustment%`、`mes_pro_feedback_import_batch%`、`mes_pro_schedule_replan_run%` 均不存在。
+- CHANGE: 已更新 `development-plan.md`，新增当前本地数据盘点、测试租户补数策略、M0 数据底座和推荐实施顺序。
+- READONLY: 已检查 `MesProEdhrBatchExecutionServiceImpl`，eDHR 批执行按 `workOrderId + routeId + batchCode` 建上下文，打开任务时会绑定生产任务 `taskId`，因此重排不得删除或移动这些任务。
+- CHANGE: 新增 `development-plan.md`，记录可复用能力、eDHR 冲突、目标架构和分阶段开发计划。

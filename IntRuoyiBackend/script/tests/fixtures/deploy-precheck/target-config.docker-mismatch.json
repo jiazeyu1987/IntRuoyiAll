@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "targetConfigId": "test-docker-mismatch",
+  "environmentCode": "test",
+  "hostRef": "runtime-control-managed-host",
+  "dockerProfileId": "other-docker-profile",
+  "storageProfileIds": [
+    "minio-yudao-default"
+  ],
+  "artifactCacheProfiles": [
+    "nas-release-cache"
+  ],
+  "remoteReadOnlyProbe": {
+    "enabled": false,
+    "authorizationRef": null
+  }
+}

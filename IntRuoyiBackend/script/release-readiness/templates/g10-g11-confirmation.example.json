@@ -1,0 +1,81 @@
+{
+  "releaseId": "20260524-int-ruoyi-ops",
+  "g10": {
+    "notify": {
+      "enabled": false,
+      "channel": "pending",
+      "webhook": {
+        "url": "",
+        "timeoutSeconds": 10
+      }
+    },
+    "alertTarget": "",
+    "alertOwner": {
+      "ownerName": "",
+      "contact": ""
+    },
+    "routeCoverage": [],
+    "sendEvidencePath": "",
+    "notificationStatus": "pending"
+  },
+  "g11": {
+    "releaseOwner": {
+      "ownerName": "",
+      "contact": "",
+      "approvalTime": "",
+      "approvalEvidence": "",
+      "currentDecision": "BLOCKED"
+    },
+    "backupRecoveryOperator": {
+      "ownerName": "",
+      "contact": "",
+      "approvalTime": "",
+      "approvalEvidence": "",
+      "currentDecision": "BLOCKED"
+    },
+    "dataOwner": {
+      "ownerName": "",
+      "contact": "",
+      "approvalTime": "",
+      "approvalEvidence": "",
+      "currentDecision": "BLOCKED"
+    },
+    "acceptanceOwner": {
+      "ownerName": "",
+      "contact": "",
+      "approvalTime": "",
+      "approvalEvidence": "",
+      "currentDecision": "BLOCKED"
+    },
+    "alertOwner": {
+      "ownerName": "",
+      "contact": "",
+      "approvalTime": "",
+      "approvalEvidence": "",
+      "currentDecision": "BLOCKED"
+    },
+    "releaseGateReviewer": {
+      "ownerName": "",
+      "contact": "",
+      "approvalTime": "",
+      "approvalEvidence": "",
+      "currentDecision": "BLOCKED"
+    },
+    "prodOwnerCandidates": [
+      {
+        "candidateName": "jiazeyu",
+        "source": "User provided on 2026-05-24",
+        "currentScope": "PROD owner candidate",
+        "roleMappingStatus": "Not mapped to required roles",
+        "gateImpact": "G11 remains BLOCKED"
+      },
+      {
+        "candidateName": "tangbin",
+        "source": "User provided on 2026-05-24",
+        "currentScope": "PROD owner candidate",
+        "roleMappingStatus": "Not mapped to required roles",
+        "gateImpact": "G11 remains BLOCKED"
+      }
+    ]
+  }
+}

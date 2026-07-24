@@ -1,0 +1,26 @@
+# 执行日志：实现 IT 友好型备份恢复脚本 V2 真实环境接线
+
+BDD: backup-ops 真实环境接线 -> Given phase-1 脚手架已通过独立 review 放行 When 继续实现正式 MySQL 导出、对象备份到测试服务器、正式应用回滚和正式数据恢复 Then 必须复用现有发布脚本中的真实服务器约定，且完成后仍由独立 reviewer 判定是否可放行
+BDD: notification webhook send -> Given backup-ops 已生成结果摘要且配置启用 webhook 通知 When 执行 backup-now 或 restore-data 等动作 Then 脚本必须真实发出 webhook 请求或在缺少 webhook 配置时 fail-fast，不能再固定 PlanOnly 假装发送
+BDD: notification visibility -> Given notify.enabled=false 或 notify.channel=pending When 主流程成功完成 Then 结果和日志必须明确记录“通知未发送/已跳过”，不能让 IT 误以为通知已经发出
+BDD: failure and blocked notification coverage -> Given backup-now / backup-scheduled / rollback-app / restore-data / rehearsal 任一步骤失败或被阻塞 When 用例收尾 Then 必须真实调用通知模块并把未发送/发送失败状态记录到上下文和日志
+BDD: restore-data start notification -> Given IT 已确认执行恢复数据 When 进入 pre-restore/停服务前 Then 脚本必须先发送一次“恢复开始”通知
+BDD: backup-scheduled cleanup notification -> Given nightly backup 已进入本地/远端保留清理阶段 When 清理成功或失败 Then 必须有独立的清理结果通知，而不是只依赖最终总通知
+BDD: rehearsal isolated runtime restore -> Given 测试服务器有完整备份点且正式服务器保有对应 IMAGE_TAG 镜像 When 执行 rehearsal Then 脚本必须在测试服务器独立 rehearsal 槽位恢复数据库、对象和应用，而不是直接停在 blocked
+BDD: rehearsal validation matrix -> Given rehearsal 已启动独立 backend/frontend 与对象桶 When 执行演练校验 Then 除了 backend/frontend health 之外，还必须验证登录可达和文件抽样下载
+BDD: release waiver without webhook -> Given 用户在 2026-05-21 明确批准无 webhook 也允许试运行并视为最终放行 When 评估最终 gate Then notify.webhook.url 缺失只作为已知运维风险记录，不再继续阻塞本任务收口
+RED: python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_rehearsal_tooling.py -q -> FAIL, runtime 配置缺少 rehearsal 独立端口/周级演练字段，DockerOps 仍保留“恢复演练的数据面恢复尚未完成对象恢复编排接线”阻塞桩
+GREEN: python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_rehearsal_tooling.py -q -> PASS
+RED: python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_manifest_tooling.py -q -> FAIL, manifest 还没有 rehearsal 验证状态字段，恢复点筛选仍缺少 validation 标记检查且保留了 broken manifest fallback
+GREEN: python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_manifest_tooling.py -q -> PASS
+RED: python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_scheduling_tooling.py -q -> FAIL, 计划任务注册脚本不存在，daily backup 和 weekly rehearsal 还没有明确的 Windows Scheduled Task 落地入口
+GREEN: python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_scheduling_tooling.py -q -> PASS
+GREEN: powershell -NoProfile -ExecutionPolicy Bypass -File D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\backup-ops\actions\Register-BackupOpsScheduledTasks.ps1 -ConfigPath D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\backup-ops\config\backup-ops.config.json -SecretsPath D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\backup-ops\config\backup-ops.secrets.json -PlanOnly -> PASS, 输出 daily backup 与 weekly rehearsal 两个计划任务定义
+RED: python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_notification_flow_tooling.py -q -> FAIL, restore-data 仍只有收尾通知，backup-scheduled 仍只有最终总通知，通知覆盖面未达到开始/清理独立通知要求
+GREEN: python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_notification_flow_tooling.py -q -> PASS
+GREEN: python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_tooling.py -q -k "notify_module or notify_wrapper" -> PASS
+GREEN: python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_real_integration_tooling.py -q -> PASS
+GREEN: powershell -NoProfile -ExecutionPolicy Bypass -File D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\backup-ops\scripts\backup-ops.ps1 -Mode rehearsal -ConfigPath D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\backup-ops\config\backup-ops.config.json -SecretsPath D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\backup-ops\config\backup-ops.secrets.json -SelectedBackupId 20260520_190020 -NonInteractive -> PASS, 独立 rehearsal 槽位完成镜像转运、MySQL 恢复、对象恢复、登录校验、文件抽样下载，产出 20260520_211007_rehearsal_success.report.md
+GREEN: powershell -NoProfile -ExecutionPolicy Bypass -File D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\backup-ops\scripts\backup-ops.ps1 -Mode rehearsal -ConfigPath D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\tmp\backup-ops-rehearsal-fail.config.json -SecretsPath D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\backup-ops\config\backup-ops.secrets.json -SelectedBackupId 20260520_193708 -NonInteractive -> FAIL as expected, 备份点被降级为 pending-review 并从默认恢复候选中排除
+GREEN: python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_tooling.py D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_real_integration_tooling.py D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_rehearsal_tooling.py D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_manifest_tooling.py D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_scheduling_tooling.py D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_backup_ops_notification_flow_tooling.py -q -> PASS, 39 passed
+GREEN: docs/changes/20260521-backup-ops-webhook-waiver.md -> ACCEPT, 用户明确批准“无 webhook 试运行且算最终放行”

@@ -1,0 +1,22 @@
+# Execution Log: 工艺路线工序对应工序设置主数据
+
+- BDD: 多路线工序统一对应 -> Given 同一工序编码存在多个工序主数据记录 / When 执行数据对应脚本 / Then 所有工艺路线关系统一指向该编码的规范工序记录。
+- BDD: 全部路线范围 -> Given 多条工艺路线均包含同一编码工序 / When 执行数据对应脚本 / Then 所有路线下该编码工序均完成对应。
+- BDD: 编码冲突阻塞 -> Given 同一编码存在多个不同工序名称 / When 执行数据对应脚本 / Then 脚本失败并输出冲突，不更新关系表。
+- BDD: 缺少编码来源阻塞 -> Given 工艺路线工序关系没有有效 process_id 且无法取得编码 / When 执行数据对应脚本 / Then 脚本失败并说明缺少前置数据。
+- GREEN: experience-preflight -> PASS，已读取 `docs/powershell-memory.md`、`docs/experience-index.md`、`database-schema-delivery`、`database-contract.md`、`backend-api-delivery`、`backend-contract.md`。
+- DATA: current-local-inventory -> PASS，当前本机库有效 `mes_pro_route_process` 共 421 条，空 `process_id` 0 条，缺失有效工序主数据 0 条。
+- RED: `python -X utf8 -m pytest script/tests/test_mes_route_process_alignment_sql.py -q` -> FAIL，缺少 `sql/mysql/20260709_mes_route_process_master_alignment.sql`。
+- GREEN: `python -X utf8 -m pytest script/tests/test_mes_route_process_alignment_sql.py -q` -> PASS，5 tests。
+- GREEN: local-db-preflight -> PASS，有效关系 421 条，空 `process_id` 0 条，断链 0 条，同编码不同名称冲突 0 个，待归一 18 条。
+- GREEN: local-db-apply -> PASS，`ROUTE_PROCESS_ALIGNMENT_PREVIEW` 返回 rows_to_update 18，`ROUTE_PROCESS_ALIGNMENT_APPLIED` 返回 updated_rows 18。
+- GREEN: local-db-post-verify -> PASS，有效关系 421 条，空 `process_id` 0 条，断链 0 条，待归一 0 条。
+- GREEN: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProProcessServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，5 tests, 0 failures, 0 errors。
+- GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260709-route-process-master-alignment/database-schema-evidence.md` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260709-route-process-master-alignment --mode preview` -> PASS，delete/blocked/warnings 均为 `<none>`。
+- GREEN: git-stage-boundary -> PASS，暂存区仅包含本任务任务文档、SQL、SQL 契约测试、证据 TSV 与本任务请求日志条目。
+- BLOCKER: git-commit -> 初次提交被 TDD hook 阻止，原因是未设置 `TDD_TASK_DIR` 环境变量；准备带任务目录环境变量重试。
+- RED: release-migration-metadata-gate -> FAIL，测试服发布 `build-release` 阶段发现 `sql/mysql/20260709_mes_route_process_master_alignment.sql` 的 `-- release-migration:` 首行只包含说明性过程名 `intruoyi_align_mes_route_process_to_process_master_by_code`，不符合发布脚本要求的 `allowedEnvironments/dependsOn/type/riskLevel` key-value 元数据。
+- IMPLEMENTATION: 将 SQL release metadata 修正为 `allowedEnvironments=test,backup,prod; dependsOn=20260512_mes_base_schema; type=data; riskLevel=medium`，并补充契约测试校验 metadata key 集合与 key-value 形态。
+- GREEN: `python -X utf8 -m pytest script/tests/test_mes_route_process_alignment_sql.py -q` -> PASS，6 tests。
+- GREEN: release-migration-metadata-gate -> PASS，单文件与全量 `sql/mysql` release migration policy gate 均通过。

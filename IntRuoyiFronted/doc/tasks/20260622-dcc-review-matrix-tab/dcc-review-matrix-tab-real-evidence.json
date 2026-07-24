@@ -1,0 +1,231 @@
+{
+  "taskId": "20260622-dcc-review-matrix-tab",
+  "startedAt": "2026-06-22T11:52:52.611Z",
+  "baseUrl": "http://localhost:8081",
+  "tenant": "测试租户",
+  "username": "aoteman",
+  "categoryCode": "DCC_OTHER_TEMPLATE_T122",
+  "categoryId": 907178,
+  "sourceFile": "D:\\ProjectPackage\\Int\\IntAuth\\fronted\\node_modules\\mammoth\\test\\test-data\\empty.docx",
+  "steps": [
+    {
+      "status": "PASS",
+      "label": "login",
+      "detail": {
+        "url": "http://localhost:8081/index"
+      },
+      "at": "2026-06-22T11:53:01.813Z"
+    },
+    {
+      "status": "PASS",
+      "label": "capture auth headers",
+      "detail": {
+        "Authorization": "Bearer 545e3ec0e2124d3785b0a4c4e521b806",
+        "tenant-id": "122"
+      },
+      "at": "2026-06-22T11:53:01.824Z"
+    },
+    {
+      "status": "PASS",
+      "label": "preflight category and route state",
+      "detail": {
+        "configured": false,
+        "uploadLeafDirectoryId": 909155,
+        "uploadLeafDirectoryPathSegments": [
+          "作废",
+          "3 RE",
+          "作废版",
+          "24.8.13作废"
+        ]
+      },
+      "at": "2026-06-22T11:53:01.948Z"
+    },
+    {
+      "status": "PASS",
+      "label": "ensure dedicated positions and assignments",
+      "detail": {
+        "docControl": {
+          "id": 900339,
+          "name": "文控",
+          "code": "INTAUTH-386423",
+          "created": false
+        },
+        "signoff": {
+          "id": 900340,
+          "name": "DCC审阅矩阵E2E-会签A",
+          "code": "INTAUTH-3864231",
+          "created": false
+        },
+        "approvalA": {
+          "id": 900341,
+          "name": "DCC审阅矩阵E2E-批准A",
+          "code": "INTAUTH-3864232",
+          "created": false
+        },
+        "approvalB": {
+          "id": 900342,
+          "name": "DCC审阅矩阵E2E-批准B",
+          "code": "INTAUTH-3864233",
+          "created": false
+        }
+      },
+      "at": "2026-06-22T11:53:02.166Z"
+    },
+    {
+      "status": "PASS",
+      "label": "capture selected matrix options",
+      "detail": {
+        "selectTexts": [
+          "DCC审阅矩阵E2E-会签A",
+          "DCC审阅矩阵E2E-批准A\n+ 1"
+        ],
+        "effectiveTimeValue": "2026-06-22 12:00:00",
+        "remarkValue": "DCC 审阅矩阵真实 E2E 20260622195321"
+      },
+      "at": "2026-06-22T11:53:24.419Z"
+    },
+    {
+      "status": "PASS",
+      "label": "create initial review matrix",
+      "detail": {
+        "categoryId": 907178,
+        "routeVersionNo": 4,
+        "effectiveTime": 0,
+        "remark": "DCC 审阅矩阵真实 E2E 20260622195321",
+        "signoffPositionIds": [
+          900340
+        ],
+        "approvalPositionIds": [
+          900341,
+          900342
+        ]
+      },
+      "at": "2026-06-22T11:53:25.833Z"
+    },
+    {
+      "status": "PASS",
+      "label": "submit file with initial matrix",
+      "detail": {
+        "controlledFileId": 2054545668044070000,
+        "submitRequestBody": {
+          "categoryId": 907178,
+          "directoryId": 909155,
+          "sessionId": "dcc-upload-f2f3c2db-1d4f-4ea8-be1b-36759f78101e",
+          "originalUploadTicket": "UT-BE698C3574D242D5A155D8F0998E63EF",
+          "sourceUploadTicket": "UT-BE698C3574D242D5A155D8F0998E63EF",
+          "sourceFileName": "empty.docx",
+          "fileName": "DCC审阅矩阵-初版矩阵-20260622195325.docx",
+          "fileNumber": "DCC-RM-195325",
+          "needTraining": false,
+          "selectedSignoffUserIds": [],
+          "processType": "CONTROLLED_FILE",
+          "versionNo": "V1.0",
+          "effectiveDate": "2026-06-22",
+          "remark": "DCC 审阅矩阵真实 E2E 初版矩阵 20260622195325"
+        },
+        "submitBody": {
+          "code": 0,
+          "msg": "",
+          "data": "2054545668044069989"
+        }
+      },
+      "at": "2026-06-22T11:53:36.322Z"
+    },
+    {
+      "status": "FAIL",
+      "label": "edit review matrix for future submissions",
+      "detail": {
+        "message": "locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.el-select-dropdown:visible .el-select-dropdown__item').filter({ hasText: 'DCC审阅矩阵E2E-会签A' }).first()\u001b[22m\n\u001b[2m    - locator resolved to <li role=\"option\" data-v-b518a0e8=\"\" id=\"el-id-1640-84\" aria-disabled=\"true\" aria-selected=\"false\" class=\"el-select-dropdown__item is-disabled\">…</li>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not stable\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m    - element is not stable\u001b[22m\n\u001b[2m  2 × retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m  55 × retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n\u001b[2m       - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is not enabled\u001b[22m\n\u001b[2m  - retrying click action\u001b[22m\n\u001b[2m    - waiting 500ms\u001b[22m\n"
+      },
+      "at": "2026-06-22T11:54:13.192Z"
+    },
+    {
+      "status": "PASS",
+      "label": "cleanup review matrix",
+      "detail": {
+        "deleted": true
+      },
+      "at": "2026-06-22T11:54:18.210Z"
+    }
+  ],
+  "createdPositions": [],
+  "assignmentRestores": [],
+  "submitResults": [
+    {
+      "label": "DCC审阅矩阵-初版矩阵-20260622195325.docx",
+      "controlledFileId": 2054545668044070000,
+      "submitRequestBody": {
+        "categoryId": 907178,
+        "directoryId": 909155,
+        "sessionId": "dcc-upload-f2f3c2db-1d4f-4ea8-be1b-36759f78101e",
+        "originalUploadTicket": "UT-BE698C3574D242D5A155D8F0998E63EF",
+        "sourceUploadTicket": "UT-BE698C3574D242D5A155D8F0998E63EF",
+        "sourceFileName": "empty.docx",
+        "fileName": "DCC审阅矩阵-初版矩阵-20260622195325.docx",
+        "fileNumber": "DCC-RM-195325",
+        "needTraining": false,
+        "selectedSignoffUserIds": [],
+        "processType": "CONTROLLED_FILE",
+        "versionNo": "V1.0",
+        "effectiveDate": "2026-06-22",
+        "remark": "DCC 审阅矩阵真实 E2E 初版矩阵 20260622195325"
+      }
+    }
+  ],
+  "finalAssertions": {},
+  "uploadDirectoryTree": {
+    "bindingDirectoryId": 906200,
+    "bindingDirectoryPath": "DCC E2E Documents",
+    "leafBinding": false,
+    "children": [
+      {
+        "id": 909152,
+        "name": "作废",
+        "leaf": false,
+        "children": [
+          {
+            "id": 909153,
+            "name": "3 RE",
+            "leaf": false,
+            "children": [
+              {
+                "id": 909154,
+                "name": "作废版",
+                "leaf": false,
+                "children": [
+                  {
+                    "id": 909155,
+                    "name": "24.8.13作废",
+                    "leaf": true,
+                    "children": []
+                  },
+                  {
+                    "id": 909156,
+                    "name": "24.5.28",
+                    "leaf": true,
+                    "children": []
+                  },
+                  {
+                    "id": 909157,
+                    "name": "24.3.29",
+                    "leaf": true,
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "uploadLeafDirectoryId": 909155,
+  "uploadLeafDirectoryPathSegments": [
+    "作废",
+    "3 RE",
+    "作废版",
+    "24.8.13作废"
+  ],
+  "finishedAt": "2026-06-22T11:54:18.319Z",
+  "fatalError": "locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.el-select-dropdown:visible .el-select-dropdown__item').filter({ hasText: 'DCC审阅矩阵E2E-会签A' }).first()\u001b[22m\n\u001b[2m    - locator resolved to <li role=\"option\" data-v-b518a0e8=\"\" id=\"el-id-1640-84\" aria-disabled=\"true\" aria-selected=\"false\" class=\"el-select-dropdown__item is-disabled\">…</li>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not stable\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m    - element is not stable\u001b[22m\n\u001b[2m  2 × retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m      - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not enabled\u001b[22m\n\u001b[2m  55 × retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n\u001b[2m       - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is not enabled\u001b[22m\n\u001b[2m  - retrying click action\u001b[22m\n\u001b[2m    - waiting 500ms\u001b[22m\n"
+}

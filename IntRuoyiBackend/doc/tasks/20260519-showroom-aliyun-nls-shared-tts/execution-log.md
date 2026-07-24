@@ -1,0 +1,37 @@
+# Execution Log: 20260519-showroom-aliyun-nls-shared-tts
+
+- BDD: 共享阿里云 NLS 默认配置 -> Given 音乐管理和展厅都使用阿里云 NLS / When 用户在任一入口保存默认音色和 AccessToken / Then 两个入口读取到同一套共享全局配置，且保存值优先于 `application.yaml` 运行时值。
+- BDD: 共享阿里云 NLS AppKey 配置 -> Given 音乐管理和展厅都使用阿里云 NLS / When 用户保存共享 AppKey 并重启标准本地运行时 / Then AI 音乐 TTS 与展厅讲解音频生成都应继续成功，且两端读取到同一份脱敏 AppKey 状态。
+- BDD: 展厅真实音频生成 -> Given 展厅旁白草稿存在且共享阿里云 NLS 默认音色、Token 均已配置 / When 调用 `/showroom/narration/generate-audio` / Then 后端调用阿里云 NLS 生成 WAV，落库到 `infra` 文件中心，回填 `audioFileId`、`audioDurationSeconds`、`voice`，并返回可发布旁白版本。
+- BDD: 展厅显式失败语义 -> Given 缺少共享 Token、缺少默认音色、音色不支持、文件落库失败或输出不是 WAV / When 调用 `/showroom/narration/generate-audio` / Then 后端必须显式失败，不得回退到 Windows/DashScope，也不得伪造音频成功。
+- PRECHECK: `20260519-ai-tts-aliyun-nls-token-save/task.md` -> PASS, previous same-repo task is explicitly blocked by external credential and already records blocker/impact.
+- PRECHECK: `20260519-showroom-remediation-b5-narration-preview-assets/task.md` -> PASS, previous showroom narration persistence task is completed.
+- RED: `mvn -pl yudao-module-ai "-Dtest=AiTtsServiceImplTest,AiTtsAliyunNlsCredentialServiceTest" test` -> FAIL, missing shared default voice config key, shared voice save/read methods, and Aliyun NLS default voice resolution API.
+- RED: `mvn -pl yudao-module-infra "-Dtest=FileServiceImplTest" test` -> FAIL, missing file service helper to create a file and return `audioFileId`.
+- RED: `mvn -pl yudao-module-showroom "-Dtest=ShowroomAliyunNlsAudioGenerationAdapterTest,ShowroomPersistentNarrationServiceTest,ShowroomHttpApiIntegrationTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, missing `yudao-module-ai` dependency, missing production showroom Aliyun NLS adapter, and missing showroom TTS defaults endpoints.
+- GREEN: `mvn -pl yudao-module-ai "-Dtest=AiTtsServiceImplTest,AiTtsAliyunNlsCredentialServiceTest" test` -> PASS.
+- GREEN: `mvn -pl yudao-module-infra "-Dtest=FileServiceImplTest" test` -> PASS.
+- GREEN: `mvn -pl yudao-module-showroom -am "-Dtest=ShowroomAliyunNlsAudioGenerationAdapterTest,ShowroomPersistentNarrationServiceTest,ShowroomHttpApiIntegrationTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS.
+- GREEN: `pnpm ts:check` with `NODE_OPTIONS=--max-old-space-size=8192` -> PASS.
+- GREEN: `pnpm build:local` -> PASS.
+- GREEN: `mvn -pl yudao-server -am -DskipTests package` -> PASS, rebuilt `yudao-server.jar` with showroom + shared AI changes.
+- GREEN: `cmd /c restart-ruoyi.bat` -> PASS, restarted local backend on `48081` and frontend on `8081`.
+- GREEN: authenticated runtime fetch on `48081` for `/admin-api/showroom/narration/tts-defaults` and `/admin-api/ai/tts-test/aliyun-nls-defaults` -> PASS, both returned `code=0` and the same shared defaults payload.
+- GREEN: `Invoke-WebRequest -UseBasicParsing http://localhost:8081/showroom/narration-workbench` -> PASS, frontend route is reachable after rebuild/restart.
+- BLOCKED: authenticated real `POST /admin-api/showroom/narration/generate-audio` in test tenant runtime -> FAIL, request reached the new showroom adapter and failed with `SHOWROOM_AUDIO_GENERATION_FAILED: aliyun_nls_appkey_missing`.
+- GREEN: injected runtime `ALIYUN_NLS_APPKEY=i0nmL1mF7xPNUXM9` and manually restarted backend on `48081` with `--yudao.ai.tts.aliyun-nls.appkey=i0nmL1mF7xPNUXM9` -> PASS, service became ready.
+- GREEN: authenticated real `POST /admin-api/ai/tts-test/generate` with `provider=aliyun_nls`, `voice=xiaoyun` -> PASS, returned `audio/wav;charset=UTF-8`, `byteLength=142924`.
+- GREEN: authenticated real `POST /admin-api/showroom/narration/generate-script` then `POST /admin-api/showroom/narration/generate-audio` in tenant `122/aoteman` -> PASS, returned `code=0`, `audioFileId=2273`, `audioDurationSeconds=20`, `voice=xiaoyun`.
+- RED: latest backend/UI still lacked shared AppKey save/read paths -> FAIL, no config key, no save endpoint, no defaults response fields, and no UI entry for AppKey.
+- GREEN: `mvn -pl yudao-module-showroom -am "-Dtest=ShowroomAliyunNlsAudioGenerationAdapterTest,ShowroomPersistentNarrationServiceTest,ShowroomHttpApiIntegrationTest,AliyunNlsTtsSynthesizerTest,AiTtsServiceImplTest,AiTtsAliyunNlsCredentialServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS after shared AppKey implementation.
+- GREEN: `pnpm ts:check` with `NODE_OPTIONS=--max-old-space-size=8192` -> PASS after UI AppKey entry implementation.
+- GREEN: `pnpm build:local` -> PASS after UI AppKey entry implementation.
+- GREEN: manual no-appkey backend restart on `48081` -> PASS, defaults endpoint showed `appKeySource=missing` before save.
+- GREEN: authenticated real `PUT /admin-api/ai/tts-test/aliyun-nls-appkey` with `i0nmL1mF7xPNUXM9` -> PASS, returned `code=0`.
+- GREEN: authenticated real `GET /admin-api/ai/tts-test/aliyun-nls-defaults` and `GET /admin-api/showroom/narration/tts-defaults` -> PASS, both returned `appKeySaved=true`, `appKeySource=saved`, `maskedAppKey=i0nm****UXM9`.
+- GREEN: authenticated real `POST /admin-api/ai/tts-test/generate` after shared AppKey save -> PASS, returned `audio/wav;charset=UTF-8`, `byteLength=81964`.
+- GREEN: authenticated real `POST /admin-api/showroom/narration/generate-script` then `POST /admin-api/showroom/narration/generate-audio` after shared AppKey save -> PASS, returned `code=0`, `audioFileId=2274`, `audioDurationSeconds=22`, `voice=xiaoyun`.
+- GREEN: standard `cmd /c restart-ruoyi.bat` after shared AppKey save -> PASS.
+- GREEN: authenticated real `POST /admin-api/ai/tts-test/generate` after standard restart with no runtime appkey injection -> PASS, returned `audio/wav;charset=UTF-8`, `byteLength=97804`.
+- GREEN: authenticated real `POST /admin-api/showroom/narration/generate-script` then `POST /admin-api/showroom/narration/generate-audio` after standard restart with no runtime appkey injection -> PASS, returned `code=0`, `audioFileId=2275`, `audioDurationSeconds=22`, `voice=xiaoyun`.
+- GREEN: final standard-restart verification on `48081` -> PASS, AI and showroom defaults both still reported `appKeySaved=true`, `appKeySource=saved`, `maskedAppKey=i0nm****UXM9`, AI music `aliyun_nls` generation returned `audio/wav;charset=UTF-8` `byteLength=158444`, and showroom company narration generation returned `code=0`, `audioFileId=2276`, `audioDurationSeconds=28`, `voice=xiaoyun`.

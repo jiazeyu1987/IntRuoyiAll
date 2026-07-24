@@ -1,0 +1,7 @@
+# Execution Log: 20260522-product-020-showroom-cover-single-native-rerun
+
+BDD: Premium medical showroom single cover generation -> Given only the provided facts for product_020 and strict no-text/no-branding/no-fabrication constraints / When exactly one native image generation request is executed / Then one square PNG showroom cover is saved in the workspace with one clear hero product and no fabricated technical claims or exact device internals
+RED: `Test-Path 'D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\product-020-showroom-cover-single-native-rerun.png'` -> FAIL, expected output file does not exist before generation
+GREEN: `Test-Path 'D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\product-020-showroom-cover-single-native-rerun.png'` -> PASS
+GREEN: `Add-Type -AssemblyName System.Drawing; $img=[System.Drawing.Image]::FromFile('D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\yudao-module-showroom\output\imagegen\product-020-showroom-cover-single-native-rerun.png'); try { Write-Output ($img.Width.ToString() + 'x' + $img.Height.ToString()) } finally { $img.Dispose() }` -> PASS
+GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro --task-id 20260522-product-020-showroom-cover-single-native-rerun --mode preview` -> PASS

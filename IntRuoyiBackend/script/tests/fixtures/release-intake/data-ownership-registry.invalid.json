@@ -1,0 +1,17 @@
+{
+  "registryVersion": "1.0",
+  "entries": [
+    {
+      "entryId": "system-menu",
+      "moduleName": "system",
+      "tableName": "system_menu",
+      "naturalKey": ["permission"],
+      "ownedFields": ["name", "status"],
+      "forbiddenOverwriteFields": ["name"],
+      "extractSqlRef": "system-menu.extract.sql",
+      "verifySqlRef": "system-menu.verify.sql",
+      "deletePolicy": "never",
+      "resourceBinding": null
+    }
+  ]
+}

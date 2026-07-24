@@ -1,0 +1,61 @@
+{
+  "baseUrl": "http://localhost:8081",
+  "actionOrigin": "http://localhost:48081",
+  "releaseTag": "20260607_ui_code_only_onlyoffice_A_043314",
+  "backupId": "20260607-050200",
+  "operations": {
+    "buildRelease": "f45a3095-a28c-423c-94cf-e2257e2120f5",
+    "publishTest": "c035f04c-f8db-4555-b9fc-c6c0b3307056",
+    "markReleaseTested": "404bea05-1954-40c1-b7a1-0fdadd8e9e30",
+    "promoteBackup": "41455001-0c1e-44e0-8ef1-9dc4d7ab6cf6",
+    "backupNow": "599de693-0aec-414d-9362-cc3b37a1971f",
+    "restoreData": "21336b5c-a5b2-4bd0-8e65-f61536e37f41"
+  },
+  "submittedActions": [
+    {
+      "action": "build-release",
+      "reason": "E2E full goal build release 20260607_ui_code_only_onlyoffice_A_043314",
+      "prodConfirmText": "",
+      "publishScope": "code-only",
+      "includeOnlyOffice": true,
+      "enableSmartReleaseReport": false,
+      "releaseTag": "20260607_ui_code_only_onlyoffice_A_043314"
+    },
+    {
+      "action": "publish-test",
+      "reason": "E2E full goal deploy test 20260607_ui_code_only_onlyoffice_A_043314",
+      "prodConfirmText": "",
+      "enableSmartReleaseReport": false,
+      "releaseTag": "20260607_ui_code_only_onlyoffice_A_043314"
+    },
+    {
+      "action": "mark-release-tested",
+      "reason": "E2E full goal mark tested 20260607_ui_code_only_onlyoffice_A_043314",
+      "prodConfirmText": "",
+      "testConclusion": "验证结论：20260607_ui_code_only_onlyoffice_A_043314 已通过测试服部署与健康检查，可上线备份服务器",
+      "selectedRecoverySetCandidateId": "restore:20260607-033847"
+    },
+    {
+      "action": "promote-backup",
+      "reason": "E2E full goal promote backup 20260607_ui_code_only_onlyoffice_A_043314",
+      "prodConfirmText": "PROD",
+      "enableSmartReleaseReport": false,
+      "releaseTag": "20260607_ui_code_only_onlyoffice_A_043314"
+    },
+    {
+      "action": "backup-now",
+      "reason": "E2E full goal backup test after 20260607_ui_code_only_onlyoffice_A_043314",
+      "prodConfirmText": "",
+      "targetEnvironment": "test"
+    },
+    {
+      "action": "restore-data",
+      "reason": "E2E full goal restore test from 20260607-050200",
+      "prodConfirmText": "",
+      "targetEnvironment": "test",
+      "selectedRecoverySetCandidateId": "restore:20260607-050200"
+    }
+  ],
+  "completedAt": "2026-06-06T22:27:51.577Z",
+  "productionBoundary": "No promote-prod action and no targetEnvironment=prod were submitted by this run."
+}

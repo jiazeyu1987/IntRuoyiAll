@@ -1,0 +1,137 @@
+{
+  "manifestVersion": "1.0",
+  "packageId": "pytest-valid-v1",
+  "releaseTag": "pytest-valid-v1",
+  "packageType": "full-release",
+  "createdAt": "2026-06-05T00:00:00Z",
+  "createdBy": "pytest",
+  "sourceRepos": [
+    {
+      "name": "ruoyi-vue-pro",
+      "pathRole": "backend",
+      "commit": "abc123",
+      "branch": "int_main",
+      "dirty": false,
+      "dirtySummaryHash": null
+    }
+  ],
+  "changeSet": {
+    "summary": "validator fixture"
+  },
+  "publishScope": "code-only",
+  "components": [
+    "backend",
+    "admin-frontend",
+    "database-contract",
+    "required-sql",
+    "runtime-env",
+    "packaging-manifest"
+  ],
+  "artifacts": [
+    {
+      "artifactId": "backend-app",
+      "componentName": "backend-app",
+      "artifactType": "fixture-file",
+      "path": "backend/app.txt",
+      "includedInPackage": true,
+      "artifactCacheUri": null,
+      "sha256": "sha256:094c89e3bb8ff11d31388e75dcbd72e05cb96b089cbba957a9213934440e48a6",
+      "artifactHash": "sha256:094c89e3bb8ff11d31388e75dcbd72e05cb96b089cbba957a9213934440e48a6",
+      "size": 25,
+      "digest": "sha256:094c89e3bb8ff11d31388e75dcbd72e05cb96b089cbba957a9213934440e48a6",
+      "buildCacheKey": "backend-app:pytest",
+      "sourceHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "dependencyHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "buildParameterHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "contractHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "dependencyClosureHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "buildToolchainHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "database": {
+    "schemaMigrations": [],
+    "requiredDataSets": []
+  },
+  "schemaVersion": "schema-pytest-valid-v1",
+  "schemaDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "migrationPlan": [],
+  "requiredSql": [],
+  "buildModules": [
+    {
+      "moduleName": "backend",
+      "buildAction": "rebuilt",
+      "artifactHash": "sha256:094c89e3bb8ff11d31388e75dcbd72e05cb96b089cbba957a9213934440e48a6"
+    }
+  ],
+  "compatibilityMatrix": [
+    {
+      "frontendVersion": "pytest",
+      "backendVersion": "pytest",
+      "schemaVersion": "schema-pytest-valid-v1",
+      "allowed": true,
+      "evidenceOperationId": "op-pytest-valid-v1"
+    }
+  ],
+  "operationEvidencePolicy": {
+    "requiredOperationTypes": [
+      "manifest-validation"
+    ]
+  },
+  "resources": {
+    "resourcePayloadMode": "reference-check-only",
+    "resourceReferenceManifest": "resources/resource-reference-manifest.json",
+    "resourceSnapshotId": null,
+    "resourceDeltaId": null,
+    "resourceDeltaPrepared": false,
+    "resourceDeltaProofPath": null
+  },
+  "targetRequirements": {
+    "environmentCodes": [
+      "test"
+    ],
+    "serverConfigSchemaVersion": "1.0",
+    "storageProfileIds": [
+      "minio-yudao-default"
+    ],
+    "dockerProfileId": "intruoyi-docker-compose",
+    "requiresDatabaseMigrationPrecheck": true,
+    "requiresRequiredDataPrecheck": true,
+    "requiresResourceDeltaProof": false
+  },
+  "buildContract": {
+    "mode": "report-only",
+    "intakeReportPath": "intake/intake-result.json",
+    "manifestValidationResultPath": "manifest-validation-result.json",
+    "changesBuildExitCode": false,
+    "writesDatabase": false,
+    "syncsResources": false
+  },
+  "deployContract": {
+    "mode": "report-only",
+    "deployPrecheckResultPath": "deploy-precheck-result.json",
+    "changesDeployExitCode": false,
+    "targetConfigSource": "server-side-runtime-control-config",
+    "allowsRemoteMutation": false,
+    "allowsRemoteReadOnlyProbe": "authorized-only"
+  },
+  "precheckPlan": {
+    "checks": [
+      "manifest"
+    ]
+  },
+  "verifyPlan": {
+    "checks": [
+      "manifest"
+    ]
+  },
+  "rollbackPlan": {
+    "mode": "manual"
+  },
+  "forbiddenFieldsCheck": {
+    "status": "passed",
+    "hardcodedIpMatches": [],
+    "secretPatternMatches": [],
+    "packageExternalPathReferences": []
+  },
+  "manifestChecksum": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}

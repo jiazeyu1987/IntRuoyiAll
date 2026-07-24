@@ -1,0 +1,4849 @@
+<template>
+  <ContentWrap v-if="viewerMode">
+    <div class="detail-viewer-page">
+      <div class="detail-viewer-page__toolbar">
+        <el-button @click="closeViewerMode">
+          <Icon icon="ep:back" class="mr-5px" />
+          返回
+        </el-button>
+        <el-button
+          v-if="detailActionState.canDownload"
+          type="primary"
+          :loading="downloadLoading"
+          @click="openDownload"
+        >
+          <Icon icon="ep:download" class="mr-5px" />
+          下载当前受控副本
+        </el-button>
+      </div>
+      <div class="detail-viewer-split" data-testid="dcc-controlled-preview-layout">
+        <section class="detail-viewer-split__file" data-testid="dcc-controlled-preview-file-pane">
+          <ProtectedPdfViewer
+            :controlled-file-id="controlledFileId"
+            :title="fileDetail?.title || '受控文件预览'"
+          />
+        </section>
+        <aside class="detail-viewer-split__detail" data-testid="dcc-controlled-preview-detail-pane">
+          <ControlledFileBasicInfoPanel
+            :file="fileDetail"
+            :category-name="categoryNameMap.get(fileDetail?.categoryId || 0) || '-'"
+            :directory-name="directoryNameMap.get(fileDetail?.directoryId || 0) || '-'"
+            :requester-name="userNameMap.get(fileDetail?.requesterId || 0) || ''"
+            :column="1"
+            compact
+            show-info-actions
+            :show-product-recognition="canEditMetadata && !!fileDetail"
+            :project-code-recognition-loading="projectCodeRecognitionLoading"
+            :show-edit="canEditMetadata && !!fileDetail"
+            edit-button-text="修改"
+            edit-test-id="dcc-controlled-preview-detail-edit"
+            @open-approval-info="openPreviewApprovalDialog"
+            @open-distribution-info="openPreviewDistributionDialog"
+            @open-version-info="openPreviewVersionDialog"
+            @recognize-project-code="handleRecognizeProjectCode"
+            @open-dcc-project-code="openDccProjectCode"
+            @edit="openMetadataDialog"
+          />
+        </aside>
+      </div>
+    </div>
+  </ContentWrap>
+
+  <template v-else>
+    <ContentWrap>
+      <div class="detail-header-shell">
+        <div>
+          <div class="flex items-center gap-10px">
+            <div class="text-24px font-700">{{ fileDetail?.title || '受控文件详情' }}</div>
+            <el-tag :type="getDetailStatusTagType(fileDetail?.status)">
+              {{ getDetailStatusLabel(fileDetail?.status) }}
+            </el-tag>
+            <el-tag v-if="fileDetail?.modifying" type="warning">修改中</el-tag>
+            <el-tag v-if="fileDetail?.status === 'SUPERSEDED'" type="info">历史版</el-tag>
+          </div>
+          <div class="mt-8px flex flex-wrap items-center gap-10px text-13px text-[var(--el-text-color-secondary)]">
+            <span>文件编号：{{ fileDetail?.fileNumber || '-' }}</span>
+            <span>版本：{{ fileDetail?.versionNo || '-' }}</span>
+            <span>生效日期：{{ formatControlledFileDate(fileDetail?.effectiveDate) }}</span>
+          </div>
+        </div>
+        <div class="detail-action-bar">
+          <div class="detail-action-group detail-action-group--primary">
+            <el-button @click="router.back()">
+              <Icon icon="ep:back" class="mr-5px" />
+              返回
+            </el-button>
+            <el-button
+              v-if="canUploadApplicantTrainingRecord"
+              type="primary"
+              plain
+              :loading="applicantTrainingRecordDialog.submitting"
+              @click="openApplicantTrainingRecordDialog"
+            >
+              <Icon icon="ep:upload" class="mr-5px" />
+              上传培训记录
+            </el-button>
+            <el-button
+              v-if="detailActionState.canAcknowledgeTraining"
+              type="success"
+              plain
+              :loading="trainingAckLoading"
+              @click="handleAcknowledgeTraining"
+            >
+              <Icon icon="ep:select" class="mr-5px" />
+              确认培训
+            </el-button>
+            <el-button
+              v-if="detailActionState.canManualRelease"
+              type="primary"
+              plain
+              :loading="manualReleaseLoading"
+              @click="handleManualRelease"
+            >
+              <Icon icon="ep:promotion" class="mr-5px" />
+              正式下发
+            </el-button>
+            <el-button
+              v-if="canSubmitPublishAction"
+              type="primary"
+              plain
+              :loading="publishDialog.submitting"
+              @click="openPublishDialog"
+            >
+              <Icon icon="ep:promotion" class="mr-5px" />
+              发布申请
+            </el-button>
+            <el-button v-if="detailActionState.canPreview" type="primary" plain @click="openPreview">
+              <Icon icon="ep:view" class="mr-5px" />
+              预览受控文件
+            </el-button>
+            <el-button
+              v-if="detailActionState.canDownload"
+              type="primary"
+              :loading="downloadLoading"
+              @click="openDownload"
+            >
+              <Icon icon="ep:download" class="mr-5px" />
+              下载受控文件
+            </el-button>
+          </div>
+          <div class="detail-action-group detail-action-group--more" v-if="hasDetailMoreActions">
+            <el-dropdown trigger="click" @command="handleDetailMoreCommand">
+              <el-button plain :loading="detailMoreActionLoading">
+                更多
+                <Icon icon="ep:arrow-down" class="ml-4px" />
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item v-if="canOpenBpmDetail" command="bpm-detail">BPM 详情</el-dropdown-item>
+                  <el-dropdown-item v-if="canEditMetadata && fileDetail" command="edit-metadata">
+                    修改基础信息
+                  </el-dropdown-item>
+                  <el-dropdown-item v-if="fileDetail" command="print-process">流程打印</el-dropdown-item>
+                  <el-dropdown-item v-if="fileDetail" command="export-process-word">
+                    流程导出 Word
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
+          <div class="detail-action-group detail-action-group--danger" v-if="hasDetailDangerActions">
+            <el-dropdown trigger="click" @command="handleDetailDangerCommand">
+              <el-button type="danger" plain :loading="detailDangerActionLoading">
+                风险操作
+                <Icon icon="ep:arrow-down" class="ml-4px" />
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item v-if="canWithdraw" command="withdraw">撤回申请</el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="detailActionState.canRetryFinalization && canRetryStampPermission"
+                    command="retry-stamp"
+                  >
+                    重试发布
+                  </el-dropdown-item>
+                  <el-dropdown-item v-if="canSubmitObsoleteAction" command="obsolete">
+                    作废当前版本
+                  </el-dropdown-item>
+                  <el-dropdown-item v-if="canHandleWithdrawnFlow" command="delete-withdrawn-flow" divided>
+                    删除流程
+                  </el-dropdown-item>
+                  <el-dropdown-item v-if="canHandleWithdrawnFlow" command="resubmit-withdrawn-flow">
+                    重新提交
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
+        </div>
+      </div>
+      <div
+        v-if="fileDetail"
+        class="detail-handling-summary"
+        data-testid="dcc-detail-handling-summary"
+      >
+        <div class="detail-handling-summary__item">
+          <div class="detail-handling-summary__label">下一步</div>
+          <div class="detail-handling-summary__value">
+            {{ detailHandlingSummary.nextStep }}
+          </div>
+        </div>
+        <div class="detail-handling-summary__item">
+          <div class="detail-handling-summary__label">责任面</div>
+          <div class="detail-handling-summary__value">
+            {{ detailHandlingSummary.responsibilityHint }}
+          </div>
+        </div>
+        <div class="detail-handling-summary__item">
+          <div class="detail-handling-summary__label">当前阶段</div>
+          <div class="detail-handling-summary__value">
+            {{ currentStageLabel }}
+          </div>
+        </div>
+        <div class="detail-handling-summary__item">
+          <div class="detail-handling-summary__label">阻塞原因</div>
+          <div class="detail-handling-summary__value detail-handling-summary__value--blocker">
+            {{ detailBlockingReason }}
+          </div>
+        </div>
+      </div>
+      <el-alert
+        v-if="detailActionProjectionMessages.length"
+        class="mt-12px"
+        type="warning"
+        :closable="false"
+        show-icon
+        :title="detailActionProjectionMessages.join('；')"
+      />
+      <el-alert
+        v-if="obsoleteActionLocked"
+        class="mt-12px"
+        data-testid="dcc-obsolete-action-lock"
+        :closable="false"
+        show-icon
+        type="warning"
+        :title="obsoleteActionLockTitle"
+        :description="obsoleteActionLockDescription"
+      >
+        <template v-if="activeObsoleteAction?.bpmProcessInstanceId" #default>
+          <el-button link type="primary" @click="openBpmDetail">查看 BPM 详情</el-button>
+          <el-button
+            link
+            type="warning"
+            :loading="obsoleteCancelLoading"
+            @click="cancelActiveObsoleteAction"
+          >
+            撤回作废申请
+          </el-button>
+        </template>
+      </el-alert>
+      <el-alert
+        v-if="activeObsoleteActionError"
+        class="mt-12px"
+        data-testid="dcc-obsolete-action-lock-error"
+        :closable="false"
+        show-icon
+        type="error"
+        title="作废动作状态加载失败"
+        :description="activeObsoleteActionError"
+      />
+      <el-alert
+        v-if="publishActionLocked"
+        class="mt-12px"
+        data-testid="dcc-publish-action-lock"
+        :closable="false"
+        show-icon
+        type="warning"
+        :title="publishActionLockTitle"
+        :description="publishActionLockDescription"
+      >
+        <template v-if="activePublishAction?.bpmProcessInstanceId" #default>
+          <el-button link type="primary" @click="openBpmDetail">查看 BPM 详情</el-button>
+          <el-button
+            link
+            type="warning"
+            :loading="publishCancelLoading"
+            @click="cancelActivePublishAction"
+          >
+            撤回发布申请
+          </el-button>
+        </template>
+      </el-alert>
+      <el-alert
+        v-if="activePublishActionError"
+        class="mt-12px"
+        data-testid="dcc-publish-action-lock-error"
+        :closable="false"
+        show-icon
+        type="error"
+        title="发布动作状态加载失败"
+        :description="activePublishActionError"
+      />
+      <div
+        v-if="fileAccessExplanation"
+        class="detail-access-explanation"
+        data-testid="dcc-detail-access-explanation"
+      >
+        <div class="detail-access-explanation__title">查阅权限说明</div>
+        <div class="detail-access-explanation__grid">
+          <div class="detail-access-explanation__item">
+            <span class="detail-access-explanation__label">详情</span>
+            <span class="detail-access-explanation__value">
+              {{
+                formatAccessExplanation(
+                  fileAccessExplanation.detailSource,
+                  fileAccessExplanation.detailReason || fileAccessExplanation.detailDeniedReason
+                )
+              }}
+            </span>
+          </div>
+          <div class="detail-access-explanation__item">
+            <span class="detail-access-explanation__label">已发布查看</span>
+            <span class="detail-access-explanation__value">
+              {{
+                formatAccessExplanation(
+                  fileAccessExplanation.publishedPreviewSource,
+                  fileAccessExplanation.publishedPreviewReason
+                )
+              }}
+            </span>
+          </div>
+          <div class="detail-access-explanation__item">
+            <span class="detail-access-explanation__label">待审原件</span>
+            <span class="detail-access-explanation__value">
+              {{
+                formatAccessExplanation(
+                  fileAccessExplanation.pendingPreviewSource,
+                  fileAccessExplanation.pendingPreviewReason
+                )
+              }}
+            </span>
+          </div>
+          <div class="detail-access-explanation__item">
+            <span class="detail-access-explanation__label">下载</span>
+            <span class="detail-access-explanation__value">
+              {{
+                formatAccessExplanation(
+                  fileAccessExplanation.downloadSource,
+                  fileAccessExplanation.downloadReason || fileAccessExplanation.downloadDeniedReason
+                )
+              }}
+            </span>
+          </div>
+        </div>
+      </div>
+      <el-alert
+        v-if="accessExplanationError"
+        class="mt-12px"
+        :title="accessExplanationError"
+        type="warning"
+        :closable="false"
+      />
+    </ContentWrap>
+
+    <ContentWrap v-loading="approvalLoading" class="mt-16px">
+      <div class="mb-12px flex items-center justify-between gap-12px">
+        <div class="text-15px font-600">审批阶段进度</div>
+        <div class="text-13px text-[var(--el-text-color-secondary)]">
+          当前阶段：{{ currentStageLabel }}
+        </div>
+      </div>
+      <div class="stage-grid">
+        <div
+          v-for="stage in stageProgressList"
+          :key="stage.stageCode"
+          class="stage-card"
+          :class="{
+            'is-current': stage.isCurrent,
+            'is-completed': stage.isCompleted
+          }"
+        >
+          <div class="flex items-center justify-between gap-8px">
+            <div class="font-600">{{ stage.stageName }}</div>
+            <el-tag :type="stage.isCompleted ? 'success' : stage.isCurrent ? 'primary' : 'info'" size="small">
+              {{ stage.isCompleted ? '已完成' : stage.isCurrent ? '当前阶段' : '待处理' }}
+            </el-tag>
+          </div>
+          <div class="mt-10px text-22px font-700">{{ stage.completionText }}</div>
+          <div class="mt-4px text-13px text-[var(--el-text-color-secondary)]">
+            {{ stage.sameLayerHint }}
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-if="approvalTodoTask"
+        class="mt-16px rounded-8px border border-solid border-[var(--el-border-color)] p-16px"
+      >
+        <div class="text-15px font-600">{{ approvalActionLabels.dialogTitle }}</div>
+        <div class="mt-6px text-13px text-[var(--el-text-color-secondary)]">
+          当前任务：{{ approvalTodoTask.name || '-' }}
+        </div>
+        <div class="mt-6px text-13px text-[var(--el-text-color-secondary)]">
+          {{ currentStageSameLayerHint }}
+        </div>
+        <div v-if="isReturnedApplicantTask" class="mt-6px text-13px text-[var(--el-color-warning)]">
+          有流程回退，需处理；处理后将继续提交原流程。
+        </div>
+        <div class="mt-14px flex flex-wrap gap-8px">
+          <el-button type="primary" @click="openActionDialog('approve')">
+            {{ approvalActionLabels.approveText }}
+          </el-button>
+          <el-button v-if="!isReturnedApplicantTask" type="danger" plain @click="openActionDialog('reject')">
+            {{ approvalActionLabels.rejectText }}
+          </el-button>
+          <el-button v-if="returnTargetOptions.length > 0" plain @click="openTaskActionDialog('return')">
+            <Icon icon="ep:back" class="mr-5px" />
+            回退
+          </el-button>
+          <el-button v-if="!isReturnedApplicantTask" plain @click="openTaskActionDialog('transfer')">
+            <Icon icon="fa:share-square-o" class="mr-5px" />
+            转办
+          </el-button>
+          <el-button v-if="!isReturnedApplicantTask" plain @click="openTaskActionDialog('sign')">
+            <Icon icon="ep:plus" class="mr-5px" />
+            加签
+          </el-button>
+        </div>
+      </div>
+    </ContentWrap>
+
+    <ContentWrap>
+      <ControlledFileBasicInfoPanel
+        :file="fileDetail"
+        :category-name="categoryNameMap.get(fileDetail?.categoryId || 0) || '-'"
+        :directory-name="directoryNameMap.get(fileDetail?.directoryId || 0) || '-'"
+        :requester-name="userNameMap.get(fileDetail?.requesterId || 0) || ''"
+        :column="2"
+        :show-product-recognition="canEditMetadata && !!fileDetail"
+        :project-code-recognition-loading="projectCodeRecognitionLoading"
+        @recognize-project-code="handleRecognizeProjectCode"
+        @open-dcc-project-code="openDccProjectCode"
+      />
+    </ContentWrap>
+
+    <ContentWrap>
+      <div class="mb-12px flex items-center justify-between gap-12px">
+        <div class="text-15px font-600">关键记录时间线</div>
+        <el-tag size="small" type="info">汇总 {{ detailLifecycleTimelineItems.length }} 项</el-tag>
+      </div>
+      <div class="detail-lifecycle-timeline" data-testid="dcc-detail-lifecycle-timeline">
+        <template v-if="detailLifecycleTimelineItems.length">
+          <div
+            v-for="item in detailLifecycleTimelineItems"
+            :key="item.key"
+            class="detail-lifecycle-timeline__item"
+          >
+            <div class="detail-lifecycle-timeline__marker"></div>
+            <div class="detail-lifecycle-timeline__content">
+              <div class="detail-lifecycle-timeline__heading">
+                <div class="detail-lifecycle-timeline__title">
+                  {{ item.title }}
+                </div>
+                <el-tag :type="item.tagType" size="small">{{ item.categoryLabel }}</el-tag>
+              </div>
+              <div class="detail-lifecycle-timeline__time">{{ item.timeText }}</div>
+              <div class="detail-lifecycle-timeline__description">{{ item.description }}</div>
+              <div v-if="item.actorText" class="detail-lifecycle-timeline__actor">
+                责任人：{{ item.actorText }}
+              </div>
+            </div>
+          </div>
+        </template>
+        <el-empty v-else :image-size="72" description="暂无可汇总的时间记录" />
+      </div>
+    </ContentWrap>
+
+    <ContentWrap v-if="fileDetail?.externalReview">
+      <div class="mb-12px text-15px font-600">外来文件评审信息</div>
+      <el-descriptions :column="2" border>
+        <el-descriptions-item label="外来来源">
+          {{ fileDetail.externalReview.externalSource || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="外来归属">
+          {{ fileDetail.externalReview.externalOwner || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="评审原因" :span="2">
+          {{ fileDetail.externalReview.reviewReason || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="参与人" :span="2">
+          {{ resolveUserNames(fileDetail.externalReview.participantUserIds || []) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="评审结论">
+          {{ fileDetail.externalReview.reviewConclusion || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="输出文件">
+          {{ fileDetail.externalReview.outputFileName || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="结论说明" :span="2">
+          {{ fileDetail.externalReview.conclusionComment || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="闭环时间">
+          {{ formatControlledFileDateTime(fileDetail.externalReview.closedTime) }}
+        </el-descriptions-item>
+      </el-descriptions>
+    </ContentWrap>
+
+    <ContentWrap data-testid="dcc-detail-route-snapshot-section">
+      <div class="mb-12px text-15px font-600">审批路线快照</div>
+      <el-table :data="routeSnapshotRows" empty-text="暂无路线快照">
+        <el-table-column label="阶段" min-width="240">
+          <template #default="{ row }">
+            <div class="route-snapshot-summary" data-testid="dcc-detail-route-snapshot-stage">
+              <div class="route-snapshot-summary__title">{{ row.stageDisplayName }}</div>
+              <div class="route-snapshot-summary__meta">{{ row.stageMetaText }}</div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="候选摘要" min-width="260">
+          <template #default="{ row }">
+            <div class="route-snapshot-summary" data-testid="dcc-detail-route-snapshot-candidate">
+              <div class="route-snapshot-summary__line">
+                <el-tag size="small" type="primary">{{ row.candidateSourceLabel }}</el-tag>
+                <span>{{ row.candidateText }}</span>
+              </div>
+              <div class="route-snapshot-summary__meta">来源：{{ row.candidateSourceLabel }}</div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="审批要求" min-width="260">
+          <template #default="{ row }">
+            <div class="route-snapshot-summary" data-testid="dcc-detail-route-snapshot-requirement">
+              <div class="route-snapshot-summary__line">
+                <el-tag :type="row.approvalStatusTagType" size="small">
+                  {{ row.approvalStatusLabel }}
+                </el-tag>
+                <span>{{ row.approveMethodLabel }}</span>
+                <span v-if="row.approveRatioText !== '-'">比例 {{ row.approveRatioText }}</span>
+              </div>
+              <div class="route-snapshot-summary__meta">
+                {{ row.approvalProgressText }} 已完成，{{ row.approvalHint }}
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="解析审批人" min-width="260">
+          <template #default="{ row }">
+            {{ resolveUserNames(row.resolvedUserIds) }}
+          </template>
+        </el-table-column>
+      </el-table>
+    </ContentWrap>
+
+    <ContentWrap v-if="isVersionHistoryVisibleToReader(fileDetail?.status)">
+      <div class="mb-12px text-15px font-600">版本历史</div>
+      <el-table :data="fileDetail?.versionHistory || []" empty-text="暂无历史版本">
+        <el-table-column label="标题" min-width="220" prop="title" show-overflow-tooltip />
+        <el-table-column label="文件编号" min-width="150" prop="fileNumber" />
+        <el-table-column label="版本" align="center" width="100" prop="versionNo" />
+        <el-table-column label="发放方式" min-width="140">
+          <template #default="{ row }">
+            {{ getDistributionMediumLabel(row.distributionMedium) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" align="center" width="120">
+          <template #default="{ row }">
+            <el-tag :type="getDetailStatusTagType(row.status)">
+              {{ getDetailStatusLabel(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="发布时间" align="center" width="180">
+          <template #default="{ row }">
+            {{ formatControlledFileDateTime(row.publishedTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="作废时间" align="center" width="180">
+          <template #default="{ row }">
+            {{ formatControlledFileDateTime(row.obsoletedTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="后继版本" min-width="220" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span data-testid="dcc-detail-version-successor-summary">
+              {{ getSuccessorVersionSummary(row) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" align="center" width="120">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="openHistoryDetail(row.id)">查看详情</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </ContentWrap>
+
+    <ContentWrap>
+      <div class="mb-12px flex items-center justify-between gap-12px">
+        <div class="text-15px font-600">分发状态</div>
+        <div class="flex flex-wrap gap-8px">
+          <el-button
+            plain
+            :disabled="!distributionReceiptRows.length"
+            @click="handleExportDistributionReceipts"
+          >
+            <Icon icon="ep:download" class="mr-5px" />
+            导出回执
+          </el-button>
+          <el-button
+            plain
+            :disabled="!distributionReceiptRows.length"
+            @click="handlePrintDistributionReceipts"
+          >
+            <Icon icon="ep:printer" class="mr-5px" />
+            打印回执
+          </el-button>
+        </div>
+      </div>
+      <el-table
+        :data="fileDetail?.distributionStatuses || []"
+        data-testid="dcc-detail-distribution-section"
+        empty-text="当前版本暂无分发记录"
+      >
+        <el-table-column label="部门" min-width="180">
+          <template #default="{ row }">
+            {{ deptNameMap.get(row.departmentId) || `部门#${row.departmentId}` }}
+          </template>
+        </el-table-column>
+        <el-table-column label="接收人" min-width="280">
+          <template #default="{ row }">
+            {{ getDistributionRecipientDisplay(row) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="分发摘要" min-width="300">
+          <template #default="{ row }">
+            <div class="detail-distribution-summary" data-testid="dcc-detail-distribution-summary">
+              <div class="detail-distribution-summary__line">
+                <el-tag :type="getDistributionStatusTagType(row.status)" size="small">
+                  {{ getDistributionStatusLabel(row.status) }}
+                </el-tag>
+                <span class="detail-distribution-summary__medium">
+                  {{ getDistributionMediumLabel(row.distributionMedium) }}
+                </span>
+              </div>
+              <div class="detail-distribution-summary__meta">
+                发放：{{ getDistributionAckUserSummary(row, userNameMap) }}
+              </div>
+              <div class="detail-distribution-summary__meta">
+                时间：{{ formatControlledFileDateTime(row.acknowledgedAt) }}
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="回收摘要" min-width="260">
+          <template #default="{ row }">
+            <div class="detail-recovery-summary" data-testid="dcc-detail-recovery-summary">
+              <div class="detail-recovery-summary__meta">
+                回收：{{ getDistributionRecoverUserSummary(row) }}
+              </div>
+              <div class="detail-recovery-summary__meta">
+                时间：{{ formatControlledFileDateTime(row.recoveredAt) }}
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" align="center" width="300">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.distributionMedium === 'PUBLIC_FOLDER' && getCurrentElectronicReceiptRecipient(row)"
+              link
+              type="primary"
+              :loading="electronicReceiptLoadingRecipientId === getCurrentElectronicReceiptRecipient(row)?.id"
+              @click="openElectronicReceiptDialog(row)"
+            >
+              确认签收
+            </el-button>
+            <el-button
+              v-if="row.distributionMedium === 'PUBLIC_FOLDER' && getCurrentDistributionRecipient(row)"
+              link
+              type="primary"
+              :loading="distributionSignLoadingRecipientId === getCurrentDistributionRecipient(row)?.id"
+              @click="openDistributionSignDialog(row)"
+            >
+              接收人加签
+            </el-button>
+            <el-button
+              v-if="row.distributionMedium === 'PAPER' && row.status !== 'ACKNOWLEDGED' && row.status !== 'RECOVERED'"
+              link
+              type="primary"
+              :loading="paperDistributionAckLoadingId === row.id"
+              @click="handleAcknowledgePaperDistribution(row.id)"
+            >
+              确认纸质发放
+            </el-button>
+            <el-button
+              v-if="row.distributionMedium === 'PAPER' && row.status === 'ACKNOWLEDGED'"
+              link
+              type="warning"
+              :loading="paperDistributionRecoverLoadingId === row.id"
+              @click="handleRecoverPaperDistribution(row.id)"
+            >
+              确认回收
+            </el-button>
+            <span v-if="!hasDistributionRowAction(row)">-</span>
+          </template>
+        </el-table-column>
+      </el-table>
+    </ContentWrap>
+
+    <ContentWrap data-testid="dcc-detail-training-section">
+      <div class="mb-12px flex items-center justify-between gap-12px">
+        <div class="text-15px font-600">培训状态</div>
+        <el-tag v-if="pendingTrainingAssignments.length" type="warning">
+          当前用户待确认 {{ pendingTrainingAssignments.length }} 项
+        </el-tag>
+      </div>
+      <el-table :data="flattenedTrainingAssignments" empty-text="当前版本暂无培训记录">
+        <el-table-column label="部门" min-width="180">
+          <template #default="{ row }">
+            {{ deptNameMap.get(row.departmentId) || `部门#${row.departmentId}` }}
+          </template>
+        </el-table-column>
+        <el-table-column label="受训人" min-width="220">
+          <template #default="{ row }">
+            {{ getTrainingAssignmentUserSummary(row, userNameMap) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="培训摘要" min-width="360">
+          <template #default="{ row }">
+            <div class="detail-training-summary">
+              <div class="detail-training-summary__line">
+                <el-tag :type="getDetailTrainingAssignmentSummary(row).statusTagType" size="small">
+                  {{ getDetailTrainingAssignmentSummary(row).statusLabel }}
+                </el-tag>
+                <span class="detail-training-summary__progress">
+                  {{ getDetailTrainingAssignmentSummary(row).progressText }}
+                </span>
+              </div>
+              <div class="detail-training-summary__line">
+                <el-tag :type="getDetailTrainingAssignmentSummary(row).eligibilityTagType" size="small">
+                  {{ getDetailTrainingAssignmentSummary(row).eligibilityLabel }}
+                </el-tag>
+                <el-tag :type="getDetailTrainingAssignmentSummary(row).departmentStatusTagType" size="small">
+                  部门：{{ getDetailTrainingAssignmentSummary(row).departmentStatusLabel }}
+                </el-tag>
+                <span class="detail-training-summary__time">
+                  确认：{{ getDetailTrainingAssignmentSummary(row).acknowledgedAtText }}
+                </span>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+    </ContentWrap>
+
+    <ContentWrap data-testid="dcc-detail-signature-section">
+      <div class="detail-table-header mb-12px">
+        <div>
+          <div class="text-15px font-600">签名留痕</div>
+          <div class="mt-4px text-12px text-[var(--el-text-color-secondary)]">
+            {{
+              signatureEvidenceViewMode === 'advanced'
+                ? '高级视图显示签名方式和 Hash 证据。'
+                : '常用视图默认显示签名业务字段，Hash 证据可在高级视图查看。'
+            }}
+          </div>
+        </div>
+        <div class="detail-signature-tools">
+          <TableQuickFilter
+            table-key="dcc.controlledFile.detail.signatureEvidence"
+            :filter-definitions="dccSignatureEvidenceQuickFilterDefinitions"
+            :state="dccSignatureEvidenceQuickFilter.state"
+            :selected-definition="dccSignatureEvidenceQuickFilter.selectedDefinition.value"
+            :operator-options="dccSignatureEvidenceQuickFilter.operatorOptions.value"
+            @update:state="dccSignatureEvidenceQuickFilter.updateState"
+            @query="dccSignatureEvidenceQuickFilter.applyQuickFilter"
+          />
+          <UserTableColumnSettings
+            :columns="dccSignatureEvidenceColumns"
+            :saving="dccSignatureEvidenceColumnSaving"
+            @change="saveDccSignatureEvidenceColumnConfig"
+            @reset="resetDccSignatureEvidenceColumnConfig"
+          />
+          <el-radio-group
+            v-model="signatureEvidenceViewMode"
+            class="detail-view-mode"
+            size="small"
+            data-testid="dcc-detail-signature-view-mode"
+          >
+          <el-radio-button
+            v-for="option in signatureEvidenceViewModeOptions"
+            :key="option.value"
+            :label="option.value"
+          >
+            {{ option.label }}
+          </el-radio-button>
+          </el-radio-group>
+        </div>
+      </div>
+      <el-table
+        v-loading="dccSignatureEvidenceLoading"
+        data-user-table-column-explicit
+        data-user-table-key="dcc.controlledFile.detail.signatureEvidence"
+        :data="dccSignatureEvidenceList"
+        empty-text="暂无签名记录"
+        @header-dragend="handleDccSignatureEvidenceHeaderDragend"
+      >
+        <el-table-column v-if="isDccSignatureEvidenceColumnVisible('versionNo')" label="版本" prop="versionNo" align="center" :width="getDccSignatureEvidenceColumnWidthString('versionNo', 110)">
+          <template #default="{ row }">
+            {{ row.versionNo || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column v-if="isDccSignatureEvidenceColumnVisible('signer')" label="签名人" prop="signer" :min-width="getDccSignatureEvidenceColumnMinWidthString('signer', 220)">
+          <template #default="{ row }">
+            <div>{{ getSignatureActorSummary(row, userNameMap) }}</div>
+            <div class="signature-snapshot-muted">
+              {{ row.actorUsernameSnapshot || '旧版证据未记录' }}
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column v-if="isDccSignatureEvidenceColumnVisible('departmentPost')" label="部门/岗位" prop="departmentPost" :min-width="getDccSignatureEvidenceColumnMinWidthString('departmentPost', 190)">
+          <template #default="{ row }">
+            <div>{{ formatSignatureSnapshotValue(row.actorDeptNameSnapshot) }}</div>
+            <div class="signature-snapshot-muted">
+              {{ formatSignatureSnapshotValue(row.actorPostNamesSnapshot) }}
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column v-if="isDccSignatureEvidenceColumnVisible('role')" label="角色" prop="role" :min-width="getDccSignatureEvidenceColumnMinWidthString('role', 150)">
+          <template #default="{ row }">
+            {{ formatSignatureSnapshotValue(row.actorRoleNamesSnapshot) }}
+          </template>
+        </el-table-column>
+        <el-table-column v-if="isDccSignatureEvidenceColumnVisible('action')" label="动作" prop="action" align="center" :width="getDccSignatureEvidenceColumnWidthString('action', 120)">
+          <template #default="{ row }">
+            {{ getSignatureActionLabel(row.taskActionResult) }}
+          </template>
+        </el-table-column>
+        <el-table-column v-if="isDccSignatureEvidenceColumnVisible('meaning')" label="签名含义" prop="meaning" align="center" :width="getDccSignatureEvidenceColumnWidthString('meaning', 140)">
+          <template #default="{ row }">
+            <el-tag size="small" type="primary">
+              {{ getSignatureMeaningLabel(row.meaningCode) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column v-if="isDccSignatureEvidenceColumnVisible('purpose')" label="签名目的" prop="purpose" :min-width="getDccSignatureEvidenceColumnMinWidthString('purpose', 150)">
+          <template #default="{ row }">
+            {{ formatSignatureSnapshotValue(row.signaturePurpose || row.meaningCode) }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="signatureEvidenceViewMode === 'advanced' && isDccSignatureEvidenceColumnVisible('authorizationBasis')"
+          prop="authorizationBasis"
+          label="权限依据"
+          min-width="240"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">
+            {{ formatSignatureSnapshotValue(row.authorizationBasis) }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="signatureEvidenceViewMode === 'advanced' && isDccSignatureEvidenceColumnVisible('signatureMode')"
+          label="签名方式"
+          align="center"
+          width="120"
+          prop="signatureMode"
+        />
+        <el-table-column
+          v-if="signatureEvidenceViewMode === 'advanced' && isDccSignatureEvidenceColumnVisible('sourceFileHash')"
+          prop="sourceFileHash"
+          label="源文件 hash"
+          align="center"
+          width="150"
+        >
+          <template #default="{ row }">
+            <span class="signature-hash">{{ formatSignatureHashShort(row.sourceFileHashShort) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column v-if="isDccSignatureEvidenceColumnVisible('controlledCopy')" label="受控副本" prop="controlledCopy" align="center" :width="getDccSignatureEvidenceColumnWidthString('controlledCopy', 130)">
+          <template #default="{ row }">
+            <el-tag :type="getControlledCopyHashStatusTagType(row.controlledCopyHashStatus)" size="small">
+              {{ getControlledCopyHashStatusLabel(row.controlledCopyHashStatus) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="signatureEvidenceViewMode === 'advanced' && isDccSignatureEvidenceColumnVisible('controlledCopyHash')"
+          prop="controlledCopyHash"
+          label="副本 hash"
+          align="center"
+          width="150"
+        >
+          <template #default="{ row }">
+            <span class="signature-hash">{{ formatSignatureHashShort(row.controlledCopyHashShort) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column v-if="isDccSignatureEvidenceColumnVisible('evidenceStatus')" label="证据状态" prop="evidenceStatus" align="center" :width="getDccSignatureEvidenceColumnWidthString('evidenceStatus', 120)">
+          <template #default="{ row }">
+            <el-tag :type="getSignatureEvidenceStatusTagType(row.evidenceStatus)" size="small">
+              {{ getSignatureEvidenceStatusLabel(row.evidenceStatus) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-if="signatureEvidenceViewMode === 'advanced' && isDccSignatureEvidenceColumnVisible('evidenceHash')"
+          prop="evidenceHash"
+          label="证据 hash"
+          align="center"
+          width="150"
+        >
+          <template #default="{ row }">
+            <span class="signature-hash">{{ formatSignatureHashShort(row.evidenceHashShort) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column v-if="isDccSignatureEvidenceColumnVisible('comment')" label="签名意见" :min-width="getDccSignatureEvidenceColumnMinWidthString('comment', 240)" prop="comment" show-overflow-tooltip />
+        <el-table-column v-if="isDccSignatureEvidenceColumnVisible('signedAt')" label="签名时间" prop="signedAt" align="center" :width="getDccSignatureEvidenceColumnWidthString('signedAt', 180)">
+          <template #default="{ row }">
+            {{ formatControlledFileDateTime(row.signedAt) }}
+          </template>
+        </el-table-column>
+      </el-table>
+      <Pagination
+        :total="dccSignatureEvidenceTotal"
+        v-model:page="dccSignatureEvidenceQueryParams.pageNo"
+        v-model:limit="dccSignatureEvidenceQueryParams.pageSize"
+        @pagination="loadDccSignatureEvidenceList"
+      />
+    </ContentWrap>
+
+    <el-dialog
+      v-model="applicantTrainingRecordDialog.visible"
+      title="上传培训记录"
+      width="520px"
+      destroy-on-close
+    >
+      <el-alert
+        v-if="applicantTrainingRecordDialog.inlineError"
+        :closable="false"
+        class="mb-16px"
+        show-icon
+        type="error"
+        :title="applicantTrainingRecordDialog.inlineError"
+      />
+      <el-form label-width="96px">
+        <el-form-item label="培训记录" :error="applicantTrainingRecordDialog.fieldErrors.trainingRecordUploadTicket">
+          <div class="w-full">
+            <el-upload
+              ref="applicantTrainingRecordUploadRef"
+              action="#"
+              :auto-upload="false"
+              :limit="1"
+              :file-list="applicantTrainingRecordFileList"
+              :on-change="handleApplicantTrainingRecordChange"
+              :before-remove="handleBeforeApplicantTrainingRecordRemove"
+              :on-remove="handleApplicantTrainingRecordRemove"
+              :on-exceed="handleApplicantTrainingRecordExceed"
+            >
+              <el-button plain :loading="applicantTrainingRecordDialog.uploading">
+                <Icon icon="ep:upload" class="mr-5px" />
+                选择文件
+              </el-button>
+            </el-upload>
+            <div
+              v-if="applicantTrainingRecordDialog.file"
+              class="mt-8px text-13px text-[var(--el-text-color-secondary)]"
+            >
+              {{ applicantTrainingRecordDialog.file.fileName }}
+            </div>
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="closeApplicantTrainingRecordDialog">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="applicantTrainingRecordDialog.submitting"
+          @click="submitApplicantTrainingRecordDialog"
+        >
+          确认上传
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="actionDialog.visible"
+      :title="approvalActionLabels.dialogTitle"
+      width="520px"
+      destroy-on-close
+    >
+      <el-alert
+        v-if="actionDialog.inlineError"
+        :closable="false"
+        class="mb-16px"
+        show-icon
+        type="error"
+        :title="actionDialog.inlineError"
+      />
+      <el-descriptions class="mb-16px" :column="2" border>
+        <el-descriptions-item label="文件编号">
+          {{ fileDetail?.fileNumber || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="版本">
+          {{ fileDetail?.versionNo || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="当前阶段">
+          {{ currentStageLabel }}
+        </el-descriptions-item>
+        <el-descriptions-item label="签名含义">
+          {{ actionDialogSignatureMeaning }}
+        </el-descriptions-item>
+        <el-descriptions-item label="任务ID" :span="2">
+          {{ approvalTodoTask?.id || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="证据前置" :span="2">
+          版本、源文件摘要、受控副本摘要状态
+        </el-descriptions-item>
+      </el-descriptions>
+      <el-form label-width="96px">
+        <el-form-item label="登录密码" :error="actionDialog.fieldErrors.password">
+          <el-input
+            v-model="actionDialog.form.password"
+            clearable
+            placeholder="请输入当前登录密码"
+            show-password
+            type="password"
+          />
+        </el-form-item>
+        <el-form-item
+          :label="actionDialog.mode === 'reject' ? '驳回原因' : '审批意见'"
+          :error="actionDialog.fieldErrors.reason"
+        >
+          <el-input
+            v-model="actionDialog.form.reason"
+            :autosize="{ minRows: 3, maxRows: 6 }"
+            :placeholder="actionDialog.mode === 'reject' ? '请输入驳回原因' : '请输入审批意见（选填）'"
+            type="textarea"
+          />
+        </el-form-item>
+        <template v-if="shouldCollectFourthNodeFiles">
+          <el-form-item label="存入路径确认" :error="actionDialog.fieldErrors.confirmedDirectoryId">
+            <el-tree-select
+              v-model="fourthNodeUpload.confirmedDirectoryId"
+              class="!w-full"
+              data-testid="dcc-doc-control-confirmed-directory"
+              :data="docControlDirectoryTreeOptions"
+              :props="docControlDirectoryTreeProps"
+              node-key="id"
+              filterable
+              default-expand-all
+              :loading="docControlDirectoryTreeLoading"
+              placeholder="请选择存入路径"
+              @change="clearActionDialogFieldError('confirmedDirectoryId')"
+            />
+          </el-form-item>
+          <el-form-item label="盖章 PDF" :error="actionDialog.fieldErrors.stampedPdfUploadTicket">
+            <div class="w-full">
+              <el-upload
+                ref="stampedPdfUploadRef"
+                action="#"
+                accept=".pdf,application/pdf"
+                :auto-upload="false"
+                :limit="1"
+                :file-list="stampedPdfFileList"
+                :on-change="handleStampedPdfChange"
+                :before-remove="handleBeforeStampedPdfRemove"
+                :on-remove="handleStampedPdfRemove"
+                :on-exceed="handleStampedPdfExceed"
+              >
+                <el-button plain :loading="fourthNodeUpload.stampedLoading">
+                  <Icon icon="ep:document" class="mr-5px" />
+                  选择 PDF
+                </el-button>
+              </el-upload>
+              <div v-if="fourthNodeUpload.stampedPdf" class="mt-8px text-13px text-[var(--el-text-color-secondary)]">
+                {{ fourthNodeUpload.stampedPdf.fileName }}
+              </div>
+            </div>
+          </el-form-item>
+          <el-form-item
+            label="文件下发范围"
+            :error="actionDialog.fieldErrors.selectedDistributionScopes"
+          >
+            <el-tree-select
+              v-model="selectedDistributionDepartmentIds"
+              class="!w-full"
+              data-testid="dcc-doc-control-distribution-departments"
+              :data="departmentTreeOptions"
+              :props="departmentTreeProps"
+              node-key="id"
+              multiple
+              show-checkbox
+              collapse-tags
+              collapse-tags-tooltip
+              filterable
+              default-expand-all
+              placeholder="请选择下发部门"
+            />
+            <el-table
+              v-if="fourthNodeUpload.selectedDistributionScopes.length"
+              class="mt-8px"
+              data-testid="dcc-doc-control-distribution-scopes"
+              :data="fourthNodeUpload.selectedDistributionScopes"
+              border
+              size="small"
+            >
+              <el-table-column label="部门" min-width="180">
+                <template #default="{ row }">
+                  {{ deptNameMap.get(row.departmentId) || `部门#${row.departmentId}` }}
+                </template>
+              </el-table-column>
+              <el-table-column label="下发介质" width="220">
+                <template #default="{ row }">
+                  <el-radio-group
+                    v-model="row.distributionMedium"
+                    size="small"
+                    @change="clearActionDialogFieldError('selectedDistributionScopes')"
+                  >
+                    <el-radio-button
+                      v-for="option in docControlDistributionMediumOptions"
+                      :key="option.value"
+                      :label="option.value"
+                    >
+                      {{ option.label }}
+                    </el-radio-button>
+                  </el-radio-group>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-form-item>
+        </template>
+        <template v-if="shouldCollectExternalReviewConclusion">
+          <el-form-item label="评审结论" :error="actionDialog.fieldErrors.reviewConclusion">
+            <el-select v-model="externalReviewAction.reviewConclusion" class="!w-full" placeholder="请选择评审结论">
+              <el-option label="接收" value="ACCEPTED" />
+              <el-option label="带意见接收" value="ACCEPTED_WITH_NOTES" />
+              <el-option label="不接收" value="REJECTED" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="输出文件" :error="actionDialog.fieldErrors.outputUploadTicket">
+            <div class="w-full">
+              <el-upload
+                ref="externalOutputUploadRef"
+                action="#"
+                accept=".doc,.docx,.xls,.xlsx,.dwg,.sldprt,.sldasm,.slddrw"
+                :auto-upload="false"
+                :limit="1"
+                :file-list="externalOutputFileList"
+                :on-change="handleExternalOutputFileChange"
+                :before-remove="handleBeforeExternalOutputFileRemove"
+                :on-remove="handleExternalOutputFileRemove"
+              >
+                <el-button plain :loading="externalReviewAction.outputLoading">
+                  <Icon icon="ep:upload" class="mr-5px" />
+                  选择输出文件
+                </el-button>
+              </el-upload>
+              <div v-if="externalReviewAction.outputFile" class="mt-8px text-13px text-[var(--el-text-color-secondary)]">
+                {{ externalReviewAction.outputFile.fileName }}
+              </div>
+            </div>
+          </el-form-item>
+          <el-form-item label="结论说明">
+            <el-input
+              v-model="externalReviewAction.conclusionComment"
+              :autosize="{ minRows: 3, maxRows: 6 }"
+              placeholder="请输入评审结论说明"
+              type="textarea"
+            />
+          </el-form-item>
+        </template>
+      </el-form>
+      <template #footer>
+        <el-button @click="closeActionDialog">取消</el-button>
+        <el-button type="primary" :loading="actionDialog.submitting" @click="submitActionDialog">
+          确认签名
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="taskActionDialog.visible"
+      :title="taskActionDialogTitle"
+      width="560px"
+      destroy-on-close
+    >
+      <el-alert
+        v-if="taskActionDialog.inlineError"
+        :closable="false"
+        class="mb-16px"
+        show-icon
+        type="error"
+        :title="taskActionDialog.inlineError"
+      />
+      <el-form label-width="96px">
+        <el-form-item
+          v-if="taskActionDialog.mode === 'return'"
+          label="回退节点"
+          :error="taskActionDialog.fieldErrors.targetTaskDefinitionKey"
+        >
+          <el-select
+            v-model="taskActionDialog.form.targetTaskDefinitionKey"
+            class="!w-full"
+            placeholder="请选择回退节点"
+          >
+            <el-option
+              v-for="item in returnTargetOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item
+          v-if="taskActionDialog.mode === 'transfer'"
+          label="转办人"
+          :error="taskActionDialog.fieldErrors.assigneeUserId"
+        >
+          <UserSelectV2
+            v-model="taskActionDialog.form.assigneeUserId"
+            class="!w-full"
+            placeholder="请选择转办人"
+          />
+        </el-form-item>
+        <template v-if="taskActionDialog.mode === 'sign'">
+          <el-form-item label="加签方式">
+            <el-radio-group v-model="taskActionDialog.form.signType">
+              <el-radio-button label="before">前加签</el-radio-button>
+              <el-radio-button label="after">后加签</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="加签人" :error="taskActionDialog.fieldErrors.userIds">
+            <UserSelectV2
+              v-model="taskActionDialog.form.userIds"
+              class="!w-full"
+              :multiple="true"
+              placeholder="请选择加签人"
+            />
+          </el-form-item>
+        </template>
+        <el-form-item label="登录密码" :error="taskActionDialog.fieldErrors.password">
+          <el-input
+            v-model="taskActionDialog.form.password"
+            clearable
+            placeholder="请输入当前登录密码"
+            show-password
+            type="password"
+          />
+        </el-form-item>
+        <el-form-item label="处理意见" :error="taskActionDialog.fieldErrors.reason">
+          <el-input
+            v-model="taskActionDialog.form.reason"
+            :autosize="{ minRows: 3, maxRows: 6 }"
+            placeholder="请输入处理意见"
+            type="textarea"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="closeTaskActionDialog">取消</el-button>
+        <el-button type="primary" :loading="taskActionDialog.submitting" @click="submitTaskActionDialog">
+          确认签名
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="paperDistributionIssueDialog.visible"
+      title="纸质发放登记"
+      width="560px"
+      destroy-on-close
+    >
+      <el-alert
+        v-if="paperDistributionIssueDialog.inlineError"
+        :closable="false"
+        class="mb-16px"
+        show-icon
+        type="error"
+        :title="paperDistributionIssueDialog.inlineError"
+      />
+      <el-form label-width="112px">
+        <el-form-item label="纸质接收人" :error="paperDistributionIssueDialog.fieldErrors.recipientUserIds">
+          <UserSelectV2
+            v-model="paperDistributionIssueDialog.form.recipientUserIds"
+            class="!w-full"
+            :multiple="true"
+            placeholder="请选择纸质接收人"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="closePaperDistributionIssueDialog">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="paperDistributionIssueDialog.submitting"
+          @click="submitPaperDistributionIssueDialog"
+        >
+          确认发放
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="electronicReceiptDialog.visible"
+      title="电子发放签收"
+      width="520px"
+      destroy-on-close
+    >
+      <el-alert
+        v-if="electronicReceiptDialog.inlineError"
+        :closable="false"
+        class="mb-16px"
+        show-icon
+        type="error"
+        :title="electronicReceiptDialog.inlineError"
+      />
+      <el-form label-width="96px">
+        <el-form-item label="登录密码" :error="electronicReceiptDialog.fieldErrors.password">
+          <el-input
+            v-model="electronicReceiptDialog.form.password"
+            clearable
+            placeholder="请输入当前登录密码"
+            show-password
+            type="password"
+          />
+        </el-form-item>
+        <el-form-item label="签收意见">
+          <el-input
+            v-model="electronicReceiptDialog.form.comment"
+            :autosize="{ minRows: 3, maxRows: 6 }"
+            maxlength="1000"
+            placeholder="请输入签收意见（选填）"
+            show-word-limit
+            type="textarea"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="closeElectronicReceiptDialog">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="electronicReceiptDialog.submitting"
+          @click="submitElectronicReceiptDialog"
+        >
+          确认签收
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="distributionSignDialog.visible"
+      title="接收人加签"
+      width="560px"
+      destroy-on-close
+    >
+      <el-alert
+        v-if="distributionSignDialog.inlineError"
+        :closable="false"
+        class="mb-16px"
+        show-icon
+        type="error"
+        :title="distributionSignDialog.inlineError"
+      />
+      <el-form label-width="96px">
+        <el-form-item label="加签接收人" :error="distributionSignDialog.fieldErrors.userIds">
+          <UserSelectV2
+            v-model="distributionSignDialog.form.userIds"
+            class="!w-full"
+            :multiple="true"
+            placeholder="请选择加签接收人"
+          />
+        </el-form-item>
+        <el-form-item label="登录密码" :error="distributionSignDialog.fieldErrors.password">
+          <el-input
+            v-model="distributionSignDialog.form.password"
+            clearable
+            placeholder="请输入当前登录密码"
+            show-password
+            type="password"
+          />
+        </el-form-item>
+        <el-form-item label="加签意见">
+          <el-input
+            v-model="distributionSignDialog.form.comment"
+            :autosize="{ minRows: 3, maxRows: 6 }"
+            maxlength="1000"
+            placeholder="请输入加签意见（选填）"
+            show-word-limit
+            type="textarea"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="closeDistributionSignDialog">取消</el-button>
+        <el-button
+          type="primary"
+          :loading="distributionSignDialog.submitting"
+          @click="submitDistributionSignDialog"
+        >
+          确认加签
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="obsoleteDialog.visible" title="作废当前版本" width="720px" destroy-on-close>
+      <el-alert
+        v-if="obsoleteDialog.inlineError"
+        :closable="false"
+        class="mb-16px"
+        show-icon
+        type="error"
+        :title="obsoleteDialog.inlineError"
+      />
+      <el-form label-width="96px">
+        <el-form-item label="作废原因">
+          <el-input
+            v-model="obsoleteDialog.reason"
+            :autosize="{ minRows: 3, maxRows: 6 }"
+            placeholder="请输入作废原因"
+            type="textarea"
+          />
+        </el-form-item>
+        <el-form-item
+          v-for="task in obsoleteDialog.startUserSelectTasks"
+          :key="task.id"
+          :label="`${task.name}审批人`"
+        >
+          <UserSelectV2
+            v-model="obsoleteDialog.startUserSelectAssignees[task.id]"
+            multiple
+            :placeholder="`请选择${task.name}审批人`"
+          />
+        </el-form-item>
+      </el-form>
+      <section data-testid="dcc-obsolete-form-center-panel">
+        <ActionFormPanel
+          v-if="dccObsoleteFormCenterContext"
+          :context="dccObsoleteFormCenterContext"
+          :disabled="
+            obsoleteDialog.submitting || !canSubmitObsoleteAction || !obsoleteDialog.reason.trim()
+          "
+          :form-data="dccObsoleteFormCenterFormData"
+          :idempotency-key="obsoleteDialog.idempotencyKey"
+        />
+        <el-alert
+          v-else
+          :closable="false"
+          show-icon
+          title="当前文件缺少平台动作上下文，无法发起作废申请。"
+          type="error"
+        />
+      </section>
+      <template #footer>
+        <el-button @click="closeObsoleteDialog">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="publishDialog.visible" title="提交发布申请" width="520px" destroy-on-close>
+      <el-alert
+        v-if="publishDialog.inlineError"
+        :closable="false"
+        class="mb-16px"
+        show-icon
+        type="error"
+        :title="publishDialog.inlineError"
+      />
+      <el-form label-width="96px">
+        <el-form-item label="发布说明">
+          <el-input
+            v-model="publishDialog.reason"
+            :autosize="{ minRows: 3, maxRows: 6 }"
+            placeholder="请输入发布说明"
+            type="textarea"
+          />
+        </el-form-item>
+        <el-form-item
+          v-for="task in publishDialog.startUserSelectTasks"
+          :key="task.id"
+          :label="`${task.name}审批人`"
+        >
+          <UserSelectV2
+            v-model="publishDialog.startUserSelectAssignees[task.id]"
+            multiple
+            :placeholder="`请选择${task.name}审批人`"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="closePublishDialog">取消</el-button>
+        <el-button type="primary" :loading="publishDialog.submitting" @click="submitPublishDialog">
+          提交发布申请
+        </el-button>
+      </template>
+    </el-dialog>
+
+  </template>
+
+  <el-dialog
+    v-model="previewInfoDialogs.approval"
+    title="审批矩阵批准情况"
+    data-testid="dcc-controlled-preview-approval-dialog"
+    width="900px"
+    destroy-on-close
+  >
+    <el-table
+      :data="previewApprovalRows"
+      empty-text="当前文件暂无审批矩阵批准情况"
+      max-height="520"
+    >
+      <el-table-column label="阶段" min-width="150" prop="stageDisplayName" />
+      <el-table-column label="批准进度" align="center" width="110" prop="approvalProgressText" />
+      <el-table-column label="批准状态" align="center" width="120">
+        <template #default="{ row }">
+          <el-tag :type="row.approvalStatusTagType">
+            {{ row.approvalStatusLabel }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="审批方式" width="120" prop="approveMethodLabel" />
+      <el-table-column label="通过比例" align="center" width="100" prop="approveRatioText" />
+      <el-table-column label="解析审批人" min-width="260" prop="resolvedUserNames" show-overflow-tooltip />
+      <el-table-column label="同层情况" min-width="140" prop="approvalHint" show-overflow-tooltip />
+    </el-table>
+  </el-dialog>
+
+  <el-dialog
+    v-model="previewInfoDialogs.distribution"
+    title="分发信息"
+    data-testid="dcc-controlled-preview-distribution-dialog"
+    width="1040px"
+    destroy-on-close
+  >
+    <el-table
+      :data="fileDetail?.distributionStatuses || []"
+      empty-text="当前版本暂无分发记录"
+      max-height="520"
+    >
+      <el-table-column label="部门" min-width="180">
+        <template #default="{ row }">
+          {{ deptNameMap.get(row.departmentId) || `部门#${row.departmentId}` }}
+        </template>
+      </el-table-column>
+      <el-table-column label="发放方式" width="130">
+        <template #default="{ row }">
+          {{ getDistributionMediumLabel(row.distributionMedium) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="状态" align="center" width="120">
+        <template #default="{ row }">
+          <el-tag :type="getDistributionStatusTagType(row.status)">
+            {{ getDistributionStatusLabel(row.status) }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="接收人" min-width="260" show-overflow-tooltip>
+        <template #default="{ row }">
+          {{ getDistributionRecipientDisplay(row) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="发放人" min-width="160">
+        <template #default="{ row }">
+          {{ getDistributionAckUserSummary(row, userNameMap) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="发放日期" align="center" width="170">
+        <template #default="{ row }">
+          {{ formatControlledFileDateTime(row.acknowledgedAt) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="回收人" min-width="160">
+        <template #default="{ row }">
+          {{ getDistributionRecoverUserSummary(row) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="回收日期" align="center" width="170">
+        <template #default="{ row }">
+          {{ formatControlledFileDateTime(row.recoveredAt) }}
+        </template>
+      </el-table-column>
+    </el-table>
+  </el-dialog>
+
+  <el-dialog
+    v-model="previewInfoDialogs.version"
+    title="版本信息"
+    data-testid="dcc-controlled-preview-version-dialog"
+    width="980px"
+    destroy-on-close
+  >
+    <el-table
+      :data="fileDetail?.versionHistory || []"
+      empty-text="当前文件暂无版本历史"
+      max-height="520"
+    >
+      <el-table-column label="标题" min-width="220" prop="title" show-overflow-tooltip />
+      <el-table-column label="文件编号" min-width="150" prop="fileNumber" show-overflow-tooltip />
+      <el-table-column label="版本" align="center" width="100" prop="versionNo" />
+      <el-table-column label="状态" align="center" width="120">
+        <template #default="{ row }">
+          <el-tag :type="getDetailStatusTagType(row.status)">
+            {{ getDetailStatusLabel(row.status) }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="生效日期" align="center" width="130">
+        <template #default="{ row }">
+          {{ formatControlledFileDate(row.effectiveDate) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="发布时间" align="center" width="170">
+        <template #default="{ row }">
+          {{ formatControlledFileDateTime(row.publishedTime) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="作废时间" align="center" width="170">
+        <template #default="{ row }">
+          {{ formatControlledFileDateTime(row.obsoletedTime) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="后继版本" min-width="220" show-overflow-tooltip>
+        <template #default="{ row }">
+          <span data-testid="dcc-detail-version-successor-summary">
+            {{ getSuccessorVersionSummary(row) }}
+          </span>
+        </template>
+      </el-table-column>
+    </el-table>
+  </el-dialog>
+
+  <ControlledFileMetadataDialog
+    v-model="metadataDialogVisible"
+    :file="fileDetail"
+    :categories="categories"
+    :directories="directories"
+    @saved="handleMetadataSaved"
+  />
+</template>
+
+<script lang="ts" setup>
+import type { UploadProps, UploadUserFile } from 'element-plus'
+import * as DefinitionApi from '@/api/bpm/definition'
+import * as ProcessInstanceApi from '@/api/bpm/processInstance'
+import * as TaskApi from '@/api/bpm/task'
+import { CandidateStrategy, NodeId } from '@/components/SimpleProcessDesignerV2/src/consts'
+import { getFileCategoryList, type ControlledFileCategoryVO } from '@/api/dcc/controlledFile/fileCategories'
+import { getDirectoryTree, type ControlledFileDirectoryVO } from '@/api/dcc/controlledFile/directories'
+import {
+  acknowledgeElectronicDistribution,
+  acknowledgePaperDistribution,
+  acknowledgeControlledFileTraining,
+  approveExternalFileReviewTask,
+  cleanupControlledFileUploadSession,
+  createControlledFileUploadSessionId,
+  createControlledFileSignTask,
+  createDistributionRecipientSignTask,
+  createExternalFileReviewSignTask,
+  deleteWithdrawnControlledFile,
+  getControlledFile,
+  getControlledFileAccessExplanation,
+  getControlledFileUploadDirectoryTree,
+  getPaperDistributionRecords,
+  isControlledFileTaskPasswordInvalidError,
+  manualReleaseControlledFile,
+  publishControlledFile,
+  recoverPaperDistribution,
+  recognizeControlledFileProjectCode,
+  resubmitWithdrawnControlledFile,
+  rejectExternalFileReviewTask,
+  retryControlledFileStamp,
+  returnExternalFileReviewTask,
+  returnControlledFileTask,
+  triggerControlledFileDownload,
+  transferExternalFileReviewTask,
+  transferControlledFileTask,
+  uploadControlledFileTrainingRecord,
+  uploadControlledFilePreview,
+  withdrawControlledFile,
+  type ControlledFileDistributionRecipientStatusVO,
+  type ControlledFileDistributionStatusVO,
+  type ControlledFileDistributionMedium,
+  type ControlledFileDistributionScopeVO,
+  type ControlledFilePaperDistributionRecordVO,
+  type ControlledFileAccessExplanationVO,
+  type ControlledFileRouteSnapshotVO,
+  type ControlledFileUploadDirectoryNodeVO,
+  type ControlledFileUploadRespVO,
+  type ControlledFileVersionHistoryVO,
+  type ControlledFileVO
+} from '@/api/dcc/controlledFile/workflow'
+import { getSimpleDeptList, type DeptVO } from '@/api/system/dept'
+import { getSimpleUserList, type UserVO } from '@/api/system/user'
+import { useUserStore } from '@/store/modules/user'
+import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
+import ActionFormPanel from '@/views/form-center/business-action/ActionFormPanel.vue'
+import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
+import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
+import TableQuickFilter from '@/components/TableQuickFilter/index.vue'
+import {
+  useTableQuickFilter,
+  type TableQuickFilterDefinition
+} from '@/hooks/web/useTableQuickFilter'
+import { checkPermi } from '@/utils/permission'
+import { downloadByData } from '@/utils/filt'
+import { generateUUID } from '@/utils'
+import { findActiveBusinessAction, type FormInstanceVO } from '@/api/form-center/instance'
+import { resolveBusinessAction, type BusinessActionContextVO } from '@/api/form-center/businessAction'
+import { resolveControlledActionProjection } from '@/api/form-center/actionProjection'
+import {
+  getDccElectronicSignaturePage,
+  type DccElectronicSignatureVO
+} from '@/api/dcc/controlledFile/signatures'
+import {
+  exportControlledFileApprovalWord,
+  getActiveApprovalPrintTemplate,
+  getControlledFileApprovalPrintHtml,
+  type ApprovalPrintTemplateVO
+} from '@/api/dcc/controlledFile/approvalPrintTemplate'
+import {
+  DCC_APPROVAL_WRONG_PASSWORD_MESSAGE,
+  getDccApprovalActionLabels,
+  getDccApprovalSignatureMeaningPreview,
+  submitDccApprovalAction,
+  type DccApprovalActionMode
+} from './approval-actions'
+import {
+  DCC_BPM_TASK_STATUS,
+  buildDccTaskStageProgress,
+  type DccTaskLike,
+  type DccTaskStageProgress
+} from '../shared/approval'
+import {
+  isDccControlledFileWithdrawableStatus,
+  type DccControlledFileStatus
+} from '../shared/lifecycle'
+import { getControlledFileHandlingSummary } from '../shared/handlingSummary'
+import { resolveDccStageDisplayName } from '../shared/stage-name'
+import { ROUTE_APPROVE_METHOD_OPTIONS, ROUTE_CANDIDATE_SOURCE_OPTIONS, getOptionLabel } from '../shared/options'
+import { flattenTree } from '../shared/utils'
+import ControlledFileBasicInfoPanel from '../shared/ControlledFileBasicInfoPanel.vue'
+import ControlledFileMetadataDialog from '../shared/ControlledFileMetadataDialog.vue'
+import ProtectedPdfViewer from '../view/index.vue'
+import {
+  buildControlledFileViewerPath,
+  isControlledFileViewerMode,
+  resolveControlledFileViewerReturnTo
+} from '../view/presentation'
+import {
+  flattenTrainingAssignments,
+  formatControlledFileDate,
+  formatControlledFileDateTime,
+  buildDetailLifecycleTimelineItems,
+  buildDetailUserDisplayName,
+  getDetailActionState,
+  getDistributionMediumLabel,
+  getDistributionAckUserSummary,
+  getDetailStatusLabel,
+  getDetailStatusTagType,
+  getDistributionRecipientSummary,
+  getDistributionStatusLabel,
+  getDetailTrainingAssignmentSummary,
+  getPendingTrainingAssignments,
+  getControlledCopyHashStatusLabel,
+  getControlledCopyHashStatusTagType,
+  getSignatureActionLabel,
+  getSignatureActorSummary,
+  getSignatureEvidenceStatusLabel,
+  getSignatureEvidenceStatusTagType,
+  getSignatureMeaningLabel,
+  formatSignatureSnapshotValue,
+  getTrainingAssignmentUserSummary,
+  formatSignatureHashShort,
+  isVersionHistoryVisibleToReader,
+  resolveReadSideErrorMessage
+} from './presentation'
+
+defineOptions({ name: 'DccControlledFileDetail' })
+
+const route = useRoute()
+const router = useRouter()
+const message = useMessage()
+const userStore = useUserStore()
+
+const DOC_CONTROL_ROLE_CODE = 'doc_control'
+const APPLICANT_REWORK_TASK_DEFINITION_KEY = 'APPLICANT_REWORK'
+const DCC_OBSOLETE_ACTION_CODE = 'OBSOLETE'
+const DCC_PUBLISH_ACTION_CODE = 'PUBLISH'
+const hasMetadataEditorRole = (roles: string[]) => roles.includes(DOC_CONTROL_ROLE_CODE)
+
+const fileDetail = ref<ControlledFileVO>()
+const fileAccessExplanation = ref<ControlledFileAccessExplanationVO | null>(null)
+const accessExplanationError = ref('')
+const activeObsoleteAction = ref<FormInstanceVO | null>(null)
+const activeObsoleteActionError = ref('')
+const activePublishAction = ref<FormInstanceVO | null>(null)
+const activePublishActionError = ref('')
+const categories = ref<ControlledFileCategoryVO[]>([])
+const directories = ref<ControlledFileDirectoryVO[]>([])
+const activeApprovalPrintTemplate = ref<ApprovalPrintTemplateVO | null>(null)
+const downloadLoading = ref(false)
+const withdrawLoading = ref(false)
+const obsoleteCancelLoading = ref(false)
+const publishCancelLoading = ref(false)
+const deleteWithdrawnLoading = ref(false)
+const resubmitWithdrawnLoading = ref(false)
+const retryStampLoading = ref(false)
+const processPrintLoading = ref(false)
+const processExportLoading = ref(false)
+const projectCodeRecognitionLoading = ref(false)
+const trainingAckLoading = ref(false)
+const manualReleaseLoading = ref(false)
+const paperDistributionAckLoadingId = ref<number>()
+const paperDistributionRecoverLoadingId = ref<number>()
+const electronicReceiptLoadingRecipientId = ref<number>()
+const distributionSignLoadingRecipientId = ref<number>()
+const metadataDialogVisible = ref(false)
+const previewInfoDialogs = reactive({
+  approval: false,
+  distribution: false,
+  version: false
+})
+const approvalLoading = ref(false)
+const categoryNameMap = ref(new Map<number, string>())
+const directoryNameMap = ref(new Map<number, string>())
+const userNameMap = ref(new Map<number, string>())
+const deptNameMap = ref(new Map<number, string>())
+const departmentList = ref<DeptVO[]>([])
+const approvalTodoTask = ref<any>()
+const approvalTaskList = ref<DccTaskLike[]>([])
+const stageProgressList = ref<DccTaskStageProgress[]>([])
+const paperDistributionRecords = ref<ControlledFilePaperDistributionRecordVO[]>([])
+const dccSignatureEvidenceLoading = ref(false)
+const dccSignatureEvidenceList = ref<DccElectronicSignatureVO[]>([])
+const dccSignatureEvidenceTotal = ref(0)
+const dccSignatureEvidenceQueryParams = reactive({
+  pageNo: 1,
+  pageSize: 10,
+  quickFilter: undefined as any
+})
+const stampedPdfUploadRef = ref()
+const applicantTrainingRecordUploadRef = ref()
+const externalOutputUploadRef = ref()
+const stampedPdfFileList = ref<UploadUserFile[]>([])
+const applicantTrainingRecordFileList = ref<UploadUserFile[]>([])
+const externalOutputFileList = ref<UploadUserFile[]>([])
+const fourthNodeUploadSessionId = ref(createControlledFileUploadSessionId())
+const applicantTrainingRecordUploadSessionId = ref(createControlledFileUploadSessionId())
+const externalOutputUploadSessionId = ref(createControlledFileUploadSessionId())
+const docControlDirectoryTreeOptions = ref<ControlledFileUploadDirectoryNodeVO[]>([])
+const docControlDirectoryTreeLoading = ref(false)
+
+type DccTaskActionMode = 'return' | 'transfer' | 'sign'
+type SignatureEvidenceViewMode = 'common' | 'advanced'
+
+const dccSignatureEvidenceDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'versionNo', label: '版本', width: 110 },
+  { key: 'signer', label: '签名人', minWidth: 220 },
+  { key: 'departmentPost', label: '部门/岗位', minWidth: 190 },
+  { key: 'role', label: '角色', minWidth: 150 },
+  { key: 'action', label: '动作', width: 120 },
+  { key: 'meaning', label: '签名含义', width: 140 },
+  { key: 'purpose', label: '签名目的', minWidth: 150 },
+  { key: 'authorizationBasis', label: '权限依据', minWidth: 240 },
+  { key: 'signatureMode', label: '签名方式', width: 120 },
+  { key: 'sourceFileHash', label: '源文件 hash', width: 150 },
+  { key: 'controlledCopy', label: '受控副本', width: 130 },
+  { key: 'controlledCopyHash', label: '副本 hash', width: 150 },
+  { key: 'evidenceStatus', label: '证据状态', width: 120 },
+  { key: 'evidenceHash', label: '证据 hash', width: 150 },
+  { key: 'comment', label: '签名意见', minWidth: 240 },
+  { key: 'signedAt', label: '签名时间', width: 180 }
+]
+const {
+  columns: dccSignatureEvidenceColumns,
+  saving: dccSignatureEvidenceColumnSaving,
+  isColumnVisible: isDccSignatureEvidenceColumnVisible,
+  getColumnWidthString: getDccSignatureEvidenceColumnWidthString,
+  getColumnMinWidthString: getDccSignatureEvidenceColumnMinWidthString,
+  handleHeaderDragend: handleDccSignatureEvidenceHeaderDragend,
+  saveConfig: saveDccSignatureEvidenceColumnConfig,
+  resetConfig: resetDccSignatureEvidenceColumnConfig
+} = useUserTableColumns('dcc.controlledFile.detail.signatureEvidence', dccSignatureEvidenceDefaultColumns)
+const signatureEvidenceViewModeOptions: Array<{ label: string; value: SignatureEvidenceViewMode }> = [
+  { label: '常用视图', value: 'common' },
+  { label: '高级视图', value: 'advanced' }
+]
+const signatureEvidenceViewMode = ref<'common' | 'advanced'>('common')
+const dccSignatureEvidenceQuickFilterDefinitions: TableQuickFilterDefinition[] = [
+  { key: 'versionNo', label: '版本', type: 'text', placeholder: '请输入版本' },
+  { key: 'signer', label: '签名人', type: 'text', placeholder: '请输入签名人' },
+  { key: 'role', label: '角色', type: 'text', placeholder: '请输入角色' },
+  {
+    key: 'action',
+    label: '动作',
+    type: 'select',
+    options: [
+      { label: '通过', value: 'APPROVED' },
+      { label: '驳回', value: 'REJECTED' }
+    ]
+  },
+  { key: 'signedAt', label: '签名时间', type: 'dateRange' }
+]
+
+const fourthNodeUpload = reactive({
+  stampedPdf: undefined as ControlledFileUploadRespVO | undefined,
+  confirmedDirectoryId: undefined as number | undefined,
+  selectedDistributionScopes: [] as ControlledFileDistributionScopeVO[],
+  stampedLoading: false
+})
+
+const docControlDistributionMediumOptions: Array<{
+  label: string
+  value: ControlledFileDistributionMedium
+}> = [
+  { label: '电子', value: 'PUBLIC_FOLDER' },
+  { label: '纸质', value: 'PAPER' }
+]
+
+interface DepartmentTreeOption extends DeptVO {
+  children?: DepartmentTreeOption[]
+}
+
+const buildDepartmentTreeOptions = (departments: DeptVO[]): DepartmentTreeOption[] => {
+  const nodeMap = new Map<number, DepartmentTreeOption>()
+  departments.forEach((department) => {
+    nodeMap.set(department.id, { ...department, children: [] })
+  })
+  const roots: DepartmentTreeOption[] = []
+  nodeMap.forEach((node) => {
+    const parentId = node.parentId
+    const parent = parentId ? nodeMap.get(parentId) : undefined
+    if (parent) {
+      parent.children = parent.children || []
+      parent.children.push(node)
+    } else {
+      roots.push(node)
+    }
+  })
+  nodeMap.forEach((node) => {
+    if (!node.children?.length) {
+      delete node.children
+    }
+  })
+  return roots
+}
+
+const departmentTreeProps = {
+  label: 'name',
+  children: 'children'
+} as const
+
+const docControlDirectoryTreeProps = {
+  label: 'name',
+  children: 'children',
+  disabled: (node: ControlledFileUploadDirectoryNodeVO) => !node.leaf
+} as const
+
+const selectedDistributionDepartmentIds = computed<number[]>({
+  get: () => fourthNodeUpload.selectedDistributionScopes.map((item) => item.departmentId),
+  set: (departmentIds) => {
+    const mediumByDepartmentId = new Map(
+      fourthNodeUpload.selectedDistributionScopes.map((item) => [
+        item.departmentId,
+        item.distributionMedium
+      ])
+    )
+    const uniqueDepartmentIds = Array.from(
+      new Set(departmentIds.filter((departmentId) => typeof departmentId === 'number'))
+    )
+    fourthNodeUpload.selectedDistributionScopes = uniqueDepartmentIds.map((departmentId) => ({
+      departmentId,
+      distributionMedium: mediumByDepartmentId.get(departmentId) || 'PUBLIC_FOLDER'
+    }))
+    clearActionDialogFieldError('selectedDistributionScopes')
+  }
+})
+
+const departmentTreeOptions = computed(() => buildDepartmentTreeOptions(departmentList.value))
+
+const applicantTrainingRecordDialog = reactive({
+  visible: false,
+  submitting: false,
+  uploading: false,
+  inlineError: '',
+  fieldErrors: {} as Record<string, string>,
+  file: undefined as ControlledFileUploadRespVO | undefined
+})
+
+const actionDialog = reactive({
+  visible: false,
+  submitting: false,
+  mode: 'approve' as DccApprovalActionMode,
+  inlineError: '',
+  fieldErrors: {} as Record<string, string>,
+  form: {
+    password: '',
+    reason: ''
+  }
+})
+
+const taskActionDialog = reactive({
+  visible: false,
+  submitting: false,
+  mode: 'return' as DccTaskActionMode,
+  inlineError: '',
+  fieldErrors: {} as Record<string, string>,
+  form: {
+    password: '',
+    reason: '',
+    targetTaskDefinitionKey: '',
+    assigneeUserId: undefined as number | undefined,
+    userIds: [] as number[],
+    signType: 'after' as 'before' | 'after'
+  }
+})
+
+const externalReviewAction = reactive({
+  reviewConclusion: '',
+  conclusionComment: '',
+  outputFile: undefined as ControlledFileUploadRespVO | undefined,
+  outputLoading: false
+})
+
+const paperDistributionIssueDialog = reactive({
+  visible: false,
+  submitting: false,
+  inlineError: '',
+  fieldErrors: {} as Record<string, string>,
+  distributionId: undefined as number | undefined,
+  form: {
+    recipientUserIds: [] as number[]
+  }
+})
+
+const electronicReceiptDialog = reactive({
+  visible: false,
+  submitting: false,
+  inlineError: '',
+  fieldErrors: {} as Record<string, string>,
+  distributionId: undefined as number | undefined,
+  recipientId: undefined as number | undefined,
+  form: {
+    password: '',
+    comment: ''
+  }
+})
+
+const distributionSignDialog = reactive({
+  visible: false,
+  submitting: false,
+  inlineError: '',
+  fieldErrors: {} as Record<string, string>,
+  distributionId: undefined as number | undefined,
+  recipientId: undefined as number | undefined,
+  form: {
+    userIds: [] as number[],
+    password: '',
+    comment: ''
+  }
+})
+
+const obsoleteDialog = reactive({
+  visible: false,
+  submitting: false,
+  inlineError: '',
+  reason: '',
+  idempotencyKey: '',
+  startUserSelectTasks: [] as ProcessInstanceApi.ApprovalNodeInfo[],
+  startUserSelectAssignees: {} as Record<string, number[]>
+})
+
+const publishDialog = reactive({
+  visible: false,
+  submitting: false,
+  inlineError: '',
+  reason: '',
+  idempotencyKey: '',
+  startUserSelectTasks: [] as ProcessInstanceApi.ApprovalNodeInfo[],
+  startUserSelectAssignees: {} as Record<string, number[]>
+})
+
+const toDccControlledFileStatus = (
+  status: ControlledFileVO['status'] | undefined
+): DccControlledFileStatus | undefined => {
+  const allStatuses: DccControlledFileStatus[] = [
+    'DRAFT',
+    'PENDING_DOC_CONTROL_REVIEW',
+    'PENDING_MATRIX_REVIEW',
+    'PENDING_MATRIX_APPROVAL',
+    'PENDING_DOC_CONTROL_APPROVAL',
+    'PENDING_APPLICANT_REWORK',
+    'PENDING_APPLICANT_TRAINING_RECORD',
+    'READY_TO_PUBLISH',
+    'FINALIZING',
+    'TRAINING_IN_PROGRESS',
+    'PENDING_MANUAL_DISTRIBUTION',
+    'ACTIVE',
+    'REJECTED',
+    'WITHDRAWN',
+    'OBSOLETE',
+    'SUPERSEDED',
+    'FINALIZATION_FAILED'
+  ]
+  return allStatuses.includes(status as DccControlledFileStatus)
+    ? (status as DccControlledFileStatus)
+    : undefined
+}
+
+const controlledFileId = computed(() => String(route.params.id || ''))
+const currentUserId = computed(() => userStore.getUser.id)
+const fileStatus = computed(() => toDccControlledFileStatus(fileDetail.value?.status))
+const obsoleteActionLocked = computed(() => Boolean(activeObsoleteAction.value))
+const obsoleteActionBlocked = computed(
+  () => obsoleteActionLocked.value || Boolean(activeObsoleteActionError.value)
+)
+const publishActionLocked = computed(() => Boolean(activePublishAction.value))
+const publishActionBlocked = computed(
+  () => publishActionLocked.value || Boolean(activePublishActionError.value)
+)
+const viewerMode = computed(() => isControlledFileViewerMode(route.query as Record<string, unknown>))
+const canRetryStampPermission = computed(() => checkPermi(['dcc:controlled-file:stamp:retry']))
+const canEditMetadata = computed(() => hasMetadataEditorRole(userStore.getRoles))
+const detailActionState = computed(() => getDetailActionState(fileDetail.value))
+const buildDccActionProjectionMessage = (
+  activeAction: FormInstanceVO | null,
+  activeError: string,
+  actionLabel: string,
+  defaultMessage: string
+) => {
+  if (activeAction) {
+    const processInfo = activeAction.bpmProcessInstanceId
+      ? `，流程 ${activeAction.bpmProcessInstanceId}`
+      : ''
+    return `当前文件已有${actionLabel} ${activeAction.instanceCode || activeAction.id} 正在审批${processInfo}，审批完成、驳回或撤回后才可再次发起。`
+  }
+  return activeError || defaultMessage
+}
+const canSubmitObsoleteAction = computed(
+  () => dccObsoleteActionProjection.value.allowed
+)
+const canSubmitPublishAction = computed(
+  () => dccPublishActionProjection.value.allowed
+)
+const dccObsoleteActionProjection = computed(() => {
+  const blockerMessage = buildDccActionProjectionMessage(
+    activeObsoleteAction.value,
+    activeObsoleteActionError.value,
+    '作废申请',
+    '后端动作投影未允许作废申请。'
+  )
+  return resolveControlledActionProjection({
+    actionCode: 'DCC_OBSOLETE',
+    actionLabel: '作废申请',
+    allowed: detailActionState.value.canObsolete,
+    locked: Boolean(activeObsoleteActionError.value),
+    pending: Boolean(activeObsoleteAction.value),
+    pendingInstanceId: activeObsoleteAction.value?.id,
+    pendingStatus: activeObsoleteAction.value?.status,
+    effectStatus: activeObsoleteAction.value?.status === 'EFFECT_FAILED_PENDING' ? 'EFFECT_FAILED_PENDING' : undefined,
+    lockReason: activeObsoleteActionError.value || undefined,
+    disabledReason: blockerMessage
+  })
+})
+const dccPublishActionProjection = computed(() => {
+  const blockerMessage = buildDccActionProjectionMessage(
+    activePublishAction.value,
+    activePublishActionError.value,
+    '发布申请',
+    '后端动作投影未允许发布申请。'
+  )
+  return resolveControlledActionProjection({
+    actionCode: 'DCC_PUBLISH',
+    actionLabel: '发布申请',
+    allowed: detailActionState.value.canPublish,
+    locked: Boolean(activePublishActionError.value),
+    pending: Boolean(activePublishAction.value),
+    pendingInstanceId: activePublishAction.value?.id,
+    pendingStatus: activePublishAction.value?.status,
+    effectStatus: activePublishAction.value?.status === 'EFFECT_FAILED_PENDING' ? 'EFFECT_FAILED_PENDING' : undefined,
+    lockReason: activePublishActionError.value || undefined,
+    disabledReason: blockerMessage
+  })
+})
+const detailActionProjectionMessages = computed(() =>
+  [
+    ...detailActionState.value.blockerMessages,
+    dccObsoleteActionProjection.value,
+    dccPublishActionProjection.value
+  ]
+    .filter((state) =>
+      typeof state === 'string' ? Boolean(state) : state.projectionMissing || state.effectFailedPending
+    )
+    .map((state) => (typeof state === 'string' ? state : state.blockerMessage))
+    .filter((message, index, messages) => Boolean(message) && messages.indexOf(message) === index)
+)
+const obsoleteActionLockTitle = computed(() => {
+  if (activeObsoleteAction.value) {
+    return '作废申请审批中'
+  }
+  return '作废动作暂不可用'
+})
+const obsoleteActionLockDescription = computed(() => {
+  return dccObsoleteActionProjection.value.blockerMessage
+})
+const publishActionLockTitle = computed(() => {
+  if (activePublishAction.value) {
+    return '发布申请审批中'
+  }
+  return '发布动作暂不可用'
+})
+const publishActionLockDescription = computed(() => {
+  return dccPublishActionProjection.value.blockerMessage
+})
+const canWithdraw = computed(
+  () =>
+    isDccControlledFileWithdrawableStatus(fileStatus.value) &&
+    fileDetail.value?.requesterId === currentUserId.value
+)
+const canUploadApplicantTrainingRecord = computed(
+  () =>
+    fileStatus.value === 'PENDING_APPLICANT_TRAINING_RECORD' &&
+    fileDetail.value?.requesterId === currentUserId.value &&
+    Boolean(fileDetail.value?.needTraining)
+)
+const canHandleWithdrawnFlow = computed(
+  () =>
+    fileStatus.value === 'WITHDRAWN' &&
+    fileDetail.value?.requesterId === currentUserId.value &&
+    !fileDetail.value?.supersededByFileId
+)
+const canOpenBpmDetail = computed(
+  () =>
+    Boolean(route.query.taskId) ||
+    Boolean(fileDetail.value?.processInstanceId) ||
+    Boolean(activeObsoleteAction.value?.bpmProcessInstanceId) ||
+    Boolean(activePublishAction.value?.bpmProcessInstanceId)
+)
+const hasDetailMoreActions = computed(
+  () => canOpenBpmDetail.value || (canEditMetadata.value && !!fileDetail.value) || !!fileDetail.value
+)
+const hasDetailDangerActions = computed(
+  () =>
+    canWithdraw.value ||
+    canHandleWithdrawnFlow.value ||
+    (detailActionState.value.canRetryFinalization && canRetryStampPermission.value) ||
+    canSubmitObsoleteAction.value
+)
+const detailMoreActionLoading = computed(
+  () => processPrintLoading.value || processExportLoading.value
+)
+const detailDangerActionLoading = computed(
+  () =>
+    withdrawLoading.value ||
+    deleteWithdrawnLoading.value ||
+    resubmitWithdrawnLoading.value ||
+    retryStampLoading.value
+)
+const currentStage = computed(() => stageProgressList.value.find((item) => item.isCurrent))
+const currentStageLabel = computed(() => currentStage.value?.stageName || '-')
+const currentStageSameLayerHint = computed(() =>
+  currentStage.value
+    ? `${currentStage.value.completionText} 已完成，${currentStage.value.sameLayerHint}`
+    : '当前没有待处理的审批阶段'
+)
+const detailHandlingSummary = computed(() => {
+  const file = fileDetail.value
+  if (!file) {
+    return {
+      nextStep: '-',
+      responsibilityHint: '-'
+    }
+  }
+  return getControlledFileHandlingSummary({
+    status: file.status,
+    rejectReason: file.rejectReason,
+    finalizationError: file.finalizationError,
+    modifying: file.modifying,
+    supersededByFileId: file.supersededByFileId,
+    hasPendingTrainingAcknowledgement: file.hasPendingTrainingAcknowledgement
+  })
+})
+const detailBlockingReason = computed(
+  () => fileDetail.value?.finalizationError || fileDetail.value?.rejectReason || '-'
+)
+const detailLifecycleTimelineItems = computed(() =>
+  buildDetailLifecycleTimelineItems(fileDetail.value, {
+    userNameMap: userNameMap.value,
+    deptNameMap: deptNameMap.value
+  })
+)
+const versionHistoryById = computed(
+  () => new Map((fileDetail.value?.versionHistory || []).map((item) => [item.id, item]))
+)
+const getVersionHistoryIdentityText = (version: ControlledFileVersionHistoryVO) => {
+  const identityParts = [
+    version.fileNumber,
+    version.versionNo ? `版本 ${version.versionNo}` : '',
+    version.title
+  ].filter((item): item is string => Boolean(item))
+  return identityParts.length ? identityParts.join(' · ') : `记录 #${version.id}`
+}
+const getSuccessorVersionSummary = (version: ControlledFileVersionHistoryVO) => {
+  const successorId = Number(version.supersededByFileId || 0)
+  if (!successorId) {
+    return '无后继版本'
+  }
+  const successor = versionHistoryById.value.get(successorId)
+  return successor ? getVersionHistoryIdentityText(successor) : `后继记录缺失：#${successorId}`
+}
+const getPreviewApprovalProgress = (snapshot: ControlledFileRouteSnapshotVO) =>
+  stageProgressList.value.find(
+    (item) =>
+      item.stageCode === snapshot.stageCode ||
+      item.stageOrder === (snapshot.stageOrder ?? snapshot.stageNo)
+  )
+
+const getRouteSnapshotCandidateText = (snapshot: ControlledFileRouteSnapshotVO) => {
+  const candidateIds =
+    snapshot.candidateSourceIds?.length || !snapshot.candidateSourceId
+      ? snapshot.candidateSourceIds || []
+      : [snapshot.candidateSourceId]
+  if (snapshot.candidateSourceType === 'USER') {
+    return resolveUserNames(candidateIds)
+  }
+  if (snapshot.candidateSourceType === 'POSITION') {
+    return candidateIds.length
+      ? `按 ${candidateIds.length} 个审批角色解析`
+      : '按审批角色解析'
+  }
+  return '按路线配置解析'
+}
+
+const routeSnapshotRows = computed(() =>
+  [...(fileDetail.value?.routeSnapshots || [])]
+    .sort(
+      (left, right) =>
+        (left.stageOrder ?? left.stageNo ?? 0) - (right.stageOrder ?? right.stageNo ?? 0)
+    )
+    .map((snapshot) => {
+      const progress = getPreviewApprovalProgress(snapshot)
+      const stageDisplayName =
+        progress?.stageName ||
+        resolveDccStageDisplayName(
+          snapshot.stageCode,
+          snapshot.stageName || snapshot.stageCode || `阶段 ${snapshot.stageNo || '-'}`
+        )
+      const approveRatioText =
+        snapshot.approveRatio === undefined || snapshot.approveRatio === null
+          ? '-'
+          : `${snapshot.approveRatio}%`
+      return {
+        ...snapshot,
+        stageDisplayName,
+        stageMetaText: `版本 ${snapshot.routeVersionNo || '-'} · 阶段 ${snapshot.stageNo || '-'} · ${
+          snapshot.stageCode || '-'
+        }`,
+        candidateSourceLabel: getOptionLabel(ROUTE_CANDIDATE_SOURCE_OPTIONS, snapshot.candidateSourceType),
+        candidateText: getRouteSnapshotCandidateText(snapshot),
+        approveMethodLabel: getOptionLabel(ROUTE_APPROVE_METHOD_OPTIONS, snapshot.approveMethod),
+        approveRatioText,
+        approvalProgressText: progress?.completionText || '-',
+        approvalHint: progress?.sameLayerHint || '-',
+        approvalStatusLabel: progress?.isCompleted
+          ? '已完成'
+          : progress?.isCurrent
+            ? '当前阶段'
+            : '待处理',
+        approvalStatusTagType: progress?.isCompleted
+          ? 'success'
+          : progress?.isCurrent
+            ? 'primary'
+            : 'info'
+      }
+    })
+)
+
+const previewApprovalRows = computed(() =>
+  [...(fileDetail.value?.routeSnapshots || [])]
+    .sort(
+      (left, right) =>
+        (left.stageOrder ?? left.stageNo ?? 0) - (right.stageOrder ?? right.stageNo ?? 0)
+    )
+    .map((snapshot) => {
+      const progress = getPreviewApprovalProgress(snapshot)
+      const stageName = resolveDccStageDisplayName(
+        snapshot.stageCode,
+        snapshot.stageName || snapshot.stageCode || `阶段 ${snapshot.stageNo || '-'}`
+      )
+      return {
+        ...snapshot,
+        stageDisplayName: progress?.stageName || stageName,
+        approveMethodLabel: getOptionLabel(ROUTE_APPROVE_METHOD_OPTIONS, snapshot.approveMethod),
+        approveRatioText:
+          snapshot.approveRatio === undefined || snapshot.approveRatio === null
+            ? '-'
+            : `${snapshot.approveRatio}%`,
+        resolvedUserNames: resolveUserNames(snapshot.resolvedUserIds),
+        approvalProgressText: progress?.completionText || '-',
+        approvalHint: progress?.sameLayerHint || '-',
+        approvalStatusLabel: progress?.isCompleted
+          ? '已完成'
+          : progress?.isCurrent
+            ? '当前阶段'
+            : '待处理',
+        approvalStatusTagType: progress?.isCompleted
+          ? 'success'
+          : progress?.isCurrent
+            ? 'primary'
+            : 'info'
+      }
+    })
+)
+const isReturnedApplicantTask = computed(
+  () =>
+    Boolean(approvalTodoTask.value?.id) &&
+    fileStatus.value === 'PENDING_APPLICANT_REWORK' &&
+    fileDetail.value?.requesterId === currentUserId.value &&
+    Boolean(fileDetail.value?.rejectReason?.includes('流程回退'))
+)
+const approvalActionLabels = computed(() => {
+  const labels = getDccApprovalActionLabels(approvalTodoTask.value?.taskDefinitionKey)
+  if (!isReturnedApplicantTask.value) {
+    return labels
+  }
+  return {
+    ...labels,
+    approveText: '处理回退',
+    dialogTitle: '流程回退处理签名'
+  }
+})
+const actionDialogSignatureMeaning = computed(() => {
+  if (isReturnedApplicantTask.value && actionDialog.mode === 'approve') {
+    return '流程回退处理通过'
+  }
+  return getDccApprovalSignatureMeaningPreview(
+    approvalTodoTask.value?.taskDefinitionKey,
+    actionDialog.mode
+  )
+})
+const isFourthNodeApprovalTask = computed(
+  () =>
+    approvalTodoTask.value?.taskDefinitionKey === 'DOC_CONTROL_APPROVAL' ||
+    fileStatus.value === 'PENDING_DOC_CONTROL_APPROVAL'
+)
+const isExternalReviewProcess = computed(
+  () =>
+    fileDetail.value?.processType === 'EXTERNAL_REVIEW' ||
+    fileDetail.value?.processDefinitionKey === 'dcc-external-file-review'
+)
+const shouldCollectFourthNodeFiles = computed(
+  () =>
+    actionDialog.visible &&
+    actionDialog.mode === 'approve' &&
+    isFourthNodeApprovalTask.value &&
+    !isExternalReviewProcess.value
+)
+const shouldCollectExternalReviewConclusion = computed(
+  () =>
+    actionDialog.visible &&
+    actionDialog.mode === 'approve' &&
+    isFourthNodeApprovalTask.value &&
+    isExternalReviewProcess.value
+)
+const returnTargetOptions = computed(() => {
+  const currentTaskDefinitionKey = approvalTodoTask.value?.taskDefinitionKey || currentStage.value?.stageCode
+  if (currentTaskDefinitionKey === APPLICANT_REWORK_TASK_DEFINITION_KEY) {
+    return []
+  }
+  const snapshots = [...(fileDetail.value?.routeSnapshots || [])]
+    .filter((item) => item.stageCode)
+    .sort(
+      (left, right) =>
+        (left.stageOrder ?? left.stageNo ?? 0) - (right.stageOrder ?? right.stageNo ?? 0)
+    )
+  const currentIndex = snapshots.findIndex((item) => item.stageCode === currentTaskDefinitionKey)
+  const options = [
+    {
+      label: '申请人修改',
+      value: APPLICANT_REWORK_TASK_DEFINITION_KEY
+    }
+  ]
+  if (currentIndex > 0) {
+    const target = snapshots[currentIndex - 1]
+    if (target.stageCode) {
+      options.push({
+        label: resolveDccStageDisplayName(target.stageCode, target.stageName || target.stageCode),
+        value: target.stageCode
+      })
+    }
+  }
+  return options
+})
+const taskActionDialogTitle = computed(() => {
+  const titleMap: Record<DccTaskActionMode, string> = {
+    return: '回退签名',
+    transfer: '转办签名',
+    sign: '加签签名'
+  }
+  return titleMap[taskActionDialog.mode]
+})
+const pendingTrainingAssignments = computed(() =>
+  getPendingTrainingAssignments(fileDetail.value?.trainingStatuses, currentUserId.value)
+)
+const flattenedTrainingAssignments = computed(() =>
+  flattenTrainingAssignments(fileDetail.value?.trainingStatuses)
+)
+const distributionReceiptRows = computed(() =>
+  paperDistributionRecords.value
+)
+
+const buildObsoleteBusinessActionContext = (
+  detail: ControlledFileVO | undefined,
+  reason = '作废当前版本'
+): BusinessActionContextVO | null => {
+  if (!detail?.id || !detail.versionNo || !detail.status) {
+    return null
+  }
+  return {
+    dataDomain: 'DCC',
+    systemCode: 'DCC',
+    objectType: 'CONTROLLED_FILE',
+    objectId: String(detail.id),
+    objectVersion: detail.versionNo,
+    actionCode: DCC_OBSOLETE_ACTION_CODE,
+    objectState: detail.status,
+    orgCode: '',
+    deptCode: String(userStore.getUser.deptId || ''),
+    roleCodes: userStore.getRoles,
+    productCode: detail.productCode || '',
+    categoryCode: detail.categoryId ? String(detail.categoryId) : '',
+    reason
+  }
+}
+
+const dccObsoleteFormCenterContext = computed(() =>
+  buildObsoleteBusinessActionContext(
+    fileDetail.value,
+    obsoleteDialog.reason.trim() || '作废当前版本'
+  )
+)
+const dccObsoleteFormCenterFormData = computed(() => ({
+  reason: obsoleteDialog.reason.trim(),
+  obsoleteReason: obsoleteDialog.reason.trim(),
+  controlledFileId: controlledFileId.value,
+  fileNumber: fileDetail.value?.fileNumber || '',
+  versionNo: fileDetail.value?.versionNo || '',
+  startUserSelectAssignees: obsoleteDialog.startUserSelectAssignees
+}))
+
+const buildPublishBusinessActionContext = (
+  detail: ControlledFileVO | undefined,
+  reason = '发布候选版本'
+): BusinessActionContextVO | null => {
+  if (!detail?.id || !detail.versionNo || !detail.status) {
+    return null
+  }
+  return {
+    dataDomain: 'DCC',
+    systemCode: 'DCC',
+    objectType: 'CONTROLLED_FILE',
+    objectId: String(detail.id),
+    objectVersion: detail.versionNo,
+    actionCode: DCC_PUBLISH_ACTION_CODE,
+    objectState: detail.status,
+    orgCode: '',
+    deptCode: String(userStore.getUser.deptId || ''),
+    roleCodes: userStore.getRoles,
+    productCode: detail.productCode || '',
+    categoryCode: detail.categoryId ? String(detail.categoryId) : '',
+    reason
+  }
+}
+
+const loadActiveObsoleteAction = async (detail: ControlledFileVO) => {
+  activeObsoleteAction.value = null
+  activeObsoleteActionError.value = ''
+  if (viewerMode.value) {
+    return
+  }
+  if (detail.status !== 'ACTIVE') {
+    return
+  }
+  const context = buildObsoleteBusinessActionContext(detail)
+  if (!context) {
+    activeObsoleteActionError.value = '当前文件缺少平台动作上下文，作废入口已锁定。'
+    return
+  }
+  try {
+    activeObsoleteAction.value = await findActiveBusinessAction(context)
+  } catch (error) {
+    activeObsoleteActionError.value = resolveReadSideErrorMessage(
+      error,
+      '作废动作状态加载失败，请查看后端错误后重试。'
+    )
+  }
+}
+
+const loadActivePublishAction = async (detail: ControlledFileVO) => {
+  activePublishAction.value = null
+  activePublishActionError.value = ''
+  if (viewerMode.value) {
+    return
+  }
+  if (detail.status !== 'READY_TO_PUBLISH') {
+    return
+  }
+  const context = buildPublishBusinessActionContext(detail)
+  if (!context) {
+    activePublishActionError.value = '当前候选版本缺少平台动作上下文，发布入口已锁定。'
+    return
+  }
+  try {
+    activePublishAction.value = await findActiveBusinessAction(context)
+  } catch (error) {
+    activePublishActionError.value = resolveReadSideErrorMessage(
+      error,
+      '发布动作状态加载失败，请查看后端错误后重试。'
+    )
+  }
+}
+
+const loadData = async () => {
+  const [
+    detail,
+    categoryList,
+    directoryTree,
+    users,
+    departments,
+    paperRecords,
+    approvalPrintTemplate
+  ] = await Promise.all([
+    getControlledFile(controlledFileId.value),
+    getFileCategoryList(),
+    getDirectoryTree(),
+    getSimpleUserList(),
+    getSimpleDeptList(),
+    getPaperDistributionRecords(controlledFileId.value),
+    getActiveApprovalPrintTemplate()
+  ])
+  fileDetail.value = detail
+  await loadActiveObsoleteAction(detail)
+  await loadActivePublishAction(detail)
+  fileAccessExplanation.value = detail.accessExplanation || null
+  categories.value = categoryList
+  directories.value = directoryTree
+  activeApprovalPrintTemplate.value = approvalPrintTemplate
+  paperDistributionRecords.value = paperRecords || []
+  categoryNameMap.value = new Map(categoryList.map((item) => [item.id as number, item.name]))
+  directoryNameMap.value = new Map(
+    flattenTree(directoryTree).map((item) => [item.id as number, item.name])
+  )
+  userNameMap.value = new Map(
+    users.map((item: UserVO) => {
+      const displayName = buildDetailUserDisplayName(item)
+      return [item.id, displayName === '-' ? `用户#${item.id}` : displayName]
+    })
+  )
+  departmentList.value = departments
+  deptNameMap.value = new Map(departments.map((item: DeptVO) => [item.id as number, item.name]))
+}
+
+const loadDccSignatureEvidenceList = async () => {
+  if (viewerMode.value) {
+    dccSignatureEvidenceList.value = []
+    dccSignatureEvidenceTotal.value = 0
+    return
+  }
+  if (!controlledFileId.value) {
+    dccSignatureEvidenceList.value = []
+    dccSignatureEvidenceTotal.value = 0
+    return
+  }
+  dccSignatureEvidenceLoading.value = true
+  try {
+    const data = await getDccElectronicSignaturePage({
+      controlledFileId: controlledFileId.value,
+      pageNo: dccSignatureEvidenceQueryParams.pageNo,
+      pageSize: dccSignatureEvidenceQueryParams.pageSize,
+      quickFilter: dccSignatureEvidenceQueryParams.quickFilter
+    })
+    dccSignatureEvidenceList.value = data.list || []
+    dccSignatureEvidenceTotal.value = data.total || 0
+  } finally {
+    dccSignatureEvidenceLoading.value = false
+  }
+}
+
+const dccSignatureEvidenceQuickFilter = useTableQuickFilter(
+  'dcc.controlledFile.detail.signatureEvidence',
+  dccSignatureEvidenceQuickFilterDefinitions,
+  dccSignatureEvidenceQueryParams,
+  loadDccSignatureEvidenceList
+)
+
+const loadAccessExplanationOnly = async () => {
+  try {
+    fileAccessExplanation.value = await getControlledFileAccessExplanation(controlledFileId.value)
+    accessExplanationError.value = ''
+  } catch (error) {
+    fileAccessExplanation.value = null
+    accessExplanationError.value = resolveReadSideErrorMessage(
+      error,
+      '权限说明加载失败，请根据后端错误提示修正后重试。'
+    )
+  }
+}
+
+const toNumericUserId = (value: unknown) => {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : undefined
+}
+
+const findCurrentUserTodoTask = (taskList: DccTaskLike[]) => {
+  const userId = toNumericUserId(currentUserId.value)
+  if (userId === undefined) {
+    return null
+  }
+  return (
+    taskList.find((task) => {
+      const taskAssigneeId = toNumericUserId(task.assigneeUser?.id)
+      return (
+        taskAssigneeId === userId &&
+        (task.status === DCC_BPM_TASK_STATUS.RUNNING ||
+          task.status === DCC_BPM_TASK_STATUS.APPROVING)
+      )
+    }) || null
+  )
+}
+
+const syncStageProgress = () => {
+  stageProgressList.value = buildDccTaskStageProgress({
+    routeSnapshots: fileDetail.value?.routeSnapshots,
+    taskList: approvalTaskList.value,
+    fileStatus: fileStatus.value
+  })
+}
+
+const loadApprovalDetail = async () => {
+  const processInstanceId = String(route.query.processInstanceId || fileDetail.value?.processInstanceId || '')
+  const taskId = String(route.query.taskId || '')
+  if (!processInstanceId) {
+    approvalTodoTask.value = null
+    approvalTaskList.value = []
+    syncStageProgress()
+    return
+  }
+  approvalLoading.value = true
+  try {
+    const [taskList, detail] = await Promise.all([
+      TaskApi.getTaskListByProcessInstanceId(processInstanceId),
+      taskId ? ProcessInstanceApi.getApprovalDetail({ processInstanceId, taskId }) : Promise.resolve(null)
+    ])
+    const normalizedTaskList = taskList as DccTaskLike[]
+    approvalTaskList.value = normalizedTaskList
+    approvalTodoTask.value = detail?.todoTask || findCurrentUserTodoTask(normalizedTaskList)
+    syncStageProgress()
+  } finally {
+    approvalLoading.value = false
+  }
+}
+
+const reloadAll = async () => {
+  try {
+    accessExplanationError.value = ''
+    await loadData()
+    await loadDccSignatureEvidenceList()
+    await loadApprovalDetail()
+  } catch (error) {
+    await loadAccessExplanationOnly()
+    const errorMessage = resolveReadSideErrorMessage(error, '受控文件详情加载失败，请查看权限说明后重试。')
+    message.error(accessExplanationError.value ? `${errorMessage}；${accessExplanationError.value}` : errorMessage)
+  }
+}
+
+const formatAccessExplanation = (source?: string, reason?: string) => {
+  if (!source && !reason) {
+    return '-'
+  }
+  const sourceLabelMap: Record<string, string> = {
+    CURRENT_VIEW_MATRIX: '当前查看矩阵',
+    CURRENT_REVIEW_MATRIX: '当前审阅矩阵',
+    ROUTE_SNAPSHOT: 'route snapshot',
+    REQUESTER_SELF: '申请人自查',
+    DIRECTORY_ADMIN: '目录管理员',
+    DOWNLOAD_POLICY: '下载策略',
+    DENIED: '拒绝'
+  }
+  const sourceLabel = source ? sourceLabelMap[source] || source : '-'
+  return reason ? `${sourceLabel}：${reason}` : sourceLabel
+}
+
+const resolveUserNames = (userIds: number[]) => {
+  if (!userIds || userIds.length === 0) {
+    return '-'
+  }
+  return userIds.map((item) => userNameMap.value.get(item) || `用户#${item}`).join('、')
+}
+
+const openPreview = () => {
+  window.open(buildControlledFileViewerPath(controlledFileId.value, 'detail', route.fullPath), '_blank')
+}
+
+const openDownload = async () => {
+  if (downloadLoading.value) {
+    return
+  }
+  downloadLoading.value = true
+  try {
+    await triggerControlledFileDownload(controlledFileId.value)
+  } catch (error) {
+    message.error(resolveReadSideErrorMessage(error, '下载失败，请查看错误提示后重试。'))
+  } finally {
+    downloadLoading.value = false
+  }
+}
+
+const openMetadataDialog = () => {
+  metadataDialogVisible.value = true
+}
+
+const openPreviewApprovalDialog = () => {
+  previewInfoDialogs.approval = true
+}
+
+const openPreviewDistributionDialog = () => {
+  previewInfoDialogs.distribution = true
+}
+
+const openPreviewVersionDialog = () => {
+  previewInfoDialogs.version = true
+}
+
+const handleRecognizeProjectCode = async () => {
+  if (!fileDetail.value?.id || projectCodeRecognitionLoading.value) {
+    return
+  }
+  projectCodeRecognitionLoading.value = true
+  try {
+    const result = await recognizeControlledFileProjectCode(fileDetail.value.id)
+    if (result.recognitionStatus === 'UNKNOWN_DCC_BASIC_DATA' || result.recognitionStatus === 'NO_MATCH') {
+      message.success('识别完成，未知基础数据，请人工确认')
+    } else if (result.recognitionStatus === 'UNRECOGNIZED_PROJECT_NAME') {
+      message.success('识别完成，未识别项目名称，请人工确认')
+    } else {
+      message.success(`已识别基础信息：${result.projectName || '-'} / ${result.projectCode || '-'}`)
+    }
+    await reloadAll()
+  } catch (error) {
+    message.error(resolveReadSideErrorMessage(error, '基础信息识别失败，请查看错误提示后重试。'))
+  } finally {
+    projectCodeRecognitionLoading.value = false
+  }
+}
+
+const openDccProjectCode = (projectCodeId: number) => {
+  router.push({
+    path: '/mdm/project-code',
+    query: { projectCodeId: String(projectCodeId) }
+  })
+}
+
+const handleMetadataSaved = async () => {
+  await reloadAll()
+}
+
+const openHistoryDetail = (id: number | string) => {
+  router.push(buildControlledFileViewerPath(id, 'version-history', route.fullPath))
+}
+
+const closeViewerMode = () => {
+  const resolvedReturnTo = resolveControlledFileViewerReturnTo(route.query.returnTo)
+  if (resolvedReturnTo) {
+    router.push(resolvedReturnTo)
+    return
+  }
+  const nextQuery = { ...route.query }
+  delete nextQuery.viewer
+  delete nextQuery.from
+  delete nextQuery.returnTo
+  router.push({
+    name: 'DccControlledFileBrowser',
+    query: nextQuery
+  })
+}
+
+const openBpmDetail = () => {
+  router.push({
+    name: 'BpmProcessInstanceDetail',
+    query: {
+      id:
+        route.query.processInstanceId ||
+        fileDetail.value?.processInstanceId ||
+        activeObsoleteAction.value?.bpmProcessInstanceId ||
+        activePublishAction.value?.bpmProcessInstanceId,
+      taskId: route.query.taskId
+    }
+  })
+}
+
+const isDialogCancelled = (error: unknown) => error === 'cancel' || error === 'close'
+
+const clearActionDialogFieldError = (field: string) => {
+  delete actionDialog.fieldErrors[field]
+}
+
+const isPdfUploadFile = (file: { name: string; raw?: File }) =>
+  file.raw?.type === 'application/pdf' || /\.pdf$/i.test(file.name)
+
+const isEditableOutputFile = (fileName: string) =>
+  /\.(doc|docx|xls|xlsx|dwg|sldprt|sldasm|slddrw)$/i.test(fileName)
+
+const buildDetailUploadPreviewContext = (sessionId: string) => {
+  if (!fileDetail.value?.categoryId) {
+    throw new Error('当前文件缺少类别信息，无法创建上传凭证')
+  }
+  return {
+    categoryId: fileDetail.value.categoryId,
+    sessionId
+  }
+}
+
+const hasLeafUploadDirectory = (
+  nodes: ControlledFileUploadDirectoryNodeVO[],
+  directoryId?: number
+): boolean => {
+  if (!directoryId) {
+    return false
+  }
+  for (const node of nodes) {
+    if (node.id === directoryId) {
+      return node.leaf
+    }
+    if (node.children?.length && hasLeafUploadDirectory(node.children, directoryId)) {
+      return true
+    }
+  }
+  return false
+}
+
+const loadDocControlDirectoryTree = async () => {
+  if (!fileDetail.value?.categoryId) {
+    throw new Error('当前文件缺少类别信息，无法确认存入路径')
+  }
+  docControlDirectoryTreeLoading.value = true
+  docControlDirectoryTreeOptions.value = []
+  try {
+    const directoryTree = await getControlledFileUploadDirectoryTree(fileDetail.value.categoryId)
+    docControlDirectoryTreeOptions.value = directoryTree.children || []
+    const currentDirectoryId = fileDetail.value.directoryId
+    if (hasLeafUploadDirectory(docControlDirectoryTreeOptions.value, currentDirectoryId)) {
+      fourthNodeUpload.confirmedDirectoryId = currentDirectoryId
+    } else if (directoryTree.leafBinding) {
+      fourthNodeUpload.confirmedDirectoryId = directoryTree.bindingDirectoryId
+    }
+  } finally {
+    docControlDirectoryTreeLoading.value = false
+  }
+}
+
+const cleanupDetailUploadSession = async (
+  sessionId: string,
+  hasTemporaryFile: boolean,
+  requestId?: string,
+  applyInlineError?: (message: string) => void
+) => {
+  if (!hasTemporaryFile) {
+    return true
+  }
+  try {
+    await cleanupControlledFileUploadSession(sessionId, requestId)
+    return true
+  } catch (error) {
+    const errorMessage = resolveReadSideErrorMessage(error, '临时文件清理失败，请处理后再继续。')
+    if (applyInlineError) {
+      applyInlineError(errorMessage)
+    } else {
+      message.error(errorMessage)
+    }
+    return false
+  }
+}
+
+const cleanupApplicantTrainingRecordUploadSession = async () =>
+  await cleanupDetailUploadSession(
+    applicantTrainingRecordUploadSessionId.value,
+    Boolean(applicantTrainingRecordDialog.file?.uploadTicket),
+    applicantTrainingRecordDialog.file?.requestId,
+    (errorMessage) => {
+      applicantTrainingRecordDialog.inlineError = errorMessage
+    }
+  )
+
+const cleanupFourthNodeUploadSessions = async () => {
+  const stampedCleaned = await cleanupDetailUploadSession(
+    fourthNodeUploadSessionId.value,
+    Boolean(fourthNodeUpload.stampedPdf?.uploadTicket),
+    fourthNodeUpload.stampedPdf?.requestId,
+    (errorMessage) => {
+      actionDialog.inlineError = errorMessage
+    }
+  )
+  if (!stampedCleaned) {
+    return false
+  }
+  return await cleanupDetailUploadSession(
+    externalOutputUploadSessionId.value,
+    Boolean(externalReviewAction.outputFile?.uploadTicket),
+    externalReviewAction.outputFile?.requestId,
+    (errorMessage) => {
+      actionDialog.inlineError = errorMessage
+    }
+  )
+}
+
+const resetFourthNodeUploads = () => {
+  fourthNodeUploadSessionId.value = createControlledFileUploadSessionId()
+  externalOutputUploadSessionId.value = createControlledFileUploadSessionId()
+  stampedPdfFileList.value = []
+  fourthNodeUpload.stampedPdf = undefined
+  fourthNodeUpload.confirmedDirectoryId = undefined
+  fourthNodeUpload.selectedDistributionScopes = []
+  fourthNodeUpload.stampedLoading = false
+  stampedPdfUploadRef.value?.clearFiles()
+  externalOutputFileList.value = []
+  externalReviewAction.reviewConclusion = ''
+  externalReviewAction.conclusionComment = ''
+  externalReviewAction.outputFile = undefined
+  externalReviewAction.outputLoading = false
+  externalOutputUploadRef.value?.clearFiles()
+}
+
+const handleStampedPdfExceed: UploadProps['onExceed'] = () => {
+  message.error('只允许上传一个盖章 PDF')
+}
+
+const handleApplicantTrainingRecordExceed: UploadProps['onExceed'] = () => {
+  message.error('只允许上传一个培训记录文件')
+}
+
+const handleStampedPdfChange: UploadProps['onChange'] = async (file, uploadFiles) => {
+  if (!file.raw) {
+    return
+  }
+  if (!isPdfUploadFile({ name: file.name, raw: file.raw as File })) {
+    actionDialog.fieldErrors.stampedPdfUploadTicket = '盖章 PDF 必须为 PDF 格式'
+    stampedPdfUploadRef.value?.clearFiles()
+    stampedPdfFileList.value = []
+    fourthNodeUpload.stampedPdf = undefined
+    return
+  }
+  clearActionDialogFieldError('stampedPdfUploadTicket')
+  stampedPdfFileList.value = uploadFiles.slice(-1)
+  fourthNodeUpload.stampedPdf = undefined
+  fourthNodeUpload.stampedLoading = true
+  try {
+    fourthNodeUpload.stampedPdf = await uploadControlledFilePreview(
+      file.raw as File,
+      'DRAWING_PDF',
+      buildDetailUploadPreviewContext(fourthNodeUploadSessionId.value)
+    )
+  } catch (error) {
+    stampedPdfFileList.value = []
+    fourthNodeUpload.stampedPdf = undefined
+    actionDialog.inlineError = resolveReadSideErrorMessage(
+      error,
+      '盖章 PDF 上传失败，请查看错误提示后重试。'
+    )
+  } finally {
+    fourthNodeUpload.stampedLoading = false
+  }
+}
+
+const handleBeforeStampedPdfRemove: UploadProps['beforeRemove'] = async () => {
+  return await cleanupDetailUploadSession(
+    fourthNodeUploadSessionId.value,
+    Boolean(fourthNodeUpload.stampedPdf?.uploadTicket),
+    fourthNodeUpload.stampedPdf?.requestId,
+    (errorMessage) => {
+      actionDialog.inlineError = errorMessage
+    }
+  )
+}
+
+const handleStampedPdfRemove: UploadProps['onRemove'] = () => {
+  stampedPdfFileList.value = []
+  fourthNodeUpload.stampedPdf = undefined
+  clearActionDialogFieldError('stampedPdfUploadTicket')
+}
+
+const clearApplicantTrainingRecordFieldError = (field: string) => {
+  delete applicantTrainingRecordDialog.fieldErrors[field]
+}
+
+const handleApplicantTrainingRecordChange: UploadProps['onChange'] = async (file, uploadFiles) => {
+  if (!file.raw) {
+    return
+  }
+  clearApplicantTrainingRecordFieldError('trainingRecordUploadTicket')
+  applicantTrainingRecordFileList.value = uploadFiles.slice(-1)
+  applicantTrainingRecordDialog.file = undefined
+  applicantTrainingRecordDialog.uploading = true
+  try {
+    applicantTrainingRecordDialog.file = await uploadControlledFilePreview(
+      file.raw as File,
+      'TRAINING_RECORD',
+      buildDetailUploadPreviewContext(applicantTrainingRecordUploadSessionId.value)
+    )
+  } catch (error) {
+    applicantTrainingRecordFileList.value = []
+    applicantTrainingRecordDialog.file = undefined
+    applicantTrainingRecordDialog.inlineError = resolveReadSideErrorMessage(
+      error,
+      '培训记录上传失败，请查看错误提示后重试。'
+    )
+  } finally {
+    applicantTrainingRecordDialog.uploading = false
+  }
+}
+
+const handleBeforeApplicantTrainingRecordRemove: UploadProps['beforeRemove'] = async () => {
+  return await cleanupApplicantTrainingRecordUploadSession()
+}
+
+const handleApplicantTrainingRecordRemove: UploadProps['onRemove'] = () => {
+  applicantTrainingRecordFileList.value = []
+  applicantTrainingRecordDialog.file = undefined
+  clearApplicantTrainingRecordFieldError('trainingRecordUploadTicket')
+}
+
+const handleExternalOutputFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
+  if (!file.raw) {
+    return
+  }
+  if (!isEditableOutputFile(file.name)) {
+    actionDialog.fieldErrors.outputUploadTicket = '输出文件必须为可编辑源文件'
+    externalOutputUploadRef.value?.clearFiles()
+    externalOutputFileList.value = []
+    externalReviewAction.outputFile = undefined
+    return
+  }
+  clearActionDialogFieldError('outputUploadTicket')
+  externalOutputFileList.value = uploadFiles.slice(-1)
+  externalReviewAction.outputFile = undefined
+  externalReviewAction.outputLoading = true
+  try {
+    externalReviewAction.outputFile = await uploadControlledFilePreview(
+      file.raw as File,
+      'EXTERNAL_REVIEW_OUTPUT',
+      buildDetailUploadPreviewContext(externalOutputUploadSessionId.value)
+    )
+  } catch (error) {
+    externalOutputFileList.value = []
+    externalReviewAction.outputFile = undefined
+    actionDialog.inlineError = resolveReadSideErrorMessage(
+      error,
+      '输出文件上传失败，请查看错误提示后重试。'
+    )
+  } finally {
+    externalReviewAction.outputLoading = false
+  }
+}
+
+const handleBeforeExternalOutputFileRemove: UploadProps['beforeRemove'] = async () => {
+  return await cleanupDetailUploadSession(
+    externalOutputUploadSessionId.value,
+    Boolean(externalReviewAction.outputFile?.uploadTicket),
+    externalReviewAction.outputFile?.requestId,
+    (errorMessage) => {
+      actionDialog.inlineError = errorMessage
+    }
+  )
+}
+
+const handleExternalOutputFileRemove: UploadProps['onRemove'] = () => {
+  externalOutputFileList.value = []
+  externalReviewAction.outputFile = undefined
+  clearActionDialogFieldError('outputUploadTicket')
+}
+
+const validateFourthNodeApprovalFiles = () => {
+  if (!shouldCollectFourthNodeFiles.value) {
+    return true
+  }
+  const fieldErrors: Record<string, string> = {}
+  if (!fourthNodeUpload.confirmedDirectoryId) {
+    fieldErrors.confirmedDirectoryId = '请选择存入路径'
+  }
+  if (!fourthNodeUpload.stampedPdf?.uploadTicket) {
+    fieldErrors.stampedPdfUploadTicket = '请上传盖章 PDF'
+  }
+  if (!fourthNodeUpload.selectedDistributionScopes.length) {
+    fieldErrors.selectedDistributionScopes = '请选择文件下发范围'
+  } else if (
+    fourthNodeUpload.selectedDistributionScopes.some(
+      (scope) => !scope.distributionMedium || !['PUBLIC_FOLDER', 'PAPER'].includes(scope.distributionMedium)
+    )
+  ) {
+    fieldErrors.selectedDistributionScopes = '请选择下发介质'
+  }
+  if (Object.keys(fieldErrors).length === 0) {
+    return true
+  }
+  actionDialog.fieldErrors = {
+    ...actionDialog.fieldErrors,
+    ...fieldErrors
+  }
+  actionDialog.inlineError = Object.values(fieldErrors)[0]
+  return false
+}
+
+const resetApplicantTrainingRecordDialog = () => {
+  applicantTrainingRecordUploadSessionId.value = createControlledFileUploadSessionId()
+  applicantTrainingRecordFileList.value = []
+  applicantTrainingRecordDialog.file = undefined
+  applicantTrainingRecordDialog.uploading = false
+  applicantTrainingRecordDialog.inlineError = ''
+  applicantTrainingRecordDialog.fieldErrors = {}
+  applicantTrainingRecordUploadRef.value?.clearFiles()
+}
+
+const openApplicantTrainingRecordDialog = () => {
+  if (!canUploadApplicantTrainingRecord.value) {
+    message.warning('当前状态不可上传培训记录')
+    return
+  }
+  applicantTrainingRecordDialog.visible = true
+  applicantTrainingRecordDialog.submitting = false
+  resetApplicantTrainingRecordDialog()
+}
+
+const closeApplicantTrainingRecordDialog = async (submitted: boolean | MouseEvent = false) => {
+  if (submitted !== true && !(await cleanupApplicantTrainingRecordUploadSession())) {
+    return
+  }
+  applicantTrainingRecordDialog.visible = false
+  applicantTrainingRecordDialog.submitting = false
+  resetApplicantTrainingRecordDialog()
+}
+
+const submitApplicantTrainingRecordDialog = async () => {
+  if (!applicantTrainingRecordDialog.file?.uploadTicket) {
+    applicantTrainingRecordDialog.fieldErrors = { trainingRecordUploadTicket: '请上传培训记录' }
+    applicantTrainingRecordDialog.inlineError = '请上传培训记录'
+    return
+  }
+  applicantTrainingRecordDialog.submitting = true
+  applicantTrainingRecordDialog.inlineError = ''
+  applicantTrainingRecordDialog.fieldErrors = {}
+  try {
+    await uploadControlledFileTrainingRecord(controlledFileId.value, {
+      sessionId: applicantTrainingRecordDialog.file.sessionId,
+      trainingRecordUploadTicket: applicantTrainingRecordDialog.file.uploadTicket
+    })
+    message.success('培训记录已上传，流程已进入文控批准')
+    await closeApplicantTrainingRecordDialog(true)
+    await reloadAll()
+  } catch (error) {
+    applicantTrainingRecordDialog.inlineError = resolveReadSideErrorMessage(
+      error,
+      '培训记录上传失败，请查看错误提示后重试。'
+    )
+  } finally {
+    applicantTrainingRecordDialog.submitting = false
+  }
+}
+
+const handleWithdraw = async () => {
+  try {
+    await message.confirm('确认撤回当前受控文件申请吗？')
+    withdrawLoading.value = true
+    await withdrawControlledFile(controlledFileId.value, { reason: '提交人主动撤回' })
+    message.success('撤回成功')
+    await reloadAll()
+  } catch (error) {
+    if (!isDialogCancelled(error)) {
+      message.error(resolveReadSideErrorMessage(error, '撤回失败，请查看错误提示后重试。'))
+    }
+  } finally {
+    withdrawLoading.value = false
+  }
+}
+
+const cancelActiveObsoleteAction = async () => {
+  const activeAction = activeObsoleteAction.value
+  if (!activeAction?.bpmProcessInstanceId) {
+    message.warning('当前作废申请缺少 BPM 流程，无法撤回')
+    return
+  }
+  try {
+    await message.confirm('确认撤回当前作废申请吗？撤回后文件保持现行状态。')
+    obsoleteCancelLoading.value = true
+    await ProcessInstanceApi.cancelProcessInstanceByStartUser(
+      activeAction.bpmProcessInstanceId,
+      '提交人主动撤回作废申请'
+    )
+    message.success('作废申请已撤回')
+    activeObsoleteAction.value = null
+    await reloadAll()
+  } catch (error) {
+    if (!isDialogCancelled(error)) {
+      message.error(resolveReadSideErrorMessage(error, '作废申请撤回失败，请查看错误提示后重试。'))
+    }
+  } finally {
+    obsoleteCancelLoading.value = false
+  }
+}
+
+const cancelActivePublishAction = async () => {
+  const activeAction = activePublishAction.value
+  if (!activeAction?.bpmProcessInstanceId) {
+    message.warning('当前发布申请缺少 BPM 流程，无法撤回')
+    return
+  }
+  try {
+    await message.confirm('确认撤回当前发布申请吗？撤回后候选版本保持待发布。')
+    publishCancelLoading.value = true
+    await ProcessInstanceApi.cancelProcessInstanceByStartUser(
+      activeAction.bpmProcessInstanceId,
+      '提交人主动撤回发布申请'
+    )
+    message.success('发布申请已撤回')
+    activePublishAction.value = null
+    await reloadAll()
+  } catch (error) {
+    if (!isDialogCancelled(error)) {
+      message.error(resolveReadSideErrorMessage(error, '发布申请撤回失败，请查看错误提示后重试。'))
+    }
+  } finally {
+    publishCancelLoading.value = false
+  }
+}
+
+const validateExternalReviewConclusion = () => {
+  if (!shouldCollectExternalReviewConclusion.value) {
+    return true
+  }
+  const fieldErrors: Record<string, string> = {}
+  if (!externalReviewAction.reviewConclusion) {
+    fieldErrors.reviewConclusion = '请选择评审结论'
+  }
+  if (!externalReviewAction.outputFile?.uploadTicket) {
+    fieldErrors.outputUploadTicket = '请上传输出文件'
+  }
+  if (Object.keys(fieldErrors).length === 0) {
+    return true
+  }
+  actionDialog.fieldErrors = {
+    ...actionDialog.fieldErrors,
+    ...fieldErrors
+  }
+  actionDialog.inlineError = Object.values(fieldErrors)[0]
+  return false
+}
+
+const handleDeleteWithdrawnFlow = async () => {
+  try {
+    await message.confirm('确认删除流程吗？删除后该撤回记录将不再出现在业务列表，BPM 历史仍保留。')
+    deleteWithdrawnLoading.value = true
+    await deleteWithdrawnControlledFile(controlledFileId.value)
+    message.success('删除流程成功')
+    await router.push({ name: 'DccControlledFileBrowser' })
+  } catch (error) {
+    if (!isDialogCancelled(error)) {
+      message.error(resolveReadSideErrorMessage(error, '删除流程失败，请查看错误提示后重试。'))
+    }
+  } finally {
+    deleteWithdrawnLoading.value = false
+  }
+}
+
+const handleResubmitWithdrawnFlow = async () => {
+  try {
+    await message.confirm('确认重新提交该撤回流程吗？系统将创建新的 BPM 流程实例。')
+    resubmitWithdrawnLoading.value = true
+    const newFileId = await resubmitWithdrawnControlledFile(controlledFileId.value)
+    message.success('重新提交成功')
+    await router.push(buildControlledFileViewerPath(newFileId, 'resubmit-withdrawn-flow', route.fullPath))
+  } catch (error) {
+    if (!isDialogCancelled(error)) {
+      message.error(resolveReadSideErrorMessage(error, '重新提交失败，请查看错误提示后重试。'))
+    }
+  } finally {
+    resubmitWithdrawnLoading.value = false
+  }
+}
+
+const handleRetryStamp = async () => {
+  try {
+    await message.confirm('确认重试当前受控文件的发布处理吗？')
+    retryStampLoading.value = true
+    await retryControlledFileStamp(controlledFileId.value)
+    message.success('已重新发起发布处理')
+    await reloadAll()
+  } catch (error) {
+    if (!isDialogCancelled(error)) {
+      message.error(resolveReadSideErrorMessage(error, '重试发布失败，请查看错误提示后重试。'))
+    }
+  } finally {
+    retryStampLoading.value = false
+  }
+}
+
+const loadObsoleteStartUserSelectTasks = async () => {
+  obsoleteDialog.startUserSelectTasks = []
+  obsoleteDialog.startUserSelectAssignees = {}
+  const context = buildObsoleteBusinessActionContext(fileDetail.value)
+  if (!context) {
+    throw new Error('当前文件缺少平台动作上下文，无法解析作废审批人。')
+  }
+  const resolution = await resolveBusinessAction(context)
+  if (!resolution.requiresBpm || !resolution.bpmProcessKey) {
+    return
+  }
+  const processDefinition = await DefinitionApi.getProcessDefinition(undefined, resolution.bpmProcessKey)
+  if (!processDefinition?.id) {
+    throw new Error('作废审批流程未配置，请联系管理员。')
+  }
+  const approvalDetail = await ProcessInstanceApi.getApprovalDetail({
+    processDefinitionId: processDefinition.id,
+    activityId: NodeId.START_USER_NODE_ID,
+    processVariablesStr: JSON.stringify({
+      controlledFileId: controlledFileId.value,
+      actionCode: 'OBSOLETE'
+    })
+  })
+  obsoleteDialog.startUserSelectTasks =
+    approvalDetail?.activityNodes?.filter(
+      (node: ProcessInstanceApi.ApprovalNodeInfo) =>
+        CandidateStrategy.START_USER_SELECT === node.candidateStrategy
+    ) || []
+  for (const task of obsoleteDialog.startUserSelectTasks) {
+    obsoleteDialog.startUserSelectAssignees[task.id] = []
+  }
+}
+
+const loadPublishStartUserSelectTasks = async () => {
+  publishDialog.startUserSelectTasks = []
+  publishDialog.startUserSelectAssignees = {}
+  const context = buildPublishBusinessActionContext(fileDetail.value)
+  if (!context) {
+    throw new Error('当前候选版本缺少平台动作上下文，无法解析发布审批人。')
+  }
+  const resolution = await resolveBusinessAction(context)
+  if (!resolution.requiresBpm || !resolution.bpmProcessKey) {
+    return
+  }
+  const processDefinition = await DefinitionApi.getProcessDefinition(undefined, resolution.bpmProcessKey)
+  if (!processDefinition?.id) {
+    throw new Error('发布审批流程未配置，请联系管理员。')
+  }
+  const approvalDetail = await ProcessInstanceApi.getApprovalDetail({
+    processDefinitionId: processDefinition.id,
+    activityId: NodeId.START_USER_NODE_ID,
+    processVariablesStr: JSON.stringify({
+      controlledFileId: controlledFileId.value,
+      actionCode: 'PUBLISH'
+    })
+  })
+  publishDialog.startUserSelectTasks =
+    approvalDetail?.activityNodes?.filter(
+      (node: ProcessInstanceApi.ApprovalNodeInfo) =>
+        CandidateStrategy.START_USER_SELECT === node.candidateStrategy
+    ) || []
+  for (const task of publishDialog.startUserSelectTasks) {
+    publishDialog.startUserSelectAssignees[task.id] = []
+  }
+}
+
+const openObsoleteDialog = async () => {
+  if (!canSubmitObsoleteAction.value) {
+    message.warning(obsoleteActionLockDescription.value || '当前文件暂不能发起作废申请')
+    return
+  }
+  obsoleteDialog.visible = true
+  obsoleteDialog.submitting = false
+  obsoleteDialog.inlineError = ''
+  obsoleteDialog.reason = ''
+  obsoleteDialog.idempotencyKey = `DCC-OBSOLETE-${controlledFileId.value}-${generateUUID()}`
+  obsoleteDialog.startUserSelectTasks = []
+  obsoleteDialog.startUserSelectAssignees = {}
+  try {
+    await loadObsoleteStartUserSelectTasks()
+  } catch (error) {
+    obsoleteDialog.inlineError = resolveReadSideErrorMessage(
+      error,
+      '作废审批人加载失败，请查看错误提示后重试。'
+    )
+  }
+}
+
+const closeObsoleteDialog = () => {
+  obsoleteDialog.visible = false
+  obsoleteDialog.submitting = false
+  obsoleteDialog.inlineError = ''
+  obsoleteDialog.reason = ''
+  obsoleteDialog.idempotencyKey = ''
+  obsoleteDialog.startUserSelectTasks = []
+  obsoleteDialog.startUserSelectAssignees = {}
+}
+
+const openPublishDialog = async () => {
+  if (!canSubmitPublishAction.value) {
+    message.warning(publishActionLockDescription.value || '当前候选版本暂不能提交发布申请')
+    return
+  }
+  publishDialog.visible = true
+  publishDialog.submitting = false
+  publishDialog.inlineError = ''
+  publishDialog.reason = ''
+  publishDialog.idempotencyKey = `DCC-PUBLISH-${controlledFileId.value}-${generateUUID()}`
+  publishDialog.startUserSelectTasks = []
+  publishDialog.startUserSelectAssignees = {}
+  try {
+    await loadPublishStartUserSelectTasks()
+  } catch (error) {
+    publishDialog.inlineError = resolveReadSideErrorMessage(
+      error,
+      '发布审批人加载失败，请查看错误提示后重试。'
+    )
+  }
+}
+
+const closePublishDialog = () => {
+  publishDialog.visible = false
+  publishDialog.submitting = false
+  publishDialog.inlineError = ''
+  publishDialog.reason = ''
+  publishDialog.idempotencyKey = ''
+  publishDialog.startUserSelectTasks = []
+  publishDialog.startUserSelectAssignees = {}
+}
+
+const submitPublishDialog = async () => {
+  const reason = publishDialog.reason.trim()
+  if (!reason) {
+    publishDialog.inlineError = '请输入发布说明'
+    return
+  }
+  if (!canSubmitPublishAction.value) {
+    publishDialog.inlineError = publishActionLockDescription.value || '当前候选版本暂不能提交发布申请'
+    return
+  }
+  for (const task of publishDialog.startUserSelectTasks) {
+    const assignees = publishDialog.startUserSelectAssignees[task.id]
+    if (!Array.isArray(assignees) || assignees.length === 0) {
+      publishDialog.inlineError = `请选择${task.name}审批人`
+      return
+    }
+  }
+  publishDialog.submitting = true
+  publishDialog.inlineError = ''
+  try {
+    if (!publishDialog.idempotencyKey) {
+      publishDialog.idempotencyKey = `DCC-PUBLISH-${controlledFileId.value}-${generateUUID()}`
+    }
+    const instance = await publishControlledFile(controlledFileId.value, {
+      reason,
+      idempotencyKey: publishDialog.idempotencyKey,
+      startUserSelectAssignees: publishDialog.startUserSelectAssignees
+    })
+    activePublishAction.value = instance
+    message.success('发布申请已提交，等待审批通过后生效')
+    closePublishDialog()
+    await reloadAll()
+  } catch (error) {
+    publishDialog.inlineError = resolveReadSideErrorMessage(
+      error,
+      '发布申请提交失败，请查看错误提示后重试。'
+    )
+  } finally {
+    publishDialog.submitting = false
+  }
+}
+
+const handleAcknowledgeTraining = async () => {
+  try {
+    await message.confirm('确认完成当前版本培训并提交确认吗？')
+    trainingAckLoading.value = true
+    await acknowledgeControlledFileTraining(controlledFileId.value)
+    message.success('培训确认已提交')
+    await reloadAll()
+  } catch (error) {
+    if (!isDialogCancelled(error)) {
+      message.error(resolveReadSideErrorMessage(error, '培训确认失败，请查看错误提示后重试。'))
+    }
+  } finally {
+    trainingAckLoading.value = false
+  }
+}
+
+const handleManualRelease = async () => {
+  try {
+    await message.confirm('确认完成培训放行并正式下发当前版本吗？')
+    manualReleaseLoading.value = true
+    await manualReleaseControlledFile(controlledFileId.value)
+    message.success('当前版本已正式下发')
+    await reloadAll()
+  } catch (error) {
+    if (!isDialogCancelled(error)) {
+      message.error(resolveReadSideErrorMessage(error, '正式下发失败，请查看错误提示后重试。'))
+    }
+  } finally {
+    manualReleaseLoading.value = false
+  }
+}
+
+const resetPaperDistributionIssueDialog = () => {
+  paperDistributionIssueDialog.submitting = false
+  paperDistributionIssueDialog.inlineError = ''
+  paperDistributionIssueDialog.fieldErrors = {}
+  paperDistributionIssueDialog.distributionId = undefined
+  paperDistributionIssueDialog.form.recipientUserIds = []
+}
+
+const handleAcknowledgePaperDistribution = (distributionId: number) => {
+  resetPaperDistributionIssueDialog()
+  paperDistributionIssueDialog.distributionId = distributionId
+  paperDistributionIssueDialog.visible = true
+}
+
+const closePaperDistributionIssueDialog = () => {
+  paperDistributionIssueDialog.visible = false
+  resetPaperDistributionIssueDialog()
+}
+
+const validatePaperDistributionIssueDialog = () => {
+  const errors: Record<string, string> = {}
+  if (!paperDistributionIssueDialog.form.recipientUserIds.length) {
+    errors.recipientUserIds = '请选择纸质接收人'
+  }
+  paperDistributionIssueDialog.fieldErrors = errors
+  paperDistributionIssueDialog.inlineError = Object.values(errors)[0] || ''
+  return Object.keys(errors).length === 0
+}
+
+const submitPaperDistributionIssueDialog = async () => {
+  if (
+    !paperDistributionIssueDialog.distributionId ||
+    !validatePaperDistributionIssueDialog()
+  ) {
+    return
+  }
+  const distributionId = paperDistributionIssueDialog.distributionId
+  paperDistributionIssueDialog.submitting = true
+  paperDistributionIssueDialog.inlineError = ''
+  paperDistributionAckLoadingId.value = distributionId
+  try {
+    await acknowledgePaperDistribution(controlledFileId.value, distributionId, {
+      recipientUserIds: paperDistributionIssueDialog.form.recipientUserIds
+    })
+    message.success('纸质发放已登记')
+    closePaperDistributionIssueDialog()
+    await reloadAll()
+  } catch (error) {
+    paperDistributionIssueDialog.inlineError = resolveReadSideErrorMessage(
+      error,
+      '纸质发放登记失败，请查看错误提示后重试。'
+    )
+  } finally {
+    paperDistributionIssueDialog.submitting = false
+    if (paperDistributionAckLoadingId.value === distributionId) {
+      paperDistributionAckLoadingId.value = undefined
+    }
+  }
+}
+
+const handleRecoverPaperDistribution = async (distributionId: number) => {
+  try {
+    await message.confirm('确认当前纸质文件已回收并更新状态吗？')
+    paperDistributionRecoverLoadingId.value = distributionId
+    await recoverPaperDistribution(controlledFileId.value, distributionId)
+    message.success('纸质文件回收状态已更新')
+    await reloadAll()
+  } catch (error) {
+    if (!isDialogCancelled(error)) {
+      message.error(resolveReadSideErrorMessage(error, '纸质文件回收确认失败，请查看错误提示后重试。'))
+    }
+  } finally {
+    if (paperDistributionRecoverLoadingId.value === distributionId) {
+      paperDistributionRecoverLoadingId.value = undefined
+    }
+  }
+}
+
+const getDistributionStatusTagType = (status: string | undefined) => {
+  if (status === 'ACKNOWLEDGED' || status === 'RECOVERED') {
+    return 'success'
+  }
+  if (status === 'READ') {
+    return 'primary'
+  }
+  if (status === 'SENT') {
+    return 'warning'
+  }
+  return 'info'
+}
+
+const getPaperDistributionRecipientNames = (distribution: ControlledFileDistributionStatusVO) => {
+  const userIds = (distribution.recipients || []).length
+    ? (distribution.recipients || []).map((recipient) => recipient.userId)
+    : distribution.recipientUserIds || []
+  if (!userIds.length) {
+    return '-'
+  }
+  return userIds.map((userId) => userNameMap.value.get(userId) || `用户#${userId}`).join('、')
+}
+
+const getDistributionRecipientDisplay = (distribution: ControlledFileDistributionStatusVO) => {
+  if (distribution.distributionMedium === 'PAPER') {
+    return getPaperDistributionRecipientNames(distribution)
+  }
+  return getDistributionRecipientSummary(distribution, userNameMap.value)
+}
+
+const getCurrentElectronicReceiptRecipient = (
+  distribution: ControlledFileDistributionStatusVO
+): ControlledFileDistributionRecipientStatusVO | undefined => {
+  if (distribution.distributionMedium !== 'PUBLIC_FOLDER') {
+    return undefined
+  }
+  return getCurrentDistributionRecipient(distribution)?.acknowledgedAt
+    ? undefined
+    : getCurrentDistributionRecipient(distribution)
+}
+
+const getCurrentDistributionRecipient = (
+  distribution: ControlledFileDistributionStatusVO
+): ControlledFileDistributionRecipientStatusVO | undefined => {
+  if (distribution.distributionMedium !== 'PUBLIC_FOLDER') {
+    return undefined
+  }
+  return (distribution.recipients || []).find((recipient) => recipient.userId === currentUserId.value)
+}
+
+const hasDistributionRowAction = (distribution: ControlledFileDistributionStatusVO) => {
+  return (
+    Boolean(getCurrentElectronicReceiptRecipient(distribution)) ||
+    Boolean(getCurrentDistributionRecipient(distribution)) ||
+    (distribution.distributionMedium === 'PAPER' &&
+      distribution.status !== 'ACKNOWLEDGED' &&
+      distribution.status !== 'RECOVERED') ||
+    (distribution.distributionMedium === 'PAPER' && distribution.status === 'ACKNOWLEDGED')
+  )
+}
+
+const getDistributionRecoverUserSummary = (distribution: ControlledFileDistributionStatusVO) => {
+  if (!distribution.recoveredBy) {
+    return '-'
+  }
+  return userNameMap.value.get(distribution.recoveredBy) || `用户#${distribution.recoveredBy}`
+}
+
+const resetElectronicReceiptDialog = () => {
+  electronicReceiptDialog.submitting = false
+  electronicReceiptDialog.inlineError = ''
+  electronicReceiptDialog.fieldErrors = {}
+  electronicReceiptDialog.distributionId = undefined
+  electronicReceiptDialog.recipientId = undefined
+  electronicReceiptDialog.form.password = ''
+  electronicReceiptDialog.form.comment = ''
+}
+
+const openElectronicReceiptDialog = (distribution: ControlledFileDistributionStatusVO) => {
+  const recipient = getCurrentElectronicReceiptRecipient(distribution)
+  if (!recipient?.id) {
+    message.warning('当前用户没有可签收的电子发放记录')
+    return
+  }
+  resetElectronicReceiptDialog()
+  electronicReceiptDialog.distributionId = distribution.id
+  electronicReceiptDialog.recipientId = recipient.id
+  electronicReceiptDialog.visible = true
+}
+
+const closeElectronicReceiptDialog = () => {
+  electronicReceiptDialog.visible = false
+  resetElectronicReceiptDialog()
+}
+
+const validateElectronicReceiptDialog = () => {
+  const errors: Record<string, string> = {}
+  if (!electronicReceiptDialog.form.password.trim()) {
+    errors.password = '请输入登录密码完成电子签名'
+  }
+  electronicReceiptDialog.fieldErrors = errors
+  electronicReceiptDialog.inlineError = Object.values(errors)[0] || ''
+  return Object.keys(errors).length === 0
+}
+
+const submitElectronicReceiptDialog = async () => {
+  if (
+    !electronicReceiptDialog.distributionId ||
+    !electronicReceiptDialog.recipientId ||
+    !validateElectronicReceiptDialog()
+  ) {
+    return
+  }
+  electronicReceiptDialog.submitting = true
+  electronicReceiptDialog.inlineError = ''
+  electronicReceiptLoadingRecipientId.value = electronicReceiptDialog.recipientId
+  try {
+    await acknowledgeElectronicDistribution(
+      controlledFileId.value,
+      electronicReceiptDialog.distributionId,
+      electronicReceiptDialog.recipientId,
+      {
+        password: electronicReceiptDialog.form.password,
+        comment: electronicReceiptDialog.form.comment.trim()
+      }
+    )
+    message.success('电子发放签收已提交')
+    closeElectronicReceiptDialog()
+    await reloadAll()
+  } catch (error) {
+    if (isControlledFileTaskPasswordInvalidError(error)) {
+      electronicReceiptDialog.fieldErrors = {
+        password: DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
+      }
+      electronicReceiptDialog.inlineError = DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
+      return
+    }
+    electronicReceiptDialog.inlineError = resolveReadSideErrorMessage(
+      error,
+      '电子发放签收失败，请查看错误提示后重试。'
+    )
+  } finally {
+    electronicReceiptDialog.submitting = false
+    electronicReceiptLoadingRecipientId.value = undefined
+  }
+}
+
+const resetDistributionSignDialog = () => {
+  distributionSignDialog.submitting = false
+  distributionSignDialog.inlineError = ''
+  distributionSignDialog.fieldErrors = {}
+  distributionSignDialog.distributionId = undefined
+  distributionSignDialog.recipientId = undefined
+  distributionSignDialog.form.userIds = []
+  distributionSignDialog.form.password = ''
+  distributionSignDialog.form.comment = ''
+}
+
+const openDistributionSignDialog = (distribution: ControlledFileDistributionStatusVO) => {
+  const recipient = getCurrentDistributionRecipient(distribution)
+  if (!recipient?.id) {
+    message.warning('当前用户没有可加签的电子发放记录')
+    return
+  }
+  resetDistributionSignDialog()
+  distributionSignDialog.distributionId = distribution.id
+  distributionSignDialog.recipientId = recipient.id
+  distributionSignDialog.visible = true
+}
+
+const closeDistributionSignDialog = () => {
+  distributionSignDialog.visible = false
+  resetDistributionSignDialog()
+}
+
+const validateDistributionSignDialog = () => {
+  const errors: Record<string, string> = {}
+  if (!distributionSignDialog.form.userIds.length) {
+    errors.userIds = '请选择加签接收人'
+  }
+  if (!distributionSignDialog.form.password.trim()) {
+    errors.password = '请输入登录密码完成电子签名'
+  }
+  distributionSignDialog.fieldErrors = errors
+  distributionSignDialog.inlineError = Object.values(errors)[0] || ''
+  return Object.keys(errors).length === 0
+}
+
+const submitDistributionSignDialog = async () => {
+  if (
+    !distributionSignDialog.distributionId ||
+    !distributionSignDialog.recipientId ||
+    !validateDistributionSignDialog()
+  ) {
+    return
+  }
+  distributionSignDialog.submitting = true
+  distributionSignDialog.inlineError = ''
+  distributionSignLoadingRecipientId.value = distributionSignDialog.recipientId
+  try {
+    await createDistributionRecipientSignTask(
+      controlledFileId.value,
+      distributionSignDialog.distributionId,
+      distributionSignDialog.recipientId,
+      {
+        userIds: distributionSignDialog.form.userIds,
+        password: distributionSignDialog.form.password,
+        comment: distributionSignDialog.form.comment.trim()
+      }
+    )
+    message.success('接收人加签已提交')
+    closeDistributionSignDialog()
+    await reloadAll()
+  } catch (error) {
+    if (isControlledFileTaskPasswordInvalidError(error)) {
+      distributionSignDialog.fieldErrors = {
+        password: DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
+      }
+      distributionSignDialog.inlineError = DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
+      return
+    }
+    distributionSignDialog.inlineError = resolveReadSideErrorMessage(
+      error,
+      '接收人加签失败，请查看错误提示后重试。'
+    )
+  } finally {
+    distributionSignDialog.submitting = false
+    distributionSignLoadingRecipientId.value = undefined
+  }
+}
+
+const buildDistributionReceiptRows = () => {
+  return distributionReceiptRows.value.map((record) => ({
+    fileNumber: record.fileNumber || '-',
+    versionNo: record.versionNo || '-',
+    fileName: record.fileName || '-',
+    issuer: record.issuerName || '-',
+    recipients: record.recipientNames?.length ? record.recipientNames.join('、') : '-',
+    issuedAt: formatControlledFileDateTime(record.issuedAt),
+    recoveredBy: record.recovererName || '-',
+    recoveredAt: formatControlledFileDateTime(record.recoveredAt)
+  }))
+}
+
+const escapeCsvCell = (value: unknown) => {
+  const text = String(value ?? '')
+  return `"${text.replace(/"/g, '""')}"`
+}
+
+const handleExportDistributionReceipts = () => {
+  const rows = buildDistributionReceiptRows()
+  if (!rows.length) {
+    message.warning('当前版本暂无可导出的发放回执')
+    return
+  }
+  const headers = [
+    '文件编号',
+    '版本',
+    '名称',
+    '发放人',
+    '接收人',
+    '发放日期',
+    '回收人',
+    '回收日期'
+  ]
+  const csvRows = [
+    headers,
+    ...rows.map((row) => [
+      row.fileNumber,
+      row.versionNo,
+      row.fileName,
+      row.issuer,
+      row.recipients,
+      row.issuedAt,
+      row.recoveredBy,
+      row.recoveredAt
+    ])
+  ]
+  const csv = csvRows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n')
+  downloadByData(
+    csv,
+    `DCC发放回执-${fileDetail.value?.fileNumber || controlledFileId.value}.csv`,
+    'text/csv;charset=utf-8',
+    '\ufeff'
+  )
+}
+
+const escapeReceiptHtml = (value: unknown) =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+
+const buildDistributionReceiptPrintHtml = () => {
+  const rows = buildDistributionReceiptRows()
+  const bodyRows = rows
+    .map(
+      (row) => `<tr>
+        <td>${escapeReceiptHtml(row.fileNumber)}</td>
+        <td>${escapeReceiptHtml(row.versionNo)}</td>
+        <td>${escapeReceiptHtml(row.fileName)}</td>
+        <td>${escapeReceiptHtml(row.issuer)}</td>
+        <td>${escapeReceiptHtml(row.recipients)}</td>
+        <td>${escapeReceiptHtml(row.issuedAt)}</td>
+        <td>${escapeReceiptHtml(row.recoveredBy)}</td>
+        <td>${escapeReceiptHtml(row.recoveredAt)}</td>
+      </tr>`
+    )
+    .join('')
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>DCC发放回执</title>
+  <style>
+    body { font-family: Arial, "Microsoft YaHei", sans-serif; color: #1f2329; margin: 24px; }
+    h1 { font-size: 20px; margin: 0 0 16px; }
+    table { border-collapse: collapse; width: 100%; font-size: 12px; }
+    th, td { border: 1px solid #333; padding: 6px 8px; text-align: left; vertical-align: top; }
+    th { background: #f3f4f6; }
+  </style>
+</head>
+<body>
+  <h1>DCC发放回执</h1>
+  <table>
+    <thead>
+      <tr>
+        <th>文件编号</th>
+        <th>版本</th>
+        <th>名称</th>
+        <th>发放人</th>
+        <th>接收人</th>
+        <th>发放日期</th>
+        <th>回收人</th>
+        <th>回收日期</th>
+      </tr>
+    </thead>
+    <tbody>${bodyRows}</tbody>
+  </table>
+</body>
+</html>`
+}
+
+const handlePrintDistributionReceipts = () => {
+  if (!distributionReceiptRows.value.length) {
+    message.warning('当前版本暂无可打印的发放回执')
+    return
+  }
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    message.error('打印窗口打开失败，请检查浏览器弹窗拦截设置。')
+    return
+  }
+  printWindow.document.open()
+  printWindow.document.write(buildDistributionReceiptPrintHtml())
+  printWindow.document.close()
+  printWindow.focus()
+  printWindow.print()
+}
+
+const getProcessInstanceId = () => String(fileDetail.value?.processInstanceId || '')
+
+const buildProcessPrintHtml = (printData: unknown) => {
+  const file = fileDetail.value
+  const processJson = escapeReceiptHtml(JSON.stringify(printData ?? {}, null, 2))
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>DCC流程打印</title>
+  <style>
+    body { font-family: Arial, "Microsoft YaHei", sans-serif; color: #1f2329; margin: 24px; }
+    h1 { font-size: 20px; margin: 0 0 16px; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; margin-bottom: 18px; }
+    th, td { border: 1px solid #333; padding: 7px 9px; text-align: left; vertical-align: top; }
+    th { width: 130px; background: #f3f4f6; }
+    pre { white-space: pre-wrap; word-break: break-word; border: 1px solid #d8dde8; padding: 12px; }
+  </style>
+</head>
+<body>
+  <h1>DCC流程打印</h1>
+  <table>
+    <tbody>
+      <tr><th>文件编号</th><td>${escapeReceiptHtml(file?.fileNumber || '-')}</td></tr>
+      <tr><th>文件名称</th><td>${escapeReceiptHtml(file?.fileName || file?.title || '-')}</td></tr>
+      <tr><th>版本</th><td>${escapeReceiptHtml(file?.versionNo || '-')}</td></tr>
+      <tr><th>产品编号</th><td>${escapeReceiptHtml(file?.productCode || '-')}</td></tr>
+      <tr><th>流程实例</th><td>${escapeReceiptHtml(file?.processInstanceId || '-')}</td></tr>
+    </tbody>
+  </table>
+  <pre>${processJson}</pre>
+</body>
+</html>`
+}
+
+const loadProcessPrintData = async () => {
+  const processInstanceId = getProcessInstanceId()
+  if (!processInstanceId) {
+    return null
+  }
+  return await ProcessInstanceApi.getProcessInstancePrintData(processInstanceId)
+}
+
+const handlePrintProcess = async () => {
+  processPrintLoading.value = true
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    message.error('流程打印窗口打开失败，请检查浏览器弹窗拦截设置。')
+    processPrintLoading.value = false
+    return
+  }
+  try {
+    const customTemplate = activeApprovalPrintTemplate.value?.active
+      ? await getControlledFileApprovalPrintHtml(controlledFileId.value)
+      : null
+    const printData = customTemplate ? null : await loadProcessPrintData()
+    printWindow.document.open()
+    printWindow.document.write(customTemplate?.html || buildProcessPrintHtml(printData))
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
+  } catch (error) {
+    printWindow.close()
+    message.error(resolveReadSideErrorMessage(error, '流程打印失败，请查看错误提示后重试。'))
+  } finally {
+    processPrintLoading.value = false
+  }
+}
+
+const handleExportProcessWord = async () => {
+  processExportLoading.value = true
+  try {
+    if (activeApprovalPrintTemplate.value?.active) {
+      const word = await exportControlledFileApprovalWord(controlledFileId.value)
+      downloadByData(
+        word,
+        `DCC流程-${fileDetail.value?.fileNumber || controlledFileId.value}.docx`,
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      )
+      return
+    }
+    const printData = await loadProcessPrintData()
+    downloadByData(
+      buildProcessPrintHtml(printData),
+      `DCC流程-${fileDetail.value?.fileNumber || controlledFileId.value}.doc`,
+      'application/msword;charset=utf-8',
+      '\ufeff'
+    )
+  } catch (error) {
+    message.error(resolveReadSideErrorMessage(error, '流程导出 Word 失败，请查看错误提示后重试。'))
+  } finally {
+    processExportLoading.value = false
+  }
+}
+
+const handleDetailMoreCommand = (command: string) => {
+  switch (command) {
+    case 'bpm-detail':
+      openBpmDetail()
+      return
+    case 'edit-metadata':
+      openMetadataDialog()
+      return
+    case 'print-process':
+      void handlePrintProcess()
+      return
+    case 'export-process-word':
+      void handleExportProcessWord()
+      return
+    default:
+      throw new Error(`未支持的详情更多操作：${command}`)
+  }
+}
+
+const handleDetailDangerCommand = (command: string) => {
+  switch (command) {
+    case 'withdraw':
+      void handleWithdraw()
+      return
+    case 'delete-withdrawn-flow':
+      void handleDeleteWithdrawnFlow()
+      return
+    case 'resubmit-withdrawn-flow':
+      void handleResubmitWithdrawnFlow()
+      return
+    case 'retry-stamp':
+      void handleRetryStamp()
+      return
+    case 'obsolete':
+      openObsoleteDialog()
+      return
+    default:
+      throw new Error(`未支持的详情风险操作：${command}`)
+  }
+}
+
+const openActionDialog = (mode: DccApprovalActionMode) => {
+  actionDialog.visible = true
+  actionDialog.mode = mode
+  actionDialog.submitting = false
+  actionDialog.inlineError = ''
+  actionDialog.fieldErrors = {}
+  actionDialog.form.password = ''
+  actionDialog.form.reason = ''
+  resetFourthNodeUploads()
+  if (mode === 'approve' && isFourthNodeApprovalTask.value && !isExternalReviewProcess.value) {
+    void loadDocControlDirectoryTree().catch((error) => {
+      const errorMessage = resolveReadSideErrorMessage(error, '存入路径加载失败，请处理后再继续。')
+      actionDialog.inlineError = errorMessage
+      actionDialog.fieldErrors.confirmedDirectoryId = errorMessage
+      message.error(errorMessage)
+    })
+  }
+}
+
+const closeActionDialog = async (submitted: boolean | MouseEvent = false) => {
+  if (submitted !== true && !(await cleanupFourthNodeUploadSessions())) {
+    return
+  }
+  actionDialog.visible = false
+  actionDialog.submitting = false
+  actionDialog.inlineError = ''
+  actionDialog.fieldErrors = {}
+  actionDialog.form.password = ''
+  actionDialog.form.reason = ''
+  resetFourthNodeUploads()
+}
+
+const buildActionSuccessMessage = (
+  mode: DccApprovalActionMode,
+  response: Awaited<ReturnType<typeof submitDccApprovalAction>>['response']
+) => {
+  const actionText = mode === 'approve' ? '签名通过并已提交审批' : '已签名驳回任务'
+  if (!response) {
+    return actionText
+  }
+  return `${actionText}，版本 ${response.versionNo}，证据 ${response.evidenceHashShort}`
+}
+
+const submitActionDialog = async () => {
+  if (!approvalTodoTask.value?.id) {
+    return
+  }
+  actionDialog.submitting = true
+  actionDialog.inlineError = ''
+  actionDialog.fieldErrors = {}
+  try {
+    if (!validateFourthNodeApprovalFiles() || !validateExternalReviewConclusion()) {
+      return
+    }
+    if (isExternalReviewProcess.value) {
+      if (!actionDialog.form.password.trim()) {
+        actionDialog.fieldErrors = { password: DCC_APPROVAL_WRONG_PASSWORD_MESSAGE }
+        actionDialog.inlineError = '请输入登录密码完成电子签名'
+        return
+      }
+      if (actionDialog.mode === 'approve') {
+        await approveExternalFileReviewTask(controlledFileId.value, {
+          taskId: approvalTodoTask.value.id,
+          password: actionDialog.form.password,
+          reason: actionDialog.form.reason?.trim() || undefined,
+          reviewConclusion: externalReviewAction.reviewConclusion || undefined,
+          conclusionComment: externalReviewAction.conclusionComment?.trim() || undefined,
+          sessionId: externalReviewAction.outputFile?.sessionId,
+          outputUploadTicket: externalReviewAction.outputFile?.uploadTicket
+        })
+      } else {
+        if (!actionDialog.form.reason.trim()) {
+          actionDialog.fieldErrors = { reason: '请输入驳回原因' }
+          actionDialog.inlineError = '请输入驳回原因'
+          return
+        }
+        await rejectExternalFileReviewTask(controlledFileId.value, {
+          taskId: approvalTodoTask.value.id,
+          password: actionDialog.form.password,
+          reason: actionDialog.form.reason.trim()
+        })
+      }
+      message.success(actionDialog.mode === 'approve' ? '外来文件评审已签名通过' : '外来文件评审已驳回')
+      await closeActionDialog(true)
+      await reloadAll()
+      return
+    }
+    const result = await submitDccApprovalAction({
+      fileId: controlledFileId.value,
+      action: actionDialog.mode,
+      form: {
+        password: actionDialog.form.password,
+        reason: actionDialog.form.reason,
+        sessionId: fourthNodeUpload.stampedPdf?.sessionId,
+        stampedPdfUploadTicket: fourthNodeUpload.stampedPdf?.uploadTicket,
+        confirmedDirectoryId: fourthNodeUpload.confirmedDirectoryId,
+        selectedDistributionScopes: fourthNodeUpload.selectedDistributionScopes.map((scope) => ({
+          departmentId: scope.departmentId,
+          distributionMedium: scope.distributionMedium
+        }))
+      },
+      taskId: String(approvalTodoTask.value.id)
+    })
+    if (!result.success) {
+      if (result.field) {
+        actionDialog.fieldErrors = {
+          [result.field]: result.inlineError || ''
+        }
+      }
+      actionDialog.inlineError = result.inlineError || ''
+      return
+    }
+    message.success(buildActionSuccessMessage(actionDialog.mode, result.response))
+    await closeActionDialog(true)
+    await reloadAll()
+  } catch (error) {
+    if (isControlledFileTaskPasswordInvalidError(error)) {
+      actionDialog.fieldErrors = {
+        password: DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
+      }
+      actionDialog.inlineError = DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
+      return
+    }
+    actionDialog.inlineError = resolveReadSideErrorMessage(
+      error,
+      '签名提交失败，请查看错误提示后重试。'
+    )
+  } finally {
+    actionDialog.submitting = false
+  }
+}
+
+const resetTaskActionDialogForm = () => {
+  taskActionDialog.submitting = false
+  taskActionDialog.inlineError = ''
+  taskActionDialog.fieldErrors = {}
+  taskActionDialog.form.password = ''
+  taskActionDialog.form.reason = ''
+  taskActionDialog.form.targetTaskDefinitionKey = ''
+  taskActionDialog.form.assigneeUserId = undefined
+  taskActionDialog.form.userIds = []
+  taskActionDialog.form.signType = 'after'
+}
+
+const openTaskActionDialog = (mode: DccTaskActionMode) => {
+  if (!approvalTodoTask.value?.id) {
+    return
+  }
+  if (mode === 'return' && returnTargetOptions.value.length === 0) {
+    message.warning('当前任务没有可回退的上一节点')
+    return
+  }
+  resetTaskActionDialogForm()
+  taskActionDialog.mode = mode
+  taskActionDialog.form.targetTaskDefinitionKey = returnTargetOptions.value[0]?.value || ''
+  taskActionDialog.visible = true
+}
+
+const closeTaskActionDialog = () => {
+  taskActionDialog.visible = false
+  resetTaskActionDialogForm()
+}
+
+const validateTaskActionDialog = () => {
+  const errors: Record<string, string> = {}
+  const password = taskActionDialog.form.password.trim()
+  const reason = taskActionDialog.form.reason.trim()
+  if (!password) {
+    errors.password = '请输入登录密码完成电子签名'
+  }
+  if (!reason) {
+    errors.reason = '请输入处理意见'
+  }
+  if (taskActionDialog.mode === 'return' && !taskActionDialog.form.targetTaskDefinitionKey) {
+    errors.targetTaskDefinitionKey = '请选择回退节点'
+  }
+  if (taskActionDialog.mode === 'transfer' && !taskActionDialog.form.assigneeUserId) {
+    errors.assigneeUserId = '请选择转办人'
+  }
+  if (
+    taskActionDialog.mode === 'sign' &&
+    (!Array.isArray(taskActionDialog.form.userIds) || taskActionDialog.form.userIds.length === 0)
+  ) {
+    errors.userIds = '请选择加签人'
+  }
+  taskActionDialog.fieldErrors = errors
+  taskActionDialog.inlineError = Object.values(errors)[0] || ''
+  return Object.keys(errors).length === 0
+}
+
+const submitTaskActionDialog = async () => {
+  const taskId = String(approvalTodoTask.value?.id || '')
+  if (!taskId || !validateTaskActionDialog()) {
+    return
+  }
+  taskActionDialog.submitting = true
+  taskActionDialog.inlineError = ''
+  try {
+    const password = taskActionDialog.form.password
+    const reason = taskActionDialog.form.reason.trim()
+    if (taskActionDialog.mode === 'return') {
+      const submitReturnTask = isExternalReviewProcess.value
+        ? returnExternalFileReviewTask
+        : returnControlledFileTask
+      await submitReturnTask(controlledFileId.value, {
+        taskId,
+        targetTaskDefinitionKey: taskActionDialog.form.targetTaskDefinitionKey,
+        password,
+        reason
+      })
+    } else if (taskActionDialog.mode === 'transfer') {
+      const submitTransferTask = isExternalReviewProcess.value
+        ? transferExternalFileReviewTask
+        : transferControlledFileTask
+      await submitTransferTask(controlledFileId.value, {
+        taskId,
+        assigneeUserId: taskActionDialog.form.assigneeUserId as number,
+        password,
+        reason
+      })
+    } else {
+      const submitSignTask = isExternalReviewProcess.value
+        ? createExternalFileReviewSignTask
+        : createControlledFileSignTask
+      await submitSignTask(controlledFileId.value, {
+        taskId,
+        userIds: taskActionDialog.form.userIds,
+        type: taskActionDialog.form.signType,
+        password,
+        reason
+      })
+    }
+    message.success('操作成功')
+    closeTaskActionDialog()
+    await reloadAll()
+  } catch (error) {
+    if (isControlledFileTaskPasswordInvalidError(error)) {
+      taskActionDialog.fieldErrors = {
+        password: DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
+      }
+      taskActionDialog.inlineError = DCC_APPROVAL_WRONG_PASSWORD_MESSAGE
+      return
+    }
+    taskActionDialog.inlineError = resolveReadSideErrorMessage(
+      error,
+      '流程动作提交失败，请查看错误提示后重试。'
+    )
+  } finally {
+    taskActionDialog.submitting = false
+  }
+}
+
+onBeforeRouteLeave(async () => {
+  if (!(await cleanupApplicantTrainingRecordUploadSession())) {
+    return false
+  }
+  if (!(await cleanupFourthNodeUploadSessions())) {
+    return false
+  }
+  return true
+})
+
+onMounted(() => {
+  reloadAll()
+})
+
+watch(
+  () => route.fullPath,
+  () => {
+    reloadAll()
+  }
+)
+</script>
+
+<style scoped>
+.detail-viewer-page {
+  min-height: 560px;
+}
+
+.detail-viewer-page__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.detail-header-shell {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.detail-action-bar {
+  display: flex;
+  min-width: 320px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.detail-action-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.detail-action-group--primary {
+  flex: 1 1 auto;
+}
+
+.detail-action-group--more,
+.detail-action-group--danger {
+  flex: 0 0 auto;
+}
+
+.detail-handling-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #fafcff;
+}
+
+.detail-handling-summary__item {
+  min-width: 0;
+  padding: 2px 0;
+}
+
+.detail-handling-summary__label {
+  margin-bottom: 4px;
+  font-size: 12px;
+  line-height: 18px;
+  color: #4b5563;
+}
+
+.detail-handling-summary__value {
+  overflow: hidden;
+  color: #172033;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-handling-summary__value--blocker {
+  color: var(--el-color-danger);
+}
+
+.detail-access-explanation {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.detail-access-explanation__title {
+  color: #172033;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.detail-access-explanation__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.detail-access-explanation__item {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.detail-access-explanation__label {
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.detail-access-explanation__value {
+  overflow: hidden;
+  color: #172033;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-table-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.detail-view-mode {
+  flex: 0 0 auto;
+}
+
+.route-snapshot-summary {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.route-snapshot-summary__title {
+  overflow: hidden;
+  color: #172033;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.route-snapshot-summary__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.route-snapshot-summary__meta {
+  overflow: hidden;
+  color: #4b5563;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-distribution-summary,
+.detail-recovery-summary {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.detail-distribution-summary__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.detail-distribution-summary__medium {
+  min-width: 0;
+  overflow: hidden;
+  color: #172033;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-distribution-summary__meta,
+.detail-recovery-summary__meta {
+  overflow: hidden;
+  color: #4b5563;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-training-summary {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.detail-training-summary__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.detail-training-summary__progress,
+.detail-training-summary__time {
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.detail-lifecycle-timeline {
+  padding: 12px 14px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #fafcff;
+}
+
+.detail-lifecycle-timeline__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 10px;
+  padding: 8px 0 10px;
+}
+
+.detail-lifecycle-timeline__item:not(:last-child)::after {
+  position: absolute;
+  top: 28px;
+  bottom: -2px;
+  left: 8px;
+  width: 1px;
+  background: #dbe3ef;
+  content: '';
+}
+
+.detail-lifecycle-timeline__marker {
+  z-index: 1;
+  width: 10px;
+  height: 10px;
+  margin-top: 7px;
+  margin-left: 3px;
+  border-radius: 50%;
+  background: #1677ff;
+  box-shadow: 0 0 0 3px rgb(22 119 255 / 12%);
+}
+
+.detail-lifecycle-timeline__content {
+  min-width: 0;
+}
+
+.detail-lifecycle-timeline__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.detail-lifecycle-timeline__title {
+  overflow: hidden;
+  color: #172033;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-lifecycle-timeline__time {
+  margin-top: 3px;
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.detail-lifecycle-timeline__description,
+.detail-lifecycle-timeline__actor {
+  margin-top: 4px;
+  color: #263247;
+  font-size: 13px;
+  line-height: 20px;
+  word-break: break-word;
+}
+
+.detail-lifecycle-timeline__actor {
+  color: #4b5563;
+}
+
+.detail-viewer-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 400px);
+  gap: 16px;
+  align-items: start;
+}
+
+.detail-viewer-split__file,
+.detail-viewer-split__detail {
+  min-width: 0;
+}
+
+.detail-viewer-split__detail {
+  position: sticky;
+  top: 12px;
+  max-height: calc(100vh - 150px);
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+  box-shadow: 0 10px 24px rgb(15 23 42 / 6%);
+}
+
+.stage-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.stage-card {
+  padding: 16px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 12px;
+  background: var(--el-bg-color);
+}
+
+.stage-card.is-current {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 1px rgb(64 158 255 / 16%);
+}
+
+.stage-card.is-completed {
+  background: var(--el-color-success-light-9);
+}
+
+.signature-hash {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+}
+
+.signature-snapshot-muted {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 1180px) {
+  .detail-header-shell {
+    flex-direction: column;
+  }
+
+  .detail-action-bar {
+    min-width: 0;
+    justify-content: flex-start;
+  }
+
+  .detail-action-group {
+    justify-content: flex-start;
+  }
+
+  .detail-handling-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .detail-access-explanation__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .detail-viewer-split {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-viewer-split__detail {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 680px) {
+  .detail-handling-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-access-explanation__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-handling-summary__value {
+    white-space: normal;
+  }
+
+  .detail-lifecycle-timeline__heading {
+    align-items: flex-start;
+  }
+
+  .detail-lifecycle-timeline__title {
+    white-space: normal;
+  }
+}
+</style>

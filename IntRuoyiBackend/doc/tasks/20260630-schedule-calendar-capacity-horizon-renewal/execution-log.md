@@ -1,0 +1,26 @@
+# 20260630 排程日历日期产能覆盖窗口自动续期执行日志
+
+- `BDD: 覆盖窗口到期前自动续生成未来产能 -> Given 某启用产线已绑定排班计划且当前日期产能仅覆盖到未来某一天 / When 排产日历或排产计算需要访问更远日期 / Then 系统先按现有排程规则补齐缺失未来日期产能，再继续原有校验链路。`
+- `BDD: 已有人工维护的日期产能仍不覆盖 -> Given 某产线某天某班次已存在有效日期产能 / When 自动续生成机制运行 / Then 系统只补缺口，不覆盖已有 capacity_minutes、enabled 或 remark。`
+- `BDD: 无排班计划或无有效班次时仍 fail fast -> Given 某产线未绑定排班计划或规则下当天无可用班次 / When 自动续生成机制尝试补齐未来日期产能 / Then 系统不制造假产能，后续仍返回明确阻断。`
+- `BDD: 自动/手动重排共享同一续期机制 -> Given 排产预览、重排预览和排程日历都依赖日期产能 / When 未来覆盖窗口不足 / Then 三者都通过同一后端机制补齐正式日期产能，不再出现“某入口修了，另一个入口还报错”的分叉。`
+- `READONLY: Get-Content -Encoding utf8 docs/powershell-memory.md -> PASS，满足 PowerShell 前置门禁。`
+- `READONLY: Get-Content -Encoding utf8 backend-api-delivery/SKILL.md 与 references/backend-contract.md -> PASS，本轮按后端 API 交付流程执行严格 TDD。`
+- `READONLY: Get-Content -Encoding utf8 bug-regression-fix-loop/SKILL.md -> PASS，本轮同时按回归修复流程记录 RED/GREEN 证据。`
+- `READONLY: Get-Content -Encoding utf8 doc/tasks/20260623-schedule-calendar-capacity-generation/{task,execution-log}.md -> PASS，确认 2026-06-24 的长期方案只实现“显式生成未来产能”，未实现覆盖窗口自动续期。`
+- `READONLY: Get-Content -Encoding utf8 doc/tasks/20260630-auto-day-capacity-missing-20260910-analysis/task.md -> PASS，当前复发根因已确认是 tenant_id=1 / line_id=900040 的日期产能覆盖停在 2026-09-09。`
+- `READONLY: MesProScheduleCalendarServiceImpl / MesProAutoScheduleServiceImpl / MesProCapacityPlanMapper / 相关测试 -> PASS，已定位统一缺口：读取日期产能时只查现有 mes_pro_capacity_plan，未来覆盖窗口到期后没有统一续生成机制。`
+- RED: mvn -pl yudao-module-mes "-Dtest=MesProScheduleCalendarServiceImplTest#getMonth_shouldRenewFutureCapacityCoverageBeforeFailFastValidation+MesProAutoScheduleServiceImplTest#preview_shouldEnsurePlannedCapacityCoverageBeforeLoadingCapacityPlans" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL，未进入本次新增用例，先被当前仓库现存 ERP/MES 同步接口编译错误阻断（如 forceInitialWindowStart / fetchProductionMaterialListsByProductionOrderNos / ErpKingdeeProductionOrder 若干 getter 缺失）。
+- `CHANGE: MesProScheduleCalendarService 增加 ensureCapacityPlanCoverage(lineIds, startDate, endDate) 共享契约，供排程日历与自动排产共用正式日期产能续期机制。`
+- `CHANGE: MesProScheduleCalendarServiceImpl 将 generateCapacityPlans 核心生成逻辑抽为共享私有生成器；getMonth/getDayDetail 在日期产能覆盖校验前先补齐缺口，并保持无计划/无班次/无有效产能时继续 fail fast。`
+- `CHANGE: MesProAutoScheduleServiceImpl 在 PLANNED 模式加载 capacityPlanList 前，按产线计划 endDate 调用共享 ensureCapacityPlanCoverage，避免预览/重排因未来窗口耗尽再次报缺失。`
+- `CHANGE: 新增回归测试 getMonth_shouldRenewFutureCapacityCoverageBeforeFailFastValidation / preview_shouldEnsurePlannedCapacityCoverageBeforeLoadingCapacityPlans，覆盖“覆盖窗口耗尽但正式规则可续生成”场景。`
+- RED: mvn -pl yudao-module-mes -am "-Dtest=MesProScheduleCalendarServiceImplTest#getMonth_shouldRenewFutureCapacityCoverageBeforeFailFastValidation+MesProAutoScheduleServiceImplTest#preview_shouldEnsurePlannedCapacityCoverageBeforeLoadingCapacityPlans" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL，先暴露日历回归夹具与正式规则不一致：测试要求夜班缺口被自动生成，但排程日历正式规则只允许 DAY/REST，夜班不会被该机制生成。
+- `CHANGE: 调整 MesProScheduleCalendarServiceImplTest#getMonth_shouldRenewFutureCapacityCoverageBeforeFailFastValidation 为“白班跨日占用触发未来日期补齐”正式场景；保留验证点为自动补齐缺失日期产能并继续校验。`
+- RED: mvn -pl yudao-module-mes -am "-Dtest=MesProAutoScheduleServiceImplTest#preview_shouldEnsurePlannedCapacityCoverageBeforeLoadingCapacityPlans" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL，暴露该回归用例把任务切分数量写成 2；按当前正式分钟模型，60 件 / 30 件每小时 = 120 分钟，只应生成 1 条计划任务。
+- `CHANGE: 调整 MesProAutoScheduleServiceImplTest#preview_shouldEnsurePlannedCapacityCoverageBeforeLoadingCapacityPlans，仅断言与本次修复直接相关的正式行为：先调用 ensureCapacityPlanCoverage，再读取计划产能，并且预览生成有效任务而不是报产能缺失。`
+- `CHANGE: 调整 MesProScheduleCalendarServiceImplTest#getMonth_shouldFailFastWhenCapacityMissing，补 productionLineMapper.selectListByIds stub，并把夹具改为“正式续期也无法生成可用班次”场景，继续覆盖 fail fast。`
+- GREEN: mvn -pl yudao-module-mes -am "-Dtest=MesProScheduleCalendarServiceImplTest#getMonth_shouldRenewFutureCapacityCoverageBeforeFailFastValidation,MesProAutoScheduleServiceImplTest#preview_shouldEnsurePlannedCapacityCoverageBeforeLoadingCapacityPlans,MesProScheduleCalendarServiceImplTest#getMonth_shouldFailFastWhenCapacityMissing,MesProScheduleCalendarServiceImplTest#generateCapacityPlans_shouldCreateMissingWorkingDayCapacityRows,MesProAutoScheduleServiceImplTest#replanPreview_shouldExposeMissingShiftRowsWhenNightShiftCapacityMissing" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS，5 条新增/旧回归全部通过。
+- GREEN: git-commit -> PASS，已提交 `b0d401af1eba3a71befc3c8b5d07552a3425ed85`，提交信息 `任务: 修复排程日期产能覆盖自动续期`。
+- GREEN: release-handoff -> PASS，已转入维护仓任务 `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260701-schedule-calendar-capacity-horizon-release-test-server\` 执行 committed-only 测试服发布验证。
+- INFO: publish-test-independent-blocker -> `release-20260701-capacity-horizon-v1` 首次 `publish-test` 失败根因为 required SQL `20260630_mes_pro_work_order_erp_snapshot_fields.sql` 对已存在列重复加列；该阻断属于独立发布契约缺口，不影响本任务根因修复代码闭环结论。

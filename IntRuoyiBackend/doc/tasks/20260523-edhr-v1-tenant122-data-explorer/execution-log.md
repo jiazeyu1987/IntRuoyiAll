@@ -1,0 +1,32 @@
+# 执行日志：租户 122 eDHR E2E 真实数据现状盘点
+
+- 2026-05-23: 创建只读数据盘点任务，连接来源确认如下：
+  - 仓库本地配置：`yudao-server/src/main/resources/application-local.yaml` 指向 `jdbc:mysql://127.0.0.1:3306/ruoyi-vue-pro`
+  - 本机运行容器：`docker ps` 显示 `int-ruoyi-mysql` 暴露 `23306->3306`
+  - 实际只读连接：`python + pymysql` 连接 `127.0.0.1:23306 / ruoyi-vue-pro`
+- 2026-05-23: 查询 `system_tenant` / `system_users`，确认 `tenant_id = 122` 存在且不是租户号误判。
+- 2026-05-23: 基础表计数结果：
+  - `mes_pro_batch_record_report` = `15`
+  - `mes_md_item` = `0`
+  - `mes_pro_route` = `0`
+  - `mes_pro_route_product` = `0`
+  - `mes_pro_route_process` = `0`
+  - `mes_pro_work_order` = `0`
+  - `mes_pro_task` = `0`
+  - `mes_md_workstation` = `0`
+- 2026-05-23: 报表样本存在：
+  - `EBR_TN122_A_T01` ~ `EBR_TN122_A_T15`
+  - `route_key = 'A'`
+  - `sample_key = 'FIXED_DOC_TN122'`
+- 2026-05-23: 绑定与链路核对：
+  - 租户 `122` `route_process` 总量为 `0`，已绑定 `batch_record_report_id` 数量为 `0`
+  - 租户 `122` 弱链 `work_order -> item -> route_product -> route -> route_process -> batch_record_report` = `0`
+  - 租户 `122` 全链 `task -> work_order -> item -> route -> route_product -> route_process -> workstation -> batch_record_report` = `0`
+- 2026-05-23: 交叉参考当前库其他租户：
+  - MES 核心表真实数据仅见于 `tenant_id = 1`
+  - `tenant_id = 1` 仅 `1` 条 `route_process` 绑定了报表，但同库仍不存在可跑通的弱链或全链
+- 2026-05-23: 结论
+  - 租户 `122` 目前缺的是整套 MES 主数据与执行数据，不是只缺单点绑定
+  - 后续若要打通 eDHR E2E，至少需要为租户 `122` 新建或导入一条完整链：`item -> route -> route_product -> route_process(绑定 tenant122 report_id) -> workstation -> work_order(batch_code) -> task`
+- 2026-05-23: Closeout 预览
+  - `task_closeout.py --mode preview` -> BLOCKED，原因是 linked worktree 无法 ff-only 合并到 `int_main`，且主工作树和当前 worktree 均存在并行未提交改动。

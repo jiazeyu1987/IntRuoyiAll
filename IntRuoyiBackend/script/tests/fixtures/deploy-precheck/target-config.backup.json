@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "targetConfigId": "backup-default",
+  "environmentCode": "backup",
+  "hostRef": "runtime-control-managed-host-backup",
+  "dockerProfileId": "intruoyi-docker-compose",
+  "storageProfileIds": [
+    "minio-yudao-default"
+  ],
+  "artifactCacheProfiles": [
+    "nas-release-cache"
+  ],
+  "remoteReadOnlyProbe": {
+    "enabled": false,
+    "authorizationRef": null
+  }
+}

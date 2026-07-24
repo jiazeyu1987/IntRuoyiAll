@@ -1,0 +1,31 @@
+# 执行日志：调整展厅生成产品主数据映射规则
+
+- BDD: 展厅产品按最新规则生成主数据 -> Given 本机 `芋道源码/admin` 展厅产品列表存在中文名称、英文名称和持证人 / When 管理员预览并确认映射 / Then 产品主数据中文名、英文名、分类分别来自展厅字段，DCC 产品编号为空，产品编码为 `INT-数字`。
+- BDD: 重复执行保持可追溯绑定 -> Given 展厅产品已绑定产品主数据 / When 重新确认映射 / Then 系统更新已绑定主数据的名称、英文名、分类、产品编码和 DCC 产品编号，不新增重复主数据。
+- BDD: 展厅映射清空 DCC 产品编号 -> Given 产品主数据已拥有历史 DCC 产品编号 / When 展厅按 `product_master_id` 同步该产品 / Then 同步请求与主数据更新把产品编码改为 `INT-展厅产品ID`，并把 DCC 产品编号置空。
+- BDD: 产品编码变更不影响跨模块关联 -> Given 产品主数据已被展厅和 DCC 通过 `product_master_id` 引用 / When 管理员修改该产品主数据的 `product_code` / Then 产品主数据 ID 保持不变，展厅和 DCC 仍通过同一个 ID 对应该产品。
+- BDD: 产品主数据导出更新时间按年月日 -> Given 产品主数据存在更新时间 / When 管理员导出 Excel / Then 更新时间列按年月日格式输出。
+- RED: `mvn -pl yudao-module-mdm -am "-Dtest=MdmProductServiceImplTest,MdmProductExportExcelVOTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，新增测试引用的 `MdmProductExportExcelVO` 和 `MdmProductShowroomSyncReqDTO.productMasterId` 尚不存在。
+- RED: `mvn -pl yudao-module-showroom -am "-Dtest=ShowroomMdmProductMappingServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，旧展厅映射仍按旧展厅 `product_code` 与旧字段生成主数据，未按 `INT-数字`、持证人分类、绑定主数据更新规则执行。
+- GREEN: `mvn -pl yudao-module-mdm -am "-Dtest=MdmProductServiceImplTest,MdmProductExportExcelVOTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，3 tests，覆盖展厅同步更新产品编码、清空 DCC 产品编号、手工更新产品编码和 Excel 更新时间日期格式。
+- GREEN: `mvn -pl yudao-module-showroom -am "-Dtest=ShowroomMdmProductMappingServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，3 tests，覆盖 `INT-数字` 编码、分类来自持证人、绑定主数据更新、瑛泰持证人旧 ID 解析和空持证人保留空分类。
+- RED: `GET /admin-api/showroom/product/mdm-mapping-preview` 使用本机 `芋道源码/admin` 租户 1 -> FAIL，首次真实预览返回 `totalCount=178`、`updateCount=176`、`failureCount=2`；失败行为展厅产品 1 持证人旧 ID `124` 已不存在但 `product_owner_type=YINGTAI`，展厅产品 50 持证人为空。
+- GREEN: 调整为与现有展厅 Excel 导出一致的正式解析规则后，`GET /admin-api/showroom/product/mdm-mapping-preview` -> PASS，`mappingHash=d628c23f6c7bb56b97a0af23294c5913a6e665f34ede566a46579f5c3ea8fee5`，`totalCount=178`，`createCount=0`，`updateCount=178`，`linkedCount=0`，`failureCount=0`。
+- GREEN: `POST /admin-api/showroom/product/mdm-mapping-confirm` 使用相同 `mappingHash` -> PASS，`totalCount=178`，`createCount=0`，`updateCount=178`，`linkedCount=0`，`failureCount=0`。
+- GREEN: 数据库核验 -> PASS，`mdm_total=178`，`showroom_active=178`，`showroom_bound=178`，`missing_bound_master=0`，`invalid_code=0`，`code_mismatch=0`，`non_null_dcc=0`，`name_mismatch=0`，`blank_owner_category_not_null=0`，`company_category_mismatch=0`；样例展厅产品 1 为 `INT-1` 且分类为当前瑛泰公司，展厅产品 50 为 `INT-50` 且分类为空。
+- GREEN: `GET /admin-api/mdm/product/page?pageNo=1&pageSize=10` -> PASS，返回 `total=178`；`GET /admin-api/mdm/product/export-excel` -> PASS，返回 Excel 内容 14264 bytes。
+- GREEN: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260607-product-master-showroom-rule-update/backend-api-evidence.md` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260607-product-master-showroom-rule-update/database-schema-evidence.md` -> PASS。
+- RED: 最终暂存前重跑 `mvn -pl yudao-module-mdm -am "-Dtest=MdmProductServiceImplTest,MdmProductExportExcelVOTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，展厅同步路径仍把旧 DCC 编号带入更新，测试期望 `dccProductCode=null` 但实际为 `A1234567890123`。
+- GREEN: 修正展厅同步路径固定清空 DCC 编号后，`mvn -pl yudao-module-mdm -am "-Dtest=MdmProductServiceImplTest,MdmProductExportExcelVOTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，3 tests。
+- RED: 最终暂存前重跑 `mvn -pl yudao-module-showroom -am "-Dtest=ShowroomMdmProductMappingServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，绑定主数据确认路径仍传旧编码 `P-001`，测试期望 `INT-1`。
+- GREEN: 修正绑定主数据时使用生成编码并保留冲突校验后，`mvn -pl yudao-module-showroom -am "-Dtest=ShowroomMdmProductMappingServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，3 tests。
+- GREEN: 证据更新后重跑 `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260607-product-master-showroom-rule-update/backend-api-evidence.md` -> PASS。
+- GREEN: 证据更新后重跑 `python -X utf8 C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260607-product-master-showroom-rule-update/database-schema-evidence.md` -> PASS。
+- GREEN: 重启本机后端后健康检查 -> PASS，`http://127.0.0.1:48081/actuator/health` 返回 `UP`。
+- GREEN: 重启后只读 API 核验 -> PASS，`GET /admin-api/showroom/product/mdm-mapping-preview` 返回 `totalCount=178`、`createCount=0`、`updateCount=178`、`linkedCount=0`、`failureCount=0`；`GET /admin-api/mdm/product/page?pageNo=1&pageSize=10` 返回 `total=178`，首条 `productCode=INT-251` 且 `dccProductCode=null`。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro --task-id 20260607-product-master-showroom-rule-update --mode preview` -> PASS，status=ready，delete=<none>，blocked=<none>。
+- GREEN: 后端修正提交 `b35ea670be` 后重启 -> PASS，运行包 `backend-runtime-control-20260607-235941.jar`，`http://127.0.0.1:48081/actuator/health` 返回 `UP`。
+- GREEN: 修正提交后只读 API 核验 -> PASS，使用 `芋道源码/admin` 登录；`GET /admin-api/showroom/product/mdm-mapping-preview` 返回 `totalCount=178`、`createCount=0`、`updateCount=178`、`linkedCount=0`、`failureCount=0`；`GET /admin-api/mdm/product/page?pageNo=1&pageSize=10` 返回 `total=178`、首条 `productCode=INT-251`、`dccProductCode=null`；`GET /admin-api/mdm/product/simple-list?status=ENABLE` 返回 178 条，首条为 `INT-1` 且 `dccProductCode=null`。
+- GREEN: 最终数据库一致性核验 -> PASS，`mdm_total=178`，`showroom_total=178`，`showroom_bound=178`，`missing_bound_master=0`，`invalid_code=0`，`code_mismatch=0`，`non_null_dcc=0`，`missing_revision=0`，`name_cn_mismatch=0`，`name_en_mismatch=0`，`category_mismatch=0`，`model_mismatch=0`，`unresolved_category_expected=0`。
+- GREEN: Playwright 前端验证 -> PASS，从 `http://localhost:8081` 使用 `芋道源码/admin` 登录并访问 `/mdm/product`，页面显示 `基础数据 / 产品主数据`、产品编码、中文名称、更新时间、导入、导出和 10 行表格；列表显示 `INT-数字` 编码、DCC 产品编号为 `-`、更新时间为 `2026-06-07`。

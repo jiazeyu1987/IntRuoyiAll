@@ -1,0 +1,20 @@
+{
+  "changes": [
+    {
+      "tableName": "system_menu",
+      "naturalKeyValue": {
+        "permission": "system:user:list"
+      },
+      "changedFields": ["name", "status"],
+      "tenantCode": null
+    },
+    {
+      "tableName": "dcc_controlled_file",
+      "naturalKeyValue": {
+        "fileCode": "DCC-001"
+      },
+      "changedFields": ["file_name"],
+      "tenantCode": "test"
+    }
+  ]
+}

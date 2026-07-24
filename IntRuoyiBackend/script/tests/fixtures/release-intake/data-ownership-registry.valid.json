@@ -1,0 +1,18 @@
+{
+  "registryVersion": "1.0",
+  "entries": [
+    {
+      "entryId": "system-menu",
+      "moduleName": "system",
+      "tableName": "system_menu",
+      "naturalKey": ["permission"],
+      "tenantScope": "all-tenants",
+      "ownedFields": ["name", "status", "permission"],
+      "forbiddenOverwriteFields": ["id", "create_time", "update_time"],
+      "extractSqlRef": "system-menu.extract.sql",
+      "verifySqlRef": "system-menu.verify.sql",
+      "deletePolicy": "never",
+      "resourceBinding": null
+    }
+  ]
+}

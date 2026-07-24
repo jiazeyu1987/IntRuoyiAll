@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "scope": "SRM srm9 W0-W6 implementation-readiness and blocker gate",
+  "sources": [
+    "docs/srm/srm9-w0-freeze-pack.md",
+    "docs/srm/srm9-landing-plan.md",
+    "docs/dependencies/dependency-inventory.md",
+    "docs/dependencies/launch-blockers.md"
+  ],
+  "waves": {
+    "W0": {
+      "level": "L4",
+      "status": "READY",
+      "freezePackage": null,
+      "freezePackageStatus": null,
+      "excelItems": ["1", "2", "3", "4", "7", "8", "9", "10", "11", "12"],
+      "allowedActions": ["Maintain freeze pack", "Maintain dependency inventory", "Maintain blocker manifest", "Maintain gate tests"],
+      "disallowedActions": ["Implement production business behavior before the matching freeze package is FROZEN"],
+      "requiredEvidence": ["Freeze status table", "Dependency owner and acquisition steps", "Gate test result"],
+      "blockerIds": []
+    },
+    "W1": {
+      "level": "L1",
+      "status": "BLOCKED",
+      "freezePackage": "W0-01",
+      "freezePackageStatus": "BLOCKED",
+      "excelItems": ["1", "2"],
+      "allowedActions": ["Prepare enterprise information provider questions", "Reuse existing ERP Kingdee config and read-sync evidence", "Prepare SRM supplier write-back field mapping questions", "Use supplier 103 as K3-mapped portal-approved SRM page E2E sample", "Use supplier 108 as SRM-only page path comparison sample"],
+      "disallowedActions": ["Implement enterprise autofill", "Reimplement existing ERP Kingdee config/read-sync", "Implement K3 supplier write-back success path"],
+      "requiredEvidence": ["Provider contract", "Existing ERP Kingdee config readonly evidence", "Supplier write-back target FormId", "SRM to K3 field mapping", "Sandbox write/readback samples", "Failure policy", "K3-mapped portal-approved SRM page E2E sample", "SRM-only page path comparison sample"],
+      "blockerIds": ["SRM9-DEP-001", "SRM9-DEP-002", "SRM9-DEP-012"]
+    },
+    "W2": {
+      "level": "L2",
+      "status": "BLOCKED",
+      "freezePackage": "W0-02",
+      "freezePackageStatus": "BLOCKED",
+      "excelItems": ["4"],
+      "allowedActions": ["Collect mold price examples", "Collect ladder price examples", "Collect quotation approval policy"],
+      "disallowedActions": ["Create pricing schema before rule approval", "Implement approval workflow before state policy is frozen"],
+      "requiredEvidence": ["Approved pricing examples", "Approval state chart", "Reject return withdraw rules", "Edge-case samples"],
+      "blockerIds": ["SRM9-DEP-003", "SRM9-DEP-004", "SRM9-DEP-012"]
+    },
+    "W3": {
+      "level": "L1",
+      "status": "BLOCKED",
+      "freezePackage": "W0-03",
+      "freezePackageStatus": "BLOCKED",
+      "excelItems": ["3", "12"],
+      "allowedActions": ["Prepare metric dictionary questions", "Prepare dashboard ownership questions", "Prepare mobile scope decision"],
+      "disallowedActions": ["Build static dashboard", "Hard-code scores", "Use screenshots as data evidence"],
+      "requiredEvidence": ["Metric dictionary", "Weights and thresholds", "Source ownership", "Role permissions", "Mobile scope decision"],
+      "blockerIds": ["SRM9-DEP-005", "SRM9-DEP-006", "SRM9-DEP-012"]
+    },
+    "W4": {
+      "level": "L1",
+      "status": "BLOCKED",
+      "freezePackage": "W0-04",
+      "freezePackageStatus": "BLOCKED",
+      "excelItems": ["7", "8", "9", "10"],
+      "allowedActions": ["Prepare PDA and warehouse contract questions", "Prepare quality and return closure questions", "Prepare reconciliation source-of-truth matrix"],
+      "disallowedActions": ["Relabel controlled simulation as real integration", "Duplicate outsource execution baseline"],
+      "requiredEvidence": ["PDA contract", "Warehouse contract", "Quality result enum", "Return closure state chart", "Reconciliation source matrix", "Real samples"],
+      "blockerIds": ["SRM9-DEP-007", "SRM9-DEP-008", "SRM9-DEP-009", "SRM9-DEP-012"]
+    },
+    "W5": {
+      "level": "L1",
+      "status": "BLOCKED",
+      "freezePackage": "W0-05",
+      "freezePackageStatus": "BLOCKED",
+      "excelItems": ["11"],
+      "allowedActions": ["Prepare e-signature contract questions", "Prepare finance receipt questions", "Prepare payment failure policy"],
+      "disallowedActions": ["Default finance push to success", "Skip signature evidence", "Swallow receipt failures"],
+      "requiredEvidence": ["Signature provider contract", "Callback sample", "Finance push contract", "Receipt fields", "Retry and manual handling policy"],
+      "blockerIds": ["SRM9-DEP-010", "SRM9-DEP-011", "SRM9-DEP-012"]
+    },
+    "W6": {
+      "level": "L0",
+      "status": "BLOCKED",
+      "freezePackage": null,
+      "freezePackageStatus": null,
+      "excelItems": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
+      "allowedActions": ["Maintain regression checklist"],
+      "disallowedActions": ["Launch before W1-W5 implementation and merged-result verification"],
+      "requiredEvidence": ["Merged-result verification", "Admin readonly verification", "Rollback statement", "Full SRM regression"],
+      "blockerIds": ["SRM9-LAUNCH-001", "SRM9-LAUNCH-002", "SRM9-LAUNCH-003", "SRM9-LAUNCH-004", "SRM9-LAUNCH-005"]
+    }
+  },
+  "regressionBaseline": {
+    "freezePackage": "W0-06",
+    "freezePackageStatus": "FROZEN",
+    "excelItems": ["5", "6"],
+    "rule": "Regression only. Do not duplicate development for purchase request or order change baseline."
+  },
+  "blockers": {
+    "SRM9-DEP-001": {"wave": "W1", "type": "development", "status": "BLOCKED", "missing": "Enterprise information provider contract"},
+    "SRM9-DEP-002": {"wave": "W1", "type": "development", "status": "BLOCKED", "missing": "K3 supplier master write-back contract"},
+    "SRM9-DEP-003": {"wave": "W2", "type": "development", "status": "BLOCKED", "missing": "Mold price and ladder price business rules"},
+    "SRM9-DEP-004": {"wave": "W2", "type": "development", "status": "BLOCKED", "missing": "Quotation comparison approval policy"},
+    "SRM9-DEP-005": {"wave": "W3", "type": "development", "status": "BLOCKED", "missing": "Supplier performance scoring contract"},
+    "SRM9-DEP-006": {"wave": "W3", "type": "development", "status": "BLOCKED", "missing": "Dashboard metric and mobile carrier decision"},
+    "SRM9-DEP-007": {"wave": "W4", "type": "development-test", "status": "BLOCKED", "missing": "PDA and warehouse integration contract"},
+    "SRM9-DEP-008": {"wave": "W4", "type": "development-test", "status": "BLOCKED", "missing": "Quality and return closure contract"},
+    "SRM9-DEP-009": {"wave": "W4", "type": "development-test", "status": "BLOCKED", "missing": "Reconciliation authoritative data sources"},
+    "SRM9-DEP-010": {"wave": "W5", "type": "development-test", "status": "BLOCKED", "missing": "E-signature platform contract"},
+    "SRM9-DEP-011": {"wave": "W5", "type": "development-test", "status": "BLOCKED", "missing": "Finance push contract"},
+    "SRM9-DEP-012": {"wave": "W1-W5", "type": "test", "status": "BLOCKED", "missing": "Approved test samples for real integration"},
+    "SRM9-LAUNCH-001": {"wave": "W6", "type": "launch", "status": "BLOCKED", "missing": "W1-W5 implementation readiness"},
+    "SRM9-LAUNCH-002": {"wave": "W6", "type": "launch", "status": "BLOCKED", "missing": "Real external integration evidence"},
+    "SRM9-LAUNCH-003": {"wave": "W6", "type": "launch", "status": "BLOCKED", "missing": "Merged-result verification"},
+    "SRM9-LAUNCH-004": {"wave": "W6", "type": "launch", "status": "BLOCKED", "missing": "Admin readonly verification"},
+    "SRM9-LAUNCH-005": {"wave": "W6", "type": "launch", "status": "BLOCKED", "missing": "Rollback statement for integration failures"}
+  },
+  "failFastRules": [
+    "Do not use mock success or default-success behavior for missing external contracts.",
+    "Do not relabel controlled simulation as real integration.",
+    "Do not start W1-W5 production implementation while the matching W0 freeze package is BLOCKED or DEFERRED.",
+    "Do not record credentials, tokens, passwords, AppID, AppSecret, or production endpoints in this manifest."
+  ]
+}

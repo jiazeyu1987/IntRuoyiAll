@@ -1,0 +1,180 @@
+CREATE TABLE IF NOT EXISTS `showroom_public_site_binding` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `site_key` varchar(64) NOT NULL,
+  `stage` varchar(16) NOT NULL,
+  `tenant_id` bigint NOT NULL,
+  `display_name` varchar(128) NOT NULL,
+  `enabled` bit(1) NOT NULL DEFAULT b'1',
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_showroom_public_site_stage` (`site_key`, `stage`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='展厅公开站点绑定';
+
+CREATE TABLE IF NOT EXISTS `showroom_release` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `release_id` varchar(64) NOT NULL,
+  `site_key` varchar(64) NOT NULL,
+  `stage` varchar(16) NOT NULL,
+  `schema_version` int NOT NULL,
+  `manifest_hash` varchar(64) NOT NULL,
+  `root_document_id` varchar(64) NOT NULL,
+  `document_count` int NOT NULL,
+  `asset_count` int NOT NULL,
+  `install_bytes` bigint NOT NULL,
+  `published_at` datetime NOT NULL,
+  `status` varchar(32) NOT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_showroom_release_id` (`release_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='展厅发布主表';
+
+CREATE TABLE IF NOT EXISTS `showroom_release_source_snapshot` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `release_id` varchar(64) NOT NULL,
+  `site_key` varchar(64) NOT NULL,
+  `stage` varchar(16) NOT NULL,
+  `company_revision_id` bigint NOT NULL,
+  `hall_snapshot_hash` varchar(64) NOT NULL,
+  `hall_product_mapping_hash` varchar(64) NOT NULL,
+  `product_revision_ids_json` longtext NOT NULL,
+  `preview_asset_version_ids_json` longtext NOT NULL,
+  `narration_version_ids_json` longtext NOT NULL,
+  `resolved_at` datetime NOT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_showroom_release_snapshot_release` (`release_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='展厅发布 source snapshot';
+
+CREATE TABLE IF NOT EXISTS `showroom_release_document` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `release_id` varchar(64) NOT NULL,
+  `site_key` varchar(64) NOT NULL,
+  `stage` varchar(16) NOT NULL,
+  `document_id` varchar(128) NOT NULL,
+  `kind` varchar(64) NOT NULL,
+  `product_id` bigint DEFAULT NULL,
+  `content_hash` varchar(64) NOT NULL,
+  `bytes` bigint NOT NULL,
+  `materialized_at` datetime NOT NULL,
+  `payload_json` longtext NOT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_showroom_release_document` (`release_id`, `document_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='展厅发布文档';
+
+CREATE TABLE IF NOT EXISTS `showroom_release_asset` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `site_key` varchar(64) NOT NULL,
+  `stage` varchar(16) NOT NULL,
+  `asset_id` varchar(128) NOT NULL,
+  `asset_type` varchar(32) NOT NULL,
+  `content_hash` varchar(64) NOT NULL,
+  `mime_type` varchar(128) NOT NULL,
+  `bytes` bigint NOT NULL,
+  `storage_key` varchar(255) NOT NULL,
+  `materialized_at` datetime NOT NULL,
+  `status` varchar(32) NOT NULL,
+  `binary_content` longblob NOT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_showroom_release_asset` (`tenant_id`, `site_key`, `stage`, `asset_id`, `content_hash`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='展厅发布资源';
+
+CREATE TABLE IF NOT EXISTS `showroom_release_asset_ref` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `release_id` varchar(64) NOT NULL,
+  `site_key` varchar(64) NOT NULL,
+  `stage` varchar(16) NOT NULL,
+  `document_id` varchar(128) NOT NULL,
+  `asset_id` varchar(128) NOT NULL,
+  `content_hash` varchar(64) NOT NULL,
+  `usage_code` varchar(64) NOT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `idx_showroom_release_asset_ref_release` (`release_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='展厅发布资源引用';
+
+CREATE TABLE IF NOT EXISTS `showroom_release_pointer` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `site_key` varchar(64) NOT NULL,
+  `stage` varchar(16) NOT NULL,
+  `pointer_key` varchar(64) NOT NULL,
+  `release_id` varchar(64) NOT NULL,
+  `manifest_hash` varchar(64) NOT NULL,
+  `updated_at` datetime NOT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_showroom_release_pointer_scope` (`tenant_id`, `site_key`, `stage`, `pointer_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='展厅当前发布指针';
+
+CREATE TABLE IF NOT EXISTS `showroom_release_legacy_projection` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `release_id` varchar(64) NOT NULL,
+  `site_key` varchar(64) NOT NULL,
+  `stage` varchar(16) NOT NULL,
+  `projection_hash` varchar(64) NOT NULL,
+  `published_at` datetime NOT NULL,
+  `root_document_id` varchar(64) NOT NULL,
+  `status` varchar(32) NOT NULL,
+  `payload_json` longtext NOT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_showroom_release_legacy_projection_release` (`release_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='展厅 legacy website-config 投影';
+
+CREATE TABLE IF NOT EXISTS `showroom_release_tombstone` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `site_key` varchar(64) NOT NULL,
+  `stage` varchar(16) NOT NULL,
+  `resource_type` varchar(32) NOT NULL,
+  `resource_key` varchar(255) NOT NULL,
+  `purged_at` datetime NOT NULL,
+  `reason` varchar(255) NOT NULL,
+  `creator` varchar(64) DEFAULT '',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updater` varchar(64) DEFAULT '',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted` bit(1) NOT NULL DEFAULT b'0',
+  `tenant_id` bigint NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_showroom_release_tombstone` (`tenant_id`, `site_key`, `stage`, `resource_type`, `resource_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='展厅发布 purge tombstone';

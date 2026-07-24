@@ -1,0 +1,35 @@
+# 执行日志：SRM NAS定位 后端与 SQL
+
+- 2026-06-28：创建后端任务文档，按 SQL 契约测试、服务单测、最小实现和回归验证推进。
+- BDD: 没有成功快照时 page/download 都显式暴露前置缺失 -> Given 当前租户没有任何成功快照 / When 调用 `page` 或 `download` / Then 接口必须返回明确失败信息，不返回默认空成功。
+- BDD: 同租户刷新任务不允许并发运行 -> Given 当前租户已有 `RUNNING` 状态刷新任务 / When 用户再次调用 `refresh` / Then 系统必须阻断第二次刷新并返回显式错误。
+- BDD: 刷新成功后目录与文件都落库且搜索仅返回 FILE -> Given 当前 NAS 共享可正常遍历 / When 刷新任务成功 / Then 目录与文件都应写入快照表，`page` 搜索只返回 `FILE` 记录。
+- BDD: 刷新中遇到不可读目录时仅跳过该目录并保留可读快照 -> Given 用户已批准 readable-only 范围且当前账号对部分目录无读取权限 / When 刷新任务继续遍历 / Then 系统应跳过 `access denied` 目录、保留其它可读目录与文件的快照，其它异常仍需显式失败。
+- BDD: 下载必须校验缓存记录类型和受保护共享配置 -> Given 下载请求按缓存 id 命中记录 / When 记录不是 `FILE` 或共享不是 `质量体系文件` / Then 接口立即失败。
+- GREEN: `python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_srm_d7_d10_sql_contract.py -k nas_locator` -> PASS
+- GREEN: `mvn -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\pom.xml -pl yudao-module-srm -Dtest=SrmNasLocatorServiceTest test` -> PASS
+- GREEN: experience-preflight -> PASS，`48081` 健康检查成功、Docker MySQL/Redis 正常、当前 `infra_config` 指向 `\\172.30.30.4\质量体系文件`。
+- RED: 本机执行 `20260628_srm_t6_nas_locator.sql` -> FAIL，MySQL 返回 `Specified key was too long; max key length is 3072 bytes`。
+- FIX: 唯一键改为 `uk_srm_nas_locator_entry_task_type_path_hash`，服务侧新增 `path_hash=SHA-256(path)` 落库。
+- GREEN: `python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_srm_d7_d10_sql_contract.py -k nas_locator` -> PASS，SQL 契约回归通过。
+- GREEN: `mvn -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\pom.xml -pl yudao-module-srm -Dtest=SrmNasLocatorServiceTest test` -> PASS，后端单测回归通过。
+- BLOCKER: 真实刷新 -> FAIL，测试租户新任务 `status=FAILED`、`error_message=NAS 认证失败`。
+- GREEN: `cmd /c net use \\172.30.30.4\质量体系文件 /user:int Kdlyx123` -> PASS，确认账号 `int` 认证成功。
+- GREEN: `docker exec int-ruoyi-mysql mysql ... UPDATE infra_config SET value='int' WHERE config_key='infra.nas.username'` -> PASS，本机运行库已切换到账号 `int`。
+- BLOCKER: 真实刷新二次重跑 -> FAIL，任务 `status=FAILED`、`error_message=NAS 读取失败：access denied: #recycle`。
+- RED: `mvn -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\pom.xml -pl yudao-module-srm -am "-Dtest=SrmNasLocatorServiceTest#runRefreshNow_shouldSkipSystemOrHiddenDirectoriesWhileKeepingBusinessDirectoriesIndexed" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，系统/隐藏目录仍被递归。
+- FIX: `FileNasListRespVO.Item` 增加 `system/hidden`；`NasBrowserServiceImpl` 读取 SMB 属性；`SrmNasLocatorServiceImpl` 跳过 `dir && (system || hidden)`。
+- GREEN: `mvn -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\pom.xml -pl yudao-module-srm -am "-Dtest=SrmNasLocatorServiceTest#runRefreshNow_shouldSkipSystemOrHiddenDirectoriesWhileKeepingBusinessDirectoriesIndexed" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS
+- BLOCKER: 系统目录过滤后的真实接口 -> FAIL，任务 `status=FAILED`、`error_message=NAS 读取失败：access denied: 4. External documents`。
+- 2026-06-29：用户批准范围调整为“只做可读的,不可读的不做”。
+- RED: 真实业务目录 `access denied` 仍导致整次刷新 `FAILED`，不满足用户最新批准范围。
+- FIX: `SrmNasLocatorServiceImpl` 在用户批准范围内显式跳过 `access denied` 目录，仅索引可读目录和文件；其它异常继续失败。
+- FIX: `NasBrowserService` / `NasBrowserServiceImpl` 新增 `executeInSession(...)`，单次刷新复用一个 SMB 会话。
+- FIX: `NasBrowserServiceImpl.normalizeRelativePath()` 改为保留真实路径段字符，修复尾部特殊空白字符目录无法继续进入的问题。
+- FIX: `SrmNasLocatorServiceImpl.download(...)` 使用 UTF-8 可读附件头，真实浏览器下载文件名恢复可读。
+- GREEN: `mvn -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\pom.xml -pl yudao-module-infra "-Dtest=NasBrowserServiceImplTest" test` -> PASS
+- GREEN: `mvn -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\pom.xml -pl yudao-module-srm -am "-Dtest=SrmNasLocatorServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS
+- GREEN: `python -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_srm_d7_d10_sql_contract.py -k nas_locator` -> PASS
+- GREEN: 真实数据库回读 -> PASS，测试租户最新成功任务 `id=9`、`status=SUCCESS`、`directory_count=5079`、`file_count=33966`、`finished_time=2026-06-29 00:52:50`。
+- GREEN: 真实搜索快照回读 -> PASS，最新成功快照 `FILE=33966`、`DIRECTORY=5079`。
+- GREEN: 真实下载接口 -> PASS，浏览器收到文件名可读的真实附件。

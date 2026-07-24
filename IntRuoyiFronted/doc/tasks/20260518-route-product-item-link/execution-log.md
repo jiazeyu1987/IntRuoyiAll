@@ -1,0 +1,9 @@
+# Execution Log: 工艺路线关联物品支持点击跳转
+
+BDD: route_product_item_code_opens_item_detail_page -> Given 用户在工艺路线详情弹窗的“关联产品”页签看到一条已关联物料 / When 用户点击该行的产品物料编码 / Then 页面跳转到 MES 物料产品列表，并自动打开该物料的详情弹窗。
+RED: `node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260518-route-product-item-link\scripts\verify-route-product-item-link.mjs` -> FAIL, `RouteProductList.vue` 尚未提供 `handleOpenItemDetail`，物料页也尚未消费 `openDetailId` query。
+GREEN: `node D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260518-route-product-item-link\scripts\verify-route-product-item-link.mjs` -> PASS, 关联产品链接函数、`MesMdItem` 路由跳转与物料页 query 承接全部到位。
+GREEN: `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm exec vue-tsc --noEmit -p tsconfig.relaxed.json` -> PASS, 目标前端改动通过类型检查；默认内存配置会 OOM，已通过显式扩容完成验证。
+GREEN: `npx.cmd --yes --package @playwright/cli playwright-cli -s=route-product-item-link-green run-code --filename D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260518-route-product-item-link\scripts\verify-route-product-item-link-e2e.mjs` -> PASS, 真实前端从 `ROUTE-XLSX-00002` 的“关联产品”点击 `YXN.069.001.1011` 后，页面跳转到 `/mes/md/item?code=YXN.069.001.1011&openDetailId=910650`，并自动打开物料详情弹窗。
+GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260518-route-product-item-link\frontend-feature-evidence.md` -> PASS, frontend feature evidence contract validated before closeout cleanup.
+GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 --task-id 20260518-route-product-item-link --mode preview` -> PASS, preview kept `task.md` / `execution-log.md` and marked `frontend-feature-evidence.md` plus verification scripts as removable task artifacts.

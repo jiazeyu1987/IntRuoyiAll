@@ -1,0 +1,36 @@
+{
+  "workbook": "D:\\ProjectPackage\\Int\\IntRuoyi\\resource\\产品资料正式版.xlsx",
+  "sheetName": "产品列表",
+  "headerRow": 1,
+  "productCodeColumn": 1,
+  "productImageColumn": 13,
+  "productRow": 2,
+  "anchor": {
+    "anchorType": "oneCellAnchor",
+    "row": 2,
+    "col": 13,
+    "relationshipId": "rId1",
+    "target": "xl/media/image1.png"
+  },
+  "candidateCount": 1,
+  "imagePath": "D:\\ProjectPackage\\Int\\IntRuoyi\\yudao-ui-admin-vue3\\doc\\tasks\\20260601-product001-cover-website-e2e\\evidence\\product001-excel-cover.png",
+  "mimeGuess": "image/png",
+  "format": "PNG",
+  "mode": "RGBA",
+  "width": 120,
+  "height": 90,
+  "bytes": 4235,
+  "sha256": "b7a35f69730887ead9da9e7866834635161afa8286783e9fa63dff718769d611",
+  "alpha": {
+    "hasAlphaMode": true,
+    "min": 0,
+    "max": 255,
+    "transparentPixels": 9679,
+    "fullyTransparentPixels": 9679,
+    "semiTransparentPixels": 0,
+    "opaquePixels": 1121,
+    "totalPixels": 10800,
+    "transparentRatio": 0.8962037037037037,
+    "hasTransparentBackgroundEvidence": true
+  }
+}

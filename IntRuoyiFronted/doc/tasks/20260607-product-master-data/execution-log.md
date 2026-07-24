@@ -1,0 +1,34 @@
+# 执行日志：产品主数据前端
+
+- BDD: 管理员维护产品主数据 -> Given 用户具有产品主数据权限 / When 进入 `基础数据 / 产品主数据` / Then 可查询、新增、编辑、启用停用、导入、导出产品。
+- BDD: Excel 导入必须先预览差异 -> Given 用户上传产品主数据 Excel / When 点击导入 / Then 页面展示新增、更新、停用、失败明细，确认后才写入。
+- BDD: DCC 上传选择产品主数据 -> Given 用户进入 DCC 受控上传页 / When 选择产品 / Then 产品编号来自启用且有 14 位 DCC 编号的主数据产品。
+- BDD: 展厅选择产品主数据 -> Given 用户维护展厅产品或展柜产品 / When 搜索或选择产品 / Then 产品编码和名称来自产品主数据。
+- BDD: 芋道源码管理员预览展厅映射 -> Given `芋道源码/admin` 进入产品主数据页 / When 点击展厅映射并生成预览 / Then 页面显示新增、更新、绑定和失败明细，失败数为 0 时才允许确认映射。
+
+- RED: `node scripts/mdm-product-master-contract.test.mjs` -> FAIL，expected reason：产品主数据页面缺少 `基础数据` 入口标识。
+- GREEN: `node scripts/mdm-product-master-contract.test.mjs` -> PASS，1 test，0 failures。
+- RED: `pnpm ts:check` -> FAIL，expected reason：worktree 缺少 `node_modules/vue-tsc`。
+- GREEN: `pnpm install --frozen-lockfile` -> PASS，依赖按锁文件安装完成。
+- RED: `pnpm ts:check` -> FAIL，expected reason：vue-tsc 默认 Node 堆内存不足，进程 OOM。
+- GREEN: `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm ts:check` -> PASS。
+- GREEN: `pnpm exec eslint --ext .ts,.vue scripts\mdm-product-master-contract.test.mjs src\api\mdm\product\index.ts src\views\mdm\product\index.vue src\api\dcc\controlledFile\workflow.ts src\views\dcc\controlled-file\upload\submitter.ts src\views\dcc\controlled-file\upload\index.vue src\views\dcc\controlled-file\shared\ControlledFileMetadataDialog.vue src\views\dcc\controlled-file\external-review\index.vue src\api\showroom-admin\index.ts src\views\showroom-admin\index.vue src\views\showroom-admin\product\contracts.ts src\views\showroom-admin\hall\contracts.ts` -> PASS。
+- GREEN: `git diff --check` -> PASS，仅有 Windows LF/CRLF 提示，无 whitespace error。
+- GREEN: `git rebase int_main` -> PASS，无冲突。
+- GREEN: `node scripts\mdm-product-master-contract.test.mjs` -> PASS。
+- GREEN: `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm ts:check` -> PASS。
+- GREEN: `pnpm exec eslint --ext .ts,.vue scripts\mdm-product-master-contract.test.mjs src\api\mdm\product\index.ts src\views\mdm\product\index.vue src\api\dcc\controlledFile\workflow.ts src\views\dcc\controlled-file\upload\submitter.ts src\views\dcc\controlled-file\upload\index.vue src\views\dcc\controlled-file\shared\ControlledFileMetadataDialog.vue src\views\dcc\controlled-file\external-review\index.vue src\api\showroom-admin\index.ts src\views\showroom-admin\index.vue src\views\showroom-admin\product\contracts.ts src\views\showroom-admin\hall\contracts.ts` -> PASS。
+- GREEN: `git diff --check` -> PASS。
+- BLOCKED: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\worktrees\20260607-product-master-data\yudao-ui-admin-vue3 --task-id 20260607-product-master-data --mode preview` -> BLOCKED，主 worktree dirty 且当前任务未完成 E2E；预览建议删除额外 evidence 文档，但未 apply。
+- BLOCKED: Playwright E2E 前置检查 -> 本任务前端 dev server 已启动在 `http://127.0.0.1:18082`；本机后端 `http://127.0.0.1:48081` 可登录 `测试租户 / aoteman / admin123`，但登录后访问 `/admin-api/mdm/product/simple-list` 返回 `No static resource admin-api/mdm/product/simple-list.`，说明当前运行时未加载本次 MDM 后端接口和菜单权限。不能执行真实导入、DCC 提交和展厅选择验证。
+- RED: `node scripts/mdm-product-master-contract.test.mjs` -> FAIL，expected reason：产品主数据前端 API 和页面缺少展厅映射预览/确认入口。
+- GREEN: `node scripts/mdm-product-master-contract.test.mjs` -> PASS。
+- GREEN: `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm ts:check` -> PASS。
+- GREEN: `pnpm exec eslint --ext .ts,.vue scripts\mdm-product-master-contract.test.mjs src\api\mdm\product\index.ts src\views\mdm\product\index.vue src\api\dcc\controlledFile\workflow.ts src\views\dcc\controlled-file\upload\submitter.ts src\views\dcc\controlled-file\upload\index.vue src\views\dcc\controlled-file\shared\ControlledFileMetadataDialog.vue src\views\dcc\controlled-file\external-review\index.vue src\api\showroom-admin\index.ts src\views\showroom-admin\index.vue src\views\showroom-admin\product\contracts.ts src\views\showroom-admin\hall\contracts.ts` -> PASS。
+- GREEN: `git diff --check` -> PASS，仅有 Windows LF/CRLF 提示，无 whitespace error。
+- BLOCKED: `芋道源码/admin` 展厅映射 E2E -> 后端运行时访问 `/admin-api/showroom/product/mdm-mapping-preview` 返回 `No static resource admin-api/showroom/product/mdm-mapping-preview.`；当前运行服务未加载本分支接口，不能执行真实映射 E2E、cleanup apply 或提交。
+- BLOCKED: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace D:\ProjectPackage\Int\IntRuoyi\worktrees\20260607-product-master-data\yudao-ui-admin-vue3 --task-id 20260607-product-master-data --mode preview` -> BLOCKED，主 worktree `D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3` dirty，且当前任务未完成真实 E2E；预览建议删除 `frontend-feature-evidence.md`，未 apply。
+- GREEN: `node scripts\mdm-product-master-contract.test.mjs` -> PASS。
+- GREEN: `$env:NODE_OPTIONS='--max-old-space-size=8192'; pnpm ts:check` -> PASS。
+- GREEN: `pnpm exec eslint --ext .ts,.vue scripts\mdm-product-master-contract.test.mjs src\api\mdm\product\index.ts src\views\mdm\product\index.vue src\api\dcc\controlledFile\workflow.ts src\views\dcc\controlled-file\upload\submitter.ts src\views\dcc\controlled-file\upload\index.vue src\views\dcc\controlled-file\shared\ControlledFileMetadataDialog.vue src\views\dcc\controlled-file\external-review\index.vue src\api\showroom-admin\index.ts src\views\showroom-admin\index.vue src\views\showroom-admin\product\contracts.ts src\views\showroom-admin\hall\contracts.ts` -> PASS。
+- GREEN: `git diff --check` -> PASS，仅有 Windows LF/CRLF 提示，无 whitespace error。

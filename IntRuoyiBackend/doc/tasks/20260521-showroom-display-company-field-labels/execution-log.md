@@ -1,0 +1,8 @@
+BDD: 展厅前台公司字段标签与公司合同一致 -> Given 公司 live 内容包含 `core_manufacturing_capability` 与 `honors_awards`; When 前台调用 `GET /showroom/display/company` 并渲染公司公开字段; Then 返回的公司字段标签必须与公司工作台合同一致，显示 `核心制造能力` 与 `荣誉资质`，不能输出不一致的旧标签。
+RED: `mvn -pl yudao-module-showroom "-Dtest=ShowroomHttpApiIntegrationTest#companyDisplayShouldUseUnifiedCompanyFieldLabels" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，期望公司 display 标签为 `[发展历程, 园区介绍, 上市信息, 核心制造能力, 荣誉资质]`，实际返回 `[发展历程, 园区介绍, 股权信息, 核心制造能力, 荣誉奖项]`。
+GREEN: `mvn -pl yudao-module-showroom "-Dtest=ShowroomHttpApiIntegrationTest#companyDisplayShouldUseUnifiedCompanyFieldLabels" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，公司 display 标签映射已统一为 `上市信息 / 荣誉资质`。
+GREEN: `mvn -pl yudao-server -am -DskipTests package` -> PASS，已生成包含本次 showroom 标签修复的 `yudao-server.jar`。
+GREEN: `D:\ProjectPackage\Int\IntRuoyi\restart-ruoyi.bat` -> PASS，本地前后端运行时已重启到最新构建。
+GREEN: 独立回归测试文件 `ShowroomCompanyFieldLabelContractTest.java` -> PASS，已脱离共享集成测试文件单独编译通过。
+GREEN: `npx.cmd --yes --package @playwright/cli playwright-cli --session showroom-frontstage-company-fields run-code --filename D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260521-showroom-company-missing-manufacturing-honors\scripts\inspect-showroom-frontstage-company-fields.mjs` -> PASS，真实前台 `http://127.0.0.1:8081/showroom/display/screen/company` 标签为 `[发展历程, 园区介绍, 核心制造能力, 荣誉资质]`，旧标签 `股权信息 / 荣誉奖项` 已消失。
+BLOCKER: `mvn -pl yudao-module-showroom "-Dtest=ShowroomCompanyFieldLabelContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL-FAST，失败原因不是本次新增测试，而是同仓共享文件 `ShowroomHttpApiIntegrationTest.java` 当前混入无关在途改动，触发 `ProductPublishReqVO` 相关编译错误。

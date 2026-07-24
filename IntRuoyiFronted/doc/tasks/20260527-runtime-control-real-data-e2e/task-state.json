@@ -1,0 +1,11 @@
+{
+  "task_id": "20260527-runtime-control-real-data-e2e",
+  "scope": "frontend",
+  "status": "completed",
+  "current_stage": "verified",
+  "target_script": "tests/e2e/runtime-control-real-data-all-features.e2e.js; tests/e2e/runtime-control-yudao-admin-readonly.e2e.js",
+  "authoritative_state": "D:/ProjectPackage/Int/IntRuoyi/ruoyi-vue-pro/doc/tasks/20260527-runtime-control-real-data-e2e/task-state.json",
+  "coverage_goal": "AC-01 through AC-11 real-data Playwright coverage with test tenant execution and yudao/admin read-only verification",
+  "verification": "PASS: AC-01 through AC-11, TEST_TENANT_PASS, YUDAO_ADMIN_VERIFY_PASS, int_main final incident E2E事故-1779871222493; yudao/admin readonly script PASS with AC-01 through AC-11 ADMIN_READONLY_PASS and no runtime-control non-GET requests",
+  "updated_at": "2026-05-27T18:29:48+08:00"
+}

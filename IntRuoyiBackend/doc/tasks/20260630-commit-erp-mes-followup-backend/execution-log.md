@@ -1,0 +1,11 @@
+# 执行日志：20260630-commit-erp-mes-followup-backend
+
+BDD: 已完成 ERP/MES 后端任务可独立提交 -> Given 后端工作区存在 ERP 生产用料清单分组查询与生产工单关联展示改动 / When 本次补充提交收口 / Then 只提交这些已具备 GREEN 证据的后端文件组。
+BDD: 未完成 schedule/DCC/Showroom 后端文件继续留在工作区 -> Given schedule 口径统一、DCC 全量包与 showroom 奖项生图文件仍混有 in_progress 或 blocked hunk / When 评估提交范围 / Then 这些文件整体留在工作区。
+
+RED: `git -C D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro status --short` -> FAIL，当前后端工作区同时混有 ERP/MES、schedule、DCC 与 showroom 多条任务改动，不能整仓直接提交。
+GREEN: `Get-Content -Encoding utf8` 定向核对 `20260630-erp-production-order-material-list-bidirectional-link`、`20260630-erp-production-material-list-grouped-popup`、`20260630-mes-material-shortage-use-production-material-list`、`20260630-dcc-admin-full-config-package` 等任务文档 -> PASS，已确认本批只提交两个 completed 的 ERP/MES 任务，schedule/DCC/showroom 改动继续保留。
+GREEN: `mvn --% -f D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\pom.xml -pl yudao-module-mes "-Dtest=MesKingdeeProductionMaterialListSchemaTest,MesKingdeeProductionMaterialListQueryServiceImplTest,MesKingdeeProductionMaterialListMapperXmlTest,MesProWorkOrderControllerTest" -Dsurefire.failIfNoSpecifiedTests=false -Dmaven.compiler.useIncrementalCompilation=false -Dmaven.compiler.includes=**/MesKingdeeProductionMaterialListController.java,**/MesProWorkOrderController.java,**/MesProWorkOrderRespVO.java,**/MesKingdeeProductionMaterialListMapper.java,**/MesKingdeeProductionMaterialListQueryService.java,**/MesKingdeeProductionMaterialListQueryServiceImpl.java -Dmaven.compiler.testIncludes=**/MesKingdeeProductionMaterialListSchemaTest.java,**/MesKingdeeProductionMaterialListMapperXmlTest.java,**/MesProWorkOrderControllerTest.java,**/MesKingdeeProductionMaterialListQueryServiceImplTest.java test` -> PASS。
+GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260630-erp-production-order-material-list-bidirectional-link\backend-api-evidence.md` -> PASS。
+GREEN: `git -C D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro add -- <ERP/MES 候选文件组>` -> PASS，staged 仅包含本批 ERP/MES 文件与对应任务文档。
+GREEN: `git -C D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro diff --cached --check` -> PASS。

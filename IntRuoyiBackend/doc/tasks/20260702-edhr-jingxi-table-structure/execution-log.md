@@ -1,0 +1,37 @@
+# 20260702-edhr-jingxi-table-structure Execution Log
+
+## 2026-07-02
+
+- INFO: worktree -> created backend and frontend paired worktrees at `D:\ProjectPackage\Int\IntRuoyiWorktrees\edhr_table_jingxi`.
+- INFO: experience-index -> matched `docs/powershell-memory.md` and `docs/worktree-memory.md`.
+- GREEN: experience-preflight -> PASS, current phase is local parser/unit-test work only; no login, server write, E2E, merge, cleanup, database change, or remote operation is being executed yet.
+- BDD: jingxi table structure fidelity -> Given the real DOC `RE-PP-ID-01（A 1）球囊扩张压力泵生产记录(1).doc` contains the source `精洗工序生产记录` Word table, When Route A parsing, layout calibration and JSON building produce the recognized table, Then the output table structure must match the source table in row count, column count, cell placement, rowSpan, colSpan, column-width vector, table width, and must not expose right-side phantom blank columns.
+
+## 2026-07-03
+
+- INFO: resume -> continued in backend worktree `D:\ProjectPackage\Int\IntRuoyiWorktrees\edhr_table_jingxi\ruoyi-vue-pro` on branch `codex/edhr_table_jingxi`.
+- RED: `mvn -pl yudao-module-mes '-Dtest=MesProBatchRecordJingxiTableStructureVerificationTest,MesProBatchRecordReportJsonBuilderTest' test` -> FAIL, anchor test passed but JSON regression exposed 3 failures: source row-height preservation, wide template landscape budget, and detection-page over-compression.
+- GREEN: `mvn -pl yudao-module-mes '-Dtest=MesProBatchRecordJingxiTableStructureVerificationTest,MesProBatchRecordReportJsonBuilderTest#build_shouldPreferSourceRowHeightsForFixedRouteANonPagedProcessRows+build_routeAT13_shouldUseLandscapeA4ForFixedWideTemplate+build_shouldNotOverCompressFixedRouteADetectionPageIntoLargeBottomWhitespace' test` -> PASS, 4 tests, 0 failures, finished 2026-07-03T02:21:06+08:00.
+- REGRESSION: after removing temporary debug probes, `mvn -pl yudao-module-mes '-Dtest=MesProBatchRecordJingxiTableStructureVerificationTest,MesProBatchRecordReportJsonBuilderTest,MesProBatchRecordCodexCliImageParserTest' test` -> PASS, 81 tests, 0 failures, finished 2026-07-03T02:44:53+08:00.
+- IMPLEMENTATION: parser now derives source visual column widths from Word rows, uses source visual widths for source-grid process segments, and resolves segment-local widths otherwise.
+- IMPLEMENTATION: layout calibration now preserves source-grid tables, skips semantic row rewrites that would alter Word grid geometry, keeps wide operation-matrix pages on landscape width, and retains row-height rhythm boundaries.
+- IMPLEMENTATION: JSON builder now honors fixed source column widths, skips overflow visual blank cells, avoids right-side phantom blank columns, preserves source-backed row heights, and only expands low-column complete process pages when needed for visual page height.
+- CLEANUP: removed temporary debug tests `MesProBatchRecordDebugProbeTest` and `MesProBatchRecordHeightDebugProbeTest`; no debug probe remains in the test tree.
+- BLOCKER: frontend Playwright E2E not executed in this local parser phase because current worktree FE/BE runtime is not started or registered. Per worktree gate, cannot use default main-workspace ports as evidence.
+
+- VERIFY: independent-verification-gate -> wrote verification-report.md; backend parser/JSON structural fidelity PASS, frontend E2E remains NOT VERIFIED because worktree runtime ownership is not established.
+
+- RED: `show-int-ruoyi-local-status.ps1 -WorktreeName edhr_table_jingxi -Json` -> FAIL before runtime script fix, because a detached `runtime/clean-build-worktrees/backend-restart-20260702-230145` worktree was incorrectly treated as a business worktree and blocked port-map derivation.
+- GREEN: `script/tests/test-worktree-port-map.ps1` -> PASS after filtering `runtime/clean-build-worktrees` entries before business worktree name conversion.
+- GREEN: `sync-int-ruoyi-worktree-ports.ps1 -Json` and `show-int-ruoyi-local-status.ps1 -WorktreeName edhr_table_jingxi -Json` -> PASS, current worktree is registered as FE `8143`, BE `48143`, both not-listening before runtime startup.
+- GREEN: frontend dependency preflight -> PASS, `pnpm install --frozen-lockfile` in `edhr_table_jingxi/yudao-ui-admin-vue3` installed `node_modules`; Playwright version is `1.60.0`.
+- GREEN: experience-preflight -> PASS, continuing from local parser verification to local real E2E only; target runtime is current worktree `edhr_table_jingxi` on FE `8143` / BE `48143`, testing remains local, no remote/test/prod server access, no direct SQL write bypass, no reuse of default `8081/48081` as evidence.
+- RED: Playwright real page preview existing stored template -> FAIL, login/select succeeded on worktree FE 8143 / BE 48143, existing batch EDHR-TABLE-VERIFY-20260630-1 + report 精洗工序生产记录 rendered 26 columns with 20 suspicious right-edge narrow blank cells; report artifacts/edhr-jingxi-template-preview-e2e-report.json.
+- GREEN: Playwright real page upload/preview anchor DOC -> PASS, uploaded C:\Users\BJB110\Desktop\2\2\RE-PP-ID-01（A 1）球囊扩张压力泵生产记录(1).doc via 导入 Word, generated batch EDHR-JINGXI-E2E-20260703035210, selected 精洗工序生产记录, rendered 19 columns with 0 suspicious right-edge narrow blank cells; screenshot artifacts/edhr-jingxi-template-preview-upload-e2e.png, report artifacts/edhr-jingxi-template-preview-upload-e2e-report.json.
+- INFO: E2E interpretation -> current generation chain is fixed; old stored generated template still carries historical 26-column layout and requires separate data regeneration/migration if business wants existing stored templates refreshed.
+- GREEN: script/tests/test-worktree-port-map.ps1 -> PASS, worktree-port-map tests passed after runtime clean-build worktree filtering.
+- GREEN: show-int-ruoyi-local-status.ps1 -WorktreeName edhr_table_jingxi -Json -> PASS, worktree FE 8143 and BE 48143 both HTTP 200/listening, OnlyOffice HTTP 200/listening.
+- GREEN: mvn -pl yudao-module-mes '-Dtest=MesProBatchRecordJingxiTableStructureVerificationTest,MesProBatchRecordReportJsonBuilderTest#build_shouldPreferSourceRowHeightsForFixedRouteANonPagedProcessRows+build_routeAT13_shouldUseLandscapeA4ForFixedWideTemplate+build_shouldNotOverCompressFixedRouteADetectionPageIntoLargeBottomWhitespace+build_shouldFollowSourceHeightForLiveLikeMediumProcessPages+build_shouldPreferSourceRowHeightsForDenseRowsWithVisualBlanksAndShortWrappedCells' test -> PASS, 6 tests, 0 failures, finished 2026-07-03T03:57:57+08:00.
+- MERGE: backend codex/edhr_table_jingxi -> int_main -> PASS, merge commit 2214893e2e; resolved docs/request-command-log.md by keeping both task log sections.
+- GREEN: merged-result regression on int_main -> PASS, mvn -pl yudao-module-mes '-Dtest=MesProBatchRecordJingxiTableStructureVerificationTest,MesProBatchRecordReportJsonBuilderTest#build_shouldPreferSourceRowHeightsForFixedRouteANonPagedProcessRows+build_routeAT13_shouldUseLandscapeA4ForFixedWideTemplate+build_shouldNotOverCompressFixedRouteADetectionPageIntoLargeBottomWhitespace+build_shouldFollowSourceHeightForLiveLikeMediumProcessPages+build_shouldPreferSourceRowHeightsForDenseRowsWithVisualBlanksAndShortWrappedCells' test, 6 tests, 0 failures, finished 2026-07-03T08:22:40+08:00.
+- INFO: frontend merge -> no-op, codex/edhr_table_jingxi has 0 commits ahead of frontend int_main.

@@ -1,0 +1,16 @@
+# 执行日志: 20260622-edhr-label-print-menu-id-collision-fix
+
+- BDD: label print 菜单不得复用 eDHR form 菜单号段 -> Given 20260618_mes_edhr_form_instance.sql 已占用 900272-900279 且真实测试库已存在这些 system_menu 行 / When 执行 20260618_mes_edhr_label_print_queue.sql / Then 迁移必须使用独立且未冲突的 label-print 菜单号段，而不是复用已存在的 form 菜单 ID。
+- BDD: 真实页面 deploy-test 在跨过 deployment SQL 后仍必须能继续执行 label print SQL -> Given 20260619_mes_edhr_deployment_license_interface.sql 已在真实测试库成功 APPLIED / When 页面 deploy-test 继续执行 20260618_mes_edhr_label_print_queue.sql / Then 不得再因 system_menu 主键冲突中断整个测试服发布链路。
+
+- GREEN: previous-task-check -> PASS，上一后端任务 `20260621-edhr-deployment-menu-id-collision-fix` 已 `COMPLETED`，且维护仓真实页面 `deploy-test(v4)` 已确认 `20260619_mes_edhr_deployment_license_interface.sql` 成功 `APPLIED`，说明上一轮 cleanup-order 根因已被真实链路跨过。
+- GREEN: experience-preflight -> PASS，已读取 `D:\ProjectPackage\Int\IntRuoyi\docs\experience-index.md` 命中的 `release-backup-restore.md` 与 `server-access.md`，确认本任务只允许修正式 SQL 与测试契约，不得手工改测试服库绕过页面发布失败。
+- GREEN: page-failure-evidence-v1 -> PASS，维护仓真实页面 operation `op-2026-06-21T162151191084700Z-02589c3a-5079-454a-b336-9b1fa37c588e` 最终 `FAILED`；日志显示 `20260618_mes_edhr_label_print_queue.sql` 在 line 126 抛出 `ERROR 1062 (23000): Duplicate entry '900273' for key 'system_menu.PRIMARY'`，且同一日志已确认 `20260619_mes_edhr_deployment_license_interface.sql` 状态为 `APPLIED`。
+- GREEN: menu-conflict-evidence-v1 -> PASS，只读搜索源码确认 `20260618_mes_edhr_label_print_queue.sql` 仍使用 `900272-900283`，而 `20260618_mes_edhr_form_instance.sql` 已占用 `900272-900279`；同时只读查询测试服 `system_menu` 确认 `900272-900279` 当前真实落库为“eDHR独立表单*”菜单，`900280-900283` 真实落库为“eDHR报表目录 / 报表查询 / 报表导出审计 / 交付驾驶舱”，因此 label print 菜单整段 `900272-900283` 都与现网真实菜单冲突。
+- GREEN: candidate-menu-range-v1 -> PASS，源码全仓搜索未发现 `900320-900349` 被现有 SQL 或脚本测试占用；只读查询测试服 `system_menu` 也未发现 `900320-900331` 的真实菜单记录，可作为新的连续 label print 菜单候选号段。
+- RED: `python -X utf8 -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_edhr_label_print_queue_schema_sql.py -q` -> FAIL，新增回归断言要求 label print 菜单切换到独立 `900320-900331` 号段，并显式禁止继续复用 `900272-900283`；当前正式 SQL 仍保留旧号段，按预期失败。
+- GREEN: sql-fix-v1 -> PASS，已最小修改 `sql/mysql/20260618_mes_edhr_label_print_queue.sql`，把 label print 菜单整段从冲突的 `900272-900283` 切换到独立的 `900320-900331`，并同步更新菜单父子关系、完整性计数和 `tmp_mes_edhr_label_print_menu_ids` 收敛范围。
+- GREEN: regression-v1 -> PASS，执行 `python -X utf8 -m pytest D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_edhr_label_print_queue_schema_sql.py D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\script\tests\test_edhr_form_schema_sql.py -q` 返回 `9 passed`，证明 label print 新号段契约通过，且未破坏 eDHR form 既有菜单契约。
+- GREEN: migration-policy-gate-v1 -> PASS，执行 `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql` 返回 `status=passed`，当前发布迁移清单共 `186` 项。
+- GREEN: bug-regression-evidence-v1 -> PASS，已写入 `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro\doc\tasks\20260622-edhr-label-print-menu-id-collision-fix\bug-regression-evidence.md`，并通过 `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence ...` 验证。
+- GREEN: maintenance-handoff-v1 -> PASS，维护仓主任务 `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260621-frontend-release-full-flow-main-merge-rerun\` 已回填当前新根因、修复证据和“必须使用新的 releaseTag 从真实页面重新 build-release 再重走测试服”的要求。

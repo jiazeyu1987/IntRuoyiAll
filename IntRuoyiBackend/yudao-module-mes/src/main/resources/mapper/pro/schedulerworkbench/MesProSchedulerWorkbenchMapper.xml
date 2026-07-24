@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.iocoder.yudao.module.mes.dal.mysql.pro.schedulerworkbench.MesProSchedulerWorkbenchMapper">
+
+    <select id="selectPendingScheduleOrderCount" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM mes_pro_schedule_order
+        WHERE deleted = 0
+          AND status = 0
+    </select>
+
+    <select id="selectTodayScheduledTaskCount" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM mes_pro_task
+        WHERE deleted = 0
+          AND start_time &gt;= #{beginTime}
+          AND start_time &lt; #{endTime}
+    </select>
+
+    <select id="selectTodayPlannedCapacity" resultType="java.math.BigDecimal">
+        SELECT IFNULL(SUM(quantity), 0)
+        FROM mes_pro_task
+        WHERE deleted = 0
+          AND start_time &gt;= #{beginTime}
+          AND start_time &lt; #{endTime}
+    </select>
+
+    <select id="selectTodayFeedbackCount" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM mes_pro_feedback
+        WHERE deleted = 0
+          AND feedback_time &gt;= #{beginTime}
+          AND feedback_time &lt; #{endTime}
+    </select>
+
+    <select id="selectTodayFeedbackQuantity" resultType="java.math.BigDecimal">
+        SELECT IFNULL(SUM(feedback_quantity), 0)
+        FROM mes_pro_feedback
+        WHERE deleted = 0
+          AND feedback_time &gt;= #{beginTime}
+          AND feedback_time &lt; #{endTime}
+    </select>
+
+    <select id="selectPendingApprovalFeedbackCount" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM mes_pro_feedback
+        WHERE deleted = 0
+          AND status = ${@cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackStatusEnum@APPROVING.status}
+    </select>
+
+    <select id="selectCurrentSchedulePlannedQuantity" resultType="java.math.BigDecimal">
+        SELECT IFNULL(SUM(COALESCE(total_quantity, quantity, 0)), 0)
+        FROM mes_pro_schedule_order
+        WHERE deleted = 0
+          AND status IN (
+              ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@SCHEDULED.status},
+              ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@IN_PROGRESS.status}
+          )
+    </select>
+
+    <select id="selectCurrentScheduleReportedQuantity" resultType="java.math.BigDecimal">
+        SELECT IFNULL(SUM(order_reported.reported_quantity), 0)
+        FROM (
+            SELECT so.id,
+                   GREATEST(
+                       IFNULL(MAX(sop.reported_quantity), 0),
+                       IFNULL(MAX(feedback_by_order.feedback_quantity), 0)
+                   ) AS reported_quantity
+            FROM mes_pro_schedule_order so
+            LEFT JOIN mes_pro_schedule_order_process sop ON sop.schedule_order_id = so.id
+                 AND sop.deleted = 0
+                 AND sop.enabled = b'1'
+            LEFT JOIN (
+                SELECT schedule_order_id, MAX(feedback_quantity) AS feedback_quantity
+                FROM mes_pro_feedback
+                WHERE deleted = 0
+                GROUP BY schedule_order_id
+            ) feedback_by_order ON feedback_by_order.schedule_order_id = so.id
+            WHERE so.deleted = 0
+              AND so.status IN (
+                  ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@SCHEDULED.status},
+                  ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@IN_PROGRESS.status}
+              )
+            GROUP BY so.id
+        ) order_reported
+    </select>
+
+    <select id="selectReportedDeviationDetails" resultType="cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchSummaryRespVO$ReportedDeviationDetail">
+        SELECT so.id AS scheduleOrderId,
+               sop.id AS scheduleOrderProcessId,
+               so.code AS scheduleOrderCode,
+               so.erp_work_order_code AS workOrderCode,
+               process.code AS processCode,
+               process.name AS processName,
+               COALESCE(sop.planned_quantity, so.total_quantity, so.quantity, 0) AS plannedQuantity,
+               COALESCE(sop.reported_quantity, 0) AS reportedQuantity,
+               COALESCE(sop.reported_quantity, 0) - COALESCE(sop.planned_quantity, so.total_quantity, so.quantity, 0) AS deviationQuantity,
+               CASE
+                   WHEN COALESCE(sop.reported_quantity, 0) >= COALESCE(sop.planned_quantity, so.total_quantity, so.quantity, 0)
+                       THEN 'COMPLETED'
+                   WHEN COALESCE(sop.reported_quantity, 0) > 0
+                       THEN 'IN_PROGRESS'
+                   ELSE 'NOT_STARTED'
+               END AS processStatus
+        FROM mes_pro_schedule_order_process sop
+        JOIN mes_pro_schedule_order so ON so.id = sop.schedule_order_id
+             AND so.deleted = 0
+        LEFT JOIN mes_pro_process process ON process.id = sop.process_id
+             AND process.deleted = 0
+        WHERE sop.deleted = 0
+          AND sop.enabled = b'1'
+          AND so.status IN (
+              ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@SCHEDULED.status},
+              ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@IN_PROGRESS.status}
+          )
+        ORDER BY so.id ASC, sop.sort ASC, sop.id ASC
+    </select>
+
+    <resultMap id="RouteActiveOrderResultMap" type="cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchSummaryRespVO$RouteActiveOrder">
+        <id property="routeId" column="route_id"/>
+        <result property="routeCode" column="route_code"/>
+        <result property="routeName" column="route_name"/>
+        <result property="wipOrderCount" column="wip_order_count"/>
+        <collection property="products" ofType="cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchSummaryRespVO$RouteActiveProduct">
+            <id property="productId" column="product_id"/>
+            <result property="productCode" column="product_code"/>
+            <result property="productName" column="product_name"/>
+            <result property="wipOrderCount" column="product_wip_order_count"/>
+        </collection>
+    </resultMap>
+
+    <select id="selectRouteActiveOrders" resultMap="RouteActiveOrderResultMap">
+        SELECT route_summary.route_id,
+               route_summary.route_code,
+               route_summary.route_name,
+               route_summary.wip_order_count,
+               product_summary.product_id,
+               product_summary.product_code,
+               product_summary.product_name,
+               product_summary.product_wip_order_count
+        FROM (
+            SELECT so.route_id,
+                   route.code AS route_code,
+                   route.name AS route_name,
+                   COUNT(DISTINCT so.id) AS wip_order_count
+            FROM mes_pro_schedule_order so
+            LEFT JOIN mes_pro_route route ON route.id = so.route_id
+                 AND route.deleted = 0
+            WHERE so.deleted = 0
+              AND so.status IN (
+                  ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@PREPARE.status},
+                  ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@SCHEDULED.status},
+                  ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@IN_PROGRESS.status}
+              )
+              AND so.frozen = b'0'
+              AND so.route_id IS NOT NULL
+              AND EXISTS (
+                  SELECT 1
+                  FROM mes_pro_schedule_order_process sop
+                  WHERE sop.deleted = 0
+                    AND sop.enabled = b'1'
+                    AND sop.schedule_order_id = so.id
+                    AND (sop.progress_percent IS NULL OR sop.progress_percent &lt; 100)
+              )
+            GROUP BY so.route_id, route.code, route.name
+        ) route_summary
+        LEFT JOIN (
+            SELECT so.route_id,
+                   so.product_id,
+                   item.code AS product_code,
+                   item.name AS product_name,
+                   COUNT(DISTINCT so.id) AS product_wip_order_count
+            FROM mes_pro_schedule_order so
+            LEFT JOIN mes_md_item item ON item.id = so.product_id
+                 AND item.deleted = 0
+            WHERE so.deleted = 0
+              AND so.status IN (
+                  ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@PREPARE.status},
+                  ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@SCHEDULED.status},
+                  ${@cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum@IN_PROGRESS.status}
+              )
+              AND so.frozen = b'0'
+              AND so.route_id IS NOT NULL
+              AND EXISTS (
+                  SELECT 1
+                  FROM mes_pro_schedule_order_process sop
+                  WHERE sop.deleted = 0
+                    AND sop.enabled = b'1'
+                    AND sop.schedule_order_id = so.id
+                    AND (sop.progress_percent IS NULL OR sop.progress_percent &lt; 100)
+              )
+            GROUP BY so.route_id, so.product_id, item.code, item.name
+        ) product_summary ON product_summary.route_id = route_summary.route_id
+        ORDER BY route_summary.wip_order_count DESC,
+                 route_summary.route_code ASC,
+                 product_summary.product_wip_order_count DESC,
+                 product_summary.product_code ASC
+    </select>
+
+    <select id="selectTodayAvailableCapacity" resultType="java.math.BigDecimal">
+        SELECT IFNULL(SUM(IFNULL(process_snapshot.shift_capacity_total, 0)), 0)
+        FROM mes_pro_schedule_order_process process_snapshot
+        WHERE process_snapshot.deleted = 0
+          AND process_snapshot.enabled = b'1'
+          AND process_snapshot.capacity_source IS NOT NULL
+          AND process_snapshot.capacity_source != 'UNCONFIGURED'
+          AND EXISTS (
+              SELECT 1
+              FROM mes_pro_task_schedule_ext task_ext
+              JOIN mes_pro_task task ON task.id = task_ext.task_id
+                   AND task.deleted = 0
+                   AND task.start_time &gt;= #{beginTime}
+                   AND task.start_time &lt; #{endTime}
+              WHERE task_ext.deleted = 0
+                AND task_ext.schedule_order_process_id = process_snapshot.id
+          )
+    </select>
+
+    <select id="selectRepairingMachineryCount" resultType="java.lang.Long">
+        SELECT COUNT(DISTINCT machinery_id)
+        FROM mes_dv_repair
+        WHERE deleted = 0
+          AND status IN (0, 1, 2)
+    </select>
+
+    <select id="selectResourceUnconfiguredCount" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM mes_pro_schedule_order_process
+        WHERE deleted = 0
+          AND enabled = b'1'
+          AND (capacity_source IS NULL OR capacity_source = 'UNCONFIGURED')
+    </select>
+
+    <select id="selectMaterialShortageCount" resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM mes_pro_schedule_issue
+        WHERE deleted = 0
+          AND issue_type = 'MATERIAL'
+          AND severity = 'WARNING'
+          AND create_time &gt;= #{beginTime}
+          AND create_time &lt; #{endTime}
+    </select>
+
+    <select id="selectBottlenecks" resultType="cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchSummaryRespVO$Bottleneck">
+        SELECT process_snapshot.id AS scheduleOrderProcessId,
+               schedule_order.route_id AS routeId,
+               process_snapshot.route_process_id AS routeProcessId,
+               schedule_order.code AS scheduleOrderCode,
+               schedule_order.erp_work_order_code AS workOrderCode,
+               process.code AS processCode,
+               process.name AS processName,
+               NULL AS workstationName,
+               process_snapshot.capacity_source AS resourceType,
+               IFNULL(process_snapshot.planned_quantity, 0) AS demandQuantity,
+               IFNULL(process_snapshot.reported_quantity, 0) AS scheduledQuantity,
+               IFNULL(process_snapshot.remaining_quantity, 0) AS gapQuantity,
+               0 AS todayCapacity,
+               CASE
+                   WHEN process_snapshot.capacity_source IS NULL OR process_snapshot.capacity_source = 'UNCONFIGURED' THEN '资源未配置'
+                   WHEN process_snapshot.bottleneck_flag = b'1' THEN '瓶颈工序'
+                   WHEN IFNULL(process_snapshot.remaining_quantity, 0) &gt; 0 THEN '剩余数量未完成'
+                   ELSE '待复盘'
+               END AS reason,
+                CONCAT('/mes/pro/route/edit/', schedule_order.route_id,
+                       '?tab=schedule-config&amp;routeProcessId=', process_snapshot.route_process_id) AS targetPath
+        FROM mes_pro_schedule_order_process process_snapshot
+        JOIN mes_pro_schedule_order schedule_order ON schedule_order.id = process_snapshot.schedule_order_id
+             AND schedule_order.deleted = 0
+        LEFT JOIN mes_pro_process process ON process.id = process_snapshot.process_id
+             AND process.deleted = 0
+        WHERE process_snapshot.deleted = 0
+          AND process_snapshot.enabled = b'1'
+          AND (process_snapshot.bottleneck_flag = b'1'
+               OR IFNULL(process_snapshot.remaining_quantity, 0) &gt; 0
+               OR process_snapshot.capacity_source IS NULL
+               OR process_snapshot.capacity_source = 'UNCONFIGURED')
+        ORDER BY process_snapshot.bottleneck_flag DESC, process_snapshot.remaining_quantity DESC
+        LIMIT 10
+    </select>
+
+</mapper>

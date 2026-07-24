@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "targetConfigId": "test-storage-mismatch",
+  "environmentCode": "test",
+  "hostRef": "runtime-control-managed-host",
+  "dockerProfileId": "intruoyi-docker-compose",
+  "storageProfileIds": [
+    "minio-other-profile"
+  ],
+  "artifactCacheProfiles": [
+    "nas-release-cache"
+  ],
+  "remoteReadOnlyProbe": {
+    "enabled": false,
+    "authorizationRef": null
+  }
+}

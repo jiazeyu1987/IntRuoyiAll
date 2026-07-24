@@ -1,0 +1,10 @@
+BDD: 默认展示模板列表页签 -> Given 用户进入 `/mes/pro/batch-record-template`, When 页面初始化, Then 默认显示 `模板列表` 页签并加载本地模板列表。
+BDD: Word 文件解析展示候选 -> Given 用户切到 `文件解析导入` 页签并上传有效 `.doc/.docx`, When 前端调用本地 `parse` 接口, Then 页面展示导入摘要、候选表列表和右侧只读版式预览。
+BDD: 候选勾选后提交成功回列表 -> Given 用户已获得解析候选, When 勾选候选并提交, Then 前端调用本地 `commit` 接口、清空导入状态、切回 `模板列表` 并刷新列表。
+BDD: 无导入权限时不可进入导入页签 -> Given 用户缺少 `mes:pro-batch-record-template:import` 权限, When 用户打开页面或手动带 `tab=import`, Then 前端隐藏导入页签并强制回退到 `模板列表`。
+BDD: 不支持扩展名时快速失败 -> Given 用户在导入页签选择非 `.doc/.docx` 文件, When 前端校验文件, Then 页面显示明确错误且不调用后端解析接口。
+RED: `git -C D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 show HEAD:src/views/mes/pro/batchrecordtemplate/index.vue | Select-String -Pattern '文件解析导入'` -> no output, proving the previously committed page had no dedicated import-analysis tab.
+RED: `git -C D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3 cat-file -e HEAD:src/api/mes/pro/batchrecordtemplate/index.ts` -> FAIL, the local template API module did not exist in the previously committed frontend tree.
+GREEN: `pnpm exec eslint src/views/mes/pro/batchrecordtemplate/index.vue src/views/mes/pro/batchrecordtemplate/TemplateLayoutPreview.vue src/api/mes/pro/batchrecordtemplate/index.ts` -> PASS.
+GREEN: `npx.cmd --yes --package @playwright/cli playwright-cli run-code --filename D:\ProjectPackage\Int\IntRuoyi\yudao-ui-admin-vue3\doc\tasks\20260516-electronic-batch-record-import-analysis-tabs\scripts\verify-electronic-batch-record-import-analysis-tabs.mjs` -> PASS, real admin login reached `/mes/pro/batch-record-template`, the page showed the dual tabs, uploaded the real `.doc` fixture, rendered 10 candidates, prevented empty-selection submit by disabling the primary action, committed one candidate, returned to `tab=list`, opened `查看版式`, and deleted the created template to keep the environment clean.
+BLOCKER CHECK: `node --max-old-space-size=8192 node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p tsconfig.relaxed.json` -> FAIL, unrelated repo baseline errors originate from the tracked generated file `src/types/auto-components.d.ts` containing invalid property declarations such as `403BxF86EyJ`.

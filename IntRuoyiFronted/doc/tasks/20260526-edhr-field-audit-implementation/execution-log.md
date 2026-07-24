@@ -1,0 +1,49 @@
+# 前端执行日志：eDHR 字段级不可篡改审计
+
+- BDD: 真实 UI 闭环 -> Given DRAFT eDHR 草稿字段被修改, When 用户填写原因并签名保存, Then 前端调用 save-changes 并显示字段审计链。
+- BDD: 缺原因签名不得保存 -> Given 字段已修改但缺原因或签名, When 点击保存, Then 前端不得调用字段审计 API 或旧 save-draft。
+
+## Evidence
+
+- RED: node --test scripts\edhr-field-audit-api-contract.test.mjs -> FAIL, src/api/mes/pro/edhr/fieldAudit.ts 缺失，字段审计 helper、DTO、REST 合同尚未实现。
+- RED: node --test scripts\edhr-field-audit-ui-contract.test.mjs -> FAIL, ExecutionPage.vue 未调用 saveEdhrFieldChanges 且仍存在旧草稿保存路径，FieldAuditPage.vue / FieldAuditDetailPage.vue 缺失。
+- GREEN: node --test scripts\edhr-field-audit-api-contract.test.mjs -> PASS, 字段审计 API helper、DTO、REST 路径、FIELD_CHANGE、typed JSON、hashVerification、导出 requireHashVerification 合同通过。
+- GREEN: node --test scripts\edhr-field-audit-ui-contract.test.mjs -> PASS, 执行页字段审计保存门禁、审计查询/详情/校验/导出 UI 静态合同通过。
+- BLOCKED: pnpm ts:check -> FAIL, 默认 Node heap 下 exit 134 OOM；NODE_OPTIONS=--max-old-space-size=8192 仍 OOM；NODE_OPTIONS=--max-old-space-size=16384 后进入全仓类型检查但失败于大量既有自动导入类型错误（例如 App.vue、components、showroom-admin 等文件无法识别 computed/ref/useRoute/useMessage），未获得 T3 ts:check GREEN。
+- BDD: reviewer hash 字段与字段 identity 修正 -> Given 后端冻结 page/detail/export 合同只暴露 previousHash/auditHash 且字段可能重复 fieldKey, When 前端构建审计 UI 与 pending diff, Then 不依赖 currentHash/payloadHash，draft/baseline/hash 状态使用 fieldPath+fieldKey+rowIndex+columnIndex 组合 identity，缺 fieldKey/fieldPath 或 NUMBER 非数字默认值时 fail-fast。
+- RED: node --test scripts\edhr-field-audit-api-contract.test.mjs -> FAIL, EdhrFieldAuditEntryVO 缺 auditHash 且仍声明 currentHash/payloadHash。
+- RED: node --test scripts\edhr-field-audit-ui-contract.test.mjs -> FAIL, ExecutionPage.vue 缺 buildFieldIdentity/fieldIdentity，状态索引仍只用 fieldKey，FieldAuditPage/FieldAuditDetailPage 缺 auditHash。
+- GREEN: node --test scripts\edhr-field-audit-api-contract.test.mjs -> PASS, 字段审计响应合同改为 previousHash/auditHash 且禁止 currentHash/payloadHash。
+- GREEN: node --test scripts\edhr-field-audit-ui-contract.test.mjs -> PASS, UI 合同覆盖 auditHash、稳定 field identity、禁止 field_ fallback key、禁止 NUMBER 默认值静默置 0。
+- REGRESSION: node --test scripts\edhr-execution-page.test.mjs scripts\edhr-execution-submit.test.mjs scripts\edhr-tracking-signature-contract.test.mjs -> PASS, 已同步旧执行页测试的字段保存断言为 field-audit/save-changes。
+- REGRESSION: rg -n "\bcurrentHash\b|\bpayloadHash\b|field_\$\{|Number\.isFinite\(numericValue\) \? numericValue : 0|draftFieldValues\[field\.fieldKey\]|baselineFieldValues\.value\[field\.fieldKey\]|baselineFieldValueHashes\.value\[field\.fieldKey\]" src\api\mes\pro\edhr\fieldAudit.ts src\views\mes\pro\edhr\ExecutionPage.vue src\views\mes\pro\edhr\FieldAuditPage.vue src\views\mes\pro\edhr\FieldAuditDetailPage.vue -> PASS, 无禁止模式命中。
+- BLOCKED: pnpm ts:check -> FAIL, 默认 Node heap 下 exit 134 OOM；未取得全仓 ts:check GREEN。
+- BLOCKED: targeted tsc for src\api\mes\pro\edhr\fieldAudit.ts -> FAIL, TypeScript CLI 不允许命令行设置 paths 映射，无法在不新增临时 tsconfig 的前提下完成别名解析；未使用 mock 或跳过冒充通过。
+- BDD: reviewer detail 接口形状修正 -> Given 冻结后端合同要求 page row 使用 id 且 detail 查询使用 executionId + auditBatchId/auditItemId, When 前端打开字段审计详情并校验链, Then helper 不接受旧详情 ID，详情页展示 auditBatch、items、signature、hashVerification 结构化响应。
+- RED: node --test scripts\edhr-field-audit-api-contract.test.mjs -> FAIL, 缺少 EdhrFieldAuditDetailReqVO，详情 helper 仍按旧 flat entry/旧详情 ID 合同实现。
+- RED: node --test scripts\edhr-field-audit-ui-contract.test.mjs -> FAIL, FieldAuditPage 打开详情仍未传 executionId/auditItemId，FieldAuditDetailPage 仍解析旧详情 ID。
+- GREEN: node --test scripts\edhr-field-audit-api-contract.test.mjs -> PASS, API 合同已使用 page row id、结构化 detail 请求/响应、auditItemId/auditBatch/items，并禁止旧详情 ID 参数。
+- GREEN: node --test scripts\edhr-field-audit-ui-contract.test.mjs -> PASS, UI 合同已覆盖 executionId + auditItemId 路由、结构化 detail 展示、detail 校验链入参，并禁止旧详情 ID。
+- REGRESSION: node --test scripts\edhr-execution-page.test.mjs scripts\edhr-execution-submit.test.mjs scripts\edhr-tracking-signature-contract.test.mjs -> PASS, eDHR 执行页保存/提交与追踪签名合同回归通过。
+- BDD: reviewer batch/signature/verify/export 合同修正 -> Given 后端 FieldAuditBatchRespVO 返回 id/beforeFieldAuditRevision/afterFieldAuditRevision/baseFieldAuditHeadHash/previousHeadHash/newHeadHash/baseCellValuesHash/beforeCellValuesHash/afterCellValuesHash/signatureChallengeHash/signatureProjectionHash，SignatureRespVO 返回 signatureChallengeHash/fieldAuditRevision/fieldAuditHeadHash/cellValuesHash，VerifyReqVO 必填 executionId 且不支持 filters，ExportReqVO 必填 format, When 前端展示详情、校验链与导出, Then UI 不读取旧 flat batch 字段，不展示 signaturePayloadHash，不发送 filters/requireHashVerification。
+- RED: node --test scripts\edhr-field-audit-api-contract.test.mjs scripts\edhr-field-audit-ui-contract.test.mjs -> FAIL, API 测试命中 EdhrFieldAuditBatchVO 缺少 id/afterFieldAuditRevision 等后端字段，UI 测试命中详情页缺 afterFieldAuditRevision；当前实现仍使用旧 batch/signature/verify/export 字段。
+- GREEN: node --test scripts\edhr-field-audit-api-contract.test.mjs scripts\edhr-field-audit-ui-contract.test.mjs scripts\edhr-execution-page.test.mjs scripts\edhr-execution-submit.test.mjs scripts\edhr-tracking-signature-contract.test.mjs -> PASS, 12 tests passed；字段审计 API/UI 合同与 eDHR 执行/提交/追踪签名回归通过。
+- BLOCKED: pnpm ts:check -> FAIL, exit 1；直接运行 node node_modules\vue-tsc\bin\vue-tsc.js --noEmit -p tsconfig.relaxed.json --pretty false 复现 4GB heap OOM，关键输出为 "FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory"。
+- BDD: reviewer page row 与导出校验合同修正 -> Given 后端 FieldAuditPageReqVO 只支持 executionId/auditBatchId/fieldPath/fieldKey/actorId/actorName/reasonCategory/reasonKeyword/changedAtStart/changedAtEnd/pageNo/pageSize，item row 不返回 chainSeq/actionType/base* hash/signature 对象，VerifyRespVO 返回 verifiedCount，导出必填 executionId 与 format, When 前端查询、展示列表、校验和导出审计链, Then 前端不得发送不支持筛选，不读取未返回 row 字段，审计序号使用 fieldAuditRevision，校验显示 verifiedCount，导出缺 executionId 时 fail-fast。
+- RED: node --test scripts\edhr-field-audit-api-contract.test.mjs scripts\edhr-field-audit-ui-contract.test.mjs -> FAIL, API 测试命中分页查询缺 reasonKeyword 且仍声明不支持筛选；UI 测试命中列表缺 reasonKeyword，仍使用旧筛选、chainSeq/row action/signature、checkedCount 或缺导出 executionId gate。
+- GREEN: node --test scripts\edhr-field-audit-api-contract.test.mjs scripts\edhr-field-audit-ui-contract.test.mjs scripts\edhr-execution-page.test.mjs scripts\edhr-execution-submit.test.mjs scripts\edhr-tracking-signature-contract.test.mjs -> PASS, 12 tests passed；字段审计 API/UI 合同与 eDHR 执行/提交/追踪签名回归通过。
+- BLOCKED: pnpm ts:check -> FAIL, exit 134；关键输出为 "FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory"，GC 日志显示约 4080MB heap 附近 allocation failure。
+- BDD: reviewer page result item 与 JSON 导出合同修正 -> Given 后端 page 返回 PageResult<ItemRespVO> 且顶层只有 list/total，ItemRespVO 精确包含 component 且不包含工单/工序/工作站额外字段，export 返回 JSON ExportRespVO 而非二进制流, When 前端加载列表与导出审计链, Then 列表不读取顶层 hashVerification，item 类型精确对齐后端字段，导出校验 content 并用服务端 fileName/contentType 生成 Blob。
+- RED: node --test scripts\edhr-field-audit-api-contract.test.mjs scripts\edhr-field-audit-ui-contract.test.mjs -> FAIL, API 测试命中 export helper 仍用 request.download 且缺 EdhrFieldAuditExportRespVO；UI 测试命中列表页仍读取 data.hashVerification。
+- GREEN: node --test scripts\edhr-field-audit-api-contract.test.mjs scripts\edhr-field-audit-ui-contract.test.mjs scripts\edhr-execution-page.test.mjs scripts\edhr-execution-submit.test.mjs scripts\edhr-tracking-signature-contract.test.mjs -> PASS, 12 tests passed；字段审计 page/list item/export JSON 合同与相关 eDHR 回归通过。
+- BLOCKED: pnpm ts:check -> FAIL, exit 134；关键输出为 "FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory"，GC 日志显示约 4084MB heap 附近 allocation failure。
+- BDD: auto-import 类型声明恢复 -> Given `vite.config.ts` 通过 `build/vite/index.ts` 启用 AutoImport 且 `tsconfig.relaxed.json` 包含 `src/types/auto-imports.d.ts`, When reviewer 运行 16GB heap 的 `pnpm ts:check`, Then Vue/Vue Router/useMessage/useTable/useCrudSchemas/DICT_TYPE/required 等自动导入符号必须由正式声明文件解析，不能缩小检查范围或跳过错误。
+- RED: `$env:NODE_OPTIONS='--max-old-space-size=16384'; pnpm ts:check` -> FAIL, `src/types/auto-imports.d.ts` 缺失导致 App.vue、components、showroom-admin 等全仓大量 `Cannot find name 'computed'/'ref'/'watch'/'useMessage'/'useRoute'/'useRouter'`。
+- GREEN: `$env:NODE_OPTIONS='--max-old-space-size=16384'; pnpm ts:check` -> PASS, 已恢复与 `build/vite/index.ts` AutoImport 配置一致的 `src/types/auto-imports.d.ts`，并通过 `.gitignore` 例外允许该必需声明文件纳入版本控制；未修改 `ts:check` 脚本、未缩小 include、未跳过源码检查。
+- GREEN: node --test scripts\edhr-field-audit-api-contract.test.mjs scripts\edhr-field-audit-ui-contract.test.mjs scripts\edhr-execution-page.test.mjs scripts\edhr-execution-submit.test.mjs scripts\edhr-tracking-signature-contract.test.mjs -> PASS, 12 tests passed；字段审计 API/UI 合同与 eDHR 执行、提交、追踪签名回归通过。
+- BDD: 审计 Long ID 透传 -> Given 后端 page/detail 返回 Snowflake Long ID 字符串, When 前端打开字段审计详情, Then `auditBatchId/auditItemId` 不得被 JS Number 精度截断。
+- RED: node --test scripts\edhr-field-audit-api-contract.test.mjs scripts\edhr-field-audit-ui-contract.test.mjs -> FAIL, EdhrFieldAuditEntryVO 与 detail query 仍使用 number，详情页把 Long ID 转成 Number，真实 E2E detail API 返回字段审计链校验失败。
+- GREEN: node --test scripts\edhr-field-audit-api-contract.test.mjs scripts\edhr-field-audit-ui-contract.test.mjs -> PASS, 4 tests passed；审计 batch/item Long ID 改为 string 透传，详情页使用 `parsePositiveQueryLongId`。
+- GREEN: `$env:NODE_OPTIONS='--max-old-space-size=16384'; pnpm ts:check` -> PASS。
+- GREEN: node --test scripts\edhr-field-audit-api-contract.test.mjs scripts\edhr-field-audit-ui-contract.test.mjs scripts\edhr-execution-page.test.mjs scripts\edhr-execution-submit.test.mjs scripts\edhr-tracking-signature-contract.test.mjs -> PASS, 12 tests passed。
+- E2E: `EDHR_E2E_BASE_URL=http://127.0.0.1:8086` with work order `EDHR-MO-122-FA-20260527023615686679` and task `EDHR-TASK-122-FA-20260527023615686679` -> PASS, executionId=19；真实 UI 完成字段修改、原因、FIELD_CHANGE 签名、列表、verify-chain、导出、详情。
