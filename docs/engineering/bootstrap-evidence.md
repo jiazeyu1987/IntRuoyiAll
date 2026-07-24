@@ -50,6 +50,7 @@
 - Keep dependency folders, build outputs, runtime logs, local environment overrides, and task-local screenshots/scripts out of the root repository.
 - Prefer committing source, required lockfiles, SQL/schema assets, test files, and durable documentation.
 - Before future large commits, run `git check-ignore -v` on high-risk paths such as `node_modules`, `target`, `output`, `runtime`, and `.env.local`.
+- Before pushing repositories that contain Git LFS pointers, run `git lfs fsck`; if objects are missing, restore exact SHA-256 matching originals instead of disabling LFS integrity checks.
 
 ## Environment Variables And Examples
 
