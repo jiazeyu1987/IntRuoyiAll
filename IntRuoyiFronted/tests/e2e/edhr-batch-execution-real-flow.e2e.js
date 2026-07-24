@@ -4,7 +4,9 @@ const assert = require('node:assert/strict')
 
 const TASK_ID = envValue('EDHR_BATCH_E2E_TASK_ID') || '20260608-edhr-batch-execution-full-flow'
 const RESULT_DIR = path.resolve(process.cwd(), 'test-results', 'edhr-batch-execution')
-const EVIDENCE_FILE = path.resolve(process.cwd(), 'doc', 'tasks', TASK_ID, 'real-e2e-evidence.md')
+const EVIDENCE_FILE = envValue('EDHR_BATCH_E2E_EVIDENCE_FILE')
+  ? path.resolve(envValue('EDHR_BATCH_E2E_EVIDENCE_FILE'))
+  : path.resolve(process.cwd(), 'doc', 'tasks', TASK_ID, 'real-e2e-evidence.md')
 const REQUIRED_BASE_URL = 'http://localhost:8081'
 const BATCH_EXECUTION_ROUTE = '/mes/pro/feedback/edhr-batch-execution'
 const FORBIDDEN_TENANTS = new Set(['芋道源码', 'yudao', 'prod', 'production'])
@@ -155,11 +157,10 @@ async function selectWorkOrderFromDialog(page, config) {
 async function selectRouteFromDialog(page, config) {
   if (!config.routeId) return
   const dialog = page.locator('.el-dialog:visible').first()
-  const routeInput = dialog
-    .locator('input[placeholder="请先选择工单，再选择该产品绑定的工艺路线"]')
-    .first()
-  await routeInput.waitFor({ state: 'visible', timeout: 30000 })
-  await routeInput.click()
+  const routeField = dialog.locator('.el-form-item').filter({ hasText: '工艺路线' }).first()
+  const routeSelect = routeField.locator('.el-select').first()
+  await routeSelect.waitFor({ state: 'visible', timeout: 30000 })
+  await routeSelect.click()
 
   const option = page
     .locator('.el-select-dropdown:visible .el-select-dropdown__item')

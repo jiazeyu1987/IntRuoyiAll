@@ -87,7 +87,7 @@ export interface CodexTestExecutionVO {
 }
 
 export const getCodexTestCasePage = (params: CodexTestCasePageReqVO) => {
-  return request.get<PageResult<CodexTestCaseVO>>({ url: '/system/codex-test-case/page', params })
+  return request.get<PageResult<CodexTestCaseVO[]>>({ url: '/system/codex-test-case/page', params })
 }
 
 export const getCodexTestCase = (id: number) => {
@@ -118,7 +118,7 @@ export const cancelCodexTestExecution = (executionId: number) => {
 }
 
 export const getCodexTestExecutionPage = (params: CodexTestExecutionPageReqVO) => {
-  return request.get<PageResult<CodexTestExecutionVO>>({
+  return request.get<PageResult<CodexTestExecutionVO[]>>({
     url: '/system/codex-test-execution/page',
     params
   })
