@@ -8,8 +8,11 @@
 
 ## 固定端口
 
+PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
+
 - `int_main` 前端专属端口：`8081`。
-- `int_main` 后端专属端口：`48081`。
+- int_main 后端专属端口：48081。
+- int_main 主线本地仓库：D:\ProjectPackage\IntRuoyi\IntRuoyiAll。
 - 前端本机入口：`http://127.0.0.1:8081` 或 `http://localhost:8081`。
 - 后端健康检查：`http://127.0.0.1:48081/actuator/health`。
 - 前端本机模式应使用 `IntRuoyiFronted\.env.local`：
@@ -17,13 +20,27 @@
   - `VITE_BASE_URL=http://127.0.0.1:48081`
   - `VITE_PROXY_TARGET=http://127.0.0.1:48081`
 
+## 分支运行端口矩阵
+
+- `int_main`：前端 `8081`，后端 `48081`，对应 `D:\ProjectPackage\IntRuoyi\IntRuoyiAll`，保持原始本机默认设置不变。
+- `int_batch`：前端 `8041`，后端 `48041`，对应 `E:\IntRuoyiBranch\BatchRecord\IntRuoyiAll`。
+- `int_shedule`：前端 `8021`，后端 `48021`，对应 `E:\IntRuoyiBranch\Shedule\IntRuoyiAll`。
+- `int_qms`：前端 `8061`，后端 `48061`，对应 `E:\IntRuoyiBranch\QMS\IntRuoyiAll`。
+- 分支专属前端调试必须通过 `scripts\runtime\start-branch-frontend.ps1` 或对应 `IntRuoyiFronted\.env.branch-*` 模式启动，不得通过改写共享 `.env` 抢占端口。
+- 分支专属后端调试必须通过 `scripts\runtime\start-branch-backend.ps1` 传入 `--server.port`，不得把后端 `application-local.yaml` 改成分支端口。
+- 合并 `int_main` 或跨分支合并后必须运行 `scripts\preflight\branch-runtime-port-guard.ps1`，确认本矩阵未被覆盖、删除或改回 `8081/48081`。
+
 ## 启动前检查
 
 - 启动 `int_main` 前端前，检查 `8081` 占用。
 - 启动 `int_main` 后端前，检查 `48081` 占用。
+- 启动 `int_batch` 前端/后端前，检查 `8041/48041` 占用。
+- 启动 `int_shedule` 前端/后端前，检查 `8021/48021` 占用。
+- 启动 `int_qms` 前端/后端前，检查 `8061/48061` 占用。
 - 如果端口被当前 `int_main` 旧进程占用，可记录进程 ID、命令行和归属依据后停止对应旧进程，再启动。
-- 如果端口被未知进程、非 IntRuoyi 进程或非 `int_main` worktree 占用，必须 fail fast，不得强杀或换端口。
-- 非 `int_main` worktree 不得使用 `8081/48081`，必须按 `docs/worktree-restrictions.md` 的 slot 规则使用独立端口。
+- 如果端口被同一 runtime profile 的旧进程占用，可记录进程 ID、命令行和归属依据后停止对应旧进程，再启动。
+- 如果端口被未知进程、非 IntRuoyi 进程或其他 runtime profile 占用，必须 fail fast，不得强杀或换端口。
+- worktree 必须按 `docs/worktree-restrictions.md` 的 profile + slot 规则使用独立端口。
 
 ## 2026-07-24 本地重启脚本路径门禁
 
@@ -38,6 +55,8 @@
 
 - 禁止把 `int_main` 改到随机端口启动。
 - 禁止非 `int_main` 使用 `8081/48081`。
+- 禁止把 `int_batch`、`int_shedule` 或 `int_qms` 的分支端口写入 `int_main` 默认配置。
+- 禁止通过修改共享 `.env` 或 `application-local.yaml` 来实现分支端口。
 - 禁止端口占用时静默换端口、静默跳过服务或宣称启动成功。
 - 禁止停止无法确认归属的进程。
 
@@ -47,3 +66,4 @@
 - 记录启动命令、工作目录、端口和进程 ID。
 - 前端启动后验证 `http://127.0.0.1:8081/`。
 - 后端启动后验证 `http://127.0.0.1:48081/actuator/health`。
+- 分支启动后验证对应 profile 的前端入口和后端健康检查，例如 `int_batch` 使用 `http://127.0.0.1:8041/` 与 `http://127.0.0.1:48041/actuator/health`。

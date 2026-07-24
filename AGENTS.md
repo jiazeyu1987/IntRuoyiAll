@@ -10,6 +10,7 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - Main branch: `int_main`.
 - Worktree root: `D:\IntRuoyiWorktree\`.
 - Worktree restrictions: `docs\worktree-restrictions.md`.
+- Branch runtime port matrix: `docs\branch-runtime-ports.md`; `int_main=8081/48081` at `D:\ProjectPackage\IntRuoyi\IntRuoyiAll`, `int_batch=8041/48041`, `int_shedule=8021/48021`, `int_qms=8061/48061`.
 - Trigger-read rules live under `docs\*.md`; read the matching rule file before the triggering operation.
 - Coordination docs live under root `doc\` and `docs\`; backend and frontend also contain their own `doc\` and `docs\` folders.
 - Do not reuse paths or folder names from prior project instructions unless the user explicitly confirms they are relevant to the current task.
@@ -25,6 +26,7 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 ## Trigger-Read Rule Files
 
 - Worktree operations: read `docs\worktree-restrictions.md` before creating, starting, stopping, restarting, merging, cleaning, or deleting any IntRuoyi worktree.
+- Branch runtime port governance: read `docs\branch-runtime-ports.md` before changing local frontend/backend ports, branch startup scripts, worktree slot rules, or merge/push guards.
 - Backend development: read `docs\backend-development.md` before modifying Java, Spring Boot, Maven, backend APIs, services, mappers, backend configuration, or backend tests.
 - Frontend development: read `docs\frontend-development.md` before modifying Vue, TypeScript, Vite, routes, frontend APIs, styles, frontend configuration, or frontend tests.
 - Local runtime operations: read `docs\local-runtime.md` before starting, stopping, restarting, or troubleshooting local frontend/backend services or ports.
@@ -92,8 +94,9 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 ## E2E, Data, and Tenant Safety
 
 - E2E must use Playwright through real frontend user paths. APIs may be used only for final verification or read-only supporting checks.
-- Default local frontend entry is `http://127.0.0.1:8081` or `http://localhost:8081` only after confirming the service is running.
-- Default local backend API entry is `http://127.0.0.1:48081` only after confirming the service is running.
+- `int_main` default local frontend entry is `http://127.0.0.1:8081` or `http://localhost:8081` only after confirming the service is running.
+- `int_main` default local backend API entry is `http://127.0.0.1:48081` only after confirming the service is running.
+- Branch-specific local entries must follow `docs\branch-runtime-ports.md`; do not use `8081/48081` for `int_batch`, `int_shedule`, or `int_qms`.
 - Write-type E2E must use a confirmed test tenant/account and create traceable, task-owned test data. Do not modify production tenant data, admin baseline data, or unrelated real business records.
 - If login credentials, tenant baseline, menu permissions, runtime ports, database, Redis, or sample data are missing, fail fast. Do not replace real E2E with mocks, backup data, direct SQL shortcuts, or API-only paths.
 - If a frontend entry, menu route, role binding, or dynamic route is missing, distinguish between product scope and environment/setup scope before changing code.
@@ -105,6 +108,7 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - Do not delete, unmount, clear, or rewrite shared storage or deployment artifacts unless the task scope explicitly authorizes it and verification/rollback steps are documented.
 - Release/build isolation must be explicit. If Git/worktree support is absent in this workspace, do not fabricate a branch, commit, or release workflow.
 - Before creating, starting, stopping, restarting, merging, or cleaning any IntRuoyi worktree, read `docs\worktree-restrictions.md` and follow it as the authoritative worktree restriction file.
+- Before committing, merging, or pushing branch runtime files, run `scripts\preflight\branch-runtime-port-guard.ps1`; the guard must protect `docs\branch-runtime-ports.md`, branch env files, startup scripts, and `.githooks`, including `post-merge` for fast-forward merge visibility and `pre-push` for final blocking.
 - All IntRuoyi task worktrees must be created under `D:\IntRuoyiWorktree\` only.
 - Before creating a worktree, resolve the absolute target path and verify it is a child path of `D:\IntRuoyiWorktree\`. If it is outside that root, fail fast and do not create the worktree.
 - Do not create IntRuoyi worktrees under `E:\IntRuoyi`, `IntRuoyiBackend`, `IntRuoyiFronted`, `%TEMP%`, the user profile, or any prior-project directory.
