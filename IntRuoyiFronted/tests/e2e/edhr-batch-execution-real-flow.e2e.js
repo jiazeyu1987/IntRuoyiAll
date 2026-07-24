@@ -245,16 +245,39 @@ async function runRealFlow(config) {
     const tasks = openBody.data?.tasks || []
     assert.ok(tasks.length > 0, '打开/创建批次必须返回真实工序任务')
     assert.equal(openBody.data?.taskTotal, tasks.length, '批次任务总数必须与后端返回任务列表一致')
+    const openableTask = tasks.find(
+      (task) =>
+        task.requiredFlag !== false &&
+        task.activeWorkTaskId &&
+        Array.isArray(task.allowedActions) &&
+        task.allowedActions.includes('OPEN_FORM')
+    )
     assert.ok(
-      tasks.some((task) => task.requiredFlag !== false && (task.batchRecordReportId || task.formTemplateId)),
-      '批次任务必须包含至少一个需要填写的真实批记录或动态表单'
+      openableTask && (openableTask.batchRecordReportId || openableTask.formTemplateId),
+      '批次任务必须包含至少一个当前账号可打开的真实批记录或动态表单'
     )
     assert.equal(openBody.data?.blockedCount, 0, '当前真实测试工单不能存在阻塞任务')
     await page.waitForURL((url) => url.pathname === `${BATCH_EXECUTION_ROUTE}/detail`, { timeout: 60000 })
-    await page.getByRole('button', { name: /打开填写|打开返工/ }).first().waitFor({
-      state: 'visible',
-      timeout: 60000
-    })
+    const processGroup = page
+      .locator('.edhr-batch-detail__process-task-group')
+      .filter({ hasText: openableTask.processName || openableTask.processCode || '' })
+      .first()
+    await processGroup.waitFor({ state: 'visible', timeout: 60000 })
+    await processGroup.click()
+    const formItem = page
+      .locator('.edhr-batch-detail__rail-process-form-item')
+      .filter({
+        hasText:
+          openableTask.batchRecordReportName ||
+          openableTask.formTemplateName ||
+          openableTask.processName ||
+          String(openableTask.id)
+      })
+      .first()
+    await formItem.waitFor({ state: 'visible', timeout: 60000 })
+    const openTaskButton = formItem.getByRole('button', { name: /打开填写|打开返工/ }).first()
+    await openTaskButton.waitFor({ state: 'visible', timeout: 60000 })
+    assert.equal(await openTaskButton.isEnabled(), true, '当前真实任务的打开填写按钮必须可用')
 
     const [taskOpenResult] = await Promise.all([
       page.waitForResponse(
@@ -263,7 +286,7 @@ async function runRealFlow(config) {
           response.request().method() === 'POST',
         { timeout: 60000 }
       ),
-      clickButton(page, '打开填写')
+      openTaskButton.click()
     ])
     assert.equal(taskOpenResult.status(), 200, '打开工序任务接口必须返回 HTTP 200')
     const taskOpenBody = await taskOpenResult.json()

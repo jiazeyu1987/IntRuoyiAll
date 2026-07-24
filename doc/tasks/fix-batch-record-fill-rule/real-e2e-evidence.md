@@ -13,7 +13,4 @@
 
 ## Result
 
-- RED: 真实前端路径失败，locator.waitFor: Timeout 60000ms exceeded.
-Call log:
-[2m  - waiting for getByRole('button', { name: /打开填写|打开返工/ }).first() to be visible[22m
-
+- RED: 真实前端路径失败，page.waitForResponse: Timeout 60000ms exceeded while waiting for event "response"
