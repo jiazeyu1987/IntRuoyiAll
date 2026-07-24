@@ -19,6 +19,9 @@ const workTaskService = readModule(
 const releaseService = readModule(
   'src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrReleaseServiceImpl.java'
 )
+const operationAuditController = readModule(
+  'src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/MesProEdhrOperationAuditController.java'
+)
 const frontendPresentation = readWorkspace(
   'IntRuoyiFronted/src/views/mes/pro/edhr/shared/releaseCheckPresentation.ts'
 )
@@ -103,6 +106,12 @@ assert(
     frontendOperationAuditPane.includes('objectType: shouldQueryBatchContextOnly.value ? undefined') &&
     frontendOperationAuditPane.includes('objectId: shouldQueryBatchContextOnly.value ? undefined'),
   'Batch trace operation audit pane must query by batchExecutionId without filtering out non-BATCH_EXECUTION objects.'
+)
+
+assert(
+  operationAuditController.includes('reqVO.getBatchExecutionId() != null') &&
+    operationAuditController.includes('OBJECT_TYPE_BATCH_EXECUTION, String.valueOf(reqVO.getBatchExecutionId())'),
+  'Operation audit controller must authorize batch trace queries by batchExecutionId without requiring object filters.'
 )
 
 console.log('PASS: eDHR FDA operation audit coverage static contract')
