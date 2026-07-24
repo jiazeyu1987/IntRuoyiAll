@@ -2268,6 +2268,115 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void openTask_opensLegacyBatchRecordTaskWithFrozenExecutionWithoutFormCenterContext() {
+        Fixture fixture = insertRouteFixture(true, true);
+        MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
+        MesProRouteDO route = routeMapper.selectById(fixture.routeId());
+        MesProRouteProcessDO firstRouteProcess = routeProcessMapper.selectListByRouteId(route.getId()).stream()
+                .min(Comparator.comparing(MesProRouteProcessDO::getSort))
+                .orElseThrow();
+        MesProProcessDO firstProcess = processMapper.selectById(firstRouteProcess.getProcessId());
+        MesProBatchRecordReportDO report = reportMapper.selectByReportId(fixture.reportId1());
+        MesProEdhrBatchExecutionDO legacyBatch = MesProEdhrBatchExecutionDO.builder()
+                .batchExecutionCode("EDHRB-OPEN-LEGACY-FROZEN")
+                .workOrderId(workOrder.getId())
+                .workOrderCode(workOrder.getCode())
+                .batchCode("BATCH-OPEN-LEGACY-FROZEN")
+                .activeContextKey(workOrder.getId() + "|" + route.getId() + "|BATCH-OPEN-LEGACY-FROZEN")
+                .attemptNo(1)
+                .productId(workOrder.getProductId())
+                .productCode(String.valueOf(workOrder.getProductId()))
+                .productName(workOrder.getName())
+                .routeId(route.getId())
+                .routeVersionId(fixture.routeVersionId())
+                .routeVersionNo(fixture.routeVersionNo())
+                .routeSnapshotJson(frozenRouteSnapshotJson(route, routeProcessMapper.selectListByRouteId(route.getId())))
+                .routeCode(route.getCode())
+                .routeName(route.getName())
+                .status(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CREATED)
+                .taskTotal(1)
+                .taskApprovedCount(0)
+                .blockedCount(0)
+                .build();
+        batchExecutionMapper.insert(legacyBatch);
+        Long executionId = 9032L;
+        MesProEdhrBatchExecutionTaskDO legacyTask = MesProEdhrBatchExecutionTaskDO.builder()
+                .batchExecutionId(legacyBatch.getId())
+                .nodeType(MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM)
+                .routeProcessId(firstRouteProcess.getId())
+                .rootProcessFlag(Boolean.TRUE)
+                .routeProcessSort(firstRouteProcess.getSort())
+                .processId(firstRouteProcess.getProcessId())
+                .processCode(firstProcess.getCode())
+                .processName(firstProcess.getName())
+                .batchRecordReportId(fixture.reportId1())
+                .batchRecordReportName(report.getReportName())
+                .batchRecordDefinitionId(report.getBatchRecordDefinitionId())
+                .batchRecordVersionId(report.getBatchRecordVersionId())
+                .batchRecordSort(1)
+                .instanceScope("PROCESS")
+                .executionMode("SEQUENTIAL")
+                .formSlotType("MAIN")
+                .recordCategory("BATCH_RECORD")
+                .validationProfile("CONTROLLED_BATCH")
+                .requiredPolicy("REQUIRED")
+                .ownerRoleKey("PRODUCTION")
+                .archiveVisibility("FINAL_DHR")
+                .slotConfigSnapshotHash("1111111111111111111111111111111111111111111111111111111111111111")
+                .executionId(executionId)
+                .status(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_DRAFT)
+                .requiredFlag(Boolean.TRUE)
+                .build();
+        batchTaskMapper.insert(legacyTask);
+        executionMapper.insert(new MesProBatchRecordExecutionDO()
+                .setId(executionId)
+                .setExecutionCode("BRE-" + executionId)
+                .setWorkOrderId(workOrder.getId())
+                .setWorkOrderCode(workOrder.getCode())
+                .setRouteProcessId(firstRouteProcess.getId())
+                .setBatchRecordReportId(fixture.reportId1())
+                .setBatchRecordDefinitionId(report.getBatchRecordDefinitionId())
+                .setBatchRecordVersionId(report.getBatchRecordVersionId())
+                .setBatchExecutionId(legacyBatch.getId())
+                .setRouteId(route.getId())
+                .setInstanceScope("PROCESS")
+                .setFormSlotType("MAIN")
+                .setRecordCategory("BATCH_RECORD")
+                .setValidationProfile("CONTROLLED_BATCH")
+                .setBatchCode(legacyBatch.getBatchCode())
+                .setStatus(0)
+                .setSheetLayoutJson("{\"rows\":{\"0\":{\"cells\":{\"0\":{\"text\":\"传统批记录\"}}}}}")
+                .setMetaJson("{\"tableTitle\":\"传统批记录\"}")
+                .setExecutionSnapshotJson("{}")
+                .setCellValuesJson("[]")
+                .setCellValuesHash("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+                .setFieldAuditRevision(1L)
+                .setFieldAuditHeadHash("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")
+                .setDomainTraceStatus("VERIFIED"));
+        EdhrBatchExecutionRespVO batchResp = new EdhrBatchExecutionRespVO().setId(legacyBatch.getId());
+        EdhrBatchExecutionTaskRespVO taskResp = new EdhrBatchExecutionTaskRespVO()
+                .setId(legacyTask.getId())
+                .setRouteProcessId(firstRouteProcess.getId())
+                .setProcessId(firstRouteProcess.getProcessId())
+                .setProcessName(firstProcess.getName());
+        MesProEdhrWorkTaskDO workTask = insertFillWorkTask(batchResp, taskResp, fixture);
+        clearInvocations(singleExecutionService);
+
+        EdhrBatchExecutionTaskOpenRespVO opened =
+                openTaskAsFiller(legacyBatch.getId(), legacyTask.getId(), workTask.getId());
+
+        assertEquals(executionId, opened.getExecutionId());
+        assertEquals(legacyTask.getId(), opened.getTaskId());
+        assertEquals(fixture.reportId1(), opened.getBatchRecordReportId());
+        assertEquals(workTask.getId(), opened.getWorkTaskId());
+        assertNull(opened.getFormTemplateId());
+        assertNull(opened.getFormCenterInstanceId());
+        assertEquals(executionId, opened.getExecutionPageQuery().get("id"));
+        assertEquals(workTask.getId(), opened.getExecutionPageQuery().get("workTaskId"));
+        verify(singleExecutionService, never()).openOrCreateByContext(any());
+    }
+
+    @Test
     void openTask_routeFormFillTaskDoesNotRequirePreviousSpecialNodeCompletion() {
         Fixture fixture = insertRouteFixture(true, true);
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
