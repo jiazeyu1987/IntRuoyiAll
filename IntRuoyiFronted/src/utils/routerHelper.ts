@@ -14,6 +14,16 @@ const WORKSTATION_ROUTE_COMPONENTS = new Set(['mes/md/workstation/index', 'mes/m
 const WORKSTATION_ROUTE_PATHS = new Set(['mes/md/workstation', 'md/workstation'])
 const MES_PRO_ROUTE_LIST_COMPONENT = 'mes/pro/route/index'
 const MES_PRO_ROUTE_MENU_PATHS = new Set(['mes/pro/route', 'pro/route'])
+const MES_PRO_WORK_ORDER_ROUTE_COMPONENTS = new Set([
+  'mes/pro/workorder/index',
+  'mes/pro/workorder'
+])
+const MES_PRO_WORK_ORDER_ROUTE_PATHS = new Set([
+  'mes/pro/workorder',
+  'pro/workorder',
+  'mes/pro/work-order',
+  'pro/work-order'
+])
 const MES_FEEDBACK_ROUTE_COMPONENTS = new Set(['mes/pro/feedback', 'mes/pro/feedback/index'])
 const MES_FEEDBACK_ROUTE_PATHS = new Set(['mes/pro/feedback', 'pro/feedback'])
 const APPROVAL_CENTER_REDIRECT_SHELL_ROUTE_COMPONENTS = new Set([
@@ -66,6 +76,8 @@ const applyRouteMetaOverrides = (
     componentPath === DCC_PERMISSION_CATEGORIES_ROUTE_COMPONENT ||
     WORKSTATION_ROUTE_PATHS.has(routePath) ||
     WORKSTATION_ROUTE_COMPONENTS.has(componentPath) ||
+    MES_PRO_WORK_ORDER_ROUTE_PATHS.has(routePath) ||
+    MES_PRO_WORK_ORDER_ROUTE_COMPONENTS.has(componentPath) ||
     MES_FEEDBACK_ROUTE_PATHS.has(routePath) ||
     MES_FEEDBACK_ROUTE_COMPONENTS.has(componentPath)
   ) {

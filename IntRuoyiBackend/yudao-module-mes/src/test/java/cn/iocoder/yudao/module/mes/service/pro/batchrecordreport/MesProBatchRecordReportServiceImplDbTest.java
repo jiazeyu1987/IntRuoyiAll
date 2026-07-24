@@ -3970,6 +3970,54 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     }
 
     @Test
+    void saveCellRules_normalizesReviewedAutoSuggestionToManualConfirmation() {
+        MesProBatchRecordReportDO report = TestBatchRecordFixtures.metadataReport(
+                43L, "sample-cell-rules-auto-reviewed", 1, "cell-rule-report-auto-reviewed",
+                "EBR_RULE_T03", "规则表 AUTO 确认", PILOT_FILE_NAME);
+        reportMapper.insert(report);
+        AtomicReference<String> reportJson = new AtomicReference<>(sampleCellRuleReportJson());
+        when(jimuReportGateway.getReportJson("cell-rule-report-auto-reviewed")).thenAnswer(invocation -> reportJson.get());
+        org.mockito.Mockito.doAnswer(invocation -> {
+            reportJson.set(invocation.getArgument(1));
+            return null;
+        }).when(jimuReportGateway).updateReportJson(eq("cell-rule-report-auto-reviewed"), any());
+
+        BatchRecordReportCellRulesRespVO saved = reportService.saveCellRules(new BatchRecordReportCellRulesReqVO()
+                .setReportId("cell-rule-report-auto-reviewed")
+                .setRules(List.of(new BatchRecordReportCellRuleVO()
+                        .setRowIndex(0)
+                        .setColumnIndex(1)
+                        .setValueType("NUMBER")
+                        .setComponentFlag("input-number")
+                        .setRequired(true)
+                        .setLabel("重量")
+                        .setConstraints(Map.of("min", 0, "max", 100, "scale", 2))
+                        .setUnit("g")
+                        .setSource("AUTO")
+                        .setConfidence(0.84)
+                        .setReviewed(true),
+                new BatchRecordReportCellRuleVO()
+                        .setRowIndex(1)
+                        .setColumnIndex(1)
+                        .setValueType("DATE")
+                        .setComponentFlag("date")
+                        .setRequired(true)
+                        .setLabel("生产日期")
+                        .setConstraints(Map.of("format", "yyyy-MM-dd"))
+                        .setSource("MANUAL")
+                        .setConfidence(1.0)
+                        .setReviewed(true))));
+
+        assertEquals(0, saved.getUnreviewedFillableCellCount());
+        JSONObject savedRoot = JSONObject.parseObject(reportJson.get());
+        JSONObject savedRule = savedRoot.getJSONObject("rows")
+                .getJSONObject("0").getJSONObject("cells").getJSONObject("1")
+                .getJSONObject("edhrCellRule");
+        assertEquals("MANUAL", savedRule.getString("source"));
+        assertEquals(true, savedRule.getBoolean("reviewed"));
+    }
+
+    @Test
     void saveCellRules_createsAndRemovesManualFillFormForPlainRealCell() {
         MesProBatchRecordReportDO report = TestBatchRecordFixtures.metadataReport(
                 44L, "sample-plain-cell-rule", 1, "plain-cell-rule-report-1", "EBR_RULE_T04",

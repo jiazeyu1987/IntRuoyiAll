@@ -31,6 +31,14 @@ public class MesProBatchRecordExecutionFieldAuditItemHashInput {
 
     String newValueHash;
 
+    String recordbookValueJson;
+
+    String recordbookValueDisplay;
+
+    String batchRecordValueJson;
+
+    String batchRecordValueDisplay;
+
     String reasonCategory;
 
     String reasonText;

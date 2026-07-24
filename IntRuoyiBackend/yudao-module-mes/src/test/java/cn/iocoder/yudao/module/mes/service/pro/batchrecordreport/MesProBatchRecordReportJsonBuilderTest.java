@@ -457,6 +457,46 @@ class MesProBatchRecordReportJsonBuilderTest {
     }
 
     @Test
+    void build_shouldNotPromoteMisalignedCheckboxFragmentsInsideSignatureDateTail() {
+        MesProBatchRecordParsedTable source = MesProBatchRecordParsedTable.builder()
+                .sourceTableIndex(6)
+                .tableTitle("粗洗工序签署日期列偏移识别")
+                .rowCount(2)
+                .columnCount(8)
+                .rows(List.of(
+                        List.of(
+                                sourceBackedCellAt("检查要求", 0, 1, 2, 240, 28, false, false, true),
+                                sourceBackedCellAt("结果", 2, 1, 1, 80, 28, false, false, true),
+                                sourceBackedCellAt("操作人/日期", 4, 1, 1, 90, 28, false, false, true),
+                                sourceBackedCellAt("复核人/日期", 6, 1, 1, 90, 28, false, false, true)
+                        ),
+                        List.of(
+                                sourceBackedCellAt("工作场所检查", 0, 1, 2, 240, 36, false, false, false),
+                                sourceBackedCellAt("□符合要求", 2, 1, 1, 80, 36, false, false, false),
+                                sourceBackedCellAt("□不符合要求", 5, 1, 1, 90, 36, false, false, false),
+                                sourceBackedCellAt("", 6, 1, 1, 90, 36, true, false, false)
+                        )
+                ))
+                .build();
+
+        JSONObject root = JSON.parseObject(builder.build(source, REPORT_CODE));
+        JSONObject bodyCells = root.getJSONObject("rows").getJSONObject("1").getJSONObject("cells");
+        JSONObject resultCell = bodyCells.getJSONObject("2");
+        JSONObject shiftedSignatureDateCell = bodyCells.getJSONObject("5");
+
+        assertEquals("checkbox", resultCell.getJSONObject("fillForm").getString("componentFlag"));
+        JSONArray resultOptions = resultCell.getJSONObject("fillForm").getJSONArray("options");
+        assertNotNull(resultOptions, "signature/date checkbox fragments must be merged as result options");
+        assertEquals(2, resultOptions.size());
+        assertTrue(hasCheckboxFillFormOption(resultCell.getJSONObject("fillForm"), "符合要求"));
+        assertTrue(hasCheckboxFillFormOption(resultCell.getJSONObject("fillForm"), "不符合要求"));
+        assertEquals(1, countCheckboxFillForms(bodyCells),
+                "misaligned checkbox fragments inside signature/date tail must be folded into the result cell");
+        assertEquals("", shiftedSignatureDateCell.getString("text"));
+        assertEquals("input-text", shiftedSignatureDateCell.getJSONObject("fillForm").getString("componentFlag"));
+    }
+
+    @Test
     void build_shouldKeepYesNoCheckboxChoicesInsideSingleVisualCell() {
         MesProBatchRecordParsedTable table = MesProBatchRecordParsedTable.builder()
                 .sourceTableIndex(1)
@@ -3703,6 +3743,16 @@ class MesProBatchRecordReportJsonBuilderTest {
                 .visualBlank(visualBlank)
                 .placeholder(fillable ? "" : "请填写")
                 .build();
+    }
+
+    private static MesProBatchRecordParsedCell sourceBackedCellAt(String text, int columnIndex, int rowSpan, int colSpan,
+                                                                  int widthPx, int heightPx,
+                                                                  boolean fillable, boolean visualBlank,
+                                                                  boolean bold) {
+        MesProBatchRecordParsedCell cell = sourceBackedCell(text, rowSpan, colSpan, widthPx, heightPx,
+                fillable, visualBlank, bold);
+        cell.setColumnIndex(columnIndex);
+        return cell;
     }
 
     private static MesProBatchRecordParsedTable buildRepeatedEquipmentMatrixTable(int matrixRows, boolean dispersed) {

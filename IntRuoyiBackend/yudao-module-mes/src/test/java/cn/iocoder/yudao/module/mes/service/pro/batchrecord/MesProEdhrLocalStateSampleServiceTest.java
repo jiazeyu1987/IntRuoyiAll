@@ -61,6 +61,8 @@ class MesProEdhrLocalStateSampleServiceTest extends BaseDbUnitTest {
     private MesProEdhrWorkTaskMapper workTaskMapper;
     @MockitoBean
     private AdminUserApi adminUserApi;
+    @MockitoBean
+    private MesProEdhrOperationAuditService operationAuditService;
 
     @BeforeEach
     void setUp() {

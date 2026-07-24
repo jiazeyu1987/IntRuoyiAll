@@ -103,6 +103,8 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     private DeptApi deptApi;
     @MockitoBean
     private MesProRouteProcessService routeProcessService;
+    @MockitoBean
+    private MesProEdhrOperationAuditService operationAuditService;
 
     @BeforeEach
     void setTenant() {

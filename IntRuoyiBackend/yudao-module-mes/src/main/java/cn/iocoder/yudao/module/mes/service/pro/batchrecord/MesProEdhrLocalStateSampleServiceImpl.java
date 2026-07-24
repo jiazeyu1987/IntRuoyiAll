@@ -28,7 +28,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -65,6 +68,8 @@ public class MesProEdhrLocalStateSampleServiceImpl implements MesProEdhrLocalSta
     private MesProEdhrWorkTaskMapper workTaskMapper;
     @Resource
     private AdminUserApi adminUserApi;
+    @Resource
+    private MesProEdhrOperationAuditService operationAuditService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -82,14 +87,20 @@ public class MesProEdhrLocalStateSampleServiceImpl implements MesProEdhrLocalSta
         batchTaskMapper.insert(batchTask);
 
         MesProEdhrReleaseTransactionDO releaseTransaction = buildReleaseTransaction(batch, state, now, loginUser.getId());
+        List<MesProEdhrReleaseCheckItemDO> releaseCheckItems = List.of();
         if (releaseTransaction != null) {
             releaseTransactionMapper.insert(releaseTransaction);
-            insertReleaseCheckItems(releaseTransaction, batch, state, now);
+            releaseCheckItems = insertReleaseCheckItems(releaseTransaction, batch, state, now);
         }
-        insertStageWorkTask(batch, batchTask, releaseTransaction, state, now, loginUser.getId());
+        List<MesProEdhrWorkTaskDO> workTasks =
+                insertStageWorkTask(batch, batchTask, releaseTransaction, state, now, loginUser.getId());
+        MesProEdhrBatchExecutionArchiveDO archive = null;
         if ("ARCHIVED".equals(state)) {
-            archiveMapper.insert(buildSealedArchive(batch, code, now, loginUser.getId()));
+            archive = buildSealedArchive(batch, code, now, loginUser.getId());
+            archiveMapper.insert(archive);
         }
+        recordLocalStateSampleCreateAudit(batch, batchTask, releaseTransaction, releaseCheckItems, workTasks, archive,
+                state, code, now, loginUser.getId());
 
         return new EdhrLocalStateSampleRespVO()
                 .setBatchExecutionId(batch.getId())
@@ -269,21 +280,26 @@ public class MesProEdhrLocalStateSampleServiceImpl implements MesProEdhrLocalSta
         return transaction;
     }
 
-    private void insertReleaseCheckItems(MesProEdhrReleaseTransactionDO transaction, MesProEdhrBatchExecutionDO batch,
-                                         String state, LocalDateTime now) {
+    private List<MesProEdhrReleaseCheckItemDO> insertReleaseCheckItems(MesProEdhrReleaseTransactionDO transaction,
+                                                                       MesProEdhrBatchExecutionDO batch,
+                                                                       String state,
+                                                                       LocalDateTime now) {
         boolean failed = "PRECHECK".equals(state) || "QUALITY_TERMINAL".equals(state);
-        releaseCheckItemMapper.insert(buildCheckItem(transaction.getId(), batch, now,
+        MesProEdhrReleaseCheckItemDO dhrItem = buildCheckItem(transaction.getId(), batch, now,
                 MesProEdhrReleaseServiceImpl.CHECK_DHR_COMPLETENESS,
                 "DHR", "DHR 完整性检查",
                 failed ? MesProEdhrReleaseServiceImpl.CHECK_RESULT_FAIL : MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS,
                 failed ? "BLOCKER" : "INFO",
-                failed ? "LOCAL_STATE_SAMPLE 阻塞项" : "LOCAL_STATE_SAMPLE 通过项"));
-        releaseCheckItemMapper.insert(buildCheckItem(transaction.getId(), batch, now,
+                failed ? "LOCAL_STATE_SAMPLE 阻塞项" : "LOCAL_STATE_SAMPLE 通过项");
+        MesProEdhrReleaseCheckItemDO inspectionItem = buildCheckItem(transaction.getId(), batch, now,
                 MesProEdhrReleaseServiceImpl.CHECK_INSPECTION_RESULT,
                 "INSPECTION", "检验结果检查",
                 "PRECHECK".equals(state) ? MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER : MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS,
                 "PRECHECK".equals(state) ? "BLOCKER" : "INFO",
-                "PRECHECK".equals(state) ? "LOCAL_STATE_SAMPLE 检验未放行" : "LOCAL_STATE_SAMPLE 检验已放行"));
+                "PRECHECK".equals(state) ? "LOCAL_STATE_SAMPLE 检验未放行" : "LOCAL_STATE_SAMPLE 检验已放行");
+        releaseCheckItemMapper.insert(dhrItem);
+        releaseCheckItemMapper.insert(inspectionItem);
+        return List.of(dhrItem, inspectionItem);
     }
 
     private MesProEdhrReleaseCheckItemDO buildCheckItem(Long releaseTransactionId, MesProEdhrBatchExecutionDO batch,
@@ -309,23 +325,34 @@ public class MesProEdhrLocalStateSampleServiceImpl implements MesProEdhrLocalSta
                 .setCheckedAt(now);
     }
 
-    private void insertStageWorkTask(MesProEdhrBatchExecutionDO batch, MesProEdhrBatchExecutionTaskDO batchTask,
-                                     MesProEdhrReleaseTransactionDO transaction, String state,
-                                     LocalDateTime now, Long actorUserId) {
+    private List<MesProEdhrWorkTaskDO> insertStageWorkTask(MesProEdhrBatchExecutionDO batch,
+                                                           MesProEdhrBatchExecutionTaskDO batchTask,
+                                                           MesProEdhrReleaseTransactionDO transaction,
+                                                           String state,
+                                                           LocalDateTime now,
+                                                           Long actorUserId) {
+        List<MesProEdhrWorkTaskDO> insertedTasks = new ArrayList<>();
         if ("CLOSE".equals(state)) {
-            workTaskMapper.insert(buildWorkTask(batch, batchTask.getId(), "BATCH_CLOSE", batch.getId(),
-                    MesProEdhrWorkTaskService.TASK_TYPE_CLOSE, "收尾关闭", now, actorUserId));
-            return;
+            MesProEdhrWorkTaskDO workTask = buildWorkTask(batch, batchTask.getId(), "BATCH_CLOSE", batch.getId(),
+                    MesProEdhrWorkTaskService.TASK_TYPE_CLOSE, "收尾关闭", now, actorUserId);
+            workTaskMapper.insert(workTask);
+            insertedTasks.add(workTask);
+            return insertedTasks;
         }
         if ("RELEASE_APPROVAL".equals(state) && transaction != null) {
-            workTaskMapper.insert(buildWorkTask(batch, null, "RELEASE_TRANSACTION", transaction.getId(),
-                    MesProEdhrWorkTaskService.TASK_TYPE_RELEASE_APPROVE, "最终放行审批", now, actorUserId));
-            return;
+            MesProEdhrWorkTaskDO workTask = buildWorkTask(batch, null, "RELEASE_TRANSACTION", transaction.getId(),
+                    MesProEdhrWorkTaskService.TASK_TYPE_RELEASE_APPROVE, "最终放行审批", now, actorUserId);
+            workTaskMapper.insert(workTask);
+            insertedTasks.add(workTask);
+            return insertedTasks;
         }
         if ("ARCHIVE".equals(state)) {
-            workTaskMapper.insert(buildWorkTask(batch, null, "BATCH_ARCHIVE", batch.getId(),
-                    MesProEdhrWorkTaskService.TASK_TYPE_ARCHIVE, "最终归档", now, actorUserId));
+            MesProEdhrWorkTaskDO workTask = buildWorkTask(batch, null, "BATCH_ARCHIVE", batch.getId(),
+                    MesProEdhrWorkTaskService.TASK_TYPE_ARCHIVE, "最终归档", now, actorUserId);
+            workTaskMapper.insert(workTask);
+            insertedTasks.add(workTask);
         }
+        return insertedTasks;
     }
 
     private MesProEdhrWorkTaskDO buildWorkTask(MesProEdhrBatchExecutionDO batch, Long batchTaskId,
@@ -360,6 +387,116 @@ public class MesProEdhrLocalStateSampleServiceImpl implements MesProEdhrLocalSta
                 .setDueTime(now.plusDays(1))
                 .setActionUrl(DETAIL_PATH + "?id=" + batch.getId() + "&release=1")
                 .setRemark(LOCAL_STATE_SAMPLE_MARK + " " + taskType);
+    }
+
+    private void recordLocalStateSampleCreateAudit(MesProEdhrBatchExecutionDO batch,
+                                                   MesProEdhrBatchExecutionTaskDO batchTask,
+                                                   MesProEdhrReleaseTransactionDO releaseTransaction,
+                                                   List<MesProEdhrReleaseCheckItemDO> releaseCheckItems,
+                                                   List<MesProEdhrWorkTaskDO> workTasks,
+                                                   MesProEdhrBatchExecutionArchiveDO archive,
+                                                   String state,
+                                                   String code,
+                                                   LocalDateTime occurredAt,
+                                                   Long actorUserId) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("requestSource", "BATCH_EXECUTION_LIST_LOCAL_STATE_SAMPLE");
+        metadata.put("idempotencyKey", code);
+        metadata.put("reason", "本地状态样本创建");
+        metadata.put("sampleState", state);
+        metadata.put("batchExecutionId", batch.getId());
+        metadata.put("batchExecutionCode", batch.getBatchExecutionCode());
+        metadata.put("batchTaskId", batchTask.getId());
+        metadata.put("releaseTransactionId", releaseTransaction == null ? null : releaseTransaction.getId());
+        metadata.put("releaseCheckItemIds", releaseCheckItems.stream()
+                .map(MesProEdhrReleaseCheckItemDO::getId)
+                .toList());
+        metadata.put("workTaskIds", workTasks.stream()
+                .map(MesProEdhrWorkTaskDO::getId)
+                .toList());
+        metadata.put("archiveId", archive == null ? null : archive.getId());
+        metadata.put("createdRecords", toLocalStateCreatedRecordsPayload(batch, batchTask, releaseTransaction,
+                releaseCheckItems, workTasks, archive));
+        String afterHash = hashLocalStateAuditPayload(metadata);
+        operationAuditService.record(new MesProEdhrOperationAuditCommand()
+                .setRequestId("EDHR-LOCAL-STATE-SAMPLE-" + code)
+                .setObjectType("BATCH_EXECUTION")
+                .setObjectId(String.valueOf(batch.getId()))
+                .setBatchExecutionId(batch.getId())
+                .setRouteId(batch.getRouteId())
+                .setOperationType("LOCAL_STATE_SAMPLE_CREATE")
+                .setActionName("创建 eDHR 本地状态样本")
+                .setActorUserId(actorUserId)
+                .setActorUsername(SecurityFrameworkUtils.getLoginUserNickname())
+                .setPermissionCode("mes:pro-edhr-batch-execution:create")
+                .setPermissionDecision("ALLOW")
+                .setResultStatus("SUCCESS")
+                .setBeforeSummaryHash(MesProBatchRecordExecutionFieldAuditHasher.GENESIS_HEAD_HASH)
+                .setAfterSummaryHash(afterHash)
+                .setMetadataJson(JSON.toJSONString(metadata))
+                .setOccurredAt(occurredAt));
+    }
+
+    private Map<String, Object> toLocalStateCreatedRecordsPayload(MesProEdhrBatchExecutionDO batch,
+                                                                  MesProEdhrBatchExecutionTaskDO batchTask,
+                                                                  MesProEdhrReleaseTransactionDO releaseTransaction,
+                                                                  List<MesProEdhrReleaseCheckItemDO> releaseCheckItems,
+                                                                  List<MesProEdhrWorkTaskDO> workTasks,
+                                                                  MesProEdhrBatchExecutionArchiveDO archive) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("batchExecution", Map.of(
+                "id", batch.getId(),
+                "code", batch.getBatchExecutionCode(),
+                "status", batch.getStatus(),
+                "aggregateHash", batch.getAggregateHash()));
+        payload.put("batchTask", Map.of(
+                "id", batchTask.getId(),
+                "status", batchTask.getStatus(),
+                "batchRecordReportId", batchTask.getBatchRecordReportId()));
+        if (releaseTransaction != null) {
+            Map<String, Object> releasePayload = new LinkedHashMap<>();
+            releasePayload.put("id", releaseTransaction.getId());
+            releasePayload.put("releaseStatus", releaseTransaction.getReleaseStatus());
+            releasePayload.put("failedCheckCount", releaseTransaction.getFailedCheckCount());
+            releasePayload.put("blockingCheckCount", releaseTransaction.getBlockingCheckCount());
+            releasePayload.put("precheckSnapshotJson", releaseTransaction.getPrecheckSnapshotJson());
+            payload.put("releaseTransaction", releasePayload);
+        }
+        payload.put("releaseCheckItems", releaseCheckItems.stream()
+                .map(item -> {
+                    Map<String, Object> itemPayload = new LinkedHashMap<>();
+                    itemPayload.put("id", item.getId());
+                    itemPayload.put("checkCode", item.getCheckCode());
+                    itemPayload.put("checkResult", item.getCheckResult());
+                    itemPayload.put("severity", item.getSeverity());
+                    itemPayload.put("evidenceHash", item.getEvidenceHash());
+                    return itemPayload;
+                })
+                .toList());
+        payload.put("workTasks", workTasks.stream()
+                .map(task -> {
+                    Map<String, Object> taskPayload = new LinkedHashMap<>();
+                    taskPayload.put("id", task.getId());
+                    taskPayload.put("taskType", task.getTaskType());
+                    taskPayload.put("businessScopeType", task.getBusinessScopeType());
+                    taskPayload.put("businessScopeId", task.getBusinessScopeId());
+                    taskPayload.put("assigneeUserId", task.getAssigneeUserId());
+                    return taskPayload;
+                })
+                .toList());
+        if (archive != null) {
+            Map<String, Object> archivePayload = new LinkedHashMap<>();
+            archivePayload.put("id", archive.getId());
+            archivePayload.put("archiveStatus", archive.getArchiveStatus());
+            archivePayload.put("contentHash", archive.getContentHash());
+            archivePayload.put("sealedSignatureId", archive.getSealedSignatureId());
+            payload.put("archive", archivePayload);
+        }
+        return payload;
+    }
+
+    private String hashLocalStateAuditPayload(Object payload) {
+        return MesProBatchRecordExecutionFieldAuditHasher.sha256(JSON.toJSONString(payload));
     }
 
     private MesProEdhrBatchExecutionArchiveDO buildSealedArchive(MesProEdhrBatchExecutionDO batch, String code,

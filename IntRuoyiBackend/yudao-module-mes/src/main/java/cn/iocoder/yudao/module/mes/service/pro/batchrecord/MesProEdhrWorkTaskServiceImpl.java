@@ -40,6 +40,7 @@ import cn.iocoder.yudao.module.system.api.permission.dto.SystemEntitlementSyncRe
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
+import com.alibaba.fastjson.JSON;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +49,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -118,6 +120,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     private MesProRouteProcessService routeProcessService;
     @Resource
     private PermissionApi permissionApi;
+    @Resource
+    private MesProEdhrOperationAuditService operationAuditService;
 
     @Override
     public PageResult<MesProEdhrWorkTaskRespVO> getMyPage(MesProEdhrWorkTaskPageReqVO reqVO) {
@@ -352,6 +356,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             }
             rule.setId(existingRules.get(0).getId());
         }
+        recordWorkTaskRuleSaveAudit(routeId, taskType, existingRules,
+                assignmentRuleMapper.selectListByScopeAndType(RULE_SCOPE_TYPE_ROUTE, routeId, taskType), remark);
     }
 
     @Override
@@ -972,8 +978,16 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             throw exception(PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH);
         }
         completeTask(reviewTask);
-        cancelPeerCandidateSignatureTasks(executionId, reviewTask.getSignatureCellKey(), workTaskId,
-                "同一签名位已有候选人完成");
+        String cancelReason = "同一签名位已有候选人完成";
+        List<MesProEdhrWorkTaskDO> canceledPeersBefore = cancelPeerCandidateSignatureTasksInternal(
+                executionId, reviewTask.getSignatureCellKey(), workTaskId, cancelReason);
+        List<MesProEdhrWorkTaskDO> canceledPeersAfter = canceledPeersBefore.stream()
+                .map(peer -> workTaskMapper.selectById(peer.getId()))
+                .filter(Objects::nonNull)
+                .toList();
+        recordCandidateSignatureCompleteAudit(reviewTask,
+                workTaskMapper.selectById(reviewTask.getId()), canceledPeersBefore, canceledPeersAfter,
+                cancelReason, loginUserId);
         return reviewTask;
     }
 
@@ -994,14 +1008,23 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     @Transactional(rollbackFor = Exception.class)
     public void cancelPeerCandidateSignatureTasks(Long executionId, String signatureCellKey,
                                                   Long excludingWorkTaskId, String reason) {
+        cancelPeerCandidateSignatureTasksInternal(executionId, signatureCellKey, excludingWorkTaskId, reason);
+    }
+
+    private List<MesProEdhrWorkTaskDO> cancelPeerCandidateSignatureTasksInternal(Long executionId,
+                                                                                 String signatureCellKey,
+                                                                                 Long excludingWorkTaskId,
+                                                                                 String reason) {
         if (executionId == null || StrUtil.isBlank(signatureCellKey) || excludingWorkTaskId == null) {
             throw exception(PRO_EDHR_WORK_TASK_REVIEW_CONTEXT_INVALID, "缺少执行记录、签名位或排除任务");
         }
         LocalDateTime canceledAt = LocalDateTime.now();
-        for (MesProEdhrWorkTaskDO reviewTask
-                : workTaskMapper.selectActiveCandidatePeers(executionId, signatureCellKey, excludingWorkTaskId)) {
+        List<MesProEdhrWorkTaskDO> canceledTasks =
+                workTaskMapper.selectActiveCandidatePeers(executionId, signatureCellKey, excludingWorkTaskId);
+        for (MesProEdhrWorkTaskDO reviewTask : canceledTasks) {
             cancelTaskAndRevokeRuntimeEntitlement(reviewTask, reason, canceledAt);
         }
+        return canceledTasks;
     }
 
     @Override
@@ -1089,9 +1112,11 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         workTaskMapper.updateById(update);
         MesProEdhrWorkTaskDO reassigned = workTaskMapper.selectById(workTask.getId());
         syncRuntimeTaskEntitlement(reassigned);
-        if (hasTaskOwnerChanged(workTask, reassigned)) {
+        boolean ownerChanged = hasTaskOwnerChanged(workTask, reassigned);
+        if (ownerChanged) {
             sendReassignmentNotify(reassigned, reason);
         }
+        recordFillTaskReassignAudit(workTask, reassigned, reason, ownerChanged);
         return reassigned;
     }
 
@@ -2149,6 +2174,189 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             url.append("&batchTaskId=").append(task.getBatchTaskId());
         }
         return url.toString();
+    }
+
+    private void recordWorkTaskRuleSaveAudit(Long routeId, String taskType,
+                                             List<MesProEdhrWorkTaskAssignmentRuleDO> beforeRules,
+                                             List<MesProEdhrWorkTaskAssignmentRuleDO> afterRules,
+                                             String reason) {
+        List<Map<String, Object>> beforePayload = beforeRules.stream()
+                .map(this::toRuleAuditPayload)
+                .toList();
+        List<Map<String, Object>> afterPayload = afterRules.stream()
+                .map(this::toRuleAuditPayload)
+                .toList();
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        String requestId = "EDHR-WORK-RULE-" + java.util.UUID.randomUUID();
+        metadata.put("requestSource", "WORK_TASK_RULE_CONFIG");
+        metadata.put("idempotencyKey", requestId);
+        metadata.put("routeId", routeId);
+        metadata.put("taskType", taskType);
+        metadata.put("reason", reason);
+        metadata.put("beforeRules", beforePayload);
+        metadata.put("afterRules", afterPayload);
+        metadata.put("permissionDecision", "ALLOW");
+        metadata.put("resultStatus", "SUCCESS");
+        operationAuditService.record(new MesProEdhrOperationAuditCommand()
+                .setRequestId(requestId)
+                .setObjectType("WORK_TASK_ASSIGNMENT_RULE")
+                .setObjectId(afterRules.isEmpty() ? routeId + ":" + taskType : String.valueOf(afterRules.get(0).getId()))
+                .setRouteId(routeId)
+                .setOperationType("WORK_TASK_RULE_SAVE")
+                .setActionName("保存 eDHR 工作任务规则")
+                .setActorUserId(requireLoginUserId())
+                .setActorUsername(SecurityFrameworkUtils.getLoginUserNickname())
+                .setPermissionCode("mes:pro-edhr-work-task-rule:update")
+                .setPermissionDecision("ALLOW")
+                .setResultStatus("SUCCESS")
+                .setBeforeSummaryHash(hashAuditPayload(beforePayload))
+                .setAfterSummaryHash(hashAuditPayload(afterPayload))
+                .setMetadataJson(JSON.toJSONString(metadata)));
+    }
+
+    private Map<String, Object> toRuleAuditPayload(MesProEdhrWorkTaskAssignmentRuleDO rule) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        if (rule == null) {
+            return payload;
+        }
+        payload.put("id", rule.getId());
+        payload.put("scopeType", rule.getScopeType());
+        payload.put("scopeId", rule.getScopeId());
+        payload.put("taskType", rule.getTaskType());
+        payload.put("routeProcessId", rule.getRouteProcessId());
+        payload.put("assigneeUserId", rule.getAssigneeUserId());
+        payload.put("reviewUserId", rule.getReviewUserId());
+        payload.put("candidateSourceType", rule.getCandidateSourceType());
+        payload.put("candidateSourceId", rule.getCandidateSourceId());
+        payload.put("dueMinutes", rule.getDueMinutes());
+        payload.put("enabled", rule.getEnabled());
+        payload.put("remark", rule.getRemark());
+        return payload;
+    }
+
+    private void recordCandidateSignatureCompleteAudit(MesProEdhrWorkTaskDO beforeTask,
+                                                       MesProEdhrWorkTaskDO completedTask,
+                                                       List<MesProEdhrWorkTaskDO> canceledPeersBefore,
+                                                       List<MesProEdhrWorkTaskDO> canceledPeersAfter,
+                                                       String reason,
+                                                       Long actorUserId) {
+        Map<String, Object> beforePayload = toWorkTaskAuditPayload(beforeTask);
+        Map<String, Object> afterPayload = toWorkTaskAuditPayload(completedTask);
+        List<Map<String, Object>> canceledBeforePayload = canceledPeersBefore.stream()
+                .map(this::toWorkTaskAuditPayload)
+                .toList();
+        List<Map<String, Object>> canceledAfterPayload = canceledPeersAfter.stream()
+                .map(this::toWorkTaskAuditPayload)
+                .toList();
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        String requestId = "EDHR-CANDIDATE-SIGNATURE-" + java.util.UUID.randomUUID();
+        String signatureBindingId = beforeTask.getExecutionId() + ":" + beforeTask.getSignatureCellKey();
+        metadata.put("requestSource", "CANDIDATE_SIGNATURE_TASK");
+        metadata.put("idempotencyKey", requestId);
+        metadata.put("reason", reason);
+        metadata.put("signatureCellKey", beforeTask.getSignatureCellKey());
+        metadata.put("signatureBindingId", signatureBindingId);
+        metadata.put("associatedSignatureId", signatureBindingId);
+        metadata.put("completedTask", afterPayload);
+        metadata.put("canceledCandidateTasksBefore", canceledBeforePayload);
+        metadata.put("canceledCandidateTasksAfter", canceledAfterPayload);
+        metadata.put("permissionDecision", "ALLOW");
+        metadata.put("resultStatus", "SUCCESS");
+        operationAuditService.record(new MesProEdhrOperationAuditCommand()
+                .setRequestId(requestId)
+                .setObjectType("WORK_TASK")
+                .setObjectId(String.valueOf(beforeTask.getId()))
+                .setBatchExecutionId(beforeTask.getBatchExecutionId())
+                .setExecutionId(beforeTask.getExecutionId())
+                .setWorkTaskId(beforeTask.getId())
+                .setRouteId(beforeTask.getRouteId())
+                .setRouteProcessId(beforeTask.getRouteProcessId())
+                .setOperationType("CANDIDATE_SIGNATURE_COMPLETE")
+                .setActionName("完成候选签名任务")
+                .setActorUserId(actorUserId)
+                .setActorUsername(SecurityFrameworkUtils.getLoginUserNickname())
+                .setPermissionCode("mes:pro-edhr-work-task:update")
+                .setPermissionDecision("ALLOW")
+                .setResultStatus("SUCCESS")
+                .setBeforeSummaryHash(hashAuditPayload(beforePayload))
+                .setAfterSummaryHash(hashAuditPayload(Map.of(
+                        "completedTask", afterPayload,
+                        "canceledCandidateTasks", canceledAfterPayload)))
+                .setMetadataJson(JSON.toJSONString(metadata)));
+    }
+
+    private void recordFillTaskReassignAudit(MesProEdhrWorkTaskDO beforeTask,
+                                             MesProEdhrWorkTaskDO afterTask,
+                                             String reason,
+                                             boolean notificationSent) {
+        Map<String, Object> beforePayload = toWorkTaskAuditPayload(beforeTask);
+        Map<String, Object> afterPayload = toWorkTaskAuditPayload(afterTask);
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        String requestId = "EDHR-FILL-TASK-REASSIGN-" + java.util.UUID.randomUUID();
+        metadata.put("requestSource", "WORK_TASK_CENTER");
+        metadata.put("idempotencyKey", requestId);
+        metadata.put("reason", reason);
+        metadata.put("oldAssigneeUserId", beforeTask.getAssigneeUserId());
+        metadata.put("newAssigneeUserId", afterTask.getAssigneeUserId());
+        metadata.put("authorizationSyncResult", "SYNCED");
+        metadata.put("notificationResult", notificationSent ? "SENT" : "SKIPPED_OWNER_UNCHANGED");
+        metadata.put("beforeTask", beforePayload);
+        metadata.put("afterTask", afterPayload);
+        metadata.put("associatedSignatureId", null);
+        metadata.put("permissionDecision", "ALLOW");
+        metadata.put("resultStatus", "SUCCESS");
+        operationAuditService.record(new MesProEdhrOperationAuditCommand()
+                .setRequestId(requestId)
+                .setObjectType("WORK_TASK")
+                .setObjectId(String.valueOf(beforeTask.getId()))
+                .setBatchExecutionId(beforeTask.getBatchExecutionId())
+                .setExecutionId(beforeTask.getExecutionId())
+                .setWorkTaskId(beforeTask.getId())
+                .setRouteId(beforeTask.getRouteId())
+                .setRouteProcessId(beforeTask.getRouteProcessId())
+                .setOperationType("FILL_TASK_REASSIGN")
+                .setActionName("重新派发 eDHR 填写任务")
+                .setActorUserId(requireLoginUserId())
+                .setActorUsername(SecurityFrameworkUtils.getLoginUserNickname())
+                .setPermissionCode("mes:pro-edhr-work-task:update")
+                .setPermissionDecision("ALLOW")
+                .setResultStatus("SUCCESS")
+                .setBeforeSummaryHash(hashAuditPayload(beforePayload))
+                .setAfterSummaryHash(hashAuditPayload(afterPayload))
+                .setMetadataJson(JSON.toJSONString(metadata)));
+    }
+
+    private Map<String, Object> toWorkTaskAuditPayload(MesProEdhrWorkTaskDO task) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        if (task == null) {
+            return payload;
+        }
+        payload.put("id", task.getId());
+        payload.put("taskType", task.getTaskType());
+        payload.put("batchExecutionId", task.getBatchExecutionId());
+        payload.put("batchTaskId", task.getBatchTaskId());
+        payload.put("executionId", task.getExecutionId());
+        payload.put("routeId", task.getRouteId());
+        payload.put("routeProcessId", task.getRouteProcessId());
+        payload.put("assigneeUserId", task.getAssigneeUserId());
+        payload.put("candidateSourceType", task.getCandidateSourceType());
+        payload.put("candidateSourceId", task.getCandidateSourceId());
+        payload.put("candidateUserSnapshot", task.getCandidateUserSnapshot());
+        payload.put("responsibilitySourceType", task.getResponsibilitySourceType());
+        payload.put("responsibilitySourceKey", task.getResponsibilitySourceKey());
+        payload.put("responsibilitySourceVersion", task.getResponsibilitySourceVersion());
+        payload.put("responsibilitySourceDigest", task.getResponsibilitySourceDigest());
+        payload.put("ownershipLocked", task.getOwnershipLocked());
+        payload.put("signatureCellKey", task.getSignatureCellKey());
+        payload.put("status", task.getStatus());
+        payload.put("completedAt", task.getCompletedAt());
+        payload.put("reason", task.getReason());
+        payload.put("remark", task.getRemark());
+        return payload;
+    }
+
+    private String hashAuditPayload(Object payload) {
+        return MesProBatchRecordExecutionFieldAuditHasher.sha256(JSON.toJSONString(payload));
     }
 
     private Long requireLoginUserId() {

@@ -68,6 +68,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     private AdminUserApi adminUserApi;
     @MockitoBean
     private MesProEdhrWorkTaskService workTaskService;
+    @MockitoBean
+    private MesProEdhrOperationAuditService operationAuditService;
 
     @Test
     void precheckFailsWhenOrdinaryProcessMissingSubmitSignature() {

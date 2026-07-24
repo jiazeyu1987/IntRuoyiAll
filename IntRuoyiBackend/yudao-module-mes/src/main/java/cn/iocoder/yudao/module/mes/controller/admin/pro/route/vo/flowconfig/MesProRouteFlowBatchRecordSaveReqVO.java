@@ -31,6 +31,9 @@ public class MesProRouteFlowBatchRecordSaveReqVO {
     @Schema(description = "校验策略：CONTROLLED_BATCH/INTERNAL_TRACE，缺省随记录类型推导", example = "INTERNAL_TRACE")
     private String validationProfile;
 
+    @Schema(description = "是否启用记录本入口；批记录默认启用，内部记录默认禁用", example = "true")
+    private Boolean recordbookEnabled;
+
     @Schema(description = "对象级权限范围ID", example = "5001")
     private Long permissionScopeId;
 

@@ -10,7 +10,7 @@ export type EdhrReleaseStatus =
   | 'WITHDRAWN'
 export type EdhrReleaseCheckResult = 'PASS' | 'FAIL' | 'BLOCKER' | 'NOT_APPLICABLE'
 export type EdhrReleaseCheckItemStatus = 'OPEN' | 'SUPERSEDED' | 'RESOLVED'
-export type EdhrReleaseEventType = 'SUBMIT' | 'APPROVE' | 'REJECT' | 'WITHDRAW'
+export type EdhrReleaseEventType = 'PRECHECK' | 'SUBMIT' | 'APPROVE' | 'REJECT' | 'WITHDRAW'
 
 export interface EdhrReleasePageReqVO extends PageParam {
   batchExecutionCode?: string

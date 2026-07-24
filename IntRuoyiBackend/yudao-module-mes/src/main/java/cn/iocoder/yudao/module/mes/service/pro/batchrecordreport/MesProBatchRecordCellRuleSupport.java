@@ -411,10 +411,19 @@ public final class MesProBatchRecordCellRuleSupport {
         if (StrUtil.isNotBlank(rule.getUnit())) {
             json.put("unit", StrUtil.trim(rule.getUnit()));
         }
-        json.put("source", StrUtil.blankToDefault(rule.getSource(), "MANUAL"));
+        boolean reviewed = Boolean.TRUE.equals(rule.getReviewed());
+        json.put("source", normalizePersistedRuleSource(rule.getSource(), reviewed));
         json.put("confidence", rule.getConfidence() == null ? 1.0 : rule.getConfidence());
-        json.put("reviewed", Boolean.TRUE.equals(rule.getReviewed()));
+        json.put("reviewed", reviewed);
         return json;
+    }
+
+    private static String normalizePersistedRuleSource(String source, boolean reviewed) {
+        String normalized = StrUtil.blankToDefault(StrUtil.trim(source), reviewed ? "MANUAL" : "AUTO");
+        if (reviewed && "AUTO".equalsIgnoreCase(normalized)) {
+            return "MANUAL";
+        }
+        return normalized;
     }
 
     public static BatchRecordReportCellRuleVO toRuleVO(Integer rowIndex, Integer columnIndex, JSONObject rule) {
@@ -898,20 +907,61 @@ public final class MesProBatchRecordCellRuleSupport {
                 }
                 return isSignatureDateLabel(compact(text)) ? text : "";
             }
+            String signatureDateTailLabel = resolveSignatureDateTailLabel(upperCells, columnIndex);
+            if (StrUtil.isNotBlank(signatureDateTailLabel)) {
+                return signatureDateTailLabel;
+            }
         }
         return "";
+    }
+
+    private static String resolveSignatureDateTailLabel(JSONObject upperCells, Integer columnIndex) {
+        int resultEndColumn = -1;
+        int signatureStartColumn = Integer.MAX_VALUE;
+        int signatureEndColumn = -1;
+        String firstSignatureDateLabel = "";
+        for (Integer candidateColumnIndex : numericKeys(upperCells)) {
+            JSONObject upperCell = upperCells.getJSONObject(String.valueOf(candidateColumnIndex));
+            String text = cellText(upperCell);
+            String compactText = compact(text);
+            if (StrUtil.isBlank(compactText)) {
+                continue;
+            }
+            int candidateEndColumn = endColumn(upperCell, candidateColumnIndex);
+            if (isChecklistResultHeaderText(compactText)) {
+                resultEndColumn = Math.max(resultEndColumn, candidateEndColumn);
+            }
+            if (isSignatureDateLabel(compactText)) {
+                if (candidateColumnIndex < signatureStartColumn) {
+                    firstSignatureDateLabel = text;
+                }
+                signatureStartColumn = Math.min(signatureStartColumn, candidateColumnIndex);
+                signatureEndColumn = Math.max(signatureEndColumn, candidateEndColumn);
+            }
+        }
+        return resultEndColumn >= 0
+                && signatureStartColumn != Integer.MAX_VALUE
+                && resultEndColumn < signatureStartColumn
+                && columnIndex >= signatureStartColumn
+                && columnIndex <= signatureEndColumn + 1
+                ? firstSignatureDateLabel
+                : "";
     }
 
     private static boolean coversColumn(JSONObject cell, Integer startColumnIndex, Integer targetColumnIndex) {
         if (cell == null || startColumnIndex == null || targetColumnIndex == null) {
             return false;
         }
+        return targetColumnIndex >= startColumnIndex
+                && targetColumnIndex <= endColumn(cell, startColumnIndex);
+    }
+
+    private static int endColumn(JSONObject cell, Integer startColumnIndex) {
         int colSpan = 1;
         if (cell.getJSONArray("merge") != null && cell.getJSONArray("merge").size() > 1) {
             colSpan = Math.max(1, cell.getJSONArray("merge").getIntValue(1) + 1);
         }
-        int endColumnIndex = startColumnIndex + colSpan - 1;
-        return targetColumnIndex >= startColumnIndex && targetColumnIndex <= endColumnIndex;
+        return startColumnIndex + colSpan - 1;
     }
 
     private static String cellText(JSONObject cell) {
@@ -1173,6 +1223,12 @@ public final class MesProBatchRecordCellRuleSupport {
         return containsAny(compactLabel, "日期", "/")
                 && containsAny(compactLabel, "签名", "签字", "记录人", "操作人", "复核人", "审核人",
                 "确认人", "批准人");
+    }
+
+    private static boolean isChecklistResultHeaderText(String compactLabel) {
+        return StrUtil.isNotBlank(compactLabel)
+                && compactLabel.contains("结果")
+                && compactLabel.length() <= 10;
     }
 
     @FunctionalInterface

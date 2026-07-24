@@ -117,6 +117,8 @@ public class MesProBatchRecordExecutionFieldAuditController {
                 .setBaseCellValuesHash(reqVO.getBaseCellValuesHash())
                 .setBaseFieldAuditRevision(reqVO.getBaseFieldAuditRevision())
                 .setBaseFieldAuditHeadHash(reqVO.getBaseFieldAuditHeadHash())
+                .setFillCarrier(reqVO.getFillCarrier())
+                .setFillMode(reqVO.getFillMode())
                 .setReasonCategory(reqVO.getReasonCategory())
                 .setReasonText(reqVO.getReasonText())
                 .setSignature(new MesProBatchRecordExecutionFieldAuditSaveChangesCommand.Signature()

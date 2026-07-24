@@ -49,9 +49,9 @@ public interface MesProEdhrBatchExecutionService {
     MesProEdhrSpecialNodeAttachmentPrepareUploadResult prepareSpecialNodeAttachmentUpload(
             MesProEdhrSpecialNodeAttachmentPrepareUploadCommand command);
 
-    void deletePendingSpecialNodeAttachment(Long taskId, MesProEdhrSpecialNodeAttachment attachment);
+    void deletePendingSpecialNodeAttachment(Long taskId, MesProEdhrSpecialNodeAttachment attachment, String reason);
 
-    EdhrBatchExecutionRespVO savePendingSpecialNodeAttachments(Long batchExecutionId);
+    EdhrBatchExecutionRespVO savePendingSpecialNodeAttachments(Long batchExecutionId, String reason);
 
     EdhrBatchExecutionRespVO syncStatus(Long id);
 

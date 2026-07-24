@@ -32,6 +32,10 @@ public class MesProBatchRecordExecutionFieldAuditSaveChangesReqVO {
     @NotBlank(message = "baseFieldAuditHeadHash 不能为空")
     private String baseFieldAuditHeadHash;
 
+    private String fillCarrier;
+
+    private String fillMode;
+
     @NotBlank(message = "reasonCategory 不能为空")
     private String reasonCategory;
 

@@ -3643,6 +3643,7 @@ const confirmApplyReplanStartChoice = async () => {
       calendarContextToken: freshPreview.calendarContextToken,
       idempotencyKey: buildReplanApplyIdempotencyKey(applyRequest)
     })
+    updateLastReplanParticipatingScheduleOrders(freshPreview)
     message.success(buildReplanApplySuccessMessage(applyResult))
     await finishReplanApplyProgress()
     replanStartDateDialogVisible.value = false

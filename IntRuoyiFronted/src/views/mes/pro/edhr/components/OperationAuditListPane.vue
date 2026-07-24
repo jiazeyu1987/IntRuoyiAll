@@ -393,6 +393,8 @@ const operationAuditQuickFilter = useTableQuickFilter(
 )
 
 const hasObjectContext = computed(() => Boolean(queryParams.objectType.trim() && queryParams.objectId.trim()))
+const hasBatchContext = computed(() => Boolean(parsePositiveRouteQueryId(queryParams.batchExecutionId)))
+const shouldQueryBatchContextOnly = computed(() => !props.showObjectFilters && hasBatchContext.value)
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {
   const responseMessage = (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
@@ -411,7 +413,7 @@ const syncExternalContext = () => {
 }
 
 const assertObjectContext = () => {
-  if (!hasObjectContext.value) {
+  if (!hasObjectContext.value && !shouldQueryBatchContextOnly.value) {
     throw new Error('对象类型和对象ID不能为空，不能查询对象级电子批记录操作审计。')
   }
 }
@@ -421,8 +423,8 @@ const buildQuery = () => {
   return {
     pageNo: queryParams.pageNo,
     pageSize: queryParams.pageSize,
-    objectType: queryParams.objectType.trim(),
-    objectId: queryParams.objectId.trim(),
+    objectType: shouldQueryBatchContextOnly.value ? undefined : queryParams.objectType.trim(),
+    objectId: shouldQueryBatchContextOnly.value ? undefined : queryParams.objectId.trim(),
     batchExecutionId: parsePositiveRouteQueryId(queryParams.batchExecutionId) || undefined,
     executionId: parsePositiveRouteQueryId(queryParams.executionId) || undefined,
     workTaskId: parsePositiveRouteQueryId(queryParams.workTaskId) || undefined,

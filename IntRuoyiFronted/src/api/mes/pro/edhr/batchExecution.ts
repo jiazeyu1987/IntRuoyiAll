@@ -147,6 +147,12 @@ export interface EdhrBatchExecutionSpecialNodeCompleteReqVO {
 export interface EdhrBatchExecutionSpecialNodeAttachmentDeletePendingReqVO {
   taskId: number
   attachment: EdhrBatchSpecialNodeAttachment
+  reason: string
+}
+
+export interface EdhrBatchExecutionSpecialNodeAttachmentSavePendingReqVO {
+  batchExecutionId: EdhrRouteId
+  reason: string
 }
 
 export interface EdhrBatchSpecialNodeAttachment {
@@ -805,10 +811,12 @@ export const deleteEdhrBatchSpecialNodePendingAttachment = async (
   })
 }
 
-export const savePendingEdhrBatchSpecialNodeAttachments = async (batchExecutionId: EdhrRouteId) => {
+export const savePendingEdhrBatchSpecialNodeAttachments = async (
+  data: EdhrBatchExecutionSpecialNodeAttachmentSavePendingReqVO
+) => {
   return await request.post<EdhrBatchExecutionRespVO>({
     url: `${BATCH_EXECUTION_BASE_URL}/task/special-node/attachment/save-pending`,
-    data: { batchExecutionId }
+    data
   })
 }
 

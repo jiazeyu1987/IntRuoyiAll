@@ -1589,24 +1589,72 @@ public class MesProBatchRecordReportJsonBuilder {
                                                int rowIndex,
                                                int columnIndex) {
         for (int cursor = rowIndex - 1; cursor >= 0; cursor--) {
-            for (PlacedCell candidate : cellsByRow.getOrDefault(cursor, List.of())) {
-                if (candidate == null || !coversColumn(candidate, columnIndex)) {
-                    continue;
-                }
-                String text = compactText(candidate.cell().getText());
-                if (text.isBlank()) {
-                    continue;
-                }
-                return isSignatureDateHeaderText(text);
+            List<PlacedCell> upperRow = cellsByRow.getOrDefault(cursor, List.of());
+            PlacedCell coveringHeader = findCoveringNonBlankHeaderCell(upperRow, columnIndex);
+            if (coveringHeader != null) {
+                return isSignatureDateHeaderText(compactText(coveringHeader.cell().getText()));
+            }
+            if (isInsideSignatureDateHeaderTail(upperRow, columnIndex)) {
+                return true;
             }
         }
         return false;
     }
 
+    private PlacedCell findCoveringNonBlankHeaderCell(List<PlacedCell> upperRow, int columnIndex) {
+        for (PlacedCell candidate : upperRow) {
+            if (candidate == null || !coversColumn(candidate, columnIndex)) {
+                continue;
+            }
+            String text = compactText(candidate.cell().getText());
+            if (!text.isBlank()) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private boolean isInsideSignatureDateHeaderTail(List<PlacedCell> upperRow, int columnIndex) {
+        int resultEndColumn = -1;
+        int signatureStartColumn = Integer.MAX_VALUE;
+        int signatureEndColumn = -1;
+        for (PlacedCell candidate : upperRow) {
+            if (candidate == null) {
+                continue;
+            }
+            String text = compactText(candidate.cell().getText());
+            if (text.isBlank()) {
+                continue;
+            }
+            int candidateEndColumn = endColumn(candidate);
+            if (isChecklistResultHeaderText(text)) {
+                resultEndColumn = Math.max(resultEndColumn, candidateEndColumn);
+            }
+            if (isSignatureDateHeaderText(text)) {
+                signatureStartColumn = Math.min(signatureStartColumn, candidate.columnIndex());
+                signatureEndColumn = Math.max(signatureEndColumn, candidateEndColumn);
+            }
+        }
+        return resultEndColumn >= 0
+                && signatureStartColumn != Integer.MAX_VALUE
+                && resultEndColumn < signatureStartColumn
+                && columnIndex >= signatureStartColumn
+                && columnIndex <= signatureEndColumn + 1;
+    }
+
+    private boolean isChecklistResultHeaderText(String compactText) {
+        return compactText != null
+                && compactText.contains("结果")
+                && compactText.length() <= 10;
+    }
+
     private boolean coversColumn(PlacedCell cell, int columnIndex) {
         int startColumn = cell.columnIndex();
-        int endColumn = startColumn + Math.max(1, cell.cell().getColSpan()) - 1;
-        return columnIndex >= startColumn && columnIndex <= endColumn;
+        return columnIndex >= startColumn && columnIndex <= endColumn(cell);
+    }
+
+    private int endColumn(PlacedCell cell) {
+        return cell.columnIndex() + Math.max(1, cell.cell().getColSpan()) - 1;
     }
 
     private boolean isSignatureDateHeaderText(String compactText) {

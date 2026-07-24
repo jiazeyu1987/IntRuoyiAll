@@ -83,6 +83,10 @@ public final class MesProBatchRecordExecutionFieldAuditHasher {
         putRequired(root, "newValueJson", input.getNewValueJson());
         putRequiredAllowEmpty(root, "newValueDisplay", input.getNewValueDisplay());
         putRequired(root, "newValueHash", input.getNewValueHash());
+        putOptional(root, "recordbookValueJson", input.getRecordbookValueJson());
+        putOptionalAllowEmpty(root, "recordbookValueDisplay", input.getRecordbookValueDisplay());
+        putOptional(root, "batchRecordValueJson", input.getBatchRecordValueJson());
+        putOptionalAllowEmpty(root, "batchRecordValueDisplay", input.getBatchRecordValueDisplay());
         putRequired(root, "reasonCategory", input.getReasonCategory());
         putRequired(root, "reasonText", input.getReasonText());
         root.put("actorId", requireNonNull(input.getActorId(), "actorId"));
@@ -100,6 +104,8 @@ public final class MesProBatchRecordExecutionFieldAuditHasher {
         putRequired(root, "baseCellValuesHash", command.getBaseCellValuesHash());
         root.put("baseFieldAuditRevision", requireNonNull(command.getBaseFieldAuditRevision(), "baseFieldAuditRevision"));
         putRequired(root, "baseFieldAuditHeadHash", command.getBaseFieldAuditHeadHash());
+        putOptionalAllowEmpty(root, "fillCarrier", StrUtil.trim(command.getFillCarrier()));
+        putOptionalAllowEmpty(root, "fillMode", StrUtil.trim(command.getFillMode()));
         putRequired(root, "reasonCategory", command.getReasonCategory());
         putRequired(root, "reasonText", StrUtil.trim(command.getReasonText()));
         root.set("changes", CANONICAL_MAPPER.valueToTree(command.getChanges()));
@@ -119,6 +125,8 @@ public final class MesProBatchRecordExecutionFieldAuditHasher {
         putRequired(root, "baseCellValuesHash", command.getBaseCellValuesHash());
         root.put("baseFieldAuditRevision", requireNonNull(command.getBaseFieldAuditRevision(), "baseFieldAuditRevision"));
         putRequired(root, "baseFieldAuditHeadHash", command.getBaseFieldAuditHeadHash());
+        putOptionalAllowEmpty(root, "fillCarrier", StrUtil.trim(command.getFillCarrier()));
+        putOptionalAllowEmpty(root, "fillMode", StrUtil.trim(command.getFillMode()));
         root.set("changes", CANONICAL_MAPPER.valueToTree(command.getChanges()));
         root.set("attachmentChanges", CANONICAL_MAPPER.valueToTree(command.getAttachmentChanges()));
         putRequired(root, "reasonCategory", command.getReasonCategory());
@@ -301,6 +309,18 @@ public final class MesProBatchRecordExecutionFieldAuditHasher {
 
     private static void putRequiredAllowEmpty(ObjectNode root, String fieldName, String value) {
         root.put(fieldName, requireNonNull(value, fieldName));
+    }
+
+    private static void putOptional(ObjectNode root, String fieldName, String value) {
+        if (StrUtil.isNotBlank(value)) {
+            root.put(fieldName, value);
+        }
+    }
+
+    private static void putOptionalAllowEmpty(ObjectNode root, String fieldName, String value) {
+        if (value != null) {
+            root.put(fieldName, value);
+        }
     }
 
     private static String requireNonBlank(String value, String fieldName) {

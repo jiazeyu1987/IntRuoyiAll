@@ -21,6 +21,10 @@ public class MesProBatchRecordExecutionFieldAuditSaveChangesCommand {
 
     private String baseFieldAuditHeadHash;
 
+    private String fillCarrier;
+
+    private String fillMode;
+
     private List<MesProBatchRecordExecutionFieldAuditChange> changes;
 
     private List<MesProBatchRecordExecutionFieldAuditAttachmentChange> attachmentChanges;

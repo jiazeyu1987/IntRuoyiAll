@@ -27,6 +27,10 @@ public class MesProBatchRecordExecutionFieldAuditItemRespVO {
     private Object newValueJson;
     private String newValueDisplay;
     private String newValueHash;
+    private Object recordbookValueJson;
+    private String recordbookValueDisplay;
+    private Object batchRecordValueJson;
+    private String batchRecordValueDisplay;
     private String reasonCategory;
     private String reasonText;
     private Long actorId;

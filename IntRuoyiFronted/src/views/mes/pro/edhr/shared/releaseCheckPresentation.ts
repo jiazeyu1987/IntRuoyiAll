@@ -41,6 +41,7 @@ const RELEASE_CHECK_SOURCE_OBJECT_TYPE_LABELS: Record<string, string> = {
 }
 
 const RELEASE_EVENT_LABELS: Record<EdhrReleaseEventType, string> = {
+  PRECHECK: '预检',
   SUBMIT: '提交',
   APPROVE: '批准',
   REJECT: '驳回',
@@ -83,7 +84,11 @@ const OPERATION_AUDIT_OBJECT_TYPE_LABELS: Record<string, string> = {
   DHR_TEMPLATE: '电子批记录模板',
   RECORDBOOK_TEMPLATE: '记录册模板',
   BATCH_RECORD_VERSION: '批记录版本',
-  ROUTE_PROCESS_BATCH_RECORD: '工序批记录配置'
+  ROUTE_PROCESS_BATCH_RECORD: '工序批记录配置',
+  SPECIAL_NODE_ATTACHMENT: '特殊节点附件',
+  WORK_TASK_ASSIGNMENT_RULE: '工作任务规则',
+  WORK_TASK: '工作任务',
+  RELEASE_TRANSACTION: '放行事务'
 }
 
 const OPERATION_AUDIT_OPERATION_TYPE_LABELS: Record<string, string> = {
@@ -103,7 +108,15 @@ const OPERATION_AUDIT_OPERATION_TYPE_LABELS: Record<string, string> = {
   EXPORT: '导出',
   EXPORT_AUDIT: '导出审计',
   PERMISSION_RULE_SAVE: '保存权限规则',
-  PERMISSION_EVALUATE: '权限评估'
+  PERMISSION_EVALUATE: '权限评估',
+  LOCAL_STATE_SAMPLE_CREATE: '本地状态样本创建',
+  ATTACHMENT_PREPARE_UPLOAD: '附件上传预登记',
+  ATTACHMENT_PENDING_DELETE: '待提交附件删除',
+  ATTACHMENT_SAVE_PENDING: '待提交附件保存',
+  WORK_TASK_RULE_SAVE: '工作任务规则保存',
+  CANDIDATE_SIGNATURE_COMPLETE: '候选签名完成',
+  FILL_TASK_REASSIGN: '填写任务重新派发',
+  PRECHECK: '预检'
 }
 
 const normalizePresentationKey = (value?: string) => value?.trim().toUpperCase()

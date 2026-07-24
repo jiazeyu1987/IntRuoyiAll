@@ -64,6 +64,14 @@
 - 如果登记端口被同一 worktree 的旧进程占用，先停止对应旧进程，再启动该 worktree。
 - 如果登记端口被其他 worktree、未知进程或无关程序占用，必须 fail fast，报告冲突；不得自动换端口。
 
+## 断链快照恢复规则
+
+- 如果旧 worktree 的 `.git` 文件指向缺失的 `.git/worktrees/<name>` 元数据，不要在旧目录内直接修补或重写 `.git`。
+- 先从有效主仓库在 `D:\IntRuoyiWorktree\` 下创建干净 worktree，再把旧快照中的源码、测试、文档、SQL 和脚本差异迁移过去。
+- 迁移前必须明确旧目录到新仓库目录的映射；例如旧后端快照映射到 `IntRuoyiBackend`，旧前端快照映射到 `IntRuoyiFronted`。
+- 迁移时默认排除 `.git`、`node_modules`、运行日志、`.runtime`、`runtime`、`target`、`dist`、环境密钥文件和生成物。
+- 迁移后用 `git status --short --branch`、`.git` 指向检查和 `git diff --stat` 验证新 worktree 可追踪；旧断链快照保持只读，不在原地修复。
+
 ## 禁止做法
 
 - 禁止在未读取本文件时创建或启动 worktree。

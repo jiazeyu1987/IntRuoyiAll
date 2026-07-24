@@ -37,7 +37,8 @@ for (const requiredMarker of [
   'v-if="selectedProcessTasks.length"',
   'v-for="task in selectedProcessTasks"',
   '@click="selectProcessTask(task)"',
-  '@click.stop="handlePendingTaskAction(task)"',
+  '@click.stop="handleSelectedPendingTaskAction(task)"',
+  'const handlePendingTaskAction = async (row: EdhrBatchExecutionTaskRespVO)',
   'description="当前工序未配置表单"'
 ]) {
   assert(detail.includes(requiredMarker), `右侧当前工序表单列表缺少：${requiredMarker}`)
@@ -54,7 +55,8 @@ for (const [slot, label] of [
 
 assert(
   detail.includes('resolveTaskStatusLabel(task)') &&
-    detail.includes('resolveTaskSlotBlocker(task) || task.disabledReason || task.gateMessage'),
+    detail.includes('resolveTaskGateText(task)') &&
+    /const resolveTaskGateText = \(row: EdhrBatchExecutionTaskRespVO\) =>[\s\S]*resolveTaskSlotBlocker\(row\)[\s\S]*normalizeTaskAccessReason\(row\.disabledReason\)[\s\S]*normalizeTaskAccessReason\(row\.gateMessage\)/.test(detail),
   '右侧每张表单必须显示自己的状态和门禁原因。'
 )
 

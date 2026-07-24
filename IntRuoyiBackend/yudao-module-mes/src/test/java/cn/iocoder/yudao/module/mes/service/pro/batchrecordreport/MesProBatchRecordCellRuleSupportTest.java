@@ -82,6 +82,27 @@ class MesProBatchRecordCellRuleSupportTest {
     }
 
     @Test
+    void toRuleJson_normalizesReviewedAutoSuggestionToExecutableManualRule() {
+        BatchRecordReportCellRuleVO rule = new BatchRecordReportCellRuleVO()
+                .setRowIndex(1)
+                .setColumnIndex(2)
+                .setValueType("NUMBER")
+                .setComponentFlag("input-number")
+                .setRequired(true)
+                .setLabel("重量")
+                .setConstraints(Map.of("min", 0, "max", 100))
+                .setSource("AUTO")
+                .setConfidence(0.84)
+                .setReviewed(true);
+
+        JSONObject json = MesProBatchRecordCellRuleSupport.toRuleJson(rule);
+
+        assertEquals("MANUAL", json.getString("source"));
+        assertEquals(true, json.getBoolean("reviewed"));
+        assertTrue(MesProBatchRecordCellRuleSupport.isReviewedRule(json));
+    }
+
+    @Test
     void manualRulePlaceholder_roundTripsToRuleJsonAndFillForm() {
         BatchRecordReportCellRuleVO rule = new BatchRecordReportCellRuleVO()
                 .setRowIndex(2)
@@ -426,6 +447,51 @@ class MesProBatchRecordCellRuleSupportTest {
                 .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
                 .getString("componentFlag"));
         assertFalse("checkbox".equals(operatorDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY)
+                .getString("componentFlag")));
+    }
+
+    @Test
+    void buildSuggestions_doesNotPromoteMisalignedSignatureDateTailCheckboxFragments() {
+        JSONObject root = JSON.parseObject("""
+                {
+                  "rows":{
+                    "0":{
+                      "cells":{
+                        "0":{"text":"检查要求","merge":[0,1]},
+                        "2":{"text":"结果"},
+                        "4":{"text":"操作人/日期"},
+                        "6":{"text":"复核人/日期"}
+                      }
+                    },
+                    "1":{
+                      "cells":{
+                        "0":{"text":"工作场所检查","merge":[0,1]},
+                        "2":{"text":"□符合要求"},
+                        "5":{"text":"□不符合要求"},
+                        "6":{"text":""}
+                      }
+                    }
+                  }
+                }
+                """);
+
+        List<BatchRecordReportCellRuleVO> suggestions = MesProBatchRecordCellRuleSupport.buildSuggestions(root);
+
+        BatchRecordReportCellRuleVO resultRule = findRule(suggestions, 1, 2);
+        BatchRecordReportCellRuleVO shiftedSignatureDateRule = findRule(suggestions, 1, 5);
+        assertEquals("BOOLEAN", resultRule.getValueType());
+        assertEquals("checkbox", resultRule.getComponentFlag());
+        assertEquals("STRING", shiftedSignatureDateRule.getValueType());
+        assertEquals("input-text", shiftedSignatureDateRule.getComponentFlag());
+        assertEquals("操作人/日期", shiftedSignatureDateRule.getLabel());
+
+        MesProBatchRecordCellRuleSupport.applyAutomaticSuggestions(root, "REPORT-SIGNATURE-DATE-OFFSET");
+        JSONObject shiftedSignatureDateCell = MesProBatchRecordCellRuleSupport.requireCell(root, 1, 5);
+        assertEquals("input-text", shiftedSignatureDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
+                .getString("componentFlag"));
+        assertFalse("checkbox".equals(shiftedSignatureDateCell
                 .getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY)
                 .getString("componentFlag")));
     }

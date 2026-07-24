@@ -62,6 +62,14 @@ public class MesProBatchRecordExecutionFieldAuditItemDO extends BaseDO {
 
     private String newValueHash;
 
+    private String recordbookValueJson;
+
+    private String recordbookValueDisplay;
+
+    private String batchRecordValueJson;
+
+    private String batchRecordValueDisplay;
+
     private String reasonCategory;
 
     private String reasonText;

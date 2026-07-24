@@ -159,7 +159,7 @@ public class MesProEdhrBatchExecutionController {
     public CommonResult<Boolean> deletePendingSpecialNodeAttachment(
             @Valid @RequestBody EdhrBatchExecutionSpecialNodeAttachmentDeletePendingReqVO reqVO) {
         batchExecutionService.deletePendingSpecialNodeAttachment(reqVO.getTaskId(),
-                toServiceAttachment(reqVO.getAttachment()));
+                toServiceAttachment(reqVO.getAttachment()), reqVO.getReason());
         return success(true);
     }
 
@@ -167,7 +167,7 @@ public class MesProEdhrBatchExecutionController {
     @PreAuthorize("@ss.hasPermission('mes:pro-edhr-batch-execution:update')")
     public CommonResult<EdhrBatchExecutionRespVO> savePendingSpecialNodeAttachments(
             @Valid @RequestBody EdhrBatchExecutionSpecialNodeAttachmentSavePendingReqVO reqVO) {
-        return success(batchExecutionService.savePendingSpecialNodeAttachments(reqVO.getBatchExecutionId()));
+        return success(batchExecutionService.savePendingSpecialNodeAttachments(reqVO.getBatchExecutionId(), reqVO.getReason()));
     }
 
     @PostMapping("/sync-status")

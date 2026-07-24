@@ -231,8 +231,14 @@ public class MesProEdhrFormFillLogServiceImpl implements MesProEdhrFormFillLogSe
         }
         String summary = items.stream()
                 .limit(SUMMARY_LIMIT)
-                .map(item -> StrUtil.blankToDefault(item.getFieldLabel(), item.getFieldKey())
-                        + "=" + StrUtil.blankToDefault(item.getNewValueDisplay(), ""))
+                .map(item -> {
+                    String label = StrUtil.blankToDefault(item.getFieldLabel(), item.getFieldKey());
+                    if (item.getRecordbookValueDisplay() != null || item.getBatchRecordValueDisplay() != null) {
+                        return label + "=记录本 " + StrUtil.nullToEmpty(item.getRecordbookValueDisplay())
+                                + " / 批记录 " + StrUtil.nullToEmpty(item.getBatchRecordValueDisplay());
+                    }
+                    return label + "=" + StrUtil.blankToDefault(item.getNewValueDisplay(), "");
+                })
                 .collect(Collectors.joining("；"));
         return items.size() > SUMMARY_LIMIT ? summary + "；..." : summary;
     }
@@ -247,6 +253,8 @@ public class MesProEdhrFormFillLogServiceImpl implements MesProEdhrFormFillLogSe
                 .setColumnIndex(item.getColumnIndex())
                 .setOldValueDisplay(item.getOldValueDisplay())
                 .setNewValueDisplay(item.getNewValueDisplay())
+                .setRecordbookValueDisplay(item.getRecordbookValueDisplay())
+                .setBatchRecordValueDisplay(item.getBatchRecordValueDisplay())
                 .setChangedAt(item.getChangedAt());
     }
 }

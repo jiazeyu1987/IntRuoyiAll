@@ -63,6 +63,8 @@ public class MesProRouteFlowProcessBatchRecordDO extends BaseDO {
 
     private String validationProfile;
 
+    private Boolean recordbookEnabled;
+
     private Long permissionScopeId;
 
     private String recordCategorySnapshotHash;

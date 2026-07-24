@@ -17,5 +17,7 @@ public class MesProEdhrFormFillLogItemRespVO {
     private Integer columnIndex;
     private String oldValueDisplay;
     private String newValueDisplay;
+    private String recordbookValueDisplay;
+    private String batchRecordValueDisplay;
     private LocalDateTime changedAt;
 }

@@ -48,6 +48,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionSignatureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrFlowEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrRecordChangeEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
@@ -76,6 +77,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchDoss
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionSignatureMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrFlowEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrRecordChangeEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
@@ -134,6 +136,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST;
+import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.UNAUTHORIZED;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_PROCESS_FLOW_INVALID;
@@ -359,6 +362,10 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     @Resource
     private MesProEdhrWorkTaskMapper workTaskMapper;
     @Resource
+    private MesProEdhrProcessFormPermissionRuleMapper processFormPermissionRuleMapper;
+    @Resource
+    private MesProEdhrCandidateResolver candidateResolver;
+    @Resource
     private FileService fileService;
     @Resource
     private AdminUserApi adminUserApi;
@@ -568,9 +575,6 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             throw exception(PRO_EDHR_BATCH_EXECUTION_ROUTE_VERSION_REQUIRED, route.getId());
         }
 
-        List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(routeId);
-        List<BatchTaskConfig> taskConfigs = buildBatchTaskConfigs(route, routeProcesses);
-
         MesProEdhrBatchExecutionDO batch = new MesProEdhrBatchExecutionDO()
                 .setBatchExecutionCode("EDHRB-" + System.currentTimeMillis())
                 .setWorkOrderId(workOrder.getId())
@@ -588,10 +592,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setRouteCode(route.getCode())
                 .setRouteName(route.getName())
                 .setStatus(BATCH_STATUS_CREATED)
-                .setTaskTotal(taskConfigs.size())
                 .setTaskApprovedCount(0)
                 .setBlockedCount(0)
                 .setRemark(reqVO.getRemark());
+        List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(routeId);
+        List<BatchTaskConfig> taskConfigs = buildBatchTaskConfigs(batch, route, routeProcesses);
+        batch.setTaskTotal(taskConfigs.size());
         batchExecutionMapper.insert(batch);
         createDefaultDossierItems(batch);
 
@@ -661,8 +667,6 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .build();
         recordChangeEventMapper.insert(event);
 
-        List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(route.getId());
-        List<BatchTaskConfig> taskConfigs = buildBatchTaskConfigs(route, routeProcesses);
         String activeContextKey = buildActiveContextKey(workOrder.getId(), source.getBatchCode(), route.getId(), attemptNo);
         MesProEdhrBatchExecutionDO newAttempt = new MesProEdhrBatchExecutionDO()
                 .setBatchExecutionCode("EDHRB-" + System.currentTimeMillis())
@@ -683,10 +687,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setRouteCode(route.getCode())
                 .setRouteName(route.getName())
                 .setStatus(BATCH_STATUS_CREATED)
-                .setTaskTotal(taskConfigs.size())
                 .setTaskApprovedCount(0)
                 .setBlockedCount(0)
                 .setRemark(StrUtil.blankToDefault(StrUtil.trim(reqVO.getRemark()), null));
+        List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(route.getId());
+        List<BatchTaskConfig> taskConfigs = buildBatchTaskConfigs(newAttempt, route, routeProcesses);
+        newAttempt.setTaskTotal(taskConfigs.size());
         batchExecutionMapper.insert(newAttempt);
         createDefaultDossierItems(newAttempt);
 
@@ -1136,27 +1142,39 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         .storageRetentionJson(storageRetentionJson)
                         .storageRetentionHash(storageRetentionHash)
                         .build();
-        upsertPendingSpecialNodeAttachment(task, toSpecialNodeAttachment(result),
-                LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS));
+        MesProBatchRecordExecutionAttachmentDO pendingAttachment =
+                upsertPendingSpecialNodeAttachment(task, toSpecialNodeAttachment(result),
+                        LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS));
+        recordAttachmentPrepareUploadAudit(task, pendingAttachment, result);
         return result;
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void deletePendingSpecialNodeAttachment(Long taskId, MesProEdhrSpecialNodeAttachment attachment) {
+    public void deletePendingSpecialNodeAttachment(Long taskId, MesProEdhrSpecialNodeAttachment attachment,
+                                                   String reason) {
         MesProEdhrBatchExecutionTaskDO task = validateTaskForSpecialAttachmentUpload(taskId);
         MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(task.getBatchExecutionId());
         validateCurrentUserIsBatchOwner(batch);
         validateSpecialNodeAttachment(task, attachment);
-        deletePendingSpecialNodeAttachment(task, attachment, true);
+        String auditReason = requireSpecialNodeAttachmentAuditReason(reason);
+        List<MesProBatchRecordExecutionAttachmentDO> deletedAttachments =
+                deletePendingSpecialNodeAttachment(task, attachment, true);
+        for (MesProBatchRecordExecutionAttachmentDO deletedAttachment : deletedAttachments) {
+            recordPendingAttachmentDeleteAudit(task, deletedAttachment, auditReason);
+        }
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public EdhrBatchExecutionRespVO savePendingSpecialNodeAttachments(Long batchExecutionId) {
+    public EdhrBatchExecutionRespVO savePendingSpecialNodeAttachments(Long batchExecutionId, String reason) {
         MesProEdhrBatchExecutionDO batch = validateBatchForSpecialAttachmentSave(batchExecutionId);
         validateCurrentUserIsBatchOwner(batch);
+        String auditReason = requireSpecialNodeAttachmentAuditReason(reason);
         LocalDateTime operatedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        List<MesProBatchRecordExecutionAttachmentDO> allPendingAttachments = new ArrayList<>();
+        List<MesProBatchRecordExecutionAttachmentDO> allPersistedAttachments = new ArrayList<>();
+        List<Map<String, Object>> taskPayloads = new ArrayList<>();
         for (MesProEdhrBatchExecutionTaskDO task : batchTaskMapper.selectListByBatchExecutionId(batch.getId())) {
             if (!SKIPPABLE_SPECIAL_NODE_TYPES.contains(resolveNodeType(task))) {
                 continue;
@@ -1166,6 +1184,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             if (pendingAttachments.isEmpty()) {
                 continue;
             }
+            String beforePayloadJson = StrUtil.nullToEmpty(task.getSpecialPayloadJson());
             List<MesProBatchRecordExecutionAttachmentDO> persistedAttachments = persistSpecialNodeAttachments(
                     task,
                     pendingAttachments.stream()
@@ -1179,6 +1198,23 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             putSpecialNodePayloadAttachments(payload, task, persistedAttachments);
             task.setSpecialPayloadJson(payload.toJSONString());
             batchTaskMapper.updateById(task);
+            allPendingAttachments.addAll(pendingAttachments);
+            allPersistedAttachments.addAll(persistedAttachments);
+            Map<String, Object> taskPayload = new LinkedHashMap<>();
+            taskPayload.put("batchTaskId", task.getId());
+            taskPayload.put("nodeType", resolveNodeType(task));
+            taskPayload.put("beforePayloadHash", hashAuditPayload(beforePayloadJson));
+            taskPayload.put("afterPayloadHash", hashAuditPayload(task.getSpecialPayloadJson()));
+            taskPayload.put("pendingAttachments", pendingAttachments.stream()
+                    .map(this::toAttachmentAuditPayload)
+                    .toList());
+            taskPayload.put("persistedAttachments", persistedAttachments.stream()
+                    .map(this::toAttachmentAuditPayload)
+                    .toList());
+            taskPayloads.add(taskPayload);
+        }
+        if (!allPersistedAttachments.isEmpty()) {
+            recordAttachmentSavePendingAudit(batch, auditReason, allPendingAttachments, allPersistedAttachments, taskPayloads);
         }
         return get(batch.getId());
     }
@@ -1269,38 +1305,51 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         return record;
     }
 
-    private void upsertPendingSpecialNodeAttachment(
+    private MesProBatchRecordExecutionAttachmentDO upsertPendingSpecialNodeAttachment(
             MesProEdhrBatchExecutionTaskDO task,
             MesProEdhrSpecialNodeAttachment attachment,
             LocalDateTime operatedAt) {
-        deletePendingSpecialNodeAttachmentsByFileName(task.getId(), attachment.getFileName());
-        insertSpecialNodeAttachment(task, attachment, operatedAt,
+        List<MesProBatchRecordExecutionAttachmentDO> replacedAttachments =
+                deletePendingSpecialNodeAttachmentsByFileName(task.getId(), attachment.getFileName());
+        for (MesProBatchRecordExecutionAttachmentDO replacedAttachment : replacedAttachments) {
+            recordPendingAttachmentDeleteAudit(task, replacedAttachment, "同名待提交特殊节点附件被新预登记替换");
+        }
+        return insertSpecialNodeAttachment(task, attachment, operatedAt,
                 SPECIAL_NODE_ATTACHMENT_ACTION_PENDING, "SPECIAL_NODE_PENDING:" + attachment.getFileId());
     }
 
-    private void deletePendingSpecialNodeAttachment(MesProEdhrBatchExecutionTaskDO task,
-                                                    MesProEdhrSpecialNodeAttachment attachment,
-                                                    boolean failIfMissing) {
-        int deleted = attachmentMapper.delete(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesProBatchRecordExecutionAttachmentDO>()
+    private List<MesProBatchRecordExecutionAttachmentDO> deletePendingSpecialNodeAttachment(
+            MesProEdhrBatchExecutionTaskDO task,
+            MesProEdhrSpecialNodeAttachment attachment,
+            boolean failIfMissing) {
+        List<MesProBatchRecordExecutionAttachmentDO> matchedAttachments =
+                attachmentMapper.selectList(new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesProBatchRecordExecutionAttachmentDO>()
                 .eq(MesProBatchRecordExecutionAttachmentDO::getBatchTaskId, task.getId())
                 .eq(MesProBatchRecordExecutionAttachmentDO::getExecutionId, SPECIAL_NODE_ATTACHMENT_EXECUTION_ID)
                 .eq(MesProBatchRecordExecutionAttachmentDO::getAttachmentAction, SPECIAL_NODE_ATTACHMENT_ACTION_PENDING)
                 .eq(MesProBatchRecordExecutionAttachmentDO::getFileId, attachment.getFileId())
                 .eq(MesProBatchRecordExecutionAttachmentDO::getSha256, StrUtil.trim(attachment.getSha256())));
-        if (failIfMissing && deleted <= 0) {
+        for (MesProBatchRecordExecutionAttachmentDO matchedAttachment : matchedAttachments) {
+            attachmentMapper.deleteById(matchedAttachment.getId());
+        }
+        if (failIfMissing && matchedAttachments.isEmpty()) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_SPECIAL_NODE_INVALID);
         }
+        return matchedAttachments;
     }
 
-    private void deletePendingSpecialNodeAttachmentsByFileName(Long taskId, String fileName) {
+    private List<MesProBatchRecordExecutionAttachmentDO> deletePendingSpecialNodeAttachmentsByFileName(Long taskId,
+                                                                                                      String fileName) {
         String normalizedFileName = normalizeSpecialNodeAttachmentFileName(fileName);
         if (StrUtil.isBlank(normalizedFileName)) {
-            return;
+            return List.of();
         }
-        resolvePendingSpecialNodeAttachmentRecords(taskId).stream()
+        List<MesProBatchRecordExecutionAttachmentDO> matchedAttachments = resolvePendingSpecialNodeAttachmentRecords(taskId).stream()
                 .filter(attachment -> Objects.equals(normalizedFileName,
                         normalizeSpecialNodeAttachmentFileName(attachment.getFileName())))
-                .forEach(attachment -> attachmentMapper.deleteById(attachment.getId()));
+                .toList();
+        matchedAttachments.forEach(attachment -> attachmentMapper.deleteById(attachment.getId()));
+        return matchedAttachments;
     }
 
     private List<MesProBatchRecordExecutionAttachmentDO> resolvePendingSpecialNodeAttachmentRecords(Long taskId) {
@@ -2396,7 +2445,16 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     private List<BatchTaskConfig> buildBatchTaskConfigs(MesProRouteDO route, List<MesProRouteProcessDO> routeProcesses) {
-        List<BatchTaskConfig> routeConfigs = resolveBatchTaskConfigs(route, routeProcesses);
+        return addSpecialBatchTaskConfigs(resolveBatchTaskConfigs(route, routeProcesses));
+    }
+
+    private List<BatchTaskConfig> buildBatchTaskConfigs(MesProEdhrBatchExecutionDO batch,
+                                                        MesProRouteDO route,
+                                                        List<MesProRouteProcessDO> routeProcesses) {
+        return addSpecialBatchTaskConfigs(resolveBatchTaskConfigs(batch, route, routeProcesses));
+    }
+
+    private List<BatchTaskConfig> addSpecialBatchTaskConfigs(List<BatchTaskConfig> routeConfigs) {
         List<BatchTaskConfig> taskConfigs = new ArrayList<>();
         taskConfigs.add(BatchTaskConfig.special(
                 NODE_TYPE_INCOMING_INSPECTION_REPORT, "来料检报告", SPECIAL_SORT_INCOMING_INSPECTION));
@@ -2738,9 +2796,51 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .ownerRoleKey(ownerRoleKey)
                 .archiveVisibility(archiveVisibility)
                 .slotConfigSnapshotHash(bindingConfig.getString("slotConfigSnapshotHash"))
+                .candidateSourceType(bindingConfig.getString("candidateSourceType"))
+                .candidateSourceIds(toFrozenCandidateSourceIds(bindingConfig.get("candidateSourceIds")))
+                .candidateSourceNames(toFrozenCandidateSourceNames(bindingConfig.get("candidateSourceNames")))
                 .reportSort(bindingConfig.getInteger("reportSort"))
                 .remark(StrUtil.blankToDefault(bindingConfig.getString("remark"), processConfig.getString("remark")))
                 .build();
+    }
+
+    private String toFrozenCandidateSourceIds(Object rawValue) {
+        if (rawValue == null) {
+            return null;
+        }
+        List<?> values;
+        if (rawValue instanceof JSONArray array) {
+            values = array;
+        } else if (rawValue instanceof List<?> list) {
+            values = list;
+        } else {
+            String text = StrUtil.trim(String.valueOf(rawValue));
+            if (StrUtil.isBlank(text)) {
+                return null;
+            }
+            if (!text.startsWith("[")) {
+                return text;
+            }
+            values = JSON.parseArray(text);
+        }
+        String joined = values.stream()
+                .filter(Objects::nonNull)
+                .map(String::valueOf)
+                .map(StrUtil::trim)
+                .filter(StrUtil::isNotBlank)
+                .collect(Collectors.joining(","));
+        return StrUtil.blankToDefault(joined, null);
+    }
+
+    private String toFrozenCandidateSourceNames(Object rawValue) {
+        if (rawValue == null) {
+            return null;
+        }
+        if (rawValue instanceof JSONArray || rawValue instanceof List<?>) {
+            return JSON.toJSONString(rawValue);
+        }
+        String text = StrUtil.trim(String.valueOf(rawValue));
+        return StrUtil.blankToDefault(text, null);
     }
 
     private Map<Long, Long> resolveCurrentRouteProcessIdBySnapshot(
@@ -3301,8 +3401,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         List<MesProEdhrBatchExecutionTaskDO> tasks = batchTaskMapper.selectListByBatchExecutionId(batch.getId());
         Map<Long, TaskGate> taskGateMap = buildTaskGateMap(tasks);
         Map<Long, MesProEdhrWorkTaskDO> fillableWorkTaskMap = buildFillableWorkTaskMap(batch.getId());
-        Map<Long, MesProEdhrWorkTaskAssignmentRuleDO> fillableRuleMap = buildFillableRuleMap(tasks, fillableWorkTaskMap);
-        Map<Long, AdminUserRespDTO> fillableUserMap = buildFillableUserMap(fillableWorkTaskMap.values(), fillableRuleMap.values());
+        Map<Long, MesProEdhrProcessFormPermissionRuleDO> fillableProcessFormRuleMap =
+                buildFillableProcessFormRuleMap(tasks, fillableWorkTaskMap);
+        Map<Long, MesProEdhrWorkTaskAssignmentRuleDO> fillableRuleMap =
+                buildFillableRuleMap(tasks, fillableWorkTaskMap, fillableProcessFormRuleMap);
+        Map<Long, AdminUserRespDTO> fillableUserMap = buildFillableUserMap(
+                fillableWorkTaskMap.values(), fillableProcessFormRuleMap.values(), fillableRuleMap.values());
         Long currentUserId = currentUserId();
         Map<Long, String> batchRecordVersionNoMap = buildBatchRecordVersionNoMap(tasks);
         Map<Long, List<MesProEdhrWorkTaskDO>> activeWorkTasksByBatchTask =
@@ -3387,7 +3491,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         ? PENDING_RELEASE_ACTION_LOCK_REASON : null)
                 .setTasks(tasks.stream()
                         .map(task -> toTaskResp(task, taskGateMap.get(task.getId()),
-                                fillableWorkTaskMap.get(task.getId()), fillableRuleMap.get(task.getId()),
+                                fillableWorkTaskMap.get(task.getId()),
+                                fillableProcessFormRuleMap.get(task.getId()), fillableRuleMap.get(task.getId()),
                                 fillableUserMap,
                                 batchRecordVersionNoMap,
                                 activeWorkTasksByBatchTask.getOrDefault(task.getId(), List.of()), currentUserId,
@@ -3562,6 +3667,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
 
     private EdhrBatchExecutionTaskRespVO toTaskResp(MesProEdhrBatchExecutionTaskDO task, TaskGate taskGate,
                                                     MesProEdhrWorkTaskDO fillableWorkTask,
+                                                    MesProEdhrProcessFormPermissionRuleDO fillableProcessFormRule,
                                                     MesProEdhrWorkTaskAssignmentRuleDO fillableRule,
                                                     Map<Long, AdminUserRespDTO> fillableUserMap,
                                                     Map<Long, String> batchRecordVersionNoMap,
@@ -3632,7 +3738,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setSkippedAt(task.getSkippedAt())
                 .setSpecialPayloadJson(task.getSpecialPayloadJson())
                 .setPendingSpecialNodeAttachments(resolvePendingSpecialNodeAttachments(task))
-                .setFillableUsers(resolveFillableUsers(fillableWorkTask, fillableRule, fillableUserMap));
+                .setFillableUsers(resolveFillableUsers(fillableWorkTask, fillableProcessFormRule,
+                        fillableRule, fillableUserMap));
     }
 
     private Map<Long, MesProEdhrWorkTaskDO> buildFillableWorkTaskMap(Long batchExecutionId) {
@@ -3648,11 +3755,14 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     private Map<Long, MesProEdhrWorkTaskAssignmentRuleDO> buildFillableRuleMap(
-            List<MesProEdhrBatchExecutionTaskDO> tasks, Map<Long, MesProEdhrWorkTaskDO> fillableWorkTaskMap) {
+            List<MesProEdhrBatchExecutionTaskDO> tasks,
+            Map<Long, MesProEdhrWorkTaskDO> fillableWorkTaskMap,
+            Map<Long, MesProEdhrProcessFormPermissionRuleDO> fillableProcessFormRuleMap) {
         Map<Long, MesProEdhrWorkTaskAssignmentRuleDO> result = new LinkedHashMap<>();
         for (MesProEdhrBatchExecutionTaskDO task : tasks) {
             if (task.getId() == null || task.getRouteProcessId() == null
-                    || fillableWorkTaskMap.containsKey(task.getId()) || !isRouteForm(task)) {
+                    || fillableWorkTaskMap.containsKey(task.getId())
+                    || fillableProcessFormRuleMap.containsKey(task.getId()) || !isRouteForm(task)) {
                 continue;
             }
             MesProEdhrWorkTaskAssignmentRuleDO rule =
@@ -3665,11 +3775,37 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         return result;
     }
 
+    private Map<Long, MesProEdhrProcessFormPermissionRuleDO> buildFillableProcessFormRuleMap(
+            List<MesProEdhrBatchExecutionTaskDO> tasks, Map<Long, MesProEdhrWorkTaskDO> fillableWorkTaskMap) {
+        Map<Long, MesProEdhrProcessFormPermissionRuleDO> result = new LinkedHashMap<>();
+        for (MesProEdhrBatchExecutionTaskDO task : tasks) {
+            if (task.getId() == null || task.getRouteProcessId() == null
+                    || fillableWorkTaskMap.containsKey(task.getId()) || !isRouteForm(task)) {
+                continue;
+            }
+            String bindingKey = resolveProcessFormRuleBindingKey(task);
+            if (StrUtil.isBlank(bindingKey)) {
+                continue;
+            }
+            MesProEdhrProcessFormPermissionRuleDO rule =
+                    processFormPermissionRuleMapper.selectEnabledFillRuleForRouteOrReport(
+                            task.getRouteProcessId(), bindingKey, task.getBatchRecordVersionId());
+            if (rule != null) {
+                result.put(task.getId(), rule);
+            }
+        }
+        return result;
+    }
+
     private Map<Long, AdminUserRespDTO> buildFillableUserMap(Iterable<MesProEdhrWorkTaskDO> workTasks,
+                                                             Iterable<MesProEdhrProcessFormPermissionRuleDO> processFormRules,
                                                              Iterable<MesProEdhrWorkTaskAssignmentRuleDO> rules) {
         Set<Long> userIds = new LinkedHashSet<>();
         for (MesProEdhrWorkTaskDO workTask : workTasks) {
             userIds.addAll(resolveFillableUserIds(workTask));
+        }
+        for (MesProEdhrProcessFormPermissionRuleDO rule : processFormRules) {
+            userIds.addAll(resolveFillableUserIds(rule));
         }
         for (MesProEdhrWorkTaskAssignmentRuleDO rule : rules) {
             userIds.addAll(resolveFillableUserIds(rule));
@@ -3682,9 +3818,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     private List<EdhrBatchExecutionTaskRespVO.FillableUser> resolveFillableUsers(
-            MesProEdhrWorkTaskDO workTask, MesProEdhrWorkTaskAssignmentRuleDO rule,
+            MesProEdhrWorkTaskDO workTask, MesProEdhrProcessFormPermissionRuleDO processFormRule,
+            MesProEdhrWorkTaskAssignmentRuleDO rule,
             Map<Long, AdminUserRespDTO> userMap) {
-        List<Long> userIds = workTask == null ? resolveFillableUserIds(rule) : resolveFillableUserIds(workTask);
+        List<Long> userIds = workTask != null ? resolveFillableUserIds(workTask)
+                : processFormRule != null ? resolveFillableUserIds(processFormRule)
+                : resolveFillableUserIds(rule);
         return userIds.stream()
                 .map(userId -> new EdhrBatchExecutionTaskRespVO.FillableUser()
                         .setUserId(userId)
@@ -3702,6 +3841,24 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             userIds.add(workTask.getAssigneeUserId());
         }
         return List.copyOf(userIds);
+    }
+
+    private List<Long> resolveFillableUserIds(MesProEdhrProcessFormPermissionRuleDO rule) {
+        if (rule == null) {
+            return List.of();
+        }
+        MesProEdhrCandidateResolver.MesProEdhrCandidateContract candidate =
+                Objects.requireNonNull(candidateResolver.resolveProcessFormRule(rule),
+                        "EDHR_PROCESS_FORM_FILLABLE_CANDIDATE_REQUIRED: process form candidate is required");
+        return MesProEdhrWorkTaskAuthorization.parseCandidateSnapshotUserIds(candidate.userSnapshot());
+    }
+
+    private String resolveProcessFormRuleBindingKey(MesProEdhrBatchExecutionTaskDO task) {
+        if (task == null) {
+            return null;
+        }
+        return StrUtil.blankToDefault(StrUtil.trim(task.getBatchRecordReportId()),
+                StrUtil.trim(task.getFormBindingKey()));
     }
 
     private List<Long> resolveFillableUserIds(MesProEdhrWorkTaskAssignmentRuleDO rule) {
@@ -4839,6 +4996,179 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private Long currentUserId() {
         Long loginUserId = SecurityFrameworkUtils.getLoginUserId();
         return loginUserId == null ? 0L : loginUserId;
+    }
+
+    private String requireSpecialNodeAttachmentAuditReason(String rawReason) {
+        String reason = StrUtil.trim(rawReason);
+        if (StrUtil.isBlank(reason)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_SPECIAL_NODE_INVALID);
+        }
+        return reason;
+    }
+
+    private void recordAttachmentPrepareUploadAudit(MesProEdhrBatchExecutionTaskDO task,
+                                                    MesProBatchRecordExecutionAttachmentDO pendingAttachment,
+                                                    MesProEdhrSpecialNodeAttachmentPrepareUploadResult result) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("requestSource", "BATCH_EXECUTION_DETAIL");
+        metadata.put("reason", "特殊节点附件上传预登记");
+        metadata.put("batchTaskId", task.getId());
+        metadata.put("nodeType", resolveNodeType(task));
+        metadata.put("uploadToken", result.getUploadToken());
+        metadata.put("fileId", result.getFileId());
+        metadata.put("fileName", result.getFileName());
+        metadata.put("fileSize", result.getFileSize());
+        metadata.put("sha256", result.getSha256());
+        metadata.put("storageConfigId", result.getStorageConfigId());
+        metadata.put("storagePath", result.getStoragePath());
+        metadata.put("storageRetentionHash", result.getStorageRetentionHash());
+        metadata.put("previousAttachmentHash", pendingAttachment.getPreviousAttachmentHash());
+        metadata.put("attachmentChainHeadHash", pendingAttachment.getAttachmentHash());
+        metadata.put("pendingAttachment", toAttachmentAuditPayload(pendingAttachment));
+        recordRegulatedOperationAudit("SPECIAL_NODE_ATTACHMENT", String.valueOf(pendingAttachment.getId()),
+                "ATTACHMENT_PREPARE_UPLOAD", "特殊节点附件上传预登记",
+                task.getBatchExecutionId(), SPECIAL_NODE_ATTACHMENT_EXECUTION_ID, null,
+                null, task.getRouteProcessId(), task.getBatchRecordReportId(), task.getRecordCategory(),
+                "mes:pro-edhr-batch-execution:update", "ALLOW", "SUCCESS",
+                pendingAttachment.getPreviousAttachmentHash(), pendingAttachment.getAttachmentHash(),
+                JSON.toJSONString(metadata));
+    }
+
+    private void recordPendingAttachmentDeleteAudit(MesProEdhrBatchExecutionTaskDO task,
+                                                    MesProBatchRecordExecutionAttachmentDO deletedAttachment,
+                                                    String reason) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("requestSource", "BATCH_EXECUTION_DETAIL");
+        metadata.put("reason", reason);
+        metadata.put("batchTaskId", task.getId());
+        metadata.put("nodeType", resolveNodeType(task));
+        metadata.put("fileId", deletedAttachment.getFileId());
+        metadata.put("fileName", deletedAttachment.getFileName());
+        metadata.put("fileSize", deletedAttachment.getFileSize());
+        metadata.put("sha256", deletedAttachment.getSha256());
+        metadata.put("storageConfigId", deletedAttachment.getStorageConfigId());
+        metadata.put("storagePath", deletedAttachment.getStoragePath());
+        metadata.put("previousAttachmentHash", deletedAttachment.getPreviousAttachmentHash());
+        metadata.put("attachmentChainHeadHash", deletedAttachment.getAttachmentHash());
+        metadata.put("deletedAttachment", toAttachmentAuditPayload(deletedAttachment));
+        recordRegulatedOperationAudit("SPECIAL_NODE_ATTACHMENT", String.valueOf(deletedAttachment.getId()),
+                "ATTACHMENT_PENDING_DELETE", "删除待提交特殊节点附件",
+                task.getBatchExecutionId(), deletedAttachment.getExecutionId(), null,
+                null, task.getRouteProcessId(), task.getBatchRecordReportId(), task.getRecordCategory(),
+                "mes:pro-edhr-batch-execution:update", "ALLOW", "SUCCESS",
+                deletedAttachment.getAttachmentHash(), hashAuditPayload(metadata), JSON.toJSONString(metadata));
+    }
+
+    private void recordAttachmentSavePendingAudit(MesProEdhrBatchExecutionDO batch,
+                                                  String reason,
+                                                  List<MesProBatchRecordExecutionAttachmentDO> pendingAttachments,
+                                                  List<MesProBatchRecordExecutionAttachmentDO> persistedAttachments,
+                                                  List<Map<String, Object>> taskPayloads) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("requestSource", "BATCH_EXECUTION_DETAIL");
+        metadata.put("reason", reason);
+        metadata.put("batchExecutionId", batch.getId());
+        metadata.put("pendingAttachmentCount", pendingAttachments.size());
+        metadata.put("persistedAttachmentCount", persistedAttachments.size());
+        metadata.put("pendingAttachments", pendingAttachments.stream()
+                .map(this::toAttachmentAuditPayload)
+                .toList());
+        metadata.put("persistedAttachments", persistedAttachments.stream()
+                .map(this::toAttachmentAuditPayload)
+                .toList());
+        metadata.put("taskPayloads", taskPayloads);
+        metadata.put("beforeAttachmentHeadHash", pendingAttachments.isEmpty() ? null
+                : pendingAttachments.get(pendingAttachments.size() - 1).getAttachmentHash());
+        metadata.put("attachmentChainHeadHash", persistedAttachments.isEmpty() ? null
+                : persistedAttachments.get(persistedAttachments.size() - 1).getAttachmentHash());
+        recordRegulatedOperationAudit("BATCH_EXECUTION", String.valueOf(batch.getId()),
+                "ATTACHMENT_SAVE_PENDING", "保存待提交特殊节点附件",
+                batch.getId(), SPECIAL_NODE_ATTACHMENT_EXECUTION_ID, null,
+                batch.getRouteId(), null, null, null,
+                "mes:pro-edhr-batch-execution:update", "ALLOW", "SUCCESS",
+                hashAuditPayload(pendingAttachments.stream().map(this::toAttachmentAuditPayload).toList()),
+                hashAuditPayload(metadata), JSON.toJSONString(metadata));
+    }
+
+    private Map<String, Object> toAttachmentAuditPayload(MesProBatchRecordExecutionAttachmentDO attachment) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("id", attachment.getId());
+        payload.put("batchExecutionId", attachment.getBatchExecutionId());
+        payload.put("batchTaskId", attachment.getBatchTaskId());
+        payload.put("executionId", attachment.getExecutionId());
+        payload.put("workTaskId", attachment.getWorkTaskId());
+        payload.put("fieldKey", attachment.getFieldKey());
+        payload.put("fieldPath", attachment.getFieldPath());
+        payload.put("fieldLabel", attachment.getFieldLabel());
+        payload.put("attachmentType", attachment.getAttachmentType());
+        payload.put("attachmentGroupKey", attachment.getAttachmentGroupKey());
+        payload.put("attachmentAction", attachment.getAttachmentAction());
+        payload.put("versionNo", attachment.getVersionNo());
+        payload.put("fileId", attachment.getFileId());
+        payload.put("fileName", attachment.getFileName());
+        payload.put("fileSize", attachment.getFileSize());
+        payload.put("sha256", attachment.getSha256());
+        payload.put("storageConfigId", attachment.getStorageConfigId());
+        payload.put("storagePath", attachment.getStoragePath());
+        payload.put("storageRetentionHash", attachment.getStorageRetentionHash());
+        payload.put("previousAttachmentHash", attachment.getPreviousAttachmentHash());
+        payload.put("attachmentHash", attachment.getAttachmentHash());
+        payload.put("operatorId", attachment.getOperatorId());
+        payload.put("operatedAt", attachment.getOperatedAt());
+        payload.put("reasonCategory", attachment.getReasonCategory());
+        payload.put("reasonText", attachment.getReasonText());
+        return payload;
+    }
+
+    private String hashAuditPayload(Object payload) {
+        return MesProBatchRecordExecutionFieldAuditHasher.sha256(JSON.toJSONString(payload));
+    }
+
+    private void recordRegulatedOperationAudit(String objectType, String objectId, String operationType,
+                                               String actionName, Long batchExecutionId, Long executionId,
+                                               Long workTaskId, Long routeId, Long routeProcessId, String reportId,
+                                               String recordCategory, String permissionCode, String permissionDecision,
+                                               String resultStatus, String beforeSummaryHash, String afterSummaryHash,
+                                               String metadataJson) {
+        Long actorUserId = requireAuditActorUserId();
+        String requestId = "EDHR-AUD-" + java.util.UUID.randomUUID();
+        JSONObject metadata = JSON.parseObject(metadataJson);
+        if (metadata == null) {
+            throw new IllegalStateException("eDHR regulated audit metadata is required");
+        }
+        metadata.putIfAbsent("auditRequestId", requestId);
+        metadata.putIfAbsent("idempotencyKey", requestId);
+        metadata.putIfAbsent("permissionDecision", permissionDecision);
+        metadata.putIfAbsent("resultStatus", resultStatus);
+        operationAuditService.record(new MesProEdhrOperationAuditCommand()
+                .setRequestId(requestId)
+                .setObjectType(objectType)
+                .setObjectId(objectId)
+                .setBatchExecutionId(batchExecutionId)
+                .setExecutionId(executionId)
+                .setWorkTaskId(workTaskId)
+                .setRouteId(routeId)
+                .setRouteProcessId(routeProcessId)
+                .setReportId(reportId)
+                .setRecordCategory(recordCategory)
+                .setOperationType(operationType)
+                .setActionName(actionName)
+                .setActorUserId(actorUserId)
+                .setActorUsername(SecurityFrameworkUtils.getLoginUserNickname())
+                .setPermissionCode(permissionCode)
+                .setPermissionDecision(permissionDecision)
+                .setResultStatus(resultStatus)
+                .setBeforeSummaryHash(beforeSummaryHash)
+                .setAfterSummaryHash(afterSummaryHash)
+                .setMetadataJson(metadata.toJSONString()));
+    }
+
+    private Long requireAuditActorUserId() {
+        Long loginUserId = SecurityFrameworkUtils.getLoginUserId();
+        if (loginUserId == null) {
+            throw exception(UNAUTHORIZED);
+        }
+        return loginUserId;
     }
 
     private void recordOperationAudit(String objectType, String objectId, String operationType, String actionName,

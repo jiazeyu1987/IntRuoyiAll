@@ -67,6 +67,8 @@ public class MesProBatchRecordExecutionRespVO {
 
     private String validationProfile;
 
+    private Boolean recordbookEnabled;
+
     private Long permissionScopeId;
 
     private Long routeBindingId;

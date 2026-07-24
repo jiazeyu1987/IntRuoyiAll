@@ -572,6 +572,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .setFillableScopeJson(binding.getString("fillableScopeJson"))
                 .setRecordCategory(binding.getString("recordCategory"))
                 .setValidationProfile(binding.getString("validationProfile"))
+                .setRecordbookEnabled(binding.getBoolean("recordbookEnabled"))
                 .setPermissionScopeId(binding.getLong("permissionScopeId"))
                 .setRequiredPolicy(binding.getString("requiredPolicy"))
                 .setRequiredConditionJson(binding.getString("requiredConditionJson"))
@@ -599,6 +600,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     vo.setFillableScopeJson(StrUtil.blankToDefault(StrUtil.trim(binding.getFillableScopeJson()), null));
                     vo.setRecordCategory(resolveRecordCategory(binding.getRecordCategory(), SLOT_TYPE_MAIN));
                     vo.setValidationProfile(resolveValidationProfile(vo.getRecordCategory(), binding.getValidationProfile()));
+                    vo.setRecordbookEnabled(resolveRecordbookEnabled(binding.getRecordbookEnabled(), vo.getRecordCategory()));
                     vo.setPermissionScopeId(binding.getPermissionScopeId());
                     vo.setRequiredPolicy(resolveRequiredPolicy(binding.getRequiredPolicy()));
                     vo.setRequiredConditionJson(binding.getRequiredConditionJson());
@@ -648,6 +650,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .setFillableScopeJson(report.getString("fillableScopeJson"))
                 .setRecordCategory(report.getString("recordCategory"))
                 .setValidationProfile(report.getString("validationProfile"))
+                .setRecordbookEnabled(report.getBoolean("recordbookEnabled"))
                 .setRequiredPolicy(report.getString("requiredPolicy"))
                 .setRequiredConditionJson(report.getString("requiredConditionJson"))
                 .setOwnerRoleKey(report.getString("ownerRoleKey"))
@@ -701,6 +704,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     vo.setFillableScopeJson(StrUtil.blankToDefault(StrUtil.trim(report.getFillableScopeJson()), null));
                     vo.setRecordCategory(resolveRecordCategory(report.getRecordCategory(), formSlotType));
                     vo.setValidationProfile(resolveValidationProfile(vo.getRecordCategory(), report.getValidationProfile()));
+                    vo.setRecordbookEnabled(resolveRecordbookEnabled(report.getRecordbookEnabled(), vo.getRecordCategory()));
                     vo.setPermissionScopeId(report.getPermissionScopeId());
                     vo.setRequiredPolicy(resolveRequiredPolicy(report.getRequiredPolicy()));
                     vo.setRequiredConditionJson(report.getRequiredConditionJson());

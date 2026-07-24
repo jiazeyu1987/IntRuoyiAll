@@ -110,6 +110,8 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
     private static final int EXECUTION_STATUS_FILL_COMPLETED = MesProEdhrApprovalStatusMapping.EXECUTION_STATUS_FILL_COMPLETED;
     private static final String ACTION_FIELD_CHANGE = "FIELD_CHANGE";
     private static final String VALIDATION_PROFILE_INTERNAL = "INTERNAL_TRACE";
+    private static final String FILL_CARRIER_RECORDBOOK = "RECORDBOOK";
+    private static final String FILL_MODE_RECORDBOOK_UNRESTRICTED = "RECORDBOOK_UNRESTRICTED";
     private static final String INSTANCE_SCOPE_BATCH_SHARED = "BATCH_SHARED";
     private static final DateTimeFormatter DEFAULT_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DEFAULT_DATETIME_FORMATTER =
@@ -188,6 +190,9 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         }
         validateBaselineAvailable(execution);
         validateBaselineMatches(command, execution);
+        if (isRecordbookUnrestrictedMode(command) && !Boolean.TRUE.equals(execution.getRecordbookEnabled())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
+        }
 
         String requestHash = MesProBatchRecordExecutionFieldAuditHasher.hashRequest(command);
         Long tenantId = currentTenantId();
@@ -661,6 +666,10 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                 .setNewValueJson(item.getNewValueJson())
                 .setNewValueDisplay(item.getNewValueDisplay())
                 .setNewValueHash(item.getNewValueHash())
+                .setRecordbookValueJson(parseOptionalJson(item.getRecordbookValueJson()))
+                .setRecordbookValueDisplay(item.getRecordbookValueDisplay())
+                .setBatchRecordValueJson(parseOptionalJson(item.getBatchRecordValueJson()))
+                .setBatchRecordValueDisplay(item.getBatchRecordValueDisplay())
                 .setReasonCategory(item.getReasonCategory())
                 .setReasonText(item.getReasonText())
                 .setActorId(item.getActorId())
@@ -803,7 +812,7 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         }
         if ("CSV".equals(format)) {
             StringBuilder builder = new StringBuilder();
-            builder.append("id,auditBatchId,executionId,executionCode,fieldAuditRevision,fieldPath,fieldKey,fieldLabel,rowIndex,columnIndex,valueType,oldValueJson,oldValueDisplay,oldValueHash,newValueJson,newValueDisplay,newValueHash,reasonCategory,reasonText,actorId,actorName,signatureId,previousHash,auditHash,changedAt\n");
+            builder.append("id,auditBatchId,executionId,executionCode,fieldAuditRevision,fieldPath,fieldKey,fieldLabel,rowIndex,columnIndex,valueType,oldValueJson,oldValueDisplay,oldValueHash,newValueJson,newValueDisplay,newValueHash,recordbookValueJson,recordbookValueDisplay,batchRecordValueJson,batchRecordValueDisplay,reasonCategory,reasonText,actorId,actorName,signatureId,previousHash,auditHash,changedAt\n");
             for (MesProBatchRecordExecutionFieldAuditItemRespVO item : items) {
                 builder.append(csv(item.getId())).append(',')
                         .append(csv(item.getAuditBatchId())).append(',')
@@ -822,6 +831,10 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                         .append(csv(item.getNewValueJson())).append(',')
                         .append(csv(item.getNewValueDisplay())).append(',')
                         .append(csv(item.getNewValueHash())).append(',')
+                        .append(csv(item.getRecordbookValueJson())).append(',')
+                        .append(csv(item.getRecordbookValueDisplay())).append(',')
+                        .append(csv(item.getBatchRecordValueJson())).append(',')
+                        .append(csv(item.getBatchRecordValueDisplay())).append(',')
                         .append(csv(item.getReasonCategory())).append(',')
                         .append(csv(item.getReasonText())).append(',')
                         .append(csv(item.getActorId())).append(',')
@@ -839,8 +852,9 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
             String[] headers = {"id", "auditBatchId", "executionId", "executionCode", "fieldAuditRevision",
                     "fieldPath", "fieldKey", "fieldLabel", "rowIndex", "columnIndex", "valueType",
                     "oldValueJson", "oldValueDisplay", "oldValueHash", "newValueJson", "newValueDisplay",
-                    "newValueHash", "reasonCategory", "reasonText", "actorId", "actorName", "signatureId",
-                    "previousHash", "auditHash", "changedAt"};
+                    "newValueHash", "recordbookValueJson", "recordbookValueDisplay", "batchRecordValueJson",
+                    "batchRecordValueDisplay", "reasonCategory", "reasonText", "actorId", "actorName",
+                    "signatureId", "previousHash", "auditHash", "changedAt"};
             Row header = sheet.createRow(0);
             for (int i = 0; i < headers.length; i++) {
                 header.createCell(i).setCellValue(headers[i]);
@@ -852,9 +866,11 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                         item.getFieldAuditRevision(), item.getFieldPath(), item.getFieldKey(), item.getFieldLabel(),
                         item.getRowIndex(), item.getColumnIndex(), item.getValueType(), item.getOldValueJson(),
                         item.getOldValueDisplay(), item.getOldValueHash(), item.getNewValueJson(),
-                        item.getNewValueDisplay(), item.getNewValueHash(), item.getReasonCategory(),
-                        item.getReasonText(), item.getActorId(), item.getActorName(), item.getSignatureId(),
-                        item.getPreviousHash(), item.getAuditHash(), item.getChangedAt()};
+                        item.getNewValueDisplay(), item.getNewValueHash(), item.getRecordbookValueJson(),
+                        item.getRecordbookValueDisplay(), item.getBatchRecordValueJson(),
+                        item.getBatchRecordValueDisplay(), item.getReasonCategory(), item.getReasonText(),
+                        item.getActorId(), item.getActorName(), item.getSignatureId(), item.getPreviousHash(),
+                        item.getAuditHash(), item.getChangedAt()};
                 for (int cellIndex = 0; cellIndex < values.length; cellIndex++) {
                     row.createCell(cellIndex).setCellValue(Objects.toString(values[cellIndex], ""));
                 }
@@ -910,8 +926,13 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                 writer.section("Field Audit Item " + (index + 1));
                 writer.line("字段路径: " + pdfValue(item.getFieldPath()));
                 writer.line("字段标签: " + pdfValue(item.getFieldLabel()));
-                writer.line("旧值: " + pdfValue(item.getOldValueDisplay()));
-                writer.line("新值: " + pdfValue(item.getNewValueDisplay()));
+                if (item.getRecordbookValueDisplay() != null || item.getBatchRecordValueDisplay() != null) {
+                    writer.line("记录本填写值: " + pdfValue(item.getRecordbookValueDisplay()));
+                    writer.line("批记录存储值: " + pdfValue(item.getBatchRecordValueDisplay()));
+                } else {
+                    writer.line("旧值: " + pdfValue(item.getOldValueDisplay()));
+                    writer.line("新值: " + pdfValue(item.getNewValueDisplay()));
+                }
                 writer.line("变更原因分类: " + pdfValue(item.getReasonCategory()));
                 writer.line("变更原因: " + pdfValue(item.getReasonText()));
                 writer.line("操作人: " + pdfValue(item.getActorName()));
@@ -1280,7 +1301,9 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                                                 Map<String, ObjectNode> currentCells,
                                                 MesProBatchRecordExecutionDO execution) {
         List<ResolvedChange> result = new ArrayList<>();
-        boolean skipNumberBounds = isInternalTraceExecution(execution);
+        boolean recordbookMode = isRecordbookUnrestrictedMode(command);
+        boolean internalTraceMode = isInternalTraceExecution(execution);
+        boolean skipNumberBounds = internalTraceMode;
         for (MesProBatchRecordExecutionFieldAuditChange change : command.getChanges()) {
             SnapshotField field = fields.get(changeKey(change));
             if (field == null) {
@@ -1299,20 +1322,42 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
             validateExpectedOld(change, oldValueJson, oldValueHash);
             String newValueJson = canonicalizeNewValue(change.getValueType(), change.getNewValueJson());
             JsonNode newValueNode = MesProBatchRecordExecutionFieldAuditHasher.toJsonNode(change.getNewValueJson());
-            validateSnapshotConstraints(change, field, newValueNode, skipNumberBounds);
-            NonBlockingLimitWarning nonBlockingLimitWarning = skipNumberBounds
+            if (recordbookMode) {
+                validateRecordbookSourceShape(field, newValueNode);
+            } else {
+                validateSnapshotConstraints(change, field, newValueNode, skipNumberBounds);
+            }
+            JsonNode batchRecordValueNode = recordbookMode
+                    ? resolveBatchRecordValueNode(field, newValueNode)
+                    : newValueNode;
+            String batchRecordValueJson = canonicalizeNewValue(change.getValueType(), batchRecordValueNode);
+            String batchRecordValueDisplay = recordbookMode && !Objects.equals(newValueJson, batchRecordValueJson)
+                    ? displayValue(batchRecordValueNode)
+                    : StrUtil.trim(change.getNewValueDisplay());
+            NonBlockingLimitWarning nonBlockingLimitWarning = internalTraceMode
                     ? nonBlockingLimitWarning(field, newValueNode)
                     : null;
-            String newValueHash = MesProBatchRecordExecutionFieldAuditHasher.hashCanonicalTypedValue(newValueJson);
-            if (Objects.equals(oldValueJson, newValueJson)) {
+            String newValueHash = MesProBatchRecordExecutionFieldAuditHasher.hashCanonicalTypedValue(batchRecordValueJson);
+            if (Objects.equals(oldValueJson, batchRecordValueJson)
+                    && (!recordbookMode || Objects.equals(oldValueJson, newValueJson))) {
                 continue;
             }
             result.add(new ResolvedChange(change, field, command.getReasonCategory(), command.getReasonText(),
                     oldValueJson, oldValueDisplay(cell, oldNode), oldValueHash,
-                    newValueJson, StrUtil.trim(change.getNewValueDisplay()), newValueHash,
+                    batchRecordValueJson, batchRecordValueDisplay, newValueHash,
+                    recordbookMode ? newValueJson : null,
+                    recordbookMode ? StrUtil.trim(change.getNewValueDisplay()) : null,
+                    recordbookMode ? batchRecordValueJson : null,
+                    recordbookMode ? batchRecordValueDisplay : null,
                     nonBlockingLimitWarning));
         }
         return result;
+    }
+
+    private boolean isRecordbookUnrestrictedMode(MesProBatchRecordExecutionFieldAuditSaveChangesCommand command) {
+        return command != null
+                && FILL_CARRIER_RECORDBOOK.equals(StrUtil.trim(command.getFillCarrier()))
+                && FILL_MODE_RECORDBOOK_UNRESTRICTED.equals(StrUtil.trim(command.getFillMode()));
     }
 
     private void validateNotSignatureCellValue(MesProBatchRecordExecutionFieldAuditChange change,
@@ -1358,6 +1403,30 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         }
     }
 
+    private void validateRecordbookSourceShape(SnapshotField field, JsonNode newValueNode) {
+        if (field.valueType() == null) {
+            return;
+        }
+        switch (field.valueType()) {
+            case NUMBER -> {
+                if (!newValueNode.isNumber()) {
+                    throw exception(PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_VALUE_TYPE_UNSUPPORTED);
+                }
+            }
+            case STRING, DATE, DATETIME -> {
+                if (!newValueNode.isTextual()) {
+                    throw exception(PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_VALUE_TYPE_UNSUPPORTED);
+                }
+            }
+            case BOOLEAN -> {
+                if (!newValueNode.isBoolean()) {
+                    throw exception(PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_VALUE_TYPE_UNSUPPORTED);
+                }
+            }
+            default -> throw exception(PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_VALUE_TYPE_UNSUPPORTED);
+        }
+    }
+
     private boolean isInternalTraceExecution(MesProBatchRecordExecutionDO execution) {
         return execution != null && VALIDATION_PROFILE_INTERNAL.equals(StrUtil.trim(execution.getValidationProfile()));
     }
@@ -1372,6 +1441,22 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         boolean belowMin = min != null && value.compareTo(min) < 0;
         boolean aboveMax = max != null && value.compareTo(max) > 0;
         return belowMin || aboveMax ? new NonBlockingLimitWarning(value, min, max) : null;
+    }
+
+    private JsonNode resolveBatchRecordValueNode(SnapshotField field, JsonNode sourceNode) {
+        if (field.valueType() != MesProBatchRecordExecutionFieldAuditValueType.NUMBER || !sourceNode.isNumber()) {
+            return sourceNode;
+        }
+        BigDecimal value = MesProBatchRecordExecutionFieldAuditHasher.normalizeNumber(sourceNode.decimalValue());
+        BigDecimal min = decimalConstraint(field.constraints(), "min");
+        BigDecimal max = decimalConstraint(field.constraints(), "max");
+        if (min != null && value.compareTo(min) < 0) {
+            value = min;
+        }
+        if (max != null && value.compareTo(max) > 0) {
+            value = max;
+        }
+        return DecimalNode.valueOf(MesProBatchRecordExecutionFieldAuditHasher.normalizeNumber(value));
     }
 
     private void validateNumberConstraints(SnapshotField field, JsonNode valueNode, boolean skipNumberBounds) {
@@ -1549,8 +1634,7 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                 cell.set("value", NullNode.instance);
             } else if (change.field().valueType() != null) {
                 cell.put("valueType", change.field().valueType().name());
-                cell.set("value", MesProBatchRecordExecutionFieldAuditHasher.toJsonNode(
-                        change.change().getNewValueJson()));
+                cell.set("value", parseCanonicalValueJson(change.newValueJson()));
                 cell.put("valueDisplay", change.newValueDisplay());
                 cell.put("valueHash", change.newValueHash());
                 if (StrUtil.isNotBlank(change.field().unit())) {
@@ -1600,6 +1684,10 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                             .newValueJson(change.newValueJson())
                             .newValueDisplay(change.newValueDisplay())
                             .newValueHash(change.newValueHash())
+                            .recordbookValueJson(change.recordbookValueJson())
+                            .recordbookValueDisplay(change.recordbookValueDisplay())
+                            .batchRecordValueJson(change.batchRecordValueJson())
+                            .batchRecordValueDisplay(change.batchRecordValueDisplay())
                             .reasonCategory(change.reasonCategory())
                             .reasonText(change.reasonText())
                             .actorId(signature.getActorId())
@@ -1628,6 +1716,10 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                     .newValueJson(change.newValueJson())
                     .newValueDisplay(change.newValueDisplay())
                     .newValueHash(change.newValueHash())
+                    .recordbookValueJson(change.recordbookValueJson())
+                    .recordbookValueDisplay(change.recordbookValueDisplay())
+                    .batchRecordValueJson(change.batchRecordValueJson())
+                    .batchRecordValueDisplay(change.batchRecordValueDisplay())
                     .reasonCategory(change.reasonCategory())
                     .reasonText(change.reasonText())
                     .actorId(signature.getActorId())
@@ -1669,27 +1761,31 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
             bypassedChecks.add("ACTION_LOCKS");
         }
 
-        ArrayNode warnings = metadata.putArray("nonBlockingLimitWarnings");
-        for (ResolvedChange change : resolvedChanges) {
-            NonBlockingLimitWarning warning = change.nonBlockingLimitWarning();
-            if (warning == null) {
-                continue;
+        boolean recordbookMode = resolvedChanges.stream()
+                .anyMatch(change -> change.recordbookValueJson() != null || change.batchRecordValueJson() != null);
+        if (!recordbookMode) {
+            ArrayNode warnings = metadata.putArray("nonBlockingLimitWarnings");
+            for (ResolvedChange change : resolvedChanges) {
+                NonBlockingLimitWarning warning = change.nonBlockingLimitWarning();
+                if (warning == null) {
+                    continue;
+                }
+                ObjectNode warningNode = warnings.addObject();
+                warningNode.put("fieldPath", change.field().fieldPath());
+                warningNode.put("fieldKey", change.field().fieldKey());
+                warningNode.put("fieldLabel", change.field().label());
+                putNullableInteger(warningNode, "rowIndex", change.field().rowIndex());
+                putNullableInteger(warningNode, "columnIndex", change.field().columnIndex());
+                warningNode.put("value", warning.value());
+                putNullableDecimal(warningNode, "min", warning.min());
+                putNullableDecimal(warningNode, "max", warning.max());
+                warningNode.put("reasonCategory", change.reasonCategory());
+                warningNode.put("reasonText", change.reasonText());
+                warningNode.put("recordCategory", execution.getRecordCategory());
+                warningNode.put("validationProfile", execution.getValidationProfile());
             }
-            ObjectNode warningNode = warnings.addObject();
-            warningNode.put("fieldPath", change.field().fieldPath());
-            warningNode.put("fieldKey", change.field().fieldKey());
-            warningNode.put("fieldLabel", change.field().label());
-            putNullableInteger(warningNode, "rowIndex", change.field().rowIndex());
-            putNullableInteger(warningNode, "columnIndex", change.field().columnIndex());
-            warningNode.put("value", warning.value());
-            putNullableDecimal(warningNode, "min", warning.min());
-            putNullableDecimal(warningNode, "max", warning.max());
-            warningNode.put("reasonCategory", change.reasonCategory());
-            warningNode.put("reasonText", change.reasonText());
-            warningNode.put("recordCategory", execution.getRecordCategory());
-            warningNode.put("validationProfile", execution.getValidationProfile());
+            metadata.put("nonBlockingLimitWarningCount", warnings.size());
         }
-        metadata.put("nonBlockingLimitWarningCount", warnings.size());
         return metadata.toString();
     }
 
@@ -1858,6 +1954,10 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                 .newValueJson(item.getNewValueJson())
                 .newValueDisplay(item.getNewValueDisplay())
                 .newValueHash(item.getNewValueHash())
+                .recordbookValueJson(item.getRecordbookValueJson())
+                .recordbookValueDisplay(item.getRecordbookValueDisplay())
+                .batchRecordValueJson(item.getBatchRecordValueJson())
+                .batchRecordValueDisplay(item.getBatchRecordValueDisplay())
                 .reasonCategory(item.getReasonCategory())
                 .reasonText(item.getReasonText())
                 .actorId(item.getActorId())
@@ -1900,6 +2000,25 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
             return node.textValue();
         }
         return MesProBatchRecordExecutionFieldAuditHasher.canonicalize(node);
+    }
+
+    private JsonNode parseOptionalJson(String value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return JsonUtils.getObjectMapper().readTree(value);
+        } catch (JsonProcessingException e) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_CHAIN_INVALID);
+        }
+    }
+
+    private JsonNode parseCanonicalValueJson(String value) {
+        try {
+            return JsonUtils.getObjectMapper().readTree(value);
+        } catch (JsonProcessingException e) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_VALUE_TYPE_UNSUPPORTED);
+        }
     }
 
     private String oldValueDisplay(ObjectNode cell, JsonNode node) {
@@ -1996,6 +2115,10 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                                    String newValueJson,
                                    String newValueDisplay,
                                    String newValueHash,
+                                   String recordbookValueJson,
+                                   String recordbookValueDisplay,
+                                   String batchRecordValueJson,
+                                   String batchRecordValueDisplay,
                                    NonBlockingLimitWarning nonBlockingLimitWarning) {
     }
 

@@ -262,6 +262,7 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 .status(EXECUTION_STATUS_DRAFT)
                 .recordCategory(RECORD_CATEGORY_BATCH)
                 .validationProfile(VALIDATION_PROFILE_BATCH)
+                .recordbookEnabled(Boolean.TRUE)
                 .sheetLayoutJson(template.getSheetLayoutJson())
                 .metaJson(template.getMetaJson())
                 .executionSnapshotJson(buildExecutionSnapshot(template))
@@ -431,6 +432,7 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 .formSlotType(reqVO.getFormSlotType())
                 .recordCategory(resolveRecordCategory(reqVO.getRecordCategory()))
                 .validationProfile(resolveValidationProfile(reqVO.getRecordCategory(), reqVO.getValidationProfile()))
+                .recordbookEnabled(resolveRecordbookEnabled(reqVO.getRecordbookEnabled(), reqVO.getRecordCategory()))
                 .permissionScopeId(reqVO.getPermissionScopeId())
                 .routeBindingId(reqVO.getRouteBindingId())
                 .routeBindingSnapshotHash(reqVO.getRouteBindingSnapshotHash())
@@ -2451,6 +2453,7 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 .setFormSlotType(execution.getFormSlotType())
                 .setRecordCategory(execution.getRecordCategory())
                 .setValidationProfile(execution.getValidationProfile())
+                .setRecordbookEnabled(execution.getRecordbookEnabled())
                 .setPermissionScopeId(execution.getPermissionScopeId())
                 .setRouteBindingId(execution.getRouteBindingId())
                 .setRouteBindingSnapshotHash(execution.getRouteBindingSnapshotHash())
@@ -2479,6 +2482,14 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
             throw exception(PRO_BATCH_RECORD_EXECUTION_DEFAULT_REPORT_REQUIRED);
         }
         return profile;
+    }
+
+    private Boolean resolveRecordbookEnabled(Boolean recordbookEnabled, String recordCategory) {
+        String category = resolveRecordCategory(recordCategory);
+        if (RECORD_CATEGORY_INTERNAL.equals(category)) {
+            return Boolean.FALSE;
+        }
+        return recordbookEnabled == null ? Boolean.TRUE : recordbookEnabled;
     }
 
     private MesProWorkOrderDO requireWorkOrder(Long workOrderId) {

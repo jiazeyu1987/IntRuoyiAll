@@ -85,6 +85,8 @@ class MesProEdhrWorkTaskOwnershipTransferTest extends BaseDbUnitTest {
     private MesProEdhrProcessFormPermissionRuleMapper processFormPermissionRuleMapper;
     @MockitoBean
     private MesProRouteMapper routeMapper;
+    @MockitoBean
+    private MesProEdhrOperationAuditService operationAuditService;
 
     @BeforeEach
     void setTenant() {

@@ -53,6 +53,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.UNAUTHORIZED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_IDEMPOTENCY_KEY_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_OWNER_INVALID;
@@ -77,6 +78,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     public static final String EVENT_TYPE_APPROVE = "APPROVE";
     public static final String EVENT_TYPE_REJECT = "REJECT";
     public static final String EVENT_TYPE_WITHDRAW = "WITHDRAW";
+    public static final String EVENT_TYPE_PRECHECK = "PRECHECK";
 
     public static final String ITEM_STATUS_OPEN = "OPEN";
     public static final String ITEM_STATUS_SUPERSEDED = "SUPERSEDED";
@@ -126,6 +128,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private AdminUserApi adminUserApi;
     @Resource
     private MesProEdhrWorkTaskService workTaskService;
+    @Resource
+    private MesProEdhrOperationAuditService operationAuditService;
 
     @Override
     public PageResult<MesProEdhrReleaseRespVO> getPage(MesProEdhrReleasePageReqVO reqVO) {
@@ -231,6 +235,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
             transaction = buildInitialTransaction(batch);
             releaseTransactionMapper.insert(transaction);
         }
+        String fromStatus = transaction.getReleaseStatus();
 
         releaseCheckItemMapper.closeOpenByReleaseTransactionId(transaction.getId());
         LocalDateTime checkedAt = now();
@@ -263,7 +268,15 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setLastPrecheckAt(checkedAt)
                 .setPrecheckSnapshotJson(precheckSnapshotJson);
         releaseTransactionMapper.updateById(transaction);
-        return toResp(batch, releaseTransactionMapper.selectById(transaction.getId()));
+        MesProEdhrReleaseTransactionDO updatedTransaction = releaseTransactionMapper.selectById(transaction.getId());
+        Long actorUserId = currentAuditActorUserId();
+        String idempotencyKey = buildPrecheckIdempotencyKey(updatedTransaction, checkedAt);
+        String precheckSnapshotHash = hashReleaseAuditPayload(precheckSnapshotJson);
+        recordPrecheckTransactionEvent(updatedTransaction, fromStatus, releaseStatus, actorUserId, idempotencyKey,
+                precheckSnapshotHash, checkItems, checkedAt);
+        recordPrecheckOperationAudit(batch, updatedTransaction, fromStatus, releaseStatus, actorUserId,
+                idempotencyKey, precheckSnapshotHash, checkItems, precheckSnapshotJson, checkedAt);
+        return toResp(batch, updatedTransaction);
     }
 
     @Override
@@ -806,6 +819,163 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                         "sourceObjectCode", item.getSourceObjectCode()))
                 .toList());
         return snapshot;
+    }
+
+    private String buildPrecheckIdempotencyKey(MesProEdhrReleaseTransactionDO transaction, LocalDateTime checkedAt) {
+        return "EDHR-PRECHECK-" + transaction.getId() + "-" + java.util.UUID.randomUUID();
+    }
+
+    private void recordPrecheckTransactionEvent(MesProEdhrReleaseTransactionDO transaction,
+                                                String fromStatus,
+                                                String toStatus,
+                                                Long actorUserId,
+                                                String idempotencyKey,
+                                                String precheckSnapshotHash,
+                                                List<MesProEdhrReleaseCheckItemDO> checkItems,
+                                                LocalDateTime occurredAt) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("releaseTransactionId", transaction.getId());
+        snapshot.put("releaseCode", transaction.getReleaseCode());
+        snapshot.put("batchExecutionId", transaction.getBatchExecutionId());
+        snapshot.put("batchExecutionCode", transaction.getBatchExecutionCode());
+        snapshot.put("eventType", EVENT_TYPE_PRECHECK);
+        snapshot.put("fromStatus", fromStatus);
+        snapshot.put("toStatus", toStatus);
+        snapshot.put("actorUserId", actorUserId);
+        snapshot.put("reason", "放行预检");
+        snapshot.put("idempotencyKey", idempotencyKey);
+        snapshot.put("requestSource", "RELEASE_PRECHECK");
+        snapshot.put("associatedSignatureId", null);
+        snapshot.put("permissionDecision", "ALLOW");
+        snapshot.put("resultStatus", "SUCCESS");
+        snapshot.put("precheckSnapshotHash", precheckSnapshotHash);
+        snapshot.put("requiredCheckCount", transaction.getRequiredCheckCount());
+        snapshot.put("failedCheckCount", transaction.getFailedCheckCount());
+        snapshot.put("blockingCheckCount", transaction.getBlockingCheckCount());
+        snapshot.put("checkItems", checkItems.stream().map(this::toPrecheckAuditItemPayload).toList());
+        snapshot.put("occurredAt", occurredAt);
+        String eventSnapshotJson = JSON.toJSONString(snapshot);
+        String evidenceHash = DigestUtil.sha256Hex(String.join("|",
+                String.valueOf(transaction.getId()),
+                EVENT_TYPE_PRECHECK,
+                StrUtil.nullToEmpty(fromStatus),
+                StrUtil.nullToEmpty(toStatus),
+                String.valueOf(actorUserId),
+                idempotencyKey,
+                precheckSnapshotHash,
+                eventSnapshotJson));
+        releaseTransactionEventMapper.insert(MesProEdhrReleaseTransactionEventDO.builder()
+                .releaseTransactionId(transaction.getId())
+                .eventType(EVENT_TYPE_PRECHECK)
+                .fromStatus(fromStatus)
+                .toStatus(toStatus)
+                .actorUserId(actorUserId)
+                .reason("放行预检")
+                .idempotencyKey(idempotencyKey)
+                .eventSnapshotJson(eventSnapshotJson)
+                .evidenceHash(evidenceHash)
+                .occurredAt(occurredAt)
+                .build());
+    }
+
+    private void recordPrecheckOperationAudit(MesProEdhrBatchExecutionDO batch,
+                                              MesProEdhrReleaseTransactionDO transaction,
+                                              String fromStatus,
+                                              String toStatus,
+                                              Long actorUserId,
+                                              String idempotencyKey,
+                                              String precheckSnapshotHash,
+                                              List<MesProEdhrReleaseCheckItemDO> checkItems,
+                                              String precheckSnapshotJson,
+                                              LocalDateTime occurredAt) {
+        Map<String, Object> beforePayload = new LinkedHashMap<>();
+        beforePayload.put("releaseTransactionId", transaction.getId());
+        beforePayload.put("releaseStatus", fromStatus);
+        Map<String, Object> afterPayload = new LinkedHashMap<>();
+        afterPayload.put("releaseTransactionId", transaction.getId());
+        afterPayload.put("releaseStatus", toStatus);
+        afterPayload.put("dhrStatus", transaction.getDhrStatus());
+        afterPayload.put("inspectionStatus", transaction.getInspectionStatus());
+        afterPayload.put("deviationStatus", transaction.getDeviationStatus());
+        afterPayload.put("reworkStatus", transaction.getReworkStatus());
+        afterPayload.put("scrapStatus", transaction.getScrapStatus());
+        afterPayload.put("inventoryStatus", transaction.getInventoryStatus());
+        afterPayload.put("requiredCheckCount", transaction.getRequiredCheckCount());
+        afterPayload.put("failedCheckCount", transaction.getFailedCheckCount());
+        afterPayload.put("blockingCheckCount", transaction.getBlockingCheckCount());
+        afterPayload.put("precheckSnapshotHash", precheckSnapshotHash);
+
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("requestSource", "RELEASE_PRECHECK");
+        metadata.put("reason", "放行预检");
+        metadata.put("idempotencyKey", idempotencyKey);
+        metadata.put("associatedSignatureId", null);
+        metadata.put("permissionDecision", "ALLOW");
+        metadata.put("resultStatus", "SUCCESS");
+        metadata.put("batchExecutionId", batch.getId());
+        metadata.put("releaseTransactionId", transaction.getId());
+        metadata.put("fromStatus", fromStatus);
+        metadata.put("toStatus", toStatus);
+        metadata.put("checkItemCount", checkItems.size());
+        metadata.put("failedCheckItems", checkItems.stream()
+                .filter(this::isFailedCheck)
+                .map(this::toPrecheckAuditItemPayload)
+                .toList());
+        metadata.put("blockingCheckItems", checkItems.stream()
+                .filter(item -> CHECK_RESULT_BLOCKER.equals(item.getCheckResult())
+                        || SEVERITY_BLOCKER.equals(item.getSeverity()))
+                .map(this::toPrecheckAuditItemPayload)
+                .toList());
+        metadata.put("checkItems", checkItems.stream().map(this::toPrecheckAuditItemPayload).toList());
+        metadata.put("precheckSnapshotHash", precheckSnapshotHash);
+        metadata.put("precheckSnapshotJson", precheckSnapshotJson);
+        operationAuditService.record(new MesProEdhrOperationAuditCommand()
+                .setRequestId(idempotencyKey)
+                .setObjectType("RELEASE_TRANSACTION")
+                .setObjectId(String.valueOf(transaction.getId()))
+                .setBatchExecutionId(batch.getId())
+                .setRouteId(batch.getRouteId())
+                .setOperationType(EVENT_TYPE_PRECHECK)
+                .setActionName("执行 eDHR 放行预检")
+                .setActorUserId(actorUserId)
+                .setActorUsername(SecurityFrameworkUtils.getLoginUserNickname())
+                .setPermissionCode("mes:pro-edhr-release:update")
+                .setPermissionDecision("ALLOW")
+                .setResultStatus("SUCCESS")
+                .setBeforeSummaryHash(hashReleaseAuditPayload(beforePayload))
+                .setAfterSummaryHash(hashReleaseAuditPayload(afterPayload))
+                .setMetadataJson(JSON.toJSONString(metadata))
+                .setOccurredAt(occurredAt));
+    }
+
+    private Map<String, Object> toPrecheckAuditItemPayload(MesProEdhrReleaseCheckItemDO item) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("id", item.getId());
+        payload.put("checkCode", item.getCheckCode());
+        payload.put("checkCategory", item.getCheckCategory());
+        payload.put("checkName", item.getCheckName());
+        payload.put("checkResult", item.getCheckResult());
+        payload.put("itemStatus", item.getItemStatus());
+        payload.put("severity", item.getSeverity());
+        payload.put("responsibilityModule", item.getResponsibilityModule());
+        payload.put("sourceObjectType", item.getSourceObjectType());
+        payload.put("sourceObjectId", item.getSourceObjectId());
+        payload.put("sourceObjectCode", item.getSourceObjectCode());
+        payload.put("failureReason", item.getFailureReason());
+        payload.put("evidenceHash", item.getEvidenceHash());
+        return payload;
+    }
+
+    private Long currentAuditActorUserId() {
+        Long loginUserId = SecurityFrameworkUtils.getLoginUserId();
+        if (loginUserId == null) {
+            throw exception(UNAUTHORIZED);
+        }
+        return loginUserId;
+    }
+
+    private String hashReleaseAuditPayload(Object payload) {
+        return MesProBatchRecordExecutionFieldAuditHasher.sha256(JSON.toJSONString(payload));
     }
 
     private void recordTransactionEvent(MesProEdhrReleaseTransactionDO transaction,

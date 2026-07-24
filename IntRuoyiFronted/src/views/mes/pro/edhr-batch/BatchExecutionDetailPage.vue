@@ -511,6 +511,13 @@
                       {{ resolveTaskDisplayName(task) }}
                     </div>
                     <div
+                      class="edhr-batch-detail__rail-process-form-filler"
+                      :title="resolveTaskCardFillersText(task)"
+                    >
+                      <span>填写人</span>
+                      <strong>{{ resolveTaskCardFillersText(task) }}</strong>
+                    </div>
+                    <div
                       v-if="resolveTaskGateText(task)"
                       class="edhr-batch-detail__rail-process-form-gate"
                     >
@@ -551,22 +558,6 @@
                   </div>
                 </div>
                 <el-empty v-else description="当前工序未配置表单" :image-size="44" />
-              </div>
-              <div
-                v-if="showPrimaryFormFillMeta"
-                class="edhr-batch-detail__primary-fill-meta"
-                aria-label="表单填写元信息"
-              >
-                <div
-                  v-for="item in primaryFormFillMetaItems"
-                  :key="item.key"
-                  class="edhr-batch-detail__primary-fill-item"
-                >
-                  <span class="edhr-batch-detail__primary-fill-label">{{ item.label }}</span>
-                  <span class="edhr-batch-detail__primary-fill-value" :title="item.value">
-                    {{ item.value }}
-                  </span>
-                </div>
               </div>
               <div
                 v-if="selectedTaskForEvidence && isSpecialNode(selectedTaskForEvidence)"
@@ -2216,12 +2207,6 @@ type SignoffSummaryRecord = {
   signedAtSort: number
 }
 
-type PrimaryFormFillMetaItem = {
-  key: string
-  label: string
-  value: string
-}
-
 type TraceRecordFieldResponsibilityEntry = {
   key: string
   executionId: number
@@ -2821,35 +2806,14 @@ const resolvePendingTaskFillableUsersText = (row: EdhrBatchExecutionTaskRespVO) 
   return names.length ? names.join('、') : resolveSelectedTaskFillerGroupsText(row)
 }
 
-const resolvePrimaryFormFillersText = () => {
-  const signatureFillers = compactPositionText(fillSignoffRecords.value.map((record) => record.actorName))
-  if (signatureFillers.length) return signatureFillers.join('、')
-
-  const selectedTask = selectedTaskForEvidence.value
-  if (selectedTask && !isSpecialNode(selectedTask)) return resolvePendingTaskFillableUsersText(selectedTask)
-  return '--'
-}
-
-const resolvePrimaryFormSubmitTimesText = () => {
-  const submitTimes = compactPositionText(
-    submitSignoffRecords.value
-      .map((record) => record.signedAtText)
-      .filter((signedAtText) => signedAtText && signedAtText !== '--')
+const resolveTaskCardFillersText = (row: EdhrBatchExecutionTaskRespVO) => {
+  const names = compactPositionText(
+    (row.fillableUsers || []).map((user) =>
+      user.displayName || (user.userId == null ? '' : String(user.userId))
+    )
   )
-  if (submitTimes.length) return submitTimes.join('、')
-  return formatReviewTime(selectedExecution.value?.submittedAt)
+  return names.length ? names.join('、') : '未配置'
 }
-
-const primaryFormFillMetaItems = computed<PrimaryFormFillMetaItem[]>(() => {
-  const selectedTask = selectedTaskForEvidence.value
-  if (!selectedProcessContext.value || isReleaseProcessSelected.value || !selectedTask || isSpecialNode(selectedTask)) return []
-  return [
-    { key: 'fillers', label: '填写人', value: resolvePrimaryFormFillersText() },
-    { key: 'submittedAt', label: '提交时间', value: resolvePrimaryFormSubmitTimesText() }
-  ]
-})
-
-const showPrimaryFormFillMeta = computed(() => primaryFormFillMetaItems.value.length > 0)
 
 const selectedSpecialNodeForEvidence = computed(() => {
   const task = selectedTaskForEvidence.value
@@ -2958,20 +2922,38 @@ const removeSpecialNodePendingAttachment = (
   )
 }
 
-const removeSelectedSpecialNodePendingAttachment = (attachment: EdhrBatchSpecialNodeAttachment) => {
+const removeSelectedSpecialNodePendingAttachment = async (attachment: EdhrBatchSpecialNodeAttachment) => {
   const taskId = selectedSpecialNodeForEvidence.value?.id
   if (!taskId) {
     message.error('当前特殊节点不存在，无法删除待提交附件。')
     return
   }
-  deleteEdhrBatchSpecialNodePendingAttachment({ taskId, attachment })
-    .then(() => {
-      removeSpecialNodePendingAttachment(taskId, attachment)
-      message.success('待提交附件已删除')
-    })
-    .catch((error) => {
-      message.error(resolveErrorMessage(error, '待提交附件删除失败。'))
-    })
+  let reason = ''
+  try {
+    const promptResult = await ElMessageBox.prompt(
+      `请输入删除待提交附件“${attachment.fileName || attachment.storagePath || attachment.fileId}”的原因。`,
+      '删除待提交附件',
+      {
+        confirmButtonText: '确认删除',
+        cancelButtonText: '取消',
+        inputType: 'textarea',
+        inputPlaceholder: '例如：文件选择错误，重新上传正确附件',
+        inputValidator: (value) => Boolean(String(value || '').trim()),
+        inputErrorMessage: '删除原因不能为空'
+      }
+    )
+    reason = String(promptResult.value || '').trim()
+  } catch (error) {
+    message.warning('已取消删除待提交附件')
+    return
+  }
+  try {
+    await deleteEdhrBatchSpecialNodePendingAttachment({ taskId, attachment, reason })
+    removeSpecialNodePendingAttachment(taskId, attachment)
+    message.success('待提交附件已删除')
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '待提交附件删除失败。'))
+  }
 }
 
 const buildSpecialNodeSubmitAttachments = (taskId: number) => [
@@ -3002,7 +2984,10 @@ const ensurePendingSpecialNodeAttachmentsSavedBeforeRelease = async () => {
     return false
   }
   try {
-    await savePendingEdhrBatchSpecialNodeAttachments(batchExecutionId)
+    await savePendingEdhrBatchSpecialNodeAttachments({
+      batchExecutionId,
+      reason: '放行前保存待提交特殊节点附件'
+    })
     message.success('待提交特殊节点附件已保存')
     await loadDetail()
     return true
@@ -4863,6 +4848,29 @@ watch(
   white-space: nowrap;
 }
 
+.edhr-batch-detail__rail-process-form-filler {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  color: #475467;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.edhr-batch-detail__rail-process-form-filler span {
+  color: #667085;
+}
+
+.edhr-batch-detail__rail-process-form-filler strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #344054;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .edhr-batch-detail__rail-process-form-gate {
   color: #b42318;
   font-size: 11px;
@@ -5015,45 +5023,6 @@ watch(
 
 .edhr-batch-detail__preview-header.is-recordbook {
   background: #fff8e6;
-}
-
-.edhr-batch-detail__primary-fill-meta {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-  flex-shrink: 0;
-  border: 1px solid #dbe3ef;
-  border-radius: 6px;
-  background: #ffffff;
-  padding: 8px 10px;
-}
-
-.edhr-batch-detail__primary-fill-item {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.edhr-batch-detail__primary-fill-label {
-  color: #6b7280;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.35;
-  white-space: nowrap;
-}
-
-.edhr-batch-detail__primary-fill-value {
-  min-width: 0;
-  overflow: hidden;
-  color: #172033;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .edhr-batch-detail__preview-context {
