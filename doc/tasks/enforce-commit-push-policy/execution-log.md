@@ -39,6 +39,7 @@
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id enforce-commit-push-policy --mode apply` -> PASS，status `applied`，主 worktree `linked=False`，无删除项。
 - `git commit -m "工作区: 保存 route form filler 收尾后续基线"` -> PASS，第十五个基线提交 `2dbade97`。
 - `git commit -m "工作区: 保存 backend docs 与 SQL 后续基线"` -> PASS，第十六个基线提交 `6361c4be`。
+- `git commit -m "工作区: 保存 route form filler 收尾后续脏区基线"` -> PASS，第十七个基线提交 `16892129`，记录 4 个非本任务文件以及本任务收尾记录的中间状态。
 
 ## Milestone Status
 
@@ -48,7 +49,7 @@
 - 验证提交和推送规则文本：completed。
 - 提交本任务实现：completed，commit `19e9573a`。
 - cleanup preview/apply：completed。
-- 提交本任务收尾记录：in_progress。
+- 提交本任务收尾记录：in_progress，最终收尾修正将在本次提交完成。
 - 推送 `int_main` 并记录远端验证：pending，需在收尾提交后执行。
 
 ## Dirty Worktree Baseline Commit
@@ -383,6 +384,21 @@ M	IntRuoyiBackend/yudao-module-system/src/test/resources/sql/clean.sql
 M	IntRuoyiBackend/yudao-module-system/src/test/resources/sql/create_tables.sql
 M	docs/backend-development.md
 M	docs/experience-index.md
+```
+
+### Commit `16892129`
+
+- Message: `工作区: 保存 route form filler 收尾后续脏区基线`
+- File count: 7
+
+```text
+A	IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/codextest/CodexTestCaseServiceImplTest.java
+A	IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/codextest/CodexTestExecutionServiceImplTest.java
+A	IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/codextest/CodexTestRunnerServiceImplTest.java
+M	doc/tasks/20260724-edhr-route-form-filler-backfill/backend-api-evidence.md
+M	doc/tasks/enforce-commit-push-policy/execution-log.md
+M	doc/tasks/enforce-commit-push-policy/task.md
+M	doc/tasks/enforce-commit-push-policy/verification-report.md
 ```
 
 ## Implementation Commit
