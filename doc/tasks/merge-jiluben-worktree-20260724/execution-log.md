@@ -31,3 +31,5 @@
 - GREEN: experience-preflight -> PASS, 已合并经验到 docs/backend-development.md 与 docs/e2e-rules.md，并更新 docs/experience-index.md 关键词路由。
 
 - GREEN: task-closeout-cleanup preview/apply -> PASS, 删除本任务临时文件 `bug-regression-evidence.md` 与 `jiluben-tracked.patch`，保留 `task.md`、`execution-log.md`、`verification-report.md`。
+- GREEN: git rebase origin/int_main -> PASS, 融合提交已重放到最新远端基线且无冲突。
+- Current status: completed; final closeout commit and git push origin int_main are the remaining terminal actions for this log entry.

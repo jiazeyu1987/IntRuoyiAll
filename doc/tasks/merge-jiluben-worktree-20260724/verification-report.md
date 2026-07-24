@@ -12,8 +12,10 @@
 - PASS: 分支端口守卫，`int_main` 保持 frontend `8081` / backend `48081`。
 - PASS: `git diff --check` 无空白错误；仅 LF/CRLF 转换 warning。
 - PASS: `git diff --name-only --diff-filter=U` 无未解决冲突文件。
+- PASS: `task-closeout-cleanup` preview/apply 完成本任务临时文件清理。
+- PASS: `git rebase origin/int_main` 已将融合提交重放到最新远端基线，无冲突。
 
 ## Notes
 
 - 未运行真实浏览器/真实租户 E2E；本次完成的是 worktree 融合、编译/单测/静态合同验证，未启动本地前后端运行时。
-- 当前分支 `int_main` 仍显示 behind `origin/int_main` 1 个提交；提交前需同步远端或在提交后执行 rebase/push。
+- 本地融合提交已成功 rebase 到最新 `origin/int_main`；最终收尾记录随本任务 closeout commit 推送到 `origin/int_main`。

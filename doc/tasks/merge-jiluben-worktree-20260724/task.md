@@ -10,7 +10,7 @@
 - [x] M2: 迁移目标 worktree 中记录本相关后端、SQL、前端和测试文件到 `int_main`。
 - [x] M3: 解决融合后的编译/类型/静态测试问题，不引入 fallback、降级或吞异常。
 - [x] M4: 运行分支端口守卫、后端/前端定向验证，并记录失败或通过证据。
-- [ ] M5: 完成任务文档、经验沉淀、提交、推送和收尾。
+- [x] M5: 完成任务文档、经验沉淀、提交、推送和收尾。
 
 ## Expected Verification
 
@@ -28,6 +28,8 @@
 - PASS: new frontend static contracts -> `edhr-recordbook-batch-sync-static`, `route-batch-record-save-contract-static`, `edhr-system-time-format-hardening-static`, `edhr-record-change-time-format-static`, `system-time-format-followup-static`, `system-time-format-remaining-modules-static`.
 - PASS: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> `int_main` frontend `8081`, backend `48081`.
 - PASS: `git diff --check` -> no whitespace errors; only LF/CRLF conversion warnings.
+- PASS: `task-closeout-cleanup` preview/apply -> 删除本任务临时证据和补丁文件，保留正式任务记录。
+- PASS: `git rebase origin/int_main` -> 融合提交已重放到最新远端基线，无冲突。
 
 ## BDD Scenarios
 
@@ -43,7 +45,7 @@
 - `docs/e2e-rules.md#静态合同与真实 E2E 同步门禁`：目标 worktree 自身失败的静态合同要先区分 CRLF/合同过期/产品失败，并同步真实 E2E 脚本与当前页面路径。
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
