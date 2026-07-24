@@ -10,6 +10,7 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - Main branch: `int_main`.
 - Worktree root: `D:\IntRuoyiWorktree\`.
 - Worktree restrictions: `docs\worktree-restrictions.md`.
+- Trigger-read rules live under `docs\*.md`; read the matching rule file before the triggering operation.
 - Coordination docs live under root `doc\` and `docs\`; backend and frontend also contain their own `doc\` and `docs\` folders.
 - Do not reuse paths or folder names from prior project instructions unless the user explicitly confirms they are relevant to the current task.
 - The root, backend, and frontend folders may be non-Git directories in this workspace. Check Git state before assuming commits, branches, or worktrees are available.
@@ -20,6 +21,19 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - Frontend: Vue 3, Vite, TypeScript, Element Plus, Pinia, UnoCSS, pnpm under `IntRuoyiFronted`.
 - Test evidence exists in both repos: Java/JUnit tests, Node static contract tests, and Playwright real-flow E2E tests.
 - Use `docs\engineering\technology-stack-routing.md` as the current stack routing evidence when choosing implementation and verification paths.
+
+## Trigger-Read Rule Files
+
+- Worktree operations: read `docs\worktree-restrictions.md` before creating, starting, stopping, restarting, merging, cleaning, or deleting any IntRuoyi worktree.
+- Local runtime operations: read `docs\local-runtime.md` before starting, stopping, restarting, or troubleshooting local frontend/backend services or ports.
+- Server operations: read `docs\server-access.md` before any test, production, backup-server, SSH, remote status, remote restart, or remote deploy action.
+- Login, tenant, and account use: read `docs\login-access.md` before login, E2E login setup, tenant selection, account use, or permission-path debugging.
+- E2E and Playwright: read `docs\e2e-rules.md` before writing, modifying, running, or judging real-path E2E tests.
+- Database, SQL, menu, and tenant data: read `docs\database-rules.md` before schema checks, SQL, migrations, menu permission changes, tenant bindings, or data repair.
+- PowerShell and encoding: read `docs\powershell-encoding.md` before commands involving Chinese text, here-strings, SQL/stdin, SSH/MySQL stdin, or text file writes.
+- Task start, commits, cleanup, and closeout: read `docs\task-closeout-rules.md` before task documentation, implementation commits, cleanup preview/apply, or final closeout.
+- Release, backup, restore, and rollback: read `docs\release-backup-restore.md` before build-release, publish, promote, backup, restore, rollback, or release troubleshooting.
+- If a required trigger-read file is missing, fail fast and report the missing file and impact; do not continue with memory or improvised rules.
 
 ## Communication Policy
 
