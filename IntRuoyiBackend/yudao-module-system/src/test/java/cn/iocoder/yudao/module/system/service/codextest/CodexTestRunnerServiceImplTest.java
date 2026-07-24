@@ -1,0 +1,121 @@
+package cn.iocoder.yudao.module.system.service.codextest;
+
+import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionStartReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerCheckpointResultReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerClaimReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerClaimRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerCompleteCaseReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterRespVO;
+import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionCaseDO;
+import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionDO;
+import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestExecutionCaseMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestExecutionMapper;
+import cn.iocoder.yudao.module.system.service.tenant.TenantService;
+import jakarta.annotation.Resource;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.List;
+
+import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
+import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RESULT_SCHEMA_INVALID;
+import static org.junit.jupiter.api.Assertions.*;
+
+@Import({CodexTestCaseServiceImpl.class, CodexTestExecutionServiceImpl.class, CodexTestRunnerServiceImpl.class})
+class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
+
+    private static final String RUNNER_TOKEN = "test-runner-token";
+
+    @Resource
+    private CodexTestCaseService codexTestCaseService;
+    @Resource
+    private CodexTestExecutionService codexTestExecutionService;
+    @Resource
+    private CodexTestRunnerService codexTestRunnerService;
+    @Resource
+    private CodexTestExecutionMapper codexTestExecutionMapper;
+    @Resource
+    private CodexTestExecutionCaseMapper codexTestExecutionCaseMapper;
+
+    @MockitoBean
+    private TenantService tenantService;
+
+    @BeforeEach
+    void setUpRunnerToken() {
+        ReflectionTestUtils.setField(codexTestRunnerService, "runnerToken", RUNNER_TOKEN);
+    }
+
+    @Test
+    void runnerClaimAndCheckpointResult_keepsFailureEvidenceAndRollsUpBatchFailure() {
+        Long runnerSessionId = registerRunner();
+        Long caseId = codexTestCaseService.createCase(CodexTestCaseServiceImplTest.buildCaseReq("排产手动重排", true));
+        Long executionId = codexTestExecutionService.startExecution(startReq(caseId), 99L);
+
+        CodexTestRunnerClaimRespVO claimRespVO = codexTestRunnerService.claimTasks(claimReq(runnerSessionId), RUNNER_TOKEN);
+
+        assertEquals(1, claimRespVO.getTasks().size());
+        CodexTestRunnerClaimRespVO.Task task = claimRespVO.getTasks().get(0);
+        assertEquals(executionId, task.getExecutionId());
+        assertEquals("在排产工单页签选择用户手写工单号后点击手动重排", task.getMethodText());
+        assertEquals(2, task.getCheckpoints().size());
+        assertEquals("CLAIMED", codexTestExecutionCaseMapper.selectById(task.getExecutionCaseId()).getStatus());
+
+        CodexTestRunnerCheckpointResultReqVO invalidFail = resultReq(task.getExecutionCaseId(), "FAIL", "");
+        assertServiceException(() -> codexTestRunnerService.saveCheckpointResult(invalidFail, RUNNER_TOKEN),
+                CODEX_TEST_RESULT_SCHEMA_INVALID, "FAIL 检查点必须包含差异描述");
+
+        codexTestRunnerService.saveCheckpointResult(
+                resultReq(task.getExecutionCaseId(), "FAIL", "产品编号没有变成橙色"), RUNNER_TOKEN);
+        CodexTestRunnerCompleteCaseReqVO completeReqVO = new CodexTestRunnerCompleteCaseReqVO();
+        completeReqVO.setExecutionCaseId(task.getExecutionCaseId());
+        completeReqVO.setStatus("PASS");
+        completeReqVO.setSummary("Runner 误报通过，但检查点结果失败");
+        codexTestRunnerService.completeCase(completeReqVO, RUNNER_TOKEN);
+
+        CodexTestExecutionCaseDO executionCase = codexTestExecutionCaseMapper.selectById(task.getExecutionCaseId());
+        assertEquals("FAIL", executionCase.getStatus());
+        assertEquals("产品编号没有变成橙色", executionCase.getFailureReason());
+        CodexTestExecutionDO execution = codexTestExecutionMapper.selectById(executionId);
+        assertEquals("FAIL", execution.getStatus());
+    }
+
+    private Long registerRunner() {
+        CodexTestRunnerRegisterReqVO registerReqVO = new CodexTestRunnerRegisterReqVO();
+        registerReqVO.setRunnerName("local-runner");
+        registerReqVO.setCapabilities("{\"playwright\":true,\"codex\":true}");
+        registerReqVO.setMaxParallelism(2);
+        CodexTestRunnerRegisterRespVO registerRespVO = codexTestRunnerService.registerRunner(registerReqVO, RUNNER_TOKEN);
+        return registerRespVO.getRunnerSessionId();
+    }
+
+    private CodexTestExecutionStartReqVO startReq(Long caseId) {
+        CodexTestExecutionStartReqVO reqVO = new CodexTestExecutionStartReqVO();
+        reqVO.setTargetTenantId(88L);
+        reqVO.setExecutionMode("SEQUENTIAL");
+        reqVO.setCaseIds(List.of(caseId));
+        return reqVO;
+    }
+
+    private CodexTestRunnerClaimReqVO claimReq(Long runnerSessionId) {
+        CodexTestRunnerClaimReqVO reqVO = new CodexTestRunnerClaimReqVO();
+        reqVO.setRunnerSessionId(runnerSessionId);
+        reqVO.setCapacity(1);
+        return reqVO;
+    }
+
+    private CodexTestRunnerCheckpointResultReqVO resultReq(Long executionCaseId, String status, String mismatch) {
+        CodexTestRunnerCheckpointResultReqVO reqVO = new CodexTestRunnerCheckpointResultReqVO();
+        reqVO.setExecutionCaseId(executionCaseId);
+        reqVO.setCheckpointSort(1);
+        reqVO.setStatus(status);
+        reqVO.setActualText("真实页面观测结果");
+        reqVO.setMismatchDescription(mismatch);
+        return reqVO;
+    }
+
+}

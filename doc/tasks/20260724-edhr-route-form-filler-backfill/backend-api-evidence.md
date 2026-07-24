@@ -28,14 +28,13 @@
 
 ## RED Command and Expected Failure
 
-- `mvn '-Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated' surefire:test`
-- Expected failure before fix: `expected: <[152]> but was: <[]>`.
+- RED: `mvn '-Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated' surefire:test` -> FAIL, `expected: <[152]> but was: <[]>`.
 
 ## GREEN Command and Passing Result
 
-- `mvn '-Dmaven.compiler.useIncrementalCompilation=false' -DskipTests compile` -> PASS.
-- `javac @target\javac-edhr.args` -> PASS for isolated target test-class compilation.
-- `mvn '-Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromActiveFillWorkTask+detailTask_includesFillableUsersFromAssignmentRuleWhenWorkTaskNotCreated+detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated' '-Dsurefire.useManifestOnlyJar=false' surefire:test` -> PASS, 3 tests.
+- GREEN: `mvn '-Dmaven.compiler.useIncrementalCompilation=false' -DskipTests compile` -> PASS.
+- GREEN: `javac @target\javac-edhr.args` -> PASS for isolated target test-class compilation.
+- GREEN: `mvn '-Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromActiveFillWorkTask+detailTask_includesFillableUsersFromAssignmentRuleWhenWorkTaskNotCreated+detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated' '-Dsurefire.useManifestOnlyJar=false' surefire:test` -> PASS, 3 tests.
 
 ## Contract or Integration Verification
 

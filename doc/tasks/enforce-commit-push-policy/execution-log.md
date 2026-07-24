@@ -29,15 +29,27 @@
 - `git commit -m "工作区: 保存填报规则任务状态后续基线"` -> PASS，第七个基线提交 `6c95e640`，记录 1 个非本任务 task 文件。
 - `git commit -m "工作区: 保存 system 错误码后续基线"` -> PASS，第八个基线提交 `dd271d39`，记录 1 个 system 错误码文件。
 - `git commit -m "工作区: 保存 FDA audit 与 codextest controller 后续基线"` -> PASS，第九个基线提交 `648a57df`，记录 15 个非本任务文件。
+- `git commit -m "任务: 强制任务提交与推送"` -> PASS，本任务实现提交 `19e9573a`，包含 `AGENTS.md`、`docs\task-closeout-rules.md`、`docs\powershell-memory.md` 和任务记录。
+- `git commit -m "工作区: 保存 codextest runner VO 后续基线"` -> PASS，第十个基线提交 `8f155b9c`，记录 9 个非本任务 VO 文件。
+- `git commit -m "工作区: 保存 route form filler 状态后续基线"` -> PASS，第十一个基线提交 `574290d1`。
+- `git commit -m "工作区: 保存 route form filler 日志后续基线"` -> PASS，第十二个基线提交 `c15947b3`。
+- `git commit -m "工作区: 保存测试管理与填报回填后续基线"` -> PASS，第十三个基线提交 `aec3ae64`。
+- `git commit -m "工作区: 保存 route form filler 与排产验证证据基线"` -> PASS，第十四个基线提交 `298009eb`。
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id enforce-commit-push-policy --mode preview` -> PASS，status `ready`，keep 三个核心任务记录，delete/blocked/warnings 均为空。
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id enforce-commit-push-policy --mode apply` -> PASS，status `applied`，主 worktree `linked=False`，无删除项。
+- `git commit -m "工作区: 保存 route form filler 收尾后续基线"` -> PASS，第十五个基线提交 `2dbade97`。
+- `git commit -m "工作区: 保存 backend docs 与 SQL 后续基线"` -> PASS，第十六个基线提交 `6361c4be`。
 
 ## Milestone Status
 
 - 创建任务目录并记录用户授权的脏工作区提交例外：completed。
 - 提交当前脏工作区基线：completed，commit `44fb3915`。
 - 更新 `AGENTS.md`、`docs/task-closeout-rules.md` 与 `docs/powershell-memory.md`：completed。
-- 验证提交和推送规则文本：pending。
-- 提交本任务实现与收尾记录：pending。
-- 推送 `int_main` 并记录远端验证：pending。
+- 验证提交和推送规则文本：completed。
+- 提交本任务实现：completed，commit `19e9573a`。
+- cleanup preview/apply：completed。
+- 提交本任务收尾记录：in_progress。
+- 推送 `int_main` 并记录远端验证：pending，需在收尾提交后执行。
 
 ## Dirty Worktree Baseline Commit
 
@@ -287,6 +299,105 @@ M	doc/tasks/20260724-batch-fda-audit-log-coverage/execution-log.md
 M	doc/tasks/20260724-batch-fda-audit-log-coverage/frontend-feature-evidence.md
 M	doc/tasks/20260724-batch-fda-audit-log-coverage/task.md
 A	doc/tasks/20260724-batch-fda-audit-log-coverage/verification-report.md
+```
+
+### Commit `8f155b9c`
+
+- Message: `工作区: 保存 codextest runner VO 后续基线`
+- File count: 9
+
+```text
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/codextest/vo/CodexTestArtifactRespVO.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/codextest/vo/CodexTestRunnerCheckpointResultReqVO.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/codextest/vo/CodexTestRunnerClaimReqVO.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/codextest/vo/CodexTestRunnerClaimRespVO.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/codextest/vo/CodexTestRunnerCompleteCaseReqVO.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/codextest/vo/CodexTestRunnerHeartbeatReqVO.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/codextest/vo/CodexTestRunnerHeartbeatRespVO.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/codextest/vo/CodexTestRunnerRegisterReqVO.java
+A	IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/codextest/vo/CodexTestRunnerRegisterRespVO.java
+```
+
+### Commit `574290d1`
+
+- Message: `工作区: 保存 route form filler 状态后续基线`
+- File count: 1
+
+```text
+M	doc/tasks/20260724-edhr-route-form-filler-backfill/task.md
+```
+
+### Commit `c15947b3`
+
+- Message: `工作区: 保存 route form filler 日志后续基线`
+- File count: 1
+
+```text
+M	doc/tasks/20260724-edhr-route-form-filler-backfill/execution-log.md
+```
+
+### Commit `aec3ae64`
+
+- Message: `工作区: 保存测试管理与填报回填后续基线`
+- File count: 3
+
+```text
+M	IntRuoyiBackend/script/tests/test_codex_test_management_migration.py
+M	IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecordreport/MesProBatchRecordFillablePatternSupport.java
+M	doc/tasks/20260724-edhr-route-form-filler-backfill/backend-api-evidence.md
+```
+
+### Commit `298009eb`
+
+- Message: `工作区: 保存 route form filler 与排产验证证据基线`
+- File count: 7
+
+```text
+M	doc/tasks/20260724-edhr-route-form-filler-backfill/bug-regression-evidence.md
+M	doc/tasks/20260724-edhr-route-form-filler-backfill/execution-log.md
+M	doc/tasks/20260724-edhr-route-form-filler-backfill/task.md
+A	doc/tasks/20260724-edhr-route-form-filler-backfill/verification-report.md
+M	doc/tasks/verify-manual-reschedule-881mo-20260724/bug-regression-evidence.md
+M	doc/tasks/verify-manual-reschedule-881mo-20260724/execution-log.md
+M	doc/tasks/verify-manual-reschedule-881mo-20260724/frontend-feature-evidence.md
+```
+
+### Commit `2dbade97`
+
+- Message: `工作区: 保存 route form filler 收尾后续基线`
+- File count: 3
+
+```text
+M	doc/tasks/20260724-edhr-route-form-filler-backfill/bug-regression-evidence.md
+M	doc/tasks/20260724-edhr-route-form-filler-backfill/task.md
+M	doc/tasks/20260724-edhr-route-form-filler-backfill/verification-report.md
+```
+
+### Commit `6361c4be`
+
+- Message: `工作区: 保存 backend docs 与 SQL 后续基线`
+- File count: 4
+
+```text
+M	IntRuoyiBackend/yudao-module-system/src/test/resources/sql/clean.sql
+M	IntRuoyiBackend/yudao-module-system/src/test/resources/sql/create_tables.sql
+M	docs/backend-development.md
+M	docs/experience-index.md
+```
+
+## Implementation Commit
+
+- Commit: `19e9573a`
+- Message: `任务: 强制任务提交与推送`
+- File count: 6
+
+```text
+M	AGENTS.md
+A	doc/tasks/enforce-commit-push-policy/execution-log.md
+A	doc/tasks/enforce-commit-push-policy/task.md
+A	doc/tasks/enforce-commit-push-policy/verification-report.md
+A	docs/powershell-memory.md
+M	docs/task-closeout-rules.md
 ```
 
 ## Follow-up Dirty Worktree Baseline Commit

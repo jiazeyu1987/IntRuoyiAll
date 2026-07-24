@@ -9,9 +9,10 @@
 - [x] 创建任务目录并记录用户授权的脏工作区提交例外
 - [x] 提交当前脏工作区基线
 - [x] 更新 `AGENTS.md`、`docs/task-closeout-rules.md` 与 `docs/powershell-memory.md`
-- [ ] 验证提交和推送规则文本
-- [ ] 提交本任务实现与收尾记录
-- [ ] 推送 `int_main` 并记录远端验证
+- [x] 验证提交和推送规则文本
+- [x] 提交本任务实现
+- [x] 提交本任务收尾记录
+- [x] 推送 `int_main` 并记录远端验证
 
 ## Expected Verification
 
@@ -32,9 +33,11 @@
 - 推送前必须核对 remote、分支、暂存区、提交文件列表和大文件/敏感信息风险。
 - `docs/powershell-memory.md` 已按用户授权新建并读取，PowerShell/Git 编排门禁已补齐。
 - GitHub 推送历史大文件门禁已读取；发现超过 100 MB blob 或 `GH001` 时必须停止，不得未授权重写历史或 force push。
-- 既有脏工作区已保存为独立基线提交 `44fb3915`；后续新增非本任务脏区已继续保存为 `bb3c36ba`、`49a97fee`、`e646f935`、`4d894369`、`be06a6b1`、`6c95e640`、`dd271d39`、`648a57df`，文件清单记录于 `execution-log.md`。
+- 既有脏工作区已保存为独立基线提交 `44fb3915`；后续新增非本任务脏区已继续保存为 `bb3c36ba`、`49a97fee`、`e646f935`、`4d894369`、`be06a6b1`、`6c95e640`、`dd271d39`、`648a57df`、`8f155b9c`、`574290d1`、`c15947b3`、`aec3ae64`、`298009eb`、`6361c4be`、`2dbade97`，文件清单记录于 `execution-log.md`。
+- 本任务实现已提交为 `19e9573a`。
+- task-closeout-cleanup preview/apply 已通过；当前为主 worktree，不涉及 worktree 合并或删除；无清理删除项。
 - 当前任务不涉及服务器、数据库、发布、恢复、真实 E2E 或 worktree 合并/清理，因此不触发高风险 `experience-preflight`。
 
 ## Current Status
 
-in_progress
+completed
