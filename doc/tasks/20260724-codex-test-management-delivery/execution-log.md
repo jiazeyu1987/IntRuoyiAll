@@ -44,9 +44,11 @@
 - GREEN: experience-preflight -> PASS，按 `project-experience-consolidation` 更新 `docs/e2e-rules.md#codex-runner-自动测试门禁` 与 `docs/experience-index.md` 路由。
 - GREEN: cleanup-preview -> PASS，保留 `task.md`、`execution-log.md`、`verification-report.md`，仅删除本任务临时 evidence。
 - GREEN: cleanup-apply -> PASS，已删除 `backend-api-evidence.md`、`database-schema-evidence.md`、`frontend-feature-evidence.md`。
+- GREEN: closeout-commit -> PASS，提交 `ac50e289798792880bea6e337dbb79730cfd6353` 包含本任务收尾记录、验证报告和经验门禁更新。
+- GREEN: push-origin-int_main -> PASS，`git push origin int_main` 成功，推送范围 `b2df2194..ac50e289`，随后 `git status --short --branch` 不再显示 ahead。
 
 ## Blockers
 
 - 真实 E2E 前仍需核对本机数据库、Runner token、Codex CLI、Playwright 浏览器、目标测试租户和 Runner 本地凭据映射。
 - `pnpm ts:check` / `vue-tsc` 当前被既有无关 DCC 类型错误阻塞：`src/views/dcc/controlled-file/browser/index.vue` 多处 `string | number` 与 `number/string` 类型不匹配。本任务新增页面类型错误已修复。
-- Final closeout: 当前仍需提交本任务收尾记录并推送当前 `int_main` 分支后，才能将任务状态改为 `completed`。
+- Final closeout: 本任务收尾记录已提交并推送；当前仅保留非本任务文件 `doc/tasks/fix-batch-record-fill-rule/execution-log.md` 的未提交改动。
