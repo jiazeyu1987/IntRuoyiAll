@@ -71,7 +71,16 @@ public class MesProEdhrOperationAuditController {
     }
 
     private void requireAuditViewAbility(MesProEdhrOperationAuditPageReqVO reqVO) {
-        if (reqVO == null || StrUtil.isBlank(reqVO.getObjectType()) || StrUtil.isBlank(reqVO.getObjectId())) {
+        if (reqVO == null) {
+            throw exception(PRO_EDHR_PERMISSION_CONTEXT_MISSING);
+        }
+        if (StrUtil.isBlank(reqVO.getObjectType()) || StrUtil.isBlank(reqVO.getObjectId())) {
+            if (reqVO.getBatchExecutionId() != null) {
+                requireAuditViewAbility(OBJECT_TYPE_BATCH_EXECUTION, String.valueOf(reqVO.getBatchExecutionId()),
+                        reqVO.getBatchExecutionId(), reqVO.getExecutionId(), reqVO.getWorkTaskId(),
+                        reqVO.getRouteId(), reqVO.getRouteProcessId(), reqVO.getReportId(), reqVO.getRecordCategory());
+                return;
+            }
             throw exception(PRO_EDHR_PERMISSION_CONTEXT_MISSING);
         }
         requireAuditViewAbility(reqVO.getObjectType(), reqVO.getObjectId(), reqVO.getBatchExecutionId(),

@@ -28,7 +28,7 @@
 
 ## Current Status
 
-blocked；关键 Maven GREEN 验证已通过，当前任务范围限定为保存边界归一化和现有执行 fail fast 校验不变。受影响回归集仍有一项范围外断言失败；后续复现又被 `MesProRouteFlowConfigServiceImpl` 的范围外未完成改动阻塞。真实前端 E2E 因浏览器登录超时、缺少任务专用测试账号而无法执行。
+blocked；关键 Maven GREEN 验证已通过，当前任务范围限定为保存边界归一化和现有执行 fail fast 校验不变。受影响回归集仍有一项范围外断言失败；继续复跑时被 `MesProRouteFlowConfigServiceImpl.resolveRecordbookEnabled(Boolean,String)` 缺失这一范围外编译前置阻塞。真实前端 E2E 因浏览器登录超时、缺少任务专用测试账号而无法执行。
 
 ## 设计约束检查
 

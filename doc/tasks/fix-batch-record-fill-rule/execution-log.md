@@ -14,7 +14,8 @@
 - 2026-07-24：按 TDD 计划新增支持层组合回归用例，断言保存归一化输出会被现有 `isReviewedRule` 识别为确认规则；复用既有保存服务和执行快照测试构成完整链路证据。
 - 2026-07-24：目标模块已恢复可编译状态；关键 Maven GREEN 验证通过。完整相关回归集发现一项与本次来源归一化无直接关系的损耗报告 Word 解析断言失败，未修改其并发变更。
 - 2026-07-24：确认本地前端 `8081` 和后端 `48081` 均在监听；浏览器会话登录超时，未获得任务专用测试账号，因此未执行写型真实 E2E。
-- 2026-07-24：单独复现损耗报告回归失败前，构建再次被范围外的 `MesProRouteFlowConfigServiceImpl` 阻塞：新增调用 `resolveRecordbookEnabled`，但 helper 未实现。该文件已有未提交改动，未修改。
+- 2026-07-24：单独复现损耗报告回归失败前，构建再次被范围外的 `MesProRouteFlowConfigServiceImpl` 阻塞：新增调用 `resolveRecordbookEnabled`，但 helper 未实现。该文件不属于当前批记录填写规则任务范围，未修改。
+- 2026-07-24：继续复跑门禁；三份文档结构校验均通过。关键 Maven 用例在 compile 阶段被 `MesProRouteFlowConfigServiceImpl.resolveRecordbookEnabled(Boolean,String)` 缺失阻塞，未进入本任务新增断言。
 
 ## BDD Scenarios
 
@@ -42,10 +43,14 @@
 - 文档已明确当前修复不声明历史模板已修复；历史 dry run/apply 需另行授权并处理 `getCellRules` 读时写回风险。
 - `mvn -pl yudao-module-mes -Dtest=MesProBatchRecordCellRuleSupportTest,MesProBatchRecordReportServiceImplDbTest test` -> FAIL，129 个测试中 1 个失败：`uploadExtraFormSlot_whenLossReportWordHasMergedBody_expandsAllFillableFieldsAndDoesNotReuseOldHashReport` 期望 `□报废`，实际 `报废`；该行为与本次 `source/reviewed` 归一化无直接关系。
 - 本地前端和后端端口均在监听；浏览器控制台报告登录超时，未执行写型 E2E。
+- 继续复跑：`python C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root doc\tasks\fix-batch-record-fill-rule` -> PASS。
+- 继续复跑：`python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\fix-batch-record-fill-rule\bug-regression-evidence.md` -> PASS。
+- 继续复跑：`python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\fix-batch-record-fill-rule\backend-api-evidence.md` -> PASS。
+- 继续复跑：`mvn -pl yudao-module-mes -Dtest=MesProBatchRecordReportServiceImplDbTest#saveCellRules_normalizesReviewedAutoSuggestionToManualConfirmation,MesProBatchRecordExecutionServiceImplTest#openOrCreateByContext_freezesReviewedNumberAndDateCellRulesIntoExecutionSnapshot+openOrCreateByContext_unreviewedFillableCellRule_mustFailFastWithoutCreatingExecution,MesProBatchRecordCellRuleSupportTest#toRuleJson_normalizesReviewedAutoSuggestionToExecutableManualRule+applyAutomaticSuggestions_setsRulesAfterWordImportWithoutMarkingUserReviewed test` -> BLOCKED，compile 阶段失败：`MesProRouteFlowConfigServiceImpl` 第 603、707 行调用的 `resolveRecordbookEnabled(Boolean,String)` 未实现。
 
 ## Blockers
 
 - 严格 RED 未在修复前运行取得；代码已存在时才恢复测试环境，当前只能诚实保留该证据缺口。
 - 相邻回归集存在范围外失败：损耗报告 Word 解析将 `□报废` 解析为 `报废`；该行为需其所属任务确认或修复。
-- 后续单独复现相邻失败时，模块主代码又被范围外 `MesProRouteFlowConfigServiceImpl.resolveRecordbookEnabled` 缺失阻塞，当前构建状态不稳定。
+- 后续单独复现相邻失败或继续本任务关键用例时，模块主代码被范围外 `MesProRouteFlowConfigServiceImpl.resolveRecordbookEnabled` 缺失阻塞，当前构建状态不稳定。
 - 真实 E2E 缺少可用登录会话和任务专用测试账号；不得使用共享或生产业务账号替代。
