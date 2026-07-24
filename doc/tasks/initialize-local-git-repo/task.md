@@ -10,8 +10,8 @@ Create a local Git repository at `E:\IntRuoyi`, add a root `.gitignore` that pro
 - [x] Define repository ignore rules for frontend, backend, runtime, and task artifacts.
 - [x] Initialize the local Git repository.
 - [x] Stage only source, documentation, and required configuration files.
-- [ ] Commit the local repository baseline.
-- [ ] Verify the commit and working tree status.
+- [x] Commit the local repository baseline.
+- [x] Verify the commit and working tree status.
 
 ## Expected Verification
 
@@ -22,4 +22,4 @@ Create a local Git repository at `E:\IntRuoyi`, add a root `.gitignore` that pro
 
 ## Current Status
 
-in_progress
+completed
