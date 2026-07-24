@@ -40,8 +40,13 @@
 - Frontend evidence: `system-codex-test-management-static.spec.js` 覆盖 API endpoint、页面权限、租户选择、自然语言测试方法、检查点、通过/失败、失败截图、并行执行和 Runner 脚本关键协议。
 - Type-check evidence: `node node_modules\vue-tsc\bin\vue-tsc.js --noEmit -p tsconfig.relaxed.json --pretty false` 在本任务类型错误修复后仍失败于既有 `src/views/dcc/controlled-file/browser/index.vue` 类型错误；未修改无关 DCC 文件。
 - Residual process cleanup: 已停止本任务超时 Maven/Surefire 残留 Java 进程 48456、12332、41836；保留非本任务启动的本机后端 48081 进程 16416。
+- Verification report: 已新增 `doc/tasks/20260724-codex-test-management-delivery/verification-report.md` 汇总通过项、覆盖范围和阻塞项。
+- GREEN: experience-preflight -> PASS，按 `project-experience-consolidation` 更新 `docs/e2e-rules.md#codex-runner-自动测试门禁` 与 `docs/experience-index.md` 路由。
+- GREEN: cleanup-preview -> PASS，保留 `task.md`、`execution-log.md`、`verification-report.md`，仅删除本任务临时 evidence。
+- GREEN: cleanup-apply -> PASS，已删除 `backend-api-evidence.md`、`database-schema-evidence.md`、`frontend-feature-evidence.md`。
 
 ## Blockers
 
 - 真实 E2E 前仍需核对本机数据库、Runner token、Codex CLI、Playwright 浏览器、目标测试租户和 Runner 本地凭据映射。
 - `pnpm ts:check` / `vue-tsc` 当前被既有无关 DCC 类型错误阻塞：`src/views/dcc/controlled-file/browser/index.vue` 多处 `string | number` 与 `number/string` 类型不匹配。本任务新增页面类型错误已修复。
+- Final closeout: 当前仍需提交本任务收尾记录并推送当前 `int_main` 分支后，才能将任务状态改为 `completed`。
