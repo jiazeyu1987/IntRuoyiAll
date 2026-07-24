@@ -1,5 +1,12 @@
 DELETE FROM "system_dept";
 DELETE FROM "system_dict_data";
+DELETE FROM "system_codex_test_artifact";
+DELETE FROM "system_codex_test_checkpoint_result";
+DELETE FROM "system_codex_test_execution_case";
+DELETE FROM "system_codex_test_execution";
+DELETE FROM "system_codex_test_runner_session";
+DELETE FROM "system_codex_test_checkpoint";
+DELETE FROM "system_codex_test_case";
 DELETE FROM "system_role";
 DELETE FROM "system_role_category";
 DELETE FROM "system_role_menu";
