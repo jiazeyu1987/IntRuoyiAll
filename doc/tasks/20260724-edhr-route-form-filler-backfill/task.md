@@ -8,8 +8,8 @@
 
 - [x] M1: 定位现有任务生成、详情组装和填写人解析逻辑。
 - [x] M2: 记录 BDD 场景并新增 RED 回归测试。
-- [ ] M3: 最小化修复后端详情任务 `fillableUsers` 回填。
-- [ ] M4: 运行目标 Maven/静态验证并记录 GREEN 证据。
+- [x] M3: 最小化修复后端详情任务 `fillableUsers` 回填。
+- [x] M4: 运行目标 Maven/静态验证并记录 GREEN 证据。
 
 ## Expected Verification
 
@@ -19,9 +19,9 @@
 
 ## Current Status
 
-blocked
+ready_for_closeout
 
-Blocker: `MesProEdhrBatchExecutionServiceImpl.java` 在本任务写入路线绑定回填逻辑后被并发修改，写入内容已消失。为避免覆盖其他任务的同文件变更，需用户确认后基于当前最新版本重新合并。
+Implementation and task-owned verification passed. Full module `testCompile` is still blocked by unrelated legacy WM/MD test classes that reference removed/missing services and DOs; this task used isolated target-test compilation plus Surefire execution for the owned regression scope.
 
 ## Experience Gate
 
