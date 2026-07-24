@@ -13,8 +13,9 @@
 - [x] 新增保存输出到执行规则识别的组合回归用例
 - [x] 实施最小正式修复
 - [x] 运行关键 Maven GREEN 验证并记录结果
-- [ ] 处理相邻回归失败或确认其归属
-- [ ] 获得任务专用测试账号后完成真实前端 E2E
+- [ ] 用户授权纳入范围外编译前置：修复 `MesProRouteFlowConfigServiceImpl.resolveRecordbookEnabled(Boolean,String)` 缺失
+- [ ] 修复损耗报告 Word 解析回归：期望保留 `□报废`
+- [ ] 获得或发现任务专用测试账号后完成真实前端 E2E
 - [ ] 如需修复历史模板，另行授权 dry run/apply 受控修复任务
 - [ ] 完成收尾与经验沉淀
 
@@ -28,7 +29,7 @@
 
 ## Current Status
 
-blocked；关键 Maven GREEN 验证已通过，当前任务范围限定为保存边界归一化和现有执行 fail fast 校验不变。受影响回归集仍有一项范围外断言失败；继续复跑时被 `MesProRouteFlowConfigServiceImpl.resolveRecordbookEnabled(Boolean,String)` 缺失这一范围外编译前置阻塞。真实前端 E2E 因浏览器登录超时、缺少任务专用测试账号而无法执行。
+in_progress；用户已授权把范围外编译前置纳入当前任务，并要求修复损耗报告 Word 解析回归与真实前端 E2E 阻塞。下一步按 BDD + strict TDD 先补编译前置，再复现并修复 `□报废` 解析断言，最后用真实前端路径验证“打开填写”。
 
 ## 设计约束检查
 
