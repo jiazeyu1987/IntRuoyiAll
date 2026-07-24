@@ -41,8 +41,12 @@
 - `GREEN: pnpm ts:check:schedule -> PASS`.
 - `GREEN: node --check doc/tasks/verify-manual-reschedule-881mo-20260724/manual-reschedule-repair-verify.e2e.cjs -> PASS`.
 - `RED: node doc/tasks/verify-manual-reschedule-881mo-20260724/manual-reschedule-repair-verify.e2e.cjs -> FAIL, expected reason: repair verification script lacked a pre-apply assertion that both target rows were selected; the run applied one visible target and therefore only 881MO093615 turned orange`.
+- `RED: node doc/tasks/verify-manual-reschedule-881mo-20260724/manual-reschedule-repair-verify.e2e.cjs -> FAIL, expected reason: Element Plus table row-selection helper still did not reliably click the first target row; verification helper must use the visible body-row locator and assert each target source is selected before apply`.
+- `RED: node doc/tasks/verify-manual-reschedule-881mo-20260724/manual-reschedule-repair-verify.e2e.cjs -> FAIL, expected reason: latest-success API returned appliedAt as a millisecond timestamp; verification helper must parse both numeric timestamps and string datetimes strictly`.
 - `GREEN: preview structure inspection -> PASS, two-target replan preview returned workOrderCount=2, generatedTaskCount=136, preservedTaskCount=7, and task rows for both 881MO093613 and 881MO093615`.
 - `GREEN: production gantt scope -> PASS, gantt-list returned only workOrderCode values 881MO093613 and 881MO093615 (145 task/project records); UI screenshot after collapsing 881MO093613 showed the only two work-order roots 881MO093613 and 881MO093615`.
+- `GREEN: node --check doc/tasks/verify-manual-reschedule-881mo-20260724/manual-reschedule-repair-verify.e2e.cjs -> PASS`.
+- `GREEN: node doc/tasks/verify-manual-reschedule-881mo-20260724/manual-reschedule-repair-verify.e2e.cjs -> PASS, real UI path verified a/b/c/d at 2026-07-24 17:32; evidence JSON output/playwright/verify-manual-reschedule-881mo-20260724-repair/repair-verification-report.json`.
 
 ## Milestone Updates
 
@@ -55,13 +59,17 @@
 - 导航稳定性修正：本机前端入口固定为 `http://127.0.0.1:8081`，避免 localhost 偶发解析或导航等待波动。
 - 真实重排与全部目标核验：完成。a/c/d 通过；b 失败。
 - 用户在 2026-07-24 授权修复 b：任务重新打开，进入严格 TDD 修复。
+- 产品编号橙色状态修复：完成；`confirmApplyReplanStartChoice()` 在 `replanApply` 成功之后调用 `updateLastReplanParticipatingScheduleOrders(freshPreview)`，只基于本次真实成功应用的预览结果更新参与工单集合。
+- 修复后真实重排复测：完成；2026-07-24 17:32 再次通过真实前端路径应用重排，a/b/c/d 全部通过。
 
 ## Blockers
 
-- 功能验收未通过：手动重排成功后，产品编号橙色状态没有被更新。前端根因定位为 `updateLastReplanParticipatingScheduleOrders()` 仅定义未调用，导致 `lastReplanParticipatingScheduleOrderIds` 保持空集合，产品编号始终渲染为未排产黑色样式。
+- 暂无功能阻塞。功能修复和真实路径验证已完成。
+- 收尾风险：当前仓库存在非本任务脏改且分支已领先远端，二次收尾、提交与推送必须先按 Git/closeout 规则处理，不能混入无关变更。
 
 ## Closeout
 
 - `GREEN: python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace E:\IntRuoyi --task-id verify-manual-reschedule-881mo-20260724 --mode preview -> PASS, keep task.md/execution-log.md/verification-report.md; delete only task helper and output/playwright/verify-manual-reschedule-881mo-20260724`.
 - `GREEN: python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --workspace E:\IntRuoyi --task-id verify-manual-reschedule-881mo-20260724 --mode apply -> PASS, deleted only task-owned helper and temporary Playwright evidence`.
 - Git commit：未执行。原因：功能验收存在失败项，且本任务未产生需要集成的业务实现变更。
+- 二次收尾状态：`ready_for_closeout`。本次修复已产生前端实现变更、回归验证与真实 E2E 证据；提交和推送尚未执行。
