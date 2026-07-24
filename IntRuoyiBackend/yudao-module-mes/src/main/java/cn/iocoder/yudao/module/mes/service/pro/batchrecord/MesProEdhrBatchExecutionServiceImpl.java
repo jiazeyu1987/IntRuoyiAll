@@ -233,7 +233,10 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private static final String PROCESS_RULE_TYPE_QUALITY_FILL = "QUALITY_FILL";
     private static final String RULE_SCOPE_TYPE_ROUTE = "ROUTE";
     private static final String CANDIDATE_SOURCE_TYPE_USER = "USER";
+    private static final String CANDIDATE_SOURCE_TYPE_USERS = "USERS";
+    private static final String CANDIDATE_SOURCE_TYPE_ROLE = "ROLE";
     private static final String CANDIDATE_SOURCE_TYPE_ROLE_GROUP = "ROLE_GROUP";
+    private static final String CANDIDATE_SOURCE_TYPE_DEPT = "DEPT";
     private static final String CANDIDATE_SOURCE_TYPE_DEPT_GROUP = "DEPT_GROUP";
     private static final String EXECUTION_MODE_SEQUENTIAL = "SEQUENTIAL";
     private static final String EXECUTION_MODE_PARALLEL = "PARALLEL";
@@ -3405,8 +3408,11 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 buildFillableProcessFormRuleMap(tasks, fillableWorkTaskMap);
         Map<Long, MesProEdhrWorkTaskAssignmentRuleDO> fillableRuleMap =
                 buildFillableRuleMap(tasks, fillableWorkTaskMap, fillableProcessFormRuleMap);
+        Map<Long, List<Long>> routeBindingFillableUserIdsMap = buildRouteBindingFillableUserIdsMap(
+                tasks, fillableWorkTaskMap, fillableProcessFormRuleMap, fillableRuleMap);
         Map<Long, AdminUserRespDTO> fillableUserMap = buildFillableUserMap(
-                fillableWorkTaskMap.values(), fillableProcessFormRuleMap.values(), fillableRuleMap.values());
+                fillableWorkTaskMap.values(), fillableProcessFormRuleMap.values(), fillableRuleMap.values(),
+                routeBindingFillableUserIdsMap.values());
         Long currentUserId = currentUserId();
         Map<Long, String> batchRecordVersionNoMap = buildBatchRecordVersionNoMap(tasks);
         Map<Long, List<MesProEdhrWorkTaskDO>> activeWorkTasksByBatchTask =
@@ -3493,7 +3499,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         .map(task -> toTaskResp(task, taskGateMap.get(task.getId()),
                                 fillableWorkTaskMap.get(task.getId()),
                                 fillableProcessFormRuleMap.get(task.getId()), fillableRuleMap.get(task.getId()),
-                                fillableUserMap,
+                                routeBindingFillableUserIdsMap.get(task.getId()), fillableUserMap,
                                 batchRecordVersionNoMap,
                                 activeWorkTasksByBatchTask.getOrDefault(task.getId(), List.of()), currentUserId,
                                 actionLockReason,
@@ -3669,6 +3675,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                     MesProEdhrWorkTaskDO fillableWorkTask,
                                                     MesProEdhrProcessFormPermissionRuleDO fillableProcessFormRule,
                                                     MesProEdhrWorkTaskAssignmentRuleDO fillableRule,
+                                                    List<Long> routeBindingFillableUserIds,
                                                     Map<Long, AdminUserRespDTO> fillableUserMap,
                                                     Map<Long, String> batchRecordVersionNoMap,
                                                     List<MesProEdhrWorkTaskDO> activeWorkTasks,
@@ -3739,7 +3746,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setSpecialPayloadJson(task.getSpecialPayloadJson())
                 .setPendingSpecialNodeAttachments(resolvePendingSpecialNodeAttachments(task))
                 .setFillableUsers(resolveFillableUsers(fillableWorkTask, fillableProcessFormRule,
-                        fillableRule, fillableUserMap));
+                        fillableRule, routeBindingFillableUserIds, fillableUserMap));
     }
 
     private Map<Long, MesProEdhrWorkTaskDO> buildFillableWorkTaskMap(Long batchExecutionId) {
@@ -3797,9 +3804,48 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         return result;
     }
 
+    private Map<Long, List<Long>> buildRouteBindingFillableUserIdsMap(
+            List<MesProEdhrBatchExecutionTaskDO> tasks,
+            Map<Long, MesProEdhrWorkTaskDO> fillableWorkTaskMap,
+            Map<Long, MesProEdhrProcessFormPermissionRuleDO> fillableProcessFormRuleMap,
+            Map<Long, MesProEdhrWorkTaskAssignmentRuleDO> fillableRuleMap) {
+        Map<Long, Long> taskBindingIdMap = new LinkedHashMap<>();
+        for (MesProEdhrBatchExecutionTaskDO task : tasks) {
+            if (task.getId() == null || task.getRouteBindingId() == null
+                    || fillableWorkTaskMap.containsKey(task.getId())
+                    || fillableProcessFormRuleMap.containsKey(task.getId())
+                    || fillableRuleMap.containsKey(task.getId()) || !isRouteForm(task)) {
+                continue;
+            }
+            taskBindingIdMap.put(task.getId(), task.getRouteBindingId());
+        }
+        if (taskBindingIdMap.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, MesProRouteFlowProcessBatchRecordDO> bindingMap =
+                routeFlowProcessBatchRecordMapper.selectBatchIds(new LinkedHashSet<>(taskBindingIdMap.values()))
+                        .stream()
+                        .filter(Objects::nonNull)
+                        .filter(binding -> binding.getId() != null)
+                        .collect(Collectors.toMap(
+                                MesProRouteFlowProcessBatchRecordDO::getId,
+                                binding -> binding,
+                                (existing, replacement) -> existing,
+                                LinkedHashMap::new));
+        Map<Long, List<Long>> result = new LinkedHashMap<>();
+        taskBindingIdMap.forEach((taskId, bindingId) -> {
+            List<Long> userIds = resolveRouteBindingFillableUserIds(bindingMap.get(bindingId));
+            if (!userIds.isEmpty()) {
+                result.put(taskId, userIds);
+            }
+        });
+        return result;
+    }
+
     private Map<Long, AdminUserRespDTO> buildFillableUserMap(Iterable<MesProEdhrWorkTaskDO> workTasks,
                                                              Iterable<MesProEdhrProcessFormPermissionRuleDO> processFormRules,
-                                                             Iterable<MesProEdhrWorkTaskAssignmentRuleDO> rules) {
+                                                             Iterable<MesProEdhrWorkTaskAssignmentRuleDO> rules,
+                                                             Iterable<List<Long>> routeBindingUserIds) {
         Set<Long> userIds = new LinkedHashSet<>();
         for (MesProEdhrWorkTaskDO workTask : workTasks) {
             userIds.addAll(resolveFillableUserIds(workTask));
@@ -3810,6 +3856,11 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         for (MesProEdhrWorkTaskAssignmentRuleDO rule : rules) {
             userIds.addAll(resolveFillableUserIds(rule));
         }
+        for (List<Long> bindingUserIds : routeBindingUserIds) {
+            if (bindingUserIds != null) {
+                userIds.addAll(bindingUserIds);
+            }
+        }
         if (userIds.isEmpty()) {
             return Map.of();
         }
@@ -3819,11 +3870,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
 
     private List<EdhrBatchExecutionTaskRespVO.FillableUser> resolveFillableUsers(
             MesProEdhrWorkTaskDO workTask, MesProEdhrProcessFormPermissionRuleDO processFormRule,
-            MesProEdhrWorkTaskAssignmentRuleDO rule,
+            MesProEdhrWorkTaskAssignmentRuleDO rule, List<Long> routeBindingFillableUserIds,
             Map<Long, AdminUserRespDTO> userMap) {
         List<Long> userIds = workTask != null ? resolveFillableUserIds(workTask)
                 : processFormRule != null ? resolveFillableUserIds(processFormRule)
-                : resolveFillableUserIds(rule);
+                : rule != null ? resolveFillableUserIds(rule)
+                : routeBindingFillableUserIds == null ? List.of() : routeBindingFillableUserIds;
         return userIds.stream()
                 .map(userId -> new EdhrBatchExecutionTaskRespVO.FillableUser()
                         .setUserId(userId)
@@ -3859,6 +3911,62 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         }
         return StrUtil.blankToDefault(StrUtil.trim(task.getBatchRecordReportId()),
                 StrUtil.trim(task.getFormBindingKey()));
+    }
+
+    private List<Long> resolveRouteBindingFillableUserIds(MesProRouteFlowProcessBatchRecordDO binding) {
+        if (binding == null) {
+            return List.of();
+        }
+        String sourceType = StrUtil.trim(binding.getCandidateSourceType());
+        List<Long> sourceIds = parseRouteBindingCandidateSourceIds(binding.getCandidateSourceIds());
+        if (StrUtil.isBlank(sourceType) && sourceIds.isEmpty()) {
+            return List.of();
+        }
+        if (StrUtil.isBlank(sourceType) || sourceIds.isEmpty()) {
+            throw new IllegalStateException("EDHR_ROUTE_FORM_FILLER_SOURCE_REQUIRED: routeBindingId="
+                    + binding.getId());
+        }
+        if (CANDIDATE_SOURCE_TYPE_USER.equals(sourceType) || CANDIDATE_SOURCE_TYPE_USERS.equals(sourceType)) {
+            return sourceIds;
+        }
+        if (CANDIDATE_SOURCE_TYPE_ROLE.equals(sourceType) || CANDIDATE_SOURCE_TYPE_ROLE_GROUP.equals(sourceType)) {
+            Set<Long> userIds = Objects.requireNonNull(
+                    permissionApi.getUserRoleIdListByRoleIds(new LinkedHashSet<>(sourceIds)),
+                    "EDHR_ROUTE_FORM_FILLER_ROLE_USER_IDS_REQUIRED: routeBindingId=" + binding.getId());
+            return userIds.stream().filter(Objects::nonNull).sorted().toList();
+        }
+        if (CANDIDATE_SOURCE_TYPE_DEPT.equals(sourceType) || CANDIDATE_SOURCE_TYPE_DEPT_GROUP.equals(sourceType)) {
+            List<AdminUserRespDTO> users = Objects.requireNonNull(
+                    adminUserApi.getUserListByDeptIds(new LinkedHashSet<>(sourceIds)),
+                    "EDHR_ROUTE_FORM_FILLER_DEPT_USERS_REQUIRED: routeBindingId=" + binding.getId());
+            return users.stream()
+                    .filter(Objects::nonNull)
+                    .filter(user -> user.getId() != null && CommonStatusEnum.isEnable(user.getStatus()))
+                    .map(AdminUserRespDTO::getId)
+                    .distinct()
+                    .sorted()
+                    .toList();
+        }
+        throw new IllegalStateException("EDHR_ROUTE_FORM_FILLER_SOURCE_INVALID: routeBindingId="
+                + binding.getId() + ", sourceType=" + sourceType);
+    }
+
+    private List<Long> parseRouteBindingCandidateSourceIds(String rawIds) {
+        String normalized = toFrozenCandidateSourceIds(rawIds);
+        if (StrUtil.isBlank(normalized)) {
+            return List.of();
+        }
+        List<Long> ids = new ArrayList<>();
+        for (String item : normalized.split(",")) {
+            if (StrUtil.isBlank(item)) {
+                continue;
+            }
+            Long id = Long.valueOf(StrUtil.trim(item));
+            if (id > 0 && !ids.contains(id)) {
+                ids.add(id);
+            }
+        }
+        return List.copyOf(ids);
     }
 
     private List<Long> resolveFillableUserIds(MesProEdhrWorkTaskAssignmentRuleDO rule) {
@@ -5011,6 +5119,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                     MesProEdhrSpecialNodeAttachmentPrepareUploadResult result) {
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("requestSource", "BATCH_EXECUTION_DETAIL");
+        metadata.put("associatedSignatureId", "NOT_APPLICABLE");
         metadata.put("reason", "特殊节点附件上传预登记");
         metadata.put("batchTaskId", task.getId());
         metadata.put("nodeType", resolveNodeType(task));
@@ -5039,6 +5148,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                     String reason) {
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("requestSource", "BATCH_EXECUTION_DETAIL");
+        metadata.put("associatedSignatureId", "NOT_APPLICABLE");
         metadata.put("reason", reason);
         metadata.put("batchTaskId", task.getId());
         metadata.put("nodeType", resolveNodeType(task));
@@ -5066,6 +5176,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                   List<Map<String, Object>> taskPayloads) {
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("requestSource", "BATCH_EXECUTION_DETAIL");
+        metadata.put("associatedSignatureId", "NOT_APPLICABLE");
         metadata.put("reason", reason);
         metadata.put("batchExecutionId", batch.getId());
         metadata.put("pendingAttachmentCount", pendingAttachments.size());
@@ -5138,6 +5249,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         }
         metadata.putIfAbsent("auditRequestId", requestId);
         metadata.putIfAbsent("idempotencyKey", requestId);
+        metadata.putIfAbsent("associatedSignatureId", "NOT_APPLICABLE");
         metadata.putIfAbsent("permissionDecision", permissionDecision);
         metadata.putIfAbsent("resultStatus", resultStatus);
         operationAuditService.record(new MesProEdhrOperationAuditCommand()

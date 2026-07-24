@@ -61,6 +61,19 @@ assert(
   'Release precheck must write both release transaction event and operation audit evidence.'
 )
 
+for (const [sourceName, sourceText] of [
+  ['local state sample audit', localStateSampleService],
+  ['attachment audit', batchExecutionService],
+  ['work task audit', workTaskService],
+  ['release precheck audit', releaseService]
+]) {
+  assert(sourceText.includes('requestSource'), `${sourceName} must persist request source metadata.`)
+  assert(sourceText.includes('idempotencyKey'), `${sourceName} must persist idempotency key metadata.`)
+  assert(sourceText.includes('associatedSignatureId'), `${sourceName} must persist signature binding metadata.`)
+  assert(sourceText.includes('permissionDecision'), `${sourceName} must persist permission decision metadata.`)
+  assert(sourceText.includes('resultStatus'), `${sourceName} must persist result status metadata.`)
+}
+
 for (const label of [
   '本地状态样本创建',
   '附件上传预登记',

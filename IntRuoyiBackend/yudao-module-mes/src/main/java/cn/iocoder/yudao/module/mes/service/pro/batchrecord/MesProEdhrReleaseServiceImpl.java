@@ -845,7 +845,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         snapshot.put("reason", "放行预检");
         snapshot.put("idempotencyKey", idempotencyKey);
         snapshot.put("requestSource", "RELEASE_PRECHECK");
-        snapshot.put("associatedSignatureId", null);
+        snapshot.put("associatedSignatureId", "NOT_APPLICABLE");
         snapshot.put("permissionDecision", "ALLOW");
         snapshot.put("resultStatus", "SUCCESS");
         snapshot.put("precheckSnapshotHash", precheckSnapshotHash);
@@ -909,7 +909,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         metadata.put("requestSource", "RELEASE_PRECHECK");
         metadata.put("reason", "放行预检");
         metadata.put("idempotencyKey", idempotencyKey);
-        metadata.put("associatedSignatureId", null);
+        metadata.put("associatedSignatureId", "NOT_APPLICABLE");
         metadata.put("permissionDecision", "ALLOW");
         metadata.put("resultStatus", "SUCCESS");
         metadata.put("batchExecutionId", batch.getId());

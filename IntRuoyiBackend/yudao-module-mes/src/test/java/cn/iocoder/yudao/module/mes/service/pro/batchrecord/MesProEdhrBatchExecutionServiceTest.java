@@ -5094,10 +5094,13 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .candidateSourceNames("[\"张可莹（zhangkeying）\"]")
                 .build());
         String lossBindingKey = lossBinding.getFormBindingKey();
+        insertCurrentProcessFillRule(firstProcess.getId(), lossBindingKey, "FILL", "USERS", "152");
         routeVersionMapper.updateById(MesProRouteVersionDO.builder()
                 .id(fixture.routeVersionId())
                 .routeSnapshotJson(frozenRouteSnapshotJson(route, routeProcesses))
                 .build());
+        when(adminUserApi.getUserList(List.of(152L))).thenReturn(List.of(
+                user(152L, "张可莹（zhangkeying）")));
         when(adminUserApi.getUserMap(argThat(ids ->
                 ids != null && ids.size() == 1 && ids.contains(152L)))).thenReturn(Map.of(
                 152L, user(152L, "张可莹（zhangkeying）")));

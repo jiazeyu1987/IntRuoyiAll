@@ -402,7 +402,10 @@ public class MesProEdhrLocalStateSampleServiceImpl implements MesProEdhrLocalSta
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("requestSource", "BATCH_EXECUTION_LIST_LOCAL_STATE_SAMPLE");
         metadata.put("idempotencyKey", code);
+        metadata.put("associatedSignatureId", "NOT_APPLICABLE");
         metadata.put("reason", "本地状态样本创建");
+        metadata.put("permissionDecision", "ALLOW");
+        metadata.put("resultStatus", "SUCCESS");
         metadata.put("sampleState", state);
         metadata.put("batchExecutionId", batch.getId());
         metadata.put("batchExecutionCode", batch.getBatchExecutionCode());

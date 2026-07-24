@@ -2193,6 +2193,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         metadata.put("routeId", routeId);
         metadata.put("taskType", taskType);
         metadata.put("reason", reason);
+        metadata.put("associatedSignatureId", "NOT_APPLICABLE");
         metadata.put("beforeRules", beforePayload);
         metadata.put("afterRules", afterPayload);
         metadata.put("permissionDecision", "ALLOW");
@@ -2302,7 +2303,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         metadata.put("notificationResult", notificationSent ? "SENT" : "SKIPPED_OWNER_UNCHANGED");
         metadata.put("beforeTask", beforePayload);
         metadata.put("afterTask", afterPayload);
-        metadata.put("associatedSignatureId", null);
+        metadata.put("associatedSignatureId", "NOT_APPLICABLE");
         metadata.put("permissionDecision", "ALLOW");
         metadata.put("resultStatus", "SUCCESS");
         operationAuditService.record(new MesProEdhrOperationAuditCommand()
