@@ -47,6 +47,8 @@
 - `GREEN: production gantt scope -> PASS, gantt-list returned only workOrderCode values 881MO093613 and 881MO093615 (145 task/project records); UI screenshot after collapsing 881MO093613 showed the only two work-order roots 881MO093613 and 881MO093615`.
 - `GREEN: node --check doc/tasks/verify-manual-reschedule-881mo-20260724/manual-reschedule-repair-verify.e2e.cjs -> PASS`.
 - `GREEN: node doc/tasks/verify-manual-reschedule-881mo-20260724/manual-reschedule-repair-verify.e2e.cjs -> PASS, real UI path verified a/b/c/d at 2026-07-24 17:32; evidence JSON output/playwright/verify-manual-reschedule-881mo-20260724-repair/repair-verification-report.json`.
+- `GREEN: project-experience-consolidation -> PASS, added Element Plus el-table body-row selection gate to docs/e2e-rules.md and routed keywords through docs/experience-index.md`.
+- `GREEN: rg -n "Element Plus 表格选择门禁|表头全选误点|Playwright body-wrapper row selection" docs/e2e-rules.md docs/experience-index.md -> PASS`.
 
 ## Milestone Updates
 
@@ -61,6 +63,7 @@
 - 用户在 2026-07-24 授权修复 b：任务重新打开，进入严格 TDD 修复。
 - 产品编号橙色状态修复：完成；`confirmApplyReplanStartChoice()` 在 `replanApply` 成功之后调用 `updateLastReplanParticipatingScheduleOrders(freshPreview)`，只基于本次真实成功应用的预览结果更新参与工单集合。
 - 修复后真实重排复测：完成；2026-07-24 17:32 再次通过真实前端路径应用重排，a/b/c/d 全部通过。
+- 项目经验沉淀：完成；将 Element Plus 表格行复选框必须限定可见 body row 且写入前断言选中集合的门禁合并到 `docs/e2e-rules.md`，未新建长期经验文档。
 
 ## Blockers
 

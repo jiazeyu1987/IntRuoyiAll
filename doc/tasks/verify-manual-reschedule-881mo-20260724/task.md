@@ -42,6 +42,7 @@ ready_for_closeout
 - 任务创建时 `docs/experience-index.md` 不存在；用户已明确授权“在芋道源码里验证”，据此记录风险后继续。
 - 收尾时已发现并读取 `docs/experience-index.md`；命中 `docs/e2e-rules.md` 和 `docs/login-access.md`。
 - 适用门禁摘要：真实写入验证必须走 Playwright 前端路径，API 仅作辅助核验；使用本机入口和授权身份；失败必须保留页面、网络和截图证据；不得使用 SQL、API-only 或 mock 替代。
+- 新增经验摘要：Element Plus `el-table` 勾选行复选框必须限定可见 body row，排除表头/thead，写入前断言已选业务唯一键集合与目标集合完全一致。
 
 ## Cleanup Candidates
 
