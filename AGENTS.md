@@ -9,6 +9,7 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - Frontend root: `E:\IntRuoyi\IntRuoyiFronted`.
 - Main branch: `int_main`.
 - Worktree root: `D:\IntRuoyiWorktree\`.
+- Worktree restrictions: `docs\worktree-restrictions.md`.
 - Coordination docs live under root `doc\` and `docs\`; backend and frontend also contain their own `doc\` and `docs\` folders.
 - Do not reuse paths or folder names from prior project instructions unless the user explicitly confirms they are relevant to the current task.
 - The root, backend, and frontend folders may be non-Git directories in this workspace. Check Git state before assuming commits, branches, or worktrees are available.
@@ -98,6 +99,7 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - If server, login, release, backup, restore, or worktree instructions are required but missing from current `docs\`, stop and report the missing document and impact.
 - Do not delete, unmount, clear, or rewrite shared storage or deployment artifacts unless the task scope explicitly authorizes it and verification/rollback steps are documented.
 - Release/build isolation must be explicit. If Git/worktree support is absent in this workspace, do not fabricate a branch, commit, or release workflow.
+- Before creating, starting, stopping, restarting, merging, or cleaning any IntRuoyi worktree, read `docs\worktree-restrictions.md` and follow it as the authoritative worktree restriction file.
 - All IntRuoyi task worktrees must be created under `D:\IntRuoyiWorktree\` only.
 - Before creating a worktree, resolve the absolute target path and verify it is a child path of `D:\IntRuoyiWorktree\`. If it is outside that root, fail fast and do not create the worktree.
 - Do not create IntRuoyi worktrees under `E:\IntRuoyi`, `IntRuoyiBackend`, `IntRuoyiFronted`, `%TEMP%`, the user profile, or any prior-project directory.

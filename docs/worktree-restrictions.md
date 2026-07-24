@@ -1,0 +1,84 @@
+# IntRuoyi Worktree Restrictions
+
+## 触发场景
+
+- 创建、启动、停止、重启、合并、清理任何 IntRuoyi worktree 前，必须先读取本文件。
+- 涉及 worktree 路径、分支命名、端口分配、端口占用处理、端口登记表或 worktree 删除时，必须按本文件执行。
+- 本文件是 IntRuoyi worktree 操作的强制限制文件；不得用临时判断、随机端口或旧项目规则替代。
+
+## 固定基线
+
+- 主工作区：`E:\IntRuoyi`。
+- 主分支：`int_main`。
+- worktree 根目录：`D:\IntRuoyiWorktree\`。
+- 端口登记表：`D:\IntRuoyiWorktree\.ports\worktree-ports.json`。
+- `int_main` 固定槽位：`slot = 0`。
+- `int_main` 前端专属端口：`8081`。
+- `int_main` 后端专属端口：`48081`。
+
+## 创建位置限制
+
+- 所有 IntRuoyi worktree 只能创建在 `D:\IntRuoyiWorktree\` 下。
+- 创建前必须解析目标目录的绝对路径，并确认它是 `D:\IntRuoyiWorktree\` 的子路径。
+- 禁止在 `E:\IntRuoyi`、`E:\IntRuoyi\IntRuoyiBackend`、`E:\IntRuoyi\IntRuoyiFronted`、`%TEMP%`、用户目录或任何旧项目目录创建 IntRuoyi worktree。
+- 如果 `D:\IntRuoyiWorktree\` 不存在或不可写，必须 fail fast，并报告缺失前置条件和影响；不得改用其他目录。
+
+## 端口槽位规则
+
+- `int_main` 永远使用 `slot = 0`，前端 `8081`，后端 `48081`。
+- 非 `int_main` worktree 必须使用稳定正整数槽位，`slot >= 1`。
+- 非 `int_main` worktree 的端口按公式计算：
+  - 前端端口：`8081 + slot`
+  - 后端端口：`48081 + slot`
+- 示例：
+  - `slot = 1`：前端 `8082`，后端 `48082`
+  - `slot = 2`：前端 `8083`，后端 `48083`
+  - `slot = 10`：前端 `8091`，后端 `48091`
+- 非 `int_main` worktree 永远不得使用 `8081` 或 `48081`。
+
+## 端口登记表规则
+
+- 创建非 `int_main` worktree 前，必须读取 `D:\IntRuoyiWorktree\.ports\worktree-ports.json`。
+- 如果登记表不存在，必须创建空登记表并立即登记本次分配；不得跳过登记。
+- 每个登记项至少记录：
+  - `name`
+  - `path`
+  - `branch`
+  - `slot`
+  - `frontendPort`
+  - `backendPort`
+  - `active`
+  - `createdAt`
+  - `updatedAt`
+- worktree 停止服务但目录仍存在时，槽位不得释放。
+- 只有确认 worktree 目录已删除、分支/合并状态已处理、任务记录已完成后，才允许将对应槽位标记为可复用。
+- 不允许因为端口冲突临时随机换端口；必须修正登记表或阻塞。
+
+## 启动和端口占用处理
+
+- 启动 `int_main` 前端前，必须确认 `8081` 的占用情况。
+- 启动 `int_main` 后端前，必须确认 `48081` 的占用情况。
+- 如果 `8081` 或 `48081` 被 `int_main` 对应的旧前端/后端进程占用，先停止对应旧进程，再启动新的 `int_main` 服务。
+- 如果 `8081` 或 `48081` 被非 `int_main` worktree、未知进程或无关程序占用，必须 fail fast，报告占用进程、端口和影响；不得强杀、不得换端口启动 `int_main`。
+- 启动非 `int_main` worktree 前，必须确认登记端口的占用情况。
+- 如果登记端口被同一 worktree 的旧进程占用，先停止对应旧进程，再启动该 worktree。
+- 如果登记端口被其他 worktree、未知进程或无关程序占用，必须 fail fast，报告冲突；不得自动换端口。
+
+## 禁止做法
+
+- 禁止在未读取本文件时创建或启动 worktree。
+- 禁止非 `int_main` 使用 `8081/48081`。
+- 禁止随机选择端口或按启动顺序临时分配端口。
+- 禁止端口冲突时静默换端口、静默跳过服务或假装启动成功。
+- 禁止不检查目标绝对路径就执行 `git worktree add`。
+- 禁止删除或清理不属于当前任务的 worktree、进程、端口登记项或任务记录。
+
+## 验证方式
+
+- 创建 worktree 前记录已读取本文件。
+- 记录目标路径解析结果，证明目标在 `D:\IntRuoyiWorktree\` 下。
+- 记录端口登记表读取和写入结果。
+- 记录分配的 `slot`、前端端口、后端端口。
+- 启动服务前记录端口占用检查结果。
+- 如果停止旧进程，必须记录进程 ID、端口、归属判断依据和停止结果。
+- 任务收尾时记录 worktree 是否仍存在、槽位是否保留或释放、端口登记表最终状态。
