@@ -49,6 +49,10 @@ export default ({command, mode}: ConfigEnv): UserConfig => {
     } else {
         env = loadEnv(mode, root)
     }
+    const processEnvOverrides = Object.fromEntries(
+        Object.entries(process.env).filter(([key, value]) => key.startsWith('VITE_') && typeof value === 'string')
+    ) as Record<string, string>
+    env = {...env, ...processEnvOverrides}
     const isBatchRecordPreviewMode = mode === 'batch-record-preview'
     const cliPort = getCliOptionValue(['--port', '-p'])
     const effectiveDevPort = cliPort || env.VITE_PORT
