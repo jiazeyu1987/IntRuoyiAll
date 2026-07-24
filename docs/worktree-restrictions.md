@@ -8,6 +8,8 @@
 
 ## 固定基线
 
+PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
+
 - 主工作区：`E:\IntRuoyi`。
 - 主分支：`int_main`。
 - worktree 根目录：`D:\IntRuoyiWorktree\`。
@@ -15,6 +17,18 @@
 - `int_main` 固定槽位：`slot = 0`。
 - `int_main` 前端专属端口：`8081`。
 - `int_main` 后端专属端口：`48081`。
+
+## Runtime Profile 端口矩阵
+
+- `int_main` profile：基准前端 `8081`，基准后端 `48081`。
+- `int_batch` profile：基准前端 `8041`，基准后端 `48041`。
+- `int_shedule` profile：基准前端 `8021`，基准后端 `48021`。
+- `int_qms` profile：基准前端 `8061`，基准后端 `48061`。
+- 前端端口 = 所属 profile 前端基准端口 + slot。
+- 后端端口 = 所属 profile 后端基准端口 + slot。
+- `slot = 0` 只用于各 profile 的基准工作区；同一 profile 的附加 worktree 必须使用稳定正整数 slot。
+- 跨 profile 不共享 slot 语义；例如 `int_batch slot=1` 是 `8042/48042`，`int_qms slot=1` 是 `8062/48062`。
+- 分支端口矩阵的权威说明见 `docs\branch-runtime-ports.md`，提交、合并、推送前必须运行 `scripts\preflight\branch-runtime-port-guard.ps1`。
 
 ## 创建位置限制
 
@@ -25,16 +39,20 @@
 
 ## 端口槽位规则
 
-- `int_main` 永远使用 `slot = 0`，前端 `8081`，后端 `48081`。
-- 非 `int_main` worktree 必须使用稳定正整数槽位，`slot >= 1`。
-- 非 `int_main` worktree 的端口按公式计算：
-  - 前端端口：`8081 + slot`
-  - 后端端口：`48081 + slot`
+- `int_main` 基准工作区永远使用 `slot = 0`，前端 `8081`，后端 `48081`。
+- `int_batch` 基准工作区永远使用 `slot = 0`，前端 `8041`，后端 `48041`。
+- `int_shedule` 基准工作区永远使用 `slot = 0`，前端 `8021`，后端 `48021`。
+- `int_qms` 基准工作区永远使用 `slot = 0`，前端 `8061`，后端 `48061`。
+- 附加 worktree 必须使用稳定正整数槽位，`slot >= 1`。
+- 附加 worktree 的端口按所属 runtime profile 的基准端口计算：
+  - 前端端口：profile 前端基准端口 + `slot`
+  - 后端端口：profile 后端基准端口 + `slot`
 - 示例：
-  - `slot = 1`：前端 `8082`，后端 `48082`
-  - `slot = 2`：前端 `8083`，后端 `48083`
-  - `slot = 10`：前端 `8091`，后端 `48091`
-- 非 `int_main` worktree 永远不得使用 `8081` 或 `48081`。
+  - `int_main slot = 1`：前端 `8082`，后端 `48082`
+  - `int_batch slot = 1`：前端 `8042`，后端 `48042`
+  - `int_shedule slot = 1`：前端 `8022`，后端 `48022`
+  - `int_qms slot = 1`：前端 `8062`，后端 `48062`
+- 非 `int_main` profile 永远不得使用 `8081` 或 `48081`。
 
 ## 端口登记表规则
 
@@ -44,6 +62,7 @@
   - `name`
   - `path`
   - `branch`
+  - `profile`
   - `slot`
   - `frontendPort`
   - `backendPort`
@@ -58,8 +77,9 @@
 
 - 启动 `int_main` 前端前，必须确认 `8081` 的占用情况。
 - 启动 `int_main` 后端前，必须确认 `48081` 的占用情况。
-- 如果 `8081` 或 `48081` 被 `int_main` 对应的旧前端/后端进程占用，先停止对应旧进程，再启动新的 `int_main` 服务。
-- 如果 `8081` 或 `48081` 被非 `int_main` worktree、未知进程或无关程序占用，必须 fail fast，报告占用进程、端口和影响；不得强杀、不得换端口启动 `int_main`。
+- 启动 `int_batch`、`int_shedule`、`int_qms` 基准工作区前，必须确认各自矩阵端口占用情况。
+- 如果端口被同一 profile 对应的旧前端/后端进程占用，先停止对应旧进程，再启动新的同 profile 服务。
+- 如果端口被其他 profile、未知进程或无关程序占用，必须 fail fast，报告占用进程、端口和影响；不得强杀、不得换端口启动。
 - 启动非 `int_main` worktree 前，必须确认登记端口的占用情况。
 - 如果登记端口被同一 worktree 的旧进程占用，先停止对应旧进程，再启动该 worktree。
 - 如果登记端口被其他 worktree、未知进程或无关程序占用，必须 fail fast，报告冲突；不得自动换端口。
@@ -76,6 +96,7 @@
 
 - 禁止在未读取本文件时创建或启动 worktree。
 - 禁止非 `int_main` 使用 `8081/48081`。
+- 禁止任一 profile 使用其他 profile 的基准端口。
 - 禁止随机选择端口或按启动顺序临时分配端口。
 - 禁止端口冲突时静默换端口、静默跳过服务或假装启动成功。
 - 禁止不检查目标绝对路径就执行 `git worktree add`。
