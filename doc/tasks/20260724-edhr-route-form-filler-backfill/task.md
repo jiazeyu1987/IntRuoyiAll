@@ -21,7 +21,7 @@
 
 ready_for_closeout
 
-Implementation and task-owned verification passed. Full module `testCompile` is still blocked by unrelated legacy WM/MD test classes that reference removed/missing services and DOs; this task used isolated target-test compilation plus Surefire execution for the owned regression scope.
+Implementation and required verification passed. Closeout cleanup and final evidence consolidation remain.
 
 ## Experience Gate
 

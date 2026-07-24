@@ -17,12 +17,15 @@ BDD: 主生产表任务填写人逻辑不被破坏 -> Given 主生产表或已�
 
 ## Milestone Updates
 
-- M1 completed: `toResp(...)` 原本只从有效填写工作任务和工序任务分配规则解析 `fillableUsers`；动态表单槽位发布后同步出来的 `MesProEdhrProcessFormPermissionRuleDO` 未参与详情任务填写人回填。
-- M2 completed: 已新增并校准 `detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated`。该测试使用冻结路线快照、动态表单 `formBindingKey`、发布后同步的 `FILL/USERS/152` 表单权限规则，断言响应返回 `张可莹（zhangkeying）`。
-- RED: `mvn '-Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated' surefire:test`（模块目录）-> FAIL，断言 `expected: <[152]> but was: <[]>`，证明动态表单规则未回填到 `fillableUsers`。
-- M3 completed: `MesProEdhrBatchExecutionServiceImpl` 新增动态表单填表规则映射，详情组装优先级为有效填写/返工工作任务 -> 表单权限规则 -> 工序填写分配规则；表单权限规则按 `batchRecordReportId` 优先、否则 `formBindingKey` 查询，候选人解析复用 `MesProEdhrCandidateResolver`，不引入兜底。
-- M4 completed: `mvn '-Dmaven.compiler.useIncrementalCompilation=false' -DskipTests compile` -> PASS；隔离编译目标测试类 `javac @target\javac-edhr.args` -> PASS；`mvn '-Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromActiveFillWorkTask+detailTask_includesFillableUsersFromAssignmentRuleWhenWorkTaskNotCreated+detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated' '-Dsurefire.useManifestOnlyJar=false' surefire:test` -> PASS，3 tests, 0 failures, 0 errors。
+- M1 completed: `toResp(...)` 原本只从有效填写工作任务、过程表单规则和工序任务规则解析 `fillableUsers`，未读取任务 `routeBindingId` 对应路线绑定的 `candidateSourceType/candidateSourceIds`。
+- M2 completed: 已新增并校准 `detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated`。该测试只配置路线损耗单绑定 `USERS/152`，不创建填写工作任务、不插入过程表单规则或工序规则，断言响应返回 `张可莹（zhangkeying）`。
+- RED: 修复前同类数据在运行时已复现：路线配置有 `candidateSourceIds=[152]`，批次详情对应损耗单任务 `fillableUsers=[]`。
+- M3 completed: `MesProEdhrBatchExecutionServiceImpl` 新增 `routeBindingId -> MesProRouteFlowProcessBatchRecordDO -> candidateSourceType/candidateSourceIds -> fillableUsers` 回填链路。优先级保持为有效填写/返工工作任务 -> 过程表单规则 -> 工序填写分配规则 -> 路线绑定候选人，不引入前端推断或兜底。
+- M3 completed: `MesProRouteFlowConfigServiceImpl` 补齐缺失的 `resolveRecordbookEnabled(Boolean, String)` 编译缺口，复用既有批记录执行服务规则：内部记录禁用记录本，批记录默认启用。
+- M4 completed: `mvn -pl yudao-module-mes -DskipTests compile` -> PASS。
+- M4 completed: `mvn -pl yudao-module-mes -Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated test` -> PASS。
+- M4 completed: `mvn -pl yudao-module-mes -Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromActiveFillWorkTask+detailTask_includesFillableUsersFromAssignmentRuleWhenWorkTaskNotCreated+detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated test` -> PASS，3 tests, 0 failures, 0 errors。
 
 ## Current Blocker
 
-- Full module `mvn ... test` / `testCompile` remains blocked by unrelated legacy tests such as `MesWmProductSalesDetailMapperTest` and `MesMdAutoCodeRecordServiceImplTest` referencing missing WM/MD classes. This task did not modify those tests and used isolated compilation for the owned regression scope.
+- None for the task-owned verification scope.

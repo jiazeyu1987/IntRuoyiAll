@@ -33,6 +33,15 @@
 - `GREEN: latest successful schedule time -> PASS, /mes/pro/auto-schedule/apply/latest-success returned operationType=REPLAN_APPLY and appliedAt=2026-07-24 14:39:48; UI toolbar displayed 2026-07-24 14:39`.
 - `RED: product-code orange state -> FAIL, after successful replan both target product-code cells retained class schedule-order-pool__product-code--unscheduled and computed color rgb(23, 32, 51), not the orange scheduled class/color`.
 - `RED: node tests/e2e/mes-replan-product-code-current-selection-static.spec.js -> FAIL, expected reason: successful replan apply flow does not call updateLastReplanParticipatingScheduleOrders(freshPreview) after replanApply`.
+- `GREEN: node tests/e2e/mes-replan-product-code-current-selection-static.spec.js -> PASS`.
+- `GREEN: node tests/e2e/mes-pro-schedule-order-replan-apply-enabled-static.spec.js -> PASS`.
+- `GREEN: node tests/e2e/mes-pro-schedule-order-replan-settings-progress-static.spec.js -> PASS`.
+- `GREEN: node tests/e2e/mes-pro-schedule-order-replan-skipped-selected-confirm-static.spec.js -> PASS`.
+- `GREEN: node tests/e2e/mes-replan-whole-day-apply-static.spec.js -> PASS`.
+- `GREEN: pnpm ts:check:schedule -> PASS`.
+- `GREEN: node --check doc/tasks/verify-manual-reschedule-881mo-20260724/manual-reschedule-repair-verify.e2e.cjs -> PASS`.
+- `RED: node doc/tasks/verify-manual-reschedule-881mo-20260724/manual-reschedule-repair-verify.e2e.cjs -> FAIL, expected reason: repair verification script lacked a pre-apply assertion that both target rows were selected; the run applied one visible target and therefore only 881MO093615 turned orange`.
+- `GREEN: preview structure inspection -> PASS, two-target replan preview returned workOrderCount=2, generatedTaskCount=136, preservedTaskCount=7, and task rows for both 881MO093613 and 881MO093615`.
 - `GREEN: production gantt scope -> PASS, gantt-list returned only workOrderCode values 881MO093613 and 881MO093615 (145 task/project records); UI screenshot after collapsing 881MO093613 showed the only two work-order roots 881MO093613 and 881MO093615`.
 
 ## Milestone Updates

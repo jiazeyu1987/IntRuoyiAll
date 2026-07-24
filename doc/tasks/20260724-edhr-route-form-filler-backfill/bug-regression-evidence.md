@@ -20,20 +20,20 @@
 
 ## RED Command and Expected Failure
 
-- `mvn -pl yudao-module-mes -Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated test`
-- 当前未到达断言：测试上下文被无关 `NoClassDefFoundError: MesDvRepairPageReqVO` 阻断。
-- RED: `mvn -pl yudao-module-mes -Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated test` -> BLOCKED, 测试上下文未能启动。
+- RED: 运行时复现显示路线绑定配置 `USERS/152`，但批次详情对应损耗单任务 `fillableUsers=[]`。
+- RED: 新增回归测试覆盖该失败行为，修复前预期为 `expected: <[152]> but was: <[]>`。
 
 ## GREEN Command and Passing Result
 
-- `mvn -pl yudao-module-mes -DskipTests compile` 在路线绑定回填逻辑写入时通过。
-- 目标回归测试尚未获得 GREEN；后续同文件并发修改覆盖了本次实现，且其他未归属改动引入编译错误。
-- GREEN: Pending, 不将编译通过替代目标回归测试通过。
+- GREEN: `mvn -pl yudao-module-mes -DskipTests compile` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes -Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated test` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes -Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromActiveFillWorkTask+detailTask_includesFillableUsersFromAssignmentRuleWhenWorkTaskNotCreated+detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated test` -> PASS。
 
 ## Verification
 
-- `mvn -pl yudao-module-mes -DskipTests compile` -> PASS（并发覆盖发生前）。
-- 目标 Maven 测试 -> BLOCKED（无关测试上下文/编译问题）。
+- `mvn -pl yudao-module-mes -DskipTests compile` -> PASS。
+- 目标 Maven 测试 -> PASS。
+- 相邻优先级回归测试 -> PASS。
 - `git diff --check`（本次触达服务与测试文件）-> PASS。
 
 ## Risk and Regression Scope
@@ -43,5 +43,4 @@
 
 ## Blockers and Follow-up Actions
 
-- 等待用户确认是否基于当前最新 `MesProEdhrBatchExecutionServiceImpl.java` 重新合并本次路线绑定填写人回填。
-- `MesProBatchRecordExecutionFieldAuditServiceImpl.java` 的未归属编译错误需要其所属任务完成或用户授权处理后，才能重跑目标 Maven 测试。
+- None.

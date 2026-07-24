@@ -26,7 +26,8 @@
 ## TDD Evidence
 
 - RED: `node tests/e2e/mes-replan-product-code-current-selection-static.spec.js` -> FAIL, expected reason: apply success did not update `lastReplanParticipatingScheduleOrderIds`.
-- GREEN: pending.
+- GREEN: `node tests/e2e/mes-replan-product-code-current-selection-static.spec.js` -> PASS.
+- GREEN: `pnpm ts:check:schedule` -> PASS.
 
 ## UX Checks
 

@@ -28,7 +28,12 @@
 
 ## GREEN
 
-- 待执行。
+- `node tests/e2e/mes-replan-product-code-current-selection-static.spec.js` -> PASS。
+- `node tests/e2e/mes-pro-schedule-order-replan-apply-enabled-static.spec.js` -> PASS。
+- `node tests/e2e/mes-pro-schedule-order-replan-settings-progress-static.spec.js` -> PASS。
+- `node tests/e2e/mes-pro-schedule-order-replan-skipped-selected-confirm-static.spec.js` -> PASS。
+- `node tests/e2e/mes-replan-whole-day-apply-static.spec.js` -> PASS。
+- `pnpm ts:check:schedule` -> PASS。
 
 ## Risk And Scope
 
