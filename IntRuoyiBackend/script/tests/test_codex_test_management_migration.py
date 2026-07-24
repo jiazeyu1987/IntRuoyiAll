@@ -25,7 +25,7 @@ def test_codex_test_management_migration_exists_with_schema_and_permission_seed(
         "system_codex_test_artifact",
         "system_codex_test_runner_session",
     ):
-        assert f"create table if not exists `{table}`" in sql
+        assert f"create table if not exists {table}" in sql
 
     for permission in (
         "system:codex-test:query",
@@ -40,8 +40,8 @@ def test_codex_test_management_migration_exists_with_schema_and_permission_seed(
 
     assert "codex_test_admin" in sql
     assert "username = 'admin'" in sql
-    assert "json_valid(`package`.`menu_ids`)" in sql
-    assert "alter table `system_tenant_package` modify column `menu_ids` longtext" in sql
+    assert "json_valid(package.menu_ids)" in sql
+    assert "alter table system_tenant_package modify column menu_ids longtext" in sql
 
 
 def test_codex_test_management_migration_uses_stable_business_keys_for_menu_and_role() -> None:

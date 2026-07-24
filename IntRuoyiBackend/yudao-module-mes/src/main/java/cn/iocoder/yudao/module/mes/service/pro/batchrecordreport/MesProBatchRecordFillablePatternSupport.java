@@ -137,7 +137,7 @@ public final class MesProBatchRecordFillablePatternSupport {
     private static MesProBatchRecordParsedCell staticCheckboxChoiceCell(String text, int widthPx, int heightPx,
                                                                        boolean reviewedCellRule) {
         return MesProBatchRecordParsedCell.builder()
-                .text(StrUtil.blankToDefault(text, ""))
+                .text(staticCheckboxChoiceText(text))
                 .rowSpan(1)
                 .colSpan(1)
                 .widthPx(widthPx)
@@ -148,6 +148,14 @@ public final class MesProBatchRecordFillablePatternSupport {
                 .reviewedCellRule(reviewedCellRule)
                 .cellRuleSource(reviewedCellRule ? "MANUAL" : null)
                 .build();
+    }
+
+    private static String staticCheckboxChoiceText(String text) {
+        String normalized = StrUtil.blankToDefault(text, "").trim();
+        if (normalized.isBlank() || normalized.startsWith("□") || normalized.startsWith("☐")) {
+            return normalized;
+        }
+        return "□" + normalized;
     }
 
     private static MesProBatchRecordParsedCell staticInlineLabelCell(String text, int widthPx, int heightPx) {

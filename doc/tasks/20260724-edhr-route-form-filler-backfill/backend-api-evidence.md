@@ -8,7 +8,8 @@
 ## API Contract and Data Contract
 
 - Existing response field: `EdhrBatchExecutionTaskRespVO.fillableUsers`。
-- Expected data contract: 动态表单任务应使用路线工序表单绑定的填写人配置回填 `fillableUsers`，不新增接口字段。
+- Expected data contract: 动态表单任务应使用发布路线同步出的表单填表权限规则回填 `fillableUsers`，不新增接口字段。
+- Filler source priority: active fill/rework work task -> process form fill permission rule -> route-process fill assignment rule.
 
 ## Auth, Permissions, Validation, and Error Behavior
 
@@ -17,7 +18,7 @@
 
 ## Required Config, Services, Fixtures, and Migrations
 
-- Required fixture: 后端测试构造路线工序动态表单绑定及填写人配置。
+- Required fixture: 后端测试构造冻结路线动态表单绑定、`formBindingKey`、`MesProEdhrProcessFormPermissionRuleDO(FILL/USERS/152)` 和启用用户。
 - Migrations: 无。
 
 ## BDD Scenarios
@@ -27,15 +28,20 @@
 
 ## RED Command and Expected Failure
 
-- Pending.
+- `mvn '-Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated' surefire:test`
+- Expected failure before fix: `expected: <[152]> but was: <[]>`.
 
 ## GREEN Command and Passing Result
 
-- Pending.
+- `mvn '-Dmaven.compiler.useIncrementalCompilation=false' -DskipTests compile` -> PASS.
+- `javac @target\javac-edhr.args` -> PASS for isolated target test-class compilation.
+- `mvn '-Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromActiveFillWorkTask+detailTask_includesFillableUsersFromAssignmentRuleWhenWorkTaskNotCreated+detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated' '-Dsurefire.useManifestOnlyJar=false' surefire:test` -> PASS, 3 tests.
 
 ## Contract or Integration Verification
 
-- Pending.
+- Verified `fillableUsers` includes route dynamic form filler `152 / 张可莹（zhangkeying）`.
+- Verified active work task candidates still take priority.
+- Verified existing route-process assignment rule fallback remains intact when no dynamic form rule exists.
 
 ## Observability Touchpoints
 
@@ -44,3 +50,4 @@
 ## Blockers and Downstream Skill Needs
 
 - Existing backend files were already modified before this task; this task will preserve unrelated changes.
+- Full module `testCompile` is blocked by unrelated legacy WM/MD tests referencing missing classes; not task-owned.
