@@ -1457,6 +1457,13 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         return StrUtil.blankToDefault(StrUtil.trim(validationProfile), expectedProfile);
     }
 
+    private Boolean resolveRecordbookEnabled(Boolean recordbookEnabled, String recordCategory) {
+        if (RECORD_CATEGORY_INTERNAL.equals(StrUtil.trim(recordCategory))) {
+            return Boolean.FALSE;
+        }
+        return recordbookEnabled == null ? Boolean.TRUE : recordbookEnabled;
+    }
+
     private String resolveExistingRecordCategory(MesProRouteFlowProcessBatchRecordDO record) {
         String formSlotType = MesProBatchRecordFormSlotType.normalize(record.getFormSlotType());
         return resolveRecordCategory(record.getRecordCategory(), formSlotType);
