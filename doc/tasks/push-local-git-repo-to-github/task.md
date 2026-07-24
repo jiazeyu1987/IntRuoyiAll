@@ -8,7 +8,8 @@ Configure `E:\IntRuoyi` to push the local `main` branch to `https://github.com/j
 
 - [x] Confirm local repository status and branch.
 - [x] Check whether the GitHub remote has existing refs.
-- [ ] Configure the GitHub remote.
+- [x] Configure the GitHub remote.
+- [x] Restore missing local Git LFS objects required by the first push.
 - [ ] Push the local `main` branch.
 - [ ] Verify remote tracking and clean working tree.
 
