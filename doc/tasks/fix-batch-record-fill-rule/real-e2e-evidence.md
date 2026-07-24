@@ -1,16 +1,20 @@
 # eDHR 批次执行真实路径 E2E Evidence
 
-- Task ID: `20260608-edhr-batch-execution-full-flow`
+- Task ID: `fix-batch-record-fill-rule`
 - 状态：FAIL
 - 前端入口：`http://localhost:8081`
-- 测试租户：`测试租户`；账号名默认 `aoteman`，密码由环境变量注入。
+- 测试租户：`测试租户`；账号名 `aoteman`，密码从既有本机 E2E 配置读取且未写入证据。
+- 工单：`E2E-SYNC-NOPD-20260708093207` / `925869`
+- 路线：`ROUTE-XLSX-00001` / `922046`
+- 批次号：`FIX-RULE-20260724-20260724092714`
 
 ## BDD
 
-- BDD: 创建/打开批次执行 -> Given 测试租户存在真实工单、产品、路线和默认批记录绑定 When 用户从工作台创建或打开批次 Then 页面进入批次详情并展示按路线排序的任务。
-- BDD: 打开工序任务 -> Given 批次详情存在可打开任务 When 用户点击打开填写 Then 前端调用真实 `/mes/pro/edhr-batch-execution/task/open` 并进入既有 eDHR 执行页。
-- BDD: 关闭和归档入口 -> Given 批次任务完成且后端返回 canClose=true When 用户关闭批次并生成归档 Then 前端调用真实关闭、生成、下载接口并暴露打印入口。
+- BDD: 规则确认后打开填写 -> Given 测试租户存在已绑定批记录模板的真实工单 When 用户从批次执行页打开/创建批次并点击打开填写 Then 后端 `task/open` 返回成功且页面进入 eDHR 填写页，不出现未确认填写规则误报。
 
 ## Result
 
-- RED: 真实前端路径失败，page.waitForResponse: Timeout 60000ms exceeded while waiting for event "response"
+- RED: Playwright 真实前端路径 -> FAIL，open-or-create 业务响应失败：eDHR 批次执行缺少工艺流程批记录配置流程配置或默认批记录
+
+1040750403 !== 0
+
