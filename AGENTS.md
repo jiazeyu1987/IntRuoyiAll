@@ -25,6 +25,8 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 ## Trigger-Read Rule Files
 
 - Worktree operations: read `docs\worktree-restrictions.md` before creating, starting, stopping, restarting, merging, cleaning, or deleting any IntRuoyi worktree.
+- Backend development: read `docs\backend-development.md` before modifying Java, Spring Boot, Maven, backend APIs, services, mappers, backend configuration, or backend tests.
+- Frontend development: read `docs\frontend-development.md` before modifying Vue, TypeScript, Vite, routes, frontend APIs, styles, frontend configuration, or frontend tests.
 - Local runtime operations: read `docs\local-runtime.md` before starting, stopping, restarting, or troubleshooting local frontend/backend services or ports.
 - Server operations: read `docs\server-access.md` before any test, production, backup-server, SSH, remote status, remote restart, or remote deploy action.
 - Login, tenant, and account use: read `docs\login-access.md` before login, E2E login setup, tenant selection, account use, or permission-path debugging.
@@ -78,25 +80,13 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 
 ## Backend Work Rules
 
-- Work under `IntRuoyiBackend` for Java/Spring changes.
-- Follow existing module boundaries; do not move logic across modules without a documented design reason.
-- Before writing SQL, migrations, menu permissions, tenant bindings, or schema-dependent code, verify current real schema with `SHOW TABLES`, `DESCRIBE`, existing migration files, or current mapper XML/contracts. Do not infer schema from DO class names alone.
-- Prefer targeted Maven verification for the touched module, for example:
-  - `mvn -pl yudao-module-mes -am test`
-  - `mvn -pl yudao-server -am test`
-- If Maven dependencies, Java runtime, database, Redis, or required test data are missing, fail fast and record the blocker.
+- Before backend implementation or verification, read `docs\backend-development.md`.
+- Before SQL, migrations, menu permissions, tenant bindings, or schema-dependent changes, also read `docs\database-rules.md`.
 
 ## Frontend Work Rules
 
-- Work under `IntRuoyiFronted` for the active Vue3 admin frontend.
-- Use pnpm for frontend commands; do not switch package managers.
-- Preserve existing Vue3/Vite/Element Plus patterns, route conventions, API wrappers, permission handling, and table/form styles.
-- Frontend failures must be visible through UI feedback, console/network evidence, or test assertions. Do not use empty `catch {}` blocks or silent toasts to hide backend errors.
-- Prefer targeted verification for touched areas:
-  - `pnpm ts:check`
-  - `pnpm build:local`
-  - Existing `pnpm e2e:*` scripts that match the changed module.
-- Do not add frontend controls only to make tests pass unless the user-approved scope includes that product change.
+- Before frontend implementation or verification, read `docs\frontend-development.md`.
+- Before real user-path verification, also read `docs\e2e-rules.md`.
 
 ## E2E, Data, and Tenant Safety
 
