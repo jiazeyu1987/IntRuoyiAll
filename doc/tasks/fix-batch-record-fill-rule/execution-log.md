@@ -23,6 +23,7 @@
 - BDD: 保存已确认自动建议时归一化为人工确认 -> Given 规则保存请求包含 `source=AUTO` 且 `reviewed=true` 的可填单元格 / When 后端保存规则并写回 Jimu JSON / Then 持久化规则必须为 `source=MANUAL` 且 `reviewed=true`
 - BDD: 真正未确认规则仍阻断打开填写 -> Given 模板存在缺少有效确认规则的可填单元格 / When 用户点击打开填写 / Then 系统必须 fail fast 并返回具体坐标，不得创建执行快照
 - BDD: 历史异常规则显式修复 -> Given 历史模板存在 `source=AUTO` 且 `reviewed=true` 的异常规则 / When 管理员 dry run 后对指定报表执行修复 / Then 系统只修复经校验和确认范围内的候选规则，不静默批准未知模板
+- BDD: 传统批记录任务打开不依赖动态表单中心上下文 -> Given 既有批次任务包含 `executionId` 和 `batchRecordReportId` 但没有 Form Center 字段 / When 填写人从批次执行点击打开填写 / Then 后端应使用已冻结的批记录执行上下文打开任务，不应误报“eDHR 批次缺少唯一批记录路线”
 
 ## TDD Evidence
 

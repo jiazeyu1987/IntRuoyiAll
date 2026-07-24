@@ -13,4 +13,7 @@
 
 ## Result
 
-- RED: 真实前端路径失败，page.waitForResponse: Timeout 60000ms exceeded while waiting for event "response"
+- RED: 真实前端路径失败，打开工序任务业务响应必须成功：eDHR 批次缺少唯一批记录路线
+
+1040750412 !== 0
+
