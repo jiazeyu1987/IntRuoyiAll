@@ -13,9 +13,9 @@
 - [x] 新增保存输出到执行规则识别的组合回归用例
 - [x] 实施最小正式修复
 - [x] 运行关键 Maven GREEN 验证并记录结果
-- [ ] 用户授权纳入范围外编译前置：修复 `MesProRouteFlowConfigServiceImpl.resolveRecordbookEnabled(Boolean,String)` 缺失
-- [ ] 修复损耗报告 Word 解析回归：期望保留 `□报废`
-- [ ] 获得或发现任务专用测试账号后完成真实前端 E2E
+- [x] 用户授权纳入范围外编译前置：修复 `MesProRouteFlowConfigServiceImpl.resolveRecordbookEnabled(Boolean,String)` 缺失
+- [x] 修复损耗报告 Word 解析回归：期望保留 `□报废`
+- [x] 获得或发现任务专用测试账号后完成真实前端 E2E
 - [ ] 如需修复历史模板，另行授权 dry run/apply 受控修复任务
 - [ ] 完成收尾与经验沉淀
 
@@ -29,7 +29,7 @@
 
 ## Current Status
 
-in_progress；用户已授权把范围外编译前置纳入当前任务，并要求修复损耗报告 Word 解析回归与真实前端 E2E 阻塞。下一步按 BDD + strict TDD 先补编译前置，再复现并修复 `□报废` 解析断言，最后用真实前端路径验证“打开填写”。
+ready_for_closeout；用户授权纳入的编译前置、损耗报告 Word 解析回归和真实前端 E2E 阻塞均已修复并验证通过。实现与要求验证已完成，剩余为文档校验、任务清理、经验沉淀和提交/推送门禁。
 
 ## 设计约束检查
 

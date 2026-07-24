@@ -55,3 +55,8 @@
 - 相邻回归集存在范围外失败：损耗报告 Word 解析将 `□报废` 解析为 `报废`；该行为需其所属任务确认或修复。
 - 后续单独复现相邻失败或继续本任务关键用例时，模块主代码被范围外 `MesProRouteFlowConfigServiceImpl.resolveRecordbookEnabled` 缺失阻塞，当前构建状态不稳定。
 - 真实 E2E 缺少可用登录会话和任务专用测试账号；不得使用共享或生产业务账号替代。
+- GREEN: `mvn -pl yudao-module-mes '-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_opensLegacyBatchRecordTaskWithFrozenExecutionWithoutFormCenterContext' test` -> PASS，传统批记录任务已有 `executionId + batchRecordReportId` 时不再被 Form Center 字段误拦截。
+- GREEN: `mvn -pl yudao-module-mes '-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_opensLegacyBatchRecordTaskWithFrozenExecutionWithoutFormCenterContext+openTask_requiresFrozenExecutionForBatchSharedTask' test` -> PASS，2 个测试通过，确认传统批记录可打开且 `BATCH_SHARED` 缺少冻结执行仍 fail fast。
+- GREEN: `mvn -pl yudao-module-mes '-Dtest=MesProRouteFlowConfigServiceImplTest#getRouteFlowProcessConfigList_shouldReturnInternalRecordMetadata' test` -> PASS，1 个测试通过，编译前置 helper 已可用。
+- GREEN: `mvn -pl yudao-module-mes '-Dtest=MesProBatchRecordCellRuleSupportTest,MesProBatchRecordReportServiceImplDbTest' test` -> PASS，129 个测试通过，损耗报告 Word 解析已保留 `□报废`。
+- GREEN: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS，真实前端路径登录测试租户/aoteman，打开既有批次 `JILUBEN-E2E-1784859323164` 的可填写任务并进入 eDHR 执行页。

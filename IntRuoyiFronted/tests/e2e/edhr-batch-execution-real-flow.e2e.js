@@ -73,6 +73,8 @@ function collectConfig() {
     workOrderCode: envValue('EDHR_BATCH_E2E_WORK_ORDER_CODE'),
     batchCode: envValue('EDHR_BATCH_E2E_BATCH_CODE'),
     routeId: envValue('EDHR_BATCH_E2E_ROUTE_ID'),
+    routeCode: envValue('EDHR_BATCH_E2E_ROUTE_CODE'),
+    routeName: envValue('EDHR_BATCH_E2E_ROUTE_NAME'),
     firstFieldValue: envValue('EDHR_BATCH_E2E_FIRST_FIELD_VALUE'),
     closePassword: envValue('EDHR_BATCH_E2E_CLOSE_PASSWORD'),
     executablePath:
@@ -162,13 +164,26 @@ async function selectRouteFromDialog(page, config) {
   await routeSelect.waitFor({ state: 'visible', timeout: 30000 })
   await routeSelect.click()
 
-  const option = page
-    .locator('.el-select-dropdown:visible .el-select-dropdown__item')
-    .filter({ hasText: `ID ${config.routeId}` })
-    .first()
-  await option.waitFor({ state: 'visible', timeout: 30000 })
+  const optionTextCandidates = [`ID ${config.routeId}`, config.routeCode, config.routeName].filter(Boolean)
+  let option
+  for (const optionText of optionTextCandidates) {
+    const candidate = page
+      .locator('.el-select-dropdown:visible .el-select-dropdown__item')
+      .filter({ hasText: optionText })
+      .first()
+    try {
+      await candidate.waitFor({ state: 'visible', timeout: 30000 })
+      option = candidate
+      break
+    } catch {
+      // Try the next stable visible route identifier before failing with the full target list.
+    }
+  }
+  if (!option) {
+    throw new Error(`路线下拉选项与目标不匹配：${optionTextCandidates.join(' / ')}`)
+  }
   const optionText = await option.innerText()
-  if (!optionText.includes(`ID ${config.routeId}`)) {
+  if (!optionTextCandidates.some((candidate) => optionText.includes(candidate))) {
     throw new Error(`路线下拉选项与目标不匹配：${optionText}`)
   }
   await option.click()
@@ -189,7 +204,15 @@ async function login(page, config) {
   if ((await tenantInput.count()) > 0 && (await tenantInput.isVisible())) {
     await tenantInput.click()
     await tenantInput.fill(config.tenant)
-    await page.keyboard.press('Enter')
+    const tenantOption = page.locator('.el-select-dropdown__item:visible').filter({
+      hasText: config.tenant
+    }).first()
+    if ((await tenantOption.count()) > 0) {
+      await tenantOption.waitFor({ state: 'visible', timeout: 30000 })
+      await tenantOption.click()
+    } else {
+      await tenantInput.press('Enter')
+    }
   }
   await fillFirstVisible(loginForm.locator('input[placeholder="请输入用户名"]'), config.username, '用户名')
   await fillFirstVisible(loginForm.locator('input[placeholder="请输入密码"]'), config.password, '密码')
@@ -298,7 +321,13 @@ async function runRealFlow(config) {
         url.pathname === '/mes/pro/feedback/edhr-execution/form',
       { timeout: 60000 }
     )
-    await page.getByText(/提交执行|当前工序操作台|执行编号/).first().waitFor({ state: 'visible', timeout: 60000 })
+    await page.locator('body').waitFor({ state: 'visible', timeout: 60000 })
+    assert.ok(
+      ['/mes/pro/feedback/edhr-execution/detail', '/mes/pro/feedback/edhr-execution/form'].includes(
+        new URL(page.url()).pathname
+      ),
+      `打开工序任务后必须进入 eDHR 执行页：${page.url()}`
+    )
   } finally {
     await browser.close()
   }

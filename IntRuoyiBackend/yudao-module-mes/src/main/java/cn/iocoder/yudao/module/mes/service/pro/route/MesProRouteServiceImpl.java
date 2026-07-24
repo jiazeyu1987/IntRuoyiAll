@@ -828,6 +828,11 @@ public class MesProRouteServiceImpl implements MesProRouteService {
 
     private JSONObject buildFormBindingSnapshot(MesProRouteFlowProcessBatchRecordDO record) {
         JSONObject binding = new JSONObject(true);
+        binding.put("routeBindingId", record.getId());
+        binding.put("batchRecordReportId", record.getBatchRecordReportId());
+        binding.put("batchRecordDefinitionId", record.getBatchRecordDefinitionId());
+        binding.put("batchRecordVersionId", record.getBatchRecordVersionId());
+        binding.put("formSlotType", record.getFormSlotType());
         binding.put("formBindingKey", record.getFormBindingKey());
         binding.put("formTemplateId", record.getFormTemplateId());
         binding.put("formTemplateName", record.getFormTemplateNameSnapshot());
@@ -838,7 +843,9 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         binding.put("fillableScopeJson", record.getFillableScopeJson());
         binding.put("recordCategory", record.getRecordCategory());
         binding.put("validationProfile", record.getValidationProfile());
+        binding.put("recordbookEnabled", record.getRecordbookEnabled());
         binding.put("permissionScopeId", record.getPermissionScopeId());
+        binding.put("recordCategorySnapshotHash", record.getRecordCategorySnapshotHash());
         binding.put("requiredPolicy", record.getRequiredPolicy());
         binding.put("requiredConditionJson", record.getRequiredConditionJson());
         binding.put("ownerRoleKey", record.getOwnerRoleKey());
