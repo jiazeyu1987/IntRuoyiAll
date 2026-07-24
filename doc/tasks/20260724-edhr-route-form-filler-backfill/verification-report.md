@@ -1,18 +1,19 @@
 # Verification Report
 
-## Summary
+## Scope
 
-- Result: PASS.
-- Scope: eDHR batch execution detail dynamic form `fillableUsers` backfill from route form binding.
+- Backend detail response for `GET /admin-api/mes/pro/edhr-batch-execution/get?id={id}`.
+- Field verified: route form task `fillableUsers`.
 
 ## Commands
 
-- GREEN: `mvn -pl yudao-module-mes -DskipTests compile` -> PASS.
-- GREEN: `mvn -pl yudao-module-mes -Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated test` -> PASS.
-- GREEN: `mvn -pl yudao-module-mes -Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromActiveFillWorkTask+detailTask_includesFillableUsersFromAssignmentRuleWhenWorkTaskNotCreated+detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated test` -> PASS.
-- Static: `git diff --check -- <touched files>` -> PASS.
+- RED: `mvn '-Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated' surefire:test` -> FAIL, `expected: <[152]> but was: <[]>`.
+- GREEN: `mvn '-Dmaven.compiler.useIncrementalCompilation=false' -DskipTests compile` -> PASS.
+- GREEN: `javac @target\javac-edhr.args` -> PASS.
+- GREEN: `mvn '-Dtest=MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromActiveFillWorkTask+detailTask_includesFillableUsersFromAssignmentRuleWhenWorkTaskNotCreated+detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated' '-Dsurefire.useManifestOnlyJar=false' surefire:test` -> PASS, 3 tests.
 
-## Notes
+## Result
 
-- Target regression confirms a route-bound loss report configured with `USERS/152` returns `fillableUsers` containing `张可莹（zhangkeying）`.
-- Adjacent regression confirms active work tasks and assignment rules still take priority over route-binding backfill.
+- Dynamic route form task now returns configured process-form filler `152 / 张可莹（zhangkeying）`.
+- Existing active work task and route-process assignment rule priorities remain covered.
+- Full module `testCompile` remains blocked by unrelated legacy WM/MD test references to missing classes.

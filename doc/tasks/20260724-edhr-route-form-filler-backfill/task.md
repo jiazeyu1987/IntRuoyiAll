@@ -33,3 +33,8 @@ Implementation and required verification passed. Closeout cleanup and final evid
 - `是否引入 fallback/降级/吞异常`：否。
 - `是否从根因和长期维护角度解决`：是，修复执行任务填写人来源映射，而不是前端推断。
 - `是否存在临时补丁或绕过`：否。
+
+## Cleanup Keep
+
+- `doc/tasks/20260724-edhr-route-form-filler-backfill/backend-api-evidence.md`
+- `doc/tasks/20260724-edhr-route-form-filler-backfill/bug-regression-evidence.md`
