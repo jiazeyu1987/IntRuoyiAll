@@ -2,7 +2,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const assert = require('node:assert/strict')
 
-const TASK_ID = '20260608-edhr-batch-execution-full-flow'
+const TASK_ID = envValue('EDHR_BATCH_E2E_TASK_ID') || '20260608-edhr-batch-execution-full-flow'
 const RESULT_DIR = path.resolve(process.cwd(), 'test-results', 'edhr-batch-execution')
 const EVIDENCE_FILE = path.resolve(process.cwd(), 'doc', 'tasks', TASK_ID, 'real-e2e-evidence.md')
 const REQUIRED_BASE_URL = 'http://localhost:8081'
@@ -132,7 +132,9 @@ async function clickButton(root, name) {
 async function selectWorkOrderFromDialog(page, config) {
   const dialog = page.locator('.el-dialog:visible').first()
   const workOrderInput = dialog
-    .locator('input[placeholder="输入工单号搜索并选择未冻结工单"], .el-select input')
+    .locator(
+      'input[placeholder="输入工单号或产品名称搜索并选择未冻结工单"], input[placeholder="输入工单号搜索并选择未冻结工单"], .el-select input'
+    )
     .first()
   await workOrderInput.waitFor({ state: 'visible', timeout: 30000 })
   await workOrderInput.click()
@@ -146,6 +148,27 @@ async function selectWorkOrderFromDialog(page, config) {
   const optionText = await option.innerText()
   if (!optionText.includes(config.workOrderId) && config.workOrderCode && !optionText.includes(config.workOrderCode)) {
     throw new Error(`工单下拉选项与目标不匹配：${optionText}`)
+  }
+  await option.click()
+}
+
+async function selectRouteFromDialog(page, config) {
+  if (!config.routeId) return
+  const dialog = page.locator('.el-dialog:visible').first()
+  const routeInput = dialog
+    .locator('input[placeholder="请先选择工单，再选择该产品绑定的工艺路线"]')
+    .first()
+  await routeInput.waitFor({ state: 'visible', timeout: 30000 })
+  await routeInput.click()
+
+  const option = page
+    .locator('.el-select-dropdown:visible .el-select-dropdown__item')
+    .filter({ hasText: `ID ${config.routeId}` })
+    .first()
+  await option.waitFor({ state: 'visible', timeout: 30000 })
+  const optionText = await option.innerText()
+  if (!optionText.includes(`ID ${config.routeId}`)) {
+    throw new Error(`路线下拉选项与目标不匹配：${optionText}`)
   }
   await option.click()
 }
@@ -190,7 +213,17 @@ async function runRealFlow(config) {
     })
     await page.getByText('批次执行编码').first().waitFor({ state: 'visible', timeout: 60000 })
     await clickButton(page, '打开/创建')
+    const routeOptionsResult = page
+      .waitForResponse(
+        (response) =>
+          response.url().includes('/mes/pro/edhr-batch-execution/work-order-route-options') &&
+          response.request().method() === 'GET',
+        { timeout: 60000 }
+      )
+      .catch(() => null)
     await selectWorkOrderFromDialog(page, config)
+    await routeOptionsResult
+    await selectRouteFromDialog(page, config)
     await fillFirstVisible(
       page.locator('.el-dialog input[placeholder="请输入真实批次号"]'),
       config.batchCode,
@@ -212,8 +245,8 @@ async function runRealFlow(config) {
     assert.ok(tasks.length > 0, '打开/创建批次必须返回真实工序任务')
     assert.equal(openBody.data?.taskTotal, tasks.length, '批次任务总数必须与后端返回任务列表一致')
     assert.ok(
-      tasks.some((task) => task.requiredFlag !== false && task.batchRecordReportId),
-      '批次任务必须包含至少一个需要填写的真实批记录'
+      tasks.some((task) => task.requiredFlag !== false && (task.batchRecordReportId || task.formTemplateId)),
+      '批次任务必须包含至少一个需要填写的真实批记录或动态表单'
     )
     assert.equal(openBody.data?.blockedCount, 0, '当前真实测试工单不能存在阻塞任务')
     await page.waitForURL((url) => url.pathname === `${BATCH_EXECUTION_ROUTE}/detail`, { timeout: 60000 })
