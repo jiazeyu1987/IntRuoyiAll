@@ -11,7 +11,7 @@
 - [x] 按标准列表模板拆分测试记录前端页面并移除测试管理内嵌执行记录
 - [x] 新增测试记录菜单迁移，保证位于测试管理与备份计划之间
 - [x] 执行 GREEN 与回归验证
-- [ ] 更新证据、清理并完成收尾
+- [x] 更新证据、清理并完成收尾
 
 ## Expected Verification
 
@@ -22,7 +22,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Experience Gates
 
@@ -41,5 +41,10 @@ ready_for_closeout
 
 ## Closeout Notes
 
-- 实现与验证已完成，待收尾项为任务证据提交/推送。
-- 当前 Git 状态仍存在其它任务文件：`doc/tasks/20260726-batch-record-import-v14/execution-log.md` 和 `doc/tasks/20260726-batch-record-import-v14/verification-report.md`；本任务不修改该并发任务产物。
+- 实现、验证与 cleanup apply 已完成；当前仅剩本任务提交/推送。
+- 2026-07-26 复验 Git 状态时未发现并发任务文件阻塞。
+- Cleanup preview/apply 均无删除项、无阻塞、无警告，保留 `frontend-feature-evidence.md`。
+
+## Cleanup Keep
+
+- `doc/tasks/20260726-standard-list-template/frontend-feature-evidence.md`

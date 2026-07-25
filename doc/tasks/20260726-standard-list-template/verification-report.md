@@ -13,8 +13,10 @@
 - GREEN: `pnpm ts:check` -> PASS.
 - GREEN: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_system_backup_plan_menu_sql.py IntRuoyiBackend\script\tests\test_codex_test_management_migration.py -q` -> PASS, 4 passed.
 - GREEN: `git diff --check -- <task-owned files>` -> PASS.
+- GREEN: frontend feature evidence validation -> PASS.
+- GREEN: cleanup preview/apply -> PASS, no delete/blocked/warnings.
 
 ## Closeout Status
 
-- Current status: `ready_for_closeout`.
-- Remaining blocker: current Git status contains unrelated concurrent task files under `doc/tasks/20260726-batch-record-import-v14/`, so this task is not marked `completed` here.
+- Current status: `completed`.
+- Remaining blocker: none.

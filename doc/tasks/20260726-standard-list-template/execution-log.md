@@ -26,6 +26,9 @@
 - GREEN: `pnpm ts:check` -> PASS.
 - GREEN: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_system_backup_plan_menu_sql.py IntRuoyiBackend\script\tests\test_codex_test_management_migration.py -q` -> PASS, 4 passed.
 - GREEN: `git diff --check -- <task-owned files>` -> PASS.
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260726-standard-list-template/frontend-feature-evidence.md` -> PASS.
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260726-standard-list-template --mode preview` -> PASS, no delete/blocked/warnings.
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260726-standard-list-template --mode apply` -> PASS, no deleted paths.
 
 ## Milestone Updates
 
@@ -36,7 +39,9 @@
 - 2026-07-26: Removed embedded execution-record list from `src/views/system/codex-test-management/index.vue`; execution buttons now direct users to the “测试记录” page for results.
 - 2026-07-26: Added `IntRuoyiBackend/sql/mysql/20260726_system_codex_test_record_menu.sql` and moved backup plan menu sort to `102`.
 - 2026-07-26: Project experience consolidation check -> PASS; existing `docs/database-rules.md`, `docs/frontend-development.md`, `D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`, and `docs/experience-index.md` already cover the reusable gates, so no long-term memory document was added.
+- 2026-07-26: Rechecked current workspace; only task-owned `IntRuoyiFronted/src/views/system/codex-test-management/index.vue` remains dirty, so closeout can proceed.
+- 2026-07-26: Cleanup preview/apply completed with keep-only plan; task status set to `completed`.
 
 ## Blockers
 
-- Closeout/commit/push not completed in this turn because current Git status still contains unrelated concurrent task files under `doc/tasks/20260726-batch-record-import-v14/`; task remains `ready_for_closeout` rather than `completed`.
+- None currently.
