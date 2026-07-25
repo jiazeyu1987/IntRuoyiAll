@@ -42,6 +42,17 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
 - 如果端口被未知进程、非 IntRuoyi 进程或其他 runtime profile 占用，必须 fail fast，不得强杀或换端口。
 - worktree 必须按 `docs/worktree-restrictions.md` 的 profile + slot 规则使用独立端口。
 
+## 2026-07-25 本机 Docker MySQL 连接门禁
+
+- Trigger: 本机后端启动、`start-branch-backend.ps1`、`application-local.yaml` 指向 `127.0.0.1:3306`、MySQL 报 `Access denied for user 'root'@'localhost'`、需要“按 `E:\IntRuoyi` 相同方式连接 MySQL”。
+- Preflight check: 启动后端前先确认 Docker 容器映射存在：`int-ruoyi-mysql` 必须映射 `127.0.0.1:23306 -> 3306`，`int-ruoyi-redis` 必须映射 `127.0.0.1:26379 -> 6379`；再确认目标后端 profile 端口仍按矩阵，例如 `int_batch` 使用 `48041`。
+- Required runtime args: 分支后端必须通过显式 JVM 参数沿用 `E:\IntRuoyi` 的本机 Docker 运行方式，覆盖 master/slave datasource 到 `jdbc:mysql://127.0.0.1:23306/ruoyi-vue-pro?...`，并覆盖 Redis 到 `127.0.0.1:26379`；不得为了解决认证失败改写共享 `application-local.yaml`。
+- Credential handling: MySQL 用户和密码只从既有本地运行脚本或容器环境读取；任务日志、经验文档和命令记录必须脱敏密码，不得新增明文凭据。
+- Blocker: 如果 `23306/26379` 容器映射不存在、Docker 容器未运行、数据库名不是 `ruoyi-vue-pro`、或健康检查仍失败，必须停止并记录缺失前置条件；不得回退到本机 `3306`、猜测 root 密码、静默换端口或跳过后端。
+- Verification: 记录 `docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"` 的 MySQL/Redis 映射、后端监听 PID、`http://127.0.0.1:<backendPort>/actuator/health` 返回 `{"status":"UP"}`、以及启动日志中的 `项目启动成功！`。
+- Forbidden action: 禁止把 `127.0.0.1:3306` 认证失败当成服务不可启动的最终结论；必须先核对 `E:\IntRuoyi` 的 Docker MySQL 运行路径并显式使用 `23306/26379`。禁止通过改共享配置、假成功、API-only 替代健康检查或隐藏 datasource 异常来绕过。
+- Evidence: `doc/tasks/20260724-run-int-batch-runtime/verification-report.md`。
+
 ## 2026-07-24 本地重启脚本路径门禁
 
 - Trigger: 本地重启、E2E 复验、`restart-int-ruoyi-local.ps1`、`Missing int_main frontend path`、`yudao-ui-admin-vue3`、`IntRuoyiFronted`。
