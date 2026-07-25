@@ -74,3 +74,9 @@
 - completed: Ran project experience consolidation by merging the branch-local Docker dependency port lesson into existing `docs\local-runtime.md` and adding a route in `docs\experience-index.md`; no new long-term document was needed.
 - completed: `task-closeout-cleanup --mode preview` -> PASS, keep only `task.md`, `execution-log.md`, `verification-report.md`, delete only task runtime logs, no blocked or warnings.
 - BLOCKER: `task-closeout-cleanup --mode apply` -> FAIL, `PermissionError [WinError 32]` on `backend-runtime-20260725-080817.stderr.log` because the backend service still holds the log file open. Service shutdown was not part of the commit request, so cleanup remains blocked and status stays `ready_for_closeout`.
+
+## 2026-07-25 Commit Evidence
+
+- implementation commit: `0ee5ba4f1534bcaf7a9044eb7c92f2f66cff2fcf` (`chore: record int_shedule local runtime verification`).
+- committed files: `IntRuoyiBackend/yudao-server/src/main/resources/application-local.yaml`, `IntRuoyiFronted/tests/e2e/dcc-controlled-file-logs-static.spec.js`, `docs/local-runtime.md`, `docs/experience-index.md`, and task records.
+- branch status after implementation commit: `int_shedule...origin/int_shedule [ahead 1]`; push remains pending.
