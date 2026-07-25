@@ -138,7 +138,6 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRec
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_REQUIRED_FIELD_MISSING;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID;
-import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_STATUS_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_NOT_EXISTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -244,6 +243,8 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
     private MesProEdhrOperationAuditService operationAuditService;
     @MockitoBean
     private MesProRouteProcessService routeProcessService;
+    @MockitoBean
+    private MesProEdhrRecordbookGlobalSettingService recordbookGlobalSettingService;
 
     @BeforeEach
     void setUpFieldAuditVerification() {
@@ -1338,12 +1339,19 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void submitOrdinaryProcessResubmitRejectsWhenReleasePendingApproval() {
+    void submitOrdinaryProcessResubmitAllowsPendingReleaseBeforeBatchClose() {
         MesProBatchRecordExecutionDO execution =
-                insertExecution(4, "BRE-SUBMIT-ORDINARY-RELEASE-LOCK", "BATCH-SUBMIT-ORDINARY-RELEASE-LOCK");
+                insertExecution(4, "BRE-SUBMIT-ORDINARY-RELEASE-EDIT", "BATCH-SUBMIT-ORDINARY-RELEASE-EDIT");
+        String cellValuesJson = "[{\"rowIndex\":4,\"columnIndex\":5,\"valueType\":\"NUMBER\","
+                + "\"value\":39.2,\"valueDisplay\":\"39.2\"}]";
         executionMapper.updateById(new MesProBatchRecordExecutionDO()
                 .setId(execution.getId())
-                .setExecutionSnapshotJson(requiredFieldOrdinaryExecutionSnapshotJson()));
+                .setExecutionSnapshotJson(requiredFieldOrdinaryExecutionSnapshotJson())
+                .setCellValuesJson(cellValuesJson)
+                .setCellValuesHash(MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(cellValuesJson))
+                .setSubmittedBy(77L)
+                .setSubmittedAt(LocalDateTime.of(2026, 7, 20, 8, 30))
+                .setClosedAt(LocalDateTime.of(2026, 7, 20, 8, 35)));
         Long batchExecutionId = 93001L;
         insertPreReleaseBatchTask(execution, batchExecutionId, 94001L,
                 MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS);
@@ -1351,23 +1359,32 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
                 .setBatchExecutionId(batchExecutionId)
                 .setReleaseCode("REL-LOCK")
                 .setReleaseStatus(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL));
+        when(executionSignatureService.recordSubmitSignature(execution.getId(), "secret", "审批中修改"))
+                .thenReturn(9301L);
 
         TenantContextHolder.setTenantId(122L);
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
-            assertServiceException(() -> executionService.submitBatchRecordExecution(
-                            new MesProBatchRecordExecutionSubmitReqVO()
-                                    .setId(execution.getId())
-                                    .setWorkTaskId(8001L)
-                                    .setPassword("secret")
-                                    .setComment("审批中修改")),
-                    PRO_EDHR_RELEASE_STATUS_INVALID);
+            executionService.submitBatchRecordExecution(new MesProBatchRecordExecutionSubmitReqVO()
+                    .setId(execution.getId())
+                    .setWorkTaskId(8001L)
+                    .setPassword("secret")
+                    .setComment("审批中修改"));
         } finally {
             TenantContextHolder.clear();
         }
 
-        verify(executionSignatureService, never()).recordSubmitSignature(anyLong(), any(), any());
+        verify(executionSignatureService).recordSubmitSignature(execution.getId(), "secret", "审批中修改");
+        verify(executionSignatureService)
+                .bindSignatureFieldAuditEvidence(9301L, execution.getId(),
+                        0L, MesProBatchRecordExecutionFieldAuditHasher.GENESIS_HEAD_HASH,
+                        MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(cellValuesJson));
         verify(workTaskService, never()).completeFillAndCreateNextFillAfterOrdinarySubmit(anyLong(), anyLong());
+
+        MesProBatchRecordExecutionDO updated = executionMapper.selectById(execution.getId());
+        assertEquals(4, updated.getStatus());
+        assertEquals(99L, updated.getSubmittedBy());
+        assertNotEquals(LocalDateTime.of(2026, 7, 20, 8, 30), updated.getSubmittedAt());
     }
 
     @Test

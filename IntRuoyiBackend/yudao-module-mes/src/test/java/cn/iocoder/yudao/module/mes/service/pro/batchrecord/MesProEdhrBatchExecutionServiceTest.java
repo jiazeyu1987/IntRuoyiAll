@@ -2758,7 +2758,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void openTask_pendingReleaseKeepsApprovedOrdinaryFillCompletedLocked() {
+    void openTask_pendingReleaseAllowsApprovedOrdinaryFillCompletedBeforeClose() {
         Fixture fixture = insertRouteFixture(true, true);
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
@@ -2786,10 +2786,17 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
         EdhrBatchExecutionTaskRespVO visibleTask = routeTask(fillerView, 0);
         assertEquals(doneFillTask.getId(), visibleTask.getActiveWorkTaskId());
-        assertTrue(visibleTask.getAllowedActions().isEmpty());
-        assertEquals("放行审批待处理，只能处理放行审批或撤回放行", visibleTask.getDisabledReason());
-        assertServiceException(() -> openTaskAsFiller(batch.getId(), batchTask.getId(), doneFillTask.getId()),
-                PRO_EDHR_RELEASE_STATUS_INVALID);
+        assertTrue(visibleTask.getAllowedActions().contains("OPEN_FORM"));
+        assertTrue(visibleTask.getAllowedActions().contains("SUBMIT"));
+        assertNull(visibleTask.getDisabledReason());
+        assertEquals(Boolean.TRUE, fillerView.getReleaseActionLocked());
+
+        EdhrBatchExecutionTaskOpenRespVO opened =
+                openTaskAsFiller(batch.getId(), batchTask.getId(), doneFillTask.getId());
+
+        assertEquals(executionId, opened.getExecutionId());
+        assertEquals(doneFillTask.getId(), opened.getExecutionPageQuery().get("workTaskId"));
+        verify(singleExecutionService, never()).openOrCreateByContext(any());
     }
 
     @Test

@@ -329,6 +329,115 @@ class MesProBatchRecordReportLayoutCalibratorTest {
     }
 
     @Test
+    void calibrate_shouldMergePackedMaterialMatrixParentheticalContinuationLines() {
+        MesProBatchRecordParsedTable parsedTable = MesProBatchRecordParsedTable.builder()
+                .sourceTableIndex(6)
+                .tableTitle("通用工序生产记录")
+                .rowCount(3)
+                .columnCount(7)
+                .rows(List.of(
+                        structuredRow(structuredCell("通用工序生产记录", 1, 7)),
+                        structuredRow(structuredCell("□关键/特殊工序   ☑非关键/特殊工序", 1, 7)),
+                        structuredRow(
+                                structuredCell("生产操作及自检记录", 1, 1),
+                                structuredCell("""
+                                        物料编码
+                                        物料名称
+                                        批号
+                                        物料编码
+                                        物料名称
+                                        批号
+                                        /
+                                        套筒
+                                        /
+                                        □30atm压力表
+                                        /
+                                        延长管
+                                        （尼龙编织管）
+                                        /
+                                        □40atm压力表
+                                        /
+                                        旋转接头
+                                        /
+                                        光固胶
+                                        """, 1, 6)
+                        )
+                ))
+                .build();
+
+        MesProBatchRecordParsedTable calibrated = calibrator.calibrate(parsedTable);
+        List<List<MesProBatchRecordParsedCell>> rows = calibrated.getRows();
+
+        List<MesProBatchRecordParsedCell> tubeRow = rowContaining(calibrated, "延长管");
+        assertEquals("延长管（尼龙编织管）", textOf(tubeRow.get(1)).replaceAll("\\s+", ""));
+        assertEquals("□40atm压力表", textOf(tubeRow.get(4)).replaceAll("\\s+", ""));
+        List<MesProBatchRecordParsedCell> swivelRow = rowContaining(calibrated, "旋转接头");
+        assertEquals("旋转接头", textOf(swivelRow.get(1)));
+        assertEquals("光固胶", textOf(swivelRow.get(4)));
+        assertFalse(rows.stream()
+                .flatMap(List::stream)
+                .anyMatch(cell -> "（尼龙编织管）".equals(textOf(cell))),
+                "parenthetical continuation line must not become a standalone material item");
+    }
+
+    @Test
+    void calibrate_actualPressurePumpLightCureOne_shouldKeepParentheticalMaterialWithPreviousItem() throws Exception {
+        Assumptions.assumeTrue(Files.exists(PRESSURE_PUMP_SAMPLE),
+                "pressure pump source doc is not available on this machine");
+        byte[] bytes = Files.readAllBytes(PRESSURE_PUMP_SAMPLE);
+        MesProBatchRecordParsedTable parsedTable = routeBRecognizer.recognize(
+                        PRESSURE_PUMP_SAMPLE, bytes, PRESSURE_PUMP_SAMPLE.getFileName().toString())
+                .stream()
+                .filter(table -> "光固Ⅰ工序生产记录".equals(table.getTableTitle()))
+                .findFirst()
+                .orElseThrow();
+
+        MesProBatchRecordParsedTable calibrated = calibrator.calibrate(parsedTable);
+        List<List<MesProBatchRecordParsedCell>> rows = calibrated.getRows();
+        List<MesProBatchRecordParsedCell> tubeRow = rowContaining(calibrated, "延长管");
+        List<MesProBatchRecordParsedCell> swivelRow = rowContaining(calibrated, "旋转接头");
+
+        assertEquals("延长管（尼龙编织管）", textOf(tubeRow.get(1)).replaceAll("\\s+", ""));
+        assertEquals("□40atm压力表", textOf(tubeRow.get(4)).replaceAll("\\s+", ""));
+        assertEquals("旋转接头", textOf(swivelRow.get(1)));
+        assertEquals("光固胶", textOf(swivelRow.get(4)));
+        assertFalse(rows.stream()
+                .flatMap(List::stream)
+                .anyMatch(cell -> "（尼龙编织管）".equals(textOf(cell))),
+                "actual pressure-pump light-cure matrix must not expose the continuation as its own cell");
+    }
+
+    @Test
+    void calibrate_actualPressurePumpCleanDetailBand_shouldStopBeforeSelfInspectionSection() throws Exception {
+        Assumptions.assumeTrue(Files.exists(PRESSURE_PUMP_SAMPLE),
+                "pressure pump source doc is not available on this machine");
+        byte[] bytes = Files.readAllBytes(PRESSURE_PUMP_SAMPLE);
+        MesProBatchRecordParsedTable parsedTable = routeBRecognizer.recognize(
+                        PRESSURE_PUMP_SAMPLE, bytes, PRESSURE_PUMP_SAMPLE.getFileName().toString())
+                .stream()
+                .filter(table -> "清洁工序生产记录".equals(table.getTableTitle()))
+                .findFirst()
+                .orElseThrow();
+
+        MesProBatchRecordParsedTable calibrated = calibrator.calibrate(parsedTable);
+        List<List<MesProBatchRecordParsedCell>> rows = calibrated.getRows();
+        int detailHeaderRow = findFirstRowContainingAll(rows,
+                List.of("操作日期", "物料编码", "物料名称", "生产数量/pcs"));
+        int selfInspectionRow = findRowsContaining(rows, "生产自检").stream()
+                .filter(rowIndex -> rowIndex > detailHeaderRow)
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(MesProBatchRecordSharedRowTypeRules.RowType.LONG_DESCRIPTION,
+                MesProBatchRecordSharedRowTypeRules.classifyRow(rows, selfInspectionRow),
+                "self-inspection narrative block must not be classified as material detail data");
+        for (int rowIndex = detailHeaderRow + 1; rowIndex < selfInspectionRow; rowIndex++) {
+            assertFalse(rowText(rows.get(rowIndex)).contains("生产自检"),
+                    "operation detail band must stop before the self-inspection section");
+        }
+    }
+
+    @Test
     void calibrate_shouldAlignChecklistHeaderAndOutcomeColumns() {
         MesProBatchRecordParsedTable parsedTable = MesProBatchRecordParsedTable.builder()
                 .sourceTableIndex(6)
@@ -1759,6 +1868,23 @@ class MesProBatchRecordReportLayoutCalibratorTest {
         return indexes;
     }
 
+    private int findFirstRowContainingAll(List<List<MesProBatchRecordParsedCell>> rows, List<String> fragments) {
+        for (int index = 0; index < rows.size(); index++) {
+            String text = rowText(rows.get(index));
+            boolean matched = true;
+            for (String fragment : fragments) {
+                if (!text.contains(fragment)) {
+                    matched = false;
+                    break;
+                }
+            }
+            if (matched) {
+                return index;
+            }
+        }
+        throw new AssertionError("row not found for fragments: " + fragments);
+    }
+
     private List<MesProBatchRecordParsedCell> rowContaining(MesProBatchRecordParsedTable table, String text) {
         return table.getRows().stream()
                 .filter(row -> row.stream().anyMatch(cell -> textOf(cell).contains(text)))
@@ -1997,6 +2123,14 @@ class MesProBatchRecordReportLayoutCalibratorTest {
 
     private String textOf(MesProBatchRecordParsedCell cell) {
         return cell == null || cell.getText() == null ? "" : cell.getText().trim();
+    }
+
+    private String rowText(List<MesProBatchRecordParsedCell> row) {
+        StringBuilder builder = new StringBuilder();
+        for (MesProBatchRecordParsedCell cell : row) {
+            builder.append(textOf(cell));
+        }
+        return builder.toString();
     }
 
     private String shapeOf(List<MesProBatchRecordParsedCell> row) {

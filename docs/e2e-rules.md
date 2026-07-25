@@ -108,6 +108,15 @@
 - Forbidden action: 禁止把接口数组下标、隐藏 value、输入框残留文本、API-only 选中或坐标点击当作真实页面选择。
 - Evidence: `doc/tasks/20260724-batch-execution-published-route-runtime-update/execution-log.md`。
 
+### Element Plus 选择框显示门禁
+
+- Trigger: 修改 Element Plus `el-select` 多选字段、弹窗内三列配置表单、角色/人员/租户等较长业务名称的选中标签显示。
+- Preflight check: 先按 `label-width + grid-template-columns + gap` 核算真实输入区宽度；关键字段必须使用专用布局类和静态合同覆盖，必要时在该控件作用域内覆盖 `.el-select__tags-text` 默认省略宽度。
+- Blocker: 若选中值在输入框内仍显示为 `...`、只靠 tooltip 或下拉选项完整展示、或静态合同无法锁定该字段专用布局，必须停止并修复布局。
+- Verification: 静态合同或真实 E2E 必须断言目标选择框有专用布局类、关键列宽足够、选中标签未继续使用默认省略宽度。
+- Forbidden action: 禁止把 `collapse-tags-tooltip`、扩大整页/整弹窗、硬编码当前角色名或只验证下拉选项文本当成“选中值显示完整”。
+- Evidence: `doc/tasks/20260725-edhr-pressure-pump-v13-filler-role/verification-report.md`。
+
 ## 表格行定位
 
 - 当页面对列表进行本地排序、过滤或虚拟渲染时，Playwright 必须按页面可见的业务唯一文本定位目标行，再操作同一行的复选框或按钮。
@@ -131,6 +140,15 @@
 - Verification: 记录 Runner 注册/领取/心跳/回写命令、页面执行入口、租户/用户标签、检查点结果、失败截图 artifact、最终 UI 状态和必要的只读 API 核验。
 - Forbidden action: 禁止把 API-only、静态合同测试、mock 截图、默认成功、Runner 离线跳过或顺序执行降级当作真实 E2E 通过。
 - Evidence: `doc/tasks/20260724-codex-test-management-delivery/verification-report.md`，2026-07-24 Codex 测试管理交付。
+
+### Codex Runner 目标测试项存在性门禁
+
+- Trigger: 用户指定运行测试管理中的某个测试项名称，例如“作废测试”，或要求 Runner 领取并执行单个自然语言测试项。
+- Preflight check: 在点击执行前，先通过真实测试管理页面按可见业务名称搜索目标项；如页面未命中，再只读核对 `system_codex_test_case` 中目标名称、状态、租户和删除标记。
+- Blocker: 目标测试项不存在、被删除、禁用、租户不匹配，或名称只存在于历史任务文档/截图而非当前系统数据时，必须停止；不得自动新建占位测试项、改跑其它测试项或把 Runner 空领取当作执行成功。
+- Verification: 证据需包含页面搜索总数、只读 API 或 DB 名称列表、目标租户/用户标签，以及是否创建了 executionId。
+- Forbidden action: 禁止用模糊关键词误选其它测试项；禁止用 API-only 启动替代页面行级“执行”点击；禁止在缺少测试方法和目标项的情况下临时造数。
+- Evidence: `doc/tasks/20260725-codex-runner-void-test/verification-report.md`。
 ## eDHR 本地状态样本操作审计追溯门禁
 
 - Trigger: Playwright 验证本地状态样本、`LOCAL_STATE_SAMPLE_CREATE`、批次追溯操作审计、或只按 `batchExecutionId` 查询操作日志。

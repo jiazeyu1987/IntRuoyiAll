@@ -2136,11 +2136,11 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 || Objects.equals(batch.getStatus(), BATCH_STATUS_VOIDED)) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
         }
-        requireBatchActionUnlocked(batch.getId());
         MesProEdhrBatchExecutionTaskDO task = batchTaskMapper.selectByIdForUpdate(reqVO.getTaskId());
         if (task == null || !Objects.equals(task.getBatchExecutionId(), batch.getId())) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_NOT_EXISTS);
         }
+        requireBatchActionUnlockedForOpenTask(batch.getId(), task);
         if (Objects.equals(task.getStatus(), TASK_STATUS_APPROVED)) {
             EdhrBatchExecutionTaskOpenRespVO preReleaseOpenResp =
                     openPreReleaseSubmittedOrdinaryTaskIfAllowed(batch, task, reqVO);
@@ -4260,6 +4260,33 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         requireReleaseActionUnlocked(batchExecutionId);
     }
 
+    private void requireBatchActionUnlockedForOpenTask(Long batchExecutionId,
+                                                       MesProEdhrBatchExecutionTaskDO task) {
+        if (hasGoldenFingerActionBypass()) {
+            return;
+        }
+        if (selectPendingBatchVoidChange(batchExecutionId) != null) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_PENDING_VOID_ACTION_LOCKED);
+        }
+        if (isReleasePendingApproval(releaseTransactionMapper.selectByBatchExecutionId(batchExecutionId))
+                && !isSubmittedOrdinaryRouteFormTask(task)) {
+            throw exception(PRO_EDHR_RELEASE_STATUS_INVALID);
+        }
+    }
+
+    private boolean shouldApplyBatchActionLock(String actionLockReason, TaskActionContext actionContext) {
+        return !PENDING_RELEASE_ACTION_LOCK_REASON.equals(actionLockReason)
+                || actionContext == null
+                || !actionContext.allowedActions().contains("OPEN_FORM");
+    }
+
+    private boolean isSubmittedOrdinaryRouteFormTask(MesProEdhrBatchExecutionTaskDO task) {
+        return task != null
+                && isRouteForm(task)
+                && Objects.equals(task.getStatus(), TASK_STATUS_APPROVED)
+                && task.getExecutionId() != null;
+    }
+
     private void requireReleasePrecheckPassedBeforeClose(Long batchExecutionId) {
         MesProEdhrReleaseTransactionDO releaseTransaction =
                 releaseTransactionMapper.selectByBatchExecutionId(batchExecutionId);
@@ -4417,7 +4444,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         TaskGate resolvedGate = taskGate == null ? new TaskGate(false, "任务门禁状态缺失") : taskGate;
         TaskActionContext actionContext = resolveTaskActionContext(task, resolvedGate, activeWorkTasks,
                 currentUserId, closeRule);
-        if (StrUtil.isNotBlank(actionLockReason)) {
+        if (StrUtil.isNotBlank(actionLockReason) && shouldApplyBatchActionLock(actionLockReason, actionContext)) {
             actionContext = new TaskActionContext(actionContext.currentUserRole(), List.of(),
                     actionLockReason, actionContext.activeWorkTaskId(),
                     actionContext.activeWorkTaskType(), actionContext.actionUrl());

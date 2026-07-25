@@ -78,6 +78,7 @@ public class CodexTestRunnerServiceImpl implements CodexTestRunnerService {
         runnerSession.setCodexVersion(registerReqVO.getCodexVersion());
         runnerSession.setLastHeartbeatTime(LocalDateTime.now());
         runnerSession.setCurrentRunningCount(0);
+        CodexTestRunnerAuditSupport.stampRunnerAudit(runnerSession);
         codexTestRunnerSessionMapper.insert(runnerSession);
         CodexTestRunnerRegisterRespVO respVO = new CodexTestRunnerRegisterRespVO();
         respVO.setRunnerSessionId(runnerSession.getId());

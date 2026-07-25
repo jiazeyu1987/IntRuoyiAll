@@ -3669,7 +3669,7 @@ const goldenFingerNotice = computed(() =>
 )
 const preReleaseEditNotice = computed(() =>
   isPreReleaseEditable.value
-    ? execution.value?.preReleaseEditReason || '放行前可修改，重新提交将更新提交签名证据'
+    ? execution.value?.preReleaseEditReason || '关闭前可修改，重新提交将更新提交签名证据'
     : ''
 )
 const executionStatusText = computed(() => {
@@ -3689,7 +3689,7 @@ const executionStatusText = computed(() => {
 })
 const readonlySubmitReason = computed(() => {
   if (isPreReleaseEditable.value) {
-    return '放行前可修改，重新提交将更新提交签名证据。'
+    return '关闭前可修改，重新提交将更新提交签名证据。'
   }
   if (isInactiveRevisionDraft.value) {
     return '当前执行记录不是活动修订版本，不能提交。'
@@ -3784,7 +3784,7 @@ const fieldAuditOpenGateError = computed(() => {
     return '当前执行记录不是活动修订版本，不能保存字段变更。'
   }
   if (isReadonly.value) {
-    return '当前状态不允许编辑字段，只有草稿或放行前可修改的已提交普通表单可以保存字段变更。'
+    return '当前状态不允许编辑字段，只有草稿或关闭前可修改的已提交普通表单可以保存字段变更。'
   }
   if (!hasFieldAuditUpdatePermission.value) {
     return '当前账号没有字段审计保存权限。'

@@ -10,8 +10,10 @@ import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRun
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterRespVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionCaseDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionDO;
+import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestRunnerSessionDO;
 import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestExecutionCaseMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestExecutionMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestRunnerSessionMapper;
 import cn.iocoder.yudao.module.system.service.tenant.TenantService;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +43,8 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
     private CodexTestExecutionMapper codexTestExecutionMapper;
     @Resource
     private CodexTestExecutionCaseMapper codexTestExecutionCaseMapper;
+    @Resource
+    private CodexTestRunnerSessionMapper codexTestRunnerSessionMapper;
 
     @MockitoBean
     private TenantService tenantService;
@@ -82,6 +86,16 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
         assertEquals("产品编号没有变成橙色", executionCase.getFailureReason());
         CodexTestExecutionDO execution = codexTestExecutionMapper.selectById(executionId);
         assertEquals("FAIL", execution.getStatus());
+    }
+
+    @Test
+    void registerRunner_stampsAuditFieldsWithoutLoginUser() {
+        Long runnerSessionId = registerRunner();
+
+        CodexTestRunnerSessionDO runnerSession = codexTestRunnerSessionMapper.selectById(runnerSessionId);
+
+        assertEquals("codex-runner", runnerSession.getCreator());
+        assertEquals("codex-runner", runnerSession.getUpdater());
     }
 
     private Long registerRunner() {

@@ -63,7 +63,6 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRec
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_VALUE_TYPE_UNSUPPORTED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID;
-import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_STATUS_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_STATUS_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -140,6 +139,8 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
     private RoleApi roleApi;
     @MockitoBean
     private DeptApi deptApi;
+    @MockitoBean
+    private MesProEdhrRecordbookGlobalSettingService recordbookGlobalSettingService;
 
     @BeforeEach
     void setUpTenant() {
@@ -448,7 +449,7 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void saveChanges_fillCompletedOrdinaryPendingReleaseRejectsBeforeSignature() {
+    void saveChanges_fillCompletedOrdinaryPendingReleaseAllowsBeforeBatchClose() {
         String beforeJson = JsonUtils.toJsonString(List.of(Map.of(
                 "rowIndex", 1,
                 "columnIndex", 2,
@@ -467,17 +468,19 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
                 .setReleaseCode("REL-FIELD-AUDIT-LOCK")
                 .setReleaseStatus(MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL));
         String beforeHash = MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(beforeJson);
+        mockFieldChangeSignature();
 
-        ServiceException exception = assertThrows(ServiceException.class,
-                () -> fieldAuditService.saveChanges(saveCommand(execution, beforeHash,
-                        "idem-pre-release-pending", new BigDecimal("36.6"),
+        MesProBatchRecordExecutionFieldAuditSaveResult result = fieldAuditService.saveChanges(
+                saveCommand(execution, beforeHash, "idem-pre-release-pending",
+                        new BigDecimal("36.6"),
                         MesProBatchRecordExecutionFieldAuditHasher.hashTypedValue(
                                 MesProBatchRecordExecutionFieldAuditValueType.NUMBER, new BigDecimal("36.6")))
-                        .setWorkTaskId(workTask.getId())));
-        assertEquals(PRO_EDHR_RELEASE_STATUS_INVALID.getCode(), exception.getCode());
+                        .setWorkTaskId(workTask.getId()));
 
-        verify(signatureService, never()).recordFieldChangeSignature(any());
-        assertTrue(batchMapper.selectList().isEmpty());
+        assertNotNull(result.getAuditBatchId());
+        assertEquals(1L, result.getFieldAuditRevision());
+        assertNotEquals(beforeHash, result.getCellValuesHash());
+        verify(signatureService).attachFieldChangeSignature(any());
     }
 
     @Test

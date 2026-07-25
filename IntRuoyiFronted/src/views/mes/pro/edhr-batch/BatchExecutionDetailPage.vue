@@ -3170,7 +3170,6 @@ const canOpenTask = (row: EdhrBatchExecutionTaskRespVO) =>
   !resolveTaskSlotBlocker(row) &&
   row.available !== false &&
   row.status !== EDHR_BATCH_TASK_STATUS_BLOCKED &&
-  row.status !== EDHR_BATCH_TASK_STATUS_APPROVED &&
   row.status !== EDHR_BATCH_TASK_STATUS_SKIPPED &&
   hasActiveWorkTask(row) &&
   hasAllowedTaskAction(row, 'OPEN_FORM')

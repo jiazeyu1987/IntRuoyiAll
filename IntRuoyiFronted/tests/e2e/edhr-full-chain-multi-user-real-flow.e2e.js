@@ -74,6 +74,7 @@ const ENDPOINTS = {
   approvalReject: '/mes/pro/batch-record-execution/reject',
   approvalCenterTasks: '/approval-center/tasks/page',
   approvalCenterReview: '/approval-center/tasks/review',
+  flowInterventionTransfer: '/mes/pro/edhr-flow-intervention/transfer',
   domainTraceVerify: '/mes/pro/batch-record-execution/domain-trace/verify',
   oqcCreate: '/mes/qc/oqc/create',
   oqcUpdate: '/mes/qc/oqc/update',
@@ -763,6 +764,14 @@ function isActiveRouteFormTask(task) {
   return isRouteFormTask(task) && Number(task.activeWorkTaskId || 0) > 0 && Number(task.status) !== 40
 }
 
+function taskAllowsAction(task, action) {
+  return Array.isArray(task?.allowedActions) && task.allowedActions.includes(action)
+}
+
+function shouldTakeOverRouteTask(task) {
+  return isActiveRouteFormTask(task) && !taskAllowsAction(task, 'OPEN_FORM')
+}
+
 function isFormCenterRouteTask(task) {
   if (!isRouteFormTask(task)) return false
   if (Number(task.formCenterInstanceId || 0) > 0) return true
@@ -1065,8 +1074,84 @@ async function openFillTaskFromBoard(page, batchId, batchCode, task, options = {
     assert.equal(url.searchParams.get('workTaskId'), String(options.expectedWorkTaskId), `${actionLabel}待办 workTaskId 必须匹配返工任务 ${options.expectedWorkTaskId}`)
   }
   assert.equal(url.searchParams.get('id'), String(openedExecutionId), `${actionLabel}待办必须进入执行 ${openedExecutionId}`)
-  await page.locator('.edhr-fill-workspace, .edhr-page-shell__form').first().waitFor({ state: 'visible', timeout: 60000 })
+  await page.locator('.edhr-fill-workspace').first().waitFor({ state: 'visible', timeout: 60000 })
   url.openedTask = opened
+  return url
+}
+
+async function selectBatchDetailRouteTask(page, task) {
+  const processToken = task.processName || task.processCode || task.batchRecordReportName
+  assert.ok(processToken, `批次详情接管任务 ${task.id} 缺少工序定位文本。`)
+  const processHead = page
+    .locator('.edhr-batch-detail__process-task-group:not(.edhr-batch-detail__special-process-task-group) .edhr-batch-detail__process-task-group-head')
+    .filter({ hasText: String(processToken) })
+    .first()
+  await processHead.waitFor({ state: 'visible', timeout: 60000 })
+  await processHead.click({ timeout: 10000 })
+  const taskToken = task.batchRecordReportName || task.formTemplateName || task.processName || task.processCode
+  const taskCard = page.locator('.edhr-batch-detail__rail-process-form-item').filter({ hasText: String(taskToken) }).first()
+  await taskCard.waitFor({ state: 'visible', timeout: 60000 })
+  const cardClass = await taskCard.getAttribute('class').catch(() => '')
+  if (!String(cardClass || '').includes('is-active')) {
+    await taskCard.click({ timeout: 10000, force: true })
+  }
+  return taskCard
+}
+
+async function openFillTaskFromBatchDetailTakeover(page, batchId, batchCode, task) {
+  await loadBatchDetailByUi(page, batchId, `管理员接管前批次详情 ${task.id}`)
+  const taskCard = await selectBatchDetailRouteTask(page, task)
+  const batchRecordToggle = page.getByRole('button', { name: '批记录' }).first()
+  if ((await batchRecordToggle.count()) > 0 && (await batchRecordToggle.isVisible().catch(() => false)) && !(await batchRecordToggle.isDisabled().catch(() => true))) {
+    await batchRecordToggle.click({ timeout: 10000 })
+  }
+  const takeoverButton = taskCard.getByRole('button', { name: '管理员接管并填写' }).first()
+  if (!(await takeoverButton.waitFor({ state: 'visible', timeout: 60000 }).then(() => true, () => false))) {
+    await captureEvidence(page, `takeover-button-missing-${batchCode}-${task.id}`, {
+      batchId,
+      batchCode,
+      taskId: task.id,
+      taskName: task.batchRecordReportName || task.processName,
+      allowedActions: task.allowedActions,
+      currentUserRole: task.currentUserRole,
+      disabledReason: task.disabledReason,
+      visibleButtons: await visibleButtonLabels(page)
+    })
+    throw blocked(`批次详情未显示管理员接管并填写按钮：${batchCode} / ${task.processName || task.batchRecordReportName}`, [
+      `任务 ${task.id} currentUserRole=${task.currentUserRole || '<empty>'}, allowedActions=${JSON.stringify(task.allowedActions || [])}, disabledReason=${task.disabledReason || '<empty>'}`
+    ])
+  }
+  await takeoverButton.click({ timeout: 10000 })
+  const confirm = page.locator('.el-message-box:visible').first()
+  await confirm.waitFor({ state: 'visible', timeout: 60000 })
+  const transferPromise = waitForApiResponse(page, ENDPOINTS.flowInterventionTransfer, `管理员接管填写任务 ${batchCode}`, 'POST').then(
+    (data) => ({ data }),
+    (error) => ({ error })
+  )
+  const openResponsePromise = waitForApiResponse(page, ENDPOINTS.batchTaskOpen, `接管后打开填写任务 ${batchCode}`, 'POST').then(
+    (data) => ({ data }),
+    (error) => ({ error })
+  )
+  await clickVisibleButton(confirm, /确\s*认|确\s*定|确认/, '确认管理员接管并填写')
+  const transferResult = await transferPromise
+  if (transferResult.error) throw transferResult.error
+  const openResult = await openResponsePromise
+  if (openResult.error) throw openResult.error
+  const opened = openResult.data
+  assert.ok(opened?.executionId, `管理员接管后打开任务必须返回 executionId，任务 ${task.id}`)
+  const url = await waitForCurrentUrl(
+    page,
+    (currentUrl) => {
+      const hasWorkTaskId = Boolean(currentUrl.searchParams.get('workTaskId'))
+      return currentUrl.pathname === ROUTES.executionDetail && hasWorkTaskId && Boolean(currentUrl.searchParams.get('id'))
+    },
+    `管理员接管后进入填写页 ${batchCode}`,
+    60000
+  )
+  assert.equal(url.searchParams.get('id'), String(opened.executionId), `管理员接管后必须进入执行 ${opened.executionId}`)
+  await page.locator('.edhr-fill-workspace').first().waitFor({ state: 'visible', timeout: 60000 })
+  url.openedTask = opened
+  url.takeoverApplied = true
   return url
 }
 
@@ -1349,22 +1434,50 @@ async function specialNodeAction(page, label, actionName, handler) {
     .waitFor({ state: 'visible', timeout: 60000 })
   const actionLabel = actionName === '完成' ? '完成节点' : actionName === '跳过' ? '跳过节点' : actionName
   const actionGrid = page.locator('.edhr-batch-detail__special-node-action-grid:visible').first()
-  let actionGridVisible = false
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  const targetActiveGroup = page.locator('.edhr-batch-detail__process-task-group.is-active').filter({ hasText: label }).first()
+  let actionButton
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    await node.scrollIntoViewIfNeeded().catch(() => undefined)
     await node.click({ timeout: 10000 })
-    if (await actionGrid.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false)) {
-      actionGridVisible = true
+    const targetActive = await targetActiveGroup.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)
+    if (!targetActive) {
+      await page.waitForTimeout(500)
+      continue
+    }
+    const actionGridVisible = await actionGrid.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)
+    if (!actionGridVisible) {
+      await page.waitForTimeout(500)
+      continue
+    }
+    const candidate = actionGrid.locator('.edhr-batch-detail__rail-task-action:visible').filter({ hasText: actionLabel }).first()
+    const candidateVisible = await candidate.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)
+    if (!candidateVisible) {
+      await page.waitForTimeout(500)
+      continue
+    }
+    await page.waitForTimeout(300)
+    if (await targetActiveGroup.isVisible().catch(() => false)) {
+      actionButton = candidate
       break
     }
-    await page.waitForTimeout(500)
   }
-  if (!actionGridVisible) {
+  if (!actionButton) {
     const visibleSpecialNodes = await page
       .locator('.edhr-batch-detail__special-process-task-group')
-      .evaluateAll((nodes) => nodes.map((node) => (node.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean))
+      .evaluateAll((nodes) => nodes.map((node) => (node.textContent || '').replace(/s+/g, ' ').trim()).filter(Boolean))
       .catch(() => [])
-    throw blocked('特殊节点「' + label + '」未能打开操作区。', [
-      '当前可见特殊节点：' + JSON.stringify(visibleSpecialNodes)
+    const activeGroups = await page
+      .locator('.edhr-batch-detail__process-task-group.is-active')
+      .evaluateAll((nodes) => nodes.map((node) => (node.textContent || '').replace(/s+/g, ' ').trim()).filter(Boolean))
+      .catch(() => [])
+    const actionTexts = await page
+      .locator('.edhr-batch-detail__special-node-action-grid:visible .edhr-batch-detail__rail-task-action:visible')
+      .evaluateAll((nodes) => nodes.map((node) => (node.textContent || '').replace(/s+/g, ' ').trim()).filter(Boolean))
+      .catch(() => [])
+    throw blocked('特殊节点「' + label + '」未能打开「' + actionLabel + '」操作。', [
+      '当前可见特殊节点：' + JSON.stringify(visibleSpecialNodes),
+      '当前激活节点：' + JSON.stringify(activeGroups),
+      '当前可见特殊节点按钮：' + JSON.stringify(actionTexts)
     ])
   }
   const rowText = (
@@ -1374,13 +1487,11 @@ async function specialNodeAction(page, label, actionName, handler) {
       .textContent({ timeout: 1000 })
       .catch(() => '')) || ''
   )
-    .replace(/\s+/g, ' ')
+    .replace(/s+/g, ' ')
     .trim()
   if (rowText.includes('已跳过') || rowText.includes('已批准')) {
     return { alreadyDone: true, rowText }
   }
-  const actionButton = actionGrid.getByRole('button', { name: actionLabel }).first()
-  await actionButton.waitFor({ state: 'visible', timeout: 60000 })
   const disabled = await actionButton.isDisabled().catch(() => true)
   const ariaDisabled = await actionButton.getAttribute('aria-disabled').catch(() => null)
   const className = await actionButton.getAttribute('class').catch(() => '')
@@ -1511,9 +1622,21 @@ async function ensureOqcTemplateIndicatorByUi(page) {
   await page.getByText('质检方案').first().waitFor({ state: 'visible', timeout: 60000 })
   const toolbar = page.locator('form').filter({ hasText: '方案编号' }).first()
   await fillLabeledInput(toolbar, '方案编号', OQC_TEMPLATE_CODE)
+  const templateSearchPromise = waitForApiResponse(page, '/mes/qc/template/page', '搜索 OQC 质检方案', 'GET', (response) =>
+    response.url().includes(`code=${encodeURIComponent(OQC_TEMPLATE_CODE)}`)
+  )
   await clickVisibleButton(toolbar, /^搜索$/, '搜索 OQC 质检方案')
-  const row = page.locator('.el-table__body-wrapper tbody tr').filter({ hasText: OQC_TEMPLATE_CODE }).first()
-  await row.waitFor({ state: 'visible', timeout: 60000 })
+  await templateSearchPromise
+  const row = page.locator('.el-table__body-wrapper tbody tr, .el-table__row').filter({ hasText: OQC_TEMPLATE_CODE }).first()
+  if (!(await row.waitFor({ state: 'visible', timeout: 60000 }).then(() => true, () => false))) {
+    const visibleRows = await page
+      .locator('.el-table__body-wrapper tbody tr, .el-table__row')
+      .evaluateAll((nodes) => nodes.map((node) => (node.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean))
+      .catch(() => [])
+    throw blocked('OQC 质检方案列表未显示目标方案：' + OQC_TEMPLATE_CODE, [
+      '当前可见方案行：' + JSON.stringify(visibleRows)
+    ])
+  }
   await clickVisibleButton(row, '编辑', '编辑 OQC 质检方案')
   const templateDialog = page.locator('.el-dialog:visible').filter({ hasText: '方案编号' }).first()
   await templateDialog.waitFor({ state: 'visible', timeout: 60000 })
@@ -1556,9 +1679,21 @@ async function ensureOqcTemplateBindingByUi(page) {
   await page.getByText('质检方案').first().waitFor({ state: 'visible', timeout: 60000 })
   const toolbar = page.locator('form').filter({ hasText: '方案编号' }).first()
   await fillLabeledInput(toolbar, '方案编号', OQC_TEMPLATE_CODE)
+  const templateSearchPromise = waitForApiResponse(page, '/mes/qc/template/page', '搜索 OQC 质检方案', 'GET', (response) =>
+    response.url().includes(`code=${encodeURIComponent(OQC_TEMPLATE_CODE)}`)
+  )
   await clickVisibleButton(toolbar, /^搜索$/, '搜索 OQC 质检方案')
-  const row = page.locator('.el-table__body-wrapper tbody tr').filter({ hasText: OQC_TEMPLATE_CODE }).first()
-  await row.waitFor({ state: 'visible', timeout: 60000 })
+  await templateSearchPromise
+  const row = page.locator('.el-table__body-wrapper tbody tr, .el-table__row').filter({ hasText: OQC_TEMPLATE_CODE }).first()
+  if (!(await row.waitFor({ state: 'visible', timeout: 60000 }).then(() => true, () => false))) {
+    const visibleRows = await page
+      .locator('.el-table__body-wrapper tbody tr, .el-table__row')
+      .evaluateAll((nodes) => nodes.map((node) => (node.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean))
+      .catch(() => [])
+    throw blocked('OQC 质检方案列表未显示目标方案：' + OQC_TEMPLATE_CODE, [
+      '当前可见方案行：' + JSON.stringify(visibleRows)
+    ])
+  }
   await clickVisibleButton(row, '编辑', '编辑 OQC 质检方案')
   const templateDialog = page.locator('.el-dialog:visible').filter({ hasText: '方案编号' }).first()
   await templateDialog.waitFor({ state: 'visible', timeout: 60000 })
@@ -1888,7 +2023,9 @@ async function processRouteFormCenterTask(page, batchId, batchCode, task, index)
 async function processRouteTask(fillPage, approvalPage, batchId, batchCode, task, index, fillActor, reviewerActor, options = {}) {
   const pendingTask = task
   assert.ok(Number(pendingTask?.id || 0) > 0, `普通工序任务 T${index} 必须来自已加载的批次详情。`)
-  const fillTaskUrl = await openFillTaskFromBoard(fillPage, batchId, batchCode, pendingTask)
+  const fillTaskUrl = shouldTakeOverRouteTask(pendingTask)
+    ? await openFillTaskFromBatchDetailTakeover(fillPage, batchId, batchCode, pendingTask)
+    : await openFillTaskFromBoard(fillPage, batchId, batchCode, pendingTask)
   const opened = fillTaskUrl.openedTask
   assert.ok(opened?.executionId, `工作台处理普通工序任务后必须返回 executionId，任务 ${pendingTask.id}`)
   const executionId = Number(opened.executionId)

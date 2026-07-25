@@ -8,11 +8,13 @@ await import('playwright')
 
 const API_BASE = requiredEnv('CODEX_TEST_API_BASE').replace(/\/$/, '')
 const RUNNER_TOKEN = requiredEnv('CODEX_TEST_RUNNER_TOKEN')
+const MANAGEMENT_TENANT_ID = requiredEnv('CODEX_TEST_TENANT_ID')
 const FRONTEND_BASE_URL = requiredEnv('CODEX_TEST_FRONTEND_BASE_URL')
 const WORKING_DIRECTORY = process.env.CODEX_TEST_WORKDIR || process.cwd()
 const RUNNER_NAME = process.env.CODEX_TEST_RUNNER_NAME || `${os.hostname()}-codex-runner`
 const CODEX_COMMAND = process.env.CODEX_CLI_COMMAND || (process.platform === 'win32' ? 'codex.cmd' : 'codex')
 const LOOP = process.argv.includes('--loop')
+const POLL_INTERVAL_MS = Number(process.env.CODEX_TEST_POLL_INTERVAL_MS || '5000')
 
 function requiredEnv(name) {
   const value = process.env[name]
@@ -22,13 +24,20 @@ function requiredEnv(name) {
   return value
 }
 
+function runnerHeaders(extraHeaders = {}) {
+  return {
+    ...extraHeaders,
+    'tenant-id': MANAGEMENT_TENANT_ID,
+    'X-Codex-Runner-Token': RUNNER_TOKEN
+  }
+}
+
 async function postJson(url, body) {
   const response = await fetch(`${API_BASE}${url}`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Codex-Runner-Token': RUNNER_TOKEN
-    },
+    headers: runnerHeaders({
+      'Content-Type': 'application/json'
+    }),
     body: JSON.stringify(body)
   })
   const payload = await response.json()
@@ -47,9 +56,7 @@ async function uploadArtifact(executionCaseId, checkpointSort, screenshotPath) {
   data.append('file', new Blob([content]), path.basename(screenshotPath))
   const response = await fetch(`${API_BASE}/system/codex-test-runner/artifact`, {
     method: 'POST',
-    headers: {
-      'X-Codex-Runner-Token': RUNNER_TOKEN
-    },
+    headers: runnerHeaders(),
     body: data
   })
   const payload = await response.json()
@@ -179,10 +186,17 @@ async function runOnce(runnerSessionId) {
   return claim.tasks.length
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 const registration = await registerRunner()
 do {
   const count = await runOnce(registration.runnerSessionId)
   if (!LOOP || count === 0) {
-    break
+    if (!LOOP) {
+      break
+    }
+    await sleep(POLL_INTERVAL_MS)
   }
 } while (true)

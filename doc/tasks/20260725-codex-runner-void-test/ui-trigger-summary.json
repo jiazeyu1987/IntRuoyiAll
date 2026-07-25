@@ -1,0 +1,12 @@
+{
+  "baseUrl": "http://127.0.0.1:8081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "targetCaseName": "作废",
+  "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260725-codex-runner-void-test\\ui-trigger-void-test.png",
+  "checkedAt": "2026-07-25T15:27:04.788Z",
+  "hasExecutePermission": true,
+  "hasCodexMenuContract": true,
+  "searchTotal": 0,
+  "error": "作废 must exist in test management list"
+}

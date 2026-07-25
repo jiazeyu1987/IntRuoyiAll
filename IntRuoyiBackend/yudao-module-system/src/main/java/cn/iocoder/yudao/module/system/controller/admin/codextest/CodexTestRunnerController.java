@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.system.controller.admin.codextest;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.tenant.core.aop.TenantIgnore;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestArtifactRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerCheckpointResultReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerClaimReqVO;
@@ -27,7 +28,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.function.Supplier;
+
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.framework.web.core.util.WebFrameworkUtils.HEADER_TENANT_ID;
+import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RESULT_SCHEMA_INVALID;
 
 @Tag(name = "管理后台 - Codex Runner 协议")
 @RestController
@@ -48,8 +54,10 @@ public class CodexTestRunnerController {
     @Operation(summary = "注册 Codex Runner")
     public CommonResult<CodexTestRunnerRegisterRespVO> registerRunner(
             @Valid @RequestBody CodexTestRunnerRegisterReqVO registerReqVO,
-            @RequestHeader(value = RUNNER_TOKEN_HEADER, required = false) String token) {
-        return success(codexTestRunnerService.registerRunner(registerReqVO, token));
+            @RequestHeader(value = RUNNER_TOKEN_HEADER, required = false) String token,
+            @RequestHeader(value = HEADER_TENANT_ID, required = false) Long managementTenantId) {
+        return executeWithRunnerTenant(managementTenantId,
+                () -> success(codexTestRunnerService.registerRunner(registerReqVO, token)));
     }
 
     @PostMapping("/claim")
@@ -58,8 +66,10 @@ public class CodexTestRunnerController {
     @Operation(summary = "Codex Runner 领取任务")
     public CommonResult<CodexTestRunnerClaimRespVO> claimTasks(
             @Valid @RequestBody CodexTestRunnerClaimReqVO claimReqVO,
-            @RequestHeader(value = RUNNER_TOKEN_HEADER, required = false) String token) {
-        return success(codexTestRunnerService.claimTasks(claimReqVO, token));
+            @RequestHeader(value = RUNNER_TOKEN_HEADER, required = false) String token,
+            @RequestHeader(value = HEADER_TENANT_ID, required = false) Long managementTenantId) {
+        return executeWithRunnerTenant(managementTenantId,
+                () -> success(codexTestRunnerService.claimTasks(claimReqVO, token)));
     }
 
     @PostMapping("/heartbeat")
@@ -68,8 +78,10 @@ public class CodexTestRunnerController {
     @Operation(summary = "Codex Runner 心跳")
     public CommonResult<CodexTestRunnerHeartbeatRespVO> heartbeat(
             @Valid @RequestBody CodexTestRunnerHeartbeatReqVO heartbeatReqVO,
-            @RequestHeader(value = RUNNER_TOKEN_HEADER, required = false) String token) {
-        return success(codexTestRunnerService.heartbeat(heartbeatReqVO, token));
+            @RequestHeader(value = RUNNER_TOKEN_HEADER, required = false) String token,
+            @RequestHeader(value = HEADER_TENANT_ID, required = false) Long managementTenantId) {
+        return executeWithRunnerTenant(managementTenantId,
+                () -> success(codexTestRunnerService.heartbeat(heartbeatReqVO, token)));
     }
 
     @PostMapping("/checkpoint-result")
@@ -78,9 +90,12 @@ public class CodexTestRunnerController {
     @Operation(summary = "Codex Runner 回写检查点结果")
     public CommonResult<Boolean> saveCheckpointResult(
             @Valid @RequestBody CodexTestRunnerCheckpointResultReqVO resultReqVO,
-            @RequestHeader(value = RUNNER_TOKEN_HEADER, required = false) String token) {
-        codexTestRunnerService.saveCheckpointResult(resultReqVO, token);
-        return success(true);
+            @RequestHeader(value = RUNNER_TOKEN_HEADER, required = false) String token,
+            @RequestHeader(value = HEADER_TENANT_ID, required = false) Long managementTenantId) {
+        return executeWithRunnerTenant(managementTenantId, () -> {
+            codexTestRunnerService.saveCheckpointResult(resultReqVO, token);
+            return success(true);
+        });
     }
 
     @PostMapping("/complete-case")
@@ -89,9 +104,12 @@ public class CodexTestRunnerController {
     @Operation(summary = "Codex Runner 完成执行项")
     public CommonResult<Boolean> completeCase(
             @Valid @RequestBody CodexTestRunnerCompleteCaseReqVO completeReqVO,
-            @RequestHeader(value = RUNNER_TOKEN_HEADER, required = false) String token) {
-        codexTestRunnerService.completeCase(completeReqVO, token);
-        return success(true);
+            @RequestHeader(value = RUNNER_TOKEN_HEADER, required = false) String token,
+            @RequestHeader(value = HEADER_TENANT_ID, required = false) Long managementTenantId) {
+        return executeWithRunnerTenant(managementTenantId, () -> {
+            codexTestRunnerService.completeCase(completeReqVO, token);
+            return success(true);
+        });
     }
 
     @PostMapping("/artifact")
@@ -103,9 +121,29 @@ public class CodexTestRunnerController {
             @RequestParam("checkpointSort") Integer checkpointSort,
             @RequestParam("artifactType") String artifactType,
             @RequestParam("file") MultipartFile file,
-            @RequestHeader(value = RUNNER_TOKEN_HEADER, required = false) String token) {
-        codexTestRunnerService.validateRunnerToken(token);
-        return success(codexTestArtifactService.saveArtifact(executionCaseId, checkpointSort, artifactType, file));
+            @RequestHeader(value = RUNNER_TOKEN_HEADER, required = false) String token,
+            @RequestHeader(value = HEADER_TENANT_ID, required = false) Long managementTenantId) {
+        return executeWithRunnerTenant(managementTenantId, () -> {
+            codexTestRunnerService.validateRunnerToken(token);
+            return success(codexTestArtifactService.saveArtifact(executionCaseId, checkpointSort, artifactType, file));
+        });
+    }
+
+    private <T> CommonResult<T> executeWithRunnerTenant(Long managementTenantId,
+                                                       Supplier<CommonResult<T>> supplier) {
+        if (managementTenantId == null) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "Runner 管理租户不能为空");
+        }
+        Long oldTenantId = TenantContextHolder.getTenantId();
+        boolean oldIgnore = TenantContextHolder.isIgnore();
+        try {
+            TenantContextHolder.setTenantId(managementTenantId);
+            TenantContextHolder.setIgnore(false);
+            return supplier.get();
+        } finally {
+            TenantContextHolder.setTenantId(oldTenantId);
+            TenantContextHolder.setIgnore(oldIgnore);
+        }
     }
 
 }

@@ -26,6 +26,19 @@ assert(
   '填写人设置弹窗必须支持个人和角色'
 )
 assert(
+  page.includes('batch-record-form-permission-filler-field') &&
+    page.includes('batch-record-form-permission-filler-control'),
+  '填写人设置弹窗必须给“填写人”选择框单独布局类，避免被三等分网格截断'
+)
+assert(
+  /\.batch-record-form-permission-rule\s*\{[\s\S]*grid-template-columns:\s*minmax\(180px,\s*0\.85fr\)\s+minmax\(280px,\s*1\.4fr\)\s+minmax\(220px,\s*1fr\)/.test(page),
+  '填写人设置弹窗中间“填写人”列必须比来源和完成策略更宽，完整展示角色/人员名称'
+)
+assert(
+  /\.batch-record-form-permission-filler-control\s*:deep\(\.el-select__tags-text\)\s*\{[\s\S]*max-width:\s*none;/.test(page),
+  '填写人设置弹窗选中标签文本不得继续使用 Element Plus 默认省略宽度'
+)
+assert(
   page.includes('EdhrProcessFormPermissionRuleApi.getByReport') &&
     page.includes('EdhrProcessFormPermissionRuleApi.saveByReport'),
   '批记录表单列表页必须调用表单维度填写人 API，而不是工艺路线配置 API'

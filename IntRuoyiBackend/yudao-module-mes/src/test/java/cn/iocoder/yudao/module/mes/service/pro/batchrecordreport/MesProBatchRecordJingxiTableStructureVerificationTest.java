@@ -1279,10 +1279,7 @@ class MesProBatchRecordJingxiTableStructureVerificationTest {
                 || packedCell.colSpan() < columnCount - Math.max(8, sideCell.colSpan() + 2)) {
             return null;
         }
-        List<String> lines = packedCell.text().lines()
-                .map(String::trim)
-                .filter(line -> !line.isBlank())
-                .toList();
+        List<String> lines = MesProBatchRecordPackedMaterialMatrixTextSupport.nonBlankLines(packedCell.text());
         if (lines.size() < 8) {
             return null;
         }
@@ -1290,13 +1287,7 @@ class MesProBatchRecordJingxiTableStructureVerificationTest {
         if (!isRepeatedHeaderTextPattern(headerTexts)) {
             return null;
         }
-        List<String> itemNames = new ArrayList<>();
-        for (int index = 6; index < lines.size(); index++) {
-            String line = lines.get(index);
-            if (!"/".equals(line)) {
-                itemNames.add(line);
-            }
-        }
+        List<String> itemNames = MesProBatchRecordPackedMaterialMatrixTextSupport.extractItemNames(lines, 6);
         if (itemNames.size() < 2) {
             return null;
         }

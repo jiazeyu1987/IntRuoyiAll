@@ -500,12 +500,12 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="填写人" class="batch-record-form-permission-field">
+          <el-form-item label="填写人" class="batch-record-form-permission-field batch-record-form-permission-filler-field">
             <el-select
               v-model="permissionForm.fillRule.candidateSourceIds"
               multiple
               filterable
-              class="batch-record-form-permission-control"
+              class="batch-record-form-permission-control batch-record-form-permission-filler-control"
               placeholder="请选择个人或角色"
             >
               <el-option
@@ -2422,7 +2422,7 @@ watch(
 
 .batch-record-form-permission-rule {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(180px, 0.85fr) minmax(280px, 1.4fr) minmax(220px, 1fr);
   gap: 10px;
 }
 
@@ -2432,6 +2432,11 @@ watch(
 
 .batch-record-form-permission-control {
   width: 100%;
+}
+
+.batch-record-form-permission-filler-control :deep(.el-select__tags-text) {
+  max-width: none;
+  overflow: visible;
 }
 
 .batch-record-form-layout {
