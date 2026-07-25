@@ -857,6 +857,52 @@ async function openTaskByUi(page, task) {
   return opened
 }
 
+async function clickWorkTaskBoardActionButton(page, row, name, label) {
+  const target = await row.evaluate((element) => {
+    const isVisible = (node) => Boolean(node.offsetWidth || node.offsetHeight || node.getClientRects().length)
+    const body = element.closest('.el-table__body-wrapper') || element.closest('tbody')
+    const rows = Array.from((body || document).querySelectorAll('tbody tr')).filter(isVisible)
+    return {
+      index: rows.indexOf(element),
+      text: (element.innerText || '').replace(/s+/g, ' ').trim()
+    }
+  })
+  if (target.index < 0) {
+    throw blocked(`无法解析工作任务目标行序号：${label}`, [`目标行：${target.text || '<empty>'}`])
+  }
+
+  const rowButton = row.getByRole('button', { name }).first()
+  if ((await rowButton.count()) > 0 && (await rowButton.isVisible().catch(() => false)) && !(await rowButton.isDisabled().catch(() => true))) {
+    await rowButton.click()
+    return
+  }
+
+  const buttons = page.getByRole('button', { name })
+  const count = await buttons.count()
+  for (let index = 0; index < count; index += 1) {
+    const button = buttons.nth(index)
+    if (!(await button.isVisible().catch(() => false)) || (await button.isDisabled().catch(() => true))) continue
+    const buttonRow = await button.evaluate((element) => {
+      const isVisible = (node) => Boolean(node.offsetWidth || node.offsetHeight || node.getClientRects().length)
+      const rowElement = element.closest('tr')
+      const body = rowElement?.closest('.el-table__body-wrapper') || rowElement?.parentElement
+      const rows = Array.from((body || document).querySelectorAll('tr')).filter(isVisible)
+      return {
+        index: rowElement ? rows.indexOf(rowElement) : -1,
+        text: (rowElement?.innerText || '').replace(/s+/g, ' ').trim()
+      }
+    }).catch(() => ({ index: -1, text: '' }))
+    if (buttonRow.index === target.index) {
+      await button.click()
+      return
+    }
+  }
+  throw blocked(`缺少可点击控件：${label}`, [
+    `目标待办行：${target.text || '<empty>'}`,
+    `当前可见按钮：${JSON.stringify(await visibleButtonLabels(page))}`
+  ])
+}
+
 async function openFillTaskFromBoard(page, batchId, batchCode, task, options = {}) {
   const taskTypeOption = options.taskTypeOption || '填写'
   const rowTypeTexts = options.rowTypeTexts || [taskTypeOption]
@@ -917,8 +963,7 @@ async function openFillTaskFromBoard(page, batchId, batchCode, task, options = {
   }
 
   const openResponsePromise = waitForApiResponse(page, ENDPOINTS.batchTaskOpen, `处理${actionLabel}待办 ${batchCode}`, 'POST')
-  const processButton = await waitForVisibleEnabledButton(page, '处理', `处理${actionLabel}待办 ${batchCode}`)
-  await processButton.click()
+  await clickWorkTaskBoardActionButton(page, row, '处理', `处理${actionLabel}待办 ${batchCode}`)
   const opened = await openResponsePromise
   const openedExecutionId = options.expectedExecutionId || opened?.executionId
   assert.ok(openedExecutionId, `${actionLabel}待办打开后必须返回 executionId。`)
