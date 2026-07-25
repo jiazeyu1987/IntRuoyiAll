@@ -30,8 +30,10 @@ assert.ok(openFillTaskBlock.includes('waitForCurrentUrl('), '处理待办后必�
 assert.ok(!openFillTaskBlock.includes('await page.waitForURL('), '处理待办后的 URL 等待不得使用 waitForURL 默认 load 等待。')
 
 assert.ok(openFillTaskBlock.includes('ENDPOINTS.batchTaskOpen'), '工作任务台处理填写/返工待办必须等待 task/open 响应生成 execution。')
-assert.ok(openFillTaskBlock.includes("waitForVisibleEnabledButton(page, '处理'"), '工作任务台处理按钮应从页面可见操作列定位，不能限定在主表格行。')
 assert.ok(!openFillTaskBlock.includes("await clickVisibleButton(row, '处理'"), '工作任务台处理按钮不得从不含固定操作列的主表格行内点击。')
+assert.ok(source.includes('async function clickWorkTaskBoardActionButton'), '工作任务台必须封装按目标行定位操作列按钮的逻辑。')
+assert.ok(openFillTaskBlock.includes("clickWorkTaskBoardActionButton(page, row, '处理'"), '工作任务台处理必须点击与目标待办行同序号的操作列按钮。')
+assert.ok(!openFillTaskBlock.includes("waitForVisibleEnabledButton(page, '处理'"), '工作任务台处理不得点击页面第一个可见处理按钮，避免命中过期或其他待办。')
 
 const loadBatchDetailStart = source.indexOf('async function loadBatchDetailByUi')
 const loadBatchDetailEnd = source.indexOf('async function syncBatchByUi', loadBatchDetailStart)
