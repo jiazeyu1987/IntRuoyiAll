@@ -32,3 +32,8 @@
 - Frontend stdout log: `C:\tmp\int-main-d-frontend-8101-20260725084037.out.log`.
 - Frontend stderr contains non-blocking warnings from Vite/Browserslist/UnoCSS; entry returned HTTP `200 OK`.
 - `pnpm install` reported ignored dependency build scripts per pnpm v10 policy; Vite still started and served successfully.
+## Closeout
+
+- Cleanup preview/apply completed with no deletions and no blockers.
+- Final implementation commit: `e12e865c fix: restore d main runtime source packages`.
+- Final Git sync: `HEAD` equals `origin/int_main` at `e12e865c7c8dfdebc74c77b58881895288357df3`.

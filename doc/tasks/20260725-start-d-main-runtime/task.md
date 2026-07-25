@@ -30,7 +30,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 经验门禁
 
@@ -57,10 +57,16 @@ ready_for_closeout
 
 ## Blockers
 
-- 收尾前仍需处理提交/推送和 cleanup；当前工作区另有未跟踪目录 `doc/tasks/20260725-submit-frontend-backend-code/`，不属于本任务，未修改。
+- 当前工作区另有未跟踪目录 `doc/tasks/20260725-dcc-controlled-file-logs-import/`，不属于本任务，未修改。
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
 - `是否从根因和长期维护角度解决`：是，补齐同源缺失源码并按 D-Main 独立 runtime profile 启动，不改默认端口配置。
 - `是否存在临时补丁或绕过`：否。
+## Closeout Evidence
+
+- `task-closeout-cleanup --mode preview`：PASS，无删除项、无 blocker。
+- `task-closeout-cleanup --mode apply`：PASS，无删除项、无 blocker。
+- 实现提交：`e12e865c fix: restore d main runtime source packages`。
+- 推送状态：`HEAD` 与 `origin/int_main` 一致（`e12e865c7c8dfdebc74c77b58881895288357df3`）。
