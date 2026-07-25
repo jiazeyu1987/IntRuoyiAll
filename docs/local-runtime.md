@@ -53,6 +53,17 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
 - Forbidden action: 禁止把 `127.0.0.1:3306` 认证失败当成服务不可启动的最终结论；必须先核对 `E:\IntRuoyi` 的 Docker MySQL 运行路径并显式使用 `23306/26379`。禁止通过改共享配置、假成功、API-only 替代健康检查或隐藏 datasource 异常来绕过。
 - Evidence: `doc/tasks/20260724-run-int-batch-runtime/verification-report.md`。
 
+
+## 2026-07-25 分支本地运行复用 Docker 依赖门禁
+
+- Trigger: `int_batch`、`int_shedule`、`int_qms` 等分支工作区启动后端时出现本机 MySQL/Redis 认证或连接失败。
+- Preflight check: 先确认用户授权的本地 Docker 依赖端口，再只修改该分支工作区的依赖连接配置；服务运行端口仍必须由分支脚本和端口矩阵控制。
+- Current local Docker dependency convention: MySQL `127.0.0.1:23306/ruoyi-vue-pro`，Redis `127.0.0.1:26379`。
+- Blocker: Docker MySQL/Redis 端口未监听、认证失败或 schema 不匹配时必须 fail fast，不得切换数据库、换端口、mock 成功或跳过后端启动。
+- Verification: 记录 Docker 依赖端口监听、后端分支端口监听、`/actuator/health` HTTP 状态和前端入口 HTTP 状态。
+- Forbidden action: 禁止为了复用 Docker 依赖而修改分支前端/后端服务端口；禁止打印或记录数据库密码、容器完整 env 或 secret-bearing 命令输出。
+
+
 ## 2026-07-24 本地重启脚本路径门禁
 
 - Trigger: 本地重启、E2E 复验、`restart-int-ruoyi-local.ps1`、`Missing int_main frontend path`、`yudao-ui-admin-vue3`、`IntRuoyiFronted`。
@@ -62,6 +73,14 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
 - Forbidden action: 禁止为了绕过脚本硬编码路径创建 `yudao-ui-admin-vue3` 假目录、修改端口、强杀未知进程或把 API-only 验证冒充 E2E。
 - Evidence: `doc/tasks/fix-batch-exec-last-update-created-time/verification-report.md`。
 
+## 2026-07-25 分支本地运行复用 Docker 依赖门禁
+
+- Trigger: `int_batch`、`int_shedule`、`int_qms` 等分支工作区启动后端时出现本机 MySQL/Redis 认证或连接失败。
+- Preflight check: 先确认用户授权的本地 Docker 依赖端口，再只修改该分支工作区的依赖连接配置；服务运行端口仍必须由分支脚本和端口矩阵控制。
+- Current local Docker dependency convention: MySQL `127.0.0.1:23306/ruoyi-vue-pro`，Redis `127.0.0.1:26379`。
+- Blocker: Docker MySQL/Redis 端口未监听、认证失败或 schema 不匹配时必须 fail fast，不得切换数据库、换端口、mock 成功或跳过后端启动。
+- Verification: 记录 Docker 依赖端口监听、后端分支端口监听、`/actuator/health` HTTP 状态和前端入口 HTTP 状态。
+- Forbidden action: 禁止为了复用 Docker 依赖而修改分支前端/后端服务端口；禁止打印或记录数据库密码、容器完整 env 或 secret-bearing 命令输出。
 ## 禁止做法
 
 - 禁止把 `int_main` 改到随机端口启动。
