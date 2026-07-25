@@ -64,6 +64,25 @@
 - GREEN: `node scripts\preflight\login-preflight.mjs --base-url http://127.0.0.1:8083 --tenant <from IntRuoyiFronted\.env> --username <from IntRuoyiFronted\.env> --password <redacted from IntRuoyiFronted\.env> --target-path /system/backup-plan --target-text 备份计划` -> PASS, real login to `芋道源码/admin` without recording the password.
 - GREEN: `node IntRuoyiFronted\tests\e2e\system-backup-plan-real-readonly.e2e.js` -> PASS on 2026-07-25 rerun, real page opened `/system/backup-plan`, status/history API returned 200, simple controls and history table were visible, and `manifest` was not visible.
 - GREEN: cleanup after local E2E rerun -> PASS, stopped task-owned pids `54880` and `49760`; remaining listeners on `8083/48083` count `0`.
+- GREEN: implementation commit -> PASS, commit `2d669910` (`feat: add system backup plan management`) contains backup plan implementation, tests, SQL, runtime scripts, experience docs, and task evidence.
+- GREEN: merge `origin/int_main` -> PASS, commit `8a3bb44a`; only add/add conflicts were task-local `task.md` and `execution-log.md`, resolved by keeping completed evidence and removing upstream placeholder `in_progress/Pending` entries.
+- RED: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_branch_runtime_profile.py IntRuoyiBackend\script\tests\test_backup_ops_scheduling_tooling.py IntRuoyiBackend\script\tests\test_system_backup_plan_menu_sql.py IntRuoyiBackend\script\tests\test_release_migration_metadata.py` from repo root -> FAIL, expected reason: `test_release_migration_metadata.py` imports backend `script` package and must run from `IntRuoyiBackend` or with equivalent import path.
+- GREEN: `python -X utf8 -m pytest script\tests\test_backup_ops_scheduling_tooling.py script\tests\test_system_backup_plan_menu_sql.py script\tests\test_release_migration_metadata.py` from `IntRuoyiBackend` -> PASS, 6 tests after merge.
+- GREEN: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_branch_runtime_profile.py` -> PASS, 4 tests after merge.
+- GREEN: `mvn "-pl" "yudao-module-infra" "-Dtest=BackupPlanServiceImplTest,RuntimeControlOperationActionBackupConfirmTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 8 tests after merge.
+- GREEN: `pnpm ts:check` -> PASS after merge.
+- GREEN: `node tests\e2e\system-backup-plan-standard-list-static.spec.js` from `IntRuoyiFronted` -> PASS after merge.
+- GREEN: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS after merge.
+- GREEN: `git diff --check` -> PASS after merge.
+- GREEN: `mvn.cmd -pl yudao-server -am -DskipTests package` -> PASS after merge, regenerated `yudao-server-exec.jar` for local E2E.
+- GREEN: local backend startup after merge -> PASS, `http://127.0.0.1:48083/actuator/health` returned `status=UP`, listener pid `51356`.
+- GREEN: local frontend startup after merge -> PASS, `http://127.0.0.1:8083/` returned HTTP `200`, listener pid `53156`.
+- GREEN: `node scripts\preflight\login-preflight.mjs --base-url http://127.0.0.1:8083 --tenant <from IntRuoyiFronted\.env> --username <from IntRuoyiFronted\.env> --password <redacted from IntRuoyiFronted\.env> --target-path /system/backup-plan --target-text 备份计划` -> PASS after merge.
+- GREEN: `node IntRuoyiFronted\tests\e2e\system-backup-plan-real-readonly.e2e.js` -> PASS after merge, real page opened `/system/backup-plan`, status/history API returned 200, simple controls and history table remained visible, and `manifest` was not visible.
+- GREEN: cleanup after post-merge E2E -> PASS, stopped task-owned pids `53156` and `51356`; remaining listeners on `8083/48083` count `0`.
+- GREEN: GitHub large object preflight -> PASS, `git rev-list --objects origin/int_main..HEAD | git cat-file --batch-check` found no large blobs; largest task blob was far below GitHub 100 MB limit.
+- BLOCKER: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-system-backup-plan --mode preview` -> BLOCKED, preview would keep `task.md`, `execution-log.md`, `verification-report.md` and delete `bug-regression-evidence.md`, but apply/ff-only worktree closeout is blocked because main worktree `E:\IntRuoyi` is dirty.
+- BLOCKER DETAIL: `git status --short --branch` in `E:\IntRuoyi` shows modified MES/System/Frontend/E2E/task-doc files and untracked task directories unrelated to this backup-plan task. Per ownership rules, this task did not clean or modify those main-worktree changes.
 
 ## Implementation Notes
 
@@ -84,7 +103,8 @@
 - BLOCKER: Write-type E2E for saving/enabling/disabling schedule and immediate backup is not run because those actions mutate a real Windows scheduled task or trigger backup execution; requires explicit authorized test scheduler environment.
 - RESOLVED: `powershell -ExecutionPolicy Bypass -File scripts\runtime\show-branch-runtime.ps1 -Slot 2` initially failed because branch runtime scripts only used fixed branch/path profile inference and ignored the registered worktree port registry. Added registry-backed resolution and fail-fast validation; `show-branch-runtime.ps1`, start scripts, and branch runtime guard now consume the registered context.
 - BLOCKER: Production publish/register/verify is not executed because formal production operation requires explicit release authorization.
-- BLOCKER: Current branch `codex/system-backup-plan` is behind `origin/int_main` by 15 commits; merge/rebase/sync must be handled before final commit/push closeout according to Git policy.
+- RESOLVED: Current branch `codex/system-backup-plan` was behind `origin/int_main` by 15 commits; resolved by merge commit `8a3bb44a`. Current branch is ahead of `origin/int_main` only by local task commits pending closeout/push.
+- BLOCKER: worktree cleanup/apply and deletion are blocked by dirty main worktree `E:\IntRuoyi`; current branch can still be pushed for review, but task cannot be marked `completed` or remove the worktree until the main workspace is clean.
 
 ## Experience Consolidation
 

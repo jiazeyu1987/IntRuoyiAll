@@ -37,11 +37,31 @@
 - Screenshot evidence: `output\playwright\system-backup-plan-readonly.png`.
 - Cleanup: stopped task-owned pids `54880` and `49760`; ports `8083/48083` have no remaining listeners.
 
+## Post-Merge Verification
+
+- Merge: `origin/int_main` merged into `codex/system-backup-plan` with commit `8a3bb44a`; task-local doc conflicts were resolved by preserving completed evidence.
+- Backend script tests: `python -X utf8 -m pytest script\tests\test_backup_ops_scheduling_tooling.py script\tests\test_system_backup_plan_menu_sql.py script\tests\test_release_migration_metadata.py` from `IntRuoyiBackend` -> PASS, 6 tests.
+- Branch runtime regression: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_branch_runtime_profile.py` -> PASS, 4 tests.
+- Backend targeted tests: `mvn "-pl" "yudao-module-infra" "-Dtest=BackupPlanServiceImplTest,RuntimeControlOperationActionBackupConfirmTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 8 tests.
+- Frontend type check: `pnpm ts:check` -> PASS.
+- Frontend static contract: `node tests\e2e\system-backup-plan-standard-list-static.spec.js` -> PASS.
+- Branch runtime guard: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
+- Whitespace check: `git diff --check` -> PASS.
+- Backend package for E2E: `mvn.cmd -pl yudao-server -am -DskipTests package` -> PASS, rebuilt `yudao-server-exec.jar`.
+- Local backend runtime: `http://127.0.0.1:48083/actuator/health` -> PASS, `status=UP`, listener pid `51356`.
+- Local frontend runtime: `http://127.0.0.1:8083/` -> PASS, HTTP `200`, listener pid `53156`.
+- Login preflight: explicit tenant/user/password loaded from `IntRuoyiFronted\.env` with password redacted -> PASS, real login to `芋道源码/admin`.
+- Read-only real E2E: `node IntRuoyiFronted\tests\e2e\system-backup-plan-real-readonly.e2e.js` -> PASS, verified `/system/backup-plan`, status/history API 200, simple controls, history table columns, and no visible `manifest` technical text.
+- Runtime cleanup: stopped task-owned pids `53156` and `51356`; ports `8083/48083` have no remaining listeners.
+- GitHub large object preflight: `git rev-list --objects origin/int_main..HEAD | git cat-file --batch-check` -> PASS, no blob near 100 MB.
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-system-backup-plan --mode preview` -> BLOCKED because main worktree `E:\IntRuoyi` is dirty and cannot receive ff-only merge. No cleanup apply was run.
+
 ## Release-Level Blockers
 
 - Write-type real Playwright E2E is not complete: saving/enabling/disabling schedule and immediate backup mutate a real Windows scheduled task or trigger backup execution, so they require an explicitly authorized test scheduler environment.
 - Production release, task registration, `NextRunTime` verification, and optional immediate backup verification require explicit production authorization.
-- Current branch `codex/system-backup-plan` is behind `origin/int_main` by 15 commits; final closeout must sync the branch safely before commit/push.
+- Current branch `codex/system-backup-plan` is merged with `origin/int_main` and is ahead locally; final closeout still requires cleanup commit and `git push origin codex/system-backup-plan`.
+- Worktree closeout and deletion remain blocked until the main worktree `E:\IntRuoyi` is clean.
 
 ## Release Recommendation
 
