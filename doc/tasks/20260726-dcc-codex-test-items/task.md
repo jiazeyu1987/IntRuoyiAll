@@ -6,10 +6,10 @@
 
 ## Milestones
 
-1. 定位现有“排产工单手动重排”测试项定义、数据结构和写入位置。
-2. 梳理智能文控模块需要补充的测试项清单，保持与现有测试管理数据契约一致。
-3. 增加智能文控测试项并执行针对性结构验证。
-4. 记录验证证据、剩余风险和收尾状态。
+1. [x] 定位现有“排产工单手动重排”测试项定义、数据结构和写入位置。
+2. [x] 梳理智能文控模块需要补充的测试项清单，保持与现有测试管理数据契约一致。
+3. [x] 增加智能文控测试项并执行针对性结构验证。
+4. [x] 记录验证证据、剩余风险和收尾状态。
 
 ## Expected Verification
 
@@ -19,7 +19,7 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## 设计约束检查
 
@@ -46,3 +46,7 @@ in_progress
 - Verification: 记录静态合同验证、真实 E2E 或明确的阻塞原因。
 - Forbidden action: 禁止使用 mock、API-only 路径或空 Runner 领取替代真实用户路径。
 - Evidence: `docs/experience-index.md` 路由到 `docs/e2e-rules.md#codex-runner-自动测试门禁`。
+
+## Cleanup Keep
+
+- `doc/tasks/20260726-dcc-codex-test-items/backend-api-evidence.md`
