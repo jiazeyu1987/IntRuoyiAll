@@ -375,6 +375,10 @@ public enum RuntimeControlOperationAction {
         if ("backup-now".equals(mode)) {
             args.add("-TargetEnvironment");
             args.add(StrUtil.trim(reqVO.getTargetEnvironment()));
+            if ("prod".equals(StrUtil.trim(reqVO.getTargetEnvironment()))) {
+                args.add("-ProductionBackupConfirmText");
+                args.add("PROD-BACKUP-172.30.30.57");
+            }
         }
         if ("rollback-app".equals(mode)) {
             args.add("-TargetEnvironment");

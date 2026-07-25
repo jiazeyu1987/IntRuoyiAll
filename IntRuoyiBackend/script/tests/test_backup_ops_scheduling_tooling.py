@@ -17,6 +17,10 @@ def test_schedule_registration_script_exists_and_registers_daily_and_weekly_task
     assert "IntRuoyi Rehearsal" in text
     assert "-OperatorName" in text
     assert "'scheduler'" in text
+    assert "ConvertTo-BackupOpsBackupTrigger" in text
+    assert "backup.frequency" in text
+    assert "-TargetEnvironment 'prod'" in text
+    assert "-ProductionBackupConfirmText 'PROD-BACKUP-172.30.30.57'" in text
 
 
 def test_schedule_registration_script_supports_plan_only_preview() -> None:

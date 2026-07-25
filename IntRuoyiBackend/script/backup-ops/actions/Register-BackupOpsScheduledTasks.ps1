@@ -55,6 +55,30 @@ function ConvertTo-BackupOpsWeeklyTrigger {
     return New-ScheduledTaskTrigger -Weekly -DaysOfWeek $dayMap[$dayCode] -At $startBoundary
 }
 
+function ConvertTo-BackupOpsBackupTrigger {
+    param(
+        [Parameter(Mandatory)]
+        [object]$BackupConfig
+    )
+
+    $frequency = [string]$BackupConfig.frequency
+    if ([string]::IsNullOrWhiteSpace($frequency)) {
+        $frequency = 'DAILY'
+    }
+    $frequency = $frequency.Trim().ToUpperInvariant()
+    if ($frequency -eq 'DAILY') {
+        return ConvertTo-BackupOpsDailyTrigger -Schedule ([string]$BackupConfig.schedule)
+    }
+    if ($frequency -eq 'WEEKLY') {
+        $weekday = [string]$BackupConfig.weekday
+        if ([string]::IsNullOrWhiteSpace($weekday)) {
+            throw 'backup.weekday is required when backup.frequency is WEEKLY.'
+        }
+        return ConvertTo-BackupOpsWeeklyTrigger -Schedule ('{0} {1}' -f $weekday.Trim().ToUpperInvariant(), [string]$BackupConfig.schedule)
+    }
+    throw "Unsupported backup.frequency: $frequency"
+}
+
 function New-BackupOpsScheduledTaskPlan {
     param(
         [Parameter(Mandatory)]
@@ -67,7 +91,9 @@ function New-BackupOpsScheduledTaskPlan {
         [string]$SecretsPath,
         [Parameter(Mandatory)]
         [object]$Trigger,
-        [string]$OperatorName = ''
+        [string]$OperatorName = '',
+        [string]$TargetEnvironment = '',
+        [string]$ProductionBackupConfirmText = ''
     )
 
     $scriptPath = Resolve-BackupOpsScriptPath
@@ -80,6 +106,12 @@ function New-BackupOpsScheduledTaskPlan {
         '-SecretsPath', ('"{0}"' -f $SecretsPath),
         '-NonInteractive'
     )
+    if (-not [string]::IsNullOrWhiteSpace($TargetEnvironment)) {
+        $argumentParts += @('-TargetEnvironment', $TargetEnvironment)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ProductionBackupConfirmText)) {
+        $argumentParts += @('-ProductionBackupConfirmText', ('"{0}"' -f $ProductionBackupConfirmText))
+    }
     if (-not [string]::IsNullOrWhiteSpace($OperatorName)) {
         $argumentParts += @('-OperatorName', ('"{0}"' -f $OperatorName))
     }
@@ -103,7 +135,10 @@ $backupPlan = New-BackupOpsScheduledTaskPlan `
     -Mode 'backup-scheduled' `
     -ConfigPath $resolvedConfigPath `
     -SecretsPath $resolvedSecretsPath `
-    -Trigger (ConvertTo-BackupOpsDailyTrigger -Schedule ([string]$config.backup.schedule))
+    -Trigger (ConvertTo-BackupOpsBackupTrigger -BackupConfig $config.backup) `
+    -TargetEnvironment 'prod' `
+    -ProductionBackupConfirmText 'PROD-BACKUP-172.30.30.57' `
+    -OperatorName 'scheduler'
 
 $rehearsalPlan = New-BackupOpsScheduledTaskPlan `
     -TaskName 'IntRuoyi Rehearsal' `

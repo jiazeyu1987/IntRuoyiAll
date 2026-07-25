@@ -42,7 +42,9 @@
     "minioClientImage": "quay.io/minio/mc:latest"
   },
   "backup": {
+    "frequency": "DAILY",
     "schedule": "01:30",
+    "weekday": "MON",
     "keepDaysRemote": 30,
     "keepDaysLocal": 3,
     "mysqlDatabase": "ruoyi-vue-pro",

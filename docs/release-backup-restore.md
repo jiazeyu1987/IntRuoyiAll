@@ -24,6 +24,14 @@
 - 缺少备份目标、恢复脚本、数据盘、MinIO 容器或数据库连接证据时必须 fail fast。
 - 不得删除、清空、重挂载或改写共享存储，除非用户明确授权且有回滚说明。
 
+## 正式服备份计划任务状态门禁
+
+- Trigger: 查询、启用、禁用、重注册或发布验证 `IntRuoyi Backup Scheduled` 等正式服备份计划任务。
+- Preflight check: 必须同时核对计划任务查询命令退出码、`Enabled/Status`、`NextRunTime`、`LastTaskResult`、`Task To Run` 脚本路径和当前仓库 `backup-ops.ps1` 是否存在。
+- Blocker: 查询命令非 0、`NextRunTime=N/A`、任务禁用、脚本路径指向旧目录、脚本不存在、或上次结果非 0 且没有成功备份包证据时，不能宣布定时备份已恢复。
+- Verification: 记录计划任务名称、启用状态、下次运行时间、上次运行时间、上次结果、脚本路径、配置文件 `backup.frequency/schedule/weekday` 和历史备份包最新编号。
+- Forbidden action: 禁止把 `schtasks` 错误输出、空输出、旧路径任务、禁用任务或仅能查到历史备份包包装成“定时备份正常”。
+
 ## 禁止做法
 
 - 禁止直接在主工作区构建发布包，除非任务明确证明无需发布隔离且用户授权。

@@ -45,8 +45,9 @@ function Assert-EnvPort {
 }
 
 $branch = Get-GitValue -RepoRoot $repoRoot -Arguments @('branch', '--show-current')
-$profile = Resolve-BranchRuntimeProfile -RepoRoot $repoRoot -Branch $branch
-$ports = Get-BranchRuntimePorts -Profile $profile -Slot 0
+$context = Resolve-BranchRuntimeContext -RepoRoot $repoRoot -Branch $branch
+$profile = $context.Profile
+$ports = $context.Ports
 
 Assert-Contains -RelativePath 'docs\branch-runtime-ports.md' -Needles @(
     $script:PortContractVersion,
