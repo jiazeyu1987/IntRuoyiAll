@@ -35,3 +35,4 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260725-edhr-recordbook-profile-switch-ui/bug-regression-evidence.md` -> PASS。
 - GREEN: task-closeout-cleanup preview/apply -> PASS, keep-only cleanup for this task and no deleted paths.
 - GREEN: project-experience-consolidation check -> PASS, searched existing docs for Profile / 个人中心 / Element Plus / switch / 红框; no durable new project-wide lesson beyond current task evidence.
+- GREEN: implementation commit -> PASS, `8c56a1208016bdc14b04759b14744acda1e29e37 fix: clean recordbook profile switch UI`.

@@ -10,7 +10,7 @@
 - [x] 更新静态合同，先覆盖红框删除和蓝框点击区域。
 - [x] 修改个人中心记录本全局开关组件。
 - [x] 运行相关静态验证和类型检查。
-- [ ] 完成收尾、提交和推送。
+- [x] 完成收尾、提交和推送。
 
 ## Expected Verification
 
@@ -19,7 +19,12 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
+
+## Final Evidence
+
+- Implementation commit: `8c56a1208016bdc14b04759b14744acda1e29e37`
+- Cleanup: preview/apply passed with no deleted paths.
 
 ## 设计约束检查
 
