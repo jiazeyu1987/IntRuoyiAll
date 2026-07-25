@@ -78,6 +78,7 @@
 - eDHR 批次详情 / 动态表单 / 损耗单 / 工艺路线绑定 / 填写人 / `fillableUsers` / `routeBindingId` / 配置页有值但详情接口为空：`E:\IntRuoyi\docs\backend-development.md#edhr-详情回填门禁`
 - 项目错误预防短记忆：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\agent-memory\project-error-prevention.md`
 
+- Keywords: Playwright requestfailed / hm.baidu.com / api.iconify.design / Iconify 外部请求 / 第三方统计 net::ERR_ABORTED / localRequestFailures / externalRequestFailures / 工艺流程真实 E2E -> `docs/e2e-rules.md#2026-07-25-e2e-请求失败分层门禁`
 ## 任务门禁
 
 - 在 `task.md` 只摘命中文档的门禁，写入 `## 经验门禁`。

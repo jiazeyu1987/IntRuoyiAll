@@ -19,6 +19,14 @@
 - 发布、审计或独立验证任务发现前端无入口时，必须 fail fast，不得临时扩大范围新增入口。
 - 功能或修复任务只有在入口属于用户批准范围，且已完成 BDD + TDD 时，才允许补入口。
 
+## 2026-07-25 E2E 请求失败分层门禁
+
+- Trigger: Playwright `requestfailed` 中出现 `hm.baidu.com`、`api.iconify.design`、统计脚本、Iconify 图标外部请求 `net::ERR_ABORTED`，但目标本机页面和 `/admin-api/` 业务请求已完成。
+- Preflight check: 真实 E2E 采集 `pageerror`、console error、requestfailed 时，必须按 URL 分层统计：本机入口、`localhost`、`127.0.0.1`、`/admin-api/` 属于业务访问；第三方统计、图标 CDN 等外部请求单独记录。
+- Blocker: 任一本机页面资源、`/admin-api/` 请求、页面异常或控制台错误失败时必须失败；不得因为外部请求存在就宣称业务页面已完整通过。
+- Verification: 证据 JSON 同时包含 `requestFailures`、`localRequestFailures`、`externalRequestFailures`，且最终断言 `localRequestFailures=[]`、`pageErrors=[]`、`consoleErrors=[]`。
+- Forbidden action: 禁止直接清空全部 `requestfailed`、禁用错误采集、关闭网络失败监听或把 API-only 验证冒充页面通过。
+- Evidence: `doc/tasks/20260725-process-flow-tab-e2e-fix/verification-report.md`。
 ## 禁止做法
 
 - 禁止 mock 数据冒充真实 E2E。
