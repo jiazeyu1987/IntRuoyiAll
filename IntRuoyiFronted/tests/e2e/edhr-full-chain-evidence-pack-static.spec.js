@@ -80,7 +80,7 @@ assert.ok(submitDialogStart >= 0, '完整演练必须封装提交执行电子签
 assert.ok(submitDialogBlock.includes('.edhr-fill-workspace__submit-sign-dialog'), '提交执行必须等待当前真实电子签名弹窗类名，不能依赖历史标题。')
 assert.ok(submitDialogBlock.includes('input[type="password"]'), '提交执行弹窗打开后必须确认密码输入框可见。')
 assert.ok(!submitDialogBlock.includes("hasText: '提交 eDHR 执行'"), '提交执行弹窗不得依赖已废弃标题“提交 eDHR 执行”。')
-assert.ok(submitExecutionBlock.includes('/确\s*认(?:\s*提\s*交)?/'), '提交执行确认按钮必须兼容当前“确认”和历史“确认提交”按钮文案。')
+assert.ok(/\/确\\s\*认\(\?:\\s\*提\\s\*交\)\?\//.test(submitExecutionBlock), '提交执行确认按钮必须兼容当前“确认”和历史“确认提交”按钮文案。')
 
 for (const token of [
   'EDHR_FULL_E2E_ADMIN_SINGLE_ACTOR',

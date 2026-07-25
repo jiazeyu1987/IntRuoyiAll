@@ -78,6 +78,7 @@
 - Keywords: Vite import-analysis Failed to resolve import / controlled-file/logs/index.vue / 前端源码 logs 目录被 .gitignore logs/ 忽略 / git check-ignore -> `docs/frontend-development.md#前端源码目录与-gitignore-门禁`
 - eDHR 批次详情 / 动态表单 / 损耗单 / 工艺路线绑定 / 填写人 / `fillableUsers` / `routeBindingId` / 配置页有值但详情接口为空：`E:\IntRuoyi\docs\backend-development.md#edhr-详情回填门禁`
 - Keywords: eDHR 批次任务配置来源, routeSnapshotJson, batchUseConfigs, 当前 BATCH 工序配置, 陈旧绑定, legacy flat batchRecordReportId, 发布快照不得通用 fallback -> `docs/backend-development.md#edhr-批次任务配置来源门禁`
+- Keywords: eDHR 批记录版本治理规则, CELL_RULE_RECONCILED, 1040750243, 批记录模板未确认填写规则, Jimu 当前 JSON, openOrCreateByContext -> `docs/backend-development.md#edhr-批记录版本治理规则运行态门禁`
 - Keywords: Windows CRLF 静态合同, static.spec.js 目标 worktree 自身失败, 真实 E2E 脚本与页面行为同步, 废弃弹窗流程, 字段审计保存直连 API -> `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁`
 - Keywords: eDHR 单据填写人显示值, 损耗单卡片, fillableUsers displayName, candidateSourceNames 格式, 页面填写人断言 -> `docs/e2e-rules.md#edhr-单据填写人显示值门禁`
 - 项目错误预防短记忆：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\agent-memory\project-error-prevention.md`

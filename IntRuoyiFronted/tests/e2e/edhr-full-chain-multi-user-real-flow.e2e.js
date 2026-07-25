@@ -1061,8 +1061,9 @@ async function formReviewSign(page, signaturePassword, taskIndex) {
 
 async function openSubmitDialog(page) {
   await clickVisibleButton(page, '提交执行', '提交执行')
-  const dialog = page.locator('.el-dialog:visible').filter({ hasText: '提交 eDHR 执行' }).first()
+  const dialog = page.locator('.edhr-fill-workspace__submit-sign-dialog.el-dialog:visible').first()
   await dialog.waitFor({ state: 'visible', timeout: 60000 })
+  await dialog.locator('input[type="password"]').first().waitFor({ state: 'visible', timeout: 60000 })
   return dialog
 }
 
@@ -1112,7 +1113,7 @@ async function submitExecution(page, signaturePassword, actorConfig, taskIndex) 
   }
   const selections = await chooseReviewAssignees(page, dialog, actorConfig)
   const responsePromise = waitForApiResponse(page, ENDPOINTS.executionSubmit, `提交执行 T${taskIndex}`, 'PUT')
-  await clickVisibleButton(dialog, /确\s*认\s*提\s*交/, '确认提交执行')
+  await clickVisibleButton(dialog, /确\s*认(?:\s*提\s*交)?/, '确认提交执行')
   let result
   try {
     result = await responsePromise

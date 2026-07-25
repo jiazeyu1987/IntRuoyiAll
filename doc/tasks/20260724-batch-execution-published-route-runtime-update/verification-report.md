@@ -47,3 +47,11 @@
 - PASS：DB 核验显示该批次持久化 `route_version_id=358`、`route_version_no=V14`、`route_snapshot_json` 长度 `38089`，`configSnapshots.batchUseConfigs=14`，`task_total=21`，`blocked_count=0`。
 - PASS：路线 `922119` 仍存在草稿 `361 / V15`，active 发布版本为 `358 / V14`；本次创建读取并冻结 ACTIVE 发布版本，未依赖草稿。
 - NOTE：一次性脚本第一次运行创建了 `900000000789 / BRS20260725133618` 并已 DB 证实冻结 `358 / V14`，但后续打开填写断言不属于本次创建冻结目标且失败；第二次脚本已收敛到创建冻结目标并通过。
+
+## 2026-07-25 最终 E2E 通过
+
+- PASS：后端已加载当前修复版，PID `29320`，jar SHA256 `B81920535CAEA036AEF514387AF8898C1D3C7A249AE7CD0FDA5F30C2C9E9EA2E`，health 为 UP。
+- PASS：真实前端 `http://localhost:8081`、授权身份 `芋道源码/admin`，创建批次 `900000000805 / BRS20260725160633` 并打开当前填写任务。
+- PASS：DB 核验批次冻结 ACTIVE 路线 `358 / V14`，route snapshot 长度 `38089`，任务 `21` 个，blocked_count `0`；草稿 `361 / V15` 仍存在。
+- PASS：打开填写生成 execution `1280`，批记录版本 `118 / V13.0`，执行快照长度 `111712`，字段数 `87`，未确认规则字段数 `0`。
+- REGRESSION：新增后端测试覆盖已发布版本治理证据物化规则；相邻旧用例确认无治理证据的 legacy checkbox 仍 fail-fast。

@@ -77,3 +77,16 @@
 - RED: direct open without rail-card selection -> FAIL，点击“打开填写”后未发出 `/task/open`，原因是脚本只选中了工序组，未先点击右侧具体表单卡片以刷新填写载体；已补齐右侧表单卡片和“批记录”载体选择。
 
 - CHANGE: direct open locator -> 将“打开填写”限定在右侧 active 表单卡片内，并等待卡片 is-active 与“批记录”载体 aria-pressed 生效后再点击，避免误点非当前任务按钮。
+
+## 2026-07-25 Published Version Cell Rule Runtime Fix And E2E PASS
+
+- RED: real E2E open task -> FAIL，批次创建已冻结路线 ACTIVE V14，但打开填写返回业务错误 `1040750243`：批记录模板存在未确认填写规则；定位为运行态只读取 Jimu 当前 JSON 的 reviewed 标记，未识别已发布版本 `CELL_RULE_RECONCILED` 治理证据。
+- CHANGE: backend runtime -> 新增 `MesProBatchRecordCellRuleSupport.materializeVersionApprovedCellRules`，仅当批记录版本为 `APPROVED`、无 blocking migration item 且存在 `CELL_RULE_RECONCILED` 治理证据时，才把自动填写规则物化为 `VERSION_APPROVED` 运行态规则；无治理证据仍维持未确认规则 fail-fast。
+- GREEN: `mvn.cmd -pl yudao-module-mes '-Dtest=MesProBatchRecordExecutionServiceImplTest#openOrCreateByContext_materializesApprovedVersionCellRuleGovernanceIntoExecutionSnapshot' surefire:test` -> PASS。
+- GREEN: `mvn.cmd -pl yudao-module-mes '-Dtest=MesProBatchRecordExecutionServiceImplTest#openOrCreateByContext_legacyStaticCheckboxCellsRequireRuleReviewBeforeExecution' surefire:test` -> PASS，确认无治理证据的旧 checkbox 仍阻塞。
+- GREEN: `mvn.cmd -pl yudao-server -am '-DskipTests' package` -> PASS，生成新 `yudao-server-exec.jar`。
+- GREEN: backend reload -> PASS，停止冲突 PID `50968`，启动当前修复版 PID `29320`，jar SHA256 `B81920535CAEA036AEF514387AF8898C1D3C7A249AE7CD0FDA5F30C2C9E9EA2E`，`/actuator/health` 为 UP。
+- GREEN: `node --check doc/tasks/20260724-batch-execution-published-route-runtime-update/admin-create-published-route.e2e.cjs` -> PASS。
+- GREEN: `node doc/tasks/20260724-batch-execution-published-route-runtime-update/admin-create-published-route.e2e.cjs` -> PASS，真实前端创建批次 `900000000805 / BRS20260725160633`，打开 workTask `1779`，后端返回 execution `1280`。
+- GREEN: final DB verification -> PASS，批次 `900000000805` 冻结路线 `922119` 的 `358 / V14`，草稿 `361 / V15` 仍存在；execution `1280` 快照长度 `111712`，字段数 `87`，未确认规则字段数 `0`。
+- GREEN: project experience consolidation -> PASS，已将“已发布批记录版本治理证据物化运行态规则”的可复用门禁合并到 `docs/backend-development.md` 并在 `docs/experience-index.md` 登记关键词。
