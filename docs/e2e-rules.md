@@ -63,6 +63,14 @@
 - Verification: 只读 tracking E2E 必须断言 `eDHR 追踪详情`、追踪表单区域、返回批次详情时保留 `batchExecutionId` 与 `batchTaskId`，并断言无 MES 写请求；填写页 toolbar/返回按钮可用性用真实填写路径或静态合同补充覆盖。
 - Forbidden action: 禁止用 API-only、管理员写入、旧 executionId 直连填写页、忽略对象级权限、或把 read-only tracking 当作写入路径 fallback。
 - Evidence: `doc/tasks/post-merge-jiluben-e2e-20260725/verification-report.md`。
+## eDHR 单据填写人显示值门禁
+
+- Trigger: Playwright 验证 eDHR 批次详情右侧单据卡片、损耗单、过程检验单、参数记录表、`fillableUsers`、填写人显示值。
+- Preflight check: 页面断言前先通过同一登录会话的详情接口读取目标任务 `fillableUsers`，以接口当前 `displayName/nickname/username` 为页面期望值；不得硬编码配置页历史 `candidateSourceNames` 格式。
+- Blocker: 若详情接口 `fillableUsers` 为空、只返回角色/部门 ID、或页面卡片显示值与详情接口当前显示值不一致，必须停止并记录接口任务、页面可见卡片和账号/租户标签。
+- Verification: 真实 E2E 同时记录批次编码/ID、命中任务、接口填写人、页面卡片可见文本和无 MES 写请求检查。
+- Forbidden action: 禁止把旧配置页候选名称、当前登录人、创建人、更新人或账号拼接格式当作页面期望值；禁止把 API-only 断言当成单据卡片显示通过。
+- Evidence: `doc/tasks/20260725-edhr-route-form-filler-e2e/real-e2e-evidence.md`。
 ## Element Plus 下拉选择门禁
 
 - Trigger: Playwright 在 Element Plus `el-select` 中选择租户、工单、工艺路线、角色、用户或其他写入型业务对象。

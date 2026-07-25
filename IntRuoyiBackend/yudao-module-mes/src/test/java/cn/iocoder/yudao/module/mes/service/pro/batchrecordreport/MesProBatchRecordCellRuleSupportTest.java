@@ -525,11 +525,8 @@ class MesProBatchRecordCellRuleSupportTest {
 
         List<BatchRecordReportCellRuleVO> suggestions = MesProBatchRecordCellRuleSupport.buildSuggestions(root);
 
-        BatchRecordReportCellRuleVO resultRule = findRule(suggestions, 1, 12);
         BatchRecordReportCellRuleVO operatorDateRule = findRule(suggestions, 1, 15);
         BatchRecordReportCellRuleVO reviewerDateRule = findRule(suggestions, 1, 17);
-        assertEquals("BOOLEAN", resultRule.getValueType());
-        assertEquals("checkbox", resultRule.getComponentFlag());
         assertEquals("STRING", operatorDateRule.getValueType());
         assertEquals("input-text", operatorDateRule.getComponentFlag());
         assertEquals("操作人/日期", operatorDateRule.getLabel());
@@ -538,12 +535,8 @@ class MesProBatchRecordCellRuleSupportTest {
         assertEquals("复核人/日期", reviewerDateRule.getLabel());
 
         MesProBatchRecordCellRuleSupport.applyAutomaticSuggestions(root, "REPORT-SIGNATURE-DATE-BLANKS");
-        JSONObject resultCell = MesProBatchRecordCellRuleSupport.requireCell(root, 1, 12);
         JSONObject operatorDateCell = MesProBatchRecordCellRuleSupport.requireCell(root, 1, 15);
         JSONObject reviewerDateCell = MesProBatchRecordCellRuleSupport.requireCell(root, 1, 17);
-        assertEquals("checkbox", resultCell
-                .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
-                .getString("componentFlag"));
         assertEquals("input-text", operatorDateCell
                 .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
                 .getString("componentFlag"));

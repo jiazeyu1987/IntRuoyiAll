@@ -606,12 +606,13 @@ public final class MesProBatchRecordCellRuleSupport {
         if (hasValidSignatureMarker(cell)) {
             return baseSuggestion(rowIndex, columnIndex, "SIGNATURE", "signature", label, null, 0.99, false);
         }
+        String signatureDateHeader = resolveUpperSignatureDateLabel(rows, rowIndex, columnIndex);
+        if (StrUtil.isNotBlank(signatureDateHeader)
+                && (StrUtil.isBlank(compact(ownText)) || isCheckboxChoiceText(ownText))) {
+            return baseSuggestion(rowIndex, columnIndex, "STRING", defaultComponentFlag("STRING", existingComponent),
+                    signatureDateHeader, null, 0.38, false);
+        }
         if (isCheckboxChoiceText(ownText)) {
-            String signatureDateHeader = resolveUpperSignatureDateLabel(rows, rowIndex, columnIndex);
-            if (StrUtil.isNotBlank(signatureDateHeader)) {
-                return baseSuggestion(rowIndex, columnIndex, "STRING", defaultComponentFlag("STRING", existingComponent),
-                        signatureDateHeader, null, 0.38, false);
-            }
             return buildAutoCheckboxRule(rowIndex, columnIndex, ownText, label);
         }
         String compactLabel = compact(label);

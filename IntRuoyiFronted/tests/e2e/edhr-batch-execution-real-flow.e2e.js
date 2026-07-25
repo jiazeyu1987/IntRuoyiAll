@@ -10,6 +10,8 @@ const EVIDENCE_FILE = envValue('EDHR_BATCH_E2E_EVIDENCE_FILE')
 const REQUIRED_BASE_URL = 'http://localhost:8081'
 const BATCH_EXECUTION_ROUTE = '/mes/pro/feedback/edhr-batch-execution'
 const FORBIDDEN_TENANTS = new Set(['芋道源码', 'yudao', 'prod', 'production'])
+const PROTECTED_TENANT_AUTH_ENV = 'EDHR_BATCH_E2E_PROTECTED_TENANT_AUTH'
+const PROTECTED_TENANT_AUTH_VALUE = 'USER_AUTHORIZED_YUDAO_ADMIN_20260725'
 
 const REQUIRED_ENV = [
   ['EDHR_BATCH_E2E_PASSWORD', '测试租户账号密码'],
@@ -64,6 +66,7 @@ function writeEvidence(result) {
 
 function collectConfig() {
   const tenant = envValue('EDHR_BATCH_E2E_TENANT') || '测试租户'
+  const protectedTenantAuthorized = envValue(PROTECTED_TENANT_AUTH_ENV) === PROTECTED_TENANT_AUTH_VALUE
   const config = {
     baseUrl: envValue('EDHR_BATCH_E2E_BASE_URL') || REQUIRED_BASE_URL,
     tenant,
@@ -91,8 +94,14 @@ function collectConfig() {
   if (config.baseUrl !== REQUIRED_BASE_URL) {
     missing.push({ name: 'EDHR_BATCH_E2E_BASE_URL', description: `必须固定为 ${REQUIRED_BASE_URL}` })
   }
-  if (FORBIDDEN_TENANTS.has(config.tenant.toLowerCase()) || config.tenant.includes('芋道源码')) {
-    missing.push({ name: 'EDHR_BATCH_E2E_TENANT', description: '真实 E2E 禁止使用正式或芋道源码租户' })
+  if (
+    !protectedTenantAuthorized &&
+    (FORBIDDEN_TENANTS.has(config.tenant.toLowerCase()) || config.tenant.includes('芋道源码'))
+  ) {
+    missing.push({
+      name: PROTECTED_TENANT_AUTH_ENV,
+      description: `受保护租户必须有用户显式授权，并设置为 ${PROTECTED_TENANT_AUTH_VALUE}`
+    })
   }
   for (const [name, value] of [
     ['EDHR_BATCH_E2E_WORK_ORDER_ID', config.workOrderId],
