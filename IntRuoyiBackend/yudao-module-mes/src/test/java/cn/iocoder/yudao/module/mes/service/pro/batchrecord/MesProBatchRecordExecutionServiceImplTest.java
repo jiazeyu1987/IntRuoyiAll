@@ -57,6 +57,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWork
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordDefinitionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordVersionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordVersionMigrationItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
@@ -77,6 +78,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskS
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordDefinitionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordVersionMigrationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
@@ -106,6 +108,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -180,6 +183,8 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
     private MesProBatchRecordDefinitionMapper definitionMapper;
     @Resource
     private MesProBatchRecordVersionMapper versionMapper;
+    @Resource
+    private MesProBatchRecordVersionMigrationItemMapper versionMigrationItemMapper;
     @Resource
     private MesProProcessMapper processMapper;
     @Resource
@@ -3354,6 +3359,61 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
         assertTrue(serviceException.getMessage().contains("第 1 行第 2 列"));
         assertTrue(serviceException.getMessage().contains("第 2 行第 2 列"));
         assertEquals(0L, executionMapper.selectCount());
+    }
+
+    @Test
+    void openOrCreateByContext_materializesApprovedVersionCellRuleGovernanceIntoExecutionSnapshot() {
+        MesProWorkOrderDO workOrder = insertWorkOrder();
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .routeId(1001L)
+                .processId(2002L)
+                .sort(1)
+                .batchRecordReportId("report-approved-governance")
+                .remark("approved version governance binding")
+                .build();
+        routeProcessMapper.insert(routeProcess);
+        MesProBatchRecordDefinitionDO definition = batchRecordDefinition("已发布治理批记录");
+        definitionMapper.insert(definition);
+        MesProBatchRecordVersionDO version = batchRecordVersion(definition.getId(), "V1.0", "APPROVED", null);
+        versionMapper.insert(version);
+        definition.setCurrentVersionId(version.getId());
+        definitionMapper.updateById(definition);
+        MesProBatchRecordReportDO report = report("report-approved-governance");
+        report.setBatchRecordDefinitionId(definition.getId());
+        report.setBatchRecordVersionId(version.getId());
+        reportMapper.insert(report);
+        versionMigrationItemMapper.insert(MesProBatchRecordVersionMigrationItemDO.builder()
+                .definitionId(definition.getId())
+                .versionId(version.getId())
+                .itemType("CELL_RULE")
+                .diffGroup("CELL_RULE")
+                .diffType("CELL_RULE_RECONCILED")
+                .sourceLogicalKey("VERSION:" + version.getId() + ":CELL_RULES")
+                .targetLogicalKey("VERSION:" + version.getId() + ":CELL_RULES")
+                .matchConfidence(BigDecimal.ONE)
+                .riskLevel("INFO")
+                .ruleType("CELL_RULE")
+                .businessOwnerType("PROCESS_OWNER")
+                .confirmed(false)
+                .message("单元格约束已纳入版本迁移证据")
+                .build());
+        when(jimuReportGateway.getReportJson("report-approved-governance"))
+                .thenReturn(sampleEditableReportJsonWithoutRules());
+
+        MesProBatchRecordExecutionOpenOrCreateByContextRespVO resp = executionService.openOrCreateByContext(
+                new MesProBatchRecordExecutionOpenOrCreateByContextReqVO()
+                        .setWorkOrderId(workOrder.getId())
+                        .setRouteProcessId(routeProcess.getId())
+                        .setBatchRecordReportId("report-approved-governance")
+                        .setBatchCode("BATCH-APPROVED-GOVERNANCE"));
+
+        MesProBatchRecordExecutionDO execution = executionMapper.selectById(resp.getId());
+        JSONArray fields = JSON.parseObject(execution.getExecutionSnapshotJson()).getJSONArray("fields");
+        assertEquals(2, fields.size());
+        JSONObject firstRule = fields.getJSONObject(0).getJSONObject("edhrCellRule");
+        assertEquals("VERSION_APPROVED", firstRule.getString("source"));
+        assertEquals(true, firstRule.getBooleanValue("reviewed"));
+        assertEquals("STRING", firstRule.getString("valueType"));
     }
 
     @Test

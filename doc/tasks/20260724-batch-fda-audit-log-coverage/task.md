@@ -10,7 +10,7 @@
 - [x] M2: 先补 BDD 场景与失败验证，明确审计缺口。
 - [x] M3: 实现后端审计事件/操作日志写入，覆盖本地状态样本创建、附件删除/预登记/保存、规则保存、候选签名完成、任务重派、放行预检。
 - [x] M4: 确保审计日志能被现有日志表格与批次追溯查询到，补齐前端展示字段与批次维度查询。
-- [ ] M5: 运行针对性验证并记录 RED/GREEN 证据。
+- [x] M5: 运行针对性验证并记录 RED/GREEN 证据。
 - [ ] M6: 收尾清理、经验沉淀、任务状态完成。
 
 ## Expected Verification
@@ -39,7 +39,9 @@ ready_for_closeout
 - RED: `node IntRuoyiBackend\yudao-module-mes\src\test\js\edhr-fda-operation-audit-coverage-static.spec.cjs` -> FAIL，原因分别为本地状态样本创建缺 operationType、样本创建 metadata 缺 `permissionDecision/resultStatus`、后端审计控制器不支持仅 `batchExecutionId` 的批次追溯查询。
 - GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\edhr-fda-operation-audit-coverage-static.spec.cjs` -> PASS。
 - GREEN: `git -C E:\IntRuoyi diff --check` -> PASS，仅 CRLF warning。
-- BLOCKED: `mvn -pl yudao-module-mes -DskipTests compile` -> FAIL，外部无关阻塞：`MesProRouteFlowConfigServiceImpl` 缺失 `resolveRecordbookEnabled(Boolean, String)`。
+- GREEN: `mvn -pl yudao-module-mes -am -DskipTests compile` -> PASS，依赖模块同 reactor 构建后主代码编译通过。
+- GREEN: `mvn -pl yudao-module-mes -am '-Dtest=MesProEdhrLocalStateSampleServiceTest#createLocalStateSample_writesExpectedStateCombination' '-Dsurefire.failIfNoSpecifiedTests=false' test` -> PASS。
+- GREEN: `node doc\tasks\20260724-batch-fda-audit-log-coverage\operation-audit-trace-write-sample.e2e.cjs` -> PASS，真实前端路径创建任务自有样本批次并在批次追溯操作审计中展示 `LOCAL_STATE_SAMPLE_CREATE`。
 - BLOCKED: `pnpm -C IntRuoyiFronted ts:check` -> FAIL，外部无关阻塞：`src/views/dcc/controlled-file/browser/index.vue` 存在既有 id 类型错误。
 
 ## 设计约束检查
@@ -57,7 +59,7 @@ ready_for_closeout
 
 - 后端全模块编译被非本任务文件 `IntRuoyiBackend\yudao-module-mes\src\main\java\cn\iocoder\yudao\module\mes\service\pro\route\MesProRouteFlowConfigServiceImpl.java` 中缺失方法 `resolveRecordbookEnabled(Boolean, String)` 阻塞；按并行改动隔离规则未修复。
 - 前端类型检查被非本任务 DCC 页面既有 `string | number` 与 `number/string` 类型不匹配阻塞；按并行改动隔离规则未修复。
-- 因必需编译/类型检查阻塞，任务不能标记为 `completed`，也不提交。
+- 当前请求的写入型真实前端 E2E 已复跑成功；任务仍待 M6 收尾清理、经验沉淀和提交/推送门禁处理。
 
 
 ## E2E Verification Update - 2026-07-25
@@ -84,4 +86,10 @@ ready_for_closeout
 - GREEN: `node doc\tasks\20260724-batch-fda-audit-log-coverage\operation-audit-trace-write-sample.e2e.cjs` -> PASS。
 - E2E Sample: batchExecutionId=`900000000799`, batchExecutionCode=`EDHR-UI-SAMPLE-PRECHECK-20260725152451737`, operationAuditId=`18421`, operationType=`LOCAL_STATE_SAMPLE_CREATE`, auditHash=`d711fb2e57ab6f2b62af95731b15f94bf57a84280724b03ac6a2834be73ef205`.
 - UI Trace Request: `/mes/pro/edhr-operation-audit/page?pageNo=1&pageSize=10&batchExecutionId=900000000799`; asserted `batchExecutionId` present and `objectType/objectId` absent.
+- Evidence: `test-results\operation-audit-trace-write-sample\evidence.md`, `result.json`, `operation-audit-trace-write-sample.png`.
+## E2E Re-run Pass - 2026-07-25 15:37 Asia/Shanghai
+
+- GREEN: `node doc\tasks\20260724-batch-fda-audit-log-coverage\operation-audit-trace-write-sample.e2e.cjs` -> PASS。
+- E2E Sample: batchExecutionId=`900000000802`, batchExecutionCode=`EDHR-UI-SAMPLE-PRECHECK-20260725153739914`, operationAuditId=`18442`, operationType=`LOCAL_STATE_SAMPLE_CREATE`, auditHash=`abc32c392ed603186d44c89621a6960b029d0e7e993786d36e9f1cf3ac0160e3`.
+- UI Trace Request: `/mes/pro/edhr-operation-audit/page?pageNo=1&pageSize=10&batchExecutionId=900000000802`; asserted `batchExecutionId` present and `objectType/objectId` absent.
 - Evidence: `test-results\operation-audit-trace-write-sample\evidence.md`, `result.json`, `operation-audit-trace-write-sample.png`.

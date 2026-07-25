@@ -49,6 +49,7 @@ const ROUTES = {
   batchList: '/mes/pro/feedback/edhr-batch-execution',
   batchDetail: '/mes/pro/feedback/edhr-batch-execution/detail',
   batchReview: '/mes/pro/feedback/edhr-batch-execution/review',
+  batchRecordFormList: '/mes/pro/batch-record-form-list',
   executionDetail: '/mes/pro/feedback/edhr-execution/form',
   approval: '/approval-center/todo'
 }
@@ -59,6 +60,7 @@ const ENDPOINTS = {
   batchRouteOptions: '/mes/pro/edhr-batch-execution/work-order-route-options',
   batchGet: '/mes/pro/edhr-batch-execution/get',
   batchTaskOpen: '/mes/pro/edhr-batch-execution/task/open',
+  cellRules: '/mes/pro/batch-record-report/cell-rules',
   batchSync: '/mes/pro/edhr-batch-execution/sync-status',
   batchClose: '/mes/pro/edhr-batch-execution/close',
   batchArchiveGenerate: '/mes/pro/edhr-batch-execution-archive/generate',
@@ -742,6 +744,90 @@ async function visibleTableRowTexts(page) {
       .map((row) => (row.innerText || '').replace(/\s+/g, ' ').trim())
       .filter(Boolean)
   )
+}
+
+
+async function ensureBatchTaskCellRulesConfirmedByUi(page, batch) {
+  const auth = await browserAuth(page)
+  const reportTasks = []
+  const seenReportIds = new Set()
+  for (const task of batch?.tasks || []) {
+    const reportId = String(task.batchRecordReportId || '').trim()
+    if (!reportId || seenReportIds.has(reportId) || task.nodeType !== ROUTE_FORM_NODE_TYPE) continue
+    seenReportIds.add(reportId)
+    reportTasks.push(task)
+  }
+  if (reportTasks.length === 0) {
+    throw blocked('创建后的批次没有可确认填写规则的普通工序报表任务。')
+  }
+
+  const confirmations = []
+  for (const task of reportTasks) {
+    const reportId = String(task.batchRecordReportId).trim()
+    const before = await apiGet(page, auth, ENDPOINTS.cellRules, { reportId })
+    const beforeUnreviewed = Number(before.unreviewedFillableCellCount || 0)
+    if (beforeUnreviewed <= 0) {
+      confirmations.push({
+        reportId,
+        reportName: task.batchRecordReportName,
+        processName: task.processName,
+        beforeUnreviewed,
+        savedByUi: false,
+        afterUnreviewed: 0,
+        ruleCount: Array.isArray(before.rules) ? before.rules.length : 0
+      })
+      continue
+    }
+
+    const readPromise = waitForApiResponse(
+      page,
+      ENDPOINTS.cellRules,
+      `打开填写规则弹窗 ${task.batchRecordReportName || reportId}`,
+      'GET',
+      (response) => response.url().includes(`reportId=${encodeURIComponent(reportId)}`)
+    )
+    const versionNoQuery = task.batchRecordVersionNo ? `&versionNo=${encodeURIComponent(task.batchRecordVersionNo)}` : ''
+    await gotoPath(page, `${ROUTES.batchRecordFormList}?reportId=${encodeURIComponent(reportId)}&action=cellRules${versionNoQuery}`)
+    const loaded = await readPromise
+    const dialog = page.locator('.el-dialog:visible').filter({ hasText: '单元格规则' }).first()
+    await dialog.waitFor({ state: 'visible', timeout: 90000 })
+    await dialog.locator('.batch-record-cell-rules-editor').first().waitFor({ state: 'visible', timeout: 90000 })
+    const loadedUnreviewed = Number(loaded.unreviewedFillableCellCount || 0)
+    assert.ok(loadedUnreviewed > 0, `填写规则弹窗必须暴露待确认数量，reportId=${reportId}`)
+
+    const savePromise = waitForApiResponse(
+      page,
+      ENDPOINTS.cellRules,
+      `保存填写规则 ${task.batchRecordReportName || reportId}`,
+      'PUT'
+    )
+    await clickVisibleButton(dialog, '保存规则', `保存填写规则 ${task.batchRecordReportName || reportId}`)
+    const saved = await savePromise
+    const afterUnreviewed = Number(saved.unreviewedFillableCellCount || 0)
+    assert.equal(afterUnreviewed, 0, `保存填写规则后仍存在未确认单元格，reportId=${reportId}`)
+    await dialog.waitFor({ state: 'hidden', timeout: 90000 })
+    confirmations.push({
+      reportId,
+      reportName: task.batchRecordReportName,
+      processName: task.processName,
+      beforeUnreviewed,
+      loadedUnreviewed,
+      savedByUi: true,
+      afterUnreviewed,
+      ruleCount: Array.isArray(saved.rules) ? saved.rules.length : 0,
+      suggestionCount: Array.isArray(saved.suggestions) ? saved.suggestions.length : 0
+    })
+  }
+
+  writeEvidenceJson('cell-rule-confirmation.json', {
+    runId: RUN_ID,
+    batchExecutionId: batch.id,
+    batchCode: batch.batchCode || batch.batchExecutionCode,
+    reportCount: confirmations.length,
+    savedCount: confirmations.filter((item) => item.savedByUi).length,
+    confirmations
+  })
+  return confirmations
 }
 
 async function openTaskByUi(page, task) {
@@ -1673,6 +1759,8 @@ async function runCreateBatchFlow(browser, ownerPage, config) {
   const reviewActor = config.actors[4]
   const archiver = config.actors[5]
   const created = await createBatchByUi(ownerPage)
+  const cellRuleConfirmations = await ensureBatchTaskCellRulesConfirmedByUi(ownerPage, created.batch)
+  await loadBatchDetailByUi(ownerPage, created.batchExecutionId, '填写规则确认后批次详情')
   const batchId = created.batchExecutionId
   const processedTasks = []
 
@@ -1735,6 +1823,7 @@ async function runCreateBatchFlow(browser, ownerPage, config) {
       batchCode: created.batchCode,
       oqc: oqcResult,
       processedTasks,
+      cellRuleConfirmations,
       rejectReworkEvidence: processedTasks.find((task) => task.reworkTaskId && task.revisionExecutionId),
       archive: archiveResult.archive,
       pdfBuffer: archiveResult.pdfBuffer
@@ -1944,6 +2033,8 @@ async function run() {
       batchExecutionId: targetBatchExecutionId,
       batchCode: detail.batchCode,
       processedRouteTasks: createdResult?.processedTasks?.length || 0,
+      cellRuleConfirmations: createdResult?.cellRuleConfirmations?.length || 0,
+      cellRuleSavedCount: createdResult?.cellRuleConfirmations?.filter((item) => item.savedByUi).length || 0,
       rejectReworkEvidence: createdResult?.rejectReworkEvidence,
       oqc: createdResult?.oqc,
       archiveId: archive.id,

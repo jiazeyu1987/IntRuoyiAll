@@ -364,6 +364,33 @@ public final class MesProBatchRecordCellRuleSupport {
         return counter.value;
     }
 
+    public static int materializeVersionApprovedCellRules(JSONObject root, String reportCode) {
+        Counter counter = new Counter();
+        JSONObject rows = root == null ? null : root.getJSONObject("rows");
+        forEachCell(root, (rowIndex, columnIndex, cell) -> {
+            if (!isFillableCandidateCell(cell) || hasValidSignatureMarker(cell)) {
+                return;
+            }
+            JSONObject existing = cell.getJSONObject(CELL_RULE_KEY);
+            if (isReviewedRule(existing)) {
+                return;
+            }
+            if (existing == null) {
+                BatchRecordReportCellRuleVO suggestion = withFillFormPlaceholder(
+                        suggestRule(rows, rowIndex, columnIndex, cell), cell);
+                ensureManualFillForm(suggestion, cell, reportCode);
+                cell.put(CELL_RULE_KEY, toRuleJson(suggestion));
+                existing = cell.getJSONObject(CELL_RULE_KEY);
+            }
+            if (existing != null) {
+                existing.put("source", "VERSION_APPROVED");
+                existing.put("reviewed", true);
+                counter.value++;
+            }
+        });
+        return counter.value;
+    }
+
     public static int countUnreviewedFillableCells(JSONObject root) {
         Counter counter = new Counter();
         forEachCell(root, (rowIndex, columnIndex, cell) -> {

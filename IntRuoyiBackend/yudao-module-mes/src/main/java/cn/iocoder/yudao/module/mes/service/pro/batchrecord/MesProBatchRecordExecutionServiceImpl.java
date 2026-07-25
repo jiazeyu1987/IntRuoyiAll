@@ -76,6 +76,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskS
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordDefinitionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordVersionMigrationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
@@ -182,6 +183,8 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     private MesProBatchRecordDefinitionMapper definitionMapper;
     @Resource
     private MesProBatchRecordVersionMapper versionMapper;
+    @Resource
+    private MesProBatchRecordVersionMigrationItemMapper versionMigrationItemMapper;
     @Resource
     private MesProRouteMapper routeMapper;
     @Resource
@@ -2564,6 +2567,7 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
             throw exception(PRO_BATCH_RECORD_EXECUTION_SNAPSHOT_SOURCE_UNAVAILABLE);
         }
         JSONObject root = JSON.parseObject(reportJson);
+        materializeApprovedVersionCellRuleSnapshot(report, root);
         validateConfirmedCellRules(root);
         JSONObject layout = buildSnapshotLayout(root);
         JSONObject meta = buildSnapshotMeta(root, report);
@@ -2574,6 +2578,21 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
         snapshot.put("meta", meta);
         snapshot.put("fields", extractSnapshotFields(root));
         return new RuntimeSnapshot(layout.toJSONString(), meta.toJSONString(), snapshot.toJSONString());
+    }
+
+    private void materializeApprovedVersionCellRuleSnapshot(MesProBatchRecordReportDO report, JSONObject root) {
+        if (report == null || report.getBatchRecordVersionId() == null) {
+            return;
+        }
+        MesProBatchRecordVersionDO version = versionMapper.selectById(report.getBatchRecordVersionId());
+        if (version == null || !"APPROVED".equals(version.getStatus())) {
+            return;
+        }
+        if (versionMigrationItemMapper.countBlockingItems(version.getId()) > 0
+                || !versionMigrationItemMapper.existsCellRuleReconciledEvidence(version.getId())) {
+            return;
+        }
+        MesProBatchRecordCellRuleSupport.materializeVersionApprovedCellRules(root, report.getReportCode());
     }
 
     private Map<Long, MesProRouteProcessDO> getRouteProcessMap(List<MesProBatchRecordExecutionDO> executions) {

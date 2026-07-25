@@ -112,3 +112,11 @@
 - Verification: 记录 Runner 注册/领取/心跳/回写命令、页面执行入口、租户/用户标签、检查点结果、失败截图 artifact、最终 UI 状态和必要的只读 API 核验。
 - Forbidden action: 禁止把 API-only、静态合同测试、mock 截图、默认成功、Runner 离线跳过或顺序执行降级当作真实 E2E 通过。
 - Evidence: `doc/tasks/20260724-codex-test-management-delivery/verification-report.md`，2026-07-24 Codex 测试管理交付。
+## eDHR 本地状态样本操作审计追溯门禁
+
+- Trigger: Playwright 验证本地状态样本、`LOCAL_STATE_SAMPLE_CREATE`、批次追溯操作审计、或只按 `batchExecutionId` 查询操作日志。
+- Preflight check: 写入型 E2E 必须通过真实页面创建任务自有样本批次，并确认样本批次任务具备可用于批次追溯的对象级权限 scope（至少覆盖 `AUDIT_VIEW`）。
+- Blocker: 如果操作审计行已创建，但追溯接口返回 `BATCH_EXECUTION:<id>` 对象级权限范围不存在或未启用，必须修复样本创建事务的权限 scope 绑定；不得用 SQL 补权限、API-only 或管理员绕过冒充通过。
+- Verification: E2E 需断言 `/mes/pro/edhr-operation-audit/page` 请求包含 `batchExecutionId`，不包含 `objectType/objectId`，并在表格中看到目标 operationType、权限判定、结果状态和 audit hash。
+- Forbidden action: 禁止只验证审计表落库而不验证批次追溯可见性；禁止把权限缺失解释为页面无数据；禁止记录登录密码。
+- Evidence: `doc/tasks/20260724-batch-fda-audit-log-coverage/verification-report.md`。

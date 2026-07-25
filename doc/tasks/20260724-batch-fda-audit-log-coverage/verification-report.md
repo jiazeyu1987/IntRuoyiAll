@@ -77,3 +77,9 @@ ready_for_closeout
 - E2E Sample: batchExecutionId=`900000000799`, batchExecutionCode=`EDHR-UI-SAMPLE-PRECHECK-20260725152451737`, operationAuditId=`18421`, operationType=`LOCAL_STATE_SAMPLE_CREATE`, auditHash=`d711fb2e57ab6f2b62af95731b15f94bf57a84280724b03ac6a2834be73ef205`.
 - UI Trace Request: `/mes/pro/edhr-operation-audit/page?pageNo=1&pageSize=10&batchExecutionId=900000000799`; asserted `batchExecutionId` present and `objectType/objectId` absent.
 - Evidence: `test-results\operation-audit-trace-write-sample\evidence.md`, `result.json`, `operation-audit-trace-write-sample.png`.
+## E2E Re-run Pass - 2026-07-25 15:37 Asia/Shanghai
+
+- GREEN: `node doc\tasks\20260724-batch-fda-audit-log-coverage\operation-audit-trace-write-sample.e2e.cjs` -> PASS。
+- E2E Sample: batchExecutionId=`900000000802`, batchExecutionCode=`EDHR-UI-SAMPLE-PRECHECK-20260725153739914`, operationAuditId=`18442`, operationType=`LOCAL_STATE_SAMPLE_CREATE`, auditHash=`abc32c392ed603186d44c89621a6960b029d0e7e993786d36e9f1cf3ac0160e3`.
+- UI Trace Request: `/mes/pro/edhr-operation-audit/page?pageNo=1&pageSize=10&batchExecutionId=900000000802`; asserted `batchExecutionId` present and `objectType/objectId` absent.
+- Evidence: `test-results\operation-audit-trace-write-sample\evidence.md`, `result.json`, `operation-audit-trace-write-sample.png`.

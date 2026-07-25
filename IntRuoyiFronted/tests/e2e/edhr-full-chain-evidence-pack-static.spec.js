@@ -41,6 +41,24 @@ assert.ok(loadBatchDetailBlock.includes('page.waitForResponse'), '批次详情�
 assert.ok(loadBatchDetailBlock.includes('apiGet(page, auth, ENDPOINTS.batchGet'), '批次详情结构化状态必须通过同一登录会话只读 API 获取，避免抢读导航响应体。')
 assert.ok(!loadBatchDetailBlock.includes('const detail = await detailPromise'), '批次详情加载不得把导航响应体解析结果作为结构化状态。')
 
+const confirmCellRulesStart = source.indexOf('async function ensureBatchTaskCellRulesConfirmedByUi')
+const confirmCellRulesEnd = source.indexOf('async function openTaskByUi', confirmCellRulesStart)
+const confirmCellRulesBlock = source.slice(confirmCellRulesStart, confirmCellRulesEnd)
+
+assert.ok(confirmCellRulesStart >= 0, '创建批次后必须通过真实规则弹窗确认当前批次绑定报表的填写规则。')
+assert.ok(confirmCellRulesBlock.includes('ROUTES.batchRecordFormList'), '填写规则确认必须打开批记录表单列表真实页面。')
+assert.ok(confirmCellRulesBlock.includes('action=cellRules'), '填写规则确认必须使用页面 cellRules 动作打开真实弹窗。')
+assert.ok(confirmCellRulesBlock.includes('ENDPOINTS.cellRules'), '填写规则确认必须等待真实 cell-rules 读写接口。')
+assert.ok(confirmCellRulesBlock.includes('unreviewedFillableCellCount'), '填写规则确认必须以后端待确认数量作为保存门禁。')
+assert.ok(confirmCellRulesBlock.includes('保存规则'), '填写规则确认必须点击真实页面保存规则按钮。')
+assert.ok(confirmCellRulesBlock.includes('cell-rule-confirmation.json'), '填写规则确认必须写入本轮证据包。')
+
+const createFlowStart = source.indexOf('async function runCreateBatchFlow')
+const createFlowEnd = source.indexOf('async function verifyBatchDetailUi', createFlowStart)
+const createFlowBlock = source.slice(createFlowStart, createFlowEnd)
+
+assert.ok(createFlowBlock.includes('ensureBatchTaskCellRulesConfirmedByUi(ownerPage, created.batch)'), '创建批次后、打开填写任务前必须先确认批次绑定报表规则。')
+
 for (const token of [
   'EDHR_FULL_E2E_ADMIN_SINGLE_ACTOR',
   "ADMIN_SINGLE_ACTOR ? '芋道源码' : '测试租户'",

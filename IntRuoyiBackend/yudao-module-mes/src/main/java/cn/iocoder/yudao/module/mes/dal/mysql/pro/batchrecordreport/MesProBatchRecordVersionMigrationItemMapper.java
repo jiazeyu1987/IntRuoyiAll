@@ -45,6 +45,19 @@ public interface MesProBatchRecordVersionMigrationItemMapper
                 .eq(MesProBatchRecordVersionMigrationItemDO::getConfirmed, true));
     }
 
+    default boolean existsCellRuleReconciledEvidence(Long versionId) {
+        if (versionId == null) {
+            return false;
+        }
+        return selectCount(new LambdaQueryWrapperX<MesProBatchRecordVersionMigrationItemDO>()
+                .eq(MesProBatchRecordVersionMigrationItemDO::getVersionId, versionId)
+                .eq(MesProBatchRecordVersionMigrationItemDO::getItemType, "CELL_RULE")
+                .eq(MesProBatchRecordVersionMigrationItemDO::getDiffGroup, "CELL_RULE")
+                .eq(MesProBatchRecordVersionMigrationItemDO::getDiffType, "CELL_RULE_RECONCILED")
+                .eq(MesProBatchRecordVersionMigrationItemDO::getRiskLevel, "INFO")
+                .eq(MesProBatchRecordVersionMigrationItemDO::getRuleType, "CELL_RULE")) > 0;
+    }
+
     default MesProBatchRecordVersionMigrationItemDO selectByVersionIdAndConfirmIdempotencyKey(
             Long versionId, String idempotencyKey) {
         return selectOne(new LambdaQueryWrapperX<MesProBatchRecordVersionMigrationItemDO>()

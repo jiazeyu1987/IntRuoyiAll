@@ -85,3 +85,16 @@
 - E2E Sample: batchExecutionId=`900000000799`, batchExecutionCode=`EDHR-UI-SAMPLE-PRECHECK-20260725152451737`, operationAuditId=`18421`, operationType=`LOCAL_STATE_SAMPLE_CREATE`, auditHash=`d711fb2e57ab6f2b62af95731b15f94bf57a84280724b03ac6a2834be73ef205`.
 - UI Trace Request: `/mes/pro/edhr-operation-audit/page?pageNo=1&pageSize=10&batchExecutionId=900000000799`; asserted `batchExecutionId` present and `objectType/objectId` absent.
 - Evidence: `test-results\operation-audit-trace-write-sample\evidence.md`, `result.json`, `operation-audit-trace-write-sample.png`.
+## E2E Re-run Pass - 2026-07-25 15:37 Asia/Shanghai
+
+- Command: `node doc\tasks\20260724-batch-fda-audit-log-coverage\operation-audit-trace-write-sample.e2e.cjs`。
+- GREEN: 写入型真实前端 E2E -> PASS；脚本通过本机前端登录 `芋道源码/admin`，从“临时状态样本 > 放行预检样本”创建任务自有样本批次，并在批次详情“追溯记录 > 操作审计”验证新增审计。
+- E2E Sample: batchExecutionId=`900000000802`, batchExecutionCode=`EDHR-UI-SAMPLE-PRECHECK-20260725153739914`, operationAuditId=`18442`, operationType=`LOCAL_STATE_SAMPLE_CREATE`, auditHash=`abc32c392ed603186d44c89621a6960b029d0e7e993786d36e9f1cf3ac0160e3`.
+- UI Trace Request: `/mes/pro/edhr-operation-audit/page?pageNo=1&pageSize=10&batchExecutionId=900000000802`; asserted `batchExecutionId` present and `objectType/objectId` absent.
+- Evidence: `doc\tasks\20260724-batch-fda-audit-log-coverage\test-results\operation-audit-trace-write-sample\evidence.md`、`result.json`、`operation-audit-trace-write-sample.png`。
+- Guardrail: 未记录密码；未使用 mock、API-only、直接 SQL 或手工修权限替代页面路径。
+## Experience Consolidation - 2026-07-25 15:45 Asia/Shanghai
+
+- Updated `docs\backend-development.md` with Maven reactor sibling module verification guidance: `mvn -pl <module> -am` is required when sibling module symbols may be stale.
+- Updated `docs\e2e-rules.md` with eDHR local-state sample operation audit trace gate: write E2E must verify object-level permission scope and trace visibility, not just audit-row creation.
+- No new long-term experience document was created; lessons were merged into existing backend and E2E rules.
