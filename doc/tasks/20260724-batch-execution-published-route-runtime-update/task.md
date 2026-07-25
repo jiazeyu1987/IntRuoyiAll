@@ -21,7 +21,7 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
 ## 经验门禁
 
@@ -52,3 +52,4 @@ ready_for_closeout
 ## Closeout Blockers
 
 - 2026-07-24 cleanup preview：主工作区仍包含其他任务脏改动；隔离 worktree 分支 `e2e/batch-route-snapshot-20260724` 当前不能 fast-forward 合并到 `int_main`，且 worktree 中存在非本任务改动 `MesProRouteFlowConfigServiceImpl.java`，因此暂不执行自动合并、删除 worktree 或提交无关文件。
+- 2026-07-25 E2E 复跑：测试租户 `测试租户/aoteman` 使用当前可读取的本机 `.env` 密码登录失败，接口返回 `登录失败，账号密码不正确`；本轮未进入批次创建，未生成新批次。

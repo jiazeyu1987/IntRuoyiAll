@@ -75,3 +75,5 @@
 - GREEN: 文档结构与证据校验通过：`validate_acceptance_plan.py`、`validate_bug_regression.py`、`validate_backend_api.py` 均 PASS；`git diff --check` 退出码 0，仅提示 LF/CRLF 工作区转换 warning。
 - E2E 当前复跑：`node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> BLOCKED，当前 shell 缺少 `EDHR_BATCH_E2E_PASSWORD`、`EDHR_BATCH_E2E_WORK_ORDER_ID`、`EDHR_BATCH_E2E_BATCH_CODE`、`EDHR_BATCH_E2E_FIRST_FIELD_VALUE`、`EDHR_BATCH_E2E_CLOSE_PASSWORD`，未进入浏览器；已恢复该失败复跑误写的历史证据文件。
 - Current blocker status: 两个用户授权阻塞已有 PASS 证据：129 回归集通过、任务证据文件中的真实前端 E2E PASS 仍保留；若需要“从当前 shell 再次复跑真实 E2E”，必须重新注入任务专用环境变量，不能使用受保护租户或默认账号替代。
+- 2026-07-25 E2E 复跑前置检查：`Get-Command npx` -> PASS，`npx` 可用；`Invoke-WebRequest http://127.0.0.1:8081/` -> PASS，前端返回 200；`Invoke-WebRequest http://127.0.0.1:48081/actuator/health` -> PASS，后端返回 `status=UP`。
+- BLOCKED: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> NOT RUN，任务专用 E2E 环境变量缺失：`EDHR_BATCH_E2E_PASSWORD`、`EDHR_BATCH_E2E_WORK_ORDER_ID`、`EDHR_BATCH_E2E_BATCH_CODE`、`EDHR_BATCH_E2E_FIRST_FIELD_VALUE`、`EDHR_BATCH_E2E_CLOSE_PASSWORD`；同时未设置 `EDHR_BATCH_E2E_TASK_ID` 或 `EDHR_BATCH_E2E_EVIDENCE_FILE`，按 E2E 门禁未进入浏览器，未覆盖历史 PASS 证据。

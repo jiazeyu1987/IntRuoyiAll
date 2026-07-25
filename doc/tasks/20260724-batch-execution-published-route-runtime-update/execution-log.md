@@ -48,3 +48,10 @@
 - BLOCKER: cleanup closeout -> `task_closeout.py --mode preview` 在隔离 worktree 返回 blocked：当前分支 `e2e/batch-route-snapshot-20260724` 不能 fast-forward 合并到 `int_main`，主工作区 `E:\IntRuoyi` 仍有其他任务脏改动，且 worktree 存在非本任务改动 `MesProRouteFlowConfigServiceImpl.java`。按任务归属和 no-fallback 规则，未执行自动合并、删除 worktree 或提交无关文件。
 - GREEN: cleanup keep scope -> PASS，已在 task.md 增加 `Cleanup Keep`，保留 `bug-regression-evidence.md` 和 `real-e2e-evidence.md`，避免后续清理误删关键验证证据。
 - GREEN: main workspace cleanup apply -> PASS，`task_closeout.py --mode apply` 仅删除本任务 `artifacts/login-debug-111111.png` 与 `artifacts/login-debug.png`，保留 task.md、execution-log.md、verification-report.md 及两份 evidence 文档。
+
+## 2026-07-25 E2E Rerun Attempt
+
+- GREEN: E2E preflight -> PASS，已读取 `docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/worktree-restrictions.md`、`docs/branch-runtime-ports.md`、`docs/task-closeout-rules.md` 和 Playwright skill；`http://localhost:8081/login?redirect=/index` 返回 HTTP 200，后端 `http://127.0.0.1:48081/actuator/health` 为 UP。
+- GREEN: `node --check tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS。
+- RED: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> FAIL，使用测试租户 `测试租户/aoteman`、工单 `925555 / TESTERPA9ED2D417434`、路线 `922186 / E2E-OSF-20260721042549`，登录后 `page.waitForURL` 超时。
+- BLOCKER: login credential -> 脱敏 Playwright 登录诊断确认 `/system/auth/login` 返回 `code=1002000000`、`msg=登录失败，账号密码不正确`；本机 `.env` 默认租户/用户为受保护的 `芋道源码/admin`，不能按 E2E 规则改用该默认身份。本轮未进入批次创建，未生成新批次，未执行 DB 冻结快照复核。

@@ -32,6 +32,7 @@
 - PASS：路线发布/快照相关 13/13 通过，当前路线快照继续携带批记录绑定元数据。
 - PASS：三份任务证据结构校验通过，`git diff --check` 退出码 0。
 - BLOCKED：当前 shell 复跑真实 E2E 缺少任务专用环境变量，脚本 fail fast 未进入浏览器；此前 `doc/tasks/fix-batch-record-fill-rule/real-e2e-evidence.md` 的 PASS 证据未被覆盖。
+- BLOCKED：2026-07-25 当前 shell 复跑真实 E2E 前置检查通过 `npx`、前端 8081、后端 48081 health，但缺少 `EDHR_BATCH_E2E_PASSWORD`、`EDHR_BATCH_E2E_WORK_ORDER_ID`、`EDHR_BATCH_E2E_BATCH_CODE`、`EDHR_BATCH_E2E_FIRST_FIELD_VALUE`、`EDHR_BATCH_E2E_CLOSE_PASSWORD`，且未设置 `EDHR_BATCH_E2E_TASK_ID` 或 `EDHR_BATCH_E2E_EVIDENCE_FILE`；按门禁未运行浏览器脚本，历史 PASS 证据未被覆盖。
 
 - PASS：传统批记录任务 openTask 回归通过，修复前 RED 为 `1040750412 eDHR 批次缺少唯一批记录路线`，修复后返回真实 executionId。
 - PASS：共享任务冻结执行门禁仍保留，`BATCH_SHARED` 缺少 `executionId` 时仍返回 `PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED`。
@@ -43,5 +44,6 @@
 ## Remaining Blockers
 
 - 无当前授权范围内验证阻塞。
+- 当前 shell 若要求重新执行真实浏览器 E2E，仍需注入任务专用测试租户账号、工单、批次、填写值、签名密码和任务证据路径环境变量；缺失期间不得使用受保护租户、默认账号、mock 或 API-only 替代。
 - 保留历史事实：最早的 `source/reviewed` 严格 RED 因当时范围外编译错误未能在修复前取得；当前新增的传统批记录 openTask 阻塞已取得 RED/GREEN。
 - 后续可选：历史模板 JSON dry run/apply 需另行授权，不能作为本次最小修复自动执行。

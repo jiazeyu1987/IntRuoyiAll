@@ -52,3 +52,12 @@
 
 - 后端全量编译和前端类型检查被非本任务并行改动阻塞；本轮按任务边界未修复无关文件。
 - 因必需验证阻塞，当前状态保持 `blocked`，不提交、不标记 completed。
+
+
+## E2E Verification - 2026-07-25
+
+- BDD: 批次追溯操作审计真实只读 E2E -> Given 账号通过真实前端登录并定位到含新增 FDA 审计 operationType 的批次 When 打开批次详情并点击“追溯记录 > 操作审计” Then 前端仅按 batchExecutionId 查询操作审计，表格展示新增审计动作标签且不发送 objectType/objectId。
+- Command: `node doc\tasks\20260724-batch-fda-audit-log-coverage\operation-audit-trace-readonly.e2e.cjs`。
+- BLOCKED: 命令通过 Playwright 完成真实前端登录和授权上下文捕获，但最近可见 25 个批次未找到含本任务新增 operationType 的可验证追溯样本；24 个批次返回 `eDHR 对象级权限范围不存在或未启用：BATCH_EXECUTION:<id>`，已扫描审计行数 10。
+- Evidence: `doc\tasks\20260724-batch-fda-audit-log-coverage\test-results\operation-audit-trace-readonly\evidence.md`、`result.json`、`failure.png`。
+- Guardrail: 本轮未使用 mock、API-only 替代页面路径、直接 SQL 或写入型造数；缺少测试租户/测试账号/任务自有样本前保持 `blocked`。

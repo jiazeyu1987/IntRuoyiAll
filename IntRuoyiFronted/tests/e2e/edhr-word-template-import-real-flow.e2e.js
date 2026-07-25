@@ -48,6 +48,84 @@ async function clickFirstEnabled(locator, label) {
   throw new Error(`缺少可点击控件：${label}`)
 }
 
+async function selectRemoteOption(page, selectRoot, value, label) {
+  await selectRoot.click({ force: true })
+  const input = selectRoot.locator('input:visible').first()
+  const readonly = await input.evaluate((element) => element.hasAttribute('readonly')).catch(() => false)
+  if (!readonly) {
+    const remoteResponsePromise = label === '产品名称'
+      ? page.waitForResponse(
+        (response) => response.url().includes('/admin-api/dcc/project-codes/page') && response.request().method() === 'GET',
+        { timeout: 60000 }
+      ).catch(() => undefined)
+      : Promise.resolve()
+    await input.click({ force: true })
+    await input.fill('')
+    await input.pressSequentially(value, { delay: 20 })
+    await remoteResponsePromise
+  }
+  const listboxId = await input.getAttribute('aria-controls').catch(() => '')
+  const normalizedValue = String(value).replace(/\s+/g, '').trim()
+  await page.waitForFunction(({ expected, listboxId }) => {
+    const normalize = (itemText) => String(itemText || '').replace(/\s+/g, '').trim()
+    const isUsableDropdown = (dropdown) => {
+      if (!dropdown) return false
+      const popper = dropdown.closest('.el-select__popper')
+      const style = window.getComputedStyle(dropdown)
+      const rect = dropdown.getBoundingClientRect()
+      return dropdown.id === listboxId ||
+        popper?.getAttribute('aria-hidden') === 'false' ||
+        (style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0)
+    }
+    const dropdowns = [
+      ...(listboxId ? [document.getElementById(listboxId)].filter(Boolean) : []),
+      ...Array.from(document.querySelectorAll('.el-select-dropdown, .el-select-dropdown__list'))
+    ].filter(isUsableDropdown)
+    for (const dropdown of dropdowns) {
+      const options = Array.from(dropdown.querySelectorAll('.el-select-dropdown__item:not(.is-disabled)'))
+      for (const option of options) {
+        const text = normalize(option.textContent)
+        if (text && (text === expected || text.includes(expected) || expected.includes(text))) {
+          return true
+        }
+      }
+    }
+    return false
+  }, { expected: normalizedValue, listboxId }, { timeout: label === '产品名称' ? 60000 : 15000 })
+  const selectedText = await page.evaluate(({ expected, listboxId }) => {
+    const normalize = (itemText) => String(itemText || '').replace(/\s+/g, '').trim()
+    const isUsableDropdown = (dropdown) => {
+      if (!dropdown) return false
+      const popper = dropdown.closest('.el-select__popper')
+      const style = window.getComputedStyle(dropdown)
+      const rect = dropdown.getBoundingClientRect()
+      return dropdown.id === listboxId ||
+        popper?.getAttribute('aria-hidden') === 'false' ||
+        (style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0)
+    }
+    const dropdowns = [
+      ...(listboxId ? [document.getElementById(listboxId)].filter(Boolean) : []),
+      ...Array.from(document.querySelectorAll('.el-select-dropdown, .el-select-dropdown__list'))
+    ].filter(isUsableDropdown)
+    for (const dropdown of dropdowns) {
+      const options = Array.from(dropdown.querySelectorAll('.el-select-dropdown__item:not(.is-disabled)'))
+      for (const option of options) {
+        const text = normalize(option.textContent)
+        if (!text) continue
+        if (text === expected || text.includes(expected) || expected.includes(text)) {
+          option.scrollIntoView({ block: 'nearest' })
+          option.click()
+          return option.textContent || ''
+        }
+      }
+    }
+    return ''
+  }, { expected: normalizedValue, listboxId })
+  assert.ok(selectedText, `${label} 下拉必须包含选项：${value}`)
+  await page.locator('.el-select-dropdown:visible').waitFor({ state: 'hidden', timeout: 5000 }).catch(() => undefined)
+  return selectedText.split(/\r?\n/).map((item) => item.trim()).find(Boolean) || value
+}
+
 function assertBusinessSuccess(body, label) {
   assert.ok(body && typeof body === 'object', `${label} 必须返回 JSON 对象`)
   const code = Number(body.code)
@@ -80,6 +158,15 @@ async function maybeBusinessWait(promise, label) {
     return undefined
   }
   return result
+}
+
+async function confirmVisibleMessageBoxIfPresent(page, titleText, confirmText, label) {
+  const box = page.locator('.el-message-box:visible').filter({ hasText: titleText }).first()
+  const visible = await box.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)
+  if (!visible) return false
+  await clickFirstEnabled(box.getByRole('button', { name: confirmText }), label)
+  await box.waitFor({ state: 'hidden', timeout: 60000 })
+  return true
 }
 
 async function selectedWordImportProductTags(page) {
@@ -120,9 +207,10 @@ async function login(page) {
 }
 
 async function openTemplatePage(page) {
-  await page.goto(`${BASE_URL}${ROUTE}`, { waitUntil: 'domcontentloaded', timeout: 60000 })
-  await page.getByText('批记录名称').first().waitFor({ state: 'visible', timeout: 60000 })
-  await page.getByRole('button', { name: /导入 Word/ }).first().waitFor({ state: 'visible', timeout: 60000 })
+  await page.goto(`${BASE_URL}${ROUTE}`, { waitUntil: "domcontentloaded", timeout: 60000 })
+  await page.getByText("批记录名称").first().waitFor({ state: "visible", timeout: 60000 })
+    .catch(() => page.getByText("表单名称").first().waitFor({ state: "visible", timeout: 60000 }))
+  await page.getByRole("button", { name: /导入 Word|导入/ }).first().waitFor({ state: "visible", timeout: 60000 })
 }
 
 async function resolveBatchRecordName(page) {
@@ -220,10 +308,12 @@ async function browserAuth(page) {
   }
 }
 
-async function verifyImportedReportsByApi(page, batchRecordName) {
+async function verifyImportedReportsByApi(page, importResult, batchRecordName) {
   const { token, tenantId, visitTenantId } = await browserAuth(page)
   assert.ok(token, '最终 API 核验需要浏览器登录 token')
   assert.ok(tenantId, '最终 API 核验需要 tenant-id')
+  const expectedReportIds = new Set((importResult.reports || []).map((item) => String(item.reportId || '')).filter(Boolean))
+  assert.ok(expectedReportIds.size > 0, `导入响应必须返回本次报表 reportId：${JSON.stringify(importResult)}`)
   const response = await page.request.get(`${BACKEND_URL}/admin-api/mes/pro/batch-record-report/page`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -232,20 +322,112 @@ async function verifyImportedReportsByApi(page, batchRecordName) {
     },
     params: {
       pageNo: 1,
-      pageSize: 50,
+      pageSize: 200,
       routeKey: ROUTE_KEY,
       batchRecordName
     }
   })
   assert.equal(response.status(), 200, '导入后报表分页查询 HTTP 必须为 200')
   const data = assertBusinessSuccess(await response.json(), '导入后报表分页查询')
-  const list = data?.list || []
-  assert.ok(list.length > 0, `导入后必须能按批记录名称查询到报表：${batchRecordName}`)
+  const list = (data?.list || []).filter((item) => expectedReportIds.has(String(item.reportId || '')))
+  assert.ok(list.length > 0, `导入后必须能按批记录名称查询到本次报表：${batchRecordName}`)
   assert.ok(
     list.every((item) => item.batchRecordName === batchRecordName && item.routeKey === ROUTE_KEY),
     `导入后报表必须全部属于 ${ROUTE_KEY}/${batchRecordName}：${JSON.stringify(list)}`
   )
   return list
+}
+
+
+function numericCellEntries(cells) {
+  return Object.entries(cells || {})
+    .filter(([key]) => /^\d+$/.test(key))
+    .map(([key, cell]) => [Number(key), cell])
+    .sort(([left], [right]) => left - right)
+}
+
+function compactCellText(cell) {
+  return String(cell?.text || cell?.value || '').replace(/\s+/g, '')
+}
+
+function cellEndColumn(columnIndex, cell) {
+  const merge = Array.isArray(cell?.merge) ? cell.merge : []
+  const colSpan = Math.max(1, Number(merge[1] || 0) + 1)
+  return columnIndex + colSpan - 1
+}
+
+function isSignatureDateHeaderText(text) {
+  return text.includes('日期') && (
+    text.includes('/') ||
+    text.includes('操作人') ||
+    text.includes('复核人') ||
+    text.includes('记录人') ||
+    text.includes('审核人') ||
+    text.includes('确认人') ||
+    text.includes('批准人') ||
+    text.includes('签名') ||
+    text.includes('签字')
+  )
+}
+
+function resolveSignatureDateTailPlan(cells) {
+  let resultEndColumn = -1
+  let signatureStartColumn = Number.MAX_SAFE_INTEGER
+  let signatureEndColumn = -1
+  for (const [columnIndex, cell] of numericCellEntries(cells)) {
+    const text = compactCellText(cell)
+    if (!text) continue
+    const endColumn = cellEndColumn(columnIndex, cell)
+    if (text.includes('结果') && text.length <= 10) {
+      resultEndColumn = Math.max(resultEndColumn, endColumn)
+    }
+    if (isSignatureDateHeaderText(text)) {
+      signatureStartColumn = Math.min(signatureStartColumn, columnIndex)
+      signatureEndColumn = Math.max(signatureEndColumn, endColumn)
+    }
+  }
+  if (resultEndColumn < 0 || signatureStartColumn === Number.MAX_SAFE_INTEGER || resultEndColumn >= signatureStartColumn) {
+    return null
+  }
+  return { resultEndColumn, signatureStartColumn, signatureEndColumn: signatureEndColumn + 1 }
+}
+
+function overlapsSignatureDateTail(columnIndex, cell, plan) {
+  return plan && columnIndex <= plan.signatureEndColumn && cellEndColumn(columnIndex, cell) >= plan.signatureStartColumn
+}
+
+function assertNoSignatureDateCheckboxControls(sheetLayout, reportLabel, summary) {
+  const rows = sheetLayout.rows || {}
+  let activePlan = null
+  for (const rowIndex of Object.keys(rows).filter((key) => /^\d+$/.test(key)).map(Number).sort((a, b) => a - b)) {
+    const cells = rows[String(rowIndex)]?.cells || {}
+    const plan = resolveSignatureDateTailPlan(cells)
+    if (plan) {
+      activePlan = plan
+      summary.signatureDateSections += 1
+      continue
+    }
+    if (!activePlan) continue
+    const rowHasCheckboxChoice = numericCellEntries(cells).some(([, cell]) => /[□☐☑☒]/.test(compactCellText(cell)))
+    if (!rowHasCheckboxChoice) continue
+    summary.signatureDateRowsChecked += 1
+    for (const [columnIndex, cell] of numericCellEntries(cells)) {
+      if (!overlapsSignatureDateTail(columnIndex, cell, activePlan)) continue
+      summary.signatureDateCellsChecked += 1
+      const fillForm = cell?.fillForm || {}
+      const rule = cell?.edhrCellRule || {}
+      assert.notEqual(
+        fillForm.componentFlag,
+        "checkbox",
+        String(reportLabel) + " 第 " + (rowIndex + 1) + " 行第 " + (columnIndex + 1) + " 列签名日期区域不得渲染 checkbox：" + JSON.stringify(cell)
+      )
+      assert.notEqual(
+        rule.componentFlag,
+        "checkbox",
+        String(reportLabel) + " 第 " + (rowIndex + 1) + " 行第 " + (columnIndex + 1) + " 列签名日期区域不得持久化 checkbox 规则：" + JSON.stringify(rule)
+      )
+    }
+  }
 }
 
 async function verifyAutomaticCellRulesByApi(page, importedReports) {
@@ -256,7 +438,10 @@ async function verifyAutomaticCellRulesByApi(page, importedReports) {
     totalSuggestions: 0,
     totalPersistedAutoRules: 0,
     valueTypes: new Set(),
-    timePointLabels: []
+    timePointLabels: [],
+    signatureDateSections: 0,
+    signatureDateRowsChecked: 0,
+    signatureDateCellsChecked: 0
   }
 
   for (const report of reports) {
@@ -274,6 +459,7 @@ async function verifyAutomaticCellRulesByApi(page, importedReports) {
     }
 
     const sheetLayout = JSON.parse(cellRules.sheetLayoutJson || '{}')
+    assertNoSignatureDateCheckboxControls(sheetLayout, report.reportName || report.reportId, summary)
     const rows = sheetLayout.rows || {}
     for (const row of Object.values(rows)) {
       const cells = row?.cells || {}
@@ -295,6 +481,9 @@ async function verifyAutomaticCellRulesByApi(page, importedReports) {
 
   assert.ok(summary.totalSuggestions > 0, '导入后 cell-rules 必须返回自动规则候选')
   assert.ok(summary.totalPersistedAutoRules > 0, '导入后报表 JSON 必须持久化 AUTO edhrCellRule')
+  assert.ok(summary.signatureDateSections > 0, '导入后报表必须覆盖至少一处结果/操作人日期/复核人日期签名区')
+  assert.ok(summary.signatureDateRowsChecked > 0, '导入后必须至少检查一行带 checkbox 选项的签名日期区域')
+  assert.ok(summary.signatureDateCellsChecked > 0, '导入后必须至少检查一个签名日期区域单元格')
   assert.ok(summary.valueTypes.has('NUMBER') || summary.valueTypes.has('BOOLEAN') || summary.valueTypes.has('DATE'),
     `自动规则必须至少识别一种强类型：${JSON.stringify([...summary.valueTypes])}`)
   return {
@@ -458,75 +647,31 @@ async function verifyGeneratedRouteByApi(page, batchRecordName, importResult, im
 
 async function importWordTemplateByUi(page) {
   await openTemplatePage(page)
-  const batchRecordName = await resolveBatchRecordName(page)
-  const productNames = await resolveProductNamesByApi(page)
-  const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 30000 })
-  await clickFirstEnabled(page.getByRole('button', { name: /导入 Word/ }), '导入 Word')
-  const fileChooser = await fileChooserPromise
-  await fileChooser.setFiles(SAMPLE_DOC_PATH)
-
+  await clickFirstEnabled(page.getByRole('button', { name: /^导入$/ }), '导入')
   const dialog = page.locator('.el-dialog:visible').filter({ hasText: '导入 Word' }).first()
   await dialog.waitFor({ state: 'visible', timeout: 60000 })
-  await fillFirstVisible(dialog.locator('.el-form-item').filter({ hasText: '批记录名称' }).locator('input'), batchRecordName, '批记录名称')
-  const productSelect = dialog.locator('.el-form-item').filter({ hasText: '工艺路线对应产品名称' }).locator('.el-select').first()
-  for (const productName of productNames) {
-    await productSelect.click()
-    const productInput = productSelect.locator('input:visible').first()
-    const optionResponse = page
-      .waitForResponse(
-        (response) =>
-          response.url().includes('/admin-api/mes/pro/work-order/product-name-options') &&
-          response.status() === 200,
-        { timeout: 60000 }
-      )
-      .catch(() => null)
-    await productInput.click()
-    await productInput.fill(productName)
-    await optionResponse
-    const option = page
-      .locator('.el-select-dropdown:visible .el-select-dropdown__item:not(.is-disabled)')
-      .filter({ hasText: productName })
-      .first()
-    await option.waitFor({ state: 'visible', timeout: 60000 })
-    await page.keyboard.press('Enter')
-    if (!(await selectedWordImportProductTags(page)).some((item) => item.includes(productName))) {
-      await option.scrollIntoViewIfNeeded()
-      await option.click({ force: true })
-    }
-    await page.waitForFunction(
-      (name) =>
-        Array.from(document.querySelectorAll('.el-dialog .el-select__tags .el-tag, .el-dialog .el-select__tags-text'))
-          .some((item) => (item.textContent || '').includes(name)),
-      productName,
-      { timeout: 10000 }
-    )
-  }
-  const selectedProductTags = await selectedWordImportProductTags(page)
-  assert.ok(
-    selectedProductTags.length > 0,
-    `导入确认前必须已选择至少一个工艺路线对应产品：${JSON.stringify(selectedProductTags)}`
-  )
-  const selectedProductNames = selectedProductTags.map((item) => item.replace(/\s*×\s*$/, '').trim()).filter(Boolean)
-  assert.ok(
-    selectedProductNames.length > 0,
-    `导入确认前必须能解析出已选产品名称：${JSON.stringify(selectedProductTags)}`
-  )
-  await page.keyboard.press('Escape')
-  await page.evaluate(() => {
-    const activeElement = document.activeElement
-    if (activeElement instanceof HTMLElement) {
-      activeElement.blur()
-    }
-  })
-  await page.locator('.el-select-dropdown:visible').waitFor({ state: 'hidden', timeout: 5000 }).catch(() => undefined)
-  await dialog.waitFor({ state: 'visible', timeout: 60000 })
-  const existsPromise = waitForBusinessResponse(
+  await selectRemoteOption(
     page,
-    '/admin-api/mes/pro/batch-record-report/exists',
-    '批记录名称重复检查',
-    'GET',
-    10000
-  ).catch((error) => ({ __error: error }))
+    dialog.locator('.el-form-item').filter({ hasText: '表单类型' }).locator('.el-select').first(),
+    '批记录',
+    '表单类型'
+  )
+  const selectedProjectName = await selectRemoteOption(
+    page,
+    dialog.locator('.el-form-item').filter({ hasText: '产品名称' }).locator('.el-select').first(),
+    PRODUCT_NAME_KEYWORD,
+    '产品名称'
+  )
+  assert.ok(
+    selectedProjectName.includes(PRODUCT_NAME_KEYWORD) || PRODUCT_NAME_KEYWORD.includes(selectedProjectName),
+    `产品名称下拉选中项必须匹配：selected=${selectedProjectName}, expected=${PRODUCT_NAME_KEYWORD}`
+  )
+  await clickFirstEnabled(dialog.getByRole('button', { name: /选择文件/ }), '选择文件')
+  await page.locator('input.batch-record-form-word-import-input[type="file"]').setInputFiles(SAMPLE_DOC_PATH)
+  await dialog.getByText(/已选择 Word 文件/).waitFor({ state: 'visible', timeout: 60000 })
+  await dialog.getByText('最新批记录版本').waitFor({ state: 'visible', timeout: 60000 })
+  await dialog.locator('.batch-record-word-import-form__preflight .el-loading-mask').waitFor({ state: 'hidden', timeout: 60000 }).catch(() => undefined)
+  await dialog.getByText(/重建 V1\.0|升版导入/).first().waitFor({ state: 'visible', timeout: 60000 })
   const uploadResponsePromise = waitForBusinessResponse(
     page,
     '/admin-api/mes/pro/batch-record-report/recognize-uploaded',
@@ -536,27 +681,20 @@ async function importWordTemplateByUi(page) {
   ).catch((error) => ({ __error: error }))
   const confirmButton = dialog.getByRole('button', { name: /^确定$/ }).first()
   await confirmButton.waitFor({ state: 'visible', timeout: 60000 })
-  if ((await page.locator('.el-select-dropdown:visible').count()) > 0) {
-    await page.keyboard.press('Escape')
-    await confirmButton.evaluate((button) => button.click())
-  } else {
-    await confirmButton.click()
-  }
-  const existed = await maybeBusinessWait(existsPromise, '批记录名称重复检查')
-  if (existed) {
-    const upgradeConfirm = page.locator('.el-message-box:visible').filter({ hasText: '是否使用 B Word COM 升级' }).first()
-    await upgradeConfirm.waitFor({ state: 'visible', timeout: 60000 })
-    await clickFirstEnabled(upgradeConfirm.locator('button.el-button--primary'), '确认升级批记录')
-  }
+  await confirmButton.click()
+  await confirmVisibleMessageBoxIfPresent(page, '确认批记录升版', /^升版$/, '升版')
   const importResult = await unwrapBusinessWait(uploadResponsePromise, 'Word 导入识别保存')
-  const successText = new RegExp(`批记录名称「${escapeRegExp(batchRecordName)}」路线 B 解析完成`)
+  assert.ok(importResult.batchRecordVersionId, `导入必须返回批记录版本 ID：${JSON.stringify(importResult)}`)
+  assert.ok(Number(importResult.importedCount) > 0, `导入必须生成至少一份表单：${JSON.stringify(importResult)}`)
+  assert.ok(Array.isArray(importResult.reports) && importResult.reports.length > 0, `导入响应必须返回报表清单：${JSON.stringify(importResult)}`)
+  const batchRecordName = importResult.reports[0]?.batchRecordName || importResult.routeName || selectedProjectName
+  const successText = new RegExp(`批记录名称「${escapeRegExp(batchRecordName)}」路线 ${ROUTE_KEY} 解析完成`)
   await page.getByText(successText).first().waitFor({ state: 'visible', timeout: 600000 })
-  await page.getByText(batchRecordName).first().waitFor({ state: 'visible', timeout: 60000 })
-  const importedReports = await verifyImportedReportsByApi(page, batchRecordName)
+  const importedReports = await verifyImportedReportsByApi(page, importResult, batchRecordName)
   const automaticCellRules = await verifyAutomaticCellRulesByApi(page, importedReports)
-  const generatedRoute = await verifyGeneratedRouteByApi(page, batchRecordName, importResult, importedReports, selectedProductNames)
-  return { batchRecordName, importedReports, generatedRoute, automaticCellRules, productNames: selectedProductNames, upgraded: existed === true }
+  return { batchRecordName, importResult, importedReports, automaticCellRules, productNames: [selectedProjectName] }
 }
+
 
 async function main() {
   assertLocalOnly()
@@ -569,9 +707,9 @@ async function main() {
   const page = await context.newPage()
   try {
     await login(page)
-    const { batchRecordName, importedReports, generatedRoute, automaticCellRules, productNames, upgraded } = await importWordTemplateByUi(page)
+    const { batchRecordName, importResult, importedReports, automaticCellRules, productNames } = await importWordTemplateByUi(page)
     console.log(
-      `PASS: eDHR Word template import real E2E batchRecordName=${batchRecordName} route=${ROUTE_KEY} upgraded=${upgraded} reports=${importedReports.length} autoSuggestions=${automaticCellRules.totalSuggestions} persistedAutoRules=${automaticCellRules.totalPersistedAutoRules} valueTypes=${automaticCellRules.valueTypes.join(',')} routeId=${generatedRoute.routeId} routeCode=${generatedRoute.routeCode} routeProcesses=${generatedRoute.routeProcessCount} batchBindings=${generatedRoute.batchRecordRouteBindingCount} productNames=${productNames.length} boundProductCodes=${generatedRoute.boundProductCodeCount}`
+      `PASS: eDHR Word template import real E2E batchRecordName=${batchRecordName} route=${ROUTE_KEY} versionId=${importResult.batchRecordVersionId} versionNo=${importResult.versionNo || ''} reports=${importedReports.length} autoSuggestions=${automaticCellRules.totalSuggestions} persistedAutoRules=${automaticCellRules.totalPersistedAutoRules} signatureDateSections=${automaticCellRules.signatureDateSections} signatureDateRowsChecked=${automaticCellRules.signatureDateRowsChecked} signatureDateCellsChecked=${automaticCellRules.signatureDateCellsChecked} valueTypes=${automaticCellRules.valueTypes.join(',')} productNames=${productNames.length}`
     )
   } catch (error) {
     const outputDir = path.join(__dirname, 'output', 'edhr-word-import-product-binding')

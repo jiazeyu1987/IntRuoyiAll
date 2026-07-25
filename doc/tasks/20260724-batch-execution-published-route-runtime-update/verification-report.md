@@ -34,3 +34,9 @@
 `docs/experience-index.md` 要求 PowerShell 命令编排和本地重启先读取 `E:\IntRuoyi\docs\powershell-memory.md`。该文件不存在；这属于高风险运行态操作的必需经验门禁缺失，不能以其他文档替代。因此未执行构建、停止 PID、重启后端或写入型 E2E。
 
 2026-07-24 更新：`docs/powershell-memory.md` 已恢复并完成读取，本阻塞解除。为避免部署主工作区并行脏改动，后端从干净 worktree 构建，并已加载到 `int_main` 运行端口完成真实 E2E。
+
+## 2026-07-25 E2E 复跑结果
+
+- BLOCKED：按用户要求复跑 `node tests\e2e\edhr-batch-execution-real-flow.e2e.js`，脚本已使用显式 `EDHR_BATCH_E2E_TASK_ID` 和 `EDHR_BATCH_E2E_EVIDENCE_FILE`，但测试租户 `测试租户/aoteman` 登录失败。
+- 失败原因：脱敏登录诊断显示 `/system/auth/login` 返回 `code=1002000000`、`msg=登录失败，账号密码不正确`；当前本机 `.env` 默认身份为受保护的 `芋道源码/admin`，不能作为写入型 E2E 替代账号。
+- 影响：本轮未进入批次创建页提交动作，未生成新的批次执行数据；因此没有新的 DB 冻结快照核验结果。2026-07-24 已通过的批次 `900000000787 / BRS20260724195134` 证据仍保留在本报告上方。

@@ -58,3 +58,10 @@ blocked
 - 后端全模块编译被非本任务文件 `IntRuoyiBackend\yudao-module-mes\src\main\java\cn\iocoder\yudao\module\mes\service\pro\route\MesProRouteFlowConfigServiceImpl.java` 中缺失方法 `resolveRecordbookEnabled(Boolean, String)` 阻塞；按并行改动隔离规则未修复。
 - 前端类型检查被非本任务 DCC 页面既有 `string | number` 与 `number/string` 类型不匹配阻塞；按并行改动隔离规则未修复。
 - 因必需编译/类型检查阻塞，任务不能标记为 `completed`，也不提交。
+
+
+## E2E Verification Update - 2026-07-25
+
+- BLOCKED: `node doc\tasks\20260724-batch-fda-audit-log-coverage\operation-audit-trace-readonly.e2e.cjs` -> FAIL，真实前端只读 E2E 已登录 `芋道源码/admin` 并捕获前端真实授权请求头；扫描可见批次数 25、审计行数 10、权限范围阻塞批次数 24，未找到包含本任务新增 operationType 的可展示追溯样本。
+- 证据：`doc\tasks\20260724-batch-fda-audit-log-coverage\test-results\operation-audit-trace-readonly\evidence.md`、`result.json`、`failure.png`。
+- 状态：保持 `blocked`；本轮只读验证未创建、修改或删除业务数据，后续需要授权测试租户/测试账号/任务自有批次样本后才能完成追溯抽屉 E2E。
