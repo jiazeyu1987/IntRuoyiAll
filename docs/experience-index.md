@@ -80,6 +80,7 @@
 - eDHR 批次详情 / 动态表单 / 损耗单 / 工艺路线绑定 / 填写人 / `fillableUsers` / `routeBindingId` / 配置页有值但详情接口为空：`E:\IntRuoyi\docs\backend-development.md#edhr-详情回填门禁`
 - Keywords: eDHR 批次任务配置来源, routeSnapshotJson, batchUseConfigs, 当前 BATCH 工序配置, 陈旧绑定, legacy flat batchRecordReportId, 发布快照不得通用 fallback -> `docs/backend-development.md#edhr-批次任务配置来源门禁`
 - Keywords: eDHR 批记录版本治理规则, CELL_RULE_RECONCILED, 1040750243, 批记录模板未确认填写规则, Jimu 当前 JSON, openOrCreateByContext -> `docs/backend-development.md#edhr-批记录版本治理规则运行态门禁`
+- Keywords: eDHR 批记录 Word 表格解析, packed 物料矩阵, 括号续行, 生产自检, 合格标准, 检验方法, 截图位置错位, fixture 缺失, 表单名特例禁止 -> `docs/backend-development.md#edhr-批记录-word-表格解析门禁`
 - Keywords: 子表集合替换, 软删除唯一键, 逻辑删除占用唯一键, deleteByCaseId, system_codex_test_checkpoint, updateCase_allowsRepeatedCheckpointReplacement -> `docs/backend-development.md#2026-07-25-子表集合替换软删除唯一键门禁`
 - Keywords: Windows CRLF 静态合同, static.spec.js 目标 worktree 自身失败, 真实 E2E 脚本与页面行为同步, 废弃弹窗流程, 字段审计保存直连 API -> `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁`
 - Keywords: eDHR 单据填写人显示值, 损耗单卡片, fillableUsers displayName, candidateSourceNames 格式, 页面填写人断言 -> `docs/e2e-rules.md#edhr-单据填写人显示值门禁`

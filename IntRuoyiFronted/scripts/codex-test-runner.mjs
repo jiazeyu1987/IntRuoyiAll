@@ -47,6 +47,13 @@ async function postJson(url, body) {
   return payload.data
 }
 
+function spawnCodex(args) {
+  const isWindowsCommandScript = process.platform === 'win32' && /\.(cmd|bat)$/i.test(CODEX_COMMAND)
+  const command = isWindowsCommandScript ? 'cmd.exe' : CODEX_COMMAND
+  const commandArgs = isWindowsCommandScript ? ['/d', '/s', '/c', CODEX_COMMAND, ...args] : args
+  return spawn(command, commandArgs, { stdio: ['pipe', 'pipe', 'pipe'] })
+}
+
 async function uploadArtifact(executionCaseId, checkpointSort, screenshotPath) {
   const content = await fs.readFile(screenshotPath)
   const data = new FormData()
@@ -97,7 +104,7 @@ async function runCodexForTask(task) {
     '-C',
     WORKING_DIRECTORY
   ]
-  const child = spawn(CODEX_COMMAND, args, { stdio: ['pipe', 'pipe', 'pipe'] })
+  const child = spawnCodex(args)
   child.stdin.write(prompt, 'utf8')
   child.stdin.end()
   const stdout = []

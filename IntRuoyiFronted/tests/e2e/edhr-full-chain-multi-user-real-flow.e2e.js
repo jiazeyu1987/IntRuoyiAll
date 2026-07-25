@@ -1102,9 +1102,16 @@ async function selectBatchDetailRouteTask(page, task) {
 async function openFillTaskFromBatchDetailTakeover(page, batchId, batchCode, task) {
   await loadBatchDetailByUi(page, batchId, `管理员接管前批次详情 ${task.id}`)
   const taskCard = await selectBatchDetailRouteTask(page, task)
-  const batchRecordToggle = page.getByRole('button', { name: '批记录' }).first()
-  if ((await batchRecordToggle.count()) > 0 && (await batchRecordToggle.isVisible().catch(() => false)) && !(await batchRecordToggle.isDisabled().catch(() => true))) {
-    await batchRecordToggle.click({ timeout: 10000 })
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const batchRecordToggle = page.getByRole('button', { name: '批记录' }).first()
+    if ((await batchRecordToggle.count()) === 0 || !(await batchRecordToggle.isVisible().catch(() => false))) break
+    if (await batchRecordToggle.isDisabled().catch(() => true)) break
+    try {
+      await batchRecordToggle.click({ timeout: 5000, force: true })
+      break
+    } catch (error) {
+      await page.waitForTimeout(500)
+    }
   }
   const taskToken = task.batchRecordReportName || task.formTemplateName || task.processName || task.processCode
   const takeoverButtonLocator = () =>

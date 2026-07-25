@@ -18,6 +18,8 @@
 - completed: 修改 `progress.ts` 增加 `isOptionalRouteFormTask`，并让 `BatchExecutionDetailPage.vue` 的 `isOptionalTask` 只认 `requiredPolicy === 'OPTIONAL'`。
 - ready_for_closeout: 目标验证通过；最终提交/推送因当前分支已有未推送基线提交和其它任务残留脏文件阻塞。
 - completed: project-experience-consolidation 将“eDHR 路线表单跳过口径门禁”沉淀到 `docs/e2e-rules.md`，并在 `docs/experience-index.md` 增加关键词路由。
+- completed: task-closeout-cleanup preview/apply 均通过，keep `task.md`、`execution-log.md`、`verification-report.md`，delete/blocked/warnings 均为 `<none>`。
+- blocker: `int_main` 当前已领先 `origin/int_main`，且仍有其它任务脏文件；按提交/推送门禁，本任务不能标记 `completed`。
 
 ## TDD Evidence
 
@@ -28,6 +30,9 @@
 - GREEN: `node tests\e2e\edhr-batch-detail-open-task-worktaskid-static.spec.js` -> PASS。
 - GREEN: `git diff --check -- <task-owned paths>` -> PASS。
 - GREEN: `python -X utf8 -c "<read task-owned files as UTF-8>"` -> PASS, output `UTF8_READ_OK`。
+- GREEN: `rg -n "必填路线表单不允许跳过|edhr-路线表单跳过口径门禁|requiredPolicy OPTIONAL" ...` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode preview` -> PASS, no delete/blocked/warnings。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode apply` -> PASS, no deleted paths。
 
 ## Additional Verification Notes
 
@@ -36,4 +41,4 @@
 
 ## Blockers
 
-- Commit/push blocked: current branch `int_main` is already ahead of `origin/int_main` by 2 commits, and `git status --short --branch` still reports unrelated dirty files (`IntRuoyiBackend/yudao-module-mes/.../MesProBatchRecordReportLayoutCalibrator.java`, `MesProBatchRecordSharedRowTypeRules.java`, and `doc/tasks/20260725-codex-runner-void-test/codex-runner-loop.pid`). Do not stage/push this task together with unrelated concurrent work.
+- Commit/push blocked: current branch `int_main` is ahead of `origin/int_main`, and `git status --short --branch` still reports unrelated dirty files such as `IntRuoyiFronted/scripts/codex-test-runner.mjs`, `doc/tasks/20260725-batch-record-global-table-position-fix/...`, and `doc/tasks/20260725-codex-runner-void-test/codex-runner-loop.pid`. Do not stage/push this task together with unrelated concurrent work.

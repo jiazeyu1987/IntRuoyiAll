@@ -4,10 +4,10 @@
   "username": "admin",
   "targetCaseName": "排产工单手动重排 881MO093613/881MO093615",
   "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260725-codex-runner-void-test\\ui-trigger-void-test.png",
-  "checkedAt": "2026-07-25T16:02:50.407Z",
+  "checkedAt": "2026-07-25T16:11:25.475Z",
   "hasExecutePermission": true,
   "hasCodexMenuContract": true,
   "searchTotal": 1,
-  "executionId": 1,
+  "executionId": 2,
   "targetRowText": "\t\n排产工单手动重排 881MO093613/881MO093615\n\t\n在排产工单页签中筛选并选择来源生产工单号为 881MO093613、881MO093615 的两个排产工单。\n\t\n点击确认应用重排后，页面提示应用重排成功，后端 apply 请求业务码为 0。\n\t\n4\n\t\nSEQUENTIAL\n\t\n否\n\t\n启用\n\t\n执行\n修改\n删除"
 }

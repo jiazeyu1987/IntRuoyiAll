@@ -22,8 +22,16 @@
 - `node tests\e2e\edhr-batch-process-companion-forms-static.spec.js` -> PASS
 - `node tests\e2e\edhr-pre-release-editable-submit-static.spec.js` -> PASS
 - `node tests\e2e\edhr-batch-detail-open-task-worktaskid-static.spec.js` -> PASS
+- `rg -n "必填路线表单不允许跳过|edhr-路线表单跳过口径门禁|requiredPolicy OPTIONAL" ...` -> PASS
 - `git diff --check -- <task-owned paths>` -> PASS
 - `python -X utf8 -c "<read task-owned files as UTF-8>"` -> PASS
+- `task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode preview` -> PASS, no delete/blocked/warnings
+- `task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode apply` -> PASS, no deleted paths
+
+## Experience Gate
+
+- Added `eDHR 路线表单跳过口径门禁` to `docs/e2e-rules.md`.
+- Added keyword routing for “必填路线表单不允许跳过 / requiredPolicy OPTIONAL / canSkipOptionalTask” to `docs/experience-index.md`.
 
 ## Known Blockers
 

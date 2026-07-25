@@ -17,6 +17,7 @@
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordReportLayoutCalibratorTest#calibrate_shouldMergePackedMaterialMatrixParentheticalContinuationLines,MesProBatchRecordSharedRowTypeRulesTest#classifyRow_returnsLongDescriptionForLabeledSelfInspectionNarrativeRows" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，2 tests, 0 failures。
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordReportLayoutCalibratorTest#calibrate_shouldMergePackedMaterialMatrixParentheticalContinuationLines+calibrate_actualPressurePumpLightCureOne_shouldKeepParentheticalMaterialWithPreviousItem+calibrate_actualPressurePumpCleanDetailBand_shouldStopBeforeSelfInspectionSection,MesProBatchRecordSharedRowTypeRulesTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，13 tests, 0 failures；真实源 DOC `C:\Users\BJB110\Desktop\文档\批记录压力泵.doc` 覆盖 `光固Ⅰ工序生产记录` 与 `清洁工序生产记录`。
 - REGRESSION BLOCKER: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordJingxiTableStructureVerificationTest#routeBPackedMaterialMatrix_shouldRenderAsGridInsteadOfCollapsedWideCell+routeBPackedMaterialMatrixSideHeader_shouldStartAtMaterialMatrixRow" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL before exercising parsing logic，因为该测试硬编码旧本地 fixture `C:\Users\BJB110\Desktop\2\2\RE-PP-ID-01（A 1）球囊扩张压力泵生产记录(1).doc`，当前机器不存在；本任务指定源 DOC 存在并已通过目标验证。
+- EXPERIENCE: 已按 `project-experience-consolidation` 规则合并长期经验到既有 `docs/backend-development.md#eDHR 批记录 Word 表格解析门禁`，并在 `docs/experience-index.md` 增加关键词路由；未新建长期经验文档。
 
 ## Current Status
 

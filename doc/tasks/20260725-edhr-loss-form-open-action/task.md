@@ -10,7 +10,7 @@
 - [x] 先补充静态回归测试覆盖必填动态表单不得走跳过接口
 - [x] 实施最小前端修复，保持现有批次详情交互契约
 - [x] 运行目标回归验证并记录证据
-- [ ] 完成收尾检查和任务文档更新
+- [x] 完成收尾检查和任务文档更新
 
 ## Expected Verification
 
@@ -21,6 +21,8 @@
 ## Current Status
 
 ready_for_closeout
+
+说明：实现、验证、经验沉淀和 cleanup apply 已完成；最终 `completed` 状态仍被 Git 提交/推送门禁阻塞，因为当前 `int_main` 已领先 `origin/int_main` 且存在其它任务残留脏文件。
 
 ## 经验门禁
 

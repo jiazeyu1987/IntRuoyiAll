@@ -33,6 +33,8 @@ assert.ok(source.includes('const existingByName = indicatorPane'), 'OQC 指标�
 assert.ok(source.includes('OQC_INDICATOR_NAME, OQC_INDICATOR_NAME'), 'OQC 指标选择弹窗必须按检测项名称定位当前页面行。')
 assert.ok(source.includes("code=${encodeURIComponent(OQC_TEMPLATE_CODE)}"), 'OQC 模板搜索必须等待带 code 参数的真实分页响应。')
 assert.ok(source.includes(".el-table__body-wrapper tbody tr, .el-table__row"), 'OQC 模板行定位必须兼容当前 Element Plus 表格行结构。')
+assert.ok(source.includes('scrollIntoViewIfNeeded()'), '弹窗内可见按钮点击前必须先滚动到可点击区域。')
+assert.ok(source.includes('force: true'), '弹窗内可见启用按钮被布局判定视口外时必须允许 force 点击同一按钮。')
 assert.ok(source.includes("EDHR-REHEARSAL2-CUSTOMER"), '完整演练默认 OQC 客户必须使用当前授权租户页面可见数据。')
 assert.ok(source.includes('const EXPLICIT_CREATE_ROUTE_ID = Number(process.env.EDHR_FULL_E2E_ROUTE_ID || 0)'), '完整演练只能把 EDHR_FULL_E2E_ROUTE_ID 作为显式覆盖参数。')
 assert.ok(source.includes('function chooseCreateRouteOption(routeOptions)'), '创建批次必须从当前工单真实路线选项解析 routeId。')
