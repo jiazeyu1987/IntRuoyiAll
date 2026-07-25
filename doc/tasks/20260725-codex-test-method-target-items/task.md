@@ -8,19 +8,21 @@
 
 ## Milestones
 
-- [ ] 记录 BDD/TDD 约束与现有契约边界。
-- [ ] 先补静态测试，验证列表必须包含测试方法项与测试目标项展示契约。
-- [ ] 修改前端页面列表、表单文案和展示样式。
-- [ ] 运行相关验证并记录结果。
+- [x] 记录 BDD/TDD 约束与现有契约边界。
+- [x] 先补静态测试，验证列表必须包含测试方法项与测试目标项展示契约。
+- [x] 修改前端页面列表、表单文案和展示样式。
+- [x] 运行相关验证并记录结果。
 
 ## Expected Verification
 
 - `node tests/e2e/system-codex-test-management-static.spec.js`
+- `pnpm ts:check`
+- `node --check tests/e2e/system-codex-test-management-real.e2e.js`
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260725-codex-test-method-target-items/frontend-feature-evidence.md`
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 
