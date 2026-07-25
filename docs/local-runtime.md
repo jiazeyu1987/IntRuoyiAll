@@ -67,6 +67,14 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v2
 - Forbidden action: 禁止强杀未知进程、随机换端口、用主工作区脏源码重新构建、只看 health 就宣称修复已加载。
 - Evidence: `doc/tasks/20260724-batch-execution-published-route-runtime-update/verification-report.md`。
 
+## 2026-07-25 D-Main 本地启动源码与依赖门禁
+
+- Trigger: D-Main 本地启动、`int_main_d`、`8101/48101`、`vite command not found`、Java 包名包含 `runtime`、后端打包提示 `*.runtime不存在`。
+- Preflight check: 后端打包前先确认被引用的 `runtime` Java 包未被 `.gitignore` 的 `**/runtime/` 误忽略；若同源工作区存在正式实现，必须同步正式源码并用 `git check-ignore -v` 记录忽略来源，提交时对合法源码使用 `git add -f`。前端启动前确认 `IntRuoyiFronted/node_modules/.bin/vite` 存在；缺失时执行 `pnpm install --frozen-lockfile`。
+- Blocker: 缺失源码只能用同源正式实现补齐；若找不到正式实现或 `pnpm install --frozen-lockfile` 修改 lockfile/失败，必须阻塞，不得造空实现、改用旧 Jar、换端口或跳过前端。
+- Verification: 记录 Maven RED/GREEN、`yudao-server-exec.jar` 生成结果、`git check-ignore -v` 输出、`pnpm install --frozen-lockfile` 退出码、后端 health `UP` 和前端 HTTP `200`。
+- Forbidden action: 禁止因为目录名是 `runtime` 就放任合法 Java 源码被忽略；禁止复制 `node_modules`、复用旧 Jar、改共享 `.env`/`application-local.yaml`、API-only 冒充前端启动成功。
+- Evidence: `doc/tasks/20260725-start-d-main-runtime/verification-report.md`。
 ## 禁止做法
 
 - 禁止把 `int_main` 改到随机端口启动。
