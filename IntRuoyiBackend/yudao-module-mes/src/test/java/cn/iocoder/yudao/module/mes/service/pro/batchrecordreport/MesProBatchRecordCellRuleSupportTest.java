@@ -452,6 +452,49 @@ class MesProBatchRecordCellRuleSupportTest {
     }
 
     @Test
+    void buildSuggestions_rewritesExistingCheckboxFillFormUnderSignatureDateHeaders() {
+        JSONObject root = JSON.parseObject("""
+                {
+                  "rows":{
+                    "0":{
+                      "cells":{
+                        "0":{"text":"检查要求","merge":[0,1]},
+                        "2":{"text":"结果"},
+                        "3":{"text":"操作人/日期","merge":[0,1]}
+                      }
+                    },
+                    "1":{
+                      "cells":{
+                        "0":{"text":"设备确认","merge":[0,1]},
+                        "2":{"text":"□符合要求"},
+                        "3":{"text":"□是 □否","merge":[0,1],"fillForm":{"field":"ebr_r1_c3","component":"Input","componentFlag":"checkbox","value":false,"defaultValue":false}}
+                      }
+                    }
+                  }
+                }
+                """);
+
+        List<BatchRecordReportCellRuleVO> suggestions = MesProBatchRecordCellRuleSupport.buildSuggestions(root);
+
+        BatchRecordReportCellRuleVO operatorDateRule = findRule(suggestions, 1, 3);
+        assertEquals("STRING", operatorDateRule.getValueType());
+        assertEquals("input-text", operatorDateRule.getComponentFlag());
+        assertEquals("操作人/日期", operatorDateRule.getLabel());
+
+        MesProBatchRecordCellRuleSupport.applyAutomaticSuggestions(root, "REPORT-SIGNATURE-DATE-EXISTING-CHECKBOX");
+        JSONObject operatorDateCell = MesProBatchRecordCellRuleSupport.requireCell(root, 1, 3);
+        assertEquals("input-text", operatorDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
+                .getString("componentFlag"));
+        assertEquals("", operatorDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
+                .get("value"));
+        assertFalse("checkbox".equals(operatorDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY)
+                .getString("componentFlag")));
+    }
+
+    @Test
     void buildSuggestions_doesNotPromoteMisalignedSignatureDateTailCheckboxFragments() {
         JSONObject root = JSON.parseObject("""
                 {
@@ -537,6 +580,63 @@ class MesProBatchRecordCellRuleSupportTest {
         MesProBatchRecordCellRuleSupport.applyAutomaticSuggestions(root, "REPORT-SIGNATURE-DATE-BLANKS");
         JSONObject operatorDateCell = MesProBatchRecordCellRuleSupport.requireCell(root, 1, 15);
         JSONObject reviewerDateCell = MesProBatchRecordCellRuleSupport.requireCell(root, 1, 17);
+        assertEquals("input-text", operatorDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
+                .getString("componentFlag"));
+        assertEquals("input-text", reviewerDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
+                .getString("componentFlag"));
+        assertFalse("checkbox".equals(operatorDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY)
+                .getString("componentFlag")));
+        assertFalse("checkbox".equals(reviewerDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY)
+                .getString("componentFlag")));
+    }
+
+    @Test
+    void buildSuggestions_doesNotPromoteBlankSignatureDateCellsPastIntermediateCheckboxRows() {
+        JSONObject root = JSON.parseObject("""
+                {
+                  "rows":{
+                    "0":{
+                      "cells":{
+                        "0":{"text":"清洁工序生产记录","merge":[0,4]},
+                        "5":{"text":"操作人/日期","merge":[0,1]},
+                        "7":{"text":"复核人/日期","merge":[0,1]}
+                      }
+                    },
+                    "1":{
+                      "cells":{
+                        "0":{"text":"物料/器具","merge":[0,4]},
+                        "5":{"text":"设备确认","merge":[0,3]}
+                      }
+                    },
+                    "2":{
+                      "cells":{
+                        "0":{"text":"□30atm压力表","merge":[0,4]},
+                        "5":{"text":"","fillForm":{"field":"ebr_r2_c5","component":"Input","componentFlag":"input-text"}},
+                        "7":{"text":"","fillForm":{"field":"ebr_r2_c7","component":"Input","componentFlag":"input-text"}}
+                      }
+                    }
+                  }
+                }
+                """);
+
+        List<BatchRecordReportCellRuleVO> suggestions = MesProBatchRecordCellRuleSupport.buildSuggestions(root);
+
+        BatchRecordReportCellRuleVO operatorDateRule = findRule(suggestions, 2, 5);
+        BatchRecordReportCellRuleVO reviewerDateRule = findRule(suggestions, 2, 7);
+        assertEquals("STRING", operatorDateRule.getValueType());
+        assertEquals("input-text", operatorDateRule.getComponentFlag());
+        assertEquals("操作人/日期", operatorDateRule.getLabel());
+        assertEquals("STRING", reviewerDateRule.getValueType());
+        assertEquals("input-text", reviewerDateRule.getComponentFlag());
+        assertEquals("复核人/日期", reviewerDateRule.getLabel());
+
+        MesProBatchRecordCellRuleSupport.applyAutomaticSuggestions(root, "REPORT-SIGNATURE-DATE-INTERMEDIATE");
+        JSONObject operatorDateCell = MesProBatchRecordCellRuleSupport.requireCell(root, 2, 5);
+        JSONObject reviewerDateCell = MesProBatchRecordCellRuleSupport.requireCell(root, 2, 7);
         assertEquals("input-text", operatorDateCell
                 .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
                 .getString("componentFlag"));

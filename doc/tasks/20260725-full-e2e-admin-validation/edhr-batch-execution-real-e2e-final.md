@@ -1,5 +1,5 @@
 # eDHR 批次执行真实路径 E2E Evidence
-- Task ID: `fix-batch-record-fill-rule`
+- Task ID: `20260725-full-e2e-admin-validation`
 - 状态：PASS
 - 前端入口：`http://localhost:8081`
 - 授权租户/账号：`芋道源码/admin`；密码由登录页本机默认值提供，脚本和证据不记录明文密码。

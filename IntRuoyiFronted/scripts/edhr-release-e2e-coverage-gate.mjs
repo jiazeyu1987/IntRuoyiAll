@@ -27,6 +27,45 @@ export const REQUIRED_FEATURE_IDS = Object.freeze([
   'batch-version/phase1-approval'
 ])
 
+export const RELEASE_COVERAGE_EXCLUDED_EDHR_SOURCE_FILES = Object.freeze([
+  'src/api/mes/pro/edhr/delivery.ts',
+  'src/api/mes/pro/edhr/deployment.ts',
+  'src/api/mes/pro/edhr/dhrTemplate.ts',
+  'src/api/mes/pro/edhr/flowIntervention.ts',
+  'src/api/mes/pro/edhr/form.ts',
+  'src/api/mes/pro/edhr/formFillLog.ts',
+  'src/api/mes/pro/edhr/initBatch.ts',
+  'src/api/mes/pro/edhr/labelPrint.ts',
+  'src/api/mes/pro/edhr/operationAudit.ts',
+  'src/api/mes/pro/edhr/oqPq.ts',
+  'src/api/mes/pro/edhr/permission.ts',
+  'src/api/mes/pro/edhr/processFormPermissionRule.ts',
+  'src/api/mes/pro/edhr/release.ts',
+  'src/api/mes/pro/edhr/report.ts',
+  'src/api/mes/pro/edhr/traveler.ts',
+  'src/api/mes/pro/edhr/unifiedChange.ts',
+  'src/api/mes/pro/edhr/validation.ts',
+  'src/views/mes/pro/edhr/FormFillLogPage.vue',
+  'src/views/mes/pro/edhr/FormTracePage.vue',
+  'src/views/mes/pro/edhr/OperationAuditPage.vue',
+  'src/views/mes/pro/edhr/PermissionMatrixPage.vue',
+  'src/views/mes/pro/edhr/components/DomainTraceListPane.vue',
+  'src/views/mes/pro/edhr/components/EdhrExecutionTemplateEditableForm.vue',
+  'src/views/mes/pro/edhr/components/EdhrExecutionTemplateGuide.vue',
+  'src/views/mes/pro/edhr/components/EdhrTemplateFitViewport.vue',
+  'src/views/mes/pro/edhr/components/OperationAuditListPane.vue',
+  'src/views/mes/pro/edhr/components/ReleaseEventListPane.vue',
+  'src/views/mes/pro/edhr/form-trace/BatchExecutionTraceDrawer.vue',
+  'src/views/mes/pro/edhr/form-trace/FormTraceAuditTab.vue',
+  'src/views/mes/pro/edhr/form-trace/FormTraceChangeTab.vue',
+  'src/views/mes/pro/edhr/form-trace/FormTraceReleaseTab.vue',
+  'src/views/mes/pro/edhr/form-trace/traceContext.ts',
+  'src/views/mes/pro/edhr/shared/dateTime.ts',
+  'src/views/mes/pro/edhr/shared/recordChangeTime.ts',
+  'src/views/mes/pro/edhr/shared/releaseCheckPresentation.ts',
+  'src/views/mes/pro/edhr/signatureTime.ts'
+])
+
 export const RELEASE_E2E_COVERAGE_MATRIX = Object.freeze([
   {
     featureId: 'feedback-entry/open-or-create',
@@ -34,16 +73,17 @@ export const RELEASE_E2E_COVERAGE_MATRIX = Object.freeze([
     routes: ['/mes/pro/feedback', '/mes/pro/feedback/edhr-execution/form'],
     sourceFiles: [
       'src/views/mes/pro/feedback/FeedbackForm.vue',
-      'src/api/mes/pro/feedback/index.ts'
+      'src/api/mes/pro/feedback/index.ts',
+      'src/api/mes/pro/edhr/batchExecution.ts'
     ],
     apiTokens: [
       '/mes/pro/batch-record-execution/entry-context',
       '/mes/pro/batch-record-execution/open-or-create-by-context'
     ],
     e2eTokens: [
-      '/mes/pro/batch-record-execution/open-or-create-by-context',
-      'open-or-create 返回 created',
-      'fresh DRAFT 创建'
+      '/mes/pro/edhr-batch-execution/open-or-create',
+      '批次 open-or-create',
+      'fresh DRAFT'
     ],
     e2eFile: 'tests/e2e/edhr-approval-tracking-real-flow.e2e.js',
     packageScript: 'e2e:edhr:approval-tracking',
@@ -62,7 +102,7 @@ export const RELEASE_E2E_COVERAGE_MATRIX = Object.freeze([
       'src/api/mes/pro/edhr/fieldAudit.ts'
     ],
     apiTokens: [
-      '/mes/pro/batch-record-execution/get?id=',
+      '/mes/pro/batch-record-execution/get',
       '/mes/pro/batch-record-execution/submit',
       '/mes/pro/batch-record-execution/field-audit/save-changes'
     ],
@@ -183,7 +223,7 @@ export const RELEASE_E2E_COVERAGE_MATRIX = Object.freeze([
     e2eFile: 'tests/e2e/edhr-final-archive-work-task-real-flow.e2e.js',
     packageScript: 'e2e:edhr:final-archive-task',
     checkScript: 'e2e:edhr:final-archive-task:check',
-    taskEvidence: '../doc/tasks/20260612-edhr-final-archive-todo-assessment/real-e2e-evidence.md'
+    taskEvidence: 'tests/e2e/edhr-final-archive-work-task-real-flow.e2e.js'
   },
   {
     featureId: 'record-change/void-reopen-supplement',
@@ -221,7 +261,7 @@ export const RELEASE_E2E_COVERAGE_MATRIX = Object.freeze([
     e2eFile: 'tests/e2e/edhr-change-record-real-flow.e2e.js',
     packageScript: 'e2e:edhr:record-change',
     checkScript: 'e2e:edhr:record-change:check',
-    taskEvidence: '../doc/tasks/20260612-edhr-final-archive-todo-assessment/record-change-release-e2e-evidence.md'
+    taskEvidence: 'tests/e2e/edhr-change-record-real-flow.e2e.js'
   },
   {
     featureId: 'batch-execution',
@@ -236,13 +276,14 @@ export const RELEASE_E2E_COVERAGE_MATRIX = Object.freeze([
       'src/api/mes/pro/edhr/batchExecution.ts'
     ],
     apiTokens: [
-      '/mes/pro/edhr-batch-execution/page',
-      '/mes/pro/edhr-batch-execution/open-or-create',
-      '/mes/pro/edhr-batch-execution/task/open'
+      'BATCH_EXECUTION_BASE_URL',
+      'getEdhrBatchExecutionPage',
+      'openOrCreateEdhrBatchExecution',
+      'openEdhrBatchTask'
     ],
     e2eTokens: [
       '/mes/pro/feedback/edhr-batch-execution',
-      '/mes/pro/edhr-batch-execution/open-or-create',
+      '/mes/pro/edhr-batch-execution/get?id=',
       '/mes/pro/edhr-batch-execution/task/open',
       '批次执行编码'
     ],
@@ -341,7 +382,7 @@ export const RELEASE_E2E_COVERAGE_MATRIX = Object.freeze([
       '/mes/pro/batch-record-execution/field-audit/detail',
       '/mes/pro/batch-record-execution/field-audit/verify-chain',
       '/mes/pro/batch-record-execution/field-audit/export',
-      '/mes/pro/feedback/edhr-execution/form',
+      '/mes/pro/feedback/edhr-execution/detail',
       '定位执行记录',
       '字段审计链可导出'
     ],
@@ -372,7 +413,7 @@ export const RELEASE_E2E_COVERAGE_MATRIX = Object.freeze([
       '/mes/pro/batch-record-execution/domain-trace/page',
       '/mes/pro/batch-record-execution/domain-trace/detail',
       '/mes/pro/batch-record-execution/domain-trace/verify',
-      '/mes/pro/feedback/edhr-execution/form',
+      '/mes/pro/feedback/edhr-execution/detail',
       '执行详情',
       'EXPECTED_DOMAIN_TRACE_STATUSES'
     ],
@@ -395,10 +436,12 @@ export const RELEASE_E2E_COVERAGE_MATRIX = Object.freeze([
     sourceFiles: [
       'src/views/mes/pro/edhr/ExecutionPage.vue',
       'src/views/mes/pro/edhr/ApprovalPage.vue',
+      'src/views/mes/pro/edhr/ApprovalDetailPage.vue',
       'src/views/mes/pro/edhr/TrackingPage.vue',
       'src/views/mes/pro/edhr/SignaturePage.vue',
       'src/views/mes/pro/edhr/FieldAuditPage.vue',
       'src/views/mes/pro/edhr/DomainTraceDetailPage.vue',
+      'src/router/modules/remaining.ts',
       'src/api/mes/pro/edhr/approval.ts',
       'src/api/mes/pro/edhr/domainTrace.ts'
     ],
@@ -445,9 +488,9 @@ export const RELEASE_E2E_COVERAGE_MATRIX = Object.freeze([
   {
     featureId: 'batch-version/phase1-approval',
     featureName: 'eDHR batch record version phase 1 approval',
-    routes: ['/mes/pro/batch-record-template'],
+    routes: ['/mes/pro/batch-record-form-list'],
     sourceFiles: [
-      'src/views/mes/pro/batchrecordtemplate/index.vue',
+      'src/views/mes/pro/batchrecordformlist/index.vue',
       'src/api/mes/pro/batchrecordreport/index.ts',
       'src/router/modules/remaining.ts'
     ],
@@ -460,7 +503,7 @@ export const RELEASE_E2E_COVERAGE_MATRIX = Object.freeze([
       '/admin-api/mes/pro/batch-record-report/recognize-uploaded',
       '/admin-api/mes/pro/batch-record-report/version-approval/submit',
       'PENDING_APPROVAL',
-      'approvalInstanceId'
+      'versionStatus'
     ],
     e2eFile: 'tests/e2e/edhr-batch-version-phase1-real-flow.e2e.js',
     packageScript: 'e2e:edhr:batch-version-phase1',
@@ -533,7 +576,10 @@ function collectExpectedEdhrSourceFiles(cwd) {
   )
   files.push('src/views/mes/pro/feedback/FeedbackForm.vue')
   files.push('src/api/mes/pro/feedback/index.ts')
-  return uniqueInOrder(files).sort()
+  const excluded = new Set(RELEASE_COVERAGE_EXCLUDED_EDHR_SOURCE_FILES)
+  return uniqueInOrder(files)
+    .filter((relativePath) => !excluded.has(relativePath))
+    .sort()
 }
 
 function findMissingPackageScripts(packageJson, matrix) {

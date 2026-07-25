@@ -609,7 +609,7 @@ public final class MesProBatchRecordCellRuleSupport {
         String signatureDateHeader = resolveUpperSignatureDateLabel(rows, rowIndex, columnIndex);
         if (StrUtil.isNotBlank(signatureDateHeader)
                 && (StrUtil.isBlank(compact(ownText)) || isCheckboxChoiceText(ownText))) {
-            return baseSuggestion(rowIndex, columnIndex, "STRING", defaultComponentFlag("STRING", existingComponent),
+            return baseSuggestion(rowIndex, columnIndex, "STRING", "input-text",
                     signatureDateHeader, null, 0.38, false);
         }
         if (isCheckboxChoiceText(ownText)) {
@@ -618,7 +618,7 @@ public final class MesProBatchRecordCellRuleSupport {
         String compactLabel = compact(label);
         String unit = resolveUnit(label);
         if (isSignatureDateLabel(compactLabel)) {
-            return baseSuggestion(rowIndex, columnIndex, "STRING", defaultComponentFlag("STRING", existingComponent),
+            return baseSuggestion(rowIndex, columnIndex, "STRING", "input-text",
                     label, null, 0.35, false);
         }
         if (compactLabel.contains("□其他") || compactLabel.contains("☑其他")) {
@@ -750,10 +750,10 @@ public final class MesProBatchRecordCellRuleSupport {
             }
             return;
         }
-        if (fillForm.get("value") == null) {
+        if (fillForm.get("value") == null || fillForm.get("value") instanceof Boolean) {
             fillForm.put("value", "");
         }
-        if (fillForm.get("defaultValue") == null) {
+        if (fillForm.get("defaultValue") == null || fillForm.get("defaultValue") instanceof Boolean) {
             fillForm.put("defaultValue", "");
         }
     }
@@ -906,7 +906,9 @@ public final class MesProBatchRecordCellRuleSupport {
                 if (StrUtil.isBlank(text)) {
                     continue;
                 }
-                return isSignatureDateLabel(compact(text)) ? text : "";
+                if (isSignatureDateLabel(compact(text))) {
+                    return text;
+                }
             }
             String signatureDateTailLabel = resolveSignatureDateTailLabel(upperCells, columnIndex);
             if (StrUtil.isNotBlank(signatureDateTailLabel)) {

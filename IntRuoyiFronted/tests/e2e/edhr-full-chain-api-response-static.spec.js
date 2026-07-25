@@ -30,7 +30,7 @@ assert.ok(!tenantBlock.includes('page.waitForResponse'), '租户选择已命中�
 assert.ok(!tenantBlock.includes('tenantInput.inputValue()'), 'Element Plus 选中租户后输入框 value 会清空，不应以 inputValue 判断')
 assert.ok(tenantBlock.includes("'.el-select__placeholder span'"), '租户识别等待应验证 Element Plus 真实选中占位文本')
 assert.ok(loginBlock.includes('tenantRecognitionPromise'), '登录前必须创建租户识别等待')
-assert.ok(loginBlock.includes("'.el-select-dropdown:visible .el-select-dropdown__item'"), '登录租户选择必须点击真实下拉项')
+assert.ok(loginBlock.includes('selectLoginTenantByUi') && tenantBlock.includes("'.el-select-dropdown:visible .el-select-dropdown__item'"), '登录租户选择必须通过委托函数点击真实下拉项')
 assert.ok(loginBlock.indexOf('await tenantRecognitionPromise') < loginBlock.indexOf('/admin-api/system/auth/login'), '必须先等租户识别成功，再等待登录响应')
 assert.ok(archiveBlock.includes('/mes/pro/edhr-work-task/my-page'), '归档待办页面定位失败时必须读取真实 my-page 接口作为诊断证据')
 assert.ok(archiveBlock.includes('visibleTableRowTexts'), '归档待办页面定位失败时必须输出当前可见表格行')

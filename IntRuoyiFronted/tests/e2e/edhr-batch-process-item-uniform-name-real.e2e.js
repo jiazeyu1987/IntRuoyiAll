@@ -142,7 +142,9 @@ async function loadBatchDetail(page) {
 
 async function verifyProcessItems(page, detail) {
   const expectedGroups = collectProcessGroups(detail)
-  const processGroups = page.locator('.edhr-batch-detail__process-task-group')
+  const processGroups = page.locator(
+    '.edhr-batch-detail__process-task-group:not(.edhr-batch-detail__special-process-task-group)'
+  )
   assert.equal(
     await processGroups.count(),
     expectedGroups.length,

@@ -61,3 +61,15 @@
 - BLOCKED: 命令通过 Playwright 完成真实前端登录和授权上下文捕获，但最近可见 25 个批次未找到含本任务新增 operationType 的可验证追溯样本；24 个批次返回 `eDHR 对象级权限范围不存在或未启用：BATCH_EXECUTION:<id>`，已扫描审计行数 10。
 - Evidence: `doc\tasks\20260724-batch-fda-audit-log-coverage\test-results\operation-audit-trace-readonly\evidence.md`、`result.json`、`failure.png`。
 - Guardrail: 本轮未使用 mock、API-only 替代页面路径、直接 SQL 或写入型造数；缺少测试租户/测试账号/任务自有样本前保持 `blocked`。
+
+## Write E2E Regression - 2026-07-25 13:36 Asia/Shanghai
+
+- BDD: 页面创建本地状态样本生成审计 -> Given 已授权本机 `芋道源码/admin` 写入型 E2E When 用户从批次执行列表点击“临时状态样本 > 放行预检样本”并确认 Then 后端创建任务自有样本批次并记录 `LOCAL_STATE_SAMPLE_CREATE` 操作审计。
+- BDD: 批次追溯展示新增操作审计 -> Given 样本批次已创建 When 用户打开批次详情并点击“追溯记录 > 操作审计” Then 前端仅按 batchExecutionId 查询操作审计，表格展示“本地状态样本创建”且不发送 objectType/objectId。
+- RED: `node doc\tasks\20260724-batch-fda-audit-log-coverage\operation-audit-trace-write-sample.e2e.cjs` -> FAIL，真实 UI 已创建任务自有样本批次，但操作审计分页返回 `eDHR 对象级权限范围不存在或未启用：BATCH_EXECUTION:900000000788`。
+- Root Cause: 本地状态样本创建了 `MesProEdhrBatchExecutionTaskDO`，但未创建并绑定 `BATCH_EXECUTION_TASK` 对象级权限 scope；批次追溯操作审计控制器按 batch task scope 执行 `AUDIT_VIEW` 门禁，因此样本批次追溯被拒。
+- RED: `node IntRuoyiBackend\yudao-module-mes\src\test\js\edhr-fda-operation-audit-coverage-static.spec.cjs` -> FAIL，静态契约新增断言发现本地状态样本未绑定 `BATCH_EXECUTION_TASK` / `AUDIT_VIEW` permission scope。
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\edhr-fda-operation-audit-coverage-static.spec.cjs` -> PASS，样本创建事务内新增 scope 保存并将 `permissionScopeId` 写回 batch task。
+- BLOCKED: `mvn -pl yudao-module-mes -DskipTests compile` -> FAIL，非本任务文件 `MesProRouteVersionPublishProjectionServiceImpl.java:[842,17]` 调用不存在的 `BusinessApprovalPolicyDOBuilder.formPolicyType(String)`。
+- BLOCKED: 目标 JUnit `MesProEdhrLocalStateSampleServiceTest#createLocalStateSample_writesExpectedStateCombination` 在 `testCompile` 阶段被既有 route projection 测试中的 `getFormPolicyType()/getFormSlotsJson()` 缺失阻塞，未执行到本测试。
+- Evidence: 写入型 E2E 证据见 `test-results\operation-audit-trace-write-sample\evidence.md`、`result.json`、`failure.png`。

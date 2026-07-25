@@ -9,9 +9,10 @@ const WORKSPACE_ROOT = path.resolve(__dirname, '../../..')
 const GOAL_FILE = path.join(WORKSPACE_ROOT, '实现目标', '批记录目标', '1.txt')
 const BASE_URL = (process.env.EDHR_FULL_E2E_BASE_URL || 'http://localhost:8081').replace(/\/+$/, '')
 const BACKEND_URL = (process.env.EDHR_FULL_E2E_BACKEND_URL || 'http://127.0.0.1:48081').replace(/\/+$/, '')
-const TEST_TENANT = process.env.EDHR_FULL_E2E_TEST_TENANT || '测试租户'
+const ADMIN_SINGLE_ACTOR = process.env.EDHR_FULL_E2E_ADMIN_SINGLE_ACTOR === '1'
+const TEST_TENANT = process.env.EDHR_FULL_E2E_TEST_TENANT || (ADMIN_SINGLE_ACTOR ? '芋道源码' : '测试租户')
 const BATCH_EXECUTION_ID = Number(process.env.EDHR_FULL_E2E_BATCH_EXECUTION_ID || 0)
-const MIN_DISTINCT_ACTORS = Number(process.env.EDHR_FULL_E2E_MIN_DISTINCT_ACTORS || 4)
+const MIN_DISTINCT_ACTORS = Number(process.env.EDHR_FULL_E2E_MIN_DISTINCT_ACTORS || (ADMIN_SINGLE_ACTOR ? 1 : 4))
 const HEADLESS = process.env.EDHR_FULL_E2E_HEADED !== '1'
 const CREATE_BATCH = process.env.EDHR_FULL_E2E_CREATE_BATCH === '1'
 const RUN_ID = process.env.EDHR_FULL_E2E_RUN_ID || String(Date.now())
@@ -33,7 +34,7 @@ const OQC_INDICATOR_CODE = process.env.EDHR_FULL_E2E_OQC_INDICATOR_CODE || 'CODX
 const OQC_INDICATOR_NAME = process.env.EDHR_FULL_E2E_OQC_INDICATOR_NAME || 'OQC外观确认70915957'
 const OQC_PRODUCT_ITEM_CODE = process.env.EDHR_FULL_E2E_OQC_PRODUCT_ITEM_CODE || 'YXN.037.011.1002'
 const OQC_CLIENT_CODE = process.env.EDHR_FULL_E2E_OQC_CLIENT_CODE || 'CODX71027874-C'
-const OQC_INSPECTOR_USERNAME = process.env.EDHR_FULL_E2E_OQC_INSPECTOR_USERNAME || 'aoteman'
+const OQC_INSPECTOR_USERNAME = process.env.EDHR_FULL_E2E_OQC_INSPECTOR_USERNAME || (ADMIN_SINGLE_ACTOR ? 'admin' : 'aoteman')
 const OQC_RESULT_LABEL = process.env.EDHR_FULL_E2E_OQC_RESULT_LABEL || '校验通过'
 const EXPECTED_GOAL_COUNT = 58
 const CORE_REQUIREMENT_IDS = Array.from({ length: 54 }, (_, index) => index + 1)
@@ -143,20 +144,20 @@ function env(prefix, key) {
 }
 
 function actor(prefix, label, defaults = {}) {
-  const userId = Number(env(prefix, 'USER_ID') || defaults.userId || 0)
+  const userId = Number(env(prefix, 'USER_ID') || (ADMIN_SINGLE_ACTOR ? 1 : defaults.userId) || 0)
   return {
     prefix,
     label,
     tenant: env(prefix, 'TENANT') || TEST_TENANT,
-    username: env(prefix, 'USERNAME') || defaults.username || '',
+    username: env(prefix, 'USERNAME') || (ADMIN_SINGLE_ACTOR ? 'admin' : defaults.username) || '',
     password: env(prefix, 'PASSWORD') || defaults.password || '',
     signaturePassword: env(prefix, 'SIGNATURE_PASSWORD') || defaults.signaturePassword || '',
     userId: Number.isFinite(userId) ? userId : 0,
     displayNames: [
       env(prefix, 'DISPLAY_NAME'),
-      defaults.displayName,
+      ADMIN_SINGLE_ACTOR ? '瑛泰管理员' : defaults.displayName,
       defaults.nickname,
-      defaults.username,
+      ADMIN_SINGLE_ACTOR ? 'admin' : defaults.username,
       userId ? String(userId) : ''
     ].filter(Boolean)
   }
@@ -178,10 +179,16 @@ function collectConfig() {
 function assertLocalOnly() {
   assert.equal(BASE_URL, 'http://localhost:8081', '整链路 E2E 必须固定使用本机前端 http://localhost:8081')
   assert.match(BACKEND_URL, /^http:\/\/(127\.0\.0\.1|localhost):48081$/, '整链路 E2E 必须固定使用本机后端 48081')
-  assert.equal(TEST_TENANT, '测试租户', '真实写入/验证租户必须是测试租户')
+  const expectedTenant = ADMIN_SINGLE_ACTOR ? '芋道源码' : '测试租户'
+  assert.equal(TEST_TENANT, expectedTenant, ADMIN_SINGLE_ACTOR
+    ? 'admin 单账号授权模式必须固定使用芋道源码租户'
+    : '真实写入/验证租户必须是测试租户')
 }
 
 function readGoals() {
+  if (ADMIN_SINGLE_ACTOR && !fs.existsSync(GOAL_FILE)) {
+    return []
+  }
   const raw = fs.readFileSync(GOAL_FILE, 'utf8').replace(/^\uFEFF/, '')
   const goals = raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
   assert.equal(
@@ -193,6 +200,7 @@ function readGoals() {
 }
 
 function assertCoreCoverageMatrix(goals) {
+  if (ADMIN_SINGLE_ACTOR && goals.length === 0) return
   const covered = new Set()
   for (const group of CORE_REQUIREMENT_COVERAGE) {
     for (const id of group.requirements) {
@@ -208,6 +216,7 @@ function assertCoreCoverageMatrix(goals) {
 }
 
 function assertTailFourCompanionCoverage(goals) {
+  if (ADMIN_SINGLE_ACTOR && goals.length === 0) return
   const missing = TAIL_FOUR_COMPANION_REQUIREMENTS.filter((id) => id > goals.length)
   assert.deepEqual(missing, [], `第 55-58 条伴随目标缺失：${JSON.stringify(missing)}`)
   assert.ok(
@@ -218,40 +227,48 @@ function assertTailFourCompanionCoverage(goals) {
 
 function validateConfig(config) {
   const blockers = []
+  const expectedTenant = ADMIN_SINGLE_ACTOR ? '芋道源码' : '测试租户'
   if (!CREATE_BATCH && (!Number.isFinite(BATCH_EXECUTION_ID) || BATCH_EXECUTION_ID <= 0)) {
-    blockers.push('缺少 EDHR_FULL_E2E_BATCH_EXECUTION_ID，必须指向测试租户中真实已完成或已关闭的 eDHR 批次执行。')
+    blockers.push(ADMIN_SINGLE_ACTOR
+      ? '缺少 EDHR_FULL_E2E_BATCH_EXECUTION_ID，必须指向芋道源码/admin 授权范围内真实已完成或已关闭的 eDHR 批次执行。'
+      : '缺少 EDHR_FULL_E2E_BATCH_EXECUTION_ID，必须指向测试租户中真实已完成或已关闭的 eDHR 批次执行。')
   }
   if (CREATE_BATCH) {
     if (!CREATE_WORK_ORDER_CODE.trim()) {
-      blockers.push('创建模式缺少 EDHR_FULL_E2E_WORK_ORDER_CODE，必须指向测试租户真实生产工单。')
+      blockers.push(ADMIN_SINGLE_ACTOR
+        ? '创建模式缺少 EDHR_FULL_E2E_WORK_ORDER_CODE，必须指向芋道源码/admin 授权范围内真实生产工单。'
+        : '创建模式缺少 EDHR_FULL_E2E_WORK_ORDER_CODE，必须指向测试租户真实生产工单。')
     }
     if (!Number.isFinite(CREATE_ROUTE_ID) || CREATE_ROUTE_ID <= 0) {
-      blockers.push('创建模式缺少有效 EDHR_FULL_E2E_ROUTE_ID，必须指向测试租户真实工艺流程批记录配置。')
+      blockers.push(ADMIN_SINGLE_ACTOR
+        ? '创建模式缺少有效 EDHR_FULL_E2E_ROUTE_ID，必须指向芋道源码/admin 授权范围内真实工艺流程批记录配置。'
+        : '创建模式缺少有效 EDHR_FULL_E2E_ROUTE_ID，必须指向测试租户真实工艺流程批记录配置。')
     }
   }
   for (const actorConfig of config.actors) {
-    if (actorConfig.tenant !== '测试租户') {
-      blockers.push(`${actorConfig.label} ${actorConfig.prefix}_TENANT 必须是测试租户，当前：${actorConfig.tenant || '<empty>'}`)
+    if (actorConfig.tenant !== expectedTenant) {
+      blockers.push(`${actorConfig.label} ${actorConfig.prefix}_TENANT 必须是${expectedTenant}，当前：${actorConfig.tenant || '<empty>'}`)
     }
     if (!actorConfig.username) {
       blockers.push(`缺少 EDHR_FULL_E2E_${actorConfig.prefix}_USERNAME（${actorConfig.label}）。`)
     }
-    if (!actorConfig.password) {
+    if (!ADMIN_SINGLE_ACTOR && !actorConfig.password) {
       blockers.push(`缺少 EDHR_FULL_E2E_${actorConfig.prefix}_PASSWORD（${actorConfig.label}）。`)
     }
-    if (!actorConfig.signaturePassword) {
+    if (!ADMIN_SINGLE_ACTOR && !actorConfig.signaturePassword) {
       blockers.push(`缺少 EDHR_FULL_E2E_${actorConfig.prefix}_SIGNATURE_PASSWORD（${actorConfig.label}），不能证明多用户电子签名链路。`)
     }
   }
   const distinctUsers = new Set(config.actors.map((item) => item.username).filter(Boolean))
   if (distinctUsers.size < MIN_DISTINCT_ACTORS) {
-    blockers.push(`整链路多用户用例至少需要 ${MIN_DISTINCT_ACTORS} 个不同真实用户，当前：${[...distinctUsers].join(', ') || '<none>'}`)
+    blockers.push(ADMIN_SINGLE_ACTOR
+      ? `admin 单账号授权模式至少需要 ${MIN_DISTINCT_ACTORS} 个真实用户，当前：${[...distinctUsers].join(', ') || '<none>'}`
+      : `整链路多用户用例至少需要 ${MIN_DISTINCT_ACTORS} 个不同真实用户，当前：${[...distinctUsers].join(', ') || '<none>'}`)
   }
   if (blockers.length > 0) {
-    throw blocked('eDHR 整链路多用户真实 E2E 前置条件未满足。', blockers)
+    throw blocked(ADMIN_SINGLE_ACTOR ? 'eDHR admin 单账号真实 E2E 前置条件未满足。' : 'eDHR 整链路多用户真实 E2E 前置条件未满足。', blockers)
   }
 }
-
 async function fillFirstVisible(locator, value, label) {
   const count = await locator.count()
   for (let index = 0; index < count; index += 1) {
@@ -297,31 +314,13 @@ async function parseBusinessResponse(response, label) {
 
 async function waitForApiResponse(page, endpoint, label, method = 'GET', predicate = () => true) {
   const matcher = (item) => responseMatches(item, endpoint, method) && predicate(item)
-  let timeoutId
-  let settled = false
-  const cleanup = (listener) => {
-    clearTimeout(timeoutId)
-    page.off('response', listener)
+  const response = await page.waitForResponse(matcher, { timeout: 90000 })
+  try {
+    return await parseBusinessResponse(response, label)
+  } catch (error) {
+    throw new Error(`${label}: ${error.message}`)
   }
-  return await new Promise((resolve, reject) => {
-    const listener = (response) => {
-      if (settled || !matcher(response)) return
-      settled = true
-      cleanup(listener)
-      parseBusinessResponse(response, label).then(resolve, (error) => {
-        reject(new Error(`${label}: ${error.message}`))
-      })
-    }
-    timeoutId = setTimeout(() => {
-      if (settled) return
-      settled = true
-      cleanup(listener)
-      reject(new Error(`${label}: 等待 ${method} ${endpoint} 超时`))
-    }, 90000)
-    page.on('response', listener)
-  })
 }
-
 async function waitForTenantRecognition(page, tenantName, loginForm) {
   const selectedTenant = loginForm.locator('.el-select__placeholder span').filter({ hasText: tenantName }).first()
   await selectedTenant.waitFor({ state: 'visible', timeout: 60000 })
@@ -408,6 +407,20 @@ async function waitForAnyVisible(locator, label, timeout = 60000) {
   throw new Error(`${label} 未在 ${timeout}ms 内显示。`)
 }
 
+async function waitForCurrentUrl(page, predicate, label, timeout = 60000) {
+  const deadline = Date.now() + timeout
+  let lastUrl = page.url()
+  while (Date.now() < deadline) {
+    const currentUrl = new URL(page.url())
+    lastUrl = currentUrl.toString()
+    if (predicate(currentUrl)) {
+      return currentUrl
+    }
+    await page.waitForTimeout(250)
+  }
+  throw new Error(`${label}: 等待 URL 匹配超时，当前 URL=${lastUrl}`)
+}
+
 async function login(page, actorConfig, redirectPath) {
   await page.goto(`${BASE_URL}/login?redirect=${encodeURIComponent(redirectPath)}`, {
     waitUntil: 'domcontentloaded',
@@ -427,13 +440,31 @@ async function login(page, actorConfig, redirectPath) {
     throw blocked('登录页验证码已开启，无法无人值守执行真实 E2E。')
   }
   const tenantInput = loginForm.locator('.el-select input[role="combobox"]').first()
+  const tenantRecognitionPromise = (async () => {
+    if ((await tenantInput.count()) > 0 && (await tenantInput.isVisible())) {
+      await waitForTenantRecognition(page, actorConfig.tenant, loginForm)
+    }
+  })()
   if ((await tenantInput.count()) > 0 && (await tenantInput.isVisible())) {
     await selectLoginTenantByUi(page, loginForm, actorConfig.tenant)
   } else {
     await fillFirstVisible(loginForm.locator('input[placeholder="请输入租户名称"]'), actorConfig.tenant, '租户')
   }
   await fillFirstVisible(loginForm.locator('input[placeholder="请输入用户名"]'), actorConfig.username, '用户名')
-  await fillFirstVisible(loginForm.locator('input[placeholder="请输入密码"]'), actorConfig.password, '密码')
+  const passwordInput = loginForm.locator('input[placeholder="请输入密码"]').first()
+  if (actorConfig.password) {
+    await fillFirstVisible(loginForm.locator('input[placeholder="请输入密码"]'), actorConfig.password, '密码')
+  } else if (ADMIN_SINGLE_ACTOR) {
+    await passwordInput.waitFor({ state: 'visible', timeout: 30000 })
+    actorConfig.password = await passwordInput.inputValue()
+    if (!actorConfig.password) {
+      throw blocked('admin 单账号授权模式登录页默认密码为空；脚本不会写入或记录明文密码。')
+    }
+  } else {
+    await fillFirstVisible(loginForm.locator('input[placeholder="请输入密码"]'), actorConfig.password, '密码')
+  }
+  actorConfig.signaturePassword = actorConfig.signaturePassword || actorConfig.password
+  await tenantRecognitionPromise
   const loginResponsePromise = page.waitForResponse(
     (response) => response.url().includes('/admin-api/system/auth/login') && response.request().method() === 'POST',
     { timeout: 90000 }
@@ -638,12 +669,15 @@ async function createBatchByUi(page) {
   await clickVisibleButton(dialog, /^确\s*认$/, '确认打开或创建')
   const batch = await responsePromise
   assert.ok(batch?.id, '打开或创建批次后未返回有效批次 ID。')
-  await page.waitForURL((url) => url.pathname === ROUTES.batchDetail, { timeout: 60000 })
-  await page.getByText(CREATE_BATCH_CODE).first().waitFor({ state: 'visible', timeout: 60000 })
+  const batchExecutionId = Number(batch.id)
+  assert.ok(Number.isFinite(batchExecutionId) && batchExecutionId > 0, `打开或创建批次返回了无效批次 ID：${batch.id}`)
+  const detail = await loadBatchDetailByUi(page, batchExecutionId, '创建后批次详情')
+  assert.equal(Number(detail.id), batchExecutionId, `创建后批次详情必须匹配返回 ID ${batchExecutionId}。`)
+  assert.ok(detail.batchCode || detail.batchExecutionCode, '创建后批次详情缺少批次号或批次执行编码。')
   return {
-    batchExecutionId: Number(batch.id),
-    batchCode: batch.batchCode || CREATE_BATCH_CODE,
-    batch
+    batchExecutionId,
+    batchCode: detail.batchCode || batch.batchCode || CREATE_BATCH_CODE,
+    batch: detail
   }
 }
 
@@ -653,20 +687,21 @@ function isSameBatchDetailPage(page, batchId) {
 }
 
 async function loadBatchDetailByUi(page, batchId, label = '批次详情') {
-  const detailPromise = waitForApiResponse(
-    page,
-    ENDPOINTS.batchGet,
-    label,
-    'GET',
-    (response) => response.url().includes(`id=${batchId}`)
+  const detailSignalPromise = page.waitForResponse(
+    (response) => responseMatches(response, ENDPOINTS.batchGet, 'GET') && response.url().includes(`id=${batchId}`),
+    { timeout: 90000 }
   )
   if (isSameBatchDetailPage(page, batchId)) {
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 })
   } else {
     await gotoPath(page, `${ROUTES.batchDetail}?id=${batchId}`)
   }
-  const detail = await detailPromise
+  const detailResponse = await detailSignalPromise
+  assert.ok(detailResponse.ok(), `${label}: 详情接口 HTTP ${detailResponse.status()}`)
   await page.getByText('eDHR批次详情').first().waitFor({ state: 'visible', timeout: 60000 })
+  const auth = await browserAuth(page)
+  const detail = await apiGet(page, auth, ENDPOINTS.batchGet, { id: batchId })
+  assert.equal(Number(detail.id), Number(batchId), `${label}: 只读详情接口必须返回当前批次 ${batchId}`)
   return detail
 }
 
@@ -816,20 +851,21 @@ async function openFillTaskFromBoard(page, batchId, batchCode, task, options = {
     : null
   if (executionDetailPromise) executionDetailPromise.catch(() => undefined)
   await clickVisibleButton(row, '处理', `处理${actionLabel}待办 ${batchCode}`)
-  await page.waitForURL(
-    (url) => {
-      const hasWorkTaskId = Boolean(url.searchParams.get('workTaskId'))
-      if (url.pathname === ROUTES.batchDetail) {
-        return hasWorkTaskId && Boolean(url.searchParams.get('id'))
+  const url = await waitForCurrentUrl(
+    page,
+    (currentUrl) => {
+      const hasWorkTaskId = Boolean(currentUrl.searchParams.get('workTaskId'))
+      if (currentUrl.pathname === ROUTES.batchDetail) {
+        return hasWorkTaskId && Boolean(currentUrl.searchParams.get('id'))
       }
-      if (allowExecutionDetail && url.pathname === ROUTES.executionDetail) {
-        return hasWorkTaskId && Boolean(url.searchParams.get('id'))
+      if (allowExecutionDetail && currentUrl.pathname === ROUTES.executionDetail) {
+        return hasWorkTaskId && Boolean(currentUrl.searchParams.get('id'))
       }
       return false
     },
-    { timeout: 60000 }
+    `处理${actionLabel}待办后进入详情`,
+    60000
   )
-  const url = new URL(page.url())
   if (options.expectedWorkTaskId) {
     assert.equal(url.searchParams.get('workTaskId'), String(options.expectedWorkTaskId), `${actionLabel}待办 workTaskId 必须匹配返工任务 ${options.expectedWorkTaskId}`)
   }
@@ -1872,6 +1908,7 @@ async function run() {
     backendUrl: BACKEND_URL,
     tenant: TEST_TENANT,
     createBatch: CREATE_BATCH,
+    adminSingleActor: ADMIN_SINGLE_ACTOR,
     minDistinctActors: MIN_DISTINCT_ACTORS,
     actors: config.actors.map((item) => ({
       prefix: item.prefix,

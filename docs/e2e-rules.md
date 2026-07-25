@@ -45,14 +45,23 @@
 - 失败时记录实际失败位置、页面状态、网络响应或控制台错误。
 
 
-## 任务专用 E2E 环境变量与证据文件门禁
 
-- Trigger: 运行 `edhr-batch-execution-real-flow.e2e.js`、真实写入型 E2E、复跑历史 E2E 证据、或脚本默认写入 `doc/tasks/<task-id>/real-e2e-evidence.md`。
-- Preflight check: 运行前必须显式设置任务专用 `EDHR_BATCH_E2E_TASK_ID` 或 `EDHR_BATCH_E2E_EVIDENCE_FILE`，并确认脚本要求的账号、工单、批次、路线和签名密码环境变量全部来自已授权测试租户。
-- Blocker: 任一必需环境变量缺失、目标租户命中受保护租户、或证据路径会覆盖非当前任务历史 PASS 证据时，必须停止，不得进入浏览器。
-- Verification: 记录 E2E 命令、显式证据文件路径、入口 URL、测试租户/账号标签、目标业务数据标识，以及脚本 PASS/BLOCKED 结果。
-- Forbidden action: 禁止用默认任务 ID 覆盖历史证据文件，禁止用受保护租户或默认生产/admin 数据替代任务专用测试数据，禁止把环境变量缺失的 fail-fast 复跑解释为产品 E2E 失败。
-- Evidence: `doc/tasks/fix-batch-record-fill-rule/execution-log.md`，2026-07-24 当前 shell 复跑缺少任务专用 E2E 环境变量并恢复历史证据文件。
+## 官方登录前置与 admin-only 全量验证门禁
+
+- Trigger: E2E 脚本调用 `scripts/preflight/login-preflight.mjs`、执行 `芋道源码/admin` 只读全量验证、或工作区融合后发现真实 E2E 登录前置脚本缺失/目标文案过期。
+- Preflight check: `scripts/preflight/login-preflight.mjs` 必须存在于工作区根目录并通过真实前端登录；目标文本必须使用当前页面真实可见文案，不得沿用历史菜单标题。密码只能通过临时环境变量或命令参数传入，任务日志和证据必须脱敏。
+- Blocker: 若只授权 `芋道源码/admin`，写入型、多用户、签名、放行、发布或需测试租户数据清理的 E2E 必须记录 BLOCKED；不得在 admin 基线租户上创造测试写入数据，也不得用 API-only、直连历史 execution 填写页或 mock 代替。
+- Verification: 管理员只读验证应优先覆盖登录前置、批次详情、只读预览、伴随单据、表单日志、权限可见性和无 MES 写请求；当前活动填写必须走正式页面按钮或 `openTask` 返回上下文，历史只读必须走 tracking 模式。
+- Forbidden action: 禁止删除或跳过官方登录 preflight；禁止把缺失 preflight 脚本当成 E2E 通过；禁止在真实脚本中保留历史默认密码；禁止把过期固定批次/任务 ID 当作长期前置。
+- Evidence: `doc/tasks/20260725-full-e2e-admin-validation/verification-report.md`。
+## eDHR 批次执行数据库夹具与证据文件门禁
+
+- Trigger: 运行 `edhr-batch-execution-real-flow.e2e.js`、复跑 eDHR 批次执行真实 E2E、或脚本默认写入 `doc/tasks/<task-id>/real-e2e-evidence.md`。
+- Preflight check: 默认从本机 Docker MySQL `int-ruoyi-mysql/ruoyi-vue-pro` 读取授权租户、账号、批次执行、批次任务、工作任务和执行 ID；写型验证若需调整责任人或夹具数据，必须先记录原始值、影响行数和回滚 SQL。`EDHR_BATCH_E2E_TASK_ID`、`EDHR_BATCH_E2E_EVIDENCE_FILE`、浏览器路径等只允许作为可选运行参数，不得作为工单、批次、填写值或签名密码的必需来源。
+- Blocker: 本地数据库不可达、授权租户/账号不存在、无当前账号可打开的待办工作任务、目标租户未获当前任务明确授权、写入影响行数不是预期值、或证据路径会覆盖非当前任务历史 PASS 证据时，必须停止，不得进入浏览器或伪造通过。
+- Verification: 记录 E2E 命令、证据文件路径、入口 URL、租户/账号标签、数据库来源、批次执行 ID、任务 ID、执行 ID、DB 写入行数、回滚方式，以及脚本 PASS/BLOCKED 结果。
+- Forbidden action: 禁止把工单/批次/密码等业务数据重新改成必需环境变量；禁止记录明文密码；禁止用 mock、API-only、默认成功、生产/未授权租户或未记录的数据库直改替代真实前端路径。
+- Evidence: `doc/tasks/fix-batch-record-fill-rule/execution-log.md`，2026-07-25 脚本已改为数据库夹具读取，并在用户授权的 `芋道源码/admin` 下完成真实前端 E2E。
 
 
 ## eDHR 历史执行只读验证门禁

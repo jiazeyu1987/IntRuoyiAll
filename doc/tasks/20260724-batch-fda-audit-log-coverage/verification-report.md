@@ -55,3 +55,13 @@ blocked
 - Result: 真实前端只读 E2E 已登录本机前端并捕获前端真实授权请求头；扫描可见批次数 25、审计行数 10、权限范围阻塞批次数 24，未找到包含本任务新增 operationType 的可展示追溯样本。
 - Evidence: `doc\tasks\20260724-batch-fda-audit-log-coverage\test-results\operation-audit-trace-readonly\evidence.md`、`result.json`、`failure.png`。
 - Remaining blocker: 需要提供或创建经授权的测试租户/测试账号/任务自有批次样本，使该批次包含本任务新增 operationType 的操作审计记录并具备 `BATCH_EXECUTION:<id>` 对象级 VIEW 权限，才能完成真实前端追溯抽屉 E2E；本轮只读验证未造数。
+
+## Write E2E Regression Verification - 2026-07-25 13:36 Asia/Shanghai
+
+- Status: BLOCKED after source fix; real E2E reproduced the missing permission scope defect, but full runtime re-verification cannot proceed until unrelated backend compile blockers are resolved and backend runtime is rebuilt/restarted.
+- RED E2E: `node doc\tasks\20260724-batch-fda-audit-log-coverage\operation-audit-trace-write-sample.e2e.cjs` -> FAIL. Real frontend path created an owned local PRECHECK sample, then batch trace operation audit failed with `BATCH_EXECUTION:900000000788` permission scope missing.
+- Fix: `MesProEdhrLocalStateSampleServiceImpl` now saves a `BATCH_EXECUTION_TASK` permission scope with `AUDIT_VIEW=ALLOW` for the creating user, writes the returned scope ID to `MesProEdhrBatchExecutionTaskDO.permissionScopeId`, and includes the scope ID in created-record audit payload.
+- Regression Test: `MesProEdhrLocalStateSampleServiceTest#createLocalStateSample_writesExpectedStateCombination` now asserts the created batch task has the returned permission scope ID. Target JUnit execution is blocked before tests run by unrelated test compilation errors.
+- GREEN Static: `node IntRuoyiBackend\yudao-module-mes\src\test\js\edhr-fda-operation-audit-coverage-static.spec.cjs` -> PASS.
+- BLOCKED Compile: `mvn -pl yudao-module-mes -DskipTests compile` -> FAIL in unrelated `MesProRouteVersionPublishProjectionServiceImpl.java:[842,17]` because `BusinessApprovalPolicyDOBuilder.formPolicyType(String)` is unavailable.
+- No fallback: The E2E was not replaced with SQL/API-only verification, mock data, or direct permission repair.

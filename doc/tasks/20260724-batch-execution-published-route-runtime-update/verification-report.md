@@ -40,3 +40,10 @@
 - BLOCKED：按用户要求复跑 `node tests\e2e\edhr-batch-execution-real-flow.e2e.js`，脚本已使用显式 `EDHR_BATCH_E2E_TASK_ID` 和 `EDHR_BATCH_E2E_EVIDENCE_FILE`，但测试租户 `测试租户/aoteman` 登录失败。
 - 失败原因：脱敏登录诊断显示 `/system/auth/login` 返回 `code=1002000000`、`msg=登录失败，账号密码不正确`；当前本机 `.env` 默认身份为受保护的 `芋道源码/admin`，不能作为写入型 E2E 替代账号。
 - 影响：本轮未进入批次创建页提交动作，未生成新的批次执行数据；因此没有新的 DB 冻结快照核验结果。2026-07-24 已通过的批次 `900000000787 / BRS20260724195134` 证据仍保留在本报告上方。
+
+## 2026-07-25 Admin 授权 E2E 复跑结果
+
+- PASS：用户授权 `芋道源码/admin` 后，真实前端页面创建批次 E2E 通过；使用工单 `923834 / 881MO090935`、路线 `922119 / RT000028 / 球囊扩张压力泵`，创建批次 `900000000790 / BRS20260725134444` 并进入批次详情页。
+- PASS：DB 核验显示该批次持久化 `route_version_id=358`、`route_version_no=V14`、`route_snapshot_json` 长度 `38089`，`configSnapshots.batchUseConfigs=14`，`task_total=21`，`blocked_count=0`。
+- PASS：路线 `922119` 仍存在草稿 `361 / V15`，active 发布版本为 `358 / V14`；本次创建读取并冻结 ACTIVE 发布版本，未依赖草稿。
+- NOTE：一次性脚本第一次运行创建了 `900000000789 / BRS20260725133618` 并已 DB 证实冻结 `358 / V14`，但后续打开填写断言不属于本次创建冻结目标且失败；第二次脚本已收敛到创建冻结目标并通过。

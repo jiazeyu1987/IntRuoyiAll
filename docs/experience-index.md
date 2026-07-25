@@ -159,7 +159,7 @@
 - Keywords: D-Main local runtime, int_main_d, vite command not found, Java package runtime ignored, *.runtime不存在, git check-ignore runtime source -> `docs/local-runtime.md#2026-07-25-d-main-本地启动源码与依赖门禁`
 - Keywords: isolated backend jar, dirty main workspace, int_main 48081, jar SHA256, local E2E reload, clean worktree build -> `docs/local-runtime.md#2026-07-24-隔离构建-jar-加载门禁`
 - Keywords: Element Plus el-table, 表格行复选框, 表头全选误点, indeterminate checkbox, Playwright body-wrapper row selection, 手动重排选中集合断言 -> `docs/e2e-rules.md#element-plus-表格选择门禁`
-- Keywords: EDHR_BATCH_E2E_TASK_ID, EDHR_BATCH_E2E_EVIDENCE_FILE, edhr-batch-execution-real-flow.e2e.js, 真实 E2E 前置条件缺失, 覆盖历史 E2E 证据 -> `docs/e2e-rules.md#任务专用-e2e-环境变量与证据文件门禁`
+- Keywords: edhr-batch-execution-real-flow.e2e.js, int-ruoyi-mysql, 数据库夹具, LOCAL_DATABASE_FIXTURE, 芋道源码/admin, 真实 E2E 前置条件缺失, 覆盖历史 E2E 证据 -> `docs/e2e-rules.md#edhr-批次执行数据库夹具与证据文件门禁`
 - Keywords: Element Plus el-select, Playwright 下拉选择, 租户下拉, 工单下拉, 工艺路线编码, ACTIVE route snapshot, draft independence E2E -> `docs/e2e-rules.md#element-plus-下拉选择门禁`
 - Keywords: Codex Runner, 系统管理 测试管理, 自然语言测试方法, 检查点截图, runner token, parallelSafe, Codex 调用 Playwright -> `docs/e2e-rules.md#codex-runner-自动测试门禁`
 - Keywords: int_shedule local Docker dependencies, 23306, 26379, Docker MySQL Redis, branch local runtime dependency ports -> `docs/local-runtime.md#2026-07-25-分支本地运行复用-docker-依赖门禁`
@@ -188,3 +188,4 @@
 - Keywords: only test release ssh stdin CRLF, .env IMAGE_TAG remote verification, runtime console change notes, release lock APPLIED -> `docs/test-release-preflight.md#2026-07-13-仅测试服发布远端验收脚本承载门禁`
 - Keywords: runtime console dialog source commits, version change notes visible, release-info source commit verification, page-visible releaseTag -> `docs/test-release-preflight.md#2026-07-13-运行控制台版本说明与-source-commit-分层验收门禁`
 - Keywords: Python f-string literal braces, SSH verification carrier, bash SQL JSON braces SyntaxError -> `docs/powershell-preflight-lessons.md#2026-07-13-python-f-string-literal-braces-与远端验收脚本门禁`
+- Keywords: login-preflight.mjs 缺失, admin-only 全量 E2E, 旧目标文案执行列表, 历史 execution 直连填写页, 默认密码清理, 动态预览批次任务 -> `docs/e2e-rules.md#官方登录前置与-admin-only-全量验证门禁`

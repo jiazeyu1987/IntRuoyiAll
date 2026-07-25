@@ -65,3 +65,11 @@ blocked
 - BLOCKED: `node doc\tasks\20260724-batch-fda-audit-log-coverage\operation-audit-trace-readonly.e2e.cjs` -> FAIL，真实前端只读 E2E 已登录 `芋道源码/admin` 并捕获前端真实授权请求头；扫描可见批次数 25、审计行数 10、权限范围阻塞批次数 24，未找到包含本任务新增 operationType 的可展示追溯样本。
 - 证据：`doc\tasks\20260724-batch-fda-audit-log-coverage\test-results\operation-audit-trace-readonly\evidence.md`、`result.json`、`failure.png`。
 - 状态：保持 `blocked`；本轮只读验证未创建、修改或删除业务数据，后续需要授权测试租户/测试账号/任务自有批次样本后才能完成追溯抽屉 E2E。
+
+## Write E2E Regression Update - 2026-07-25 13:36 Asia/Shanghai
+
+- 写入型真实 UI E2E 已在授权账号下从“临时状态样本 > 放行预检样本”创建任务自有批次样本。
+- E2E RED：批次详情“追溯记录 > 操作审计”真实请求被 `BATCH_EXECUTION:900000000788` 对象级权限 scope 缺失拒绝。
+- 根因修复：本地状态样本创建事务现为 batch task 创建并绑定 `BATCH_EXECUTION_TASK` / `AUDIT_VIEW` 权限 scope，并在 created-record audit payload 中记录 `permissionScopeId`。
+- GREEN：静态契约 `edhr-fda-operation-audit-coverage-static.spec.cjs` PASS。
+- BLOCKED：后端主代码编译仍被非本任务 route projection 编译错误阻塞，修复后的真实运行态 E2E 尚不能重跑确认。

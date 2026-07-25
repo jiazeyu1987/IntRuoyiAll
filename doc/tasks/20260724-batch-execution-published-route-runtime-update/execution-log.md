@@ -55,3 +55,14 @@
 - GREEN: `node --check tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS。
 - RED: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> FAIL，使用测试租户 `测试租户/aoteman`、工单 `925555 / TESTERPA9ED2D417434`、路线 `922186 / E2E-OSF-20260721042549`，登录后 `page.waitForURL` 超时。
 - BLOCKER: login credential -> 脱敏 Playwright 登录诊断确认 `/system/auth/login` 返回 `code=1002000000`、`msg=登录失败，账号密码不正确`；本机 `.env` 默认租户/用户为受保护的 `芋道源码/admin`，不能按 E2E 规则改用该默认身份。本轮未进入批次创建，未生成新批次，未执行 DB 冻结快照复核。
+
+## 2026-07-25 Admin Authorized Creation E2E
+
+- AUTHORIZATION: 用户明确授权在 `芋道源码/admin` 下执行本次写入型 E2E，密码通过环境变量注入，任务日志和证据不记录明文密码。
+- GREEN: readonly fixture discovery -> PASS，工单 `881MO090935` 在 tenant `1` 下对应 `work_order_id=923834`，产品绑定路线 `922119 / RT000028 / 球囊扩张压力泵`；路线 active 发布版本为 `358 / V14`，同时存在草稿 `361 / V15`。
+- RED: shared script path -> FAIL，当前共享 `edhr-batch-execution-real-flow.e2e.js` 已被其他任务改为“本地数据库夹具打开既有任务”模式，且登录依赖页面默认密码，不适合验证本任务创建批次逻辑；未继续修改共享脚本，改用本任务目录一次性脚本。
+- RED: `node admin-create-published-route.e2e.cjs` -> FAIL，批次 `BRS20260725133618` 页面创建成功，但后续“打开填写”断言失败；DB 只读核验确认该批次已冻结 `route_version_id=358 / V14`，不是草稿。
+- GREEN: `node --check doc/tasks/20260724-batch-execution-published-route-runtime-update/admin-create-published-route.e2e.cjs` -> PASS。
+- GREEN: `node doc/tasks/20260724-batch-execution-published-route-runtime-update/admin-create-published-route.e2e.cjs` -> PASS，使用本机前端 `http://localhost:8081`、授权租户 `芋道源码/admin`、工单 `923834 / 881MO090935`、路线 `922119 / RT000028` 创建批次 `900000000790 / BRS20260725134444` 并进入批次详情页。
+- GREEN: final DB verification -> PASS，批次 `900000000790` 持久化 `route_id=922119`、`route_version_id=358`、`route_version_no=V14`、`route_snapshot_json` 长度 `38089`，`configSnapshots.batchUseConfigs=14`，`task_total=21`，`blocked_count=0`。
+- GREEN: draft independence evidence -> PASS，路线 `922119` 当前 active 版本仍为 `358 / V14`，同时存在草稿 `361 / V15`；本次批次冻结的是 ACTIVE `V14` 而非草稿。

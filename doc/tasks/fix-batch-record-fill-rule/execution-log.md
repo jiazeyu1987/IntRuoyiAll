@@ -77,3 +77,24 @@
 - Current blocker status: 两个用户授权阻塞已有 PASS 证据：129 回归集通过、任务证据文件中的真实前端 E2E PASS 仍保留；若需要“从当前 shell 再次复跑真实 E2E”，必须重新注入任务专用环境变量，不能使用受保护租户或默认账号替代。
 - 2026-07-25 E2E 复跑前置检查：`Get-Command npx` -> PASS，`npx` 可用；`Invoke-WebRequest http://127.0.0.1:8081/` -> PASS，前端返回 200；`Invoke-WebRequest http://127.0.0.1:48081/actuator/health` -> PASS，后端返回 `status=UP`。
 - BLOCKED: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> NOT RUN，任务专用 E2E 环境变量缺失：`EDHR_BATCH_E2E_PASSWORD`、`EDHR_BATCH_E2E_WORK_ORDER_ID`、`EDHR_BATCH_E2E_BATCH_CODE`、`EDHR_BATCH_E2E_FIRST_FIELD_VALUE`、`EDHR_BATCH_E2E_CLOSE_PASSWORD`；同时未设置 `EDHR_BATCH_E2E_TASK_ID` 或 `EDHR_BATCH_E2E_EVIDENCE_FILE`，按 E2E 门禁未进入浏览器，未覆盖历史 PASS 证据。
+
+## 2026-07-25 Database Fixture E2E Refactor
+
+- BDD: 数据库夹具发现 -> Given 本机数据库存在用户授权的 `芋道源码/admin` 与可打开批次工作任务 / When 执行真实 E2E / Then 脚本从数据库读取批次执行、任务和执行 ID，不再要求工单、批次、填写值或签名密码环境变量。
+- BDD: 责任人夹具写入 -> Given 当前授权账号没有待办填写任务 / When 用户授权在本地数据库准备夹具 / Then 只更新一条受控工作任务责任人，并记录原值、影响行数和回滚 SQL。
+- RED: `node tests\e2e\edhr-batch-execution-filler-entry-static.spec.js` -> FAIL，真实 E2E 尚未包含 `queryLocalDatabase` / `resolveDatabaseFixture`，仍依赖人工注入数据环境变量。
+- RED: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> FAIL，数据库夹具初次读取后发现 `admin` 不是候选任务责任人，详情接口返回 `allowedActions=[]`。
+- GREEN: 受控 DB fixture write -> PASS，`mes_pro_edhr_work_task.id=1139` 从 `assignee_user_id=810` 更新为 `1`，`WHERE` guard 命中 1 行；回滚 SQL 已记录在 `database-schema-evidence.md`。
+- GREEN: `node tests\e2e\edhr-batch-execution-filler-entry-static.spec.js` -> PASS，静态合同确认真实 E2E 使用数据库夹具并不再声明必需 `EDHR_BATCH_E2E_*` 数据变量。
+- GREEN: `node --check tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS。
+- GREEN: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS，真实前端以 `芋道源码/admin` 登录，从数据库夹具批次 `EDHRB-1784485509402` 打开任务 `3394` 并进入执行页，证据见 `real-e2e-evidence.md`。
+## 2026-07-25 Database Fixture E2E Rerun
+
+- GREEN: `npx --version` -> PASS，`11.6.2`。
+- GREEN: 前端 `http://127.0.0.1:8081/` -> PASS，HTTP 200；后端 `http://127.0.0.1:48081/actuator/health` -> PASS，`UP`。
+- GREEN: `node tests\e2e\edhr-batch-execution-filler-entry-static.spec.js` -> PASS，静态合同确认真实 E2E 使用数据库夹具并禁止旧必需数据环境变量。
+- GREEN: `node --check tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS。
+- GREEN: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS，真实前端路径通过，数据库夹具读取本机 `int-ruoyi-mysql/ruoyi-vue-pro`。
+- GREEN: `node scripts\edhr-release-e2e-coverage-contract.test.mjs` -> PASS，12/12。
+- GREEN: `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\fix-batch-record-fill-rule\database-schema-evidence.md` -> PASS。
+- GREEN: `git diff --check -- <task-owned paths>` -> PASS，退出码 0，仅 CRLF 提示。

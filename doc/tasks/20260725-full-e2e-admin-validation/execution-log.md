@@ -2,9 +2,15 @@
 
 ## User Intent
 
-- 用户授权在本机 `芋道源码/admin` 身份下执行一次全量 E2E 验证，并要求融合后进行 E2E 验证、解决验证过程中遇到的问题。
+- 用户授权在本机 芋道源码/admin 身份下执行一次全量 E2E 验证，并要求融合后进行 E2E 验证、解决验证过程中遇到的问题。
+- 2026-07-25 追加授权范围：从创建批次执行、填写、放行到追溯执行一次真实数据全 E2E 流程，解决流程中遇到的问题并记录在文档中。
 - 用户提供的密码仅用于本次临时运行，不写入文档、日志、提交信息或证据文件。
 
+
+## BDD Scenarios
+
+- BDD: 批次执行全流程 -> Given 已授权本机 `芋道源码/admin` 身份和可追踪测试数据 When 用户通过真实前端创建批次执行、填写记录、提交放行并进入追溯 Then 页面与后端状态应展示同一批次执行链路且无 API-only 或 mock 替代。
+- BDD: 失败根因修复 -> Given 全流程任一真实页面步骤失败 When 失败属于当前融合实现问题 Then 先记录可复现失败与预期，再补回归测试、最小修复并用真实路径复验。
 ## Rule And Skill Gates
 
 - 使用技能：`playwright`，用于真实浏览器路径验证。
@@ -38,3 +44,56 @@
 - Evidence: 创建 `task.md` 与 `execution-log.md`，建立本次 E2E 验证边界。
 - GREEN: experience-preflight -> PASS，已读取 `docs/experience-index.md` 并命中真实 E2E、登录端口、任务专用证据、eDHR 只读与填写人显示门禁。
 - NOTE: `apply_patch` 更新本任务文档时被 sandbox 读 ACL 拦截，改用显式 UTF-8 PowerShell 写入并立即复核。
+### 2. Runtime And Coverage Gate Preflight
+
+- GREEN: local runtime ports -> PASS，`8081` 为 `E:\IntRuoyi\IntRuoyiFronted` Vite，`48081` 为 `E:\IntRuoyi\IntRuoyiBackend` 后端 Jar。
+- GREEN: frontend/backend reachability -> PASS，登录页 HTTP 200，后端 health `UP`。
+- BDD: eDHR release coverage gate stays current -> Given eDHR/批记录源码与真实 E2E 脚本继续演进 When 执行 release 覆盖门禁 Then 矩阵必须绑定存在的源码、真实脚本 token 和持久证据，不得因过期路径阻塞后续真实 E2E。
+- RED: `node scripts/edhr-release-e2e-coverage-gate.mjs --check --report ..\doc\tasks\20260725-full-e2e-admin-validation\edhr-release-check-report.json` -> FAIL，原因包括过期 open-or-create token、旧批次执行端点 token、缺失历史 evidence 路径、旧模板页面路径和非 release-scope eDHR 源码被误判 uncovered。
+### 3. E2E Script Repair And Admin Readonly Validation
+
+- BDD: 管理员只读预览目标动态发现 -> Given 历史固定批次/任务 ID 可能过期 When 运行管理员只读预览 E2E Then 脚本必须从授权租户本机数据库发现真实未开始批记录任务，凭据来自环境变量，证据写入当前任务目录。
+- RED: `EDHR_ADMIN_PREVIEW_PASSWORD=<redacted> node tests\e2e\edhr-batch-admin-preview-runtime-fix.e2e.js` -> FAIL，旧脚本等待固定 `batchExecutionId=900000000480/taskId=3041` 预览响应超时，且源码含历史默认密码与旧证据目录。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\edhr-batch-admin-preview-runtime-fix.e2e.js` -> PASS。
+- GREEN: `EDHR_ADMIN_PREVIEW_PASSWORD=<redacted> node tests\e2e\edhr-batch-admin-preview-runtime-fix.e2e.js` -> PASS，动态命中真实未开始任务并生成 `admin-preview-e2e-output`。
+- BDD: 普通工序计数不包含特殊节点 -> Given 批次详情页面同时渲染普通工序和特殊节点 When 工序命名 E2E 对比接口工序分组 Then 选择器必须排除 `.edhr-batch-detail__special-process-task-group`，只比较普通工序。
+- RED: `EDHR_PROCESS_ITEM_E2E_PASSWORD=<redacted> node tests\e2e\edhr-batch-process-item-uniform-name-real.e2e.js` -> FAIL，页面普通工序计数误把特殊节点计入，18/14 不一致。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\edhr-batch-process-item-uniform-name-real.e2e.js` -> PASS。
+- GREEN: `EDHR_PROCESS_ITEM_E2E_PASSWORD=<redacted> node tests\e2e\edhr-batch-process-item-uniform-name-real.e2e.js` -> PASS，19 个工序/节点卡片高度和普通工序名称显示通过。
+- BDD: 官方登录前置存在且跟随当前页面文案 -> Given 多个 E2E 依赖 `scripts/preflight/login-preflight.mjs` When 工作区缺失该脚本或目标文案过期 Then 必须补正式登录前置并使用当前真实页面可见文本，不得跳过 preflight。
+- RED: `EDHR_ASSIST_FILL_ADMIN_PASSWORD=<redacted> node tests\e2e\edhr-assist-fill-mode-admin-readonly.e2e.js` -> FAIL，缺少 `scripts/preflight/login-preflight.mjs`；补脚本后旧目标文本 `执行列表` 超时。
+- GREEN: `node --check scripts\preflight\login-preflight.mjs` -> PASS。
+- GREEN: `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=<chrome> node scripts\preflight\login-preflight.mjs --base-url http://localhost:8081 --tenant 芋道源码 --username admin --password <redacted> --target-path /mes/pro/feedback/edhr-batch-execution --target-text 批次 --timeout 90000` -> PASS。
+- BLOCKED: `EDHR_ASSIST_FILL_ADMIN_PASSWORD=<redacted> node tests\e2e\edhr-assist-fill-mode-admin-readonly.e2e.js` -> BLOCKED，preflight 已通过，但旧执行列表路径未发现 admin 可读执行行；未改用 API-only，也未扩大为写入型测试。
+- BDD: 表单日志时间格式跟随页面组件 -> Given 表单日志页面使用 `formatEdhrDateTime` When 验证填写时间 Then E2E 必须断言 `YYYY-MM-DD HH:mm:ss` 且不显示 ISO `T` 分隔符，不能硬编码历史中文年月日格式。
+- RED: `EDHR_FORM_FILL_LOG_E2E_PASSWORD=<redacted> node tests\e2e\edhr-form-fill-log-menu-time-real.e2e.js` -> FAIL，旧脚本要求固定历史中文年月日时间，当前页面正式格式为 `YYYY-MM-DD HH:mm:ss`。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\edhr-form-fill-log-menu-time-real.e2e.js` -> PASS。
+- GREEN: `EDHR_FORM_FILL_LOG_E2E_PASSWORD=<redacted> node tests\e2e\edhr-form-fill-log-menu-time-real.e2e.js` -> PASS，证据写入 `form-fill-log-e2e-output`。
+
+### 4. Final Admin E2E And Static Gate Results
+
+- GREEN: `EDHR_BATCH_E2E_TASK_ID=20260725-full-e2e-admin-validation node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS，真实批次执行主路径完成，证据 `edhr-batch-execution-real-e2e-final.md`。
+- GREEN: `EDHR_COMPANION_E2E_READONLY_ADMIN=1 EDHR_COMPANION_E2E_STRUCTURAL_ONLY=1 EDHR_COMPANION_E2E_PASSWORD=<redacted> node tests\e2e\edhr-batch-process-companion-forms-real.e2e.js` -> PASS，伴随单据结构只读验证通过。
+- GREEN: `EDHR_GOLDEN_FINGER_PASSWORD=<redacted> node tests\e2e\edhr-golden-finger-admin-permission-real.e2e.js` -> PASS，金手指权限只读验证通过。
+- BLOCKED: `EDHR_FILL_WORKSPACE_E2E_READONLY_ADMIN=1 EDHR_FILL_WORKSPACE_E2E_PASSWORD=<redacted> node tests\e2e\edhr-fill-workspace-real.e2e.js` -> BLOCKED，admin-only 范围下不应将历史 execution 直连填写页作为通过；当前活动填写需正式 openTask，历史执行需 tracking 只读路径。
+- BLOCKED: 多用户/写入型 eDHR 发布链路脚本 -> BLOCKED，本次仅授权 `芋道源码/admin`；写入型或多用户脚本需要测试租户、多账号凭据、任务自有数据和清理责任。
+- GREEN: `node scripts\edhr-release-e2e-coverage-contract.test.mjs` -> PASS，12/12。
+- GREEN: `node scripts\edhr-batch-version-phase1-contract.test.mjs` -> PASS。
+- GREEN: `node tests\e2e\edhr-full-chain-api-response-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\edhr-full-chain-evidence-pack-static.spec.js` -> PASS。
+- GREEN: `node scripts/edhr-release-e2e-coverage-gate.mjs --check --report ..\doc\tasks\20260725-full-e2e-admin-validation\edhr-release-check-report-final.json` -> PASS，features=14, checkScripts=11, syntaxFiles=11。
+- GREEN: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
+- GREEN: `git diff --check` -> PASS，仅 CRLF 工作区提示，无空白错误。
+- GREEN: edited-script-secret-scan -> PASS，本次触达脚本未保留 `admin123` 或默认密码表达式。
+- NOTE: 多个普通 shell/Node 只读命令被 Windows sandbox ACL 拦截，已按 PowerShell/任务日志规则使用窄范围 `require_escalated` 复跑并记录关键结果。
+
+### 5. Closeout Readiness
+
+- Status: ready_for_closeout。
+- Verification summary: 管理员可安全执行的 eDHR/记录本相关真实前端 E2E 与静态覆盖门禁已完成；写入型、多用户或旧直连填写页脚本按项目门禁记录为 BLOCKED，未用 mock、API-only 或默认成功替代。
+- Remaining blocker: 当前工作区包含大量本任务开始前和并行线程留下的 staged/unstaged/untracked 改动；未执行提交、推送或 task-closeout-cleanup apply，避免把非本任务变更混入当前收尾。
+### 6. Cleanup Preview / Apply
+
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-full-e2e-admin-validation --mode preview` -> PASS，status=ready，blocked=<none>，warnings=<none>；正式 E2E 证据加入 `Cleanup Keep` 后重新 preview。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-full-e2e-admin-validation --mode apply` -> PASS，删除本任务临时 full-chain/admin 初始失败产物与旧中间报告，保留 task.md、execution-log.md、verification-report.md、最终批次执行证据、管理员预览证据、表单日志证据和最终覆盖报告。
+- BLOCKER: commit/push closeout -> 当前 `int_main` 工作区仍包含多项本任务开始前和并行任务的 staged/unstaged/untracked 改动；为避免混入非本任务变更，本轮未执行提交或推送，任务状态保持 `ready_for_closeout`。

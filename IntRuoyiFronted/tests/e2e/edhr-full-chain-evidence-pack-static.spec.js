@@ -8,9 +8,47 @@ const source = fs.readFileSync(scriptPath, 'utf8')
 
 assert.match(
   source,
-  /const MIN_DISTINCT_ACTORS = Number\(process\.env\.EDHR_FULL_E2E_MIN_DISTINCT_ACTORS \|\| 4\)/,
-  '完整演练默认至少需要 4 个不同真实账号，避免三账号证据冒充职责分离。'
+  /const MIN_DISTINCT_ACTORS = Number\(process\.env\.EDHR_FULL_E2E_MIN_DISTINCT_ACTORS \|\| \(ADMIN_SINGLE_ACTOR \? 1 : 4\)\)/,
+  '完整演练默认多用户模式至少需要 4 个不同真实账号，admin 授权模式显式降为单账号。'
 )
+
+
+const createBatchStart = source.indexOf('async function createBatchByUi')
+const createBatchEnd = source.indexOf('function isSameBatchDetailPage', createBatchStart)
+const createBatchBlock = source.slice(createBatchStart, createBatchEnd)
+
+assert.ok(createBatchBlock.includes("const detail = await loadBatchDetailByUi(page, batchExecutionId, '创建后批次详情')"), '创建批次后必须使用返回的批次 ID 重新加载详情接口。')
+assert.ok(createBatchBlock.includes('assert.equal(Number(detail.id), batchExecutionId'), '创建后详情必须校验接口返回 ID 与创建响应 ID 一致。')
+assert.ok(!createBatchBlock.includes('getByText(CREATE_BATCH_CODE)'), '创建批次后不得依赖列表或当前页立即显示批次号文本。')
+
+
+const openFillTaskStart = source.indexOf('async function openFillTaskFromBoard')
+const openFillTaskEnd = source.indexOf('async function fillEditableControls', openFillTaskStart)
+const openFillTaskBlock = source.slice(openFillTaskStart, openFillTaskEnd)
+
+assert.ok(openFillTaskBlock.includes('waitForCurrentUrl('), '处理待办后必须轮询当前 SPA URL，不能依赖 load 导航事件。')
+assert.ok(!openFillTaskBlock.includes('await page.waitForURL('), '处理待办后的 URL 等待不得使用 waitForURL 默认 load 等待。')
+
+const loadBatchDetailStart = source.indexOf('async function loadBatchDetailByUi')
+const loadBatchDetailEnd = source.indexOf('async function syncBatchByUi', loadBatchDetailStart)
+const loadBatchDetailBlock = source.slice(loadBatchDetailStart, loadBatchDetailEnd)
+
+assert.ok(loadBatchDetailBlock.includes('page.waitForResponse'), '批次详情加载必须观察真实页面详情接口请求。')
+assert.ok(loadBatchDetailBlock.includes('apiGet(page, auth, ENDPOINTS.batchGet'), '批次详情结构化状态必须通过同一登录会话只读 API 获取，避免抢读导航响应体。')
+assert.ok(!loadBatchDetailBlock.includes('const detail = await detailPromise'), '批次详情加载不得把导航响应体解析结果作为结构化状态。')
+
+for (const token of [
+  'EDHR_FULL_E2E_ADMIN_SINGLE_ACTOR',
+  "ADMIN_SINGLE_ACTOR ? '芋道源码' : '测试租户'",
+  "ADMIN_SINGLE_ACTOR ? 'admin' : defaults.username",
+  "ADMIN_SINGLE_ACTOR ? '瑛泰管理员' : defaults.displayName",
+  'actorConfig.signaturePassword = actorConfig.signaturePassword || actorConfig.password',
+  'ADMIN_SINGLE_ACTOR ? 1 : 4',
+  'ADMIN_SINGLE_ACTOR && !fs.existsSync(GOAL_FILE)',
+  'if (ADMIN_SINGLE_ACTOR && goals.length === 0) return'
+]) {
+  assert.ok(source.includes(token), `admin 单账号授权模式必须显式受控且不落盘密码：${token}`)
+}
 
 for (const token of [
   "require('node:child_process')",

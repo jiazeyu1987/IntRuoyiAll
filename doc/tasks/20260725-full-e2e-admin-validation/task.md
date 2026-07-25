@@ -2,14 +2,14 @@
 
 ## Task Goal
 
-在 `E:\IntRuoyi` 的 `int_main` 本地运行环境中，使用真实前端入口和已授权的本机身份标签 `芋道源码/admin` 执行一次尽可能完整的 Playwright E2E 验证；验证过程中如发现属于当前融合结果的问题，按项目规则修复并复验。
+在 `E:\IntRuoyi` 的 `int_main` 本地运行环境中，使用真实前端入口和已授权的本机身份标签 `芋道源码/admin` 执行一次从创建批次执行、填写、放行到追溯的真实数据 Playwright E2E 全流程；验证过程中如发现属于当前融合结果的问题，按项目规则修复并复验。
 
 ## Milestones
 
 1. 建立验证任务边界与证据目录，读取 E2E、登录、运行端口、worktree、编码和收尾规则。
 2. 确认 `int_main` 本地前端 `8081`、后端 `48081` 的真实运行状态和归属。
 3. 盘点现有 Playwright 真实 E2E 脚本，区分可安全运行、写入型需前置数据、阻塞或不适用于本次身份的用例。
-4. 使用真实前端路径运行登录与可执行 E2E 验证，记录命令、入口、身份标签、断言和失败信息。
+4. 使用真实前端路径运行登录、创建批次执行、填写、放行和追溯验证，记录命令、入口、身份标签、断言和失败信息。
 5. 对验证中暴露且属于当前融合范围的问题执行 BDD/TDD 修复和复验；不属于当前范围或缺前置条件的路径记录为 blocker。
 6. 汇总验证报告，运行必要的静态/结构性检查，进入收尾状态。
 
@@ -17,13 +17,13 @@
 
 - `http://127.0.0.1:48081/actuator/health` 返回后端健康状态。
 - `http://127.0.0.1:8081/login?redirect=/index` 可访问并完成真实前端登录。
-- 选定的真实 Playwright E2E 用例在 `芋道源码/admin` 身份下运行并记录 PASS / FAIL / BLOCKED。
+- 批次执行创建、填写、放行和追溯真实 Playwright E2E 在 `芋道源码/admin` 身份下运行并记录 PASS / FAIL / BLOCKED。
 - 若修改代码，必须有对应 BDD、RED、GREEN 和回归验证证据。
 - 凭据只通过临时环境变量或运行时输入使用，不写入任务文档、日志、提交信息或命令记录。
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Scope Notes
 
@@ -65,3 +65,9 @@ in_progress
 - Verification: 同时记录批次标识、命中任务、接口显示值、页面可见文本和无 MES 写请求检查。
 - Forbidden action: 禁止把旧 executionId 直连填写页、旧配置名称或 API-only 断言当成真实 E2E 通过。
 - Evidence: `docs/e2e-rules.md#edhr-历史执行只读验证门禁`、`docs/e2e-rules.md#edhr-单据填写人显示值门禁`。
+## Cleanup Keep
+
+- doc/tasks/20260725-full-e2e-admin-validation/edhr-batch-execution-real-e2e-final.md
+- doc/tasks/20260725-full-e2e-admin-validation/admin-preview-e2e-output/
+- doc/tasks/20260725-full-e2e-admin-validation/form-fill-log-e2e-output/
+- doc/tasks/20260725-full-e2e-admin-validation/edhr-release-check-report-final.json
