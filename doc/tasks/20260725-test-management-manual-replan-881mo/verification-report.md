@@ -41,4 +41,4 @@ PASS
 
 ## Closeout State
 
-Required verification is complete. Task status is `ready_for_closeout`; remaining work is task-owned cleanup, final document status update, task commit, and push.
+Required verification and cleanup are complete. Task status is `completed`; final closeout commit and push are recorded in the task log.

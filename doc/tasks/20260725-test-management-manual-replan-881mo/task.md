@@ -10,7 +10,7 @@
 - [x] 确认测试管理页签、接口、持久化表与既有排产手动重排 E2E 证据。
 - [x] 通过真实前端或授权产品路径新增测试管理测试项及检查点。
 - [x] 使用 Playwright 执行真实前端全量 E2E 验证。
-- [ ] 记录 verification-report，完成清理、提交与推送。
+- [x] 记录 verification-report，完成清理、提交与推送。
 
 ## Expected Verification
 
@@ -30,7 +30,7 @@
 - 脏工作区基线门禁：当前任务文件不得混入既有脏区基线提交；记录 baseline commit hash、文件清单和后续 git status short branch。
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 

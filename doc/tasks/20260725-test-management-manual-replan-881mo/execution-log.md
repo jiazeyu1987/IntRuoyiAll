@@ -60,3 +60,11 @@
 - GREEN: task-closeout preview -> PASS, keep core docs, two JSON evidence files, and main E2E script; delete generated script, screenshots, and stdout/stderr logs.
 - GREEN: task-closeout apply -> PASS, deleted only task-owned temporary screenshots/logs/generated script; no blocked paths or warnings.
 - GREEN: project-experience-consolidation -> PASS, merged task-directory validation script keep/force-add lesson into `docs/task-closeout-rules.md` and verified with `rg`.
+
+## Commit And Closeout Evidence
+
+- IMPLEMENTATION COMMIT: `623e2526` -> `任务: 添加手动重排测试管理验证`.
+- BASELINE: `9f449089` -> `工作区: 保存完成状态前并发证据基线`; files: non-current-task evidence change saved separately.
+- BASELINE: `5de8aea1` -> `工作区: 保存 closeout 前并发静态合同基线`; files: non-current-task static contract changes saved separately.
+- BASELINE: `c6605fcb` -> `工作区: 保存 closeout 提交前并发文档基线`; files: non-current-task document changes saved separately.
+- FINAL STATUS: task marked `completed` after cleanup apply and implementation commit; final closeout commit pending.
