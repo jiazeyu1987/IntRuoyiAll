@@ -10,10 +10,10 @@ const listPage = fs.readFileSync(
 const batchApi = fs.readFileSync(path.join(root, 'src/api/mes/pro/edhr/batchExecution.ts'), 'utf8')
 const changeApi = fs.readFileSync(path.join(root, 'src/api/mes/pro/edhr/change.ts'), 'utf8')
 
-assert.match(
+assert.doesNotMatch(
   listPage,
-  /v-if="hasGoldenFingerPermission"[\s\S]*金手指一键作废/,
-  '金手指一键作废按钮必须仅在 hasGoldenFingerPermission 为真时显示。'
+  /金手指一键作废/,
+  '工具栏和弹窗文案不得继续展示“金手指一键作废”。'
 )
 
 assert.match(
@@ -36,8 +36,14 @@ assert.match(
 
 assert.match(
   listPage,
-  /选择当前页可作废批次[\s\S]*selectCurrentPageGoldenFingerBulkVoidRows/,
-  '工具栏必须提供一键选择当前页可作废批次的操作。'
+  /aria-label="批量作废"[\s\S]*@click="openGoldenFingerBulkVoidDialog"[\s\S]*批量作废/,
+  '蓝框工具栏按钮必须显示“批量作废”，并直接打开批量作废弹窗。'
+)
+
+assert.doesNotMatch(
+  listPage,
+  /选择当前页可作废批次|selectCurrentPageGoldenFingerBulkVoidRows/,
+  '工具栏不得继续暴露“选择当前页可作废批次”旧入口。'
 )
 
 assert.match(
@@ -70,16 +76,16 @@ assert.match(
   '表格 selection-change 必须同步可作废的已选行。'
 )
 
-assert.match(
+assert.doesNotMatch(
   listPage,
-  /const selectCurrentPageGoldenFingerBulkVoidRows\s*=\s*\(\)\s*=>\s*\{[\s\S]*batchExecutionTableRef\.value[\s\S]*clearSelection\(\)[\s\S]*toggleRowSelection\(row,\s*true\)/,
-  '选择当前页可作废批次必须驱动表格真实选中状态。'
+  /batchExecutionTableRef\.value|toggleRowSelection\(row,\s*true\)/,
+  '批量作废工具栏入口不得保留旧的当前页预选实现。'
 )
 
 assert.match(
   listPage,
   /goldenFingerBulkVoidEdhrBatchExecutions\(\{[\s\S]*filter:\s*buildGoldenFingerBulkVoidFilter\(\)/,
-  '金手指批量作废提交必须发送当前筛选条件，而不是当前页勾选结果。'
+  '批量作废提交必须发送 buildGoldenFingerBulkVoidFilter 结果，保留勾选批次或当前筛选条件。'
 )
 
 const submitGoldenFingerBulkVoidStart = listPage.indexOf('const submitGoldenFingerBulkVoid = async () => {')
