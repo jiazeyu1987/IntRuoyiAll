@@ -43,3 +43,8 @@ BDD: DCC controlled file logs route resolves -> Given the frontend router define
 - CLEANUP: task-closeout preview in D checkout -> ready, keep task.md/execution-log.md/verification-report.md, delete `<none>`, blocked `<none>`, warnings `<none>`.
 - CLEANUP: task-closeout preview in E checkout -> ready, keep task.md/execution-log.md/verification-report.md, delete `<none>`, blocked `<none>`, warnings `<none>`.
 - APPLY: skipped because final commit/push closeout is blocked by unrelated/concurrent D checkout modifications outside this task.
+## Push Evidence
+
+- PUSH: `git push origin int_main` -> FAIL twice, `TLS connect error: error:0A000126:SSL routines::unexpected eof while reading`.
+- PUSH: `git push origin int_shedule` -> FAIL twice, `TLS connect error: error:0A000126:SSL routines::unexpected eof while reading`.
+- RESULT: local commits are retained; remote closeout remains blocked by GitHub TLS/network access.

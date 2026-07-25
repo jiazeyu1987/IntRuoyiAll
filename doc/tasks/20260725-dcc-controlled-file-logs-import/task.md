@@ -21,7 +21,7 @@ Fix the Vite import-analysis failure caused by `src/router/modules/remaining.ts`
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
 ## Design Constraints Check
 
@@ -48,3 +48,7 @@ ready_for_closeout
 ## Remaining Closeout Blocker
 
 - Final commit/push closeout was not performed because the D checkout had unrelated task-doc modifications during final status checks. These pre-existing/concurrent changes must be reconciled before committing this task's files.
+## Final Remote Closeout Blocker
+
+- `git push origin int_main` and `git push origin int_shedule` both failed twice with `TLS connect error: error:0A000126:SSL routines::unexpected eof while reading`.
+- Local implementation commits exist, but the task cannot be marked `completed` until the branches push successfully and status no longer reports ahead of origin.
