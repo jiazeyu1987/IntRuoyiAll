@@ -27,3 +27,8 @@ Implementation and targeted static verification are complete. Final commit/push 
 - D checkout preview: ready; no delete, blocked, or warning entries.
 - E checkout preview: ready; no delete, blocked, or warning entries.
 - Apply was skipped because unrelated/concurrent D checkout modifications prevent safe closeout commit/push.
+## Remote Closeout
+
+- Push to `origin/int_main` failed twice with GitHub TLS EOF.
+- Push to `origin/int_shedule` failed twice with GitHub TLS EOF.
+- Completion is blocked until network/TLS access to GitHub succeeds and both branches are pushed.
