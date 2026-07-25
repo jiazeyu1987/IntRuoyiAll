@@ -29,7 +29,7 @@ const packageJson = JSON.parse(readFrontendSource('package.json'))
 const logsPage = readFrontendSource('src/views/dcc/controlled-file/logs/index.vue')
 const logsApi = readFrontendSource('src/api/dcc/controlledFile/logs.ts')
 const menuSql = readWorkspaceSource(
-  'ruoyi-vue-pro/sql/mysql/20260714_dcc_controlled_file_logs_consolidation.sql'
+  'IntRuoyiBackend/sql/mysql/20260714_dcc_controlled_file_logs_consolidation.sql'
 )
 
 assert.equal(
