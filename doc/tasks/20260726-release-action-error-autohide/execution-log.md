@@ -50,3 +50,9 @@ GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main/int
 GREEN: `node tests/e2e/edhr-release-action-error-autohide-static.spec.js` -> PASS.
 
 GREEN: `git diff --check -- <本任务文件与经验文档>` -> PASS.
+
+Implementation commit: `aea6c5df fix: auto hide release action errors`，包含本任务代码、专用静态契约、任务证据与前端经验门禁。
+
+Concurrent baseline after implementation: `4f0f0819 chore: baseline concurrent workspace after release error fix`、`319aeabd chore: baseline concurrent batch import log update`、`9daa2014 chore: baseline concurrent codex test updates`，均为非本任务并发写入隔离提交。
+
+Final status: `completed`，等待最终 closeout commit 与 `git push origin int_main` 后确认不再 ahead。
