@@ -23,6 +23,12 @@
 - Command: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordReportLayoutCalibratorTest#calibrate_shouldMergePackedMaterialMatrixParentheticalContinuationLines+calibrate_actualPressurePumpLightCureOne_shouldKeepParentheticalMaterialWithPreviousItem+calibrate_actualPressurePumpCleanDetailBand_shouldStopBeforeSelfInspectionSection,MesProBatchRecordSharedRowTypeRulesTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - Result: PASS, 13 tests, 0 failures.
 
+## Screenshot Evidence
+
+- Command: temporary artifact-generation JUnit executed with `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordPressurePumpVisualArtifactTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 1 test, 0 failures; the temporary test source was deleted after generating artifacts.
+- `doc/tasks/20260725-batch-record-global-table-position-fix/artifacts/verification-screenshots/light-cure-one-verification.png`: shows `延长管（尼龙编织管）` in one material cell and later `40atm压力表 / 旋转接头 / 光固胶` still aligned.
+- `doc/tasks/20260725-batch-record-global-table-position-fix/artifacts/verification-screenshots/clean-detail-boundary-verification.png`: shows operation detail rows ending before the highlighted `生产自检` narrative section.
+
 ## Non-Blocking Regression Note
 
 - Command: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordJingxiTableStructureVerificationTest#routeBPackedMaterialMatrix_shouldRenderAsGridInsteadOfCollapsedWideCell+routeBPackedMaterialMatrixSideHeader_shouldStartAtMaterialMatrixRow" "-Dsurefire.failIfNoSpecifiedTests=false" test`

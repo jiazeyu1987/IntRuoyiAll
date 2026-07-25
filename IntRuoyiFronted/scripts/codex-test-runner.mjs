@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -15,6 +15,8 @@ const RUNNER_NAME = process.env.CODEX_TEST_RUNNER_NAME || `${os.hostname()}-code
 const CODEX_COMMAND = process.env.CODEX_CLI_COMMAND || (process.platform === 'win32' ? 'codex.cmd' : 'codex')
 const LOOP = process.argv.includes('--loop')
 const POLL_INTERVAL_MS = Number(process.env.CODEX_TEST_POLL_INTERVAL_MS || '5000')
+const HEARTBEAT_INTERVAL_MS = Number(process.env.CODEX_TEST_HEARTBEAT_INTERVAL_MS || '20000')
+const CODEX_EXEC_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_TIMEOUT_MS || '600000')
 
 function requiredEnv(name) {
   const value = process.env[name]
@@ -54,6 +56,27 @@ function spawnCodex(args) {
   return spawn(command, commandArgs, { stdio: ['pipe', 'pipe', 'pipe'] })
 }
 
+function toPowerShellSingleQuoted(value) {
+  return String(value).replace(/'/g, "''")
+}
+
+function stopWindowsProcessTree(childPid, outputFile) {
+  if (childPid) {
+    spawnSync('taskkill.exe', ['/pid', String(childPid), '/t', '/f'], { stdio: 'ignore', timeout: 10000 })
+  }
+  const escapedOutputFile = toPowerShellSingleQuoted(outputFile)
+  const stopByOutputFileCommand = [
+    `$needle = '${escapedOutputFile}'`,
+    'Get-CimInstance Win32_Process |',
+    'Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -and $_.CommandLine.Contains($needle) } |',
+    'ForEach-Object { Stop-Process -Id $_.ProcessId -Force }'
+  ].join(' ')
+  spawnSync('powershell.exe', ['-NoProfile', '-Command', stopByOutputFileCommand], {
+    stdio: 'ignore',
+    timeout: 10000
+  })
+}
+
 async function uploadArtifact(executionCaseId, checkpointSort, screenshotPath) {
   const content = await fs.readFile(screenshotPath)
   const data = new FormData()
@@ -90,7 +113,14 @@ async function claimTasks(runnerSessionId) {
   })
 }
 
-async function runCodexForTask(task) {
+async function heartbeat(runnerSessionId, runningExecutionCaseIds = []) {
+  return await postJson('/system/codex-test-runner/heartbeat', {
+    runnerSessionId,
+    runningExecutionCaseIds
+  })
+}
+
+async function runCodexForTask(task, runnerSessionId) {
   const outputFile = path.join(os.tmpdir(), `codex-test-result-${task.executionCaseId}-${Date.now()}.json`)
   const prompt = buildPrompt(task)
   const args = [
@@ -105,15 +135,62 @@ async function runCodexForTask(task) {
     WORKING_DIRECTORY
   ]
   const child = spawnCodex(args)
-  child.stdin.write(prompt, 'utf8')
-  child.stdin.end()
   const stdout = []
   const stderr = []
+  let heartbeatError
+  let timeoutError
+  let heartbeatTimer
+  let timeoutTimer
+  const runningExecutionCaseIds = [task.executionCaseId]
+  const stopChild = () => {
+    if (process.platform === 'win32') {
+      stopWindowsProcessTree(child.pid, outputFile)
+      return
+    }
+    if (!child.killed) {
+      child.kill()
+    }
+  }
   child.stdout.on('data', (chunk) => stdout.push(chunk))
   child.stderr.on('data', (chunk) => stderr.push(chunk))
-  const exitCode = await new Promise((resolve) => child.on('close', resolve))
-  if (exitCode !== 0) {
-    throw new Error(`codex exec failed with exit ${exitCode}: ${Buffer.concat(stderr).toString('utf8')}`)
+  try {
+    child.stdin.write(prompt, 'utf8')
+    child.stdin.end()
+    await heartbeat(runnerSessionId, runningExecutionCaseIds)
+    heartbeatTimer = setInterval(() => {
+      heartbeat(runnerSessionId, runningExecutionCaseIds).catch((error) => {
+        heartbeatError = error
+        stopChild()
+      })
+    }, HEARTBEAT_INTERVAL_MS)
+    timeoutTimer = setTimeout(() => {
+      timeoutError = new Error(`codex exec timed out after ${CODEX_EXEC_TIMEOUT_MS}ms`)
+      stopChild()
+    }, CODEX_EXEC_TIMEOUT_MS)
+    const exitCode = await new Promise((resolve, reject) => {
+      child.once('error', reject)
+      child.once('close', resolve)
+    })
+    if (heartbeatError) {
+      throw heartbeatError
+    }
+    if (timeoutError) {
+      throw timeoutError
+    }
+    const stderrText = Buffer.concat(stderr).toString('utf8')
+    if (exitCode !== 0) {
+      throw new Error(`codex exec failed with exit ${exitCode}: ${stderrText}`)
+    }
+  } catch (error) {
+    stopChild()
+    throw error
+  } finally {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer)
+    }
+    if (timeoutTimer) {
+      clearTimeout(timeoutTimer)
+    }
   }
   const raw = await fs.readFile(outputFile, 'utf8')
   await fs.rm(outputFile, { force: true })
@@ -184,11 +261,34 @@ async function reportTaskResult(task, result) {
   })
 }
 
+async function reportTaskBlocked(task, error) {
+  const summary = `Codex Runner 执行失败：${error instanceof Error ? error.message : String(error)}`
+  for (const checkpoint of task.checkpoints) {
+    await postJson('/system/codex-test-runner/checkpoint-result', {
+      executionCaseId: task.executionCaseId,
+      checkpointSort: checkpoint.sort,
+      status: 'BLOCKED',
+      actualText: summary.slice(0, 1000),
+      mismatchDescription: undefined,
+      screenshotArtifactId: undefined
+    })
+  }
+  await postJson('/system/codex-test-runner/complete-case', {
+    executionCaseId: task.executionCaseId,
+    status: 'BLOCKED',
+    summary: summary.slice(0, 1000)
+  })
+}
+
 async function runOnce(runnerSessionId) {
   const claim = await claimTasks(runnerSessionId)
   for (const task of claim.tasks) {
-    const result = await runCodexForTask(task)
-    await reportTaskResult(task, result)
+    try {
+      const result = await runCodexForTask(task, runnerSessionId)
+      await reportTaskResult(task, result)
+    } catch (error) {
+      await reportTaskBlocked(task, error)
+    }
   }
   return claim.tasks.length
 }

@@ -120,6 +120,8 @@ assert.ok(specialNodeActionBlock.includes("targetActiveGroup"), '特殊节点操
 assert.ok(specialNodeActionBlock.includes(".edhr-batch-detail__special-node-action-grid:visible"), '特殊节点动作必须限定在可见特殊节点操作区内。')
 assert.ok(specialNodeActionBlock.includes("actionGrid.locator('.edhr-batch-detail__rail-task-action:visible')"), '特殊节点动作按钮必须在目标 active 后的可见特殊节点操作区内定位。')
 assert.ok(specialNodeActionBlock.includes("textContent({ timeout: 1000 })"), '特殊节点明细文本探测不得长时间阻塞当前按钮定位。')
+assert.ok(specialNodeActionBlock.includes("replace(/\\s+/g, ' ')"), '特殊节点证据文本必须按空白正则归一化，不得误写成 /s+/。')
+assert.ok(specialNodeActionBlock.includes('let buttonReady = false'), '特殊节点动作按钮必须等待可用状态稳定，避免刚渲染时误判 disabled。')
 
 const processRouteTaskStart = source.indexOf('async function processRouteTask')
 const processRouteTaskEnd = source.indexOf('async function closeBatch', processRouteTaskStart)

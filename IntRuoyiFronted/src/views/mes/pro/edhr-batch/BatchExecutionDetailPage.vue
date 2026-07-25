@@ -1031,6 +1031,14 @@
       destroy-on-close
     >
       <el-alert
+        v-if="routeFormReadonly"
+        title="当前账号仅有查看权限，表单保存、提交、重提和放弃操作已禁用。"
+        type="info"
+        :closable="false"
+        show-icon
+        class="edhr-batch-detail__dialog-alert"
+      />
+      <el-alert
         v-if="!routeFormBusinessActionContext"
         title="当前任务缺少表单中心动作上下文，无法打开动态表单。"
         type="error"
@@ -1043,6 +1051,7 @@
         :context="routeFormBusinessActionContext"
         :form-data="routeFormPanelData"
         :idempotency-key="routeFormIdempotencyKey"
+        :disabled="routeFormReadonly"
         :initial-instance-id="routeFormInitialInstanceId"
         :initial-instance-code="routeFormInitialInstanceCode"
         :initial-instance-status="routeFormInitialInstanceStatus"
@@ -1262,6 +1271,7 @@ const archivePrintDrawerVisible = ref(false)
 const traceRecordDrawerVisible = ref(false)
 const uxChecklistDrawerVisible = ref(false)
 const routeFormDrawerVisible = ref(false)
+const routeFormReadonly = ref(false)
 const routeFormOpenedTask = ref<EdhrBatchExecutionTaskRespVO>()
 const routeFormOpenResp = ref<EdhrBatchExecutionTaskOpenRespVO>()
 const releasePrecheckLoading = ref(false)
@@ -1518,7 +1528,8 @@ const routeFormInitialInstanceCode = computed(() =>
 const routeFormInitialInstanceStatus = computed(() => 'DRAFT' as const)
 const routeFormDrawerTitle = computed(() => {
   const task = routeFormOpenedTask.value
-  return task ? `填写表单：${resolveTaskDisplayName(task)}` : '填写动态表单'
+  if (!task) return routeFormReadonly.value ? '查看动态表单' : '填写动态表单'
+  return `${routeFormReadonly.value ? '查看表单' : '填写表单'}：${resolveTaskDisplayName(task)}`
 })
 const routeFormBusinessActionContext = computed<BusinessActionContextVO | null>(() => {
   const batch = detail.value
@@ -3210,8 +3221,15 @@ const canSkipOptionalTask = (row: EdhrBatchExecutionTaskRespVO) =>
   detail.value?.status !== EDHR_BATCH_STATUS_ARCHIVED &&
   detail.value?.status !== EDHR_BATCH_STATUS_REJECTED
 
+const canViewRouteFormTask = (row: EdhrBatchExecutionTaskRespVO) =>
+  !isSpecialNode(row) &&
+  !resolveTaskSlotBlocker(row) &&
+  Boolean(row.formTemplateId || row.batchRecordReportId || row.formCenterInstanceId || row.executionId)
+
 const canHandlePendingTask = (row: EdhrBatchExecutionTaskRespVO) =>
-  isSpecialNode(row) ? canOperateSpecialNode(row) : canOpenTask(row) || canSkipOptionalTask(row)
+  isSpecialNode(row)
+    ? canOperateSpecialNode(row)
+    : canOpenTask(row) || canSkipOptionalTask(row) || canViewRouteFormTask(row)
 
 const canUploadSpecialNodeAttachment = (row: EdhrBatchExecutionTaskRespVO) =>
   isSpecialNode(row) &&
@@ -3239,6 +3257,7 @@ const resolveOpenTaskActionLabel = (row: EdhrBatchExecutionTaskRespVO) =>
 const resolvePendingTaskActionLabel = (row: EdhrBatchExecutionTaskRespVO) => {
   if (!isSpecialNode(row)) {
     if (!canOpenTask(row) && canSkipOptionalTask(row)) return '跳过表单'
+    if (!canOpenTask(row) && canViewRouteFormTask(row)) return '查看表单'
     return resolveOpenTaskActionLabel(row)
   }
   if (isSterilizationNode(row)) return '完成节点'
@@ -3938,6 +3957,7 @@ const handleOpenTask = async (
       ? 'FORM'
       : fillCarrier
   try {
+    routeFormReadonly.value = false
     if (!row.activeWorkTaskId) {
       throw new Error('当前工序缺少可填写工作任务，无法打开。')
     }
@@ -3988,6 +4008,18 @@ const handleOpenTask = async (
   } catch (error) {
     message.error(resolveErrorMessage(error, '工序任务打开失败。'))
   }
+}
+
+const openReadonlyRouteFormTask = (row: EdhrBatchExecutionTaskRespVO) => {
+  selectProcessTask(row)
+  if (row.formTemplateId || row.formCenterInstanceId) {
+    routeFormReadonly.value = true
+    routeFormOpenedTask.value = { ...row }
+    routeFormOpenResp.value = undefined
+    routeFormDrawerVisible.value = true
+    return
+  }
+  message.info('已切换到只读预览。')
 }
 
 const buildSha256Hex = async (value: string) => {
@@ -4255,6 +4287,10 @@ const handleSelectedPendingTaskAction = async (row: EdhrBatchExecutionTaskRespVO
     await handleSkipOptionalTask(row)
     return
   }
+  if (!canOpenTask(row) && canViewRouteFormTask(row)) {
+    openReadonlyRouteFormTask(row)
+    return
+  }
   const fillCarrier = currentProcessFillCarrier.value
   if (fillCarrier === 'UNCONFIGURED') {
     message.error('请先选择批记录或记录本填写方式。')
@@ -4271,6 +4307,10 @@ const handlePendingTaskAction = async (row: EdhrBatchExecutionTaskRespVO) => {
   if (!isSpecialNode(row)) {
     if (!canOpenTask(row) && canSkipOptionalTask(row)) {
       await handleSkipOptionalTask(row)
+      return
+    }
+    if (!canOpenTask(row) && canViewRouteFormTask(row)) {
+      openReadonlyRouteFormTask(row)
       return
     }
     await handleOpenTask(

@@ -1092,7 +1092,7 @@ async function selectBatchDetailRouteTask(page, task) {
     .filter({ hasText: String(processToken) })
     .first()
   await processHead.waitFor({ state: 'visible', timeout: 60000 })
-  await processHead.click({ timeout: 10000 })
+  await processHead.click({ timeout: 10000, force: true })
   const taskToken = task.batchRecordReportName || task.formTemplateName || task.processName || task.processCode
   const taskCard = page.locator('.edhr-batch-detail__rail-process-form-item').filter({ hasText: String(taskToken) }).first()
   await taskCard.waitFor({ state: 'visible', timeout: 60000 })
@@ -1106,6 +1106,7 @@ async function openFillTaskFromBatchDetailTakeover(page, batchId, batchCode, tas
     const batchRecordToggle = page.getByRole('button', { name: '批记录' }).first()
     if ((await batchRecordToggle.count()) === 0 || !(await batchRecordToggle.isVisible().catch(() => false))) break
     if (await batchRecordToggle.isDisabled().catch(() => true)) break
+    if ((await batchRecordToggle.getAttribute('aria-pressed').catch(() => null)) === 'true') break
     try {
       await batchRecordToggle.click({ timeout: 5000, force: true })
       break
@@ -1113,6 +1114,7 @@ async function openFillTaskFromBatchDetailTakeover(page, batchId, batchCode, tas
       await page.waitForTimeout(500)
     }
   }
+  await selectBatchDetailRouteTask(page, task)
   const taskToken = task.batchRecordReportName || task.formTemplateName || task.processName || task.processCode
   const takeoverButtonLocator = () =>
     page
@@ -1500,15 +1502,15 @@ async function specialNodeAction(page, label, actionName, handler) {
   if (!actionButton) {
     const visibleSpecialNodes = await page
       .locator('.edhr-batch-detail__special-process-task-group')
-      .evaluateAll((nodes) => nodes.map((node) => (node.textContent || '').replace(/s+/g, ' ').trim()).filter(Boolean))
+      .evaluateAll((nodes) => nodes.map((node) => (node.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean))
       .catch(() => [])
     const activeGroups = await page
       .locator('.edhr-batch-detail__process-task-group.is-active')
-      .evaluateAll((nodes) => nodes.map((node) => (node.textContent || '').replace(/s+/g, ' ').trim()).filter(Boolean))
+      .evaluateAll((nodes) => nodes.map((node) => (node.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean))
       .catch(() => [])
     const actionTexts = await page
       .locator('.edhr-batch-detail__special-node-action-grid:visible .edhr-batch-detail__rail-task-action:visible')
-      .evaluateAll((nodes) => nodes.map((node) => (node.textContent || '').replace(/s+/g, ' ').trim()).filter(Boolean))
+      .evaluateAll((nodes) => nodes.map((node) => (node.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean))
       .catch(() => [])
     throw blocked('特殊节点「' + label + '」未能打开「' + actionLabel + '」操作。', [
       '当前可见特殊节点：' + JSON.stringify(visibleSpecialNodes),
@@ -1523,15 +1525,26 @@ async function specialNodeAction(page, label, actionName, handler) {
       .textContent({ timeout: 1000 })
       .catch(() => '')) || ''
   )
-    .replace(/s+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
   if (rowText.includes('已跳过') || rowText.includes('已批准')) {
     return { alreadyDone: true, rowText }
   }
-  const disabled = await actionButton.isDisabled().catch(() => true)
-  const ariaDisabled = await actionButton.getAttribute('aria-disabled').catch(() => null)
-  const className = await actionButton.getAttribute('class').catch(() => '')
-  if (disabled || ariaDisabled === 'true' || String(className || '').includes('is-disabled')) {
+  let buttonReady = false
+  let disabled = true
+  let ariaDisabled = null
+  let className = ''
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    disabled = await actionButton.isDisabled().catch(() => true)
+    ariaDisabled = await actionButton.getAttribute('aria-disabled').catch(() => null)
+    className = await actionButton.getAttribute('class').catch(() => '')
+    if (!disabled && ariaDisabled !== 'true' && !String(className || '').includes('is-disabled')) {
+      buttonReady = true
+      break
+    }
+    await page.waitForTimeout(500)
+  }
+  if (!buttonReady) {
     throw blocked('特殊节点「' + label + '」的「' + actionLabel + '」按钮不可用。', [
       '当前明细：' + rowText,
       '通常表示该路线缺少对应责任规则、当前登录人不是责任人，或上游必需报告未完成。'
