@@ -1540,8 +1540,9 @@ async function fillSignAndSubmitExecution(page, fillActor, taskIndex, valuePrefi
 async function processRouteTask(fillPage, approvalPage, batchId, batchCode, task, index, fillActor, reviewerActor, options = {}) {
   const batchDetail = await loadBatchDetailByUi(fillPage, batchId, `打开任务前批次详情 T${index}`)
   const pendingTask = (batchDetail.tasks || []).find((item) => Number(item.id) === Number(task.id)) || task
-  await openFillTaskFromBoard(fillPage, batchId, batchCode, pendingTask)
-  const opened = await openTaskByUi(fillPage, pendingTask)
+  const fillTaskUrl = await openFillTaskFromBoard(fillPage, batchId, batchCode, pendingTask)
+  const opened = fillTaskUrl.openedTask
+  assert.ok(opened?.executionId, `工作台处理普通工序任务后必须返回 executionId，任务 ${pendingTask.id}`)
   const executionId = Number(opened.executionId)
   const detailData = await loadExecutionDetail(fillPage, executionId)
   const executionCode = detailData?.executionCode || opened.executionCode || String(executionId)
@@ -1566,10 +1567,11 @@ async function processRouteTask(fillPage, approvalPage, batchId, batchCode, task
       expectedExecutionId: rejection.revisionExecutionId,
       allowExecutionDetail: true
     })
-    const reworkOpened = reworkUrl.pathname === ROUTES.executionDetail ? {} : await openTaskByUi(fillPage, reworkTask)
-    const revisionExecutionId = reworkUrl.pathname === ROUTES.executionDetail ? Number(reworkUrl.searchParams.get('id')) : Number(reworkOpened.executionId)
+    const reworkOpened = reworkUrl.openedTask
+    assert.ok(reworkOpened?.executionId, `工作台处理返工任务后必须返回 executionId，任务 ${reworkTask.id}`)
+    const revisionExecutionId = Number(reworkOpened.executionId)
     assert.equal(revisionExecutionId, Number(rejection.revisionExecutionId), `返工任务必须打开修订草稿 ${rejection.revisionExecutionId}`)
-    const reworkDetailData = reworkUrl.executionDetailData || (await loadExecutionDetail(fillPage, revisionExecutionId))
+    const reworkDetailData = await loadExecutionDetail(fillPage, revisionExecutionId)
     assert.equal(Number(reworkDetailData.sourceRejectedExecutionId), executionId, `修订草稿必须关联被驳回原执行 ${executionId}`)
     const reworkExecutionCode = reworkDetailData?.executionCode || reworkOpened.executionCode || String(revisionExecutionId)
     assert.ok(String(reworkExecutionCode).trim(), `返工执行 ${revisionExecutionId} 必须返回执行编号。`)
