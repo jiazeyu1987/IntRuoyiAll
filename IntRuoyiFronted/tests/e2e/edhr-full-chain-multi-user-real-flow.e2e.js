@@ -724,6 +724,36 @@ function isPendingRouteFormTask(task) {
   return task.nodeType === ROUTE_FORM_NODE_TYPE && Number(task.status) !== 40
 }
 
+function isFormCenterRouteTask(task) {
+  return (
+    task?.nodeType === ROUTE_FORM_NODE_TYPE &&
+    Number(task.formCenterInstanceId || 0) > 0 &&
+    Number(task.formTemplateId || 0) > 0
+  )
+}
+
+function formCenterTaskSearchTokens(task) {
+  const slotLabels = {
+    LOSS_REPORT: '损耗',
+    PROCESS_INSPECTION: '过程检验',
+    PARAMETER_RECORD: '参数',
+    REWORK_RECORD: '返工'
+  }
+  return [
+    task.formTemplateName,
+    task.formBindingName,
+    task.formBindingKey,
+    task.sharedFormKey,
+    slotLabels[String(task.formSlotType || '').trim()],
+    task.formSlotType,
+    task.processName,
+    task.processCode,
+    task.id
+  ]
+    .filter((item) => item !== undefined && item !== null && String(item).trim())
+    .map((item) => String(item).trim())
+}
+
 function taskSearchTokens(task) {
   return [
     task.batchRecordReportName,
@@ -864,7 +894,7 @@ async function clickWorkTaskBoardActionButton(page, row, name, label) {
     const rows = Array.from((body || document).querySelectorAll('tbody tr')).filter(isVisible)
     return {
       index: rows.indexOf(element),
-      text: (element.innerText || '').replace(/s+/g, ' ').trim()
+      text: (element.innerText || '').replace(/\s+/g, ' ').trim()
     }
   })
   if (target.index < 0) {
@@ -889,7 +919,7 @@ async function clickWorkTaskBoardActionButton(page, row, name, label) {
       const rows = Array.from((body || document).querySelectorAll('tr')).filter(isVisible)
       return {
         index: rowElement ? rows.indexOf(rowElement) : -1,
-        text: (rowElement?.innerText || '').replace(/s+/g, ' ').trim()
+        text: (rowElement?.innerText || '').replace(/\s+/g, ' ').trim()
       }
     }).catch(() => ({ index: -1, text: '' }))
     if (buttonRow.index === target.index) {
@@ -1583,6 +1613,176 @@ async function fillSignAndSubmitExecution(page, fillActor, taskIndex, valuePrefi
   return { fill, fieldAudit, submitResult }
 }
 
+async function fillFormCenterControls(page, drawer, valuePrefix, taskIndex) {
+  const panel = drawer.locator('.form-action-panel').first()
+  let filled = 0
+  let selected = 0
+  const formItems = panel.locator('.el-form-item')
+  const count = await formItems.count()
+
+  for (let index = 0; index < count; index += 1) {
+    const item = formItems.nth(index)
+    if (!(await item.isVisible().catch(() => false))) continue
+    const itemDisabled = await item
+      .evaluate((element) => element.closest('.is-disabled') != null || element.querySelector('.is-disabled') != null)
+      .catch(() => true)
+    if (itemDisabled) continue
+
+    const select = item.locator('.el-select input[role="combobox"], .el-select__wrapper').first()
+    if ((await select.count()) > 0 && (await select.isVisible().catch(() => false)) && (await select.isEnabled().catch(() => false))) {
+      await select.click({ force: true })
+      const option = page.locator('.el-select-dropdown:visible .el-select-dropdown__item:not(.is-disabled)').first()
+      if (await option.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)) {
+        await option.click()
+        selected += 1
+        continue
+      }
+    }
+
+    const radio = item.locator('.el-radio:not(.is-disabled)').first()
+    if ((await radio.count()) > 0 && (await radio.isVisible().catch(() => false))) {
+      await radio.click()
+      selected += 1
+      continue
+    }
+
+    const checkbox = item.locator('.el-checkbox:not(.is-disabled)').first()
+    if ((await checkbox.count()) > 0 && (await checkbox.isVisible().catch(() => false))) {
+      await checkbox.click()
+      selected += 1
+      continue
+    }
+
+    const numberInput = item.locator('.el-input-number input').first()
+    if ((await numberInput.count()) > 0 && (await numberInput.isVisible().catch(() => false)) && (await numberInput.isEnabled().catch(() => false))) {
+      await numberInput.fill(String(100 + taskIndex + filled))
+      await numberInput.press('Tab').catch(() => undefined)
+      filled += 1
+      continue
+    }
+
+    const dateInput = item.locator('.el-date-editor input').first()
+    if ((await dateInput.count()) > 0 && (await dateInput.isVisible().catch(() => false)) && (await dateInput.isEnabled().catch(() => false))) {
+      const isDateTime = await dateInput
+        .evaluate((element) => element.closest('.el-date-editor')?.className.includes('datetime') === true)
+        .catch(() => false)
+      await dateInput.fill(isDateTime ? '2026-07-25 10:20:30' : '2026-07-25')
+      await dateInput.press('Tab').catch(() => undefined)
+      filled += 1
+      continue
+    }
+
+    const textarea = item.locator('textarea').first()
+    if ((await textarea.count()) > 0 && (await textarea.isVisible().catch(() => false)) && (await textarea.isEnabled().catch(() => false))) {
+      await textarea.fill(valuePrefix + '-' + (filled + 1))
+      await textarea.press('Tab').catch(() => undefined)
+      filled += 1
+      continue
+    }
+
+    const input = item.locator('input:not([type="hidden"]):not([type="password"]):not([type="checkbox"]):not([role="combobox"])').first()
+    if ((await input.count()) === 0 || !(await input.isVisible().catch(() => false)) || !(await input.isEnabled().catch(() => false))) continue
+    const readonly = await input.evaluate((element) => element.hasAttribute('readonly')).catch(() => true)
+    if (readonly) continue
+    await input.fill(valuePrefix + '-' + (filled + 1))
+    await input.press('Tab').catch(() => undefined)
+    filled += 1
+  }
+
+  return { filled, selected }
+}
+
+async function findFormCenterTaskCard(page, task) {
+  const cards = page.locator('.edhr-batch-detail__rail-process-form-item')
+  await cards.first().waitFor({ state: 'visible', timeout: 60000 })
+  const tokens = formCenterTaskSearchTokens(task)
+  for (const token of tokens) {
+    const candidate = cards.filter({ hasText: token }).first()
+    if ((await candidate.count()) > 0 && (await candidate.isVisible().catch(() => false))) {
+      return candidate
+    }
+  }
+
+  const visibleCards = await cards.evaluateAll((nodes) =>
+    nodes
+      .filter((node) => Boolean(node.offsetWidth || node.offsetHeight || node.getClientRects().length))
+      .map((node) => (node.innerText || '').replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+  )
+  throw blocked('批次详情未找到 FormCenter 表单任务卡片：' + tokens.join(' / '), [
+    '任务：' + JSON.stringify({
+      id: task.id,
+      formCenterInstanceId: task.formCenterInstanceId,
+      formTemplateId: task.formTemplateId,
+      formTemplateName: task.formTemplateName,
+      formSlotType: task.formSlotType,
+      processName: task.processName
+    }),
+    '当前可见表单卡片：' + JSON.stringify(visibleCards)
+  ])
+}
+
+async function processRouteFormCenterTask(page, batchId, batchCode, task, index) {
+  const batchDetail = await loadBatchDetailByUi(page, batchId, '打开 FormCenter 任务前批次详情 T' + index)
+  const pendingTask = (batchDetail.tasks || []).find((item) => Number(item.id) === Number(task.id)) || task
+  assert.ok(isFormCenterRouteTask(pendingTask), '任务 ' + pendingTask.id + ' 必须是 FormCenter 路线表单任务。')
+
+  const workTaskQuery = pendingTask.activeWorkTaskId ? '&workTaskId=' + pendingTask.activeWorkTaskId : ''
+  await gotoPath(page, ROUTES.batchDetail + '?id=' + batchId + '&batchTaskId=' + pendingTask.id + workTaskQuery)
+  await page.getByText('eDHR批次详情').first().waitFor({ state: 'visible', timeout: 60000 })
+  const taskCard = await findFormCenterTaskCard(page, pendingTask)
+  const openResponsePromise = waitForApiResponse(page, ENDPOINTS.batchTaskOpen, '打开 FormCenter 路线表单 T' + index, 'POST')
+  await taskCard.getByRole('button', { name: /打开填写|打开返工|处理/ }).first().click()
+  const opened = await openResponsePromise
+  assert.ok(opened?.formCenterInstanceId, 'FormCenter 任务 ' + pendingTask.id + ' 打开后必须返回 formCenterInstanceId。')
+  assert.ok(opened?.formTemplateId, 'FormCenter 任务 ' + pendingTask.id + ' 打开后必须返回 formTemplateId。')
+  assert.equal(Number(opened.formCenterInstanceId), Number(pendingTask.formCenterInstanceId), 'FormCenter 任务 ' + pendingTask.id + ' 实例 ID 必须匹配批次详情。')
+  assert.equal(Number(opened.formTemplateId), Number(pendingTask.formTemplateId), 'FormCenter 任务 ' + pendingTask.id + ' 模板 ID 必须匹配批次详情。')
+
+  const drawer = page.locator('.el-drawer:visible').filter({ hasText: /填写表单|表单/ }).last()
+  await drawer.waitFor({ state: 'visible', timeout: 60000 })
+  await drawer.locator('.form-action-panel').waitFor({ state: 'visible', timeout: 60000 })
+  const fill = await fillFormCenterControls(page, drawer, FILL_PREFIX + '-FORMCENTER-T' + index, index)
+
+  const draftResponsePromise = waitForApiResponse(
+    page,
+    '/form-center/instances/' + opened.formCenterInstanceId + '/draft',
+    '保存 FormCenter 草稿 T' + index,
+    'PUT'
+  )
+  await drawer.getByRole('button', { name: '保存草稿' }).click()
+  const draft = await draftResponsePromise
+
+  const submitResponsePromise = waitForApiResponse(
+    page,
+    '/form-center/instances/' + opened.formCenterInstanceId + '/submit',
+    '提交 FormCenter 实例 T' + index,
+    'POST'
+  )
+  await drawer.getByRole('button', { name: /^提交$/ }).click()
+  const submitted = await submitResponsePromise
+  assert.ok(
+    ['EFFECTIVE', 'PENDING_EFFECT', 'IN_APPROVAL'].includes(submitted.status),
+    'FormCenter 实例 ' + opened.formCenterInstanceId + ' 提交后状态异常：' + submitted.status
+  )
+
+  return {
+    taskId: pendingTask.id,
+    routeProcessSort: pendingTask.routeProcessSort,
+    processCode: pendingTask.processCode,
+    processName: pendingTask.processName,
+    formCenterInstanceId: Number(opened.formCenterInstanceId),
+    formTemplateId: Number(opened.formTemplateId),
+    formTemplateName: pendingTask.formTemplateName,
+    formSlotType: pendingTask.formSlotType,
+    filledFields: fill.filled,
+    selectedFields: fill.selected,
+    draftStatus: draft?.status,
+    submittedStatus: submitted.status,
+    batchCode
+  }
+}
+
 async function processRouteTask(fillPage, approvalPage, batchId, batchCode, task, index, fillActor, reviewerActor, options = {}) {
   const batchDetail = await loadBatchDetailByUi(fillPage, batchId, `打开任务前批次详情 T${index}`)
   const pendingTask = (batchDetail.tasks || []).find((item) => Number(item.id) === Number(task.id)) || task
@@ -1829,11 +2029,16 @@ async function runCreateBatchFlow(browser, ownerPage, config) {
         .sort((left, right) => (left.routeProcessSort || 0) - (right.routeProcessSort || 0) || (left.batchRecordSort || 0) - (right.batchRecordSort || 0))
       if (pendingRouteTasks.length === 0) break
       const taskIndex = processedTasks.length + 1
-      processedTasks.push(
-        await processRouteTask(ownerPage, approvalPage, batchId, created.batchCode, pendingRouteTasks[0], taskIndex, owner, reviewActor, {
-          rejectOnce: REJECT_FIRST_ROUTE_TASK && processedTasks.length === 0
-        })
-      )
+      const nextRouteTask = pendingRouteTasks[0]
+      if (isFormCenterRouteTask(nextRouteTask)) {
+        processedTasks.push(await processRouteFormCenterTask(ownerPage, batchId, created.batchCode, nextRouteTask, taskIndex))
+      } else {
+        processedTasks.push(
+          await processRouteTask(ownerPage, approvalPage, batchId, created.batchCode, nextRouteTask, taskIndex, owner, reviewActor, {
+            rejectOnce: REJECT_FIRST_ROUTE_TASK && processedTasks.length === 0
+          })
+        )
+      }
     }
 
     assert.ok(processedTasks.length > 0, '创建模式必须至少处理一张普通工序批记录表单。')
@@ -1848,7 +2053,7 @@ async function runCreateBatchFlow(browser, ownerPage, config) {
     assert.deepEqual(
       remainingRouteTasks.map((task) => ({ id: task.id, name: task.batchRecordReportName, status: task.status })),
       [],
-      '普通工序批记录表单必须全部审批通过。'
+      '普通工序批记录和 FormCenter 路线表单必须全部完成。'
     )
 
     await completeSpecialNode(ownerPage, '灭菌报告')

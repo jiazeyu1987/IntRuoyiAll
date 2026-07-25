@@ -61,6 +61,17 @@ const createFlowBlock = source.slice(createFlowStart, createFlowEnd)
 
 assert.ok(createFlowBlock.includes('ensureBatchTaskCellRulesConfirmedByUi(ownerPage, created.batch)'), '创建批次后、打开填写任务前必须先确认批次绑定报表规则。')
 
+const formCenterRouteTaskStart = source.indexOf('async function processRouteFormCenterTask')
+const formCenterRouteTaskEnd = source.indexOf('async function processRouteTask', formCenterRouteTaskStart)
+const formCenterRouteTaskBlock = source.slice(formCenterRouteTaskStart, formCenterRouteTaskEnd)
+
+assert.ok(source.includes('function isFormCenterRouteTask'), '完整演练必须识别 FormCenter 动态表单/共享表单任务。')
+assert.ok(formCenterRouteTaskStart >= 0, '完整演练必须通过真实批次详情抽屉处理 FormCenter 动态表单任务。')
+assert.ok(formCenterRouteTaskBlock.includes('.form-action-panel'), 'FormCenter 动态表单必须等待真实表单面板。')
+assert.ok(formCenterRouteTaskBlock.includes('/form-center/instances/'), 'FormCenter 动态表单必须等待真实草稿和提交接口。')
+assert.ok(formCenterRouteTaskBlock.includes('保存草稿'), 'FormCenter 动态表单必须通过真实保存草稿按钮。')
+assert.ok(formCenterRouteTaskBlock.includes('name: /^提交$/'), 'FormCenter 动态表单必须通过真实提交按钮。')
+
 const processRouteTaskStart = source.indexOf('async function processRouteTask')
 const processRouteTaskEnd = source.indexOf('async function closeBatch', processRouteTaskStart)
 const processRouteTaskBlock = source.slice(processRouteTaskStart, processRouteTaskEnd)
