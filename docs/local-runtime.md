@@ -8,11 +8,11 @@
 
 ## 固定端口
 
-PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
+PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v2
 
 - `int_main` 前端专属端口：`8081`。
 - int_main 后端专属端口：48081。
-- int_main 主线本地仓库：D:\ProjectPackage\IntRuoyi\IntRuoyiAll。
+- int_main 默认本地仓库：E:\IntRuoyi。
 - 前端本机入口：`http://127.0.0.1:8081` 或 `http://localhost:8081`。
 - 后端健康检查：`http://127.0.0.1:48081/actuator/health`。
 - 前端本机模式应使用 `IntRuoyiFronted\.env.local`：
@@ -22,13 +22,20 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
 
 ## 分支运行端口矩阵
 
-- `int_main`：前端 `8081`，后端 `48081`，对应 `D:\ProjectPackage\IntRuoyi\IntRuoyiAll`，保持原始本机默认设置不变。
+- `int_main_d`：前端 `8101`，后端 `48101`，对应 `D:\ProjectPackage\IntRuoyi\IntRuoyiAll`。
+- `int_main`：前端 `8081`，后端 `48081`，对应 `E:\IntRuoyi`，保持原始本机默认设置不变。
 - `int_batch`：前端 `8041`，后端 `48041`，对应 `E:\IntRuoyiBranch\BatchRecord\IntRuoyiAll`。
 - `int_shedule`：前端 `8021`，后端 `48021`，对应 `E:\IntRuoyiBranch\Shedule\IntRuoyiAll`。
 - `int_qms`：前端 `8061`，后端 `48061`，对应 `E:\IntRuoyiBranch\QMS\IntRuoyiAll`。
 - 分支专属前端调试必须通过 `scripts\runtime\start-branch-frontend.ps1` 或对应 `IntRuoyiFronted\.env.branch-*` 模式启动，不得通过改写共享 `.env` 抢占端口。
 - 分支专属后端调试必须通过 `scripts\runtime\start-branch-backend.ps1` 传入 `--server.port`，不得把后端 `application-local.yaml` 改成分支端口。
 - 合并 `int_main` 或跨分支合并后必须运行 `scripts\preflight\branch-runtime-port-guard.ps1`，确认本矩阵未被覆盖、删除或改回 `8081/48081`。
+
+## D Main Independent Runtime
+
+- `int_main_d` is bound to `D:\ProjectPackage\IntRuoyi\IntRuoyiAll`.
+- Its fixed ports are frontend `8101` and backend `48101`.
+- D-Main must never use `8081/48081`, which remain reserved for `E:\IntRuoyi`.
 
 ## 启动前检查
 
@@ -68,6 +75,7 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
 - Verification: 数据库前置条件修复后重新启动后端，记录 `48081` PID、命令行归属 `E:\IntRuoyi\IntRuoyiBackend`，并用 `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` 断言 `status=UP`。
 - Forbidden action: 禁止静默换端口、临时改 `application-local.yaml` 凭据、切换到 mock/空数据源、只启动前端就宣称前后端完成。
 - Evidence: `doc/tasks/20260725-start-local-frontend-backend/verification-report.md`。
+
 ## 2026-07-25 分支本地运行复用 Docker 依赖门禁
 
 - Trigger: `int_batch`、`int_shedule`、`int_qms` 等分支工作区启动后端时出现本机 MySQL/Redis 认证或连接失败。
@@ -76,6 +84,15 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
 - Blocker: Docker MySQL/Redis 端口未监听、认证失败或 schema 不匹配时必须 fail fast，不得切换数据库、换端口、mock 成功或跳过后端启动。
 - Verification: 记录 Docker 依赖端口监听、后端分支端口监听、`/actuator/health` HTTP 状态和前端入口 HTTP 状态。
 - Forbidden action: 禁止为了复用 Docker 依赖而修改分支前端/后端服务端口；禁止打印或记录数据库密码、容器完整 env 或 secret-bearing 命令输出。
+
+## 2026-07-25 D-Main 本地启动源码与依赖门禁
+
+- Trigger: D-Main 本地启动、`int_main_d`、`8101/48101`、`vite command not found`、Java 包名包含 `runtime`、后端打包提示 `*.runtime不存在`。
+- Preflight check: 后端打包前先确认被引用的 `runtime` Java 包未被 `.gitignore` 的 `**/runtime/` 误忽略；若同源工作区存在正式实现，必须同步正式源码并用 `git check-ignore -v` 记录忽略来源，提交时对合法源码使用 `git add -f`。前端启动前确认 `IntRuoyiFronted/node_modules/.bin/vite` 存在；缺失时执行 `pnpm install --frozen-lockfile`。
+- Blocker: 缺失源码只能用同源正式实现补齐；若找不到正式实现或 `pnpm install --frozen-lockfile` 修改 lockfile/失败，必须阻塞，不得造空实现、改用旧 Jar、换端口或跳过前端。
+- Verification: 记录 Maven RED/GREEN、`yudao-server-exec.jar` 生成结果、`git check-ignore -v` 输出、`pnpm install --frozen-lockfile` 退出码、后端 health `UP` 和前端 HTTP `200`。
+- Forbidden action: 禁止因为目录名是 `runtime` 就放任合法 Java 源码被忽略；禁止复制 `node_modules`、复用旧 Jar、改共享 `.env`/`application-local.yaml`、API-only 冒充前端启动成功。
+- Evidence: `doc/tasks/20260725-start-d-main-runtime/verification-report.md`。
 ## 禁止做法
 
 - 禁止把 `int_main` 改到随机端口启动。

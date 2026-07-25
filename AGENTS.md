@@ -10,7 +10,7 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - Main branch: `int_main`.
 - Worktree root: `D:\IntRuoyiWorktree\`.
 - Worktree restrictions: `docs\worktree-restrictions.md`.
-- Branch runtime port matrix: `docs\branch-runtime-ports.md`; `int_main=8081/48081` at `D:\ProjectPackage\IntRuoyi\IntRuoyiAll`, `int_batch=8041/48041`, `int_shedule=8021/48021`, `int_qms=8061/48061`.
+- Branch runtime port matrix: `docs\branch-runtime-ports.md`; `int_main_d=8101/48101` at `D:\ProjectPackage\IntRuoyi\IntRuoyiAll`, `int_main=8081/48081` at `E:\IntRuoyi`, `int_batch=8041/48041`, `int_shedule=8021/48021`, `int_qms=8061/48061`.
 - Trigger-read rules live under `docs\*.md`; read the matching rule file before the triggering operation.
 - Coordination docs live under root `doc\` and `docs\`; backend and frontend also contain their own `doc\` and `docs\` folders.
 - Do not reuse paths or folder names from prior project instructions unless the user explicitly confirms they are relevant to the current task.

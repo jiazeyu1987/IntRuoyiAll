@@ -1,14 +1,23 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:PortContractVersion = '2026-07-24-branch-runtime-v1'
+$script:PortContractVersion = '2026-07-24-branch-runtime-v2'
 
 function Get-BranchRuntimeProfiles {
     @(
         [pscustomobject]@{
+            Name = 'int_main_d'
+            Branches = @('int_main')
+            PathMarkers = @('\ProjectPackage\IntRuoyi\IntRuoyiAll', '\ProjectPackage\IntRuoyi\IntRuoyiAll\')
+            FrontendBasePort = 8101
+            BackendBasePort = 48101
+            FrontendMode = 'branch-main-d'
+            EnvFile = 'IntRuoyiFronted\.env.branch-main-d'
+        },
+        [pscustomobject]@{
             Name = 'int_main'
             Branches = @('int_main')
-            PathMarkers = @('\ProjectPackage\IntRuoyi\IntRuoyiAll\', '\IntRuoyi\')
+            PathMarkers = @('\IntRuoyi\')
             FrontendBasePort = 8081
             BackendBasePort = 48081
             FrontendMode = 'env.local'
@@ -74,7 +83,7 @@ function Resolve-BranchRuntimeProfile {
     $normalizedRoot = $fullRoot.Replace('/', '\')
     $profiles = Get-BranchRuntimeProfiles
 
-    foreach ($profile in $profiles | Where-Object { $_.Name -ne 'int_main' }) {
+    foreach ($profile in $profiles) {
         foreach ($marker in $profile.PathMarkers) {
             if ($normalizedRoot.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
                 if ($profile.Branches -notcontains $Branch) {
