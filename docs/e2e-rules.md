@@ -46,6 +46,16 @@
 - 失败时记录实际失败位置、页面状态、网络响应或控制台错误。
 
 
+## 全局开关类 E2E 恢复门禁
+
+- Trigger: Playwright 验证全局开关、共享配置、租户级开关、系统级配置或任何影响后续用户路径的运行态状态切换。
+- Preflight check: 切换前读取并记录原始状态；脚本必须有 `finally` 恢复逻辑，恢复后再用独立 API 或页面断言确认状态回到原始值。
+- Blocker: 关闭/开启断言通过但恢复失败、恢复后接口值不一致、或页面仍显示变更后的状态时，必须立即执行受控恢复并记录失败位置；不得把产品断言 PASS 当作完整 E2E PASS。
+- Verification: 证据必须同时包含变更态断言、恢复动作结果、恢复后页面或接口复验；恢复使用 API 时必须说明它是 cleanup，不得替代真实页面变更路径。
+- Forbidden action: 禁止留下全局开关关闭、禁止记录密码/token、禁止用未复验的 `finally` 假设恢复成功。
+- Evidence: `doc/tasks/20260725-edhr-global-recordbook-switch/verification-report.md`。
+
+
 
 ## 官方登录前置与 admin-only 全量验证门禁
 

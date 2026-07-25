@@ -237,6 +237,8 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
     @Resource
     private MesProEdhrOperationAuditService operationAuditService;
+    @Resource
+    private MesProEdhrRecordbookGlobalSettingService recordbookGlobalSettingService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -2327,6 +2329,8 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
             respVO.setBatchRecordReportCode(report.getReportCode());
             respVO.setBatchRecordReportName(report.getReportName());
         }
+        Boolean effectiveRecordbookEnabled = recordbookGlobalSettingService.resolveEffectiveRecordbookEnabled(execution.getRecordbookEnabled(), execution.getRecordCategory());
+        respVO.setRecordbookEnabled(effectiveRecordbookEnabled);
         respVO.setInstanceScope(resolveExecutionInstanceScope(execution.getInstanceScope()));
         respVO.setActiveContextKey(buildExecutionActiveContextKey(execution));
         boolean bindingResolved = StrUtil.isNotBlank(execution.getBatchRecordReportId()) && report != null;
@@ -2456,7 +2460,8 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 .setFormSlotType(execution.getFormSlotType())
                 .setRecordCategory(execution.getRecordCategory())
                 .setValidationProfile(execution.getValidationProfile())
-                .setRecordbookEnabled(execution.getRecordbookEnabled())
+                .setRecordbookEnabled(recordbookGlobalSettingService.resolveEffectiveRecordbookEnabled(
+                        execution.getRecordbookEnabled(), execution.getRecordCategory()))
                 .setPermissionScopeId(execution.getPermissionScopeId())
                 .setRouteBindingId(execution.getRouteBindingId())
                 .setRouteBindingSnapshotHash(execution.getRouteBindingSnapshotHash())

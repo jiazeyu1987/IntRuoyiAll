@@ -389,6 +389,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     @Resource
     private MesProEdhrPreReleaseEditabilityService preReleaseEditabilityService;
     @Resource
+    private MesProEdhrRecordbookGlobalSettingService recordbookGlobalSettingService;
+    @Resource
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
     @Resource
     private MesProEdhrBatchVoidEffectService batchVoidEffectService;
@@ -2212,6 +2214,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                                MesProEdhrBatchExecutionTaskDO task,
                                                                MesProEdhrWorkTaskDO openWorkTask,
                                                                Long permissionScopeId) {
+        Boolean effectiveRecordbookEnabled = recordbookGlobalSettingService.resolveEffectiveRecordbookEnabled(task.getRecordbookEnabled(), task.getRecordCategory());
         Map<String, Object> executionPageQuery = new LinkedHashMap<>();
         executionPageQuery.put("id", task.getExecutionId());
         executionPageQuery.put("batchExecutionId", batch.getId());
@@ -2221,7 +2224,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         executionPageQuery.put("batchRecordVersionId", task.getBatchRecordVersionId());
         executionPageQuery.put("recordCategory", task.getRecordCategory());
         executionPageQuery.put("validationProfile", task.getValidationProfile());
-        executionPageQuery.put("recordbookEnabled", Boolean.TRUE.equals(task.getRecordbookEnabled()));
+        executionPageQuery.put("recordbookEnabled", effectiveRecordbookEnabled);
         executionPageQuery.put("permissionScopeId", permissionScopeId);
         executionPageQuery.put("routeBindingId", task.getRouteBindingId());
         executionPageQuery.put("routeBindingSnapshotHash", task.getRouteBindingSnapshotHash());
@@ -2266,7 +2269,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setFormCenterInstanceId(task.getFormCenterInstanceId())
                 .setRecordCategory(task.getRecordCategory())
                 .setValidationProfile(task.getValidationProfile())
-                .setRecordbookEnabled(task.getRecordbookEnabled())
+                .setRecordbookEnabled(effectiveRecordbookEnabled)
                 .setPermissionScopeId(permissionScopeId)
                 .setRouteBindingId(task.getRouteBindingId())
                 .setRouteBindingSnapshotHash(task.getRouteBindingSnapshotHash())
@@ -2360,7 +2363,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setFormSlotType(resolveRouteFormSlotType(task.getFormSlotType()))
                 .setRecordCategory(task.getRecordCategory())
                 .setValidationProfile(task.getValidationProfile())
-                .setRecordbookEnabled(task.getRecordbookEnabled())
+                .setRecordbookEnabled(recordbookGlobalSettingService.resolveEffectiveRecordbookEnabled(
+                        task.getRecordbookEnabled(), task.getRecordCategory()))
                 .setPermissionScopeId(task.getPermissionScopeId())
                 .setRouteBindingId(task.getRouteBindingId())
                 .setRouteBindingSnapshotHash(task.getRouteBindingSnapshotHash())
@@ -4418,7 +4422,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setFormCenterInstanceId(task.getFormCenterInstanceId())
                 .setRecordCategory(task.getRecordCategory())
                 .setValidationProfile(task.getValidationProfile())
-                .setRecordbookEnabled(task.getRecordbookEnabled())
+                .setRecordbookEnabled(recordbookGlobalSettingService.resolveEffectiveRecordbookEnabled(
+                        task.getRecordbookEnabled(), task.getRecordCategory()))
                 .setPermissionScopeId(task.getPermissionScopeId())
                 .setRouteBindingId(task.getRouteBindingId())
                 .setRouteBindingSnapshotHash(task.getRouteBindingSnapshotHash())

@@ -250,6 +250,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @MockitoBean
     private MesProEdhrWorkTaskService workTaskService;
     @MockitoBean
+    private MesProEdhrRecordbookGlobalSettingService recordbookGlobalSettingService;
+    @MockitoBean
     private MesProEdhrOperationAuditService operationAuditService;
     @MockitoBean
     private MesProEdhrPermissionGateService permissionGateService;
@@ -273,6 +275,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         TenantContextHolder.setTenantId(1L);
         when(permissionApi.hasAnyPermissions(any(), eq(MesProEdhrBatchTaskVisibilityService.OVERVIEW_PERMISSION)))
                 .thenReturn(true);
+        when(recordbookGlobalSettingService.resolveEffectiveRecordbookEnabled(any(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
         when(formCenterRuntimeService.createInstance(any(FormInstanceCreateReqVO.class), any()))
                 .thenAnswer(invocation -> {
                     FormInstanceRespVO respVO = new FormInstanceRespVO();

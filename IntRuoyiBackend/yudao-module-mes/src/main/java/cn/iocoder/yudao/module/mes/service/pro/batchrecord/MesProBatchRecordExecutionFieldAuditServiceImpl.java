@@ -151,6 +151,8 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
     private MesProBatchRecordExecutionFieldResponsibilityService responsibilityService;
     @Resource
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
+    @Resource
+    private MesProEdhrRecordbookGlobalSettingService recordbookGlobalSettingService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -189,8 +191,8 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         }
         validateBaselineAvailable(execution);
         validateBaselineMatches(command, execution);
-        if (isRecordbookUnrestrictedMode(command) && !Boolean.TRUE.equals(execution.getRecordbookEnabled())) {
-            throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
+        if (isRecordbookUnrestrictedMode(command)) {
+            recordbookGlobalSettingService.requireRecordbookWriteAllowed(execution.getRecordbookEnabled(), execution.getRecordCategory());
         }
 
         String requestHash = MesProBatchRecordExecutionFieldAuditHasher.hashRequest(command);

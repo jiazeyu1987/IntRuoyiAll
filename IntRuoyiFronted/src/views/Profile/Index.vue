@@ -39,6 +39,9 @@
         <el-tab-pane :label="t('profile.info.resetPwd')" name="resetPwd">
           <ResetPwd />
         </el-tab-pane>
+        <el-tab-pane label="配置" name="config" v-if="hasGoldenFingerPermission">
+          <EdhrRecordbookGlobalSetting />
+        </el-tab-pane>
         <el-tab-pane :label="t('profile.info.userSocial')" name="userSocial" v-if="isAdminUser">
           <UserSocial v-model:activeName="activeName" />
         </el-tab-pane>
@@ -51,7 +54,13 @@ import * as NotifyMessageApi from '@/api/system/notify/message'
 import { useProfileWorkbenchTodoBadgeStore } from '@/store/modules/profileWorkbenchTodoBadge'
 import { useUserStore } from '@/store/modules/user'
 import MyNotifyMessageList from '@/views/system/notify/my/components/MyNotifyMessageList.vue'
-import { BasicInfo, ProfileWorkbench, ResetPwd, UserSocial } from './components'
+import {
+  BasicInfo,
+  EdhrRecordbookGlobalSetting,
+  ProfileWorkbench,
+  ResetPwd,
+  UserSocial
+} from './components'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -60,6 +69,8 @@ const profileWorkbenchTodoBadgeStore = useProfileWorkbenchTodoBadgeStore()
 defineOptions({ name: 'Profile' })
 
 const isAdminUser = computed(() => userStore.getRoles.includes('super_admin'))
+const GOLDEN_FINGER_PERMISSION = 'mes:pro-batch-record-execution:golden-finger'
+const hasGoldenFingerPermission = computed(() => userStore.permissions.has(GOLDEN_FINGER_PERMISSION))
 
 const isSocialBindingCallback = () =>
   typeof route.query.code === 'string' ||
@@ -96,6 +107,9 @@ const refreshProfileWorkbenchTodoBadge = () => {
 
 const ensureSocialTabVisible = () => {
   if (!isAdminUser.value && activeName.value === 'userSocial') {
+    activeName.value = 'workbench'
+  }
+  if (!hasGoldenFingerPermission.value && activeName.value === 'config') {
     activeName.value = 'workbench'
   }
 }

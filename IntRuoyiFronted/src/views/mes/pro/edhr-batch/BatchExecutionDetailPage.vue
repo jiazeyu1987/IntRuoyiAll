@@ -168,7 +168,7 @@
                   版本：{{ currentFormVersionNo }}
                 </span>
                 <div
-                  v-if="selectedTaskForEvidence && !isSpecialNode(selectedTaskForEvidence)"
+                  v-if="selectedTaskForEvidence && !isSpecialNode(selectedTaskForEvidence) && isGlobalRecordbookEnabled"
                   class="edhr-batch-detail__preview-carrier"
                   aria-label="填写载体"
                   @click.stop
@@ -1195,6 +1195,7 @@ import {
   type ControlledActionProjectionVO
 } from '@/api/form-center/actionProjection'
 import { submitTransferIntervention } from '@/api/mes/pro/edhr/flowIntervention'
+import { getEdhrRecordbookGlobalSetting } from '@/api/mes/pro/edhr/recordbookGlobalSetting'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { generateUUID } from '@/utils'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
@@ -1243,6 +1244,7 @@ const specialNodeSkipLoading = ref(false)
 const specialNodeCompleteLoading = ref(false)
 const specialNodeAttachmentUploading = ref(false)
 const loadError = ref('')
+const recordbookGlobalEnabled = ref(true)
 const reopenError = ref('')
 const reexecuteError = ref('')
 const qualityRejectError = ref('')
@@ -2269,6 +2271,9 @@ const resolveRecordbookEnabledFromContext = () => {
 }
 
 const isRecordbookEnabledForCurrentTask = computed(() => resolveRecordbookEnabledFromContext())
+const isGlobalRecordbookEnabled = computed(
+  () => recordbookGlobalEnabled.value && resolveRecordbookEnabledFromContext()
+)
 
 const resolveFillCarrier = (recordCategory?: string, recordbookEnabled = false): FillCarrier => {
   if (recordCategory === 'BATCH_RECORD') return recordbookEnabled ? 'RECORDBOOK' : 'FORM'
@@ -2277,6 +2282,7 @@ const resolveFillCarrier = (recordCategory?: string, recordbookEnabled = false):
 }
 
 const currentProcessFillCarrier = computed<FillCarrier>(() => {
+  if (!isGlobalRecordbookEnabled.value) return 'FORM'
   if (selectedFillCarrier.value === 'RECORDBOOK' && !isRecordbookEnabledForCurrentTask.value) {
     return 'FORM'
   }
@@ -2287,6 +2293,10 @@ const currentProcessFillCarrier = computed<FillCarrier>(() => {
 const selectFillCarrier = (fillCarrier: Exclude<FillCarrier, 'UNCONFIGURED'>) => {
   const row = selectedTaskForEvidence.value
   if (!row || isSpecialNode(row)) return
+  if (fillCarrier === 'RECORDBOOK' && !isGlobalRecordbookEnabled.value) {
+    message.error('记录本全局开关已关闭，只能使用批记录模式。')
+    return
+  }
   if (fillCarrier === 'RECORDBOOK' && !isRecordbookEnabledForCurrentTask.value) {
     message.error('当前任务已禁用记录本，只能使用批记录模式。')
     return
@@ -3920,7 +3930,9 @@ const handleOpenTask = async (
   fillCarrier: Exclude<FillCarrier, 'UNCONFIGURED'> = 'FORM'
 ) => {
   const effectiveFillCarrier =
-    fillCarrier === 'RECORDBOOK' && !isRecordbookEnabledForContext(row) ? 'FORM' : fillCarrier
+    !isGlobalRecordbookEnabled.value || (fillCarrier === 'RECORDBOOK' && !isRecordbookEnabledForContext(row))
+      ? 'FORM'
+      : fillCarrier
   try {
     if (!row.activeWorkTaskId) {
       throw new Error('当前工序缺少可填写工作任务，无法打开。')
@@ -4213,7 +4225,7 @@ const openPendingTaskByFillCarrier = async (row: EdhrBatchExecutionTaskRespVO, f
     message.error(resolveTaskGateText(row) || '当前工序尚未满足处理条件。')
     return
   }
-  if (fillCarrier === 'RECORDBOOK' && isRecordbookEnabledForContext(row)) {
+  if (fillCarrier === 'RECORDBOOK' && isGlobalRecordbookEnabled.value && isRecordbookEnabledForContext(row)) {
     await handleOpenTask(row, 'RECORDBOOK')
     return
   }
@@ -4288,9 +4300,24 @@ const cleanupDeferredBatchDetailLoads = () => {
   cancelDeferredTaskPreviewLoad()
 }
 
-onMounted(() => {
+const loadRecordbookGlobalSetting = async () => {
+  if (!hasGoldenFingerPermission.value) return
+  const setting = await getEdhrRecordbookGlobalSetting()
+  recordbookGlobalEnabled.value = setting.enabled === true
+}
+
+const initializeBatchDetailPage = async () => {
   activateFullHeightLayout()
-  loadDetail()
+  try {
+    await loadRecordbookGlobalSetting()
+    await loadDetail()
+  } catch (error) {
+    loadError.value = resolveErrorMessage(error, '记录本全局开关加载失败。')
+  }
+}
+
+onMounted(() => {
+  void initializeBatchDetailPage()
 })
 onActivated(activateFullHeightLayout)
 onDeactivated(deactivateFullHeightLayout)
