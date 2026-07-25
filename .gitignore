@@ -25,6 +25,8 @@ runtime-ops/
 **/output/
 **/runtime/
 **/runtime-ops/
+!IntRuoyiBackend/**/src/main/java/**/runtime/
+!IntRuoyiBackend/**/src/main/java/**/runtime/**
 .playwright-cli/
 **/.playwright-cli/
 

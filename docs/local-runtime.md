@@ -42,6 +42,15 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
 - 如果端口被未知进程、非 IntRuoyi 进程或其他 runtime profile 占用，必须 fail fast，不得强杀或换端口。
 - worktree 必须按 `docs/worktree-restrictions.md` 的 profile + slot 规则使用独立端口。
 
+## 本地运行构建输入完整性门禁
+
+- Trigger: 本地前后端启动、后端可执行 JAR 缺失、前端 `node_modules` 缺失、Maven 打包出现源码包或类型不存在。
+- Preflight check: 启动前确认后端可执行 JAR 或完整可构建源码存在，并确认前端锁文件对应依赖已安装；缺少产物时先运行正式构建命令验证源码完整性。
+- Blocker: 后端构建因 Git 跟踪源码包或类型缺失而失败，或者前端依赖未安装时，必须停止启动流程并记录精确缺失项。
+- Verification: 记录后端正式打包命令及退出码、前端运行器是否存在、目标端口监听状态，以及失败后临时诊断文件清理结果。
+- Forbidden action: 禁止凭调用方反推并保留半实现 runtime 源码，禁止把忽略目录中的临时代码当作正式前置，禁止只启动一端却宣称前后端已启动。
+- Evidence: `doc/tasks/run-qms-local-runtime-20260724/verification-report.md`。
+
 ## 2026-07-24 本地重启脚本路径门禁
 
 - Trigger: 本地重启、E2E 复验、`restart-int-ruoyi-local.ps1`、`Missing int_main frontend path`、`yudao-ui-admin-vue3`、`IntRuoyiFronted`。
