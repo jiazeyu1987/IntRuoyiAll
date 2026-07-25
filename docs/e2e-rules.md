@@ -91,6 +91,14 @@
 - Verification: 真实 E2E 同时记录批次编码/ID、命中任务、接口填写人、页面卡片可见文本和无 MES 写请求检查。
 - Forbidden action: 禁止把旧配置页候选名称、当前登录人、创建人、更新人或账号拼接格式当作页面期望值；禁止把 API-only 断言当成单据卡片显示通过。
 - Evidence: `doc/tasks/20260725-edhr-route-form-filler-e2e/real-e2e-evidence.md`。
+## eDHR 路线表单跳过口径门禁
+
+- Trigger: 修改或验证 eDHR 批次详情右侧路线表单卡片、损耗单、过程检验单、参数记录表、`isOptionalTask`、`canSkipOptionalTask`、`requiredPolicy`、`requiredFlag`、`SKIP` 动作或错误“必填路线表单不允许跳过”。
+- Preflight check: 先核对详情任务的 `requiredPolicy` 和 `allowedActions`；只有 `requiredPolicy === 'OPTIONAL'` 且后端返回 `SKIP` 动作时，前端才允许显示或执行“跳过表单”。
+- Blocker: 若前端用 `requiredFlag=false`、非必填进度口径、表单槽位类型、当前载体选择或本地状态推断可跳过，必须停止并改为后端 `requiredPolicy + allowedActions` 口径。
+- Verification: 至少运行聚焦静态合同，断言 `isOptionalTask` 通过 `isOptionalRouteFormTask` 对齐 `requiredPolicy === 'OPTIONAL'`，并断言必填损耗单点击路径调用打开填写而非跳过接口。
+- Forbidden action: 禁止为了避开“必填路线表单不允许跳过”而吞掉后端错误、隐藏按钮错误、改文案、API-only 直开历史 execution，或把必填表单改成可跳过。
+- Evidence: `doc/tasks/20260725-edhr-loss-form-open-action/verification-report.md`。
 ## eDHR 右侧红框元信息隐藏门禁
 
 - Trigger: 修改 eDHR 批次详情右侧栏、单据卡片、`edhr-batch-detail__primary-fill-meta`、`primaryFormFillMetaItems`、填写人/提交时间摘要或截图红框区域。

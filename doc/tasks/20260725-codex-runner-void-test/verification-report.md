@@ -16,14 +16,17 @@
 - Frontend static contract: `node tests/e2e/system-codex-test-management-static.spec.js` -> PASS
 - Backend package: `mvn.cmd -pl yudao-server -am -DskipTests package` -> PASS
 - Runner register probe: POST `/admin-api/system/codex-test-runner/register` with task token and `tenant-id=1` -> `code=0`, `runnerSessionId=1`
+- Runner loop: `start-codex-runner-loop.ps1` -> background process `PID=51372`
+- Runner online DB check: `system_codex_test_runner_session.runner_name=local-codex-runner-20260725`, `status=ONLINE`, `heartbeat_age_seconds=9`, `tenant_id=1`
 - UI target search: `run-void-test-from-ui.mjs` -> “作废测试” search total `0`; “作废” search total `0`
 - Read-only current case list: `test-case-list-summary.json` -> total `1`, only `排产工单手动重排 881MO093613/881MO093615`
 - Read-only DB check: `system_codex_test_case` contains no record whose name/method/test data includes “作废”
 
 ## Open Blocker
 
-- Missing precondition: create or restore a real enabled `作废测试` test item in `系统管理 > 测试管理`, with formal test method rows and target/checkpoint rows.
-- Impact: Runner cannot execute the requested item without inventing test data or selecting the wrong row.
+- Resolved for visible page error: the local Codex Runner is now online and should no longer trigger `没有在线 Codex Runner`.
+- Remaining missing precondition: create or restore a real enabled `作废测试` test item in `系统管理 > 测试管理`, with formal test method rows and target/checkpoint rows.
+- Impact: Runner can now accept executions, but it still cannot execute the originally requested `作废测试` item until that item exists.
 
 ## Next Required Input
 

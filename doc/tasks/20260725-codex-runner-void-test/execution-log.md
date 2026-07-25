@@ -42,3 +42,10 @@
 - BLOCKER: 只读页面会话 API 列表核对 -> 当前测试管理总数 `1`，唯一名称为 `排产工单手动重排 881MO093613/881MO093615`。
 - BLOCKER: 只读 DB 核对 `system_codex_test_case` schema 与数据 -> 不存在名称、测试方法或测试数据包含“作废”的测试项；未执行任何写入 SQL。
 - EXPERIENCE: 已更新 `docs/e2e-rules.md#codex-runner-目标测试项存在性门禁` 与 `docs/experience-index.md`，沉淀“目标测试项不存在时不得自动创建、改跑其它项或把空领取当成功”的门禁。
+- USER-REPORTED: 页面点击测试项“执行”提示 `没有在线 Codex Runner`。
+- ROOT CAUSE: 之前的 Runner 注册探针是一次性进程，注册成功后退出，超过心跳窗口后后端 `validateRunnerOnline()` 判定无在线 Runner。
+- IMPLEMENTED: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 的 `--loop` 模式增加 `CODEX_TEST_POLL_INTERVAL_MS`，空任务时默认 5 秒等待，避免高频空轮询。
+- IMPLEMENTED: 新增 `start-codex-runner-loop.ps1`，从任务临时 token 文件读取 token，只注入后台 Runner 子进程环境；命令行和日志不暴露 token。
+- GREEN: `node tests/e2e/system-codex-test-management-static.spec.js` -> PASS，覆盖 Runner 租户头和 loop 轮询间隔静态合同。
+- GREEN: `start-codex-runner-loop.ps1` -> PASS，后台 Runner PID `51372` 正在运行。
+- GREEN: 只读 DB 核对 `system_codex_test_runner_session` -> `local-codex-runner-20260725` 为 `ONLINE`，`heartbeat_age_seconds=9`，租户 `1`，可解除页面“没有在线 Codex Runner”错误。

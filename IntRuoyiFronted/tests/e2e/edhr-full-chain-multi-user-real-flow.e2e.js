@@ -361,7 +361,12 @@ async function clickVisibleButton(root, name, label) {
   for (let index = 0; index < count; index += 1) {
     const button = locator.nth(index)
     if ((await button.isVisible().catch(() => false)) && !(await button.isDisabled().catch(() => true))) {
-      await button.click()
+      await button.scrollIntoViewIfNeeded().catch(() => undefined)
+      try {
+        await button.click({ timeout: 10000 })
+      } catch (error) {
+        await button.click({ timeout: 10000, force: true })
+      }
       return
     }
   }
@@ -1101,8 +1106,35 @@ async function openFillTaskFromBatchDetailTakeover(page, batchId, batchCode, tas
   if ((await batchRecordToggle.count()) > 0 && (await batchRecordToggle.isVisible().catch(() => false)) && !(await batchRecordToggle.isDisabled().catch(() => true))) {
     await batchRecordToggle.click({ timeout: 10000 })
   }
-  const takeoverButton = taskCard.getByRole('button', { name: '管理员接管并填写' }).first()
-  if (!(await takeoverButton.waitFor({ state: 'visible', timeout: 60000 }).then(() => true, () => false))) {
+  const taskToken = task.batchRecordReportName || task.formTemplateName || task.processName || task.processCode
+  const takeoverButtonLocator = () =>
+    page
+      .locator('.edhr-batch-detail__rail-process-form-item')
+      .filter({ hasText: String(taskToken) })
+      .getByRole('button', { name: '管理员接管并填写' })
+      .first()
+  let takeoverClicked = false
+  let takeoverClickError
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const takeoverButton = takeoverButtonLocator()
+    const visible = await takeoverButton.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, (error) => {
+      takeoverClickError = error
+      return false
+    })
+    if (!visible) {
+      await page.waitForTimeout(500)
+      continue
+    }
+    try {
+      await takeoverButton.click({ timeout: 5000, force: true })
+      takeoverClicked = true
+      break
+    } catch (error) {
+      takeoverClickError = error
+      await page.waitForTimeout(500)
+    }
+  }
+  if (!takeoverClicked) {
     await captureEvidence(page, `takeover-button-missing-${batchCode}-${task.id}`, {
       batchId,
       batchCode,
@@ -1111,13 +1143,14 @@ async function openFillTaskFromBatchDetailTakeover(page, batchId, batchCode, tas
       allowedActions: task.allowedActions,
       currentUserRole: task.currentUserRole,
       disabledReason: task.disabledReason,
-      visibleButtons: await visibleButtonLabels(page)
+      visibleButtons: await visibleButtonLabels(page),
+      clickError: takeoverClickError?.message
     })
-    throw blocked(`批次详情未显示管理员接管并填写按钮：${batchCode} / ${task.processName || task.batchRecordReportName}`, [
-      `任务 ${task.id} currentUserRole=${task.currentUserRole || '<empty>'}, allowedActions=${JSON.stringify(task.allowedActions || [])}, disabledReason=${task.disabledReason || '<empty>'}`
+    throw blocked(`批次详情未能点击管理员接管并填写按钮：${batchCode} / ${task.processName || task.batchRecordReportName}`, [
+      `任务 ${task.id} currentUserRole=${task.currentUserRole || '<empty>'}, allowedActions=${JSON.stringify(task.allowedActions || [])}, disabledReason=${task.disabledReason || '<empty>'}`,
+      `点击错误：${takeoverClickError?.message || '<empty>'}`
     ])
   }
-  await takeoverButton.click({ timeout: 10000 })
   const confirm = page.locator('.el-message-box:visible').first()
   await confirm.waitFor({ state: 'visible', timeout: 60000 })
   const transferPromise = waitForApiResponse(page, ENDPOINTS.flowInterventionTransfer, `管理员接管填写任务 ${batchCode}`, 'POST').then(

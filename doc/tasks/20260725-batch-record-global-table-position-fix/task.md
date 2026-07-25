@@ -7,10 +7,10 @@
 ## Milestones
 
 - [x] 建立任务记录并确认适用规则。
-- [ ] 复现两个截图对应的结构偏差并补 RED 回归测试。
-- [ ] 实施全局解析修复，避免表单级特例和降级分支。
-- [ ] 运行目标 Maven 测试与相关回归验证。
-- [ ] 更新验证报告和收尾状态。
+- [x] 复现两个截图对应的结构偏差并补 RED 回归测试。
+- [x] 实施全局解析修复，避免表单级特例和降级分支。
+- [x] 运行目标 Maven 测试与相关回归验证。
+- [x] 更新验证报告和收尾状态。
 
 ## Expected Verification
 
@@ -20,7 +20,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 
@@ -36,3 +36,14 @@ in_progress
 - Verification: 任务日志记录 RED/GREEN 命令和两个目标表单的结构断言结果。
 - Forbidden action: 禁止引入 fallback、静默吞错、改测试迎合错误输出、仅靠截图人工判断完成。
 - Evidence: 本任务 `doc/tasks/20260725-batch-record-global-table-position-fix/`。
+
+## Verification Summary
+
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordReportLayoutCalibratorTest#calibrate_shouldMergePackedMaterialMatrixParentheticalContinuationLines,MesProBatchRecordSharedRowTypeRulesTest#classifyRow_returnsLongDescriptionForLabeledSelfInspectionNarrativeRows" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，复现 packed 括号续行被拆开和 `生产自检` 说明行被归为 `FIELD`。
+- GREEN: 同一目标命令 -> PASS，2 tests, 0 failures。
+- REAL DOC: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordReportLayoutCalibratorTest#calibrate_shouldMergePackedMaterialMatrixParentheticalContinuationLines+calibrate_actualPressurePumpLightCureOne_shouldKeepParentheticalMaterialWithPreviousItem+calibrate_actualPressurePumpCleanDetailBand_shouldStopBeforeSelfInspectionSection,MesProBatchRecordSharedRowTypeRulesTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，13 tests, 0 failures；使用 `C:\Users\BJB110\Desktop\文档\批记录压力泵.doc` 验证 `光固Ⅰ工序生产记录` 和 `清洁工序生产记录`。
+- REGRESSION NOTE: `MesProBatchRecordJingxiTableStructureVerificationTest#routeBPackedMaterialMatrix...` 未进入解析逻辑，因测试类硬编码的旧本地 fixture `C:\Users\BJB110\Desktop\2\2\RE-PP-ID-01（A 1）球囊扩张压力泵生产记录(1).doc` 不存在而失败；本次用户指定源 DOC 已通过目标回归。
+
+## Closeout Notes
+
+- 实现提交/推送尚未执行：当前 `int_main` 已存在 ahead 状态和其他任务未提交改动，需要按项目 Git 规则先处理既有状态，避免把非本任务改动混入。

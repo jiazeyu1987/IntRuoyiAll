@@ -5235,12 +5235,7 @@ public class MesProBatchRecordReportLayoutCalibrator {
                 || Math.max(1, packedCell.getColSpan()) < columnCount - Math.max(8, Math.max(1, sideHeaderCell.getColSpan()) + 2)) {
             return null;
         }
-        List<String> lines = packedCell.getText() == null
-                ? List.of()
-                : packedCell.getText().lines()
-                .map(String::trim)
-                .filter(line -> !line.isBlank())
-                .toList();
+        List<String> lines = MesProBatchRecordPackedMaterialMatrixTextSupport.nonBlankLines(packedCell.getText());
         if (lines.size() < PACKED_MATERIAL_MATRIX_HEADER_COUNT + 2) {
             return null;
         }
@@ -5255,14 +5250,8 @@ public class MesProBatchRecordReportLayoutCalibrator {
         if (!explicitMergedSideHeader && !collapsedMatrixShape) {
             return null;
         }
-        List<String> itemNames = new ArrayList<>();
-        for (int index = PACKED_MATERIAL_MATRIX_HEADER_COUNT; index < lines.size(); index++) {
-            String line = lines.get(index);
-            if ("/".equals(line)) {
-                continue;
-            }
-            itemNames.add(line);
-        }
+        List<String> itemNames = MesProBatchRecordPackedMaterialMatrixTextSupport.extractItemNames(
+                lines, PACKED_MATERIAL_MATRIX_HEADER_COUNT);
         if (itemNames.size() < 2) {
             return null;
         }
