@@ -16,6 +16,14 @@
 - Verification: 记录每个提交的 commit hash、文件清单和 `git status --short --branch` 结果；推送后必须确认本地分支不再领先 `origin`。
 - Forbidden action: 禁止用 force push、历史重写、destructive reset、丢弃脏改动、跳过 push、或把基线提交与当前任务提交混在一起作为绕过。
 - Evidence: `doc\tasks\<task-id>\execution-log.md`、`docs\task-closeout-rules.md`、当前 Git 命令输出。
+### 提交前 stale blocker 复验门禁
+
+- Trigger: 准备提交时任务文档仍标记 `blocked`，但阻塞项可能已被其它并行改动修复。
+- Preflight check: 不得直接按旧文档状态提交；先重跑旧 blocker 对应的最小门禁，例如 Maven compile、目标 JUnit、`pnpm ts:check` 或静态合同。
+- Blocker: 复验仍失败、命令被沙箱/ACL 拦截且无法按审批重跑、或无法证明 blocker 已解除时，保持 blocked 并停止提交。
+- Verification: 复验通过后更新 `task.md`、`execution-log.md` 和 `verification-report.md`，记录旧 blocker 解除、命令输出摘要和新的收尾状态。
+- Forbidden action: 禁止只因用户要求提交就绕过 `blocked` 状态；禁止把旧 blocker 当作已解决而不重跑原门禁。
+- Evidence: `doc\tasks\20260724-batch-fda-audit-log-coverage\execution-log.md`，2026-07-25 提交前重跑 Maven compile、目标 JUnit、`pnpm ts:check` 后解除旧阻塞。
 
 ### 脏工作区基线门禁
 

@@ -10,6 +10,7 @@
 
 - BDD: 创建批次使用已发布路线快照 -> Given 工艺路线存在 ACTIVE 版本且草稿配置已发生变化 / When 创建 eDHR 批次执行 / Then 批次持久化 ACTIVE 版本和路线快照，并仅从该快照生成任务
 - BDD: 已创建批次不受草稿影响 -> Given 批次已经按 ACTIVE 路线快照创建 / When 修改当前草稿配置 / Then 批次任务和其表单绑定保持创建时冻结内容
+- BDD: 管理员接管当前填写任务 -> Given admin 创建批次后当前填写任务分配给配置填写人而非 admin / When admin 在批次详情点击“管理员接管并填写”并确认 / Then 系统通过正式流程干预转办 work task 给 admin，并继续打开真实填写表单
 
 ## Initial Evidence
 
@@ -66,3 +67,8 @@
 - GREEN: `node doc/tasks/20260724-batch-execution-published-route-runtime-update/admin-create-published-route.e2e.cjs` -> PASS，使用本机前端 `http://localhost:8081`、授权租户 `芋道源码/admin`、工单 `923834 / 881MO090935`、路线 `922119 / RT000028` 创建批次 `900000000790 / BRS20260725134444` 并进入批次详情页。
 - GREEN: final DB verification -> PASS，批次 `900000000790` 持久化 `route_id=922119`、`route_version_id=358`、`route_version_no=V14`、`route_snapshot_json` 长度 `38089`，`configSnapshots.batchUseConfigs=14`，`task_total=21`，`blocked_count=0`。
 - GREEN: draft independence evidence -> PASS，路线 `922119` 当前 active 版本仍为 `358 / V14`，同时存在草稿 `361 / V15`；本次批次冻结的是 ACTIVE `V14` 而非草稿。
+
+## 2026-07-25 Admin Takeover Fill E2E
+
+- RED: admin direct open assumption -> FAIL，新建批次已存在 active FILL work task，但该任务责任人为配置填写人 `810 / wangxin`，admin 不具备直接 `OPEN_FORM`；真实页面应走“管理员接管并填写”，不得改成 API-only、SQL 直改或让 admin 跳过流程干预。
+- CHANGE: task-local E2E script -> 更新 `admin-create-published-route.e2e.cjs`，在创建并进入详情后选择正式“管理员接管并填写”按钮，确认 Element Plus 对话框，等待 `/mes/pro/edhr-flow-intervention/transfer` 和 `/mes/pro/edhr-batch-execution/task/open` 成功，并断言真实填写表单打开。

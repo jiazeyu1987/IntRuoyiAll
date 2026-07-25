@@ -10,6 +10,7 @@
 - [x] 验证目标回归测试及当前本地运行态版本
 - [x] 在隔离且可确认归属的运行环境中打包并更新后端
 - [x] 通过真实创建批次路径验证草稿变更不影响新批次
+- [ ] 通过真实页面验证 admin 接管并打开填写表单
 - [ ] 完成验证、清理和收尾
 
 ## Expected Verification
@@ -21,7 +22,7 @@
 
 ## Current Status
 
-ready_for_closeout
+in_progress
 
 ## 经验门禁
 
@@ -54,3 +55,4 @@ ready_for_closeout
 - 2026-07-24 cleanup preview：主工作区仍包含其他任务脏改动；隔离 worktree 分支 `e2e/batch-route-snapshot-20260724` 当前不能 fast-forward 合并到 `int_main`，且 worktree 中存在非本任务改动 `MesProRouteFlowConfigServiceImpl.java`，因此暂不执行自动合并、删除 worktree 或提交无关文件。
 - 2026-07-25 E2E 复跑：测试租户 `测试租户/aoteman` 使用当前可读取的本机 `.env` 密码登录失败，接口返回 `登录失败，账号密码不正确`；本轮未进入批次创建，未生成新批次。
 - 2026-07-25 用户授权 `芋道源码/admin` 后复跑真实页面创建批次 E2E：批次 `900000000790 / BRS20260725134444` 创建成功，冻结 route `922119` 的 ACTIVE `358 / V14`，同时草稿 `361 / V15` 仍存在。
+- 2026-07-25 继续验证范围：创建后若当前填写任务分配给非 admin，真实页面必须点击“管理员接管并填写”，通过流程干预转办后打开真实填写表单；不得用 API-only、SQL 直改或授予 admin 直接 `OPEN_FORM` 代替。
