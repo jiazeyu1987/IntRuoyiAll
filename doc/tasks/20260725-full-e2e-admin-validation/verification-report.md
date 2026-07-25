@@ -52,5 +52,5 @@
 
 - Result: PASS for admin-authorized readonly/current-safe E2E surface; BLOCKED for flows outside admin-only scope.
 - Task status: `ready_for_closeout`.
-- Cleanup: task-closeout preview/apply completed; formal evidence files are preserved.
-- Closeout blocker: current worktree contains many pre-existing and concurrent dirty/staged changes; no commit or push was performed to avoid mixing unrelated task artifacts.
+- Cleanup: task-closeout preview/apply completed; residual runtime logs and temporary full-chain artifacts removed; formal evidence files are preserved.
+- Closeout blocker: current branch remains ahead of origin and the worktree contains non-task changes/untracked directories; no commit or push was performed to avoid mixing unrelated task artifacts.

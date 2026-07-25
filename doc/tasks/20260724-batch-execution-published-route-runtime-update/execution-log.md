@@ -10,7 +10,7 @@
 
 - BDD: 创建批次使用已发布路线快照 -> Given 工艺路线存在 ACTIVE 版本且草稿配置已发生变化 / When 创建 eDHR 批次执行 / Then 批次持久化 ACTIVE 版本和路线快照，并仅从该快照生成任务
 - BDD: 已创建批次不受草稿影响 -> Given 批次已经按 ACTIVE 路线快照创建 / When 修改当前草稿配置 / Then 批次任务和其表单绑定保持创建时冻结内容
-- BDD: 管理员接管当前填写任务 -> Given admin 创建批次后当前填写任务分配给配置填写人而非 admin / When admin 在批次详情点击“管理员接管并填写”并确认 / Then 系统通过正式流程干预转办 work task 给 admin，并继续打开真实填写表单
+- BDD: 打开当前填写任务 -> Given admin 创建批次后存在当前活动填写 work task / When admin 在批次详情按后端 allowedActions 点击“打开填写”或“管理员接管并填写” / Then 系统通过正式页面入口打开真实填写表单
 
 ## Initial Evidence
 
@@ -71,4 +71,9 @@
 ## 2026-07-25 Admin Takeover Fill E2E
 
 - RED: admin direct open assumption -> FAIL，新建批次已存在 active FILL work task，但该任务责任人为配置填写人 `810 / wangxin`，admin 不具备直接 `OPEN_FORM`；真实页面应走“管理员接管并填写”，不得改成 API-only、SQL 直改或让 admin 跳过流程干预。
-- CHANGE: task-local E2E script -> 更新 `admin-create-published-route.e2e.cjs`，在创建并进入详情后选择正式“管理员接管并填写”按钮，确认 Element Plus 对话框，等待 `/mes/pro/edhr-flow-intervention/transfer` 和 `/mes/pro/edhr-batch-execution/task/open` 成功，并断言真实填写表单打开。
+- CHANGE: task-local E2E script -> 更新 `admin-create-published-route.e2e.cjs`，创建并进入详情后优先按正式 `OPEN_FORM` 点击“打开填写”；若无 `OPEN_FORM` 再选择“管理员接管并填写”，等待正式转办和 `/mes/pro/edhr-batch-execution/task/open` 成功，并断言真实填写表单打开。
+- RED: takeover-only script -> FAIL，当前新建批次首个活动任务 `1772` 已对 admin 返回 `OPEN_FORM`，原脚本只寻找可接管任务而失败；修正为按后端 allowedActions 走正式页面动作。
+
+- RED: direct open without rail-card selection -> FAIL，点击“打开填写”后未发出 `/task/open`，原因是脚本只选中了工序组，未先点击右侧具体表单卡片以刷新填写载体；已补齐右侧表单卡片和“批记录”载体选择。
+
+- CHANGE: direct open locator -> 将“打开填写”限定在右侧 active 表单卡片内，并等待卡片 is-active 与“批记录”载体 aria-pressed 生效后再点击，避免误点非当前任务按钮。

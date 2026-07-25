@@ -71,3 +71,8 @@ ready_for_closeout
 - doc/tasks/20260725-full-e2e-admin-validation/admin-preview-e2e-output/
 - doc/tasks/20260725-full-e2e-admin-validation/form-fill-log-e2e-output/
 - doc/tasks/20260725-full-e2e-admin-validation/edhr-release-check-report-final.json
+
+## Closeout Blocker
+
+- Cleanup preview/apply 已完成，当前任务临时 artifact 已清理，正式证据保留。
+- 当前分支仍存在 ahead 状态及非本任务变更/未跟踪目录；为避免混入并发任务，本任务未执行提交或推送，状态保持 ready_for_closeout。

@@ -40,13 +40,13 @@
 
 ## Final Status
 
-blocked
+ready_for_closeout
 
 ## Remaining Blockers
 
-- 需先由所属并行任务修复 `MesProRouteFlowConfigServiceImpl.resolveRecordbookEnabled(Boolean, String)` 缺失，才能完成后端编译验证。
-- 需先由所属并行任务修复 DCC controlled-file browser 页面类型错误，才能完成前端 `ts:check`。
-- 当前任务未提交，原因是必需验证仍被非本任务阻塞。
+- 本轮请求的写入型真实 E2E 已 PASS；原后端编译阻塞已通过 `-am` 同 reactor 构建验证解除。
+- 仍有非本任务工作区脏改动与全仓 `diff --check` 阻塞：`doc/tasks/20260724-batch-execution-published-route-runtime-update/real-e2e-evidence.md` 存在 EOF 空行问题，按任务隔离规则未修改。
+- 当前任务仍待收尾：任务自有 runtime worktree `D:/IntRuoyiWorktree/20260724-batch-fda-audit-runtime` 与后端 PID `50968` 需要在 closeout 阶段处理。
 
 
 ## E2E Verification - 2026-07-25
@@ -65,3 +65,15 @@ blocked
 - GREEN Static: `node IntRuoyiBackend\yudao-module-mes\src\test\js\edhr-fda-operation-audit-coverage-static.spec.cjs` -> PASS.
 - BLOCKED Compile: `mvn -pl yudao-module-mes -DskipTests compile` -> FAIL in unrelated `MesProRouteVersionPublishProjectionServiceImpl.java:[842,17]` because `BusinessApprovalPolicyDOBuilder.formPolicyType(String)` is unavailable.
 - No fallback: The E2E was not replaced with SQL/API-only verification, mock data, or direct permission repair.
+
+## Final E2E Pass - 2026-07-25 15:25 Asia/Shanghai
+
+- GREEN: `mvn -pl yudao-module-mes -am -DskipTests compile` -> PASS，依赖模块同 reactor 构建后主代码编译通过。
+- GREEN: `mvn -pl yudao-module-mes -am '-Dtest=MesProEdhrLocalStateSampleServiceTest#createLocalStateSample_writesExpectedStateCombination' '-Dsurefire.failIfNoSpecifiedTests=false' test` -> PASS，6 tests / 0 failures / 0 errors。
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\edhr-fda-operation-audit-coverage-static.spec.cjs` -> PASS。
+- GREEN: Clean runtime jar build from `D:/IntRuoyiWorktree/20260724-batch-fda-audit-runtime` -> PASS，jar SHA256 `1DC505A97E6BD91F94F0D975A6F404E7469DAE92F1960833DD9DCE05B241DC35`。
+- GREEN: Backend runtime health `http://127.0.0.1:48081/actuator/health` -> `UP`，PID `50968`，jar `D:/IntRuoyiWorktree/20260724-batch-fda-audit-runtime/IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar`。
+- GREEN: `node doc\tasks\20260724-batch-fda-audit-log-coverage\operation-audit-trace-write-sample.e2e.cjs` -> PASS。
+- E2E Sample: batchExecutionId=`900000000799`, batchExecutionCode=`EDHR-UI-SAMPLE-PRECHECK-20260725152451737`, operationAuditId=`18421`, operationType=`LOCAL_STATE_SAMPLE_CREATE`, auditHash=`d711fb2e57ab6f2b62af95731b15f94bf57a84280724b03ac6a2834be73ef205`.
+- UI Trace Request: `/mes/pro/edhr-operation-audit/page?pageNo=1&pageSize=10&batchExecutionId=900000000799`; asserted `batchExecutionId` present and `objectType/objectId` absent.
+- Evidence: `test-results\operation-audit-trace-write-sample\evidence.md`, `result.json`, `operation-audit-trace-write-sample.png`.

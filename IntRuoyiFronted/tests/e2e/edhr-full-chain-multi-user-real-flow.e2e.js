@@ -829,64 +829,28 @@ async function openFillTaskFromBoard(page, batchId, batchCode, task, options = {
       `当前可见任务行：${JSON.stringify(await visibleTableRowTexts(page))}`
     ])
   }
-  const allowExecutionDetail = options.allowExecutionDetail === true
-  const detailPromise = allowExecutionDetail
-    ? null
-    : waitForApiResponse(
-        page,
-        ENDPOINTS.batchGet,
-        `${actionLabel}待办进入批次详情 ${batchCode}`,
-        'GET',
-        (response) => response.url().includes(`id=${batchId}`)
-      )
-  if (detailPromise) detailPromise.catch(() => undefined)
-  const executionDetailPromise = allowExecutionDetail
-    ? waitForApiResponse(
-        page,
-        ENDPOINTS.executionDetail,
-        `${actionLabel}待办进入执行详情 ${options.expectedExecutionId || ''}`,
-        'GET',
-        (response) => (options.expectedExecutionId ? response.url().includes(`id=${options.expectedExecutionId}`) : true)
-      )
-    : null
-  if (executionDetailPromise) executionDetailPromise.catch(() => undefined)
-  await clickVisibleButton(row, '处理', `处理${actionLabel}待办 ${batchCode}`)
+
+  const openResponsePromise = waitForApiResponse(page, ENDPOINTS.batchTaskOpen, `处理${actionLabel}待办 ${batchCode}`, 'POST')
+  const processButton = await waitForVisibleEnabledButton(page, '处理', `处理${actionLabel}待办 ${batchCode}`)
+  await processButton.click()
+  const opened = await openResponsePromise
+  const openedExecutionId = options.expectedExecutionId || opened?.executionId
+  assert.ok(openedExecutionId, `${actionLabel}待办打开后必须返回 executionId。`)
   const url = await waitForCurrentUrl(
     page,
     (currentUrl) => {
       const hasWorkTaskId = Boolean(currentUrl.searchParams.get('workTaskId'))
-      if (currentUrl.pathname === ROUTES.batchDetail) {
-        return hasWorkTaskId && Boolean(currentUrl.searchParams.get('id'))
-      }
-      if (allowExecutionDetail && currentUrl.pathname === ROUTES.executionDetail) {
-        return hasWorkTaskId && Boolean(currentUrl.searchParams.get('id'))
-      }
-      return false
+      return currentUrl.pathname === ROUTES.executionDetail && hasWorkTaskId && Boolean(currentUrl.searchParams.get('id'))
     },
-    `处理${actionLabel}待办后进入详情`,
+    `处理${actionLabel}待办后进入填写页`,
     60000
   )
   if (options.expectedWorkTaskId) {
     assert.equal(url.searchParams.get('workTaskId'), String(options.expectedWorkTaskId), `${actionLabel}待办 workTaskId 必须匹配返工任务 ${options.expectedWorkTaskId}`)
   }
-  if (url.pathname === ROUTES.executionDetail) {
-    if (options.expectedExecutionId) {
-      assert.equal(url.searchParams.get('id'), String(options.expectedExecutionId), `${actionLabel}待办必须直接进入修订执行 ${options.expectedExecutionId}`)
-    }
-    if (executionDetailPromise) {
-      url.executionDetailData = await executionDetailPromise
-    }
-    await page.getByText('eDHR 执行详情').first().waitFor({ state: 'visible', timeout: 60000 })
-  } else {
-    if (detailPromise) await detailPromise
-    await page.getByText('eDHR批次详情').first().waitFor({ state: 'visible', timeout: 60000 })
-    await page.locator('.el-table__body-wrapper tbody tr, .el-table__row').first().waitFor({ state: 'visible', timeout: 60000 })
-    assert.equal(url.searchParams.get('id'), String(batchId), `${actionLabel}待办必须进入当前批次详情。`)
-    const batchTaskId = url.searchParams.get('batchTaskId')
-    if (batchTaskId) {
-      assert.equal(batchTaskId, String(task.id), `${actionLabel}待办 batchTaskId 必须匹配当前任务 ${task.id}`)
-    }
-  }
+  assert.equal(url.searchParams.get('id'), String(openedExecutionId), `${actionLabel}待办必须进入执行 ${openedExecutionId}`)
+  await page.locator('.edhr-fill-workspace, .edhr-page-shell__form').first().waitFor({ state: 'visible', timeout: 60000 })
+  url.openedTask = opened
   return url
 }
 

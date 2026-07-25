@@ -84,16 +84,26 @@
 - GREEN: `node scripts/edhr-release-e2e-coverage-gate.mjs --check --report ..\doc\tasks\20260725-full-e2e-admin-validation\edhr-release-check-report-final.json` -> PASS，features=14, checkScripts=11, syntaxFiles=11。
 - GREEN: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
 - GREEN: `git diff --check` -> PASS，仅 CRLF 工作区提示，无空白错误。
-- GREEN: edited-script-secret-scan -> PASS，本次触达脚本未保留 `admin123` 或默认密码表达式。
+- GREEN: edited-script-secret-scan -> PASS，本次触达脚本未保留明文密码或默认密码表达式。
 - NOTE: 多个普通 shell/Node 只读命令被 Windows sandbox ACL 拦截，已按 PowerShell/任务日志规则使用窄范围 `require_escalated` 复跑并记录关键结果。
 
 ### 5. Closeout Readiness
 
 - Status: ready_for_closeout。
 - Verification summary: 管理员可安全执行的 eDHR/记录本相关真实前端 E2E 与静态覆盖门禁已完成；写入型、多用户或旧直连填写页脚本按项目门禁记录为 BLOCKED，未用 mock、API-only 或默认成功替代。
-- Remaining blocker: 当前工作区包含大量本任务开始前和并行线程留下的 staged/unstaged/untracked 改动；未执行提交、推送或 task-closeout-cleanup apply，避免把非本任务变更混入当前收尾。
+- Remaining blocker: 当前工作区包含大量本任务开始前和并行线程留下的 staged/unstaged/untracked 改动；已执行 task-closeout-cleanup apply；未执行提交或推送，避免把非本任务变更混入当前收尾。
 ### 6. Cleanup Preview / Apply
 
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-full-e2e-admin-validation --mode preview` -> PASS，status=ready，blocked=<none>，warnings=<none>；正式 E2E 证据加入 `Cleanup Keep` 后重新 preview。
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-full-e2e-admin-validation --mode apply` -> PASS，删除本任务临时 full-chain/admin 初始失败产物与旧中间报告，保留 task.md、execution-log.md、verification-report.md、最终批次执行证据、管理员预览证据、表单日志证据和最终覆盖报告。
 - BLOCKER: commit/push closeout -> 当前 `int_main` 工作区仍包含多项本任务开始前和并行任务的 staged/unstaged/untracked 改动；为避免混入非本任务变更，本轮未执行提交或推送，任务状态保持 `ready_for_closeout`。
+### 7. Final Closeout Check
+
+- GREEN: cleanup-lock-owner-check -> PASS，未发现持有当前任务日志文件的运行进程。
+- GREEN: task-closeout apply -> PASS，删除 runtime 残留日志。
+- GREEN: residual-artifact-cleanup -> PASS，已在路径归属校验后删除当前任务临时 artifacts/full-chain-admin/ 目录。
+- GREEN: cleanup-preview-final -> PASS，delete=<none>，blocked=<none>，warnings=<none>。
+- GREEN: final-secret-scan -> PASS，任务证据、触达脚本和经验文档未保留明文密码或默认密码表达式。
+- GREEN: git diff --check -> PASS，仅 Git CRLF 提示，无空白错误。
+- GREEN: branch-runtime-port-guard -> PASS。
+- BLOCKER: commit/push closeout -> git status --short --branch 显示 int_main...origin/int_main [ahead 3]，且仍有非本任务改动/未跟踪目录；为避免混入并发任务，本任务不提交、不推送，保持 ready_for_closeout。

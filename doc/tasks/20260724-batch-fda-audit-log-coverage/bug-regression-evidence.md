@@ -21,3 +21,10 @@
 - GREEN: 静态契约 PASS，生产代码已保存 scope 并回写 `permissionScopeId`。
 - Risk: 修复只影响本地状态样本创建路径；正式业务批次仍沿用既有权限范围来源。
 - Blockers: Maven compile/JUnit 被非本任务 route projection 编译错误阻塞；修复后真实 E2E 需待后端可编译并重启后重跑。
+
+## Final E2E Pass - 2026-07-25 15:25 Asia/Shanghai
+
+- GREEN: The missing permission scope regression is fixed in runtime and verified through real UI E2E.
+- Verification: sample `900000000799` displays `LOCAL_STATE_SAMPLE_CREATE` in batch trace operation audit with `ALLOW` / `SUCCESS`.
+- Regression scope: local state sample creation now binds `BATCH_EXECUTION_TASK` / `AUDIT_VIEW`; ordinary production batch permission scope behavior is unchanged.
+- Blockers: none for the requested E2E path.

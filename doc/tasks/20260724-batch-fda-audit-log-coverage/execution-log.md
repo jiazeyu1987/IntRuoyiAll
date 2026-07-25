@@ -73,3 +73,15 @@
 - BLOCKED: `mvn -pl yudao-module-mes -DskipTests compile` -> FAIL，非本任务文件 `MesProRouteVersionPublishProjectionServiceImpl.java:[842,17]` 调用不存在的 `BusinessApprovalPolicyDOBuilder.formPolicyType(String)`。
 - BLOCKED: 目标 JUnit `MesProEdhrLocalStateSampleServiceTest#createLocalStateSample_writesExpectedStateCombination` 在 `testCompile` 阶段被既有 route projection 测试中的 `getFormPolicyType()/getFormSlotsJson()` 缺失阻塞，未执行到本测试。
 - Evidence: 写入型 E2E 证据见 `test-results\operation-audit-trace-write-sample\evidence.md`、`result.json`、`failure.png`。
+
+## Final E2E Pass - 2026-07-25 15:25 Asia/Shanghai
+
+- GREEN: `mvn -pl yudao-module-mes -am -DskipTests compile` -> PASS，依赖模块同 reactor 构建后主代码编译通过。
+- GREEN: `mvn -pl yudao-module-mes -am '-Dtest=MesProEdhrLocalStateSampleServiceTest#createLocalStateSample_writesExpectedStateCombination' '-Dsurefire.failIfNoSpecifiedTests=false' test` -> PASS，6 tests / 0 failures / 0 errors。
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\edhr-fda-operation-audit-coverage-static.spec.cjs` -> PASS。
+- GREEN: Clean runtime jar build from `D:/IntRuoyiWorktree/20260724-batch-fda-audit-runtime` -> PASS，jar SHA256 `1DC505A97E6BD91F94F0D975A6F404E7469DAE92F1960833DD9DCE05B241DC35`。
+- GREEN: Backend runtime health `http://127.0.0.1:48081/actuator/health` -> `UP`，PID `50968`，jar `D:/IntRuoyiWorktree/20260724-batch-fda-audit-runtime/IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar`。
+- GREEN: `node doc\tasks\20260724-batch-fda-audit-log-coverage\operation-audit-trace-write-sample.e2e.cjs` -> PASS。
+- E2E Sample: batchExecutionId=`900000000799`, batchExecutionCode=`EDHR-UI-SAMPLE-PRECHECK-20260725152451737`, operationAuditId=`18421`, operationType=`LOCAL_STATE_SAMPLE_CREATE`, auditHash=`d711fb2e57ab6f2b62af95731b15f94bf57a84280724b03ac6a2834be73ef205`.
+- UI Trace Request: `/mes/pro/edhr-operation-audit/page?pageNo=1&pageSize=10&batchExecutionId=900000000799`; asserted `batchExecutionId` present and `objectType/objectId` absent.
+- Evidence: `test-results\operation-audit-trace-write-sample\evidence.md`, `result.json`, `operation-audit-trace-write-sample.png`.

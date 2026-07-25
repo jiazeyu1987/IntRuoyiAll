@@ -29,6 +29,10 @@ const openFillTaskBlock = source.slice(openFillTaskStart, openFillTaskEnd)
 assert.ok(openFillTaskBlock.includes('waitForCurrentUrl('), '处理待办后必须轮询当前 SPA URL，不能依赖 load 导航事件。')
 assert.ok(!openFillTaskBlock.includes('await page.waitForURL('), '处理待办后的 URL 等待不得使用 waitForURL 默认 load 等待。')
 
+assert.ok(openFillTaskBlock.includes('ENDPOINTS.batchTaskOpen'), '工作任务台处理填写/返工待办必须等待 task/open 响应生成 execution。')
+assert.ok(openFillTaskBlock.includes("waitForVisibleEnabledButton(page, '处理'"), '工作任务台处理按钮应从页面可见操作列定位，不能限定在主表格行。')
+assert.ok(!openFillTaskBlock.includes("await clickVisibleButton(row, '处理'"), '工作任务台处理按钮不得从不含固定操作列的主表格行内点击。')
+
 const loadBatchDetailStart = source.indexOf('async function loadBatchDetailByUi')
 const loadBatchDetailEnd = source.indexOf('async function syncBatchByUi', loadBatchDetailStart)
 const loadBatchDetailBlock = source.slice(loadBatchDetailStart, loadBatchDetailEnd)
