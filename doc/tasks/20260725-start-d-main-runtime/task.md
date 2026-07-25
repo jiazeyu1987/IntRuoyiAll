@@ -14,20 +14,23 @@
 - [x] 保存启动前既有脏工作区基线提交。
 - [x] 创建本次任务目录与初始任务记录。
 - [x] 检查 `8101/48101` 端口占用。
-- [ ] 启动后端并验证 health。
-- [ ] 启动前端并验证入口。
-- [ ] 更新验证报告和最终状态。
+- [x] 启动 Docker MySQL/Redis 依赖并验证 `23306/26379` 监听。
+- [x] 补齐 D-Main 缺失的同源后端源码包并完成 `yudao-server` 打包。
+- [x] 启动后端并验证 health。
+- [x] 安装前端依赖、启动前端并验证入口。
+- [x] 更新验证报告和最终状态。
 
 ## Expected Verification
 
 - `scripts\preflight\branch-runtime-port-guard.ps1` 识别当前工作区为 `int_main_d`，端口为 `8101/48101`。
+- `mvn.cmd -pl yudao-server -am -DskipTests package` 返回 `BUILD SUCCESS` 并生成 `yudao-server-exec.jar`。
 - `http://127.0.0.1:48101/actuator/health` 返回 `UP`。
 - `http://127.0.0.1:8101/` 返回 HTTP `200`。
 - 监听进程命令行分别归属于 `D:\ProjectPackage\IntRuoyi\IntRuoyiAll\IntRuoyiBackend` 和 `D:\ProjectPackage\IntRuoyi\IntRuoyiAll\IntRuoyiFronted`。
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 经验门禁
 
@@ -45,13 +48,19 @@ in_progress
 - 启动前既有脏工作区基线提交：`7c21f74d chore: baseline d main runtime port contract`。
 - Runtime profile 预检通过：`int_main_d`，前端 `8101`，后端 `48101`。
 - 启动前端口检查：`8101/48101` 未监听；Docker MySQL `23306` 与 Redis `26379` 已监听。
+- 后端初始 RED：`yudao-module-bpm` 缺少 `formcenter/runtime` 包，`yudao-module-erp` 缺少 `service/sync/runtime` 包。
+- 已从 `E:\IntRuoyi` 同源同步 BPM runtime 4 个文件和 ERP sync runtime 6 个文件，未引入空实现、fallback 或吞异常逻辑。
+- 后端 GREEN：`mvn.cmd -pl yudao-server -am -DskipTests package` -> `BUILD SUCCESS`，生成 `IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`。
+- 后端运行验证：`48101` 监听 PID `29624`，`/actuator/health` status = `UP`。
+- 前端依赖：`pnpm install --frozen-lockfile --reporter append-only` -> PASS，安装 `vite 5.1.4`。
+- 前端运行验证：`8101` 监听 PID `43336`，Vite `branch-main-d` ready，`http://127.0.0.1:8101/` -> HTTP `200 OK`。
 
 ## Blockers
 
-- 待记录。
+- 收尾前仍需处理提交/推送和 cleanup；当前工作区另有未跟踪目录 `doc/tasks/20260725-submit-frontend-backend-code/`，不属于本任务，未修改。
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
-- `是否从根因和长期维护角度解决`：是，按 D-Main 独立 runtime profile 启动，不改默认端口配置。
+- `是否从根因和长期维护角度解决`：是，补齐同源缺失源码并按 D-Main 独立 runtime profile 启动，不改默认端口配置。
 - `是否存在临时补丁或绕过`：否。
