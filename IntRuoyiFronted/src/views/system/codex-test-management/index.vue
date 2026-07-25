@@ -96,8 +96,18 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column fixed="right" label="操作" width="180">
+      <el-table-column fixed="right" label="操作" width="220">
         <template #default="{ row }">
+          <el-button
+            v-hasPermi="['system:codex-test:execute']"
+            :disabled="!selectedTenantId || executeLoading || !row.id"
+            :loading="executeLoading"
+            link
+            type="success"
+            @click="startSingleCaseExecution(row)"
+          >
+            执行
+          </el-button>
           <el-button
             v-hasPermi="['system:codex-test:update']"
             link
@@ -554,6 +564,29 @@ async function startExecution(mode: 'SEQUENTIAL' | 'PARALLEL') {
     await getExecutionList()
   } catch (error) {
     showRequestError(error, mode === 'PARALLEL' ? '并行执行失败' : '顺序执行失败')
+  } finally {
+    executeLoading.value = false
+  }
+}
+
+async function startSingleCaseExecution(row: CodexTestCaseTableRow) {
+  const caseId = row.id
+  if (!caseId) return
+  if (!selectedTenantId.value) {
+    message.error('请选择测试租户')
+    return
+  }
+  executeLoading.value = true
+  try {
+    const executionId = await CodexTestApi.startCodexTestExecution({
+      targetTenantId: selectedTenantId.value,
+      executionMode: row.defaultExecutionMode,
+      caseIds: [caseId]
+    })
+    message.success(`已创建执行批次 ${executionId}`)
+    await getExecutionList()
+  } catch (error) {
+    showRequestError(error, '执行失败')
   } finally {
     executeLoading.value = false
   }
