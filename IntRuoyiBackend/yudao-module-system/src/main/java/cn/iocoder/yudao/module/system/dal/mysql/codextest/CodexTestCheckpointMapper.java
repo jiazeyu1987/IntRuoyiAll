@@ -3,7 +3,7 @@ package cn.iocoder.yudao.module.system.dal.mysql.codextest;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestCheckpointDO;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.Collection;
@@ -25,9 +25,7 @@ public interface CodexTestCheckpointMapper extends BaseMapperX<CodexTestCheckpoi
                 .orderByAsc(CodexTestCheckpointDO::getSort));
     }
 
-    default int deleteByCaseId(Long caseId) {
-        return delete(new LambdaUpdateWrapper<CodexTestCheckpointDO>()
-                .eq(CodexTestCheckpointDO::getCaseId, caseId));
-    }
+    @Delete("DELETE FROM system_codex_test_checkpoint WHERE case_id = #{caseId}")
+    int deleteByCaseId(Long caseId);
 
 }

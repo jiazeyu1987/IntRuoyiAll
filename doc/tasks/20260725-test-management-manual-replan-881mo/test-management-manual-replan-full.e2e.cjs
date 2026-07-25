@@ -229,7 +229,8 @@ async function openTestManagement(page) {
   const response = await responsePromise
   const body = await response.json()
   assert.equal(body.code, 0, `case page business error: ${body.msg || body.code}`)
-  await page.locator('text=自然语言测试方法').waitFor({ state: 'visible', timeout: 30000 })
+  await page.locator('text=测试方法项').waitFor({ state: 'visible', timeout: 30000 })
+  await page.locator('text=测试目标项').waitFor({ state: 'visible', timeout: 30000 })
   return body.data
 }
 
@@ -261,7 +262,7 @@ async function normalizeCheckpoints(dialog) {
   let rows = dialog.locator('.codex-test-checkpoint')
   let count = await rows.count()
   while (count < checkpoints.length) {
-    await dialog.getByRole('button', { name: /新增检查点/ }).click()
+    await dialog.getByRole('button', { name: /新增目标项/ }).click()
     rows = dialog.locator('.codex-test-checkpoint')
     count = await rows.count()
   }
@@ -434,6 +435,14 @@ async function run() {
       defaultExecutionMode: savedDetail.defaultExecutionMode,
       parallelSafe: savedDetail.parallelSafe,
       status: savedDetail.status
+    }
+
+    if (config.mode === 'case-only') {
+      summary.status = 'PASS'
+      summary.caseOnly = true
+      fs.writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`, 'utf8')
+      console.log(`PASS: ${caseName} case-only`)
+      return
     }
 
     await context.close()
