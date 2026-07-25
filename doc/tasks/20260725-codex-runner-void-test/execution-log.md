@@ -54,7 +54,7 @@
 - IMPLEMENTED: `codex-test-runner.mjs` 增加执行期即时心跳、周期心跳、Codex 执行超时、Windows 进程树终止、服务器取消信号处理，并在不可恢复执行错误时按检查点回写 `BLOCKED`。
 - IMPLEMENTED: `restart-backend-with-runner-token.ps1` 通过 `SPRING_APPLICATION_JSON` 注入 `yudao.codex-test.runner.token`，并修正后端 PID 归属判断的 Windows 路径斜杠差异。
 - GREEN: `node --check scripts/codex-test-runner.mjs` -> PASS。
-- BLOCKER: `node tests/e2e/system-codex-test-management-static.spec.js` -> FAIL，当前宽合同新增了非本任务范围的 `测试记录页签必须有独立菜单迁移。` 断言，缺失 `IntRuoyiBackend/sql/mysql/20260726_system_codex_test_record_menu.sql`；按窄修门禁不顺手补无关菜单迁移。
+- BLOCKER: `node tests/e2e/system-codex-test-management-static.spec.js` -> FAIL，当前宽合同仍有非本任务范围的“测试记录页签拆分”断言失败：测试管理页仍内嵌 `<span>执行记录</span>`；按窄修门禁不顺手改无关页面拆分逻辑。
 - GREEN: focused Codex Runner static contract -> PASS，覆盖 Windows `.cmd` 包装、心跳、超时、进程树终止、服务器取消处理、`BLOCKED` 回写，以及 `SPRING_APPLICATION_JSON` 注入 Runner token。
 - GREEN: 正式登录 API + `/system/codex-test-execution/cancel` 取消 `executionId=3` -> `code=0`，DB 状态为 `CANCELED`。
 - GREEN: `restart-backend-with-runner-token.ps1` -> PASS，本机后端 `http://127.0.0.1:48081/actuator/health` 为 `UP`，PID `47008`。

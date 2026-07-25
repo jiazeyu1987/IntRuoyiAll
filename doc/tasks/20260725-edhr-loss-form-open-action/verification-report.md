@@ -23,10 +23,13 @@
 - `IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue`
 - `IntRuoyiFronted/src/views/form-center/business-action/ActionFormPanel.vue`
 - `IntRuoyiFronted/tests/e2e/edhr-loss-form-open-action-static.spec.js`
+- `IntRuoyiFronted/tests/e2e/edhr-loss-form-open-action-real.e2e.js`
 
 ## Verification Commands
 
 - `node tests\e2e\edhr-loss-form-open-action-static.spec.js` -> PASS
+- `node --check tests\e2e\edhr-loss-form-open-action-real.e2e.js` -> PASS
+- `node tests\e2e\edhr-loss-form-open-action-real.e2e.js` -> PASS
 - `node tests\e2e\edhr-batch-process-companion-forms-static.spec.js` -> PASS
 - `node tests\e2e\edhr-pre-release-editable-submit-static.spec.js` -> PASS
 - `node tests\e2e\edhr-batch-detail-open-task-worktaskid-static.spec.js` -> PASS
@@ -38,10 +41,20 @@
 - `task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode preview` -> PASS after view-only extension, no delete/blocked/warnings
 - `task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode apply` -> PASS after view-only extension, no deleted paths
 
+## Real E2E Evidence
+
+- Runtime: local frontend `http://localhost:8081` and local backend `http://127.0.0.1:48081` with health `UP`.
+- Login preflight: `芋道源码/admin` passed through `scripts/preflight/login-preflight.mjs`; password was not recorded.
+- Target: `batchExecutionId=900000000837`, batch code `E2E-FULL-1784998360522`, loss form task `taskId=6368`, process `粗洗工序`, `requiredPolicy=REQUIRED`, `allowedActions=[]`, `formCenterInstanceId=303`, `formTemplateId=25`.
+- UI assertions: loss form card primary action is `查看表单`; clicking it opens `查看表单：损耗单`; readonly notice is visible; `解析 / 创建 / 保存草稿 / 提交 / 重提 / 放弃` buttons are all disabled.
+- Network assertions: no `/mes/pro/edhr-batch-execution/task/open`, no `/mes/pro/edhr-batch-execution/task/special-node/skip`, and no MES/FormCenter write request occurred.
+- Evidence files: `doc/tasks/20260725-edhr-loss-form-open-action/real-e2e-output/readonly-loss-form-card-result.json` and `doc/tasks/20260725-edhr-loss-form-open-action/real-e2e-output/readonly-loss-form-card.png`.
+
 ## Experience Gate
 
 - Added `eDHR 路线表单跳过口径门禁` to `docs/e2e-rules.md`.
 - Added keyword routing for “必填路线表单不允许跳过 / requiredPolicy OPTIONAL / canSkipOptionalTask” to `docs/experience-index.md`.
+- Extended the same gate for view-only route form cards: no `OPEN_FORM` must verify `查看表单` through a real card click, with readonly drawer actions disabled and no write requests.
 
 ## Known Blockers
 

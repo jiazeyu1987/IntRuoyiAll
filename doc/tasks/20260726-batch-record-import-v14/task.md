@@ -7,10 +7,10 @@
 ## Milestones
 
 - [x] 建立任务记录并读取运行、登录、E2E、数据库和编码门禁。
-- [ ] 确认本机前后端运行态与目标页面入口。
-- [ ] 通过真实前端页面上传 Word 并触发解析。
-- [ ] 核验生成的批记录版本为 V14，且使用新的识别结果。
-- [ ] 记录截图、接口/数据库核验证据和收尾状态。
+- [x] 确认本机前后端运行态与目标页面入口。
+- [x] 通过真实前端页面上传 Word 并触发解析。
+- [x] 核验生成的批记录版本为 V14，且使用新的识别结果。
+- [x] 记录截图、接口/数据库核验证据和收尾状态。
 
 ## Expected Verification
 
@@ -21,7 +21,15 @@
 
 ## Current Status
 
-in_progress
+completed
+
+## Verification Result
+
+- PASS：本机前端 `http://127.0.0.1:8081` 可访问，后端 `http://127.0.0.1:48081/actuator/health` 返回 `{"status":"UP"}`。
+- PASS：通过真实页面 `MES 系统 / eDHR批记录 / 批记录表单` 上传 `C:\Users\BJB110\Desktop\文档\批记录压力泵.doc`，精确选择产品名称 `球囊扩张压力泵`，生成批记录版本 `V14.0`。
+- PASS：只读页面会话 API 核验 `球囊扩张压力泵 / V14.0` 返回 15 条批记录表单，状态为 `PENDING_APPROVAL`。
+- Evidence：截图 `doc/tasks/20260726-batch-record-import-v14/artifacts/04-v14-final-verification.png`；只读核验 `doc/tasks/20260726-batch-record-import-v14/artifacts/v14-readonly-verification.json`。
+- Note：首次自动化用模糊关键词 `压力泵` 命中了相邻产品 `按压式球囊扩充压力泵`，预检目标为 `V4.0`；后续已改为全局精确匹配项目名称，不使用表单特例，并以 `球囊扩张压力泵` 完成 V14 验证。
 
 ## 设计约束检查
 

@@ -25,6 +25,7 @@
 - completed: 新增只读查看分支：无 `OPEN_FORM` 但有可见路线表单时，主动作显示“查看表单”，动态表单打开只读抽屉，并禁用表单中心动作面板。
 - ready_for_closeout: 只读查看扩展验证通过，等待提交/推送门禁解除。
 - completed: 只读查看扩展后的 task-closeout-cleanup preview/apply 均通过，keep 三份任务文档，delete/blocked/warnings/deleted_paths 均为 `<none>`。
+- completed: 用户要求执行 E2E 验证；已新增并运行真实页面 E2E，覆盖管理员无 `OPEN_FORM` 的 REQUIRED 损耗单点击“查看表单”只读抽屉路径。
 
 ## TDD Evidence
 
@@ -41,11 +42,18 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode apply` -> PASS, no deleted paths。
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode preview` -> PASS after view-only extension, no delete/blocked/warnings。
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode apply` -> PASS after view-only extension, no deleted paths。
+- GREEN: backend runtime preflight -> PASS，本机 `8081` 前端 HTTP 200；`48081` 起初未监听，`restart-int-ruoyi-local.ps1` 命中既有门禁 `Missing int_main frontend path: E:\IntRuoyi\yudao-ui-admin-vue3` 后停止该脚本路径；随后使用已构建 `yudao-server-exec.jar`（SHA256 `E9042EBCAA4C7F403B6D287FBE3F397F729C7FE704B1D15E52511DE7DC7F84F8`）显式启动本机 backend，`http://127.0.0.1:48081/actuator/health` 返回 `UP`。
+- GREEN: `node E:\IntRuoyi\scripts\preflight\login-preflight.mjs --base-url http://localhost:8081 --tenant 芋道源码 --username admin --password <redacted> --target-path /mes/pro/feedback/edhr-batch-execution --target-text 批次 --timeout 90000` -> PASS。
+- GREEN: `node --check tests\e2e\edhr-loss-form-open-action-real.e2e.js` -> PASS。
+- GREEN: `node tests\e2e\edhr-loss-form-open-action-static.spec.js` -> PASS after real E2E script added。
+- GREEN: `node tests\e2e\edhr-loss-form-open-action-real.e2e.js` -> PASS，真实前端目标 `batchExecutionId=900000000837`、`taskId=6368`、`requiredPolicy=REQUIRED`、`allowedActions=[]`、主动作 `查看表单`，只读抽屉内 `解析/创建/保存草稿/提交/重提/放弃` 全部 disabled，未触发 `/task/open`、`/task/special-node/skip` 或 MES/FormCenter 写请求；证据 `doc/tasks/20260725-edhr-loss-form-open-action/real-e2e-output/readonly-loss-form-card-result.json`。
+- GREEN: project-experience-consolidation -> PASS，已将“无 OPEN_FORM 但可查看的路线表单必须点真实卡片验证查看表单只读抽屉”合并到 `docs/e2e-rules.md#eDHR 路线表单跳过口径门禁`，并补充 `docs/experience-index.md` 关键词路由。
 
 ## Additional Verification Notes
 
 - Attempted broader static contract: `node tests\e2e\edhr-batch-context-carrier-header-static.spec.js` failed on existing assertion `右侧打开填写按钮必须统一使用当前选中的填写载体`; this appears to be a broad/stale contract mismatch outside the focused loss-form skip fix because the card-specific companion-form contract passes.
 - Attempted broader static contract: `node tests\e2e\edhr-batch-pending-form-entry-static.spec.js` failed before assertions because it references missing path `E:\IntRuoyi\ruoyi-vue-pro\...MesProEdhrBatchExecutionServiceImpl.java`; this is a test harness precondition issue outside this focused fix.
+- Real E2E evidence: `doc/tasks/20260725-edhr-loss-form-open-action/real-e2e-output/readonly-loss-form-card-result.json` and screenshot `readonly-loss-form-card.png`。
 
 ## Blockers
 

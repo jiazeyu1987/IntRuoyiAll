@@ -22,7 +22,7 @@
 - Cleanup API: direct official login API + `/system/codex-test-execution/cancel` for `executionId=3` -> `code=0`, DB status `CANCELED`
 - Frontend runner syntax: `node --check scripts/codex-test-runner.mjs` -> PASS
 - Focused frontend runner static contract after timeout/cancel fix -> PASS
-- Broad static contract note: `node tests/e2e/system-codex-test-management-static.spec.js` currently fails before Runner assertions on unrelated missing menu migration `IntRuoyiBackend/sql/mysql/20260726_system_codex_test_record_menu.sql`
+- Broad static contract note: `node tests/e2e/system-codex-test-management-static.spec.js` currently fails before Runner assertions on unrelated test-record split work because the test management page still embeds `<span>执行记录</span>`
 - Backend token runtime: `restart-backend-with-runner-token.ps1` -> backend PID `47008`, health `UP`
 - Current Runner loop: `start-codex-runner-loop.ps1` -> background process `PID=29660`
 - Current Runner online DB check: latest session `id=6`, `runner_name=local-codex-runner-20260725`, `status=ONLINE`, `tenant_id=1`, `heartbeat_age_seconds=8`, `current_running_count=0`

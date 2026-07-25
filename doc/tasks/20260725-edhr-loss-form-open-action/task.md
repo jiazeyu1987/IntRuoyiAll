@@ -15,6 +15,7 @@
 ## Expected Verification
 
 - `node tests\e2e\<focused-static-test>.spec.js` 先 RED 后 GREEN
+- `node tests\e2e\edhr-loss-form-open-action-real.e2e.js` 使用真实前端点击损耗单卡片验证只读查看路径
 - 相关 eDHR 批次详情静态回归测试通过
 - `git diff --check` 通过
 
@@ -22,7 +23,7 @@
 
 ready_for_closeout
 
-说明：只读查看路径修复和验证已完成；最终 `completed` 状态仍被 Git 提交/推送门禁阻塞。
+说明：只读查看路径修复、静态合同和真实页面 E2E 验证已完成；最终 `completed` 状态仍被 Git 提交/推送门禁阻塞。
 
 ## 经验门禁
 
@@ -43,3 +44,5 @@ ready_for_closeout
 - `doc/tasks/20260725-edhr-loss-form-open-action/task.md`
 - `doc/tasks/20260725-edhr-loss-form-open-action/execution-log.md`
 - `doc/tasks/20260725-edhr-loss-form-open-action/verification-report.md`
+- `doc/tasks/20260725-edhr-loss-form-open-action/real-e2e-output/readonly-loss-form-card-result.json`
+- `doc/tasks/20260725-edhr-loss-form-open-action/real-e2e-output/readonly-loss-form-card.png`
