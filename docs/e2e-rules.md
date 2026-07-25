@@ -27,6 +27,7 @@
 - Trigger: 修改 `tests/e2e/*static.spec.js`、真实 `*.e2e.js` 脚本、Windows worktree 融合后出现静态合同在目标 worktree 自身失败、CRLF/LF 差异或废弃弹窗流程断言。
 - Preflight check: 先在目标 worktree 和当前工作区分别运行同一静态合同；读取源码时对只检查模板片段的静态合同统一归一化 CRLF 为 LF；确认真实 E2E 脚本与当前页面真实用户路径一致。
 - Blocker: 若静态合同在目标 worktree 自身也失败，必须先判断是合同过期、换行误判还是产品实现失败；不得把目标 worktree 自身失败直接当作融合漏项。
+- Narrow fix: 若当前任务只修一个窄范围页面缺陷，而同一个宽静态合同存在无关既存失败，先保留失败证据，再新增或运行聚焦本缺陷的独立静态合同；不得为了通过宽合同顺手改无关产品逻辑或断言。
 - Verification: 更新静态合同后必须重跑目标 worktree 涉及的全部静态合同；涉及真实 E2E 脚本行为变更时，至少用静态合同断言真实脚本等待的 API、点击的按钮和禁止的旧弹窗步骤。
 - Forbidden action: 禁止为通过静态合同改产品文案或 DOM 顺序；禁止保留真实脚本里的废弃确认弹窗、签名密码输入或 API-only 替代页面点击。
 - Evidence: `doc/tasks/merge-jiluben-worktree-20260724/verification-report.md`。
