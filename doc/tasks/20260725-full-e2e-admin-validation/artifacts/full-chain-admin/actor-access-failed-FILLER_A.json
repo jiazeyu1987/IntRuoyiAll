@@ -1,0 +1,10 @@
+{
+  "stepId": "actor-access-failed-FILLER_A",
+  "url": "http://localhost:8081/mes/pro/feedback/edhr-work-task",
+  "capturedAt": "2026-07-25T07:01:15.044Z",
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260725-full-e2e-admin-validation\\artifacts\\full-chain-admin\\actor-access-failed-FILLER_A.png",
+  "actor": "admin",
+  "pathSuffix": "/mes/pro/feedback/edhr-work-task",
+  "expectedText": "任务类型",
+  "visibleText": "瑛泰管理系统"
+}
