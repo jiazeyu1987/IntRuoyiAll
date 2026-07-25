@@ -37,4 +37,8 @@
 - Implementation: complete.
 - Verification: complete.
 - Cleanup: task-owned temporary script removed.
-- Git closeout: blocked by concurrent branch/worktree state; `int_main` 当前已 ahead `origin/int_main` 6 个提交，且存在其他任务的未提交/未跟踪文件，本任务不触碰这些并发改动。
+- Git closeout: implementation/evidence commit `a2338a2f` pushed to `origin/int_main`; final closeout status update pending this record commit. Unrelated concurrent dirty files remain outside task scope and were not staged.
+## Final Closeout
+
+- Final status update: task marked completed after cleanup apply and successful push of commit 2338a2f.
+- Unrelated concurrent dirty files remain in the workspace and were not modified, staged, committed, or pushed by this task.

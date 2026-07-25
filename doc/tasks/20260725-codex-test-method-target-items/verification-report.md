@@ -3,7 +3,7 @@
 ## Result
 
 - Implementation verification passed.
-- Closeout completion is blocked by concurrent Git/worktree state, so task status remains `ready_for_closeout`.
+- Closeout completion passed for task-owned files; unrelated concurrent dirty files remain outside task scope.
 
 ## Evidence
 
@@ -17,3 +17,7 @@
 - `IntRuoyiFronted/src/views/system/codex-test-management/index.vue`
 - `IntRuoyiFronted/tests/e2e/system-codex-test-management-static.spec.js`
 - `IntRuoyiFronted/tests/e2e/system-codex-test-management-real.e2e.js`
+## Git Closeout
+
+- Implementation/evidence commit: 2338a2f pushed to origin/int_main.
+- Final status update will be committed separately after this report update.
