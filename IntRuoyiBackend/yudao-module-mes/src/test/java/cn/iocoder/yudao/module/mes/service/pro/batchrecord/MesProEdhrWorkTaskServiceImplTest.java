@@ -729,6 +729,64 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void completeRouteFormFillAndCreateNextFill_marksFormCenterFillDoneAndCreatesNextFill() {
+        insertBatch(batchForInitialFill(3065L, 4165L));
+        MesProEdhrBatchExecutionTaskDO currentTask = batchTask(3065L, 9165L, 5165L,
+                "REPORT-FORMCENTER-CURRENT", "ROUTE_FORM", "粗洗损耗", 10)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING)
+                .setFormSlotType("LOSS_REPORT")
+                .setFormBindingKey("EDHR_RF_LOSS")
+                .setFormTemplateId(25L)
+                .setFormTemplateVersionId(2501L)
+                .setFormTemplateVersionNo("V1")
+                .setFormCenterInstanceId(40065L);
+        MesProEdhrBatchExecutionTaskDO nextTask = batchTask(3065L, 9166L, 5166L,
+                "REPORT-FORMCENTER-NEXT", "ROUTE_FORM", "精洗", 20)
+                .setBatchRecordVersionId(78066L);
+        batchTaskMapper.insert(currentTask);
+        batchTaskMapper.insert(nextTask);
+        when(routeProcessService.resolveFrozenRouteProcess(5166L, 4165L, 5166L))
+                .thenReturn(MesProRouteProcessDO.builder()
+                        .id(5166L)
+                        .routeId(4165L)
+                        .processId(5166L)
+                        .build());
+        insertProcessFormFillRule(5166L, "REPORT-FORMCENTER-NEXT", 78066L, "USERS", "288,289", 180);
+        when(adminUserApi.getUserList(List.of(288L, 289L))).thenReturn(List.of(
+                adminUser(288L, CommonStatusEnum.ENABLE.getStatus()),
+                adminUser(289L, CommonStatusEnum.ENABLE.getStatus())));
+        MesProEdhrWorkTaskDO fillTask = insertFillTask(8065L, currentTask.getId(), "formcenter-submit")
+                .setBatchExecutionId(3065L)
+                .setWorkOrderId(3001L)
+                .setWorkOrderCode("WO-FORMCENTER")
+                .setBatchCode("BATCH-FORMCENTER")
+                .setRouteId(4165L)
+                .setRouteProcessId(currentTask.getRouteProcessId())
+                .setProcessId(currentTask.getProcessId())
+                .setProcessName(currentTask.getProcessName())
+                .setExecutionId(null);
+        workTaskMapper.updateById(fillTask);
+
+        MesProEdhrWorkTaskDO completed = workTaskService.completeRouteFormFillAndCreateNextFill(currentTask.getId(), 99L);
+
+        assertEquals(fillTask.getId(), completed.getId());
+        MesProEdhrWorkTaskDO completedTask = workTaskMapper.selectById(fillTask.getId());
+        assertEquals(MesProEdhrWorkTaskStatus.DONE, completedTask.getStatus());
+        assertEquals("FORM_CENTER_SUBMIT:表单中心路线表单提交", completedTask.getReason());
+        MesProEdhrBatchExecutionTaskDO approvedTask = batchTaskMapper.selectById(currentTask.getId());
+        assertEquals(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED, approvedTask.getStatus());
+        assertEquals(99L, approvedTask.getOpenedBy());
+        assertNotNull(approvedTask.getSubmittedAt());
+        assertNotNull(approvedTask.getApprovedAt());
+        List<MesProEdhrWorkTaskDO> nextFills = workTaskMapper.selectList().stream()
+                .filter(task -> MesProEdhrWorkTaskService.TASK_TYPE_FILL.equals(task.getTaskType()))
+                .filter(task -> nextTask.getId().equals(task.getBatchTaskId()))
+                .toList();
+        assertEquals(1, nextFills.size());
+        assertEquals(288L, nextFills.get(0).getAssigneeUserId());
+    }
+
+    @Test
     void validateWritableApproveTask_rejectsReviewTaskAndOutsider() {
         MesProEdhrWorkTaskDO reviewTask = insertCandidateReviewTask(8029L, 9129L, "R1C1",
                 188L, "188", "approve-wrong-type");

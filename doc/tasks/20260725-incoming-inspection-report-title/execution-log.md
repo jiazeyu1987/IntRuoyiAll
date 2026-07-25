@@ -22,3 +22,8 @@
 - Commit note: 本任务实现文件已被并发基线提交 `8e9e4ba6` 纳入；任务文档初始记录已被并发基线提交 `d719203b` 纳入。
 - Experience consolidation: 已更新 `docs\e2e-rules.md#静态合同与真实-e2e-同步门禁`，补充窄范围修复遇到宽静态合同无关既存失败时的独立验证规则。
 - Closeout blocker: 当前工作区仍有并发任务改动与本地 ahead 提交，不能安全执行最终推送或全量 closeout。
+- Follow-up: 用户反馈页面仍无变化；复查截图后确认红框实际对应顶部 `resolveCurrentBatchRecordNo()`，不是中间 `当前节点附件` 标题。
+- RED: `node tests\e2e\edhr-special-node-display-name-static.spec.js` -> FAIL, expected reason: `顶部当前批记录上下文必须识别特殊节点。`
+- Implementation follow-up: 在 `resolveCurrentBatchRecordNo()` 中对 `selectedTaskForEvidence` 的特殊节点优先返回 `resolveTaskDisplayName(selectedTask)`，普通批记录仍走原报告字段候选。
+- GREEN: `node tests\e2e\edhr-special-node-display-name-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。

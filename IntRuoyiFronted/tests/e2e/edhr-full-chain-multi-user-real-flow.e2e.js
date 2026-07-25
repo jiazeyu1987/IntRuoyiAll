@@ -29,11 +29,11 @@ const REJECT_FIRST_ROUTE_TASK = process.env.EDHR_FULL_E2E_REJECT_FIRST_ROUTE_TAS
 const REJECT_REASON_PREFIX = process.env.EDHR_FULL_E2E_REJECT_REASON_PREFIX || `E2E-REJECT-${RUN_ID}`
 const STERILIZATION_BATCH_NO = process.env.EDHR_FULL_E2E_STERILIZATION_BATCH_NO || `STER-${RUN_ID}`
 const OQC_CODE = process.env.EDHR_FULL_E2E_OQC_CODE || `OQC-FULL-${RUN_ID}`
-const OQC_TEMPLATE_CODE = process.env.EDHR_FULL_E2E_OQC_TEMPLATE_CODE || 'CODX70915957-T'
-const OQC_INDICATOR_CODE = process.env.EDHR_FULL_E2E_OQC_INDICATOR_CODE || 'CODX70915957-I'
-const OQC_INDICATOR_NAME = process.env.EDHR_FULL_E2E_OQC_INDICATOR_NAME || 'OQC外观确认70915957'
+const OQC_TEMPLATE_CODE = process.env.EDHR_FULL_E2E_OQC_TEMPLATE_CODE || 'EDHR-REHEARSAL2-OQC-T'
+const OQC_INDICATOR_CODE = process.env.EDHR_FULL_E2E_OQC_INDICATOR_CODE || 'EDHR-REHEARSAL2-OQC-I'
+const OQC_INDICATOR_NAME = process.env.EDHR_FULL_E2E_OQC_INDICATOR_NAME || 'eDHR第二次演练OQC外观确认'
 const OQC_PRODUCT_ITEM_CODE = process.env.EDHR_FULL_E2E_OQC_PRODUCT_ITEM_CODE || 'YXN.037.011.1002'
-const OQC_CLIENT_CODE = process.env.EDHR_FULL_E2E_OQC_CLIENT_CODE || 'CODX71027874-C'
+const OQC_CLIENT_CODE = process.env.EDHR_FULL_E2E_OQC_CLIENT_CODE || 'EDHR-REHEARSAL2-CUSTOMER'
 const OQC_INSPECTOR_USERNAME = process.env.EDHR_FULL_E2E_OQC_INSPECTOR_USERNAME || (ADMIN_SINGLE_ACTOR ? 'admin' : 'aoteman')
 const OQC_RESULT_LABEL = process.env.EDHR_FULL_E2E_OQC_RESULT_LABEL || '校验通过'
 const EXPECTED_GOAL_COUNT = 58
@@ -751,8 +751,16 @@ async function syncBatchByUi(page, batchId) {
   return await syncPromise
 }
 
-function isPendingRouteFormTask(task) {
-  return task.nodeType === ROUTE_FORM_NODE_TYPE && Number(task.status) !== 40
+function isRouteFormTask(task) {
+  return task?.nodeType === ROUTE_FORM_NODE_TYPE
+}
+
+function isIncompleteRouteFormTask(task) {
+  return isRouteFormTask(task) && Number(task.status) !== 40
+}
+
+function isActiveRouteFormTask(task) {
+  return isRouteFormTask(task) && Number(task.activeWorkTaskId || 0) > 0
 }
 
 function isFormCenterRouteTask(task) {
@@ -2055,12 +2063,18 @@ async function runCreateBatchFlow(browser, ownerPage, config) {
 
     for (let guard = 0; guard < 60; guard += 1) {
       const detail = await loadBatchDetailByUi(ownerPage, batchId, `创建模式批次详情 ${guard + 1}`)
-      const pendingRouteTasks = (detail.tasks || [])
-        .filter(isPendingRouteFormTask)
+      const activeRouteTasks = (detail.tasks || [])
+        .filter(isActiveRouteFormTask)
         .sort((left, right) => (left.routeProcessSort || 0) - (right.routeProcessSort || 0) || (left.batchRecordSort || 0) - (right.batchRecordSort || 0))
-      if (pendingRouteTasks.length === 0) break
+      if (activeRouteTasks.length === 0) {
+        const incompleteRouteTasks = (detail.tasks || []).filter(isIncompleteRouteFormTask)
+        if (incompleteRouteTasks.length === 0) break
+        await syncBatchByUi(ownerPage, batchId).catch(() => undefined)
+        await ownerPage.waitForTimeout(1000)
+        continue
+      }
       const taskIndex = processedTasks.length + 1
-      const nextRouteTask = pendingRouteTasks[0]
+      const nextRouteTask = activeRouteTasks[0]
       if (isFormCenterRouteTask(nextRouteTask)) {
         processedTasks.push(await processRouteFormCenterTask(ownerPage, batchId, created.batchCode, nextRouteTask, taskIndex))
       } else {
@@ -2080,7 +2094,7 @@ async function runCreateBatchFlow(browser, ownerPage, config) {
       )
     }
     const afterRouteDetail = await loadBatchDetailByUi(ownerPage, batchId, '普通表单全部审批后批次详情')
-    const remainingRouteTasks = (afterRouteDetail.tasks || []).filter(isPendingRouteFormTask)
+    const remainingRouteTasks = (afterRouteDetail.tasks || []).filter(isIncompleteRouteFormTask)
     assert.deepEqual(
       remainingRouteTasks.map((task) => ({ id: task.id, name: task.batchRecordReportName, status: task.status })),
       [],

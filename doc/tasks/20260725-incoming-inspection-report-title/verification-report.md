@@ -13,7 +13,7 @@
 ## Scope
 
 - `BatchExecutionDetailPage.vue` now prioritizes fixed special-node labels before ordinary batch-record report fields for special nodes.
-- `edhr-special-node-display-name-static.spec.js` protects the 来料检报告 title contract for the current-node attachment header.
+- `edhr-special-node-display-name-static.spec.js` protects both the middle attachment header and the top current batch-record context red-box title for 来料检报告.
 
 ## Remaining Blocker
 

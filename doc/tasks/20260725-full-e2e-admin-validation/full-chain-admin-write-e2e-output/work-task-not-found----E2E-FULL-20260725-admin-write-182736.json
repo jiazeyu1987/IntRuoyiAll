@@ -1,0 +1,17 @@
+{
+  "stepId": "work-task-not-found-填写-E2E-FULL-20260725-admin-write-182736",
+  "url": "http://localhost:8081/mes/pro/feedback/edhr-work-task",
+  "capturedAt": "2026-07-25T10:29:38.025Z",
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260725-full-e2e-admin-validation\\full-chain-admin-write-e2e-output\\work-task-not-found----E2E-FULL-20260725-admin-write-182736.png",
+  "batchId": 900000000810,
+  "batchCode": "E2E-FULL-20260725-admin-write-182736",
+  "actionLabel": "填写",
+  "rowTokens": [
+    "E2E-FULL-20260725-admin-write-182736",
+    "精洗工序",
+    "ER284B8846D94A"
+  ],
+  "rowTypeTexts": [
+    "填写"
+  ]
+}

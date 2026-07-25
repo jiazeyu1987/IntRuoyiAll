@@ -22,6 +22,10 @@ assert.ok(createBatchBlock.includes('assert.equal(Number(detail.id), batchExecut
 assert.ok(!createBatchBlock.includes('getByText(CREATE_BATCH_CODE)'), '创建批次后不得依赖列表或当前页立即显示批次号文本。')
 
 assert.ok(!source.includes('|| 922045'), '完整演练不得继续使用历史固定 routeId 默认值。')
+assert.ok(!source.includes('CODX70915957-T'), '完整演练不得默认使用非当前授权租户的旧 OQC 质检方案。')
+assert.ok(!source.includes('CODX71027874-C'), '完整演练不得默认使用非当前授权租户的旧 OQC 客户。')
+assert.ok(source.includes("EDHR-REHEARSAL2-OQC-T"), '完整演练默认 OQC 方案必须使用当前授权租户页面可见数据。')
+assert.ok(source.includes("EDHR-REHEARSAL2-CUSTOMER"), '完整演练默认 OQC 客户必须使用当前授权租户页面可见数据。')
 assert.ok(source.includes('const EXPLICIT_CREATE_ROUTE_ID = Number(process.env.EDHR_FULL_E2E_ROUTE_ID || 0)'), '完整演练只能把 EDHR_FULL_E2E_ROUTE_ID 作为显式覆盖参数。')
 assert.ok(source.includes('function chooseCreateRouteOption(routeOptions)'), '创建批次必须从当前工单真实路线选项解析 routeId。')
 assert.ok(createBatchBlock.includes('const routeOptions = await routeOptionsPromise'), '创建批次必须读取当前工单 route-options 响应。')
@@ -67,6 +71,11 @@ const createFlowEnd = source.indexOf('async function verifyBatchDetailUi', creat
 const createFlowBlock = source.slice(createFlowStart, createFlowEnd)
 
 assert.ok(createFlowBlock.includes('ensureBatchTaskCellRulesConfirmedByUi(ownerPage, created.batch)'), '创建批次后、打开填写任务前必须先确认批次绑定报表规则。')
+
+assert.ok(source.includes('function isActiveRouteFormTask'), '完整演练必须只从 activeWorkTaskId 明确存在的路线任务进入填写。')
+assert.ok(source.includes('Number(task.activeWorkTaskId || 0) > 0'), '路线任务处理不得提前选择尚未生成工作待办的后续任务。')
+assert.ok(createFlowBlock.includes('filter(isActiveRouteFormTask)'), '创建模式循环必须优先处理已有活动工作待办。')
+assert.ok(createFlowBlock.includes('filter(isIncompleteRouteFormTask)'), '创建模式收尾必须用未完成任务而不是活动待办做完成性检查。')
 
 const formCenterRouteTaskStart = source.indexOf('async function processRouteFormCenterTask')
 const formCenterRouteTaskEnd = source.indexOf('async function processRouteTask', formCenterRouteTaskStart)

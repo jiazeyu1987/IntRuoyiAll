@@ -104,4 +104,8 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_456, "本地 eDHR 状态样本只能由芋道源码/admin 当前租户创建");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_NOT_VISIBLE =
             new ErrorCode(1_040_750_457, "当前用户不可查看该 eDHR 批次执行");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_GOLDEN_FINGER_REQUIRED =
+            new ErrorCode(1_040_750_458, "仅金手指角色允许执行该 eDHR 批次批量直通作废");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_BULK_VOID_EMPTY =
+            new ErrorCode(1_040_750_459, "当前筛选条件下没有可作废的 eDHR 批次执行");
 }

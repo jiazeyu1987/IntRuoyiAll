@@ -42,4 +42,29 @@ assert(
   '特殊节点标题必须优先显示来料检报告等节点业务名称，不能被空报告字段占位符覆盖。'
 )
 
+const previewContextBlock = detail.slice(
+  detail.indexOf('class="edhr-batch-detail__preview-context"'),
+  detail.indexOf('</div>', detail.indexOf('class="edhr-batch-detail__preview-context"'))
+)
+assert.match(
+  previewContextBlock,
+  /resolveCurrentBatchRecordNo\(\)/,
+  '顶部红框所在的当前批记录上下文必须使用 resolveCurrentBatchRecordNo。'
+)
+
+const currentBatchRecordNoBlock = detail.match(
+  /const resolveCurrentBatchRecordNo = \(\) => \{([\s\S]*?)const buildFillCarrierExecutionQuery/
+)
+assert(currentBatchRecordNoBlock, '必须存在当前批记录上下文名称解析函数。')
+const currentBatchRecordNoBody = currentBatchRecordNoBlock[1]
+const currentSpecialNodeIndex = currentBatchRecordNoBody.indexOf('isSpecialNode(selectedTask)')
+const currentSpecialNodeNameIndex = currentBatchRecordNoBody.indexOf('resolveTaskDisplayName(selectedTask)')
+const batchRecordCandidateIndex = currentBatchRecordNoBody.indexOf('selectedExecution.value?.batchRecordReportName')
+assert.notEqual(currentSpecialNodeIndex, -1, '顶部当前批记录上下文必须识别特殊节点。')
+assert.notEqual(currentSpecialNodeNameIndex, -1, '顶部当前批记录上下文必须复用特殊节点显示名称。')
+assert.notEqual(batchRecordCandidateIndex, -1, '顶部当前批记录上下文仍需保留普通批记录报告名称。')
+assert(
+  currentSpecialNodeNameIndex < batchRecordCandidateIndex,
+  '顶部红框必须优先显示来料检报告等特殊节点名称，不能先落到普通报告字段占位符。'
+)
 console.log('PASS: eDHR special node display name static contract')

@@ -23,6 +23,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatch
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveDownloadRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionArchiveRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionCloseReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionOpenOrCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionQualityRejectReqVO;
@@ -35,6 +37,8 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatch
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionTaskOpenRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionTaskPreviewRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionTaskRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeRequestReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordExecutionOpenOrCreateByContextReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordExecutionOpenOrCreateByContextRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordExecutionSignatureTimeReqVO;
@@ -143,12 +147,16 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_PROCESS_FLOW_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_PUBLISHED_VERSION_NOT_EXISTS;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_CHANGE_REASON_REQUIRED;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ARCHIVE_NOT_CLOSED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ARCHIVE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ARCHIVE_REGENERATE_REQUIRED;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_BULK_VOID_EMPTY;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_CLOSE_BLOCKED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_CLOSE_PRECHECK_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_GOLDEN_FINGER_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_PENDING_VOID_ACTION_LOCKED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_OWNER_INVALID;
@@ -383,6 +391,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     @Resource
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
     @Resource
+    private MesProEdhrBatchVoidEffectService batchVoidEffectService;
+    @Resource
     private FormTemplateVersionMapper formTemplateVersionMapper;
     @Resource
     private FormCenterRuntimeService formCenterRuntimeService;
@@ -424,6 +434,82 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         return batches.subList(fromIndex, toIndex);
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public EdhrBatchExecutionGoldenFingerBulkVoidRespVO goldenFingerBulkVoid(
+            EdhrBatchExecutionGoldenFingerBulkVoidReqVO reqVO) {
+        Long actorUserId = currentUserId();
+        if (!hasGoldenFingerActionBypass(actorUserId)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_GOLDEN_FINGER_REQUIRED);
+        }
+        validateGoldenFingerBulkVoidRequest(reqVO);
+        List<MesProEdhrBatchExecutionDO> matchedBatches = batchExecutionMapper.selectList(reqVO.getFilter());
+        List<EdhrBatchExecutionGoldenFingerBulkVoidRespVO.Item> items = new ArrayList<>();
+        List<MesProEdhrBatchExecutionDO> candidates = new ArrayList<>();
+        for (MesProEdhrBatchExecutionDO batch : matchedBatches) {
+            if (isGoldenFingerBulkVoidTerminal(batch)) {
+                items.add(toGoldenFingerBulkVoidItem(batch, "SKIPPED_TERMINAL", "终态批次不可作废", null));
+                continue;
+            }
+            candidates.add(batch);
+        }
+        if (candidates.isEmpty()) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_BULK_VOID_EMPTY);
+        }
+        for (MesProEdhrBatchExecutionDO candidate : candidates) {
+            batchVoidEffectService.precheckPlatformVoidBatchExecution(toGoldenFingerBulkVoidChangeRequest(reqVO, candidate));
+        }
+        for (MesProEdhrBatchExecutionDO candidate : candidates) {
+            EdhrRecordChangeRespVO change = batchVoidEffectService.executeDirectPlatformVoidBatchExecution(
+                    toGoldenFingerBulkVoidChangeRequest(reqVO, candidate), actorUserId);
+            items.add(toGoldenFingerBulkVoidItem(candidate, "VOIDED", "已通过金手指直通作废", change.getId()));
+        }
+        return new EdhrBatchExecutionGoldenFingerBulkVoidRespVO()
+                .setMatchedCount(matchedBatches.size())
+                .setVoidedCount(candidates.size())
+                .setSkippedCount(matchedBatches.size() - candidates.size())
+                .setItems(items);
+    }
+
+    private void validateGoldenFingerBulkVoidRequest(EdhrBatchExecutionGoldenFingerBulkVoidReqVO reqVO) {
+        if (reqVO == null || reqVO.getFilter() == null) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_BULK_VOID_EMPTY);
+        }
+        if (StrUtil.isBlank(reqVO.getReasonCategory()) || StrUtil.isBlank(reqVO.getReasonText())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_CHANGE_REASON_REQUIRED);
+        }
+        if (StrUtil.isBlank(reqVO.getPassword())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
+        }
+    }
+
+    private boolean isGoldenFingerBulkVoidTerminal(MesProEdhrBatchExecutionDO batch) {
+        return batch == null
+                || Objects.equals(batch.getStatus(), BATCH_STATUS_ARCHIVED)
+                || Objects.equals(batch.getStatus(), BATCH_STATUS_REJECTED)
+                || Objects.equals(batch.getStatus(), BATCH_STATUS_VOIDED);
+    }
+
+    private EdhrRecordChangeRequestReqVO toGoldenFingerBulkVoidChangeRequest(
+            EdhrBatchExecutionGoldenFingerBulkVoidReqVO reqVO, MesProEdhrBatchExecutionDO batch) {
+        return new EdhrRecordChangeRequestReqVO()
+                .setBatchExecutionId(batch.getId())
+                .setReasonCategory(reqVO.getReasonCategory())
+                .setReasonText(reqVO.getReasonText())
+                .setPassword(reqVO.getPassword())
+                .setComment(reqVO.getComment());
+    }
+
+    private EdhrBatchExecutionGoldenFingerBulkVoidRespVO.Item toGoldenFingerBulkVoidItem(
+            MesProEdhrBatchExecutionDO batch, String result, String message, Long changeEventId) {
+        return new EdhrBatchExecutionGoldenFingerBulkVoidRespVO.Item()
+                .setBatchExecutionId(batch == null ? null : batch.getId())
+                .setBatchExecutionCode(batch == null ? null : batch.getBatchExecutionCode())
+                .setStatus(batch == null ? null : batch.getStatus())
+                .setResult(result)
+                .setMessage(message)
+                .setChangeEventId(changeEventId);
+    }
     private EdhrBatchExecutionRespVO toPageResp(MesProEdhrBatchExecutionDO batch) {
         try {
             recoverMissingRouteFormTasksBeforePageRendering(batch);
