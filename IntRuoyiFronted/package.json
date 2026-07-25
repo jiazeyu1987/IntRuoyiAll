@@ -40,6 +40,7 @@
     "e2e:srm:phase45": "node tests/e2e/srm/phase45-simulated-real-flow.e2e.js",
     "e2e:system:config-package:static": "node tests/e2e/system-config-package-static.spec.js",
     "e2e:system:codex-test-management:static": "node tests/e2e/system-codex-test-management-static.spec.js",
+    "e2e:system:codex-test-management:real": "node tests/e2e/system-codex-test-management-real.e2e.js",
     "e2e:system:config-package:real": "node tests/e2e/system-config-package-real.e2e.js",
     "e2e:system:role-category:static": "node tests/e2e/system-role-category-static.spec.js",
     "e2e:showroom:hall-config-package:static": "node tests/e2e/showroom-hall-config-package-static.spec.js",

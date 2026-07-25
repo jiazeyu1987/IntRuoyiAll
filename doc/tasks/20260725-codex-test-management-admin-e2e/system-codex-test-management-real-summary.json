@@ -1,0 +1,10 @@
+{
+  "tenant": "芋道源码",
+  "username": "admin",
+  "baseUrl": "http://127.0.0.1:8081",
+  "hasCodexPermission": true,
+  "hasCodexMenuContract": true,
+  "openedPage": true,
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260725-codex-test-management-admin-e2e\\system-codex-test-management-real.png",
+  "checkedAt": "2026-07-25T05:42:22.655Z"
+}
