@@ -40,3 +40,7 @@
 - 当前分支 `int_main` 在本任务继续前已有 3 个未推送提交和大量非本任务 dirty 文件；本任务只 stage 自有文件，避免纳入并发改动。
 - project-experience-consolidation：已合并到现有 `docs/backend-development.md#2026-07-25-子表集合替换软删除唯一键门禁`，并在 `docs/experience-index.md` 增加关键词路由；未新建长期经验文档。
 - 状态更新：实现与验证完成，`task.md` 设置为 `ready_for_closeout`，准备执行 cleanup preview/apply。
+- cleanup preview：`task_closeout.py --task-id 20260725-codex-test-method-target-table-rows --mode preview` -> ready；keep `task.md`、`execution-log.md`、`verification-report.md`、`frontend-feature-evidence.md`；delete none；blocked none；warnings none。
+- cleanup apply：`task_closeout.py --task-id 20260725-codex-test-method-target-table-rows --mode apply` -> applied；deleted none；linked worktree false。
+- 实现提交：`186d6f3e fix: split codex test methods and targets into rows`，包含后端 mapper、后端回归、样例脚本、任务证据和经验门禁；pre-commit branch runtime port guard PASS。
+- 状态更新：cleanup 已完成，任务状态设置为 `completed`；等待最终 closeout 记录提交与 `git push origin int_main`。

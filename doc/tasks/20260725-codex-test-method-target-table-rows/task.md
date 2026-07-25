@@ -13,7 +13,7 @@
 - [x] 修改前端页面与样例 E2E 数据归属。
 - [x] 修复后端检查点重复替换的软删除唯一键冲突。
 - [x] 运行静态、类型、后端回归与证据校验。
-- [ ] cleanup、提交并推送任务自有改动。
+- [x] cleanup、提交并推送任务自有改动。
 
 ## Expected Verification
 
@@ -26,7 +26,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 

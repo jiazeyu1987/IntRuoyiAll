@@ -2,7 +2,7 @@
 
 ## Result
 
-- Status: ready_for_closeout, verification passed and waiting for cleanup plus final commit/push.
+- Status: completed, verification and cleanup passed; final closeout record commit and push are in progress.
 - User-visible outcome: 测试方法项和测试目标项均按表格行展开，黄色范围两条核验描述归入测试目标项。
 - Backend outcome: 检查点重复替换改为物理删除旧行后重建，避免软删除唯一键冲突。
 
@@ -26,3 +26,9 @@
 
 - Updated existing long-term rule: `docs/backend-development.md#2026-07-25-子表集合替换软删除唯一键门禁`。
 - Updated route index: `docs/experience-index.md` keyword route for 子表集合替换 / 软删除唯一键 / `deleteByCaseId`。
+
+## Closeout
+
+- PASS: cleanup preview kept core records plus `frontend-feature-evidence.md`; delete none；blocked none；warnings none。
+- PASS: cleanup apply completed with no deleted paths and no worktree merge/removal required。
+- Implementation commit: `186d6f3e fix: split codex test methods and targets into rows`。
