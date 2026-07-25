@@ -59,6 +59,16 @@ const createFlowBlock = source.slice(createFlowStart, createFlowEnd)
 
 assert.ok(createFlowBlock.includes('ensureBatchTaskCellRulesConfirmedByUi(ownerPage, created.batch)'), '创建批次后、打开填写任务前必须先确认批次绑定报表规则。')
 
+const processRouteTaskStart = source.indexOf('async function processRouteTask')
+const processRouteTaskEnd = source.indexOf('async function closeBatch', processRouteTaskStart)
+const processRouteTaskBlock = source.slice(processRouteTaskStart, processRouteTaskEnd)
+
+assert.ok(processRouteTaskBlock.includes('const fillTaskUrl = await openFillTaskFromBoard'), '普通工序处理必须复用工作台 task/open 结果。')
+assert.ok(processRouteTaskBlock.includes('const opened = fillTaskUrl.openedTask'), '工作台进入填写页后不得再次调用批次详情打开任务。')
+assert.ok(!processRouteTaskBlock.includes('const opened = await openTaskByUi(fillPage, pendingTask)'), '工作台处理已经进入填写页后禁止重复 openTaskByUi。')
+assert.ok(processRouteTaskBlock.includes('const reworkOpened = reworkUrl.openedTask'), '返工处理也必须复用工作台 task/open 结果。')
+assert.ok(!processRouteTaskBlock.includes('reworkUrl.pathname === ROUTES.executionDetail ? {} : await openTaskByUi'), '返工进入填写页后禁止以批次详情打开作为降级路径。')
+
 for (const token of [
   'EDHR_FULL_E2E_ADMIN_SINGLE_ACTOR',
   "ADMIN_SINGLE_ACTOR ? '芋道源码' : '测试租户'",
