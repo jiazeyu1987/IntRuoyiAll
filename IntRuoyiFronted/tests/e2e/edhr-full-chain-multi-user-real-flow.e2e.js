@@ -22,7 +22,7 @@ const EVIDENCE_DIR = path.resolve(
 )
 const CREATE_WORK_ORDER_CODE = process.env.EDHR_FULL_E2E_WORK_ORDER_CODE || '881MO090863'
 const CREATE_WORK_ORDER_ID = Number(process.env.EDHR_FULL_E2E_WORK_ORDER_ID || 0)
-const CREATE_ROUTE_ID = Number(process.env.EDHR_FULL_E2E_ROUTE_ID || 922045)
+const EXPLICIT_CREATE_ROUTE_ID = Number(process.env.EDHR_FULL_E2E_ROUTE_ID || 0)
 const CREATE_BATCH_CODE = process.env.EDHR_FULL_E2E_BATCH_CODE || `E2E-FULL-${RUN_ID}`
 const FILL_PREFIX = process.env.EDHR_FULL_E2E_FILL_PREFIX || `E2E-FULL-${RUN_ID}`
 const REJECT_FIRST_ROUTE_TASK = process.env.EDHR_FULL_E2E_REJECT_FIRST_ROUTE_TASK !== '0'
@@ -241,10 +241,10 @@ function validateConfig(config) {
         ? '创建模式缺少 EDHR_FULL_E2E_WORK_ORDER_CODE，必须指向芋道源码/admin 授权范围内真实生产工单。'
         : '创建模式缺少 EDHR_FULL_E2E_WORK_ORDER_CODE，必须指向测试租户真实生产工单。')
     }
-    if (!Number.isFinite(CREATE_ROUTE_ID) || CREATE_ROUTE_ID <= 0) {
+    if (process.env.EDHR_FULL_E2E_ROUTE_ID && (!Number.isFinite(EXPLICIT_CREATE_ROUTE_ID) || EXPLICIT_CREATE_ROUTE_ID <= 0)) {
       blockers.push(ADMIN_SINGLE_ACTOR
-        ? '创建模式缺少有效 EDHR_FULL_E2E_ROUTE_ID，必须指向芋道源码/admin 授权范围内真实工艺流程批记录配置。'
-        : '创建模式缺少有效 EDHR_FULL_E2E_ROUTE_ID，必须指向测试租户真实工艺流程批记录配置。')
+        ? '创建模式 EDHR_FULL_E2E_ROUTE_ID 无效；若填写该参数，必须指向芋道源码/admin 授权范围内真实工艺流程批记录配置。'
+        : '创建模式 EDHR_FULL_E2E_ROUTE_ID 无效；若填写该参数，必须指向测试租户真实工艺流程批记录配置。')
     }
   }
   for (const actorConfig of config.actors) {
@@ -589,10 +589,12 @@ async function assertCurrentActor(page, actorConfig, stepId) {
   )
 }
 
-async function ensureRouteCloseRule(page, actorConfig) {
+async function ensureRouteCloseRule(page, actorConfig, routeId) {
+  const resolvedRouteId = Number(routeId)
+  assert.ok(Number.isFinite(resolvedRouteId) && resolvedRouteId > 0, '路线关闭规则必须使用真实工单路线选项返回的 routeId。')
   const auth = await browserAuth(page)
   const rule = await apiPost(page, auth, '/mes/pro/edhr-work-task/route-close-rule', {
-    routeId: CREATE_ROUTE_ID,
+    routeId: resolvedRouteId,
     assigneeUserId: actorConfig.userId,
     dueMinutes: 240,
     enabled: true,
@@ -602,7 +604,7 @@ async function ensureRouteCloseRule(page, actorConfig) {
   assert.equal(rule.taskType, 'CLOSE', '路线关闭规则必须保存为 CLOSE 任务类型。')
   writeEvidenceJson('route-close-rule.json', {
     runId: RUN_ID,
-    routeId: CREATE_ROUTE_ID,
+    routeId: resolvedRouteId,
     closeOwner: {
       username: actorConfig.username,
       userId: actorConfig.userId
@@ -633,6 +635,30 @@ async function selectWorkOrderByKeyword(page, dialog, keyword) {
   await option.click()
 }
 
+function chooseCreateRouteOption(routeOptions) {
+  const options = (Array.isArray(routeOptions) ? routeOptions : [])
+    .map((item) => ({ ...item, resolvedRouteId: Number(item.routeId || item.id || 0) }))
+    .filter((item) => Number.isFinite(item.resolvedRouteId) && item.resolvedRouteId > 0)
+  if (options.length === 0) {
+    throw blocked('当前工单没有返回可用工艺路线选项。', [
+      'workOrderCode=' + CREATE_WORK_ORDER_CODE,
+      'routeOptions=' + JSON.stringify(routeOptions)
+    ])
+  }
+  if (EXPLICIT_CREATE_ROUTE_ID > 0) {
+    const explicit = options.find((item) => item.resolvedRouteId === EXPLICIT_CREATE_ROUTE_ID)
+    if (!explicit) {
+      throw blocked('EDHR_FULL_E2E_ROUTE_ID 未出现在当前工单真实路线选项中。', [
+        'expectedRouteId=' + EXPLICIT_CREATE_ROUTE_ID,
+        'availableRouteIds=' + options.map((item) => item.resolvedRouteId).join(',')
+      ])
+    }
+    return explicit
+  }
+  const enabled = options.find((item) => item.batchRouteEnabled !== false)
+  return enabled || options[0]
+}
+
 async function selectRouteById(page, dialog, routeId) {
   const routeItem = dialog.locator('.el-form-item').filter({ hasText: '工艺路线' }).first()
   const routeSelect = routeItem.locator('.el-select input[role="combobox"], .el-select__wrapper').first()
@@ -660,13 +686,16 @@ async function selectRouteById(page, dialog, routeId) {
   ])
 }
 
-async function createBatchByUi(page) {
+async function createBatchByUi(page, closeOwner) {
   const dialog = await openCreateBatchDialog(page)
   const routeOptionsPromise = waitForApiResponse(page, ENDPOINTS.batchRouteOptions, '加载工单工艺路线选项', 'GET')
   await selectWorkOrderByKeyword(page, dialog, CREATE_WORK_ORDER_CODE)
-  await routeOptionsPromise
+  const routeOptions = await routeOptionsPromise
+  const selectedRouteOption = chooseCreateRouteOption(routeOptions)
+  const selectedRouteId = selectedRouteOption.resolvedRouteId
   await fillFirstVisible(dialog.locator('.el-form-item').filter({ hasText: '批次号' }).locator('input'), CREATE_BATCH_CODE, '批次号')
-  await selectRouteById(page, dialog, CREATE_ROUTE_ID)
+  await selectRouteById(page, dialog, selectedRouteId)
+  await ensureRouteCloseRule(page, closeOwner, selectedRouteId)
   const responsePromise = waitForApiResponse(page, ENDPOINTS.batchOpenOrCreate, '打开或创建 eDHR 批次执行', 'POST')
   await clickVisibleButton(dialog, /^确\s*认$/, '确认打开或创建')
   const batch = await responsePromise
@@ -679,6 +708,8 @@ async function createBatchByUi(page) {
   return {
     batchExecutionId,
     batchCode: detail.batchCode || batch.batchCode || CREATE_BATCH_CODE,
+    routeId: selectedRouteId,
+    routeOption: selectedRouteOption,
     batch: detail
   }
 }
@@ -1784,8 +1815,8 @@ async function processRouteFormCenterTask(page, batchId, batchCode, task, index)
 }
 
 async function processRouteTask(fillPage, approvalPage, batchId, batchCode, task, index, fillActor, reviewerActor, options = {}) {
-  const batchDetail = await loadBatchDetailByUi(fillPage, batchId, `打开任务前批次详情 T${index}`)
-  const pendingTask = (batchDetail.tasks || []).find((item) => Number(item.id) === Number(task.id)) || task
+  const pendingTask = task
+  assert.ok(Number(pendingTask?.id || 0) > 0, `普通工序任务 T${index} 必须来自已加载的批次详情。`)
   const fillTaskUrl = await openFillTaskFromBoard(fillPage, batchId, batchCode, pendingTask)
   const opened = fillTaskUrl.openedTask
   assert.ok(opened?.executionId, `工作台处理普通工序任务后必须返回 executionId，任务 ${pendingTask.id}`)
@@ -2006,7 +2037,7 @@ async function runCreateBatchFlow(browser, ownerPage, config) {
   const closeOwner = config.actors[2]
   const reviewActor = config.actors[4]
   const archiver = config.actors[5]
-  const created = await createBatchByUi(ownerPage)
+  const created = await createBatchByUi(ownerPage, closeOwner)
   const cellRuleConfirmations = await ensureBatchTaskCellRulesConfirmedByUi(ownerPage, created.batch)
   await loadBatchDetailByUi(ownerPage, created.batchExecutionId, '填写规则确认后批次详情')
   const batchId = created.batchExecutionId
@@ -2231,9 +2262,6 @@ async function run() {
     const owner = config.actors[0]
     const closeOwner = config.actors[2]
     await login(ownerPage, owner, CREATE_BATCH ? ROUTES.batchList : ROUTES.batchDetail)
-    if (CREATE_BATCH) {
-      await ensureRouteCloseRule(ownerPage, closeOwner)
-    }
     await verifyActorPageAccess(browser, config.actors[1], ROUTES.workTask, '任务类型')
     await verifyActorPageAccess(browser, config.actors[2], ROUTES.workTask, '任务类型')
     await verifyActorPageAccess(browser, config.actors[3], ROUTES.approval, '审批中心')

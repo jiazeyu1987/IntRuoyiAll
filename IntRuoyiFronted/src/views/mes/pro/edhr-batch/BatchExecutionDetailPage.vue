@@ -2762,6 +2762,7 @@ const isSterilizationNode = (row?: EdhrBatchExecutionTaskRespVO) =>
   row?.nodeType === EDHR_BATCH_NODE_STERILIZATION_REPORT
 
 const resolveTaskDisplayName = (row: EdhrBatchExecutionTaskRespVO) =>
+  (isSpecialNode(row) && row.nodeType ? specialNodeLabels[row.nodeType] : '') ||
   row.formTemplateName ||
   row.batchRecordReportName ||
   row.batchRecordReportCode ||

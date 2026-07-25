@@ -69,7 +69,32 @@
     >
       <el-table-column type="selection" width="55" />
       <el-table-column label="测试项" min-width="180" prop="name" />
-      <el-table-column label="自然语言测试方法" min-width="280" prop="methodText" show-overflow-tooltip />
+      <el-table-column label="测试方法项" min-width="300">
+        <template #default="{ row }">
+          <div class="codex-test-items">
+            <div
+              v-for="(item, index) in formatMethodItems(row.methodText)"
+              :key="`method-${index}`"
+              class="codex-test-item-line"
+            >
+              {{ item }}
+            </div>
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="测试目标项" min-width="320">
+        <template #default="{ row }">
+          <div class="codex-test-items">
+            <div
+              v-for="(item, index) in formatTargetItems(row.checkpoints)"
+              :key="`target-${index}`"
+              class="codex-test-item-line"
+            >
+              {{ item }}
+            </div>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column label="检查点" prop="checkpointCount" width="90" />
       <el-table-column label="默认方法" prop="defaultExecutionMode" width="110" />
       <el-table-column label="并行安全" width="100">
@@ -162,11 +187,11 @@
       <el-form-item label="测试项名称" prop="name">
         <el-input v-model="caseForm.name" placeholder="例如：排产手动重排工单校验" />
       </el-form-item>
-      <el-form-item label="自然语言测试方法" prop="methodText">
+      <el-form-item label="测试方法项" prop="methodText">
         <el-input
           v-model="caseForm.methodText"
           :rows="5"
-          placeholder="描述 Codex 应如何用 Playwright 操作真实页面"
+          placeholder="按行录入测试方法，例如：a. 打开排产工单页"
           type="textarea"
         />
       </el-form-item>
@@ -195,7 +220,7 @@
           inactive-value="DISABLE"
         />
       </el-form-item>
-      <el-form-item label="检查点">
+      <el-form-item label="测试目标项">
         <div class="codex-test-checkpoints">
           <div
             v-for="(checkpoint, index) in caseForm.checkpoints"
@@ -203,10 +228,10 @@
             class="codex-test-checkpoint"
           >
             <el-input-number v-model="checkpoint.sort" :min="1" controls-position="right" />
-            <el-input v-model="checkpoint.name" placeholder="检查点名称" />
+            <el-input v-model="checkpoint.name" placeholder="目标项名称" />
             <el-input
               v-model="checkpoint.expectedText"
-              placeholder="期待结果 abcdefg，可自由新增"
+              placeholder="按行录入测试目标，例如：a. 两个排产工单被筛选出"
               type="textarea"
             />
             <el-button
@@ -218,7 +243,7 @@
               删除
             </el-button>
           </div>
-          <el-button plain type="primary" @click="addCheckpoint">新增检查点</el-button>
+          <el-button plain type="primary" @click="addCheckpoint">新增目标项</el-button>
         </div>
       </el-form-item>
     </el-form>
@@ -246,7 +271,7 @@
           :title="`${caseResult.caseNameSnapshot} - ${statusText(caseResult.status)}`"
         >
           <el-descriptions :column="1" border>
-            <el-descriptions-item label="自然语言测试方法">
+            <el-descriptions-item label="测试方法项">
               {{ caseResult.methodTextSnapshot }}
             </el-descriptions-item>
             <el-descriptions-item label="测试数据">
@@ -337,7 +362,7 @@ const caseForm = reactive<CodexTestApi.CodexTestCaseVO>(defaultCaseForm())
 
 const caseRules: FormRules = {
   name: [{ required: true, message: '测试项名称不能为空', trigger: 'blur' }],
-  methodText: [{ required: true, message: '自然语言测试方法不能为空', trigger: 'blur' }]
+  methodText: [{ required: true, message: '测试方法项不能为空', trigger: 'blur' }]
 }
 
 function newCheckpoint(sort: number): CodexTestApi.CodexTestCheckpointVO {
@@ -351,6 +376,26 @@ function newCheckpoint(sort: number): CodexTestApi.CodexTestCheckpointVO {
 
 function resetCaseForm() {
   Object.assign(caseForm, defaultCaseForm())
+}
+
+function splitDisplayItems(text?: string, fallback?: string) {
+  const source = text?.trim() || fallback?.trim() || ''
+  if (!source) return ['-']
+  return source
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function formatMethodItems(methodText?: string) {
+  return splitDisplayItems(methodText)
+}
+
+function formatTargetItems(checkpoints?: CodexTestApi.CodexTestCheckpointVO[]) {
+  const targetItems = [...(checkpoints || [])]
+    .sort((left, right) => (left.sort || 0) - (right.sort || 0))
+    .flatMap((checkpoint) => splitDisplayItems(checkpoint.expectedText, checkpoint.name))
+  return targetItems.length > 0 ? targetItems : ['-']
 }
 
 function showRequestError(error: unknown, defaultMessage: string) {
@@ -433,7 +478,7 @@ function removeCheckpoint(index: number) {
 async function saveCase() {
   await caseFormRef.value?.validate()
   if (caseForm.checkpoints.some((checkpoint) => !checkpoint.expectedText?.trim())) {
-    message.error('检查点期待结果不能为空')
+    message.error('测试目标项不能为空')
     return
   }
   try {
@@ -557,6 +602,19 @@ onMounted(async () => {
   display: flex;
   flex-wrap: wrap;
   gap: 0 8px;
+}
+
+.codex-test-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.5;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.codex-test-item-line {
+  color: var(--el-text-color-regular);
 }
 
 .codex-test-section-title {

@@ -40,13 +40,11 @@
 
 ## Final Status
 
-ready_for_closeout
+completed
 
 ## Remaining Blockers
 
-- 本轮请求的写入型真实 E2E 已 PASS；原后端编译阻塞已通过 `-am` 同 reactor 构建验证解除。
-- 仍有非本任务工作区脏改动与全仓 `diff --check` 阻塞：`doc/tasks/20260724-batch-execution-published-route-runtime-update/real-e2e-evidence.md` 存在 EOF 空行问题，按任务隔离规则未修改。
-- 当前任务仍待收尾：任务自有 runtime worktree `D:/IntRuoyiWorktree/20260724-batch-fda-audit-runtime` 与后端 PID `50968` 需要在 closeout 阶段处理。
+- 当前 FDA 审计日志任务无剩余 blocker；写入型真实 E2E、cleanup apply、任务 runtime worktree 清理均已完成。
 
 
 ## E2E Verification - 2026-07-25
@@ -83,3 +81,14 @@ ready_for_closeout
 - E2E Sample: batchExecutionId=`900000000802`, batchExecutionCode=`EDHR-UI-SAMPLE-PRECHECK-20260725153739914`, operationAuditId=`18442`, operationType=`LOCAL_STATE_SAMPLE_CREATE`, auditHash=`abc32c392ed603186d44c89621a6960b029d0e7e993786d36e9f1cf3ac0160e3`.
 - UI Trace Request: `/mes/pro/edhr-operation-audit/page?pageNo=1&pageSize=10&batchExecutionId=900000000802`; asserted `batchExecutionId` present and `objectType/objectId` absent.
 - Evidence: `test-results\operation-audit-trace-write-sample\evidence.md`, `result.json`, `operation-audit-trace-write-sample.png`.
+## Closeout - 2026-07-25 16:05 Asia/Shanghai
+
+- Cleanup Preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260724-batch-fda-audit-log-coverage --mode preview` -> `status: ready`，blocked=`<none>`，warnings=`<none>`。
+- Cleanup Apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260724-batch-fda-audit-log-coverage --mode apply` -> `status: applied`，保留 `task.md`、`execution-log.md`、`verification-report.md`，清理任务临时 evidence、Playwright 脚本和 runtime logs。
+- Concurrent Dirty Baseline: `d719203b` / `工作区: 保存 FDA 收尾前并发脏区基线`，保存非本任务并发 artifact，未混入 FDA 任务实现。
+- Final Status: completed；本任务正式验证摘要已保留在 `verification-report.md`，未保留明文密码、token 或临时运行日志。
+## Runtime Worktree Cleanup - 2026-07-25 16:12 Asia/Shanghai
+
+- Old Task Backend PID: `50968` no longer exists; no process was stopped during closeout.
+- Current 48081 Listener: PID `29320` belongs to the main workspace backend jar under `E:\IntRuoyi\IntRuoyiBackend`; not stopped because it is not the task runtime process.
+- Worktree Cleanup: `D:\IntRuoyiWorktree\20260724-batch-fda-audit-runtime` was clean detached HEAD and removed after `git worktree remove` hit Windows `Filename too long`; deletion used a verified `D:\IntRuoyiWorktree` child path with long-path prefix, then `git worktree prune`.

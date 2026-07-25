@@ -11,7 +11,7 @@
 - [x] M3: 实现后端审计事件/操作日志写入，覆盖本地状态样本创建、附件删除/预登记/保存、规则保存、候选签名完成、任务重派、放行预检。
 - [x] M4: 确保审计日志能被现有日志表格与批次追溯查询到，补齐前端展示字段与批次维度查询。
 - [x] M5: 运行针对性验证并记录 RED/GREEN 证据。
-- [ ] M6: 收尾清理、经验沉淀、任务状态完成。
+- [x] M6: 收尾清理、经验沉淀、任务状态完成。
 
 ## Expected Verification
 
@@ -22,7 +22,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Completed Work
 
@@ -59,7 +59,7 @@ ready_for_closeout
 
 - 后端全模块编译被非本任务文件 `IntRuoyiBackend\yudao-module-mes\src\main\java\cn\iocoder\yudao\module\mes\service\pro\route\MesProRouteFlowConfigServiceImpl.java` 中缺失方法 `resolveRecordbookEnabled(Boolean, String)` 阻塞；按并行改动隔离规则未修复。
 - 前端类型检查被非本任务 DCC 页面既有 `string | number` 与 `number/string` 类型不匹配阻塞；按并行改动隔离规则未修复。
-- 当前请求的写入型真实前端 E2E 已复跑成功；任务仍待 M6 收尾清理、经验沉淀和提交/推送门禁处理。
+- 当前请求的写入型真实前端 E2E 已复跑成功；M6 cleanup、经验沉淀和任务状态更新已完成。
 
 
 ## E2E Verification Update - 2026-07-25
@@ -93,3 +93,14 @@ ready_for_closeout
 - E2E Sample: batchExecutionId=`900000000802`, batchExecutionCode=`EDHR-UI-SAMPLE-PRECHECK-20260725153739914`, operationAuditId=`18442`, operationType=`LOCAL_STATE_SAMPLE_CREATE`, auditHash=`abc32c392ed603186d44c89621a6960b029d0e7e993786d36e9f1cf3ac0160e3`.
 - UI Trace Request: `/mes/pro/edhr-operation-audit/page?pageNo=1&pageSize=10&batchExecutionId=900000000802`; asserted `batchExecutionId` present and `objectType/objectId` absent.
 - Evidence: `test-results\operation-audit-trace-write-sample\evidence.md`, `result.json`, `operation-audit-trace-write-sample.png`.
+## Closeout - 2026-07-25 16:05 Asia/Shanghai
+
+- Cleanup Preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260724-batch-fda-audit-log-coverage --mode preview` -> `status: ready`，blocked=`<none>`，warnings=`<none>`。
+- Cleanup Apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260724-batch-fda-audit-log-coverage --mode apply` -> `status: applied`，保留 `task.md`、`execution-log.md`、`verification-report.md`，清理任务临时 evidence、Playwright 脚本和 runtime logs。
+- Concurrent Dirty Baseline: `d719203b` / `工作区: 保存 FDA 收尾前并发脏区基线`，保存非本任务并发 artifact，未混入 FDA 任务实现。
+- Final Status: completed；本任务正式验证摘要已保留在 `verification-report.md`，未保留明文密码、token 或临时运行日志。
+## Runtime Worktree Cleanup - 2026-07-25 16:12 Asia/Shanghai
+
+- Old Task Backend PID: `50968` no longer exists; no process was stopped during closeout.
+- Current 48081 Listener: PID `29320` belongs to the main workspace backend jar under `E:\IntRuoyi\IntRuoyiBackend`; not stopped because it is not the task runtime process.
+- Worktree Cleanup: `D:\IntRuoyiWorktree\20260724-batch-fda-audit-runtime` was clean detached HEAD and removed after `git worktree remove` hit Windows `Filename too long`; deletion used a verified `D:\IntRuoyiWorktree` child path with long-path prefix, then `git worktree prune`.

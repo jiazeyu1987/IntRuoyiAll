@@ -29,7 +29,10 @@ for (const permission of [
 }
 
 assert.match(page, /测试租户/)
-assert.match(page, /自然语言测试方法/)
+assert.match(page, /测试方法项/)
+assert.match(page, /测试目标项/)
+assert.match(page, /formatMethodItems/)
+assert.match(page, /formatTargetItems/)
 assert.match(page, /检查点/)
 assert.match(page, /通过/)
 assert.match(page, /失败/)

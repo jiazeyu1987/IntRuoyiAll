@@ -98,3 +98,14 @@
 - Updated `docs\backend-development.md` with Maven reactor sibling module verification guidance: `mvn -pl <module> -am` is required when sibling module symbols may be stale.
 - Updated `docs\e2e-rules.md` with eDHR local-state sample operation audit trace gate: write E2E must verify object-level permission scope and trace visibility, not just audit-row creation.
 - No new long-term experience document was created; lessons were merged into existing backend and E2E rules.
+## Closeout - 2026-07-25 16:05 Asia/Shanghai
+
+- Cleanup Preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260724-batch-fda-audit-log-coverage --mode preview` -> `status: ready`，blocked=`<none>`，warnings=`<none>`。
+- Cleanup Apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260724-batch-fda-audit-log-coverage --mode apply` -> `status: applied`，保留 `task.md`、`execution-log.md`、`verification-report.md`，清理任务临时 evidence、Playwright 脚本和 runtime logs。
+- Concurrent Dirty Baseline: `d719203b` / `工作区: 保存 FDA 收尾前并发脏区基线`，保存非本任务并发 artifact，未混入 FDA 任务实现。
+- Final Status: completed；本任务正式验证摘要已保留在 `verification-report.md`，未保留明文密码、token 或临时运行日志。
+## Runtime Worktree Cleanup - 2026-07-25 16:12 Asia/Shanghai
+
+- Old Task Backend PID: `50968` no longer exists; no process was stopped during closeout.
+- Current 48081 Listener: PID `29320` belongs to the main workspace backend jar under `E:\IntRuoyi\IntRuoyiBackend`; not stopped because it is not the task runtime process.
+- Worktree Cleanup: `D:\IntRuoyiWorktree\20260724-batch-fda-audit-runtime` was clean detached HEAD and removed after `git worktree remove` hit Windows `Filename too long`; deletion used a verified `D:\IntRuoyiWorktree` child path with long-path prefix, then `git worktree prune`.

@@ -120,3 +120,8 @@
 - GREEN: `node --check tests\e2e\edhr-full-chain-multi-user-real-flow.e2e.js` -> PASS。
 - GREEN: `node tests\e2e\edhr-full-chain-evidence-pack-static.spec.js` -> PASS，FormCenter 动态/共享表单任务静态合同已覆盖。
 - GREEN: `node tests\e2e\edhr-full-chain-api-response-static.spec.js` -> PASS。
+
+- RED: `EDHR_FULL_E2E_ADMIN_SINGLE_ACTOR=1 ... node tests\e2e\edhr-full-chain-multi-user-real-flow.e2e.js` -> FAIL，FormCenter 静态修复后进入普通路线任务，但 `processRouteTask` 在已加载详情后立即重复 reload，同批次详情响应等待超时。
+- FIX: 移除普通路线任务入口的重复批次详情 reload，直接使用循环刚从真实详情页加载出的待办任务；保留工作台处理必须返回 executionId、填写页加载、提交和审批断言。
+
+- GREEN: `node --check tests\e2e\edhr-full-chain-multi-user-real-flow.e2e.js`; `node tests\e2e\edhr-full-chain-evidence-pack-static.spec.js`; `node tests\e2e\edhr-full-chain-api-response-static.spec.js` -> PASS，普通路线任务重复 reload 修复后静态门禁通过。
