@@ -1,5 +1,5 @@
 param(
-    [int]$Slot = 0
+    [Nullable[int]]$Slot = $null
 )
 
 Set-StrictMode -Version Latest
@@ -9,8 +9,9 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Get-CurrentRepoRoot
 $branch = Get-GitValue -RepoRoot $repoRoot -Arguments @('branch', '--show-current')
-$profile = Resolve-BranchRuntimeProfile -RepoRoot $repoRoot -Branch $branch
-$ports = Get-BranchRuntimePorts -Profile $profile -Slot $Slot
+$context = Resolve-BranchRuntimeContext -RepoRoot $repoRoot -Branch $branch -RequestedSlot $Slot
+$profile = $context.Profile
+$ports = $context.Ports
 
 [pscustomobject]@{
     ContractVersion = $script:PortContractVersion

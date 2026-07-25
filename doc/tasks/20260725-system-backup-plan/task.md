@@ -21,7 +21,30 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Completed Work
+
+- 后端新增 `/infra/backup-plan` 独立接口、备份计划服务、Windows 计划任务网关、运行控制台立即备份网关。
+- 备份脚本注册流程支持 `DAILY/WEEKLY`、星期配置和正式服备份确认参数。
+- 前端新增 `系统管理 > 备份计划` 页面与 API 包装，页面使用 `UnifiedListTemplate` 展示备份包历史，不暴露技术配置项。
+- 新增菜单迁移 `20260725_system_backup_plan_menu.sql` 和静态合同测试，包含查询、更新、执行三项细粒度权限。
+
+## Remaining Blockers
+
+- 写入型真实页面 E2E 未执行：保存计划、开启/关闭自动备份和“现在备份一次”会修改真实 Windows 计划任务或触发备份动作，需要明确授权的测试调度环境；当前只完成只读真实页面 E2E。
+- 正式服发布未执行：需要用户再次明确授权正式服发布、任务重注册和发布后验证。
+- worktree closeout 未完成：`task-closeout-cleanup` preview 被主工作区 `E:\IntRuoyi` 脏改动阻塞，不能执行 ff-only 合并或删除当前 worktree；这些主工作区改动不属于本任务，未触碰。
+
+## Resolved Blockers
+
+- 已修复既有迁移元数据格式：`20260723_mes_edhr_assignment_rule_candidate_nullable.sql` 的 `dependsOn` 移除 `.sql` 后缀。
+- 全量迁移策略门禁已通过：`python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql` -> PASS，372 个迁移。
+- 已修复 branch runtime 识别：`scripts/runtime/branch-runtime-profile.ps1` 现在读取 `D:\IntRuoyiWorktree\.ports\worktree-ports.json`，当前 worktree 默认解析为 `profile=int_main`、`slot=2`、前端 `8083`、后端 `48083`，并对重复登记、缺字段、分支不匹配、端口不匹配 fail-fast。
+- 已完成只读真实页面 E2E：本地后端 `48083` health `UP`，本地前端 `8083` HTTP 200，应用本地菜单 SQL 后通过真实登录打开 `/system/backup-plan`，确认状态卡、每天/每周控件、历史列表、状态/历史 API 和不暴露 `manifest` 技术词。
+- 2026-07-25 已复跑本地只读 E2E：`node IntRuoyiFronted\tests\e2e\system-backup-plan-real-readonly.e2e.js` -> PASS，截图 `output\playwright\system-backup-plan-readonly.png` 已生成；任务自有本地运行进程已停止，`8083/48083` 无残留监听。
+- 2026-07-25 已合并 `origin/int_main`：merge commit `8a3bb44a`，合并后重跑后端/脚本/前端类型检查/静态合同/本地只读 E2E 均通过；当前仅剩 cleanup、closeout 记录提交与推送。
+- 2026-07-25 已完成 cleanup preview：默认会保留 `task.md`、`execution-log.md`、`verification-report.md`，建议删除任务内 `bug-regression-evidence.md`，但 apply 被主工作区脏状态阻塞，未执行删除。
 
 ## 设计约束检查
 
