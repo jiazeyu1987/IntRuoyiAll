@@ -104,3 +104,9 @@ completed
 - Old Task Backend PID: `50968` no longer exists; no process was stopped during closeout.
 - Current 48081 Listener: PID `29320` belongs to the main workspace backend jar under `E:\IntRuoyi\IntRuoyiBackend`; not stopped because it is not the task runtime process.
 - Worktree Cleanup: `D:\IntRuoyiWorktree\20260724-batch-fda-audit-runtime` was clean detached HEAD and removed after `git worktree remove` hit Windows `Filename too long`; deletion used a verified `D:\IntRuoyiWorktree` child path with long-path prefix, then `git worktree prune`.
+## Git Closeout - 2026-07-25 16:18 Asia/Shanghai
+
+- Baseline Commit: `d719203b` / `工作区: 保存 FDA 收尾前并发脏区基线`，保存非本任务并发 artifact。
+- Baseline + Cleanup Commit: `8e9e4ba6` / `工作区: 保存 FDA cleanup 前并发脏区基线`，包含非本任务并发基线，同时捕获 FDA cleanup 删除临时 evidence、Playwright 脚本、runtime logs 以及 completed 状态记录。
+- Baseline Commit: `a408bfe2` / `工作区: 保存 FDA 推送前并发输出基线`，保存推送前新出现的非本任务并发输出文件。
+- Final Closeout Commit: 本节所在提交用于记录 FDA 最终 closeout 与推送前状态。
