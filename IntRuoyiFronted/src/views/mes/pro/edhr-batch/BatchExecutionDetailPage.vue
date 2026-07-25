@@ -1265,6 +1265,8 @@ const specialNodeSkipError = ref('')
 const specialNodeCompleteError = ref('')
 const releaseActionError = ref('')
 const releaseSignatureError = ref('')
+const RELEASE_ACTION_ERROR_AUTO_HIDE_DELAY_MS = 5000
+let releaseActionErrorAutoHideTimer: ReturnType<typeof window.setTimeout> | undefined
 const detail = ref<EdhrBatchExecutionRespVO>()
 const workbench = ref<EdhrBatchWorkbenchRespVO>()
 const archivePrintDrawerVisible = ref(false)
@@ -1894,10 +1896,31 @@ const releaseStageOwnerLabel = computed(
     '当前阶段责任人'
 )
 
+const clearReleaseActionErrorAutoHideTimer = () => {
+  if (!releaseActionErrorAutoHideTimer) return
+  window.clearTimeout(releaseActionErrorAutoHideTimer)
+  releaseActionErrorAutoHideTimer = undefined
+}
+
+const clearReleaseActionError = () => {
+  clearReleaseActionErrorAutoHideTimer()
+  releaseActionError.value = ''
+}
+
+const showReleaseActionError = (errorText: string) => {
+  clearReleaseActionErrorAutoHideTimer()
+  releaseActionError.value = errorText
+  releaseActionErrorAutoHideTimer = window.setTimeout(() => {
+    if (releaseActionError.value === errorText) {
+      clearReleaseActionError()
+    }
+  }, RELEASE_ACTION_ERROR_AUTO_HIDE_DELAY_MS)
+}
+
 const ensureViewedReleaseStageWritable = (targetText = '当前动作') => {
   if (canUseViewedReleaseStageActions.value) return true
   const errorText = `${viewedReleaseStageReadonlyMessage.value}${targetText}仅允许在当前流程阶段执行。`
-  releaseActionError.value = errorText
+  showReleaseActionError(errorText)
   releaseSignatureError.value = errorText
   message.error(errorText)
   return false
@@ -3041,8 +3064,9 @@ const ensurePendingSpecialNodeAttachmentsSavedBeforeRelease = async () => {
   if (pendingSpecialNodeAttachmentCount.value <= 0) return true
   const batchExecutionId = detail.value?.id
   if (!batchExecutionId) {
-    releaseActionError.value = '当前批次不存在，无法保存待提交附件。'
-    message.error(releaseActionError.value)
+    const errorText = '当前批次不存在，无法保存待提交附件。'
+    showReleaseActionError(errorText)
+    message.error(errorText)
     return false
   }
   try {
@@ -3056,8 +3080,9 @@ const ensurePendingSpecialNodeAttachmentsSavedBeforeRelease = async () => {
       }
     )
   } catch (error) {
-    releaseActionError.value = '已取消放行操作，待提交附件尚未保存。'
-    message.warning(releaseActionError.value)
+    const warningText = '已取消放行操作，待提交附件尚未保存。'
+    showReleaseActionError(warningText)
+    message.warning(warningText)
     return false
   }
   try {
@@ -3069,8 +3094,9 @@ const ensurePendingSpecialNodeAttachmentsSavedBeforeRelease = async () => {
     await loadDetail()
     return true
   } catch (error) {
-    releaseActionError.value = resolveErrorMessage(error, '待提交特殊节点附件保存失败，已中止放行操作。')
-    message.error(releaseActionError.value)
+    const errorText = resolveErrorMessage(error, '待提交特殊节点附件保存失败，已中止放行操作。')
+    showReleaseActionError(errorText)
+    message.error(errorText)
     return false
   }
 }
@@ -3731,20 +3757,22 @@ const openBatchHistoryPage = async () => {
 const handleReleasePrecheck = async () => {
   if (!ensureViewedReleaseStageWritable('执行放行预检')) return
   if (!canRunReleasePrecheck.value) {
-    releaseActionError.value = batchActionLocked.value ? batchActionLockMessage.value : '当前批次不存在，无法执行放行预检。'
-    message.error(releaseActionError.value)
+    const errorText = batchActionLocked.value ? batchActionLockMessage.value : '当前批次不存在，无法执行放行预检。'
+    showReleaseActionError(errorText)
+    message.error(errorText)
     return
   }
   const batchExecutionId = detail.value?.id
   if (!batchExecutionId) {
-    releaseActionError.value = '当前批次不存在，无法执行放行预检。'
-    message.error(releaseActionError.value)
+    const errorText = '当前批次不存在，无法执行放行预检。'
+    showReleaseActionError(errorText)
+    message.error(errorText)
     return
   }
   const pendingAttachmentsSaved = await ensurePendingSpecialNodeAttachmentsSavedBeforeRelease()
   if (!pendingAttachmentsSaved) return
   releasePrecheckLoading.value = true
-  releaseActionError.value = ''
+  clearReleaseActionError()
   try {
     await precheckEdhrRelease({ batchExecutionId })
     message.success('放行预检已完成')
@@ -3753,8 +3781,9 @@ const handleReleasePrecheck = async () => {
     await loadBatchDetailSecondaryData(batchExecutionId, batchDetailRequestSerial)
     await loadReleaseCheckItems()
   } catch (error) {
-    releaseActionError.value = resolveErrorMessage(error, '当前批次放行预检失败。')
-    message.error(releaseActionError.value)
+    const errorText = resolveErrorMessage(error, '当前批次放行预检失败。')
+    showReleaseActionError(errorText)
+    message.error(errorText)
   } finally {
     releasePrecheckLoading.value = false
   }
@@ -3766,7 +3795,7 @@ const loadReleaseCheckItems = async () => {
     releaseCheckItems.value = []
     return
   }
-  releaseActionError.value = ''
+  clearReleaseActionError()
   releaseCheckLoading.value = true
   try {
     const page = await getEdhrReleaseCheckItemPage({
@@ -3779,8 +3808,9 @@ const loadReleaseCheckItems = async () => {
     releaseCheckItems.value = page.list || []
   } catch (error) {
     releaseCheckItems.value = []
-    releaseActionError.value = resolveErrorMessage(error, '放行预检项加载失败。')
-    message.error(releaseActionError.value)
+    const errorText = resolveErrorMessage(error, '放行预检项加载失败。')
+    showReleaseActionError(errorText)
+    message.error(errorText)
   } finally {
     releaseCheckLoading.value = false
   }
@@ -3793,7 +3823,7 @@ const openReleaseCheckGroup = async () => {
 
 const openTraceRecordGroup = () => {
   traceRecordTab.value = 'release'
-  releaseActionError.value = ''
+  clearReleaseActionError()
   traceRecordDrawerVisible.value = true
 }
 
@@ -4377,6 +4407,7 @@ onActivated(activateFullHeightLayout)
 onDeactivated(deactivateFullHeightLayout)
 onBeforeUnmount(deactivateFullHeightLayout)
 onBeforeUnmount(cleanupDeferredBatchDetailLoads)
+onBeforeUnmount(clearReleaseActionErrorAutoHideTimer)
 watch(
   () => [route.name, route.query.id] as const,
   ([routeName, routeId]) => {

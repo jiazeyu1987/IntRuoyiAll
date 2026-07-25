@@ -25,7 +25,8 @@ if ($connections.Count -gt 0) {
   foreach ($connection in $connections) {
     $pidValue = $connection.OwningProcess
     $processInfo = Get-CimInstance Win32_Process -Filter "ProcessId=$pidValue"
-    if ($processInfo.CommandLine -notlike '*E:\IntRuoyi\IntRuoyiBackend*') {
+    $normalizedCommandLine = ($processInfo.CommandLine -replace '/', '\')
+    if ($normalizedCommandLine -notlike '*E:\IntRuoyi\IntRuoyiBackend*') {
       throw "Port 48081 listener is not this backend workspace: PID $pidValue"
     }
     Stop-Process -Id $pidValue -Force
@@ -54,7 +55,20 @@ if (-not (Test-Path -LiteralPath $java)) {
   $java = (Get-Command java.exe).Source
 }
 
+$oldRunnerTokenEnv = $env:YUDAO_CODEX_TEST_RUNNER_TOKEN
+$oldSpringApplicationJson = $env:SPRING_APPLICATION_JSON
+$springApplicationJson = @{
+  yudao = @{
+    'codex-test' = @{
+      runner = @{
+        token = $token
+      }
+    }
+  }
+} | ConvertTo-Json -Compress -Depth 8
+
 $env:YUDAO_CODEX_TEST_RUNNER_TOKEN = $token
+$env:SPRING_APPLICATION_JSON = $springApplicationJson
 $argsList = @(
   '-jar',
   $BackendJar,
@@ -70,7 +84,16 @@ $newProcess = Start-Process -FilePath $java `
   -RedirectStandardOutput $StdoutLog `
   -RedirectStandardError $StderrLog `
   -PassThru
-Remove-Item Env:\YUDAO_CODEX_TEST_RUNNER_TOKEN -ErrorAction SilentlyContinue
+if ($null -eq $oldRunnerTokenEnv) {
+  Remove-Item Env:\YUDAO_CODEX_TEST_RUNNER_TOKEN -ErrorAction SilentlyContinue
+} else {
+  $env:YUDAO_CODEX_TEST_RUNNER_TOKEN = $oldRunnerTokenEnv
+}
+if ($null -eq $oldSpringApplicationJson) {
+  Remove-Item Env:\SPRING_APPLICATION_JSON -ErrorAction SilentlyContinue
+} else {
+  $env:SPRING_APPLICATION_JSON = $oldSpringApplicationJson
+}
 
 $healthy = $false
 for ($i = 1; $i -le 60; $i++) {
