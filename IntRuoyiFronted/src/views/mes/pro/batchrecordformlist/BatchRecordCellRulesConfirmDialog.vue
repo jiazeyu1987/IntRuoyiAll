@@ -592,7 +592,7 @@ const ensureSelectedRuleConstraints = () => {
 const setSelectedNumericConstraint = (key: NumericConstraintKey, value: number | null | undefined) => {
   const constraints = ensureSelectedRuleConstraints()
   if (!constraints) return
-  if (value === null || value === undefined || value === '') {
+  if (value === null || value === undefined) {
     delete constraints[key]
     return
   }

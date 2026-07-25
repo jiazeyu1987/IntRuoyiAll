@@ -129,7 +129,7 @@ export interface EdhrFieldChangeSaveReqVO {
   reasonText: string
   changes: EdhrFieldChangeItemReqVO[]
   attachmentChanges?: EdhrFieldAttachmentChangeReqVO[]
-  signature: EdhrFieldAuditSignatureReqVO
+  signature?: EdhrFieldAuditSignatureReqVO
 }
 
 export interface EdhrFieldChangeSaveRespVO {

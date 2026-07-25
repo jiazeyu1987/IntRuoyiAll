@@ -9,20 +9,20 @@ export type BrowserSearchScopeValue = 'current' | 'global'
 
 export interface DccBrowserRememberedState {
   scope?: BrowserSearchScopeValue
-  directoryId?: string
-  lastOpenedDirectoryId?: string
+  directoryId?: number
+  lastOpenedDirectoryId?: number
   pageNo?: number
   pageSize?: number
-  categoryId?: string
+  categoryId?: number
   status?: string
   keyword?: string
   recognitionStatus?: string
-  batchRecognitionTaskId?: string
+  batchRecognitionTaskId?: number
 }
 
 export interface DccBrowserMetadataDirectoryNode {
-  id?: number | string
-  parentId?: number | string | null
+  id?: number
+  parentId?: number | null
   code: string
   name: string
   active: boolean
@@ -36,7 +36,7 @@ export interface DccBrowserMetadataDirectoryNode {
 export interface DccBrowserMetadataCache {
   categories?: ControlledFileCategoryVO[]
   directoryChildrenByParentKey?: Record<string, DccBrowserMetadataDirectoryNode[]>
-  expandedDirectoryIds?: string[]
+  expandedDirectoryIds?: number[]
 }
 
 export interface DccBrowserCacheContext {
@@ -70,7 +70,7 @@ const normalizePositiveIdText = (value: unknown, fieldName: string) => {
   if (!normalized) {
     throw new Error(`DCC browser cache field ${fieldName} must be a positive integer id.`)
   }
-  return normalized
+  return Number(normalized)
 }
 
 const normalizePositiveIdTextList = (value: unknown, fieldName: string) => {
@@ -88,7 +88,7 @@ const normalizePositiveIdTextList = (value: unknown, fieldName: string) => {
     }
     normalizedValues.add(normalized)
   })
-  return Array.from(normalizedValues)
+  return Array.from(normalizedValues).map((item) => Number(item))
 }
 
 const normalizeOptionalString = (value: unknown, fieldName: string) => {

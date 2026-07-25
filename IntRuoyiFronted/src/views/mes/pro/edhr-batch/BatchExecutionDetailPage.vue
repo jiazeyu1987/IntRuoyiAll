@@ -561,6 +561,22 @@
                 <el-empty v-else description="当前工序未配置表单" :image-size="44" />
               </div>
               <div
+                v-if="showPrimaryFormFillMeta"
+                class="edhr-batch-detail__primary-fill-meta"
+                aria-label="表单填写元信息"
+              >
+                <div
+                  v-for="item in primaryFormFillMetaItems"
+                  :key="item.key"
+                  class="edhr-batch-detail__primary-fill-item"
+                >
+                  <span class="edhr-batch-detail__primary-fill-label">{{ item.label }}</span>
+                  <span class="edhr-batch-detail__primary-fill-value" :title="item.value">
+                    {{ item.value }}
+                  </span>
+                </div>
+              </div>
+              <div
                 v-if="selectedTaskForEvidence && isSpecialNode(selectedTaskForEvidence)"
                 class="edhr-batch-detail__special-node-action-grid"
                 aria-label="特殊节点操作"
@@ -2209,6 +2225,12 @@ type SignoffSummaryRecord = {
   signedAtSort: number
 }
 
+
+type PrimaryFormFillMetaItem = {
+  key: string
+  label: string
+  value: string
+}
 type TraceRecordFieldResponsibilityEntry = {
   key: string
   executionId: number
@@ -2854,6 +2876,36 @@ const resolveTaskCardFillersText = (row: EdhrBatchExecutionTaskRespVO) => {
   return names.length ? names.join('、') : '未配置'
 }
 
+
+const resolvePrimaryFormFillersText = () => {
+  const signatureFillers = compactPositionText(fillSignoffRecords.value.map((record) => record.actorName))
+  if (signatureFillers.length) return signatureFillers.join('、')
+
+  const selectedTask = selectedTaskForEvidence.value
+  if (selectedTask && !isSpecialNode(selectedTask)) return resolvePendingTaskFillableUsersText(selectedTask)
+  return '--'
+}
+
+const resolvePrimaryFormSubmitTimesText = () => {
+  const submitTimes = compactPositionText(
+    submitSignoffRecords.value
+      .map((record) => record.signedAtText)
+      .filter((signedAtText) => signedAtText && signedAtText !== '--')
+  )
+  if (submitTimes.length) return submitTimes.join('、')
+  return formatReviewTime(selectedExecution.value?.submittedAt)
+}
+
+const primaryFormFillMetaItems = computed<PrimaryFormFillMetaItem[]>(() => {
+  const selectedTask = selectedTaskForEvidence.value
+  if (!selectedProcessContext.value || isReleaseProcessSelected.value || !selectedTask || isSpecialNode(selectedTask)) return []
+  return [
+    { key: 'fillers', label: '填写人', value: resolvePrimaryFormFillersText() },
+    { key: 'submittedAt', label: '提交时间', value: resolvePrimaryFormSubmitTimesText() }
+  ]
+})
+
+const showPrimaryFormFillMeta = computed(() => primaryFormFillMetaItems.value.length > 0)
 const selectedSpecialNodeForEvidence = computed(() => {
   const task = selectedTaskForEvidence.value
   return task && isSpecialNode(task) ? task : undefined
@@ -5067,6 +5119,45 @@ watch(
 
 .edhr-batch-detail__preview-header.is-recordbook {
   background: #fff8e6;
+}
+
+.edhr-batch-detail__primary-fill-meta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  flex-shrink: 0;
+  border: 1px solid #dbe3ef;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 8px 10px;
+}
+
+.edhr-batch-detail__primary-fill-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.edhr-batch-detail__primary-fill-label {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.edhr-batch-detail__primary-fill-value {
+  min-width: 0;
+  overflow: hidden;
+  color: #172033;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .edhr-batch-detail__preview-context {

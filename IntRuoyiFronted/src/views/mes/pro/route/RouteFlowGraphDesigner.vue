@@ -2759,6 +2759,15 @@ const handleRecordBindingProcessIndependentChange = (
   syncRouteWideRecordBindingProcessIndependent(formTemplateId, processIndependent)
 }
 
+const handleRecordBindingRecordbookEnabledChange = (
+  binding: RouteFlowRecordBinding,
+  recordbookEnabled: boolean
+) => {
+  if (!binding || recordBindingEditorDisabled.value) return
+  binding.recordbookEnabled = recordbookEnabled
+  syncSelectedRecordBindingsToDraft()
+}
+
 const addSelectedRecordBinding = async () => {
   if (recordBindingEditorDisabled.value) return
   selectedRecordBindings.value = [...selectedRecordBindings.value, createEmptyRecordBinding()]
