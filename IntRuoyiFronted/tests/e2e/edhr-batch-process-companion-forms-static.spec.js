@@ -51,15 +51,22 @@ assert(
   detail.includes('resolveProcessGroupStateClass') &&
     !processNav.includes('resolveProcessGroupStatusText(processGroup)') &&
     detail.includes('resolveTaskStatusLabel(task)') &&
-    detail.includes('resolveTaskSlotBlocker(task) || task.disabledReason || task.gateMessage'),
+    detail.includes('v-if="resolveTaskGateText(task)"') &&
+    detail.includes('{{ resolveTaskGateText(task) }}') &&
+    detail.includes('const resolveTaskGateText = (row: EdhrBatchExecutionTaskRespVO) =>') &&
+    detail.includes('resolveTaskSlotBlocker(row)') &&
+    detail.includes('normalizeTaskAccessReason(row.disabledReason)') &&
+    detail.includes('normalizeTaskAccessReason(row.gateMessage)'),
   '左侧工序必须用背景表达整体状态且不显示完成计数，右侧继续显示表单自身状态和门禁原因。'
 )
 
 assert(
-  execution.includes("route.query.returnPath === '/mes/pro/feedback/edhr-batch-execution/detail'") &&
+  execution.includes('const currentBatchExecutionId = computed(() => readRouteQueryString(route.query.batchExecutionId))') &&
     execution.includes("path: '/mes/pro/feedback/edhr-batch-execution/detail'") &&
-    execution.includes('batchTaskId: typeof route.query.batchTaskId === \'string\' ? route.query.batchTaskId : undefined'),
-  '执行页返回列表时必须识别批次详情来源，并保留 batchExecutionId / batchTaskId 上下文。'
+    execution.includes('id: currentBatchExecutionId.value') &&
+    execution.includes('batchTaskId: readRouteQueryString(route.query.batchTaskId) || undefined') &&
+    execution.includes('workTaskId: readRouteQueryString(route.query.workTaskId) || undefined'),
+  '执行页返回列表时必须识别批次详情来源，并保留 batchExecutionId / batchTaskId / workTaskId 上下文。'
 )
 
 console.log('PASS: eDHR batch detail shows companion forms in the selected process right panel and preserves return context.')

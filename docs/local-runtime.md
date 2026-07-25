@@ -60,6 +60,14 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
 - Forbidden action: 禁止强杀未知进程、随机换端口、用主工作区脏源码重新构建、只看 health 就宣称修复已加载。
 - Evidence: `doc/tasks/20260724-batch-execution-published-route-runtime-update/verification-report.md`。
 
+## 2026-07-25 本地后端数据库凭据门禁
+
+- Trigger: 启动 `int_main` 本地后端、`48081` 未监听、日志出现 `dynamic-datasource create datasource named [master] error` 或 `Access denied for user 'root'@'localhost'`。
+- Preflight check: 启动后端前确认本地 MySQL `127.0.0.1:3306` 与 `application-local.yaml` 中的正式本地数据源配置一致；如果只做启动验证，可先启动并用日志判定真实失败原因，但不得改端口或切换数据源。
+- Blocker: MySQL 拒绝当前配置账号、数据库不可达、或后端无法创建 `master` 数据源时，必须停止后端启动结论，不得声明 `48081` 已成功运行。
+- Verification: 数据库前置条件修复后重新启动后端，记录 `48081` PID、命令行归属 `E:\IntRuoyi\IntRuoyiBackend`，并用 `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` 断言 `status=UP`。
+- Forbidden action: 禁止静默换端口、临时改 `application-local.yaml` 凭据、切换到 mock/空数据源、只启动前端就宣称前后端完成。
+- Evidence: `doc/tasks/20260725-start-local-frontend-backend/verification-report.md`。
 ## 禁止做法
 
 - 禁止把 `int_main` 改到随机端口启动。

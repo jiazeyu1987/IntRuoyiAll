@@ -4,7 +4,7 @@
     :body-style="isTrackingReadonlyMode ? { padding: '10px' } : { padding: '0' }"
   >
     <div class="edhr-page-shell">
-      <div v-if="isTrackingReadonlyMode" class="edhr-page-shell__toolbar">
+      <div class="edhr-page-shell__toolbar">
         <div>
           <div class="edhr-page-shell__title">{{ executionPageTitle }}</div>
           <div class="edhr-page-shell__subtitle">{{ executionPageSubtitle }}</div>
