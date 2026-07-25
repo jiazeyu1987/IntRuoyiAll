@@ -38,3 +38,12 @@
 ## Blockers
 
 - 暂无。
+
+## Merge Progress
+
+- `BASELINE: 0683df11 -> PASS, saved pre-existing dirty workspace before int_shedule merge`。
+- `TASK_DOC_COMMIT: 9529f908 -> PASS, saved current task record before merge`。
+- `git fetch origin int_shedule -> PASS, origin/int_shedule advanced 234a0605..14cc1e66`。
+- `git merge --no-ff origin/int_shedule -> CONFLICT, docs/experience-index.md and docs/local-runtime.md`。
+- Conflict resolution: preserved both local int_main runtime gates and int_shedule Docker dependency gate; removed conflict markers only.
+- `rg conflict markers -> PASS, no conflict markers remain and both gates are searchable`。
