@@ -40,6 +40,8 @@
 - `task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode apply` -> PASS, no deleted paths
 - `task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode preview` -> PASS after view-only extension, no delete/blocked/warnings
 - `task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode apply` -> PASS after view-only extension, no deleted paths
+- `task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode preview` -> PASS after real E2E, kept JSON + screenshot evidence, no delete/blocked/warnings
+- `task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode apply` -> PASS after real E2E, no deleted paths
 
 ## Real E2E Evidence
 

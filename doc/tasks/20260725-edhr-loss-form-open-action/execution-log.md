@@ -48,6 +48,8 @@
 - GREEN: `node tests\e2e\edhr-loss-form-open-action-static.spec.js` -> PASS after real E2E script added。
 - GREEN: `node tests\e2e\edhr-loss-form-open-action-real.e2e.js` -> PASS，真实前端目标 `batchExecutionId=900000000837`、`taskId=6368`、`requiredPolicy=REQUIRED`、`allowedActions=[]`、主动作 `查看表单`，只读抽屉内 `解析/创建/保存草稿/提交/重提/放弃` 全部 disabled，未触发 `/task/open`、`/task/special-node/skip` 或 MES/FormCenter 写请求；证据 `doc/tasks/20260725-edhr-loss-form-open-action/real-e2e-output/readonly-loss-form-card-result.json`。
 - GREEN: project-experience-consolidation -> PASS，已将“无 OPEN_FORM 但可查看的路线表单必须点真实卡片验证查看表单只读抽屉”合并到 `docs/e2e-rules.md#eDHR 路线表单跳过口径门禁`，并补充 `docs/experience-index.md` 关键词路由。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode preview` -> PASS after real E2E, keep `real-e2e-output\readonly-loss-form-card-result.json` and screenshot, no delete/blocked/warnings。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode apply` -> PASS after real E2E, no deleted paths。
 
 ## Additional Verification Notes
 
