@@ -7,8 +7,11 @@ import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.BusinessActionContextReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceCreateReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceRespVO;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersionDO;
+import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper;
 import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormTemplateVersionMapper;
+import cn.iocoder.yudao.module.bpm.formcenter.model.FormInstanceStatus;
 import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
@@ -396,6 +399,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private MesProEdhrBatchVoidEffectService batchVoidEffectService;
     @Resource
     private FormTemplateVersionMapper formTemplateVersionMapper;
+    @Resource
+    private FormActionInstanceMapper formActionInstanceMapper;
     @Resource
     private FormCenterRuntimeService formCenterRuntimeService;
 
@@ -2167,6 +2172,10 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             if (!hasCompleteFormCenterRouteContext(task)) {
                 throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
             }
+            if (completeAlreadyEffectiveBatchSharedRouteFormTask(task, openWorkTask)) {
+                task = batchTaskMapper.selectById(task.getId());
+                openWorkTask = resolveOpenWorkTask(task.getId());
+            }
         } else {
             openOrBindTraditionalBatchRecordExecution(batch, task, openWorkTask);
             requireTaskOpenContext(task);
@@ -2316,6 +2325,24 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 && task.getFormTemplateId() != null
                 && task.getFormTemplateVersionId() != null
                 && StrUtil.isNotBlank(task.getFormBindingKey());
+    }
+
+    private boolean completeAlreadyEffectiveBatchSharedRouteFormTask(MesProEdhrBatchExecutionTaskDO task,
+                                                                    MesProEdhrWorkTaskDO openWorkTask) {
+        if (!isBatchSharedTask(task) || openWorkTask == null || task.getFormCenterInstanceId() == null) {
+            return false;
+        }
+        if (!Objects.equals(task.getStatus(), TASK_STATUS_WAITING)
+                && !Objects.equals(task.getStatus(), TASK_STATUS_DRAFT)
+                && !Objects.equals(task.getStatus(), TASK_STATUS_REWORK_REQUIRED)) {
+            return false;
+        }
+        FormActionInstanceDO instance = formActionInstanceMapper.selectById(task.getFormCenterInstanceId());
+        if (instance == null || !Objects.equals(FormInstanceStatus.EFFECTIVE.name(), instance.getStatus())) {
+            return false;
+        }
+        workTaskService.completeRouteFormFillAndCreateNextFill(task.getId(), currentUserId());
+        return true;
     }
 
     private void openOrBindTraditionalBatchRecordExecution(MesProEdhrBatchExecutionDO batch,

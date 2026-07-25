@@ -24,11 +24,37 @@
 
 ## TDD Evidence
 
-- RED: pending
-- GREEN: pending
-- REGRESSION: pending
+- RED: node tests\e2e\edhr-batch-execution-golden-finger-bulk-void-static.spec.js -> FAIL, 缺少金手指按钮/API wiring/当前筛选提交和审批隔离。
+- RED: mvn -pl yudao-module-mes -am '-Dtest=MesProEdhrBatchExecutionGoldenFingerBulkVoidContractTest,MesProEdhrBatchExecutionGoldenFingerBulkVoidServiceTest' '-Dsurefire.failIfNoSpecifiedTests=false' test -> FAIL, 缺少 bulk void VO、服务方法、错误码和接口契约。
+- GREEN: node --check tests\e2e\edhr-batch-execution-golden-finger-bulk-void-static.spec.js -> PASS。
+- GREEN: node tests\e2e\edhr-batch-execution-golden-finger-bulk-void-static.spec.js -> PASS。
+- GREEN: pnpm ts:check -> PASS。
+- GREEN: mvn -pl yudao-module-mes -am '-Dtest=MesProEdhrBatchExecutionGoldenFingerBulkVoidContractTest,MesProEdhrBatchExecutionGoldenFingerBulkVoidServiceTest' '-Dsurefire.failIfNoSpecifiedTests=false' test -> PASS, Tests run: 5, Failures: 0, Errors: 0, Skipped: 0。
+- REGRESSION: 前端静态合同确认单条作废仍调用 requestVoidBatchExecution 与 /mes/pro/edhr-change/void-batch-execution/request，不调用 goldenFingerBulkVoidEdhrBatchExecutions。
 
 ## Milestone Updates
 
 - 2026-07-25: 创建任务目录和 BDD/TDD 初始记录。
 - 2026-07-25: GREEN: experience-preflight -> PASS，已读取 `docs/experience-index.md` 并记录适用门禁：Element Plus 表格选择门禁、eDHR 批次执行数据库夹具与证据文件门禁。
+
+## Verification Evidence
+
+- Backend evidence: `doc/tasks/20260725-edhr-golden-finger-bulk-void/backend-api-evidence.md`
+- Frontend evidence: `doc/tasks/20260725-edhr-golden-finger-bulk-void/frontend-feature-evidence.md`
+- Verification report: `doc/tasks/20260725-edhr-golden-finger-bulk-void/verification-report.md`
+
+## Project Experience Consolidation
+
+- 已按 `project-experience-consolidation` 技能检查。本任务没有新增超出现有 Element Plus 表格选择门禁、eDHR 批次执行数据库夹具门禁和静态合同边界规则之外的长期经验；未新建长期经验文档。
+
+## Closeout Blocker
+
+- 当前共享工作区仍存在非本任务并发脏改和本地领先提交；为避免混提交，本任务暂不执行最终 implementation/closeout commit 与 push。
+## Cleanup Evidence
+
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-edhr-golden-finger-bulk-void --mode preview` -> PASS，keep 5 files，delete none，blocked none，warnings none。
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-edhr-golden-finger-bulk-void --mode apply` -> PASS，deleted_paths none。
+## Evidence Validator
+
+- `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260725-edhr-golden-finger-bulk-void\backend-api-evidence.md` -> PASS, Backend API evidence is valid.
+- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260725-edhr-golden-finger-bulk-void\frontend-feature-evidence.md` -> PASS, Frontend feature evidence is valid.

@@ -5,6 +5,10 @@ const path = require('node:path')
 const repoRoot = path.resolve(__dirname, '../..')
 const scriptPath = path.join(repoRoot, 'tests/e2e/edhr-full-chain-multi-user-real-flow.e2e.js')
 const source = fs.readFileSync(scriptPath, 'utf8')
+const detailPagePath = path.join(repoRoot, 'src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue')
+const detailPageSource = fs.readFileSync(detailPagePath, 'utf8')
+const backendServicePath = path.resolve(repoRoot, '../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java')
+const backendServiceSource = fs.readFileSync(backendServicePath, 'utf8')
 
 assert.match(
   source,
@@ -75,7 +79,7 @@ const createFlowBlock = source.slice(createFlowStart, createFlowEnd)
 assert.ok(createFlowBlock.includes('ensureBatchTaskCellRulesConfirmedByUi(ownerPage, created.batch)'), '创建批次后、打开填写任务前必须先确认批次绑定报表规则。')
 
 assert.ok(source.includes('function isActiveRouteFormTask'), '完整演练必须只从 activeWorkTaskId 明确存在的路线任务进入填写。')
-assert.ok(source.includes('Number(task.activeWorkTaskId || 0) > 0'), '路线任务处理不得提前选择尚未生成工作待办的后续任务。')
+assert.ok(source.includes('Number(task.activeWorkTaskId || 0) > 0 && Number(task.status) !== 40'), '路线任务处理不得选择已完成或尚未生成工作待办的任务。')
 assert.ok(createFlowBlock.includes('filter(isActiveRouteFormTask)'), '创建模式循环必须优先处理已有活动工作待办。')
 assert.ok(createFlowBlock.includes('filter(isIncompleteRouteFormTask)'), '创建模式收尾必须用未完成任务而不是活动待办做完成性检查。')
 
@@ -91,6 +95,26 @@ assert.ok(formCenterRouteTaskBlock.includes('.form-action-panel'), 'FormCenter �
 assert.ok(formCenterRouteTaskBlock.includes('/form-center/instances/'), 'FormCenter 动态表单必须等待真实草稿和提交接口。')
 assert.ok(formCenterRouteTaskBlock.includes('保存草稿'), 'FormCenter 动态表单必须通过真实保存草稿按钮。')
 assert.ok(formCenterRouteTaskBlock.includes('name: /^提交$/'), 'FormCenter 动态表单必须通过真实提交按钮。')
+assert.ok(formCenterRouteTaskBlock.includes('Number(opened.status) === 40'), 'FormCenter 共享实例已生效时必须识别后端已完成状态。')
+assert.ok(formCenterRouteTaskBlock.includes('autoCompletedByEffectiveSharedInstance'), 'FormCenter 共享实例已生效时必须记录自动完成证据。')
+assert.ok(detailPageSource.includes("opened.instanceScope === 'BATCH_SHARED'"), '批次详情页必须只对 BATCH_SHARED 已生效表单走自动完成刷新。')
+assert.ok(detailPageSource.includes('opened.status === EDHR_BATCH_TASK_STATUS_APPROVED'), '批次详情页必须用后端完成状态阻止打开已生效表单抽屉。')
+assert.ok(detailPageSource.includes('共享表单已生效，当前任务已自动完成'), '批次详情页必须向用户明确共享表单已自动完成。')
+assert.ok(backendServiceSource.includes('completeAlreadyEffectiveBatchSharedRouteFormTask'), '后端 openTask 必须包含共享 FormCenter 已生效任务推进逻辑。')
+assert.ok(backendServiceSource.includes('FormInstanceStatus.EFFECTIVE.name()'), '后端必须按 FormCenter 实例 EFFECTIVE 状态判断自动完成。')
+assert.ok(backendServiceSource.includes('workTaskService.completeRouteFormFillAndCreateNextFill'), '后端必须复用路线表单正式完成链路推进后续任务。')
+
+const specialNodeActionStart = source.indexOf('async function specialNodeAction')
+const specialNodeActionEnd = source.indexOf('async function skipSpecialNode', specialNodeActionStart)
+const specialNodeActionBlock = source.slice(specialNodeActionStart, specialNodeActionEnd)
+
+assert.ok(specialNodeActionStart >= 0, '完整演练必须封装特殊节点操作。')
+assert.ok(specialNodeActionBlock.includes("const actionLabel = actionName === '完成' ? '完成节点'"), '特殊节点完成动作必须匹配当前页面“完成节点”按钮。')
+assert.ok(specialNodeActionBlock.includes(".edhr-batch-detail__special-process-task-group .edhr-batch-detail__process-task-group-head"), '特殊节点必须点击特殊节点任务按钮，不得误点普通工序或放行项。')
+assert.ok(specialNodeActionBlock.includes(".edhr-batch-detail__process-task-group.is-active, .edhr-batch-detail__release-process-item.is-active"), '特殊节点操作前必须等待批次复盘初始选中态稳定，避免异步默认选中覆盖目标特殊节点。')
+assert.ok(specialNodeActionBlock.includes(".edhr-batch-detail__special-node-action-grid:visible"), '特殊节点动作必须限定在可见特殊节点操作区内。')
+assert.ok(specialNodeActionBlock.includes("actionGrid.getByRole('button', { name: actionLabel })"), '特殊节点动作按钮必须在可见操作区内按可访问按钮名定位。')
+assert.ok(specialNodeActionBlock.includes("textContent({ timeout: 1000 })"), '特殊节点明细文本探测不得长时间阻塞当前按钮定位。')
 
 const processRouteTaskStart = source.indexOf('async function processRouteTask')
 const processRouteTaskEnd = source.indexOf('async function closeBatch', processRouteTaskStart)

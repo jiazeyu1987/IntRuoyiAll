@@ -56,6 +56,7 @@ export interface EdhrSignatureTimeReqVO {
 }
 
 export interface EdhrBatchExecutionPageReqVO extends PageParam {
+  batchExecutionIds?: number[]
   batchExecutionCode?: string
   workOrderCode?: string
   batchCode?: string

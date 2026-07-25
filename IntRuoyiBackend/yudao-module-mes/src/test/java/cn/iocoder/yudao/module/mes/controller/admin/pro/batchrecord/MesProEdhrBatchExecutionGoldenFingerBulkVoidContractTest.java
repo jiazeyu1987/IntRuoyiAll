@@ -41,6 +41,7 @@ class MesProEdhrBatchExecutionGoldenFingerBulkVoidContractTest {
         requireGetter(EdhrBatchExecutionGoldenFingerBulkVoidReqVO.class, "getComment");
         EdhrBatchExecutionGoldenFingerBulkVoidReqVO.class.getDeclaredMethod("setFilter",
                 EdhrBatchExecutionPageReqVO.class);
+        requireGetter(EdhrBatchExecutionPageReqVO.class, "getBatchExecutionIds");
 
         requireGetter(EdhrBatchExecutionGoldenFingerBulkVoidRespVO.class, "getMatchedCount");
         requireGetter(EdhrBatchExecutionGoldenFingerBulkVoidRespVO.class, "getVoidedCount");

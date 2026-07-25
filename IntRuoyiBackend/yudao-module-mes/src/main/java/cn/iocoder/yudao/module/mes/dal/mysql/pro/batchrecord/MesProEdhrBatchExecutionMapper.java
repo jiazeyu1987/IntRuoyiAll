@@ -51,6 +51,7 @@ public interface MesProEdhrBatchExecutionMapper extends BaseMapperX<MesProEdhrBa
 
     private LambdaQueryWrapperX<MesProEdhrBatchExecutionDO> buildPageQuery(EdhrBatchExecutionPageReqVO reqVO) {
         LambdaQueryWrapperX<MesProEdhrBatchExecutionDO> queryWrapper = new LambdaQueryWrapperX<MesProEdhrBatchExecutionDO>()
+                .inIfPresent(MesProEdhrBatchExecutionDO::getId, reqVO.getBatchExecutionIds())
                 .likeIfPresent(MesProEdhrBatchExecutionDO::getBatchExecutionCode, reqVO.getBatchExecutionCode())
                 .eqIfPresent(MesProEdhrBatchExecutionDO::getWorkOrderId, reqVO.getWorkOrderId())
                 .likeIfPresent(MesProEdhrBatchExecutionDO::getWorkOrderCode, reqVO.getWorkOrderCode())

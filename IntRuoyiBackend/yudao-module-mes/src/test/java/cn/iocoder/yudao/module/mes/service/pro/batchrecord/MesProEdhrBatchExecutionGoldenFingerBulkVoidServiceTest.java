@@ -84,6 +84,29 @@ class MesProEdhrBatchExecutionGoldenFingerBulkVoidServiceTest extends BaseMockit
     }
 
     @Test
+    void goldenFingerBulkVoid_keepsSelectedBatchExecutionIdsOnFilter() {
+        when(goldenFingerPermissionService.hasGoldenFingerPermission(ACTOR_ID)).thenReturn(true);
+        when(batchExecutionMapper.selectList(any(EdhrBatchExecutionPageReqVO.class))).thenReturn(List.of(
+                batch(10L, "EDHRB-10", MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+        ));
+        when(batchVoidEffectService.executeDirectPlatformVoidBatchExecution(any(), eq(ACTOR_ID)))
+                .thenReturn(new EdhrRecordChangeRespVO().setId(9100L));
+        EdhrBatchExecutionGoldenFingerBulkVoidReqVO request = validRequest()
+                .setFilter(new EdhrBatchExecutionPageReqVO()
+                        .setBatchCode("BULK-VOID")
+                        .setBatchExecutionIds(List.of(10L, 12L)));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockLoginUser()) {
+            batchExecutionService.goldenFingerBulkVoid(request);
+        }
+
+        ArgumentCaptor<EdhrBatchExecutionPageReqVO> filterCaptor =
+                ArgumentCaptor.forClass(EdhrBatchExecutionPageReqVO.class);
+        verify(batchExecutionMapper).selectList(filterCaptor.capture());
+        assertEquals(List.of(10L, 12L), filterCaptor.getValue().getBatchExecutionIds());
+    }
+
+    @Test
     void goldenFingerBulkVoid_failsWhenCurrentFilterHasNoVoidableCandidates() {
         when(goldenFingerPermissionService.hasGoldenFingerPermission(ACTOR_ID)).thenReturn(true);
         when(batchExecutionMapper.selectList(any(EdhrBatchExecutionPageReqVO.class))).thenReturn(List.of(

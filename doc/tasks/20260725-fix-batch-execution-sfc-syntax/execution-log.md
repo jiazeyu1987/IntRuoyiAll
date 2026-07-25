@@ -16,6 +16,8 @@ Fix `[vue/compiler-sfc] Missing semicolon` in `BatchExecutionListPage.vue` at th
 - Reproduced the reported parser failure with the local Vue compiler package.
 - Applied the minimal syntax fix in `BatchExecutionListPage.vue`.
 - Verified the target SFC script compiles with the same local Vue compiler package.
+- Validated bug regression evidence with `validate_bug_regression.py`.
+- Ran task closeout cleanup preview and apply; no files were deleted and no blockers were reported.
 
 ## Root Cause
 

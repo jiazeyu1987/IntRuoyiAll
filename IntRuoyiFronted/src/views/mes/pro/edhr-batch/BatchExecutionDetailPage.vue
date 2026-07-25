@@ -3942,6 +3942,16 @@ const handleOpenTask = async (
       taskId: row.id,
       workTaskId: row.activeWorkTaskId
     })
+    if (
+      opened.formCenterInstanceId &&
+      opened.formTemplateId &&
+      opened.instanceScope === 'BATCH_SHARED' &&
+      opened.status === EDHR_BATCH_TASK_STATUS_APPROVED
+    ) {
+      message.success('共享表单已生效，当前任务已自动完成')
+      await loadDetail()
+      return
+    }
     if (opened.formCenterInstanceId && opened.formTemplateId) {
       routeFormOpenedTask.value = {
         ...row,

@@ -7,24 +7,24 @@
 ## Milestones
 
 - [x] 创建任务记录并确认现有并发脏改边界。
-- [ ] 增加静态回归测试复现顶部栏位置不一致。
-- [ ] 实施最小模板/样式修复。
-- [ ] 运行目标静态测试和类型检查。
+- [x] 增加静态回归测试复现顶部栏位置不一致。
+- [x] 实施最小模板/样式修复。
+- [x] 运行目标静态测试和类型检查。
 - [ ] 更新验证记录并进入 closeout。
 
 ## Expected Verification
 
 - 顶部栏静态合同覆盖左侧上下文、中间操作组、右侧版本/载体组。
-- `node tests\e2e\edhr-batch-context-carrier-header-static.spec.js` 通过。
+- `node tests\e2e\edhr-preview-header-layout-static.spec.js` 通过。
 - `pnpm ts:check` 通过。
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Blockers
 
-- 当前工作区存在大量并发未提交改动；本任务只修改批次详情顶部栏与对应静态合同，不执行全量提交/推送。
+- 当前工作区存在大量并发未提交改动；本任务只修改批次详情顶部栏与对应静态合同，未执行全量提交/推送。
 
 ## Experience Gate
 

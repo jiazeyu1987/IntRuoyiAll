@@ -43,6 +43,24 @@
             v-if="hasGoldenFingerPermission"
             v-hasPermi="[GOLDEN_FINGER_PERMISSION]"
             plain
+            type="primary"
+            :disabled="!selectableGoldenFingerBulkVoidCurrentPageCount"
+            aria-label="选择当前页可作废批次"
+            @click="selectCurrentPageGoldenFingerBulkVoidRows"
+          >
+            选择当前页可作废批次
+          </el-button>
+          <el-tag
+            v-if="hasGoldenFingerPermission && selectedGoldenFingerBulkVoidIds.length"
+            type="danger"
+            effect="plain"
+          >
+            已勾选 {{ selectedGoldenFingerBulkVoidIds.length }} 个批次
+          </el-tag>
+          <el-button
+            v-if="hasGoldenFingerPermission"
+            v-hasPermi="[GOLDEN_FINGER_PERMISSION]"
+            plain
             type="danger"
             :loading="goldenFingerBulkVoidLoading"
             @click="openGoldenFingerBulkVoidDialog"
@@ -87,16 +105,26 @@
             class="edhr-batch-page__list-alert"
           />
           <el-table
+            ref="batchExecutionTableRef"
             v-loading="loading"
             data-user-table-column-explicit
             data-user-table-key="mes.pro.edhrBatch.execution.main"
             :data="list"
+            row-key="id"
             stripe
             border
             :show-overflow-tooltip="true"
             @header-dragend="handleEdhrBatchExecutionHeaderDragend"
+            @selection-change="handleBatchExecutionSelectionChange"
             @sort-change="handleTemplateSortChange"
           >
+            <el-table-column
+              v-if="hasGoldenFingerPermission"
+              type="selection"
+              :selectable="isGoldenFingerBulkVoidSelectableRow"
+              width="48"
+              fixed="left"
+            />
             <el-table-column
               v-if="isEdhrBatchExecutionColumnVisible('batchExecutionCode')"
               label="批次执行编码"
@@ -420,7 +448,7 @@
 
     <Dialog title="金手指一键作废批次执行" v-model="goldenFingerBulkVoidDialogVisible" width="620px">
       <el-alert
-        title="将按当前筛选条件跨页作废所有可作废批次，直通生效，不进入审核流程。"
+        title="可先在表格复选批次或使用表头全选/选择当前页；未勾选时，将按当前筛选条件跨页作废所有可作废批次，直通生效，不进入审核流程。"
         type="warning"
         :closable="false"
         show-icon
@@ -436,7 +464,10 @@
       />
       <el-form label-width="112px" class="edhr-batch-page__void-form">
         <el-form-item label="作废范围">
-          <span>当前筛选条件下跨页全部可作废批次</span>
+          <span v-if="selectedGoldenFingerBulkVoidIds.length">
+            已勾选 {{ selectedGoldenFingerBulkVoidIds.length }} 个批次
+          </span>
+          <span v-else>当前筛选条件下跨页全部可作废批次</span>
         </el-form-item>
         <el-form-item label="原因分类" required>
           <el-select
@@ -842,6 +873,30 @@ const voidError = ref('')
 const goldenFingerBulkVoidError = ref('')
 const readinessError = ref('')
 const list = ref<EdhrBatchExecutionRespVO[]>([])
+const batchExecutionTableRef = ref()
+const selectedGoldenFingerBulkVoidRows = ref<EdhrBatchExecutionRespVO[]>([])
+const isGoldenFingerBulkVoidSelectableRow = (row: EdhrBatchExecutionRespVO) =>
+  hasGoldenFingerPermission.value && resolveBatchVoidOperationState(row) === 'normal'
+const selectedGoldenFingerBulkVoidIds = computed(() =>
+  selectedGoldenFingerBulkVoidRows.value
+    .map((row) => Number(row.id))
+    .filter((id) => Number.isFinite(id) && id > 0)
+)
+const selectableGoldenFingerBulkVoidCurrentPageCount = computed(() => list.value.filter(isGoldenFingerBulkVoidSelectableRow).length)
+const handleBatchExecutionSelectionChange = (rows: EdhrBatchExecutionRespVO[]) => {
+  selectedGoldenFingerBulkVoidRows.value = rows.filter(isGoldenFingerBulkVoidSelectableRow)
+}
+const selectCurrentPageGoldenFingerBulkVoidRows = () => {
+  const table = batchExecutionTableRef.value
+  if (!table) {
+    message.error('批次执行表格尚未加载，无法选择当前页可作废批次。')
+    return
+  }
+  const selectableRows = list.value.filter(isGoldenFingerBulkVoidSelectableRow)
+  table.clearSelection()
+  selectableRows.forEach((row) => table.toggleRowSelection(row, true))
+  selectedGoldenFingerBulkVoidRows.value = selectableRows
+}
 const readinessUserOptions = ref<UserApi.UserVO[]>([])
 const selectableWorkOrders = ref<ProWorkOrderVO[]>([])
 const createRouteOptions = ref<EdhrBatchExecutionRouteOptionRespVO[]>([])
@@ -1262,7 +1317,7 @@ const buildQuery = () => {
 
 const buildGoldenFingerBulkVoidFilter = (): EdhrBatchExecutionPageReqVO => {
   const query = buildQuery()
-  return {
+  const filter: EdhrBatchExecutionPageReqVO = {
     batchExecutionCode: query.batchExecutionCode,
     workOrderCode: query.workOrderCode,
     batchCode: query.batchCode,
@@ -1274,6 +1329,10 @@ const buildGoldenFingerBulkVoidFilter = (): EdhrBatchExecutionPageReqVO => {
     createTime: query.createTime,
     quickFilter: query.quickFilter
   }
+  if (selectedGoldenFingerBulkVoidIds.value.length) {
+    filter.batchExecutionIds = [...selectedGoldenFingerBulkVoidIds.value]
+  }
+  return filter
 }
 const resolveBatchStatusLabel = (status?: number | string | null) => {
   const normalizedStatus = normalizeBatchStatusValue(status)

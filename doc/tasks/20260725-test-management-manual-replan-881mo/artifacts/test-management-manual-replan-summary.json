@@ -1,6 +1,6 @@
 {
-  "status": "PASS",
-  "mode": "full",
+  "status": "FAIL",
+  "mode": "case-only",
   "caseName": "排产工单手动重排 881MO093613/881MO093615",
   "targetSources": [
     "881MO093613",
@@ -10,74 +10,8 @@
   "username": "admin",
   "baseUrl": "http://127.0.0.1:8081",
   "backendUrl": "http://127.0.0.1:48081",
-  "checkedAt": "2026-07-25T07:33:28.947Z",
+  "checkedAt": "2026-07-25T11:03:59.587Z",
   "caseExistedBefore": true,
   "beforeCaseId": 1,
-  "savedCase": {
-    "id": 1,
-    "name": "排产工单手动重排 881MO093613/881MO093615",
-    "checkpointCount": 4,
-    "defaultExecutionMode": "SEQUENTIAL",
-    "parallelSafe": false,
-    "status": "ENABLE"
-  },
-  "manualReplan": {
-    "status": "PASS",
-    "targetScheduleOrders": [
-      {
-        "id": 131,
-        "code": "SCH-881MO093613-20260707-0001",
-        "erpWorkOrderCode": "881MO093613",
-        "productCode": "YXN.069.001.1013"
-      },
-      {
-        "id": 127,
-        "code": "SCH-881MO093615-20260707-0001",
-        "erpWorkOrderCode": "881MO093615",
-        "productCode": "YXN.069.001.1002"
-      }
-    ],
-    "applyRequest": {
-      "scheduleOrderIds": [
-        131,
-        127
-      ],
-      "startTime": "2026-07-26 00:00:00"
-    },
-    "goals": {
-      "a": "PASS",
-      "b": "PASS",
-      "c": "PASS",
-      "d": "PASS"
-    },
-    "latestSuccess": {
-      "latest": {
-        "hasData": true,
-        "appliedAt": 1784964836000,
-        "operationType": "REPLAN_APPLY",
-        "scheduleOrderId": 127,
-        "scheduleOrderCode": "SCH-881MO093615-20260707-0001",
-        "operatorId": 1,
-        "operatorName": "瑛泰管理员",
-        "reason": null
-      },
-      "uiText": "2026-07-25 15:33:56",
-      "expectedMinute": "2026-07-25 15:33"
-    },
-    "ganttScope": {
-      "apiCodes": [
-        "881MO093613",
-        "881MO093615"
-      ],
-      "allCodes": [
-        "881MO093613",
-        "881MO093615"
-      ],
-      "uiCodes": [
-        "881MO093613",
-        "881MO093615"
-      ],
-      "rowCount": 145
-    }
-  }
+  "error": "AssertionError [ERR_ASSERTION]: save case business error: 系统异常\n\n500 !== 0\n\n    at fillCaseDialog (E:\\IntRuoyi\\doc\\tasks\\20260725-test-management-manual-replan-881mo\\test-management-manual-replan-full.e2e.cjs:319:10)\n    at async run (E:\\IntRuoyi\\doc\\tasks\\20260725-test-management-manual-replan-881mo\\test-management-manual-replan-full.e2e.cjs:428:5)"
 }

@@ -34,3 +34,5 @@ ready_for_closeout
 
 - `RED`：targeted `@vue/compiler-sfc` `compileScript` check reproduced `[vue/compiler-sfc] Missing semicolon` at `BatchExecutionListPage.vue` line 920.
 - `GREEN`：same targeted `@vue/compiler-sfc` `compileScript` check returned `SFC script compile OK`.
+- `VALIDATION`：`validate_bug_regression.py --evidence doc\tasks\20260725-fix-batch-execution-sfc-syntax\verification-report.md` returned `Bug regression evidence is valid.`
+- `CLEANUP`：`task_closeout.py --task-id 20260725-fix-batch-execution-sfc-syntax --mode preview/apply` kept only core task records and deleted nothing.

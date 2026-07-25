@@ -760,7 +760,7 @@ function isIncompleteRouteFormTask(task) {
 }
 
 function isActiveRouteFormTask(task) {
-  return isRouteFormTask(task) && Number(task.activeWorkTaskId || 0) > 0
+  return isRouteFormTask(task) && Number(task.activeWorkTaskId || 0) > 0 && Number(task.status) !== 40
 }
 
 function isFormCenterRouteTask(task) {
@@ -997,14 +997,15 @@ async function openFillTaskFromBoard(page, batchId, batchCode, task, options = {
     (response) => response.url().includes(`batchCode=${encodeURIComponent(batchCode)}`)
   )
   await clickVisibleButton(toolbar, /^查询$/, `查询${actionLabel}待办`)
-  await queryPromise
+  const queryResult = await queryPromise
 
   const rowTokens = [batchCode, task.processName, task.processCode].filter(Boolean).map((item) => String(item))
+  const processTokens = rowTokens.slice(1)
   const rows = page.locator('.el-table__body-wrapper tbody tr')
   let row
   for (const typeText of rowTypeTexts) {
     const typedRows = rows.filter({ hasText: batchCode }).filter({ hasText: typeText })
-    for (const token of rowTokens.slice(1)) {
+    for (const token of processTokens) {
       const candidate = typedRows.filter({ hasText: token }).first()
       if ((await candidate.count()) > 0 && (await candidate.isVisible().catch(() => false))) {
         row = candidate
@@ -1012,10 +1013,12 @@ async function openFillTaskFromBoard(page, batchId, batchCode, task, options = {
       }
     }
     if (row) break
-    const candidate = typedRows.first()
-    if ((await candidate.count()) > 0 && (await candidate.isVisible().catch(() => false))) {
-      row = candidate
-      break
+    if (processTokens.length === 0) {
+      const candidate = typedRows.first()
+      if ((await candidate.count()) > 0 && (await candidate.isVisible().catch(() => false))) {
+        row = candidate
+        break
+      }
     }
   }
   if (!row) {
@@ -1024,7 +1027,8 @@ async function openFillTaskFromBoard(page, batchId, batchCode, task, options = {
       batchCode,
       actionLabel,
       rowTokens,
-      rowTypeTexts
+      rowTypeTexts,
+      workTaskQuery: queryResult
     })
     throw blocked(`工作任务看板未找到批次 ${batchCode} 的${actionLabel}待办：${rowTokens.join(' / ')}；任务类型：${rowTypeTexts.join(' / ')}`, [
       `当前可见任务行：${JSON.stringify(await visibleTableRowTexts(page))}`
@@ -1035,7 +1039,19 @@ async function openFillTaskFromBoard(page, batchId, batchCode, task, options = {
   await clickWorkTaskBoardActionButton(page, row, '处理', `处理${actionLabel}待办 ${batchCode}`)
   const opened = await openResponsePromise
   const openedExecutionId = options.expectedExecutionId || opened?.executionId
-  assert.ok(openedExecutionId, `${actionLabel}待办打开后必须返回 executionId。`)
+  if (!openedExecutionId) {
+    await captureEvidence(page, `work-task-open-without-execution-${actionLabel}-${batchCode}`, {
+      batchId,
+      batchCode,
+      actionLabel,
+      rowTokens,
+      rowText: (await row.innerText()).replace(/\s+/g, ' ').trim(),
+      opened
+    })
+    throw blocked(`${actionLabel}待办打开后必须返回 executionId。`, [
+      `openTask 返回：${JSON.stringify(opened)}`
+    ])
+  }
   const url = await waitForCurrentUrl(
     page,
     (currentUrl) => {
@@ -1323,31 +1339,54 @@ async function assertRejectedExecutionReadonly(page, executionId) {
 
 async function specialNodeAction(page, label, actionName, handler) {
   const node = page
-    .locator('.edhr-batch-detail__process-task-group-head, .edhr-batch-detail__review-item')
+    .locator('.edhr-batch-detail__special-process-task-group .edhr-batch-detail__process-task-group-head')
     .filter({ hasText: label })
     .first()
   await node.waitFor({ state: 'visible', timeout: 60000 })
-  await node.click({ timeout: 10000 })
+  await page
+    .locator('.edhr-batch-detail__process-task-group.is-active, .edhr-batch-detail__release-process-item.is-active')
+    .first()
+    .waitFor({ state: 'visible', timeout: 60000 })
+  const actionLabel = actionName === '完成' ? '完成节点' : actionName === '跳过' ? '跳过节点' : actionName
+  const actionGrid = page.locator('.edhr-batch-detail__special-node-action-grid:visible').first()
+  let actionGridVisible = false
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await node.click({ timeout: 10000 })
+    if (await actionGrid.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false)) {
+      actionGridVisible = true
+      break
+    }
+    await page.waitForTimeout(500)
+  }
+  if (!actionGridVisible) {
+    const visibleSpecialNodes = await page
+      .locator('.edhr-batch-detail__special-process-task-group')
+      .evaluateAll((nodes) => nodes.map((node) => (node.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean))
+      .catch(() => [])
+    throw blocked('特殊节点「' + label + '」未能打开操作区。', [
+      '当前可见特殊节点：' + JSON.stringify(visibleSpecialNodes)
+    ])
+  }
   const rowText = (
-    await page
+    (await page
       .locator('.edhr-batch-detail__rail-task-detail')
       .first()
-      .innerText()
-      .catch(() => '')
+      .textContent({ timeout: 1000 })
+      .catch(() => '')) || ''
   )
     .replace(/\s+/g, ' ')
     .trim()
   if (rowText.includes('已跳过') || rowText.includes('已批准')) {
     return { alreadyDone: true, rowText }
   }
-  const actionButton = page.locator('.edhr-batch-detail__rail-task-action').filter({ hasText: actionName }).first()
+  const actionButton = actionGrid.getByRole('button', { name: actionLabel }).first()
   await actionButton.waitFor({ state: 'visible', timeout: 60000 })
   const disabled = await actionButton.isDisabled().catch(() => true)
   const ariaDisabled = await actionButton.getAttribute('aria-disabled').catch(() => null)
   const className = await actionButton.getAttribute('class').catch(() => '')
   if (disabled || ariaDisabled === 'true' || String(className || '').includes('is-disabled')) {
-    throw blocked(`特殊节点「${label}」的「${actionName}」按钮不可用。`, [
-      `当前明细：${rowText}`,
+    throw blocked('特殊节点「' + label + '」的「' + actionLabel + '」按钮不可用。', [
+      '当前明细：' + rowText,
       '通常表示该路线缺少对应责任规则、当前登录人不是责任人，或上游必需报告未完成。'
     ])
   }
@@ -1365,7 +1404,7 @@ async function specialNodeAction(page, label, actionName, handler) {
     throw responseResult.error
   }
   const response = responseResult.response
-  const result = await parseBusinessResponse(response, `${label} ${actionName}`)
+  const result = await parseBusinessResponse(response, label + ' ' + actionName)
   return { alreadyDone: false, result }
 }
 
@@ -1781,6 +1820,26 @@ async function processRouteFormCenterTask(page, batchId, batchCode, task, index)
   assert.ok(opened?.formTemplateId, 'FormCenter 任务 ' + pendingTask.id + ' 打开后必须返回 formTemplateId。')
   assert.equal(Number(opened.formCenterInstanceId), Number(pendingTask.formCenterInstanceId), 'FormCenter 任务 ' + pendingTask.id + ' 实例 ID 必须匹配批次详情。')
   assert.equal(Number(opened.formTemplateId), Number(pendingTask.formTemplateId), 'FormCenter 任务 ' + pendingTask.id + ' 模板 ID 必须匹配批次详情。')
+
+  if (Number(opened.status) === 40 && (opened.instanceScope === 'BATCH_SHARED' || pendingTask.instanceScope === 'BATCH_SHARED')) {
+    await loadBatchDetailByUi(page, batchId, 'FormCenter 共享实例已生效后刷新批次详情 T' + index)
+    return {
+      taskId: pendingTask.id,
+      routeProcessSort: pendingTask.routeProcessSort,
+      processCode: pendingTask.processCode,
+      processName: pendingTask.processName,
+      formCenterInstanceId: Number(opened.formCenterInstanceId),
+      formTemplateId: Number(opened.formTemplateId),
+      formTemplateName: pendingTask.formTemplateName,
+      formSlotType: pendingTask.formSlotType,
+      filledFields: 0,
+      selectedFields: 0,
+      draftStatus: 'SKIPPED_ALREADY_EFFECTIVE',
+      submittedStatus: 'EFFECTIVE',
+      autoCompletedByEffectiveSharedInstance: true,
+      batchCode
+    }
+  }
 
   const drawer = page.locator('.el-drawer:visible').filter({ hasText: /填写表单|表单/ }).last()
   await drawer.waitFor({ state: 'visible', timeout: 60000 })
