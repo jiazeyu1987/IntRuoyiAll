@@ -11,6 +11,7 @@
 - [x] 记录 BDD/TDD、Runner/E2E/登录/本地运行门禁。
 - [x] 检查本机前端、后端、Codex CLI、Playwright 和 Runner 配置。
 - [x] 配置当前系统 Codex Runner 使用当前电脑 Codex 环境。
+- [x] 修复页面点击“执行”提示 `没有在线 Codex Runner` 的运行态问题。
 - [ ] 通过真实测试管理页面运行“作废测试”。
 - [x] 核验已完成配置结果、记录阻塞证据。
 
@@ -31,6 +32,12 @@ blocked
 - 当前本机真实测试管理数据不存在名为“作废测试”的测试项。
 - 真实页面按“作废测试”和“作废”搜索均返回 `total=0`；只读 DB 核对 `system_codex_test_case` 也没有任何名称、方法或测试数据包含“作废”的记录。
 - 当前 `system_codex_test_case` 只有 1 个启用项：`排产工单手动重排 881MO093613/881MO093615`。按门禁要求不能改跑其它项、不能自动创建占位项，也不能把 Runner 空领取当作执行成功。
+
+## Resolved Runtime Issue
+
+- 页面点击已有测试项“执行”不再返回 `没有在线 Codex Runner`。
+- 已用真实页面行级“执行”按钮创建 `executionId=3`，证明点击入口可创建执行批次；该验证批次随后通过正式取消接口清理为 `CANCELED`。
+- 当前补丁版 Runner 进程 `PID=29660` 在线，最新会话 `runnerSessionId=6`，只读 DB 核验 `heartbeat_age_seconds=8`、`current_running_count=0`。
 
 ## 设计约束检查
 

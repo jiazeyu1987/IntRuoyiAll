@@ -43,7 +43,7 @@ def test_smart_scheduling_test_items_migration_exists_with_release_metadata() ->
 
     assert first_line == (
         "-- release-migration: allowedEnvironments=test,backup,prod; "
-        "dependsOn=20260724_system_codex_test_management; type=config-seed; riskLevel=low"
+        "dependsOn=20260724_system_codex_test_management; type=seed; riskLevel=low"
     )
     assert "CREATE PROCEDURE ensure_system_codex_smart_scheduling_test_items" in sql
     assert "CALL ensure_system_codex_smart_scheduling_test_items();" in sql

@@ -13,11 +13,21 @@
 ## Milestone Updates
 
 - in_progress: 已创建任务目录并记录任务目标、BDD 场景和经验门禁。
+- completed: 定位模板任务 `doc/tasks/20260725-test-management-manual-replan-881mo/test-management-manual-replan-full.e2e.cjs`，确认测试项采用真实测试管理页面维护，方法项仅放操作步骤，目标项放检查点。
+- completed: 按批记录核心风险补充 7 个测试项：批次创建与路线快照、打开填写与单元格规则治理、伴随单据填写人与必填跳过口径、提交审核批准闭环、字段审计与操作追溯、归档与电子签名完整性、Word 导入解析与版式回归。
+- completed: 通过本机真实测试管理页面新增/更新并回读验证 7 个测试项。
 
 ## Verification Evidence
 
-- Pending.
+- RED: `$env:BATCH_RECORD_TEST_ITEMS_MODE='assert-existing'; node 'doc\tasks\20260726-batch-record-codex-test-items\ensure-batch-record-codex-test-items.e2e.cjs'` -> FAIL, expected reason: missing batch record test cases: `批记录批次创建与已发布路线快照`, `批记录打开填写与单元格规则治理`, `批记录伴随单据填写人与必填跳过口径`, `批记录提交审核批准闭环`, `批记录字段审计与操作追溯`, `批记录归档与电子签名完整性`, `批记录 Word 导入解析与版式回归`.
+- GREEN: `$env:BATCH_RECORD_TEST_ITEMS_MODE='case-only'; node 'doc\tasks\20260726-batch-record-codex-test-items\ensure-batch-record-codex-test-items.e2e.cjs'` -> PASS, `PASS: ensured 7 batch record Codex test cases`.
+- GREEN: `$env:BATCH_RECORD_TEST_ITEMS_MODE='assert-existing'; node 'doc\tasks\20260726-batch-record-codex-test-items\ensure-batch-record-codex-test-items.e2e.cjs'` -> PASS, `PASS: ensured 7 batch record Codex test cases`.
+- GREEN: final summary -> PASS, `artifacts/batch-record-codex-test-items-summary.json` shows IDs `2-8`, all `ENABLE`, `SEQUENTIAL`, `parallelSafe=false`, `checkpointCount=4`.
+- GREEN: local runtime precheck -> PASS, backend `http://127.0.0.1:48081/actuator/health` returned `{"status":"UP"}`, frontend `http://127.0.0.1:8081/` returned HTTP `200`.
+- GREEN: cleanup preview -> PASS, kept `task.md`, `execution-log.md`, `verification-report.md`, `ensure-batch-record-codex-test-items.e2e.cjs`, and `artifacts/batch-record-codex-test-items-summary.json`; delete set contained only task-owned temporary screenshots.
+- GREEN: cleanup apply -> PASS, deleted `artifacts/batch-record-test-cases-failure.png` and `artifacts/batch-record-test-cases-saved.png`.
+- GREEN: project experience consolidation -> PASS, updated `docs/task-closeout-rules.md#任务验证脚本保留门禁` and `docs/experience-index.md` with the `Cleanup Keep` pure-path parsing gate; `rg` locates the new keywords.
 
 ## Blockers
 
-- Pending.
+- Closeout blocker: 当前工作区存在非本任务改动和未跟踪文件；本任务未修改这些文件，不能把它们混入当前任务提交。

@@ -143,11 +143,11 @@
 ### Codex Runner 自动测试门禁
 
 - Trigger: 新增、修改、运行或验收 `系统管理 > 测试管理`、Codex Runner、自然语言测试方法、检查点截图或由 Codex 调用 Playwright 的自动测试流程。
-- Preflight check: 真实执行前必须确认本机前端/后端入口、目标测试租户、测试管理员账号、Runner token、Codex CLI、Playwright 浏览器、Runner 本地凭据映射和测试数据清理责任。
-- Blocker: 任一 Runner 或租户前置条件缺失、测试项会写入生产/非任务租户、失败检查点没有差异描述、截图路径不在受控临时目录，或并行执行包含 `parallelSafe=false` 项时必须停止。
-- Verification: 记录 Runner 注册/领取/心跳/回写命令、页面执行入口、租户/用户标签、检查点结果、失败截图 artifact、最终 UI 状态和必要的只读 API 核验。
-- Forbidden action: 禁止把 API-only、静态合同测试、mock 截图、默认成功、Runner 离线跳过或顺序执行降级当作真实 E2E 通过。
-- Evidence: `doc/tasks/20260724-codex-test-management-delivery/verification-report.md`，2026-07-24 Codex 测试管理交付。
+- Preflight check: 真实执行前必须确认本机前端/后端入口、目标测试租户、测试管理员账号、Runner token、Codex CLI、Playwright 浏览器、Runner 本地凭据映射和测试数据清理责任；后端必须用当前 token 完成注册探针，Runner loop 必须在执行中持续 heartbeat。
+- Blocker: 任一 Runner 或租户前置条件缺失、Runner token 与后端运行态不一致、测试项会写入生产/非任务租户、失败检查点没有差异描述、截图路径不在受控临时目录、并行执行包含 `parallelSafe=false` 项、执行中 heartbeat 超过后端超时阈值、或 Windows `codex.cmd` 后代进程在超时/取消后仍持有 `codex-test-result-*` 输出文件时必须停止。
+- Verification: 记录 Runner 注册/领取/执行期心跳/回写命令、页面执行入口、租户/用户标签、检查点结果、失败截图 artifact、最终 UI 状态和必要的只读 API 核验；Windows Runner 必须证明 timeout/cancel 后不存在本任务 `codex-test-result-*` 子进程，执行项不遗留 `CLAIMED/RUNNING`。
+- Forbidden action: 禁止把 API-only、静态合同测试、mock 截图、默认成功、Runner 离线跳过、只杀 `cmd.exe` 而不处理 `node/codex.exe` 后代进程、或顺序执行降级当作真实 E2E 通过。
+- Evidence: `doc/tasks/20260724-codex-test-management-delivery/verification-report.md`，2026-07-24 Codex 测试管理交付；`doc/tasks/20260725-codex-runner-void-test/verification-report.md`，2026-07-26 Runner 心跳、Windows 子进程树、取消处理修复。
 
 ### Codex Runner 目标测试项存在性门禁
 

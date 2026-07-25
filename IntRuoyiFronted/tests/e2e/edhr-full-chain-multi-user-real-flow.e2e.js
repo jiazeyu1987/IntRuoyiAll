@@ -744,6 +744,21 @@ async function loadBatchDetailByUi(page, batchId, label = '批次详情') {
   return detail
 }
 
+async function loadBatchDetailTaskByUi(page, batchId, taskId, label = '批次详情任务') {
+  const detailSignalPromise = page.waitForResponse(
+    (response) => responseMatches(response, ENDPOINTS.batchGet, 'GET') && response.url().includes(`id=${batchId}`),
+    { timeout: 90000 }
+  )
+  await gotoPath(page, `${ROUTES.batchDetail}?id=${batchId}&batchTaskId=${taskId}`)
+  const detailResponse = await detailSignalPromise
+  assert.ok(detailResponse.ok(), `${label}: 详情接口 HTTP ${detailResponse.status()}`)
+  await page.getByText('eDHR批次详情').first().waitFor({ state: 'visible', timeout: 60000 })
+  const auth = await browserAuth(page)
+  const detail = await apiGet(page, auth, ENDPOINTS.batchGet, { id: batchId })
+  assert.equal(Number(detail.id), Number(batchId), `${label}: 只读详情接口必须返回当前批次 ${batchId}`)
+  return detail
+}
+
 async function syncBatchByUi(page, batchId) {
   const syncButton = await waitForVisibleEnabledButton(page, '同步状态', '同步状态')
   const syncPromise = waitForApiResponse(
@@ -1087,20 +1102,23 @@ async function openFillTaskFromBoard(page, batchId, batchCode, task, options = {
 async function selectBatchDetailRouteTask(page, task) {
   const processToken = task.processName || task.processCode || task.batchRecordReportName
   assert.ok(processToken, `批次详情接管任务 ${task.id} 缺少工序定位文本。`)
+  const taskToken = task.batchRecordReportName || task.formTemplateName || task.processName || task.processCode
+  const taskCard = page.locator('.edhr-batch-detail__rail-process-form-item').filter({ hasText: String(taskToken) }).first()
+  if (await taskCard.waitFor({ state: 'visible', timeout: 3000 }).then(() => true, () => false)) {
+    return taskCard
+  }
   const processHead = page
     .locator('.edhr-batch-detail__process-task-group:not(.edhr-batch-detail__special-process-task-group) .edhr-batch-detail__process-task-group-head')
     .filter({ hasText: String(processToken) })
     .first()
   await processHead.waitFor({ state: 'visible', timeout: 60000 })
   await processHead.click({ timeout: 10000, force: true })
-  const taskToken = task.batchRecordReportName || task.formTemplateName || task.processName || task.processCode
-  const taskCard = page.locator('.edhr-batch-detail__rail-process-form-item').filter({ hasText: String(taskToken) }).first()
   await taskCard.waitFor({ state: 'visible', timeout: 60000 })
   return taskCard
 }
 
 async function openFillTaskFromBatchDetailTakeover(page, batchId, batchCode, task) {
-  await loadBatchDetailByUi(page, batchId, `管理员接管前批次详情 ${task.id}`)
+  await loadBatchDetailTaskByUi(page, batchId, task.id, `管理员接管前批次详情 ${task.id}`)
   const taskCard = await selectBatchDetailRouteTask(page, task)
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const batchRecordToggle = page.getByRole('button', { name: '批记录' }).first()

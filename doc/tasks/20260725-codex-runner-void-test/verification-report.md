@@ -3,7 +3,7 @@
 ## Result
 
 - Status: `BLOCKED`
-- Completed: 本机 Codex Runner 已按当前电脑环境配置完成，前后端 Runner 协议、租户头、审计字段、后端 jar 和本机重启均已验证。
+- Completed: 本机 Codex Runner 已按当前电脑环境配置完成，页面点击已有测试项“执行”不再触发 `没有在线 Codex Runner`，Runner 心跳、Windows Codex 子进程超时终止和取消处理已验证。
 - Blocked: 当前系统没有“作废测试”测试项，无法按真实页面行级“执行”运行该项。
 
 ## Evidence
@@ -18,13 +18,22 @@
 - Runner register probe: POST `/admin-api/system/codex-test-runner/register` with task token and `tenant-id=1` -> `code=0`, `runnerSessionId=1`
 - Runner loop: `start-codex-runner-loop.ps1` -> background process `PID=51372`
 - Runner online DB check: `system_codex_test_runner_session.runner_name=local-codex-runner-20260725`, `status=ONLINE`, `heartbeat_age_seconds=9`, `tenant_id=1`
+- UI execution click: `run-void-test-from-ui.mjs` with `CODEX_TEST_CASE_NAME=排产工单手动重排 881MO093613/881MO093615` -> `PASS: UI triggered ... executionId=3`
+- Cleanup API: direct official login API + `/system/codex-test-execution/cancel` for `executionId=3` -> `code=0`, DB status `CANCELED`
+- Frontend runner syntax: `node --check scripts/codex-test-runner.mjs` -> PASS
+- Focused frontend runner static contract after timeout/cancel fix -> PASS
+- Broad static contract note: `node tests/e2e/system-codex-test-management-static.spec.js` currently fails before Runner assertions on unrelated missing menu migration `IntRuoyiBackend/sql/mysql/20260726_system_codex_test_record_menu.sql`
+- Backend token runtime: `restart-backend-with-runner-token.ps1` -> backend PID `47008`, health `UP`
+- Current Runner loop: `start-codex-runner-loop.ps1` -> background process `PID=29660`
+- Current Runner online DB check: latest session `id=6`, `runner_name=local-codex-runner-20260725`, `status=ONLINE`, `tenant_id=1`, `heartbeat_age_seconds=8`, `current_running_count=0`
+- Existing enabled case execution: `executionId=2` -> `PASS`
 - UI target search: `run-void-test-from-ui.mjs` -> “作废测试” search total `0`; “作废” search total `0`
 - Read-only current case list: `test-case-list-summary.json` -> total `1`, only `排产工单手动重排 881MO093613/881MO093615`
 - Read-only DB check: `system_codex_test_case` contains no record whose name/method/test data includes “作废”
 
 ## Open Blocker
 
-- Resolved for visible page error: the local Codex Runner is now online and should no longer trigger `没有在线 Codex Runner`.
+- Resolved for visible page error: the local Codex Runner is online and the real row-level click path can create an execution batch without `没有在线 Codex Runner`.
 - Remaining missing precondition: create or restore a real enabled `作废测试` test item in `系统管理 > 测试管理`, with formal test method rows and target/checkpoint rows.
 - Impact: Runner can now accept executions, but it still cannot execute the originally requested `作废测试` item until that item exists.
 

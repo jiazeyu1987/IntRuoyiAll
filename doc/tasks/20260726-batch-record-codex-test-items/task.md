@@ -19,7 +19,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 
@@ -46,3 +46,16 @@ in_progress
 - Verification: 记录静态合同验证、真实 E2E 或明确的阻塞原因。
 - Forbidden action: 禁止使用 mock、API-only 路径或空 Runner 领取替代真实用户路径。
 - Evidence: `docs/experience-index.md` 路由到 `docs/e2e-rules.md#codex-runner-自动测试门禁`。
+
+## Completion Evidence
+
+- RED: `BATCH_RECORD_TEST_ITEMS_MODE=assert-existing node doc\tasks\20260726-batch-record-codex-test-items\ensure-batch-record-codex-test-items.e2e.cjs` -> FAIL，7 个批记录测试项均缺失。
+- GREEN: `BATCH_RECORD_TEST_ITEMS_MODE=case-only node doc\tasks\20260726-batch-record-codex-test-items\ensure-batch-record-codex-test-items.e2e.cjs` -> PASS，通过真实测试管理页面保存 7 个测试项。
+- GREEN: `BATCH_RECORD_TEST_ITEMS_MODE=assert-existing node doc\tasks\20260726-batch-record-codex-test-items\ensure-batch-record-codex-test-items.e2e.cjs` -> PASS，精确检索 7 个测试项并回读每项 4 个检查点。
+
+## Cleanup Keep
+
+以下文件是本任务的可复验证据，需要保留；其中 `.cjs` 被 `.gitignore` 的 `doc/tasks/**/*.cjs` 命中，提交时需使用 `git add -f`。
+
+- doc/tasks/20260726-batch-record-codex-test-items/ensure-batch-record-codex-test-items.e2e.cjs
+- doc/tasks/20260726-batch-record-codex-test-items/artifacts/batch-record-codex-test-items-summary.json

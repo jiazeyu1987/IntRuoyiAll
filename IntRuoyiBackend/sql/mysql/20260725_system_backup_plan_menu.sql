@@ -48,7 +48,7 @@ BEGIN
     `creator`, `create_time`, `updater`, `update_time`, `deleted`
   )
   SELECT
-    901100, '备份计划', 'system:backup-plan:query', 2, 101, 1, 'backup-plan',
+    901100, '备份计划', 'system:backup-plan:query', 2, 102, 1, 'backup-plan',
     'ep:calendar', 'system/backup-plan/index', 'SystemBackupPlan',
     0, b'1', b'1', b'1', 'codex', NOW(), 'codex', NOW(), b'0'
   WHERE NOT EXISTS (
@@ -78,7 +78,7 @@ BEGIN
   UPDATE `system_menu`
   SET `name` = '备份计划',
       `type` = 2,
-      `sort` = 101,
+      `sort` = 102,
       `parent_id` = 1,
       `path` = 'backup-plan',
       `icon` = 'ep:calendar',

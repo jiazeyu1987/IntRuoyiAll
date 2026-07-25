@@ -18,6 +18,8 @@ const POLL_INTERVAL_MS = Number(process.env.CODEX_TEST_POLL_INTERVAL_MS || '5000
 const HEARTBEAT_INTERVAL_MS = Number(process.env.CODEX_TEST_HEARTBEAT_INTERVAL_MS || '20000')
 const CODEX_EXEC_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_TIMEOUT_MS || '600000')
 
+class ServerCanceledExecutionError extends Error {}
+
 function requiredEnv(name) {
   const value = process.env[name]
   if (!value) {
@@ -120,6 +122,13 @@ async function heartbeat(runnerSessionId, runningExecutionCaseIds = []) {
   })
 }
 
+function assertTaskNotCanceled(task, heartbeatResult) {
+  const cancelExecutionCaseIds = heartbeatResult?.cancelExecutionCaseIds || []
+  if (cancelExecutionCaseIds.includes(task.executionCaseId)) {
+    throw new ServerCanceledExecutionError(`execution case ${task.executionCaseId} was canceled by server`)
+  }
+}
+
 async function runCodexForTask(task, runnerSessionId) {
   const outputFile = path.join(os.tmpdir(), `codex-test-result-${task.executionCaseId}-${Date.now()}.json`)
   const prompt = buildPrompt(task)
@@ -156,12 +165,14 @@ async function runCodexForTask(task, runnerSessionId) {
   try {
     child.stdin.write(prompt, 'utf8')
     child.stdin.end()
-    await heartbeat(runnerSessionId, runningExecutionCaseIds)
+    assertTaskNotCanceled(task, await heartbeat(runnerSessionId, runningExecutionCaseIds))
     heartbeatTimer = setInterval(() => {
-      heartbeat(runnerSessionId, runningExecutionCaseIds).catch((error) => {
-        heartbeatError = error
-        stopChild()
-      })
+      heartbeat(runnerSessionId, runningExecutionCaseIds)
+        .then((heartbeatResult) => assertTaskNotCanceled(task, heartbeatResult))
+        .catch((error) => {
+          heartbeatError = error
+          stopChild()
+        })
     }, HEARTBEAT_INTERVAL_MS)
     timeoutTimer = setTimeout(() => {
       timeoutError = new Error(`codex exec timed out after ${CODEX_EXEC_TIMEOUT_MS}ms`)
@@ -287,6 +298,9 @@ async function runOnce(runnerSessionId) {
       const result = await runCodexForTask(task, runnerSessionId)
       await reportTaskResult(task, result)
     } catch (error) {
+      if (error instanceof ServerCanceledExecutionError) {
+        continue
+      }
       await reportTaskBlocked(task, error)
     }
   }

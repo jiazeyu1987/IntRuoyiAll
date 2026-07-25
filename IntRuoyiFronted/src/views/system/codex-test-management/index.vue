@@ -1,36 +1,39 @@
 <template>
   <ContentWrap>
-    <el-form class="-mb-15px codex-test-toolbar" :inline="true" label-width="90px">
-      <el-form-item label="测试租户">
-        <el-select v-model="selectedTenantId" class="!w-240px" placeholder="请选择测试租户">
-          <el-option
-            v-for="tenant in tenantOptions"
-            :key="tenant.id"
-            :label="tenant.name"
-            :value="tenant.id"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="测试项">
-        <el-input
-          v-model="queryParams.name"
-          class="!w-220px"
-          clearable
-          placeholder="输入测试项名称"
-          @keyup.enter="getCaseList"
-        />
-      </el-form-item>
-      <el-form-item label="状态">
-        <el-select v-model="queryParams.status" class="!w-150px" clearable placeholder="全部">
-          <el-option label="启用" value="ENABLE" />
-          <el-option label="禁用" value="DISABLE" />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button :loading="caseLoading" type="primary" @click="getCaseList">
-          <Icon class="mr-5px" icon="ep:search" />
-          查询
-        </el-button>
+    <UnifiedListTemplate
+      class="codex-test-list-template"
+      table-key="system.codexTestManagement.cases"
+      :query-model="queryParams"
+      label-width="76px"
+      :filter-definitions="caseQuickFilterDefinitions"
+      :quick-filter-state="caseQuickFilter.state"
+      :selected-filter-definition="caseQuickFilter.selectedDefinition.value"
+      :operator-options="caseQuickFilter.operatorOptions.value"
+      :columns="caseColumns"
+      :column-saving="caseColumnSaving"
+      :show-column-reset="false"
+      :total="caseTotal"
+      v-model:page="queryParams.pageNo"
+      v-model:limit="queryParams.pageSize"
+      @update:quick-filter-state="caseQuickFilter.updateState"
+      @quick-filter-query="caseQuickFilter.applyQuickFilter"
+      @column-change="saveCaseColumnConfig"
+      @pagination="handleCasePagination"
+    >
+      <template #extra-filters>
+        <el-form-item class="codex-test-tenant-filter" label="测试租户">
+          <el-select v-model="selectedTenantId" class="!w-240px" placeholder="请选择测试租户">
+            <el-option
+              v-for="tenant in tenantOptions"
+              :key="tenant.id"
+              :label="tenant.name"
+              :value="tenant.id"
+            />
+          </el-select>
+        </el-form-item>
+      </template>
+
+      <template #actions>
         <el-button v-hasPermi="['system:codex-test:create']" plain type="primary" @click="openCreate">
           <Icon class="mr-5px" icon="ep:plus" />
           新增测试项
@@ -55,84 +58,144 @@
         >
           并行执行
         </el-button>
-      </el-form-item>
-    </el-form>
-  </ContentWrap>
+      </template>
 
-  <ContentWrap>
-    <el-table
-      v-loading="caseLoading"
-      :data="caseTableRows"
-      :span-method="caseRowSpanMethod"
-      row-key="displayRowKey"
-      stripe
-      @selection-change="handleCaseSelectionChange"
-    >
-      <el-table-column type="selection" width="55" />
-      <el-table-column label="测试项" min-width="180" prop="name" />
-      <el-table-column label="测试方法项" min-width="300">
-        <template #default="{ row }">
-          <span class="codex-test-item-line">{{ row.displayMethodItem }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="测试目标项" min-width="320">
-        <template #default="{ row }">
-          <span class="codex-test-item-line">{{ row.displayTargetItem }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="检查点" prop="checkpointCount" width="90" />
-      <el-table-column label="默认方法" prop="defaultExecutionMode" width="110" />
-      <el-table-column label="并行安全" width="100">
-        <template #default="{ row }">
-          <el-tag :type="row.parallelSafe ? 'success' : 'info'" effect="plain">
-            {{ row.parallelSafe ? '是' : '否' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="状态" width="90">
-        <template #default="{ row }">
-          <el-tag :type="row.status === 'ENABLE' ? 'success' : 'info'" effect="plain">
-            {{ row.status === 'ENABLE' ? '启用' : '禁用' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column fixed="right" label="操作" width="220">
-        <template #default="{ row }">
-          <el-button
-            v-hasPermi="['system:codex-test:execute']"
-            :disabled="!selectedTenantId || executeLoading || !row.id"
-            :loading="executeLoading"
-            link
-            type="success"
-            @click="startSingleCaseExecution(row)"
+      <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <el-table
+          v-loading="caseLoading"
+          data-user-table-column-explicit
+          data-user-table-key="system.codexTestManagement.cases"
+          :data="caseList"
+          border
+          row-key="id"
+          :show-overflow-tooltip="true"
+          stripe
+          @header-dragend="handleCaseHeaderDragend"
+          @selection-change="handleCaseSelectionChange"
+          @sort-change="handleTemplateSortChange"
+        >
+          <el-table-column
+            v-if="isCaseColumnVisible('selection')"
+            type="selection"
+            width="55"
+          />
+          <el-table-column
+            v-if="isCaseColumnVisible('name')"
+            label="测试项"
+            prop="name"
+            :width="getCaseColumnWidthString('name')"
+            :min-width="getCaseColumnMinWidthString('name', 220)"
+            v-bind="sortColumnAttrs('name')"
+          />
+          <el-table-column
+            v-if="isCaseColumnVisible('methodText')"
+            label="测试方法项"
+            prop="methodText"
+            :width="getCaseColumnWidthString('methodText')"
+            :min-width="getCaseColumnMinWidthString('methodText', 320)"
           >
-            执行
-          </el-button>
-          <el-button
-            v-hasPermi="['system:codex-test:update']"
-            link
-            type="primary"
-            @click="openEdit(row.id)"
+            <template #default="{ row }">
+              <ol class="codex-test-item-list">
+                <li v-for="(item, index) in formatMethodItems(row.methodText)" :key="`method-${row.id}-${index}`">
+                  {{ item }}
+                </li>
+              </ol>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isCaseColumnVisible('targetItems')"
+            label="测试目标项"
+            prop="targetItems"
+            :width="getCaseColumnWidthString('targetItems')"
+            :min-width="getCaseColumnMinWidthString('targetItems', 360)"
           >
-            修改
-          </el-button>
-          <el-button
-            v-hasPermi="['system:codex-test:delete']"
-            link
-            type="danger"
-            @click="deleteCase(row.id)"
+            <template #default="{ row }">
+              <ol class="codex-test-item-list">
+                <li v-for="(item, index) in formatTargetItems(row.checkpoints)" :key="`target-${row.id}-${index}`">
+                  {{ item }}
+                </li>
+              </ol>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isCaseColumnVisible('checkpointCount')"
+            label="检查点"
+            prop="checkpointCount"
+            :width="getCaseColumnWidthString('checkpointCount', 90)"
+            v-bind="sortColumnAttrs('checkpointCount')"
+          />
+          <el-table-column
+            v-if="isCaseColumnVisible('defaultExecutionMode')"
+            label="默认方法"
+            prop="defaultExecutionMode"
+            :width="getCaseColumnWidthString('defaultExecutionMode', 120)"
+            v-bind="sortColumnAttrs('defaultExecutionMode')"
+          />
+          <el-table-column
+            v-if="isCaseColumnVisible('parallelSafe')"
+            label="并行安全"
+            prop="parallelSafe"
+            :width="getCaseColumnWidthString('parallelSafe', 100)"
+            v-bind="sortColumnAttrs('parallelSafe')"
           >
-            删除
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-    <Pagination
-      v-model:limit="queryParams.pageSize"
-      v-model:page="queryParams.pageNo"
-      :total="caseTotal"
-      @pagination="getCaseList"
-    />
+            <template #default="{ row }">
+              <el-tag :type="row.parallelSafe ? 'success' : 'info'" effect="plain">
+                {{ row.parallelSafe ? '是' : '否' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isCaseColumnVisible('status')"
+            label="状态"
+            prop="status"
+            :width="getCaseColumnWidthString('status', 90)"
+            v-bind="sortColumnAttrs('status')"
+          >
+            <template #default="{ row }">
+              <el-tag :type="row.status === 'ENABLE' ? 'success' : 'info'" effect="plain">
+                {{ row.status === 'ENABLE' ? '启用' : '禁用' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isCaseColumnVisible('actions')"
+            fixed="right"
+            label="操作"
+            prop="actions"
+            :width="getCaseColumnWidthString('actions', 220)"
+          >
+            <template #default="{ row }">
+              <el-button
+                v-hasPermi="['system:codex-test:execute']"
+                :disabled="!selectedTenantId || executeLoading || !row.id"
+                :loading="executeLoading"
+                link
+                type="success"
+                @click="startSingleCaseExecution(row)"
+              >
+                执行
+              </el-button>
+              <el-button
+                v-hasPermi="['system:codex-test:update']"
+                link
+                type="primary"
+                @click="openEdit(row.id)"
+              >
+                修改
+              </el-button>
+              <el-button
+                v-hasPermi="['system:codex-test:delete']"
+                link
+                type="danger"
+                @click="deleteCase(row.id)"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </UnifiedListTemplate>
   </ContentWrap>
 
   <ContentWrap>
@@ -308,10 +371,21 @@
       <el-image v-if="artifactPreviewUrl" class="codex-test-artifact" :src="artifactPreviewUrl" fit="contain" />
     </template>
   </el-drawer>
+
 </template>
 
 <script lang="ts" setup>
 import type { FormInstance, FormRules } from 'element-plus'
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import {
+  useUserTableColumns,
+  type UserTableColumnDefinition,
+  type UserTableColumnState
+} from '@/hooks/web/useUserTableColumns'
+import {
+  useTableQuickFilter,
+  type TableQuickFilterDefinition
+} from '@/hooks/web/useTableQuickFilter'
 import * as CodexTestApi from '@/api/system/codexTestManagement'
 import * as TenantApi from '@/api/system/tenant'
 
@@ -320,26 +394,18 @@ defineOptions({ name: 'SystemCodexTestManagement' })
 const message = useMessage()
 
 const caseLoading = ref(false)
-const executionLoading = ref(false)
 const executeLoading = ref(false)
 const caseDialogVisible = ref(false)
-const executionDrawerVisible = ref(false)
-const artifactPreviewUrl = ref('')
 const caseFormRef = ref<FormInstance>()
 const tenantOptions = ref<TenantApi.TenantVO[]>([])
 const selectedTenantId = ref<number>()
 const selectedCaseIds = ref<number[]>([])
 const caseList = ref<CodexTestApi.CodexTestCaseVO[]>([])
 const caseTotal = ref(0)
-const executionList = ref<CodexTestApi.CodexTestExecutionVO[]>([])
-const executionDetail = ref<CodexTestApi.CodexTestExecutionVO>()
 
-type CodexTestCaseTableRow = CodexTestApi.CodexTestCaseVO & {
-  displayRowKey: string
-  displayRowIndex: number
-  displayRowCount: number
-  displayMethodItem: string
-  displayTargetItem: string
+type PaginationPayload = {
+  page?: number
+  limit?: number
 }
 
 const queryParams = reactive<CodexTestApi.CodexTestCasePageReqVO>({
@@ -349,6 +415,63 @@ const queryParams = reactive<CodexTestApi.CodexTestCasePageReqVO>({
   status: undefined,
   executionMode: undefined
 })
+
+const CASE_TABLE_KEY = 'system.codexTestManagement.cases'
+
+const caseDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'selection', label: '选择', width: 55, hideable: false, business: false, sortable: false },
+  { key: 'name', label: '测试项', minWidth: 220 },
+  { key: 'methodText', label: '测试方法项', minWidth: 320, sortable: false },
+  { key: 'targetItems', label: '测试目标项', minWidth: 360, sortable: false },
+  { key: 'checkpointCount', label: '检查点', width: 90 },
+  { key: 'defaultExecutionMode', label: '默认方法', width: 120 },
+  { key: 'parallelSafe', label: '并行安全', width: 100 },
+  { key: 'status', label: '状态', width: 90 },
+  { key: 'actions', label: '操作', width: 220, hideable: false, business: false, sortable: false }
+]
+
+const caseColumnControl = useUserTableColumns(CASE_TABLE_KEY, caseDefaultColumns)
+const caseColumns = computed(() => caseColumnControl.columns.value)
+const caseColumnSaving = computed(() => caseColumnControl.saving.value)
+const isCaseColumnVisible = (key: string) => caseColumnControl.isColumnVisible(key)
+const getCaseColumnWidthString = (key: string, fallback?: number) =>
+  caseColumnControl.getColumnWidthString(key, fallback)
+const getCaseColumnMinWidthString = (key: string, fallback?: number) =>
+  caseColumnControl.getColumnMinWidthString(key, fallback)
+const handleCaseHeaderDragend = async (newWidth: number, oldWidth: number, column: any) => {
+  await caseColumnControl.handleHeaderDragend(newWidth, oldWidth, column)
+}
+const saveCaseColumnConfig = async (columns: UserTableColumnState[]) => {
+  await caseColumnControl.saveConfig(columns)
+}
+
+const caseQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
+  {
+    key: 'name',
+    label: '测试项',
+    type: 'text',
+    queryParamKey: 'name',
+    placeholder: '输入测试项名称'
+  },
+  {
+    key: 'status',
+    label: '状态',
+    type: 'select',
+    queryParamKey: 'status',
+    options: [
+      { label: '启用', value: 'ENABLE' },
+      { label: '禁用', value: 'DISABLE' }
+    ],
+    placeholder: '全部'
+  }
+])
+
+const caseQuickFilter = useTableQuickFilter(
+  CASE_TABLE_KEY,
+  caseQuickFilterDefinitions,
+  queryParams,
+  getCaseList
+)
 
 const defaultCaseForm = (): CodexTestApi.CodexTestCaseVO => ({
   name: '',
@@ -401,40 +524,6 @@ function formatTargetItems(checkpoints?: CodexTestApi.CodexTestCheckpointVO[]) {
   return targetItems.length > 0 ? targetItems : ['-']
 }
 
-const caseTableRows = computed<CodexTestCaseTableRow[]>(() =>
-  caseList.value.flatMap((testCase, caseIndex) => {
-    const methodItems = formatMethodItems(testCase.methodText)
-    const targetItems = formatTargetItems(testCase.checkpoints)
-    const displayRowCount = Math.max(methodItems.length, targetItems.length)
-    const caseKey = testCase.id ?? `new-${caseIndex}`
-
-    return Array.from({ length: displayRowCount }, (_, displayRowIndex) => ({
-      ...testCase,
-      displayRowKey: `${caseKey}-${displayRowIndex}`,
-      displayRowIndex,
-      displayRowCount,
-      displayMethodItem: methodItems[displayRowIndex] || '',
-      displayTargetItem: targetItems[displayRowIndex] || ''
-    }))
-  })
-)
-
-function caseRowSpanMethod({
-  row,
-  columnIndex
-}: {
-  row: CodexTestCaseTableRow
-  columnIndex: number
-}) {
-  if ([2, 3].includes(columnIndex)) {
-    return { rowspan: 1, colspan: 1 }
-  }
-  if (row.displayRowIndex > 0) {
-    return { rowspan: 0, colspan: 0 }
-  }
-  return { rowspan: row.displayRowCount, colspan: 1 }
-}
-
 function showRequestError(error: unknown, defaultMessage: string) {
   const text = error instanceof Error ? error.message : typeof error === 'string' ? error : defaultMessage
   message.error(text || defaultMessage)
@@ -478,7 +567,17 @@ async function getExecutionList() {
   }
 }
 
-function handleCaseSelectionChange(rows: CodexTestCaseTableRow[]) {
+async function handleCasePagination(payload?: PaginationPayload) {
+  if (typeof payload?.page === 'number') {
+    queryParams.pageNo = payload.page
+  }
+  if (typeof payload?.limit === 'number') {
+    queryParams.pageSize = payload.limit
+  }
+  await getCaseList()
+}
+
+function handleCaseSelectionChange(rows: CodexTestApi.CodexTestCaseVO[]) {
   selectedCaseIds.value = Array.from(
     new Set(rows.map((row) => row.id).filter((id): id is number => Boolean(id)))
   )
@@ -569,7 +668,7 @@ async function startExecution(mode: 'SEQUENTIAL' | 'PARALLEL') {
   }
 }
 
-async function startSingleCaseExecution(row: CodexTestCaseTableRow) {
+async function startSingleCaseExecution(row: CodexTestApi.CodexTestCaseVO) {
   const caseId = row.id
   if (!caseId) return
   if (!selectedTenantId.value) {
@@ -679,14 +778,6 @@ onMounted(async () => {
   color: var(--el-text-color-regular);
 }
 
-.codex-test-section-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  font-weight: 600;
-}
-
 .codex-test-checkpoints {
   display: flex;
   width: 100%;
@@ -701,11 +792,4 @@ onMounted(async () => {
   align-items: flex-start;
 }
 
-.codex-test-artifact {
-  width: 100%;
-  max-height: 480px;
-  margin-top: 16px;
-  border: 1px solid #dcdfe6;
-  border-radius: 6px;
-}
 </style>

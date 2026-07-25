@@ -6,10 +6,10 @@
 
 ## Milestones
 
-- [ ] 梳理现有测试管理表结构、手动重排样例和智能排产 E2E 覆盖点。
-- [ ] 先新增失败合同，约束智能排产测试项种子必须存在且检查点完整。
-- [ ] 新增正式 SQL 迁移种子，覆盖智能排产关键业务路径。
-- [ ] 运行定向验证并记录 RED/GREEN/REGRESSION 证据。
+- [x] 梳理现有测试管理表结构、手动重排样例和智能排产 E2E 覆盖点。
+- [x] 先新增失败合同，约束智能排产测试项种子必须存在且检查点完整。
+- [x] 新增正式 SQL 迁移种子，覆盖智能排产关键业务路径。
+- [x] 运行定向验证并记录 RED/GREEN/REGRESSION 证据。
 - [ ] 完成收尾记录、清理预检和最终状态更新。
 
 ## Expected Verification
@@ -19,13 +19,23 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Current Blockers
+
+- Git closeout is blocked by unrelated concurrent workspace changes and local commits on shared branch `int_main`; do not stage, baseline, commit, push, or clean files outside this task without user coordination.
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
 - `是否从根因和长期维护角度解决`：是；通过迁移种子沉淀测试管理可见的智能排产测试项，而非临时运行一次脚本。
 - `是否存在临时补丁或绕过`：否。
+
+## Cleanup Keep
+
+- `doc/tasks/20260726-codex-smart-scheduling-test-items/task.md`
+- `doc/tasks/20260726-codex-smart-scheduling-test-items/execution-log.md`
+- `doc/tasks/20260726-codex-smart-scheduling-test-items/verification-report.md`
 
 ## 经验门禁
 

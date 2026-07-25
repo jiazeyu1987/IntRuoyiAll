@@ -129,6 +129,8 @@ const processRouteTaskBlock = source.slice(processRouteTaskStart, processRouteTa
 
 assert.ok(source.includes('function shouldTakeOverRouteTask'), 'admin-only 完整演练必须识别当前账号无 OPEN_FORM 的活动任务。')
 assert.ok(source.includes('async function openFillTaskFromBatchDetailTakeover'), 'admin-only 完整演练必须通过批次详情正式管理员接管路径处理非本人任务。')
+assert.ok(source.includes('async function loadBatchDetailTaskByUi'), '管理员接管前必须支持通过 batchTaskId 直达目标批次任务。')
+assert.ok(source.includes('batchTaskId=${taskId}'), '管理员接管前批次详情 URL 必须携带 batchTaskId，避免默认选中覆盖目标任务。')
 assert.ok(source.includes("管理员接管并填写"), '管理员接管必须点击当前页面正式“管理员接管并填写”按钮。')
 assert.ok(source.includes('ENDPOINTS.flowInterventionTransfer'), '管理员接管必须等待正式流程干预 transfer 响应。')
 assert.ok(source.includes("getByRole('button', { name: '批记录' })"), '管理员接管前必须切换到批记录填写方式，避免默认打开记录本。')
