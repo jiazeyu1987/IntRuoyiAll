@@ -32,3 +32,5 @@
 - PASS: cleanup preview kept core records plus `frontend-feature-evidence.md`; delete none；blocked none；warnings none。
 - PASS: cleanup apply completed with no deleted paths and no worktree merge/removal required。
 - Implementation commit: `186d6f3e fix: split codex test methods and targets into rows`。
+- Closeout commit: `e43d4145 docs: close codex test method target rows task`。
+- Push: `git push origin int_main` PASS；`origin/int_main` reached `e43d4145`。

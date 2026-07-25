@@ -44,3 +44,5 @@
 - cleanup apply：`task_closeout.py --task-id 20260725-codex-test-method-target-table-rows --mode apply` -> applied；deleted none；linked worktree false。
 - 实现提交：`186d6f3e fix: split codex test methods and targets into rows`，包含后端 mapper、后端回归、样例脚本、任务证据和经验门禁；pre-commit branch runtime port guard PASS。
 - 状态更新：cleanup 已完成，任务状态设置为 `completed`；等待最终 closeout 记录提交与 `git push origin int_main`。
+- closeout 提交：`e43d4145 docs: close codex test method target rows task`。
+- 推送验证：`git push origin int_main` -> PASS，远端 `origin/int_main` 同步到 `e43d4145`；`git status --short --branch` 显示当前分支不再 ahead。
