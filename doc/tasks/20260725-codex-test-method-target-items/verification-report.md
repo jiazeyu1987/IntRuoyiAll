@@ -10,7 +10,7 @@
 - `node tests/e2e/system-codex-test-management-static.spec.js` -> PASS。
 - `pnpm ts:check` -> PASS。
 - `node --check tests/e2e/system-codex-test-management-real.e2e.js` -> PASS。
-- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260725-codex-test-method-target-items/frontend-feature-evidence.md` -> pending at document creation time.
+- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260725-codex-test-method-target-items/frontend-feature-evidence.md` -> PASS。
 
 ## Files Verified
 

@@ -41,6 +41,11 @@
 - GREEN: `pnpm ts:check` -> PASS。
 - GREEN: `node --check tests/e2e/system-codex-test-management-real.e2e.js` -> PASS。
 
+## Verification
+
+- Static contract: `node tests/e2e/system-codex-test-management-static.spec.js` passed.
+- Type check: `pnpm ts:check` passed.
+- Real E2E syntax: `node --check tests/e2e/system-codex-test-management-real.e2e.js` passed.
 ## State Checks
 
 - Loading/error handling：未改请求流程，原 `showRequestError` 保持显式错误提示。

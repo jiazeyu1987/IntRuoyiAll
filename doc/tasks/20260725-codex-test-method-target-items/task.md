@@ -33,3 +33,6 @@ ready_for_closeout
 ## Experience Gate
 
 - `docs\experience-index.md` 未找到；本次为低风险前端展示文案与列表渲染调整，不涉及发布、数据、权限、服务或 schema 变更。
+## Cleanup Keep
+
+- doc/tasks/20260725-codex-test-method-target-items/frontend-feature-evidence.md

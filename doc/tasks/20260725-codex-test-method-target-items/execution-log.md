@@ -18,6 +18,7 @@
 - GREEN: `node tests/e2e/system-codex-test-management-static.spec.js` -> PASS。
 - GREEN: `pnpm ts:check` -> PASS。
 - GREEN: `node --check tests/e2e/system-codex-test-management-real.e2e.js` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260725-codex-test-method-target-items/frontend-feature-evidence.md` -> PASS。
 
 ## Command Log
 
@@ -27,6 +28,9 @@
 - 同步新增/编辑表单文案、校验提示和真实 E2E 文案断言。
 - 因当前沙箱 ACL 拦截既有前端文件读写与 Node 测试读取，相关文件修改和验证命令使用提升权限执行，仅限本任务文件与命令。
 - 任务临时脚本 `apply-method-target-items.cjs` 已删除；该文件被 `.gitignore:97 doc/tasks/**/*.cjs` 忽略，未作为最终证据保留。
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-codex-test-method-target-items --mode preview` -> PASS，无删除、无阻塞、无警告。
+- Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-codex-test-method-target-items --mode apply` -> PASS，无删除。
+- Experience consolidation: 已合并到 `docs/powershell-memory.md` 的 Codex 文件 ACL 受限写入门禁。
 
 ## Closeout Status
 
