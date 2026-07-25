@@ -1,0 +1,135 @@
+{
+  "runId": "20260725-admin-write-221241",
+  "batchExecutionId": 900000000821,
+  "batchCode": "E2E-FULL-20260725-admin-write-221241",
+  "reportCount": 14,
+  "savedCount": 0,
+  "confirmations": [
+    {
+      "reportId": "ed3ca2f300c2416dbe72d724fb33d0f7",
+      "reportName": "粗洗工序生产记录",
+      "processName": "粗洗工序",
+      "beforeUnreviewed": 0,
+      "savedByUi": false,
+      "afterUnreviewed": 0,
+      "ruleCount": 87
+    },
+    {
+      "reportId": "09d4924ffd704842ab57c8383084a99c",
+      "reportName": "精洗工序生产记录",
+      "processName": "精洗工序",
+      "beforeUnreviewed": 0,
+      "savedByUi": false,
+      "afterUnreviewed": 0,
+      "ruleCount": 87
+    },
+    {
+      "reportId": "02edb24447cc46a9a6bc45ef0babc511",
+      "reportName": "清洗工序生产记录",
+      "processName": "清洗工序",
+      "beforeUnreviewed": 0,
+      "savedByUi": false,
+      "afterUnreviewed": 0,
+      "ruleCount": 94
+    },
+    {
+      "reportId": "d8edd623125d4f668f0c656576df1998",
+      "reportName": "清洁工序生产记录",
+      "processName": "清洁工序",
+      "beforeUnreviewed": 0,
+      "savedByUi": false,
+      "afterUnreviewed": 0,
+      "ruleCount": 62
+    },
+    {
+      "reportId": "fd9e3b9018f640f681981faca50d8e67",
+      "reportName": "组装Ⅰ工序生产记录",
+      "processName": "组装Ⅰ工序",
+      "beforeUnreviewed": 0,
+      "savedByUi": false,
+      "afterUnreviewed": 0,
+      "ruleCount": 52
+    },
+    {
+      "reportId": "79de2d503ab043989f089da2237ba852",
+      "reportName": "光固Ⅰ工序生产记录",
+      "processName": "光固Ⅰ工序",
+      "beforeUnreviewed": 0,
+      "savedByUi": false,
+      "afterUnreviewed": 0,
+      "ruleCount": 73
+    },
+    {
+      "reportId": "4f245ea90c264fd392d4fd234e819b88",
+      "reportName": "硅化Ⅰ工序生产记录",
+      "processName": "硅化Ⅰ工序",
+      "beforeUnreviewed": 0,
+      "savedByUi": false,
+      "afterUnreviewed": 0,
+      "ruleCount": 62
+    },
+    {
+      "reportId": "1b7cc10ec83d407694f4e7fa2dbc130e",
+      "reportName": "硅化Ⅱ工序生产记录",
+      "processName": "硅化Ⅱ工序",
+      "beforeUnreviewed": 0,
+      "savedByUi": false,
+      "afterUnreviewed": 0,
+      "ruleCount": 58
+    },
+    {
+      "reportId": "eba82c67e4894f798a2fbe4ce47f2b9d",
+      "reportName": "组装Ⅱ工序生产记录",
+      "processName": "组装Ⅱ工序",
+      "beforeUnreviewed": 0,
+      "savedByUi": false,
+      "afterUnreviewed": 0,
+      "ruleCount": 68
+    },
+    {
+      "reportId": "7658cba291274f82a23ac73b1f30fc81",
+      "reportName": "检测工序生产记录",
+      "processName": "检测工序",
+      "beforeUnreviewed": 0,
+      "savedByUi": false,
+      "afterUnreviewed": 0,
+      "ruleCount": 63
+    },
+    {
+      "reportId": "001fc4d5e1ac4ac3bce4efc66c90248c",
+      "reportName": "光固Ⅱ工序生产记录",
+      "processName": "光固Ⅱ工序",
+      "beforeUnreviewed": 0,
+      "savedByUi": false,
+      "afterUnreviewed": 0,
+      "ruleCount": 88
+    },
+    {
+      "reportId": "a4a0939cd2354ec2958c3c5f89ce2a89",
+      "reportName": "单包装工序生产记录",
+      "processName": "单包装工序",
+      "beforeUnreviewed": 0,
+      "savedByUi": false,
+      "afterUnreviewed": 0,
+      "ruleCount": 120
+    },
+    {
+      "reportId": "87f32e3ecc82462188ab43796a7c84ee",
+      "reportName": "中包装工序生产记录",
+      "processName": "中包装工序",
+      "beforeUnreviewed": 0,
+      "savedByUi": false,
+      "afterUnreviewed": 0,
+      "ruleCount": 55
+    },
+    {
+      "reportId": "8ab75fa176ef47acaa05f5bbff684a18",
+      "reportName": "大包装工序生产记录",
+      "processName": "大包装工序",
+      "beforeUnreviewed": 0,
+      "savedByUi": false,
+      "afterUnreviewed": 0,
+      "ruleCount": 52
+    }
+  ]
+}

@@ -125,3 +125,18 @@
 - FIX: 移除普通路线任务入口的重复批次详情 reload，直接使用循环刚从真实详情页加载出的待办任务；保留工作台处理必须返回 executionId、填写页加载、提交和审批断言。
 
 - GREEN: `node --check tests\e2e\edhr-full-chain-multi-user-real-flow.e2e.js`; `node tests\e2e\edhr-full-chain-evidence-pack-static.spec.js`; `node tests\e2e\edhr-full-chain-api-response-static.spec.js` -> PASS，普通路线任务重复 reload 修复后静态门禁通过。
+
+- BDD: FormCenter 路线表单提交完成工作任务并推进下一工序 -> Given 动态/共享路线表单通过 FormCenter DIRECT 策略提交 When 业务生效 executor 执行 Then 对应 eDHR FILL 工作任务必须 DONE，并复用正式 advance gate 创建下一可填写任务。
+
+- RED: `mvn -pl yudao-module-mes -Dtest=MesProEdhrRouteFormFillEffectExecutorTest test` -> FAIL，包含当前新增合同缺少 `completeRouteFormFillAndCreateNextFill(long,long)`，同时存在非本任务 GoldenFinger bulk void / route projection 测试编译缺符号。
+- GREEN: `mvn -pl yudao-module-mes -am -DskipTests compile` -> PASS，FormCenter 路线表单工作任务完成实现的主源码编译通过；定向单测运行仍受非本任务测试编译缺符号阻塞。
+
+- FIX: 后端打包被非本任务 GoldenFinger bulk void 源码缺 import 阻塞；VO 文件已存在，补齐 service/controller 显式 import，未新增 fallback。
+
+### Runtime Reload Evidence (2026-07-25 continuation)
+
+- GREEN: local backend runtime reload -> PASS, 48081 listening PID 42544; command line belongs to E:/IntRuoyi/IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar and includes --server.port=48081, --spring.profiles.active=local, --yudao.runtime-control.repo-root=E:/IntRuoyi/IntRuoyiBackend.
+- GREEN: local backend health -> PASS, Invoke-WebRequest -UseBasicParsing http://127.0.0.1:48081/actuator/health returned HTTP 200 with body {status:UP}.
+- GREEN: local frontend login entry -> PASS, Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8081/login?redirect=/index returned HTTP 200.
+- NOTE: runtime jar SHA256 DA44FBEF9798E1C920784B3CFEAEF1C9E38D0B339AD4644B5AFD7EC466ADF37E; path E:/IntRuoyi/IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar; LastWrite 2026-07-25 18:40:35.
+- NOTE: apply_patch remained blocked by Windows sandbox ACL for this task log, so this narrow UTF-8 Node append was used for current-task documentation only.

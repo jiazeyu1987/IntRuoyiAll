@@ -1591,6 +1591,7 @@ import {
 } from '@/api/mes/pro/edhr/attachment'
 import { getEdhrExecutionSignaturePage, type EdhrSignatureSummaryVO } from '@/api/mes/pro/edhr/signatures'
 import { getEdhrTrackingTimeline, type EdhrTrackingEventVO } from '@/api/mes/pro/edhr/tracking'
+import { getEdhrRecordbookGlobalSetting } from '@/api/mes/pro/edhr/recordbookGlobalSetting'
 import {
   ProFeedbackApi,
   type ProFeedbackEdhrExecutionSnapshotVO,
@@ -1866,6 +1867,7 @@ const archiveLoading = ref(false)
 const archiveGenerateLoading = ref(false)
 const archiveDownloadLoading = ref(false)
 const loadError = ref('')
+const recordbookGlobalEnabled = ref(true)
 const archiveError = ref('')
 const formReviewSignError = ref('')
 const trackingError = ref('')
@@ -1929,6 +1931,10 @@ const TRACKING_VIEW_MODE = 'tracking'
 const RECORDBOOK_UNRESTRICTED_FILL_MODE = 'RECORDBOOK_UNRESTRICTED'
 const BATCH_SHARED_INSTANCE_SCOPE = 'BATCH_SHARED'
 const ASSIST_SWITCH_PAGE_SIZE = 50
+
+const isGlobalRecordbookEnabled = computed(
+  () => recordbookGlobalEnabled.value && execution.value?.recordbookEnabled === true
+)
 
 type AssistSwitchDialogType = 'task' | 'process' | 'filler'
 
@@ -2062,12 +2068,26 @@ const slotContextBlockers = computed(() => {
 
 const hasSlotContextBlockers = computed(() => slotContextBlockers.value.length > 0)
 
-const isRecordbookUnrestrictedMode = computed(
-  () =>
+const recordbookGlobalDisabledNotice = computed(() => {
+  if (
+    route.query.fillCarrier === 'RECORDBOOK' &&
+    route.query.fillMode === RECORDBOOK_UNRESTRICTED_FILL_MODE &&
+    isGlobalRecordbookEnabled.value === false
+  ) {
+    return '记录本全局开关已关闭或当前任务未启用记录本，不能进入记录本不受控填写。'
+  }
+  return ''
+})
+
+const isRecordbookUnrestrictedMode = computed(() => {
+  if (recordbookGlobalDisabledNotice.value) return false
+  return (
     execution.value?.recordbookEnabled === true &&
+    isGlobalRecordbookEnabled.value === true &&
     route.query.fillCarrier === 'RECORDBOOK' &&
     route.query.fillMode === RECORDBOOK_UNRESTRICTED_FILL_MODE
-)
+  )
+})
 
 const resolveErrorMessage = (error: unknown, defaultMessage: string) => {
   if (error instanceof Error && error.message.trim()) {
@@ -3258,6 +3278,9 @@ const pendingFieldChanges = computed<PendingFieldChange[]>(() => {
 const formRenderError = computed(() => {
   if (!execution.value) {
     return ''
+  }
+  if (recordbookGlobalDisabledNotice.value) {
+    return recordbookGlobalDisabledNotice.value
   }
   if (sharedFillScopeGateError.value) {
     return sharedFillScopeGateError.value
@@ -4675,6 +4698,21 @@ const loadExecution = async () => {
   }
 }
 
+const loadRecordbookGlobalSetting = async () => {
+  if (!hasGoldenFingerPermission.value) return
+  const setting = await getEdhrRecordbookGlobalSetting()
+  recordbookGlobalEnabled.value = setting.enabled === true
+}
+
+const initializeExecutionPage = async () => {
+  try {
+    await loadRecordbookGlobalSetting()
+    await loadExecution()
+  } catch (error) {
+    loadError.value = resolveErrorMessage(error, '记录本全局开关加载失败。')
+  }
+}
+
 const handleBackToList = async () => {
   if (currentBatchExecutionId.value) {
     await router.push({
@@ -4941,7 +4979,8 @@ const resolveAssistRecordCategory = (row: EdhrBatchExecutionTaskRespVO) =>
 
 const buildAssistFillCarrierExecutionQuery = (row: EdhrBatchExecutionTaskRespVO) => {
   const recordCategory = resolveAssistRecordCategory(row)
-  const fillCarrier = recordCategory === 'INTERNAL_RECORD' ? 'RECORDBOOK' : 'FORM'
+  const fillCarrier =
+    recordCategory === 'INTERNAL_RECORD' && isGlobalRecordbookEnabled.value ? 'RECORDBOOK' : 'FORM'
   const query: Record<string, string> = {
     fillCarrier,
     recordCategory
@@ -5156,13 +5195,13 @@ watch(
     ) {
       return
     }
-    loadExecution()
+    void initializeExecutionPage()
   }
 )
 
 onMounted(() => {
   document.addEventListener('fullscreenchange', syncFillWorkspaceFullscreenState)
-  loadExecution()
+  void initializeExecutionPage()
 })
 
 onBeforeUnmount(() => {

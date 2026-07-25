@@ -914,6 +914,39 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public MesProEdhrWorkTaskDO completeRouteFormFillAndCreateNextFill(Long batchTaskId, Long actorUserId) {
+        MesProEdhrWorkTaskDO workTask = workTaskMapper.selectActiveByBatchTaskAndType(batchTaskId, TASK_TYPE_FILL);
+        if (workTask == null || !isActiveFillOrReworkStatus(workTask.getStatus())) {
+            throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
+        }
+        MesProEdhrBatchExecutionTaskDO batchTask = batchTaskMapper.selectById(batchTaskId);
+        if (batchTask == null || !MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM.equals(batchTask.getNodeType())
+                || batchTask.getFormCenterInstanceId() == null) {
+            throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
+        }
+        LocalDateTime now = LocalDateTime.now();
+        completeTask(workTask, "FORM_CENTER_SUBMIT", "表单中心路线表单提交");
+        MesProEdhrBatchExecutionTaskDO update = new MesProEdhrBatchExecutionTaskDO()
+                .setId(batchTask.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
+                .setSubmittedAt(now)
+                .setApprovedAt(now)
+                .setBlockerCode(null)
+                .setBlockerMessage(null);
+        if (batchTask.getOpenedAt() == null) {
+            update.setOpenedAt(now);
+        }
+        if (batchTask.getOpenedBy() == null) {
+            update.setOpenedBy(actorUserId);
+        }
+        batchTaskMapper.updateById(update);
+        MesProEdhrWorkTaskDO completed = workTaskMapper.selectById(workTask.getId());
+        createNextFillAfterReview(completed);
+        return completed;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public MesProEdhrWorkTaskDO completeFillAndCreateNextFillAfterGoldenFingerSubmit(Long workTaskId, Long executionId) {
         MesProEdhrWorkTaskDO workTask = validateGoldenFingerFillTaskForExecution(workTaskId, executionId);
         completeTask(workTask, "GOLDEN_FINGER_SUBMIT", "批记录金手指管理员提交");

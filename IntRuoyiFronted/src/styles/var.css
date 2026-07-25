@@ -3,6 +3,10 @@
 
   --el-color-primary: #009688;
 
+  --app-fixed-tab-font-family: "Microsoft YaHei";
+
+  --app-fixed-tab-font-weight: 600;
+
   --left-menu-max-width: 200px;
 
   --left-menu-min-width: 64px;

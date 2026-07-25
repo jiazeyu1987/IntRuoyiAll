@@ -39,32 +39,25 @@
           >
             打开/创建
           </el-button>
-          <el-dropdown
-            v-if="showLocalStateSampleActions"
-            v-hasPermi="['mes:pro-edhr-batch-execution:create']"
-            trigger="click"
-            :disabled="Boolean(localStateSampleLoading)"
-            @command="handleCreateLocalStateSample"
+          <el-button
+            v-if="hasGoldenFingerPermission"
+            v-hasPermi="[GOLDEN_FINGER_PERMISSION]"
+            plain
+            type="primary"
+            :disabled="!selectableGoldenFingerBulkVoidCurrentPageCount"
+            :loading="goldenFingerBulkVoidLoading"
+            aria-label="批量作废"
+            @click="openGoldenFingerBulkVoidDialog"
           >
-            <el-button plain type="warning" :loading="Boolean(localStateSampleLoading)">
-              临时状态样本
-              <Icon icon="ep:arrow-down" class="ml-4px" />
-            </el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item
-                  v-for="sample in localStateSampleOptions"
-                  :key="sample.state"
-                  :command="sample.state"
-                >
-                  <span class="edhr-batch-page__local-sample-item">
-                    <strong>{{ sample.label }}</strong>
-                    <small>{{ sample.description }}</small>
-                  </span>
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+            批量作废
+          </el-button>
+          <el-tag
+            v-if="hasGoldenFingerPermission && selectedGoldenFingerBulkVoidIds.length"
+            type="danger"
+            effect="plain"
+          >
+            已勾选 {{ selectedGoldenFingerBulkVoidIds.length }} 个批次
+          </el-tag>
         </template>
 
         <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
@@ -81,12 +74,21 @@
             data-user-table-column-explicit
             data-user-table-key="mes.pro.edhrBatch.execution.main"
             :data="list"
+            row-key="id"
             stripe
             border
             :show-overflow-tooltip="true"
             @header-dragend="handleEdhrBatchExecutionHeaderDragend"
+            @selection-change="handleBatchExecutionSelectionChange"
             @sort-change="handleTemplateSortChange"
           >
+            <el-table-column
+              v-if="hasGoldenFingerPermission"
+              type="selection"
+              :selectable="isGoldenFingerBulkVoidSelectableRow"
+              width="48"
+              fixed="left"
+            />
             <el-table-column
               v-if="isEdhrBatchExecutionColumnVisible('batchExecutionCode')"
               label="批次执行编码"
@@ -408,6 +410,74 @@
       </template>
     </Dialog>
 
+    <Dialog title="批量作废批次执行" v-model="goldenFingerBulkVoidDialogVisible" width="620px">
+      <el-alert
+        title="可先在表格复选批次或使用表头全选；未勾选时，将按当前筛选条件跨页作废所有可作废批次，直通生效，不进入审核流程。"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="mb-12px"
+      />
+      <el-alert
+        v-if="goldenFingerBulkVoidError"
+        :title="goldenFingerBulkVoidError"
+        type="error"
+        :closable="false"
+        show-icon
+        class="mb-12px"
+      />
+      <el-form label-width="112px" class="edhr-batch-page__void-form">
+        <el-form-item label="作废范围">
+          <span v-if="selectedGoldenFingerBulkVoidIds.length">
+            已勾选 {{ selectedGoldenFingerBulkVoidIds.length }} 个批次
+          </span>
+          <span v-else>当前筛选条件下跨页全部可作废批次</span>
+        </el-form-item>
+        <el-form-item label="原因分类" required>
+          <el-select
+            v-model="goldenFingerBulkVoidForm.reasonCategory"
+            placeholder="请选择作废原因分类"
+            style="width: 100%"
+          >
+            <el-option label="订单取消" value="ORDER_CANCELLED" />
+            <el-option label="数据错误" value="DATA_ERROR" />
+            <el-option label="流程偏差" value="PROCESS_DEVIATION" />
+            <el-option label="其他" value="OTHER" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="原因说明" required>
+          <el-input
+            v-model="goldenFingerBulkVoidForm.reasonText"
+            type="textarea"
+            :rows="3"
+            placeholder="请填写批量作废原因"
+          />
+        </el-form-item>
+        <el-form-item label="电子签名密码" required>
+          <el-input
+            v-model="goldenFingerBulkVoidForm.password"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            placeholder="请输入电子签名密码"
+          />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input
+            v-model="goldenFingerBulkVoidForm.comment"
+            type="textarea"
+            :rows="2"
+            placeholder="可填写补充说明"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="goldenFingerBulkVoidDialogVisible = false">取 消</el-button>
+        <el-button type="danger" :loading="goldenFingerBulkVoidLoading" @click="submitGoldenFingerBulkVoid">
+          确认一键作废
+        </el-button>
+      </template>
+    </Dialog>
     <Dialog title="eDHR 演练预检" v-model="readinessDialogVisible" width="980px">
       <el-alert
         v-if="readinessError"
@@ -657,7 +727,7 @@ import {
   EDHR_BATCH_STATUS_REWORK_REQUIRED,
   EDHR_BATCH_STATUS_REJECTED,
   EDHR_BATCH_STATUS_VOIDED,
-  createEdhrLocalStateSample,
+  goldenFingerBulkVoidEdhrBatchExecutions,
   downloadEdhrBatchArchive,
   getEdhrRehearsalReadiness,
   getEdhrBatchReviewTimeline,
@@ -666,10 +736,10 @@ import {
   getEdhrBatchExecutionPage,
   openOrCreateEdhrBatchExecution,
   type EdhrBatchExecutionArchiveRespVO,
+  type EdhrBatchExecutionPageReqVO,
   type EdhrBatchExecutionRespVO,
   type EdhrBatchExecutionRouteOptionRespVO,
   type EdhrBatchReviewTimelineRespVO,
-  type EdhrLocalStateSampleState,
   type EdhrRehearsalReadinessItem,
   type EdhrRehearsalReadinessResult
 } from '@/api/mes/pro/edhr/batchExecution'
@@ -703,23 +773,10 @@ const GOLDEN_FINGER_PERMISSION = 'mes:pro-batch-record-execution:golden-finger'
 const hasGoldenFingerPermission = computed(() => userStore.permissions.has(GOLDEN_FINGER_PERMISSION))
 const hasGoldenFingerActionBypass = computed(() => hasGoldenFingerPermission.value)
 type EdhrBatchExecutionDetailFocus = 'process'
-const showLocalStateSampleActions = import.meta.env.DEV
 const EDHR_BATCH_EXECUTION_TRACE_ONLY_STATUSES = [
   EDHR_BATCH_STATUS_ARCHIVED,
   EDHR_BATCH_STATUS_REJECTED
 ] as const
-const localStateSampleOptions: Array<{
-  state: EdhrLocalStateSampleState
-  label: string
-  description: string
-}> = [
-  { state: 'CLOSE', label: '关闭批次样本', description: '待关闭，验证关闭批次前阶段提示' },
-  { state: 'PRECHECK', label: '放行预检样本', description: '已关闭且预检失败/阻塞' },
-  { state: 'RELEASE_APPROVAL', label: '放行审批样本', description: '待放行审批负责人处理' },
-  { state: 'ARCHIVE', label: '归档打印样本', description: '已放行，等待最终归档' },
-  { state: 'ARCHIVED', label: '已归档样本', description: '已生成 SEALED 归档记录' },
-  { state: 'QUALITY_TERMINAL', label: '质量终态样本', description: '质量拒收终态，不再普通放行' }
-]
 type BatchVoidOperationState =
   | 'normal'
   | 'pending-withdrawable'
@@ -753,22 +810,36 @@ const {
 const loading = ref(false)
 const createLoading = ref(false)
 const voidLoading = ref(false)
+const goldenFingerBulkVoidLoading = ref(false)
 const readinessLoading = ref(false)
 const readinessUserLoading = ref(false)
 const workOrderLoading = ref(false)
 const createRouteOptionsLoading = ref(false)
-const localStateSampleLoading = ref<EdhrLocalStateSampleState | ''>('')
 const loadError = ref('')
 const createError = ref('')
 const voidError = ref('')
+const goldenFingerBulkVoidError = ref('')
 const readinessError = ref('')
 const list = ref<EdhrBatchExecutionRespVO[]>([])
+const selectedGoldenFingerBulkVoidRows = ref<EdhrBatchExecutionRespVO[]>([])
+const isGoldenFingerBulkVoidSelectableRow = (row: EdhrBatchExecutionRespVO) =>
+  hasGoldenFingerPermission.value && resolveBatchVoidOperationState(row) === 'normal'
+const selectedGoldenFingerBulkVoidIds = computed(() =>
+  selectedGoldenFingerBulkVoidRows.value
+    .map((row) => Number(row.id))
+    .filter((id) => Number.isFinite(id) && id > 0)
+)
+const selectableGoldenFingerBulkVoidCurrentPageCount = computed(() => list.value.filter(isGoldenFingerBulkVoidSelectableRow).length)
+const handleBatchExecutionSelectionChange = (rows: EdhrBatchExecutionRespVO[]) => {
+  selectedGoldenFingerBulkVoidRows.value = rows.filter(isGoldenFingerBulkVoidSelectableRow)
+}
 const readinessUserOptions = ref<UserApi.UserVO[]>([])
 const selectableWorkOrders = ref<ProWorkOrderVO[]>([])
 const createRouteOptions = ref<EdhrBatchExecutionRouteOptionRespVO[]>([])
 const total = ref(0)
 const createDialogVisible = ref(false)
 const voidDialogVisible = ref(false)
+const goldenFingerBulkVoidDialogVisible = ref(false)
 const readinessDialogVisible = ref(false)
 const archiveDialogVisible = ref(false)
 const traceActionDialogVisible = ref(false)
@@ -831,6 +902,12 @@ const voidForm = reactive({
   password: '',
   comment: '',
   idempotencyKey: ''
+})
+const goldenFingerBulkVoidForm = reactive({
+  reasonCategory: '',
+  reasonText: '',
+  password: '',
+  comment: ''
 })
 const voidStartUserSelectTasks = ref<ProcessInstanceApi.ApprovalNodeInfo[]>([])
 const voidStartUserSelectAssignees = reactive<Record<string, number[]>>({})
@@ -1174,6 +1251,25 @@ const buildQuery = () => {
   }
 }
 
+const buildGoldenFingerBulkVoidFilter = (): EdhrBatchExecutionPageReqVO => {
+  const query = buildQuery()
+  const filter: EdhrBatchExecutionPageReqVO = {
+    batchExecutionCode: query.batchExecutionCode,
+    workOrderCode: query.workOrderCode,
+    batchCode: query.batchCode,
+    productCode: query.productCode,
+    routeCode: query.routeCode,
+    status: query.status,
+    excludeStatuses: query.excludeStatuses,
+    excludeReleased: query.excludeReleased,
+    createTime: query.createTime,
+    quickFilter: query.quickFilter
+  }
+  if (selectedGoldenFingerBulkVoidIds.value.length) {
+    filter.batchExecutionIds = [...selectedGoldenFingerBulkVoidIds.value]
+  }
+  return filter
+}
 const resolveBatchStatusLabel = (status?: number | string | null) => {
   const normalizedStatus = normalizeBatchStatusValue(status)
   const labels: Record<number, string> = {
@@ -1473,35 +1569,6 @@ const submitOpenOrCreate = async () => {
   }
 }
 
-const handleCreateLocalStateSample = async (state: EdhrLocalStateSampleState) => {
-  const sample = localStateSampleOptions.find((item) => item.state === state)
-  if (!sample) {
-    message.error('本地状态样本类型无效。')
-    return
-  }
-  localStateSampleLoading.value = sample.state
-  try {
-    await message.confirm(
-      `确认创建“${sample.label}”吗？该操作会写入芋道源码/admin 当前租户，并用 LOCAL_STATE_SAMPLE 标记便于后续清理。`
-    )
-    const result = await createEdhrLocalStateSample({ state: sample.state })
-    message.success(`已创建${sample.label}`)
-    await router.push({
-      path: result.detailPath || '/mes/pro/feedback/edhr-batch-execution/detail',
-      query: {
-        id: String(result.batchExecutionId),
-        release: '1',
-        sampleState: sample.state
-      }
-    })
-  } catch (error) {
-    if (error === 'cancel' || error === 'close') return
-    message.error(resolveErrorMessage(error, '本地状态样本创建失败。'))
-  } finally {
-    localStateSampleLoading.value = ''
-  }
-}
-
 const submitReadinessCheck = async () => {
   readinessLoading.value = true
   readinessError.value = ''
@@ -1601,6 +1668,49 @@ const handleWithdrawVoidRequest = async (row: EdhrBatchExecutionRespVO) => {
   }
 }
 
+const resetGoldenFingerBulkVoidForm = () => {
+  goldenFingerBulkVoidForm.reasonCategory = ''
+  goldenFingerBulkVoidForm.reasonText = ''
+  goldenFingerBulkVoidForm.password = ''
+  goldenFingerBulkVoidForm.comment = ''
+}
+
+const openGoldenFingerBulkVoidDialog = () => {
+  if (!hasGoldenFingerPermission.value) {
+    message.error('只有金手指角色可以执行批量作废。')
+    return
+  }
+  goldenFingerBulkVoidError.value = ''
+  resetGoldenFingerBulkVoidForm()
+  goldenFingerBulkVoidDialogVisible.value = true
+}
+
+const submitGoldenFingerBulkVoid = async () => {
+  if (!goldenFingerBulkVoidForm.reasonCategory || !goldenFingerBulkVoidForm.reasonText.trim() || !goldenFingerBulkVoidForm.password.trim()) {
+    goldenFingerBulkVoidError.value = '请填写原因分类、原因说明和电子签名密码。'
+    return
+  }
+  goldenFingerBulkVoidLoading.value = true
+  goldenFingerBulkVoidError.value = ''
+  try {
+    const result = await goldenFingerBulkVoidEdhrBatchExecutions({
+      filter: buildGoldenFingerBulkVoidFilter(),
+      reasonCategory: goldenFingerBulkVoidForm.reasonCategory,
+      reasonText: goldenFingerBulkVoidForm.reasonText.trim(),
+      password: goldenFingerBulkVoidForm.password,
+      comment: goldenFingerBulkVoidForm.comment.trim() || undefined
+    })
+    goldenFingerBulkVoidDialogVisible.value = false
+    message.success(
+      `批量作废完成：已作废 ${result.voidedCount || 0} 个批次，跳过 ${result.skippedCount || 0} 个终态批次。`
+    )
+    await getList()
+  } catch (error) {
+    goldenFingerBulkVoidError.value = resolveErrorMessage(error, '批量作废失败，请查看后端错误信息。')
+  } finally {
+    goldenFingerBulkVoidLoading.value = false
+  }
+}
 const submitVoidBatchExecution = async () => {
   if (!selectedVoidBatch.value?.id) {
     voidError.value = '当前批次缺少批次执行 ID，无法发起作废流程。'
@@ -1712,19 +1822,6 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 8px;
   white-space: nowrap;
-}
-
-.edhr-batch-page__local-sample-item {
-  display: grid;
-  gap: 2px;
-  min-width: 180px;
-  color: #263247;
-  line-height: 18px;
-}
-
-.edhr-batch-page__local-sample-item small {
-  color: #6b7280;
-  font-size: 12px;
 }
 
 .edhr-batch-page__dialog-alert {

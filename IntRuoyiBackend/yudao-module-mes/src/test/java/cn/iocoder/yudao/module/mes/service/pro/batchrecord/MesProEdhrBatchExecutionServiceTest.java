@@ -10,8 +10,11 @@ import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceCreateReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceRespVO;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersionDO;
+import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper;
 import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormTemplateVersionMapper;
+import cn.iocoder.yudao.module.bpm.formcenter.model.FormInstanceStatus;
 import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
@@ -242,6 +245,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     private MesProEdhrProcessFormPermissionRuleMapper processFormPermissionRuleMapper;
     @Resource
     private FormTemplateVersionMapper formTemplateVersionMapper;
+    @MockitoBean
+    private FormActionInstanceMapper formActionInstanceMapper;
 
     @MockitoBean
     private MesProBatchRecordExecutionService singleExecutionService;
@@ -249,6 +254,10 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     private MesProBatchRecordJimuReportGateway jimuReportGateway;
     @MockitoBean
     private MesProEdhrWorkTaskService workTaskService;
+    @MockitoBean
+    private MesProEdhrRecordbookGlobalSettingService recordbookGlobalSettingService;
+    @MockitoBean
+    private MesProEdhrBatchVoidEffectService batchVoidEffectService;
     @MockitoBean
     private MesProEdhrOperationAuditService operationAuditService;
     @MockitoBean
@@ -273,6 +282,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         TenantContextHolder.setTenantId(1L);
         when(permissionApi.hasAnyPermissions(any(), eq(MesProEdhrBatchTaskVisibilityService.OVERVIEW_PERMISSION)))
                 .thenReturn(true);
+        when(recordbookGlobalSettingService.resolveEffectiveRecordbookEnabled(any(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
         when(formCenterRuntimeService.createInstance(any(FormInstanceCreateReqVO.class), any()))
                 .thenAnswer(invocation -> {
                     FormInstanceRespVO respVO = new FormInstanceRespVO();
@@ -3881,6 +3892,65 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                         .setTaskId(sharedTask.getId())),
                 PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
         verify(singleExecutionService, never()).openOrCreateByContext(any());
+    }
+
+    @Test
+    void openTask_completesLaterBatchSharedRouteFormWhenSharedInstanceAlreadyEffective() {
+        Fixture fixture = insertRouteFixture(false, false);
+        List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(fixture.routeId());
+        MesProRouteProcessDO firstProcess = routeProcesses.get(0);
+        MesProRouteProcessDO secondProcess = routeProcesses.get(1);
+        FormTemplateVersionDO sharedTemplate = insertPublishedFormTemplateVersion("批次共享已生效损耗单");
+        stubFormCenterInstanceIds(83001L);
+        insertBatchSharedFormCenterBinding(fixture.routeId(), firstProcess.getId(), sharedTemplate,
+                "FB_EFFECTIVE_SHARED_A", "EFFECTIVE_LOSS_SHARED",
+                "{\"ranges\":[{\"sourceTableIndex\":0,\"startRow\":0,\"endRow\":1}]}");
+        insertBatchSharedFormCenterBinding(fixture.routeId(), secondProcess.getId(), sharedTemplate,
+                "FB_EFFECTIVE_SHARED_B", "EFFECTIVE_LOSS_SHARED",
+                "{\"ranges\":[{\"sourceTableIndex\":0,\"startRow\":2,\"endRow\":3}]}");
+
+        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-SHARED-EFFECTIVE-OPEN")
+                .setRouteId(fixture.routeId()));
+        List<EdhrBatchExecutionTaskRespVO> sharedTasks = routeTasks(created).stream()
+                .filter(task -> "BATCH_SHARED".equals(task.getInstanceScope()))
+                .sorted(Comparator.comparing(EdhrBatchExecutionTaskRespVO::getRouteProcessSort))
+                .toList();
+        assertEquals(2, sharedTasks.size());
+        assertEquals(sharedTasks.get(0).getFormCenterInstanceId(), sharedTasks.get(1).getFormCenterInstanceId());
+        batchTaskMapper.updateById(new MesProEdhrBatchExecutionTaskDO()
+                .setId(sharedTasks.get(0).getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
+                .setSubmittedAt(LocalDateTime.now())
+                .setApprovedAt(LocalDateTime.now()));
+        MesProEdhrWorkTaskDO workTask = insertWorkTask(created, sharedTasks.get(1), fixture,
+                MesProEdhrWorkTaskService.TASK_TYPE_FILL, 10001L);
+        when(formActionInstanceMapper.selectById(sharedTasks.get(1).getFormCenterInstanceId()))
+                .thenReturn(FormActionInstanceDO.builder()
+                .id(sharedTasks.get(1).getFormCenterInstanceId())
+                .instanceCode("FCI-EFFECTIVE-SHARED")
+                .tenantId(TenantContextHolder.getRequiredTenantId())
+                .policyId(1L)
+                .applicantUserId(10001L)
+                .status(FormInstanceStatus.EFFECTIVE.name())
+                .dataDomain("MES")
+                .systemCode("MES")
+                .objectType("EDHR_ROUTE_FORM")
+                .objectId(String.valueOf(sharedTasks.get(0).getId()))
+                .objectVersion(String.valueOf(created.getId()))
+                .actionCode("EDHR_RF_" + fixture.routeVersionId() + "_FB_EFFECTIVE_SHARED_A")
+                .objectState("ACTIVE")
+                .idempotencyKey("EFFECTIVE_SHARED_IDEM")
+                .businessContextJson("{}")
+                .formDataJson("{}")
+                .build());
+
+        EdhrBatchExecutionTaskOpenRespVO opened = openTaskAsFiller(
+                created.getId(), sharedTasks.get(1).getId(), workTask.getId());
+
+        assertEquals(sharedTasks.get(1).getFormCenterInstanceId(), opened.getFormCenterInstanceId());
+        verify(workTaskService).completeRouteFormFillAndCreateNextFill(sharedTasks.get(1).getId(), 10001L);
     }
 
     @Test

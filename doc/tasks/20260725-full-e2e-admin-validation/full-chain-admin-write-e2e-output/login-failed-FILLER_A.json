@@ -1,0 +1,8 @@
+{
+  "stepId": "login-failed-FILLER_A",
+  "url": "http://localhost:8081/login?redirect=%2Fmes%2Fpro%2Ffeedback%2Fedhr-work-task",
+  "capturedAt": "2026-07-25T14:29:18.910Z",
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260725-full-e2e-admin-validation\\full-chain-admin-write-e2e-output\\login-failed-FILLER_A.png",
+  "actor": "admin",
+  "redirectPath": "/mes/pro/feedback/edhr-work-task"
+}

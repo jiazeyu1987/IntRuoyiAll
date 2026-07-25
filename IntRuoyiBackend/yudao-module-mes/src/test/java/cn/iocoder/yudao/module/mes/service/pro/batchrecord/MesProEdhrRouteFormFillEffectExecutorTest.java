@@ -28,12 +28,14 @@ class MesProEdhrRouteFormFillEffectExecutorTest extends BaseMockitoUnitTest {
 
     @Mock
     private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
+    @Mock
+    private MesProEdhrWorkTaskService workTaskService;
 
     @InjectMocks
     private MesProEdhrRouteFormFillEffectExecutor executor;
 
     @Test
-    void executeApprovesWritableRouteFormTask() {
+    void executeCompletesRouteFormWorkTaskAndAdvances() {
         MesProEdhrBatchExecutionTaskDO task = writableTask();
         when(batchTaskMapper.selectByIdForUpdate(700L)).thenReturn(task);
 
@@ -41,12 +43,7 @@ class MesProEdhrRouteFormFillEffectExecutorTest extends BaseMockitoUnitTest {
 
         assertTrue(result.isSuccess());
         assertEquals("700", result.getResultRef());
-        assertEquals(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED, task.getStatus());
-        assertNotNull(task.getSubmittedAt());
-        assertNotNull(task.getApprovedAt());
-        assertEquals(99L, task.getOpenedBy());
-        assertNotNull(task.getOpenedAt());
-        verify(batchTaskMapper).updateById(task);
+        verify(workTaskService).completeRouteFormFillAndCreateNextFill(700L, 99L);
     }
 
     @Test

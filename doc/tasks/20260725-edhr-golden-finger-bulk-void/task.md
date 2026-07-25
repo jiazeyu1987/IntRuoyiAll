@@ -21,7 +21,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 
@@ -48,3 +48,13 @@ in_progress
 - Verification: 记录 E2E 命令、入口 URL、租户/账号标签、批次执行 ID、写入结果、清理方式和证据文件路径。
 - Forbidden action: 禁止使用 mock、API-only、生产/未授权租户、未记录数据库直改或默认成功冒充真实 E2E 通过。
 - Evidence: `docs/e2e-rules.md#edhr-批次执行数据库夹具与证据文件门禁`
+
+## Cleanup Keep
+
+- `doc/tasks/20260725-edhr-golden-finger-bulk-void/backend-api-evidence.md`
+- `doc/tasks/20260725-edhr-golden-finger-bulk-void/frontend-feature-evidence.md`
+- `doc/tasks/20260725-edhr-golden-finger-bulk-void/verification-report.md`
+
+## Closeout Blockers
+
+- 当前共享工作区存在非本任务并发脏改和本地领先提交；本任务实现与验证已完成，但暂不混入 unrelated baseline、cleanup commit 或 push。

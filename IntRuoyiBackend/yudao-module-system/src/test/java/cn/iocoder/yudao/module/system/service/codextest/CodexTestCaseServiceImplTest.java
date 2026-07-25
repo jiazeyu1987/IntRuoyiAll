@@ -58,6 +58,29 @@ class CodexTestCaseServiceImplTest extends BaseDbUnitTest {
         assertEquals("最近一次成功排产时间更新", checkpoints.get(0).getExpectedText());
     }
 
+    @Test
+    void updateCase_allowsRepeatedCheckpointReplacement() {
+        Long caseId = codexTestCaseService.createCase(buildCaseReq("排产手动重排", false));
+        CodexTestCaseSaveReqVO firstUpdateReqVO = buildCaseReq("排产手动重排-第一次更新", true);
+        firstUpdateReqVO.setId(caseId);
+        firstUpdateReqVO.setCheckpoints(List.of(checkpoint(1, "第一次更新目标")));
+        codexTestCaseService.updateCase(firstUpdateReqVO);
+
+        CodexTestCaseSaveReqVO secondUpdateReqVO = buildCaseReq("排产手动重排-第二次更新", false);
+        secondUpdateReqVO.setId(caseId);
+        secondUpdateReqVO.setCheckpoints(List.of(
+                checkpoint(1, "第二次更新目标 A"),
+                checkpoint(2, "第二次更新目标 B")));
+        codexTestCaseService.updateCase(secondUpdateReqVO);
+
+        CodexTestCaseDO testCase = codexTestCaseMapper.selectById(caseId);
+        assertEquals("排产手动重排-第二次更新", testCase.getName());
+        List<CodexTestCheckpointDO> checkpoints = codexTestCheckpointMapper.selectListByCaseId(caseId);
+        assertEquals(2, checkpoints.size());
+        assertEquals("第二次更新目标 A", checkpoints.get(0).getExpectedText());
+        assertEquals("第二次更新目标 B", checkpoints.get(1).getExpectedText());
+    }
+
     static CodexTestCaseSaveReqVO buildCaseReq(String name, boolean parallelSafe) {
         CodexTestCaseSaveReqVO reqVO = new CodexTestCaseSaveReqVO();
         reqVO.setName(name);

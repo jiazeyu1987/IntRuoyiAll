@@ -137,61 +137,65 @@
                 <span :title="detail?.workOrderCode || ''">{{ detail?.workOrderCode || '--' }}</span>
                 <span :title="resolveCurrentBatchRecordNo()">{{ resolveCurrentBatchRecordNo() }}</span>
               </div>
-              <button
-                type="button"
-                class="edhr-batch-detail__preview-route-link"
-                :disabled="!batchProcessRouteId"
-                :title="batchProcessRouteTitle"
-                :aria-label="batchProcessRouteTitle"
-                @click.stop="openBatchProcessRoute"
-              >
-                工艺流程：{{ batchProcessRouteLabel }}
-              </button>
-              <el-button
-                type="primary"
-                size="small"
-                :loading="syncLoading"
-                class="edhr-batch-detail__preview-sync"
-                @click.stop="handleSync"
-              >
-                同步状态
-              </el-button>
-              <span
-                v-if="currentFormVersionNo"
-                class="edhr-batch-detail__preview-form-version"
-                :title="`版本号：${currentFormVersionNo}`"
-                aria-label="当前表单版本号"
-              >
-                版本：{{ currentFormVersionNo }}
-              </span>
-              <div
-                v-if="selectedTaskForEvidence && !isSpecialNode(selectedTaskForEvidence)"
-                class="edhr-batch-detail__preview-carrier"
-                aria-label="填写载体"
-                @click.stop
-              >
-                <div class="edhr-batch-detail__preview-carrier-control">
-                  <button
-                    type="button"
-                    class="edhr-batch-detail__preview-carrier-option"
-                    :class="{ 'is-active': currentProcessFillCarrier === 'FORM' }"
-                    :aria-pressed="currentProcessFillCarrier === 'FORM'"
-                    aria-label="选择批记录填写"
-                    @click.stop="selectFillCarrier('FORM')"
-                  >
-                    批记录
-                  </button>
-                  <button
-                    v-if="isRecordbookEnabledForCurrentTask"
-                    type="button"
-                    class="edhr-batch-detail__preview-carrier-option"
-                    :class="{ 'is-active': currentProcessFillCarrier === 'RECORDBOOK' }"
-                    :aria-pressed="currentProcessFillCarrier === 'RECORDBOOK'"
-                    aria-label="选择记录本填写"
-                    @click.stop="selectFillCarrier('RECORDBOOK')"
-                  >
-                    记录本
-                  </button>
+              <div class="edhr-batch-detail__preview-actions" aria-label="批记录操作">
+                <button
+                  type="button"
+                  class="edhr-batch-detail__preview-route-link"
+                  :disabled="!batchProcessRouteId"
+                  :title="batchProcessRouteTitle"
+                  :aria-label="batchProcessRouteTitle"
+                  @click.stop="openBatchProcessRoute"
+                >
+                  工艺流程：{{ batchProcessRouteLabel }}
+                </button>
+                <el-button
+                  type="primary"
+                  size="small"
+                  :loading="syncLoading"
+                  class="edhr-batch-detail__preview-sync"
+                  @click.stop="handleSync"
+                >
+                  同步状态
+                </el-button>
+              </div>
+              <div class="edhr-batch-detail__preview-extra" aria-label="批记录附加操作">
+                <span
+                  v-if="currentFormVersionNo"
+                  class="edhr-batch-detail__preview-form-version"
+                  :title="`版本号：${currentFormVersionNo}`"
+                  aria-label="当前表单版本号"
+                >
+                  版本：{{ currentFormVersionNo }}
+                </span>
+                <div
+                  v-if="selectedTaskForEvidence && !isSpecialNode(selectedTaskForEvidence) && isGlobalRecordbookEnabled"
+                  class="edhr-batch-detail__preview-carrier"
+                  aria-label="填写载体"
+                  @click.stop
+                >
+                  <div class="edhr-batch-detail__preview-carrier-control">
+                    <button
+                      type="button"
+                      class="edhr-batch-detail__preview-carrier-option"
+                      :class="{ 'is-active': currentProcessFillCarrier === 'FORM' }"
+                      :aria-pressed="currentProcessFillCarrier === 'FORM'"
+                      aria-label="选择批记录填写"
+                      @click.stop="selectFillCarrier('FORM')"
+                    >
+                      批记录
+                    </button>
+                    <button
+                      v-if="isRecordbookEnabledForCurrentTask"
+                      type="button"
+                      class="edhr-batch-detail__preview-carrier-option"
+                      :class="{ 'is-active': currentProcessFillCarrier === 'RECORDBOOK' }"
+                      :aria-pressed="currentProcessFillCarrier === 'RECORDBOOK'"
+                      aria-label="选择记录本填写"
+                      @click.stop="selectFillCarrier('RECORDBOOK')"
+                    >
+                      记录本
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -559,22 +563,6 @@
                   </div>
                 </div>
                 <el-empty v-else description="当前工序未配置表单" :image-size="44" />
-              </div>
-              <div
-                v-if="showPrimaryFormFillMeta"
-                class="edhr-batch-detail__primary-fill-meta"
-                aria-label="表单填写元信息"
-              >
-                <div
-                  v-for="item in primaryFormFillMetaItems"
-                  :key="item.key"
-                  class="edhr-batch-detail__primary-fill-item"
-                >
-                  <span class="edhr-batch-detail__primary-fill-label">{{ item.label }}</span>
-                  <span class="edhr-batch-detail__primary-fill-value" :title="item.value">
-                    {{ item.value }}
-                  </span>
-                </div>
               </div>
               <div
                 v-if="selectedTaskForEvidence && isSpecialNode(selectedTaskForEvidence)"
@@ -1207,6 +1195,7 @@ import {
   type ControlledActionProjectionVO
 } from '@/api/form-center/actionProjection'
 import { submitTransferIntervention } from '@/api/mes/pro/edhr/flowIntervention'
+import { getEdhrRecordbookGlobalSetting } from '@/api/mes/pro/edhr/recordbookGlobalSetting'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { generateUUID } from '@/utils'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
@@ -1255,6 +1244,7 @@ const specialNodeSkipLoading = ref(false)
 const specialNodeCompleteLoading = ref(false)
 const specialNodeAttachmentUploading = ref(false)
 const loadError = ref('')
+const recordbookGlobalEnabled = ref(true)
 const reopenError = ref('')
 const reexecuteError = ref('')
 const qualityRejectError = ref('')
@@ -2226,11 +2216,6 @@ type SignoffSummaryRecord = {
 }
 
 
-type PrimaryFormFillMetaItem = {
-  key: string
-  label: string
-  value: string
-}
 type TraceRecordFieldResponsibilityEntry = {
   key: string
   executionId: number
@@ -2286,6 +2271,9 @@ const resolveRecordbookEnabledFromContext = () => {
 }
 
 const isRecordbookEnabledForCurrentTask = computed(() => resolveRecordbookEnabledFromContext())
+const isGlobalRecordbookEnabled = computed(
+  () => recordbookGlobalEnabled.value && resolveRecordbookEnabledFromContext()
+)
 
 const resolveFillCarrier = (recordCategory?: string, recordbookEnabled = false): FillCarrier => {
   if (recordCategory === 'BATCH_RECORD') return recordbookEnabled ? 'RECORDBOOK' : 'FORM'
@@ -2294,6 +2282,7 @@ const resolveFillCarrier = (recordCategory?: string, recordbookEnabled = false):
 }
 
 const currentProcessFillCarrier = computed<FillCarrier>(() => {
+  if (!isGlobalRecordbookEnabled.value) return 'FORM'
   if (selectedFillCarrier.value === 'RECORDBOOK' && !isRecordbookEnabledForCurrentTask.value) {
     return 'FORM'
   }
@@ -2304,6 +2293,10 @@ const currentProcessFillCarrier = computed<FillCarrier>(() => {
 const selectFillCarrier = (fillCarrier: Exclude<FillCarrier, 'UNCONFIGURED'>) => {
   const row = selectedTaskForEvidence.value
   if (!row || isSpecialNode(row)) return
+  if (fillCarrier === 'RECORDBOOK' && !isGlobalRecordbookEnabled.value) {
+    message.error('记录本全局开关已关闭，只能使用批记录模式。')
+    return
+  }
   if (fillCarrier === 'RECORDBOOK' && !isRecordbookEnabledForCurrentTask.value) {
     message.error('当前任务已禁用记录本，只能使用批记录模式。')
     return
@@ -2359,6 +2352,12 @@ const resolveFillCarrierLabel = (fillCarrier?: FillCarrier) => {
 }
 
 const resolveCurrentBatchRecordNo = () => {
+  const selectedTask = selectedTaskForEvidence.value
+  if (selectedTask && isSpecialNode(selectedTask)) {
+    const selectedTaskName = resolveTaskDisplayName(selectedTask)
+    if (selectedTaskName && selectedTaskName !== '--') return selectedTaskName
+  }
+
   const candidates = [
     selectedExecution.value?.batchRecordReportName,
     selectedTaskForEvidence.value?.batchRecordReportName,
@@ -2878,35 +2877,6 @@ const resolveTaskCardFillersText = (row: EdhrBatchExecutionTaskRespVO) => {
 }
 
 
-const resolvePrimaryFormFillersText = () => {
-  const signatureFillers = compactPositionText(fillSignoffRecords.value.map((record) => record.actorName))
-  if (signatureFillers.length) return signatureFillers.join('、')
-
-  const selectedTask = selectedTaskForEvidence.value
-  if (selectedTask && !isSpecialNode(selectedTask)) return resolvePendingTaskFillableUsersText(selectedTask)
-  return '--'
-}
-
-const resolvePrimaryFormSubmitTimesText = () => {
-  const submitTimes = compactPositionText(
-    submitSignoffRecords.value
-      .map((record) => record.signedAtText)
-      .filter((signedAtText) => signedAtText && signedAtText !== '--')
-  )
-  if (submitTimes.length) return submitTimes.join('、')
-  return formatReviewTime(selectedExecution.value?.submittedAt)
-}
-
-const primaryFormFillMetaItems = computed<PrimaryFormFillMetaItem[]>(() => {
-  const selectedTask = selectedTaskForEvidence.value
-  if (!selectedProcessContext.value || isReleaseProcessSelected.value || !selectedTask || isSpecialNode(selectedTask)) return []
-  return [
-    { key: 'fillers', label: '填写人', value: resolvePrimaryFormFillersText() },
-    { key: 'submittedAt', label: '提交时间', value: resolvePrimaryFormSubmitTimesText() }
-  ]
-})
-
-const showPrimaryFormFillMeta = computed(() => primaryFormFillMetaItems.value.length > 0)
 const selectedSpecialNodeForEvidence = computed(() => {
   const task = selectedTaskForEvidence.value
   return task && isSpecialNode(task) ? task : undefined
@@ -3960,7 +3930,9 @@ const handleOpenTask = async (
   fillCarrier: Exclude<FillCarrier, 'UNCONFIGURED'> = 'FORM'
 ) => {
   const effectiveFillCarrier =
-    fillCarrier === 'RECORDBOOK' && !isRecordbookEnabledForContext(row) ? 'FORM' : fillCarrier
+    !isGlobalRecordbookEnabled.value || (fillCarrier === 'RECORDBOOK' && !isRecordbookEnabledForContext(row))
+      ? 'FORM'
+      : fillCarrier
   try {
     if (!row.activeWorkTaskId) {
       throw new Error('当前工序缺少可填写工作任务，无法打开。')
@@ -3970,6 +3942,16 @@ const handleOpenTask = async (
       taskId: row.id,
       workTaskId: row.activeWorkTaskId
     })
+    if (
+      opened.formCenterInstanceId &&
+      opened.formTemplateId &&
+      opened.instanceScope === 'BATCH_SHARED' &&
+      opened.status === EDHR_BATCH_TASK_STATUS_APPROVED
+    ) {
+      message.success('共享表单已生效，当前任务已自动完成')
+      await loadDetail()
+      return
+    }
     if (opened.formCenterInstanceId && opened.formTemplateId) {
       routeFormOpenedTask.value = {
         ...row,
@@ -4253,7 +4235,7 @@ const openPendingTaskByFillCarrier = async (row: EdhrBatchExecutionTaskRespVO, f
     message.error(resolveTaskGateText(row) || '当前工序尚未满足处理条件。')
     return
   }
-  if (fillCarrier === 'RECORDBOOK' && isRecordbookEnabledForContext(row)) {
+  if (fillCarrier === 'RECORDBOOK' && isGlobalRecordbookEnabled.value && isRecordbookEnabledForContext(row)) {
     await handleOpenTask(row, 'RECORDBOOK')
     return
   }
@@ -4328,9 +4310,24 @@ const cleanupDeferredBatchDetailLoads = () => {
   cancelDeferredTaskPreviewLoad()
 }
 
-onMounted(() => {
+const loadRecordbookGlobalSetting = async () => {
+  if (!hasGoldenFingerPermission.value) return
+  const setting = await getEdhrRecordbookGlobalSetting()
+  recordbookGlobalEnabled.value = setting.enabled === true
+}
+
+const initializeBatchDetailPage = async () => {
   activateFullHeightLayout()
-  loadDetail()
+  try {
+    await loadRecordbookGlobalSetting()
+    await loadDetail()
+  } catch (error) {
+    loadError.value = resolveErrorMessage(error, '记录本全局开关加载失败。')
+  }
+}
+
+onMounted(() => {
+  void initializeBatchDetailPage()
 })
 onActivated(activateFullHeightLayout)
 onDeactivated(deactivateFullHeightLayout)
@@ -5101,9 +5098,9 @@ watch(
 }
 
 .edhr-batch-detail__preview-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   min-height: 42px;
   flex-shrink: 0;
@@ -5120,45 +5117,6 @@ watch(
 
 .edhr-batch-detail__preview-header.is-recordbook {
   background: #fff8e6;
-}
-
-.edhr-batch-detail__primary-fill-meta {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-  flex-shrink: 0;
-  border: 1px solid #dbe3ef;
-  border-radius: 6px;
-  background: #ffffff;
-  padding: 8px 10px;
-}
-
-.edhr-batch-detail__primary-fill-item {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.edhr-batch-detail__primary-fill-label {
-  color: #6b7280;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.35;
-  white-space: nowrap;
-}
-
-.edhr-batch-detail__primary-fill-value {
-  min-width: 0;
-  overflow: hidden;
-  color: #172033;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .edhr-batch-detail__preview-context {
@@ -5188,6 +5146,24 @@ watch(
 .edhr-batch-detail__preview-context span:last-child {
   flex: 1 1 auto;
   color: #344054;
+}
+
+.edhr-batch-detail__preview-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.edhr-batch-detail__preview-extra {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  justify-self: end;
+  gap: 12px;
+  min-width: 0;
 }
 
 .edhr-batch-detail__preview-route-link {
@@ -5252,7 +5228,7 @@ watch(
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  flex: 1 1 0;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -6044,8 +6020,20 @@ watch(
   }
 
   .edhr-batch-detail__preview-header {
+    grid-template-columns: 1fr;
     align-items: flex-start;
-    flex-direction: column;
+  }
+
+  .edhr-batch-detail__preview-actions {
+    justify-self: start;
+    flex-wrap: wrap;
+  }
+
+  .edhr-batch-detail__preview-extra {
+    justify-self: start;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    width: 100%;
   }
 
   .edhr-batch-detail__preview-route-link {

@@ -62,8 +62,9 @@
   <ContentWrap>
     <el-table
       v-loading="caseLoading"
-      :data="caseList"
-      row-key="id"
+      :data="caseTableRows"
+      :span-method="caseRowSpanMethod"
+      row-key="displayRowKey"
       stripe
       @selection-change="handleCaseSelectionChange"
     >
@@ -71,28 +72,12 @@
       <el-table-column label="测试项" min-width="180" prop="name" />
       <el-table-column label="测试方法项" min-width="300">
         <template #default="{ row }">
-          <div class="codex-test-items">
-            <div
-              v-for="(item, index) in formatMethodItems(row.methodText)"
-              :key="`method-${index}`"
-              class="codex-test-item-line"
-            >
-              {{ item }}
-            </div>
-          </div>
+          <span class="codex-test-item-line">{{ row.displayMethodItem }}</span>
         </template>
       </el-table-column>
       <el-table-column label="测试目标项" min-width="320">
         <template #default="{ row }">
-          <div class="codex-test-items">
-            <div
-              v-for="(item, index) in formatTargetItems(row.checkpoints)"
-              :key="`target-${index}`"
-              class="codex-test-item-line"
-            >
-              {{ item }}
-            </div>
-          </div>
+          <span class="codex-test-item-line">{{ row.displayTargetItem }}</span>
         </template>
       </el-table-column>
       <el-table-column label="检查点" prop="checkpointCount" width="90" />
@@ -111,8 +96,18 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column fixed="right" label="操作" width="180">
+      <el-table-column fixed="right" label="操作" width="220">
         <template #default="{ row }">
+          <el-button
+            v-hasPermi="['system:codex-test:execute']"
+            :disabled="!selectedTenantId || executeLoading || !row.id"
+            :loading="executeLoading"
+            link
+            type="success"
+            @click="startSingleCaseExecution(row)"
+          >
+            执行
+          </el-button>
           <el-button
             v-hasPermi="['system:codex-test:update']"
             link
@@ -339,6 +334,14 @@ const caseTotal = ref(0)
 const executionList = ref<CodexTestApi.CodexTestExecutionVO[]>([])
 const executionDetail = ref<CodexTestApi.CodexTestExecutionVO>()
 
+type CodexTestCaseTableRow = CodexTestApi.CodexTestCaseVO & {
+  displayRowKey: string
+  displayRowIndex: number
+  displayRowCount: number
+  displayMethodItem: string
+  displayTargetItem: string
+}
+
 const queryParams = reactive<CodexTestApi.CodexTestCasePageReqVO>({
   pageNo: 1,
   pageSize: 10,
@@ -398,6 +401,40 @@ function formatTargetItems(checkpoints?: CodexTestApi.CodexTestCheckpointVO[]) {
   return targetItems.length > 0 ? targetItems : ['-']
 }
 
+const caseTableRows = computed<CodexTestCaseTableRow[]>(() =>
+  caseList.value.flatMap((testCase, caseIndex) => {
+    const methodItems = formatMethodItems(testCase.methodText)
+    const targetItems = formatTargetItems(testCase.checkpoints)
+    const displayRowCount = Math.max(methodItems.length, targetItems.length)
+    const caseKey = testCase.id ?? `new-${caseIndex}`
+
+    return Array.from({ length: displayRowCount }, (_, displayRowIndex) => ({
+      ...testCase,
+      displayRowKey: `${caseKey}-${displayRowIndex}`,
+      displayRowIndex,
+      displayRowCount,
+      displayMethodItem: methodItems[displayRowIndex] || '',
+      displayTargetItem: targetItems[displayRowIndex] || ''
+    }))
+  })
+)
+
+function caseRowSpanMethod({
+  row,
+  columnIndex
+}: {
+  row: CodexTestCaseTableRow
+  columnIndex: number
+}) {
+  if ([2, 3].includes(columnIndex)) {
+    return { rowspan: 1, colspan: 1 }
+  }
+  if (row.displayRowIndex > 0) {
+    return { rowspan: 0, colspan: 0 }
+  }
+  return { rowspan: row.displayRowCount, colspan: 1 }
+}
+
 function showRequestError(error: unknown, defaultMessage: string) {
   const text = error instanceof Error ? error.message : typeof error === 'string' ? error : defaultMessage
   message.error(text || defaultMessage)
@@ -441,8 +478,10 @@ async function getExecutionList() {
   }
 }
 
-function handleCaseSelectionChange(rows: CodexTestApi.CodexTestCaseVO[]) {
-  selectedCaseIds.value = rows.map((row) => row.id).filter((id): id is number => Boolean(id))
+function handleCaseSelectionChange(rows: CodexTestCaseTableRow[]) {
+  selectedCaseIds.value = Array.from(
+    new Set(rows.map((row) => row.id).filter((id): id is number => Boolean(id)))
+  )
 }
 
 function openCreate() {
@@ -525,6 +564,29 @@ async function startExecution(mode: 'SEQUENTIAL' | 'PARALLEL') {
     await getExecutionList()
   } catch (error) {
     showRequestError(error, mode === 'PARALLEL' ? '并行执行失败' : '顺序执行失败')
+  } finally {
+    executeLoading.value = false
+  }
+}
+
+async function startSingleCaseExecution(row: CodexTestCaseTableRow) {
+  const caseId = row.id
+  if (!caseId) return
+  if (!selectedTenantId.value) {
+    message.error('请选择测试租户')
+    return
+  }
+  executeLoading.value = true
+  try {
+    const executionId = await CodexTestApi.startCodexTestExecution({
+      targetTenantId: selectedTenantId.value,
+      executionMode: row.defaultExecutionMode,
+      caseIds: [caseId]
+    })
+    message.success(`已创建执行批次 ${executionId}`)
+    await getExecutionList()
+  } catch (error) {
+    showRequestError(error, '执行失败')
   } finally {
     executeLoading.value = false
   }

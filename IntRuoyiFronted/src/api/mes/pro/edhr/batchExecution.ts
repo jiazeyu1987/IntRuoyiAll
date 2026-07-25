@@ -56,6 +56,7 @@ export interface EdhrSignatureTimeReqVO {
 }
 
 export interface EdhrBatchExecutionPageReqVO extends PageParam {
+  batchExecutionIds?: number[]
   batchExecutionCode?: string
   workOrderCode?: string
   batchCode?: string
@@ -231,6 +232,29 @@ export interface EdhrBatchExecutionReexecuteReqVO {
   remark?: string
 }
 
+export interface EdhrBatchExecutionGoldenFingerBulkVoidReqVO {
+  filter: EdhrBatchExecutionPageReqVO
+  reasonCategory: string
+  reasonText: string
+  password: string
+  comment?: string
+}
+
+export interface EdhrBatchExecutionGoldenFingerBulkVoidItem {
+  batchExecutionId?: number
+  batchExecutionCode?: string
+  status?: number
+  result?: string
+  message?: string
+  changeEventId?: number
+}
+
+export interface EdhrBatchExecutionGoldenFingerBulkVoidRespVO {
+  matchedCount?: number
+  voidedCount?: number
+  skippedCount?: number
+  items?: EdhrBatchExecutionGoldenFingerBulkVoidItem[]
+}
 export interface EdhrBatchExecutionArchiveGenerateReqVO {
   batchExecutionId: EdhrRouteId
   artifactType: string
@@ -849,6 +873,14 @@ export const reexecuteRejectedEdhrBatchExecution = async (data: EdhrBatchExecuti
   })
 }
 
+export const goldenFingerBulkVoidEdhrBatchExecutions = async (
+  data: EdhrBatchExecutionGoldenFingerBulkVoidReqVO
+) => {
+  return await request.post<EdhrBatchExecutionGoldenFingerBulkVoidRespVO>({
+    url: `${BATCH_EXECUTION_BASE_URL}/golden-finger/bulk-void`,
+    data
+  })
+}
 export const getEdhrBatchReviewTimeline = async (id: EdhrRouteId) => {
   return await request.get<EdhrBatchReviewTimelineRespVO>({
     url: `${BATCH_EXECUTION_BASE_URL}/review-timeline`,

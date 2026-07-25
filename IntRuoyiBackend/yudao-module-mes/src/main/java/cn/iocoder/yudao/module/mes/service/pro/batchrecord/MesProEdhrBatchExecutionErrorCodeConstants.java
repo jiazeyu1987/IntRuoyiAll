@@ -104,4 +104,14 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_456, "本地 eDHR 状态样本只能由芋道源码/admin 当前租户创建");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_NOT_VISIBLE =
             new ErrorCode(1_040_750_457, "当前用户不可查看该 eDHR 批次执行");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_GOLDEN_FINGER_REQUIRED =
+            new ErrorCode(1_040_750_458, "仅金手指角色允许执行该 eDHR 批次批量直通作废");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_BULK_VOID_EMPTY =
+            new ErrorCode(1_040_750_459, "当前筛选条件下没有可作废的 eDHR 批次执行");
+    ErrorCode PRO_EDHR_RECORDBOOK_GLOBAL_CONFIG_MISSING =
+            new ErrorCode(1_040_750_460, "eDHR 记录本全局开关配置缺失：{}");
+    ErrorCode PRO_EDHR_RECORDBOOK_GLOBAL_CONFIG_INVALID =
+            new ErrorCode(1_040_750_461, "eDHR 记录本全局开关配置值非法：{}={}");
+    ErrorCode PRO_EDHR_RECORDBOOK_GLOBAL_DISABLED =
+            new ErrorCode(1_040_750_462, "记录本全局开关已关闭，只允许使用批记录流程");
 }

@@ -1,0 +1,10 @@
+{
+  "stepId": "actor-access-failed-ARCHIVER",
+  "url": "http://localhost:8081/mes/pro/feedback/edhr-batch-execution",
+  "capturedAt": "2026-07-25T12:44:34.689Z",
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260725-full-e2e-admin-validation\\full-chain-admin-write-e2e-output\\actor-access-failed-ARCHIVER.png",
+  "actor": "admin",
+  "pathSuffix": "/mes/pro/feedback/edhr-batch-execution",
+  "expectedText": "批次执行编码",
+  "visibleText": ""
+}

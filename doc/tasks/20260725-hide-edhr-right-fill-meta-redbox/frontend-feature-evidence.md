@@ -19,7 +19,7 @@
 
 ## API Contracts And Data States
 
-- API contract unchanged.
+- API contract unchanged。
 - Data states unchanged; this task only removes an extra presentation block.
 
 ## BDD Scenarios
@@ -28,8 +28,19 @@
 
 ## RED / GREEN
 
-- RED: pending。
-- GREEN: pending。
+- RED: `node tests/e2e/edhr-batch-detail-hide-red-box-static.spec.js` -> FAIL，命中现有 `class="edhr-batch-detail__primary-fill-meta"`。
+- GREEN: `node tests/e2e/edhr-batch-detail-hide-red-box-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-review-summary-right-rail-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-edhr-batch-review-signoff-summary-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-batch-admin-filler-visibility-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-batch-fill-direct-navigation-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-batch-process-form-card-fillers-static.spec.js` -> PASS。
+
+## Verification
+
+- PASS: Target red-box removal contract passed.
+- PASS: Related right-rail and form-card filler contracts passed.
+- PASS: `git diff --check` completed with CRLF warnings only and no whitespace errors.
 
 ## Responsive / Accessibility / States
 
@@ -39,4 +50,5 @@
 
 ## Blockers
 
-- 当前工作区存在其他任务持续写入的非自有文档产物；不纳入本任务改动。
+- `node tests/e2e/edhr-ordinary-process-fill-only-static.spec.js` 仍因既有 `ExecutionPage.vue` 提交处理包含“请选择审核/批准人”失败，和本次红框删除无关。
+- 当前工作区存在其他任务持续写入的非自有后端、E2E 和任务文档改动；不纳入本任务改动。
