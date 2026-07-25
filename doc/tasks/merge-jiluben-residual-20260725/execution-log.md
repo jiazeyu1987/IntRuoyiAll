@@ -31,3 +31,6 @@
 - GREEN: experience-preflight -> PASS，已合并 `PowerShell 命令文本管道字符门禁` 到 `docs\powershell-memory.md`，并更新 `docs\experience-index.md` 路由；`rg "PowerShell 字面管道字符|PowerShell 命令文本管道字符门禁" docs\experience-index.md docs\powershell-memory.md` -> PASS。
 - GREEN: task-closeout-cleanup preview -> PASS，keep 仅含 task/execution-log/verification-report，delete/blocked/warnings 均为 none。
 - GREEN: task-closeout-cleanup apply -> PASS，主 worktree `linked=False`，deleted_paths 为 none。
+- GREEN: implementation commit -> PASS，`f1e01af6` 融合 jiluben 记录本残留前端合同；提交钩子再次运行端口守卫并通过。
+- Milestone M5: 经验沉淀、cleanup 和实现提交完成；最终 closeout 记录单独提交后执行 `git push origin int_main`。
+- Current status: `completed`。

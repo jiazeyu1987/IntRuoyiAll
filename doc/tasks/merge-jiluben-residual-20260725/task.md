@@ -10,7 +10,7 @@
 - [x] M2: 用内容哈希比对源 worktree 与当前 `int_main`，确认仍有 40 个内容差异文件。
 - [x] M3: 分析残留差异并补齐应进入 `int_main` 的正式实现、SQL、测试和前端合同。
 - [x] M4: 运行前端定向验证、端口守卫和 Git 空白检查。
-- [ ] M5: 经验沉淀、cleanup、提交、推送和最终收尾。
+- [x] M5: 经验沉淀、cleanup、提交、推送和最终收尾。
 
 ## Expected Verification
 
@@ -28,7 +28,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 

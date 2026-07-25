@@ -15,4 +15,4 @@
 ## Notes
 
 - 不直接覆盖上一轮已验证冲突修复；源 worktree 中会移除当前审计、附件原因、工单操作记录、路线快照和 legacy report 修复的后端旧差异未进入 `int_main`。
-- 当前任务已进入 `ready_for_closeout`，仍需完成经验沉淀、cleanup、提交、推送和最终 `completed` 标记。
+- 当前任务已完成经验沉淀、cleanup 和实现提交；最终 closeout 记录提交后推送 `origin/int_main`。
