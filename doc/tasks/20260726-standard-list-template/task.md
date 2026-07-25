@@ -6,11 +6,11 @@
 
 ## Milestones
 
-- [ ] 定位页面入口、组件、菜单 SQL 和现有标准列表模板
-- [ ] 记录 BDD 场景并执行 RED 验证
-- [ ] 按标准列表模板拆分测试记录前端页面并移除测试管理内嵌执行记录
-- [ ] 新增测试记录菜单迁移，保证位于测试管理与备份计划之间
-- [ ] 执行 GREEN 与回归验证
+- [x] 定位页面入口、组件、菜单 SQL 和现有标准列表模板
+- [x] 记录 BDD 场景并执行 RED 验证
+- [x] 按标准列表模板拆分测试记录前端页面并移除测试管理内嵌执行记录
+- [x] 新增测试记录菜单迁移，保证位于测试管理与备份计划之间
+- [x] 执行 GREEN 与回归验证
 - [ ] 更新证据、清理并完成收尾
 
 ## Expected Verification
@@ -22,7 +22,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Experience Gates
 
@@ -38,3 +38,8 @@ in_progress
 - `是否引入 fallback/降级/吞异常`：否。
 - `是否从根因和长期维护角度解决`：是，目标是复用项目标准列表模板。
 - `是否存在临时补丁或绕过`：否。
+
+## Closeout Notes
+
+- 实现与验证已完成，待收尾项为任务证据提交/推送。
+- 当前 Git 状态仍存在其它任务文件：`doc/tasks/20260726-batch-record-import-v14/execution-log.md` 和 `doc/tasks/20260726-batch-record-import-v14/verification-report.md`；本任务不修改该并发任务产物。

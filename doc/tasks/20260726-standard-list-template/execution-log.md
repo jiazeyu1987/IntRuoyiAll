@@ -21,15 +21,22 @@
 
 ## TDD Evidence
 
-- RED: pending -> update and run `pnpm e2e:system:codex-test-management:static` before implementation; expected failure is missing standard test-record page/menu contract.
-- GREEN: pending -> run the same check after implementation.
+- RED: `pnpm e2e:system:codex-test-management:static` -> FAIL, expected reason: updated static contract required `src/views/system/codex-test-record/index.vue`; assertion message `测试记录页签必须拆分为独立页面组件。`
+- GREEN: `pnpm e2e:system:codex-test-management:static` -> PASS.
+- GREEN: `pnpm ts:check` -> PASS.
+- GREEN: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_system_backup_plan_menu_sql.py IntRuoyiBackend\script\tests\test_codex_test_management_migration.py -q` -> PASS, 4 passed.
+- GREEN: `git diff --check -- <task-owned files>` -> PASS.
 
 ## Milestone Updates
 
 - 2026-07-26: Task directory created and initial BDD recorded.
 - 2026-07-26: User clarified the yellow-box execution-record list must become a standard-list “测试记录” page between “测试管理” and “备份计划”.
 - 2026-07-26: Baseline commit `474c431c` created for pre-existing dirty workspace files; current task files kept separate.
+- 2026-07-26: Implemented `src/views/system/codex-test-record/index.vue` using `UnifiedListTemplate`, quick filters, column settings, record actions, detail drawer and artifact preview.
+- 2026-07-26: Removed embedded execution-record list from `src/views/system/codex-test-management/index.vue`; execution buttons now direct users to the “测试记录” page for results.
+- 2026-07-26: Added `IntRuoyiBackend/sql/mysql/20260726_system_codex_test_record_menu.sql` and moved backup plan menu sort to `102`.
+- 2026-07-26: Project experience consolidation check -> PASS; existing `docs/database-rules.md`, `docs/frontend-development.md`, `D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`, and `docs/experience-index.md` already cover the reusable gates, so no long-term memory document was added.
 
 ## Blockers
 
-- None currently.
+- Closeout/commit/push not completed in this turn because current Git status still contains unrelated concurrent task files under `doc/tasks/20260726-batch-record-import-v14/`; task remains `ready_for_closeout` rather than `completed`.

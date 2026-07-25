@@ -31,14 +31,18 @@
 
 ## Verification
 
-- RED: pending.
-- GREEN: pending.
-- Regression: pending.
+- RED: `pnpm e2e:system:codex-test-management:static` failed after static contract update because `src/views/system/codex-test-record/index.vue` was missing.
+- GREEN: `pnpm e2e:system:codex-test-management:static` passed after implementation.
+- GREEN: `pnpm ts:check` passed.
+- Regression: backend SQL static regression passed with `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_system_backup_plan_menu_sql.py IntRuoyiBackend\script\tests\test_codex_test_management_migration.py -q`.
 
 ## Responsive, Accessibility, Loading, Empty, Error, Permission Checks
 
-- Pending implementation and verification.
+- Responsive: standard template retains existing responsive toolbar/table shell behavior.
+- Accessibility: record table keeps visible labels, status text tags and non-color-only result text.
+- Loading/empty/error states: `recordLoading`, `empty-text="暂无测试记录"` and visible `recordLoadError` alert are wired.
+- Permission checks: record actions keep `system:codex-test:artifact` and `system:codex-test:cancel`; menu uses `system:codex-test:query`.
 
 ## Blockers And Follow-Up Skills
 
-- None currently.
+- Follow-up blocker: task closeout commit/push is not complete because the workspace currently has unrelated concurrent task files.
