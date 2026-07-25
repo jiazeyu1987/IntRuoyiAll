@@ -7,11 +7,11 @@
 
 ## Milestones
 
-1. M1：定位错误提示来源，记录 BDD/TDD 验收场景。`in_progress`
-2. M2：先补失败静态契约测试，证明当前没有 5 秒自动隐藏机制。`pending`
-3. M3：实现最小前端状态逻辑，让 `releaseActionError` 显示后 5 秒自动清空。`pending`
-4. M4：运行定向静态测试、类型检查或等效前端验证，记录证据。`pending`
-5. M5：完成任务文档、收尾验证、提交并推送。`pending`
+1. M1：定位错误提示来源，记录 BDD/TDD 验收场景。`completed`
+2. M2：先补失败静态契约测试，证明当前没有 5 秒自动隐藏机制。`completed`
+3. M3：实现最小前端状态逻辑，让 `releaseActionError` 显示后 5 秒自动清空。`completed`
+4. M4：运行定向静态测试、类型检查或等效前端验证，记录证据。`completed_with_blocker`
+5. M5：完成任务文档、收尾验证、提交并推送。`in_progress`
 
 ## Expected Verification
 
@@ -20,7 +20,17 @@
 
 ## Current Status
 
-- `in_progress`
+ready_for_closeout
+
+## Verification Evidence
+
+- `RED: node tests/e2e/edhr-release-action-error-autohide-static.spec.js -> FAIL, 缺少 RELEASE_ACTION_ERROR_AUTO_HIDE_DELAY_MS = 5000 自动隐藏契约。`
+- `GREEN: node tests/e2e/edhr-release-action-error-autohide-static.spec.js -> PASS`
+- `REGRESSION: pnpm ts:check -> FAIL, 既有 src/views/system/codex-test-management/index.vue 缺少 caseQuickFilterDefinitions、caseQuickFilter、caseColumns、isCaseColumnVisible 等字段；本次修改文件无新增 TS 错误。`
+
+## Cleanup Keep
+
+- doc/tasks/20260726-release-action-error-autohide/frontend-feature-evidence.md
 
 ## 经验门禁
 
@@ -45,4 +55,3 @@
 - `是否引入 fallback/降级/吞异常`：否；错误仍真实显示，只增加 5 秒后清空当前错误提示的前端状态管理。
 - `是否从根因和长期维护角度解决`：是；集中封装 release action 错误的展示与定时清理，避免散落 setTimeout。
 - `是否存在临时补丁或绕过`：否。
-

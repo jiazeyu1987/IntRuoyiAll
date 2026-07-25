@@ -15,8 +15,8 @@ assert.match(
 )
 assert.match(
   detailPage,
-  /let releaseActionErrorAutoHideTimer: ReturnType<typeof window\.setTimeout> \| undefined/,
-  '放行错误提示必须持有浏览器定时器句柄，便于重复错误和卸载时清理。'
+  /let releaseActionErrorAutoHideTimer: number \| undefined/,
+  '放行错误提示必须持有浏览器定时器句柄，便于重复错误和卸载时清理，且不得引入 Node 定时器类型。'
 )
 assert.match(
   detailPage,

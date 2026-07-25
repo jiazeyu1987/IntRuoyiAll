@@ -1266,7 +1266,7 @@ const specialNodeCompleteError = ref('')
 const releaseActionError = ref('')
 const releaseSignatureError = ref('')
 const RELEASE_ACTION_ERROR_AUTO_HIDE_DELAY_MS = 5000
-let releaseActionErrorAutoHideTimer: ReturnType<typeof window.setTimeout> | undefined
+let releaseActionErrorAutoHideTimer: number | undefined
 const detail = ref<EdhrBatchExecutionRespVO>()
 const workbench = ref<EdhrBatchWorkbenchRespVO>()
 const archivePrintDrawerVisible = ref(false)

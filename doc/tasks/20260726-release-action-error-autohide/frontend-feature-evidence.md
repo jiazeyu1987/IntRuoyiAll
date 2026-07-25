@@ -35,11 +35,15 @@
 - `BDD: 后续错误不得被旧定时器误清除 -> Given 用户连续触发两个不同放行错误 / When 第一个错误的 5 秒定时器到期 / Then 若当前错误已变更，页面必须保留新的错误提示，只清除同一次展示的错误。`
 - `BDD: 成功或刷新应立即清除旧错误 -> Given 页面正在重新执行放行预检或加载放行检查项 / When 逻辑明确进入新请求或成功路径 / Then 旧错误立即消失，不等待 5 秒。`
 
-## Verification Plan
+## Verification Evidence
 
-- RED：`node tests/e2e/edhr-batch-release-state-ui-static.spec.js` 应先失败，原因是页面没有 `releaseActionError` 5 秒自动清理契约。
-- GREEN：实现后同一命令通过。
-- REGRESSION：运行 `pnpm ts:check` 或记录既有阻塞。
+- RED: `node tests/e2e/edhr-release-action-error-autohide-static.spec.js` -> FAIL, 缺少 `RELEASE_ACTION_ERROR_AUTO_HIDE_DELAY_MS = 5000`。
+- GREEN: `node tests/e2e/edhr-release-action-error-autohide-static.spec.js` -> PASS.
+- REGRESSION：`pnpm ts:check` 失败于既有 `src/views/system/codex-test-management/index.vue` 字段缺失，当前输出未包含本任务文件错误。
+
+## Blockers
+
+- `pnpm ts:check` 仍被既有 `src/views/system/codex-test-management/index.vue` 字段缺失阻塞，无法作为本任务全量回归通过证据；本任务目标静态契约已通过。
 
 ## Responsive / A11y / Loading / Empty / Error / Permission
 
@@ -49,4 +53,3 @@
 - Empty: 不改变空检查项展示。
 - Error: 真实错误仍显示并同步触发 `message.error`。
 - Permission: `ensureViewedReleaseStageWritable` 行为不变。
-
