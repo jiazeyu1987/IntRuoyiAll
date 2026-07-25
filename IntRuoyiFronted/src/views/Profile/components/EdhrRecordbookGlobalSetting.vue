@@ -9,13 +9,27 @@
               仅金手指用户可配置；关闭后所有批次统一走批记录流程。
             </div>
           </div>
-          <el-switch
-            v-model="settingEnabled"
-            :loading="loading || saving"
-            active-text="打开记录本"
-            inactive-text="关闭记录本"
-            @change="handleEnabledChange"
-          />
+          <div
+            class="edhr-recordbook-global-setting__toggle"
+            :class="{ 'is-disabled': loading || saving }"
+            role="button"
+            tabindex="0"
+            :aria-pressed="settingEnabled"
+            aria-label="切换 eDHR 记录本全局开关"
+            @click="handleToggleClick"
+            @keydown.enter.space.prevent="handleToggleClick"
+          >
+            <span class="edhr-recordbook-global-setting__toggle-label">关闭记录本</span>
+            <el-switch
+              v-model="settingEnabled"
+              :loading="loading || saving"
+              :disabled="loading || saving"
+              aria-hidden="true"
+              @click.stop
+              @change="handleEnabledChange"
+            />
+            <span class="edhr-recordbook-global-setting__toggle-label">打开记录本</span>
+          </div>
         </div>
       </template>
 
@@ -26,16 +40,6 @@
         :closable="false"
         show-icon
       />
-      <el-descriptions v-else :column="1" border>
-        <el-descriptions-item label="配置键">{{ CONFIG_KEY }}</el-descriptions-item>
-        <el-descriptions-item label="当前状态">
-          <el-tag :type="settingEnabled ? 'success' : 'warning'">
-            {{ settingEnabled ? '记录本已打开' : '记录本已关闭' }}
-          </el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="最后更新人">{{ setting?.updatedBy || '--' }}</el-descriptions-item>
-        <el-descriptions-item label="最后更新时间">{{ setting?.updatedAt || '--' }}</el-descriptions-item>
-      </el-descriptions>
     </el-card>
   </div>
 </template>
@@ -44,17 +48,14 @@
 import { ElMessageBox } from 'element-plus'
 import {
   getEdhrRecordbookGlobalSetting,
-  updateEdhrRecordbookGlobalSetting,
-  type EdhrRecordbookGlobalSettingRespVO
+  updateEdhrRecordbookGlobalSetting
 } from '@/api/mes/pro/edhr/recordbookGlobalSetting'
 
-const CONFIG_KEY = 'mes.edhr.recordbook.global.enabled'
 const message = useMessage()
 
 const loading = ref(false)
 const saving = ref(false)
 const loadError = ref('')
-const setting = ref<EdhrRecordbookGlobalSettingRespVO>()
 const settingEnabled = ref(true)
 const previousValue = ref(true)
 
@@ -69,7 +70,6 @@ const loadSetting = async () => {
   loadError.value = ''
   try {
     const result = await getEdhrRecordbookGlobalSetting()
-    setting.value = result
     settingEnabled.value = result.enabled === true
     previousValue.value = settingEnabled.value
   } catch (error) {
@@ -79,8 +79,8 @@ const loadSetting = async () => {
   }
 }
 
-const handleEnabledChange = async (value: string | number | boolean) => {
-  const nextValue = value === true
+const requestEnabledChange = async (nextValue: boolean) => {
+  settingEnabled.value = nextValue
   try {
     await ElMessageBox.confirm(
       nextValue
@@ -97,7 +97,6 @@ const handleEnabledChange = async (value: string | number | boolean) => {
   saving.value = true
   try {
     const result = await updateEdhrRecordbookGlobalSetting({ enabled: nextValue })
-    setting.value = result
     settingEnabled.value = result.enabled === true
     previousValue.value = settingEnabled.value
     message.success(settingEnabled.value ? '记录本全局开关已打开' : '记录本全局开关已关闭')
@@ -107,6 +106,15 @@ const handleEnabledChange = async (value: string | number | boolean) => {
   } finally {
     saving.value = false
   }
+}
+
+const handleEnabledChange = async (value: string | number | boolean) => {
+  await requestEnabledChange(value === true)
+}
+
+const handleToggleClick = async () => {
+  if (loading.value || saving.value) return
+  await requestEnabledChange(!settingEnabled.value)
 }
 
 onMounted(loadSetting)
@@ -134,5 +142,37 @@ onMounted(loadSetting)
   margin-top: 4px;
   color: #6b778c;
   font-size: 13px;
+}
+
+.edhr-recordbook-global-setting__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: #4b5563;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.edhr-recordbook-global-setting__toggle:hover,
+.edhr-recordbook-global-setting__toggle:focus-visible {
+  background-color: #f3f8ff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.18);
+  outline: none;
+}
+
+.edhr-recordbook-global-setting__toggle.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.edhr-recordbook-global-setting__toggle-label {
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
 }
 </style>

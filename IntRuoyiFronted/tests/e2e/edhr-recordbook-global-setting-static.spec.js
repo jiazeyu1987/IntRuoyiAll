@@ -31,8 +31,14 @@ for (const componentPath of [
   'src/views/profile/components/EdhrRecordbookGlobalSetting.vue'
 ]) {
   const component = readSource(componentPath)
-  assert.ok(component.includes(CONFIG_KEY), `${componentPath} must display the infra_config key.`)
   assert.ok(component.includes('el-switch'), `${componentPath} must use an editable switch.`)
+  assert.ok(!component.includes('el-descriptions'), `${componentPath} must not render the old red-box metadata block.`)
+  for (const removedText of [CONFIG_KEY, '配置键', '当前状态', '最后更新人', '最后更新时间']) {
+    assert.ok(!component.includes(removedText), `${componentPath} must remove red-box metadata text: ${removedText}`)
+  }
+  assert.ok(component.includes('role="button"'), `${componentPath} must make the blue-box switch area keyboard/click accessible.`)
+  assert.ok(component.includes('@click="handleToggleClick"'), `${componentPath} must toggle from the whole blue-box area.`)
+  assert.ok(component.includes('@keydown.enter.space.prevent="handleToggleClick"'), `${componentPath} must support keyboard activation.`)
   assert.ok(component.includes('ElMessageBox.confirm'), `${componentPath} must confirm before toggling.`)
   assert.ok(component.includes('updateEdhrRecordbookGlobalSetting'), `${componentPath} must call the update API.`)
   assert.ok(component.includes('settingEnabled.value = previousValue'), `${componentPath} must restore on cancel or failure.`)
