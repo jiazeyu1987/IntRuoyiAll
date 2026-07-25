@@ -81,6 +81,7 @@
 - Keywords: eDHR 批记录版本治理规则, CELL_RULE_RECONCILED, 1040750243, 批记录模板未确认填写规则, Jimu 当前 JSON, openOrCreateByContext -> `docs/backend-development.md#edhr-批记录版本治理规则运行态门禁`
 - Keywords: Windows CRLF 静态合同, static.spec.js 目标 worktree 自身失败, 真实 E2E 脚本与页面行为同步, 废弃弹窗流程, 字段审计保存直连 API -> `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁`
 - Keywords: eDHR 单据填写人显示值, 损耗单卡片, fillableUsers displayName, candidateSourceNames 格式, 页面填写人断言 -> `docs/e2e-rules.md#edhr-单据填写人显示值门禁`
+- Keywords: eDHR 右侧红框元信息, primary-fill-meta, primaryFormFillMetaItems, showPrimaryFormFillMeta, resolvePrimaryFormFillersText, 填写人 提交时间 红框 -> `docs/e2e-rules.md#edhr-右侧红框元信息隐藏门禁`
 - 项目错误预防短记忆：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\agent-memory\project-error-prevention.md`
 
 ## 任务门禁

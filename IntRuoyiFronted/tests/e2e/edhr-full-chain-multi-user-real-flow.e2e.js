@@ -764,11 +764,11 @@ function isActiveRouteFormTask(task) {
 }
 
 function isFormCenterRouteTask(task) {
-  return (
-    task?.nodeType === ROUTE_FORM_NODE_TYPE &&
-    Number(task.formCenterInstanceId || 0) > 0 &&
-    Number(task.formTemplateId || 0) > 0
-  )
+  if (!isRouteFormTask(task)) return false
+  if (Number(task.formCenterInstanceId || 0) > 0) return true
+  if (Number(task.formTemplateId || 0) > 0) return true
+  const slotType = String(task.formSlotType || '').trim()
+  return Boolean(slotType && slotType !== 'MAIN')
 }
 
 function formCenterTaskSearchTokens(task) {
@@ -1482,8 +1482,12 @@ async function ensureOqcTemplateIndicatorByUi(page) {
   const indicatorPane = templateDialog.locator('.el-tab-pane:visible').filter({ hasText: '新增指标项' }).first()
   await indicatorPane.waitFor({ state: 'visible', timeout: 60000 })
 
-  const existing = indicatorPane.locator('.el-table__body-wrapper tbody tr, .el-table__row').filter({ hasText: OQC_INDICATOR_CODE }).first()
-  if ((await existing.count()) > 0 && (await existing.isVisible().catch(() => false))) {
+  const existingByCode = indicatorPane.locator('.el-table__body-wrapper tbody tr, .el-table__row').filter({ hasText: OQC_INDICATOR_CODE }).first()
+  const existingByName = indicatorPane.locator('.el-table__body-wrapper tbody tr, .el-table__row').filter({ hasText: OQC_INDICATOR_NAME }).first()
+  if (
+    ((await existingByCode.count()) > 0 && (await existingByCode.isVisible().catch(() => false))) ||
+    ((await existingByName.count()) > 0 && (await existingByName.isVisible().catch(() => false)))
+  ) {
     await clickVisibleButton(templateDialog, /^取\s*消$/, '关闭 OQC 质检方案')
     return { created: false, templateCode: OQC_TEMPLATE_CODE, indicatorCode: OQC_INDICATOR_CODE }
   }
@@ -1491,7 +1495,7 @@ async function ensureOqcTemplateIndicatorByUi(page) {
   await clickVisibleButton(indicatorPane, '新增指标项', '新增 OQC 模板指标项')
   const indicatorDialog = page.locator('.el-dialog:visible').filter({ hasText: '质检指标' }).last()
   await indicatorDialog.waitFor({ state: 'visible', timeout: 60000 })
-  await selectEntityByDialog(page, indicatorDialog, '质检指标', '质检指标选择', '检测项名称', OQC_INDICATOR_NAME, OQC_INDICATOR_CODE)
+  await selectEntityByDialog(page, indicatorDialog, '质检指标', '质检指标选择', '检测项名称', OQC_INDICATOR_NAME, OQC_INDICATOR_NAME)
   await fillLabeledNumber(indicatorDialog, '标准值', 1)
   await fillLabeledTextarea(indicatorDialog, '检测方法', `${FILL_PREFIX}-OQC-CHECK`)
   await fillLabeledTextarea(indicatorDialog, '备注', `${FILL_PREFIX}-OQC-INDICATOR`)
@@ -1500,7 +1504,7 @@ async function ensureOqcTemplateIndicatorByUi(page) {
   const templateIndicatorId = Number(await createPromise)
   assert.ok(Number.isFinite(templateIndicatorId) && templateIndicatorId > 0, '新增 OQC 质检方案检测指标项未返回有效 ID。')
   await indicatorDialog.waitFor({ state: 'hidden', timeout: 60000 })
-  await indicatorPane.locator('.el-table__body-wrapper tbody tr, .el-table__row').filter({ hasText: OQC_INDICATOR_CODE }).first().waitFor({
+  await indicatorPane.locator('.el-table__body-wrapper tbody tr, .el-table__row').filter({ hasText: OQC_INDICATOR_NAME }).first().waitFor({
     state: 'visible',
     timeout: 60000
   })

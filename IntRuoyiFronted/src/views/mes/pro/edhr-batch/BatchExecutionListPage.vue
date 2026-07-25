@@ -39,6 +39,16 @@
           >
             打开/创建
           </el-button>
+          <el-button
+            v-if="hasGoldenFingerPermission"
+            v-hasPermi="[GOLDEN_FINGER_PERMISSION]"
+            plain
+            type="danger"
+            :loading="goldenFingerBulkVoidLoading"
+            @click="openGoldenFingerBulkVoidDialog"
+          >
+            金手指一键作废
+          </el-button>
           <el-dropdown
             v-if="showLocalStateSampleActions"
             v-hasPermi="['mes:pro-edhr-batch-execution:create']"
@@ -408,6 +418,71 @@
       </template>
     </Dialog>
 
+    <Dialog title="金手指一键作废批次执行" v-model="goldenFingerBulkVoidDialogVisible" width="620px">
+      <el-alert
+        title="将按当前筛选条件跨页作废所有可作废批次，直通生效，不进入审核流程。"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="mb-12px"
+      />
+      <el-alert
+        v-if="goldenFingerBulkVoidError"
+        :title="goldenFingerBulkVoidError"
+        type="error"
+        :closable="false"
+        show-icon
+        class="mb-12px"
+      />
+      <el-form label-width="112px" class="edhr-batch-page__void-form">
+        <el-form-item label="作废范围">
+          <span>当前筛选条件下跨页全部可作废批次</span>
+        </el-form-item>
+        <el-form-item label="原因分类" required>
+          <el-select
+            v-model="goldenFingerBulkVoidForm.reasonCategory"
+            placeholder="请选择作废原因分类"
+            style="width: 100%"
+          >
+            <el-option label="订单取消" value="ORDER_CANCELLED" />
+            <el-option label="数据错误" value="DATA_ERROR" />
+            <el-option label="流程偏差" value="PROCESS_DEVIATION" />
+            <el-option label="其他" value="OTHER" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="原因说明" required>
+          <el-input
+            v-model="goldenFingerBulkVoidForm.reasonText"
+            type="textarea"
+            :rows="3"
+            placeholder="请填写批量作废原因"
+          />
+        </el-form-item>
+        <el-form-item label="电子签名密码" required>
+          <el-input
+            v-model="goldenFingerBulkVoidForm.password"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            placeholder="请输入电子签名密码"
+          />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input
+            v-model="goldenFingerBulkVoidForm.comment"
+            type="textarea"
+            :rows="2"
+            placeholder="可填写补充说明"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="goldenFingerBulkVoidDialogVisible = false">取 消</el-button>
+        <el-button type="danger" :loading="goldenFingerBulkVoidLoading" @click="submitGoldenFingerBulkVoid">
+          确认一键作废
+        </el-button>
+      </template>
+    </Dialog>
     <Dialog title="eDHR 演练预检" v-model="readinessDialogVisible" width="980px">
       <el-alert
         v-if="readinessError"
@@ -658,6 +733,7 @@ import {
   EDHR_BATCH_STATUS_REJECTED,
   EDHR_BATCH_STATUS_VOIDED,
   createEdhrLocalStateSample,
+  goldenFingerBulkVoidEdhrBatchExecutions,
   downloadEdhrBatchArchive,
   getEdhrRehearsalReadiness,
   getEdhrBatchReviewTimeline,
@@ -666,6 +742,7 @@ import {
   getEdhrBatchExecutionPage,
   openOrCreateEdhrBatchExecution,
   type EdhrBatchExecutionArchiveRespVO,
+  type EdhrBatchExecutionPageReqVO,
   type EdhrBatchExecutionRespVO,
   type EdhrBatchExecutionRouteOptionRespVO,
   type EdhrBatchReviewTimelineRespVO,
@@ -753,6 +830,7 @@ const {
 const loading = ref(false)
 const createLoading = ref(false)
 const voidLoading = ref(false)
+const goldenFingerBulkVoidLoading = ref(false)
 const readinessLoading = ref(false)
 const readinessUserLoading = ref(false)
 const workOrderLoading = ref(false)
@@ -761,6 +839,7 @@ const localStateSampleLoading = ref<EdhrLocalStateSampleState | ''>('')
 const loadError = ref('')
 const createError = ref('')
 const voidError = ref('')
+const goldenFingerBulkVoidError = ref('')
 const readinessError = ref('')
 const list = ref<EdhrBatchExecutionRespVO[]>([])
 const readinessUserOptions = ref<UserApi.UserVO[]>([])
@@ -769,6 +848,7 @@ const createRouteOptions = ref<EdhrBatchExecutionRouteOptionRespVO[]>([])
 const total = ref(0)
 const createDialogVisible = ref(false)
 const voidDialogVisible = ref(false)
+const goldenFingerBulkVoidDialogVisible = ref(false)
 const readinessDialogVisible = ref(false)
 const archiveDialogVisible = ref(false)
 const traceActionDialogVisible = ref(false)
@@ -831,6 +911,12 @@ const voidForm = reactive({
   password: '',
   comment: '',
   idempotencyKey: ''
+})
+const goldenFingerBulkVoidForm = reactive({
+  reasonCategory: '',
+  reasonText: '',
+  password: '',
+  comment: ''
 })
 const voidStartUserSelectTasks = ref<ProcessInstanceApi.ApprovalNodeInfo[]>([])
 const voidStartUserSelectAssignees = reactive<Record<string, number[]>>({})
@@ -1174,6 +1260,21 @@ const buildQuery = () => {
   }
 }
 
+const buildGoldenFingerBulkVoidFilter = (): EdhrBatchExecutionPageReqVO => {
+  const query = buildQuery()
+  return {
+    batchExecutionCode: query.batchExecutionCode,
+    workOrderCode: query.workOrderCode,
+    batchCode: query.batchCode,
+    productCode: query.productCode,
+    routeCode: query.routeCode,
+    status: query.status,
+    excludeStatuses: query.excludeStatuses,
+    excludeReleased: query.excludeReleased,
+    createTime: query.createTime,
+    quickFilter: query.quickFilter
+  }
+}
 const resolveBatchStatusLabel = (status?: number | string | null) => {
   const normalizedStatus = normalizeBatchStatusValue(status)
   const labels: Record<number, string> = {
@@ -1601,6 +1702,49 @@ const handleWithdrawVoidRequest = async (row: EdhrBatchExecutionRespVO) => {
   }
 }
 
+const resetGoldenFingerBulkVoidForm = () => {
+  goldenFingerBulkVoidForm.reasonCategory = ''
+  goldenFingerBulkVoidForm.reasonText = ''
+  goldenFingerBulkVoidForm.password = ''
+  goldenFingerBulkVoidForm.comment = ''
+}
+
+const openGoldenFingerBulkVoidDialog = () => {
+  if (!hasGoldenFingerPermission.value) {
+    message.error('只有金手指角色可以执行一键作废。')
+    return
+  }
+  goldenFingerBulkVoidError.value = ''
+  resetGoldenFingerBulkVoidForm()
+  goldenFingerBulkVoidDialogVisible.value = true
+}
+
+const submitGoldenFingerBulkVoid = async () => {
+  if (!goldenFingerBulkVoidForm.reasonCategory || !goldenFingerBulkVoidForm.reasonText.trim() || !goldenFingerBulkVoidForm.password.trim()) {
+    goldenFingerBulkVoidError.value = '请填写原因分类、原因说明和电子签名密码。'
+    return
+  }
+  goldenFingerBulkVoidLoading.value = true
+  goldenFingerBulkVoidError.value = ''
+  try {
+    const result = await goldenFingerBulkVoidEdhrBatchExecutions({
+      filter: buildGoldenFingerBulkVoidFilter(),
+      reasonCategory: goldenFingerBulkVoidForm.reasonCategory,
+      reasonText: goldenFingerBulkVoidForm.reasonText.trim(),
+      password: goldenFingerBulkVoidForm.password,
+      comment: goldenFingerBulkVoidForm.comment.trim() || undefined
+    })
+    goldenFingerBulkVoidDialogVisible.value = false
+    message.success(
+      `金手指一键作废完成：已作废 ${result.voidedCount || 0} 个批次，跳过 ${result.skippedCount || 0} 个终态批次。`
+    )
+    await getList()
+  } catch (error) {
+    goldenFingerBulkVoidError.value = resolveErrorMessage(error, '金手指一键作废失败，请查看后端错误信息。')
+  } finally {
+    goldenFingerBulkVoidLoading.value = false
+  }
+}
 const submitVoidBatchExecution = async () => {
   if (!selectedVoidBatch.value?.id) {
     voidError.value = '当前批次缺少批次执行 ID，无法发起作废流程。'

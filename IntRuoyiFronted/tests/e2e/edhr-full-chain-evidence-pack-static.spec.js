@@ -25,6 +25,8 @@ assert.ok(!source.includes('|| 922045'), '完整演练不得继续使用历史�
 assert.ok(!source.includes('CODX70915957-T'), '完整演练不得默认使用非当前授权租户的旧 OQC 质检方案。')
 assert.ok(!source.includes('CODX71027874-C'), '完整演练不得默认使用非当前授权租户的旧 OQC 客户。')
 assert.ok(source.includes("EDHR-REHEARSAL2-OQC-T"), '完整演练默认 OQC 方案必须使用当前授权租户页面可见数据。')
+assert.ok(source.includes('const existingByName = indicatorPane'), 'OQC 指标子表必须支持按页面显示名称识别已存在指标。')
+assert.ok(source.includes('OQC_INDICATOR_NAME, OQC_INDICATOR_NAME'), 'OQC 指标选择弹窗必须按检测项名称定位当前页面行。')
 assert.ok(source.includes("EDHR-REHEARSAL2-CUSTOMER"), '完整演练默认 OQC 客户必须使用当前授权租户页面可见数据。')
 assert.ok(source.includes('const EXPLICIT_CREATE_ROUTE_ID = Number(process.env.EDHR_FULL_E2E_ROUTE_ID || 0)'), '完整演练只能把 EDHR_FULL_E2E_ROUTE_ID 作为显式覆盖参数。')
 assert.ok(source.includes('function chooseCreateRouteOption(routeOptions)'), '创建批次必须从当前工单真实路线选项解析 routeId。')
@@ -82,6 +84,8 @@ const formCenterRouteTaskEnd = source.indexOf('async function processRouteTask',
 const formCenterRouteTaskBlock = source.slice(formCenterRouteTaskStart, formCenterRouteTaskEnd)
 
 assert.ok(source.includes('function isFormCenterRouteTask'), '完整演练必须识别 FormCenter 动态表单/共享表单任务。')
+assert.ok(source.includes('Number(task.formCenterInstanceId || 0) > 0'), 'FormCenter 任务识别必须接受仅返回 formCenterInstanceId 的活动待办。')
+assert.ok(source.includes("slotType && slotType !== 'MAIN'"), 'FormCenter 任务识别必须覆盖 LOSS_REPORT 等非 MAIN 共享表单槽位。')
 assert.ok(formCenterRouteTaskStart >= 0, '完整演练必须通过真实批次详情抽屉处理 FormCenter 动态表单任务。')
 assert.ok(formCenterRouteTaskBlock.includes('.form-action-panel'), 'FormCenter 动态表单必须等待真实表单面板。')
 assert.ok(formCenterRouteTaskBlock.includes('/form-center/instances/'), 'FormCenter 动态表单必须等待真实草稿和提交接口。')

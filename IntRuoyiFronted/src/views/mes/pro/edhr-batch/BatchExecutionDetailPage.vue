@@ -137,61 +137,65 @@
                 <span :title="detail?.workOrderCode || ''">{{ detail?.workOrderCode || '--' }}</span>
                 <span :title="resolveCurrentBatchRecordNo()">{{ resolveCurrentBatchRecordNo() }}</span>
               </div>
-              <button
-                type="button"
-                class="edhr-batch-detail__preview-route-link"
-                :disabled="!batchProcessRouteId"
-                :title="batchProcessRouteTitle"
-                :aria-label="batchProcessRouteTitle"
-                @click.stop="openBatchProcessRoute"
-              >
-                工艺流程：{{ batchProcessRouteLabel }}
-              </button>
-              <el-button
-                type="primary"
-                size="small"
-                :loading="syncLoading"
-                class="edhr-batch-detail__preview-sync"
-                @click.stop="handleSync"
-              >
-                同步状态
-              </el-button>
-              <span
-                v-if="currentFormVersionNo"
-                class="edhr-batch-detail__preview-form-version"
-                :title="`版本号：${currentFormVersionNo}`"
-                aria-label="当前表单版本号"
-              >
-                版本：{{ currentFormVersionNo }}
-              </span>
-              <div
-                v-if="selectedTaskForEvidence && !isSpecialNode(selectedTaskForEvidence)"
-                class="edhr-batch-detail__preview-carrier"
-                aria-label="填写载体"
-                @click.stop
-              >
-                <div class="edhr-batch-detail__preview-carrier-control">
-                  <button
-                    type="button"
-                    class="edhr-batch-detail__preview-carrier-option"
-                    :class="{ 'is-active': currentProcessFillCarrier === 'FORM' }"
-                    :aria-pressed="currentProcessFillCarrier === 'FORM'"
-                    aria-label="选择批记录填写"
-                    @click.stop="selectFillCarrier('FORM')"
-                  >
-                    批记录
-                  </button>
-                  <button
-                    v-if="isRecordbookEnabledForCurrentTask"
-                    type="button"
-                    class="edhr-batch-detail__preview-carrier-option"
-                    :class="{ 'is-active': currentProcessFillCarrier === 'RECORDBOOK' }"
-                    :aria-pressed="currentProcessFillCarrier === 'RECORDBOOK'"
-                    aria-label="选择记录本填写"
-                    @click.stop="selectFillCarrier('RECORDBOOK')"
-                  >
-                    记录本
-                  </button>
+              <div class="edhr-batch-detail__preview-actions" aria-label="批记录操作">
+                <button
+                  type="button"
+                  class="edhr-batch-detail__preview-route-link"
+                  :disabled="!batchProcessRouteId"
+                  :title="batchProcessRouteTitle"
+                  :aria-label="batchProcessRouteTitle"
+                  @click.stop="openBatchProcessRoute"
+                >
+                  工艺流程：{{ batchProcessRouteLabel }}
+                </button>
+                <el-button
+                  type="primary"
+                  size="small"
+                  :loading="syncLoading"
+                  class="edhr-batch-detail__preview-sync"
+                  @click.stop="handleSync"
+                >
+                  同步状态
+                </el-button>
+              </div>
+              <div class="edhr-batch-detail__preview-extra" aria-label="批记录附加操作">
+                <span
+                  v-if="currentFormVersionNo"
+                  class="edhr-batch-detail__preview-form-version"
+                  :title="`版本号：${currentFormVersionNo}`"
+                  aria-label="当前表单版本号"
+                >
+                  版本：{{ currentFormVersionNo }}
+                </span>
+                <div
+                  v-if="selectedTaskForEvidence && !isSpecialNode(selectedTaskForEvidence)"
+                  class="edhr-batch-detail__preview-carrier"
+                  aria-label="填写载体"
+                  @click.stop
+                >
+                  <div class="edhr-batch-detail__preview-carrier-control">
+                    <button
+                      type="button"
+                      class="edhr-batch-detail__preview-carrier-option"
+                      :class="{ 'is-active': currentProcessFillCarrier === 'FORM' }"
+                      :aria-pressed="currentProcessFillCarrier === 'FORM'"
+                      aria-label="选择批记录填写"
+                      @click.stop="selectFillCarrier('FORM')"
+                    >
+                      批记录
+                    </button>
+                    <button
+                      v-if="isRecordbookEnabledForCurrentTask"
+                      type="button"
+                      class="edhr-batch-detail__preview-carrier-option"
+                      :class="{ 'is-active': currentProcessFillCarrier === 'RECORDBOOK' }"
+                      :aria-pressed="currentProcessFillCarrier === 'RECORDBOOK'"
+                      aria-label="选择记录本填写"
+                      @click.stop="selectFillCarrier('RECORDBOOK')"
+                    >
+                      记录本
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -5057,9 +5061,9 @@ watch(
 }
 
 .edhr-batch-detail__preview-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   min-height: 42px;
   flex-shrink: 0;
@@ -5105,6 +5109,24 @@ watch(
 .edhr-batch-detail__preview-context span:last-child {
   flex: 1 1 auto;
   color: #344054;
+}
+
+.edhr-batch-detail__preview-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.edhr-batch-detail__preview-extra {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  justify-self: end;
+  gap: 12px;
+  min-width: 0;
 }
 
 .edhr-batch-detail__preview-route-link {
@@ -5169,7 +5191,7 @@ watch(
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  flex: 1 1 0;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -5961,8 +5983,20 @@ watch(
   }
 
   .edhr-batch-detail__preview-header {
+    grid-template-columns: 1fr;
     align-items: flex-start;
-    flex-direction: column;
+  }
+
+  .edhr-batch-detail__preview-actions {
+    justify-self: start;
+    flex-wrap: wrap;
+  }
+
+  .edhr-batch-detail__preview-extra {
+    justify-self: start;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    width: 100%;
   }
 
   .edhr-batch-detail__preview-route-link {
