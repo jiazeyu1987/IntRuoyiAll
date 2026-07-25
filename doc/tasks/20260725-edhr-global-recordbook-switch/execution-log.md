@@ -41,7 +41,9 @@
 - GREEN: SQL contract rerun -> PASS, `python IntRuoyiBackend\script\tests\test_mes_edhr_recordbook_global_setting_sql.py`.
 - GREEN: backend contract rerun -> PASS, `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrRecordbookGlobalSettingContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`.
 - GREEN: project-experience-consolidation -> PASS, merged reusable global-switch E2E restore lesson into `docs/e2e-rules.md#全局开关类 E2E 恢复门禁` and indexed it in `docs/experience-index.md`.
+- GREEN: precise-staging -> PASS, excluded unrelated shared-form auto-complete and bulk-void hunks from mixed files while staging only this task's global recordbook switch changes.
+- GREEN: implementation-commit -> PASS, created and pushed `c45b97f509cb599d9affae8ca5240cde69c3e7f5 feat: add global eDHR recordbook switch` to `origin/int_main`.
 
 ## Blockers
 
-- BLOCKED: Commit/push/closeout still pending precise staging because current worktree contains many unrelated parallel dirty files and several shared files contain mixed task and non-task hunks.
+- RESOLVED: Commit/push/closeout blocker cleared by index-only precise staging; unrelated parallel dirty files remain unstaged and outside this task.

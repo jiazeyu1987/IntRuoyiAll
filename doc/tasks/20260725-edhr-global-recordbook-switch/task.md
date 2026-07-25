@@ -12,7 +12,7 @@
 - [x] 增加个人中心金手指配置页签和前端调用。
 - [x] 增加后端、SQL、前端静态合同测试并运行可用验证。
 - [x] 完成真实前端路径验证并恢复全局开关。
-- [ ] 完成收尾、经验沉淀、提交和推送。
+- [x] 完成收尾、经验沉淀、提交和推送。
 
 ## Expected Verification
 
@@ -23,7 +23,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
@@ -47,3 +47,4 @@ ready_for_closeout
 - PASS: 前端类型检查 `pnpm ts:check`。
 - PASS: 真实前端路径验证使用本机 `芋道源码/admin`，在个人中心配置页签关闭全局记录本后，批次 `900000000819` / 任务 `5989` 详情接口返回有效 `recordbookEnabled=false`，批次详情隐藏填写载体控件，直连 `fillCarrier=RECORDBOOK&fillMode=RECORDBOOK_UNRESTRICTED` 显示关闭提示。
 - PASS: 恢复验证已将全局开关恢复为 `true`，同一批次详情接口有效值回到 `recordbookEnabled=true`，页面重新显示“批记录/记录本”切换控件。
+- PASS: 实现提交 `c45b97f509cb599d9affae8ca5240cde69c3e7f5` 已推送到 `origin/int_main`；提交前完成 mixed hunk 精准暂存和 `git diff --cached --check`。

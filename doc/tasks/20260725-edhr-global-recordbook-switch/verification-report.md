@@ -6,7 +6,7 @@
 - SQL seed contract implemented.
 - Frontend Profile config, batch detail global-off behavior, and execution direct-link block implemented.
 - Static, type, backend, SQL, and real frontend path verification passed.
-- Closeout is pending precise staging/commit/push because the worktree contains unrelated parallel dirty changes.
+- Closeout precise staging completed; implementation commit `c45b97f509cb599d9affae8ca5240cde69c3e7f5` was pushed to `origin/int_main`.
 
 ## Passed Verification
 
@@ -21,15 +21,15 @@
 
 - NOTE: An earlier `pnpm ts:check` blocker in unrelated `BatchExecutionListPage.vue` stale state was rechecked and now passes.
 - NOTE: The first real E2E script completed the product assertions but its automatic UI restore hook failed; the global switch was immediately restored via authenticated API and then rechecked through the real batch detail page.
-- BLOCKED: Final commit/push requires precise staging because the current worktree has unrelated parallel dirty files and mixed hunks in shared files.
+- RESOLVED: Final commit/push staging blocker was cleared by index-only staging of task-owned hunks only.
 
 ## Notes
 
 - Initial Maven with `-am -Dtest=...` failed because sibling modules had no matching specified tests; the passing command includes quoted `-Dsurefire.failIfNoSpecifiedTests=false`.
 - A transient reactor classpath error disappeared after MES single-module test regenerated target outputs; final reactor targeted command passed.
-- Do not stage unrelated dirty task files during follow-up. `BatchExecutionDetailPage.vue` and `MesProEdhrBatchExecutionServiceImpl.java` also contain non-task hunks from parallel work; use partial staging if committing this task.
+- Unrelated dirty task files remain in the working tree outside this task. `BatchExecutionDetailPage.vue`, `MesProEdhrBatchExecutionServiceImpl.java`, and `MesProEdhrBatchExecutionServiceTest.java` were staged with task-owned hunks only.
 - Static frontend command must be run from the frontend root as `node tests/e2e/edhr-recordbook-global-setting-static.spec.js`; running the repository-relative path from the frontend root creates a duplicated path and fails before loading the test.
 
 ## Final Status
 
-ready_for_closeout
+completed
