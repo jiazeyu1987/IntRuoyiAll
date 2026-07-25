@@ -17,7 +17,7 @@
 - Backend process: PASS, PID `29624`, command line includes `D:\ProjectPackage\IntRuoyi\IntRuoyiAll\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar` and port `48101`.
 - Backend health: PASS, `(Invoke-RestMethod http://127.0.0.1:48101/actuator/health).status` returned `UP`.
 - Frontend dependencies: PASS, `pnpm install --frozen-lockfile --reporter append-only` completed successfully.
-- Frontend process: PASS, PID `43336`, command line includes `D:\ProjectPackage\IntRuoyi\IntRuoyiAll\IntRuoyiFronted\node_modules\.bin\..\vite\bin\vite.js --mode branch-main-d --host 0.0.0.0 --port 8101 --strictPort`.
+- Frontend process: PASS, final PID `40252`, command line includes `D:\ProjectPackage\IntRuoyi\IntRuoyiAll\IntRuoyiFronted\node_modules\.bin\..\vite\bin\vite.js --mode branch-main-d --host 0.0.0.0 --port 8101 --strictPort`.
 - Frontend HTTP: PASS, `curl.exe -I --max-time 20 http://127.0.0.1:8101/` returned `HTTP/1.1 200 OK`.
 
 ## Build Corrections
@@ -29,11 +29,12 @@
 ## Notes
 
 - Backend stdout log: `C:\tmp\int-main-d-backend-48101-20260725082712.out.log`.
-- Frontend stdout log: `C:\tmp\int-main-d-frontend-8101-20260725084037.out.log`.
+- Frontend stdout log: `C:\tmp\int-main-d-frontend-8101-20260725092842.out.log`.
 - Frontend stderr contains non-blocking warnings from Vite/Browserslist/UnoCSS; entry returned HTTP `200 OK`.
 - `pnpm install` reported ignored dependency build scripts per pnpm v10 policy; Vite still started and served successfully.
 ## Closeout
 
 - Cleanup preview/apply completed with no deletions and no blockers.
 - Final implementation commit: `e12e865c fix: restore d main runtime source packages`.
-- Final Git sync: `HEAD` equals `origin/int_main` at `e12e865c7c8dfdebc74c77b58881895288357df3`.
+- Final Git sync: BLOCKED. `git push origin int_main` failed twice with `TLS connect error: unexpected eof while reading`.
+- Final frontend restart verification: PID `40252` listening on `8101`; `curl.exe -I --max-time 30 http://127.0.0.1:8101/` returned `HTTP/1.1 200 OK`.

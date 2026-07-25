@@ -47,3 +47,9 @@
 - `GREEN: task-closeout-cleanup apply -> PASS, no delete and no blockers`。
 - `GREEN: implementation commit -> PASS, e12e865c fix: restore d main runtime source packages`。
 - `GREEN: origin sync -> PASS, HEAD equals origin/int_main at e12e865c7c8dfdebc74c77b58881895288357df3`。
+
+## Push Blocker
+
+- `BLOCKER: git push origin int_main -> FAIL, TLS connect error: unexpected eof while reading`。
+- `BLOCKER: git push origin int_main retry -> FAIL, TLS connect error: unexpected eof while reading`。
+- Impact: local runtime is running and verified, but Git closeout cannot be marked completed until network/GitHub TLS push succeeds.- `GREEN: frontend-restart-after-concurrent-route-file -> PASS, PID 40252 listening on 8101 and HTTP 200 OK`。
