@@ -45,6 +45,8 @@ ready_for_closeout
 - 2026-07-25 已复跑本地只读 E2E：`node IntRuoyiFronted\tests\e2e\system-backup-plan-real-readonly.e2e.js` -> PASS，截图 `output\playwright\system-backup-plan-readonly.png` 已生成；任务自有本地运行进程已停止，`8083/48083` 无残留监听。
 - 2026-07-25 已合并 `origin/int_main`：merge commit `8a3bb44a`，合并后重跑后端/脚本/前端类型检查/静态合同/本地只读 E2E 均通过；当前仅剩 cleanup、closeout 记录提交与推送。
 - 2026-07-25 已完成 cleanup preview：默认会保留 `task.md`、`execution-log.md`、`verification-report.md`，建议删除任务内 `bug-regression-evidence.md`，但 apply 被主工作区脏状态阻塞，未执行删除。
+- 2026-07-26 已融合到 `int_main`：merge commit `61188ec3`，合并后修复主仓库场景下的 runtime profile 测试并重跑备份计划相关脚本测试、后端目标测试、前端类型检查、静态合同、branch runtime guard 和 whitespace 检查，均通过。
+- 2026-07-26 已保存并发 Runner 产生的主工作区改动为独立基线提交，避免覆盖或丢失非本任务前后端改动；当前仅剩活跃 Runner 的 `.pid` 运行态文件未跟踪，不纳入提交。
 
 ## 设计约束检查
 

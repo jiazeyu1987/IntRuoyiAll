@@ -83,6 +83,19 @@
 - GREEN: GitHub large object preflight -> PASS, `git rev-list --objects origin/int_main..HEAD | git cat-file --batch-check` found no large blobs; largest task blob was far below GitHub 100 MB limit.
 - BLOCKER: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-system-backup-plan --mode preview` -> BLOCKED, preview would keep `task.md`, `execution-log.md`, `verification-report.md` and delete `bug-regression-evidence.md`, but apply/ff-only worktree closeout is blocked because main worktree `E:\IntRuoyi` is dirty.
 - BLOCKER DETAIL: `git status --short --branch` in `E:\IntRuoyi` shows modified MES/System/Frontend/E2E/task-doc files and untracked task directories unrelated to this backup-plan task. Per ownership rules, this task did not clean or modify those main-worktree changes.
+- GREEN: main workspace dirty baseline -> PASS, commit `ceec4052` saved pre-fusion main-workspace dirty changes before merging backup plan.
+- GREEN: follow-up dirty baseline -> PASS, commit `051416cf` saved additional pre-fusion changes generated after the first baseline.
+- GREEN: backup plan fused into `int_main` -> PASS, merge commit `61188ec3` merged `origin/codex/system-backup-plan` into `int_main`.
+- RED: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_branch_runtime_profile.py` on `int_main` -> FAIL, expected reason: the worktree-slot test still assumed the current repo path was branch `codex/system-backup-plan` while the fused main workspace is branch `int_main`.
+- GREEN: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_branch_runtime_profile.py` -> PASS after making the registered-worktree test call `Resolve-BranchRuntimeContext` with an explicit worktree path and branch, 4 tests.
+- GREEN: `python -X utf8 -m pytest script\tests\test_backup_ops_scheduling_tooling.py script\tests\test_system_backup_plan_menu_sql.py script\tests\test_release_migration_metadata.py` from `IntRuoyiBackend` -> PASS, 6 tests on fused `int_main`.
+- GREEN: `mvn "-pl" "yudao-module-infra" "-Dtest=BackupPlanServiceImplTest,RuntimeControlOperationActionBackupConfirmTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 8 tests on fused `int_main`.
+- GREEN: `pnpm ts:check` -> PASS on fused `int_main`.
+- GREEN: `node tests\e2e\system-backup-plan-standard-list-static.spec.js` from `IntRuoyiFronted` -> PASS on fused `int_main`.
+- GREEN: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS on fused `int_main`.
+- GREEN: `git diff --check` -> PASS on fused `int_main` before final closeout record.
+- GREEN: post-fusion dirty baselines -> PASS, commits `60d17822` and `d84abd4f` saved concurrent Runner/main-workspace changes separately from the backup-plan implementation.
+- BLOCKER: worktree deletion remains blocked because active process `51372` (`IntRuoyiFronted\scripts\codex-test-runner.mjs --loop`) keeps `doc\tasks\20260725-codex-runner-void-test\codex-runner-loop.pid` and related non-backup-plan artifacts in the main workspace. The `.pid` file is a runtime artifact and was intentionally not committed.
 
 ## Implementation Notes
 
@@ -105,6 +118,7 @@
 - BLOCKER: Production publish/register/verify is not executed because formal production operation requires explicit release authorization.
 - RESOLVED: Current branch `codex/system-backup-plan` was behind `origin/int_main` by 15 commits; resolved by merge commit `8a3bb44a`. Current branch is ahead of `origin/int_main` only by local task commits pending closeout/push.
 - BLOCKER: worktree cleanup/apply and deletion are blocked by dirty main worktree `E:\IntRuoyi`; current branch can still be pushed for review, but task cannot be marked `completed` or remove the worktree until the main workspace is clean.
+- RESOLVED: Backup plan branch was fused into `int_main` with merge commit `61188ec3` and verified on the main workspace.
 
 ## Experience Consolidation
 

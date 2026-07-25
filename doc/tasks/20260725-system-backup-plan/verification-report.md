@@ -60,8 +60,23 @@
 
 - Write-type real Playwright E2E is not complete: saving/enabling/disabling schedule and immediate backup mutate a real Windows scheduled task or trigger backup execution, so they require an explicitly authorized test scheduler environment.
 - Production release, task registration, `NextRunTime` verification, and optional immediate backup verification require explicit production authorization.
-- Current branch `codex/system-backup-plan` is merged with `origin/int_main` and is ahead locally; final closeout still requires cleanup commit and `git push origin codex/system-backup-plan`.
-- Worktree closeout and deletion remain blocked until the main worktree `E:\IntRuoyi` is clean.
+- Backup plan branch has been fused into `int_main` with merge commit `61188ec3`; final remote state is controlled by the `int_main` push.
+- Worktree closeout and deletion remain blocked while the active Codex Runner process keeps `E:\IntRuoyi` dirty with runtime/task artifacts.
+
+## Int Main Fusion Verification
+
+- Fusion: `origin/codex/system-backup-plan` merged into `int_main` with commit `61188ec3`.
+- Main-workspace dirty baselines: `ceec4052`, `051416cf`, `60d17822`, and `d84abd4f` preserve non-backup-plan concurrent changes separately.
+- Test fix: `1330678a` makes the branch runtime profile test independent of the current main-workspace branch.
+- Backend script tests: `python -X utf8 -m pytest script\tests\test_backup_ops_scheduling_tooling.py script\tests\test_system_backup_plan_menu_sql.py script\tests\test_release_migration_metadata.py` from `IntRuoyiBackend` -> PASS, 6 tests.
+- Branch runtime regression: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_branch_runtime_profile.py` -> PASS, 4 tests.
+- Backend targeted tests: `mvn "-pl" "yudao-module-infra" "-Dtest=BackupPlanServiceImplTest,RuntimeControlOperationActionBackupConfirmTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 8 tests.
+- Frontend type check: `pnpm ts:check` -> PASS.
+- Frontend static contract: `node tests\e2e\system-backup-plan-standard-list-static.spec.js` -> PASS.
+- Branch runtime guard: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
+- Whitespace check: `git diff --check` -> PASS.
+- Large object preflight: `git rev-list --objects origin/int_main..HEAD | git cat-file --batch-check` -> PASS, no blob near 100 MB.
+- Runtime note: `8081/48081` were already listening in the main workspace; no backup-plan `8083/48083` processes were left running.
 
 ## Release Recommendation
 
