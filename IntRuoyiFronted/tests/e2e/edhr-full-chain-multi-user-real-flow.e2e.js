@@ -1091,10 +1091,6 @@ async function selectBatchDetailRouteTask(page, task) {
   const taskToken = task.batchRecordReportName || task.formTemplateName || task.processName || task.processCode
   const taskCard = page.locator('.edhr-batch-detail__rail-process-form-item').filter({ hasText: String(taskToken) }).first()
   await taskCard.waitFor({ state: 'visible', timeout: 60000 })
-  const cardClass = await taskCard.getAttribute('class').catch(() => '')
-  if (!String(cardClass || '').includes('is-active')) {
-    await taskCard.click({ timeout: 10000, force: true })
-  }
   return taskCard
 }
 

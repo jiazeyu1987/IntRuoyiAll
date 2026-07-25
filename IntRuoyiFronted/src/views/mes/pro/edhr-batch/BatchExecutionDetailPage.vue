@@ -1187,7 +1187,11 @@ import {
   resolveReleaseCheckResultTagType,
   resolveReleaseCheckSourceObjectTypeLabel
 } from '@/views/mes/pro/edhr/shared/releaseCheckPresentation'
-import { isRequiredBatchRecordTask, resolveBatchRequiredProgressText } from './progress'
+import {
+  isOptionalRouteFormTask,
+  isRequiredBatchRecordTask,
+  resolveBatchRequiredProgressText
+} from './progress'
 import { buildSignatureTimePayload, createSignatureTimeForm, type EdhrSignatureTimeForm } from '../edhr/signatureTime'
 import { type BusinessActionContextVO } from '@/api/form-center/businessAction'
 import {
@@ -3085,7 +3089,8 @@ const syncSpecialNodePendingAttachmentsFromDetail = (nextDetail?: EdhrBatchExecu
   }
 }
 
-const isOptionalTask = (row: EdhrBatchExecutionTaskRespVO) => !isSpecialNode(row) && !isRequiredBatchRecordTask(row)
+const isOptionalTask = (row: EdhrBatchExecutionTaskRespVO) =>
+  !isSpecialNode(row) && isOptionalRouteFormTask(row)
 
 const currentSkipTaskIsOptional = computed(() =>
   currentSpecialNode.value ? isOptionalTask(currentSpecialNode.value) : false

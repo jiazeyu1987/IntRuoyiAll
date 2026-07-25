@@ -12,10 +12,12 @@
 ## Milestone Updates
 
 - in_progress: 创建任务记录，准备读取经验门禁并定位源码。
+- completed: 读取 `docs/experience-index.md` 命中 eDHR 动态表单、损耗单和静态合同门禁，并补入 `task.md`。
+- completed: 定位到前端 `isOptionalTask` 把 `!isRequiredBatchRecordTask(row)` 作为可选/可跳过口径，和后端 `requiredPolicy == OPTIONAL` 的跳过规则不一致。
 
 ## TDD Evidence
 
-- RED: pending
+- RED: `node tests\e2e\edhr-loss-form-open-action-static.spec.js` -> FAIL, expected reason: 当前 `isOptionalTask` 未包含 `row.requiredPolicy === 'OPTIONAL'`，会把非 OPTIONAL 的路线表单误纳入可跳过判断。
 - GREEN: pending
 
 ## Verification Evidence

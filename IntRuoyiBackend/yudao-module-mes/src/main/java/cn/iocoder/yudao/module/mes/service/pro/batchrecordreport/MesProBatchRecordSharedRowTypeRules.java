@@ -158,42 +158,12 @@ final class MesProBatchRecordSharedRowTypeRules {
             String text = firstMeaningfulText(row);
             return startsWithAny(text, NARRATIVE_PREFIXES) || looksLikeParagraphText(text);
         }
-        if (hasSectionNarrativeLabelWithInstructionText(row)) {
-            return true;
-        }
         if (row.size() < 4 || nonEmptyCells < 2 || nonEmptyCells > 6) {
             return false;
         }
         return countLongTextCells(row) == 1
                 && countShortLabelCells(row) >= 1
                 && countValueLikeCells(row) <= Math.max(2, nonEmptyCells / 2);
-    }
-
-    private static boolean hasSectionNarrativeLabelWithInstructionText(List<MesProBatchRecordParsedCell> row) {
-        if (row == null || countLongTextCells(row) == 0) {
-            return false;
-        }
-        boolean hasNarrativeLabel = false;
-        for (MesProBatchRecordParsedCell cell : row) {
-            if (isNarrativeSectionLabel(textOf(cell))) {
-                hasNarrativeLabel = true;
-                break;
-            }
-        }
-        return hasNarrativeLabel
-                && countValueLikeCells(row) <= Math.max(2, countNonEmptyCells(row) / 2);
-    }
-
-    private static boolean isNarrativeSectionLabel(String text) {
-        String normalized = normalizeStructureToken(text).replaceAll("\\s+", "");
-        if (normalized.isBlank() || normalized.length() > 16) {
-            return false;
-        }
-        return "生产自检".equals(normalized)
-                || normalized.endsWith("自检")
-                || normalized.contains("合格标准")
-                || normalized.contains("检验方法")
-                || normalized.contains("检查方法");
     }
 
     private static boolean isFieldRow(List<MesProBatchRecordParsedCell> row) {
