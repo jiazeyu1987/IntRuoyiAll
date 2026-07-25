@@ -198,6 +198,48 @@
     </UnifiedListTemplate>
   </ContentWrap>
 
+  <ContentWrap>
+    <div class="codex-test-section-title">
+      <span>执行记录</span>
+      <el-button :loading="executionLoading" link type="primary" @click="getExecutionList">刷新</el-button>
+    </div>
+    <el-table v-loading="executionLoading" :data="executionList" stripe>
+      <el-table-column label="批次" prop="id" width="100" />
+      <el-table-column label="测试租户" prop="targetTenantId" width="120" />
+      <el-table-column label="方法" prop="executionMode" width="110" />
+      <el-table-column label="结果" width="120">
+        <template #default="{ row }">
+          <el-tag :type="executionTagType(row.status)" effect="plain">
+            {{ statusText(row.status) }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="开始时间" prop="startedAt" min-width="170" />
+      <el-table-column label="完成时间" prop="finishedAt" min-width="170" />
+      <el-table-column fixed="right" label="操作" width="180">
+        <template #default="{ row }">
+          <el-button
+            v-hasPermi="['system:codex-test:artifact']"
+            link
+            type="primary"
+            @click="openExecution(row.id)"
+          >
+            查看结果
+          </el-button>
+          <el-button
+            v-if="['PENDING', 'RUNNING'].includes(row.status)"
+            v-hasPermi="['system:codex-test:cancel']"
+            link
+            type="danger"
+            @click="cancelExecution(row.id)"
+          >
+            取消
+          </el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+  </ContentWrap>
+
   <el-dialog v-model="caseDialogVisible" :title="caseForm.id ? '修改测试项' : '新增测试项'" width="860px">
     <el-form ref="caseFormRef" :model="caseForm" :rules="caseRules" label-width="120px">
       <el-form-item label="测试项名称" prop="name">
@@ -271,6 +313,65 @@
     </template>
   </el-dialog>
 
+  <el-drawer v-model="executionDrawerVisible" size="70%" title="执行结果">
+    <template v-if="executionDetail">
+      <el-alert
+        :closable="false"
+        :title="`批次 ${executionDetail.id}：${statusText(executionDetail.status)}`"
+        class="mb-12px"
+        show-icon
+        :type="executionTagType(executionDetail.status)"
+      />
+      <el-collapse>
+        <el-collapse-item
+          v-for="caseResult in executionDetail.cases || []"
+          :key="caseResult.id"
+          :title="`${caseResult.caseNameSnapshot} - ${statusText(caseResult.status)}`"
+        >
+          <el-descriptions :column="1" border>
+            <el-descriptions-item label="测试方法项">
+              {{ caseResult.methodTextSnapshot }}
+            </el-descriptions-item>
+            <el-descriptions-item label="测试数据">
+              {{ caseResult.testDataTextSnapshot || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="失败描述">
+              {{ caseResult.failureReason || '-' }}
+            </el-descriptions-item>
+          </el-descriptions>
+          <el-table :data="caseResult.checkpointResults" class="mt-12px" stripe>
+            <el-table-column label="检查点" min-width="180" prop="checkpointNameSnapshot" />
+            <el-table-column label="期待结果" min-width="220" prop="expectedTextSnapshot" />
+            <el-table-column label="实际结果" min-width="220" prop="actualText" />
+            <el-table-column label="判定" width="110">
+              <template #default="{ row }">
+                <el-tag :type="checkpointTagType(row.status)" effect="plain">
+                  {{ row.status === 'PASS' ? '绿色勾通过' : row.status === 'FAIL' ? '红色叉失败' : statusText(row.status) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="为什么不同" min-width="220" prop="mismatchDescription" />
+            <el-table-column label="失败截图" width="120">
+              <template #default="{ row }">
+                <el-button
+                  v-if="row.screenshotArtifactId"
+                  v-hasPermi="['system:codex-test:artifact']"
+                  link
+                  type="primary"
+                  @click="previewArtifact(row.screenshotArtifactId)"
+                >
+                  查看
+                </el-button>
+                <span v-else>-</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-collapse-item>
+      </el-collapse>
+      <el-image v-if="artifactPreviewUrl" class="codex-test-artifact" :src="artifactPreviewUrl" fit="contain" />
+    </template>
+  </el-drawer>
+
 </template>
 
 <script lang="ts" setup>
@@ -293,14 +394,19 @@ defineOptions({ name: 'SystemCodexTestManagement' })
 const message = useMessage()
 
 const caseLoading = ref(false)
+const executionLoading = ref(false)
 const executeLoading = ref(false)
 const caseDialogVisible = ref(false)
+const executionDrawerVisible = ref(false)
+const artifactPreviewUrl = ref('')
 const caseFormRef = ref<FormInstance>()
 const tenantOptions = ref<TenantApi.TenantVO[]>([])
 const selectedTenantId = ref<number>()
 const selectedCaseIds = ref<number[]>([])
 const caseList = ref<CodexTestApi.CodexTestCaseVO[]>([])
 const caseTotal = ref(0)
+const executionList = ref<CodexTestApi.CodexTestExecutionVO[]>([])
+const executionDetail = ref<CodexTestApi.CodexTestExecutionVO>()
 
 type PaginationPayload = {
   page?: number
