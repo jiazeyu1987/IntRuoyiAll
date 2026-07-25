@@ -33,3 +33,5 @@
 - cleanup preview：`task_closeout.py --task-id 20260725-codex-test-row-execute-button --mode preview` -> ready；keep `task.md`、`execution-log.md`、`verification-report.md`、`frontend-feature-evidence.md`；delete none；blocked none；warnings none。
 - cleanup apply：`task_closeout.py --task-id 20260725-codex-test-row-execute-button --mode apply` -> applied；deleted none；linked worktree false。
 - 状态更新：cleanup 已完成，任务状态设置为 `completed`；等待任务自有文件提交与 `git push origin int_main`。
+- 实现提交：`678849c6 feat: add codex test row execute action`，包含页面实现、静态合同和任务证据；pre-commit branch runtime port guard PASS。
+- 推送验证：`git push origin int_main` -> PASS，`HEAD` 与 `origin/int_main` 同步到 `678849c6`。

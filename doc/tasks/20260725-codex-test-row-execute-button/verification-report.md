@@ -2,7 +2,7 @@
 
 ## Result
 
-- Status: completed, implementation verification and cleanup passed; final commit/push pending.
+- Status: completed, implementation verification cleanup and push passed.
 - User-visible outcome: 测试管理列表操作列新增“执行”按钮，点击后只执行当前测试项。
 - API outcome: 复用现有执行接口，单项执行请求只传当前行 `caseId`。
 
@@ -25,3 +25,5 @@
 
 - PASS: cleanup preview kept core records plus `frontend-feature-evidence.md`; delete none；blocked none；warnings none。
 - PASS: cleanup apply completed with no deleted paths and no worktree merge/removal required。
+- Implementation commit: `678849c6 feat: add codex test row execute action`。
+- Push: `git push origin int_main` PASS；`origin/int_main` reached `678849c6`。
