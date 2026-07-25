@@ -33,7 +33,8 @@ def _run_powershell(command: str, registry_path: Path) -> subprocess.CompletedPr
     )
 
 
-def test_show_branch_runtime_uses_registered_worktree_slot(tmp_path: Path) -> None:
+def test_registered_worktree_context_uses_registered_slot(tmp_path: Path) -> None:
+    worktree_root = "D:\\IntRuoyiWorktree\\system-backup-plan"
     registry_path = _write_registry(
         tmp_path,
         [
@@ -53,7 +54,7 @@ def test_show_branch_runtime_uses_registered_worktree_slot(tmp_path: Path) -> No
             },
             {
                 "name": "system-backup-plan",
-                "path": str(REPO_ROOT),
+                "path": worktree_root,
                 "branch": "codex/system-backup-plan",
                 "profile": "int_main",
                 "slot": 2,
@@ -63,17 +64,21 @@ def test_show_branch_runtime_uses_registered_worktree_slot(tmp_path: Path) -> No
             },
         ],
     )
-
-    result = _run_powershell(
-        f"& '{SHOW_SCRIPT}'",
-        registry_path,
+    command = (
+        f". '{PROFILE_SCRIPT}'; "
+        "$context = Resolve-BranchRuntimeContext "
+        f"-RepoRoot '{worktree_root}' "
+        "-Branch 'codex/system-backup-plan'; "
+        "$context | ConvertTo-Json -Depth 4"
     )
 
+    result = _run_powershell(command, registry_path)
+
     assert result.returncode == 0, result.stderr
-    assert "Profile          : int_main" in result.stdout
-    assert "Slot             : 2" in result.stdout
-    assert "FrontendPort     : 8083" in result.stdout
-    assert "BackendPort      : 48083" in result.stdout
+    assert '"Name":  "int_main"' in result.stdout
+    assert '"Slot":  2' in result.stdout
+    assert '"FrontendPort":  8083' in result.stdout
+    assert '"BackendPort":  48083' in result.stdout
 
 
 def test_registered_worktree_port_mismatch_fails_fast(tmp_path: Path) -> None:
