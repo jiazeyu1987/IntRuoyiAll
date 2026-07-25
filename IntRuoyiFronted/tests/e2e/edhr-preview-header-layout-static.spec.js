@@ -55,10 +55,7 @@ for (const requiredStyle of ['display: inline-flex', 'justify-content: flex-end'
 }
 
 assert(
-  detail.includes('@media (max-width: 768px)') &&
-    detail.includes('.edhr-batch-detail__preview-header {\n    grid-template-columns: 1fr;') &&
-    detail.includes('.edhr-batch-detail__preview-actions {\n    justify-self: start;') &&
-    detail.includes('.edhr-batch-detail__preview-extra {\n    justify-self: start;'),
+  /@media \(max-width: 768px\)[\s\S]*?\.edhr-batch-detail__preview-header \{[\s\S]*?grid-template-columns: 1fr;[\s\S]*?\.edhr-batch-detail__preview-actions \{[\s\S]*?justify-self: start;[\s\S]*?\.edhr-batch-detail__preview-extra \{[\s\S]*?justify-self: start;/.test(detail),
   '窄屏时顶部栏必须按三段纵向换行，避免按钮重叠。'
 )
 

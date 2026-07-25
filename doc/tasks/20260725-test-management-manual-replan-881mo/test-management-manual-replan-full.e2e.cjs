@@ -19,6 +19,10 @@ const priorManualScript = path.join(
 
 const caseName = '排产工单手动重排 881MO093613/881MO093615'
 const targetSources = ['881MO093613', '881MO093615']
+const methodItems = [
+  '在排产工单页签中筛选并选择来源生产工单号为 881MO093613、881MO093615 的两个排产工单。',
+  '点击手动重排，在弹框中选择开始重排，确认应用重排。'
+]
 const checkpoints = [
   {
     name: '重排成功',
@@ -281,14 +285,8 @@ async function fillCaseDialog(page, existingCase) {
   await dialog.waitFor({ state: 'visible', timeout: 30000 })
   await dialog.locator('input[placeholder="例如：排产手动重排工单校验"]').fill(caseName)
   await dialog
-    .locator('textarea[placeholder="描述 Codex 应如何用 Playwright 操作真实页面"]')
-    .fill(
-      [
-        '在排产工单页签中筛选并选择来源生产工单号为 881MO093613、881MO093615 的两个排产工单。',
-        '点击手动重排，在弹框中选择开始重排，确认应用重排。',
-        '完成后核验重排成功、仅目标两个工单产品编号变橙色、最近一次成功排产时间更新、生产排产甘特图有且仅有这两个工单。'
-      ].join('\n')
-    )
+    .locator('textarea[placeholder="按行录入测试方法，例如：a. 打开排产工单页"]')
+    .fill(methodItems.join('\n'))
   await dialog
     .locator('textarea[placeholder="用户手写数据，例如：来源生产工单号=881MO093613,881MO093615"]')
     .fill('来源生产工单号=881MO093613,881MO093615')
@@ -333,6 +331,8 @@ async function assertSavedCase(page) {
   assert.equal(detail.defaultExecutionMode, 'SEQUENTIAL')
   assert.equal(detail.parallelSafe, false)
   assert.equal(detail.status, 'ENABLE')
+  assert.equal(detail.methodText, methodItems.join('\n'))
+  assert.ok(!detail.methodText.includes('完成后核验'), 'method text must only contain操作步骤')
   assert.equal(detail.testDataText, '来源生产工单号=881MO093613,881MO093615')
   assert.deepEqual(
     (detail.checkpoints || []).map((item) => item.name),
@@ -466,4 +466,3 @@ run().catch((error) => {
   console.error(error.stack || error.message || error)
   process.exit(1)
 })
-

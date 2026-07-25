@@ -28,9 +28,21 @@ assert.match(
   '金手指批量作废提交必须发送当前筛选条件，而不是当前页勾选结果。'
 )
 
+const submitGoldenFingerBulkVoidStart = listPage.indexOf('const submitGoldenFingerBulkVoid = async () => {')
+const submitGoldenFingerBulkVoidEnd = listPage.indexOf(
+  'const submitVoidBatchExecution',
+  submitGoldenFingerBulkVoidStart
+)
+assert.notEqual(submitGoldenFingerBulkVoidStart, -1, '必须存在金手指批量作废提交函数。')
+assert.notEqual(submitGoldenFingerBulkVoidEnd, -1, '必须能定位金手指批量作废提交函数边界。')
+const submitGoldenFingerBulkVoidBody = listPage.slice(
+  submitGoldenFingerBulkVoidStart,
+  submitGoldenFingerBulkVoidEnd
+)
+
 assert.doesNotMatch(
-  listPage,
-  /submitGoldenFingerBulkVoid[\s\S]*resolveVoidBatchExecutionApproval/,
+  submitGoldenFingerBulkVoidBody,
+  /resolveVoidBatchExecutionApproval/,
   '金手指批量作废不得调用单条作废审批解析接口。'
 )
 

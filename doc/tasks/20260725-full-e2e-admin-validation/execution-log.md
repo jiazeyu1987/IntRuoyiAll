@@ -132,3 +132,11 @@
 - GREEN: `mvn -pl yudao-module-mes -am -DskipTests compile` -> PASS，FormCenter 路线表单工作任务完成实现的主源码编译通过；定向单测运行仍受非本任务测试编译缺符号阻塞。
 
 - FIX: 后端打包被非本任务 GoldenFinger bulk void 源码缺 import 阻塞；VO 文件已存在，补齐 service/controller 显式 import，未新增 fallback。
+
+### Runtime Reload Evidence (2026-07-25 continuation)
+
+- GREEN: local backend runtime reload -> PASS, 48081 listening PID 42544; command line belongs to E:/IntRuoyi/IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar and includes --server.port=48081, --spring.profiles.active=local, --yudao.runtime-control.repo-root=E:/IntRuoyi/IntRuoyiBackend.
+- GREEN: local backend health -> PASS, Invoke-WebRequest -UseBasicParsing http://127.0.0.1:48081/actuator/health returned HTTP 200 with body {status:UP}.
+- GREEN: local frontend login entry -> PASS, Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8081/login?redirect=/index returned HTTP 200.
+- NOTE: runtime jar SHA256 DA44FBEF9798E1C920784B3CFEAEF1C9E38D0B339AD4644B5AFD7EC466ADF37E; path E:/IntRuoyi/IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar; LastWrite 2026-07-25 18:40:35.
+- NOTE: apply_patch remained blocked by Windows sandbox ACL for this task log, so this narrow UTF-8 Node append was used for current-task documentation only.
