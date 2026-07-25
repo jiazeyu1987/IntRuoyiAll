@@ -75,3 +75,12 @@
 
 - IMPLEMENTATION COMMIT: `5b00fd72` (`fix: restore qms runtime source tracking`).
 - Implementation file list: `.gitignore`; `IntRuoyiBackend/script/tests/test_runtime_source_tracking_guard.py`; BPM runtime Java package; ERP sync runtime Java package; `IntRuoyiBackend/yudao-server/src/main/resources/application-local.yaml`; `docs/experience-index.md`; `docs/local-runtime.md`.
+
+## Evidence Validation 2026-07-25
+
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\run-qms-local-runtime-20260724\bug-regression-evidence.md` -> PASS, bug regression evidence is valid.
+- GREEN: project-experience-consolidation -> PASS, Java runtime source package ignore gate merged into `docs\local-runtime.md` and routed from `docs\experience-index.md`.
+- GREEN: `rg "Java runtime 包被忽略|Java runtime 源码包误忽略门禁" docs\experience-index.md docs\local-runtime.md` -> PASS.
+## Experience Consolidation 2026-07-25
+
+- GREEN: additional route `Java runtime 包被忽略` added to `docs/local-runtime.md` and `docs/experience-index.md` for recurring `**/runtime/` ignore collisions with Java source packages.

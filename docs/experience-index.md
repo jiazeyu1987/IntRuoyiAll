@@ -176,3 +176,4 @@
 - Keywords: runtime console dialog source commits, version change notes visible, release-info source commit verification, page-visible releaseTag -> `docs/test-release-preflight.md#2026-07-13-运行控制台版本说明与-source-commit-分层验收门禁`
 - Keywords: Python f-string literal braces, SSH verification carrier, bash SQL JSON braces SyntaxError -> `docs/powershell-preflight-lessons.md#2026-07-13-python-f-string-literal-braces-与远端验收脚本门禁`
 - Keywords: 本地启动 jar 缺失, runtime 源码包缺失, node_modules 缺失, 前后端部分启动 -> `docs/local-runtime.md#本地运行构建输入完整性门禁`
+- Keywords: Java runtime 包被忽略, **/runtime/, package runtime does not exist, FormCenterRuntimeService, ErpKingdeeSyncRuntimeService, QMS Shedule runtime 源码对比 -> `docs/local-runtime.md#java-runtime-源码包误忽略门禁`

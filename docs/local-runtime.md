@@ -60,6 +60,14 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
 - Forbidden action: 禁止为了绕过脚本硬编码路径创建 `yudao-ui-admin-vue3` 假目录、修改端口、强杀未知进程或把 API-only 验证冒充 E2E。
 - Evidence: `doc/tasks/fix-batch-exec-last-update-created-time/verification-report.md`。
 
+### Java runtime 源码包误忽略门禁
+
+- Trigger: 本地启动、后端打包或跨分支对比时出现 `src/main/java/**/runtime` 源码包缺失、`package ...runtime does not exist`、Shedule/其他分支本地可运行但 QMS 缺类。
+- Preflight check: 先运行 `git check-ignore -v` 检查缺失的 Java runtime 源码路径，并对比可运行工作区是否存在同名被忽略源码；确认 `.gitignore` 只忽略运行产物，不忽略 `IntRuoyiBackend/**/src/main/java/**/runtime/**`。
+- Blocker: 若源码只存在于其他本地工作区且被 Git ignore 命中，必须停止并修正源码跟踪规则；不得凭调用方反推半实现类。
+- Verification: `python -m pytest IntRuoyiBackend\script\tests\test_runtime_source_tracking_guard.py` 通过，且后端打包和目标分支端口健康检查通过。
+- Forbidden action: 禁止把 Java `runtime` 包当作临时运行产物清理，禁止只复制到本地但不修正 Git ignore，禁止用 fallback 端口或禁用插件冒充启动成功。
+- Evidence: `doc/tasks/run-qms-local-runtime-20260724/verification-report.md`。
 ## 禁止做法
 
 - 禁止把 `int_main` 改到随机端口启动。
