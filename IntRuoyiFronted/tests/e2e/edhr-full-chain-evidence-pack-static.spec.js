@@ -69,6 +69,19 @@ assert.ok(!processRouteTaskBlock.includes('const opened = await openTaskByUi(fil
 assert.ok(processRouteTaskBlock.includes('const reworkOpened = reworkUrl.openedTask'), '返工处理也必须复用工作台 task/open 结果。')
 assert.ok(!processRouteTaskBlock.includes('reworkUrl.pathname === ROUTES.executionDetail ? {} : await openTaskByUi'), '返工进入填写页后禁止以批次详情打开作为降级路径。')
 
+const submitDialogStart = source.indexOf('async function openSubmitDialog')
+const submitDialogEnd = source.indexOf('async function chooseReviewAssignees', submitDialogStart)
+const submitDialogBlock = source.slice(submitDialogStart, submitDialogEnd)
+const submitExecutionStart = source.indexOf('async function submitExecution')
+const submitExecutionEnd = source.indexOf('async function approveExecution', submitExecutionStart)
+const submitExecutionBlock = source.slice(submitExecutionStart, submitExecutionEnd)
+
+assert.ok(submitDialogStart >= 0, '完整演练必须封装提交执行电子签名弹窗打开逻辑。')
+assert.ok(submitDialogBlock.includes('.edhr-fill-workspace__submit-sign-dialog'), '提交执行必须等待当前真实电子签名弹窗类名，不能依赖历史标题。')
+assert.ok(submitDialogBlock.includes('input[type="password"]'), '提交执行弹窗打开后必须确认密码输入框可见。')
+assert.ok(!submitDialogBlock.includes("hasText: '提交 eDHR 执行'"), '提交执行弹窗不得依赖已废弃标题“提交 eDHR 执行”。')
+assert.ok(submitExecutionBlock.includes('/确\s*认(?:\s*提\s*交)?/'), '提交执行确认按钮必须兼容当前“确认”和历史“确认提交”按钮文案。')
+
 for (const token of [
   'EDHR_FULL_E2E_ADMIN_SINGLE_ACTOR',
   "ADMIN_SINGLE_ACTOR ? '芋道源码' : '测试租户'",
