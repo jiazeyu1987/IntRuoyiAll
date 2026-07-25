@@ -21,6 +21,13 @@ assert.ok(createBatchBlock.includes("const detail = await loadBatchDetailByUi(pa
 assert.ok(createBatchBlock.includes('assert.equal(Number(detail.id), batchExecutionId'), '创建后详情必须校验接口返回 ID 与创建响应 ID 一致。')
 assert.ok(!createBatchBlock.includes('getByText(CREATE_BATCH_CODE)'), '创建批次后不得依赖列表或当前页立即显示批次号文本。')
 
+assert.ok(!source.includes('|| 922045'), '完整演练不得继续使用历史固定 routeId 默认值。')
+assert.ok(source.includes('const EXPLICIT_CREATE_ROUTE_ID = Number(process.env.EDHR_FULL_E2E_ROUTE_ID || 0)'), '完整演练只能把 EDHR_FULL_E2E_ROUTE_ID 作为显式覆盖参数。')
+assert.ok(source.includes('function chooseCreateRouteOption(routeOptions)'), '创建批次必须从当前工单真实路线选项解析 routeId。')
+assert.ok(createBatchBlock.includes('const routeOptions = await routeOptionsPromise'), '创建批次必须读取当前工单 route-options 响应。')
+assert.ok(createBatchBlock.includes('const selectedRouteOption = chooseCreateRouteOption(routeOptions)'), '创建批次必须通过真实 route-options 选择路线。')
+assert.ok(createBatchBlock.includes('await ensureRouteCloseRule(page, closeOwner, selectedRouteId)'), '关闭责任规则必须使用真实选中的 routeId 保存。')
+
 
 const openFillTaskStart = source.indexOf('async function openFillTaskFromBoard')
 const openFillTaskEnd = source.indexOf('async function fillEditableControls', openFillTaskStart)
