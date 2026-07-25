@@ -19,6 +19,8 @@ Desktop.ini
 
 *.log
 logs/
+!IntRuoyiFronted/src/views/dcc/controlled-file/logs/
+!IntRuoyiFronted/src/views/dcc/controlled-file/logs/index.vue
 output/
 runtime/
 runtime-ops/
