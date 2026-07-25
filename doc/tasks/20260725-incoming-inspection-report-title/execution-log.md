@@ -20,4 +20,5 @@
 - GREEN: `pnpm ts:check` -> PASS。
 - Note: 旧的 `edhr-special-node-attachment-actions-static.spec.js` 在新增断言通过后继续暴露既存的其它契约失败，因此未作为本次完成门禁；本次门禁改为独立标题回归测试和前端类型检查。
 - Commit note: 本任务实现文件已被并发基线提交 `8e9e4ba6` 纳入；任务文档初始记录已被并发基线提交 `d719203b` 纳入。
+- Experience consolidation: 已更新 `docs\e2e-rules.md#静态合同与真实-e2e-同步门禁`，补充窄范围修复遇到宽静态合同无关既存失败时的独立验证规则。
 - Closeout blocker: 当前工作区仍有并发任务改动与本地 ahead 提交，不能安全执行最终推送或全量 closeout。
