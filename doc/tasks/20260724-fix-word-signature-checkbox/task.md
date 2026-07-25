@@ -11,6 +11,7 @@
 - [x] 实施最小正式修复
 - [x] 运行目标验证并记录结果
 - [ ] 执行真实页面 E2E 复验
+- [ ] 修复空白签名日期格继承 checkbox 的真实 E2E 回归
 - [ ] 完成 E2E 收尾记录
 
 ## Expected Verification
@@ -21,7 +22,7 @@
 
 ## Current Status
 
-completed；新增和既有签名日期保护回归均已通过，`task-closeout-cleanup` 已执行且没有任务临时产物需要删除。
+in_progress；真实页面 E2E 已复现空白签名/日期格仍会从左侧结果列继承 checkbox，正在补充回归测试并修复自动规则建议逻辑。
 
 ## 设计约束检查
 

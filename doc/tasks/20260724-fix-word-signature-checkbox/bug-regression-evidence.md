@@ -31,3 +31,10 @@ Word 批记录表单导入后，粗洗工序等表单中 `操作人/日期`、`�
 ## Blockers
 
 无。
+
+
+## 真实页面 E2E 追加复现
+
+- Reproduction: `EDHR_WORD_IMPORT_PRODUCT_NAME=数显球囊扩张压力泵`、`EDHR_WORD_IMPORT_SAMPLE_DOC=E:\IntRuoyi\IntRuoyiBackend\yudao-module-mes\src\test\resources\fixtures\pressure-pump-record.doc` 执行 `node tests\e2e\edhr-word-template-import-real-flow.e2e.js`。
+- Observed: 导入成功后 API 核验失败，`粗洗工序生产记录` 第 6 行第 16 列和第 18 列位于 `操作人/日期`、`复核人/日期` 表头下方，仍生成 `fillForm.componentFlag=checkbox` 与 `edhrCellRule.componentFlag=checkbox`。
+- Refined Root Cause: 既有修复覆盖了“checkbox 文本碎片落入签名日期尾区”的场景，但真实 Word 中签名日期列是空白可填写格。自动建议先从左侧结果列取到 `□符合要求/□不符合要求` 作为 label，再由 boolean cue 将空白签名格提升为 checkbox。

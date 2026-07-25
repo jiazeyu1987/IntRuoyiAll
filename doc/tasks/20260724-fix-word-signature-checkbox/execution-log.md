@@ -18,6 +18,8 @@
 
 ## TDD Evidence
 
+- BDD: 空白签名日期格不继承结果 checkbox -> Given 粗洗工序表格表头包含 `结果`、`操作人/日期`、`复核人/日期`，正文行左侧结果列为 `□符合要求 □不符合要求`，签名日期列为空白可填写格 / When 自动规则建议并应用到导入后的报表 JSON / Then 结果列保持 checkbox，签名日期空白格必须保持 STRING/input-text，不得继承 checkbox。
+
 - RED: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProBatchRecordReportJsonBuilderTest#build_shouldNotPromoteMisalignedCheckboxFragmentsInsideSignatureDateTail" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，新增断言失败：`signature/date checkbox fragments must be merged as result options ==> expected: not <null>`。
 - GREEN: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProBatchRecordReportJsonBuilderTest#build_shouldNotPromoteMisalignedCheckboxFragmentsInsideSignatureDateTail" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 1, Failures: 0, Errors: 0, Skipped: 0。
 - GREEN: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProBatchRecordCellRuleSupportTest#buildSuggestions_doesNotPromoteSignatureDateColumnCheckboxFragments+buildSuggestions_doesNotPromoteMisalignedSignatureDateTailCheckboxFragments" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 2, Failures: 0, Errors: 0, Skipped: 0。
@@ -28,6 +30,9 @@
 - 已通过新增 Builder 目标用例，证明列偏移的签名日期尾部 checkbox 碎片会被折叠到真实结果列。
 - 已通过自动规则识别的新增与既有签名日期列用例。
 - 已通过 JSON 构建器的新增与既有签名日期列用例。
+
+
+- 2026-07-25：真实页面 E2E 使用测试租户 `aoteman`、本机 `8081/48081`、项目内 `pressure-pump-record.doc` 及真实 DCC 产品 `数显球囊扩张压力泵` 完成导入，随后在 API 核验中复现失败：`粗洗工序生产记录` 第 6 行第 16/18 列位于 `操作人/日期`、`复核人/日期` 表头下方，但仍持久化 `componentFlag=checkbox`。
 
 ## Blockers
 
