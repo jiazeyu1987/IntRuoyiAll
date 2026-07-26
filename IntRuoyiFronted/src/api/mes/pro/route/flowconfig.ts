@@ -227,5 +227,26 @@ export const ProRouteFlowConfigApi = {
       url: '/mes/pro/route/flow-config/batch-record-attachment-owners/save',
       data
     })
+  },
+
+  getBatchRecordAttachmentOwners: async (routeId: number, routeVersionId?: number) => {
+    return await request.get<ProRouteBatchRecordAttachmentOwnerVO[]>({
+      url: '/mes/pro/route/flow-config/batch-record-attachment-owners',
+      params: { routeId, routeVersionId }
+    })
+  },
+
+  initBatchRecordAttachmentOwners: async (data: ProRouteBatchRecordAttachmentOwnerInitVO) => {
+    return await request.post<ProRouteBatchRecordAttachmentOwnerVO[]>({
+      url: '/mes/pro/route/flow-config/batch-record-attachment-owners/init-defaults',
+      data
+    })
+  },
+
+  saveBatchRecordAttachmentOwners: async (data: ProRouteBatchRecordAttachmentOwnerSaveVO) => {
+    return await request.post({
+      url: '/mes/pro/route/flow-config/batch-record-attachment-owners/save',
+      data
+    })
   }
 }
