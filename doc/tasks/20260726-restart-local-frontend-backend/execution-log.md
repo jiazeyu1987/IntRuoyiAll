@@ -36,6 +36,8 @@
 - `GREEN: branch-runtime-port-guard -> PASS after the concurrent task synchronized 2026-07-26-branch-runtime-v3; int_main resolves to 8081/48081`
 - `IMPLEMENTATION COMMIT: c3a2bcfb -> ops: restart local frontend and backend`
 - `GREEN: git push origin int_main -> PASS, pushed baseline 88016be5 and implementation c3a2bcfb`
+- `CLOSEOUT COMMIT: 7afe6429 -> docs: close out local runtime restart`
+- `GREEN: final closeout push origin int_main -> PASS, branch no longer ahead of origin`
 
 ## Blockers
 
