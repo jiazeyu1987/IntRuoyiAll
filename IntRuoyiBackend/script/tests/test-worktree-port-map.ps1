@@ -27,9 +27,9 @@ function New-FakeWorktree {
     )
 
     $relative = if ($Name -eq 'int_main') {
-        if ($Kind -eq 'frontend') { 'yudao-ui-admin-vue3' } else { 'ruoyi-vue-pro' }
+        if ($Kind -eq 'frontend') { 'IntRuoyiFronted' } else { 'ruoyi-vue-pro' }
     } else {
-        if ($Kind -eq 'frontend') { "worktrees\$Name\yudao-ui-admin-vue3" } else { "worktrees\$Name\ruoyi-vue-pro" }
+        if ($Kind -eq 'frontend') { "worktrees\$Name\IntRuoyiFronted" } else { "worktrees\$Name\ruoyi-vue-pro" }
     }
 
     [PSCustomObject]@{
@@ -58,9 +58,9 @@ $intRuoyiWorktreesFlatBackendName = ConvertTo-IntRuoyiWorktreeName `
 Assert-Equal $intRuoyiWorktreesFlatBackendName 'showroom-legacy-order-release-clean' 'Flat backend worktree under IntRuoyiWorktrees should derive the task name when branch is unavailable.'
 
 $intRuoyiWorktreesFlatFrontendName = ConvertTo-IntRuoyiWorktreeName `
-    -Path 'D:\ProjectPackage\Int\IntRuoyiWorktrees\yudao-ui-admin-vue3-showroom-legacy-order-release-clean' `
+    -Path 'D:\ProjectPackage\Int\IntRuoyiWorktrees\IntRuoyiFronted-showroom-legacy-order-release-clean' `
     -Branch '' `
-    -RepoFolder 'yudao-ui-admin-vue3'
+    -RepoFolder 'IntRuoyiFronted'
 Assert-Equal $intRuoyiWorktreesFlatFrontendName 'showroom-legacy-order-release-clean' 'Flat frontend worktree under IntRuoyiWorktrees should derive the task name when branch is unavailable.'
 
 $detachedBackendName = ConvertTo-IntRuoyiWorktreeName `
@@ -78,7 +78,7 @@ Assert-Equal $shortBackendName 'r260708dccfix' 'Short backend worktree folder b 
 $shortFrontendName = ConvertTo-IntRuoyiWorktreeName `
     -Path 'D:\ProjectPackage\Int\IntRuoyiWorktrees\r260708dccfix\f' `
     -Branch '' `
-    -RepoFolder 'yudao-ui-admin-vue3'
+    -RepoFolder 'IntRuoyiFronted'
 Assert-Equal $shortFrontendName 'r260708dccfix' 'Short frontend worktree folder f should derive the task name from its parent directory.'
 
 $releaseBackendName = ConvertTo-IntRuoyiWorktreeName `
@@ -156,5 +156,11 @@ try {
     $mismatchFailed = $_.Exception.Message -like '*mismatch*'
 }
 Assert-Equal $mismatchFailed $true 'Mismatched frontend/backend worktree sets should fail fast.'
+
+$currentBackendRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$mainContext = New-IntRuoyiMainPortContext -CurrentBackendRepoRoot $currentBackendRoot
+Assert-Equal (Split-Path -Leaf $mainContext.FrontendPath) 'IntRuoyiFronted' 'int_main context should use the current frontend root.'
+Assert-Equal $mainContext.FrontendPort 8081 'int_main context frontend port should remain fixed.'
+Assert-Equal $mainContext.BackendPort 48081 'int_main context backend port should remain fixed.'
 
 Write-Host 'worktree-port-map tests passed'
