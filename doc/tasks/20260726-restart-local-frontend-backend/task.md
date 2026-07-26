@@ -12,7 +12,7 @@
 - [x] 停止确认归属的旧前后端进程
 - [x] 启动本地前后端服务
 - [x] 验证前端入口与后端健康检查
-- [ ] 完成任务收尾
+- [x] 完成任务收尾
 
 ## Expected Verification
 
@@ -24,7 +24,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
@@ -79,3 +79,4 @@ doc/tasks/20260726-restart-local-frontend-backend/verification-report.md
 - 并发端口规则任务已同步 `2026-07-26-branch-runtime-v3` 契约。
 - 本任务未修改或暂存该并发任务的端口脚本、契约文档或任务文件。
 - `scripts/preflight/branch-runtime-port-guard.ps1` 已复跑通过，最终提交/推送门禁解除。
+- 重启验证提交 `c3a2bcfb` 已推送到 `origin/int_main`；最终收尾记录单独提交并推送。
