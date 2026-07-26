@@ -26,6 +26,9 @@
 - completed: 实际缺陷提交对应的 `zhangkeying` 真实 Playwright 证据已存在：目标终态任务不在 `my-page` 响应和页面正文中，且未出现终态状态 toast；本任务再次运行 `validate_bug_regression.py`，结果 `Bug regression evidence is valid`。
 - completed: project-experience-consolidation 检查确认 `docs/e2e-rules.md#eDHR 终态批次个人待办门禁` 已完整覆盖本次可复用经验，无需重复修改长期经验文档。
 - ready_for_closeout: 实现、回归、构建、运行态和可用真实前端验证均完成，进入 cleanup preview/apply、提交、推送和合并收尾。
+- completed: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1 -> PASS`，当前 worktree 解析为 `int_main slot=7`、前端 `8088`、后端 `48088`。
+- completed: 本任务记录提交为 `89d5107b docs: verify edhr latest published form handling`，仅包含当前任务 `task.md`、`execution-log.md` 和 `verification-report.md`；已推送到 `origin/codex/edhr-latest-published-form`，推送后分支不再 ahead。
+- blocked: `task_closeout.py --task-id 20260726-edhr-new-business-latest-published-form --mode preview` 正确保留三份核心记录、无删除项，但提示当前分支不能 fast-forward 到 `int_main`，且主工作区 `E:\IntRuoyi` 存在并发任务脏改动；未执行 apply、merge 或 worktree 删除。
 
 ## TDD Evidence
 
@@ -51,3 +54,8 @@
 ## Blockers
 
 - 无实现或运行态 blocker。
+
+## Closeout Boundary
+
+- 当前状态保持 `ready_for_closeout`，等待主工作区并发任务完成并恢复 clean 后再执行 cleanup apply、ff-only merge 和 worktree removal。
+- 不删除 `.git/index.lock`，不覆盖主工作区 staged/unstaged 文件，不重启当前 PID `14740`。
