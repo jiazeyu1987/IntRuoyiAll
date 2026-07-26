@@ -19,6 +19,10 @@
 - `AC-4`: 左侧模拟填写实例不渲染规则图例。
 - `AC-5`: 返回按钮、右侧“表单显示”、可编辑模板和只读模板保持可用。
 
+## Acceptance
+
+- `AC-1` through `AC-5` above define the visible behavior and preserved interactions.
+
 ## UI Entry
 
 - Route: `/mes/pro/feedback/edhr-batch-execution/template-simulate`
@@ -33,6 +37,8 @@
 
 ## BDD
 
+BDD: 红框区域隐藏 -> Given 用户进入 eDHR 模板模拟填写页 / When 页面成功加载模板 / Then 红框区域不可见，返回入口、右侧预览和左右模板保持可见
+
 - Given 用户进入 eDHR 模板模拟填写页
 - When 页面成功加载模板
 - Then 红框区域不可见，返回入口、右侧预览和左右模板保持可见
@@ -40,11 +46,13 @@
 ## Verification
 
 - RED: `node tests/e2e/edhr-batch-template-simulate-red-box-hidden-static.spec.js` 首先失败于工序标题仍渲染。
-- GREEN: 待记录。
+- GREEN: `node tests/e2e/edhr-batch-template-simulate-red-box-hidden-static.spec.js`、`node tests/e2e/edhr-batch-template-simulate-return-static.spec.js`、`pnpm ts:check` 均通过。
+- Blocked: `node tests/e2e/edhr-batch-template-simulate-static.spec.js` 首个既有断言仍要求旧 `Number(route.query.id)` 写法；`pnpm build:local` 因现有 `node_modules` 缺少实体依赖而失败。
 - Responsive/accessibility: 删除非必要信息后沿用现有双列/单列响应式布局；规则图例通过显式属性控制。
 - Loading/empty/error/permission: 本次不改变对应状态。
 - Regression: 聚焦静态合同、既有模拟页合同、返回合同、类型检查与本地构建。
 
 ## Blockers
 
-- 无。
+- 全量模拟页静态合同存在与本任务无关的历史断言失败。
+- 本地构建环境的 `@babel/helper-validator-identifier` 依赖目录为空。

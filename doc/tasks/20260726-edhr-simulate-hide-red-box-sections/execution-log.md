@@ -13,3 +13,8 @@
 - RED: `node tests/e2e/edhr-batch-template-simulate-red-box-hidden-static.spec.js` -> FAIL，首个断言确认工序标题仍在模拟填写页模板中渲染。
 - CHANGE: 模拟填写页移除工序/模板标题、模板摘要和左侧辅助说明；共享可编辑模板组件新增默认开启的 `showRuleLegend` 属性，模拟填写页显式关闭。
 - CHANGE: 更新既有模拟填写静态合同，不再要求已隐藏的左侧辅助标题可见。
+- GREEN: `node tests/e2e/edhr-batch-template-simulate-red-box-hidden-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-batch-template-simulate-return-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- BLOCKER: `node tests/e2e/edhr-batch-template-simulate-static.spec.js` -> FAIL，首个失败为既有 `Number(route.query.id)` 断言与当前已存在的 `parsePositiveRouteQueryId` 实现不一致，非本次红框改动。
+- BLOCKER: `pnpm build:local` -> FAIL，Vite 配置加载时缺少 `@babel/helper-validator-identifier` 实体文件；锁文件声明存在但 `node_modules` 目录为空，未执行临时依赖补丁。

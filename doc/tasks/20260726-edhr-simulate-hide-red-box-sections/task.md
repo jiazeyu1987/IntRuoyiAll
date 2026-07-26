@@ -7,8 +7,8 @@
 ## Milestones
 
 - [x] 确认截图目标与对应组件边界。
-- [ ] 建立聚焦静态合同并完成 RED。
-- [ ] 实现页面级隐藏并完成 GREEN。
+- [x] 建立聚焦静态合同并完成 RED。
+- [x] 实现页面级隐藏并完成 GREEN。
 - [ ] 完成相关静态合同、类型检查和构建回归。
 - [ ] 完成清理、提交和推送。
 
@@ -22,7 +22,9 @@
 
 ## Current Status
 
-in_progress
+blocked
+
+阻塞项：`pnpm build:local` 在加载 Vite 配置时找不到 `@babel/helper-validator-identifier`；锁文件有该依赖，但现有 `node_modules/.pnpm/@babel+helper-validator-identifier@7.25.9/node_modules/@babel/helper-validator-identifier` 目录为空。影响：无法完成本地生产构建验证；聚焦静态合同和类型检查已通过。
 
 ## 经验门禁
 
@@ -36,4 +38,3 @@ in_progress
 - `是否引入 fallback/降级/吞异常`：否。
 - `是否从根因和长期维护角度解决`：是，通过共享组件显式展示开关限定模拟页行为，避免页面深层 CSS 覆盖。
 - `是否存在临时补丁或绕过`：否。
-
