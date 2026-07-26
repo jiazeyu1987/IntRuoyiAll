@@ -396,6 +396,17 @@
                 nodeLabel(data.routeNode)
               }}</span>
               <span
+                v-if="
+                  selectedProcessDetailFieldKey === FORM_SLOT_AGGREGATE_FIELD_KEY &&
+                  getRouteNodeAdditionalFormCount(data.routeNode) > 0
+                "
+                class="route-flow-graph-designer__node-form-count-badge"
+                :aria-label="`已绑定 ${getRouteNodeAdditionalFormCount(data.routeNode)} 个表单`"
+                :title="`已绑定 ${getRouteNodeAdditionalFormCount(data.routeNode)} 个表单`"
+              >
+                {{ getRouteNodeAdditionalFormCount(data.routeNode) }}
+              </span>
+              <span
                 v-if="data.routeNode.keyFlag || data.routeNode.checkFlag"
                 class="route-flow-graph-designer__node-flags"
               >
@@ -2412,8 +2423,16 @@ const getRouteNodeLegacyBatchRecords = (node: RouteFlowNodeVO): RouteFlowLegacyB
   return buildLegacyBatchRecords(batchConfig?.batchRecordReports)
 }
 
+const getRouteNodeAdditionalFormCount = (node: RouteFlowNodeVO) => {
+  return getRouteNodeBatchRecordBindings(node).filter(
+    (binding) =>
+      isRecordBindingConfigured(binding) &&
+      normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey) !== 'MAIN'
+  ).length
+}
+
 const isRouteNodeFormSlotConfigured = (node: RouteFlowNodeVO) =>
-  getRouteNodeBatchRecordBindings(node).some((binding) => isRecordBindingConfigured(binding))
+  getRouteNodeAdditionalFormCount(node) > 0
 
 const isRouteNodeRecordBindingConfigured = (
   node: RouteFlowNodeVO,
@@ -2441,7 +2460,7 @@ const getRouteNodeBindingStatus = (node: RouteFlowNodeVO): RouteNodeBindingStatu
   const fieldKey = selectedProcessDetailFieldKey.value
   if (!fieldKey || !ROUTE_NODE_BINDING_STATUS_FIELD_KEYS.has(fieldKey)) return 'none'
   if (fieldKey === FORM_SLOT_AGGREGATE_FIELD_KEY) {
-    return isRouteNodeFormSlotConfigured(node) ? 'bound' : 'missing'
+    return getRouteNodeAdditionalFormCount(node) > 0 ? 'bound' : 'none'
   }
   if (fieldKey === 'batchRecordFormNames') {
     return isRouteNodeRecordBindingConfigured(node, 'MAIN') ? 'bound' : 'missing'
@@ -7930,6 +7949,26 @@ defineExpose({
   box-shadow:
     0 0 0 2px rgb(245 108 108 / 18%),
     0 8px 18px rgb(23 32 51 / 8%);
+}
+
+.route-flow-graph-designer__node-form-count-badge {
+  position: absolute;
+  right: 8px;
+  top: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 28px;
+  padding: 0 3px;
+  color: #7c4a03;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  background: #fffbeb;
+  border: 3px solid #facc15;
+  border-radius: 2px;
+  box-shadow: 0 2px 5px rgb(124 74 3 / 14%);
 }
 
 .route-flow-graph-designer__boundary-node {

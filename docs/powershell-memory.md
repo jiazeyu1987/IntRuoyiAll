@@ -34,6 +34,15 @@
 - Forbidden action: 禁止为了获得 clean worktree 而删除、回滚、覆盖或静默忽略别人/并发任务的脏改动。
 - Evidence: 用户授权记录、基线提交 hash、任务日志中的文件清单。
 
+### 同文件并行改动选择性暂存门禁
+
+- Trigger: 基线提交后继续出现并行改动，且当前任务与非本任务改动落在同一个源码或测试文件。
+- Preflight check: 提交当前任务前先用 `git diff -- <path>` 区分本任务 hunks 与并行 hunks；使用选择性暂存或 cached patch，只暂存本任务变更。
+- Blocker: 无法可靠区分 hunks、同一逻辑块互相覆盖、或测试只能在混入并行改动后通过时，必须停止并报告冲突。
+- Verification: 提交前记录 `git diff --cached --name-status` 和目标文件 staged diff，确认 staged 内容只包含本任务改动；提交后用 `git status --short --branch` 确认并行改动仍留在工作区而未混入当前任务提交。
+- Forbidden action: 禁止把同文件并行改动混进当前任务实现提交；禁止为了 clean 状态回滚、覆盖或删除并行改动。
+- Evidence: `doc\tasks\20260726-route-flow-form-slot-count-badge\execution-log.md`，`RouteFlowGraphDesigner.vue` 在徽标任务中与并行表单配置改动同文件共存，需选择性暂存本任务 hunks。
+
 ### GitHub 推送大文件门禁
 
 - Trigger: 推送到 GitHub remote、处理 `GH001`、`Large files detected`、`pre-receive hook declined`、Git LFS 或历史大文件问题。

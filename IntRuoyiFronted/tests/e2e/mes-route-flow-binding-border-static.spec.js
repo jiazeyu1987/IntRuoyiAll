@@ -30,8 +30,8 @@ assertMatch(
   '只允许用户要求的配置项触发关系图节点红绿边框'
 )
 assertMatch(
-  /const getRouteNodeBindingStatus = \(node: RouteFlowNodeVO\): RouteNodeBindingStatus => \{[\s\S]*selectedProcessDetailFieldKey\.value[\s\S]*isRouteNodeFormSlotConfigured\(node\)[\s\S]*isRouteNodeRecordBindingConfigured\(node, 'MAIN'\)[\s\S]*isRouteNodeWorkstationBound\(node\)[\s\S]*Boolean\(node\.keyFlag\)[\s\S]*Boolean\(node\.checkFlag\)/,
-  '节点红绿状态必须按当前选择的配置项分别判断表单槽位、批记录表单、工作站、关键工序和质检确认'
+  /const getRouteNodeBindingStatus = \(node: RouteFlowNodeVO\): RouteNodeBindingStatus => \{[\s\S]*selectedProcessDetailFieldKey\.value[\s\S]*return getRouteNodeAdditionalFormCount\(node\) > 0 \? 'bound' : 'none'[\s\S]*isRouteNodeRecordBindingConfigured\(node, 'MAIN'\)[\s\S]*isRouteNodeWorkstationBound\(node\)[\s\S]*Boolean\(node\.keyFlag\)[\s\S]*Boolean\(node\.checkFlag\)/,
+  '节点状态必须按当前选择的配置项判断；表单槽位零附加表单隐藏，其它配置项保持红绿边框'
 )
 assertMatch(
   /const getRouteNodeBatchRecordBindings = \(node: RouteFlowNodeVO\): RouteFlowRecordBinding\[\] => \{[\s\S]*selectedProcessAttributeDrafts\[node\.routeProcessId\]\?\.recordBindings[\s\S]*selectedProcessRouteConfigCache\.value\?\.batchConfigs[\s\S]*buildRecordBindings\(batchConfig\)/,
