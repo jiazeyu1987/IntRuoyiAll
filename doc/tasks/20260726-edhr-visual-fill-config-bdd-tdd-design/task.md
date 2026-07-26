@@ -6,10 +6,10 @@
 
 ## Milestones
 
-1. `in_progress`：核对现有前后端能力、测试资产和版本治理边界。
-2. `pending`：完成需求范围、复用方案和最小数据/API 设计。
-3. `pending`：完成 BDD 场景、严格 TDD 顺序、E2E 路径和测试数据设计。
-4. `pending`：完成结构校验、UTF-8 校验、任务验证和收尾。
+1. `completed`：核对现有前后端能力、测试资产和版本治理边界。
+2. `completed`：完成需求范围、复用方案和最小数据/API 设计。
+3. `completed`：完成 BDD 场景、严格 TDD 顺序、E2E 路径和测试数据设计。
+4. `ready_for_closeout`：完成结构校验、UTF-8 校验和任务验证；收尾合并受主 worktree 状态阻塞。
 
 ## Expected Verification
 
@@ -28,11 +28,25 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Cleanup Keep
+
+- doc/tasks/20260726-edhr-visual-fill-config-bdd-tdd-design/design.md
+- doc/tasks/20260726-edhr-visual-fill-config-bdd-tdd-design/docs/acceptance/bdd-scenarios.md
+- doc/tasks/20260726-edhr-visual-fill-config-bdd-tdd-design/docs/acceptance/tdd-plan.md
+- doc/tasks/20260726-edhr-visual-fill-config-bdd-tdd-design/docs/acceptance/e2e-plan.md
+- doc/tasks/20260726-edhr-visual-fill-config-bdd-tdd-design/docs/acceptance/test-data.md
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否；缺少映射、填写人、字段类型或失效字段引用时必须阻止保存或发布。
 - `是否从根因和长期维护角度解决`：是；将现有分散入口收敛为模板版本内的可视化填写配置，并复用现有执行快照和字段审计链。
 - `是否存在临时补丁或绕过`：否。
+
+## Final Verification
+
+- `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root doc\tasks\20260726-edhr-visual-fill-config-bdd-tdd-design`：PASS。
+- `git diff --check`：PASS。
+- UTF-8 读取任务文档和验收文档：PASS。
 
