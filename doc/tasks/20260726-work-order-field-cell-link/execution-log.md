@@ -25,6 +25,11 @@
 - `GREEN: node tests\e2e\mes\batch-record-cell-link-static.spec.js -> PASS, batch-record-cell-link static contract passed`
 - `GREEN: mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordCellLinkSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, Tests run: 4, Failures: 0, Errors: 0, Skipped: 0`
 - `GREEN: git diff --check -> PASS, no whitespace error`
+- `BLOCKED: node tests\e2e\mes\batch-record-cell-link-work-order-field-readonly.e2e.mjs -> FAIL, 本地 Docker MySQL 缺少本任务正式迁移列 source_type/source_field_code/source_field_name，工作台接口返回 Unknown column 'source_type'`
+- `GREEN: docker exec int-ruoyi-mysql ... SELECT COLUMN_NAME ... -> PASS, 已对本地 ruoyi-vue-pro 应用 20260726_mes_batch_record_cell_link_work_order_source.sql 并复核三列存在`
+- `RED: node tests\e2e\mes\batch-record-cell-link-work-order-field-readonly.e2e.mjs -> FAIL, 真实页面切换到生产工单字段后字段文字可见但 sourceSelectableCount=0，左侧字段格未成为可选来源`
+- `GREEN: node tests\e2e\mes\batch-record-cell-link-work-order-field-readonly.e2e.mjs -> PASS, forms=15, sourceFields=12, mesWriteRequests=0, 真实页面可选择生产数量字段和目标单元格，建立链接按钮变可用`
+- `GREEN: project-experience-consolidation -> PASS, 已将 schema-backed E2E 迁移核对与字段矩阵可选态经验合并到 docs\e2e-rules.md，并在 docs\experience-index.md 增加关键词路由`
 
 ## Milestone Notes
 
@@ -32,8 +37,12 @@
 - 已扩展保存契约：规则保存 payload 和后端 DO/VO 增加 `sourceType`、`sourceFieldCode`、`sourceFieldName`，生产工单字段规则不再要求源表单单元格。
 - 已扩展运行态回填：批次执行 `getPrefill` 遇到 `PRODUCTION_WORK_ORDER` 来源时，从目标执行记录关联的生产工单读取白名单字段；缺少工单或不支持字段时 fail-fast 报错。
 - 已补充数据库前向迁移 `20260726_mes_batch_record_cell_link_work_order_source.sql`，并同步 fresh schema 与 H2 test schema。
+- E2E 前置已将本任务正式迁移应用到当前 48085 后端连接的本地 Docker MySQL `ruoyi-vue-pro`，仅补齐 `source_type`、`source_field_code`、`source_field_name` 三列；未切换数据源、未写业务数据。
+- 真实 E2E 发现并修复前端渲染根因：生产工单字段使用字段编码作为业务 `cellKey`，但渲染矩阵按坐标查找 cell meta，导致字段显示但不可选；现已支持业务 key 与坐标双映射，并按坐标识别选中态。
+- 新增只读 E2E `IntRuoyiFronted\tests\e2e\mes\batch-record-cell-link-work-order-field-readonly.e2e.mjs`：使用 8085/48085、`芋道源码/admin` 标签、真实菜单入口，断言生产工单字段下拉与字段矩阵、可选择 `生产数量`、可选择目标单元格、建立链接按钮可用，且未发送 MES 写请求。
 - 前端完整 `ts:check` 未运行：隔离 worktree 的 `IntRuoyiFronted\node_modules` 缺失；本次已执行无需依赖安装的静态契约测试。
 - 后端首次目标测试因隔离分支未同步 `int_main` 的并行路由配置基线、以及旧本地依赖 jar 失败；已快进到 `4533ac44`，并使用 `-am` 让 Maven 编译依赖模块源码后通过。
 - `GREEN: project-experience-consolidation -> PASS, 已将本任务 PowerShell Maven -D 引号与 -am 依赖源码编译经验合并到 docs\powershell-memory.md 既有门禁`
+- `GREEN: project-experience-consolidation -> PASS, 已将本次真实 E2E 发现的 schema 缺列和字段可见但不可选门禁合并到 docs\e2e-rules.md 既有 E2E 规则`
 - `BLOCKER: task-closeout-cleanup preview -> Main worktree is dirty and cannot receive ff-only merge: E:\IntRuoyi`
 - `BLOCKER DETAIL: git -C E:\IntRuoyi status --short --branch -> int_main ahead 20 and contains unrelated/concurrent dirty files under route attachment owner, codex runner, dossier requirement, route flow add form count, docs/e2e-rules.md, docs/frontend-development.md, docs/powershell-memory.md 等；本任务未修改这些主工作区并行文件`

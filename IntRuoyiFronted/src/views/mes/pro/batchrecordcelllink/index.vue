@@ -655,7 +655,11 @@ function buildRenderableSheet(
   const columnIndexes = collectRenderedColumnIndexes(layout, rowIndexes, formCells.cells)
   const columns = buildRenderedColumns(layout, columnIndexes)
   const covered = new Set<string>()
-  const cellMetaMap = new Map(formCells.cells.map((cell) => [cell.cellKey, cell]))
+  const cellMetaMap = new Map<string, BatchRecordCellLinkCellVO>()
+  formCells.cells.forEach((cell) => {
+    cellMetaMap.set(cell.cellKey, cell)
+    cellMetaMap.set(`${cell.rowIndex}:${cell.columnIndex}`, cell)
+  })
   const renderedRows = rowIndexes.map((rowIndex) => {
     const rawRow = rows[String(rowIndex)] || {}
     const cells: RenderedCell[] = []
@@ -672,7 +676,12 @@ function buildRenderableSheet(
         }
       }
       const meta = cellMetaMap.get(key)
-      const reportCellKey = `${formCells.reportId}:${key}`
+      const reportCellKey = `${formCells.reportId}:${meta?.cellKey || key}`
+      const isSelectedCell = Boolean(
+        selectedCell &&
+          (selectedCell.cellKey === key ||
+            (selectedCell.rowIndex === rowIndex && selectedCell.columnIndex === columnIndex))
+      )
       const rawText = stringifyTemplateCell(rawCell?.value ?? rawCell?.text)
       const isFillableCell = Boolean(meta || rawCell?.fillForm)
       const text = normalizeRenderedCellText(rawText, isFillableCell)
@@ -693,7 +702,7 @@ function buildRenderableSheet(
           'is-source-selectable': mode === 'source' && Boolean(meta?.linkableAsSource),
           'is-target-selectable': mode === 'target' && Boolean(meta?.linkableAsTarget),
           'is-linked': linkedKeys.has(reportCellKey),
-          'is-selected': selectedCell?.cellKey === key
+          'is-selected': isSelectedCell
         }
       })
     })

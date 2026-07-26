@@ -87,6 +87,7 @@
 - Keywords: eDHR 批记录 Word 表格解析, packed 物料矩阵, 括号续行, 生产自检, 合格标准, 检验方法, 截图位置错位, fixture 缺失, 表单名特例禁止 -> `docs/backend-development.md#edhr-批记录-word-表格解析门禁`
 - Keywords: 子表集合替换, 软删除唯一键, 逻辑删除占用唯一键, deleteByCaseId, system_codex_test_checkpoint, updateCase_allowsRepeatedCheckpointReplacement -> `docs/backend-development.md#2026-07-25-子表集合替换软删除唯一键门禁`
 - Keywords: Windows CRLF 静态合同, static.spec.js 目标 worktree 自身失败, 真实 E2E 脚本与页面行为同步, 废弃弹窗流程, 字段审计保存直连 API -> `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁`
+- Keywords: schema-backed E2E, source_type, source_field_code, sourceFields, Unknown column, 字段矩阵可见但不可选, is-source-selectable, 单元格链接生产工单字段, 只读 E2E 无 MES 写请求 -> `docs/e2e-rules.md#schema-backed-e2e-迁移与字段可选态门禁`
 - Keywords: eDHR 单据填写人显示值, 损耗单卡片, fillableUsers displayName, candidateSourceNames 格式, 页面填写人断言 -> `docs/e2e-rules.md#edhr-单据填写人显示值门禁`
 - Keywords: eDHR 路线表单跳过口径, 损耗单打开填写, 查看表单, routeFormReadonly, 无 OPEN_FORM 只读查看, 必填路线表单不允许跳过, requiredPolicy OPTIONAL, requiredFlag 误判可跳过, canSkipOptionalTask, isOptionalTask, SKIP allowedActions, task/preview, shouldLoadTaskPreview, formCenterInstanceId -> `docs/e2e-rules.md#edhr-路线表单跳过口径门禁`
 - Keywords: eDHR 右侧红框元信息, primary-fill-meta, primaryFormFillMetaItems, showPrimaryFormFillMeta, resolvePrimaryFormFillersText, 填写人 提交时间 红框, batchRecordFormNames, selected-field-detail, resolveRecordBindingSlotType, 过程检验记录误入批记录表单 -> `docs/e2e-rules.md#edhr-右侧红框元信息隐藏门禁`
