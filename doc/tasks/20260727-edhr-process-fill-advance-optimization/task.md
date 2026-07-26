@@ -11,7 +11,7 @@
 - [x] M3: 实施后端数据/权限/推进逻辑优化，不引入负责人或 fallback
 - [x] M4: 实施前端个人工作台和统一进入填写工作区优化
 - [x] M5: 运行后端、前端静态合同和完整真实数据 E2E 验证
-- [ ] M6: 完成证据记录、经验沉淀和收尾门禁
+- [x] M6: 完成证据记录、经验沉淀和收尾门禁
 
 ## Expected Verification
 
@@ -28,7 +28,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 经验门禁
 
@@ -40,12 +40,22 @@ ready_for_closeout
 - `eDHR 批次执行数据库夹具与证据文件门禁`：真实 E2E 必须走真实前端用户路径，API 仅用于最终只读核验。
 - `官方登录前置与 admin-only 全量验证门禁`：若只有 admin 基线账号，写入型 E2E 必须获得明确授权并记录数据范围；不得记录密码。
 - `Schema-backed E2E 迁移与字段可选态门禁`：若出现 schema 字段缺失或系统异常，必须先核对真实库/迁移，不得前端隐藏。
+- `eDHR 工作任务 FormCenter 动态表单夹具门禁`：动态表单真实 E2E 夹具必须创建真实工单、保持 `batch_record_report_id` 为空、补齐 FormCenter 上下文和 route root/predecessor 快照，并按目标表格行点击“处理”。
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
 - `是否从根因和长期维护角度解决`：是；目标是将填写人集合、个人工作台可见性和工序推进资格统一到正式后端模型。
 - `是否存在临时补丁或绕过`：否。
+
+## Final Verification
+
+- Backend target tests PASS: 5 tests, 0 failures.
+- Frontend static contracts PASS: 3 scripts.
+- Real data E2E PASS: `EDHR-ADV-6T182008199Z`, next fill counts `1/0/1`.
+- Evidence validators PASS: backend API, frontend feature, bug regression, QA.
+- Cleanup PASS: closeout preview/apply无 blocked/warnings，`EDHR-ADV-%` 活跃数据库残留为 0，临时 runtime patch 目录和空补丁文件已清理。
+- Git status: `int_main` 与 `origin/int_main` 对齐，无未提交差异。
 
 ## Cleanup Keep
 

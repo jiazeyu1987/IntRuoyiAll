@@ -92,6 +92,15 @@
 - Forbidden action: 禁止把工单/批次/密码等业务数据重新改成必需环境变量；禁止记录明文密码；禁止用 mock、API-only、默认成功、生产/未授权租户或未记录的数据库直改替代真实前端路径。
 - Evidence: `doc/tasks/fix-batch-record-fill-rule/execution-log.md`，2026-07-25 脚本已改为数据库夹具读取，并在用户授权的 `芋道源码/admin` 下完成真实前端 E2E。
 
+### eDHR 工作任务 FormCenter 动态表单夹具门禁
+
+- Trigger: 运行或修改 `edhr-work-task-process-advance-real.e2e.js`、个人工作台 `edhr-work-task/my-page` 到 FormCenter 动态表单的真实 E2E，或出现 `生产工单不存在`、`当前工艺路线工序未配置默认批记录报表`、`eDHR 批次工序任务被阻塞`。
+- Preflight check: 夹具必须创建任务自有真实 `mes_pro_work_order` 并贯穿 `batch_execution/work_task`；FormCenter 动态路线表单任务必须 `batch_record_report_id` 为空、`form_binding_key` 非空、`form_template_id/form_template_version_id/form_center_instance_id` 完整；首工序全部同工序任务必须 `root_process_flag=true`，下一工序必须写入 `predecessor_route_process_id`。
+- Blocker: 缺少真实工单、把 FormCenter binding key 塞进 `batch_record_report_id`、动态任务缺 FormCenter 上下文、首工序非 root、下一工序无 predecessor、或页面点击未限定目标可见行时必须停止修复夹具；不得放松后端 `task/open` 校验。
+- Verification: 真实 E2E 必须从个人工作台按目标批次和任务编码所在 `.el-table__body-wrapper tbody tr:visible` 点击“处理”，提交 FormCenter 抽屉后用 DB 断言当前任务完成、effect applied、下一工序 fill count 符合业务规则，并在 finally/收尾中清理 `EDHR-ADV-%` 任务自有数据。
+- Forbidden action: 禁止用固定不存在工单 ID、API-only submit、直连详情 URL、点击页面第一个“处理”按钮、把动态表单降级为传统批记录、或保留明文 MySQL 密码参数。
+- Evidence: `doc/tasks/20260727-edhr-process-fill-advance-optimization/verification-report.md`。
+
 ## eDHR 作废 BPM 审批真实 E2E 门禁
 
 - Trigger: Playwright 验证 eDHR 批次作废、`void-batch-execution/approval-resolution`、`void-batch-execution/request`、审批中心 `BPM_REQUIRED`、或作废后工作台待办闭环。

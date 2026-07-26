@@ -42,4 +42,10 @@
 
 ## Blockers
 
-- none: 当前实现、真实 E2E 和清理均已通过；等待 closeout 证据校验与临时产物清理。
+- GREEN: evidence validators -> PASS，backend API、frontend feature、bug regression、QA 四个证据脚本均有效。
+- GREEN: project-experience-consolidation -> PASS，新增 `docs/e2e-rules.md#edhr-工作任务-formcenter-动态表单夹具门禁`，并在 `docs/experience-index.md` 增加关键词路由。
+- GREEN: task-closeout-cleanup preview -> PASS，keep 仅包含正式任务记录和证据文件，delete/blocked/warnings 均为 none。
+- GREEN: task-closeout-cleanup apply -> PASS，linked worktree=false，delete/blocked/warnings 均为 none。
+- GREEN: final cleanup -> PASS，`runtime-patch-20260727014422` 临时目录和空 `task-implementation.patch` 已清理。
+- GREEN: final git status -> PASS，`int_main...origin/int_main` 无未提交差异。
+- Blockers: none。
