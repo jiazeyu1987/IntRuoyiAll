@@ -37,7 +37,7 @@ assert.match(page, /batch-record-form-toolbar__import-button[\s\S]*@click="openW
 expectIncludes('const wordImportDialog = reactive({', '导入按钮必须复用 DCC 项目选择弹窗状态。')
 expectIncludes('loadWordImportProjectOptions', '导入逻辑必须加载 DCC 项目名称候选。')
 expectIncludes('getProjectCodePage', '导入逻辑必须从 DCC 项目代码页签读取项目名称。')
-expectIncludes('selectedFormSlotType', '导入逻辑必须要求先选择表单类型。')
+expectIncludes('selectedFormSlotType', '导入逻辑必须保留内部表单类型状态。')
 expectIncludes('BatchRecordReportApi.preflightUploadedRoute', '主批记录导入逻辑必须复用预检接口。')
 expectIncludes('BatchRecordReportApi.recognizeUploadedRoute', '导入逻辑必须复用真实 Word 识别导入接口。')
 expectIncludes('BatchRecordReportApi.uploadExtraFormSlot', '附加表单导入逻辑必须复用附加槽位上传接口。')

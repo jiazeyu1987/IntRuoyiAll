@@ -17,16 +17,16 @@ assert.ok(dialogEnd > dialogStart, '必须能定位导入 Word 弹窗结束位�
 
 const importDialogTemplate = source.slice(dialogStart, dialogEnd)
 
-assert.match(
+assert.doesNotMatch(
   importDialogTemplate,
-  /<el-form-item label="表单类型" required>[\s\S]*?v-model="wordImportDialog\.selectedFormSlotType"[\s\S]*?batch-record-word-import-form__slot-select/,
-  '导入 Word 弹窗必须展示表单类型选择项，以便触发附加槽位上传。'
+  /<el-form-item label="表单类型"/,
+  '导入 Word 弹窗不得显示表单类型选择项。'
 )
 
-assert.match(
+assert.doesNotMatch(
   source,
-  /const formSlotTypeOptions[\s\S]*?MAIN[\s\S]*?LOSS_REPORT[\s\S]*?PROCESS_INSPECTION[\s\S]*?PARAMETER_RECORD/,
-  '导入 Word 弹窗必须提供批记录、损耗单、过程检验单和参数记录表。'
+  /const formSlotTypeOptions/,
+  '隐藏表单类型后不得保留无入口使用的下拉选项列表。'
 )
 
 assert.match(
@@ -59,4 +59,4 @@ assert.match(
   '导入 Word 交互必须在确认时校验表单类型。'
 )
 
-console.log('PASS: batch record Word import defaults to main form with visible type selector')
+console.log('PASS: batch record Word import hides the type selector and defaults to main')

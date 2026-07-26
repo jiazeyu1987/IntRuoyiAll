@@ -306,20 +306,6 @@
       @closed="resetWordImportDialog"
     >
       <el-form label-width="120px" class="batch-record-word-import-form">
-        <el-form-item label="表单类型" required>
-          <el-select
-            v-model="wordImportDialog.selectedFormSlotType"
-            class="batch-record-word-import-form__slot-select"
-            placeholder="请选择表单类型"
-          >
-            <el-option
-              v-for="item in formSlotTypeOptions"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-        </el-form-item>
         <el-form-item label="产品名称" required>
           <el-select
             v-model="wordImportDialog.selectedProjectName"
@@ -686,12 +672,6 @@ const formSlotTypeLabels: Record<BatchRecordFormSlotType, string> = {
   PROCESS_INSPECTION: '过程检验单',
   PARAMETER_RECORD: '参数记录表'
 }
-const formSlotTypeOptions: Array<{ label: string; value: BatchRecordFormSlotType }> = [
-  { label: formSlotTypeLabels.MAIN, value: 'MAIN' },
-  { label: formSlotTypeLabels.LOSS_REPORT, value: 'LOSS_REPORT' },
-  { label: formSlotTypeLabels.PROCESS_INSPECTION, value: 'PROCESS_INSPECTION' },
-  { label: formSlotTypeLabels.PARAMETER_RECORD, value: 'PARAMETER_RECORD' }
-]
 
 type FillRuleStatusTagType = 'success' | 'warning' | 'danger' | 'info' | 'primary'
 type VersionStatusTagType = FillRuleStatusTagType
@@ -2188,18 +2168,6 @@ onBeforeUnmount(() => {
   permissionRuleLoadingReportIds.clear()
   templatePreviewRequestSerial += 1
 })
-
-watch(
-  () => wordImportDialog.selectedFormSlotType,
-  () => {
-    if (!wordImportDialog.visible) {
-      return
-    }
-    wordImportDialog.selectedProjectName = ''
-    clearWordImportState()
-    resetWordImportPreflightState()
-  }
-)
 
 watch(
   () => wordImportDialog.selectedProjectName,

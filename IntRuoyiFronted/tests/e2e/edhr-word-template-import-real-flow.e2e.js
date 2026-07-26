@@ -650,12 +650,6 @@ async function importWordTemplateByUi(page) {
   await clickFirstEnabled(page.getByRole('button', { name: /^导入$/ }), '导入')
   const dialog = page.locator('.el-dialog:visible').filter({ hasText: '导入 Word' }).first()
   await dialog.waitFor({ state: 'visible', timeout: 60000 })
-  await selectRemoteOption(
-    page,
-    dialog.locator('.el-form-item').filter({ hasText: '表单类型' }).locator('.el-select').first(),
-    '批记录',
-    '表单类型'
-  )
   const selectedProjectName = await selectRemoteOption(
     page,
     dialog.locator('.el-form-item').filter({ hasText: '产品名称' }).locator('.el-select').first(),
