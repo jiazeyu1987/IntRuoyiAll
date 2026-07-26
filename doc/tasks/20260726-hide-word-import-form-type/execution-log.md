@@ -32,3 +32,5 @@
 - GREEN: task-closeout-cleanup preview -> PASS，keep 4 files，delete 9 task-owned temporary paths，blocked/warnings none。
 - GREEN: task-closeout-cleanup apply -> PASS，删除 7 个 Playwright 临时产物与 2 个任务后端日志；未删除其他任务文件。
 - FINAL: implementation and required verification complete，task status `completed`。
+- GIT: final closeout records commit `f5e830a4`，仅包含本任务 `task.md`、`execution-log.md` 与 `verification-report.md`。
+- GREEN: final push -> PASS，`origin/int_main` 已推进到 `f5e830a4`，`git status --short --branch` 不再显示 ahead；并发任务未提交文件保持原状。
