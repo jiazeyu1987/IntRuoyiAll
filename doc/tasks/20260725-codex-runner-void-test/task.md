@@ -37,7 +37,8 @@ blocked
 
 - 页面点击已有测试项“执行”不再返回 `没有在线 Codex Runner`。
 - 已用真实页面行级“执行”按钮创建 `executionId=3`，证明点击入口可创建执行批次；该验证批次随后通过正式取消接口清理为 `CANCELED`。
-- 当前补丁版 Runner 进程 `PID=29660` 在线，最新会话 `runnerSessionId=6`，只读 DB 核验 `heartbeat_age_seconds=8`、`current_running_count=0`。
+- 当前补丁版 Runner 进程 `PID=39240` 在线，最新会话 `runnerSessionId=7`，只读 DB 核验 `heartbeat_age_seconds=3`、`current_running_count=0`。
+- 已补 Runner loop 级重试，后端短暂重启导致 `ECONNREFUSED` 时不再直接退出，而是等待后重新注册。
 
 ## 设计约束检查
 

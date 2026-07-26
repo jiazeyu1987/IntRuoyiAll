@@ -46,8 +46,9 @@
 - Bug summary and expected behavior: 页面点击“执行”不应因为 Runner 一次性注册后退出或长时间 Codex 子进程占用而提示 `没有在线 Codex Runner`；Runner 执行期必须持续心跳，超时或取消时必须终止任务自有 Codex 子进程。
 - Reproduction command or path: `run-void-test-from-ui.mjs` 通过真实页面点击已有测试项 `排产工单手动重排 881MO093613/881MO093615`，创建 `executionId=3` 后观察到 Windows `codex` 后代进程超过超时时间仍持有 stdio，执行项停留 `CLAIMED/RUNNING`。
 - Root cause: Runner loop 只依赖空轮询 claim 刷新在线状态，执行中缺少可靠心跳；Windows 下 `.cmd` 包装进程退出后，后代 `node/codex.exe` 继续持有 stdio，单独 `child.kill()` 无法让 Runner promise 结束。
-- Regression test added or updated: `system-codex-test-management-static.spec.js` 增加心跳、超时、`taskkill.exe` 进程树终止、按 outputFile 终止后代进程、服务器取消信号和 `BLOCKED` 回写合同。
+- Additional root cause: 后端被本地运行任务重启时，Runner loop 对 claim 阶段 `ECONNREFUSED` 未做 loop 级恢复，Node 进程直接退出，导致旧 session heartbeat 过期。
+- Regression test added or updated: focused Runner static contract 增加心跳、超时、`taskkill.exe` 进程树终止、按 outputFile 终止后代进程、服务器取消信号、`BLOCKED` 回写和 loop 级重新注册合同。
 - RED command and expected failure: 真实页面点击创建 `executionId=3` 后只读 DB 轮询显示 `CLAIMED/RUNNING` 且 Runner heartbeat 后续过期，符合 Windows 子进程树未终止的失败形态。
-- GREEN command and passing result: `node --check scripts/codex-test-runner.mjs` -> PASS；focused Codex Runner static contract -> PASS；当前 Runner 会话 `id=6` 在线，`heartbeat_age_seconds=8`。
+- GREEN command and passing result: `node --check scripts/codex-test-runner.mjs` -> PASS；focused Codex Runner static contract -> PASS；当前 Runner 会话 `id=7` 在线，`heartbeat_age_seconds=3`；真实页面行级“执行”创建 `executionId=4` 且未出现 `没有在线 Codex Runner`。
 - Risk and regression scope: 修改仅限本地 Codex Runner 脚本和本任务启动脚本；不改变业务测试项数据，不新增 fallback，不吞异常。
 - Blockers and follow-up actions: “作废测试”测试项仍不存在，需正式创建或恢复后才能执行该目标项。

@@ -62,3 +62,13 @@
 - GREEN: 只读 DB 核对最新 Runner 会话 `id=6` -> `ONLINE`，`tenant_id=1`，`heartbeat_age_seconds=8`，`current_running_count=0`。
 - GREEN: 既有可执行测试项历史验证 `executionId=2` -> `PASS`；复测点击入口 `executionId=3` 已证明真实页面行级“执行”可创建批次，随后作为本任务验证批次清理为 `CANCELED`。
 - GREEN: experience-preflight -> PASS，已将 Runner token 对齐、执行期 heartbeat、Windows `codex.cmd` 子进程树和取消处理经验合并到 `docs/e2e-rules.md#codex-runner-自动测试门禁`，并更新 `docs/experience-index.md` 关键词。
+- USER-REPORTED: 用户再次运行后仍提示 `没有在线 Codex Runner`。
+- ROOT CAUSE: 当前 48081 后端被后续本地运行任务重启，重启期间 Runner loop 因 `ECONNREFUSED 127.0.0.1:48081` 退出；新后端运行态未自动保持任务 Runner token，导致最新 Runner 会话 heartbeat 过期。
+- IMPLEMENTED: `codex-test-runner.mjs` 增加 loop 级注册/领取错误重试；`--loop` 模式遇到后端短暂不可达或旧 session 失效时记录错误、等待、重新注册，不再直接退出。
+- GREEN: `node --check scripts/codex-test-runner.mjs` -> PASS。
+- GREEN: focused runner loop retry static contract -> PASS。
+- GREEN: `restart-backend-with-runner-token.ps1` -> PASS，后端重新注入 Runner token，`http://127.0.0.1:48081/actuator/health` 为 `UP`。
+- GREEN: `start-codex-runner-loop.ps1` -> PASS，新 Runner PID `39240` 正在运行。
+- GREEN: 真实页面当前结构行级“执行”按钮复测 -> `executionId=4` 创建成功，未出现 `没有在线 Codex Runner`。
+- GREEN: 正式取消接口清理验证批次 `executionId=4` -> `CANCELED`。
+- GREEN: 只读 DB 核对最新 Runner 会话 `id=7` -> `ONLINE`，`tenant_id=1`，`heartbeat_age_seconds=3`，`current_running_count=0`；未发现 `codex-test-result-4-*` 遗留子进程。

@@ -1,0 +1,379 @@
+{
+  "reportName": "清洁工序生产记录",
+  "sourceTableIndex": 5,
+  "detailHeaderRowIndex": 7,
+  "selfInspectionRowIndex": 18,
+  "headerColumns": {
+    "物料名称": 3,
+    "批号": 4,
+    "生产数量/pcs": 5,
+    "自检合格数量/pcs": 6,
+    "不合格数量/pcs": 7,
+    "操作人": 8,
+    "复核人": 9
+  },
+  "pressureControlFindings": [
+    {
+      "row": 8,
+      "column": 3,
+      "header": "物料名称",
+      "text": "□30atm压力表",
+      "componentFlag": "checkbox",
+      "labelText": "30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 8,
+      "column": 4,
+      "header": "批号",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 8,
+      "column": 5,
+      "header": "生产数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 8,
+      "column": 6,
+      "header": "自检合格数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 9,
+      "column": 3,
+      "header": "物料名称",
+      "text": "□40atm压力表",
+      "componentFlag": "checkbox",
+      "labelText": "40atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 10,
+      "column": 3,
+      "header": "物料名称",
+      "text": "□30atm压力表",
+      "componentFlag": "checkbox",
+      "labelText": "30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 10,
+      "column": 4,
+      "header": "批号",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 10,
+      "column": 5,
+      "header": "生产数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 10,
+      "column": 6,
+      "header": "自检合格数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 11,
+      "column": 3,
+      "header": "物料名称",
+      "text": "□40atm压力表",
+      "componentFlag": "checkbox",
+      "labelText": "40atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 12,
+      "column": 3,
+      "header": "物料名称",
+      "text": "□30atm压力表",
+      "componentFlag": "checkbox",
+      "labelText": "30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 12,
+      "column": 4,
+      "header": "批号",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 12,
+      "column": 5,
+      "header": "生产数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 12,
+      "column": 6,
+      "header": "自检合格数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 13,
+      "column": 3,
+      "header": "物料名称",
+      "text": "□40atm压力表",
+      "componentFlag": "checkbox",
+      "labelText": "40atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 14,
+      "column": 3,
+      "header": "物料名称",
+      "text": "□30atm压力表",
+      "componentFlag": "checkbox",
+      "labelText": "30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 14,
+      "column": 4,
+      "header": "批号",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 14,
+      "column": 5,
+      "header": "生产数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 14,
+      "column": 6,
+      "header": "自检合格数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 15,
+      "column": 3,
+      "header": "物料名称",
+      "text": "□40atm压力表",
+      "componentFlag": "checkbox",
+      "labelText": "40atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 16,
+      "column": 3,
+      "header": "物料名称",
+      "text": "□30atm压力表",
+      "componentFlag": "checkbox",
+      "labelText": "30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 16,
+      "column": 4,
+      "header": "批号",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 16,
+      "column": 5,
+      "header": "生产数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 16,
+      "column": 6,
+      "header": "自检合格数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 17,
+      "column": 3,
+      "header": "物料名称",
+      "text": "□40atm压力表",
+      "componentFlag": "checkbox",
+      "labelText": "40atm压力表",
+      "placeholder": ""
+    }
+  ],
+  "offendingBusinessFillForms": [
+    {
+      "row": 8,
+      "column": 4,
+      "header": "批号",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 8,
+      "column": 5,
+      "header": "生产数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 8,
+      "column": 6,
+      "header": "自检合格数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 10,
+      "column": 4,
+      "header": "批号",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 10,
+      "column": 5,
+      "header": "生产数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 10,
+      "column": 6,
+      "header": "自检合格数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 12,
+      "column": 4,
+      "header": "批号",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 12,
+      "column": 5,
+      "header": "生产数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 12,
+      "column": 6,
+      "header": "自检合格数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 14,
+      "column": 4,
+      "header": "批号",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 14,
+      "column": 5,
+      "header": "生产数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 14,
+      "column": 6,
+      "header": "自检合格数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 16,
+      "column": 4,
+      "header": "批号",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 16,
+      "column": 5,
+      "header": "生产数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    },
+    {
+      "row": 16,
+      "column": 6,
+      "header": "自检合格数量/pcs",
+      "text": "",
+      "componentFlag": "checkbox",
+      "labelText": "□30atm压力表",
+      "placeholder": ""
+    }
+  ]
+}

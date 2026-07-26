@@ -26,6 +26,12 @@
 - Backend token runtime: `restart-backend-with-runner-token.ps1` -> backend PID `47008`, health `UP`
 - Current Runner loop: `start-codex-runner-loop.ps1` -> background process `PID=29660`
 - Current Runner online DB check: latest session `id=6`, `runner_name=local-codex-runner-20260725`, `status=ONLINE`, `tenant_id=1`, `heartbeat_age_seconds=8`, `current_running_count=0`
+- Recurrent offline fix: Runner loop now retries registration after backend restart or transient `ECONNREFUSED` instead of exiting.
+- Current backend recheck: `http://127.0.0.1:48081/actuator/health` -> `UP`
+- Current Runner loop after recheck: `PID=39240`
+- Current Runner DB check after recheck: latest session `id=7`, `runner_name=local-codex-runner-20260725`, `status=ONLINE`, `tenant_id=1`, `heartbeat_age_seconds=3`, `current_running_count=0`
+- Real current-page click verification: row-level `执行` on `排产工单手动重排 881MO093613/881MO093615` -> created `executionId=4` without `没有在线 Codex Runner`
+- Verification cleanup: official cancel API changed `executionId=4` to `CANCELED`; no `codex-test-result-4-*` child process remained
 - Existing enabled case execution: `executionId=2` -> `PASS`
 - UI target search: `run-void-test-from-ui.mjs` -> “作废测试” search total `0`; “作废” search total `0`
 - Read-only current case list: `test-case-list-summary.json` -> total `1`, only `排产工单手动重排 881MO093613/881MO093615`
@@ -33,7 +39,7 @@
 
 ## Open Blocker
 
-- Resolved for visible page error: the local Codex Runner is online and the real row-level click path can create an execution batch without `没有在线 Codex Runner`.
+- Resolved for visible page error: the local Codex Runner is online again, survives backend restart by retrying registration, and the real row-level click path creates an execution batch without `没有在线 Codex Runner`.
 - Remaining missing precondition: create or restore a real enabled `作废测试` test item in `系统管理 > 测试管理`, with formal test method rows and target/checkpoint rows.
 - Impact: Runner can now accept executions, but it still cannot execute the originally requested `作废测试` item until that item exists.
 

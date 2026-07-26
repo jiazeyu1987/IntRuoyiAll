@@ -41,6 +41,9 @@
 - 2026-07-26: Project experience consolidation check -> PASS; existing `docs/database-rules.md`, `docs/frontend-development.md`, `D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`, and `docs/experience-index.md` already cover the reusable gates, so no long-term memory document was added.
 - 2026-07-26: Rechecked current workspace; only task-owned `IntRuoyiFronted/src/views/system/codex-test-management/index.vue` remains dirty, so closeout can proceed.
 - 2026-07-26: Cleanup preview/apply completed with keep-only plan; task status set to `completed`.
+- 2026-07-26: User reported “测试记录” was not visible in the running UI. Local DB read-only check showed `system_menu` had `codex-test-management` sort `100` and `backup-plan` sort `101`, but no `codex-test-record` row.
+- 2026-07-26: Applied local Docker MySQL menu migration `20260726_system_codex_test_record_menu.sql` using the container's internal MySQL credentials via environment variable, without logging secrets.
+- 2026-07-26: Post-apply DB verification showed `codex-test-management` sort `100`, `codex-test-record` sort `101`, and `backup-plan` sort `102`; `codex_test_admin`, `super_admin`, and `tenant_admin` role bindings exist for `codex-test-record`.
 
 ## Blockers
 

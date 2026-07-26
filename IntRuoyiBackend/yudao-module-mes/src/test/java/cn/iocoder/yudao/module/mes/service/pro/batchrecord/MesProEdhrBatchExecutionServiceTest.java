@@ -2758,6 +2758,40 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void openTask_allowsApprovedDynamicRouteFormBeforeCloseForCurrentFiller() {
+        Fixture fixture = insertRouteFixture(false, false);
+        MesProRouteProcessDO routeProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).get(0);
+        FormTemplateVersionDO templateVersion = insertPublishedFormTemplateVersion("已提交可修改动态损耗单");
+        stubFormCenterInstanceIds(84001L);
+        insertBatchProcessFormCenterBinding(fixture.routeId(), routeProcess.getId(), templateVersion,
+                "FB_APPROVED_DYNAMIC_LOSS");
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-OPEN-APPROVED-DYNAMIC")
+                .setRouteId(fixture.routeId()));
+        EdhrBatchExecutionTaskRespVO dynamicTask = routeTasks(batch).get(0);
+        MesProEdhrWorkTaskDO fillTask = insertWorkTask(batch, dynamicTask, fixture,
+                MesProEdhrWorkTaskService.TASK_TYPE_FILL, 10001L);
+        batchTaskMapper.updateById(new MesProEdhrBatchExecutionTaskDO()
+                .setId(dynamicTask.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
+                .setSubmittedAt(LocalDateTime.of(2026, 7, 26, 9, 0))
+                .setApprovedAt(LocalDateTime.of(2026, 7, 26, 9, 1)));
+
+        EdhrBatchExecutionTaskOpenRespVO opened =
+                openTaskAsFiller(batch.getId(), dynamicTask.getId(), fillTask.getId());
+
+        assertNull(opened.getExecutionId());
+        assertEquals(dynamicTask.getId(), opened.getTaskId());
+        assertEquals(fillTask.getId(), opened.getWorkTaskId());
+        assertEquals(dynamicTask.getFormCenterInstanceId(), opened.getFormCenterInstanceId());
+        assertEquals(dynamicTask.getFormTemplateId(), opened.getFormTemplateId());
+        assertEquals(fillTask.getId(), opened.getExecutionPageQuery().get("workTaskId"));
+        assertEquals(dynamicTask.getFormCenterInstanceId(), opened.getExecutionPageQuery().get("formCenterInstanceId"));
+        verify(singleExecutionService, never()).openOrCreateByContext(any());
+    }
+
+    @Test
     void openTask_pendingReleaseAllowsApprovedOrdinaryFillCompletedBeforeClose() {
         Fixture fixture = insertRouteFixture(true, true);
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()

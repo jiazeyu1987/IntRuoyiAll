@@ -69,6 +69,37 @@ assert.ok(
   '跳过表单按钮必须同时满足 OPTIONAL 策略和后端 SKIP 动作授权。'
 )
 
+const previewGuardBlock = extractConstBlock(
+  detail,
+  'const shouldLoadTaskPreview = (task: EdhrBatchExecutionTaskRespVO) =>'
+)
+assert.ok(
+  previewGuardBlock.includes('!isSpecialNode(task)') &&
+    previewGuardBlock.includes('task.batchRecordReportId') &&
+    previewGuardBlock.includes('!task.formTemplateId') &&
+    previewGuardBlock.includes('!task.formCenterInstanceId'),
+  '动态表单/表单中心路线表单不得调用批记录预览接口，否则会把只读查看误报成必填路线表单跳过错误。'
+)
+
+const loadPreviewBlock = extractConstBlock(
+  detail,
+  'const loadTaskPreview = async (task: EdhrBatchExecutionTaskRespVO) =>'
+)
+assert.ok(
+  loadPreviewBlock.includes('if (!shouldLoadTaskPreview(task)) return') &&
+    loadPreviewBlock.includes('getEdhrBatchTaskPreview(assertBatchExecutionId(), task.id)'),
+  '选择损耗单动态表单时必须先经过 shouldLoadTaskPreview 门禁，再决定是否请求批记录预览。'
+)
+
+const selectTaskBlock = extractConstBlock(
+  detail,
+  'const selectProcessTask = (task: EdhrBatchExecutionTaskRespVO) =>'
+)
+assert.ok(
+  selectTaskBlock.includes('!matchedExecution') && selectTaskBlock.includes('shouldLoadTaskPreview(task)'),
+  '卡片选中态不得绕过 preview 门禁直接调用 loadTaskPreview。'
+)
+
 const viewTaskBlock = extractConstBlock(
   detail,
   'const canViewRouteFormTask = (row: EdhrBatchExecutionTaskRespVO) =>'

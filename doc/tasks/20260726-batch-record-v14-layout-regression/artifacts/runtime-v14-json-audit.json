@@ -1,0 +1,140 @@
+{
+  "reports": [
+    {
+      "reportId": "ff909645721d4c7cb9220a74e4497254",
+      "reportName": "清洁工序生产记录",
+      "sourceTableIndex": 5,
+      "jimuUpdateTime": "2026-07-26 00:52:05",
+      "jsonLength": 51527,
+      "detailHeaderRowIndex": 7,
+      "headerColumns": {
+        "物料名称": 3,
+        "批号": 4,
+        "生产数量/pcs": 5,
+        "自检合格数量/pcs": 6,
+        "不合格数量/pcs": 7
+      },
+      "selfInspectionRowIndex": 18,
+      "pressureCellsInDetailBand": [
+        {
+          "row": 8,
+          "column": 3,
+          "text": "□30atm压力表"
+        },
+        {
+          "row": 9,
+          "column": 3,
+          "text": "□40atm压力表"
+        },
+        {
+          "row": 10,
+          "column": 3,
+          "text": "□30atm压力表"
+        },
+        {
+          "row": 11,
+          "column": 3,
+          "text": "□40atm压力表"
+        },
+        {
+          "row": 12,
+          "column": 3,
+          "text": "□30atm压力表"
+        },
+        {
+          "row": 13,
+          "column": 3,
+          "text": "□40atm压力表"
+        },
+        {
+          "row": 14,
+          "column": 3,
+          "text": "□30atm压力表"
+        },
+        {
+          "row": 15,
+          "column": 3,
+          "text": "□40atm压力表"
+        },
+        {
+          "row": 16,
+          "column": 3,
+          "text": "□30atm压力表"
+        },
+        {
+          "row": 17,
+          "column": 3,
+          "text": "□40atm压力表"
+        }
+      ],
+      "materialColumnHits": [
+        {
+          "row": 8,
+          "column": 3,
+          "text": "□30atm压力表"
+        },
+        {
+          "row": 9,
+          "column": 3,
+          "text": "□40atm压力表"
+        },
+        {
+          "row": 10,
+          "column": 3,
+          "text": "□30atm压力表"
+        },
+        {
+          "row": 11,
+          "column": 3,
+          "text": "□40atm压力表"
+        },
+        {
+          "row": 12,
+          "column": 3,
+          "text": "□30atm压力表"
+        },
+        {
+          "row": 13,
+          "column": 3,
+          "text": "□40atm压力表"
+        },
+        {
+          "row": 14,
+          "column": 3,
+          "text": "□30atm压力表"
+        },
+        {
+          "row": 15,
+          "column": 3,
+          "text": "□40atm压力表"
+        },
+        {
+          "row": 16,
+          "column": 3,
+          "text": "□30atm压力表"
+        },
+        {
+          "row": 17,
+          "column": 3,
+          "text": "□40atm压力表"
+        }
+      ],
+      "offenders": [],
+      "hasOffenders": false
+    },
+    {
+      "reportId": "bd1ac748f2be41bd8e63b2c0a924059e",
+      "reportName": "光固Ⅰ工序生产记录",
+      "sourceTableIndex": 7,
+      "jimuUpdateTime": "2026-07-26 00:52:05",
+      "jsonLength": 64698,
+      "detailHeaderRowIndex": null,
+      "headerColumns": {},
+      "selfInspectionRowIndex": null,
+      "pressureCellsInDetailBand": [],
+      "materialColumnHits": [],
+      "offenders": [],
+      "hasOffenders": false
+    }
+  ]
+}

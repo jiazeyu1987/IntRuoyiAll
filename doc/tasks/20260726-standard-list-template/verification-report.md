@@ -15,6 +15,8 @@
 - GREEN: `git diff --check -- <task-owned files>` -> PASS.
 - GREEN: frontend feature evidence validation -> PASS.
 - GREEN: cleanup preview/apply -> PASS, no delete/blocked/warnings.
+- GREEN: local DB menu verification after applying migration -> `codex-test-management` sort `100`, `codex-test-record` sort `101`, `backup-plan` sort `102`.
+- GREEN: local role-menu verification -> `codex_test_admin`, `super_admin`, and `tenant_admin` have `codex-test-record` binding.
 
 ## Closeout Status
 

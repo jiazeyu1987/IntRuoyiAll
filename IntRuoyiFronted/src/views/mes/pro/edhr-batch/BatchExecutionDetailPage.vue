@@ -3348,9 +3348,15 @@ const clearTaskPreview = () => {
   taskPreviewLoading.value = false
 }
 
+const shouldLoadTaskPreview = (task: EdhrBatchExecutionTaskRespVO) =>
+  !isSpecialNode(task) &&
+  Boolean(task.batchRecordReportId) &&
+  !task.formTemplateId &&
+  !task.formCenterInstanceId
+
 const loadTaskPreview = async (task: EdhrBatchExecutionTaskRespVO) => {
   clearTaskPreview()
-  if (isSpecialNode(task)) return
+  if (!shouldLoadTaskPreview(task)) return
   const requestSerial = taskPreviewRequestSerial
   taskPreviewLoading.value = true
   try {
@@ -3387,7 +3393,7 @@ const selectProcessTask = (task: EdhrBatchExecutionTaskRespVO) => {
   selectedTaskId.value = String(task.id)
   const matchedExecution = executionReviews.value.find((execution) => isSameRouteFormTask(task, execution))
   selectedExecutionId.value = matchedExecution ? String(matchedExecution.executionId || '') : ''
-  if (!matchedExecution) {
+  if (!matchedExecution && shouldLoadTaskPreview(task)) {
     void loadTaskPreview(task)
   }
 }

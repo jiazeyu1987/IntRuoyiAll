@@ -10,6 +10,7 @@
 - [x] 先补充静态回归测试覆盖必填动态表单不得走跳过接口
 - [x] 实施最小前端修复，保持现有批次详情交互契约
 - [x] 运行目标回归验证并记录证据
+- [x] 修复动态表单选中态误调批记录预览导致的红色错误提示
 - [x] 完成收尾检查和任务文档更新
 
 ## Expected Verification
@@ -23,7 +24,7 @@
 
 ready_for_closeout
 
-说明：只读查看路径修复、静态合同和真实页面 E2E 验证已完成；最终 `completed` 状态仍被 Git 提交/推送门禁阻塞。
+说明：只读查看路径与动态表单选中态预览误报均已修复，静态合同和真实页面 E2E 验证已完成；最终 `completed` 状态仍被 Git 提交/推送门禁阻塞。
 
 ## 经验门禁
 
@@ -44,5 +45,6 @@ ready_for_closeout
 - `doc/tasks/20260725-edhr-loss-form-open-action/task.md`
 - `doc/tasks/20260725-edhr-loss-form-open-action/execution-log.md`
 - `doc/tasks/20260725-edhr-loss-form-open-action/verification-report.md`
+- `doc/tasks/20260725-edhr-loss-form-open-action/bug-regression-evidence.md`
 - `doc/tasks/20260725-edhr-loss-form-open-action/real-e2e-output/readonly-loss-form-card-result.json`
 - `doc/tasks/20260725-edhr-loss-form-open-action/real-e2e-output/readonly-loss-form-card.png`

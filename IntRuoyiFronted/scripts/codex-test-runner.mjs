@@ -307,17 +307,45 @@ async function runOnce(runnerSessionId) {
   return claim.tasks.length
 }
 
+function logLoopError(error) {
+  const message = error instanceof Error ? error.message : String(error)
+  console.error(`[codex-test-runner] ${message}`)
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-const registration = await registerRunner()
-do {
-  const count = await runOnce(registration.runnerSessionId)
-  if (!LOOP || count === 0) {
-    if (!LOOP) {
-      break
+async function registerRunnerWithRetry() {
+  while (true) {
+    try {
+      return await registerRunner()
+    } catch (error) {
+      if (!LOOP) {
+        throw error
+      }
+      logLoopError(error)
+      await sleep(POLL_INTERVAL_MS)
     }
+  }
+}
+
+let registration = await registerRunnerWithRetry()
+do {
+  try {
+    const count = await runOnce(registration.runnerSessionId)
+    if (!LOOP || count === 0) {
+      if (!LOOP) {
+        break
+      }
+      await sleep(POLL_INTERVAL_MS)
+    }
+  } catch (error) {
+    if (!LOOP) {
+      throw error
+    }
+    logLoopError(error)
     await sleep(POLL_INTERVAL_MS)
+    registration = await registerRunnerWithRetry()
   }
 } while (true)

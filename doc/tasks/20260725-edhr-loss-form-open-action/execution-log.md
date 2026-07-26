@@ -9,6 +9,7 @@
 - `BDD: required loss form opens instead of skip -> Given` 批次详情右侧存在必填动态表单“损耗单”，`When` 用户点击“打开填写”，`Then` 前端必须执行打开填写路径，不得调用跳过表单路径。
 - `BDD: optional route form skip remains constrained -> Given` 路线表单是可选且满足跳过条件，`When` 用户点击跳过入口，`Then` 仅可选表单允许调用跳过接口，必填表单仍被阻止。
 - `BDD: view-only loss form opens readonly -> Given` 瑛泰管理员拥有损耗单查看权限但没有填写权限，`When` 点击红框内损耗单卡片主动作，`Then` 系统显示“查看表单”并打开只读表单面板，不调用 `openEdhrBatchTask` 或跳过接口。
+- `BDD: dynamic route form selection does not load batch-record preview -> Given` 瑛泰管理员仅查看动态损耗单，`When` 选择或点击损耗单卡片，`Then` 前端不得请求 legacy 批记录预览接口，不显示“必填路线表单不允许跳过”红色错误。
 
 ## Milestone Updates
 
@@ -26,11 +27,18 @@
 - ready_for_closeout: 只读查看扩展验证通过，等待提交/推送门禁解除。
 - completed: 只读查看扩展后的 task-closeout-cleanup preview/apply 均通过，keep 三份任务文档，delete/blocked/warnings/deleted_paths 均为 `<none>`。
 - completed: 用户要求执行 E2E 验证；已新增并运行真实页面 E2E，覆盖管理员无 `OPEN_FORM` 的 REQUIRED 损耗单点击“查看表单”只读抽屉路径。
+- in_progress: 用户反馈当前仍显示“必填路线表单不允许跳过”，定位到动态表单选中态仍会调用 `getEdhrBatchTaskPreview`。
+- completed: 新增静态 RED 合同锁定动态表单/表单中心路线表单不得请求 legacy 批记录预览接口。
+- completed: `BatchExecutionDetailPage.vue` 新增 `shouldLoadTaskPreview`，仅 legacy `batchRecordReportId` 且非表单中心动态表单才加载批记录预览。
+- completed: 真实 E2E 复验只读损耗单卡片，确认 `previewRequests=[]`、`skipErrorCount=0`、无打开填写/跳过/写入请求。
+- completed: project-experience-consolidation 已将动态表单选中态不得调用 legacy `/task/preview` 经验合并到 `docs/e2e-rules.md#eDHR 路线表单跳过口径门禁`，并补充 `docs/experience-index.md` 关键词。
+- ready_for_closeout: 动态表单预览误报修复后的 task-closeout-cleanup preview/apply 均通过，keep 本任务文档、bug 证据、真实 E2E JSON 与截图，delete/blocked/warnings/deleted_paths 均为 `<none>`；提交/推送仍受无关脏改动阻塞。
 
 ## TDD Evidence
 
 - RED: `node tests\e2e\edhr-loss-form-open-action-static.spec.js` -> FAIL, expected reason: 当前 `isOptionalTask` 未包含 `row.requiredPolicy === 'OPTIONAL'`，会把非 OPTIONAL 的路线表单误纳入可跳过判断。
 - RED: `node tests\e2e\edhr-loss-form-open-action-static.spec.js` -> FAIL, expected reason: 当前源码缺少 `canViewRouteFormTask` 和 `openReadonlyRouteFormTask`，无填写权限场景无法显示“查看表单”只读动作。
+- RED: `node tests\e2e\edhr-loss-form-open-action-static.spec.js` -> FAIL, expected reason: 当前源码缺少 `shouldLoadTaskPreview`，动态损耗单选中态仍可能请求批记录预览并显示“必填路线表单不允许跳过”。
 - GREEN: `node tests\e2e\edhr-loss-form-open-action-static.spec.js` -> PASS。
 - GREEN: `node tests\e2e\edhr-batch-process-companion-forms-static.spec.js` -> PASS。
 - GREEN: `node tests\e2e\edhr-pre-release-editable-submit-static.spec.js` -> PASS。
@@ -47,6 +55,12 @@
 - GREEN: `node --check tests\e2e\edhr-loss-form-open-action-real.e2e.js` -> PASS。
 - GREEN: `node tests\e2e\edhr-loss-form-open-action-static.spec.js` -> PASS after real E2E script added。
 - GREEN: `node tests\e2e\edhr-loss-form-open-action-real.e2e.js` -> PASS，真实前端目标 `batchExecutionId=900000000837`、`taskId=6368`、`requiredPolicy=REQUIRED`、`allowedActions=[]`、主动作 `查看表单`，只读抽屉内 `解析/创建/保存草稿/提交/重提/放弃` 全部 disabled，未触发 `/task/open`、`/task/special-node/skip` 或 MES/FormCenter 写请求；证据 `doc/tasks/20260725-edhr-loss-form-open-action/real-e2e-output/readonly-loss-form-card-result.json`。
+- GREEN: `node --check tests\e2e\edhr-loss-form-open-action-real.e2e.js` -> PASS after preview/no-error assertion added。
+- GREEN: `node tests\e2e\edhr-loss-form-open-action-static.spec.js` -> PASS after preview guard fix。
+- GREEN: `node tests\e2e\edhr-loss-form-open-action-real.e2e.js` -> PASS，真实前端目标 `batchExecutionId=900000000846`、`taskId=6557`、`requiredPolicy=REQUIRED`、`allowedActions=[]`、主动作 `查看表单`，只读抽屉动作全部 disabled，`previewRequests=[]`、`skipErrorCount=0`、`blockedWrites=[]`。
+- GREEN: project-experience-consolidation -> PASS，已合并动态表单选中态不得调用 legacy `/task/preview` 门禁。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode preview` -> PASS after dynamic preview fix, no delete/blocked/warnings。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode apply` -> PASS after dynamic preview fix, no deleted paths。
 - GREEN: project-experience-consolidation -> PASS，已将“无 OPEN_FORM 但可查看的路线表单必须点真实卡片验证查看表单只读抽屉”合并到 `docs/e2e-rules.md#eDHR 路线表单跳过口径门禁`，并补充 `docs/experience-index.md` 关键词路由。
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode preview` -> PASS after real E2E, keep `real-e2e-output\readonly-loss-form-card-result.json` and screenshot, no delete/blocked/warnings。
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260725-edhr-loss-form-open-action --mode apply` -> PASS after real E2E, no deleted paths。

@@ -249,9 +249,13 @@ async function verifyReadonlyCardAction(page, detail, task) {
   assert.equal(await actionButton.isEnabled(), true, '只读查看按钮必须可点击')
 
   const blockedWrites = []
+  const previewRequests = []
   page.on('request', (request) => {
     const url = request.url()
     const method = request.method().toUpperCase()
+    if (url.includes('/admin-api/mes/pro/edhr-batch-execution/task/preview')) {
+      previewRequests.push(`${method} ${url}`)
+    }
     if (url.includes('/admin-api/mes/pro/edhr-batch-execution/task/open')) {
       blockedWrites.push(`${method} ${url}`)
     }
@@ -289,6 +293,9 @@ async function verifyReadonlyCardAction(page, detail, task) {
   }
 
   await page.waitForTimeout(800)
+  const skipErrorCount = await page.locator('text=必填路线表单不允许跳过').count()
+  assert.equal(skipErrorCount, 0, '只读查看损耗单时不得显示“必填路线表单不允许跳过”。')
+  assert.deepEqual(previewRequests, [], `动态损耗单只读查看不得请求批记录预览接口：${JSON.stringify(previewRequests)}`)
   assert.deepEqual(blockedWrites, [], `只读查看不得触发打开填写、跳过或写入接口：${JSON.stringify(blockedWrites)}`)
 
   const screenshotPath = path.join(config.outputDir, 'readonly-loss-form-card.png')
@@ -299,6 +306,8 @@ async function verifyReadonlyCardAction(page, detail, task) {
     actionLabel,
     actionStates,
     screenshotPath,
+    previewRequests,
+    skipErrorCount,
     blockedWrites
   }
 }

@@ -562,6 +562,71 @@ class MesProBatchRecordReportJsonBuilderTest {
     }
 
     @Test
+    void build_actualPressurePumpProcessRows_shouldKeepPressureGaugeChoicesOutOfBatchAndQuantityColumns() throws Exception {
+        Assumptions.assumeTrue(Files.exists(PRESSURE_PUMP_SAMPLE),
+                "pressure pump source doc is not available on this machine");
+        byte[] bytes = Files.readAllBytes(PRESSURE_PUMP_SAMPLE);
+        MesProBatchRecordRouteBRecognizer recognizer = new MesProBatchRecordRouteBRecognizer();
+        MesProBatchRecordParsedTable parsedTable = recognizer.recognize(
+                        PRESSURE_PUMP_SAMPLE, bytes, PRESSURE_PUMP_SAMPLE.getFileName().toString())
+                .stream()
+                .filter(item -> "清洁工序生产记录".equals(item.getTableTitle()))
+                .findFirst()
+                .orElseThrow();
+        MesProBatchRecordParsedTable calibrated = calibrator.calibrate(parsedTable);
+
+        JSONObject root = JSON.parseObject(builder.build(calibrated, REPORT_CODE));
+        int detailHeaderRowIndex = findRenderedRowIndexes(root, row -> {
+                    String text = renderedRowText(row).replace("\n", "");
+                    return text.contains("操作日期")
+                            && text.contains("物料编码")
+                            && text.contains("物料名称")
+                            && text.contains("批号")
+                            && text.contains("自检合格数量/pcs");
+                })
+                .stream()
+                .findFirst()
+                .orElseThrow();
+        JSONObject headerCells = root.getJSONObject("rows")
+                .getJSONObject(String.valueOf(detailHeaderRowIndex))
+                .getJSONObject("cells");
+        int materialNameColumn = findRenderedColumnByHeader(headerCells, "物料名称");
+        List<Integer> businessValueColumns = List.of(
+                findRenderedColumnByHeader(headerCells, "批号"),
+                findRenderedColumnByHeader(headerCells, "生产数量/pcs"),
+                findRenderedColumnByHeader(headerCells, "自检合格数量/pcs"),
+                findRenderedColumnByHeader(headerCells, "不合格数量/pcs"));
+        int selfInspectionRowIndex = findRenderedRowIndexes(root, row -> renderedRowText(row).contains("生产自检"))
+                .stream()
+                .filter(rowIndex -> rowIndex > detailHeaderRowIndex)
+                .findFirst()
+                .orElseThrow();
+
+        boolean sawPressureGaugeInMaterialNameColumn = false;
+        List<String> offenders = new ArrayList<>();
+        for (int rowIndex = detailHeaderRowIndex + 1; rowIndex < selfInspectionRowIndex; rowIndex++) {
+            JSONObject cells = root.getJSONObject("rows")
+                    .getJSONObject(String.valueOf(rowIndex))
+                    .getJSONObject("cells");
+            String materialNameText = renderedCellTextAtColumn(cells, materialNameColumn);
+            if (materialNameText.contains("压力表")) {
+                sawPressureGaugeInMaterialNameColumn = true;
+            }
+            for (Integer businessValueColumn : businessValueColumns) {
+                String text = renderedCellTextAtColumn(cells, businessValueColumn);
+                if (text.contains("压力表")) {
+                    offenders.add("row=" + rowIndex + ", column=" + businessValueColumn + ", text=" + text);
+                }
+            }
+        }
+
+        assertTrue(sawPressureGaugeInMaterialNameColumn,
+                "pressure gauge choices should remain visible in material-name cells");
+        assertTrue(offenders.isEmpty(),
+                "pressure gauge choices must not be copied into batch/quantity/result columns: " + offenders);
+    }
+
+    @Test
     void build_shouldSplitInlineChecklistChoiceCellWithTrailingUnderlineIntoIndependentFillForms() {
         MesProBatchRecordParsedTable source = MesProBatchRecordParsedTable.builder()
                 .sourceTableIndex(16)
@@ -3465,6 +3530,49 @@ class MesProBatchRecordReportJsonBuilderTest {
             }
         }
         throw new IllegalStateException("rendered cell not found: " + textFragment);
+    }
+
+    private static int findRenderedColumnByHeader(JSONObject cells, String text) {
+        for (String cellKey : cells.keySet()) {
+            if (!cellKey.chars().allMatch(Character::isDigit)) {
+                continue;
+            }
+            JSONObject cell = cells.getJSONObject(cellKey);
+            if (cell != null && text.equals(cell.getString("text"))) {
+                return Integer.parseInt(cellKey);
+            }
+        }
+        throw new IllegalStateException("rendered header not found: " + text);
+    }
+
+    private static String renderedCellTextAtColumn(JSONObject cells, int columnIndex) {
+        JSONObject cell = renderedCellAtColumn(cells, columnIndex);
+        if (cell == null) {
+            return "";
+        }
+        String text = cell.getString("text");
+        return text == null ? "" : text;
+    }
+
+    private static JSONObject renderedCellAtColumn(JSONObject cells, int columnIndex) {
+        if (cells == null) {
+            return null;
+        }
+        for (String cellKey : cells.keySet()) {
+            if (!cellKey.chars().allMatch(Character::isDigit)) {
+                continue;
+            }
+            int startColumn = Integer.parseInt(cellKey);
+            JSONObject cell = cells.getJSONObject(cellKey);
+            int colSpan = 1;
+            if (cell != null && cell.getJSONArray("merge") != null) {
+                colSpan = Math.max(1, cell.getJSONArray("merge").getIntValue(1) + 1);
+            }
+            if (columnIndex >= startColumn && columnIndex < startColumn + colSpan) {
+                return cell;
+            }
+        }
+        return null;
     }
 
     private static MesProBatchRecordParsedCell findParsedCellByText(MesProBatchRecordParsedTable table,
