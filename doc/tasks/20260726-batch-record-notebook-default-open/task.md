@@ -10,7 +10,7 @@
 - [x] M2: 先补充可复现的静态回归断言，记录 RED。
 - [x] M3: 最小化修改前端配置逻辑，隐藏记录本选项并默认开启。
 - [x] M4: 运行目标静态合同和相关回归验证，记录 GREEN/REGRESSION。
-- [ ] M5: 完成任务证据、经验沉淀、cleanup 和提交推送。
+- [x] M5: 完成任务证据、经验沉淀、cleanup 和提交推送。
 
 ## Expected Verification
 
@@ -20,7 +20,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Experience Gates
 
@@ -45,3 +45,10 @@ ready_for_closeout
 
 - doc/tasks/20260726-batch-record-notebook-default-open/bug-regression-evidence.md
 - doc/tasks/20260726-batch-record-notebook-default-open/frontend-feature-evidence.md
+
+## Final Closeout
+
+- Cleanup preview: PASS, keep task/evidence records, delete `<none>`, blocked `<none>`。
+- Cleanup apply: PASS, deleted_paths `<none>`。
+- Implementation commit: `2323d141 fix: default route recordbook configs open`。
+- Final verification: targeted static contracts, adjacent regressions, evidence validators and `pnpm ts:check` passed.

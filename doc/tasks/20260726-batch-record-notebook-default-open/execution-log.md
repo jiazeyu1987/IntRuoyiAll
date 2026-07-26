@@ -20,3 +20,7 @@
 - GREEN: `git diff --check` -> PASS with CRLF normalization warnings only.
 - Git note: 任务执行期间出现并发本地基线提交 `792fec93`、`377d00db` 和其它非本任务未提交改动；本任务提交前按文件/补丁范围隔离当前修改。
 - GREEN: `project-experience-consolidation` -> PASS，已搜索 `docs/`；现有 `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁` 和 `docs/frontend-development.md#前端静态契约隔离门禁` 已覆盖“隐藏控件时同步静态/真实 E2E 合同”的可复用经验，本次不新增长期经验文档。
+- GREEN: cleanup preview -> PASS, keep `task.md`, `execution-log.md`, `verification-report.md`, `bug-regression-evidence.md`, `frontend-feature-evidence.md`; delete `<none>`, blocked `<none>`, warnings `<none>`。
+- GREEN: cleanup apply -> PASS, deleted_paths `<none>`。
+- GREEN: implementation commit -> PASS, `2323d141 fix: default route recordbook configs open`。
+- Final status: completed; remaining dirty files in `git status` are concurrent non-task changes and were not staged into this task commit.
