@@ -9,3 +9,16 @@
 - Git preflight: 根仓库位于 `E:\IntRuoyi`，当前分支 `int_main`，开始时工作区干净且与 `origin/int_main` 同步。
 - BDD: 隐藏导入 Word 表单类型 -> Given 用户在批记录表单页打开“导入 Word”弹窗 / When 弹窗完成渲染 / Then 不显示“表单类型”整行，仍显示“产品名称”和“Word 文件”，内部导入类型继续固定为 `MAIN`。
 - RED: `node tests/e2e/batch-record-word-import-form-type-hidden-static.spec.js` -> FAIL，现有弹窗仍包含 `<el-form-item label="表单类型" required>`。
+- FIX: 删除导入 Word 弹窗“表单类型”表单项、无入口使用的 `formSlotTypeOptions` 和表单类型变更 watcher；保留 `selectedFormSlotType`、`DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE='MAIN'`、产品名称、Word 文件和导入 API 链路。
+- GREEN: `node tests/e2e/batch-record-word-import-form-type-hidden-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/mes-batch-record-word-import-default-main-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/batch-record-form-import-prereq-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/batch-record-word-dcc-project-select-static.spec.js` -> PASS。
+- GREEN: `node --check tests/e2e/edhr-word-import-upgrade-action-real-flow.e2e.js` -> PASS。
+- GREEN: `node --check tests/e2e/edhr-word-template-import-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: local runtime preflight -> PASS，前端 PID `58060` 命令行归属 `E:\IntRuoyi\IntRuoyiFronted`，前端 `8081` HTTP 200；任务临时启动后端 PID `30096` 命令行归属 `E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`，`48081/actuator/health` 为 `UP`。
+- GREEN: Playwright real readonly path -> PASS，登录标签 `芋道源码/admin`，访问 `http://127.0.0.1:8081/mes/pro/batch-record-form-list`，通过页面点击“导入”打开“导入 Word”弹窗；断言 `hasFormType=false`、`hasProductName=true`、`hasWordFile=true`，未提交或写入业务数据。
+- BLOCKER: `node tests/e2e/edhr-batch-record-form-list-static.spec.js` -> FAIL 于既有批量删除断言，与本任务无关。
+- BLOCKER: `node tests/e2e/edhr-form-slot-frontend-static.spec.js` -> FAIL 于既有不存在的 `RouteFlowConfigPanel.vue` 引用，与本任务无关。
+- FOLLOW-UP: `edhr-word-form-cell-rule-recognition-real.e2e.js` 的非 `MAIN` 附加表单导入路径仍依赖已隐藏下拉；本任务不新增替代入口，避免未经批准扩大范围。
