@@ -295,20 +295,6 @@
                   </div>
 
                   <el-alert
-                    v-if="preReleaseEditNotice"
-                    :title="preReleaseEditNotice"
-                    type="info"
-                    :closable="false"
-                    show-icon
-                  />
-                  <el-alert
-                    v-if="goldenFingerNotice"
-                    :title="goldenFingerNotice"
-                    type="warning"
-                    :closable="false"
-                    show-icon
-                  />
-                  <el-alert
                     v-if="revisionLockNotice"
                     :title="revisionLockNotice"
                     :type="revisionLockNoticeType"
@@ -3662,16 +3648,6 @@ const isReadonly = computed(() => {
   }
   return true
 })
-const goldenFingerNotice = computed(() =>
-  hasGoldenFingerPermission.value && !isTrackingReadonlyMode.value && !isReadonly.value
-    ? '金手指测试权限：可代填并跳过普通必填/附件检查，也可绕过放行、关闭、作废或审批锁定；所有提交都会审计。'
-    : ''
-)
-const preReleaseEditNotice = computed(() =>
-  isPreReleaseEditable.value
-    ? execution.value?.preReleaseEditReason || '关闭前可修改，重新提交将更新提交签名证据'
-    : ''
-)
 const executionStatusText = computed(() => {
   if (execution.value?.status === EDHR_EXECUTION_STATUS.SUBMITTED) {
     return '待审批（审批关闭后才可归档）'
