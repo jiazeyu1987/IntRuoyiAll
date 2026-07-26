@@ -51,7 +51,11 @@
 - EVIDENCE: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260726-codex-test-process-route-case\frontend-feature-evidence.md` -> PASS。
 - EXPERIENCE: 已按 `project-experience-consolidation` 合并长期经验到 `docs/worktree-memory.md`：新增 “Worktree Java 21 后端低内存启动门禁”。
 - STAGE: `doc/tasks/20260726-codex-test-process-route-case/ensure-process-route-codex-test-items.e2e.cjs` 命中任务目录 `.gitignore` 规则；该脚本是本任务真实页面写入证据并已列入 `Cleanup Keep`，提交时使用 `git add -f` 强制纳入。
+- COMMIT: 实现提交 `3aa45a95 feat: add process route codex test cases`，包含分类契约、4 条测试项真实 E2E 证据、任务文档和长期经验。
+- CLEANUP: `task_closeout.py --task-id 20260726-codex-test-process-route-case --mode apply --worktree-closeout off --extra-delete .runtime/codex-test-process-route/start-backend-limited.ps1` -> PASS；删除本任务临时失败/成功截图和临时后端启动脚本，保留核心任务记录、E2E 脚本和 JSON 摘要。
+- RUNTIME-CLEANUP: 已停止本任务运行态 PID `16344`、`58572`、`11564`、`32044`；复查 `8082/48082` 无监听。
+- CLOSEOUT-BLOCKER: 自动 worktree merge/remove 未执行；`E:\IntRuoyi` 主工作区存在 unrelated dirty/ahead 状态，且当前分支不能对本地 `int_main` 做 ff-only closeout。任务保持 `ready_for_closeout`，等待主工作区清理或用户授权后再合并/删除 worktree。
 
 ## Blockers
 
-- 当前无已确认 blocker。
+- worktree 自动 closeout 阻塞：主工作区 `E:\IntRuoyi` dirty 且 ahead，不能接收 ff-only merge；当前 worktree 暂保留。

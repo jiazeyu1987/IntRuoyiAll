@@ -36,4 +36,5 @@
 ## 注意事项
 
 - `mvn.cmd -pl yudao-module-system -am "-Dtest=CodexTestCaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` 在本机 Java 21 fork/surefire 资源环境下曾超时并产生 dumpstream；目标测试历史 `-am` GREEN 已记录，当前改动后使用同模块非 fork 目标测试完成复核。
-- 无未解决 blocker。
+- Cleanup 已删除本任务临时失败/成功截图和临时后端启动脚本；`8082/48082` 运行态已停止并确认无监听。
+- 自动 worktree merge/remove 未完成：`E:\IntRuoyi` 主工作区存在 unrelated dirty/ahead 状态，不能接收 ff-only merge；本任务保持 `ready_for_closeout`。
