@@ -13,7 +13,11 @@
     />
 
     <template v-else>
-      <div class="edhr-template-editable-form__rule-legend" aria-label="单元格规则类型图例">
+      <div
+        v-if="props.showRuleLegend"
+        class="edhr-template-editable-form__rule-legend"
+        aria-label="单元格规则类型图例"
+      >
         <span
           v-for="item in ruleLegendItems"
           :key="item.tone"
@@ -379,14 +383,20 @@ const TALL_EDITABLE_COMPONENT_KINDS = new Set<TemplateEditableCellContext['compo
   'attachment'
 ])
 
-const props = defineProps<{
-  sheetLayoutJson?: string
-  cellRules?: BatchRecordReportCellRuleVO[]
-  signatureMarkers?: BatchRecordReportSignatureCellMarkerVO[]
-  modelValue: TemplateSimulationValueMap
-  fitToViewport?: boolean
-  fitMode?: 'width' | 'height'
-}>()
+const props = withDefaults(
+  defineProps<{
+    sheetLayoutJson?: string
+    cellRules?: BatchRecordReportCellRuleVO[]
+    signatureMarkers?: BatchRecordReportSignatureCellMarkerVO[]
+    modelValue: TemplateSimulationValueMap
+    fitToViewport?: boolean
+    fitMode?: 'width' | 'height'
+    showRuleLegend?: boolean
+  }>(),
+  {
+    showRuleLegend: true
+  }
+)
 
 const emit = defineEmits<{
   'update:modelValue': [value: TemplateSimulationValueMap]

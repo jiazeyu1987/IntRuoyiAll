@@ -2212,7 +2212,6 @@ watch(
   display: none;
 }
 
-.batch-record-word-import-form__slot-select,
 .batch-record-word-import-form__project-select {
   width: 100%;
 }
