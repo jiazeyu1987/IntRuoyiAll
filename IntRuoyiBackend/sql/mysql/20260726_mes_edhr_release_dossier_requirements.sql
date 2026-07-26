@@ -42,9 +42,13 @@ BEGIN
      WHERE config_key = 'mes.edhr.release.dossier.requirements'
        AND deleted = b'0'
        AND (
-         JSON_TYPE(JSON_EXTRACT(value, '$.incomingInspectionReportRequired')) <> 'BOOLEAN'
+         JSON_TYPE(JSON_EXTRACT(value, '$.incomingInspectionReportRequired')) IS NULL
+         OR JSON_TYPE(JSON_EXTRACT(value, '$.incomingInspectionReportRequired')) <> 'BOOLEAN'
+         OR JSON_TYPE(JSON_EXTRACT(value, '$.sterilizationReportRequired')) IS NULL
          OR JSON_TYPE(JSON_EXTRACT(value, '$.sterilizationReportRequired')) <> 'BOOLEAN'
+         OR JSON_TYPE(JSON_EXTRACT(value, '$.finishedProductInspectionReportRequired')) IS NULL
          OR JSON_TYPE(JSON_EXTRACT(value, '$.finishedProductInspectionReportRequired')) <> 'BOOLEAN'
+         OR JSON_TYPE(JSON_EXTRACT(value, '$.finishedProductInspectionRecordRequired')) IS NULL
          OR JSON_TYPE(JSON_EXTRACT(value, '$.finishedProductInspectionRecordRequired')) <> 'BOOLEAN'
        )
   ) THEN

@@ -114,4 +114,10 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_461, "eDHR 记录本全局开关配置值非法：{}={}");
     ErrorCode PRO_EDHR_RECORDBOOK_GLOBAL_DISABLED =
             new ErrorCode(1_040_750_462, "记录本全局开关已关闭，只允许使用批记录流程");
+    ErrorCode PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_MISSING =
+            new ErrorCode(1_040_750_463, "eDHR 放行资料限制配置缺失：{}");
+    ErrorCode PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_INVALID =
+            new ErrorCode(1_040_750_464, "eDHR 放行资料限制配置值非法：{}={}");
+    ErrorCode PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE =
+            new ErrorCode(1_040_750_465, "eDHR 放行资料限制配置已变更，请重新执行放行预检");
 }
