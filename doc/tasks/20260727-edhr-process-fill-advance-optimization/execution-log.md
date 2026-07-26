@@ -48,4 +48,6 @@
 - GREEN: task-closeout-cleanup apply -> PASS，linked worktree=false，delete/blocked/warnings 均为 none。
 - GREEN: final cleanup -> PASS，`runtime-patch-20260727014422` 临时目录和空 `task-implementation.patch` 已清理。
 - GREEN: final git status -> PASS，`int_main...origin/int_main` 无未提交差异。
+- GREEN: closeout commit -> PASS，`968385bd docs: close out process advance optimization`，文件清单为任务记录与 `docs/e2e-rules.md`、`docs/experience-index.md`。
+- GREEN: git push -> PASS，`git push origin int_main` 将 `7b7eafd5..968385bd` 推送到 `origin/int_main`。
 - Blockers: none。
