@@ -1632,6 +1632,9 @@ const RECORD_BINDING_SLOT_TYPES: ProRouteFlowFormSlotType[] = [
   'PROCESS_INSPECTION',
   'PARAMETER_RECORD'
 ]
+const ADDITIONAL_RECORD_BINDING_SLOT_TYPES = RECORD_BINDING_SLOT_TYPES.filter(
+  (slot) => slot !== 'MAIN'
+)
 const RECORD_BINDING_CANDIDATE_SOURCE_OPTIONS: Array<{
   label: string
   value: EdhrProcessFormCandidateSourceType
@@ -2314,9 +2317,21 @@ let localFormBindingSequence = 1
 
 const createLocalFormBindingKey = () => `FORM_BINDING_${Date.now()}_${localFormBindingSequence++}`
 
+const resolveNextAdditionalRecordBindingSlotType = (): ProRouteFlowFormSlotType => {
+  const usedSlotTypes = new Set(
+    selectedRecordBindings.value
+      .map((binding) => normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey))
+      .filter((slot) => slot !== 'MAIN')
+  )
+  return (
+    ADDITIONAL_RECORD_BINDING_SLOT_TYPES.find((slot) => !usedSlotTypes.has(slot)) ||
+    ADDITIONAL_RECORD_BINDING_SLOT_TYPES[ADDITIONAL_RECORD_BINDING_SLOT_TYPES.length - 1]
+  )
+}
+
 const createEmptyRecordBinding = (): RouteFlowRecordBinding => ({
   formBindingKey: createLocalFormBindingKey(),
-  formSlotType: 'MAIN',
+  formSlotType: resolveNextAdditionalRecordBindingSlotType(),
   formTemplateId: null,
   formTemplateName: null,
   instanceScope: 'BATCH_SHARED',

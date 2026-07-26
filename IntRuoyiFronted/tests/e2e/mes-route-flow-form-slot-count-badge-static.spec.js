@@ -37,6 +37,18 @@ assertMatch(
   '节点表单数量必须只统计动态 formBindings 中非 MAIN 的有效附加表单'
 )
 assertMatch(
+  /const ADDITIONAL_RECORD_BINDING_SLOT_TYPES = RECORD_BINDING_SLOT_TYPES\.filter\(\s*\(slot\) => slot !== 'MAIN'\s*\)/,
+  '新增动态表单的候选槽位必须显式排除 MAIN，避免新增后仍被批记录口径排除'
+)
+assertMatch(
+  /const resolveNextAdditionalRecordBindingSlotType = \(\): ProRouteFlowFormSlotType => \{[\s\S]*selectedRecordBindings\.value[\s\S]*normalizeRecordBindingSlotType\(binding\.formSlotType, binding\.formBindingKey\)[\s\S]*ADDITIONAL_RECORD_BINDING_SLOT_TYPES\.find\(\(slot\) => !usedSlotTypes\.has\(slot\)\)[\s\S]*ADDITIONAL_RECORD_BINDING_SLOT_TYPES\[ADDITIONAL_RECORD_BINDING_SLOT_TYPES\.length - 1\]/,
+  '新增动态表单必须选择下一个非 MAIN 槽位，已有 1 个动态表单时第二个新增项应计入节点数字 2'
+)
+assertMatch(
+  /const createEmptyRecordBinding = \(\): RouteFlowRecordBinding => \(\{[\s\S]*formSlotType: resolveNextAdditionalRecordBindingSlotType\(\),[\s\S]*formTemplateId: null/,
+  '新增表单的本地空绑定不得继续默认 MAIN，选择模板后应立即被数量徽标统计'
+)
+assertMatch(
   /const getRouteNodeAdditionalFormCount = \(node: RouteFlowNodeVO\) =>[\s\S]*return getRouteNodeBatchRecordBindings\(node\)[\s\S]*\.length[\s\S]*\n\}/,
   '附加表单数量 helper 不得累计 legacy batchRecordReports'
 )
