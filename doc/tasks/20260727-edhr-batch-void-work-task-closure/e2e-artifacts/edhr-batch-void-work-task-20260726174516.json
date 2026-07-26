@@ -1,0 +1,68 @@
+{
+  "status": "FAIL",
+  "frontendUrl": "http://127.0.0.1:8084",
+  "backendUrl": "http://127.0.0.1:48084",
+  "tenant": "测试租户",
+  "username": "aoteman",
+  "setup": {
+    "runKey": "M7-VOID-WORKTASK-20260726174516",
+    "batchCode": "M7-VOID-WORKTASK-20260726174516",
+    "batchTaskId": 6593,
+    "doneWorkTaskId": 2178,
+    "todoWorkTaskId": 2175,
+    "doingWorkTaskId": 2176,
+    "batchExecutionId": 900000000854,
+    "overdueWorkTaskId": 2177,
+    "batchExecutionCode": "BE-M7-VOID-WORKTASK-20260726174516",
+    "canceledWorkTaskId": 2179
+  },
+  "error": "page.waitForResponse: Timeout 60000ms exceeded while waiting for event \"response\"\n    at submitVoidThroughUi (D:\\IntRuoyiWorktree\\20260727_pici\\IntRuoyiFronted\\tests\\e2e\\edhr-batch-void-form-center-real-submit.e2e.cjs:771:42)\n    at async main (D:\\IntRuoyiWorktree\\20260727_pici\\IntRuoyiFronted\\tests\\e2e\\edhr-batch-void-form-center-real-submit.e2e.cjs:888:27)",
+  "observedResponses": [
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8084/src/api/approval-center/index.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8084/admin-api/mes/pro/edhr-work-task/my-page?pageNo=1&pageSize=1&status=TODO"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8084/src/api/approval-center/index.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8084/admin-api/mes/pro/edhr-work-task/my-page?pageNo=1&pageSize=1&status=TODO"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8084/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8084/admin-api/mes/pro/edhr-batch-execution/page?pageNo=1&pageSize=20&batchExecutionCode=BE-M7-VOID-WORKTASK-20260726174516&excludeStatuses%5B0%5D=40&excludeStatuses%5B1%5D=50&excludeReleased=true"
+    },
+    {
+      "method": "POST",
+      "status": 200,
+      "url": "http://127.0.0.1:8084/admin-api/mes/pro/edhr-change/void-batch-execution/approval-resolution"
+    },
+    {
+      "method": "POST",
+      "status": 200,
+      "url": "http://127.0.0.1:8084/admin-api/mes/pro/edhr-change/void-batch-execution/request"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8084/admin-api/mes/pro/edhr-batch-execution/page?pageNo=1&pageSize=20&batchExecutionCode=BE-M7-VOID-WORKTASK-20260726174516&excludeStatuses%5B0%5D=40&excludeStatuses%5B1%5D=50&excludeReleased=true"
+    }
+  ],
+  "pageErrors": []
+}

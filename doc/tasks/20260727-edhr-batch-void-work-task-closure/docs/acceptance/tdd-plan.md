@@ -32,7 +32,8 @@ Plan strict RED -> GREEN -> REGRESSION for implementing the six requested batch-
 ## GREEN Commands
 
 - Re-run each RED command after the minimal service change.
-- Run the existing focused workbench guard test for terminal-batch personal list filtering. Use the exact method name from `MesProEdhrWorkTaskServiceImplTest` during implementation to avoid validator keyword noise in this design document.
+- Run existing focused workbench guard class:
+  `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - Run existing open-task terminal regression adjacent to workbench behavior if available in `MesProEdhrBatchExecutionServiceTest`.
 
 ## Refactor Checks

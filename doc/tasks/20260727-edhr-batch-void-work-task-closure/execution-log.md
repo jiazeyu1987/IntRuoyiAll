@@ -7,6 +7,7 @@
 ## Skill And Rule Preflight
 
 - Used skill: `system-design-docs`，用于先形成后端/API、前端、数据模型、配置安全部署设计。
+- Used skill: `product-requirements-docs`，用于补齐 6 项能力的 PRD、用户流程与产品验收标准。
 - Used skill: `bdd-tdd-acceptance-planner`，用于先形成 BDD、严格 TDD、E2E 和测试数据计划。
 - Read: `docs/task-closeout-rules.md`
 - Read: `docs/backend-development.md`
@@ -15,6 +16,8 @@
 - Read: `docs/e2e-rules.md`
 - Read: `docs/powershell-memory.md`
 - Read: `docs/experience-index.md` relevant route for `eDHR 终态批次个人待办`
+- Read: `C:\Users\BJB110\.codex\skills\product-requirements-docs\SKILL.md`
+- Read: `C:\Users\BJB110\.codex\skills\product-requirements-docs\references\prd-structure.md`
 - Read: `C:\Users\BJB110\.codex\skills\system-design-docs\SKILL.md`
 - Read: `C:\Users\BJB110\.codex\skills\system-design-docs\references\system-design-structure.md`
 - Read: `C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\SKILL.md`
@@ -42,18 +45,48 @@
 
 ## RED / GREEN Evidence
 
-- Pending implementation. This turn produced design artifacts only.
+- DESIGN: `python -X utf8 C:\Users\BJB110\.codex\skills\product-requirements-docs\scripts\validate_product_requirements.py --root D:\IntRuoyiWorktree\20260727_pici\doc\tasks\20260727-edhr-batch-void-work-task-closure` -> PASS.
+- DESIGN: `python -X utf8 C:\Users\BJB110\.codex\skills\system-design-docs\scripts\validate_system_design.py --root D:\IntRuoyiWorktree\20260727_pici\doc\tasks\20260727-edhr-batch-void-work-task-closure` -> PASS.
+- DESIGN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root D:\IntRuoyiWorktree\20260727_pici\doc\tasks\20260727-edhr-batch-void-work-task-closure` -> PASS.
+- DESIGN: `python -X utf8 -c "...read_text(encoding='utf-8')..."` over task design docs -> PASS, 11 markdown files readable as UTF-8.
+- BLOCKED: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrRecordChangeServiceTest#voidBatchExecution_approvedBpmCallbackCancelsActiveWorkTasks" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, existing compile blocker in `MesProEdhrWorkTaskMapper.applyParticipantFilter` returned `LambdaQueryWrapper` from `wrapper.and(...)` where method contract requires `LambdaQueryWrapperX`.
+- FIXED: changed `MesProEdhrWorkTaskMapper.applyParticipantFilter` to mutate `wrapper.and(...)` and return the original `LambdaQueryWrapperX` wrapper.
+- BLOCKED: RED fixture compile failed because new `MesProEdhrBatchVoidEffectServiceImplTest` used non-existent `MesProEdhrBatchExecutionArchiveDO` builder fields `archiveCode` and `fileId`.
+- FIXED: aligned the new test fixture with the actual `MesProEdhrBatchExecutionArchiveDO` fields: `artifactType`, `archiveVersion`, `archiveStatus`, `fileName`, `filePath`, `contentHash`, `sourceManifestJson`, `sealedSignatureId`, and valid flags.
+- RED: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrRecordChangeServiceTest#voidBatchExecution_approvedBpmCallbackCancelsActiveWorkTasks,MesProEdhrBatchVoidEffectServiceImplTest#executeDirectPlatformVoidBatchExecution_cancelsActiveWorkTasks" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected Mockito verification failure because both effective void paths did not call `MesProEdhrWorkTaskService.cancelActiveTasksByBatch`.
+- GREEN: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrRecordChangeServiceTest#voidBatchExecution_approvedBpmCallbackCancelsActiveWorkTasks,MesProEdhrBatchVoidEffectServiceImplTest#executeDirectPlatformVoidBatchExecution_cancelsActiveWorkTasks" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 2 tests, 0 failures, 0 errors.
+- REGRESSION: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest#getMyPage_excludesTodoTasksFromTerminalBatches" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 1 test, 0 failures, 0 errors.
+- REGRESSION: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionGoldenFingerBulkVoidServiceTest,MesProEdhrRecordChangeServiceTest#voidBatchExecution_directPlatformExecutionVoidsBatchWithoutBpmProcess+voidBatchExecution_approvedBpmCallbackMarksBatchVoidedAndArchiveInvalid" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 6 tests, 0 failures, 0 errors.
 
 ## Milestone Updates
 
 - completed: Created task directory `doc/tasks/20260727-edhr-batch-void-work-task-closure/`.
+- completed: Wrote product requirements docs for 6 capabilities: PRD, user flows, and acceptance criteria.
 - completed: Wrote system design and acceptance/TDD design documents.
-- completed: `python C:\Users\BJB110\.codex\skills\system-design-docs\scripts\validate_system_design.py --root doc\tasks\20260727-edhr-batch-void-work-task-closure` -> PASS.
-- completed: `python C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root doc\tasks\20260727-edhr-batch-void-work-task-closure` -> PASS.
-- pending: Implementation must start with RED tests before production code changes.
+- completed: Added RED coverage for BPM-approved batch void and direct platform void effect paths.
+- completed: Implemented effective-void work-task cancellation through `MesProEdhrWorkTaskService.cancelActiveTasksByBatch`.
+- completed: Verified GREEN and focused backend regressions.
+- completed: Ran real frontend E2E on branch runtime slot 3 (`8084/48084`), including BPM-required approval center review and post-approval workbench exclusion.
+- pending: Merge/fuse into `int_main` and run post-merge E2E.
 
-## Verification
+## Implementation Notes
 
-- DESIGN: system design structure validation passed.
-- DESIGN: BDD/TDD acceptance plan validation passed.
-- CODE: not started by user request; next step is RED test implementation.
+- `MesProEdhrBatchVoidEffectServiceImpl#approveVoidBatchExecutionByBpm` now cancels active work tasks after batch status/archive invalidation and before marking the change event effective.
+- `MesProEdhrRecordChangeServiceImpl#approveVoidBatchExecutionByBpm` keeps the same invariant for the legacy/direct path that can still set a batch to `VOIDED`.
+- Cancellation reason is deterministic: `批次已作废：<reasonText>` with `remark` only as a documented secondary source; if neither value exists, the flow fails with the existing reason-required error.
+- No fallback, catch-and-continue, mock success, physical deletion, or frontend-only hiding was introduced.
+
+## Real E2E Evidence
+
+- STATIC: `node --check IntRuoyiFronted\tests\e2e\edhr-batch-void-form-center-real-submit.e2e.cjs` -> PASS.
+- STATIC: `node IntRuoyiFronted\tests\e2e\edhr-batch-void-form-center-real-static.spec.js` -> PASS.
+- RUNTIME: `Invoke-WebRequest http://127.0.0.1:8084/` -> HTTP 200; `Invoke-RestMethod http://127.0.0.1:48084/actuator/health` -> `{"status":"UP"}`.
+- BLOCKED: real E2E first reached both void submit endpoints, but timed out waiting for `approval-resolution` because the UI requests approval policy when the void dialog opens, before submit. Artifact: `doc/tasks/20260727-edhr-batch-void-work-task-closure/e2e-artifacts/edhr-batch-void-work-task-20260726174516.json`.
+- FIXED: moved `approval-resolution` response wait before the row `作废` click and added BPM-required approval-center completion using the actual `act_ru_task` assignee mapped to `system_users`.
+- GREEN: `EDHR_BATCH_VOID_E2E_BASE_URL=http://127.0.0.1:8084; EDHR_BATCH_VOID_E2E_BACKEND_URL=http://127.0.0.1:48084; node IntRuoyiFronted\tests\e2e\edhr-batch-void-form-center-real-submit.e2e.cjs` -> PASS, batch `900000000855`, change `121`, artifact `doc/tasks/20260727-edhr-batch-void-work-task-closure/e2e-artifacts/edhr-batch-void-work-task-20260726174912.json`.
+- REGRESSION: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrRecordChangeServiceTest#voidBatchExecution_approvedBpmCallbackCancelsActiveWorkTasks,MesProEdhrBatchVoidEffectServiceImplTest#executeDirectPlatformVoidBatchExecution_cancelsActiveWorkTasks,MesProEdhrWorkTaskServiceImplTest#getMyPage_excludesTodoTasksFromTerminalBatches,MesProEdhrBatchExecutionGoldenFingerBulkVoidServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 7 tests, 0 failures, 0 errors.
+
+## Experience Consolidation
+
+- GREEN: experience-preflight -> PASS, read `project-experience-consolidation` and merged reusable E2E lessons into existing `docs/e2e-rules.md` plus `docs/experience-index.md`; no new long-term document was needed.
+- EXPERIENCE: added `eDHR 作废 BPM 审批真实 E2E 门禁` covering early `approval-resolution` wait timing, actual BPM assignee mapping, approval center review path, and post-void workbench verification.

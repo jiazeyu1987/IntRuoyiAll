@@ -8,11 +8,13 @@
 
 - [x] 建立任务目录与规则/技能前置
 - [x] 复核既有作废、工作任务、个人工作台和终态待办门禁证据
+- [x] 编写产品需求、用户流程和验收标准文档
 - [x] 编写系统设计文档
 - [x] 编写 BDD/TDD/E2E/测试数据验收设计
-- [ ] 进入代码实现前补 RED 测试
-- [ ] 实施后端作废生效点任务取消闭环
-- [ ] 完成 GREEN、回归、真实路径验证与收尾
+- [x] 进入代码实现前补 RED 测试
+- [x] 实施后端作废生效点任务取消闭环
+- [x] 完成 GREEN 与后端回归
+- [ ] 完成真实路径 E2E、融合 `int_main` 与收尾
 
 ## Expected Verification
 
@@ -25,18 +27,21 @@
 
 ## Current Status
 
-design_ready
+branch_runtime_e2e_verified_pending_int_main_merge
 
 ## Design Artifacts
 
-- `docs/system/backend-api-design.md`
-- `docs/system/frontend-design.md`
-- `docs/system/data-model.md`
-- `docs/system/config-security-deployment.md`
-- `docs/acceptance/bdd-scenarios.md`
-- `docs/acceptance/tdd-plan.md`
-- `docs/acceptance/e2e-plan.md`
-- `docs/acceptance/test-data.md`
+- `doc/tasks/20260727-edhr-batch-void-work-task-closure/docs/product/prd.md`
+- `doc/tasks/20260727-edhr-batch-void-work-task-closure/docs/product/user-flows.md`
+- `doc/tasks/20260727-edhr-batch-void-work-task-closure/docs/product/acceptance-criteria.md`
+- `doc/tasks/20260727-edhr-batch-void-work-task-closure/docs/system/backend-api-design.md`
+- `doc/tasks/20260727-edhr-batch-void-work-task-closure/docs/system/frontend-design.md`
+- `doc/tasks/20260727-edhr-batch-void-work-task-closure/docs/system/data-model.md`
+- `doc/tasks/20260727-edhr-batch-void-work-task-closure/docs/system/config-security-deployment.md`
+- `doc/tasks/20260727-edhr-batch-void-work-task-closure/docs/acceptance/bdd-scenarios.md`
+- `doc/tasks/20260727-edhr-batch-void-work-task-closure/docs/acceptance/tdd-plan.md`
+- `doc/tasks/20260727-edhr-batch-void-work-task-closure/docs/acceptance/e2e-plan.md`
+- `doc/tasks/20260727-edhr-batch-void-work-task-closure/docs/acceptance/test-data.md`
 
 ## 设计约束检查
 
@@ -47,6 +52,7 @@ design_ready
 ## 经验门禁
 
 - 命中 `docs/e2e-rules.md#eDHR 终态批次个人待办门禁`：批次已关闭/归档/驳回/作废时，`openTask` 阻断正确，个人控制台列表和统计必须从源头过滤终态批次残留待办。
+- 命中 `docs/e2e-rules.md#eDHR 作废 BPM 审批真实 E2E 门禁`：作废弹窗打开前等待审批策略响应，`BPM_REQUIRED` 必须按真实 BPM 待办审批人走审批中心页面审核，之后再复验负责人工作台和旧任务链接。
 - 命中 `docs/backend-development.md`：后端行为变更必须 BDD + RED/GREEN/REGRESSION，缺少依赖或测试数据时 fail fast。
 - 命中 `docs/database-rules.md`：本设计不新增迁移；若实现阶段发现字段缺失，必须先核对 schema，不得猜测写 SQL。
 - 命中 `docs/frontend-development.md` 与 `docs/e2e-rules.md`：真实工作台验证必须走 Playwright 真实页面，API 仅做最终只读核验。
