@@ -19,7 +19,8 @@ for (const endpoint of [
   '/system/codex-test-case/page',
   '/system/codex-test-case/create',
   '/system/codex-test-execution/start',
-  '/system/codex-test-execution/artifact'
+  '/system/codex-test-execution/artifact',
+  '/system/codex-test-runner/status'
 ]) {
   assert.ok(api.includes(endpoint), `missing API endpoint ${endpoint}`)
 }
@@ -146,6 +147,18 @@ assert.doesNotMatch(page, /:span-method="caseRowSpanMethod"/)
 assert.doesNotMatch(page, /<Pagination[\s\S]*@pagination="getCaseList"/)
 assert.match(page, /startSingleCaseExecution/)
 assert.match(page, /@click="startSingleCaseExecution\(row\)"/)
+assert.match(api, /interface CodexTestRunnerStatusVO[\s\S]*online:\s*boolean/, 'Runner 状态接口必须暴露 online。')
+assert.match(api, /heartbeatAgeSeconds\??:\s*number/, 'Runner 状态接口必须暴露心跳年龄。')
+assert.match(api, /getCodexTestRunnerStatus/, '前端 API 必须封装 Runner 状态接口。')
+assert.match(page, /Runner 状态/, '测试管理页必须展示 Runner 状态。')
+assert.match(page, /最后心跳/, '测试管理页必须展示 Runner 最后心跳。')
+assert.match(page, /runnerStatusMessage/, '页面必须把 Runner 离线原因展示为可操作信息。')
+assert.match(page, /refreshRunnerStatus/, '页面必须有刷新 Runner 状态的方法。')
+assert.match(
+  page,
+  /await refreshRunnerStatus\(\)[\s\S]*startCodexTestExecution/,
+  '执行测试项前必须刷新 Runner 状态，避免 stale UI 误导用户。'
+)
 assert.match(page, /@click="openEdit\(row\)"/, '修改测试项必须把当前行传入编辑回显流程。')
 assert.match(
   page,
@@ -284,6 +297,9 @@ assert.match(runner, /tenant-id/)
 assert.match(runner, /CODEX_TEST_POLL_INTERVAL_MS/)
 assert.match(runner, /CODEX_TEST_HEARTBEAT_INTERVAL_MS/)
 assert.match(runner, /CODEX_TEST_CODEX_TIMEOUT_MS/)
+assert.match(runner, /CODEX_TEST_API_TIMEOUT_MS/, 'Runner API 请求必须有独立超时配置。')
+assert.match(runner, /AbortController/, 'Runner API 请求必须使用 AbortController fail fast。')
+assert.match(runner, /async function requestWithTimeout/, 'Runner 必须封装 fetch 超时，避免进程存活但心跳停滞。')
 assert.match(runner, /class ServerCanceledExecutionError extends Error/)
 assert.match(runner, /await sleep\(POLL_INTERVAL_MS\)/)
 assert.match(runner, /function spawnCodex/)
@@ -294,6 +310,11 @@ assert.match(runner, /spawnSync\('taskkill\.exe'/)
 assert.match(runner, /function stopWindowsProcessTree/)
 assert.match(runner, /CommandLine\.Contains\(\$needle\)/)
 assert.match(runner, /await heartbeat\(runnerSessionId, runningExecutionCaseIds\)/)
+assert.match(
+  runner,
+  /await heartbeat\(runnerSessionId\)[\s\S]*const claim = await claimTasks\(runnerSessionId\)/,
+  'Runner 空闲轮询领取任务前也必须先心跳，避免无任务时心跳过期。'
+)
 assert.match(runner, /assertTaskNotCanceled\(task, await heartbeat\(runnerSessionId, runningExecutionCaseIds\)\)/)
 assert.match(runner, /cancelExecutionCaseIds\.includes\(task\.executionCaseId\)/)
 assert.match(runner, /finally\s*{[\s\S]*clearInterval\(heartbeatTimer\)[\s\S]*clearTimeout\(timeoutTimer\)[\s\S]*}/)

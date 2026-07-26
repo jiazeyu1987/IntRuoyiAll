@@ -4,7 +4,8 @@
   "baseUrl": "http://127.0.0.1:8081",
   "hasCodexPermission": true,
   "hasCodexMenuContract": true,
-  "openedPage": true,
+  "openedPage": false,
   "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260725-codex-test-management-admin-e2e\\system-codex-test-management-real.png",
-  "checkedAt": "2026-07-25T05:42:22.655Z"
+  "checkedAt": "2026-07-26T05:17:42.828Z",
+  "error": "locator.waitFor: Error: strict mode violation: locator('text=测试方法项') resolved to 2 elements:\n    1) <div class=\"cell\">…</div> aka locator('#pane-cases').getByText('测试方法项')\n    2) <span class=\"el-checkbox__label\">…</span> aka locator('#el-id-1078-93').getByText('测试方法项')\n\nCall log:\n\u001b[2m  - waiting for locator('text=测试方法项') to be visible\u001b[22m\n"
 }

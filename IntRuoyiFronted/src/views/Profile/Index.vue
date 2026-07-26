@@ -40,7 +40,10 @@
           <ResetPwd />
         </el-tab-pane>
         <el-tab-pane label="配置" name="config" v-if="hasGoldenFingerPermission">
-          <EdhrRecordbookGlobalSetting />
+          <div class="profile-config-pane">
+            <EdhrRecordbookGlobalSetting />
+            <EdhrReleaseDossierRequirementSetting />
+          </div>
         </el-tab-pane>
         <el-tab-pane :label="t('profile.info.userSocial')" name="userSocial" v-if="isAdminUser">
           <UserSocial v-model:activeName="activeName" />
@@ -56,6 +59,7 @@ import { useUserStore } from '@/store/modules/user'
 import MyNotifyMessageList from '@/views/system/notify/my/components/MyNotifyMessageList.vue'
 import {
   BasicInfo,
+  EdhrReleaseDossierRequirementSetting,
   EdhrRecordbookGlobalSetting,
   ProfileWorkbench,
   ResetPwd,
@@ -159,6 +163,12 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   line-height: 1;
+}
+
+.profile-config-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .personal-workbench-todo-badge {

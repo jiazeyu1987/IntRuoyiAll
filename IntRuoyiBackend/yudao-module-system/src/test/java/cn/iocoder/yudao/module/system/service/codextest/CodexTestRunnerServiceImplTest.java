@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRun
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerProgressReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerStatusRespVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionCaseDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestRunnerSessionDO;
@@ -23,6 +24,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
@@ -97,6 +99,28 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
 
         assertEquals("codex-runner", runnerSession.getCreator());
         assertEquals("codex-runner", runnerSession.getUpdater());
+    }
+
+    @Test
+    void getRunnerStatus_reportsStaleRunnerWithDiagnosticMessage() {
+        ReflectionTestUtils.setField(codexTestRunnerService, "runnerHeartbeatTimeoutSeconds", 60);
+        CodexTestRunnerSessionDO runnerSession = new CodexTestRunnerSessionDO();
+        runnerSession.setRunnerName("local-runner-stale");
+        runnerSession.setStatus("ONLINE");
+        runnerSession.setCapabilitiesJson("{\"playwright\":true,\"codex\":true}");
+        runnerSession.setMaxParallelism(1);
+        runnerSession.setLastHeartbeatTime(LocalDateTime.now().minusSeconds(120));
+        runnerSession.setCurrentRunningCount(0);
+        codexTestRunnerSessionMapper.insert(runnerSession);
+
+        CodexTestRunnerStatusRespVO status = codexTestRunnerService.getRunnerStatus();
+
+        assertFalse(status.getOnline());
+        assertEquals(0, status.getOnlineCount());
+        assertEquals(1, status.getStaleRunnerCount());
+        assertEquals(runnerSession.getId(), status.getLatestRunnerSessionId());
+        assertTrue(status.getHeartbeatAgeSeconds() >= 60);
+        assertTrue(status.getMessage().contains("心跳已过期"));
     }
 
     @Test

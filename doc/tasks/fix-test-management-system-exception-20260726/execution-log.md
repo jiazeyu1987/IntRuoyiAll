@@ -17,12 +17,14 @@
 
 ## TDD Evidence
 
-- RED: pending -> 待复现后记录失败命令和预期失败原因。
+- RED: `node .\tests\e2e\system-codex-test-management-real.e2e.js` -> FAIL, `/admin-api/system/codex-test-case/page` 返回业务码 `500`，页面可见 `系统异常`。
+- RED detail: 只读 schema 查询显示本地 Docker MySQL `system_codex_test_case` 缺少当前代码必需的 `project` 字段；`system_codex_test_execution_case` 已有运行监控进度字段。
 - GREEN: pending -> 待修复后记录通过命令。
 
 ## Milestone Updates
 
 - in_progress: 已建立任务文档和缺陷证据骨架。
+- in_progress: 已复现测试管理访问异常，根因为本地库缺少 `20260726_system_codex_test_case_project.sql` 迁移中的 `system_codex_test_case.project` 字段。
 
 ## Blockers
 

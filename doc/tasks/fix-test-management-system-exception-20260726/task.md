@@ -32,4 +32,5 @@ in_progress
 
 ## 经验门禁
 
-- 待读取 `docs/experience-index.md` 命中项后补充。
+- Codex Runner 自动测试门禁：测试管理页面真实执行前需确认本机前端/后端入口、目标租户、测试管理员账号和页面执行入口；不得用 API-only、mock 或 Runner 离线跳过替代真实页面验证。
+- 数据库 Schema 核对门禁：涉及测试管理表结构时先核对 `system_codex_test_case` / `system_codex_test_execution_case` 字段；缺字段不得用前端隐藏、后端默认值或吞异常掩盖。
