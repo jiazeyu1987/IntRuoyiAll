@@ -8,7 +8,7 @@
 
 ## 固定基线
 
-PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v2
+PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 
 - 主工作区：`E:\IntRuoyi`。
 - D-Main 工作区：`D:\ProjectPackage\IntRuoyi\IntRuoyiAll`。
@@ -31,7 +31,7 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v2
 - `int_qms` profile：基准前端 `8061`，基准后端 `48061`。
 - 前端端口 = 所属 profile 前端基准端口 + slot。
 - 后端端口 = 所属 profile 后端基准端口 + slot。
-- `slot = 0` 只用于各 profile 的基准工作区；同一 profile 的附加 worktree 必须使用稳定正整数 slot。
+- `slot = 0` 只用于各 profile 的基准工作区；同一 profile 的附加 worktree 必须使用稳定槽位 `1..19`。
 - 跨 profile 不共享 slot 语义；例如 `int_batch slot=1` 是 `8042/48042`，`int_qms slot=1` 是 `8062/48062`。
 - 分支端口矩阵的权威说明见 `docs\branch-runtime-ports.md`，提交、合并、推送前必须运行 `scripts\preflight\branch-runtime-port-guard.ps1`。
 
@@ -49,7 +49,8 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v2
 - `int_batch` 基准工作区永远使用 `slot = 0`，前端 `8041`，后端 `48041`。
 - `int_shedule` 基准工作区永远使用 `slot = 0`，前端 `8021`，后端 `48021`。
 - `int_qms` 基准工作区永远使用 `slot = 0`，前端 `8061`，后端 `48061`。
-- 附加 worktree 必须使用稳定正整数槽位，`slot >= 1`。
+- 附加 worktree 必须使用稳定整数槽位，`slot = 1..19`。
+- `slot >= 20` 必须 fail fast；该范围会进入下一 profile 的保留端口段。
 - 附加 worktree 的端口按所属 runtime profile 的基准端口计算：
   - 前端端口：profile 前端基准端口 + `slot`
   - 后端端口：profile 后端基准端口 + `slot`
@@ -61,10 +62,17 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v2
   - `int_qms slot = 1`：前端 `8062`，后端 `48062`
 - `int_main_d` 必须使用 `8101/48101`，不得使用保留给 `E:\IntRuoyi` 的 `8081/48081`。
 - 非 `int_main` profile 永远不得使用 `8081` 或 `48081`。
+- 各 profile 的附加 worktree 可用端口段分别为：
+  - `int_shedule`：前端 `8022-8040`，后端 `48022-48040`
+  - `int_batch`：前端 `8042-8060`，后端 `48042-48060`
+  - `int_qms`：前端 `8062-8080`，后端 `48062-48080`
+  - `int_main`：前端 `8082-8100`，后端 `48082-48100`
+  - `int_main_d`：前端 `8102-8120`，后端 `48102-48120`
 
 ## 端口登记表规则
 
-- 创建非 `int_main` worktree 前，必须读取 `D:\IntRuoyiWorktree\.ports\worktree-ports.json`。
+- 创建任何附加 worktree 后、首次启动前，必须通过 `scripts\runtime\reserve-worktree-slot.ps1` 原子分配并登记槽位。
+- 分配脚本必须使用跨进程互斥锁读取和写入 `D:\IntRuoyiWorktree\.ports\worktree-ports.json`，并选择所属 profile 的最低空闲槽位。
 - 如果登记表不存在，必须创建空登记表并立即登记本次分配；不得跳过登记。
 - 每个登记项至少记录：
   - `name`
@@ -79,6 +87,7 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v2
   - `updatedAt`
 - worktree 停止服务但目录仍存在时，槽位不得释放。
 - 只有确认 worktree 目录已删除、分支/合并状态已处理、任务记录已完成后，才允许将对应槽位标记为可复用。
+- 所有 `active = true` 的登记项必须保持 `profile/slot`、前端端口和后端端口全局唯一。
 - 不允许因为端口冲突临时随机换端口；必须修正登记表或阻塞。
 
 ## 启动和端口占用处理
@@ -88,7 +97,7 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v2
 - 启动 `int_batch`、`int_shedule`、`int_qms` 基准工作区前，必须确认各自矩阵端口占用情况。
 - 如果端口被同一 profile 对应的旧前端/后端进程占用，先停止对应旧进程，再启动新的同 profile 服务。
 - 如果端口被其他 profile、未知进程或无关程序占用，必须 fail fast，报告占用进程、端口和影响；不得强杀、不得换端口启动。
-- 启动非 `int_main` worktree 前，必须确认登记端口的占用情况。
+- 启动任何附加 worktree 前，必须确认登记端口的占用情况。
 - 如果登记端口被同一 worktree 的旧进程占用，先停止对应旧进程，再启动该 worktree。
 - 如果登记端口被其他 worktree、未知进程或无关程序占用，必须 fail fast，报告冲突；不得自动换端口。
 
@@ -105,6 +114,9 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v2
 - 禁止在未读取本文件时创建或启动 worktree。
 - 禁止非 `int_main` 使用 `8081/48081`。
 - 禁止任一 profile 使用其他 profile 的基准端口。
+- 禁止附加 worktree 使用 `slot >= 20`。
+- 禁止绕过 `scripts\runtime\reserve-worktree-slot.ps1` 手工猜测或并发写入槽位。
+- 禁止活动登记项复用其他 worktree 的 `profile/slot`、前端端口或后端端口。
 - 禁止随机选择端口或按启动顺序临时分配端口。
 - 禁止端口冲突时静默换端口、静默跳过服务或假装启动成功。
 - 禁止不检查目标绝对路径就执行 `git worktree add`。
@@ -114,7 +126,7 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v2
 
 - 创建 worktree 前记录已读取本文件。
 - 记录目标路径解析结果，证明目标在 `D:\IntRuoyiWorktree\` 下。
-- 记录端口登记表读取和写入结果。
+- 记录 `reserve-worktree-slot.ps1` 的分配结果和端口登记表写入结果。
 - 记录分配的 `slot`、前端端口、后端端口。
 - 启动服务前记录端口占用检查结果。
 - 如果停止旧进程，必须记录进程 ID、端口、归属判断依据和停止结果。

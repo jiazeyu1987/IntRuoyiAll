@@ -91,6 +91,7 @@
 - Keywords: Windows CRLF 静态合同, static.spec.js 目标 worktree 自身失败, 真实 E2E 脚本与页面行为同步, 废弃弹窗流程, 字段审计保存直连 API -> `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁`
 - Keywords: worktree E2E 成对 URL, EDHR_RELEASE_DOSSIER_E2E_BASE_URL, EDHR_RELEASE_DOSSIER_E2E_BACKEND_URL, 同一 runtime slot, 48081 旧 jar, 8086 48086 -> `docs/e2e-rules.md#worktree-隔离运行态-url-门禁`
 - Keywords: worktree 前端 vite 缺失, Command "vite" not found, node_modules .bin vite, pnpm install --frozen-lockfile, 不复制 node_modules -> `docs/worktree-memory.md#worktree-前端依赖启动门禁`
+- Keywords: worktree 端口段, slot 1..19, slot >= 20, reserve-worktree-slot, 原子槽位, 重复活动槽位, 基准端口碰撞, int_main 误判 int_main_d -> `docs/worktree-memory.md#worktree-端口段与原子槽位门禁`
 - Keywords: 多 worktree 融合, 批量 merge worktree, dirty worktree 独立提交, merge-base --is-ancestor, 聚焦组合回归, 宽回归失败归因, 合并后删除 worktree -> `docs/worktree-memory.md#多-worktree-批量融合门禁`
 - Keywords: schema-backed E2E, source_type, source_field_code, sourceFields, Unknown column, 字段矩阵可见但不可选, is-source-selectable, 单元格链接生产工单字段, 只读 E2E 无 MES 写请求 -> `docs/e2e-rules.md#schema-backed-e2e-迁移与字段可选态门禁`
 - Keywords: eDHR 单据填写人显示值, 损耗单卡片, fillableUsers displayName, candidateSourceNames 格式, 页面填写人断言 -> `docs/e2e-rules.md#edhr-单据填写人显示值门禁`

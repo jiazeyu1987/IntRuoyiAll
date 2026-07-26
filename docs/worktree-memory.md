@@ -1,5 +1,14 @@
 # Worktree Memory
 
+## Worktree 端口段与原子槽位门禁
+
+- Trigger: 新建、登记或启动 `D:\IntRuoyiWorktree\` 下的 worktree；出现 `slot >= 20`、基准端口碰撞、重复活动槽位、重复活动端口，或 `E:\IntRuoyi` 被识别为 `int_main_d`。
+- Preflight check: 附加 worktree 创建后、启动前运行 `scripts\runtime\reserve-worktree-slot.ps1`，由脚本在跨进程互斥锁内读取登记表并分配所属 profile 的最低空闲 `slot 1..19`；随后运行 `show-branch-runtime.ps1` 确认 profile、slot 和前后端端口。
+- Blocker: 槽位不在 `1..19`、计算端口命中任一 profile 基准端口、活动登记项复用 `profile/slot` 或前后端端口、基准工作区请求非零槽位、路径与 profile 无法唯一匹配时必须 fail fast。
+- Verification: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_branch_runtime_profile.py`、`pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1`、目标工作区 `show-branch-runtime.ps1` 输出。
+- Forbidden action: 禁止手工猜测槽位、并发直接改写登记表、使用 `slot >= 20`、基准工作区借用 worktree 槽位、冲突时随机换端口或按分支名猜测歧义 profile。
+- Evidence: `doc/tasks/20260726-harden-worktree-port-slot-allocation/verification-report.md`。
+
 ## 多 Worktree 批量融合门禁
 
 - Trigger: 将 `D:\IntRuoyiWorktree\` 下多个功能分支批量合入 `int_main`，尤其是 worktree 存在 dirty 状态、多个分支修改同一服务/API/测试文件，或合并后需要立即删除 worktree。

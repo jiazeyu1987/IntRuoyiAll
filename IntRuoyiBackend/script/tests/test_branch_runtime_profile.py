@@ -8,6 +8,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 PROFILE_SCRIPT = REPO_ROOT / "scripts" / "runtime" / "branch-runtime-profile.ps1"
 SHOW_SCRIPT = REPO_ROOT / "scripts" / "runtime" / "show-branch-runtime.ps1"
 START_FRONTEND_SCRIPT = REPO_ROOT / "scripts" / "runtime" / "start-branch-frontend.ps1"
+RESERVE_SLOT_SCRIPT = REPO_ROOT / "scripts" / "runtime" / "reserve-worktree-slot.ps1"
 
 
 def _write_registry(tmp_path: Path, entries: list[dict]) -> Path:
@@ -33,6 +34,33 @@ def _run_powershell(command: str, registry_path: Path) -> subprocess.CompletedPr
     )
 
 
+def _slot_allocator_command(
+    registry_path: Path,
+    *,
+    name: str,
+    profile: str = "int_main",
+) -> list[str]:
+    return [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(RESERVE_SLOT_SCRIPT),
+        "-Name",
+        name,
+        "-Path",
+        f"D:\\IntRuoyiWorktree\\{name}",
+        "-Branch",
+        f"codex/{name}",
+        "-Profile",
+        profile,
+        "-RegistryPath",
+        str(registry_path),
+        "-AsJson",
+    ]
+
+
 def test_registered_worktree_context_uses_registered_slot(tmp_path: Path) -> None:
     worktree_root = "D:\\IntRuoyiWorktree\\system-backup-plan"
     registry_path = _write_registry(
@@ -45,6 +73,7 @@ def test_registered_worktree_context_uses_registered_slot(tmp_path: Path) -> Non
                         "name": "legacy-shape",
                         "path": "D:\\IntRuoyiWorktree\\legacy-shape",
                         "branch": "codex/legacy-shape",
+                        "profile": "int_main",
                         "slot": 1,
                         "frontendPort": 8082,
                         "backendPort": 48082,
@@ -135,6 +164,207 @@ def test_duplicate_registered_worktree_entries_fail_fast(tmp_path: Path) -> None
 
     assert result.returncode != 0
     assert "Duplicate active worktree port registry entries" in result.stderr
+
+
+def test_registered_worktree_slot_outside_profile_band_fails_fast(tmp_path: Path) -> None:
+    registry_path = _write_registry(
+        tmp_path,
+        [
+            {
+                "name": "reserved-base-collision",
+                "path": "D:\\IntRuoyiWorktree\\reserved-base-collision",
+                "branch": "codex/reserved-base-collision",
+                "profile": "int_main",
+                "slot": 20,
+                "frontendPort": 8101,
+                "backendPort": 48101,
+                "active": True,
+            }
+        ],
+    )
+    command = (
+        f". '{PROFILE_SCRIPT}'; "
+        "$context = Resolve-BranchRuntimeContext "
+        "-RepoRoot 'D:\\IntRuoyiWorktree\\reserved-base-collision' "
+        "-Branch 'codex/reserved-base-collision'; "
+        "$context | ConvertTo-Json"
+    )
+
+    result = _run_powershell(command, registry_path)
+
+    assert result.returncode != 0
+    assert "must be between 1 and 19" in result.stderr
+
+
+def test_duplicate_active_profile_slots_fail_fast(tmp_path: Path) -> None:
+    registry_path = _write_registry(
+        tmp_path,
+        [
+            {
+                "name": "slot-owner-a",
+                "path": "D:\\IntRuoyiWorktree\\slot-owner-a",
+                "branch": "codex/slot-owner-a",
+                "profile": "int_main",
+                "slot": 2,
+                "frontendPort": 8083,
+                "backendPort": 48083,
+                "active": True,
+            },
+            {
+                "name": "slot-owner-b",
+                "path": "D:\\IntRuoyiWorktree\\slot-owner-b",
+                "branch": "codex/slot-owner-b",
+                "profile": "int_main",
+                "slot": 2,
+                "frontendPort": 8083,
+                "backendPort": 48083,
+                "active": True,
+            },
+        ],
+    )
+    command = (
+        f". '{PROFILE_SCRIPT}'; "
+        "$context = Resolve-BranchRuntimeContext "
+        "-RepoRoot 'D:\\IntRuoyiWorktree\\slot-owner-a' "
+        "-Branch 'codex/slot-owner-a'; "
+        "$context | ConvertTo-Json"
+    )
+
+    result = _run_powershell(command, registry_path)
+
+    assert result.returncode != 0
+    assert "Duplicate active runtime slot 'int_main/2'" in result.stderr
+
+
+def test_base_workspace_cannot_request_additional_slot(tmp_path: Path) -> None:
+    registry_path = _write_registry(tmp_path, [])
+    command = (
+        f". '{PROFILE_SCRIPT}'; "
+        "$context = Resolve-BranchRuntimeContext "
+        "-RepoRoot 'E:\\IntRuoyi' "
+        "-Branch 'int_main' "
+        "-RequestedSlot 1; "
+        "$context | ConvertTo-Json"
+    )
+
+    result = _run_powershell(command, registry_path)
+
+    assert result.returncode != 0
+    assert "Base workspace must use runtime slot 0" in result.stderr
+
+
+def test_main_workspace_resolves_int_main_base_profile(tmp_path: Path) -> None:
+    registry_path = _write_registry(tmp_path, [])
+    command = (
+        f". '{PROFILE_SCRIPT}'; "
+        "$context = Resolve-BranchRuntimeContext "
+        "-RepoRoot 'E:\\IntRuoyi' "
+        "-Branch 'int_main'; "
+        "$context | ConvertTo-Json -Depth 4"
+    )
+
+    result = _run_powershell(command, registry_path)
+
+    assert result.returncode == 0, result.stderr
+    assert '"Name":  "int_main"' in result.stdout
+    assert '"FrontendPort":  8081' in result.stdout
+    assert '"BackendPort":  48081' in result.stdout
+
+
+def test_slot_allocator_reserves_lowest_available_profile_slot(tmp_path: Path) -> None:
+    registry_path = _write_registry(
+        tmp_path,
+        [
+            {
+                "name": "existing-slot",
+                "path": "D:\\IntRuoyiWorktree\\existing-slot",
+                "branch": "codex/existing-slot",
+                "profile": "int_main",
+                "slot": 1,
+                "frontendPort": 8082,
+                "backendPort": 48082,
+                "active": True,
+            }
+        ],
+    )
+    result = subprocess.run(
+        _slot_allocator_command(registry_path, name="allocated-slot"),
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr
+    allocation = json.loads(result.stdout)
+    assert allocation["slot"] == 2
+    assert allocation["frontendPort"] == 8083
+    assert allocation["backendPort"] == 48083
+
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    active_entries = [entry for entry in registry["worktrees"] if entry["active"]]
+    assert {(entry["profile"], entry["slot"]) for entry in active_entries} == {
+        ("int_main", 1),
+        ("int_main", 2),
+    }
+
+
+def test_concurrent_slot_allocators_receive_distinct_slots(tmp_path: Path) -> None:
+    registry_path = _write_registry(tmp_path, [])
+    first = subprocess.Popen(
+        _slot_allocator_command(registry_path, name="concurrent-a"),
+        cwd=REPO_ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    second = subprocess.Popen(
+        _slot_allocator_command(registry_path, name="concurrent-b"),
+        cwd=REPO_ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    first_stdout, first_stderr = first.communicate(timeout=30)
+    second_stdout, second_stderr = second.communicate(timeout=30)
+
+    assert first.returncode == 0, first_stderr
+    assert second.returncode == 0, second_stderr
+    allocations = [json.loads(first_stdout), json.loads(second_stdout)]
+    assert sorted(allocation["slot"] for allocation in allocations) == [1, 2]
+
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    active_entries = [entry for entry in registry["worktrees"] if entry["active"]]
+    assert sorted(entry["slot"] for entry in active_entries) == [1, 2]
+
+
+def test_slot_allocator_fails_when_profile_band_is_exhausted(tmp_path: Path) -> None:
+    entries = [
+        {
+            "name": f"occupied-{slot}",
+            "path": f"D:\\IntRuoyiWorktree\\occupied-{slot}",
+            "branch": f"codex/occupied-{slot}",
+            "profile": "int_main",
+            "slot": slot,
+            "frontendPort": 8081 + slot,
+            "backendPort": 48081 + slot,
+            "active": True,
+        }
+        for slot in range(1, 20)
+    ]
+    registry_path = _write_registry(tmp_path, entries)
+
+    result = subprocess.run(
+        _slot_allocator_command(registry_path, name="no-slot-left"),
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        timeout=30,
+    )
+
+    assert result.returncode != 0
+    assert "No available runtime slot for profile 'int_main' in range 1..19" in result.stderr
 
 
 def test_branch_frontend_start_injects_required_local_runtime_env() -> None:

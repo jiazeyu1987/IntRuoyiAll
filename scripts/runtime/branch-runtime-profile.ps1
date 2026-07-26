@@ -1,8 +1,10 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:PortContractVersion = '2026-07-24-branch-runtime-v2'
+$script:PortContractVersion = '2026-07-26-branch-runtime-v3'
 $script:DefaultWorktreePortRegistryPath = 'D:\IntRuoyiWorktree\.ports\worktree-ports.json'
+$script:MinimumWorktreeSlot = 1
+$script:MaximumWorktreeSlot = 19
 
 function Get-BranchRuntimeProfiles {
     @(
@@ -101,7 +103,9 @@ function Get-BranchRuntimePortRegistryPath {
 }
 
 function Read-BranchRuntimePortRegistryEntries {
-    $registryPath = Get-BranchRuntimePortRegistryPath
+    param([string]$RegistryPath = (Get-BranchRuntimePortRegistryPath))
+
+    $registryPath = [System.IO.Path]::GetFullPath($RegistryPath)
     if (-not (Test-Path -LiteralPath $registryPath)) {
         return @()
     }
@@ -156,6 +160,81 @@ function Get-RequiredRegistryValue {
     $property.Value
 }
 
+function Test-BranchRuntimeRegistryEntryActive {
+    param([Parameter(Mandatory = $true)]$Entry)
+
+    $activeProperty = $Entry.PSObject.Properties['active']
+    if ($null -eq $activeProperty -or $activeProperty.Value -isnot [bool]) {
+        throw 'Worktree port registry entries must contain a boolean active field.'
+    }
+
+    [bool]$activeProperty.Value
+}
+
+function Assert-BranchRuntimePortRegistryEntries {
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Entries,
+        [object[]]$Profiles = (Get-BranchRuntimeProfiles)
+    )
+
+    $activeEntries = @($Entries | Where-Object {
+            Test-BranchRuntimeRegistryEntryActive -Entry $_
+        })
+    $slotOwners = @{}
+    $frontendPortOwners = @{}
+    $backendPortOwners = @{}
+    $reservedFrontendPorts = @{}
+    $reservedBackendPorts = @{}
+
+    foreach ($profile in $Profiles) {
+        $reservedFrontendPorts[[string]$profile.FrontendBasePort] = $profile.Name
+        $reservedBackendPorts[[string]$profile.BackendBasePort] = $profile.Name
+    }
+
+    foreach ($entry in $activeEntries) {
+        $entryPath = Normalize-BranchRuntimePath -Path ([string](Get-RequiredRegistryValue -Entry $entry -PropertyName 'path' -RepoRoot '<registry>'))
+        $profileName = [string](Get-RequiredRegistryValue -Entry $entry -PropertyName 'profile' -RepoRoot $entryPath)
+        $profileMatches = @($Profiles | Where-Object { $_.Name -eq $profileName })
+        if ($profileMatches.Count -ne 1) {
+            throw "Worktree port registry profile '$profileName' is not defined for '$entryPath'."
+        }
+
+        $slot = [int](Get-RequiredRegistryValue -Entry $entry -PropertyName 'slot' -RepoRoot $entryPath)
+        if ($slot -lt $script:MinimumWorktreeSlot -or $slot -gt $script:MaximumWorktreeSlot) {
+            throw "Registered worktree slot for '$entryPath' must be between $($script:MinimumWorktreeSlot) and $($script:MaximumWorktreeSlot), got $slot."
+        }
+
+        $profile = $profileMatches[0]
+        $frontendPort = [int](Get-RequiredRegistryValue -Entry $entry -PropertyName 'frontendPort' -RepoRoot $entryPath)
+        $backendPort = [int](Get-RequiredRegistryValue -Entry $entry -PropertyName 'backendPort' -RepoRoot $entryPath)
+        $expectedFrontendPort = $profile.FrontendBasePort + $slot
+        $expectedBackendPort = $profile.BackendBasePort + $slot
+        if ($frontendPort -ne $expectedFrontendPort -or $backendPort -ne $expectedBackendPort) {
+            throw "Registered worktree ports for '$entryPath' does not match profile '$profileName' slot ${slot}: expected frontend $expectedFrontendPort backend $expectedBackendPort, got frontend $frontendPort backend $backendPort."
+        }
+
+        if ($reservedFrontendPorts.ContainsKey([string]$frontendPort) -or $reservedBackendPorts.ContainsKey([string]$backendPort)) {
+            throw "Registered worktree '$entryPath' uses a reserved base runtime port: frontend $frontendPort backend $backendPort."
+        }
+
+        $slotKey = "$profileName/$slot"
+        if ($slotOwners.ContainsKey($slotKey)) {
+            throw "Duplicate active runtime slot '$slotKey' is registered for '$($slotOwners[$slotKey])' and '$entryPath'."
+        }
+        $slotOwners[$slotKey] = $entryPath
+
+        if ($frontendPortOwners.ContainsKey([string]$frontendPort)) {
+            throw "Duplicate active frontend port '$frontendPort' is registered for '$($frontendPortOwners[[string]$frontendPort])' and '$entryPath'."
+        }
+        $frontendPortOwners[[string]$frontendPort] = $entryPath
+
+        if ($backendPortOwners.ContainsKey([string]$backendPort)) {
+            throw "Duplicate active backend port '$backendPort' is registered for '$($backendPortOwners[[string]$backendPort])' and '$entryPath'."
+        }
+        $backendPortOwners[[string]$backendPort] = $entryPath
+    }
+}
+
 function Get-RegisteredBranchRuntimeContext {
     param(
         [string]$RepoRoot = (Get-CurrentRepoRoot),
@@ -184,8 +263,7 @@ function Get-RegisteredBranchRuntimeContext {
     }
 
     $activeMatches = @($matches | Where-Object {
-            $activeProperty = $_.PSObject.Properties['active']
-            $null -ne $activeProperty -and [bool]$activeProperty.Value
+            Test-BranchRuntimeRegistryEntryActive -Entry $_
         })
 
     if ($activeMatches.Count -eq 0) {
@@ -194,6 +272,8 @@ function Get-RegisteredBranchRuntimeContext {
     if ($activeMatches.Count -gt 1) {
         throw "Duplicate active worktree port registry entries for '$fullRoot'."
     }
+
+    Assert-BranchRuntimePortRegistryEntries -Entries $entries -Profiles $Profiles
 
     $entry = $activeMatches[0]
     $registeredBranch = [string](Get-RequiredRegistryValue -Entry $entry -PropertyName 'branch' -RepoRoot $fullRoot)
@@ -208,8 +288,8 @@ function Get-RegisteredBranchRuntimeContext {
     }
 
     $slot = [int](Get-RequiredRegistryValue -Entry $entry -PropertyName 'slot' -RepoRoot $fullRoot)
-    if ($slot -le 0) {
-        throw "Registered worktree slot for '$fullRoot' must be a positive integer, got $slot."
+    if ($slot -lt $script:MinimumWorktreeSlot -or $slot -gt $script:MaximumWorktreeSlot) {
+        throw "Registered worktree slot for '$fullRoot' must be between $($script:MinimumWorktreeSlot) and $($script:MaximumWorktreeSlot), got $slot."
     }
 
     $profile = $profileMatches[0]
@@ -233,6 +313,7 @@ function Resolve-BranchRuntimeContext {
 
     $fullRoot = Normalize-BranchRuntimePath -Path $RepoRoot
     $normalizedRoot = $fullRoot
+    $pathForMarkerMatch = "$normalizedRoot\"
     $profiles = Get-BranchRuntimeProfiles
     $registeredContext = Get-RegisteredBranchRuntimeContext -RepoRoot $fullRoot -Branch $Branch -Profiles $profiles
 
@@ -247,19 +328,27 @@ function Resolve-BranchRuntimeContext {
 
     foreach ($profile in $profiles) {
         foreach ($marker in $profile.PathMarkers) {
-            if ($normalizedRoot.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+            if ($pathForMarkerMatch.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
                 if ($profile.Branches -notcontains $Branch) {
                     throw "Workspace '$fullRoot' belongs to profile '$($profile.Name)' but current branch is '$Branch'. Switch to one of: $($profile.Branches -join ', ')."
+                }
+                if ($slot -ne 0) {
+                    throw "Base workspace must use runtime slot 0. Additional worktrees must be registered under 'D:\IntRuoyiWorktree'."
                 }
                 return New-BranchRuntimeContext -Profile $profile -Slot $slot
             }
         }
     }
 
-    foreach ($profile in $profiles) {
-        if ($profile.Branches -contains $Branch) {
-            return New-BranchRuntimeContext -Profile $profile -Slot $slot
+    $branchProfiles = @($profiles | Where-Object { $_.Branches -contains $Branch })
+    if ($branchProfiles.Count -eq 1) {
+        if ($slot -ne 0) {
+            throw "Base workspace must use runtime slot 0. Additional worktrees must be registered under 'D:\IntRuoyiWorktree'."
         }
+        return New-BranchRuntimeContext -Profile $branchProfiles[0] -Slot $slot
+    }
+    if ($branchProfiles.Count -gt 1) {
+        throw "Runtime profile is ambiguous for branch '$Branch' at '$fullRoot'. Register worktrees under 'D:\IntRuoyiWorktree' or use a defined base workspace path."
     }
 
     throw "No branch runtime profile is registered for branch '$Branch' at '$fullRoot'."
@@ -280,8 +369,8 @@ function Get-BranchRuntimePorts {
         [int]$Slot = 0
     )
 
-    if ($Slot -lt 0) {
-        throw "Runtime slot must be zero or positive, got $Slot."
+    if ($Slot -lt 0 -or $Slot -gt $script:MaximumWorktreeSlot) {
+        throw "Runtime slot must be between 0 and $($script:MaximumWorktreeSlot), got $Slot."
     }
 
     [pscustomobject]@{
