@@ -1456,7 +1456,14 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .map(value -> value == null ? null : String.valueOf(value))
                     .toList());
         }
-        return normalizeCandidateSourceNames(List.of(String.valueOf(rawValue)));
+        String text = StrUtil.trim(String.valueOf(rawValue));
+        if (StrUtil.isBlank(text)) {
+            return Collections.emptyList();
+        }
+        if (text.startsWith("[") && text.endsWith("]")) {
+            return normalizeCandidateSourceNames(JSON.parseArray(text, String.class));
+        }
+        return normalizeCandidateSourceNames(List.of(text));
     }
 
     private boolean isBatchRecordAttachmentCode(String attachmentCode) {
@@ -1901,23 +1908,6 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .filter(StrUtil::isNotBlank)
                 .map(Long::valueOf)
                 .toList();
-    }
-
-    private List<String> parseCandidateSourceNames(Object rawValue) {
-        if (rawValue == null) {
-            return Collections.emptyList();
-        }
-        if (rawValue instanceof JSONArray array) {
-            return array.stream().map(String::valueOf).toList();
-        }
-        if (rawValue instanceof List<?> list) {
-            return list.stream().map(String::valueOf).toList();
-        }
-        String text = StrUtil.trim(String.valueOf(rawValue));
-        if (StrUtil.isBlank(text)) {
-            return Collections.emptyList();
-        }
-        return JSON.parseArray(text, String.class);
     }
 
     private List<Long> parseCandidateSourceIdSnapshot(String rawValue) {
