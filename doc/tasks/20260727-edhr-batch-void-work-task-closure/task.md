@@ -14,7 +14,7 @@
 - [x] 进入代码实现前补 RED 测试
 - [x] 实施后端作废生效点任务取消闭环
 - [x] 完成 GREEN 与后端回归
-- [ ] 完成真实路径 E2E、融合 `int_main` 与收尾
+- [x] 完成真实路径 E2E、融合 `int_main` 与收尾
 
 ## Expected Verification
 
