@@ -15,8 +15,11 @@ PASS for focused implementation verification.
 ## Environment Note
 
 - `pnpm ts:check` initially failed because local `node_modules/.bin/cross-env.cmd` was missing. `pnpm install --frozen-lockfile` restored installed dependencies without changing lockfile, then `pnpm ts:check` passed.
-- Runtime recheck after the browser route-not-found report: backend PID `34948` on `48081` is running `E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`; frontend PID `58060` on `8081` is running Vite in `env.local`.
-- `http://127.0.0.1:48081/admin-api/system/codex-test-execution/monitor` and `http://127.0.0.1:8081/admin-api/system/codex-test-execution/monitor` both return HTTP `200` with body `{"code":401,"msg":"账号未登录","data":null}` when called without login, confirming the route exists in the loaded runtime.
+- Runtime RED after the browser route-not-found report: authenticated request to `GET /admin-api/system/codex-test-execution/monitor` returned business `code=404`, confirming the old running JAR had not loaded the monitor route.
+- Runtime GREEN after repair: backend PID `59524` on `48081` runs the isolated build from `D:\IntRuoyiWorktree\codex-test-run-monitor-runtime`; `/actuator/health` returns `UP`.
+- Runtime GREEN after repair: authenticated request to `GET /admin-api/system/codex-test-execution/monitor` returns HTTP `200`, business `code=0`, array data, running count `0`.
+- Schema GREEN after repair: local Docker MySQL `system_codex_test_execution_case` contains `progress_phase`, `current_method_sort`, `current_checkpoint_sort`, and `progress_message`.
+- Real frontend smoke GREEN: Playwright logged in through `http://127.0.0.1:8081/login?redirect=/system/codex-test-management`, opened `系统管理 > 测试管理`, clicked the `运行监控` tab, and observed monitor HTTP `200`, business `code=0`, data `[]`, no route-not-found message, and summary `当前正在运行 0 个测试任务`.
 
 ## Not Completed
 

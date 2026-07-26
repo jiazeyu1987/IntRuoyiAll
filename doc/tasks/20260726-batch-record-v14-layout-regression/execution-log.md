@@ -24,6 +24,7 @@ BDD: 说明区边界保持独立 -> Given 表格底部存在短标题加长说�
 - 真实前端验证：`V14_VERIFY_EXISTING_ONLY=1 node doc/tasks/20260726-batch-record-v14-layout-regression/v14-ui-import-verify.cjs` -> PASS；验证既有 `球囊扩张压力泵 / V14.0 / batchRecordVersionId=130` 的 `清洁工序生产记录` 和 `光固Ⅰ工序生产记录`。
 - 真实前端审计：`v14-json-audit-2026-07-26T04-47-04-690Z.json` 中两张目标表 `offenders=[]`，`offenderCount=0`。
 - 截图证据：`artifacts/v14-cleaning-fixed.png`、`artifacts/v14-lightcuring-fixed.png`。
+- 经验沉淀：已更新 `docs/backend-development.md#旧版本 JSON 的 fillForm/edhrCellRule 读时刷新门禁`，防止后续只检查 `text` 坐标而漏掉旧 `fillForm` / `edhrCellRule`。
 
 ## Blockers
 
