@@ -48,3 +48,7 @@
 - GREEN: experience-preflight -> PASS, no new long-term experience document created; existing frontend static contract isolation and PowerShell/Git baseline gates already cover the reusable lessons from this task.
 - GREEN: cleanup preview -> PASS, keep only task records and backend/frontend evidence; delete none; blocked none; warnings none.
 - GREEN: cleanup apply -> PASS, deleted none; linked worktree false.
+- CLOSEOUT COMMIT: `1169bc2c docs: close out personal workbench task visibility`.
+  - Files: `IntRuoyiFronted/src/views/Profile/components/ProfileWorkbench.vue`; `doc/tasks/20260727-personal-workbench-task-hide-restore/backend-api-evidence.md`; `doc/tasks/20260727-personal-workbench-task-hide-restore/execution-log.md`; `doc/tasks/20260727-personal-workbench-task-hide-restore/frontend-feature-evidence.md`; `doc/tasks/20260727-personal-workbench-task-hide-restore/task.md`; `doc/tasks/20260727-personal-workbench-task-hide-restore/verification-report.md`.
+- GREEN: branch-runtime-port-guard -> PASS, `int_main/int_main` frontend `8081`, backend `48081`.
+- GREEN: pre-push large object scan -> PASS, no objects over 50 MB in `origin/int_main..HEAD`.
