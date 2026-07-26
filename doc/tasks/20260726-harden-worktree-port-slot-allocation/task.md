@@ -9,7 +9,7 @@
 - [x] M1：建立任务记录并保存任务开始前的脏工作区基线。
 - [x] M2：补充 BDD 场景与失败回归测试，证明 `slot >= 20` 和跨 profile 端口冲突当前未被拒绝。
 - [x] M3：实现固定端口段、全局保留端口和登记冲突的 fail-fast 校验。
-- [ ] M4：完成目标测试、端口门禁及相关回归验证。
+- [x] M4：完成目标测试、端口门禁及相关回归验证。
 - [ ] M5：完成经验沉淀、cleanup、提交和推送。
 
 ## Expected Verification
@@ -21,7 +21,7 @@
 
 ## Current Status
 
-`in_progress`
+`ready_for_closeout`
 
 ## 设计约束检查
 

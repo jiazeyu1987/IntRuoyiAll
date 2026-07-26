@@ -22,6 +22,7 @@
 - M1：完成，任务记录、经验门禁和脏工作区基线均已建立。
 - M2：完成，新增 4 个回归场景并获得预期 RED。
 - M3：完成，端口契约升级为 `2026-07-26-branch-runtime-v3`，实现 `slot 1..19`、活动登记全局唯一、互斥锁原子分配和基准路径严格解析。
+- M4：完成，目标回归、port guard、主工作区与活动 worktree 解析、脚本语法、证据校验和经验索引均通过。
 - GREEN: experience-preflight -> PASS，已读取 `docs\experience-index.md` 与命中的 `docs\worktree-memory.md`；确认槽位必须稳定保留、冲突必须 fail fast。
 
 ## Verification Evidence
@@ -34,6 +35,12 @@
 - GREEN: 从 `D:\IntRuoyiWorktree\edhr-latest-published-form` 调用新版 `show-branch-runtime.ps1` -> PASS，保持 `profile=int_main`、`slot=7`、`8088/48088`。
 - GREEN: PowerShell parser -> PASS，`branch-runtime-profile.ps1`、`reserve-worktree-slot.ps1`、`branch-runtime-port-guard.ps1` 均无语法错误。
 - RED: bug regression evidence validator -> FAIL，缺少必需的 `Verification` 章节；已按证据契约补充，不改变实现。
+- GREEN: bug regression evidence validator -> PASS，证据结构完整。
+- RED: PowerShell parser 编排命令 -> FAIL，命令字符串中的 `$target:` 触发 PowerShell 变量插值解析错误；改为 `${target}:` 后复跑，不涉及产品脚本。
+- GREEN: PowerShell parser corrected command -> PASS。
+- GREEN: project-experience-consolidation -> PASS，新增经验归入既有 `docs\worktree-memory.md`，并更新 `docs\experience-index.md` 路由；未新建长期经验文档。
+- CONCURRENCY: 其他任务按脏工作区基线规则创建提交 `14dfbc66`（`chore: save pre-task workspace baseline`），其中包含本任务当时已存在的 v3 契约、测试、规则和任务证据。该提交未包含被 `.gitignore:28` 的 `**/runtime/` 忽略的新文件 `scripts\runtime\reserve-worktree-slot.ps1`；本任务不改写并发提交，将在任务实现提交中使用 `git add -f` 正式纳入该脚本。
+- GREEN: `git check-ignore -v scripts\runtime\reserve-worktree-slot.ps1` -> PASS，确认忽略来源为 `.gitignore:28:**/runtime/`，属于合法运行时源码目录误命中。
 
 ## Blockers
 

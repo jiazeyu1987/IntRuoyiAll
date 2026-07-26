@@ -22,10 +22,11 @@ PASS
 - Bug regression evidence validator -> PASS。
 - 经验索引路由检查 -> PASS。
 - 受保护运行时文件旧版契约引用检查 -> PASS，无 `v1/v2` 残留。
+- `git check-ignore -v scripts\runtime\reserve-worktree-slot.ps1` -> 命中 `.gitignore:28:**/runtime/`；提交时必须 `git add -f`，否则干净检出会缺少 guard 要求的分配脚本。
 
 ## Scope And Risk
 
 - 未启动或停止任何前后端服务，未修改真实端口登记表，原子分配验证使用临时登记表。
 - 未修改共享 `.env`、`application-local.yaml`、数据库或远端环境。
 - 正式创建新 worktree 时仍需按规则在创建后、首次启动前运行槽位分配脚本。
-
+- 并发基线提交 `14dfbc66` 已保存大部分 v3 变更；本任务保留该历史，不执行 amend、reset 或重写，仅补交被忽略的新脚本及最终收尾记录。
