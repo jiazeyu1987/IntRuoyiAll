@@ -319,7 +319,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
 
         MesProEdhrReleaseTransactionDO transaction = requireTransaction(reqVO.getReleaseTransactionId());
         requirePrecheckPassed(transaction);
-        dossierRequirementSettingService.requireCurrentConfigHash(extractDossierRequirementConfigHash(transaction));
+        requireDossierRequirementConfigHashCurrent(extractDossierRequirementConfigHash(transaction));
         MesProEdhrBatchExecutionDO batch = requireBatchExecution(transaction.getBatchExecutionId());
         String fromStatus = transaction.getReleaseStatus();
         LocalDateTime occurredAt = now();
@@ -1098,6 +1098,15 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         } catch (RuntimeException ex) {
             throw exception(PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE);
         }
+    }
+
+    private void requireDossierRequirementConfigHashCurrent(String precheckConfigHash) {
+        MesProEdhrReleaseDossierRequirementState currentState =
+                dossierRequirementSettingService.getRequirementState();
+        if (StrUtil.isBlank(precheckConfigHash) || !Objects.equals(currentState.configHash(), precheckConfigHash)) {
+            throw exception(PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE);
+        }
+        dossierRequirementSettingService.requireCurrentConfigHash(precheckConfigHash);
     }
 
     private String buildPrecheckIdempotencyKey(MesProEdhrReleaseTransactionDO transaction, LocalDateTime checkedAt) {
