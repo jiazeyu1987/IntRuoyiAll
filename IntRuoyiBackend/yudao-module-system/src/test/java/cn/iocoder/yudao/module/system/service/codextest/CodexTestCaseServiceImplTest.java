@@ -45,6 +45,16 @@ class CodexTestCaseServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void createCase_acceptsProcessRouteProject() {
+        CodexTestCaseSaveReqVO reqVO = buildCaseReq("工艺路线基础信息与工序维护闭环", false);
+        reqVO.setProject("工艺路线");
+
+        Long caseId = codexTestCaseService.createCase(reqVO);
+
+        assertEquals("工艺路线", codexTestCaseMapper.selectById(caseId).getProject());
+    }
+
+    @Test
     void updateCase_replacesCheckpointSnapshotForFutureExecutions() {
         Long caseId = codexTestCaseService.createCase(buildCaseReq("排产手动重排", false));
         CodexTestCaseSaveReqVO updateReqVO = buildCaseReq("排产手动重排-更新", true);
@@ -68,7 +78,7 @@ class CodexTestCaseServiceImplTest extends BaseDbUnitTest {
         reqVO.setProject("其它");
 
         assertServiceException(() -> codexTestCaseService.createCase(reqVO),
-                CODEX_TEST_RESULT_SCHEMA_INVALID, "测试项项目必须是 智能排产、文控 或 批记录");
+                CODEX_TEST_RESULT_SCHEMA_INVALID, "测试项项目必须是 智能排产、文控、批记录 或 工艺路线");
     }
 
     @Test

@@ -801,6 +801,13 @@ function resolveCaseProject(row: CodexTestApi.CodexTestCaseVO): CodexTestApi.Cod
   ) {
     return '文控'
   }
+  if (
+    source.includes('工艺路线') ||
+    normalized.includes('/mes/pro/route') ||
+    normalized.includes('pro-route')
+  ) {
+    return '工艺路线'
+  }
   return '智能排产'
 }
 
@@ -808,6 +815,7 @@ function getProjectTagType(project?: CodexTestApi.CodexTestProject) {
   if (project === '智能排产') return 'success'
   if (project === '批记录') return 'primary'
   if (project === '文控') return 'warning'
+  if (project === '工艺路线') return 'danger'
   return 'info'
 }
 

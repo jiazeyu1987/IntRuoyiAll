@@ -1,12 +1,13 @@
 import request from '@/config/axios'
 
-export type CodexTestProject = '智能排产' | '文控' | '批记录'
+export type CodexTestProject = '智能排产' | '文控' | '批记录' | '工艺路线'
 export type CodexTestProgressPhase = 'METHOD' | 'CHECKPOINT' | 'DONE'
 
 export const CODEX_TEST_PROJECT_OPTIONS: Array<{ label: CodexTestProject; value: CodexTestProject }> = [
   { label: '智能排产', value: '智能排产' },
   { label: '批记录', value: '批记录' },
-  { label: '文控', value: '文控' }
+  { label: '文控', value: '文控' },
+  { label: '工艺路线', value: '工艺路线' }
 ]
 
 export interface CodexTestCheckpointVO {

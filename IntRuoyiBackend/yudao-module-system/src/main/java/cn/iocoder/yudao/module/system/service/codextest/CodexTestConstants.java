@@ -13,6 +13,7 @@ final class CodexTestConstants {
     static final String PROJECT_SMART_SCHEDULING = "智能排产";
     static final String PROJECT_DCC = "文控";
     static final String PROJECT_BATCH_RECORD = "批记录";
+    static final String PROJECT_PROCESS_ROUTE = "工艺路线";
 
     static final String EXECUTION_PENDING = "PENDING";
     static final String EXECUTION_CLAIMED = "CLAIMED";
@@ -36,7 +37,8 @@ final class CodexTestConstants {
 
     static final Set<String> EXECUTION_MODES = Set.of(MODE_SEQUENTIAL, MODE_PARALLEL);
     static final Set<String> CASE_STATUSES = Set.of(STATUS_ENABLE, STATUS_DISABLE);
-    static final Set<String> CASE_PROJECTS = Set.of(PROJECT_SMART_SCHEDULING, PROJECT_DCC, PROJECT_BATCH_RECORD);
+    static final Set<String> CASE_PROJECTS = Set.of(
+            PROJECT_SMART_SCHEDULING, PROJECT_DCC, PROJECT_BATCH_RECORD, PROJECT_PROCESS_ROUTE);
     static final Set<String> CHECKPOINT_RESULT_STATUSES = Set.of(CHECKPOINT_PASS, CHECKPOINT_FAIL, CHECKPOINT_BLOCKED);
     static final Set<String> COMPLETE_CASE_STATUSES = Set.of(EXECUTION_PASS, EXECUTION_FAIL, EXECUTION_BLOCKED, EXECUTION_TIMEOUT);
     static final Set<String> PROGRESS_PHASES = Set.of(PROGRESS_PHASE_METHOD, PROGRESS_PHASE_CHECKPOINT, PROGRESS_PHASE_DONE);

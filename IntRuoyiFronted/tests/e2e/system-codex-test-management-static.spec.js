@@ -47,7 +47,7 @@ assert.match(page, /测试方法项/)
 assert.match(page, /测试目标项/)
 assert.match(
   api,
-  /export type CodexTestProject = '智能排产' \| '文控' \| '批记录'/,
+  /export type CodexTestProject = '智能排产' \| '文控' \| '批记录' \| '工艺路线'/,
   '测试项 API 类型必须显式约束项目枚举。'
 )
 assert.match(
@@ -82,11 +82,11 @@ assert.match(page, /:column-saving="caseColumnSaving"/)
 assert.match(page, /@quick-filter-query="caseQuickFilter\.applyQuickFilter"/)
 assert.match(page, /@column-change="saveCaseColumnConfig"/)
 assert.match(page, /@pagination="handleCasePagination"/)
-assert.match(page, /caseProjectOptions/, '测试管理页必须定义三个项目选项。')
+assert.match(page, /caseProjectOptions/, '测试管理页必须定义四个项目选项。')
 assert.match(
   api,
-  /CODEX_TEST_PROJECT_OPTIONS[\s\S]*智能排产[\s\S]*批记录[\s\S]*文控/,
-  '测试项项目选项顺序必须为智能排产、批记录、文控。'
+  /CODEX_TEST_PROJECT_OPTIONS[\s\S]*智能排产[\s\S]*批记录[\s\S]*文控[\s\S]*工艺路线/,
+  '测试项项目选项顺序必须为智能排产、批记录、文控、工艺路线。'
 )
 assert.match(page, /label:\s*'项目'[\s\S]*queryParamKey:\s*'project'/, '测试管理页必须支持按项目快速过滤。')
 assert.match(page, /\{\s*key:\s*'project',\s*label:\s*'项目'/, '测试管理列表字段配置必须包含项目列。')
@@ -95,8 +95,8 @@ assert.match(page, /resolveCaseProject\(row\)/, '项目列不得直接渲染空 
 assert.doesNotMatch(page, /\{\{\s*row\.project\s*\}\}/, '项目列不得把空 project 渲染为空标签。')
 assert.match(
   page,
-  /function resolveCaseProject[\s\S]*'批记录'[\s\S]*'文控'[\s\S]*'智能排产'/,
-  '项目列解析必须只输出智能排产、批记录、文控三类。'
+  /function resolveCaseProject[\s\S]*'批记录'[\s\S]*'文控'[\s\S]*'工艺路线'[\s\S]*'智能排产'/,
+  '项目列解析必须只输出智能排产、批记录、文控、工艺路线四类。'
 )
 assert.match(page, /<el-form-item label="项目" prop="project">[\s\S]*请选择项目/, '测试项表单必须允许维护项目。')
 assert.match(page, /<template #extra-filters>/)
