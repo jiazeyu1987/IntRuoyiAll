@@ -1,6 +1,9 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.route;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerInitReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowConfigSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowProcessConfigRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteFlowConfigService;
@@ -59,6 +62,34 @@ public class MesProRouteFlowConfigController {
     public CommonResult<Boolean> saveRouteFlowBatchRecordConfig(@Valid @RequestBody MesProRouteFlowConfigSaveReqVO saveReqVO) {
         saveReqVO.setUseType("BATCH");
         routeFlowConfigService.saveRouteFlowConfig(saveReqVO);
+        return success(true);
+    }
+
+    @GetMapping("/batch-record-attachment-owners")
+    @Operation(summary = "获得工艺路线批记录附件负责人配置")
+    @Parameter(name = "routeId", description = "工艺路线编号", required = true)
+    @Parameter(name = "routeVersionId", description = "候选路线版本编号")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:batch-record-config:query')")
+    public CommonResult<List<MesProRouteBatchRecordAttachmentOwnerRespVO>> getBatchRecordAttachmentOwners(
+            @RequestParam("routeId") Long routeId,
+            @RequestParam(value = "routeVersionId", required = false) Long routeVersionId) {
+        return success(routeFlowConfigService.getBatchRecordAttachmentOwners(routeId, routeVersionId));
+    }
+
+    @PostMapping("/batch-record-attachment-owners/init-defaults")
+    @Operation(summary = "初始化工艺路线批记录附件负责人默认角色")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:batch-record-config:update')")
+    public CommonResult<List<MesProRouteBatchRecordAttachmentOwnerRespVO>> initBatchRecordAttachmentOwners(
+            @Valid @RequestBody MesProRouteBatchRecordAttachmentOwnerInitReqVO initReqVO) {
+        return success(routeFlowConfigService.initializeBatchRecordAttachmentOwners(initReqVO));
+    }
+
+    @PostMapping("/batch-record-attachment-owners/save")
+    @Operation(summary = "保存工艺路线批记录附件负责人配置")
+    @PreAuthorize("@ss.hasPermission('mes:pro-route:batch-record-config:update')")
+    public CommonResult<Boolean> saveBatchRecordAttachmentOwners(
+            @Valid @RequestBody MesProRouteBatchRecordAttachmentOwnerSaveReqVO saveReqVO) {
+        routeFlowConfigService.saveBatchRecordAttachmentOwners(saveReqVO);
         return success(true);
     }
 

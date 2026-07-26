@@ -101,6 +101,22 @@ export interface CodexTestExecutionVO {
   cases?: CodexTestExecutionCaseVO[]
 }
 
+export interface CodexTestRunnerStatusVO {
+  online: boolean
+  status: 'ONLINE' | 'OFFLINE' | 'STALE' | 'CAPABILITY_MISSING'
+  onlineCount: number
+  staleRunnerCount: number
+  currentRunningCount: number
+  requiredCapabilitiesPresent: boolean
+  latestRunnerSessionId?: number
+  latestRunnerName?: string
+  latestRunnerStatus?: string
+  lastHeartbeatTime?: Date
+  heartbeatAgeSeconds?: number
+  heartbeatTimeoutSeconds: number
+  message: string
+}
+
 export const getCodexTestCasePage = (params: CodexTestCasePageReqVO) => {
   return request.get<PageResult<CodexTestCaseVO[]>>({ url: '/system/codex-test-case/page', params })
 }
@@ -145,6 +161,10 @@ export const getCodexTestExecution = (id: number) => {
 
 export const getCodexTestExecutionMonitor = () => {
   return request.get<CodexTestExecutionVO[]>({ url: '/system/codex-test-execution/monitor' })
+}
+
+export const getCodexTestRunnerStatus = () => {
+  return request.get<CodexTestRunnerStatusVO>({ url: '/system/codex-test-runner/status' })
 }
 
 export const downloadCodexTestArtifact = (id: number) => {

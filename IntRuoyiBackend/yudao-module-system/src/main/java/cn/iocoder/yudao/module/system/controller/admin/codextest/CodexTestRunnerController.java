@@ -13,6 +13,7 @@ import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRun
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerProgressReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerStatusRespVO;
 import cn.iocoder.yudao.module.system.service.codextest.CodexTestArtifactService;
 import cn.iocoder.yudao.module.system.service.codextest.CodexTestRunnerService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,7 +21,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.annotation.security.PermitAll;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -48,6 +51,13 @@ public class CodexTestRunnerController {
     private CodexTestRunnerService codexTestRunnerService;
     @Resource
     private CodexTestArtifactService codexTestArtifactService;
+
+    @GetMapping("/status")
+    @Operation(summary = "查询 Codex Runner 在线状态")
+    @PreAuthorize("@ss.hasPermission('system:codex-test:query')")
+    public CommonResult<CodexTestRunnerStatusRespVO> getRunnerStatus() {
+        return success(codexTestRunnerService.getRunnerStatus());
+    }
 
     @PostMapping("/register")
     @PermitAll

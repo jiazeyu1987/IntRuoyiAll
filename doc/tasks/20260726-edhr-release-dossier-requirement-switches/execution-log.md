@@ -24,8 +24,18 @@
 
 ## RED/GREEN Evidence
 
-- 待补充 RED/GREEN/REGRESSION 命令与结果。
+- `RED: node tests/e2e/edhr-release-dossier-requirement-setting-static.spec.js -> FAIL, src/api/mes/pro/edhr/releaseDossierRequirementSetting.ts 缺失`（来自本任务 RED 交接记录）。
+- `RED: mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrReleaseServiceImplTest,MesProEdhrReleasePrecheckContractTest,MesProEdhrReleaseDossierRequirementSettingServiceImplTest" test -> FAIL, upstream reactor 模块无指定测试；按 PowerShell/Maven 门禁改用 "-Dsurefire.failIfNoSpecifiedTests=false"`（来自本任务 RED 交接记录）。
+- `GREEN: node tests\e2e\edhr-release-dossier-requirement-setting-static.spec.js -> PASS`，前端 API wrapper、Profile 配置页签、4 个 switch 文案、金手指权限、确认保存、失败回滚和放行检查展示映射通过静态合同。
+- `GREEN: mvn.cmd -pl yudao-module-mes -am "-DskipTests" compile -> PASS`，2026-07-26 13:15:50 完成后端生产代码 reactor 编译。
+- `GREEN: pnpm ts:check -> PASS`，`vue-tsc --noEmit -p tsconfig.relaxed.json` 通过。
+- `GREEN: node tests\e2e\edhr-release-check-result-chinese-static.spec.js -> PASS`，放行检查结果中文映射保持通过。
+- `GREEN: node tests\e2e\edhr-release-dialog-copy-cleanup-static.spec.js -> PASS`，放行弹窗文案相邻静态合同保持通过。
+- `GREEN: git diff --check -> PASS`，仅输出 CRLF 工作区警告，无 whitespace error。
+- `BLOCKER: mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrReleaseServiceImplTest,MesProEdhrReleasePrecheckContractTest,MesProEdhrReleaseDossierRequirementSettingServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL`，第一次失败于并行/无关 `MesProRouteBatchRecordAttachmentOwnerServiceTest` 缺少 route attachment owner VO；复跑时该阻塞变化为并行/无关 `yudao-module-system` 编译错误 `CodexTestRunnerServiceImpl` 未实现 `getRunnerStatus()`，导致 `yudao-module-mes` 被 reactor 跳过。
+- `BLOCKER: mvn.cmd -pl yudao-module-mes "-Dtest=MesProEdhrReleaseServiceImplTest,MesProEdhrReleasePrecheckContractTest,MesProEdhrReleaseDossierRequirementSettingServiceImplTest" test -> FAIL`，辅助 MES-only 复验被并行/无关 route/BPM 改动阻塞：`MesProRouteFlowConfigServiceImpl` 未实现 `saveBatchRecordAttachmentOwners(...)`，以及 `BusinessApprovalPolicyDOBuilder` 缺少 `formPolicyType(String)`。
 
 ## Blockers
 
-- 当前仓库存在本任务开始前的大量未提交改动；不会阻塞实现，但会影响最终提交/推送边界，需按项目规则处理。
+- 当前仓库存在本任务开始前/并行任务产生的大量未提交与未跟踪改动；不会改变本任务实现范围，但阻塞最终提交/推送边界，需按项目 dirty-worktree baseline 和选择性暂存规则处理。
+- 后端正式目标 JUnit 不能完成：`-am` reactor 当前先失败在并行 system 模块缺实现方法；MES-only 辅助复验当前失败在并行 route/BPM 编译漂移。需先由对应任务修复或隔离这些无关编译阻塞后复跑本任务后端目标测试。

@@ -173,10 +173,11 @@ async function main() {
     const pagePayload = await pageResponse.json()
     assert.equal(pagePayload.code, 0, 'codex test case page API should return business code 0')
 
-    await page.locator('text=测试方法项').waitFor({ state: 'visible', timeout: 30000 })
-    await page.locator('text=测试目标项').waitFor({ state: 'visible', timeout: 30000 })
-    await page.locator('text=检查点').first().waitFor({ state: 'visible', timeout: 30000 })
-    await page.locator('button:has-text("新增")').first().waitFor({ state: 'visible', timeout: 30000 })
+    const casesPane = page.locator('#pane-cases')
+    await casesPane.getByText('测试方法项').first().waitFor({ state: 'visible', timeout: 30000 })
+    await casesPane.getByText('测试目标项').first().waitFor({ state: 'visible', timeout: 30000 })
+    await casesPane.getByText('检查点').first().waitFor({ state: 'visible', timeout: 30000 })
+    await casesPane.locator('button:has-text("新增")').first().waitFor({ state: 'visible', timeout: 30000 })
     await page.screenshot({ path: screenshotPath, fullPage: true })
 
     summary.openedPage = true

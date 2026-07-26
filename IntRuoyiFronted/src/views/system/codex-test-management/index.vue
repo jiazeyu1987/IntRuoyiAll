@@ -2,6 +2,21 @@
   <el-tabs v-model="activeTab" class="codex-test-tabs" @tab-change="handleTabChange">
     <el-tab-pane label="测试项" name="cases">
       <ContentWrap>
+        <div class="codex-runner-status">
+          <div class="codex-runner-status__main">
+            <span class="codex-runner-status__label">Runner 状态</span>
+            <el-tag :type="runnerStatusTagType" effect="plain">
+              {{ runnerStatus?.online ? '在线' : '离线' }}
+            </el-tag>
+            <span class="codex-runner-status__message">{{ runnerStatusMessage }}</span>
+          </div>
+          <div class="codex-runner-status__meta">
+            <span>最后心跳：{{ runnerLastHeartbeatText }}</span>
+            <el-button :loading="runnerStatusLoading" link type="primary" @click="refreshRunnerStatus">
+              刷新状态
+            </el-button>
+          </div>
+        </div>
         <UnifiedListTemplate
           class="codex-test-list-template"
           table-key="system.codexTestManagement.cases"
@@ -454,6 +469,7 @@ const message = useMessage()
 const activeTab = ref<'cases' | 'monitor'>('cases')
 const caseLoading = ref(false)
 const executeLoading = ref(false)
+const runnerStatusLoading = ref(false)
 const monitorLoading = ref(false)
 const monitorLoadError = ref('')
 const caseDialogVisible = ref(false)
@@ -464,6 +480,7 @@ const selectedCaseIds = ref<number[]>([])
 const caseList = ref<CodexTestApi.CodexTestCaseVO[]>([])
 const caseTotal = ref(0)
 const monitorList = ref<CodexTestApi.CodexTestExecutionVO[]>([])
+const runnerStatus = ref<CodexTestApi.CodexTestRunnerStatusVO>()
 const monitorRefreshTimer = ref<number>()
 const failedCheckpointDialogVisible = ref(false)
 const failedCheckpointContext = ref<{
@@ -571,6 +588,20 @@ const monitorRunningCount = computed(() =>
     0
   )
 )
+
+const runnerStatusMessage = computed(() => runnerStatus.value?.message || '正在检查本机 Runner 心跳')
+
+const runnerStatusTagType = computed(() => {
+  if (runnerStatus.value?.online) return 'success'
+  if (runnerStatus.value?.status === 'STALE') return 'warning'
+  return 'danger'
+})
+
+const runnerLastHeartbeatText = computed(() => {
+  if (!runnerStatus.value?.lastHeartbeatTime) return '-'
+  const age = runnerStatus.value.heartbeatAgeSeconds
+  return age == null ? String(runnerStatus.value.lastHeartbeatTime) : `${age} 秒前`
+})
 
 const defaultCaseForm = (): CodexTestApi.CodexTestCaseVO => ({
   name: '',
@@ -815,6 +846,20 @@ async function getCaseList() {
   }
 }
 
+async function refreshRunnerStatus() {
+  runnerStatusLoading.value = true
+  try {
+    runnerStatus.value = await CodexTestApi.getCodexTestRunnerStatus()
+    return runnerStatus.value
+  } catch (error) {
+    runnerStatus.value = undefined
+    showRequestError(error, 'Runner 状态加载失败')
+    return undefined
+  } finally {
+    runnerStatusLoading.value = false
+  }
+}
+
 async function getMonitorList() {
   monitorLoading.value = true
   monitorLoadError.value = ''
@@ -953,6 +998,11 @@ async function startExecution(mode: 'SEQUENTIAL' | 'PARALLEL') {
   }
   executeLoading.value = true
   try {
+    const status = await refreshRunnerStatus()
+    if (!status?.online) {
+      message.error(status?.message || '没有在线 Codex Runner')
+      return
+    }
     const executionId = await CodexTestApi.startCodexTestExecution({
       targetTenantId: selectedTenantId.value,
       executionMode: mode,
@@ -975,6 +1025,11 @@ async function startSingleCaseExecution(row: CodexTestApi.CodexTestCaseVO) {
   }
   executeLoading.value = true
   try {
+    const status = await refreshRunnerStatus()
+    if (!status?.online) {
+      message.error(status?.message || '没有在线 Codex Runner')
+      return
+    }
     const executionId = await CodexTestApi.startCodexTestExecution({
       targetTenantId: selectedTenantId.value,
       executionMode: row.defaultExecutionMode,
@@ -990,6 +1045,7 @@ async function startSingleCaseExecution(row: CodexTestApi.CodexTestCaseVO) {
 
 onMounted(async () => {
   await getTenantOptions()
+  await refreshRunnerStatus()
   await getCaseList()
 })
 
@@ -1019,6 +1075,35 @@ onBeforeUnmount(() => {
   :deep(.el-table .cell) {
     line-height: 1.45;
   }
+}
+
+.codex-runner-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border: 1px solid #e5eaf3;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.codex-runner-status__main,
+.codex-runner-status__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.codex-runner-status__label {
+  font-weight: 600;
+  color: #172033;
+}
+
+.codex-runner-status__message,
+.codex-runner-status__meta {
+  color: #4e5969;
 }
 
 .codex-test-item-list {

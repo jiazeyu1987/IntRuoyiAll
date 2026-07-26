@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRun
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerProgressReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerStatusRespVO;
 import jakarta.validation.Valid;
 
 public interface CodexTestRunnerService {
@@ -20,6 +21,8 @@ public interface CodexTestRunnerService {
     CodexTestRunnerClaimRespVO claimTasks(@Valid CodexTestRunnerClaimReqVO claimReqVO, String token);
 
     CodexTestRunnerHeartbeatRespVO heartbeat(@Valid CodexTestRunnerHeartbeatReqVO heartbeatReqVO, String token);
+
+    CodexTestRunnerStatusRespVO getRunnerStatus();
 
     void saveCheckpointResult(@Valid CodexTestRunnerCheckpointResultReqVO resultReqVO, String token);
 
