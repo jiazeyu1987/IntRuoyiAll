@@ -47,7 +47,7 @@
 - CLEANUP PREVIEW: `task_closeout.py --task-id 20260727-edhr-batch-void-work-task-closure --mode preview` -> ready, no blocked paths or warnings.
 - CLEANUP APPLY: `task_closeout.py --task-id 20260727-edhr-batch-void-work-task-closure --mode apply` -> applied, deleted only task-owned runtime logs and preserved task records, design docs, evidence docs, and E2E artifacts.
 - FINAL GUARD: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS for `int_main/int_main`, frontend `8081`, backend `48081`.
-- FINAL PUSH: `git push origin int_main` -> PASS; `HEAD` equals `origin/int_main` at `31c8d043f2fda8674a85433120b44b616fbd87a0`.
+- FINAL PUSH: `git push origin int_main` -> PASS; final audit verified local `int_main` synchronized with `origin/int_main` after push.
 
 ## Design Constraint Check
 

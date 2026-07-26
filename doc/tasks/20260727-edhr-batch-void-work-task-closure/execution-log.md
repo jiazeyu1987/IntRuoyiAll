@@ -99,7 +99,7 @@
 - BUILD: `mvn.cmd -pl yudao-server -am -DskipTests package` -> PASS, produced merged `yudao-server-exec.jar`.
 - RUNTIME: `int_main` frontend `http://127.0.0.1:8081/` -> HTTP 200; backend `http://127.0.0.1:48081/actuator/health` -> `UP`, PID `44480`, command line points to `E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`.
 - GREEN: post-merge real E2E `EDHR_BATCH_VOID_E2E_BASE_URL=http://127.0.0.1:8081; EDHR_BATCH_VOID_E2E_BACKEND_URL=http://127.0.0.1:48081; node IntRuoyiFronted\tests\e2e\edhr-batch-void-form-center-real-submit.e2e.cjs` -> PASS, batch `900000000859`, change `122`, artifact `doc/tasks/20260727-edhr-batch-void-work-task-closure/e2e-artifacts/edhr-batch-void-work-task-20260726180948.json`.
-- STATUS: implementation, branch E2E, int_main merge, and post-merge E2E are complete; cleanup and final push remain.
+- STATUS: implementation, branch E2E, `int_main` merge, post-merge E2E, cleanup, and final push are complete.
 
 ## Closeout
 
@@ -112,5 +112,5 @@
 - BASELINE: `978fcaf0 chore: preserve residual process advance e2e changes` saved the unrelated residual dirty change in `IntRuoyiFronted/tests/e2e/edhr-work-task-process-advance-real.e2e.js` before final `int_main` push, per dirty-worktree baseline policy.
 - BASELINE: `590879d8 chore: preserve residual process advance fixture changes` saved the later unrelated fixture-column dirty change in the same process-advance E2E file before final `int_main` push.
 - FINAL GUARD: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, `int_main/int_main` frontend `8081`, backend `48081`.
-- PUSH: `git push origin int_main` -> PASS, `int_main` updated from `0b119802` to `31c8d043`.
-- FINAL STATUS: `git status --short --branch` -> `## int_main...origin/int_main`; local `HEAD` equals `origin/int_main` at `31c8d043f2fda8674a85433120b44b616fbd87a0`.
+- PUSH: `git push origin int_main` -> PASS; final audit verified local `int_main` synchronized with `origin/int_main` after push.
+- FINAL STATUS: `git status --short --branch` -> `## int_main...origin/int_main`; no local ahead/behind delta remains.
