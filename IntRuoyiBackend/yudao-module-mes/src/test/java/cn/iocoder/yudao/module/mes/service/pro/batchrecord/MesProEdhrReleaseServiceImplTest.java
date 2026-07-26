@@ -860,4 +860,12 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                     .build());
         }
     }
+
+    private record DossierRequirementCase(String nodeType,
+                                           String checkCode,
+                                           boolean incomingRequired,
+                                           boolean sterilizationRequired,
+                                           boolean finishedReportRequired,
+                                           boolean finishedRecordRequired) {
+    }
 }
