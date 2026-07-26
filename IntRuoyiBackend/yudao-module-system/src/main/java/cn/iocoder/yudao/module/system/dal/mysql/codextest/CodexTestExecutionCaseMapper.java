@@ -63,6 +63,20 @@ public interface CodexTestExecutionCaseMapper extends BaseMapperX<CodexTestExecu
                 .set(CodexTestExecutionCaseDO::getStartedAt, startedAt));
     }
 
+    default int updateProgress(Long id, Long runnerSessionId, String phase, Integer currentMethodSort,
+                               Integer currentCheckpointSort, String progressMessage, LocalDateTime startedAt) {
+        return update(null, new LambdaUpdateWrapper<CodexTestExecutionCaseDO>()
+                .eq(CodexTestExecutionCaseDO::getId, id)
+                .eq(CodexTestExecutionCaseDO::getRunnerSessionId, runnerSessionId)
+                .in(CodexTestExecutionCaseDO::getStatus, List.of("CLAIMED", "RUNNING"))
+                .set(CodexTestExecutionCaseDO::getStatus, "RUNNING")
+                .set(startedAt != null, CodexTestExecutionCaseDO::getStartedAt, startedAt)
+                .set(CodexTestExecutionCaseDO::getProgressPhase, phase)
+                .set(CodexTestExecutionCaseDO::getCurrentMethodSort, currentMethodSort)
+                .set(CodexTestExecutionCaseDO::getCurrentCheckpointSort, currentCheckpointSort)
+                .set(CodexTestExecutionCaseDO::getProgressMessage, progressMessage));
+    }
+
     default int complete(Long id, Long runnerSessionId, String status, String summary,
                          LocalDateTime startedAt, LocalDateTime finishedAt) {
         return update(null, new LambdaUpdateWrapper<CodexTestExecutionCaseDO>()
@@ -72,7 +86,11 @@ public interface CodexTestExecutionCaseMapper extends BaseMapperX<CodexTestExecu
                 .set(CodexTestExecutionCaseDO::getStatus, status)
                 .set(startedAt != null, CodexTestExecutionCaseDO::getStartedAt, startedAt)
                 .set(CodexTestExecutionCaseDO::getFinishedAt, finishedAt)
-                .set(CodexTestExecutionCaseDO::getFailureReason, summary));
+                .set(CodexTestExecutionCaseDO::getFailureReason, summary)
+                .set(CodexTestExecutionCaseDO::getProgressPhase, "DONE")
+                .set(CodexTestExecutionCaseDO::getCurrentMethodSort, null)
+                .set(CodexTestExecutionCaseDO::getCurrentCheckpointSort, null)
+                .set(CodexTestExecutionCaseDO::getProgressMessage, summary));
     }
 
     default int cancelByExecutionId(Long executionId) {

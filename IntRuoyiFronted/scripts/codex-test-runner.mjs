@@ -122,6 +122,16 @@ async function heartbeat(runnerSessionId, runningExecutionCaseIds = []) {
   })
 }
 
+async function reportProgress(task, progress) {
+  await postJson('/system/codex-test-runner/progress', {
+    executionCaseId: task.executionCaseId,
+    phase: progress.phase,
+    currentMethodSort: progress.currentMethodSort,
+    currentCheckpointSort: progress.currentCheckpointSort,
+    progressMessage: progress.progressMessage
+  })
+}
+
 function assertTaskNotCanceled(task, heartbeatResult) {
   const cancelExecutionCaseIds = heartbeatResult?.cancelExecutionCaseIds || []
   if (cancelExecutionCaseIds.includes(task.executionCaseId)) {
@@ -163,6 +173,11 @@ async function runCodexForTask(task, runnerSessionId) {
   child.stdout.on('data', (chunk) => stdout.push(chunk))
   child.stderr.on('data', (chunk) => stderr.push(chunk))
   try {
+    await reportProgress(task, {
+      phase: 'METHOD',
+      currentMethodSort: 1,
+      progressMessage: '正在执行测试方法项第 1 项'
+    })
     child.stdin.write(prompt, 'utf8')
     child.stdin.end()
     assertTaskNotCanceled(task, await heartbeat(runnerSessionId, runningExecutionCaseIds))
@@ -246,6 +261,11 @@ async function reportTaskResult(task, result) {
     if (checkpoint.status === 'FAIL' && !checkpoint.mismatchDescription) {
       throw new Error(`checkpoint ${checkpoint.checkpointSort} failed without mismatchDescription`)
     }
+    await reportProgress(task, {
+      phase: 'CHECKPOINT',
+      currentCheckpointSort: checkpoint.checkpointSort,
+      progressMessage: `正在验证目标项第 ${checkpoint.checkpointSort} 项`
+    })
     let screenshotArtifactId
     if (checkpoint.screenshotPath) {
       screenshotArtifactId = await uploadArtifact(
@@ -275,6 +295,11 @@ async function reportTaskResult(task, result) {
 async function reportTaskBlocked(task, error) {
   const summary = `Codex Runner 执行失败：${error instanceof Error ? error.message : String(error)}`
   for (const checkpoint of task.checkpoints) {
+    await reportProgress(task, {
+      phase: 'CHECKPOINT',
+      currentCheckpointSort: checkpoint.sort,
+      progressMessage: `正在验证目标项第 ${checkpoint.sort} 项`
+    })
     await postJson('/system/codex-test-runner/checkpoint-result', {
       executionCaseId: task.executionCaseId,
       checkpointSort: checkpoint.sort,

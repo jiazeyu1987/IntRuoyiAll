@@ -43,6 +43,13 @@ Reduce first-screen load work for the MES 工艺流程 list/page by moving hidde
 - GREEN: make hidden route components async-loaded and rerun the contract.
 - REGRESSION: run the narrow frontend static contract and, if feasible, a targeted TypeScript check for the touched files.
 
+## Verification Evidence
+
+- RED: `node tests/e2e/mes-route-first-screen-defer-static.spec.js` -> FAIL on static `RouteForm` import.
+- GREEN: `node tests/e2e/mes-route-first-screen-defer-static.spec.js` -> PASS.
+- GREEN: `pnpm ts:check` -> PASS.
+- REGRESSION BLOCKER: `pnpm build:local` timed out after 604s; no build success claimed.
+
 ## Blockers
 
-- None currently.
+- Final closeout commit/push is blocked by unrelated concurrent dirty changes and ahead commits in the shared workspace.

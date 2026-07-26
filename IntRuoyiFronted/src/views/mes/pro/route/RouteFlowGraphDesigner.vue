@@ -826,10 +826,12 @@
                           <span>动态表单列表</span>
                           <div class="route-flow-graph-designer__record-binding-toolbar-actions">
                             <el-popover
+                              v-model:visible="processFormBindingCopyPopoverVisible"
                               placement="bottom"
                               trigger="click"
                               :width="360"
                               :disabled="recordBindingEditorDisabled || getProcessFormBindingCopySourceOptions().length === 0"
+                              @hide="handleProcessFormBindingCopyPopoverHide"
                             >
                               <div class="route-flow-graph-designer__copy-form-binding-panel">
                                 <span>选择同一路线下其他工序的表单绑定关系</span>
@@ -839,6 +841,7 @@
                                   filterable
                                   placeholder="请选择来源工序"
                                   size="small"
+                                  :teleported="false"
                                   @change="(value) => handleProcessFormBindingCopySourceChange(value as number | string | null)"
                                 >
                                   <el-option
@@ -1539,6 +1542,11 @@ type RouteFlowRecordBinding = Omit<ProRouteFlowFormBindingVO, 'formTemplateId'> 
   formTemplateId?: number | null
   formTemplateName?: string | null
 }
+type RouteFlowRecordBindingFillerOverride = {
+  candidateSourceType: EdhrProcessFormCandidateSourceType | null
+  candidateSourceIds: number[]
+  candidateSourceNames: string[]
+}
 type RouteFlowLegacyBatchRecord = ProRouteFlowBatchRecordVO
 type SelectedProcessAttributes = {
   routeProcessId?: number
@@ -1711,6 +1719,7 @@ const recordBindingUserOptionsLoading = ref(false)
 const recordBindingRoleOptions = ref<RoleVO[]>([])
 const recordBindingRoleOptionsLoading = ref(false)
 const recordBindingCopySourceByKey = reactive<Record<string, string>>({})
+const processFormBindingCopyPopoverVisible = ref(false)
 const processFormBindingCopySourceRouteProcessId = ref<number | null>(null)
 const selectedProcessAttributeDrafts = reactive<Record<number, SelectedProcessAttributesDraft>>({})
 const selectedProcessAttributeBaselines = reactive<Record<number, string>>({})
@@ -2296,6 +2305,17 @@ const normalizeRecordBindingSlotType = (
   return 'MAIN'
 }
 
+const resolveRecordBindingSlotType = (
+  formSlotType?: string | null,
+  formBindingKey?: string | null
+): ProRouteFlowFormSlotType | undefined => {
+  const normalizedFormSlotType = normalizeNullableText(formSlotType)
+  if (isRecordBindingSlotType(normalizedFormSlotType)) return normalizedFormSlotType
+  const normalizedBindingKey = normalizeNullableText(formBindingKey)
+  if (isRecordBindingSlotType(normalizedBindingKey)) return normalizedBindingKey
+  return undefined
+}
+
 const SHARED_FORM_FILLABLE_SCOPE_JSON = JSON.stringify({
   ranges: Array.from({ length: 100 }, (_, sourceTableIndex) => ({
     sourceTableIndex,
@@ -2455,12 +2475,12 @@ const isRouteNodeRecordBindingConfigured = (
 ) =>
   getRouteNodeBatchRecordBindings(node).some(
     (binding) =>
-      normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey) === formSlotType &&
+      resolveRecordBindingSlotType(binding.formSlotType, binding.formBindingKey) === formSlotType &&
       isRecordBindingConfigured(binding)
   ) ||
   getRouteNodeLegacyBatchRecords(node).some(
     (report) =>
-      normalizeRecordBindingSlotType(report.formSlotType, report.batchRecordReportId) === formSlotType &&
+      resolveRecordBindingSlotType(report.formSlotType, report.batchRecordReportId) === formSlotType &&
       isLegacyBatchRecordConfigured(report)
   )
 
@@ -2732,6 +2752,64 @@ const syncRouteWideRecordBindingProcessIndependent = (
   }
 }
 
+const applyRecordBindingFillerOverride = (
+  binding: RouteFlowRecordBinding,
+  filler: RouteFlowRecordBindingFillerOverride
+) => {
+  binding.candidateSourceType = normalizeRecordBindingCandidateSourceType(filler.candidateSourceType)
+  binding.candidateSourceIds = normalizeRecordBindingCandidateIds(filler.candidateSourceIds)
+  binding.candidateSourceNames = normalizeRecordBindingCandidateNames(filler.candidateSourceNames)
+}
+
+const buildRecordBindingFillerOverride = (
+  binding: RouteFlowRecordBinding
+): RouteFlowRecordBindingFillerOverride => ({
+  candidateSourceType: normalizeRecordBindingCandidateSourceType(binding.candidateSourceType),
+  candidateSourceIds: normalizeRecordBindingCandidateIds(binding.candidateSourceIds),
+  candidateSourceNames: normalizeRecordBindingCandidateNames(binding.candidateSourceNames)
+})
+
+const serializeRecordBindingFillerOverride = (binding: RouteFlowRecordBinding) =>
+  JSON.stringify(buildRecordBindingFillerOverride(binding))
+
+const applyRouteWideRecordBindingFillerByTemplate = (
+  bindings: RouteFlowRecordBinding[],
+  formTemplateId: number,
+  filler: RouteFlowRecordBindingFillerOverride
+) => {
+  let changed = false
+  bindings.forEach((binding) => {
+    if (Number(binding.formTemplateId || 0) === formTemplateId && isBatchSharedBinding(binding)) {
+      const before = serializeRecordBindingFillerOverride(binding)
+      applyRecordBindingFillerOverride(binding, filler)
+      changed = changed || before !== serializeRecordBindingFillerOverride(binding)
+    }
+  })
+  return changed
+}
+
+const syncRouteWideRecordBindingFillerByTemplate = (sourceBinding: RouteFlowRecordBinding) => {
+  const formTemplateId = Number(sourceBinding.formTemplateId || 0)
+  if (!Number.isFinite(formTemplateId) || formTemplateId <= 0 || !isBatchSharedBinding(sourceBinding)) {
+    return false
+  }
+  const filler = buildRecordBindingFillerOverride(sourceBinding)
+  let changed = false
+  routeNodes.value.forEach((node) => {
+    const draft = getOrCreateRouteProcessAttributeDraft(node.routeProcessId)
+    if (applyRouteWideRecordBindingFillerByTemplate(draft.recordBindings, formTemplateId, filler)) {
+      changed = true
+      if (Number(selectedProcessAttributes.routeProcessId) === Number(node.routeProcessId)) {
+        selectedRecordBindings.value = cloneRecordBindings(draft.recordBindings)
+      }
+    }
+  })
+  if (changed) {
+    markGraphDraftChanged()
+  }
+  return changed
+}
+
 const updateRecordBindingTemplate = (
   binding: RouteFlowRecordBinding,
   formTemplateId?: number | string | null
@@ -2781,7 +2859,6 @@ const handleRecordBindingProcessIndependentChange = (
   syncRouteWideRecordBindingProcessIndependent(formTemplateId, processIndependent)
 }
 
-
 const addSelectedRecordBinding = async () => {
   if (recordBindingEditorDisabled.value) return
   selectedRecordBindings.value = [...selectedRecordBindings.value, createEmptyRecordBinding()]
@@ -2816,10 +2893,14 @@ const handleSelectedRecordBindingCandidateSourceTypeChange = (
   candidateSourceType: string
 ) => {
   if (!binding || recordBindingEditorDisabled.value) return
-  binding.candidateSourceType = normalizeRecordBindingCandidateSourceType(candidateSourceType)
-  binding.candidateSourceIds = []
-  binding.candidateSourceNames = []
-  syncSelectedRecordBindingsToDraft()
+  applyRecordBindingFillerOverride(binding, {
+    candidateSourceType: normalizeRecordBindingCandidateSourceType(candidateSourceType),
+    candidateSourceIds: [],
+    candidateSourceNames: []
+  })
+  if (!syncRouteWideRecordBindingFillerByTemplate(binding)) {
+    syncSelectedRecordBindingsToDraft()
+  }
   if (!binding.candidateSourceType) return
   void loadRecordBindingCandidateOptions(binding)
 }
@@ -2831,25 +2912,39 @@ const handleSelectedRecordBindingCandidateIdChange = (
   if (!binding || recordBindingEditorDisabled.value) return
   const id = Number(candidateSourceId || 0)
   if (!Number.isFinite(id) || id <= 0) {
-    binding.candidateSourceIds = []
-    binding.candidateSourceNames = []
-    syncSelectedRecordBindingsToDraft()
+    applyRecordBindingFillerOverride(binding, {
+      candidateSourceType: normalizeRecordBindingCandidateSourceType(binding.candidateSourceType),
+      candidateSourceIds: [],
+      candidateSourceNames: []
+    })
+    if (!syncRouteWideRecordBindingFillerByTemplate(binding)) {
+      syncSelectedRecordBindingsToDraft()
+    }
     return
   }
   const option = buildRecordBindingCandidateOptions(binding).find(
     (item) => Number(item.value) === Number(id)
   )
-  binding.candidateSourceIds = [id]
-  binding.candidateSourceNames = option?.label ? [option.label] : []
-  syncSelectedRecordBindingsToDraft()
+  applyRecordBindingFillerOverride(binding, {
+    candidateSourceType: normalizeRecordBindingCandidateSourceType(binding.candidateSourceType),
+    candidateSourceIds: [id],
+    candidateSourceNames: option?.label ? [option.label] : []
+  })
+  if (!syncRouteWideRecordBindingFillerByTemplate(binding)) {
+    syncSelectedRecordBindingsToDraft()
+  }
 }
 
 const clearSelectedRecordBindingFillerOverride = (binding: RouteFlowRecordBinding) => {
   if (!binding || recordBindingEditorDisabled.value) return
-  binding.candidateSourceType = null
-  binding.candidateSourceIds = []
-  binding.candidateSourceNames = []
-  syncSelectedRecordBindingsToDraft()
+  applyRecordBindingFillerOverride(binding, {
+    candidateSourceType: null,
+    candidateSourceIds: [],
+    candidateSourceNames: []
+  })
+  if (!syncRouteWideRecordBindingFillerByTemplate(binding)) {
+    syncSelectedRecordBindingsToDraft()
+  }
 }
 
 const validateBatchSharedRecordBinding = (binding: RouteFlowRecordBinding) => {
@@ -2961,6 +3056,10 @@ const handleProcessFormBindingCopySourceChange = (routeProcessId?: number | stri
       : null
 }
 
+const handleProcessFormBindingCopyPopoverHide = () => {
+  processFormBindingCopySourceRouteProcessId.value = null
+}
+
 const copySelectedRecordBindingFromSource = (targetBinding: RouteFlowRecordBinding) => {
   if (recordBindingEditorDisabled.value) return
   const sourceOption = findRecordBindingCopySourceOption(targetBinding)
@@ -3019,6 +3118,7 @@ const copySelectedProcessFormBindingsFromSource = () => {
     delete recordBindingCopySourceByKey[key]
   })
   processFormBindingCopySourceRouteProcessId.value = null
+  processFormBindingCopyPopoverVisible.value = false
   syncSelectedRecordBindingsToDraft()
   message.success('已复制工序表单绑定关系')
 }
@@ -3073,12 +3173,12 @@ const copyRecordBindingForSelectedProcess = (
 
 const getRecordBindingsBySlotType = (formSlotType: ProRouteFlowFormSlotType) =>
   selectedRecordBindings.value.filter(
-    (binding) => normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey) === formSlotType
+    (binding) => resolveRecordBindingSlotType(binding.formSlotType, binding.formBindingKey) === formSlotType
   )
 
 const getLegacyBatchRecordsBySlotType = (formSlotType: ProRouteFlowFormSlotType) =>
   selectedLegacyBatchRecords.value.filter(
-    (report) => normalizeRecordBindingSlotType(report.formSlotType, report.batchRecordReportId) === formSlotType
+    (report) => resolveRecordBindingSlotType(report.formSlotType, report.batchRecordReportId) === formSlotType
   )
 
 const buildRecordBindingValue = (
@@ -7939,13 +8039,6 @@ defineExpose({
   background: #fff7f6;
 }
 
-.route-flow-graph-designer__node.is-selected {
-  border-color: #1677ff;
-  box-shadow:
-    0 0 0 2px rgb(22 119 255 / 22%),
-    0 10px 22px rgb(22 119 255 / 16%);
-}
-
 .route-flow-graph-designer__node.is-highlight {
   outline: 3px solid rgb(22 119 255 / 22%);
 }
@@ -7964,6 +8057,13 @@ defineExpose({
   box-shadow:
     0 0 0 2px rgb(245 108 108 / 18%),
     0 8px 18px rgb(23 32 51 / 8%);
+}
+
+.route-flow-graph-designer__node.is-selected {
+  border-color: #7c3aed;
+  box-shadow:
+    0 0 0 2px rgb(124 58 237 / 22%),
+    0 10px 22px rgb(124 58 237 / 16%);
 }
 
 .route-flow-graph-designer__node-form-count-badge {

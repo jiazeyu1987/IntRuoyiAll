@@ -1351,7 +1351,10 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         MesProBatchRecordReportDO metadata = requireMetadata(reportId);
         JSONObject root = parseReportJson(reportId);
         ensureNoLegacyFormProfileLayoutOnRead(metadata, root);
-        if (MesProBatchRecordCellRuleSupport.normalizeAutomaticRulesAsUnreviewed(root) > 0) {
+        int normalizedCount = MesProBatchRecordCellRuleSupport.normalizeAutomaticRulesAsUnreviewed(root);
+        int refreshedCount = MesProBatchRecordCellRuleSupport.refreshUnreviewedAutomaticSuggestions(
+                root, metadata.getReportCode());
+        if (normalizedCount > 0 || refreshedCount > 0) {
             jimuReportGateway.updateReportJson(metadata.getReportId(), root.toJSONString());
         }
         return toCellRulesRespVO(reportId, root);

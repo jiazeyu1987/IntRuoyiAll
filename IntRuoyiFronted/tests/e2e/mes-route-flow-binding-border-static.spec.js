@@ -41,5 +41,9 @@ assertMatch(
   /\.route-flow-graph-designer__node\.is-binding-bound[\s\S]*border-color: #67c23a[\s\S]*\.route-flow-graph-designer__node\.is-binding-missing[\s\S]*border-color: #f56c6c/,
   '节点绑定状态样式必须提供绿色已绑定和红色未绑定边框'
 )
+assertMatch(
+  /\.route-flow-graph-designer__node\.is-binding-missing[\s\S]*border-color: #f56c6c[\s\S]*\.route-flow-graph-designer__node\.is-selected \{[\s\S]*border-color: #7c3aed[\s\S]*0 0 0 2px rgb\(124 58 237 \/ 22%\)/,
+  '选中工序节点必须在红绿绑定状态后用紫色边框覆盖'
+)
 
 console.log('PASS: MES route flow binding border static contract')

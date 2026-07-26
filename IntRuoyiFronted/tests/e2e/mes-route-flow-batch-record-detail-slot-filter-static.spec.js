@@ -30,6 +30,11 @@ assert.match(
   /const getLegacyBatchRecordsBySlotType = \(formSlotType: ProRouteFlowFormSlotType\) =>[\s\S]*resolveRecordBindingSlotType\(report\.formSlotType, report\.batchRecordReportId\) === formSlotType/,
   'batch record detail must only include legacy reports explicitly assigned to MAIN.'
 )
+assert.match(
+  routeGraph,
+  /const isRouteNodeRecordBindingConfigured = \([\s\S]*resolveRecordBindingSlotType\(binding\.formSlotType, binding\.formBindingKey\) === formSlotType[\s\S]*resolveRecordBindingSlotType\(report\.formSlotType, report\.batchRecordReportId\) === formSlotType/,
+  'batch record node border status must not treat unrelated route forms as MAIN bindings.'
+)
 assert.doesNotMatch(
   routeGraph,
   /getRecordBindingsBySlotType[\s\S]*normalizeRecordBindingSlotType\(binding\.formSlotType, binding\.formBindingKey\) === formSlotType/,

@@ -6,11 +6,11 @@
 
 ## Milestones
 
-- [ ] 固化用户截图中的回归行为和期望显示口径。
-- [ ] 新增最小静态回归测试，先证明当前实现会显示非批记录表单。
-- [ ] 修改前端右侧详情面板过滤逻辑，仅保留批记录表单相关条目。
-- [ ] 运行目标回归测试和必要静态验证。
-- [ ] 更新任务证据并进入收尾。
+- [x] 固化用户截图中的回归行为和期望显示口径。
+- [x] 新增最小静态回归测试，先证明当前实现会显示非批记录表单。
+- [x] 修改前端右侧详情面板过滤逻辑，仅保留批记录表单相关条目。
+- [x] 运行目标回归测试和必要静态验证。
+- [x] 更新任务证据并进入收尾。
 
 ## Expected Verification
 
@@ -19,7 +19,18 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Closeout Blockers
+
+- 当前工作区存在并发任务改动，且 `IntRuoyiFronted/src/views/mes/pro/route/RouteFlowGraphDesigner.vue` 同一文件包含非本任务引入的记录本开关/保存载荷变化。
+- 既有合同 `node tests/e2e/mes-route-flow-legacy-batch-record-detail-static.spec.js` 失败在并发改动引入的 `batchRecordReports: processConfig.batchRecordReports` 断言上；本任务未修改该保存载荷逻辑。
+- 因工作区仍有非本任务脏改动与本地分支 ahead 状态，本任务未执行最终提交、推送和 completed 标记。
+
+## Cleanup Keep
+
+- doc/tasks/20260726-batch-record-detail-panel-form-filter/bug-regression-evidence.md
+- doc/tasks/20260726-batch-record-detail-panel-form-filter/frontend-feature-evidence.md
 
 ## 设计约束检查
 

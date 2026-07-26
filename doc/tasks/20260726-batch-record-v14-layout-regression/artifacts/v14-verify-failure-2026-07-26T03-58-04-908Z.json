@@ -1,0 +1,19 @@
+{
+  "message": "当前 V14 批记录表单分页查询 业务响应失败：请求参数不正确:每页条数最大值为 200",
+  "stack": "AssertionError [ERR_ASSERTION]: 当前 V14 批记录表单分页查询 业务响应失败：请求参数不正确:每页条数最大值为 200\n    at assertBusinessSuccess (E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-v14-layout-regression\\v14-ui-import-verify.cjs:67:10)\n    at authenticatedGet (E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-v14-layout-regression\\v14-ui-import-verify.cjs:163:10)\n    at async inspectExistingV14Targets (E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-v14-layout-regression\\v14-ui-import-verify.cjs:202:16)\n    at async main (E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-v14-layout-regression\\v14-ui-import-verify.cjs:474:22)",
+  "consoleMessages": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting..."
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected."
+    },
+    {
+      "type": "log",
+      "text": "%c 欢迎使用 %c 瑛泰管理系统 %c background:#2d8cf0;border:1px solid #2d8cf0;\n      padding: 1px; border-radius: 4px 0 0 4px; color: #fff; border:1px solid #2d8cf0;\n      padding: 1px; border-radius: 0 4px 4px 0; color: #2d8cf0; background:transparent"
+    }
+  ],
+  "failurePath": "E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-v14-layout-regression\\artifacts\\v14-verify-failure-2026-07-26T03-58-04-908Z.png"
+}

@@ -6,11 +6,11 @@
 
 ## Milestones
 
-- [ ] 复现 V14 当前错误，并确认错误来自后端解析/布局 JSON 而不是截图工具或前端渲染单点问题。
-- [ ] 编写先失败的回归测试，覆盖同类表格的全局行/单元格形态。
-- [ ] 在共享解析/布局逻辑中做最小根因修复，不引入 fallback、降级或吞异常。
-- [ ] 用用户指定 Word 与 V14 页面完成验证，并输出截图证据。
-- [ ] 更新任务证据、验证报告和收尾状态。
+- [x] 复现 V14 当前错误，并确认错误来自旧 V14.0 持久化 `fillForm` / `edhrCellRule`，不是截图工具或前端渲染单点问题。
+- [x] 编写先失败的回归测试，覆盖同类表格的全局行/单元格形态。
+- [x] 在共享单元格规则刷新逻辑中做最小根因修复，不引入 fallback、降级或吞异常。
+- [x] 用用户指定 Word 对应的既有 V14.0 页面完成验证，并输出截图证据。
+- [x] 更新任务证据、验证报告和收尾状态。
 
 ## Expected Verification
 
@@ -21,7 +21,16 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Verification Summary
+
+- 后端定向回归：`MesProBatchRecordCellRuleSupportTest` 3 个相关测试通过，覆盖旧 V14.0 stale checkbox 规则刷新、人工确认规则保护、密集表格列头优先级。
+- 真实前端验证：批记录表单页签打开既有 `球囊扩张压力泵 / V14.0 / batchRecordVersionId=130`，两张目标表单 `offenderCount=0`。
+- 截图证据：
+  - `doc/tasks/20260726-batch-record-v14-layout-regression/artifacts/v14-cleaning-fixed.png`
+  - `doc/tasks/20260726-batch-record-v14-layout-regression/artifacts/v14-lightcuring-fixed.png`
+- 运行态后端 Jar SHA256：`21653748FA95E8E8D250AC1860B083F63FBC5CFD37DB1DAD728BFA89654CD452`。
 
 ## 设计约束检查
 

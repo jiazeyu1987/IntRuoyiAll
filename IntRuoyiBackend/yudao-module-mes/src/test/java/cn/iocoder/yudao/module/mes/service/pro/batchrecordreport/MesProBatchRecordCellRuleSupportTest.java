@@ -103,6 +103,79 @@ class MesProBatchRecordCellRuleSupportTest {
     }
 
     @Test
+    void refreshUnreviewedAutomaticSuggestions_repairsStaleCheckboxFillFormsUnderTypedHeaders() {
+        JSONObject root = JSON.parseObject("""
+                {
+                  "rows":{
+                    "0":{
+                      "cells":{
+                        "0":{"text":"操作日期"},
+                        "1":{"text":"物料编码"},
+                        "2":{"text":"物料名称"},
+                        "3":{"text":"批号"},
+                        "4":{"text":"生产数量/pcs"},
+                        "5":{"text":"自检合格数量/pcs"},
+                        "6":{"text":"不合格数量/pcs"}
+                      }
+                    },
+                    "1":{
+                      "cells":{
+                        "2":{"text":"□30atm压力表","fillForm":{"field":"ebr_r1_c2","component":"Input","componentFlag":"checkbox","labelText":"30atm压力表","value":false,"defaultValue":false},
+                             "edhrCellRule":{"rowIndex":1,"columnIndex":2,"valueType":"BOOLEAN","componentFlag":"checkbox","required":false,"label":"30atm压力表","constraints":{},"source":"AUTO","confidence":0.9,"reviewed":false}},
+                        "3":{"text":"","fillForm":{"field":"ebr_r1_c3","component":"Input","componentFlag":"checkbox","labelText":"□30atm压力表","value":false,"defaultValue":false},
+                             "edhrCellRule":{"rowIndex":1,"columnIndex":3,"valueType":"BOOLEAN","componentFlag":"checkbox","required":false,"label":"□30atm压力表","constraints":{},"source":"AUTO","confidence":0.9,"reviewed":false}},
+                        "4":{"text":"","fillForm":{"field":"ebr_r1_c4","component":"Input","componentFlag":"checkbox","labelText":"□30atm压力表","value":false,"defaultValue":false},
+                             "edhrCellRule":{"rowIndex":1,"columnIndex":4,"valueType":"BOOLEAN","componentFlag":"checkbox","required":false,"label":"□30atm压力表","constraints":{},"source":"AUTO","confidence":0.9,"reviewed":false}},
+                        "5":{"text":"","fillForm":{"field":"ebr_r1_c5","component":"Input","componentFlag":"checkbox","labelText":"□30atm压力表","value":false,"defaultValue":false},
+                             "edhrCellRule":{"rowIndex":1,"columnIndex":5,"valueType":"BOOLEAN","componentFlag":"checkbox","required":false,"label":"□30atm压力表","constraints":{},"source":"AUTO","confidence":0.9,"reviewed":false}},
+                        "6":{"text":"","fillForm":{"field":"ebr_r1_c6","component":"Input","componentFlag":"checkbox","labelText":"□30atm压力表","value":false,"defaultValue":false},
+                             "edhrCellRule":{"rowIndex":1,"columnIndex":6,"valueType":"BOOLEAN","componentFlag":"checkbox","required":false,"label":"□30atm压力表","constraints":{},"source":"AUTO","confidence":0.9,"reviewed":false}}
+                      }
+                    }
+                  }
+                }
+                """);
+
+        int refreshedCount = MesProBatchRecordCellRuleSupport.refreshUnreviewedAutomaticSuggestions(
+                root, "REPORT-STALE-V14");
+
+        assertEquals(5, refreshedCount);
+        assertCellRuleAndFillForm(root, 1, 3, "STRING", "input-text", "批号");
+        assertCellRuleAndFillForm(root, 1, 4, "NUMBER", "input-number", "生产数量/pcs");
+        assertCellRuleAndFillForm(root, 1, 5, "NUMBER", "input-number", "自检合格数量/pcs");
+        assertCellRuleAndFillForm(root, 1, 6, "NUMBER", "input-number", "不合格数量/pcs");
+        JSONObject materialNameFillForm = MesProBatchRecordCellRuleSupport.requireCell(root, 1, 2)
+                .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY);
+        assertEquals("checkbox", materialNameFillForm.getString("componentFlag"));
+        assertEquals("30atm压力表", materialNameFillForm.getString("labelText"));
+    }
+
+    @Test
+    void refreshUnreviewedAutomaticSuggestions_keepsReviewedManualRules() {
+        JSONObject root = JSON.parseObject("""
+                {
+                  "rows":{
+                    "0":{"cells":{"0":{"text":"生产数量/pcs"}}},
+                    "1":{"cells":{
+                      "0":{"text":"","fillForm":{"field":"ebr_r1_c0","component":"Input","componentFlag":"checkbox","labelText":"人工确认","value":false,"defaultValue":false},
+                           "edhrCellRule":{"rowIndex":1,"columnIndex":0,"valueType":"BOOLEAN","componentFlag":"checkbox","required":true,"label":"人工确认","constraints":{},"source":"MANUAL","confidence":1.0,"reviewed":true}}
+                    }}
+                  }
+                }
+                """);
+
+        int refreshedCount = MesProBatchRecordCellRuleSupport.refreshUnreviewedAutomaticSuggestions(
+                root, "REPORT-MANUAL");
+
+        assertEquals(0, refreshedCount);
+        JSONObject cell = MesProBatchRecordCellRuleSupport.requireCell(root, 1, 0);
+        assertEquals("checkbox", cell.getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
+                .getString("componentFlag"));
+        assertEquals("人工确认", cell.getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY)
+                .getString("label"));
+    }
+
+    @Test
     void toRuleJson_keepsAttachmentRuleForRequiredEvidence() {
         BatchRecordReportCellRuleVO rule = new BatchRecordReportCellRuleVO()
                 .setRowIndex(1)

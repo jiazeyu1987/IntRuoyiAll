@@ -13,6 +13,9 @@ public class CodexTestCasePageReqVO extends PageParam {
     @Schema(description = "测试项名称")
     private String name;
 
+    @Schema(description = "所属项目")
+    private String project;
+
     @Schema(description = "状态")
     private String status;
 

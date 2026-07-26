@@ -26,6 +26,7 @@ BEGIN
   DROP TEMPORARY TABLE IF EXISTS `tmp_codex_smart_scheduling_case_seed`;
   CREATE TEMPORARY TABLE `tmp_codex_smart_scheduling_case_seed` (
     `case_name` varchar(128) NOT NULL,
+    `project` varchar(16) NOT NULL,
     `method_text` text NOT NULL,
     `test_data_text` text NOT NULL,
     `default_execution_mode` varchar(16) NOT NULL,
@@ -36,11 +37,12 @@ BEGIN
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
   INSERT INTO `tmp_codex_smart_scheduling_case_seed` (
-    `case_name`, `method_text`, `test_data_text`, `default_execution_mode`, `parallel_safe`, `status`, `sort`
+    `case_name`, `project`, `method_text`, `test_data_text`, `default_execution_mode`, `parallel_safe`, `status`, `sort`
   )
   VALUES
   (
     '智能排产-全链路冒烟：入池、预览、发布、日历、报工闭环',
+    '智能排产',
     CONCAT(
       '使用 Playwright 真实页面执行 IntRuoyiFronted/tests/e2e/smart-scheduling-smoke-real-flow.e2e.js 的同等路径：登录测试租户，进入排产员工作台，创建并同步生产工单，按页面可见工单号入池为排产工单，打开自动排产抽屉生成预览，确认发布，核对排程日历，再导入第三方报工并完成归因和审批。',
       CHAR(10),
@@ -58,6 +60,7 @@ BEGIN
   ),
   (
     '智能排产-只读一致性：工作台、排产工单、排程日历',
+    '智能排产',
     CONCAT(
       '使用 Playwright 真实页面执行 IntRuoyiFronted/tests/e2e/smart-scheduling-target-alignment-readonly.e2e.js 的同等路径：登录测试租户，只读打开生产工单、排产工单和排程日历，读取当前真实列表数据，核对工作台指标、排产工单分层进度字段、日历班次短缺和锁定状态。',
       CHAR(10),
@@ -71,6 +74,7 @@ BEGIN
   ),
   (
     '智能排产-可点击安全巡检：危险写入必须显式确认',
+    '智能排产',
     CONCAT(
       '使用 Playwright 真实页面执行 IntRuoyiFronted/tests/e2e/smart-scheduling-clickable-coverage.e2e.js 的同等路径：遍历排产员工作台、排产工单、生产排产、排程日历、工艺流程排产配置、报工、璞慧排产和排产看板。',
       CHAR(10),
@@ -84,11 +88,11 @@ BEGIN
   );
 
   INSERT INTO `system_codex_test_case` (
-    `name`, `method_text`, `test_data_text`, `default_execution_mode`, `parallel_safe`, `status`, `sort`,
+    `name`, `project`, `method_text`, `test_data_text`, `default_execution_mode`, `parallel_safe`, `status`, `sort`,
     `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`
   )
   SELECT
-    `seed`.`case_name`, `seed`.`method_text`, `seed`.`test_data_text`, `seed`.`default_execution_mode`,
+    `seed`.`case_name`, `seed`.`project`, `seed`.`method_text`, `seed`.`test_data_text`, `seed`.`default_execution_mode`,
     `seed`.`parallel_safe`, `seed`.`status`, `seed`.`sort`, 'codex', NOW(), 'codex', NOW(), b'0', 1
     FROM `tmp_codex_smart_scheduling_case_seed` AS `seed`
    WHERE NOT EXISTS (
@@ -105,6 +109,7 @@ BEGIN
    AND `case_item`.`name` = `seed`.`case_name`
    AND `case_item`.`deleted` = b'0'
      SET `case_item`.`method_text` = `seed`.`method_text`,
+         `case_item`.`project` = `seed`.`project`,
          `case_item`.`test_data_text` = `seed`.`test_data_text`,
          `case_item`.`default_execution_mode` = `seed`.`default_execution_mode`,
          `case_item`.`parallel_safe` = `seed`.`parallel_safe`,

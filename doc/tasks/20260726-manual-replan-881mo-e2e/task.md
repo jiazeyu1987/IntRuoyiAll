@@ -6,10 +6,10 @@
 
 ## Milestones
 
-- [ ] 完成任务规则、E2E、登录、运行端口和经验门禁预检。
-- [ ] 通过真实页面筛选并选择两个目标排产工单。
-- [ ] 执行“手动重排 -> 开始重排 -> 确认应用重排”。
-- [ ] 验证四个检查点并记录真实观察结果。
+- [x] 完成任务规则、E2E、登录、运行端口和经验门禁预检。
+- [x] 通过真实页面筛选并选择两个目标排产工单。
+- [x] 执行“手动重排 -> 开始重排 -> 确认应用重排”。
+- [x] 验证四个检查点并记录真实观察结果。
 
 ## Expected Verification
 
@@ -20,7 +20,12 @@
 
 ## Current Status
 
-- in_progress
+- ready_for_closeout
+
+## Verification Evidence
+
+- 2026-07-26 11:21:44：`node doc\tasks\20260726-manual-replan-881mo-e2e\manual-replan-881mo-current.e2e.cjs` 执行完成，四个检查点全部 PASS。
+- 证据文件：`output\playwright\20260726-manual-replan-881mo-e2e\e2e-evidence.json`。
 
 ## 经验门禁
 

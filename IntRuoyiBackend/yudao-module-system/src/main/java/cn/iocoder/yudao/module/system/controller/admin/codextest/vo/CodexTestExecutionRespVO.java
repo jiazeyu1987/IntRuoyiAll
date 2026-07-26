@@ -35,6 +35,10 @@ public class CodexTestExecutionRespVO {
         private LocalDateTime startedAt;
         private LocalDateTime finishedAt;
         private String failureReason;
+        private String progressPhase;
+        private Integer currentMethodSort;
+        private Integer currentCheckpointSort;
+        private String progressMessage;
         private List<CheckpointResult> checkpointResults;
     }
 

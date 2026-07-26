@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRun
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerCompleteCaseReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerHeartbeatReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerHeartbeatRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerProgressReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterRespVO;
 import cn.iocoder.yudao.module.system.service.codextest.CodexTestArtifactService;
@@ -94,6 +95,20 @@ public class CodexTestRunnerController {
             @RequestHeader(value = HEADER_TENANT_ID, required = false) Long managementTenantId) {
         return executeWithRunnerTenant(managementTenantId, () -> {
             codexTestRunnerService.saveCheckpointResult(resultReqVO, token);
+            return success(true);
+        });
+    }
+
+    @PostMapping("/progress")
+    @PermitAll
+    @TenantIgnore
+    @Operation(summary = "Codex Runner 回写执行进度")
+    public CommonResult<Boolean> reportProgress(
+            @Valid @RequestBody CodexTestRunnerProgressReqVO progressReqVO,
+            @RequestHeader(value = RUNNER_TOKEN_HEADER, required = false) String token,
+            @RequestHeader(value = HEADER_TENANT_ID, required = false) Long managementTenantId) {
+        return executeWithRunnerTenant(managementTenantId, () -> {
+            codexTestRunnerService.reportProgress(progressReqVO, token);
             return success(true);
         });
     }

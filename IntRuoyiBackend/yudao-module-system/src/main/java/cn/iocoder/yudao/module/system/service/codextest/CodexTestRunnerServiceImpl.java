@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRun
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerCompleteCaseReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerHeartbeatReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerHeartbeatRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerProgressReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterRespVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestCheckpointResultDO;
@@ -146,6 +147,22 @@ public class CodexTestRunnerServiceImpl implements CodexTestRunnerService {
     }
 
     @Override
+    public void reportProgress(CodexTestRunnerProgressReqVO progressReqVO, String token) {
+        validateRunnerToken(token);
+        validateProgress(progressReqVO);
+        CodexTestExecutionCaseDO executionCase = validateExecutionCaseExists(progressReqVO.getExecutionCaseId());
+        if (!List.of(EXECUTION_CLAIMED, EXECUTION_RUNNING).contains(executionCase.getStatus())) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "执行项状态不允许回写进度");
+        }
+        LocalDateTime startedAt = executionCase.getStartedAt() == null ? LocalDateTime.now() : null;
+        if (codexTestExecutionCaseMapper.updateProgress(executionCase.getId(), executionCase.getRunnerSessionId(),
+                progressReqVO.getPhase(), progressReqVO.getCurrentMethodSort(),
+                progressReqVO.getCurrentCheckpointSort(), progressReqVO.getProgressMessage(), startedAt) != 1) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "执行项状态不允许回写进度");
+        }
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void completeCase(CodexTestRunnerCompleteCaseReqVO completeReqVO, String token) {
         validateRunnerToken(token);
@@ -171,6 +188,20 @@ public class CodexTestRunnerServiceImpl implements CodexTestRunnerService {
         }
         if (!StrUtil.contains(capabilities, "codex")) {
             throw exception(CODEX_TEST_RUNNER_CAPABILITY_MISSING, "codex");
+        }
+    }
+
+    private void validateProgress(CodexTestRunnerProgressReqVO progressReqVO) {
+        if (!PROGRESS_PHASES.contains(progressReqVO.getPhase())) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "执行阶段必须是 METHOD、CHECKPOINT 或 DONE");
+        }
+        if (PROGRESS_PHASE_METHOD.equals(progressReqVO.getPhase())
+                && (progressReqVO.getCurrentMethodSort() == null || progressReqVO.getCurrentMethodSort() < 1)) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "METHOD 阶段必须包含当前测试方法项序号");
+        }
+        if (PROGRESS_PHASE_CHECKPOINT.equals(progressReqVO.getPhase())
+                && (progressReqVO.getCurrentCheckpointSort() == null || progressReqVO.getCurrentCheckpointSort() < 1)) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "CHECKPOINT 阶段必须包含当前目标项序号");
         }
     }
 

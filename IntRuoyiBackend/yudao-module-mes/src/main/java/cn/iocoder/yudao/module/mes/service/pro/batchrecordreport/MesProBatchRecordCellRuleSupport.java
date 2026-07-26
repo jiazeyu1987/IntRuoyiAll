@@ -364,6 +364,35 @@ public final class MesProBatchRecordCellRuleSupport {
         return counter.value;
     }
 
+    public static int refreshUnreviewedAutomaticSuggestions(JSONObject root, String reportCode) {
+        Counter counter = new Counter();
+        JSONObject rows = root == null ? null : root.getJSONObject("rows");
+        forEachCell(root, (rowIndex, columnIndex, cell) -> {
+            if (!isFillableCandidateCell(cell)) {
+                return;
+            }
+            JSONObject existing = cell.getJSONObject(CELL_RULE_KEY);
+            if (isReviewedRule(existing)) {
+                return;
+            }
+            String beforeRule = existing == null ? "" : existing.toJSONString();
+            JSONObject fillForm = cell.getJSONObject(FILL_FORM_KEY);
+            String beforeFillForm = fillForm == null ? "" : fillForm.toJSONString();
+            BatchRecordReportCellRuleVO suggestion = withFillFormPlaceholder(
+                    suggestRule(rows, rowIndex, columnIndex, cell), cell);
+            ensureManualFillForm(suggestion, cell, reportCode);
+            JSONObject nextRule = toRuleJson(suggestion);
+            cell.put(CELL_RULE_KEY, nextRule);
+            JSONObject nextFillForm = cell.getJSONObject(FILL_FORM_KEY);
+            String afterFillForm = nextFillForm == null ? "" : nextFillForm.toJSONString();
+            if (!Objects.equals(beforeRule, nextRule.toJSONString())
+                    || !Objects.equals(beforeFillForm, afterFillForm)) {
+                counter.value++;
+            }
+        });
+        return counter.value;
+    }
+
     public static int materializeVersionApprovedCellRules(JSONObject root, String reportCode) {
         Counter counter = new Counter();
         JSONObject rows = root == null ? null : root.getJSONObject("rows");
@@ -649,21 +678,24 @@ public final class MesProBatchRecordCellRuleSupport {
                     label, null, 0.35, false);
         }
         if (compactLabel.contains("□其他") || compactLabel.contains("☑其他")) {
-            return baseSuggestion(rowIndex, columnIndex, "STRING", defaultComponentFlag("STRING", existingComponent),
+            return baseSuggestion(rowIndex, columnIndex, "STRING",
+                    defaultTextComponentFlag(existingComponent, compactLabel),
                     label, null, 0.88, false);
         }
         if (containsAny(compactLabel, "日期", "年月日")) {
             return baseSuggestion(rowIndex, columnIndex, "DATE", "date", label, null, 0.9, false);
         }
         if (containsIdentifierCue(compactLabel)) {
-            return baseSuggestion(rowIndex, columnIndex, "STRING", defaultComponentFlag("STRING", existingComponent),
+            return baseSuggestion(rowIndex, columnIndex, "STRING",
+                    defaultTextComponentFlag(existingComponent, compactLabel),
                     label, null, 0.78, false);
         }
         if (hasBooleanCue(compactLabel)) {
             return baseSuggestion(rowIndex, columnIndex, "BOOLEAN", "checkbox", label, null, 0.86, false);
         }
         if (containsAny(compactLabel, "签名", "签字")) {
-            return baseSuggestion(rowIndex, columnIndex, "STRING", defaultComponentFlag("STRING", existingComponent),
+            return baseSuggestion(rowIndex, columnIndex, "STRING",
+                    defaultTextComponentFlag(existingComponent, compactLabel),
                     label, null, 0.45, false);
         }
         if (isDateTimeLabel(compactLabel, unit)) {
@@ -673,8 +705,18 @@ public final class MesProBatchRecordCellRuleSupport {
                 "高度", "厚度", "速度", "电压", "电流", "批量", "含量", "浓度", "转速", "扭矩")) {
             return baseSuggestion(rowIndex, columnIndex, "NUMBER", "input-number", label, unit, 0.84, false);
         }
-        return baseSuggestion(rowIndex, columnIndex, "STRING", defaultComponentFlag("STRING", existingComponent),
+        return baseSuggestion(rowIndex, columnIndex, "STRING",
+                defaultTextComponentFlag(existingComponent, compactLabel),
                 label, null, 0.4, false);
+    }
+
+    private static String defaultTextComponentFlag(String existingComponentFlag, String compactLabel) {
+        String normalized = StrUtil.blankToDefault(existingComponentFlag, "").trim().toLowerCase(Locale.ROOT);
+        if ((normalized.contains("checkbox") || normalized.contains("boolean"))
+                && !hasBooleanCue(compactLabel)) {
+            return "input-text";
+        }
+        return defaultComponentFlag("STRING", existingComponentFlag);
     }
 
     private static String resolveSuggestedLabel(JSONObject rows, Integer rowIndex, Integer columnIndex, String ownText) {
@@ -877,6 +919,9 @@ public final class MesProBatchRecordCellRuleSupport {
         if (isSignatureDateLabel(compact(leftLabel))) {
             return leftLabel;
         }
+        if (isCheckboxChoiceText(leftLabel) && isTypedTableColumnHeader(upperLabel)) {
+            return upperLabel;
+        }
         if (hasStrongTypeCue(leftLabel)) {
             return leftLabel;
         }
@@ -887,6 +932,12 @@ public final class MesProBatchRecordCellRuleSupport {
             return leftLabel;
         }
         return upperLabel;
+    }
+
+    private static boolean isTypedTableColumnHeader(String label) {
+        return StrUtil.isNotBlank(label)
+                && !isCheckboxChoiceText(label)
+                && hasStrongTypeCue(label);
     }
 
     private static String resolveLeftLabel(JSONObject rows, Integer rowIndex, Integer columnIndex) {
@@ -1215,7 +1266,8 @@ public final class MesProBatchRecordCellRuleSupport {
                 && (hasBooleanCue(compactLabel) || containsIdentifierCue(compactLabel)
                 || containsAny(compactLabel, "日期", "年月日", "时间", "时长", "用时", "时间点", "时刻", "数量", "重量", "温度", "压力", "体积",
                 "长度", "宽度", "高度", "厚度", "速度", "电压", "电流", "批量", "含量",
-                "浓度", "转速", "扭矩")
+                "浓度", "转速", "扭矩", "操作人", "复核人", "记录人", "检验人", "确认人",
+                "审核人", "批准人", "人员", "姓名", "签名", "签字")
                 || resolveUnit(label) != null);
     }
 

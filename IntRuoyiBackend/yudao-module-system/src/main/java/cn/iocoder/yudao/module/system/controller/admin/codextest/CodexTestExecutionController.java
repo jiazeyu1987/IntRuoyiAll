@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 import static cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils.getLoginUserId;
@@ -69,6 +70,13 @@ public class CodexTestExecutionController {
     @PreAuthorize("@ss.hasPermission('system:codex-test:query')")
     public CommonResult<CodexTestExecutionRespVO> getExecution(@RequestParam("id") Long id) {
         return success(codexTestExecutionService.getExecution(id));
+    }
+
+    @GetMapping("/monitor")
+    @Operation(summary = "获得 Codex 测试运行监控")
+    @PreAuthorize("@ss.hasPermission('system:codex-test:query')")
+    public CommonResult<List<CodexTestExecutionRespVO>> getExecutionMonitor() {
+        return success(codexTestExecutionService.getExecutionMonitor());
     }
 
     @GetMapping("/artifact")

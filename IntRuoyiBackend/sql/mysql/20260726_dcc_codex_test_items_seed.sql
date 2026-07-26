@@ -9,6 +9,7 @@ BEGIN
   CREATE TEMPORARY TABLE `tmp_dcc_codex_test_case_seed` (
     `tenant_id` bigint NOT NULL,
     `name` varchar(128) NOT NULL,
+    `project` varchar(16) NOT NULL,
     `method_text` text NOT NULL,
     `test_data_text` text NOT NULL,
     `default_execution_mode` varchar(16) NOT NULL,
@@ -20,13 +21,14 @@ BEGIN
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
   INSERT INTO `tmp_dcc_codex_test_case_seed` (
-    `tenant_id`, `name`, `method_text`, `test_data_text`, `default_execution_mode`,
+    `tenant_id`, `name`, `project`, `method_text`, `test_data_text`, `default_execution_mode`,
     `parallel_safe`, `status`, `sort`, `checkpoint_count`
   )
   VALUES
   (
     1,
     '智能文控受控文件上传审批发布闭环',
+    '文控',
     CONCAT(
       'a. 通过真实前端进入 /dcc/controlled-file/upload，使用任务自有目录、分类、项目代码和源文件发起受控文件上传。', CHAR(10),
       'b. 在上传页面完成预览、元数据校验、分发/培训配置确认并提交审批，不得使用 API-only 直塞。', CHAR(10),
@@ -46,6 +48,7 @@ BEGIN
   (
     1,
     '智能文控受控文件修订版本链闭环',
+    '文控',
     CONCAT(
       'a. 在 /dcc/controlled-file/browser 按任务自有文件编号定位已发布 ACTIVE 文件，并从详情页发起 REVISION 修订。', CHAR(10),
       'b. 上传新源文件或新版输出物，填写修订原因，提交审批并在 /dcc/controlled-file/approval-tasks 完成审批。', CHAR(10),
@@ -65,6 +68,7 @@ BEGIN
   (
     1,
     '智能文控作废审批与受控浏览收敛',
+    '文控',
     CONCAT(
       'a. 在 /dcc/controlled-file/browser 按任务自有文件编号定位 ACTIVE 文件，进入详情页发起 OBSOLETE 作废。', CHAR(10),
       'b. 填写作废原因并通过 /dcc/controlled-file/approval-tasks 完成作废审批，不得绕过 BPM 或表单策略。', CHAR(10),
@@ -84,6 +88,7 @@ BEGIN
   (
     1,
     '智能文控受控浏览下载水印与访问日志',
+    '文控',
     CONCAT(
       'a. 使用具备文控权限的测试账号进入 /dcc/controlled-file/browser，按任务自有分类和文件编号搜索受控文件。', CHAR(10),
       'b. 打开只读预览页，核对下载入口、只读水印、权限过滤和可见文件范围。', CHAR(10),
@@ -103,6 +108,7 @@ BEGIN
   (
     1,
     '智能文控分发培训闭环',
+    '文控',
     CONCAT(
       'a. 在 /dcc/controlled-file/categories 为任务自有分类配置分发规则和培训规则，或复用已确认的测试分类。', CHAR(10),
       'b. 通过 /dcc/controlled-file/upload 发布需要分发和培训的受控文件，确认发布后生成分发和培训任务。', CHAR(10),
@@ -122,6 +128,7 @@ BEGIN
   (
     1,
     '智能文控项目代码识别分配闭环',
+    '文控',
     CONCAT(
       'a. 进入 /dcc/controlled-file/basic-data 的项目代码或识别任务入口，创建任务自有项目代码、别名和测试目录映射。', CHAR(10),
       'b. 上传或选择任务自有受控文件，触发项目代码识别任务并等待识别结果可见。', CHAR(10),
@@ -144,11 +151,11 @@ BEGIN
   END IF;
 
   INSERT INTO `system_codex_test_case` (
-    `name`, `method_text`, `test_data_text`, `default_execution_mode`, `parallel_safe`, `status`, `sort`,
+    `name`, `project`, `method_text`, `test_data_text`, `default_execution_mode`, `parallel_safe`, `status`, `sort`,
     `creator`, `create_time`, `updater`, `update_time`, `deleted`, `tenant_id`
   )
   SELECT
-    `seed`.`name`, `seed`.`method_text`, `seed`.`test_data_text`, `seed`.`default_execution_mode`,
+    `seed`.`name`, `seed`.`project`, `seed`.`method_text`, `seed`.`test_data_text`, `seed`.`default_execution_mode`,
     `seed`.`parallel_safe`, `seed`.`status`, `seed`.`sort`, 'codex', NOW(), 'codex', NOW(), b'0', `seed`.`tenant_id`
     FROM `tmp_dcc_codex_test_case_seed` AS `seed`
    WHERE NOT EXISTS (
@@ -163,7 +170,8 @@ BEGIN
   JOIN `tmp_dcc_codex_test_case_seed` AS `seed`
     ON `seed`.`tenant_id` = `target`.`tenant_id`
    AND `seed`.`name` = `target`.`name`
-   SET `target`.`method_text` = `seed`.`method_text`,
+    SET `target`.`project` = `seed`.`project`,
+       `target`.`method_text` = `seed`.`method_text`,
        `target`.`test_data_text` = `seed`.`test_data_text`,
        `target`.`default_execution_mode` = `seed`.`default_execution_mode`,
        `target`.`parallel_safe` = `seed`.`parallel_safe`,

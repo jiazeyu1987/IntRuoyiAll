@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRun
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerClaimReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerClaimRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerCompleteCaseReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerProgressReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterRespVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionCaseDO;
@@ -96,6 +97,41 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
 
         assertEquals("codex-runner", runnerSession.getCreator());
         assertEquals("codex-runner", runnerSession.getUpdater());
+    }
+
+    @Test
+    void reportProgress_updatesRunningCaseAndMonitorDetailFields() {
+        Long runnerSessionId = registerRunner();
+        Long caseId = codexTestCaseService.createCase(CodexTestCaseServiceImplTest.buildCaseReq("排产手动重排", true));
+        Long executionId = codexTestExecutionService.startExecution(startReq(caseId), 99L);
+        CodexTestRunnerClaimRespVO.Task task = codexTestRunnerService.claimTasks(claimReq(runnerSessionId), RUNNER_TOKEN)
+                .getTasks().get(0);
+
+        CodexTestRunnerProgressReqVO methodProgressReqVO = new CodexTestRunnerProgressReqVO();
+        methodProgressReqVO.setExecutionCaseId(task.getExecutionCaseId());
+        methodProgressReqVO.setPhase("METHOD");
+        methodProgressReqVO.setCurrentMethodSort(2);
+        methodProgressReqVO.setProgressMessage("正在执行测试方法项第 2 项");
+        codexTestRunnerService.reportProgress(methodProgressReqVO, RUNNER_TOKEN);
+
+        CodexTestExecutionCaseDO methodProgressCase = codexTestExecutionCaseMapper.selectById(task.getExecutionCaseId());
+        assertEquals("RUNNING", methodProgressCase.getStatus());
+        assertEquals("METHOD", methodProgressCase.getProgressPhase());
+        assertEquals(2, methodProgressCase.getCurrentMethodSort());
+        assertEquals("正在执行测试方法项第 2 项", methodProgressCase.getProgressMessage());
+
+        CodexTestRunnerProgressReqVO checkpointProgressReqVO = new CodexTestRunnerProgressReqVO();
+        checkpointProgressReqVO.setExecutionCaseId(task.getExecutionCaseId());
+        checkpointProgressReqVO.setPhase("CHECKPOINT");
+        checkpointProgressReqVO.setCurrentCheckpointSort(1);
+        checkpointProgressReqVO.setProgressMessage("正在验证目标项第 1 项");
+        codexTestRunnerService.reportProgress(checkpointProgressReqVO, RUNNER_TOKEN);
+
+        CodexTestExecutionCaseDO checkpointProgressCase = codexTestExecutionCaseMapper.selectById(task.getExecutionCaseId());
+        assertEquals("CHECKPOINT", checkpointProgressCase.getProgressPhase());
+        assertEquals(1, checkpointProgressCase.getCurrentCheckpointSort());
+        assertEquals("正在验证目标项第 1 项", checkpointProgressCase.getProgressMessage());
+        assertEquals("CHECKPOINT", codexTestExecutionService.getExecution(executionId).getCases().get(0).getProgressPhase());
     }
 
     private Long registerRunner() {

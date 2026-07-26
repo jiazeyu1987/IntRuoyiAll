@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.system.service.codextest;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionStartReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestCheckpointResultDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionCaseDO;
@@ -81,6 +82,23 @@ class CodexTestExecutionServiceImplTest extends BaseDbUnitTest {
 
         assertServiceException(() -> codexTestExecutionService.startExecution(startReq("SEQUENTIAL", caseId), 99L),
                 CODEX_TEST_RUNNER_OFFLINE);
+    }
+
+    @Test
+    void getExecutionMonitor_returnsUnfinishedExecutionDetails() {
+        Long caseId = codexTestCaseService.createCase(CodexTestCaseServiceImplTest.buildCaseReq("排产手动重排", false));
+        insertOnlineRunner();
+        Long executionId = codexTestExecutionService.startExecution(startReq("SEQUENTIAL", caseId), 99L);
+
+        List<CodexTestExecutionRespVO> monitorList = codexTestExecutionService.getExecutionMonitor();
+
+        assertEquals(1, monitorList.size());
+        CodexTestExecutionRespVO execution = monitorList.get(0);
+        assertEquals(executionId, execution.getId());
+        assertEquals("PENDING", execution.getStatus());
+        assertEquals(1, execution.getCases().size());
+        assertEquals("排产手动重排", execution.getCases().get(0).getCaseNameSnapshot());
+        assertEquals(2, execution.getCases().get(0).getCheckpointResults().size());
     }
 
     private void insertOnlineRunner() {

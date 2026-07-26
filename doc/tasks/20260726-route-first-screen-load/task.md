@@ -7,10 +7,10 @@
 ## Milestones
 
 - [x] 建立任务记录并保存进入任务前的脏工作区基线。
-- [ ] 定位工艺流程首屏加载链路和重型同步依赖。
-- [ ] 补充首屏按需加载静态契约，先 RED 再实现。
-- [ ] 实施工艺路线列表首屏按需加载优化。
-- [ ] 运行目标验证并记录结果。
+- [x] 定位工艺流程首屏加载链路和重型同步依赖。
+- [x] 补充首屏按需加载静态契约，先 RED 再实现。
+- [x] 实施工艺路线列表首屏按需加载优化。
+- [x] 运行目标验证并记录结果。
 
 ## Expected Verification
 
@@ -20,12 +20,36 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Baseline
 
 - Dirty worktree baseline commit: `697f4e3b chore: baseline dirty worktree before route load optimization`
 - Baseline scope: 保存本任务开始前已有 tracked/untracked/staged 改动，当前任务不回滚、不覆盖这些改动。
+
+## Implementation Evidence
+
+- Static contract and task documents were captured by concurrent baseline commit `792fec93 chore: baseline dirty worktree before form slot badge`.
+- Async component implementation was captured by concurrent baseline commit `377d00db chore: baseline follow-up dirty worktree before form slot badge`.
+- Current HEAD contains the required code changes:
+  - `IntRuoyiFronted/src/views/mes/pro/route/index.vue`
+  - `IntRuoyiFronted/src/views/mes/pro/route/RouteForm.vue`
+  - `IntRuoyiFronted/src/views/mes/pro/route/RouteFormContent.vue`
+  - `IntRuoyiFronted/tests/e2e/mes-route-first-screen-defer-static.spec.js`
+
+## Verification Result
+
+- `node tests/e2e/mes-route-first-screen-defer-static.spec.js` -> RED before implementation, then GREEN after implementation.
+- `pnpm ts:check` -> PASS.
+- `pnpm build:local` -> BLOCKED/TIMEOUT after 604s; task-owned timeout process tree was stopped (`43028`, `17480`, `59032`). No build success was claimed.
+
+## Closeout Blocker
+
+- Current repository has concurrent dirty changes and additional ahead commits unrelated to this task. Per task ownership rules, this task cannot safely perform final closeout commit/push without capturing unrelated concurrent task work.
+
+## Cleanup Keep
+
+- doc/tasks/20260726-route-first-screen-load/frontend-feature-evidence.md
 
 ## Experience Gates
 

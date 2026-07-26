@@ -14,9 +14,9 @@ Delete the following user-specified IntRuoyi worktrees:
 - [x] Confirm target worktree paths and merge status.
 - [x] Create task documentation before destructive cleanup proceeds.
 - [x] Create missing `docs\worktree-memory.md` with user authorization.
-- [ ] Delete the three worktrees with Git worktree commands.
-- [ ] Verify the three worktrees are no longer registered or present on disk.
-- [ ] Record final verification and close task.
+- [x] Delete the three worktrees with Git worktree commands.
+- [x] Verify the three worktrees are no longer registered or present on disk.
+- [x] Record final verification and close task.
 
 ## Expected Verification
 
@@ -26,9 +26,9 @@ Delete the following user-specified IntRuoyi worktrees:
 
 ## Current Status
 
-in_progress
+completed
 
-The missing worktree memory gate has been created with user authorization. Proceeding to delete the three user-specified worktrees and verify removal.
+The three user-specified worktrees have been removed from Git registration and their physical directories no longer exist. Port registry entries have been marked inactive. Cleanup preview/apply passed with no extra deletions.
 
 ## 经验门禁
 

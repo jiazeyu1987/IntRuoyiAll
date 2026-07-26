@@ -84,6 +84,8 @@ def test_dcc_codex_test_items_seed_matches_test_management_contract() -> None:
     assert "INSERT INTO system_codex_test_case" in sql
     assert "INSERT INTO system_codex_test_checkpoint" in sql
     assert "default_execution_mode" in sql
+    assert "project" in sql
+    assert "'文控'" in sql
     assert sql.count("'SEQUENTIAL'") >= len(EXPECTED_CASES)
     assert sql.count("b'0'") >= len(EXPECTED_CASES)
     assert "'ENABLE'" in sql

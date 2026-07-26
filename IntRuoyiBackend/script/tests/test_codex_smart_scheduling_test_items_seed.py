@@ -67,6 +67,8 @@ def test_smart_scheduling_test_items_seed_required_cases_and_runner_guardrails()
     assert "111111" not in sql
     assert "password" not in normalized
     assert "parallel_safe" in normalized
+    assert "project" in normalized
+    assert "'智能排产'" in sql
     assert "b'0'" in normalized
     assert "default_execution_mode" in normalized
     assert "'sequential'" in normalized

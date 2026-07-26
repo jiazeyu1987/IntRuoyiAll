@@ -1,5 +1,14 @@
 import request from '@/config/axios'
 
+export type CodexTestProject = '智能排产' | '文控' | '批记录'
+export type CodexTestProgressPhase = 'METHOD' | 'CHECKPOINT' | 'DONE'
+
+export const CODEX_TEST_PROJECT_OPTIONS: Array<{ label: CodexTestProject; value: CodexTestProject }> = [
+  { label: '智能排产', value: '智能排产' },
+  { label: '批记录', value: '批记录' },
+  { label: '文控', value: '文控' }
+]
+
 export interface CodexTestCheckpointVO {
   id?: number
   sort: number
@@ -12,6 +21,7 @@ export interface CodexTestCheckpointVO {
 export interface CodexTestCaseVO {
   id?: number
   name: string
+  project?: CodexTestProject
   methodText: string
   testDataText?: string
   defaultExecutionMode: 'SEQUENTIAL' | 'PARALLEL'
@@ -27,6 +37,7 @@ export interface CodexTestCaseVO {
 
 export interface CodexTestCasePageReqVO extends PageParam {
   name?: string
+  project?: CodexTestProject
   status?: string
   executionMode?: string
 }
@@ -68,6 +79,10 @@ export interface CodexTestExecutionCaseVO {
   startedAt?: Date
   finishedAt?: Date
   failureReason?: string
+  progressPhase?: CodexTestProgressPhase
+  currentMethodSort?: number
+  currentCheckpointSort?: number
+  progressMessage?: string
   checkpointResults: CodexTestCheckpointResultVO[]
 }
 
@@ -126,6 +141,10 @@ export const getCodexTestExecutionPage = (params: CodexTestExecutionPageReqVO) =
 
 export const getCodexTestExecution = (id: number) => {
   return request.get<CodexTestExecutionVO>({ url: '/system/codex-test-execution/get?id=' + id })
+}
+
+export const getCodexTestExecutionMonitor = () => {
+  return request.get<CodexTestExecutionVO[]>({ url: '/system/codex-test-execution/monitor' })
 }
 
 export const downloadCodexTestArtifact = (id: number) => {
