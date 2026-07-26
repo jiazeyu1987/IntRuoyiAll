@@ -8,8 +8,8 @@
 
 1. `completed`：读取强制规则，建立基线，核对主工作区与各 worktree 状态。
 2. `completed`：按分支顺序合入 `int_main`，处理并验证冲突。
-3. `in_progress`：验证合并结果、远端同步状态、worktree 删除结果及端口登记状态。
-4. `pending`：执行收尾清理，提交收尾记录并完成任务。
+3. `completed`：验证合并结果、远端同步状态、worktree 删除结果及端口登记状态。
+4. `completed`：执行收尾清理，提交收尾记录并完成任务。
 
 ## Expected Verification
 
@@ -28,7 +28,7 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## 设计约束检查
 

@@ -133,7 +133,31 @@ GREEN: experience-preflight -> PASS，已确认路径边界、dirty 变更保存
 
 ## Current Remaining Work
 
-- 运行项目经验沉淀，提交任务验证记录并推送 `int_main`。
-- 确认目标路径无进程引用后删除六个 worktree，执行 `git worktree prune`。
-- 更新端口登记表为 inactive/deleted，完成三重删除复核。
-- 执行 task-closeout preview/apply，标记任务完成并最终推送。
+## Worktree Deletion Verification
+
+- `int_main` 首次推送：`git push origin int_main` -> PASS，推送 `1e09c6db..bf018a2b`。
+- 删除前发现并停止仅属于目标 worktree 的运行态：
+  - PID `40332` route attachments Vite，子进程 `16520` esbuild。
+  - PID `39420` route attachments backend，端口 `48087`。
+  - PID `57744` eDHR dossier backend，端口 `48081`；该进程命令行明确指向目标 worktree，非 `E:\IntRuoyi` 主工作区。
+- 删除前端口检查 -> PASS，登记的 `8082/8083/8084/8085/8086/8087` 与 `48082/48083/48084/48085/48086/48087` 均无监听；停止后 `48081` 也已释放。
+- 目标绝对路径均解析在 `D:\IntRuoyiWorktree\` 下，且六个 worktree 删除前均已 clean、分支 tip 均已合入。
+- `git worktree remove` -> PASS：batch、codex、personal-console 三个直接删除；dossier 先完成 Git 注销，因依赖目录残留返回 `Directory not empty`，确认无 `.git`、无进程引用后仅删除该目标物理残留目录；route attachments 与 work-order 先清理各自 ignored 构建产物/`node_modules`/本任务临时 E2E artifacts，再正常删除。
+- `git worktree prune --verbose` -> PASS。
+- 删除后三重核验 -> PASS：`git worktree list --porcelain` 仅剩 `E:\IntRuoyi`；六个目标 `Test-Path` 均为 `False`；端口登记表六项均为 `active=false`，并记录 `deletedAt` 与 `cleanupTask=20260726-merge-worktrees-into-int-main`。
+- closeout 前观察到并发提交 `bc4ab705` 及其未提交 eDHR 页面改动，均不属于本任务，未修改、未回滚。
+
+## Current Remaining Work
+
+## Closeout Verification
+
+- `task-closeout-cleanup --mode preview` -> PASS，保留 `task.md`、`execution-log.md`、`verification-report.md`，删除本任务额外 `bug-regression-evidence.md`，无 blocked/warnings。
+- `task-closeout-cleanup --mode apply` -> PASS，仅删除上述本任务额外证据文件。
+- 任务状态已更新为 `completed`；最终 closeout commit 与 push 待执行。
+
+## Concurrent Dirty Baseline
+
+- 由于共享 `int_main` 在 closeout 前存在另一项 eDHR 页面任务的脏改动，按项目 Git 规则先独立保存 baseline：`fc603595`，提交信息 `chore: baseline concurrent edhr simulate changes`。
+- Baseline 文件：4 个 eDHR 页面/静态合同修改、1 个新增静态合同、`doc/tasks/20260726-edhr-simulate-hide-red-box-sections/` 下 4 个任务记录文件，共 9 个文件。
+- `git diff --cached --check` 对并发 baseline 报告两个既有 EOF 空行：`IntRuoyiFronted/tests/e2e/edhr-batch-template-simulate-red-box-hidden-static.spec.js`、`doc/tasks/20260726-edhr-simulate-hide-red-box-sections/task.md`；未修改并发任务内容。
+- 本任务 closeout 提交不包含 baseline 文件。

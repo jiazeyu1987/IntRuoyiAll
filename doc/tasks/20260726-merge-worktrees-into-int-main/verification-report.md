@@ -32,7 +32,9 @@
 
 ## Pending Closeout
 
-- 推送 `int_main` 并确认不再 ahead。
-- 删除六个 worktree、prune Git 元数据并更新端口登记表。
-- 清理本次测试生成的 `resources/批记录压力泵.doc`。
-- 完成 task-closeout preview/apply 和最终收尾提交。
+- 六个 worktree 已删除，Git 注册与物理目录均已复核不存在。
+- 六个端口登记项已标记 `active=false`，并记录删除时间和收尾任务。
+- 本次测试生成的 `resources/批记录压力泵.doc` 已清理。
+- cleanup preview/apply 已通过，仅删除本任务额外证据文件，核心任务记录保留。
+- 并发 eDHR 脏改动已独立保存为 baseline `fc603595`，未混入本任务 closeout。
+- 任务状态已更新为 `completed`；最终 closeout 记录提交和推送待执行。
