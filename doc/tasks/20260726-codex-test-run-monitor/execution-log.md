@@ -68,3 +68,4 @@
 - E2E NOTE: first Playwright smoke attempt logged in successfully but failed on strict selector because `运行监控` matched both the tab and the page title; reran with role `tab`.
 - GREEN: real Playwright path `http://127.0.0.1:8081/login?redirect=/system/codex-test-management` -> `系统管理 > 测试管理` -> click `运行监控` tab -> monitor response HTTP `200`, business `code=0`, data `[]`, route-not-found message count `0`, page summary `当前正在运行 0 个测试任务`.
 - NOTE: Playwright observed unrelated `net::ERR_ABORTED` requests from navigation/background polling, including DCC/message/user-column endpoints; none were the monitor endpoint.
+- GREEN: project-experience-consolidation -> PASS, merged the route-auth verification lesson into `docs/local-runtime.md#2026-07-24-隔离构建-jar-加载门禁` and updated `docs/experience-index.md`.

@@ -167,7 +167,7 @@
 - Keywords: restart-int-ruoyi-local, Missing int_main frontend path, yudao-ui-admin-vue3, IntRuoyiFronted, local backend restart E2E -> `docs/local-runtime.md#2026-07-24-本地重启脚本路径门禁`
 - Keywords: local backend MySQL Access denied, dynamic-datasource create datasource named [master] error, Access denied for user 'root'@'localhost', 48081 未监听, 本地后端数据库凭据 -> `docs/local-runtime.md#2026-07-25-本地后端数据库凭据门禁`
 - Keywords: D-Main local runtime, int_main_d, vite command not found, Java package runtime ignored, *.runtime不存在, git check-ignore runtime source -> `docs/local-runtime.md#2026-07-25-d-main-本地启动源码与依赖门禁`
-- Keywords: isolated backend jar, dirty main workspace, int_main 48081, jar SHA256, local E2E reload, clean worktree build -> `docs/local-runtime.md#2026-07-24-隔离构建-jar-加载门禁`
+- Keywords: isolated backend jar, dirty main workspace, int_main 48081, jar SHA256, local E2E reload, clean worktree build, 未登录 401, 登录态路由验证, route-not-found, schema 字段核对 -> `docs/local-runtime.md#2026-07-24-隔离构建-jar-加载门禁`
 - Keywords: Element Plus el-table, 表格行复选框, 表头全选误点, indeterminate checkbox, Playwright body-wrapper row selection, 手动重排选中集合断言 -> `docs/e2e-rules.md#element-plus-表格选择门禁`
 - Keywords: edhr-batch-execution-real-flow.e2e.js, int-ruoyi-mysql, 数据库夹具, LOCAL_DATABASE_FIXTURE, 芋道源码/admin, 真实 E2E 前置条件缺失, 覆盖历史 E2E 证据 -> `docs/e2e-rules.md#edhr-批次执行数据库夹具与证据文件门禁`
 - Keywords: 全局开关 E2E, 共享配置恢复, 系统级配置开关, Playwright finally restore, 恢复后复验, global switch cleanup -> `docs/e2e-rules.md#全局开关类-e2e-恢复门禁`

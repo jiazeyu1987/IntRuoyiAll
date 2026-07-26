@@ -756,7 +756,11 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     }
 
     private void insertWaitingSpecialTask(Long batchExecutionId, String nodeType) {
-        batchTaskMapper.insert(MesProEdhrBatchExecutionTaskDO.builder()
+        insertSpecialTask(batchExecutionId, nodeType, MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING);
+    }
+
+    private MesProEdhrBatchExecutionTaskDO insertSpecialTask(Long batchExecutionId, String nodeType, int status) {
+        MesProEdhrBatchExecutionTaskDO task = MesProEdhrBatchExecutionTaskDO.builder()
                 .batchExecutionId(batchExecutionId)
                 .nodeType(nodeType)
                 .routeProcessSort(2)
@@ -766,8 +770,53 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .requiredPolicy("REQUIRED")
                 .ownerRoleKey("QUALITY")
                 .archiveVisibility("FINAL_DHR")
-                .status(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING)
+                .status(status)
                 .requiredFlag(Boolean.TRUE)
+                .submittedAt(status == MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED
+                        ? LocalDateTime.now() : null)
+                .approvedAt(status == MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED
+                        ? LocalDateTime.now() : null)
+                .build();
+        batchTaskMapper.insert(task);
+        return task;
+    }
+
+    private void insertSavedSpecialNodeAttachment(MesProEdhrBatchExecutionTaskDO task,
+                                                  String action,
+                                                  String groupKey,
+                                                  String attachmentHash) {
+        String nodeType = task.getNodeType();
+        attachmentMapper.insert(MesProBatchRecordExecutionAttachmentDO.builder()
+                .executionId(0L)
+                .batchExecutionId(task.getBatchExecutionId())
+                .batchTaskId(task.getId())
+                .rowIndex(0)
+                .columnIndex(0)
+                .fieldKey(nodeType)
+                .fieldPath("specialNode." + nodeType)
+                .fieldLabel(task.getProcessName())
+                .attachmentType("PDF")
+                .attachmentGroupKey(groupKey)
+                .attachmentAction(action)
+                .versionNo(1)
+                .fileId(9001L)
+                .fileUrl("http://127.0.0.1/files/dossier.pdf")
+                .storageConfigId(28L)
+                .storagePath("/edhr/dossier.pdf")
+                .fileName("dossier.pdf")
+                .contentType("application/pdf")
+                .fileSize(1024L)
+                .sha256("dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")
+                .storageRetentionJson("{\"fileId\":9001,\"retention\":\"special-node\"}")
+                .storageRetentionHash("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+                .previousAttachmentHash(
+                        "0000000000000000000000000000000000000000000000000000000000000000")
+                .attachmentHash(attachmentHash)
+                .operatorId(10001L)
+                .operatorName("生产负责人")
+                .operatedAt(LocalDateTime.now())
+                .reasonCategory("SPECIAL_NODE_ATTACHMENT")
+                .reasonText("测试保存资料附件")
                 .build());
     }
 
