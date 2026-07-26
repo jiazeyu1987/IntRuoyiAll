@@ -133,10 +133,27 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     private static final String FLOW_GRAPH_KEY = "flowGraph";
     private static final String BATCH_USE_CONFIGS_KEY = "batchUseConfigs";
     private static final String SCHEDULE_USE_CONFIGS_KEY = "scheduleUseConfigs";
+    private static final String BATCH_RECORD_ATTACHMENT_OWNERS_KEY = "batchRecordAttachmentOwners";
+    private static final String BATCH_RECORD_ROLE_CATEGORY_CODE = "batch-record";
+    private static final int BATCH_RECORD_ATTACHMENT_MIN_USERS = 2;
+    private static final int BATCH_RECORD_ATTACHMENT_MAX_USERS = 4;
     private static final Set<String> READABLE_CANDIDATE_STATUSES = Set.of(
             MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT,
             MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL,
             MesProRouteVersionLifecycleServiceImpl.STATUS_READY_TO_PUBLISH);
+    private static final List<BatchRecordAttachmentDefinition> BATCH_RECORD_ATTACHMENT_DEFINITIONS = List.of(
+            new BatchRecordAttachmentDefinition("INCOMING_INSPECTION_REPORT", "来料检报告",
+                    "BATCH_ATTACHMENT_INCOMING_INSPECTION_REPORT_UPLOAD_1", "来料检报告上传1", 1),
+            new BatchRecordAttachmentDefinition("STERILIZATION_REPORT", "灭菌报告",
+                    "BATCH_ATTACHMENT_STERILIZATION_REPORT_UPLOAD_1", "灭菌报告上传1", 2),
+            new BatchRecordAttachmentDefinition("FINISHED_PRODUCT_INSPECTION_REPORT", "成品检报告",
+                    "BATCH_ATTACHMENT_FINISHED_PRODUCT_INSPECTION_REPORT_UPLOAD_1", "成品检报告上传1", 3),
+            new BatchRecordAttachmentDefinition("FINISHED_PRODUCT_INSPECTION_RECORD", "成品检记录",
+                    "BATCH_ATTACHMENT_FINISHED_PRODUCT_INSPECTION_RECORD_UPLOAD_1", "成品检记录上传1", 4));
+
+    private record BatchRecordAttachmentDefinition(String code, String name, String defaultRoleCode,
+                                                   String defaultRoleName, int sort) {
+    }
 
     private enum RouteVersionBatchBindingReadStrategy {
         SNAPSHOT,
@@ -171,6 +188,16 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     private AdminUserApi adminUserApi;
     @Resource
     private RoleApi roleApi;
+    @Resource
+    private AdminUserService adminUserService;
+    @Resource
+    private RoleService roleService;
+    @Resource
+    private RoleMapper roleMapper;
+    @Resource
+    private RoleCategoryMapper roleCategoryMapper;
+    @Resource
+    private PermissionService permissionService;
 
     @Override
     public List<MesProRouteFlowProcessConfigRespVO> getRouteFlowProcessConfigList(Long routeId, String useType) {
