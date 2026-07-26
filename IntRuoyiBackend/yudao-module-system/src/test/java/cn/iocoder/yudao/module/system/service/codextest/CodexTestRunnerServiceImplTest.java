@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.system.service.codextest;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCaseSaveReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionStartReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerCheckpointResultReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerClaimReqVO;
@@ -62,7 +63,7 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
     @Test
     void runnerClaimAndCheckpointResult_keepsFailureEvidenceAndRollsUpBatchFailure() {
         Long runnerSessionId = registerRunner();
-        Long caseId = codexTestCaseService.createCase(CodexTestCaseServiceImplTest.buildCaseReq("排产手动重排", true));
+        Long caseId = codexTestCaseService.createCase(validScheduleCaseReq("排产手动重排", true));
         Long executionId = codexTestExecutionService.startExecution(startReq(caseId), 99L);
 
         CodexTestRunnerClaimRespVO claimRespVO = codexTestRunnerService.claimTasks(claimReq(runnerSessionId), RUNNER_TOKEN);
@@ -167,6 +168,12 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
         registerReqVO.setMaxParallelism(2);
         CodexTestRunnerRegisterRespVO registerRespVO = codexTestRunnerService.registerRunner(registerReqVO, RUNNER_TOKEN);
         return registerRespVO.getRunnerSessionId();
+    }
+
+    private CodexTestCaseSaveReqVO validScheduleCaseReq(String name, boolean parallelSafe) {
+        CodexTestCaseSaveReqVO reqVO = CodexTestCaseServiceImplTest.buildCaseReq(name, parallelSafe);
+        reqVO.setProject("智能排产");
+        return reqVO;
     }
 
     private CodexTestExecutionStartReqVO startReq(Long caseId) {
