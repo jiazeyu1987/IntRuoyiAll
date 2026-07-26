@@ -8,10 +8,10 @@
 
 - [x] 读取本地运行、端口、PowerShell 与任务收尾规则
 - [x] 创建任务文档并记录适用经验门禁
-- [ ] 检查旧进程、固定端口与运行前置条件
-- [ ] 停止确认归属的旧前后端进程
-- [ ] 启动本地前后端服务
-- [ ] 验证前端入口与后端健康检查
+- [x] 检查旧进程、固定端口与运行前置条件
+- [x] 停止确认归属的旧前后端进程
+- [x] 启动本地前后端服务
+- [x] 验证前端入口与后端健康检查
 - [ ] 完成任务收尾
 
 ## Expected Verification
@@ -24,7 +24,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 
@@ -57,3 +57,25 @@ in_progress
 doc/tasks/20260726-restart-local-frontend-backend/task.md
 doc/tasks/20260726-restart-local-frontend-backend/execution-log.md
 doc/tasks/20260726-restart-local-frontend-backend/verification-report.md
+
+## Verification Evidence
+
+- 旧前端进程：PID `58060`，命令行归属 `E:\IntRuoyi\IntRuoyiFronted`，确认后停止。
+- 旧后端状态：`48081` 无监听进程。
+- 新前端进程：PID `55676`，Vite 命令行归属 `E:\IntRuoyi\IntRuoyiFronted`。
+- 新后端进程：PID `53292`，可执行 Jar 归属 `E:\IntRuoyi\IntRuoyiBackend`，显式使用 `48081`。
+- 前端入口连续三次返回 HTTP `200`。
+- 后端健康检查连续三次返回 `UP`。
+- 未修改共享端口、数据源配置或生产代码。
+- `task-closeout-cleanup` preview/apply 均通过，无删除项、阻塞项或警告。
+
+## Runtime Handoff
+
+- 当前重启验证完成后，`48081` 运行态交由任务“修复 eDHR 批次处理报错”接管更新。
+- 本任务不会再次停止或启动 `48081`，也不会修改该修复任务的 worktree 或任务文档。
+
+## Closeout Status
+
+- 并发端口规则任务已同步 `2026-07-26-branch-runtime-v3` 契约。
+- 本任务未修改或暂存该并发任务的端口脚本、契约文档或任务文件。
+- `scripts/preflight/branch-runtime-port-guard.ps1` 已复跑通过，最终提交/推送门禁解除。
