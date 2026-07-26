@@ -4,6 +4,9 @@ import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO;
+import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper;
+import cn.iocoder.yudao.module.bpm.formcenter.model.FormInstanceStatus;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleasePageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleasePrecheckReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseRespVO;
@@ -44,6 +47,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @Import(MesProEdhrReleaseServiceImpl.class)
 class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
@@ -70,6 +74,8 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     private MesProEdhrWorkTaskService workTaskService;
     @MockitoBean
     private MesProEdhrOperationAuditService operationAuditService;
+    @MockitoBean
+    private FormActionInstanceMapper formActionInstanceMapper;
 
     @Test
     void precheckFailsWhenOrdinaryProcessMissingSubmitSignature() {
@@ -77,8 +83,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7101L);
         insertCompletedExecution(task.getExecutionId(), false);
 
-        MesProEdhrReleaseRespVO result = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(batch.getId()));
+        MesProEdhrReleaseRespVO result = precheckAsUser(10001L, batch.getId());
 
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_FAIL, result.getDhrStatus());
     }
@@ -89,10 +94,46 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7201L);
         insertCompletedExecution(task.getExecutionId(), true);
 
-        MesProEdhrReleaseRespVO result = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(batch.getId()));
+        MesProEdhrReleaseRespVO result = precheckAsUser(10001L, batch.getId());
 
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.getDhrStatus());
+    }
+
+    @Test
+    void precheckDhrCompletenessPassesWhenBatchSharedFormCenterRouteTaskIsEffective() {
+        MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-FORMCENTER-SHARED-EFFECTIVE");
+        MesProEdhrBatchExecutionTaskDO firstSharedTask = insertApprovedFormCenterRouteTask(batch.getId(), 83001L,
+                "LOSS_SHARED", 0);
+        MesProEdhrBatchExecutionTaskDO laterSharedTask = insertApprovedFormCenterRouteTask(batch.getId(), 83001L,
+                "LOSS_SHARED", 1);
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batch.getId())
+                .setTaskTotal(2)
+                .setTaskApprovedCount(2));
+        when(formActionInstanceMapper.selectById(83001L))
+                .thenReturn(FormActionInstanceDO.builder()
+                        .id(83001L)
+                        .instanceCode("FCI-REL-FORMCENTER-SHARED")
+                        .tenantId(1L)
+                        .policyId(1L)
+                        .applicantUserId(10001L)
+                        .status(FormInstanceStatus.EFFECTIVE.name())
+                        .dataDomain("MES")
+                        .systemCode("MES")
+                        .objectType("EDHR_ROUTE_FORM")
+                        .objectId(String.valueOf(firstSharedTask.getId()))
+                        .objectVersion("9001")
+                        .actionCode("EDHR_RF_9001_LOSS_SHARED")
+                        .objectState("ACTIVE")
+                        .idempotencyKey("EDHR_ROUTE_FORM:" + batch.getId() + ":" + firstSharedTask.getId() + ":LOSS_SHARED")
+                        .businessContextJson("{}")
+                        .formDataJson("{}")
+                        .build());
+
+        MesProEdhrReleaseRespVO result = precheckAsUser(10001L, batch.getId());
+
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.getDhrStatus());
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, result.getReleaseStatus());
     }
 
     @Test
@@ -107,8 +148,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .setTaskTotal(3)
                 .setTaskApprovedCount(1));
 
-        MesProEdhrReleaseRespVO result = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(batch.getId()));
+        MesProEdhrReleaseRespVO result = precheckAsUser(10001L, batch.getId());
 
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.getDhrStatus());
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, result.getReleaseStatus());
@@ -121,8 +161,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7301L);
         insertCompletedExecution(task.getExecutionId(), true);
 
-        MesProEdhrReleaseRespVO precheck = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(batch.getId()));
+        MesProEdhrReleaseRespVO precheck = precheckAsUser(10001L, batch.getId());
 
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, precheck.getReleaseStatus());
         assertEquals(0, precheck.getFailedCheckCount());
@@ -168,8 +207,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7401L);
         insertCompletedExecution(task.getExecutionId(), true);
 
-        MesProEdhrReleaseRespVO precheck = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(batch.getId()));
+        MesProEdhrReleaseRespVO precheck = precheckAsUser(10001L, batch.getId());
 
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, precheck.getReleaseStatus());
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, precheck.getDhrStatus());
@@ -184,6 +222,11 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         }
 
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED, submitted.getReleaseStatus());
+        MesProEdhrBatchExecutionDO releasedBatch = batchExecutionMapper.selectById(batch.getId());
+        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED, releasedBatch.getStatus());
+        assertNotNull(releasedBatch.getClosedAt());
+        assertEquals(10001L, releasedBatch.getClosedBy());
+        verify(workTaskService).createArchiveTaskAfterBatchClose(any());
         verify(workTaskService, never()).createReleaseApprovalTaskAfterSubmit(any(), any());
     }
 
@@ -193,8 +236,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         insertRouteCloseOwnerRule(batch.getRouteId(), 10001L);
         MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7501L);
         insertCompletedExecution(task.getExecutionId(), true);
-        MesProEdhrReleaseRespVO precheck = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(batch.getId()));
+        MesProEdhrReleaseRespVO precheck = precheckAsUser(10001L, batch.getId());
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10002L);
@@ -220,8 +262,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         MesProEdhrBatchExecutionTaskDO missingPasswordTask =
                 insertApprovedOrdinaryTask(missingPasswordBatch.getId(), 7601L);
         insertCompletedExecution(missingPasswordTask.getExecutionId(), true);
-        MesProEdhrReleaseRespVO missingPasswordPrecheck = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(missingPasswordBatch.getId()));
+        MesProEdhrReleaseRespVO missingPasswordPrecheck = precheckAsUser(10001L, missingPasswordBatch.getId());
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
@@ -241,8 +282,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         MesProEdhrBatchExecutionTaskDO invalidPasswordTask =
                 insertApprovedOrdinaryTask(invalidPasswordBatch.getId(), 7602L);
         insertCompletedExecution(invalidPasswordTask.getExecutionId(), true);
-        MesProEdhrReleaseRespVO invalidPasswordPrecheck = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(invalidPasswordBatch.getId()));
+        MesProEdhrReleaseRespVO invalidPasswordPrecheck = precheckAsUser(10001L, invalidPasswordBatch.getId());
         doThrow(new ServiceException(USER_PASSWORD_FAILED)).when(adminUserApi).validatePassword(10001L, "wrong-pass");
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -302,8 +342,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .version(1)
                 .build());
 
-        MesProEdhrReleaseRespVO result = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(batch.getId()));
+        MesProEdhrReleaseRespVO result = precheckAsUser(10001L, batch.getId());
 
         assertEquals(transactionId, result.getReleaseTransactionId());
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, result.getReleaseStatus());
@@ -424,6 +463,14 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         return insertClosedBatch(null, batchCode);
     }
 
+    private MesProEdhrReleaseRespVO precheckAsUser(Long actorUserId, Long batchExecutionId) {
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(actorUserId);
+            return releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
+                    .setBatchExecutionId(batchExecutionId));
+        }
+    }
+
     private MesProEdhrBatchExecutionDO insertReadyToCloseBatch(String batchCode) {
         MesProEdhrBatchExecutionDO batch = insertClosedBatch(batchCode);
         batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
@@ -479,6 +526,42 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .ownerRoleKey("PRODUCTION")
                 .archiveVisibility("FINAL_DHR")
                 .executionId(executionId)
+                .status(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
+                .requiredFlag(Boolean.TRUE)
+                .submittedAt(LocalDateTime.now())
+                .approvedAt(LocalDateTime.now())
+                .build();
+        batchTaskMapper.insert(task);
+        return task;
+    }
+
+    private MesProEdhrBatchExecutionTaskDO insertApprovedFormCenterRouteTask(Long batchExecutionId, Long instanceId,
+                                                                            String sharedFormKey,
+                                                                            int routeProcessSort) {
+        MesProEdhrBatchExecutionTaskDO task = MesProEdhrBatchExecutionTaskDO.builder()
+                .batchExecutionId(batchExecutionId)
+                .nodeType("ROUTE_FORM")
+                .routeProcessId(randomLongId())
+                .routeProcessSort(routeProcessSort)
+                .processId(randomLongId())
+                .processCode("PROC-FC-" + randomLongId())
+                .processName("FormCenter 共享表单工序")
+                .batchRecordSort(routeProcessSort)
+                .instanceScope("BATCH_SHARED")
+                .sharedFormKey(sharedFormKey)
+                .executionMode("SEQUENTIAL")
+                .formSlotType("LOSS_REPORT")
+                .formBindingKey(sharedFormKey)
+                .formTemplateId(25L)
+                .formTemplateNameSnapshot("损耗单")
+                .formTemplateVersionId(27L)
+                .formTemplateVersionNo("V1.0")
+                .formCenterInstanceId(instanceId)
+                .recordCategory("ROUTE_FORM")
+                .validationProfile("FORM_CENTER")
+                .requiredPolicy("REQUIRED")
+                .ownerRoleKey("PRODUCTION")
+                .archiveVisibility("FINAL_DHR")
                 .status(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
                 .requiredFlag(Boolean.TRUE)
                 .submittedAt(LocalDateTime.now())

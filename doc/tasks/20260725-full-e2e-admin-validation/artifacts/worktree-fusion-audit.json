@@ -1,0 +1,66 @@
+{
+  "sourceWorktree": "D:\\IntRuoyiWorktree\\jiluben_20260722_clean",
+  "targetWorktree": "E:\\IntRuoyi",
+  "sourceBranch": "repair/jiluben-20260722-clean",
+  "targetBranch": "int_main",
+  "comparedAt": "2026-07-26T08:33:19",
+  "sourceDirtyEntriesCompared": 194,
+  "contentEqualInTarget": 147,
+  "contentDifferent": 47,
+  "sourceAddedLinesCoveredByTarget": 40,
+  "sourceAddedLinesSupersededOrDifferent": 7,
+  "remainingAssessment": "remaining mismatches are superseded/equivalent in int_main or metadata-only; no direct overwrite applied",
+  "passedValidation": [
+    "mvn.cmd -pl yudao-server -am -DskipTests package",
+    "node --check tests/e2e/edhr-full-chain-multi-user-real-flow.e2e.js",
+    "node tests/e2e/edhr-full-chain-evidence-pack-static.spec.js",
+    "node scripts/edhr-release-e2e-coverage-contract.test.mjs",
+    "node scripts/edhr-release-e2e-coverage-gate.mjs --check",
+    "EDHR_FULL_E2E_CREATE_BATCH=1 EDHR_FULL_E2E_ADMIN_SINGLE_ACTOR=1 node tests/e2e/edhr-full-chain-multi-user-real-flow.e2e.js",
+    "git diff --check",
+    "scripts/preflight/branch-runtime-port-guard.ps1"
+  ],
+  "fullE2E": {
+    "batchExecutionId": 900000000846,
+    "batchCode": "E2E-FULL-1785024829153",
+    "archiveId": 31,
+    "archiveStatus": "SEALED",
+    "archivePdf": "doc/tasks/20260725-full-e2e-admin-validation/artifacts/full-chain-admin-1785024829153/archive-900000000846.pdf",
+    "pdfTerms": [
+      "放行",
+      "审核",
+      "批准",
+      "审批"
+    ]
+  },
+  "mismatches": [
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java",
+      "assessment": "int_main already contains dynamic route form, shared FormCenter, frozen batch record, recordbookEnabled, and has newer release archive PDF changes; source exact lines are superseded"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue",
+      "assessment": "int_main already gates recordbook UI by task/global enablement and includes current release focus/archive fixes; source exact lines are superseded"
+    },
+    {
+      "path": "IntRuoyiBackend/sql/mysql/20260723_mes_edhr_assignment_rule_candidate_nullable.sql",
+      "assessment": "target migration exists; only dependsOn suffix differs"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionFieldAuditServiceImpl.java",
+      "assessment": "int_main uses recordbookGlobalSettingService.requireRecordbookWriteAllowed, stronger than source local boolean check"
+    },
+    {
+      "path": "IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionServiceImpl.java",
+      "assessment": "int_main already sets and resolves recordbookEnabled with global setting integration"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/BatchRecordCellRulesConfirmDialog.vue",
+      "assessment": "numeric min/max UI and validation present; only empty-string branch differs because Element Plus number emits null/undefined"
+    },
+    {
+      "path": "IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionListPage.vue",
+      "assessment": "date formatting and void approval resolver present with newer label wording"
+    }
+  ]
+}

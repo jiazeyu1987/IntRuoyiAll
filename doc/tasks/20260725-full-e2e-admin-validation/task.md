@@ -23,7 +23,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Scope Notes
 
@@ -72,8 +72,28 @@ in_progress
 - doc/tasks/20260725-full-e2e-admin-validation/admin-preview-e2e-output/
 - doc/tasks/20260725-full-e2e-admin-validation/form-fill-log-e2e-output/
 - doc/tasks/20260725-full-e2e-admin-validation/edhr-release-check-report-final.json
+- doc/tasks/20260725-full-e2e-admin-validation/artifacts/full-chain-admin-1785024829153/
+- doc/tasks/20260725-full-e2e-admin-validation/artifacts/worktree-fusion-audit.json
 
 ## Closeout Blocker
 
-- Cleanup preview/apply 已完成，当前任务临时 artifact 已清理，正式证据保留。
-- 当前分支仍存在 ahead 状态及非本任务变更/未跟踪目录；为避免混入并发任务，本任务未执行提交或推送，状态保持 ready_for_closeout。
+- Cleanup preview/apply 已重新执行并通过；正式证据保留，临时失败产物与运行日志已清理。
+- 当前工作区仍存在非本任务/并发变更与本任务未提交变更；为避免混入并发任务，本任务未执行 dirty-worktree 基线提交、任务提交或推送，状态保持 ready_for_closeout。
+
+## Fusion Audit Update
+
+- `D:\IntRuoyiWorktree\jiluben_20260722_clean` 源 worktree 的未提交记录本相关变更已与 `E:\IntRuoyi` / `int_main` 做内容级融合审计。
+- 源 worktree 194 个脏条目中，147 个文件内容已与 `int_main` 一致；剩余 47 个文件内容不同。
+- 对 47 个不同文件做源新增行覆盖检查：40 个已被 `int_main` 覆盖；剩余 7 个为后续实现替代或元数据差异，未发现需要直接覆盖的正式缺口。
+- 7 个不一致已记录在 `artifacts/worktree-fusion-audit.json`：动态路线表单/共享 FormCenter、记录本开关、字段审计、数字范围、日期格式、SQL dependsOn 均已在 `int_main` 存在等价或更完整实现。
+- 本轮新增修复：最终归档 PDF manifest 与打印版 PDF 增加真实放行事务、放行事件、审核/批准/审批证据；新增静态合同防止回归。
+
+## Latest Verification
+
+- GREEN: `mvn.cmd -pl yudao-server -am -DskipTests package` -> PASS。
+- GREEN: `node tests\e2e\edhr-full-chain-evidence-pack-static.spec.js` -> PASS。
+- GREEN: `node scripts\edhr-release-e2e-coverage-contract.test.mjs` -> PASS，12/12。
+- GREEN: `node scripts\edhr-release-e2e-coverage-gate.mjs --check --report ..\doc\tasks\20260725-full-e2e-admin-validation\edhr-release-check-report-final.json` -> PASS。
+- GREEN: `EDHR_FULL_E2E_CREATE_BATCH=1 EDHR_FULL_E2E_ADMIN_SINGLE_ACTOR=1 node tests\e2e\edhr-full-chain-multi-user-real-flow.e2e.js` -> PASS，批次 `900000000846`，归档 `31`，PDF 已包含 `放行/审核/批准/审批`。
+- GREEN: `git diff --check` -> PASS，仅 CRLF 提示，无空白错误。
+- GREEN: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。

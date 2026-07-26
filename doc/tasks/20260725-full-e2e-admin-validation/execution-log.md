@@ -140,3 +140,45 @@
 - GREEN: local frontend login entry -> PASS, Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8081/login?redirect=/index returned HTTP 200.
 - NOTE: runtime jar SHA256 DA44FBEF9798E1C920784B3CFEAEF1C9E38D0B339AD4644B5AFD7EC466ADF37E; path E:/IntRuoyi/IntRuoyiBackend/yudao-server/target/yudao-server-exec.jar; LastWrite 2026-07-25 18:40:35.
 - NOTE: apply_patch remained blocked by Windows sandbox ACL for this task log, so this narrow UTF-8 Node append was used for current-task documentation only.
+
+### 9. Fusion Audit, PDF Release Evidence, And Full Write E2E
+
+- Status: completed.
+- BDD: jiluben worktree fusion completeness -> Given `D:\IntRuoyiWorktree\jiluben_20260722_clean` has uncommitted recordbook-related changes When comparing source dirty entries against `E:\IntRuoyi` / `int_main` Then exact matches, covered added lines, and superseded mismatches must be recorded before any overwrite is attempted.
+- GREEN: worktree-fusion-audit -> PASS, source dirty entries compared=194, exact content matches=147, different=47, source-added-line coverage=40/47, remaining=7 assessed as superseded/equivalent/metadata-only; evidence `artifacts/worktree-fusion-audit.json`.
+- BDD: archived PDF contains release approval evidence -> Given a full-chain eDHR batch has completed release and archive sealing When generating the archive manifest and printable PDF Then the evidence pack must include release transaction snapshot, release events, and visible `放行/审核/批准/审批` approval terms.
+- RED: full-chain archive PDF evidence check -> FAIL, earlier archive PDF did not expose final release/approval terms even though the batch reached release/archive flow.
+- FIX: backend archive manifest now includes release transaction snapshot and release events; printable PDF renderer now emits `放行审核与批准` and `放行事件` sections; frontend static evidence pack asserts these terms.
+- GREEN: `node --check tests\e2e\edhr-full-chain-multi-user-real-flow.e2e.js` -> PASS.
+- GREEN: `node tests\e2e\edhr-full-chain-evidence-pack-static.spec.js` -> PASS.
+- GREEN: `node tests\e2e\edhr-release-submit-projection-static.spec.js` -> PASS.
+- GREEN: `node tests\e2e\edhr-release-direct-signature-action-static.spec.js` -> PASS.
+- GREEN: `node tests\e2e\edhr-full-chain-api-response-static.spec.js` -> PASS.
+- GREEN: `node scripts\edhr-release-e2e-coverage-contract.test.mjs` -> PASS, 12/12.
+- GREEN: `node scripts\edhr-release-e2e-coverage-gate.mjs --check --report ..\doc\tasks\20260725-full-e2e-admin-validation\edhr-release-check-report-final.json` -> PASS.
+- GREEN: `node scripts\edhr-batch-version-phase1-contract.test.mjs` -> PASS.
+- GREEN: `mvn.cmd -pl yudao-server -am -DskipTests package` -> PASS.
+- GREEN: backend reload after rebuild -> PASS, backend on `48081` PID 17636 from `E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`; health returned `{"status":"UP"}`; frontend login page on `8081` returned HTTP 200.
+- GREEN: `EDHR_FULL_E2E_CREATE_BATCH=1 EDHR_FULL_E2E_ADMIN_SINGLE_ACTOR=1 node tests\e2e\edhr-full-chain-multi-user-real-flow.e2e.js` -> PASS, batchExecutionId=900000000846, batchCode=E2E-FULL-1785024829153, processedRouteTasks=17, cellRuleConfirmations=14, archiveId=31, archiveStatus=SEALED, archive PDF `artifacts/full-chain-admin-1785024829153/archive-900000000846.pdf` contains `放行/审核/批准/审批`.
+- NOTE: credentials were supplied only through transient environment variables and are not written to task docs, evidence, or command records.
+
+### 10. Experience Consolidation And Closeout Refresh
+
+- GREEN: project-experience-consolidation -> PASS, searched existing `docs/*memory*.md`, `docs/e2e-rules.md`, and `docs/experience-index.md`; current lessons are already covered by existing E2E/worktree/cleanup gates or are task-local evidence, so no new long-term experience document was created.
+- GREEN: secret-scan-preclose -> PASS, no raw password/default-password expression found in touched source, E2E scripts, or current task docs.
+- NOTE: cleanup keep list now preserves the successful full-chain evidence directory and `worktree-fusion-audit.json`; intermediate merge simulation patches and failed-run artifacts remain cleanup candidates.
+- BLOCKER: commit/push closeout -> current branch/worktree still contains non-task and concurrent dirty changes, so this task remains `ready_for_closeout` until the user authorizes the project dirty-worktree baseline workflow or the unrelated changes are separated.
+
+### 11. Cleanup Re-Apply After Final Evidence
+
+- RED: task-closeout apply -> FAIL, `runtime-logs/backend-48081-20260726-0810.err.log` was locked by a running local backend process.
+- GREEN: runtime ownership check -> PASS, `48081` PID 17636 belonged to `E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar` and `8081` PID 52044 belonged to `E:\IntRuoyi\IntRuoyiFronted\node_modules\vite\bin\vite.js`; both were current `int_main` local runtime processes, not unrelated profile processes.
+- GREEN: task-owned runtime stop -> PASS, stopped PID 17636 and PID 52044 to release task-owned runtime logs; `8081` and `48081` then had no listeners.
+- GREEN: cleanup-preview-final -> PASS, keep list preserved `task.md`, `execution-log.md`, `verification-report.md`, final full-chain evidence folder, `worktree-fusion-audit.json`, and formal admin/form-fill evidence; delete list contained only released runtime logs.
+- GREEN: cleanup-apply-final -> PASS, deleted released runtime logs; blocked=<none>, warnings=<none>.
+- GREEN: cleanup-preview-after-apply -> PASS, delete=<none>, blocked=<none>, warnings=<none>.
+- GREEN: `git diff --check` -> PASS.
+- GREEN: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
+- GREEN: final-admin-password-scan -> PASS, no raw provided admin password literal found in touched source, E2E scripts, current task docs, or fusion audit evidence.
+- GREEN: final-evidence-exists -> PASS, final summary JSON, archive PDF, and worktree fusion audit JSON all exist after cleanup.
+- BLOCKER: commit/push closeout -> `git status --short --branch` still reports dirty task and non-task/concurrent changes; no dirty-worktree baseline authorization was given for this continuation, so no commit or push was performed.

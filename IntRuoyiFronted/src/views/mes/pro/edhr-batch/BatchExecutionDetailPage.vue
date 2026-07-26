@@ -926,6 +926,9 @@
         <el-button v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']" :disabled="isViewedReleaseStageReadonly" @click="handleDownloadArchive">
           下载打印版 PDF
         </el-button>
+        <el-button v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']" :disabled="isViewedReleaseStageReadonly" @click="handlePrintArchive">
+          打印
+        </el-button>
       </div>
     </el-drawer>
 
@@ -1245,7 +1248,7 @@ const canUseFlowTransferIntervention = computed(
     userStore.permissions.has('*:*:*') ||
     FLOW_TRANSFER_ADMIN_ROLES.some((role) => userStore.roles.includes(role))
 )
-type EdhrBatchExecutionDetailFocus = 'process' | 'approval'
+type EdhrBatchExecutionDetailFocus = 'process' | 'precheck' | 'approval'
 type TraceRecordTab = 'release' | 'change' | 'audit' | 'domain' | 'fieldResponsibility'
 
 const loading = ref(false)
@@ -1372,7 +1375,7 @@ const parseRouteQueryText = (value: unknown) => {
 
 const resolveDetailFocus = (): EdhrBatchExecutionDetailFocus | undefined => {
   const focus = parseRouteQueryText(route.query.focus)
-  if (focus === 'process' || focus === 'approval') return focus
+  if (focus === 'process' || focus === 'precheck' || focus === 'approval') return focus
   return undefined
 }
 
@@ -1592,11 +1595,17 @@ const showFieldResponsibilityTab = computed(
 )
 const releaseStatus = computed(() => workbench.value?.releaseSummary?.releaseStatus || 'PRECHECK_REQUIRED')
 const releasePrecheckPassed = computed(() => releaseStatus.value === 'PRECHECK_PASSED')
+const releasePendingApproval = computed(() => releaseStatus.value === 'PENDING_APPROVAL')
+const releaseCanSubmitBatchStatus = computed(
+  () =>
+    batchStatus.value === EDHR_BATCH_STATUS_READY_TO_CLOSE ||
+    batchStatus.value === EDHR_BATCH_STATUS_CLOSED
+)
 const RELEASE_ACTION_LOCKED_MESSAGE = '放行审批中，只能处理放行审批或撤回放行。'
 const releaseActionLocked = computed(
   () =>
     !hasGoldenFingerActionBypass.value &&
-    (detail.value?.releaseActionLocked === true || releaseStatus.value === 'PENDING_APPROVAL')
+    (detail.value?.releaseActionLocked === true || releasePendingApproval.value)
 )
 const releaseActionLockMessage = computed(
   () => detail.value?.releaseActionLockReason || RELEASE_ACTION_LOCKED_MESSAGE
@@ -1609,13 +1618,20 @@ const pendingVoidActionLockMessage = computed(() =>
     : PENDING_VOID_ACTION_LOCKED_MESSAGE
 )
 const edhrReleaseActionProjection = computed(() =>
-  resolveEdhrBatchActionProjection('EDHR_RELEASE', '提交放行', hasReleaseTransaction.value && releasePrecheckPassed.value, {
+  resolveEdhrBatchActionProjection('EDHR_RELEASE', '提交放行', hasReleaseTransaction.value && releasePrecheckPassed.value && releaseCanSubmitBatchStatus.value, {
     locked: releaseActionLocked.value,
-    pending: releaseStatus.value === 'PENDING_APPROVAL',
-    pendingInstanceId: workbench.value?.releaseSummary?.releaseTransactionId,
-    pendingStatus: releaseStatus.value,
+    pending: releasePendingApproval.value,
+    pendingInstanceId:
+      releasePendingApproval.value
+        ? workbench.value?.releaseSummary?.releaseTransactionId
+        : undefined,
+    pendingStatus: releasePendingApproval.value ? releaseStatus.value : undefined,
     lockReason: releaseActionLockMessage.value,
-    disabledReason: hasReleaseTransaction.value ? releaseActionLockMessage.value : '当前批次尚未生成放行事务。'
+    disabledReason: hasReleaseTransaction.value
+      ? releaseCanSubmitBatchStatus.value
+        ? releaseActionLockMessage.value
+        : '当前批次尚未满足放行状态。'
+      : '当前批次尚未生成放行事务。'
   })
 )
 const edhrVoidActionProjection = computed(() =>
@@ -3411,7 +3427,7 @@ const applyRouteFocus = () => {
     processDetailDialogVisible.value = true
     return
   }
-  if (focus === 'approval') {
+  if (focus === 'precheck' || focus === 'approval') {
     void openReleaseCheckGroup()
   }
 }
@@ -3423,9 +3439,10 @@ const resolveDefaultTaskSelection = () =>
 
 const applyInitialBatchTaskSelection = () => {
   clearTaskPreview()
-  if (resolveDetailFocus() === 'approval') {
+  const focus = resolveDetailFocus()
+  if (focus === 'precheck' || focus === 'approval') {
     selectReleaseProcess()
-    viewedReleaseStageKey.value = 'release-approval'
+    viewedReleaseStageKey.value = focus === 'precheck' ? 'precheck' : 'release-approval'
     return
   }
   selectedExecutionId.value = ''
@@ -3443,9 +3460,10 @@ const loadReviewTimeline = async (requestSerial?: number) => {
     const nextReviewTimeline = await getEdhrBatchReviewTimeline(assertBatchExecutionId())
     if (isStaleBatchDetailRequest(requestSerial)) return
     reviewTimeline.value = nextReviewTimeline
-    if (resolveDetailFocus() === 'approval') {
+    const focus = resolveDetailFocus()
+    if (focus === 'precheck' || focus === 'approval') {
       selectReleaseProcess()
-      viewedReleaseStageKey.value = 'release-approval'
+      viewedReleaseStageKey.value = focus === 'precheck' ? 'precheck' : 'release-approval'
       return
     }
     const routeQueryTask = resolveRouteQueryTaskSelection()
@@ -3472,9 +3490,10 @@ const loadReviewTimeline = async (requestSerial?: number) => {
     if (isStaleBatchDetailRequest(requestSerial)) return
     reviewTimeline.value = undefined
     selectedExecutionId.value = ''
-    if (resolveDetailFocus() === 'approval') {
+    const focus = resolveDetailFocus()
+    if (focus === 'precheck' || focus === 'approval') {
       selectReleaseProcess()
-      viewedReleaseStageKey.value = 'release-approval'
+      viewedReleaseStageKey.value = focus === 'precheck' ? 'precheck' : 'release-approval'
       selectedTaskPreview.value = undefined
       return
     }

@@ -4,6 +4,9 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO;
+import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper;
+import cn.iocoder.yudao.module.bpm.formcenter.model.FormInstanceStatus;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseApproveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseCheckItemPageReqVO;
@@ -130,6 +133,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesProEdhrWorkTaskService workTaskService;
     @Resource
     private MesProEdhrOperationAuditService operationAuditService;
+    @Resource
+    private FormActionInstanceMapper formActionInstanceMapper;
 
     @Override
     public PageResult<MesProEdhrReleaseRespVO> getPage(MesProEdhrReleasePageReqVO reqVO) {
@@ -300,8 +305,9 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         String password = requireReleaseSignaturePassword(reqVO.getPassword());
         adminUserApi.validatePassword(actorUserId, password);
         String reason = StrUtil.blankToDefault(StrUtil.trim(reqVO.getSubmitReason()), "负责人电子签名放行");
-        String signoffEvidenceHash = recordReleaseSignature(batch, actorUserId, password, reason,
+        ReleaseSignatureEvidence signatureEvidence = recordReleaseSignature(batch, actorUserId, password, reason,
                 idempotencyKey, occurredAt);
+        closeReadyBatchAfterReleaseSignature(batch, actorUserId, signatureEvidence, occurredAt);
 
         releaseTransactionMapper.updateById(new MesProEdhrReleaseTransactionDO()
                 .setId(transaction.getId())
@@ -312,11 +318,12 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .setApprovalIdempotencyKey(idempotencyKey)
                 .setApprovedBy(actorUserId)
                 .setApprovedAt(occurredAt)
-                .setApprovalSignoffEvidenceHash(signoffEvidenceHash)
+                .setApprovalSignoffEvidenceHash(signatureEvidence.aggregateHash())
                 .setApprovalOpinion(reason));
         transaction = releaseTransactionMapper.selectById(transaction.getId());
         recordTransactionEvent(transaction, EVENT_TYPE_SUBMIT, fromStatus, STATUS_RELEASED,
-                actorUserId, reason, null, idempotencyKey, signoffEvidenceHash, occurredAt);
+                actorUserId, reason, null, idempotencyKey, signatureEvidence.aggregateHash(), occurredAt);
+        batch = requireBatchExecution(transaction.getBatchExecutionId());
         return toResp(batch, transaction);
     }
 
@@ -647,8 +654,13 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     }
 
     private boolean ordinaryTaskFillEvidenceComplete(MesProEdhrBatchExecutionTaskDO task) {
-        if (!Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
-                || task.getExecutionId() == null) {
+        if (!Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)) {
+            return false;
+        }
+        if (hasFormCenterRouteEvidenceContext(task)) {
+            return formCenterRouteTaskFillEvidenceComplete(task);
+        }
+        if (task.getExecutionId() == null) {
             return false;
         }
         MesProBatchRecordExecutionDO execution = executionMapper.selectById(task.getExecutionId());
@@ -668,6 +680,70 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .eq(MesProBatchRecordExecutionSignatureDO::getFieldAuditRevision, execution.getFieldAuditRevision())
                 .eq(MesProBatchRecordExecutionSignatureDO::getFieldAuditHeadHash, execution.getFieldAuditHeadHash())
                 .eq(MesProBatchRecordExecutionSignatureDO::getCellValuesHash, execution.getCellValuesHash())) > 0;
+    }
+
+    private boolean hasFormCenterRouteEvidenceContext(MesProEdhrBatchExecutionTaskDO task) {
+        return task != null && (task.getFormCenterInstanceId() != null
+                || task.getFormTemplateId() != null
+                || task.getFormTemplateVersionId() != null
+                || StrUtil.isNotBlank(task.getFormBindingKey()));
+    }
+
+    private boolean formCenterRouteTaskFillEvidenceComplete(MesProEdhrBatchExecutionTaskDO task) {
+        if (!hasCompleteFormCenterRouteEvidenceContext(task)) {
+            return false;
+        }
+        FormActionInstanceDO instance = formActionInstanceMapper.selectById(task.getFormCenterInstanceId());
+        if (instance == null
+                || !Objects.equals(FormInstanceStatus.EFFECTIVE.name(), instance.getStatus())
+                || !Objects.equals("MES", instance.getSystemCode())
+                || !Objects.equals("EDHR_ROUTE_FORM", instance.getObjectType())
+                || !Objects.equals("ACTIVE", instance.getObjectState())) {
+            return false;
+        }
+        return formCenterInstanceBelongsToRouteTask(task, instance);
+    }
+
+    private boolean hasCompleteFormCenterRouteEvidenceContext(MesProEdhrBatchExecutionTaskDO task) {
+        return task != null
+                && task.getFormCenterInstanceId() != null
+                && task.getFormTemplateId() != null
+                && task.getFormTemplateVersionId() != null
+                && StrUtil.isNotBlank(task.getFormBindingKey());
+    }
+
+    private boolean formCenterInstanceBelongsToRouteTask(MesProEdhrBatchExecutionTaskDO task,
+                                                         FormActionInstanceDO instance) {
+        Long instanceObjectTaskId = parsePositiveLongOrNull(instance.getObjectId());
+        if (instanceObjectTaskId == null) {
+            return false;
+        }
+        if (Objects.equals(task.getId(), instanceObjectTaskId)) {
+            return true;
+        }
+        if (!Objects.equals("BATCH_SHARED", task.getInstanceScope())) {
+            return false;
+        }
+        MesProEdhrBatchExecutionTaskDO representativeTask = batchExecutionTaskMapper.selectById(instanceObjectTaskId);
+        return representativeTask != null
+                && Objects.equals(task.getBatchExecutionId(), representativeTask.getBatchExecutionId())
+                && Objects.equals(MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM,
+                representativeTask.getNodeType())
+                && Objects.equals(task.getFormCenterInstanceId(), representativeTask.getFormCenterInstanceId())
+                && Objects.equals(task.getFormTemplateId(), representativeTask.getFormTemplateId())
+                && Objects.equals(task.getFormTemplateVersionId(), representativeTask.getFormTemplateVersionId())
+                && Objects.equals(task.getSharedFormKey(), representativeTask.getSharedFormKey());
+    }
+
+    private Long parsePositiveLongOrNull(String value) {
+        if (StrUtil.isBlank(value) || value.chars().anyMatch(ch -> !Character.isDigit(ch))) {
+            return null;
+        }
+        try {
+            return Long.valueOf(value);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private void requireReleaseOwner(MesProEdhrBatchExecutionDO batch, Long actorUserId) {
@@ -692,12 +768,31 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 && Objects.equals(closeRule.getCandidateSourceId(), actorUserId);
     }
 
-    private String recordReleaseSignature(MesProEdhrBatchExecutionDO batch,
-                                          Long actorUserId,
-                                          String password,
-                                          String reason,
-                                          String idempotencyKey,
-                                          LocalDateTime signedAt) {
+    private void closeReadyBatchAfterReleaseSignature(MesProEdhrBatchExecutionDO batch,
+                                                      Long actorUserId,
+                                                      ReleaseSignatureEvidence signatureEvidence,
+                                                      LocalDateTime closedAt) {
+        if (Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)) {
+            return;
+        }
+        if (!Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_READY_TO_CLOSE)) {
+            throw exception(PRO_EDHR_RELEASE_STATUS_INVALID);
+        }
+        batch.setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+                .setClosedAt(closedAt)
+                .setClosedBy(actorUserId)
+                .setCloseSignatureId(signatureEvidence.signatureId())
+                .setAggregateHash(signatureEvidence.aggregateHash());
+        batchExecutionMapper.updateById(batch);
+        workTaskService.createArchiveTaskAfterBatchClose(batch);
+    }
+
+    private ReleaseSignatureEvidence recordReleaseSignature(MesProEdhrBatchExecutionDO batch,
+                                                            Long actorUserId,
+                                                            String password,
+                                                            String reason,
+                                                            String idempotencyKey,
+                                                            LocalDateTime signedAt) {
         String aggregateHash = DigestUtil.sha256Hex(String.join("|",
                 String.valueOf(batch.getId()),
                 ACTION_BATCH_RELEASE,
@@ -716,7 +811,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 StrUtil.EMPTY,
                 StrUtil.EMPTY,
                 StrUtil.EMPTY));
-        batchSignatureMapper.insert(MesProEdhrBatchExecutionSignatureDO.builder()
+        MesProEdhrBatchExecutionSignatureDO signature = MesProEdhrBatchExecutionSignatureDO.builder()
                 .batchExecutionId(batch.getId())
                 .actorId(actorUserId)
                 .actorName(String.valueOf(actorUserId))
@@ -731,8 +826,28 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                 .selectedTimeAuditHash(selectedTimeAuditHash)
                 .signatureChallengeHash(DigestUtil.sha256Hex(batch.getId() + ":" + password))
                 .aggregateHash(aggregateHash)
-                .build());
-        return aggregateHash;
+                .build();
+        batchSignatureMapper.insert(signature);
+        return new ReleaseSignatureEvidence(signature.getId(), aggregateHash);
+    }
+
+    private static final class ReleaseSignatureEvidence {
+
+        private final Long signatureId;
+        private final String aggregateHash;
+
+        private ReleaseSignatureEvidence(Long signatureId, String aggregateHash) {
+            this.signatureId = signatureId;
+            this.aggregateHash = aggregateHash;
+        }
+
+        private Long signatureId() {
+            return signatureId;
+        }
+
+        private String aggregateHash() {
+            return aggregateHash;
+        }
     }
 
     private MesProEdhrReleaseCheckItemDO buildSourceNotIntegratedItem(Long releaseTransactionId,

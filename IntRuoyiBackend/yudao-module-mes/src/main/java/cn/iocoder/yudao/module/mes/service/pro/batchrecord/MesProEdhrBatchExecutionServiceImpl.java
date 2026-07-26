@@ -60,6 +60,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrFlow
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrRecordChangeEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
@@ -89,6 +90,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrFlowEvent
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrRecordChangeEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
@@ -373,6 +375,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private MesProEdhrRecordChangeEventMapper recordChangeEventMapper;
     @Resource
     private MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
+    @Resource
+    private MesProEdhrReleaseTransactionEventMapper releaseTransactionEventMapper;
     @Resource
     private MesProEdhrWorkTaskAssignmentRuleMapper workTaskAssignmentRuleMapper;
     @Resource
@@ -5270,6 +5274,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         List<MesProEdhrBatchExecutionTaskDO> tasks = batchTaskMapper.selectListByBatchExecutionId(batch.getId()).stream()
                 .sorted(this::compareRouteProcessOrder)
                 .toList();
+        MesProEdhrReleaseTransactionDO releaseTransaction =
+                releaseTransactionMapper.selectByBatchExecutionId(batch.getId());
         manifest.put("schemaVersion", PRINTABLE_ARCHIVE_SCHEMA_VERSION);
         manifest.put("batchExecutionId", batch.getId());
         manifest.put("batchCode", batch.getBatchCode());
@@ -5278,6 +5284,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         manifest.put("routeName", route == null ? null : route.getName());
         manifest.put("aggregateHash", batch.getAggregateHash());
         manifest.put("generatedAt", generatedAt);
+        manifest.put("releaseTransactionSnapshot", toArchiveReleaseTransactionManifest(releaseTransaction));
+        manifest.put("releaseEvents", buildArchiveReleaseEventManifests(releaseTransaction));
         manifest.put("tasks", buildArchiveTaskManifests(tasks));
         manifest.put("bodyForms", tasks.stream()
                 .filter(this::isRouteForm)
@@ -5314,6 +5322,77 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 })
                 .toList());
         return JSON.toJSONString(manifest);
+    }
+
+    private Map<String, Object> toArchiveReleaseTransactionManifest(MesProEdhrReleaseTransactionDO transaction) {
+        if (transaction == null) {
+            return null;
+        }
+        Map<String, Object> manifest = new LinkedHashMap<>();
+        manifest.put("id", transaction.getId());
+        manifest.put("releaseCode", transaction.getReleaseCode());
+        manifest.put("batchExecutionId", transaction.getBatchExecutionId());
+        manifest.put("batchExecutionCode", transaction.getBatchExecutionCode());
+        manifest.put("workOrderId", transaction.getWorkOrderId());
+        manifest.put("workOrderCode", transaction.getWorkOrderCode());
+        manifest.put("batchCode", transaction.getBatchCode());
+        manifest.put("productId", transaction.getProductId());
+        manifest.put("productCode", transaction.getProductCode());
+        manifest.put("productName", transaction.getProductName());
+        manifest.put("routeId", transaction.getRouteId());
+        manifest.put("routeCode", transaction.getRouteCode());
+        manifest.put("routeName", transaction.getRouteName());
+        manifest.put("releaseStatus", transaction.getReleaseStatus());
+        manifest.put("requiredCheckCount", transaction.getRequiredCheckCount());
+        manifest.put("failedCheckCount", transaction.getFailedCheckCount());
+        manifest.put("blockingCheckCount", transaction.getBlockingCheckCount());
+        manifest.put("lastPrecheckAt", transaction.getLastPrecheckAt());
+        manifest.put("submittedBy", transaction.getSubmittedBy());
+        manifest.put("submittedAt", transaction.getSubmittedAt());
+        manifest.put("approvedBy", transaction.getApprovedBy());
+        manifest.put("approvedAt", transaction.getApprovedAt());
+        manifest.put("approvalSignoffEvidenceHash", transaction.getApprovalSignoffEvidenceHash());
+        manifest.put("approvalOpinion", transaction.getApprovalOpinion());
+        manifest.put("rejectedBy", transaction.getRejectedBy());
+        manifest.put("rejectedAt", transaction.getRejectedAt());
+        manifest.put("rejectReason", transaction.getRejectReason());
+        manifest.put("withdrawnBy", transaction.getWithdrawnBy());
+        manifest.put("withdrawnAt", transaction.getWithdrawnAt());
+        manifest.put("withdrawReason", transaction.getWithdrawReason());
+        return manifest;
+    }
+
+    private List<Map<String, Object>> buildArchiveReleaseEventManifests(
+            MesProEdhrReleaseTransactionDO releaseTransaction) {
+        if (releaseTransaction == null || releaseTransaction.getId() == null) {
+            return List.of();
+        }
+        return releaseTransactionEventMapper.selectList(
+                        new cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX<MesProEdhrReleaseTransactionEventDO>()
+                                .eq(MesProEdhrReleaseTransactionEventDO::getReleaseTransactionId,
+                                        releaseTransaction.getId())
+                                .orderByAsc(MesProEdhrReleaseTransactionEventDO::getOccurredAt)
+                                .orderByAsc(MesProEdhrReleaseTransactionEventDO::getId))
+                .stream()
+                .map(this::toArchiveReleaseEventManifest)
+                .toList();
+    }
+
+    private Map<String, Object> toArchiveReleaseEventManifest(MesProEdhrReleaseTransactionEventDO event) {
+        Map<String, Object> manifest = new LinkedHashMap<>();
+        manifest.put("id", event.getId());
+        manifest.put("releaseTransactionId", event.getReleaseTransactionId());
+        manifest.put("eventType", event.getEventType());
+        manifest.put("fromStatus", event.getFromStatus());
+        manifest.put("toStatus", event.getToStatus());
+        manifest.put("actorUserId", event.getActorUserId());
+        manifest.put("reason", event.getReason());
+        manifest.put("opinion", event.getOpinion());
+        manifest.put("signoffEvidenceHash", event.getSignoffEvidenceHash());
+        manifest.put("eventSnapshotJson", event.getEventSnapshotJson());
+        manifest.put("evidenceHash", event.getEvidenceHash());
+        manifest.put("occurredAt", event.getOccurredAt());
+        return manifest;
     }
 
     private List<Map<String, Object>> buildArchiveTaskManifests(List<MesProEdhrBatchExecutionTaskDO> tasks) {
