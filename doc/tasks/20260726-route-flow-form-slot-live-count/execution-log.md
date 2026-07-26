@@ -24,6 +24,7 @@
 - GREEN: `git diff --check -- <task-owned paths>` -> PASS，仅报告 CRLF 工作区提示，无 whitespace error。
 - RED: UTF-8 verification via Bash heredoc in PowerShell -> FAIL, expected reason: PowerShell 不支持 `<<'PY'` 重定向语法。
 - GREEN: UTF-8 verification via PowerShell here-string and `python -X utf8 -` -> PASS。
+- GREEN: implementation commit `35a851f3` -> PASS，文件清单：`RouteFlowGraphDesigner.vue`、`mes-route-flow-form-slot-count-badge-static.spec.js`、本任务 4 个记录文件、`docs/frontend-development.md`、`docs/experience-index.md`。
 
 ## Milestone Updates
 
@@ -33,6 +34,7 @@
 - 2026-07-26: 目标静态合同、边框回归、节点布局回归与前端类型检查均通过。
 - 2026-07-26: task-closeout-cleanup preview/apply 均通过，无删除项。
 - 2026-07-26: project-experience-consolidation 完成，新增前端聚合新增默认分类门禁和经验索引关键词。
+- 2026-07-26: 实现与任务证据提交 `35a851f3`，branch runtime port guard 自动通过。
 - 2026-07-26: 任务状态更新为 `completed`。
 
 ## Blockers

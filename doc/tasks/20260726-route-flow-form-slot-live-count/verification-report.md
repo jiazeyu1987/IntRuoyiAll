@@ -18,6 +18,7 @@
 - `rg -n "聚合字段新增子项|前端聚合新增默认分类门禁|createEmptyRecordBinding|新增后数字不变" docs/frontend-development.md docs/experience-index.md -S` -> PASS。
 - `git diff --check -- <task-owned paths>` -> PASS。
 - UTF-8 verification via PowerShell here-string and `python -X utf8 -` -> PASS。
+- Implementation commit `35a851f3` -> PASS。
 
 ## Blockers
 
