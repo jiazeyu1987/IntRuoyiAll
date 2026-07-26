@@ -20,6 +20,7 @@
 - GREEN: rerun same Playwright script -> PASS; all 3 items returned `existedBefore=true`, confirming persistent page-visible records.
 - Page path: Playwright login -> `系统管理 > 测试管理` -> `新增测试项` dialog -> save -> query by exact visible test item name.
 - Safety: no API-only write, no direct SQL write, no remote environment, no password/token recorded in task evidence.
+- Cleanup: preview/apply kept task records and removed the task-owned one-off Playwright helper script.
 
 ## Result
 

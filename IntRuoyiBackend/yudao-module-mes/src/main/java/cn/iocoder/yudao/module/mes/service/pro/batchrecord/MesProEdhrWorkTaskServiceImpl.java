@@ -896,7 +896,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProEdhrWorkTaskDO completeFillAndCreateNextFillAfterOrdinarySubmit(Long workTaskId, Long executionId) {
-        MesProEdhrWorkTaskDO workTask = validateSubmitTask(workTaskId, executionId);
+        Long actorUserId = requireLoginUserId();
+        MesProEdhrWorkTaskDO workTask = validateSubmitTask(workTaskId, executionId, actorUserId);
         completeTask(workTask);
         MesProEdhrBatchExecutionTaskDO batchTask = batchTaskMapper.selectById(workTask.getBatchTaskId());
         if (batchTask != null) {
@@ -905,10 +906,10 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                     .setExecutionId(executionId)
                     .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
                     .setSubmittedAt(LocalDateTime.now())
-                    .setApprovedAt(LocalDateTime.now()));
+                .setApprovedAt(LocalDateTime.now()));
         }
         MesProEdhrWorkTaskDO completed = workTaskMapper.selectById(workTask.getId());
-        createNextFillAfterReview(completed);
+        createNextFillAfterReview(completed, actorUserId);
         return completed;
     }
 
@@ -918,6 +919,9 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         MesProEdhrWorkTaskDO workTask = workTaskMapper.selectActiveByBatchTaskAndType(batchTaskId, TASK_TYPE_FILL);
         if (workTask == null || !isActiveFillOrReworkStatus(workTask.getStatus())) {
             throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
+        }
+        if (!isAssignedOrCandidate(workTask, actorUserId)) {
+            throw exception(PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH);
         }
         MesProEdhrBatchExecutionTaskDO batchTask = batchTaskMapper.selectById(batchTaskId);
         if (batchTask == null || !MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM.equals(batchTask.getNodeType())
@@ -941,7 +945,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         }
         batchTaskMapper.updateById(update);
         MesProEdhrWorkTaskDO completed = workTaskMapper.selectById(workTask.getId());
-        createNextFillAfterReview(completed);
+        createNextFillAfterReview(completed, actorUserId);
         return completed;
     }
 
@@ -965,11 +969,15 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     }
 
     private MesProEdhrWorkTaskDO validateSubmitTask(Long workTaskId, Long executionId) {
+        return validateSubmitTask(workTaskId, executionId, requireLoginUserId());
+    }
+
+    private MesProEdhrWorkTaskDO validateSubmitTask(Long workTaskId, Long executionId, Long actorUserId) {
         MesProEdhrWorkTaskDO workTask = workTaskMapper.selectById(workTaskId);
         if (workTask == null || !Objects.equals(workTask.getExecutionId(), executionId)) {
             throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
         }
-        if (!isAssignedOrCandidate(workTask, requireLoginUserId())) {
+        if (!isAssignedOrCandidate(workTask, actorUserId)) {
             throw exception(PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH);
         }
         boolean submitTaskType = TASK_TYPE_FILL.equals(workTask.getTaskType())
@@ -1231,6 +1239,10 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void createNextFillAfterReview(MesProEdhrWorkTaskDO completedTask) {
+        createNextFillAfterReview(completedTask, resolveAdvanceActorUserId(completedTask));
+    }
+
+    private void createNextFillAfterReview(MesProEdhrWorkTaskDO completedTask, Long advanceActorUserId) {
         if (completedTask == null || completedTask.getBatchTaskId() == null || completedTask.getBatchExecutionId() == null) {
             throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
         }
@@ -1243,9 +1255,9 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         if (TASK_TYPE_REVIEW.equals(completedTask.getTaskType()) && hasPendingReviewForCurrentExecution(completedTask)) {
             return;
         }
-        createNextFillAfterBatchTask(completedTask.getBatchExecutionId(), currentBatchTask, null,
+        createNextFillAfterBatchTask(completedTask.getBatchExecutionId(), currentBatchTask, advanceActorUserId,
                 TASK_TYPE_REVIEW.equals(completedTask.getTaskType()) ? completedTask.getSignatureCellKey() : null,
-                completedTask, batchTasks);
+                completedTask, batchTasks, advanceActorUserId);
     }
 
     @Override
@@ -1267,7 +1279,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         MesProEdhrBatchExecutionTaskDO anchorTask =
                 resolveSpecialNodeAdvanceAnchor(persistedSpecialTask, batchTasks);
         createNextFillAfterBatchTask(persistedSpecialTask.getBatchExecutionId(), anchorTask,
-                null, null, null, batchTasks);
+                null, null, null, batchTasks, null);
     }
 
     private void createNextFillAfterBatchTask(Long batchExecutionId,
@@ -1275,7 +1287,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                                               Long sourceUserId,
                                               String requiredSignatureCellKey,
                                               MesProEdhrWorkTaskDO contextTask,
-                                              List<MesProEdhrBatchExecutionTaskDO> batchTasks) {
+                                              List<MesProEdhrBatchExecutionTaskDO> batchTasks,
+                                              Long advanceActorUserId) {
         if (batchExecutionId == null || currentBatchTask == null) {
             throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
         }
@@ -1293,6 +1306,9 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             if ((!sameProcessNext && hasUnsatisfiedParallelPeer(currentBatchTask, batchTasks))
                     || (!sameProcessNext && hasUnsatisfiedSpecialBeforeNext(nextTask, batchTasks))
                     || hasActiveFillForBatchTask(nextTask.getId())) {
+                return;
+            }
+            if (!sameProcessNext && !isProcessAdvanceActor(currentBatchTask, batchTasks, advanceActorUserId)) {
                 return;
             }
             MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(batchExecutionId);
@@ -1380,6 +1396,73 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         return workTaskMapper.selectActiveListByExecutionAndType(reviewTask.getExecutionId(), TASK_TYPE_REVIEW).stream()
                 .anyMatch(task -> !Objects.equals(task.getId(), reviewTask.getId())
                         && Objects.equals(task.getBatchTaskId(), reviewTask.getBatchTaskId()));
+    }
+
+    private Long resolveAdvanceActorUserId(MesProEdhrWorkTaskDO completedTask) {
+        if (completedTask == null) {
+            return null;
+        }
+        if ((TASK_TYPE_REVIEW.equals(completedTask.getTaskType())
+                || TASK_TYPE_APPROVE.equals(completedTask.getTaskType()))
+                && completedTask.getSourceUserId() != null) {
+            return completedTask.getSourceUserId();
+        }
+        return null;
+    }
+
+    private boolean isProcessAdvanceActor(MesProEdhrBatchExecutionTaskDO currentTask,
+                                          List<MesProEdhrBatchExecutionTaskDO> batchTasks,
+                                          Long actorUserId) {
+        if (actorUserId == null) {
+            return true;
+        }
+        return resolveProcessAdvanceUserIds(currentTask, batchTasks).contains(actorUserId);
+    }
+
+    private Set<Long> resolveProcessAdvanceUserIds(MesProEdhrBatchExecutionTaskDO currentTask,
+                                                   List<MesProEdhrBatchExecutionTaskDO> batchTasks) {
+        if (currentTask == null || currentTask.getBatchExecutionId() == null) {
+            return Set.of();
+        }
+        Map<Long, MesProEdhrBatchExecutionTaskDO> currentProcessTasks = batchTasks.stream()
+                .filter(task -> Objects.equals(task.getBatchExecutionId(), currentTask.getBatchExecutionId()))
+                .filter(task -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM.equals(task.getNodeType()))
+                .filter(task -> Objects.equals(task.getRouteProcessId(), currentTask.getRouteProcessId()))
+                .filter(task -> task.getId() != null)
+                .collect(Collectors.toMap(MesProEdhrBatchExecutionTaskDO::getId, task -> task,
+                        (left, right) -> left, LinkedHashMap::new));
+        if (currentProcessTasks.isEmpty()) {
+            return Set.of();
+        }
+        Set<Long> allProcessFillers = new LinkedHashSet<>();
+        Set<Long> inspectionFillers = new LinkedHashSet<>();
+        workTaskMapper.selectList().stream()
+                .filter(task -> Objects.equals(task.getBatchExecutionId(), currentTask.getBatchExecutionId()))
+                .filter(this::isFillOrReworkTask)
+                .filter(task -> currentProcessTasks.containsKey(task.getBatchTaskId()))
+                .forEach(task -> {
+                    MesProEdhrBatchExecutionTaskDO batchTask = currentProcessTasks.get(task.getBatchTaskId());
+                    Set<Long> taskUsers = resolveWorkTaskUserIds(task);
+                    allProcessFillers.addAll(taskUsers);
+                    if ("PROCESS_INSPECTION".equals(batchTask.getFormSlotType())) {
+                        inspectionFillers.addAll(taskUsers);
+                    }
+                });
+        return inspectionFillers.isEmpty() ? allProcessFillers : inspectionFillers;
+    }
+
+    private boolean isFillOrReworkTask(MesProEdhrWorkTaskDO task) {
+        return task != null && (TASK_TYPE_FILL.equals(task.getTaskType())
+                || TASK_TYPE_REWORK.equals(task.getTaskType()));
+    }
+
+    private Set<Long> resolveWorkTaskUserIds(MesProEdhrWorkTaskDO task) {
+        Set<Long> userIds = new LinkedHashSet<>(
+                MesProEdhrWorkTaskAuthorization.parseCandidateSnapshotUserIds(task.getCandidateUserSnapshot()));
+        if (task.getAssigneeUserId() != null) {
+            userIds.add(task.getAssigneeUserId());
+        }
+        return userIds;
     }
 
     private boolean hasUnsatisfiedParallelPeer(MesProEdhrBatchExecutionTaskDO currentTask,

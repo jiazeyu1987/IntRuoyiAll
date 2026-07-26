@@ -6,10 +6,10 @@
 
 ## Milestones
 
-- [ ] 定位批记录表单入口、首屏阻塞链路和现有测试契约
-- [ ] 记录 BDD 场景并建立 RED 静态契约
-- [ ] 实施最小前端性能优化，不引入 fallback、mock 或默认成功
-- [ ] 运行 GREEN 与回归验证，补充性能/前端证据
+- [x] 定位批记录表单入口、首屏阻塞链路和现有测试契约
+- [x] 记录 BDD 场景并建立 RED 静态契约
+- [x] 实施最小前端性能优化，不引入 fallback、mock 或默认成功
+- [x] 运行 GREEN 与回归验证，补充性能/前端证据
 - [ ] 收尾：状态、验证报告、经验沉淀、清理与提交推送检查
 
 ## Expected Verification
@@ -20,7 +20,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 
@@ -56,3 +56,7 @@ in_progress
 - Verification: 只读 tracking E2E 断言追踪详情、追踪表单区域、返回参数保留和无 MES 写请求。
 - Forbidden action: 禁止 API-only、管理员写入、旧 executionId 直连填写页或忽略对象级权限。
 - Evidence: `docs/e2e-rules.md#edhr-历史执行只读验证门禁`。
+## Cleanup Keep
+
+- doc/tasks/20260727-batch-record-form-first-screen/frontend-feature-evidence.md
+- doc/tasks/20260727-batch-record-form-first-screen/performance-capacity-cost-review.md

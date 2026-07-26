@@ -22,13 +22,19 @@ eDHR 填写工作台左侧栏仍显示“关闭前可修改”和“金手指测
 
 ## RED
 
-`node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> FAIL，首个失败为左侧栏仍包含 `v-if="preReleaseEditNotice"`。
+RED: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> FAIL，首个失败为左侧栏仍包含 `v-if="preReleaseEditNotice"`。
 
 ## GREEN
 
-- `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS。
-- `node tests/e2e/edhr-golden-finger-static.spec.js` -> PASS。
-- `node tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js` -> PASS。
+GREEN: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS。
+GREEN: `node tests/e2e/edhr-golden-finger-static.spec.js` -> PASS。
+GREEN: `node tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js` -> PASS。
+
+## Verification
+
+- `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js; node tests/e2e/edhr-golden-finger-static.spec.js; node tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js; node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS。
+- `pnpm ts:check` -> PASS。
+- `pnpm build:local` -> FAIL，Vite/Rollup 在产物生成后返回 `TypeError: Cannot set property code of  which has only a getter`，退出码 1。
 
 ## Risk And Regression Scope
 

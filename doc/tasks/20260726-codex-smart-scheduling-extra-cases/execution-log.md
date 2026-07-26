@@ -23,6 +23,8 @@
 - 2026-07-27：GREEN: real-ui-readback -> PASS，复跑同一 Playwright 脚本时 3 个测试项均 `existedBefore=true`，页面可按名称检索并显示项目 `智能排产`、默认方法 `SEQUENTIAL`、并行安全 `否`、状态 `启用` 和目标项内容。
 - 2026-07-27：WARN: single retry needed -> 并行只读复核曾触发 PowerShell OOM；改为单命令复跑后通过，未修改业务数据。
 - 2026-07-27：GREEN: experience-consolidation -> PASS，既有 `docs/e2e-rules.md#codex-runner-自动测试门禁`、`docs/e2e-rules.md#codex-runner-目标测试项存在性门禁`、`docs/e2e-rules.md#element-plus-表格选择门禁` 和 `docs/database-rules.md#测试管理-schema-迁移门禁` 已覆盖本任务经验，无需新增长期经验文档。
+- 2026-07-27：CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260726-codex-smart-scheduling-extra-cases --mode preview` -> ready；keep `task.md`、`execution-log.md`、`verification-report.md`；delete `add-extra-smart-scheduling-cases.mjs`；blocked none。
+- 2026-07-27：CLEANUP APPLY: 首次 apply 因 `Current Status` 使用反引号导致状态解析为 `unknown` 被阻塞；改为纯文本 `ready_for_closeout` 后复跑 apply -> applied，已删除本任务一次性 Playwright 脚本。
 
 ## 当前状态
 

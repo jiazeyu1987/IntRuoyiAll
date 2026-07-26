@@ -1804,6 +1804,37 @@ class MesProBatchRecordReportJsonBuilderTest {
     }
 
     @Test
+    void build_shouldNotUseTextareaForWideSignatureDateBlankCell() {
+        MesProBatchRecordParsedTable table = MesProBatchRecordParsedTable.builder()
+                .sourceTableIndex(1)
+                .tableTitle("signature date")
+                .rowCount(2)
+                .columnCount(6)
+                .rows(List.of(
+                        List.of(sourceBackedCell("通用工序生产记录", 1, 6, 480, 28, false, false, true)),
+                        List.of(
+                                sourceBackedCell("工序名称", 1, 1, 80, 28, false, false, true),
+                                sourceBackedCell("粗洗", 1, 1, 80, 28, false, false, false),
+                                sourceBackedCell("记录人/日期", 1, 1, 90, 28, false, false, true),
+                                sourceBackedCell("", 1, 3, 240, 28, true, false, false)
+                        )
+                ))
+                .build();
+
+        JSONObject root = JSON.parseObject(builder.build(table, REPORT_CODE));
+        JSONObject signatureDateCell = root.getJSONObject("rows")
+                .getJSONObject("1")
+                .getJSONObject("cells")
+                .getJSONObject("3");
+
+        assertNotNull(signatureDateCell.getJSONObject("fillForm"));
+        assertEquals("input-text", signatureDateCell.getJSONObject("fillForm").getString("componentFlag"));
+        assertNotNull(signatureDateCell.getJSONObject("edhrSignature"));
+        assertEquals("SUBMIT", signatureDateCell.getJSONObject("edhrSignature").getString("actionType"));
+        assertEquals("记录人/日期", signatureDateCell.getJSONObject("edhrSignature").getString("label"));
+    }
+
+    @Test
     void build_shouldKeepDetailDataBlankInputsVisuallyQuietWithoutDroppingFillForm() {
         MesProBatchRecordParsedCell mergedBlankBatchCell = MesProBatchRecordParsedCell.builder()
                 .text("")

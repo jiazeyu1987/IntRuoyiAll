@@ -1270,6 +1270,7 @@ const releaseActionError = ref('')
 const releaseSignatureError = ref('')
 const RELEASE_ACTION_ERROR_AUTO_HIDE_DELAY_MS = 5000
 let releaseActionErrorAutoHideTimer: number | undefined
+let routeFormAutoOpenKey = ''
 const detail = ref<EdhrBatchExecutionRespVO>()
 const workbench = ref<EdhrBatchWorkbenchRespVO>()
 const archivePrintDrawerVisible = ref(false)
@@ -3456,6 +3457,24 @@ const applyInitialBatchTaskSelection = () => {
   selectedReleaseStep.value = !selectedTaskId.value
 }
 
+const resolveRouteFormAutoOpenKey = () => {
+  if (parseRouteQueryText(route.query.openRouteForm) !== '1') return ''
+  const queryBatchTaskId = parsePositiveRouteQueryId(route.query.batchTaskId)
+  const queryWorkTaskId = parsePositiveRouteQueryId(route.query.workTaskId)
+  if (!queryBatchTaskId && !queryWorkTaskId) return ''
+  return `${batchExecutionId.value || ''}:${queryBatchTaskId || ''}:${queryWorkTaskId || ''}`
+}
+
+const autoOpenRouteFormFromRoute = async () => {
+  if (parseRouteQueryText(route.query.openRouteForm) !== '1') return
+  const routeQueryTask = resolveRouteQueryTaskSelection()
+  if (!routeQueryTask || !canOpenTask(routeQueryTask)) return
+  const autoOpenKey = resolveRouteFormAutoOpenKey()
+  if (!autoOpenKey || routeFormAutoOpenKey === autoOpenKey) return
+  routeFormAutoOpenKey = autoOpenKey
+  await handleOpenTask(routeQueryTask)
+}
+
 const loadReviewTimeline = async (requestSerial?: number) => {
   if (isStaleBatchDetailRequest(requestSerial)) return
   reviewLoading.value = true
@@ -3530,6 +3549,7 @@ const loadBatchDetailSecondaryData = async (id: string | number, requestSerial: 
     if (selectedReleaseStep.value) {
       await loadReleaseCheckItems()
     }
+    await autoOpenRouteFormFromRoute()
   } catch (error) {
     if (isStaleBatchDetailRequest(requestSerial)) return
     workbench.value = undefined

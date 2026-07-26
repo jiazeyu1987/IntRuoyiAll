@@ -16,7 +16,7 @@ const executionPage = fs.readFileSync(executionPagePath, 'utf8')
 const cellLinkApi = fs.readFileSync(cellLinkApiPath, 'utf8')
 
 assert(
-  /getPrefill:\s*async\s*\(\s*targetExecutionId:\s*number,\s*workTaskId\?:\s*number\s*\)/.test(cellLinkApi),
+  /getPrefill:\s*async\s*\(\s*targetExecutionId:\s*(?:number|EdhrRouteId),\s*workTaskId\?:\s*(?:number|EdhrRouteId)\s*\)/.test(cellLinkApi),
   'BatchRecordCellLinkApi.getPrefill 必须接收可选 workTaskId，避免填写任务打开时误走配置查询权限。'
 )
 

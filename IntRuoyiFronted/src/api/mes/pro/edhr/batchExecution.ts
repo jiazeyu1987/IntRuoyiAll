@@ -177,7 +177,7 @@ export interface EdhrBatchSpecialNodeAttachmentPrepareUploadReqVO {
 
 export interface EdhrBatchExecutionTaskOpenRespVO {
   taskId: number
-  executionId: number
+  executionId?: number
   workTaskId?: number
   routeProcessId?: number
   batchRecordReportId?: string

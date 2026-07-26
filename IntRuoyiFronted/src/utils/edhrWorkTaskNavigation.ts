@@ -146,6 +146,24 @@ export const navigateToEdhrWorkTask = async (
       taskId: batchTaskId,
       workTaskId
     })
+    if (opened?.formCenterInstanceId && opened?.formTemplateId) {
+      const query = stringifyQuery(opened?.executionPageQuery)
+      const openedWorkTaskId = opened?.workTaskId || workTaskId
+      await router.push({
+        path: EDHR_BATCH_EXECUTION_DETAIL_PATH,
+        query: {
+          ...query,
+          id: String(batchExecutionId),
+          batchExecutionId: String(
+            opened?.executionPageQuery?.batchExecutionId || batchExecutionId
+          ),
+          batchTaskId: String(opened?.executionPageQuery?.batchTaskId || opened?.taskId || batchTaskId),
+          ...(openedWorkTaskId ? { workTaskId: String(openedWorkTaskId) } : {}),
+          openRouteForm: '1'
+        }
+      })
+      return
+    }
     const executionId = opened?.executionId || resolveExecutionId(item, url)
     if (!executionId) {
       throw new Error('填写任务尚未生成执行记录，无法进入填写工作区。')

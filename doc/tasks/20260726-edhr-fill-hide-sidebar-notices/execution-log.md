@@ -19,3 +19,10 @@
 - GREEN: `node tests/e2e/edhr-golden-finger-static.spec.js` -> PASS。
 - GREEN: `node tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js` -> PASS。
 - GREEN: `git diff --check` -> PASS。
+- GREEN: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js; node tests/e2e/edhr-golden-finger-static.spec.js; node tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js; node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- NOTE: `pnpm install --frozen-lockfile` 未修改 lockfile；首次无法恢复空依赖目录，随后 `pnpm install --force --frozen-lockfile` 按现有锁文件恢复 `node_modules`，未修改 `package.json` 或 `pnpm-lock.yaml`。
+- BLOCKER: `pnpm build:local` -> FAIL。构建输出先显示 `Build successful. Please see dist directory`，随后 Vite/Rollup 返回 `TypeError: Cannot set property code of  which has only a getter`，命令退出码 1。该失败发生在构建工具链收尾阶段，非本次左侧栏提示节点变更引入；因此不声明本地生产构建通过。
+- VISUAL: 本机页面直接访问缺少 `executionId` 的执行页时展示真实 fail-fast 错误，无法通过当前路径复现用户截图中的已加载填写工作台；本次以静态合同锁定左侧栏红框节点不渲染。
+- EXPERIENCE: 已执行 project-experience-consolidation 检查；本次命中既有前端静态合同隔离和构建 fail-fast 规则，无新增长期经验文档。
+- COMMIT: 本次实现和初始任务记录已由并发脏工作区基线提交 `88016be5` (`chore: preserve pre-task dirty baseline`) 保存，且该提交已包含在 `origin/int_main`。

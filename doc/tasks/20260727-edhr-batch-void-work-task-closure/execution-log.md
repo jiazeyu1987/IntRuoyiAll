@@ -48,4 +48,12 @@
 
 - completed: Created task directory `doc/tasks/20260727-edhr-batch-void-work-task-closure/`.
 - completed: Wrote system design and acceptance/TDD design documents.
+- completed: `python C:\Users\BJB110\.codex\skills\system-design-docs\scripts\validate_system_design.py --root doc\tasks\20260727-edhr-batch-void-work-task-closure` -> PASS.
+- completed: `python C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root doc\tasks\20260727-edhr-batch-void-work-task-closure` -> PASS.
 - pending: Implementation must start with RED tests before production code changes.
+
+## Verification
+
+- DESIGN: system design structure validation passed.
+- DESIGN: BDD/TDD acceptance plan validation passed.
+- CODE: not started by user request; next step is RED test implementation.

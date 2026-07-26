@@ -1920,6 +1920,67 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void completeRouteFormFillAndCreateNextFill_advancesWhenActorIsInspectionFiller() {
+        insertBatch(batchForInitialFill(3078L, 4178L));
+        MesProEdhrBatchExecutionTaskDO mainTask = batchTask(3078L, 9181L, 5181L,
+                "REPORT-MAIN-INSPECTION-ADVANCE", "ROUTE_FORM", "灭菌主记录", 10)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
+                .setFormSlotType("MAIN");
+        MesProEdhrBatchExecutionTaskDO inspectionTask = batchTask(3078L, 9182L, 5181L,
+                "REPORT-IPQC-INSPECTION-ADVANCE", "ROUTE_FORM", "灭菌过程检验记录", 10)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING)
+                .setFormSlotType("PROCESS_INSPECTION")
+                .setFormTemplateId(28L)
+                .setFormTemplateVersionId(2801L)
+                .setFormCenterInstanceId(40780L)
+                .setBatchRecordSort(1);
+        MesProEdhrBatchExecutionTaskDO nextTask = batchTask(3078L, 9183L, 5183L,
+                "REPORT-NEXT-INSPECTION-ADVANCE", "ROUTE_FORM", "包装", 20)
+                .setBatchRecordVersionId(78183L);
+        batchTaskMapper.insert(mainTask);
+        batchTaskMapper.insert(inspectionTask);
+        batchTaskMapper.insert(nextTask);
+        when(routeProcessService.resolveFrozenRouteProcess(5183L, 4178L, 5183L))
+                .thenReturn(MesProRouteProcessDO.builder()
+                        .id(5183L)
+                        .routeId(4178L)
+                        .processId(5183L)
+                        .build());
+        insertProcessFormFillRule(5183L, "REPORT-NEXT-INSPECTION-ADVANCE", 78183L, "USERS", "402", 180);
+        when(adminUserApi.getUserList(List.of(402L))).thenReturn(List.of(
+                adminUser(402L, CommonStatusEnum.ENABLE.getStatus())));
+        MesProEdhrWorkTaskDO mainFillTask = insertFillTask(8181L, mainTask.getId(), "main-approved-before-ipqc")
+                .setBatchExecutionId(3078L)
+                .setRouteId(4178L)
+                .setRouteProcessId(5181L)
+                .setProcessId(5181L)
+                .setProcessName(mainTask.getProcessName())
+                .setAssigneeUserId(288L)
+                .setCandidateSourceType("USERS")
+                .setCandidateUserSnapshot("288,289")
+                .setStatus(MesProEdhrWorkTaskStatus.DONE);
+        workTaskMapper.updateById(mainFillTask);
+        MesProEdhrWorkTaskDO inspectionFillTask = insertFillTask(8182L, inspectionTask.getId(), "inspection-advancer-positive")
+                .setBatchExecutionId(3078L)
+                .setRouteId(4178L)
+                .setRouteProcessId(5181L)
+                .setProcessId(5181L)
+                .setProcessName(inspectionTask.getProcessName())
+                .setExecutionId(null)
+                .setAssigneeUserId(300L)
+                .setCandidateSourceType("USERS")
+                .setCandidateUserSnapshot("300,301");
+        workTaskMapper.updateById(inspectionFillTask);
+
+        workTaskService.completeRouteFormFillAndCreateNextFill(inspectionTask.getId(), 301L);
+
+        assertEquals(MesProEdhrWorkTaskStatus.DONE, workTaskMapper.selectById(inspectionFillTask.getId()).getStatus());
+        assertTrue(workTaskMapper.selectList().stream()
+                .anyMatch(task -> MesProEdhrWorkTaskService.TASK_TYPE_FILL.equals(task.getTaskType())
+                        && nextTask.getId().equals(task.getBatchTaskId())));
+    }
+
+    @Test
     void completeRouteFormFillAndCreateNextFill_allowsAnyProcessFillerWhenNoInspectionFiller() {
         insertBatch(batchForInitialFill(3076L, 4176L));
         MesProEdhrBatchExecutionTaskDO currentTask = batchTask(3076L, 9178L, 5178L,

@@ -196,6 +196,14 @@
                   show-icon
                   class="edhr-page-shell__archive-alert"
                 />
+                <el-alert
+                  v-else-if="signatureError"
+                  :title="signatureError"
+                  type="error"
+                  :closable="false"
+                  show-icon
+                  class="edhr-page-shell__archive-alert"
+                />
                 <EdhrExecutionReadonlyForm
                   v-else
                   :form-view-model="trackingReadonlyFormViewModel"
@@ -374,6 +382,14 @@
                     v-if="cellLinkPrefillConflictNotice"
                     :title="cellLinkPrefillConflictNotice"
                     type="warning"
+                    :closable="false"
+                    show-icon
+                    class="edhr-fill-workspace__prefill-alert"
+                  />
+                  <el-alert
+                    v-if="signatureError"
+                    :title="signatureError"
+                    type="error"
                     :closable="false"
                     show-icon
                     class="edhr-fill-workspace__prefill-alert"
@@ -1917,6 +1933,8 @@ const TRACKING_VIEW_MODE = 'tracking'
 const RECORDBOOK_UNRESTRICTED_FILL_MODE = 'RECORDBOOK_UNRESTRICTED'
 const BATCH_SHARED_INSTANCE_SCOPE = 'BATCH_SHARED'
 const ASSIST_SWITCH_PAGE_SIZE = 50
+let executionPageRequestSerial = 0
+let executionSecondaryFrameId: number | undefined
 
 const isGlobalRecordbookEnabled = computed(
   () => recordbookGlobalEnabled.value && execution.value?.recordbookEnabled === true
@@ -4485,18 +4503,48 @@ const handleFormReviewSign = async () => {
   }
 }
 
-const loadLatestArchive = async () => {
-  if (!execution.value?.id || !hasArchiveQueryPermission.value) {
-    latestArchive.value = undefined
-    archiveError.value = ''
+const isStaleExecutionPageRequest = (requestSerial: number) =>
+  requestSerial !== executionPageRequestSerial
+
+const isOptionalStaleExecutionPageRequest = (requestSerial?: number) =>
+  requestSerial !== undefined && isStaleExecutionPageRequest(requestSerial)
+
+const cancelDeferredExecutionSecondaryLoad = () => {
+  if (executionSecondaryFrameId !== undefined) {
+    cancelAnimationFrame(executionSecondaryFrameId)
+    executionSecondaryFrameId = undefined
+  }
+}
+
+const clearExecutionSecondaryState = () => {
+  latestArchive.value = undefined
+  trackingTimeline.value = []
+  signatureRows.value = []
+  archiveError.value = ''
+  trackingError.value = ''
+  signatureError.value = ''
+  archiveLoading.value = false
+}
+
+const loadLatestArchive = async (requestSerial?: number) => {
+  const targetExecutionId = execution.value?.id
+  if (!targetExecutionId || !hasArchiveQueryPermission.value) {
+    if (!isOptionalStaleExecutionPageRequest(requestSerial)) {
+      latestArchive.value = undefined
+      archiveError.value = ''
+      archiveLoading.value = false
+    }
     return
   }
 
   archiveLoading.value = true
   archiveError.value = ''
   try {
-    latestArchive.value = await getLatestEdhrExecutionArchive(execution.value.id, archiveArtifactType)
+    const archive = await getLatestEdhrExecutionArchive(targetExecutionId, archiveArtifactType)
+    if (isOptionalStaleExecutionPageRequest(requestSerial)) return
+    latestArchive.value = archive
   } catch (error) {
+    if (isOptionalStaleExecutionPageRequest(requestSerial)) return
     const errorMessage = resolveErrorMessage(error, '归档状态加载失败，请联系管理员。')
     if (isEdhrExecutionArchiveNotExistsMessage(errorMessage)) {
       latestArchive.value = undefined
@@ -4506,7 +4554,9 @@ const loadLatestArchive = async () => {
     latestArchive.value = undefined
     archiveError.value = errorMessage
   } finally {
-    archiveLoading.value = false
+    if (!isOptionalStaleExecutionPageRequest(requestSerial)) {
+      archiveLoading.value = false
+    }
   }
 }
 
@@ -4597,40 +4647,72 @@ const handleDownloadArchive = async () => {
   }
 }
 
-const loadTrackingAndSignatures = async () => {
-  if (!execution.value?.id) {
-    trackingTimeline.value = []
-    signatureRows.value = []
+const loadTrackingAndSignatures = async (requestSerial?: number) => {
+  const targetExecutionId = execution.value?.id
+  if (!targetExecutionId) {
+    if (!isOptionalStaleExecutionPageRequest(requestSerial)) {
+      trackingTimeline.value = []
+      signatureRows.value = []
+    }
     return
   }
   trackingError.value = ''
   signatureError.value = ''
-  try {
-    trackingTimeline.value = await getEdhrTrackingTimeline(execution.value.id)
-  } catch (error) {
-    trackingTimeline.value = []
-    trackingError.value = resolveErrorMessage(error, 'eDHR 追踪时间线加载失败，请联系管理员。')
-  }
-  try {
-    const signaturePage = await getEdhrExecutionSignaturePage({
+  const [timelineResult, signatureResult] = await Promise.allSettled([
+    getEdhrTrackingTimeline(targetExecutionId),
+    getEdhrExecutionSignaturePage({
       pageNo: 1,
       pageSize: 20,
-      executionId: execution.value.id
+      executionId: targetExecutionId
     })
-    signatureRows.value = signaturePage.list || []
-  } catch (error) {
+  ])
+  if (isOptionalStaleExecutionPageRequest(requestSerial)) return
+  if (timelineResult.status === 'fulfilled') {
+    trackingTimeline.value = timelineResult.value
+  } else {
+    trackingTimeline.value = []
+    trackingError.value = resolveErrorMessage(
+      timelineResult.reason,
+      'eDHR 追踪时间线加载失败，请联系管理员。'
+    )
+  }
+  if (signatureResult.status === 'fulfilled') {
+    signatureRows.value = signatureResult.value.list || []
+  } else {
     signatureRows.value = []
-    signatureError.value = resolveErrorMessage(error, 'eDHR 签名记录加载失败，请联系管理员。')
+    signatureError.value = resolveErrorMessage(
+      signatureResult.reason,
+      'eDHR 签名记录加载失败，请联系管理员。'
+    )
   }
 }
 
+const loadExecutionSecondaryData = async (requestSerial: number) => {
+  if (isStaleExecutionPageRequest(requestSerial)) return
+  await Promise.all([
+    loadLatestArchive(requestSerial),
+    loadTrackingAndSignatures(requestSerial)
+  ])
+}
+
+const deferExecutionSecondaryLoad = (requestSerial: number) => {
+  cancelDeferredExecutionSecondaryLoad()
+  executionSecondaryFrameId = requestAnimationFrame(() => {
+    executionSecondaryFrameId = undefined
+    if (isStaleExecutionPageRequest(requestSerial)) return
+    void loadExecutionSecondaryData(requestSerial)
+  })
+}
+
 const loadExecution = async () => {
+  const requestSerial = ++executionPageRequestSerial
+  cancelDeferredExecutionSecondaryLoad()
   const currentExecutionId = executionId.value
   const currentExecutionContextKey = resolveExecutionContextKey()
   if (!currentExecutionId) {
     execution.value = undefined
     loadedExecutionContextKey.value = ''
-    latestArchive.value = undefined
+    clearExecutionSecondaryState()
     loadError.value = '缺少 eDHR 执行记录 ID，无法加载执行页。'
     return
   }
@@ -4639,8 +4721,10 @@ const loadExecution = async () => {
   loadError.value = ''
   archiveError.value = ''
   formReviewSignError.value = ''
+  clearExecutionSecondaryState()
   try {
     const detail = await ProFeedbackApi.getEdhrExecution(currentExecutionId, workTaskId.value)
+    if (isStaleExecutionPageRequest(requestSerial)) return
     if (!detail?.id) {
       throw new Error('eDHR 执行记录未返回有效执行记录 ID。')
     }
@@ -4652,17 +4736,16 @@ const loadExecution = async () => {
     const prefillResponse = shouldLoadCellLinkPrefill
       ? await BatchRecordCellLinkApi.getPrefill(currentExecutionId, workTaskId.value)
       : undefined
+    if (isStaleExecutionPageRequest(requestSerial)) return
     execution.value = detail
     hydrateDraftState(detail, prefillResponse?.prefills || [], prefillResponse?.conflicts || [])
-    await loadLatestArchive()
-    await loadTrackingAndSignatures()
     loadedExecutionContextKey.value = currentExecutionContextKey
+    deferExecutionSecondaryLoad(requestSerial)
   } catch (error) {
+    if (isStaleExecutionPageRequest(requestSerial)) return
     execution.value = undefined
     loadedExecutionContextKey.value = ''
-    latestArchive.value = undefined
-    trackingTimeline.value = []
-    signatureRows.value = []
+    clearExecutionSecondaryState()
     draftFieldValues.value = {}
     draftAttachmentValues.value = {}
     draftImageAttachmentValues.value = {}
@@ -4674,7 +4757,9 @@ const loadExecution = async () => {
     draftRemark.value = ''
     loadError.value = resolveErrorMessage(error, 'eDHR 执行页加载失败，请联系管理员。')
   } finally {
-    loading.value = false
+    if (!isStaleExecutionPageRequest(requestSerial)) {
+      loading.value = false
+    }
   }
 }
 
@@ -5185,6 +5270,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  cancelDeferredExecutionSecondaryLoad()
   document.removeEventListener('fullscreenchange', syncFillWorkspaceFullscreenState)
 })
 </script>

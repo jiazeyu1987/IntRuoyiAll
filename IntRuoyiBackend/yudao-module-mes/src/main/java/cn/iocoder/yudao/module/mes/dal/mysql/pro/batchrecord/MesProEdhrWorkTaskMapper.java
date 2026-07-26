@@ -242,10 +242,11 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
             return wrapper;
         }
         String candidateToken = "," + userId + ",";
-        return wrapper.and(condition -> condition
+        wrapper.and(condition -> condition
                 .eq(MesProEdhrWorkTaskDO::getAssigneeUserId, userId)
                 .or()
                 .apply("CONCAT(',', candidate_user_snapshot, ',') LIKE {0}", "%" + candidateToken + "%"));
+        return wrapper;
     }
 
     private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> baseApprovalCenterWrapper(MesProEdhrWorkTaskPageReqVO reqVO,

@@ -18,16 +18,30 @@
 
 ## RED
 
-- Pending: identify the narrow static contract and run it before implementation.
+- `RED: node tests/e2e/edhr-execution-first-screen-defer-static.spec.js -> FAIL, expected reason: loadExecution still waits for non-first-screen loadLatestArchive.`
+- Baseline adjacent contract: `node tests/e2e/edhr-batch-fill-direct-navigation-static.spec.js -> PASS`.
 
 ## GREEN
 
-- Pending.
+- `GREEN: node tests/e2e/edhr-execution-first-screen-defer-static.spec.js -> PASS`
+- `GREEN: node tests/e2e/edhr-fill-workspace-worktask-permission-static.spec.js -> PASS` after narrowing test drift to accept `EdhrRouteId`.
+- `GREEN: node tests/e2e/edhr-recordbook-global-setting-static.spec.js -> PASS`
+- `GREEN: node tests/e2e/edhr-batch-fill-direct-navigation-static.spec.js -> PASS`
 
 ## Regression
 
-- Pending.
+- `node tests/e2e/edhr-pre-release-editable-submit-static.spec.js -> PASS`
+- `node tests/e2e/edhr-execution-list-removal-static.spec.js -> PASS`
+- `pnpm ts:check -> initial 180s timeout with no conclusion; rerun with 420s timeout PASS.`
+- `git diff --check -- task-owned files -> PASS with CRLF warnings only.`
 
 ## Blockers
 
-- None currently. Existing unrelated dirty/untracked files are present and must not be mixed into this task implementation.
+- Existing unrelated dirty/untracked files and `int_main...origin/int_main [ahead 2]` block safe final commit/push for this task without first resolving repository ownership.
+- Real browser E2E timing measurement blocked until local frontend/backend runtime, tenant/account, and representative execution record are explicitly available.
+## Cleanup
+
+- `task_closeout.py --task-id 20260727-batch-record-form-first-screen --mode preview -> ready; keep evidence files after Cleanup Keep correction; delete <none>; blocked <none>.`
+- `task_closeout.py --task-id 20260727-batch-record-form-first-screen --mode apply -> applied; deleted_paths <none>.`
+- `GREEN: experience-preflight -> PASS; existing frontend/e2e gates already cover this first-screen defer pattern, no new long-term experience document created.`
+- Commit/push remains BLOCKED by unrelated dirty working tree ownership; task status remains `ready_for_closeout` rather than `completed`.

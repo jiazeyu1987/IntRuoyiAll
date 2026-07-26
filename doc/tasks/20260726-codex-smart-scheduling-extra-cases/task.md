@@ -36,7 +36,7 @@
 
 ## Current Status
 
-`ready_for_closeout`
+ready_for_closeout
 
 ## Current Blockers
 

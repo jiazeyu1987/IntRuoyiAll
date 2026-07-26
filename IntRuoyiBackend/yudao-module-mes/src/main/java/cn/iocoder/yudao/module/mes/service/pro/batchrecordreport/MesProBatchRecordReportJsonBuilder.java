@@ -1089,6 +1089,7 @@ public class MesProBatchRecordReportJsonBuilder {
                 signatureDateCheckboxFragment);
         if (renderFillForm) {
             boolean visibleSingleLineBlankEntry = isVisibleSingleLineBlankEntryCell(cell, sourceRow);
+            boolean sameRowSignatureDateBlankFillCell = isSameRowSignatureDateBlankFillCell(cell, sourceRow);
             boolean visuallyQuietFillCell = signatureDateCheckboxFragment
                     || (!visibleSingleLineBlankEntry && shouldUseVisuallyQuietBlankFillForm(cell, rowType, sourceRow));
             cellObject.put("text", visibleText);
@@ -1096,7 +1097,7 @@ public class MesProBatchRecordReportJsonBuilder {
                     compactFillLayout,
                     visuallyQuietFillCell,
                     visibleSingleLineBlankEntry,
-                    signatureDateCheckboxFragment,
+                    signatureDateCheckboxFragment || sameRowSignatureDateBlankFillCell,
                     appendedCheckboxChoices));
             if (!signatureDateCheckboxFragment && isRecognizedCheckboxChoiceCell(cell)) {
                 cellObject.put(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY,
@@ -1741,6 +1742,27 @@ public class MesProBatchRecordReportJsonBuilder {
             }
         }
         return materialTripletCount >= 1;
+    }
+
+    private boolean isSameRowSignatureDateBlankFillCell(MesProBatchRecordParsedCell cell,
+                                                        List<MesProBatchRecordParsedCell> sourceRow) {
+        if (cell == null || sourceRow == null
+                || !MesProBatchRecordReportShapeRules.isFillable(cell)
+                || !MesProBatchRecordReportShapeRules.normalizeRecognizedText(cell.getText()).isBlank()) {
+            return false;
+        }
+        int cellIndex = indexOfCellByIdentity(sourceRow, cell);
+        if (cellIndex <= 0) {
+            return false;
+        }
+        for (int index = cellIndex - 1; index >= 0; index--) {
+            String previousText = compactText(sourceRow.get(index).getText());
+            if (previousText.isBlank()) {
+                continue;
+            }
+            return isSignatureDateHeaderText(previousText);
+        }
+        return false;
     }
 
     private int indexOfCellByIdentity(List<MesProBatchRecordParsedCell> sourceRow, MesProBatchRecordParsedCell cell) {
