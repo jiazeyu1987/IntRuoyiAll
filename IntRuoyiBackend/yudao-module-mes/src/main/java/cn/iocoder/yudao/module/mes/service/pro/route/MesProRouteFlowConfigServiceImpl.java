@@ -1971,6 +1971,23 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .toList();
     }
 
+    private List<String> parseCandidateSourceNames(Object rawValue) {
+        if (rawValue == null) {
+            return Collections.emptyList();
+        }
+        if (rawValue instanceof JSONArray array) {
+            return array.stream().map(String::valueOf).toList();
+        }
+        if (rawValue instanceof List<?> list) {
+            return list.stream().map(String::valueOf).toList();
+        }
+        String text = StrUtil.trim(String.valueOf(rawValue));
+        if (StrUtil.isBlank(text)) {
+            return Collections.emptyList();
+        }
+        return JSON.parseArray(text, String.class);
+    }
+
     private List<Long> parseCandidateSourceIdSnapshot(String rawValue) {
         return parseCandidateSourceIds(rawValue);
     }
