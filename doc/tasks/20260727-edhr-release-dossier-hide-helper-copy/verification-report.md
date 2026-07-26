@@ -24,4 +24,6 @@
 
 - 本任务开始前脏工作区基线提交：`8d8508a6`。
 - 提交阶段只暂存本任务源码、测试和证据文件；基线后出现的并行改动不属于本任务。
-
+- 实现提交：`ad6cad83 fix: hide edhr release dossier helper copy`。
+- 推送：`git push origin int_main` 已通过，`int_main` 不再领先 `origin/int_main`。
+- 收尾：`task-closeout-cleanup preview/apply` 均通过，无 delete/blocked/warnings。

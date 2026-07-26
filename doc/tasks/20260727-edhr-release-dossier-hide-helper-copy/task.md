@@ -10,7 +10,7 @@
 - [x] 建立任务专用静态 RED 合同。
 - [x] 实现页面级隐藏，不改变保存逻辑。
 - [x] 运行聚焦合同、既有合同和类型检查。
-- [ ] 完成证据、提交与推送。
+- [x] 完成证据、提交与推送。
 
 ## Expected Verification
 
@@ -20,7 +20,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 经验门禁
 

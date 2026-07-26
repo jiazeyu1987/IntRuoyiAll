@@ -23,3 +23,11 @@
 - GREEN: task-closeout-cleanup preview -> PASS，仅 keep 本任务 5 份证据文件，无 delete/blocked/warnings。
 - GREEN: task-closeout-cleanup apply -> PASS，无删除项，未触碰并行任务文件。
 - GREEN: project-experience-consolidation -> PASS，本次前端静态合同隔离、真实 E2E 同步和 Vite 构建超时均已有 `docs/frontend-development.md`、`docs/e2e-rules.md`、`docs/release-build-preflight-lessons.md` 与 `docs/experience-index.md` 覆盖；不新增长期经验文档。
+- GREEN: branch-runtime-port-guard -> PASS，`int_main/int_main` 仍为 frontend `8081`、backend `48081`。
+- GREEN: GitHub object-size preflight -> PASS，`origin/int_main..HEAD` 最大对象 `90329` bytes，低于 100 MB 门禁。
+- GREEN: `node tests/e2e/edhr-release-dossier-requirement-copy-hidden-static.spec.js` -> PASS（收尾复跑）。
+- GREEN: `node tests/e2e/edhr-release-dossier-requirement-setting-static.spec.js` -> PASS（收尾复跑）。
+- GREEN: bug-regression evidence validator -> PASS。
+- GREEN: frontend-feature evidence validator -> PASS。
+- GREEN: `git push origin int_main` -> PASS，已推送实现提交 `ad6cad83` 到 `origin/int_main`。
+- FINAL: `git status --short --branch` -> `int_main...origin/int_main` 不再 ahead；仍存在多项并行任务脏改动，均未暂存、未提交、未清理。
