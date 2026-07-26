@@ -923,18 +923,6 @@
                                 @change="(value) => handleRecordBindingProcessIndependentChange(binding, Boolean(value))"
                               />
                             </div>
-                            <div class="route-flow-graph-designer__record-binding-scope">
-                              <span>记录本</span>
-                              <el-switch
-                                :model-value="binding.recordbookEnabled !== false"
-                                data-route-process-setting-field="recordbook-enabled"
-                                :disabled="recordBindingEditorDisabled"
-                                inline-prompt
-                                active-text="开"
-                                inactive-text="关"
-                                @change="(value) => handleRecordBindingRecordbookEnabledChange(binding, Boolean(value))"
-                              />
-                            </div>
                             <el-select
                               :model-value="binding.candidateSourceType || ''"
                               clearable
@@ -2356,7 +2344,7 @@ const normalizeFormBinding = (
       instanceScope === 'BATCH_SHARED'
         ? report.fillableScopeJson || SHARED_FORM_FILLABLE_SCOPE_JSON
         : null,
-    recordbookEnabled: report.recordbookEnabled !== false,
+    recordbookEnabled: true,
     requiredPolicy: 'REQUIRED',
     candidateSourceType: normalizeRecordBindingCandidateSourceType(report.candidateSourceType),
     candidateSourceIds: normalizeRecordBindingCandidateIds(report.candidateSourceIds),
@@ -2759,14 +2747,6 @@ const handleRecordBindingProcessIndependentChange = (
   syncRouteWideRecordBindingProcessIndependent(formTemplateId, processIndependent)
 }
 
-const handleRecordBindingRecordbookEnabledChange = (
-  binding: RouteFlowRecordBinding,
-  recordbookEnabled: boolean
-) => {
-  if (!binding || recordBindingEditorDisabled.value) return
-  binding.recordbookEnabled = recordbookEnabled
-  syncSelectedRecordBindingsToDraft()
-}
 
 const addSelectedRecordBinding = async () => {
   if (recordBindingEditorDisabled.value) return
@@ -3950,7 +3930,7 @@ const buildSelectedProcessAttributesDraftSnapshot = (draft: SelectedProcessAttri
         sharedFormKey: instanceScope === 'BATCH_SHARED' ? buildSharedRecordBindingKey(binding) : null,
         fillableScopeJson:
           instanceScope === 'BATCH_SHARED' ? SHARED_FORM_FILLABLE_SCOPE_JSON : null,
-        recordbookEnabled: binding.recordbookEnabled !== false,
+        recordbookEnabled: true,
         requiredPolicy: 'REQUIRED',
         permissionScopeId: binding.permissionScopeId ?? binding.permissionRule?.permissionScopeId ?? null,
         candidateSourceType: binding.candidateSourceType || null,
@@ -4216,7 +4196,7 @@ const buildFormBindingSaveRows = (
         sharedFormKey: instanceScope === 'BATCH_SHARED' ? buildSharedRecordBindingKey(binding) : null,
         fillableScopeJson:
           instanceScope === 'BATCH_SHARED' ? SHARED_FORM_FILLABLE_SCOPE_JSON : null,
-        recordbookEnabled: binding.recordbookEnabled !== false,
+        recordbookEnabled: true,
         requiredPolicy: 'REQUIRED',
         permissionScopeId: binding.permissionScopeId ?? binding.permissionRule?.permissionScopeId ?? null,
         candidateSourceType: binding.candidateSourceType,
