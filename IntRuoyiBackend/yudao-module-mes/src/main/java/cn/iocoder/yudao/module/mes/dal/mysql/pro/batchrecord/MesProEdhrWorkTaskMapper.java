@@ -15,11 +15,12 @@ import java.util.List;
 public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTaskDO> {
 
     List<String> APPROVAL_CENTER_TASK_TYPES = List.of("REVIEW", "APPROVE", "RELEASE_APPROVE");
+    String TERMINAL_BATCH_STATUS_SQL = "30, 40, 50, 60";
 
     default PageResult<MesProEdhrWorkTaskDO> selectMyPage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                           Long assigneeUserId,
                                                           String status) {
-        return selectPage(reqVO, baseMyWrapper(reqVO, assigneeUserId)
+        return selectPage(reqVO, excludeTerminalBatchWrapper(baseMyWrapper(reqVO, assigneeUserId))
                 .eq(MesProEdhrWorkTaskDO::getStatus, status)
                 .orderByDesc(MesProEdhrWorkTaskDO::getId));
     }
@@ -35,7 +36,7 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     default PageResult<MesProEdhrWorkTaskDO> selectApprovalCenterTodoPage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                                           Long assigneeUserId,
                                                                           String status) {
-        return selectPage(reqVO, baseApprovalCenterWrapper(reqVO, assigneeUserId)
+        return selectPage(reqVO, excludeTerminalBatchWrapper(baseApprovalCenterWrapper(reqVO, assigneeUserId))
                 .eq(MesProEdhrWorkTaskDO::getStatus, status)
                 .orderByDesc(MesProEdhrWorkTaskDO::getId));
     }
@@ -49,22 +50,27 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     }
 
     default Long countMy(Long assigneeUserId, String taskType, String status) {
-        return selectCount(new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
                 .eq(MesProEdhrWorkTaskDO::getAssigneeUserId, assigneeUserId)
                 .eqIfPresent(MesProEdhrWorkTaskDO::getTaskType, taskType)
-                .eqIfPresent(MesProEdhrWorkTaskDO::getStatus, status));
+                .eqIfPresent(MesProEdhrWorkTaskDO::getStatus, status);
+        if (MesProEdhrWorkTaskStatus.TODO.equals(status) || MesProEdhrWorkTaskStatus.OVERDUE.equals(status)) {
+            excludeTerminalBatchWrapper(wrapper);
+        }
+        return selectCount(wrapper);
     }
 
     default PageResult<MesProEdhrWorkTaskDO> selectCandidateTodoPage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                                      Long candidateUserId,
                                                                      String status) {
-        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
+        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = excludeTerminalBatchWrapper(
+                new LambdaQueryWrapperX<MesProEdhrWorkTaskDO>()
                 .eq(MesProEdhrWorkTaskDO::getTaskType, "REVIEW")
                 .eq(MesProEdhrWorkTaskDO::getStatus, status)
                 .eqIfPresent(MesProEdhrWorkTaskDO::getTaskType, reqVO.getTaskType())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getWorkOrderCode, reqVO.getWorkOrderCode())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getBatchCode, reqVO.getBatchCode())
-                .likeIfPresent(MesProEdhrWorkTaskDO::getProcessName, reqVO.getProcessName());
+                .likeIfPresent(MesProEdhrWorkTaskDO::getProcessName, reqVO.getProcessName()));
         if (candidateUserId != null) {
             String candidateToken = "," + candidateUserId + ",";
             wrapper.apply("CONCAT(',', candidate_user_snapshot, ',') LIKE {0}", "%" + candidateToken + "%");
@@ -77,7 +83,8 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                                                        Long assigneeUserId,
                                                        Long candidateUserId,
                                                        String status) {
-        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = baseApprovalCenterWrapper(reqVO, assigneeUserId)
+        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = excludeTerminalBatchWrapper(
+                baseApprovalCenterWrapper(reqVO, assigneeUserId))
                 .eq(MesProEdhrWorkTaskDO::getTaskType, "REVIEW")
                 .eq(MesProEdhrWorkTaskDO::getStatus, status);
         if (candidateUserId != null) {
@@ -239,5 +246,13 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
                 .likeIfPresent(MesProEdhrWorkTaskDO::getWorkOrderCode, reqVO.getWorkOrderCode())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getBatchCode, reqVO.getBatchCode())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getProcessName, reqVO.getProcessName());
+    }
+
+    private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> excludeTerminalBatchWrapper(
+            LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper) {
+        wrapper.notInSql(MesProEdhrWorkTaskDO::getBatchExecutionId,
+                "SELECT id FROM mes_pro_edhr_batch_execution WHERE deleted = 0 AND status IN ("
+                        + TERMINAL_BATCH_STATUS_SQL + ")");
+        return wrapper;
     }
 }

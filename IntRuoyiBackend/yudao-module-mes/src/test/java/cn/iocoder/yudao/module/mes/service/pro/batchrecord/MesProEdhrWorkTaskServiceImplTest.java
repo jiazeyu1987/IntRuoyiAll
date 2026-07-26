@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdh
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskReleaseApprovalRuleReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskStatsRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
@@ -1246,6 +1247,40 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
                     .anyMatch(task -> Objects.equals(task.getId(), reviewTask.getId())));
             assertTrue(personalPage.getList().stream()
                     .anyMatch(task -> Objects.equals(task.getId(), approveTask.getId())));
+        }
+    }
+
+    @Test
+    void getMyPage_excludesTodoTasksFromTerminalBatches() {
+        insertBatch(batchForInitialFill(1001L, 4101L)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS));
+        MesProEdhrWorkTaskDO activeTask = insertFillTask(5201L, 2201L, "active-batch")
+                .setAssigneeUserId(99L)
+                .setBatchExecutionId(1001L);
+        workTaskMapper.updateById(activeTask);
+        MesProEdhrBatchExecutionDO voidedBatch = batchForInitialFill(1002L, 4102L)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_VOIDED);
+        insertBatch(voidedBatch);
+        MesProEdhrWorkTaskDO voidedTask = insertFillTask(5202L, 2202L, "voided-batch")
+                .setAssigneeUserId(99L)
+                .setBatchExecutionId(voidedBatch.getId());
+        workTaskMapper.updateById(voidedTask);
+        MesProEdhrWorkTaskPageReqVO reqVO = new MesProEdhrWorkTaskPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            PageResult<MesProEdhrWorkTaskRespVO> page = workTaskService.getMyPage(reqVO);
+            MesProEdhrWorkTaskStatsRespVO stats = workTaskService.getStats();
+
+            assertEquals(1L, page.getTotal());
+            assertTrue(page.getList().stream()
+                    .anyMatch(task -> Objects.equals(task.getId(), activeTask.getId())));
+            assertFalse(page.getList().stream()
+                    .anyMatch(task -> Objects.equals(task.getId(), voidedTask.getId())));
+            assertEquals(1L, stats.getTodoCount());
+            assertEquals(1L, stats.getFillCount());
         }
     }
 

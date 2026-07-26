@@ -83,6 +83,14 @@
 - Verification: 只读 tracking E2E 必须断言 `eDHR 追踪详情`、追踪表单区域、返回批次详情时保留 `batchExecutionId` 与 `batchTaskId`，并断言无 MES 写请求；填写页 toolbar/返回按钮可用性用真实填写路径或静态合同补充覆盖。
 - Forbidden action: 禁止用 API-only、管理员写入、旧 executionId 直连填写页、忽略对象级权限、或把 read-only tracking 当作写入路径 fallback。
 - Evidence: `doc/tasks/post-merge-jiluben-e2e-20260725/verification-report.md`。
+## eDHR 终态批次个人待办门禁
+
+- Trigger: 个人控制台、eDHR 工作任务、`edhr-work-task/my-page`、`edhr-work-task/stats`、`workTaskId` 打开提示“当前 eDHR 批次状态不允许该操作”，或数据库中 `mes_pro_edhr_work_task.status=TODO/OVERDUE` 但关联批次已关闭、归档、驳回或作废。
+- Preflight check: 先只读核对 `mes_pro_edhr_work_task.batch_execution_id` 与 `mes_pro_edhr_batch_execution.status`；若批次为终态，`openTask` 阻断是正确保护，应检查个人待办列表、统计和审批中心候选待办是否从源头排除终态批次。
+- Blocker: 若真实页面仍展示终态批次任务或统计仍计入终态批次任务，必须修复列表/统计查询；不得放松 `openTask` 的终态批次 fail-fast 校验。
+- Verification: 后端回归需覆盖“同一用户同时有正常批次和终态批次 TODO 时，个人待办与统计只返回正常批次”；真实 E2E 用责任人账号进入个人控制台，断言目标终态任务不在 `my-page` 响应和页面正文中，且没有“当前 eDHR 批次状态不允许该操作”。
+- Forbidden action: 禁止为了让按钮可点而允许终态批次进入填写页；禁止用前端隐藏、吞 toast、API-only 打开或改任务状态替代列表源头过滤。
+- Evidence: `doc/tasks/20260726-edhr-personal-console-open-task-status/verification-report.md`。
 ## eDHR 单据填写人显示值门禁
 
 - Trigger: Playwright 验证 eDHR 批次详情右侧单据卡片、损耗单、过程检验单、参数记录表、`fillableUsers`、填写人显示值。
