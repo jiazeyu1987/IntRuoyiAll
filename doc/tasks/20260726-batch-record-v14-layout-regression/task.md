@@ -48,3 +48,12 @@ ready_for_closeout
 - Verification: 回归必须同时包含合成 RED/GREEN 和用户指定真实 DOC 样本；至少断言 packed/密集表格不新增错误物料项、不把物料名称串到后续业务列、说明块不被吞入明细区域。
 - Forbidden action: 禁止用表单名、工序名、文件名、压力泵模板名硬编码特例；禁止只靠截图人工判断完成。
 - Evidence: `docs/backend-development.md#eDHR 批记录 Word 表格解析门禁`。
+
+### 旧版本 JSON 的 fillForm/edhrCellRule 读时刷新门禁
+
+- Trigger: V14/V14.0 等既有批记录版本复验时，`sheetLayoutJson.text` 坐标已正确但页面仍显示错位 checkbox。
+- Preflight check: 同时审计 `text/value`、`fillForm.labelText/componentFlag/valueType` 和 `edhrCellRule.label/componentFlag/valueType`。
+- Blocker: 业务列仍残留未确认 AUTO 规则的旧 checkbox / BOOLEAN / 串列 label 时，必须修复共享单元格规则刷新链路并持久化。
+- Verification: 回归覆盖 stale `fillForm` 被刷新、MANUAL 已确认规则不被覆盖、密集表格列头优先级；真实页面截图和 offender=0 均通过。
+- Forbidden action: 禁止只重新导入新版本就宣称既有版本已修复；禁止按产品名、工序名、文件名或压力表文本写特例。
+- Evidence: `docs/backend-development.md#旧版本-json-的-fillformedhrcellrule-读时刷新门禁`。
