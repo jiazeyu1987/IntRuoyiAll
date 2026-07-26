@@ -92,6 +92,7 @@ public interface ErrorCodeConstants {
     ErrorCode USER_DELETE_LIST_IS_EMPTY = new ErrorCode(1_002_003_020, "请选择需要删除的用户");
     ErrorCode USER_PASSWORD_STRENGTH_INVALID = new ErrorCode(1_002_003_021, "密码强度不足，至少 8 位且必须包含英文和数字");
     ErrorCode USER_TABLE_COLUMN_CONFIG_INVALID = new ErrorCode(1_002_003_022, "用户列表列配置非法");
+    ErrorCode PROFILE_WORKBENCH_TASK_VISIBILITY_INVALID = new ErrorCode(1_002_003_023, "个人工作台任务隐藏配置非法");
 
     // ========== 部门模块 1-002-004-000 ==========
     ErrorCode DEPT_NAME_DUPLICATE = new ErrorCode(1_002_004_000, "已经存在该名字的部门");

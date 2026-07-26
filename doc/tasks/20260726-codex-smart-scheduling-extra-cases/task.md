@@ -8,9 +8,9 @@
 ## 里程碑
 
 - [x] M1：读取任务、登录、本地运行、数据库、E2E、PowerShell 与收尾规则。
-- [ ] M2：保存任务开始前的脏工作区基线，确认本机前后端、目标租户和测试管理现有数据。
-- [ ] M3：梳理智能排产真实场景并通过测试管理页面新增 3 个测试项。
-- [ ] M4：复核新增结果，完成验证、经验检查、提交推送与任务收尾。
+- [x] M2：保存任务开始前的脏工作区基线，确认本机前后端、目标租户和测试管理现有数据。
+- [x] M3：梳理智能排产真实场景并通过测试管理页面新增 3 个测试项。
+- [x] M4：复核新增结果并完成验证、经验检查；Git 提交/推送等待共享分支协调。
 
 ## 预期验证
 
@@ -36,7 +36,11 @@
 
 ## Current Status
 
-`in_progress`
+`ready_for_closeout`
+
+## Current Blockers
+
+- Git closeout is blocked by shared-branch coordination: current workspace contains unrelated task files and local commits on `int_main`; this task must not stage, commit, push, clean, or revert files outside `doc/tasks/20260726-codex-smart-scheduling-extra-cases/`.
 
 ## Cleanup Keep
 

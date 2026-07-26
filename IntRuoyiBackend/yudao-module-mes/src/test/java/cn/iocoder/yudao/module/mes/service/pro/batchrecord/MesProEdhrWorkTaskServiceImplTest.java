@@ -1869,7 +1869,8 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         MesProEdhrBatchExecutionTaskDO inspectionTask = batchTask(3075L, 9176L, 5175L,
                 "REPORT-IPQC-ADVANCE", "ROUTE_FORM", "灭菌过程检验记录", 10)
                 .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
-                .setFormSlotType("PROCESS_INSPECTION");
+                .setFormSlotType("PROCESS_INSPECTION")
+                .setBatchRecordSort(1);
         MesProEdhrBatchExecutionTaskDO nextTask = batchTask(3075L, 9177L, 5177L,
                 "REPORT-NEXT-ADVANCE", "ROUTE_FORM", "包装", 20)
                 .setBatchRecordVersionId(78177L);
