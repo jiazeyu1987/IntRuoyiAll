@@ -728,7 +728,13 @@ async function queryWorkTask(page, fixture, actorUserId) {
     String(matched.candidateUserSnapshot || '').split(',').map((item) => Number(item.trim())).includes(actorUserId),
     `候选快照必须包含当前用户 ${actorUserId}: ${matched.candidateUserSnapshot}`
   )
-  await page.getByText(fixture.batchCode, { exact: false }).first().waitFor({ state: 'visible', timeout: 60000 })
+  const visibleTaskKey = String(matched.taskCode || matched.id)
+  const targetRow = page
+    .locator('.el-table__body-wrapper tbody tr:visible')
+    .filter({ hasText: fixture.batchCode })
+    .filter({ hasText: visibleTaskKey })
+    .first()
+  await targetRow.waitFor({ state: 'visible', timeout: 60000 })
   return matched
 }
 
@@ -747,7 +753,12 @@ async function openAndSubmitFromWorkbench(page, fixture, actorUserId) {
       response.request().method() === 'POST',
     { timeout: 60000 }
   )
-  await page.getByRole('button', { name: '处理' }).first().click()
+  const targetRow = page
+    .locator('.el-table__body-wrapper tbody tr:visible')
+    .filter({ hasText: fixture.batchCode })
+    .filter({ hasText: String(row.taskCode || row.id) })
+    .first()
+  await targetRow.getByRole('button', { name: '处理' }).click()
   const opened = unwrapResponse(await (await openResponsePromise).json(), `打开工作任务 ${fixture.caseName}`)
   assert.equal(Number(opened.workTaskId), Number(fixture.workTaskId), '打开响应必须绑定当前工作任务')
   assert.equal(Number(opened.taskId), Number(fixture.currentTaskId), '打开响应必须绑定当前批次任务')
