@@ -22,6 +22,10 @@
 
 ready_for_closeout
 
+## Closeout Blocker
+
+- `task-closeout-cleanup --mode preview` 已运行，但主 worktree `E:\IntRuoyi` 存在并行脏改动，脚本阻止 ff-only merge 和 worktree removal；当前分支实现与验证已提交，等待主 worktree 清理后再执行 apply closeout。
+
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。

@@ -35,3 +35,5 @@
 - 前端完整 `ts:check` 未运行：隔离 worktree 的 `IntRuoyiFronted\node_modules` 缺失；本次已执行无需依赖安装的静态契约测试。
 - 后端首次目标测试因隔离分支未同步 `int_main` 的并行路由配置基线、以及旧本地依赖 jar 失败；已快进到 `4533ac44`，并使用 `-am` 让 Maven 编译依赖模块源码后通过。
 - `GREEN: project-experience-consolidation -> PASS, 已将本任务 PowerShell Maven -D 引号与 -am 依赖源码编译经验合并到 docs\powershell-memory.md 既有门禁`
+- `BLOCKER: task-closeout-cleanup preview -> Main worktree is dirty and cannot receive ff-only merge: E:\IntRuoyi`
+- `BLOCKER DETAIL: git -C E:\IntRuoyi status --short --branch -> int_main ahead 20 and contains unrelated/concurrent dirty files under route attachment owner, codex runner, dossier requirement, route flow add form count, docs/e2e-rules.md, docs/frontend-development.md, docs/powershell-memory.md 等；本任务未修改这些主工作区并行文件`
