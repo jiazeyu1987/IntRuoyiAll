@@ -204,14 +204,14 @@ INSERT INTO mes_pro_edhr_batch_execution (
 );
 SET @batch_id := LAST_INSERT_ID();
 INSERT INTO mes_pro_edhr_batch_execution_task (
-  batch_execution_id, node_type, route_process_id, root_process_flag, route_process_sort,
+  batch_execution_id, node_type, route_process_id, predecessor_route_process_id, root_process_flag, route_process_sort,
   process_id, process_code, process_name, batch_record_report_id, batch_record_report_name,
   form_slot_type, form_binding_key, form_template_id, form_template_name_snapshot,
   form_template_version_id, form_template_version_no, batch_record_sort, execution_mode,
   record_category, validation_profile, recordbook_enabled, required_policy, owner_role_key,
   archive_visibility, batch_record_version_id, status, required_flag, creator, updater, deleted, tenant_id
 ) VALUES (
-  @batch_id, 'ROUTE_FORM', ${CURRENT_ROUTE_PROCESS_ID}, b'1', 1,
+  @batch_id, 'ROUTE_FORM', ${CURRENT_ROUTE_PROCESS_ID}, NULL, b'1', 1,
   ${CURRENT_PROCESS_ID}, 'Z2630', '吹球囊成型-无过程检验推进E2E', NULL, '无过程检验动态表单',
   'MAIN', @current_binding, ${FORM_TEMPLATE_ID}, ${sqlString(FORM_TEMPLATE_NAME)},
   ${FORM_TEMPLATE_VERSION_ID}, ${sqlString(FORM_TEMPLATE_VERSION_NO)}, 0, 'SEQUENTIAL',
@@ -220,14 +220,14 @@ INSERT INTO mes_pro_edhr_batch_execution_task (
 );
 SET @current_task_id := LAST_INSERT_ID();
 INSERT INTO mes_pro_edhr_batch_execution_task (
-  batch_execution_id, node_type, route_process_id, root_process_flag, route_process_sort,
+  batch_execution_id, node_type, route_process_id, predecessor_route_process_id, root_process_flag, route_process_sort,
   process_id, process_code, process_name, batch_record_report_id, batch_record_report_name,
   form_slot_type, form_binding_key, form_template_id, form_template_name_snapshot,
   form_template_version_id, form_template_version_no, batch_record_sort, execution_mode,
   record_category, validation_profile, recordbook_enabled, required_policy, owner_role_key,
   archive_visibility, batch_record_version_id, status, required_flag, creator, updater, deleted, tenant_id
 ) VALUES (
-  @batch_id, 'ROUTE_FORM', ${NEXT_ROUTE_PROCESS_ID}, b'0', 2,
+  @batch_id, 'ROUTE_FORM', ${NEXT_ROUTE_PROCESS_ID}, ${CURRENT_ROUTE_PROCESS_ID}, b'0', 2,
   ${NEXT_PROCESS_ID}, 'Z3710', '球囊裁剪-无过程检验推进E2E', NULL, '下一工序动态表单',
   'MAIN', @next_binding, ${FORM_TEMPLATE_ID}, ${sqlString(FORM_TEMPLATE_NAME)},
   ${FORM_TEMPLATE_VERSION_ID}, ${sqlString(FORM_TEMPLATE_VERSION_NO)}, 0, 'SEQUENTIAL',
@@ -342,7 +342,7 @@ INSERT INTO mes_pro_edhr_batch_execution (
 );
 SET @batch_id := LAST_INSERT_ID();
 INSERT INTO mes_pro_edhr_batch_execution_task (
-  batch_execution_id, node_type, route_process_id, root_process_flag, route_process_sort,
+  batch_execution_id, node_type, route_process_id, predecessor_route_process_id, root_process_flag, route_process_sort,
   process_id, process_code, process_name, batch_record_report_id, batch_record_report_name,
   form_slot_type, form_binding_key, form_template_id, form_template_name_snapshot,
   form_template_version_id, form_template_version_no, batch_record_sort, execution_mode,
@@ -350,7 +350,7 @@ INSERT INTO mes_pro_edhr_batch_execution_task (
   archive_visibility, batch_record_version_id, status, required_flag, creator, updater, deleted, tenant_id
 ) VALUES
 (
-  @batch_id, 'ROUTE_FORM', ${CURRENT_ROUTE_PROCESS_ID}, b'1', 1,
+  @batch_id, 'ROUTE_FORM', ${CURRENT_ROUTE_PROCESS_ID}, NULL, b'1', 1,
   ${CURRENT_PROCESS_ID}, 'Z2630', '吹球囊成型-主表非推进E2E', NULL, '主表动态表单',
   'MAIN', @main_binding, ${FORM_TEMPLATE_ID}, ${sqlString(FORM_TEMPLATE_NAME)},
   ${FORM_TEMPLATE_VERSION_ID}, ${sqlString(FORM_TEMPLATE_VERSION_NO)}, 0, 'SEQUENTIAL',
@@ -358,7 +358,7 @@ INSERT INTO mes_pro_edhr_batch_execution_task (
   'DOSSIER', ${ROUTE_VERSION_ID}, 0, b'1', 'codex-e2e', 'codex-e2e', b'0', ${TEST_TENANT_ID}
 ),
 (
-  @batch_id, 'ROUTE_FORM', ${CURRENT_ROUTE_PROCESS_ID}, b'0', 1,
+  @batch_id, 'ROUTE_FORM', ${CURRENT_ROUTE_PROCESS_ID}, NULL, b'1', 1,
   ${CURRENT_PROCESS_ID}, 'Z2630', '吹球囊成型-过程检验已完成E2E', NULL, '过程检验动态表单',
   'PROCESS_INSPECTION', @inspection_binding, ${FORM_TEMPLATE_ID}, ${sqlString(FORM_TEMPLATE_NAME)},
   ${FORM_TEMPLATE_VERSION_ID}, ${sqlString(FORM_TEMPLATE_VERSION_NO)}, 1, 'SEQUENTIAL',
@@ -369,14 +369,14 @@ SET @first_current_task_id := LAST_INSERT_ID();
 SET @main_task_id := @first_current_task_id;
 SET @inspection_task_id := @first_current_task_id + 1;
 INSERT INTO mes_pro_edhr_batch_execution_task (
-  batch_execution_id, node_type, route_process_id, root_process_flag, route_process_sort,
+  batch_execution_id, node_type, route_process_id, predecessor_route_process_id, root_process_flag, route_process_sort,
   process_id, process_code, process_name, batch_record_report_id, batch_record_report_name,
   form_slot_type, form_binding_key, form_template_id, form_template_name_snapshot,
   form_template_version_id, form_template_version_no, batch_record_sort, execution_mode,
   record_category, validation_profile, recordbook_enabled, required_policy, owner_role_key,
   archive_visibility, batch_record_version_id, status, required_flag, creator, updater, deleted, tenant_id
 ) VALUES (
-  @batch_id, 'ROUTE_FORM', ${NEXT_ROUTE_PROCESS_ID}, b'0', 2,
+  @batch_id, 'ROUTE_FORM', ${NEXT_ROUTE_PROCESS_ID}, ${CURRENT_ROUTE_PROCESS_ID}, b'0', 2,
   ${NEXT_PROCESS_ID}, 'Z3710', '球囊裁剪-主表非推进E2E', NULL, '下一工序动态表单',
   'MAIN', @next_binding, ${FORM_TEMPLATE_ID}, ${sqlString(FORM_TEMPLATE_NAME)},
   ${FORM_TEMPLATE_VERSION_ID}, ${sqlString(FORM_TEMPLATE_VERSION_NO)}, 0, 'SEQUENTIAL',
@@ -503,7 +503,7 @@ INSERT INTO mes_pro_edhr_batch_execution (
 );
 SET @batch_id := LAST_INSERT_ID();
 INSERT INTO mes_pro_edhr_batch_execution_task (
-  batch_execution_id, node_type, route_process_id, root_process_flag, route_process_sort,
+  batch_execution_id, node_type, route_process_id, predecessor_route_process_id, root_process_flag, route_process_sort,
   process_id, process_code, process_name, batch_record_report_id, batch_record_report_name,
   form_slot_type, form_binding_key, form_template_id, form_template_name_snapshot,
   form_template_version_id, form_template_version_no, batch_record_sort, execution_mode,
@@ -511,7 +511,7 @@ INSERT INTO mes_pro_edhr_batch_execution_task (
   archive_visibility, batch_record_version_id, status, required_flag, creator, updater, deleted, tenant_id
 ) VALUES
 (
-  @batch_id, 'ROUTE_FORM', ${CURRENT_ROUTE_PROCESS_ID}, b'1', 1,
+  @batch_id, 'ROUTE_FORM', ${CURRENT_ROUTE_PROCESS_ID}, NULL, b'1', 1,
   ${CURRENT_PROCESS_ID}, 'Z2630', '吹球囊成型-主表已完成E2E', NULL, '主表动态表单',
   'MAIN', @main_binding, ${FORM_TEMPLATE_ID}, ${sqlString(FORM_TEMPLATE_NAME)},
   ${FORM_TEMPLATE_VERSION_ID}, ${sqlString(FORM_TEMPLATE_VERSION_NO)}, 0, 'SEQUENTIAL',
@@ -519,7 +519,7 @@ INSERT INTO mes_pro_edhr_batch_execution_task (
   'DOSSIER', ${ROUTE_VERSION_ID}, 40, b'1', 'codex-e2e', 'codex-e2e', b'0', ${TEST_TENANT_ID}
 ),
 (
-  @batch_id, 'ROUTE_FORM', ${CURRENT_ROUTE_PROCESS_ID}, b'0', 1,
+  @batch_id, 'ROUTE_FORM', ${CURRENT_ROUTE_PROCESS_ID}, NULL, b'1', 1,
   ${CURRENT_PROCESS_ID}, 'Z2630', '吹球囊成型-过程检验推进E2E', NULL, '过程检验动态表单',
   'PROCESS_INSPECTION', @inspection_binding, ${FORM_TEMPLATE_ID}, ${sqlString(FORM_TEMPLATE_NAME)},
   ${FORM_TEMPLATE_VERSION_ID}, ${sqlString(FORM_TEMPLATE_VERSION_NO)}, 1, 'SEQUENTIAL',
@@ -530,14 +530,14 @@ SET @first_current_task_id := LAST_INSERT_ID();
 SET @main_task_id := @first_current_task_id;
 SET @inspection_task_id := @first_current_task_id + 1;
 INSERT INTO mes_pro_edhr_batch_execution_task (
-  batch_execution_id, node_type, route_process_id, root_process_flag, route_process_sort,
+  batch_execution_id, node_type, route_process_id, predecessor_route_process_id, root_process_flag, route_process_sort,
   process_id, process_code, process_name, batch_record_report_id, batch_record_report_name,
   form_slot_type, form_binding_key, form_template_id, form_template_name_snapshot,
   form_template_version_id, form_template_version_no, batch_record_sort, execution_mode,
   record_category, validation_profile, recordbook_enabled, required_policy, owner_role_key,
   archive_visibility, batch_record_version_id, status, required_flag, creator, updater, deleted, tenant_id
 ) VALUES (
-  @batch_id, 'ROUTE_FORM', ${NEXT_ROUTE_PROCESS_ID}, b'0', 2,
+  @batch_id, 'ROUTE_FORM', ${NEXT_ROUTE_PROCESS_ID}, ${CURRENT_ROUTE_PROCESS_ID}, b'0', 2,
   ${NEXT_PROCESS_ID}, 'Z3710', '球囊裁剪-过程检验推进E2E', NULL, '下一工序动态表单',
   'MAIN', @next_binding, ${FORM_TEMPLATE_ID}, ${sqlString(FORM_TEMPLATE_NAME)},
   ${FORM_TEMPLATE_VERSION_ID}, ${sqlString(FORM_TEMPLATE_VERSION_NO)}, 0, 'SEQUENTIAL',
