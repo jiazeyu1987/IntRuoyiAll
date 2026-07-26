@@ -108,16 +108,16 @@
               <div class="profile-workbench__status">
                 <span>{{ row.statusLabel }}</span>
               </div>
-          </template>
-        </el-table-column>
-        <el-table-column
-          v-if="isTodoColumnVisible('actions')"
-          label="操作"
-          prop="actions"
-          :width="getTodoColumnWidthString('actions', 170)"
-          fixed="right"
-        >
-          <template #default="{ row }">
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isTodoColumnVisible('actions')"
+            label="操作"
+            prop="actions"
+            :width="getTodoColumnWidthString('actions', 170)"
+            fixed="right"
+          >
+            <template #default="{ row }">
               <el-button
                 v-if="activeVisibilityTab !== 'hidden'"
                 link
@@ -144,9 +144,9 @@
               >
                 恢复
               </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+            </template>
+          </el-table-column>
+        </el-table>
       </template>
     </UnifiedListTemplate>
   </div>

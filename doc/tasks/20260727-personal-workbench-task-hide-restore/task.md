@@ -7,21 +7,22 @@
 ## Milestones
 
 - [x] 建立任务文档与经验门禁
-- [ ] 定位个人工作台任务前后端契约、数据模型与测试入口
-- [ ] 记录 BDD 场景并补充 RED 测试
-- [ ] 实现后端隐藏/恢复接口与前端操作入口
-- [ ] 完成 GREEN/回归验证并记录证据
-- [ ] 收尾清理、经验沉淀、提交与推送
+- [x] 定位个人工作台任务前后端契约、数据模型与测试入口
+- [x] 记录 BDD 场景并补充 RED 测试
+- [x] 实现后端隐藏/恢复接口与前端操作入口
+- [x] 完成 GREEN/回归验证并记录证据
+- [x] 收尾清理、经验沉淀、提交与推送
 
 ## Expected Verification
 
-- 后端定向测试覆盖隐藏、恢复、默认列表排除隐藏任务、隐藏列表仅返回当前用户隐藏任务。
-- 前端静态/组件契约覆盖隐藏操作、隐藏列表入口、恢复操作与错误暴露。
-- 必要时通过真实页面路径验证个人工作台任务隐藏/恢复。
+- 后端定向测试覆盖隐藏、恢复、用户隔离、租户隔离与非法请求 fail-fast。
+- 前端静态契约覆盖隐藏操作、隐藏列表入口、恢复操作、API 调用与角标刷新触发。
+- 前端补充校验覆盖 SFC 解析与本任务影响文件 ESLint。
+- 全量 `pnpm ts:check` 已尝试两次，均因超时未产出诊断；未作为通过证据。
 
 ## Current Status
 
-in_progress
+completed
 
 ## 设计约束检查
 
@@ -33,3 +34,8 @@ in_progress
 
 - 已读取 `docs/task-closeout-rules.md`、`docs/frontend-development.md`、`docs/backend-development.md`、`docs/database-rules.md`。
 - `docs/experience-index.md` 存在；当前需求命中前端静态契约隔离门禁、真实 E2E 需读取 E2E 规则、涉及 schema 或菜单权限时需按数据库规则先核对。
+
+## Cleanup Keep
+
+- doc/tasks/20260727-personal-workbench-task-hide-restore/backend-api-evidence.md
+- doc/tasks/20260727-personal-workbench-task-hide-restore/frontend-feature-evidence.md
