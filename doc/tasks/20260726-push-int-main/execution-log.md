@@ -23,7 +23,15 @@
 - GREEN: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
 - GREEN: `git diff --check` -> PASS.
 - GREEN: pending push blob scan -> PASS; largest blob reported `358821` bytes, below GitHub `100 MB` blocker threshold.
-- Pending push commits before this task record commit: `8b113467`, `fc4df9f9`, `08d0e5bc`.
+- Pending push commits before final push: `8b113467`, `fc4df9f9`, `08d0e5bc`, `a2852202`, `6622cfde`.
+- GREEN: `git push origin int_main` -> PASS, output `Everything up-to-date` after remote tracked HEAD.
+- GREEN: `git status --short --branch` -> PASS, `## int_main...origin/int_main` with no ahead marker.
+- GREEN: `git rev-parse HEAD` and `git rev-parse origin/int_main` -> PASS, both `6622cfdedaab1ff969b54f373a4b9201813d4696`.
+- GREEN: `git ls-remote origin refs/heads/int_main` -> PASS, remote branch at `6622cfdedaab1ff969b54f373a4b9201813d4696`.
+- Experience consolidation -> existing `docs/powershell-memory.md`, `docs/task-closeout-rules.md`, and `docs/experience-index.md` already contain the reusable Git push, dirty worktree, and GitHub large blob gates; no new long-term experience document was needed.
+- Cleanup preview -> PASS, keep `task.md`, `execution-log.md`, and `verification-report.md`; delete `<none>`; blocked `<none>`.
+- Cleanup apply -> PASS, deleted `<none>`.
+- Status -> `completed`.
 
 ## BDD / TDD
 
@@ -31,4 +39,4 @@
 
 ## Blockers
 
-- None yet.
+- None.

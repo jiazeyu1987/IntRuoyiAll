@@ -9,8 +9,8 @@
 - [x] 读取并记录 Git 推送与任务收尾规则
 - [x] 检查当前分支、远端、脏工作区和待推送提交
 - [x] 按规则处理既有脏工作区基线
-- [ ] 推送 `int_main` 到 `origin` 并验证不再 ahead
-- [ ] 完成任务记录与最终状态
+- [x] 推送 `int_main` 到 `origin` 并验证不再 ahead
+- [x] 完成任务记录与最终状态
 
 ## Expected Verification
 
@@ -23,7 +23,7 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## 设计约束检查
 

@@ -11,4 +11,13 @@
 
 ## Push Verification
 
-- Pending. Final push result will be recorded after `git push origin int_main`.
+- `git push origin int_main` -> PASS, output `Everything up-to-date`.
+- `git status --short --branch` -> PASS, `## int_main...origin/int_main` with no ahead marker.
+- `git rev-parse HEAD` -> `6622cfdedaab1ff969b54f373a4b9201813d4696`.
+- `git rev-parse origin/int_main` -> `6622cfdedaab1ff969b54f373a4b9201813d4696`.
+- `git ls-remote origin refs/heads/int_main` -> `6622cfdedaab1ff969b54f373a4b9201813d4696`.
+
+## Closeout Verification
+
+- Cleanup preview/apply: PASS; no files deleted and no blocked paths.
+- Final task status: `completed`.
