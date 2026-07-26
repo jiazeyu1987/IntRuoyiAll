@@ -14,18 +14,32 @@
 
 ## Milestone Updates
 
-- in_progress: 创建任务记录，已读取 backend/frontend/e2e/database/local-runtime/login-access/task-closeout 和经验索引门禁；准备审计现有服务、测试和真实 E2E 入口。
+- completed: M1 审计确认当前流程没有工序负责人概念；个人工作台、任务打开、FormCenter 提交和下一工序创建均应以工作任务 assignee/candidate 快照与当前工序表单填写人集合为准。
+- completed: M2 记录多填写人待办可见、过程检验填写人优先推进、无过程检验时全部解析填写人可推进、非填写人 fail-fast、动态表单工作台入口统一等 BDD。
+- completed: M3 后端已实现 candidateUserSnapshot 工作台可见、提交人 assignee/candidate 校验、过程检验填写人优先推进、无过程检验时工序所有填写人可推进、非推进人 fail-fast。
+- completed: M4 前端已统一个人工作台 FormCenter 动态表单入口，允许无传统 executionId 的任务从正式 openTask 响应进入批次详情并自动打开表单抽屉。
+- completed: M5 后端目标测试、前端静态合同和完整真实数据 E2E 均 PASS。
+- ready_for_closeout: 已清理 `EDHR-ADV-%` 任务自有调试数据，剩余工作为证据校验、经验沉淀和 closeout 清理。
 
 ## TDD Evidence
 
-- pending: RED 后端测试。
-- pending: RED 前端静态合同。
-- pending: GREEN 目标验证。
+- RED: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProEdhrWorkTaskServiceImplTest#..." "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，旧逻辑仅按 `assigneeUserId` 展示工作台任务，且默认推进人规则不能表达过程检验优先。
+- RED: `node tests\e2e\edhr-work-task-formcenter-navigation-static.spec.js` -> FAIL，旧前端入口对 FormCenter 工作任务仍强依赖传统 `executionId`。
+- GREEN: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProEdhrWorkTaskServiceImplTest#getMyPage_includesCandidateFillTaskForNonAssignee+completeFillAndCreateNextFill_doesNotAdvanceWhenInspectionFillerExistsAndActorIsOnlyMainFiller+completeRouteFormFillAndCreateNextFill_advancesWhenActorIsInspectionFiller+completeRouteFormFillAndCreateNextFill_allowsAnyProcessFillerWhenNoInspectionFiller+completeRouteFormFillAndCreateNextFill_rejectsActorOutsideProcessFillerSnapshot" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，5 tests, 0 failures。
+- GREEN: `node tests\e2e\edhr-work-task-formcenter-navigation-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\edhr-work-task-notify-workbench-fill-navigation-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\edhr-work-task-board-unified-navigation-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\edhr-work-task-process-advance-real.e2e.js` -> PASS，runKey `EDHR-ADV-6T182008199Z`。
 
 ## Verification Evidence
 
-- pending: 后端、前端、E2E、UTF-8 和 diff 检查。
+- Verification: 完整真实 E2E 使用本机 `http://localhost:8081` 与 `http://127.0.0.1:48081`，测试租户 `测试租户`，用户 `aoteman` 与 `admin`，三组任务自有批次夹具均走真实个人工作台“处理”按钮和 FormCenter 提交按钮。
+- Verification: `noInspection` 场景中 `aoteman` 不是 assignee 但在 candidate 快照内，可看到并填写任务，提交后下一工序 fill count = 1。
+- Verification: `mainBlockedByInspection` 场景中主表填写人 `aoteman` 可完成主表，但因为当前工序存在过程检验填写人集合，不创建下一工序 fill count = 0。
+- Verification: `inspectionAdvances` 场景中过程检验填写人 `admin` 完成过程检验后创建下一工序 fill count = 1。
+- Verification: 数据库清理 SQL 将 `EDHR-ADV-%` 任务自有 `batch_execution/work_task/work_order/form_instance` 活跃残留从 `6/10/0/6` 清理为 `0/0/0/0`。
+- Verification: `git diff --check` -> PASS。
 
 ## Blockers
 
-- 当前 `int_main` 工作区已存在非本任务脏改和 ahead 提交；本任务只新增任务自有文件和后续任务自有改动，不回滚或混入并发任务。
+- none: 当前实现、真实 E2E 和清理均已通过；等待 closeout 证据校验与临时产物清理。
