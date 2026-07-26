@@ -92,6 +92,15 @@
 - Forbidden action: 禁止把工单/批次/密码等业务数据重新改成必需环境变量；禁止记录明文密码；禁止用 mock、API-only、默认成功、生产/未授权租户或未记录的数据库直改替代真实前端路径。
 - Evidence: `doc/tasks/fix-batch-record-fill-rule/execution-log.md`，2026-07-25 脚本已改为数据库夹具读取，并在用户授权的 `芋道源码/admin` 下完成真实前端 E2E。
 
+## eDHR 作废 BPM 审批真实 E2E 门禁
+
+- Trigger: Playwright 验证 eDHR 批次作废、`void-batch-execution/approval-resolution`、`void-batch-execution/request`、审批中心 `BPM_REQUIRED`、或作废后工作台待办闭环。
+- Preflight check: 作废弹窗打开前就启动 `approval-resolution` 响应等待，因为页面可能在打开弹窗时解析审批策略；提交作废前再等待 `request` 响应。若策略为 `BPM_REQUIRED`，必须通过审批中心真实页面审核，并按 `act_ru_task.PROC_INST_ID_` 的实际 `ASSIGNEE_` 映射 `system_users.username` 登录审批人。
+- Blocker: 未捕获 `approval-resolution`、审批待办不属于当前 `processInstanceId`、审批人账号无法映射、审批中心列表未出现目标行、或作废后仍有 TODO/DOING/OVERDUE 工作任务时必须停止。
+- Verification: 证据需包含成对 frontend/backend URL、作废列表页行级点击、`approval-resolution` 与 `request` HTTP 200、审批中心行级“审核”点击、`tasks/review` payload 锁定同一 `processInstanceId`、批次状态 `VOIDED`、变更事件 `EFFECTIVE`、活动工作任务取消、负责人工作台 `my-page/stats` 排除、旧任务链接 fail-fast、artifact JSON 路径。
+- Forbidden action: 禁止把 `approval-resolution` 当作提交后才发生的请求；禁止硬编码固定审批人；禁止用接口直审、SQL 改状态、API-only 或前端隐藏替代真实审批中心路径。
+- Evidence: `doc/tasks/20260727-edhr-batch-void-work-task-closure/verification-report.md`。
+
 
 ## eDHR 历史执行只读验证门禁
 

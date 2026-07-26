@@ -32,8 +32,8 @@ Plan strict RED -> GREEN -> REGRESSION for implementing the six requested batch-
 ## GREEN Commands
 
 - Re-run each RED command after the minimal service change.
-- Run existing focused workbench guard test:
-  `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest#getMyPage_excludesTodoTasksFromTerminalBatches" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+- Run existing focused workbench guard class:
+  `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - Run existing open-task terminal regression adjacent to workbench behavior if available in `MesProEdhrBatchExecutionServiceTest`.
 
 ## Refactor Checks
