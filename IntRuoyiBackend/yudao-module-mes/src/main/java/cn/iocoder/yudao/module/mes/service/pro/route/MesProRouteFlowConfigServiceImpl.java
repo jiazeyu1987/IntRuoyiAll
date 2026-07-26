@@ -947,9 +947,11 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         }
         Map<Long, AdminUserDO> enabledUserMap = convertMap(enabledUsers, AdminUserDO::getId);
         Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> snapshotItems = new LinkedHashMap<>();
+        Map<Long, List<Long>> initializedRoleUserIds = new LinkedHashMap<>();
         for (BatchRecordAttachmentDefinition definition : BATCH_RECORD_ATTACHMENT_DEFINITIONS) {
             RoleDO role = ensureBatchRecordAttachmentRole(definition, category);
-            ensureBatchRecordAttachmentRoleUsers(definition, role, enabledUsers, enabledUserMap);
+            List<Long> assignedUserIds = ensureBatchRecordAttachmentRoleUsers(definition, role, enabledUsers, enabledUserMap);
+            initializedRoleUserIds.put(role.getId(), assignedUserIds);
             snapshotItems.put(definition.code(), new MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO()
                     .setAttachmentCode(definition.code())
                     .setCandidateSourceType(CANDIDATE_SOURCE_TYPE_ROLE)
@@ -958,7 +960,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .setRemark("工序开始批记录附件默认上传角色"));
         }
         List<MesProRouteBatchRecordAttachmentOwnerRespVO> result =
-                buildBatchRecordAttachmentOwnerRespList(snapshotItems, enabledUserMap);
+                buildBatchRecordAttachmentOwnerRespList(snapshotItems, enabledUserMap, initializedRoleUserIds);
         saveBatchRecordAttachmentOwnerSnapshot(routeVersion.getId(), result);
         return result;
     }
@@ -1181,7 +1183,8 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                             item.getString("candidateSourceType")))
                     .setCandidateSourceIds(normalizeBatchRecordAttachmentCandidateSourceIds(
                             parseCandidateSourceIds(item.get("candidateSourceIds"))))
-                    .setCandidateSourceNames(parseCandidateSourceNames(item.get("candidateSourceNames")))
+                    .setCandidateSourceNames(parseBatchRecordAttachmentCandidateSourceNames(
+                            item.get("candidateSourceNames")))
                     .setRemark(item.getString("remark")));
         }
         return result;
@@ -1224,6 +1227,13 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     private List<MesProRouteBatchRecordAttachmentOwnerRespVO> buildBatchRecordAttachmentOwnerRespList(
             Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> savedItems,
             Map<Long, AdminUserDO> enabledUserMap) {
+        return buildBatchRecordAttachmentOwnerRespList(savedItems, enabledUserMap, Collections.emptyMap());
+    }
+
+    private List<MesProRouteBatchRecordAttachmentOwnerRespVO> buildBatchRecordAttachmentOwnerRespList(
+            Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> savedItems,
+            Map<Long, AdminUserDO> enabledUserMap,
+            Map<Long, List<Long>> assignedUserIdsByRoleId) {
         List<MesProRouteBatchRecordAttachmentOwnerRespVO> result = new ArrayList<>();
         for (BatchRecordAttachmentDefinition definition : BATCH_RECORD_ATTACHMENT_DEFINITIONS) {
             MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO savedItem = savedItems.get(definition.code());
@@ -1237,7 +1247,11 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     ? defaultRole == null ? List.of(definition.defaultRoleName()) : List.of(formatRoleSnapshotName(defaultRole))
                     : resolveBatchRecordAttachmentCandidateSourceNames(
                             candidateSourceType, candidateSourceIds, savedItem.getCandidateSourceNames(), enabledUserMap);
-            List<Long> assignedUserIds = resolveDefaultRoleAssignedEnabledUserIds(defaultRole, enabledUserMap);
+            Long defaultRoleId = defaultRole == null
+                    ? resolveBatchRecordAttachmentDefaultRoleId(candidateSourceType, candidateSourceIds)
+                    : defaultRole.getId();
+            List<Long> assignedUserIds = resolveDefaultRoleAssignedEnabledUserIds(
+                    defaultRoleId, enabledUserMap, assignedUserIdsByRoleId);
             result.add(new MesProRouteBatchRecordAttachmentOwnerRespVO()
                     .setAttachmentCode(definition.code())
                     .setAttachmentName(definition.name())
@@ -1315,10 +1329,10 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         return created;
     }
 
-    private void ensureBatchRecordAttachmentRoleUsers(BatchRecordAttachmentDefinition definition,
-                                                      RoleDO role,
-                                                      List<AdminUserDO> enabledUsers,
-                                                      Map<Long, AdminUserDO> enabledUserMap) {
+    private List<Long> ensureBatchRecordAttachmentRoleUsers(BatchRecordAttachmentDefinition definition,
+                                                            RoleDO role,
+                                                            List<AdminUserDO> enabledUsers,
+                                                            Map<Long, AdminUserDO> enabledUserMap) {
         Set<Long> assignedUserIds = permissionService.getUserRoleIdListByRoleId(Set.of(role.getId()));
         List<Long> enabledAssignedUserIds = assignedUserIds.stream()
                 .filter(enabledUserMap::containsKey)
@@ -1330,14 +1344,20 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     || enabledAssignedUserIds.size() > BATCH_RECORD_ATTACHMENT_MAX_USERS) {
                 throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, definition.defaultRoleName());
             }
-            return;
+            return enabledAssignedUserIds;
         }
-        for (AdminUserDO user : selectDeterministicAttachmentUsers(definition, enabledUsers)) {
+        List<AdminUserDO> selectedUsers = selectDeterministicAttachmentUsers(definition, enabledUsers);
+        for (AdminUserDO user : selectedUsers) {
             Set<Long> nextRoleIds = new LinkedHashSet<>(permissionService.getUserRoleIdListByUserId(user.getId()));
             if (nextRoleIds.add(role.getId())) {
                 permissionService.assignUserRole(user.getId(), nextRoleIds);
             }
         }
+        return selectedUsers.stream()
+                .map(AdminUserDO::getId)
+                .filter(Objects::nonNull)
+                .sorted()
+                .toList();
     }
 
     private List<AdminUserDO> selectDeterministicAttachmentUsers(BatchRecordAttachmentDefinition definition,
@@ -1373,13 +1393,34 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
 
     private List<Long> resolveDefaultRoleAssignedEnabledUserIds(RoleDO role,
                                                                 Map<Long, AdminUserDO> enabledUserMap) {
-        if (role == null || role.getId() == null) {
+        return resolveDefaultRoleAssignedEnabledUserIds(
+                role == null ? null : role.getId(), enabledUserMap, Collections.emptyMap());
+    }
+
+    private List<Long> resolveDefaultRoleAssignedEnabledUserIds(Long roleId,
+                                                                Map<Long, AdminUserDO> enabledUserMap,
+                                                                Map<Long, List<Long>> assignedUserIdsByRoleId) {
+        if (roleId == null) {
             return Collections.emptyList();
         }
-        return permissionService.getUserRoleIdListByRoleId(Set.of(role.getId())).stream()
+        List<Long> assignedUserIds = assignedUserIdsByRoleId.get(roleId);
+        if (assignedUserIds != null) {
+            return assignedUserIds.stream()
+                    .filter(enabledUserMap::containsKey)
+                    .sorted()
+                    .toList();
+        }
+        return permissionService.getUserRoleIdListByRoleId(Set.of(roleId)).stream()
                 .filter(enabledUserMap::containsKey)
                 .sorted()
                 .toList();
+    }
+
+    private Long resolveBatchRecordAttachmentDefaultRoleId(String candidateSourceType, List<Long> candidateSourceIds) {
+        if (!CANDIDATE_SOURCE_TYPE_ROLE.equals(candidateSourceType) || CollUtil.isEmpty(candidateSourceIds)) {
+            return null;
+        }
+        return candidateSourceIds.get(0);
     }
 
     private List<String> resolveBatchRecordAttachmentCandidateSourceNames(
@@ -1442,7 +1483,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         roleService.validateRoleList(sourceIds);
     }
 
-    private List<String> parseCandidateSourceNames(Object rawValue) {
+    private List<String> parseBatchRecordAttachmentCandidateSourceNames(Object rawValue) {
         if (rawValue == null) {
             return Collections.emptyList();
         }
