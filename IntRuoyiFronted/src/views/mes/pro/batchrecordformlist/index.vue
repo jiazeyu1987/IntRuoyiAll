@@ -48,14 +48,13 @@
               <Icon icon="ep:upload" class="mr-5px" />
               导入
             </el-button>
-            <el-button
-              type="danger"
-              :disabled="!selectedRows.length"
-              :loading="batchDeleteLoading"
-              @click="handleBatchDelete"
-            >
-              批量删除
-            </el-button>
+            <div class="batch-record-form-toolbar__latest-version-switch">
+              <span class="batch-record-form-toolbar__latest-version-label">最新版本</span>
+              <el-switch
+                v-model="queryParams.latestVersionOnly"
+                @change="handleLatestVersionOnlyChange"
+              />
+            </div>
           </template>
           <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
             <el-table
@@ -657,6 +656,7 @@ const queryParams = reactive({
   productName: '',
   versionNo: normalizeRouteQueryText(route.query.versionNo),
   formSlotType: undefined as BatchRecordFormSlotType | undefined,
+  latestVersionOnly: false,
   quickFilter: undefined as any
 })
 
@@ -1148,7 +1148,8 @@ const getList = async () => {
       name: queryParams.name || undefined,
       productName: queryParams.productName || undefined,
       versionNo: queryParams.versionNo || undefined,
-      formSlotType: queryParams.formSlotType || undefined
+      formSlotType: queryParams.formSlotType || undefined,
+      latestVersionOnly: queryParams.latestVersionOnly || undefined
     })
     if (isStaleRecordFormListRequest(requestSerial)) return
     const nextList = (Array.isArray(data.list) ? data.list : []).map(toRecordFormRow)
@@ -1190,6 +1191,11 @@ const recordFormQuickFilter = useTableQuickFilter(
 
 const handleSelectionChange = (rows: RecordFormListRow[]) => {
   selectedRows.value = rows
+}
+
+const handleLatestVersionOnlyChange = async () => {
+  queryParams.pageNo = 1
+  await getList()
 }
 
 const enterPreviewMaximize = () => {
@@ -2392,6 +2398,23 @@ watch(
 
 .batch-record-form-toolbar__import-button {
   white-space: nowrap;
+}
+
+.batch-record-form-toolbar__latest-version-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--el-border-color);
+  border-radius: var(--el-border-radius-base);
+  background: var(--el-fill-color-blank);
+  white-space: nowrap;
+}
+
+.batch-record-form-toolbar__latest-version-label {
+  color: var(--el-text-color-primary);
+  font-size: 14px;
 }
 
 .batch-record-form-filler-cell {

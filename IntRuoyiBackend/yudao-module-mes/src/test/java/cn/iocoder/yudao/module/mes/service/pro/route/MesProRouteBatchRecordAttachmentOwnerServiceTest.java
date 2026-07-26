@@ -30,22 +30,21 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.atMost;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -100,15 +99,20 @@ class MesProRouteBatchRecordAttachmentOwnerServiceTest {
         assertEquals("来料检报告上传1", result.get(0).getDefaultRoleName());
         assertEquals("ROLE", result.get(0).getCandidateSourceType());
         assertEquals(1, result.get(0).getCandidateSourceIds().size());
+        assertTrue(result.stream().allMatch(owner -> owner.getAssignedUserIds().size() >= 2
+                && owner.getAssignedUserIds().size() <= 4));
+        assertTrue(result.stream().allMatch(owner -> owner.getAssignedUserNames().size() >= 2
+                && owner.getAssignedUserNames().size() <= 4));
 
         ArgumentCaptor<RoleSaveReqVO> roleCaptor = ArgumentCaptor.forClass(RoleSaveReqVO.class);
-        verify(roleService).createRole(roleCaptor.capture(), isNull());
+        verify(roleService, times(4)).createRole(roleCaptor.capture(), isNull());
         assertEquals("来料检报告上传1", roleCaptor.getAllValues().get(0).getName());
         assertEquals(77L, roleCaptor.getAllValues().get(0).getCategoryId());
 
         ArgumentCaptor<Long> userCaptor = ArgumentCaptor.forClass(Long.class);
         ArgumentCaptor<Set<Long>> roleSetCaptor = ArgumentCaptor.forClass(Set.class);
-        verify(permissionService).assignUserRole(userCaptor.capture(), roleSetCaptor.capture());
+        verify(permissionService, atLeast(8)).assignUserRole(userCaptor.capture(), roleSetCaptor.capture());
+        verify(permissionService, atMost(16)).assignUserRole(any(), anySet());
         assertTrue(userCaptor.getAllValues().stream().allMatch(userId -> userId >= 101L && userId <= 105L));
         assertTrue(roleSetCaptor.getAllValues().stream().allMatch(roleIds -> roleIds.stream().allMatch(id -> id >= 901L && id <= 904L)));
         assertTrue(roleSetCaptor.getAllValues().size() >= 8);

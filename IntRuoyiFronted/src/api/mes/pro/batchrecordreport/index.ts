@@ -25,6 +25,7 @@ export interface BatchRecordReportPageReqVO extends PageParam {
   productName?: string
   versionNo?: string
   formSlotType?: BatchRecordFormSlotType
+  latestVersionOnly?: boolean
   routeKey?: string
   name?: string
 }

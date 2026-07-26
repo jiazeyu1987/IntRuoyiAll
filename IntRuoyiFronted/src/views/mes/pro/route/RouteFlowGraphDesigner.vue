@@ -197,7 +197,30 @@
             data-flow-panel="selected-boundary-detail"
           >
             <h4>{{ boundaryLabel(selectedBoundaryType) }}</h4>
-            <template v-if="selectedBoundaryType === 'END'">
+            <template v-if="selectedBoundaryType === 'START'">
+              <div class="route-flow-graph-designer__selected-detail-list">
+                <div
+                  class="route-flow-graph-designer__selected-detail-item"
+                  :class="{ 'is-selected': selectedBoundaryDetailFieldKey === 'batchRecordAttachment' }"
+                  data-flow-boundary-field="batchRecordAttachment"
+                >
+                  <div class="route-flow-graph-designer__selected-detail-content">
+                    <button
+                      aria-label="查看批记录附件负责人字段明细"
+                      :aria-pressed="selectedBoundaryDetailFieldKey === 'batchRecordAttachment'"
+                      class="route-flow-graph-designer__selected-detail-button"
+                      data-flow-action="select-boundary-detail-field"
+                      title="查看批记录附件负责人字段明细"
+                      type="button"
+                      @click="handleSelectBoundaryDetailField('batchRecordAttachment')"
+                    >
+                      <span>批记录附件</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </template>
+            <template v-else-if="selectedBoundaryType === 'END'">
               <div class="route-flow-graph-designer__selected-detail-list">
                 <div
                   class="route-flow-graph-designer__selected-detail-item"
@@ -553,11 +576,113 @@
         >
           <h4>字段明细</h4>
           <p
-            v-if="!selectedProcessDetailField && !(selectedBoundaryType === 'END' && selectedBoundaryDetailFieldKey === 'releaseOwner')"
+            v-if="!selectedProcessDetailField && !(selectedBoundaryType === 'END' && selectedBoundaryDetailFieldKey === 'releaseOwner') && !(selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'batchRecordAttachment')"
             class="route-flow-graph-designer__selected-field-empty"
           >
             点击左侧字段查看明细
           </p>
+          <template v-else-if="selectedBoundaryType === 'START' && selectedBoundaryDetailFieldKey === 'batchRecordAttachment'">
+            <div class="route-flow-graph-designer__selected-field-grid">
+              <span>当前工序</span>
+              <strong>工序开始</strong>
+              <span>字段名称</span>
+              <strong>批记录附件</strong>
+              <span>字段来源</span>
+              <strong>附件上传负责人</strong>
+            </div>
+            <div
+              v-loading="batchRecordAttachmentOwnersLoading"
+              class="route-flow-graph-designer__selected-detail-editor"
+              :data-flow-field-editor="selectedBoundaryDetailFieldKey"
+              data-flow-panel="batch-record-attachment-owner-detail"
+            >
+              <el-alert
+                v-if="batchRecordAttachmentOwnersLoadError"
+                :title="batchRecordAttachmentOwnersLoadError"
+                :closable="false"
+                show-icon
+                type="error"
+              />
+              <div class="route-flow-graph-designer__record-binding-toolbar">
+                <span>批记录附件负责人</span>
+                <div class="route-flow-graph-designer__record-binding-toolbar-actions">
+                  <el-button
+                    data-flow-action="init-batch-record-attachment-owners"
+                    :disabled="batchRecordAttachmentOwnerControlsDisabled"
+                    :loading="batchRecordAttachmentOwnersInitializing"
+                    link
+                    size="small"
+                    type="primary"
+                    @click="handleBatchRecordAttachmentOwnerInit"
+                  >
+                    初始化默认角色
+                  </el-button>
+                  <el-button
+                    data-flow-action="save-batch-record-attachment-owners"
+                    :disabled="batchRecordAttachmentOwnerControlsDisabled || batchRecordAttachmentOwners.length === 0"
+                    :loading="batchRecordAttachmentOwnersSaving"
+                    link
+                    size="small"
+                    type="primary"
+                    @click="handleBatchRecordAttachmentOwnerSave"
+                  >
+                    保存
+                  </el-button>
+                </div>
+              </div>
+              <div class="route-flow-graph-designer__record-binding-list">
+                <div
+                  v-for="owner in batchRecordAttachmentOwners"
+                  :key="owner.attachmentCode"
+                  class="route-flow-graph-designer__record-binding-item"
+                  :data-batch-record-attachment-owner="owner.attachmentCode"
+                >
+                  <span class="route-flow-graph-designer__record-binding-label">
+                    {{ owner.attachmentName }}
+                  </span>
+                  <strong>{{ owner.defaultRoleName }}</strong>
+                  <el-select
+                    :model-value="owner.candidateSourceType"
+                    data-batch-record-attachment-owner-source-type
+                    :disabled="batchRecordAttachmentOwnerControlsDisabled"
+                    placeholder="负责人来源"
+                    size="small"
+                    @change="(value) => handleBatchRecordAttachmentOwnerSourceTypeChange(owner, String(value))"
+                  >
+                    <el-option
+                      v-for="item in BATCH_RECORD_ATTACHMENT_CANDIDATE_SOURCE_OPTIONS"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    />
+                  </el-select>
+                  <el-select
+                    :model-value="owner.candidateSourceIds"
+                    data-batch-record-attachment-owner-candidate
+                    filterable
+                    multiple
+                    :disabled="batchRecordAttachmentOwnerControlsDisabled"
+                    :loading="isBatchRecordAttachmentOwnerCandidateOptionsLoading(owner)"
+                    placeholder="请选择负责人"
+                    size="small"
+                    :teleported="false"
+                    @change="(value) => handleBatchRecordAttachmentOwnerCandidateIdsChange(owner, value as Array<number | string>)"
+                    @visible-change="(visible) => visible && loadBatchRecordAttachmentOwnerCandidateOptions(owner)"
+                  >
+                    <el-option
+                      v-for="item in buildBatchRecordAttachmentOwnerCandidateOptions(owner)"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
+                    />
+                  </el-select>
+                  <span class="route-flow-graph-designer__selected-detail-note">
+                    已授权：{{ formatBatchRecordAttachmentAssignedUsers(owner) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </template>
           <template v-else-if="selectedBoundaryType === 'END' && selectedBoundaryDetailFieldKey === 'releaseOwner'">
             <div class="route-flow-graph-designer__selected-field-grid">
               <span>当前工序</span>
@@ -1306,6 +1431,7 @@ import {
 } from '@/api/system/userTableColumnConfig'
 import {
   ProRouteFlowConfigApi,
+  type ProRouteBatchRecordAttachmentOwnerVO,
   type ProRouteFlowBatchRecordVO,
   type ProRouteFlowFormBindingSaveVO,
   type ProRouteFlowFormBindingVO,
@@ -1386,7 +1512,12 @@ type FormSlotViewSummaryItem = {
   processIndependentSummary: string
 }
 type ProcessDetailCapacitySourceFocus = 'resource' | 'schedule'
-type BoundaryDetailFieldKey = 'releaseOwner'
+type BoundaryDetailFieldKey = 'releaseOwner' | 'batchRecordAttachment'
+type BatchRecordAttachmentOwnerDraft = ProRouteBatchRecordAttachmentOwnerVO & {
+  candidateSourceType: EdhrProcessFormCandidateSourceType
+  candidateSourceIds: number[]
+  candidateSourceNames: string[]
+}
 type ReleaseApprovalRuleForm = {
   candidateSourceType: EdhrWorkTaskReleaseApprovalCandidateSourceType
   candidateSourceId?: number
@@ -1650,6 +1781,36 @@ const RECORD_BINDING_CANDIDATE_SOURCE_OPTIONS: Array<{
   { label: '个人', value: 'USERS' },
   { label: '权限角色', value: 'ROLE' }
 ]
+const BATCH_RECORD_ATTACHMENT_CANDIDATE_SOURCE_OPTIONS = RECORD_BINDING_CANDIDATE_SOURCE_OPTIONS
+const BATCH_RECORD_ATTACHMENT_DEFAULT_ITEMS = [
+  {
+    attachmentCode: 'INCOMING_INSPECTION_REPORT',
+    attachmentName: '来料检报告',
+    defaultRoleName: '来料检报告上传1',
+    sort: 1
+  },
+  {
+    attachmentCode: 'STERILIZATION_REPORT',
+    attachmentName: '灭菌报告',
+    defaultRoleName: '灭菌报告上传1',
+    sort: 2
+  },
+  {
+    attachmentCode: 'FINISHED_PRODUCT_INSPECTION_REPORT',
+    attachmentName: '成品检报告',
+    defaultRoleName: '成品检报告上传1',
+    sort: 3
+  },
+  {
+    attachmentCode: 'FINISHED_PRODUCT_INSPECTION_RECORD',
+    attachmentName: '成品检记录',
+    defaultRoleName: '成品检记录上传1',
+    sort: 4
+  }
+] as const
+const BATCH_RECORD_ATTACHMENT_SORT_BY_CODE = new Map<string, number>(
+  BATCH_RECORD_ATTACHMENT_DEFAULT_ITEMS.map((item) => [item.attachmentCode, item.sort])
+)
 const PROCESS_DETAIL_FIELD_KEYS: ProcessDetailFieldKey[] = routeProcessSettingsDefaultColumns.map(
   (column) => column.key as RouteProcessSettingColumnKey
 )
@@ -1763,6 +1924,12 @@ const releaseApprovalRuleUserOptions = ref<UserVO[]>([])
 const releaseApprovalRuleRoleOptionsLoading = ref(false)
 const releaseApprovalRuleRoleOptions = ref<RoleVO[]>([])
 const currentReleaseApprovalRule = ref<EdhrWorkTaskAssignmentRuleRespVO | null>(null)
+const batchRecordAttachmentOwnersLoading = ref(false)
+const batchRecordAttachmentOwnersSaving = ref(false)
+const batchRecordAttachmentOwnersInitializing = ref(false)
+const batchRecordAttachmentOwnersLoaded = ref(false)
+const batchRecordAttachmentOwnersLoadError = ref('')
+const batchRecordAttachmentOwners = ref<BatchRecordAttachmentOwnerDraft[]>([])
 const releaseApprovalRuleForm = reactive<ReleaseApprovalRuleForm>({
   candidateSourceType: 'USER',
   candidateSourceId: undefined,
@@ -4398,7 +4565,10 @@ const resolveSelectedHourlyCapacity = (draft: SelectedProcessAttributesDraft) =>
   return hourlyCapacity
 }
 
-const saveSelectedScheduleCapacity = async (draft: SelectedProcessAttributesDraft) => {
+const saveSelectedScheduleCapacity = async (
+  draft: SelectedProcessAttributesDraft,
+  options: Record<string, unknown> = {}
+) => {
   const editingRouteVersionId = requireCandidateRouteVersionId('工序属性保存')
   if (!draft.routeProcessId) {
     throw new Error('保存班次产能失败：缺少目标路线工序。')
@@ -4425,7 +4595,7 @@ const saveSelectedScheduleCapacity = async (draft: SelectedProcessAttributesDraf
     payload.infiniteDurationQuantityFactor = draft.infiniteDurationQuantityFactor
     payload.infiniteDurationBaseMinutes = draft.infiniteDurationBaseMinutes
   }
-  await ProRouteApi.saveScheduleConfig(payload)
+  await ProRouteApi.saveScheduleConfig(payload, options)
 }
 
 const buildCapacityOverrideCandidateRouteQuery = (candidate: ProRouteVersionVO) => {
@@ -4930,9 +5100,9 @@ const saveSelectedProcessAttributeDrafts = async () => {
         routeId: props.routeId,
         routeVersionId: editingRouteVersionId,
         processConfigs: scheduleProcessConfigs
-      })
+      }, { ignoreErrorMessage: true })
       for (const draft of scheduleChangedDrafts) {
-        await saveSelectedScheduleCapacity(draft)
+        await saveSelectedScheduleCapacity(draft, { ignoreErrorMessage: true })
       }
     }
     if (recordBindingChangedDrafts.length > 0) {
@@ -4949,7 +5119,7 @@ const saveSelectedProcessAttributeDrafts = async () => {
           formBindings: processConfig.formBindings,
           remark: processConfig.remark
         }))
-      })
+      }, { ignoreErrorMessage: true })
     }
   } finally {
     selectedProcessAttributesSaving.value = false
@@ -5597,11 +5767,6 @@ const buildValidationErrorMessage = (result: RouteFlowValidationVO) => {
   )
 }
 
-const showSaveValidationToast = (result: RouteFlowValidationVO) => {
-  if (result.valid) return
-  message.error(buildValidationErrorMessage(result))
-}
-
 const remapPersistedRouteProcessId = (
   routeProcessId: number | undefined | null,
   persistedRouteProcessIdMap: Map<number, number>
@@ -5781,7 +5946,6 @@ const markGraphSaveClean = () => {
 
 const validateBeforeSubmit = async () => {
   saving.value = true
-  let displayedError = false
   try {
     syncRouteNodesFromFlow()
     getChangedSelectedProcessScheduleDrafts().forEach((draft) => {
@@ -5793,19 +5957,14 @@ const validateBeforeSubmit = async () => {
     getChangedSelectedProcessRecordBindingDrafts().forEach((draft) => {
       buildSelectedProcessRecordBindingConfigSaveRow(draft)
     })
-    const result = await ProRouteApi.validateRouteProcessFlowGraph(buildPayload())
+    const result = await ProRouteApi.validateRouteProcessFlowGraph(buildPayload(), {
+      ignoreErrorMessage: true
+    })
     applyValidation(result)
     if (!result.valid) {
-      displayedError = true
-      showSaveValidationToast(result)
       throw new Error(buildValidationErrorMessage(result))
     }
     return result
-  } catch (error) {
-    if (!displayedError) {
-      message.error(resolveErrorMessage(error, '流转关系图校验失败'))
-    }
-    throw error
   } finally {
     saving.value = false
   }
@@ -5813,14 +5972,11 @@ const validateBeforeSubmit = async () => {
 
 const saveFromParent = async () => {
   saving.value = true
-  let displayedError = false
   try {
     syncRouteNodesFromFlow()
     const result = await persistRouteProcessDraftChanges()
     applyValidation(result)
     if (!result.valid) {
-      displayedError = true
-      showSaveValidationToast(result)
       throw new Error(buildValidationErrorMessage(result))
     }
     applyPersistedRouteProcessIdMap(result.routeProcessIdMap)
@@ -5828,18 +5984,15 @@ const saveFromParent = async () => {
     markGraphSaveClean()
     emit('saved')
     return result
-  } catch (error) {
-    if (!displayedError) {
-      message.error(resolveErrorMessage(error, '保存流转关系图失败'))
-    }
-    throw error
   } finally {
     saving.value = false
   }
 }
 
 const persistRouteProcessDraftChanges = async () => {
-  return await ProRouteApi.saveRouteProcessFlowGraph(buildPayload())
+  return await ProRouteApi.saveRouteProcessFlowGraph(buildPayload(), {
+    ignoreErrorMessage: true
+  })
 }
 
 const hasWorkspaceDraftChanges = () =>
@@ -6194,10 +6347,14 @@ const handleBoundaryEdgeSelect = (edge: RouteFlowBoundaryEdgeVO) => {
 const handleBoundaryNodeSelect = (boundaryType: RouteFlowBoundaryType) => {
   selectedRouteProcessId.value = null
   selectedBoundaryType.value = boundaryType
-  selectedBoundaryDetailFieldKey.value = boundaryType === 'END' ? 'releaseOwner' : undefined
+  selectedBoundaryDetailFieldKey.value =
+    boundaryType === 'START' ? 'batchRecordAttachment' : 'releaseOwner'
   selectedEdgeKey.value = ''
   if (boundaryType === 'END') {
     void loadReleaseApprovalRuleDetail()
+  }
+  if (boundaryType === 'START') {
+    void loadBatchRecordAttachmentOwners()
   }
 }
 
@@ -7510,6 +7667,12 @@ const resetReleaseApprovalRuleForm = () => {
   releaseApprovalRuleForm.remark = ''
 }
 
+const resetBatchRecordAttachmentOwners = () => {
+  batchRecordAttachmentOwnersLoaded.value = false
+  batchRecordAttachmentOwnersLoadError.value = ''
+  batchRecordAttachmentOwners.value = []
+}
+
 const fillReleaseApprovalRuleForm = (rule?: EdhrWorkTaskAssignmentRuleRespVO | null) => {
   currentReleaseApprovalRule.value = rule || null
   releaseApprovalRuleForm.candidateSourceType = normalizeReleaseApprovalRuleCandidateSourceType(
@@ -7581,10 +7744,200 @@ const loadReleaseApprovalRuleDetail = async () => {
   }
 }
 
+const normalizeBatchRecordAttachmentOwnerCandidateSourceType = (
+  candidateSourceType?: string | null
+): EdhrProcessFormCandidateSourceType => {
+  return normalizeRecordBindingCandidateSourceType(candidateSourceType) || 'ROLE'
+}
+
+const normalizeBatchRecordAttachmentOwner = (
+  owner: ProRouteBatchRecordAttachmentOwnerVO
+): BatchRecordAttachmentOwnerDraft => ({
+  ...owner,
+  sort: Number(owner.sort || BATCH_RECORD_ATTACHMENT_SORT_BY_CODE.get(owner.attachmentCode) || 0),
+  candidateSourceType: normalizeBatchRecordAttachmentOwnerCandidateSourceType(owner.candidateSourceType),
+  candidateSourceIds: normalizeRecordBindingCandidateIds(owner.candidateSourceIds),
+  candidateSourceNames: normalizeRecordBindingCandidateNames(owner.candidateSourceNames),
+  assignedUserIds: normalizeRecordBindingCandidateIds(owner.assignedUserIds),
+  assignedUserNames: normalizeRecordBindingCandidateNames(owner.assignedUserNames)
+})
+
+const normalizeBatchRecordAttachmentOwners = (owners: ProRouteBatchRecordAttachmentOwnerVO[]) =>
+  owners.map(normalizeBatchRecordAttachmentOwner).sort((first, second) => first.sort - second.sort)
+
+const resolveBatchRecordAttachmentOwnerReadRouteVersionId = () =>
+  props.routeVersionEditContext?.lifecycleStatus === 'ACTIVE'
+    ? undefined
+    : props.routeVersionEditContext?.routeVersionId
+
+const loadBatchRecordAttachmentOwnerCandidateOptions = async (
+  owner: Pick<BatchRecordAttachmentOwnerDraft, 'candidateSourceType'>
+) => {
+  if (owner.candidateSourceType === 'ROLE') {
+    await loadRecordBindingRoleOptions()
+    return
+  }
+  await loadRecordBindingUserOptions()
+}
+
+const loadBatchRecordAttachmentOwners = async (force = false) => {
+  if (batchRecordAttachmentOwnersLoaded.value && !force) return
+  if (!props.routeId) {
+    batchRecordAttachmentOwnersLoadError.value = '请先保存工艺路线，再配置批记录附件负责人。'
+    return
+  }
+  batchRecordAttachmentOwnersLoading.value = true
+  batchRecordAttachmentOwnersLoadError.value = ''
+  try {
+    const [owners] = await Promise.all([
+      ProRouteFlowConfigApi.getBatchRecordAttachmentOwners(
+        props.routeId,
+        resolveBatchRecordAttachmentOwnerReadRouteVersionId()
+      ),
+      loadRecordBindingUserOptions(),
+      loadRecordBindingRoleOptions()
+    ])
+    batchRecordAttachmentOwners.value = normalizeBatchRecordAttachmentOwners(owners)
+    batchRecordAttachmentOwnersLoaded.value = true
+  } catch (error) {
+    batchRecordAttachmentOwners.value = []
+    const errorMessage = resolveErrorMessage(error, '批记录附件负责人加载失败。')
+    batchRecordAttachmentOwnersLoadError.value = errorMessage
+    message.error(errorMessage)
+  } finally {
+    batchRecordAttachmentOwnersLoading.value = false
+  }
+}
+
+const isBatchRecordAttachmentOwnerCandidateOptionsLoading = (
+  owner: Pick<BatchRecordAttachmentOwnerDraft, 'candidateSourceType'>
+) =>
+  owner.candidateSourceType === 'ROLE'
+    ? recordBindingRoleOptionsLoading.value
+    : recordBindingUserOptionsLoading.value
+
+const buildBatchRecordAttachmentOwnerCandidateOptions = (
+  owner: BatchRecordAttachmentOwnerDraft
+): RecordBindingCandidateOption[] => {
+  const baseOptions =
+    owner.candidateSourceType === 'ROLE'
+      ? recordBindingRoleOptions.value.map((role) => ({
+          label: formatRoleOptionLabel(role),
+          value: role.id
+        }))
+      : recordBindingUserOptions.value.map((user) => ({
+          label: formatUserOptionLabel(user),
+          value: user.id
+        }))
+  const optionById = new Map(baseOptions.map((option) => [Number(option.value), option]))
+  owner.candidateSourceIds.forEach((id, index) => {
+    if (optionById.has(Number(id))) return
+    optionById.set(Number(id), {
+      label: owner.candidateSourceNames[index] || String(id),
+      value: id
+    })
+  })
+  return Array.from(optionById.values())
+}
+
+const formatBatchRecordAttachmentAssignedUsers = (owner: BatchRecordAttachmentOwnerDraft) => {
+  const assignedNames = normalizeRecordBindingCandidateNames(owner.assignedUserNames)
+  if (assignedNames.length > 0) return assignedNames.join('、')
+  const assignedIds = normalizeRecordBindingCandidateIds(owner.assignedUserIds)
+  return assignedIds.length > 0 ? assignedIds.join('、') : '待初始化'
+}
+
+const handleBatchRecordAttachmentOwnerSourceTypeChange = (
+  owner: BatchRecordAttachmentOwnerDraft,
+  candidateSourceType: string
+) => {
+  if (batchRecordAttachmentOwnerControlsDisabled.value) return
+  owner.candidateSourceType = normalizeBatchRecordAttachmentOwnerCandidateSourceType(candidateSourceType)
+  owner.candidateSourceIds = []
+  owner.candidateSourceNames = []
+  void loadBatchRecordAttachmentOwnerCandidateOptions(owner)
+}
+
+const handleBatchRecordAttachmentOwnerCandidateIdsChange = (
+  owner: BatchRecordAttachmentOwnerDraft,
+  candidateSourceIds?: Array<number | string>
+) => {
+  if (batchRecordAttachmentOwnerControlsDisabled.value) return
+  const ids = normalizeRecordBindingCandidateIds(candidateSourceIds)
+  const options = buildBatchRecordAttachmentOwnerCandidateOptions(owner)
+  owner.candidateSourceIds = ids
+  owner.candidateSourceNames = ids.map(
+    (id) => options.find((option) => Number(option.value) === Number(id))?.label || String(id)
+  )
+}
+
+const handleBatchRecordAttachmentOwnerInit = async () => {
+  try {
+    if (!props.routeId) {
+      throw new Error('请先保存工艺路线，再初始化批记录附件负责人。')
+    }
+    const routeVersionId = requireCandidateRouteVersionId('批记录附件负责人初始化')
+    batchRecordAttachmentOwnersInitializing.value = true
+    batchRecordAttachmentOwnersLoadError.value = ''
+    const owners = await ProRouteFlowConfigApi.initBatchRecordAttachmentOwners({
+      routeId: props.routeId,
+      routeVersionId
+    })
+    batchRecordAttachmentOwners.value = normalizeBatchRecordAttachmentOwners(owners)
+    batchRecordAttachmentOwnersLoaded.value = true
+    message.success('批记录附件默认角色已初始化')
+  } catch (error) {
+    const errorMessage = resolveErrorMessage(error, '批记录附件默认角色初始化失败。')
+    batchRecordAttachmentOwnersLoadError.value = errorMessage
+    message.error(errorMessage)
+  } finally {
+    batchRecordAttachmentOwnersInitializing.value = false
+  }
+}
+
+const handleBatchRecordAttachmentOwnerSave = async () => {
+  try {
+    if (!props.routeId) {
+      throw new Error('请先保存工艺路线，再保存批记录附件负责人。')
+    }
+    const routeVersionId = requireCandidateRouteVersionId('批记录附件负责人保存')
+    const invalidOwner = batchRecordAttachmentOwners.value.find(
+      (owner) => owner.candidateSourceIds.length === 0
+    )
+    if (invalidOwner) {
+      throw new Error(`请先选择${invalidOwner.attachmentName}负责人。`)
+    }
+    batchRecordAttachmentOwnersSaving.value = true
+    batchRecordAttachmentOwnersLoadError.value = ''
+    await ProRouteFlowConfigApi.saveBatchRecordAttachmentOwners({
+      routeId: props.routeId,
+      routeVersionId,
+      items: batchRecordAttachmentOwners.value.map((owner) => ({
+        attachmentCode: owner.attachmentCode,
+        candidateSourceType: owner.candidateSourceType,
+        candidateSourceIds: owner.candidateSourceIds,
+        candidateSourceNames: owner.candidateSourceNames,
+        remark: owner.remark || null
+      }))
+    })
+    message.success('批记录附件负责人已保存')
+    await loadBatchRecordAttachmentOwners(true)
+  } catch (error) {
+    const errorMessage = resolveErrorMessage(error, '批记录附件负责人保存失败。')
+    batchRecordAttachmentOwnersLoadError.value = errorMessage
+    message.error(errorMessage)
+  } finally {
+    batchRecordAttachmentOwnersSaving.value = false
+  }
+}
+
 const handleSelectBoundaryDetailField = (fieldKey: BoundaryDetailFieldKey) => {
   selectedBoundaryDetailFieldKey.value = fieldKey
   if (fieldKey === 'releaseOwner' && !releaseApprovalRuleLoaded.value) {
     void loadReleaseApprovalRuleDetail()
+  }
+  if (fieldKey === 'batchRecordAttachment' && !batchRecordAttachmentOwnersLoaded.value) {
+    void loadBatchRecordAttachmentOwners()
   }
 }
 
@@ -7594,6 +7947,16 @@ const releaseApprovalRuleControlsDisabled = computed(
     releaseApprovalRuleLoading.value ||
     releaseApprovalRuleSaving.value ||
     !props.routeId
+)
+
+const batchRecordAttachmentOwnerControlsDisabled = computed(
+  () =>
+    routeFlowWriteControlsDisabled.value ||
+    batchRecordAttachmentOwnersLoading.value ||
+    batchRecordAttachmentOwnersSaving.value ||
+    batchRecordAttachmentOwnersInitializing.value ||
+    !props.routeId ||
+    !isDraftCandidateEdit.value
 )
 
 const releaseApprovalRuleCandidateOptionsLoading = computed(() =>
@@ -7712,8 +8075,15 @@ watch(
 watch(
   () => [props.routeId, props.routeVersionEditContext?.routeVersionId],
   () => {
+    resetBatchRecordAttachmentOwners()
     if (props.routeId) {
       loadGraph()
+      if (
+        selectedBoundaryType.value === 'START' &&
+        selectedBoundaryDetailFieldKey.value === 'batchRecordAttachment'
+      ) {
+        void loadBatchRecordAttachmentOwners()
+      }
     }
   },
   { immediate: true }

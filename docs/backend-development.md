@@ -52,6 +52,15 @@
 - Verification: 同时覆盖“当前配置存在优先当前绑定”“当前配置整体缺失时使用已发布快照”“陈旧绑定必须 fail fast”“legacy flat batchRecordReportId 快照可投影”的后端测试。
 - Forbidden action: 禁止把发布快照作为通用 fallback；禁止用空绑定、默认 MAIN 或默认成功掩盖当前配置损坏。
 - Evidence: `doc/tasks/merge-jiluben-worktree-20260724/verification-report.md`。
+
+### 草稿 BATCH 快照读写对称边界
+
+- Trigger: 路线草稿/候选版本、`routeSnapshotJson`、`batchUseConfigs`、`formBindings`、表单槽位、`flow-config/batch-record/save`、草稿保存后读回为空或仍报“系统异常”。
+- Preflight check: 同时核对保存链路写入的候选快照字段、读取策略、版本生命周期状态和当前工序设置；一旦 DRAFT 草稿显式保存过 BATCH 绑定快照，DRAFT 读取必须优先返回该草稿快照，待审批/待发布版本仍按既有规则读取当前工序设置。
+- Blocker: 显式保存后的 DRAFT `batchUseConfigs.formBindings` 读回被当前工序设置覆盖、读回为空、或无法区分 legacy 候选快照与本次草稿显式保存快照时，不得宣称草稿保存完成。
+- Verification: 新增后端回归测试覆盖“显式保存后的 DRAFT 快照优先于当前绑定”，并同时跑完整相邻测试类，确认 PENDING_APPROVAL / READY_TO_PUBLISH 仍读取当前工序设置。
+- Forbidden action: 禁止用当前工序设置作为显式保存草稿快照的 fallback；禁止用空绑定、默认 MAIN、前端隐藏或吞异常掩盖草稿快照读写不对称。
+- Evidence: `doc/tasks/20260726-route-flow-v15-save-system-exception/verification-report.md`，`MesProRouteFlowConfigServiceImplTest#getRouteFlowProcessConfigList_shouldReadSavedDraftBatchSnapshotBeforeCurrentBindings`。
 ## eDHR 批记录版本治理规则运行态门禁
 
 ### 已发布版本治理证据与 Jimu 当前 JSON 边界

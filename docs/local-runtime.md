@@ -60,8 +60,8 @@ PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v2
 
 ## 2026-07-24 隔离构建 Jar 加载门禁
 
-- Trigger: 主工作区存在并行脏改动，但需要把本任务后端修复加载到 `int_main` 的 `48081` 做真实 E2E。
-- Preflight check: 先确认 `48081` 监听 PID 的命令行属于 `E:\IntRuoyi\IntRuoyiBackend`、端口为 `48081`、`repo-root` 指向本项目；同时确认新 Jar 来自干净任务 worktree 构建产物。
+- Trigger: 主工作区存在并行脏改动，但需要把本任务后端修复加载到 `int_main` 的 `48081` 做真实 E2E；或页面仍提示 `请求地址不存在:<接口>`，怀疑运行中 Jar 未加载新 Controller。
+- Preflight check: 先确认 `48081` 监听 PID 的命令行属于预期源码或运行时 worktree、端口为 `48081`、`repo-root` 指向本项目；同时确认新 Jar 来自本次任务已验证的构建产物。若 `48081` 实际运行的是 `D:\IntRuoyiWorktree\...` 下的 runtime jar，必须在该 runtime worktree 内补齐源码、测试、schema 夹具并重建该 Jar，不能只检查 `E:\IntRuoyi` 主工作区源码。
 - Blocker: 如果 PID 归属不明、Jar 来源不明、目标 Jar 哈希与隔离构建 Jar 不一致，或主工作区源码混有其他任务改动，必须停止，不得从脏主工作区重新打包冒充本任务运行态。
 - Verification: 记录旧 PID、停止依据、新 PID、Jar SHA256、启动命令、`http://127.0.0.1:48081/actuator/health`、登录态目标接口业务响应、必要 schema 字段核对，并在 E2E 后记录真实数据库状态。
 - Route check: 目标接口需要登录时，未登录请求返回 `401` 只能证明安全过滤器生效，不能证明 MVC 路由已加载；必须使用本机登录态请求目标接口，业务码为 `0` 或预期业务错误，才可宣称新 Controller 已进入运行态。

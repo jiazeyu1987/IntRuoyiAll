@@ -26,4 +26,8 @@ public interface MesProBatchRecordCellLinkErrorCodeConstants {
             new ErrorCode(1_040_509_089, "批记录表单布局 JSON 无效：{}");
     ErrorCode PRO_BATCH_RECORD_CELL_LINK_CELL_VALUES_INVALID =
             new ErrorCode(1_040_509_090, "批记录单元格值 JSON 无效：{}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED =
+            new ErrorCode(1_040_509_091, "批记录单元格链接不支持的来源字段：{}");
+    ErrorCode PRO_BATCH_RECORD_CELL_LINK_WORK_ORDER_MISSING =
+            new ErrorCode(1_040_509_092, "批记录执行实例缺少生产工单，无法从生产工单字段自动带值：{}");
 }

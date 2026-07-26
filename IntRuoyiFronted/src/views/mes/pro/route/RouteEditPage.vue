@@ -120,7 +120,6 @@ const routeVersionEditContextKey = computed(() => {
 })
 const listEditCandidateDraftSaved = ref(false)
 const listEditCandidateDraftDiscarded = ref(false)
-const suppressRouteVersionSubmitAfterSaveOnce = ref(false)
 const routeLeaveAlreadyConfirmed = ref(false)
 const routeCandidateDraftKey = computed(
   () => `${routeId.value}:${routeVersionEditContextKey.value}:${routeDraftOrigin.value}:${discardOnUnsavedExit.value}`
@@ -144,10 +143,6 @@ const shouldPromptUnsavedCandidateDraftBeforeExit = computed(() => {
 })
 const buildRouteRequestKey = () =>
   `${routeId.value}:${initialTab.value}:${routeVersionEditContextKey.value}`
-
-type RouteFormSavedPayload = {
-  promptRouteVersionSubmit?: boolean
-}
 
 type SubmitRouteCandidateVersionOptions = {
   confirmMessage?: string
@@ -289,25 +284,9 @@ const clearListEditDraftExitQuery = async () => {
   })
 }
 
-const confirmSubmitRouteCandidateVersionAfterSave = async () => {
-  const context = routeVersionEditContext.value
-  if (!context || context.lifecycleStatus !== 'DRAFT') return
-  await submitRouteCandidateVersion({
-    confirmMessage:
-      '草稿已保存，是否立即提交发布？提交后当前候选版本将进入审批阶段，审批通过后自动发布生效。',
-    confirmTitle: '提交发布'
-  })
-}
-
-const handleSaved = async (payload?: RouteFormSavedPayload) => {
+const handleSaved = async () => {
   markListEditCandidateDraftSaved()
-  if (suppressRouteVersionSubmitAfterSaveOnce.value) {
-    suppressRouteVersionSubmitAfterSaveOnce.value = false
-    return
-  }
   await clearListEditDraftExitQuery()
-  if (payload?.promptRouteVersionSubmit === false) return
-  await confirmSubmitRouteCandidateVersionAfterSave()
 }
 
 const handleEditProductionConfig = async () => {
@@ -381,8 +360,7 @@ const confirmUnsavedCandidateDraftBeforeExit = async () => {
         type: 'warning'
       }
     )
-    suppressRouteVersionSubmitAfterSaveOnce.value = true
-    await content.submitForm({ promptRouteVersionSubmit: false })
+    await content.submitForm()
     markListEditCandidateDraftSaved()
     return true
   } catch (error) {
@@ -448,7 +426,6 @@ watch(
   () => {
     listEditCandidateDraftSaved.value = false
     listEditCandidateDraftDiscarded.value = false
-    suppressRouteVersionSubmitAfterSaveOnce.value = false
   },
   { immediate: true }
 )

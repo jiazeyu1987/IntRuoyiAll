@@ -66,6 +66,8 @@ public interface ErrorCodeConstants {
     ErrorCode CODEX_TEST_EXECUTION_NOT_EXISTS = new ErrorCode(1_002_031_010, "测试执行不存在");
     ErrorCode CODEX_TEST_RUNNER_TOKEN_INVALID = new ErrorCode(1_002_031_011, "Codex Runner token 无效或未配置");
     ErrorCode CODEX_TEST_DISABLED_CASE = new ErrorCode(1_002_031_012, "禁用测试项不能执行：{}");
+    ErrorCode CODEX_TEST_RUNNER_STARTER_MISSING = new ErrorCode(1_002_031_013, "Codex Runner 按需启动脚本未配置：{}");
+    ErrorCode CODEX_TEST_RUNNER_START_FAILED = new ErrorCode(1_002_031_014, "Codex Runner 按需启动失败：{}");
 
     // ========== 用户模块 1-002-003-000 ==========
     ErrorCode USER_USERNAME_EXISTS = new ErrorCode(1_002_003_000, "用户账号已经存在");

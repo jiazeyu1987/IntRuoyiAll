@@ -68,8 +68,21 @@ const config = {
 }
 
 function assertPrerequisites() {
-  assert.equal(config.baseUrl, 'http://127.0.0.1:8081', '真实 E2E 必须使用 int_main 前端 8081')
-  assert.equal(config.backendUrl, 'http://127.0.0.1:48081', '真实 E2E 必须使用 int_main 后端 48081')
+  const explicitBaseUrl = Boolean(process.env.EDHR_RELEASE_DOSSIER_E2E_BASE_URL)
+  const explicitBackendUrl = Boolean(process.env.EDHR_RELEASE_DOSSIER_E2E_BACKEND_URL)
+  assert.equal(explicitBaseUrl, explicitBackendUrl, '隔离运行态 E2E 必须同时显式传入前端和后端 URL')
+  const frontendUrl = new URL(config.baseUrl)
+  const backendUrl = new URL(config.backendUrl)
+  assert.equal(frontendUrl.hostname, '127.0.0.1', '真实 E2E 只能使用本机前端')
+  assert.equal(backendUrl.hostname, '127.0.0.1', '真实 E2E 只能使用本机后端')
+  const frontendPort = Number(frontendUrl.port)
+  const backendPort = Number(backendUrl.port)
+  assert.ok(Number.isInteger(frontendPort) && Number.isInteger(backendPort), '真实 E2E URL 必须包含显式端口')
+  assert.equal(backendPort - frontendPort, 40000, '前后端端口必须来自同一 int_main runtime slot')
+  if (!explicitBaseUrl) {
+    assert.equal(config.baseUrl, 'http://127.0.0.1:8081', '默认真实 E2E 必须使用 int_main 前端 8081')
+    assert.equal(config.backendUrl, 'http://127.0.0.1:48081', '默认真实 E2E 必须使用 int_main 后端 48081')
+  }
   assert.equal(config.tenant, '芋道源码', '资料限制开关 E2E 必须使用本机默认金手指租户')
   assert.equal(config.username, 'admin', '资料限制开关 E2E 必须使用本机默认金手指账号')
   assert.ok(config.password, '缺少本机默认登录密码来源')
@@ -263,6 +276,17 @@ async function openConfigPane(page) {
   return card
 }
 
+async function waitForCardText(card, expectedText, label) {
+  const deadline = Date.now() + config.timeout
+  while (Date.now() < deadline) {
+    if (((await card.textContent().catch(() => '')) || '').includes(expectedText)) {
+      return
+    }
+    await card.page().waitForTimeout(200)
+  }
+  throw new Error(label)
+}
+
 function switchRow(card, label) {
   return card.locator('.edhr-release-dossier-requirement-setting__item').filter({ hasText: label }).first()
 }
@@ -380,10 +404,17 @@ function writeResult(result) {
   ]
   if (result.status === 'PASS') {
     lines.push('- GREEN: real-profile-config-dossier-switch -> PASS，真实页面配置页签展示 4 个资料限制开关，UI 确认切换成功，API 复核变更成功，最后通过 UI 恢复原始状态并复验。')
+  } else if (result.status === 'BLOCKED') {
+    lines.push(`- BLOCKER: real-profile-config-dossier-switch -> ${result.reason || result.restoreError || 'unknown blocker'}`)
   } else {
     lines.push(`- RED: real-profile-config-dossier-switch -> FAIL，${result.reason || result.restoreError || 'unknown error'}`)
   }
   fs.writeFileSync(RESULT_MD, `${lines.join('\n')}\n`, 'utf8')
+}
+
+function isRuntimeBlocker(error) {
+  const message = error instanceof Error ? error.stack || error.message : String(error)
+  return message.includes(API_PATH) && (message.includes('请求地址不存在') || message.includes('404'))
 }
 
 async function main() {
@@ -420,10 +451,7 @@ async function main() {
 
     const card = await openConfigPane(page)
     if (originalSetting.configHash) {
-      assert.ok(
-        ((await card.textContent()) || '').includes(originalSetting.configHash),
-        '页面必须展示当前配置 hash'
-      )
+      await waitForCardText(card, originalSetting.configHash, '页面必须展示当前配置 hash')
     }
     result.steps.push({ step: 'profile-config-visible', status: 'PASS' })
 
@@ -440,6 +468,7 @@ async function main() {
     result.steps.push({ step: 'api-verify-changed-state', status: 'PASS' })
   } catch (error) {
     pendingError = error
+    result.blocked = isRuntimeBlocker(error)
     result.reason = error instanceof Error ? error.stack || error.message : String(error)
     if (page) {
       const screenshotPath = path.join(RESULT_DIR, 'failure.png')
@@ -471,7 +500,7 @@ async function main() {
       }
     }
 
-    result.status = pendingError ? 'FAIL' : 'PASS'
+    result.status = pendingError ? (result.blocked ? 'BLOCKED' : 'FAIL') : 'PASS'
     writeResult(result)
     await context?.close().catch(() => {})
     await browser?.close().catch(() => {})

@@ -32,8 +32,15 @@
 
 ## E2E
 
-- 未执行真实 Playwright E2E：本次未启动本机 `8081/48081` 运行态，也未切换真实全局开关；按全局开关类 E2E 恢复门禁，缺运行态/测试数据时不以 API-only 或 mock 替代。
+- `GREEN: node scripts/preflight/login-preflight.mjs --base-url http://127.0.0.1:8081 --target-path /user/profile --target-text 个人工作台 -> PASS`，本机默认身份标签 `芋道源码/admin` 能真实登录个人中心。
+- `GREEN: node --check tests\e2e\edhr-release-dossier-requirement-setting-real.e2e.js -> PASS`，任务专用真实 E2E 脚本已落地并通过语法检查。
+- `GREEN: node tests\e2e\edhr-release-dossier-requirement-setting-real.e2e.js -> PASS`，使用隔离 worktree slot 5（8086/48086）真实打开个人中心配置页，确认 4 个 switch 和配置 hash 可见。
+- `GREEN: UI toggle + API verify -> PASS`，通过页面确认框打开“来料检报告”，API 复核 `incomingInspectionReportRequired=true` 且配置 hash 变化。
+- `GREEN: UI restore + DB verify -> PASS`，`finally` 通过页面恢复原始全 false 配置，并用本机 Docker MySQL 只读复验 `infra_config` 值已恢复。
+- `GREEN: node tests\e2e\edhr-release-dossier-requirement-setting-real.e2e.js -> PASS`，用户授权替换 `48081` 旧运行态后，使用 `8081/48081` 当前用户路径完成真实页面配置、UI 切换、API 复核和 UI 恢复。
 
-## Blockers
+## Closeout Notes
 
-- 真实 Playwright E2E 未执行，缺当前任务可安全切换并恢复的本机运行态、登录态与测试批次数据确认。
+- 真实 E2E 证据文件：`doc/tasks/20260726-edhr-release-dossier-requirement-switches/e2e-artifacts/dossier-requirement-setting-real/result.md`。
+- 旧 `48081` 仍属于并行运行态，本任务未停止；本次 E2E 使用登记端口 8086/48086 完成隔离验证。
+- 用户已授权停止旧 `48081` 运行态；当前 `48081` 已由任务 Jar PID `57744` 承载，`8081/48081` 真实 E2E 已 PASS。

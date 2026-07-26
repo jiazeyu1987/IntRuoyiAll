@@ -70,7 +70,7 @@ assert.match(
 )
 assert.match(
   leaveConfirm,
-  /await\s+content\.submitForm\(\{\s*promptRouteVersionSubmit:\s*false\s*\}\)/,
+  /await\s+content\.submitForm\(\)/,
   '用户选择“保存草稿”且存在未保存变更时，必须先保存候选草稿再离开页面，且不弹保存后发布提示。'
 )
 assert.match(
@@ -101,8 +101,14 @@ assert.match(
 )
 assert.match(
   editPage,
-  /const\s+handleSaved\s*=\s*async[\s\S]*markListEditCandidateDraftSaved\(\)[\s\S]*confirmSubmitRouteCandidateVersionAfterSave/,
-  '候选草稿保存成功后必须标记本次草稿已保存，并继续执行保存后提交发布提示。'
+  /const\s+handleSaved\s*=\s*async[\s\S]*markListEditCandidateDraftSaved\(\)[\s\S]*clearListEditDraftExitQuery\(\)/,
+  '候选草稿保存成功后必须标记本次草稿已保存并清理直建草稿退出标记，不得继续执行保存后提交发布提示。'
+)
+
+assert.doesNotMatch(
+  editPage,
+  /confirmSubmitRouteCandidateVersionAfterSave/,
+  '候选草稿普通保存不得再保留保存后提交发布提示。'
 )
 
 console.log('PASS: mes route edit unsaved list-edit candidate draft is saved or discarded explicitly')

@@ -10,10 +10,11 @@
           <el-select
             v-model="sourceReportId"
             filterable
-            placeholder="选择源表单"
+            placeholder="选择来源"
             class="batch-record-cell-link__select batch-record-cell-link__source-select"
-            @change="handleSourceReportChange"
+            @change="handleSourceSelectionChange"
           >
+            <el-option label="生产工单" :value="PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID" />
             <el-option
               v-for="form in forms"
               :key="form.reportId"
@@ -58,10 +59,13 @@
       </header>
 
       <main class="batch-record-cell-link__form-stage">
-        <section class="batch-record-cell-link__pane is-source">
+        <section
+          class="batch-record-cell-link__pane is-source"
+          :class="{ 'batch-record-cell-link__work-order-field-panel': sourceType === SOURCE_TYPE_PRODUCTION_WORK_ORDER }"
+        >
           <div class="batch-record-cell-link__pane-title">
-            <span>源表单</span>
-            <strong>{{ sourceForm?.reportName || '未选择' }}</strong>
+            <span>{{ sourceType === SOURCE_TYPE_PRODUCTION_WORK_ORDER ? '源字段' : '源表单' }}</span>
+            <strong>{{ sourcePanelTitle }}</strong>
           </div>
           <div class="batch-record-cell-link__sheet-scroll">
             <BatchRecordLinkSheet
@@ -95,8 +99,8 @@
         class="batch-record-cell-link__detail-dialog"
       >
         <div class="batch-record-cell-link__detail-summary">
-          <span>当前源表单</span>
-          <strong>{{ sourceForm?.reportName || '未选择源表单' }}</strong>
+          <span>{{ sourceType === SOURCE_TYPE_PRODUCTION_WORK_ORDER ? '当前源字段集合' : '当前源表单' }}</span>
+          <strong>{{ sourcePanelTitle }}</strong>
           <em>{{ sourceLinkCountText }}</em>
         </div>
         <el-table
@@ -147,6 +151,7 @@ import {
   type BatchRecordCellLinkFormCellsVO,
   type BatchRecordCellLinkFormVO,
   type BatchRecordCellLinkRuleVO,
+  type BatchRecordCellLinkSourceFieldVO,
   type BatchRecordCellLinkWorkbenchContextVO
 } from '@/api/mes/pro/batchrecordcelllink'
 import {
@@ -205,6 +210,10 @@ type CellLinkRawLayout = Omit<TemplateRawLayout, 'rows'> & {
 const DEFAULT_COLUMN_WIDTH = 120
 const DEFAULT_ROW_HEIGHT = 32
 const EMPTY_FILLABLE_PLACEHOLDER = '?'
+const SOURCE_TYPE_BATCH_RECORD_CELL = 'BATCH_RECORD_CELL'
+const SOURCE_TYPE_PRODUCTION_WORK_ORDER = 'PRODUCTION_WORK_ORDER'
+const PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID = 'PRODUCTION_WORK_ORDER'
+const PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME = '生产工单'
 
 const BatchRecordLinkSheet = defineComponent({
   name: 'BatchRecordLinkSheet',
@@ -279,8 +288,11 @@ const loading = ref(false)
 const saving = ref(false)
 const context = ref<BatchRecordCellLinkWorkbenchContextVO>()
 const forms = ref<BatchRecordCellLinkFormVO[]>([])
+const productionWorkOrderSourceFields = ref<BatchRecordCellLinkSourceFieldVO[]>([])
 const rules = ref<BatchRecordCellLinkRuleVO[]>([])
+const sourceType = ref(SOURCE_TYPE_BATCH_RECORD_CELL)
 const sourceReportId = ref('')
+const sourceFieldCode = ref('')
 const targetReportId = ref('')
 const sourceCells = ref<BatchRecordCellLinkFormCellsVO>()
 const targetCells = ref<BatchRecordCellLinkFormCellsVO>()
@@ -288,9 +300,17 @@ const selectedSourceCell = ref<BatchRecordCellLinkCellVO>()
 const selectedTargetCell = ref<BatchRecordCellLinkCellVO>()
 const relationDetailDialogVisible = ref(false)
 
-const sourceForm = computed(() => forms.value.find((form) => form.reportId === sourceReportId.value))
+const isProductionWorkOrderSelected = computed(() => sourceReportId.value === PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID)
+const sourceForm = computed(() =>
+  isProductionWorkOrderSelected.value
+    ? undefined
+    : forms.value.find((form) => form.reportId === sourceReportId.value)
+)
 const targetForm = computed(() => forms.value.find((form) => form.reportId === targetReportId.value))
 const targetForms = computed(() => {
+  if (isProductionWorkOrderSelected.value) {
+    return forms.value
+  }
   const candidates = forms.value.filter((form) => form.reportId !== sourceReportId.value)
   return candidates.length ? candidates : forms.value
 })
@@ -300,9 +320,20 @@ const targetRuleKeys = computed(() => new Set(rules.value.map((rule) => `${rule.
 const sourceLinkedRules = computed<SourceLinkedRule[]>(() =>
   rules.value
     .map((rule, ruleIndex) => ({ ...rule, ruleIndex }))
-    .filter((rule) => rule.enabled !== false && rule.sourceReportId === sourceReportId.value)
+    .filter((rule) => {
+      if (rule.enabled === false) return false
+      const ruleSourceType = normalizeRuleSourceType(rule)
+      return sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER
+        ? ruleSourceType === SOURCE_TYPE_PRODUCTION_WORK_ORDER
+        : ruleSourceType === SOURCE_TYPE_BATCH_RECORD_CELL && rule.sourceReportId === sourceReportId.value
+    })
 )
 const sourceLinkCountText = computed(() => `${sourceLinkedRules.value.length} 个链接`)
+const sourcePanelTitle = computed(() =>
+  sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER
+    ? PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME
+    : sourceForm.value?.reportName || '未选择'
+)
 
 const openRelationDetailDialog = () => {
   relationDetailDialogVisible.value = true
@@ -327,7 +358,7 @@ const removeRuleByIndex = async (index: number) => {
 
 const selectedSourceSummary = computed(() => {
   if (!selectedSourceCell.value) return '未选择源单元格'
-  return `${sourceForm.value?.reportName || sourceReportId.value} / ${selectedSourceCell.value.label || selectedSourceCell.value.cellKey}`
+  return `${sourcePanelTitle.value} / ${selectedSourceCell.value.label || selectedSourceCell.value.cellKey}`
 })
 const selectedTargetSummary = computed(() => {
   if (!selectedTargetCell.value) return '未选择目标单元格'
@@ -364,8 +395,11 @@ async function loadWorkbenchContext() {
     })
     context.value = data
     forms.value = data.forms || []
+    productionWorkOrderSourceFields.value = data.sourceFields || []
     rules.value = data.rules || []
+    sourceType.value = SOURCE_TYPE_BATCH_RECORD_CELL
     sourceReportId.value = data.defaultSourceReportId || forms.value[0]?.reportId || ''
+    sourceFieldCode.value = productionWorkOrderSourceFields.value[0]?.fieldCode || ''
     targetReportId.value = data.defaultTargetReportId || targetForms.value[0]?.reportId || ''
     await Promise.all([loadSourceCells(), loadTargetCells()])
   } catch (error) {
@@ -375,9 +409,15 @@ async function loadWorkbenchContext() {
   }
 }
 
-const handleSourceReportChange = async () => {
+const handleSourceSelectionChange = async () => {
   selectedSourceCell.value = undefined
   selectedTargetCell.value = undefined
+  sourceType.value = isProductionWorkOrderSelected.value
+    ? SOURCE_TYPE_PRODUCTION_WORK_ORDER
+    : SOURCE_TYPE_BATCH_RECORD_CELL
+  if (sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER && !sourceFieldCode.value) {
+    sourceFieldCode.value = productionWorkOrderSourceFields.value[0]?.fieldCode || ''
+  }
   if (!targetForms.value.some((form) => form.reportId === targetReportId.value)) {
     targetReportId.value = targetForms.value[0]?.reportId || ''
   }
@@ -390,6 +430,11 @@ const handleTargetReportChange = async () => {
 }
 
 const loadSourceCells = async () => {
+  if (sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER) {
+    sourceCells.value = buildProductionWorkOrderFieldCells(productionWorkOrderSourceFields.value)
+    selectedSourceCell.value = sourceCells.value.cells.find((cell) => cell.sourceFieldCode === sourceFieldCode.value)
+    return
+  }
   sourceCells.value = sourceReportId.value
     ? await BatchRecordCellLinkApi.getFormCells({
         reportId: sourceReportId.value,
@@ -414,6 +459,9 @@ const selectSourceCell = (cell?: BatchRecordCellLinkCellVO) => {
     return
   }
   selectedSourceCell.value = cell
+  if (sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER && cell.sourceFieldCode) {
+    sourceFieldCode.value = cell.sourceFieldCode
+  }
 }
 
 const selectTargetCell = (cell?: BatchRecordCellLinkCellVO) => {
@@ -426,12 +474,21 @@ const selectTargetCell = (cell?: BatchRecordCellLinkCellVO) => {
 }
 
 const createRule = async () => {
-  if (!selectedSourceCell.value || !selectedTargetCell.value || !sourceForm.value || !targetForm.value || saving.value) return
+  if (!selectedSourceCell.value || !selectedTargetCell.value || !targetForm.value || saving.value) return
+  const isProductionWorkOrderSource = sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER
+  if (!isProductionWorkOrderSource && !sourceForm.value) return
   const sourceKey = selectedSourceCell.value.cellKey
+  const sourceReportIdForPayload = isProductionWorkOrderSource
+    ? PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID
+    : sourceReportId.value
+  const sourceReportNameForPayload = isProductionWorkOrderSource
+    ? PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME
+    : sourceForm.value?.reportName
   const targetKey = selectedTargetCell.value.cellKey
   const duplicatePair = rules.value.some(
     (rule) =>
-      rule.sourceReportId === sourceReportId.value &&
+      normalizeRuleSourceType(rule) === sourceType.value &&
+      rule.sourceReportId === sourceReportIdForPayload &&
       rule.sourceCellKey === sourceKey &&
       rule.targetReportId === targetReportId.value &&
       rule.targetCellKey === targetKey
@@ -453,11 +510,14 @@ const createRule = async () => {
     routeId: context.value?.routeId,
     batchRecordDefinitionId: context.value?.batchRecordDefinitionId,
     batchRecordVersionId: context.value?.batchRecordVersionId,
-    sourceReportId: sourceReportId.value,
-    sourceReportName: sourceForm.value.reportName,
+    sourceType: sourceType.value,
+    sourceReportId: sourceReportIdForPayload,
+    sourceReportName: sourceReportNameForPayload,
     sourceRowIndex: selectedSourceCell.value.rowIndex,
     sourceColumnIndex: selectedSourceCell.value.columnIndex,
     sourceCellKey: sourceKey,
+    sourceFieldCode: selectedSourceCell.value.sourceFieldCode,
+    sourceFieldName: selectedSourceCell.value.sourceFieldName,
     sourceLabel: selectedSourceCell.value.label,
     sourceValueType: selectedSourceCell.value.valueType,
     targetReportId: targetReportId.value,
@@ -473,6 +533,49 @@ const createRule = async () => {
   const saved = await persistRules(nextRules, `单元格链接已建立并保存，共 ${nextRules.length} 条。`)
   if (saved) {
     selectedTargetCell.value = undefined
+  }
+}
+
+function normalizeRuleSourceType(rule: BatchRecordCellLinkRuleVO) {
+  return rule.sourceType || SOURCE_TYPE_BATCH_RECORD_CELL
+}
+
+function buildProductionWorkOrderFieldCells(
+  fields: BatchRecordCellLinkSourceFieldVO[]
+): BatchRecordCellLinkFormCellsVO {
+  const rows = fields.reduce<Record<string, { height: number; cells: Record<string, { text: string; fillForm: unknown }> }>>(
+    (acc, field, index) => {
+      acc[String(index)] = {
+        height: DEFAULT_ROW_HEIGHT,
+        cells: {
+          0: {
+            text: field.fieldName,
+            fillForm: { field: field.fieldCode }
+          }
+        }
+      }
+      return acc
+    },
+    {}
+  )
+  return {
+    reportId: PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID,
+    reportName: PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME,
+    sheetLayoutJson: JSON.stringify({ cols: { 0: { width: 240 } }, rows }),
+    cells: fields.map((field, index) => ({
+      rowIndex: index,
+      columnIndex: 0,
+      cellKey: field.fieldCode,
+      sourceType: SOURCE_TYPE_PRODUCTION_WORK_ORDER,
+      sourceFieldCode: field.fieldCode,
+      sourceFieldName: field.fieldName,
+      label: field.fieldName,
+      valueType: field.valueType || 'STRING',
+      readonly: false,
+      signatureCell: false,
+      linkableAsSource: true,
+      linkableAsTarget: false
+    }))
   }
 }
 
@@ -524,7 +627,11 @@ function buildRenderableSheet(
   const columnIndexes = collectRenderedColumnIndexes(layout, rowIndexes, formCells.cells)
   const columns = buildRenderedColumns(layout, columnIndexes)
   const covered = new Set<string>()
-  const cellMetaMap = new Map(formCells.cells.map((cell) => [cell.cellKey, cell]))
+  const cellMetaMap = new Map<string, BatchRecordCellLinkCellVO>()
+  formCells.cells.forEach((cell) => {
+    cellMetaMap.set(cell.cellKey, cell)
+    cellMetaMap.set(`${cell.rowIndex}:${cell.columnIndex}`, cell)
+  })
   const renderedRows = rowIndexes.map((rowIndex) => {
     const rawRow = rows[String(rowIndex)] || {}
     const cells: RenderedCell[] = []
@@ -541,7 +648,12 @@ function buildRenderableSheet(
         }
       }
       const meta = cellMetaMap.get(key)
-      const reportCellKey = `${formCells.reportId}:${key}`
+      const reportCellKey = `${formCells.reportId}:${meta?.cellKey || key}`
+      const isSelectedCell = Boolean(
+        selectedCell &&
+          (selectedCell.cellKey === key ||
+            (selectedCell.rowIndex === rowIndex && selectedCell.columnIndex === columnIndex))
+      )
       const rawText = stringifyTemplateCell(rawCell?.value ?? rawCell?.text)
       const isFillableCell = Boolean(meta || rawCell?.fillForm)
       const text = normalizeRenderedCellText(rawText, isFillableCell)
@@ -562,7 +674,7 @@ function buildRenderableSheet(
           'is-source-selectable': mode === 'source' && Boolean(meta?.linkableAsSource),
           'is-target-selectable': mode === 'target' && Boolean(meta?.linkableAsTarget),
           'is-linked': linkedKeys.has(reportCellKey),
-          'is-selected': selectedCell?.cellKey === key
+          'is-selected': isSelectedCell
         }
       })
     })
@@ -746,6 +858,10 @@ function resolveErrorMessage(error: unknown, fallback: string) {
   display: grid;
   grid-template-rows: 44px minmax(0, 1fr);
   background: #ffffff;
+}
+
+.batch-record-cell-link__work-order-field-panel {
+  background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
 }
 
 .batch-record-cell-link__pane-title {

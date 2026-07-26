@@ -21,9 +21,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_PARALLEL_UNSAFE_CASE;
-import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RUNNER_OFFLINE;
+import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RUNNER_START_FAILED;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 
 @Import({CodexTestCaseServiceImpl.class, CodexTestExecutionServiceImpl.class})
 class CodexTestExecutionServiceImplTest extends BaseDbUnitTest {
@@ -43,15 +46,17 @@ class CodexTestExecutionServiceImplTest extends BaseDbUnitTest {
 
     @MockitoBean
     private TenantService tenantService;
+    @MockitoBean
+    private CodexTestRunnerBootstrapService codexTestRunnerBootstrapService;
 
     @Test
     void startSequentialExecution_createsHistoricalSnapshotsAndInitialCheckpointResults() {
         Long caseId = codexTestCaseService.createCase(CodexTestCaseServiceImplTest.buildCaseReq("排产手动重排", false));
-        insertOnlineRunner();
         CodexTestExecutionStartReqVO reqVO = startReq("SEQUENTIAL", caseId);
 
         Long executionId = codexTestExecutionService.startExecution(reqVO, 99L);
 
+        verify(codexTestRunnerBootstrapService).ensureRunnerAvailable();
         CodexTestExecutionDO execution = codexTestExecutionMapper.selectById(executionId);
         assertEquals("PENDING", execution.getStatus());
         assertEquals(88L, execution.getTargetTenantId());
@@ -70,24 +75,24 @@ class CodexTestExecutionServiceImplTest extends BaseDbUnitTest {
     @Test
     void startParallelExecution_rejectsUnsafeCaseWithoutDowngradingToSequential() {
         Long caseId = codexTestCaseService.createCase(CodexTestCaseServiceImplTest.buildCaseReq("排产手动重排", false));
-        insertOnlineRunner();
 
         assertServiceException(() -> codexTestExecutionService.startExecution(startReq("PARALLEL", caseId), 99L),
                 CODEX_TEST_PARALLEL_UNSAFE_CASE, "排产手动重排");
     }
 
     @Test
-    void startExecution_rejectsWhenRunnerOffline() {
+    void startExecution_rejectsWhenOnDemandRunnerCannotStart() {
         Long caseId = codexTestCaseService.createCase(CodexTestCaseServiceImplTest.buildCaseReq("排产手动重排", true));
+        doThrow(exception(CODEX_TEST_RUNNER_START_FAILED, "Runner 按需启动脚本未配置"))
+                .when(codexTestRunnerBootstrapService).ensureRunnerAvailable();
 
         assertServiceException(() -> codexTestExecutionService.startExecution(startReq("SEQUENTIAL", caseId), 99L),
-                CODEX_TEST_RUNNER_OFFLINE);
+                CODEX_TEST_RUNNER_START_FAILED, "Runner 按需启动脚本未配置");
     }
 
     @Test
     void getExecutionMonitor_returnsUnfinishedExecutionDetails() {
         Long caseId = codexTestCaseService.createCase(CodexTestCaseServiceImplTest.buildCaseReq("排产手动重排", false));
-        insertOnlineRunner();
         Long executionId = codexTestExecutionService.startExecution(startReq("SEQUENTIAL", caseId), 99L);
 
         List<CodexTestExecutionRespVO> monitorList = codexTestExecutionService.getExecutionMonitor();
@@ -99,17 +104,6 @@ class CodexTestExecutionServiceImplTest extends BaseDbUnitTest {
         assertEquals(1, execution.getCases().size());
         assertEquals("排产手动重排", execution.getCases().get(0).getCaseNameSnapshot());
         assertEquals(2, execution.getCases().get(0).getCheckpointResults().size());
-    }
-
-    private void insertOnlineRunner() {
-        CodexTestRunnerSessionDO runner = new CodexTestRunnerSessionDO();
-        runner.setRunnerName("local-runner");
-        runner.setStatus("ONLINE");
-        runner.setCapabilitiesJson("{\"playwright\":true,\"codex\":true}");
-        runner.setMaxParallelism(2);
-        runner.setLastHeartbeatTime(LocalDateTime.now());
-        runner.setCurrentRunningCount(0);
-        codexTestRunnerSessionMapper.insert(runner);
     }
 
     private CodexTestExecutionStartReqVO startReq(String mode, Long caseId) {

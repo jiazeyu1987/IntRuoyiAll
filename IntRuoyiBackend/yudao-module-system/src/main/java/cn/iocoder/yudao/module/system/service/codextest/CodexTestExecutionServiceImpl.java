@@ -1,7 +1,6 @@
 package cn.iocoder.yudao.module.system.service.codextest;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.collection.CollectionUtils;
@@ -15,22 +14,18 @@ import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestCheckpoi
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestCheckpointResultDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionCaseDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionDO;
-import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestRunnerSessionDO;
 import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestCaseMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestCheckpointMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestCheckpointResultMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestExecutionCaseMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestExecutionMapper;
-import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestRunnerSessionMapper;
 import cn.iocoder.yudao.module.system.service.tenant.TenantService;
 import jakarta.annotation.Resource;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -41,17 +36,12 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_EXECUTION_RUNNING;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_PARALLEL_UNSAFE_CASE;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RESULT_SCHEMA_INVALID;
-import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RUNNER_CAPABILITY_MISSING;
-import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RUNNER_OFFLINE;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_TARGET_TENANT_INVALID;
 import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.*;
 
 @Service
 @Validated
 public class CodexTestExecutionServiceImpl implements CodexTestExecutionService {
-
-    @Value("${yudao.codex-test.runner.heartbeat-timeout-seconds:60}")
-    private Integer runnerHeartbeatTimeoutSeconds;
 
     @Resource
     private CodexTestCaseMapper codexTestCaseMapper;
@@ -64,7 +54,7 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
     @Resource
     private CodexTestCheckpointResultMapper codexTestCheckpointResultMapper;
     @Resource
-    private CodexTestRunnerSessionMapper codexTestRunnerSessionMapper;
+    private CodexTestRunnerBootstrapService codexTestRunnerBootstrapService;
     @Resource
     private TenantService tenantService;
 
@@ -73,7 +63,7 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
     public Long startExecution(CodexTestExecutionStartReqVO startReqVO, Long requestedBy) {
         validateStartReqVO(startReqVO, requestedBy);
         validateTargetTenant(startReqVO.getTargetTenantId());
-        validateRunnerOnline();
+        codexTestRunnerBootstrapService.ensureRunnerAvailable();
         List<CodexTestCaseDO> cases = getOrderedCases(startReqVO.getCaseIds());
         validateExecutableCases(cases, startReqVO.getExecutionMode());
 
@@ -185,20 +175,6 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
             tenantService.validTenant(targetTenantId);
         } catch (ServiceException ex) {
             throw exception(CODEX_TEST_TARGET_TENANT_INVALID, ex.getMessage());
-        }
-    }
-
-    private void validateRunnerOnline() {
-        List<CodexTestRunnerSessionDO> onlineRunners = codexTestRunnerSessionMapper.selectOnlineSessions(
-                LocalDateTime.now().minusSeconds(runnerHeartbeatTimeoutSeconds));
-        if (CollUtil.isEmpty(onlineRunners)) {
-            throw exception(CODEX_TEST_RUNNER_OFFLINE);
-        }
-        boolean hasRequiredCapabilities = onlineRunners.stream()
-                .anyMatch(runner -> StrUtil.contains(runner.getCapabilitiesJson(), "playwright")
-                        && StrUtil.contains(runner.getCapabilitiesJson(), "codex"));
-        if (!hasRequiredCapabilities) {
-            throw exception(CODEX_TEST_RUNNER_CAPABILITY_MISSING, "playwright,codex");
         }
     }
 

@@ -6,12 +6,12 @@
           <div class="codex-runner-status__main">
             <span class="codex-runner-status__label">Runner 状态</span>
             <el-tag :type="runnerStatusTagType" effect="plain">
-              {{ runnerStatus?.online ? '在线' : '离线' }}
+              {{ runnerStatusLabel }}
             </el-tag>
             <span class="codex-runner-status__message">{{ runnerStatusMessage }}</span>
           </div>
           <div class="codex-runner-status__meta">
-            <span>最后心跳：{{ runnerLastHeartbeatText }}</span>
+            <span>运行方式：点击执行时按需拉起本机受控 Runner</span>
             <el-button :loading="runnerStatusLoading" link type="primary" @click="refreshRunnerStatus">
               刷新状态
             </el-button>
@@ -481,6 +481,7 @@ const caseList = ref<CodexTestApi.CodexTestCaseVO[]>([])
 const caseTotal = ref(0)
 const monitorList = ref<CodexTestApi.CodexTestExecutionVO[]>([])
 const runnerStatus = ref<CodexTestApi.CodexTestRunnerStatusVO>()
+const runnerStatusError = ref('')
 const monitorRefreshTimer = ref<number>()
 const failedCheckpointDialogVisible = ref(false)
 const failedCheckpointContext = ref<{
@@ -589,18 +590,27 @@ const monitorRunningCount = computed(() =>
   )
 )
 
-const runnerStatusMessage = computed(() => runnerStatus.value?.message || '正在检查本机 Runner 心跳')
-
-const runnerStatusTagType = computed(() => {
-  if (runnerStatus.value?.online) return 'success'
-  if (runnerStatus.value?.status === 'STALE') return 'warning'
-  return 'danger'
+const runnerStatusLabel = computed(() => {
+  if (executeLoading.value) return '启动中'
+  if (runnerStatus.value?.online) return '可用'
+  if (runnerStatus.value?.status === 'CAPABILITY_MISSING') return '配置异常'
+  if (runnerStatusError.value) return '诊断失败'
+  return '按需启动'
 })
 
-const runnerLastHeartbeatText = computed(() => {
-  if (!runnerStatus.value?.lastHeartbeatTime) return '-'
-  const age = runnerStatus.value.heartbeatAgeSeconds
-  return age == null ? String(runnerStatus.value.lastHeartbeatTime) : `${age} 秒前`
+const runnerStatusMessage = computed(() => {
+  if (executeLoading.value) return '正在提交执行，后端会按需启动受控 Runner'
+  if (runnerStatus.value?.online) return 'Runner 可用，可领取测试任务'
+  if (runnerStatus.value?.status === 'CAPABILITY_MISSING') return runnerStatus.value.message
+  if (runnerStatusError.value) return runnerStatusError.value
+  return '无需常驻在线；点击执行时会自动拉起本机受控 Runner'
+})
+
+const runnerStatusTagType = computed(() => {
+  if (executeLoading.value) return 'warning'
+  if (runnerStatus.value?.online) return 'success'
+  if (runnerStatus.value?.status === 'CAPABILITY_MISSING' || runnerStatusError.value) return 'danger'
+  return 'warning'
 })
 
 const defaultCaseForm = (): CodexTestApi.CodexTestCaseVO => ({
@@ -849,11 +859,13 @@ async function getCaseList() {
 async function refreshRunnerStatus() {
   runnerStatusLoading.value = true
   try {
+    runnerStatusError.value = ''
     runnerStatus.value = await CodexTestApi.getCodexTestRunnerStatus()
     return runnerStatus.value
   } catch (error) {
+    const text = error instanceof Error ? error.message : 'Runner 状态加载失败'
     runnerStatus.value = undefined
-    showRequestError(error, 'Runner 状态加载失败')
+    runnerStatusError.value = text
     return undefined
   } finally {
     runnerStatusLoading.value = false
@@ -998,17 +1010,17 @@ async function startExecution(mode: 'SEQUENTIAL' | 'PARALLEL') {
   }
   executeLoading.value = true
   try {
-    const status = await refreshRunnerStatus()
-    if (!status?.online) {
-      message.error(status?.message || '没有在线 Codex Runner')
-      return
-    }
+    runnerStatusError.value = ''
     const executionId = await CodexTestApi.startCodexTestExecution({
       targetTenantId: selectedTenantId.value,
       executionMode: mode,
       caseIds: selectedCaseIds.value
     })
-    message.success(`已创建执行批次 ${executionId}，请到测试记录页查看结果`)
+    message.success(`已创建执行批次 ${executionId}，Runner 将按需启动并领取任务`)
+    activeTab.value = 'monitor'
+    await getMonitorList()
+    startMonitorRefresh()
+    await refreshRunnerStatus()
   } catch (error) {
     showRequestError(error, mode === 'PARALLEL' ? '并行执行失败' : '顺序执行失败')
   } finally {
@@ -1025,17 +1037,17 @@ async function startSingleCaseExecution(row: CodexTestApi.CodexTestCaseVO) {
   }
   executeLoading.value = true
   try {
-    const status = await refreshRunnerStatus()
-    if (!status?.online) {
-      message.error(status?.message || '没有在线 Codex Runner')
-      return
-    }
+    runnerStatusError.value = ''
     const executionId = await CodexTestApi.startCodexTestExecution({
       targetTenantId: selectedTenantId.value,
       executionMode: row.defaultExecutionMode,
       caseIds: [caseId]
     })
-    message.success(`已创建执行批次 ${executionId}，请到测试记录页查看结果`)
+    message.success(`已创建执行批次 ${executionId}，Runner 将按需启动并领取任务`)
+    activeTab.value = 'monitor'
+    await getMonitorList()
+    startMonitorRefresh()
+    await refreshRunnerStatus()
   } catch (error) {
     showRequestError(error, '执行失败')
   } finally {

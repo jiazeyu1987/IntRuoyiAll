@@ -22,6 +22,15 @@
 
 ## 静态合同与真实 E2E 同步门禁
 
+### Worktree 隔离运行态 URL 门禁
+
+- Trigger: 主工作区默认端口被并行任务占用、旧 jar 未加载当前接口、或真实 E2E 需要使用已登记 worktree slot 端口运行。
+- Preflight check: 同时显式传入前端和后端 URL，且端口必须来自同一 runtime slot；脚本要校验本机地址、显式端口和前后端端口配对关系，不能只覆盖前端或只覆盖后端。
+- Blocker: 只传一个 URL、前后端端口不属于同一 slot、未确认端口监听命令行归属目标 worktree、或后端业务接口返回配置缺失/404 时必须停止并记录真实原因，不得静默切回 8081/48081 或 API-only。
+- Verification: 记录 base URL、backend URL、端口登记项、前端 HTTP 200、后端 health UP、关键目标接口业务响应、真实页面断言，以及任务结束后的端口释放结果。
+- Forbidden action: 禁止强停并行 48081、随机换端口、只看 health 就宣称目标 Controller 已加载、或用未配对的 frontend/backend URL 造成前端访问旧后端。
+- Evidence: `doc/tasks/20260726-edhr-release-dossier-requirement-switches/execution-log.md`，48081 旧 jar 返回新增接口 404 后，使用 slot 5 的 8086/48086 成对 URL 完成真实 E2E。
+
 ### Windows 换行与脚本行为同步
 
 - Trigger: 修改 `tests/e2e/*static.spec.js`、真实 `*.e2e.js` 脚本、Windows worktree 融合后出现静态合同在目标 worktree 自身失败、CRLF/LF 差异或废弃弹窗流程断言。
@@ -143,11 +152,11 @@
 ### Codex Runner 自动测试门禁
 
 - Trigger: 新增、修改、运行或验收 `系统管理 > 测试管理`、Codex Runner、自然语言测试方法、检查点截图或由 Codex 调用 Playwright 的自动测试流程。
-- Preflight check: 真实执行前必须确认本机前端/后端入口、目标测试租户、测试管理员账号、Runner token、Codex CLI、Playwright 浏览器、Runner 本地凭据映射和测试数据清理责任；后端必须用当前 token 完成注册探针，Runner loop 必须在执行中持续 heartbeat。
-- Blocker: 任一 Runner 或租户前置条件缺失、Runner token 与后端运行态不一致、测试项会写入生产/非任务租户、失败检查点没有差异描述、截图路径不在受控临时目录、并行执行包含 `parallelSafe=false` 项、执行中 heartbeat 超过后端超时阈值、或 Windows `codex.cmd` 后代进程在超时/取消后仍持有 `codex-test-result-*` 输出文件时必须停止。
-- Verification: 记录 Runner 注册/领取/执行期心跳/回写命令、页面执行入口、租户/用户标签、检查点结果、失败截图 artifact、最终 UI 状态和必要的只读 API 核验；Windows Runner 必须证明 timeout/cancel 后不存在本任务 `codex-test-result-*` 子进程，执行项不遗留 `CLAIMED/RUNNING`。
-- Forbidden action: 禁止把 API-only、静态合同测试、mock 截图、默认成功、Runner 离线跳过、只杀 `cmd.exe` 而不处理 `node/codex.exe` 后代进程、或顺序执行降级当作真实 E2E 通过。
-- Evidence: `doc/tasks/20260724-codex-test-management-delivery/verification-report.md`，2026-07-24 Codex 测试管理交付；`doc/tasks/20260725-codex-runner-void-test/verification-report.md`，2026-07-26 Runner 心跳、Windows 子进程树、取消处理修复。
+- Preflight check: 真实执行前必须确认本机前端/后端入口、目标测试租户、测试管理员账号、Runner token、Codex CLI、Playwright 浏览器、Runner 本地凭据映射和测试数据清理责任；后端必须用当前 token 完成注册探针，Runner loop 必须在执行中和空闲轮询中持续 heartbeat；不得把 `codex-test-runner.mjs --loop` 进程存在当作在线证明，必须核对后端 Runner 状态或数据库 `last_heartbeat_time` 未过期。测试管理执行入口若支持按需 Runner，前端不得因旧 Runner 离线/过期直接阻断执行，必须由后端受控启动脚本完成启动、注册、能力校验和失败原因返回。
+- Blocker: 任一 Runner 或租户前置条件缺失、Runner token 与后端运行态不一致、Runner 进程存在但注册失败或 heartbeat 超过后端超时阈值、测试项会写入生产/非任务租户、失败检查点没有差异描述、截图路径不在受控临时目录、并行执行包含 `parallelSafe=false` 项、执行中 heartbeat 超过后端超时阈值、或 Windows `codex.cmd` 后代进程在超时/取消后仍持有 `codex-test-result-*` 输出文件时必须停止。
+- Verification: 记录 Runner 注册/领取/执行期心跳/空闲心跳/回写命令、页面执行入口、租户/用户标签、检查点结果、失败截图 artifact、最终 UI 状态和必要的只读 API 核验；空闲场景至少等待一个 heartbeat 周期后复查 heartbeat age 仍小于超时阈值；Windows Runner 必须证明 timeout/cancel 后不存在本任务 `codex-test-result-*` 子进程，执行项不遗留 `CLAIMED/RUNNING`。
+- Forbidden action: 禁止把 API-only、静态合同测试、mock 截图、默认成功、Runner 离线跳过、前端硬拦截 `没有在线 Codex Runner`、裸调用 `codex` CLI、只杀 `cmd.exe` 而不处理 `node/codex.exe` 后代进程、或顺序执行降级当作真实 E2E 通过。
+- Evidence: `doc/tasks/20260724-codex-test-management-delivery/verification-report.md`，2026-07-24 Codex 测试管理交付；`doc/tasks/20260725-codex-runner-void-test/verification-report.md`，2026-07-26 Runner 心跳、Windows 子进程树、取消处理修复；`doc/tasks/20260726-codex-runner-on-demand-wrapper/verification-report.md`，2026-07-26 按需 Runner 包装层。
 
 ### Codex Runner 目标测试项存在性门禁
 

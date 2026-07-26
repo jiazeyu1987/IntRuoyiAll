@@ -151,13 +151,28 @@ assert.match(api, /interface CodexTestRunnerStatusVO[\s\S]*online:\s*boolean/, '
 assert.match(api, /heartbeatAgeSeconds\??:\s*number/, 'Runner 状态接口必须暴露心跳年龄。')
 assert.match(api, /getCodexTestRunnerStatus/, '前端 API 必须封装 Runner 状态接口。')
 assert.match(page, /Runner 状态/, '测试管理页必须展示 Runner 状态。')
-assert.match(page, /最后心跳/, '测试管理页必须展示 Runner 最后心跳。')
-assert.match(page, /runnerStatusMessage/, '页面必须把 Runner 离线原因展示为可操作信息。')
+assert.match(page, /按需启动/, '测试管理页必须展示 Runner 按需启动口径。')
+assert.match(page, /runnerStatusMessage/, '页面必须把 Runner 可用性和启动方式展示为可操作信息。')
 assert.match(page, /refreshRunnerStatus/, '页面必须有刷新 Runner 状态的方法。')
 assert.match(
   page,
-  /await refreshRunnerStatus\(\)[\s\S]*startCodexTestExecution/,
-  '执行测试项前必须刷新 Runner 状态，避免 stale UI 误导用户。'
+  /startCodexTestExecution[\s\S]*Runner 将按需启动并领取任务[\s\S]*activeTab\.value = 'monitor'[\s\S]*getMonitorList\(\)[\s\S]*startMonitorRefresh\(\)/,
+  '执行测试项必须直接进入后端按需启动链路，并切到运行监控。'
+)
+assert.match(
+  page,
+  /const runnerStatusMessage = computed\(\(\) => \{[\s\S]*无需常驻在线；点击执行时会自动拉起本机受控 Runner[\s\S]*\}\)/,
+  'Runner 状态主文案必须避免常驻在线依赖。'
+)
+assert.doesNotMatch(
+  page,
+  /blockExecutionWhenRunnerStatusUnavailable/,
+  '前端不得再因为 Runner 状态接口离线而阻断执行，后端按需启动器是权威。'
+)
+assert.doesNotMatch(
+  page,
+  /没有在线 Codex Runner|最后心跳|正在检查本机 Runner 心跳/,
+  '测试管理主界面不得继续暴露常驻 Runner 或心跳口径。'
 )
 assert.match(page, /@click="openEdit\(row\)"/, '修改测试项必须把当前行传入编辑回显流程。')
 assert.match(

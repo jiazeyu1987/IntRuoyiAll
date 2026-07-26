@@ -18,6 +18,8 @@ class MesProBatchRecordCellLinkSchemaTest {
 
     private static final String RUNTIME_SCHEMA_FILE =
             "sql/mysql/20260711_mes_batch_record_cell_link_rule.sql";
+    private static final String WORK_ORDER_SOURCE_SCHEMA_FILE =
+            "sql/mysql/20260726_mes_batch_record_cell_link_work_order_source.sql";
     private static final String TEST_SCHEMA_FILE =
             "yudao-module-mes/src/test/resources/sql/create_tables.sql";
 
@@ -25,8 +27,8 @@ class MesProBatchRecordCellLinkSchemaTest {
     void dataObjectDeclaresCrossFormCellLinkContract() {
         assertHasFields(MesProBatchRecordCellLinkRuleDO.class,
                 "scopeType", "scopeId", "routeId", "batchRecordDefinitionId", "batchRecordVersionId",
-                "sourceReportId", "sourceReportName", "sourceRowIndex", "sourceColumnIndex", "sourceCellKey",
-                "sourceLabel", "sourceValueType", "targetReportId", "targetReportName", "targetRowIndex",
+                "sourceType", "sourceReportId", "sourceReportName", "sourceRowIndex", "sourceColumnIndex", "sourceCellKey",
+                "sourceFieldCode", "sourceFieldName", "sourceLabel", "sourceValueType", "targetReportId", "targetReportName", "targetRowIndex",
                 "targetColumnIndex", "targetCellKey", "targetLabel", "targetValueType",
                 "overwritePolicy", "templateSnapshotHash", "ruleVersion", "enabled", "remark");
     }
@@ -34,7 +36,9 @@ class MesProBatchRecordCellLinkSchemaTest {
     @Test
     void runtimeAndTestSchemasDeclareCrossFormCellLinkContract() throws Exception {
         Path projectDir = findProjectDir();
-        String runtimeSchema = Files.readString(projectDir.resolve(RUNTIME_SCHEMA_FILE), StandardCharsets.UTF_8);
+        String runtimeSchema = Files.readString(projectDir.resolve(RUNTIME_SCHEMA_FILE), StandardCharsets.UTF_8)
+                + "\n"
+                + Files.readString(projectDir.resolve(WORK_ORDER_SOURCE_SCHEMA_FILE), StandardCharsets.UTF_8);
         String testSchema = Files.readString(projectDir.resolve(TEST_SCHEMA_FILE), StandardCharsets.UTF_8);
 
         assertSchemaIsNonDestructive(runtimeSchema);
@@ -84,8 +88,8 @@ class MesProBatchRecordCellLinkSchemaTest {
         assertTrue(schemaContainsToken(schema, "mes_pro_batch_record_cell_link_rule"));
         for (String column : List.of(
                 "scope_type", "scope_id", "route_id", "batch_record_definition_id", "batch_record_version_id",
-                "source_report_id", "source_report_name", "source_row_index", "source_column_index",
-                "source_cell_key", "source_label", "source_value_type", "target_report_id",
+                "source_type", "source_report_id", "source_report_name", "source_row_index", "source_column_index",
+                "source_cell_key", "source_field_code", "source_field_name", "source_label", "source_value_type", "target_report_id",
                 "target_report_name", "target_row_index", "target_column_index", "target_cell_key",
                 "target_label", "target_value_type", "overwrite_policy", "template_snapshot_hash",
                 "rule_version", "enabled", "tenant_id", "active_pair_unique_flag",

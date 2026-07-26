@@ -51,6 +51,8 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
 
     @MockitoBean
     private TenantService tenantService;
+    @MockitoBean
+    private CodexTestRunnerBootstrapService codexTestRunnerBootstrapService;
 
     @BeforeEach
     void setUpRunnerToken() {

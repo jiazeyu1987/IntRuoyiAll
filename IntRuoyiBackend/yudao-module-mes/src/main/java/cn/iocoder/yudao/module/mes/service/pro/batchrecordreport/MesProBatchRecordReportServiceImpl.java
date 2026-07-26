@@ -1271,11 +1271,17 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                                 Comparator.nullsLast(Comparator.reverseOrder()))
                         .thenComparing(MesProBatchRecordReportView::sourceTableIndex))
                 .toList();
-        List<MesProBatchRecordReportView> allReports = expandReportsByVersionProducts(baseReports)
+        List<MesProBatchRecordReportView> latestScopedReports = Boolean.TRUE.equals(pageReqVO.getLatestVersionOnly())
+                ? filterLatestBatchRecordVersions(baseReports)
+                : baseReports;
+        List<MesProBatchRecordReportView> allReports = expandReportsByVersionProducts(latestScopedReports)
                 .stream()
                 .filter(report -> filterByProductName(report, pageReqVO.getProductName()))
                 .filter(report -> filterByVersionNo(report, pageReqVO.getVersionNo()))
                 .toList();
+        if (Boolean.TRUE.equals(pageReqVO.getLatestVersionOnly())) {
+            allReports = filterLatestVisibleBatchRecordVersions(allReports);
+        }
         int fromIndex = Math.max((pageReqVO.getPageNo() - 1) * pageReqVO.getPageSize(), 0);
         int toIndex = Math.min(fromIndex + pageReqVO.getPageSize(), allReports.size());
         List<MesProBatchRecordReportView> pageList = fromIndex >= allReports.size()
@@ -2339,6 +2345,81 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                     .forEach(productName -> expandedReports.add(copyReportWithVersionProduct(report, version, productName)));
         }
         return expandedReports;
+    }
+
+    private List<MesProBatchRecordReportView> filterLatestBatchRecordVersions(List<MesProBatchRecordReportView> reports) {
+        if (reports.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> definitionIds = reports.stream()
+                .map(MesProBatchRecordReportView::batchRecordDefinitionId)
+                .filter(Objects::nonNull)
+                .collect(LinkedHashSet::new, Set::add, Set::addAll);
+        if (definitionIds.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, Long> latestVersionIdByDefinitionId = new LinkedHashMap<>();
+        for (Long definitionId : definitionIds) {
+            MesProBatchRecordVersionDO latestVersion =
+                    latestBatchRecordVersion(versionMapper.selectListByDefinitionId(definitionId));
+            if (latestVersion != null && latestVersion.getId() != null) {
+                latestVersionIdByDefinitionId.put(definitionId, latestVersion.getId());
+            }
+        }
+        return reports.stream()
+                .filter(report -> {
+                    Long latestVersionId = latestVersionIdByDefinitionId.get(report.batchRecordDefinitionId());
+                    return latestVersionId != null && Objects.equals(report.batchRecordVersionId(), latestVersionId);
+                })
+                .toList();
+    }
+
+    private List<MesProBatchRecordReportView> filterLatestVisibleBatchRecordVersions(
+            List<MesProBatchRecordReportView> reports) {
+        if (reports.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> versionIds = reports.stream()
+                .map(MesProBatchRecordReportView::batchRecordVersionId)
+                .filter(Objects::nonNull)
+                .collect(LinkedHashSet::new, Set::add, Set::addAll);
+        if (versionIds.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, MesProBatchRecordVersionDO> versionById = versionMapper.selectBatchIds(versionIds)
+                .stream()
+                .collect(LinkedHashMap::new, (map, version) -> map.put(version.getId(), version), Map::putAll);
+        Map<String, MesProBatchRecordVersionDO> latestVersionByVisibleGroup = new LinkedHashMap<>();
+        for (MesProBatchRecordReportView report : reports) {
+            MesProBatchRecordVersionDO version = versionById.get(report.batchRecordVersionId());
+            if (version == null) {
+                continue;
+            }
+            String visibleGroupKey = latestVisibleBatchRecordGroupKey(report);
+            MesProBatchRecordVersionDO currentLatest = latestVersionByVisibleGroup.get(visibleGroupKey);
+            if (currentLatest == null || compareBatchRecordVersion(currentLatest, version) < 0) {
+                latestVersionByVisibleGroup.put(visibleGroupKey, version);
+            }
+        }
+        return reports.stream()
+                .filter(report -> {
+                    MesProBatchRecordVersionDO latestVersion =
+                            latestVersionByVisibleGroup.get(latestVisibleBatchRecordGroupKey(report));
+                    return latestVersion != null && Objects.equals(report.batchRecordVersionId(), latestVersion.getId());
+                })
+                .toList();
+    }
+
+    private String latestVisibleBatchRecordGroupKey(MesProBatchRecordReportView report) {
+        return normalizeLatestVisibleGroupPart(StrUtil.blankToDefault(report.productName(), report.batchRecordName()))
+                + "|"
+                + normalizeLatestVisibleGroupPart(report.batchRecordName())
+                + "|"
+                + normalizeLatestVisibleGroupPart(report.formSlotType());
+    }
+
+    private String normalizeLatestVisibleGroupPart(String value) {
+        return StrUtil.trimToEmpty(value).toLowerCase(Locale.ROOT);
     }
 
     private MesProBatchRecordReportView copyReportWithVersionProduct(MesProBatchRecordReportView report,

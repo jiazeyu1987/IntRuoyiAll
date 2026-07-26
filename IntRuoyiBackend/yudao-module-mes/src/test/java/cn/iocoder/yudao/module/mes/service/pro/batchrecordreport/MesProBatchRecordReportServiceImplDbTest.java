@@ -3806,6 +3806,108 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     }
 
     @Test
+    void getGeneratedReportPage_latestVersionOnlyKeepsNewestVersionPerDefinition() {
+        MesProBatchRecordDefinitionDO definition = insertVersionedDefinition("最新版本过滤批记录");
+        MesProBatchRecordVersionDO oldVersion = insertVersion(definition.getId(), "V1.0", "APPROVED",
+                null, PILOT_FILE_NAME, "hash-latest-filter-v1", null, null);
+        MesProBatchRecordVersionDO latestVersion = insertVersion(definition.getId(), "V2.0", "PENDING_APPROVAL",
+                oldVersion.getId(), PILOT_FILE_NAME, "hash-latest-filter-v2", null, null);
+        definition.setCurrentVersionId(oldVersion.getId());
+        definitionMapper.updateById(definition);
+        MesProBatchRecordReportDO oldReport = TestBatchRecordFixtures.metadataReport(
+                13L, "latest-filter-v1", 1, "latest-filter-v1-report", "EBR_LATEST_V1", "旧版本表单",
+                PILOT_FILE_NAME);
+        oldReport.setBatchRecordName("最新版本过滤批记录");
+        oldReport.setBatchRecordDefinitionId(definition.getId());
+        oldReport.setBatchRecordVersionId(oldVersion.getId());
+        oldReport.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
+        MesProBatchRecordReportDO latestReport = TestBatchRecordFixtures.metadataReport(
+                14L, "latest-filter-v2", 1, "latest-filter-v2-report", "EBR_LATEST_V2", "最新版本表单",
+                PILOT_FILE_NAME);
+        latestReport.setBatchRecordName("最新版本过滤批记录");
+        latestReport.setBatchRecordDefinitionId(definition.getId());
+        latestReport.setBatchRecordVersionId(latestVersion.getId());
+        latestReport.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
+        reportMapper.insert(oldReport);
+        reportMapper.insert(latestReport);
+        when(jimuReportGateway.getReportInfo("latest-filter-v1-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "latest-filter-v1-report", "EBR_LATEST_V1", "旧版本表单", LocalDateTime.now()));
+        when(jimuReportGateway.getReportInfo("latest-filter-v2-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "latest-filter-v2-report", "EBR_LATEST_V2", "最新版本表单", LocalDateTime.now()));
+
+        BatchRecordReportPageReqVO pageReqVO = new BatchRecordReportPageReqVO();
+        pageReqVO.setPageNo(1);
+        pageReqVO.setPageSize(20);
+        pageReqVO.setLatestVersionOnly(true);
+
+        PageResult<MesProBatchRecordReportView> pageResult = reportService.getGeneratedReportPage(pageReqVO);
+
+        assertEquals(1L, pageResult.getTotal());
+        MesProBatchRecordReportView row = pageResult.getList().get(0);
+        assertEquals("latest-filter-v2-report", row.reportId());
+        assertEquals(latestVersion.getId(), row.batchRecordVersionId());
+        assertEquals("V2.0", row.versionNo());
+        assertEquals("PENDING_APPROVAL", row.versionStatus());
+    }
+
+    @Test
+    void getGeneratedReportPage_latestVersionOnlyExcludesOlderDuplicateDefinitionRows() {
+        String productName = "球囊扩张压力泵";
+        MesProBatchRecordDefinitionDO obsoleteDefinition = insertDefinition(productName,
+                MesProBatchRecordRecognitionRouteKeys.A);
+        MesProBatchRecordVersionDO obsoleteVersion = insertVersion(obsoleteDefinition.getId(), "V13.0", "OBSOLETE",
+                null, PILOT_FILE_NAME, "hash-latest-filter-v13", null, null);
+        obsoleteDefinition.setCurrentVersionId(obsoleteVersion.getId());
+        definitionMapper.updateById(obsoleteDefinition);
+        MesProBatchRecordDefinitionDO latestDefinition = insertDefinition(productName,
+                MesProBatchRecordRecognitionRouteKeys.B);
+        MesProBatchRecordVersionDO latestVersion = insertVersion(latestDefinition.getId(), "V14.0", "APPROVED",
+                null, PILOT_FILE_NAME, "hash-latest-filter-v14", null, null);
+        latestDefinition.setCurrentVersionId(latestVersion.getId());
+        definitionMapper.updateById(latestDefinition);
+        MesProBatchRecordReportDO obsoleteReport = TestBatchRecordFixtures.metadataReport(
+                15L, "latest-duplicate-v13", 1, "latest-duplicate-v13-report", "EBR_LATEST_V13", "旧定义旧版本表单",
+                PILOT_FILE_NAME);
+        obsoleteReport.setBatchRecordName(productName);
+        obsoleteReport.setProductName(productName);
+        obsoleteReport.setBatchRecordDefinitionId(obsoleteDefinition.getId());
+        obsoleteReport.setBatchRecordVersionId(obsoleteVersion.getId());
+        obsoleteReport.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
+        MesProBatchRecordReportDO latestReport = TestBatchRecordFixtures.metadataReport(
+                16L, "latest-duplicate-v14", 1, "latest-duplicate-v14-report", "EBR_LATEST_V14", "新定义最新版本表单",
+                PILOT_FILE_NAME);
+        latestReport.setBatchRecordName(productName);
+        latestReport.setProductName(productName);
+        latestReport.setBatchRecordDefinitionId(latestDefinition.getId());
+        latestReport.setBatchRecordVersionId(latestVersion.getId());
+        latestReport.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
+        reportMapper.insert(obsoleteReport);
+        reportMapper.insert(latestReport);
+        when(jimuReportGateway.getReportInfo("latest-duplicate-v13-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "latest-duplicate-v13-report", "EBR_LATEST_V13", "旧定义旧版本表单", LocalDateTime.now()));
+        when(jimuReportGateway.getReportInfo("latest-duplicate-v14-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "latest-duplicate-v14-report", "EBR_LATEST_V14", "新定义最新版本表单", LocalDateTime.now()));
+
+        BatchRecordReportPageReqVO pageReqVO = new BatchRecordReportPageReqVO();
+        pageReqVO.setPageNo(1);
+        pageReqVO.setPageSize(20);
+        pageReqVO.setProductName(productName);
+        pageReqVO.setLatestVersionOnly(true);
+
+        PageResult<MesProBatchRecordReportView> pageResult = reportService.getGeneratedReportPage(pageReqVO);
+
+        assertEquals(1L, pageResult.getTotal());
+        MesProBatchRecordReportView row = pageResult.getList().get(0);
+        assertEquals("latest-duplicate-v14-report", row.reportId());
+        assertEquals("V14.0", row.versionNo());
+        assertEquals("APPROVED", row.versionStatus());
+    }
+
+    @Test
     void getGeneratedReportPage_expandsVersionRouteProductsIntoRowsAndKeepsBlankWhenUnbound() {
         MesProBatchRecordDefinitionDO definition = insertVersionedDefinition("拆行批记录");
         Long firstItemId = seedProductItem("产品A", "PRD-A");

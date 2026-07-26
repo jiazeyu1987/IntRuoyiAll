@@ -173,10 +173,6 @@ type RouteFormInitialTab =
   | 'flow'
   | 'product'
 
-type RouteFormSubmitOptions = {
-  promptRouteVersionSubmit?: boolean
-}
-
 const activeTab = ref<RouteFormInitialTab>('basic')
 const formData = ref<ProRouteVO>({
   id: undefined,
@@ -247,7 +243,7 @@ const assertRouteCandidateVersionWritable = () => {
   }
 }
 
-const submitForm = async (options: RouteFormSubmitOptions = {}) => {
+const submitForm = async () => {
   assertRouteCandidateVersionWritable()
   await formRef.value.validate()
   const shouldSaveFlowGraph = shouldSaveFlowGraphOnSubmit()
@@ -265,9 +261,7 @@ const submitForm = async (options: RouteFormSubmitOptions = {}) => {
     }
     await saveFlowGraphAfterRouteSave(shouldSaveFlowGraph)
     message.success(successMessage)
-    emit('success', {
-      promptRouteVersionSubmit: options.promptRouteVersionSubmit !== false
-    })
+    emit('success')
   } catch (error) {
     if (formType.value === 'create' && isDuplicateRouteNameError(error)) {
       if (await confirmDuplicateRouteVersionUpgrade(formData.value.name)) {
@@ -355,7 +349,7 @@ const confirmFlowGraphDraftSaveBeforeExit = async () => {
       distinguishCancelAndClose: true,
       type: 'warning'
     })
-    await submitForm({ promptRouteVersionSubmit: false })
+    await submitForm()
     return true
   } catch (error) {
     if (error === 'cancel') {

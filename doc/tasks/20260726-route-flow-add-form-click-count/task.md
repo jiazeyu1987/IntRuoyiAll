@@ -7,9 +7,9 @@
 ## Milestones
 
 - [x] 建立任务记录并复查现有新增表单计数链路。
-- [ ] 写入聚焦回归合同，复现新增空行仍被数量 helper 排除的问题。
-- [ ] 修改节点数量 helper，使非 `MAIN` 动态槽位行立即计数。
-- [ ] 运行目标静态合同、相邻边框回归和类型检查。
+- [x] 写入聚焦回归合同，复现新增空行仍被数量 helper 排除的问题。
+- [x] 修改节点数量 helper，使非 `MAIN` 动态槽位行立即计数。
+- [x] 运行目标静态合同、相邻边框回归和类型检查。
 - [ ] 完成任务证据与收尾验证。
 
 ## Expected Verification
@@ -20,7 +20,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 经验门禁
 
@@ -35,3 +35,14 @@ in_progress
 - `是否从根因和长期维护角度解决`：是；修正节点数量 helper 的计数口径，使其与右侧动态槽位行一致。
 - `是否存在临时补丁或绕过`：否。
 
+## Final Verification Result
+
+- PASS：目标静态合同、边框回归、布局回归、`pnpm ts:check`、bug evidence 校验、经验门禁更新、cleanup preview/apply 均通过。
+- BLOCKED：当前 `int_main` 已有 20 个非本任务 ahead 提交，直接 `git push origin int_main` 会同时发布并行任务提交；本任务未执行推送。
+
+## Cleanup Keep
+
+- doc/tasks/20260726-route-flow-add-form-click-count/task.md
+- doc/tasks/20260726-route-flow-add-form-click-count/execution-log.md
+- doc/tasks/20260726-route-flow-add-form-click-count/bug-regression-evidence.md
+- doc/tasks/20260726-route-flow-add-form-click-count/verification-report.md

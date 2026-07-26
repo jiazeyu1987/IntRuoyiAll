@@ -110,6 +110,7 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - Before creating, starting, stopping, restarting, merging, or cleaning any IntRuoyi worktree, read `docs\worktree-restrictions.md` and follow it as the authoritative worktree restriction file.
 - Before committing, merging, or pushing branch runtime files, run `scripts\preflight\branch-runtime-port-guard.ps1`; the guard must protect `docs\branch-runtime-ports.md`, branch env files, startup scripts, and `.githooks`, including `post-merge` for fast-forward merge visibility and `pre-push` for final blocking.
 - All IntRuoyi task worktrees must be created under `D:\IntRuoyiWorktree\` only.
+- `D:\IntRuoyiWorktree\` 下的 worktree 不能占用 `48081`；`48081` 只保留给 `E:\IntRuoyi` 的 `int_main` 后端基准运行态。发现该端口被 `D:\IntRuoyiWorktree\` 下的 worktree 占用时必须 fail fast，不得强杀、不得随机换端口、不得冒充 `int_main` 成功启动。
 - Before creating a worktree, resolve the absolute target path and verify it is a child path of `D:\IntRuoyiWorktree\`. If it is outside that root, fail fast and do not create the worktree.
 - Do not create IntRuoyi worktrees under `E:\IntRuoyi`, `IntRuoyiBackend`, `IntRuoyiFronted`, `%TEMP%`, the user profile, or any prior-project directory.
 - If `D:\IntRuoyiWorktree\` is missing or not writable, stop and report the missing precondition and impact instead of choosing another directory.

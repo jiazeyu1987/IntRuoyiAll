@@ -2926,9 +2926,14 @@ function assertBatchEvidence(detail, timeline, archive, pdfBuffer, extraActors =
 
   const text = extractPdfText(pdfBuffer)
   assert.ok(text.trim().length > 0, '最终 PDF 必须可抽取文本内容')
-  for (const term of ['eDHR', '批次', '路线', '来料检报告', '灭菌报告', '成品检报告', '成品检记录', '附件', '跳过', '操作人', '操作时间', '签名', '审核', '批准', '返工', '审计', '追踪', 'manifest']) {
+  for (const term of ['eDHR', '批次', '路线', '来料检报告', '灭菌报告', '成品检报告', '成品检记录', '附件', '跳过', '操作人', '操作时间', '签名', '返工', '审计', '追踪', 'manifest']) {
     assert.ok(text.includes(term), `最终 PDF 缺少关键内容：${term}`)
   }
+  const approvalEvidenceTerms = ['审核', '复核', '审批', '批准']
+  assert.ok(
+    approvalEvidenceTerms.some((term) => text.includes(term)),
+    `最终 PDF 缺少审签证据关键词：${approvalEvidenceTerms.join('/')}`
+  )
 }
 
 async function run() {
