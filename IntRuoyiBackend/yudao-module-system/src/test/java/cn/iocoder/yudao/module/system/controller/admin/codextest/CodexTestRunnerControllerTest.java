@@ -5,6 +5,7 @@ import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerStatusRespVO;
 import cn.iocoder.yudao.module.system.service.codextest.CodexTestArtifactService;
 import cn.iocoder.yudao.module.system.service.codextest.CodexTestRunnerService;
 import org.junit.jupiter.api.AfterEach;
@@ -65,6 +66,21 @@ class CodexTestRunnerControllerTest {
                 () -> controller.registerRunner(reqVO, RUNNER_TOKEN, null));
 
         assertEquals(CODEX_TEST_RESULT_SCHEMA_INVALID.getCode(), ex.getCode());
+    }
+
+    @Test
+    void getRunnerStatus_returnsDiagnosticStatus() {
+        CodexTestRunnerStatusRespVO respVO = new CodexTestRunnerStatusRespVO();
+        respVO.setOnline(false);
+        respVO.setStatus("STALE");
+        respVO.setMessage("Runner 心跳已过期");
+        when(codexTestRunnerService.getRunnerStatus()).thenReturn(respVO);
+
+        CommonResult<CodexTestRunnerStatusRespVO> result = controller.getRunnerStatus();
+
+        assertEquals(0, result.getCode());
+        assertEquals("STALE", result.getData().getStatus());
+        assertEquals("Runner 心跳已过期", result.getData().getMessage());
     }
 
 }

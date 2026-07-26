@@ -7,6 +7,8 @@ import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExe
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionStartReqVO;
 import jakarta.validation.Valid;
 
+import java.util.List;
+
 public interface CodexTestExecutionService {
 
     Long startExecution(@Valid CodexTestExecutionStartReqVO startReqVO, Long requestedBy);
@@ -16,6 +18,8 @@ public interface CodexTestExecutionService {
     PageResult<CodexTestExecutionRespVO> getExecutionPage(CodexTestExecutionPageReqVO pageReqVO);
 
     CodexTestExecutionRespVO getExecution(Long id);
+
+    List<CodexTestExecutionRespVO> getExecutionMonitor();
 
     void rollupExecution(Long executionId);
 

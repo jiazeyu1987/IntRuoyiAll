@@ -84,6 +84,7 @@ class CodexTestCaseServiceImplTest extends BaseDbUnitTest {
     static CodexTestCaseSaveReqVO buildCaseReq(String name, boolean parallelSafe) {
         CodexTestCaseSaveReqVO reqVO = new CodexTestCaseSaveReqVO();
         reqVO.setName(name);
+        reqVO.setProject("智能排产");
         reqVO.setMethodText("在排产工单页签选择用户手写工单号后点击手动重排");
         reqVO.setTestDataText("来源生产工单号=881MO093613,881MO093615");
         reqVO.setDefaultExecutionMode("SEQUENTIAL");

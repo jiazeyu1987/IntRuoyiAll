@@ -28,6 +28,7 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_CASE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_EXECUTION_RUNNING;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RESULT_SCHEMA_INVALID;
+import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.CASE_PROJECTS;
 import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.CASE_STATUSES;
 import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.EXECUTION_MODES;
 
@@ -114,6 +115,9 @@ public class CodexTestCaseServiceImpl implements CodexTestCaseService {
         }
         if (StrUtil.isBlank(reqVO.getMethodText())) {
             throw exception(CODEX_TEST_CASE_EMPTY_METHOD);
+        }
+        if (StrUtil.isBlank(reqVO.getProject()) || !CASE_PROJECTS.contains(reqVO.getProject())) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "测试项项目必须是 智能排产、文控 或 批记录");
         }
         if (CollUtil.isEmpty(reqVO.getCheckpoints())) {
             throw exception(CODEX_TEST_CASE_EMPTY_CHECKPOINT);

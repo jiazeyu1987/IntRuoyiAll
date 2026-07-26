@@ -17,6 +17,7 @@ public interface CodexTestCaseMapper extends BaseMapperX<CodexTestCaseDO> {
     default PageResult<CodexTestCaseDO> selectPage(CodexTestCasePageReqVO reqVO) {
         return selectPage(reqVO, new LambdaQueryWrapperX<CodexTestCaseDO>()
                 .likeIfPresent(CodexTestCaseDO::getName, reqVO.getName())
+                .eqIfPresent(CodexTestCaseDO::getProject, reqVO.getProject())
                 .eqIfPresent(CodexTestCaseDO::getStatus, reqVO.getStatus())
                 .eqIfPresent(CodexTestCaseDO::getDefaultExecutionMode, reqVO.getExecutionMode())
                 .orderByAsc(CodexTestCaseDO::getSort)

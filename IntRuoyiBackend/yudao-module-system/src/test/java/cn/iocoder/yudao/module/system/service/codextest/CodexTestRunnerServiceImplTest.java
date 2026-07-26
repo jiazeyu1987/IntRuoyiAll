@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.system.service.codextest;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCaseSaveReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionStartReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerCheckpointResultReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerClaimReqVO;
@@ -8,6 +9,7 @@ import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRun
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerCompleteCaseReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerStatusRespVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionCaseDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestRunnerSessionDO;
@@ -22,6 +24,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
@@ -57,7 +60,7 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
     @Test
     void runnerClaimAndCheckpointResult_keepsFailureEvidenceAndRollsUpBatchFailure() {
         Long runnerSessionId = registerRunner();
-        Long caseId = codexTestCaseService.createCase(CodexTestCaseServiceImplTest.buildCaseReq("排产手动重排", true));
+        Long caseId = codexTestCaseService.createCase(validScheduleCaseReq("排产手动重排", true));
         Long executionId = codexTestExecutionService.startExecution(startReq(caseId), 99L);
 
         CodexTestRunnerClaimRespVO claimRespVO = codexTestRunnerService.claimTasks(claimReq(runnerSessionId), RUNNER_TOKEN);
@@ -98,6 +101,28 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
         assertEquals("codex-runner", runnerSession.getUpdater());
     }
 
+    @Test
+    void getRunnerStatus_reportsStaleRunnerWithDiagnosticMessage() {
+        ReflectionTestUtils.setField(codexTestRunnerService, "runnerHeartbeatTimeoutSeconds", 60);
+        CodexTestRunnerSessionDO runnerSession = new CodexTestRunnerSessionDO();
+        runnerSession.setRunnerName("local-runner-stale");
+        runnerSession.setStatus("ONLINE");
+        runnerSession.setCapabilitiesJson("{\"playwright\":true,\"codex\":true}");
+        runnerSession.setMaxParallelism(1);
+        runnerSession.setLastHeartbeatTime(LocalDateTime.now().minusSeconds(120));
+        runnerSession.setCurrentRunningCount(0);
+        codexTestRunnerSessionMapper.insert(runnerSession);
+
+        CodexTestRunnerStatusRespVO status = codexTestRunnerService.getRunnerStatus();
+
+        assertFalse(status.getOnline());
+        assertEquals(0, status.getOnlineCount());
+        assertEquals(1, status.getStaleRunnerCount());
+        assertEquals(runnerSession.getId(), status.getLatestRunnerSessionId());
+        assertTrue(status.getHeartbeatAgeSeconds() >= 60);
+        assertTrue(status.getMessage().contains("心跳已过期"));
+    }
+
     private Long registerRunner() {
         CodexTestRunnerRegisterReqVO registerReqVO = new CodexTestRunnerRegisterReqVO();
         registerReqVO.setRunnerName("local-runner");
@@ -105,6 +130,12 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
         registerReqVO.setMaxParallelism(2);
         CodexTestRunnerRegisterRespVO registerRespVO = codexTestRunnerService.registerRunner(registerReqVO, RUNNER_TOKEN);
         return registerRespVO.getRunnerSessionId();
+    }
+
+    private CodexTestCaseSaveReqVO validScheduleCaseReq(String name, boolean parallelSafe) {
+        CodexTestCaseSaveReqVO reqVO = CodexTestCaseServiceImplTest.buildCaseReq(name, parallelSafe);
+        reqVO.setProject("智能排产");
+        return reqVO;
     }
 
     private CodexTestExecutionStartReqVO startReq(Long caseId) {

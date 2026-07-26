@@ -128,8 +128,17 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
     @Override
     public CodexTestExecutionRespVO getExecution(Long id) {
         CodexTestExecutionDO execution = validateExecutionExists(id);
+        return buildExecutionResp(execution);
+    }
+
+    @Override
+    public List<CodexTestExecutionRespVO> getExecutionMonitor() {
+        return CollectionUtils.convertList(codexTestExecutionMapper.selectMonitorList(), this::buildExecutionResp);
+    }
+
+    private CodexTestExecutionRespVO buildExecutionResp(CodexTestExecutionDO execution) {
         CodexTestExecutionRespVO respVO = BeanUtils.toBean(execution, CodexTestExecutionRespVO.class);
-        List<CodexTestExecutionCaseDO> executionCases = codexTestExecutionCaseMapper.selectListByExecutionId(id);
+        List<CodexTestExecutionCaseDO> executionCases = codexTestExecutionCaseMapper.selectListByExecutionId(execution.getId());
         List<Long> executionCaseIds = CollectionUtils.convertList(executionCases, CodexTestExecutionCaseDO::getId);
         Map<Long, List<CodexTestCheckpointResultDO>> resultMap = CollectionUtils.convertMultiMap(
                 CollUtil.isEmpty(executionCaseIds) ? List.of() :
