@@ -62,6 +62,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.UNAUTHORIZED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_IDEMPOTENCY_KEY_REQUIRED;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_OWNER_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_PRECHECK_REQUIRED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_REASON_REQUIRED;
@@ -984,6 +985,20 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         }
     }
 
+    private record DossierRequirementEvidence(boolean pass,
+                                              Long sourceTaskId,
+                                              String sourceTaskCode,
+                                              String failureReason) {
+
+        private static DossierRequirementEvidence pass(Long sourceTaskId, String sourceTaskCode) {
+            return new DossierRequirementEvidence(true, sourceTaskId, sourceTaskCode, null);
+        }
+
+        private static DossierRequirementEvidence fail(Long sourceTaskId, String sourceTaskCode, String failureReason) {
+            return new DossierRequirementEvidence(false, sourceTaskId, sourceTaskCode, failureReason);
+        }
+    }
+
     private MesProEdhrReleaseCheckItemDO buildSourceNotIntegratedItem(Long releaseTransactionId,
                                                                       MesProEdhrBatchExecutionDO batch,
                                                                       LocalDateTime checkedAt,
@@ -1050,7 +1065,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private Map<String, Object> buildSnapshot(MesProEdhrBatchExecutionDO batch,
                                               List<MesProEdhrReleaseCheckItemDO> checkItems,
                                               String releaseStatus,
-                                              LocalDateTime checkedAt) {
+                                              LocalDateTime checkedAt,
+                                              String dossierRequirementConfigHash) {
         Map<String, Object> snapshot = new LinkedHashMap<>();
         snapshot.put("batchExecutionId", batch.getId());
         snapshot.put("batchExecutionCode", batch.getBatchExecutionCode());
@@ -1059,6 +1075,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
         snapshot.put("productCode", batch.getProductCode());
         snapshot.put("releaseStatus", releaseStatus);
         snapshot.put("checkedAt", checkedAt);
+        snapshot.put("dossierRequirementConfigHash", dossierRequirementConfigHash);
         snapshot.put("items", checkItems.stream()
                 .map(item -> Map.of(
                         "checkCode", item.getCheckCode(),
@@ -1068,6 +1085,19 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                         "sourceObjectCode", item.getSourceObjectCode()))
                 .toList());
         return snapshot;
+    }
+
+    private String extractDossierRequirementConfigHash(MesProEdhrReleaseTransactionDO transaction) {
+        String snapshotJson = transaction == null ? null : transaction.getPrecheckSnapshotJson();
+        if (StrUtil.isBlank(snapshotJson)) {
+            return null;
+        }
+        try {
+            JSONObject snapshot = JSON.parseObject(snapshotJson);
+            return snapshot == null ? null : snapshot.getString("dossierRequirementConfigHash");
+        } catch (RuntimeException ex) {
+            throw exception(PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE);
+        }
     }
 
     private String buildPrecheckIdempotencyKey(MesProEdhrReleaseTransactionDO transaction, LocalDateTime checkedAt) {
