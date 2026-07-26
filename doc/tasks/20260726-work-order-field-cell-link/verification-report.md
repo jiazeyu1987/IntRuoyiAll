@@ -24,7 +24,8 @@
 ## Notes
 
 - Frontend dependencies are present in the isolated worktree; `pnpm ts:check` was run after the E2E fix and passed.
-- Real browser E2E used the true frontend menu path `批记录表单 -> 链接` and stayed read-only: it switched the source type to `生产工单字段`, verified source fields including `生产工单编号` and `生产数量`, selected `生产数量`, selected a target cell, and confirmed `建立链接` became enabled without clicking save.
+- Real browser E2E used the true frontend menu path `批记录表单 -> 链接` and stayed read-only: it opened the left source selector, selected `生产工单`, verified source fields including `生产工单编号` and `生产数量`, selected `生产数量`, selected a target cell, and confirmed `建立链接` became enabled without clicking save.
+- User screenshot regression was verified: the source selector now directly contains `生产工单`; the separate source-type selector was removed from the visible toolbar.
 - The first real E2E pass exposed two required fixes: the local runtime database had not applied this task's official migration, and the production work order field source cells were visible but not selectable because render meta only matched coordinate-style `cellKey`. Both were corrected and re-verified.
 - Write/save E2E was intentionally not performed under `芋道源码/admin` because this path would modify baseline business rules; the read-only E2E asserts no MES non-GET requests were sent.
 - Task-owned local runtime processes for 8085/48085 were stopped after E2E and the ports were verified released.

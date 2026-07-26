@@ -8,41 +8,18 @@
         </div>
         <div class="batch-record-cell-link__controls">
           <el-select
-            v-model="sourceType"
-            class="batch-record-cell-link__select batch-record-cell-link__source-type-select"
-            @change="handleSourceTypeChange"
-          >
-            <el-option label="批记录表单" :value="SOURCE_TYPE_BATCH_RECORD_CELL" />
-            <el-option label="生产工单字段" :value="SOURCE_TYPE_PRODUCTION_WORK_ORDER" />
-          </el-select>
-          <el-select
-            v-if="sourceType === SOURCE_TYPE_BATCH_RECORD_CELL"
             v-model="sourceReportId"
             filterable
-            placeholder="选择源表单"
+            placeholder="选择来源"
             class="batch-record-cell-link__select batch-record-cell-link__source-select"
-            @change="handleSourceReportChange"
+            @change="handleSourceSelectionChange"
           >
+            <el-option label="生产工单" :value="PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID" />
             <el-option
               v-for="form in forms"
               :key="form.reportId"
               :label="form.reportName"
               :value="form.reportId"
-            />
-          </el-select>
-          <el-select
-            v-else
-            v-model="sourceFieldCode"
-            filterable
-            placeholder="选择生产工单字段"
-            class="batch-record-cell-link__select batch-record-cell-link__source-select"
-            @change="handleSourceFieldChange"
-          >
-            <el-option
-              v-for="field in productionWorkOrderSourceFields"
-              :key="field.fieldCode"
-              :label="field.fieldName"
-              :value="field.fieldCode"
             />
           </el-select>
           <el-select
@@ -323,10 +300,15 @@ const selectedSourceCell = ref<BatchRecordCellLinkCellVO>()
 const selectedTargetCell = ref<BatchRecordCellLinkCellVO>()
 const relationDetailDialogVisible = ref(false)
 
-const sourceForm = computed(() => forms.value.find((form) => form.reportId === sourceReportId.value))
+const isProductionWorkOrderSelected = computed(() => sourceReportId.value === PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID)
+const sourceForm = computed(() =>
+  isProductionWorkOrderSelected.value
+    ? undefined
+    : forms.value.find((form) => form.reportId === sourceReportId.value)
+)
 const targetForm = computed(() => forms.value.find((form) => form.reportId === targetReportId.value))
 const targetForms = computed(() => {
-  if (sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER) {
+  if (isProductionWorkOrderSelected.value) {
     return forms.value
   }
   const candidates = forms.value.filter((form) => form.reportId !== sourceReportId.value)
@@ -427,9 +409,12 @@ async function loadWorkbenchContext() {
   }
 }
 
-const handleSourceTypeChange = async () => {
+const handleSourceSelectionChange = async () => {
   selectedSourceCell.value = undefined
   selectedTargetCell.value = undefined
+  sourceType.value = isProductionWorkOrderSelected.value
+    ? SOURCE_TYPE_PRODUCTION_WORK_ORDER
+    : SOURCE_TYPE_BATCH_RECORD_CELL
   if (sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER && !sourceFieldCode.value) {
     sourceFieldCode.value = productionWorkOrderSourceFields.value[0]?.fieldCode || ''
   }
@@ -437,19 +422,6 @@ const handleSourceTypeChange = async () => {
     targetReportId.value = targetForms.value[0]?.reportId || ''
   }
   await Promise.all([loadSourceCells(), loadTargetCells()])
-}
-
-const handleSourceReportChange = async () => {
-  selectedSourceCell.value = undefined
-  selectedTargetCell.value = undefined
-  if (!targetForms.value.some((form) => form.reportId === targetReportId.value)) {
-    targetReportId.value = targetForms.value[0]?.reportId || ''
-  }
-  await Promise.all([loadSourceCells(), loadTargetCells()])
-}
-
-const handleSourceFieldChange = () => {
-  selectedSourceCell.value = sourceCells.value?.cells.find((cell) => cell.sourceFieldCode === sourceFieldCode.value)
 }
 
 const handleTargetReportChange = async () => {
@@ -830,10 +802,6 @@ function resolveErrorMessage(error: unknown, fallback: string) {
 .batch-record-cell-link__select {
   min-width: 0;
   width: 260px;
-}
-
-.batch-record-cell-link__source-type-select {
-  width: 180px;
 }
 
 .batch-record-cell-link__target-select {

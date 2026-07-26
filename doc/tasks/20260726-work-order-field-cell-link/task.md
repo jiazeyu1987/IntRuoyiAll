@@ -11,11 +11,12 @@
 - [x] 实现前端源字段选择、后端保存契约和批次执行回填逻辑。
 - [x] 运行目标前后端验证，并记录 GREEN/REGRESSION 证据。
 - [x] 补充真实前端只读 E2E，验证生产工单字段来源可选。
+- [x] 按用户截图反馈修正源选择框，使“生产工单”直接出现在源下拉选项中。
 - [ ] 收尾清理、经验沉淀、提交并推送当前分支。
 
 ## Expected Verification
 
-- 前端静态/契约测试覆盖左侧生产工单字段来源可选、选中后保存 payload 包含来源类型与字段编码。
+- 前端静态/契约测试覆盖左侧源选择框直接包含“生产工单”、生产工单字段来源可选、选中后保存 payload 包含来源类型与字段编码。
 - 后端单元/服务测试覆盖保存生产工单字段链接、运行态批次执行从工单取值并写入目标单元格。
 - 真实页面只读 E2E 验证左侧可切换并选择生产工单字段、右侧可选目标单元格、建立链接按钮可用且未发送 MES 写请求；若运行态前置服务缺失，按 fail-fast 记录 blocker。
 
@@ -26,7 +27,7 @@ ready_for_closeout
 ## Closeout Blocker
 
 - `task-closeout-cleanup --mode preview` 已运行，但主 worktree `E:\IntRuoyi` 存在并行脏改动，脚本阻止 ff-only merge 和 worktree removal；当前分支实现与验证已提交，等待主 worktree 清理后再执行 apply closeout。
-- 2026-07-26 追加真实 E2E 后分支存在新增修复与证据，需重新提交并推送；主 worktree 脏改动仍阻止 closeout apply / ff-only merge / worktree removal。
+- 2026-07-26 按用户截图反馈追加源选择框合并修复与真实 E2E 证据，需重新提交并推送；主 worktree 脏改动仍阻止 closeout apply / ff-only merge / worktree removal。
 
 ## 设计约束检查
 

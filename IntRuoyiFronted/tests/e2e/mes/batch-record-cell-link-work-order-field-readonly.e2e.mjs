@@ -65,7 +65,7 @@ async function getPageProbe(page) {
   return page.evaluate(() => ({
     url: window.location.href,
     body: (document.body.innerText || '').slice(0, 2000),
-    sourceTypeSelectCount: document.querySelectorAll('.batch-record-cell-link__source-type-select').length,
+    sourceSelectCount: document.querySelectorAll('.batch-record-cell-link__source-select').length,
     workOrderPanelCount: document.querySelectorAll('.batch-record-cell-link__work-order-field-panel').length,
     sourceSelectableCount: document.querySelectorAll(
       '.batch-record-cell-link__work-order-field-panel .batch-record-cell-link-sheet__cell.is-source-selectable'
@@ -153,12 +153,12 @@ async function openWorkbenchFromFormList(page) {
 }
 
 async function switchToWorkOrderSource(page) {
-  const sourceTypeSelect = page.locator('.batch-record-cell-link__source-type-select').first()
-  await sourceTypeSelect.waitFor({ state: 'visible', timeout: config.timeout })
-  await sourceTypeSelect.click()
+  const sourceSelect = page.locator('.batch-record-cell-link__source-select').first()
+  await sourceSelect.waitFor({ state: 'visible', timeout: config.timeout })
+  await sourceSelect.click()
   const dropdownItems = page.locator('.el-select-dropdown__item:visible')
-  await dropdownItems.filter({ hasText: '批记录表单' }).first().waitFor({ state: 'visible', timeout: 30000 })
-  await dropdownItems.filter({ hasText: '生产工单字段' }).first().click()
+  await dropdownItems.filter({ hasText: /^生产工单$/ }).first().waitFor({ state: 'visible', timeout: 30000 })
+  await dropdownItems.filter({ hasText: /^生产工单$/ }).first().click()
   await page.locator('.batch-record-cell-link__work-order-field-panel').first().waitFor({
     state: 'visible',
     timeout: config.timeout
