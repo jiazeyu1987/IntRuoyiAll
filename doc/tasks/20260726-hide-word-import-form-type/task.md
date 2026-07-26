@@ -10,7 +10,7 @@
 - [x] 写入 BDD 场景并完成 RED 静态契约。
 - [x] 隐藏表单类型整行并同步相关测试。
 - [x] 完成聚焦回归和真实页面只读验证。
-- [ ] 完成清理、提交和推送。
+- [x] 完成清理、提交和推送。
 
 ## Expected Verification
 
@@ -22,7 +22,7 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## 经验门禁
 
@@ -35,3 +35,19 @@ in_progress
 - `是否引入 fallback/降级/吞异常`：否。
 - `是否从根因和长期维护角度解决`：是，直接停止渲染不需要的表单项，同时保留明确的 `MAIN` 默认类型契约。
 - `是否存在临时补丁或绕过`：否。
+
+## Cleanup Candidates
+
+- `.runtime/hide-word-import-form-type-backend.err.log`
+- `.runtime/hide-word-import-form-type-backend.out.log`
+- `.playwright-cli/console-2026-07-26T15-03-48-151Z.log`
+- `.playwright-cli/page-2026-07-26T15-03-49-344Z.yml`
+- `.playwright-cli/page-2026-07-26T15-04-24-852Z.yml`
+- `.playwright-cli/console-2026-07-26T15-04-58-516Z.log`
+- `.playwright-cli/page-2026-07-26T15-04-59-099Z.yml`
+- `.playwright-cli/page-2026-07-26T15-06-31-225Z.yml`
+- `.playwright-cli/page-2026-07-26T15-08-35-484Z.png`
+
+## Cleanup Keep
+
+- `doc/tasks/20260726-hide-word-import-form-type/frontend-feature-evidence.md`

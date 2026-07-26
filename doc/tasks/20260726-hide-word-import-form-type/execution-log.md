@@ -22,3 +22,13 @@
 - BLOCKER: `node tests/e2e/edhr-batch-record-form-list-static.spec.js` -> FAIL 于既有批量删除断言，与本任务无关。
 - BLOCKER: `node tests/e2e/edhr-form-slot-frontend-static.spec.js` -> FAIL 于既有不存在的 `RouteFlowConfigPanel.vue` 引用，与本任务无关。
 - FOLLOW-UP: `edhr-word-form-cell-rule-recognition-real.e2e.js` 的非 `MAIN` 附加表单导入路径仍依赖已隐藏下拉；本任务不新增替代入口，避免未经批准扩大范围。
+- GREEN: frontend feature evidence validator -> PASS，`frontend-feature-evidence.md` 与 validator self-test 均通过。
+- GREEN: branch runtime port guard -> PASS，`int_main/int_main_d` 端口合同未被修改。
+- GREEN: runtime cleanup preflight -> PASS，任务临时后端 PID `30096` 已停止，`48081` 已释放；Playwright CLI session `hide-word-import` 已关闭。
+- GREEN: project-experience-consolidation -> PASS，本次为一次性显隐需求，现有 `docs/frontend-development.md` 与 `docs/e2e-rules.md` 已覆盖静态合同同步、真实页面验收和 no-fallback 门禁，无需修改或新建长期经验文档。
+- GIT: 并发任务按项目脏工作区基线规则提交了本任务实现与测试，commit `bc4ab705`，包含 `index.vue`、5 个同步测试脚本、1 个新聚焦静态合同和初始任务记录。
+- GIT: 并发任务随后提交本任务验证记录，commit `2ae35073`；该提交同时包含并发任务记录，未由本任务重写或拆分。
+- GREEN: push verification -> PASS，`origin/int_main` 已包含 `bc4ab705` 与 `2ae35073`，本任务实现不再领先远端。
+- GREEN: task-closeout-cleanup preview -> PASS，keep 4 files，delete 9 task-owned temporary paths，blocked/warnings none。
+- GREEN: task-closeout-cleanup apply -> PASS，删除 7 个 Playwright 临时产物与 2 个任务后端日志；未删除其他任务文件。
+- FINAL: implementation and required verification complete，task status `completed`。

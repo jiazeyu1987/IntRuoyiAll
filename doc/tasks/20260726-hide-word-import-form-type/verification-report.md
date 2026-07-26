@@ -30,6 +30,13 @@
 
 ## Cleanup
 
-- Temporary backend runtime and browser session are task-owned and must be stopped before closeout.
+- Temporary backend runtime PID `30096` and Playwright CLI session `hide-word-import` have been stopped.
 - Preserve `task.md`, `execution-log.md`, and `verification-report.md`.
+- Preserve `frontend-feature-evidence.md` as the validated frontend delivery contract.
+- Cleanup preview/apply completed with 9 task-owned temporary paths deleted and no blocked paths or warnings.
 
+## Git Evidence
+
+- Implementation and tests: `bc4ab705` (`chore: preserve pre-task dirty workspace baseline`), created by the concurrent dirty-worktree baseline process and now contained in `origin/int_main`.
+- Verification records: `2ae35073` (`chore: baseline concurrent task records before push`), now contained in `origin/int_main`.
+- Concurrent task files were not reverted, unstaged, or included in a new task-owned commit.
