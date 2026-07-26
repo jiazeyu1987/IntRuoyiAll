@@ -920,6 +920,63 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         saveRouteFlowConfigInternal(saveReqVO, false);
     }
 
+    @Override
+    public List<MesProRouteBatchRecordAttachmentOwnerRespVO> getBatchRecordAttachmentOwners(
+            Long routeId, Long routeVersionId) {
+        validateRouteExists(routeId);
+        MesProRouteVersionDO routeVersion = routeVersionId == null
+                ? routeVersionMapper.selectActiveByRouteId(routeId)
+                : requireReadableRouteVersion(routeVersionId, routeId);
+        Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> savedItems =
+                routeVersion == null ? Collections.emptyMap()
+                        : parseBatchRecordAttachmentOwnerSnapshot(routeVersion);
+        return buildBatchRecordAttachmentOwnerRespList(savedItems, loadEnabledCurrentTenantUserMap());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public List<MesProRouteBatchRecordAttachmentOwnerRespVO> initializeBatchRecordAttachmentOwners(
+            MesProRouteBatchRecordAttachmentOwnerInitReqVO initReqVO) {
+        MesProRouteDO route = validateRouteExists(initReqVO.getRouteId());
+        requireRouteBatchRecordConfigEditAbility(route, "初始化批记录附件负责人");
+        MesProRouteVersionDO routeVersion = requireDraftCandidateVersion(initReqVO.getRouteVersionId(), route.getId());
+        RoleCategoryDO category = requireBatchRecordRoleCategory();
+        List<AdminUserDO> enabledUsers = loadEnabledCurrentTenantUsers();
+        if (enabledUsers.size() < BATCH_RECORD_ATTACHMENT_MIN_USERS) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_ENABLED_USER_NOT_ENOUGH);
+        }
+        Map<Long, AdminUserDO> enabledUserMap = convertMap(enabledUsers, AdminUserDO::getId);
+        Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> snapshotItems = new LinkedHashMap<>();
+        for (BatchRecordAttachmentDefinition definition : BATCH_RECORD_ATTACHMENT_DEFINITIONS) {
+            RoleDO role = ensureBatchRecordAttachmentRole(definition, category);
+            ensureBatchRecordAttachmentRoleUsers(definition, role, enabledUsers, enabledUserMap);
+            snapshotItems.put(definition.code(), new MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO()
+                    .setAttachmentCode(definition.code())
+                    .setCandidateSourceType(CANDIDATE_SOURCE_TYPE_ROLE)
+                    .setCandidateSourceIds(List.of(role.getId()))
+                    .setCandidateSourceNames(List.of(formatRoleSnapshotName(role)))
+                    .setRemark("工序开始批记录附件默认上传角色"));
+        }
+        List<MesProRouteBatchRecordAttachmentOwnerRespVO> result =
+                buildBatchRecordAttachmentOwnerRespList(snapshotItems, enabledUserMap);
+        saveBatchRecordAttachmentOwnerSnapshot(routeVersion.getId(), result);
+        return result;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveBatchRecordAttachmentOwners(MesProRouteBatchRecordAttachmentOwnerSaveReqVO saveReqVO) {
+        MesProRouteDO route = validateRouteExists(saveReqVO.getRouteId());
+        requireRouteBatchRecordConfigEditAbility(route, "保存批记录附件负责人");
+        MesProRouteVersionDO routeVersion = requireDraftCandidateVersion(saveReqVO.getRouteVersionId(), route.getId());
+        Map<Long, AdminUserDO> enabledUserMap = loadEnabledCurrentTenantUserMap();
+        Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> normalized =
+                normalizeBatchRecordAttachmentOwnerSaveItems(saveReqVO.getItems(), enabledUserMap);
+        List<MesProRouteBatchRecordAttachmentOwnerRespVO> result =
+                buildBatchRecordAttachmentOwnerRespList(normalized, enabledUserMap);
+        saveBatchRecordAttachmentOwnerSnapshot(routeVersion.getId(), result);
+    }
+
     private void saveRouteFlowConfigInternal(MesProRouteFlowConfigSaveReqVO saveReqVO, boolean requireRouteEditPermission) {
         MesProRouteFlowConfigTypeEnum flowConfigType = validateUseType(saveReqVO.getUseType());
         MesProRouteDO route = validateRouteExists(saveReqVO.getRouteId());
@@ -1100,6 +1157,342 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         }
         JSONObject configSnapshots = snapshot.getJSONObject(SNAPSHOT_CONFIGS_KEY);
         return configSnapshots == null ? null : configSnapshots.get(configKey);
+    }
+
+    private Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> parseBatchRecordAttachmentOwnerSnapshot(
+            MesProRouteVersionDO routeVersion) {
+        Object snapshot = resolveExistingCandidateUseConfigSnapshot(routeVersion, BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
+        if (snapshot == null) {
+            return Collections.emptyMap();
+        }
+        if (!(snapshot instanceof JSONArray items)) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersion.getId());
+        }
+        Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> result = new LinkedHashMap<>();
+        for (Object value : items) {
+            JSONObject item = toCandidateJsonObject(routeVersion, value);
+            String attachmentCode = StrUtil.trim(item.getString("attachmentCode"));
+            if (!isBatchRecordAttachmentCode(attachmentCode)) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, attachmentCode);
+            }
+            result.put(attachmentCode, new MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO()
+                    .setAttachmentCode(attachmentCode)
+                    .setCandidateSourceType(normalizeBatchRecordAttachmentCandidateSourceType(
+                            item.getString("candidateSourceType")))
+                    .setCandidateSourceIds(normalizeBatchRecordAttachmentCandidateSourceIds(
+                            parseCandidateSourceIds(item.get("candidateSourceIds"))))
+                    .setCandidateSourceNames(parseCandidateSourceNames(item.get("candidateSourceNames")))
+                    .setRemark(item.getString("remark")));
+        }
+        return result;
+    }
+
+    private Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> normalizeBatchRecordAttachmentOwnerSaveItems(
+            List<MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> items,
+            Map<Long, AdminUserDO> enabledUserMap) {
+        Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> configuredByCode = new LinkedHashMap<>();
+        for (MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO item : items) {
+            String attachmentCode = StrUtil.trim(item.getAttachmentCode());
+            if (!isBatchRecordAttachmentCode(attachmentCode)) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, attachmentCode);
+            }
+            if (configuredByCode.putIfAbsent(attachmentCode, item) != null) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, attachmentCode);
+            }
+        }
+        Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> result = new LinkedHashMap<>();
+        for (BatchRecordAttachmentDefinition definition : BATCH_RECORD_ATTACHMENT_DEFINITIONS) {
+            MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO item = configuredByCode.get(definition.code());
+            if (item == null) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, definition.code());
+            }
+            String sourceType = normalizeBatchRecordAttachmentCandidateSourceType(item.getCandidateSourceType());
+            List<Long> sourceIds = normalizeBatchRecordAttachmentCandidateSourceIds(item.getCandidateSourceIds());
+            validateBatchRecordAttachmentCandidateSource(sourceType, sourceIds, enabledUserMap);
+            List<String> sourceNames = resolveBatchRecordAttachmentCandidateSourceNames(
+                    sourceType, sourceIds, item.getCandidateSourceNames(), enabledUserMap);
+            result.put(definition.code(), new MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO()
+                    .setAttachmentCode(definition.code())
+                    .setCandidateSourceType(sourceType)
+                    .setCandidateSourceIds(sourceIds)
+                    .setCandidateSourceNames(sourceNames)
+                    .setRemark(StrUtil.blankToDefault(StrUtil.trim(item.getRemark()), null)));
+        }
+        return result;
+    }
+
+    private List<MesProRouteBatchRecordAttachmentOwnerRespVO> buildBatchRecordAttachmentOwnerRespList(
+            Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> savedItems,
+            Map<Long, AdminUserDO> enabledUserMap) {
+        List<MesProRouteBatchRecordAttachmentOwnerRespVO> result = new ArrayList<>();
+        for (BatchRecordAttachmentDefinition definition : BATCH_RECORD_ATTACHMENT_DEFINITIONS) {
+            MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO savedItem = savedItems.get(definition.code());
+            RoleDO defaultRole = roleMapper.selectByCode(definition.defaultRoleCode());
+            List<Long> candidateSourceIds = savedItem == null
+                    ? defaultRole == null ? Collections.emptyList() : List.of(defaultRole.getId())
+                    : normalizeBatchRecordAttachmentCandidateSourceIds(savedItem.getCandidateSourceIds());
+            String candidateSourceType = savedItem == null ? CANDIDATE_SOURCE_TYPE_ROLE
+                    : normalizeBatchRecordAttachmentCandidateSourceType(savedItem.getCandidateSourceType());
+            List<String> candidateSourceNames = savedItem == null
+                    ? defaultRole == null ? List.of(definition.defaultRoleName()) : List.of(formatRoleSnapshotName(defaultRole))
+                    : resolveBatchRecordAttachmentCandidateSourceNames(
+                            candidateSourceType, candidateSourceIds, savedItem.getCandidateSourceNames(), enabledUserMap);
+            List<Long> assignedUserIds = resolveDefaultRoleAssignedEnabledUserIds(defaultRole, enabledUserMap);
+            result.add(new MesProRouteBatchRecordAttachmentOwnerRespVO()
+                    .setAttachmentCode(definition.code())
+                    .setAttachmentName(definition.name())
+                    .setDefaultRoleCode(definition.defaultRoleCode())
+                    .setDefaultRoleName(definition.defaultRoleName())
+                    .setCandidateSourceType(candidateSourceType)
+                    .setCandidateSourceIds(candidateSourceIds)
+                    .setCandidateSourceNames(candidateSourceNames)
+                    .setAssignedUserIds(assignedUserIds)
+                    .setAssignedUserNames(assignedUserIds.stream()
+                            .map(enabledUserMap::get)
+                            .filter(Objects::nonNull)
+                            .map(this::formatUserSnapshotName)
+                            .toList())
+                    .setSort(definition.sort())
+                    .setRemark(savedItem == null ? null : savedItem.getRemark()));
+        }
+        return result;
+    }
+
+    private void saveBatchRecordAttachmentOwnerSnapshot(
+            Long routeVersionId,
+            List<MesProRouteBatchRecordAttachmentOwnerRespVO> owners) {
+        List<Map<String, Object>> snapshot = owners.stream()
+                .map(owner -> {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("attachmentCode", owner.getAttachmentCode());
+                    item.put("attachmentName", owner.getAttachmentName());
+                    item.put("defaultRoleCode", owner.getDefaultRoleCode());
+                    item.put("defaultRoleName", owner.getDefaultRoleName());
+                    item.put("candidateSourceType", owner.getCandidateSourceType());
+                    item.put("candidateSourceIds", owner.getCandidateSourceIds());
+                    item.put("candidateSourceNames", owner.getCandidateSourceNames());
+                    item.put("sort", owner.getSort());
+                    item.put("remark", owner.getRemark());
+                    return item;
+                })
+                .toList();
+        routeCandidateConfigService.saveConfigSnapshot(
+                routeVersionId, BATCH_RECORD_ATTACHMENT_OWNERS_KEY, snapshot);
+    }
+
+    private RoleCategoryDO requireBatchRecordRoleCategory() {
+        RoleCategoryDO category = roleCategoryMapper.selectByCode(BATCH_RECORD_ROLE_CATEGORY_CODE);
+        if (category == null || !CommonStatusEnum.ENABLE.getStatus().equals(category.getStatus())) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_ROLE_CATEGORY_REQUIRED);
+        }
+        return category;
+    }
+
+    private RoleDO ensureBatchRecordAttachmentRole(BatchRecordAttachmentDefinition definition,
+                                                   RoleCategoryDO category) {
+        RoleDO role = roleMapper.selectByCode(definition.defaultRoleCode());
+        if (role != null) {
+            if (!CommonStatusEnum.ENABLE.getStatus().equals(role.getStatus())
+                    || !Objects.equals(category.getId(), role.getCategoryId())) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, definition.defaultRoleName());
+            }
+            return role;
+        }
+        RoleSaveReqVO reqVO = new RoleSaveReqVO();
+        reqVO.setName(definition.defaultRoleName());
+        reqVO.setCode(definition.defaultRoleCode());
+        reqVO.setSort(900 + definition.sort());
+        reqVO.setStatus(CommonStatusEnum.ENABLE.getStatus());
+        reqVO.setCategoryId(category.getId());
+        reqVO.setRemark("工序开始批记录附件默认上传角色");
+        Long roleId = roleService.createRole(reqVO, null);
+        RoleDO created = new RoleDO();
+        created.setId(roleId);
+        created.setName(definition.defaultRoleName());
+        created.setCode(definition.defaultRoleCode());
+        created.setStatus(CommonStatusEnum.ENABLE.getStatus());
+        created.setCategoryId(category.getId());
+        return created;
+    }
+
+    private void ensureBatchRecordAttachmentRoleUsers(BatchRecordAttachmentDefinition definition,
+                                                      RoleDO role,
+                                                      List<AdminUserDO> enabledUsers,
+                                                      Map<Long, AdminUserDO> enabledUserMap) {
+        Set<Long> assignedUserIds = permissionService.getUserRoleIdListByRoleId(Set.of(role.getId()));
+        List<Long> enabledAssignedUserIds = assignedUserIds.stream()
+                .filter(enabledUserMap::containsKey)
+                .sorted()
+                .toList();
+        if (CollUtil.isNotEmpty(assignedUserIds)) {
+            if (assignedUserIds.size() != enabledAssignedUserIds.size()
+                    || enabledAssignedUserIds.size() < BATCH_RECORD_ATTACHMENT_MIN_USERS
+                    || enabledAssignedUserIds.size() > BATCH_RECORD_ATTACHMENT_MAX_USERS) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, definition.defaultRoleName());
+            }
+            return;
+        }
+        for (AdminUserDO user : selectDeterministicAttachmentUsers(definition, enabledUsers)) {
+            Set<Long> nextRoleIds = new LinkedHashSet<>(permissionService.getUserRoleIdListByUserId(user.getId()));
+            if (nextRoleIds.add(role.getId())) {
+                permissionService.assignUserRole(user.getId(), nextRoleIds);
+            }
+        }
+    }
+
+    private List<AdminUserDO> selectDeterministicAttachmentUsers(BatchRecordAttachmentDefinition definition,
+                                                                 List<AdminUserDO> enabledUsers) {
+        int maxCount = Math.min(BATCH_RECORD_ATTACHMENT_MAX_USERS, enabledUsers.size());
+        int countRange = maxCount - BATCH_RECORD_ATTACHMENT_MIN_USERS + 1;
+        int selectedCount = BATCH_RECORD_ATTACHMENT_MIN_USERS
+                + Math.floorMod(Objects.hash(TenantContextHolder.getTenantId(), definition.defaultRoleCode()), countRange);
+        return enabledUsers.stream()
+                .sorted(Comparator
+                        .comparingInt((AdminUserDO user) -> Math.floorMod(
+                                Objects.hash(TenantContextHolder.getTenantId(), definition.defaultRoleCode(), user.getId()),
+                                Integer.MAX_VALUE))
+                        .thenComparing(AdminUserDO::getId))
+                .limit(selectedCount)
+                .toList();
+    }
+
+    private Map<Long, AdminUserDO> loadEnabledCurrentTenantUserMap() {
+        return convertMap(loadEnabledCurrentTenantUsers(), AdminUserDO::getId);
+    }
+
+    private List<AdminUserDO> loadEnabledCurrentTenantUsers() {
+        return adminUserService.getUserListByStatus(CommonStatusEnum.ENABLE.getStatus()).stream()
+                .filter(user -> user.getId() != null)
+                .filter(user -> CommonStatusEnum.ENABLE.getStatus().equals(user.getStatus()))
+                .collect(Collectors.toMap(AdminUserDO::getId, user -> user, (left, right) -> left, LinkedHashMap::new))
+                .values()
+                .stream()
+                .sorted(Comparator.comparing(AdminUserDO::getId))
+                .toList();
+    }
+
+    private List<Long> resolveDefaultRoleAssignedEnabledUserIds(RoleDO role,
+                                                                Map<Long, AdminUserDO> enabledUserMap) {
+        if (role == null || role.getId() == null) {
+            return Collections.emptyList();
+        }
+        return permissionService.getUserRoleIdListByRoleId(Set.of(role.getId())).stream()
+                .filter(enabledUserMap::containsKey)
+                .sorted()
+                .toList();
+    }
+
+    private List<String> resolveBatchRecordAttachmentCandidateSourceNames(
+            String sourceType,
+            List<Long> sourceIds,
+            List<String> configuredNames,
+            Map<Long, AdminUserDO> enabledUserMap) {
+        List<String> names = normalizeCandidateSourceNames(configuredNames);
+        if (!names.isEmpty()) {
+            return names;
+        }
+        if (CANDIDATE_SOURCE_TYPE_USERS.equals(sourceType)) {
+            return sourceIds.stream()
+                    .map(enabledUserMap::get)
+                    .filter(Objects::nonNull)
+                    .map(this::formatUserSnapshotName)
+                    .toList();
+        }
+        return roleService.getRoleList(sourceIds).stream()
+                .filter(Objects::nonNull)
+                .map(this::formatRoleSnapshotName)
+                .toList();
+    }
+
+    private List<Long> normalizeBatchRecordAttachmentCandidateSourceIds(List<Long> ids) {
+        List<Long> normalized = ids == null ? Collections.emptyList()
+                : ids.stream()
+                .filter(Objects::nonNull)
+                .filter(id -> id > 0)
+                .distinct()
+                .toList();
+        if (normalized.isEmpty()) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, "负责人为空");
+        }
+        return normalized;
+    }
+
+    private String normalizeBatchRecordAttachmentCandidateSourceType(String candidateSourceType) {
+        String normalized = StrUtil.trim(candidateSourceType);
+        if (CANDIDATE_SOURCE_TYPE_USER.equals(normalized)
+                || CANDIDATE_SOURCE_TYPE_USERS.equals(normalized)) {
+            return CANDIDATE_SOURCE_TYPE_USERS;
+        }
+        if (CANDIDATE_SOURCE_TYPE_ROLE.equals(normalized)) {
+            return CANDIDATE_SOURCE_TYPE_ROLE;
+        }
+        throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, candidateSourceType);
+    }
+
+    private void validateBatchRecordAttachmentCandidateSource(String sourceType,
+                                                              List<Long> sourceIds,
+                                                              Map<Long, AdminUserDO> enabledUserMap) {
+        if (CANDIDATE_SOURCE_TYPE_USERS.equals(sourceType)) {
+            boolean allEnabledCurrentTenantUsers = sourceIds.stream().allMatch(enabledUserMap::containsKey);
+            if (!allEnabledCurrentTenantUsers) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, sourceIds);
+            }
+            return;
+        }
+        roleService.validateRoleList(sourceIds);
+    }
+
+    private List<String> parseCandidateSourceNames(Object rawValue) {
+        if (rawValue == null) {
+            return Collections.emptyList();
+        }
+        if (rawValue instanceof JSONArray array) {
+            return normalizeCandidateSourceNames(array.stream()
+                    .map(value -> value == null ? null : String.valueOf(value))
+                    .toList());
+        }
+        if (rawValue instanceof List<?> list) {
+            return normalizeCandidateSourceNames(list.stream()
+                    .map(value -> value == null ? null : String.valueOf(value))
+                    .toList());
+        }
+        return normalizeCandidateSourceNames(List.of(String.valueOf(rawValue)));
+    }
+
+    private boolean isBatchRecordAttachmentCode(String attachmentCode) {
+        return BATCH_RECORD_ATTACHMENT_DEFINITIONS.stream()
+                .anyMatch(definition -> definition.code().equals(attachmentCode));
+    }
+
+    private String formatRoleSnapshotName(RoleDO role) {
+        if (role == null) {
+            return "";
+        }
+        if (StrUtil.isNotBlank(role.getName()) && StrUtil.isNotBlank(role.getCode())) {
+            return role.getName() + "（" + role.getCode() + "）";
+        }
+        return StrUtil.blankToDefault(role.getName(), role.getCode());
+    }
+
+    private String formatUserSnapshotName(AdminUserDO user) {
+        if (user == null) {
+            return "";
+        }
+        if (StrUtil.isNotBlank(user.getNickname()) && StrUtil.isNotBlank(user.getUsername())) {
+            return user.getNickname() + "（" + user.getUsername() + "）";
+        }
+        return StrUtil.blankToDefault(user.getNickname(),
+                StrUtil.blankToDefault(user.getUsername(), String.valueOf(user.getId())));
+    }
+
+    private void requireRouteBatchRecordConfigEditAbility(MesProRouteDO route, String actionName) {
+        permissionGateService.requireAbility(new MesProEdhrPermissionGateCommand()
+                .setObjectType("ROUTE")
+                .setObjectId(String.valueOf(route.getId()))
+                .setAbility("ROUTE_EDIT")
+                .setRouteId(route.getId())
+                .setPermissionCode("mes:pro-route:batch-record-config:update")
+                .setActionName(actionName));
     }
 
     private MesProRouteFlowProcessConfigDO findHistoricalProcessConfig(

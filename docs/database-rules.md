@@ -11,6 +11,15 @@
 - 优先使用 `SHOW TABLES`、`DESCRIBE <table>`、已有 migration、mapper XML、现有 SQL 模板或测试夹具作为证据。
 - 不得仅凭 DO 类名、字段猜测、历史记忆或旧项目文档编写运行 SQL。
 
+### 测试管理 schema 迁移门禁
+
+- Trigger: 访问 `系统管理 > 测试管理` 提示 `系统异常`，或修改/运行 `system_codex_test_case`、Codex Runner、测试项分页、测试管理页面相关接口。
+- Preflight check: 先用当前真实库或迁移脚本核对 `system_codex_test_case.project` 等当前 DO/Mapper 必需字段是否存在，并确认本地 Docker MySQL 已应用对应 `sql/mysql/20260726_system_codex_test_case_project.sql` 迁移。
+- Blocker: 当前代码引用的字段在真实库缺失、迁移未应用、迁移测试失败，或只看到前端 toast 而缺少分页 API/DB schema 证据时必须停止。
+- Verification: 记录 schema 核对结果、迁移执行目标、`script/tests/test_codex_test_case_project_migration.py` 结果，以及真实测试管理页面 E2E 不再出现 `系统异常`。
+- Forbidden action: 禁止用前端隐藏错误、后端默认 project、吞掉数据库异常、切换数据源、mock 成功或 API-only 代替真实页面恢复来绕过缺字段。
+- Evidence: `doc/tasks/fix-test-management-system-exception-20260726/verification-report.md`。
+
 ## 租户和菜单权限
 
 - 动态菜单页面交付必须同时核对：

@@ -2460,9 +2460,7 @@ const getRouteNodeLegacyBatchRecords = (node: RouteFlowNodeVO): RouteFlowLegacyB
 
 const getRouteNodeAdditionalFormCount = (node: RouteFlowNodeVO) => {
   return getRouteNodeBatchRecordBindings(node).filter(
-    (binding) =>
-      isRecordBindingConfigured(binding) &&
-      normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey) !== 'MAIN'
+    (binding) => normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey) !== 'MAIN'
   ).length
 }
 

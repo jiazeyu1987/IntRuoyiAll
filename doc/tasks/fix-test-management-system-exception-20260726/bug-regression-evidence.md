@@ -21,14 +21,23 @@
 ## Regression Test
 
 - 使用既有真实只读 E2E `IntRuoyiFronted/tests/e2e/system-codex-test-management-real.e2e.js` 覆盖「系统管理 > 测试管理」页面访问。
+- 使用迁移契约 `IntRuoyiBackend/script/tests/test_codex_test_case_project_migration.py` 覆盖 `system_codex_test_case.project` 字段迁移。
+- 使用前端静态契约 `IntRuoyiFronted/tests/e2e/system-codex-test-management-static.spec.js` 覆盖测试管理页面、Runner API 和 Runner fail-fast 请求超时契约。
 
 ## RED
 
-- `node .\tests\e2e\system-codex-test-management-real.e2e.js` -> FAIL, `codex test case page API should return business code 0`, actual `500`。
+RED: `node .\tests\e2e\system-codex-test-management-real.e2e.js` -> FAIL, `codex test case page API should return business code 0`, actual `500`。
 
 ## GREEN
 
-- Pending.
+GREEN: `python -X utf8 -m pytest script\tests\test_codex_test_case_project_migration.py -q` -> PASS, `2 passed in 0.13s`。
+GREEN: `node .\tests\e2e\system-codex-test-management-static.spec.js` -> PASS, exit code 0。
+GREEN: `node .\tests\e2e\system-codex-test-management-real.e2e.js` -> PASS, `PASS: system codex test management real E2E`。
+GREEN: `mvn.cmd -pl yudao-module-system -am "-Dtest=CodexTestCaseServiceImplTest,CodexTestExecutionServiceImplTest,CodexTestRunnerServiceImplTest,CodexTestRunnerControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, `Tests run: 14, Failures: 0, Errors: 0, Skipped: 0`。
+
+## Verification
+
+- 测试管理页面真实路径已恢复，测试项分页 API 返回业务成功码，页面不再显示 `系统异常`。
 
 ## Risk And Regression Scope
 
@@ -36,4 +45,5 @@
 
 ## Blockers And Follow-Up
 
-- Pending.
+- 本地问题已修复并验证通过。
+- 最终 Git closeout 未完成：当前分支存在非本任务 ahead 提交和非本任务 dirty/untracked 文件，需单独确认后才能安全提交并推送。

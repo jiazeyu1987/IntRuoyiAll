@@ -1,0 +1,9 @@
+{
+  "status": "FAIL",
+  "baseUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "identity": "芋道源码/admin",
+  "steps": [],
+  "reason": "AssertionError [ERR_ASSERTION]: GET /mes/pro/edhr-release-setting/dossier-requirements 业务响应必须成功：请求地址不存在:admin-api/mes/pro/edhr-release-setting/dossier-requirements\n\n404 !== 0\n\n    at apiRequest (E:\\IntRuoyi\\IntRuoyiFronted\\tests\\e2e\\edhr-release-dossier-requirement-setting-real.e2e.js:235:10)\n    at async main (E:\\IntRuoyi\\IntRuoyiFronted\\tests\\e2e\\edhr-release-dossier-requirement-setting-real.e2e.js:417:23)",
+  "failureScreenshot": "E:\\IntRuoyi\\doc\\tasks\\20260726-edhr-release-dossier-requirement-switches\\e2e-artifacts\\dossier-requirement-setting-real\\failure.png"
+}

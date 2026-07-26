@@ -33,8 +33,13 @@ assertMatch(
   '数量徽标必须提供已绑定表单个数的悬停说明'
 )
 assertMatch(
-  /const getRouteNodeAdditionalFormCount = \(node: RouteFlowNodeVO\) =>[\s\S]*getRouteNodeBatchRecordBindings\(node\)[\s\S]*filter\(\s*\(binding\) =>[\s\S]*isRecordBindingConfigured\(binding\)[\s\S]*normalizeRecordBindingSlotType\(binding\.formSlotType, binding\.formBindingKey\) !== 'MAIN'[\s\S]*\.length/,
-  '节点表单数量必须只统计动态 formBindings 中非 MAIN 的有效附加表单'
+  /const getRouteNodeAdditionalFormCount = \(node: RouteFlowNodeVO\) =>[\s\S]*getRouteNodeBatchRecordBindings\(node\)[\s\S]*filter\(\s*\(binding\) =>[\s\S]*normalizeRecordBindingSlotType\(binding\.formSlotType, binding\.formBindingKey\) !== 'MAIN'[\s\S]*\.length/,
+  '节点表单数量必须按动态 formBindings 中非 MAIN 槽位行计数'
+)
+assert.doesNotMatch(
+  component.match(/const getRouteNodeAdditionalFormCount = \(node: RouteFlowNodeVO\) =>[\s\S]*?\n\}/)?.[0] || '',
+  /isRecordBindingConfigured|formTemplateId/,
+  '点击新增表单后新行尚未选择模板也必须立即计数，数量 helper 不得再要求 formTemplateId > 0'
 )
 assertMatch(
   /const ADDITIONAL_RECORD_BINDING_SLOT_TYPES = RECORD_BINDING_SLOT_TYPES\.filter\(\s*\(slot\) => slot !== 'MAIN'\s*\)/,
