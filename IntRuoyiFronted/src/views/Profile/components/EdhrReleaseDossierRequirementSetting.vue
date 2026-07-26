@@ -3,13 +3,7 @@
     <el-card shadow="never">
       <template #header>
         <div class="edhr-release-dossier-requirement-setting__header">
-          <div>
-            <div class="edhr-release-dossier-requirement-setting__title">eDHR 放行资料限制</div>
-            <div class="edhr-release-dossier-requirement-setting__subtitle">
-              仅金手指用户可配置；开启后，对应特殊节点必须完成并保存 ADD 附件后才可放行。
-            </div>
-          </div>
-          <el-tag type="info" effect="plain">默认关闭</el-tag>
+          <div class="edhr-release-dossier-requirement-setting__title">eDHR 放行资料限制</div>
         </div>
       </template>
 
@@ -29,9 +23,6 @@
         >
           <div>
             <div class="edhr-release-dossier-requirement-setting__item-title">{{ item.label }}</div>
-            <div class="edhr-release-dossier-requirement-setting__item-desc">
-              {{ item.description }}
-            </div>
           </div>
           <el-switch
             :model-value="setting[item.field]"
@@ -42,10 +33,6 @@
             @change="(value) => requestSwitchChange(item.field, value === true)"
           />
         </div>
-      </div>
-
-      <div v-if="configHash" class="edhr-release-dossier-requirement-setting__meta">
-        当前配置 hash：{{ configHash }}
       </div>
     </el-card>
   </div>
@@ -74,27 +61,22 @@ const defaultSetting = (): EdhrReleaseDossierRequirementSettingUpdateReqVO => ({
 const switchItems: Array<{
   field: DossierRequirementField
   label: string
-  description: string
 }> = [
   {
     field: 'incomingInspectionReportRequired',
-    label: '来料检报告',
-    description: '打开后，来料检报告特殊节点必须完成，并至少保存 1 个 ADD 附件。'
+    label: '来料检报告'
   },
   {
     field: 'sterilizationReportRequired',
-    label: '灭菌报告',
-    description: '打开后，灭菌报告特殊节点必须完成，并至少保存 1 个 ADD 附件。'
+    label: '灭菌报告'
   },
   {
     field: 'finishedProductInspectionReportRequired',
-    label: '成品检报告',
-    description: '打开后，成品检报告特殊节点必须完成，并至少保存 1 个 ADD 附件。'
+    label: '成品检报告'
   },
   {
     field: 'finishedProductInspectionRecordRequired',
-    label: '成品检记录限制',
-    description: '打开后，成品检记录特殊节点必须完成，并至少保存 1 个 ADD 附件。'
+    label: '成品检记录限制'
   }
 ]
 
@@ -102,7 +84,6 @@ const loading = ref(false)
 const savingField = ref<DossierRequirementField | ''>('')
 const loadError = ref('')
 const setting = ref<EdhrReleaseDossierRequirementSettingUpdateReqVO>(defaultSetting())
-const configHash = ref('')
 
 const cloneSetting = (source: EdhrReleaseDossierRequirementSettingUpdateReqVO) => ({ ...source })
 
@@ -121,7 +102,6 @@ const applyLoadedSetting = (result: EdhrReleaseDossierRequirementSettingRespVO) 
     finishedProductInspectionReportRequired: result.finishedProductInspectionReportRequired === true,
     finishedProductInspectionRecordRequired: result.finishedProductInspectionRecordRequired === true
   }
-  configHash.value = result.configHash || ''
 }
 
 const loadSetting = async () => {
@@ -198,12 +178,6 @@ onMounted(loadSetting)
   font-weight: 600;
 }
 
-.edhr-release-dossier-requirement-setting__subtitle {
-  margin-top: 4px;
-  color: #6b778c;
-  font-size: 13px;
-}
-
 .edhr-release-dossier-requirement-setting__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -215,7 +189,7 @@ onMounted(loadSetting)
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 76px;
+  min-height: 58px;
   padding: 14px 16px;
   background: #f8fafc;
   border: 1px solid #dbe3ef;
@@ -226,20 +200,6 @@ onMounted(loadSetting)
   color: #1f2d3d;
   font-size: 14px;
   font-weight: 600;
-}
-
-.edhr-release-dossier-requirement-setting__item-desc {
-  margin-top: 4px;
-  color: #6b778c;
-  font-size: 12px;
-  line-height: 1.45;
-}
-
-.edhr-release-dossier-requirement-setting__meta {
-  margin-top: 12px;
-  color: #8a96a8;
-  font-size: 12px;
-  word-break: break-all;
 }
 
 @media (max-width: 768px) {

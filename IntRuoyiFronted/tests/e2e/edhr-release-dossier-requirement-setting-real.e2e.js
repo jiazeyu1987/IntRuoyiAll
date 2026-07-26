@@ -276,17 +276,6 @@ async function openConfigPane(page) {
   return card
 }
 
-async function waitForCardText(card, expectedText, label) {
-  const deadline = Date.now() + config.timeout
-  while (Date.now() < deadline) {
-    if (((await card.textContent().catch(() => '')) || '').includes(expectedText)) {
-      return
-    }
-    await card.page().waitForTimeout(200)
-  }
-  throw new Error(label)
-}
-
 function switchRow(card, label) {
   return card.locator('.edhr-release-dossier-requirement-setting__item').filter({ hasText: label }).first()
 }
@@ -451,7 +440,8 @@ async function main() {
 
     const card = await openConfigPane(page)
     if (originalSetting.configHash) {
-      await waitForCardText(card, originalSetting.configHash, '页面必须展示当前配置 hash')
+      const cardText = (await card.textContent()) || ''
+      assert.ok(!cardText.includes(originalSetting.configHash), '页面不应展示当前配置 hash')
     }
     result.steps.push({ step: 'profile-config-visible', status: 'PASS' })
 
