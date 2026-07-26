@@ -115,11 +115,12 @@ import { AutoCodeRecordApi } from '@/api/mes/md/autocode/record'
 import * as DeptApi from '@/api/system/dept'
 import * as UserApi from '@/api/system/user'
 import { MesAutoCodeRuleCode } from '@/views/mes/utils/constants'
-import RouteFlowGraphDesigner from './RouteFlowGraphDesigner.vue'
-import RouteProductList from './RouteProductList.vue'
 import { isRouteConfirmCancel, resolveRouteOperationErrorMessage } from './routeError'
 
 defineOptions({ name: 'RouteFormContent' })
+
+const RouteFlowGraphDesigner = defineAsyncComponent(() => import('./RouteFlowGraphDesigner.vue'))
+const RouteProductList = defineAsyncComponent(() => import('./RouteProductList.vue'))
 
 const props = withDefaults(
   defineProps<{
@@ -190,7 +191,8 @@ const formRules = reactive({
   name: [{ required: true, message: '名称不能为空', trigger: 'blur' }]
 })
 const formRef = ref()
-const routeFlowGraphDesignerRef = ref<InstanceType<typeof RouteFlowGraphDesigner>>()
+const routeFlowGraphDesignerRef =
+  ref<InstanceType<typeof import('./RouteFlowGraphDesigner.vue')['default']>>()
 const pendingFlowAutoLayout = ref(false)
 const pendingFlowAutoLayoutKey = ref('')
 const completedFlowAutoLayoutEntryKey = ref('')

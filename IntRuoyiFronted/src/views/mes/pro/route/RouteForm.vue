@@ -34,16 +34,16 @@
 </template>
 
 <script setup lang="ts">
-import RouteFormContent from './RouteFormContent.vue'
-
 defineOptions({ name: 'RouteForm' })
+
+const RouteFormContent = defineAsyncComponent(() => import('./RouteFormContent.vue'))
 
 const emit = defineEmits(['success', 'request-upgrade'])
 
 const dialogVisible = ref(false)
 const formType = ref<string>('create')
 const routeFormDialogWidth = 'calc(100vw - 32px)'
-const contentRef = ref<InstanceType<typeof RouteFormContent>>()
+const contentRef = ref<InstanceType<typeof import('./RouteFormContent.vue')['default']>>()
 const dialogTitle = computed(() => {
   const titles: Record<string, string> = {
     create: '新增工艺路线',

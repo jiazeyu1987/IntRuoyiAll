@@ -479,8 +479,6 @@ import {
   useTableQuickFilter,
   type TableQuickFilterDefinition
 } from '@/hooks/web/useTableQuickFilter'
-import RouteForm from './RouteForm.vue'
-import RouteWorkbookExcelImportForm from './RouteWorkbookExcelImportForm.vue'
 import {
   buildRouteCandidateEditQuery,
   ensureSameSourceDraftCandidateForProductionConfig,
@@ -489,6 +487,9 @@ import {
 } from './routeCandidateEntry'
 
 defineOptions({ name: 'MesProRoute' })
+
+const RouteForm = defineAsyncComponent(() => import('./RouteForm.vue'))
+const RouteWorkbookExcelImportForm = defineAsyncComponent(() => import('./RouteWorkbookExcelImportForm.vue'))
 
 const message = useMessage() // 消息弹窗
 const { t } = useI18n() // 国际化
