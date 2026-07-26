@@ -161,3 +161,12 @@ GREEN: experience-preflight -> PASS，已确认路径边界、dirty 变更保存
 - Baseline 文件：4 个 eDHR 页面/静态合同修改、1 个新增静态合同、`doc/tasks/20260726-edhr-simulate-hide-red-box-sections/` 下 4 个任务记录文件，共 9 个文件。
 - `git diff --cached --check` 对并发 baseline 报告两个既有 EOF 空行：`IntRuoyiFronted/tests/e2e/edhr-batch-template-simulate-red-box-hidden-static.spec.js`、`doc/tasks/20260726-edhr-simulate-hide-red-box-sections/task.md`；未修改并发任务内容。
 - 本任务 closeout 提交不包含 baseline 文件。
+
+## Final Commit And Push
+
+- closeout commit：`82634b11`，包含三份核心任务记录的最终状态、删除额外证据文件和并发 baseline 说明。
+- `git push origin int_main` -> PASS，推送范围 `bf018a2b..82634b11`。
+- 推送后 `git status --short --branch` -> `int_main...origin/int_main`，不再 ahead；剩余脏文件均属于并发 eDHR 任务，未纳入本任务。
+- 最终 `git worktree list --porcelain` -> 仅剩主工作区 `E:\IntRuoyi`；六个目标目录 `Test-Path=False`。
+- 最终端口登记校验 -> 六个目标项均为 `active=false`，目标端口无监听。
+- Final status: `completed`。

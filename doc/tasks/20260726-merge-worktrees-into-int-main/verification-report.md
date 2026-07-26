@@ -37,4 +37,5 @@
 - 本次测试生成的 `resources/批记录压力泵.doc` 已清理。
 - cleanup preview/apply 已通过，仅删除本任务额外证据文件，核心任务记录保留。
 - 并发 eDHR 脏改动已独立保存为 baseline `fc603595`，未混入本任务 closeout。
-- 任务状态已更新为 `completed`；最终 closeout 记录提交和推送待执行。
+- closeout commit `82634b11` 已推送到 `origin/int_main`，推送后分支不再 ahead。
+- 最终 Git worktree、物理目录、目标端口和端口登记表复核通过；任务状态 `completed`。

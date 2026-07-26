@@ -18,3 +18,8 @@
 - GREEN: `pnpm ts:check` -> PASS。
 - BLOCKER: `node tests/e2e/edhr-batch-template-simulate-static.spec.js` -> FAIL，首个失败为既有 `Number(route.query.id)` 断言与当前已存在的 `parsePositiveRouteQueryId` 实现不一致，非本次红框改动。
 - BLOCKER: `pnpm build:local` -> FAIL，Vite 配置加载时缺少 `@babel/helper-validator-identifier` 实体文件；锁文件声明存在但 `node_modules` 目录为空，未执行临时依赖补丁。
+- COMMIT: `fc603595` (`chore: baseline concurrent edhr simulate changes`) -> 并行任务在共享工作区中提交并推送了本任务源码、聚焦静态合同和初始任务证据；未重写该提交。
+- COMMIT: `be9f94fd` (`docs: record edhr simulate red-box verification`) -> 补充阻塞状态、验证报告和技能证据。
+- PUSH: `git push origin int_main` -> PASS，`be9f94fd` 已推送，推送后分支不领先 `origin/int_main`。
+- EXPERIENCE: 已执行 `project-experience-consolidation`。本次命中的静态合同隔离、并行改动边界和缺少依赖 fail-fast 已由现有 `docs/frontend-development.md`、`docs/powershell-memory.md` 与项目 AGENTS 规则覆盖；没有新增且已验证的长期经验，不创建或修改长期经验文档。
+- OWNERSHIP: 推送后出现的 `doc/tasks/20260726-merge-worktrees-into-int-main/` 改动属于并行任务，本任务未修改、未清理、未提交。
