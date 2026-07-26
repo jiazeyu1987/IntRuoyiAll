@@ -31,4 +31,5 @@
 
 - 当前 linked worktree 分支 `codex/202607727_yingshe` 不能 fast-forward 合并到 `int_main`。
 - 主 worktree `E:\IntRuoyi` 当前为 dirty，不能安全接收收尾脚本的 ff-only merge 和 worktree remove。
-- 因上述阻塞，本次只完成设计文档验证，不执行 worktree 合并或删除。
+- `git push origin codex/202607727_yingshe` 因 GitHub HTTPS 凭据无法在当前非交互环境读取而失败，错误为 `fatal: could not read Username for 'https://github.com': No such file or directory`。
+- 因上述阻塞，本次只完成设计文档验证和本地提交，不执行远端同步、worktree 合并或删除。

@@ -50,3 +50,9 @@ ready_for_closeout
 - `git diff --check`：PASS。
 - UTF-8 读取任务文档和验收文档：PASS。
 
+## Remaining Blockers
+
+- `git push origin codex/202607727_yingshe` 失败：GitHub HTTPS 凭据无法在当前非交互环境读取，错误为 `fatal: could not read Username for 'https://github.com': No such file or directory`。
+- linked worktree 收尾 apply 仍受阻：当前分支不能 fast-forward 合并到 `int_main`，且主 worktree `E:\IntRuoyi` 为 dirty。
+- 本地已完成设计文档提交；远端同步、合并和 worktree 删除需在 Git 凭据和主 worktree 状态恢复后继续。
+

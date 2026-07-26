@@ -20,3 +20,5 @@
 - Cleanup preview: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260726-edhr-visual-fill-config-bdd-tdd-design --mode preview` -> BLOCKED；原因 1：正式设计产物未声明 `Cleanup Keep` 时会被归类为 delete，已补充 keep 清单；原因 2：当前分支不能 fast-forward 合并到 `int_main`，且主 worktree `E:\IntRuoyi` 为 dirty，不能执行 linked worktree apply/merge/remove。
 - Cleanup preview rerun: 同一命令 -> BLOCKED；`keep` 已包含 `design.md`、四个 `docs/acceptance/*.md`、`task.md`、`execution-log.md`、`verification-report.md`，`delete: <none>`；剩余 blocker 仅为当前分支无法 ff-only 合并到 `int_main` 和主 worktree dirty。
 - Project experience consolidation: 已核对 `docs/worktree-memory.md`、`docs/powershell-memory.md`、`docs/frontend-development.md`、`docs/backend-development.md`、`docs/e2e-rules.md` 的既有门禁；本次无新增通用工程经验，设计结论保留在本任务文档，不新建长期经验文件。
+- Commit: `2e0ec0ce docs: finalize edhr visual fill config tdd plan`，包含 `task.md`、`execution-log.md`、`verification-report.md`。
+- Push: `git push origin codex/202607727_yingshe` -> BLOCKER；GitHub HTTPS 凭据无法在当前非交互环境读取，错误为 `fatal: could not read Username for 'https://github.com': No such file or directory`。影响：分支本地提交尚未同步到 `origin`，任务不能标记为 completed。
