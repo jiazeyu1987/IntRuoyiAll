@@ -41,6 +41,11 @@
 - GREEN: project-experience-consolidation -> PASS，新增经验归入既有 `docs\worktree-memory.md`，并更新 `docs\experience-index.md` 路由；未新建长期经验文档。
 - CONCURRENCY: 其他任务按脏工作区基线规则创建提交 `14dfbc66`（`chore: save pre-task workspace baseline`），其中包含本任务当时已存在的 v3 契约、测试、规则和任务证据。该提交未包含被 `.gitignore:28` 的 `**/runtime/` 忽略的新文件 `scripts\runtime\reserve-worktree-slot.ps1`；本任务不改写并发提交，将在任务实现提交中使用 `git add -f` 正式纳入该脚本。
 - GREEN: `git check-ignore -v scripts\runtime\reserve-worktree-slot.ps1` -> PASS，确认忽略来源为 `.gitignore:28:**/runtime/`，属于合法运行时源码目录误命中。
+- RED: cleanup preview -> FAIL policy intent，preview 会删除 `bug-regression-evidence.md`；原因是 `Cleanup Keep` 使用纯路径未被脚本识别，已改为 bullet 路径并重跑。
+- RED: cleanup apply -> FAIL，脚本只识别裸文本 `ready_for_closeout`，不识别反引号包裹状态；已修正任务状态格式并重跑。
+- GREEN: cleanup preview/apply -> PASS，保留 `task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`，删除项为空。
+- GREEN: implementation commit -> PASS，`f7649ac9`（`fix: isolate worktree runtime port slots`）补交被忽略的 `scripts\runtime\reserve-worktree-slot.ps1` 和收尾前证据。
+- GREEN: final closeout status -> PASS，任务状态更新为 `completed`，等待最终 closeout commit 和 push。
 
 ## Blockers
 
