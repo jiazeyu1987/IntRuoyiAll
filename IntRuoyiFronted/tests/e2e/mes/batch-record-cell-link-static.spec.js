@@ -27,6 +27,12 @@ function cssBlock(selector) {
 for (const token of [
   'batch-record-cell-link__form-stage',
   'batch-record-cell-link__source-select',
+  'batch-record-cell-link__source-type-select',
+  'batch-record-cell-link__work-order-field-panel',
+  '生产工单字段',
+  'sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER',
+  'sourceFieldCode: selectedSourceCell.value.sourceFieldCode',
+  'buildProductionWorkOrderFieldCells',
   'batch-record-cell-link__target-select',
   'batch-record-cell-link__source-link-count',
   'batch-record-cell-link__create-button',
@@ -112,10 +118,11 @@ assert.ok(template.includes('handleCellLinks(selectedReport)'), 'template action
 
 for (const token of [
   'BatchRecordCellLinkApi',
-  'getPrefill(currentExecutionId)',
+  'BatchRecordCellLinkApi.getPrefill(currentExecutionId, workTaskId.value)',
   'hydrateDraftState(detail, prefillResponse?.prefills || [], prefillResponse?.conflicts || [])',
   'normalizeCellLinkPrefillDraftValue',
   'cellLinkPrefillNotice',
+  '生产工单字段',
   '跨表单带入'
 ]) {
   assert.ok(executionPage.includes(token), `execution page misses ${token}`)

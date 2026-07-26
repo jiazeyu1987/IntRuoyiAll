@@ -4032,6 +4032,10 @@ const formatCellLinkPrefillSource = (item?: BatchRecordCellLinkPrefillItemVO) =>
   if (!item) {
     return ''
   }
+  if (item.sourceType === 'PRODUCTION_WORK_ORDER') {
+    const sourceField = item.sourceFieldName || item.sourceLabel || item.sourceFieldCode || ''
+    return sourceField ? `生产工单字段 / ${sourceField}` : '生产工单字段'
+  }
   const sourceName = item.sourceReportName || '来源表单'
   const sourceCell = item.sourceLabel || item.sourceCellKey || ''
   return sourceCell ? `${sourceName} / ${sourceCell}` : sourceName

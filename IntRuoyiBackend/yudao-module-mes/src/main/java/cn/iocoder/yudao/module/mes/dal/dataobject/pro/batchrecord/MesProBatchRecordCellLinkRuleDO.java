@@ -28,6 +28,8 @@ public class MesProBatchRecordCellLinkRuleDO extends BaseDO {
 
     private Long batchRecordVersionId;
 
+    private String sourceType;
+
     private String sourceReportId;
 
     private String sourceReportName;
@@ -37,6 +39,10 @@ public class MesProBatchRecordCellLinkRuleDO extends BaseDO {
     private Integer sourceColumnIndex;
 
     private String sourceCellKey;
+
+    private String sourceFieldCode;
+
+    private String sourceFieldName;
 
     private String sourceLabel;
 

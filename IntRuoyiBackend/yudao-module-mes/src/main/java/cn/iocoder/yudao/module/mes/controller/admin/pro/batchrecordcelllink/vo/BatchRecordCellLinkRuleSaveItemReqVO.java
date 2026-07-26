@@ -9,12 +9,16 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class BatchRecordCellLinkRuleSaveItemReqVO {
 
+    private String sourceType;
     @NotBlank(message = "源表单不能为空")
     private String sourceReportId;
     @NotNull(message = "源单元格行号不能为空")
     private Integer sourceRowIndex;
     @NotNull(message = "源单元格列号不能为空")
     private Integer sourceColumnIndex;
+    private String sourceCellKey;
+    private String sourceFieldCode;
+    private String sourceFieldName;
     private String sourceLabel;
     @NotBlank(message = "目标表单不能为空")
     private String targetReportId;

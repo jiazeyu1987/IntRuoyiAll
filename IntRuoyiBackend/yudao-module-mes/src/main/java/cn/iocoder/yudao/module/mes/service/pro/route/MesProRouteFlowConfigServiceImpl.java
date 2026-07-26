@@ -1181,7 +1181,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                             item.getString("candidateSourceType")))
                     .setCandidateSourceIds(normalizeBatchRecordAttachmentCandidateSourceIds(
                             parseCandidateSourceIds(item.get("candidateSourceIds"))))
-                    .setCandidateSourceNames(parseCandidateSourceNames(item.get("candidateSourceNames")))
+                    .setCandidateSourceNames(parseBatchRecordAttachmentCandidateSourceNames(item.get("candidateSourceNames")))
                     .setRemark(item.getString("remark")));
         }
         return result;
@@ -1442,7 +1442,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         roleService.validateRoleList(sourceIds);
     }
 
-    private List<String> parseCandidateSourceNames(Object rawValue) {
+    private List<String> parseBatchRecordAttachmentCandidateSourceNames(Object rawValue) {
         if (rawValue == null) {
             return Collections.emptyList();
         }

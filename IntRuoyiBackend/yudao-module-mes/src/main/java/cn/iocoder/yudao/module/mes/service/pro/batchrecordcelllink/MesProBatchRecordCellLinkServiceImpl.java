@@ -11,15 +11,18 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.B
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkRuleVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkRulesSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkRulesSaveRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkSourceFieldVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkWorkbenchContextRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRuleVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRulesRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordCellLinkRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordCellLinkRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordCellRuleSupport;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordReportService;
@@ -49,8 +52,25 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
 
     private static final String SCOPE_TYPE_ROUTE_VERSION = "ROUTE_VERSION";
     private static final String SCOPE_TYPE_REPORT_SET = "REPORT_SET";
+    private static final String SOURCE_TYPE_BATCH_RECORD_CELL = "BATCH_RECORD_CELL";
+    private static final String SOURCE_TYPE_PRODUCTION_WORK_ORDER = "PRODUCTION_WORK_ORDER";
+    private static final String PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID = "PRODUCTION_WORK_ORDER";
+    private static final String PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME = "生产工单";
     private static final String OVERWRITE_POLICY_ONLY_WHEN_EMPTY = "ONLY_WHEN_EMPTY";
     private static final List<Integer> ACTIVE_EXECUTION_STATUSES = List.of(0, 1, 2, 3);
+    private static final List<WorkOrderSourceField> PRODUCTION_WORK_ORDER_SOURCE_FIELDS = List.of(
+            new WorkOrderSourceField("code", "生产工单编号", "STRING", MesProWorkOrderDO::getCode),
+            new WorkOrderSourceField("name", "生产工单名称", "STRING", MesProWorkOrderDO::getName),
+            new WorkOrderSourceField("batchCode", "生产批号", "STRING", MesProWorkOrderDO::getBatchCode),
+            new WorkOrderSourceField("quantity", "生产数量", "NUMBER", MesProWorkOrderDO::getQuantity),
+            new WorkOrderSourceField("orderSourceCode", "生产订单号", "STRING", MesProWorkOrderDO::getOrderSourceCode),
+            new WorkOrderSourceField("workshopName", "生产车间", "STRING", MesProWorkOrderDO::getWorkshopName),
+            new WorkOrderSourceField("bomVersion", "BOM 版本", "STRING", MesProWorkOrderDO::getBomVersion),
+            new WorkOrderSourceField("drawingNumber", "图号", "STRING", MesProWorkOrderDO::getDrawingNumber),
+            new WorkOrderSourceField("plannedStartTime", "计划开工时间", "DATETIME", MesProWorkOrderDO::getPlannedStartTime),
+            new WorkOrderSourceField("plannedEndTime", "计划完工时间", "DATETIME", MesProWorkOrderDO::getPlannedEndTime),
+            new WorkOrderSourceField("requestDate", "需求日期", "DATETIME", MesProWorkOrderDO::getRequestDate),
+            new WorkOrderSourceField("remark", "备注", "STRING", MesProWorkOrderDO::getRemark));
 
     @Resource
     private MesProBatchRecordCellLinkRuleMapper ruleMapper;
@@ -62,6 +82,8 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     private MesProBatchRecordReportService reportService;
     @Resource
     private MesProEdhrWorkTaskService workTaskService;
+    @Resource
+    private MesProWorkOrderMapper workOrderMapper;
 
     @Override
     public BatchRecordCellLinkWorkbenchContextRespVO getWorkbenchContext(Long routeId, Long definitionId,
@@ -91,6 +113,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 .setBatchRecordDefinitionId(scope.definitionId())
                 .setBatchRecordVersionId(scope.versionId())
                 .setForms(forms)
+                .setSourceFields(toWorkOrderSourceFieldVOList())
                 .setDefaultSourceReportId(defaultSourceReportId)
                 .setDefaultTargetReportId(defaultTargetReportId)
                 .setRules(toRuleVOList(ruleMapper.selectListByScope(scope.type(), scope.id())));
@@ -120,6 +143,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                     .setRowIndex(rowIndex)
                     .setColumnIndex(columnIndex)
                     .setCellKey(cellKey)
+                    .setSourceType(SOURCE_TYPE_BATCH_RECORD_CELL)
                     .setLabel(resolveLabel(rule, cell, rowIndex, columnIndex))
                     .setValueType(rule == null ? "STRING" : rule.getValueType())
                     .setComponentFlag(rule == null ? null : rule.getComponentFlag())
@@ -153,18 +177,27 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         Map<String, MesProBatchRecordReportDO> reportCache = new LinkedHashMap<>();
         Map<String, BatchRecordCellLinkFormCellsRespVO> cellsCache = new LinkedHashMap<>();
         for (BatchRecordCellLinkRuleSaveItemReqVO item : reqVO.getRules()) {
-            MesProBatchRecordReportDO sourceReport = reportCache.computeIfAbsent(item.getSourceReportId(),
-                    this::requireReport);
+            String sourceType = normalizeSourceType(item.getSourceType());
             MesProBatchRecordReportDO targetReport = reportCache.computeIfAbsent(item.getTargetReportId(),
                     this::requireReport);
-            requireReportInScope(scope, sourceReport);
             requireReportInScope(scope, targetReport);
-            BatchRecordCellLinkFormCellsRespVO sourceCells = cellsCache.computeIfAbsent(item.getSourceReportId(),
-                    reportId -> getFormCells(reportId, scope.versionId()));
             BatchRecordCellLinkFormCellsRespVO targetCells = cellsCache.computeIfAbsent(item.getTargetReportId(),
                     reportId -> getFormCells(reportId, scope.versionId()));
-            BatchRecordCellLinkCellVO sourceCell = requireCell(sourceCells, item.getSourceRowIndex(),
-                    item.getSourceColumnIndex());
+            SourceSpec sourceSpec;
+            if (SOURCE_TYPE_PRODUCTION_WORK_ORDER.equals(sourceType)) {
+                WorkOrderSourceField sourceField = requireWorkOrderSourceField(
+                        StrUtil.blankToDefault(item.getSourceFieldCode(), item.getSourceCellKey()));
+                sourceSpec = SourceSpec.productionWorkOrder(sourceField);
+            } else {
+                MesProBatchRecordReportDO sourceReport = reportCache.computeIfAbsent(item.getSourceReportId(),
+                        this::requireReport);
+                requireReportInScope(scope, sourceReport);
+                BatchRecordCellLinkFormCellsRespVO sourceCells = cellsCache.computeIfAbsent(item.getSourceReportId(),
+                        reportId -> getFormCells(reportId, scope.versionId()));
+                BatchRecordCellLinkCellVO sourceCell = requireCell(sourceCells, item.getSourceRowIndex(),
+                        item.getSourceColumnIndex());
+                sourceSpec = SourceSpec.batchRecordCell(sourceReport, sourceCell, sourceCells.getLayoutSnapshotHash());
+            }
             BatchRecordCellLinkCellVO targetCell = requireCell(targetCells, item.getTargetRowIndex(),
                     item.getTargetColumnIndex());
             if (!Boolean.TRUE.equals(targetCell.getLinkableAsTarget())) {
@@ -176,14 +209,14 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_TARGET_DUPLICATE,
                         targetReport.getReportName(), targetCell.getCellKey());
             }
-            String pairKey = item.getSourceReportId() + ":" + sourceCell.getCellKey() + "->"
+            String pairKey = sourceSpec.uniqueKey() + "->"
                     + item.getTargetReportId() + ":" + targetCell.getCellKey();
             if (!pairKeys.add(pairKey)) {
                 throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_PAIR_DUPLICATE,
-                        sourceCell.getCellKey(), targetCell.getCellKey());
+                        sourceSpec.cellKey(), targetCell.getCellKey());
             }
-            ruleRows.add(toRuleDO(reqVO, scope, item, sourceReport, targetReport, sourceCell, targetCell,
-                    sourceCells.getLayoutSnapshotHash(), targetCells.getLayoutSnapshotHash(), ruleVersion));
+            ruleRows.add(toRuleDO(reqVO, scope, item, sourceSpec, targetReport, targetCell,
+                    sourceSpec.snapshotHashPart(), targetCells.getLayoutSnapshotHash(), ruleVersion));
         }
         ruleMapper.deleteByScope(scope.type(), scope.id());
         ruleMapper.insertBatch(ruleRows);
@@ -213,6 +246,20 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         Map<Long, Map<String, JSONObject>> sourceValueCache = new LinkedHashMap<>();
         for (MesProBatchRecordCellLinkRuleDO rule : rules) {
             BatchRecordCellLinkPrefillItemVO item = basePrefillItem(rule);
+            if (SOURCE_TYPE_PRODUCTION_WORK_ORDER.equals(normalizeSourceType(rule.getSourceType()))) {
+                Object sourceValue = resolveProductionWorkOrderFieldValue(targetExecution, rule);
+                if (!hasPlainValue(sourceValue)) {
+                    conflicts.add(item.setStatus("SOURCE_VALUE_MISSING"));
+                    continue;
+                }
+                JSONObject targetValue = targetValues.get(rule.getTargetCellKey());
+                if (hasValue(targetValue) && OVERWRITE_POLICY_ONLY_WHEN_EMPTY.equals(rule.getOverwritePolicy())) {
+                    conflicts.add(item.setValue(sourceValue).setStatus("TARGET_ALREADY_MANUAL"));
+                    continue;
+                }
+                prefills.add(item.setValue(sourceValue).setStatus("APPLICABLE"));
+                continue;
+            }
             MesProBatchRecordExecutionDO sourceExecution = sourceExecutionCache.computeIfAbsent(rule.getSourceReportId(),
                     reportId -> executionMapper.selectLatestByWorkOrderVersionBatchAndReport(
                             targetExecution.getWorkOrderId(), targetExecution.getBatchRecordVersionId(),
@@ -342,11 +389,63 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                         formCells.getReportName(), rowIndex, columnIndex));
     }
 
+    private String normalizeSourceType(String sourceType) {
+        String normalized = StrUtil.blankToDefault(StrUtil.trim(sourceType), SOURCE_TYPE_BATCH_RECORD_CELL);
+        if (SOURCE_TYPE_BATCH_RECORD_CELL.equals(normalized)
+                || SOURCE_TYPE_PRODUCTION_WORK_ORDER.equals(normalized)) {
+            return normalized;
+        }
+        throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
+                sourceType);
+    }
+
+    private List<BatchRecordCellLinkSourceFieldVO> toWorkOrderSourceFieldVOList() {
+        return PRODUCTION_WORK_ORDER_SOURCE_FIELDS.stream()
+                .map(field -> new BatchRecordCellLinkSourceFieldVO()
+                        .setSourceType(SOURCE_TYPE_PRODUCTION_WORK_ORDER)
+                        .setFieldCode(field.code())
+                        .setFieldName(field.name())
+                        .setValueType(field.valueType()))
+                .toList();
+    }
+
+    private WorkOrderSourceField requireWorkOrderSourceField(String fieldCode) {
+        String normalized = StrUtil.trim(fieldCode);
+        return PRODUCTION_WORK_ORDER_SOURCE_FIELDS.stream()
+                .filter(field -> field.code().equals(normalized))
+                .findFirst()
+                .orElseThrow(() -> exception(
+                        MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
+                        fieldCode));
+    }
+
+    private Object resolveProductionWorkOrderFieldValue(MesProBatchRecordExecutionDO targetExecution,
+                                                        MesProBatchRecordCellLinkRuleDO rule) {
+        if (targetExecution.getWorkOrderId() == null) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_WORK_ORDER_MISSING,
+                    targetExecution.getId());
+        }
+        MesProWorkOrderDO workOrder = workOrderMapper.selectById(targetExecution.getWorkOrderId());
+        if (workOrder == null) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_WORK_ORDER_MISSING,
+                    targetExecution.getId());
+        }
+        WorkOrderSourceField field = requireWorkOrderSourceField(
+                StrUtil.blankToDefault(rule.getSourceFieldCode(), rule.getSourceCellKey()));
+        return field.valueExtractor().apply(workOrder);
+    }
+
+    private boolean hasPlainValue(Object value) {
+        if (value == null) {
+            return false;
+        }
+        return !(value instanceof String text) || StrUtil.isNotBlank(text);
+    }
+
     private MesProBatchRecordCellLinkRuleDO toRuleDO(BatchRecordCellLinkRulesSaveReqVO reqVO, Scope scope,
                                                      BatchRecordCellLinkRuleSaveItemReqVO item,
-                                                     MesProBatchRecordReportDO sourceReport,
+                                                     SourceSpec source,
                                                      MesProBatchRecordReportDO targetReport,
-                                                     BatchRecordCellLinkCellVO sourceCell,
                                                      BatchRecordCellLinkCellVO targetCell,
                                                      String sourceLayoutHash, String targetLayoutHash,
                                                      long ruleVersion) {
@@ -356,13 +455,16 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         rule.setRouteId(reqVO.getRouteId());
         rule.setBatchRecordDefinitionId(scope.definitionId());
         rule.setBatchRecordVersionId(scope.versionId());
-        rule.setSourceReportId(sourceReport.getReportId());
-        rule.setSourceReportName(sourceReport.getReportName());
-        rule.setSourceRowIndex(sourceCell.getRowIndex());
-        rule.setSourceColumnIndex(sourceCell.getColumnIndex());
-        rule.setSourceCellKey(sourceCell.getCellKey());
-        rule.setSourceLabel(StrUtil.blankToDefault(StrUtil.trim(item.getSourceLabel()), sourceCell.getLabel()));
-        rule.setSourceValueType(sourceCell.getValueType());
+        rule.setSourceType(source.sourceType());
+        rule.setSourceReportId(source.reportId());
+        rule.setSourceReportName(source.reportName());
+        rule.setSourceRowIndex(source.rowIndex());
+        rule.setSourceColumnIndex(source.columnIndex());
+        rule.setSourceCellKey(source.cellKey());
+        rule.setSourceFieldCode(source.fieldCode());
+        rule.setSourceFieldName(source.fieldName());
+        rule.setSourceLabel(StrUtil.blankToDefault(StrUtil.trim(item.getSourceLabel()), source.label()));
+        rule.setSourceValueType(source.valueType());
         rule.setTargetReportId(targetReport.getReportId());
         rule.setTargetReportName(targetReport.getReportName());
         rule.setTargetRowIndex(targetCell.getRowIndex());
@@ -404,11 +506,14 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 .setRouteId(rule.getRouteId())
                 .setBatchRecordDefinitionId(rule.getBatchRecordDefinitionId())
                 .setBatchRecordVersionId(rule.getBatchRecordVersionId())
+                .setSourceType(normalizeSourceType(rule.getSourceType()))
                 .setSourceReportId(rule.getSourceReportId())
                 .setSourceReportName(rule.getSourceReportName())
                 .setSourceRowIndex(rule.getSourceRowIndex())
                 .setSourceColumnIndex(rule.getSourceColumnIndex())
                 .setSourceCellKey(rule.getSourceCellKey())
+                .setSourceFieldCode(rule.getSourceFieldCode())
+                .setSourceFieldName(rule.getSourceFieldName())
                 .setSourceLabel(rule.getSourceLabel())
                 .setSourceValueType(rule.getSourceValueType())
                 .setTargetReportId(rule.getTargetReportId())
@@ -430,9 +535,12 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 .setTargetCellKey(rule.getTargetCellKey())
                 .setTargetRowIndex(rule.getTargetRowIndex())
                 .setTargetColumnIndex(rule.getTargetColumnIndex())
+                .setSourceType(normalizeSourceType(rule.getSourceType()))
                 .setSourceReportId(rule.getSourceReportId())
                 .setSourceReportName(rule.getSourceReportName())
                 .setSourceCellKey(rule.getSourceCellKey())
+                .setSourceFieldCode(rule.getSourceFieldCode())
+                .setSourceFieldName(rule.getSourceFieldName())
                 .setSourceLabel(rule.getSourceLabel())
                 .setRuleId(rule.getId())
                 .setRuleVersion(rule.getRuleVersion())
@@ -506,6 +614,33 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
 
     private String cellKey(Integer rowIndex, Integer columnIndex) {
         return rowIndex + ":" + columnIndex;
+    }
+
+    private record WorkOrderSourceField(String code, String name, String valueType,
+                                        Function<MesProWorkOrderDO, Object> valueExtractor) {
+    }
+
+    private record SourceSpec(String sourceType, String reportId, String reportName, Integer rowIndex,
+                              Integer columnIndex, String cellKey, String fieldCode, String fieldName,
+                              String label, String valueType, String snapshotHashPart) {
+
+        static SourceSpec batchRecordCell(MesProBatchRecordReportDO report,
+                                          BatchRecordCellLinkCellVO cell,
+                                          String layoutSnapshotHash) {
+            return new SourceSpec(SOURCE_TYPE_BATCH_RECORD_CELL, report.getReportId(), report.getReportName(),
+                    cell.getRowIndex(), cell.getColumnIndex(), cell.getCellKey(), null, null,
+                    cell.getLabel(), cell.getValueType(), layoutSnapshotHash);
+        }
+
+        static SourceSpec productionWorkOrder(WorkOrderSourceField field) {
+            return new SourceSpec(SOURCE_TYPE_PRODUCTION_WORK_ORDER, PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID,
+                    PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME, -1, -1, field.code(), field.code(), field.name(),
+                    field.name(), field.valueType(), SOURCE_TYPE_PRODUCTION_WORK_ORDER + ":" + field.code());
+        }
+
+        String uniqueKey() {
+            return sourceType + ":" + reportId + ":" + cellKey;
+        }
     }
 
     private record Scope(String type, Long id, Long definitionId, Long versionId, String sourceFileSha256,
