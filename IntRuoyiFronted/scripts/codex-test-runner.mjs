@@ -17,6 +17,7 @@ const LOOP = process.argv.includes('--loop')
 const POLL_INTERVAL_MS = Number(process.env.CODEX_TEST_POLL_INTERVAL_MS || '5000')
 const HEARTBEAT_INTERVAL_MS = Number(process.env.CODEX_TEST_HEARTBEAT_INTERVAL_MS || '20000')
 const CODEX_EXEC_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_TIMEOUT_MS || '600000')
+const CODEX_TEST_API_TIMEOUT_MS = Number(process.env.CODEX_TEST_API_TIMEOUT_MS || '30000')
 
 class ServerCanceledExecutionError extends Error {}
 
@@ -37,7 +38,7 @@ function runnerHeaders(extraHeaders = {}) {
 }
 
 async function postJson(url, body) {
-  const response = await fetch(`${API_BASE}${url}`, {
+  const response = await requestWithTimeout(url, {
     method: 'POST',
     headers: runnerHeaders({
       'Content-Type': 'application/json'
@@ -49,6 +50,24 @@ async function postJson(url, body) {
     throw new Error(`${url} failed: ${payload.msg || response.statusText}`)
   }
   return payload.data
+}
+
+async function requestWithTimeout(url, options) {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), CODEX_TEST_API_TIMEOUT_MS)
+  try {
+    return await fetch(`${API_BASE}${url}`, {
+      ...options,
+      signal: controller.signal
+    })
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error(`${url} timed out after ${CODEX_TEST_API_TIMEOUT_MS}ms`)
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 function spawnCodex(args) {
@@ -86,7 +105,7 @@ async function uploadArtifact(executionCaseId, checkpointSort, screenshotPath) {
   data.append('checkpointSort', String(checkpointSort))
   data.append('artifactType', 'FAILURE_SCREENSHOT')
   data.append('file', new Blob([content]), path.basename(screenshotPath))
-  const response = await fetch(`${API_BASE}/system/codex-test-runner/artifact`, {
+  const response = await requestWithTimeout('/system/codex-test-runner/artifact', {
     method: 'POST',
     headers: runnerHeaders(),
     body: data
@@ -317,6 +336,7 @@ async function reportTaskBlocked(task, error) {
 }
 
 async function runOnce(runnerSessionId) {
+  await heartbeat(runnerSessionId)
   const claim = await claimTasks(runnerSessionId)
   for (const task of claim.tasks) {
     try {

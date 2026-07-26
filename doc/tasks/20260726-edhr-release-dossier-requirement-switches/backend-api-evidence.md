@@ -24,6 +24,11 @@
 
 - `RED: mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrReleaseServiceImplTest,MesProEdhrReleasePrecheckContractTest,MesProEdhrReleaseDossierRequirementSettingServiceImplTest" test -> FAIL`，新增测试引用的配置服务、VO、控制器、检查项和 SQL seed 尚不存在。
 
+## Validation
+
+- 接口权限、完整布尔对象、配置解析、预检检查项、附件证据口径和 hash 过期校验由新增/更新的后端测试覆盖。
+- 正式目标测试需通过 `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrReleaseServiceImplTest,MesProEdhrReleasePrecheckContractTest,MesProEdhrReleaseDossierRequirementSettingServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` 复验。
+
 ## Verification
 
 - `GREEN: mvn.cmd -pl yudao-module-mes -am "-DskipTests" compile -> PASS`，后端生产代码 reactor 编译通过。
