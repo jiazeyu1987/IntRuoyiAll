@@ -6,10 +6,11 @@
 
 ## Milestones
 
-1. `in_progress`：核对现有前后端能力、测试资产和版本治理边界。
-2. `pending`：完成需求范围、复用方案和最小数据/API 设计。
-3. `pending`：完成 BDD 场景、严格 TDD 顺序、E2E 路径和测试数据设计。
-4. `pending`：完成结构校验、UTF-8 校验、任务验证和收尾。
+1. `completed`：核对现有前后端能力、测试资产和版本治理边界。
+2. `completed`：完成需求范围、复用方案和最小数据/API 设计。
+3. `completed`：完成 BDD 场景、严格 TDD 顺序、E2E 路径和测试数据设计。
+4. `completed`：完成结构校验、UTF-8 校验和任务验证。
+5. `blocked`：任务提交与推送等待并发工作区改动解除或取得统一基线提交授权。
 
 ## Expected Verification
 
@@ -28,7 +29,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 
@@ -36,3 +37,25 @@ in_progress
 - `是否从根因和长期维护角度解决`：是；将现有分散入口收敛为模板版本内的可视化填写配置，并复用现有执行快照和字段审计链。
 - `是否存在临时补丁或绕过`：否。
 
+## Verification Summary
+
+- `validate_acceptance_plan.py`：PASS。
+- 所有任务 Markdown 以 UTF-8 严格读取：PASS。
+- 必需验收标题与 Given/When/Then 结构检查：PASS。
+- `git diff --check`：PASS，未发现当前已跟踪差异的空白错误。
+- 本任务为设计文档交付，未修改生产代码，因此未运行 Maven、前端静态合同或真实 E2E。
+
+## Closeout Blocker
+
+- 根工作区存在其他任务正在修改的已跟踪文件和未跟踪任务目录。
+- 项目规则要求脏工作区先提交全部改动作为基线，但当前任务所有权规则禁止把并发任务文件纳入本任务提交。
+- 在并发改动解除或用户明确授权统一基线提交前，本任务不暂存、不提交、不推送，并保持 `ready_for_closeout`。
+
+## Cleanup Keep
+
+- doc/tasks/20260726-edhr-visual-fill-config-bdd-tdd-design/design.md
+- doc/tasks/20260726-edhr-visual-fill-config-bdd-tdd-design/docs/acceptance/bdd-scenarios.md
+- doc/tasks/20260726-edhr-visual-fill-config-bdd-tdd-design/docs/acceptance/tdd-plan.md
+- doc/tasks/20260726-edhr-visual-fill-config-bdd-tdd-design/docs/acceptance/e2e-plan.md
+- doc/tasks/20260726-edhr-visual-fill-config-bdd-tdd-design/docs/acceptance/test-data.md
+- doc/tasks/20260726-edhr-visual-fill-config-bdd-tdd-design/verification-report.md

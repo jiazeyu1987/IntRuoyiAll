@@ -1251,6 +1251,27 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void getMyPage_includesCandidateFillTaskForNonAssignee() {
+        MesProEdhrWorkTaskDO fillTask = insertFillTask(5115L, 2115L, "candidate-my-page")
+                .setAssigneeUserId(288L)
+                .setCandidateSourceType("USERS")
+                .setCandidateUserSnapshot("288,289");
+        workTaskMapper.updateById(fillTask);
+        MesProEdhrWorkTaskPageReqVO reqVO = new MesProEdhrWorkTaskPageReqVO();
+        reqVO.setPageNo(1);
+        reqVO.setPageSize(10);
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(289L);
+
+            PageResult<MesProEdhrWorkTaskRespVO> page = workTaskService.getMyPage(reqVO);
+
+            assertEquals(1L, page.getTotal());
+            assertEquals(fillTask.getId(), page.getList().get(0).getId());
+        }
+    }
+
+    @Test
     void getMyPage_excludesTodoTasksFromTerminalBatches() {
         insertBatch(batchForInitialFill(1001L, 4101L)
                 .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS));
@@ -1836,6 +1857,139 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertEquals("EDHR_WORK_TASK_ASSIGNEE", captor.getValue().getSourceType());
         assertEquals("WORK_TASK|" + fillTask.getId(), captor.getValue().getSourceKey());
         assertEquals("MES_EDHR_FILLER_MINIMAL", captor.getValue().getPolicyCode());
+    }
+
+    @Test
+    void completeFillAndCreateNextFill_doesNotAdvanceWhenInspectionFillerExistsAndActorIsOnlyMainFiller() {
+        insertBatch(batchForInitialFill(3075L, 4175L));
+        MesProEdhrBatchExecutionTaskDO mainTask = batchTask(3075L, 9175L, 5175L,
+                "REPORT-MAIN-ADVANCE", "ROUTE_FORM", "灭菌主记录", 10)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_SUBMITTED)
+                .setFormSlotType("MAIN");
+        MesProEdhrBatchExecutionTaskDO inspectionTask = batchTask(3075L, 9176L, 5175L,
+                "REPORT-IPQC-ADVANCE", "ROUTE_FORM", "灭菌过程检验记录", 10)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
+                .setFormSlotType("PROCESS_INSPECTION");
+        MesProEdhrBatchExecutionTaskDO nextTask = batchTask(3075L, 9177L, 5177L,
+                "REPORT-NEXT-ADVANCE", "ROUTE_FORM", "包装", 20)
+                .setBatchRecordVersionId(78177L);
+        batchTaskMapper.insert(mainTask);
+        batchTaskMapper.insert(inspectionTask);
+        batchTaskMapper.insert(nextTask);
+        when(routeProcessService.resolveFrozenRouteProcess(5177L, 4175L, 5177L))
+                .thenReturn(MesProRouteProcessDO.builder()
+                        .id(5177L)
+                        .routeId(4175L)
+                        .processId(5177L)
+                        .build());
+        insertProcessFormFillRule(5177L, "REPORT-NEXT-ADVANCE", 78177L, "USERS", "400", 180);
+        when(adminUserApi.getUserList(List.of(400L))).thenReturn(List.of(
+                adminUser(400L, CommonStatusEnum.ENABLE.getStatus())));
+        MesProEdhrWorkTaskDO mainFillTask = insertFillTask(8175L, mainTask.getId(), "main-non-advancer")
+                .setBatchExecutionId(3075L)
+                .setRouteId(4175L)
+                .setRouteProcessId(5175L)
+                .setProcessId(5175L)
+                .setProcessName(mainTask.getProcessName())
+                .setAssigneeUserId(288L)
+                .setCandidateSourceType("USERS")
+                .setCandidateUserSnapshot("288");
+        workTaskMapper.updateById(mainFillTask);
+        MesProEdhrWorkTaskDO inspectionFillTask = insertFillTask(8176L, inspectionTask.getId(), "inspection-advancer")
+                .setBatchExecutionId(3075L)
+                .setRouteId(4175L)
+                .setRouteProcessId(5175L)
+                .setProcessId(5175L)
+                .setProcessName(inspectionTask.getProcessName())
+                .setAssigneeUserId(300L)
+                .setCandidateSourceType("USERS")
+                .setCandidateUserSnapshot("300,301")
+                .setStatus(MesProEdhrWorkTaskStatus.DONE);
+        workTaskMapper.updateById(inspectionFillTask);
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(288L);
+            workTaskService.completeFillAndCreateNextFillAfterOrdinarySubmit(mainFillTask.getId(), 8175L);
+        }
+
+        assertEquals(MesProEdhrWorkTaskStatus.DONE, workTaskMapper.selectById(mainFillTask.getId()).getStatus());
+        assertTrue(workTaskMapper.selectList().stream()
+                .noneMatch(task -> MesProEdhrWorkTaskService.TASK_TYPE_FILL.equals(task.getTaskType())
+                        && nextTask.getId().equals(task.getBatchTaskId())));
+    }
+
+    @Test
+    void completeRouteFormFillAndCreateNextFill_allowsAnyProcessFillerWhenNoInspectionFiller() {
+        insertBatch(batchForInitialFill(3076L, 4176L));
+        MesProEdhrBatchExecutionTaskDO currentTask = batchTask(3076L, 9178L, 5178L,
+                "REPORT-STERILIZE", "ROUTE_FORM", "灭菌记录", 10)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING)
+                .setFormSlotType("MAIN")
+                .setFormTemplateId(26L)
+                .setFormTemplateVersionId(2601L)
+                .setFormCenterInstanceId(40760L);
+        MesProEdhrBatchExecutionTaskDO nextTask = batchTask(3076L, 9179L, 5179L,
+                "REPORT-STERILIZE-NEXT", "ROUTE_FORM", "包装", 20)
+                .setBatchRecordVersionId(78179L);
+        batchTaskMapper.insert(currentTask);
+        batchTaskMapper.insert(nextTask);
+        when(routeProcessService.resolveFrozenRouteProcess(5179L, 4176L, 5179L))
+                .thenReturn(MesProRouteProcessDO.builder()
+                        .id(5179L)
+                        .routeId(4176L)
+                        .processId(5179L)
+                        .build());
+        insertProcessFormFillRule(5179L, "REPORT-STERILIZE-NEXT", 78179L, "USERS", "401", 180);
+        when(adminUserApi.getUserList(List.of(401L))).thenReturn(List.of(
+                adminUser(401L, CommonStatusEnum.ENABLE.getStatus())));
+        MesProEdhrWorkTaskDO fillTask = insertFillTask(8178L, currentTask.getId(), "sterilize-any-filler")
+                .setBatchExecutionId(3076L)
+                .setRouteId(4176L)
+                .setRouteProcessId(5178L)
+                .setProcessId(5178L)
+                .setProcessName(currentTask.getProcessName())
+                .setExecutionId(null)
+                .setAssigneeUserId(288L)
+                .setCandidateSourceType("USERS")
+                .setCandidateUserSnapshot("288,289");
+        workTaskMapper.updateById(fillTask);
+
+        workTaskService.completeRouteFormFillAndCreateNextFill(currentTask.getId(), 289L);
+
+        assertEquals(MesProEdhrWorkTaskStatus.DONE, workTaskMapper.selectById(fillTask.getId()).getStatus());
+        assertTrue(workTaskMapper.selectList().stream()
+                .anyMatch(task -> MesProEdhrWorkTaskService.TASK_TYPE_FILL.equals(task.getTaskType())
+                        && nextTask.getId().equals(task.getBatchTaskId())));
+    }
+
+    @Test
+    void completeRouteFormFillAndCreateNextFill_rejectsActorOutsideProcessFillerSnapshot() {
+        insertBatch(batchForInitialFill(3077L, 4177L));
+        MesProEdhrBatchExecutionTaskDO currentTask = batchTask(3077L, 9180L, 5180L,
+                "REPORT-STERILIZE-OUTSIDER", "ROUTE_FORM", "灭菌记录", 10)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING)
+                .setFormSlotType("MAIN")
+                .setFormTemplateId(27L)
+                .setFormTemplateVersionId(2701L)
+                .setFormCenterInstanceId(40770L);
+        batchTaskMapper.insert(currentTask);
+        MesProEdhrWorkTaskDO fillTask = insertFillTask(8180L, currentTask.getId(), "sterilize-outsider")
+                .setBatchExecutionId(3077L)
+                .setRouteId(4177L)
+                .setRouteProcessId(5180L)
+                .setProcessId(5180L)
+                .setProcessName(currentTask.getProcessName())
+                .setExecutionId(null)
+                .setAssigneeUserId(288L)
+                .setCandidateSourceType("USERS")
+                .setCandidateUserSnapshot("288,289");
+        workTaskMapper.updateById(fillTask);
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> workTaskService.completeRouteFormFillAndCreateNextFill(currentTask.getId(), 777L));
+
+        assertEquals(PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH.getCode(), exception.getCode());
+        assertEquals(MesProEdhrWorkTaskStatus.TODO, workTaskMapper.selectById(fillTask.getId()).getStatus());
     }
 
     @Test
