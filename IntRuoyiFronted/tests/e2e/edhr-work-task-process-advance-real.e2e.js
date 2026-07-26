@@ -59,14 +59,9 @@ function mysql(sql) {
       'exec',
       '-i',
       'int-ruoyi-mysql',
-      'mysql',
-      '-uroot',
-      '-p123456',
-      '--batch',
-      '--raw',
-      '--skip-column-names',
-      '--default-character-set=utf8mb4',
-      'ruoyi-vue-pro'
+      'sh',
+      '-lc',
+      'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot --batch --raw --skip-column-names --default-character-set=utf8mb4 ruoyi-vue-pro'
     ],
     { input: sql, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
   ).trim()
@@ -138,13 +133,17 @@ UPDATE mes_pro_edhr_batch_execution_task
         AND batch_code LIKE (CONCAT(@run_key, '%') COLLATE utf8mb4_0900_ai_ci)
    );
 UPDATE mes_pro_edhr_batch_execution
+    SET deleted=b'1', updater='codex-e2e-cleanup'
+  WHERE tenant_id=${TEST_TENANT_ID}
+    AND batch_code LIKE (CONCAT(@run_key, '%') COLLATE utf8mb4_0900_ai_ci);
+UPDATE mes_pro_work_order
    SET deleted=b'1', updater='codex-e2e-cleanup'
  WHERE tenant_id=${TEST_TENANT_ID}
-   AND batch_code LIKE (CONCAT(@run_key, '%') COLLATE utf8mb4_0900_ai_ci);
+   AND batch_code LIKE (CONCAT(@run_key, '%') COLLATE utf8mb4_unicode_ci);
 UPDATE mes_pro_edhr_process_form_permission_rule
-   SET deleted=b'1', updater='codex-e2e-cleanup'
- WHERE tenant_id=${TEST_TENANT_ID}
-   AND remark LIKE (CONCAT('%', @run_key, '%') COLLATE utf8mb4_unicode_ci);
+    SET deleted=b'1', updater='codex-e2e-cleanup'
+  WHERE tenant_id=${TEST_TENANT_ID}
+    AND remark LIKE (CONCAT('%', @run_key, '%') COLLATE utf8mb4_unicode_ci);
 `)
 }
 
@@ -179,13 +178,26 @@ SET @batch_code := ${sqlString(batchCode)};
 SET @current_binding := ${sqlString(currentBinding)};
 SET @next_binding := ${sqlString(nextBinding)};
 SET @action_code := ${sqlString(actionCode)};
+SET @work_order_code := CONCAT('WO-', @batch_code);
+INSERT INTO mes_pro_work_order (
+  code, name, type, order_source_type, order_source_code, product_id,
+  quantity, quantity_produced, quantity_changed, quantity_scheduled,
+  batch_code, request_date, parent_id, status, temporary_frozen,
+  remark, creator, updater, deleted, tenant_id
+) VALUES (
+  @work_order_code, CONCAT('eDHR推进E2E工单-', @batch_code), 1, 2, CONCAT('SRC-', @batch_code), 9002001,
+  1, 0, 0, 0,
+  @batch_code, NOW(), 0, 1, b'0',
+  CONCAT('eDHR process advance E2E ', @run_key, ' work order no inspection'), 'codex-e2e', 'codex-e2e', b'0', ${TEST_TENANT_ID}
+);
+SET @work_order_id := LAST_INSERT_ID();
 INSERT INTO mes_pro_edhr_batch_execution (
   batch_execution_code, work_order_id, work_order_code, batch_code, active_context_key,
   attempt_no, product_id, product_code, product_name, route_id, route_version_id, route_version_no,
   route_code, route_name, status, task_total, task_approved_count, blocked_count,
   remark, creator, updater, deleted, tenant_id
 ) VALUES (
-  CONCAT('BE-', @batch_code), 9001001, CONCAT('WO-', @batch_code), @batch_code, CONCAT('CTX-', @batch_code),
+  CONCAT('BE-', @batch_code), @work_order_id, @work_order_code, @batch_code, CONCAT('CTX-', @batch_code),
   1, 9002001, 'E2E-PRODUCT', 'eDHR推进E2E产品', ${ROUTE_ID}, ${ROUTE_VERSION_ID}, ${sqlString(ROUTE_VERSION_NO)},
   'E2E-ROUTE', 'eDHR推进E2E路线', 10, 2, 0, 0,
   CONCAT('eDHR process advance E2E ', @run_key, ' no inspection'), 'codex-e2e', 'codex-e2e', b'0', ${TEST_TENANT_ID}
@@ -200,7 +212,7 @@ INSERT INTO mes_pro_edhr_batch_execution_task (
   archive_visibility, batch_record_version_id, status, required_flag, creator, updater, deleted, tenant_id
 ) VALUES (
   @batch_id, 'ROUTE_FORM', ${CURRENT_ROUTE_PROCESS_ID}, b'1', 1,
-  ${CURRENT_PROCESS_ID}, 'Z2630', '吹球囊成型-无过程检验推进E2E', @current_binding, '无过程检验动态表单',
+  ${CURRENT_PROCESS_ID}, 'Z2630', '吹球囊成型-无过程检验推进E2E', NULL, '无过程检验动态表单',
   'MAIN', @current_binding, ${FORM_TEMPLATE_ID}, ${sqlString(FORM_TEMPLATE_NAME)},
   ${FORM_TEMPLATE_VERSION_ID}, ${sqlString(FORM_TEMPLATE_VERSION_NO)}, 0, 'SEQUENTIAL',
   'BATCH_RECORD', 'CONTROLLED_BATCH', b'1', 'REQUIRED', 'PRODUCTION',
@@ -216,7 +228,7 @@ INSERT INTO mes_pro_edhr_batch_execution_task (
   archive_visibility, batch_record_version_id, status, required_flag, creator, updater, deleted, tenant_id
 ) VALUES (
   @batch_id, 'ROUTE_FORM', ${NEXT_ROUTE_PROCESS_ID}, b'0', 2,
-  ${NEXT_PROCESS_ID}, 'Z3710', '球囊裁剪-无过程检验推进E2E', @next_binding, '下一工序动态表单',
+  ${NEXT_PROCESS_ID}, 'Z3710', '球囊裁剪-无过程检验推进E2E', NULL, '下一工序动态表单',
   'MAIN', @next_binding, ${FORM_TEMPLATE_ID}, ${sqlString(FORM_TEMPLATE_NAME)},
   ${FORM_TEMPLATE_VERSION_ID}, ${sqlString(FORM_TEMPLATE_VERSION_NO)}, 0, 'SEQUENTIAL',
   'BATCH_RECORD', 'CONTROLLED_BATCH', b'1', 'REQUIRED', 'PRODUCTION',
@@ -264,7 +276,7 @@ INSERT INTO mes_pro_edhr_work_task (
   remark, creator, updater, deleted, tenant_id
 ) VALUES (
   CONCAT('WT-', @batch_code), 'FILL', @batch_id, @current_task_id, 'BATCH_TASK', @current_task_id,
-  9001001, CONCAT('WO-', @batch_code), @batch_code, ${ROUTE_ID}, ${CURRENT_ROUTE_PROCESS_ID}, ${CURRENT_PROCESS_ID}, '吹球囊成型-无过程检验推进E2E',
+  @work_order_id, @work_order_code, @batch_code, ${ROUTE_ID}, ${CURRENT_ROUTE_PROCESS_ID}, ${CURRENT_PROCESS_ID}, '吹球囊成型-无过程检验推进E2E',
   ${ADMIN_USER_ID}, 'USERS', CONCAT(${ADMIN_USER_ID}, ',', ${AOTEMAN_USER_ID}), 'TODO', DATE_ADD(NOW(), INTERVAL 1 DAY),
   CONCAT('/mes/pro/feedback/edhr-batch-execution/detail?id=', @batch_id, '&batchExecutionId=', @batch_id, '&batchTaskId=', @current_task_id),
   'candidate non-assignee can fill and advance without process inspection', 'codex-e2e', 'codex-e2e', b'0', ${TEST_TENANT_ID}
@@ -280,6 +292,7 @@ SELECT JSON_OBJECT(
   'currentTaskId', @current_task_id,
   'nextTaskId', @next_task_id,
   'workTaskId', @work_task_id,
+  'workOrderId', @work_order_id,
   'instanceId', @instance_id,
   'formBindingKey', @current_binding,
   'expectedNextFill', true,
@@ -303,13 +316,26 @@ SET @main_binding := ${sqlString(mainBinding)};
 SET @inspection_binding := ${sqlString(inspectionBinding)};
 SET @next_binding := ${sqlString(nextBinding)};
 SET @action_code := ${sqlString(actionCode)};
+SET @work_order_code := CONCAT('WO-', @batch_code);
+INSERT INTO mes_pro_work_order (
+  code, name, type, order_source_type, order_source_code, product_id,
+  quantity, quantity_produced, quantity_changed, quantity_scheduled,
+  batch_code, request_date, parent_id, status, temporary_frozen,
+  remark, creator, updater, deleted, tenant_id
+) VALUES (
+  @work_order_code, CONCAT('eDHR推进E2E工单-', @batch_code), 1, 2, CONCAT('SRC-', @batch_code), 9002001,
+  1, 0, 0, 0,
+  @batch_code, NOW(), 0, 1, b'0',
+  CONCAT('eDHR process advance E2E ', @run_key, ' work order main blocked'), 'codex-e2e', 'codex-e2e', b'0', ${TEST_TENANT_ID}
+);
+SET @work_order_id := LAST_INSERT_ID();
 INSERT INTO mes_pro_edhr_batch_execution (
   batch_execution_code, work_order_id, work_order_code, batch_code, active_context_key,
   attempt_no, product_id, product_code, product_name, route_id, route_version_id, route_version_no,
   route_code, route_name, status, task_total, task_approved_count, blocked_count,
   remark, creator, updater, deleted, tenant_id
 ) VALUES (
-  CONCAT('BE-', @batch_code), 9001002, CONCAT('WO-', @batch_code), @batch_code, CONCAT('CTX-', @batch_code),
+  CONCAT('BE-', @batch_code), @work_order_id, @work_order_code, @batch_code, CONCAT('CTX-', @batch_code),
   1, 9002001, 'E2E-PRODUCT', 'eDHR推进E2E产品', ${ROUTE_ID}, ${ROUTE_VERSION_ID}, ${sqlString(ROUTE_VERSION_NO)},
   'E2E-ROUTE', 'eDHR推进E2E路线', 10, 3, 1, 0,
   CONCAT('eDHR process advance E2E ', @run_key, ' main blocked by inspection filler'), 'codex-e2e', 'codex-e2e', b'0', ${TEST_TENANT_ID}
@@ -325,7 +351,7 @@ INSERT INTO mes_pro_edhr_batch_execution_task (
 ) VALUES
 (
   @batch_id, 'ROUTE_FORM', ${CURRENT_ROUTE_PROCESS_ID}, b'1', 1,
-  ${CURRENT_PROCESS_ID}, 'Z2630', '吹球囊成型-主表非推进E2E', @main_binding, '主表动态表单',
+  ${CURRENT_PROCESS_ID}, 'Z2630', '吹球囊成型-主表非推进E2E', NULL, '主表动态表单',
   'MAIN', @main_binding, ${FORM_TEMPLATE_ID}, ${sqlString(FORM_TEMPLATE_NAME)},
   ${FORM_TEMPLATE_VERSION_ID}, ${sqlString(FORM_TEMPLATE_VERSION_NO)}, 0, 'SEQUENTIAL',
   'BATCH_RECORD', 'CONTROLLED_BATCH', b'1', 'REQUIRED', 'PRODUCTION',
@@ -333,7 +359,7 @@ INSERT INTO mes_pro_edhr_batch_execution_task (
 ),
 (
   @batch_id, 'ROUTE_FORM', ${CURRENT_ROUTE_PROCESS_ID}, b'0', 1,
-  ${CURRENT_PROCESS_ID}, 'Z2630', '吹球囊成型-过程检验已完成E2E', @inspection_binding, '过程检验动态表单',
+  ${CURRENT_PROCESS_ID}, 'Z2630', '吹球囊成型-过程检验已完成E2E', NULL, '过程检验动态表单',
   'PROCESS_INSPECTION', @inspection_binding, ${FORM_TEMPLATE_ID}, ${sqlString(FORM_TEMPLATE_NAME)},
   ${FORM_TEMPLATE_VERSION_ID}, ${sqlString(FORM_TEMPLATE_VERSION_NO)}, 1, 'SEQUENTIAL',
   'BATCH_RECORD', 'CONTROLLED_BATCH', b'1', 'REQUIRED', 'QUALITY',
@@ -351,7 +377,7 @@ INSERT INTO mes_pro_edhr_batch_execution_task (
   archive_visibility, batch_record_version_id, status, required_flag, creator, updater, deleted, tenant_id
 ) VALUES (
   @batch_id, 'ROUTE_FORM', ${NEXT_ROUTE_PROCESS_ID}, b'0', 2,
-  ${NEXT_PROCESS_ID}, 'Z3710', '球囊裁剪-主表非推进E2E', @next_binding, '下一工序动态表单',
+  ${NEXT_PROCESS_ID}, 'Z3710', '球囊裁剪-主表非推进E2E', NULL, '下一工序动态表单',
   'MAIN', @next_binding, ${FORM_TEMPLATE_ID}, ${sqlString(FORM_TEMPLATE_NAME)},
   ${FORM_TEMPLATE_VERSION_ID}, ${sqlString(FORM_TEMPLATE_VERSION_NO)}, 0, 'SEQUENTIAL',
   'BATCH_RECORD', 'CONTROLLED_BATCH', b'1', 'REQUIRED', 'PRODUCTION',
@@ -400,14 +426,14 @@ INSERT INTO mes_pro_edhr_work_task (
 ) VALUES
 (
   CONCAT('WT-', @batch_code, '-MAIN'), 'FILL', @batch_id, @main_task_id, 'BATCH_TASK', @main_task_id,
-  9001002, CONCAT('WO-', @batch_code), @batch_code, ${ROUTE_ID}, ${CURRENT_ROUTE_PROCESS_ID}, ${CURRENT_PROCESS_ID}, '吹球囊成型-主表非推进E2E',
+  @work_order_id, @work_order_code, @batch_code, ${ROUTE_ID}, ${CURRENT_ROUTE_PROCESS_ID}, ${CURRENT_PROCESS_ID}, '吹球囊成型-主表非推进E2E',
   ${ADMIN_USER_ID}, 'USERS', CONCAT(${ADMIN_USER_ID}, ',', ${AOTEMAN_USER_ID}), 'TODO', DATE_ADD(NOW(), INTERVAL 1 DAY),
   CONCAT('/mes/pro/feedback/edhr-batch-execution/detail?id=', @batch_id, '&batchExecutionId=', @batch_id, '&batchTaskId=', @main_task_id),
   'candidate non-assignee can fill but must not advance while inspection filler exists', 'codex-e2e', 'codex-e2e', b'0', ${TEST_TENANT_ID}
 ),
 (
   CONCAT('WT-', @batch_code, '-IPQC'), 'FILL', @batch_id, @inspection_task_id, 'BATCH_TASK', @inspection_task_id,
-  9001002, CONCAT('WO-', @batch_code), @batch_code, ${ROUTE_ID}, ${CURRENT_ROUTE_PROCESS_ID}, ${CURRENT_PROCESS_ID}, '吹球囊成型-过程检验已完成E2E',
+  @work_order_id, @work_order_code, @batch_code, ${ROUTE_ID}, ${CURRENT_ROUTE_PROCESS_ID}, ${CURRENT_PROCESS_ID}, '吹球囊成型-过程检验已完成E2E',
   ${ADMIN_USER_ID}, 'USERS', CAST(${ADMIN_USER_ID} AS CHAR), 'DONE', DATE_ADD(NOW(), INTERVAL 1 DAY),
   CONCAT('/mes/pro/feedback/edhr-batch-execution/detail?id=', @batch_id, '&batchExecutionId=', @batch_id, '&batchTaskId=', @inspection_task_id),
   'completed inspection filler defines advance actor set', 'codex-e2e', 'codex-e2e', b'0', ${TEST_TENANT_ID}
@@ -427,6 +453,7 @@ SELECT JSON_OBJECT(
   'nextTaskId', @next_task_id,
   'workTaskId', @main_work_task_id,
   'inspectionWorkTaskId', @inspection_work_task_id,
+  'workOrderId', @work_order_id,
   'instanceId', @instance_id,
   'formBindingKey', @main_binding,
   'expectedNextFill', false,
@@ -450,13 +477,26 @@ SET @main_binding := ${sqlString(mainBinding)};
 SET @inspection_binding := ${sqlString(inspectionBinding)};
 SET @next_binding := ${sqlString(nextBinding)};
 SET @action_code := ${sqlString(actionCode)};
+SET @work_order_code := CONCAT('WO-', @batch_code);
+INSERT INTO mes_pro_work_order (
+  code, name, type, order_source_type, order_source_code, product_id,
+  quantity, quantity_produced, quantity_changed, quantity_scheduled,
+  batch_code, request_date, parent_id, status, temporary_frozen,
+  remark, creator, updater, deleted, tenant_id
+) VALUES (
+  @work_order_code, CONCAT('eDHR推进E2E工单-', @batch_code), 1, 2, CONCAT('SRC-', @batch_code), 9002001,
+  1, 0, 0, 0,
+  @batch_code, NOW(), 0, 1, b'0',
+  CONCAT('eDHR process advance E2E ', @run_key, ' work order inspection advances'), 'codex-e2e', 'codex-e2e', b'0', ${TEST_TENANT_ID}
+);
+SET @work_order_id := LAST_INSERT_ID();
 INSERT INTO mes_pro_edhr_batch_execution (
   batch_execution_code, work_order_id, work_order_code, batch_code, active_context_key,
   attempt_no, product_id, product_code, product_name, route_id, route_version_id, route_version_no,
   route_code, route_name, status, task_total, task_approved_count, blocked_count,
   remark, creator, updater, deleted, tenant_id
 ) VALUES (
-  CONCAT('BE-', @batch_code), 9001003, CONCAT('WO-', @batch_code), @batch_code, CONCAT('CTX-', @batch_code),
+  CONCAT('BE-', @batch_code), @work_order_id, @work_order_code, @batch_code, CONCAT('CTX-', @batch_code),
   1, 9002001, 'E2E-PRODUCT', 'eDHR推进E2E产品', ${ROUTE_ID}, ${ROUTE_VERSION_ID}, ${sqlString(ROUTE_VERSION_NO)},
   'E2E-ROUTE', 'eDHR推进E2E路线', 10, 3, 1, 0,
   CONCAT('eDHR process advance E2E ', @run_key, ' inspection advances'), 'codex-e2e', 'codex-e2e', b'0', ${TEST_TENANT_ID}
@@ -472,7 +512,7 @@ INSERT INTO mes_pro_edhr_batch_execution_task (
 ) VALUES
 (
   @batch_id, 'ROUTE_FORM', ${CURRENT_ROUTE_PROCESS_ID}, b'1', 1,
-  ${CURRENT_PROCESS_ID}, 'Z2630', '吹球囊成型-主表已完成E2E', @main_binding, '主表动态表单',
+  ${CURRENT_PROCESS_ID}, 'Z2630', '吹球囊成型-主表已完成E2E', NULL, '主表动态表单',
   'MAIN', @main_binding, ${FORM_TEMPLATE_ID}, ${sqlString(FORM_TEMPLATE_NAME)},
   ${FORM_TEMPLATE_VERSION_ID}, ${sqlString(FORM_TEMPLATE_VERSION_NO)}, 0, 'SEQUENTIAL',
   'BATCH_RECORD', 'CONTROLLED_BATCH', b'1', 'REQUIRED', 'PRODUCTION',
@@ -480,7 +520,7 @@ INSERT INTO mes_pro_edhr_batch_execution_task (
 ),
 (
   @batch_id, 'ROUTE_FORM', ${CURRENT_ROUTE_PROCESS_ID}, b'0', 1,
-  ${CURRENT_PROCESS_ID}, 'Z2630', '吹球囊成型-过程检验推进E2E', @inspection_binding, '过程检验动态表单',
+  ${CURRENT_PROCESS_ID}, 'Z2630', '吹球囊成型-过程检验推进E2E', NULL, '过程检验动态表单',
   'PROCESS_INSPECTION', @inspection_binding, ${FORM_TEMPLATE_ID}, ${sqlString(FORM_TEMPLATE_NAME)},
   ${FORM_TEMPLATE_VERSION_ID}, ${sqlString(FORM_TEMPLATE_VERSION_NO)}, 1, 'SEQUENTIAL',
   'BATCH_RECORD', 'CONTROLLED_BATCH', b'1', 'REQUIRED', 'QUALITY',
@@ -498,7 +538,7 @@ INSERT INTO mes_pro_edhr_batch_execution_task (
   archive_visibility, batch_record_version_id, status, required_flag, creator, updater, deleted, tenant_id
 ) VALUES (
   @batch_id, 'ROUTE_FORM', ${NEXT_ROUTE_PROCESS_ID}, b'0', 2,
-  ${NEXT_PROCESS_ID}, 'Z3710', '球囊裁剪-过程检验推进E2E', @next_binding, '下一工序动态表单',
+  ${NEXT_PROCESS_ID}, 'Z3710', '球囊裁剪-过程检验推进E2E', NULL, '下一工序动态表单',
   'MAIN', @next_binding, ${FORM_TEMPLATE_ID}, ${sqlString(FORM_TEMPLATE_NAME)},
   ${FORM_TEMPLATE_VERSION_ID}, ${sqlString(FORM_TEMPLATE_VERSION_NO)}, 0, 'SEQUENTIAL',
   'BATCH_RECORD', 'CONTROLLED_BATCH', b'1', 'REQUIRED', 'PRODUCTION',
@@ -547,14 +587,14 @@ INSERT INTO mes_pro_edhr_work_task (
 ) VALUES
 (
   CONCAT('WT-', @batch_code, '-MAIN'), 'FILL', @batch_id, @main_task_id, 'BATCH_TASK', @main_task_id,
-  9001003, CONCAT('WO-', @batch_code), @batch_code, ${ROUTE_ID}, ${CURRENT_ROUTE_PROCESS_ID}, ${CURRENT_PROCESS_ID}, '吹球囊成型-主表已完成E2E',
+  @work_order_id, @work_order_code, @batch_code, ${ROUTE_ID}, ${CURRENT_ROUTE_PROCESS_ID}, ${CURRENT_PROCESS_ID}, '吹球囊成型-主表已完成E2E',
   ${AOTEMAN_USER_ID}, 'USERS', CAST(${AOTEMAN_USER_ID} AS CHAR), 'DONE', DATE_ADD(NOW(), INTERVAL 1 DAY),
   CONCAT('/mes/pro/feedback/edhr-batch-execution/detail?id=', @batch_id, '&batchExecutionId=', @batch_id, '&batchTaskId=', @main_task_id),
   'completed main filler does not define advance actor while inspection exists', 'codex-e2e', 'codex-e2e', b'0', ${TEST_TENANT_ID}
 ),
 (
   CONCAT('WT-', @batch_code, '-IPQC'), 'FILL', @batch_id, @inspection_task_id, 'BATCH_TASK', @inspection_task_id,
-  9001003, CONCAT('WO-', @batch_code), @batch_code, ${ROUTE_ID}, ${CURRENT_ROUTE_PROCESS_ID}, ${CURRENT_PROCESS_ID}, '吹球囊成型-过程检验推进E2E',
+  @work_order_id, @work_order_code, @batch_code, ${ROUTE_ID}, ${CURRENT_ROUTE_PROCESS_ID}, ${CURRENT_PROCESS_ID}, '吹球囊成型-过程检验推进E2E',
   ${ADMIN_USER_ID}, 'USERS', CAST(${ADMIN_USER_ID} AS CHAR), 'TODO', DATE_ADD(NOW(), INTERVAL 1 DAY),
   CONCAT('/mes/pro/feedback/edhr-batch-execution/detail?id=', @batch_id, '&batchExecutionId=', @batch_id, '&batchTaskId=', @inspection_task_id),
   'inspection filler can advance to next process', 'codex-e2e', 'codex-e2e', b'0', ${TEST_TENANT_ID}
@@ -574,6 +614,7 @@ SELECT JSON_OBJECT(
   'nextTaskId', @next_task_id,
   'mainWorkTaskId', @main_work_task_id,
   'workTaskId', @inspection_work_task_id,
+  'workOrderId', @work_order_id,
   'instanceId', @instance_id,
   'formBindingKey', @inspection_binding,
   'expectedNextFill', true,
