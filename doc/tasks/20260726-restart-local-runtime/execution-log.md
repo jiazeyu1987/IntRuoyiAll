@@ -17,6 +17,9 @@
 
 - `git status --short --branch` 显示任务开始前已有既有脏改动。
 - 已按项目规则保存基线提交：`8b113467 chore: baseline dirty worktree before runtime restart`。
+- 实现修复提交：`fc4df9f9 chore: baseline runtime restart fix before int_main push`。
+- 收尾记录提交：`08d0e5bc docs: close out runtime restart task`。
+- 提交前仍存在非本任务未跟踪目录：`doc/tasks/20260726-push-int-main/`，按任务所有权规则未纳入本任务提交。
 
 ## Milestone Log
 
