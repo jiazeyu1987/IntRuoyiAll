@@ -4,7 +4,7 @@
 
 - Backend implementation status: verified.
 - Branch runtime E2E status: verified on slot 3 (`8084/48084`).
-- Overall task status: pending `int_main` merge/fusion, post-merge E2E, and closeout.
+- Overall task status: completed; implementation, `int_main` merge/fusion, post-merge E2E, and cleanup are verified.
 
 ## Verified Behavior
 
@@ -33,11 +33,19 @@
 - RUNTIME: `Invoke-WebRequest http://127.0.0.1:8084/` -> HTTP 200; `Invoke-RestMethod http://127.0.0.1:48084/actuator/health` -> `{"status":"UP"}`.
 - E2E: `EDHR_BATCH_VOID_E2E_BASE_URL=http://127.0.0.1:8084; EDHR_BATCH_VOID_E2E_BACKEND_URL=http://127.0.0.1:48084; node IntRuoyiFronted\tests\e2e\edhr-batch-void-form-center-real-submit.e2e.cjs` -> PASS, batch `900000000855`, change `121`, artifact `doc/tasks/20260727-edhr-batch-void-work-task-closure/e2e-artifacts/edhr-batch-void-work-task-20260726174912.json`.
 - PRE-COMMIT REGRESSION: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrRecordChangeServiceTest#voidBatchExecution_approvedBpmCallbackCancelsActiveWorkTasks,MesProEdhrBatchVoidEffectServiceImplTest#executeDirectPlatformVoidBatchExecution_cancelsActiveWorkTasks,MesProEdhrWorkTaskServiceImplTest#getMyPage_excludesTodoTasksFromTerminalBatches,MesProEdhrBatchExecutionGoldenFingerBulkVoidServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 7 tests, 0 failures, 0 errors.
+- MERGE: `f5979a45 merge: integrate pici batch void task closure` integrated the worktree branch into `int_main` after preserving pre-existing dirty changes in baseline commits `b585f4b4` and `423c89b3`.
+- BUILD: `mvn.cmd -pl yudao-server -am -DskipTests package` -> PASS for merged `int_main`.
+- POST-MERGE RUNTIME: frontend `http://127.0.0.1:8081/` -> HTTP 200; backend `http://127.0.0.1:48081/actuator/health` -> `UP`.
+- POST-MERGE E2E: `EDHR_BATCH_VOID_E2E_BASE_URL=http://127.0.0.1:8081; EDHR_BATCH_VOID_E2E_BACKEND_URL=http://127.0.0.1:48081; node IntRuoyiFronted\tests\e2e\edhr-batch-void-form-center-real-submit.e2e.cjs` -> PASS, batch `900000000859`, change `122`, artifact `doc/tasks/20260727-edhr-batch-void-work-task-closure/e2e-artifacts/edhr-batch-void-work-task-20260726180948.json`.
 
 ## Pending Verification
 
-- Merge/fusion into `int_main`.
-- Post-merge full E2E on `int_main`.
+- No functional verification remains.
+
+## Closeout Verification
+
+- CLEANUP PREVIEW: `task_closeout.py --task-id 20260727-edhr-batch-void-work-task-closure --mode preview` -> ready, no blocked paths or warnings.
+- CLEANUP APPLY: `task_closeout.py --task-id 20260727-edhr-batch-void-work-task-closure --mode apply` -> applied, deleted only task-owned runtime logs and preserved task records, design docs, evidence docs, and E2E artifacts.
 
 ## Design Constraint Check
 

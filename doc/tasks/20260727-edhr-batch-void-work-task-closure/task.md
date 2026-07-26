@@ -27,7 +27,7 @@
 
 ## Current Status
 
-branch_runtime_e2e_verified_pending_int_main_merge
+completed
 
 ## Design Artifacts
 
@@ -56,3 +56,12 @@ branch_runtime_e2e_verified_pending_int_main_merge
 - 命中 `docs/backend-development.md`：后端行为变更必须 BDD + RED/GREEN/REGRESSION，缺少依赖或测试数据时 fail fast。
 - 命中 `docs/database-rules.md`：本设计不新增迁移；若实现阶段发现字段缺失，必须先核对 schema，不得猜测写 SQL。
 - 命中 `docs/frontend-development.md` 与 `docs/e2e-rules.md`：真实工作台验证必须走 Playwright 真实页面，API 仅做最终只读核验。
+
+## Cleanup Keep
+
+- doc/tasks/20260727-edhr-batch-void-work-task-closure/backend-api-evidence.md
+- doc/tasks/20260727-edhr-batch-void-work-task-closure/bug-regression-evidence.md
+- doc/tasks/20260727-edhr-batch-void-work-task-closure/docs/product/
+- doc/tasks/20260727-edhr-batch-void-work-task-closure/docs/system/
+- doc/tasks/20260727-edhr-batch-void-work-task-closure/docs/acceptance/
+- doc/tasks/20260727-edhr-batch-void-work-task-closure/e2e-artifacts/

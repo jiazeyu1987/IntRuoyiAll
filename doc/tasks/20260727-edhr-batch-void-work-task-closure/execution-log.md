@@ -90,3 +90,19 @@
 
 - GREEN: experience-preflight -> PASS, read `project-experience-consolidation` and merged reusable E2E lessons into existing `docs/e2e-rules.md` plus `docs/experience-index.md`; no new long-term document was needed.
 - EXPERIENCE: added `eDHR 作废 BPM 审批真实 E2E 门禁` covering early `approval-resolution` wait timing, actual BPM assignee mapping, approval center review path, and post-void workbench verification.
+
+## int_main Merge And Post-Merge Verification
+
+- BASELINE: `b585f4b4 chore: preserve int_main dirty baseline before pici merge` saved pre-existing `int_main` dirty tracked/untracked changes before fusion.
+- BASELINE: `423c89b3 chore: preserve residual int_main task artifact` saved a residual empty patch artifact that appeared after the first baseline commit.
+- MERGE: `f5979a45 merge: integrate pici batch void task closure` merged `codex/20260727_pici` into `int_main`; conflicts were limited to task documentation and were resolved by keeping the completed implementation/E2E evidence.
+- BUILD: `mvn.cmd -pl yudao-server -am -DskipTests package` -> PASS, produced merged `yudao-server-exec.jar`.
+- RUNTIME: `int_main` frontend `http://127.0.0.1:8081/` -> HTTP 200; backend `http://127.0.0.1:48081/actuator/health` -> `UP`, PID `44480`, command line points to `E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`.
+- GREEN: post-merge real E2E `EDHR_BATCH_VOID_E2E_BASE_URL=http://127.0.0.1:8081; EDHR_BATCH_VOID_E2E_BACKEND_URL=http://127.0.0.1:48081; node IntRuoyiFronted\tests\e2e\edhr-batch-void-form-center-real-submit.e2e.cjs` -> PASS, batch `900000000859`, change `122`, artifact `doc/tasks/20260727-edhr-batch-void-work-task-closure/e2e-artifacts/edhr-batch-void-work-task-20260726180948.json`.
+- STATUS: implementation, branch E2E, int_main merge, and post-merge E2E are complete; cleanup and final push remain.
+
+## Closeout
+
+- CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-edhr-batch-void-work-task-closure --mode preview` -> ready, no blocked paths, kept design/evidence/artifact directories, planned deletion only for `int-main-backend-48081.err.log` and `int-main-backend-48081.out.log`.
+- CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-edhr-batch-void-work-task-closure --mode apply` -> applied, deleted only the two task-owned runtime log files.
+- FINAL STATUS: completed; remaining action is final closeout commit and push.
