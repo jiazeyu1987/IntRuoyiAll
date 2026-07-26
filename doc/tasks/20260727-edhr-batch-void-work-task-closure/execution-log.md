@@ -111,6 +111,7 @@
 
 - BASELINE: `978fcaf0 chore: preserve residual process advance e2e changes` saved the unrelated residual dirty change in `IntRuoyiFronted/tests/e2e/edhr-work-task-process-advance-real.e2e.js` before final `int_main` push, per dirty-worktree baseline policy.
 - BASELINE: `590879d8 chore: preserve residual process advance fixture changes` saved the later unrelated fixture-column dirty change in the same process-advance E2E file before final `int_main` push.
+- BASELINE: `a07369af chore: preserve process advance closeout docs` saved unrelated dirty closeout records under `doc/tasks/20260727-edhr-process-fill-advance-optimization/` that appeared during final audit.
 - FINAL GUARD: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, `int_main/int_main` frontend `8081`, backend `48081`.
 - PUSH: `git push origin int_main` -> PASS; final audit verified local `int_main` synchronized with `origin/int_main` after push.
 - FINAL STATUS: `git status --short --branch` -> `## int_main...origin/int_main`; no local ahead/behind delta remains.
