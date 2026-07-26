@@ -105,10 +105,12 @@
 
 - CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-edhr-batch-void-work-task-closure --mode preview` -> ready, no blocked paths, kept design/evidence/artifact directories, planned deletion only for `int-main-backend-48081.err.log` and `int-main-backend-48081.out.log`.
 - CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-edhr-batch-void-work-task-closure --mode apply` -> applied, deleted only the two task-owned runtime log files.
-- FINAL STATUS: completed; remaining action is final closeout commit and push.
+- FINAL STATUS: completed; closeout, final guard, and `int_main` push are complete.
 
 ## Final Push Reconciliation
 
 - BASELINE: `978fcaf0 chore: preserve residual process advance e2e changes` saved the unrelated residual dirty change in `IntRuoyiFronted/tests/e2e/edhr-work-task-process-advance-real.e2e.js` before final `int_main` push, per dirty-worktree baseline policy.
 - BASELINE: `590879d8 chore: preserve residual process advance fixture changes` saved the later unrelated fixture-column dirty change in the same process-advance E2E file before final `int_main` push.
-- STATUS: task-owned implementation, verification, merge, cleanup, and closeout records remain complete; final branch-runtime guard and push are the remaining release hygiene steps.
+- FINAL GUARD: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, `int_main/int_main` frontend `8081`, backend `48081`.
+- PUSH: `git push origin int_main` -> PASS, `int_main` updated from `0b119802` to `31c8d043`.
+- FINAL STATUS: `git status --short --branch` -> `## int_main...origin/int_main`; local `HEAD` equals `origin/int_main` at `31c8d043f2fda8674a85433120b44b616fbd87a0`.
