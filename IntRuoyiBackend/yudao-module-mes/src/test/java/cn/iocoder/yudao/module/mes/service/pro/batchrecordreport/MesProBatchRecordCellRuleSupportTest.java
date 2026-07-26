@@ -55,6 +55,54 @@ class MesProBatchRecordCellRuleSupportTest {
     }
 
     @Test
+    void applyAutomaticSuggestions_prefersColumnHeaderOverLeftCheckboxChoiceForBlankTableCells() {
+        JSONObject root = JSON.parseObject("""
+                {
+                  "rows":{
+                    "0":{
+                      "cells":{
+                        "0":{"text":"操作日期"},
+                        "1":{"text":"物料编码"},
+                        "2":{"text":"物料名称"},
+                        "3":{"text":"批号"},
+                        "4":{"text":"生产数量/pcs"},
+                        "5":{"text":"自检合格数量/pcs"},
+                        "6":{"text":"不合格数量/pcs"},
+                        "7":{"text":"操作人"},
+                        "8":{"text":"复核人"}
+                      }
+                    },
+                    "1":{
+                      "cells":{
+                        "0":{"text":"","fillForm":{"field":"ebr_r1_c0","component":"Input","componentFlag":"input-text"}},
+                        "1":{"text":"","fillForm":{"field":"ebr_r1_c1","component":"Input","componentFlag":"input-text"}},
+                        "2":{"text":"□30atm压力表"},
+                        "3":{"text":"","fillForm":{"field":"ebr_r1_c3","component":"Input","componentFlag":"input-text"}},
+                        "4":{"text":"","fillForm":{"field":"ebr_r1_c4","component":"Input","componentFlag":"input-text"}},
+                        "5":{"text":"","fillForm":{"field":"ebr_r1_c5","component":"Input","componentFlag":"input-text"}},
+                        "6":{"text":"","fillForm":{"field":"ebr_r1_c6","component":"Input","componentFlag":"input-text"}},
+                        "7":{"text":"","fillForm":{"field":"ebr_r1_c7","component":"Input","componentFlag":"input-text"}},
+                        "8":{"text":"","fillForm":{"field":"ebr_r1_c8","component":"Input","componentFlag":"input-text"}}
+                      }
+                    }
+                  }
+                }
+                """);
+
+        MesProBatchRecordCellRuleSupport.applyAutomaticSuggestions(root, "REPORT-DENSE-TABLE");
+
+        JSONObject materialNameFillForm = MesProBatchRecordCellRuleSupport.requireCell(root, 1, 2)
+                .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY);
+        assertEquals("checkbox", materialNameFillForm.getString("componentFlag"));
+        assertEquals("30atm压力表", materialNameFillForm.getString("labelText"));
+
+        assertCellRuleAndFillForm(root, 1, 3, "STRING", "input-text", "批号");
+        assertCellRuleAndFillForm(root, 1, 4, "NUMBER", "input-number", "生产数量/pcs");
+        assertCellRuleAndFillForm(root, 1, 5, "NUMBER", "input-number", "自检合格数量/pcs");
+        assertCellRuleAndFillForm(root, 1, 6, "NUMBER", "input-number", "不合格数量/pcs");
+    }
+
+    @Test
     void toRuleJson_keepsAttachmentRuleForRequiredEvidence() {
         BatchRecordReportCellRuleVO rule = new BatchRecordReportCellRuleVO()
                 .setRowIndex(1)
@@ -1068,6 +1116,19 @@ class MesProBatchRecordCellRuleSupportTest {
                 .getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY);
         assertEquals("人工规则", reviewedRule.getString("label"));
         assertEquals(20, reviewedRule.getJSONObject("constraints").getInteger("maxLength"));
+    }
+
+    private void assertCellRuleAndFillForm(JSONObject root, int rowIndex, int columnIndex, String valueType,
+                                           String componentFlag, String label) {
+        JSONObject cell = MesProBatchRecordCellRuleSupport.requireCell(root, rowIndex, columnIndex);
+        JSONObject rule = cell.getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY);
+        JSONObject fillForm = cell.getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY);
+        assertEquals(valueType, rule.getString("valueType"));
+        assertEquals(componentFlag, rule.getString("componentFlag"));
+        assertEquals(label, rule.getString("label"));
+        assertEquals(componentFlag, fillForm.getString("componentFlag"));
+        assertEquals(label, fillForm.getString("labelText"));
+        assertFalse("checkbox".equals(fillForm.getString("componentFlag")));
     }
 
     private BatchRecordReportCellRuleVO findRule(List<BatchRecordReportCellRuleVO> suggestions,

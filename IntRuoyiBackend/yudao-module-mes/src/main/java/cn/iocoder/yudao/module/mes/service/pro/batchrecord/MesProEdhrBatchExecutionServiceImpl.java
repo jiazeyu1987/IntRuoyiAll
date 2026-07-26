@@ -93,6 +93,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTr
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
@@ -243,6 +244,11 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private static final String WORK_TASK_TYPE_APPROVE = "APPROVE";
     private static final String WORK_TASK_TYPE_ARCHIVE = "ARCHIVE";
     private static final String WORK_TASK_TYPE_CLOSE = "CLOSE";
+    private static final Set<String> PRE_CLOSE_ROUTE_FORM_FILL_STATUSES = Set.of(
+            MesProEdhrWorkTaskStatus.TODO,
+            MesProEdhrWorkTaskStatus.DOING,
+            MesProEdhrWorkTaskStatus.OVERDUE,
+            MesProEdhrWorkTaskStatus.DONE);
     private static final String PROCESS_RULE_TYPE_FILL = "FILL";
     private static final String PROCESS_RULE_TYPE_EQUIPMENT_FILL = "EQUIPMENT_FILL";
     private static final String PROCESS_RULE_TYPE_QUALITY_FILL = "QUALITY_FILL";
@@ -2151,6 +2157,11 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             if (preReleaseOpenResp != null) {
                 return preReleaseOpenResp;
             }
+            EdhrBatchExecutionTaskOpenRespVO preCloseDynamicRouteFormOpenResp =
+                    openPreCloseSubmittedDynamicRouteFormIfAllowed(batch, task, reqVO);
+            if (preCloseDynamicRouteFormOpenResp != null) {
+                return preCloseDynamicRouteFormOpenResp;
+            }
             throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
         }
         if (Objects.equals(task.getStatus(), TASK_STATUS_SKIPPED)) {
@@ -2221,6 +2232,41 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         Long permissionScopeId = resolveTaskPermissionScopeId(task);
         requireTaskFillAbility(batch, task, editability.workTask(), permissionScopeId);
         return buildTaskOpenResp(batch, task, editability.workTask(), permissionScopeId);
+    }
+
+    private EdhrBatchExecutionTaskOpenRespVO openPreCloseSubmittedDynamicRouteFormIfAllowed(
+            MesProEdhrBatchExecutionDO batch,
+            MesProEdhrBatchExecutionTaskDO task,
+            EdhrBatchExecutionTaskOpenReqVO reqVO) {
+        if (!isDynamicRouteFormTask(task)) {
+            return null;
+        }
+        if (!hasCompleteFormCenterRouteContext(task)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+        }
+        MesProEdhrWorkTaskDO workTask = requirePreCloseRouteFormFillWorkTask(reqVO.getWorkTaskId(), task);
+        Long permissionScopeId = resolveTaskPermissionScopeId(task);
+        requireTaskFillAbility(batch, task, workTask, permissionScopeId);
+        return buildTaskOpenResp(batch, task, workTask, permissionScopeId);
+    }
+
+    private MesProEdhrWorkTaskDO requirePreCloseRouteFormFillWorkTask(
+            Long workTaskId,
+            MesProEdhrBatchExecutionTaskDO task) {
+        if (workTaskId == null) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_NOT_VISIBLE);
+        }
+        MesProEdhrWorkTaskDO workTask = workTaskMapper.selectById(workTaskId);
+        if (workTask == null
+                || !Objects.equals(workTask.getBatchExecutionId(), task.getBatchExecutionId())
+                || !Objects.equals(workTask.getBatchTaskId(), task.getId())
+                || !isFillOrReworkWorkTask(workTask)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_NOT_VISIBLE);
+        }
+        if (!PRE_CLOSE_ROUTE_FORM_FILL_STATUSES.contains(workTask.getStatus())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
+        }
+        return workTask;
     }
 
     private EdhrBatchExecutionTaskOpenRespVO buildTaskOpenResp(MesProEdhrBatchExecutionDO batch,

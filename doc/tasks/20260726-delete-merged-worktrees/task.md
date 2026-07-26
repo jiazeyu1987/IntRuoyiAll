@@ -13,6 +13,7 @@ Delete the following user-specified IntRuoyi worktrees:
 - [x] Read required worktree and task closeout rules.
 - [x] Confirm target worktree paths and merge status.
 - [x] Create task documentation before destructive cleanup proceeds.
+- [x] Create missing `docs\worktree-memory.md` with user authorization.
 - [ ] Delete the three worktrees with Git worktree commands.
 - [ ] Verify the three worktrees are no longer registered or present on disk.
 - [ ] Record final verification and close task.
@@ -25,9 +26,9 @@ Delete the following user-specified IntRuoyi worktrees:
 
 ## Current Status
 
-blocked
+in_progress
 
-Deletion is blocked because `docs\experience-index.md` routes worktree deletion/removal cleanup risk to `E:\IntRuoyi\docs\worktree-memory.md`, but that required matching experience document is missing. Under the project high-risk cleanup gate, this must be recorded before proceeding, and the destructive deletion should not continue without explicit user authorization.
+The missing worktree memory gate has been created with user authorization. Proceeding to delete the three user-specified worktrees and verify removal.
 
 ## 经验门禁
 
@@ -35,13 +36,13 @@ Deletion is blocked because `docs\experience-index.md` routes worktree deletion/
 
 - Trigger: User requests deletion or cleanup of IntRuoyi worktrees under `D:\IntRuoyiWorktree\`.
 - Preflight check: Read `docs\worktree-restrictions.md`, `docs\task-closeout-rules.md`, `docs\experience-index.md`, and the matched experience document routed by the index.
-- Blocker: `E:\IntRuoyi\docs\worktree-memory.md` is missing, so the matched worktree cleanup memory cannot be checked.
-- Verification: Record `BLOCKER: experience-preflight -> missing E:\IntRuoyi\docs\worktree-memory.md` before any destructive deletion.
+- Blocker: Target path outside `D:\IntRuoyiWorktree\`, unmerged commits, or dirty worktree without explicit discard authorization.
+- Verification: `docs\worktree-memory.md` exists and records the deletion gate; deletion verification must confirm no target remains registered or present on disk.
 - Forbidden action: Do not silently proceed with destructive worktree removal when the matched high-risk experience gate is unavailable.
 - Evidence: `docs\experience-index.md` route for `worktree remove failed`, `residual worktree directory`, `Invalid argument`, and `Directory not empty`.
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
-- `是否从根因和长期维护角度解决`：否；当前阻塞于缺失的 worktree cleanup 经验门禁，需用户明确授权继续或补齐经验文档。
+- `是否从根因和长期维护角度解决`：是；已按用户授权补齐长期 worktree 删除门禁，并继续执行当前删除任务。
 - `是否存在临时补丁或绕过`：否。
