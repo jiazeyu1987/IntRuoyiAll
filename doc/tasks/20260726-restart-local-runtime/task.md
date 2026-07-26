@@ -9,11 +9,11 @@
 - [x] 读取任务、PowerShell/Git、本地运行和端口矩阵规则。
 - [x] 保存开始前既有脏工作区基线提交。
 - [x] 修复本地重启脚本仍指向旧前端目录的回归。
-- [ ] 检查 `8081` / `48081` 端口归属。
-- [ ] 停止确认属于本项目的旧前后端进程。
-- [ ] 重新启动后端与前端。
-- [ ] 验证后端 health 与前端入口可访问。
-- [ ] 完成任务收尾记录。
+- [x] 检查 `8081` / `48081` 端口归属。
+- [x] 停止确认属于本项目的旧前后端进程。
+- [x] 重新启动后端与前端。
+- [x] 验证后端 health 与前端入口可访问。
+- [x] 完成任务收尾记录。
 
 ## Expected Verification
 
@@ -23,7 +23,7 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## 设计约束检查
 
@@ -39,3 +39,7 @@ in_progress
 - Verification: 记录旧 PID、新 PID、启动命令、`/actuator/health` 状态和前端入口 HTTP 状态。
 - Forbidden action: 禁止静默换端口、强杀未知进程、修改共享 `.env` 或 `application-local.yaml`、跳过前端或后端后宣称重启完成。
 - Evidence: `docs/local-runtime.md`、`docs/branch-runtime-ports.md`。
+
+## Cleanup Keep
+
+- doc/tasks/20260726-restart-local-runtime/bug-regression-evidence.md
