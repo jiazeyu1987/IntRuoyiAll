@@ -5774,7 +5774,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         when(adminUserApi.getUserList(List.of(113L))).thenReturn(List.of(user(113L, "员工甲")));
         when(adminUserApi.getUserList(List.of(910245L))).thenReturn(List.of(user(910245L, "员工乙")));
         when(adminUserApi.getUserMap(argThat(ids ->
-                ids != null && ids.size() == 2 && ids.containsAll(List.of(113L, 910245L))))).thenReturn(Map.of(
+                ids != null && ids.containsAll(List.of(113L, 910245L))))).thenReturn(Map.of(
                 113L, user(113L, "员工甲"),
                 910245L, user(910245L, "员工乙")));
 

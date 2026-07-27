@@ -13,7 +13,7 @@ const routeGraphPath = path.join(
   'RouteFlowGraphDesigner.vue'
 )
 
-const routeGraph = fs.readFileSync(routeGraphPath, 'utf8')
+const routeGraph = fs.readFileSync(routeGraphPath, 'utf8').replace(/\r\n/g, '\n')
 
 assert.match(
   routeGraph,

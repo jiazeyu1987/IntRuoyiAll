@@ -16,8 +16,6 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
 
     List<String> APPROVAL_CENTER_TASK_TYPES = List.of("REVIEW", "APPROVE", "RELEASE_APPROVE");
     String TERMINAL_BATCH_STATUS_SQL = "30, 40, 50, 60";
-    String PROCESS_FORM_RESPONSIBILITY_SOURCE = "EDHR_PROCESS_FORM_FILLER";
-
     default PageResult<MesProEdhrWorkTaskDO> selectMyPage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                           Long assigneeUserId,
                                                           String status) {
@@ -251,11 +249,9 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
         String candidateToken = "," + userId + ",";
         wrapper.and(query -> query
                 .eq(MesProEdhrWorkTaskDO::getAssigneeUserId, userId)
-                .or(candidateQuery -> candidateQuery
-                        .eq(MesProEdhrWorkTaskDO::getResponsibilitySourceType,
-                                PROCESS_FORM_RESPONSIBILITY_SOURCE)
-                        .apply("CONCAT(',', candidate_user_snapshot, ',') LIKE {0}",
-                                "%" + candidateToken + "%")));
+                .or()
+                .apply("CONCAT(',', candidate_user_snapshot, ',') LIKE {0}",
+                        "%" + candidateToken + "%"));
         return wrapper;
     }
 

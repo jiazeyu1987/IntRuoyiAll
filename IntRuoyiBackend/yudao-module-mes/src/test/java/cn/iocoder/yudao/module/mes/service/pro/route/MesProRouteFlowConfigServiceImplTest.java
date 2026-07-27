@@ -1869,8 +1869,6 @@ class MesProRouteFlowConfigServiceImplTest {
         MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
         when(routeMapper.selectById(10L)).thenReturn(route);
         when(routeVersionMapper.selectById(1002L)).thenReturn(draftRouteVersion(1002L));
-        when(batchRecordReportMapper.selectListByReportIds(Set.of("REPORT-CLEAN")))
-                .thenReturn(List.of(report("REPORT-CLEAN")));
 
         MesProRouteFlowConfigSaveReqVO reqVO = new MesProRouteFlowConfigSaveReqVO();
         reqVO.setRouteId(10L);

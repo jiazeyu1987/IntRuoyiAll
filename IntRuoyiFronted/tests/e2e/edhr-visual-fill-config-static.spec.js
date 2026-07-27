@@ -3,7 +3,8 @@ const path = require('node:path')
 const assert = require('node:assert/strict')
 
 const root = path.resolve(__dirname, '../..')
-const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')
+const read = (relativePath) =>
+  fs.readFileSync(path.join(root, relativePath), 'utf8').replace(/\r\n/g, '\n')
 
 const reportApi = read('src/api/mes/pro/batchrecordreport/index.ts')
 const permissionApi = read('src/api/mes/pro/edhr/processFormPermissionRule.ts')
