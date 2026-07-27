@@ -76,6 +76,8 @@ public class MesProEdhrWorkTaskDO extends BaseDO {
 
     private String responsibilitySourceDigest;
 
+    private String responsibilityScopeJson;
+
     private Boolean ownershipLocked;
 
     private LocalDateTime ownershipLastTransferredAt;

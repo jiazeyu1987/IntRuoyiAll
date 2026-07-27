@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
+import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
@@ -29,6 +30,10 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.enums.md.autocode.MesMdAutoCodeRuleCodeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
 import cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRecordService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionRuleCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionScopeDetailResult;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionScopeSaveCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionScopeService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteOwnerPermissionService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -71,6 +76,12 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
     private static final String PROCESS_CODE_PREFIX = "ER";
     private static final String STATUS_DRAFT = "DRAFT";
     private static final String STATUS_ACTIVE = "ACTIVE";
+    private static final String OBJECT_TYPE_ROUTE_PROCESS_BATCH_RECORD = "ROUTE_PROCESS_BATCH_RECORD";
+    private static final String PERMISSION_SUBJECT_TYPE_USER = "USER";
+    private static final String PERMISSION_DECISION_ALLOW = "ALLOW";
+    private static final String PERMISSION_STATUS_ENABLED = "ENABLED";
+    private static final int BATCH_RECORD_BINDING_PERMISSION_PRIORITY = 10;
+    private static final List<String> BATCH_RECORD_BINDING_ABILITIES = List.of("VIEW", "FILL");
 
     @Resource
     private MesMdAutoCodeRecordService autoCodeRecordService;
@@ -98,6 +109,8 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
     private MesProRouteVersionMapper routeVersionMapper;
     @Resource
     private MesProRouteOwnerPermissionService routeOwnerPermissionService;
+    @Resource
+    private MesProEdhrPermissionScopeService permissionScopeService;
 
     @Override
     public void validateUploadedWordRoute(List<MesProBatchRecordParsedTable> parsedTables) {
@@ -248,6 +261,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
 
         int bindingCount = 0;
         List<MesProRouteProcessDO> generatedRouteProcesses = new ArrayList<>(bindings.size());
+        Map<Long, Long> batchRecordPermissionScopeIds = new LinkedHashMap<>();
         Map<Long, Long> preservedRouteProcessIdMap = new LinkedHashMap<>();
         Map<Long, Integer> preservedProcessIndexes = new HashMap<>();
         for (int index = 0; index < bindings.size(); index++) {
@@ -286,6 +300,8 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
             routeFlowProcessConfigMapper.insert(processConfig);
 
             if (binding.report() != null && StrUtil.isNotBlank(binding.report().reportId())) {
+                Long permissionScopeId = bindBatchRecordPermissionScope(routeProcess.getId(), binding.report().reportId());
+                batchRecordPermissionScopeIds.put(routeProcess.getId(), permissionScopeId);
                 routeFlowProcessBatchRecordMapper.insert(MesProRouteFlowProcessBatchRecordDO.builder()
                         .routeFlowProcessConfigId(processConfig.getId())
                         .routeId(route.getId())
@@ -297,7 +313,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                         .formSlotType(MesProBatchRecordFormSlotType.MAIN.getType())
                         .recordCategory(RECORD_CATEGORY_BATCH_RECORD)
                         .validationProfile(VALIDATION_PROFILE_CONTROLLED_BATCH)
-                        .permissionScopeId(routeProcess.getId())
+                        .permissionScopeId(permissionScopeId)
                         .recordCategorySnapshotHash(buildSnapshotHash(route.getId(), routeProcess.getId(),
                                 binding.report().reportId()))
                         .requiredPolicy(REQUIRED_POLICY_REQUIRED)
@@ -314,7 +330,8 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         insertRouteProcessFlowEdges(route.getId(), generatedRouteProcesses, preservedData, preservedRouteProcessIdMap);
         RouteProductBindingResult productBindingResult = bindRouteProducts(route.getId(), normalizedProductNames);
         updateRouteVersionSnapshot(routeVersion, buildGeneratedRouteSnapshot(
-                route, generatedRouteProcesses, bindings, normalizedProductNames, bindBatchRecordReports));
+                route, generatedRouteProcesses, bindings, normalizedProductNames, bindBatchRecordReports,
+                batchRecordPermissionScopeIds));
 
         return MesProBatchRecordRouteGenerationResult.builder()
                 .routeId(route.getId())
@@ -597,7 +614,8 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                                                    List<MesProRouteProcessDO> routeProcesses,
                                                    List<RouteProcessReportBinding> bindings,
                                                    List<String> productNames,
-                                                   boolean bindBatchRecordReports) {
+                                                   boolean bindBatchRecordReports,
+                                                   Map<Long, Long> batchRecordPermissionScopeIds) {
         JSONObject snapshot = new JSONObject(true);
         snapshot.put("routeId", route.getId());
         snapshot.put("routeCode", route.getCode());
@@ -635,7 +653,12 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
             batchUseConfig.put("formSlotType", binding.report().formSlotType());
             batchUseConfig.put("recordCategory", RECORD_CATEGORY_BATCH_RECORD);
             batchUseConfig.put("validationProfile", VALIDATION_PROFILE_CONTROLLED_BATCH);
-            batchUseConfig.put("permissionScopeId", routeProcess.getId());
+            Long permissionScopeId = batchRecordPermissionScopeIds.get(routeProcess.getId());
+            if (permissionScopeId == null) {
+                throw exception(PRO_BATCH_RECORD_REPORT_ROUTE_GENERATION_FAILED,
+                        "批记录绑定权限范围缺失：" + routeProcess.getId());
+            }
+            batchUseConfig.put("permissionScopeId", permissionScopeId);
             batchUseConfig.put("recordCategorySnapshotHash", buildSnapshotHash(route.getId(),
                     routeProcess.getId(), binding.report().reportId()));
             batchUseConfig.put("requiredPolicy", REQUIRED_POLICY_REQUIRED);
@@ -656,6 +679,32 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         configSnapshots.put("batchUseConfigs", batchUseConfigSnapshots);
         snapshot.put("configSnapshots", configSnapshots);
         return snapshot;
+    }
+
+    private Long bindBatchRecordPermissionScope(Long routeProcessId, String batchRecordReportId) {
+        Long actorUserId = SecurityFrameworkUtils.getLoginUserId();
+        MesProEdhrPermissionScopeDetailResult scope = permissionScopeService.saveRules(
+                new MesProEdhrPermissionScopeSaveCommand()
+                        .setScopeName("route-process-batch-record-" + routeProcessId + "-"
+                                + StrUtil.trim(batchRecordReportId))
+                        .setObjectType(OBJECT_TYPE_ROUTE_PROCESS_BATCH_RECORD)
+                        .setObjectId(buildBatchRecordPermissionScopeObjectId(routeProcessId, batchRecordReportId))
+                        .setActorUserId(actorUserId)
+                        .setActorUsername(SecurityFrameworkUtils.getLoginUserNickname())
+                        .setRules(BATCH_RECORD_BINDING_ABILITIES.stream()
+                                .map(ability -> new MesProEdhrPermissionRuleCommand()
+                                        .setSubjectType(PERMISSION_SUBJECT_TYPE_USER)
+                                        .setSubjectId(actorUserId)
+                                        .setAbility(ability)
+                                        .setDecision(PERMISSION_DECISION_ALLOW)
+                                        .setPriority(BATCH_RECORD_BINDING_PERMISSION_PRIORITY)
+                                        .setStatus(PERMISSION_STATUS_ENABLED))
+                                .toList()));
+        return scope.getScopeId();
+    }
+
+    private String buildBatchRecordPermissionScopeObjectId(Long routeProcessId, String batchRecordReportId) {
+        return routeProcessId + "|" + StrUtil.trim(batchRecordReportId);
     }
 
     private Map<String, Object> buildGeneratedFlowGraphSnapshot(Long routeId, List<Map<String, Object>> processSnapshots) {

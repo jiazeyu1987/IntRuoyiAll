@@ -88,10 +88,15 @@ const shouldOpenBatchFillTask = (item: EdhrWorkTaskRouteLike, url: URL) =>
   Boolean(resolveBatchExecutionId(item, url)) &&
   Boolean(resolveBatchTaskId(item, url))
 
-const stringifyQuery = (value?: Record<string, string | number | undefined>) => {
+const stringifyQuery = (value?: Record<string, unknown>) => {
   const query: Record<string, string> = {}
   Object.entries(value || {}).forEach(([key, entryValue]) => {
-    if (entryValue !== undefined && entryValue !== null && entryValue !== '') {
+    if (
+      (typeof entryValue === 'string' ||
+        typeof entryValue === 'number' ||
+        typeof entryValue === 'boolean') &&
+      entryValue !== ''
+    ) {
       query[key] = String(entryValue)
     }
   })

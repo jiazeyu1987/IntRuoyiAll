@@ -196,14 +196,6 @@
                   show-icon
                   class="edhr-page-shell__archive-alert"
                 />
-                <el-alert
-                  v-else-if="signatureError"
-                  :title="signatureError"
-                  type="error"
-                  :closable="false"
-                  show-icon
-                  class="edhr-page-shell__archive-alert"
-                />
                 <EdhrExecutionReadonlyForm
                   v-else
                   :form-view-model="trackingReadonlyFormViewModel"
@@ -332,7 +324,7 @@
                     type="primary"
                     :loading="fieldAuditSaveLoading"
                     :disabled="!canSaveFieldAuditChanges"
-                    @click="handleSaveFieldAuditChanges"
+                    @click="openFieldAuditSignatureDialog"
                   >
                     保存草稿
                   </el-button>
@@ -382,14 +374,6 @@
                     v-if="cellLinkPrefillConflictNotice"
                     :title="cellLinkPrefillConflictNotice"
                     type="warning"
-                    :closable="false"
-                    show-icon
-                    class="edhr-fill-workspace__prefill-alert"
-                  />
-                  <el-alert
-                    v-if="signatureError"
-                    :title="signatureError"
-                    type="error"
                     :closable="false"
                     show-icon
                     class="edhr-fill-workspace__prefill-alert"
@@ -543,6 +527,7 @@
                       >
                         <div class="edhr-fill-workspace__assist-switch-menu-head">
                           <strong>选择当前工序填写人</strong>
+                          <span>批处理表单 + 表单槽位</span>
                         </div>
                         <el-alert
                           v-if="assistFillerSwitchError"
@@ -608,7 +593,7 @@
 
                     <el-empty
                       v-if="assistFillFields.length === 0"
-                      description="当前没有可填写字段"
+                      :description="assistRowsConfigured ? '当前没有可填写字段' : '未配置辅助模式'"
                     />
 
                     <div v-else class="edhr-fill-workspace__assist-list">
@@ -1595,6 +1580,7 @@ import { getEdhrTrackingTimeline, type EdhrTrackingEventVO } from '@/api/mes/pro
 import { getEdhrRecordbookGlobalSetting } from '@/api/mes/pro/edhr/recordbookGlobalSetting'
 import {
   ProFeedbackApi,
+  type ProFeedbackEdhrAssistRowVO,
   type ProFeedbackEdhrExecutionSnapshotVO,
   type ProFeedbackEdhrExecutionVO,
   type ProFeedbackEdhrReviewAssigneeOptionVO,
@@ -1607,7 +1593,10 @@ import type {
   BatchRecordReportCellValueType,
   BatchRecordReportSignatureCellMarkerVO
 } from '@/api/mes/pro/batchrecordreport'
-import type { BatchRecordCellLinkPrefillItemVO } from '@/api/mes/pro/batchrecordcelllink'
+import {
+  BatchRecordCellLinkApi,
+  type BatchRecordCellLinkPrefillItemVO
+} from '@/api/mes/pro/batchrecordcelllink'
 import {
   EDHR_BATCH_NODE_ROUTE_FORM,
   EDHR_BATCH_TASK_STATUS_APPROVED,
@@ -1856,6 +1845,8 @@ const fitMode = ref<'width' | 'height'>('width')
 const fillViewMode = ref<'assist' | 'original'>('assist')
 const fillWorkspaceRef = ref<HTMLElement>()
 const highlightedAssistFieldIdentity = ref('')
+const openedExecutionPageAssistRows = ref<ProFeedbackEdhrAssistRowVO[]>([])
+const openedExecutionPageAssistRowsContextKey = ref('')
 let assistHighlightTimer: number | undefined
 const isFillWorkspaceFullscreen = ref(false)
 const fieldAuditSaveLoading = ref(false)
@@ -1929,8 +1920,6 @@ const TRACKING_VIEW_MODE = 'tracking'
 const RECORDBOOK_UNRESTRICTED_FILL_MODE = 'RECORDBOOK_UNRESTRICTED'
 const BATCH_SHARED_INSTANCE_SCOPE = 'BATCH_SHARED'
 const ASSIST_SWITCH_PAGE_SIZE = 50
-let executionPageRequestSerial = 0
-let executionSecondaryFrameId: number | undefined
 
 const isGlobalRecordbookEnabled = computed(
   () => recordbookGlobalEnabled.value && execution.value?.recordbookEnabled === true
@@ -2583,6 +2572,87 @@ const templateFieldByCell = computed(() => {
   return map
 })
 
+const normalizeExecutionAssistRows = (rows: unknown): ProFeedbackEdhrAssistRowVO[] => {
+  if (!Array.isArray(rows)) return []
+  return rows
+    .map((row, index) => {
+      const record = row as Partial<ProFeedbackEdhrAssistRowVO>
+      const fields = Array.isArray(record.fields)
+        ? record.fields
+            .map((field) => {
+              const rowIndex = parseNonNegativeInteger((field as any)?.rowIndex)
+              const columnIndex = parseNonNegativeInteger((field as any)?.columnIndex)
+              return rowIndex == null || columnIndex == null ? null : { rowIndex, columnIndex }
+            })
+            .filter((field): field is { rowIndex: number; columnIndex: number } => Boolean(field))
+        : []
+      return {
+        rowKey: String(record.rowKey || `ASSIST_ROW_${index + 1}`).trim(),
+        description: String(record.description || '').trim(),
+        sort: Number.isFinite(Number(record.sort)) ? Number(record.sort) : index + 1,
+        fields
+      }
+    })
+    .filter((row) => row.rowKey && row.fields.length > 0)
+    .sort((left, right) => left.sort - right.sort)
+}
+
+const parseAssistRowsRouteQuery = () => {
+  const rawValue = Array.isArray(route.query.assistRows)
+    ? route.query.assistRows[0]
+    : route.query.assistRows
+  const text = typeof rawValue === 'string' ? rawValue.trim() : ''
+  if (!text) {
+    return { present: false, rows: [] as ProFeedbackEdhrAssistRowVO[] }
+  }
+  const parsed = JSON.parse(text)
+  return { present: true, rows: normalizeExecutionAssistRows(parsed) }
+}
+
+const visibleAssistRowsFromExecutionQueryState = computed(() => {
+  const routeRows = parseAssistRowsRouteQuery()
+  if (routeRows.present) return routeRows
+  if (openedExecutionPageAssistRowsContextKey.value === resolveExecutionContextKey()) {
+    return { present: true, rows: openedExecutionPageAssistRows.value }
+  }
+  return { present: false, rows: [] as ProFeedbackEdhrAssistRowVO[] }
+})
+
+const visibleAssistRowsFromExecutionQuery = computed(
+  () => visibleAssistRowsFromExecutionQueryState.value.rows
+)
+
+const snapshotAssistRows = computed(() =>
+  normalizeExecutionAssistRows(parsedSnapshot.value.parsed?.assistRows)
+)
+
+const activeAssistRows = computed(() =>
+  visibleAssistRowsFromExecutionQueryState.value.present
+    ? visibleAssistRowsFromExecutionQuery.value
+    : snapshotAssistRows.value
+)
+
+const assistRowsConfigured = computed(() => activeAssistRows.value.length > 0)
+
+const buildAssistFieldsFromAssistRows = (
+  rows: ProFeedbackEdhrAssistRowVO[],
+  fields: NormalizedSnapshotField[]
+) => {
+  const fieldMap = new Map(fields.map((field) => [buildCellValueKey(field.rowIndex, field.columnIndex), field]))
+  const items: NormalizedSnapshotField[] = []
+  rows.forEach((row) => {
+    row.fields.forEach((cell) => {
+      const field = fieldMap.get(buildCellValueKey(cell.rowIndex, cell.columnIndex))
+      if (!field) return
+      items.push({
+        ...field,
+        helpText: row.description || field.helpText
+      })
+    })
+  })
+  return items
+}
+
 const readSnapshotCellText = (cell?: RawExecutionSnapshotCell) => {
   if (!cell) return ''
   const directCandidates = [cell.text, cell.displayText, cell.content, cell.value]
@@ -2842,8 +2912,7 @@ const templateModelValue = computed<TemplateSimulationValueMap>(() => {
 
 const assistFillFields = computed<AssistFillField[]>(() =>
   buildAssistChoiceGroupItems(
-    snapshotFields.value
-      .filter(isFieldInCurrentFillScope)
+    buildAssistFieldsFromAssistRows(activeAssistRows.value, snapshotFields.value)
       .filter((field) => !field.readonly || field.componentKind === 'signature')
   )
 )
@@ -4031,6 +4100,35 @@ const formatCellLinkPrefillSource = (item?: BatchRecordCellLinkPrefillItemVO) =>
   return sourceCell ? `${sourceName} / ${sourceCell}` : sourceName
 }
 
+const normalizeCellLinkPrefillDraftValue = (
+  item: BatchRecordCellLinkPrefillItemVO,
+  field: NormalizedSnapshotField
+): DraftFieldValue => {
+  if (item.value == null) {
+    return null
+  }
+  if (isSingleChoiceCheckboxField(field)) {
+    return String(item.value)
+  }
+  if (field.componentKind === 'checkbox') {
+    return String(item.value).toLowerCase() === 'true'
+  }
+  if (field.componentKind === 'number') {
+    const numericValue = Number(item.value)
+    if (!Number.isFinite(numericValue)) {
+      throw new Error(
+        `跨表单链接规则 ${item.ruleId || '--'} 带入 ${field.label} 时返回非数字值，不能预填。`
+      )
+    }
+    return numericValue
+  }
+  if (field.valueType === 'DATE' || field.valueType === 'DATETIME') {
+    const text = String(item.value).trim()
+    return text ? text : null
+  }
+  return String(item.value)
+}
+
 const hydrateStoredDraftValue = (
   value: unknown,
   field: NormalizedSnapshotField
@@ -4047,7 +4145,11 @@ const hydrateStoredDraftValue = (
   return value == null ? '' : String(value)
 }
 
-const hydrateDraftState = (detail: ProFeedbackEdhrExecutionVO) => {
+const hydrateDraftState = (
+  detail: ProFeedbackEdhrExecutionVO,
+  prefills: BatchRecordCellLinkPrefillItemVO[] = [],
+  conflicts: BatchRecordCellLinkPrefillItemVO[] = []
+) => {
   const cellValueMap = new Map(
     (detail.cellValues || []).map((cellValue) => [
       buildCellValueKey(cellValue.rowIndex, cellValue.columnIndex),
@@ -4057,6 +4159,12 @@ const hydrateDraftState = (detail: ProFeedbackEdhrExecutionVO) => {
       }
     ])
   )
+  const prefillMap = new Map(
+    prefills
+      .filter((item) => item.value != null)
+      .map((item) => [buildCellValueKey(item.targetRowIndex, item.targetColumnIndex), item])
+  )
+  const appliedPrefills: BatchRecordCellLinkPrefillItemVO[] = []
   const nextDraftValues: Record<string, DraftFieldValue> = {}
   const nextBaselineValues: Record<string, DraftFieldValue> = {}
   const nextDraftAttachmentValues: Record<string, DraftAttachmentValue> = {}
@@ -4085,7 +4193,13 @@ const hydrateDraftState = (detail: ProFeedbackEdhrExecutionVO) => {
       }
       continue
     }
-    nextBaselineValues[field.fieldIdentity] = field.defaultValue
+    nextBaselineValues[field.fieldIdentity] = field.defaultValue
+    const cellLinkPrefill = prefillMap.get(cellKey)
+    if (cellLinkPrefill && !field.readonly) {
+      nextDraftValues[field.fieldIdentity] = normalizeCellLinkPrefillDraftValue(cellLinkPrefill, field)
+      appliedPrefills.push(cellLinkPrefill)
+      continue
+    }
     nextDraftValues[field.fieldIdentity] = field.defaultValue
   }
   draftFieldValues.value = nextDraftValues
@@ -4094,8 +4208,8 @@ const hydrateDraftState = (detail: ProFeedbackEdhrExecutionVO) => {
   attachmentMetadataByUrl.value = {}
   baselineFieldValues.value = nextBaselineValues
   baselineFieldValueHashes.value = nextFieldHashes
-  cellLinkPrefills.value = []
-  cellLinkConflicts.value = []
+  cellLinkPrefills.value = appliedPrefills
+  cellLinkConflicts.value = conflicts
   draftRemark.value = detail.remark || ''
   fieldAuditSaveError.value = ''
   fieldAuditLastResult.value = undefined
@@ -4224,6 +4338,10 @@ const handleRevertPendingFieldChange = (change: PendingFieldChange) => {
     ...draftFieldValues.value,
     [change.fieldIdentity]: baselineFieldValues.value[change.fieldIdentity]
   }
+}
+
+const openFieldAuditSignatureDialog = async () => {
+  await handleSaveFieldAuditChanges()
 }
 
 const handleSaveFieldAuditChanges = async () => {
@@ -4454,48 +4572,18 @@ const handleFormReviewSign = async () => {
   }
 }
 
-const isStaleExecutionPageRequest = (requestSerial: number) =>
-  requestSerial !== executionPageRequestSerial
-
-const isOptionalStaleExecutionPageRequest = (requestSerial?: number) =>
-  requestSerial !== undefined && isStaleExecutionPageRequest(requestSerial)
-
-const cancelDeferredExecutionSecondaryLoad = () => {
-  if (executionSecondaryFrameId !== undefined) {
-    cancelAnimationFrame(executionSecondaryFrameId)
-    executionSecondaryFrameId = undefined
-  }
-}
-
-const clearExecutionSecondaryState = () => {
-  latestArchive.value = undefined
-  trackingTimeline.value = []
-  signatureRows.value = []
-  archiveError.value = ''
-  trackingError.value = ''
-  signatureError.value = ''
-  archiveLoading.value = false
-}
-
-const loadLatestArchive = async (requestSerial?: number) => {
-  const targetExecutionId = execution.value?.id
-  if (!targetExecutionId || !hasArchiveQueryPermission.value) {
-    if (!isOptionalStaleExecutionPageRequest(requestSerial)) {
-      latestArchive.value = undefined
-      archiveError.value = ''
-      archiveLoading.value = false
-    }
+const loadLatestArchive = async () => {
+  if (!execution.value?.id || !hasArchiveQueryPermission.value) {
+    latestArchive.value = undefined
+    archiveError.value = ''
     return
   }
 
   archiveLoading.value = true
   archiveError.value = ''
   try {
-    const archive = await getLatestEdhrExecutionArchive(targetExecutionId, archiveArtifactType)
-    if (isOptionalStaleExecutionPageRequest(requestSerial)) return
-    latestArchive.value = archive
+    latestArchive.value = await getLatestEdhrExecutionArchive(execution.value.id, archiveArtifactType)
   } catch (error) {
-    if (isOptionalStaleExecutionPageRequest(requestSerial)) return
     const errorMessage = resolveErrorMessage(error, '归档状态加载失败，请联系管理员。')
     if (isEdhrExecutionArchiveNotExistsMessage(errorMessage)) {
       latestArchive.value = undefined
@@ -4505,9 +4593,7 @@ const loadLatestArchive = async (requestSerial?: number) => {
     latestArchive.value = undefined
     archiveError.value = errorMessage
   } finally {
-    if (!isOptionalStaleExecutionPageRequest(requestSerial)) {
-      archiveLoading.value = false
-    }
+    archiveLoading.value = false
   }
 }
 
@@ -4598,72 +4684,40 @@ const handleDownloadArchive = async () => {
   }
 }
 
-const loadTrackingAndSignatures = async (requestSerial?: number) => {
-  const targetExecutionId = execution.value?.id
-  if (!targetExecutionId) {
-    if (!isOptionalStaleExecutionPageRequest(requestSerial)) {
-      trackingTimeline.value = []
-      signatureRows.value = []
-    }
+const loadTrackingAndSignatures = async () => {
+  if (!execution.value?.id) {
+    trackingTimeline.value = []
+    signatureRows.value = []
     return
   }
   trackingError.value = ''
   signatureError.value = ''
-  const [timelineResult, signatureResult] = await Promise.allSettled([
-    getEdhrTrackingTimeline(targetExecutionId),
-    getEdhrExecutionSignaturePage({
+  try {
+    trackingTimeline.value = await getEdhrTrackingTimeline(execution.value.id)
+  } catch (error) {
+    trackingTimeline.value = []
+    trackingError.value = resolveErrorMessage(error, 'eDHR 追踪时间线加载失败，请联系管理员。')
+  }
+  try {
+    const signaturePage = await getEdhrExecutionSignaturePage({
       pageNo: 1,
       pageSize: 20,
-      executionId: targetExecutionId
+      executionId: execution.value.id
     })
-  ])
-  if (isOptionalStaleExecutionPageRequest(requestSerial)) return
-  if (timelineResult.status === 'fulfilled') {
-    trackingTimeline.value = timelineResult.value
-  } else {
-    trackingTimeline.value = []
-    trackingError.value = resolveErrorMessage(
-      timelineResult.reason,
-      'eDHR 追踪时间线加载失败，请联系管理员。'
-    )
-  }
-  if (signatureResult.status === 'fulfilled') {
-    signatureRows.value = signatureResult.value.list || []
-  } else {
+    signatureRows.value = signaturePage.list || []
+  } catch (error) {
     signatureRows.value = []
-    signatureError.value = resolveErrorMessage(
-      signatureResult.reason,
-      'eDHR 签名记录加载失败，请联系管理员。'
-    )
+    signatureError.value = resolveErrorMessage(error, 'eDHR 签名记录加载失败，请联系管理员。')
   }
-}
-
-const loadExecutionSecondaryData = async (requestSerial: number) => {
-  if (isStaleExecutionPageRequest(requestSerial)) return
-  await Promise.all([
-    loadLatestArchive(requestSerial),
-    loadTrackingAndSignatures(requestSerial)
-  ])
-}
-
-const deferExecutionSecondaryLoad = (requestSerial: number) => {
-  cancelDeferredExecutionSecondaryLoad()
-  executionSecondaryFrameId = requestAnimationFrame(() => {
-    executionSecondaryFrameId = undefined
-    if (isStaleExecutionPageRequest(requestSerial)) return
-    void loadExecutionSecondaryData(requestSerial)
-  })
 }
 
 const loadExecution = async () => {
-  const requestSerial = ++executionPageRequestSerial
-  cancelDeferredExecutionSecondaryLoad()
   const currentExecutionId = executionId.value
   const currentExecutionContextKey = resolveExecutionContextKey()
   if (!currentExecutionId) {
     execution.value = undefined
     loadedExecutionContextKey.value = ''
-    clearExecutionSecondaryState()
+    latestArchive.value = undefined
     loadError.value = '缺少 eDHR 执行记录 ID，无法加载执行页。'
     return
   }
@@ -4672,26 +4726,30 @@ const loadExecution = async () => {
   loadError.value = ''
   archiveError.value = ''
   formReviewSignError.value = ''
-  clearExecutionSecondaryState()
   try {
     const detail = await ProFeedbackApi.getEdhrExecution(currentExecutionId, workTaskId.value)
-    if (isStaleExecutionPageRequest(requestSerial)) return
     if (!detail?.id) {
       throw new Error('eDHR 执行记录未返回有效执行记录 ID。')
     }
     if (typeof detail.executionSnapshotJson !== 'string' || !detail.executionSnapshotJson.trim()) {
       throw new Error('eDHR 执行记录缺少 executionSnapshotJson，无法渲染执行表单。')
     }
-    if (isStaleExecutionPageRequest(requestSerial)) return
+    const shouldLoadCellLinkPrefill =
+      !isTrackingReadonlyMode.value && detail.status === EDHR_EXECUTION_STATUS.DRAFT
+    const prefillResponse = shouldLoadCellLinkPrefill
+      ? await BatchRecordCellLinkApi.getPrefill(currentExecutionId, workTaskId.value)
+      : undefined
     execution.value = detail
-    hydrateDraftState(detail)
+    hydrateDraftState(detail, prefillResponse?.prefills || [], prefillResponse?.conflicts || [])
+    await loadLatestArchive()
+    await loadTrackingAndSignatures()
     loadedExecutionContextKey.value = currentExecutionContextKey
-    deferExecutionSecondaryLoad(requestSerial)
   } catch (error) {
-    if (isStaleExecutionPageRequest(requestSerial)) return
     execution.value = undefined
     loadedExecutionContextKey.value = ''
-    clearExecutionSecondaryState()
+    latestArchive.value = undefined
+    trackingTimeline.value = []
+    signatureRows.value = []
     draftFieldValues.value = {}
     draftAttachmentValues.value = {}
     draftImageAttachmentValues.value = {}
@@ -4703,9 +4761,7 @@ const loadExecution = async () => {
     draftRemark.value = ''
     loadError.value = resolveErrorMessage(error, 'eDHR 执行页加载失败，请联系管理员。')
   } finally {
-    if (!isStaleExecutionPageRequest(requestSerial)) {
-      loading.value = false
-    }
+    loading.value = false
   }
 }
 
@@ -4853,16 +4909,14 @@ const loadAssistFillerSwitchItems = async () => {
   assistFillerSwitchLoading.value = true
   assistFillerSwitchError.value = ''
   try {
-    const assistSwitchTasks = execution.value?.assistSwitchTasks
-    if (!Array.isArray(assistSwitchTasks) || assistSwitchTasks.length === 0) {
-      throw new Error('当前执行详情缺少填写人快照，不能切换填写人。')
-    }
-    const currentTask = resolveCurrentAssistBatchTask(assistSwitchTasks)
+    const batchExecutionId = requireAssistBatchExecutionId()
+    const batchDetail = await getEdhrBatchExecution(batchExecutionId)
+    const currentTask = resolveCurrentAssistBatchTask(batchDetail.tasks || [])
     const routeProcessId = parsePositiveNumber(currentTask.routeProcessId)
     if (!routeProcessId) {
       throw new Error(`当前批次任务 ${currentTask.id} 缺少 routeProcessId，不能解析填写人。`)
     }
-    const currentProcessTasks = [...assistSwitchTasks]
+    const currentProcessTasks = [...(batchDetail.tasks || [])]
       .filter(
         (task) =>
           !isAssistSpecialBatchTask(task) &&
@@ -4959,6 +5013,9 @@ const isAssistBatchTaskActive = (row: EdhrBatchExecutionTaskRespVO) =>
   sameRouteQueryId(executionId.value, row.executionId) ||
   readRouteQueryString(route.query.batchTaskId) === String(row.id)
 
+const resolveAssistFillerFormSourceLabel = (row: EdhrBatchExecutionTaskRespVO) =>
+  !row.formTemplateId && row.formSlotType === 'MAIN' ? '批处理表单' : '工艺路线表单槽位'
+
 const resolveAssistFillerFormName = (row: EdhrBatchExecutionTaskRespVO) =>
   row.batchRecordReportName ||
   row.formTemplateName ||
@@ -4967,7 +5024,11 @@ const resolveAssistFillerFormName = (row: EdhrBatchExecutionTaskRespVO) =>
   `表单任务 ${row.id}`
 
 const resolveAssistFillerSwitchItemSecondaryLabel = (item: AssistFillerSwitchItem) =>
-  resolveAssistFillerFormName(item.task)
+  [
+    resolveAssistFillerFormSourceLabel(item.task),
+    resolveAssistFillerFormName(item.task),
+    resolveAssistBatchTaskStatusLabel(item.task)
+  ].join(' · ')
 
 const currentAssistUserId = () => {
   const user = userStore.getUser || userStore.user
@@ -4975,21 +5036,10 @@ const currentAssistUserId = () => {
 }
 
 const isAssistFillerSwitchItemSelectable = (item: AssistFillerSwitchItem) =>
-  isAssistBatchTaskOpenable(item.task) &&
-  (hasGoldenFingerPermission.value || currentAssistUserId() === item.userId)
+  currentAssistUserId() === item.userId && isAssistBatchTaskOpenable(item.task)
 
 const isAssistFillerSwitchItemActive = (item: AssistFillerSwitchItem) =>
   currentAssistUserId() === item.userId && isAssistBatchTaskActive(item.task)
-
-const resolveAssistFillerSwitchUnselectableMessage = (item: AssistFillerSwitchItem) => {
-  if (!isAssistBatchTaskOpenable(item.task)) {
-    return '该填写人关联的表单任务当前不可打开。'
-  }
-  if (!hasGoldenFingerPermission.value && currentAssistUserId() !== item.userId) {
-    return '当前账号没有金手指代填权限，不能选择其他填写人。'
-  }
-  return '该填写人当前不可选择。'
-}
 
 const resolveAssistRecordCategory = (row: EdhrBatchExecutionTaskRespVO) =>
   row.recordCategory === 'INTERNAL_RECORD' ? 'INTERNAL_RECORD' : 'BATCH_RECORD'
@@ -5008,10 +5058,13 @@ const buildAssistFillCarrierExecutionQuery = (row: EdhrBatchExecutionTaskRespVO)
   return query
 }
 
-const stringifyAssistRouteQuery = (value?: Record<string, string | number | null | undefined>) => {
+const stringifyAssistRouteQuery = (value?: Record<string, unknown>) => {
   const query: Record<string, string> = {}
   Object.entries(value || {}).forEach(([key, entryValue]) => {
-    if (entryValue !== undefined && entryValue !== null && entryValue !== '') {
+    if (
+      (typeof entryValue === 'string' || typeof entryValue === 'number' || typeof entryValue === 'boolean') &&
+      String(entryValue).trim()
+    ) {
       query[key] = String(entryValue)
     }
   })
@@ -5068,6 +5121,8 @@ const navigateToAssistBatchTask = async (
       throw new Error('打开工序任务后端未返回 executionId，不能进入 eDHR 填写页。')
     }
     const openedWorkTaskId = opened.workTaskId || opened.executionPageQuery?.workTaskId || row.activeWorkTaskId
+    openedExecutionPageAssistRows.value = normalizeExecutionAssistRows((opened.executionPageQuery as any)?.assistRows)
+    openedExecutionPageAssistRowsContextKey.value = `${opened.executionId}:${openedWorkTaskId || ''}`
     const query = {
       ...stringifyAssistRouteQuery(opened.executionPageQuery),
       id: String(opened.executionId),
@@ -5093,7 +5148,7 @@ const navigateToAssistBatchTask = async (
 
 const handleSelectAssistFillerSwitchItem = async (item: AssistFillerSwitchItem) => {
   if (!isAssistFillerSwitchItemSelectable(item)) {
-    assistFillerSwitchError.value = resolveAssistFillerSwitchUnselectableMessage(item)
+    assistFillerSwitchError.value = '该填写人不属于当前账号可处理项，不能代填或切换责任人。'
     message.error(assistFillerSwitchError.value)
     return
   }
@@ -5222,7 +5277,6 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  cancelDeferredExecutionSecondaryLoad()
   document.removeEventListener('fullscreenchange', syncFillWorkspaceFullscreenState)
 })
 </script>

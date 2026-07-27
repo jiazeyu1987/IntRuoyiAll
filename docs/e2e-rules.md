@@ -110,6 +110,14 @@
 - Forbidden action: 禁止把 `approval-resolution` 当作提交后才发生的请求；禁止硬编码固定审批人；禁止用接口直审、SQL 改状态、API-only 或前端隐藏替代真实审批中心路径。
 - Evidence: `doc/tasks/20260727-edhr-batch-void-work-task-closure/verification-report.md`。
 
+## eDHR 跨系统路线产品夹具门禁
+
+- Trigger: 真实 E2E 需要从批记录 Word 导入路线、绑定 DCC 项目代码/MES 物料、创建金蝶生产订单、同步 MES 工单并生成员工待办。
+- Preflight check: 脚本必须把任务批记录夹具名、目标表单名和路线产品名分开配置；写入前先校验 DCC 项目名与项目代码、MES 物料编码/名称、`batchFlag`、路线产品绑定、金蝶物料编码和计量单位是否一致。
+- Blocker: 任一环节缺失或不一致时必须在导入/创建工单前 fail fast，记录缺失的正式前置；不得先创建冲突 DCC 项目代码、不得用另一产品名冒充任务夹具、不得调用 MES 手工工单接口绕过金蝶同步。
+- Verification: 证据应记录本地未跟踪配置路径、租户/账号标签、路线产品名、项目代码、MES item、路线 ID、金蝶生产订单创建结果、MES 工单同步结果和员工待办打开结果；密码/token 必须脱敏。
+- Forbidden action: 禁止把任务批记录名直接当路线产品名、禁止用 API-only/样本接口/直接 SQL 造待办、禁止把金蝶物料不存在或 MES 物料未启用批次绑定解释为页面 E2E 失败。
+
 
 ## eDHR 历史执行只读验证门禁
 
