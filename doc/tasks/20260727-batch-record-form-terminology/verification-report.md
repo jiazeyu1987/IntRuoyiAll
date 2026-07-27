@@ -15,7 +15,9 @@
 - GREEN：前后端检查点 `f18927b9` 已推送至 `origin/int_main`，未包含之后出现的并发未提交改动。
 - GREEN：术语规则提交 `33b7e407` 已推送至 `origin/codex/20260727-batch-record-form-terminology`。
 - BLOCKED：`task-closeout-cleanup` preview 保留三个核心任务文档且无删除项，但检测到主工作区脏状态，禁止执行 `ff-only` 合并和 worktree 删除。
+- GREEN：术语提交已重放到本地 `int_main` 既有基线 `40b7f7b9` 之后；索引冲突同时保留主分支和本任务两条规则。
+- GREEN：经用户明确授权，`git push origin HEAD:int_main` 将远端 `int_main` 从 `9b94ac81` fast-forward 到 `c92f45a4`，未使用 force push，未提交或清理主工作区的未跟踪并发文件。
 
 ## Conclusion
 
-术语契约写入、验证、任务分支提交和推送均通过。由于主工作区存在其它任务的并发未提交改动，本任务保持 `ready_for_closeout`；待主工作区恢复干净后再集成和清理。
+术语契约写入、验证和远端 `int_main` 集成均通过。由于本地主工作区仍存在其它任务的并发未提交改动，本任务保持 `ready_for_closeout`；待主工作区恢复干净后再同步本地主分支、清理 worktree 并释放 slot 4。
