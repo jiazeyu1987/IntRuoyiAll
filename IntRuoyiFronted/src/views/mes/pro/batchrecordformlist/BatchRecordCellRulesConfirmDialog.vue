@@ -76,7 +76,7 @@
                         第 {{ cell.rowIndex + 1 }} 行第 {{ cell.columnIndex + 1 }} 列
                       </span>
                       <span v-if="cell.rule" class="batch-record-cell-rules-editor__cell-rule">
-                        <span>{{ valueTypeLabelMap[cell.rule.valueType] || cell.rule.valueType }}</span>
+                        <span>{{ resolveRuleEditorValueTypeLabel(cell.rule) }}</span>
                         <b v-if="cell.rule.required">必填</b>
                       </span>
                     </button>
@@ -143,12 +143,11 @@
 
                 <el-form-item label="字段类型">
                   <el-select
-                    v-model="selectedRule.valueType"
+                    v-model="selectedRuleEditorValueType"
                     class="!w-1/1"
-                    @change="handleSelectedValueTypeChange"
                   >
                     <el-option
-                      v-for="option in cellRuleValueTypeOptions"
+                      v-for="option in ruleEditorValueTypeOptions"
                       :key="option.value"
                       :label="option.label"
                       :value="option.value"

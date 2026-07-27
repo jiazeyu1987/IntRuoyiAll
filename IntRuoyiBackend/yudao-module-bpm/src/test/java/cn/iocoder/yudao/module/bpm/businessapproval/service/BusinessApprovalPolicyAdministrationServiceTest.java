@@ -98,6 +98,19 @@ class BusinessApprovalPolicyAdministrationServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void publishFormTemplateUpgradeDirectPolicyFailsFastBecauseUpgradeRequiresBpm() {
+        BusinessApprovalPolicyRespVO respVO = policyService.savePolicy(
+                formTemplateUpgradeReq(BusinessApprovalPolicyMode.DIRECT));
+
+        BusinessApprovalException ex = assertThrows(BusinessApprovalException.class,
+                () -> policyService.publishPolicy(respVO.getId()));
+
+        assertEquals(BusinessApprovalErrorCode.BUSINESS_APPROVAL_MODE_INVALID, ex.getErrorCode());
+        BusinessApprovalPolicyDO policyDO = policyMapper.selectById(respVO.getId());
+        assertEquals("DRAFT", policyDO.getStatus());
+    }
+
+    @Test
     void publishSignatureRequiredPolicyDoesNotRequireProcessDefinitionKey() {
         BusinessApprovalPolicyRespVO respVO = policyService.savePolicy(signatureRequiredReq());
 
@@ -192,6 +205,24 @@ class BusinessApprovalPolicyAdministrationServiceTest extends BaseDbUnitTest {
                 resolveService.resolve(BusinessApprovalPolicyResolveServiceTest.baseContext().build());
         assertEquals(BusinessApprovalPolicyMode.DIRECT, resolution.getMode());
         verifyPolicySwitchSignatureRecorded(newPolicy, BusinessApprovalPolicyMode.DIRECT);
+    }
+
+    @Test
+    void switchPublishedFormTemplateUpgradeBpmPolicyToDirectFailsFastAndKeepsOldPolicyPublished() {
+        BusinessApprovalPolicyRespVO published = policyService.savePolicy(
+                formTemplateUpgradeReq(BusinessApprovalPolicyMode.BPM_REQUIRED));
+        policyService.publishPolicy(published.getId());
+
+        BusinessApprovalException ex = assertThrows(BusinessApprovalException.class,
+                () -> policyService.switchPolicyMode(100L, published.getId(),
+                        switchModeReq(BusinessApprovalPolicyMode.DIRECT)));
+
+        assertEquals(BusinessApprovalErrorCode.BUSINESS_APPROVAL_MODE_INVALID, ex.getErrorCode());
+        BusinessApprovalPolicyDO oldPolicy = policyMapper.selectById(published.getId());
+        assertEquals(BusinessApprovalPolicy.STATUS_PUBLISHED, oldPolicy.getStatus());
+        assertEquals(BusinessApprovalPolicyMode.BPM_REQUIRED.name(), oldPolicy.getPolicyMode());
+        verifyNoInteractions(adminUserApi);
+        verifyNoInteractions(signatureRecordService);
     }
 
     @Test
@@ -335,6 +366,21 @@ class BusinessApprovalPolicyAdministrationServiceTest extends BaseDbUnitTest {
         return reqVO;
     }
 
+    private BusinessApprovalPolicySaveReqVO formTemplateUpgradeReq(BusinessApprovalPolicyMode mode) {
+        BusinessApprovalPolicySaveReqVO reqVO = new BusinessApprovalPolicySaveReqVO();
+        reqVO.setDataDomain("FORM_CENTER");
+        reqVO.setSystemCode("FORM_CENTER");
+        reqVO.setObjectType("FORM_TEMPLATE");
+        reqVO.setActionCode("UPGRADE");
+        reqVO.setObjectState("DRAFT");
+        reqVO.setPolicyMode(mode.name());
+        reqVO.setProcessDefinitionKey(
+                mode == BusinessApprovalPolicyMode.BPM_REQUIRED ? "form-template-upgrade-v1" : null);
+        reqVO.setEffectExecutorCode("FORM_TEMPLATE_UPGRADE");
+        reqVO.setRemark("form template upgrade");
+        return reqVO;
+    }
+
     private BusinessApprovalPolicySwitchModeReqVO switchModeReq(BusinessApprovalPolicyMode mode) {
         return switchModeReq(mode, "signature-pass");
     }
@@ -366,6 +412,8 @@ class BusinessApprovalPolicyAdministrationServiceTest extends BaseDbUnitTest {
         BusinessApprovalEffectExecutorRegistry businessApprovalEffectExecutorRegistry() {
             return new BusinessApprovalEffectExecutorRegistry(List.of(
                     new RecordingExecutor("MES_ROUTE_VERSION_PUBLISH", "mes-route-version-approval-v1"),
+                    new RecordingExecutor("FORM_TEMPLATE_UPGRADE", "form-template-upgrade-v1"),
+                    new RecordingExecutor("FORM_TEMPLATE_OBSOLETE", "form-template-obsolete-v1"),
                     new RecordingExecutor("UNCONFIGURED_EXECUTOR")));
         }
 

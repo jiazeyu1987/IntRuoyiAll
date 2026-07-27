@@ -15,3 +15,10 @@
 - GREEN: database data check -> PASS, target file `2054545668044071537 / 血液瓶瓶体清洗验证.pdf` has blank `file_number`; tenant 1 has `15995` active/superseded controlled files with blank `file_number`.
 - Root cause: preview metadata generation passes `file.getFileNumber()` into `DccPreviewAccessRequest`, but `DccControlledPreviewAccessService.requireRequest` requires nonblank `fileNumber`. This conflicts with existing metadata validation intent that file number is optional for some controlled files.
 - No code fix performed in this task; user requested cause analysis. Current workspace already has unrelated ahead commits and parallel dirty changes, so no commit/push was performed for this analysis record.
+
+## 2026-07-27 Fix Extension
+
+- User intent: 让 `preview-metadata` 不再强制要求 `fileNumber` 非空。
+- Rules loaded: `bug-regression-fix-loop`, `backend-api-delivery`, `docs/backend-development.md`, `docs/task-closeout-rules.md`, `docs/powershell-memory.md`, `docs/powershell-encoding.md`.
+- Existing worktree state: branch `int_main` is already ahead of `origin/int_main` and has unrelated modified/untracked files; this task will only touch the DCC preview/audit code, target regression tests, and this task directory.
+- BDD: 空文件编号受控文件可生成预览元数据 -> Given 受控文件 `fileNumber` 为空且用户有预览权限, When 后端生成 `preview-metadata` 的 viewer token、水印追踪和访问日志, Then 不抛出 `fileNumber is required`，并保留访问审计与水印追踪。
