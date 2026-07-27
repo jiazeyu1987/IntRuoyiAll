@@ -30,6 +30,7 @@
 - Read `docs/e2e-rules.md` because this task added and ran a static contract under `tests/e2e`.
 - Isolated root cause to `loadRecordFormSecondaryData` writing deferred secondary errors into `listErrorMessage`.
 - Implemented row-scoped `permissionRuleErrorMessage` display for filler permission-rule failures.
+- `GREEN: project-experience-consolidation -> PASS, merged reusable deferred auxiliary error ownership gate into docs/frontend-development.md and indexed it in docs/experience-index.md.`
 
 ## Verification
 
@@ -41,10 +42,16 @@
 - `pnpm ts:check` -> PASS.
 - `node tests/e2e/edhr-batch-record-form-list-static.spec.js` -> FAIL, unrelated existing assertion expecting batch-delete button template text; task diff did not touch batch-delete logic.
 - `git diff --check` -> PASS with line-ending warnings only.
+- `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260727-edhr-batch-record-list-system-exception\bug-regression-evidence.md` -> PASS.
 
 ## Current Status
 
-- ready_for_closeout
+- completed
+
+## Cleanup
+
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-edhr-batch-record-list-system-exception --mode preview` -> PASS, keep task records and bug evidence, delete none, blocked none.
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-edhr-batch-record-list-system-exception --mode apply` -> PASS, deleted none.
 
 ## Blockers
 

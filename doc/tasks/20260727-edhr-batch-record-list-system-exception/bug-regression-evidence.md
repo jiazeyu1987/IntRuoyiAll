@@ -30,11 +30,19 @@ Added `IntRuoyiFronted/tests/e2e/edhr-batch-record-form-list-secondary-error-sta
 
 ## RED
 
-`node tests/e2e/edhr-batch-record-form-list-secondary-error-static.spec.js` -> FAIL, expected reason: `loadRecordFormSecondaryData` assigned `listErrorMessage.value`.
+RED: `node tests/e2e/edhr-batch-record-form-list-secondary-error-static.spec.js` -> FAIL, expected reason: `loadRecordFormSecondaryData` assigned `listErrorMessage.value`.
 
 ## GREEN
 
-`node tests/e2e/edhr-batch-record-form-list-secondary-error-static.spec.js` -> PASS.
+GREEN: `node tests/e2e/edhr-batch-record-form-list-secondary-error-static.spec.js` -> PASS.
+
+## Verification
+
+- `node tests/e2e/batch-record-form-first-screen-defer-static.spec.js` -> PASS.
+- `node tests/e2e/edhr-batch-record-form-list-filler-static.spec.js` -> PASS.
+- `node tests/e2e/edhr-batch-record-form-list-preview-action-layout-static.spec.js` -> PASS.
+- `node tests/e2e/edhr-batch-record-form-list-preview-header-short-labels-static.spec.js` -> PASS.
+- `pnpm ts:check` -> PASS.
 
 ## Risk And Regression Scope
 

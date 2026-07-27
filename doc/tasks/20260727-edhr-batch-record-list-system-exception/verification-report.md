@@ -13,6 +13,8 @@ Implemented a row-scoped error boundary for deferred batch-record form filler pe
 - `node tests/e2e/edhr-batch-record-form-list-preview-header-short-labels-static.spec.js` -> PASS.
 - `pnpm ts:check` -> PASS.
 - `node tests/e2e/edhr-batch-record-form-list-static.spec.js` -> FAIL in unrelated existing batch-delete assertion; no task-owned diff touched batch-delete logic.
+- `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260727-edhr-batch-record-list-system-exception\bug-regression-evidence.md` -> PASS.
+- `project-experience-consolidation` -> PASS, reusable gate added to `docs/frontend-development.md` and indexed in `docs/experience-index.md`.
 
 ## Design Constraint Check
 
@@ -23,3 +25,8 @@ Implemented a row-scoped error boundary for deferred batch-record form filler pe
 ## Concurrent Dirty Worktree Note
 
 Concurrent unrelated edits appeared during this task in form-template files and other task directories. They are excluded from this task's implementation and should not be staged with this fix.
+
+## Closeout
+
+- Cleanup preview/apply passed for `20260727-edhr-batch-record-list-system-exception`.
+- Task status updated to `completed`.

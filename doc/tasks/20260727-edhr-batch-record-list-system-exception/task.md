@@ -11,7 +11,7 @@ Fix the `系统异常` shown on the MES 系统 / eDHR 批记录 / 批记录表�
 - [x] Add a focused RED regression check for the observed failure.
 - [x] Implement the smallest root-cause fix.
 - [x] Run GREEN and relevant regression verification.
-- [ ] Complete cleanup, experience consolidation, commit, and push.
+- [x] Complete cleanup, experience consolidation, commit, and push.
 
 ## Expected Verification
 
@@ -22,7 +22,7 @@ Fix the `系统异常` shown on the MES 系统 / eDHR 批记录 / 批记录表�
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Baseline Preservation
 
@@ -49,8 +49,21 @@ ready_for_closeout
 - Forbidden action: Do not use current config as a fallback for explicit draft snapshots; do not mask missing batch-record configuration with empty data.
 - Evidence: `docs/backend-development.md#edhr-批次任务配置来源门禁`.
 
+### Frontend Deferred Auxiliary Error Ownership
+
+- Trigger: List first screen succeeds but delayed row-level permissions, preview, candidates, or auxiliary detail requests fail and show a global `系统异常`.
+- Preflight check: Main list query failures may write the global list alert; auxiliary failures must stay row-scoped or preview-scoped and keep the real error text visible.
+- Blocker: Auxiliary requests clear the list, overwrite `listErrorMessage`, return default success, or hide the real error.
+- Verification: Focused static contract proves main-list errors remain global while auxiliary errors stay row/preview scoped.
+- Forbidden action: Do not swallow auxiliary API errors, convert them into empty `未配置`, or simply hide the global alert.
+- Evidence: `docs/frontend-development.md#前端延迟辅助加载错误归属门禁`.
+
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
 - `是否从根因和长期维护角度解决`：是，目标是在复现和回归测试基础上修复根因。
 - `是否存在临时补丁或绕过`：否。
+
+## Cleanup Keep
+
+- doc/tasks/20260727-edhr-batch-record-list-system-exception/bug-regression-evidence.md
