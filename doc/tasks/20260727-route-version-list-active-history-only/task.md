@@ -29,7 +29,7 @@ ready_for_closeout
 - Implementation commit: `d1f37893 fix: hide cancelled route versions from list`。
 - Remote branch pushed before real E2E continuation: `origin/codex/20260727-route-history-cancelled-version-view`，remote HEAD `778fc54d`。
 - Real E2E continuation commit: `5efc7cd1 test: add route version list real e2e evidence`。
-- Effective-only audit found the prior implementation still allowed `DRAFT` in the list; follow-up changes are pending commit/push after verification.
+- Effective-only implementation commit: `9808147d fix: show only effective route version history`。
 - `task-closeout-cleanup --mode preview` keeps `task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`、`frontend-feature-evidence.md` and deletes nothing。
 - Closeout apply / ff-only merge / worktree removal is blocked because current branch cannot be fast-forward merged into `int_main` and main worktree `E:\IntRuoyi` is dirty。
 
@@ -37,7 +37,7 @@ ready_for_closeout
 
 - 命中 `docs/frontend-development.md#前端静态契约隔离门禁`：当前是窄范围列表展示缺陷，使用任务专用静态合同做 RED/GREEN。
 - 命中 `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁`：修改静态合同需确认真实页面路径仍与当前版本工作区行为一致。
-- 命中 `docs/backend-development.md#历史关闭候选版本只读快照边界`：列表隐藏已取消版本不得删除后端按 `routeVersionId` 读取冻结快照的能力，写入仍只允许 `DRAFT`。
+- 命中 `docs/backend-development.md#历史关闭候选版本只读快照边界`：列表隐藏未生效候选版本不得删除后端按 `routeVersionId` 读取冻结快照的能力，写入仍只允许 `DRAFT`。
 
 ## 设计约束检查
 

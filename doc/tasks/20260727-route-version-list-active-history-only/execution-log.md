@@ -103,6 +103,8 @@ GREEN: real-e2e-evidence-commit -> PASS, `5efc7cd1 test: add route version list 
 
 GREEN: closeout-doc-commit -> PASS, `679cde37 docs: record route version real e2e commit`.
 
+GREEN: effective-only-implementation-commit -> PASS, `9808147d fix: show only effective route version history`.
+
 GREEN: runtime-stop -> PASS, stopped task-owned Vite PID `33848` on `8089` and Java PID `65060` on `48089`; postcheck showed `RELEASED port=8089` and `RELEASED port=48089`.
 
 GREEN: effective-only-runtime-stop -> PASS, stopped task-owned Vite PID `64380` on `8089` and Java PID `52756` on `48089`; postcheck showed `RELEASED port=8089` and `RELEASED port=48089`.
@@ -111,7 +113,7 @@ BLOCKER: task-closeout-cleanup preview -> current branch cannot be fast-forward 
 
 - Preview keep: `task.md`, `execution-log.md`, `verification-report.md`, `bug-regression-evidence.md`, `frontend-feature-evidence.md`.
 - Preview delete: none.
-- Impact: implementation is committed and pushed, but cleanup apply / ff-only merge / worktree removal cannot run safely until the target main worktree and branch merge relationship are resolved.
+- Impact: implementation is committed locally; cleanup apply / ff-only merge / worktree removal cannot run safely until the target main worktree and branch merge relationship are resolved.
 
 ## Implementation
 

@@ -77,6 +77,10 @@
   - Result: PASS.
   - Commit: `5efc7cd1 test: add route version list real e2e evidence`.
 
+- GREEN: effective-only implementation commit
+  - Result: PASS.
+  - Commit: `9808147d fix: show only effective route version history`.
+
 - GREEN: runtime stop and port release
   - Result: PASS.
   - Stopped task-owned Vite PID `33848` and Java PID `65060`.
