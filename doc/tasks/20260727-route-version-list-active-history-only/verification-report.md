@@ -66,8 +66,12 @@
   - Output: `PASS: route version workspace hides cancelled versions; result=...\mes-route-version-list-20260727164419.json`.
 
 - GREEN: `git push origin codex/20260727-route-history-cancelled-version-view`
+  - Result: PASS before real E2E continuation.
+  - Remote HEAD before real E2E continuation: `778fc54d`.
+
+- GREEN: real E2E evidence commit
   - Result: PASS.
-  - Remote HEAD: `d1f378930cc5d8608e8b0f973d0543930461a280`.
+  - Commit: `5efc7cd1 test: add route version list real e2e evidence`.
 
 - BLOCKED: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-route-version-list-active-history-only --mode preview`
   - Result: blocked by non-ff-only merge relationship to `int_main` and dirty main worktree `E:\IntRuoyi`.

@@ -28,7 +28,7 @@ ready_for_closeout
 
 - Implementation commit: `d1f37893 fix: hide cancelled route versions from list`。
 - Remote branch pushed before real E2E continuation: `origin/codex/20260727-route-history-cancelled-version-view`，remote HEAD `778fc54d`。
-- Real E2E continuation added `IntRuoyiFronted/tests/e2e/mes-route-version-list-active-history-only-real.e2e.js`; pending commit/push after evidence validators pass。
+- Real E2E continuation commit: `5efc7cd1 test: add route version list real e2e evidence`。
 - `task-closeout-cleanup --mode preview` keeps `task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`、`frontend-feature-evidence.md` and deletes nothing。
 - Closeout apply / ff-only merge / worktree removal is blocked because current branch cannot be fast-forward merged into `int_main` and main worktree `E:\IntRuoyi` is dirty。
 

@@ -79,6 +79,8 @@ GREEN: implementation-commit -> PASS, `d1f37893 fix: hide cancelled route versio
 
 GREEN: git-push -> PASS, `git push origin codex/20260727-route-history-cancelled-version-view`, remote branch HEAD `d1f378930cc5d8608e8b0f973d0543930461a280`.
 
+GREEN: real-e2e-evidence-commit -> PASS, `5efc7cd1 test: add route version list real e2e evidence`.
+
 BLOCKER: task-closeout-cleanup preview -> current branch cannot be fast-forward merged into `int_main`, and main worktree is dirty: `E:\IntRuoyi`.
 
 - Preview keep: `task.md`, `execution-log.md`, `verification-report.md`, `bug-regression-evidence.md`, `frontend-feature-evidence.md`.
@@ -104,4 +106,4 @@ GREEN: experience-preflight -> PASS, no new long-term document needed.
 ## Current Status
 
 - Implementation and static + real E2E verification complete.
-- Current status: ready_for_closeout; pending evidence commit/push for the real E2E script and docs, while closeout apply / ff-only merge remains blocked.
+- Current status: ready_for_closeout; real E2E evidence is committed locally, while closeout apply / ff-only merge remains blocked.
