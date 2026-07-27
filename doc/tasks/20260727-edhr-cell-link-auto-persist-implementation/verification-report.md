@@ -33,6 +33,26 @@
 - `doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/frontend-feature-evidence.md`
 - `doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/bug-regression-evidence.md`
 
+## Evidence Validators
+
+- PASS: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/backend-api-evidence.md`
+- PASS: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/frontend-feature-evidence.md`
+- PASS: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/bug-regression-evidence.md`
+
+## Closeout And Experience
+
+- PASS: task cleanup preview kept all six formal evidence files and reported no delete, blocked, or warning entries.
+- PASS: task cleanup apply completed with no deletion and no warning.
+- PASS: reusable experience was already consolidated into `docs/backend-development.md#批记录单元格链接预填落库边界` and indexed in `docs/experience-index.md`; no duplicate experience document was created.
+- PASS: implementation commit `b7dc3380` is an ancestor of `origin/int_main`.
+
+## Real E2E Preflight
+
+- BLOCKED: `http://127.0.0.1:8081/` refused the connection.
+- BLOCKED: `http://127.0.0.1:48081/actuator/health` refused the connection.
+- BLOCKED: the task has no confirmed writable test tenant/account and task-owned eDHR fixture.
+- Decision: do not start an API-only or admin-baseline write path as a substitute for Playwright. Targeted backend regressions and the frontend static contract remain the accepted code-level evidence for this implementation task.
+
 ## Requirement Coverage
 
 - Backend auto-persist on create/open: covered by `MesProBatchRecordCellLinkAutoPersistServiceImplTest` and `MesProBatchRecordExecutionServiceImplTest`.
@@ -45,7 +65,5 @@
 
 ## Remaining Closeout
 
-- Run evidence validators.
-- Run task closeout cleanup preview/apply after preserving required evidence files.
-- Perform project experience consolidation before final commit/push.
-- Commit and push are not yet complete; the repository currently has unrelated dirty worktree changes and branch-local commits outside this task, so staging must remain task-owned only unless the project dirty-baseline policy is explicitly applied.
+- Commit task-owned verification and closeout document changes only.
+- Push `int_main` and confirm the branch is not ahead of `origin`.

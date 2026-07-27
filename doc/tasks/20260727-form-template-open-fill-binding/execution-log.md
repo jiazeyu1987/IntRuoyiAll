@@ -38,6 +38,8 @@
 - 2026-07-27: `task_closeout.py --mode apply` -> APPLIED；当前为 `int_main` 主工作区，未执行 worktree 合并或删除，deleted_paths 为空。
 - 2026-07-27: cleanup 完成后任务状态更新为 `completed`；后续仅定向提交并推送本任务文件。
 - 2026-07-27: 实现提交 `fa1ab84d`（`fix: restore form template open and fill actions`）；文件为模板页面、聚焦静态合同、`docs/frontend-development.md` 和 `bug-regression-evidence.md`，未混入并发任务文件。
+- 2026-07-27: 收尾记录提交 `a60dfb8c`（`docs: close out form template open fill fix`）；文件为 `task.md`、`execution-log.md`、`verification-report.md`。
+- 2026-07-27: 推送 `git push origin int_main` -> PASS，远端从 `7e006790` 更新至 `a60dfb8c`。
 
 ## Blockers
 

@@ -59,9 +59,9 @@ ready_for_closeout
 
 ## Cleanup Keep
 
-doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/task.md
-doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/execution-log.md
-doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/verification-report.md
-doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/backend-api-evidence.md
-doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/frontend-feature-evidence.md
-doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/bug-regression-evidence.md
+- doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/task.md
+- doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/execution-log.md
+- doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/verification-report.md
+- doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/backend-api-evidence.md
+- doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/frontend-feature-evidence.md
+- doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/bug-regression-evidence.md
