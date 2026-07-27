@@ -375,19 +375,6 @@ const remainingRouter: AppRouteRecordRaw[] = [
                 }
               },
               {
-                path: 'template/simulate',
-                component: () => import('@/views/form-center/template/index.vue'),
-                name: 'ApprovalCenterFormCenterTemplateSimulate',
-                meta: {
-                  noCache: true,
-                  hidden: true,
-                  canTo: true,
-                  title: '表单模板模拟填写',
-                  activeMenu: '/mdm/form-center/template',
-                  permission: ['form:template:query']
-                }
-              },
-              {
                 path: 'effect',
                 component: () => import('@/views/form-center/effect/index.vue'),
                 name: 'ApprovalCenterFormCenterEffect',
@@ -1506,6 +1493,29 @@ const remainingRouter: AppRouteRecordRaw[] = [
           activeMenu: '/iot/operation/ota/firmware'
         },
         component: () => import('@/views/iot/ota/firmware/detail/index.vue')
+      }
+    ]
+  },
+  {
+    path: '/mdm',
+    component: Layout,
+    name: 'MdmHiddenRoutes',
+    meta: {
+      hidden: true
+    },
+    children: [
+      {
+        path: 'form-center/template/simulate',
+        component: () => import('@/views/form-center/template/FormTemplateSimulatePage.vue'),
+        name: 'MdmFormCenterTemplateSimulate',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          title: '表单模板模拟填写',
+          activeMenu: '/mdm/form-center/template',
+          permission: ['form:template:query']
+        }
       }
     ]
   },
