@@ -27,3 +27,12 @@
 - Root cause: release script still preferred legacy sibling frontend folder `yudao-ui-admin-vue3`; current project worktree contains `IntRuoyiFronted`.
 - Change: `publish-int-ruoyi.ps1` now resolves `IntRuoyiFronted` first and keeps legacy `yudao-ui-admin-vue3` only when the current folder is absent.
 - GREEN: `corepack pnpm@10.25.0 install --frozen-lockfile` from `IntRuoyiFronted` -> PASS, lockfile unchanged and `node_modules` restored for release build.
+- GREEN: build-release package manifest and source evidence -> PASS；本地包与 NAS 包的 `manifest.json`、`release-manifest.json`、镜像 tar SHA-256 一致；Manifest v1 校验 3183 个非自引用 artifact，mismatch=0；backend/frontend commit 均为 `38e4e9fda369db74a2bf0b0fdaf3fbcb87b67364`，`dirty=false`，`publishScope=code-only`，`component=intruoyi`。
+- GREEN: NAS direct lookup -> PASS；目标 package directory、Manifest v1、legacy manifest、镜像 tar 均存在，releaseTag 与本轮一致。
+- GREEN: test publish concurrency preflight -> PASS；测试服无 release process，`infra_release_operation_lock` 无 `RUNNING` 行，发布前运行版本为 `release-20260723-dcc-viewer-permission-r260723vp-r1`。
+- RED: `publish-int-ruoyi.ps1 -Mode deploy-release -Environment test -Component intruoyi -ReleaseTag release-20260727-onlyoffice-test-r260727-1445 ... -SkipDatabaseSync -SkipMinioSync` -> FAIL；required SQL `20260717_mes_balloon_excel_device_workstation_binding.sql` 第 420 行返回 `balloon Excel target route process count mismatch`。
+- Root cause evidence: 测试服只读查询显示目标租户路线工序数量为 50，`ROUTE-XLSX-00001=24`、`ROUTE-XLSX-00002=26`；当前迁移 SQL 固定 `@target_route_process_count = 49`，因此目标数据与迁移契约不一致。该 blocker 不能通过手工改库、跳过 required SQL 或复用失败 releaseTag 处理。
+- Partial release freeze: deploy failure 后 `.env IMAGE_TAG` 已写入本轮 tag，但 backend/frontend 容器仍为旧镜像；失败 migration 和 release lock 均暂时为 `RUNNING`。已冻结该状态作为部分发布证据。
+- GREEN: failed-release cleanup -> PASS；仅针对 `test-release-20260727-onlyoffice-test-r260727-1445` 将 migration 与 operation lock 收口为 `FAILED`，未修改业务数据、未删除失败包；`.env IMAGE_TAG` 恢复为 `release-20260723-dcc-viewer-permission-r260723vp-r1`。
+- GREEN: post-cleanup runtime verification -> PASS；测试服 backend/frontend/onlyoffice running，backend health HTTP 200 `status=UP`，frontend HTTP 200，运行控制台状态为 running，currentReleaseTag 为旧版本；本轮 releaseTag 不进入成功发布结论。
+- BLOCKER: release completion -> `release-20260727-onlyoffice-test-r260727-1445` failed at required SQL data precondition; pending owner decision on whether the live 50-route baseline is valid and how the migration contract should be corrected before a new releaseTag.

@@ -10,9 +10,10 @@
 - [x] 锁定发布基线、releaseTag、目标环境和禁止动作。
 - [x] 创建干净发布 worktree，避免从脏主工作区构建。
 - [x] 修复发布前置 migration metadata 门禁阻塞，并完成本地回归验证。
-- [ ] 构建 release package，并发布到测试服。
-- [ ] 验证测试服后端 health、前端 HTTP、镜像 tag、release-info 和 release manifest。
-- [ ] 记录证据、阻塞项和收尾状态。
+- [x] 构建 release package 并上传 NAS，完成本地/NAS manifest 与 artifact hash 校验。
+- [ ] 发布到测试服；required SQL 在目标数据前置条件不满足时失败，当前里程碑阻塞。
+- [x] 冻结部分发布状态并将测试服恢复到部署前实际运行版本。
+- [x] 记录证据、阻塞项和收尾状态。
 
 ## Expected Verification
 
@@ -27,7 +28,14 @@
 
 ## Current Status
 
-in_progress
+blocked
+
+## Blocker
+
+- 2026-07-27 测试服 `172.30.30.58` 部署 `release-20260727-onlyoffice-test-r260727-1445` 时，在 required SQL `20260717_mes_balloon_excel_device_workstation_binding.sql` 第 420 行失败，错误为 `balloon Excel target route process count mismatch`。
+- 只读核对目标租户 `tenant_id=1` 得到 `ROUTE-XLSX-00001=24`、`ROUTE-XLSX-00002=26`，合计 50 条路线工序；迁移脚本固定期望 49 条，阻塞发生在业务数据前置条件与迁移契约不一致，而不是 OnlyOffice 修复代码编译失败。
+- 该 releaseTag 已判废，禁止复用重试、`mark-tested`、`promote-prod` 或 `promote-backup`。需要先由业务/数据负责人确认 50 条路线工序是否为合法测试基线，再决定修复迁移契约并使用新的 releaseTag 重建。
+- 失败收口已完成：本次 migration 与 release lock 均为 `FAILED`；测试服 `.env`、backend/frontend 容器和 `/release-info.json` 已恢复并保持 `release-20260723-dcc-viewer-permission-r260723vp-r1`。
 
 ## 设计约束检查
 
