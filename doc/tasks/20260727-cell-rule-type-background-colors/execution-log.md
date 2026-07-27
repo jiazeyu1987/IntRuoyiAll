@@ -26,6 +26,9 @@
 - GREEN: `pnpm ts:check` -> PASS。
 - GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260727-cell-rule-type-background-colors/frontend-feature-evidence.md` -> PASS。
 - GREEN: `git diff --check` -> PASS。
+- CLOSEOUT: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-cell-rule-type-background-colors --mode preview` -> PASS, keep task/execution/frontend-feature-evidence/verification, delete none, blocked none, warnings none。
+- CLOSEOUT: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-cell-rule-type-background-colors --mode apply` -> PASS, deleted none。
+- EXPERIENCE: 已按 `project-experience-consolidation` 检索 `docs/*memory*.md` 与相关规则；本任务的并行脏工作区、同文件选择性边界和 Cleanup Keep 经验已由 `docs/powershell-memory.md` 与 `docs/task-closeout-rules.md` 覆盖，无需新增长期经验文档。
 
 ## Blockers
 

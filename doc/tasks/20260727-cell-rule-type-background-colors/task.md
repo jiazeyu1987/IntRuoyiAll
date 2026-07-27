@@ -10,7 +10,7 @@
 - [x] 在单元格规则弹窗中按规则类型输出稳定样式类。
 - [x] 补齐不同字段类型背景色样式，并保留选中、必填、不可填写等状态。
 - [x] 运行目标验证并记录结果。
-- [ ] 完成 closeout 记录、提交与推送。
+- [x] 完成 closeout 记录、提交与推送。
 
 ## Expected Verification
 
@@ -22,7 +22,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 经验门禁
 
