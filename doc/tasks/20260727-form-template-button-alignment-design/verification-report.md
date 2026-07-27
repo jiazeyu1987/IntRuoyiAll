@@ -33,6 +33,16 @@
 - `temporary artifact cleanup`：PASS，本任务 `.runtime` 目录和临时构建快照均已删除，PID 10456 未运行。
 - `task-closeout-cleanup preview/apply`：PASS，10 份任务设计/证据文档全部保留，无 delete/blocked/warnings。
 - `current worktree button alignment contract`：FAIL，聚焦断言报告 `打开,编辑,填写` 均未进入批记录同源路径。
+- `user-confirmed conflict resolution`：PASS，用户明确确认“三个按钮按批记录表单执行”。
+- `node tests\e2e\form-template-batch-record-button-alignment-static.spec.js` after confirmation：PASS，三按钮恢复批记录同源路径。
+- `pnpm ts:check` after confirmation：PASS，前端 relaxed TypeScript 检查通过。
+- `python -m pytest script\tests\test_form_template_batch_record_binding_sql.py` after confirmation：PASS，SQL 迁移契约 3 项通过。
+- `mvn.cmd -pl yudao-module-bpm "-Dtest=FormCenterTemplateBatchRecordBindingContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` after confirmation：PASS，BPM 合同测试 3 项通过。
+- `real E2E after user confirmation`：PASS，本机 8081/48081、身份标签 `芋道源码/admin`，临时绑定模板版本 `id=29` 到 reportId `2ef53e1302bd47bdba9ccbb87cd92032`，真实点击三按钮并验证 `preview/edit/template-simulate` 路由。
+- `fixture restore after confirmation`：PASS，`bpm_form_template_version.id=29` 的 `batch_record_report_id` 与 `batch_record_binding_status` 已恢复为 NULL。
+- `project-experience-consolidation before commit`：PASS，现有 `docs/frontend-development.md` 已承载本次可复用门禁，索引关键词可定位，无需新建长期经验文档。
+- `branch runtime port guard before implementation commit`：PASS，`int_main` 端口为 frontend 8081 / backend 48081。
+- `implementation commit`：PASS，`3f79f736251dab6be9d0413eea602a4ee1990fa6` 仅包含本任务 Vue、静态合同和前端开发门禁文件。
 
 ## Implemented Files
 
@@ -50,5 +60,4 @@
 
 ## Blockers
 
-- 并行任务已在同一源码和静态合同中实施与本任务相反的行为，其中编辑反向改动已进入提交，打开/填写反向改动当前已暂存。
-- 当前工作区不再满足“表单模板三个按钮按批记录表单行为对齐”，需先明确两项互斥需求的最终优先级，再恢复实现和重跑真实 E2E。
+- 当前无功能或验证 blocker；其他并行任务脏改动未纳入本任务提交，等待收尾文档提交与远端推送。

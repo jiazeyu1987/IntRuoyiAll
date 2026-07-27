@@ -54,6 +54,18 @@
 - `GREEN: task-closeout-cleanup apply -> PASS, deleted_paths 为 none。`
 - `REGRESSION: current worktree button alignment contract -> FAIL, node 聚焦断言返回 “FAIL buttons not aligned: 打开,编辑,填写”；当前工作区三按钮均不再进入批记录同源路径。`
 - `BLOCKER: concurrent same-file behavior conflict -> IntRuoyiFronted/src/views/form-center/template/index.vue 与对应静态合同已被并行任务反向修改并暂存；未取得行为优先级确认前不得覆盖。`
+- `USER CONFIRMATION: 2026-07-27 -> 用户明确回复“三个按钮按批记录表单执行”，解除同文件行为优先级冲突。`
+- `RED: node tests\e2e\form-template-batch-record-button-alignment-static.spec.js -> FAIL, expected reason: 当前实现仍将 打开/编辑/填写 保留在 FormCenter 本页流程，未复用批记录路径。`
+- `GREEN: node tests\e2e\form-template-batch-record-button-alignment-static.spec.js -> PASS, 三按钮恢复批记录设计器 preview/edit 和 template-simulate 路径。`
+- `GREEN: pnpm ts:check -> PASS, 前端 relaxed TypeScript 检查通过。`
+- `GREEN: python -m pytest script\tests\test_form_template_batch_record_binding_sql.py -> PASS, SQL 迁移契约 3 项通过。`
+- `GREEN: mvn.cmd -pl yudao-module-bpm "-Dtest=FormCenterTemplateBatchRecordBindingContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, BPM 合同测试 3 项通过。`
+- `GREEN: docs/frontend-development gate correction -> PASS, 项目级门禁已改回用户确认后的三按钮批记录对齐口径，避免后续再反向修复。`
+- `GREEN: real E2E after user confirmation -> PASS, 本机 8081/48081 使用 芋道源码/admin 登录，临时绑定模板版本 id=29 到 reportId=2ef53e1302bd47bdba9ccbb87cd92032，真实点击 打开/编辑/填写 后分别进入批记录 preview designer、edit designer、template-simulate 路由。`
+- `GREEN: fixture restore after confirmation -> PASS, bpm_form_template_version.id=29 的 batch_record_report_id 与 batch_record_binding_status 已恢复为 NULL。`
+- `GREEN: project-experience-consolidation before commit -> PASS, 现有 docs/frontend-development.md 已承载表单模板三按钮与批记录绑定动作边界门禁，docs/experience-index.md 可按关键词定位，无需新建长期经验文档。`
+- `GREEN: branch runtime port guard before implementation commit -> PASS, int_main 使用 frontend 8081 / backend 48081。`
+- `GREEN: implementation commit -> PASS, commit 3f79f736251dab6be9d0413eea602a4ee1990fa6，仅包含 IntRuoyiFronted/src/views/form-center/template/index.vue、IntRuoyiFronted/tests/e2e/form-template-batch-record-button-alignment-static.spec.js、docs/frontend-development.md。`
 
 ## Milestone Updates
 
@@ -66,9 +78,9 @@
 - 前端回归完成：任务静态合同和全量 `pnpm ts:check` 均已通过。
 - 运行态核对完成：48081 已加载包含新增模板池字段的完整 server jar，真实页面三按钮点击 E2E 通过，临时本地夹具已恢复。
 - 临时产物清理完成：本任务专用运行态目录与临时构建快照均已删除，标准 cleanup preview/apply 通过。
-- 当前状态回退为阻塞：并行任务先后把编辑、打开、填写改回 FormCenter 本页流程，当前工作区已不满足本任务目标。
+- 冲突解除：用户明确确认三个按钮按批记录表单执行，已恢复 Vue 实现、静态合同和项目级门禁。
+- 真实路径复验完成：三按钮按批记录表单行为执行，临时数据库夹具已恢复。
 
 ## Blockers
 
-- 并行任务 `20260727-form-template-edit-binding` 已提交“编辑恢复本页模板规则编辑流程”；并行任务 `20260727-form-template-open-fill-binding` 又将“打开/填写”恢复为本页弹窗，并把目标源码和静态合同暂存。
-- 上述行为与本任务明确要求三个按钮按批记录表单对齐直接冲突。当前聚焦合同已失败，不能继续宣称实现完成，也不能在未确认优先级时覆盖并发任务改动。
+- 本任务实现已独立提交；当前只剩本任务收尾文档提交与远端推送，其他并行任务脏改动继续保留且不纳入本任务提交。

@@ -36,6 +36,8 @@
 - `RED: node tests\e2e\form-template-batch-record-button-alignment-static.spec.js -> FAIL, 类型与三按钮行为未对齐。`
 - `GREEN: node tests\e2e\form-template-batch-record-button-alignment-static.spec.js -> PASS, 已覆盖三按钮使用批记录路由、稳定 reportId、返回标签，以及 BOUND + reportId 双条件。`
 - `GREEN: pnpm ts:check -> PASS, 前端 relaxed TypeScript 检查通过。`
+- `RED after conflict: node tests\e2e\form-template-batch-record-button-alignment-static.spec.js -> FAIL, 当前工作区被并行任务改回本页流程。`
+- `GREEN after user confirmation: node tests\e2e\form-template-batch-record-button-alignment-static.spec.js -> PASS, 用户确认“三个按钮按批记录表单执行”后恢复批记录路径。`
 
 ## UX And Permission Checks
 
@@ -48,8 +50,9 @@
 - `node tests\e2e\form-template-batch-record-button-alignment-static.spec.js`：PASS。
 - `pnpm ts:check`：PASS。
 - `real E2E form template 3 buttons`：PASS，使用本地临时绑定夹具从 `/mdm/form-center/template` 真实点击 `打开 / 编辑 / 填写`，分别验证 preview designer、edit designer、template-simulate URL。
+- `real E2E after user confirmation`：PASS，复验本机 8081/48081，临时绑定 `id=29` 到 reportId `2ef53e1302bd47bdba9ccbb87cd92032`，三按钮真实点击路由均通过，夹具恢复为 NULL。
 - `git diff --check -- <task-owned files>`：PASS。
 
 ## Blockers And Follow-Up
 
-- Closeout 尚未执行；当前工作区存在非本任务脏改动和本地领先提交。
+- 当前无产品行为 blocker；实现提交 `3f79f736251dab6be9d0413eea602a4ee1990fa6` 已通过选择性暂存隔离其他并行任务改动，等待收尾文档提交与推送。

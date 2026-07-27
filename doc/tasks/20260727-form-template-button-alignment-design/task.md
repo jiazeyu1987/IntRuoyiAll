@@ -16,8 +16,9 @@
 - [x] 真实 E2E：使用临时可回滚本地夹具，逐个点击 `打开 / 编辑 / 填写` 并验证路由与批记录表单一致。
 - [x] 临时产物清理：删除本任务专用 `.runtime` JAR 目录和未登记为 Git worktree 的临时构建快照。
 - [x] Cleanup：`task-closeout-cleanup` preview/apply 均通过，无删除项、阻塞项或警告。
-- [ ] 行为冲突解除：并行任务已将 `打开 / 编辑 / 填写` 全部改回 FormCenter 本页流程，与本任务目标相反。
-- [ ] Closeout：待同文件行为冲突明确解除后，恢复对齐、重跑验证并完成提交/推送。
+- [x] 行为冲突解除：用户已明确确认“恢复对齐”，本任务重新取得同文件行为变更授权。
+- [x] Closeout 前验证：恢复对齐、重跑静态/类型/后端/SQL/真实 E2E 验证均通过。
+- [ ] Closeout：完成 cleanup、提交并推送本任务文件。
 
 ## Expected Verification
 
@@ -29,7 +30,7 @@
 
 ## Current Status
 
-blocked
+ready_for_closeout
 
 ## 经验门禁
 
@@ -65,8 +66,12 @@ blocked
 - doc/tasks/20260727-form-template-button-alignment-design/backend-api-evidence.md
 - doc/tasks/20260727-form-template-button-alignment-design/database-schema-evidence.md
 
-## Current Blocker
+## Behavior Authorization
 
-- 2026-07-27 当前工作区中的 `IntRuoyiFronted/src/views/form-center/template/index.vue` 已被并行任务改为：`打开` 进入 `TemplateViewDialog`、`编辑` 进入本页规则编辑、`填写` 进入本页模拟填写。
-- `IntRuoyiFronted/tests/e2e/form-template-batch-record-button-alignment-static.spec.js` 也已被反向改写并暂存，用于要求三个按钮不得依赖批记录绑定。
-- 该行为与本任务及用户明确要求“表单模板必须按批记录表单的 3 个按钮行为对齐”直接冲突。未取得行为优先级确认前，不覆盖并发任务已暂存的同文件改动。
+- 2026-07-27 用户明确确认：三个按钮按批记录表单执行。本确认解除与并行 FormCenter 通用模板修复之间的同文件行为冲突，本任务按稳定 `reportId` 绑定方案恢复对齐。
+
+## Closeout Evidence
+
+- 实现提交：`3f79f736251dab6be9d0413eea602a4ee1990fa6`
+- 实现提交文件：`IntRuoyiFronted/src/views/form-center/template/index.vue`、`IntRuoyiFronted/tests/e2e/form-template-batch-record-button-alignment-static.spec.js`、`docs/frontend-development.md`
+- 并行任务隔离：其他 MES、eDHR、路线和任务文档改动未纳入本任务提交。
