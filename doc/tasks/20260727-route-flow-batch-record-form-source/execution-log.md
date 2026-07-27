@@ -76,6 +76,17 @@
 - GIT: merge commit `ffbdbd49 merge: sync int_main before batch record binding closeout`；`git merge-base --is-ancestor int_main HEAD` 与 `git merge-base --is-ancestor origin/int_main HEAD` 均返回 `0`。
 - CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-route-flow-batch-record-form-source --mode preview` -> BLOCKED；keep 包含 `task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`、`database-schema-evidence.md`，delete 为空，唯一 blocker 为主 worktree `E:\IntRuoyi` 存在外部脏改动，不能接收 ff-only merge。
 
+## 2026-07-28 Continuation Recheck
+
+- CURRENT BRANCH: `git status --short --branch` -> clean on `codex/20260727-route-flow-batch-record-form-source-e2e`。
+- PUSH STATE: `git rev-list --left-right --count HEAD...origin/codex/20260727-route-flow-batch-record-form-source-e2e` -> `0 0`。
+- GREEN: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_mes_route_version_snapshot_mediumtext_sql.py -q` -> PASS，`3 passed`。
+- GREEN: `node IntRuoyiFronted\tests\e2e\mes-route-flow-batch-record-form-source-static.spec.js` -> PASS。
+- GREEN: `node IntRuoyiFronted\tests\e2e\mes-route-flow-batch-record-detail-slot-filter-static.spec.js` -> PASS。
+- GREEN: `node IntRuoyiFronted\tests\e2e\mes-batch-record-import-formal-route-binding-static.spec.js` -> PASS。
+- CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-route-flow-batch-record-form-source --mode preview` -> BLOCKED；keep 正确、delete 为空，唯一 blocker 仍为 `Main worktree is dirty and cannot receive ff-only merge: E:\IntRuoyi`。
+- EXPERIENCE CHECK: 三类配置长期约束已存在于 `AGENTS.md#工艺路线三类配置术语契约`、`docs/backend-development.md#逐工序正式批记录表单候选边界`、`docs/frontend-development.md#工艺路线批记录表单正式来源门禁` 和 `docs/experience-index.md`，本次无新增长期经验文档需求。
+
 ## Blockers
 
 - Closeout apply / worktree removal blocked by dirty main worktree `E:\IntRuoyi`。只读 `git status --short --branch` 显示外部改动包括 `MesProBatchRecordReportLayoutCalibrator.java`、`MesProBatchRecordRouteBRecognizer.java`、`IntRuoyiFronted/package.json`、`src/views/mes/pro/task/calendar/index.vue` 以及若干其它任务目录；本任务未修改这些主 worktree 文件。
