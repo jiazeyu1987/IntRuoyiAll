@@ -9,6 +9,8 @@
 - `node IntRuoyiFronted\tests\e2e\edhr-cell-control-type-switch-static.spec.js` -> PASS。
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordCellRuleSupportTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`Tests run: 31, Failures: 0, Errors: 0, Skipped: 0`。
 - `git diff --check` -> PASS；仅 LF/CRLF 工作区提示。
+- Bug regression evidence validator -> PASS。
+- Frontend feature evidence validator -> PASS。
 
 ## Result
 

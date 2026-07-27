@@ -37,3 +37,5 @@
 - Implementation: 字段类型选择器改为显式 `:model-value + @change`；类型切换通过 `replaceSelectedRule` 替换当前规则行，强制触发左侧预览和右侧表单重新渲染。
 - GREEN: `node IntRuoyiFronted\tests\e2e\edhr-cell-control-type-switch-static.spec.js` -> PASS。
 - GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/BatchRecordCellRulesConfirmDialog.vue` -> PASS；仅 LF/CRLF 提示。
+- GREEN: `validate_bug_regression.py --evidence doc/tasks/20260727-cell-control-type-switch/bug-regression-evidence.md` -> PASS。
+- GREEN: `validate_frontend_feature.py --evidence doc/tasks/20260727-cell-control-type-switch/frontend-feature-evidence.md` -> PASS。
