@@ -66,3 +66,8 @@
   - Read `C:\Users\BJB110\.codex\skills\task-closeout-cleanup\references\closeout-rules.md`.
   - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-merge-d-worktrees --mode preview` -> ready; keep only `task.md`, `execution-log.md`, `verification-report.md`; delete none; blocked none; warnings none.
   - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-merge-d-worktrees --mode apply` -> applied; deleted none.
+- Commit and push:
+  - Closeout commit: `7d2ee8b0` (`docs: close out clean worktree merge`).
+  - `git rev-list --objects origin/int_main..HEAD` + `git cat-file --batch-check` large-object scan -> PASS, `object_count=36`, no blob over 100 MB.
+  - `git push origin int_main` -> PASS, remote advanced `29565ea6..7d2ee8b0`.
+  - `git status --short --branch` after push -> `## int_main...origin/int_main`.
