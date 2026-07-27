@@ -369,8 +369,21 @@ export interface ProFeedbackEdhrSnapshotFieldVO {
   [key: string]: unknown
 }
 
+export interface ProFeedbackEdhrAssistRowFieldVO {
+  rowIndex: number
+  columnIndex: number
+}
+
+export interface ProFeedbackEdhrAssistRowVO {
+  rowKey: string
+  description: string
+  sort: number
+  fields: ProFeedbackEdhrAssistRowFieldVO[]
+}
+
 export interface ProFeedbackEdhrExecutionSnapshotVO {
   fields?: ProFeedbackEdhrSnapshotFieldVO[]
+  assistRows?: ProFeedbackEdhrAssistRowVO[]
   [key: string]: unknown
 }
 

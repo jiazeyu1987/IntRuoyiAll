@@ -205,7 +205,7 @@
             <el-button link type="primary" @click="openDesigner(selectedReport.reportId, 'edit')">编辑</el-button>
             <el-button link type="primary" @click="openSimulate(selectedReport)">填写</el-button>
             <el-button link type="primary" @click="openTemplateAction(selectedReport, 'signature')">签名</el-button>
-            <el-button link type="primary" @click="openTemplateAction(selectedReport, 'cellRules')">规则</el-button>
+            <el-button link type="primary" @click="openTemplateAction(selectedReport, 'cellRules')">填写配置</el-button>
             <el-button link type="primary" @click="handleCellLinks(selectedReport)">链接</el-button>
             <el-button link type="primary" @click="handleRename(selectedReport)">重命名</el-button>
             <el-button link type="danger" @click="handleDelete(selectedReport)">删除</el-button>
@@ -1125,6 +1125,7 @@ const getList = async () => {
     const data = await BatchRecordReportApi.getGeneratedReportPage({
       pageNo: queryParams.pageNo,
       pageSize: queryParams.pageSize,
+      reportId: normalizeRouteQueryText(route.query.reportId) || undefined,
       name: queryParams.name || undefined,
       productName: queryParams.productName || undefined,
       versionNo: queryParams.versionNo || undefined,

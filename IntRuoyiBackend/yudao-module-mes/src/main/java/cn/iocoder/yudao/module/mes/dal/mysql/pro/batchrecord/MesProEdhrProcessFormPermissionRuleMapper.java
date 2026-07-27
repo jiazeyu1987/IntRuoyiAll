@@ -22,6 +22,7 @@ public interface MesProEdhrProcessFormPermissionRuleMapper
                 .eq(MesProEdhrProcessFormPermissionRuleDO::getRouteProcessId, routeProcessId)
                 .eq(MesProEdhrProcessFormPermissionRuleDO::getBatchRecordReportId, batchRecordReportId)
                 .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getRuleType)
+                .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getScopeKey)
                 .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getSignatureCellKey)
                 .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getId));
     }
@@ -32,6 +33,7 @@ public interface MesProEdhrProcessFormPermissionRuleMapper
                 .eq(MesProEdhrProcessFormPermissionRuleDO::getRouteProcessId, routeProcessId)
                 .eq(MesProEdhrProcessFormPermissionRuleDO::getBatchRecordReportId, batchRecordReportId)
                 .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getRuleType)
+                .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getScopeKey)
                 .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getSignatureCellKey)
                 .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getId), batchRecordVersionId));
     }
@@ -93,6 +95,7 @@ public interface MesProEdhrProcessFormPermissionRuleMapper
                 .eq(MesProEdhrProcessFormPermissionRuleDO::getRuleType, "FILL")
                 .eq(MesProEdhrProcessFormPermissionRuleDO::getEnabled, true)
                 .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getRouteProcessId)
+                .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getScopeKey)
                 .orderByDesc(MesProEdhrProcessFormPermissionRuleDO::getId));
     }
 
@@ -159,6 +162,7 @@ public interface MesProEdhrProcessFormPermissionRuleMapper
                 .in(MesProEdhrProcessFormPermissionRuleDO::getRuleType, PROCESS_FORM_FILL_RULE_TYPES)
                 .eq(MesProEdhrProcessFormPermissionRuleDO::getEnabled, true)
                 .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getRuleType)
+                .orderByAsc(MesProEdhrProcessFormPermissionRuleDO::getScopeKey)
                 .orderByDesc(MesProEdhrProcessFormPermissionRuleDO::getId), batchRecordVersionId));
     }
 

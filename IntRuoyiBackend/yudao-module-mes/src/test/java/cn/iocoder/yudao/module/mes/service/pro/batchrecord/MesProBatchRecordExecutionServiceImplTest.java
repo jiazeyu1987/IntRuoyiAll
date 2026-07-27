@@ -3309,6 +3309,51 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void openOrCreateByContext_freezesAssistRowsInExecutionSnapshot() {
+        MesProWorkOrderDO workOrder = insertWorkOrder();
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .routeId(1001L)
+                .processId(2002L)
+                .sort(1)
+                .batchRecordReportId("report-snapshot-assist")
+                .remark("default binding")
+                .build();
+        routeProcessMapper.insert(routeProcess);
+        reportMapper.insert(report("report-snapshot-assist"));
+        when(jimuReportGateway.getReportJson("report-snapshot-assist"))
+                .thenReturn(sampleEditableReportJsonWithAssistRows());
+
+        MesProBatchRecordExecutionOpenOrCreateByContextReqVO reqVO =
+                new MesProBatchRecordExecutionOpenOrCreateByContextReqVO()
+                        .setWorkOrderId(workOrder.getId())
+                        .setRouteProcessId(routeProcess.getId())
+                        .setBatchRecordReportId("report-snapshot-assist")
+                        .setBatchCode("BATCH-SNAPSHOT-ASSIST");
+
+        MesProBatchRecordExecutionOpenOrCreateByContextRespVO resp = executionService.openOrCreateByContext(reqVO);
+        JSONObject snapshot = JSON.parseObject(executionMapper.selectById(resp.getId()).getExecutionSnapshotJson());
+
+        JSONArray assistRows = snapshot.getJSONArray("assistRows");
+        assertNotNull(assistRows);
+        assertEquals(2, assistRows.size());
+        assertEquals("AR_OPERATOR", assistRows.getJSONObject(0).getString("rowKey"));
+        assertEquals("操作信息", assistRows.getJSONObject(0).getString("description"));
+        assertEquals(0, assistRows.getJSONObject(0).getJSONArray("fields").getJSONObject(0).getIntValue("rowIndex"));
+        assertEquals(1, assistRows.getJSONObject(0).getJSONArray("fields").getJSONObject(0).getIntValue("columnIndex"));
+        assertEquals("AR_REMARK", assistRows.getJSONObject(1).getString("rowKey"));
+
+        when(jimuReportGateway.getReportJson("report-snapshot-assist"))
+                .thenReturn(sampleEditableReportJsonWithReviewedStringRules());
+        MesProBatchRecordExecutionOpenOrCreateByContextRespVO reopened = executionService.openOrCreateByContext(reqVO);
+
+        assertEquals(resp.getId(), reopened.getId());
+        JSONObject reopenedSnapshot =
+                JSON.parseObject(executionMapper.selectById(resp.getId()).getExecutionSnapshotJson());
+        assertEquals(2, reopenedSnapshot.getJSONArray("assistRows").size());
+        verify(jimuReportGateway).getReportJson("report-snapshot-assist");
+    }
+
+    @Test
     void openOrCreateByContext_inlinesCellRuleConstraintsWithoutFastjsonReferences() {
         MesProWorkOrderDO workOrder = insertWorkOrder();
         MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
@@ -4826,6 +4871,19 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
 
     private String sampleEditableReportJson() {
         return sampleEditableReportJsonWithReviewedStringRules();
+    }
+
+    private String sampleEditableReportJsonWithAssistRows() {
+        JSONObject root = JSON.parseObject(sampleEditableReportJsonWithReviewedStringRules());
+        root.put("edhrAssistRows", JSON.parseArray("""
+                [
+                  {"rowKey":"AR_OPERATOR","description":"操作信息","sort":1,
+                    "fields":[{"rowIndex":0,"columnIndex":1}]},
+                  {"rowKey":"AR_REMARK","description":"备注信息","sort":2,
+                    "fields":[{"rowIndex":0,"columnIndex":3}]}
+                ]
+                """));
+        return root.toJSONString();
     }
 
     private String sampleEditableReportJsonWithoutRules() {

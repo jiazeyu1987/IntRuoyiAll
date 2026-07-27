@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRuleVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportAssistRowVO;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MesProBatchRecordCellRuleSupportTest {
@@ -1191,6 +1193,103 @@ class MesProBatchRecordCellRuleSupportTest {
         assertEquals(20, reviewedRule.getJSONObject("constraints").getInteger("maxLength"));
     }
 
+    @Test
+    void applyAssistRows_roundTripsStableRowsAndCoversEveryFillableCell() {
+        JSONObject root = assistRowsRoot();
+        List<BatchRecordReportAssistRowVO> assistRows = List.of(
+                assistRow("AR_001", "填写生产批号和实际数量", 1,
+                        cell(4, 2), cell(4, 4)),
+                assistRow("AR_002", "选择生产日期", 2,
+                        cell(6, 2)));
+
+        MesProBatchRecordCellRuleSupport.validateAssistRows(root, assistRows);
+        MesProBatchRecordCellRuleSupport.applyAssistRows(root, assistRows);
+        List<BatchRecordReportAssistRowVO> extracted = MesProBatchRecordCellRuleSupport.extractAssistRows(root);
+
+        assertEquals(2, extracted.size());
+        assertEquals("AR_001", extracted.get(0).getRowKey());
+        assertEquals("填写生产批号和实际数量", extracted.get(0).getDescription());
+        assertEquals(1, extracted.get(0).getSort());
+        assertEquals(2, extracted.get(0).getFields().size());
+        assertEquals(4, extracted.get(0).getFields().get(0).getRowIndex());
+        assertEquals(2, extracted.get(0).getFields().get(0).getColumnIndex());
+        assertEquals("AR_002", extracted.get(1).getRowKey());
+    }
+
+    @Test
+    void validateAssistRows_rejectsDuplicateCoordinateAcrossRows() {
+        JSONObject root = assistRowsRoot();
+        List<BatchRecordReportAssistRowVO> assistRows = List.of(
+                assistRow("AR_001", "填写生产批号", 1, cell(4, 2)),
+                assistRow("AR_002", "重复生产批号", 2, cell(4, 2), cell(4, 4), cell(6, 2)));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> MesProBatchRecordCellRuleSupport.validateAssistRows(root, assistRows));
+
+        assertTrue(ex.getMessage().contains("duplicate assist row cell"));
+        assertTrue(ex.getMessage().contains("4:2"));
+    }
+
+    @Test
+    void validateAssistRows_rejectsBlankDescriptionAndEmptyFields() {
+        JSONObject root = assistRowsRoot();
+        List<BatchRecordReportAssistRowVO> blankDescription = List.of(
+                assistRow("AR_001", "   ", 1, cell(4, 2), cell(4, 4), cell(6, 2)));
+        List<BatchRecordReportAssistRowVO> emptyFields = List.of(
+                assistRow("AR_001", "填写生产批号", 1));
+
+        assertTrue(assertThrows(IllegalArgumentException.class,
+                () -> MesProBatchRecordCellRuleSupport.validateAssistRows(root, blankDescription))
+                .getMessage().contains("description must not be blank"));
+        assertTrue(assertThrows(IllegalArgumentException.class,
+                () -> MesProBatchRecordCellRuleSupport.validateAssistRows(root, emptyFields))
+                .getMessage().contains("must contain at least one cell"));
+    }
+
+    @Test
+    void validateAssistRows_rejectsMissingCoverageAndNonFillableCoordinate() {
+        JSONObject root = assistRowsRoot();
+        List<BatchRecordReportAssistRowVO> missingCoverage = List.of(
+                assistRow("AR_001", "填写生产批号", 1, cell(4, 2), cell(4, 4)));
+        List<BatchRecordReportAssistRowVO> nonFillableCoordinate = List.of(
+                assistRow("AR_001", "标题不可填写", 1, cell(0, 0), cell(4, 2), cell(4, 4), cell(6, 2)));
+
+        assertTrue(assertThrows(IllegalArgumentException.class,
+                () -> MesProBatchRecordCellRuleSupport.validateAssistRows(root, missingCoverage))
+                .getMessage().contains("missing assist row coverage"));
+        assertTrue(assertThrows(IllegalArgumentException.class,
+                () -> MesProBatchRecordCellRuleSupport.validateAssistRows(root, nonFillableCoordinate))
+                .getMessage().contains("non-fillable assist row cell"));
+    }
+
+    @Test
+    void validateRule_rejectsDuplicateStringOptionValues() {
+        BatchRecordReportCellRuleVO rule = new BatchRecordReportCellRuleVO()
+                .setRowIndex(4)
+                .setColumnIndex(2)
+                .setValueType("STRING")
+                .setComponentFlag("radio-group")
+                .setRequired(true)
+                .setLabel("检测结果")
+                .setConstraints(Map.of(
+                        "selectionMode", "single",
+                        "options", List.of(
+                                Map.of("label", "合格", "value", "PASS"),
+                                Map.of("label", "复核通过", "value", "PASS"))))
+                .setReviewed(true);
+        JSONObject cell = JSON.parseObject("""
+                {
+                  "text": "",
+                  "fillForm": {"field": "ebr_r4_c2", "component": "Input", "componentFlag": "radio-group"}
+                }
+                """);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> MesProBatchRecordCellRuleSupport.validateRule(rule, cell));
+
+        assertTrue(ex.getMessage().contains("option value must be unique"));
+    }
+
     private void assertCellRuleAndFillForm(JSONObject root, int rowIndex, int columnIndex, String valueType,
                                            String componentFlag, String label) {
         JSONObject cell = MesProBatchRecordCellRuleSupport.requireCell(root, rowIndex, columnIndex);
@@ -1213,5 +1312,37 @@ class MesProBatchRecordCellRuleSupportTest {
                 .orElse(null);
         assertNotNull(rule, "missing suggestion for row " + rowIndex + " column " + columnIndex);
         return rule;
+    }
+
+    private JSONObject assistRowsRoot() {
+        return JSON.parseObject("""
+                {
+                  "rows": {
+                    "0": {"cells": {"0": {"text": "标题"}}},
+                    "4": {"cells": {
+                      "2": {"text": "", "fillForm": {"field": "ebr_r4_c2", "component": "Input", "componentFlag": "input-text"}},
+                      "4": {"text": "", "fillForm": {"field": "ebr_r4_c4", "component": "Input", "componentFlag": "input-number"}}
+                    }},
+                    "6": {"cells": {
+                      "2": {"text": "", "fillForm": {"field": "ebr_r6_c2", "component": "Input", "componentFlag": "date"}}
+                    }}
+                  }
+                }
+                """);
+    }
+
+    private BatchRecordReportAssistRowVO assistRow(String rowKey, String description, Integer sort,
+                                                   BatchRecordReportAssistRowVO.FieldVO... fields) {
+        return new BatchRecordReportAssistRowVO()
+                .setRowKey(rowKey)
+                .setDescription(description)
+                .setSort(sort)
+                .setFields(List.of(fields));
+    }
+
+    private BatchRecordReportAssistRowVO.FieldVO cell(Integer rowIndex, Integer columnIndex) {
+        return new BatchRecordReportAssistRowVO.FieldVO()
+                .setRowIndex(rowIndex)
+                .setColumnIndex(columnIndex);
     }
 }

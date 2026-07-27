@@ -204,6 +204,21 @@ export const cleanedRuleConstraints = (
   }
   if (valueType === 'STRING') {
     ;(['minLength', 'maxLength'] as const).forEach(copyNumber)
+    if (source.selectionMode === 'single' && Array.isArray(source.options)) {
+      cleaned.selectionMode = 'single'
+      cleaned.options = source.options
+        .map((option) => {
+          if (typeof option === 'string' || typeof option === 'number' || typeof option === 'boolean') {
+            const value = String(option).trim()
+            return value ? { label: value, value } : undefined
+          }
+          if (!option || typeof option !== 'object') return undefined
+          const value = String((option as Record<string, unknown>).value ?? '').trim()
+          const label = String((option as Record<string, unknown>).label ?? value).trim()
+          return value ? { label: label || value, value } : undefined
+        })
+        .filter(Boolean)
+    }
   }
   if ((valueType === 'DATE' || valueType === 'DATETIME') && typeof source.format === 'string' && source.format.trim()) {
     cleaned.format = source.format.trim()

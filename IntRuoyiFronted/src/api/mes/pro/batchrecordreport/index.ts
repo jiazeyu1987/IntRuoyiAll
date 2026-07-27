@@ -200,6 +200,18 @@ export interface BatchRecordReportCellAttachmentRuleVO {
   groupKey?: string
 }
 
+export interface BatchRecordReportAssistRowFieldVO {
+  rowIndex: number
+  columnIndex: number
+}
+
+export interface BatchRecordReportAssistRowVO {
+  rowKey: string
+  description: string
+  sort: number
+  fields: BatchRecordReportAssistRowFieldVO[]
+}
+
 export interface BatchRecordReportCellRuleVO {
   rowIndex: number
   columnIndex: number
@@ -223,11 +235,13 @@ export interface BatchRecordReportCellRulesRespVO {
   rules: BatchRecordReportCellRuleVO[]
   suggestions: BatchRecordReportCellRuleVO[]
   unreviewedFillableCellCount: number
+  assistRows?: BatchRecordReportAssistRowVO[]
 }
 
 export interface BatchRecordReportCellRulesReqVO {
   reportId: string
   rules: BatchRecordReportCellRuleVO[]
+  assistRows?: BatchRecordReportAssistRowVO[]
 }
 
 export const BatchRecordReportApi = {

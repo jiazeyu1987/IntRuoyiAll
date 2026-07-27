@@ -22,6 +22,8 @@ public class MesProEdhrProcessFormPermissionRuleRespVO {
 
     private CandidateRule fillRule;
 
+    private List<FillAssignment> fillAssignments;
+
     private List<SignatureRule> signatureRules;
 
     private LocalDateTime updateTime;
@@ -31,6 +33,27 @@ public class MesProEdhrProcessFormPermissionRuleRespVO {
     @Data
     @Accessors(chain = true)
     public static class CandidateRule {
+
+        private String candidateSourceType;
+
+        private List<Long> candidateSourceIds;
+
+        private String completionPolicy;
+
+        private Integer dueMinutes;
+
+        private Boolean enabled;
+
+        private String remark;
+
+        private List<CandidateUser> candidateUsers;
+    }
+
+    @Data
+    @Accessors(chain = true)
+    public static class FillAssignment {
+
+        private String scopeKey;
 
         private String candidateSourceType;
 

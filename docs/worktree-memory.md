@@ -27,6 +27,14 @@
 - Forbidden action: 禁止复制 `node_modules`、使用主工作区 Vite 进程冒充 worktree 前端、改共享 `.env` 抢端口、或在依赖缺失时切换到 API-only。
 - Evidence: `doc/tasks/20260726-edhr-release-dossier-requirement-switches/execution-log.md`，slot 5 worktree 首次启动前端失败于 `Command "vite" not found`，补跑 `pnpm install --frozen-lockfile` 后 8086 前端真实启动并通过 E2E。
 
+## Worktree 真实 E2E 运行产物门禁
+
+- Trigger: 在 `D:\IntRuoyiWorktree\` 下执行真实 Playwright E2E，尤其需要通过登记 slot 启动前端与后端。
+- Preflight check: 启动前同时检查目标 worktree 的后端可执行 Jar（如 `IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`）、前端 Vite 依赖（`IntRuoyiFronted\node_modules\.bin\vite.cmd`）、端口登记项和目标端口监听状态；缺 Jar 时先按任务验证要求构建，缺前端依赖时只在目标 worktree 执行 `pnpm install --frozen-lockfile`。
+- Blocker: Jar 不存在、Vite 依赖不存在、端口未按登记 slot 成对启动、构建/安装失败、或端口被非当前 worktree 占用时必须停止，不得静默切回 8081/48081、复用其他 worktree 进程、API-only 代替真实页面路径。
+- Verification: 记录 Jar 存在性或构建命令退出码、Vite 依赖存在性、前后端端口监听 PID 和命令行归属、前端 HTTP 200、后端 health UP，以及真实 E2E 命令和结果。
+- Forbidden action: 禁止把缺运行产物解释为功能失败；禁止随机换端口、强杀未知进程、复制 node_modules、复用旧 Jar 或只跑静态合同冒充真实 E2E。
+
 ## Worktree 删除门禁
 
 - Trigger: 删除、清理、合并后移除、修复残留目录、处理 `git worktree remove` 失败、`Directory not empty`、`Invalid argument`、或断链 worktree。

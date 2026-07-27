@@ -324,7 +324,7 @@
                     type="primary"
                     :loading="fieldAuditSaveLoading"
                     :disabled="!canSaveFieldAuditChanges"
-                    @click="handleSaveFieldAuditChanges"
+                    @click="openFieldAuditSignatureDialog"
                   >
                     保存草稿
                   </el-button>
@@ -593,7 +593,7 @@
 
                     <el-empty
                       v-if="assistFillFields.length === 0"
-                      description="当前没有可填写字段"
+                      :description="assistRowsConfigured ? '当前没有可填写字段' : '未配置辅助模式'"
                     />
 
                     <div v-else class="edhr-fill-workspace__assist-list">
@@ -1580,6 +1580,7 @@ import { getEdhrTrackingTimeline, type EdhrTrackingEventVO } from '@/api/mes/pro
 import { getEdhrRecordbookGlobalSetting } from '@/api/mes/pro/edhr/recordbookGlobalSetting'
 import {
   ProFeedbackApi,
+  type ProFeedbackEdhrAssistRowVO,
   type ProFeedbackEdhrExecutionSnapshotVO,
   type ProFeedbackEdhrExecutionVO,
   type ProFeedbackEdhrReviewAssigneeOptionVO,
@@ -1844,6 +1845,8 @@ const fitMode = ref<'width' | 'height'>('width')
 const fillViewMode = ref<'assist' | 'original'>('assist')
 const fillWorkspaceRef = ref<HTMLElement>()
 const highlightedAssistFieldIdentity = ref('')
+const openedExecutionPageAssistRows = ref<ProFeedbackEdhrAssistRowVO[]>([])
+const openedExecutionPageAssistRowsContextKey = ref('')
 let assistHighlightTimer: number | undefined
 const isFillWorkspaceFullscreen = ref(false)
 const fieldAuditSaveLoading = ref(false)
@@ -2569,6 +2572,87 @@ const templateFieldByCell = computed(() => {
   return map
 })
 
+const normalizeExecutionAssistRows = (rows: unknown): ProFeedbackEdhrAssistRowVO[] => {
+  if (!Array.isArray(rows)) return []
+  return rows
+    .map((row, index) => {
+      const record = row as Partial<ProFeedbackEdhrAssistRowVO>
+      const fields = Array.isArray(record.fields)
+        ? record.fields
+            .map((field) => {
+              const rowIndex = parseNonNegativeInteger((field as any)?.rowIndex)
+              const columnIndex = parseNonNegativeInteger((field as any)?.columnIndex)
+              return rowIndex == null || columnIndex == null ? null : { rowIndex, columnIndex }
+            })
+            .filter((field): field is { rowIndex: number; columnIndex: number } => Boolean(field))
+        : []
+      return {
+        rowKey: String(record.rowKey || `ASSIST_ROW_${index + 1}`).trim(),
+        description: String(record.description || '').trim(),
+        sort: Number.isFinite(Number(record.sort)) ? Number(record.sort) : index + 1,
+        fields
+      }
+    })
+    .filter((row) => row.rowKey && row.fields.length > 0)
+    .sort((left, right) => left.sort - right.sort)
+}
+
+const parseAssistRowsRouteQuery = () => {
+  const rawValue = Array.isArray(route.query.assistRows)
+    ? route.query.assistRows[0]
+    : route.query.assistRows
+  const text = typeof rawValue === 'string' ? rawValue.trim() : ''
+  if (!text) {
+    return { present: false, rows: [] as ProFeedbackEdhrAssistRowVO[] }
+  }
+  const parsed = JSON.parse(text)
+  return { present: true, rows: normalizeExecutionAssistRows(parsed) }
+}
+
+const visibleAssistRowsFromExecutionQueryState = computed(() => {
+  const routeRows = parseAssistRowsRouteQuery()
+  if (routeRows.present) return routeRows
+  if (openedExecutionPageAssistRowsContextKey.value === resolveExecutionContextKey()) {
+    return { present: true, rows: openedExecutionPageAssistRows.value }
+  }
+  return { present: false, rows: [] as ProFeedbackEdhrAssistRowVO[] }
+})
+
+const visibleAssistRowsFromExecutionQuery = computed(
+  () => visibleAssistRowsFromExecutionQueryState.value.rows
+)
+
+const snapshotAssistRows = computed(() =>
+  normalizeExecutionAssistRows(parsedSnapshot.value.parsed?.assistRows)
+)
+
+const activeAssistRows = computed(() =>
+  visibleAssistRowsFromExecutionQueryState.value.present
+    ? visibleAssistRowsFromExecutionQuery.value
+    : snapshotAssistRows.value
+)
+
+const assistRowsConfigured = computed(() => activeAssistRows.value.length > 0)
+
+const buildAssistFieldsFromAssistRows = (
+  rows: ProFeedbackEdhrAssistRowVO[],
+  fields: NormalizedSnapshotField[]
+) => {
+  const fieldMap = new Map(fields.map((field) => [buildCellValueKey(field.rowIndex, field.columnIndex), field]))
+  const items: NormalizedSnapshotField[] = []
+  rows.forEach((row) => {
+    row.fields.forEach((cell) => {
+      const field = fieldMap.get(buildCellValueKey(cell.rowIndex, cell.columnIndex))
+      if (!field) return
+      items.push({
+        ...field,
+        helpText: row.description || field.helpText
+      })
+    })
+  })
+  return items
+}
+
 const readSnapshotCellText = (cell?: RawExecutionSnapshotCell) => {
   if (!cell) return ''
   const directCandidates = [cell.text, cell.displayText, cell.content, cell.value]
@@ -2828,8 +2912,7 @@ const templateModelValue = computed<TemplateSimulationValueMap>(() => {
 
 const assistFillFields = computed<AssistFillField[]>(() =>
   buildAssistChoiceGroupItems(
-    snapshotFields.value
-      .filter(isFieldInCurrentFillScope)
+    buildAssistFieldsFromAssistRows(activeAssistRows.value, snapshotFields.value)
       .filter((field) => !field.readonly || field.componentKind === 'signature')
   )
 )
@@ -4257,6 +4340,10 @@ const handleRevertPendingFieldChange = (change: PendingFieldChange) => {
   }
 }
 
+const openFieldAuditSignatureDialog = async () => {
+  await handleSaveFieldAuditChanges()
+}
+
 const handleSaveFieldAuditChanges = async () => {
   if (fieldAuditSaveGateError.value) {
     fieldAuditSaveError.value = fieldAuditSaveGateError.value
@@ -4971,10 +5058,13 @@ const buildAssistFillCarrierExecutionQuery = (row: EdhrBatchExecutionTaskRespVO)
   return query
 }
 
-const stringifyAssistRouteQuery = (value?: Record<string, string | number | null | undefined>) => {
+const stringifyAssistRouteQuery = (value?: Record<string, unknown>) => {
   const query: Record<string, string> = {}
   Object.entries(value || {}).forEach(([key, entryValue]) => {
-    if (entryValue !== undefined && entryValue !== null && entryValue !== '') {
+    if (
+      (typeof entryValue === 'string' || typeof entryValue === 'number' || typeof entryValue === 'boolean') &&
+      String(entryValue).trim()
+    ) {
       query[key] = String(entryValue)
     }
   })
@@ -5031,6 +5121,8 @@ const navigateToAssistBatchTask = async (
       throw new Error('打开工序任务后端未返回 executionId，不能进入 eDHR 填写页。')
     }
     const openedWorkTaskId = opened.workTaskId || opened.executionPageQuery?.workTaskId || row.activeWorkTaskId
+    openedExecutionPageAssistRows.value = normalizeExecutionAssistRows((opened.executionPageQuery as any)?.assistRows)
+    openedExecutionPageAssistRowsContextKey.value = `${opened.executionId}:${openedWorkTaskId || ''}`
     const query = {
       ...stringifyAssistRouteQuery(opened.executionPageQuery),
       id: String(opened.executionId),

@@ -32,4 +32,6 @@ public interface MesProEdhrWorkTaskErrorCodeConstants {
             new ErrorCode(1_040_751_412, "eDHR 工作任务缺少责任来源标记：{}");
     ErrorCode PRO_EDHR_WORK_TASK_OWNERSHIP_TRANSFER_LOCKED =
             new ErrorCode(1_040_751_413, "eDHR 工作任务所有权已锁定，不能自动转移：{}");
+    ErrorCode PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID =
+            new ErrorCode(1_040_751_414, "eDHR 工作任务责任范围快照无效：{}");
 }

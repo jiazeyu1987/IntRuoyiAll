@@ -36,6 +36,8 @@ public class MesProEdhrProcessFormPermissionRuleDO extends BaseDO {
 
     private String ruleType;
 
+    private String scopeKey;
+
     private String signatureCellKey;
 
     private String signatureRole;
@@ -49,6 +51,8 @@ public class MesProEdhrProcessFormPermissionRuleDO extends BaseDO {
     private Integer dueMinutes;
 
     private Boolean enabled;
+
+    private String fillableScopeJson;
 
     private String remark;
 }

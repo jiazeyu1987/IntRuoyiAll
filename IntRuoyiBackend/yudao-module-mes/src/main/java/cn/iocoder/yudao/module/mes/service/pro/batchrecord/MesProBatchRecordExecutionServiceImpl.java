@@ -2582,6 +2582,7 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
         snapshot.put("layout", layout);
         snapshot.put("meta", meta);
         snapshot.put("fields", extractSnapshotFields(root));
+        snapshot.put("assistRows", extractSnapshotAssistRows(root));
         return new RuntimeSnapshot(layout.toJSONString(), meta.toJSONString(), snapshot.toJSONString());
     }
 
@@ -2862,6 +2863,17 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
             }
         }
         return fields;
+    }
+
+    private JSONArray extractSnapshotAssistRows(JSONObject root) {
+        JSONArray assistRows = root == null
+                ? null : root.getJSONArray(MesProBatchRecordCellRuleSupport.ASSIST_ROWS_KEY);
+        if (assistRows == null) {
+            return new JSONArray();
+        }
+        MesProBatchRecordCellRuleSupport.validateAssistRows(
+                root, MesProBatchRecordCellRuleSupport.extractAssistRows(root));
+        return JSON.parseArray(assistRows.toJSONString());
     }
 
     private void validateConfirmedCellRules(JSONObject root) {
