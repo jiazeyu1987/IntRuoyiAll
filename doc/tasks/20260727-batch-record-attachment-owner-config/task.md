@@ -6,10 +6,11 @@ Fix the confirm-button failure that reports `batchRecordAttachmentOwners` as an 
 
 ## Milestones
 
-- [ ] Reproduce and isolate the failing validation path.
-- [ ] Add a regression test that fails before the fix.
-- [ ] Implement the minimal backend fix without fallback or silent downgrade.
-- [ ] Run targeted verification and record evidence.
+- [x] Reproduce and isolate the failing validation path.
+- [x] Add a regression test that fails before the fix.
+- [x] Implement the minimal backend fix without fallback or silent downgrade.
+- [x] Run targeted verification and record evidence.
+- [ ] Resolve real route data/configuration for route `922119` if user authorizes changing business configuration.
 
 ## Expected Verification
 
@@ -19,7 +20,11 @@ Fix the confirm-button failure that reports `batchRecordAttachmentOwners` as an 
 
 ## Current Status
 
-in_progress
+blocked
+
+## Blocker
+
+- Code fix and backend verification passed, but the actual route shown in the screenshot (`route_id=922119`) still has no `configSnapshots.batchRecordAttachmentOwners` in ACTIVE `V14` or DRAFT `V15`; changing that route requires explicit authorization because it is real business configuration, not task-owned test data.
 
 ## Experience Gates
 
