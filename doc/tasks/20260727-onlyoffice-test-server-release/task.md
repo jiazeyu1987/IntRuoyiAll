@@ -24,8 +24,8 @@
 - 发布范围：`test` only，组件范围 `intruoyi`。
 - 初始冻结基线：`origin/int_main` commit `9562dca4982007f36c302aaa99847a59d6a4c28e`。
 - 发布分支：`codex/20260727-onlyoffice-test-release`。
-- 已判废 ReleaseTag：`release-20260727-onlyoffice-test-r260727-1445`。
-- 重新发布 ReleaseTag：待生成，必须使用新标签。
+- 已判废 ReleaseTag：`release-20260727-onlyoffice-test-r260727-1445`、`release-20260727-onlyoffice-test-r260727-1823`、`release-20260727-onlyoffice-test-r260727-1948`、`release-20260727-onlyoffice-test-r260727-codeonly-r1`、`release-20260727-onlyoffice-test-r260727-codeonly-r2`。
+- 重新发布 ReleaseTag：`release-20260727-onlyoffice-test-r260727-codeonly-r3`。
 - 测试服后端 `http://172.30.30.58:48081/actuator/health` 返回 `UP`。
 - 测试服前端 `http://172.30.30.58:8081/` 返回 HTTP 200。
 - 运行态 release tag、后端/前端镜像、manifest sourceRepos 与本轮发布一致。
@@ -55,6 +55,7 @@ in_progress
 - 新增 `20260716_mes_balloon_xlsx_route_00002_invalid_process_cleanup.sql`，限定 `allowedEnvironments=test`，在 `20260717_mes_balloon_excel_device_workstation_binding.sql` 前执行，备份并软删除非法路线工序、前序链路、路线配置和派生排产快照。
 - RED/GREEN 已完成：新增静态契约测试先失败于清理迁移缺失，补迁移后 `11 passed`；全量 migration policy gate 通过，`migrationCount=383`。
 - `release-20260727-onlyoffice-test-r260727-1823` 复发后确认发布预检 FIFO 拓扑排序反转了 Manifest 稳定顺序；已改为按原始索引选择 ready 节点，相关发布回归 `117 passed`，migration policy gate 仍为 `383` 条通过。
+- `release-20260727-onlyoffice-test-r260727-codeonly-r2` 在 NAS 上传期间被工具超时中断；本地包完整，但 NAS 仅有 3344 个文件，缺少 `resources`、`runtime-env` 和 `smoke`，因此该标签判废且不得复用。
 
 ## 设计约束检查
 
