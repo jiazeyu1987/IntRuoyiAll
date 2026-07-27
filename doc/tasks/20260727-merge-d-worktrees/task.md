@@ -8,10 +8,10 @@
 
 - [x] 创建任务记录并读取 worktree/Git/收尾/经验门禁。
 - [x] 盘点主工作区和全部 `D:\IntRuoyiWorktree\` worktree 的分支、remote、脏状态、是否已合入 `int_main`。
-- [ ] 对 clean 且可验证合入的 worktree 按可验证顺序融合到 `int_main`，dirty 或阻塞 worktree 保留不动。
-- [ ] 运行合并后保护门禁与可行验证，确认 `int_main` 状态。
-- [ ] 删除已成功融合的附加 worktree，并记录最终 worktree 列表。
-- [ ] 完成收尾清理、经验沉淀、提交与推送。
+- [x] 对 clean 且可验证合入的 worktree 按可验证顺序融合到 `int_main`，dirty 或阻塞 worktree 保留不动。
+- [x] 运行合并后保护门禁与可行验证，确认 `int_main` 状态。
+- [x] 删除已成功融合的附加 worktree，并记录最终 worktree 列表。
+- [x] 完成收尾清理、经验沉淀、提交与推送。
 
 ## Expected Verification
 
@@ -24,7 +24,7 @@
 
 ## Current Status
 
-in_progress：用户已调整范围为只处理已 clean 且已验证可合入的 worktree。`D:\IntRuoyiWorktree\202607727_yingshe` 因 dirty 且自身任务 blocked，保留不动，不参与本轮融合或删除。
+completed：已处理本轮 clean 且验证可合入的 worktree。`codex/edhr-latest-published-form` 已合入 `int_main`，`codex/20260727_pici` 已确认早已是 `int_main` 祖先；两者对应 worktree 已删除并释放端口登记。`codex/codex-test-process-route` 因 add/add merge conflict 保留，`codex/202607727_yingshe` 因 dirty 且自身任务 blocked 保留，`codex/20260727-todo-task-hidden-status` 为本轮中新出现的其他任务 worktree，非本轮处理对象。最终验证与 cleanup apply 已通过；提交和推送证据记录在 `execution-log.md`。
 
 ## Design Constraint Check
 

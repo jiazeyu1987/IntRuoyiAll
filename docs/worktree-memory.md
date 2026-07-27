@@ -36,6 +36,15 @@
 - Forbidden action: 禁止用 `Remove-Item -Recurse` 替代正常 `git worktree remove` 作为首选路径；禁止删除未指定 worktree；禁止因为 `Directory not empty` 就扩大清理范围；禁止静默丢弃未提交变更；禁止删除或释放其他任务的端口登记项。
 - Evidence: 2026-07-26 删除已合入 worktree 前补齐长期经验门禁，要求先确认合入状态、未提交变更授权、路径边界和删除后注册状态。
 
+### Git 注册已移除但物理目录被运行态锁住
+
+- Trigger: `git worktree remove <path>` 返回 `Invalid argument`、Git 注册列表已不再显示目标 worktree，但物理目录仍存在，或残留目录内 `runtime-backend.err.log` / Vite / Java / esbuild 文件被占用。
+- Preflight check: 先确认 `git worktree list --porcelain` 已无该路径、残留目录没有 `.git` 文件、目标绝对路径仍在 `D:\IntRuoyiWorktree\` 下；再按命令行和端口定位只属于该残留 worktree 的进程，例如 `Get-CimInstance Win32_Process` 匹配目标路径，`Get-NetTCPConnection` 核对登记端口。
+- Blocker: 若仍有 Git 注册、残留目录存在 `.git`、占用进程无法证明属于目标 worktree、占用端口属于其他 profile/任务、或目录路径越界，必须停止，不得删除目录或停止进程。
+- Verification: 记录被停止进程的 PID、名称、命令行、端口和归属依据；停止后确认目标端口不再监听、目标路径 `Test-Path` 为 `False`、端口登记项仅对该目标标记 `active=false/deletedAt/cleanupTask`。
+- Forbidden action: 禁止因残留目录删除失败就强杀未知 Java/Node/PowerShell；禁止用父目录批量删除；禁止在未确认 `.git` 已消失前把注册 worktree 当普通目录删除；禁止释放其他 active worktree 的端口登记项。
+- Evidence: `doc/tasks/20260727-merge-d-worktrees/verification-report.md`，`20260727_pici` 在 Git 注册移除后被 8084/48084 运行态锁住，确认 PID 和命令行归属后停止目标进程并删除残留目录。
+
 ## 删除操作顺序
 
 1. 阶段 1：目标确认
