@@ -22,14 +22,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
-import java.util.Set;
 
 @Service
 public class BusinessApprovalPolicyAdministrationService {
-
-    private static final Set<String> BPM_REQUIRED_EFFECT_EXECUTOR_CODES = Set.of(
-            "FORM_TEMPLATE_UPGRADE",
-            "FORM_TEMPLATE_OBSOLETE");
 
     @Resource
     private BusinessApprovalPolicyMapper policyMapper;
@@ -75,7 +70,6 @@ public class BusinessApprovalPolicyAdministrationService {
         BusinessApprovalPolicyDO policy = requirePolicy(policyId);
         BusinessApprovalPolicyMode mode = parseMode(policy.getPolicyMode());
         executorRegistry.requireExecutor(policy.getEffectExecutorCode());
-        requireBpmRequiredModeForMandatoryExecutor(policy.getEffectExecutorCode(), mode);
         if (mode == BusinessApprovalPolicyMode.BPM_REQUIRED && StrUtil.isBlank(policy.getProcessDefinitionKey())) {
             throw new BusinessApprovalException(
                     BusinessApprovalErrorCode.BUSINESS_APPROVAL_PROCESS_DEFINITION_MISSING,
@@ -111,7 +105,6 @@ public class BusinessApprovalPolicyAdministrationService {
                     "Only published business approval policy can switch mode: " + policyId);
         }
         BusinessApprovalPolicyMode targetMode = parseMode(reqVO.getPolicyMode());
-        requireBpmRequiredModeForMandatoryExecutor(sourcePolicy.getEffectExecutorCode(), targetMode);
         if (StrUtil.isBlank(reqVO.getSignaturePassword())) {
             throw new BusinessApprovalException(
                     BusinessApprovalErrorCode.BUSINESS_APPROVAL_SIGNATURE_PASSWORD_REQUIRED,
@@ -158,16 +151,6 @@ public class BusinessApprovalPolicyAdministrationService {
     private String buildSwitchBusinessKey(BusinessApprovalPolicyDO policy) {
         return policy.getSystemCode() + ":" + policy.getObjectType() + ":"
                 + policy.getActionCode() + ":" + policy.getObjectState();
-    }
-
-    private void requireBpmRequiredModeForMandatoryExecutor(String effectExecutorCode,
-            BusinessApprovalPolicyMode mode) {
-        String executorCode = StrUtil.trim(effectExecutorCode);
-        if (BPM_REQUIRED_EFFECT_EXECUTOR_CODES.contains(executorCode)
-                && mode != BusinessApprovalPolicyMode.BPM_REQUIRED) {
-            throw new BusinessApprovalException(BusinessApprovalErrorCode.BUSINESS_APPROVAL_MODE_INVALID,
-                    "Business approval executor requires BPM_REQUIRED policy: " + executorCode);
-        }
     }
 
     private String resolveSwitchProcessDefinitionKey(BusinessApprovalPolicyDO sourcePolicy,
