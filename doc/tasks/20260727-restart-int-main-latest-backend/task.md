@@ -8,9 +8,9 @@
 
 - [x] 核对当前 `48081` PID、命令行、健康状态和 Git 分叉状态。
 - [x] 创建最新 `origin/int_main` 隔离构建 worktree，并登记 runtime slot。
-- [ ] 运行目标回归与后端打包，记录来源提交和 Jar SHA-256。
-- [ ] 备份当前运行 Jar，停止已确认归属的旧 `48081` 进程。
-- [ ] 将已验证 Jar 加载到 `E:\IntRuoyi` 的 `48081` 并验证健康状态。
+- [x] 运行目标回归与后端打包，记录来源提交和 Jar SHA-256。
+- [x] 备份当前运行 Jar，停止已确认归属的旧 `48081` 进程。
+- [x] 将已验证 Jar 加载到 `E:\IntRuoyi` 的 `48081` 并验证健康状态。
 - [ ] 完成证据、cleanup、提交推送和 worktree/slot 释放。
 
 ## Expected Verification
@@ -24,9 +24,9 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-当前 `48081` 为健康状态，但运行 Jar 位于主工作区 `target`，而本地 `int_main` 与 `origin/int_main` 已分叉，无法从现有 Jar 证明其来源为最新融合提交。已在 `D:\IntRuoyiWorktree\20260727_int_main_latest_backend_runtime` 创建隔离构建 worktree，登记 slot `6`（`8087/48087`，仅构建不启动），并快进到最新 `origin/int_main` 提交 `70a4b4141187eb282a054d3b70dcbcadca641cc2`。构建验证通过前不停止当前服务。
+`48081` 已切换到隔离构建产物并恢复健康。构建提交为 `97ecf51a1c1f930a6c9307646614418d4ab811dc`；部署前和部署后确认最新 `origin/int_main` 为 `177ebefbb9195835ac47d55067306454c17644da`，两者的 `IntRuoyiBackend` tree 均为 `7c5ffc135ce21d4905b7b46d9747dee382578c51`，后续差异仅为任务文档。运行 Jar SHA-256 为 `89EB3023737BD704B92AB129C2D9176C392A6B7CE4D1E2DF2199128D02FCD98D`，新 PID 为 `44372`，health 为 `UP`。实现与验证已完成，等待 cleanup、提交推送和 worktree/slot 释放。
 
 ## 设计约束检查
 
