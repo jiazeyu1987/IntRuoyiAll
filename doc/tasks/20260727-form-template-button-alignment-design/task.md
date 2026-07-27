@@ -79,4 +79,5 @@ completed
 - 补充收尾证据提交：`a6714535`。
 - 远端同步整合提交：`97ecf51a`。
 - 首次推送：`origin/int_main` 从 `70a4b414` 推进到 `97ecf51a`，成功。
-- 最终收尾提交和推送见 `execution-log.md`。
+- 收尾提交：`46380517`，仅包含本任务 `task.md`、`execution-log.md`、`verification-report.md`。
+- 收尾推送：`origin/int_main` 从 `97ecf51a` 推进到 `46380517`，成功。

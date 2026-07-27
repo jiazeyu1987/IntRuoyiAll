@@ -122,6 +122,8 @@
 - `GREEN: supplemental closeout commit -> a6714535, 包含本任务 execution-log.md/verification-report.md 和并行收尾记录。`
 - `GREEN: remote integration commit -> 97ecf51a, 共享 int_main 已整合 origin/int_main。`
 - `GREEN: git push origin int_main -> PASS, 70a4b414..97ecf51a。`
+- `GREEN: closeout commit -> 46380517, 仅包含本任务 task.md/execution-log.md/verification-report.md。`
+- `GREEN: closeout push -> PASS, 97ecf51a..46380517。`
 - `REGRESSION: node tests\e2e\form-center-static.spec.js -> FAIL, 仅失败于无关策略路由 activeMenu 断言；本任务未修改该路由或断言。`
 
 ## Milestone Updates
