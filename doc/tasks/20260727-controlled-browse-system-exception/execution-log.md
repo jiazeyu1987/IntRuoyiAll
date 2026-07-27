@@ -22,3 +22,4 @@
 - Rules loaded: `bug-regression-fix-loop`, `backend-api-delivery`, `docs/backend-development.md`, `docs/task-closeout-rules.md`, `docs/powershell-memory.md`, `docs/powershell-encoding.md`.
 - Existing worktree state: branch `int_main` is already ahead of `origin/int_main` and has unrelated modified/untracked files; this task will only touch the DCC preview/audit code, target regression tests, and this task directory.
 - BDD: 空文件编号受控文件可生成预览元数据 -> Given 受控文件 `fileNumber` 为空且用户有预览权限, When 后端生成 `preview-metadata` 的 viewer token、水印追踪和访问日志, Then 不抛出 `fileNumber is required`，并保留访问审计与水印追踪。
+- RED: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledPreviewAccessServiceTest#prepareAccess_allowsMissingFileNumberForPreviewMetadata" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected `IllegalArgumentException: fileNumber is required` from `DccControlledPreviewAccessService.requireRequest`.

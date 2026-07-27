@@ -80,7 +80,7 @@ public class DccControlledPreviewAccessService {
         payload.put("tenantId", request.tenantId());
         payload.put("fileId", request.fileId());
         payload.put("versionId", StrUtil.trim(request.versionId()));
-        payload.put("fileNumber", StrUtil.trim(request.fileNumber()));
+        payload.put("fileNumber", StrUtil.trimToEmpty(request.fileNumber()));
         payload.put("userId", request.userId());
         payload.put("userIdentifier", StrUtil.trim(request.userIdentifier()));
         payload.put("userDisplayName", StrUtil.trim(request.userDisplayName()));
@@ -102,7 +102,6 @@ public class DccControlledPreviewAccessService {
         requirePositive(request.userId(), "userId");
         requirePositive(request.fileId(), "fileId");
         requireNotBlank(request.versionId(), "versionId");
-        requireNotBlank(request.fileNumber(), "fileNumber");
         requireNotBlank(request.accessType(), "accessType");
         requireNotBlank(request.purpose(), "purpose");
         requirePositive(request.ttlSeconds(), "ttlSeconds");
