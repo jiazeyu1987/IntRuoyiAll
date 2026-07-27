@@ -195,6 +195,9 @@
 - Keywords: edhr-batch-execution-real-flow.e2e.js, int-ruoyi-mysql, 数据库夹具, LOCAL_DATABASE_FIXTURE, 芋道源码/admin, 真实 E2E 前置条件缺失, 覆盖历史 E2E 证据 -> `docs/e2e-rules.md#edhr-批次执行数据库夹具与证据文件门禁`
 - Keywords: edhr-work-task-process-advance-real.e2e.js, FormCenter 动态表单夹具, batch_record_report_id 为空, form_binding_key, form_center_instance_id, 生产工单不存在, 当前工艺路线工序未配置默认批记录报表, eDHR 批次工序任务被阻塞, EDHR-ADV, 工作台处理按钮目标行 -> `docs/e2e-rules.md#edhr-工作任务-formcenter-动态表单夹具门禁`
 - Keywords: eDHR 批次作废 BPM_REQUIRED, void-batch-execution approval-resolution, 作废弹窗审批策略, act_ru_task ASSIGNEE_, 审批中心 tasks/review, 作废后工作台待办闭环 -> `docs/e2e-rules.md#edhr-作废-bpm-审批真实-e2e-门禁`
+- Keywords: eDHR 任务专用路线副本, CODX-VFC, sourceRouteCode, preferredRouteCode, 共享路线不修改, 候选版本逐工序绑定正式批记录报表, batchRecordReports, 目标报表路线绑定缺失, 员工无待办 -> `docs/e2e-rules.md#edhr-任务专用路线副本-e2e-门禁`
+- Keywords: eDHR 同名批记录报表, reportCode, 批记录报表下拉, 按编码精确选择, batchRecordReportId 读回核验, 名称首个匹配禁止 -> `docs/e2e-rules.md#edhr-同名批记录报表精确选择门禁`
+- Keywords: eDHR 任务批次清理幂等, cleanup-only, already-voided, VOIDED 批次列表排除, 批次页面作废, 只读详情确认终态, API-only 作废禁止 -> `docs/e2e-rules.md#edhr-任务批次清理幂等门禁`
 - Keywords: 全局开关 E2E, 共享配置恢复, 系统级配置开关, Playwright finally restore, 恢复后复验, global switch cleanup -> `docs/e2e-rules.md#全局开关类-e2e-恢复门禁`
 - Keywords: Element Plus el-select, Playwright 下拉选择, 租户下拉, 工单下拉, 工艺路线编码, ACTIVE route snapshot, draft independence E2E, el-popover, Popover 内下拉, teleported=false, click-outside, 复制弹层选择后误关闭 -> `docs/e2e-rules.md#element-plus-下拉选择门禁`
 - Keywords: Element Plus el-select 多选标签, Element Plus el-input-number, 数字步进控件, el-select__tags-text, 选择框显示全, 目标项名称显示全, 填写人显示全, 三列弹窗表单, grid-template-columns, codex-test-checkpoint, collapse-tags-tooltip -> `docs/e2e-rules.md#element-plus-选择框显示门禁`

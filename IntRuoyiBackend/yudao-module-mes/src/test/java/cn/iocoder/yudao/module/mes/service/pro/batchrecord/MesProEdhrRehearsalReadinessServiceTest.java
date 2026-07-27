@@ -200,6 +200,33 @@ class MesProEdhrRehearsalReadinessServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void preflight_acceptsMultipleAssistRowFillRulesForSameReportVersion() {
+        seedHappyPathMenusAndSignatures();
+        insertArchiveAssignmentRule(ARCHIVER_ID);
+        insertRouteRecord(8011L, 1011L);
+        insertPermissionScope(1011L);
+        insertReport("RPT-1");
+        MesProBatchRecordReportDO report = reportMapper.selectByReportId("RPT-1");
+        insertProcessFormFillRule(9911L, 0L, "RPT-1",
+                report.getBatchRecordDefinitionId(), report.getBatchRecordVersionId(),
+                "AR_001", String.valueOf(EXECUTOR_ID));
+        insertProcessFormFillRule(9912L, 0L, "RPT-1",
+                report.getBatchRecordDefinitionId(), report.getBatchRecordVersionId(),
+                "AR_002", String.valueOf(EXECUTOR_ID));
+        when(jimuReportGateway.getReportJson("RPT-1")).thenReturn(reviewedReportJson());
+        seedBpmStartAllowed();
+
+        MesProEdhrRehearsalReadinessResult result = readinessService.check(new MesProEdhrRehearsalReadinessCommand()
+                .setRouteId(ROUTE_ID)
+                .setExecutorUserId(EXECUTOR_ID)
+                .setApproverUserId(APPROVER_ID)
+                .setArchiverUserId(ARCHIVER_ID));
+
+        assertEquals(MesProEdhrRehearsalReadinessResult.STATUS_PASS, result.getOverallStatus(),
+                () -> "unexpected blockers: " + result.getItems());
+    }
+
+    @Test
     void preflight_reportsArchiverThatDoesNotMatchRouteArchiveRuleBeforeRealClose() {
         seedHappyPathMenusSignaturesAndTemplate();
         seedRequiredMenus(ROUTE_ARCHIVER_ID, 7004L, 904000L, "路线归档人", ARCHIVER_REQUIRED_PERMISSIONS);
@@ -709,12 +736,23 @@ class MesProEdhrRehearsalReadinessServiceTest extends BaseDbUnitTest {
     }
 
     private void insertProcessFormFillRule(Long id, Long routeProcessId, String candidateSourceIds) {
-        insertProcessFormFillRule(id, routeProcessId, "RPT-1", null, null, candidateSourceIds);
+        MesProBatchRecordReportDO report = reportMapper.selectByReportId("RPT-1");
+        insertProcessFormFillRule(id, routeProcessId, "RPT-1",
+                report == null ? null : report.getBatchRecordDefinitionId(),
+                report == null ? null : report.getBatchRecordVersionId(),
+                candidateSourceIds);
     }
 
     private void insertProcessFormFillRule(Long id, Long routeProcessId, String reportId,
                                            Long batchRecordDefinitionId, Long batchRecordVersionId,
                                            String candidateSourceIds) {
+        insertProcessFormFillRule(id, routeProcessId, reportId, batchRecordDefinitionId, batchRecordVersionId,
+                "ALL", candidateSourceIds);
+    }
+
+    private void insertProcessFormFillRule(Long id, Long routeProcessId, String reportId,
+                                           Long batchRecordDefinitionId, Long batchRecordVersionId,
+                                           String scopeKey, String candidateSourceIds) {
         processFormPermissionRuleMapper.insert(new MesProEdhrProcessFormPermissionRuleDO()
                 .setId(id)
                 .setRouteProcessId(routeProcessId)
@@ -722,6 +760,7 @@ class MesProEdhrRehearsalReadinessServiceTest extends BaseDbUnitTest {
                 .setBatchRecordDefinitionId(batchRecordDefinitionId)
                 .setBatchRecordVersionId(batchRecordVersionId)
                 .setRuleType("FILL")
+                .setScopeKey(scopeKey)
                 .setCandidateSourceType("USER")
                 .setCandidateSourceIds(candidateSourceIds)
                 .setCompletionPolicy("ANY_ONE")

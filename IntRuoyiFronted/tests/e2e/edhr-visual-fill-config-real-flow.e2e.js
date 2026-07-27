@@ -8,6 +8,7 @@ const frontendRoot = path.resolve(__dirname, '..', '..')
 const projectRoot = path.resolve(frontendRoot, '..')
 const resultDir = path.join(frontendRoot, 'test-results', 'edhr-visual-fill-config-real-flow')
 const resultFile = path.join(resultDir, 'result.json')
+const cleanupResultFile = path.join(resultDir, 'cleanup-result.json')
 const defaultConfigFile = path.join(resultDir, 'local-input.json')
 
 const cliArgs = parseCliArgs(process.argv.slice(2))
@@ -33,6 +34,15 @@ const config = {
   routeProductName: String(
     localInput.data.fixture?.routeProductName || localInput.data.routeProductName || localInput.data.batchRecordName || ''
   ),
+  sourceRouteCode: String(
+    localInput.data.fixture?.sourceRouteCode || localInput.data.sourceRouteCode || ''
+  ).trim(),
+  preferredRouteCode: String(
+    localInput.data.fixture?.preferredRouteCode || localInput.data.preferredRouteCode || ''
+  ).trim(),
+  targetProcessName: String(
+    localInput.data.fixture?.targetProcessName || localInput.data.targetProcessName || ''
+  ).trim(),
   fixtureProjectCode: String(localInput.data.fixture?.projectCode || 'CODXVFC20260726'),
   fixtureErpUnitNumber: String(localInput.data.fixture?.erpUnitNumber || 'Pcs'),
   fixtureWordFile: path.resolve(
@@ -50,7 +60,9 @@ function parseCliArgs(argv) {
   const parsed = {}
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
-    if (arg === '--config') {
+    if (arg === '--cleanup-only') {
+      parsed.cleanupOnly = true
+    } else if (arg === '--config') {
       parsed.configPath = argv[index + 1]
       index += 1
       if (!parsed.configPath) {
@@ -123,9 +135,9 @@ function sanitizeEvidence(value, key = '') {
   )
 }
 
-function writeResult(result) {
+function writeResult(result, outputFile = resultFile) {
   fs.mkdirSync(resultDir, { recursive: true })
-  fs.writeFileSync(resultFile, `${JSON.stringify(sanitizeEvidence(result), null, 2)}\n`, 'utf8')
+  fs.writeFileSync(outputFile, `${JSON.stringify(sanitizeEvidence(result), null, 2)}\n`, 'utf8')
 }
 
 function block(message, details = {}) {
@@ -171,6 +183,15 @@ function collectMissingPreconditions() {
   if (!config.batchRecordName) missing.push('local config batchRecordName')
   if (!config.reportName) missing.push('local config targetReportName')
   if (!config.routeProductName) missing.push('local config fixture.routeProductName')
+  if (!config.sourceRouteCode) missing.push('local config fixture.sourceRouteCode')
+  if (!config.preferredRouteCode) missing.push('local config fixture.preferredRouteCode')
+  if (!config.targetProcessName) missing.push('local config fixture.targetProcessName')
+  if (config.preferredRouteCode && !config.preferredRouteCode.startsWith('CODX-VFC-')) {
+    missing.push('local config fixture.preferredRouteCode must start with CODX-VFC-')
+  }
+  if (config.sourceRouteCode && config.sourceRouteCode === config.preferredRouteCode) {
+    missing.push('local config sourceRouteCode and preferredRouteCode must be different')
+  }
   if (!config.allowWrite) missing.push('local config allowWrite=true')
   if (!config.configuredExistingWorkOrderCode && !config.batchRecordName.startsWith('CODX-VFC-')) {
     missing.push('task-owned CODX-VFC-* batch record fixture or local config fixture.existingWorkOrderCode')
@@ -787,7 +808,73 @@ async function createTaskOwnedErpProductionOrder(auth, evidence) {
   return { workOrderCode, batchCode, erpOrder }
 }
 
-async function ensureTaskOwnedWorkOrderForVisualFill(auth, evidence) {
+async function assertTargetReportRouteBinding(auth, routeOption, report, evidence) {
+  const params = new URLSearchParams({
+    routeId: String(routeOption.routeId),
+    useType: 'BATCH'
+  })
+  const processConfigs = await fetchCommonJson(`/mes/pro/route/flow-config?${params.toString()}`, auth)
+  const bindings = (Array.isArray(processConfigs) ? processConfigs : []).flatMap((processConfig) =>
+    (Array.isArray(processConfig?.batchRecordReports) ? processConfig.batchRecordReports : []).map((binding) => ({
+      routeProcessId: processConfig.routeProcessId,
+      processName: processConfig.processName,
+      batchRecordReportId: binding.batchRecordReportId,
+      batchRecordReportName: binding.batchRecordReportName,
+      batchRecordVersionId: binding.batchRecordVersionId,
+      reportSort: binding.reportSort
+    }))
+  )
+  const targetBinding = bindings.find(
+    (binding) => String(binding.batchRecordReportId || '') === String(report.reportId)
+  )
+  if (!targetBinding) {
+    throw block('task_owned_batch_route_missing_target_report_binding', {
+      routeId: Number(routeOption.routeId),
+      routeCode: routeOption.routeCode,
+      routeName: routeOption.routeName,
+      targetReportId: report.reportId,
+      targetReportName: report.reportName,
+      configuredBatchRecordReports: bindings
+    })
+  }
+  evidence.fixtureSetup.targetReportRouteBinding = {
+    action: 'validate_current_active_route_binding',
+    routeId: Number(routeOption.routeId),
+    routeCode: routeOption.routeCode,
+    routeName: routeOption.routeName,
+    ...targetBinding
+  }
+  return targetBinding
+}
+
+function assertTargetReportBatchTask(batchExecution, report) {
+  const tasks = Array.isArray(batchExecution?.tasks) ? batchExecution.tasks : []
+  const targetTask = tasks.find(
+    (task) => String(task.batchRecordReportId || '') === String(report.reportId)
+  )
+  if (!targetTask) {
+    throw block('task_owned_batch_execution_missing_target_report_task', {
+      batchExecutionId: batchExecution?.id,
+      batchExecutionCode: batchExecution?.batchExecutionCode,
+      routeId: batchExecution?.routeId,
+      routeVersionId: batchExecution?.routeVersionId,
+      targetReportId: report.reportId,
+      targetReportName: report.reportName,
+      tasks: tasks.map((task) => ({
+        id: task.id,
+        nodeType: task.nodeType,
+        routeProcessId: task.routeProcessId,
+        processName: task.processName,
+        batchRecordReportId: task.batchRecordReportId,
+        batchRecordReportName: task.batchRecordReportName,
+        formBindingKey: task.formBindingKey
+      }))
+    })
+  }
+  return targetTask
+}
+
+async function ensureTaskOwnedWorkOrderForVisualFill(auth, report, evidence) {
   let workOrder
   let created
   if (config.configuredExistingWorkOrderCode) {
@@ -837,19 +924,21 @@ async function ensureTaskOwnedWorkOrderForVisualFill(auth, evidence) {
   const enabledRouteOptions = (Array.isArray(routeOptions) ? routeOptions : []).filter(
     (option) => option?.routeId && option.batchRouteEnabled !== false
   )
-  const routeOption =
-    enabledRouteOptions.find((option) => String(option.routeName || '') === config.batchRecordName) ||
-    enabledRouteOptions.find((option) => String(option.routeName || '') === config.routeProductName) ||
-    enabledRouteOptions.find((option) => String(option.routeCode || '').trim())
+  const routeOption = enabledRouteOptions.find(
+    (option) => String(option.routeCode || '') === config.preferredRouteCode
+  )
   if (!routeOption) {
-    throw block('task_owned_work_order_has_no_enabled_batch_route', {
+    throw block('task_owned_work_order_missing_preferred_batch_route', {
       workOrderCode: created.workOrderCode,
       workOrderId: workOrder.id,
       productId: workOrder.productId,
       productCode: workOrder.productCode,
+      sourceRouteCode: config.sourceRouteCode,
+      preferredRouteCode: config.preferredRouteCode,
       routeOptions
     })
   }
+  await assertTargetReportRouteBinding(auth, routeOption, report, evidence)
   const batchCode = String(created.batchCode || workOrder.batchCode)
   const batchExecution = await fetchCommonJson('/mes/pro/edhr-batch-execution/open-or-create', auth, {
     method: 'POST',
@@ -861,6 +950,7 @@ async function ensureTaskOwnedWorkOrderForVisualFill(auth, evidence) {
       remark: `CODX visual fill E2E ${created.workOrderCode}`
     })
   })
+  const targetBatchTask = assertTargetReportBatchTask(batchExecution, report)
   return {
     workOrderId: Number(workOrder.id),
     workOrderCode: String(workOrder.code),
@@ -873,7 +963,9 @@ async function ensureTaskOwnedWorkOrderForVisualFill(auth, evidence) {
     batchExecutionId: batchExecution?.id,
     batchExecutionCode: batchExecution?.batchExecutionCode,
     taskTotal: batchExecution?.taskTotal,
-    status: batchExecution?.status
+    status: batchExecution?.status,
+    targetBatchTaskId: targetBatchTask.id,
+    targetBatchTaskProcessName: targetBatchTask.processName
   }
 }
 
@@ -902,12 +994,14 @@ function runOfficialLoginPreflight(username, password, targetPath, targetText) {
     {
       cwd: projectRoot,
       encoding: 'utf8',
-      timeout: 120000
+      timeout: 180000
     }
   )
   if (result.status !== 0) {
     throw block('official_login_preflight_failed', {
       status: result.status,
+      signal: result.signal,
+      error: result.error ? redactSecretText(result.error.message) : '',
       stdout: redactSecretText(result.stdout),
       stderr: redactSecretText(result.stderr)
     })
@@ -964,6 +1058,853 @@ async function login(page, username, password, targetPath) {
   return body.data || {}
 }
 
+async function readBrowserBusinessData(response, label) {
+  const body = await response.json().catch((error) => {
+    throw new Error(`${label} response is not JSON: ${error.message}`)
+  })
+  assert.equal(response.status(), 200, `${label} HTTP failed:${response.status()}`)
+  assert.ok([0, 200].includes(Number(body.code)), `${label} failed:${body.msg || body.code}`)
+  return body.data
+}
+
+async function waitForValue(label, probe, timeoutMs = 90000, pollMs = 1000) {
+  const deadline = Date.now() + timeoutMs
+  let lastError
+  while (Date.now() <= deadline) {
+    try {
+      const value = await probe()
+      if (value) return value
+    } catch (error) {
+      lastError = error
+    }
+    await sleep(pollMs)
+  }
+  throw new Error(
+    `timeout_waiting_for_${label}${lastError ? `:${lastError.message || String(lastError)}` : ''}`
+  )
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+async function findRouteByCode(auth, routeCode) {
+  const params = new URLSearchParams({
+    pageNo: '1',
+    pageSize: '20',
+    code: routeCode
+  })
+  const page = await fetchCommonJson(`/mes/pro/route/page?${params.toString()}`, auth)
+  const routes = Array.isArray(page?.list) ? page.list : []
+  return routes.find((route) => String(route.code || '') === routeCode)
+}
+
+async function waitForRouteByCode(auth, routeCode) {
+  return waitForValue(`route_${routeCode}`, () => findRouteByCode(auth, routeCode))
+}
+
+async function waitForRouteVersion(auth, routeId, versionId, acceptedStatuses) {
+  const expectedStatuses = new Set(acceptedStatuses)
+  return waitForValue(`route_version_${versionId}_${acceptedStatuses.join('_')}`, async () => {
+    const versions = await fetchCommonJson(
+      `/mes/pro/route-version/list-by-route?routeId=${encodeURIComponent(routeId)}`,
+      auth
+    )
+    return (Array.isArray(versions) ? versions : []).find(
+      (version) =>
+        Number(version.id) === Number(versionId) &&
+        expectedStatuses.has(String(version.lifecycleStatus || ''))
+    )
+  })
+}
+
+async function gotoRouteList(page, routeCode) {
+  const url = new URL('/mes/pro/route', config.baseUrl)
+  url.searchParams.set('code', routeCode)
+  await page.goto(url.toString(), { waitUntil: 'domcontentloaded', timeout: 90000 })
+  await page.getByText('工艺流程', { exact: false }).first().waitFor({
+    state: 'visible',
+    timeout: 90000
+  })
+  const row = page
+    .locator('.el-table__body-wrapper:visible tbody tr')
+    .filter({ hasText: routeCode })
+    .first()
+  await row.waitFor({ state: 'visible', timeout: 90000 })
+  return row
+}
+
+function visibleDialog(page, title) {
+  return page.locator('.el-dialog:visible').filter({ hasText: title }).last()
+}
+
+async function closeVisibleDialog(page, dialog) {
+  if (!(await dialog.isVisible().catch(() => false))) return
+  await dialog.locator('.el-dialog__headerbtn').first().click()
+  await dialog.waitFor({ state: 'hidden', timeout: 30000 })
+}
+
+async function copyTaskOwnedRouteThroughUi(page, auth, evidence) {
+  const sourceRoute = await findRouteByCode(auth, config.sourceRouteCode)
+  if (!sourceRoute?.id) {
+    throw block('source_route_not_found', { sourceRouteCode: config.sourceRouteCode })
+  }
+  const existingTaskRoute = await findRouteByCode(auth, config.preferredRouteCode)
+  if (existingTaskRoute) {
+    throw block('task_owned_route_already_exists_requires_cleanup', {
+      routeId: existingTaskRoute.id,
+      routeCode: existingTaskRoute.code,
+      status: existingTaskRoute.status
+    })
+  }
+
+  const sourceRow = await gotoRouteList(page, config.sourceRouteCode)
+  await sourceRow.getByRole('button', { name: '复制', exact: true }).first().click()
+  const dialog = visibleDialog(page, '复制工艺路线')
+  await dialog.waitFor({ state: 'visible', timeout: 30000 })
+  const targetName = `${config.routeProductName}-${config.preferredRouteCode}`
+  await dialog.locator('input[placeholder="请输入副本路线编码"]').fill(config.preferredRouteCode)
+  await dialog.locator('input[placeholder="请输入副本路线名称"]').fill(targetName)
+  const copyResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/admin-api/mes/pro/route/copy') &&
+      response.request().method() === 'POST',
+    { timeout: 90000 }
+  )
+  await dialog.getByRole('button', { name: '确认复制', exact: true }).click()
+  const copiedRouteId = Number(
+    await readBrowserBusinessData(await copyResponsePromise, 'copy task-owned route')
+  )
+  assert.ok(Number.isFinite(copiedRouteId) && copiedRouteId > 0, 'route copy must return id')
+  await dialog.waitFor({ state: 'hidden', timeout: 30000 })
+  const copiedRoute = await waitForRouteByCode(auth, config.preferredRouteCode)
+  assert.equal(Number(copiedRoute.id), copiedRouteId, 'copied route id must match page response')
+  assert.equal(Number(copiedRoute.status), 1, 'copied task-owned route must start disabled')
+  evidence.taskOwnedRoute = {
+    routeId: copiedRouteId,
+    routeCode: copiedRoute.code,
+    routeName: copiedRoute.name,
+    sourceRouteId: sourceRoute.id,
+    sourceRouteCode: sourceRoute.code,
+    initialStatus: copiedRoute.status
+  }
+  return copiedRoute
+}
+
+function routeVersionRow(workspace, versionNo) {
+  return workspace
+    .locator('.el-table__body-wrapper:visible tbody tr')
+    .filter({ hasText: versionNo })
+    .first()
+}
+
+async function openRouteVersionWorkspace(page, routeCode) {
+  const routeRow = await gotoRouteList(page, routeCode)
+  await routeRow.getByRole('button', { name: '版本', exact: true }).first().click()
+  const workspace = visibleDialog(page, '工艺路线版本')
+  await workspace.waitFor({ state: 'visible', timeout: 60000 })
+  await workspace.getByText('当前 ACTIVE：', { exact: false }).waitFor({
+    state: 'visible',
+    timeout: 60000
+  })
+  return workspace
+}
+
+async function createTaskOwnedRouteCandidateThroughUi(page, copiedRoute) {
+  const workspace = await openRouteVersionWorkspace(page, copiedRoute.code)
+  const createResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/admin-api/mes/pro/route-version/create-candidate') &&
+      response.request().method() === 'POST',
+    { timeout: 90000 }
+  )
+  await workspace.getByRole('button', { name: '创建候选版本', exact: true }).click()
+  const candidate = await readBrowserBusinessData(
+    await createResponsePromise,
+    'create task-owned route candidate'
+  )
+  assert.ok(candidate?.id && candidate?.versionNo, 'route candidate response must include id and versionNo')
+  assert.equal(candidate.lifecycleStatus, 'DRAFT', 'new route candidate must be DRAFT')
+  const row = routeVersionRow(workspace, candidate.versionNo)
+  await row.getByRole('button', { name: '编辑', exact: true }).first().click()
+  await page.waitForURL(
+    (url) =>
+      url.pathname.includes(`/mes/pro/route/edit/${copiedRoute.id}`) &&
+      url.searchParams.get('routeVersionId') === String(candidate.id),
+    { timeout: 90000 }
+  )
+  return candidate
+}
+
+async function findTargetRouteProcess(auth, copiedRoute, candidate) {
+  const params = new URLSearchParams({
+    routeId: String(copiedRoute.id),
+    useType: 'BATCH',
+    routeVersionId: String(candidate.id)
+  })
+  const configs = await fetchCommonJson(`/mes/pro/route/flow-config?${params.toString()}`, auth)
+  const matched = (Array.isArray(configs) ? configs : []).filter(
+    (item) => String(item.processName || '').trim() === config.targetProcessName
+  )
+  if (matched.length !== 1) {
+    throw block('target_route_process_not_unique', {
+      routeId: copiedRoute.id,
+      routeVersionId: candidate.id,
+      targetProcessName: config.targetProcessName,
+      matched: matched.map((item) => ({
+        routeProcessId: item.routeProcessId,
+        processName: item.processName,
+        processCode: item.processCode
+      }))
+    })
+  }
+  return matched[0]
+}
+
+async function ensureBatchRecordDetailFieldVisible(page, editor) {
+  let fieldButton = editor
+    .locator('[data-flow-action="select-process-detail-field"]')
+    .filter({ hasText: '批记录表单' })
+    .first()
+  if (await fieldButton.isVisible().catch(() => false)) return fieldButton
+
+  const fieldSelect = editor.locator('[data-flow-field="process-config-item-select"]').first()
+  await fieldSelect.click()
+  const option = page
+    .locator('.el-select-dropdown:visible .el-select-dropdown__item')
+    .filter({ hasText: '批记录表单' })
+    .first()
+  await option.waitFor({ state: 'visible', timeout: 30000 })
+  await option.click()
+  await editor.locator('[data-flow-action="add-process-config-item"]').click()
+  fieldButton = editor
+    .locator('[data-flow-action="select-process-detail-field"]')
+    .filter({ hasText: '批记录表单' })
+    .first()
+  await fieldButton.waitFor({ state: 'visible', timeout: 30000 })
+  return fieldButton
+}
+
+async function configureTargetBatchRecordReportThroughUi(page, auth, copiedRoute, candidate, report) {
+  const targetProcess = await findTargetRouteProcess(auth, copiedRoute, candidate)
+  const editorUrl = new URL(`/mes/pro/route/edit/${copiedRoute.id}`, config.baseUrl)
+  editorUrl.searchParams.set('tab', 'flow')
+  editorUrl.searchParams.set('routeProcessId', String(targetProcess.routeProcessId))
+  editorUrl.searchParams.set('routeVersionId', String(candidate.id))
+  editorUrl.searchParams.set('routeVersionNo', candidate.versionNo)
+  editorUrl.searchParams.set('routeVersionStatus', candidate.lifecycleStatus)
+  await page.goto(editorUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 90000 })
+  const editor = page.locator('.route-flow-graph-designer').first()
+  await editor.waitFor({ state: 'visible', timeout: 90000 })
+  const targetNode = editor
+    .locator(
+      `[data-flow-node="route-process"][data-route-process-id="${targetProcess.routeProcessId}"]`
+    )
+    .first()
+  await targetNode.waitFor({ state: 'visible', timeout: 90000 })
+  await targetNode.scrollIntoViewIfNeeded()
+  await targetNode.click()
+
+  const fieldButton = await ensureBatchRecordDetailFieldVisible(page, editor)
+  await fieldButton.click()
+  const reportSelect = editor
+    .locator('[data-route-process-setting-field="batch-record-report"]')
+    .first()
+  await reportSelect.waitFor({ state: 'visible', timeout: 30000 })
+  await reportSelect.click()
+  const reportInput = reportSelect.locator('input[role="combobox"]').first()
+  await reportInput.fill(report.reportName)
+  assert.ok(report.reportCode, 'target batch record report code is required for exact selection')
+  const reportOption = page
+    .locator('.el-select-dropdown:visible .el-select-dropdown__item')
+    .filter({ hasText: report.reportCode })
+    .first()
+  await reportOption.waitFor({ state: 'visible', timeout: 60000 })
+  await reportOption.click()
+  await reportSelect.getByText(report.reportCode, { exact: false }).first().waitFor({
+    state: 'visible',
+    timeout: 30000
+  })
+
+  const validateResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/admin-api/mes/pro/route-process-flow/validate') &&
+      response.request().method() === 'POST',
+    { timeout: 90000 }
+  )
+  const graphSaveResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/admin-api/mes/pro/route-process-flow/save') &&
+      response.request().method() === 'POST',
+    { timeout: 90000 }
+  )
+  const batchSaveResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/admin-api/mes/pro/route/flow-config/batch-record/save') &&
+      response.request().method() === 'POST',
+    { timeout: 90000 }
+  )
+  await editor.locator('[data-flow-action="save-route-flow"]').click()
+  const validateResult = await readBrowserBusinessData(
+    await validateResponsePromise,
+    'validate task-owned route flow'
+  )
+  assert.equal(validateResult?.valid, true, 'task-owned route flow validation must pass')
+  const graphSaveResult = await readBrowserBusinessData(
+    await graphSaveResponsePromise,
+    'save task-owned route flow'
+  )
+  assert.equal(graphSaveResult?.valid, true, 'task-owned route graph save must pass')
+  await readBrowserBusinessData(await batchSaveResponsePromise, 'save target batch record binding')
+
+  const savedParams = new URLSearchParams({
+    routeId: String(copiedRoute.id),
+    useType: 'BATCH',
+    routeVersionId: String(candidate.id)
+  })
+  const savedConfigs = await fetchCommonJson(
+    `/mes/pro/route/flow-config?${savedParams.toString()}`,
+    auth
+  )
+  const savedProcess = (Array.isArray(savedConfigs) ? savedConfigs : []).find(
+    (item) => Number(item.routeProcessId) === Number(targetProcess.routeProcessId)
+  )
+  const savedBinding = (savedProcess?.batchRecordReports || []).find(
+    (item) => String(item.batchRecordReportId || '') === String(report.reportId)
+  )
+  assert.ok(savedBinding, 'target batch record report must be saved on the exact route process')
+  return {
+    routeProcessId: Number(targetProcess.routeProcessId),
+    processName: targetProcess.processName,
+    batchRecordReportId: savedBinding.batchRecordReportId,
+    batchRecordReportName: savedBinding.batchRecordReportName
+  }
+}
+
+async function switchBrowserUser(page, account, targetPath) {
+  await page.evaluate(() => {
+    window.localStorage.clear()
+    window.sessionStorage.clear()
+  })
+  await page.context().clearCookies()
+  return login(page, account.username, account.password, targetPath)
+}
+
+function authorizedAccounts() {
+  return [
+    { label: 'admin', username: config.adminUsername, password: config.adminPassword },
+    { label: 'employeeA', username: config.employeeAUsername, password: config.employeeAPassword },
+    { label: 'employeeB', username: config.employeeBUsername, password: config.employeeBPassword }
+  ]
+}
+
+async function completeApprovalThroughUi(page, processInstanceId, approvalLabel) {
+  const attempts = []
+  for (const account of authorizedAccounts()) {
+    try {
+      await switchBrowserUser(page, account, '/approval-center/todo?moduleCode=BPM')
+      const tasksResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes('/admin-api/approval-center/tasks/page') &&
+          response.url().includes('moduleCode=BPM') &&
+          response.request().method() === 'GET',
+        { timeout: 60000 }
+      )
+      await page.goto(`${config.baseUrl}/approval-center/todo?moduleCode=BPM`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 90000
+      })
+      await page.getByRole('heading', { name: '审批中心' }).waitFor({
+        state: 'visible',
+        timeout: 60000
+      })
+      const pageData = await readBrowserBusinessData(
+        await tasksResponsePromise,
+        `${approvalLabel} approval tasks`
+      )
+      const tasks = Array.isArray(pageData?.list) ? pageData.list : []
+      const rowIndex = tasks.findIndex(
+        (task) =>
+          String(task.processInstanceId || '') === String(processInstanceId) ||
+          String(task.businessKey || '') === String(processInstanceId)
+      )
+      attempts.push({ username: account.username, taskFound: rowIndex >= 0 })
+      if (rowIndex < 0) continue
+
+      const row = page.locator('.el-table__body-wrapper:visible tbody tr').nth(rowIndex)
+      await row.waitFor({ state: 'visible', timeout: 30000 })
+      await row.getByRole('button', { name: '审核', exact: true }).first().click()
+      const dialog = visibleDialog(page, '审核确认')
+      await dialog.waitFor({ state: 'visible', timeout: 30000 })
+      const approveOption = dialog.getByText('审核通过', { exact: true }).first()
+      if (await approveOption.isVisible().catch(() => false)) {
+        await approveOption.click()
+      }
+      await dialog.locator('input[type="password"]').first().fill(account.password)
+      const reviewResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes('/admin-api/approval-center/tasks/review') &&
+          response.request().method() === 'POST',
+        { timeout: 90000 }
+      )
+      await dialog.getByRole('button', { name: '确认审核', exact: true }).click()
+      await readBrowserBusinessData(await reviewResponsePromise, `${approvalLabel} approval review`)
+      await dialog.waitFor({ state: 'hidden', timeout: 30000 })
+      return { username: account.username, processInstanceId: String(processInstanceId) }
+    } catch (error) {
+      attempts.push({
+        username: account.username,
+        error: redactSecretText(error.message || String(error))
+      })
+    }
+  }
+  throw block(`${approvalLabel}_authorized_approver_not_found`, {
+    processInstanceId: String(processInstanceId),
+    attempts
+  })
+}
+
+async function completeRouteApprovalThroughUi(page, submittedVersion) {
+  const processInstanceId = submittedVersion?.approvalProcessInstanceId
+  if (!processInstanceId) {
+    throw block('route_version_pending_approval_missing_process_instance', {
+      routeVersionId: submittedVersion?.id,
+      lifecycleStatus: submittedVersion?.lifecycleStatus
+    })
+  }
+  return completeApprovalThroughUi(page, processInstanceId, 'route_version')
+}
+
+async function publishTaskOwnedRouteCandidateThroughUi(page, auth, copiedRoute, candidate) {
+  await switchBrowserUser(
+    page,
+    { username: config.adminUsername, password: config.adminPassword },
+    '/mes/pro/route'
+  )
+  const workspace = await openRouteVersionWorkspace(page, copiedRoute.code)
+  const row = routeVersionRow(workspace, candidate.versionNo)
+  const submitResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/admin-api/mes/pro/route-version/submit-publish') &&
+      response.request().method() === 'POST',
+    { timeout: 90000 }
+  )
+  await row.getByRole('button', { name: '提交发布', exact: true }).first().click()
+  let submittedVersion = await readBrowserBusinessData(
+    await submitResponsePromise,
+    'submit task-owned route candidate'
+  )
+  if (submittedVersion?.lifecycleStatus === 'PENDING_APPROVAL') {
+    await closeVisibleDialog(page, workspace)
+    const approval = await completeRouteApprovalThroughUi(page, submittedVersion)
+    submittedVersion = await waitForRouteVersion(auth, copiedRoute.id, candidate.id, ['ACTIVE'])
+    return { submittedVersion, approval }
+  }
+  assert.equal(
+    submittedVersion?.lifecycleStatus,
+    'ACTIVE',
+    `route candidate must become ACTIVE or PENDING_APPROVAL, got ${submittedVersion?.lifecycleStatus}`
+  )
+  return { submittedVersion, approval: null }
+}
+
+async function enableTaskOwnedRouteThroughUi(page, auth, copiedRoute) {
+  await switchBrowserUser(
+    page,
+    { username: config.adminUsername, password: config.adminPassword },
+    '/mes/pro/route'
+  )
+  const currentRoute = await findRouteByCode(auth, copiedRoute.code)
+  assert.equal(Number(currentRoute?.status), 1, 'task-owned route must be disabled before enable')
+  const routeRow = await gotoRouteList(page, copiedRoute.code)
+  const statusSwitch = routeRow.locator('.el-switch').first()
+  await statusSwitch.waitFor({ state: 'visible', timeout: 30000 })
+  const statusResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/admin-api/mes/pro/route/update-status') &&
+      response.request().method() === 'PUT',
+    { timeout: 90000 }
+  )
+  await statusSwitch.click()
+  const confirm = page.locator('.el-message-box:visible').last()
+  await confirm.waitFor({ state: 'visible', timeout: 30000 })
+  await confirm.getByRole('button', { name: '确定', exact: true }).click()
+  await readBrowserBusinessData(await statusResponsePromise, 'enable task-owned route')
+  const enabledRoute = await waitForValue(`enabled_route_${copiedRoute.code}`, async () => {
+    const route = await findRouteByCode(auth, copiedRoute.code)
+    return Number(route?.status) === 0 ? route : undefined
+  })
+  return {
+    routeId: enabledRoute.id,
+    routeCode: enabledRoute.code,
+    status: enabledRoute.status
+  }
+}
+
+async function prepareTaskOwnedRouteThroughUi(page, auth, report, evidence) {
+  const copiedRoute = await copyTaskOwnedRouteThroughUi(page, auth, evidence)
+  const candidate = await createTaskOwnedRouteCandidateThroughUi(page, copiedRoute)
+  evidence.taskOwnedRoute.candidateRouteVersionId = candidate.id
+  evidence.taskOwnedRoute.candidateRouteVersionNo = candidate.versionNo
+  evidence.taskOwnedRoute.targetBinding = await configureTargetBatchRecordReportThroughUi(
+    page,
+    auth,
+    copiedRoute,
+    candidate,
+    report
+  )
+  evidence.taskOwnedRoute.publish = await publishTaskOwnedRouteCandidateThroughUi(
+    page,
+    auth,
+    copiedRoute,
+    candidate
+  )
+  evidence.taskOwnedRoute.enable = await enableTaskOwnedRouteThroughUi(page, auth, copiedRoute)
+  return evidence.taskOwnedRoute
+}
+
+async function fillOptionalApprovalAssignees(page, dialog, auth) {
+  const users = await fetchCommonJson('/system/user/simple-list', auth)
+  const adminUser = (Array.isArray(users) ? users : []).find(
+    (user) => String(user.username || '') === config.adminUsername
+  )
+  const optionTexts = [adminUser?.nickname, adminUser?.username, config.adminUsername]
+    .filter(Boolean)
+    .map((value) => String(value))
+  const approvalItems = dialog.locator('.el-form-item').filter({ hasText: /审批人/ })
+  const count = await approvalItems.count()
+  for (let index = 0; index < count; index += 1) {
+    const item = approvalItems.nth(index)
+    if (!(await item.isVisible().catch(() => false))) continue
+    await item.locator('.el-select, .el-input').first().click()
+    const optionPattern = new RegExp(optionTexts.map(escapeRegExp).join('|'))
+    const option = page
+      .locator('.el-select-dropdown:visible .el-select-dropdown__item')
+      .filter({ hasText: optionPattern })
+      .first()
+    await option.waitFor({ state: 'visible', timeout: 30000 })
+    await option.click()
+  }
+}
+
+async function cleanupTaskOwnedBatchThroughUi(page, auth, batchExecution) {
+  if (!batchExecution?.batchExecutionId) {
+    return { status: 'not-created' }
+  }
+  await switchBrowserUser(
+    page,
+    { username: config.adminUsername, password: config.adminPassword },
+    '/mes/pro/feedback/edhr-batch-execution'
+  )
+  const listUrl = new URL('/mes/pro/feedback/edhr-batch-execution', config.baseUrl)
+  listUrl.searchParams.set('batchExecutionCode', batchExecution.batchExecutionCode)
+  const listResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/admin-api/mes/pro/edhr-batch-execution/page') &&
+      response.request().method() === 'GET',
+    { timeout: 90000 }
+  )
+  await page.goto(listUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 90000 })
+  const pageData = await readBrowserBusinessData(
+    await listResponsePromise,
+    'load task-owned batch for cleanup'
+  )
+  const targetRows = (Array.isArray(pageData?.list) ? pageData.list : []).filter(
+    (row) => Number(row.id) === Number(batchExecution.batchExecutionId)
+  )
+  if (targetRows.length !== 1) {
+    const currentBatch = await fetchCommonJson(
+      `/mes/pro/edhr-batch-execution/get?id=${encodeURIComponent(
+        batchExecution.batchExecutionId
+      )}`,
+      auth
+    )
+    if (Number(currentBatch?.status) === 60) {
+      return {
+        status: 'already-voided',
+        batchExecutionId: currentBatch.id,
+        batchExecutionCode: currentBatch.batchExecutionCode
+      }
+    }
+    throw block('cleanup_task_owned_batch_not_visible_on_batch_page', {
+      expectedBatchExecutionId: batchExecution.batchExecutionId,
+      expectedBatchExecutionCode: batchExecution.batchExecutionCode,
+      pageTotal: pageData?.total,
+      visibleRows: (Array.isArray(pageData?.list) ? pageData.list : []).map((item) => ({
+        id: item.id,
+        batchExecutionCode: item.batchExecutionCode,
+        status: item.status
+      }))
+    })
+  }
+  const targetBatch = targetRows[0]
+  const row = page
+    .locator('.el-table__body-wrapper:visible tbody tr')
+    .filter({ hasText: batchExecution.batchExecutionCode })
+    .first()
+  await row.waitFor({ state: 'visible', timeout: 60000 })
+  await row.getByRole('button', { name: '作废', exact: true }).first().click()
+
+  const dialog = visibleDialog(page, '作废批次执行')
+  await dialog.waitFor({ state: 'visible', timeout: 60000 })
+  await dialog.getByText(batchExecution.batchExecutionCode, { exact: false }).waitFor({
+    state: 'visible',
+    timeout: 30000
+  })
+  const reasonItem = dialog.locator('.el-form-item').filter({ hasText: '原因分类' }).first()
+  await reasonItem.locator('.el-select, .el-input').first().click()
+  const reasonOption = page
+    .locator('.el-select-dropdown:visible .el-select-dropdown__item')
+    .filter({ hasText: '其他' })
+    .first()
+  await reasonOption.waitFor({ state: 'visible', timeout: 30000 })
+  await reasonOption.click()
+  await dialog
+    .locator('.el-form-item')
+    .filter({ hasText: '原因说明' })
+    .locator('textarea')
+    .first()
+    .fill(`CODX-VFC E2E cleanup ${config.preferredRouteCode}`)
+  await dialog.locator('input[type="password"]').first().fill(config.adminPassword)
+  const comment = dialog.locator('.el-form-item').filter({ hasText: '备注' }).locator('textarea').first()
+  if (await comment.isVisible().catch(() => false)) {
+    await comment.fill('任务自有批次验证完成后清理')
+  }
+  await fillOptionalApprovalAssignees(page, dialog, auth)
+
+  const voidResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes(
+        '/admin-api/mes/pro/edhr-change/void-batch-execution/request'
+      ) && response.request().method() === 'POST',
+    { timeout: 120000 }
+  )
+  await dialog.getByRole('button', { name: '提交作废流程', exact: true }).click()
+  const change = await readBrowserBusinessData(
+    await voidResponsePromise,
+    'submit task-owned batch void'
+  )
+  await dialog.waitFor({ state: 'hidden', timeout: 60000 })
+  let approval = null
+  if (change?.bpmProcessInstanceId && change?.changeStatus !== 'EFFECTIVE') {
+    approval = await completeApprovalThroughUi(
+      page,
+      change.bpmProcessInstanceId,
+      'task_owned_batch_void'
+    )
+  }
+  const voided = await waitForValue(
+    `voided_batch_${batchExecution.batchExecutionId}`,
+    async () => {
+      const current = await fetchCommonJson(
+        `/mes/pro/edhr-batch-execution/get?id=${encodeURIComponent(
+          batchExecution.batchExecutionId
+        )}`,
+        auth
+      )
+      return Number(current?.status) === 60 ? current : undefined
+    },
+    120000
+  )
+  return {
+    status: 'voided',
+    batchExecutionId: voided.id,
+    batchExecutionCode: voided.batchExecutionCode,
+    approval
+  }
+}
+
+async function cleanupTaskOwnedRouteThroughUi(page, auth) {
+  let route = await findRouteByCode(auth, config.preferredRouteCode)
+  if (!route) {
+    return { status: 'not-created', routeCode: config.preferredRouteCode }
+  }
+  await switchBrowserUser(
+    page,
+    { username: config.adminUsername, password: config.adminPassword },
+    '/mes/pro/route'
+  )
+  if (Number(route.status) === 0) {
+    const row = await gotoRouteList(page, route.code)
+    const statusSwitch = row.locator('.el-switch').first()
+    const disableResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes('/admin-api/mes/pro/route/update-status') &&
+        response.request().method() === 'PUT',
+      { timeout: 90000 }
+    )
+    await statusSwitch.click()
+    const confirm = page.locator('.el-message-box:visible').last()
+    await confirm.waitFor({ state: 'visible', timeout: 30000 })
+    await confirm.getByRole('button', { name: '确定', exact: true }).click()
+    await readBrowserBusinessData(await disableResponsePromise, 'disable task-owned route')
+    route = await waitForValue(`disabled_route_${route.code}`, async () => {
+      const current = await findRouteByCode(auth, route.code)
+      return Number(current?.status) === 1 ? current : undefined
+    })
+  }
+
+  const row = await gotoRouteList(page, route.code)
+  const deleteResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/admin-api/mes/pro/route/delete') &&
+      response.request().method() === 'DELETE',
+    { timeout: 90000 }
+  )
+  await row.getByRole('button', { name: '删除', exact: true }).first().click()
+  const confirm = page.locator('.el-message-box:visible').last()
+  await confirm.waitFor({ state: 'visible', timeout: 30000 })
+  await confirm.getByRole('button', { name: '确定', exact: true }).click()
+  await readBrowserBusinessData(await deleteResponsePromise, 'delete task-owned route')
+  await waitForValue(`deleted_route_${route.code}`, async () => {
+    const current = await findRouteByCode(auth, route.code)
+    return current ? undefined : true
+  })
+  return { status: 'deleted', routeId: route.id, routeCode: route.code }
+}
+
+async function cleanupTaskRuntimeFixtures(auth, evidence) {
+  const browser = await chromium.launch({
+    headless: !config.headed,
+    executablePath: config.chromeExecutable || undefined
+  })
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 960 },
+    locale: 'zh-CN'
+  })
+  const page = await context.newPage()
+  try {
+    await login(
+      page,
+      config.adminUsername,
+      config.adminPassword,
+      '/mes/pro/feedback/edhr-batch-execution'
+    )
+    const batch = await cleanupTaskOwnedBatchThroughUi(
+      page,
+      auth,
+      evidence.taskOwnedBatchExecution
+    )
+    const route = await cleanupTaskOwnedRouteThroughUi(page, auth)
+    return { batch, route }
+  } finally {
+    await context.close()
+    await browser.close()
+  }
+}
+
+async function runCleanupOnly() {
+  const evidence = {
+    status: 'RUNNING',
+    mode: 'cleanup-only',
+    configPath: config.configPath,
+    baseUrl: config.baseUrl,
+    backendUrl: config.backendUrl,
+    tenant: config.tenant || '<missing>',
+    account: config.adminUsername || '<missing>',
+    preferredRouteCode: config.preferredRouteCode || '<missing>',
+    sourceResultFile: resultFile,
+    resultFile: cleanupResultFile
+  }
+  let browser
+  let context
+  try {
+    assertPairedWorktreeUrls()
+    await assertRuntimeReady()
+    const missing = []
+    if (config.configLoadError) missing.push(config.configLoadError)
+    if (!config.tenant) missing.push('local config tenant')
+    if (!config.adminUsername) missing.push('local config accounts.admin.username')
+    if (!config.adminPassword) missing.push('local config accounts.admin.password')
+    if (!config.preferredRouteCode) missing.push('local config fixture.preferredRouteCode')
+    if (!config.allowWrite) missing.push('local config allowWrite=true')
+    if (!fs.existsSync(resultFile)) missing.push(`previous result file:${resultFile}`)
+    if (missing.length) {
+      throw block('edhr_visual_fill_cleanup_precondition_missing', { missing })
+    }
+
+    const previousEvidence = JSON.parse(fs.readFileSync(resultFile, 'utf8'))
+    if (!previousEvidence?.taskOwnedBatchExecution?.batchExecutionId) {
+      throw block('cleanup_previous_result_missing_task_owned_batch', {
+        sourceResultFile: resultFile
+      })
+    }
+    evidence.taskOwnedBatchExecution = previousEvidence.taskOwnedBatchExecution
+
+    browser = await chromium.launch({
+      headless: !config.headed,
+      executablePath: config.chromeExecutable || undefined
+    })
+    context = await browser.newContext({
+      viewport: { width: 1440, height: 960 },
+      locale: 'zh-CN'
+    })
+    const page = await context.newPage()
+    const loginData = await login(
+      page,
+      config.adminUsername,
+      config.adminPassword,
+      '/mes/pro/feedback/edhr-batch-execution'
+    )
+    const accessToken = loginData.accessToken || loginData.access_token
+    if (!accessToken) {
+      throw block('admin_login_response_missing_access_token')
+    }
+    const auth = { accessToken, tenantId: await resolveTenantId() }
+    evidence.cleanup = {
+      batch: await cleanupTaskOwnedBatchThroughUi(
+        page,
+        auth,
+        evidence.taskOwnedBatchExecution
+      ),
+      route: await cleanupTaskOwnedRouteThroughUi(page, auth)
+    }
+    evidence.status = 'PASS'
+    writeResult(evidence, cleanupResultFile)
+    console.log(JSON.stringify(sanitizeEvidence(evidence), null, 2))
+  } catch (error) {
+    evidence.status = error.blocked ? 'BLOCKED' : 'FAIL'
+    evidence.error = {
+      message: redactSecretText(error.message),
+      details: sanitizeEvidence(error.details),
+      stack: redactSecretText(error.stack)
+    }
+    writeResult(evidence, cleanupResultFile)
+    console.error(JSON.stringify(sanitizeEvidence(evidence), null, 2))
+    process.exitCode = 1
+  } finally {
+    await context?.close().catch(() => undefined)
+    await browser?.close().catch(() => undefined)
+  }
+}
+
+async function captureVisibleOverlayDiagnostics(page) {
+  const visibleOverlays = page.locator('.el-overlay:visible')
+  const count = await visibleOverlays.count()
+  const overlays = []
+  for (let index = 0; index < count; index += 1) {
+    const overlay = visibleOverlays.nth(index)
+    const title = await overlay
+      .locator('.el-dialog__title, .el-message-box__title, .el-drawer__title')
+      .first()
+      .innerText()
+      .catch(() => '')
+    const text = await overlay.innerText().catch(() => '')
+    overlays.push({
+      index,
+      className: (await overlay.getAttribute('class')) || '',
+      title: title.trim().slice(0, 200),
+      text: text.trim().replace(/\s+/g, ' ').slice(0, 200),
+      hasVisualFillEditor: (await overlay.locator('.batch-record-cell-rules-editor').count()) > 0
+    })
+  }
+  return {
+    url: page.url(),
+    count,
+    overlays
+  }
+}
+
 async function openVisualFillConfigDialog(page, report) {
   const targetReportId = String(report?.reportId || '').trim()
   const targetReportName = String(report?.reportName || config.reportName || '').trim()
@@ -1006,11 +1947,19 @@ async function openVisualFillConfigDialog(page, report) {
     )
   }
   const targetRow = visibleBodyRows.first()
-  await targetRow.click()
+  await targetRow.locator('td.el-table__cell').filter({ hasText: targetReportName }).first().click()
   const actionBar = page.locator('.batch-record-form-preview__actions').first()
   await actionBar.waitFor({ state: 'visible', timeout: 30000 })
-  await actionBar.getByRole('button', { name: '填写配置' }).click()
-  const dialog = page.locator('.el-overlay:visible .batch-record-cell-rules-editor').last()
+  const overlayDiagnosticsBeforeClick = await captureVisibleOverlayDiagnostics(page)
+  if (overlayDiagnosticsBeforeClick.count > 0) {
+    throw block('unexpected_overlay_before_visual_fill_config_click', overlayDiagnosticsBeforeClick)
+  }
+  await actionBar.getByRole('button', { name: '填写配置' }).click({ noWaitAfter: true })
+  const visibleVisualFillDialogs = page.locator('.el-overlay:visible .batch-record-cell-rules-editor')
+  await visibleVisualFillDialogs.first().waitFor({ state: 'visible', timeout: 90000 })
+  await page.waitForTimeout(500)
+  assert.equal(await visibleVisualFillDialogs.count(), 1, 'visual fill config must open exactly one visible editor')
+  const dialog = visibleVisualFillDialogs.last()
   await dialog.waitFor({ state: 'visible', timeout: 90000 })
   await dialog.locator('.el-loading-mask').waitFor({ state: 'hidden', timeout: 90000 })
   const firstRuleCell = dialog
@@ -1018,13 +1967,28 @@ async function openVisualFillConfigDialog(page, report) {
     .first()
   await firstRuleCell.waitFor({ state: 'visible', timeout: 90000 })
   await firstRuleCell.scrollIntoViewIfNeeded()
-  await firstRuleCell.click()
+  const firstRuleCellSelected = await firstRuleCell.getAttribute('aria-pressed')
+  if (firstRuleCellSelected !== 'true') {
+    await firstRuleCell.click()
+  }
   await dialog.getByText('辅助行配置', { exact: false }).waitFor({ state: 'visible', timeout: 30000 })
   await dialog.getByText('辅助行填写人', { exact: false }).first().waitFor({ state: 'visible', timeout: 30000 })
   await dialog.getByText('字段类型', { exact: false }).first().waitFor({ state: 'visible', timeout: 30000 })
 }
 
 async function saveVisualFillConfigDialog(page) {
+  const overlayDiagnosticsBeforeSave = await captureVisibleOverlayDiagnostics(page)
+  const visualFillOverlayCount = overlayDiagnosticsBeforeSave.overlays.filter(
+    (overlay) => overlay.hasVisualFillEditor
+  ).length
+  if (overlayDiagnosticsBeforeSave.count !== 1 || visualFillOverlayCount !== 1) {
+    throw block('unexpected_overlay_before_visual_fill_config_save', overlayDiagnosticsBeforeSave)
+  }
+  const visualFillOverlay = page
+    .locator('.el-overlay:visible')
+    .filter({ has: page.locator('.batch-record-cell-rules-editor') })
+    .last()
+  const saveButton = visualFillOverlay.getByRole('button', { name: '保存填写配置' })
   const cellRulesResponsePromise = page.waitForResponse(
     (response) =>
       response.url().includes('/admin-api/mes/pro/batch-record-report/cell-rules') &&
@@ -1037,10 +2001,10 @@ async function saveVisualFillConfigDialog(page) {
       response.request().method() === 'POST',
     { timeout: 90000 }
   )
-  await page.getByRole('button', { name: '保存填写配置' }).last().click()
   const [cellRulesResponse, assignmentResponse] = await Promise.all([
     cellRulesResponsePromise,
-    assignmentResponsePromise
+    assignmentResponsePromise,
+    saveButton.click()
   ])
   assert.equal(cellRulesResponse.status(), 200, `cell-rules save HTTP failed:${cellRulesResponse.status()}`)
   assert.equal(assignmentResponse.status(), 200, `save-by-report HTTP failed:${assignmentResponse.status()}`)
@@ -1135,16 +2099,25 @@ async function run() {
     },
     batchRecordName: config.batchRecordName || '<missing>',
     routeProductName: config.routeProductName || '<missing>',
+    sourceRouteCode: config.sourceRouteCode || '<missing>',
+    preferredRouteCode: config.preferredRouteCode || '<missing>',
+    targetProcessName: config.targetProcessName || '<missing>',
     targetReportName: config.reportName || '<missing>',
     resultFile
   }
   let adminAuth
   let visualFillConfigBackup
   let restoreAttempted = false
+  let cleanupAttempted = false
   const restoreIfNeeded = async () => {
     if (!adminAuth || !visualFillConfigBackup || restoreAttempted) return
     restoreAttempted = true
     await restoreVisualFillConfigFixture(adminAuth, visualFillConfigBackup, evidence)
+  }
+  const cleanupIfNeeded = async () => {
+    if (!adminAuth || cleanupAttempted) return
+    cleanupAttempted = true
+    evidence.cleanup = await cleanupTaskRuntimeFixtures(adminAuth, evidence)
   }
   try {
     assertPairedWorktreeUrls()
@@ -1183,8 +2156,10 @@ async function run() {
         reportName: fixtureReport.reportName,
         batchRecordName: fixtureReport.batchRecordName || config.batchRecordName
       }
+      await prepareTaskOwnedRouteThroughUi(page, adminAuth, fixtureReport, evidence)
       evidence.taskOwnedBatchExecution = await ensureTaskOwnedWorkOrderForVisualFill(
         adminAuth,
+        fixtureReport,
         evidence
       )
     } finally {
@@ -1204,11 +2179,21 @@ async function run() {
       'employeeB',
       evidence.taskOwnedBatchExecution
     )
+    await cleanupIfNeeded()
     await restoreIfNeeded()
     evidence.status = 'PASS'
     writeResult(evidence)
     console.log(JSON.stringify(evidence, null, 2))
   } catch (error) {
+    try {
+      await cleanupIfNeeded()
+    } catch (cleanupError) {
+      evidence.cleanupError = {
+        message: redactSecretText(cleanupError.message),
+        details: sanitizeEvidence(cleanupError.details),
+        stack: redactSecretText(cleanupError.stack)
+      }
+    }
     try {
       await restoreIfNeeded()
     } catch (restoreError) {
@@ -1230,4 +2215,8 @@ async function run() {
   }
 }
 
-run()
+if (cliArgs.cleanupOnly) {
+  runCleanupOnly()
+} else {
+  run()
+}
