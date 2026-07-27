@@ -112,6 +112,7 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
     private static final String FILL_CARRIER_RECORDBOOK = "RECORDBOOK";
     private static final String FILL_MODE_RECORDBOOK_UNRESTRICTED = "RECORDBOOK_UNRESTRICTED";
     private static final String INSTANCE_SCOPE_BATCH_SHARED = "BATCH_SHARED";
+    private static final String ENTITLEMENT_SOURCE_TYPE_FILLER = "EDHR_PROCESS_FORM_FILLER";
     private static final DateTimeFormatter DEFAULT_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DEFAULT_DATETIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -1206,12 +1207,14 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         }
         for (MesProBatchRecordExecutionFieldAuditChange change : command.getChanges()) {
             requireCellInFillScope(batchTask.getFillableScopeJson(), sourceTableIndex, change.getRowIndex());
+            requireCellInResponsibilityScope(workTask, sourceTableIndex, change.getRowIndex(), change.getColumnIndex());
         }
         for (MesProBatchRecordExecutionFieldAuditAttachmentChange change : command.getAttachmentChanges()) {
             if (!Objects.equals(command.getWorkTaskId(), change.getWorkTaskId())) {
                 throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "附件写入任务与当前任务不一致");
             }
             requireCellInFillScope(batchTask.getFillableScopeJson(), sourceTableIndex, change.getRowIndex());
+            requireCellInResponsibilityScope(workTask, sourceTableIndex, change.getRowIndex(), change.getColumnIndex());
         }
     }
 
@@ -1252,6 +1255,57 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
             return false;
         } catch (JsonProcessingException e) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "共享表单填写范围无效");
+        }
+    }
+
+    private void requireCellInResponsibilityScope(MesProEdhrWorkTaskDO workTask,
+                                                  Integer sourceTableIndex,
+                                                  Integer rowIndex,
+                                                  Integer columnIndex) {
+        if (workTask == null || !ENTITLEMENT_SOURCE_TYPE_FILLER.equals(workTask.getResponsibilitySourceType())) {
+            return;
+        }
+        if (sourceTableIndex == null || rowIndex == null || columnIndex == null
+                || StrUtil.isBlank(workTask.getResponsibilityScopeJson())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "工作任务责任范围缺失");
+        }
+        if (!cellInResponsibilityScope(workTask.getResponsibilityScopeJson(), sourceTableIndex, rowIndex, columnIndex)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "单元格不在当前用户责任范围内");
+        }
+    }
+
+    private boolean cellInResponsibilityScope(String responsibilityScopeJson,
+                                              Integer sourceTableIndex,
+                                              Integer rowIndex,
+                                              Integer columnIndex) {
+        try {
+            JsonNode root = JsonUtils.getObjectMapper().readTree(responsibilityScopeJson);
+            JsonNode scopes = root.path("scopes");
+            if (!scopes.isArray() || scopes.isEmpty()) {
+                throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "工作任务责任范围无效");
+            }
+            for (JsonNode scope : scopes) {
+                JsonNode cells = scope.path("fillableScope").path("cells");
+                if (!cells.isArray() || cells.isEmpty()) {
+                    throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "工作任务责任范围无效");
+                }
+                for (JsonNode cell : cells) {
+                    Integer cellSourceTableIndex = integer(cell, "sourceTableIndex");
+                    Integer cellRowIndex = integer(cell, "rowIndex");
+                    Integer cellColumnIndex = integer(cell, "columnIndex");
+                    if (cellSourceTableIndex == null || cellRowIndex == null || cellColumnIndex == null) {
+                        throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "工作任务责任范围无效");
+                    }
+                    if (Objects.equals(sourceTableIndex, cellSourceTableIndex)
+                            && Objects.equals(rowIndex, cellRowIndex)
+                            && Objects.equals(columnIndex, cellColumnIndex)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        } catch (JsonProcessingException e) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID, "工作任务责任范围无效");
         }
     }
 

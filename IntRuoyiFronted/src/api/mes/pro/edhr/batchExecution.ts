@@ -199,7 +199,7 @@ export interface EdhrBatchExecutionTaskOpenRespVO {
   fillableScopeJson?: string
   executionMode?: 'SEQUENTIAL' | 'PARALLEL'
   status?: number
-  executionPageQuery?: Record<string, string | number | null | undefined>
+  executionPageQuery?: Record<string, unknown>
 }
 
 export interface EdhrBatchExecutionTaskFillableUserRespVO {

@@ -39,6 +39,9 @@ import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,6 +62,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWork
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ADVANCE_PREREQUISITE_MISSING;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_CANDIDATE_POOL_EMPTY;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_CANDIDATE_SOURCE_INVALID;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_REVIEW_CONTEXT_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_STATUS_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -270,6 +274,57 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertTrue(notifyCaptor.getAllValues().stream()
                 .allMatch(notify -> Objects.equals("MES_EDHR_FILL_TASK_ASSIGNED", notify.getTemplateCode())
                         && Objects.equals(fillTask.getId(), notify.getTemplateParams().get("workTaskId"))));
+    }
+
+    @Test
+    void createInitialFillTask_freezesAssistRowResponsibilityScopeAndCandidateUnion() {
+        MesProEdhrBatchExecutionDO batch = batchForInitialFill(3025L, 4125L);
+        MesProEdhrBatchExecutionTaskDO routeTask = batchTask(3025L, 9125L, 5125L,
+                "REPORT-ASSIST-SCOPE", "ROUTE_FORM", "光固II", 10)
+                .setBatchRecordVersionId(78025L);
+        batchTaskMapper.insert(routeTask);
+        insertProcessFormFillRule(5125L, "REPORT-ASSIST-SCOPE", 78025L,
+                "AR_001", "USERS", "288", 180,
+                preciseCellScope("AR_001", 0, 1, 2));
+        insertProcessFormFillRule(5125L, "REPORT-ASSIST-SCOPE", 78025L,
+                "AR_002", "ROLE", "7001", 180,
+                preciseCellScope("AR_002", 0, 1, 4));
+        when(adminUserApi.getUserList(List.of(288L))).thenReturn(List.of(
+                adminUser(288L, CommonStatusEnum.ENABLE.getStatus())));
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(7001L))).thenReturn(Set.of(289L, 290L));
+        when(adminUserApi.getUserList(Set.of(289L, 290L))).thenReturn(List.of(
+                adminUser(289L, CommonStatusEnum.ENABLE.getStatus()),
+                adminUser(290L, CommonStatusEnum.ENABLE.getStatus())));
+
+        workTaskService.createInitialFillTask(batch);
+
+        List<MesProEdhrWorkTaskDO> tasks = workTaskMapper.selectList();
+        assertEquals(1, tasks.size());
+        MesProEdhrWorkTaskDO fillTask = tasks.get(0);
+        assertEquals(routeTask.getId(), fillTask.getBatchTaskId());
+        assertEquals("288,289,290", fillTask.getCandidateUserSnapshot());
+        assertEquals(288L, fillTask.getAssigneeUserId());
+        assertEquals("ASSIST_ROWS", fillTask.getCandidateSourceType());
+        assertNotNull(fillTask.getResponsibilityScopeJson());
+        JSONObject snapshot = JSON.parseObject(fillTask.getResponsibilityScopeJson());
+        assertEquals(2, snapshot.getIntValue("schemaVersion"));
+        JSONArray scopes = snapshot.getJSONArray("scopes");
+        assertEquals(2, scopes.size());
+        JSONObject firstScope = scopes.getJSONObject(0);
+        assertEquals("AR_001", firstScope.getString("scopeKey"));
+        assertEquals(List.of(288), firstScope.getJSONArray("resolvedUserIds").toJavaList(Integer.class));
+        assertEquals(2, firstScope.getJSONObject("fillableScope").getJSONArray("cells")
+                .getJSONObject(0).getIntValue("columnIndex"));
+        JSONObject secondScope = scopes.getJSONObject(1);
+        assertEquals("AR_002", secondScope.getString("scopeKey"));
+        assertEquals(List.of(289, 290), secondScope.getJSONArray("resolvedUserIds").toJavaList(Integer.class));
+        assertEquals(4, secondScope.getJSONObject("fillableScope").getJSONArray("cells")
+                .getJSONObject(0).getIntValue("columnIndex"));
+
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(7001L))).thenReturn(Set.of(291L));
+        MesProEdhrWorkTaskDO frozenTask = workTaskMapper.selectById(fillTask.getId());
+        assertEquals("288,289,290", frozenTask.getCandidateUserSnapshot());
+        assertEquals(fillTask.getResponsibilityScopeJson(), frozenTask.getResponsibilityScopeJson());
     }
 
     @Test
@@ -2123,6 +2178,25 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void getAssignedTaskForDetail_rejectsProcessFormFillTaskWithoutResponsibilityScopeSnapshot() {
+        MesProEdhrWorkTaskDO fillTask = insertFillTask(8095L, 9195L, "missing-responsibility-scope")
+                .setCandidateUserSnapshot("99")
+                .setResponsibilitySourceType("EDHR_PROCESS_FORM_FILLER")
+                .setResponsibilitySourceKey("ROUTE|5195|REPORT-MISSING-SCOPE|78095")
+                .setResponsibilitySourceVersion("78095");
+        workTaskMapper.updateById(fillTask);
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            ServiceException exception = assertThrows(ServiceException.class,
+                    () -> workTaskService.getAssignedTaskForDetail(fillTask.getId(), 8095L,
+                            MesProEdhrWorkTaskService.TASK_TYPE_FILL));
+
+            assertEquals(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID.getCode(), exception.getCode());
+        }
+    }
+
+    @Test
     void bindExecution_updatesFillTaskActionUrlToRegisteredExecutionFormRoute() {
         MesProEdhrWorkTaskDO fillTask = insertFillTask(8092L, 9192L, "bind-execution-url")
                 .setBatchExecutionId(3092L);
@@ -2314,32 +2388,58 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
 
     private void insertProcessFormFillRule(Long routeProcessId, String batchRecordReportId, Long batchRecordVersionId,
                                            String candidateSourceType, String candidateSourceIds, Integer dueMinutes) {
+        insertProcessFormFillRule(routeProcessId, batchRecordReportId, batchRecordVersionId,
+                "ALL", candidateSourceType, candidateSourceIds, dueMinutes, preciseCellScope("ALL", 0, 0, 0));
+    }
+
+    private void insertProcessFormFillRule(Long routeProcessId, String batchRecordReportId, Long batchRecordVersionId,
+                                           String scopeKey, String candidateSourceType, String candidateSourceIds,
+                                           Integer dueMinutes, String fillableScopeJson) {
         processFormPermissionRuleMapper.insert(processFormFillRule(routeProcessId, batchRecordReportId,
-                batchRecordVersionId, candidateSourceType, candidateSourceIds, dueMinutes));
+                batchRecordVersionId, scopeKey, candidateSourceType, candidateSourceIds, dueMinutes,
+                fillableScopeJson));
     }
 
     private void insertProcessFormFillRuleWithoutVersion(Long routeProcessId, String batchRecordReportId,
                                                          String candidateSourceType, String candidateSourceIds,
                                                          Integer dueMinutes) {
         processFormPermissionRuleMapper.insert(processFormFillRule(routeProcessId, batchRecordReportId,
-                null, candidateSourceType, candidateSourceIds, dueMinutes));
+                null, "ALL", candidateSourceType, candidateSourceIds, dueMinutes,
+                preciseCellScope("ALL", 0, 0, 0)));
     }
 
     private MesProEdhrProcessFormPermissionRuleDO processFormFillRule(Long routeProcessId, String batchRecordReportId,
                                                                       Long batchRecordVersionId,
                                                                       String candidateSourceType,
                                                                       String candidateSourceIds, Integer dueMinutes) {
+        return processFormFillRule(routeProcessId, batchRecordReportId, batchRecordVersionId,
+                "ALL", candidateSourceType, candidateSourceIds, dueMinutes, preciseCellScope("ALL", 0, 0, 0));
+    }
+
+    private MesProEdhrProcessFormPermissionRuleDO processFormFillRule(Long routeProcessId, String batchRecordReportId,
+                                                                      Long batchRecordVersionId, String scopeKey,
+                                                                      String candidateSourceType,
+                                                                      String candidateSourceIds, Integer dueMinutes,
+                                                                      String fillableScopeJson) {
         return new MesProEdhrProcessFormPermissionRuleDO()
                 .setBatchRecordVersionId(batchRecordVersionId)
                 .setRouteProcessId(routeProcessId)
                 .setBatchRecordReportId(batchRecordReportId)
                 .setRuleType("FILL")
+                .setScopeKey(scopeKey)
                 .setSignatureCellKey("")
                 .setCandidateSourceType(candidateSourceType)
                 .setCandidateSourceIds(candidateSourceIds)
                 .setCompletionPolicy("ANY_ONE")
                 .setDueMinutes(dueMinutes)
+                .setFillableScopeJson(fillableScopeJson)
                 .setEnabled(true);
+    }
+
+    private String preciseCellScope(String scopeKey, int sourceTableIndex, int rowIndex, int columnIndex) {
+        return """
+                {"schemaVersion":2,"scopeKey":"%s","cells":[{"sourceTableIndex":%d,"rowIndex":%d,"columnIndex":%d}]}
+                """.formatted(scopeKey, sourceTableIndex, rowIndex, columnIndex).trim();
     }
 
     private void insertArchiveAssignmentRule(Long routeId, Long assigneeUserId, Integer dueMinutes) {
