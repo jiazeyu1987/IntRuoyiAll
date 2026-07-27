@@ -33,6 +33,10 @@
   - Result: blocked only by dirty main worktree `E:\IntRuoyi`.
   - Cleanup plan: keep task records and bug evidence; delete none.
 
+- GREEN: `git push origin codex/20260727-route-history-cancelled-version-view`
+  - Result: PASS.
+  - Remote branch: `origin/codex/20260727-route-history-cancelled-version-view`.
+
 ## Coverage
 
 - `CANCELLED` route graph readonly snapshot read.

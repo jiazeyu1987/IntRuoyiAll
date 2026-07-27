@@ -58,6 +58,10 @@ GREEN: branch-runtime-port-guard -> PASS, registered current worktree as `int_ma
 
 GREEN: implementation-commit -> PASS, `3d809a8e fix: allow readonly cancelled route versions`.
 
+GREEN: closeout-evidence-commit -> PASS, `2b7a5dc3 docs: record route history closeout status`.
+
+GREEN: git-push -> PASS, `git push origin codex/20260727-route-history-cancelled-version-view` created remote branch `origin/codex/20260727-route-history-cancelled-version-view`.
+
 BLOCKER: task-closeout-cleanup preview -> Main worktree is dirty and cannot receive ff-only merge: `E:\IntRuoyi`.
 
 - Preview keep: `task.md`, `execution-log.md`, `verification-report.md`, `bug-regression-evidence.md`.
@@ -67,4 +71,5 @@ BLOCKER: task-closeout-cleanup preview -> Main worktree is dirty and cannot rece
 ## Current Status
 
 - Milestones 1-4 complete.
-- Current status: ready_for_closeout; implementation branch is ready to push, closeout apply is blocked by dirty main worktree.
+- Milestone 5 complete for experience consolidation, commits, and remote push.
+- Current status: ready_for_closeout; remote branch is pushed, closeout apply / ff-only merge is blocked by dirty main worktree.
