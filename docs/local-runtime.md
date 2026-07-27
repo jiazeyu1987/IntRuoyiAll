@@ -95,6 +95,15 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - Verification: 记录 Maven RED/GREEN、`yudao-server-exec.jar` 生成结果、`git check-ignore -v` 输出、`pnpm install --frozen-lockfile` 退出码、后端 health `UP` 和前端 HTTP `200`。
 - Forbidden action: 禁止因为目录名是 `runtime` 就放任合法 Java 源码被忽略；禁止复制 `node_modules`、复用旧 Jar、改共享 `.env`/`application-local.yaml`、API-only 冒充前端启动成功。
 - Evidence: `doc/tasks/20260725-start-d-main-runtime/verification-report.md`。
+
+## 2026-07-27 本地 OnlyOffice 容器下载地址门禁
+
+- Trigger: 本地受控浏览、OnlyOffice `错误码 -4`、`下载失败`、`public-file-base-url`、`onlyofficeDocumentUrl`、Docker `onlyoffice` 容器访问 `48081`。
+- Preflight check: 若 OnlyOffice 运行在 Docker 容器，本地 `application-local.yaml` 的 `yudao.dcc.preview.onlyoffice.public-file-base-url` 必须让容器访问 Windows Host 后端，默认应为 `http://host.docker.internal:${server.port}`；同时保留浏览器加载 OnlyOffice 的 `base-url` 为 `http://127.0.0.1:8080`。
+- Blocker: `docker exec onlyoffice curl http://127.0.0.1:48081/actuator/health` 不可达但 `host.docker.internal:48081` 可达时，预览元数据下载 URL 不得继续使用 `127.0.0.1:48081`。
+- Verification: 记录 `docker exec onlyoffice curl http://host.docker.internal:48081/actuator/health` HTTP `200`、旧容器内 `127.0.0.1:48081` 不可达、Jar 内 `application-local.yaml` 目标行、后端 health `UP`，并用静态契约覆盖该默认值。
+- Forbidden action: 禁止把浏览器用的 OnlyOffice `base-url` 改成 `host.docker.internal`；禁止用 API-only 成功或未登录 `401` 冒充 OnlyOffice 容器已能下载文件；禁止修改测试服/生产配置来修复本地 Docker 网络问题。
+- Evidence: `doc/tasks/20260727-local-onlyoffice-download-failed/verification-report.md`。
 ## 禁止做法
 
 - 禁止把 `int_main` 改到随机端口启动。

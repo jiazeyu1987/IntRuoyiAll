@@ -1,0 +1,35 @@
+{
+  "baseUrl": "http://localhost:8081",
+  "path": "/mes/pro/feedback/edhr-batch-execution",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "target": {
+    "workOrderCode": "881MO090889",
+    "batchCode": "34126020001",
+    "routeId": 922119,
+    "existingBatchExecutionId": 900000000876
+  },
+  "currentUrl": "http://localhost:8081/mes/pro/feedback/edhr-batch-execution",
+  "reachedDetail": false,
+  "hasVisibleOwnerError": true,
+  "visibleOwnerError": [
+    "批记录附件负责人配置无效：batchRecordAttachmentOwners",
+    "批记录附件负责人配置无效：batchRecordAttachmentOwners"
+  ],
+  "api": [
+    {
+      "url": "http://localhost:8081/admin-api/mes/pro/edhr-batch-execution/work-order-route-options?workOrderId=923889",
+      "method": "GET",
+      "status": 200,
+      "bodyPreview": "{\"code\":0,\"msg\":\"\",\"data\":[{\"routeId\":922119,\"routeCode\":\"RT000028\",\"routeName\":\"球囊扩张压力泵\",\"batchRouteEnabled\":true}]}"
+    },
+    {
+      "url": "http://localhost:8081/admin-api/mes/pro/edhr-batch-execution/open-or-create",
+      "method": "POST",
+      "status": 200,
+      "bodyPreview": "{\"code\":1040271050,\"msg\":\"批记录附件负责人配置无效：batchRecordAttachmentOwners\",\"data\":null}"
+    }
+  ],
+  "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260727-batch-record-attachment-owner-config\\runtime-artifacts\\edhr-open-create-confirm-existing.png",
+  "resultPath": "E:\\IntRuoyi\\doc\\tasks\\20260727-batch-record-attachment-owner-config\\runtime-artifacts\\edhr-open-create-confirm-existing.json"
+}

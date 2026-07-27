@@ -210,6 +210,15 @@
 - Verification: 证据需包含页面搜索总数、只读 API 或 DB 名称列表、目标租户/用户标签，以及是否创建了 executionId。
 - Forbidden action: 禁止用模糊关键词误选其它测试项；禁止用 API-only 启动替代页面行级“执行”点击；禁止在缺少测试方法和目标项的情况下临时造数。
 - Evidence: `doc/tasks/20260725-codex-runner-void-test/verification-report.md`。
+
+### 测试管理测试节点闭环门禁
+
+- Trigger: 新增或修改 `系统管理 > 测试管理` 的自然语言测试项，尤其是按业务系统节点拆分、会新建/修改/删除/作废业务数据的测试项。
+- Preflight check: 每个测试节点必须写清业务节点、固定样本或任务自有测试标识、前置复位、页面操作、页面可见验证、清理/恢复方式；测试方法和测试目标必须面向业务测试人员，避免只写接口、内部字段、状态码、hash、英文内部状态或代码视角。
+- Blocker: 测试项只创建不清理、只删除不先准备样本、失败后下次运行会被残留数据阻塞、没有固定样本或任务自有标识、目标只能由程序员判断，或需要测试人员在测试说明之外手工猜测清理方式时必须停止。
+- Verification: 证据需包含节点数量、每节点方法项数量、每节点目标项数量、固定样本/清理/恢复闭环核验、内部词扫描结果，以及写入租户和项目范围。
+- Forbidden action: 禁止用 API-only 清理、生产或 admin 基线数据、隐藏脚本状态、程序员专用字段、一次性人工清库、或“执行失败后手工处理”替代测试节点自身闭环。
+- Evidence: `doc/tasks/20260727-batch-record-test-node-items/verification-report.md`，2026-07-27 批记录 6 个节点闭环测试项。
 ## eDHR 本地状态样本操作审计追溯门禁
 
 - Trigger: Playwright 验证本地状态样本、`LOCAL_STATE_SAMPLE_CREATE`、批次追溯操作审计、或只按 `batchExecutionId` 查询操作日志。

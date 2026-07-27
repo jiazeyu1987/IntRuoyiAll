@@ -178,6 +178,7 @@
 - Keywords: Invoke-WebRequest Content byte array, Invoke-RestMethod health status, process scan exclude current PID -> `docs/powershell-preflight-lessons.md`
 - Keywords: restart-int-ruoyi-local, Missing int_main frontend path, yudao-ui-admin-vue3, IntRuoyiFronted, local backend restart E2E -> `docs/local-runtime.md#2026-07-24-本地重启脚本路径门禁`
 - Keywords: local backend MySQL Access denied, dynamic-datasource create datasource named [master] error, Access denied for user 'root'@'localhost', 48081 未监听, 本地后端数据库凭据 -> `docs/local-runtime.md#2026-07-25-本地后端数据库凭据门禁`
+- Keywords: 本地 OnlyOffice 错误码 -4, OnlyOffice 下载失败, onlyofficeDocumentUrl, public-file-base-url, host.docker.internal, Docker onlyoffice 访问 48081 -> `docs/local-runtime.md#2026-07-27-本地-onlyoffice-容器下载地址门禁`
 - Keywords: D-Main local runtime, int_main_d, vite command not found, Java package runtime ignored, *.runtime不存在, git check-ignore runtime source -> `docs/local-runtime.md#2026-07-25-d-main-本地启动源码与依赖门禁`
 - Keywords: isolated backend jar, dirty main workspace, int_main 48081, jar SHA256, local E2E reload, clean worktree build, 未登录 401, 登录态路由验证, route-not-found, schema 字段核对 -> `docs/local-runtime.md#2026-07-24-隔离构建-jar-加载门禁`
 - Keywords: Element Plus el-table, 表格行复选框, 表头全选误点, indeterminate checkbox, Playwright body-wrapper row selection, 手动重排选中集合断言 -> `docs/e2e-rules.md#element-plus-表格选择门禁`
@@ -189,6 +190,7 @@
 - Keywords: Element Plus el-select 多选标签, Element Plus el-input-number, 数字步进控件, el-select__tags-text, 选择框显示全, 目标项名称显示全, 填写人显示全, 三列弹窗表单, grid-template-columns, codex-test-checkpoint, collapse-tags-tooltip -> `docs/e2e-rules.md#element-plus-选择框显示门禁`
 - Keywords: Codex Runner, 系统管理 测试管理, 自然语言测试方法, 检查点截图, runner token, parallelSafe, Codex 调用 Playwright, 没有在线 Codex Runner, 按需 Runner, Runner 包装层, 裸调用 codex, codex-test-result, taskkill.exe, Windows codex.cmd 子进程, heartbeat 过期 -> `docs/e2e-rules.md#codex-runner-自动测试门禁`
 - Keywords: Codex Runner 目标测试项, 作废测试不存在, system_codex_test_case, 测试管理页面搜索总数 0, Runner 空领取不得当成功 -> `docs/e2e-rules.md#codex-runner-目标测试项存在性门禁`
+- Keywords: 测试管理测试节点闭环, 自然语言测试方法, 业务可读目标, 固定样本, 前置复位, 清理恢复, 重复执行, 批记录节点 -> `docs/e2e-rules.md#测试管理测试节点闭环门禁`
 - Keywords: 测试管理 系统异常, codex-test-case/page code 500, system_codex_test_case.project, 20260726_system_codex_test_case_project.sql, Codex 测试项分页缺字段 -> `docs/database-rules.md#测试管理-schema-迁移门禁`
 - Keywords: 个人工作台 系统异常, 待办任务加载失败, 隐藏任务状态, profile-workbench-task-visibility, hidden-keys, system_profile_workbench_task_visibility, 20260727_system_profile_workbench_task_visibility.sql -> `docs/database-rules.md#个人工作台隐藏任务状态迁移门禁`
 - Keywords: int_shedule local Docker dependencies, 23306, 26379, Docker MySQL Redis, branch local runtime dependency ports -> `docs/local-runtime.md#2026-07-25-分支本地运行复用-docker-依赖门禁`

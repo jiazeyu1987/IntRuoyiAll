@@ -10,12 +10,14 @@ Fix the confirm-button failure that reports `batchRecordAttachmentOwners` as an 
 - [x] Add a regression test that fails before the fix.
 - [x] Implement the minimal backend fix without fallback or silent downgrade.
 - [x] Run targeted verification and record evidence.
+- [x] Run real Playwright E2E for list page and open/create confirm button.
 - [ ] Resolve real route data/configuration for route `922119` if user authorizes changing business configuration.
 
 ## Expected Verification
 
 - Targeted backend regression test proves valid attachment owner configuration is accepted.
 - Relevant MES backend compile or targeted Maven verification is run, or the exact blocker is recorded.
+- Real Playwright E2E verifies the list page and confirm-button user path against local `int_main`.
 - Evidence files satisfy bug-regression and backend-api evidence contracts.
 
 ## Current Status
@@ -24,7 +26,8 @@ blocked
 
 ## Blocker
 
-- Code fix and backend verification passed, but the actual route shown in the screenshot (`route_id=922119`) still has no `configSnapshots.batchRecordAttachmentOwners` in ACTIVE `V14` or DRAFT `V15`; changing that route requires explicit authorization because it is real business configuration, not task-owned test data.
+- Code fix and backend verification passed. Real E2E on `http://localhost:8081` shows the list page no longer displays the global red error, but the open/create confirm button still returns `1040271050 / 批记录附件负责人配置无效：batchRecordAttachmentOwners` for existing batch `900000000876`.
+- The exact route and existing batch shown in the screenshot (`route_id=922119`, active `V14`, draft `V15`, batch `900000000876`) still have no frozen `configSnapshots.batchRecordAttachmentOwners`; changing route/batch business configuration requires explicit authorization because it is real business data, not task-owned test data.
 
 ## Experience Gates
 

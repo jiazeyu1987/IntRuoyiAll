@@ -18,7 +18,10 @@
 - INFO: first post-fix GREEN attempt without reduced Maven JVM memory failed at MES compile with JVM native memory allocation error (`G1 virtual space`); rerun with bounded `MAVEN_OPTS` passed.
 - INFO: read-only runtime check -> backend `http://127.0.0.1:48081/actuator/health` returned `UP`.
 - BLOCKER: read-only DB check for route `922119` -> ACTIVE `V14` and DRAFT `V15` both have `has_attachment_owners=0`, `owner_count=NULL`; current route data still lacks the required batch record attachment owner configuration.
+- E2E: `node doc\tasks\20260727-batch-record-attachment-owner-config\runtime-artifacts\verify-edhr-page-after-restart.cjs` -> PASS, local `int_main` frontend `http://localhost:8081`, tenant/user label `芋道源码/admin`, page title visible, no visible global `批记录附件负责人配置无效` alert/toast. Artifact: `runtime-artifacts/edhr-batch-execution-after-restart.json`, screenshot: `runtime-artifacts/edhr-batch-execution-after-restart.png`.
+- E2E: `node doc\tasks\20260727-batch-record-attachment-owner-config\runtime-artifacts\verify-open-create-confirm.cjs` -> BLOCKED as expected on real data, clicked `打开/创建`, selected work order `881MO090889`, route `922119`, batch `34126020001`, and clicked `确认`; `/admin-api/mes/pro/edhr-batch-execution/open-or-create` returned HTTP 200 with business code `1040271050` and message `批记录附件负责人配置无效：batchRecordAttachmentOwners`. Artifact: `runtime-artifacts/edhr-open-create-confirm-existing.json`, screenshot: `runtime-artifacts/edhr-open-create-confirm-existing.png`.
+- INFO: runtime ownership -> frontend port `8081` is `E:\IntRuoyi\IntRuoyiFronted` Vite, backend port `48081` is `E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`; verification was on `int_main`, not an additional worktree.
 
 ## Blockers
 
-- Real route `922119` must be configured and published, or otherwise formally migrated, before the current screenshot path can succeed on that exact data. No data write was performed because the route is not task-owned test data.
+- Real route `922119` and existing batch `900000000876` must receive a valid frozen `batchRecordAttachmentOwners` configuration through an authorized UI configuration/publish flow or a formally approved data repair. No route/batch data write was performed because the data is not task-owned test data.

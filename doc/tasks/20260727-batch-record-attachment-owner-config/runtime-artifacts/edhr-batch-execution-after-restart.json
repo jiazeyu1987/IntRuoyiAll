@@ -1,0 +1,37 @@
+{
+  "baseUrl": "http://localhost:8081",
+  "path": "/mes/pro/feedback/edhr-batch-execution",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "hasPageTitle": true,
+  "hasGlobalOwnerError": false,
+  "visibleOwnerError": [],
+  "apiResponses": [
+    {
+      "status": 200,
+      "ok": true,
+      "summary": {
+        "code": 0,
+        "msg": "",
+        "total": 1,
+        "rowCount": 1,
+        "firstRows": [
+          {
+            "id": 900000000876,
+            "batchExecutionCode": "EDHRB-1785116357526",
+            "workOrderCode": "881MO090889",
+            "routeId": 922119,
+            "routeName": "球囊扩张压力泵",
+            "status": 10,
+            "blockedCount": 0
+          }
+        ]
+      },
+      "bodyPreview": "{\"code\":0,\"msg\":\"\",\"data\":{\"total\":1,\"list\":[{\"id\":900000000876,\"batchExecutionCode\":\"EDHRB-1785116357526\",\"workOrderId\":923889,\"workOrderCode\":\"881MO090889\",\"batchCode\":\"34126020001\",\"createTime\":1785116358000,\"updateTime\":1785116358000,\"attemptNo\":1,\"sourceRejectedBatchExecutionId\":null,\"supersededByBatchExecutionId\":null,\"reexecutedByChangeEventId\":null,\"productId\":902149,\"productCode\":\"902149\",\"productName\":\"球囊扩张压力泵\",\"routeId\":922119,\"routeVersionId\":358,\"routeVersionNo\":\"V14\",\"routeCode\":\"RT000028\",\"routeName\":\"球囊扩张压力泵\",\"currentProcessRouteProcessId\":null,\"currentProcessCode\":null,\"currentProcessName\":null,\"currentProcessProductionFillers\":null,\"currentProcessEquipmentFillers\":null,\"currentProcessQualityFillers\":null,\"status\":10,\"taskTotal\":21,\"taskApprovedCount\":0,\"blockedCount\":0,\"mainStage\":\"IN_FILLING\",\"mainStageLabel\":\"填写中\",\"stageOwnerRole\":\"执行人\",\"stageBlockers\":[\"批记录附件负责人配置无效：batchRecordAttachmentOwners\",\"来料检报告: 未完成或未跳过\",\"粗洗工序: 未填写完成\",\"粗洗工序: 未打开电子批记录\",\"精洗工序: 未打开电子批记录\",\"精洗工序:"
+    }
+  ],
+  "consoleErrorCount": 0,
+  "pageErrorCount": 0,
+  "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260727-batch-record-attachment-owner-config\\runtime-artifacts\\edhr-batch-execution-after-restart.png",
+  "resultPath": "E:\\IntRuoyi\\doc\\tasks\\20260727-batch-record-attachment-owner-config\\runtime-artifacts\\edhr-batch-execution-after-restart.json"
+}
