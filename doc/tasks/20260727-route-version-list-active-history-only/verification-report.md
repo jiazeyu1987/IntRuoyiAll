@@ -4,7 +4,7 @@
 
 - Status: ready_for_closeout
 - Result: PASS for targeted frontend static contracts, TypeScript check, and real Playwright E2E.
-- Scope: version workspace list hides cancelled route versions.
+- Scope: version workspace list shows only effective historical route versions.
 
 ## Commands
 
@@ -12,12 +12,16 @@
   - Result: FAIL before fix.
   - Expected failure: table used raw `routeVersions`.
 
+- RED: effective-only audit command against previous HEAD
+  - Result: FAIL before effective-only fix.
+  - Expected failure: previous HEAD did not define `EFFECTIVE_ROUTE_VERSION_STATUS_SET` and filtered only `CANCELLED`.
+
 - GREEN: `node --check tests/e2e/mes-route-version-list-active-history-only-static.spec.js`
   - Result: PASS.
 
 - GREEN: `node tests/e2e/mes-route-version-list-active-history-only-static.spec.js`
   - Result: PASS.
-  - Output: `PASS: mes route version list hides cancelled candidates only`.
+  - Output: `PASS: mes route version list shows effective historical versions only`.
 
 - GREEN: `node --check tests/e2e/mes-route-cancelled-version-view-static.spec.js`
   - Result: PASS.
@@ -63,7 +67,7 @@
 
 - GREEN: `node tests\e2e\mes-route-version-list-active-history-only-real.e2e.js`
   - Result: PASS.
-  - Output: `PASS: route version workspace hides cancelled versions; result=...\mes-route-version-list-20260727164419.json`.
+  - Output: `PASS: route version workspace shows effective historical versions only; result=...\mes-route-version-list-20260727170445.json`.
 
 - GREEN: `git push origin codex/20260727-route-history-cancelled-version-view`
   - Result: PASS before real E2E continuation.
@@ -78,6 +82,11 @@
   - Stopped task-owned Vite PID `33848` and Java PID `65060`.
   - Ports released: `8089`, `48089`.
 
+- GREEN: effective-only runtime stop and port release
+  - Result: PASS.
+  - Stopped task-owned Vite PID `64380` and Java PID `52756`.
+  - Ports released: `8089`, `48089`.
+
 - BLOCKED: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-route-version-list-active-history-only --mode preview`
   - Result: blocked by non-ff-only merge relationship to `int_main` and dirty main worktree `E:\IntRuoyi`.
   - Cleanup plan: keep task records and evidence; delete none.
@@ -85,11 +94,11 @@
 ## Coverage
 
 - Version table binds filtered rows.
-- Filter hides only `CANCELLED`.
-- `DRAFT`, active/effective historical versions, and non-cancelled candidate states remain available.
+- Filter shows only current/effective `ACTIVE` versions and `SUPERSEDED` historical versions.
+- `DRAFT`,审核中、待生效、已驳回 and `CANCELLED` non-effective candidate versions are hidden from the version list.
 - Direct readonly historical version viewer contract remains green.
 - Real UI route `RT000028` / `球囊扩张压力泵` shows effective historical rows `V15`, `V14`, `V13`, `V4`, `V3`, `V2`, `V1`.
-- Real UI version workspace hides cancelled rows `V18`, `V17`, `V16`, `V12`, `V11`, `V10`, `V9`, `V8`, `V7`, `V6`, `V5`.
+- Real UI version workspace hides non-effective rows including `V19 DRAFT` and cancelled rows `V18`, `V17`, `V16`, `V12`, `V11`, `V10`, `V9`, `V8`, `V7`, `V6`, `V5`.
 - Real E2E recorded `mesWriteRequests=[]`, so verification stayed read-only.
 
 ## Notes

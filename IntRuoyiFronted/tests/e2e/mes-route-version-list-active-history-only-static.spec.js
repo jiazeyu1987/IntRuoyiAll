@@ -29,19 +29,24 @@ assert.match(
 
 const visiblePredicate = getFunctionBody(routeList, 'isVisibleRouteVersionInWorkspace')
 assert.match(
+  routeList,
+  /const EFFECTIVE_ROUTE_VERSION_STATUS_SET = new Set\(\[\s*'ACTIVE',\s*'SUPERSEDED'\s*\]\)/,
+  '版本列表必须显式定义已生效历史版本状态集合。'
+)
+assert.match(
+  visiblePredicate,
+  /version\.active\s*\|\|\s*EFFECTIVE_ROUTE_VERSION_STATUS_SET\.has\(String\(version\.lifecycleStatus\)\)/,
+  '版本列表只能展示当前 ACTIVE 或已生效历史状态 ACTIVE/SUPERSEDED。'
+)
+assert.doesNotMatch(
   visiblePredicate,
   /version\.lifecycleStatus\s*!==\s*'CANCELLED'/,
-  '版本列表必须隐藏已取消的候选版本。'
+  '版本列表不得只排除 CANCELLED；DRAFT、审核中、待生效和驳回候选版本也不属于已生效历史版本。'
 )
 assert.doesNotMatch(
   visiblePredicate,
-  /SUPERSEDED/,
-  '已替代版本属于已生效历史版本，不得被列表过滤掉。'
-)
-assert.doesNotMatch(
-  visiblePredicate,
-  /DRAFT/,
-  '当前草稿候选版本仍需在版本工作区显示，方便继续编辑或取消。'
+  /DRAFT|PENDING_APPROVAL|READY_TO_PUBLISH|REJECTED|CANCELLED/,
+  '版本列表过滤谓词不得把非已生效候选状态纳入可见行。'
 )
 
 const canViewRouteVersion = getFunctionBody(routeList, 'canViewRouteVersion')
@@ -51,4 +56,4 @@ assert.match(
   '隐藏列表行不能删除深链只读查看能力；非草稿历史上下文仍可查看。'
 )
 
-console.log('PASS: mes route version list hides cancelled candidates only')
+console.log('PASS: mes route version list shows effective historical versions only')

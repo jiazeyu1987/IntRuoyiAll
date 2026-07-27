@@ -13,7 +13,7 @@
 
 ## BDD
 
-BDD: 版本列表隐藏已取消候选版本 -> Given 路线版本列表包含 DRAFT、ACTIVE、SUPERSEDED 和 CANCELLED / When 用户打开版本工作区 / Then 列表展示 DRAFT、ACTIVE、SUPERSEDED，隐藏 CANCELLED
+BDD: 版本列表仅显示已生效历史版本 -> Given 路线版本列表包含 DRAFT、ACTIVE、SUPERSEDED 和 CANCELLED / When 用户打开版本工作区 / Then 列表仅展示 ACTIVE、SUPERSEDED，隐藏 DRAFT 和 CANCELLED 等未生效候选版本
 
 BDD: 深链只读能力保留 -> Given 用户通过已有只读版本上下文打开已取消版本 / When 前端加载关系图 / Then 仍按历史 `routeVersionId` 请求后端读取冻结快照，写控件保持禁用
 
@@ -23,16 +23,19 @@ BDD: 深链只读能力保留 -> Given 用户通过已有只读版本上下文�
 
 - `IntRuoyiFronted/src/views/mes/pro/route/index.vue` 的版本工作区表格原先直接绑定 `routeVersions`。
 - `loadRouteVersions` 从后端拿到所有版本后未在列表展示层过滤，导致 `CANCELLED` 出现在版本列表。
+- Completion audit later found the first implementation only used `version.lifecycleStatus !== 'CANCELLED'`, so `DRAFT` and other non-effective candidates could still appear; this did not satisfy “只显示已生效的历史版本”.
 
 ## RED
 
 RED: `node tests/e2e/mes-route-version-list-active-history-only-static.spec.js` -> FAIL, expected reason: table still binds raw `routeVersions` instead of filtered `visibleRouteVersions`.
 
+RED: `node -e "const assert=require('node:assert/strict'); const {execFileSync}=require('node:child_process'); const src=execFileSync('git',['show','HEAD:IntRuoyiFronted/src/views/mes/pro/route/index.vue'],{encoding:'utf8'}); assert.match(src,/const EFFECTIVE_ROUTE_VERSION_STATUS_SET = new Set/,'pre-fix version list must define effective-only status set');"` -> FAIL, expected reason: previous HEAD filtered only `CANCELLED` and did not define an effective-only status set.
+
 ## GREEN
 
 GREEN: `node --check tests/e2e/mes-route-version-list-active-history-only-static.spec.js` -> PASS.
 
-GREEN: `node tests/e2e/mes-route-version-list-active-history-only-static.spec.js` -> PASS, `PASS: mes route version list hides cancelled candidates only`.
+GREEN: `node tests/e2e/mes-route-version-list-active-history-only-static.spec.js` -> PASS, `PASS: mes route version list shows effective historical versions only`.
 
 GREEN: `node --check tests/e2e/mes-route-cancelled-version-view-static.spec.js` -> PASS.
 
@@ -64,6 +67,7 @@ GREEN: `node tests\e2e\mes-route-version-list-active-history-only-real.e2e.js` -
 
 - Real frontend entry: `http://127.0.0.1:8089/mes/pro/route?code=RT000028`.
 - Backend entry: `http://127.0.0.1:48089`, health `UP`.
+- Runtime PIDs: Vite PID `64380`, Java PID `52756`.
 - Tenant/user label: `芋道源码/admin`，password not recorded.
 - Read-only data source: logged-in session GET `/admin-api/mes/pro/route/page` and GET `/admin-api/mes/pro/route-version/list-by-route?routeId=922119`.
 - Target route: `RT000028` / `球囊扩张压力泵` / route ID `922119`.
@@ -72,6 +76,22 @@ GREEN: `node tests\e2e\mes-route-version-list-active-history-only-real.e2e.js` -
 - MES write requests: none (`mesWriteRequests=[]`).
 - Artifact JSON: `output\e2e\route-version-list-active-history-only\mes-route-version-list-20260727164419.json`.
 - Artifact screenshot: `output\e2e\route-version-list-active-history-only\mes-route-version-list-20260727164419.png`.
+
+## Effective-Only Real E2E Follow-Up
+
+GREEN: `node --check tests\e2e\mes-route-version-list-active-history-only-real.e2e.js` -> PASS.
+
+GREEN: `node tests\e2e\mes-route-version-list-active-history-only-real.e2e.js` -> PASS.
+
+- Real frontend entry: `http://127.0.0.1:8089/mes/pro/route?code=RT000028`.
+- Backend entry: `http://127.0.0.1:48089`, health `UP`.
+- Tenant/user label: `芋道源码/admin`，password not recorded.
+- Target route: `RT000028` / `球囊扩张压力泵` / route ID `922119`.
+- Visible effective versions asserted in UI: `V15 ACTIVE`, `V14 SUPERSEDED`, `V13 SUPERSEDED`, `V4 SUPERSEDED`, `V3 ACTIVE`, `V2 ACTIVE`, `V1 ACTIVE`.
+- Hidden non-effective versions asserted absent from UI: `V19 DRAFT`, `V18 CANCELLED`, `V17 CANCELLED`, `V16 CANCELLED`, `V12 CANCELLED`, `V11 CANCELLED`, `V10 CANCELLED`, `V9 CANCELLED`, `V8 CANCELLED`, `V7 CANCELLED`, `V6 CANCELLED`, `V5 CANCELLED`.
+- MES write requests: none (`mesWriteRequests=[]`).
+- Artifact JSON: `output\e2e\route-version-list-active-history-only\mes-route-version-list-20260727170445.json`.
+- Artifact screenshot: `output\e2e\route-version-list-active-history-only\mes-route-version-list-20260727170445.png`.
 
 ## Commit And Closeout
 
@@ -85,6 +105,8 @@ GREEN: closeout-doc-commit -> PASS, `679cde37 docs: record route version real e2
 
 GREEN: runtime-stop -> PASS, stopped task-owned Vite PID `33848` on `8089` and Java PID `65060` on `48089`; postcheck showed `RELEASED port=8089` and `RELEASED port=48089`.
 
+GREEN: effective-only-runtime-stop -> PASS, stopped task-owned Vite PID `64380` on `8089` and Java PID `52756` on `48089`; postcheck showed `RELEASED port=8089` and `RELEASED port=48089`.
+
 BLOCKER: task-closeout-cleanup preview -> current branch cannot be fast-forward merged into `int_main`, and main worktree is dirty: `E:\IntRuoyi`.
 
 - Preview keep: `task.md`, `execution-log.md`, `verification-report.md`, `bug-regression-evidence.md`, `frontend-feature-evidence.md`.
@@ -93,8 +115,9 @@ BLOCKER: task-closeout-cleanup preview -> current branch cannot be fast-forward 
 
 ## Implementation
 
-- Added `isVisibleRouteVersionInWorkspace(version)` to hide only `CANCELLED` versions in the workspace table.
+- Added `EFFECTIVE_ROUTE_VERSION_STATUS_SET` and `isVisibleRouteVersionInWorkspace(version)` to show only `ACTIVE` / `SUPERSEDED` effective historical versions in the workspace table.
 - Added `visibleRouteVersions` computed rows and bound the version table to it.
+- Updated version workspace hints so open candidates are handled through the pending-version/edit entry instead of hidden candidate rows.
 - Kept `canViewRouteVersion` unchanged so direct readonly historical version context still works.
 
 ## Experience Consolidation

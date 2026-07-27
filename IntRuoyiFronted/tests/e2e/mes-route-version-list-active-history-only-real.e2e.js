@@ -16,6 +16,7 @@ const STATUS_LABELS = {
   REJECTED: '已驳回',
   CANCELLED: '已取消'
 }
+const EFFECTIVE_HISTORY_STATUSES = new Set(['ACTIVE', 'SUPERSEDED'])
 const READ_ONLY_MES_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 function readLoginDefaults() {
@@ -228,12 +229,15 @@ async function findRouteWithCancelledAndEffectiveHistory(page, config, headers) 
         `/admin-api/mes/pro/route-version/list-by-route?routeId=${route.id}`
       )
       const versionList = Array.isArray(versions) ? versions : []
-      const cancelled = versionList.filter((item) => item.lifecycleStatus === 'CANCELLED')
       const effectiveHistory = versionList.filter(
-        (item) => item.active || item.lifecycleStatus === 'ACTIVE' || item.lifecycleStatus === 'SUPERSEDED'
+        (item) => item.active || EFFECTIVE_HISTORY_STATUSES.has(item.lifecycleStatus)
       )
+      const hiddenNonEffective = versionList.filter(
+        (item) => !item.active && !EFFECTIVE_HISTORY_STATUSES.has(item.lifecycleStatus)
+      )
+      const cancelled = hiddenNonEffective.filter((item) => item.lifecycleStatus === 'CANCELLED')
       if (cancelled.length > 0 && effectiveHistory.length > 0) {
-        return { route, versions: versionList, cancelled, effectiveHistory }
+        return { route, versions: versionList, cancelled, hiddenNonEffective, effectiveHistory }
       }
     }
     if (routes.length < pageSize || Number(routePage?.total || 0) <= pageNo * pageSize) break
@@ -296,8 +300,12 @@ async function assertVersionWorkspace(dialog, target) {
   assert.ok(tableText.trim().length > 0, 'version workspace table should render visible rows')
   assert.equal(tableText.includes(STATUS_LABELS.CANCELLED), false, 'version workspace must not display 已取消 rows')
   assert.equal(tableText.includes('CANCELLED'), false, 'version workspace must not display CANCELLED text')
-  for (const version of target.cancelled) {
-    assert.equal(tableText.includes(version.versionNo), false, `cancelled version should be hidden: ${version.versionNo}`)
+  for (const status of ['DRAFT', 'PENDING_APPROVAL', 'READY_TO_PUBLISH', 'REJECTED']) {
+    assert.equal(tableText.includes(STATUS_LABELS[status]), false, `version workspace must not display ${STATUS_LABELS[status]} rows`)
+    assert.equal(tableText.includes(status), false, `version workspace must not display ${status} text`)
+  }
+  for (const version of target.hiddenNonEffective) {
+    assert.equal(tableText.includes(version.versionNo), false, `non-effective version should be hidden: ${version.versionNo}`)
   }
   for (const version of target.effectiveHistory) {
     assert.ok(tableText.includes(version.versionNo), `effective historical version should remain visible: ${version.versionNo}`)
@@ -365,6 +373,11 @@ async function main() {
         lifecycleStatus: item.lifecycleStatus,
         active: item.active === true
       })),
+      hiddenNonEffectiveVersionNos: target.hiddenNonEffective.map((item) => ({
+        id: item.id,
+        versionNo: item.versionNo,
+        lifecycleStatus: item.lifecycleStatus
+      })),
       hiddenCancelledVersionNos: target.cancelled.map((item) => ({
         id: item.id,
         versionNo: item.versionNo,
@@ -374,7 +387,7 @@ async function main() {
       screenshotPath
     }
     fs.writeFileSync(resultPath, `${JSON.stringify(result, null, 2)}\n`, 'utf8')
-    console.log(`PASS: route version workspace hides cancelled versions; result=${resultPath}`)
+    console.log(`PASS: route version workspace shows effective historical versions only; result=${resultPath}`)
   } catch (error) {
     const failurePath = path.join(config.artifactDir, `mes-route-version-list-failure-${Date.now()}.png`)
     await page.screenshot({ path: failurePath, fullPage: true }).catch(() => null)
