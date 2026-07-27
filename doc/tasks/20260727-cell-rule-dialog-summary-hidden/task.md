@@ -10,7 +10,7 @@
 - [x] 补充最小 RED 静态合同，锁定顶部汇总栏不再渲染。
 - [x] 在单元格规则弹窗中移除红框汇总栏显示，不影响预览、右侧编辑和保存动作。
 - [x] 运行目标验证并记录 GREEN / REGRESSION 证据。
-- [ ] 完成收尾记录、经验沉淀、提交与推送。
+- [x] 完成收尾记录、经验沉淀、提交与推送。
 
 ## Expected Verification
 
@@ -23,7 +23,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 

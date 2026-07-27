@@ -12,6 +12,10 @@
 - GREEN: `node tests/e2e/batch-record-cell-rule-default-fullscreen-static.spec.js` -> PASS.
 - GREEN: `node tests/e2e/edhr-cell-rule-type-background-colors-static.spec.js` -> PASS.
 - GREEN: `pnpm ts:check` -> PASS.
+- GREEN: bug regression evidence validator -> PASS.
+- GREEN: frontend feature evidence validator -> PASS.
+- GREEN: task closeout cleanup preview/apply -> PASS, no deleted paths.
+- GREEN: project-experience-consolidation -> PASS, no new long-term experience update required.
 
 ## Changed Files
 
@@ -26,4 +30,4 @@
 ## Remaining Risk
 
 - No known implementation risk.
-- Final commit and push are still pending; unrelated concurrent attachment-config task documents remain dirty and must not be mixed into this task commit.
+- Unrelated concurrent task files are dirty and must not be mixed into this task commit.

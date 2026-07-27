@@ -21,7 +21,14 @@
 - GREEN: `node tests/e2e/edhr-cell-rule-type-background-colors-static.spec.js` -> PASS。
 - GREEN: `pnpm ts:check` -> PASS。
 - BLOCKED: evidence validators first run -> FAIL, evidence files used section headings without required literal `RED:` / `GREEN:` markers.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260727-cell-rule-dialog-summary-hidden/bug-regression-evidence.md` -> PASS。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260727-cell-rule-dialog-summary-hidden/frontend-feature-evidence.md` -> PASS。
+- GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/BatchRecordCellRulesConfirmDialog.vue IntRuoyiFronted/tests/e2e/batch-record-cell-rule-summary-hidden-static.spec.js doc/tasks/20260727-cell-rule-dialog-summary-hidden` -> PASS。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-cell-rule-dialog-summary-hidden --mode preview` -> PASS, keep only task records/evidence, no delete, no blocked, no warnings。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-cell-rule-dialog-summary-hidden --mode apply` -> PASS, deleted_paths none。
+- GREEN: project-experience-consolidation -> PASS, searched existing docs for red box/static contract/dialog lessons; no new durable lesson required because existing `docs/e2e-rules.md` static contract and red-box gates already cover the reusable workflow.
+- COMMIT: 本次实现与证据已在最新提交序列中出现：`92f3d727` 保存组件删除、`7777a71d` 保存任务证据、`05db7602` 保存 evidence marker 修复；最终 completed 状态待单独提交。
 
 ## Blockers
 
-- None yet.
+- 当前工作区存在并行任务未提交改动，路径为 OnlyOffice 后端配置/测试和特殊节点任务证据；本任务不修改、不暂存这些文件。
