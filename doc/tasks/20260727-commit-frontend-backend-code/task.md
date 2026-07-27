@@ -10,7 +10,7 @@
 - [x] 完成提交前 Git、分支、remote、运行端口规则和敏感/大文件预检。
 - [x] 将既有脏工作区改动保存为独立基线提交。
 - [x] 完成本次提交任务记录和收尾提交。
-- [ ] 推送当前分支到 `origin` 并确认不再领先远端。
+- [ ] 推送当前分支到 `origin` 并确认不再领先远端。当前已推送本任务已确认提交；但推送后并行任务产生新的未完成前端/后端改动，不能安全纳入。
 
 ## Expected Verification
 
@@ -43,7 +43,11 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
+
+## Blocker
+
+- 推送后出现 `doc/tasks/20260727-schedule-calendar-cross-month-data/` 并行任务及新的前端/后端改动；该任务文档仍为 `in_progress`，且未记录 RED/GREEN/回归验证完成。按任务所有权和严格 TDD 规则，本任务不能把该未完成并行改动混入提交。
 
 ## 设计约束检查
 

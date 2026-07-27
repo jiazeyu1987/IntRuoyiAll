@@ -34,8 +34,12 @@
 - STATUS: 本任务进入 `ready_for_closeout`，等待 cleanup preview/apply、完成状态提交和 push。
 - CLEANUP-PREVIEW: `task_closeout.py --task-id 20260727-commit-frontend-backend-code --mode preview` -> PASS，keep `task.md`、`execution-log.md`、`verification-report.md`，delete/blocked/warnings 均为 `<none>`。
 - CLEANUP-APPLY: `task_closeout.py --task-id 20260727-commit-frontend-backend-code --mode apply` -> PASS，deleted_paths 为 `<none>`。
-- CLOSEOUT-COMMIT: 待提交本任务收尾记录与经验文档。
-- PUSH: 待执行 `git push origin int_main`。
+- CLOSEOUT-COMMIT: `6e9afbdb`，提交本任务收尾记录与经验文档，提交信息 `docs: record frontend backend commit closeout`。
+- LARGE-OBJECT-SCAN: `git rev-list --objects origin/int_main..HEAD` + `git cat-file -s` -> PASS，待推送提交中无超过 100MB blob。
+- PUSH: `git push origin int_main` -> PASS，远端从 `91a5ebc0` 更新到 `6e9afbdb`。
+- POST-PUSH-STATUS: 推送后 `git status --short --branch` 显示 `int_main...origin/int_main` 不再 ahead。
+- BLOCKER: 推送后又出现新的并行未完成改动：`IntRuoyiBackend/.../MesProBatchRecordReportLayoutCalibrator.java`、`IntRuoyiFronted/package.json`、`IntRuoyiFronted/src/views/mes/pro/task/calendar/index.vue`、`IntRuoyiFronted/tests/e2e/mes-schedule-calendar-visible-months-static.spec.js`、`doc/tasks/20260727-schedule-calendar-cross-month-data/`。
+- BLOCKER: `doc/tasks/20260727-schedule-calendar-cross-month-data/task.md` 当前状态为 `in_progress`，里程碑和验证仍未完成；本任务不能把未完成并行任务混入提交。
 
 ## Verification Evidence
 
@@ -46,7 +50,9 @@
 - `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
 - `git diff --name-status` after commits -> PASS，除本任务收尾文件与并行未跟踪任务目录外，无剩余已修改前后端代码。
 - `task_closeout.py --mode preview/apply` -> PASS。
+- `git push origin int_main` -> PASS，已推送到 `origin/int_main`。
+- 推送后复扫 -> BLOCKED，新出现未完成并行任务改动，未纳入提交。
 
 ## Blockers
 
-- 暂无。
+- `20260727-schedule-calendar-cross-month-data` 并行任务仍为 `in_progress` 且验证未完成；需要该任务完成验证并更新状态，或用户明确授权提交未完成并行改动。
