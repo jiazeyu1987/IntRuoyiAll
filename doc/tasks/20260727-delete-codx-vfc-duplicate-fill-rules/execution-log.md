@@ -136,6 +136,12 @@
 - GitHub 大文件门禁：`origin/int_main..HEAD` 无 `>=100 MB` blob。
 - 首次推送：`git push origin int_main -> PASS`，
   远端从 `177ebefb` 更新到 `138f978a`。
+- 收尾提交：`1acd8f9dbb994f7d3385ab46faa9583243b9608a`。
+- 第二次推送：`git push origin int_main -> PASS`，
+  远端从 `138f978a` 更新到 `1acd8f9d`，推送后分支不再 ahead。
+- 最终稳定性复核：无活动的
+  `edhr-visual-fill-config-real-flow.e2e.js` Node/CMD 进程；数据库仍为
+  `count=1, id=1033, scope_key=ALL, candidate_source_ids=810`。
 
 ## Current Status
 
