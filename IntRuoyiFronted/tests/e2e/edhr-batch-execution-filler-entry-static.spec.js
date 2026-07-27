@@ -53,4 +53,18 @@ assert.doesNotMatch(
   '真实批次执行 E2E 不得再声明必需 EDHR_BATCH_E2E_* 数据环境变量。'
 )
 
+assert.ok(
+  realE2e.includes("envValue('EDHR_BATCH_E2E_BASE_URL')") &&
+    realE2e.includes("envValue('EDHR_BATCH_E2E_BACKEND_URL')") &&
+    realE2e.includes('validateLocalRuntimePair'),
+  '真实批次执行 E2E 必须显式校验 worktree 前后端本机 URL 配对，不能只覆盖前端或静默回退到 8081/48081。'
+)
+
+assert.ok(
+  realE2e.includes("const accessToken = readCacheValue('ACCESS_TOKEN')") &&
+    realE2e.includes("headers.Authorization = `Bearer ${accessToken}`") &&
+    realE2e.includes("headers['tenant-id'] = String(tenantId)"),
+  '真实批次执行 E2E 的执行详情只读核验必须复用浏览器登录态 Authorization 和 tenant-id。'
+)
+
 console.log('PASS: EDHR batch execution list edit entry static contract')

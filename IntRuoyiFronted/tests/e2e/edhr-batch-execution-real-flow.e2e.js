@@ -8,7 +8,11 @@ const RESULT_DIR = path.resolve(process.cwd(), 'test-results', 'edhr-batch-execu
 const EVIDENCE_FILE = envValue('EDHR_BATCH_E2E_EVIDENCE_FILE')
   ? path.resolve(envValue('EDHR_BATCH_E2E_EVIDENCE_FILE'))
   : path.resolve(process.cwd(), '..', 'doc', 'tasks', TASK_ID, 'real-e2e-evidence.md')
-const REQUIRED_BASE_URL = 'http://localhost:8081'
+const DEFAULT_BASE_URL = 'http://localhost:8081'
+const DEFAULT_BACKEND_URL = 'http://127.0.0.1:48081'
+const INT_MAIN_FRONTEND_PORT_MIN = 8081
+const INT_MAIN_FRONTEND_PORT_MAX = 8100
+const FRONTEND_BACKEND_PORT_OFFSET = 40000
 const BATCH_EXECUTION_ROUTE = '/mes/pro/feedback/edhr-batch-execution'
 const OPEN_OR_CREATE_ENDPOINT_COVERAGE_TOKEN = '/mes/pro/edhr-batch-execution/open-or-create'
 const EXECUTION_ROUTES = new Set([
@@ -26,6 +30,44 @@ const AUTO_PERSIST_ACCEPTED_STATUSES = new Set(['APPLIED', 'NO_CHANGE_ALREADY_AP
 
 function envValue(name) {
   return (process.env[name] || '').trim()
+}
+
+function parseLocalRuntimeUrl(value, label) {
+  let url
+  try {
+    url = new URL(value)
+  } catch {
+    throw new Error(`${label} 不是有效 HTTP URL：${value}`)
+  }
+  assert.equal(url.protocol, 'http:', `${label} 只允许本机 HTTP URL`)
+  assert.ok(['localhost', '127.0.0.1'].includes(url.hostname), `${label} 只允许 localhost 或 127.0.0.1`)
+  assert.ok(!url.username && !url.password, `${label} 不得包含认证信息`)
+  assert.ok(!url.search && !url.hash, `${label} 不得包含查询参数或片段`)
+  assert.ok(url.pathname === '/' || url.pathname === '', `${label} 不得包含业务路径`)
+  const port = Number(url.port)
+  assert.ok(Number.isInteger(port) && port > 0, `${label} 必须显式包含端口`)
+  return {
+    url: `http://${url.hostname}:${port}`,
+    port
+  }
+}
+
+function validateLocalRuntimePair(baseUrl, backendUrl) {
+  const frontend = parseLocalRuntimeUrl(baseUrl, '前端入口')
+  const backend = parseLocalRuntimeUrl(backendUrl, '后端入口')
+  assert.ok(
+    frontend.port >= INT_MAIN_FRONTEND_PORT_MIN && frontend.port <= INT_MAIN_FRONTEND_PORT_MAX,
+    `前端端口必须属于 int_main 基准或附加 worktree 范围 ${INT_MAIN_FRONTEND_PORT_MIN}-${INT_MAIN_FRONTEND_PORT_MAX}`
+  )
+  assert.equal(
+    backend.port,
+    frontend.port + FRONTEND_BACKEND_PORT_OFFSET,
+    `前后端端口必须属于同一 int_main runtime slot：${frontend.port}/${frontend.port + FRONTEND_BACKEND_PORT_OFFSET}`
+  )
+  return {
+    baseUrl: frontend.url,
+    backendUrl: backend.url
+  }
 }
 
 function ensureDir(dir) {
@@ -412,12 +454,42 @@ async function assertPageDisplaysPersistedValue(page, expectedValue) {
 async function fetchExecutionDetailFromPage(page, executionId, workTaskId) {
   return await page.evaluate(
     async ({ targetExecutionId, targetWorkTaskId }) => {
+      const readCacheValue = (key) => {
+        const raw = localStorage.getItem(key)
+        if (!raw) return ''
+        let current = raw
+        for (let index = 0; index < 8; index += 1) {
+          if (typeof current === 'string') {
+            const trimmed = current.trim()
+            try {
+              current = JSON.parse(trimmed)
+              continue
+            } catch {
+              return trimmed.replace(/^"(.*)"$/, '$1')
+            }
+          }
+          if (!current || typeof current !== 'object') return current || ''
+          const nestedKey = ['accessToken', 'v', 'value', 'data', 'content'].find((candidate) =>
+            Object.prototype.hasOwnProperty.call(current, candidate)
+          )
+          if (!nestedKey) return ''
+          current = current[nestedKey]
+        }
+        return typeof current === 'string' ? current.trim() : current || ''
+      }
       const url = new URL('/admin-api/mes/pro/batch-record-execution/get', window.location.origin)
       url.searchParams.set('id', String(targetExecutionId))
       if (targetWorkTaskId) {
         url.searchParams.set('workTaskId', String(targetWorkTaskId))
       }
-      const response = await fetch(url.toString(), { credentials: 'include' })
+      const accessToken = readCacheValue('ACCESS_TOKEN')
+      const tenantId = readCacheValue('tenantId')
+      const visitTenantId = readCacheValue('visitTenantId')
+      const headers = {}
+      if (accessToken) headers.Authorization = `Bearer ${accessToken}`
+      if (tenantId) headers['tenant-id'] = String(tenantId)
+      if (visitTenantId && accessToken) headers['visit-tenant-id'] = String(visitTenantId)
+      const response = await fetch(url.toString(), { headers })
       let body = null
       try {
         body = await response.json()
@@ -444,7 +516,8 @@ function writeEvidence(result) {
     '',
     `- Task ID: \`${TASK_ID}\``,
     `- 状态：${result.status}`,
-    `- 前端入口：\`${REQUIRED_BASE_URL}\``,
+    `- 前端入口：\`${fixture.baseUrl || DEFAULT_BASE_URL}\``,
+    `- 后端入口：\`${fixture.backendUrl || DEFAULT_BACKEND_URL}\``,
     `- 授权租户/账号：\`${AUTHORIZED_TENANT_LABEL}/${AUTHORIZED_USERNAME}\`；密码由登录页本机默认值提供，脚本和证据不记录明文密码。`,
     `- 数据来源：\`${fixture.fixtureSource || `${MYSQL_CONTAINER_NAME}/${DATABASE_NAME}`}\``,
     fixture.batchExecutionId ? `- 批次执行：\`${fixture.batchExecutionCode || fixture.batchExecutionId}\`，任务 ID \`${fixture.taskId}\`，执行 ID \`${fixture.executionId}\`` : '',
@@ -492,13 +565,29 @@ function collectConfig() {
     })
   }
 
-  const baseUrl = envValue('EDHR_BATCH_E2E_BASE_URL') || REQUIRED_BASE_URL
-  if (baseUrl !== REQUIRED_BASE_URL) {
-    missing.push({ name: 'EDHR_BATCH_E2E_BASE_URL', description: `必须固定为 ${REQUIRED_BASE_URL}` })
+  const configuredBaseUrl = envValue('EDHR_BATCH_E2E_BASE_URL')
+  const configuredBackendUrl = envValue('EDHR_BATCH_E2E_BACKEND_URL')
+  if (Boolean(configuredBaseUrl) !== Boolean(configuredBackendUrl)) {
+    missing.push({
+      name: 'EDHR_BATCH_E2E_RUNTIME_URL_PAIR',
+      description: '覆盖 worktree 运行态时必须同时提供 EDHR_BATCH_E2E_BASE_URL 和 EDHR_BATCH_E2E_BACKEND_URL'
+    })
+  }
+  let runtime = {
+    baseUrl: configuredBaseUrl || DEFAULT_BASE_URL,
+    backendUrl: configuredBackendUrl || DEFAULT_BACKEND_URL
+  }
+  try {
+    runtime = validateLocalRuntimePair(runtime.baseUrl, runtime.backendUrl)
+  } catch (error) {
+    missing.push({
+      name: 'EDHR_BATCH_E2E_RUNTIME_URL_PAIR',
+      description: error instanceof Error ? error.message : String(error)
+    })
   }
 
   return {
-    baseUrl,
+    ...runtime,
     ...(fixture || {}),
     executablePath:
       envValue('EDHR_BATCH_E2E_CHROME_EXECUTABLE') ||
@@ -507,6 +596,19 @@ function collectConfig() {
     headed: envValue('EDHR_BATCH_E2E_HEADED') === '1',
     missing
   }
+}
+
+async function assertRuntimeReachable(config) {
+  const frontendResponse = await fetch(`${config.baseUrl}/`, {
+    signal: AbortSignal.timeout(15000)
+  })
+  assert.equal(frontendResponse.status, 200, `前端入口必须返回 HTTP 200：${config.baseUrl}`)
+  const backendResponse = await fetch(`${config.backendUrl}/actuator/health`, {
+    signal: AbortSignal.timeout(15000)
+  })
+  assert.equal(backendResponse.status, 200, `后端健康检查必须返回 HTTP 200：${config.backendUrl}`)
+  const backendHealth = await backendResponse.json()
+  assert.equal(backendHealth.status, 'UP', `后端健康状态必须为 UP：${config.backendUrl}`)
 }
 
 function loadPlaywright() {
@@ -573,6 +675,7 @@ async function login(page, config) {
 }
 
 async function runRealFlow(config) {
+  await assertRuntimeReachable(config)
   const { chromium } = loadPlaywright()
   ensureDir(RESULT_DIR)
   const browser = await chromium.launch({
@@ -711,7 +814,7 @@ async function main() {
   if (config.missing.length > 0) {
     const result = {
       status: 'BLOCKED',
-      reason: '真实 E2E 本地数据库夹具前置条件缺失。',
+      reason: '真实 E2E 本地运行态或数据库夹具前置条件缺失。',
       missing: config.missing,
       fixture: config
     }
