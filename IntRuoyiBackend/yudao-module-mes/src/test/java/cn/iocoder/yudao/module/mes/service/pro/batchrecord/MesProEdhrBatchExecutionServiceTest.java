@@ -120,6 +120,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -284,6 +285,16 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .thenReturn(true);
         when(recordbookGlobalSettingService.resolveEffectiveRecordbookEnabled(any(), any()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
+        when(adminUserApi.getUserMap(any())).thenAnswer(invocation -> {
+            Object rawIds = invocation.getArgument(0);
+            Collection<?> ids = rawIds instanceof Collection<?> collection ? collection : List.of();
+            Map<Long, AdminUserRespDTO> users = new LinkedHashMap<>();
+            for (Object rawId : ids) {
+                Long userId = Long.valueOf(String.valueOf(rawId));
+                users.put(userId, user(userId, "用户" + userId));
+            }
+            return users;
+        });
         when(formCenterRuntimeService.createInstance(any(FormInstanceCreateReqVO.class), any()))
                 .thenAnswer(invocation -> {
                     FormInstanceRespVO respVO = new FormInstanceRespVO();
@@ -1828,17 +1839,19 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void specialNodeWriteApis_rejectNonCloseOwner() {
+    void specialNodeWriteApis_requireConfiguredAttachmentOwnerInsteadOfCloseOwner() {
         Fixture fixture = insertRouteFixture(true, true);
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
-                .setBatchCode("BATCH-SPECIAL-CLOSE-OWNER")
+                .setBatchCode("BATCH-SPECIAL-ATTACHMENT-OWNER")
                 .setRouteId(fixture.routeId()));
         EdhrBatchExecutionTaskRespVO specialNode = batch.getTasks().stream()
-                .filter(task -> task.getBatchRecordReportId() == null)
+                .filter(task -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT
+                        .equals(task.getNodeType()))
                 .findFirst()
                 .orElseThrow();
-        insertCloseAssignmentRule(fixture.routeId(), 188L);
+        configureBatchSpecialAttachmentOwners(batch.getId(), 188L, 190L);
+        insertCloseAssignmentRule(fixture.routeId(), 189L);
         byte[] content = "incoming inspection attachment".getBytes(StandardCharsets.UTF_8);
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -1846,7 +1859,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
             ServiceException skipException = assertThrows(ServiceException.class,
                     () -> batchExecutionService.skipSpecialNode(specialNode.getId(),
-                            "非负责人绕过前端跳过", "secret", List.of()));
+                            "关闭负责人不能替代附件填写人", "secret", List.of()));
             assertEquals(PRO_EDHR_BATCH_EXECUTION_OWNER_INVALID.getCode(), skipException.getCode());
 
             ServiceException completeException = assertThrows(ServiceException.class,
@@ -1857,10 +1870,44 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                     () -> batchExecutionService.prepareSpecialNodeAttachmentUpload(
                             new MesProEdhrSpecialNodeAttachmentPrepareUploadCommand()
                                     .setTaskId(specialNode.getId())
+                            .setFileName("incoming.pdf")
+                            .setContentType("application/pdf")
+                            .setContent(content)));
+            assertEquals(PRO_EDHR_BATCH_EXECUTION_OWNER_INVALID.getCode(), uploadException.getCode());
+        }
+
+        String directory = "edhr/special-nodes/" + batch.getId() + "/" + specialNode.getId() + "/attachments";
+        when(fileService.createFileAndReturnId(content, "incoming.pdf", directory, "application/pdf"))
+                .thenReturn(9301L);
+        when(fileService.getFile(9301L)).thenReturn(FileDO.builder()
+                .id(9301L)
+                .configId(28L)
+                .name("incoming.pdf")
+                .path(directory + "/incoming.pdf")
+                .url("http://127.0.0.1:9000/yudao/" + directory + "/incoming.pdf")
+                .type("application/pdf")
+                .size((long) content.length)
+                .build());
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(188L);
+
+            MesProEdhrSpecialNodeAttachmentPrepareUploadResult upload =
+                    batchExecutionService.prepareSpecialNodeAttachmentUpload(
+                            new MesProEdhrSpecialNodeAttachmentPrepareUploadCommand()
+                                    .setTaskId(specialNode.getId())
                                     .setFileName("incoming.pdf")
                                     .setContentType("application/pdf")
-                                    .setContent(content)));
-            assertEquals(PRO_EDHR_BATCH_EXECUTION_OWNER_INVALID.getCode(), uploadException.getCode());
+                                    .setContent(content));
+            assertEquals(9301L, upload.getFileId());
+
+            EdhrBatchExecutionRespVO completed =
+                    batchExecutionService.completeSpecialNode(specialNode.getId(), null, List.of());
+            assertEquals(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED,
+                    completed.getTasks().stream()
+                            .filter(task -> task.getId().equals(specialNode.getId()))
+                            .findFirst()
+                            .orElseThrow()
+                            .getStatus());
         }
     }
 
@@ -5555,6 +5602,69 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .map(EdhrBatchExecutionTaskRespVO.FillableUser::getUserId)
                 .toList());
         assertEquals(List.of("张可莹（zhangkeying）"), lossTask.getFillableUsers().stream()
+                .map(EdhrBatchExecutionTaskRespVO.FillableUser::getDisplayName)
+                .toList());
+    }
+
+    @Test
+    void detailTask_includesFillableUsersFromStartBatchRecordAttachmentOwnersForSpecialNodes() {
+        Fixture fixture = insertRouteFixture(true, true);
+        MesProRouteDO route = routeMapper.selectById(fixture.routeId());
+        List<Map<String, Object>> owners = List.of(
+                batchRecordAttachmentOwner(
+                        MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT,
+                        "USERS", List.of(201L, 202L)),
+                batchRecordAttachmentOwner(
+                        MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_STERILIZATION_REPORT,
+                        "ROLE", List.of(991L)),
+                batchRecordAttachmentOwner(
+                        MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_FINISHED_PRODUCT_INSPECTION_REPORT,
+                        "USERS", List.of(301L, 302L)),
+                batchRecordAttachmentOwner(
+                        MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_FINISHED_PRODUCT_INSPECTION_RECORD,
+                        "USERS", List.of(401L, 402L)));
+        configureRouteVersionSpecialAttachmentOwners(fixture.routeVersionId(), route, owners);
+        when(permissionApi.getUserRoleIdListByRoleIds(argThat(ids -> ids != null && ids.contains(991L))))
+                .thenReturn(Set.of(211L, 212L));
+        when(adminUserApi.getUserMap(argThat(ids -> ids != null
+                && ids.containsAll(List.of(201L, 202L, 211L, 212L, 301L, 302L, 401L, 402L)))))
+                .thenReturn(Map.of(
+                        201L, user(201L, "来料甲"),
+                        202L, user(202L, "来料乙"),
+                        211L, user(211L, "灭菌甲"),
+                        212L, user(212L, "灭菌乙"),
+                        301L, user(301L, "成检报告甲"),
+                        302L, user(302L, "成检报告乙"),
+                        401L, user(401L, "成检记录甲"),
+                        402L, user(402L, "成检记录乙")));
+
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-SPECIAL-FILLABLE-USERS")
+                .setRouteId(fixture.routeId()));
+
+        assertSpecialNodeFillableUsers(batch, MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT,
+                List.of(201L, 202L), List.of("来料甲", "来料乙"));
+        assertSpecialNodeFillableUsers(batch, MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_STERILIZATION_REPORT,
+                List.of(211L, 212L), List.of("灭菌甲", "灭菌乙"));
+        assertSpecialNodeFillableUsers(batch,
+                MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_FINISHED_PRODUCT_INSPECTION_REPORT,
+                List.of(301L, 302L), List.of("成检报告甲", "成检报告乙"));
+        assertSpecialNodeFillableUsers(batch,
+                MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_FINISHED_PRODUCT_INSPECTION_RECORD,
+                List.of(401L, 402L), List.of("成检记录甲", "成检记录乙"));
+    }
+
+    private void assertSpecialNodeFillableUsers(EdhrBatchExecutionRespVO batch, String nodeType,
+                                                List<Long> expectedUserIds, List<String> expectedDisplayNames) {
+        EdhrBatchExecutionTaskRespVO task = batch.getTasks().stream()
+                .filter(item -> nodeType.equals(item.getNodeType()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(expectedUserIds, task.getFillableUsers().stream()
+                .map(EdhrBatchExecutionTaskRespVO.FillableUser::getUserId)
+                .toList());
+        assertEquals(expectedDisplayNames, task.getFillableUsers().stream()
                 .map(EdhrBatchExecutionTaskRespVO.FillableUser::getDisplayName)
                 .toList());
     }
