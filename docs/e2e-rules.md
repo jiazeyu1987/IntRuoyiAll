@@ -129,12 +129,12 @@
 - Evidence: `doc/tasks/20260726-edhr-personal-console-open-task-status/verification-report.md`。
 ## eDHR 单据填写人显示值门禁
 
-- Trigger: Playwright 验证 eDHR 批次详情右侧单据卡片、损耗单、过程检验单、参数记录表、`fillableUsers`、填写人显示值。
-- Preflight check: 页面断言前先通过同一登录会话的详情接口读取目标任务 `fillableUsers`，以接口当前 `displayName/nickname/username` 为页面期望值；不得硬编码配置页历史 `candidateSourceNames` 格式。
-- Blocker: 若详情接口 `fillableUsers` 为空、只返回角色/部门 ID、或页面卡片显示值与详情接口当前显示值不一致，必须停止并记录接口任务、页面可见卡片和账号/租户标签。
-- Verification: 真实 E2E 同时记录批次编码/ID、命中任务、接口填写人、页面卡片可见文本和无 MES 写请求检查。
-- Forbidden action: 禁止把旧配置页候选名称、当前登录人、创建人、更新人或账号拼接格式当作页面期望值；禁止把 API-only 断言当成单据卡片显示通过。
-- Evidence: `doc/tasks/20260725-edhr-route-form-filler-e2e/real-e2e-evidence.md`。
+- Trigger: Playwright 验证 eDHR 批次详情右侧单据卡片、特殊节点操作区、损耗单、过程检验单、参数记录表、`fillableUsers`、填写人显示值。
+- Preflight check: 页面断言前先通过同一登录会话的详情接口读取目标任务 `fillableUsers`，以接口当前 `displayName/nickname/username` 为页面期望值；特殊节点还要确认选中任务后右侧操作区使用同一 task 的 `fillableUsers`，不得硬编码配置页历史 `candidateSourceNames` 格式。
+- Blocker: 若详情接口 `fillableUsers` 为空、只返回角色/部门 ID、页面卡片或特殊节点操作区没有显示填写人，或页面显示值与详情接口当前显示值不一致，必须停止并记录接口任务、页面可见区域和账号/租户标签。
+- Verification: 真实 E2E 同时记录批次编码/ID、命中任务、接口填写人、页面卡片或特殊节点操作区可见文本和无 MES 写请求检查；接口 `fillableUsers` 正确但页面未渲染不得判定通过。
+- Forbidden action: 禁止把旧配置页候选名称、当前登录人、创建人、更新人或账号拼接格式当作页面期望值；禁止把 API-only 或仅详情接口断言当成页面填写人显示通过。
+- Evidence: `doc/tasks/20260725-edhr-route-form-filler-e2e/real-e2e-evidence.md`；`doc/tasks/20260727-edhr-special-node-filler-from-route-start/verification-report.md`。
 ## eDHR 路线表单跳过口径门禁
 
 - Trigger: 修改或验证 eDHR 批次详情右侧路线表单卡片、损耗单、过程检验单、参数记录表、`isOptionalTask`、`canSkipOptionalTask`、`requiredPolicy`、`requiredFlag`、`SKIP` 动作、无 `OPEN_FORM` 的只读查看动作，或错误“必填路线表单不允许跳过”。

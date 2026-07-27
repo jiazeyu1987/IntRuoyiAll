@@ -61,7 +61,15 @@
 
 - Implementation baseline commit containing the auto-persist implementation: `b7dc3380 chore: baseline existing worktree changes`.
 - `git merge-base --is-ancestor b7dc3380 origin/int_main` -> PASS; implementation is already present on the remote branch.
-- Final closeout document commits and push are recorded after they complete.
+- Verification record commit: `6b2575da docs: record eDHR cell link auto-persist verification`.
+- `git merge-base --is-ancestor 6b2575da origin/int_main` -> PASS.
+- `git push origin int_main` -> `Everything up-to-date`; `HEAD` and `origin/int_main` both resolved to `6b2575da` at verification time.
+- Concurrency note: after the staged-file check but before commit creation, another task staged `doc/tasks/20260727-form-template-open-fill-binding/execution-log.md`; Git included that already-completed task's two-line push record in `6b2575da`. The event was detected immediately after commit. No history rewrite, revert, or further modification of that task file was performed.
+- Final closeout commit uses path-limited `git commit --only` to prevent concurrent staged files from entering this task's final record.
+
+## Final Status
+
+- Task status changed from `ready_for_closeout` to `completed` after implementation evidence, targeted verification, evidence validators, experience consolidation, cleanup apply, and remote ancestor checks passed.
 
 ## Blockers
 

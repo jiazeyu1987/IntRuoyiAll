@@ -30,6 +30,9 @@
 - `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence ...\database-schema-evidence.md`：PASS。
 - `python -X utf8 docs read`：PASS，任务目录 Markdown 均可 UTF-8 读取。
 - `task-owned trailing whitespace scan`：PASS，本任务新增/修改文件均无尾随空白。
+- `temporary artifact cleanup`：PASS，本任务 `.runtime` 目录和临时构建快照均已删除，PID 10456 未运行。
+- `task-closeout-cleanup preview/apply`：PASS，10 份任务设计/证据文档全部保留，无 delete/blocked/warnings。
+- `current worktree button alignment contract`：FAIL，聚焦断言报告 `打开,编辑,填写` 均未进入批记录同源路径。
 
 ## Implemented Files
 
@@ -47,5 +50,5 @@
 
 ## Blockers
 
-- 当前工作区存在非本任务 MES/文档脏改动，且分支领先 `origin/int_main` 11 个提交；本任务未提交、未推送，避免混入无关任务状态。
-- Closeout 尚未执行：需处理本任务临时构建快照和 `.runtime` 运行态 jar 的保留/清理策略，再按项目规则提交、推送。
+- 并行任务已在同一源码和静态合同中实施与本任务相反的行为，其中编辑反向改动已进入提交，打开/填写反向改动当前已暂存。
+- 当前工作区不再满足“表单模板三个按钮按批记录表单行为对齐”，需先明确两项互斥需求的最终优先级，再恢复实现和重跑真实 E2E。

@@ -1,0 +1,15 @@
+{
+  "scope": "local int_main / tenant 1 / route 922119 / batch 900000000876",
+  "sourceRouteVersionId": 361,
+  "sourceVersionNo": "V15",
+  "targetBatchExecutionId": 900000000876,
+  "targetRouteVersionId": 358,
+  "restoredOwnerCount": -1,
+  "restoreRows": 1,
+  "repairRows": 1,
+  "afterOwnerType": "ARRAY",
+  "afterOwnerCount": 4,
+  "afterSnapshotSha256": "a0eaee796447a8647b7b883297df00fc350dc266045d0ff6a9bf3f286accb062",
+  "originalSnapshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260727-batch-record-attachment-owner-config\\runtime-artifacts\\batch-900000000876-route-snapshot-before-repair.json",
+  "backout": "Restore originalSnapshotPath into mes_pro_edhr_batch_execution.route_snapshot_json for id=900000000876 if rollback is required."
+}

@@ -320,6 +320,7 @@
           </el-form>
 
           <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
+          <el-alert v-if="actionError" :title="actionError" type="error" :closable="false" show-icon />
           <el-alert
             v-if="verifyResult"
             :title="resolveVerifyResultTitle(verifyResult)"
@@ -589,6 +590,7 @@ const responsibilityLoading = ref(false)
 const responsibilityHistoryLoading = ref(false)
 const responsibilityExportLoading = ref(false)
 const loadError = ref('')
+const actionError = ref('')
 const responsibilityError = ref('')
 const list = ref<EdhrFieldAuditEntryVO[]>([])
 const responsibilityList = ref<EdhrFieldResponsibilityItemRespVO[]>([])
@@ -941,6 +943,7 @@ const getList = async () => {
   }
   loading.value = true
   loadError.value = ''
+  actionError.value = ''
   verifyResult.value = undefined
   try {
     const pageData = await getEdhrFieldAuditPage(buildQuery())
@@ -984,25 +987,25 @@ const handleVerify = async () => {
   const verifyQuery = buildQuery()
   if (!verifyQuery.executionId) {
     verifyResult.value = undefined
-    loadError.value = '缺少执行ID，无法校验字段审计链。'
-    message.error(loadError.value)
+    actionError.value = '缺少执行ID，无法校验字段审计链。'
+    message.error(actionError.value)
     return
   }
   verifyLoading.value = true
-  loadError.value = ''
+  actionError.value = ''
   try {
     verifyResult.value = await verifyEdhrFieldAuditChain({
       executionId: verifyQuery.executionId,
       includeBrokenItem: true
     })
     if (verifyResult.value.hashVerification.status !== 'VALID') {
-      loadError.value = `字段审计链校验未通过：${resolveHashStatusLabel(verifyResult.value.hashVerification.status)}`
+      actionError.value = `字段审计链校验未通过：${resolveHashStatusLabel(verifyResult.value.hashVerification.status)}`
       return
     }
     message.success('字段审计链校验通过')
   } catch (error) {
     verifyResult.value = undefined
-    loadError.value = resolveErrorMessage(error, '字段审计链校验失败，请联系管理员。')
+    actionError.value = resolveErrorMessage(error, '字段审计链校验失败，请联系管理员。')
   } finally {
     verifyLoading.value = false
   }
@@ -1011,12 +1014,12 @@ const handleVerify = async () => {
 const handleExport = async () => {
   const exportQuery = buildQuery()
   if (!exportQuery.executionId) {
-    loadError.value = '缺少执行ID，无法导出字段审计链。'
-    message.error(loadError.value)
+    actionError.value = '缺少执行ID，无法导出字段审计链。'
+    message.error(actionError.value)
     return
   }
   exportLoading.value = true
-  loadError.value = ''
+  actionError.value = ''
   try {
     const exportPayload = await exportEdhrFieldAudit({
       ...exportQuery,
@@ -1026,7 +1029,7 @@ const handleExport = async () => {
     downloadEdhrFieldAuditExport(exportPayload)
     message.success('字段审计链导出已开始')
   } catch (error) {
-    loadError.value = resolveErrorMessage(error, '字段审计链导出失败，请联系管理员。')
+    actionError.value = resolveErrorMessage(error, '字段审计链导出失败，请联系管理员。')
   } finally {
     exportLoading.value = false
   }

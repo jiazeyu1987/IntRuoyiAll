@@ -19,6 +19,13 @@
 
 
       <section class="edhr-batch-detail__review" aria-label="工序复盘">
+        <el-alert
+          v-if="secondaryLoadError"
+          :title="secondaryLoadError"
+          type="error"
+          :closable="false"
+          show-icon
+        />
         <el-alert v-if="reviewError" :title="reviewError" type="error" :closable="false" show-icon />
         <div class="edhr-batch-detail__review-workbench">
           <nav class="edhr-batch-detail__process-panel edhr-batch-detail__process-list edhr-batch-detail__review-list" aria-label="工序列表">
@@ -569,6 +576,14 @@
                 class="edhr-batch-detail__special-node-action-grid"
                 aria-label="特殊节点操作"
               >
+                <div
+                  class="edhr-batch-detail__special-node-filler edhr-batch-detail__rail-process-form-filler"
+                  :title="resolveTaskCardFillersText(selectedTaskForEvidence)"
+                  aria-label="特殊节点填写人"
+                >
+                  <span>填写人</span>
+                  <strong>{{ resolveTaskCardFillersText(selectedTaskForEvidence) }}</strong>
+                </div>
                 <el-upload
                   ref="specialNodeRailUploadRef"
                   class="edhr-batch-detail__special-node-hidden-upload"
@@ -1260,6 +1275,7 @@ const specialNodeSkipLoading = ref(false)
 const specialNodeCompleteLoading = ref(false)
 const specialNodeAttachmentUploading = ref(false)
 const loadError = ref('')
+const secondaryLoadError = ref('')
 const recordbookGlobalEnabled = ref(true)
 const reopenError = ref('')
 const reexecuteError = ref('')
@@ -3539,6 +3555,7 @@ const cancelDeferredBatchDetailSecondaryLoad = () => {
 }
 
 const loadBatchDetailSecondaryData = async (id: string | number, requestSerial: number) => {
+  secondaryLoadError.value = ''
   try {
     const nextWorkbench = await getEdhrBatchWorkbench(id)
     if (isStaleBatchDetailRequest(requestSerial)) return
@@ -3555,7 +3572,7 @@ const loadBatchDetailSecondaryData = async (id: string | number, requestSerial: 
     workbench.value = undefined
     reviewTimeline.value = undefined
     clearTaskPreview()
-    loadError.value = resolveErrorMessage(error, '电子批记录批次辅助数据加载失败。')
+    secondaryLoadError.value = resolveErrorMessage(error, '电子批记录批次辅助数据加载失败。')
   }
 }
 
@@ -3573,6 +3590,7 @@ const loadDetail = async () => {
   cancelDeferredBatchDetailSecondaryLoad()
   loading.value = true
   loadError.value = ''
+  secondaryLoadError.value = ''
   try {
     const id = assertBatchExecutionId()
     workbench.value = undefined

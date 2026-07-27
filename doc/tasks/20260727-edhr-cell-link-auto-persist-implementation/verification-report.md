@@ -65,5 +65,13 @@
 
 ## Remaining Closeout
 
-- Commit task-owned verification and closeout document changes only.
-- Push `int_main` and confirm the branch is not ahead of `origin`.
+- None for the owned task scope.
+
+## Final Decision
+
+PASS for the documented implementation scope.
+
+- The create/open backend write boundary, field-audit persistence, fail-fast behavior, manual-value protection, idempotency, response summary, and frontend persisted-value-only contract are implemented and covered by targeted tests.
+- Required evidence validators and cleanup gates passed.
+- Implementation commit `b7dc3380` and verification commit `6b2575da` are present on `origin/int_main`.
+- Real Playwright E2E and the full eDHR test class are explicitly not claimed as PASS because their documented prerequisites/blockers remain outside this task's owned scope.

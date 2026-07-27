@@ -9,13 +9,10 @@
     "routeId": 922119,
     "existingBatchExecutionId": 900000000876
   },
-  "currentUrl": "http://localhost:8081/mes/pro/feedback/edhr-batch-execution",
-  "reachedDetail": false,
-  "hasVisibleOwnerError": true,
-  "visibleOwnerError": [
-    "批记录附件负责人配置无效：batchRecordAttachmentOwners",
-    "批记录附件负责人配置无效：batchRecordAttachmentOwners"
-  ],
+  "currentUrl": "http://localhost:8081/mes/pro/feedback/edhr-batch-execution/detail?id=900000000876",
+  "reachedDetail": true,
+  "hasVisibleOwnerError": false,
+  "visibleOwnerError": [],
   "api": [
     {
       "url": "http://localhost:8081/admin-api/mes/pro/edhr-batch-execution/work-order-route-options?workOrderId=923889",
@@ -27,7 +24,7 @@
       "url": "http://localhost:8081/admin-api/mes/pro/edhr-batch-execution/open-or-create",
       "method": "POST",
       "status": 200,
-      "bodyPreview": "{\"code\":1040271050,\"msg\":\"批记录附件负责人配置无效：batchRecordAttachmentOwners\",\"data\":null}"
+      "bodyPreview": "{\"code\":0,\"msg\":\"\",\"data\":{\"id\":900000000876,\"batchExecutionCode\":\"EDHRB-1785116357526\",\"workOrderId\":923889,\"workOrderCode\":\"881MO090889\",\"batchCode\":\"34126020001\",\"createTime\":1785116358000,\"updateTime\":1785134700000,\"attemptNo\":1,\"sourceRejectedBatchExecutionId\":null,\"supersededByBatchExecutionId\":null,\"reexecutedByChangeEventId\":null,\"productId\":902149,\"productCode\":\"902149\",\"productName\":\"球囊扩张压力泵\",\"routeId\":922119,\"routeVersionId\":358,\"routeVersionNo\":\"V14\",\"routeCode\":\"RT000028\",\"routeName\":\"球囊扩张压力泵\",\"currentProcessRouteProcessId\":927775,\"currentProcessCode\":\"ER0C9BD936FFAE\",\"currentProcessName\":\"粗洗工序\",\"currentProcessProductionFillers\":[{\"userId\":810,\"displayName\":\"王歆\"},{\"userId\":910181,\"displayName\":\"任丹\"}],\"currentProcessEquipmentFillers\":[],\"currentProcessQualityFillers\":[],\"status\":10,\"taskTotal\":21,\"taskApprovedCount\":0,\"blockedCount\":0,\"mainStage\":\"IN_FILLING\",\"mainStageLabel\":\"填写中\",\"stageOwnerRole\":\"执行人\",\"stageBlockers\":[],\"canClose\":true,\"canArchive\":false,\"closeBlockers\":[],\"tasks\":[{\"id\":6665,\"nodeType\":\"INCOMING_INSPECTION_REPORT\",\"routeProcessId\":null,\"routeProcessSort\":0,\"processId\":null,\"processCode\":\"INCOMING_INSPECTION_REPORT\",\"processName\":\"来料检报告\",\"batchRecordReportId\":null,\"batchRecordReportName\":null,\"batchRecordDefinitionId\":null,\"batchRecordVersionId\":null,\"batchRecordVersionNo\":null,\"batchRecordSort\":0,\"instanceScope\":\"PROCESS\",\"sharedFormKey\":null,\"fillableScopeJson\":null,\"executionMode\":\"SEQUENTIAL\",\"formSlotType\":null,\"formBindingKey\":null,\"formT"
     }
   ],
   "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260727-batch-record-attachment-owner-config\\runtime-artifacts\\edhr-open-create-confirm-existing.png",

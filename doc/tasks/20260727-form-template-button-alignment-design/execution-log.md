@@ -48,6 +48,12 @@
 - `GREEN: python -X utf8 docs read -> PASS, 任务目录 Markdown 均可 UTF-8 读取。`
 - `GREEN: task-owned trailing whitespace scan -> PASS, 本任务新增/修改文件均无尾随空白。`
 - `GREEN: project-experience-consolidation -> PASS, 已核对现有 docs/frontend-development.md、docs/e2e-rules.md、docs/local-runtime.md、docs/powershell-memory.md；本次无新增长期经验归档，现有门禁已覆盖无关 ts:check 阻塞和旧 jar 运行态核对。`
+- `GREEN: temporary runtime cleanup -> PASS, PID 10456 已停止且无进程引用后，删除 E:\IntRuoyi\.runtime\form-template-button-alignment-20260727113740。`
+- `GREEN: temporary build snapshot cleanup -> PASS, 路径解析为 D:\IntRuoyiWorktree\form-template-button-build-20260727、位于授权根目录、无 .git 元数据且未登记为 worktree，删除后路径不存在。`
+- `GREEN: task-closeout-cleanup preview -> PASS, 保留任务目录 10 份设计/证据文档，delete/blocked/warnings 均为 none。`
+- `GREEN: task-closeout-cleanup apply -> PASS, deleted_paths 为 none。`
+- `REGRESSION: current worktree button alignment contract -> FAIL, node 聚焦断言返回 “FAIL buttons not aligned: 打开,编辑,填写”；当前工作区三按钮均不再进入批记录同源路径。`
+- `BLOCKER: concurrent same-file behavior conflict -> IntRuoyiFronted/src/views/form-center/template/index.vue 与对应静态合同已被并行任务反向修改并暂存；未取得行为优先级确认前不得覆盖。`
 
 ## Milestone Updates
 
@@ -59,8 +65,10 @@
 - 本地 schema 核对完成：Docker MySQL 已应用新增字段和索引；目标环境仍需走 release migration 流程。
 - 前端回归完成：任务静态合同和全量 `pnpm ts:check` 均已通过。
 - 运行态核对完成：48081 已加载包含新增模板池字段的完整 server jar，真实页面三按钮点击 E2E 通过，临时本地夹具已恢复。
+- 临时产物清理完成：本任务专用运行态目录与临时构建快照均已删除，标准 cleanup preview/apply 通过。
+- 当前状态回退为阻塞：并行任务先后把编辑、打开、填写改回 FormCenter 本页流程，当前工作区已不满足本任务目标。
 
 ## Blockers
 
-- 当前工作区已有本地提交领先 `origin/int_main`，且存在非本任务 MES/批记录组件脏改动；验证后分支显示领先 `origin/int_main` 11 个提交。本任务暂不执行提交/推送，避免混入无关任务状态。
-- Closeout 尚未执行：需要清理或保留说明本次 `.runtime` 运行态 jar 与 `D:\IntRuoyiWorktree\form-template-button-build-20260727` 临时构建快照，再按项目规则处理提交/推送。
+- 并行任务 `20260727-form-template-edit-binding` 已提交“编辑恢复本页模板规则编辑流程”；并行任务 `20260727-form-template-open-fill-binding` 又将“打开/填写”恢复为本页弹窗，并把目标源码和静态合同暂存。
+- 上述行为与本任务明确要求三个按钮按批记录表单对齐直接冲突。当前聚焦合同已失败，不能继续宣称实现完成，也不能在未确认优先级时覆盖并发任务改动。

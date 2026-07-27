@@ -70,6 +70,15 @@
 - Verification: 新增后端回归测试覆盖“显式保存后的 DRAFT 快照优先于当前绑定”，并同时跑完整相邻测试类，确认 PENDING_APPROVAL / READY_TO_PUBLISH 仍读取当前工序设置。
 - Forbidden action: 禁止用当前工序设置作为显式保存草稿快照的 fallback；禁止用空绑定、默认 MAIN、前端隐藏或吞异常掩盖草稿快照读写不对称。
 - Evidence: `doc/tasks/20260726-route-flow-v15-save-system-exception/verification-report.md`，`MesProRouteFlowConfigServiceImplTest#getRouteFlowProcessConfigList_shouldReadSavedDraftBatchSnapshotBeforeCurrentBindings`。
+
+### 冻结快照附件负责人 JSON 类型边界
+
+- Trigger: `batchRecordAttachmentOwners`、`PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID`、`批记录附件负责人配置无效`、已有批次冻结 `route_snapshot_json` 缺配置、路线版本发布后旧批次仍打不开。
+- Preflight check: 先分别核对当前 ACTIVE 路线版本快照和目标批次冻结快照的 `$.configSnapshots.batchRecordAttachmentOwners`，同时检查 `JSON_TYPE` 必须是 `ARRAY`、`JSON_LENGTH` 必须等于业务要求数量；只看到配置接口返回列表不代表冻结快照可用。
+- Blocker: ACTIVE 版本缺配置、批次冻结快照缺配置、JSON 被写成 `STRING` 而不是 `ARRAY`、影响行数不是精确目标行数、或缺少原始快照备份时必须停止，不得放宽打开已有批次的校验。
+- Verification: 授权数据修复必须记录原始快照备份、回滚路径、`restoreRows/repairRows`、修复后 `JSON_TYPE=ARRAY` 与 `JSON_LENGTH`，再用真实页面 `打开/创建 -> 确认` 验证不再出现负责人配置错误。
+- Forbidden action: 禁止把缺失负责人配置默认成功、禁止把 JSON 数组通过用户变量/字符串写成 JSON 字符串、禁止 API-only 或直接详情 URL 替代确认按钮 E2E。
+- Evidence: `doc/tasks/20260727-batch-record-attachment-owner-config/verification-report.md`。
 ## eDHR 批记录版本治理规则运行态门禁
 
 ### 已发布版本治理证据与 Jimu 当前 JSON 边界

@@ -19,7 +19,7 @@
 - [x] 实现后端自动落库、字段审计链更新、幂等和错误模型。
 - [x] 调整前端执行页，移除未落库预填注入，并补静态契约。
 - [x] 运行目标后端、前端和结构校验，更新证据文档。
-- [ ] 完成经验沉淀、收尾清理、提交并推送。
+- [x] 完成经验沉淀、收尾清理、提交并推送。
 
 ## Expected Verification
 
@@ -31,7 +31,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Verification Summary
 
@@ -41,6 +41,9 @@ ready_for_closeout
 - PASS: `node tests/e2e/edhr-cell-link-auto-persist-static.spec.js`。
 - PASS: `git diff --check -- <task-owned implementation files and implementation task docs>`，仅 Windows LF-to-CRLF 提示。
 - BLOCKED for full class regression only: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` 仍有既有无关失败：H2 `bpm_form_template_version.batch_record_report_id` 缺列、批记录附件负责人配置无效、`get_releasePendingApproval_locksNormalTaskActions` 期望差异。
+- PASS: 三份交付证据验证器通过，cleanup preview/apply 通过，长期经验已归入现有门禁。
+- PASS: 实现提交 `b7dc3380` 和验证记录提交 `6b2575da` 均已存在于 `origin/int_main`。
+- E2E scope note: 本机 `8081/48081` 未运行且没有当前任务授权的写入型测试租户/账号，因此未声明真实 Playwright 路径通过，也未用 API-only 兜底。
 
 ## 设计约束检查
 
