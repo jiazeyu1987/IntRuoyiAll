@@ -8,6 +8,10 @@
   - “表单”“表单槽位”只指特殊表单或动态表单中心模板绑定，使用 `formBindings`。
   - “工序开始”只指特殊节点上传人配置。
 - 用户于 2026-07-27 明确允许保留主工作区现有并发改动，绕过本地 clean worktree 合并门禁，将术语提交直接 fast-forward 推送到远端 `int_main`。
+- 用户进一步确认三类配置在批次执行中的作用，要求补充到同一项目限制：
+  - “工序开始”控制特殊开始节点的上传人、附件责任或同类开始动作，不承载表单内容。
+  - “表单槽位”通过 `formBindings` 展示、填写和保存补充性的特殊表单或动态表单。
+  - “批记录表单”是按工序设置逐工序绑定的正式生产批记录载体，用于批次执行中的查看、填写和形成批记录数据。
 
 ## Command Intent
 
@@ -25,6 +29,7 @@
 - 结构、编码和 Git 门禁验证：completed。
 - 术语规则提交和任务分支推送：completed。
 - 远端 `int_main` fast-forward 集成：completed。
+- 批次执行职责边界补充：completed。
 - 本地 `int_main` 同步和收尾清理：blocked by concurrent dirty main worktree。
 
 ## Verification Evidence
@@ -43,6 +48,11 @@
 - CLOSEOUT PREVIEW: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-batch-record-form-terminology --mode preview` -> BLOCKED；三个核心任务文档均列入 keep，delete 为空，主工作区脏状态阻止 `ff-only` 合并。
 - GREEN: `git rebase int_main` -> PASS；仅 `docs\experience-index.md` 存在内容冲突，合并时同时保留主分支“隐藏路由顶部页签状态”索引和本任务“三类配置不得混用”索引。
 - GREEN: `git push origin HEAD:int_main` -> PASS；远端 `int_main` 从 `9b94ac81` fast-forward 到 `c92f45a4`，包含既有基线 `40b7f7b9` 和重放后的术语提交 `bfb77c0b`、`c92f45a4`。
+- BDD: 批次执行三类配置职责独立 -> Given 某工序同时存在开始节点上传人、`formBindings` 和批记录表单绑定，When 批次执行加载该工序，Then 三条链路分别负责附件开始动作、补充动态表单和正式生产批记录，且不得互相替代。
+- RED: `git show a9dfaf9e:AGENTS.md | rg -n '正式生产批记录载体|补充表单链路|不提供需要展示、填写或保存的表单内容'` -> FAIL，退出码 1，上一版规则未明确三类配置在批次执行中的实际职责。
+- GREEN: `rg -n '三个独立配置入口|不提供需要展示、填写或保存的表单内容|补充表单链路|正式生产批记录载体|batchRecordFormNames' AGENTS.md` -> PASS。
+- GREEN: `rg -n '批次执行作用|补充动态表单|三类配置入口' docs\experience-index.md` -> PASS。
+- GREEN: 严格 UTF-8 解码五个任务写入文件、`git diff --check` 和 `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
 
 ## Blockers
 

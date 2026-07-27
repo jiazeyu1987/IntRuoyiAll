@@ -17,6 +17,10 @@
 - BLOCKED：`task-closeout-cleanup` preview 保留三个核心任务文档且无删除项，但检测到主工作区脏状态，禁止执行 `ff-only` 合并和 worktree 删除。
 - GREEN：术语提交已重放到本地 `int_main` 既有基线 `40b7f7b9` 之后；索引冲突同时保留主分支和本任务两条规则。
 - GREEN：经用户明确授权，`git push origin HEAD:int_main` 将远端 `int_main` 从 `9b94ac81` fast-forward 到 `c92f45a4`，未使用 force push，未提交或清理主工作区的未跟踪并发文件。
+- GREEN：根规则已补充批次执行职责：工序开始负责附件开始动作，表单槽位负责补充动态表单，批记录表单负责逐工序正式生产批记录。
+- RED：上一版远端基线 `a9dfaf9e` 未命中“正式生产批记录载体”“补充表单链路”和“工序开始不提供表单内容”。
+- GREEN：当前规则及经验索引命中三类独立配置入口、批次执行作用和 `batchRecordFormNames` 数据来源约束。
+- GREEN：五个写入文件通过严格 UTF-8 解码，`git diff --check` 和分支运行端口门禁通过。
 
 ## Conclusion
 
