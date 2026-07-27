@@ -59,4 +59,8 @@
 ## Commit And Push
 
 - Implementation commit `e0194c3b fix: remove duplicate filler error entry` contains only the Vue rendering fix and focused static regression contract.
-- Final closeout integration and push pending.
+- Clean integration worktree cherry-picked the implementation as `29ab48ad` and the closeout records as `de931d36` on top of the latest `origin/int_main`.
+- Push object-size scan -> PASS, largest object under 100 MB.
+- Branch runtime port guard -> PASS for the registered integration slot `8086/48086`.
+- `git push origin HEAD:int_main` -> PASS, pushed `2abb3a0c..de931d36`.
+- Final completed-status record is committed and pushed before the one-time integration worktree is removed and its slot is released.

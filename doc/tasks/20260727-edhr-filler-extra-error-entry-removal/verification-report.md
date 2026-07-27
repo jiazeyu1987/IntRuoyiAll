@@ -38,5 +38,8 @@ Unrelated concurrent changes remain in backend, frontend, review-loop, and task-
 
 - Experience consolidation reused existing frontend gates; no long-term document change was needed.
 - Cleanup preview/apply passed with no blocked paths or warnings.
-- Implementation commit: `e0194c3b`.
-- Final closeout integration and push pending.
+- Main-workspace implementation commit: `e0194c3b`.
+- Integrated implementation commit: `29ab48ad`.
+- Integrated closeout record commit: `de931d36`.
+- `git push origin HEAD:int_main` -> PASS.
+- Final status: completed.
