@@ -45,6 +45,15 @@
 - `implementation commit`：PASS，`3f79f736251dab6be9d0413eea602a4ee1990fa6` 仅包含本任务 Vue、静态合同和前端开发门禁文件。
 - `closeout commit`：PASS，`67631b4a` 仅包含本任务四份收尾记录文档。
 - `git push origin int_main`：PASS，`origin/int_main` 已包含 `3f79f736` 与 `67631b4a`，推送后分支不再 ahead。
+- `fresh automated verification`：PASS，三按钮静态合同、`pnpm ts:check`、SQL pytest 3 项、BPM Maven 合同 3 项及三类 evidence validator 均通过。
+- `fresh schema verification`：PASS，7 个 `batch_record_*` 字段和复合索引均存在。
+- `fresh real E2E`：PASS，模板行 `id=29`、模板 `28/V2.0`、reportId `2ef53e1302bd47bdba9ccbb87cd92032`；真实点击 `打开 / 编辑 / 填写` 分别进入 `preview / edit / template-simulate`。
+- `unbound fail-fast`：PASS，未绑定模板点击“打开”显示明确错误且不跳转，不执行旧弹窗或 reportId 猜测。
+- `fixture restore all binding fields`：PASS，模板版本 `id=29` 的七个批记录绑定字段均恢复为 `NULL`。
+- `runtime recovery`：PASS，旧后端请求线程因 Logback OutputStreamAppender 锁无响应；使用完整运行环境重启后，当前 `48081` PID `54560` 指向主工作区正式 Jar，登录和目标接口恢复。
+- `supplemental cleanup`：BLOCKED，两份重定向日志仍被共享后端 PID `54560` 占用，且 `codex-test-runner` PID `53624` 存在活动连接；未停止共享进程。
+- `project-experience-consolidation refresh`：PASS，长期门禁已合并到 `docs/local-runtime.md` 并可由 `docs/experience-index.md` 关键词定位。
+- `task-closeout-cleanup preview/apply refresh`：PASS，仅删除两份未锁定失败启动日志；一次性 E2E 脚本已删除，核心任务文档全部保留，未操作共享后端。
 
 ## Implemented Files
 
@@ -62,4 +71,4 @@
 
 ## Blockers
 
-- 无。本任务已完成验证、清理、提交和推送；其他并行任务脏改动未纳入本任务提交。
+- 功能、自动化、schema 和真实 E2E 均无 blocker。仅补充验证日志清理等待共享 `int_main` 后端空闲，不影响三个按钮已落地行为。

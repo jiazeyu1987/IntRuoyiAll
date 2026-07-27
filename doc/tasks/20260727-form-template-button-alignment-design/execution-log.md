@@ -68,6 +68,18 @@
 - `GREEN: implementation commit -> PASS, commit 3f79f736251dab6be9d0413eea602a4ee1990fa6，仅包含 IntRuoyiFronted/src/views/form-center/template/index.vue、IntRuoyiFronted/tests/e2e/form-template-batch-record-button-alignment-static.spec.js、docs/frontend-development.md。`
 - `GREEN: closeout commit -> PASS, commit 67631b4a，仅包含本任务 task.md、execution-log.md、frontend-feature-evidence.md、verification-report.md。`
 - `GREEN: push origin/int_main -> PASS, origin/int_main 已包含 3f79f736 与 67631b4a，推送后分支不再 ahead。`
+- `REGRESSION: local login/API response -> FAIL, 旧 48081 进程 health 虽为 UP，但多数请求线程阻塞在 Logback OutputStreamAppender 锁，登录和业务接口持续无响应。`
+- `RED: backend restart without inherited runtime environment -> FAIL, DCC electronic signature evidence configuration is missing；按 fail-fast 处理，未修改配置或降级绕过。`
+- `GREEN: backend restart with required inherited environment -> PASS, 48081 当前监听 PID=54560，命令行指向 E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar，登录预检和业务请求恢复。`
+- `GREEN: fresh automated verification -> PASS, 表单模板三按钮静态合同、pnpm ts:check、SQL pytest 3 项、BPM Maven 合同 3 项、前端/后端/数据库 evidence validators 均通过。`
+- `GREEN: fresh schema verification -> PASS, bpm_form_template_version 的 7 个 batch_record_* 字段及 idx_bpm_form_template_batch_record_report 复合索引均存在。`
+- `GREEN: fresh real E2E form template 3 buttons -> PASS, 本机 8081/48081 使用 芋道源码/admin，模板行 id=29、模板 28/V2.0、reportId=2ef53e1302bd47bdba9ccbb87cd92032；真实点击 打开/编辑/填写 分别进入 preview designer、edit designer、template-simulate。`
+- `GREEN: unbound template fail-fast -> PASS, 清空绑定后点击“打开”显示“当前模板未绑定批记录表单”且页面未跳转，不回退旧弹窗或猜测 reportId。`
+- `GREEN: fixture restore all binding fields -> PASS, 模板版本 id=29 的 7 个批记录绑定字段均恢复为 NULL。`
+- `BLOCKER: supplemental runtime cleanup -> 48081 共享后端 PID=54560 正在占用 backend-with-env.stdout.log/backend-with-env.stderr.log，codex-test-runner PID=53624 与后端存在活动连接；为避免中断并行任务，未停止进程，剩余两份运行日志待共享运行态空闲后删除。`
+- `GREEN: project-experience-consolidation refresh -> PASS, 已将 health UP 但 API 因 OutputStreamAppender 锁挂起、长运行日志不得放入 task cleanup 目录等门禁合并到 docs/local-runtime.md，并更新现有经验索引。`
+- `GREEN: supplemental cleanup preview -> PASS, 仅计划删除未锁定的 backend.stderr.log/backend.stdout.log，任务核心文档全部保留，blocked/warnings 均为空。`
+- `GREEN: supplemental cleanup apply -> PASS, 已删除 backend.stderr.log/backend.stdout.log；一次性 form-template-buttons-real-e2e.mjs 已删除，未操作共享后端占用的两份空日志。`
 
 ## Milestone Updates
 
@@ -83,11 +95,13 @@
 - 冲突解除：用户明确确认三个按钮按批记录表单执行，已恢复 Vue 实现、静态合同和项目级门禁。
 - 真实路径复验完成：三按钮按批记录表单行为执行，临时数据库夹具已恢复。
 - 提交推送完成：实现与收尾记录分离提交，`origin/int_main` 已同步。
+- 最新复验完成：自动化、schema、真实三按钮点击、未绑定失败行为和七字段夹具恢复均通过。
+- 补充清理进行中：一次性 E2E 脚本已删除，运行态未锁定日志可清理；共享后端占用的两份运行日志暂不强删。
 
 ## Blockers
 
-- 无。本任务已完成验证、清理、提交和推送；其他并行任务脏改动继续保留且不纳入本任务提交。
+- 功能与验证无 blocker。仅补充收尾清理受共享 `int_main` 后端日志句柄阻塞；停止 PID `54560` 会中断 `codex-test-runner` 的活动连接，因此当前不执行。
 
 ## Final Status
 
-- `completed`
+- `ready_for_closeout`

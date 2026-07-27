@@ -104,6 +104,16 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - Verification: 记录 `docker exec onlyoffice curl http://host.docker.internal:48081/actuator/health` HTTP `200`、旧容器内 `127.0.0.1:48081` 不可达、Jar 内 `application-local.yaml` 目标行、后端 health `UP`，并用静态契约覆盖该默认值。
 - Forbidden action: 禁止把浏览器用的 OnlyOffice `base-url` 改成 `host.docker.internal`；禁止用 API-only 成功或未登录 `401` 冒充 OnlyOffice 容器已能下载文件；禁止修改测试服/生产配置来修复本地 Docker 网络问题。
 - Evidence: `doc/tasks/20260727-local-onlyoffice-download-failed/verification-report.md`。
+
+## 2026-07-27 本地后端标准输出阻塞与日志目录门禁
+
+- Trigger: 本地后端 health 为 `UP`，但登录、租户查询或业务 API 长时间无响应；线程栈集中阻塞在 Logback `OutputStreamAppender`；或 task-closeout 无法删除仍被 Java 进程占用的 stdout/stderr 日志。
+- Preflight check: 启动长期运行的本地后端前，确认 stdout/stderr 有持续消费或重定向到不会被当前任务 cleanup 删除的稳定运行目录；运行态排查必须同时核对 `48081` PID/命令行、真实登录态业务接口和线程阻塞点，不能只看 health。
+- Blocker: health 为 `UP` 但登录态接口挂起，或待清理日志仍被有活动客户端连接的共享后端占用时，必须停止成功或清理结论；不得强杀共享进程、强删日志或在缺少完整运行环境变量时重启。
+- Verification: 记录 listener PID、Jar 路径、活动客户端归属、登录预检和目标业务接口结果；cleanup 前用独占文件打开检查日志句柄，只有进程已安全迁移或停止且文件不再锁定后才能删除。
+- Forbidden action: 禁止把 health `UP` 等同于请求链路可用；禁止让长运行进程把日志写入任务 cleanup 候选目录；禁止因首次重启缺少安全配置而改配置、降级或跳过启动校验。
+- Evidence: `doc/tasks/20260727-form-template-button-alignment-design/execution-log.md`。
+
 ## 禁止做法
 
 - 禁止把 `int_main` 改到随机端口启动。
