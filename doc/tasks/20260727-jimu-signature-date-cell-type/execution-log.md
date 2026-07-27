@@ -2,17 +2,19 @@
 
 ## Intent
 
-用户要求修复编辑页面红框日期单元格在右侧当前组件显示为“多行文本”的问题，并在代码修复后完成验证。
+用户要求修复编辑页面红框“记录人/日期”单元格在右侧当前组件显示为“多行文本/文本类组件”的问题；用户进一步确认该控件应为电子签名，并要求基于代码分析给出真实原因、修复并验证。
 
 ## BDD
 
-BDD: 签名日期宽空白单元格不生成为多行文本 -> Given 批记录模板包含“记录人/日期”标签及其右侧宽空白填写单元格 / When 后端生成 Jimu 报表 JSON fillForm / Then 该填写控件不得生成 `input-textarea`，应按日期或单行结构化控件生成。
+BDD: 签名日期宽空白单元格生成为电子签名控件 -> Given 批记录模板包含“记录人/日期”标签及其右侧宽空白填写单元格 / When 后端生成 Jimu 报表 JSON fillForm / Then 该填写控件必须生成 `componentFlag=signature`，并保留 `edhrSignature.enabled=true`、`actionType=SUBMIT` 和原始标签。
 
 ## Milestone Log
 
 - Created task documentation and recorded applicable eDHR Jimu/cell-rule gates.
 - Added regression test `MesProBatchRecordReportJsonBuilderTest#build_shouldNotUseTextareaForWideSignatureDateBlankCell`.
 - Implemented shared builder logic so same-row signature/date blank fill cells bypass wide-blank textarea classification and keep `input-text` while retaining `edhrSignature`.
+- Updated regression test to `MesProBatchRecordReportJsonBuilderTest#build_shouldUseSignatureComponentForWideSignatureDateBlankCell`, proving the remaining defect: the previous fix only produced `input-text`, not electronic signature.
+- Updated `MesProBatchRecordReportJsonBuilder#buildFillForm` so same-row signature/date blank fill cells generate `componentFlag=signature`, while signature-date checkbox fragments still use the existing plain-text path.
 - Stopped task-owned timed-out Maven/Surefire leftovers from the split regression attempt: PIDs 27408 and 59336. Other local Java runtime processes were left untouched.
 
 ## Verification Evidence
@@ -21,6 +23,11 @@ BDD: 签名日期宽空白单元格不生成为多行文本 -> Given 批记录�
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordReportJsonBuilderTest#build_shouldNotUseTextareaForWideSignatureDateBlankCell" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 1 test run, 0 failures.
 - REGRESSION: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordReportJsonBuilderTest#build_shouldNotUseTextareaForWideSignatureDateBlankCell+build_shouldUseTextareaFillFormForTallOrMergedBlankCells" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 2 tests run, 0 failures.
 - REGRESSION: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordCellRuleSupportTest#buildSuggestions_doesNotPromoteSignatureDateColumnCheckboxFragments+buildSuggestions_rewritesExistingCheckboxFillFormUnderSignatureDateHeaders+buildSuggestions_doesNotPromoteMisalignedSignatureDateTailCheckboxFragments+buildSuggestions_doesNotPromoteBlankSignatureDateCellsFromLeftCheckboxResult+buildSuggestions_doesNotPromoteBlankSignatureDateCellsPastIntermediateCheckboxRows" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 5 tests run, 0 failures.
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordReportJsonBuilderTest#build_shouldUseSignatureComponentForWideSignatureDateBlankCell" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected `signature` but was `input-text`.
+- NOTE: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordReportJsonBuilderTest#build_shouldUseSignatureComponentForWideSignatureDateBlankCell" "-Dsurefire.failIfNoSpecifiedTests=false" test` exceeded the tool timeout after the production fix, but the generated Surefire XML showed `tests=1, failures=0`; reran the focused module command below for a clean exit code.
+- GREEN: `mvn -q -pl yudao-module-mes "-Dtest=MesProBatchRecordReportJsonBuilderTest#build_shouldUseSignatureComponentForWideSignatureDateBlankCell" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS.
+- REGRESSION: `mvn -q -pl yudao-module-mes "-Dtest=MesProBatchRecordReportJsonBuilderTest#build_shouldUseSignatureComponentForWideSignatureDateBlankCell+build_shouldUseTextareaFillFormForTallOrMergedBlankCells" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS.
+- REGRESSION: `mvn -q -pl yudao-module-mes "-Dtest=MesProBatchRecordCellRuleSupportTest#buildSuggestions_doesNotPromoteSignatureDateColumnCheckboxFragments+buildSuggestions_rewritesExistingCheckboxFillFormUnderSignatureDateHeaders+buildSuggestions_doesNotPromoteMisalignedSignatureDateTailCheckboxFragments+buildSuggestions_doesNotPromoteBlankSignatureDateCellsFromLeftCheckboxResult+buildSuggestions_doesNotPromoteBlankSignatureDateCellsPastIntermediateCheckboxRows" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS.
 - CHECK: `git diff --check -- <task-owned files>` -> PASS with CRLF conversion warnings only.
 - CHECK: Java process scan for task-owned Maven/Surefire commands -> PASS, no residual process after cleanup.
 - NOTE: Combined class-level regression `MesProBatchRecordReportJsonBuilderTest,MesProBatchRecordCellRuleSupportTest` exceeded the 244s tool timeout, so verification was split into the targeted method groups above.

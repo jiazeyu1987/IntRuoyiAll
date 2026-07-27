@@ -150,6 +150,7 @@ import java.util.stream.Collectors;
 import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.BAD_REQUEST;
 import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.UNAUTHORIZED;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_PROCESS_FLOW_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_PUBLISHED_VERSION_NOT_EXISTS;
@@ -228,6 +229,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private static final int SPECIAL_SORT_STERILIZATION = 9000;
     private static final int SPECIAL_SORT_FINISHED_PRODUCT_INSPECTION_REPORT = 9010;
     private static final int SPECIAL_SORT_FINISHED_PRODUCT_INSPECTION_RECORD = 9020;
+    private static final String BATCH_RECORD_ATTACHMENT_OWNERS_KEY = "batchRecordAttachmentOwners";
 
     private static final Set<Integer> COMPLETED_FORM_EXECUTION_STATUSES = Set.of(3, 4);
     private static final Set<String> REQUIRED_FORM_SIGNATURES = Set.of("SUBMIT");
@@ -1110,7 +1112,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         Long actorId = currentUserId();
         MesProEdhrWorkTaskDO optionalWorkTask = null;
         if (specialNodeSkip) {
-            validateCurrentUserIsBatchOwner(batch);
+            validateCurrentUserIsSpecialNodeFiller(task, batch, actorId);
         } else {
             optionalWorkTask = validateOptionalRouteFormSkipWorkTask(task, actorId);
         }
@@ -1181,7 +1183,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         // 灭菌报告选择填写完成时，灭菌批次必填。
         MesProEdhrBatchExecutionTaskDO task = validateTaskForSpecialAction(taskId);
         MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(task.getBatchExecutionId());
-        validateCurrentUserIsBatchOwner(batch);
+        Long actorId = currentUserId();
+        validateCurrentUserIsSpecialNodeFiller(task, batch, actorId);
         String nodeType = resolveNodeType(task);
         if (!SKIPPABLE_SPECIAL_NODE_TYPES.contains(nodeType)) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_SPECIAL_NODE_INVALID);
@@ -1193,7 +1196,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         List<MesProBatchRecordExecutionAttachmentDO> persistedAttachments =
                 persistSpecialNodeAttachments(task, attachments, operatedAt);
         JSONObject payload = new JSONObject();
-        payload.put("completedBy", currentUserId());
+        payload.put("completedBy", actorId);
         payload.put("completedAt", operatedAt.toString());
         if (NODE_TYPE_STERILIZATION_REPORT.equals(nodeType)) {
             payload.put("sterilizationBatchNo", sterilizationBatchNo.trim());
@@ -1221,7 +1224,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         requireSpecialNodeAttachmentPrepareUploadCommand(command);
         MesProEdhrBatchExecutionTaskDO task = validateTaskForSpecialAttachmentUpload(command.getTaskId());
         MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(task.getBatchExecutionId());
-        validateCurrentUserIsBatchOwner(batch);
+        validateCurrentUserIsSpecialNodeFiller(task, batch, currentUserId());
         if (!SKIPPABLE_SPECIAL_NODE_TYPES.contains(resolveNodeType(task))) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_SPECIAL_NODE_INVALID);
         }
@@ -1265,7 +1268,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                    String reason) {
         MesProEdhrBatchExecutionTaskDO task = validateTaskForSpecialAttachmentUpload(taskId);
         MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(task.getBatchExecutionId());
-        validateCurrentUserIsBatchOwner(batch);
+        validateCurrentUserIsSpecialNodeFiller(task, batch, currentUserId());
         validateSpecialNodeAttachment(task, attachment);
         String auditReason = requireSpecialNodeAttachmentAuditReason(reason);
         List<MesProBatchRecordExecutionAttachmentDO> deletedAttachments =
@@ -1279,7 +1282,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     @Transactional(rollbackFor = Exception.class)
     public EdhrBatchExecutionRespVO savePendingSpecialNodeAttachments(Long batchExecutionId, String reason) {
         MesProEdhrBatchExecutionDO batch = validateBatchForSpecialAttachmentSave(batchExecutionId);
-        validateCurrentUserIsBatchOwner(batch);
+        Long actorId = currentUserId();
         String auditReason = requireSpecialNodeAttachmentAuditReason(reason);
         LocalDateTime operatedAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
         List<MesProBatchRecordExecutionAttachmentDO> allPendingAttachments = new ArrayList<>();
@@ -1289,6 +1292,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             if (!SKIPPABLE_SPECIAL_NODE_TYPES.contains(resolveNodeType(task))) {
                 continue;
             }
+            validateCurrentUserIsSpecialNodeFiller(task, batch, actorId);
             List<MesProBatchRecordExecutionAttachmentDO> pendingAttachments =
                     resolvePendingSpecialNodeAttachmentRecords(task.getId());
             if (pendingAttachments.isEmpty()) {
@@ -4179,9 +4183,10 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 buildFillableRuleMap(tasks, fillableWorkTaskMap, fillableProcessFormRuleMap);
         Map<Long, List<Long>> routeBindingFillableUserIdsMap = buildRouteBindingFillableUserIdsMap(
                 tasks, fillableWorkTaskMap, fillableProcessFormRuleMap, fillableRuleMap);
+        Map<Long, List<Long>> specialNodeFillableUserIdsMap = buildSpecialNodeFillableUserIdsMap(latest, tasks);
         Map<Long, AdminUserRespDTO> fillableUserMap = buildFillableUserMap(
                 fillableWorkTaskMap.values(), fillableProcessFormRuleMap.values(), fillableRuleMap.values(),
-                routeBindingFillableUserIdsMap.values());
+                routeBindingFillableUserIdsMap.values(), specialNodeFillableUserIdsMap.values());
         Long currentUserId = currentUserId();
         Map<Long, String> batchRecordVersionNoMap = buildBatchRecordVersionNoMap(tasks);
         Map<Long, List<MesProEdhrWorkTaskDO>> activeWorkTasksByBatchTask =
@@ -4268,7 +4273,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         .map(task -> toTaskResp(task, taskGateMap.get(task.getId()),
                                 fillableWorkTaskMap.get(task.getId()),
                                 fillableProcessFormRuleMap.get(task.getId()), fillableRuleMap.get(task.getId()),
-                                routeBindingFillableUserIdsMap.get(task.getId()), fillableUserMap,
+                                routeBindingFillableUserIdsMap.get(task.getId()),
+                                specialNodeFillableUserIdsMap.get(task.getId()), fillableUserMap,
                                 batchRecordVersionNoMap,
                                 activeWorkTasksByBatchTask.getOrDefault(task.getId(), List.of()), currentUserId,
                                 actionLockReason,
@@ -4485,6 +4491,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                     MesProEdhrProcessFormPermissionRuleDO fillableProcessFormRule,
                                                     MesProEdhrWorkTaskAssignmentRuleDO fillableRule,
                                                     List<Long> routeBindingFillableUserIds,
+                                                    List<Long> specialNodeFillableUserIds,
                                                     Map<Long, AdminUserRespDTO> fillableUserMap,
                                                     Map<Long, String> batchRecordVersionNoMap,
                                                     List<MesProEdhrWorkTaskDO> activeWorkTasks,
@@ -4493,7 +4500,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                     MesProEdhrWorkTaskAssignmentRuleDO closeRule) {
         TaskGate resolvedGate = taskGate == null ? new TaskGate(false, "任务门禁状态缺失") : taskGate;
         TaskActionContext actionContext = resolveTaskActionContext(task, resolvedGate, activeWorkTasks,
-                currentUserId, closeRule);
+                currentUserId, closeRule, specialNodeFillableUserIds);
         if (StrUtil.isNotBlank(actionLockReason) && shouldApplyBatchActionLock(actionLockReason, actionContext)) {
             actionContext = new TaskActionContext(actionContext.currentUserRole(), List.of(),
                     actionLockReason, actionContext.activeWorkTaskId(),
@@ -4557,7 +4564,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setSpecialPayloadJson(task.getSpecialPayloadJson())
                 .setPendingSpecialNodeAttachments(resolvePendingSpecialNodeAttachments(task))
                 .setFillableUsers(resolveFillableUsers(fillableWorkTask, fillableProcessFormRule,
-                        fillableRule, routeBindingFillableUserIds, fillableUserMap));
+                        fillableRule, routeBindingFillableUserIds, specialNodeFillableUserIds, fillableUserMap));
     }
 
     private Map<Long, MesProEdhrWorkTaskDO> buildFillableWorkTaskMap(Long batchExecutionId) {
@@ -4656,7 +4663,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private Map<Long, AdminUserRespDTO> buildFillableUserMap(Iterable<MesProEdhrWorkTaskDO> workTasks,
                                                              Iterable<MesProEdhrProcessFormPermissionRuleDO> processFormRules,
                                                              Iterable<MesProEdhrWorkTaskAssignmentRuleDO> rules,
-                                                             Iterable<List<Long>> routeBindingUserIds) {
+                                                             Iterable<List<Long>> routeBindingUserIds,
+                                                             Iterable<List<Long>> specialNodeUserIds) {
         Set<Long> userIds = new LinkedHashSet<>();
         for (MesProEdhrWorkTaskDO workTask : workTasks) {
             userIds.addAll(resolveFillableUserIds(workTask));
@@ -4672,6 +4680,11 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 userIds.addAll(bindingUserIds);
             }
         }
+        for (List<Long> specialUserIds : specialNodeUserIds) {
+            if (specialUserIds != null) {
+                userIds.addAll(specialUserIds);
+            }
+        }
         if (userIds.isEmpty()) {
             return Map.of();
         }
@@ -4682,11 +4695,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private List<EdhrBatchExecutionTaskRespVO.FillableUser> resolveFillableUsers(
             MesProEdhrWorkTaskDO workTask, MesProEdhrProcessFormPermissionRuleDO processFormRule,
             MesProEdhrWorkTaskAssignmentRuleDO rule, List<Long> routeBindingFillableUserIds,
-            Map<Long, AdminUserRespDTO> userMap) {
+            List<Long> specialNodeFillableUserIds, Map<Long, AdminUserRespDTO> userMap) {
         List<Long> userIds = workTask != null ? resolveFillableUserIds(workTask)
                 : processFormRule != null ? resolveFillableUserIds(processFormRule)
                 : rule != null ? resolveFillableUserIds(rule)
-                : routeBindingFillableUserIds == null ? List.of() : routeBindingFillableUserIds;
+                : routeBindingFillableUserIds != null ? routeBindingFillableUserIds
+                : specialNodeFillableUserIds == null ? List.of() : specialNodeFillableUserIds;
         return userIds.stream()
                 .map(userId -> new EdhrBatchExecutionTaskRespVO.FillableUser()
                         .setUserId(userId)
@@ -4823,7 +4837,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private TaskActionContext resolveTaskActionContext(MesProEdhrBatchExecutionTaskDO task, TaskGate taskGate,
                                                        List<MesProEdhrWorkTaskDO> activeWorkTasks,
                                                        Long currentUserId,
-                                                       MesProEdhrWorkTaskAssignmentRuleDO closeRule) {
+                                                       MesProEdhrWorkTaskAssignmentRuleDO closeRule,
+                                                       List<Long> specialNodeFillableUserIds) {
         MesProEdhrWorkTaskDO matchedTask = activeWorkTasks.stream()
                 .filter(workTask -> isAssignedOrCandidate(workTask, currentUserId))
                 .findFirst()
@@ -4832,7 +4847,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 : activeWorkTasks.stream().findFirst().orElse(null);
         if (visibleTask == null) {
             TaskActionContext specialNodeContext = resolveSpecialNodeCloseActionContext(task, taskGate,
-                    closeRule, currentUserId);
+                    specialNodeFillableUserIds, currentUserId);
             if (specialNodeContext != null) {
                 return specialNodeContext;
             }
@@ -4880,20 +4895,20 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
 
     private TaskActionContext resolveSpecialNodeCloseActionContext(MesProEdhrBatchExecutionTaskDO task,
                                                                    TaskGate taskGate,
-                                                                   MesProEdhrWorkTaskAssignmentRuleDO closeRule,
+                                                                   List<Long> specialNodeFillableUserIds,
                                                                    Long currentUserId) {
         if (!isSpecialBatchExecutionNode(task) || !isSpecialNodePending(task)) {
             return null;
         }
-        if (!isCurrentUserCloseOwner(closeRule, currentUserId)) {
+        if (specialNodeFillableUserIds == null || !specialNodeFillableUserIds.contains(currentUserId)) {
             return new TaskActionContext("UNRELATED", List.of(),
-                    "当前用户不是该节点的生产负责人", null, WORK_TASK_TYPE_CLOSE, null);
+                    "当前用户不是该节点的批记录附件填写人", null, WORK_TASK_TYPE_CLOSE, null);
         }
         if (!taskGate.available()) {
-            return new TaskActionContext("PRODUCTION_OWNER", List.of(), taskGate.message(),
+            return new TaskActionContext("FILLER", List.of(), taskGate.message(),
                     null, WORK_TASK_TYPE_CLOSE, null);
         }
-        return new TaskActionContext("PRODUCTION_OWNER", allowedActionsForTaskType(WORK_TASK_TYPE_CLOSE), null,
+        return new TaskActionContext("FILLER", allowedActionsForTaskType(WORK_TASK_TYPE_CLOSE), null,
                 null, WORK_TASK_TYPE_CLOSE, null);
     }
 

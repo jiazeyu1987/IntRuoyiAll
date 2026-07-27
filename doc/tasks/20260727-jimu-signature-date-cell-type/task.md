@@ -2,19 +2,19 @@
 
 ## Task Goal
 
-修复 eDHR 批记录模板中“记录人/日期”等签名日期填写单元格被后端生成成 Jimu 多行文本组件的问题，确保该类日期/签名日期单元格不会显示为“当前组件：多行文本”。
+修复 eDHR 批记录模板中“记录人/日期”等签名日期填写单元格被后端生成成 Jimu 文本类组件的问题，确保该类签名日期单元格在 Jimu 编辑页显示为电子签名组件。
 
 ## Milestones
 
 - [x] 建立复现与 BDD/TDD 证据。
-- [x] 新增后端回归测试，先证明当前逻辑会把签名日期宽空白单元格误判为 textarea。
-- [x] 在批记录 Jimu JSON 生成链路中做最小修复。
+- [x] 更新后端回归测试，先证明当前逻辑会把签名日期宽空白单元格误判为普通文本组件。
+- [x] 在批记录 Jimu JSON 生成链路中做最小修复，使签名日期填写格生成 `componentFlag=signature`。
 - [x] 运行定向 Maven 验证和相关证据校验。
 
 ## Expected Verification
 
 - 定向后端测试先 RED 后 GREEN。
-- Jimu JSON 生成后的目标控件 `componentFlag` 不再是 `input-textarea`。
+- Jimu JSON 生成后的目标控件 `componentFlag` 为 `signature`，并保留 `edhrSignature.enabled=true`。
 - 不引入 fallback、默认成功、吞异常或模板特例硬编码。
 
 ## Current Status
@@ -24,7 +24,7 @@ ready_for_closeout
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
-- `是否从根因和长期维护角度解决`：是，目标是在共享单元格语义判断中修复签名日期类宽空白填写单元格的组件类型判定。
+- `是否从根因和长期维护角度解决`：是，目标是在共享单元格语义判断中修复签名日期类宽空白填写单元格的 Jimu 组件类型判定。
 - `是否存在临时补丁或绕过`：否。
 
 ## 经验门禁
@@ -43,7 +43,7 @@ ready_for_closeout
 - Trigger: Jimu 当前 JSON 的 `fillForm.componentFlag` / `edhrCellRule.componentFlag` 与已修复语义不一致。
 - Preflight check: 同时审计静态文本、`fillForm` 控件类型、`edhrCellRule` 值类型与组件类型。
 - Blocker: 若业务列仍残留未确认 AUTO 规则的错误组件类型，不得只通过前端显示掩盖。
-- Verification: 回归测试断言目标 `fillForm` 不再生成 `input-textarea`。
+- Verification: 回归测试断言目标 `fillForm.componentFlag` 生成 `signature`，并保留 `edhrSignature`。
 - Forbidden action: 禁止只重新导入新版本、前端隐藏或手工改 JSON 后宣称完成。
 - Evidence: `docs/backend-development.md#旧版本 JSON 的 fillForm/edhrCellRule 读时刷新门禁`。
 

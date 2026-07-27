@@ -4906,14 +4906,16 @@ const loadAssistFillerSwitchItems = async () => {
   assistFillerSwitchLoading.value = true
   assistFillerSwitchError.value = ''
   try {
-    const batchExecutionId = requireAssistBatchExecutionId()
-    const batchDetail = await getEdhrBatchExecution(batchExecutionId)
-    const currentTask = resolveCurrentAssistBatchTask(batchDetail.tasks || [])
+    const assistSwitchTasks = execution.value?.assistSwitchTasks
+    if (!Array.isArray(assistSwitchTasks) || assistSwitchTasks.length === 0) {
+      throw new Error('当前执行详情缺少填写人快照，不能切换填写人。')
+    }
+    const currentTask = resolveCurrentAssistBatchTask(assistSwitchTasks)
     const routeProcessId = parsePositiveNumber(currentTask.routeProcessId)
     if (!routeProcessId) {
       throw new Error(`当前批次任务 ${currentTask.id} 缺少 routeProcessId，不能解析填写人。`)
     }
-    const currentProcessTasks = [...(batchDetail.tasks || [])]
+    const currentProcessTasks = [...assistSwitchTasks]
       .filter(
         (task) =>
           !isAssistSpecialBatchTask(task) &&
@@ -5026,10 +5028,21 @@ const currentAssistUserId = () => {
 }
 
 const isAssistFillerSwitchItemSelectable = (item: AssistFillerSwitchItem) =>
-  currentAssistUserId() === item.userId && isAssistBatchTaskOpenable(item.task)
+  isAssistBatchTaskOpenable(item.task) &&
+  (hasGoldenFingerPermission.value || currentAssistUserId() === item.userId)
 
 const isAssistFillerSwitchItemActive = (item: AssistFillerSwitchItem) =>
   currentAssistUserId() === item.userId && isAssistBatchTaskActive(item.task)
+
+const resolveAssistFillerSwitchUnselectableMessage = (item: AssistFillerSwitchItem) => {
+  if (!isAssistBatchTaskOpenable(item.task)) {
+    return '该填写人关联的表单任务当前不可打开。'
+  }
+  if (!hasGoldenFingerPermission.value && currentAssistUserId() !== item.userId) {
+    return '当前账号没有金手指代填权限，不能选择其他填写人。'
+  }
+  return '该填写人当前不可选择。'
+}
 
 const resolveAssistRecordCategory = (row: EdhrBatchExecutionTaskRespVO) =>
   row.recordCategory === 'INTERNAL_RECORD' ? 'INTERNAL_RECORD' : 'BATCH_RECORD'
@@ -5133,7 +5146,7 @@ const navigateToAssistBatchTask = async (
 
 const handleSelectAssistFillerSwitchItem = async (item: AssistFillerSwitchItem) => {
   if (!isAssistFillerSwitchItemSelectable(item)) {
-    assistFillerSwitchError.value = '该填写人不属于当前账号可处理项，不能代填或切换责任人。'
+    assistFillerSwitchError.value = resolveAssistFillerSwitchUnselectableMessage(item)
     message.error(assistFillerSwitchError.value)
     return
   }

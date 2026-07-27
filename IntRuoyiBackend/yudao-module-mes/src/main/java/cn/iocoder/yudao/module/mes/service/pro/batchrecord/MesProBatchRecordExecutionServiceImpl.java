@@ -22,6 +22,7 @@ import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskPageReqV
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskRejectReqVO;
 import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordDomainTraceDetailRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionTaskRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordExecutionApprovalPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordExecutionApprovalActionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordExecutionApprovalRespVO;
@@ -72,6 +73,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordEx
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordTemplateMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordDefinitionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
@@ -87,6 +89,8 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchReco
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordJimuReportGateway;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrCandidateResolver.MesProEdhrCandidateUser;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -212,6 +216,8 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     @Resource
     private MesProEdhrBatchExecutionTaskMapper batchExecutionTaskMapper;
     @Resource
+    private MesProEdhrWorkTaskMapper workTaskMapper;
+    @Resource
     private MesProEdhrProcessFormPermissionRuleMapper processFormPermissionRuleMapper;
     @Resource
     private MesProBatchRecordExecutionArchiveMapper archiveMapper;
@@ -239,6 +245,8 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     private MesProEdhrOperationAuditService operationAuditService;
     @Resource
     private MesProEdhrRecordbookGlobalSettingService recordbookGlobalSettingService;
+    @Resource
+    private AdminUserApi adminUserApi;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -2361,6 +2369,7 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
         respVO.setPreReleaseEditable(preReleaseEditability.editable());
         respVO.setPreReleaseEditReason(preReleaseEditability.reason());
         if (includeCellValues) {
+            respVO.setAssistSwitchTasks(buildAssistSwitchTasksSnapshot(execution));
             respVO.setCellValues(JsonUtils.parseArray(execution.getCellValuesJson(), MesProBatchRecordExecutionCellValueVO.class));
             respVO.setSignatureSummaries(signatureMapper.selectListByExecutionId(execution.getId()).stream()
                     .map(this::buildSignatureResp)
@@ -2379,6 +2388,130 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                     .toList());
         }
         return respVO;
+    }
+
+    private List<EdhrBatchExecutionTaskRespVO> buildAssistSwitchTasksSnapshot(MesProBatchRecordExecutionDO execution) {
+        if (execution.getBatchExecutionId() == null) {
+            return List.of();
+        }
+        List<MesProEdhrBatchExecutionTaskDO> tasks = batchExecutionTaskMapper
+                .selectListByBatchExecutionId(execution.getBatchExecutionId()).stream()
+                .filter(task -> execution.getRouteProcessId() == null
+                        || Objects.equals(task.getRouteProcessId(), execution.getRouteProcessId()))
+                .toList();
+        if (tasks.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, MesProEdhrWorkTaskDO> workTaskMap = workTaskMapper
+                .selectActiveListByBatchExecutionId(execution.getBatchExecutionId()).stream()
+                .filter(this::isAssistSwitchFillWorkTask)
+                .collect(Collectors.toMap(
+                        MesProEdhrWorkTaskDO::getBatchTaskId,
+                        task -> task,
+                        (existing, replacement) -> existing,
+                        LinkedHashMap::new));
+        Set<Long> userIds = workTaskMap.values().stream()
+                .flatMap(task -> MesProEdhrWorkTaskAuthorization
+                        .parseCandidateSnapshotUserIds(task.getCandidateUserSnapshot()).stream())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, AdminUserRespDTO> userMap = userIds.isEmpty() ? Map.of()
+                : Objects.requireNonNull(adminUserApi.getUserMap(userIds),
+                        "EDHR_ASSIST_SWITCH_USER_MAP_REQUIRED: admin user map is required");
+        return tasks.stream()
+                .map(task -> toAssistSwitchTaskSnapshot(task, workTaskMap.get(task.getId()), userMap))
+                .toList();
+    }
+
+    private boolean isAssistSwitchFillWorkTask(MesProEdhrWorkTaskDO workTask) {
+        return workTask.getBatchTaskId() != null
+                && (MesProEdhrWorkTaskService.TASK_TYPE_FILL.equals(workTask.getTaskType())
+                || MesProEdhrWorkTaskService.TASK_TYPE_REWORK.equals(workTask.getTaskType()));
+    }
+
+    private EdhrBatchExecutionTaskRespVO toAssistSwitchTaskSnapshot(MesProEdhrBatchExecutionTaskDO task,
+                                                                    MesProEdhrWorkTaskDO workTask,
+                                                                    Map<Long, AdminUserRespDTO> userMap) {
+        boolean openable = isAssistSwitchTaskOpenable(task, workTask);
+        return new EdhrBatchExecutionTaskRespVO()
+                .setId(task.getId())
+                .setNodeType(task.getNodeType())
+                .setRouteProcessId(task.getRouteProcessId())
+                .setRouteProcessSort(task.getRouteProcessSort())
+                .setProcessId(task.getProcessId())
+                .setProcessCode(task.getProcessCode())
+                .setProcessName(task.getProcessName())
+                .setBatchRecordReportId(task.getBatchRecordReportId())
+                .setBatchRecordReportName(task.getBatchRecordReportName())
+                .setBatchRecordDefinitionId(task.getBatchRecordDefinitionId())
+                .setBatchRecordVersionId(task.getBatchRecordVersionId())
+                .setBatchRecordSort(task.getBatchRecordSort())
+                .setInstanceScope(resolveExecutionInstanceScope(task.getInstanceScope()))
+                .setSharedFormKey(task.getSharedFormKey())
+                .setFillableScopeJson(task.getFillableScopeJson())
+                .setExecutionMode(task.getExecutionMode())
+                .setFormSlotType(task.getFormSlotType())
+                .setFormBindingKey(task.getFormBindingKey())
+                .setFormTemplateId(task.getFormTemplateId())
+                .setFormTemplateName(task.getFormTemplateNameSnapshot())
+                .setFormTemplateVersionId(task.getFormTemplateVersionId())
+                .setFormTemplateVersionNo(task.getFormTemplateVersionNo())
+                .setFormCenterInstanceId(task.getFormCenterInstanceId())
+                .setRecordCategory(task.getRecordCategory())
+                .setValidationProfile(task.getValidationProfile())
+                .setRecordbookEnabled(recordbookGlobalSettingService.resolveEffectiveRecordbookEnabled(
+                        task.getRecordbookEnabled(), task.getRecordCategory()))
+                .setPermissionScopeId(task.getPermissionScopeId())
+                .setRouteBindingId(task.getRouteBindingId())
+                .setRouteBindingSnapshotHash(task.getRouteBindingSnapshotHash())
+                .setRequiredPolicy(task.getRequiredPolicy())
+                .setRequiredConditionJson(task.getRequiredConditionJson())
+                .setOwnerRoleKey(task.getOwnerRoleKey())
+                .setArchiveVisibility(task.getArchiveVisibility())
+                .setSlotConfigSnapshotHash(task.getSlotConfigSnapshotHash())
+                .setAvailable(openable)
+                .setAllowedActions(openable ? List.of("OPEN_FORM") : List.of())
+                .setActiveWorkTaskId(workTask == null ? null : workTask.getId())
+                .setActiveWorkTaskType(workTask == null ? null : workTask.getTaskType())
+                .setActiveWorkTaskActionUrl(workTask == null ? null : workTask.getActionUrl())
+                .setExecutionId(task.getExecutionId())
+                .setStatus(task.getStatus())
+                .setRequiredFlag(task.getRequiredFlag())
+                .setBlockerCode(task.getBlockerCode())
+                .setBlockerMessage(task.getBlockerMessage())
+                .setOpenedAt(task.getOpenedAt())
+                .setSubmittedAt(task.getSubmittedAt())
+                .setApprovedAt(task.getApprovedAt())
+                .setSkippedBy(task.getSkippedBy())
+                .setSkippedAt(task.getSkippedAt())
+                .setSpecialPayloadJson(task.getSpecialPayloadJson())
+                .setFillableUsers(resolveAssistSwitchFillableUsers(workTask, userMap));
+    }
+
+    private boolean isAssistSwitchTaskOpenable(MesProEdhrBatchExecutionTaskDO task,
+                                               MesProEdhrWorkTaskDO workTask) {
+        return workTask != null
+                && !Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_BLOCKED)
+                && !Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
+                && !Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_SKIPPED);
+    }
+
+    private List<EdhrBatchExecutionTaskRespVO.FillableUser> resolveAssistSwitchFillableUsers(
+            MesProEdhrWorkTaskDO workTask,
+            Map<Long, AdminUserRespDTO> userMap) {
+        if (workTask == null) {
+            return List.of();
+        }
+        return MesProEdhrWorkTaskAuthorization.parseCandidateSnapshotUserIds(workTask.getCandidateUserSnapshot()).stream()
+                .map(userId -> new EdhrBatchExecutionTaskRespVO.FillableUser()
+                        .setUserId(userId)
+                        .setDisplayName(resolveAssistSwitchUserDisplayName(userMap, userId)))
+                .toList();
+    }
+
+    private String resolveAssistSwitchUserDisplayName(Map<Long, AdminUserRespDTO> userMap, Long userId) {
+        AdminUserRespDTO user = Objects.requireNonNull(userMap.get(userId),
+                "EDHR_ASSIST_SWITCH_USER_REQUIRED: userId=" + userId);
+        return StrUtil.blankToDefault(user.getNickname(), String.valueOf(userId));
     }
 
     private List<MesProBatchRecordExecutionRespVO.ReviewAssigneeOption> toReviewAssigneeOptions(

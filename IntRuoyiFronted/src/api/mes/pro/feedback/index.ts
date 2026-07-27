@@ -1,6 +1,7 @@
 import request from '@/config/axios'
 import type {
   EdhrBatchArchiveVisibility,
+  EdhrBatchExecutionTaskRespVO,
   EdhrBatchFormSlotType,
   EdhrBatchOwnerRoleKey,
   EdhrBatchRequiredPolicy,
@@ -497,6 +498,7 @@ export interface ProFeedbackEdhrExecutionVO {
   reviewAssigneeOptions?: ProFeedbackEdhrReviewAssigneeOptionVO[]
   reviewAssigneeOptionError?: string
   attachmentSummaries?: ProFeedbackEdhrExecutionAttachmentSummaryVO[]
+  assistSwitchTasks?: EdhrBatchExecutionTaskRespVO[]
   closedAt?: string
   remark?: string
   creator?: string
