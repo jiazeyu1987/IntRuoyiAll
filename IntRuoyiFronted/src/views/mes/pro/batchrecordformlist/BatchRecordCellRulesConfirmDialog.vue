@@ -424,6 +424,17 @@ const isSelectRule = (rule: Pick<BatchRecordReportCellRuleVO, 'componentFlag'>) 
 const resolveRuleEditorValueTypeLabel = (rule: BatchRecordReportCellRuleVO) =>
   isSelectRule(rule) ? '下拉框' : valueTypeLabelMap[rule.valueType] || rule.valueType
 
+const resolveCellRuleTypeClass = (rule?: BatchRecordReportCellRuleVO) => {
+  if (!rule) return ''
+  if (isSelectRule(rule)) return 'is-rule-type-select'
+  if (rule.valueType === 'NUMBER') return 'is-rule-type-number'
+  if (rule.valueType === 'DATE') return 'is-rule-type-date'
+  if (rule.valueType === 'DATETIME') return 'is-rule-type-datetime'
+  if (rule.valueType === 'BOOLEAN') return 'is-rule-type-boolean'
+  if (rule.valueType === 'SIGNATURE') return 'is-rule-type-signature'
+  return 'is-rule-type-string'
+}
+
 const normalizeSelectOptions = (rawOptions: unknown): SelectOption[] => {
   if (!Array.isArray(rawOptions)) return []
   const options: SelectOption[] = []
@@ -615,6 +626,7 @@ const renderedRows = computed<RuleEditorRow[]>(() => {
       const merge = normalizeTemplateCellMerge(rawCell)
       const text = stringifyTemplateCell(rawCell?.value ?? rawCell?.text)
       const rule = ruleMap.value.get(identity)
+      const ruleTypeClass = resolveCellRuleTypeClass(rule)
       cells.push({
         identity,
         rowIndex,
@@ -627,6 +639,13 @@ const renderedRows = computed<RuleEditorRow[]>(() => {
           'batch-record-cell-rules-editor__cell': true,
           'is-empty': !text.trim(),
           'is-rule': Boolean(rule),
+          'is-rule-type-string': ruleTypeClass === 'is-rule-type-string',
+          'is-rule-type-number': ruleTypeClass === 'is-rule-type-number',
+          'is-rule-type-date': ruleTypeClass === 'is-rule-type-date',
+          'is-rule-type-datetime': ruleTypeClass === 'is-rule-type-datetime',
+          'is-rule-type-boolean': ruleTypeClass === 'is-rule-type-boolean',
+          'is-rule-type-signature': ruleTypeClass === 'is-rule-type-signature',
+          'is-rule-type-select': ruleTypeClass === 'is-rule-type-select',
           'is-required': Boolean(rule?.required),
           'is-selected': selectedRuleKey.value === identity
         }
@@ -1004,12 +1023,36 @@ watch(
   background: #eff6ff;
 }
 
-.batch-record-cell-rules-editor__cell.is-required {
-  background: #fff8ed;
+.batch-record-cell-rules-editor__cell.is-rule-type-string {
+  background: #eff6ff;
 }
 
-.batch-record-cell-rules-editor__cell.is-rule.is-required {
-  background: #eff6ff;
+.batch-record-cell-rules-editor__cell.is-rule-type-number {
+  background: #ecfdf3;
+}
+
+.batch-record-cell-rules-editor__cell.is-rule-type-date {
+  background: #fff7ed;
+}
+
+.batch-record-cell-rules-editor__cell.is-rule-type-datetime {
+  background: #f5f3ff;
+}
+
+.batch-record-cell-rules-editor__cell.is-rule-type-boolean {
+  background: #f0fdfa;
+}
+
+.batch-record-cell-rules-editor__cell.is-rule-type-signature {
+  background: #fef2f2;
+}
+
+.batch-record-cell-rules-editor__cell.is-rule-type-select {
+  background: #fdf4ff;
+}
+
+.batch-record-cell-rules-editor__cell.is-required {
+  box-shadow: inset 0 -3px 0 rgba(245, 158, 11, 0.5);
 }
 
 .batch-record-cell-rules-editor__cell.is-selected {

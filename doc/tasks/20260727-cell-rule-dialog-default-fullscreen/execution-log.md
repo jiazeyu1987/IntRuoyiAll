@@ -37,3 +37,6 @@
 - Verification passed with the target static contract, adjacent static regressions, and frontend relaxed TypeScript check.
 - Project experience consolidation: no new durable lesson needed; existing frontend static contract, dirty workspace baseline, PowerShell, and closeout gates already cover this task.
 - Parallel/unrelated dirty files remain outside this task scope, including current changes under `20260727-cell-rule-type-background-colors`, controlled browse task docs, backend MES/DCC tests, `docs/backend-development.md`, and `docs/experience-index.md`.
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-cell-rule-dialog-default-fullscreen --mode preview` -> PASS, keep only task records and frontend feature evidence, delete none, blocked none.
+- Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-cell-rule-dialog-default-fullscreen --mode apply` -> PASS, deleted none.
+- Final status set to `completed`.

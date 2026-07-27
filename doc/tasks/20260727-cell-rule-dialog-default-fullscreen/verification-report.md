@@ -16,6 +16,7 @@
 - PASS: shared `Dialog.vue` now supports explicit `defaultFullscreen` without changing the default behavior for other dialogs.
 - PASS: `BatchRecordCellRulesConfirmDialog.vue` opts into `:default-fullscreen="true"`.
 - PASS: no fallback, silent downgrade, API change, or unrelated visual redesign was introduced.
+- PASS: task-closeout-cleanup preview/apply kept task records and frontend evidence, with no delete candidates and no blockers.
 
 ## Remaining Non-Task Workspace State
 
