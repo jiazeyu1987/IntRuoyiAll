@@ -10,7 +10,7 @@ Remove the extra `查看错误` text entry from the batch-record form list `填�
 - [x] Record BDD and reproduce the extra error-state entry with a focused failing contract.
 - [x] Implement the smallest frontend rendering fix.
 - [x] Run focused and adjacent regression verification.
-- [ ] Complete cleanup, experience consolidation, commit, and push.
+- [x] Complete cleanup, experience consolidation, commit, and push.
 
 ## Expected Verification
 
@@ -22,7 +22,7 @@ Remove the extra `查看错误` text entry from the batch-record form list `填�
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Baseline Preservation
 

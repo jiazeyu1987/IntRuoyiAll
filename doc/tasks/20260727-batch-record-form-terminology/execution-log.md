@@ -1,0 +1,60 @@
+# Execution Log
+
+## User Intent
+
+- 用户指出后续开发多次混淆“批记录表单”和“表单槽位”，要求先提交现有前后端代码，再将准确术语边界写入项目长期规则。
+- 用户确认：
+  - “批记录”“批记录表单”只指工序设置中每个对应工序绑定的批记录表单。
+  - “表单”“表单槽位”只指特殊表单或动态表单中心模板绑定，使用 `formBindings`。
+  - “工序开始”只指特殊节点上传人配置。
+- 用户于 2026-07-27 明确允许保留主工作区现有并发改动，绕过本地 clean worktree 合并门禁，将术语提交直接 fast-forward 推送到远端 `int_main`。
+- 用户进一步确认三类配置在批次执行中的作用，要求补充到同一项目限制：
+  - “工序开始”控制特殊开始节点的上传人、附件责任或同类开始动作，不承载表单内容。
+  - “表单槽位”通过 `formBindings` 展示、填写和保存补充性的特殊表单或动态表单。
+  - “批记录表单”是按工序设置逐工序绑定的正式生产批记录载体，用于批次执行中的查看、填写和形成批记录数据。
+
+## Command Intent
+
+- 已读取任务收尾、PowerShell 编码、Git 编排、worktree 和项目经验沉淀规则。
+- 已清理本任务首次创建失败的半初始化 worktree。
+- 已确认并推送现有前后端检查点提交 `f18927b9`；推送期间及之后产生的新并行改动未纳入本任务。
+- 使用稀疏 worktree，仅检出根规则、`docs` 和 `doc`，避免触发大仓库 LFS 全量检出。
+- 稀疏检出遗留锁仅属于本任务；确认没有关联 Git 进程后删除，并补充检出提交门禁所需的 `scripts`、`.githooks` 和前端分支环境文件。
+- 直接集成前发现本地 `int_main` 已有未推送基线提交 `40b7f7b9`；为避免覆盖或制造分叉，术语提交重放到该基线之后，并保留所有未跟踪并发文件不进入本任务提交。
+
+## Milestone Updates
+
+- 术语边界确认：completed。
+- 项目规则写入：completed。
+- 结构、编码和 Git 门禁验证：completed。
+- 术语规则提交和任务分支推送：completed。
+- 远端 `int_main` fast-forward 集成：completed。
+- 批次执行职责边界补充：completed。
+- 本地 `int_main` 同步和收尾清理：blocked by concurrent dirty main worktree。
+
+## Verification Evidence
+
+- 已读取 `docs\experience-index.md`，命中工艺路线 `batchRecordFormNames` 显式来源匹配门禁。
+- 已将三类配置术语契约写入根 `AGENTS.md`，并在 `docs\experience-index.md` 增加关键词入口。
+- BDD: 三类表单配置按正式数据源独立解释 -> Given 后续任务读取根 `AGENTS.md`，When 用户提到“批记录表单”“表单槽位”或“工序开始”，Then 分别使用工序设置批记录表单绑定、`formBindings`、特殊节点上传人配置，且不得交叉替代。
+- RED: `git show a116b851:AGENTS.md | rg -n '工艺路线三类配置术语契约'` -> FAIL，退出码 1，旧基线不存在该术语契约。
+- GREEN: `rg -n '工艺路线三类配置术语契约|批记录表单.*工序设置|formBindings|工序开始|三条独立链路' AGENTS.md` -> PASS，三类来源和禁止混用规则均命中。
+- GREEN: `rg -n '三类配置不得混用|AGENTS.md#工艺路线三类配置术语契约' docs\experience-index.md` -> PASS，长期经验索引可检索。
+- GREEN: 严格 UTF-8 解码读取 `AGENTS.md`、`docs\experience-index.md`、`task.md`、`execution-log.md` -> PASS。
+- GREEN: `git diff --check` -> PASS。
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，任务 worktree 使用 `int_main` profile、slot 4、前端 8085、后端 48085。
+- GREEN: `git push origin int_main` -> PASS，前后端检查点 `f18927b9` 已推送，`int_main` 与 `origin/int_main` 一致。
+- GREEN: 术语规则提交在 rebase 到 `f18927b9` 后生成 `33b7e407`，`git push -u origin codex/20260727-batch-record-form-terminology` -> PASS。
+- CLOSEOUT PREVIEW: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-batch-record-form-terminology --mode preview` -> BLOCKED；三个核心任务文档均列入 keep，delete 为空，主工作区脏状态阻止 `ff-only` 合并。
+- GREEN: `git rebase int_main` -> PASS；仅 `docs\experience-index.md` 存在内容冲突，合并时同时保留主分支“隐藏路由顶部页签状态”索引和本任务“三类配置不得混用”索引。
+- GREEN: `git push origin HEAD:int_main` -> PASS；远端 `int_main` 从 `9b94ac81` fast-forward 到 `c92f45a4`，包含既有基线 `40b7f7b9` 和重放后的术语提交 `bfb77c0b`、`c92f45a4`。
+- BDD: 批次执行三类配置职责独立 -> Given 某工序同时存在开始节点上传人、`formBindings` 和批记录表单绑定，When 批次执行加载该工序，Then 三条链路分别负责附件开始动作、补充动态表单和正式生产批记录，且不得互相替代。
+- RED: `git show a9dfaf9e:AGENTS.md | rg -n '正式生产批记录载体|补充表单链路|不提供需要展示、填写或保存的表单内容'` -> FAIL，退出码 1，上一版规则未明确三类配置在批次执行中的实际职责。
+- GREEN: `rg -n '三个独立配置入口|不提供需要展示、填写或保存的表单内容|补充表单链路|正式生产批记录载体|batchRecordFormNames' AGENTS.md` -> PASS。
+- GREEN: `rg -n '批次执行作用|补充动态表单|三类配置入口' docs\experience-index.md` -> PASS。
+- GREEN: 严格 UTF-8 解码五个任务写入文件、`git diff --check` 和 `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
+
+## Blockers
+
+- 主工作区 `E:\IntRuoyi` 仍存在其它任务的前端、测试和任务文档未提交改动。按 worktree closeout 门禁，不得自动同步本地主分支或删除 worktree。
+- 影响：术语规则已进入远端 `int_main`，但本地 `int_main` 暂时落后于远端；任务保持 `ready_for_closeout`，worktree 与 slot 4 继续保留。

@@ -24,6 +24,21 @@ Scope: This file governs work in the current `E:\IntRuoyi` workspace unless a ne
 - Test evidence exists in both repos: Java/JUnit tests, Node static contract tests, and Playwright real-flow E2E tests.
 - Use `docs\engineering\technology-stack-routing.md` as the current stack routing evidence when choosing implementation and verification paths.
 
+## 工艺路线三类配置术语契约
+
+- 工艺路线中的“工序开始”“批记录表单”“表单槽位”是三个独立配置入口，不是三种可以互换的表单；开发、接口建模、页面展示和测试必须分别表达其职责。
+- “批记录”“批记录表单”只指工序设置中每个对应工序绑定的批记录表单。工艺路线里的“批记录表单”字段必须按工序读取这条正式绑定关系并展示对应批记录表单，不得把“表单槽位”理解成批记录表单。
+- “表单”“表单槽位”只指特殊表单或动态表单中心模板绑定，正式数据源是 `formBindings`。`formBindings` 不得替代、补齐或推断“批记录表单”字段。
+- “工序开始”只指特殊节点的上传人、附件负责人或同类开始节点配置。该配置不属于批记录表单，也不属于表单槽位。
+- 在批次执行中，“工序开始”配置用于确定特殊开始节点由谁上传附件、承担附件责任或执行同类开始动作；它不提供需要展示、填写或保存的表单内容。
+- 在批次执行中，“表单槽位”用于按 `formBindings` 展示、填写和保存补充性的特殊表单或动态表单中心模板；它是工序运行时的补充表单链路，不是该工序的正式生产批记录。
+- 在批次执行中，“批记录表单”是对应工序的正式生产批记录载体，用于查看、打开、填写和形成该工序的批记录数据；必须按当前工序在“工序设置”中的正式批记录表单绑定读取，`batchRecordFormNames` 也必须反映这条逐工序绑定。
+- 用户提到“批记录”或“批记录表单”时，默认按工序设置中的逐工序批记录表单绑定理解；除非用户明确说“表单”“表单槽位”或 `formBindings`，不得切换到动态表单链路。
+- 修改 `batchRecordFormNames`、工艺路线字段明细、节点红绿状态、批记录表单链接或相关接口时，必须先核对工序设置的逐工序批记录表单绑定来源、报表元数据和工序映射；不得使用 `formBindings`、默认 `MAIN` 槽位归类、工序开始上传人或其它特殊表单作为替代来源。
+- 修改表单槽位时，只能影响 `formBindings` 及其动态表单展示、保存和运行态链路；不得改变“批记录表单”字段的值、配置状态或链接。
+- 若接口或快照缺少正式的逐工序批记录表单绑定，必须阻塞并补齐正式数据链路；禁止用空值、`formBindings`、旧字段猜测、默认 `MAIN`、特殊节点配置或前端文案掩盖来源缺失。
+- 验证必须分别覆盖三条独立链路：工序开始上传人、工序设置批记录表单、表单槽位 `formBindings`；任一测试不得以另一条链路的数据证明当前链路正确。
+
 ## Trigger-Read Rule Files
 
 - Worktree operations: read `docs\worktree-restrictions.md` before creating, starting, stopping, restarting, merging, cleaning, or deleting any IntRuoyi worktree.
