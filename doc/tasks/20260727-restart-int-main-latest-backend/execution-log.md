@@ -27,6 +27,9 @@
 - `GREEN: project-experience-consolidation -> PASS`，已将“构建后再次 fetch，并以 `IntRuoyiBackend` tree 判定是否必须重建”的通用门禁合并到现有 `docs/local-runtime.md#2026-07-24-隔离构建-Jar-加载门禁`，未新建长期经验文档。
 - `GREEN: validate_cicd_environment.py -> PASS`，`ci-cd-evidence.md` 满足环境、命令、产物、验证、审批、secret owner 和 rollback 证据合同。
 - `BLOCKER: task-closeout-cleanup preview -> Main worktree is dirty`，preview 的 keep 列表仅包含四个任务文档、delete 为空；`E:\IntRuoyi` 存在其他并行任务的未提交改动，不能执行 ff-only merge 或删除 linked worktree。当前任务不得提交、暂存、stash、回滚或删除这些无关改动。
+- `GREEN: task evidence commit -> PASS`，提交 `3a7f795fd3c17e43cc00e60e3a2ef4b283e5d396` 仅包含四个任务记录和 `docs/local-runtime.md` 经验门禁。
+- `GREEN: git push origin codex/restart-int-main-latest-backend-20260727 -> PASS`，远端任务分支已创建并与本地同步。
+- `BLOCKER: post-commit task-closeout-cleanup preview -> Main worktree is dirty`，工作树已无任务未提交文件、delete 仍为空，但 `E:\IntRuoyi` 的无关并行脏改动继续阻塞 ff-only merge、apply、worktree 删除和 slot 释放。
 
 ## Current Evidence
 
@@ -43,3 +46,4 @@
 
 - Runtime implementation and verification have no blocker.
 - Closeout blocker: `E:\IntRuoyi` 主工作区存在无关并行脏改动，cleanup preview 已按规则阻塞 ff-only merge；在主工作区恢复干净前，构建 worktree 和 slot `6` 必须保留。
+- Pushed task branch: `origin/codex/restart-int-main-latest-backend-20260727`.

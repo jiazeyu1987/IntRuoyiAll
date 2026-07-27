@@ -32,3 +32,5 @@ Task closeout: PENDING.
 ## Residual Closeout Risk
 
 `task-closeout-cleanup` preview kept the four declared task records and selected no deletion candidates, but blocked because `E:\IntRuoyi` contains unrelated concurrent dirty files. They are outside this task's ownership and must not be committed, stashed, reverted, or deleted. Linked-worktree removal and slot `6` release remain gated until the main worktree is clean.
+
+Task evidence commit `3a7f795fd3c17e43cc00e60e3a2ef4b283e5d396` is pushed to `origin/codex/restart-int-main-latest-backend-20260727`. The task remains `ready_for_closeout`; it is not marked completed and the worktree/slot are intentionally retained.
