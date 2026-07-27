@@ -31,7 +31,14 @@
 
 ## Current Status
 
-in_progress
+blocked
+
+## Current Blocker
+
+- `release-20260727-onlyoffice-test-r260727-1948` 已通过稳定排序修复并越过原绑定迁移顺序问题，但在更早的 `20260709_mes_rt000006_batch_record_mapping.sql` 失败，错误为 `Missing RT000006 pressure pump route`。
+- 测试库只读核对确认不存在 `id=922067` 或 `code=RT000006` 的路线，相关活动路线工序为 `0`，三类压力泵填写员有效角色也为 `0`；不是单纯 ID 或名称漂移。
+- 该历史迁移当前要求缺少路线时 fail fast。继续前必须明确：路线不存在时将迁移改为正式 no-op，或通过新迁移完整重建路线、角色及映射数据。两种方案业务影响不同，禁止未确认时静默降级或手工改库。
+- 本轮失败状态已收口，测试服继续运行 `release-20260723-dcc-viewer-permission-r260723vp-r1`，后端、前端和 OnlyOffice 均健康。
 
 ## Prior Blocker
 

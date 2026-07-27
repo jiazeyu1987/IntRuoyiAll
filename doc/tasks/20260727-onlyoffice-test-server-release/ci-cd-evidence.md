@@ -39,4 +39,5 @@
 ## Blockers
 
 - `release-20260727-onlyoffice-test-r260727-1823` is invalid because its preflight plan executed workstation binding before cleanup.
-- The next build and deployment must use a new releaseTag from the committed ordering fix.
+- `release-20260727-onlyoffice-test-r260727-1948` is invalid because historical required SQL `20260709_mes_rt000006_batch_record_mapping.sql` requires an `RT000006` route and pressure-pump roles that are absent from the test database.
+- Continuing requires an explicit business decision: formal no-op when the route is absent, or complete data reconstruction through a migration.
