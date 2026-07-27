@@ -3491,7 +3491,9 @@ $componentExplicit = $PSBoundParameters.ContainsKey('Component')
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $backendRepo = (Resolve-Path (Join-Path $scriptDir '..\..')).Path
 $workspaceRoot = (Resolve-Path (Join-Path $backendRepo '..')).Path
-$frontendDir = Join-Path $workspaceRoot 'yudao-ui-admin-vue3'
+$currentFrontendDir = Join-Path $workspaceRoot 'IntRuoyiFronted'
+$legacyFrontendDir = Join-Path $workspaceRoot 'yudao-ui-admin-vue3'
+$frontendDir = if (Test-Path -LiteralPath $currentFrontendDir) { $currentFrontendDir } else { $legacyFrontendDir }
 if (-not (Test-Path -LiteralPath $frontendDir)) {
     $worktreePortMapPath = Join-Path $scriptDir 'worktree-port-map.ps1'
     if (Test-Path -LiteralPath $worktreePortMapPath) {

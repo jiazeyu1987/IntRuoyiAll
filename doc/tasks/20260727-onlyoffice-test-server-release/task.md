@@ -32,7 +32,7 @@ in_progress
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否；本任务修复 release migration metadata 枚举错误并执行正式发布门禁，不绕过预检。
-- `是否从根因和长期维护角度解决`：是；`infra_config` 配置类 SQL 使用脚本允许的正式 `type=config`，保持发布门禁可验证。
+- `是否从根因和长期维护角度解决`：是；`infra_config` 配置类 SQL 使用脚本允许的正式 `type=config`，发布脚本优先识别当前仓库标准前端目录 `IntRuoyiFronted`。
 - `是否存在临时补丁或绕过`：否。
 
 ## 经验门禁

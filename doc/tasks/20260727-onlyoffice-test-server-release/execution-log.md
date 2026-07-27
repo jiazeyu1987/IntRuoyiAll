@@ -22,3 +22,8 @@
 - Experience consolidation: existing `docs/experience-index.md` and release build lessons already contain the migration metadata allowed-type gate; no new long-term document is needed.
 - Worktree slot reservation: `reserve-worktree-slot.ps1 -Name onlyoffice-test-release-20260727 -Profile int_main` -> slot `3`, frontend `8084`, backend `48084`; services were not started.
 - GREEN: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, branch runtime port guard passed for `codex/20260727-onlyoffice-test-release/int_main`.
+- Implementation commit: `24bc99fef31ef1ef9ea6f479775b032452af2dfb` (`fix: align release migration metadata types`) pushed to `origin/codex/20260727-onlyoffice-test-release`.
+- RED: `publish-int-ruoyi.ps1 -Mode build-release -Component intruoyi -ReleaseTag release-20260727-onlyoffice-test-r260727-1445 -Environment test -ServerHost 172.30.30.58 -TestServerHost 172.30.30.58 -BackupServerHost 172.30.30.59 -SkipDatabaseSync -SkipMinioSync` -> FAIL after backend package success, `Missing frontend Vite CLI: D:\IntRuoyiWorktree\onlyoffice-test-release-20260727\yudao-ui-admin-vue3\node_modules\vite\bin\vite.js`.
+- Root cause: release script still preferred legacy sibling frontend folder `yudao-ui-admin-vue3`; current project worktree contains `IntRuoyiFronted`.
+- Change: `publish-int-ruoyi.ps1` now resolves `IntRuoyiFronted` first and keeps legacy `yudao-ui-admin-vue3` only when the current folder is absent.
+- GREEN: `corepack pnpm@10.25.0 install --frozen-lockfile` from `IntRuoyiFronted` -> PASS, lockfile unchanged and `node_modules` restored for release build.
