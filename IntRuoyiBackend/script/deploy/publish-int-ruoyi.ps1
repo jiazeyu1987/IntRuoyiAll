@@ -3415,6 +3415,39 @@ function Write-ReleaseManifestV1 {
     [System.IO.File]::WriteAllText((Join-Path $releaseDir 'manifest.json'), $manifestJson, [System.Text.UTF8Encoding]::new($false))
 }
 
+function Write-FrontendReleaseInfo {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackageTag,
+        [Parameter(Mandatory = $true)]
+        [string]$FrontendDistDir
+    )
+
+    if (-not (Test-Path -LiteralPath $FrontendDistDir -PathType Container)) {
+        Fail "Frontend release-info target directory missing: $FrontendDistDir"
+    }
+
+    $releaseInfo = [ordered]@{
+        manifestVersion = '1.0'
+        packageId = $packageDirectoryName
+        releaseTag = $PackageTag
+        createdAt = (Get-Date).ToUniversalTime().ToString('o')
+        createdBy = $OperatorName
+        sourceRepos = New-ReleaseSourceRepoManifestEntries
+        changeSet = [ordered]@{
+            summary = "Release package $packageDirectoryName"
+            component = $Component
+            includeShowroomBuildPackage = [bool]$publishWebsite
+            includeOnlyOffice = [bool]$IncludeOnlyOffice
+        }
+        publishScope = if ($SkipDatabaseSync -and $SkipMinioSync) { 'code-only' } else { 'with-data' }
+        components = Get-ReleaseComponentManifestNames
+    }
+    $releaseInfoJson = $releaseInfo | ConvertTo-Json -Depth 20
+    $releaseInfoPath = Join-Path $FrontendDistDir 'release-info.json'
+    [System.IO.File]::WriteAllText($releaseInfoPath, $releaseInfoJson, [System.Text.UTF8Encoding]::new($false))
+}
+
 function Write-ReleaseManifest {
     param(
         [Parameter(Mandatory = $true)]
@@ -4609,6 +4642,9 @@ if ($Mode -eq 'build-release') {
 
 if ($publishBackend -or $publishFrontend) {
     Info 'Preparing Docker build context from current worktree artifacts'
+    if ($publishFrontend) {
+        Write-FrontendReleaseInfo -PackageTag $ReleaseTag -FrontendDistDir (Join-Path $frontendDir 'dist-intruoyi-test')
+    }
     New-ReleaseDockerBuildContext `
         -ContextRoot $dockerBuildContextRoot `
         -BackendRepoRoot $backendRepo `

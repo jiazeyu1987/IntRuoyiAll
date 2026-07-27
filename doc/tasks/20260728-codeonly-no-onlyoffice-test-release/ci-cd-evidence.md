@@ -8,8 +8,8 @@
 
 ## Commands
 
-- Build: `publish-int-ruoyi.ps1 -Mode build-release -Component intruoyi -ReleaseTag release-20260728-codeonly-noonlyoffice-test-r1 ... -SkipDatabaseSync -SkipMinioSync`.
-- Deploy: `publish-int-ruoyi.ps1 -Mode deploy-release -Environment test -Component intruoyi -ReleaseTag release-20260728-codeonly-noonlyoffice-test-r1 ... -SkipDatabaseSync -SkipMinioSync`.
+- Build: `publish-int-ruoyi.ps1 -Mode build-release -Component intruoyi -ReleaseTag release-20260728-codeonly-noonlyoffice-test-r2 ... -SkipDatabaseSync -SkipMinioSync`.
+- Deploy: `publish-int-ruoyi.ps1 -Mode deploy-release -Environment test -Component intruoyi -ReleaseTag release-20260728-codeonly-noonlyoffice-test-r2 ... -SkipDatabaseSync -SkipMinioSync`.
 - Important scope guard: neither command may pass `-IncludeOnlyOffice`.
 
 ## Secrets
@@ -24,6 +24,7 @@
 - Validate package artifacts: local and NAS artifact hashes match; no database dump, MinIO snapshot or runtime-data; image tar does not include `onlyoffice/documentserver`.
 - Validate deploy log: data/data-dependent SQL skipped; no `Starting application services ... onlyoffice`; no OnlyOffice health-check command.
 - Validate runtime: `.env IMAGE_TAG`, backend/frontend image tags, backend health, frontend HTTP, operation lock.
+- Validate release-info: frontend `/release-info.json` returns the final releaseTag and `publishScope=code-only`.
 
 ## Rollback
 

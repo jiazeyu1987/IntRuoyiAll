@@ -16,13 +16,14 @@
 
 - 目标服务器：`172.30.30.58`。
 - 发布范围：`test` only，组件范围 `intruoyi`。
-- ReleaseTag：`release-20260728-codeonly-noonlyoffice-test-r1`。
+- ReleaseTag：`release-20260728-codeonly-noonlyoffice-test-r2`。`r1` 已完成程序-only/no-OnlyOffice 发布，但前端发布信息文件缺失，不能作为最终验收版本。
 - `manifest.json`：`publishScope=code-only`、`component=intruoyi`、`changeSet.includeOnlyOffice=false`。
 - `release-manifest.json`：`onlyOfficeIncluded=false`。
 - 发布包不包含 database dump、MinIO snapshot、runtime-data，镜像 tar 不包含 `onlyoffice/documentserver`。
 - 发布命令不传 `-IncludeOnlyOffice`，部署日志中启动服务列表只包含 backend/frontend，并使用 `--no-deps`。
 - 测试服 `.env IMAGE_TAG`、backend 镜像、frontend 镜像均为本轮 releaseTag。
 - 后端 health 返回 `UP`，前端 HTTP 200，发布锁 `APPLIED`，无 `RUNNING` 发布锁。
+- 前端 `/release-info.json` 返回本轮 releaseTag，而不是 SPA fallback 的 `index.html`。
 
 ## Current Status
 

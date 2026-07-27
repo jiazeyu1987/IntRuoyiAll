@@ -171,6 +171,24 @@ def test_build_release_smart_report_runs_validation_and_intake_after_manifest_be
     assert "-OutputDir', $intakeOutputDir" in build_report_body
 
 
+def test_build_release_writes_frontend_release_info_before_docker_context() -> None:
+    text = read_publish_script()
+
+    assert "function Write-FrontendReleaseInfo" in text
+    release_info_body = _extract_powershell_function(text, "Write-FrontendReleaseInfo")
+    assert "release-info.json" in release_info_body
+    assert "New-ReleaseSourceRepoManifestEntries" in release_info_body
+    assert "releaseTag = $PackageTag" in release_info_body
+    assert "publishScope = if ($SkipDatabaseSync -and $SkipMinioSync) { 'code-only' } else { 'with-data' }" in release_info_body
+    assert "includeOnlyOffice = [bool]$IncludeOnlyOffice" in release_info_body
+    assert "[System.IO.File]::WriteAllText($releaseInfoPath, $releaseInfoJson, [System.Text.UTF8Encoding]::new($false))" in release_info_body
+
+    write_release_info_index = text.index("Write-FrontendReleaseInfo -PackageTag $ReleaseTag")
+    docker_context_index = text.index("New-ReleaseDockerBuildContext `")
+    frontend_build_index = text.index("Invoke-FrontendViteBuild -FrontendDir $frontendDir")
+    assert frontend_build_index < write_release_info_index < docker_context_index
+
+
 def test_smart_release_report_only_keeps_legacy_publish_flow_unhooked_when_disabled() -> None:
     text = read_publish_script()
 
