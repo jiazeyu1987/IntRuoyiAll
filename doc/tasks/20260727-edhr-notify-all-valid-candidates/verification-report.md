@@ -4,7 +4,7 @@
 
 Status: blocked.
 
-The requested business behavior is implemented and both direct and standard targeted Maven tests pass. The direct full MES module test completed, but the module's existing regression suite did not pass, so closeout remains blocked.
+The requested business behavior is implemented and both direct and standard targeted Maven tests pass. T4/T5/T6 regression clusters have been repaired and verified; the latest complete MES module run is blocked only by the missing authoritative Excel fixture required by Sheet1 route import tests.
 
 ## Verified Behavior
 
@@ -60,11 +60,19 @@ Result: PASS, with Git line-ending conversion warnings only.
 
 ## Blocker
 
-`mvn -pl yudao-module-mes -am test` failed in upstream `yudao-module-infra` with 415 tests, 38 failures, 1 error, and 10 skipped; Maven skipped MES.
+Earlier `mvn -pl yudao-module-mes -am test` failed in upstream `yudao-module-infra` with 415 tests, 38 failures, 1 error, and 10 skipped; Maven skipped MES.
 
 `mvn -pl yudao-module-mes test` then ran for 15 minutes and timed out without producing a fresh complete Surefire report. The task-owned Maven process was stopped after verifying its command line and PID.
 
-The same command was rerun with a longer finite timeout and completed after 38:34 at 2026-07-27 20:17:20. Result: FAIL, 2509 tests run, 58 failures, 78 errors, 31 skipped. Failures include existing scheduling contracts, missing local Word/Excel fixtures, database test context failures, and other unrelated module tests. In that same full run, `MesProEdhrWorkTaskServiceImplTest` passed all 66 tests with 0 failures and 0 errors.
+The same command was rerun with a longer finite timeout and completed after 38:34 at 2026-07-27 20:17:20. Result: FAIL, 2509 tests run, 58 failures, 78 errors, 31 skipped. Failures included scheduling contracts, missing local Word/Excel fixtures, database test context failures, and other module tests. In that same full run, `MesProEdhrWorkTaskServiceImplTest` passed all 66 tests with 0 failures and 0 errors.
+
+After T4/T5/T6 remediation, `mvn -pl yudao-module-mes test` was rerun and completed at 2026-07-28 01:15:20 +08:00. Result: FAIL, 2511 tests run, 0 failures, 4 errors, 18 skipped. All four errors were the missing Sheet1 authoritative Excel fixture in `Sheet1RouteExcelParserTest`, `Sheet1RouteExcelImportServiceImplTest`, and `Sheet1RouteExcelImportServiceImplDbTest`.
+
+Workspace search `rg --files -g "*球囊扩张导管工序*"` under `E:\IntRuoyi` found no project-owned authoritative Excel fixture. A desktop candidate with SHA-256 `A7ACF4ADE2E09A00B68D80701B1FB86BC79B6F3CCDA55504B7C838AB85240354` remains unconfirmed, so it must not be copied, renamed, substituted, synthesized, or used to skip tests.
+
+The three Sheet1 tests now read `fixtures/sheet1-route-balloon-catheter.xlsx` through `Sheet1RouteExcelTestFixtures` instead of the prior `D:\ocr2` personal path. Targeted rerun at 2026-07-28 01:23:39 +08:00 compiled 306 test sources and failed only with `NoSuchFileException: src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx` across the same four fixture-backed methods.
+
+The latest full MES rerun completed at 2026-07-28 01:30:40 +08:00 with `2511 tests`, `0 failures`, `4 errors`, and `18 skipped`. All four errors are the same missing project fixture `src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx`; no other suite currently reports a failure or error.
 
 ## Completion Gate
 

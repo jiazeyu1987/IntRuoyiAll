@@ -60,3 +60,22 @@
 - Cleanup: 仅停止空闲且无任务子进程的本任务旧 Runner PID `65964`；并发会话 `41` / 批次 `18` 未操作。
 - Screenshot: `output/playwright/20260727-codex-runner-token-e2e/real-run-case-35/batch-17-failed.png`。
 - Security: 原始登录快照与带鉴权 trace 已删除，未把密码、token 或 Authorization 头写入任务文档。
+
+## Final Real E2E Run After Fix
+
+- Result: PASS。
+- Runtime repair: 旧后端 PID `55984` health `UP` 但登录请求挂起；已用同一不可变 Jar 启动新后端 PID `29284`，stdout/stderr 改为稳定日志文件，登录探针不再超时。
+- Registration: 按真实 Runner payload 注册探针返回业务码 `0`，探针会话 `52`；未记录 token 明文。
+- Runner fix: 只读任务追加 `--ignore-rules` 与 `model_reasoning_effort="medium"`，并在 prompt 中约束最短浏览器路径、临时 Node.js Playwright 脚本、禁止建档/改文件/构建/无关源码探索。
+- RED/GREEN: 扩展后的 `node tests/e2e/codex-test-runner-readonly-timeout-static.spec.js` 先失败后通过；`node tests/e2e/codex-test-runner-http-client-static.spec.js` 与 `node --check scripts/codex-test-runner.mjs` 通过。
+- Regression: `node tests/e2e/codex-test-runner-child-settlement-static.spec.js`、`node tests/e2e/system-codex-test-management-static.spec.js`、`node tests/e2e/system-codex-test-run-monitor-static.spec.js` 通过。
+- Path: Playwright 真实登录 `http://127.0.0.1:8081`，进入 `系统管理 > 测试管理`，通过页面新增任务自有只读测试项并点击同行“执行”。
+- Execution: 批次 `24=PASS`；执行项 `45=PASS`；检查点“测试管理只读区域可见=PASS”，实际文本为页面显示“测试管理”“测试项”“Runner 状态”。
+- Runner: 任务自有会话 `56` 领取并完成；终态后 `current_running_count=0`、heartbeat age `18s`，无任务自有 Runner/Codex 子进程残留。
+- Cleanup: 自检测试项 `44` 通过页面删除，活动执行项数量 `0`，无 `%TEMP%\codex-test-result-45-*` 临时结果文件。
+- Page: 控制台错误数 `0`；最终截图 `output/playwright/20260727-codex-runner-token-e2e/readonly-after-fix/final.png`，摘要 `output/playwright/20260727-codex-runner-token-e2e/readonly-after-fix/summary.json`。
+
+## Current Limits
+
+- 旧任务自有 Runner 会话 `53` 在一次失败脚本超时后保留 stale `current_running_count=1`，但其 heartbeat 已超过在线阈值、无活动执行项、无对应进程；后续最终会话 `56` 已作为当前验证会话归零。
+- 最终提交/推送仍被非本任务并发脏改动阻塞；任务状态保持 `ready_for_closeout`，不得标记 `completed`。

@@ -7,8 +7,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_IMPORT_ROUTE_NO_STEP;
@@ -21,13 +19,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class Sheet1RouteExcelParserTest {
 
-    private static final Path FIXTURE = Path.of("D:\\ocr2\\resource\\球囊扩张导管工序(1).xlsx");
-
     private final Sheet1RouteExcelParser parser = new Sheet1RouteExcelParser();
 
     @Test
     void parseFixture_returnsTwoRoutesWithFirstAppearanceDeduplicatedSteps() throws Exception {
-        try (ByteArrayInputStream inputStream = new ByteArrayInputStream(Files.readAllBytes(FIXTURE))) {
+        try (ByteArrayInputStream inputStream = new ByteArrayInputStream(
+                Sheet1RouteExcelTestFixtures.balloonCatheterProcessWorkbookBytes())) {
             Sheet1RouteExcelParser.ParseResult result = parser.parse(inputStream);
 
             assertEquals(2, result.routes().size());

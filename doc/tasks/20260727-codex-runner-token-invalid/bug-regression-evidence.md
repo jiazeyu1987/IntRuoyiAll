@@ -22,6 +22,8 @@ Runner token 必须与当前后端运行态一致；测试管理依赖的正式 
 - 标准本地后端重启脚本没有持久 Runner token 契约；后端重启时可能未注入 token，或与已运行 Runner 使用的一次性 token 不一致。
 - 本地 Docker MySQL 未应用正式节点串迁移。
 - `runCodexForTask()` 在调用 `stopWindowsProcessTree()` 后仍无限等待 child `close`；Windows wrapper 已消失但事件未触发时，`runOnce()` 无法离开当前任务。
+- 长时间 Codex 执行后旧 Runner HTTP 客户端可能继续复用异常连接，导致 heartbeat/register 出现 30 秒超时；Runner 请求需要显式关闭连接并禁用缓存。
+- 只读测试项继承全局 xhigh 推理和项目编码任务规则时，会在无关规则/源码探索中耗尽只读预算；只读 Runner 需要明确的快速执行参数和最短 Playwright 路径提示。
 
 ## Regression Test
 
@@ -29,12 +31,15 @@ Runner token 必须与当前后端运行态一致；测试管理依赖的正式 
 - timeout/cancel 异常路径必须 `await stopChild()` 后再退出，禁止仅杀进程后无限等待 `close`。
 - 运行控制脚本静态合同要求标准后端重启使用 `.runtime/codex-test-runner/runner-token.txt`，安全生成一次、空文件 fail-fast、启动前注入 `CODEX_TEST_RUNNER_TOKEN`，并要求 `.runtime` 被根 `.gitignore` 保护。
 - 测试管理相邻静态合同、迁移 pytest 和真实页面诊断共同覆盖页面初始化与 Runner 链路。
+- 只读 Runner 静态合同要求 `CODEX_READONLY_REASONING_EFFORT`、只读 `--ignore-rules` 执行参数和最短 Playwright 路径 prompt，防止测试管理只读自检再次因无关探索超时。
 
 ## RED:
 
 - `node tests/e2e/codex-test-runner-child-settlement-static.spec.js` -> FAIL，缺少有界子进程收敛契约。
 - 批次 `10` 取消后会话 `31` -> `current_running_count=1`，不符合空闲心跳契约。
 - `python -X utf8 -m pytest script/tests/test_runtime_control_scripts.py -k workspace_codex_runner_token_file -q` -> FAIL，根 `.gitignore` 缺少 `.runtime/` 与 `**/.runtime/`，持久 token 文件可能被误纳入 Git。
+- 扩展后的 `node tests/e2e/codex-test-runner-readonly-timeout-static.spec.js` -> FAIL，缺少只读中等推理、忽略编码任务规则和最短 Playwright 路径 prompt。
+- 批次 `22/23` -> FAIL，Runner 已正确在 `180000ms` 只读预算内终止，但 Codex 未完成真实页面只读核验。
 
 ## GREEN:
 
@@ -44,6 +49,9 @@ Runner token 必须与当前后端运行态一致；测试管理依赖的正式 
 - 节点串迁移测试 -> PASS，4 tests。
 - 标准重启 token 合同聚焦测试 -> PASS，`1 passed, 14 deselected`；完整运行控制脚本测试 -> PASS，`15 passed`。
 - 当前后端最终受控注册 -> PASS，业务码 `0`；实际 Runner 会话 `36` 等待一个 heartbeat 周期后仍为 `ONLINE`、运行计数 `0`、heartbeat age `1` 秒。
+- `node tests/e2e/codex-test-runner-readonly-timeout-static.spec.js`、`node tests/e2e/codex-test-runner-http-client-static.spec.js`、`node --check scripts/codex-test-runner.mjs` -> PASS。
+- `node doc/tasks/20260727-codex-runner-token-invalid/real-run-readonly-after-fix.e2e.cjs` -> PASS；真实页面批次 `24=PASS`、执行项 `45=PASS`、检查点“测试管理只读区域可见=PASS”。
+- 最终任务自有 Runner 会话 `56` -> `current_running_count=0`，heartbeat age `18s`，无活动执行项、无 `codex-test-result-45-*` 临时文件、无任务自有 Runner/Codex 子进程。
 
 ## Verification
 
@@ -62,5 +70,5 @@ Runner token 必须与当前后端运行态一致；测试管理依赖的正式 
 ## Blockers And Follow-Up
 
 - 批记录节点完整业务 PASS 仍缺固定解析样本，不得用替代文件、mock、直接 SQL 或 API-only 绕过。
-- 2026-07-27 最新真实页面批次 `17` 仍因 `codex exec timed out after 600000ms` 进入 `FAIL/BLOCKED`；终态收敛后旧 Runner 会话 heartbeat/register 又连续 30 秒超时并超过离线阈值。该问题需要单独建立 RED/GREEN 修复，不能把 token 注册探针成功或进程存在当作 E2E PASS。
+- 2026-07-27 批次 `17` 的 `600000ms` 超时与后续 heartbeat/register 超时已通过只读快速路径、HTTP close/no-store 和后端 stdout 迁移完成修复；最终真实批次 `24` 已 PASS。
 - 最终提交/推送被非本任务并发脏改动阻塞。

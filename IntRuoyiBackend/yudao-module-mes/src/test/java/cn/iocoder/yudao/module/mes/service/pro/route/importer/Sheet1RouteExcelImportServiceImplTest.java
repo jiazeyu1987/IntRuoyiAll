@@ -24,8 +24,6 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -47,8 +45,6 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class Sheet1RouteExcelImportServiceImplTest {
-
-    private static final Path FIXTURE = Path.of("D:\\ocr2\\resource\\球囊扩张导管工序(1).xlsx");
 
     @Mock
     private MesProRouteMapper routeMapper;
@@ -100,7 +96,8 @@ class Sheet1RouteExcelImportServiceImplTest {
         });
 
         MockMultipartFile file = new MockMultipartFile("file", "球囊扩张导管工序(1).xlsx",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", Files.readAllBytes(FIXTURE));
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                Sheet1RouteExcelTestFixtures.balloonCatheterProcessWorkbookBytes());
 
         Long creatorUserId = 701L;
         Sheet1RouteExcelImportResult result;
@@ -162,7 +159,8 @@ class Sheet1RouteExcelImportServiceImplTest {
     @Test
     void importFixture_invalidProcessStatusFailsBeforeInsert() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "球囊扩张导管工序(1).xlsx",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", Files.readAllBytes(FIXTURE));
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                Sheet1RouteExcelTestFixtures.balloonCatheterProcessWorkbookBytes());
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> importService.importExcel(file, 99));

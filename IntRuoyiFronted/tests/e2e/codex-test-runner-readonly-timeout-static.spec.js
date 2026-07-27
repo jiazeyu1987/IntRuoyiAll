@@ -12,6 +12,11 @@ assert.match(
 )
 assert.match(
   runner,
+  /const CODEX_READONLY_REASONING_EFFORT = process\.env\.CODEX_TEST_CODEX_READONLY_REASONING_EFFORT \|\| 'medium'/,
+  'Runner 只读任务必须默认使用中等推理预算，避免本机只读页面核验被全局 xhigh 配置拖到超时。'
+)
+assert.match(
+  runner,
   /const NEGATED_WRITE_TASK_PATTERN = \/[\s\S]*不修改[\s\S]*不新增[\s\S]*不保存[\s\S]*不提交[\s\S]*不删除[\s\S]*\//,
   'Runner 必须识别“不修改/不新增/不保存/不提交/不删除”等否定写入词，不能把它们当成真实写入意图。'
 )
@@ -32,6 +37,16 @@ assert.match(
 )
 assert.match(
   runner,
+  /function codexReadOnlyExecutionArgs\(task\)[\s\S]*isReadOnlyTask\(task\)[\s\S]*--ignore-rules[\s\S]*model_reasoning_effort=\$\{JSON\.stringify\(CODEX_READONLY_REASONING_EFFORT\)\}/,
+  'Runner 必须为只读任务追加忽略编码任务规则和中等推理参数，避免无关仓库规则导致页面冒烟核验超时。'
+)
+assert.match(
+  runner,
+  /const args = \[[\s\S]*'--ephemeral',[\s\S]*\.\.\.codexReadOnlyExecutionArgs\(task\),[\s\S]*'--output-last-message'/,
+  'Runner 启动 codex exec 时必须把只读快速路径参数应用到实际执行参数。'
+)
+assert.match(
+  runner,
   /const taskMode = isReadOnlyTask\(task\) \? 'READ_ONLY' : 'MUTATING_OR_UNKNOWN'/,
   'Prompt 必须显式声明 Runner 对当前任务的只读/未知写入判断。'
 )
@@ -49,6 +64,11 @@ assert.match(
   runner,
   /This task is classified as \$\{taskMode\}/,
   'Codex prompt 必须把任务模式传给 Codex，防止只读任务误执行写入动作。'
+)
+assert.match(
+  runner,
+  /For READ_ONLY tasks, take the shortest browser path[\s\S]*one temporary Node\.js Playwright script[\s\S]*Do not create task docs, edit project files, run builds, or inspect unrelated source trees/,
+  '只读 prompt 必须禁止建档、改文件和无关源码探索，并要求使用短 Playwright 脚本完成页面核验。'
 )
 
 console.log('PASS: Codex runner read-only timeout static contract')

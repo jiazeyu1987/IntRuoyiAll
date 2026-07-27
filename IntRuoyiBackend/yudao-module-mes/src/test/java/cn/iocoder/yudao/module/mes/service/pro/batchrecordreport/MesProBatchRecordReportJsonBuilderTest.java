@@ -22,8 +22,7 @@ class MesProBatchRecordReportJsonBuilderTest {
     private static final String REPORT_CODE = "EBR_TEST_T01";
     private static final Path FIXED_SAMPLE = Path.of(
             "D:\\ProjectPackage\\Int\\IntRuoyi\\resource\\批记录模板.doc");
-    private static final Path PRESSURE_PUMP_SAMPLE = Path.of(
-            "C:\\Users\\BJB110\\Desktop\\文档\\批记录压力泵.doc");
+    private static final Path PRESSURE_PUMP_SAMPLE = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
     private static final Path PROCESS_INSPECTION_DOCX_SAMPLE = Path.of(
             "C:\\Users\\BJB110\\Desktop\\文档\\过程检验记录.docx");
     private static final List<String> REPEATED_EQUIPMENT_MATRIX_LABELS = List.of(
@@ -906,7 +905,7 @@ class MesProBatchRecordReportJsonBuilderTest {
 
     @Test
     void build_shouldKeepVerticalMergesForAssemblyOperationBandFromRealRouteBSample() throws Exception {
-        Path source = Path.of("C:\\Users\\BJB110\\Desktop\\2\\2\\RE-PP-ID-01（A 1）球囊扩张压力泵生产记录(1).doc");
+        Path source = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
         Assumptions.assumeTrue(Files.exists(source), "real Route B sample is required for this regression");
 
         byte[] bytes = Files.readAllBytes(source);

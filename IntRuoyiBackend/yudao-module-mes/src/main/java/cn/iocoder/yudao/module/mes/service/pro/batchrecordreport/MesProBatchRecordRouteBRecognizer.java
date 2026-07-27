@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -13,8 +14,11 @@ import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -26,6 +30,14 @@ public class MesProBatchRecordRouteBRecognizer implements MesProBatchRecordRoute
     public static final String ROUTE_KEY = MesProBatchRecordRecognitionRouteKeys.B;
 
     private static final long DEFAULT_TIMEOUT_MS = 600_000L;
+    private static final int PARSE_CACHE_MAX_ENTRIES = 8;
+    private static final Map<String, List<MesProBatchRecordParsedTable>> PARSE_CACHE =
+            Collections.synchronizedMap(new LinkedHashMap<>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, List<MesProBatchRecordParsedTable>> eldest) {
+                    return size() > PARSE_CACHE_MAX_ENTRIES;
+                }
+            });
     private static final String PYTHON_SCRIPT = """
             import json
             import pathlib
@@ -233,6 +245,10 @@ public class MesProBatchRecordRouteBRecognizer implements MesProBatchRecordRoute
 
     @Override
     public List<MesProBatchRecordParsedTable> recognize(Path sourcePath, byte[] sourceBytes, String originalFileName) {
+        List<MesProBatchRecordParsedTable> cachedTables = readCachedParsedTables(sourceBytes);
+        if (cachedTables != null) {
+            return cachedTables;
+        }
         Path tempDir = null;
         try {
             tempDir = Files.createTempDirectory("mes-batch-record-route-b-");
@@ -304,7 +320,8 @@ public class MesProBatchRecordRouteBRecognizer implements MesProBatchRecordRoute
                 parsedTables.get(index).setSourceTableIndex(index + 1);
                 parsedTables.get(index).setRouteBSource(true);
             }
-            return parsedTables;
+            writeCachedParsedTables(sourceBytes, parsedTables);
+            return copyParsedTables(parsedTables);
         } catch (RuntimeException ex) {
             throw ex;
         } catch (IOException ex) {
@@ -313,6 +330,128 @@ public class MesProBatchRecordRouteBRecognizer implements MesProBatchRecordRoute
         } finally {
             cleanupTempDir(tempDir);
         }
+    }
+
+    private List<MesProBatchRecordParsedTable> readCachedParsedTables(byte[] sourceBytes) {
+        String cacheKey = resolveCacheKey(sourceBytes);
+        if (cacheKey == null) {
+            return null;
+        }
+        synchronized (PARSE_CACHE) {
+            List<MesProBatchRecordParsedTable> cachedTables = PARSE_CACHE.get(cacheKey);
+            return cachedTables == null ? null : copyParsedTables(cachedTables);
+        }
+    }
+
+    private void writeCachedParsedTables(byte[] sourceBytes, List<MesProBatchRecordParsedTable> parsedTables) {
+        String cacheKey = resolveCacheKey(sourceBytes);
+        if (cacheKey == null || parsedTables == null || parsedTables.isEmpty()) {
+            return;
+        }
+        synchronized (PARSE_CACHE) {
+            PARSE_CACHE.put(cacheKey, copyParsedTables(parsedTables));
+        }
+    }
+
+    private String resolveCacheKey(byte[] sourceBytes) {
+        if (sourceBytes == null || sourceBytes.length == 0) {
+            return null;
+        }
+        return DigestUtil.sha256Hex(sourceBytes);
+    }
+
+    private List<MesProBatchRecordParsedTable> copyParsedTables(List<MesProBatchRecordParsedTable> sourceTables) {
+        if (sourceTables == null || sourceTables.isEmpty()) {
+            return List.of();
+        }
+        List<MesProBatchRecordParsedTable> copies = new ArrayList<>(sourceTables.size());
+        for (MesProBatchRecordParsedTable sourceTable : sourceTables) {
+            copies.add(copyParsedTable(sourceTable));
+        }
+        return copies;
+    }
+
+    private MesProBatchRecordParsedTable copyParsedTable(MesProBatchRecordParsedTable sourceTable) {
+        if (sourceTable == null) {
+            return null;
+        }
+        return MesProBatchRecordParsedTable.builder()
+                .sourceTableIndex(sourceTable.getSourceTableIndex())
+                .sourceTopLevelTableIndex(sourceTable.getSourceTopLevelTableIndex())
+                .sourceSplitIndex(sourceTable.getSourceSplitIndex())
+                .tableTitle(sourceTable.getTableTitle())
+                .rowCount(sourceTable.getRowCount())
+                .columnCount(sourceTable.getColumnCount())
+                .columnWidths(sourceTable.getColumnWidths() == null
+                        ? null : new ArrayList<>(sourceTable.getColumnWidths()))
+                .preserveSourceGrid(sourceTable.getPreserveSourceGrid())
+                .routeBSource(sourceTable.getRouteBSource())
+                .documentFrame(copyDocumentFrame(sourceTable.getDocumentFrame()))
+                .rows(copyRows(sourceTable.getRows()))
+                .build();
+    }
+
+    private MesProBatchRecordDocumentFrame copyDocumentFrame(MesProBatchRecordDocumentFrame sourceFrame) {
+        if (sourceFrame == null) {
+            return null;
+        }
+        return MesProBatchRecordDocumentFrame.builder()
+                .headerRows(copyRows(sourceFrame.getHeaderRows()))
+                .footerRows(copyRows(sourceFrame.getFooterRows()))
+                .build();
+    }
+
+    private List<List<MesProBatchRecordParsedCell>> copyRows(List<List<MesProBatchRecordParsedCell>> sourceRows) {
+        if (sourceRows == null || sourceRows.isEmpty()) {
+            return List.of();
+        }
+        List<List<MesProBatchRecordParsedCell>> copies = new ArrayList<>(sourceRows.size());
+        for (List<MesProBatchRecordParsedCell> sourceRow : sourceRows) {
+            if (sourceRow == null || sourceRow.isEmpty()) {
+                copies.add(List.of());
+                continue;
+            }
+            List<MesProBatchRecordParsedCell> rowCopy = new ArrayList<>(sourceRow.size());
+            for (MesProBatchRecordParsedCell sourceCell : sourceRow) {
+                rowCopy.add(copyParsedCell(sourceCell));
+            }
+            copies.add(rowCopy);
+        }
+        return copies;
+    }
+
+    private MesProBatchRecordParsedCell copyParsedCell(MesProBatchRecordParsedCell sourceCell) {
+        if (sourceCell == null) {
+            return null;
+        }
+        return MesProBatchRecordParsedCell.builder()
+                .text(sourceCell.getText())
+                .rowSpan(sourceCell.getRowSpan())
+                .colSpan(sourceCell.getColSpan())
+                .columnIndex(sourceCell.getColumnIndex())
+                .logicalColumnIndex(sourceCell.getLogicalColumnIndex())
+                .logicalColSpan(sourceCell.getLogicalColSpan())
+                .bold(sourceCell.isBold())
+                .fontSize(sourceCell.getFontSize())
+                .horizontalAlign(sourceCell.getHorizontalAlign())
+                .verticalAlign(sourceCell.getVerticalAlign())
+                .widthPx(sourceCell.getWidthPx())
+                .heightPx(sourceCell.getHeightPx())
+                .fillable(sourceCell.isFillable())
+                .visualBlank(sourceCell.isVisualBlank())
+                .borderless(sourceCell.isBorderless())
+                .diagonalSlash(sourceCell.isDiagonalSlash())
+                .reviewedCellRule(sourceCell.isReviewedCellRule())
+                .cellRuleSource(sourceCell.getCellRuleSource())
+                .topBorderStyle(sourceCell.getTopBorderStyle())
+                .bottomBorderStyle(sourceCell.getBottomBorderStyle())
+                .leftBorderStyle(sourceCell.getLeftBorderStyle())
+                .rightBorderStyle(sourceCell.getRightBorderStyle())
+                .backgroundColor(sourceCell.getBackgroundColor())
+                .documentFrameRole(sourceCell.getDocumentFrameRole())
+                .placeholder(sourceCell.getPlaceholder())
+                .inputType(sourceCell.getInputType())
+                .build();
     }
 
     private Path resolveSourcePath(Path sourcePath, byte[] sourceBytes, String originalFileName, Path tempDir) throws IOException {

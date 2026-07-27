@@ -13,9 +13,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -23,8 +20,6 @@ import static org.mockito.Mockito.when;
 
 @Import({Sheet1RouteExcelImportServiceImpl.class, Sheet1RouteExcelParser.class})
 class Sheet1RouteExcelImportServiceImplDbTest extends BaseDbUnitTest {
-
-    private static final Path FIXTURE = Path.of("D:\\ocr2\\resource\\球囊扩张导管工序(1).xlsx");
 
     @Resource
     private Sheet1RouteExcelImportService importService;
@@ -44,7 +39,8 @@ class Sheet1RouteExcelImportServiceImplDbTest extends BaseDbUnitTest {
                 .thenThrow(new RuntimeException("route process insert failed"));
 
         MockMultipartFile file = new MockMultipartFile("file", "球囊扩张导管工序(1).xlsx",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", Files.readAllBytes(FIXTURE));
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                Sheet1RouteExcelTestFixtures.balloonCatheterProcessWorkbookBytes());
 
         RuntimeException exception = assertThrows(RuntimeException.class,
                 () -> importService.importExcel(file, CommonStatusEnum.ENABLE.getStatus()));

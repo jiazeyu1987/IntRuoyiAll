@@ -2,7 +2,7 @@
 
 ## Current Status
 
-Not started. Independent test passes will be appended per task after executor evidence is available.
+Blocked pending authoritative Excel fixture. T2/T4/T6 independent checks and T5 executor verification have reduced the complete MES regression to one prerequisite: project-owned `IntRuoyiBackend/yudao-module-mes/src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx` is missing and no authoritative source has been confirmed.
 
 ## Baseline
 
@@ -91,3 +91,32 @@ Not started. Independent test passes will be appended per task after executor ev
 - Diff result: `PASS`，exit code `0`，无 whitespace error；仅有 Git 既有 LF/CRLF 转换提示。T4 白名单文件 SHA-256 已记录用于验证期间并发改写核对。
 - Overall result: `PASS`。T4 / TC-05 / AC-08、AC-09、AC-12、AC-13、AC-17 在指定独立验证范围内满足放行条件。
 - Unresolved issues: T4 范围内无未解决问题。本次独立测试仅修改 `test-report.md`，未修改产品代码、测试代码、`task-state.json`、`execution-log.md` 或规划文档，未提交、未推送。任务整体仍需 T5、T7-T9 与最终 `mvn -pl yudao-module-mes test` 放行；本次 T4 PASS 不代表完整 MES 回归或任务整体完成。
+
+## T5 Executor Verification
+
+- Task ID: `20260727-edhr-notify-all-valid-candidates`
+- Test case: `TC-06`
+- Acceptance mapping: `AC-10`, `AC-13`, `AC-17`
+- Expected: 非缺失 Excel 夹具依赖的批记录 JSON、布局、形状规则、路线候选治理、路线生成、Word 真实样本和相邻高风险服务用例全部通过；不得新增模板名特例、宽松断言、跳过、fallback、默认成功或吞异常。
+- Main combo result: `PASS`。`mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordReportJsonBuilderTest,MesProBatchRecordReportLayoutCalibratorTest,MesProBatchRecordReportShapeRulesTest,MesProBatchRecordRouteCandidateGovernanceTest,MesProBatchRecordRouteGenerationCodeRuleTest" test` -> `152 tests`, `0 failures`, `0 errors`, `6 skipped`, `BUILD SUCCESS`。
+- Word fixture result: `PASS`。`mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordRouteARecognizerTest,MesProBatchRecordRouteFRecognizerTest,FullWordTableInventoryProbeTest,MesProBatchRecordJingxiTableStructureVerificationTest,TmpPrintBatchRecordTableTest" test` -> `51 tests`, `0 failures`, `0 errors`；项目内 `fixtures/pressure-pump-record.doc` 已有 SHA-256 权威性证据。
+- Targeted rerun result: `PASS`。`mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordReportLayoutCalibratorTest#calibrate_shouldKeepProductionBatchSummaryBehindRoughWashSideColumn,TmpPrintBatchRecordTableTest" test` -> 2026-07-28 01:11:02 +08:00 完成；`5 tests`, `0 failures`, `0 errors`, `0 skipped`, `BUILD SUCCESS`。
+- Adjacent regression result: `PASS`。`Sheet1MachineryProcessExcelParserTest`、`MesProBatchRecordExecutionFieldResponsibilityServiceTest#export_failsFastWhenEvidencePackageIsBlocked`、`MesProBatchRecordReportServiceImplDbTest#recognizeUploadedRoute_whenUpgradingRoute_keepsStableProcessConnectionInfoOnActiveRoute` 均已通过。
+- Full MES command: `mvn -pl yudao-module-mes test`
+- Full MES result: `BLOCKED`，2026-07-28 01:15:20 +08:00 完成；`2511 tests`, `0 failures`, `4 errors`, `18 skipped`, `BUILD FAILURE`。四个 errors 均为 `java.nio.file.NoSuchFileException: D:\ocr2\resource\球囊扩张导管工序(1).xlsx`。
+- Affected suites: `Sheet1RouteExcelParserTest`、`Sheet1RouteExcelImportServiceImplTest`、`Sheet1RouteExcelImportServiceImplDbTest`。
+- Diff result: `PASS`。T5 目标路径 `git diff --check` 退出码 `0`，无 whitespace error；仅有 Git 既有 LF/CRLF 转换提示。
+- Overall result: `BLOCKED`。T5 非 Excel 权威夹具阻塞范围满足验证条件；完整任务仍需用户确认权威 Excel 原件或提供项目内正式 fixture 后重新运行 T7/T9。
+
+## T7 Executor Verification
+
+- Task ID: `20260727-edhr-notify-all-valid-candidates`
+- Test case: `TC-02`
+- Acceptance mapping: `AC-01`, `AC-03`, `AC-13`, `AC-17`
+- Expected: Sheet1 路线解析、导入和 DB 回滚测试不得依赖个人桌面或 `D:\ocr2` 固定盘符；必须读取项目内稳定资源路径，资源缺失时 fail-fast，不得合成、跳过、默认成功或使用未经确认的候选副本。
+- Path governance result: `PASS`。`Sheet1RouteExcelParserTest`、`Sheet1RouteExcelImportServiceImplTest`、`Sheet1RouteExcelImportServiceImplDbTest` 已改为通过 `Sheet1RouteExcelTestFixtures` 读取 `fixtures/sheet1-route-balloon-catheter.xlsx`，移除三处 `D:\ocr2\resource\球囊扩张导管工序(1).xlsx` 硬编码。
+- Targeted command: `mvn -pl yudao-module-mes "-Dtest=Sheet1RouteExcelParserTest,Sheet1RouteExcelImportServiceImplTest,Sheet1RouteExcelImportServiceImplDbTest" test`
+- Targeted result: `BLOCKED`，2026-07-28 01:23:39 +08:00 完成；`8 tests`, `0 failures`, `4 errors`, `0 skipped`, `BUILD FAILURE`。四个 errors 均为 `java.nio.file.NoSuchFileException: src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx`，测试编译和 Spring context 边界正常。
+- Candidate evidence: `C:\Users\BJB110\Desktop\球囊扩张导管工序(1)(2).xlsx` 与 `C:\Users\BJB110\Desktop\文档\球囊扩张导管工序(1)(2).xlsx` 均为 `17251` 字节，SHA-256 均为 `A7ACF4ADE2E09A00B68D80701B1FB86BC79B6F3CCDA55504B7C838AB85240354`，但仍缺用户明确权威性确认。
+- Full MES rerun: `mvn -pl yudao-module-mes test` -> `BLOCKED`，2026-07-28 01:30:40 +08:00 完成；`2511 tests`, `0 failures`, `4 errors`, `18 skipped`, `BUILD FAILURE`。四个 errors 均为 `src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx` 缺失，无其他 failure/error。
+- Overall result: `BLOCKED`。解除条件为确认权威 Excel 原件并加入 `src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx` 后重新运行 Sheet1 套件与完整 MES 回归。

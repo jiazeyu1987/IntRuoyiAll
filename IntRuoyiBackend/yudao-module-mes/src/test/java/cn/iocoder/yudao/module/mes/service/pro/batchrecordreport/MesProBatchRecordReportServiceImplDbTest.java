@@ -1057,7 +1057,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     }
 
     @Test
-    void recognizeUploadedRoute_whenUpgradingRoute_preservesStableProcessConnectionInfo() {
+    void recognizeUploadedRoute_whenUpgradingRoute_keepsStableProcessConnectionInfoOnActiveRoute() {
         List<MesProBatchRecordParsedTable> parsedTables = List.of(
                 TestBatchRecordFixtures.parsedTable(1, "产品信息"),
                 TestBatchRecordFixtures.parsedTable(2, "粗洗工序"),
@@ -1171,27 +1171,30 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 List.of(currentRouteProduct.getId()), List.of(), true,
                 currentRoute.getId(), currentRouteVersion.getId(), null);
 
-        Long newStartRouteProcessId = jdbcTemplate().queryForObject("""
-                SELECT id FROM mes_pro_route_process
-                WHERE route_id = ? AND process_id = ? AND deleted = FALSE
-                """, Long.class, currentRoute.getId(), 931001L);
-        Long newEndRouteProcessId = jdbcTemplate().queryForObject("""
-                SELECT id FROM mes_pro_route_process
-                WHERE route_id = ? AND process_id = ? AND deleted = FALSE
-                """, Long.class, currentRoute.getId(), 931003L);
         assertEquals(currentRoute.getId(), result.routeId());
-        assertNotEquals(932001L, newStartRouteProcessId);
-        assertNotEquals(932003L, newEndRouteProcessId);
+        assertNotEquals(currentRouteVersion.getId(), result.routeVersionId());
+        assertEquals(3, result.routeProcessCount());
+        assertEquals(3, result.batchRecordRouteBindingCount());
+        MesProRouteVersionDO candidateRouteVersion = routeVersionMapper.selectById(result.routeVersionId());
+        assertEquals(currentRouteVersion.getId(), candidateRouteVersion.getSourceRouteVersionId());
+        assertEquals(false, candidateRouteVersion.getActive());
+        assertEquals("DRAFT", candidateRouteVersion.getLifecycleStatus());
+        JSONObject candidateSnapshot = JSONObject.parseObject(candidateRouteVersion.getRouteSnapshotJson());
+        JSONObject candidateConfigSnapshots = candidateSnapshot.getJSONObject("configSnapshots");
+        assertEquals(3, candidateConfigSnapshots.getJSONObject("flowGraph").getJSONArray("nodes").size());
+        assertEquals(3, candidateConfigSnapshots.getJSONArray("batchUseConfigs").size());
+        assertEquals(3, rawCount("SELECT COUNT(*) FROM mes_pro_route_process WHERE route_id = ? AND deleted = FALSE",
+                currentRoute.getId()));
         assertEquals(1, rawCount("""
                 SELECT COUNT(*) FROM mes_pro_route_process
                 WHERE id = ? AND next_process_id = ? AND link_type = ? AND prepare_time = ?
                   AND wait_time = ? AND color_code = ? AND key_flag = TRUE AND deleted = FALSE
-                """, newStartRouteProcessId, newEndRouteProcessId, 2, 15, 5, "#00AA00"));
+                """, 932001L, 932003L, 2, 15, 5, "#00AA00"));
         assertEquals(1, rawCount("""
                 SELECT COUNT(*) FROM mes_pro_route_process_flow_edge
                 WHERE route_id = ? AND source_route_process_id = ? AND target_route_process_id = ?
                   AND graph_version = ? AND relation_type = ? AND sort = ? AND deleted = FALSE
-                """, currentRoute.getId(), newStartRouteProcessId, newEndRouteProcessId,
+                """, currentRoute.getId(), 932001L, 932003L,
                 7L, "MANUAL_SKIP", 9));
     }
 
