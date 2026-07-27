@@ -34,6 +34,12 @@ Standard targeted lifecycle:
 
 Result: PASS. 3 tests run, 0 failures, 0 errors.
 
+Stale-blocker revalidation on the current shared branch:
+
+`mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest#createInitialFillTask_usesProcessFormPermissionRuleCandidateSnapshot+createReviewTasks_createsOneTodoPerSignatureCellAndCompletesSubmitTask+createReviewTasks_deduplicatesRepeatedFrozenCandidateNotifyRecipients" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+
+Result at 2026-07-27 20:40:03: PASS. 3 tests run, 0 failures, 0 errors, 0 skipped; all 24 reactor modules reported `BUILD SUCCESS`.
+
 Regression:
 
 `mvn -pl yudao-module-mes org.apache.maven.plugins:maven-surefire-plugin:3.5.3:test "-Dtest=MesProEdhrWorkTaskServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=true"`

@@ -18,6 +18,7 @@ const POLL_INTERVAL_MS = Number(process.env.CODEX_TEST_POLL_INTERVAL_MS || '5000
 const HEARTBEAT_INTERVAL_MS = Number(process.env.CODEX_TEST_HEARTBEAT_INTERVAL_MS || '20000')
 const CODEX_EXEC_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_TIMEOUT_MS || '600000')
 const CODEX_TEST_API_TIMEOUT_MS = Number(process.env.CODEX_TEST_API_TIMEOUT_MS || '30000')
+const CODEX_CHILD_SETTLE_TIMEOUT_MS = Number(process.env.CODEX_TEST_CHILD_SETTLE_TIMEOUT_MS || '5000')
 const COMPLETE_CASE_SUMMARY_MAX_LENGTH = 512
 
 class ServerCanceledExecutionError extends Error {}
@@ -103,6 +104,31 @@ function stopWindowsProcessTree(childPid, outputFile) {
   })
 }
 
+function releaseChildIo(child) {
+  for (const stream of [child.stdin, child.stdout, child.stderr]) {
+    if (stream && !stream.destroyed) {
+      stream.destroy()
+    }
+  }
+  child.unref()
+}
+
+async function stopChildAndWait(child, outputFile, childExitPromise) {
+  if (process.platform === 'win32') {
+    stopWindowsProcessTree(child.pid, outputFile)
+  } else if (!child.killed) {
+    child.kill()
+  }
+  const stopResult = await Promise.race([
+    childExitPromise,
+    sleep(CODEX_CHILD_SETTLE_TIMEOUT_MS).then(() => ({ closeTimedOut: true }))
+  ])
+  if (stopResult.closeTimedOut) {
+    releaseChildIo(child)
+  }
+  return stopResult
+}
+
 async function uploadArtifact(executionCaseId, checkpointSort, screenshotPath) {
   const content = await fs.readFile(screenshotPath)
   const data = new FormData()
@@ -185,14 +211,21 @@ async function runCodexForTask(task, runnerSessionId) {
   let heartbeatTimer
   let timeoutTimer
   const runningExecutionCaseIds = [task.executionCaseId]
+  const childExitPromise = new Promise((resolve) => {
+    child.once('error', (error) => resolve({ error }))
+    child.once('close', (exitCode) => resolve({ exitCode }))
+  })
+  let resolveStopRequested
+  const stopRequestedPromise = new Promise((resolve) => {
+    resolveStopRequested = resolve
+  })
+  let stopPromise
   const stopChild = () => {
-    if (process.platform === 'win32') {
-      stopWindowsProcessTree(child.pid, outputFile)
-      return
+    if (!stopPromise) {
+      stopPromise = stopChildAndWait(child, outputFile, childExitPromise)
+      resolveStopRequested(stopPromise)
     }
-    if (!child.killed) {
-      child.kill()
-    }
+    return stopPromise
   }
   child.stdout.on('data', (chunk) => stdout.push(chunk))
   child.stderr.on('data', (chunk) => stderr.push(chunk))
@@ -217,22 +250,33 @@ async function runCodexForTask(task, runnerSessionId) {
       timeoutError = new Error(`codex exec timed out after ${CODEX_EXEC_TIMEOUT_MS}ms`)
       stopChild()
     }, CODEX_EXEC_TIMEOUT_MS)
-    const exitCode = await new Promise((resolve, reject) => {
-      child.once('error', reject)
-      child.once('close', resolve)
-    })
+    const childResult = await Promise.race([
+      childExitPromise,
+      stopRequestedPromise
+    ])
     if (heartbeatError) {
       throw heartbeatError
     }
     if (timeoutError) {
       throw timeoutError
     }
+    if (childResult.error) {
+      throw childResult.error
+    }
+    if (childResult.closeTimedOut) {
+      throw new Error(`codex exec process did not settle after ${CODEX_CHILD_SETTLE_TIMEOUT_MS}ms`)
+    }
     const stderrText = Buffer.concat(stderr).toString('utf8')
-    if (exitCode !== 0) {
-      throw new Error(`codex exec failed with exit ${exitCode}: ${stderrText}`)
+    if (childResult.exitCode !== 0) {
+      throw new Error(`codex exec failed with exit ${childResult.exitCode}: ${stderrText}`)
     }
   } catch (error) {
-    stopChild()
+    const stopResult = await stopChild()
+    if (stopResult.closeTimedOut) {
+      logLoopError(
+        new Error(`codex exec child did not emit close after ${CODEX_CHILD_SETTLE_TIMEOUT_MS}ms`)
+      )
+    }
     throw error
   } finally {
     if (heartbeatTimer) {

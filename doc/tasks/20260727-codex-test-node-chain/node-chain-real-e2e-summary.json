@@ -1,0 +1,54 @@
+{
+  "baseUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "checkedAt": "2026-07-27T13:16:19.912Z",
+  "officialChains": [
+    {
+      "name": "工艺路线节点闭环",
+      "project": "工艺路线",
+      "nodeCount": 4,
+      "visibleSorts": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "name": "批记录节点闭环",
+      "project": "批记录",
+      "nodeCount": 6,
+      "visibleSorts": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "name": "智能排产节点闭环",
+      "project": "智能排产",
+      "nodeCount": 4,
+      "visibleSorts": [
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  ],
+  "incompleteChainMessage": "",
+  "createdCases": [],
+  "cleanedCases": [],
+  "cleanupErrors": [],
+  "screenshots": {
+    "chains": "E:\\IntRuoyi\\doc\\tasks\\20260727-codex-test-node-chain\\node-chain-filtered-list.png",
+    "monitor": "E:\\IntRuoyi\\doc\\tasks\\20260727-codex-test-node-chain\\node-chain-failure-blocking.png"
+  },
+  "error": "create case 节点串能力验证-20260727-失败节点 returned an empty body: HTTP 500 http://127.0.0.1:8081/admin-api/system/codex-test-case/create",
+  "errorStack": "AssertionError [ERR_ASSERTION]: create case 节点串能力验证-20260727-失败节点 returned an empty body: HTTP 500 http://127.0.0.1:8081/admin-api/system/codex-test-case/create\n    at readJsonResponse (E:\\IntRuoyi\\doc\\tasks\\20260727-codex-test-node-chain\\node-chain-real-e2e.cjs:119:10)\n    at async createCaseFromUi (E:\\IntRuoyi\\doc\\tasks\\20260727-codex-test-node-chain\\node-chain-real-e2e.cjs:511:16)\n    at async main (E:\\IntRuoyi\\doc\\tasks\\20260727-codex-test-node-chain\\node-chain-real-e2e.cjs:770:7)"
+}

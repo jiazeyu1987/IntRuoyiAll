@@ -2,14 +2,14 @@
 
 ## Task Goal
 
-修复系统管理测试管理页面点击“执行”时提示“Codex Runner token 无效或未配置”的问题，确保执行入口使用当前有效的 Runner 配置，并在配置确实缺失或失效时明确暴露根因。
+修复系统管理测试管理页面点击“执行”时提示“Codex Runner token 无效或未配置”的问题，并处理后端重启后页面连续“系统异常”及 Runner 在 Windows 子进程不触发 `close` 时运行计数无法归零的回归。
 
 ## Milestones
 
 1. 定位执行入口、Runner token 配置来源、后端校验和现有测试。
 2. 用 BDD 场景建立先失败的回归测试，确认根因。
 3. 实施最小根因修复并通过 GREEN。
-4. 完成相关前端/后端回归验证和真实页面路径验证（若环境前置条件齐备）。
+4. 完成数据库迁移、Runner 生命周期、前端页面和真实执行路径验证。
 5. `ready_for_closeout` 后执行 cleanup preview/apply，完成任务记录和推送。
 
 ## Expected Verification
@@ -17,6 +17,7 @@
 - 任务专用回归测试先 RED 后 GREEN。
 - 相关前端静态检查/构建或后端测试通过，或在日志中记录与本任务无关的既有阻塞。
 - 若运行真实页面，必须核对前端入口、后端入口、测试租户、测试账号、Runner token、Codex CLI、Playwright 和 Runner heartbeat。
+- timeout/cancel 后必须证明 Runner 当前会话运行计数归零、无活动执行项、无 Codex 后代进程和临时结果文件。
 - `git diff --check` 通过，任务提交已推送到当前分支 `origin`，且分支不再 ahead。
 
 ## Applicable Experience Gate
@@ -38,7 +39,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Milestone 6
 
@@ -46,10 +47,14 @@ in_progress
 - 通过 Playwright 从 `系统管理 > 测试管理` 页面按可见测试项名称定位并点击“执行”。
 - 只选择已存在且测试方法包含前置复位、页面操作、结果核验和清理恢复的测试项。
 - 验证执行批次进入终态、Runner heartbeat 未过期、页面不再提示 token 错误，并记录测试数据与清理结果。
+- 已应用正式节点串迁移，测试管理页面初始化请求恢复。
+- 已通过真实页面创建批次 `11`、`12` 并由 Runner 领取；两批次因 Codex 600 秒超时进入 `FAIL`，六个执行项均为 `BLOCKED`，不作为业务闭环 PASS 证据。
+- 两次运行均复现 Windows wrapper 被终止后不触发 `close`，修复后的 Runner 在 5 秒有界等待后恢复空闲；最新会话 `33` 的 `current_running_count=0`。
+- 最终只读 Playwright 复验确认页面无“系统异常”，请求失败数和业务失败数均为 `0`。
 
 ## Closeout Blocker
 
-实现与验证已完成，cleanup 可执行；最终提交/推送暂时阻塞，因为当前工作区存在大量非本任务源码、测试、文档改动，不能按任务边界安全暂存提交。
+实现与验证已完成，cleanup 可执行；最终提交/推送仍被大量并发任务脏改动阻塞，当前无法安全建立“既有脏改动基线提交”并保证不提交未完成或敏感的其他任务内容。
 
 ## Cleanup Evidence
 
@@ -58,6 +63,9 @@ in_progress
 - Cleanup adjustment: 为避免中断已修复并可用的本机后端运行态，活动后端日志临时列入 `Cleanup Keep`，其余本任务临时产物继续清理。
 - Cleanup apply: PASS; 已删除 `restart-backend-with-token.ps1`、`runner-status-real-e2e.cjs`、`runner-status-real-summary.json` 和 `runner-status-real.png`。
 - Final token probe: PASS; 按真实 Runner 请求头和 payload 注册返回业务码 `0`，`runnerSessionId=14`。
+- Runner settlement cleanup preview: PASS; 仅计划删除本次一次性 Playwright 脚本及 stdout/stderr 日志，无 blocked 或 warnings。
+- Runner settlement cleanup apply: PASS; 已删除 `runner-cancel-settlement-real.e2e.cjs` 及其两份日志，保留核心任务记录、bug regression evidence 和活动后端日志。
+- Runtime ownership cleanup: 并发任务切换 Runner token 后，本任务 Runner PID `55972` 开始注册失败；已仅停止该任务自有进程并恢复 tracked pid 文件到任务开始前内容，未触碰并发批次 `13` 或 Runner 会话 `34`。
 
 ## Cleanup Keep
 

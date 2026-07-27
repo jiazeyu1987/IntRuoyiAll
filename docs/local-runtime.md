@@ -114,6 +114,15 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - Forbidden action: 禁止把 health `UP` 等同于请求链路可用；禁止让长运行进程把日志写入任务 cleanup 候选目录；禁止因首次重启缺少安全配置而改配置、降级或跳过启动校验。
 - Evidence: `doc/tasks/20260727-form-template-button-alignment-design/execution-log.md`。
 
+## 2026-07-27 本地后端运行 Jar 不可变门禁
+
+- Trigger: 本地后端运行中再次执行 Maven `package`、接口突然出现多个无关依赖的 `NoClassDefFoundError`、Jimu MiniDAO 模板资源缺失、或运行命令直接引用 `yudao-server\target\yudao-server-exec.jar`。
+- Preflight check: 长期运行的后端必须从 `output\runtime\<profile>\` 的独立 Jar 副本启动；记录进程启动时间、运行 Jar 路径和 Jar 修改时间。启动后允许 `target` 继续构建，但运行 Jar 不得被覆盖。
+- Blocker: 监听进程直接引用 Maven `target` Jar，或运行 Jar 修改时间晚于进程启动时间时必须重启到独立运行副本；不得把跨 Hutool、Spring、Tomcat、Freemarker 的连续类/资源缺失当作多个业务缺陷分别修补。
+- Verification: 后端启动后确认运行 Jar 位于稳定运行目录且 `runtimeJar.lastWriteTime <= process.startTime`；随后执行一次 `mvn -pl yudao-server -am "-DskipTests" package`，目标登录态业务接口仍返回 HTTP 200、health 为 `UP`、运行 PID 和运行 Jar 路径保持不变。
+- Forbidden action: 禁止长期运行进程直接使用会被 Maven 重建的 `target\yudao-server-exec.jar`；禁止通过复制缺失类、吞异常、跳过 Jimu 更新或返回空详情掩盖运行归档损坏。
+- Evidence: `doc/tasks/20260727-batch-record-list-detail-500/verification-report.md`。
+
 ## 禁止做法
 
 - 禁止把 `int_main` 改到随机端口启动。

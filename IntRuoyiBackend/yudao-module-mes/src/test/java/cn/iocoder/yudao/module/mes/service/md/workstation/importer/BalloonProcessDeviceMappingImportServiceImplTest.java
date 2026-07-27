@@ -27,6 +27,7 @@ import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationServic
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationToolService;
 import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationWorkerService;
 import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.mes.service.wm.barcode.MesWmBarcodeService;
 import cn.iocoder.yudao.module.mes.service.wm.warehouse.MesWmWarehouseAreaService;
 import cn.iocoder.yudao.module.mes.service.wm.warehouse.MesWmWarehouseLocationService;
@@ -95,6 +96,8 @@ class BalloonProcessDeviceMappingImportServiceImplTest extends BaseDbUnitTest {
     private MesWmBarcodeService barcodeService;
     @MockitoBean
     private MesProProcessService processService;
+    @MockitoBean
+    private MesProRouteProcessService routeProcessService;
 
     @Test
     void importMapping_reusesExistingWorkstation_createsMissingWorkstation_and_replacesBindingsOnly() throws Exception {
