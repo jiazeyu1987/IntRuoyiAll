@@ -2027,6 +2027,10 @@ const openSimulate = async (row: BatchRecordReportVO) => {
 }
 
 const openTemplateAction = async (row: BatchRecordReportVO, action: 'signature' | 'cellRules') => {
+  if (action === 'cellRules') {
+    openCellRulesDialog(row)
+    return
+  }
   await router.push({
     path: '/mes/pro/batch-record-form-list',
     query: {
@@ -2034,9 +2038,6 @@ const openTemplateAction = async (row: BatchRecordReportVO, action: 'signature' 
       action
     }
   })
-  if (action === 'cellRules') {
-    openCellRulesDialog(row)
-  }
 }
 
 const handleCellLinks = async (row: BatchRecordReportVO) => {

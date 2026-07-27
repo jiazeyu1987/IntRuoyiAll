@@ -309,6 +309,8 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
         Long batchRecordVersionId = requireBatchRecordVersionId(
                 resolveReportBatchRecordVersionId(reportId, routeBatchRecords),
                 FORM_LEVEL_ROUTE_PROCESS_ID, reportId);
+        processFormPermissionRuleMapper.physicalDeleteRouteFillRulesByReportAndVersion(
+                reportId, batchRecordVersionId, FORM_LEVEL_ROUTE_PROCESS_ID);
         processFormPermissionRuleMapper.physicalDeleteByRouteProcessAndReport(
                 FORM_LEVEL_ROUTE_PROCESS_ID, reportId);
         MesProRouteFlowProcessBatchRecordDO firstBinding =

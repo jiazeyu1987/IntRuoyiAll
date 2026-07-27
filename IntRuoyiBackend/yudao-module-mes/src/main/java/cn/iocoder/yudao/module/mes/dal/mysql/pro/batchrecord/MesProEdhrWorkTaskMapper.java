@@ -16,18 +16,19 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
 
     List<String> APPROVAL_CENTER_TASK_TYPES = List.of("REVIEW", "APPROVE", "RELEASE_APPROVE");
     String TERMINAL_BATCH_STATUS_SQL = "30, 40, 50, 60";
+    String PROCESS_FORM_RESPONSIBILITY_SOURCE = "EDHR_PROCESS_FORM_FILLER";
 
     default PageResult<MesProEdhrWorkTaskDO> selectMyPage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                           Long assigneeUserId,
                                                           String status) {
-        return selectPage(reqVO, excludeTerminalBatchWrapper(baseMyWrapper(reqVO, assigneeUserId))
+        return selectPage(reqVO, excludeTerminalBatchWrapper(baseMyWrapper(reqVO, assigneeUserId, true))
                 .eq(MesProEdhrWorkTaskDO::getStatus, status)
                 .orderByDesc(MesProEdhrWorkTaskDO::getId));
     }
 
     default PageResult<MesProEdhrWorkTaskDO> selectDonePage(MesProEdhrWorkTaskPageReqVO reqVO,
                                                             Long assigneeUserId) {
-        return selectPage(reqVO, baseMyWrapper(reqVO, assigneeUserId)
+        return selectPage(reqVO, baseMyWrapper(reqVO, assigneeUserId, false)
                 .eq(MesProEdhrWorkTaskDO::getStatus, MesProEdhrWorkTaskStatus.DONE)
                 .orderByDesc(MesProEdhrWorkTaskDO::getCompletedAt)
                 .orderByDesc(MesProEdhrWorkTaskDO::getId));
@@ -50,8 +51,10 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     }
 
     default Long countMy(Long assigneeUserId, String taskType, String status) {
-        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = applyParticipantFilter(
-                new LambdaQueryWrapperX<>(), assigneeUserId)
+        boolean includeProcessFormCandidates = MesProEdhrWorkTaskStatus.TODO.equals(status)
+                || MesProEdhrWorkTaskStatus.OVERDUE.equals(status);
+        LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper = applyMyTaskVisibility(
+                new LambdaQueryWrapperX<>(), assigneeUserId, includeProcessFormCandidates)
                 .eqIfPresent(MesProEdhrWorkTaskDO::getTaskType, taskType)
                 .eqIfPresent(MesProEdhrWorkTaskDO::getStatus, status);
         if (MesProEdhrWorkTaskStatus.TODO.equals(status) || MesProEdhrWorkTaskStatus.OVERDUE.equals(status)) {
@@ -228,24 +231,31 @@ public interface MesProEdhrWorkTaskMapper extends BaseMapperX<MesProEdhrWorkTask
     }
 
     private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> baseMyWrapper(MesProEdhrWorkTaskPageReqVO reqVO,
-                                                                    Long assigneeUserId) {
-        return applyParticipantFilter(new LambdaQueryWrapperX<>(), assigneeUserId)
+                                                                    Long assigneeUserId,
+                                                                    boolean includeProcessFormCandidates) {
+        return applyMyTaskVisibility(new LambdaQueryWrapperX<>(), assigneeUserId, includeProcessFormCandidates)
                 .eqIfPresent(MesProEdhrWorkTaskDO::getTaskType, reqVO.getTaskType())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getWorkOrderCode, reqVO.getWorkOrderCode())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getBatchCode, reqVO.getBatchCode())
                 .likeIfPresent(MesProEdhrWorkTaskDO::getProcessName, reqVO.getProcessName());
     }
 
-    private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> applyParticipantFilter(
-            LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper, Long userId) {
-        if (userId == null) {
+    private LambdaQueryWrapperX<MesProEdhrWorkTaskDO> applyMyTaskVisibility(
+            LambdaQueryWrapperX<MesProEdhrWorkTaskDO> wrapper,
+            Long userId,
+            boolean includeProcessFormCandidates) {
+        if (!includeProcessFormCandidates) {
+            wrapper.eq(MesProEdhrWorkTaskDO::getAssigneeUserId, userId);
             return wrapper;
         }
         String candidateToken = "," + userId + ",";
-        wrapper.and(condition -> condition
+        wrapper.and(query -> query
                 .eq(MesProEdhrWorkTaskDO::getAssigneeUserId, userId)
-                .or()
-                .apply("CONCAT(',', candidate_user_snapshot, ',') LIKE {0}", "%" + candidateToken + "%"));
+                .or(candidateQuery -> candidateQuery
+                        .eq(MesProEdhrWorkTaskDO::getResponsibilitySourceType,
+                                PROCESS_FORM_RESPONSIBILITY_SOURCE)
+                        .apply("CONCAT(',', candidate_user_snapshot, ',') LIKE {0}",
+                                "%" + candidateToken + "%")));
         return wrapper;
     }
 

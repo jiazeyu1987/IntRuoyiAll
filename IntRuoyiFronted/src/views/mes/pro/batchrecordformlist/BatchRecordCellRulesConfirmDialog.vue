@@ -1,5 +1,5 @@
 <template>
-  <Dialog v-model="dialogVisible" title="填写配置" width="calc(100vw - 32px)">
+  <Dialog v-model="dialogVisible" title="填写配置" width="calc(100vw - 32px)" :fullscreen="false">
     <div v-loading="loading" class="batch-record-cell-rules-editor">
       <el-alert
         v-if="errorMessage"
@@ -293,81 +293,86 @@
                     class="batch-record-cell-rules-editor__assist-select"
                     @click="selectedAssistRowKey = assistRow.rowKey"
                   >
-                    <strong>辅助行 {{ assistRowIndex + 1 }}</strong>
+                    <span class="batch-record-cell-rules-editor__assist-select-copy">
+                      <strong>辅助行 {{ assistRowIndex + 1 }}</strong>
+                      <span>{{ assistRow.description || '未填写描述' }}</span>
+                    </span>
                     <span>{{ assistRow.fields.length }} 个单元格</span>
                   </button>
-                  <el-input
-                    v-model="assistRow.description"
-                    maxlength="120"
-                    show-word-limit
-                    placeholder="例如：记录本工序温度、压力、操作人"
-                  />
-                  <div class="batch-record-cell-rules-editor__assist-assignment">
-                    <strong>辅助行填写人</strong>
-                    <div class="batch-record-cell-rules-editor__assist-assignment-grid">
-                      <el-select
-                        v-model="assistAssignments[assistRow.rowKey].candidateSourceType"
-                        placeholder="来源"
-                        @change="assistAssignments[assistRow.rowKey].candidateSourceIds = []"
-                      >
-                        <el-option label="个人" value="USERS" />
-                        <el-option label="角色" value="ROLE" />
-                      </el-select>
-                      <el-select
-                        v-model="assistAssignments[assistRow.rowKey].candidateSourceIds"
-                        multiple
-                        filterable
-                        collapse-tags
-                        collapse-tags-tooltip
-                        placeholder="选择员工或角色"
-                      >
-                        <el-option
-                          v-for="option in buildAssignmentTargetOptions(assistAssignments[assistRow.rowKey].candidateSourceType)"
-                          :key="`${assistAssignments[assistRow.rowKey].candidateSourceType}:${option.value}`"
-                          :label="option.label"
-                          :value="option.value"
-                        />
-                      </el-select>
-                      <el-select
-                        v-model="assistAssignments[assistRow.rowKey].completionPolicy"
-                        placeholder="完成策略"
-                      >
-                        <el-option label="任一人完成" value="ANY_ONE" />
-                        <el-option label="全部完成" value="ALL" />
-                      </el-select>
+                  <template v-if="assistRow.rowKey === selectedAssistRowKey">
+                    <el-input
+                      v-model="assistRow.description"
+                      maxlength="120"
+                      show-word-limit
+                      placeholder="例如：记录本工序温度、压力、操作人"
+                    />
+                    <div class="batch-record-cell-rules-editor__assist-assignment">
+                      <strong>辅助行填写人</strong>
+                      <div class="batch-record-cell-rules-editor__assist-assignment-grid">
+                        <el-select
+                          v-model="assistAssignments[assistRow.rowKey].candidateSourceType"
+                          placeholder="来源"
+                          @change="assistAssignments[assistRow.rowKey].candidateSourceIds = []"
+                        >
+                          <el-option label="个人" value="USERS" />
+                          <el-option label="角色" value="ROLE" />
+                        </el-select>
+                        <el-select
+                          v-model="assistAssignments[assistRow.rowKey].candidateSourceIds"
+                          multiple
+                          filterable
+                          collapse-tags
+                          collapse-tags-tooltip
+                          placeholder="选择员工或角色"
+                        >
+                          <el-option
+                            v-for="option in buildAssignmentTargetOptions(assistAssignments[assistRow.rowKey].candidateSourceType)"
+                            :key="`${assistAssignments[assistRow.rowKey].candidateSourceType}:${option.value}`"
+                            :label="option.label"
+                            :value="option.value"
+                          />
+                        </el-select>
+                        <el-select
+                          v-model="assistAssignments[assistRow.rowKey].completionPolicy"
+                          placeholder="完成策略"
+                        >
+                          <el-option label="任一人完成" value="ANY_ONE" />
+                          <el-option label="全部完成" value="ALL" />
+                        </el-select>
+                      </div>
                     </div>
-                  </div>
-                  <div class="batch-record-cell-rules-editor__assist-actions">
-                    <el-button
-                      size="small"
-                      :disabled="!selectedCell"
-                      @click="assignSelectedCellToAssistRow(assistRow.rowKey)"
-                    >
-                      加入当前单元格
-                    </el-button>
-                    <el-button
-                      size="small"
-                      :disabled="assistRowIndex === 0"
-                      @click="moveAssistRow(assistRow.rowKey, -1)"
-                    >
-                      上移
-                    </el-button>
-                    <el-button
-                      size="small"
-                      :disabled="assistRowIndex === assistRows.length - 1"
-                      @click="moveAssistRow(assistRow.rowKey, 1)"
-                    >
-                      下移
-                    </el-button>
-                    <el-button
-                      size="small"
-                      type="danger"
-                      plain
-                      @click="removeAssistRow(assistRow.rowKey)"
-                    >
-                      删除
-                    </el-button>
-                  </div>
+                    <div class="batch-record-cell-rules-editor__assist-actions">
+                      <el-button
+                        size="small"
+                        :disabled="!selectedCell"
+                        @click="assignSelectedCellToAssistRow(assistRow.rowKey)"
+                      >
+                        加入当前单元格
+                      </el-button>
+                      <el-button
+                        size="small"
+                        :disabled="assistRowIndex === 0"
+                        @click="moveAssistRow(assistRow.rowKey, -1)"
+                      >
+                        上移
+                      </el-button>
+                      <el-button
+                        size="small"
+                        :disabled="assistRowIndex === assistRows.length - 1"
+                        @click="moveAssistRow(assistRow.rowKey, 1)"
+                      >
+                        下移
+                      </el-button>
+                      <el-button
+                        size="small"
+                        type="danger"
+                        plain
+                        @click="removeAssistRow(assistRow.rowKey)"
+                      >
+                        删除
+                      </el-button>
+                    </div>
+                  </template>
                 </article>
               </div>
             </section>
@@ -1273,7 +1278,7 @@ watch(
 
 .batch-record-cell-rules-editor__workspace {
   display: grid;
-  height: clamp(520px, calc(100vh - 220px), 880px);
+  height: clamp(360px, calc(100vh - 360px), 600px);
   min-height: 0;
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: 14px;
@@ -1532,6 +1537,20 @@ watch(
 .batch-record-cell-rules-editor__assist-select span {
   color: #667085;
   font-size: 12px;
+}
+
+.batch-record-cell-rules-editor__assist-select-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.batch-record-cell-rules-editor__assist-select-copy > span {
+  overflow: hidden;
+  max-width: 220px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 </style>
