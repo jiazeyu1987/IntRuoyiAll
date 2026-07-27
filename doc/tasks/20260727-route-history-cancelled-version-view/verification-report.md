@@ -23,6 +23,16 @@
   - Result: PASS.
   - Output: `PASS: mes route cancelled version uses readonly historical viewer`.
 
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260727-route-history-cancelled-version-view\bug-regression-evidence.md`
+  - Result: PASS.
+
+- GREEN: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1`
+  - Result: PASS after registering current worktree as `int_main slot=8`, frontend `8089`, backend `48089`.
+
+- BLOCKED: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-route-history-cancelled-version-view --mode preview`
+  - Result: blocked only by dirty main worktree `E:\IntRuoyi`.
+  - Cleanup plan: keep task records and bug evidence; delete none.
+
 ## Coverage
 
 - `CANCELLED` route graph readonly snapshot read.

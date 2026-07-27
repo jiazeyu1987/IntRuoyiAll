@@ -52,7 +52,19 @@ GREEN: experience-preflight -> PASS, reused existing `docs/backend-development.m
 - Added `docs/experience-index.md` keywords for `CANCELLED` / `REJECTED` / `SUPERSEDED` historical route-version readonly snapshot failures.
 - Preserved `bug-regression-evidence.md` through `task.md` `Cleanup Keep`.
 
+## Commit And Closeout
+
+GREEN: branch-runtime-port-guard -> PASS, registered current worktree as `int_main slot=8`, frontend `8089`, backend `48089`.
+
+GREEN: implementation-commit -> PASS, `3d809a8e fix: allow readonly cancelled route versions`.
+
+BLOCKER: task-closeout-cleanup preview -> Main worktree is dirty and cannot receive ff-only merge: `E:\IntRuoyi`.
+
+- Preview keep: `task.md`, `execution-log.md`, `verification-report.md`, `bug-regression-evidence.md`.
+- Preview delete: none.
+- Impact: implementation is committed on the task branch, but cleanup apply / ff-only merge / worktree removal cannot run safely until unrelated main-worktree changes are resolved.
+
 ## Current Status
 
 - Milestones 1-4 complete.
-- Current status: ready_for_closeout.
+- Current status: ready_for_closeout; implementation branch is ready to push, closeout apply is blocked by dirty main worktree.

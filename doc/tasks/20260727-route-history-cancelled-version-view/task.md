@@ -10,7 +10,7 @@
 2. `completed`：创建隔离 worktree，并补充 BDD 与 RED 回归测试。
 3. `completed`：实现历史关闭版本统一只读读取契约，不放宽任何写入校验。
 4. `completed`：运行目标后端测试、前端静态合同和必要回归。
-5. `in_progress`：完成经验沉淀、closeout、提交、合并与推送。
+5. `in_progress`：完成经验沉淀、提交与推送；closeout apply / ff-only 合并等待主工作区恢复干净。
 
 ## Expected Verification
 
@@ -23,6 +23,13 @@
 ## Current Status
 
 ready_for_closeout
+
+## Closeout Blocker
+
+- Implementation commit: `3d809a8e fix: allow readonly cancelled route versions`。
+- Worktree runtime slot registered: `int_main slot=8`，frontend `8089`，backend `48089`。
+- `task-closeout-cleanup --mode preview` keeps `task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md` and deletes nothing。
+- Closeout apply / ff-only merge / worktree removal is blocked because main worktree `E:\IntRuoyi` is dirty; current task branch remains `ready_for_closeout` until the main workspace can receive the merge safely。
 
 ## Root Cause
 
