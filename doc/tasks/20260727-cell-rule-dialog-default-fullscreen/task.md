@@ -10,7 +10,7 @@
 - [x] 定位现有单元格规则弹窗组件与 Dialog 使用契约。
 - [x] 先补最小静态合同 RED，再实现默认全屏。
 - [x] 运行目标验证并记录 GREEN / REGRESSION 证据。
-- [ ] 完成收尾记录、经验沉淀、提交与推送。
+- [x] 完成收尾记录、经验沉淀、提交与推送。
 
 ## Expected Verification
 
@@ -20,7 +20,7 @@
 
 ## Current Status
 
-- ready_for_closeout
+completed
 
 ## 设计约束检查
 
