@@ -130,13 +130,14 @@
                           ).label
                         }}
                       </el-tag>
-                      <span class="batch-record-form-filler-cell__text">
+                      <span
+                        v-if="!row.permissionRuleErrorMessage"
+                        class="batch-record-form-filler-cell__text"
+                      >
                         {{
                           isPermissionRuleLoading(row)
                             ? '填写规则加载中'
-                            : row.permissionRuleErrorMessage
-                              ? '查看错误'
-                              : buildFillRuleCandidateUserText(row) || '配置填写人'
+                            : buildFillRuleCandidateUserText(row) || '配置填写人'
                         }}
                       </span>
                     </button>
