@@ -27,20 +27,26 @@
 ## BDD
 
 - Given Win7 客户端资产已批准删除, When 检查展厅客户端下载 Controller, Then 只存在 Android 下载映射。
+- BDD: 下线 Win7 客户端下载 -> Given Win7 客户端资产已批准删除 / When 检查展厅客户端下载 Controller / Then 只存在 Android 下载映射。
 
 ## RED
 
 - `ShowroomClientDownloadControllerTest#desktopWin7ClientShouldBeRetired` 已先于生产代码修改。
 - Maven RED 尝试因同一工作区多路并发构建持续阻塞，超过 6 分钟无 surefire 报告；本任务 Maven PID `60176` 已停止。
 - 可独立执行的跨前后端静态契约 RED 已确认后端和前端仍保留 Win7 引用。
+- RED: `node tests\e2e\showroom-client-download-retirement-static.spec.js` -> FAIL，前端和后端仍存在 Win7 下载引用。
 
 ## GREEN
 
-- Pending。
+- `mvn -pl yudao-module-showroom "-Dtest=ShowroomClientDownloadControllerTest" test` -> PASS。
+- Tests run: 3, Failures: 0, Errors: 0, Skipped: 0。
+- GREEN: `mvn -pl yudao-module-showroom "-Dtest=ShowroomClientDownloadControllerTest" test` -> PASS。
 
 ## Contract Verification
 
-- Pending。
+- Android 下载测试继续验证 HTTP 200、APK content type、文件名、响应头和 PK 文件头。
+- Win7 退休测试验证 Controller 不存在 `/desktop-win7` 映射，下载描述不存在 `DESKTOP_WIN7`。
+- 跨前后端静态契约验证前端不再导出或调用 Win7 下载能力。
 
 ## Observability
 

@@ -172,3 +172,12 @@
 - Blocker: `mvn -pl <module> ...` 因未构建兄弟模块而失败时，不得直接判定为产品代码阻塞；必须复验 `-am` 后再给结论。
 - Verification: 任务日志同时记录窄范围失败、`-am` 复验命令、PASS/FAIL 结果和影响模块。
 - Forbidden action: 禁止用旧本地产物、跳过编译、API-only、或改 unrelated sibling 代码来掩盖 reactor 构建边界问题。
+
+## 2026-07-27 Windows Maven 增量输出删除卡住门禁
+
+- Trigger: Windows 上目标 Maven 命令长时间无输出，`jcmd <pid> Thread.print` 显示主线程停在 `IncrementalBuildHelper.beforeRebuildExecution` 和 `WinNTFileSystem.delete0`。
+- Preflight check: 先确认 Maven PID、父进程、启动命令和是否属于当前任务；检查同仓并发 Maven，但不得停止其他任务进程。
+- Blocker: 目标 Maven 超时且未生成 surefire 报告时，不得宣称测试通过；只允许停止当前任务启动的 Maven PID，并记录命令、PID 和诊断栈。
+- Verification: 保持项目标准 Maven 参数重新运行目标测试，必须得到明确 `BUILD SUCCESS` 和测试计数；一次关闭增量编译后的全量编译失败不能替代标准参数复验。
+- Forbidden action: 禁止强杀所有 Java/Maven 进程、删除其他任务构建产物、用静态检查冒充 JUnit 通过，或把 `-Dmaven.compiler.useIncrementalCompilation=false` 固化为产品构建 fallback。
+- Evidence: `doc/tasks/20260727-remove-lfs-assets/verification-report.md`。

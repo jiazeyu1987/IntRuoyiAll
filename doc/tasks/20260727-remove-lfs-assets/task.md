@@ -38,7 +38,12 @@
 - `是否从根因和长期维护角度解决`：是；同时删除资源、接口、前端入口、测试引用和 LFS 属性，Excel 改为临时产物并清理。
 - `是否存在临时补丁或绕过`：否。
 
+## Cleanup Keep
+
+- doc/tasks/20260727-remove-lfs-assets/backend-api-evidence.md
+
 ## Current Status
 
-- Status: in_progress
-- 当前里程碑：M3。
+- Status: ready_for_closeout
+- 当前里程碑：M5。
+- 实现和必需验证已完成，等待经验沉淀、cleanup、提交与推送。
