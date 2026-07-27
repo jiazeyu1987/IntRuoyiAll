@@ -73,6 +73,11 @@
   - Result: PASS.
   - Commit: `5efc7cd1 test: add route version list real e2e evidence`.
 
+- GREEN: runtime stop and port release
+  - Result: PASS.
+  - Stopped task-owned Vite PID `33848` and Java PID `65060`.
+  - Ports released: `8089`, `48089`.
+
 - BLOCKED: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-route-version-list-active-history-only --mode preview`
   - Result: blocked by non-ff-only merge relationship to `int_main` and dirty main worktree `E:\IntRuoyi`.
   - Cleanup plan: keep task records and evidence; delete none.
@@ -91,4 +96,5 @@
 
 - No backend production code changed.
 - Runtime services were started only in the isolated slot 8 worktree for E2E verification: frontend `8089`, backend `48089`.
+- Task-owned runtime services were stopped after E2E and ports `8089/48089` were released.
 - No database writes were performed by the E2E path.

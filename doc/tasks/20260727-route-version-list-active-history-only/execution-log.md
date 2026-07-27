@@ -81,6 +81,10 @@ GREEN: git-push -> PASS, `git push origin codex/20260727-route-history-cancelled
 
 GREEN: real-e2e-evidence-commit -> PASS, `5efc7cd1 test: add route version list real e2e evidence`.
 
+GREEN: closeout-doc-commit -> PASS, `679cde37 docs: record route version real e2e commit`.
+
+GREEN: runtime-stop -> PASS, stopped task-owned Vite PID `33848` on `8089` and Java PID `65060` on `48089`; postcheck showed `RELEASED port=8089` and `RELEASED port=48089`.
+
 BLOCKER: task-closeout-cleanup preview -> current branch cannot be fast-forward merged into `int_main`, and main worktree is dirty: `E:\IntRuoyi`.
 
 - Preview keep: `task.md`, `execution-log.md`, `verification-report.md`, `bug-regression-evidence.md`, `frontend-feature-evidence.md`.
@@ -106,4 +110,4 @@ GREEN: experience-preflight -> PASS, no new long-term document needed.
 ## Current Status
 
 - Implementation and static + real E2E verification complete.
-- Current status: ready_for_closeout; real E2E evidence is committed locally, while closeout apply / ff-only merge remains blocked.
+- Current status: ready_for_closeout; real E2E evidence and runtime release are complete, while closeout apply / ff-only merge remains blocked.
