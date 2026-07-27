@@ -109,6 +109,25 @@
                         勾选
                       </el-checkbox>
 
+                      <el-select
+                        v-else-if="cell.editableContext.componentKind === 'select'"
+                        :model-value="resolveStringValue(modelValue[cell.editableContext.fieldIdentity])"
+                        size="small"
+                        class="!w-1/1"
+                        clearable
+                        :placeholder="cell.editableContext.placeholder || '请选择'"
+                        @update:model-value="
+                          (value) => patchField(cell.editableContext!.fieldIdentity, value || '')
+                        "
+                      >
+                        <el-option
+                          v-for="option in cell.editableContext.options || []"
+                          :key="option.value"
+                          :label="option.label"
+                          :value="option.value"
+                        />
+                      </el-select>
+
                       <el-input-number
                         v-else-if="cell.editableContext.componentKind === 'number'"
                         :model-value="resolveNumberValue(modelValue[cell.editableContext.fieldIdentity])"
@@ -245,6 +264,25 @@
                     >
                       勾选
                     </el-checkbox>
+
+                    <el-select
+                      v-else-if="cell.editableContext.componentKind === 'select'"
+                      :model-value="resolveStringValue(modelValue[cell.editableContext.fieldIdentity])"
+                      size="small"
+                      class="!w-1/1"
+                      clearable
+                      :placeholder="cell.editableContext.placeholder || '请选择'"
+                      @update:model-value="
+                        (value) => patchField(cell.editableContext!.fieldIdentity, value || '')
+                      "
+                    >
+                      <el-option
+                        v-for="option in cell.editableContext.options || []"
+                        :key="option.value"
+                        :label="option.label"
+                        :value="option.value"
+                      />
+                    </el-select>
 
                     <el-input-number
                       v-else-if="cell.editableContext.componentKind === 'number'"

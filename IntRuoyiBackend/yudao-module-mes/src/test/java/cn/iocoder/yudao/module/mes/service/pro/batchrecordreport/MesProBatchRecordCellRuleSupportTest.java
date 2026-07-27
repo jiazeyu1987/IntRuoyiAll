@@ -11,6 +11,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MesProBatchRecordCellRuleSupportTest {
@@ -1189,6 +1190,74 @@ class MesProBatchRecordCellRuleSupportTest {
                 .getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY);
         assertEquals("人工规则", reviewedRule.getString("label"));
         assertEquals(20, reviewedRule.getJSONObject("constraints").getInteger("maxLength"));
+    }
+
+    @Test
+    void ensureManualFillForm_syncsSelectOptionsToFillForm() {
+        JSONObject cell = JSON.parseObject("""
+                {
+                  "text":"",
+                  "fillForm":{
+                    "field":"ebr_r0_c1",
+                    "component":"Input",
+                    "componentFlag":"input-text",
+                    "value":"",
+                    "defaultValue":""
+                  }
+                }
+                """);
+        BatchRecordReportCellRuleVO rule = new BatchRecordReportCellRuleVO()
+                .setRowIndex(0)
+                .setColumnIndex(1)
+                .setValueType("STRING")
+                .setComponentFlag("select")
+                .setRequired(true)
+                .setLabel("检测结果")
+                .setConstraints(Map.of(
+                        "selectionMode", "single",
+                        "options", List.of(
+                                Map.of("label", "合格", "value", "PASS"),
+                                Map.of("label", "不合格", "value", "FAIL"))))
+                .setSource("MANUAL")
+                .setConfidence(1.0)
+                .setReviewed(true);
+
+        MesProBatchRecordCellRuleSupport.ensureManualFillForm(rule, cell, "REPORT-SELECT");
+        MesProBatchRecordCellRuleSupport.validateRule(rule, cell);
+
+        JSONObject fillForm = cell.getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY);
+        assertEquals("select", fillForm.getString("componentFlag"));
+        assertEquals("检测结果", fillForm.getString("labelText"));
+        assertNotNull(fillForm.get("options"));
+        assertEquals(2, fillForm.getJSONArray("options").size());
+        assertEquals("PASS", fillForm.getJSONArray("options").getJSONObject(0).getString("value"));
+    }
+
+    @Test
+    void validateRule_rejectsNumberMinGreaterThanMax() {
+        JSONObject cell = JSON.parseObject("""
+                {
+                  "text":"",
+                  "fillForm":{
+                    "field":"ebr_r0_c1",
+                    "component":"Input",
+                    "componentFlag":"input-number"
+                  }
+                }
+                """);
+        BatchRecordReportCellRuleVO rule = new BatchRecordReportCellRuleVO()
+                .setRowIndex(0)
+                .setColumnIndex(1)
+                .setValueType("NUMBER")
+                .setComponentFlag("input-number")
+                .setLabel("温度")
+                .setConstraints(Map.of("min", 10, "max", 2))
+                .setSource("MANUAL")
+                .setConfidence(1.0)
+                .setReviewed(true);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> MesProBatchRecordCellRuleSupport.validateRule(rule, cell));
     }
 
     private void assertCellRuleAndFillForm(JSONObject root, int rowIndex, int columnIndex, String valueType,

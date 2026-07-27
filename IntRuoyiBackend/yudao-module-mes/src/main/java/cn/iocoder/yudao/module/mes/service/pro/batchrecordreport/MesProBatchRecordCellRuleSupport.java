@@ -27,7 +27,7 @@ public final class MesProBatchRecordCellRuleSupport {
     private static final Set<String> SUPPORTED_VALUE_TYPES = Set.of(
             "STRING", "NUMBER", "DATE", "DATETIME", "BOOLEAN", "SIGNATURE");
     private static final Set<String> SIGNATURE_ACTION_TYPES = Set.of("FORM_REVIEW", "SUBMIT", "APPROVE");
-    private static final Set<String> SINGLE_CHOICE_COMPONENT_FLAGS = Set.of("radio-group", "option-group", "single-choice");
+    private static final Set<String> SINGLE_CHOICE_COMPONENT_FLAGS = Set.of("radio-group", "option-group", "single-choice", "select");
     private static final Pattern UNIT_PATTERN = Pattern.compile("[（(]([A-Za-z%℃°μΩ/\\u4e00-\\u9fa5]{1,12})[）)]");
     private static final List<String> KNOWN_UNITS = List.of(
             "℃", "°C", "kg", "g", "mg", "μg", "L", "mL", "ml", "mm", "cm", "m",
@@ -1087,6 +1087,11 @@ public final class MesProBatchRecordCellRuleSupport {
             validateNumberConstraint(constraints, "max");
             validateIntegerConstraint(constraints, "scale");
             validateIntegerConstraint(constraints, "precision");
+            Number min = (Number) constraints.get("min");
+            Number max = (Number) constraints.get("max");
+            if (min != null && max != null && min.doubleValue() > max.doubleValue()) {
+                throw new IllegalArgumentException("NUMBER min must not exceed max");
+            }
             return;
         }
         if ("STRING".equals(valueType)) {

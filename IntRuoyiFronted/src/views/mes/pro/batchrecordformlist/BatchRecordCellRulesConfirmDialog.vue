@@ -164,6 +164,7 @@
                     allow-create
                     default-first-option
                     placeholder="请选择或输入控件类型"
+                    @change="handleSelectedComponentFlagChange"
                   >
                     <el-option
                       v-for="option in componentFlagOptions"
@@ -172,6 +173,29 @@
                       :value="option.value"
                     />
                   </el-select>
+                </el-form-item>
+
+                <el-alert
+                  v-if="selectedRule.valueType === 'SIGNATURE'"
+                  title="电子签名控件必须对应已启用的签名标记单元格；缺少签名标记时保存会被后端拒绝。"
+                  type="warning"
+                  :closable="false"
+                  show-icon
+                />
+
+                <el-form-item
+                  v-if="selectedRule.componentFlag === 'select'"
+                  label="下拉选项"
+                >
+                  <el-input
+                    v-model="selectedRuleSelectOptionsText"
+                    type="textarea"
+                    :rows="4"
+                    placeholder="每行一个选项；可用 名称=值 设置提交值，例如：合格=PASS"
+                  />
+                  <p class="batch-record-cell-rules-editor__form-tip">
+                    下拉框至少需要两个有效选项，保存时会写入 selectionMode=single 和 options。
+                  </p>
                 </el-form-item>
 
                 <el-form-item
@@ -223,6 +247,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import {
   BatchRecordReportApi,
+  type BatchRecordReportCellRuleConstraints,
   type BatchRecordReportCellRuleVO,
   type BatchRecordReportCellRulesRespVO,
   type BatchRecordReportCellValueType,
@@ -277,6 +302,11 @@ type RuleEditorRow = {
 
 type NumericConstraintKey = 'min' | 'max' | 'scale' | 'precision'
 
+type SelectOption = {
+  label: string
+  value: string
+}
+
 const props = defineProps<{
   modelValue: boolean
   report?: ReportLike | null
@@ -318,6 +348,7 @@ const valueTypeLabelMap = Object.fromEntries(
 
 const componentFlagBaseOptions = [
   { label: '文本输入 input-text', value: 'input-text' },
+  { label: '下拉框 select', value: 'select' },
   { label: '数字输入 input-number', value: 'input-number' },
   { label: '日期 date', value: 'date' },
   { label: '日期时间 datetime', value: 'datetime' },
@@ -326,6 +357,17 @@ const componentFlagBaseOptions = [
   { label: '文件上传 upload-file', value: 'upload-file' },
   { label: '图片上传 upload-image', value: 'upload-image' }
 ]
+
+const componentFlagValueTypeMap: Record<string, BatchRecordReportCellValueType> = {
+  'input-text': 'STRING',
+  'input-textarea': 'STRING',
+  select: 'STRING',
+  'input-number': 'NUMBER',
+  date: 'DATE',
+  datetime: 'DATETIME',
+  checkbox: 'BOOLEAN',
+  signature: 'SIGNATURE'
+}
 
 const componentFlagOptions = computed(() => {
   const optionMap = new Map(componentFlagBaseOptions.map((option) => [option.value, option]))
@@ -366,12 +408,99 @@ const canConfirmRules = computed(
 
 const cloneRecord = <T extends object | undefined>(value: T): T => (value ? ({ ...value } as T) : value)
 
+const isSelectRule = (rule: Pick<BatchRecordReportCellRuleVO, 'componentFlag'>) =>
+  String(rule.componentFlag || '').trim().toLowerCase() === 'select'
+
+const normalizeSelectOptions = (rawOptions: unknown): SelectOption[] => {
+  if (!Array.isArray(rawOptions)) return []
+  const options: SelectOption[] = []
+  rawOptions.forEach((rawOption) => {
+    let label = ''
+    let value = ''
+    if (rawOption && typeof rawOption === 'object') {
+      const optionRecord = rawOption as Record<string, unknown>
+      label = String(optionRecord.label ?? '').trim()
+      value = String(optionRecord.value ?? label).trim()
+    } else {
+      label = String(rawOption ?? '').trim()
+      value = label
+    }
+    if (!label || !value || options.some((option) => option.value === value)) return
+    options.push({ label, value })
+  })
+  return options
+}
+
+const parseSelectOptionsText = (text: string): SelectOption[] => {
+  const options: SelectOption[] = []
+  String(text || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .forEach((line) => {
+      const matched = line.match(/^(.+?)(?:\s*[=|]\s*)(.+)$/)
+      const label = (matched ? matched[1] : line).trim()
+      const value = (matched ? matched[2] : label).trim()
+      if (!label || !value || options.some((option) => option.value === value)) return
+      options.push({ label, value })
+    })
+  return options
+}
+
+const formatSelectOptionsText = (rawOptions: unknown) =>
+  normalizeSelectOptions(rawOptions)
+    .map((option) => (option.label === option.value ? option.label : `${option.label}=${option.value}`))
+    .join('\n')
+
+const cleanRuleConstraintsForComponent = (
+  constraints: BatchRecordReportCellRuleConstraints | undefined,
+  valueType: BatchRecordReportCellValueType,
+  componentFlag?: string
+) => {
+  const cleaned = cleanedRuleConstraints(constraints, valueType)
+  if (String(componentFlag || '').trim().toLowerCase() !== 'select') {
+    delete cleaned.selectionMode
+    delete cleaned.options
+  }
+  return cleaned
+}
+
+const applySelectConstraintsToRule = (rule: BatchRecordReportCellRuleVO) => {
+  if (!isSelectRule(rule)) return []
+  rule.valueType = 'STRING'
+  rule.componentFlag = 'select'
+  const constraints: BatchRecordReportCellRuleConstraints = rule.constraints || {}
+  const options = normalizeSelectOptions(constraints.options)
+  constraints.selectionMode = 'single'
+  constraints.options = options
+  rule.constraints = constraints
+  return options
+}
+
+const validateSelectOptionsBeforeSave = (rule: BatchRecordReportCellRuleVO) => {
+  if (!isSelectRule(rule)) return
+  const options = applySelectConstraintsToRule(rule)
+  if (options.length < 2) {
+    const label = rule.label || `第 ${rule.rowIndex + 1} 行第 ${rule.columnIndex + 1} 列`
+    throw new Error(`${label} 的下拉框至少需要两个有效选项。`)
+  }
+}
+
 const toManualReviewedRule = (rule: BatchRecordReportCellRuleVO): BatchRecordReportCellRuleVO => {
   const normalized = normalizeCellRule(rule)
-  return {
+  const constraints = cleanRuleConstraintsForComponent(
+    normalized.constraints,
+    normalized.valueType,
+    normalized.componentFlag
+  )
+  const prepared = {
     ...normalized,
-    constraints: cleanedRuleConstraints(normalized.constraints, normalized.valueType),
-    attachmentRule: cloneRecord(normalized.attachmentRule),
+    constraints
+  }
+  applySelectConstraintsToRule(prepared)
+  return {
+    ...prepared,
+    attachmentRule: cloneRecord(prepared.attachmentRule),
     source: 'MANUAL',
     confidence: 1,
     reviewed: true
@@ -578,7 +707,29 @@ const isSelectedCellFillable = computed({
 const handleSelectedValueTypeChange = (value: BatchRecordReportCellValueType) => {
   if (!selectedRule.value) return
   selectedRule.value.componentFlag = cellRuleDefaultComponentMap[value]
-  selectedRule.value.constraints = cleanedRuleConstraints(selectedRule.value.constraints, value)
+  selectedRule.value.constraints = cleanRuleConstraintsForComponent(
+    selectedRule.value.constraints,
+    value,
+    selectedRule.value.componentFlag
+  )
+}
+
+const handleSelectedComponentFlagChange = (value: string) => {
+  if (!selectedRule.value) return
+  const componentFlag = String(value || '').trim()
+  selectedRule.value.componentFlag = componentFlag
+  const nextValueType = componentFlagValueTypeMap[componentFlag.toLowerCase()]
+  if (nextValueType) {
+    selectedRule.value.valueType = nextValueType
+  }
+  selectedRule.value.constraints = cleanRuleConstraintsForComponent(
+    selectedRule.value.constraints,
+    selectedRule.value.valueType,
+    componentFlag
+  )
+  if (componentFlag.toLowerCase() === 'select') {
+    applySelectConstraintsToRule(selectedRule.value)
+  }
 }
 
 const ensureSelectedRuleConstraints = () => {
@@ -614,7 +765,21 @@ const selectedNumericMax = computed({
   set: (value: number | null | undefined) => setSelectedNumericConstraint('max', value)
 })
 
+const selectedRuleSelectOptionsText = computed({
+  get: () => formatSelectOptionsText(selectedRule.value?.constraints?.options),
+  set: (value: string) => {
+    if (!selectedRule.value) return
+    selectedRule.value.valueType = 'STRING'
+    selectedRule.value.componentFlag = 'select'
+    const constraints = ensureSelectedRuleConstraints()
+    if (!constraints) return
+    constraints.selectionMode = 'single'
+    constraints.options = parseSelectOptionsText(value)
+  }
+})
+
 const validateRuleRowsBeforeSave = () => {
+  ruleRows.value.forEach(validateSelectOptionsBeforeSave)
   const invalidRule = ruleRows.value.find((rule) => {
     if (rule.valueType !== 'NUMBER') return false
     const min = rule.constraints?.min
@@ -888,6 +1053,13 @@ watch(
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
+}
+
+.batch-record-cell-rules-editor__form-tip {
+  margin: 6px 0 0;
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 </style>

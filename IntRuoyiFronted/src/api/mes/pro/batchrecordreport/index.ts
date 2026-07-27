@@ -189,6 +189,8 @@ export interface BatchRecordReportCellRuleConstraints {
   minLength?: number
   maxLength?: number
   format?: string
+  selectionMode?: string
+  options?: Array<{ label: string; value: string }>
   [key: string]: unknown
 }
 
