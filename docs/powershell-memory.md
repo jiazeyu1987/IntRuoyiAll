@@ -43,6 +43,15 @@
 - Forbidden action: 禁止把同文件并行改动混进当前任务实现提交；禁止为了 clean 状态回滚、覆盖或删除并行改动。
 - Evidence: `doc\tasks\20260726-route-flow-form-slot-count-badge\execution-log.md`，`RouteFlowGraphDesigner.vue` 在徽标任务中与并行表单配置改动同文件共存，需选择性暂存本任务 hunks。
 
+### 提交后残余改动复扫门禁
+
+- Trigger: 执行基线提交、实现提交或收尾提交后，准备继续下一步提交或推送前。
+- Preflight check: 每次提交后立即运行 `git status --short --branch` 与 `git diff --name-status`，确认是否还有延迟保存、并行任务或新生成的源码/测试/文档改动。
+- Blocker: 发现新的已修改源码、测试、任务文档或生成物且无法确认归属；发现新改动属于当前用户“全部提交”范围但尚未提交；发现不属于当前任务的并行目录将被 `git add -A` 混入。
+- Verification: 对归属明确的残余改动单独暂存、提交并记录 commit hash；对并行任务目录保持未暂存并在任务日志说明未触碰原因。
+- Forbidden action: 禁止只看最近一次 `git commit` 成功就直接推送；禁止在未复扫状态时使用宽泛 `git add -A`；禁止把提交后新出现的并行任务目录混入当前任务收尾提交。
+- Evidence: `doc\tasks\20260727-commit-frontend-backend-code\execution-log.md`，提交前后端代码时两次提交后复扫分别发现前端 Runner 残余改动、后端批记录报表残余改动，并拆分提交保留边界。
+
 ### GitHub 推送大文件门禁
 
 - Trigger: 推送到 GitHub remote、处理 `GH001`、`Large files detected`、`pre-receive hook declined`、Git LFS 或历史大文件问题。
@@ -98,9 +107,9 @@
 
 2. 阶段 2：基线提交
    必查项: 当前任务文件不得混入基线；所有既有脏改动必须可追踪。
-   推荐命令: `git diff --cached --name-status`、`git status --short`、`git show --name-status --oneline -1`。
+   推荐命令: `git diff --cached --name-status`、`git status --short`、`git diff --name-status`、`git show --name-status --oneline -1`。
    Fail Fast: 无法安全分离当前任务文件、存在冲突、存在秘密或大文件风险。
-   必须记录: 基线提交 hash 和文件清单。
+   必须记录: 基线提交 hash、文件清单和提交后残余改动复扫结果。
 
 3. 阶段 3：任务提交与推送
    必查项: 当前任务实现、收尾记录、经验沉淀状态、GitHub 大文件门禁。
