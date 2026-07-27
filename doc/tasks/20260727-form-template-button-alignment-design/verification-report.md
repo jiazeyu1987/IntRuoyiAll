@@ -56,4 +56,11 @@
 - 当前功能和目标验证无 blocker。
 - 物理 schema 清理不在本任务授权范围。
 - 项目经验沉淀：PASS，已合并到现有 `docs/frontend-development.md`，无需新建长期经验文档。
-- 提交前仍需完成 cleanup 和 Git 同步。
+- Cleanup 和首次 Git 同步已完成。
+- 无关未跟踪目录 `doc/tasks/20260727-route-flow-batch-record-form-source/` 保持不动，不属于本任务。
+
+## Final Result
+
+- Status: completed。
+- Remote: `origin/int_main` 已包含实现、设计和验证证据。
+- First push head: `97ecf51a`。

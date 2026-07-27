@@ -15,7 +15,7 @@
 - [x] GREEN：恢复当前模板三个工作区，移除前后端错误绑定契约和未发布迁移。
 - [x] 回归：聚焦静态合同、TypeScript、BPM Maven、数据库合同和真实页面点击通过。
 - [x] 文档校准：更新四份设计文档、三份交付证据、验证报告和项目经验门禁。
-- [ ] Closeout：完成最终验证、cleanup、选择性提交并推送到 `origin/int_main`。
+- [x] Closeout：完成最终验证、cleanup、提交并推送到 `origin/int_main`。
 
 ## Expected Verification
 
@@ -28,7 +28,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 经验门禁
 
@@ -74,4 +74,9 @@ ready_for_closeout
 ## Closeout Evidence
 
 - 功能、自动化、真实 E2E、文档验证、UTF-8、差异和端口门禁均已通过。
-- Pending cleanup, selective commit, and push.
+- Cleanup preview/apply：PASS，11 份任务文档全部保留，无删除、阻塞或警告。
+- 实现与设计证据由并行脏工作区基线提交 `698d6ba3` 保存；该提交同时包含其他并行任务文件，已在日志中明确记录。
+- 补充收尾证据提交：`a6714535`。
+- 远端同步整合提交：`97ecf51a`。
+- 首次推送：`origin/int_main` 从 `70a4b414` 推进到 `97ecf51a`，成功。
+- 最终收尾提交和推送见 `execution-log.md`。

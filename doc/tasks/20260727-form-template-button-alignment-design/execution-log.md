@@ -116,6 +116,12 @@
 - `GREEN: task-owned git diff --check -> PASS。`
 - `GREEN: project-experience-consolidation -> PASS, 经验已合并到现有 docs/frontend-development.md，无需新建文档。`
 - `GREEN: branch runtime port guard -> PASS, int_main frontend 8081 / backend 48081。`
+- `GREEN: task-closeout-cleanup preview -> PASS, keep 11 files, delete/blocked/warnings none。`
+- `GREEN: task-closeout-cleanup apply -> PASS, deleted_paths none。`
+- `CONCURRENCY: implementation persistence -> 并行任务按脏工作区基线策略创建 698d6ba3，包含本任务实现、设计、测试以及其他并行改动；本任务未改写该提交历史。`
+- `GREEN: supplemental closeout commit -> a6714535, 包含本任务 execution-log.md/verification-report.md 和并行收尾记录。`
+- `GREEN: remote integration commit -> 97ecf51a, 共享 int_main 已整合 origin/int_main。`
+- `GREEN: git push origin int_main -> PASS, 70a4b414..97ecf51a。`
 - `REGRESSION: node tests\e2e\form-center-static.spec.js -> FAIL, 仅失败于无关策略路由 activeMenu 断言；本任务未修改该路由或断言。`
 
 ## Milestone Updates
@@ -126,14 +132,14 @@
 - 真实 E2E 完成：本机 Chrome 逐个点击三个按钮，弹窗、路由和错误边界均通过。
 - 文档校准完成：四份设计文档、三份交付证据、缺陷证据和验证报告均改为最终独立行为。
 - 项目经验门禁完成：`docs/frontend-development.md` 已记录“交互对齐不等于数据绑定”。
-- Closeout 待完成：cleanup、选择性提交和推送。
+- Closeout 完成：cleanup、远端同步和最终任务记录均已完成。
 
 ## Blockers
 
 - 当前功能无 blocker。
 - 本地数据库冗余列的物理清理未获授权，需独立迁移审计；不影响本次按钮功能。
-- 工作区存在其他并行任务改动，提交时必须只暂存本任务文件。
+- 无关并行任务文件保持不动。
 
 ## Final Status
 
-- `ready_for_closeout`
+- `completed`
