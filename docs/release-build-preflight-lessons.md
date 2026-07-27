@@ -809,3 +809,12 @@
 - Verification: 记录 `git ls-tree -l` 或等价历史扫描结果、目标远端 URL、分支、失败/通过的 `git push` 退出码；修复后再次运行大文件扫描并确认 `git push` 成功。
 - Forbidden action: 不得强推、静默改写历史、自动迁移 Git LFS、创建无历史快照分支替代原推送，或删除 evidence 文件后宣称已保留完整历史，除非用户明确授权该具体方案。
 - Evidence: `doc/tasks/20260724-push-maintenance-github/`；推送 `int_main` 到 `https://github.com/jiazeyu1987/IntRuoyiMaintance.git` 时，GitHub 拒绝已提交文件 `doc/tasks/20260709-codeonly-three-env-head-release/evidence/build-release-v5-result.json`，本地 blob 大小 `390728434` bytes，远端报告 `372.63 MB`。
+
+## 2026-07-27 publish-test required SQL 目标基线多余数据门禁
+
+- Trigger: `publish-test` / `promote-prod` / `promote-backup` 执行 required SQL，脚本固定校验业务基线数量，例如路线工序、菜单、角色、配置项数量，目标库实际多出一条或多条业务数据导致 `count mismatch`。
+- Preflight check: 先冻结失败 releaseTag、operation/migration 状态和远端只读查询；用真实业务键定位多余记录，并枚举所有 `route_process_id`、菜单 ID、角色 ID 等外观引用列，确认是否存在已报工、已审批、已消费等不可归档业务记录。若业务负责人确认是测试服非法数据，应补正式迁移，排在失败 required SQL 前执行，并备份所有将被修改的行。
+- Blocker: 多余记录仍未被业务确认、存在已报工或不可逆业务消费、无法列清派生配置/快照引用、或需要 test-only 修复却试图让全环境迁移依赖 test-only 迁移时，必须停止发布。
+- Verification: 先补 RED 静态契约测试，断言迁移环境范围、排序、精确业务键、备份表、fail-fast 前置和软删除范围；修复后运行目标 pytest、全量 migration policy gate，使用新的 releaseTag 重建发布包并重新 `publish-test`。
+- Forbidden action: 不得手工改测试库、跳过 required SQL、放宽目标 SQL 的数量契约、复用失败 releaseTag，或把 test-only 脏数据修复声明成生产/备份也必须执行的依赖。
+- Evidence: `doc/tasks/20260727-onlyoffice-test-server-release/execution-log.md`；`release-20260727-onlyoffice-test-r260727-1445` 在 `20260717_mes_balloon_excel_device_workstation_binding.sql` 因 `ROUTE-XLSX-00002` 多出非法第 26 道工序失败，后续以 `20260716_mes_balloon_xlsx_route_00002_invalid_process_cleanup.sql` 做测试服正式清理迁移。
