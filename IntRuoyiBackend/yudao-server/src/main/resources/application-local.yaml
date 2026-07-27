@@ -307,7 +307,7 @@ yudao:
         base-url: ${DCC_ONLYOFFICE_BASE_URL:http://127.0.0.1:8080}
         jwt-secret: ${DCC_ONLYOFFICE_JWT_SECRET:dev-onlyoffice-preview-secret}
         callback-url: ${DCC_ONLYOFFICE_CALLBACK_URL:http://127.0.0.1:${server.port}/admin-api/dcc/controlled-files/onlyoffice/callback}
-        public-file-base-url: ${DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL:http://127.0.0.1:${server.port}}
+        public-file-base-url: ${DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL:http://host.docker.internal:${server.port}}
         token-expire-seconds: ${DCC_ONLYOFFICE_TOKEN_EXPIRE_SECONDS:300}
     dmr-sheet:
       root-path: ${DCC_DMR_SHEET_ROOT_PATH:3.DMR}

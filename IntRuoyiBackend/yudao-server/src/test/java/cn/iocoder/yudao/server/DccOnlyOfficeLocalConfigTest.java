@@ -30,9 +30,10 @@ class DccOnlyOfficeLocalConfigTest {
         String content = Files.readString(projectDir.resolve("yudao-server/src/main/resources/application-local.yaml"),
                 StandardCharsets.UTF_8);
 
-        assertEquals(EXPECTED_LOCAL_ONLYOFFICE_PUBLIC_FILE_URL, extractOnlyOfficePublicFileBaseUrlDefault(content),
+        String publicFileBaseUrlDefault = extractOnlyOfficePublicFileBaseUrlDefault(content);
+        assertEquals(EXPECTED_LOCAL_ONLYOFFICE_PUBLIC_FILE_URL, publicFileBaseUrlDefault,
                 "application-local.yaml must expose backend file downloads through host.docker.internal for Docker OnlyOffice");
-        assertFalse(content.contains(STALE_ONLYOFFICE_PUBLIC_FILE_URL),
+        assertFalse(STALE_ONLYOFFICE_PUBLIC_FILE_URL.equals(publicFileBaseUrlDefault),
                 "application-local.yaml must not expose OnlyOffice file downloads through container-local 127.0.0.1");
     }
 
@@ -61,11 +62,21 @@ class DccOnlyOfficeLocalConfigTest {
             throw new AssertionError(propertyName + " placeholder must be present");
         }
         int valueStartIndex = startIndex + marker.length();
-        int endIndex = content.indexOf('}', valueStartIndex);
-        if (endIndex < 0) {
-            throw new AssertionError(propertyName + " placeholder must be closed");
+        int depth = 1;
+        for (int index = valueStartIndex; index < content.length(); index++) {
+            if (content.charAt(index) == '$' && index + 1 < content.length() && content.charAt(index + 1) == '{') {
+                depth++;
+                index++;
+                continue;
+            }
+            if (content.charAt(index) == '}') {
+                depth--;
+                if (depth == 0) {
+                    return content.substring(valueStartIndex, index);
+                }
+            }
         }
-        return content.substring(valueStartIndex, endIndex);
+        throw new AssertionError(propertyName + " placeholder must be closed");
     }
 
     private static Path findProjectDir() {
