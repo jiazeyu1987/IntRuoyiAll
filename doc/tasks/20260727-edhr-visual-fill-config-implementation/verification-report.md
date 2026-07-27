@@ -8,6 +8,15 @@
 
 ## Passed Verification
 
+- Post-integration route-copy attachment owner regression: `mvn "-Dtest=MesProRouteServiceImplTest#copyRoute_shouldRefreshActiveVersionWithCompleteConfigSnapshotAfterChildConfigsCopied" "-Dsurefire.failIfNoSpecifiedTests=false" test -pl yudao-module-mes -am` -> PASS，目标路线 ACTIVE 快照保留来源 `batchRecordAttachmentOwners`。
+- Route/backend focused regression after fix: `mvn "-Dtest=MesProRouteServiceImplTest,MesProRouteFlowConfigServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -pl yudao-module-mes -am` -> PASS，`Tests run: 57, Failures: 0, Errors: 0`。
+- Backend focused integration regression after fix: `mvn "-Dtest=MesProEdhrWorkTaskServiceImplTest,MesProEdhrBatchExecutionServiceTest,MesProEdhrProcessFormPermissionRuleServiceImplTest,MesProRouteFlowConfigServiceImplTest,MesProEdhrRehearsalReadinessServiceTest,MesProRouteServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -pl yudao-module-mes -am` -> PASS，`Tests run: 321, Failures: 0, Errors: 0`。
+- Frontend static contracts after fix: `node tests\e2e\edhr-visual-fill-config-static.spec.js`、`mes-route-flow-batch-record-detail-slot-filter-static.spec.js`、`mes-route-flow-legacy-batch-record-detail-static.spec.js`、`mes-route-flow-batch-record-panel-visible-static.spec.js`、`mes-route-flow-batch-record-item-restore-static.spec.js`、`route-batch-record-save-contract-static.spec.js` -> PASS。
+- Frontend type check after fix: `pnpm ts:check` -> PASS。
+- Backend package after fix: `mvn -pl yudao-server -am "-DskipTests" package` -> PASS，runtime Jar SHA256 `37CC88F87847D7A1965C08A02DDFE285E3414119E2E2FAA1CA4E40045255CAB1`。
+- Runtime reload after fix: slot 2 backend `48083` restarted from `output\runtime\slot2\yudao-server-exec.jar` as port PID `42408`; backend health `UP` and frontend `8083` HTTP `200`。
+- Real E2E after fix: `node tests\e2e\edhr-visual-fill-config-real-flow.e2e.js` -> PASS，tenant `芋道源码`，accounts `admin` / `jiazeyu` / `wangxin`，base URL `http://127.0.0.1:8083`，backend URL `http://127.0.0.1:48083`。
+- Real E2E cleanup after fix: task-owned batch `900000000891 / EDHRB-1785175736424` was voided, task-owned route `922229 / CODX-VFC-20260727` was deleted, and target report config was restored to `ruleCount=87`、`assistRowCount=87`、`fillRuleStatus=CONFIGURED`。
 - Backend focused regression: `mvn "-Dtest=MesProEdhrWorkTaskServiceImplTest,MesProEdhrBatchExecutionServiceTest,MesProEdhrProcessFormPermissionRuleServiceImplTest,MesProRouteFlowConfigServiceImplTest,MesProEdhrRehearsalReadinessServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -pl yudao-module-mes -am` -> PASS，`Tests run: 288, Failures: 0, Errors: 0`。
 - Frontend static contracts: `node tests\e2e\edhr-visual-fill-config-static.spec.js`、`mes-route-flow-batch-record-detail-slot-filter-static.spec.js`、`mes-route-flow-legacy-batch-record-detail-static.spec.js`、`mes-route-flow-batch-record-panel-visible-static.spec.js`、`mes-route-flow-batch-record-item-restore-static.spec.js`、`route-batch-record-save-contract-static.spec.js` -> PASS。
 - Frontend type check: `pnpm ts:check` -> PASS。
