@@ -4100,13 +4100,14 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void get_returnsProductionOwnerActionsForPendingSpecialNodes() {
+    void get_returnsAttachmentOwnerActionsForPendingSpecialNodes() {
         Fixture fixture = insertRouteFixture(true, true);
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
-                .setBatchCode("BATCH-SPECIAL-OWNER-ACTIONS")
+                .setBatchCode("BATCH-SPECIAL-ATTACHMENT-OWNER-ACTIONS")
                 .setRouteId(fixture.routeId()));
-        insertCloseAssignmentRule(fixture.routeId(), 188L);
+        configureBatchSpecialAttachmentOwners(batch.getId(), 188L, 190L);
+        insertCloseAssignmentRule(fixture.routeId(), 189L);
         Long specialTaskId = batch.getTasks().stream()
                 .filter(task -> task.getBatchRecordReportId() == null)
                 .findFirst()
@@ -4123,7 +4124,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .filter(task -> task.getId().equals(specialTaskId))
                 .findFirst()
                 .orElseThrow();
-        assertEquals("PRODUCTION_OWNER", ownerTask.getCurrentUserRole());
+        assertEquals("FILLER", ownerTask.getCurrentUserRole());
         assertEquals(MesProEdhrWorkTaskService.TASK_TYPE_CLOSE, ownerTask.getActiveWorkTaskType());
         assertEquals(List.of("CLOSE"), ownerTask.getAllowedActions());
         assertNull(ownerTask.getDisabledReason());
@@ -4141,7 +4142,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals("UNRELATED", unrelatedTask.getCurrentUserRole());
         assertEquals(MesProEdhrWorkTaskService.TASK_TYPE_CLOSE, unrelatedTask.getActiveWorkTaskType());
         assertEquals(List.of(), unrelatedTask.getAllowedActions());
-        assertEquals("当前用户不是该节点的生产负责人", unrelatedTask.getDisabledReason());
+        assertEquals("当前用户不是该节点的批记录附件填写人", unrelatedTask.getDisabledReason());
     }
 
     @Test
