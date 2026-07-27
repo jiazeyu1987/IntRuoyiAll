@@ -11,7 +11,7 @@
 - 已读取：`bug-regression-fix-loop/references/bug-contract.md`。
 - Git 预检：`git status --short --branch` 显示既有脏工作区，需先保护既有改动，再隔离当前任务实现。
 - 经验门禁：命中前端静态契约隔离门禁、Windows 换行与脚本行为同步门禁、脏工作区基线门禁。
-- 并行基线：`fc07fc8a chore: preserve dirty worktree baseline before edhr list fix`、`32df0a46 chore: preserve concurrent task baseline before edhr list fix` 已在本任务过程中保护并行改动；`32df0a46` 同时纳入了本任务初始文档，后续当前任务提交仅提交增量修复和证据。
+- 并行基线：`fc07fc8a chore: preserve dirty worktree baseline before edhr list fix`、`32df0a46 chore: preserve concurrent task baseline before edhr list fix`、`5b9abcd8 chore: capture pre-existing dirty worktree baseline` 已在本任务过程中保护并行改动；`5b9abcd8` 已包含本任务代码、测试和证据文件，后续不改写历史，仅提交经验沉淀与最终收尾记录。
 
 ## BDD
 
@@ -32,6 +32,9 @@
 - 2026-07-27: 更新 `form-template-batch-record-button-alignment-static.spec.js`，先 RED 复现错误路径，再把编辑按钮改回 `openSelectedTemplateAction('edit')` 并 GREEN。
 - 2026-07-27: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260727-form-template-edit-binding\bug-regression-evidence.md` -> PASS。
 - 2026-07-27: `git diff --check -- <task files>` -> PASS，仅出现 CRLF 提示，无空白错误。
+- 2026-07-27: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-form-template-edit-binding --mode preview` -> PASS，keep 仅包含 task/execution/verification/bug-regression evidence，无 delete/blocked/warnings。
+- 2026-07-27: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-form-template-edit-binding --mode apply` -> PASS，无删除项。
+- 2026-07-27: 项目经验沉淀已合并到 `docs/frontend-development.md#表单模板编辑与批记录绑定动作边界门禁`，并在 `docs/experience-index.md` 增加可命中关键词；`rg -n "当前模板未绑定批记录表单|表单模板编辑与批记录绑定动作边界门禁" docs/experience-index.md docs/frontend-development.md` -> PASS。
 
 ## Blockers
 

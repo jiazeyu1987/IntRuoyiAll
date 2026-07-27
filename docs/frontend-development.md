@@ -49,6 +49,15 @@
 - Forbidden action: 禁止用吞异常、默认成功、隐藏后端错误、只改文案、或关闭全局错误处理来减少 toast 数量。
 - Evidence: 任务 `doc/tasks/20260726-route-flow-v15-save-system-exception/`，路线流转关系图保存失败曾由 axios、RouteFlowGraphDesigner、RouteFormContent 三层重复提示“系统异常”。
 
+## 前端延迟辅助加载错误归属门禁
+
+- Trigger: 列表首屏已加载成功，但后续延迟加载的行级权限、预览、候选人、补充状态或右侧详情接口失败，页面出现全局 `系统异常`、列表加载失败或首屏错误条。
+- Preflight check: 先区分首屏主查询和延迟辅助查询；主查询失败才写全局列表错误，行级/预览级辅助查询失败必须落到对应行、卡片或预览区域，并保留真实错误文本。
+- Blocker: 延迟辅助请求失败会清空主列表、覆盖 `listErrorMessage`、触发默认成功/空数据、或静态合同无法证明错误归属边界时，不得宣称修复完成。
+- Verification: 新增聚焦静态合同覆盖主查询仍全局报错、辅助查询不污染全局错误、错误文本在行级或预览级可见，并运行相邻首屏延迟加载合同。
+- Forbidden action: 禁止吞掉辅助接口错误、把真实失败改成空配置/未配置、关闭 axios 错误、或只隐藏全局 alert 而不展示错误归属。
+- Evidence: 任务 `doc/tasks/20260727-edhr-batch-record-list-system-exception/`，批记录表单列表中填写人规则延迟加载失败曾在列表已成功渲染后污染全局 `listErrorMessage`。
+
 ## 前端草稿保存与提交发布解耦门禁
 
 - Trigger: 受控版本、候选版本、草稿页、审批流对象或发布对象存在“保存草稿”和“提交发布/提交审批”两个动作。
@@ -57,6 +66,15 @@
 - Verification: 新增聚焦静态合同断言保存成功 handler 不调用提交函数，并用 Playwright 拦截保存接口成功响应，断言 submit-publish 请求数为 0 且页面仍停留在 DRAFT 草稿上下文。
 - Forbidden action: 禁止把“保存成功顺手提交”当作便捷入口；禁止用 payload 标志、默认 true、隐式 watcher 或成功 toast 后确认框把保存和发布重新耦合。
 - Evidence: 任务 `doc/tasks/20260726-route-flow-v15-save-system-exception/`，路线草稿 V15 普通保存后曾继续弹“草稿已保存，是否立即提交发布？”，用户确认后草稿进入审批/发布导致不可继续编辑。
+
+## 表单模板编辑与批记录绑定动作边界门禁
+
+- Trigger: 表单中心模板预览区“打开/编辑/填写”、`openSelectedTemplateDesigner`、`openSelectedTemplateAction('edit')`、`resolveSelectedTemplateBatchRecordBinding`、`batchRecordBindingStatus`、`batchRecordReportId`、或错误“当前模板未绑定批记录表单”。
+- Preflight check: 先区分通用 FormCenter 模板规则编辑与批记录相关跳转；“编辑”必须进入本页规则编辑流程，只有“打开”批记录预览和“填写”模拟这类依赖批记录报表的动作才读取 `batchRecordBindingStatus + batchRecordReportId`。
+- Blocker: “编辑”按钮调用 `openSelectedTemplateDesigner('edit')`、`resolveSelectedTemplateBatchRecordBinding`，或聚焦静态合同无法证明编辑动作不依赖批记录绑定时必须停止；不得把普通模板缺少批记录绑定当成不可编辑。
+- Verification: 至少运行 `node tests/e2e/form-template-batch-record-button-alignment-static.spec.js`，并确认 `pnpm ts:check` 通过或记录无关阻塞。
+- Forbidden action: 禁止给普通模板伪造 `reportId`、吞掉绑定错误、改文案掩盖失败、或把通用模板编辑降级为批记录设计器路径。
+- Evidence: 任务 `doc/tasks/20260727-form-template-edit-binding/`，表单模板“编辑”曾误走批记录绑定校验并提示“当前模板未绑定批记录表单”。
 
 ## 前端聚合新增默认分类门禁
 
