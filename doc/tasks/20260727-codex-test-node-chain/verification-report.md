@@ -13,4 +13,6 @@
 - 清理闭环：旧临时测试项和本轮临时测试项均通过真实测试管理页面删除，`cleanupErrors=[]`。
 - 独立评审：`.review-fix-loop/runs/20260727T110834Z-6f3e83/review/report-round-2.md` -> PASS，逻辑、易用性和 UI 均无阻塞项，`final_decision=pass`。
 - 经验沉淀：已更新 `docs/backend-development.md`、`docs/database-rules.md`、`docs/e2e-rules.md` 和 `docs/experience-index.md`，覆盖节点串串行门禁和固定名称删除唯一键门禁。
+- 实现提交：`16d06684` -> PASS，包含物理删除修复、回归测试、核心任务记录、review 证据和经验沉淀，提交钩子确认 slot 7 端口契约通过。
+- 任务产物清理：`task_closeout.py --mode apply --worktree-closeout off` -> PASS，保留核心记录和 bug 回归证据，删除临时 evidence/helper 文件；自动 worktree 合并/删除未执行，因为主工作区有并行脏改动且当前分支不能 fast-forward 到 `int_main`。
 

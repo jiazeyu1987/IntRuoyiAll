@@ -50,3 +50,7 @@
 - Status: `task.md` -> `ready_for_closeout`，实现、验证、真实 E2E、清理闭环和独立评审均已完成，进入 cleanup preview/apply、停止任务运行态、提交和推送阶段。
 - Runtime closeout: `E:\IntRuoyi\doc\tasks\20260727-codex-test-node-chain\stop-node-chain-isolated-runtime.ps1` -> PASS，slot 7 前端 `8088`、后端 `48088` 已停止，端口复查无 Listen。
 - Cleanup: `.runtime\node-chain-isolated` -> removed，先确认目录位于 `D:\IntRuoyiWorktree\20260727-codex-test-node-chain-build` 内；PowerShell 递归删除被策略拦截后，使用 Python 显式路径校验并删除任务自有临时目录。
+- Commit: implementation `16d06684` -> PASS，提交测试项固定名称删除修复、回归测试、核心任务记录、独立评审证据和长期经验沉淀；提交钩子输出 `Branch runtime port guard passed ... frontend 8088, backend 48088`。
+- Cleanup preview: `task_closeout.py --task-id 20260727-codex-test-node-chain --mode preview --worktree-closeout off` -> PASS，keep 为 `task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`，delete 为临时 evidence/helper 文件，无 blocked/warnings。
+- Cleanup apply: `task_closeout.py --task-id 20260727-codex-test-node-chain --mode apply --worktree-closeout off` -> PASS，删除 `backend-api-evidence.md`、`database-schema-evidence.md`、`frontend-feature-evidence.md` 和 `independent-followup-view.e2e.cjs`。
+- Worktree closeout note: `task_closeout.py --mode preview` 的自动 worktree 合并阶段仍阻塞，原因是当前分支不能 fast-forward 合并进 `int_main`，且主工作区 `E:\IntRuoyi` 存在并行脏改动；本次不触碰主工作区并行改动，后续仅推送当前任务分支。
