@@ -447,6 +447,26 @@ BEGIN
       AND `info`.`deleted` = b'0'
   );
 
+  UPDATE `bpm_business_approval_policy` AS `policy`
+  SET `policy`.`policy_mode` = 'BPM_REQUIRED',
+      `policy`.`process_definition_key` = 'form-template-upgrade-v1',
+      `policy`.`effect_executor_code` = 'FORM_TEMPLATE_UPGRADE',
+      `policy`.`updater` = 'codex',
+      `policy`.`update_time` = NOW()
+  WHERE `policy`.`tenant_id` IN (1, 122)
+    AND `policy`.`data_domain` = 'FORM_CENTER'
+    AND `policy`.`system_code` = 'FORM_CENTER'
+    AND `policy`.`object_type` = 'FORM_TEMPLATE'
+    AND `policy`.`action_code` = 'UPGRADE'
+    AND `policy`.`object_state` = 'DRAFT'
+    AND `policy`.`status` = 'PUBLISHED'
+    AND `policy`.`deleted` = b'0'
+    AND (
+      COALESCE(`policy`.`policy_mode`, '') <> 'BPM_REQUIRED'
+      OR COALESCE(`policy`.`process_definition_key`, '') <> 'form-template-upgrade-v1'
+      OR COALESCE(`policy`.`effect_executor_code`, '') <> 'FORM_TEMPLATE_UPGRADE'
+    );
+
   IF EXISTS (
     SELECT 1
     FROM `bpm_business_approval_policy`

@@ -300,6 +300,7 @@ type RuleEditorRow = {
 }
 
 type NumericConstraintKey = 'min' | 'max' | 'scale' | 'precision'
+type RuleEditorValueType = BatchRecordReportCellValueType | 'SELECT_CONTROL'
 
 type SelectOption = {
   label: string
@@ -344,6 +345,11 @@ const unreviewedFillableCellCount = computed(() => summary.unreviewedFillableCel
 const valueTypeLabelMap = Object.fromEntries(
   cellRuleValueTypeOptions.map((option) => [option.value, option.label])
 ) as Record<string, string>
+const SELECT_FIELD_TYPE: RuleEditorValueType = 'SELECT_CONTROL'
+const ruleEditorValueTypeOptions: Array<{ label: string; value: RuleEditorValueType }> = [
+  ...cellRuleValueTypeOptions,
+  { label: '下拉框', value: SELECT_FIELD_TYPE }
+]
 
 const componentFlagBaseOptions = [
   { label: '文本输入 input-text', value: 'input-text' },
