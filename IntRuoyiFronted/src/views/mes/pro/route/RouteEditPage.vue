@@ -46,6 +46,7 @@
 
 <script setup lang="ts">
 import { ElMessageBox } from 'element-plus'
+import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import {
   ProRouteApi,
   type ProRouteVersionVO,
@@ -58,12 +59,14 @@ import {
   ensureSameSourceDraftCandidateForProductionConfig
 } from './routeCandidateEntry'
 import { isRouteConfirmCancel, resolveRouteOperationErrorMessage } from './routeError'
+import { useTagsViewStore } from '@/store/modules/tagsView'
 
 defineOptions({ name: 'MesProRouteEdit' })
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const tagsViewStore = useTagsViewStore()
 const contentRef = ref<InstanceType<typeof RouteFormContent>>()
 const loadedRouteRequestKey = ref<string>()
 const routeVersionActionLoading = ref(false)
@@ -121,6 +124,8 @@ const routeVersionEditContextKey = computed(() => {
 const listEditCandidateDraftSaved = ref(false)
 const listEditCandidateDraftDiscarded = ref(false)
 const routeLeaveAlreadyConfirmed = ref(false)
+const routeEditTabSnapshot = ref<RouteLocationNormalizedLoaded>()
+const routeEditTabSynced = ref(false)
 const routeCandidateDraftKey = computed(
   () => `${routeId.value}:${routeVersionEditContextKey.value}:${routeDraftOrigin.value}:${discardOnUnsavedExit.value}`
 )
@@ -143,6 +148,29 @@ const shouldPromptUnsavedCandidateDraftBeforeExit = computed(() => {
 })
 const buildRouteRequestKey = () =>
   `${routeId.value}:${initialTab.value}:${routeVersionEditContextKey.value}`
+
+const hasRouteEditTopTag = () => {
+  const routeEditIdentity = tagsViewStore.getViewIdentity(route)
+  return tagsViewStore.getVisitedViews.some(
+    (visitedView) => tagsViewStore.getViewIdentity(visitedView) === routeEditIdentity
+  )
+}
+
+const syncRouteEditTopTag = () => {
+  if (!routeEditTabSynced.value || !hasRouteEditTopTag()) {
+    routeEditTabSnapshot.value = tagsViewStore.replaceActiveMenuView(route)
+    routeEditTabSynced.value = true
+    return
+  }
+  tagsViewStore.updateVisitedView(route)
+}
+
+const restoreRouteEditTopTag = () => {
+  if (!routeEditTabSynced.value) return
+  tagsViewStore.restoreActiveMenuView(route, routeEditTabSnapshot.value)
+  routeEditTabSnapshot.value = undefined
+  routeEditTabSynced.value = false
+}
 
 type SubmitRouteCandidateVersionOptions = {
   confirmMessage?: string
@@ -407,19 +435,41 @@ const handleBackToList = async () => {
   if (canLeave === false) return
   routeLeaveAlreadyConfirmed.value = true
   try {
+    restoreRouteEditTopTag()
     await router.push('/mes/pro/route')
   } finally {
     routeLeaveAlreadyConfirmed.value = false
   }
 }
 
-onBeforeRouteLeave(async () => {
+onBeforeRouteLeave(async (to) => {
   if (routeLeaveAlreadyConfirmed.value) {
     routeLeaveAlreadyConfirmed.value = false
     return true
   }
-  return await confirmRouteEditPageLeave()
+  const canLeave = await confirmRouteEditPageLeave()
+  if (canLeave && to.path === String(route.meta.activeMenu || '')) {
+    restoreRouteEditTopTag()
+  }
+  return canLeave
 })
+
+onMounted(() => {
+  void nextTick(syncRouteEditTopTag)
+})
+
+onActivated(() => {
+  void nextTick(syncRouteEditTopTag)
+})
+
+watch(
+  () => route.fullPath,
+  () => {
+    if (routeEditTabSynced.value) {
+      tagsViewStore.updateVisitedView(route)
+    }
+  }
+)
 
 watch(
   routeCandidateDraftKey,

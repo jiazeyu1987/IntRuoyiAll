@@ -52,11 +52,11 @@ onMounted(async () => {
   <ElDialog v-model="dialogVisible" title="版本变更说明" width="560px" append-to-body>
     <div v-if="releaseInfo" class="release-info-dialog">
       <section class="release-info-dialog__section">
-        <h3>Git 变更（最多 10 条）</h3>
+        <h3>版本变化（最多 10 条）</h3>
         <ul v-if="gitChangeItems.length">
           <li v-for="item in gitChangeItems" :key="item">{{ item }}</li>
         </ul>
-        <p v-else>Git 变更未生成</p>
+        <p v-else>版本变化说明未生成</p>
       </section>
     </div>
     <div v-else class="release-info-dialog__error">

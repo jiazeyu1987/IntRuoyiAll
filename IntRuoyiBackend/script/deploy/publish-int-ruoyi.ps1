@@ -61,6 +61,7 @@ param(
     [string]$DccDownloadEncryptionArtifactDirectory = $env:DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY,
     [string]$DccProjectCodeCodexCliCommand = $env:DCC_PROJECT_CODE_CODEX_CLI_COMMAND,
     [string]$DccProjectCodeCodexHome = $env:DCC_PROJECT_CODE_CODEX_HOME,
+    [string]$ReleaseChangeSummaryCodexCliCommand = $env:INTRUOYI_RELEASE_CHANGE_SUMMARY_CODEX_CLI_COMMAND,
     [string]$LocalCacheRoot = $env:INTRUOYI_LOCAL_CACHE_ROOT,
     [ValidateSet('offline-tar')]
     [string]$BackendRuntimeBaseMode = $env:INTRUOYI_BACKEND_RUNTIME_BASE_MODE,
@@ -2996,11 +2997,12 @@ function Get-PreviousReleaseManifestForGitChanges {
     }
 }
 
-function New-ReleaseGitChangeItems {
+function Get-ReleaseGitChangeFacts {
     param(
         [Parameter(Mandatory = $true)]
         [array]$SourceRepos,
-        [int]$MaxItems = 10
+        [Parameter(Mandatory = $true)]
+        [string]$CurrentReleaseTag
     )
 
     $previousRelease = Get-PreviousReleaseManifestForGitChanges
@@ -3027,44 +3029,284 @@ function New-ReleaseGitChangeItems {
         }
 
         $repoPath = Resolve-ReleaseSourceRepoPath -Repo $repo
-        $repoName = Get-ReleaseObjectPropertyText -Object $repo -PropertyName 'name'
-        if ([string]::IsNullOrWhiteSpace($repoName)) {
-            $repoName = $repoIdentity
-        }
-
         $range = "$previousCommit..$currentCommit"
-        $logLines = & git -C $repoPath log --no-merges "--max-count=$MaxItems" '--date=iso-strict' '--pretty=format:%cI%x09%h%x09%s' $range 2>$null
+        $logLines = & git -C $repoPath log --no-merges '--date=iso-strict' '--format=%cI%x09%s' '--numstat' $range 2>$null
         if ($LASTEXITCODE -ne 0) {
             Fail "Git change summary failed for source repo '$repoIdentity' with range $range"
         }
 
+        $currentFact = $null
         foreach ($line in @($logLines)) {
             if ([string]::IsNullOrWhiteSpace($line)) {
                 continue
             }
-            $parts = ([string]$line).Split("`t", 3)
-            if ($parts.Count -lt 3) {
-                Fail "Git change summary parse failed for source repo '$repoIdentity'"
+            $lineText = [string]$line
+            if ($lineText -match '^(?<committedAt>\d{4}-\d{2}-\d{2}T[^\t]+)\t(?<subject>.+)$') {
+                if ($null -ne $currentFact) {
+                    $changes += $currentFact
+                }
+                $currentFact = [pscustomobject]@{
+                    repository = $repoIdentity
+                    committedAt = $matches.committedAt
+                    subject = $matches.subject
+                    paths = @()
+                    additions = 0
+                    deletions = 0
+                }
+                continue
             }
-            $changes += [pscustomobject]@{
-                committedAt = $parts[0]
-                text = ('[{0}] {1} {2}' -f $repoName, $parts[1], $parts[2])
+
+            if ($lineText -match '^(?<additions>\d+|-)\t(?<deletions>\d+|-)\t(?<path>.+)$') {
+                if ($null -eq $currentFact) {
+                    Fail "Git change summary parse found file statistics before commit header for source repo '$repoIdentity'"
+                }
+                $currentFact.paths += $matches.path
+                if ($matches.additions -ne '-') {
+                    $currentFact.additions += [int]$matches.additions
+                }
+                if ($matches.deletions -ne '-') {
+                    $currentFact.deletions += [int]$matches.deletions
+                }
+                continue
             }
+
+            Fail "Git change summary parse failed for source repo '$repoIdentity'"
+        }
+        if ($null -ne $currentFact) {
+            $changes += $currentFact
         }
     }
-
-    $items = @(
-        $changes |
-            Sort-Object -Property committedAt -Descending |
-            Select-Object -First $MaxItems |
-            ForEach-Object { $_.text }
-    )
 
     return [ordered]@{
         previousReleaseTag = $previousRelease.ReleaseTag
         previousPackageId = $previousRelease.PackageDirectoryName
+        currentReleaseTag = $CurrentReleaseTag
+        items = @($changes | Sort-Object -Property committedAt -Descending)
+    }
+}
+
+function Resolve-ReleaseChangeSummaryCodexCliCommand {
+    param(
+        [string]$ConfiguredCommand
+    )
+
+    $commandName = if ([string]::IsNullOrWhiteSpace($ConfiguredCommand)) {
+        'codex'
+    } else {
+        $ConfiguredCommand.Trim()
+    }
+    $command = Get-Command -Name $commandName -ErrorAction SilentlyContinue
+    if ($null -eq $command) {
+        Fail "Codex CLI is required to generate release change summary but was not found: $commandName"
+    }
+    return $command.Source
+}
+
+function New-ReleaseCodexSummarySchema {
+    param(
+        [int]$MaxItems = 10
+    )
+
+    if ($MaxItems -lt 1 -or $MaxItems -gt 10) {
+        Fail "Codex summary item limit must be between 1 and 10"
+    }
+
+    return ([ordered]@{
+            '$schema' = 'https://json-schema.org/draft/2020-12/schema'
+            type = 'object'
+            additionalProperties = $false
+            required = @('items')
+            properties = [ordered]@{
+                items = [ordered]@{
+                    type = 'array'
+                    minItems = 1
+                    maxItems = $MaxItems
+                    items = [ordered]@{
+                        type = 'string'
+                        minLength = 6
+                        maxLength = 240
+                    }
+                }
+            }
+        } | ConvertTo-Json -Depth 10)
+}
+
+function New-ReleaseCodexSummaryPrompt {
+    param(
+        [Parameter(Mandatory = $true)]
+        [array]$Facts,
+        [Parameter(Mandatory = $true)]
+        [string]$PreviousReleaseTag,
+        [Parameter(Mandatory = $true)]
+        [string]$CurrentReleaseTag
+    )
+
+    $input = [ordered]@{
+        previousReleaseTag = $PreviousReleaseTag
+        currentReleaseTag = $CurrentReleaseTag
+        changes = @(
+            $Facts | ForEach-Object {
+                [ordered]@{
+                    repository = $_.repository
+                    committedAt = $_.committedAt
+                    subject = $_.subject
+                    changedPaths = @($_.paths)
+                    additions = [int]$_.additions
+                    deletions = [int]$_.deletions
+                }
+            }
+        )
+    }
+    $inputJson = $input | ConvertTo-Json -Depth 20
+
+    return @"
+You are writing release notes for ordinary users.
+Create a concise plain-language summary of what changed between the previous release and the current release.
+Return only JSON that matches the supplied schema.
+Rules:
+- Return 1 to 10 items when the input contains changes.
+- Write every item in simple, natural Simplified Chinese that a non-technical user can understand.
+- Describe the user-visible feature, workflow, data, or problem change, not implementation details.
+- Combine related technical commits into one understandable result.
+- Use only the supplied Git metadata. Do not invent behavior or outcomes.
+- Do not output Markdown, bullet prefixes, repository names, branch names, dates, file paths, commit hashes, issue IDs, or raw commit subjects.
+- Do not fall back to raw Git subjects or hashes.
+Git metadata input:
+$inputJson
+"@
+}
+
+function Invoke-ReleaseCodexSummary {
+    param(
+        [Parameter(Mandatory = $true)]
+        [array]$Facts,
+        [Parameter(Mandatory = $true)]
+        [string]$PreviousReleaseTag,
+        [Parameter(Mandatory = $true)]
+        [string]$CurrentReleaseTag,
+        [int]$MaxItems = 10
+    )
+
+    if ($Facts.Count -eq 0) {
+        return [ordered]@{
+            summaryGenerator = 'none'
+            items = @()
+        }
+    }
+
+    $codexCommand = Resolve-ReleaseChangeSummaryCodexCliCommand -ConfiguredCommand $ReleaseChangeSummaryCodexCliCommand
+    $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("intruoyi-release-codex-" + [Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
+    $schemaPath = Join-Path $tempRoot 'summary-schema.json'
+    $promptPath = Join-Path $tempRoot 'summary-prompt.txt'
+    $outputPath = Join-Path $tempRoot 'summary-output.json'
+    $stderrPath = Join-Path $tempRoot 'summary-stderr.txt'
+
+    try {
+        Write-Utf8LfNoBomFile -Path $schemaPath -Content (New-ReleaseCodexSummarySchema -MaxItems $MaxItems)
+        Write-Utf8LfNoBomFile -Path $promptPath -Content (New-ReleaseCodexSummaryPrompt -Facts $Facts -PreviousReleaseTag $PreviousReleaseTag -CurrentReleaseTag $CurrentReleaseTag)
+        $promptText = [System.IO.File]::ReadAllText($promptPath, [System.Text.UTF8Encoding]::new($false))
+        $codexArguments = @(
+            'exec'
+            '--ephemeral'
+            '--sandbox'
+            'read-only'
+            '-C'
+            $backendRepo
+            '--output-schema'
+            $schemaPath
+            '--output-last-message'
+            $outputPath
+            '-'
+        )
+
+        $previousOutputEncoding = $OutputEncoding
+        try {
+            $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+            $promptText | & $codexCommand @codexArguments 2> $stderrPath
+            $codexExitCode = $LASTEXITCODE
+        } finally {
+            $OutputEncoding = $previousOutputEncoding
+        }
+        if ($codexExitCode -ne 0) {
+            Fail "Codex CLI failed while generating release change summary with exit code $codexExitCode"
+        }
+        if (-not (Test-Path -LiteralPath $outputPath -PathType Leaf)) {
+            Fail "Codex summary output file was not produced"
+        }
+
+        $responseText = [System.IO.File]::ReadAllText($outputPath, [System.Text.UTF8Encoding]::new($false))
+        try {
+            $response = $responseText | ConvertFrom-Json
+        } catch {
+            Fail "Codex summary output must be valid JSON: $($_.Exception.Message)"
+        }
+        if ($null -eq $response.PSObject.Properties['items']) {
+            Fail 'Codex summary output must contain an items array'
+        }
+
+        $items = @($response.items)
+        if ($items.Count -lt 1 -or $items.Count -gt $MaxItems) {
+            Fail "Codex summary must contain between 1 and 10 items"
+        }
+        foreach ($itemValue in $items) {
+            if ($itemValue -isnot [string]) {
+                Fail 'Codex summary item must be a string'
+            }
+            $item = ([string]$itemValue).Trim()
+            if ([string]::IsNullOrWhiteSpace($item) -or $item.Length -lt 6 -or $item.Length -gt 240) {
+                Fail 'Codex summary item must be nonempty and between 6 and 240 characters'
+            }
+            if ($item -notmatch '[\u4e00-\u9fff]') {
+                Fail 'Codex summary item must be plain Chinese'
+            }
+            if ($item -match '[\r\n]' -or $item -match '^\s*[-*]\s+') {
+                Fail 'Codex summary item must not contain Markdown or line breaks'
+            }
+            if ($item -match '(?i)(?<![0-9a-f])[0-9a-f]{7,40}(?![0-9a-f])') {
+                Fail 'Codex summary must not expose raw commit identifiers'
+            }
+            if ($item -match '^\s*\[[^\]]+\]\s+') {
+                Fail 'Codex summary must not expose raw commit entries'
+            }
+            foreach ($fact in $Facts) {
+                if ($item.Equals(([string]$fact.subject).Trim(), [System.StringComparison]::OrdinalIgnoreCase)) {
+                    Fail 'Codex summary must not expose raw commit entries'
+                }
+            }
+        }
+
+        return [ordered]@{
+            summaryGenerator = 'codex'
+            items = @($items)
+        }
+    } finally {
+        if (Test-Path -LiteralPath $tempRoot) {
+            Remove-Item -LiteralPath $tempRoot -Recurse -Force
+        }
+    }
+}
+
+function New-ReleaseGitChangeItems {
+    param(
+        [Parameter(Mandatory = $true)]
+        [array]$SourceRepos,
+        [int]$MaxItems = 10
+    )
+
+    $gitFacts = Get-ReleaseGitChangeFacts -SourceRepos $SourceRepos -CurrentReleaseTag $ReleaseTag
+    $summary = Invoke-ReleaseCodexSummary `
+        -Facts $gitFacts.items `
+        -PreviousReleaseTag $gitFacts.previousReleaseTag `
+        -CurrentReleaseTag $gitFacts.currentReleaseTag `
+        -MaxItems $MaxItems
+
+    return [ordered]@{
+        previousReleaseTag = $gitFacts.previousReleaseTag
+        previousPackageId = $gitFacts.previousPackageId
         maxItems = $MaxItems
-        items = @($items)
+        summaryGenerator = $summary.summaryGenerator
+        items = @($summary.items)
     }
 }
 
@@ -3079,6 +3321,7 @@ function New-ReleaseChangeSetManifest {
         summary = "Git changes since previous release $($gitChangeSummary.previousReleaseTag)"
         component = $Component
         previousReleaseTag = $gitChangeSummary.previousReleaseTag
+        summaryGenerator = $gitChangeSummary.summaryGenerator
         gitComparisonBase = [ordered]@{
             previousReleaseTag = $gitChangeSummary.previousReleaseTag
             previousPackageId = $gitChangeSummary.previousPackageId

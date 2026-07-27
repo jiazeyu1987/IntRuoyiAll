@@ -137,22 +137,40 @@ def test_publish_script_uses_configured_target_hosts_instead_of_hardcoded_enviro
     assert not re.search(r"172\.30\.30\.(57|58|59)", text)
 
 
-def test_release_change_set_is_git_diff_against_previous_release_and_capped() -> None:
+def test_release_change_set_uses_codex_plain_language_summary_from_previous_git_diff() -> None:
     text = read_publish_script()
 
     assert "function Get-PreviousReleaseManifestForGitChanges" in text
     assert "function New-ReleaseGitChangeItems" in text
+    assert "function Get-ReleaseGitChangeFacts" in text
+    assert "function Invoke-ReleaseCodexSummary" in text
     assert re.search(r"& git -C \$repoPath log", text)
-    assert "--max-count=$MaxItems" in text
+    assert "--numstat" in text
     assert "$previousCommit..$currentCommit" in text
-    assert "Select-Object -First $MaxItems" in text
+    assert "summaryGenerator = 'codex'" in text
+    assert "--output-schema" in text
+    assert "--output-last-message" in text
+    assert "ConvertFrom-Json" in text
+    assert "plain-language" in text
+    assert r"[\u4e00-\u9fff]" in text
     assert "previousReleaseTag" in text
     assert "gitChanges = @($gitChangeSummary.items)" in text
     assert "items = @($gitChangeSummary.items)" in text
     assert "changes = @($gitChangeSummary.items)" in text
-    assert "Release package $packageDirectoryName" not in text
-    assert "发布包：" not in text
-    assert "组件范围：" not in text
+    assert "[{0}] {1} {2}" not in text
+    assert "%h" not in text
+
+
+def test_release_change_set_fails_fast_without_codex_or_valid_plain_language_output() -> None:
+    text = read_publish_script()
+
+    assert "Codex CLI is required to generate release change summary" in text
+    assert "Codex CLI failed" in text
+    assert "Codex summary output must be valid JSON" in text
+    assert "Codex summary must contain between 1 and 10 items" in text
+    assert "Codex summary item must be plain Chinese" in text
+    assert "Codex summary must not expose raw commit identifiers" in text
+    assert "Do not fall back to raw Git subjects or hashes" in text
 
 
 def test_release_info_json_is_written_before_frontend_docker_context() -> None:

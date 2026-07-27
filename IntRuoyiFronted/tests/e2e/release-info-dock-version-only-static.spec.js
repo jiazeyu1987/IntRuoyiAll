@@ -43,8 +43,8 @@ assert.match(
 
 assert.match(
   dialogTemplate,
-  /Git 变更（最多 10 条）/,
-  '变更说明弹窗必须明确只展示 Git 变更'
+  /版本变化（最多 10 条）/,
+  '变更说明弹窗必须明确只展示版本变化'
 )
 
 assert.match(
@@ -55,8 +55,8 @@ assert.match(
 
 assert.match(
   dialogTemplate,
-  /Git 变更未生成/,
-  'Git 差异为空时必须显示明确空状态，不能回退到发布包元信息'
+  /版本变化说明未生成/,
+  '版本变化为空时必须显示明确空状态，不能回退到发布包元信息'
 )
 
 for (const forbiddenDialogText of ['版本号', '构建时间', '发布范围', '组件', '摘要', '变更项', '源码提交']) {

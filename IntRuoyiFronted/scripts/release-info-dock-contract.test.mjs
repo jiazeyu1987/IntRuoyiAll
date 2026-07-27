@@ -26,7 +26,7 @@ test('ReleaseInfoDock reads release-info.json and exposes git diff changes only'
   assert.match(source, /gitChangeItems/)
   assert.match(source, /gitChanges/)
   assert.match(source, /slice\(0,\s*10\)/)
-  assert.match(source, /Git 变更（最多 10 条）/)
+  assert.match(source, /版本变化（最多 10 条）/)
   assert.doesNotMatch(source, />源码提交</)
   assert.doesNotMatch(source, />摘要</)
   assert.doesNotMatch(source, />变更项</)
