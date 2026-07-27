@@ -9,7 +9,8 @@
 - [x] 确认用户定义的三类配置边界。
 - [x] 将术语边界写入根 `AGENTS.md`。
 - [x] 完成结构、编码和 Git 门禁验证。
-- [ ] 完成任务提交、集成、推送和收尾清理。
+- [x] 完成术语规则提交并推送任务分支。
+- [ ] 等待主工作区并发改动完成后，快进集成 `int_main` 并执行收尾清理。
 
 ## Expected Verification
 
@@ -34,3 +35,8 @@
 ## Current Status
 
 ready_for_closeout
+
+## Remaining Blocker
+
+- `task-closeout-cleanup` preview 检测到主工作区 `E:\IntRuoyi` 存在其它任务的未提交改动，按门禁禁止自动执行 `ff-only` 合并和 worktree 删除。
+- 本任务分支已推送；必须等待主工作区恢复干净后再完成集成，不得提交、覆盖或清理这些并发改动。

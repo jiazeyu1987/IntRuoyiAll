@@ -13,7 +13,9 @@
 - GREEN：`git diff --check` 通过。
 - GREEN：`scripts\preflight\branch-runtime-port-guard.ps1` 通过，任务 worktree 为 `int_main` profile、slot 4、前端 8085、后端 48085。
 - GREEN：前后端检查点 `f18927b9` 已推送至 `origin/int_main`，未包含之后出现的并发未提交改动。
+- GREEN：术语规则提交 `33b7e407` 已推送至 `origin/codex/20260727-batch-record-form-terminology`。
+- BLOCKED：`task-closeout-cleanup` preview 保留三个核心任务文档且无删除项，但检测到主工作区脏状态，禁止执行 `ff-only` 合并和 worktree 删除。
 
 ## Conclusion
 
-术语契约写入和验证通过，可以进入任务提交、集成与收尾清理。
+术语契约写入、验证、任务分支提交和推送均通过。由于主工作区存在其它任务的并发未提交改动，本任务保持 `ready_for_closeout`；待主工作区恢复干净后再集成和清理。
