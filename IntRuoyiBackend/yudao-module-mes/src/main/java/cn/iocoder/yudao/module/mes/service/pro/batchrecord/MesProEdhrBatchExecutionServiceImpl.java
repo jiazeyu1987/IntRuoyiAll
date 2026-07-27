@@ -1707,6 +1707,133 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 && Objects.equals(closeRule.getCandidateSourceId(), currentUserId);
     }
 
+    private void validateCurrentUserIsSpecialNodeFiller(MesProEdhrBatchExecutionTaskDO task,
+                                                        MesProEdhrBatchExecutionDO batch,
+                                                        Long currentUserId) {
+        if (!SKIPPABLE_SPECIAL_NODE_TYPES.contains(resolveNodeType(task))) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_SPECIAL_NODE_INVALID);
+        }
+        List<Long> fillableUserIds = resolveSpecialNodeFillableUserIds(batch, task);
+        if (currentUserId == null || !fillableUserIds.contains(currentUserId)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_OWNER_INVALID, currentUserId);
+        }
+    }
+
+    private Map<Long, List<Long>> buildSpecialNodeFillableUserIdsMap(MesProEdhrBatchExecutionDO batch,
+                                                                     List<MesProEdhrBatchExecutionTaskDO> tasks) {
+        List<MesProEdhrBatchExecutionTaskDO> specialTasks = tasks.stream()
+                .filter(task -> SKIPPABLE_SPECIAL_NODE_TYPES.contains(resolveNodeType(task)))
+                .toList();
+        if (specialTasks.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, SpecialNodeAttachmentOwnerConfig> ownerConfigMap = resolveSpecialNodeAttachmentOwnerConfigMap(batch);
+        Map<Long, List<Long>> result = new LinkedHashMap<>();
+        for (MesProEdhrBatchExecutionTaskDO task : specialTasks) {
+            result.put(task.getId(), resolveSpecialNodeFillableUserIds(task, ownerConfigMap));
+        }
+        return result;
+    }
+
+    private List<Long> resolveSpecialNodeFillableUserIds(MesProEdhrBatchExecutionDO batch,
+                                                         MesProEdhrBatchExecutionTaskDO task) {
+        return resolveSpecialNodeFillableUserIds(task, resolveSpecialNodeAttachmentOwnerConfigMap(batch));
+    }
+
+    private List<Long> resolveSpecialNodeFillableUserIds(MesProEdhrBatchExecutionTaskDO task,
+                                                         Map<String, SpecialNodeAttachmentOwnerConfig> ownerConfigMap) {
+        String nodeType = resolveNodeType(task);
+        SpecialNodeAttachmentOwnerConfig ownerConfig = ownerConfigMap.get(nodeType);
+        if (ownerConfig == null) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, nodeType);
+        }
+        return resolveSpecialNodeOwnerUserIds(ownerConfig);
+    }
+
+    private Map<String, SpecialNodeAttachmentOwnerConfig> resolveSpecialNodeAttachmentOwnerConfigMap(
+            MesProEdhrBatchExecutionDO batch) {
+        JSONObject snapshot = parseFrozenRouteSnapshot(batch == null ? null : batch.getRouteSnapshotJson());
+        JSONObject configSnapshots = requireFrozenObject(snapshot, "configSnapshots");
+        JSONArray owners = configSnapshots.getJSONArray(BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
+        if (owners == null || owners.isEmpty()) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
+        }
+        Map<String, SpecialNodeAttachmentOwnerConfig> result = new LinkedHashMap<>();
+        for (Object value : owners) {
+            if (!(value instanceof JSONObject item)) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
+            }
+            String attachmentCode = StrUtil.trim(item.getString("attachmentCode"));
+            if (!SKIPPABLE_SPECIAL_NODE_TYPES.contains(attachmentCode)) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, attachmentCode);
+            }
+            String sourceType = StrUtil.trim(item.getString("candidateSourceType"));
+            List<Long> sourceIds = parseSpecialNodeOwnerSourceIds(item.get("candidateSourceIds"));
+            if (StrUtil.isBlank(sourceType) || sourceIds.isEmpty()
+                    || result.putIfAbsent(attachmentCode,
+                    new SpecialNodeAttachmentOwnerConfig(attachmentCode, sourceType, sourceIds)) != null) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, attachmentCode);
+            }
+        }
+        for (String nodeType : SKIPPABLE_SPECIAL_NODE_TYPES) {
+            if (!result.containsKey(nodeType)) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, nodeType);
+            }
+        }
+        return result;
+    }
+
+    private List<Long> parseSpecialNodeOwnerSourceIds(Object rawValue) {
+        String normalized = toFrozenCandidateSourceIds(rawValue);
+        if (StrUtil.isBlank(normalized)) {
+            return List.of();
+        }
+        List<Long> ids = new ArrayList<>();
+        for (String item : normalized.split(",")) {
+            if (StrUtil.isBlank(item)) {
+                continue;
+            }
+            Long id = Long.valueOf(StrUtil.trim(item));
+            if (!ids.contains(id)) {
+                ids.add(id);
+            }
+        }
+        return List.copyOf(ids);
+    }
+
+    private List<Long> resolveSpecialNodeOwnerUserIds(SpecialNodeAttachmentOwnerConfig ownerConfig) {
+        String sourceType = ownerConfig.candidateSourceType();
+        List<Long> sourceIds = ownerConfig.candidateSourceIds();
+        List<Long> userIds;
+        if (CANDIDATE_SOURCE_TYPE_USER.equals(sourceType) || CANDIDATE_SOURCE_TYPE_USERS.equals(sourceType)) {
+            userIds = sourceIds;
+        } else if (CANDIDATE_SOURCE_TYPE_ROLE.equals(sourceType) || CANDIDATE_SOURCE_TYPE_ROLE_GROUP.equals(sourceType)) {
+            Set<Long> roleUserIds = Objects.requireNonNull(
+                    permissionApi.getUserRoleIdListByRoleIds(new LinkedHashSet<>(sourceIds)),
+                    "EDHR_SPECIAL_NODE_OWNER_ROLE_USER_IDS_REQUIRED: attachmentCode=" + ownerConfig.attachmentCode());
+            userIds = roleUserIds.stream().filter(Objects::nonNull).sorted().toList();
+        } else {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID,
+                    ownerConfig.attachmentCode() + ":" + sourceType);
+        }
+        if (userIds.isEmpty()) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, ownerConfig.attachmentCode());
+        }
+        Map<Long, AdminUserRespDTO> userMap = Objects.requireNonNull(
+                adminUserApi.getUserMap(new LinkedHashSet<>(userIds)),
+                "EDHR_SPECIAL_NODE_OWNER_USER_MAP_REQUIRED: attachmentCode=" + ownerConfig.attachmentCode());
+        List<Long> enabledUserIds = userIds.stream()
+                .distinct()
+                .filter(userId -> {
+                    AdminUserRespDTO user = userMap.get(userId);
+                    return user != null && CommonStatusEnum.isEnable(user.getStatus());
+                })
+                .toList();
+        if (enabledUserIds.size() != userIds.stream().distinct().count()) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, ownerConfig.attachmentCode());
+        }
+        return enabledUserIds;
+    }
     private MesProEdhrBatchExecutionTaskDO validateTaskForSpecialAction(Long taskId) {
         MesProEdhrBatchExecutionTaskDO task = validateSpecialNodeTaskBeforeRelease(taskId);
         if (Objects.equals(task.getStatus(), TASK_STATUS_APPROVED)
@@ -6212,6 +6339,10 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setMetadataJson(metadataJson));
     }
 
+    private record SpecialNodeAttachmentOwnerConfig(String attachmentCode,
+                                                    String candidateSourceType,
+                                                    List<Long> candidateSourceIds) {
+    }
     private record FrozenBatchUseConfig(JSONObject processConfig,
                                         JSONObject node,
                                         JSONObject reportConfig,
