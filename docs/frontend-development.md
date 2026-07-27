@@ -70,11 +70,11 @@
 ## 表单模板编辑与批记录绑定动作边界门禁
 
 - Trigger: 表单中心模板预览区“打开/编辑/填写”、`openSelectedTemplateDesigner`、`openSelectedTemplateAction('edit')`、`resolveSelectedTemplateBatchRecordBinding`、`batchRecordBindingStatus`、`batchRecordReportId`、或错误“当前模板未绑定批记录表单”。
-- Preflight check: 先区分通用 FormCenter 模板查看/规则编辑/模拟填写与批记录相关跳转；表单模板页的“打开/编辑/填写”必须使用本页 `TemplateViewDialog`、规则编辑弹窗和模拟填写弹窗，不得读取 `batchRecordBindingStatus + batchRecordReportId`。
-- Blocker: 表单模板页“打开/编辑/填写”任一按钮调用 `openSelectedTemplateDesigner`、`resolveSelectedTemplateBatchRecordBinding`、批记录模拟填写路由，或聚焦静态合同无法证明三按钮均不依赖批记录绑定时必须停止；不得把普通模板缺少批记录绑定当成不可打开、不可编辑或不可填写。
+- Preflight check: 用户已明确确认表单模板页红框内“打开/编辑/填写”必须按批记录表单行为执行；三按钮必须先校验 `batchRecordBindingStatus === 'BOUND'` 且 `batchRecordReportId` 非空，再分别进入批记录设计器 preview、批记录设计器 edit 和批记录模板模拟填写路由。
+- Blocker: 表单模板页“打开/编辑/填写”任一按钮回退到 `TemplateViewDialog`、本页规则编辑弹窗、本页模拟填写弹窗，或缺少 `BOUND + reportId` 双条件 fail-fast 校验时必须停止；不得用名称、文件名、版本号猜测 reportId，也不得静默降级到本页流程。
 - Verification: 至少运行 `node tests/e2e/form-template-batch-record-button-alignment-static.spec.js`，并确认 `pnpm ts:check` 通过或记录无关阻塞。
-- Forbidden action: 禁止给普通模板伪造 `reportId`、吞掉绑定错误、改文案掩盖失败、或把通用模板查看/编辑/填写降级为批记录页面路径。
-- Evidence: 任务 `doc/tasks/20260727-form-template-edit-binding/` 与 `doc/tasks/20260727-form-template-open-fill-binding/`，表单模板“打开/编辑/填写”曾误走批记录绑定校验并提示“当前模板未绑定批记录表单”。
+- Forbidden action: 禁止给普通模板伪造 `reportId`、吞掉绑定错误、改文案掩盖失败、名称匹配、空值兜底、API-only 替代页面点击，或把批记录三按钮行为改回 FormCenter 本页弹窗。
+- Evidence: 任务 `doc/tasks/20260727-form-template-button-alignment-design/`，用户最终确认“三个按钮按批记录表单执行”，本页三按钮恢复为稳定 `batchRecordReportId` 驱动的批记录同源路径。
 
 ## 前端聚合新增默认分类门禁
 
