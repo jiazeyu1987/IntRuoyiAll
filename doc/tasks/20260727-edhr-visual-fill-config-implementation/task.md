@@ -33,7 +33,7 @@
 
 ## Current Status
 
-ready_for_closeout：融合分支后已修复任务专用路线复制时未继承来源 ACTIVE 版本 `batchRecordAttachmentOwners` 的快照缺口；后端目标 RED/GREEN、核心回归、前端静态合同、`pnpm ts:check`、后端打包、slot 2 完整真实 E2E、主工作区 cherry-pick、`int_main` 稳定 Jar 重启和主端口完整真实 E2E 均已通过。真实 E2E 在 `芋道源码` 租户使用本地未跟踪 `local-input.json`，不依赖环境变量，验证管理员配置、`jiazeyu` 与 `wangxin` 两名员工共享辅助行待办，并在 finally 恢复报表配置、作废任务批次、删除任务路线副本。下一步是提交并推送 `int_main` 收尾修复与任务证据，然后回到 linked worktree 执行 cleanup apply / ff-only closeout。
+completed：融合分支已通过 cherry-pick 集成到 `int_main` 并推送；`int_main` 稳定 Jar 主端口 `8081/48081` 完整真实 E2E 已通过。主工作区 cleanup apply 已删除任务临时证据文件，linked worktree 因 cherry-pick 历史无法 ff-only 但 `git cherry` 证明 5 个分支提交均已等价进入 `int_main`；任务 worktree 运行态已停止，残留目录已删除，slot 2 已释放。最终保留 `task.md`、`execution-log.md`、`verification-report.md` 与 `bug-regression-evidence.md`。
 
 ## Cleanup Keep
 

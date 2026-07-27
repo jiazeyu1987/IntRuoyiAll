@@ -186,3 +186,11 @@
 - GREEN: `node tests\e2e\edhr-visual-fill-config-static.spec.js` -> PASS，`node --check tests\e2e\edhr-visual-fill-config-real-flow.e2e.js` -> PASS；真实 E2E 端口校验仅接受 `int_main 8081/48081` 或成对 `int_main slot 1..19`。
 - GREEN: `node tests\e2e\edhr-visual-fill-config-real-flow.e2e.js` -> PASS，主端口 `baseUrl=http://127.0.0.1:8081`、`backendUrl=http://127.0.0.1:48081`，tenant `芋道源码`，accounts `admin` / `jiazeyu` / `wangxin`；管理员配置并发布任务专用路线，两名员工均打开同一个共享辅助行工作任务并看到各自可填辅助模式，finally 恢复报表配置、作废批次 `900000000893 / EDHRB-1785177596364`、删除路线 `922231 / CODX-VFC-20260727`。
 - GREEN: project-experience-consolidation -> PASS，按既有归宿更新 `docs\e2e-rules.md#worktree--int_main-运行态-url-门禁` 和 `docs\experience-index.md`，沉淀融合后主端口 E2E 与附加 worktree 成对 URL 双模式；未新建长期经验文档。
+
+- PUSH: `git push origin int_main` -> PASS，`int_main` 从 `8beb91e1` 推送到 `6dec5f20`，随后 `git status --short --branch` 显示不再 ahead。
+- CLEANUP APPLY: main workspace cleanup -> PASS，`python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-edhr-visual-fill-config-implementation --mode apply` 删除 `backend-api-evidence.md` 与 `frontend-feature-evidence.md`，保留 `task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`。
+- CLOSEOUT: linked worktree ff-only cleanup path -> BLOCKED_BY_HISTORY，`task_closeout.py --mode preview` 在 `D:\IntRuoyiWorktree\202607727_yingshe` 报 `Current branch codex/202607727_yingshe_integration cannot be fast-forward merged into int_main`；原因是该分支已按 cherry-pick 融合到主分支。
+- CLOSEOUT RECHECK: `git cherry int_main codex/202607727_yingshe_integration` -> PASS，5 个分支提交均以 `-` 标记，证明补丁等价已在 `int_main`。
+- CLOSEOUT: task-owned worktree runtime stop -> PASS，停止 `8083` PID `57116` 和 `48083` PID `42408`，二者命令行均归属 `D:\IntRuoyiWorktree\202607727_yingshe`，随后 `8083/48083` 端口释放。
+- CLOSEOUT: task-owned worktree removal -> PASS，`git worktree remove D:\IntRuoyiWorktree\202607727_yingshe` 注销 worktree；非强制删除留下依赖/生成物残留后，使用路径与端口自检的 UTF-8 Python 清理脚本删除残留目录。
+- CLOSEOUT: worktree slot release -> PASS，`D:\IntRuoyiWorktree\.ports\worktree-ports.json` 中 `202607727_yingshe` 已标记 `active=false`、写入 `deletedAt` 与 `cleanupTask=20260727-edhr-visual-fill-config-implementation`；`git worktree prune` 后 `git worktree list --porcelain | rg "202607727_yingshe"` 无匹配，`8083/48083` 空闲。

@@ -31,6 +31,13 @@
 - Real E2E: `node tests\e2e\edhr-visual-fill-config-real-flow.e2e.js` -> PASS，tenant `芋道源码`，accounts `admin` / `jiazeyu` / `wangxin`，base URL `http://127.0.0.1:8083`，backend URL `http://127.0.0.1:48083`。
 - Real E2E cleanup evidence: task-owned batch `900000000889 / EDHRB-1785167428536` was voided, task-owned route `922227 / CODX-VFC-20260727` was deleted, and target report config was restored to `ruleCount=87`、`assistRowCount=87`、`fillRuleStatus=CONFIGURED`。
 
+
+## Closeout Verification
+
+- Main push: `git push origin int_main` -> PASS，推送后 `git status --short --branch` 不再 ahead。
+- Main cleanup apply: task-closeout cleanup applied in `E:\IntRuoyi`; deleted only `backend-api-evidence.md` and `frontend-feature-evidence.md`.
+- Linked worktree closeout: `git cherry int_main codex/202607727_yingshe_integration` marked all 5 integration commits as already applied; task-owned `8083/48083` processes stopped; `D:\IntRuoyiWorktree\202607727_yingshe` removed; slot 2 registry entry set inactive.
+
 ## Superseded Blockers
 
 - `edhr-shared-form-binding-static.spec.js` still fails because historical file `IntRuoyiFronted/src/views/mes/pro/route/RouteProcessList.vue` is absent; it remains outside this visual-fill-config scope.
