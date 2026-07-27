@@ -30,3 +30,5 @@
 
 - 主线合并：`git merge origin/int_main --no-edit` 已解决任务文档冲突；源码无冲突。
 - 合并后回归：目标 Maven 30 tests PASS；节点串迁移契约 2 tests PASS；branch runtime port guard PASS。
+- 合并后清理：`task_closeout.py --mode apply --worktree-closeout off` -> PASS，清理合入主线后带回的任务临时 SQL/JSON/PS1 文件。
+- 剩余阻塞：自动 fast-forward 合并和 worktree 删除仍被 `E:\IntRuoyi` 主工作区并行脏改动阻止；当前分支已包含 `origin/int_main` 并已推送，可等待主工作区清理后执行最终 closeout。
