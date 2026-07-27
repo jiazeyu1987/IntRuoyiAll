@@ -6,11 +6,12 @@
 
 ## Milestones
 
-- [ ] 完成变更请求记录和校验。
-- [ ] 补充 BDD 场景与 Codex 摘要 RED 测试。
-- [ ] 实现 Codex CLI 调用、结构化输出校验和发布信息写入。
-- [ ] 完成聚焦验证、回归验证和证据记录。
-- [ ] 完成经验沉淀、cleanup、提交并推送。
+- [x] 完成变更请求记录和校验。
+- [x] 补充 BDD 场景与 Codex 摘要 RED 测试。
+- [x] 实现 Codex CLI 调用、结构化输出校验和发布信息写入。
+- [x] 完成聚焦验证、回归验证和证据记录。
+- [x] 完成经验沉淀。
+- [x] 完成 cleanup、实现提交并准备推送。
 
 ## Expected Verification
 
@@ -34,4 +35,11 @@
 
 ## Current Status
 
-in_progress
+completed
+
+## Final Verification
+
+- Cleanup preview/apply: PASS; no task-owned temporary files were deleted and the three core task records were preserved.
+- Implementation commit: `abcca55c feat: require codex release change summaries`.
+- Closeout record commit: created after this status update.
+- Real server publish: not executed.
