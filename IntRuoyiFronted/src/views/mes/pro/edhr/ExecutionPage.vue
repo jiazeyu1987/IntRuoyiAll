@@ -543,7 +543,6 @@
                       >
                         <div class="edhr-fill-workspace__assist-switch-menu-head">
                           <strong>选择当前工序填写人</strong>
-                          <span>批处理表单 + 表单槽位</span>
                         </div>
                         <el-alert
                           v-if="assistFillerSwitchError"
@@ -5011,9 +5010,6 @@ const isAssistBatchTaskActive = (row: EdhrBatchExecutionTaskRespVO) =>
   sameRouteQueryId(executionId.value, row.executionId) ||
   readRouteQueryString(route.query.batchTaskId) === String(row.id)
 
-const resolveAssistFillerFormSourceLabel = (row: EdhrBatchExecutionTaskRespVO) =>
-  !row.formTemplateId && row.formSlotType === 'MAIN' ? '批处理表单' : '工艺路线表单槽位'
-
 const resolveAssistFillerFormName = (row: EdhrBatchExecutionTaskRespVO) =>
   row.batchRecordReportName ||
   row.formTemplateName ||
@@ -5022,11 +5018,7 @@ const resolveAssistFillerFormName = (row: EdhrBatchExecutionTaskRespVO) =>
   `表单任务 ${row.id}`
 
 const resolveAssistFillerSwitchItemSecondaryLabel = (item: AssistFillerSwitchItem) =>
-  [
-    resolveAssistFillerFormSourceLabel(item.task),
-    resolveAssistFillerFormName(item.task),
-    resolveAssistBatchTaskStatusLabel(item.task)
-  ].join(' · ')
+  resolveAssistFillerFormName(item.task)
 
 const currentAssistUserId = () => {
   const user = userStore.getUser || userStore.user
