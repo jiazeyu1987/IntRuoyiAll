@@ -1,0 +1,12 @@
+{
+  "status": "FAIL",
+  "generatedAt": "2026-07-27T05:04:47.195Z",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "baseUrl": "http://localhost:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "error": "/admin-api/mes/pro/edhr-batch-execution/page business code failed: {\"code\":1040271050,\"msg\":\"批记录附件负责人配置无效：batchRecordAttachmentOwners\",\"data\":null}",
+  "stack": "AssertionError [ERR_ASSERTION]: /admin-api/mes/pro/edhr-batch-execution/page business code failed: {\"code\":1040271050,\"msg\":\"批记录附件负责人配置无效：batchRecordAttachmentOwners\",\"data\":null}\n    at apiGet (E:\\IntRuoyi\\doc\\tasks\\20260727-edhr-special-node-filler-from-route-start\\e2e-special-node-filler-yudao-real.cjs:205:10)\n    at async findCandidate (E:\\IntRuoyi\\doc\\tasks\\20260727-edhr-special-node-filler-from-route-start\\e2e-special-node-filler-yudao-real.cjs:232:22)\n    at async main (E:\\IntRuoyi\\doc\\tasks\\20260727-edhr-special-node-filler-from-route-start\\e2e-special-node-filler-yudao-real.cjs:370:23)",
+  "failureScreenshotFile": "E:\\IntRuoyi\\doc\\tasks\\20260727-edhr-special-node-filler-from-route-start\\e2e-artifacts\\special-node-filler-yudao-real-failure.png",
+  "mesWriteRequests": []
+}

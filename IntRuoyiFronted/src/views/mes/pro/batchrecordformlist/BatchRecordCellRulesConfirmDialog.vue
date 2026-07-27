@@ -1,5 +1,10 @@
 <template>
-  <Dialog v-model="dialogVisible" title="单元格规则" width="calc(100vw - 32px)">
+  <Dialog
+    v-model="dialogVisible"
+    title="单元格规则"
+    width="calc(100vw - 32px)"
+    :default-fullscreen="true"
+  >
     <div v-loading="loading" class="batch-record-cell-rules-editor">
       <el-alert
         v-if="errorMessage"
@@ -416,6 +421,9 @@ const cloneRecord = <T extends object | undefined>(value: T): T => (value ? ({ .
 const isSelectRule = (rule: Pick<BatchRecordReportCellRuleVO, 'componentFlag'>) =>
   String(rule.componentFlag || '').trim().toLowerCase() === 'select'
 
+const resolveRuleEditorValueTypeLabel = (rule: BatchRecordReportCellRuleVO) =>
+  isSelectRule(rule) ? '下拉框' : valueTypeLabelMap[rule.valueType] || rule.valueType
+
 const normalizeSelectOptions = (rawOptions: unknown): SelectOption[] => {
   if (!Array.isArray(rawOptions)) return []
   const options: SelectOption[] = []
@@ -718,6 +726,30 @@ const handleSelectedValueTypeChange = (value: BatchRecordReportCellValueType) =>
     selectedRule.value.componentFlag
   )
 }
+
+const handleSelectedEditorValueTypeChange = (value: RuleEditorValueType) => {
+  if (!selectedRule.value) return
+  if (value === SELECT_FIELD_TYPE) {
+    selectedRule.value.valueType = 'STRING'
+    selectedRule.value.componentFlag = 'select'
+    selectedRule.value.constraints = cleanRuleConstraintsForComponent(
+      selectedRule.value.constraints,
+      selectedRule.value.valueType,
+      selectedRule.value.componentFlag
+    )
+    applySelectConstraintsToRule(selectedRule.value)
+    return
+  }
+  handleSelectedValueTypeChange(value)
+}
+
+const selectedRuleEditorValueType = computed<RuleEditorValueType>({
+  get: () => {
+    if (!selectedRule.value) return 'STRING'
+    return isSelectRule(selectedRule.value) ? SELECT_FIELD_TYPE : selectedRule.value.valueType
+  },
+  set: (value) => handleSelectedEditorValueTypeChange(value)
+})
 
 const handleSelectedComponentFlagChange = (value: string) => {
   if (!selectedRule.value) return

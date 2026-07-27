@@ -84,6 +84,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private static final String SCHEDULE_CONFIGS_KEY = "scheduleConfigs";
     private static final String BATCH_USE_CONFIGS_KEY = "batchUseConfigs";
     private static final String SCHEDULE_USE_CONFIGS_KEY = "scheduleUseConfigs";
+    private static final String BATCH_RECORD_ATTACHMENT_OWNERS_KEY = "batchRecordAttachmentOwners";
     public static final String DEFAULT_SCHEDULE_CONFIG_VERSION = "AUTO-DEFAULT";
     public static final String DEFAULT_SCHEDULE_REMARK = "[AUTO_DEFAULT_SCHEDULE_CONFIG]";
     private static final String DEFAULT_SCHEDULE_USE_CONFIG_VERSION = "AUTO-SCHEDULE";
@@ -779,7 +780,39 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         configSnapshots.put(BATCH_USE_CONFIGS_KEY, buildBatchUseConfigSnapshots(routeId));
         configSnapshots.put(SCHEDULE_USE_CONFIGS_KEY, JSON.toJSON(routeFlowProcessConfigMapper
                 .selectListByRouteIdAndUseType(routeId, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())));
+        Object batchRecordAttachmentOwners =
+                resolveExistingConfigSnapshot(routeVersionId, BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
+        if (batchRecordAttachmentOwners != null) {
+            configSnapshots.put(BATCH_RECORD_ATTACHMENT_OWNERS_KEY, batchRecordAttachmentOwners);
+        }
         return configSnapshots;
+    }
+
+    private Object resolveExistingConfigSnapshot(Long routeVersionId, String configKey) {
+        if (routeVersionId == null || StrUtil.isBlank(configKey)) {
+            return null;
+        }
+        MesProRouteVersionDO routeVersion = routeVersionMapper.selectById(routeVersionId);
+        if (routeVersion == null || StrUtil.isBlank(routeVersion.getRouteSnapshotJson())) {
+            return null;
+        }
+        JSONObject snapshot;
+        try {
+            snapshot = JSON.parseObject(routeVersion.getRouteSnapshotJson());
+        } catch (RuntimeException ex) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        JSONObject configSnapshots = snapshot == null ? null : snapshot.getJSONObject(SNAPSHOT_CONFIGS_KEY);
+        if (configSnapshots == null || !configSnapshots.containsKey(configKey)) {
+            return null;
+        }
+        Object configSnapshot = configSnapshots.get(configKey);
+        if (configSnapshot == null
+                || (BATCH_RECORD_ATTACHMENT_OWNERS_KEY.equals(configKey)
+                && !(configSnapshot instanceof JSONArray))) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        return configSnapshot;
     }
 
     private JSONArray buildBatchUseConfigSnapshots(Long routeId) {
