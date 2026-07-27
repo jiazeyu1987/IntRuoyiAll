@@ -21,7 +21,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
@@ -42,3 +42,9 @@ ready_for_closeout
 
 - Dirty-worktree baseline commit: `b7dc3380 chore: baseline existing worktree changes`.
 - Remaining concurrent dirty files after baseline are outside this task except `ExecutionPage.vue`;本任务尽量避免修改该文件，若必须改同文件将先做 hunk 级冲突检查。
+
+## Closeout
+
+- Cleanup preview/apply: PASS；删除本任务一次性 `backend-api-evidence.md`、`bug-regression-evidence.md`、`frontend-feature-evidence.md`，保留核心任务记录。
+- Final verification: 静态契约、定向 Maven 测试、`git diff --check` 及证据校验均通过。
+- Git boundary: 当前分支 `int_main` 与 `origin/int_main` 同步；其他并行改动未纳入本任务收尾提交。

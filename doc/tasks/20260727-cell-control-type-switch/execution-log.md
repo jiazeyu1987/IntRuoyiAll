@@ -39,3 +39,11 @@
 - GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/BatchRecordCellRulesConfirmDialog.vue` -> PASS；仅 LF/CRLF 提示。
 - GREEN: `validate_bug_regression.py --evidence doc/tasks/20260727-cell-control-type-switch/bug-regression-evidence.md` -> PASS。
 - GREEN: `validate_frontend_feature.py --evidence doc/tasks/20260727-cell-control-type-switch/frontend-feature-evidence.md` -> PASS。
+
+## 2026-07-27 Closeout
+
+- Cleanup preview: `task_closeout.py --task-id 20260727-cell-control-type-switch --mode preview` -> PASS；仅识别本任务 3 个一次性证据文件可清理，无 blocked/warnings。
+- Cleanup apply: `task_closeout.py --task-id 20260727-cell-control-type-switch --mode apply` -> PASS；保留 `task.md`、`execution-log.md`、`verification-report.md`。
+- Experience consolidation: PASS；本次经验已有归宿 `docs/backend-development.md#jimu-fillform-组件类型语义优先边界`，未新建长期经验文档。
+- Git verification: `git rev-list --left-right --count origin/int_main...HEAD` -> `0 0`；当前并行脏改动未纳入本任务。
+- Final status: `completed`。

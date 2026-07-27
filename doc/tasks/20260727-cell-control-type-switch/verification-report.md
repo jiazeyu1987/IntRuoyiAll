@@ -22,4 +22,4 @@
 
 ## Closeout Boundary
 
-当前工作区仍有多个非本任务并行改动，且分支显示 `int_main...origin/int_main [ahead 10]`；本报告不声明已 push。
+任务收尾清理已通过，仅保留 `task.md`、`execution-log.md`、`verification-report.md`。当前工作区仍有多个非本任务并行改动，但 `int_main` 与 `origin/int_main` 已同步；本任务实现提交已推送，未纳入其他并行改动。
