@@ -8,6 +8,11 @@
 
 ## Passed Verification
 
+- Main int_main runtime Jar reload: copied `IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar` to `output\runtime\int_main\yudao-server-exec.jar`, SHA256 `38503FDC04059E47E52862B575F097C31289A8AAFCBC4BCA4118E66303A43C51`; stopped old `48081` PID `29284`, started stable Jar as listener PID `54028`, backend health `UP`, frontend `8081` HTTP `200`.
+- Post-merge main-port E2E RED: `node tests\e2e\edhr-visual-fill-config-real-flow.e2e.js` -> FAIL，`frontend port must be int_main worktree slot 1..19, got 8081`，脚本仅允许附加 worktree，阻塞融合后主运行态验证。
+- Post-merge main-port E2E GREEN: `node tests\e2e\edhr-visual-fill-config-static.spec.js` -> PASS，`node --check tests\e2e\edhr-visual-fill-config-real-flow.e2e.js` -> PASS，脚本仅允许 `int_main 8081/48081` 或成对 `int_main slot 1..19`。
+- Main int_main real E2E: `node tests\e2e\edhr-visual-fill-config-real-flow.e2e.js` -> PASS，tenant `芋道源码`，accounts `admin` / `jiazeyu` / `wangxin`，base URL `http://127.0.0.1:8081`，backend URL `http://127.0.0.1:48081`。
+- Main int_main real E2E cleanup: task-owned batch `900000000893 / EDHRB-1785177596364` was voided, task-owned route `922231 / CODX-VFC-20260727` was deleted, and target report config was restored to `ruleCount=87`、`assistRowCount=87`、`fillRuleStatus=CONFIGURED`。
 - Post-integration route-copy attachment owner regression: `mvn "-Dtest=MesProRouteServiceImplTest#copyRoute_shouldRefreshActiveVersionWithCompleteConfigSnapshotAfterChildConfigsCopied" "-Dsurefire.failIfNoSpecifiedTests=false" test -pl yudao-module-mes -am` -> PASS，目标路线 ACTIVE 快照保留来源 `batchRecordAttachmentOwners`。
 - Route/backend focused regression after fix: `mvn "-Dtest=MesProRouteServiceImplTest,MesProRouteFlowConfigServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -pl yudao-module-mes -am` -> PASS，`Tests run: 57, Failures: 0, Errors: 0`。
 - Backend focused integration regression after fix: `mvn "-Dtest=MesProEdhrWorkTaskServiceImplTest,MesProEdhrBatchExecutionServiceTest,MesProEdhrProcessFormPermissionRuleServiceImplTest,MesProRouteFlowConfigServiceImplTest,MesProEdhrRehearsalReadinessServiceTest,MesProRouteServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -pl yudao-module-mes -am` -> PASS，`Tests run: 321, Failures: 0, Errors: 0`。

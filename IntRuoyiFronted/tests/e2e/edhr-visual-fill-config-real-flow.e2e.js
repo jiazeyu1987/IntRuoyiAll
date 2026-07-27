@@ -157,8 +157,12 @@ function assertPairedWorktreeUrls() {
   const backendPort = parsePort(config.backendUrl)
   const frontendSlot = frontendPort - 8081
   const backendSlot = backendPort - 48081
-  assert.ok(frontendSlot >= 1 && frontendSlot <= 19, `frontend port must be int_main worktree slot 1..19, got ${frontendPort}`)
-  assert.equal(frontendSlot, backendSlot, `frontend/backend ports must use same slot, got ${frontendPort}/${backendPort}`)
+  const isMainRuntime = frontendPort === 8081 && backendPort === 48081
+  const isWorktreeRuntime = frontendSlot >= 1 && frontendSlot <= 19 && frontendSlot === backendSlot
+  assert.ok(
+    isMainRuntime || isWorktreeRuntime,
+    `frontend/backend ports must be either int_main 8081/48081 or paired int_main worktree slot 1..19, got ${frontendPort}/${backendPort}`
+  )
 }
 
 async function assertRuntimeReady() {

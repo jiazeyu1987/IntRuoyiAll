@@ -22,14 +22,14 @@
 
 ## 静态合同与真实 E2E 同步门禁
 
-### Worktree 隔离运行态 URL 门禁
+### Worktree / int_main 运行态 URL 门禁
 
-- Trigger: 主工作区默认端口被并行任务占用、旧 jar 未加载当前接口、或真实 E2E 需要使用已登记 worktree slot 端口运行。
-- Preflight check: 同时显式传入前端和后端 URL，且端口必须来自同一 runtime slot；脚本要校验本机地址、显式端口和前后端端口配对关系，不能只覆盖前端或只覆盖后端。
-- Blocker: 只传一个 URL、前后端端口不属于同一 slot、未确认端口监听命令行归属目标 worktree、或后端业务接口返回配置缺失/404 时必须停止并记录真实原因，不得静默切回 8081/48081 或 API-only。
-- Verification: 记录 base URL、backend URL、端口登记项、前端 HTTP 200、后端 health UP、关键目标接口业务响应、真实页面断言，以及任务结束后的端口释放结果。
-- Forbidden action: 禁止强停并行 48081、随机换端口、只看 health 就宣称目标 Controller 已加载、或用未配对的 frontend/backend URL 造成前端访问旧后端。
-- Evidence: `doc/tasks/20260726-edhr-release-dossier-requirement-switches/execution-log.md`，48081 旧 jar 返回新增接口 404 后，使用 slot 5 的 8086/48086 成对 URL 完成真实 E2E。
+- Trigger: 主工作区默认端口被并行任务占用、旧 jar 未加载当前接口、真实 E2E 需要使用已登记 worktree slot 端口运行，或 worktree 融合后需要在 `E:\IntRuoyi` 的 `int_main` 主端口复验。
+- Preflight check: 同时显式传入前端和后端 URL；附加 worktree 必须来自同一 runtime slot，融合后主运行态只允许 `8081/48081` 且端口命令行归属 `E:\IntRuoyi`。脚本应只允许这两种合法模式：`int_main 8081/48081` 或成对 `int_main slot 1..19`。
+- Blocker: 只传一个 URL、端口既不是 `8081/48081` 又不属于同一 slot、未确认端口监听命令行归属目标 worktree/主工作区、或后端业务接口返回配置缺失/404 时必须停止并记录真实原因，不得静默切换端口或 API-only。
+- Verification: 记录 base URL、backend URL、端口归属、前端 HTTP 200、后端 health UP、关键目标接口业务响应、真实页面断言，以及任务结束后的任务自有数据清理结果。
+- Forbidden action: 禁止强停并行 48081、随机换端口、只看 health 就宣称目标 Controller 已加载、用未配对的 frontend/backend URL 造成前端访问旧后端，或让融合后 E2E 脚本拒绝合法 `int_main 8081/48081` 主运行态。
+- Evidence: `doc/tasks/20260726-edhr-release-dossier-requirement-switches/execution-log.md`，48081 旧 jar 返回新增接口 404 后，使用 slot 5 的 8086/48086 成对 URL 完成真实 E2E；`doc/tasks/20260727-edhr-visual-fill-config-implementation/execution-log.md`，融合后先在 slot 2 通过，再修正脚本允许 `int_main 8081/48081` 并完成主端口真实 E2E。
 
 ### Windows 换行与脚本行为同步
 

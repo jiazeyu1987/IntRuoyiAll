@@ -95,6 +95,9 @@ includes(routeFlowDesigner, 'const codeSuffix = reportCode && reportCode !== pri
 
 includes(realFlowE2E, 'local-input.json', '真实 E2E 必须从本地未跟踪配置读取租户、账号和报表夹具。')
 includes(realFlowE2E, 'timeout: 180000', '真实 E2E 必须为官方登录前置保留足够的真实页面冷启动时间。')
+includes(realFlowE2E, 'const isMainRuntime = frontendPort === 8081 && backendPort === 48081', '真实 E2E 必须允许融合后的 int_main 主运行态 8081/48081。')
+includes(realFlowE2E, 'const isWorktreeRuntime = frontendSlot >= 1 && frontendSlot <= 19 && frontendSlot === backendSlot', '真实 E2E 仍必须校验附加 worktree 前后端使用同一 slot。')
+includes(realFlowE2E, 'frontend/backend ports must be either int_main 8081/48081 or paired int_main worktree slot 1..19', '真实 E2E 端口错误提示必须同时表达主运行态和附加 worktree 两种合法模式。')
 includes(realFlowE2E, 'const parsed = JSON.parse', '真实 E2E 必须解析本地配置后显式规范化配置结构。')
 includes(realFlowE2E, 'parsed.data && typeof parsed.data === \'object\'', '真实 E2E 必须兼容 data 包裹和顶层本地配置结构。')
 includes(realFlowE2E, 'targetReportName', '真实 E2E 必须把目标表单名与批记录夹具名分开。')
