@@ -21,3 +21,8 @@
 ## Result
 
 个人工作台待办列表真实页面验证通过，未再出现“待办任务加载失败 / 隐藏任务状态：系统异常”。
+
+## Closeout
+
+- Implementation commit `6325516cb7516a21ff127aaeaf2485dafe745f5d` was pushed to `origin/codex/20260727-todo-task-hidden-status`.
+- Cleanup apply / worktree removal remains blocked by local `int_main` ahead/dirty state outside this task; the task remains `ready_for_closeout`.

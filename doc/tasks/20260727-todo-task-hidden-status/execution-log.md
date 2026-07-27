@@ -50,3 +50,6 @@
 - GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS for `codex/20260727-todo-task-hidden-status/int_main`.
 - GREEN: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_branch_runtime_profile.py -q` -> PASS, 11 tests.
 - BLOCKER: initial task-closeout-cleanup preview -> blocked before implementation commit because current worktree still had task-owned pending changes and main worktree `E:\IntRuoyi` was dirty; will rerun after commit/push.
+- COMMIT: implementation commit `6325516cb7516a21ff127aaeaf2485dafe745f5d` (`fix: restore profile workbench hidden task schema`) pushed to `origin/codex/20260727-todo-task-hidden-status`.
+- GREEN: push verification -> local `HEAD` equals `origin/codex/20260727-todo-task-hidden-status` at `6325516cb7516a21ff127aaeaf2485dafe745f5d`.
+- BLOCKER: post-push task-closeout-cleanup preview -> blocked because local `int_main` contains non-task ahead/dirty state and cleanup cannot perform its required fast-forward merge/worktree removal contract. Current worktree is clean and task-owned changes are pushed; no destructive cleanup attempted.

@@ -22,7 +22,7 @@
 
 ## Current Status
 
-ready_for_closeout：已确认本机运行库缺少 `system_profile_workbench_task_visibility` 表，已应用既有正式迁移并补充迁移契约测试；个人工作台真实 E2E 已通过，待完成经验沉淀、提交和推送。
+ready_for_closeout：实现、验证、经验沉淀、提交与分支推送已完成。`task-closeout-cleanup apply` 暂不执行，因为本地 `int_main` 已由其它流程产生 ahead/dirty 状态且无法让 cleanup 脚本执行受控 fast-forward merge / worktree removal；当前 worktree 保留，等待主工作区恢复可收尾状态。
 
 ## 设计约束检查
 
