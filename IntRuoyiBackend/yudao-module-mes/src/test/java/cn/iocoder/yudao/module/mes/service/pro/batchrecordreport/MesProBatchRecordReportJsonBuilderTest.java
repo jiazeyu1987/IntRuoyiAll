@@ -1804,7 +1804,7 @@ class MesProBatchRecordReportJsonBuilderTest {
     }
 
     @Test
-    void build_shouldNotUseTextareaForWideSignatureDateBlankCell() {
+    void build_shouldUseSignatureComponentForWideSignatureDateBlankCell() {
         MesProBatchRecordParsedTable table = MesProBatchRecordParsedTable.builder()
                 .sourceTableIndex(1)
                 .tableTitle("signature date")
@@ -1828,8 +1828,9 @@ class MesProBatchRecordReportJsonBuilderTest {
                 .getJSONObject("3");
 
         assertNotNull(signatureDateCell.getJSONObject("fillForm"));
-        assertEquals("input-text", signatureDateCell.getJSONObject("fillForm").getString("componentFlag"));
+        assertEquals("signature", signatureDateCell.getJSONObject("fillForm").getString("componentFlag"));
         assertNotNull(signatureDateCell.getJSONObject("edhrSignature"));
+        assertTrue(signatureDateCell.getJSONObject("edhrSignature").getBooleanValue("enabled"));
         assertEquals("SUBMIT", signatureDateCell.getJSONObject("edhrSignature").getString("actionType"));
         assertEquals("记录人/日期", signatureDateCell.getJSONObject("edhrSignature").getString("label"));
     }

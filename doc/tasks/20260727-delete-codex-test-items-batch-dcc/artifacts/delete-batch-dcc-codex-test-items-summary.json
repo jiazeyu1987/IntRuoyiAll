@@ -1,0 +1,15 @@
+{
+  "status": "FAIL",
+  "projectsToDelete": [
+    "批记录",
+    "文控"
+  ],
+  "tenant": "芋道源码",
+  "username": "admin",
+  "baseUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "checkedAt": "2026-07-27T01:22:05.300Z",
+  "before": [],
+  "deleted": [],
+  "error": "page.waitForURL: Timeout 60000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at login (E:\\IntRuoyi\\doc\\tasks\\20260727-delete-codex-test-items-batch-dcc\\delete-batch-dcc-codex-test-items.e2e.cjs:194:16)\n    at async openTestManagement (E:\\IntRuoyi\\doc\\tasks\\20260727-delete-codex-test-items-batch-dcc\\delete-batch-dcc-codex-test-items.e2e.cjs:200:26)\n    at async run (E:\\IntRuoyi\\doc\\tasks\\20260727-delete-codex-test-items-batch-dcc\\delete-batch-dcc-codex-test-items.e2e.cjs:372:5)"
+}
