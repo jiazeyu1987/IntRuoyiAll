@@ -54,6 +54,7 @@
 
 - Dirty-worktree baseline: `5b9abcd8 chore: capture pre-existing dirty worktree baseline`.
 - Implementation: `6ef4f9c8 feat: show release git changes only`.
+- Task evidence: `20fc91c8 docs: record release git changes task evidence`.
 - Implementation files:
   - `IntRuoyiBackend/script/deploy/publish-int-ruoyi.ps1`
   - `IntRuoyiBackend/script/tests/test_publish_int_ruoyi_to_test_tooling.py`
@@ -62,3 +63,8 @@
   - `IntRuoyiFronted/tests/e2e/release-info-dock-version-only-static.spec.js`
   - `docs/experience-index.md`
   - `docs/release-build-preflight-lessons.md`
+
+## Push
+
+- `git push origin int_main -> PASS`, remote advanced from `9f35aaf5` to `20fc91c8`.
+- Large blob scan for `origin/int_main..HEAD` before push: PASS, no blob at or above 100 MB.

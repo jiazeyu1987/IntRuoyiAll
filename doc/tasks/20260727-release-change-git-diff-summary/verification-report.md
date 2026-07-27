@@ -17,3 +17,4 @@
 
 - Target behavior is verified by focused static contracts and frontend type checking.
 - Task cleanup preview/apply passed with no deleted paths and no blocked items.
+- Implementation and task-evidence commits were pushed successfully to `origin/int_main`.
