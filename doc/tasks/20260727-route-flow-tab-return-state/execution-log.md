@@ -20,6 +20,9 @@ BDD: 顶部页签返回保留流转关系图 -> Given 用户已打开某条路�
 - RED: `node tests/e2e/mes-route-flow-tab-return-state-static.spec.js` -> FAIL，当前 `tagsView.ts` 没有按 `activeMenu` 替换隐藏编辑路由对应顶部标签的能力。
 - GREEN: 待补充。
 - REGRESSION: 待补充。
+- BLOCKED E2E SAMPLE: `node tests/e2e/mes-route-flow-tab-return-state-real.e2e.js` -> FAIL, expected reason: 固定默认样本 `RT000017` 在当前本机租户路线列表未命中；脚本改为只有显式传入路线编码时才按编码过滤，未传入时从真实页面列表选择第一条可编辑路线。
+- BLOCKED E2E PATH: `node tests/e2e/mes-route-flow-tab-return-state-real.e2e.js` -> FAIL, expected reason: 路线列表“编辑”按钮进入候选版本生产配置流程，不是只读打开流转关系图；脚本改为点击真实列表的“当前生效版本”链接进入 `tab=flow`。
+- E2E PATH ADJUSTMENT: fresh browser session under the current local runtime only exposed one top tag after entering route flow; script leaves through an in-app MES menu item and then clicks the top `工艺流程` tag back, preserving the user-visible return behavior under test without refreshing the app.
 
 ## Blockers
 

@@ -13,6 +13,8 @@ public class CodexTestCaseRespVO {
     private Long id;
     private String name;
     private String project;
+    private String nodeChainName;
+    private Integer nodeChainSort;
     private String methodText;
     private String testDataText;
     private String defaultExecutionMode;

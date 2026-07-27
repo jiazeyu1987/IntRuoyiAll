@@ -1799,6 +1799,11 @@ const resolveReleaseOwnerRoleLabel = (role?: string | null) => {
 const resolveStageOwnerLabel = (defaultOwner: string) =>
   resolveReleaseOwnerRoleLabel(workbench.value?.stageOwnerRole || detail.value?.stageOwnerRole) || defaultOwner
 
+const resolveReleaseOwnerLabel = () => {
+  const releaseOwnerLabel = String(workbench.value?.releaseSummary?.releaseOwnerLabel || '').trim()
+  return releaseOwnerLabel || '放行责任人未配置'
+}
+
 const resolveReleaseStageKey = (): ReleaseStageKey => {
   if (batchStatus.value === EDHR_BATCH_STATUS_REJECTED) return 'quality-terminal'
   if (batchStatus.value === EDHR_BATCH_STATUS_ARCHIVED) return 'archived'
@@ -1861,7 +1866,7 @@ const resolveReleaseStageViewModel = (stageKey: ReleaseStageKey): ReleaseStageVi
         description: '预检已通过，当前重点是核对预检项并执行拒收或电子签名放行。',
         releaseStatusTitle,
         releaseStatusLabel,
-        nextOwnerLabel: resolveStageOwnerLabel('放行负责人'),
+        nextOwnerLabel: resolveReleaseOwnerLabel(),
         nextStepText: '请确认预检列表后在右侧执行“拒收”或“放行”。'
       }
     case 'archive':
@@ -1885,7 +1890,7 @@ const resolveReleaseStageViewModel = (stageKey: ReleaseStageKey): ReleaseStageVi
         description: '先执行放行预检；预检失败时继续修订后重跑。',
         releaseStatusTitle,
         releaseStatusLabel: resolveStageAwareReleaseStatusSummary('precheck'),
-        nextOwnerLabel: resolveStageOwnerLabel('质量放行责任人'),
+        nextOwnerLabel: resolveReleaseOwnerLabel(),
         nextStepText: '请联系质量放行责任人处理预检失败项或执行放行预检。'
       }
     default:
@@ -1925,7 +1930,6 @@ const releaseStagePanelHint = computed(() =>
 const releaseStageOwnerLabel = computed(
   () =>
     viewedReleaseStageViewModel.value.nextOwnerLabel ||
-    resolveReleaseOwnerRoleLabel(workbench.value?.stageOwnerRole || detail.value?.stageOwnerRole) ||
     '当前阶段责任人'
 )
 

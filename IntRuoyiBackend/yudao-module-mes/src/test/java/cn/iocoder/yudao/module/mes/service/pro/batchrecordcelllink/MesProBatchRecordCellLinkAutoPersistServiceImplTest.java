@@ -80,7 +80,8 @@ class MesProBatchRecordCellLinkAutoPersistServiceImplTest {
         MesProBatchRecordExecutionFieldAuditSaveChangesCommand command = commandCaptor.getValue();
         assertEquals(9001L, command.getExecutionId());
         assertEquals(8101L, command.getWorkTaskId());
-        assertTrue(command.getIdempotencyKey().contains("CELL_LINK_AUTO_PREFILL:9001:11:7:3:3"));
+        assertEquals(64, command.getIdempotencyKey().length());
+        assertTrue(command.getIdempotencyKey().matches("[0-9a-f]{64}"));
         assertEquals(MesProBatchRecordExecutionFieldAuditHasher.hashCellValues("[]"), command.getBaseCellValuesHash());
         assertEquals("OTHER", command.getReasonCategory());
         assertTrue(command.getReasonText().contains("生产批号"));
@@ -177,6 +178,13 @@ class MesProBatchRecordCellLinkAutoPersistServiceImplTest {
             assertEquals(0, result.getAppliedCount());
             assertEquals(0, result.getConflictCount());
             assertEquals("NO_CHANGE_ALREADY_APPLIED", result.getItems().get(0).getStatus());
+            ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
+            verify(auditBatchMapper).selectByIdempotencyKey(
+                    org.mockito.ArgumentMatchers.eq(122L),
+                    org.mockito.ArgumentMatchers.eq(9001L),
+                    keyCaptor.capture());
+            assertEquals(64, keyCaptor.getValue().length());
+            assertTrue(keyCaptor.getValue().matches("[0-9a-f]{64}"));
             verify(fieldAuditService, never()).saveSystemCellLinkChanges(org.mockito.ArgumentMatchers.any());
         } finally {
             TenantContextHolder.clear();

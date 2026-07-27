@@ -429,6 +429,9 @@ export interface EdhrBatchWorkbenchRespVO {
     failedCheckCount?: number
     precheckSummary?: string
     lastPrecheckAt?: string
+    releaseOwnerConfigured?: boolean
+    releaseOwnerSourceType?: string
+    releaseOwnerLabel?: string
   }
   auditSummary?: {
     latestOperationAuditId?: number

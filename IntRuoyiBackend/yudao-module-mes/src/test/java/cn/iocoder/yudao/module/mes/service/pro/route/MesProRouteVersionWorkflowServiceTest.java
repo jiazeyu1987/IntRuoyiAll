@@ -46,12 +46,14 @@ class MesProRouteVersionWorkflowServiceTest {
     private MesProRouteControlledContentAdapter platformAdapter;
 
     @Test
-    void createCandidate_shouldCopyActiveSnapshotAsDraft() {
-        String completeSnapshot = validSnapshotJsonWithBatchBinding();
+    void createCandidate_shouldRefreshCurrentConfigSnapshotAsDraft() {
+        String staleActiveSnapshot = validSnapshotJson(9001L, "RT-9001", "工艺路线 V1");
+        String refreshedSnapshot = validSnapshotJsonWithBatchBinding();
         MesProRouteVersionDO active = activeVersion();
-        active.setRouteSnapshotJson(completeSnapshot);
+        active.setRouteSnapshotJson(staleActiveSnapshot);
         when(routeVersionMapper.selectActiveByRouteIdForUpdate(9001L)).thenReturn(active);
         when(routeVersionMapper.selectMaxVersionNoByRouteId(9001L)).thenReturn("V1");
+        when(routeService.buildCurrentRouteSnapshotJson(9001L, 1001L)).thenReturn(refreshedSnapshot);
         MesProRouteVersionCreateReqVO reqVO = new MesProRouteVersionCreateReqVO();
         reqVO.setRouteId(9001L);
         reqVO.setSourceRouteVersionId(1001L);
@@ -65,10 +67,10 @@ class MesProRouteVersionWorkflowServiceTest {
         assertEquals(Boolean.FALSE, captor.getValue().getActive());
         assertEquals(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT, captor.getValue().getLifecycleStatus());
         assertEquals(active.getId(), captor.getValue().getSourceRouteVersionId());
-        assertEquals(completeSnapshot, captor.getValue().getRouteSnapshotJson());
+        assertEquals(refreshedSnapshot, captor.getValue().getRouteSnapshotJson());
         assertTrue(captor.getValue().getRouteSnapshotJson().contains("FORM_BINDING_COPY_1"),
-                "候选版本必须完整继承 active 快照中的批记录表单槽位绑定");
-        verify(routeService, never()).buildCurrentRouteSnapshotJson(9001L, 1001L);
+                "后续候选版本必须从当前工序配置生成包含 formBindings 的完整快照");
+        verify(routeService).buildCurrentRouteSnapshotJson(9001L, 1001L);
         assertEquals("V2", candidate.getVersionNo());
     }
 

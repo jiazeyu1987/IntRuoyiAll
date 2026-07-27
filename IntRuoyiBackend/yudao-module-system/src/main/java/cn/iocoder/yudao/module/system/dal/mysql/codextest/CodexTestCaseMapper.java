@@ -18,14 +18,38 @@ public interface CodexTestCaseMapper extends BaseMapperX<CodexTestCaseDO> {
         return selectPage(reqVO, new LambdaQueryWrapperX<CodexTestCaseDO>()
                 .likeIfPresent(CodexTestCaseDO::getName, reqVO.getName())
                 .eqIfPresent(CodexTestCaseDO::getProject, reqVO.getProject())
+                .eqIfPresent(CodexTestCaseDO::getNodeChainName, reqVO.getNodeChainName())
                 .eqIfPresent(CodexTestCaseDO::getStatus, reqVO.getStatus())
                 .eqIfPresent(CodexTestCaseDO::getDefaultExecutionMode, reqVO.getExecutionMode())
+                .orderByAsc(reqVO.getNodeChainName() != null, CodexTestCaseDO::getNodeChainSort)
                 .orderByAsc(CodexTestCaseDO::getSort)
                 .orderByDesc(BaseDO::getCreateTime));
     }
 
     default List<CodexTestCaseDO> selectListByIds(Collection<Long> ids) {
         return selectList(CodexTestCaseDO::getId, ids);
+    }
+
+    default Long selectCountByNodeChainNameAndSort(String nodeChainName, Integer nodeChainSort, Long excludeId) {
+        return selectCount(new LambdaQueryWrapperX<CodexTestCaseDO>()
+                .eq(CodexTestCaseDO::getNodeChainName, nodeChainName)
+                .eq(CodexTestCaseDO::getNodeChainSort, nodeChainSort)
+                .neIfPresent(CodexTestCaseDO::getId, excludeId));
+    }
+
+    default List<CodexTestCaseDO> selectListByNodeChainName(String nodeChainName) {
+        return selectList(new LambdaQueryWrapperX<CodexTestCaseDO>()
+                .eq(CodexTestCaseDO::getNodeChainName, nodeChainName)
+                .orderByAsc(CodexTestCaseDO::getNodeChainSort));
+    }
+
+    default List<CodexTestCaseDO> selectNodeChainCases() {
+        return selectList(new LambdaQueryWrapperX<CodexTestCaseDO>()
+                .isNotNull(CodexTestCaseDO::getNodeChainName)
+                .ne(CodexTestCaseDO::getNodeChainName, "")
+                .orderByAsc(CodexTestCaseDO::getProject)
+                .orderByAsc(CodexTestCaseDO::getNodeChainName)
+                .orderByAsc(CodexTestCaseDO::getNodeChainSort));
     }
 
 }

@@ -11,9 +11,11 @@ import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRun
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerStatusRespVO;
+import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestCheckpointResultDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionCaseDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestRunnerSessionDO;
+import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestCheckpointResultMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestExecutionCaseMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestExecutionMapper;
 import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestRunnerSessionMapper;
@@ -49,6 +51,8 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
     private CodexTestExecutionCaseMapper codexTestExecutionCaseMapper;
     @Resource
     private CodexTestRunnerSessionMapper codexTestRunnerSessionMapper;
+    @Resource
+    private CodexTestCheckpointResultMapper codexTestCheckpointResultMapper;
 
     @MockitoBean
     private TenantService tenantService;
@@ -102,6 +106,61 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
 
         assertEquals("codex-runner", runnerSession.getCreator());
         assertEquals("codex-runner", runnerSession.getUpdater());
+    }
+
+    @Test
+    void claimTasks_sequentialNodeChainOnlyClaimsFirstNodeWhenCapacityIsGreaterThanOne() {
+        Long runnerSessionId = registerRunner();
+        Long firstCaseId = codexTestCaseService.createCase(
+                CodexTestCaseServiceImplTest.buildNodeChainCaseReq("批记录前置检查", 1));
+        Long secondCaseId = codexTestCaseService.createCase(
+                CodexTestCaseServiceImplTest.buildNodeChainCaseReq("批记录创建执行", 2));
+        Long executionId = codexTestExecutionService.startExecution(
+                startReq(firstCaseId, secondCaseId), 99L);
+
+        CodexTestRunnerClaimRespVO claimRespVO =
+                codexTestRunnerService.claimTasks(claimReq(runnerSessionId, 2), RUNNER_TOKEN);
+
+        assertEquals(1, claimRespVO.getTasks().size());
+        assertEquals("批记录前置检查", claimRespVO.getTasks().get(0).getCaseName());
+        List<CodexTestExecutionCaseDO> executionCases =
+                codexTestExecutionCaseMapper.selectListByExecutionId(executionId);
+        assertEquals("CLAIMED", executionCases.get(0).getStatus());
+        assertEquals("PENDING", executionCases.get(1).getStatus());
+    }
+
+    @Test
+    void completeCase_failedSequentialNodeBlocksRemainingNodesAndCheckpoints() {
+        Long runnerSessionId = registerRunner();
+        Long firstCaseId = codexTestCaseService.createCase(
+                CodexTestCaseServiceImplTest.buildNodeChainCaseReq("批记录前置检查", 1));
+        Long secondCaseId = codexTestCaseService.createCase(
+                CodexTestCaseServiceImplTest.buildNodeChainCaseReq("批记录创建执行", 2));
+        Long executionId = codexTestExecutionService.startExecution(
+                startReq(firstCaseId, secondCaseId), 99L);
+        CodexTestRunnerClaimRespVO.Task firstTask =
+                codexTestRunnerService.claimTasks(claimReq(runnerSessionId, 2), RUNNER_TOKEN)
+                        .getTasks().get(0);
+        codexTestRunnerService.saveCheckpointResult(
+                resultReq(firstTask.getExecutionCaseId(), "FAIL", "前置配置不符合要求"), RUNNER_TOKEN);
+        CodexTestRunnerCompleteCaseReqVO completeReqVO = new CodexTestRunnerCompleteCaseReqVO();
+        completeReqVO.setExecutionCaseId(firstTask.getExecutionCaseId());
+        completeReqVO.setStatus("FAIL");
+        completeReqVO.setSummary("批记录前置检查失败");
+
+        codexTestRunnerService.completeCase(completeReqVO, RUNNER_TOKEN);
+
+        List<CodexTestExecutionCaseDO> executionCases =
+                codexTestExecutionCaseMapper.selectListByExecutionId(executionId);
+        assertEquals("FAIL", executionCases.get(0).getStatus());
+        assertEquals("BLOCKED", executionCases.get(1).getStatus());
+        assertEquals("前置节点未通过，串行节点串已停止", executionCases.get(1).getFailureReason());
+        List<CodexTestCheckpointResultDO> blockedResults =
+                codexTestCheckpointResultMapper.selectListByExecutionCaseId(executionCases.get(1).getId());
+        assertTrue(blockedResults.stream().allMatch(result -> "BLOCKED".equals(result.getStatus())));
+        assertTrue(blockedResults.stream().allMatch(
+                result -> "前置节点未通过，串行节点串已停止".equals(result.getMismatchDescription())));
+        assertEquals("FAIL", codexTestExecutionMapper.selectById(executionId).getStatus());
     }
 
     @Test
@@ -176,18 +235,22 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
         return reqVO;
     }
 
-    private CodexTestExecutionStartReqVO startReq(Long caseId) {
+    private CodexTestExecutionStartReqVO startReq(Long... caseIds) {
         CodexTestExecutionStartReqVO reqVO = new CodexTestExecutionStartReqVO();
         reqVO.setTargetTenantId(88L);
         reqVO.setExecutionMode("SEQUENTIAL");
-        reqVO.setCaseIds(List.of(caseId));
+        reqVO.setCaseIds(List.of(caseIds));
         return reqVO;
     }
 
     private CodexTestRunnerClaimReqVO claimReq(Long runnerSessionId) {
+        return claimReq(runnerSessionId, 1);
+    }
+
+    private CodexTestRunnerClaimReqVO claimReq(Long runnerSessionId, int capacity) {
         CodexTestRunnerClaimReqVO reqVO = new CodexTestRunnerClaimReqVO();
         reqVO.setRunnerSessionId(runnerSessionId);
-        reqVO.setCapacity(1);
+        reqVO.setCapacity(capacity);
         return reqVO;
     }
 

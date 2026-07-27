@@ -139,6 +139,17 @@
 - Forbidden action: 禁止把 DIRECT 当成降级或绕过强行拦截；禁止把 BPM_REQUIRED 静默直通、默认成功、前端隐藏错误、手工 update 单条数据或 seed 覆盖用户显式策略。
 - Evidence: `doc/tasks/20260727-form-template-approval-mode-respects-policy/verification-report.md`。
 
+## eDHR 放行负责人来源门禁
+
+### 工序结束放行负责人必须来自 RELEASE_APPROVE
+
+- Trigger: eDHR 放行负责人、放行预检、放行审批、电子签名放行、`releaseOwnerLabel`、`RELEASE_APPROVE`、`CLOSE`、工艺路线“工序结束 > 放行责任人”。
+- Preflight check: 同时核对路线级 `RELEASE_APPROVE` 规则、候选人解析结果、工作台 `releaseSummary` 和正式放行授权；展示与授权必须共用 `RELEASE_APPROVE`，不能只看 `stageOwnerRole` 或关闭负责人。
+- Blocker: 只配置 `CLOSE` 未配置 `RELEASE_APPROVE`、`RELEASE_APPROVE` 候选池为空、用户/角色无效或运行态仍显示“执行人”时必须停止，不得把关闭负责人、当前登录人、静态阶段角色或 `stageOwnerRole` 当作放行负责人。
+- Verification: 后端回归覆盖 USER、ROLE_GROUP、角色成员可放行、关闭负责人不能越权和缺失配置 fail-fast；前端静态契约覆盖放行预检/审批阶段读取 `releaseSummary.releaseOwnerLabel` 且不兜底 `stageOwnerRole`。
+- Forbidden action: 禁止新增数据库迁移修历史数据、禁止把 `CLOSE` 规则复用为放行授权、禁止前端用“执行人/QA/放行员”掩盖未配置、禁止吞掉候选人解析异常。
+- Evidence: `doc/tasks/20260727-edhr-release-owner-from-end-config/verification-report.md`。
+
 ## 禁止做法
 
 - 禁止跨模块复制业务逻辑来绕过现有服务边界。

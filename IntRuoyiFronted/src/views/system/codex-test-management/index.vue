@@ -67,7 +67,9 @@
             </el-button>
             <el-button
               v-hasPermi="['system:codex-test:execute']"
-              :disabled="selectedCaseIds.length === 0 || !selectedTenantId"
+              :disabled="
+                selectedCaseIds.length === 0 || !selectedTenantId || selectedCasesContainNodeChain
+              "
               :loading="executeLoading"
               plain
               type="warning"
@@ -115,6 +117,21 @@
               <el-tag :type="getProjectTagType(resolveCaseProject(row))" effect="plain">
                 {{ resolveCaseProject(row) }}
               </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column
+            v-if="isCaseColumnVisible('nodeChain')"
+            label="节点串"
+            prop="nodeChainName"
+            :width="getCaseColumnWidthString('nodeChain')"
+            :min-width="getCaseColumnMinWidthString('nodeChain', 190)"
+          >
+            <template #default="{ row }">
+              <div v-if="row.nodeChainName" class="codex-test-node-chain">
+                <span>{{ row.nodeChainName }}</span>
+                <el-tag effect="plain" size="small">第 {{ row.nodeChainSort }} 节点</el-tag>
+              </div>
+              <span v-else class="codex-test-node-chain__independent">独立测试项</span>
             </template>
           </el-table-column>
           <el-table-column
@@ -325,6 +342,33 @@
           />
         </el-select>
       </el-form-item>
+      <el-form-item label="节点串" prop="nodeChainName">
+        <el-select
+          v-model="caseForm.nodeChainName"
+          allow-create
+          class="!w-420px"
+          clearable
+          filterable
+          placeholder="可选；选择已有节点串或输入新名称"
+          @change="enforceNodeChainExecutionControl"
+        >
+          <el-option
+            v-for="option in nodeChainOptions"
+            :key="option.name"
+            :label="`${option.name}（${option.project}，${option.nodeCount} 个节点）`"
+            :value="option.name"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="串内序号" prop="nodeChainSort">
+        <el-input-number
+          v-model="caseForm.nodeChainSort"
+          :disabled="!caseForm.nodeChainName"
+          :min="1"
+          controls-position="right"
+          placeholder="节点在串内的执行顺序"
+        />
+      </el-form-item>
       <el-form-item label="测试方法项" prop="methodText">
         <div class="codex-test-methods">
           <div
@@ -364,13 +408,21 @@
         />
       </el-form-item>
       <el-form-item label="默认方法">
-        <el-radio-group v-model="caseForm.defaultExecutionMode">
+        <el-radio-group
+          v-model="caseForm.defaultExecutionMode"
+          :disabled="Boolean(caseForm.nodeChainName)"
+        >
           <el-radio-button label="SEQUENTIAL">顺序执行</el-radio-button>
           <el-radio-button label="PARALLEL">并行执行</el-radio-button>
         </el-radio-group>
       </el-form-item>
       <el-form-item label="执行控制">
-        <el-switch v-model="caseForm.parallelSafe" active-text="允许并行" inactive-text="不允许并行" />
+        <el-switch
+          v-model="caseForm.parallelSafe"
+          active-text="允许并行"
+          :disabled="Boolean(caseForm.nodeChainName)"
+          inactive-text="不允许并行"
+        />
         <el-switch
           v-model="caseForm.status"
           active-text="启用"
@@ -477,8 +529,10 @@ const caseFormRef = ref<FormInstance>()
 const tenantOptions = ref<TenantApi.TenantVO[]>([])
 const selectedTenantId = ref<number>()
 const selectedCaseIds = ref<number[]>([])
+const selectedCases = ref<CodexTestApi.CodexTestCaseVO[]>([])
 const caseList = ref<CodexTestApi.CodexTestCaseVO[]>([])
 const caseTotal = ref(0)
+const nodeChainOptions = ref<CodexTestApi.CodexTestNodeChainOptionVO[]>([])
 const monitorList = ref<CodexTestApi.CodexTestExecutionVO[]>([])
 const runnerStatus = ref<CodexTestApi.CodexTestRunnerStatusVO>()
 const runnerStatusError = ref('')
@@ -510,17 +564,28 @@ const queryParams = reactive<CodexTestApi.CodexTestCasePageReqVO>({
   pageSize: 10,
   name: '',
   project: undefined,
+  nodeChainName: undefined,
   status: undefined,
   executionMode: undefined
 })
 
 const CASE_TABLE_KEY = 'system.codexTestManagement.cases'
 const caseProjectOptions = CodexTestApi.CODEX_TEST_PROJECT_OPTIONS
+const nodeChainFilterOptions = computed(() =>
+  nodeChainOptions.value.map((option) => ({
+    label: `${option.name}（${option.project}，${option.nodeCount} 个节点）`,
+    value: option.name
+  }))
+)
+const selectedCasesContainNodeChain = computed(() =>
+  selectedCases.value.some((testCase) => Boolean(testCase.nodeChainName))
+)
 
 const caseDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'selection', label: '选择', width: 55, hideable: false, business: false, sortable: false },
   { key: 'name', label: '测试项', minWidth: 220 },
   { key: 'project', label: '项目', width: 110 },
+  { key: 'nodeChain', label: '节点串', minWidth: 190, sortable: false },
   { key: 'methodText', label: '测试方法项', minWidth: 320, sortable: false },
   { key: 'targetItems', label: '测试目标项', minWidth: 360, sortable: false },
   { key: 'checkpointCount', label: '检查点', width: 90 },
@@ -559,6 +624,14 @@ const caseQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => 
     type: 'select',
     queryParamKey: 'project',
     options: caseProjectOptions,
+    placeholder: '全部'
+  },
+  {
+    key: 'nodeChainName',
+    label: '节点串',
+    type: 'select',
+    queryParamKey: 'nodeChainName',
+    options: nodeChainFilterOptions.value,
     placeholder: '全部'
   },
   {
@@ -616,6 +689,8 @@ const runnerStatusTagType = computed(() => {
 const defaultCaseForm = (): CodexTestApi.CodexTestCaseVO => ({
   name: '',
   project: undefined,
+  nodeChainName: undefined,
+  nodeChainSort: undefined,
   methodText: '',
   testDataText: '',
   defaultExecutionMode: 'SEQUENTIAL',
@@ -631,6 +706,18 @@ const methodItems = ref<CodexTestMethodItem[]>([newMethodItem(1)])
 const caseRules: FormRules = {
   name: [{ required: true, message: '测试项名称不能为空', trigger: 'blur' }],
   project: [{ required: true, message: '项目不能为空', trigger: 'change' }],
+  nodeChainSort: [
+    {
+      validator: (_rule, value, callback) => {
+        if (caseForm.nodeChainName && (!value || value < 1)) {
+          callback(new Error('节点串测试项必须填写大于 0 的串内序号'))
+          return
+        }
+        callback()
+      },
+      trigger: 'change'
+    }
+  ],
   methodText: [{ required: true, message: '测试方法项不能为空', trigger: 'blur' }]
 }
 
@@ -653,6 +740,24 @@ function newMethodItem(sort: number): CodexTestMethodItem {
 function resetCaseForm() {
   Object.assign(caseForm, defaultCaseForm())
   methodItems.value = [newMethodItem(1)]
+}
+
+function enforceNodeChainExecutionControl(value?: string, preserveSort = false) {
+  const nodeChainName = value?.trim()
+  caseForm.nodeChainName = nodeChainName || undefined
+  if (!nodeChainName) {
+    caseForm.nodeChainSort = undefined
+    return
+  }
+  caseForm.defaultExecutionMode = 'SEQUENTIAL'
+  caseForm.parallelSafe = false
+  const existingOption = nodeChainOptions.value.find((option) => option.name === nodeChainName)
+  if (existingOption) {
+    caseForm.project = existingOption.project
+  }
+  if (!preserveSort || !caseForm.nodeChainSort || caseForm.nodeChainSort < 1) {
+    caseForm.nodeChainSort = existingOption ? existingOption.nodeCount + 1 : 1
+  }
 }
 
 function splitDisplayItems(text?: string, fallback?: string) {
@@ -864,6 +969,15 @@ async function getCaseList() {
   }
 }
 
+async function getNodeChainOptions() {
+  try {
+    nodeChainOptions.value = await CodexTestApi.getCodexTestNodeChainOptions()
+  } catch (error) {
+    nodeChainOptions.value = []
+    showRequestError(error, '节点串选项加载失败')
+  }
+}
+
 async function refreshRunnerStatus() {
   runnerStatusLoading.value = true
   try {
@@ -929,6 +1043,7 @@ async function handleCasePagination(payload?: PaginationPayload) {
 }
 
 function handleCaseSelectionChange(rows: CodexTestApi.CodexTestCaseVO[]) {
+  selectedCases.value = rows
   selectedCaseIds.value = Array.from(
     new Set(rows.map((row) => row.id).filter((id): id is number => Boolean(id)))
   )
@@ -943,6 +1058,7 @@ function applyCaseFormForEdit(data: CodexTestApi.CodexTestCaseVO) {
   Object.assign(caseForm, data)
   caseForm.checkpoints = normalizeCheckpointItems(data.checkpoints)
   methodItems.value = parseMethodItems(data.methodText)
+  enforceNodeChainExecutionControl(caseForm.nodeChainName, true)
 }
 
 async function openEdit(row: CodexTestApi.CodexTestCaseVO) {
@@ -973,6 +1089,7 @@ function removeCheckpoint(index: number) {
 }
 
 async function saveCase() {
+  enforceNodeChainExecutionControl(caseForm.nodeChainName, true)
   caseForm.methodText = serializeMethodItems()
   await caseFormRef.value?.validate()
   if (!caseForm.methodText.trim()) {
@@ -991,6 +1108,7 @@ async function saveCase() {
     }
     message.success('保存成功')
     caseDialogVisible.value = false
+    await getNodeChainOptions()
     await getCaseList()
   } catch (error) {
     showRequestError(error, '保存失败')
@@ -1003,6 +1121,7 @@ async function deleteCase(id?: number) {
     await message.confirm('确认删除该测试项吗？')
     await CodexTestApi.deleteCodexTestCase(id)
     message.success('删除成功')
+    await getNodeChainOptions()
     await getCaseList()
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') {
@@ -1014,6 +1133,26 @@ async function deleteCase(id?: number) {
 async function startExecution(mode: 'SEQUENTIAL' | 'PARALLEL') {
   if (!selectedTenantId.value) {
     message.error('请选择测试租户')
+    return
+  }
+  const selectedNodeChainNames = new Set(
+    selectedCases.value
+      .map((testCase) => testCase.nodeChainName)
+      .filter((name): name is string => Boolean(name))
+  )
+  const selectedNodeChainCaseCount = selectedCases.value.filter((testCase) =>
+    Boolean(testCase.nodeChainName)
+  ).length
+  if (selectedNodeChainNames.size > 1) {
+    message.error('一次只能执行一个节点串，请先按节点串筛选后再选择')
+    return
+  }
+  if (selectedNodeChainNames.size === 1 && selectedNodeChainCaseCount !== selectedCases.value.length) {
+    message.error('节点串测试项不能与独立测试项混合执行')
+    return
+  }
+  if (mode === 'PARALLEL' && selectedNodeChainNames.size > 0) {
+    message.error('节点串只能使用顺序执行')
     return
   }
   executeLoading.value = true
@@ -1066,6 +1205,7 @@ async function startSingleCaseExecution(row: CodexTestApi.CodexTestCaseVO) {
 onMounted(async () => {
   await getTenantOptions()
   await refreshRunnerStatus()
+  await getNodeChainOptions()
   await getCaseList()
 })
 
@@ -1139,6 +1279,18 @@ onBeforeUnmount(() => {
 .codex-test-item-list li {
   white-space: normal;
   word-break: break-word;
+}
+
+.codex-test-node-chain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #172033;
+  font-weight: 600;
+}
+
+.codex-test-node-chain__independent {
+  color: var(--el-text-color-secondary);
 }
 
 .codex-test-methods {

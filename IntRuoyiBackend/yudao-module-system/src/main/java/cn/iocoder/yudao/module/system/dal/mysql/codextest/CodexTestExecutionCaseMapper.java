@@ -19,12 +19,25 @@ public interface CodexTestExecutionCaseMapper extends BaseMapperX<CodexTestExecu
                 .orderByAsc(CodexTestExecutionCaseDO::getId));
     }
 
-    default List<CodexTestExecutionCaseDO> selectPendingClaimCandidates(int limit) {
+    default List<CodexTestExecutionCaseDO> selectPendingClaimCandidates() {
         return selectList(new LambdaQueryWrapperX<CodexTestExecutionCaseDO>()
                 .eq(CodexTestExecutionCaseDO::getStatus, "PENDING")
                 .orderByAsc(CodexTestExecutionCaseDO::getExecutionId)
-                .orderByAsc(CodexTestExecutionCaseDO::getId)
-                .last("LIMIT " + limit));
+                .orderByAsc(CodexTestExecutionCaseDO::getId));
+    }
+
+    default List<CodexTestExecutionCaseDO> selectPendingListByExecutionId(Long executionId) {
+        return selectList(new LambdaQueryWrapperX<CodexTestExecutionCaseDO>()
+                .eq(CodexTestExecutionCaseDO::getExecutionId, executionId)
+                .eq(CodexTestExecutionCaseDO::getStatus, "PENDING")
+                .orderByAsc(CodexTestExecutionCaseDO::getId));
+    }
+
+    default Long selectEarlierNotPassedCount(Long executionId, Long executionCaseId) {
+        return selectCount(new LambdaQueryWrapperX<CodexTestExecutionCaseDO>()
+                .eq(CodexTestExecutionCaseDO::getExecutionId, executionId)
+                .lt(CodexTestExecutionCaseDO::getId, executionCaseId)
+                .ne(CodexTestExecutionCaseDO::getStatus, "PASS"));
     }
 
     default Long selectRunningCountByCaseId(Long caseId) {
@@ -98,6 +111,17 @@ public interface CodexTestExecutionCaseMapper extends BaseMapperX<CodexTestExecu
                 .eq(CodexTestExecutionCaseDO::getExecutionId, executionId)
                 .in(CodexTestExecutionCaseDO::getStatus, List.of("PENDING", "CLAIMED", "RUNNING"))
                 .set(CodexTestExecutionCaseDO::getStatus, "CANCELED"));
+    }
+
+    default int blockPendingByExecutionId(Long executionId, String reason, LocalDateTime finishedAt) {
+        return update(null, new LambdaUpdateWrapper<CodexTestExecutionCaseDO>()
+                .eq(CodexTestExecutionCaseDO::getExecutionId, executionId)
+                .eq(CodexTestExecutionCaseDO::getStatus, "PENDING")
+                .set(CodexTestExecutionCaseDO::getStatus, "BLOCKED")
+                .set(CodexTestExecutionCaseDO::getFinishedAt, finishedAt)
+                .set(CodexTestExecutionCaseDO::getFailureReason, reason)
+                .set(CodexTestExecutionCaseDO::getProgressPhase, "DONE")
+                .set(CodexTestExecutionCaseDO::getProgressMessage, reason));
     }
 
     default List<CodexTestExecutionCaseDO> selectListByIds(Collection<Long> ids) {

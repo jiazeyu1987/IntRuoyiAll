@@ -27,9 +27,24 @@ BDD: Runner token 确实缺失或失效时明确失败 -> Given Runner token 缺
 ## TDD Evidence
 
 - RED: `Invoke-RestMethod POST http://127.0.0.1:48081/admin-api/system/codex-test-runner/register` with the existing task-owned token source -> FAIL, business code `1002031011` and message `Codex Runner token 无效或未配置`; this reproduces the reported runtime configuration failure before alignment.
-- GREEN: pending
-- REGRESSION: pending
+- GREEN: Restarted the confirmed `E:\IntRuoyi` backend on `48081` with `SPRING_APPLICATION_JSON` injecting the existing controlled Runner token, then started `IntRuoyiFronted/scripts/start-codex-test-runner.ps1` with the same token source; `POST /admin-api/system/codex-test-runner/register` -> PASS, business code `0`, `runnerSessionId=13`.
+- GREEN: `node doc/tasks/20260727-codex-runner-token-invalid/runner-status-real-e2e.cjs` -> PASS, real frontend `http://127.0.0.1:8081` opened `系统管理 > 测试管理`; `/admin-api/system/codex-test-runner/status` returned `online=true`, `requiredCapabilitiesPresent=true`, heartbeat age `0`, and page did not show `Codex Runner token 无效或未配置`.
+- REGRESSION: `node tests/e2e/system-codex-test-management-static.spec.js` -> PASS.
+- REGRESSION: `mvn.cmd -pl yudao-module-system -am "-Dtest=CodexTestRunnerServiceImplTest,CodexTestRunnerBootstrapServiceImplTest,CodexTestExecutionServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 11 tests, 0 failures.
+- REGRESSION: Runner idle check after one heartbeat interval -> PASS, Runner PID `53624` remained alive and `codex-runner.stderr.log` stayed empty.
+- EXPERIENCE: Updated `docs/e2e-rules.md` and `docs/experience-index.md` so future Codex Runner tasks route the exact `Codex Runner token 无效或未配置` symptom to the token-injection/registration-probe gate.
 
 ## Blockers
 
 - 当前工作区存在与本任务无关的未跟踪目录 `doc/tasks/20260727-route-flow-tab-return-state/`，按规则保留不修改。
+- Closeout commit/push blocked: `git status --short --branch --untracked-files=all` shows many non-task-owned modified/untracked source, test, doc, and task files. Do not stage this task together with unrelated concurrent work.
+
+## Milestone 5
+
+- Status: ready_for_closeout
+- Cleanup preview: PASS; initial preview had no blocked paths and identified only task-owned temporary artifacts for deletion.
+- Cleanup apply: first attempt blocked with `PermissionError WinError 32` because the active `48081` backend process still held `backend-token-alignment.stderr.log`.
+- Cleanup apply: PASS after marking the two active backend log files as `Cleanup Keep`; deleted `restart-backend-with-token.ps1`, `runner-status-real-e2e.cjs`, `runner-status-real-summary.json`, and `runner-status-real.png`.
+- Final runtime verification: backend health `UP` on PID `45548`, frontend PID `41928`, Runner PID `53624`; correct Runner registration contract probe returned business code `0` and `runnerSessionId=14`.
+- Probe correction note: an intermediate closeout probe used an array for `capabilities` and then omitted `tenant-id`; those probe mistakes produced `系统异常` / management-tenant validation errors, not a token failure.
+- EXPERIENCE: Existing experience index already routes `task-closeout runtime log lock`, `PermissionError WinError 32`, and long-running process logs under task directories; no new long-term experience document is needed.

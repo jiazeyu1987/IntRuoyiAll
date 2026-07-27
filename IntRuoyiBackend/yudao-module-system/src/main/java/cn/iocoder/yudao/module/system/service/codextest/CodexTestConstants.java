@@ -29,6 +29,8 @@ final class CodexTestConstants {
     static final String CHECKPOINT_FAIL = "FAIL";
     static final String CHECKPOINT_BLOCKED = "BLOCKED";
 
+    static final String SEQUENTIAL_BLOCK_REASON = "前置节点未通过，串行节点串已停止";
+
     static final String RUNNER_ONLINE = "ONLINE";
 
     static final String PROGRESS_PHASE_METHOD = "METHOD";

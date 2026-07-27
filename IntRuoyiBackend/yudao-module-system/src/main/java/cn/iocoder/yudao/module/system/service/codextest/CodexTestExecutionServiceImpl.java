@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.system.service.codextest;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.collection.CollectionUtils;
@@ -26,8 +27,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_CASE_NOT_EXISTS;
@@ -63,9 +66,9 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
     public Long startExecution(CodexTestExecutionStartReqVO startReqVO, Long requestedBy) {
         validateStartReqVO(startReqVO, requestedBy);
         validateTargetTenant(startReqVO.getTargetTenantId());
-        codexTestRunnerBootstrapService.ensureRunnerAvailable();
-        List<CodexTestCaseDO> cases = getOrderedCases(startReqVO.getCaseIds());
+        List<CodexTestCaseDO> cases = getOrderedCases(startReqVO.getCaseIds(), startReqVO.getExecutionMode());
         validateExecutableCases(cases, startReqVO.getExecutionMode());
+        codexTestRunnerBootstrapService.ensureRunnerAvailable();
 
         CodexTestExecutionDO execution = new CodexTestExecutionDO();
         execution.setTargetTenantId(startReqVO.getTargetTenantId());
@@ -147,15 +150,30 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
     @Override
     public void rollupExecution(Long executionId) {
         CodexTestExecutionDO execution = validateExecutionExists(executionId);
+        String summary = execution.getSummary();
+        if (MODE_SEQUENTIAL.equals(execution.getExecutionMode())
+                && codexTestExecutionCaseMapper.selectFailedCountByExecutionId(executionId) > 0) {
+            List<CodexTestExecutionCaseDO> pendingCases =
+                    codexTestExecutionCaseMapper.selectPendingListByExecutionId(executionId);
+            if (CollUtil.isNotEmpty(pendingCases)) {
+                LocalDateTime blockedAt = LocalDateTime.now();
+                codexTestExecutionCaseMapper.blockPendingByExecutionId(
+                        executionId, SEQUENTIAL_BLOCK_REASON, blockedAt);
+                codexTestCheckpointResultMapper.blockNotRunByExecutionCaseIds(
+                        CollectionUtils.convertList(pendingCases, CodexTestExecutionCaseDO::getId),
+                        SEQUENTIAL_BLOCK_REASON, blockedAt);
+                summary = SEQUENTIAL_BLOCK_REASON;
+            }
+        }
         if (codexTestExecutionCaseMapper.selectUnfinishedCountByExecutionId(executionId) > 0) {
             codexTestExecutionMapper.updateStatus(executionId, EXECUTION_RUNNING, execution.getStartedAt(),
-                    null, execution.getSummary(), execution.getRunnerSessionId());
+                    null, summary, execution.getRunnerSessionId());
             return;
         }
         String status = codexTestExecutionCaseMapper.selectFailedCountByExecutionId(executionId) > 0
                 ? EXECUTION_FAIL : EXECUTION_PASS;
         codexTestExecutionMapper.updateStatus(executionId, status, execution.getStartedAt(),
-                LocalDateTime.now(), execution.getSummary(), execution.getRunnerSessionId());
+                LocalDateTime.now(), summary, execution.getRunnerSessionId());
     }
 
     private void validateStartReqVO(CodexTestExecutionStartReqVO startReqVO, Long requestedBy) {
@@ -178,13 +196,51 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
         }
     }
 
-    private List<CodexTestCaseDO> getOrderedCases(List<Long> caseIds) {
+    private List<CodexTestCaseDO> getOrderedCases(List<Long> caseIds, String executionMode) {
         List<CodexTestCaseDO> dbCases = codexTestCaseMapper.selectListByIds(caseIds);
         Map<Long, CodexTestCaseDO> caseMap = CollectionUtils.convertMap(dbCases, CodexTestCaseDO::getId);
         if (caseMap.size() != caseIds.stream().distinct().count()) {
             throw exception(CODEX_TEST_CASE_NOT_EXISTS);
         }
-        return caseIds.stream().distinct().map(caseMap::get).toList();
+        List<CodexTestCaseDO> selectedCases = caseIds.stream().distinct().map(caseMap::get).toList();
+        String nodeChainName = validateNodeChainSelection(selectedCases, executionMode);
+        if (nodeChainName == null) {
+            return selectedCases;
+        }
+        return selectedCases.stream()
+                .sorted(Comparator.comparing(CodexTestCaseDO::getNodeChainSort))
+                .toList();
+    }
+
+    private String validateNodeChainSelection(List<CodexTestCaseDO> cases, String executionMode) {
+        List<CodexTestCaseDO> nodeChainCases = cases.stream()
+                .filter(testCase -> StrUtil.isNotBlank(testCase.getNodeChainName()))
+                .toList();
+        if (nodeChainCases.isEmpty()) {
+            return null;
+        }
+        Set<String> nodeChainNames = CollectionUtils.convertSet(
+                nodeChainCases, CodexTestCaseDO::getNodeChainName);
+        if (nodeChainNames.size() != 1) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "一次执行只能选择一个节点串");
+        }
+        if (nodeChainCases.size() != cases.size()) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串测试项不能与独立测试项混合执行");
+        }
+        if (!MODE_SEQUENTIAL.equals(executionMode)) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串只能使用顺序执行");
+        }
+        if (nodeChainCases.stream().anyMatch(testCase -> testCase.getNodeChainSort() == null
+                || testCase.getNodeChainSort() <= 0
+                || !MODE_SEQUENTIAL.equals(testCase.getDefaultExecutionMode())
+                || Boolean.TRUE.equals(testCase.getParallelSafe()))) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串配置不完整或执行控制不正确");
+        }
+        if (nodeChainCases.stream().map(CodexTestCaseDO::getNodeChainSort).distinct().count()
+                != nodeChainCases.size()) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串内存在重复序号");
+        }
+        return nodeChainNames.iterator().next();
     }
 
     private void validateExecutableCases(List<CodexTestCaseDO> cases, String executionMode) {

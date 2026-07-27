@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.system.service.codextest;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCaseSaveReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestExecutionStartReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestCheckpointResultDO;
@@ -23,6 +24,7 @@ import java.util.List;
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_PARALLEL_UNSAFE_CASE;
+import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RESULT_SCHEMA_INVALID;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RUNNER_START_FAILED;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.doThrow;
@@ -73,6 +75,40 @@ class CodexTestExecutionServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void startSequentialExecution_ordersNodeChainByConfiguredSort() {
+        Long firstCaseId = codexTestCaseService.createCase(
+                CodexTestCaseServiceImplTest.buildNodeChainCaseReq("批记录前置检查", 1));
+        Long secondCaseId = codexTestCaseService.createCase(
+                CodexTestCaseServiceImplTest.buildNodeChainCaseReq("批记录创建执行", 2));
+        Long thirdCaseId = codexTestCaseService.createCase(
+                CodexTestCaseServiceImplTest.buildNodeChainCaseReq("批记录通知核验", 3));
+
+        Long executionId = codexTestExecutionService.startExecution(
+                startReq("SEQUENTIAL", thirdCaseId, firstCaseId, secondCaseId), 99L);
+
+        List<CodexTestExecutionCaseDO> executionCases =
+                codexTestExecutionCaseMapper.selectListByExecutionId(executionId);
+        assertEquals(List.of("批记录前置检查", "批记录创建执行", "批记录通知核验"),
+                executionCases.stream().map(CodexTestExecutionCaseDO::getCaseNameSnapshot).toList());
+    }
+
+    @Test
+    void startSequentialExecution_rejectsMixedNodeChains() {
+        Long batchChainCaseId = codexTestCaseService.createCase(
+                CodexTestCaseServiceImplTest.buildNodeChainCaseReq("批记录前置检查", 1));
+        CodexTestCaseSaveReqVO anotherChainReq =
+                CodexTestCaseServiceImplTest.buildNodeChainCaseReq("工艺路线前置检查", 1);
+        anotherChainReq.setNodeChainName("工艺路线串行验证");
+        anotherChainReq.setProject("工艺路线");
+        Long routeChainCaseId = codexTestCaseService.createCase(anotherChainReq);
+
+        assertServiceException(
+                () -> codexTestExecutionService.startExecution(
+                        startReq("SEQUENTIAL", batchChainCaseId, routeChainCaseId), 99L),
+                CODEX_TEST_RESULT_SCHEMA_INVALID, "一次执行只能选择一个节点串");
+    }
+
+    @Test
     void startParallelExecution_rejectsUnsafeCaseWithoutDowngradingToSequential() {
         Long caseId = codexTestCaseService.createCase(CodexTestCaseServiceImplTest.buildCaseReq("排产手动重排", false));
 
@@ -106,11 +142,11 @@ class CodexTestExecutionServiceImplTest extends BaseDbUnitTest {
         assertEquals(2, execution.getCases().get(0).getCheckpointResults().size());
     }
 
-    private CodexTestExecutionStartReqVO startReq(String mode, Long caseId) {
+    private CodexTestExecutionStartReqVO startReq(String mode, Long... caseIds) {
         CodexTestExecutionStartReqVO reqVO = new CodexTestExecutionStartReqVO();
         reqVO.setTargetTenantId(88L);
         reqVO.setExecutionMode(mode);
-        reqVO.setCaseIds(List.of(caseId));
+        reqVO.setCaseIds(List.of(caseIds));
         return reqVO;
     }
 

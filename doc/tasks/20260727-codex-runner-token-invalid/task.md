@@ -39,3 +39,31 @@
 ## Current Status
 
 in_progress
+
+## Milestone 6
+
+- 用户明确要求执行真实 E2E 验证。
+- 通过 Playwright 从 `系统管理 > 测试管理` 页面按可见测试项名称定位并点击“执行”。
+- 只选择已存在且测试方法包含前置复位、页面操作、结果核验和清理恢复的测试项。
+- 验证执行批次进入终态、Runner heartbeat 未过期、页面不再提示 token 错误，并记录测试数据与清理结果。
+
+## Closeout Blocker
+
+实现与验证已完成，cleanup 可执行；最终提交/推送暂时阻塞，因为当前工作区存在大量非本任务源码、测试、文档改动，不能按任务边界安全暂存提交。
+
+## Cleanup Evidence
+
+- Cleanup preview: PASS; 删除范围仅包含本任务临时日志、重启脚本、一次性真实页面验证脚本、摘要 JSON 和截图。
+- Cleanup apply: 首次执行被活动后端文件锁阻塞，`backend-token-alignment.stderr.log` 与 `backend-token-alignment.stdout.log` 仍由当前 `48081` 后端运行态占用。
+- Cleanup adjustment: 为避免中断已修复并可用的本机后端运行态，活动后端日志临时列入 `Cleanup Keep`，其余本任务临时产物继续清理。
+- Cleanup apply: PASS; 已删除 `restart-backend-with-token.ps1`、`runner-status-real-e2e.cjs`、`runner-status-real-summary.json` 和 `runner-status-real.png`。
+- Final token probe: PASS; 按真实 Runner 请求头和 payload 注册返回业务码 `0`，`runnerSessionId=14`。
+
+## Cleanup Keep
+
+- doc/tasks/20260727-codex-runner-token-invalid/task.md
+- doc/tasks/20260727-codex-runner-token-invalid/execution-log.md
+- doc/tasks/20260727-codex-runner-token-invalid/verification-report.md
+- doc/tasks/20260727-codex-runner-token-invalid/bug-regression-evidence.md
+- doc/tasks/20260727-codex-runner-token-invalid/backend-token-alignment.stderr.log
+- doc/tasks/20260727-codex-runner-token-invalid/backend-token-alignment.stdout.log

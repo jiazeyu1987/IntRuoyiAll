@@ -23,6 +23,8 @@ export interface CodexTestCaseVO {
   id?: number
   name: string
   project?: CodexTestProject
+  nodeChainName?: string
+  nodeChainSort?: number
   methodText: string
   testDataText?: string
   defaultExecutionMode: 'SEQUENTIAL' | 'PARALLEL'
@@ -39,8 +41,15 @@ export interface CodexTestCaseVO {
 export interface CodexTestCasePageReqVO extends PageParam {
   name?: string
   project?: CodexTestProject
+  nodeChainName?: string
   status?: string
   executionMode?: string
+}
+
+export interface CodexTestNodeChainOptionVO {
+  name: string
+  project: CodexTestProject
+  nodeCount: number
 }
 
 export interface CodexTestExecutionStartReqVO {
@@ -124,6 +133,12 @@ export const getCodexTestCasePage = (params: CodexTestCasePageReqVO) => {
 
 export const getCodexTestCase = (id: number) => {
   return request.get<CodexTestCaseVO>({ url: '/system/codex-test-case/get?id=' + id })
+}
+
+export const getCodexTestNodeChainOptions = () => {
+  return request.get<CodexTestNodeChainOptionVO[]>({
+    url: '/system/codex-test-case/node-chain-options'
+  })
 }
 
 export const createCodexTestCase = (data: CodexTestCaseVO) => {

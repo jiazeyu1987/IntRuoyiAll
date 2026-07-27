@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.system.service.codextest;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestNodeChainOptionRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCaseSaveReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCheckpointSaveReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestCaseDO;
@@ -52,6 +53,75 @@ class CodexTestCaseServiceImplTest extends BaseDbUnitTest {
         Long caseId = codexTestCaseService.createCase(reqVO);
 
         assertEquals("工艺路线", codexTestCaseMapper.selectById(caseId).getProject());
+    }
+
+    @Test
+    void createCase_persistsNodeChainFields() {
+        CodexTestCaseSaveReqVO reqVO = buildNodeChainCaseReq("批记录前置检查", 1);
+
+        Long caseId = codexTestCaseService.createCase(reqVO);
+
+        CodexTestCaseDO testCase = codexTestCaseMapper.selectById(caseId);
+        assertEquals("批记录串行验证", testCase.getNodeChainName());
+        assertEquals(1, testCase.getNodeChainSort());
+        assertEquals("SEQUENTIAL", testCase.getDefaultExecutionMode());
+        assertFalse(testCase.getParallelSafe());
+    }
+
+    @Test
+    void createCase_rejectsNodeChainWithoutSort() {
+        CodexTestCaseSaveReqVO reqVO = buildNodeChainCaseReq("批记录前置检查", 1);
+        reqVO.setNodeChainSort(null);
+
+        assertServiceException(() -> codexTestCaseService.createCase(reqVO),
+                CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串测试项的串内序号必须大于 0");
+    }
+
+    @Test
+    void createCase_rejectsDuplicateNodeChainSort() {
+        codexTestCaseService.createCase(buildNodeChainCaseReq("批记录前置检查", 1));
+        CodexTestCaseSaveReqVO duplicateReqVO = buildNodeChainCaseReq("批记录创建执行", 1);
+
+        assertServiceException(() -> codexTestCaseService.createCase(duplicateReqVO),
+                CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串【批记录串行验证】已存在第 1 节点");
+    }
+
+    @Test
+    void createCase_rejectsParallelNodeChain() {
+        CodexTestCaseSaveReqVO reqVO = buildNodeChainCaseReq("批记录前置检查", 1);
+        reqVO.setDefaultExecutionMode("PARALLEL");
+
+        assertServiceException(() -> codexTestCaseService.createCase(reqVO),
+                CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串测试项只能使用顺序执行");
+    }
+
+    @Test
+    void createCase_rejectsParallelSafeNodeChain() {
+        CodexTestCaseSaveReqVO reqVO = buildNodeChainCaseReq("批记录前置检查", 1);
+        reqVO.setParallelSafe(true);
+
+        assertServiceException(() -> codexTestCaseService.createCase(reqVO),
+                CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串测试项不允许标记为并行安全");
+    }
+
+    @Test
+    void getNodeChainOptions_returnsDistinctChainsWithNodeCounts() {
+        codexTestCaseService.createCase(buildNodeChainCaseReq("批记录前置检查", 1));
+        codexTestCaseService.createCase(buildNodeChainCaseReq("批记录创建执行", 2));
+        CodexTestCaseSaveReqVO routeReqVO = buildNodeChainCaseReq("工艺路线前置检查", 1);
+        routeReqVO.setNodeChainName("工艺路线串行验证");
+        routeReqVO.setProject("工艺路线");
+        codexTestCaseService.createCase(routeReqVO);
+
+        List<CodexTestNodeChainOptionRespVO> options = codexTestCaseService.getNodeChainOptions();
+
+        assertEquals(2, options.size());
+        assertEquals("工艺路线串行验证", options.get(0).getName());
+        assertEquals("工艺路线", options.get(0).getProject());
+        assertEquals(1, options.get(0).getNodeCount());
+        assertEquals("批记录串行验证", options.get(1).getName());
+        assertEquals("批记录", options.get(1).getProject());
+        assertEquals(2, options.get(1).getNodeCount());
     }
 
     @Test
@@ -117,6 +187,14 @@ class CodexTestCaseServiceImplTest extends BaseDbUnitTest {
         reqVO.setCheckpoints(List.of(
                 checkpoint(1, "重排成功"),
                 checkpoint(2, "只有两个目标工单进入甘特图")));
+        return reqVO;
+    }
+
+    static CodexTestCaseSaveReqVO buildNodeChainCaseReq(String name, int nodeChainSort) {
+        CodexTestCaseSaveReqVO reqVO = buildCaseReq(name, false);
+        reqVO.setProject("批记录");
+        reqVO.setNodeChainName("批记录串行验证");
+        reqVO.setNodeChainSort(nodeChainSort);
         return reqVO;
     }
 

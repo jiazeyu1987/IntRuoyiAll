@@ -20,6 +20,7 @@
 - `BDD: Missing production batch code fails fast -> Given` an enabled production work order batch-code link exists but the work order `batchCode` is blank, `When` the execution is created or opened, `Then` the backend returns a clear missing source value error and does not write a blank/default value.
 - `BDD: Repeated open is idempotent -> Given` the same rule and source value were already auto-persisted, `When` the execution is opened repeatedly, `Then` no duplicate audit batch is appended and the hash chain remains valid.
 - `BDD: Frontend uses persisted values only -> Given` the execution detail does not contain a stored value, `When` the execution page hydrates draft state, `Then` the frontend must not inject `/prefill` values as if they were saved.
+- `BDD: Cell-link auto-persist idempotency key fits audit schema -> Given` an enabled cell-link rule writes through field audit, `When` the auto-persist command builds the system idempotency key, `Then` the key is stable, hash-derived, and no longer than the `mes_pro_batch_record_execution_field_audit_batch.idempotency_key` 64-character schema limit.
 
 ## RED/GREEN Evidence
 
@@ -30,6 +31,8 @@
 - `GREEN: mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordExecutionServiceImplTest,MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordExecutionFieldAuditServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 138 tests, 0 failures, 0 errors.`
 - `GREEN: mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_bindsExistingSingleExecutionContext+openTask_withoutProductionTaskContext_stillOpensBatchRecordWithoutScheduleReference+openTask_ignoresSingleWorkOrderProductionTaskWhenOpeningBatchRecord" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 3 tests, 0 failures, 0 errors.`
 - `GREEN: node tests/e2e/edhr-cell-link-auto-persist-static.spec.js -> PASS: eDHR cell link auto-persist frontend static contract.`
+- `RED: mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordCellLinkAutoPersistServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, 4 tests, 2 failures; generated cell-link auto-persist idempotency key length was 101 instead of the required 64-character schema limit.`
+- `GREEN: mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordCellLinkAutoPersistServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" surefire:test -> PASS, 4 tests, 0 failures, 0 errors; compiled production/test classes were newer than their source files after the full lifecycle compile completed, so Surefire was invoked directly to avoid concurrent reactor recompilation.`
 
 ## Milestone Updates
 
@@ -56,6 +59,8 @@
 - `2026-07-27 PASS: project-experience-consolidation -> existing durable rule is present at docs/backend-development.md#批记录单元格链接预填落库边界 and indexed in docs/experience-index.md; no duplicate document created.`
 - `2026-07-27 BLOCKED real E2E preflight: 127.0.0.1:8081 and 127.0.0.1:48081 both refused connections, and no authorized writable test tenant/account was established for this task.`
 - `2026-07-27 BLOCKED broader regression: full MesProEdhrBatchExecutionServiceTest -> 142 tests, 1 failure and 10 errors from unrelated H2 schema, attachment-owner configuration, and release-pending action expectation problems.`
+- `2026-07-27 IN PROGRESS: user authorized real local write-path E2E with tenant 芋道源码 / admin; fixture opened through real UI but backend task/open failed while inserting field-audit batch because idempotency_key exceeded varchar(64).`
+- `2026-07-27 PASS: idempotency-key regression test now proves both system-write and repeated-open lookup paths generate 64-character SHA-256 keys.`
 
 ## Git Evidence
 

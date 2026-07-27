@@ -20,6 +20,8 @@
 - [x] 调整前端执行页，移除未落库预填注入，并补静态契约。
 - [x] 运行目标后端、前端和结构校验，更新证据文档。
 - [x] 完成经验沉淀、收尾清理、提交并推送。
+- [ ] 修复真实 E2E 暴露的字段审计 `idempotency_key` 超长回归。
+- [ ] 重新运行后端定向回归和真实 eDHR 批次执行 Playwright 路径。
 
 ## Expected Verification
 
@@ -31,7 +33,9 @@
 
 ## Current Status
 
-completed
+in_progress
+
+2026-07-27 真实 eDHR 批次执行路径已建立授权测试夹具后，打开执行记录暴露字段审计批次写入失败：`mes_pro_batch_record_execution_field_audit_batch.idempotency_key` 为 `varchar(64)`，当前单元格链接自动落库生成的明文幂等键超过列长并导致 `task/open` 返回系统异常。继续在本任务内按 BDD/TDD 修复该回归。
 
 ## Verification Summary
 
@@ -68,3 +72,4 @@ completed
 - doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/backend-api-evidence.md
 - doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/frontend-feature-evidence.md
 - doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/bug-regression-evidence.md
+- doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/real-e2e-evidence.md

@@ -28,6 +28,7 @@ import org.springframework.validation.annotation.Validated;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -94,16 +95,33 @@ public class CodexTestRunnerServiceImpl implements CodexTestRunnerService {
         validateRunnerToken(token);
         CodexTestRunnerSessionDO runnerSession = validateOnlineRunner(claimReqVO.getRunnerSessionId());
         int capacity = Math.min(Math.min(claimReqVO.getCapacity(), maxClaimSize), runnerSession.getMaxParallelism());
-        List<CodexTestRunnerClaimRespVO.Task> tasks = codexTestExecutionCaseMapper
-                .selectPendingClaimCandidates(capacity).stream()
-                .filter(executionCase -> codexTestExecutionCaseMapper.claim(executionCase.getId(),
-                        runnerSession.getId(), LocalDateTime.now()) == 1)
-                .map(executionCase -> buildTask(executionCase, runnerSession.getId()))
-                .toList();
+        List<CodexTestRunnerClaimRespVO.Task> tasks = new ArrayList<>(capacity);
+        for (CodexTestExecutionCaseDO executionCase : codexTestExecutionCaseMapper.selectPendingClaimCandidates()) {
+            if (tasks.size() >= capacity) {
+                break;
+            }
+            if (!isClaimable(executionCase)) {
+                continue;
+            }
+            if (codexTestExecutionCaseMapper.claim(
+                    executionCase.getId(), runnerSession.getId(), LocalDateTime.now()) == 1) {
+                tasks.add(buildTask(executionCase, runnerSession.getId()));
+            }
+        }
         codexTestRunnerSessionMapper.heartbeat(runnerSession.getId(), LocalDateTime.now(), tasks.size());
         CodexTestRunnerClaimRespVO respVO = new CodexTestRunnerClaimRespVO();
         respVO.setTasks(tasks);
         return respVO;
+    }
+
+    private boolean isClaimable(CodexTestExecutionCaseDO executionCase) {
+        CodexTestExecutionDO execution = codexTestExecutionMapper.selectById(executionCase.getExecutionId());
+        if (execution == null) {
+            throw exception(CODEX_TEST_EXECUTION_NOT_EXISTS);
+        }
+        return !MODE_SEQUENTIAL.equals(execution.getExecutionMode())
+                || codexTestExecutionCaseMapper.selectEarlierNotPassedCount(
+                        executionCase.getExecutionId(), executionCase.getId()) == 0;
     }
 
     @Override

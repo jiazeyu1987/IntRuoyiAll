@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.util.List;
@@ -22,6 +23,13 @@ public class CodexTestCaseSaveReqVO {
     @Schema(description = "所属项目：智能排产/文控/批记录/工艺路线", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "所属项目不能为空")
     private String project;
+
+    @Schema(description = "串行节点串名称")
+    @Size(max = 128, message = "节点串名称不能超过 128 个字符")
+    private String nodeChainName;
+
+    @Schema(description = "串内节点序号")
+    private Integer nodeChainSort;
 
     @Schema(description = "自然语言测试方法", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "自然语言测试方法不能为空")
