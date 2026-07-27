@@ -23,8 +23,8 @@ for (const field of [
 
 assert.match(
   templatePage,
-  /const\s+openSelectedTemplate\s*=\s*async\s*\(\)\s*=>[\s\S]+openSelectedTemplateDesigner\('preview'\)/,
-  '表单模板“打开”必须复用批记录设计器预览路径'
+  /const\s+openSelectedTemplate\s*=\s*\(\)\s*=>[\s\S]+templateViewDialogRef\.value\?\.open\(selectedTemplate\.value\)/,
+  '表单模板“打开”必须进入本页模板查看弹窗，不得依赖批记录绑定'
 )
 assert.match(
   templatePage,
@@ -33,28 +33,24 @@ assert.match(
 )
 assert.match(
   templatePage,
-  /const\s+openSelectedTemplateFill\s*=\s*async\s*\(\)\s*=>[\s\S]+\/mes\/pro\/feedback\/edhr-batch-execution\/template-simulate/,
-  '表单模板“填写”必须跳转批记录模板模拟填写页'
+  /const\s+openSelectedTemplateFill\s*=\s*\(\)\s*=>[\s\S]+resetTemplateFillValues\(\)[\s\S]+fillDialogVisible\.value\s*=\s*true/,
+  '表单模板“填写”必须进入本页模拟填写弹窗，不得依赖批记录绑定'
 )
 
-assert.match(templatePage, /path:\s*'\/mes\/pro\/batch-record-form-list'/, '打开按钮必须进入批记录表单页')
-assert.match(templatePage, /reportMode:\s*mode/, '打开按钮必须传递批记录 reportMode')
-assert.match(templatePage, /reportId:\s*binding\.batchRecordReportId/, '批记录相关跳转必须使用后端返回的稳定 reportId')
-assert.match(templatePage, /returnLabel:\s*'返回表单模板'/, '填写页返回标签必须指向表单模板')
-assert.match(templatePage, /当前模板未绑定批记录表单/, '缺少 reportId 时必须 fail fast 提示绑定缺失')
-assert.match(
-  templatePage,
-  /bindingStatus\s*!==\s*'BOUND'\s*\|\|\s*!reportId/,
-  '批记录预览/填写必须同时要求绑定状态为 BOUND 且 reportId 存在'
-)
+assert.doesNotMatch(templatePage, /path:\s*'\/mes\/pro\/batch-record-form-list'/, '表单模板页不得把打开动作路由到批记录表单页')
+assert.doesNotMatch(templatePage, /\/mes\/pro\/feedback\/edhr-batch-execution\/template-simulate/, '表单模板页不得把填写动作路由到批记录模拟填写页')
+assert.doesNotMatch(templatePage, /当前模板未绑定批记录表单/, '通用表单模板页不得因缺少批记录绑定拦截打开/填写')
+assert.doesNotMatch(templatePage, /resolveSelectedTemplateBatchRecordBinding/, '通用表单模板页不得通过批记录绑定校验驱动打开/填写')
 
 const openSelectedTemplateBody = templatePage.match(/const\s+openSelectedTemplate\s*=[\s\S]*?\n}\n/)?.[0] || ''
 const editSelectedTemplateBody = templatePage.match(/const\s+editSelectedTemplate\s*=[\s\S]*?\n}\n/)?.[0] || ''
 const fillSelectedTemplateBody = templatePage.match(/const\s+openSelectedTemplateFill\s*=[\s\S]*?\n}\n/)?.[0] || ''
 
-assert.doesNotMatch(openSelectedTemplateBody, /templateViewDialogRef\.value\?\.open/, '打开按钮不得再进入 TemplateViewDialog')
+assert.doesNotMatch(openSelectedTemplateBody, /openSelectedTemplateDesigner/, '打开按钮不得进入批记录设计器预览路径')
+assert.doesNotMatch(openSelectedTemplateBody, /resolveSelectedTemplateBatchRecordBinding/, '打开按钮不得先校验批记录绑定关系')
 assert.doesNotMatch(editSelectedTemplateBody, /openSelectedTemplateDesigner\('edit'\)/, '编辑按钮不得进入批记录设计器编辑路径')
 assert.doesNotMatch(editSelectedTemplateBody, /resolveSelectedTemplateBatchRecordBinding/, '编辑按钮不得先校验批记录绑定关系')
-assert.doesNotMatch(fillSelectedTemplateBody, /fillDialogVisible\.value\s*=\s*true/, '填写按钮不得再进入本页模拟填写弹窗')
+assert.doesNotMatch(fillSelectedTemplateBody, /resolveSelectedTemplateBatchRecordBinding/, '填写按钮不得先校验批记录绑定关系')
+assert.doesNotMatch(fillSelectedTemplateBody, /router\.push/, '填写按钮不得跳转批记录模拟填写页')
 
 console.log('PASS form-template-batch-record-button-alignment-static')

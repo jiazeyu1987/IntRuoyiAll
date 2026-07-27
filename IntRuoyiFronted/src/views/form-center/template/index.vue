@@ -896,56 +896,19 @@ const selectedTemplateObsoletePending = computed(() => {
   return obsoletePendingByTemplateKey.value[templateRowKey(selectedTemplate.value)] || null
 })
 
-type BatchRecordDesignerMode = 'preview' | 'edit'
-
-const resolveSelectedTemplateBatchRecordBinding = () => {
-  const binding = selectedTemplate.value
-  if (!binding) return null
-  const bindingStatus = String(binding.batchRecordBindingStatus || '').trim().toUpperCase()
-  const reportId = String(binding.batchRecordReportId || '').trim()
-  if (bindingStatus !== 'BOUND' || !reportId) {
-    message.error(binding.batchRecordBindingError || '当前模板未绑定批记录表单，无法执行该操作')
-    return null
-  }
-  return binding
-}
-
-const openSelectedTemplateDesigner = async (mode: BatchRecordDesignerMode) => {
-  const binding = resolveSelectedTemplateBatchRecordBinding()
-  if (!binding) return
-  await router.push({
-    path: '/mes/pro/batch-record-form-list',
-    query: {
-      mode: 'designer',
-      reportId: binding.batchRecordReportId,
-      reportMode: mode
-    }
-  })
-}
-
-const openSelectedTemplate = async () => {
-  await openSelectedTemplateDesigner('preview')
+const openSelectedTemplate = () => {
+  if (!selectedTemplate.value) return
+  templateViewDialogRef.value?.open(selectedTemplate.value)
 }
 
 const editSelectedTemplate = async () => {
   await openSelectedTemplateAction('edit')
 }
 
-const openSelectedTemplateFill = async () => {
-  const binding = resolveSelectedTemplateBatchRecordBinding()
-  if (!binding) return
-  await router.push({
-    path: '/mes/pro/feedback/edhr-batch-execution/template-simulate',
-    query: {
-      reportId: binding.batchRecordReportId,
-      reportName: binding.batchRecordReportName,
-      batchRecordName: binding.batchRecordName,
-      batchRecordVersionNo: binding.batchRecordVersionNo,
-      formSlotType: binding.batchRecordFormSlotType,
-      returnTo: route.fullPath,
-      returnLabel: '返回表单模板'
-    }
-  })
+const openSelectedTemplateFill = () => {
+  if (!selectedTemplate.value) return
+  resetTemplateFillValues()
+  fillDialogVisible.value = true
 }
 
 type FormTemplateAction = 'edit' | 'signature'
