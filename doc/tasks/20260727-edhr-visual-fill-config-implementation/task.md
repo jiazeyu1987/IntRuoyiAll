@@ -33,7 +33,11 @@
 
 ## Current Status
 
-in_progress：融合分支后已修复任务专用路线复制时未继承来源 ACTIVE 版本 `batchRecordAttachmentOwners` 的快照缺口；后端目标 RED/GREEN、核心回归、前端静态合同、`pnpm ts:check`、后端打包、slot 2 后端重启和完整真实 E2E 均已通过。真实 E2E 在 `芋道源码` 租户使用本地未跟踪 `local-input.json`，不依赖环境变量，验证管理员配置、`jiazeyu` 与 `wangxin` 两名员工共享辅助行待办，并在 finally 恢复报表配置、作废任务批次、删除任务路线副本。剩余工作为提交推送与最终收尾。
+ready_for_closeout：融合分支后已修复任务专用路线复制时未继承来源 ACTIVE 版本 `batchRecordAttachmentOwners` 的快照缺口；后端目标 RED/GREEN、核心回归、前端静态合同、`pnpm ts:check`、后端打包、slot 2 后端重启和完整真实 E2E 均已通过。真实 E2E 在 `芋道源码` 租户使用本地未跟踪 `local-input.json`，不依赖环境变量，验证管理员配置、`jiazeyu` 与 `wangxin` 两名员工共享辅助行待办，并在 finally 恢复报表配置、作废任务批次、删除任务路线副本。cleanup preview 已完成；apply/ff-only 合并/删除 worktree 被主 worktree `E:\IntRuoyi` dirty 状态阻塞，需等待主 worktree 清理后继续最终 closeout。
+
+## Cleanup Keep
+
+- doc/tasks/20260727-edhr-visual-fill-config-implementation/bug-regression-evidence.md
 
 ## 设计约束检查
 
