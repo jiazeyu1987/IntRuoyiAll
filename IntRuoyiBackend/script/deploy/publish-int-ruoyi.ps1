@@ -62,6 +62,7 @@ param(
     [string]$DccProjectCodeCodexCliCommand = $env:DCC_PROJECT_CODE_CODEX_CLI_COMMAND,
     [string]$DccProjectCodeCodexHome = $env:DCC_PROJECT_CODE_CODEX_HOME,
     [string]$ReleaseChangeSummaryCodexCliCommand = $env:INTRUOYI_RELEASE_CHANGE_SUMMARY_CODEX_CLI_COMMAND,
+    [int]$ReleaseChangeSummaryCodexTimeoutSeconds = 180,
     [string]$LocalCacheRoot = $env:INTRUOYI_LOCAL_CACHE_ROOT,
     [ValidateSet('offline-tar')]
     [string]$BackendRuntimeBaseMode = $env:INTRUOYI_BACKEND_RUNTIME_BASE_MODE,
@@ -3102,6 +3103,108 @@ function Resolve-ReleaseChangeSummaryCodexCliCommand {
     return $command.Source
 }
 
+function ConvertTo-WindowsProcessArgument {
+    param(
+        [AllowNull()]
+        [string]$Value
+    )
+
+    if ($null -eq $Value) {
+        return '""'
+    }
+    if ($Value -notmatch '[\s"]') {
+        return $Value
+    }
+
+    $builder = [System.Text.StringBuilder]::new()
+    [void]$builder.Append('"')
+    $backslashCount = 0
+    foreach ($character in $Value.ToCharArray()) {
+        if ($character -eq '\') {
+            $backslashCount += 1
+            continue
+        }
+        if ($character -eq '"') {
+            [void]$builder.Append(('\' * (($backslashCount * 2) + 1)))
+            [void]$builder.Append('"')
+            $backslashCount = 0
+            continue
+        }
+        if ($backslashCount -gt 0) {
+            [void]$builder.Append(('\' * $backslashCount))
+            $backslashCount = 0
+        }
+        [void]$builder.Append($character)
+    }
+    if ($backslashCount -gt 0) {
+        [void]$builder.Append(('\' * ($backslashCount * 2)))
+    }
+    [void]$builder.Append('"')
+    return $builder.ToString()
+}
+
+function Invoke-ReleaseCodexExec {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+        [Parameter(Mandatory = $true)]
+        [string[]]$ArgumentList,
+        [Parameter(Mandatory = $true)]
+        [string]$StandardInput,
+        [int]$TimeoutSeconds = 180
+    )
+
+    if ($TimeoutSeconds -lt 30) {
+        Fail 'Codex CLI timeout must be at least 30 seconds'
+    }
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $FilePath
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardInput = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.StandardOutputEncoding = [System.Text.UTF8Encoding]::new($false)
+    $startInfo.StandardErrorEncoding = [System.Text.UTF8Encoding]::new($false)
+    $startInfo.WorkingDirectory = $backendRepo
+
+    if ($startInfo.PSObject.Properties.Name -contains 'ArgumentList') {
+        foreach ($argument in $ArgumentList) {
+            [void]$startInfo.ArgumentList.Add($argument)
+        }
+    } else {
+        $startInfo.Arguments = (($ArgumentList | ForEach-Object { ConvertTo-WindowsProcessArgument -Value $_ }) -join ' ')
+    }
+
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    if (-not $process.Start()) {
+        Fail 'Codex CLI failed to start'
+    }
+
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $process.StandardInput.Write($StandardInput)
+    $process.StandardInput.Close()
+
+    if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+        try {
+            $process.Kill()
+        } catch {
+            Fail "Codex CLI timed out after $TimeoutSeconds seconds and the timed-out process could not be terminated: $($_.Exception.Message)"
+        }
+        Fail "Codex CLI timed out after $TimeoutSeconds seconds while generating release change summary"
+    }
+
+    $stdoutText = $stdoutTask.GetAwaiter().GetResult()
+    $stderrText = $stderrTask.GetAwaiter().GetResult()
+    return [pscustomobject]@{
+        ExitCode = $process.ExitCode
+        Stdout = $stdoutText
+        Stderr = $stderrText
+    }
+}
+
 function New-ReleaseCodexSummarySchema {
     param(
         [int]$MaxItems = 10
@@ -3176,6 +3279,53 @@ $inputJson
 "@
 }
 
+function ConvertTo-ValidatedReleaseCodexSummaryItems {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Response,
+        [Parameter(Mandatory = $true)]
+        [array]$Facts,
+        [int]$MaxItems = 10
+    )
+
+    if ($null -eq $Response.PSObject.Properties['items']) {
+        Fail 'Codex summary output must contain an items array'
+    }
+
+    $items = @($Response.items)
+    if ($items.Count -lt 1 -or $items.Count -gt $MaxItems) {
+        Fail 'Codex summary must contain between 1 and 10 items'
+    }
+    foreach ($itemValue in $items) {
+        if ($itemValue -isnot [string]) {
+            Fail 'Codex summary item must be a string'
+        }
+        $item = ([string]$itemValue).Trim()
+        if ([string]::IsNullOrWhiteSpace($item) -or $item.Length -lt 6 -or $item.Length -gt 240) {
+            Fail 'Codex summary item must be nonempty and between 6 and 240 characters'
+        }
+        if ($item -notmatch '[\u4e00-\u9fff]') {
+            Fail 'Codex summary item must be plain Chinese'
+        }
+        if ($item -match '[\r\n]' -or $item -match '^\s*[-*]\s+') {
+            Fail 'Codex summary item must not contain Markdown or line breaks'
+        }
+        if ($item -match '(?i)(?<![0-9a-f])[0-9a-f]{7,40}(?![0-9a-f])') {
+            Fail 'Codex summary must not expose raw commit identifiers'
+        }
+        if ($item -match '^\s*\[[^\]]+\]\s+') {
+            Fail 'Codex summary must not expose raw commit entries'
+        }
+        foreach ($fact in $Facts) {
+            if ($item.Equals(([string]$fact.subject).Trim(), [System.StringComparison]::OrdinalIgnoreCase)) {
+                Fail 'Codex summary must not expose raw commit entries'
+            }
+        }
+    }
+
+    return @($items)
+}
+
 function Invoke-ReleaseCodexSummary {
     param(
         [Parameter(Mandatory = $true)]
@@ -3220,16 +3370,14 @@ function Invoke-ReleaseCodexSummary {
             '-'
         )
 
-        $previousOutputEncoding = $OutputEncoding
-        try {
-            $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-            $promptText | & $codexCommand @codexArguments 2> $stderrPath
-            $codexExitCode = $LASTEXITCODE
-        } finally {
-            $OutputEncoding = $previousOutputEncoding
-        }
-        if ($codexExitCode -ne 0) {
-            Fail "Codex CLI failed while generating release change summary with exit code $codexExitCode"
+        $codexResult = Invoke-ReleaseCodexExec `
+            -FilePath $codexCommand `
+            -ArgumentList $codexArguments `
+            -StandardInput $promptText `
+            -TimeoutSeconds $ReleaseChangeSummaryCodexTimeoutSeconds
+        Write-Utf8LfNoBomFile -Path $stderrPath -Content $codexResult.Stderr
+        if ($codexResult.ExitCode -ne 0) {
+            Fail "Codex CLI failed while generating release change summary with exit code $($codexResult.ExitCode)"
         }
         if (-not (Test-Path -LiteralPath $outputPath -PathType Leaf)) {
             Fail "Codex summary output file was not produced"
@@ -3241,40 +3389,7 @@ function Invoke-ReleaseCodexSummary {
         } catch {
             Fail "Codex summary output must be valid JSON: $($_.Exception.Message)"
         }
-        if ($null -eq $response.PSObject.Properties['items']) {
-            Fail 'Codex summary output must contain an items array'
-        }
-
-        $items = @($response.items)
-        if ($items.Count -lt 1 -or $items.Count -gt $MaxItems) {
-            Fail "Codex summary must contain between 1 and 10 items"
-        }
-        foreach ($itemValue in $items) {
-            if ($itemValue -isnot [string]) {
-                Fail 'Codex summary item must be a string'
-            }
-            $item = ([string]$itemValue).Trim()
-            if ([string]::IsNullOrWhiteSpace($item) -or $item.Length -lt 6 -or $item.Length -gt 240) {
-                Fail 'Codex summary item must be nonempty and between 6 and 240 characters'
-            }
-            if ($item -notmatch '[\u4e00-\u9fff]') {
-                Fail 'Codex summary item must be plain Chinese'
-            }
-            if ($item -match '[\r\n]' -or $item -match '^\s*[-*]\s+') {
-                Fail 'Codex summary item must not contain Markdown or line breaks'
-            }
-            if ($item -match '(?i)(?<![0-9a-f])[0-9a-f]{7,40}(?![0-9a-f])') {
-                Fail 'Codex summary must not expose raw commit identifiers'
-            }
-            if ($item -match '^\s*\[[^\]]+\]\s+') {
-                Fail 'Codex summary must not expose raw commit entries'
-            }
-            foreach ($fact in $Facts) {
-                if ($item.Equals(([string]$fact.subject).Trim(), [System.StringComparison]::OrdinalIgnoreCase)) {
-                    Fail 'Codex summary must not expose raw commit entries'
-                }
-            }
-        }
+        $items = @(ConvertTo-ValidatedReleaseCodexSummaryItems -Response $response -Facts $Facts -MaxItems $MaxItems)
 
         return [ordered]@{
             summaryGenerator = 'codex'
