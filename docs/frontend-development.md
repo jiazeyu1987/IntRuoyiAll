@@ -76,6 +76,15 @@
 - Forbidden action: 禁止把 UI/交互相似解释为共享 `reportId`；禁止伪造绑定、名称匹配、条件 fallback、跨域路由或只隐藏错误提示而保留错误数据契约。
 - Evidence: 任务 `doc/tasks/20260727-form-template-button-alignment-design/`；用户在 2026-07-27 明确澄清实际表单与批记录表单没有直接关系，三个按钮均应执行当前表单模板自身操作。
 
+## 工艺路线批记录表单正式来源门禁
+
+- Trigger: 工艺路线流转关系图“批记录表单”、`batchRecordFormNames`、节点红绿边框、批记录表单链接、Word 导入页只勾选“批记录表单”。
+- Preflight check: 先区分三类入口：`batchRecordReports` 是逐工序正式批记录表单，`formBindings` 是表单槽位，`batchRecordAttachmentOwners` 是工序开始负责人；关系图字段值、链接和节点状态只能读取正式 `batchRecordReports`。导入页只升版“批记录表单”且存在唯一当前路线时，也必须明确提示将生成路线候选并提交当前路线 ID/版本 ID。
+- Blocker: 源码仍通过 `buildRecordBindingValue('MAIN')`、`buildRecordBindingLinks('MAIN')`、默认 `MAIN` 槽位归类、`formBindings`、特殊表单或工序开始配置计算“批记录表单”时，不得声明页面显示正确。
+- Verification: 至少运行 `node tests/e2e/mes-route-flow-batch-record-form-source-static.spec.js`、`node tests/e2e/mes-route-flow-batch-record-detail-slot-filter-static.spec.js` 和 `node tests/e2e/mes-batch-record-import-formal-route-binding-static.spec.js`；真实页面验证需点击“批记录表单”并确认各工序显示正式生产记录名称且不发起 MES 写请求。
+- Forbidden action: 禁止把表单槽位当作批记录表单的补空来源；禁止只改前端展示文案、隐藏“未配置”或 API-only 断言代替页面点击验证。
+- Evidence: 任务 `doc/tasks/20260727-route-flow-batch-record-form-source/verification-report.md`。
+
 ## 前端聚合新增默认分类门禁
 
 - Trigger: 聚合字段编辑器新增子项，且页面摘要、徽标、保存 payload 或状态边框会按子项类型过滤，例如工艺路线表单槽位排除 `MAIN` 批记录槽位。

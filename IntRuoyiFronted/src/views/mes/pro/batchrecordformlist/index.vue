@@ -1347,9 +1347,14 @@ const formatWordImportDuplicateRoutes = (preflight?: BatchRecordReportImportPref
 
 const resolveWordImportRouteUpgradeMessage = (
   batchRecordName: string,
-  preflight: BatchRecordReportImportPreflightVO
-) =>
-  `同一个路线名称只能有一个工艺路线，已存在“${preflight.currentRouteName || batchRecordName}”（${preflight.currentRouteCode || '无编码'}，${preflight.currentRouteVersionNo || '无版本'}）。确认后将生成路线候选版本，待审批/发布后生效，不会创建第二条同名路线。`
+  preflight: BatchRecordReportImportPreflightVO,
+  rebuildBatchRecord: boolean
+) => {
+  const batchRecordBindingMessage = rebuildBatchRecord
+    ? '，并按当前工序更新逐工序批记录表单绑定'
+    : ''
+  return `同一个路线名称只能有一个工艺路线，已存在“${preflight.currentRouteName || batchRecordName}”（${preflight.currentRouteCode || '无编码'}，${preflight.currentRouteVersionNo || '无版本'}）。确认后将生成路线候选版本${batchRecordBindingMessage}，待审批/发布后生效，不会创建第二条同名路线。`
+}
 
 const addWordImportRouteUpgradeKey = (
   routeUpgradeKeys: Set<string>,
@@ -1575,7 +1580,12 @@ const buildWordImportConfirmedSelection = (
   rebuildBatchRecord: boolean,
   selectedOptions: BatchRecordReportImportRouteProductOptionVO[]
 ): WordImportConfirmedSelection => {
-  const shouldConfirmRouteUpgrade = Boolean(selection.routeUpgradeRequired && selection.selectedOptions.length)
+  const shouldConfirmRouteUpgrade = Boolean(
+    selection.routeUpgradeRequired
+    && (selection.rebuildBatchRecord || selection.selectedOptions.length)
+    && selection.expectedRouteId
+    && selection.expectedRouteVersionId
+  )
   return {
     importAction: selection.importAction,
     expectedSourceVersionId: selection.expectedSourceVersionId,
@@ -1602,15 +1612,26 @@ const confirmWordImportUpgradeSelections = async (
   const selectedOptions: BatchRecordReportImportRouteProductOptionVO[] = []
   const confirmedRouteUpgradeKeys = new Set<string>()
   const skippedRouteUpgradeKeys = new Set<string>()
-  const shouldConfirmRouteUpgrade = Boolean(selection.routeUpgradeRequired && selection.selectedOptions.length)
+  const shouldConfirmRouteUpgrade = Boolean(
+    selection.routeUpgradeRequired
+    && (selection.rebuildBatchRecord || selection.selectedOptions.length)
+  )
   if (isWordImportRouteDuplicateBlocked(wordImportDialog.preflight)) {
     message.warning(`存在多条同名工艺路线：${formatWordImportDuplicateRoutes(wordImportDialog.preflight)}，请先人工确定/清理唯一保留路线。`)
     return false
   }
   if (shouldConfirmRouteUpgrade) {
+    if (!selection.expectedRouteId || !selection.expectedRouteVersionId) {
+      message.error('当前工艺路线或激活版本标识缺失，请重新预检后再导入。')
+      return false
+    }
     try {
       await ElMessageBox.confirm(
-        resolveWordImportRouteUpgradeMessage(batchRecordName, wordImportDialog.preflight),
+        resolveWordImportRouteUpgradeMessage(
+          batchRecordName,
+          wordImportDialog.preflight,
+          rebuildBatchRecord
+        ),
         '确认生成路线候选版本',
         {
           confirmButtonText: '生成候选版本',

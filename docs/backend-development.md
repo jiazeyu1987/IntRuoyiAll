@@ -71,6 +71,15 @@
 - Forbidden action: 禁止用当前工序设置作为显式保存草稿快照的 fallback；禁止用空绑定、默认 MAIN、前端隐藏或吞异常掩盖草稿快照读写不对称。
 - Evidence: `doc/tasks/20260726-route-flow-v15-save-system-exception/verification-report.md`，`MesProRouteFlowConfigServiceImplTest#getRouteFlowProcessConfigList_shouldReadSavedDraftBatchSnapshotBeforeCurrentBindings`。
 
+### 逐工序正式批记录表单候选边界
+
+- Trigger: Word 批记录升版/导入、新建路线草稿、只勾选“批记录表单”、`batchRecordReports`、`batchRecordFormNames`、`route_snapshot_json`、正式批记录表单显示为空。
+- Preflight check: 先追溯来源批记录版本 `routeId`、当前 ACTIVE 路线版本、路线工序 `routeProcessId` 顺序、每个工序对应 MAIN 正式报表和报表元数据；即使未勾选“工艺流程”，只要升版正式批记录表单且存在唯一当前路线，也必须生成或更新路线 DRAFT 候选并写入逐工序 `batchRecordReports`，同时隔离保留 `formBindings` 与 `batchRecordAttachmentOwners`。
+- Blocker: 来源批记录版本丢失 `routeId`、候选快照缺少逐工序 `batchRecordReports`、快照报表 ID 无法解析名称、`route_snapshot_json` 仍为 `TEXT` 导致大快照保存失败、或只能通过 `formBindings`/默认 `MAIN`/工序开始配置补空时，必须停止并补正式链路。
+- Verification: 至少覆盖 DB 回归“仅升版批记录表单也生成路线 DRAFT 候选并写入 `batchRecordReports`”、schema 合同 `route_snapshot_json` 支持 `MEDIUMTEXT`、以及真实或只读 `flow-config` 返回工序数与 `totalReports` 相等且 `formBindingRows` 单独保留。
+- Forbidden action: 禁止用表单槽位、特殊表单、动态表单中心模板、特殊节点上传人、前端文案、手工 SQL 或空值 fallback 证明“批记录表单”已配置。
+- Evidence: `doc/tasks/20260727-route-flow-batch-record-form-source/verification-report.md`，`MesProBatchRecordReportServiceImplDbTest`，`test_mes_route_version_snapshot_mediumtext_sql.py`。
+
 ### 冻结快照附件负责人 JSON 类型边界
 
 - Trigger: `batchRecordAttachmentOwners`、`PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID`、`批记录附件负责人配置无效`、已有批次冻结 `route_snapshot_json` 缺配置、路线版本发布后旧批次仍打不开。

@@ -44,6 +44,8 @@ import cn.iocoder.yudao.module.mes.service.pro.dccprojectgovernance.MesProDccPro
 import cn.iocoder.yudao.module.mes.service.pro.dccprojectgovernance.MesProDccProjectGovernanceServiceImpl;
 import cn.iocoder.yudao.module.mes.service.pro.dccprojectgovernance.MesProDccProjectGovernanceStatus;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteOwnerPermissionServiceImpl;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteService;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import cn.hutool.core.util.StrUtil;
@@ -167,6 +169,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     private BusinessApprovalOrchestrator businessApprovalOrchestrator;
     @MockitoBean
     private MesProEdhrPermissionScopeService permissionScopeService;
+    @MockitoBean
+    private MesProRouteService routeService;
 
     @AfterEach
     void tearDown() {
@@ -906,6 +910,159 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 WHERE route_id = ? AND batch_record_report_id IS NULL
                 """, result.routeId()));
         verifyNoInteractions(jimuReportGateway);
+    }
+
+    @Test
+    void recognizeUploadedRoute_whenOnlyBatchRecordUpgrades_createsFormalRouteBindingCandidate() {
+        List<MesProBatchRecordParsedTable> parsedTables = List.of(
+                TestBatchRecordFixtures.parsedTable(1, "产品信息"),
+                TestBatchRecordFixtures.parsedTable(2, "粗洗工序"),
+                TestBatchRecordFixtures.parsedTable(3, "精洗工序"));
+        when(routeRecognizer.recognize(any(), any(), any())).thenReturn(parsedTables);
+        when(jimuReportGateway.ensureElectronicBatchRecordCategoryId()).thenReturn("category-ebrr");
+        AtomicInteger reportCounter = new AtomicInteger();
+        when(jimuReportGateway.saveOrUpdateReport(any())).thenAnswer(invocation -> {
+            MesProBatchRecordJimuReportSaveReq saveReq = invocation.getArgument(0);
+            return TestBatchRecordFixtures.generatedReport(
+                    "binding-candidate-report-" + reportCounter.incrementAndGet(),
+                    saveReq.reportCode(), saveReq.reportName());
+        });
+
+        MesProRouteDO route = MesProRouteDO.builder()
+                .code("ROUTE-BINDING-CANDIDATE")
+                .name("批记录正式绑定候选")
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        routeMapper.insert(route);
+        MesProRouteVersionDO activeRouteVersion = MesProRouteVersionDO.builder()
+                .routeId(route.getId())
+                .versionNo("V1")
+                .active(true)
+                .lifecycleStatus("ACTIVE")
+                .routeSnapshotJson("{}")
+                .build();
+        routeVersionMapper.insert(activeRouteVersion);
+        when(routeService.buildCurrentRouteSnapshotJson(route.getId(), activeRouteVersion.getId()))
+                .thenReturn("""
+                        {
+                          "routeId": %d,
+                          "routeCode": "ROUTE-BINDING-CANDIDATE",
+                          "routeName": "批记录正式绑定候选",
+                          "status": 0,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "graphVersion": 1,
+                              "nodes": [
+                                {
+                                  "routeProcessId": 91001,
+                                  "processId": 92001,
+                                  "processName": "粗洗工序",
+                                  "sort": 1
+                                },
+                                {
+                                  "routeProcessId": 91002,
+                                  "processId": 92002,
+                                  "processName": "精洗工序",
+                                  "sort": 2
+                                }
+                              ],
+                              "edges": []
+                            },
+                            "products": [],
+                            "productBoms": [],
+                            "scheduleConfigs": [],
+                            "batchUseConfigs": [
+                              {
+                                "routeProcessId": 91001,
+                                "processId": 92001,
+                                "sort": 1,
+                                "useType": "BATCH",
+                                "enabled": true,
+                                "executionMode": "SEQUENTIAL",
+                                "formBindings": [
+                                  {
+                                    "formBindingKey": "SPECIAL-1",
+                                    "formTemplateId": 93001,
+                                    "reportSort": 1
+                                  }
+                                ],
+                                "batchRecordReports": []
+                              },
+                              {
+                                "routeProcessId": 91002,
+                                "processId": 92002,
+                                "sort": 2,
+                                "useType": "BATCH",
+                                "enabled": true,
+                                "executionMode": "SEQUENTIAL",
+                                "formBindings": [],
+                                "batchRecordReports": []
+                              }
+                            ],
+                            "scheduleUseConfigs": []
+                          }
+                        }
+                        """.formatted(route.getId()));
+
+        MesProBatchRecordDefinitionDO definition = insertVersionedDefinition("批记录正式绑定候选");
+        MesProBatchRecordVersionDO currentVersion = insertVersion(definition.getId(), "V1.0", "APPROVED",
+                null, "old.doc", "old-binding-candidate-sha", route.getId(), null);
+        definition.setCurrentVersionId(currentVersion.getId());
+        definitionMapper.updateById(definition);
+        for (int index = 1; index <= 3; index++) {
+            MesProBatchRecordReportDO existing = TestBatchRecordFixtures.metadataReport(
+                    (long) index, "BINDING_CANDIDATE_OLD", index,
+                    "binding-candidate-old-report-" + index,
+                    "EBR_BINDING_OLD_T" + index, "既有表" + index, "old.doc");
+            existing.setRouteKey(MesProBatchRecordRecognitionRouteKeys.B);
+            existing.setBatchRecordName("批记录正式绑定候选");
+            existing.setBatchRecordDefinitionId(definition.getId());
+            existing.setBatchRecordVersionId(currentVersion.getId());
+            existing.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
+            reportMapper.insert(existing);
+        }
+        when(jimuReportGateway.getReportInfo("binding-candidate-old-report-1"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "binding-candidate-old-report-1", "EBR_BINDING_OLD_T1",
+                        "既有表1", LocalDateTime.now()));
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "binding-candidate.doc", "application/msword",
+                "binding-candidate-word".getBytes(StandardCharsets.UTF_8));
+
+        MesProBatchRecordImportResult result = reportService.recognizeUploadedRoute(
+                file, MesProBatchRecordRecognitionRouteKeys.B, "批记录正式绑定候选", "UPGRADE",
+                currentVersion.getId(), "V2.0", List.of("批记录正式绑定候选"),
+                true, List.of(), List.of(), true,
+                route.getId(), activeRouteVersion.getId(), null);
+
+        assertEquals(route.getId(), result.routeId());
+        assertNotNull(result.routeVersionId());
+        assertEquals(2, result.batchRecordRouteBindingCount());
+        MesProBatchRecordVersionDO pendingVersion = versionMapper.selectById(result.batchRecordVersionId());
+        assertEquals(route.getId(), pendingVersion.getRouteId());
+
+        MesProRouteVersionDO bindingCandidate = routeVersionMapper.selectById(result.routeVersionId());
+        assertEquals("DRAFT", bindingCandidate.getLifecycleStatus());
+        assertEquals(activeRouteVersion.getId(), bindingCandidate.getSourceRouteVersionId());
+        JSONObject snapshot = JSONObject.parseObject(bindingCandidate.getRouteSnapshotJson());
+        JSONArray batchUseConfigs = snapshot.getJSONObject("configSnapshots").getJSONArray("batchUseConfigs");
+        assertEquals(2, batchUseConfigs.size());
+        JSONObject firstConfig = batchUseConfigs.getJSONObject(0);
+        assertEquals(1, firstConfig.getJSONArray("formBindings").size(),
+                "正式批记录绑定候选不得覆盖表单槽位");
+        assertEquals(1, firstConfig.getJSONArray("batchRecordReports").size());
+        assertEquals("binding-candidate-report-2",
+                firstConfig.getJSONArray("batchRecordReports").getJSONObject(0)
+                        .getString("batchRecordReportId"));
+        assertEquals(91001L, firstConfig.getJSONArray("batchRecordReports").getJSONObject(0)
+                .getLong("permissionScopeId"));
+        assertEquals("MAIN", firstConfig.getJSONArray("batchRecordReports").getJSONObject(0)
+                .getString("formSlotType"));
+        assertEquals(0, rawCount("""
+                SELECT COUNT(*) FROM mes_pro_route_flow_process_batch_record
+                WHERE route_id = ?
+                """, route.getId()), "批记录升版不得绕过路线候选直接改写生效工序设置");
     }
 
     @Test

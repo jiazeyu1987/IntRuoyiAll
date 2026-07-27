@@ -146,9 +146,9 @@
 ## eDHR 右侧红框元信息隐藏门禁
 
 - Trigger: 修改 eDHR 批次详情右侧栏、单据卡片、`edhr-batch-detail__primary-fill-meta`、`primaryFormFillMetaItems`、填写人/提交时间摘要、工艺路线配置右侧 `data-flow-panel="selected-field-detail"` 或截图红框区域。
-- Preflight check: 先区分“单据卡片内填写人”与“右侧独立填写元信息红框”；删除红框时必须同时确认 `edhr-batch-detail__rail-process-form-filler` 和 `resolveTaskCardFillersText(task)` 仍保留。若修改工艺路线 `batchRecordFormNames` 字段明细，必须确认字段值、链接和节点红绿边框都使用显式槽位匹配，不得把缺少 `formSlotType` 的其它表单默认归入 `MAIN`。
-- Blocker: 若源码仍存在 `primary-fill-meta`、`primaryFormFillMetaItems`、`showPrimaryFormFillMeta`、`resolvePrimaryFormFillersText` 或 `resolvePrimaryFormSubmitTimesText`，不得声明红框已删除；若单据卡片填写人被一起删除，必须停止并修复。若 `batchRecordFormNames` 仍通过带默认 `MAIN` 的 `normalizeRecordBindingSlotType` 过滤右侧明细或节点绑定状态，不得声明批记录表单红框过滤完成。
-- Verification: 至少运行 `node tests/e2e/edhr-batch-detail-hide-red-box-static.spec.js` 和 `node tests/e2e/edhr-batch-process-form-card-fillers-static.spec.js`，一个确认红框无残留，一个确认单据卡片填写人保留。涉及工艺路线批记录表单字段明细时，还必须运行 `node tests/e2e/mes-route-flow-batch-record-detail-slot-filter-static.spec.js`。
+- Preflight check: 先区分“单据卡片内填写人”与“右侧独立填写元信息红框”；删除红框时必须同时确认 `edhr-batch-detail__rail-process-form-filler` 和 `resolveTaskCardFillersText(task)` 仍保留。若修改工艺路线 `batchRecordFormNames` 字段明细，必须确认字段值、链接和节点红绿边框只读取逐工序正式 `batchRecordReports`，不得把 `formBindings`、缺少 `formSlotType` 的其它表单、默认 `MAIN` 或工序开始配置归入批记录表单。
+- Blocker: 若源码仍存在 `primary-fill-meta`、`primaryFormFillMetaItems`、`showPrimaryFormFillMeta`、`resolvePrimaryFormFillersText` 或 `resolvePrimaryFormSubmitTimesText`，不得声明红框已删除；若单据卡片填写人被一起删除，必须停止并修复。若 `batchRecordFormNames` 仍通过带默认 `MAIN` 的 `normalizeRecordBindingSlotType`、`buildRecordBindingValue('MAIN')` 或 `formBindings` 过滤右侧明细/节点绑定状态，不得声明批记录表单来源正确。
+- Verification: 至少运行 `node tests/e2e/edhr-batch-detail-hide-red-box-static.spec.js` 和 `node tests/e2e/edhr-batch-process-form-card-fillers-static.spec.js`，一个确认红框无残留，一个确认单据卡片填写人保留。涉及工艺路线批记录表单字段明细时，还必须运行 `node tests/e2e/mes-route-flow-batch-record-detail-slot-filter-static.spec.js` 和 `node tests/e2e/mes-route-flow-batch-record-form-source-static.spec.js`。
 - Forbidden action: 禁止把右侧独立红框移动到其他一级区域伪装删除；禁止为了通过宽静态合同顺手修改与红框无关的审批/提交逻辑。
 - Evidence: `doc/tasks/20260725-hide-edhr-right-fill-meta-redbox/bug-regression-evidence.md`；`doc/tasks/20260726-batch-record-detail-panel-form-filter/bug-regression-evidence.md`。
 ## Element Plus 下拉选择门禁

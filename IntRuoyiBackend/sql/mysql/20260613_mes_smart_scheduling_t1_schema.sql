@@ -274,7 +274,7 @@ CREATE TABLE IF NOT EXISTS `mes_pro_route_version` (
   `version_no` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '版本号',
   `active` bit(1) NOT NULL DEFAULT b'1' COMMENT '是否当前版本',
   `source_route_version_id` bigint NULL DEFAULT NULL COMMENT '来源路线版本ID',
-  `route_snapshot_json` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '路线版本快照',
+  `route_snapshot_json` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '路线版本快照',
   `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '备注',
   `creator` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '创建者',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

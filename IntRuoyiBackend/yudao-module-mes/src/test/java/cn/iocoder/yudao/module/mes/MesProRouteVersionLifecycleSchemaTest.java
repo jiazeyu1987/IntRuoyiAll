@@ -26,6 +26,8 @@ class MesProRouteVersionLifecycleSchemaTest {
     private static final String LIFECYCLE_MIGRATION_FILE = "sql/mysql/20260715_mes_route_version_lifecycle.sql";
     private static final String APPROVAL_PROCESS_ID_STRING_MIGRATION_FILE =
             "sql/mysql/20260717_mes_route_version_approval_instance_id_string.sql";
+    private static final String ROUTE_SNAPSHOT_MEDIUMTEXT_MIGRATION_FILE =
+            "sql/mysql/20260727_mes_route_version_snapshot_mediumtext.sql";
     private static final String TEST_SCHEMA_FILE = "yudao-module-mes/src/test/resources/sql/create_tables.sql";
 
     @Test
@@ -56,6 +58,20 @@ class MesProRouteVersionLifecycleSchemaTest {
                 "runtime schema must store BPM process instance IDs as varchar");
         assertTrue(schemaColumnUsesStringType(testSchema, "mes_pro_route_version", "approval_process_instance_id"),
                 "test schema must store BPM process instance IDs as varchar");
+    }
+
+    @Test
+    void routeVersionSnapshotSchemaSupportsLargeCandidateSnapshots() throws Exception {
+        Path projectDir = findProjectDir();
+        String runtimeSchema = read(projectDir, ROUTE_BASE_SCHEMA_FILE)
+                + "\n" + read(projectDir, LIFECYCLE_MIGRATION_FILE)
+                + "\n" + read(projectDir, ROUTE_SNAPSHOT_MEDIUMTEXT_MIGRATION_FILE);
+        String testSchema = read(projectDir, TEST_SCHEMA_FILE);
+
+        assertTrue(schemaColumnUsesLargeTextType(runtimeSchema, "mes_pro_route_version", "route_snapshot_json"),
+                "runtime route snapshots must exceed MySQL TEXT capacity for large route candidates");
+        assertTrue(schemaColumnUsesClobType(testSchema, "mes_pro_route_version", "route_snapshot_json"),
+                "test route snapshots must use CLOB capacity equivalent");
     }
 
     @Test
@@ -125,6 +141,16 @@ class MesProRouteVersionLifecycleSchemaTest {
     private static boolean schemaColumnUsesStringType(String schema, String tableName, String columnName) {
         return Pattern.compile(Pattern.quote(tableName) + "[\\s\\S]*" + Pattern.quote(columnName)
                 + "[`\"\\s]+varchar\\s*\\(", Pattern.CASE_INSENSITIVE).matcher(schema).find();
+    }
+
+    private static boolean schemaColumnUsesLargeTextType(String schema, String tableName, String columnName) {
+        return Pattern.compile(Pattern.quote(tableName) + "[\\s\\S]*" + Pattern.quote(columnName)
+                + "[`\"\\s]+(mediumtext|longtext|json)\\b", Pattern.CASE_INSENSITIVE).matcher(schema).find();
+    }
+
+    private static boolean schemaColumnUsesClobType(String schema, String tableName, String columnName) {
+        return Pattern.compile(Pattern.quote(tableName) + "[\\s\\S]*" + Pattern.quote(columnName)
+                + "[`\"\\s]+clob\\b", Pattern.CASE_INSENSITIVE).matcher(schema).find();
     }
 
     private static void assertHasFields(Class<?> type, String... fieldNames) {
