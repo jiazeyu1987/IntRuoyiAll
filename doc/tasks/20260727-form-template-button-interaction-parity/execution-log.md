@@ -67,6 +67,9 @@ BDD: 页面级交互壳层一致 -> Given 批记录管理通过同页 `DesignerW
 - GIT IMPLEMENTATION FILES: `IntRuoyiFronted/src/router/modules/remaining.ts`；`IntRuoyiFronted/src/views/form-center/template/FormTemplateSimulatePage.vue`；`IntRuoyiFronted/src/views/form-center/template/components/FormTemplateDesignerWrapper.vue`；`IntRuoyiFronted/src/views/form-center/template/components/TemplateViewDialog.vue`（删除）；`IntRuoyiFronted/src/views/form-center/template/index.vue`；`IntRuoyiFronted/tests/e2e/form-center-static.spec.js`；`IntRuoyiFronted/tests/e2e/form-template-button-interaction-parity-static.spec.js`；`IntRuoyiFronted/tests/e2e/form-template-independent-button-actions-static.spec.js`；`doc/tasks/20260727-form-template-button-interaction-parity/bug-regression-evidence.md`；`doc/tasks/20260727-form-template-button-interaction-parity/execution-log.md`；`doc/tasks/20260727-form-template-button-interaction-parity/task.md`；`doc/tasks/20260727-form-template-button-interaction-parity/verification-report.md`；`docs/frontend-development.md`。
 - GREEN: pending history object scan -> PASS，`origin/int_main..c30856e5` 共 109 个对象，无大于等于 100 MB 的 blob。
 - GIT PUSH: `git push origin int_main` -> PASS，远端从 `ac028943` 前进到 `c30856e5`；推送后本地分支不再 ahead。
+- GIT CLOSEOUT: `8f1f60f4f8543b8847721170350ecd0d99176894`（`docs: complete form template button parity task`），仅包含 `task.md`、`execution-log.md`、`verification-report.md` 三份本任务收尾文档。
+- GREEN: pending closeout history scan -> PASS，共 8 个对象，无大于等于 100 MB 的 blob。
+- GIT CLOSEOUT PUSH: `git push origin int_main` -> PASS，远端从 `c30856e5` 前进到 `8f1f60f4`；推送后本地分支不再 ahead。
 - FINAL STATUS: 所有里程碑、验证、经验沉淀、cleanup、实现提交和首次推送均完成，任务状态更新为 `completed`。
 
 ## Blockers
