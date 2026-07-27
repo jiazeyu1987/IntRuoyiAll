@@ -1292,12 +1292,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             if (!SKIPPABLE_SPECIAL_NODE_TYPES.contains(resolveNodeType(task))) {
                 continue;
             }
-            validateCurrentUserIsSpecialNodeFiller(task, batch, actorId);
             List<MesProBatchRecordExecutionAttachmentDO> pendingAttachments =
                     resolvePendingSpecialNodeAttachmentRecords(task.getId());
             if (pendingAttachments.isEmpty()) {
                 continue;
             }
+            validateCurrentUserIsSpecialNodeFiller(task, batch, actorId);
             String beforePayloadJson = StrUtil.nullToEmpty(task.getSpecialPayloadJson());
             List<MesProBatchRecordExecutionAttachmentDO> persistedAttachments = persistSpecialNodeAttachments(
                     task,
