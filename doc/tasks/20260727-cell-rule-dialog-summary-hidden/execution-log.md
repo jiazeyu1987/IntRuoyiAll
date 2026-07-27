@@ -14,6 +14,12 @@
 ## Commands And Evidence
 
 - GREEN: experience-preflight -> PASS, 已读取任务、前端、E2E、PowerShell、技能与经验索引前置规则。
+- RED: `node tests/e2e/batch-record-cell-rule-summary-hidden-static.spec.js` -> FAIL, expected reason: 组件仍包含 `batch-record-cell-rules-editor__summary` 顶部汇总栏。
+- IMPLEMENTED: 从 `BatchRecordCellRulesConfirmDialog.vue` 删除顶部 summary 模板、对应样式和仅用于该区域的 `reportName` / `pendingCount` / `unreviewedFillableCellCount` 状态。
+- GREEN: `node tests/e2e/batch-record-cell-rule-summary-hidden-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/batch-record-cell-rule-default-fullscreen-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-cell-rule-type-background-colors-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
 
 ## Blockers
 
