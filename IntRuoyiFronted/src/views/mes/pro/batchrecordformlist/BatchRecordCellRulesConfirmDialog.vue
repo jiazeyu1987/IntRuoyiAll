@@ -134,8 +134,9 @@
 
                 <el-form-item label="字段类型">
                   <el-select
-                    v-model="selectedRuleEditorValueType"
+                    :model-value="selectedRuleEditorValueType"
                     class="!w-1/1"
+                    @change="handleSelectedEditorValueTypeChange"
                   >
                     <el-option
                       v-for="option in ruleEditorValueTypeOptions"
@@ -513,6 +514,14 @@ const parseSheetLayout = (sheetLayoutJson?: string): RuleEditorRawLayout | null 
 const sortRules = (rules: BatchRecordReportCellRuleVO[]) =>
   [...rules].sort((left, right) => left.rowIndex - right.rowIndex || left.columnIndex - right.columnIndex)
 
+const replaceSelectedRule = (nextRule: BatchRecordReportCellRuleVO) => {
+  const key = selectedRuleKey.value
+  if (!key) return
+  ruleRows.value = ruleRows.value.map((rule) =>
+    ruleIdentity(rule) === key ? normalizeCellRule(nextRule) : rule
+  )
+}
+
 const selectedRule = computed(() =>
   ruleRows.value.find((rule) => ruleIdentity(rule) === selectedRuleKey.value)
 )
@@ -707,25 +716,34 @@ const isSelectedCellFillable = computed({
 
 const handleSelectedValueTypeChange = (value: BatchRecordReportCellValueType) => {
   if (!selectedRule.value) return
-  selectedRule.value.componentFlag = cellRuleDefaultComponentMap[value]
-  selectedRule.value.constraints = cleanRuleConstraintsForComponent(
-    selectedRule.value.constraints,
-    value,
-    selectedRule.value.componentFlag
-  )
+  const componentFlag = cellRuleDefaultComponentMap[value]
+  replaceSelectedRule({
+    ...selectedRule.value,
+    valueType: value,
+    componentFlag,
+    constraints: cleanRuleConstraintsForComponent(
+      selectedRule.value.constraints,
+      value,
+      componentFlag
+    )
+  })
 }
 
 const handleSelectedEditorValueTypeChange = (value: RuleEditorValueType) => {
   if (!selectedRule.value) return
   if (value === SELECT_FIELD_TYPE) {
-    selectedRule.value.valueType = 'STRING'
-    selectedRule.value.componentFlag = 'select'
-    selectedRule.value.constraints = cleanRuleConstraintsForComponent(
-      selectedRule.value.constraints,
-      selectedRule.value.valueType,
-      selectedRule.value.componentFlag
-    )
-    applySelectConstraintsToRule(selectedRule.value)
+    const nextRule = {
+      ...selectedRule.value,
+      valueType: 'STRING' as BatchRecordReportCellValueType,
+      componentFlag: 'select',
+      constraints: cleanRuleConstraintsForComponent(
+        selectedRule.value.constraints,
+        'STRING',
+        'select'
+      )
+    }
+    applySelectConstraintsToRule(nextRule)
+    replaceSelectedRule(nextRule)
     return
   }
   handleSelectedValueTypeChange(value)
@@ -742,19 +760,21 @@ const selectedRuleEditorValueType = computed<RuleEditorValueType>({
 const handleSelectedComponentFlagChange = (value: string) => {
   if (!selectedRule.value) return
   const componentFlag = String(value || '').trim()
-  selectedRule.value.componentFlag = componentFlag
-  const nextValueType = componentFlagValueTypeMap[componentFlag.toLowerCase()]
-  if (nextValueType) {
-    selectedRule.value.valueType = nextValueType
+  const nextValueType = componentFlagValueTypeMap[componentFlag.toLowerCase()] || selectedRule.value.valueType
+  const nextRule = {
+    ...selectedRule.value,
+    valueType: nextValueType,
+    componentFlag,
+    constraints: cleanRuleConstraintsForComponent(
+      selectedRule.value.constraints,
+      nextValueType,
+      componentFlag
+    )
   }
-  selectedRule.value.constraints = cleanRuleConstraintsForComponent(
-    selectedRule.value.constraints,
-    selectedRule.value.valueType,
-    componentFlag
-  )
   if (componentFlag.toLowerCase() === 'select') {
-    applySelectConstraintsToRule(selectedRule.value)
+    applySelectConstraintsToRule(nextRule)
   }
+  replaceSelectedRule(nextRule)
 }
 
 const ensureSelectedRuleConstraints = () => {

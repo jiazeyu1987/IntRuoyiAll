@@ -24,6 +24,12 @@ assert.match(
 
 assert.match(
   dialog,
+  /:model-value="selectedRuleEditorValueType"[\s\S]*@change="handleSelectedEditorValueTypeChange"[\s\S]*const replaceSelectedRule/,
+  '字段类型选择后必须显式处理 change 并替换当前规则行，确保选择框和预览立即刷新。'
+)
+
+assert.match(
+  dialog,
   /label="下拉选项"[\s\S]*selectedRuleSelectOptionsText/,
   '单元格规则弹窗必须允许在右侧配置下拉选项内容。'
 )

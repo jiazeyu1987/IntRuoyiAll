@@ -16,6 +16,7 @@
 - 下拉框保存前强制 `selectionMode=single` 和至少两个有效 `options`。
 - 数字 min > max 在前端保存前和后端规则校验均 fail-fast。
 - SIGNATURE 继续由后端要求 enabled `edhrSignature` marker，不降级为文本。
+- 字段类型选择器使用显式 change 事件并替换当前规则行，选择数字等类型后显示值和对应配置区域立即刷新。
 
 ## Closeout Boundary
 

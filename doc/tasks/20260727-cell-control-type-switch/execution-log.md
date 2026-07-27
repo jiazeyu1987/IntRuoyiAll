@@ -29,3 +29,11 @@
 - GREEN: `git diff --check` -> PASS；仅出现 Windows LF/CRLF 工作区提示，无空白错误。
 - GREEN: experience-consolidation -> PASS；本次经验已由 `docs/backend-development.md#jimu-fillform-组件类型语义优先边界` 覆盖，无需新增长期经验文档。
 - Closeout note: 当前工作区仍存在多个非本任务并行改动和 `int_main...origin/int_main [ahead 10]`，本任务文件已完成验证，最终 push/完成态需在并行改动边界确认后执行。
+
+## 2026-07-27 Field Type Display Sync Fix
+
+- BDD: 字段类型切换即时同步 -> Given 右侧字段类型当前显示文本 / When 用户选择数字、日期、日期时间、勾选、签名或下拉框 / Then 选择框显示值、控件类型、数字范围或下拉选项区域必须立即同步，不等待保存或重新选择单元格。
+- RED: 用户截图证据 -> 选择数字后字段类型选择框仍显示文本。
+- Implementation: 字段类型选择器改为显式 `:model-value + @change`；类型切换通过 `replaceSelectedRule` 替换当前规则行，强制触发左侧预览和右侧表单重新渲染。
+- GREEN: `node IntRuoyiFronted\tests\e2e\edhr-cell-control-type-switch-static.spec.js` -> PASS。
+- GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/BatchRecordCellRulesConfirmDialog.vue` -> PASS；仅 LF/CRLF 提示。
