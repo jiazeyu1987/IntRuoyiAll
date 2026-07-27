@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 
@@ -107,6 +108,35 @@ def test_local_restart_backend_routes_mysql_and_redis_through_unshadowed_docker_
     assert "--spring.datasource.dynamic.datasource.slave.password=123456" in script
     assert "--spring.data.redis.host=$LocalDockerRuntimeHost" in script
     assert "LOCAL_DOCKER_PORT_SHADOWED" in script
+
+
+def test_local_restart_backend_uses_workspace_codex_runner_token_file():
+    script = read_script("restart-int-ruoyi-local.ps1")
+    workspace_gitignore = (REPO_ROOT.parents[1] / ".gitignore").read_text(encoding="utf-8")
+
+    assert (
+        "$CodexTestRunnerTokenFile = Join-Path $PortContext.WorkspaceRoot "
+        "'.runtime\\codex-test-runner\\runner-token.txt'"
+    ) in script
+    assert ".runtime/" in workspace_gitignore.splitlines()
+    assert "**/.runtime/" in workspace_gitignore.splitlines()
+    assert "function Initialize-CodexTestRunnerToken" in script
+    assert "[Security.Cryptography.RandomNumberGenerator]::Create()" in script
+    assert "[System.IO.File]::WriteAllText(" in script
+    assert "Codex Runner token file is empty" in script
+
+    backend_block = script[script.index("function Start-Backend"):script.index("function Start-Website")]
+    assert "$runnerToken = Initialize-CodexTestRunnerToken" in backend_block
+    assert re.search(
+        r"\[Environment\]::SetEnvironmentVariable\(\s*"
+        r"'CODEX_TEST_RUNNER_TOKEN'\s*,\s*"
+        r"\$runnerToken\s*,\s*"
+        r"\[System\.EnvironmentVariableTarget\]::Process\s*\)",
+        backend_block,
+    )
+    assert backend_block.index("$runnerToken = Initialize-CodexTestRunnerToken") < backend_block.index(
+        "Stop-MatchingProcesses 'backend' $RuntimeDir"
+    )
 
 
 def test_local_restart_backend_protects_showroom_default_file_config_from_e2e_mutation():

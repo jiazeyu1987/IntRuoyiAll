@@ -1,6 +1,6 @@
 <template>
   <ContentWrap
-    v-if="!isTemplateWorkspaceMode && !isTemplateSimulationMode"
+    v-if="!isDesignerMode && !isTemplateSimulationMode"
     :body-style="{ padding: '0px' }"
     class="!mb-0 form-template-page"
   >
@@ -277,9 +277,8 @@
     </Teleport>
   </ContentWrap>
 
-  <ContentWrap
-    v-if="isTemplateWorkspaceMode && templateWorkspaceMode === 'preview'"
-    :body-style="{ padding: '0px' }"
+  <FormTemplateDesignerWrapper
+    v-if="isDesignerMode && templateDesignerMode === 'preview'"
     class="!mb-0 form-template-route-workspace"
   >
     <div class="form-template-route-workspace__header">
@@ -307,10 +306,10 @@
       />
     </div>
     <el-empty v-else description="当前模板暂无识别字段" />
-  </ContentWrap>
+  </FormTemplateDesignerWrapper>
 
   <TemplateImportDialog
-    v-if="!isTemplateWorkspaceMode && !isTemplateSimulationMode"
+    v-if="!isDesignerMode && !isTemplateSimulationMode"
     ref="importDialogRef"
     @success="getList"
   />
@@ -417,9 +416,8 @@
     </div>
     <el-empty v-else description="当前模板暂无可填写字段" />
   </ContentWrap>
-  <ContentWrap
-    v-if="isTemplateWorkspaceMode && templateWorkspaceMode === 'edit'"
-    :body-style="{ padding: '0px' }"
+  <FormTemplateDesignerWrapper
+    v-if="isDesignerMode && templateDesignerMode === 'edit'"
     class="!mb-0 form-template-route-workspace"
   >
     <div class="form-template-route-workspace__header">
@@ -440,7 +438,7 @@
       show-icon
       class="m-16px"
     />
-    <div class="batch-record-cell-rules-editor form-template-rule-workspace">
+    <div v-else class="batch-record-cell-rules-editor form-template-rule-workspace">
       <section class="batch-record-cell-rules-editor__summary">
         <span class="batch-record-cell-rules-editor__name">
           {{ selectedTemplate?.templateName || '-' }}
@@ -609,8 +607,8 @@
         </aside>
       </section>
     </div>
-    <template #footer>
-      <el-button @click="rulesDialogVisible = false">关闭</el-button>
+    <div class="form-template-route-workspace__actions">
+      <el-button @click="returnToTemplateList">关闭</el-button>
       <el-button @click="reloadEditableTemplateRules">重新读取</el-button>
       <el-button
         type="primary"
@@ -620,8 +618,8 @@
       >
         {{ rulesSaveButtonText }}
       </el-button>
-    </template>
-  </Dialog>
+    </div>
+  </FormTemplateDesignerWrapper>
   <Dialog
     v-model="signatureDialogVisible"
     class="form-template-signature-dialog"
@@ -673,7 +671,7 @@ import type {
 } from '@/api/mes/pro/batchrecordreport'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import TemplateImportDialog from './components/TemplateImportDialog.vue'
-import TemplateViewDialog from './components/TemplateViewDialog.vue'
+import FormTemplateDesignerWrapper from './components/FormTemplateDesignerWrapper.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { formatDate } from '@/utils/formatTime'
@@ -693,22 +691,24 @@ import {
 
 defineOptions({ name: 'FormCenterTemplate' })
 
+const props = defineProps<{
+  simulationOnly?: boolean
+}>()
+
 const message = useMessage()
 const route = useRoute()
 const router = useRouter()
 const importDialogRef = ref()
-const templateViewDialogRef = ref()
 const loading = ref(false)
 const total = ref(0)
 const list = ref<FormTemplateListItemVO[]>([])
 const selectedTemplateKey = ref('')
 const previewMaximized = ref(false)
-const fillDialogVisible = ref(false)
-const rulesDialogVisible = ref(false)
 const signatureDialogVisible = ref(false)
 const obsoleteRequestDialogVisible = ref(false)
 const obsoleteRequestSubmitting = ref(false)
 const rulesSaving = ref(false)
+const templateRouteLoadError = ref('')
 const templateFillValues = ref<TemplateSimulationValueMap>({})
 const obsoletePendingByTemplateKey = ref<Record<string, FormTemplateObsoletePendingRespVO | null>>({})
 const obsoleteRequestTarget = ref<FormTemplateListItemVO | null>(null)
@@ -719,6 +719,15 @@ const editableTemplateCellRules = ref<BatchRecordReportCellRuleVO[]>([])
 const editableTemplateSheetLayoutJson = ref('')
 const selectedRuleKey = ref('')
 const consumedTemplateActionKey = ref('')
+const isDesignerMode = computed(() => route.query.mode === 'designer')
+const templateDesignerMode = computed<'preview' | 'edit'>(() =>
+  route.query.templateMode === 'edit' ? 'edit' : 'preview'
+)
+const isTemplateSimulationMode = computed(() => props.simulationOnly)
+const templateSimulationBackLabel = computed(() => {
+  const value = Array.isArray(route.query.returnLabel) ? route.query.returnLabel[0] : route.query.returnLabel
+  return typeof value === 'string' && value.trim() ? value.trim() : '返回表单模板'
+})
 const queryParams = reactive({
   pageNo: 1,
   pageSize: 10,
@@ -916,17 +925,27 @@ const syncSelectedTemplate = () => {
 
 const getList = async () => {
   loading.value = true
+  templateRouteLoadError.value = ''
   try {
+    if (isDesignerMode.value || isTemplateSimulationMode.value) {
+      list.value = []
+      total.value = 0
+      await syncTemplateRouteContext()
+      return
+    }
     const data = await TemplateApi.getTemplatePool(queryParams)
     list.value = data.list
     total.value = data.total
-    const routedTemplate = findTemplateFromRoute()
-    if (routedTemplate) {
-      selectedTemplateKey.value = templateRowKey(routedTemplate)
-    }
     syncSelectedTemplate()
+    await syncTemplateRouteContext()
     await refreshSelectedTemplateObsoletePending()
     await handleTemplateActionQuery()
+  } catch (error) {
+    if (isDesignerMode.value || isTemplateSimulationMode.value) {
+      templateRouteLoadError.value = resolveErrorMessage(error, '表单模板加载失败，请联系管理员。')
+      return
+    }
+    throw error
   } finally {
     loading.value = false
   }
@@ -977,22 +996,43 @@ const selectedTemplateObsoletePending = computed(() => {
   return obsoletePendingByTemplateKey.value[templateRowKey(selectedTemplate.value)] || null
 })
 
-const openSelectedTemplate = () => {
+const openSelectedTemplateWorkspace = async (templateMode: 'preview' | 'edit') => {
   if (!selectedTemplate.value) return
-  templateViewDialogRef.value?.open(selectedTemplate.value)
+  const row = selectedTemplate.value
+  await router.push({
+    path: route.path,
+    query: {
+      templateId: row.templateId,
+      versionNo: row.versionNo,
+      mode: 'designer',
+      templateMode
+    }
+  })
+}
+
+const openSelectedTemplate = async () => {
+  await openSelectedTemplateWorkspace('preview')
 }
 
 const editSelectedTemplate = async () => {
-  await openSelectedTemplateAction('edit')
+  await openSelectedTemplateWorkspace('edit')
 }
 
-const openSelectedTemplateFill = () => {
+const openSelectedTemplateFill = async () => {
   if (!selectedTemplate.value) return
-  resetTemplateFillValues()
-  fillDialogVisible.value = true
+  const row = selectedTemplate.value
+  await router.push({
+    path: '/mdm/form-center/template/simulate',
+    query: {
+      templateId: row.templateId,
+      versionNo: row.versionNo,
+      returnTo: route.fullPath,
+      returnLabel: '返回表单模板'
+    }
+  })
 }
 
-type FormTemplateAction = 'edit' | 'signature'
+type FormTemplateAction = 'signature'
 type FormTemplateObsoleteOperationState = 'normal' | 'pending-withdrawable' | 'pending-readonly' | 'voided'
 
 const normalizeRouteQueryText = (value: unknown) => {
@@ -1002,7 +1042,7 @@ const normalizeRouteQueryText = (value: unknown) => {
 
 const normalizeTemplateAction = (value: unknown): FormTemplateAction | '' => {
   const action = normalizeRouteQueryText(value)
-  return action === 'edit' || action === 'signature' ? action : ''
+  return action === 'signature' ? action : ''
 }
 
 const buildTemplateActionKey = (row: FormTemplateListItemVO, action: FormTemplateAction) =>
@@ -1011,19 +1051,68 @@ const buildTemplateActionKey = (row: FormTemplateListItemVO, action: FormTemplat
 const findTemplateFromRoute = () => {
   const templateId = Number(normalizeRouteQueryText(route.query.templateId))
   const versionNo = normalizeRouteQueryText(route.query.versionNo)
-  if (!Number.isFinite(templateId) || !versionNo) return undefined
+  if (!Number.isInteger(templateId) || templateId <= 0 || !versionNo) return undefined
   return list.value.find((item) => item.templateId === templateId && item.versionNo === versionNo)
+}
+
+const syncTemplateRouteContext = async () => {
+  const templateId = Number(normalizeRouteQueryText(route.query.templateId))
+  const versionNo = normalizeRouteQueryText(route.query.versionNo)
+  const routeNeedsTemplate = isDesignerMode.value || isTemplateSimulationMode.value
+  if (!Number.isInteger(templateId) || templateId <= 0 || !versionNo) {
+    if (routeNeedsTemplate) {
+      templateRouteLoadError.value = '缺少有效模板 ID 或版本号，无法打开表单模板工作区。'
+      selectedTemplateKey.value = ''
+    }
+    return
+  }
+
+  const requiresExactTemplateVersion = isDesignerMode.value || isTemplateSimulationMode.value
+  let row = requiresExactTemplateVersion
+    ? await TemplateApi.getTemplateVersion(templateId, versionNo)
+    : findTemplateFromRoute()
+  if (!row) {
+    row = await TemplateApi.getTemplateVersion(templateId, versionNo)
+  }
+  list.value = [
+    row,
+    ...list.value.filter((item) => templateRowKey(item) !== templateRowKey(row))
+  ]
+  selectedTemplateKey.value = templateRowKey(row)
+  if (isDesignerMode.value && templateDesignerMode.value === 'edit') {
+    reloadEditableTemplateRules()
+  }
+  if (isTemplateSimulationMode.value) {
+    resetTemplateFillValues()
+  }
+}
+
+const returnToTemplateList = async () => {
+  const row = selectedTemplate.value
+  await router.push({
+    path: '/mdm/form-center/template',
+    query: row
+      ? {
+          templateId: row.templateId,
+          versionNo: row.versionNo
+        }
+      : {}
+  })
+}
+
+const returnFromTemplateSimulation = async () => {
+  const returnTo = normalizeRouteQueryText(route.query.returnTo)
+  if (returnTo) {
+    await router.push(returnTo)
+    return
+  }
+  await returnToTemplateList()
 }
 
 const openTemplateActionDialog = (row: FormTemplateListItemVO, action: FormTemplateAction) => {
   selectedTemplateKey.value = templateRowKey(row)
   consumedTemplateActionKey.value = buildTemplateActionKey(row, action)
-  if (action === 'signature') {
-    signatureDialogVisible.value = true
-    return
-  }
-  reloadEditableTemplateRules()
-  rulesDialogVisible.value = true
+  signatureDialogVisible.value = true
 }
 
 const openSelectedTemplateAction = async (action: FormTemplateAction) => {
@@ -1154,7 +1243,6 @@ const saveEditableTemplateRules = async () => {
     )
     selectedTemplate.value.jimuSchemaJson = payload
     message.success('模板保存成功')
-    rulesDialogVisible.value = false
     await getList()
   } finally {
     rulesSaving.value = false
@@ -1164,7 +1252,7 @@ const saveEditableTemplateRules = async () => {
 const openEditorFromSignatureDialog = () => {
   if (!selectedTemplate.value) return
   signatureDialogVisible.value = false
-  void openSelectedTemplateAction('edit')
+  void openSelectedTemplateWorkspace('edit')
 }
 
 const handleTemplatePreviewSignatureAction = (_context: TemplateEditableCellContext) => {
@@ -1802,9 +1890,26 @@ const buildTemplateVisualPreviewModel = (
 onMounted(getList)
 
 watch(
-  () => [route.query.templateId, route.query.versionNo, route.query.action] as const,
+  () => [
+    route.name,
+    route.query.templateId,
+    route.query.versionNo,
+    route.query.mode,
+    route.query.templateMode,
+    route.query.action
+  ] as const,
   async () => {
-    await handleTemplateActionQuery()
+    templateRouteLoadError.value = ''
+    try {
+      await syncTemplateRouteContext()
+      await handleTemplateActionQuery()
+    } catch (error) {
+      if (isDesignerMode.value || isTemplateSimulationMode.value) {
+        templateRouteLoadError.value = resolveErrorMessage(error, '表单模板加载失败，请联系管理员。')
+        return
+      }
+      throw error
+    }
   }
 )
 </script>
@@ -1817,6 +1922,75 @@ watch(
 
 .form-template-page :deep(.el-card__body) {
   padding: 0 !important;
+}
+
+.form-template-route-workspace {
+  border: none;
+  background: transparent;
+}
+
+.form-template-route-workspace :deep(.el-card__body) {
+  padding: 0 !important;
+}
+
+.form-template-route-workspace__header {
+  display: grid;
+  min-height: 58px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px 8px 0 0;
+  background: #f7f9fc;
+}
+
+.form-template-route-workspace__heading {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.form-template-route-workspace__heading span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.form-template-route-workspace__heading strong {
+  overflow: hidden;
+  color: #172033;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.form-template-route-workspace__body {
+  min-height: calc(100vh - 190px);
+  padding: 16px;
+  border: 1px solid #dbe3ef;
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: #ffffff;
+  overflow: auto;
+}
+
+.form-template-route-workspace > .form-template-rule-workspace {
+  padding: 16px;
+  border: 1px solid #dbe3ef;
+  border-top: 0;
+  background: #ffffff;
+}
+
+.form-template-route-workspace__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 16px;
+  border: 1px solid #dbe3ef;
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: #ffffff;
 }
 
 .form-template-workbench {

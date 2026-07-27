@@ -286,6 +286,15 @@ class MesProRouteServiceImplTest {
         when(routeMapper.selectByName(reqVO.getName())).thenReturn(null);
         when(routeVersionMapper.selectActiveByRouteId(reqVO.getId())).thenReturn(activeVersion);
         when(routeVersionMapper.selectMaxVersionNoByRouteId(reqVO.getId())).thenReturn("V1");
+        MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
+        graph.setRouteId(reqVO.getId());
+        MesProRouteProcessFlowNodeRespVO node = new MesProRouteProcessFlowNodeRespVO();
+        node.setRouteProcessId(3001L);
+        node.setProcessId(4001L);
+        node.setProcessName("工序");
+        node.setSort(1);
+        graph.setNodes(List.of(node));
+        when(routeProcessFlowService.getGraph(reqVO.getId())).thenReturn(graph);
 
         routeService.updateRoute(reqVO);
 
@@ -336,6 +345,15 @@ class MesProRouteServiceImplTest {
         when(routeMapper.selectByName(reqVO.getName())).thenReturn(null);
         when(routeVersionMapper.selectActiveByRouteId(reqVO.getId())).thenReturn(activeVersion);
         when(routeVersionMapper.selectMaxVersionNoByRouteId(reqVO.getId())).thenReturn("V1");
+        MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
+        graph.setRouteId(reqVO.getId());
+        MesProRouteProcessFlowNodeRespVO node = new MesProRouteProcessFlowNodeRespVO();
+        node.setRouteProcessId(3001L);
+        node.setProcessId(4001L);
+        node.setProcessName("工序");
+        node.setSort(1);
+        graph.setNodes(List.of(node));
+        when(routeProcessFlowService.getGraph(reqVO.getId())).thenReturn(graph);
 
         routeService.updateRoute(reqVO);
 

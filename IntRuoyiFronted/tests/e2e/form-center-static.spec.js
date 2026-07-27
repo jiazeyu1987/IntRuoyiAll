@@ -87,7 +87,6 @@ assertIncludes(templatePage, '状态')
 assertIncludes(templatePage, '修改时间')
 assertIncludes(templatePage, '备注')
 assertIncludes(templatePage, 'TemplateImportDialog')
-assertIncludes(templatePage, 'TemplateViewDialog')
 assertIncludes(templatePage, '表单预览')
 assertIncludes(templatePage, '识别字段')
 assertIncludes(templatePage, 'highlight-current-row')
@@ -117,13 +116,12 @@ assertIncludes(templatePage, "'voided'")
 assertIncludes(templatePage, 'resolveTemplateObsoleteOperationState')
 assertIncludes(templatePage, '撤回作废申请')
 assertIncludes(templatePage, '作废申请中')
-assertIncludes(templatePage, 'form-template-fill-dialog')
-assertIncludes(templatePage, 'form-template-rules-dialog')
+assertIncludes(templatePage, 'form-template-route-workspace')
 assertIncludes(templatePage, 'form-template-fill-workspace')
 assertIncludes(templatePage, 'form-template-signature-dialog')
 assertIncludes(templatePage, 'openSelectedTemplateAction')
 assertIncludes(templatePage, 'openTemplateActionDialog')
-assertIncludes(templatePage, "openSelectedTemplateAction('edit')")
+assertIncludes(templatePage, 'openSelectedTemplateWorkspace')
 if (/obsoleteTemplateVersion/.test(templatePage)) {
   throw new Error('表单模板页面不能继续调用直接作废 API，必须提交 BPM 作废申请')
 }
@@ -203,7 +201,7 @@ if (/form-template-preview__field-grid/.test(templatePage)) {
   throw new Error('表单模板右侧红框主内容不得继续使用字段卡片网格，应渲染与批记录表单页签一致的视觉表格预览')
 }
 const editFunction = templatePage.match(/const editSelectedTemplate = (?:async )?\(\) => \{[\s\S]*?\n\}/)
-if (!editFunction || !/openSelectedTemplateAction\('edit'\)/.test(editFunction[0])) {
+if (!editFunction || !/openSelectedTemplateWorkspace\('edit'\)/.test(editFunction[0])) {
   throw new Error('表单模板“编辑”按钮应进入模板编辑工作区，不得打开导入/升版弹窗')
 }
 if (editFunction && /importDialogRef/.test(editFunction[0])) {
@@ -225,13 +223,11 @@ if (obsoleteFunction && /TemplateApi\./.test(obsoleteFunction[0])) {
 if (/rulesDialogVisible\.value\s*=\s*true/.test(templatePage) && !/editableTemplateCellRules/.test(templatePage)) {
   throw new Error('表单模板“编辑”按钮不得只打开静态表格，应进入可编辑规则工作区')
 }
-const rulesDialogMatch = templatePage.match(/<Dialog[\s\S]*?v-model=["']rulesDialogVisible["'][\s\S]*?<\/Dialog>/)
-if (!rulesDialogMatch) {
-  throw new Error('表单模板“编辑”按钮必须打开规则确认弹窗')
+if (!/isDesignerMode\s*&&\s*templateDesignerMode\s*===\s*'edit'/.test(templatePage)) {
+  throw new Error('表单模板“编辑”按钮必须进入路由驱动的 DesignerWrapper 规则确认工作区')
 }
-const rulesDialog = rulesDialogMatch[0]
-if (/<el-table[\s>]/.test(rulesDialog)) {
-  throw new Error('表单模板“编辑”按钮不得使用整表字段清单，应对齐批记录单元格选择式规则确认')
+if (/v-model=["']rulesDialogVisible["']/.test(templatePage)) {
+  throw new Error('表单模板“编辑”按钮不得继续依赖规则确认弹窗')
 }
 for (const expected of [
   'batch-record-cell-rules-editor__sheet',
@@ -251,8 +247,8 @@ for (const expected of [
 if (/editableTemplateCellRules\.value\.length > 0/.test(templatePage)) {
   throw new Error('form template rules must allow saving an empty rule set after all cells are switched to non-fillable')
 }
-const fillDialogMatch = templatePage.match(/<Dialog v-model="fillDialogVisible"[\s\S]*?<\/Dialog>/)
-if (!fillDialogMatch || !fillDialogMatch[0].includes('EdhrExecutionTemplateEditableForm') || !fillDialogMatch[0].includes('EdhrExecutionReadonlyForm')) {
+const fillWorkspaceMatch = templatePage.match(/v-if="isTemplateSimulationMode"[\s\S]*?form-template-fill-workspace[\s\S]*?<\/ContentWrap>/)
+if (!fillWorkspaceMatch || !fillWorkspaceMatch[0].includes('EdhrExecutionTemplateEditableForm') || !fillWorkspaceMatch[0].includes('EdhrExecutionReadonlyForm')) {
   throw new Error('表单模板“填写”按钮应像批记录模拟填写一样同时展示模板内填写和表单显示预览')
 }
 
@@ -272,15 +268,16 @@ if (/prop=["']versionNo["']/.test(importDialog)) {
   throw new Error('导入弹窗不得保留手工版本号输入项')
 }
 
-const viewDialog = assertFile('src/views/form-center/template/components/TemplateViewDialog.vue')
-assertIncludes(viewDialog, 'defineExpose({ open })')
-assertIncludes(viewDialog, '查看表单模板')
-assertIncludes(viewDialog, '当前生效版本')
-assertIncludes(viewDialog, '待发布版本')
-assertIncludes(viewDialog, 'formatTemplateUpdatedTime')
-assertIncludes(viewDialog, 'YYYY-MM-DD HH:mm:ss')
-assertIncludes(viewDialog, 'EdhrExecutionReadonlyForm')
-assertIncludes(viewDialog, 'formViewModel')
+assertNoFile('src/views/form-center/template/components/TemplateViewDialog.vue')
+const templateDesignerWrapper = assertFile(
+  'src/views/form-center/template/components/FormTemplateDesignerWrapper.vue'
+)
+assertIncludes(templateDesignerWrapper, "name: 'FormCenterTemplateDesignerWrapper'")
+const templateSimulatePage = assertFile(
+  'src/views/form-center/template/FormTemplateSimulatePage.vue'
+)
+assertIncludes(templateSimulatePage, "name: 'FormCenterTemplateSimulatePage'")
+assertIncludes(templateSimulatePage, "import FormTemplateIndex from './index.vue'")
 
 const actionPanel = assertFile('src/views/form-center/business-action/ActionFormPanel.vue')
 assertIncludes(actionPanel, 'resolveBusinessAction')
@@ -311,6 +308,9 @@ assertIncludes(policyPage, 'loadPublishedTemplates')
 const remainingRoutes = assertFile('src/router/modules/remaining.ts')
 assertIncludes(remainingRoutes, 'ApprovalCenterFormCenter')
 assertIncludes(remainingRoutes, '/approval-center/manager/form-center/template')
+assertIncludes(remainingRoutes, "path: 'form-center/template/simulate'")
+assertIncludes(remainingRoutes, "MdmFormCenterTemplateSimulate")
+assertIncludes(remainingRoutes, "@/views/form-center/template/FormTemplateSimulatePage.vue")
 assertNotIncludes(remainingRoutes, "path: 'business-action'")
 assertNotIncludes(remainingRoutes, "ApprovalCenterFormCenterBusinessAction")
 assertNotIncludes(remainingRoutes, "import('@/views/form-center/business-action/index.vue')")
@@ -343,8 +343,9 @@ for (const file of [
   'src/api/form-center/instance.ts',
   'src/api/form-center/policy.ts',
   'src/views/form-center/template/index.vue',
+  'src/views/form-center/template/FormTemplateSimulatePage.vue',
+  'src/views/form-center/template/components/FormTemplateDesignerWrapper.vue',
   'src/views/form-center/template/components/TemplateImportDialog.vue',
-  'src/views/form-center/template/components/TemplateViewDialog.vue',
   'src/views/form-center/business-action/ActionFormPanel.vue',
   'src/views/form-center/policy/index.vue'
 ]) {

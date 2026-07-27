@@ -21,18 +21,18 @@ const fillSelectedTemplateBody =
 
 assert.match(
   openSelectedTemplateBody,
-  /templateViewDialogRef\.value\?\.open\(selectedTemplate\.value\)/,
-  '表单模板“打开”必须查看当前模板自身内容'
+  /openSelectedTemplateWorkspace\('preview'\)/,
+  '表单模板“打开”必须进入当前模板自身只读工作区'
 )
 assert.match(
   editSelectedTemplateBody,
-  /openSelectedTemplateAction\('edit'\)/,
+  /openSelectedTemplateWorkspace\('edit'\)/,
   '表单模板“编辑”必须进入当前模板自身规则编辑工作区'
 )
 assert.match(
   fillSelectedTemplateBody,
-  /resetTemplateFillValues\(\)[\s\S]*fillDialogVisible\.value\s*=\s*true/,
-  '表单模板“填写”必须打开当前模板自身模拟填写工作区'
+  /\/mdm\/form-center\/template\/simulate[\s\S]*templateId[\s\S]*versionNo/,
+  '表单模板“填写”必须跳转当前模板自身模拟填写工作区'
 )
 
 for (const forbidden of [
@@ -57,8 +57,9 @@ for (const field of [
   assert.doesNotMatch(templateApi, new RegExp(`\\b${field}\\??:`), `表单模板 API 类型不得包含 ${field}`)
 }
 
-assert.match(templatePage, /<TemplateViewDialog\s+ref="templateViewDialogRef"\s*\/>/)
-assert.match(templatePage, /v-model="rulesDialogVisible"/)
-assert.match(templatePage, /v-model="fillDialogVisible"/)
+assert.match(templatePage, /isDesignerMode/)
+assert.match(templatePage, /isTemplateSimulationMode/)
+assert.match(templatePage, /getTemplateVersion/)
+assert.match(templatePage, /form-template-route-workspace/)
 
 console.log('PASS form-template-independent-button-actions-static')

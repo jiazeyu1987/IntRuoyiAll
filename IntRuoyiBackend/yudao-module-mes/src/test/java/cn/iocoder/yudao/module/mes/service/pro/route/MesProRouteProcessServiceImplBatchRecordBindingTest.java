@@ -48,9 +48,6 @@ class MesProRouteProcessServiceImplBatchRecordBindingTest {
             routeProcess.setId(100L);
             return 1;
         }).when(routeProcessMapper).insert(any(MesProRouteProcessDO.class));
-        when(routeProcessMapper.selectListByRouteId(10L)).thenReturn(java.util.List.of(
-                MesProRouteProcessDO.builder().id(100L).routeId(10L).processId(20L).sort(1).build()
-        ));
 
         routeProcessService.createRouteProcess(reqVO);
 
@@ -74,9 +71,6 @@ class MesProRouteProcessServiceImplBatchRecordBindingTest {
             routeProcess.setId(100L);
             return 1;
         }).when(routeProcessMapper).insert(any(MesProRouteProcessDO.class));
-        when(routeProcessMapper.selectListByRouteId(10L)).thenReturn(java.util.List.of(
-                MesProRouteProcessDO.builder().id(100L).routeId(10L).processId(20L).sort(1).build()
-        ));
 
         routeProcessService.createRouteProcess(reqVO);
 

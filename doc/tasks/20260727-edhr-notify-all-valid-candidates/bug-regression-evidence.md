@@ -43,6 +43,7 @@ GREEN: mvn -pl yudao-module-mes org.apache.maven.plugins:maven-surefire-plugin:3
 
 - `mvn -pl yudao-module-mes org.apache.maven.plugins:maven-surefire-plugin:3.5.3:test "-Dtest=MesProEdhrWorkTaskServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=true"` -> PASS, 66 tests run, 0 failures, 0 errors.
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest#createInitialFillTask_usesProcessFormPermissionRuleCandidateSnapshot+createReviewTasks_createsOneTodoPerSignatureCellAndCompletesSubmitTask+createReviewTasks_deduplicatesRepeatedFrozenCandidateNotifyRecipients" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests run, 0 failures, 0 errors.
+- The same standard targeted reactor command was rerun on the current shared branch at 2026-07-27 20:40:03 -> PASS, 3 tests run, 0 failures, 0 errors; all 24 reactor modules succeeded.
 - `mvn -pl yudao-module-mes -am "-DskipTests" compile` -> PASS.
 - `git diff --check -- <task-owned files>` -> PASS, only Git line-ending conversion warnings.
 - `mvn -pl yudao-module-mes -am test` -> FAIL in upstream `yudao-module-infra`; MES skipped.

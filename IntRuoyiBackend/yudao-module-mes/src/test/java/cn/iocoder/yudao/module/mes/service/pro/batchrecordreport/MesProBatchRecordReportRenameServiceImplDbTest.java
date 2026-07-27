@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalOrchestrator;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import jakarta.annotation.Resource;
@@ -32,6 +33,14 @@ class MesProBatchRecordReportRenameServiceImplDbTest extends BaseDbUnitTest {
     private MesProBatchRecordImageParser imageParser;
     @MockitoBean
     private MesProBatchRecordJimuReportGateway jimuReportGateway;
+    @MockitoBean
+    private MesProBatchRecordRouteGenerationService routeGenerationService;
+    @MockitoBean
+    private MesProBatchRecordFormProfileRegistry formProfileRegistry;
+    @MockitoBean
+    private BusinessApprovalOrchestrator businessApprovalOrchestrator;
+    @MockitoBean
+    private MesProBatchRecordVersionBusinessApprovalEffectExecutor batchRecordVersionApprovalEffectExecutor;
 
     @BeforeEach
     void setUp() {

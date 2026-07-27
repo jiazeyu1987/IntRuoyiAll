@@ -3137,9 +3137,12 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             }
             extensionStartDate = extensionEndDate.plusDays(1);
         }
+        String failureMessage = scheduleOrderProcess != null
+                && Boolean.TRUE.equals(scheduleOrderProcess.getNightShiftEnabled())
+                ? buildLineCapacityInsufficientMessage(computation, scheduleOrderProcess)
+                : buildLineCapacitySearchLimitMessage(scheduleOrderProcess, targetQuantity);
         ScheduleIssueDraft searchLimitIssue = ScheduleIssueDraft.blocking(ISSUE_TYPE_CAPACITY, workOrder.getId(),
-                routeProcess.getProcessId(), null, null,
-                buildLineCapacitySearchLimitMessage(scheduleOrderProcess, targetQuantity));
+                routeProcess.getProcessId(), null, null, failureMessage);
         return ProcessLineCandidate.failed(searchLimitIssue);
     }
 

@@ -909,6 +909,10 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 """.formatted(route.getId(), route.getCode(), route.getName(),
                 routeProcess.getId(), routeProcess.getProcessId(), routeProcess.getSort(),
                 routeProcess.getId(), routeProcess.getProcessId(), routeProcess.getSort(), fixture.reportId1());
+        com.alibaba.fastjson.JSONObject legacySnapshot = JSON.parseObject(activeSnapshotJson);
+        legacySnapshot.getJSONObject("configSnapshots")
+                .put("batchRecordAttachmentOwners", defaultBatchRecordAttachmentOwners());
+        activeSnapshotJson = JSON.toJSONString(legacySnapshot);
         MesProRouteVersionDO update = new MesProRouteVersionDO();
         update.setId(fixture.routeVersionId());
         update.setRouteSnapshotJson(activeSnapshotJson);
@@ -1357,7 +1361,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         when(adminUserApi.getUserMap(any())).thenReturn(Map.of(
                 101L, adminUser(101L, "生产填写人", CommonStatusEnum.ENABLE.getStatus()),
                 102L, adminUser(102L, "设备填写人", CommonStatusEnum.ENABLE.getStatus()),
-                103L, adminUser(103L, "质量填写人", CommonStatusEnum.ENABLE.getStatus())));
+                103L, adminUser(103L, "质量填写人", CommonStatusEnum.ENABLE.getStatus()),
+                10001L, adminUser(10001L, "附件负责人", CommonStatusEnum.ENABLE.getStatus())));
 
         PageResult<EdhrBatchExecutionRespVO> page = batchExecutionService.getPage(new EdhrBatchExecutionPageReqVO()
                 .setBatchCode("BATCH-CURRENT-FILLERS"));
@@ -1493,7 +1498,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         when(adminUserApi.getUserList(List.of(149L))).thenReturn(List.of(
                 adminUser(149L, "黎敏", CommonStatusEnum.ENABLE.getStatus())));
         when(adminUserApi.getUserMap(any())).thenReturn(Map.of(
-                149L, adminUser(149L, "黎敏", CommonStatusEnum.ENABLE.getStatus())));
+                149L, adminUser(149L, "黎敏", CommonStatusEnum.ENABLE.getStatus()),
+                10001L, adminUser(10001L, "附件负责人", CommonStatusEnum.ENABLE.getStatus())));
 
         EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
@@ -1548,7 +1554,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         when(adminUserApi.getUserList(List.of(149L))).thenReturn(List.of(
                 adminUser(149L, "黎敏", CommonStatusEnum.ENABLE.getStatus())));
         when(adminUserApi.getUserMap(any())).thenReturn(Map.of(
-                149L, adminUser(149L, "黎敏", CommonStatusEnum.ENABLE.getStatus())));
+                149L, adminUser(149L, "黎敏", CommonStatusEnum.ENABLE.getStatus()),
+                10001L, adminUser(10001L, "附件负责人", CommonStatusEnum.ENABLE.getStatus())));
         MesProEdhrBatchExecutionDO legacyBatch = MesProEdhrBatchExecutionDO.builder()
                 .batchExecutionCode("EDHRB-FROZEN-LATEST-REPORT")
                 .workOrderId(workOrder.getId())
@@ -1619,7 +1626,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         when(adminUserApi.getUserList(List.of(149L))).thenReturn(List.of(
                 adminUser(149L, "黎敏", CommonStatusEnum.ENABLE.getStatus())));
         when(adminUserApi.getUserMap(any())).thenReturn(Map.of(
-                149L, adminUser(149L, "黎敏", CommonStatusEnum.ENABLE.getStatus())));
+                149L, adminUser(149L, "黎敏", CommonStatusEnum.ENABLE.getStatus()),
+                10001L, adminUser(10001L, "附件负责人", CommonStatusEnum.ENABLE.getStatus())));
         MesProEdhrBatchExecutionDO legacyBatch = MesProEdhrBatchExecutionDO.builder()
                 .batchExecutionCode("EDHRB-EXISTING-OLD-TASK")
                 .workOrderId(workOrder.getId())

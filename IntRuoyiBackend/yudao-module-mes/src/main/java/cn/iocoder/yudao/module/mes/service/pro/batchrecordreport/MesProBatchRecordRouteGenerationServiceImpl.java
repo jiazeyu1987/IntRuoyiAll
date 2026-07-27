@@ -334,6 +334,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                     .prepareTime(preservedRouteProcess == null ? null : preservedRouteProcess.prepareTime())
                     .waitTime(preservedRouteProcess == null ? null : preservedRouteProcess.waitTime())
                     .colorCode(preservedRouteProcess == null ? null : preservedRouteProcess.colorCode())
+                    .linkType(preservedRouteProcess == null ? null : preservedRouteProcess.linkType())
                     .keyFlag(preservedRouteProcess != null && Boolean.TRUE.equals(preservedRouteProcess.keyFlag()))
                     .checkFlag(preservedRouteProcess != null && Boolean.TRUE.equals(preservedRouteProcess.checkFlag()))
                     .remark(preservedRouteProcess == null ? "eDHR Word导入自动生成"
@@ -383,7 +384,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                 bindingCount++;
             }
         }
-        preserveRouteProcessConnections(preservedData, preservedRouteProcessIdMap);
+        updatePreservedRouteProcessNextLinks(generatedRouteProcesses, preservedData, preservedRouteProcessIdMap);
         insertRouteProcessFlowEdges(route.getId(), generatedRouteProcesses, preservedData, preservedRouteProcessIdMap);
         RouteProductBindingResult productBindingResult = bindRouteProducts(route.getId(), normalizedProductNames);
         updateRouteVersionSnapshot(routeVersion, buildGeneratedRouteSnapshot(
@@ -674,20 +675,35 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         return preservedProcesses.get(index);
     }
 
-    private void preserveRouteProcessConnections(RouteUpgradePreservedData preservedData,
-                                                 Map<Long, Long> preservedRouteProcessIdMap) {
+    private void updatePreservedRouteProcessNextLinks(List<MesProRouteProcessDO> routeProcesses,
+                                                      RouteUpgradePreservedData preservedData,
+                                                      Map<Long, Long> preservedRouteProcessIdMap) {
+        if (preservedData == null || preservedData.processesByProcessId().isEmpty()
+                || preservedRouteProcessIdMap.isEmpty()) {
+            return;
+        }
+        Map<Long, MesProRouteProcessDO> routeProcessById = routeProcesses.stream()
+                .filter(routeProcess -> routeProcess.getId() != null)
+                .collect(Collectors.toMap(MesProRouteProcessDO::getId, routeProcess -> routeProcess,
+                        (left, right) -> left, LinkedHashMap::new));
         for (List<PreservedRouteProcess> preservedProcesses : preservedData.processesByProcessId().values()) {
             for (PreservedRouteProcess preservedProcess : preservedProcesses) {
-                Long newRouteProcessId = preservedRouteProcessIdMap.get(preservedProcess.id());
-                Long newNextRouteProcessId = preservedRouteProcessIdMap.get(preservedProcess.nextProcessId());
-                if (newRouteProcessId == null || newNextRouteProcessId == null) {
+                Long mappedRouteProcessId = preservedRouteProcessIdMap.get(preservedProcess.id());
+                if (mappedRouteProcessId == null) {
                     continue;
                 }
+                Long mappedNextRouteProcessId = preservedProcess.nextProcessId() == null
+                        ? null : preservedRouteProcessIdMap.get(preservedProcess.nextProcessId());
                 MesProRouteProcessDO update = new MesProRouteProcessDO();
-                update.setId(newRouteProcessId);
-                update.setNextProcessId(newNextRouteProcessId);
+                update.setId(mappedRouteProcessId);
+                update.setNextProcessId(mappedNextRouteProcessId);
                 update.setLinkType(preservedProcess.linkType());
                 routeProcessMapper.updateById(update);
+                MesProRouteProcessDO generatedRouteProcess = routeProcessById.get(mappedRouteProcessId);
+                if (generatedRouteProcess != null) {
+                    generatedRouteProcess.setNextProcessId(mappedNextRouteProcessId);
+                    generatedRouteProcess.setLinkType(preservedProcess.linkType());
+                }
             }
         }
     }
@@ -1228,8 +1244,8 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
     }
 
     private record PreservedRouteProcess(Long id, Long processId, Long nextProcessId, Integer linkType,
-                                         Integer prepareTime, Integer waitTime, String colorCode,
-                                         Boolean keyFlag, Boolean checkFlag, String remark) {
+                                          Integer prepareTime, Integer waitTime, String colorCode,
+                                          Boolean keyFlag, Boolean checkFlag, String remark) {
     }
 
     private record RouteProductBindingResult(int boundProductNameCount, int boundProductCodeCount,

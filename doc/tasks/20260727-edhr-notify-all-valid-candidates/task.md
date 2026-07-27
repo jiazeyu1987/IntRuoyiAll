@@ -1,8 +1,9 @@
-# 任务：eDHR 工作任务通知全部有效候选人
+# 任务：eDHR 工作任务通知全部有效候选人及 MES 完整回归全绿
 
 ## 任务目标
 
-将 eDHR 批次执行工作任务的站内信收件人规则统一为：同一工作任务通知其候选快照中的全部有效候选账号；同一任务内账号去重；不把不同业务任务的候选人混成一个任务。
+1. 将 eDHR 批次执行工作任务的站内信收件人规则统一为：同一工作任务通知其候选快照中的全部有效候选账号；同一任务内账号去重；不把不同业务任务的候选人混成一个任务。
+2. 按用户 2026-07-27 明确批准的范围变更，修复 `mvn -pl yudao-module-mes test` 暴露的全部 failure/error，直到完整 MES 模块回归 `BUILD SUCCESS`。
 
 ## 里程碑
 
@@ -10,7 +11,10 @@
 2. BDD 场景和回归测试先行，形成 RED
 3. 后端通知收件人实现
 4. 定向测试、模块回归和证据校验
-5. 任务文档收尾、提交并推送
+5. 完整 MES 回归失败簇规划与前置条件治理
+6. 按失败簇修复 schema/fixture/装配/契约/业务回归
+7. 完整模块独立复验
+8. 任务文档收尾、提交并推送
 
 ## 预期验证
 
@@ -24,7 +28,7 @@
 
 blocked
 
-阻塞原因：本任务实现、标准定向 GREEN、同类服务测试和生产代码编译已通过；`mvn -pl yudao-module-mes test` 已在 2026-07-27 20:17:20 完整结束，但模块既有回归共 2509 tests、58 failures、78 errors、31 skipped。失败集中在排产契约、缺少本机 Word/Excel fixture、数据库测试上下文及其他既有测试，目标 `MesProEdhrWorkTaskServiceImplTest` 在同次全量运行中仍为 66 tests、0 failures、0 errors。由于完整 MES 模块回归未通过，不能进入提交和推送门禁。
+当前处于扩大范围后的规划阶段。原通知行为、标准定向 GREEN、同类服务测试和生产代码编译已通过；完整 MES 基线为 2509 tests、58 failures、78 errors、31 skipped。已确认两个权威真实 fixture 尚未在预期路径发现，依赖它们的测试与最终全量验收保持 blocked；其余失败簇进入依赖任务图拆解。
 
 共享分支状态：并发任务于 2026-07-27 18:41:23 创建并推送基线提交 `f18927b9`，其中已包含本任务 Java 实现、测试和当时的初始任务文档。完整回归后的复核确认本地 `HEAD` 与 `origin/int_main` 已对齐且都包含 `f18927b9`；共享分支仍由并发任务持续推进，本次完整回归后的任务证据更新尚未提交。
 
@@ -40,6 +44,13 @@ blocked
 - 后端行为变更使用 BDD -> RED -> GREEN -> REGRESSION。
 - Maven 多模块验证使用 `-pl yudao-module-mes -am`，避免兄弟模块产物边界误判。
 - 本任务不修改数据库 schema、菜单、权限和租户绑定，不执行 SQL 或远端操作。
+- 用户已明确扩大范围至 MES 完整回归全绿；任何 schema、fixture 或测试基础设施改动仍必须先按对应项目门禁确认，禁止跳过测试、伪造 fixture 或放宽断言。
+
+## 范围变更
+
+- 决策证据：`docs/changes/20260727-mes-full-regression-green.md`
+- 规划产物：`request-analysis.md`、`prd.md`
+- 最终验收：在 `IntRuoyiBackend` 执行 `mvn -pl yudao-module-mes test`，退出码 0、`BUILD SUCCESS`、0 failures、0 errors。
 
 ## 初始证据
 

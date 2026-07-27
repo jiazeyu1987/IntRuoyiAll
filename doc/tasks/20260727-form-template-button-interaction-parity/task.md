@@ -11,11 +11,11 @@
 
 ## Milestones
 
-1. 确认两套页面的现有交互差异及可复用边界。
-2. 以聚焦静态合同记录 BDD，并完成 RED。
-3. 实现表单模板三按钮页面流转对齐。
-4. 完成聚焦测试、类型检查和真实页面路径验证。
-5. 更新任务证据并完成收尾。
+1. [x] 确认两套页面的现有交互差异及可复用边界。
+2. [x] 以聚焦静态合同记录 BDD，并完成 RED。
+3. [x] 实现表单模板三按钮页面流转对齐。
+4. [x] 完成聚焦测试、类型检查和真实页面路径验证。
+5. [x] 更新任务证据并完成收尾。
 
 ## Expected Verification
 
@@ -23,11 +23,11 @@
 - `node tests/e2e/form-template-independent-button-actions-static.spec.js`
 - `node tests/e2e/form-center-static.spec.js`
 - `pnpm ts:check`
-- Playwright 真实前端路径验证三个按钮的 URL、工作区和数据领域边界。
+- Playwright 从真实菜单路径 `/mdm/form-center/template` 验证三个按钮的 URL、工作区和数据领域边界。
 
 ## Current Status
 
-`in_progress`
+completed
 
 ## 设计约束检查
 
@@ -38,7 +38,8 @@
 ## 经验门禁
 
 - 表单模板与批记录表单没有直接数据关系；交互相似不得解释为共享 `reportId`。
-- 三按钮必须只使用当前模板上下文，普通模板不得因未绑定批记录而不可操作。
+- 三按钮必须只使用当前模板上下文；`打开/编辑`使用 `mode=designer` 的 FormCenter 专属包装页，`填写`使用独立模拟填写页面。
+- 三个页面级动作都必须按 `templateId + versionNo` 精确读取当前模板版本，普通模板不得因未绑定批记录而不可操作。
 - 既有宽合同若先失败于无关断言，必须新增任务专用最小合同完成 RED/GREEN，不修改无关产品逻辑。
 - 真实页面验证必须使用 Playwright；不得用 API-only 或 mock 代替。
 
@@ -54,3 +55,7 @@
 - MES 批记录数据绑定。
 - 批记录 `reportId`、`BOUND` 状态和批记录模板模拟 API。
 - 后端数据库、菜单权限、批记录管理页面行为修改。
+
+## Cleanup Keep
+
+- doc/tasks/20260727-form-template-button-interaction-parity/bug-regression-evidence.md

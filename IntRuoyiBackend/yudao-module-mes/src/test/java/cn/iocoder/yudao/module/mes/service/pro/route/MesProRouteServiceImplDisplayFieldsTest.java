@@ -58,6 +58,8 @@ class MesProRouteServiceImplDisplayFieldsTest {
     private MesProProcessMapper processMapper;
     @Mock
     private MesMdItemService itemService;
+    @Mock
+    private MesProRouteControlledContentAdapter platformAdapter;
 
     @InjectMocks
     private MesProRouteServiceImpl routeService;
