@@ -20,7 +20,7 @@
 
 ## Current Status
 
-completed
+blocked
 
 ## 设计约束检查
 
@@ -47,3 +47,14 @@ completed
 - Verification: 运行快照静态合同、前端 ESLint/`pnpm ts:check` 与 MES reactor compile。
 - Forbidden action: 禁止在切换填写人弹窗打开时调用全量 `getEdhrBatchExecution` 作为性能问题的替代方案；禁止用前端缓存、空列表兜底或吞异常掩盖缺失快照。
 - Evidence: `docs/backend-development.md#切换填写人快照读取边界`。
+
+## Cleanup Keep
+
+- doc/tasks/20260727-switch-filler-snapshot-loading/bug-regression-evidence.md
+- doc/tasks/20260727-switch-filler-snapshot-loading/backend-api-evidence.md
+- doc/tasks/20260727-switch-filler-snapshot-loading/frontend-feature-evidence.md
+
+## Current Blocker
+
+- `mvn -pl yudao-module-mes -am "-DskipTests" compile` 当前被工作区内未跟踪的并行 cell-link 源文件阻断：`MesProBatchRecordCellLinkAutoPersistServiceImpl.java` 引用了尚未提交/实现的 `saveSystemCellLinkChanges(...)` 和 `PRO_BATCH_RECORD_CELL_LINK_AUTO_PERSIST_SOURCE_VALUE_MISSING`。
+- 影响：本次“切换填写人”静态合同已通过，但按项目门禁不能在 MES reactor 编译失败时提交、推送或标记最终完成。

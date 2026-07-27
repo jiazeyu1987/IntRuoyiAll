@@ -29,20 +29,24 @@
 - PASS: `mvn -pl yudao-module-mes -am "-DskipTests" compile`
 - PASS: `git diff --check` / `git diff --cached --check` scoped to current task files.
 - RESOLVED: stale Maven blocker was rechecked and is no longer present; MES reactor compile passed.
+- RECHECK: mapper `LambdaQueryWrapperX` chain assignment caused one compile failure during final source review; changed to non-chained query construction and reran `mvn -pl yudao-module-mes -am "-DskipTests" compile` -> PASS.
+- LATEST BLOCKER: `mvn -pl yudao-module-mes -am "-DskipTests" compile` -> FAIL，工作区新增未跟踪并行 cell-link 源文件 `MesProBatchRecordCellLinkAutoPersistServiceImpl.java`，引用未实现的 `saveSystemCellLinkChanges(...)` 和 `PRO_BATCH_RECORD_CELL_LINK_AUTO_PERSIST_SOURCE_VALUE_MISSING`；该阻塞不属于本次切换填写人快照修复，未改动并行任务文件。
 - GREEN: experience-preflight -> PASS，已读取 `docs/experience-index.md` 并将本次快照读取门禁沉淀到已有 `docs/backend-development.md`。
-- GREEN: task-closeout-cleanup preview -> PASS，keep 仅包含 `task.md`、`execution-log.md`、`verification-report.md`，delete/blocked/warnings 均为 `<none>`。
+- GREEN: task-closeout-cleanup preview -> PASS，keep 包含 `task.md`、`execution-log.md`、`verification-report.md` 和三份 evidence 文件，delete/blocked/warnings 均为 `<none>`。
 - GREEN: task-closeout-cleanup apply -> PASS，主工作区 `linked=False`，未删除任何文件。
 
 ## Blockers
 
-- 当前功能与验证无阻塞。
-- 提交/推送前仍需按 Git policy 处理无关脏工作区：`doc/tasks/20260727-jimu-signature-date-cell-type/`  tracked 改动，以及 `doc/tasks/20260727-batch-record-test-node-items/`、`doc/tasks/20260727-edhr-cell-link-auto-persist-design/` 未跟踪目录。
+- 当前功能静态合同无阻塞。
+- 最终 MES reactor 编译、提交和推送被并行 cell-link 未跟踪源码阻断；按 no-fallback 和并行任务边界，未修改这些非本任务文件。
 
 ## Git Evidence
 
 - Dirty-worktree baseline commit: `ab3381d8` (`chore: preserve concurrent dirty baseline before switch filler closeout`).
 - Baseline files: `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceTest.java`; `doc/tasks/20260727-jimu-signature-date-cell-type/task.md`; `doc/tasks/20260727-jimu-signature-date-cell-type/execution-log.md`; `doc/tasks/20260727-batch-record-test-node-items/database-schema-evidence.md`; `doc/tasks/20260727-batch-record-test-node-items/execution-log.md`; `doc/tasks/20260727-batch-record-test-node-items/task.md`; `doc/tasks/20260727-batch-record-test-node-items/verification-report.md`; `doc/tasks/20260727-controlled-browse-system-exception/task.md`; `doc/tasks/20260727-controlled-browse-system-exception/execution-log.md`; `doc/tasks/20260727-edhr-cell-link-auto-persist-design/docs/system/backend-api-design.md`; `doc/tasks/20260727-edhr-cell-link-auto-persist-design/docs/system/config-security-deployment.md`; `doc/tasks/20260727-edhr-cell-link-auto-persist-design/docs/system/data-model.md`; `doc/tasks/20260727-edhr-cell-link-auto-persist-design/docs/system/frontend-design.md`; `doc/tasks/20260727-edhr-cell-link-auto-persist-design/execution-log.md`; `doc/tasks/20260727-edhr-cell-link-auto-persist-design/task.md`; `doc/tasks/20260727-edhr-cell-link-auto-persist-design/verification-report.md`.
+- Additional concurrent baseline commit: `bca27f86` (`chore: preserve concurrent diagnosis and cell-link baseline`) for `doc/tasks/20260727-controlled-browse-system-exception/dcc-controlled-browse-diagnosis.json` and `doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/`.
+- Task implementation/closeout commit: `291306c4` (`chore: preserve dirty baseline before cell link auto persist`) contains the switch filler snapshot source/test/docs changes alongside concurrent task records that were present during the commit window.
 
 ## Final Status
 
-- completed：实现、验证、经验沉淀和 cleanup 均已完成；剩余 Git 提交/推送需按脏工作区基线门禁处理。
+- blocked：切换填写人快照修复与静态验证已完成；最终编译/提交/推送等待并行 cell-link 工作区阻塞解除。

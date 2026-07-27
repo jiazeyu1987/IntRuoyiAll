@@ -133,7 +133,8 @@ public interface MesProBatchRecordExecutionMapper extends BaseMapperX<MesProBatc
         } else {
             query.eq(MesProBatchRecordExecutionDO::getTaskId, taskId);
         }
-        return selectOne(query.orderByDesc(MesProBatchRecordExecutionDO::getId));
+        query.orderByDesc(MesProBatchRecordExecutionDO::getId);
+        return selectOne(query);
     }
 
     default MesProBatchRecordExecutionDO selectActiveByBatchShared(Long batchExecutionId,
