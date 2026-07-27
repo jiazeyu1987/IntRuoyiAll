@@ -119,6 +119,7 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private static final Long SPECIAL_NODE_ATTACHMENT_EXECUTION_ID = 0L;
     private static final String SPECIAL_NODE_ATTACHMENT_ACTION_ADD = "ADD";
     private static final String RULE_SCOPE_TYPE_ROUTE = "ROUTE";
+    private static final String CANDIDATE_SOURCE_TYPE_USER = "USER";
     private static final String ACTION_BATCH_RELEASE = "BATCH_RELEASE";
     private static final String SIGNATURE_MODE_PASSWORD = "PASSWORD";
 
@@ -152,8 +153,6 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private FormActionInstanceMapper formActionInstanceMapper;
     @Resource
     private MesProEdhrReleaseDossierRequirementSettingService dossierRequirementSettingService;
-    @Resource
-    private MesProEdhrCandidateResolver candidateResolver;
 
     @Override
     public PageResult<MesProEdhrReleaseRespVO> getPage(MesProEdhrReleasePageReqVO reqVO) {
@@ -883,34 +882,25 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     }
 
     private void requireReleaseOwner(MesProEdhrBatchExecutionDO batch, Long actorUserId) {
-        MesProEdhrWorkTaskAssignmentRuleDO releaseRule = batch.getRouteId() == null ? null
+        MesProEdhrWorkTaskAssignmentRuleDO closeRule = batch.getRouteId() == null ? null
                 : workTaskAssignmentRuleMapper.selectEnabledByScopeAndType(RULE_SCOPE_TYPE_ROUTE,
-                batch.getRouteId(), MesProEdhrWorkTaskService.TASK_TYPE_RELEASE_APPROVE);
-        if (releaseRule == null) {
-            throw exception(PRO_EDHR_RELEASE_OWNER_INVALID, "放行责任人未配置");
-        }
-        MesProEdhrCandidateResolver.MesProEdhrCandidateContract candidate =
-                candidateResolver.resolveAssignmentRule(releaseRule);
-        if (isCurrentUserReleaseOwner(candidate, actorUserId)) {
+                batch.getRouteId(), MesProEdhrWorkTaskService.TASK_TYPE_CLOSE);
+        if (isCurrentUserCloseOwner(closeRule, actorUserId)) {
             return;
         }
         throw exception(PRO_EDHR_RELEASE_OWNER_INVALID, actorUserId);
     }
 
-    private boolean isCurrentUserReleaseOwner(MesProEdhrCandidateResolver.MesProEdhrCandidateContract candidate,
-                                             Long actorUserId) {
-        if (candidate == null || actorUserId == null || StrUtil.isBlank(candidate.userSnapshot())) {
+    private boolean isCurrentUserCloseOwner(MesProEdhrWorkTaskAssignmentRuleDO closeRule, Long actorUserId) {
+        if (closeRule == null || actorUserId == null) {
             return false;
         }
-        for (String item : candidate.userSnapshot().split(",")) {
-            if (StrUtil.isBlank(item)) {
-                continue;
-            }
-            if (Objects.equals(Long.valueOf(item.trim()), actorUserId)) {
-                return true;
-            }
+        if (Objects.equals(closeRule.getAssigneeUserId(), actorUserId)) {
+            return true;
         }
-        return false;
+        String sourceType = StrUtil.blankToDefault(closeRule.getCandidateSourceType(), CANDIDATE_SOURCE_TYPE_USER);
+        return Objects.equals(sourceType, CANDIDATE_SOURCE_TYPE_USER)
+                && Objects.equals(closeRule.getCandidateSourceId(), actorUserId);
     }
 
     private void closeReadyBatchAfterReleaseSignature(MesProEdhrBatchExecutionDO batch,

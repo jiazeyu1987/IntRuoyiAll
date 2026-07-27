@@ -456,8 +456,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private MesProRouteVersionDO createDraftCandidateRouteVersion(MesProRouteDO route,
                                                                   MesProRouteVersionDO activeVersion) {
         MesProRouteVersionDO candidate = createRouteVersion(route, nextVersionNo(route.getId()), activeVersion.getId(),
-                Boolean.FALSE, ROUTE_VERSION_STATUS_DRAFT,
-                buildCompleteRouteConfigSnapshots(route.getId(), activeVersion.getId()));
+                Boolean.FALSE, ROUTE_VERSION_STATUS_DRAFT, extractConfigSnapshots(activeVersion));
         platformAdapter.recordCandidateCreated(activeVersion, candidate, null, "route version candidate created");
         return candidate;
     }

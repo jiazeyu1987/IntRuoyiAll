@@ -2241,21 +2241,17 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     }
 
     private void sendNotify(MesProEdhrWorkTaskDO task) {
-        String templateCode = resolveNotifyTemplateCode(task.getTaskType());
-        Map<String, Object> templateParams = Map.of(
+        NotifySendSingleToUserReqDTO reqDTO = new NotifySendSingleToUserReqDTO();
+        reqDTO.setUserId(task.getAssigneeUserId());
+        reqDTO.setTemplateCode(resolveNotifyTemplateCode(task.getTaskType()));
+        reqDTO.setTemplateParams(Map.of(
                 "workOrderCode", Objects.toString(task.getWorkOrderCode(), ""),
                 "batchCode", Objects.toString(task.getBatchCode(), ""),
                 "processName", Objects.toString(task.getProcessName(), ""),
                 "actionUrl", task.getActionUrl(),
                 "reason", Objects.toString(task.getReason(), ""),
-                "workTaskId", task.getId());
-        for (Long userId : parseCandidateUserIds(task.getCandidateUserSnapshot())) {
-            NotifySendSingleToUserReqDTO reqDTO = new NotifySendSingleToUserReqDTO();
-            reqDTO.setUserId(userId);
-            reqDTO.setTemplateCode(templateCode);
-            reqDTO.setTemplateParams(templateParams);
-            notifyMessageSendApi.sendSingleMessageToAdmin(reqDTO);
-        }
+                "workTaskId", task.getId()));
+        notifyMessageSendApi.sendSingleMessageToAdmin(reqDTO);
     }
 
     private void sendReassignmentNotify(MesProEdhrWorkTaskDO task, String reason) {

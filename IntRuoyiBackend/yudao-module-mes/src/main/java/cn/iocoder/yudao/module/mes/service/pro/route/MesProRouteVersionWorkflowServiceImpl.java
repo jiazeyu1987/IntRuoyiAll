@@ -40,8 +40,6 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
     @Resource
     private BpmProcessInstanceApi bpmProcessInstanceApi;
     @Resource
-    private MesProRouteService routeService;
-    @Resource
     private MesProRouteControlledContentAdapter platformAdapter;
 
     @Override
@@ -82,7 +80,7 @@ public class MesProRouteVersionWorkflowServiceImpl implements MesProRouteVersion
             throw exception(PRO_ROUTE_VERSION_CONFLICT,
                     reqVO.getRouteId(), openCandidate.getId(), openCandidate.getLifecycleStatus());
         }
-        String routeSnapshotJson = routeService.buildCurrentRouteSnapshotJson(reqVO.getRouteId(), active.getId());
+        String routeSnapshotJson = active.getRouteSnapshotJson();
         if (!MesProRouteVersionSnapshotValidator.hasCompleteConfigSnapshot(routeSnapshotJson)) {
             throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, active.getId());
         }

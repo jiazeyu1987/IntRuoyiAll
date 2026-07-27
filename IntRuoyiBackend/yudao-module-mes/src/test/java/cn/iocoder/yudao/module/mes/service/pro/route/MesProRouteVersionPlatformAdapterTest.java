@@ -44,8 +44,6 @@ class MesProRouteVersionPlatformAdapterTest {
         MesProRouteVersionDO active = activeVersion();
         when(routeVersionMapper.selectActiveByRouteIdForUpdate(active.getRouteId())).thenReturn(active);
         when(routeVersionMapper.selectMaxVersionNoByRouteId(active.getRouteId())).thenReturn("V1");
-        when(routeService.buildCurrentRouteSnapshotJson(active.getRouteId(), active.getId()))
-                .thenReturn(validSnapshotJson());
         MesProRouteVersionCreateReqVO reqVO = new MesProRouteVersionCreateReqVO();
         reqVO.setRouteId(active.getRouteId());
         reqVO.setSourceRouteVersionId(active.getId());

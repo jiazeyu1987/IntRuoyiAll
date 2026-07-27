@@ -103,8 +103,6 @@ import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
 import cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
-import cn.iocoder.yudao.module.system.api.permission.RoleApi;
-import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
@@ -275,8 +273,6 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     private AdminUserApi adminUserApi;
     @MockitoBean
     private PermissionApi permissionApi;
-    @MockitoBean
-    private RoleApi roleApi;
     @MockitoBean
     private DeptApi deptApi;
     @MockitoBean
@@ -5545,60 +5541,6 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void workbench_resolvesReleaseOwnerLabelFromRouteReleaseUserRule() {
-        Fixture fixture = insertRouteFixture(true, true);
-        insertInitialFillAssignmentRule(fixture.routeId());
-        insertRouteReleaseAssignmentRule(fixture.routeId(), "USER", 10002L);
-        when(adminUserApi.getUser(10002L)).thenReturn(user(10002L, "王放行"));
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
-                .setWorkOrderId(fixture.workOrderId())
-                .setBatchCode("BATCH-WORKBENCH-RELEASE-USER")
-                .setRouteId(fixture.routeId()));
-
-        EdhrBatchWorkbenchRespVO workbench = batchWorkbenchService.getWorkbench(batch.getId());
-
-        assertTrue(workbench.getReleaseSummary().getReleaseOwnerConfigured());
-        assertEquals("USER", workbench.getReleaseSummary().getReleaseOwnerSourceType());
-        assertEquals("王放行", workbench.getReleaseSummary().getReleaseOwnerLabel());
-    }
-
-    @Test
-    void workbench_resolvesReleaseOwnerLabelFromRouteReleaseRoleGroupRule() {
-        Fixture fixture = insertRouteFixture(true, true);
-        insertInitialFillAssignmentRule(fixture.routeId());
-        insertRouteReleaseAssignmentRule(fixture.routeId(), "ROLE_GROUP", 8801L);
-        when(permissionApi.getUserRoleIdListByRoleIds(Set.of(8801L))).thenReturn(Set.of(10003L, 10004L));
-        when(adminUserApi.getUserList(Set.of(10003L, 10004L)))
-                .thenReturn(List.of(user(10003L, "放行一"), user(10004L, "放行二")));
-        when(roleApi.getRoleList(Set.of(8801L))).thenReturn(List.of(role(8801L, "质量放行组", "qa_release")));
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
-                .setWorkOrderId(fixture.workOrderId())
-                .setBatchCode("BATCH-WORKBENCH-RELEASE-ROLE")
-                .setRouteId(fixture.routeId()));
-
-        EdhrBatchWorkbenchRespVO workbench = batchWorkbenchService.getWorkbench(batch.getId());
-
-        assertTrue(workbench.getReleaseSummary().getReleaseOwnerConfigured());
-        assertEquals("ROLE_GROUP", workbench.getReleaseSummary().getReleaseOwnerSourceType());
-        assertEquals("质量放行组（角色成员均可放行）", workbench.getReleaseSummary().getReleaseOwnerLabel());
-    }
-
-    @Test
-    void workbench_marksReleaseOwnerMissingWhenRouteReleaseRuleAbsent() {
-        Fixture fixture = insertRouteFixture(true, true);
-        insertInitialFillAssignmentRule(fixture.routeId());
-        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
-                .setWorkOrderId(fixture.workOrderId())
-                .setBatchCode("BATCH-WORKBENCH-RELEASE-MISSING")
-                .setRouteId(fixture.routeId()));
-
-        EdhrBatchWorkbenchRespVO workbench = batchWorkbenchService.getWorkbench(batch.getId());
-
-        assertFalse(workbench.getReleaseSummary().getReleaseOwnerConfigured());
-        assertEquals("放行责任人未配置", workbench.getReleaseSummary().getReleaseOwnerLabel());
-    }
-
-    @Test
     void detailTask_includesFillableUsersFromActiveFillWorkTask() {
         Fixture fixture = insertRouteFixture(true, true);
         MesProRouteDO route = routeMapper.selectById(fixture.routeId());
@@ -5803,15 +5745,6 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         user.setNickname(nickname);
         user.setStatus(0);
         return user;
-    }
-
-    private RoleRespDTO role(Long id, String name, String code) {
-        RoleRespDTO role = new RoleRespDTO();
-        role.setId(id);
-        role.setName(name);
-        role.setCode(code);
-        role.setStatus(CommonStatusEnum.ENABLE.getStatus());
-        return role;
     }
 
     private void assertCloseBlocked(Executable executable) {
@@ -6674,18 +6607,6 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         }
         rule.setId(existing.getId());
         workTaskAssignmentRuleMapper.updateById(rule);
-    }
-
-    private void insertRouteReleaseAssignmentRule(Long routeId, String sourceType, Long sourceId) {
-        workTaskAssignmentRuleMapper.insert(MesProEdhrWorkTaskAssignmentRuleDO.builder()
-                .scopeType("ROUTE")
-                .scopeId(routeId)
-                .taskType(MesProEdhrWorkTaskService.TASK_TYPE_RELEASE_APPROVE)
-                .assigneeUserId("USER".equals(sourceType) ? sourceId : null)
-                .candidateSourceType(sourceType)
-                .candidateSourceId(sourceId)
-                .enabled(Boolean.TRUE)
-                .build());
     }
 
     private void insertCurrentProcessFillRule(Long routeProcessId, String reportId, String ruleType, Long userId) {

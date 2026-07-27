@@ -48,9 +48,6 @@ public class EdhrBatchWorkbenchRespVO {
         private Integer failedCheckCount;
         private String precheckSummary;
         private String lastPrecheckAt;
-        private Boolean releaseOwnerConfigured;
-        private String releaseOwnerSourceType;
-        private String releaseOwnerLabel;
     }
 
     @Data

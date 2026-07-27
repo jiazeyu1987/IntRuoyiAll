@@ -197,8 +197,7 @@ public class MesProBatchRecordCellLinkAutoPersistServiceImpl implements MesProBa
                         + ":" + DigestUtil.sha256Hex(Objects.toString(item.getValue(), "")))
                 .sorted()
                 .toList();
-        String rawKey = namespace + ":" + executionId + ":" + String.join("|", parts);
-        return DigestUtil.sha256Hex(rawKey);
+        return namespace + ":" + executionId + ":" + String.join("|", parts);
     }
 
     private String reasonText(List<BatchRecordCellLinkPrefillItemVO> items) {
