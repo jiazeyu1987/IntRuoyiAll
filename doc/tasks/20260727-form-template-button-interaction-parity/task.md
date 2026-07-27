@@ -15,7 +15,7 @@
 2. [x] 以聚焦静态合同记录 BDD，并完成 RED。
 3. [x] 实现表单模板三按钮页面流转对齐。
 4. [x] 完成聚焦测试、类型检查和真实页面路径验证。
-5. [ ] 更新任务证据并完成收尾。
+5. [x] 更新任务证据并完成收尾。
 
 ## Expected Verification
 
@@ -27,7 +27,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
