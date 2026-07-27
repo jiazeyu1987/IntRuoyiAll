@@ -166,6 +166,16 @@
 - Verification: 新增或更新后端回归测试，覆盖同一父记录连续两次替换子表集合且第二次使用相同排序或业务键；目标 Maven 测试必须 PASS。
 - Forbidden action: 禁止把集合替换失败归因于前端重复提交；禁止为了避开唯一键冲突引入随机排序、默认成功或软失败。
 - Evidence: `doc/tasks/20260725-codex-test-method-target-table-rows/verification-report.md`，`CodexTestCaseServiceImplTest#updateCase_allowsRepeatedCheckpointReplacement`。
+
+## 2026-07-27 测试项固定名称删除唯一键门禁
+
+- Trigger: `系统管理 > 测试管理` 使用固定名称反复创建、删除测试项，或表唯一键包含 `tenant_id + name + deleted` 且删除语义需要释放同名占用。
+- Preflight check: 修改删除逻辑前先核对唯一索引、逻辑删除字段、运行中 execution 保护和子表清理顺序；若业务要求固定名称可重复闭环，删除必须真实释放同名唯一键占用。
+- Blocker: 第二次创建/删除同名测试项触发 `DuplicateKeyException`、删除后仍占用 `deleted=1` 唯一键，或物理删除会绕过运行中执行保护时必须停止。
+- Verification: 新增后端回归覆盖同一固定测试项名称连续创建、删除两轮，并复跑测试项管理、执行创建和 Runner 相邻测试。
+- Forbidden action: 禁止改成随机名称、吞唯一键异常、前端隐藏删除失败、跳过运行中 execution 校验，或只清子表不释放测试项主表唯一键。
+- Evidence: `doc/tasks/20260727-codex-test-node-chain/bug-regression-evidence.md`，`CodexTestCaseServiceImplTest#deleteCase_allowsRepeatedCreateAndDeleteWithSameName`。
+
 ## 2026-07-25 Maven Reactor 兄弟模块验证门禁
 
 - Trigger: 多模块 Maven 项目中当前模块依赖兄弟模块，出现缺方法、缺字段、DO/DTO builder 不一致、或测试编译引用 sibling module 新接口时。

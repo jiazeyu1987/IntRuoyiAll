@@ -871,7 +871,8 @@ CREATE TABLE IF NOT EXISTS "system_codex_test_case" (
     "update_time" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "deleted" bit NOT NULL DEFAULT FALSE,
     "tenant_id" bigint NOT NULL DEFAULT 0,
-    PRIMARY KEY ("id")
+    PRIMARY KEY ("id"),
+    UNIQUE ("tenant_id", "name", "deleted")
 ) COMMENT 'Codex 自动测试项';
 
 CREATE TABLE IF NOT EXISTS "system_codex_test_checkpoint" (

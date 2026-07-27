@@ -13,3 +13,40 @@
 - BDD: 非节点串兼容 -> Given 测试项不属于节点串；When 用户按现有方式顺序执行或并行执行；Then 原有行为保持不变。
 - BDD: 节点串选择确定性 -> Given 用户选择节点串测试项；When 选择中混入另一节点串或独立测试项；Then 后端拒绝创建含义不明确的执行批次并提示按单个节点串执行。
 - GREEN: experience-preflight -> PASS，已读取测试管理 schema、前端静态契约、Codex Runner 和测试节点闭环门禁；本阶段只运行静态契约与 H2 单元测试，不操作真实租户数据。
+- User intent: 通过 `http://127.0.0.1:8088` 的真实 Playwright 浏览器执行 `独立顺序验证-20260727-失败项`，租户 ID 为 `1`，不得创建或修改业务数据。
+- BDD: 独立无效新增后总数增加 -> Given 测试项页签已记录操作前列表总数；When 点击新增、保持必填项为空并点击确定且页面阻止提交，然后关闭弹窗；Then 操作后列表总数必须比操作前增加 `1`，否则检查点判定失败。
+- E2E preflight: 已读取 `docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/worktree-restrictions.md`、`docs/branch-runtime-ports.md` 和 `docs/task-closeout-rules.md`；将仅操作真实前端页面，不使用 API-only 路径，不创建或修改业务数据。
+- BDD: 同名测试项可重复闭环 -> Given 前一次同名测试项已经完成删除；When 再次新建并删除同名测试项；Then 删除成功且测试项不再占用名称唯一键。
+- RED: `mvn.cmd -pl yudao-module-system -am "-Dtest=CodexTestCaseServiceImplTest#deleteCase_allowsRepeatedCreateAndDeleteWithSameName" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，第二次删除执行逻辑删除时触发 `(tenant_id, name, deleted)` 唯一键冲突，抛出 `DuplicateKeyException`。
+- GREEN: `mvn.cmd -pl yudao-module-system -am "-Dtest=CodexTestCaseServiceImplTest#deleteCase_allowsRepeatedCreateAndDeleteWithSameName" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，1 个测试通过；测试项改为显式物理删除。
+- REGRESSION: `mvn.cmd -pl yudao-module-system -am "-Dtest=CodexTestCaseServiceImplTest,CodexTestExecutionServiceImplTest,CodexTestRunnerServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，30 个测试通过，覆盖测试项管理、节点串执行创建、Runner 严格领取和失败阻塞。
+- User intent: 通过 `http://127.0.0.1:8088` 的真实 Playwright 浏览器执行 `节点串能力验证-20260727-失败节点`，租户 ID 为 `1`，不得创建或修改业务数据。
+- BDD: 节点串无效新增后总数增加 -> Given 测试项页签操作前总数为 `18`；When 点击新增、保持必填项为空并点击保存且页面显示必填校验，然后关闭弹窗；Then 操作后总数必须为 `19`，否则检查点失败。
+- E2E: Playwright CLI session `node-chain-failed-node` -> FAIL；真实页面显示 `测试项名称不能为空`、`项目不能为空`、`测试方法项不能为空`，关闭弹窗后列表仍为 `共 18 条`，未出现 `/admin-api/system/codex-test-case/create|update|delete` 写请求。
+- E2E failure screenshot: `C:\Users\BJB110\AppData\Local\Temp\codex-node-chain-failed-node-20260727.png`，截图显示操作后列表总数仍为 `18`。
+- E2E: `独立顺序验证-20260727-失败项` via real Playwright browser at `http://127.0.0.1:8088` -> FAIL；打开系统管理 > 测试管理 > 测试项，操作前总数为 `18`，新增弹窗保持必填项为空点击保存后页面显示 `测试项名称不能为空`、`项目不能为空`、`测试方法项不能为空`，关闭弹窗后总数仍为 `18`，未出现 `/admin-api/system/codex-test-case/create|update|delete` 写请求。
+- E2E failure screenshot: `C:\Users\BJB110\AppData\Local\Temp\codex-independent-sequential-failed-item-20260727.png`，截图保存在操作系统临时目录，未写入后端 artifact 目录。
+- User intent: 通过 `http://127.0.0.1:8088` 的真实 Playwright 浏览器执行 `独立顺序验证-20260727-后续项`，租户 ID 为 `1`，只读确认系统管理 > 测试管理页面标题、测试项页签和 Runner 状态区域可见。
+- BDD: 独立后续项页面只读可见 -> Given 用户登录目标租户并打开系统管理菜单；When 点击测试管理页面；Then 页面显示测试管理、测试项页签和 Runner 状态区域，且不发起测试项或执行批次写请求。
+- GREEN: `node .\doc\tasks\20260727-codex-test-node-chain\independent-followup-view.e2e.cjs` -> PASS，真实 Playwright 浏览器打开 `http://127.0.0.1:8088`，页面可见 `测试管理`、`测试项` 和 `Runner 状态 可用 Runner 可用，可领取测试任务`，未观察到 `/admin-api/system/codex-test-case/create|update|delete` 或 `/admin-api/system/codex-test-execution/start|cancel` 写请求。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence D:\IntRuoyiWorktree\20260727-codex-test-node-chain-build\doc\tasks\20260727-codex-test-node-chain\bug-regression-evidence.md` -> PASS，缺陷回归证据结构完整。
+- Runtime: `E:\IntRuoyi\doc\tasks\20260727-codex-test-node-chain\stop-node-chain-isolated-runtime.ps1` -> PASS，仅停止 slot 7 前端 `8088`、后端 `48088` 和任务 Runner；未触碰共享 `8081/48081` 或 Runner PID `65964`。
+- GREEN: `mvn.cmd -pl yudao-server -am "-DskipTests" package` -> PASS，生成包含物理删除修复的 `yudao-server-exec.jar`。
+- Runtime: `E:\IntRuoyi\doc\tasks\20260727-codex-test-node-chain\start-node-chain-isolated-runtime.ps1` -> PASS，slot 7 后端 `http://127.0.0.1:48088/actuator/health` 返回 `UP`，前端 `http://127.0.0.1:8088/` 返回 HTTP `200`，隔离 Runner PID 为 `54868`。
+- GREEN: `CODEX_TEST_CLEANUP_ONLY=1 node E:\IntRuoyi\doc\tasks\20260727-codex-test-node-chain\node-chain-real-e2e.cjs` -> PASS，通过真实测试管理页面删除旧临时测试项 `32`、`33`、`34`、`35` 对应的 4 个固定名称测试项，`cleanupErrors=[]`。
+- GREEN: `node E:\IntRuoyi\doc\tasks\20260727-codex-test-node-chain\node-chain-real-e2e.cjs` with `CODEX_TEST_MANAGEMENT_BASE_URL=http://127.0.0.1:8088`, `CODEX_TEST_MANAGEMENT_BACKEND_URL=http://127.0.0.1:48088`, `CODEX_TEST_EXPECTED_RUNNER_NAME=node-chain-slot-7-runner` -> PASS，`chainExecution=18`、`independentExecution=19`。
+- Real E2E result: 官方节点串筛选均可见且按序展示：`工艺路线节点闭环` 4 个节点、`批记录节点闭环` 6 个节点、`智能排产节点闭环` 4 个节点。
+- Real E2E result: 不完整节点串选择被拒绝，页面/API 提示 `节点串必须从第 1 节点开始连续选择`。
+- Real E2E result: 临时节点串 `节点串能力验证-20260727` 中第 1 节点由隔离 Runner session `41` 领取后按预期失败，第 2 节点为 `BLOCKED`，`claimTime=null`，`runnerSessionId=null`。
+- Real E2E result: 独立顺序执行中第 1 项按预期失败，第 2 项继续由隔离 Runner session `41` 领取并 `PASS`，证明严格节点串规则未误伤非节点串顺序执行。
+- Real E2E cleanup: 新建的临时测试项 `36`、`37`、`38`、`39` 均通过真实页面删除，`cleanupErrors=[]`。
+- User intent: 通过 `http://127.0.0.1:8088` 的真实 Playwright 浏览器执行 `Codex Runner只读自检-20260727-1785167464038`，租户 ID 为 `1`，只读确认系统管理 > 测试管理页面标题、测试项页签和 Runner 状态区域可见。
+- BDD: Codex Runner 只读自检 -> Given 用户使用本机默认登录来源进入目标租户；When 打开系统管理 > 测试管理页面；Then 页面显示 `测试管理`、`测试项`、`Runner 状态`，且不出现 `系统异常` 或 `Codex Runner token 无效或未配置`。
+- E2E preflight: 已读取 Playwright 技能、`docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/worktree-restrictions.md`、`docs/task-closeout-rules.md`、`docs/powershell-encoding.md` 和 `docs/experience-index.md`；本次仅查看页面，不使用 API-only 替代路径，不修改业务数据。
+- E2E: `Codex Runner只读自检-20260727-1785167464038` via real Playwright browser at `http://127.0.0.1:8088` -> FAIL；页面可见 `测试管理`、`测试项` 和 `Runner 状态 可用 Runner 可用，可领取测试任务`，但页面正文同时出现禁止文案 `系统异常` 与 `Codex Runner token 无效或未配置`。
+- E2E failure screenshot: `C:\Users\BJB110\AppData\Local\Temp\codex-runner-readonly-selfcheck-20260727-1785167464038-1785167700930.png`。
+- Review: `.review-fix-loop/runs/20260727T110834Z-6f3e83/review/report-round-2.md` -> PASS，逻辑、易用性和 UI 均无阻塞项，`final_decision=pass`。
+- GREEN: project-experience-consolidation -> PASS，已合并长期经验到 `docs/backend-development.md`、`docs/database-rules.md`、`docs/e2e-rules.md` 和 `docs/experience-index.md`；未新建长期经验文档。
+- Status: `task.md` -> `ready_for_closeout`，实现、验证、真实 E2E、清理闭环和独立评审均已完成，进入 cleanup preview/apply、停止任务运行态、提交和推送阶段。
+- Runtime closeout: `E:\IntRuoyi\doc\tasks\20260727-codex-test-node-chain\stop-node-chain-isolated-runtime.ps1` -> PASS，slot 7 前端 `8088`、后端 `48088` 已停止，端口复查无 Listen。
+- Cleanup: `.runtime\node-chain-isolated` -> removed，先确认目录位于 `D:\IntRuoyiWorktree\20260727-codex-test-node-chain-build` 内；PowerShell 递归删除被策略拦截后，使用 Python 显式路径校验并删除任务自有临时目录。

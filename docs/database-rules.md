@@ -23,11 +23,11 @@
 ### 测试管理 schema 迁移门禁
 
 - Trigger: 访问 `系统管理 > 测试管理` 提示 `系统异常`，或修改/运行 `system_codex_test_case`、Codex Runner、测试项分页、测试管理页面相关接口。
-- Preflight check: 先用当前真实库或迁移脚本核对 `system_codex_test_case.project` 等当前 DO/Mapper 必需字段是否存在，并确认本地 Docker MySQL 已应用对应 `sql/mysql/20260726_system_codex_test_case_project.sql` 迁移。
+- Preflight check: 先用当前真实库或迁移脚本核对 `system_codex_test_case.project`、`node_chain_name`、`node_chain_sort`、`node_chain_execution` 等当前 DO/Mapper 必需字段是否存在，并确认本地 Docker MySQL 已应用对应测试管理迁移。
 - Blocker: 当前代码引用的字段在真实库缺失、迁移未应用、迁移测试失败，或只看到前端 toast 而缺少分页 API/DB schema 证据时必须停止。
-- Verification: 记录 schema 核对结果、迁移执行目标、`script/tests/test_codex_test_case_project_migration.py` 结果，以及真实测试管理页面 E2E 不再出现 `系统异常`。
+- Verification: 记录 schema 核对结果、迁移执行目标、对应迁移契约测试结果，例如 `script/tests/test_codex_test_case_project_migration.py` 或 `script/tests/test_codex_test_node_chain_migration.py`，以及真实测试管理页面 E2E 不再出现 `系统异常`。
 - Forbidden action: 禁止用前端隐藏错误、后端默认 project、吞掉数据库异常、切换数据源、mock 成功或 API-only 代替真实页面恢复来绕过缺字段。
-- Evidence: `doc/tasks/fix-test-management-system-exception-20260726/verification-report.md`。
+- Evidence: `doc/tasks/fix-test-management-system-exception-20260726/verification-report.md`；`doc/tasks/20260727-codex-test-node-chain/database-schema-evidence.md`。
 
 ### 个人工作台隐藏任务状态迁移门禁
 

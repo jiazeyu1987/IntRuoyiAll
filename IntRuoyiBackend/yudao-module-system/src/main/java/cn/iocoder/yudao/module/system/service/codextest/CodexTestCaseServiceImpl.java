@@ -76,7 +76,7 @@ public class CodexTestCaseServiceImpl implements CodexTestCaseService {
             throw exception(CODEX_TEST_EXECUTION_RUNNING);
         }
         codexTestCheckpointMapper.deleteByCaseId(id);
-        codexTestCaseMapper.deleteById(id);
+        codexTestCaseMapper.deletePhysicalById(id);
     }
 
     @Override

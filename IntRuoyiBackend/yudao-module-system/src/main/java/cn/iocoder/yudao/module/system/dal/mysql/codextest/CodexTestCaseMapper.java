@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
 import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCasePageReqVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestCaseDO;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.Collection;
@@ -51,5 +52,8 @@ public interface CodexTestCaseMapper extends BaseMapperX<CodexTestCaseDO> {
                 .orderByAsc(CodexTestCaseDO::getNodeChainName)
                 .orderByAsc(CodexTestCaseDO::getNodeChainSort));
     }
+
+    @Delete("DELETE FROM system_codex_test_case WHERE id = #{id}")
+    int deletePhysicalById(Long id);
 
 }

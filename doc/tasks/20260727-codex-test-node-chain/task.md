@@ -7,10 +7,10 @@
 ## Milestones
 
 - [x] 建立任务记录并确认现有顺序执行边界。
-- [ ] 增加节点串数据库字段和迁移契约。
-- [ ] 增加后端节点串校验、筛选、排序和失败停止控制。
-- [ ] 增加前端节点串筛选、展示和编辑能力。
-- [ ] 补齐 RED/GREEN/REGRESSION 验证与收尾证据。
+- [x] 增加节点串数据库字段和迁移契约。
+- [x] 增加后端节点串校验、筛选、排序和失败停止控制。
+- [x] 增加前端节点串筛选、展示和编辑能力。
+- [x] 补齐 RED/GREEN/REGRESSION 验证与真实 E2E 证据。
 
 ## Expected Verification
 
@@ -24,7 +24,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 经验门禁
 
@@ -55,8 +55,33 @@ in_progress
 - Forbidden action: 禁止把 Runner 单并发、前端勾选顺序或人工停止当作正式串行能力。
 - Evidence: `docs/e2e-rules.md#codex-runner-自动测试门禁`。
 
+### 测试管理串行节点串门禁
+
+- Trigger: 修改节点串筛选、串内序号、顺序执行创建或 Runner 领取逻辑。
+- Preflight check: 节点串必须有正式 schema、可见筛选项、按 `node_chain_sort` 创建执行项，并拒绝不完整或混合选择。
+- Blocker: 前置失败后后续节点仍可领取、非节点串顺序执行被误阻断，或页面不能单独筛选节点串时停止。
+- Verification: 真实 E2E 同时覆盖官方节点串筛选、不完整选择拒绝、前置失败后续 `BLOCKED` 和独立顺序不回归。
+- Forbidden action: 禁止把 Runner 单并发、前端排序、API-only 或人工取消当作正式串行能力。
+- Evidence: `docs/e2e-rules.md#测试管理串行节点串门禁`。
+
+### 测试项固定名称删除唯一键门禁
+
+- Trigger: 测试管理使用固定名称反复创建和删除测试项。
+- Preflight check: 删除逻辑必须先保护运行中 execution，再释放 `tenant_id + name + deleted` 唯一键占用。
+- Blocker: 同名测试项第二轮创建/删除触发唯一键冲突，或删除绕过运行中执行保护时停止。
+- Verification: `CodexTestCaseServiceImplTest#deleteCase_allowsRepeatedCreateAndDeleteWithSameName` RED/GREEN 通过，并复跑相邻测试。
+- Forbidden action: 禁止改随机名、吞异常、隐藏删除失败或跳过运行中 execution 校验。
+- Evidence: `docs/backend-development.md#2026-07-27-测试项固定名称删除唯一键门禁`。
+
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
 - `是否从根因和长期维护角度解决`：是，新增正式数据字段和后端执行约束，不依赖 Runner 并发数为 1 的偶然行为。
 - `是否存在临时补丁或绕过`：否。
+
+## Cleanup Keep
+
+- doc/tasks/20260727-codex-test-node-chain/task.md
+- doc/tasks/20260727-codex-test-node-chain/execution-log.md
+- doc/tasks/20260727-codex-test-node-chain/verification-report.md
+- doc/tasks/20260727-codex-test-node-chain/bug-regression-evidence.md

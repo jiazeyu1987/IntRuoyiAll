@@ -199,6 +199,18 @@ class CodexTestCaseServiceImplTest extends BaseDbUnitTest {
         assertEquals("第二次更新目标 B", checkpoints.get(1).getExpectedText());
     }
 
+    @Test
+    void deleteCase_allowsRepeatedCreateAndDeleteWithSameName() {
+        CodexTestCaseSaveReqVO reqVO = buildCaseReq("可重复闭环测试项", false);
+        Long firstCaseId = codexTestCaseService.createCase(reqVO);
+        codexTestCaseService.deleteCase(firstCaseId);
+
+        Long secondCaseId = codexTestCaseService.createCase(buildCaseReq("可重复闭环测试项", false));
+
+        assertDoesNotThrow(() -> codexTestCaseService.deleteCase(secondCaseId));
+        assertNull(codexTestCaseMapper.selectById(secondCaseId));
+    }
+
     static CodexTestCaseSaveReqVO buildCaseReq(String name, boolean parallelSafe) {
         CodexTestCaseSaveReqVO reqVO = new CodexTestCaseSaveReqVO();
         reqVO.setName(name);

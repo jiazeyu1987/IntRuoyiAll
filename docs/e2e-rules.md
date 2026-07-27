@@ -211,6 +211,15 @@
 - Forbidden action: 禁止用模糊关键词误选其它测试项；禁止用 API-only 启动替代页面行级“执行”点击；禁止在缺少测试方法和目标项的情况下临时造数。
 - Evidence: `doc/tasks/20260725-codex-runner-void-test/verification-report.md`。
 
+### 测试管理串行节点串门禁
+
+- Trigger: 新增、修改或验收 `系统管理 > 测试管理` 的 `节点串名称`、`串内序号`、按节点串筛选、顺序执行创建或 Runner 领取逻辑。
+- Preflight check: 先核对正式 schema 已包含节点串字段，页面可按节点串单独筛选，后端按 `node_chain_sort` 排序创建执行项；同一节点串必须从第 1 节点连续选择，且节点串执行不得依赖前端勾选顺序或 Runner 并发数刚好为 1。
+- Blocker: 节点串可混入其它串或独立测试项、不完整节点串可启动、前置失败后后续节点仍可领取或遗留 `PENDING`、非节点串顺序执行被误阻断，或页面看不到不同节点串筛选项时必须停止。
+- Verification: 证据需同时包含官方节点串筛选数量、乱序或不完整选择拒绝提示、前置失败后的后续节点 `BLOCKED` 且未领取、独立顺序执行后续项仍可继续，以及真实页面清理闭环。
+- Forbidden action: 禁止把 Runner 单并发、人工只选择首节点、前端排序、API-only 执行结果、静态合同或后续手工取消当作正式串行能力。
+- Evidence: `doc/tasks/20260727-codex-test-node-chain/verification-report.md`。
+
 ### 测试管理测试节点闭环门禁
 
 - Trigger: 新增或修改 `系统管理 > 测试管理` 的自然语言测试项，尤其是按业务系统节点拆分、会新建/修改/删除/作废业务数据的测试项。
