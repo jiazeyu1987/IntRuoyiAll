@@ -30,10 +30,11 @@
 - `GREEN: task evidence commit -> PASS`，提交 `3a7f795fd3c17e43cc00e60e3a2ef4b283e5d396` 仅包含四个任务记录和 `docs/local-runtime.md` 经验门禁。
 - `GREEN: git push origin codex/restart-int-main-latest-backend-20260727 -> PASS`，远端任务分支已创建并与本地同步。
 - `BLOCKER: post-commit task-closeout-cleanup preview -> Main worktree is dirty`，工作树已无任务未提交文件、delete 仍为空，但 `E:\IntRuoyi` 的无关并行脏改动继续阻塞 ff-only merge、apply、worktree 删除和 slot 释放。
+- `GREEN: final runtime recheck -> PASS`，2026-07-27 20:33:12 后运行态被并行流程再次启动为 PID `46388`；命令行路径、`48081` 参数和 local profile 均未变化，Jar SHA-256 仍为 `89EB3023737BD704B92AB129C2D9176C392A6B7CE4D1E2DF2199128D02FCD98D`，health 仍为 `UP`。
 
 ## Current Evidence
 
-- Current listener: `48081 -> PID 44372`.
+- Current listener at final recheck: `48081 -> PID 46388`.
 - Current command: Java loads `E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`.
 - Current health: `UP`.
 - Local Git state: `int_main` contains unrelated concurrent dirty changes and differs from `origin/int_main`; do not build from the main workspace.

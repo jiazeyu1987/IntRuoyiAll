@@ -22,7 +22,8 @@ Task closeout: PENDING.
 ## Runtime Verification
 
 - Old PID: `61040`, ownership confirmed before stop.
-- New PID: `44372`.
+- Initial restarted PID: `44372`.
+- Final recheck PID: `46388`, started at `2026-07-27 20:33:12` by a later parallel restart using the same deployed Jar.
 - Listener: `48081`.
 - Command line: E-main Jar with local profile and explicit `48081`.
 - Health: `UP`.
