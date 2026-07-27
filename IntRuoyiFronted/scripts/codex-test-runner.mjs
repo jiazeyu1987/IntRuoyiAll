@@ -23,6 +23,7 @@ const CODEX_CHILD_SETTLE_TIMEOUT_MS = Number(process.env.CODEX_TEST_CHILD_SETTLE
 const COMPLETE_CASE_SUMMARY_MAX_LENGTH = 512
 const RUNNER_HTTP_CONNECTION_HEADERS = { Connection: 'close' }
 const READONLY_TASK_PATTERN = /(只读|仅查看|只查看|查看|确认.{0,20}可见|不修改|不保存|不提交|read[- ]?only|view only)/i
+const NEGATED_WRITE_TASK_PATTERN = /(不修改|不新增|不创建|不编辑|不保存|不提交|不删除|不作废|不审批|不发布|不导入|不上传|不下载|不取消|不启用|不禁用|不清理|不复位|不生成|不填写|不签名|不写入)/gi
 const WRITE_TASK_PATTERN = /(新增|创建|修改|编辑|保存|提交|删除|作废|审批|发布|导入|上传|下载|取消|启用|禁用|清理|复位|生成|填写|签名|写入|create|update|edit|save|submit|delete|void|approve|publish|import|upload|cancel|enable|disable|write)/i
 
 class ServerCanceledExecutionError extends Error {}
@@ -350,7 +351,8 @@ function taskText(task) {
 function isReadOnlyTask(task) {
   const text = taskText(task)
   const hasReadOnlyIntent = READONLY_TASK_PATTERN.test(text)
-  const hasWriteIntent = WRITE_TASK_PATTERN.test(text)
+  const textWithoutNegatedWriteIntent = text.replace(NEGATED_WRITE_TASK_PATTERN, '')
+  const hasWriteIntent = WRITE_TASK_PATTERN.test(textWithoutNegatedWriteIntent)
   return hasReadOnlyIntent && !hasWriteIntent
 }
 
