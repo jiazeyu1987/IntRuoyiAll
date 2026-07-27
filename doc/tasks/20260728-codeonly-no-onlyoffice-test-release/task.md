@@ -1,0 +1,44 @@
+# 测试服程序-only 不含 OnlyOffice 发布
+
+## Task Goal
+
+将当前发布分支构建并发布到测试服务器 `172.30.30.58`，本轮只发布 IntRuoyi 后端/前端程序，不携带数据库 dump、MinIO snapshot、runtime-data，也不包含或重启 OnlyOffice；不执行正式服、备用服、`mark-tested`、`promote-prod` 或 `promote-backup`。
+
+## Milestones
+
+- [x] 创建任务记录，读取测试服发布、服务器、worktree、PowerShell、数据库、CI/CD 与经验门禁。
+- [ ] 构建新的 code-only 且 `onlyOfficeIncluded=false` release package，并完成本地/NAS manifest 与 artifact 校验。
+- [ ] 发布到测试服务器，只重启 backend/frontend，不包含 OnlyOffice 发布动作。
+- [ ] 验证测试服运行态、发布锁、镜像 tag、健康检查和无数据/无 OnlyOffice 包边界。
+- [ ] 更新任务证据，提交并推送当前分支。
+
+## Expected Verification
+
+- 目标服务器：`172.30.30.58`。
+- 发布范围：`test` only，组件范围 `intruoyi`。
+- ReleaseTag：`release-20260728-codeonly-noonlyoffice-test-r1`。
+- `manifest.json`：`publishScope=code-only`、`component=intruoyi`、`changeSet.includeOnlyOffice=false`。
+- `release-manifest.json`：`onlyOfficeIncluded=false`。
+- 发布包不包含 database dump、MinIO snapshot、runtime-data，镜像 tar 不包含 `onlyoffice/documentserver`。
+- 发布命令不传 `-IncludeOnlyOffice`，部署日志中启动服务列表只包含 backend/frontend，并使用 `--no-deps`。
+- 测试服 `.env IMAGE_TAG`、backend 镜像、frontend 镜像均为本轮 releaseTag。
+- 后端 health 返回 `UP`，前端 HTTP 200，发布锁 `APPLIED`，无 `RUNNING` 发布锁。
+
+## Current Status
+
+in_progress
+
+## 设计约束检查
+
+- `是否引入 fallback/降级/吞异常`：否；无数据、无 OnlyOffice 是本轮明确发布范围，不通过脚本降级或手工跳过错误。
+- `是否从根因和长期维护角度解决`：是；以发布包 manifest、artifact 和远端运行态共同证明范围，而不是用口头说明替代。
+- `是否存在临时补丁或绕过`：否。
+
+## 经验门禁
+
+- 测试服发布门禁：只允许 `172.30.30.58`，不得执行正式服、备用服、`mark-tested`、`promote-prod` 或 `promote-backup`。
+- Code-only 门禁：必须传 `-SkipDatabaseSync -SkipMinioSync`，且验证 manifest 无数据目录；`type=data` required SQL 及其依赖不得进入远端 MySQL APPLY 队列。
+- No-OnlyOffice 门禁：构建和部署均不得传 `-IncludeOnlyOffice`；manifest 必须为 `onlyOfficeIncluded=false`，运行日志不得出现 OnlyOffice 服务启动或容器内可达性校验。
+- Manifest 门禁：以 `manifest.json` 为 sourceRepos、publishScope、component 和 artifact 权威；legacy `release-manifest.json` 只做兼容校验。
+- 发布日志脱敏门禁：保留或提交日志前必须扫描并脱敏 `mysql -p...`、NAS、SSH、token、私钥和连接串。
+- 并发发布门禁：发布前后检查本地/远端发布进程、`infra_release_operation_lock`、远端 `.env IMAGE_TAG` 和实际镜像，避免与其他任务重叠。
