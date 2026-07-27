@@ -87,6 +87,17 @@
 - CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-route-flow-batch-record-form-source --mode preview` -> BLOCKED；keep 正确、delete 为空，唯一 blocker 仍为 `Main worktree is dirty and cannot receive ff-only merge: E:\IntRuoyi`。
 - EXPERIENCE CHECK: 三类配置长期约束已存在于 `AGENTS.md#工艺路线三类配置术语契约`、`docs/backend-development.md#逐工序正式批记录表单候选边界`、`docs/frontend-development.md#工艺路线批记录表单正式来源门禁` 和 `docs/experience-index.md`，本次无新增长期经验文档需求。
 
+## 2026-07-28 Balloon Catheter Target Audit
+
+- Objective audit: 当前线程目标要求“用 球囊扩张导管路线 做验证，绑定成功为目标达成”；压力泵 V19 页面证据不能替代导管路线证据。
+- DB route scan: `mes_pro_route` 中命中精确 `球囊扩张导管` 的路线为 `900025 / ROUTE-XLSX-00001 / tenant=1` 与 `922046 / ROUTE-XLSX-00001 / tenant=122`；另有 `922220 / RT000043 / PTCA球囊扩张导管 / tenant=122`。
+- Formal binding scan: `900025` 当前路线工序 `23`、正式 MAIN 报表绑定 `0`；`922046` 当前路线工序 `23`、正式 MAIN 报表绑定 `0`；`922220` 当前路线工序 `14`、正式 MAIN 报表绑定 `14`。
+- Snapshot scan: `900025` V10 DRAFT `routeVersionId=272` 的 `configSnapshots.batchUseConfigs` 只有 `1` 条且 `batchRecordReports=[]`；`922046` V2 DRAFT `routeVersionId=325` 有 `23` 条配置，但 `batchRecordReports=0` 且 flat `batchRecordReportId=0`；`922220` V3 ACTIVE `routeVersionId=364` 有 `14` 条 flat 正式报表 ID。
+- Runtime API audit: 使用 `芋道源码/admin` 登录 `http://127.0.0.1:48086` 后只读调用 `flow-config?routeId=900025&useType=BATCH&routeVersionId=272` -> `rows=23`、`rowsWithReports=0`、`totalReports=0`、`formBindingRows=0`。
+- Tenant blocker: 默认账号登录 `测试租户` 失败；使用 `visit-tenant-id=122` 只读访问 `922220` 与 `922046` 的 `flow-config` 返回 `没有该操作权限`，因此无法完成 `PTCA球囊扩张导管` 真实页面点击验证。
+- Source blocker: 本地 `rg --files` 仅发现 `resource\批记录压力泵.doc` 与 `resource\过程检验记录.docx`；数据库仅发现 `PTCA球囊扩张导管`、压力泵等 MAIN 批记录版本，未发现精确 `球囊扩张导管` 的 MAIN 批记录版本来源。
+- Conclusion: 当前代码修复仍有效，但线程目标尚未达成。若目标是精确 `球囊扩张导管`，必须先通过正式导入/升版链路提供该路线的 MAIN 批记录表单来源；若目标是 `PTCA球囊扩张导管`，必须提供测试租户页面登录权限后才能做真实关系图点击验证。
+
 ## Blockers
 
 - Closeout apply / worktree removal blocked by dirty main worktree `E:\IntRuoyi`。只读 `git status --short --branch` 显示外部改动包括 `MesProBatchRecordReportLayoutCalibrator.java`、`MesProBatchRecordRouteBRecognizer.java`、`IntRuoyiFronted/package.json`、`src/views/mes/pro/task/calendar/index.vue` 以及若干其它任务目录；本任务未修改这些主 worktree 文件。

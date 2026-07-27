@@ -24,9 +24,17 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
+
+代码修复、压力泵路线验证和回归测试已完成并推送；但当前线程目标要求用“球囊扩张导管路线”验证绑定成功，专项复核显示精确 `球囊扩张导管` 路线缺少正式逐工序批记录表单来源，尚不能证明目标达成。
 
 Closeout apply 暂未执行：`E:\IntRuoyi` 主 worktree 存在外部脏改动，cleanup preview 判定不能接收 ff-only merge。本任务分支已具备快进回 `int_main` 的提交关系，待主 worktree 清理后可继续 apply。
+
+导管专项阻塞：
+- 默认租户 `芋道源码` 的 `900025 / ROUTE-XLSX-00001 / 球囊扩张导管`，DRAFT V10 `routeVersionId=272` 通过正式 `flow-config` 返回 `rows=23`、`totalReports=0`、`formBindingRows=0`。
+- 测试租户 `测试租户` 的 `922046 / ROUTE-XLSX-00001 / 球囊扩张导管`，数据库当前正式绑定表为 `23` 个工序、`0` 个正式批记录报表。
+- 测试租户 `922220 / RT000043 / PTCA球囊扩张导管` 已有数据库正式绑定 `14/14`，但本机默认账号无测试租户登录权限，无法完成真实页面点击验证。
+- 本地文件和数据库未发现精确 `球囊扩张导管` 的 MAIN 批记录 Word/批记录版本来源；禁止用 PTCA、压力泵、`formBindings` 或工序开始配置补齐。
 
 ## 业务边界
 
