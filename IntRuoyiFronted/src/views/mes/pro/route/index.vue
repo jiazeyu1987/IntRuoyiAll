@@ -339,7 +339,7 @@
       />
       <el-table
         class="route-version-workspace__candidate-list"
-        :data="routeVersions"
+        :data="visibleRouteVersions"
         border
         :show-overflow-tooltip="true"
         empty-text="暂无版本记录"
@@ -524,6 +524,11 @@ const ROUTE_OPEN_CANDIDATE_STATUS_SET = new Set([
   'READY_TO_PUBLISH',
   'REJECTED'
 ])
+const isVisibleRouteVersionInWorkspace = (version: ProRouteVersionVO) =>
+  version.lifecycleStatus !== 'CANCELLED'
+const visibleRouteVersions = computed(() =>
+  routeVersions.value.filter(isVisibleRouteVersionInWorkspace)
+)
 const routeVersionOpenCandidates = computed(() =>
   routeVersions.value.filter(
     (version) => !version.active && ROUTE_OPEN_CANDIDATE_STATUS_SET.has(String(version.lifecycleStatus))
