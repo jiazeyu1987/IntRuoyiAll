@@ -15,6 +15,12 @@
 - Database: `ruoyi-vue-pro`
 - Tooling: container-local `mysql` client with UTF-8 input
 
+## Migration
+
+- No schema migration was created.
+- This task is a scoped data seed/update for existing testing-management tables.
+- The write path uses current schema columns verified from `information_schema.columns`.
+
 ## Data Safety
 
 - Scope is current local tenant `tenant_id=1`.

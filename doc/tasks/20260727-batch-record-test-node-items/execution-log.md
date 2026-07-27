@@ -28,3 +28,4 @@
 - completed: 写入前当前租户项目统计：`工艺路线=4`，`智能排产=4`，6 个批记录节点均缺失。
 - completed: 写入当前租户 `tenant_id=1`：测试项 6 个，检查点 24 个。
 - completed: 写入后当前租户项目统计：`工艺路线=4`，`批记录=6`，`智能排产=4`。
+- completed: project-experience-consolidation 检查完成；本次是一次性测试项数据落地，已有测试管理 schema 和租户边界门禁覆盖，不新增长期经验文档。

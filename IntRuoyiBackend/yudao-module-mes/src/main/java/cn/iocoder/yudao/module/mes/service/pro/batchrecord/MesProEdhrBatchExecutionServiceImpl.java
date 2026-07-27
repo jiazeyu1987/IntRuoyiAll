@@ -2563,7 +2563,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setBatchExecutionId(batch.getId())
                 .setProcessId(task.getProcessId())
                 .setRouteProcessId(task.getRouteProcessId())
-                .setTaskId(null)
+                .setTaskId(task.getId())
                 .setWorkstationId(null)
                 .setBatchRecordReportId(task.getBatchRecordReportId())
                 .setInstanceScope(resolveInstanceScope(task.getInstanceScope()))

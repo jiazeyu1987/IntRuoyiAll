@@ -111,15 +111,29 @@ public interface MesProBatchRecordExecutionMapper extends BaseMapperX<MesProBatc
                                                                String batchRecordReportId,
                                                                String batchCode,
                                                                Collection<Integer> activeStatuses) {
-        return selectOne(new LambdaQueryWrapperX<MesProBatchRecordExecutionDO>()
-                .eq(MesProBatchRecordExecutionDO::getWorkOrderId, workOrderId)
-                .eq(MesProBatchRecordExecutionDO::getRouteProcessId, routeProcessId)
-                .eq(MesProBatchRecordExecutionDO::getBatchRecordReportId, batchRecordReportId)
-                .eq(MesProBatchRecordExecutionDO::getBatchCode, batchCode)
-                .in(MesProBatchRecordExecutionDO::getStatus, activeStatuses)
-                .isNull(MesProBatchRecordExecutionDO::getTaskId)
-                .isNull(MesProBatchRecordExecutionDO::getWorkstationId)
-                .orderByDesc(MesProBatchRecordExecutionDO::getId));
+        return selectActiveByContext(null, null, workOrderId, routeProcessId, batchRecordReportId,
+                batchCode, activeStatuses);
+    }
+
+    default MesProBatchRecordExecutionDO selectActiveByContext(Long batchExecutionId, Long taskId,
+                                                               Long workOrderId, Long routeProcessId,
+                                                               String batchRecordReportId,
+                                                               String batchCode,
+                                                               Collection<Integer> activeStatuses) {
+        LambdaQueryWrapperX<MesProBatchRecordExecutionDO> query = new LambdaQueryWrapperX<>();
+        query.eqIfPresent(MesProBatchRecordExecutionDO::getBatchExecutionId, batchExecutionId);
+        query.eq(MesProBatchRecordExecutionDO::getWorkOrderId, workOrderId);
+        query.eq(MesProBatchRecordExecutionDO::getRouteProcessId, routeProcessId);
+        query.eq(MesProBatchRecordExecutionDO::getBatchRecordReportId, batchRecordReportId);
+        query.eq(MesProBatchRecordExecutionDO::getBatchCode, batchCode);
+        query.in(MesProBatchRecordExecutionDO::getStatus, activeStatuses);
+        query.isNull(MesProBatchRecordExecutionDO::getWorkstationId);
+        if (taskId == null) {
+            query.isNull(MesProBatchRecordExecutionDO::getTaskId);
+        } else {
+            query.eq(MesProBatchRecordExecutionDO::getTaskId, taskId);
+        }
+        return selectOne(query.orderByDesc(MesProBatchRecordExecutionDO::getId));
     }
 
     default MesProBatchRecordExecutionDO selectActiveByBatchShared(Long batchExecutionId,

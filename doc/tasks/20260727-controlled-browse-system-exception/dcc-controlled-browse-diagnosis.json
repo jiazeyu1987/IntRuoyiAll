@@ -1,0 +1,17 @@
+{
+  "baseUrl": "http://172.30.30.58:8081",
+  "apiBaseUrl": "http://172.30.30.58:48081/admin-api",
+  "tenantName": "测试租户",
+  "username": "wangsiyu",
+  "targetKeyword": "血液瓶瓶体清洗验证.pdf",
+  "startedAt": "2026-07-27T01:59:21.429Z",
+  "login": {},
+  "target": null,
+  "apiProbe": {},
+  "failedResponses": [],
+  "applicationFailures": [],
+  "consoleErrors": [],
+  "pageText": "",
+  "screenshot": "",
+  "finishedAt": "2026-07-27T01:59:22.046Z"
+}

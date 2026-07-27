@@ -10,7 +10,7 @@
 - [x] 定位“切换填写人”重复加载全量批次详情的根因
 - [x] 增加最小回归测试，先复现失败再修复
 - [x] 实施后端执行详情快照和前端快照读取修复并运行定向验证
-- [ ] 完成后端模块编译复验与收尾状态更新
+- [x] 完成后端模块编译复验与收尾状态更新
 
 ## Expected Verification
 
@@ -20,7 +20,7 @@
 
 ## Current Status
 
-blocked
+completed
 
 ## 设计约束检查
 
@@ -38,3 +38,12 @@ blocked
 - Verification: 新增回归测试覆盖执行详情可提供填写人快照，并确认前端弹窗不再触发全量批次详情加载。
 - Forbidden action: 禁止前端把 `未配置` 改成配置页名称、禁止把角色/部门 ID 当用户 ID、禁止用空列表兜底掩盖缺失来源。
 - Evidence: `docs/backend-development.md#edhr-详情回填门禁`。
+
+### 切换填写人快照读取边界
+
+- Trigger: eDHR 批次执行填写页、“切换填写人”、协助填写人、`assistSwitchTasks`、`candidateUserSnapshot`、弹窗打开耗时过长。
+- Preflight check: 批次执行创建后填写人固定时，切换候选必须来自执行详情返回的任务/填写人快照，不在弹窗打开时重新拉取或重算全量批次详情；传统批记录打开链路必须按 `batchExecutionId + taskId` 隔离 active 执行记录。
+- Blocker: 执行详情缺少可追溯任务快照、活动工作任务缺少 `candidateUserSnapshot`、或 active 执行记录未按批次任务隔离时，必须补齐后端详情链路；不得从当前登录人、角色、部门或空列表推断候选填写人。
+- Verification: 运行快照静态合同、前端 ESLint/`pnpm ts:check` 与 MES reactor compile。
+- Forbidden action: 禁止在切换填写人弹窗打开时调用全量 `getEdhrBatchExecution` 作为性能问题的替代方案；禁止用前端缓存、空列表兜底或吞异常掩盖缺失快照。
+- Evidence: `docs/backend-development.md#切换填写人快照读取边界`。
