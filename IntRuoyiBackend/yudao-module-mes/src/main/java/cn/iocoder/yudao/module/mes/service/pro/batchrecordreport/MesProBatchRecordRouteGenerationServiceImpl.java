@@ -213,7 +213,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                     .build();
             routeMapper.insert(route);
             routeOwnerPermissionService.bindCurrentUserAsOwner(route.getId());
-        } else if (target.existing() && !applyExistingRouteRebuild) {
+        } else if (target.existing()) {
             MesProRouteVersionDO candidateRouteVersion = createCandidateRouteVersion(
                     route, sourceRouteVersion, bindings, normalizedProductNames, bindBatchRecordReports);
             return MesProBatchRecordRouteGenerationResult.builder()
@@ -230,9 +230,6 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                     .build();
         }
         RouteUpgradePreservedData preservedData = target.preservedData();
-        if (target.existing()) {
-            clearExistingRouteRuntime(route.getId());
-        }
         MesProRouteVersionDO routeVersion = createInitialActiveRouteVersionForUploadedWord(route, sourceRouteVersion);
 
         List<MesProProcessDO> processes = new ArrayList<>(bindings.size());
@@ -314,7 +311,6 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                 bindingCount++;
             }
         }
-        preserveRouteProcessConnections(preservedData, preservedRouteProcessIdMap);
         insertRouteProcessFlowEdges(route.getId(), generatedRouteProcesses, preservedData, preservedRouteProcessIdMap);
         RouteProductBindingResult productBindingResult = bindRouteProducts(route.getId(), normalizedProductNames);
         updateRouteVersionSnapshot(routeVersion, buildGeneratedRouteSnapshot(
@@ -332,14 +328,6 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                 .boundProductCodeCount(productBindingResult.boundProductCodeCount())
                 .skippedProductNames(productBindingResult.skippedProductNames())
                 .build();
-    }
-
-    private void clearExistingRouteRuntime(Long routeId) {
-        routeFlowProcessBatchRecordMapper.deleteByRouteIdAndUseType(routeId, USE_TYPE_BATCH);
-        routeFlowProcessConfigMapper.deleteByRouteIdAndUseType(routeId, USE_TYPE_BATCH);
-        routeFlowConfigMapper.deleteByRouteIdAndUseType(routeId, USE_TYPE_BATCH);
-        routeProcessFlowEdgeMapper.deleteByRouteId(routeId);
-        routeProcessMapper.deleteByRouteId(routeId);
     }
 
     private RouteGenerationTarget resolveRouteGenerationTarget(String routeName, Long expectedRouteId,
@@ -372,7 +360,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_ROUTE_UPGRADE_TARGET_CHANGED,
                     expectedRouteId, expectedRouteVersionId, route.getId(), currentVersionId);
         }
-        return new RouteGenerationTarget(route, activeVersion, true, loadPreservedData(route.getId()));
+        return new RouteGenerationTarget(route, activeVersion, true);
     }
 
     private RouteUpgradePreservedData loadPreservedData(Long routeId) {
@@ -386,8 +374,6 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                 .map(routeProcess -> new PreservedRouteProcess(
                         routeProcess.getId(),
                         routeProcess.getProcessId(),
-                        routeProcess.getNextProcessId(),
-                        routeProcess.getLinkType(),
                         routeProcess.getPrepareTime(),
                         routeProcess.getWaitTime(),
                         routeProcess.getColorCode(),
@@ -412,24 +398,6 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         }
         preservedProcessIndexes.put(processId, index + 1);
         return preservedProcesses.get(index);
-    }
-
-    private void preserveRouteProcessConnections(RouteUpgradePreservedData preservedData,
-                                                 Map<Long, Long> preservedRouteProcessIdMap) {
-        for (List<PreservedRouteProcess> preservedProcesses : preservedData.processesByProcessId().values()) {
-            for (PreservedRouteProcess preservedProcess : preservedProcesses) {
-                Long newRouteProcessId = preservedRouteProcessIdMap.get(preservedProcess.id());
-                Long newNextRouteProcessId = preservedRouteProcessIdMap.get(preservedProcess.nextProcessId());
-                if (newRouteProcessId == null || newNextRouteProcessId == null) {
-                    continue;
-                }
-                MesProRouteProcessDO update = new MesProRouteProcessDO();
-                update.setId(newRouteProcessId);
-                update.setNextProcessId(newNextRouteProcessId);
-                update.setLinkType(preservedProcess.linkType());
-                routeProcessMapper.updateById(update);
-            }
-        }
     }
 
     private void insertRouteProcessFlowEdges(Long routeId, List<MesProRouteProcessDO> routeProcesses,
@@ -967,7 +935,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
         }
     }
 
-    private record PreservedRouteProcess(Long id, Long processId, Long nextProcessId, Integer linkType,
+    private record PreservedRouteProcess(Long id, Long processId,
                                          Integer prepareTime, Integer waitTime, String colorCode,
                                          Boolean keyFlag, Boolean checkFlag, String remark) {
     }
