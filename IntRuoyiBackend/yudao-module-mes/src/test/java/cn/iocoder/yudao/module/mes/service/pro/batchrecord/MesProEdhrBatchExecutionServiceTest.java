@@ -5694,7 +5694,68 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         return routeTasks(batch).get(index);
     }
 
+    private void configureRouteVersionSpecialAttachmentOwners(Long routeVersionId, MesProRouteDO route,
+                                                              List<Map<String, Object>> owners) {
+        routeVersionMapper.updateById(MesProRouteVersionDO.builder()
+                .id(routeVersionId)
+                .routeSnapshotJson(frozenRouteSnapshotJson(route,
+                        routeProcessMapper.selectListByRouteId(route.getId()), owners))
+                .build());
+    }
+
+    private void configureBatchSpecialAttachmentOwners(Long batchExecutionId, Long... userIds) {
+        MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(batchExecutionId);
+        MesProRouteDO route = routeMapper.selectById(batch.getRouteId());
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batchExecutionId)
+                .setRouteSnapshotJson(frozenRouteSnapshotJson(route,
+                        routeProcessMapper.selectListByRouteId(route.getId()),
+                        batchRecordAttachmentOwners("USERS", List.of(userIds)))));
+    }
+
+    private List<Map<String, Object>> defaultBatchRecordAttachmentOwners() {
+        return batchRecordAttachmentOwners("USERS", List.of(10001L, 10002L));
+    }
+
+    private List<Map<String, Object>> batchRecordAttachmentOwners(String sourceType, List<Long> sourceIds) {
+        return List.of(
+                batchRecordAttachmentOwner(
+                        MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT,
+                        sourceType, sourceIds),
+                batchRecordAttachmentOwner(
+                        MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_STERILIZATION_REPORT,
+                        sourceType, sourceIds),
+                batchRecordAttachmentOwner(
+                        MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_FINISHED_PRODUCT_INSPECTION_REPORT,
+                        sourceType, sourceIds),
+                batchRecordAttachmentOwner(
+                        MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_FINISHED_PRODUCT_INSPECTION_RECORD,
+                        sourceType, sourceIds));
+    }
+
+    private Map<String, Object> batchRecordAttachmentOwner(String attachmentCode, String sourceType,
+                                                           List<Long> sourceIds) {
+        Map<String, Object> owner = new LinkedHashMap<>();
+        owner.put("attachmentCode", attachmentCode);
+        owner.put("attachmentName", switch (attachmentCode) {
+            case MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT -> "来料检报告";
+            case MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_STERILIZATION_REPORT -> "灭菌报告";
+            case MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_FINISHED_PRODUCT_INSPECTION_REPORT -> "成品检报告";
+            case MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_FINISHED_PRODUCT_INSPECTION_RECORD -> "成品检记录";
+            default -> attachmentCode;
+        });
+        owner.put("candidateSourceType", sourceType);
+        owner.put("candidateSourceIds", sourceIds);
+        owner.put("candidateSourceNames", sourceIds.stream().map(String::valueOf).toList());
+        return owner;
+    }
+
     private String frozenRouteSnapshotJson(MesProRouteDO route, List<MesProRouteProcessDO> routeProcesses) {
+        return frozenRouteSnapshotJson(route, routeProcesses, defaultBatchRecordAttachmentOwners());
+    }
+
+    private String frozenRouteSnapshotJson(MesProRouteDO route, List<MesProRouteProcessDO> routeProcesses,
+                                           List<Map<String, Object>> batchRecordAttachmentOwners) {
         List<MesProRouteProcessDO> orderedRouteProcesses = routeProcesses.stream()
                 .sorted(Comparator.comparing(MesProRouteProcessDO::getSort))
                 .toList();
@@ -5733,6 +5794,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         configSnapshots.put("scheduleConfigs", List.of());
         configSnapshots.put("scheduleUseConfigs", List.of());
         configSnapshots.put("batchUseConfigs", frozenBatchUseConfigs(route, orderedRouteProcesses));
+        configSnapshots.put("batchRecordAttachmentOwners", batchRecordAttachmentOwners);
         snapshot.put("configSnapshots", configSnapshots);
         return JSON.toJSONString(snapshot);
     }
@@ -5810,6 +5872,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         Long ownerUserId = 0L;
         MesProEdhrBatchExecutionDO persistedBatch = batchExecutionMapper.selectById(batch.getId());
         insertCloseAssignmentRule(persistedBatch.getRouteId(), ownerUserId);
+        configureBatchSpecialAttachmentOwners(batch.getId(), ownerUserId);
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(ownerUserId);
             batch.getTasks().stream()

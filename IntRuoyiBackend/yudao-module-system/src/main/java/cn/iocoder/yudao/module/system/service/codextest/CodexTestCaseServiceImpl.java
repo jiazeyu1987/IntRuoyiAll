@@ -117,7 +117,7 @@ public class CodexTestCaseServiceImpl implements CodexTestCaseService {
             throw exception(CODEX_TEST_CASE_EMPTY_METHOD);
         }
         if (StrUtil.isBlank(reqVO.getProject()) || !CASE_PROJECTS.contains(reqVO.getProject())) {
-            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "测试项项目必须是 智能排产、文控 或 批记录");
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "测试项项目必须是 智能排产、文控、批记录 或 工艺路线");
         }
         if (CollUtil.isEmpty(reqVO.getCheckpoints())) {
             throw exception(CODEX_TEST_CASE_EMPTY_CHECKPOINT);

@@ -19,7 +19,7 @@ public class CodexTestCaseSaveReqVO {
     @NotBlank(message = "测试项名称不能为空")
     private String name;
 
-    @Schema(description = "所属项目：智能排产/文控/批记录", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "所属项目：智能排产/文控/批记录/工艺路线", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "所属项目不能为空")
     private String project;
 
