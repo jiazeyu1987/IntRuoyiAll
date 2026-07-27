@@ -65,11 +65,12 @@
 - `git merge-base --is-ancestor 6b2575da origin/int_main` -> PASS.
 - `git push origin int_main` -> `Everything up-to-date`; `HEAD` and `origin/int_main` both resolved to `6b2575da` at verification time.
 - Concurrency note: after the staged-file check but before commit creation, another task staged `doc/tasks/20260727-form-template-open-fill-binding/execution-log.md`; Git included that already-completed task's two-line push record in `6b2575da`. The event was detected immediately after commit. No history rewrite, revert, or further modification of that task file was performed.
-- Final closeout commit uses path-limited `git commit --only` to prevent concurrent staged files from entering this task's final record.
+- Final closeout attempt used path-limited `git commit --only`, but a concurrent Git baseline process captured the already-updated task documents in `27dd755a chore: capture concurrent dirty worktree baseline` after the first attempt. That baseline was pushed successfully; no history rewrite or destructive cleanup was used.
 
 ## Final Status
 
 - Task status changed from `ready_for_closeout` to `completed` after implementation evidence, targeted verification, evidence validators, experience consolidation, cleanup apply, and remote ancestor checks passed.
+- `git merge-base --is-ancestor 27dd755a origin/int_main` -> PASS after `git push origin int_main`; the task documents are present on the remote branch.
 
 ## Blockers
 
