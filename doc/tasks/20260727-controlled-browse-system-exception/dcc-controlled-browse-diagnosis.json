@@ -4,12 +4,34 @@
   "tenantName": "芋道源码",
   "username": "wangsiyu",
   "targetKeyword": "血液瓶瓶体清洗验证.pdf",
-  "startedAt": "2026-07-27T02:06:10.985Z",
+  "startedAt": "2026-07-27T02:07:57.614Z",
   "login": {
     "urlAfterLogin": "http://172.30.30.58:8081/dcc/controlled-file/browser",
     "stillOnLogin": false,
     "tenantId": "1",
-    "visitTenantId": null
+    "visitTenantId": null,
+    "authDebug": {
+      "localStorageKeys": [
+        "ACCESS_TOKEN",
+        "Hm_lvt_a1ff8825baa73c3a78eb96aa40325abc",
+        "REFRESH_TOKEN",
+        "dcc.controlledFile.browser.metadata:schema-1:tenant-1:visit-none:user-910250",
+        "iconify-count",
+        "iconify-version",
+        "iconify0",
+        "iconify1",
+        "iconify2",
+        "lang",
+        "loginForm",
+        "loginTenantHistory",
+        "roleRouters",
+        "tenantId",
+        "user"
+      ],
+      "accessTokenLength": 34,
+      "accessTokenShape": "string",
+      "tenantIdLength": 1
+    }
   },
   "target": null,
   "apiProbe": {
@@ -35,5 +57,5 @@
   "consoleErrors": [],
   "pageText": "瑛泰管理系统 个人中心 0 审批中心 0 电子签名 文控中心 文档目录 文控权限 上传审批 文件上传 受控浏览 文控日志 系统管理 基础数据 release-20260723-dcc-viewer-permission-r260723vp-r1 文控中心 / 受控浏览 请输入菜单内容 王思雨 受控浏览 刷新 质量管理 快速过滤 全文关键字 包含 查询 当前目录 全域 高级 显示字段 文件名称 文件编号 操作 请先选择目录 Copyright ©2026 瑛泰管理系统",
   "screenshot": "",
-  "finishedAt": "2026-07-27T02:06:15.367Z"
+  "finishedAt": "2026-07-27T02:08:01.883Z"
 }
