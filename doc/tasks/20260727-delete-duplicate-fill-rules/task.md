@@ -8,8 +8,9 @@
 
 - [x] 核对目标表结构、租户、报表 ID、批记录版本和异常规则明细。
 - [x] 固化待删除规则快照范围和保留规则选择依据。
-- [ ] 在事务内删除 86 条重复规则并核对影响行数。
-- [ ] 复验规则查询接口、页面行状态和无重复约束证据。
+- [x] 在事务内删除 86 条重复规则并核对影响行数。
+- [x] 复验最终数据库范围稳定为 1 条正式规则。
+- [x] 复验规则查询接口和页面行状态。
 - [ ] 完成任务记录和收尾验证。
 
 ## Expected Verification
@@ -22,13 +23,24 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
 - `是否从根因和长期维护角度解决`：否；本次按用户要求修复现有异常数据。多单元格填写分配与列表摘要查询的长期模型兼容问题不在本次数据修复范围内，后续再次运行相关写入型 E2E 仍可能重建多条规则。
 - `是否存在临时补丁或绕过`：否。
+
+## Current Blocker
+
+- 无。数据修复、登录态接口和真实页面只读复验均已通过。
+
+## Cleanup Keep
+
+- doc/tasks/20260727-delete-duplicate-fill-rules/database-schema-evidence.md
+- doc/tasks/20260727-delete-duplicate-fill-rules/before-87-rules.sql
+- doc/tasks/20260727-delete-duplicate-fill-rules/repair-86-rules.sql
+- doc/tasks/20260727-delete-duplicate-fill-rules/verify-page-readonly.mjs
 
 ## 经验门禁
 

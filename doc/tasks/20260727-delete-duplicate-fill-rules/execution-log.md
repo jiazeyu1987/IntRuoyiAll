@@ -39,12 +39,77 @@
 ## Verification
 
 - 已完成 schema、租户、报表 ID、版本和保留规则依据核对。
-- 待补充：快照文件校验、事务删除影响行数、保留行内容和接口/页面复验。
+- 删除前快照重新导出为 87 条独立 `INSERT`，SHA-256：
+  `FCB40150DCA3216DA66746213689EDEDD08799B2F51F4A378AD560E3E035AA60`。
+- 快照对应主键范围为 `3217..3303`，全字段校验值为
+  `ffc016241194cdd3dea3bd14375f788f5cfd7ba2630af514d6a17a28013b54f8`。
+- `GREEN: doc/tasks/20260727-delete-duplicate-fill-rules/execute-repair.ps1 -> PASS, retained_rule_id=3217, updated_rows=1, deleted_rows=86, remaining_rows=1`。
+- 临时过程 `codex_repair_fill_rules_20260727` 已删除，数量为 0。
+- 事务后数据库规则为 `ALL / ROLE / 910405 / version 130`，角色“压力泵生产1”解析启用成员为 `810:王歆, 910181:任丹`。
+- 18:54:31 并发 `edhr-visual-fill-config-real-flow.e2e.js` 再次运行，测试期间临时重建 87 条；18:56:25 恢复完成后数据库重新稳定为 1 条正式规则，物理 ID 变为 `3391`，`scope_key=ALL`、`candidate_source_type=ROLE`、`candidate_source_ids=910405`、`batch_record_version_id=130`。
+- 18:59:41 又启动一轮同名 E2E；最新只读复验仍为 1 条正式规则、0 条 `CODX_VFC_ASSIST_*` 辅助规则。
+- 该轮 E2E 已自然结束；最终恢复后最新物理 ID 为 `3479`，目标范围仍为 1 条 `ALL / ROLE / 910405 / version 130`，未检测到同名 E2E 进程。
+- 版本限制静态证据：Mapper 的 `withBatchRecordVersion(...)` 在版本非空时明确追加 `batch_record_version_id = batchRecordVersionId`；本次目标版本为 `130`。
+- 登录态 API 复验第一次在租户名称解析请求上 15 秒超时；随后另一任务重启本地后端，`48081` 不再监听，直接登录请求被拒绝。未把接口复验标记为通过。
+- 后端恢复后健康检查为 `UP`；使用目标租户 `1` 的本机默认登录身份执行只读接口复验：
+  `API_CODE=0`、`FILL_RULE_STATUS=CONFIGURED`、`SOURCE_TYPE=ROLE`、
+  `SOURCE_IDS=910405`、`CANDIDATE_USERS=王歆,任丹`，未再出现 `TooManyResultsException`。
+- `GREEN: node doc/tasks/20260727-delete-duplicate-fill-rules/verify-page-readonly.mjs -> PASS, 球囊扩张压力泵 / 粗洗工序生产记录显示“已配置 王歆、任丹”，MES 写请求数为 0`。
+- 数据库 schema evidence validator：PASS。
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Blockers
 
-- 当前无保留规则歧义；若目标范围不再严格为 87 条、保留载体不唯一或并行 E2E 再次写入，则事务必须失败并停止。
+- 无当前阻塞。若后续再次运行写入同一范围的 E2E，仍需等待其恢复阶段完成后复验最终稳定状态。
+
+## Git And Closeout
+
+- `task-closeout-cleanup preview -> PASS`：保留 7 个正式证据文件，计划删除 3 个临时文件，无 blocked/warnings。
+- `task-closeout-cleanup apply -> PASS`：已删除
+  `execute-repair.ps1`、`repair-86-rules.sql.template`、`snapshot-metadata.sql`。
+- 脏工作区基线提交：`85afb6fea8e67c0724f117d2da5a86794cc023d8`。
+- 基线提交共 41 个非本任务文件：
+  - `.review-fix-loop/runs/20260727T110834Z-6f3e83/review/packet-round-1.md`
+  - `.review-fix-loop/runs/20260727T110834Z-6f3e83/run.json`
+  - `.review-fix-loop/runs/20260727T110834Z-6f3e83/supervisor/log.md`
+  - `.review-fix-loop/runs/20260727T110834Z-6f3e83/task.md`
+  - `.runtime/20260727-form-template-validation/form-template-buttons-real-e2e.mjs`
+  - `IntRuoyiBackend/.gitattributes`
+  - `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchWorkbenchServiceImpl.java`
+  - `IntRuoyiBackend/yudao-module-showroom/src/main/java/cn/iocoder/yudao/module/showroom/controller/admin/ShowroomClientDownloadController.java`
+  - `IntRuoyiBackend/yudao-module-showroom/src/main/java/cn/iocoder/yudao/module/showroom/controller/admin/ShowroomClientDownloadFile.java`
+  - `IntRuoyiBackend/yudao-module-showroom/src/main/resources/showroom/client-downloads/v1.0/YingtaiShowroomClient-Win7-v1.0.zip`
+  - `IntRuoyiBackend/yudao-module-showroom/src/test/java/cn/iocoder/yudao/module/showroom/controller/admin/ShowroomClientDownloadControllerTest.java`
+  - `IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/controller/admin/codextest/vo/CodexTestNodeChainOptionRespVO.java`
+  - `IntRuoyiBackend/yudao-module-system/src/main/java/cn/iocoder/yudao/module/system/service/codextest/CodexTestCaseServiceImpl.java`
+  - `IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/codextest/CodexTestCaseServiceImplTest.java`
+  - `IntRuoyiBackend/yudao-module-system/src/test/java/cn/iocoder/yudao/module/system/service/codextest/CodexTestRunnerServiceImplTest.java`
+  - `IntRuoyiFronted/.gitattributes`
+  - `IntRuoyiFronted/doc/tasks/20260615-showroom-award-export-import-real-e2e/产品资料修改版-补充产品资料.xlsx`
+  - `IntRuoyiFronted/src/api/showroom-admin/index.ts`
+  - `IntRuoyiFronted/src/api/system/codexTestManagement/index.ts`
+  - `IntRuoyiFronted/src/views/showroom-admin/company/CompanyWorkbench.vue`
+  - `IntRuoyiFronted/src/views/system/codex-test-management/index.vue`
+  - `IntRuoyiFronted/tests/e2e/mes-route-flow-tab-return-state-real.e2e.js`
+  - `IntRuoyiFronted/tests/e2e/showroom-award-export-import-roundtrip-real.e2e.js`
+  - `IntRuoyiFronted/tests/e2e/showroom-client-download-retirement-static.spec.js`
+  - `doc/tasks/20260727-edhr-notify-all-valid-candidates/backend-api-evidence.md`
+  - `doc/tasks/20260727-edhr-notify-all-valid-candidates/bug-regression-evidence.md`
+  - `doc/tasks/20260727-edhr-notify-all-valid-candidates/execution-log.md`
+  - `doc/tasks/20260727-edhr-notify-all-valid-candidates/task.md`
+  - `doc/tasks/20260727-edhr-notify-all-valid-candidates/verification-report.md`
+  - `doc/tasks/20260727-edhr-release-owner-from-end-config/backend-api-evidence.md`
+  - `doc/tasks/20260727-edhr-release-owner-from-end-config/execution-log.md`
+  - `doc/tasks/20260727-edhr-release-owner-from-end-config/verification-report.md`
+  - `doc/tasks/20260727-remove-lfs-assets/backend-api-evidence.md`
+  - `doc/tasks/20260727-remove-lfs-assets/execution-log.md`
+  - `doc/tasks/20260727-remove-lfs-assets/task.md`
+  - `doc/tasks/20260727-route-flow-tab-return-state/execution-log.md`
+  - `doc/tasks/20260727-route-flow-tab-return-state/task.md`
+  - `doc/tasks/20260727-route-flow-tab-return-state/verification-report.md`
+  - `docs/changes/20260727-remove-lfs-assets.md`
+  - `docs/experience-index.md`
+  - `docs/frontend-development.md`

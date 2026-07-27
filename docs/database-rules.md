@@ -38,6 +38,15 @@
 - Forbidden action: 禁止让前端忽略隐藏状态接口失败、后端返回空隐藏列表、吞掉 SQL 异常、mock 成功或跳过迁移来让待办列表看似恢复。
 - Evidence: `doc/tasks/20260727-todo-task-hidden-status/verification-report.md`。
 
+### 数据修复与写入型 E2E 恢复并发门禁
+
+- Trigger: 数据修复目标同时可能被 Playwright、Codex Runner、`finally` 恢复逻辑或定时测试写入。
+- Preflight check: 执行前检查目标测试进程和命令行，确认恢复逻辑已自然结束；删除前重新导出精确范围快照，并把行数、主键边界和全字段校验值绑定到事务断言。
+- Blocker: 同范围写入型 E2E 正在运行、目标行数或校验值在快照后变化、或测试恢复逻辑可能重新插入目标数据时必须停止；不得强停不属于当前任务的并发进程。
+- Verification: 事务提交后再次检查并发进程和目标范围稳定值；若 E2E 在修复后启动，必须等其恢复完成后复验最终行数和业务字段，不能只记录事务瞬时成功。
+- Forbidden action: 禁止在外部恢复任务仍活跃时把一次删除成功宣称为最终完成；禁止扩大删除范围、循环强删或终止无归属依据的并发任务。
+- Evidence: `doc/tasks/20260727-delete-duplicate-fill-rules/execution-log.md`。
+
 ## 租户和菜单权限
 
 - 动态菜单页面交付必须同时核对：
