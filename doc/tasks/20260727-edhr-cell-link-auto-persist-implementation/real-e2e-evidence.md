@@ -16,3 +16,11 @@
 - GREEN: 真实前端详情页打开填写路径已完成。
 - GREEN: task/open 返回 cellLinkAutoPersist，状态 `NO_CHANGE_ALREADY_APPLIED`，目标单元格 `3:3`，值 `34126020001`。
 - GREEN: 执行详情 cellValues 包含目标单元格保存值；页面输入控件显示值 `34126020001`。
+- GREEN: 数据库执行记录 `field_audit_revision=1`，`cell_values_json` 包含目标格保存值。
+- GREEN: `CELL_LINK_AUTO_PREFILL` 自动预填审计批次恰好 `1` 条，`idempotency_key` 长度为 `64`。
+- GREEN: 重复执行真实 E2E 后仍返回 `NO_CHANGE_ALREADY_APPLIED`，未追加第二条自动预填审计批次。
+
+## Cleanup
+- 临时责任人已恢复为用户 ID `810`（`wangxin`）。
+- 工作任务 `2227` 最终状态为 `TODO`，更新人为 `codex-e2e-rollback`。
+- 任务自有隔离运行态 `8086/48086` 已停止并释放，原 E2E worktree、分支和 slot 5 已清理。

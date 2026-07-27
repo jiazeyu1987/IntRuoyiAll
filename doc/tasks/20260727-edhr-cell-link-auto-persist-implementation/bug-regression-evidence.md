@@ -24,26 +24,37 @@
 
 `MesProBatchRecordCellLinkServiceImpl#getPrefill` 已能计算可用预填项，但它只是预览/诊断结果。`MesProBatchRecordExecutionServiceImpl#openOrCreateByContext` 新建执行记录时初始化 `cellValuesJson("[]")`，没有把链接值写入数据库；前端再把 `/prefill` 结果写入本地草稿，导致执行页可能看到临时值，但只读预览、批次详情和字段审计链仍读取不到正式保存值。
 
+真实页面首次复验又暴露了第二个根因：自动落库字段审计使用 `CELL_LINK_AUTO_PREFILL:<executionId>:<rule/version/cell/value...>` 明文组合幂等键，实际长度为 `101`，但 `mes_pro_batch_record_execution_field_audit_batch.idempotency_key` 仅允许 `varchar(64)`。因此后端已经进入正式落库边界，却在插入审计批次时失败并令 `task/open` 返回系统异常。修复为对稳定原始组合键计算 SHA-256，保存和重复打开查询使用同一 64 位键。
+
 ## GREEN
 
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordCellLinkAutoPersistServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 4 tests。
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordExecutionServiceImplTest,MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordExecutionFieldAuditServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 138 tests。
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_bindsExistingSingleExecutionContext+openTask_withoutProductionTaskContext_stillOpensBatchRecordWithoutScheduleReference+openTask_ignoresSingleWorkOrderProductionTaskWhenOpeningBatchRecord" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests。
 - GREEN: `node tests/e2e/edhr-cell-link-auto-persist-static.spec.js` -> PASS。
+- RED: 隔离 worktree 定向测试 -> FAIL，4 tests 中 2 个断言证明明文幂等键长度为 `101`，超过 schema 上限 `64`。
+- GREEN: 隔离 worktree 定向测试 -> PASS，4 tests；保存路径和重复打开查询路径均断言幂等键为 `[0-9a-f]{64}`。
+- REGRESSION: 隔离 worktree 相邻后端回归 -> PASS，138 tests。
+- GREEN: `node tests/e2e/edhr-batch-execution-filler-entry-static.spec.js` -> PASS，锁定 worktree 前后端 URL 配对和浏览器登录态只读核验。
+- GREEN: 真实 Playwright 在 `8086/48086` 打开批次 `EDHRB-1785116357526` 的工序任务 -> PASS，页面和执行详情均显示目标格 `3:3=34126020001`。
 
 ## Verification
 
 - Regression tests cover auto-persist success, missing source fail-fast, manual target conflict, idempotent repeated open, execution-create response summary, task-open response summary, field audit save behavior, and frontend removal of draft prefill injection.
+- Regression tests additionally cover the audit table's 64-character schema limit on both the system-write path and repeated-open idempotency lookup path.
 - `git diff --check -- <task-owned implementation files and implementation task docs>` -> PASS with LF-to-CRLF warnings only.
 - Full `MesProEdhrBatchExecutionServiceTest` was run as an exploratory broad regression and failed on unrelated existing blockers: missing H2 column `bpm_form_template_version.batch_record_report_id`, invalid batch record attachment owner config, and a pending-approval action expectation mismatch.
+- Real database readback proves `field_audit_revision=1`, target cell persisted in `cell_values_json`, exactly one automatic-prefill audit batch, idempotency key length `64`, and repeated open did not append a duplicate batch.
 
 ## Risk
 
 - The implementation deliberately avoids direct SQL backfill, GET-detail side effects, frontend fallback display, and silent default values.
 - Existing historical DRAFT records are repaired only through explicit create/open write boundaries when still DRAFT and rule context applies.
-- Real Playwright verification is still needed in an environment with running frontend/backend, login, tenant, and task-owned writable eDHR data before claiming browser-path completion.
+- SHA-256 is used as a deterministic storage key, not as a fallback; the full semantic source remains traceable through execution, rule, cell, source value, reason text, and audit change records.
+- The real E2E temporarily changed only the authorized work-task assignee required to exercise the page path and restored assignee `810` (`wangxin`) with status `TODO`.
 
 ## Blockers
 
 - No blocker remains for targeted code-level regression.
-- Real E2E is blocked until local runtime/login/test-tenant prerequisites are explicitly available; API-only verification is not accepted as a substitute.
+- No blocker remains for the real Playwright path; it passed on the paired task-owned runtime and API-only verification was not used as a substitute.
+- The broad full-class regression still has unrelated pre-existing schema/config/assertion failures and is not used as owned completion evidence.
