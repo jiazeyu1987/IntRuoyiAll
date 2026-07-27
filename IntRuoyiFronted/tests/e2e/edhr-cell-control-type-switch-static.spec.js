@@ -18,6 +18,12 @@ assert.match(
 
 assert.match(
   dialog,
+  /ruleEditorValueTypeOptions[\s\S]*label:\s*'下拉框'[\s\S]*SELECT_FIELD_TYPE/,
+  '字段类型下拉必须提供下拉框快捷项，避免用户只在字段类型里找不到 select。'
+)
+
+assert.match(
+  dialog,
   /label="下拉选项"[\s\S]*selectedRuleSelectOptionsText/,
   '单元格规则弹窗必须允许在右侧配置下拉选项内容。'
 )
