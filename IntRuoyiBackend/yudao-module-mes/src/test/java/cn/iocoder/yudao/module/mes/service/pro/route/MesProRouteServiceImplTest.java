@@ -587,6 +587,45 @@ class MesProRouteServiceImplTest {
     }
 
     @Test
+    void buildCurrentRouteSnapshotJson_shouldPreserveExistingBatchRecordAttachmentOwners() {
+        Long routeId = 922119L;
+        Long routeVersionId = 34126020001L;
+        MesProRouteDO route = MesProRouteDO.builder()
+                .id(routeId)
+                .code("RT000028")
+                .name("球囊扩张压力泵")
+                .build();
+        MesProRouteVersionDO routeVersion = MesProRouteVersionDO.builder()
+                .id(routeVersionId)
+                .routeId(routeId)
+                .routeSnapshotJson("""
+                        {"routeId":922119,"configSnapshots":{"batchRecordAttachmentOwners":[{"attachmentCode":"INCOMING_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"STERILIZATION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_RECORD","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]}]}}
+                        """)
+                .build();
+        MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
+        graph.setRouteId(routeId);
+        graph.setNodes(emptyList());
+        when(routeMapper.selectById(routeId)).thenReturn(route);
+        when(routeVersionMapper.selectById(routeVersionId)).thenReturn(routeVersion);
+        when(routeProcessFlowService.getGraph(routeId)).thenReturn(graph);
+        when(routeProductMapper.selectListByRouteId(routeId)).thenReturn(emptyList());
+        when(routeProductBomMapper.selectList(routeId, null, null)).thenReturn(emptyList());
+        when(routeScheduleConfigMapper.selectListByRouteVersionId(routeVersionId)).thenReturn(emptyList());
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                routeId, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(emptyList());
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                routeId, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())).thenReturn(emptyList());
+
+        JSONObject snapshot = JSON.parseObject(routeService.buildCurrentRouteSnapshotJson(routeId, routeVersionId));
+
+        JSONArray owners = snapshot.getJSONObject("configSnapshots").getJSONArray("batchRecordAttachmentOwners");
+        assertEquals(4, owners.size());
+        assertEquals("INCOMING_INSPECTION_REPORT", owners.getJSONObject(0).getString("attachmentCode"));
+        assertEquals(List.of(912398), owners.getJSONObject(0)
+                .getJSONArray("candidateSourceIds").toJavaList(Integer.class));
+    }
+
+    @Test
     void copyRoute_shouldGrantRouteEditPermissionToCopier() {
         Long sourceRouteId = 9016L;
         Long targetRouteId = 9017L;
