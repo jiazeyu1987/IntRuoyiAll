@@ -86,3 +86,5 @@
 - Partial package evidence: local package has 3375 files and 3373 manifest artifacts with no missing files or size mismatches; backend/frontend commits are both `4a89f1f46740e69b63d28928052d7c3471bdc67f`, both `dirty=false`, and `publishScope=code-only`.
 - NAS partial evidence: `Backup/ReleasePackage/release-20260727-onlyoffice-test-r260727-codeonly-r2` contains only 3344 files and lacks `resources`, `runtime-env`, and `smoke`; the package is incomplete and must not be deployed or reused.
 - Decision: preserve `r2` as failed evidence without deleting shared NAS content; rebuild with fresh releaseTag `release-20260727-onlyoffice-test-r260727-codeonly-r3`.
+- GREEN: pre-r3 migration policy gate -> PASS, `migrationCount=383`.
+- GREEN: pre-r3 code-only publish regression -> PASS, `108 passed`; release source worktree was clean before evidence recording.
