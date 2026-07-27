@@ -16,6 +16,26 @@ BEGIN
 
   IF NOT EXISTS (
     SELECT 1
+      FROM information_schema.tables
+     WHERE table_schema = DATABASE()
+       AND table_name = 'system_codex_test_execution'
+  ) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Missing system_codex_test_execution table';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema = DATABASE()
+       AND table_name = 'system_codex_test_execution'
+       AND column_name = 'node_chain_execution'
+  ) THEN
+    ALTER TABLE `system_codex_test_execution`
+      ADD COLUMN `node_chain_execution` bit NOT NULL DEFAULT b'0' COMMENT '是否为严格串行节点串执行' AFTER `execution_mode`;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
       FROM information_schema.columns
      WHERE table_schema = DATABASE()
        AND table_name = 'system_codex_test_case'

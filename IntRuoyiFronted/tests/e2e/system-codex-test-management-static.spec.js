@@ -339,3 +339,26 @@ assert.match(runner, /error instanceof ServerCanceledExecutionError/)
 assert.match(runner, /reportTaskBlocked\(task, error\)/)
 assert.match(runner, /checkpoint-result/)
 assert.match(runner, /complete-case/)
+assert.match(
+  runner,
+  /const COMPLETE_CASE_SUMMARY_MAX_LENGTH = 512/,
+  'Runner 必须显式对齐 execution case progress_message 的 512 字符长度契约。'
+)
+assert.match(
+  runner,
+  /function normalizeCompleteCaseSummary\(summary\)[\s\S]*slice\(0,\s*COMPLETE_CASE_SUMMARY_MAX_LENGTH\)/,
+  'Runner 必须集中截断 complete-case 摘要，避免长错误导致终态回写失败。'
+)
+const completeCasePayloads = [
+  ...runner.matchAll(
+    /await postJson\('\/system\/codex-test-runner\/complete-case', \{([\s\S]*?)\n\s*\}\)/g
+  )
+]
+assert.equal(completeCasePayloads.length, 2, 'Runner 必须保留成功/失败两条 complete-case 回写路径。')
+for (const payload of completeCasePayloads) {
+  assert.match(
+    payload[1],
+    /summary:\s*normalizeCompleteCaseSummary\(/,
+    '每条 complete-case 回写路径都必须使用统一摘要长度归一化。'
+  )
+}

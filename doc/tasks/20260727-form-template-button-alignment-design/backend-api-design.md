@@ -2,57 +2,53 @@
 
 ## Purpose and Scope
 
-后端设计目标是在表单中心模板池中提供稳定、租户隔离、可审计的批记录报表绑定，使前端 `打开 / 编辑 / 填写` 能以 `reportId` 调用批记录表单已有接口。范围包括表单中心模板响应、批记录报表绑定解析、错误模型和测试契约；不包括批记录设计器自身接口重写。
+本设计纠正 BPM FormCenter 模板池曾错误暴露批记录绑定摘要的问题。表单模板三个按钮只需要当前模板自身数据，因此后端保持 FormCenter 模板契约，不新增 BPM 到 MES 的数据关系或运行时依赖。
 
 ## Evidence Reviewed
 
-- `FormCenterTemplateRespVO.java:12` 至 `40`：当前响应只有模板编号、名称、版本、状态、识别字段、`jimuSchemaJson` 和源文件名，缺少 `reportId`。
-- `FormCenterRuntimeServiceImpl.java:101` 至 `105`：模板池直接从 `FormTemplateVersionDO` 转换响应。
-- `MesProBatchRecordReportServiceImpl.java:1260` 至 `1282`：批记录分页已支持 `reportId` 精确过滤，并按批记录版本和产品展开。
-- `IntRuoyiFronted/src/api/mes/pro/batchrecordreport/index.ts`：设计器路径、编辑路径、规则和签名接口都围绕 `reportId`。
+- `FormCenterTemplateRespVO` 的正式职责是返回模板编号、名称、版本、状态、识别字段、`jimuSchemaJson` 和源文件信息。
+- `FormTemplateVersionDO` 对应 FormCenter 模板版本持久化，不需要保存 MES 批记录报表摘要。
+- `FormCenterRuntimeServiceImpl#toTemplateResp` 负责从模板版本组装模板池响应。
+- 纠偏前新增的七个 `batchRecord*` 字段和映射仅为支撑错误按钮跳转，没有独立业务来源。
 
 ## Modules
 
-- BPM 表单中心模块负责暴露模板池、模板版本元数据和已持久化的批记录绑定摘要。
-- MES 批记录模块继续负责批记录报表元数据、Jimu 报表路径、规则、签名和模拟填写入口。
-- 已采用清晰边界：表单中心只暴露已绑定的批记录报表摘要，不复制 MES 设计器业务逻辑，也不引入 BPM -> MES 运行时依赖。
+- BPM FormCenter 模块继续拥有模板导入、版本、模板池、规则和模板生命周期。
+- MES 批记录模块继续独立拥有批记录报表和批次执行。
+- 两个模块可复用通用前端渲染组件或规则结构，但本任务不建立 BPM -> MES 服务调用、数据库外键或 DTO 绑定。
 
 ## API Contracts
 
-- 扩展 `GET /form-center/template-pool` 响应，每个模板版本增加批记录绑定摘要。
-- 响应字段：
-  - `batchRecordReportId: string | null`
-  - `batchRecordReportName: string | null`
-  - `batchRecordName: string | null`
-  - `batchRecordVersionNo: string | null`
-  - `batchRecordFormSlotType: MAIN | LOSS_REPORT | PROCESS_INSPECTION | PARAMETER_RECORD | null`
-  - `batchRecordBindingStatus: BOUND | UNBOUND | BROKEN`
-  - `batchRecordBindingError: string | null`
-- 本次不新增独立详情接口；列表页一次返回摘要，避免每行 N+1 请求。
-- 不新增前端直接调用 `/mes/pro/batch-record-report/page` 按名称查找的设计；这是不稳定匹配。
+- `GET /form-center/template-pool` 保持 FormCenter 模板响应。
+- 响应不包含：
+  - `batchRecordReportId`
+  - `batchRecordReportName`
+  - `batchRecordName`
+  - `batchRecordVersionNo`
+  - `batchRecordFormSlotType`
+  - `batchRecordBindingStatus`
+  - `batchRecordBindingError`
+- 三个按钮使用既有模板字段，不需要新增接口。
+- 本次不修改 MES 批记录接口。
 
 ## Error Model
 
-- `UNBOUND`：模板版本没有批记录报表绑定，前端阻塞三按钮并提示管理员绑定。
-- `BROKEN`：绑定写入链路确认目标 `reportId` 不可用、不可访问或租户不一致，前端阻塞三按钮并显示 `batchRecordBindingError`。
-- `BOUND`：绑定写入链路确认目标报表元数据可用，前端允许三按钮跳转。
-- 模板池查询只读取 BPM 已持久化摘要，不实时查询 MES 表、不隐式修复绑定；后端不得把 `UNBOUND` 或 `BROKEN` 转换为空对象成功，也不得回退到模板 `jimuSchemaJson`。
+- 模板池查询继续使用既有权限、租户和请求错误模型。
+- 未绑定批记录表单不是 FormCenter 模板错误状态，后端不得构造 `UNBOUND/BROKEN` 阻断信息。
+- 模板自身数据缺失或解析失败时，按现有 FormCenter 错误链路返回真实失败，不切换 MES 数据源、不返回默认模板。
 
 ## Transactions and Idempotency
 
-- 查询模板池为只读，不创建、不修复、不迁移绑定。
-- 导入或升级模板时如要创建绑定，必须在导入事务中原子写入模板版本与批记录报表关系。
-- 重新导入同一模板版本不得生成多个有效绑定；当前采用模板版本行内字段承载一组有效绑定摘要。
-- 批记录报表被删除或作废时，绑定应进入 `BROKEN` 或被业务流程显式解绑，不允许静默指向最新同名报表。
+- 模板池查询为只读，不创建、修复或推断批记录绑定。
+- 模板规则保存继续以 `templateId + versionNo` 定位当前模板版本，并沿用既有事务边界。
+- 删除错误响应字段不会产生数据写入，也不需要兼容双写或回填。
 
-## Decisions And Remaining Scope
+## Open Questions
 
-- 已决定通过扩展 `bpm_form_template_version` 持久化批记录绑定摘要，避免新增 BPM -> MES 依赖和名称匹配。
-- 本次只读展示并驱动三按钮行为；绑定写入来源仍需由导入链路或正式绑定流程后续补齐。
-- 模板作废、停用、发布状态与批记录版本状态暂不双向联动；后续若产品要求联动，需单独设计事务和权限规则。
+- 本次没有 API 待确认项。
+- 若未来新增正式跨域转换能力，需重新定义独立 API、权限、事务和审计，不得恢复当前已移除字段作为隐式兼容。
 
-## Verification Gates
+## Design Blockers
 
-- 合同测试必须断言 `FormCenterTemplateRespVO`、`FormTemplateVersionDO` 均包含七个绑定字段。
-- 合同测试必须断言 `FormCenterRuntimeServiceImpl#toTemplateResp` 只从 `FormTemplateVersionDO` 映射字段，不引用 MES 类、不查询 MES 表、不按名称或源文件猜测。
-- 真实运行态验收前必须确认当前后端 jar 已加载这些字段，且数据库已应用新增列迁移。
+- 当前实现无 blocker。
+- 本地数据库可能仍存在此前误加的冗余列，但代码不读取这些列，不阻塞当前 API 行为；物理清理由单独迁移审计决定。

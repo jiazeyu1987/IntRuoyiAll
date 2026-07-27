@@ -1,50 +1,52 @@
 # Database Schema Evidence
 
-## Data Change Goal And Entities
+## Data Change Goal And Affected Entities
 
-- Goal: 在 `bpm_form_template_version` 上持久化表单模板到批记录表单的显式绑定摘要。
-- Entity: `bpm_form_template_version`。
+- Goal: 停止把 FormCenter 模板建模为批记录表单绑定对象。
+- Affected entity: `bpm_form_template_version` 的错误绑定迁移契约。
+- Current task does not execute a schema change.
 
 ## Database Engine And Migration Tool
 
 - Engine: MySQL / InnoDB / utf8mb4。
-- Migration file: `IntRuoyiBackend/sql/mysql/20260727_bpm_form_template_batch_record_binding.sql`。
+- Migration source: `IntRuoyiBackend/sql/mysql` 下的项目 SQL 迁移文件。
+- 本次删除未发现正式发布引用的错误新增迁移文件，不执行目标数据库迁移。
 
-## Schema And Index Changes
+## Schema, Migration, Index, Or Constraint Changes
 
-- 新增可空列：`batch_record_report_id`、`batch_record_report_name`、`batch_record_name`、`batch_record_version_no`、`batch_record_form_slot_type`、`batch_record_binding_status`、`batch_record_binding_error`。
-- 新增索引：`idx_bpm_form_template_batch_record_report` on `tenant_id, batch_record_report_id, deleted`。
-- 迁移先检查 `bpm_form_template_version` 存在，不存在时 fail fast。
+- 删除仓库中的 `20260727_bpm_form_template_batch_record_binding.sql`。
+- 删除旧迁移合同 `test_form_template_batch_record_binding_sql.py`。
+- 新增独立性合同，断言上述错误迁移和旧测试不存在。
+- 不执行 `DROP COLUMN`、`DROP INDEX`、回填或数据修复。
 
 ## Data Safety Analysis
 
-- 迁移为 additive schema change，不删除、不清空、不更新业务数据。
-- 新字段均为 nullable，避免对既有模板版本产生强制回填风险。
-- 不做名称匹配、源文件名匹配或默认绑定，避免错误关联批记录报表。
+- 本地数据库已存在七个冗余列和一个索引，但当前代码不再映射、读取或写入。
+- 未经迁移历史审计和用户授权直接删列具有不可逆风险，因此当前任务保持这些列惰性。
+- 不修改远端数据库、不改变现有业务数据。
 
 ## Rollback Or Recovery Plan
 
-- 如需回滚，先停用依赖这些字段的新前端行为，再由数据库变更流程删除新增索引和列。
-- 当前迁移本身不改写既有数据，恢复风险集中在结构回滚窗口。
+- 仓库层回滚仅需恢复错误迁移和字段映射，但这会重新引入已确认缺陷，因此不作为 fallback。
+- 未来物理清理前必须备份 schema、确认目标环境发布历史、评估列使用情况并提供向下恢复方案。
 
 ## BDD Scenarios
 
-- `BDD: 迁移缺表 fail fast -> Given 目标库缺少 bpm_form_template_version / When 执行迁移 / Then SQLSTATE 45000 且提示 bpm_form_template_version is missing。`
-- `BDD: 迁移只做增量结构 -> Given 表已存在 / When 执行迁移 / Then 只新增绑定列和索引，不删除或回填业务数据。`
+- `BDD: 错误绑定迁移停止发布 -> Given 表单模板与批记录表单无直接关系 / When 检查迁移内容 / Then 错误新增迁移和旧合同均不存在。`
+- `BDD: 当前任务不做破坏性删列 -> Given 本地库已存在冗余列 / When 完成代码解耦 / Then 不执行 DROP COLUMN 或 DROP INDEX。`
 
 ## RED And GREEN
 
-- `RED: python -m pytest script\tests\test_form_template_batch_record_binding_sql.py -> FAIL, 迁移文件不存在。`
-- `GREEN: python -m pytest script\tests\test_form_template_batch_record_binding_sql.py -> PASS, 3 tests。`
+- `RED: python -X utf8 -m pytest script\tests\test_form_template_batch_record_independence.py -> FAIL, 错误迁移仍存在且 FormCenter 源码仍定义绑定字段。`
+- `GREEN: python -X utf8 -m pytest script\tests\test_form_template_batch_record_independence.py -> PASS, 2 tests。`
 
 ## Migration Verification
 
-- Static contract verified release metadata, fail-fast table check, additive columns, index, and no destructive SQL keywords.
-- Local Docker MySQL verification: `information_schema.COLUMNS` shows `batch_record_report_id`, `batch_record_report_name`, `batch_record_name`, `batch_record_version_no`, `batch_record_form_slot_type`, `batch_record_binding_status`, `batch_record_binding_error`.
-- Local Docker MySQL verification: `information_schema.STATISTICS` shows `idx_bpm_form_template_batch_record_report` on `tenant_id,batch_record_report_id,deleted`.
-- Real E2E fixture verification: template row `id=29` was temporarily bound to an existing tenant-1 batch record report and restored; final check shows `batch_record_report_id IS NULL` and `batch_record_binding_status IS NULL`.
-- Target-environment migration application still must run through release migration workflow before deployment.
+- 静态合同确认错误迁移和旧迁移测试已删除。
+- 后端/前端合同确认代码不再使用七个冗余字段。
+- 本次未执行数据库 DDL，因而没有迁移 up/down 操作。
 
 ## Blockers
 
-- 目标环境应用迁移前，应按 release migration 流程核对真实 `information_schema`。
+- 物理删除已存在列和索引需要单独授权、发布历史审计、备份与回滚设计。
+- 该 blocker 不影响当前按钮功能。

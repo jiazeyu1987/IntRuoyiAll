@@ -20,6 +20,8 @@ BDD: 归档样本保持不变 -> Given 已完成只读追溯查看，When 退出
 - GREEN: experience-preflight -> PASS；已读取 `docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/worktree-restrictions.md`、`docs/task-closeout-rules.md`、`docs/powershell-encoding.md` 和 `docs/experience-index.md`。
 - Playwright 数据来源：用户指定的租户 `122` 与固定归档批次；只读范围为搜索、打开归档追溯、查看内容、退出和复搜。
 - 工作区预检：根仓库当前分支 `int_main` 相对 `origin/int_main` ahead 3，且存在其他任务的未提交改动；本任务不得覆盖或回滚这些改动。
+- 本机运行态预检：`8081` 前端 HTTP 200，`48081` 后端 health `UP`。
+- Playwright 浏览器预检：默认 bundled Chromium 未安装；使用本机已安装的 Google Chrome 可执行文件 `C:\Program Files\Google\Chrome\Application\chrome.exe` 由 Playwright 驱动，不安装或切换测试框架。
 
 ## 当前状态
 

@@ -18,6 +18,7 @@ const POLL_INTERVAL_MS = Number(process.env.CODEX_TEST_POLL_INTERVAL_MS || '5000
 const HEARTBEAT_INTERVAL_MS = Number(process.env.CODEX_TEST_HEARTBEAT_INTERVAL_MS || '20000')
 const CODEX_EXEC_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_TIMEOUT_MS || '600000')
 const CODEX_TEST_API_TIMEOUT_MS = Number(process.env.CODEX_TEST_API_TIMEOUT_MS || '30000')
+const COMPLETE_CASE_SUMMARY_MAX_LENGTH = 512
 
 class ServerCanceledExecutionError extends Error {}
 
@@ -27,6 +28,10 @@ function requiredEnv(name) {
     throw new Error(`${name} is required`)
   }
   return value
+}
+
+function normalizeCompleteCaseSummary(summary) {
+  return String(summary || '').slice(0, COMPLETE_CASE_SUMMARY_MAX_LENGTH)
 }
 
 function runnerHeaders(extraHeaders = {}) {
@@ -307,7 +312,7 @@ async function reportTaskResult(task, result) {
   await postJson('/system/codex-test-runner/complete-case', {
     executionCaseId: task.executionCaseId,
     status: hasFailure ? 'FAIL' : hasBlocked ? 'BLOCKED' : 'PASS',
-    summary: result.summary
+    summary: normalizeCompleteCaseSummary(result.summary)
   })
 }
 
@@ -331,7 +336,7 @@ async function reportTaskBlocked(task, error) {
   await postJson('/system/codex-test-runner/complete-case', {
     executionCaseId: task.executionCaseId,
     status: 'BLOCKED',
-    summary: summary.slice(0, 1000)
+    summary: normalizeCompleteCaseSummary(summary)
   })
 }
 

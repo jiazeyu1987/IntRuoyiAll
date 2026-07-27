@@ -132,6 +132,61 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void claimTasks_independentSequentialCasesUseAvailableCapacity() {
+        Long runnerSessionId = registerRunner();
+        Long firstCaseId = codexTestCaseService.createCase(validScheduleCaseReq("独立顺序测试项一", false));
+        Long secondCaseId = codexTestCaseService.createCase(validScheduleCaseReq("独立顺序测试项二", false));
+        codexTestExecutionService.startExecution(startReq(firstCaseId, secondCaseId), 99L);
+
+        CodexTestRunnerClaimRespVO claimRespVO =
+                codexTestRunnerService.claimTasks(claimReq(runnerSessionId, 2), RUNNER_TOKEN);
+
+        assertEquals(2, claimRespVO.getTasks().size());
+        assertEquals(List.of("独立顺序测试项一", "独立顺序测试项二"),
+                claimRespVO.getTasks().stream().map(CodexTestRunnerClaimRespVO.Task::getCaseName).toList());
+    }
+
+    @Test
+    void completeCase_failedIndependentSequentialCaseAllowsRemainingCaseToRun() {
+        Long runnerSessionId = registerRunner();
+        Long firstCaseId = codexTestCaseService.createCase(validScheduleCaseReq("独立顺序测试项一", false));
+        Long secondCaseId = codexTestCaseService.createCase(validScheduleCaseReq("独立顺序测试项二", false));
+        Long executionId = codexTestExecutionService.startExecution(startReq(firstCaseId, secondCaseId), 99L);
+        CodexTestRunnerClaimRespVO.Task firstTask =
+                codexTestRunnerService.claimTasks(claimReq(runnerSessionId), RUNNER_TOKEN).getTasks().get(0);
+        CodexTestRunnerCompleteCaseReqVO failedReqVO = new CodexTestRunnerCompleteCaseReqVO();
+        failedReqVO.setExecutionCaseId(firstTask.getExecutionCaseId());
+        failedReqVO.setStatus("FAIL");
+        failedReqVO.setSummary("独立测试项失败");
+        codexTestRunnerService.saveCheckpointResult(
+                resultReq(firstTask.getExecutionCaseId(), "FAIL", "独立测试项失败"), RUNNER_TOKEN);
+        CodexTestRunnerCheckpointResultReqVO firstCaseSecondCheckpoint =
+                resultReq(firstTask.getExecutionCaseId(), "PASS", "");
+        firstCaseSecondCheckpoint.setCheckpointSort(2);
+        codexTestRunnerService.saveCheckpointResult(firstCaseSecondCheckpoint, RUNNER_TOKEN);
+
+        codexTestRunnerService.completeCase(failedReqVO, RUNNER_TOKEN);
+
+        CodexTestRunnerClaimRespVO.Task secondTask =
+                codexTestRunnerService.claimTasks(claimReq(runnerSessionId), RUNNER_TOKEN).getTasks().get(0);
+        assertEquals("独立顺序测试项二", secondTask.getCaseName());
+        CodexTestRunnerCompleteCaseReqVO passedReqVO = new CodexTestRunnerCompleteCaseReqVO();
+        passedReqVO.setExecutionCaseId(secondTask.getExecutionCaseId());
+        passedReqVO.setStatus("PASS");
+        passedReqVO.setSummary("独立测试项继续执行完成");
+        codexTestRunnerService.saveCheckpointResult(
+                resultReq(secondTask.getExecutionCaseId(), "PASS", ""), RUNNER_TOKEN);
+        CodexTestRunnerCheckpointResultReqVO secondCaseSecondCheckpoint =
+                resultReq(secondTask.getExecutionCaseId(), "PASS", "");
+        secondCaseSecondCheckpoint.setCheckpointSort(2);
+        codexTestRunnerService.saveCheckpointResult(secondCaseSecondCheckpoint, RUNNER_TOKEN);
+
+        codexTestRunnerService.completeCase(passedReqVO, RUNNER_TOKEN);
+
+        assertEquals("FAIL", codexTestExecutionMapper.selectById(executionId).getStatus());
+    }
+
+    @Test
     void completeCase_failedSequentialNodeBlocksRemainingNodesAndCheckpoints() {
         Long runnerSessionId = registerRunner();
         Long firstCaseId = codexTestCaseService.createCase(

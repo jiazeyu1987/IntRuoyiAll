@@ -36,6 +36,7 @@ def test_node_chain_migration_declares_idempotent_schema_change() -> None:
     for column in (
         "node_chain_name varchar(128) null",
         "node_chain_sort int null",
+        "node_chain_execution bit not null default b'0'",
     ):
         assert column in normalized
     assert "idx_system_codex_test_case_tenant_node_chain" in normalized
@@ -47,5 +48,6 @@ def test_node_chain_test_schema_matches_runtime_columns() -> None:
     for column in (
         '"node_chain_name" varchar(128)',
         '"node_chain_sort" int',
+        '"node_chain_execution" bit not null default false',
     ):
         assert column in normalized

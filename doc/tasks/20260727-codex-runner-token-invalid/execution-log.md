@@ -24,6 +24,18 @@ BDD: 测试管理执行入口使用有效 Runner token -> Given 测试管理页�
 
 BDD: Runner token 确实缺失或失效时明确失败 -> Given Runner token 缺失或与后端注册状态不一致；When 用户点击“执行”；Then 页面应显示真实的 token 配置/校验错误，且不得伪造执行成功、改跑其他 Runner 或吞掉异常。
 
+BDD: Codex CLI 失败摘要可回写终态 -> Given Runner 已使用有效 token 领取测试项但 Codex CLI 返回超过 512 字符的失败信息；When Runner 上报 `complete-case`；Then 执行项应进入 `BLOCKED` 终态，摘要必须符合 `progress_message` 长度契约，不得因数据库截断停留在 `RUNNING`。
+
+## Milestone 6
+
+- Status: in_progress
+- Experience preflight: PASS; 已读取 `docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/frontend-development.md`、Playwright 与 bug regression fix loop 技能。
+- Real path: Playwright 以 `芋道源码/admin` 登录 `http://127.0.0.1:8081`，在 `系统管理 > 测试管理` 选择目标租户 `测试租户`，按可见业务名称选择只读测试项 `批记录节点：归档追溯`，通过同行“执行”创建批次 `8`。
+- Token verification: PASS; 批次从 `PENDING` 进入 `RUNNING` 并被 Runner 领取，页面未出现 `Codex Runner token 无效或未配置`。
+- New regression: Runner 将 Codex CLI 的长失败信息传给 `complete-case`，后端写入 `system_codex_test_execution_case.progress_message varchar(512)` 时发生 `Data too long for column 'progress_message'`，批次未进入终态。
+- Safety cleanup: Playwright 超时后通过正式取消接口取消批次 `8`；只读终态核验确认批次 `8=CANCELED`、活动执行项为空、Runner 在线且 `currentRunningCount=0`，无 `codex-test-result-8-*` 后代进程或临时结果文件，无 MES 写请求。
+- Remaining work: 先用静态合同 RED/GREEN 限制 Runner 的 `complete-case` 摘要长度，再复跑同一只读真实路径。
+
 ## TDD Evidence
 
 - RED: `Invoke-RestMethod POST http://127.0.0.1:48081/admin-api/system/codex-test-runner/register` with the existing task-owned token source -> FAIL, business code `1002031011` and message `Codex Runner token 无效或未配置`; this reproduces the reported runtime configuration failure before alignment.

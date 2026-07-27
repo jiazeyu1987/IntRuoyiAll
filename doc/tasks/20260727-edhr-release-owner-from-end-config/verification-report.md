@@ -28,6 +28,8 @@ Implemented release-owner parsing from route-level `RELEASE_APPROVE` configurati
 - Backend `http://127.0.0.1:48081` responded `200`.
 - `8081` is Vite from `E:\IntRuoyi\IntRuoyiFronted`.
 - `48081` is `java -jar E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`.
+- Database read-only verification confirms `922119 / RT000028 / 球囊扩张压力泵` has enabled `RELEASE_APPROVE` rule `9000253153`, configured to `USER 1 / admin / 瑛泰管理员`; latest batch `900000000881` uses that route.
+- The current `48081` process started at `2026-07-27 18:55:43 +08:00`, but the loaded Jar was last written at `2026-07-27 13:50:39 +08:00`, before fix commit `f18927b9` at `2026-07-27 18:41:23 +08:00`.
 - Real Playwright verification is blocked because the shared local backend Jar has not been safely rebuilt/restarted with this task's backend changes. Restarting it now could affect concurrent tasks, and local runtime rules prohibit claiming E2E against an old Jar.
 
 ## Design Constraint Check

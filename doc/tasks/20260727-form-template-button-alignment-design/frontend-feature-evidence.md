@@ -2,57 +2,64 @@
 
 ## Feature Goal And Non-Goals
 
-- Goal: 表单模板红框 `打开 / 编辑 / 填写` 三个按钮按批记录表单行为对齐，全部使用后端返回的稳定 `batchRecordReportId`。
-- Non-goal: 不重构表单模板本页旧预览/规则/模拟填写组件，不新增 mock 数据，不做视觉 redesign。
+- Goal: 表单模板红框 `打开 / 编辑 / 填写` 始终操作当前 FormCenter 模板，不要求批记录绑定。
+- Non-goal: 不修改批记录表单页面，不新增跨域转换，不做无关视觉重构。
 
 ## Requirements And Acceptance
 
-- `FT-BATCH-BUTTON-001`: `打开` 跳转 `/mes/pro/batch-record-form-list?mode=designer&reportMode=preview&reportId=<id>`。
-- `FT-BATCH-BUTTON-002`: `编辑` 跳转 `/mes/pro/batch-record-form-list?mode=designer&reportMode=edit&reportId=<id>`。
-- `FT-BATCH-BUTTON-003`: `填写` 跳转 `/mes/pro/feedback/edhr-batch-execution/template-simulate` 并携带 `reportId`。
-- `FT-BATCH-BUTTON-004`: 缺少绑定或绑定状态异常时提示 `当前模板未绑定批记录表单`，不回退旧弹窗。
+- `FT-INDEPENDENT-001`: `打开`调用 `TemplateViewDialog` 查看当前模板。
+- `FT-INDEPENDENT-002`: `编辑`调用 `openSelectedTemplateAction('edit')` 打开当前模板规则工作区。
+- `FT-INDEPENDENT-003`: `填写`重置当前模板模拟值并打开 `.form-template-fill-dialog`。
+- `FT-INDEPENDENT-004`: 三个按钮不读取批记录绑定字段、不显示未绑定错误、不跳转 MES 路由。
 
 ## UI Entry Points And Owned Files
 
-- Entry: `IntRuoyiFronted/src/views/form-center/template/index.vue` 红框按钮。
-- API type: `IntRuoyiFronted/src/api/form-center/template.ts` 的 `FormTemplateListItemVO`。
-- Static contract: `IntRuoyiFronted/tests/e2e/form-template-batch-record-button-alignment-static.spec.js`。
+- Entry route: `/mdm/form-center/template`。
+- Page: `IntRuoyiFronted/src/views/form-center/template/index.vue`。
+- API type: `IntRuoyiFronted/src/api/form-center/template.ts`。
+- Regression contract: `IntRuoyiFronted/tests/e2e/form-template-independent-button-actions-static.spec.js`。
 
 ## API Contracts And Data States
 
-- `FormTemplateListItemVO` 新增 `batchRecordReportId/reportName/batchRecordName/versionNo/formSlotType/bindingStatus/bindingError`。
-- `batchRecordReportId` 为空或 `batchRecordBindingStatus` 非 `BOUND` 时 fail fast。
-- 不按模板名、源文件名或版本号推断批记录报表。
+- `FormTemplateListItemVO` 只包含当前模板数据，不包含七个 `batchRecord*` 绑定字段。
+- 三个按钮的唯一业务上下文是 `selectedTemplate`。
+- 模板未选择时不执行；模板存在时不检查 `reportId`。
+- 模板布局或接口失败时暴露当前模板真实错误，不切换到批记录链路。
 
 ## BDD Scenarios
 
-- `BDD: 表单模板打开按钮对齐批记录打开 -> Given 表单模板行已绑定批记录 reportId / When 用户点击“打开” / Then 进入批记录表单设计器 preview 路由。`
-- `BDD: 表单模板编辑按钮对齐批记录编辑 -> Given 表单模板行已绑定批记录 reportId / When 用户点击“编辑” / Then 进入批记录表单设计器 edit 路由。`
-- `BDD: 表单模板填写按钮对齐批记录填写 -> Given 表单模板行已绑定批记录 reportId / When 用户点击“填写” / Then 进入模板模拟填写页。`
-- `BDD: 缺少 reportId 必须 fail fast -> Given 模板未绑定批记录表单 / When 用户点击任一红框按钮 / Then 显示阻塞提示且不打开旧弹窗。`
+- `BDD: 未绑定批记录的表单模板可以打开 -> Given 当前模板存在且没有批记录绑定 / When 点击“打开” / Then 显示“查看表单模板”，不显示绑定错误。`
+- `BDD: 表单模板编辑使用自身规则工作区 -> Given 当前模板允许编辑 / When 点击“编辑” / Then 显示模板规则编辑弹窗且路由仍属于 FormCenter。`
+- `BDD: 表单模板填写使用自身模拟工作区 -> Given 当前模板允许交互 / When 点击“填写” / Then 显示模板模拟填写弹窗且不创建批记录执行。`
+- `BDD: 三按钮禁止跨域跳转 -> Given 用户位于表单模板页面 / When 依次点击三个按钮 / Then pathname 始终为 /mdm/form-center/template。`
 
 ## RED And GREEN
 
-- `RED: node tests\e2e\form-template-batch-record-button-alignment-static.spec.js -> FAIL, 类型与三按钮行为未对齐。`
-- `GREEN: node tests\e2e\form-template-batch-record-button-alignment-static.spec.js -> PASS, 已覆盖三按钮使用批记录路由、稳定 reportId、返回标签，以及 BOUND + reportId 双条件。`
-- `GREEN: pnpm ts:check -> PASS, 前端 relaxed TypeScript 检查通过。`
-- `RED after conflict: node tests\e2e\form-template-batch-record-button-alignment-static.spec.js -> FAIL, 当前工作区被并行任务改回本页流程。`
-- `GREEN after user confirmation: node tests\e2e\form-template-batch-record-button-alignment-static.spec.js -> PASS, 用户确认“三个按钮按批记录表单执行”后恢复批记录路径。`
+- `RED: node tests\e2e\form-template-independent-button-actions-static.spec.js -> FAIL, “打开”仍调用批记录设计器，三个按钮依赖 BOUND + reportId。`
+- `GREEN: node tests\e2e\form-template-independent-button-actions-static.spec.js -> PASS, 三个按钮恢复当前模板查看、编辑和模拟填写工作区。`
+- `GREEN: pnpm ts:check -> PASS, 前端 TypeScript 检查通过。`
 
-## UX And Permission Checks
+## Responsive, Accessibility, Loading, Empty, Error, And Permission Checks
 
-- Error state: 缺少绑定时直接提示，不吞异常、不默认成功。
-- Loading/empty/responsive/accessibility: 本次仅改按钮路由处理，不改变现有列表、预览和布局结构。
-- Permission: 继续依赖批记录设计器和模板模拟填写页既有路由权限。
+- Responsive: 未改变模板页布局，三个 Dialog 继续使用现有响应式宽度。
+- Accessibility: 保留 `打开 / 编辑 / 填写` 文本按钮和 Dialog 键盘关闭能力。
+- Loading/empty: 继续使用模板池加载态和未选择模板空态。
+- Error: 未出现“当前模板未绑定批记录表单”，未吞掉其他真实错误。
+- Permission: `编辑`继续使用既有 `form:template:create` 权限和模板状态控制。
 
-## Verification
+## E2E Verification Path
 
-- `node tests\e2e\form-template-batch-record-button-alignment-static.spec.js`：PASS。
-- `pnpm ts:check`：PASS。
-- `real E2E form template 3 buttons`：PASS，使用本地临时绑定夹具从 `/mdm/form-center/template` 真实点击 `打开 / 编辑 / 填写`，分别验证 preview designer、edit designer、template-simulate URL。
-- `real E2E after user confirmation`：PASS，复验本机 8081/48081，临时绑定 `id=29` 到 reportId `2ef53e1302bd47bdba9ccbb87cd92032`，三按钮真实点击路由均通过，夹具恢复为 NULL。
-- `git diff --check -- <task-owned files>`：PASS。
+- 本机入口：`http://127.0.0.1:8081/mdm/form-center/template`。
+- 身份标签：`芋道源码/admin`。
+- 浏览器：本机 Google Chrome，通过 Playwright `executablePath` 启动。
+- 结果：
+  - `打开`显示“查看表单模板”。
+  - `编辑`显示 `.form-template-rules-dialog`。
+  - `填写`显示 `.form-template-fill-dialog`。
+  - 三次点击 pathname 均为 `/mdm/form-center/template`。
+  - 页面没有批记录绑定错误。
 
-## Blockers And Follow-Up
+## Blockers And Follow-Up Skills
 
-- 当前无产品行为 blocker；实现提交 `3f79f736251dab6be9d0413eea602a4ee1990fa6` 与收尾记录已推送至 `origin/int_main`。
+- 当前前端行为无 blocker。
+- 本地数据库冗余列的物理清理由后续独立 `database-schema-delivery` 任务处理。

@@ -84,14 +84,14 @@
 - Keywords: 保存系统异常重复提示, axios 自动错误提示, ignoreErrorMessage, 子组件 rethrow 前 toast, 父组件统一 toast, save error single toast, RouteFlowGraphDesigner, RouteFormContent -> `docs/frontend-development.md#前端保存链路重复错误提示门禁`
 - Keywords: 列表首屏成功后系统异常, 延迟辅助加载, 行级权限加载失败, listErrorMessage, permissionRuleErrorMessage, 批记录表单填写人规则加载失败, 辅助查询错误归属 -> `docs/frontend-development.md#前端延迟辅助加载错误归属门禁`
 - Keywords: 草稿保存后仍可修改, 保存草稿不提交发布, 保存后不可继续编辑, 立即提交发布弹窗, submit-publish, DRAFT 被保存推进审批, RouteEditPage handleSaved, promptRouteVersionSubmit -> `docs/frontend-development.md#前端草稿保存与提交发布解耦门禁`
-- Keywords: 当前模板未绑定批记录表单, 表单模板编辑, openSelectedTemplateDesigner, openSelectedTemplateAction('edit'), resolveSelectedTemplateBatchRecordBinding, batchRecordBindingStatus, batchRecordReportId -> `docs/frontend-development.md#表单模板编辑与批记录绑定动作边界门禁`
+- Keywords: 当前模板未绑定批记录表单, 表单模板打开编辑填写, TemplateViewDialog, openSelectedTemplateAction('edit'), openSelectedTemplateFill, 交互对齐不是数据绑定, batchRecordReportId -> `docs/frontend-development.md#表单模板三按钮领域边界门禁`
 - Keywords: 聚合字段新增子项, 默认分类, 表单槽位, route-flow-graph-designer__node-form-count-badge, createEmptyRecordBinding, formSlotType MAIN, 新增后数字不变 -> `docs/frontend-development.md#前端聚合新增默认分类门禁`
 - Keywords: noTagsView, activeMenu, 隐藏路由顶部页签, 顶部 tab 切回列表, fullPath query 丢失, replaceActiveMenuView, restoreActiveMenuView, 流转关系图页签返回 -> `docs/frontend-development.md#前端隐藏路由顶部页签状态门禁`
 - eDHR 批次详情 / 动态表单 / 损耗单 / 工艺路线绑定 / 填写人 / `fillableUsers` / `routeBindingId` / 配置页有值但详情接口为空：`E:\IntRuoyi\docs\backend-development.md#edhr-详情回填门禁`
 - Keywords: 切换填写人, 协助填写人, 填写人快照, `assistSwitchTasks`, `candidateUserSnapshot`, `getEdhrBatchExecution`, `taskId`, active 执行记录, `batchExecutionId + taskId`, 弹窗打开耗时过长 -> `docs/backend-development.md#切换填写人快照读取边界`
 - Keywords: eDHR 批次任务配置来源, routeSnapshotJson, batchUseConfigs, 当前 BATCH 工序配置, 陈旧绑定, legacy flat batchRecordReportId, 发布快照不得通用 fallback, 草稿 BATCH 快照显式保存, batchRecordBindingSnapshotExplicit, flow-config/batch-record/save, 表单槽位读回为空, 草稿保存系统异常, batchRecordAttachmentOwners, 冻结快照 JSON_TYPE ARRAY, 批记录附件负责人配置无效 -> `docs/backend-development.md#edhr-批次任务配置来源门禁`
 - Keywords: eDHR 批记录版本治理规则, CELL_RULE_RECONCILED, 1040750243, 批记录模板未确认填写规则, Jimu 当前 JSON, openOrCreateByContext -> `docs/backend-development.md#edhr-批记录版本治理规则运行态门禁`
-- Keywords: eDHR 批记录单元格链接预填落库, PRODUCTION_WORK_ORDER.batchCode, 生产批号目标格为空, /batch-record-cell-link/prefill, cell_values_json=[], hydrateDraftState, 字段审计链, 创建打开执行记录自动落库 -> `docs/backend-development.md#批记录单元格链接预填落库边界`
+- Keywords: eDHR 批记录单元格链接预填落库, PRODUCTION_WORK_ORDER.batchCode, 生产批号目标格为空, /batch-record-cell-link/prefill, cell_values_json=[], hydrateDraftState, 字段审计链, 创建打开执行记录自动落库, idempotency_key varchar(64), SHA-256 幂等键 -> `docs/backend-development.md#批记录单元格链接预填落库边界`
 - Keywords: eDHR 批记录 Word 表格解析, packed 物料矩阵, 括号续行, 生产自检, 合格标准, 检验方法, 截图位置错位, fixture 缺失, 表单名特例禁止 -> `docs/backend-development.md#edhr-批记录-word-表格解析门禁`
 - Keywords: Jimu fillForm 组件类型, componentFlag input-textarea, componentFlag input-text, componentFlag signature, 多行文本, 普通文本, 日期单元格, 电子签名, 签名日期宽空白格, 记录人/日期, 操作人/日期, 复核人/日期, edhrSignature -> `docs/backend-development.md#jimu-fillform-组件类型语义优先边界`
 - Keywords: 子表集合替换, 软删除唯一键, 逻辑删除占用唯一键, deleteByCaseId, system_codex_test_checkpoint, updateCase_allowsRepeatedCheckpointReplacement -> `docs/backend-development.md#2026-07-25-子表集合替换软删除唯一键门禁`

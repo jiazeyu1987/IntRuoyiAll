@@ -67,14 +67,14 @@
 - Forbidden action: 禁止把“保存成功顺手提交”当作便捷入口；禁止用 payload 标志、默认 true、隐式 watcher 或成功 toast 后确认框把保存和发布重新耦合。
 - Evidence: 任务 `doc/tasks/20260726-route-flow-v15-save-system-exception/`，路线草稿 V15 普通保存后曾继续弹“草稿已保存，是否立即提交发布？”，用户确认后草稿进入审批/发布导致不可继续编辑。
 
-## 表单模板编辑与批记录绑定动作边界门禁
+## 表单模板三按钮领域边界门禁
 
-- Trigger: 表单中心模板预览区“打开/编辑/填写”、`openSelectedTemplateDesigner`、`openSelectedTemplateAction('edit')`、`resolveSelectedTemplateBatchRecordBinding`、`batchRecordBindingStatus`、`batchRecordReportId`、或错误“当前模板未绑定批记录表单”。
-- Preflight check: 用户已明确确认表单模板页红框内“打开/编辑/填写”必须按批记录表单行为执行；三按钮必须先校验 `batchRecordBindingStatus === 'BOUND'` 且 `batchRecordReportId` 非空，再分别进入批记录设计器 preview、批记录设计器 edit 和批记录模板模拟填写路由。
-- Blocker: 表单模板页“打开/编辑/填写”任一按钮回退到 `TemplateViewDialog`、本页规则编辑弹窗、本页模拟填写弹窗，或缺少 `BOUND + reportId` 双条件 fail-fast 校验时必须停止；不得用名称、文件名、版本号猜测 reportId，也不得静默降级到本页流程。
-- Verification: 至少运行 `node tests/e2e/form-template-batch-record-button-alignment-static.spec.js`，并确认 `pnpm ts:check` 通过或记录无关阻塞。
-- Forbidden action: 禁止给普通模板伪造 `reportId`、吞掉绑定错误、改文案掩盖失败、名称匹配、空值兜底、API-only 替代页面点击，或把批记录三按钮行为改回 FormCenter 本页弹窗。
-- Evidence: 任务 `doc/tasks/20260727-form-template-button-alignment-design/`，用户最终确认“三个按钮按批记录表单执行”，本页三按钮恢复为稳定 `batchRecordReportId` 驱动的批记录同源路径。
+- Trigger: 表单中心模板预览区“打开/编辑/填写”、`openSelectedTemplate`、`openSelectedTemplateAction('edit')`、`openSelectedTemplateFill`、`TemplateViewDialog`，或错误“当前模板未绑定批记录表单”。
+- Preflight check: 先区分“交互模式对齐”和“数据领域关联”；表单模板与批记录表单没有直接关系。`打开`必须查看当前模板，`编辑`必须进入当前模板规则编辑工作区，`填写`必须打开当前模板模拟填写工作区，三者只使用当前模板自身上下文。
+- Blocker: 任一按钮要求 `batchRecordBindingStatus`、`batchRecordReportId`，跳转 `/mes/pro/batch-record-form-list` 或批记录 `template-simulate`，或未绑定普通模板显示不可操作错误时必须停止。
+- Verification: 至少运行 `node tests/e2e/form-template-independent-button-actions-static.spec.js`、`node tests/e2e/form-center-static.spec.js`，并确认 `pnpm ts:check` 通过或记录无关阻塞。
+- Forbidden action: 禁止把 UI/交互相似解释为共享 `reportId`；禁止伪造绑定、名称匹配、条件 fallback、跨域路由或只隐藏错误提示而保留错误数据契约。
+- Evidence: 任务 `doc/tasks/20260727-form-template-button-alignment-design/`；用户在 2026-07-27 明确澄清实际表单与批记录表单没有直接关系，三个按钮均应执行当前表单模板自身操作。
 
 ## 前端聚合新增默认分类门禁
 

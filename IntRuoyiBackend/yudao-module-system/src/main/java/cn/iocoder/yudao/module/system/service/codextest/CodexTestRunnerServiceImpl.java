@@ -119,7 +119,7 @@ public class CodexTestRunnerServiceImpl implements CodexTestRunnerService {
         if (execution == null) {
             throw exception(CODEX_TEST_EXECUTION_NOT_EXISTS);
         }
-        return !MODE_SEQUENTIAL.equals(execution.getExecutionMode())
+        return !Boolean.TRUE.equals(execution.getNodeChainExecution())
                 || codexTestExecutionCaseMapper.selectEarlierNotPassedCount(
                         executionCase.getExecutionId(), executionCase.getId()) == 0;
     }

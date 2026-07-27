@@ -2,7 +2,7 @@
 
 ## Intent
 
-用户要求按“表单模板必须按批记录表单的 3 个按钮行为对齐”进行文档设计。
+用户最初要求三个按钮按批记录表单行为对齐，随后明确纠正：实际表单模板与批记录表单没有直接关系，三个按钮提示“当前模板未绑定批记录表单”是缺陷。最终要求以本次纠正为准，三个按钮执行当前 FormCenter 模板自身操作。
 
 ## Evidence Reviewed
 
@@ -13,7 +13,15 @@
 - `IntRuoyiBackend/yudao-module-bpm/.../FormCenterRuntimeServiceImpl.java`：模板池从 `bpm_form_template_version` 转换为响应对象。
 - `IntRuoyiBackend/yudao-module-mes/.../MesProBatchRecordReportServiceImpl.java`：批记录分页已支持 `reportId` 精确过滤。
 
-## BDD Scenarios
+## Current BDD Scenarios
+
+- `BDD: 未绑定批记录的表单模板可以打开 -> Given 当前表单模板存在且没有任何批记录绑定 / When 用户点击“打开” / Then 打开 TemplateViewDialog 展示当前模板，不显示批记录绑定错误、不跳转 MES 页面。`
+- `BDD: 表单模板编辑使用自身规则工作区 -> Given 当前模板允许交互操作 / When 用户点击“编辑” / Then 通过 openSelectedTemplateAction('edit') 打开当前模板规则编辑工作区并使用 templateId/versionNo。`
+- `BDD: 表单模板填写使用自身模拟工作区 -> Given 当前模板允许交互操作 / When 用户点击“填写” / Then 重置当前模板模拟值并打开 fillDialogVisible，不要求 reportId、不跳转批记录模拟填写路由。`
+- `BDD: FormCenter 模板池不暴露批记录绑定契约 -> Given 表单模板与批记录表单无直接关系 / When 查询模板池 / Then VO、DO、运行态映射和前端类型均不包含 batchRecordBinding* 字段。`
+- `BDD: 错误新增迁移停止进入发布 -> Given 批记录绑定迁移尚无发布引用 / When 完成本次纠偏 / Then 删除该迁移及旧专用测试，不执行已存在列的破坏性删除。`
+
+## Superseded BDD Scenarios
 
 - `BDD: 表单模板打开按钮对齐批记录打开 -> Given 表单模板行已绑定批记录 reportId / When 用户点击表单模板预览区“打开” / Then 前端进入批记录表单同源预览路径并请求 designer-path，不再打开 TemplateViewDialog。`
 - `BDD: 表单模板编辑按钮对齐批记录编辑 -> Given 表单模板行已绑定批记录 reportId / When 用户点击“编辑” / Then 前端进入批记录设计器编辑路径并请求 edit-path，不再打开本页规则编辑弹窗或保存 form-center jimu-schema。`
@@ -22,6 +30,11 @@
 
 ## RED / GREEN Notes
 
+- `GREEN: change request validation -> PASS, docs/changes/20260727-form-template-buttons-independent-from-batch-record.md 已记录并通过校验。`
+- `USER CORRECTION: 2026-07-27 -> 表单模板与批记录表单没有直接关系；三个按钮必须使用当前表单模板自身链路。`
+- `RED: node tests\e2e\form-template-independent-button-actions-static.spec.js -> FAIL, “打开”仍调用 openSelectedTemplateDesigner('preview')，没有打开当前模板 TemplateViewDialog。`
+- `RED: mvn.cmd -pl yudao-module-bpm "-Dtest=FormCenterTemplateIndependenceContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, 2 tests，BPM VO/DO 和 runtime 仍暴露并映射 batchRecordReportId 等字段。`
+- `RED: python -X utf8 -m pytest script\tests\test_form_template_batch_record_independence.py -> FAIL, 2 tests，错误绑定迁移仍存在且 FormCenter 源码仍定义批记录绑定字段。`
 - `RED: node tests\e2e\form-template-batch-record-button-alignment-static.spec.js -> FAIL, FormTemplateListItemVO 缺少 batchRecordReportId 等显式绑定字段，三按钮仍使用旧弹窗/本页编辑/本页模拟填写。`
 - `RED: python -m pytest script\tests\test_form_template_batch_record_binding_sql.py -> FAIL, 缺少 IntRuoyiBackend/sql/mysql/20260727_bpm_form_template_batch_record_binding.sql。`
 - `RED: mvn.cmd -pl yudao-module-bpm "-Dtest=FormCenterTemplateBatchRecordBindingContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, FormCenterTemplateRespVO/FormTemplateVersionDO 缺少批记录绑定字段，runtime 未映射。`
@@ -83,26 +96,43 @@
 - `GREEN: supplemental evidence commit -> PASS, commit 3cf97ab2，仅包含本任务复验记录、一次性 E2E 脚本删除和本地运行态经验门禁。`
 - `GREEN: supplemental evidence push -> PASS, origin/int_main 已包含 3cf97ab2，推送后分支不再 ahead。`
 
+## Authoritative Correction Verification
+
+以下记录覆盖此前“稳定 reportId 绑定”方案；此前实现、临时数据库绑定夹具和对应 E2E 仅作为已废弃历史证据保留，不代表最终行为。
+
+- `GREEN: change request validator -> PASS, docs/changes/20260727-form-template-buttons-independent-from-batch-record.md 已确认最终范围。`
+- `GREEN: node tests\e2e\form-template-independent-button-actions-static.spec.js -> PASS, 打开/编辑/填写使用当前模板查看、规则编辑和模拟填写工作区。`
+- `GREEN: pnpm ts:check -> PASS, 前端 TypeScript 检查通过。`
+- `GREEN: mvn.cmd -pl yudao-module-bpm "-Dtest=FormCenterTemplateIndependenceContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 2 tests。`
+- `GREEN: python -X utf8 -m pytest script\tests\test_form_template_batch_record_independence.py -> PASS, 2 tests。`
+- `GREEN: local login preflight -> PASS, 入口 /mdm/form-center/template，身份标签 芋道源码/admin，本机 Chrome executablePath 可用。`
+- `GREEN: real Playwright E2E -> PASS, 打开显示“查看表单模板”，编辑显示 .form-template-rules-dialog，填写显示 .form-template-fill-dialog。`
+- `GREEN: real Playwright route boundary -> PASS, 三次点击 pathname 均保持 /mdm/form-center/template，未跳转 MES。`
+- `GREEN: real Playwright error boundary -> PASS, 页面未出现“当前模板未绑定批记录表单”。`
+- `GREEN: pnpm ts:check final rerun -> PASS, 退出码 0。`
+- `GREEN: system design validator + self-test -> PASS。`
+- `GREEN: frontend/backend/database/bug/change evidence validators -> PASS。`
+- `GREEN: UTF-8 strict read -> PASS, 任务目录 11 个 Markdown 文件。`
+- `GREEN: task-owned git diff --check -> PASS。`
+- `GREEN: project-experience-consolidation -> PASS, 经验已合并到 docs/frontend-development.md 并更新 docs/experience-index.md，无需新建文档。`
+- `GREEN: branch runtime port guard -> PASS, int_main frontend 8081 / backend 48081。`
+- `REGRESSION: node tests\e2e\form-center-static.spec.js -> FAIL, 仅失败于无关策略路由 activeMenu 断言；本任务未修改该路由或断言。`
+
 ## Milestone Updates
 
-- 现状核对完成：确认三按钮当前不一致。
-- 根因定位完成：表单模板响应缺少稳定 `reportId`，不能安全直接复用批记录按钮链路。
-- 设计完成：要求后端先暴露正式映射，前端再复用批记录三按钮路由与接口。
-- 实现完成：`bpm_form_template_version` 新增显式绑定摘要字段，模板池响应映射这些字段；表单模板 `打开 / 编辑 / 填写` 改为使用 `batchRecordReportId` 进入批记录表单设计器预览、编辑和模板模拟填写页。
-- 文档校准完成：前端、后端 API、数据模型、配置安全部署设计文档已改为已落地方案，去除“推荐映射表/独立详情接口/实现前 blocker”的旧口径。
-- 本地 schema 核对完成：Docker MySQL 已应用新增字段和索引；目标环境仍需走 release migration 流程。
-- 前端回归完成：任务静态合同和全量 `pnpm ts:check` 均已通过。
-- 运行态核对完成：48081 已加载包含新增模板池字段的完整 server jar，真实页面三按钮点击 E2E 通过，临时本地夹具已恢复。
-- 临时产物清理完成：本任务专用运行态目录与临时构建快照均已删除，标准 cleanup preview/apply 通过。
-- 冲突解除：用户明确确认三个按钮按批记录表单执行，已恢复 Vue 实现、静态合同和项目级门禁。
-- 真实路径复验完成：三按钮按批记录表单行为执行，临时数据库夹具已恢复。
-- 提交推送完成：实现与收尾记录分离提交，`origin/int_main` 已同步。
-- 最新复验完成：自动化、schema、真实三按钮点击、未绑定失败行为和七字段夹具恢复均通过。
-- 补充清理进行中：一次性 E2E 脚本已删除，运行态未锁定日志可清理；共享后端占用的两份运行日志暂不强删。
+- 变更纠偏完成：用户最终确认 FormCenter 模板与批记录表单没有直接关系。
+- RED 完成：前端、BPM 和迁移独立性合同均稳定证明错误绑定实现。
+- GREEN 完成：三个按钮恢复当前模板自身工作区，七个错误字段和错误迁移从代码/发布内容移除。
+- 真实 E2E 完成：本机 Chrome 逐个点击三个按钮，弹窗、路由和错误边界均通过。
+- 文档校准完成：四份设计文档、三份交付证据、缺陷证据和验证报告均改为最终独立行为。
+- 项目经验门禁完成：`docs/frontend-development.md` 和 `docs/experience-index.md` 已记录“交互对齐不等于数据绑定”。
+- Closeout 待完成：cleanup、选择性提交和推送。
 
 ## Blockers
 
-- 功能与验证无 blocker。仅补充收尾清理受共享 `int_main` 后端日志句柄阻塞；停止 PID `54560` 会中断 `codex-test-runner` 的活动连接，因此当前不执行。
+- 当前功能无 blocker。
+- 本地数据库冗余列的物理清理未获授权，需独立迁移审计；不影响本次按钮功能。
+- 工作区存在其他并行任务改动，提交时必须只暂存本任务文件。
 
 ## Final Status
 

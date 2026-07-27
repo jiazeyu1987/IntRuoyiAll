@@ -73,6 +73,8 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
         CodexTestExecutionDO execution = new CodexTestExecutionDO();
         execution.setTargetTenantId(startReqVO.getTargetTenantId());
         execution.setExecutionMode(startReqVO.getExecutionMode());
+        execution.setNodeChainExecution(cases.stream()
+                .allMatch(testCase -> StrUtil.isNotBlank(testCase.getNodeChainName())));
         execution.setStatus(EXECUTION_PENDING);
         execution.setRequestedBy(requestedBy);
         codexTestExecutionMapper.insert(execution);
@@ -151,7 +153,7 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
     public void rollupExecution(Long executionId) {
         CodexTestExecutionDO execution = validateExecutionExists(executionId);
         String summary = execution.getSummary();
-        if (MODE_SEQUENTIAL.equals(execution.getExecutionMode())
+        if (Boolean.TRUE.equals(execution.getNodeChainExecution())
                 && codexTestExecutionCaseMapper.selectFailedCountByExecutionId(executionId) > 0) {
             List<CodexTestExecutionCaseDO> pendingCases =
                     codexTestExecutionCaseMapper.selectPendingListByExecutionId(executionId);
@@ -239,6 +241,18 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
         if (nodeChainCases.stream().map(CodexTestCaseDO::getNodeChainSort).distinct().count()
                 != nodeChainCases.size()) {
             throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串内存在重复序号");
+        }
+        List<CodexTestCaseDO> completeNodeChain = codexTestCaseMapper.selectListByNodeChainName(
+                nodeChainNames.iterator().next());
+        int maxNodeChainSort = completeNodeChain.stream()
+                .map(CodexTestCaseDO::getNodeChainSort)
+                .max(Integer::compareTo)
+                .orElse(0);
+        Set<Long> selectedCaseIds = CollectionUtils.convertSet(nodeChainCases, CodexTestCaseDO::getId);
+        Set<Long> completeNodeChainCaseIds = CollectionUtils.convertSet(completeNodeChain, CodexTestCaseDO::getId);
+        if (completeNodeChain.size() != maxNodeChainSort
+                || !selectedCaseIds.equals(completeNodeChainCaseIds)) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串必须从第 1 节点开始连续选择");
         }
         return nodeChainNames.iterator().next();
     }

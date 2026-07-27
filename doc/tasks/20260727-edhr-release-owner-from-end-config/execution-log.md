@@ -62,12 +62,14 @@ BDD: 放行阶段展示路线级负责人 -> Given 工作台响应包含 `releas
 - RETRY: final Maven target command including `submitRejectsWhenRouteReleaseRoleHasNoEnabledMembers` -> TIMEOUT, because multiple unrelated Maven builds were concurrently active in `E:\IntRuoyi\IntRuoyiBackend`; no test failure was produced.
 - RETRY: final `pnpm ts:check` after the explicit missing-owner label refinement -> TIMEOUT while unrelated `vue-tsc` processes were active; the task static contracts passed after the refinement.
 - GREEN: isolated `javac` compilation of the final workbench service source and the new release-service regression test -> PASS.
+- GREEN: database read-only verification -> `route_id=922119 / RT000028 / 球囊扩张压力泵` has enabled `RELEASE_APPROVE` rule `9000253153`, source `USER`, user `1 / admin / 瑛泰管理员`; latest batch `900000000881` is bound to the same route and rule.
 - CLEANUP: stopped only the exact Maven and `vue-tsc` child processes created by this task's timed-out retries; shared `8081/48081` services and unrelated build processes were not stopped.
 - CLEANUP: removed the fixed task-owned isolated compilation directory and Java argument files from `%TEMP%`.
 
 ## Blockers
 
 - Real Playwright page verification is blocked: `48081` is an existing shared `yudao-server-exec.jar` process and has not been safely rebuilt/restarted with this task's backend code. Do not claim browser verification until the backend runtime is reloaded under local-runtime rules.
+- Runtime diagnosis: the current `48081` Java process started at `2026-07-27 18:55:43 +08:00`, but loads a Jar last written at `2026-07-27 13:50:39 +08:00`, before core fix commit `f18927b9` at `2026-07-27 18:41:23 +08:00`; frontend therefore receives no release-owner fields and shows the explicit missing-data state.
 - Final rerun of the newly added empty-role regression test is blocked by concurrent Maven builds in the same repository output tree. The earlier 9-test target report remains PASS with 0 failures.
 - Core changes are already present in pushed baseline commit `f18927b9`; the final blank-name fail-fast refinement and its evidence updates remain uncommitted until the blocked regression/E2E gates can run.
 - Git closeout is still blocked by concurrent worktree changes from other tasks; this task must not stage or commit those files as its own.

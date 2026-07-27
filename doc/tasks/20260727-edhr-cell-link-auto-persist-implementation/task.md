@@ -20,8 +20,8 @@
 - [x] 调整前端执行页，移除未落库预填注入，并补静态契约。
 - [x] 运行目标后端、前端和结构校验，更新证据文档。
 - [x] 完成经验沉淀、收尾清理、提交并推送。
-- [ ] 修复真实 E2E 暴露的字段审计 `idempotency_key` 超长回归。
-- [ ] 重新运行后端定向回归和真实 eDHR 批次执行 Playwright 路径。
+- [x] 修复真实 E2E 暴露的字段审计 `idempotency_key` 超长回归。
+- [x] 重新运行后端定向回归和真实 eDHR 批次执行 Playwright 路径。
 
 ## Expected Verification
 
@@ -33,9 +33,9 @@
 
 ## Current Status
 
-in_progress
+completed
 
-2026-07-27 真实 eDHR 批次执行路径已建立授权测试夹具后，打开执行记录暴露字段审计批次写入失败：`mes_pro_batch_record_execution_field_audit_batch.idempotency_key` 为 `varchar(64)`，当前单元格链接自动落库生成的明文幂等键超过列长并导致 `task/open` 返回系统异常。继续在本任务内按 BDD/TDD 修复该回归。
+2026-07-27 已完成字段审计幂等键回归修复和真实 eDHR 页面验证。自动落库幂等键由可能超过 `varchar(64)` 的明文组合键改为稳定的 64 位 SHA-256；后端定向测试、相邻回归、前端静态契约和 `8086/48086` 隔离运行态 Playwright 均通过。cleanup preview/apply 已通过，任务自有运行态、原 E2E worktree、本地分支和 slot 5 均已释放。
 
 ## Verification Summary
 
@@ -47,7 +47,12 @@ in_progress
 - BLOCKED for full class regression only: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` 仍有既有无关失败：H2 `bpm_form_template_version.batch_record_report_id` 缺列、批记录附件负责人配置无效、`get_releasePendingApproval_locksNormalTaskActions` 期望差异。
 - PASS: 三份交付证据验证器通过，cleanup preview/apply 通过，长期经验已归入现有门禁。
 - PASS: 实现提交 `b7dc3380` 和验证记录提交 `6b2575da` 均已存在于 `origin/int_main`。
-- E2E scope note: 本机 `8081/48081` 未运行且没有当前任务授权的写入型测试租户/账号，因此未声明真实 Playwright 路径通过，也未用 API-only 兜底。
+- PASS: 幂等键回归 RED 生成长度 `101`，修复后保存路径与重复打开查询路径均生成 64 位小写十六进制 SHA-256。
+- PASS: 隔离 worktree `D:\IntRuoyiWorktree\20260727_edhr_cell_link_idempotency` 使用已登记 `int_main slot=5`，前端 `8086`、后端 `48086`。
+- PASS: 官方登录前置通过，授权租户/账号为 `芋道源码/admin`；真实页面从批次详情打开工序任务并进入执行页。
+- PASS: 批次 `EDHRB-1785116357526`、执行 `1571` 的目标格 `3:3` 已保存 `34126020001`，字段审计修订号为 `1`，自动预填审计批次恰好 `1` 条，幂等键长度为 `64`。
+- PASS: 重复真实 E2E 返回 `NO_CHANGE_ALREADY_APPLIED`，没有追加审计批次；临时责任人已恢复为用户 `810`（`wangxin`）、状态 `TODO`。
+- PASS: cleanup preview/apply 无删除、阻塞或警告；`8086/48086` 已释放，原 E2E worktree 和本地任务分支已移除，端口登记 slot 5 已标记 inactive。
 
 ## 设计约束检查
 

@@ -2,47 +2,51 @@
 
 ## Scope
 
-- Endpoint scope: `/form-center/template-pool` 的模板列表响应。
-- Service scope: `FormCenterRuntimeServiceImpl#toTemplateResp`。
-- Persistence scope: `FormTemplateVersionDO` 对应 `bpm_form_template_version`。
+- Endpoint: `GET /form-center/template-pool`。
+- Service: `FormCenterRuntimeServiceImpl#toTemplateResp`。
+- Data object: `FormTemplateVersionDO`。
 
 ## API And Data Contract
 
-- `FormCenterTemplateRespVO` 新增显式批记录绑定摘要字段。
-- `FormTemplateVersionDO` 新增同名 String 字段，由 MyBatis Plus 映射新增 snake_case 列。
-- `toTemplateResp` 仅从 BPM 自身持久化版本读取字段，不引用 MES 类、不查 MES 表、不做名称匹配。
+- `FormCenterTemplateRespVO` 不暴露批记录绑定摘要。
+- `FormTemplateVersionDO` 不映射批记录绑定字段。
+- `toTemplateResp` 不读取或写入七个 `batchRecord*` 字段。
+- 现有 FormCenter 模板字段和接口路径保持不变。
 
-## Auth, Validation, And Error Behavior
+## Auth, Permissions, Validation, And Error Behavior
 
-- 模板池既有租户过滤与权限边界不变。
-- 后端本次不新增隐式查询或降级路径。
-- 缺少绑定由前端基于响应字段 fail fast；后续如新增绑定写入接口，应继续保持显式校验。
+- 模板池既有租户过滤和权限边界不变。
+- 后端不把缺少批记录绑定视为 FormCenter 模板错误。
+- 不新增 BPM -> MES 查询、名称匹配、默认 `reportId` 或异常吞噬。
 
 ## Required Config, Services, Fixtures, And Migrations
 
-- Required migration: `IntRuoyiBackend/sql/mysql/20260727_bpm_form_template_batch_record_binding.sql`。
-- No new service dependency.
-- No BPM -> MES module dependency.
+- 不新增配置或外部服务。
+- 不需要批记录数据夹具。
+- 不需要新增迁移；错误新增迁移已从发布内容移除。
 
 ## BDD Scenarios
 
-- `BDD: 模板池暴露显式批记录绑定摘要 -> Given 模板版本持久化绑定 reportId / When 查询模板池 / Then 响应包含同一 reportId 与绑定摘要。`
-- `BDD: BPM runtime 不耦合 MES -> Given 需要展示表单模板按钮 / When 组装模板池响应 / Then 不查询 MES 表、不按名称猜测批记录报表。`
+- `BDD: FormCenter 模板池不暴露批记录绑定契约 -> Given 查询当前租户模板池 / When 组装响应 / Then VO、DO 和 runtime 均不包含七个批记录绑定字段。`
+- `BDD: 模板池不依赖 MES -> Given FormCenter 模板没有批记录数据 / When 查询模板池 / Then 正常返回当前模板，不查询或推断 reportId。`
 
 ## RED And GREEN
 
-- `RED: mvn.cmd -pl yudao-module-bpm "-Dtest=FormCenterTemplateBatchRecordBindingContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, DO/VO 字段和 runtime 映射缺失。`
-- `GREEN: mvn.cmd -pl yudao-module-bpm "-Dtest=FormCenterTemplateBatchRecordBindingContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 3 tests。`
+- `RED: mvn.cmd -pl yudao-module-bpm "-Dtest=FormCenterTemplateIndependenceContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, VO、DO 和 runtime 仍包含七个错误字段。`
+- `GREEN: mvn.cmd -pl yudao-module-bpm "-Dtest=FormCenterTemplateIndependenceContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 2 tests。`
 
-## Observability
+## Contract Or Integration Verification
 
-- 本次未新增日志；字段缺失不会被后端默认成功掩盖，前端会以明确提示暴露不可操作状态。
+- `FormCenterTemplateIndependenceContractTest#formCenterTemplateContractDoesNotExposeBatchRecordBinding` 反射检查 VO/DO 字段不存在。
+- `FormCenterTemplateIndependenceContractTest#runtimeDoesNotMapBatchRecordBinding` 检查运行态源码不包含相应 getter/setter 映射。
+- 真实页面模板池加载成功并完成三个按钮验证。
 
-## Verification
+## Observability Touchpoints
 
-- `mvn.cmd -pl yudao-module-bpm "-Dtest=FormCenterTemplateBatchRecordBindingContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`：PASS，3 tests。
-- `git diff --check -- <task-owned files>`：PASS。
+- 本次未新增日志。
+- 接口失败继续由现有 BPM 请求日志和前端错误链路暴露。
 
-## Blockers
+## Blockers And Downstream Skill Needs
 
-- 绑定字段的数据写入来源需由导入链路或正式绑定流程填充；本次不做名称匹配回填。
+- 当前后端/API 无 blocker。
+- 冗余数据库列是否物理清理由独立数据库迁移审计决定。

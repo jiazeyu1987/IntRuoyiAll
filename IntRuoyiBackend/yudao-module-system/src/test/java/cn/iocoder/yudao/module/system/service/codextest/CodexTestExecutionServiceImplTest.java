@@ -93,6 +93,18 @@ class CodexTestExecutionServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void startSequentialExecution_rejectsIncompleteNodeChainSelection() {
+        codexTestCaseService.createCase(
+                CodexTestCaseServiceImplTest.buildNodeChainCaseReq("批记录前置检查", 1));
+        Long secondCaseId = codexTestCaseService.createCase(
+                CodexTestCaseServiceImplTest.buildNodeChainCaseReq("批记录创建执行", 2));
+
+        assertServiceException(
+                () -> codexTestExecutionService.startExecution(startReq("SEQUENTIAL", secondCaseId), 99L),
+                CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串必须从第 1 节点开始连续选择");
+    }
+
+    @Test
     void startSequentialExecution_rejectsMixedNodeChains() {
         Long batchChainCaseId = codexTestCaseService.createCase(
                 CodexTestCaseServiceImplTest.buildNodeChainCaseReq("批记录前置检查", 1));

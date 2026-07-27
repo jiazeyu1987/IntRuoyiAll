@@ -1,34 +1,30 @@
-# 表单模板三按钮对齐批记录表单行为设计
+# 表单模板三按钮独立执行纠偏
 
 ## Task Goal
 
-将“表单模板”预览区红框内 `打开 / 编辑 / 填写` 三个按钮的目标行为设计为与“批记录表单”一致：同样以稳定 `reportId` 进入批记录表单设计器预览、设计器编辑和模板模拟填写路径；不得继续使用表单模板本页弹窗、模拟填写弹窗或 `jimuSchema` 保存链路作为这三个按钮的替代行为。
+纠正此前把“交互行为对齐”误解成“绑定批记录表单”的实现。表单模板与批记录表单没有直接数据关系，红框内三个按钮始终执行当前模板自身操作：
+
+- `打开`：查看当前表单模板。
+- `编辑`：进入当前表单模板规则编辑工作区。
+- `填写`：进入当前表单模板模拟填写工作区。
 
 ## Milestones
 
-- [x] 现状核对：确认表单模板按钮和批记录表单按钮当前调用链路不一致。
-- [x] 设计范围：定义前端、后端 API、数据模型、权限与失败行为。
-- [x] 阻塞项识别：明确表单模板响应当前缺少稳定批记录 `reportId` 映射。
-- [x] 文档输出：生成任务级系统设计文档，供后续实现按 BDD/TDD 执行。
-- [x] 实现与验证：补齐显式批记录绑定字段、迁移 SQL、前端三按钮同源批记录路由，并通过任务专用合同验证。
-- [x] 文档校准：将设计文档从“推荐映射表/待定接口”更新为已落地的 `bpm_form_template_version` 显式绑定字段方案。
-- [x] 运行态前置核对：本地 schema 已应用，前端入口可登录访问；当前 48081 原始 jar 尚未加载新增响应字段。
-- [x] 真实 E2E：使用临时可回滚本地夹具，逐个点击 `打开 / 编辑 / 填写` 并验证路由与批记录表单一致。
-- [x] 临时产物清理：删除本任务专用 `.runtime` JAR 目录和未登记为 Git worktree 的临时构建快照。
-- [x] Cleanup：`task-closeout-cleanup` preview/apply 均通过，无删除项、阻塞项或警告。
-- [x] 行为冲突解除：用户已明确确认“恢复对齐”，本任务重新取得同文件行为变更授权。
-- [x] Closeout 前验证：恢复对齐、重跑静态/类型/后端/SQL/真实 E2E 验证均通过。
-- [x] Closeout：完成 cleanup、提交并推送本任务文件。
-- [x] 最新运行态复验：恢复本地后端请求能力后，再次验证三个按钮路由、未绑定失败行为和七个绑定字段恢复。
-- [ ] 补充复验产物清理：等待共享 `int_main` 后端停止占用验证日志后，删除剩余两份运行日志并完成补充收尾。
+- [x] 变更评估：记录用户澄清，确认不建立批记录数据绑定。
+- [x] RED：前端、BPM 和迁移独立性合同稳定复现错误实现。
+- [x] GREEN：恢复当前模板三个工作区，移除前后端错误绑定契约和未发布迁移。
+- [x] 回归：聚焦静态合同、TypeScript、BPM Maven、数据库合同和真实页面点击通过。
+- [x] 文档校准：更新四份设计文档、三份交付证据、验证报告和项目经验门禁。
+- [ ] Closeout：完成最终验证、cleanup、选择性提交并推送到 `origin/int_main`。
 
 ## Expected Verification
 
-- 文档结构检查：四份设计文档包含系统设计技能要求的必备章节。
-- UTF-8 读取检查：所有中文任务文档可通过 `python -X utf8` 正常读取。
-- 设计一致性检查：文档明确禁止名称匹配、空值兜底、静默回退旧弹窗。
-- 实现验证：前端最小静态契约 + 后端接口契约测试 + SQL 迁移契约 + 前端类型检查。
-- 后续运行态验收：真实页面选择已绑定模板，分别点击 `打开 / 编辑 / 填写`，验证路由与批记录表单一致。
+- 变更申请和自测验证通过。
+- 三个独立性合同按 RED/GREEN 留存证据。
+- `pnpm ts:check` 通过。
+- 真实 Playwright 页面点击显示三个 FormCenter 工作区，不显示绑定错误、不跳转 MES。
+- 四份设计文档和三份交付证据验证器通过。
+- UTF-8、`git diff --check` 和分支端口门禁通过。
 
 ## Current Status
 
@@ -36,16 +32,21 @@ ready_for_closeout
 
 ## 经验门禁
 
-- 前端按钮行为变更必须先记录 BDD，并用静态契约锁定 `打开 / 编辑 / 填写` 不再走本页弹窗或本地模拟填写。
-- 后端不得根据模板名、源文件名、版本号猜测 `reportId`；必须有可追溯、租户隔离、唯一的正式映射。
-- 缺少 `reportId` 时必须 fail fast 显示“当前模板未绑定批记录表单”，不得回退到旧弹窗、空页面、默认成功或 API-only 替代路径。
-- 涉及数据映射或 schema 变更时，必须先核对真实表结构或迁移文件，再设计迁移与回归测试。
+- “行为对齐”必须先拆分交互、数据和领域边界；交互相似不代表共享主键。
+- FormCenter 模板查看、规则编辑和模拟填写只依赖当前模板自身上下文。
+- 不保留“有绑定走 MES、无绑定走 FormCenter”的双路径或 fallback。
+- 已进入本地 schema 的冗余列不得未经授权执行破坏性删除。
 
 ## 设计约束检查
 
-- `是否引入 fallback/降级/吞异常`：否；设计要求缺少映射时 fail fast，不允许静默回退旧逻辑。
-- `是否从根因和长期维护角度解决`：是；根因是表单中心模板缺少稳定批记录 `reportId`，设计先补正式映射再改按钮。
-- `是否存在临时补丁或绕过`：否；禁止按模板名、版本号、源文件名模糊匹配批记录报表。
+- `是否引入 fallback/降级/吞异常`：否；三个按钮只有 FormCenter 自身正式链路。
+- `是否从根因和长期维护角度解决`：是；移除错误跨域绑定，而不是隐藏提示。
+- `是否存在临时补丁或绕过`：否；不伪造 `reportId`、不名称匹配、不保留兼容分支。
+
+## Behavior Authorization
+
+- 2026-07-27 用户曾要求“三个按钮按批记录表单执行”，此前被技术实现误解为建立 `reportId` 绑定。
+- 2026-07-27 用户进一步明确：三个按钮提示未绑定是错误行为，实际表单与批记录表单没有直接关系。本条澄清是当前最终行为依据。
 
 ## Output Documents
 
@@ -53,10 +54,11 @@ ready_for_closeout
 - `doc/tasks/20260727-form-template-button-alignment-design/backend-api-design.md`
 - `doc/tasks/20260727-form-template-button-alignment-design/data-model.md`
 - `doc/tasks/20260727-form-template-button-alignment-design/config-security-deployment.md`
-- `doc/tasks/20260727-form-template-button-alignment-design/verification-report.md`
 - `doc/tasks/20260727-form-template-button-alignment-design/frontend-feature-evidence.md`
 - `doc/tasks/20260727-form-template-button-alignment-design/backend-api-evidence.md`
 - `doc/tasks/20260727-form-template-button-alignment-design/database-schema-evidence.md`
+- `doc/tasks/20260727-form-template-button-alignment-design/bug-regression-evidence.md`
+- `doc/tasks/20260727-form-template-button-alignment-design/verification-report.md`
 
 ## Cleanup Keep
 
@@ -67,19 +69,9 @@ ready_for_closeout
 - doc/tasks/20260727-form-template-button-alignment-design/frontend-feature-evidence.md
 - doc/tasks/20260727-form-template-button-alignment-design/backend-api-evidence.md
 - doc/tasks/20260727-form-template-button-alignment-design/database-schema-evidence.md
-
-## Behavior Authorization
-
-- 2026-07-27 用户明确确认：三个按钮按批记录表单执行。本确认解除与并行 FormCenter 通用模板修复之间的同文件行为冲突，本任务按稳定 `reportId` 绑定方案恢复对齐。
+- doc/tasks/20260727-form-template-button-alignment-design/bug-regression-evidence.md
 
 ## Closeout Evidence
 
-- 实现提交：`3f79f736251dab6be9d0413eea602a4ee1990fa6`
-- 实现提交文件：`IntRuoyiFronted/src/views/form-center/template/index.vue`、`IntRuoyiFronted/tests/e2e/form-template-batch-record-button-alignment-static.spec.js`、`docs/frontend-development.md`
-- 并行任务隔离：其他 MES、eDHR、路线和任务文档改动未纳入本任务提交。
-- 收尾提交：`67631b4a`，仅包含本任务四份收尾记录文档。
-- 推送结果：`origin/int_main` 已包含实现提交 `3f79f736` 和收尾提交 `67631b4a`。
-- 最新复验：本机 `8081/48081` 再次验证 `打开 / 编辑 / 填写` 分别进入批记录 `preview / edit / template-simulate`，未绑定模板点击“打开”明确报错且不跳转。
-- 数据恢复：模板版本 `id=29` 的七个批记录绑定字段均已恢复为 `NULL`。
-- 补充清理状态：一次性 E2E 脚本和未锁定日志已删除；共享后端 PID `54560` 正在使用两份重定向日志，且 `codex-test-runner` 存在活动连接，未停止共享进程，状态暂保持 `ready_for_closeout`。
-- 补充复验提交：`3cf97ab2`，已推送到 `origin/int_main`。
+- 功能、自动化、真实 E2E、文档验证、UTF-8、差异和端口门禁均已通过。
+- Pending cleanup, selective commit, and push.
