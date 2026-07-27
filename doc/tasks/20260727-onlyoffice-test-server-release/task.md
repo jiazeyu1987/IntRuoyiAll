@@ -25,8 +25,8 @@
 - 发布范围：`test` only，组件范围 `intruoyi`。
 - 初始冻结基线：`origin/int_main` commit `9562dca4982007f36c302aaa99847a59d6a4c28e`。
 - 发布分支：`codex/20260727-onlyoffice-test-release`。
-- 已判废 ReleaseTag：`release-20260727-onlyoffice-test-r260727-1445`、`release-20260727-onlyoffice-test-r260727-1823`、`release-20260727-onlyoffice-test-r260727-1948`、`release-20260727-onlyoffice-test-r260727-codeonly-r1`、`release-20260727-onlyoffice-test-r260727-codeonly-r2`、`release-20260727-onlyoffice-test-r260727-codeonly-r3`。
-- 重新发布 ReleaseTag：`release-20260727-onlyoffice-test-r260727-codeonly-r4`。
+- 已判废 ReleaseTag：`release-20260727-onlyoffice-test-r260727-1445`、`release-20260727-onlyoffice-test-r260727-1823`、`release-20260727-onlyoffice-test-r260727-1948`、`release-20260727-onlyoffice-test-r260727-codeonly-r1`、`release-20260727-onlyoffice-test-r260727-codeonly-r2`、`release-20260727-onlyoffice-test-r260727-codeonly-r3`、`release-20260727-onlyoffice-test-r260727-codeonly-r4`。
+- 重新发布 ReleaseTag：`release-20260727-onlyoffice-test-r260727-codeonly-r5`。
 - 测试服后端 `http://172.30.30.58:48081/actuator/health` 返回 `UP`。
 - 测试服前端 `http://172.30.30.58:8081/` 返回 HTTP 200。
 - 运行态 release tag、后端/前端镜像、manifest sourceRepos 与本轮发布一致。
@@ -61,6 +61,8 @@ in_progress
 - `r3` 部署时已明确跳过 `RT000006`、球囊路线清理及绑定等 `type=data` SQL，但后续仍执行了依赖被跳过 data migration 的 `20260720_dcc_obsolete_approval_bpm_seed`，因测试库缺少 `form_policy_type` 字段失败。
 - 根因是 code-only 过滤未计算迁移依赖闭包；正式修复为同时跳过直接或间接依赖 `type=data` 的迁移，避免在缺少数据前置迁移时执行其 seed/menu/schema 子节点。
 - 依赖闭包修复已通过 `4 passed` 目标测试和 `125 passed` 发布回归；使用 r3 真实 manifest/preflight 复算时，失败 seed、`RT000006` 和两条球囊数据迁移均未入队，独立 `20260721_form_action_policy_approval_mode` schema 仍入队。
+- `release-20260727-onlyoffice-test-r260727-codeonly-r4` 已完成本地/NAS 包完整性校验并实际切换测试服 backend/frontend/OnlyOffice 镜像，但发布脚本最终 OnlyOffice 容器连通性校验使用嵌套 `sh -lc` 时丢失 URL 参数，误报 `ONLYOFFICE_PUBLIC_FILE_BASE_URL_UNREACHABLE`，发布锁已收口为 `FAILED`，该 tag 判废。
+- 已修复 OnlyOffice 连通性校验：发布脚本直接执行 `docker exec intruoyi-onlyoffice curl -fsS --connect-timeout 5 <healthUrl>`，URL 通过 `ConvertTo-ShellSingleQuotedLiteral` 传递；目标测试和扩展发布回归通过，后续必须用 r5 新 tag 重建发布包。
 
 ## 设计约束检查
 
@@ -75,5 +77,6 @@ in_progress
 - Worktree 门禁：不得从脏主工作区直接构建；发布 worktree 位于 `D:\IntRuoyiWorktree\onlyoffice-test-release-20260727`。
 - Migration metadata 门禁：build-release 前必须执行全量策略门禁；`type` 只允许 `schema/data/menu/config/permission/seed`，发现 `config-seed` 必须阻塞并修复。
 - Code-only required SQL 门禁：必须从 manifest requiredSql 回查 migration type；`type=data` 不得进入远端 MySQL APPLY 队列，缺少 migrationId/type 映射必须 fail fast。
+- OnlyOffice 远端健康校验门禁：容器内 URL 可达性校验不得用嵌套 `sh -lc` 拼接带引号 URL；优先直接 `docker exec <container> curl ... '<url>'`，并用静态测试防止命令被本地 PowerShell/SSH/远端 shell 拆参。
 - PowerShell 门禁：不使用 `&&`；中文、JSON、SSH/stdin、日志证据使用 UTF-8；不得记录密码、token、私钥或连接串密钥。
 - Git 门禁：当前主工作区 ahead/dirty 不作为本轮发布输入；发布分支只提交本任务文件。

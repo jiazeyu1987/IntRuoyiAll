@@ -1833,9 +1833,10 @@ function Assert-RemoteOnlyOfficePublicFileBaseUrlReachable {
     }
 
     $healthUrl = ($DccOnlyOfficePublicFileBaseUrl.Trim().TrimEnd('/') + '/actuator/health')
-    $remoteCommand = "docker exec intruoyi-onlyoffice sh -lc `"curl -fsS --connect-timeout 5 '$healthUrl' >/dev/null && echo OK`""
+    $healthUrlLiteral = ConvertTo-ShellSingleQuotedLiteral -Value $healthUrl -Purpose 'OnlyOffice public file health URL'
+    $remoteCommand = "docker exec intruoyi-onlyoffice curl -fsS --connect-timeout 5 $healthUrlLiteral"
     $result = Invoke-SshCapture -Command $remoteCommand -IgnoreExitCode
-    if (-not ($result.Ok -and $result.Output -match 'OK')) {
+    if (-not $result.Ok) {
         Fail "ONLYOFFICE_PUBLIC_FILE_BASE_URL_UNREACHABLE: intruoyi-onlyoffice cannot reach backend health URL $healthUrl`n$($result.Output)"
     }
 }

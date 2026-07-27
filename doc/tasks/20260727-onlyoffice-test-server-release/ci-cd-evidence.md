@@ -31,7 +31,9 @@
 - Regenerated preflight order: cleanup migration before workstation binding.
 - Code-only required SQL regression: `125 passed`; `type=data` and direct/transitive dependents are filtered before remote MySQL execution, while missing migration type or dependency mappings fail fast.
 - Real r3 manifest/preflight simulation: failed DCC seed and named MES data migrations excluded, independent schema retained.
-- Failed test deployment was restored to the previous healthy runtime tag.
+- r4 package integrity: local and NAS Manifest v1 / legacy manifests matched, `3373` artifacts checked with missing `0`, size mismatch `0`, hash mismatch `0`, and no database dump, MinIO snapshot or runtime-data.
+- OnlyOffice health-check quoting regression: targeted pytest `1 passed`, expanded publish regression `125 passed`, PowerShell parser passed, `git diff --check` passed, branch runtime port guard passed.
+- r4 failed after container switch because the deploy validation command used nested `sh -lc` and dropped the URL argument; the lock was closed as `FAILED` and a fresh r5 releaseTag is required.
 
 ## Rollback
 
@@ -44,4 +46,5 @@
 - `release-20260727-onlyoffice-test-r260727-1823` is invalid because its preflight plan executed workstation binding before cleanup.
 - `release-20260727-onlyoffice-test-r260727-1948` is invalid because historical required SQL `20260709_mes_rt000006_batch_record_mapping.sql` requires an `RT000006` route and pressure-pump roles that are absent from the test database.
 - `release-20260727-onlyoffice-test-r260727-codeonly-r3` is invalid because direct filtering left a seed dependent on skipped data in the APPLY queue.
-- Data migrations and their dependency descendants are no longer part of the code-only remote MySQL APPLY queue. A new r4 releaseTag is required for the final test-server deployment.
+- `release-20260727-onlyoffice-test-r260727-codeonly-r4` is invalid because deploy-release did not complete its final OnlyOffice reachability validation.
+- Data migrations and their dependency descendants are no longer part of the code-only remote MySQL APPLY queue. A new r5 releaseTag is required for the final test-server deployment.

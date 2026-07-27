@@ -1022,7 +1022,11 @@ def test_deploy_checks_onlyoffice_container_can_reach_public_file_base_url() -> 
 
     assert "function Assert-RemoteOnlyOfficePublicFileBaseUrlReachable" in text
     assert "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL must not use host.docker.internal" in text
-    assert "docker exec intruoyi-onlyoffice sh -lc" in text
+    assert "$healthUrlLiteral = ConvertTo-ShellSingleQuotedLiteral -Value $healthUrl" in text
+    assert "docker exec intruoyi-onlyoffice curl -fsS --connect-timeout 5 $healthUrlLiteral" in text
+    assert "docker exec intruoyi-onlyoffice sh -lc" not in _extract_powershell_function(
+        text, "Assert-RemoteOnlyOfficePublicFileBaseUrlReachable"
+    )
     assert "/actuator/health" in text
     readiness_start = text.index('if ($IncludeOnlyOffice) {\n    Wait-RemoteHttpOk -Url "http://127.0.0.1:$OnlyOfficeHostPort/healthcheck"')
     readiness_block = text[readiness_start:text.index("if ($publishWebsite)", readiness_start)]

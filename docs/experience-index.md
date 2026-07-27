@@ -222,3 +222,4 @@
 - Keywords: stale blocked task, 提交前 blocked 状态复验, Maven compile 解除旧阻塞, pnpm ts:check 解除旧阻塞, 目标 JUnit 复验后提交 -> `docs/powershell-memory.md#提交前-stale-blocker-复验门禁`
 - Keywords: required SQL target count mismatch, ROUTE-XLSX-00002 第26道工序, test-only cleanup migration, 失败 SQL 前置清理, 不复用失败 releaseTag -> `docs/release-build-preflight-lessons.md#2026-07-27-publish-test-required-sql-目标基线多余数据门禁`
 - Keywords: release preflight stable topological order, preflight-plan migration order, FIFO ready queue, Manifest 原始顺序, cleanup before binding -> `docs/release-build-preflight-lessons.md#2026-07-27-release-preflight-拓扑排序稳定性门禁`
+- Keywords: OnlyOffice public-file-base-url, ONLYOFFICE_PUBLIC_FILE_BASE_URL_UNREACHABLE, DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL, sh -lc curl, docker exec intruoyi-onlyoffice curl, backend:48081 health -> `docs/release-build-preflight-lessons.md#2026-07-27-onlyoffice-public-file-base-url-容器健康检查引号门禁`

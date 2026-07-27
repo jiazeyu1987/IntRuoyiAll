@@ -41,3 +41,49 @@ The fix is limited to deterministic migration ordering. It must not weaken depen
 ## Blockers
 
 The failed releaseTag is invalid and will not be reused. A new releaseTag is required for the next build and test deployment.
+
+# OnlyOffice Public File URL Health Check Regression
+
+## Bug Summary
+
+The r4 deploy switched the test-server containers and passed external HTTP readiness, but the final OnlyOffice public-file-base URL check failed because the publish script wrapped `curl` in an intermediate `sh -lc` command. The URL argument was lost during PowerShell/SSH/remote shell quoting, so curl printed help instead of requesting `http://backend:48081/actuator/health`.
+
+## Expected Behavior
+
+Deploy validation must pass the health URL as one quoted argument to `curl` inside `intruoyi-onlyoffice`. If the backend health endpoint is reachable from the container, the check must pass; if not, the script must fail fast with the real curl error.
+
+## Reproduction
+
+- ReleaseTag: `release-20260727-onlyoffice-test-r260727-codeonly-r4`.
+- Target: test server `172.30.30.58`.
+- Result: deploy failed with `ONLYOFFICE_PUBLIC_FILE_BASE_URL_UNREACHABLE`.
+- Control probe: `wget http://backend:48081/actuator/health` from `intruoyi-onlyoffice` returned HTTP 200, proving the runtime network path was healthy.
+
+## Root Cause
+
+The script built `docker exec intruoyi-onlyoffice sh -lc "curl ... '<url>' >/dev/null && echo OK"`. The nested shell boundary made URL quoting dependent on multiple command parsers, and the remote command reached curl without the URL argument.
+
+## Regression Test
+
+`script/tests/test_publish_int_ruoyi_to_test_tooling.py::test_deploy_checks_onlyoffice_container_can_reach_public_file_base_url`
+
+## TDD Evidence
+
+- RED: r4 deploy final validation failed with `ONLYOFFICE_PUBLIC_FILE_BASE_URL_UNREACHABLE`, while a direct container probe reached backend health HTTP 200.
+- GREEN: targeted pytest passed with `1 passed` after changing the command contract to direct `docker exec intruoyi-onlyoffice curl -fsS --connect-timeout 5 <healthUrl>`.
+- GREEN: expanded publish regression suite passed with `125 passed`.
+
+## Verification
+
+- PowerShell parser validation passed.
+- `git diff --check` passed.
+- Branch runtime port guard passed.
+- r4 operation lock was closed as `FAILED`; a fresh r5 releaseTag is required for the next deployment.
+
+## Risk And Scope
+
+The change only affects the release validation command. It does not change the runtime URL, OnlyOffice configuration, database migration execution, or code-only data policy.
+
+## Blockers
+
+r4 is invalid and must not be reused. The final publish must use a new releaseTag built from the fixed commit.

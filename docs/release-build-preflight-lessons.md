@@ -827,3 +827,12 @@
 - Verification: 使用合成迁移图执行 `test_preflight_preserves_manifest_order_when_dependencies_become_ready`，断言依赖顺序和 Manifest 稳定顺序同时成立；再运行发布脚本工具回归和 migration policy gate，重新构建新的 releaseTag。
 - Forbidden action: 不得仅靠文件名、临时 priorityMap、手工改 preflight-plan、手工改库或复用失败 releaseTag 修正执行顺序。
 - Evidence: `doc/tasks/20260727-onlyoffice-test-server-release/bug-regression-evidence.md`；`release-20260727-onlyoffice-test-r260727-1823` 的计划将 workstation binding 排在 test-only cleanup 之前，导致相同数量前置错误再次发生。
+
+## 2026-07-27 OnlyOffice public-file-base URL 容器健康检查引号门禁
+
+- Trigger: `publish-test` / `deploy-release` 包含 OnlyOffice，发布脚本需要从 `intruoyi-onlyoffice` 容器内校验 `DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL` 是否能访问后端健康检查。
+- Preflight check: 容器内 URL 校验命令不得通过嵌套 `sh -lc` 拼接带引号 URL；应先用脚本内单引号 literal 函数生成 URL 参数，再直接执行 `docker exec intruoyi-onlyoffice curl -fsS --connect-timeout 5 '<healthUrl>'`。静态测试必须断言目标函数内不存在 `docker exec intruoyi-onlyoffice sh -lc`。
+- Blocker: `ONLYOFFICE_PUBLIC_FILE_BASE_URL_UNREACHABLE` 出现时，若从 `intruoyi-onlyoffice` 容器直接 `wget` / `curl` 同一 `backend:48081/actuator/health` 返回 200，必须判定为发布脚本校验命令问题，不能把运行态网络或 OnlyOffice 配置当作失败根因。
+- Verification: 运行 `python -X utf8 -m pytest script/tests/test_publish_int_ruoyi_to_test_tooling.py::test_deploy_checks_onlyoffice_container_can_reach_public_file_base_url -q` 和扩展发布脚本回归；远端复验用容器内 `wget http://backend:48081/actuator/health` 或等价 curl 证明真实网络路径。
+- Forbidden action: 不得复用已失败 releaseTag；不得因为外部 backend/frontend/OnlyOffice HTTP 200 就手工标记发布成功；不得跳过 OnlyOffice 容器内可达性检查。
+- Evidence: `doc/tasks/20260727-onlyoffice-test-server-release/bug-regression-evidence.md`；`release-20260727-onlyoffice-test-r260727-codeonly-r4` 容器已切换且外部健康通过，但最终校验因 `sh -lc` 拆参失败，发布锁已收口为 `FAILED`，后续必须用新 tag。
