@@ -40,6 +40,7 @@ The first defect was that deploy entries did not preserve `type`, so every prefl
 - Direct and transitive dependents log `Skipping required database SQL with data dependency for code-only release`.
 - APPLY items or dependency IDs missing from manifest required SQL fail fast before remote MySQL execution.
 - Recomputing the r3 real package selected 9 independent APPLY migrations, excluded the failed seed and the three named MES data migrations, and retained the independent form-policy schema migration.
+- Final r6 deployment skipped `type=data` SQL and data-dependent SQL, did not sync a database dump, MinIO snapshot or runtime-data, and completed with operation lock `APPLIED`.
 
 ## Risk And Scope
 
@@ -47,4 +48,4 @@ The change only narrows the remote SQL execution queue for `publishScope=code-on
 
 ## Blockers
 
-The old release tags through r3 remain invalid. A new r4 package and release tag are required for test-server deployment.
+The old release tags through r5 remain invalid. No open blocker remains for the final r6 test-server deployment.

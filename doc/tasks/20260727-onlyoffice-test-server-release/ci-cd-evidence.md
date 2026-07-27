@@ -37,12 +37,16 @@
 - r5 package integrity: local and NAS Manifest v1 / legacy manifests matched, `3373` artifacts checked with missing `0`, size mismatch `0`, hash mismatch `0`, and no database dump, MinIO snapshot or runtime-data.
 - Empty code-only apply queue regression: targeted pytest `3 passed`, expanded publish regression `126 passed`, PowerShell parser passed, `git diff --check` passed, branch runtime port guard passed.
 - r5 failed before container restart because all pending APPLY items were filtered out and a PowerShell subexpression passed `$null` to `Sort-RequiredDatabaseSqlApplyItems`; the lock was closed as `FAILED`, `.env` restored to actual r4, and a fresh r6 releaseTag is required.
+- r6 package integrity: local and NAS Manifest v1 / legacy manifests matched, `3373` artifacts checked with missing `0`, size mismatch `0`, hash mismatch `0`, and no database dump, MinIO snapshot or runtime-data.
+- r6 deploy: `release-20260727-onlyoffice-test-r260727-codeonly-r6` deployed to test server `172.30.30.58` with `-SkipDatabaseSync -SkipMinioSync`; deploy log skipped data required SQL and data-dependent required SQL before MySQL execution.
+- r6 runtime: operation lock `APPLIED`, `RUNNING` locks `0`, `.env IMAGE_TAG` and backend/frontend image tags all equal r6, backend health `UP`, frontend HTTP 200, pdf worker HTTP 200 `application/javascript`, OnlyOffice HTTP 200.
 
 ## Rollback
 
 - Failed releaseTags are not reused.
 - On partial deployment failure, release migration and operation metadata are closed as `FAILED`, `.env IMAGE_TAG` is restored, and unchanged running containers are reverified.
 - The cleanup migration writes backup evidence before soft-deleting the confirmed invalid test data.
+- Successful r6 rollback source is the preserved NAS release package plus remote Docker image tags; no data rollback is required because the final deploy is code-only and did not sync database dump, MinIO snapshot or runtime-data.
 
 ## Blockers
 
@@ -51,4 +55,4 @@
 - `release-20260727-onlyoffice-test-r260727-codeonly-r3` is invalid because direct filtering left a seed dependent on skipped data in the APPLY queue.
 - `release-20260727-onlyoffice-test-r260727-codeonly-r4` is invalid because deploy-release did not complete its final OnlyOffice reachability validation.
 - `release-20260727-onlyoffice-test-r260727-codeonly-r5` is invalid because deploy-release did not handle an empty code-only APPLY queue.
-- Data migrations and their dependency descendants are no longer part of the code-only remote MySQL APPLY queue. A new r6 releaseTag is required for the final test-server deployment.
+- No open blocker remains for the test-server deployment; r6 is the completed test release.

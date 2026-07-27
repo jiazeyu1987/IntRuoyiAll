@@ -32,7 +32,7 @@ Dependency ordering must keep every prerequisite before its child while otherwis
 - The full migration policy gate passed with `migrationCount=383`.
 - The failed test release was restored to the previous runtime tag, and backend/frontend/OnlyOffice health remained green.
 - Regenerating the failed package plan with the fixed planner produced cleanup before binding, with both actions set to `APPLY`.
-- The next release must use a new releaseTag and confirm the generated preflight plan lists cleanup before binding.
+- The final r6 code-only release completed successfully after data migrations and their data-dependent descendants were skipped for the test-server code-only deployment.
 
 ## Risk And Scope
 
@@ -40,7 +40,7 @@ The fix is limited to deterministic migration ordering. It must not weaken depen
 
 ## Blockers
 
-The failed releaseTag is invalid and will not be reused. A new releaseTag is required for the next build and test deployment.
+The failed releaseTag is invalid and will not be reused. No open blocker remains for the final r6 test deployment.
 
 # OnlyOffice Public File URL Health Check Regression
 
@@ -78,7 +78,7 @@ The script built `docker exec intruoyi-onlyoffice sh -lc "curl ... '<url>' >/dev
 - PowerShell parser validation passed.
 - `git diff --check` passed.
 - Branch runtime port guard passed.
-- r4 operation lock was closed as `FAILED`; a fresh r5 releaseTag is required for the next deployment.
+- r4 operation lock was closed as `FAILED`; final r6 deployment validated OnlyOffice health with direct container curl and completed successfully.
 
 ## Risk And Scope
 
@@ -86,7 +86,7 @@ The change only affects the release validation command. It does not change the r
 
 ## Blockers
 
-r4 is invalid and must not be reused. The final publish must use a new releaseTag built from the fixed commit.
+r4 is invalid and must not be reused. No open blocker remains for the final r6 test deployment.
 
 # Empty Code-only APPLY Queue Regression
 
@@ -124,7 +124,7 @@ PowerShell command substitution returned no objects after code-only filtering. P
 - PowerShell parser validation passed.
 - `git diff --check` passed.
 - Branch runtime port guard passed.
-- r5 operation lock was closed as `FAILED`, and a fresh r6 releaseTag is required for the next deployment.
+- r5 operation lock was closed as `FAILED`; final r6 deployment treated the empty APPLY queue as `@()` and continued to runtime deployment successfully.
 
 ## Risk And Scope
 
@@ -132,4 +132,4 @@ The change only normalizes an empty apply queue to an empty array. It does not c
 
 ## Blockers
 
-r5 is invalid and must not be reused. The final publish must use a new releaseTag built from the fixed commit.
+r5 is invalid and must not be reused. No open blocker remains for the final r6 test deployment.

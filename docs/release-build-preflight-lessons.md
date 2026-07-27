@@ -437,7 +437,7 @@
 - Blocker: 任一待保留或待提交文件含明文凭据；无法证明日志已脱敏。
 - Verification: 脱敏扫描命中数为 0；任务文档只记录命令意图、退出码、计数和脱敏摘要，原始秘密日志已从任务产物中删除。
 - Forbidden action: 不得把含明文密码的 stdout/stderr、operation dump 或命令历史提交到 Git，不得为“完整证据”保留凭据原文。
-- Evidence: `doc/tasks/20260710-current-head-test-only-release-completion-audit/execution-log.md`；`doc/tasks/20260712-intmain-codeonly-three-env-release/issues.md#p007`；修复发布 stdout 中检测到明文 MySQL 密码命令，完成摘要后必须删除原始日志。
+- Evidence: `doc/tasks/20260710-current-head-test-only-release-completion-audit/execution-log.md`；`doc/tasks/20260712-intmain-codeonly-three-env-release/issues.md#p007`；`doc/tasks/20260727-onlyoffice-test-server-release/execution-log.md`；修复发布 stdout 中检测到明文 MySQL 密码命令，完成摘要后必须删除或脱敏原始日志。
 
 ## 2026-07-13 required SQL 兼容路线流迁移重命名顺序
 

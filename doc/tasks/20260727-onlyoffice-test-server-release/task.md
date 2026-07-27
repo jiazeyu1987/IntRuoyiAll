@@ -16,8 +16,8 @@
 - [x] 经业务确认 `ROUTE-XLSX-00002` 第 26 道工序不是合法业务数据，并补 test-only 正式数据修复迁移。
 - [x] 修复 code-only 发布语义，使 `type=data` required SQL 不进入远端 MySQL 执行队列。
 - [x] 使用新的 releaseTag 重建发布包并完成本地/NAS 完整性校验。
-- [ ] 将新发布包重新发布到测试服。
-- [ ] 记录最终验证证据和收尾状态。
+- [x] 将新发布包重新发布到测试服。
+- [x] 记录最终验证证据和收尾状态。
 
 ## Expected Verification
 
@@ -29,18 +29,24 @@
 - 重新发布 ReleaseTag：`release-20260727-onlyoffice-test-r260727-codeonly-r6`。
 - 测试服后端 `http://172.30.30.58:48081/actuator/health` 返回 `UP`。
 - 测试服前端 `http://172.30.30.58:8081/` 返回 HTTP 200。
-- 运行态 release tag、后端/前端镜像、manifest sourceRepos 与本轮发布一致。
+- 运行态 release tag、后端/前端镜像、本地/NAS manifest sourceRepos 与本轮发布一致。
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Closeout Status
+
+- task-closeout preview 已运行；默认 keep 为 `task.md`、`execution-log.md`、`verification-report.md`。
+- apply 暂时阻塞：当前 linked worktree 分支 `codex/20260727-onlyoffice-test-release` 与 `int_main` 不能 fast-forward 合并，主工作区 `E:\IntRuoyi` 存在非本任务脏改动不能作为 ff-only merge 接收方，且本轮经验/日志脱敏改动位于任务目录外。
+- 阻塞不影响测试服发布结论；r6 发布和运行态验证已完成，当前保持 `ready_for_closeout`。
 
 ## Resolved Blocker
 
 - `release-20260727-onlyoffice-test-r260727-1948` 已通过稳定排序修复并越过原绑定迁移顺序问题，但在更早的 `20260709_mes_rt000006_batch_record_mapping.sql` 失败，错误为 `Missing RT000006 pressure pump route`。
 - 测试库只读核对确认不存在 `id=922067` 或 `code=RT000006` 的路线，相关活动路线工序为 `0`，三类压力泵填写员有效角色也为 `0`；不是单纯 ID 或名称漂移。
 - 用户已明确要求修复发布流程：发布到测试服务器时不要携带业务数据。正式方案是保持迁移元数据和结构类门禁，但 `publishScope=code-only` 时不执行 `type=data` required SQL；不为无关历史迁移补造测试库业务数据。
-- 本轮失败状态已收口，测试服继续运行 `release-20260723-dcc-viewer-permission-r260723vp-r1`，后端、前端和 OnlyOffice 均健康。
+- 本轮失败状态已收口，测试服已成功运行 `release-20260727-onlyoffice-test-r260727-codeonly-r6`，后端、前端和 OnlyOffice 均健康。
 
 ## Prior Blocker
 
@@ -65,12 +71,21 @@ in_progress
 - 已修复 OnlyOffice 连通性校验：发布脚本直接执行 `docker exec intruoyi-onlyoffice curl -fsS --connect-timeout 5 <healthUrl>`，URL 通过 `ConvertTo-ShellSingleQuotedLiteral` 传递；目标测试和扩展发布回归通过。
 - `release-20260727-onlyoffice-test-r260727-codeonly-r5` 本地/NAS 包完整且来源 commit 干净，但部署时 code-only 过滤后 APPLY 队列为空，PowerShell 将子表达式空输出绑定为 `$null`，`Sort-RequiredDatabaseSqlApplyItems -Items` 触发 null 参数错误。r5 未重启容器，`.env IMAGE_TAG` 已恢复到实际运行的 r4，发布锁已收口为 `FAILED`，该 tag 判废。
 - 已修复空 APPLY 队列处理：先用 `$preflightApplyItems = @(Get-ReleasePreflightApplyItems ...)` 显式包装为空数组，再传入排序函数；目标测试和扩展发布回归 `126 passed`，后续必须用 r6 新 tag 重建发布包。
+- `release-20260727-onlyoffice-test-r260727-codeonly-r6` 已完成本地/NAS 包完整性校验：Manifest v1 与 legacy manifest 哈希一致，`3373` 个 artifact 本地和 NAS 均缺失 `0`、size mismatch `0`、hash mismatch `0`，且无 database dump、MinIO snapshot 或 runtime-data。
+- r6 已成功部署到测试服务器 `172.30.30.58`：发布日志明确跳过 `type=data` required SQL 和直接/间接依赖 data 的 SQL，空 APPLY 队列继续进入运行态部署，发布锁 `APPLIED`，无 `RUNNING` 锁。
+- r6 运行态验证通过：`.env IMAGE_TAG`、backend 镜像、frontend 镜像均为 `release-20260727-onlyoffice-test-r260727-codeonly-r6`；backend health `UP`，frontend HTTP 200，pdf worker HTTP 200 `application/javascript`，OnlyOffice health HTTP 200。
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否；code-only 对 `type=data` 的过滤是用户确认的正式发布范围，不改 migration 类型、不吞执行异常，类型映射缺失时 fail fast。
 - `是否从根因和长期维护角度解决`：是；发布脚本按 manifest 中的 migration type 区分结构契约与业务数据迁移，使 `SkipDatabaseSync` / `SkipMinioSync` 与 code-only 实际执行边界一致。
 - `是否存在临时补丁或绕过`：否。
+
+## Cleanup Keep
+
+- doc/tasks/20260727-onlyoffice-test-server-release/bug-regression-evidence.md
+- doc/tasks/20260727-onlyoffice-test-server-release/ci-cd-evidence.md
+- doc/tasks/20260727-onlyoffice-test-server-release/code-only-required-sql-regression-evidence.md
 
 ## 经验门禁
 

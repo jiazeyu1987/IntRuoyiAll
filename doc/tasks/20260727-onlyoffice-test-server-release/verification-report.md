@@ -2,17 +2,20 @@
 
 ## 结论
 
-测试服发布仍未完成最终闭环。`release-20260727-onlyoffice-test-r260727-1445`、`release-20260727-onlyoffice-test-r260727-1823`、`release-20260727-onlyoffice-test-r260727-1948` 和 code-only `r1` 至 `r5` 均已判废，不得复用。
+测试服发布已完成最终闭环。`release-20260727-onlyoffice-test-r260727-1445`、`release-20260727-onlyoffice-test-r260727-1823`、`release-20260727-onlyoffice-test-r260727-1948` 和 code-only `r1` 至 `r5` 均已判废，不得复用；最终成功 releaseTag 为 `release-20260727-onlyoffice-test-r260727-codeonly-r6`。
 
-`ROUTE-XLSX-00002` 非法第 26 道工序的清理迁移、发布预检稳定排序、code-only 数据迁移依赖闭包隔离、OnlyOffice 远端健康检查命令引号问题和 code-only 空 APPLY 队列处理均已修复并通过回归；下一步使用 r6 完成最终测试服发布。
+`ROUTE-XLSX-00002` 非法第 26 道工序的清理迁移、发布预检稳定排序、code-only 数据迁移依赖闭包隔离、OnlyOffice 远端健康检查命令引号问题和 code-only 空 APPLY 队列处理均已修复并通过回归；r6 已按 code-only 范围部署到测试服，未携带数据库 dump、MinIO snapshot 或 runtime-data。
 
 ## 已通过
 
 - 发布包本地与 NAS manifest、兼容清单、镜像 tar 哈希一致。
 - r3 发布来源 commit 为 `8d940d17e99f3045b99018fac53491250289024d`，backend/frontend `dirty=false`。
 - 目标服务器为 `172.30.30.58`，发布前无并发发布进程和 `RUNNING` 锁。
-- 失败收口后测试服恢复为 `release-20260723-dcc-viewer-permission-r260723vp-r1`。
-- 恢复后的 backend/frontend/onlyoffice 容器 running，backend health HTTP 200 且为 `UP`，frontend HTTP 200。
+- r6 本地/NAS 包校验通过，Manifest v1 与 legacy manifest 哈希一致，`3373` 个 artifact 缺失 `0`、size mismatch `0`、hash mismatch `0`。
+- r6 包 `publishScope=code-only`、`component=intruoyi`、`onlyOfficeIncluded=true`，backend/frontend source commit 均为 `89b579e9a5ec70195f3811ae7b28d20ad527de12` 且 `dirty=false`。
+- r6 包无 database dump、MinIO snapshot 或 runtime-data；部署命令使用 `-SkipDatabaseSync -SkipMinioSync`。
+- 发布后测试服 `.env IMAGE_TAG`、backend 镜像、frontend 镜像均为 `release-20260727-onlyoffice-test-r260727-codeonly-r6`。
+- 发布锁为 `APPLIED`，`RUNNING` 锁为 `0`；backend/frontend/onlyoffice 容器 running，backend health HTTP 200 且为 `UP`，frontend HTTP 200，pdf worker HTTP 200 `application/javascript`，OnlyOffice HTTP 200。
 
 ## 已解除的阻塞
 
@@ -26,9 +29,7 @@ required SQL `20260717_mes_balloon_excel_device_workstation_binding.sql` 在第 
 
 ## 当前阻塞
 
-- 最新失败 releaseTag：`release-20260727-onlyoffice-test-r260727-codeonly-r3`。
-- 该 releaseTag 已判废，不能复用。
-- 需使用包含 code-only 依赖闭包过滤修复的 r4，重新构建并发布到 `172.30.30.58`。
+无。
 
 ## Code-only 修复
 
@@ -51,6 +52,10 @@ required SQL `20260717_mes_balloon_excel_device_workstation_binding.sql` 在第 
 - r5 部署失败复现 -> FAIL，code-only 过滤后 APPLY 队列为空，排序函数收到 `$null` 而不是空数组；r5 未重启容器，`.env IMAGE_TAG` 已恢复到实际运行 r4。
 - `python -X utf8 -m pytest script\tests\test_publish_int_ruoyi_to_test_tooling.py::test_deploy_release_handles_empty_code_only_apply_queue_before_sorting ... -q` -> PASS，`3 passed`。
 - 修复后的扩展发布回归 -> PASS，`126 passed`；PowerShell parser、`git diff --check`、branch runtime port guard 均通过。
+- r6 本地包校验 -> PASS，`3373` 个 artifact 缺失 `0`、size mismatch `0`、hash mismatch `0`，且无 database dump、MinIO snapshot 或 runtime-data。
+- r6 NAS 包校验 -> PASS，Manifest v1 与 legacy manifest 哈希匹配本地包，`3373` 个 artifact 缺失 `0`、size mismatch `0`、hash mismatch `0`，且无 database dump、MinIO snapshot 或 runtime-data。
+- r6 测试服发布 -> PASS；发布日志记录跳过 `20260709_mes_rt000006_batch_record_mapping` 等 `type=data` required SQL，以及依赖 data 的 seed/menu/schema 子节点；未出现 `Cannot bind argument to parameter 'Items'` 或 `ONLYOFFICE_PUBLIC_FILE_BASE_URL_UNREACHABLE`。
+- r6 运行态验证 -> PASS；状态脚本返回 `status=running`、backend/frontend/OnlyOffice HTTP 200，`.env IMAGE_TAG` 与 backend/frontend 实际镜像均为 r6，发布锁 `APPLIED` 且无 `RUNNING` 锁。
 
 ## 失败收口
 
@@ -58,3 +63,4 @@ required SQL `20260717_mes_balloon_excel_device_workstation_binding.sql` 在第 
 - `infra_release_operation_lock`：r3、r4 与 r5 发布锁均已收口为 `FAILED`。
 - r5 失败发生在容器重启前；测试服 `.env IMAGE_TAG` 已恢复到实际运行 r4，backend/frontend 仍为 r4 镜像。r5 因发布闭环失败判废，必须使用 r6 重新构建和发布。
 - 失败发布包保留在远端 release 目录作为排障证据，未删除共享存储内容。
+- r6 发布完成后，远端临时镜像 tar、required-sql、post-import/reset SQL 已按脚本清理；共享 NAS r6 包保留为发布源证据。
