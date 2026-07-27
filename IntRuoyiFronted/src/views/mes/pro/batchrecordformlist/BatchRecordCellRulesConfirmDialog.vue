@@ -14,20 +14,6 @@
         show-icon
       />
 
-      <section class="batch-record-cell-rules-editor__summary">
-        <span class="batch-record-cell-rules-editor__name">{{ reportName }}</span>
-        <el-tag type="primary" effect="plain">规则 {{ ruleRows.length }}</el-tag>
-        <el-tag :type="pendingCount > 0 ? 'warning' : 'success'" effect="plain">
-          待确认 {{ pendingCount }}
-        </el-tag>
-        <el-tag type="info" effect="plain">
-          后端待确认 {{ unreviewedFillableCellCount }}
-        </el-tag>
-        <span class="batch-record-cell-rules-editor__mode">
-          规则编辑模式：左侧只选单元格，右侧切换可填写/不可填写
-        </span>
-      </section>
-
       <section class="batch-record-cell-rules-editor__workspace">
         <div class="batch-record-cell-rules-editor__preview">
           <div class="batch-record-cell-rules-editor__panel-head">
@@ -330,9 +316,6 @@ const sheetLayoutError = ref('')
 const selectedRuleKey = ref('')
 const ruleRows = ref<BatchRecordReportCellRuleVO[]>([])
 const sheetLayout = ref<RuleEditorRawLayout | null>(null)
-const summary = reactive({
-  unreviewedFillableCellCount: 0
-})
 
 const DEFAULT_COLUMN_WIDTH = 150
 const DEFAULT_ROW_HEIGHT = 34
@@ -343,10 +326,6 @@ const dialogVisible = computed({
 })
 
 const reportId = computed(() => String(props.report?.reportId || '').trim())
-const reportName = computed(
-  () => props.report?.reportName || props.report?.batchRecordName || props.report?.reportId || '-'
-)
-const unreviewedFillableCellCount = computed(() => summary.unreviewedFillableCellCount)
 const valueTypeLabelMap = Object.fromEntries(
   cellRuleValueTypeOptions.map((option) => [option.value, option.label])
 ) as Record<string, string>
@@ -403,15 +382,6 @@ const resolveErrorMessage = (error: unknown, fallback: string) => {
 const ruleIdentity = (rule: Pick<BatchRecordReportCellRuleVO, 'rowIndex' | 'columnIndex'>) =>
   `${rule.rowIndex}:${rule.columnIndex}`
 
-const normalizeRuleSource = (source?: string) => {
-  const normalized = String(source || '').trim().toUpperCase()
-  return normalized || 'MANUAL'
-}
-
-const isConfirmedRule = (rule: BatchRecordReportCellRuleVO) =>
-  Boolean(rule.reviewed) && normalizeRuleSource(rule.source) !== 'AUTO'
-
-const pendingCount = computed(() => ruleRows.value.filter((rule) => !isConfirmedRule(rule)).length)
 const canConfirmRules = computed(
   () => Boolean(reportId.value) && !loading.value && !saving.value
 )
@@ -681,7 +651,6 @@ const applyCellRulesResponse = (data: BatchRecordReportCellRulesRespVO) => {
     .sort((left, right) => left.rowIndex - right.rowIndex || left.columnIndex - right.columnIndex)
     .forEach((rule) => nextRules.set(ruleIdentity(rule), rule))
   ruleRows.value = Array.from(nextRules.values())
-  summary.unreviewedFillableCellCount = Number(data.unreviewedFillableCellCount) || 0
   try {
     sheetLayout.value = parseSheetLayout(data.sheetLayoutJson)
     sheetLayoutError.value = sheetLayout.value ? '' : '后端未返回表单布局，无法进入可视化规则编辑。'
@@ -907,29 +876,6 @@ watch(
   min-height: 0;
   flex-direction: column;
   gap: 12px;
-}
-
-.batch-record-cell-rules-editor__summary {
-  display: flex;
-  min-height: 34px;
-  align-items: center;
-  gap: 8px;
-}
-
-.batch-record-cell-rules-editor__name {
-  min-width: 0;
-  max-width: 360px;
-  overflow: hidden;
-  color: #172033;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.batch-record-cell-rules-editor__mode {
-  margin-left: auto;
-  color: #5d667a;
-  font-size: 12px;
 }
 
 .batch-record-cell-rules-editor__workspace {
