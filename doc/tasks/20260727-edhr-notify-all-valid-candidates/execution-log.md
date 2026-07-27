@@ -72,7 +72,13 @@ BLOCKED: mvn -pl yudao-module-mes -am test -> FAIL, 上游 `yudao-module-infra` 
 
 BLOCKED: mvn -pl yudao-module-mes test -> TIMEOUT after 15 minutes，未产出 2026-07-27 18:44:55 之后的新完整 Surefire 报告；确认进程属于本任务后已终止 PID 59468，未触碰其他服务或任务进程。
 
+BLOCKED: mvn -pl yudao-module-mes test -> FAIL after 38:34，命令于 2026-07-27 20:17:20 完整结束；MES 模块共 2509 tests、58 failures、78 errors、31 skipped。失败涉及排产契约、缺少 `C:\Users\BJB110\Desktop\2\2\RE-PP-ID-01（A 1）球囊扩张压力泵生产记录(1).doc`、缺少 `D:\ocr2\resource\球囊扩张导管工序(1).xlsx`、数据库测试上下文及其他既有测试。目标 `MesProEdhrWorkTaskServiceImplTest` 在本次完整运行中为 66 tests、0 failures、0 errors、0 skipped，Surefire 报告更新时间为 2026-07-27 19:46:50。
+
 EVIDENCE: bug regression validator -> PASS；backend API validator -> PASS。
+
+EVIDENCE: 完整 MES 回归证据更新后再次运行 bug regression validator 与 backend API validator -> PASS；`git diff --check` -> PASS，仅有 Git 行尾转换 warning。
+
+EXPERIENCE: 复核 `docs/experience-index.md` 与 `docs/backend-development.md`，现有“Word fixture 缺失必须阻塞”和“Windows Maven 超时/进程归属”门禁已覆盖本次可复用经验，不新增或修改长期经验文档。
 
 ## 里程碑 5：收尾
 
@@ -82,11 +88,11 @@ EVIDENCE: bug regression validator -> PASS；backend API validator -> PASS。
 
 - 并发任务基线提交：`f18927b9e3682a8a66d44d535b24c75b824b40e2`，提交时间 `2026-07-27 18:41:23 +08:00`，主题 `chore: baseline pre-existing dirty worktree`。
 - 该提交包含本任务 `MesProEdhrWorkTaskServiceImpl.java`、`MesProEdhrWorkTaskServiceImplTest.java` 以及当时的任务目录文件，并已推送到 `origin/int_main`。
-- 当前 `HEAD` 与 `origin/int_main` 均为 `f18927b9`。
-- 本次验证后新增/修正的证据文档仍为未提交状态；由于完整模块回归阻塞，不再创建额外提交或推送。
+- 本次完整回归结束后的复核确认本地 `HEAD` 与 `origin/int_main` 已对齐，且 `f18927b9` 是两者祖先；共享分支仍由并发任务持续推进，因此不把易过时的后续提交号作为任务完成依据。
+- 本次完整回归后的证据文档仍为未提交状态；由于完整模块回归失败，不创建本任务收尾提交或推送。
 
 ## 阻塞项
 
 - `-am test` 被非本任务上游 infra 失败阻断，MES 未执行。
-- MES 全量单模块测试超时，无法形成完整模块回归结论。
+- MES 全量单模块测试已形成完整结论，但存在 58 failures、78 errors，完整模块回归未通过。
 - 按项目门禁，本任务不提交、不推送、不标记 `ready_for_closeout` 或 `completed`。

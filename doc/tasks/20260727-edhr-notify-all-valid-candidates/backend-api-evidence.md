@@ -47,7 +47,8 @@ GREEN: PASS. 3 tests run, 0 failures, 0 errors.
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest#createInitialFillTask_usesProcessFormPermissionRuleCandidateSnapshot+createReviewTasks_createsOneTodoPerSignatureCellAndCompletesSubmitTask+createReviewTasks_deduplicatesRepeatedFrozenCandidateNotifyRecipients" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests run, 0 failures, 0 errors.
 - `mvn -pl yudao-module-mes -am "-DskipTests" compile` -> PASS.
 - `git diff --check -- <task-owned files>` -> PASS, only Git line-ending conversion warnings.
+- `mvn -pl yudao-module-mes test` -> FAIL after 38:34, 2509 tests run, 58 failures, 78 errors, 31 skipped; `MesProEdhrWorkTaskServiceImplTest` passed all 66 tests in the same run.
 
 ## Blockers
 
-`mvn -pl yudao-module-mes -am test` fails in upstream `yudao-module-infra` before MES executes. A direct `mvn -pl yudao-module-mes test` run timed out after 15 minutes without a fresh complete report. Full module regression, implementation commit, closeout, and push remain blocked.
+`mvn -pl yudao-module-mes -am test` fails in upstream `yudao-module-infra` before MES executes. The direct MES module run completed but failed in existing scheduling contracts, missing local Word/Excel fixtures, database test contexts, and other unrelated suites. Full module regression, closeout, and the post-verification evidence commit/push remain blocked.

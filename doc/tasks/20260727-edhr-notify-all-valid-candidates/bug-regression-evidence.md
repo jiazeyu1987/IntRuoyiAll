@@ -46,8 +46,8 @@ GREEN: mvn -pl yudao-module-mes org.apache.maven.plugins:maven-surefire-plugin:3
 - `mvn -pl yudao-module-mes -am "-DskipTests" compile` -> PASS.
 - `git diff --check -- <task-owned files>` -> PASS, only Git line-ending conversion warnings.
 - `mvn -pl yudao-module-mes -am test` -> FAIL in upstream `yudao-module-infra`; MES skipped.
-- `mvn -pl yudao-module-mes test` -> TIMEOUT after 15 minutes without a fresh complete report.
+- `mvn -pl yudao-module-mes test` -> FAIL after 38:34, 2509 tests run, 58 failures, 78 errors, 31 skipped; the target `MesProEdhrWorkTaskServiceImplTest` passed 66/66 in the same run.
 
 ## Blockers and Follow-up
 
-完整模块回归未通过放行门禁：`-am test` 在上游 infra 失败，单独 MES 全量测试超时。目标与同类服务测试均已通过，但在完整模块回归通过前不得提交、推送或标记任务完成。
+完整模块回归未通过放行门禁：`-am test` 在上游 infra 失败；单独 MES 全量测试已完整结束，但存在排产契约、缺少本机 Word/Excel fixture、数据库测试上下文等既有失败。目标与同类服务测试均已通过，但在完整模块回归通过前不得提交、推送或标记任务完成。

@@ -40,18 +40,18 @@ assert.match(
 )
 assert.match(
   flowGraph,
-  /buildRecordBindingValue\('MAIN'\)/,
-  'batchRecordFormNames field must keep using the existing field projection entry.'
+  /buildBatchRecordFormValue\(\)/,
+  'batchRecordFormNames field must use the formal batch record form projection.'
 )
 assert.match(
   flowGraph,
-  /getLegacyBatchRecordsBySlotType\(formSlotType\)[\s\S]*getLegacyBatchRecordDisplayName/,
-  'batchRecordFormNames value must merge legacy report names by form slot type.'
+  /const getSelectedBatchRecordForms = \(\) =>[\s\S]*selectedLegacyBatchRecords\.value[\s\S]*isMainBatchRecordForm/,
+  'batchRecordFormNames value must read only formal batch record reports for the selected route process.'
 )
-assert.doesNotMatch(
+assert.match(
   flowGraph,
   /batchRecordReports:\s*processConfig\.batchRecordReports/,
-  'route flow graph save payload must not submit legacy batchRecordReports.'
+  'route flow graph save payload must preserve formal batch record reports in the draft snapshot.'
 )
 
 console.log('mes-route-flow-legacy-batch-record-detail-static PASS')

@@ -22,27 +22,27 @@ assert.match(
 )
 assert.match(
   routeGraph,
-  /const getRecordBindingsBySlotType = \(formSlotType: ProRouteFlowFormSlotType\) =>[\s\S]*resolveRecordBindingSlotType\(binding\.formSlotType, binding\.formBindingKey\) === formSlotType/,
-  'batch record detail must only include form bindings explicitly assigned to MAIN.'
+  /const isMainBatchRecordForm = \(report: RouteFlowLegacyBatchRecord\) =>[\s\S]*resolveRecordBindingSlotType\(report\.formSlotType\) === 'MAIN'/,
+  'batch record detail must only include formal reports explicitly assigned to MAIN.'
 )
 assert.match(
   routeGraph,
-  /const getLegacyBatchRecordsBySlotType = \(formSlotType: ProRouteFlowFormSlotType\) =>[\s\S]*resolveRecordBindingSlotType\(report\.formSlotType, report\.batchRecordReportId\) === formSlotType/,
-  'batch record detail must only include legacy reports explicitly assigned to MAIN.'
+  /const getSelectedBatchRecordForms = \(\) =>[\s\S]*selectedLegacyBatchRecords\.value\.filter\(isMainBatchRecordForm\)/,
+  'batch record detail must only read formal batch record reports for the selected route process.'
 )
 assert.match(
   routeGraph,
-  /const isRouteNodeRecordBindingConfigured = \([\s\S]*resolveRecordBindingSlotType\(binding\.formSlotType, binding\.formBindingKey\) === formSlotType[\s\S]*resolveRecordBindingSlotType\(report\.formSlotType, report\.batchRecordReportId\) === formSlotType/,
-  'batch record node border status must not treat unrelated route forms as MAIN bindings.'
+  /const isRouteNodeBatchRecordFormConfigured = \(node: RouteFlowNodeVO\) =>[\s\S]*getRouteNodeBatchRecordForms\(node\)\.some\(isLegacyBatchRecordConfigured\)/,
+  'batch record node border status must only use formal batch record reports.'
 )
 assert.doesNotMatch(
   routeGraph,
-  /getRecordBindingsBySlotType[\s\S]*normalizeRecordBindingSlotType\(binding\.formSlotType, binding\.formBindingKey\) === formSlotType/,
-  'right-side detail filtering must not default missing or unrelated route forms into MAIN.'
+  /isMainBatchRecordForm[\s\S]*normalizeRecordBindingSlotType\(report\.formSlotType,\s*report\.batchRecordReportId\)/,
+  'formal batch record filtering must not infer MAIN from a report ID.'
 )
 assert.match(
   routeGraph,
-  /key:\s*'batchRecordFormNames'[\s\S]*value:\s*buildRecordBindingValue\('MAIN'\)[\s\S]*links:\s*buildRecordBindingLinks\('MAIN'\)/,
+  /key:\s*'batchRecordFormNames'[\s\S]*value:\s*buildBatchRecordFormValue\(\)[\s\S]*links:\s*buildBatchRecordFormLinks\(\)/,
   'the batch record form field must keep rendering the MAIN-only value and links.'
 )
 

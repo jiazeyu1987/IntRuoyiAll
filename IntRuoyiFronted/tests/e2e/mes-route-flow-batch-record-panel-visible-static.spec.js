@@ -41,15 +41,15 @@ assert.match(
 assert.ok(
   component.includes("key: 'batchRecordFormNames'") &&
     component.includes("label: getRouteProcessSettingColumnLabel('batchRecordFormNames', '批记录表单')") &&
-    component.includes("value: buildRecordBindingValue('MAIN')") &&
-    component.includes("links: buildRecordBindingLinks('MAIN')"),
-  '左侧批记录表单字段必须复用 MAIN 表单绑定值和跳转链接。'
+    component.includes('value: buildBatchRecordFormValue()') &&
+    component.includes('links: buildBatchRecordFormLinks()'),
+  '左侧批记录表单字段必须使用正式批记录表单专用值和跳转链接。'
 )
 
 assert.match(
   component,
-  /fieldKey === 'batchRecordFormNames'[\s\S]*isRouteNodeRecordBindingConfigured\(node, 'MAIN'\)/,
-  '点击批记录表单字段时必须按 MAIN 绑定状态标记节点。'
+  /fieldKey === 'batchRecordFormNames'[\s\S]*isRouteNodeBatchRecordFormConfigured\(node\)/,
+  '点击批记录表单字段时必须按正式批记录表单绑定状态标记节点。'
 )
 
 console.log('PASS: MES route flow batch record panel visible static contract')

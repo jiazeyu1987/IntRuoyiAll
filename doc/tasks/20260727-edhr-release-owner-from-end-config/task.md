@@ -39,6 +39,7 @@ ready_for_closeout
 
 - 核心实现已随提交 `f18927b9` 推送到 `origin/int_main`，最终隔离构建来源为 `a9dfaf9e`。
 - 自动化回归、Jar 构建、`48081` 健康检查、登录态工作台接口和真实 Playwright 页面验证均已通过。
+- `task-closeout-cleanup` preview/apply 已通过，任务自有 Playwright 临时文件、待切换 Jar 和 detached 构建 worktree 已清理；旧 Jar 回滚副本与当前运行日志按恢复链路保留。
 - 当前主工作区仍有多个并发任务的未提交改动；最终证据提交和推送必须等待可安全分离的 Git 收尾窗口，不得把其他任务改动纳入本任务提交。
 
 ## Cleanup Keep

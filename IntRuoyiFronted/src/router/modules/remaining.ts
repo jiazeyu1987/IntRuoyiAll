@@ -375,6 +375,19 @@ const remainingRouter: AppRouteRecordRaw[] = [
                 }
               },
               {
+                path: 'template/simulate',
+                component: () => import('@/views/form-center/template/index.vue'),
+                name: 'ApprovalCenterFormCenterTemplateSimulate',
+                meta: {
+                  noCache: true,
+                  hidden: true,
+                  canTo: true,
+                  title: '表单模板模拟填写',
+                  activeMenu: '/mdm/form-center/template',
+                  permission: ['form:template:query']
+                }
+              },
+              {
                 path: 'effect',
                 component: () => import('@/views/form-center/effect/index.vue'),
                 name: 'ApprovalCenterFormCenterEffect',

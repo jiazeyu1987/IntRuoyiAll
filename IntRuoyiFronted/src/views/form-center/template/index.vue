@@ -1,5 +1,9 @@
 <template>
-  <ContentWrap :body-style="{ padding: '0px' }" class="!mb-0 form-template-page">
+  <ContentWrap
+    v-if="!isTemplateWorkspaceMode && !isTemplateSimulationMode"
+    :body-style="{ padding: '0px' }"
+    class="!mb-0 form-template-page"
+  >
     <div class="form-template-workbench">
       <section class="form-template-workbench__list">
         <UnifiedListTemplate
@@ -273,8 +277,43 @@
     </Teleport>
   </ContentWrap>
 
-  <TemplateImportDialog ref="importDialogRef" @success="getList" />
-  <TemplateViewDialog ref="templateViewDialogRef" />
+  <ContentWrap
+    v-if="isTemplateWorkspaceMode && templateWorkspaceMode === 'preview'"
+    :body-style="{ padding: '0px' }"
+    class="!mb-0 form-template-route-workspace"
+  >
+    <div class="form-template-route-workspace__header">
+      <el-button link type="primary" @click="returnToTemplateList">返回表单模板</el-button>
+      <div class="form-template-route-workspace__heading">
+        <span>查看表单模板</span>
+        <strong>{{ selectedTemplate?.templateName || '未加载模板' }}</strong>
+      </div>
+      <el-tag type="primary" effect="plain">只读</el-tag>
+    </div>
+    <el-alert
+      v-if="templateRouteLoadError"
+      :title="templateRouteLoadError"
+      type="error"
+      :closable="false"
+      show-icon
+      class="m-16px"
+    />
+    <div v-else-if="visualPreviewFormViewModel" class="form-template-route-workspace__body">
+      <EdhrExecutionReadonlyForm
+        :form-view-model="visualPreviewFormViewModel"
+        :signature-records="[]"
+        fit-to-viewport
+        fit-mode="width"
+      />
+    </div>
+    <el-empty v-else description="当前模板暂无识别字段" />
+  </ContentWrap>
+
+  <TemplateImportDialog
+    v-if="!isTemplateWorkspaceMode && !isTemplateSimulationMode"
+    ref="importDialogRef"
+    @success="getList"
+  />
   <Dialog v-model="obsoleteRequestDialogVisible" title="作废表单模板" width="560px">
     <el-alert
       title="提交后进入 BPM 审核，审批通过后才会变为已作废；审批中会锁定普通操作。"
@@ -317,8 +356,33 @@
       </el-button>
     </template>
   </Dialog>
-  <Dialog v-model="fillDialogVisible" class="form-template-fill-dialog" title="模拟填写" width="80%">
-    <div v-if="visualPreviewFormViewModel && simulatedPreviewFormViewModel" class="form-template-fill-workspace">
+  <ContentWrap
+    v-if="isTemplateSimulationMode"
+    :body-style="{ padding: '0px' }"
+    class="!mb-0 form-template-route-workspace"
+  >
+    <div class="form-template-route-workspace__header">
+      <el-button link type="primary" @click="returnFromTemplateSimulation">
+        {{ templateSimulationBackLabel }}
+      </el-button>
+      <div class="form-template-route-workspace__heading">
+        <span>模拟填写</span>
+        <strong>{{ selectedTemplate?.templateName || '未加载模板' }}</strong>
+      </div>
+      <el-tag type="primary">模拟填写</el-tag>
+    </div>
+    <el-alert
+      v-if="templateRouteLoadError"
+      :title="templateRouteLoadError"
+      type="error"
+      :closable="false"
+      show-icon
+      class="m-16px"
+    />
+    <div
+      v-else-if="visualPreviewFormViewModel && simulatedPreviewFormViewModel"
+      class="form-template-fill-workspace form-template-route-workspace__body"
+    >
       <section class="form-template-fill-workspace__panel">
         <div class="form-template-dialog-panel-head">
           <strong>模板内填写</strong>
@@ -352,13 +416,30 @@
       </section>
     </div>
     <el-empty v-else description="当前模板暂无可填写字段" />
-  </Dialog>
-  <Dialog
-    v-model="rulesDialogVisible"
-    class="form-template-rules-dialog"
-    :title="rulesDialogTitle"
-    width="calc(100vw - 32px)"
+  </ContentWrap>
+  <ContentWrap
+    v-if="isTemplateWorkspaceMode && templateWorkspaceMode === 'edit'"
+    :body-style="{ padding: '0px' }"
+    class="!mb-0 form-template-route-workspace"
   >
+    <div class="form-template-route-workspace__header">
+      <el-button link type="primary" @click="returnToTemplateList">返回表单模板</el-button>
+      <div class="form-template-route-workspace__heading">
+        <span>{{ rulesDialogTitle }}</span>
+        <strong>{{ selectedTemplate?.templateName || '未加载模板' }}</strong>
+      </div>
+      <el-tag :type="selectedTemplate?.status === 'DRAFT' ? 'primary' : 'info'" effect="plain">
+        {{ selectedTemplate?.status === 'DRAFT' ? '编辑' : '只读' }}
+      </el-tag>
+    </div>
+    <el-alert
+      v-if="templateRouteLoadError"
+      :title="templateRouteLoadError"
+      type="error"
+      :closable="false"
+      show-icon
+      class="m-16px"
+    />
     <div class="batch-record-cell-rules-editor form-template-rule-workspace">
       <section class="batch-record-cell-rules-editor__summary">
         <span class="batch-record-cell-rules-editor__name">

@@ -38,8 +38,8 @@ assert.ok(
 )
 assert.match(
   component,
-  /fieldKey === 'batchRecordFormNames'[\s\S]*isRouteNodeRecordBindingConfigured\(node, 'MAIN'\)/,
-  '批记录表单红绿边框必须判断 MAIN 批记录绑定状态'
+  /fieldKey === 'batchRecordFormNames'[\s\S]*isRouteNodeBatchRecordFormConfigured\(node\)/,
+  '批记录表单红绿边框必须判断对应路线工序的正式批记录绑定状态'
 )
 
 console.log('PASS: MES route flow batch record item restore static contract')

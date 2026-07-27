@@ -26,6 +26,8 @@ BDD: Runner token 确实缺失或失效时明确失败 -> Given Runner token 缺
 
 BDD: Codex CLI 失败摘要可回写终态 -> Given Runner 已使用有效 token 领取测试项但 Codex CLI 返回超过 512 字符的失败信息；When Runner 上报 `complete-case`；Then 执行项应进入 `BLOCKED` 终态，摘要必须符合 `progress_message` 长度契约，不得因数据库截断停留在 `RUNNING`。
 
+BDD: 后端重启后测试管理初始化请求可用 -> Given `int_main` 前后端已启动且管理员登录有效；When 用户进入 `系统管理 > 测试管理`；Then 测试租户、Runner 状态、节点串选项和测试项列表请求应返回可用结果，页面不得连续显示通用“系统异常”。
+
 ## Milestone 6
 
 - Status: in_progress

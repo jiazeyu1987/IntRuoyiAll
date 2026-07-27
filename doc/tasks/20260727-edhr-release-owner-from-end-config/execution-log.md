@@ -92,3 +92,13 @@ BDD: 放行阶段展示路线级负责人 -> Given 工作台响应包含 `releas
 - GREEN: the release view contained neither `放行责任人未配置` nor the generic `执行人` owner fallback.
 - GREEN: authenticated workbench response for batch `900000000881` returned HTTP 200, business code `0`, `releaseOwnerConfigured=true`, `releaseOwnerSourceType=USER`, and `releaseOwnerLabel=瑛泰管理员`.
 - SCOPE: verification was read-only; it did not run precheck, release, reject, upload, skip, complete, or any MES write action.
+
+## Closeout Cleanup
+
+- PREVIEW: `task-closeout-cleanup` kept `task.md`, `execution-log.md`, and `verification-report.md`; it selected only the three duplicate task evidence files for deletion, with no blockers or warnings.
+- APPLY: removed `backend-api-evidence.md`, `bug-regression-evidence.md`, and `frontend-feature-evidence.md`.
+- CLEANUP: closed Playwright sessions `release-owner-verify` and `edhr-release-owner`.
+- CLEANUP: removed the task-owned Playwright snapshots, console logs, screenshot, and staged next Jar through explicit `task-closeout-cleanup --extra-delete` paths.
+- CLEANUP: verified detached build worktree path was inside `D:\IntRuoyiWorktree`, had no other process using it, was clean, and removed it with `git worktree remove`.
+- KEEP: retained rollback Jar `E:\IntRuoyi\output\runtime\int_main\backend-release-owner-before-20260727-195336.jar` and stable backend stdout/stderr logs for safe recovery and runtime diagnosis.
+- EXPERIENCE: no new long-term document was created. Existing local-runtime isolated-Jar/startup-log rules, backend `RELEASE_APPROVE` source rules, and E2E login rules already cover the reusable lessons.

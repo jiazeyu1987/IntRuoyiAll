@@ -13,3 +13,24 @@
 - BDD: 非节点串兼容 -> Given 测试项不属于节点串；When 用户按现有方式顺序执行或并行执行；Then 原有行为保持不变。
 - BDD: 节点串选择确定性 -> Given 用户选择节点串测试项；When 选择中混入另一节点串或独立测试项；Then 后端拒绝创建含义不明确的执行批次并提示按单个节点串执行。
 - GREEN: experience-preflight -> PASS，已读取测试管理 schema、前端静态契约、Codex Runner 和测试节点闭环门禁；本阶段只运行静态契约与 H2 单元测试，不操作真实租户数据。
+
+## 2026-07-27 Review-Fix Worker Round 1
+
+- User intent: 修复评审阻塞项，仅补齐完整节点串选择和独立 `SEQUENTIAL` 测试项回归保护；不停止或重启本地服务，不修改本地数据库数据。
+- BDD: 完整节点串选择 -> Given 一个节点串已有第 1 和第 2 节点；When 用户只选择第 2 节点发起 `SEQUENTIAL` 执行；Then 后端拒绝该请求并提示必须从第 1 节点连续选择。
+- BDD: 独立顺序测试项领取 -> Given 两个不属于节点串的 `SEQUENTIAL` 测试项和容量为 2 的 Runner；When Runner 领取任务；Then 两个独立项都可领取。
+- BDD: 独立顺序测试项失败后继续 -> Given 两个不属于节点串的 `SEQUENTIAL` 测试项；When 第一个失败；Then 第二个仍可领取并完成，不会被标记为节点串阻断。
+- RED: `mvn -pl yudao-module-system -am "-Dtest=CodexTestExecutionServiceImplTest#startSequentialExecution_rejectsIncompleteNodeChainSelection" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, 只选择第 2 节点时未抛出 `ServiceException`。
+- RED: `mvn -pl yudao-module-system -am "-Dtest=CodexTestExecutionServiceImplTest#startSequentialExecution_rejectsIncompleteNodeChainSelection,CodexTestRunnerServiceImplTest#claimTasks_independentSequentialCasesUseAvailableCapacity+completeCase_failedIndependentSequentialCaseAllowsRemainingCaseToRun" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, 不完整节点串未被拒绝，独立 `SEQUENTIAL` 容量为 2 时只领取 1 项。
+- RED: `mvn -pl yudao-module-system -am "-Dtest=CodexTestRunnerServiceImplTest#completeCase_failedIndependentSequentialCaseAllowsRemainingCaseToRun" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, 第一个独立测试项失败后后续项被阻断，无法领取。
+- RED: `python -X utf8 -m pytest script/tests/test_codex_test_node_chain_migration.py` -> FAIL, 缺少 `node_chain_execution` 执行快照字段的迁移和 H2 测试表契约。
+- GREEN: `mvn -pl yudao-module-system -am "-Dtest=CodexTestExecutionServiceImplTest,CodexTestRunnerServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 17 tests passed.
+- GREEN: `python -X utf8 -m pytest script/tests/test_codex_test_node_chain_migration.py` -> PASS, 2 tests passed.
+- Completed work: 节点串执行批次持久化 `nodeChainExecution` 快照；严格领取和前置失败阻断仅作用于该快照为真的节点串执行；选择节点串时必须精确覆盖完整的连续 `1..N` 节点集合。
+- Remaining supervisor verification: 构建并使 `48081` 加载包含 `node-chain-options` 路由的后端，然后在确认的测试租户用 Playwright 验证节点串筛选、顺序领取、失败阻断和独立测试项路径。Worker 未停止/重启本地服务，未修改本地数据库数据。
+
+## 2026-07-27 Local Runtime Data Plan
+
+- BDD: 多节点串可见 -> Given 本机 `tenant_id=1` 已有工艺路线 4 项、批记录 6 项、智能排产 4 项；When 应用节点串 schema 并执行任务自有赋值脚本；Then 页面节点串选项显示 3 条不同节点串，数量分别为 4、6、4，且各串序号从 1 连续到 N。
+- Data preflight: 仅允许 14 个精确名称目标项，执行前要求 `node_chain_name/node_chain_sort` 全部为空；任一目标缺失、已分配或影响行数不等于 14 时 fail fast。
+- Rollback: 对同一批精确名称恢复 `node_chain_name=NULL,node_chain_sort=NULL`，复核影响行数 14；不修改方法、目标、状态或业务数据。
