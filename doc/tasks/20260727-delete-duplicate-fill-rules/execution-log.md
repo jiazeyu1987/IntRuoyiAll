@@ -113,3 +113,16 @@ ready_for_closeout
   - `docs/changes/20260727-remove-lfs-assets.md`
   - `docs/experience-index.md`
   - `docs/frontend-development.md`
+- 本任务实现提交：`e42fa5d20a0aac5dc1607195c438863bf5a34be9`，仅包含 8 个任务自有文件：
+  - `doc/tasks/20260727-delete-duplicate-fill-rules/before-87-rules.sql`
+  - `doc/tasks/20260727-delete-duplicate-fill-rules/database-schema-evidence.md`
+  - `doc/tasks/20260727-delete-duplicate-fill-rules/execution-log.md`
+  - `doc/tasks/20260727-delete-duplicate-fill-rules/repair-86-rules.sql`
+  - `doc/tasks/20260727-delete-duplicate-fill-rules/task.md`
+  - `doc/tasks/20260727-delete-duplicate-fill-rules/verification-report.md`
+  - `doc/tasks/20260727-delete-duplicate-fill-rules/verify-page-readonly.mjs`
+  - `docs/database-rules.md`
+- 推送前分支运行端口门禁：PASS，`int_main=8081/48081`。
+- 待推送历史大文件扫描：`PENDING_LARGE_BLOBS=0`。
+- `git push origin int_main -> PASS`，远端更新到 `e8049307`，推送后分支不再领先 `origin/int_main`。
+- 最终状态：`completed`。

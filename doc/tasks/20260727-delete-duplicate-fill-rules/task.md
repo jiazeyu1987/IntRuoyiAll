@@ -11,7 +11,7 @@
 - [x] 在事务内删除 86 条重复规则并核对影响行数。
 - [x] 复验最终数据库范围稳定为 1 条正式规则。
 - [x] 复验规则查询接口和页面行状态。
-- [ ] 完成任务记录和收尾验证。
+- [x] 完成任务记录和收尾验证。
 
 ## Expected Verification
 
@@ -23,7 +23,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
