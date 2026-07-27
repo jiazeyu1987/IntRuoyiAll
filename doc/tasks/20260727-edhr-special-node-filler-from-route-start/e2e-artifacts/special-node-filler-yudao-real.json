@@ -1,17 +1,12 @@
 {
   "status": "FAIL",
-  "generatedAt": "2026-07-27T06:18:07.206Z",
+  "generatedAt": "2026-07-27T06:31:34.656Z",
   "tenant": "芋道源码",
   "username": "admin",
   "baseUrl": "http://localhost:8081",
   "backendUrl": "http://127.0.0.1:48081",
-  "error": "locator.waitFor: Timeout 90000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('CODEX-SPECIAL-FILLER-1785132990967').first() to be visible\u001b[22m\n",
-  "stack": "locator.waitFor: Timeout 90000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('CODEX-SPECIAL-FILLER-1785132990967').first() to be visible\u001b[22m\n\n    at createTraceableBatchThroughUi (E:\\IntRuoyi\\doc\\tasks\\20260727-edhr-special-node-filler-from-route-start\\e2e-special-node-filler-yudao-real.cjs:535:61)\n    at async main (E:\\IntRuoyi\\doc\\tasks\\20260727-edhr-special-node-filler-from-route-start\\e2e-special-node-filler-yudao-real.cjs:613:22)",
+  "error": "locator.waitFor: Timeout 90000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.edhr-batch-detail__rail-process-form-filler').filter({ hasText: '瑛泰管理员、黎敏' }).first() to be visible\u001b[22m\n",
+  "stack": "locator.waitFor: Timeout 90000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.edhr-batch-detail__rail-process-form-filler').filter({ hasText: '瑛泰管理员、黎敏' }).first() to be visible\u001b[22m\n\n    at assertDetailUi (E:\\IntRuoyi\\doc\\tasks\\20260727-edhr-special-node-filler-from-route-start\\e2e-special-node-filler-yudao-real.cjs:588:8)\n    at async main (E:\\IntRuoyi\\doc\\tasks\\20260727-edhr-special-node-filler-from-route-start\\e2e-special-node-filler-yudao-real.cjs:635:5)",
   "failureScreenshotFile": "E:\\IntRuoyi\\doc\\tasks\\20260727-edhr-special-node-filler-from-route-start\\e2e-artifacts\\special-node-filler-yudao-real-failure.png",
-  "mesWriteRequests": [
-    {
-      "method": "POST",
-      "url": "http://localhost:8081/admin-api/mes/pro/edhr-batch-execution/open-or-create"
-    }
-  ]
+  "mesWriteRequests": []
 }

@@ -3,6 +3,7 @@
 ## User Intent
 
 - Bug: clicking confirm in the "open or create eDHR batch execution" dialog fails with `批记录附件负责人配置无效：batchRecordAttachmentOwners`.
+- Authorization: user replied `授权` after being asked to allow configuring route `922119` under local `芋道源码/admin` and handling the existing batch `900000000876` frozen snapshot / rebuild issue. Scope is limited to local `int_main`, route `922119`, draft version `V15`, active/version snapshot needed for future opens, and existing batch `900000000876`.
 
 ## BDD / TDD
 

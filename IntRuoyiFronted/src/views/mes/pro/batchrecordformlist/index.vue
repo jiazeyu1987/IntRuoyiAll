@@ -101,35 +101,46 @@
                 v-bind="sortColumnAttrs('fillRule')"
               >
                 <template #default="{ row }">
-                  <button
-                    type="button"
-                    class="batch-record-form-filler-cell"
-                    @click.stop="openBatchRecordFormPermissionDialog(row)"
+                  <el-tooltip
+                    :disabled="!row.permissionRuleErrorMessage"
+                    :content="row.permissionRuleErrorMessage"
+                    placement="top"
                   >
-                    <el-tag
-                      effect="plain"
-                      :type="
-                        resolveFillRuleStatus(
-                          row.permissionRule?.fillRuleStatus,
-                          isPermissionRuleLoading(row)
-                        ).type
-                      "
+                    <button
+                      type="button"
+                      class="batch-record-form-filler-cell"
+                      :title="row.permissionRuleErrorMessage || undefined"
+                      @click.stop="openBatchRecordFormPermissionDialog(row)"
                     >
-                      {{
-                        resolveFillRuleStatus(
-                          row.permissionRule?.fillRuleStatus,
+                      <el-tag
+                        effect="plain"
+                        :type="
+                          resolveFillRuleStatus(
+                            row.permissionRule?.fillRuleStatus,
+                            isPermissionRuleLoading(row),
+                            row.permissionRuleErrorMessage
+                          ).type
+                        "
+                      >
+                        {{
+                          resolveFillRuleStatus(
+                            row.permissionRule?.fillRuleStatus,
+                            isPermissionRuleLoading(row),
+                            row.permissionRuleErrorMessage
+                          ).label
+                        }}
+                      </el-tag>
+                      <span class="batch-record-form-filler-cell__text">
+                        {{
                           isPermissionRuleLoading(row)
-                        ).label
-                      }}
-                    </el-tag>
-                    <span class="batch-record-form-filler-cell__text">
-                      {{
-                        isPermissionRuleLoading(row)
-                          ? '填写规则加载中'
-                          : buildFillRuleCandidateUserText(row) || '配置填写人'
-                      }}
-                    </span>
-                  </button>
+                            ? '填写规则加载中'
+                            : row.permissionRuleErrorMessage
+                              ? '查看错误'
+                              : buildFillRuleCandidateUserText(row) || '配置填写人'
+                        }}
+                      </span>
+                    </button>
+                  </el-tooltip>
                 </template>
               </el-table-column>
               <el-table-column
@@ -578,6 +589,7 @@ defineOptions({ name: 'MesProBatchRecordFormList' })
 type RecordFormListRow = BatchRecordReportVO & {
   rowKey: string
   permissionRule?: EdhrProcessFormPermissionRuleRespVO | null
+  permissionRuleErrorMessage?: string
 }
 
 const route = useRoute()
@@ -948,8 +960,10 @@ const cloneCandidateRule = (
 
 const resolveFillRuleStatus = (
   status?: EdhrProcessFormPermissionRuleRespVO['fillRuleStatus'],
-  loading = false
+  loading = false,
+  errorMessage = ''
 ): { label: string; type: FillRuleStatusTagType } => {
+  if (errorMessage) return { label: '加载失败', type: 'danger' }
   if (loading) return { label: '加载中', type: 'info' }
   if (status === 'CONFIGURED') return { label: '已配置', type: 'success' }
   if (status === 'CANDIDATE_EMPTY') return { label: '候选为空', type: 'danger' }
@@ -997,6 +1011,7 @@ const loadRecordFormPermissionRules = async (
   for (const row of rows) {
     if (!row.reportId) {
       row.permissionRule = null
+      row.permissionRuleErrorMessage = ''
       continue
     }
     const reportRows = rowsByReportId.get(row.reportId)
@@ -1013,6 +1028,17 @@ const loadRecordFormPermissionRules = async (
         if (isStaleRecordFormListRequest(requestSerial)) return
         for (const row of reportRows) {
           row.permissionRule = rule
+          row.permissionRuleErrorMessage = ''
+        }
+      } catch (error) {
+        if (isStaleRecordFormListRequest(requestSerial)) return
+        const errorMessage = resolveErrorMessage(
+          error,
+          '批记录表单填写人规则加载失败，请联系管理员检查权限规则链路。'
+        )
+        for (const row of reportRows) {
+          row.permissionRule = null
+          row.permissionRuleErrorMessage = errorMessage
         }
       } finally {
         if (!isStaleRecordFormListRequest(requestSerial)) {
@@ -1038,9 +1064,9 @@ const loadRecordFormSecondaryData = async (
     ])
   } catch (error) {
     if (isStaleRecordFormListRequest(requestSerial)) return
-    listErrorMessage.value = resolveErrorMessage(
+    templatePreview.errorMessage = resolveErrorMessage(
       error,
-      '批记录表单填写人规则加载失败，请联系管理员检查权限规则链路。'
+      '批记录表单辅助数据加载失败，请联系管理员检查权限规则链路。'
     )
   }
 }
@@ -1079,6 +1105,7 @@ const openBatchRecordFormPermissionDialog = async (row: RecordFormListRow) => {
     await loadCandidateOptions()
     const rule = await EdhrProcessFormPermissionRuleApi.getByReport(row.reportId)
     row.permissionRule = rule
+    row.permissionRuleErrorMessage = ''
     permissionTarget.report = row
     permissionTarget.permissionRule = rule
     permissionForm.fillRule = cloneCandidateRule(rule.fillRule)

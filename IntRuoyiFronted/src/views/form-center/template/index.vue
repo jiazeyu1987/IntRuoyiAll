@@ -928,7 +928,7 @@ const openSelectedTemplate = async () => {
 }
 
 const editSelectedTemplate = async () => {
-  await openSelectedTemplateDesigner('edit')
+  await openSelectedTemplateAction('edit')
 }
 
 const openSelectedTemplateFill = async () => {
