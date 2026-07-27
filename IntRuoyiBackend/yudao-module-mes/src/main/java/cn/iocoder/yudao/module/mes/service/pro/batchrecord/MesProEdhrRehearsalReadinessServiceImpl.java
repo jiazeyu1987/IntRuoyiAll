@@ -378,13 +378,14 @@ public class MesProEdhrRehearsalReadinessServiceImpl implements MesProEdhrRehear
                                              Long executorUserId) {
         String reportId = formBinding.reportId();
         Long batchRecordVersionId = formBinding.batchRecordVersionId();
-        MesProEdhrProcessFormPermissionRuleDO fillRule = processFormPermissionRuleMapper.selectEnabledFillRuleForRouteOrReport(
-                currentRouteProcessId, reportId, batchRecordVersionId);
-        if (fillRule == null && !Objects.equals(currentRouteProcessId, record.getRouteProcessId())) {
-            fillRule = processFormPermissionRuleMapper.selectEnabledFillRuleForRouteOrReport(
+        List<MesProEdhrProcessFormPermissionRuleDO> fillRules =
+                processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(
+                        currentRouteProcessId, reportId, batchRecordVersionId);
+        if (fillRules.isEmpty() && !Objects.equals(currentRouteProcessId, record.getRouteProcessId())) {
+            fillRules = processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(
                     record.getRouteProcessId(), reportId, batchRecordVersionId);
         }
-        if (fillRule == null) {
+        if (fillRules.isEmpty()) {
             addBlocker(result, "PROCESS_FORM_FILL_RULE_MISSING", "executor", executorUserId,
                     "工序表单未配置启用的填写权限规则：routeProcessId=" + currentRouteProcessId
                             + "，boundReportId=" + record.getBatchRecordReportId()
@@ -394,7 +395,9 @@ public class MesProEdhrRehearsalReadinessServiceImpl implements MesProEdhrRehear
                     "在工艺路线电子批记录页签为该工序表单配置填写权限/派工规则后再演练。");
             return false;
         }
-        if (StrUtil.isBlank(fillRule.getCandidateSourceType()) || StrUtil.isBlank(fillRule.getCandidateSourceIds())) {
+        if (fillRules.stream().anyMatch(fillRule ->
+                StrUtil.isBlank(fillRule.getCandidateSourceType())
+                        || StrUtil.isBlank(fillRule.getCandidateSourceIds()))) {
             addBlocker(result, "PROCESS_FORM_FILL_RULE_CANDIDATE_EMPTY", "executor", executorUserId,
                     "工序表单填写权限规则缺少候选来源或候选对象：routeProcessId=" + currentRouteProcessId
                             + "，reportId=" + reportId + "。",

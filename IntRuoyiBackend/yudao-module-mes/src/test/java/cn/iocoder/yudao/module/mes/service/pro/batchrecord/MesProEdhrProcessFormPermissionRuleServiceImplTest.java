@@ -716,6 +716,105 @@ class MesProEdhrProcessFormPermissionRuleServiceImplTest extends BaseDbUnitTest 
     }
 
     @Test
+    void saveRuleByReport_assistAssignmentsReplaceRouteScopedFillRulesButKeepSignatures() {
+        String reportId = "REPORT-ASSIST-REPLACE-ROUTE";
+        Long routeProcessId = 5832L;
+        Long batchRecordVersionId = 77242L;
+        insertRouteBatchRecord(8832L, routeProcessId, reportId, null, 77241L, batchRecordVersionId);
+        when(jimuReportGateway.getReportJson(reportId)).thenReturn(assistRowsReportJson());
+        when(adminUserApi.getUserList(List.of(101L))).thenReturn(List.of(
+                adminUser(101L, "员工甲", CommonStatusEnum.ENABLE.getStatus())));
+        when(adminUserApi.getUserList(List.of(102L))).thenReturn(List.of(
+                adminUser(102L, "员工乙", CommonStatusEnum.ENABLE.getStatus())));
+        processFormPermissionRuleMapper.insert(permissionRule(routeProcessId, reportId, batchRecordVersionId,
+                "FILL", "", "USER", "999", "旧路线级填写人")
+                .setScopeKey("ALL")
+                .setFillableScopeJson("""
+                        {"schemaVersion":2,"scopeKey":"ALL","cells":[{"sourceTableIndex":0,"rowIndex":1,"columnIndex":1}]}
+                        """.trim()));
+        processFormPermissionRuleMapper.insert(permissionRule(routeProcessId, reportId, batchRecordVersionId,
+                "SIGNATURE", "R1C1", "USER", "998", "路线级签名人")
+                .setScopeKey("ALL"));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(113L);
+            security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("aoteman");
+            processFormPermissionRuleService.saveRuleByReport(
+                    new MesProEdhrBatchRecordFormPermissionRuleSaveReqVO()
+                            .setBatchRecordReportId(reportId)
+                            .setFillAssignments(List.of(
+                                    fillAssignment("AR_001", "USER", List.of(101L), "ANY_ONE", true,
+                                            "填写生产批号和实际数量"),
+                                    fillAssignment("AR_002", "USER", List.of(102L), "ANY_ONE", true,
+                                            "选择生产日期"))));
+        }
+
+        List<MesProEdhrProcessFormPermissionRuleDO> routeRules =
+                processFormPermissionRuleMapper.selectListByRouteProcessAndReport(routeProcessId, reportId);
+        assertEquals(1, routeRules.size());
+        assertEquals("SIGNATURE", routeRules.get(0).getRuleType());
+        assertEquals("R1C1", routeRules.get(0).getSignatureCellKey());
+
+        List<MesProEdhrProcessFormPermissionRuleDO> effectiveFillRules =
+                processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(
+                        routeProcessId, reportId, batchRecordVersionId);
+        assertEquals(2, effectiveFillRules.size());
+        assertTrue(effectiveFillRules.stream().allMatch(
+                rule -> MesProEdhrProcessFormPermissionRuleMapper.FORM_LEVEL_ROUTE_PROCESS_ID.equals(
+                        rule.getRouteProcessId())));
+        assertEquals(Set.of("AR_001", "AR_002"), effectiveFillRules.stream()
+                .map(MesProEdhrProcessFormPermissionRuleDO::getScopeKey)
+                .collect(java.util.stream.Collectors.toSet()));
+    }
+
+    @Test
+    void saveRuleByReport_assistAssignmentsReplaceUnboundRouteFillRulesInSameVersion() {
+        String reportId = "REPORT-ASSIST-UNBOUND-ROUTE";
+        Long routeProcessId = 5833L;
+        Long batchRecordVersionId = 77252L;
+        insertReportVersion(reportId, 77251L, batchRecordVersionId);
+        when(jimuReportGateway.getReportJson(reportId)).thenReturn(assistRowsReportJson());
+        when(adminUserApi.getUserList(List.of(101L))).thenReturn(List.of(
+                adminUser(101L, "员工甲", CommonStatusEnum.ENABLE.getStatus())));
+        when(adminUserApi.getUserList(List.of(102L))).thenReturn(List.of(
+                adminUser(102L, "员工乙", CommonStatusEnum.ENABLE.getStatus())));
+        processFormPermissionRuleMapper.insert(permissionRule(routeProcessId, reportId, batchRecordVersionId,
+                "FILL", "", "USER", "999", "旧路线级填写人")
+                .setScopeKey("ALL")
+                .setFillableScopeJson("""
+                        {"schemaVersion":2,"scopeKey":"ALL","cells":[{"sourceTableIndex":0,"rowIndex":1,"columnIndex":1}]}
+                        """.trim()));
+        processFormPermissionRuleMapper.insert(permissionRule(routeProcessId, reportId, batchRecordVersionId,
+                "SIGNATURE", "R1C1", "USER", "998", "路线级签名人")
+                .setScopeKey("ALL"));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(113L);
+            security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("aoteman");
+            processFormPermissionRuleService.saveRuleByReport(
+                    new MesProEdhrBatchRecordFormPermissionRuleSaveReqVO()
+                            .setBatchRecordReportId(reportId)
+                            .setFillAssignments(List.of(
+                                    fillAssignment("AR_001", "USER", List.of(101L), "ANY_ONE", true,
+                                            "填写生产批号和实际数量"),
+                                    fillAssignment("AR_002", "USER", List.of(102L), "ANY_ONE", true,
+                                            "选择生产日期"))));
+        }
+
+        List<MesProEdhrProcessFormPermissionRuleDO> routeRules =
+                processFormPermissionRuleMapper.selectListByRouteProcessAndReport(routeProcessId, reportId);
+        assertEquals(1, routeRules.size());
+        assertEquals("SIGNATURE", routeRules.get(0).getRuleType());
+
+        List<MesProEdhrProcessFormPermissionRuleDO> effectiveFillRules =
+                processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(
+                        routeProcessId, reportId, batchRecordVersionId);
+        assertEquals(Set.of("AR_001", "AR_002"), effectiveFillRules.stream()
+                .map(MesProEdhrProcessFormPermissionRuleDO::getScopeKey)
+                .collect(java.util.stream.Collectors.toSet()));
+    }
+
+    @Test
     void saveRuleByReport_compactsAssistRowAssignmentEntitlementDigestWhenManyRows() {
         String reportId = "REPORT-ASSIST-LONG-DIGEST";
         int assignmentCount = 90;

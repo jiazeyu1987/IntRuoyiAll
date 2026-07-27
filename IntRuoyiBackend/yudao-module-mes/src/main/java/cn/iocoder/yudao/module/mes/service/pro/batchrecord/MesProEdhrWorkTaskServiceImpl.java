@@ -7,6 +7,7 @@ import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.core.util.ReflectUtil;
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrCandidateResolver.MesProEdhrCandidateContract;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskArchiveRuleReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskAssignmentRuleRespVO;
@@ -482,18 +483,10 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             for (int i = 0; i < scopes.size(); i++) {
                 JSONObject scope = scopes.getJSONObject(i);
                 JSONObject fillableScope = scope == null ? null : scope.getJSONObject("fillableScope");
-                JSONArray cells = fillableScope == null ? null : fillableScope.getJSONArray("cells");
-                if (StrUtil.isBlank(scope == null ? null : scope.getString("scopeKey"))
-                        || cells == null || cells.isEmpty()) {
+                if (StrUtil.isBlank(scope == null ? null : scope.getString("scopeKey"))) {
                     throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, context);
                 }
-                for (int cellIndex = 0; cellIndex < cells.size(); cellIndex++) {
-                    JSONObject cell = cells.getJSONObject(cellIndex);
-                    if (cell == null || cell.getInteger("sourceTableIndex") == null
-                            || cell.getInteger("rowIndex") == null || cell.getInteger("columnIndex") == null) {
-                        throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, context);
-                    }
-                }
+                validateResponsibilityFillableScope(fillableScope, context);
             }
         } catch (RuntimeException ex) {
             if (ex instanceof cn.iocoder.yudao.framework.common.exception.ServiceException) {
@@ -1887,7 +1880,10 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             return;
         }
         MesProEdhrProcessFormPermissionRuleDO legacyRule =
-                processFormPermissionRuleMapper.selectEnabledFillRuleForRouteOrReport(routeProcessId, bindingKey, null);
+                processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(routeProcessId, bindingKey, null)
+                        .stream()
+                        .findFirst()
+                        .orElse(null);
         if (legacyRule != null && legacyRule.getBatchRecordVersionId() == null) {
             throw exception(PRO_EDHR_PROCESS_FORM_PERMISSION_RULE_VERSION_REQUIRED,
                     legacyRule.getRouteProcessId(), legacyRule.getBatchRecordReportId());
@@ -1998,7 +1994,6 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         String sourceVersion = String.valueOf(requireProcessFormResponsibilityVersionId(anchorRule));
         Set<Long> allUserIds = new TreeSet<>();
         List<Map<String, Object>> scopes = new ArrayList<>();
-        List<String> digestParts = new ArrayList<>();
         MesProEdhrCandidateContract singleCandidate = null;
         for (MesProEdhrProcessFormPermissionRuleDO rule : rules) {
             MesProEdhrCandidateContract candidate = candidateResolver.resolveProcessFormRule(rule);
@@ -2011,7 +2006,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 throw exception(PRO_EDHR_WORK_TASK_CANDIDATE_POOL_EMPTY);
             }
             allUserIds.addAll(resolvedUserIds);
-            JSONObject fillableScope = parseRequiredFillableScope(rule);
+            JSONObject fillableScope = parseRequiredFillableScope(rule, batchTask);
             String scopeKey = StrUtil.blankToDefault(StrUtil.trim(rule.getScopeKey()), "ALL");
             Map<String, Object> scope = new LinkedHashMap<>();
             scope.put("scopeKey", scopeKey);
@@ -2020,9 +2015,6 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             scope.put("resolvedUserIds", resolvedUserIds);
             scope.put("fillableScope", fillableScope);
             scopes.add(scope);
-            digestParts.add(scopeKey + "|" + rule.getCandidateSourceType() + "|"
-                    + parseRawIds(rule.getCandidateSourceIds()).stream().sorted().toList() + "|"
-                    + rule.getDueMinutes() + "|" + JSON.toJSONString(fillableScope));
         }
         String candidateSnapshot = allUserIds.stream().map(String::valueOf).collect(Collectors.joining(","));
         MesProEdhrCandidateContract aggregateCandidate = rules.size() == 1
@@ -2034,34 +2026,58 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         snapshot.put("sourceKey", sourceKey);
         snapshot.put("sourceVersion", sourceVersion);
         snapshot.put("scopes", scopes);
+        String snapshotJson = JSON.toJSONString(snapshot);
         return new ProcessFormResponsibilitySnapshot(aggregateCandidate, sourceKey, sourceVersion,
-                "scopes=" + digestParts, JSON.toJSONString(snapshot));
+                "scopes-sha256=" + DigestUtil.sha256Hex(snapshotJson), snapshotJson);
     }
 
-    private JSONObject parseRequiredFillableScope(MesProEdhrProcessFormPermissionRuleDO rule) {
+    private JSONObject parseRequiredFillableScope(MesProEdhrProcessFormPermissionRuleDO rule,
+                                                  MesProEdhrBatchExecutionTaskDO batchTask) {
         String scopeKey = rule == null ? null : StrUtil.blankToDefault(StrUtil.trim(rule.getScopeKey()), "ALL");
-        if (rule == null || StrUtil.isBlank(rule.getFillableScopeJson())) {
+        String fillableScopeJson = isDynamicRouteFormBindingTask(batchTask)
+                ? batchTask.getFillableScopeJson()
+                : rule == null ? null : rule.getFillableScopeJson();
+        if (StrUtil.isBlank(fillableScopeJson)) {
             throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, "scopeKey=" + scopeKey);
         }
         try {
-            JSONObject fillableScope = JSON.parseObject(rule.getFillableScopeJson());
-            JSONArray cells = fillableScope == null ? null : fillableScope.getJSONArray("cells");
-            if (cells == null || cells.isEmpty()) {
-                throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, "scopeKey=" + scopeKey);
-            }
-            for (int i = 0; i < cells.size(); i++) {
-                JSONObject cell = cells.getJSONObject(i);
-                if (cell == null || cell.getInteger("sourceTableIndex") == null
-                        || cell.getInteger("rowIndex") == null || cell.getInteger("columnIndex") == null) {
-                    throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, "scopeKey=" + scopeKey);
-                }
-            }
+            JSONObject fillableScope = JSON.parseObject(fillableScopeJson);
+            validateResponsibilityFillableScope(fillableScope, "scopeKey=" + scopeKey);
             return fillableScope;
         } catch (RuntimeException ex) {
             if (ex instanceof cn.iocoder.yudao.framework.common.exception.ServiceException) {
                 throw ex;
             }
             throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, "scopeKey=" + scopeKey);
+        }
+    }
+
+    private void validateResponsibilityFillableScope(JSONObject fillableScope, String context) {
+        JSONArray cells = fillableScope == null ? null : fillableScope.getJSONArray("cells");
+        JSONArray ranges = fillableScope == null ? null : fillableScope.getJSONArray("ranges");
+        boolean hasCells = cells != null && !cells.isEmpty();
+        boolean hasRanges = ranges != null && !ranges.isEmpty();
+        if (hasCells == hasRanges) {
+            throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, context);
+        }
+        if (hasCells) {
+            for (int i = 0; i < cells.size(); i++) {
+                JSONObject cell = cells.getJSONObject(i);
+                if (cell == null || cell.getInteger("sourceTableIndex") == null
+                        || cell.getInteger("rowIndex") == null || cell.getInteger("columnIndex") == null) {
+                    throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, context);
+                }
+            }
+            return;
+        }
+        for (int i = 0; i < ranges.size(); i++) {
+            JSONObject range = ranges.getJSONObject(i);
+            Integer startRow = range == null ? null : range.getInteger("startRow");
+            Integer endRow = range == null ? null : range.getInteger("endRow");
+            if (range == null || range.getInteger("sourceTableIndex") == null
+                    || startRow == null || endRow == null || startRow > endRow) {
+                throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, context);
+            }
         }
     }
 

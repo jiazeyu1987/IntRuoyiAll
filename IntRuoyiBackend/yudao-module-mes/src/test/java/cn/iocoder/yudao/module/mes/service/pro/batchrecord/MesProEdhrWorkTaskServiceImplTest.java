@@ -172,6 +172,48 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void getMyPage_keepsSharedProcessFormTaskVisibleToSecondCandidateAfterFirstCandidateOpensDetail() {
+        MesProEdhrWorkTaskDO sharedTask = insertFillTask(2004L, 9104L, "shared-assist-candidates")
+                .setAssigneeUserId(99L)
+                .setCandidateSourceType("ASSIST_ROWS")
+                .setCandidateUserSnapshot("99,100")
+                .setResponsibilitySourceType("EDHR_PROCESS_FORM_FILLER")
+                .setResponsibilitySourceKey("ROUTE|7001|REPORT-SHARED|8001")
+                .setResponsibilitySourceVersion("8001")
+                .setResponsibilityScopeJson("""
+                        {"schemaVersion":2,"sourceType":"EDHR_PROCESS_FORM_FILLER","sourceKey":"ROUTE|7001|REPORT-SHARED|8001","sourceVersion":"8001","scopes":[
+                          {"scopeKey":"AR_OPERATOR","resolvedUserIds":[99],"fillableScope":{"cells":[{"sourceTableIndex":0,"rowIndex":0,"columnIndex":1}]}},
+                          {"scopeKey":"AR_REMARK","resolvedUserIds":[100],"fillableScope":{"cells":[{"sourceTableIndex":0,"rowIndex":0,"columnIndex":3}]}}
+                        ]}
+                        """);
+        workTaskMapper.updateById(sharedTask);
+        when(adminUserApi.getUserMap(Set.of(99L, 100L))).thenReturn(Map.of(
+                99L, adminUser(99L, CommonStatusEnum.ENABLE.getStatus()).setNickname("员工甲"),
+                100L, adminUser(100L, CommonStatusEnum.ENABLE.getStatus()).setNickname("员工乙")));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            assertEquals(sharedTask.getId(), workTaskService.getAssignedTaskForDetail(
+                    sharedTask.getId(), sharedTask.getExecutionId(), MesProEdhrWorkTaskService.TASK_TYPE_FILL).getId());
+        }
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(100L);
+            MesProEdhrWorkTaskPageReqVO pageReqVO = new MesProEdhrWorkTaskPageReqVO();
+            pageReqVO.setPageNo(1);
+            pageReqVO.setPageSize(10);
+
+            PageResult<MesProEdhrWorkTaskRespVO> myPage = workTaskService.getMyPage(pageReqVO);
+            MesProEdhrWorkTaskStatsRespVO stats = workTaskService.getStats();
+
+            assertEquals(1L, myPage.getTotal());
+            assertEquals(sharedTask.getId(), myPage.getList().get(0).getId());
+            assertEquals(1L, stats.getTodoCount());
+            assertEquals(1L, stats.getFillCount());
+        }
+    }
+
+    @Test
     void createInitialFillTask_createsAllOptionalCompanionTasksForSameProcess() {
         MesProEdhrBatchExecutionDO batch = batchForInitialFill(3060L, 4160L);
         MesProEdhrBatchExecutionTaskDO mainTask = batchTask(3060L, 9160L, 5160L,
@@ -323,10 +365,12 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         MesProEdhrBatchExecutionTaskDO routeTask = batchTask(3023L, 9123L, 5123L,
                 null, "ROUTE_FORM", "动态过程单", 10)
                 .setFormBindingKey("FB-SLOT-FILLER")
-                .setFormTemplateVersionId(7123L);
+                .setFormTemplateVersionId(7123L)
+                .setFillableScopeJson(routeFormRangeScopeForTables(100, 0, 99999));
         insertBatch(batch);
         batchTaskMapper.insert(routeTask);
-        insertProcessFormFillRule(5123L, "FB-SLOT-FILLER", 8123L, "USERS", "388,389", 180);
+        insertProcessFormFillRule(5123L, "FB-SLOT-FILLER", 8123L,
+                "ALL", "USERS", "388,389", 180, null);
         when(adminUserApi.getUserList(List.of(388L, 389L))).thenReturn(List.of(
                 adminUser(388L, CommonStatusEnum.ENABLE.getStatus()),
                 adminUser(389L, CommonStatusEnum.ENABLE.getStatus())));
@@ -341,6 +385,18 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertEquals("EDHR_PROCESS_FORM_FILLER", fillTask.getResponsibilitySourceType());
         assertEquals("ROUTE|5123|FB-SLOT-FILLER|8123", fillTask.getResponsibilitySourceKey());
         assertEquals("8123", fillTask.getResponsibilitySourceVersion());
+        JSONObject snapshot = JSON.parseObject(fillTask.getResponsibilityScopeJson());
+        JSONObject fillableScope = snapshot.getJSONArray("scopes").getJSONObject(0)
+                .getJSONObject("fillableScope");
+        assertEquals(100, fillableScope.getJSONArray("ranges").size());
+        assertEquals(99999, fillableScope.getJSONArray("ranges").getJSONObject(0).getIntValue("endRow"));
+        assertTrue(fillTask.getResponsibilitySourceDigest().matches("scopes-sha256=[0-9a-f]{64}"));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(388L);
+            assertEquals(fillTask.getId(), workTaskService.getAssignedTaskForDetail(
+                    fillTask.getId(), fillTask.getExecutionId(), MesProEdhrWorkTaskService.TASK_TYPE_FILL).getId());
+        }
     }
 
     @Test
@@ -350,10 +406,12 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         MesProEdhrBatchExecutionTaskDO routeTask = batchTask(3024L, 9124L, 5124L,
                 "FB-SLOT-FILLER-REPORT", "ROUTE_FORM", "动态过程单", 10)
                 .setFormBindingKey("FB-SLOT-FILLER-REPORT")
-                .setFormTemplateVersionId(7124L);
+                .setFormTemplateVersionId(7124L)
+                .setFillableScopeJson(routeFormRangeScope(0, 0, 99999));
         insertBatch(batch);
         batchTaskMapper.insert(routeTask);
-        insertProcessFormFillRule(5124L, "FB-SLOT-FILLER-REPORT", 8124L, "USERS", "488,489", 180);
+        insertProcessFormFillRule(5124L, "FB-SLOT-FILLER-REPORT", 8124L,
+                "ALL", "USERS", "488,489", 180, null);
         when(adminUserApi.getUserList(List.of(488L, 489L))).thenReturn(List.of(
                 adminUser(488L, CommonStatusEnum.ENABLE.getStatus()),
                 adminUser(489L, CommonStatusEnum.ENABLE.getStatus())));
@@ -2168,6 +2226,26 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         return """
                 {"schemaVersion":2,"scopeKey":"%s","cells":[{"sourceTableIndex":%d,"rowIndex":%d,"columnIndex":%d}]}
                 """.formatted(scopeKey, sourceTableIndex, rowIndex, columnIndex).trim();
+    }
+
+    private String routeFormRangeScope(int sourceTableIndex, int startRow, int endRow) {
+        return """
+                {"ranges":[{"sourceTableIndex":%d,"startRow":%d,"endRow":%d}]}
+                """.formatted(sourceTableIndex, startRow, endRow).trim();
+    }
+
+    private String routeFormRangeScopeForTables(int sourceTableCount, int startRow, int endRow) {
+        JSONArray ranges = new JSONArray();
+        for (int sourceTableIndex = 0; sourceTableIndex < sourceTableCount; sourceTableIndex++) {
+            JSONObject range = new JSONObject();
+            range.put("sourceTableIndex", sourceTableIndex);
+            range.put("startRow", startRow);
+            range.put("endRow", endRow);
+            ranges.add(range);
+        }
+        JSONObject scope = new JSONObject();
+        scope.put("ranges", ranges);
+        return JSON.toJSONString(scope);
     }
 
     private void insertArchiveAssignmentRule(Long routeId, Long assigneeUserId, Integer dueMinutes) {

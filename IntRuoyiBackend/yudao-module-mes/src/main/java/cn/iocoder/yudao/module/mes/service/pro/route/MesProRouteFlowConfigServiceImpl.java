@@ -1154,7 +1154,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         if (flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH) {
             boolean explicitBatchBindingSnapshot =
                     Boolean.TRUE.equals(processConfig.getBatchRecordBindingSnapshotExplicit());
-            processConfig.setBatchRecordReports(Collections.emptyList());
+            processConfig.setBatchRecordReports(normalizeBatchRecordReports(processConfig));
             processConfig.setFormBindings(resolveAndNormalizeFormBindings(processConfig));
             processConfig.setBatchRecordBindingSnapshotExplicit(explicitBatchBindingSnapshot ? Boolean.TRUE : null);
         } else {

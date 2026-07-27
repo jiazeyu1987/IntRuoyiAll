@@ -142,9 +142,9 @@ class MesProEdhrWorkTaskLegacyProcessTest {
         when(batchTaskMapper.selectById(BATCH_TASK_ID)).thenReturn(batchTask);
         when(routeProcessService.resolveFrozenRouteProcess(
                 HISTORICAL_ROUTE_PROCESS_ID, ROUTE_ID, HISTORICAL_PROCESS_ID)).thenReturn(frozenRouteProcess);
-        when(processFormPermissionRuleMapper.selectEnabledFillRuleForRouteOrReport(
+        when(processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(
                 HISTORICAL_ROUTE_PROCESS_ID, "RPT-LEGACY", BATCH_RECORD_VERSION_ID))
-                .thenReturn(frozenVersionRule);
+                .thenReturn(List.of(frozenVersionRule));
         when(candidateResolver.resolveProcessFormRule(frozenVersionRule))
                 .thenReturn(new MesProEdhrCandidateResolver.MesProEdhrCandidateContract(
                         "USER", null, "99"));
@@ -162,9 +162,9 @@ class MesProEdhrWorkTaskLegacyProcessTest {
             service.createInitialFillTask(batch);
         }
 
-        verify(processFormPermissionRuleMapper, atLeastOnce()).selectEnabledFillRuleForRouteOrReport(
+        verify(processFormPermissionRuleMapper, atLeastOnce()).selectEnabledFillRulesForRouteOrReport(
                 HISTORICAL_ROUTE_PROCESS_ID, "RPT-LEGACY", BATCH_RECORD_VERSION_ID);
-        verify(processFormPermissionRuleMapper, never()).selectEnabledFillRuleForRouteOrReport(
+        verify(processFormPermissionRuleMapper, never()).selectEnabledFillRulesForRouteOrReport(
                 HISTORICAL_ROUTE_PROCESS_ID, "RPT-LEGACY");
         verify(assignmentRuleMapper, never()).selectEnabledByRouteProcessAndType(
                 HISTORICAL_ROUTE_PROCESS_ID, MesProEdhrWorkTaskService.TASK_TYPE_FILL);

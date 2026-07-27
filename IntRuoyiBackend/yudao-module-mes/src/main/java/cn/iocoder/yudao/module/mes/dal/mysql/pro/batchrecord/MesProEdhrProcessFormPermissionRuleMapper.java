@@ -140,6 +140,18 @@ public interface MesProEdhrProcessFormPermissionRuleMapper
                                                      @Param("batchRecordReportId") String batchRecordReportId,
                                                      @Param("batchRecordVersionId") Long batchRecordVersionId);
 
+    @Delete("""
+            DELETE FROM mes_pro_edhr_process_form_permission_rule
+            WHERE batch_record_report_id = #{batchRecordReportId}
+              AND batch_record_version_id = #{batchRecordVersionId}
+              AND route_process_id <> #{formLevelRouteProcessId}
+              AND rule_type IN ('FILL', 'EQUIPMENT_FILL', 'QUALITY_FILL')
+            """)
+    int physicalDeleteRouteFillRulesByReportAndVersion(
+            @Param("batchRecordReportId") String batchRecordReportId,
+            @Param("batchRecordVersionId") Long batchRecordVersionId,
+            @Param("formLevelRouteProcessId") Long formLevelRouteProcessId);
+
     default Long countByBatchRecordVersionId(Long batchRecordVersionId) {
         return selectCount(MesProEdhrProcessFormPermissionRuleDO::getBatchRecordVersionId, batchRecordVersionId);
     }
