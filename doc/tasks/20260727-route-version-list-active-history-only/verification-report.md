@@ -3,7 +3,7 @@
 ## Summary
 
 - Status: ready_for_closeout
-- Result: PASS for targeted frontend static contracts and TypeScript check.
+- Result: PASS for targeted frontend static contracts, TypeScript check, and real Playwright E2E.
 - Scope: version workspace list hides cancelled route versions.
 
 ## Commands
@@ -39,6 +39,32 @@
 - GREEN: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1`
   - Result: PASS, frontend `8089`, backend `48089`.
 
+- GREEN: `mvn.cmd -pl yudao-server -am -DskipTests package`
+  - Result: PASS.
+  - Output: generated `yudao-server-exec.jar`.
+
+- GREEN: backend runtime start
+  - Result: PASS.
+  - Runtime Jar: `output\runtime\route-version-list-e2e\yudao-server-exec-slot8.jar`.
+  - PID/port: Java PID `65060`, backend `48089`.
+
+- GREEN: `Invoke-RestMethod http://127.0.0.1:48089/actuator/health`
+  - Result: PASS, `status=UP`.
+
+- GREEN: frontend runtime start
+  - Result: PASS.
+  - PID/port: Vite PID `33848`, frontend `8089`, backend proxy `48089`.
+
+- GREEN: `Invoke-WebRequest http://127.0.0.1:8089/`
+  - Result: PASS, HTTP `200`.
+
+- GREEN: `node --check tests\e2e\mes-route-version-list-active-history-only-real.e2e.js`
+  - Result: PASS.
+
+- GREEN: `node tests\e2e\mes-route-version-list-active-history-only-real.e2e.js`
+  - Result: PASS.
+  - Output: `PASS: route version workspace hides cancelled versions; result=...\mes-route-version-list-20260727164419.json`.
+
 - GREEN: `git push origin codex/20260727-route-history-cancelled-version-view`
   - Result: PASS.
   - Remote HEAD: `d1f378930cc5d8608e8b0f973d0543930461a280`.
@@ -53,8 +79,12 @@
 - Filter hides only `CANCELLED`.
 - `DRAFT`, active/effective historical versions, and non-cancelled candidate states remain available.
 - Direct readonly historical version viewer contract remains green.
+- Real UI route `RT000028` / `球囊扩张压力泵` shows effective historical rows `V15`, `V14`, `V13`, `V4`, `V3`, `V2`, `V1`.
+- Real UI version workspace hides cancelled rows `V18`, `V17`, `V16`, `V12`, `V11`, `V10`, `V9`, `V8`, `V7`, `V6`, `V5`.
+- Real E2E recorded `mesWriteRequests=[]`, so verification stayed read-only.
 
 ## Notes
 
 - No backend production code changed.
-- No runtime services or databases were started or modified.
+- Runtime services were started only in the isolated slot 8 worktree for E2E verification: frontend `8089`, backend `48089`.
+- No database writes were performed by the E2E path.

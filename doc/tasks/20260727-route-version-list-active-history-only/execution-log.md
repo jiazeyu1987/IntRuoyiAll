@@ -46,6 +46,33 @@ GREEN: `git diff --check` -> PASS, with CRLF warnings only.
 
 GREEN: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, worktree `int_main slot=8`, frontend `8089`, backend `48089`.
 
+## Real E2E Continuation
+
+GREEN: `mvn.cmd -pl yudao-server -am -DskipTests package` -> PASS, generated `IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`.
+
+GREEN: backend-runtime-start -> PASS, copied Jar to `output\runtime\route-version-list-e2e\yudao-server-exec-slot8.jar` and started Java PID `65060` on `48089` with `--spring.profiles.active=local`.
+
+GREEN: `Invoke-RestMethod http://127.0.0.1:48089/actuator/health` -> PASS, `status=UP`.
+
+GREEN: frontend-runtime-start -> PASS, started Vite PID `33848` on `8089`, proxying backend `48089`.
+
+GREEN: `Invoke-WebRequest http://127.0.0.1:8089/` -> PASS, HTTP `200`.
+
+GREEN: `node --check tests\e2e\mes-route-version-list-active-history-only-real.e2e.js` -> PASS.
+
+GREEN: `node tests\e2e\mes-route-version-list-active-history-only-real.e2e.js` -> PASS.
+
+- Real frontend entry: `http://127.0.0.1:8089/mes/pro/route?code=RT000028`.
+- Backend entry: `http://127.0.0.1:48089`, health `UP`.
+- Tenant/user label: `芋道源码/admin`，password not recorded.
+- Read-only data source: logged-in session GET `/admin-api/mes/pro/route/page` and GET `/admin-api/mes/pro/route-version/list-by-route?routeId=922119`.
+- Target route: `RT000028` / `球囊扩张压力泵` / route ID `922119`.
+- Visible effective versions asserted in UI: `V15 ACTIVE`, `V14 SUPERSEDED`, `V13 SUPERSEDED`, `V4 SUPERSEDED`, `V3 ACTIVE`, `V2 ACTIVE`, `V1 ACTIVE`.
+- Hidden cancelled versions asserted absent from UI: `V18`, `V17`, `V16`, `V12`, `V11`, `V10`, `V9`, `V8`, `V7`, `V6`, `V5`.
+- MES write requests: none (`mesWriteRequests=[]`).
+- Artifact JSON: `output\e2e\route-version-list-active-history-only\mes-route-version-list-20260727164419.json`.
+- Artifact screenshot: `output\e2e\route-version-list-active-history-only\mes-route-version-list-20260727164419.png`.
+
 ## Commit And Closeout
 
 GREEN: implementation-commit -> PASS, `d1f37893 fix: hide cancelled route versions from list`.
@@ -70,9 +97,11 @@ GREEN: experience-preflight -> PASS, no new long-term document needed.
 
 - Existing `docs/frontend-development.md#前端静态契约隔离门禁` covers the focused static contract approach.
 - Existing `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁` covers keeping the older deep-link contract green.
+- Existing `docs/e2e-rules.md#Worktree 隔离运行态 URL 门禁` covers paired slot frontend/backend URL verification for real E2E.
+- Existing `docs/local-runtime.md#2026-07-27 本地后端运行 Jar 不可变门禁` covers copying the backend Jar to `output\runtime\...` before starting the long-running E2E backend.
 - Existing `docs/worktree-memory.md#worktree-前端依赖启动门禁` covers the missing `node_modules` dependency recovery.
 
 ## Current Status
 
-- Implementation and verification complete.
-- Current status: ready_for_closeout; remote branch is pushed, closeout apply / ff-only merge is blocked.
+- Implementation and static + real E2E verification complete.
+- Current status: ready_for_closeout; pending evidence commit/push for the real E2E script and docs, while closeout apply / ff-only merge remains blocked.

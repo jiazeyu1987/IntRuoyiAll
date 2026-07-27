@@ -22,6 +22,7 @@ RED: `node tests/e2e/mes-route-version-list-active-history-only-static.spec.js` 
 ## Regression Tests
 
 - `tests/e2e/mes-route-version-list-active-history-only-static.spec.js`
+- `tests/e2e/mes-route-version-list-active-history-only-real.e2e.js`
 - Existing regression preserved: `tests/e2e/mes-route-cancelled-version-view-static.spec.js`
 
 ## Verification
@@ -36,11 +37,16 @@ GREEN: `node tests/e2e/mes-route-cancelled-version-view-static.spec.js` -> PASS.
 
 GREEN: `pnpm ts:check` -> PASS.
 
+GREEN: `node --check tests\e2e\mes-route-version-list-active-history-only-real.e2e.js` -> PASS.
+
+GREEN: `node tests\e2e\mes-route-version-list-active-history-only-real.e2e.js` -> PASS, route `RT000028` UI shows effective historical versions and hides cancelled versions with `mesWriteRequests=[]`.
+
 ## Risk And Scope
 
 - Scope limited to frontend route-version list presentation and static tests.
 - No backend API contract changed.
 - No fallback, default-success value, or swallowed error added.
+- Real E2E is read-only and records no MES write requests.
 
 ## Blockers And Follow-Up
 

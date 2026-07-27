@@ -10,13 +10,15 @@
 2. `completed`：补充 RED 静态合同，复现 `CANCELLED` 版本仍显示的问题。
 3. `completed`：实现最小前端过滤，不改变后端只读快照读取能力。
 4. `completed`：运行目标静态合同、既有深链合同和类型检查。
-5. `completed`：记录证据、提交并推送任务分支。
+5. `completed`：启动 slot 8 本机前后端并通过真实 Playwright E2E 复验版本工作区。
+6. `completed`：记录证据、提交并推送任务分支。
 
 ## Expected Verification
 
 - 静态合同证明版本列表过滤 `CANCELLED` 版本。
 - 静态合同证明 `DRAFT` 当前草稿、`ACTIVE` 已生效版本和 `SUPERSEDED` 已替代历史版本仍可显示。
 - 既有“已取消历史版本只读查看”静态合同仍通过，保证后端/深链查看能力不被误删。
+- 真实 Playwright E2E 使用本机 slot 8 前端 `http://127.0.0.1:8089` 与后端 `http://127.0.0.1:48089`，从页面打开工艺路线版本工作区，只读断言有效历史版本可见、取消版本不可见、无 MES 写请求。
 
 ## Current Status
 
@@ -25,7 +27,8 @@ ready_for_closeout
 ## Closeout Blocker
 
 - Implementation commit: `d1f37893 fix: hide cancelled route versions from list`。
-- Remote branch pushed: `origin/codex/20260727-route-history-cancelled-version-view`，remote HEAD `d1f378930cc5d8608e8b0f973d0543930461a280`。
+- Remote branch pushed before real E2E continuation: `origin/codex/20260727-route-history-cancelled-version-view`，remote HEAD `778fc54d`。
+- Real E2E continuation added `IntRuoyiFronted/tests/e2e/mes-route-version-list-active-history-only-real.e2e.js`; pending commit/push after evidence validators pass。
 - `task-closeout-cleanup --mode preview` keeps `task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`、`frontend-feature-evidence.md` and deletes nothing。
 - Closeout apply / ff-only merge / worktree removal is blocked because current branch cannot be fast-forward merged into `int_main` and main worktree `E:\IntRuoyi` is dirty。
 

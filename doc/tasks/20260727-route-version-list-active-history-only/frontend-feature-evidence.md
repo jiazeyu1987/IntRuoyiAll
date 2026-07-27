@@ -17,6 +17,7 @@
 - Entry point: MES route list -> row action `版本`.
 - Route/component: `IntRuoyiFronted/src/views/mes/pro/route/index.vue`.
 - Tests: `IntRuoyiFronted/tests/e2e/mes-route-version-list-active-history-only-static.spec.js`.
+- Real E2E: `IntRuoyiFronted/tests/e2e/mes-route-version-list-active-history-only-real.e2e.js`.
 
 ## API Contracts And Data States
 
@@ -45,16 +46,23 @@ GREEN: `node tests/e2e/mes-route-cancelled-version-view-static.spec.js` -> PASS.
 
 GREEN: `pnpm ts:check` -> PASS.
 
+GREEN: `node --check tests\e2e\mes-route-version-list-active-history-only-real.e2e.js` -> PASS.
+
+GREEN: `node tests\e2e\mes-route-version-list-active-history-only-real.e2e.js` -> PASS.
+
 ## Responsive, Accessibility, Loading, Empty, Error, And Permission Checks
 
 - Layout unchanged; only table data source changed.
 - Loading, empty text, error alert, permissions, and row actions remain unchanged.
 - Existing action predicates still control edit/view/submit/cancel visibility for rows that remain displayed.
+- Real E2E used visible route row action `版本`, verified the dialog table, and asserted no MES write requests were sent.
 
 ## E2E Or Component Verification Path
 
 - Static component contract verifies table data source and filter predicate.
 - Existing static contract verifies readonly route-version context handoff remains intact.
+- Real Playwright path: login `芋道源码/admin` -> `/mes/pro/route?code=RT000028` -> row `版本` -> dialog `工艺路线版本`.
+- Real data assertion: visible `V15/V14/V13/V4/V3/V2/V1`; hidden `V18/V17/V16/V12/V11/V10/V9/V8/V7/V6/V5`; `mesWriteRequests=[]`.
 
 ## Blockers And Follow-Up Skills
 
