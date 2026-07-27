@@ -79,7 +79,9 @@
 - `BLOCKER: supplemental runtime cleanup -> 48081 共享后端 PID=54560 正在占用 backend-with-env.stdout.log/backend-with-env.stderr.log，codex-test-runner PID=53624 与后端存在活动连接；为避免中断并行任务，未停止进程，剩余两份运行日志待共享运行态空闲后删除。`
 - `GREEN: project-experience-consolidation refresh -> PASS, 已将 health UP 但 API 因 OutputStreamAppender 锁挂起、长运行日志不得放入 task cleanup 目录等门禁合并到 docs/local-runtime.md，并更新现有经验索引。`
 - `GREEN: supplemental cleanup preview -> PASS, 仅计划删除未锁定的 backend.stderr.log/backend.stdout.log，任务核心文档全部保留，blocked/warnings 均为空。`
-- `GREEN: supplemental cleanup apply -> PASS, 已删除 backend.stderr.log/backend.stdout.log；一次性 form-template-buttons-real-e2e.mjs 已删除，未操作共享后端占用的两份空日志。`
+- `GREEN: supplemental cleanup apply -> PASS, 已删除 backend.stderr.log/backend.stdout.log；一次性 form-template-buttons-real-e2e.mjs 已删除，未操作共享后端占用的两份运行日志。`
+- `GREEN: supplemental evidence commit -> PASS, commit 3cf97ab2，仅包含本任务复验记录、一次性 E2E 脚本删除和本地运行态经验门禁。`
+- `GREEN: supplemental evidence push -> PASS, origin/int_main 已包含 3cf97ab2，推送后分支不再 ahead。`
 
 ## Milestone Updates
 

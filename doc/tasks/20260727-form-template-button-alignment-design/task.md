@@ -82,3 +82,4 @@ ready_for_closeout
 - 最新复验：本机 `8081/48081` 再次验证 `打开 / 编辑 / 填写` 分别进入批记录 `preview / edit / template-simulate`，未绑定模板点击“打开”明确报错且不跳转。
 - 数据恢复：模板版本 `id=29` 的七个批记录绑定字段均已恢复为 `NULL`。
 - 补充清理状态：一次性 E2E 脚本和未锁定日志已删除；共享后端 PID `54560` 正在使用两份重定向日志，且 `codex-test-runner` 存在活动连接，未停止共享进程，状态暂保持 `ready_for_closeout`。
+- 补充复验提交：`3cf97ab2`，已推送到 `origin/int_main`。

@@ -54,6 +54,7 @@
 - `supplemental cleanup`：BLOCKED，两份重定向日志仍被共享后端 PID `54560` 占用，且 `codex-test-runner` PID `53624` 存在活动连接；未停止共享进程。
 - `project-experience-consolidation refresh`：PASS，长期门禁已合并到 `docs/local-runtime.md` 并可由 `docs/experience-index.md` 关键词定位。
 - `task-closeout-cleanup preview/apply refresh`：PASS，仅删除两份未锁定失败启动日志；一次性 E2E 脚本已删除，核心任务文档全部保留，未操作共享后端。
+- `supplemental evidence commit/push`：PASS，提交 `3cf97ab2` 已推送至 `origin/int_main`。
 
 ## Implemented Files
 
