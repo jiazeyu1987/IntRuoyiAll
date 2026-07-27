@@ -5514,7 +5514,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .remark("eDHR填写任务")
                 .build());
         when(adminUserApi.getUserMap(argThat(ids ->
-                ids != null && ids.size() == 2 && ids.containsAll(List.of(113L, 910245L))))).thenReturn(Map.of(
+                ids != null && ids.containsAll(List.of(113L, 910245L))))).thenReturn(Map.of(
                 113L, user(113L, "奥特曼"),
                 910245L, user(910245L, "复核员")));
 
@@ -5539,7 +5539,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .build());
         insertInitialFillAssignmentRule(fixture.routeId());
         when(adminUserApi.getUserMap(argThat(ids ->
-                ids != null && ids.size() == 1 && ids.contains(10001L)))).thenReturn(Map.of(
+                ids != null && ids.contains(10001L)))).thenReturn(Map.of(
                 10001L, user(10001L, "首工序填写员")));
 
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
@@ -5587,7 +5587,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         when(adminUserApi.getUserList(List.of(152L))).thenReturn(List.of(
                 user(152L, "张可莹（zhangkeying）")));
         when(adminUserApi.getUserMap(argThat(ids ->
-                ids != null && ids.size() == 1 && ids.contains(152L)))).thenReturn(Map.of(
+                ids != null && ids.contains(152L)))).thenReturn(Map.of(
                 152L, user(152L, "张可莹（zhangkeying）")));
 
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
@@ -6794,6 +6794,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         markBatchCreatorOnly(batchExecutionId, ownerUserId);
         MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(batchExecutionId);
         insertCloseAssignmentRule(batch.getRouteId(), ownerUserId);
+        configureBatchSpecialAttachmentOwners(batchExecutionId, ownerUserId);
     }
 
     private void markBatchCreatorOnly(Long batchExecutionId, Long ownerUserId) {

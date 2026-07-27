@@ -10,6 +10,7 @@
 - [x] 更新后端回归测试，先证明当前逻辑会把签名日期宽空白单元格误判为普通文本组件。
 - [x] 在批记录 Jimu JSON 生成链路中做最小修复，使签名日期填写格生成 `componentFlag=signature`。
 - [x] 运行定向 Maven 验证和相关证据校验。
+- [x] 将本机 `int_main` 后端 `48081` 刷新到包含该修复的最新 Jar。
 
 ## Expected Verification
 

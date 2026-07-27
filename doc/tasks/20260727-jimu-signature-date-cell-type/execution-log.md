@@ -15,6 +15,13 @@ BDD: 签名日期宽空白单元格生成为电子签名控件 -> Given 批记�
 - Implemented shared builder logic so same-row signature/date blank fill cells bypass wide-blank textarea classification and keep `input-text` while retaining `edhrSignature`.
 - Updated regression test to `MesProBatchRecordReportJsonBuilderTest#build_shouldUseSignatureComponentForWideSignatureDateBlankCell`, proving the remaining defect: the previous fix only produced `input-text`, not electronic signature.
 - Updated `MesProBatchRecordReportJsonBuilder#buildFillForm` so same-row signature/date blank fill cells generate `componentFlag=signature`, while signature-date checkbox fragments still use the existing plain-text path.
+- Runtime refresh requested: update local `int_main` backend `48081` to the latest Jar containing the `componentFlag=signature` fix.
+- Runtime preflight: old `48081` backend PID `5700` belonged to `E:\IntRuoyi\IntRuoyiBackend` and was started before the fix commit; concurrent Maven in the same backend repo was allowed to finish before packaging.
+- Runtime stop: stopped old `int_main` backend PID `5700`.
+- Runtime build: `mvn -pl yudao-server -am "-DskipTests" package` -> PASS, built `E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`.
+- Runtime artifact: SHA256 `AB49C5C5B090383E802E4A352A3881C9BB945B8158F5B117A2C01A906144920D`.
+- Runtime start: started latest backend PID `25696` with `--spring.profiles.active=local --server.port=48081 --yudao.runtime-control.repo-root=E:\IntRuoyi\IntRuoyiBackend`.
+- Runtime verification: `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` -> `status=UP`.
 - Stopped task-owned timed-out Maven/Surefire leftovers from the split regression attempt: PIDs 27408 and 59336. Other local Java runtime processes were left untouched.
 
 ## Verification Evidence
