@@ -11,11 +11,13 @@
 - [x] 编写共享 Word 解析服务系统设计文档。
 - [x] 执行文档结构与 UTF-8 读取验证。
 - [x] 记录验证结果并更新任务状态。
+- [x] 优化开发验证方案，使后续实现可按门禁顺序执行和验收。
 
 ## Expected Verification
 
 - `python -X utf8` 能读取新增 Markdown 文档。
 - `rg` 能定位新增设计文档的关键章节、接口名和保留接口约束。
+- `rg` 能定位优化后的 `Development Verification Plan`、Gate 0-7、RED/GREEN/REGRESSION 和阻塞条件。
 - 不修改生产代码、不触碰既有未提交改动。
 
 ## Current Status
@@ -24,7 +26,7 @@ ready_for_closeout
 
 ## Blockers
 
-- Git final closeout is blocked by pre-existing shared-branch state: `git status --short --branch` reports `int_main...origin/int_main [ahead 8]` plus unrelated dirty/untracked files outside this task. This task did not stage, commit, push, or modify unrelated files.
+- Git final closeout is blocked by pre-existing shared-branch state: `git status --short --branch` reports `int_main...origin/int_main [ahead 10]` plus unrelated dirty/untracked files outside this task. This task did not stage, commit, push, or modify unrelated files.
 
 ## 经验门禁
 

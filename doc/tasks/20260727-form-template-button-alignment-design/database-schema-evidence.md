@@ -40,7 +40,10 @@
 ## Migration Verification
 
 - Static contract verified release metadata, fail-fast table check, additive columns, index, and no destructive SQL keywords.
-- Target-environment migration application not run in this task.
+- Local Docker MySQL verification: `information_schema.COLUMNS` shows `batch_record_report_id`, `batch_record_report_name`, `batch_record_name`, `batch_record_version_no`, `batch_record_form_slot_type`, `batch_record_binding_status`, `batch_record_binding_error`.
+- Local Docker MySQL verification: `information_schema.STATISTICS` shows `idx_bpm_form_template_batch_record_report` on `tenant_id,batch_record_report_id,deleted`.
+- Real E2E fixture verification: template row `id=29` was temporarily bound to an existing tenant-1 batch record report and restored; final check shows `batch_record_report_id IS NULL` and `batch_record_binding_status IS NULL`.
+- Target-environment migration application still must run through release migration workflow before deployment.
 
 ## Blockers
 

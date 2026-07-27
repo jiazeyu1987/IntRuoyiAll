@@ -903,7 +903,7 @@ const resolveSelectedTemplateBatchRecordBinding = () => {
   if (!binding) return null
   const bindingStatus = String(binding.batchRecordBindingStatus || '').trim().toUpperCase()
   const reportId = String(binding.batchRecordReportId || '').trim()
-  if ((bindingStatus && bindingStatus !== 'BOUND') || !reportId) {
+  if (bindingStatus !== 'BOUND' || !reportId) {
     message.error(binding.batchRecordBindingError || '当前模板未绑定批记录表单，无法执行该操作')
     return null
   }

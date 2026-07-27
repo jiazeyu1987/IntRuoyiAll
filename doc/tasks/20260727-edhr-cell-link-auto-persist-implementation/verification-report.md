@@ -1,0 +1,51 @@
+# Verification Report
+
+## Scope
+
+本报告验证 `doc/tasks/20260727-edhr-cell-link-auto-persist-design/` 的实现阶段：后端创建/打开执行记录自动落库单元格链接值，字段审计链保持一致，前端不再用未落库 `/prefill` 结果作为正式草稿值。
+
+## Commands
+
+- PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordCellLinkAutoPersistServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+  - Result: 4 tests, 0 failures, 0 errors.
+- PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordExecutionServiceImplTest,MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordExecutionFieldAuditServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+  - Result: 138 tests, 0 failures, 0 errors.
+- PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_bindsExistingSingleExecutionContext+openTask_withoutProductionTaskContext_stillOpensBatchRecordWithoutScheduleReference+openTask_ignoresSingleWorkOrderProductionTaskWhenOpeningBatchRecord" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+  - Result: 3 tests, 0 failures, 0 errors.
+- PASS: `node tests/e2e/edhr-cell-link-auto-persist-static.spec.js`
+  - Result: `PASS: eDHR cell link auto-persist frontend static contract`.
+- PASS: `git diff --check -- <task-owned implementation files and implementation task docs>`
+  - Result: no whitespace errors; PowerShell/Git reported LF-to-CRLF warnings only.
+
+## Broad Regression Check
+
+- BLOCKED: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+  - Result: 142 tests, 1 failure, 10 errors.
+  - Existing unrelated blockers:
+    - `bpm_form_template_version.batch_record_report_id` missing in H2 test schema for multiple FormCenter route-form tests.
+    - Batch record attachment owner config invalid for `INCOMING_INSPECTION_REPORT` / `batchRecordAttachmentOwners`.
+    - `get_releasePendingApproval_locksNormalTaskActions` expected `[]` but current behavior returned `[OPEN_FORM, SAVE_FORM, SUBMIT]`.
+  - Impact: the broad class cannot be used as completion evidence for this task; targeted eDHR task-open tests covering this implementation passed.
+
+## Evidence Files
+
+- `doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/backend-api-evidence.md`
+- `doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/frontend-feature-evidence.md`
+- `doc/tasks/20260727-edhr-cell-link-auto-persist-implementation/bug-regression-evidence.md`
+
+## Requirement Coverage
+
+- Backend auto-persist on create/open: covered by `MesProBatchRecordCellLinkAutoPersistServiceImplTest` and `MesProBatchRecordExecutionServiceImplTest`.
+- Field audit chain preservation: covered by `MesProBatchRecordExecutionFieldAuditServiceTest` and auto-persist service assertions.
+- Missing production batch code fail-fast: covered by auto-persist service tests.
+- Manual target non-overwrite: covered by auto-persist service tests.
+- Repeated open idempotency: covered by auto-persist service tests with `CELL_LINK_AUTO_PREFILL` idempotency lookup.
+- eDHR task-open response summary: covered by focused `MesProEdhrBatchExecutionServiceTest` target.
+- Frontend removal of unpersisted draft prefill: covered by `edhr-cell-link-auto-persist-static.spec.js`.
+
+## Remaining Closeout
+
+- Run evidence validators.
+- Run task closeout cleanup preview/apply after preserving required evidence files.
+- Perform project experience consolidation before final commit/push.
+- Commit and push are not yet complete; the repository currently has unrelated dirty worktree changes and branch-local commits outside this task, so staging must remain task-owned only unless the project dirty-baseline policy is explicitly applied.

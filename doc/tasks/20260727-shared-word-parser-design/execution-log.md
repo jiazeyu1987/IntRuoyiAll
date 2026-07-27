@@ -34,3 +34,19 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\system-design-docs\scripts\validate_system_design.py --root .` -> PASS.
 - GREEN: `python -X utf8` read check -> PASS for design doc and task records.
 - GREEN: post-optimization cleanup preview/apply -> PASS, keep task core records, delete none, blocked none, warnings none.
+
+## 2026-07-27 Development Verification Plan Optimization
+
+- User intent: 对现有共享 Word parser 设计文档进行优化，重点完成文档里的开发验证方案。
+- BDD: 开发验证方案可执行 -> Given 后续实现需要抽取 shared Word parser When 开发者按设计文档推进 Then 文档必须给出按顺序执行的依赖、parser、等价性、BPM、MES、前端合同和集成回归门禁。
+- BDD: 验证失败必须阻塞 -> Given fixture、依赖边界、权限合同或错误映射缺失 When 任一门禁失败 Then 后续实现不得用 fallback、旧 parser 兜底或人工截图宣称完成。
+- Updated: `docs/system/shared-word-template-parser-design.md`，新增 `Development Verification Plan`，将验证方案拆成 Gate 0-7、RED/GREEN/REGRESSION 顺序和证据要求。
+- GREEN: `python C:\Users\BJB110\.codex\skills\system-design-docs\scripts\validate_system_design.py --root .` -> PASS.
+- GREEN: `rg` development verification keyword check -> PASS, located `Development Verification Plan`, Gate 0, Gate 7, RED/GREEN/REGRESSION, blocker conditions, `STRUCTURAL_CANONICAL`, and `sourceFileNameHash`.
+- GREEN: UTF-8 read check -> PASS for design doc and task records.
+- GREEN: `git diff --check -- docs/system/shared-word-template-parser-design.md doc/tasks/20260727-shared-word-parser-design/task.md doc/tasks/20260727-shared-word-parser-design/execution-log.md doc/tasks/20260727-shared-word-parser-design/verification-report.md` -> PASS with CRLF normalization warnings only.
+- GREEN: final `system-design-docs` validation -> PASS after task record updates.
+- GREEN: final UTF-8 read check -> PASS after task record updates.
+- GREEN: cleanup preview/apply -> PASS, keep task core records, delete none, blocked none, warnings none.
+- Project experience consolidation: rechecked existing long-term experience destinations; `docs/backend-development.md#edhr-批记录-word-表格解析门禁` already covers the reusable shared parser verification constraints, so no new long-term experience document was created.
+- BLOCKER: Git final closeout remains blocked by pre-existing branch state `int_main...origin/int_main [ahead 10]` and unrelated dirty/untracked files outside this task. No staging, commit, push, or unrelated file modification was performed.

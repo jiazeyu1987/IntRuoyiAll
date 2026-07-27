@@ -18,7 +18,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 经验门禁
 
@@ -30,3 +30,12 @@ in_progress
 - 是否引入 fallback/降级/吞异常：否。
 - 是否从根因和长期维护角度解决：是，后端统一从路线开始节点批记录附件负责人配置解析。
 - 是否存在临时补丁或绕过：否。
+
+## Closeout Blocker
+
+- 实现、验证和任务目录清理已完成；主工作区仍有大量并行 dirty 改动且分支 ahead 11，未按本任务执行提交/推送，不能标记 `completed`。
+- 本任务创建的隔离 worktree：`D:\IntRuoyiWorktree\edhr-special-node-filler-e2e-20260727`，用于 8082/48082 真实 E2E；当前含任务自有临时脏改动，删除前需明确授权丢弃该 worktree 临时改动并释放端口登记。
+
+## Cleanup Keep
+
+- doc/tasks/20260727-edhr-special-node-filler-from-route-start/backend-api-evidence.md

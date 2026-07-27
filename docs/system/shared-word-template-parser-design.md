@@ -4,7 +4,7 @@
 
 本设计定义表单中心与 MES 批记录共用 Word 解析能力的目标架构。目标是保留现有业务接口与审批/版本语义，同时把 `.doc` / `.docx` 的表格、段落、页眉页脚、合并单元格、边框、列宽和文本规范化能力下沉到公共模块，由表单中心映射成“表单模板版本”，由批记录映射成“批记录报表”。
 
-范围包含后端模块边界、共享解析契约、现有服务适配方式、错误模型、验证策略、部署影响和开放问题。范围不包含直接合并两个上传接口，也不包含把批记录路线、产品绑定、版本治理逻辑迁入表单中心。
+范围包含后端模块边界、共享解析契约、现有服务适配方式、错误模型、开发验证方案、部署影响和开放问题。范围不包含直接合并两个上传接口，也不包含把批记录路线、产品绑定、版本治理逻辑迁入表单中心。
 
 ## Evidence Reviewed
 
@@ -286,7 +286,42 @@ BPM/MES adapter 不吞共享异常：
 8. 移除重复 POI 解析逻辑或将其标记为 adapter，不保留两套可分叉 parser。
 9. 运行定向回归后再考虑是否暴露解析诊断字段；第一阶段不改前端 API。
 
+## Development Verification Plan
+
+后续实现必须按门禁顺序推进，上一门禁未通过不得进入下一门禁。所有失败都必须保留原始失败命令、失败原因和影响范围，不得以临时 fallback、旧 parser 兜底或人工截图替代自动化证据。
+
+| Gate | 目标 | 必做验证 | 通过标准 | 阻塞条件 |
+| --- | --- | --- | --- | --- |
+| Gate 0 依赖边界 | 先证明模块方向正确 | 新增/运行 Maven 静态契约，检查 parent `modules`、BPM/MES/shared parser `pom.xml` 和依赖树 | shared parser 不依赖 BPM/MES/数据库/Flowable/Jimu；BPM 不依赖 MES；MES 只新增 shared parser 依赖 | 任何循环依赖、shared parser 依赖业务模块、BPM 反向依赖 MES |
+| Gate 1 共享 parser 核心 | 证明 Word 结构化解析能力独立可用 | shared parser 单测覆盖 `.doc`、`.docx`、空文件、非 Word、损坏文件、无内容、表格结构异常 | `WordParseResult` 稳定输出段落、页眉页脚、顶层/拆分表格、合并关系、列宽、边框和脱敏 diagnostics | fixture 缺失、异常被吞、返回空成功、诊断记录原始文件名或原始文本 |
+| Gate 2 canonical profile | 证明 BPM/MES 解析入口一致 | `WordParseProfile.STRUCTURAL_CANONICAL` 合同测试，断言 BPM/MES adapter 均使用同一 profile | 两个业务入口不得通过自定义 options 关闭结构字段；新增 profile 必须有差异性测试 | 任一 adapter 私自关闭段落、表格、合并关系、列宽、边框或 diagnostics |
+| Gate 3 旧新等价 | 证明 MES 迁移不损失现有 parser 能力 | 真实 DOC fixture 与最小合成表格的旧 `MesProBatchRecordDocParser` / shared parser 快照等价测试 | 至少比较表格数、标题、行列数、行高/列宽、合并关系、边框、页眉页脚和单元格文本 | 无真实 DOC fixture、快照漂移未解释、按文件名/模板名写特例 |
+| Gate 4 MES adapter | 证明批记录业务语义不漂移 | `MesProBatchRecordDocParserTest`、`MesProBatchRecordReportServiceImplDbTest`、Controller 权限合同与 Route A/B/D/E/F 定向测试 | `recognize-uploaded`、`upload-extra-slot` URL、请求/响应、当前权限合同、Jimu JSON、布局校准和版本治理不变 | 批记录权限漂移、路线识别退化、报表 JSON 或版本治理失败 |
+| Gate 5 BPM adapter | 证明表单模板导入语义不漂移 | `DefaultWordFormTemplateRecognizer`、`FormCenterRuntimeContractTest`、`FormTemplateLifecycleServiceTest` 定向测试 | `/form-center/templates/import-doc` URL、权限、模板版本生命周期、字段 label 识别和空字段失败语义不变 | 导入失败仍创建版本、错误变通用 500、字段识别低于当前能力 |
+| Gate 6 前端合同 | 证明用户入口不被改写 | 前端静态合同检查 `TemplateApi.importTemplateDoc()`、`BatchRecordReportApi.recognizeUploadedRoute()`、`uploadExtraFormSlot()` | 三个 wrapper 的 URL 和调用入口保持不变；前端不自动改打其它接口 | 表单中心改用 MES URL、批记录改用表单中心 URL、失败后自动切换接口 |
+| Gate 7 集成回归 | 证明迁移完成且无隐藏降级 | 运行 Gate 0-6 全量命令矩阵，汇总 fixture、快照、错误映射和权限合同证据 | 所有定向测试通过，`git diff --check` 通过，任务文档记录 RED/GREEN/REGRESSION | 任一门禁未跑、证据缺失、只靠人工验证或截图宣称完成 |
+
+建议实现任务采用以下 RED/GREEN 顺序：
+
+1. RED：先补依赖方向静态契约和 shared parser fixture 测试，确认当前无 shared module 时失败。
+2. GREEN：新增 shared parser module、模型、异常和 `STRUCTURAL_CANONICAL` profile，使 Gate 0-2 通过。
+3. RED：补旧/新 parser 快照等价测试，锁定现有 MES 表格结构输出。
+4. GREEN：迁移纯 Word 解析到 shared parser，保留 MES adapter 业务映射，使 Gate 3-4 通过。
+5. RED：补 BPM shared parser adapter、错误映射和 runtime 生命周期合同。
+6. GREEN：切换 `DefaultWordFormTemplateRecognizer` 到 shared parser，使 Gate 5 通过。
+7. REGRESSION：运行前端 URL 静态合同和后端定向回归，完成 Gate 6-7。
+
+开发证据必须落在实现任务的 `doc/tasks/<task-id>/execution-log.md` 与 `verification-report.md`，至少包含：
+
+- BDD 场景：共享解析一致性、业务接口不变、无循环依赖、fail-fast 错误映射。
+- RED 证据：依赖门禁、fixture parser、旧/新等价、BPM/MES adapter 中至少一个先失败用例。
+- GREEN 证据：对应 Maven/JUnit/静态合同命令和通过摘要。
+- 回归证据：BPM、MES、前端 URL 合同和 `git diff --check`。
+- 阻塞证据：真实 DOC fixture、权限合同、测试数据或模块依赖缺失时的 fail-fast 说明。
+
 ## Verification Strategy
+
+本节定义测试覆盖面；执行顺序以 `Development Verification Plan` 为准。
 
 共享 parser 单元测试：
 

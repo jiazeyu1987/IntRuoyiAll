@@ -14,11 +14,11 @@
 
 ## Milestones
 
-- [ ] 建立实现任务证据，记录适用门禁和 RED 场景。
-- [ ] 后端补 RED 测试，证明创建/打开执行记录未自动落库。
-- [ ] 实现后端自动落库、字段审计链更新、幂等和错误模型。
-- [ ] 调整前端执行页，移除未落库预填注入，并补静态契约。
-- [ ] 运行目标后端、前端和结构校验，更新证据文档。
+- [x] 建立实现任务证据，记录适用门禁和 RED 场景。
+- [x] 后端补 RED 测试，证明创建/打开执行记录未自动落库。
+- [x] 实现后端自动落库、字段审计链更新、幂等和错误模型。
+- [x] 调整前端执行页，移除未落库预填注入，并补静态契约。
+- [x] 运行目标后端、前端和结构校验，更新证据文档。
 - [ ] 完成经验沉淀、收尾清理、提交并推送。
 
 ## Expected Verification
@@ -31,7 +31,16 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Verification Summary
+
+- PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordCellLinkAutoPersistServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`，4 tests。
+- PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordExecutionServiceImplTest,MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordExecutionFieldAuditServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`，138 tests。
+- PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_bindsExistingSingleExecutionContext+openTask_withoutProductionTaskContext_stillOpensBatchRecordWithoutScheduleReference+openTask_ignoresSingleWorkOrderProductionTaskWhenOpeningBatchRecord" "-Dsurefire.failIfNoSpecifiedTests=false" test`，3 tests。
+- PASS: `node tests/e2e/edhr-cell-link-auto-persist-static.spec.js`。
+- PASS: `git diff --check -- <task-owned implementation files and implementation task docs>`，仅 Windows LF-to-CRLF 提示。
+- BLOCKED for full class regression only: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` 仍有既有无关失败：H2 `bpm_form_template_version.batch_record_report_id` 缺列、批记录附件负责人配置无效、`get_releasePendingApproval_locksNormalTaskActions` 期望差异。
 
 ## 设计约束检查
 

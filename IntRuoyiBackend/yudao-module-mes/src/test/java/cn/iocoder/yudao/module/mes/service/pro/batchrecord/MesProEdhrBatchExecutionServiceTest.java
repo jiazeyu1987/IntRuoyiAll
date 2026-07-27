@@ -96,6 +96,8 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.task.MesProTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.BatchRecordCellLinkAutoPersistResult;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkAutoPersistService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordJimuReportGateway;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
@@ -277,6 +279,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
     @MockitoBean
     private FormCenterRuntimeService formCenterRuntimeService;
+    @MockitoBean
+    private MesProBatchRecordCellLinkAutoPersistService cellLinkAutoPersistService;
 
     @BeforeEach
     void setTenant() {
@@ -2359,12 +2363,21 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO()
                         .setId(9001L)
                         .setCreated(true)
-                        .setStatus(0));
+                        .setStatus(0)
+                        .setCellLinkAutoPersist(new BatchRecordCellLinkAutoPersistResult()
+                                .setExecutionId(9001L)
+                                .setTrigger("TASK_OPEN")
+                                .setAppliedCount(1)
+                                .setConflictCount(0)));
 
         EdhrBatchExecutionTaskOpenRespVO response = openTaskAsFiller(batch.getId(), taskId, workTask.getId());
 
         assertEquals(9001L, response.getExecutionId());
         assertEquals(taskId, response.getTaskId());
+        assertNotNull(response.getCellLinkAutoPersist());
+        assertEquals(9001L, response.getCellLinkAutoPersist().getExecutionId());
+        assertEquals("TASK_OPEN", response.getCellLinkAutoPersist().getTrigger());
+        assertEquals(1, response.getCellLinkAutoPersist().getAppliedCount());
         assertNotNull(response.getExecutionPageQuery());
         assertEquals(workTask.getId(), response.getExecutionPageQuery().get("workTaskId"));
         ArgumentCaptor<MesProBatchRecordExecutionOpenOrCreateByContextReqVO> reqCaptor =

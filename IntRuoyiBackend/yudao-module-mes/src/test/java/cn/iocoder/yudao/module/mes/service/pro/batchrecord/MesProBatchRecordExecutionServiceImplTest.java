@@ -85,6 +85,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.batch.MesWmBatchMapper;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.BatchRecordCellLinkAutoPersistCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.BatchRecordCellLinkAutoPersistResult;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkAutoPersistService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordJimuReportGateway;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
@@ -245,6 +248,8 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
     private MesProRouteProcessService routeProcessService;
     @MockitoBean
     private MesProEdhrRecordbookGlobalSettingService recordbookGlobalSettingService;
+    @MockitoBean
+    private MesProBatchRecordCellLinkAutoPersistService cellLinkAutoPersistService;
 
     @BeforeEach
     void setUpFieldAuditVerification() {
@@ -3549,6 +3554,49 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
         assertEquals(report.getBatchRecordDefinitionId(), resp.getBatchRecordDefinitionId());
         assertEquals(report.getBatchRecordVersionId(), resp.getBatchRecordVersionId());
         assertEquals(routeProcess.getRouteId(), resp.getRouteId());
+    }
+
+    @Test
+    void openOrCreateByContext_autoPersistsCellLinksOnNewExecutionAndReturnsSummary() {
+        MesProWorkOrderDO workOrder = insertWorkOrder();
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .routeId(1001L)
+                .processId(2002L)
+                .sort(1)
+                .batchRecordReportId("report-auto-persist")
+                .remark("auto persist binding")
+                .build();
+        routeProcessMapper.insert(routeProcess);
+        MesProBatchRecordReportDO report = report("report-auto-persist");
+        reportMapper.insert(report);
+        when(jimuReportGateway.getReportJson("report-auto-persist")).thenReturn(sampleEditableReportJson());
+        when(cellLinkAutoPersistService.autoPersist(any(BatchRecordCellLinkAutoPersistCommand.class)))
+                .thenAnswer(invocation -> {
+                    BatchRecordCellLinkAutoPersistCommand command = invocation.getArgument(0);
+                    return new BatchRecordCellLinkAutoPersistResult()
+                            .setExecutionId(command.getExecutionId())
+                            .setTrigger(command.getTrigger())
+                            .setAppliedCount(1)
+                            .setConflictCount(0);
+                });
+
+        MesProBatchRecordExecutionOpenOrCreateByContextRespVO resp = executionService.openOrCreateByContext(
+                new MesProBatchRecordExecutionOpenOrCreateByContextReqVO()
+                        .setWorkOrderId(workOrder.getId())
+                        .setRouteId(routeProcess.getRouteId())
+                        .setRouteProcessId(routeProcess.getId())
+                        .setBatchRecordReportId("report-auto-persist")
+                        .setBatchCode("BATCH-AUTO-PERSIST"));
+
+        assertNotNull(resp.getCellLinkAutoPersist());
+        assertEquals(resp.getId(), resp.getCellLinkAutoPersist().getExecutionId());
+        assertEquals("EXECUTION_CREATE", resp.getCellLinkAutoPersist().getTrigger());
+        assertEquals(1, resp.getCellLinkAutoPersist().getAppliedCount());
+        ArgumentCaptor<BatchRecordCellLinkAutoPersistCommand> commandCaptor =
+                ArgumentCaptor.forClass(BatchRecordCellLinkAutoPersistCommand.class);
+        verify(cellLinkAutoPersistService).autoPersist(commandCaptor.capture());
+        assertEquals(resp.getId(), commandCaptor.getValue().getExecutionId());
+        assertEquals("EXECUTION_CREATE", commandCaptor.getValue().getTrigger());
     }
 
     @Test

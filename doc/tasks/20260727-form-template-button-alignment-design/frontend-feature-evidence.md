@@ -34,8 +34,8 @@
 ## RED And GREEN
 
 - `RED: node tests\e2e\form-template-batch-record-button-alignment-static.spec.js -> FAIL, 类型与三按钮行为未对齐。`
-- `GREEN: node tests\e2e\form-template-batch-record-button-alignment-static.spec.js -> PASS。`
-- `GREEN: pnpm ts:check -> PASS。`
+- `GREEN: node tests\e2e\form-template-batch-record-button-alignment-static.spec.js -> PASS, 已覆盖三按钮使用批记录路由、稳定 reportId、返回标签，以及 BOUND + reportId 双条件。`
+- `GREEN: pnpm ts:check -> PASS, 前端 relaxed TypeScript 检查通过。`
 
 ## UX And Permission Checks
 
@@ -47,8 +47,9 @@
 
 - `node tests\e2e\form-template-batch-record-button-alignment-static.spec.js`：PASS。
 - `pnpm ts:check`：PASS。
+- `real E2E form template 3 buttons`：PASS，使用本地临时绑定夹具从 `/mdm/form-center/template` 真实点击 `打开 / 编辑 / 填写`，分别验证 preview designer、edit designer、template-simulate URL。
 - `git diff --check -- <task-owned files>`：PASS。
 
 ## Blockers And Follow-Up
 
-- 真实 E2E 未运行；需要运行态中准备已绑定 `batchRecordReportId` 的模板行后验收。
+- Closeout 尚未执行；当前工作区存在非本任务脏改动和本地领先提交。

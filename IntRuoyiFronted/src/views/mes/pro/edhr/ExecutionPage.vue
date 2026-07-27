@@ -4031,35 +4031,6 @@ const formatCellLinkPrefillSource = (item?: BatchRecordCellLinkPrefillItemVO) =>
   return sourceCell ? `${sourceName} / ${sourceCell}` : sourceName
 }
 
-const normalizeCellLinkPrefillDraftValue = (
-  item: BatchRecordCellLinkPrefillItemVO,
-  field: NormalizedSnapshotField
-): DraftFieldValue => {
-  if (item.value == null) {
-    return null
-  }
-  if (isSingleChoiceCheckboxField(field)) {
-    return String(item.value)
-  }
-  if (field.componentKind === 'checkbox') {
-    return String(item.value).toLowerCase() === 'true'
-  }
-  if (field.componentKind === 'number') {
-    const numericValue = Number(item.value)
-    if (!Number.isFinite(numericValue)) {
-      throw new Error(
-        `跨表单链接规则 ${item.ruleId || '--'} 带入 ${field.label} 时返回非数字值，不能预填。`
-      )
-    }
-    return numericValue
-  }
-  if (field.valueType === 'DATE' || field.valueType === 'DATETIME') {
-    const text = String(item.value).trim()
-    return text ? text : null
-  }
-  return String(item.value)
-}
-
 const hydrateStoredDraftValue = (
   value: unknown,
   field: NormalizedSnapshotField

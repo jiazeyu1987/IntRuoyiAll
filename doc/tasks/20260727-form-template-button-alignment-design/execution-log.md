@@ -32,9 +32,22 @@
 - `GREEN: node tests\e2e\form-template-batch-record-button-alignment-static.spec.js -> PASS, 表单模板三按钮静态合同通过。`
 - `GREEN: mvn.cmd -pl yudao-module-bpm "-Dtest=FormCenterTemplateBatchRecordBindingContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, BPM 合同测试 3 项通过。`
 - `GREEN: pnpm ts:check -> PASS, 前端 relaxed TypeScript 检查通过。`
+- `GREEN: docker information_schema columns -> PASS, 本地 Docker MySQL 的 bpm_form_template_version 已包含 7 个 batch_record_* 新增字段。`
+- `GREEN: docker information_schema statistics -> PASS, 本地 Docker MySQL 已存在 idx_bpm_form_template_batch_record_report(tenant_id,batch_record_report_id,deleted)。`
+- `REGRESSION: real-login template-pool probe -> FAIL, /mdm/form-center/template 页面入口可访问且 /form-center/template-pool 返回 code=0、rowCount=5，但当前 48081 原始 jar 响应首行不包含 batchRecord* 绑定字段，boundRowCount=0。`
+- `REGRESSION: clean HEAD yudao-server package -> FAIL, 从 git archive HEAD 创建的干净快照执行 mvn.cmd -pl yudao-server -am "-DskipTests" package，在 yudao-module-mes 编译失败：MesProBatchRecordExecutionFieldAuditServiceImpl 缺少 currentUserId/goldenFingerMode。`
+- `REGRESSION: BPM-only patched runtime jar -> FAIL, 仅替换 yudao-module-bpm 后启动失败，旧 CRM 模块仍引用 BpmProcessInstanceStatusEventListener。`
+- `REGRESSION: clean-built-module patched runtime jar -> FAIL, 替换干净快照中已编译的 24 个模块后启动失败，旧 MES 模块仍引用 ApprovalTaskProvider。`
+- `GREEN: restore original backend runtime -> PASS, 已恢复 E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar，48081 health=UP，PID=67500。`
+- `GREEN: clean snapshot plus MES compile fix yudao-server package -> PASS, 临时构建快照仅补 MesProBatchRecordExecutionFieldAuditServiceImpl 中 currentUserId/goldenFingerMode 作用域编译修复后，mvn.cmd -pl yudao-server -am "-DskipTests" package 成功。`
+- `GREEN: runtime jar startup -> PASS, 48081 已启动 E:\IntRuoyi\.runtime\form-template-button-alignment-20260727113740\yudao-server-exec-clean-snapshot-plus-mes-compile-fix.jar，SHA256=3F1A0FF05DF94A1D2E67C9A3F2B5F038BADD484F8EBB37FC00F063BC08C73487，health=UP，PID=10456。`
+- `GREEN: real-login template-pool probe -> PASS, /mdm/form-center/template 页面入口可访问，/form-center/template-pool 返回新增 batchRecord* 字段。`
+- `GREEN: real E2E form template 3 buttons -> PASS, 临时绑定模板行 id=29 到 reportId=45144f68db034fb9bbd01179c7cee59b 后，页面点击 打开/编辑/填写 分别进入 preview designer、edit designer、template-simulate 路由。`
+- `GREEN: fixture restore -> PASS, bpm_form_template_version id=29 的 batch_record_report_id 与 batch_record_binding_status 已恢复为 NULL。`
 - `GREEN: frontend/backend/database evidence validators -> PASS, 三份技能证据文档校验通过。`
 - `GREEN: python -X utf8 docs read -> PASS, 任务目录 Markdown 均可 UTF-8 读取。`
 - `GREEN: task-owned trailing whitespace scan -> PASS, 本任务新增/修改文件均无尾随空白。`
+- `GREEN: project-experience-consolidation -> PASS, 已核对现有 docs/frontend-development.md、docs/e2e-rules.md、docs/local-runtime.md、docs/powershell-memory.md；本次无新增长期经验归档，现有门禁已覆盖无关 ts:check 阻塞和旧 jar 运行态核对。`
 
 ## Milestone Updates
 
@@ -42,8 +55,12 @@
 - 根因定位完成：表单模板响应缺少稳定 `reportId`，不能安全直接复用批记录按钮链路。
 - 设计完成：要求后端先暴露正式映射，前端再复用批记录三按钮路由与接口。
 - 实现完成：`bpm_form_template_version` 新增显式绑定摘要字段，模板池响应映射这些字段；表单模板 `打开 / 编辑 / 填写` 改为使用 `batchRecordReportId` 进入批记录表单设计器预览、编辑和模板模拟填写页。
+- 文档校准完成：前端、后端 API、数据模型、配置安全部署设计文档已改为已落地方案，去除“推荐映射表/独立详情接口/实现前 blocker”的旧口径。
+- 本地 schema 核对完成：Docker MySQL 已应用新增字段和索引；目标环境仍需走 release migration 流程。
+- 前端回归完成：任务静态合同和全量 `pnpm ts:check` 均已通过。
+- 运行态核对完成：48081 已加载包含新增模板池字段的完整 server jar，真实页面三按钮点击 E2E 通过，临时本地夹具已恢复。
 
 ## Blockers
 
-- 当前工作区已有本地提交领先 `origin/int_main`，且存在非本任务 MES 脏改动；验证后分支显示领先 `origin/int_main` 9 个提交。本任务暂不执行提交/推送，避免混入无关任务状态。
-- 真实页面 E2E 尚未执行；需要运行态存在已绑定 `batchRecordReportId` 的表单模板数据后再验收三按钮真实点击路径。
+- 当前工作区已有本地提交领先 `origin/int_main`，且存在非本任务 MES/批记录组件脏改动；验证后分支显示领先 `origin/int_main` 11 个提交。本任务暂不执行提交/推送，避免混入无关任务状态。
+- Closeout 尚未执行：需要清理或保留说明本次 `.runtime` 运行态 jar 与 `D:\IntRuoyiWorktree\form-template-button-build-20260727` 临时构建快照，再按项目规则处理提交/推送。

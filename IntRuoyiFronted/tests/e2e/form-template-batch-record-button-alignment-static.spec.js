@@ -42,6 +42,11 @@ assert.match(templatePage, /reportMode:\s*mode/, '打开/编辑必须传递批�
 assert.match(templatePage, /reportId:\s*binding\.batchRecordReportId/, '三按钮必须使用后端返回的稳定 reportId')
 assert.match(templatePage, /returnLabel:\s*'返回表单模板'/, '填写页返回标签必须指向表单模板')
 assert.match(templatePage, /当前模板未绑定批记录表单/, '缺少 reportId 时必须 fail fast 提示绑定缺失')
+assert.match(
+  templatePage,
+  /bindingStatus\s*!==\s*'BOUND'\s*\|\|\s*!reportId/,
+  '三按钮必须同时要求绑定状态为 BOUND 且 reportId 存在'
+)
 
 const openSelectedTemplateBody = templatePage.match(/const\s+openSelectedTemplate\s*=[\s\S]*?\n}\n/)?.[0] || ''
 const editSelectedTemplateBody = templatePage.match(/const\s+editSelectedTemplate\s*=[\s\S]*?\n}\n/)?.[0] || ''

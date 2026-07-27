@@ -420,8 +420,7 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 ? executionMapper.selectActiveByBatchShared(reqVO.getBatchExecutionId(), sharedFormKey, batchCode,
                         ACTIVE_EXECUTION_STATUSES)
                 : executionMapper.selectActiveByContext(
-                        reqVO.getBatchExecutionId(), reqVO.getTaskId(), workOrder.getId(),
-                        routeProcess.getId(), batchRecordReportId, batchCode,
+                        workOrder.getId(), routeProcess.getId(), batchRecordReportId, batchCode,
                         ACTIVE_EXECUTION_STATUSES);
         if (existing != null) {
             BatchRecordCellLinkAutoPersistResult autoPersist = cellLinkAutoPersistService.autoPersist(
@@ -436,14 +435,14 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
         String activeContextKey = INSTANCE_SCOPE_BATCH_SHARED.equals(instanceScope)
                 ? buildBatchSharedActiveContextKey(workOrder.getId(), reqVO.getBatchExecutionId(),
                         batchRecordReportId, sharedFormKey, batchCode)
-                : buildActiveContextKey(workOrder.getId(), reqVO.getTaskId(), routeProcess.getId(),
+                : buildActiveContextKey(workOrder.getId(), null, routeProcess.getId(),
                         null, batchRecordReportId, batchCode);
         MesProBatchRecordExecutionDO execution = MesProBatchRecordExecutionDO.builder()
                 .executionCode("BRE-PENDING-" + System.nanoTime())
                 .workOrderId(workOrder.getId())
                 .workOrderCode(workOrder.getCode())
                 .routeProcessId(routeProcess == null ? null : routeProcess.getId())
-                .taskId(reqVO.getTaskId())
+                .taskId(null)
                 .workstationId(null)
                 .batchRecordReportId(batchRecordReportId)
                 .batchRecordDefinitionId(report.getBatchRecordDefinitionId())

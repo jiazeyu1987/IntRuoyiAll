@@ -15,6 +15,16 @@
 - `node tests\e2e\form-template-batch-record-button-alignment-static.spec.js`：PASS，表单模板三按钮不再引用旧弹窗/本页编辑/本页模拟填写入口。
 - `mvn.cmd -pl yudao-module-bpm "-Dtest=FormCenterTemplateBatchRecordBindingContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`：PASS，BPM 合同测试 3 项通过。
 - `pnpm ts:check`：PASS，前端 relaxed TypeScript 检查通过。
+- `docker information_schema.columns`：PASS，本地 Docker MySQL 的 `bpm_form_template_version` 已包含 7 个 `batch_record_*` 新增字段。
+- `docker information_schema.statistics`：PASS，本地 Docker MySQL 已存在 `idx_bpm_form_template_batch_record_report(tenant_id,batch_record_report_id,deleted)`。
+- `real-login template-pool probe`：FAIL/BLOCKED，页面 `/mdm/form-center/template` 可访问，模板池接口 code=0 且 rowCount=5，但当前 48081 原始 jar 首行不含新增绑定字段且 boundRowCount=0。
+- `mvn.cmd -pl yudao-server -am "-DskipTests" package` on clean HEAD snapshot：FAIL，`yudao-module-mes` 编译错误阻止生成完整 server jar。
+- `runtime jar patch attempts`：FAIL，BPM-only patch 与旧 CRM 不兼容，clean-built-module patch 与旧 MES 不兼容；已恢复原始后端 jar 且 health=UP。
+- `mvn.cmd -pl yudao-server -am "-DskipTests" package` on clean snapshot + MES compile fix：PASS，生成完整 `yudao-server-exec.jar`。
+- `runtime jar startup`：PASS，48081 运行 `yudao-server-exec-clean-snapshot-plus-mes-compile-fix.jar`，SHA256=`3F1A0FF05DF94A1D2E67C9A3F2B5F038BADD484F8EBB37FC00F063BC08C73487`，health=UP。
+- `real-login template-pool probe`：PASS，页面 `/mdm/form-center/template` 可访问，模板池接口返回新增 `batchRecord*` 字段。
+- `real E2E form template 3 buttons`：PASS，临时绑定模板行 `id=29` 到 reportId `45144f68db034fb9bbd01179c7cee59b` 后，真实点击 `打开 / 编辑 / 填写` 分别进入批记录 preview designer、edit designer、template-simulate 路由。
+- `fixture restore`：PASS，`bpm_form_template_version.id=29` 的 `batch_record_report_id` 与 `batch_record_binding_status` 已恢复为 NULL。
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence ...\frontend-feature-evidence.md`：PASS。
 - `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence ...\backend-api-evidence.md`：PASS。
 - `python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence ...\database-schema-evidence.md`：PASS。
@@ -32,10 +42,10 @@
 
 ## Required Follow-Up Verification
 
-- 真实 E2E：在运行态准备一个已绑定 `batchRecordReportId` 的表单模板，分别点击 `打开 / 编辑 / 填写`，验证页面路由和请求与批记录表单一致。
-- 迁移应用：在目标环境执行 release migration 后，用 `information_schema.columns/statistics` 只读核对新增字段和索引。
+- 目标环境迁移：在目标环境执行 release migration 后，用 `information_schema.columns/statistics` 只读核对新增字段和索引。
+- 目标环境 E2E：使用正式绑定数据或授权测试数据复验三按钮真实点击路径。
 
 ## Blockers
 
-- 当前工作区存在非本任务 MES 脏改动，且分支领先 `origin/int_main` 9 个提交；本任务未提交、未推送，避免混入无关任务状态。
-- 真实页面 E2E 未运行，因为当前验证未启动本地运行态，也未准备可追溯的已绑定模板业务数据。
+- 当前工作区存在非本任务 MES/文档脏改动，且分支领先 `origin/int_main` 11 个提交；本任务未提交、未推送，避免混入无关任务状态。
+- Closeout 尚未执行：需处理本任务临时构建快照和 `.runtime` 运行态 jar 的保留/清理策略，再按项目规则提交、推送。

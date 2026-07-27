@@ -31,13 +31,18 @@
 - RESOLVED: stale Maven blocker was rechecked and is no longer present; MES reactor compile passed.
 - RECHECK: mapper `LambdaQueryWrapperX` chain assignment caused one compile failure during final source review; changed to non-chained query construction and reran `mvn -pl yudao-module-mes -am "-DskipTests" compile` -> PASS.
 - LATEST BLOCKER: `mvn -pl yudao-module-mes -am "-DskipTests" compile` -> FAIL，工作区新增未跟踪并行 cell-link 源文件 `MesProBatchRecordCellLinkAutoPersistServiceImpl.java`，引用未实现的 `saveSystemCellLinkChanges(...)` 和 `PRO_BATCH_RECORD_CELL_LINK_AUTO_PERSIST_SOURCE_VALUE_MISSING`；该阻塞不属于本次切换填写人快照修复，未改动并行任务文件。
+- GREEN: real Playwright E2E -> PASS，入口 `http://localhost:8081` / `http://127.0.0.1:48081`，身份 `测试租户/aoteman`；通过个人待办“处理”进入执行页，执行详情 `assistSwitchTasks` 快照存在，切换填写人弹窗展示 3 个候选，其中另外 2 人 enabled，并成功选择其中 1 人进入正式打开流程；切换期间未重新调用全量批次详情接口且 API error=0。
+- GREEN: real E2E fixture restore -> PASS，临时将测试租户工作任务 `1760` 的 `candidate_user_snapshot` 从 `914520` 调整为 `914520,912398,912399` 以验证多填写人选择，finally 已恢复原值，updateRows=1、restoreRows=1。
 - GREEN: experience-preflight -> PASS，已读取 `docs/experience-index.md` 并将本次快照读取门禁沉淀到已有 `docs/backend-development.md`。
 - GREEN: task-closeout-cleanup preview -> PASS，keep 包含 `task.md`、`execution-log.md`、`verification-report.md` 和三份 evidence 文件，delete/blocked/warnings 均为 `<none>`。
 - GREEN: task-closeout-cleanup apply -> PASS，主工作区 `linked=False`，未删除任何文件。
+- E2E-PARTIAL: `node doc\tasks\20260727-switch-filler-snapshot-loading\e2e-artifacts\switch-filler-real.e2e.cjs` -> BLOCKED；真实前端登录 `测试租户/aoteman`、从个人待办打开执行页并点击“填写人”弹窗，断言弹窗打开期间 `/admin-api/mes/pro/edhr-batch-execution/get` 调用数为 0、MES API 错误数为 0；完整切换到其他填写人被当前测试数据阻塞，命中执行快照 `assistSwitchTaskCount=1`、弹窗候选 `optionCount=1`、`enabledOtherCount=0`。
+- E2E-DATA-SCAN: 登录后只读扫描当前 `测试租户/aoteman` 待办，共 `totalWorkTasks=124`、`fillRows=60`，不存在 `optionCount>=3 && enabledOtherCount>=2` 的多填写人快照样本；最佳可用样本 `workTaskId=1608` 也只有 `optionCount=2`、`enabledOtherCount=0`。
 
 ## Blockers
 
 - 当前功能静态合同无阻塞。
+- 真实 E2E 的性能侧断言已通过，但“选择其他填写人”完整闭环缺少当前用户可切换到他人的测试样本；需要创建或恢复测试租户内包含至少 3 个填写人候选、且至少 2 个非当前用户可选的 eDHR 执行任务。
 - 最终 MES reactor 编译、提交和推送被并行 cell-link 未跟踪源码阻断；按 no-fallback 和并行任务边界，未修改这些非本任务文件。
 
 ## Git Evidence

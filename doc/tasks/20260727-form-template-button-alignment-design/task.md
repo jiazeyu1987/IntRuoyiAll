@@ -11,6 +11,9 @@
 - [x] 阻塞项识别：明确表单模板响应当前缺少稳定批记录 `reportId` 映射。
 - [x] 文档输出：生成任务级系统设计文档，供后续实现按 BDD/TDD 执行。
 - [x] 实现与验证：补齐显式批记录绑定字段、迁移 SQL、前端三按钮同源批记录路由，并通过任务专用合同验证。
+- [x] 文档校准：将设计文档从“推荐映射表/待定接口”更新为已落地的 `bpm_form_template_version` 显式绑定字段方案。
+- [x] 运行态前置核对：本地 schema 已应用，前端入口可登录访问；当前 48081 原始 jar 尚未加载新增响应字段。
+- [x] 真实 E2E：使用临时可回滚本地夹具，逐个点击 `打开 / 编辑 / 填写` 并验证路由与批记录表单一致。
 - [ ] Closeout：受当前工作区已有非本任务脏改动和本地领先提交影响，暂不执行提交/推送。
 
 ## Expected Verification
@@ -23,7 +26,7 @@
 
 ## Current Status
 
-implementation_verified_closeout_blocked_by_workspace_state
+ready_for_closeout
 
 ## 经验门禁
 
@@ -48,3 +51,13 @@ implementation_verified_closeout_blocked_by_workspace_state
 - `doc/tasks/20260727-form-template-button-alignment-design/frontend-feature-evidence.md`
 - `doc/tasks/20260727-form-template-button-alignment-design/backend-api-evidence.md`
 - `doc/tasks/20260727-form-template-button-alignment-design/database-schema-evidence.md`
+
+## Cleanup Keep
+
+- doc/tasks/20260727-form-template-button-alignment-design/frontend-design.md
+- doc/tasks/20260727-form-template-button-alignment-design/backend-api-design.md
+- doc/tasks/20260727-form-template-button-alignment-design/data-model.md
+- doc/tasks/20260727-form-template-button-alignment-design/config-security-deployment.md
+- doc/tasks/20260727-form-template-button-alignment-design/frontend-feature-evidence.md
+- doc/tasks/20260727-form-template-button-alignment-design/backend-api-evidence.md
+- doc/tasks/20260727-form-template-button-alignment-design/database-schema-evidence.md

@@ -16,6 +16,7 @@
 
 - 定向静态测试先 RED 后 GREEN，覆盖“切换填写人使用执行详情快照且不再调用批次详情接口”的行为。
 - 受影响前后端代码通过相关定向验证。
+- 真实 Playwright E2E 覆盖个人待办、执行详情、切换填写人弹窗、另外 2 个候选可选择和无全量批次详情重载。
 - 若真实页面 E2E 前置条件不足，记录缺失前置条件和影响，不用 API-only 或 mock 代替真实路径。
 
 ## Current Status
@@ -56,8 +57,10 @@ blocked
 - doc/tasks/20260727-switch-filler-snapshot-loading/real-e2e-evidence.md
 - doc/tasks/20260727-switch-filler-snapshot-loading/e2e-artifacts/switch-filler-real.e2e.cjs
 - doc/tasks/20260727-switch-filler-snapshot-loading/e2e-artifacts/switch-filler-real-result.json
+- doc/tasks/20260727-switch-filler-snapshot-loading/e2e-artifacts/switch-filler-fixture-adjustment.json
 
 ## Current Blocker
 
 - `mvn -pl yudao-module-mes -am "-DskipTests" compile` 当前被工作区内未跟踪的并行 cell-link 源文件阻断：`MesProBatchRecordCellLinkAutoPersistServiceImpl.java` 引用了尚未提交/实现的 `saveSystemCellLinkChanges(...)` 和 `PRO_BATCH_RECORD_CELL_LINK_AUTO_PERSIST_SOURCE_VALUE_MISSING`。
-- 影响：本次“切换填写人”静态合同已通过，但按项目门禁不能在 MES reactor 编译失败时提交、推送或标记最终完成。
+- 真实 E2E 性能侧断言已通过：`测试租户/aoteman` 真实页面打开“填写人”弹窗时全量批次详情接口调用数为 `0`；完整选择其他填写人闭环被测试数据阻塞，当前待办不存在 `optionCount>=3 && enabledOtherCount>=2` 的多填写人快照样本。
+- 影响：本次“切换填写人”静态合同和真实页面性能断言已通过，但按项目门禁不能在 MES reactor 编译失败或完整 E2E 样本缺失时标记最终完成。

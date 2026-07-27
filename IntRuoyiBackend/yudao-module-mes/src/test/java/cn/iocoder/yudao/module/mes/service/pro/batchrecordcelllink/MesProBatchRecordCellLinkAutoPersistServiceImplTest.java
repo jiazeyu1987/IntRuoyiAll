@@ -2,9 +2,11 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkPrefillItemVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkPrefillRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionFieldAuditBatchDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionFieldAuditBatchMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditChange;
@@ -35,9 +37,9 @@ class MesProBatchRecordCellLinkAutoPersistServiceImplTest {
 
     @Mock
     private MesProBatchRecordExecutionMapper executionMapper;
-        @Mock
+    @Mock
     private MesProBatchRecordExecutionFieldAuditBatchMapper auditBatchMapper;
-@Mock
+    @Mock
     private MesProBatchRecordCellLinkService cellLinkService;
     @Mock
     private MesProBatchRecordExecutionFieldAuditService fieldAuditService;
@@ -139,6 +141,46 @@ class MesProBatchRecordCellLinkAutoPersistServiceImplTest {
         assertEquals(1, result.getConflictCount());
         assertEquals("TARGET_ALREADY_MANUAL", result.getItems().get(0).getStatus());
         verify(fieldAuditService, never()).saveSystemCellLinkChanges(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void autoPersist_existingAutoAppliedValueIsIdempotentAndDoesNotAppendAuditBatch() {
+        TenantContextHolder.setTenantId(122L);
+        try {
+            String existingJson = JsonUtils.toJsonString(List.of(Map.of(
+                    "rowIndex", 3,
+                    "columnIndex", 3,
+                    "value", "34126020001"
+            )));
+            MesProBatchRecordExecutionDO execution = draftExecution(existingJson);
+            BatchRecordCellLinkPrefillItemVO alreadyApplied = productionBatchCodePrefill("34126020001")
+                    .setStatus("TARGET_ALREADY_MANUAL");
+            when(executionMapper.selectById(9001L)).thenReturn(execution);
+            when(cellLinkService.getPrefill(9001L, 8101L)).thenReturn(new BatchRecordCellLinkPrefillRespVO()
+                    .setTargetExecutionId(9001L)
+                    .setPrefills(List.of())
+                    .setConflicts(List.of(alreadyApplied)));
+            when(auditBatchMapper.selectByIdempotencyKey(
+                    org.mockito.ArgumentMatchers.eq(122L),
+                    org.mockito.ArgumentMatchers.eq(9001L),
+                    org.mockito.ArgumentMatchers.anyString()))
+                    .thenReturn(MesProBatchRecordExecutionFieldAuditBatchDO.builder()
+                            .id(7001L)
+                            .executionId(9001L)
+                            .build());
+
+            BatchRecordCellLinkAutoPersistResult result = service.autoPersist(new BatchRecordCellLinkAutoPersistCommand()
+                    .setExecutionId(9001L)
+                    .setWorkTaskId(8101L)
+                    .setTrigger("TASK_OPEN"));
+
+            assertEquals(0, result.getAppliedCount());
+            assertEquals(0, result.getConflictCount());
+            assertEquals("NO_CHANGE_ALREADY_APPLIED", result.getItems().get(0).getStatus());
+            verify(fieldAuditService, never()).saveSystemCellLinkChanges(org.mockito.ArgumentMatchers.any());
+        } finally {
+            TenantContextHolder.clear();
+        }
     }
 
     private MesProBatchRecordExecutionDO draftExecution(String cellValuesJson) {
