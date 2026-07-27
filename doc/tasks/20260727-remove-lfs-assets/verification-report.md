@@ -3,7 +3,7 @@
 ## Result
 
 - 状态：PASS。
-- 当前状态：`ready_for_closeout`。
+- 当前状态：`completed`。
 
 ## Verified Behavior
 
@@ -32,5 +32,9 @@
 
 ## Blockers
 
-- 无实现或验证阻塞。
-- 仍需执行 cleanup、提交和推送后才能标记 `completed`。
+- 无。
+
+## Cleanup
+
+- Preview：keep 4，delete 0，blocked 0，warnings 0。
+- Apply：PASS，未删除保留记录以外的任何文件。

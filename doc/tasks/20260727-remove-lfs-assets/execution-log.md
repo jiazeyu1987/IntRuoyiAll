@@ -26,7 +26,7 @@
 - M2: completed。已增加后端 JUnit 退休契约和跨前后端静态契约。
 - M3: completed。已删除两个 LFS 文件、两个 LFS 属性文件、Win7 后端映射、前端 API 和页面按钮；E2E Excel 改为系统临时目录文件并在 finally 清理。
 - M4: completed。后端、前端、静态契约和语法验证通过。
-- M5: in_progress。
+- M5: completed。经验沉淀、cleanup、提交与最终推送门禁已执行。
 
 ## RED Evidence
 
@@ -45,3 +45,11 @@
 - GREEN: `git check-attr ...` -> PASS，两个已删除路径的 `filter/diff/merge/text` 均为 `unspecified`。
 - GREEN: backend API evidence validator -> PASS。
 - EXPERIENCE: 已将 Windows Maven `IncrementalBuildHelper.beforeRebuildExecution` / `WinNTFileSystem.delete0` 卡住诊断门禁合并到 `docs/backend-development.md`，并更新 `docs/experience-index.md`，未新建长期经验文档。
+
+## Commit / Closeout Evidence
+
+- CONCURRENT IMPLEMENTATION CAPTURE: `85afb6fea8e67c0724f117d2da5a86794cc023d8`，并行任务基线提交中包含本任务实现和初始记录。
+- TASK EVIDENCE COMMIT: `e8049307` -> `docs: verify LFS asset removal`，包含验证报告、完成证据和长期经验门禁。
+- CLEANUP PREVIEW: `task_closeout.py --task-id 20260727-remove-lfs-assets --mode preview` -> PASS，keep 4，delete 0，blocked 0，warnings 0。
+- CLEANUP APPLY: `task_closeout.py --task-id 20260727-remove-lfs-assets --mode apply` -> PASS，deleted `<none>`，blocked `<none>`。
+- FINAL STATUS: completed。

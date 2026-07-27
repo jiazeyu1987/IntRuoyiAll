@@ -44,6 +44,7 @@
 
 ## Current Status
 
-- Status: ready_for_closeout
-- 当前里程碑：M5。
-- 实现和必需验证已完成，等待经验沉淀、cleanup、提交与推送。
+completed
+
+- 当前里程碑：M5 completed。
+- 最终结果：两个 LFS 资产、专用 LFS 属性、Win7 下载前后端入口均已删除；Excel 改为临时文件并清理；验证和 cleanup 通过。
