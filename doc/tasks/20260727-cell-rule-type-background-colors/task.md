@@ -37,3 +37,7 @@ ready_for_closeout
 - `是否引入 fallback/降级/吞异常`：否。
 - `是否从根因和长期维护角度解决`：是，通过规则类型映射到稳定 CSS 类与样式令预览可持续扩展。
 - `是否存在临时补丁或绕过`：否。
+
+## Cleanup Keep
+
+- doc/tasks/20260727-cell-rule-type-background-colors/frontend-feature-evidence.md
