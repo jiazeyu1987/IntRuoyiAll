@@ -5714,7 +5714,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     private List<Map<String, Object>> defaultBatchRecordAttachmentOwners() {
-        return batchRecordAttachmentOwners("USERS", List.of(10001L, 10002L));
+        return batchRecordAttachmentOwners("USERS", List.of(10001L));
     }
 
     private List<Map<String, Object>> batchRecordAttachmentOwners(String sourceType, List<Long> sourceIds) {
