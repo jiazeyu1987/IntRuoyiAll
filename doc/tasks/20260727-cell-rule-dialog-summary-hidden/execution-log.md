@@ -20,6 +20,7 @@
 - GREEN: `node tests/e2e/batch-record-cell-rule-default-fullscreen-static.spec.js` -> PASS。
 - GREEN: `node tests/e2e/edhr-cell-rule-type-background-colors-static.spec.js` -> PASS。
 - GREEN: `pnpm ts:check` -> PASS。
+- BLOCKED: evidence validators first run -> FAIL, evidence files used section headings without required literal `RED:` / `GREEN:` markers.
 
 ## Blockers
 

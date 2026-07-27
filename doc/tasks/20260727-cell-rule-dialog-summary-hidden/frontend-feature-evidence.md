@@ -28,11 +28,16 @@
 
 ## RED
 
+- RED: `node tests/e2e/batch-record-cell-rule-summary-hidden-static.spec.js` -> FAIL, expected reason: component still contained `batch-record-cell-rules-editor__summary`.
 - `node tests/e2e/batch-record-cell-rule-summary-hidden-static.spec.js` -> FAIL。
 - Expected reason: component still contained `batch-record-cell-rules-editor__summary`.
 
 ## GREEN
 
+- GREEN: `node tests/e2e/batch-record-cell-rule-summary-hidden-static.spec.js` -> PASS.
+- GREEN: `node tests/e2e/batch-record-cell-rule-default-fullscreen-static.spec.js` -> PASS.
+- GREEN: `node tests/e2e/edhr-cell-rule-type-background-colors-static.spec.js` -> PASS.
+- GREEN: `pnpm ts:check` -> PASS.
 - `node tests/e2e/batch-record-cell-rule-summary-hidden-static.spec.js` -> PASS。
 - `node tests/e2e/batch-record-cell-rule-default-fullscreen-static.spec.js` -> PASS。
 - `node tests/e2e/edhr-cell-rule-type-background-colors-static.spec.js` -> PASS。
@@ -45,6 +50,10 @@
 - Loading and error: `v-loading` and `el-alert` remain unchanged.
 - Empty state: `el-empty` remains unchanged.
 - Permission: no permission, route, or API wrapper changes.
+
+## Verification
+
+- Verification: Focused static component verification and `pnpm ts:check` passed.
 
 ## E2E Or Component Verification Path
 
