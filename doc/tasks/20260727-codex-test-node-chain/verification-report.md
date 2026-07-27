@@ -15,4 +15,5 @@
 - 经验沉淀：已更新 `docs/backend-development.md`、`docs/database-rules.md`、`docs/e2e-rules.md` 和 `docs/experience-index.md`，覆盖节点串串行门禁和固定名称删除唯一键门禁。
 - 实现提交：`16d06684` -> PASS，包含物理删除修复、回归测试、核心任务记录、review 证据和经验沉淀，提交钩子确认 slot 7 端口契约通过。
 - 任务产物清理：`task_closeout.py --mode apply --worktree-closeout off` -> PASS，保留核心记录和 bug 回归证据，删除临时 evidence/helper 文件；自动 worktree 合并/删除未执行，因为主工作区有并行脏改动且当前分支不能 fast-forward 到 `int_main`。
+- 分支推送：`git push origin codex/20260727-codex-test-node-chain-runtime` -> PASS，远端分支已创建，初次推送 HEAD 为 `e4fb13d41ebe79d1d9a302eaa52d60199e0c420c`。
 

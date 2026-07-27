@@ -54,3 +54,5 @@
 - Cleanup preview: `task_closeout.py --task-id 20260727-codex-test-node-chain --mode preview --worktree-closeout off` -> PASS，keep 为 `task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`，delete 为临时 evidence/helper 文件，无 blocked/warnings。
 - Cleanup apply: `task_closeout.py --task-id 20260727-codex-test-node-chain --mode apply --worktree-closeout off` -> PASS，删除 `backend-api-evidence.md`、`database-schema-evidence.md`、`frontend-feature-evidence.md` 和 `independent-followup-view.e2e.cjs`。
 - Worktree closeout note: `task_closeout.py --mode preview` 的自动 worktree 合并阶段仍阻塞，原因是当前分支不能 fast-forward 合并进 `int_main`，且主工作区 `E:\IntRuoyi` 存在并行脏改动；本次不触碰主工作区并行改动，后续仅推送当前任务分支。
+- Push: `git push origin codex/20260727-codex-test-node-chain-runtime` -> PASS，远端分支 `origin/codex/20260727-codex-test-node-chain-runtime` 已创建，初次推送 HEAD 为 `e4fb13d41ebe79d1d9a302eaa52d60199e0c420c`。
+- Remaining closeout blocker: 自动 fast-forward 合并和 worktree 删除仍未执行；阻塞条件为 `E:\IntRuoyi` 主工作区存在并行脏改动，且当前任务分支无法直接 fast-forward 到 `int_main`。本任务分支已独立推送，等待后续由主工作区所有者处理集成。
