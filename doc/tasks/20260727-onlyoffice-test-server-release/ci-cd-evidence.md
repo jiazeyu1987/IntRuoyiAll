@@ -21,14 +21,16 @@
 ## Pipeline
 
 - `release_preflight_plan.py` now uses a stable original-index priority queue for dependency ordering.
-- Regression tests cover stable ordering and existing publish-script contracts.
+- Code-only SQL selection preserves manifest dependency metadata and removes the full direct/transitive data dependency closure.
+- Regression tests cover stable ordering, code-only dependency closure and existing publish-script contracts.
 
 ## Verification
 
 - Ordering and publish regression suite: `117 passed`.
 - Migration policy gate: `passed`, `migrationCount=383`.
 - Regenerated preflight order: cleanup migration before workstation binding.
-- Code-only required SQL regression: `123 passed`; `type=data` is filtered by manifest migration type before remote MySQL execution, while missing migration type mappings fail fast.
+- Code-only required SQL regression: `125 passed`; `type=data` and direct/transitive dependents are filtered before remote MySQL execution, while missing migration type or dependency mappings fail fast.
+- Real r3 manifest/preflight simulation: failed DCC seed and named MES data migrations excluded, independent schema retained.
 - Failed test deployment was restored to the previous healthy runtime tag.
 
 ## Rollback
@@ -41,4 +43,5 @@
 
 - `release-20260727-onlyoffice-test-r260727-1823` is invalid because its preflight plan executed workstation binding before cleanup.
 - `release-20260727-onlyoffice-test-r260727-1948` is invalid because historical required SQL `20260709_mes_rt000006_batch_record_mapping.sql` requires an `RT000006` route and pressure-pump roles that are absent from the test database.
-- Those historical data migrations are no longer part of the code-only remote MySQL APPLY queue. A new releaseTag is still required for the final test-server deployment.
+- `release-20260727-onlyoffice-test-r260727-codeonly-r3` is invalid because direct filtering left a seed dependent on skipped data in the APPLY queue.
+- Data migrations and their dependency descendants are no longer part of the code-only remote MySQL APPLY queue. A new r4 releaseTag is required for the final test-server deployment.

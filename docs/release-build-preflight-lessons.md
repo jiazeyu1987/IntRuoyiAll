@@ -353,9 +353,9 @@
 
 ### Gate: code-only 发布不得执行 `type=data` required SQL
 - Trigger: 使用 `SkipDatabaseSync` 与 `SkipMinioSync` 构建或发布 `publishScope=code-only` 包，且 manifest / preflight-plan 包含 required SQL。
-- Preflight check: 发布脚本必须在远端 MySQL 执行前按 `publishScope` 过滤 required SQL；`code-only` 只允许执行结构/菜单/配置/权限/种子等代码契约必需迁移，不得执行业务数据迁移 `type=data`。
-- Blocker: 若 `preflight-plan.json` 中 `type=data` 项会进入 APPLY 执行队列，必须阻塞并修复发布脚本，重新生成新的 releaseTag。
-- Verification: 运行 `python -X utf8 -m pytest tests/test_code_only_required_sql_contract.py -q`，并在发布日志中看到 `Skipping data required database SQL for code-only release` 后再继续三环境发布。
+- Preflight check: 发布脚本必须在远端 MySQL 执行前按 `publishScope` 过滤 required SQL；`code-only` 不得执行业务数据迁移 `type=data`，也不得执行任何直接或间接依赖被跳过 data migration 的结构/菜单/配置/权限/种子迁移。独立的非 data 迁移仍可执行。
+- Blocker: 若 `preflight-plan.json` 中 `type=data` 项或其依赖子节点会进入 APPLY 执行队列，或 manifest requiredSql 缺少 type/dependsOn/依赖 migrationId，必须阻塞并修复发布脚本，重新生成新的 releaseTag。
+- Verification: 运行 `python -X utf8 -m pytest script/tests/test_code_only_required_sql_contract.py -q`，并在发布日志中同时核对 `Skipping data required database SQL for code-only release` 与 `Skipping required database SQL with data dependency for code-only release`；用真实 manifest/preflight 复算确认独立 schema 仍入队。
 - Forbidden action: 不得手工补测试库业务数据、不得把 data SQL 改成 schema 绕过、不得复用失败 releaseTag 拼接后续环境结果。
 - Evidence: `doc/tasks/20260709-codeonly-three-env-head-release/evidence/maintenance-codeonly-required-sql-contract-fix-summary.json`。
 
@@ -371,11 +371,11 @@
 
 ### Gate: code-only required SQL 过滤必须以 manifest 类型为准
 - Trigger: `publishScope=code-only` 发布包生成 `preflight-plan.json` 并准备执行 required SQL。
-- Preflight check: 发布脚本不得依赖 `preflight-plan.json` item 的 `type` 字段；必须从 manifest requiredSql 建立 `migrationId -> type` 映射，并按该映射跳过 `type=data`。
-- Blocker: 若任一 APPLY item 无法在 manifest requiredSql 中找到 migrationId 或 type，必须 fail fast，不得继续执行远端 MySQL。
-- Verification: `python -X utf8 -m pytest tests/test_code_only_required_sql_contract.py -q` 通过，并在发布日志中看到 data SQL 的 `Skipping data required database SQL for code-only release`。
+- Preflight check: 发布脚本不得依赖 `preflight-plan.json` item 的 `type` 字段；必须从 manifest requiredSql 建立 `migrationId -> type + dependsOn` 映射，计算完整 data 依赖闭包，再过滤 APPLY 队列。
+- Blocker: 若任一 APPLY item 无法在 manifest requiredSql 中找到 migrationId/type，或任一 dependsOn 无法解析到 manifest migrationId，必须 fail fast，不得继续执行远端 MySQL。
+- Verification: `python -X utf8 -m pytest script/tests/test_code_only_required_sql_contract.py -q` 通过；真实包复算必须排除 data 及其传递依赖，同时保留不依赖 data 的非 data 迁移。
 - Forbidden action: 不得用手工补测试库 RT000006、手工改 preflight-plan、或把 data SQL 改成 schema 来绕过门禁。
-- Evidence: `doc/tasks/20260709-codeonly-three-env-head-release/evidence/maintenance-codeonly-required-sql-contract-v2-fix-summary.json`。
+- Evidence: `doc/tasks/20260727-onlyoffice-test-server-release/code-only-required-sql-regression-evidence.md`。
 
 
 ### Gate: build-release 前检查 Java/Maven native memory 余量

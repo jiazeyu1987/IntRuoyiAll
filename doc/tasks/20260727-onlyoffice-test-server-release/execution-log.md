@@ -88,3 +88,20 @@
 - Decision: preserve `r2` as failed evidence without deleting shared NAS content; rebuild with fresh releaseTag `release-20260727-onlyoffice-test-r260727-codeonly-r3`.
 - GREEN: pre-r3 migration policy gate -> PASS, `migrationCount=383`.
 - GREEN: pre-r3 code-only publish regression -> PASS, `108 passed`; release source worktree was clean before evidence recording.
+- GREEN: `build-release` for `release-20260727-onlyoffice-test-r260727-codeonly-r3` -> PASS; Maven package, frontend build, backend/frontend Docker images, OnlyOffice inclusion, image export and NAS upload completed.
+- GREEN: r3 package contract -> PASS; `component=intruoyi`, `publishScope=code-only`, `onlyOfficeIncluded=true`, backend/frontend source commit `8d940d17e99f3045b99018fac53491250289024d`, both `dirty=false`, no database dump, MinIO snapshot or runtime data directory.
+- GREEN: r3 local/NAS artifact verification -> PASS; Manifest v1 and legacy manifest hashes match, all 3373 artifacts exist locally and on NAS, and local/NAS artifact hash mismatch counts are both 0.
+- GREEN: test publish concurrency preflight -> PASS; release process count 0, `RUNNING` release lock count 0, and the test server still runs `release-20260723-dcc-viewer-permission-r260723vp-r1` before deployment.
+- RED: `deploy-release` for `release-20260727-onlyoffice-test-r260727-codeonly-r3` -> FAIL at `20260720_dcc_obsolete_approval_bpm_seed.sql`, `Unknown column 'form_policy_type' in 'field list'`.
+- GREEN: code-only direct data skip evidence -> PASS; deployment log explicitly skipped `20260709_mes_rt000006_batch_record_mapping`, `20260716_mes_balloon_xlsx_route_00002_invalid_process_cleanup`, `20260717_mes_balloon_excel_device_workstation_binding` and the other pending `type=data` migrations before MySQL execution.
+- Root cause: `20260720_dcc_obsolete_approval_bpm_seed` is `type=seed` but depends on `20260719_dcc_obsolete_form_policy_seed` (`type=data`). The first code-only implementation filtered only direct data items and left their dependency children eligible, so a dependent seed ran without its skipped prerequisite.
+- GREEN: r3 failed-release cleanup -> PASS; only the r3 RUNNING migration and release lock were closed as `FAILED`, `.env IMAGE_TAG` was restored to `release-20260723-dcc-viewer-permission-r260723vp-r1`, and backend/frontend/OnlyOffice remained running with backend health `UP` and frontend HTTP 200.
+- BDD: code-only 过滤 data 依赖闭包 -> Given a release migration is data or directly/indirectly depends on a data migration, When code-only deploy builds the remote SQL apply queue, Then the migration is explicitly skipped before MySQL execution while an independent non-data migration remains eligible.
+- BDD: code-only 依赖元数据缺失时阻塞 -> Given a migration dependency cannot be resolved from manifest requiredSql, When code-only filtering computes the dependency closure, Then deployment fails fast before remote MySQL execution.
+- RED: `python -X utf8 -m pytest script\tests\test_code_only_required_sql_contract.py -q` -> FAIL, `3 failed, 1 passed`; package entries dropped `dependsOn`, data-dependent seed/menu remained selected, and missing dependency metadata did not fail fast.
+- GREEN: `python -X utf8 -m pytest script\tests\test_code_only_required_sql_contract.py -q` -> PASS, `4 passed`.
+- GREEN: expanded publish tooling regression -> PASS, `125 passed`.
+- GREEN: PowerShell parser, `git diff --check`, branch runtime port guard and migration policy gate -> PASS, `migrationCount=383`.
+- GREEN: r3 real-package dependency closure simulation -> PASS; selected APPLY count 9, failing seed selected=false, independent schema selected=true, and RT000006/balloon data migrations selected=false.
+- Decision: `r3` is invalid and must not be reused; rebuild and redeploy with fresh releaseTag `release-20260727-onlyoffice-test-r260727-codeonly-r4`.
+- Experience consolidation: merged the reusable code-only data dependency closure gate into `docs/release-build-preflight-lessons.md` and updated `docs/experience-index.md`; no new long-term document was created.

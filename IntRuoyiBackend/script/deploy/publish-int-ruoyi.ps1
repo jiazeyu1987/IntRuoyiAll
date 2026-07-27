@@ -3896,6 +3896,7 @@ function Get-ReleasePackageDatabaseSqlScripts {
             Environments = @($allowedEnvironments)
             Type = [string]$_.type
             MigrationId = [string]$_.migrationId
+            DependsOn = @($_.dependsOn)
             File = [string]$_.file
             Sha256 = [string]$_.sha256
         }
@@ -4025,6 +4026,7 @@ function Get-ReleasePreflightApplyItems {
     }
 
     $requiredSqlTypeByMigrationId = @{}
+    $requiredSqlDependencyIdsByMigrationId = @{}
     foreach ($entry in @($requiredDatabaseSqlScripts)) {
         $migrationId = [string]$entry.MigrationId
         if ([string]::IsNullOrWhiteSpace($migrationId)) {
@@ -4037,7 +4039,42 @@ function Get-ReleasePreflightApplyItems {
         if ([string]::IsNullOrWhiteSpace($sqlType)) {
             Fail "Required SQL entry missing type for code-only scope filtering: $migrationId"
         }
+        if ($requiredSqlTypeByMigrationId.ContainsKey($migrationId)) {
+            Fail "Duplicate required SQL migrationId for code-only scope filtering: $migrationId"
+        }
         $requiredSqlTypeByMigrationId[$migrationId] = $sqlType
+        $requiredSqlDependencyIdsByMigrationId[$migrationId] = @($entry.DependsOn | ForEach-Object {
+            [string]$_
+        } | Where-Object {
+            -not [string]::IsNullOrWhiteSpace($_)
+        })
+    }
+
+    $dataDependencyRootByMigrationId = @{}
+    foreach ($migrationId in @($requiredSqlTypeByMigrationId.Keys)) {
+        if ([string]$requiredSqlTypeByMigrationId[$migrationId] -eq 'data') {
+            $dataDependencyRootByMigrationId[$migrationId] = $migrationId
+        }
+    }
+
+    $dependencyClosureChanged = $true
+    while ($dependencyClosureChanged) {
+        $dependencyClosureChanged = $false
+        foreach ($migrationId in @($requiredSqlTypeByMigrationId.Keys)) {
+            if ($dataDependencyRootByMigrationId.ContainsKey($migrationId)) {
+                continue
+            }
+            foreach ($dependencyId in @($requiredSqlDependencyIdsByMigrationId[$migrationId])) {
+                if (-not $requiredSqlTypeByMigrationId.ContainsKey($dependencyId)) {
+                    Fail "Required SQL dependency missing from manifest requiredSql for code-only scope filtering: $migrationId -> $dependencyId"
+                }
+                if ($dataDependencyRootByMigrationId.ContainsKey($dependencyId)) {
+                    $dataDependencyRootByMigrationId[$migrationId] = [string]$dataDependencyRootByMigrationId[$dependencyId]
+                    $dependencyClosureChanged = $true
+                    break
+                }
+            }
+        }
     }
 
     $codeOnlyApplyItems = @()
@@ -4049,8 +4086,13 @@ function Get-ReleasePreflightApplyItems {
         if (-not $requiredSqlTypeByMigrationId.ContainsKey($migrationId)) {
             Fail "preflight-plan.json APPLY item missing from manifest requiredSql for code-only scope filtering: $migrationId"
         }
-        if ([string]$requiredSqlTypeByMigrationId[$migrationId] -eq 'data') {
-            Info "Skipping data required database SQL for code-only release: $migrationId"
+        if ($dataDependencyRootByMigrationId.ContainsKey($migrationId)) {
+            $dataDependencyRoot = [string]$dataDependencyRootByMigrationId[$migrationId]
+            if ($migrationId -eq $dataDependencyRoot) {
+                Info "Skipping data required database SQL for code-only release: $migrationId"
+            } else {
+                Info "Skipping required database SQL with data dependency for code-only release: $migrationId -> $dataDependencyRoot"
+            }
             continue
         }
         $codeOnlyApplyItems += $item

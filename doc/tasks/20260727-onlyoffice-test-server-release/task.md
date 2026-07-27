@@ -15,7 +15,8 @@
 - [x] 冻结部分发布状态并将测试服恢复到部署前实际运行版本。
 - [x] 经业务确认 `ROUTE-XLSX-00002` 第 26 道工序不是合法业务数据，并补 test-only 正式数据修复迁移。
 - [x] 修复 code-only 发布语义，使 `type=data` required SQL 不进入远端 MySQL 执行队列。
-- [ ] 使用新的 releaseTag 重建发布包并重新发布到测试服。
+- [x] 使用新的 releaseTag 重建发布包并完成本地/NAS 完整性校验。
+- [ ] 将新发布包重新发布到测试服。
 - [ ] 记录最终验证证据和收尾状态。
 
 ## Expected Verification
@@ -24,8 +25,8 @@
 - 发布范围：`test` only，组件范围 `intruoyi`。
 - 初始冻结基线：`origin/int_main` commit `9562dca4982007f36c302aaa99847a59d6a4c28e`。
 - 发布分支：`codex/20260727-onlyoffice-test-release`。
-- 已判废 ReleaseTag：`release-20260727-onlyoffice-test-r260727-1445`、`release-20260727-onlyoffice-test-r260727-1823`、`release-20260727-onlyoffice-test-r260727-1948`、`release-20260727-onlyoffice-test-r260727-codeonly-r1`、`release-20260727-onlyoffice-test-r260727-codeonly-r2`。
-- 重新发布 ReleaseTag：`release-20260727-onlyoffice-test-r260727-codeonly-r3`。
+- 已判废 ReleaseTag：`release-20260727-onlyoffice-test-r260727-1445`、`release-20260727-onlyoffice-test-r260727-1823`、`release-20260727-onlyoffice-test-r260727-1948`、`release-20260727-onlyoffice-test-r260727-codeonly-r1`、`release-20260727-onlyoffice-test-r260727-codeonly-r2`、`release-20260727-onlyoffice-test-r260727-codeonly-r3`。
+- 重新发布 ReleaseTag：`release-20260727-onlyoffice-test-r260727-codeonly-r4`。
 - 测试服后端 `http://172.30.30.58:48081/actuator/health` 返回 `UP`。
 - 测试服前端 `http://172.30.30.58:8081/` 返回 HTTP 200。
 - 运行态 release tag、后端/前端镜像、manifest sourceRepos 与本轮发布一致。
@@ -56,6 +57,10 @@ in_progress
 - RED/GREEN 已完成：新增静态契约测试先失败于清理迁移缺失，补迁移后 `11 passed`；全量 migration policy gate 通过，`migrationCount=383`。
 - `release-20260727-onlyoffice-test-r260727-1823` 复发后确认发布预检 FIFO 拓扑排序反转了 Manifest 稳定顺序；已改为按原始索引选择 ready 节点，相关发布回归 `117 passed`，migration policy gate 仍为 `383` 条通过。
 - `release-20260727-onlyoffice-test-r260727-codeonly-r2` 在 NAS 上传期间被工具超时中断；本地包完整，但 NAS 仅有 3344 个文件，缺少 `resources`、`runtime-env` 和 `smoke`，因此该标签判废且不得复用。
+- `release-20260727-onlyoffice-test-r260727-codeonly-r3` 已完成构建和 NAS 上传；Manifest v1 共 3373 个 artifact，本地与 NAS 逐项哈希校验缺失 0、mismatch 0，后端/前端 commit 均为 `8d940d17e99f3045b99018fac53491250289024d` 且 `dirty=false`。
+- `r3` 部署时已明确跳过 `RT000006`、球囊路线清理及绑定等 `type=data` SQL，但后续仍执行了依赖被跳过 data migration 的 `20260720_dcc_obsolete_approval_bpm_seed`，因测试库缺少 `form_policy_type` 字段失败。
+- 根因是 code-only 过滤未计算迁移依赖闭包；正式修复为同时跳过直接或间接依赖 `type=data` 的迁移，避免在缺少数据前置迁移时执行其 seed/menu/schema 子节点。
+- 依赖闭包修复已通过 `4 passed` 目标测试和 `125 passed` 发布回归；使用 r3 真实 manifest/preflight 复算时，失败 seed、`RT000006` 和两条球囊数据迁移均未入队，独立 `20260721_form_action_policy_approval_mode` schema 仍入队。
 
 ## 设计约束检查
 
