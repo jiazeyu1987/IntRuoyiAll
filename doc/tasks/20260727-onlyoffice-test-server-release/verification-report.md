@@ -2,9 +2,9 @@
 
 ## 结论
 
-测试服发布仍未完成最终闭环。`release-20260727-onlyoffice-test-r260727-1445`、`release-20260727-onlyoffice-test-r260727-1823`、`release-20260727-onlyoffice-test-r260727-1948` 和 code-only `r1` 至 `r4` 均已判废，不得复用。
+测试服发布仍未完成最终闭环。`release-20260727-onlyoffice-test-r260727-1445`、`release-20260727-onlyoffice-test-r260727-1823`、`release-20260727-onlyoffice-test-r260727-1948` 和 code-only `r1` 至 `r5` 均已判废，不得复用。
 
-`ROUTE-XLSX-00002` 非法第 26 道工序的清理迁移、发布预检稳定排序、code-only 数据迁移依赖闭包隔离和 OnlyOffice 远端健康检查命令引号问题均已修复并通过回归；下一步使用 r5 完成最终测试服发布。
+`ROUTE-XLSX-00002` 非法第 26 道工序的清理迁移、发布预检稳定排序、code-only 数据迁移依赖闭包隔离、OnlyOffice 远端健康检查命令引号问题和 code-only 空 APPLY 队列处理均已修复并通过回归；下一步使用 r6 完成最终测试服发布。
 
 ## 已通过
 
@@ -47,10 +47,14 @@ required SQL `20260717_mes_balloon_excel_device_workstation_binding.sql` 在第 
 - r4 部署失败复现 -> FAIL，容器已切换且 backend/frontend/OnlyOffice HTTP 均可达，但 `sh -lc` 健康检查命令拆参导致 curl 未收到 URL；该 tag 已收口为 `FAILED`。
 - `python -X utf8 -m pytest script\tests\test_publish_int_ruoyi_to_test_tooling.py::test_deploy_checks_onlyoffice_container_can_reach_public_file_base_url -q` -> PASS，`1 passed`。
 - 修复后的扩展发布回归 -> PASS，`125 passed`；PowerShell parser、`git diff --check`、branch runtime port guard 均通过。
+- r5 本地/NAS 包校验 -> PASS，Manifest v1 与 legacy manifest 哈希一致，`3373` 个 artifact 缺失 `0`、size mismatch `0`、hash mismatch `0`，且无 database dump、MinIO snapshot 或 runtime-data。
+- r5 部署失败复现 -> FAIL，code-only 过滤后 APPLY 队列为空，排序函数收到 `$null` 而不是空数组；r5 未重启容器，`.env IMAGE_TAG` 已恢复到实际运行 r4。
+- `python -X utf8 -m pytest script\tests\test_publish_int_ruoyi_to_test_tooling.py::test_deploy_release_handles_empty_code_only_apply_queue_before_sorting ... -q` -> PASS，`3 passed`。
+- 修复后的扩展发布回归 -> PASS，`126 passed`；PowerShell parser、`git diff --check`、branch runtime port guard 均通过。
 
 ## 失败收口
 
 - `infra_release_migration`：本轮失败 migration 已收口为 `FAILED`。
-- `infra_release_operation_lock`：r3 与 r4 发布锁均已收口为 `FAILED`。
-- r4 失败发生在容器切换后的最终脚本校验，测试服当前实际运行 r4 镜像；r4 仍因发布闭环失败判废，必须使用 r5 重新构建和发布。
+- `infra_release_operation_lock`：r3、r4 与 r5 发布锁均已收口为 `FAILED`。
+- r5 失败发生在容器重启前；测试服 `.env IMAGE_TAG` 已恢复到实际运行 r4，backend/frontend 仍为 r4 镜像。r5 因发布闭环失败判废，必须使用 r6 重新构建和发布。
 - 失败发布包保留在远端 release 目录作为排障证据，未删除共享存储内容。

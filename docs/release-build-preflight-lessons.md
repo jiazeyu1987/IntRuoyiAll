@@ -836,3 +836,12 @@
 - Verification: 运行 `python -X utf8 -m pytest script/tests/test_publish_int_ruoyi_to_test_tooling.py::test_deploy_checks_onlyoffice_container_can_reach_public_file_base_url -q` 和扩展发布脚本回归；远端复验用容器内 `wget http://backend:48081/actuator/health` 或等价 curl 证明真实网络路径。
 - Forbidden action: 不得复用已失败 releaseTag；不得因为外部 backend/frontend/OnlyOffice HTTP 200 就手工标记发布成功；不得跳过 OnlyOffice 容器内可达性检查。
 - Evidence: `doc/tasks/20260727-onlyoffice-test-server-release/bug-regression-evidence.md`；`release-20260727-onlyoffice-test-r260727-codeonly-r4` 容器已切换且外部健康通过，但最终校验因 `sh -lc` 拆参失败，发布锁已收口为 `FAILED`，后续必须用新 tag。
+
+## 2026-07-27 code-only 空 APPLY 队列门禁
+
+- Trigger: `publish-test` / `deploy-release` 的 `publishScope=code-only` 过滤掉全部待执行 APPLY 项，尤其目标库已应用独立非 data 迁移，仅剩 data 迁移及其依赖子节点需要跳过。
+- Preflight check: 发布脚本将过滤结果传给排序或执行函数前，必须显式用数组包装：`$preflightApplyItems = @(Get-ReleasePreflightApplyItems ...)`；静态测试必须覆盖空 APPLY 队列不会把参数绑定为 `$null`。
+- Blocker: 发布日志出现 `Cannot bind argument to parameter 'Items' because it is null`、`Sort-RequiredDatabaseSqlApplyItems` 在 code-only 过滤后失败，或空队列被当作发布失败而不是“没有 required SQL 需要执行”。
+- Verification: 运行 `python -X utf8 -m pytest script/tests/test_publish_int_ruoyi_to_test_tooling.py::test_deploy_release_handles_empty_code_only_apply_queue_before_sorting -q` 和扩展发布脚本回归；重新构建新 releaseTag，部署日志应显示 data/data-dependent SQL 被跳过且不会执行任何 required SQL APPLY。
+- Forbidden action: 不得手工标绿失败 releaseTag；不得为了避免空队列而保留 data 或 data-dependent 迁移进入 APPLY；不得把 `SkipDatabaseSync`/`SkipMinioSync` 解释为可以跳过 schema/config/seed 门禁。
+- Evidence: `doc/tasks/20260727-onlyoffice-test-server-release/bug-regression-evidence.md`；`release-20260727-onlyoffice-test-r260727-codeonly-r5` 在容器重启前失败，发布锁已收口为 `FAILED`，`.env IMAGE_TAG` 恢复到实际运行 r4，后续必须用新 tag。

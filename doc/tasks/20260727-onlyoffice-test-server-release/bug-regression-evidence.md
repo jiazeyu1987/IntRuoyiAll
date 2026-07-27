@@ -87,3 +87,49 @@ The change only affects the release validation command. It does not change the r
 ## Blockers
 
 r4 is invalid and must not be reused. The final publish must use a new releaseTag built from the fixed commit.
+
+# Empty Code-only APPLY Queue Regression
+
+## Bug Summary
+
+The r5 deploy reached the required SQL phase after code-only filtering skipped all remaining pending data and data-dependent migrations. Because the script passed `Get-ReleasePreflightApplyItems` directly inside a parameter expression, PowerShell bound the empty output as `$null` to `Sort-RequiredDatabaseSqlApplyItems -Items`, causing deployment to fail before container restart.
+
+## Expected Behavior
+
+When code-only filtering produces no APPLY items, deploy-release must treat that as an empty array and continue to runtime deployment. Empty APPLY is valid for a code-only release after all eligible non-data migrations are already applied or skipped.
+
+## Reproduction
+
+- ReleaseTag: `release-20260727-onlyoffice-test-r260727-codeonly-r5`.
+- Target: test server `172.30.30.58`.
+- Result: deploy failed with `Cannot bind argument to parameter 'Items' because it is null`.
+- Remote state: operation lock was `RUNNING`, migration rows were `SKIPPED_ALREADY_APPLIED`, containers had not restarted, and `.env IMAGE_TAG` was restored to the actual running r4 tag during failure closeout.
+
+## Root Cause
+
+PowerShell command substitution returned no objects after code-only filtering. Passing that expression directly to a mandatory array parameter produced `$null` instead of `@()`, despite the target parameter allowing empty collections.
+
+## Regression Test
+
+`script/tests/test_publish_int_ruoyi_to_test_tooling.py::test_deploy_release_handles_empty_code_only_apply_queue_before_sorting`
+
+## TDD Evidence
+
+- RED: r5 deploy required SQL phase failed with a null `Items` parameter after all data/data-dependent APPLY rows were filtered out.
+- GREEN: targeted pytest passed with `3 passed` after assigning `$preflightApplyItems = @(Get-ReleasePreflightApplyItems ...)` before sorting.
+- GREEN: expanded publish regression suite passed with `126 passed`.
+
+## Verification
+
+- PowerShell parser validation passed.
+- `git diff --check` passed.
+- Branch runtime port guard passed.
+- r5 operation lock was closed as `FAILED`, and a fresh r6 releaseTag is required for the next deployment.
+
+## Risk And Scope
+
+The change only normalizes an empty apply queue to an empty array. It does not change migration eligibility, dependency closure, runtime configuration, or data sync behavior.
+
+## Blockers
+
+r5 is invalid and must not be reused. The final publish must use a new releaseTag built from the fixed commit.

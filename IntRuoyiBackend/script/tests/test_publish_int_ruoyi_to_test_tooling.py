@@ -804,7 +804,8 @@ def test_deploy_release_executes_only_preflight_apply_migrations() -> None:
     assert "function Invoke-ReleaseMigrationStateUpdate" in text
     assert "INSERT INTO infra_release_migration" in text
     assert "SKIPPED_ALREADY_APPLIED" in invoke_block
-    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan -PublishScope $releasePublishScope) -TargetEnvironment $Environment" in invoke_block
+    assert "$preflightApplyItems = @(Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan -PublishScope $releasePublishScope)" in invoke_block
+    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items $preflightApplyItems -TargetEnvironment $Environment" in invoke_block
     assert "Get-RequiredDatabaseSqlEntriesForEnvironment -TargetEnvironment $Environment" not in invoke_block
     assert "Invoke-ReleaseMigrationStateUpdate -Item $item -Status 'RUNNING'" in invoke_block
     assert "Invoke-ReleaseMigrationStateUpdate -Item $item -Status 'APPLIED'" in invoke_block
@@ -848,7 +849,19 @@ def test_deploy_release_executes_dcc_view_matrix_test_tenant_prereq_before_seed_
     assert "function Sort-RequiredDatabaseSqlApplyItems" in text
     assert "'20260624_dcc_view_matrix_test_tenant_prereq' = 10" in helper_block
     assert "'20260624_dcc_view_matrix_independent_seed' = 20" in helper_block
-    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan -PublishScope $releasePublishScope) -TargetEnvironment $Environment" in invoke_block
+    assert "$preflightApplyItems = @(Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan -PublishScope $releasePublishScope)" in invoke_block
+    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items $preflightApplyItems -TargetEnvironment $Environment" in invoke_block
+
+
+def test_deploy_release_handles_empty_code_only_apply_queue_before_sorting() -> None:
+    text = read_publish_script()
+    invoke_start = text.index("function Invoke-RequiredDatabaseSqlScripts")
+    invoke_end = text.index("if ($Mode -eq 'mark-tested')", invoke_start)
+    invoke_block = text[invoke_start:invoke_end]
+
+    assert "$preflightApplyItems = @(Get-ReleasePreflightApplyItems" in invoke_block
+    assert "-Items (Get-ReleasePreflightApplyItems" not in invoke_block
+    assert "[AllowEmptyCollection()]" in _extract_powershell_function(text, "Sort-RequiredDatabaseSqlApplyItems")
 
 
 def test_deploy_release_preserves_preflight_dependency_order_for_non_priority_required_sql() -> None:

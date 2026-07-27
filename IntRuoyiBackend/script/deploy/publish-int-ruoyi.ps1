@@ -4345,7 +4345,8 @@ function Invoke-RequiredDatabaseSqlScripts {
     foreach ($item in @($preflightPlan.items | Where-Object { [string]$_.action -eq 'SKIP_ENV_NOT_ALLOWED' })) {
         Info "Skipping required database SQL outside target environment: $($item.migrationId)"
     }
-    $applyItems = Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan -PublishScope $releasePublishScope) -TargetEnvironment $Environment
+    $preflightApplyItems = @(Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan -PublishScope $releasePublishScope)
+    $applyItems = Sort-RequiredDatabaseSqlApplyItems -Items $preflightApplyItems -TargetEnvironment $Environment
     foreach ($item in $applyItems) {
         $fileName = Get-RequiredDatabaseSqlFileName -RelativePath ([string]$item.file)
         $remoteSqlPath = "$remoteRequiredSqlDir/$fileName"

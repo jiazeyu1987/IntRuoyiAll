@@ -119,3 +119,18 @@
 - GREEN: expanded publish regression -> PASS, `125 passed`.
 - GREEN: PowerShell parser, `git diff --check`, and branch runtime port guard -> PASS.
 - Experience consolidation: added OnlyOffice public-file-base URL container health command quoting gate to `docs/release-build-preflight-lessons.md` and indexed `OnlyOffice public-file-base-url`, `ONLYOFFICE_PUBLIC_FILE_BASE_URL_UNREACHABLE`, `sh -lc curl`, and `docker exec intruoyi-onlyoffice curl`.
+- Implementation commit: `0ef04bd6cd9d7bcf9a4fb966bcd8fa93b33b79c4` (`fix: harden onlyoffice release health check`) pushed to `origin/codex/20260727-onlyoffice-test-release`.
+- GREEN: pre-r5 migration policy gate -> PASS, `migrationCount=383`; source worktree was clean.
+- GREEN: `build-release` for `release-20260727-onlyoffice-test-r260727-codeonly-r5` -> PASS; Maven package, frontend build, backend/frontend Docker images, OnlyOffice inclusion, image export and NAS upload completed.
+- GREEN: r5 package contract -> PASS; `publishScope=code-only`, `component=intruoyi`, `onlyOfficeIncluded=true`, backend/frontend source commit `0ef04bd6cd9d7bcf9a4fb966bcd8fa93b33b79c4`, both `dirty=false`, Manifest v1 artifact count `3373`, and no database dump, MinIO snapshot or runtime-data directory.
+- GREEN: r5 local/NAS artifact verification -> PASS; Manifest v1 and legacy manifest hashes matched, checked `3373` artifacts locally and on NAS, missing `0`, size mismatch `0`, hash mismatch `0`.
+- GREEN: r5 test-server preflight -> PASS; current runtime was healthy on r4, release process count `0`, and `infra_release_operation_lock` had no `RUNNING` row for `test`.
+- RED: `deploy-release` for `release-20260727-onlyoffice-test-r260727-codeonly-r5` -> FAIL before container restart; code-only filtering skipped `28` direct data SQL and `8` data-dependent SQL, leaving no APPLY items, but `Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems ...)` received `$null` instead of an empty array.
+- GREEN: r5 failure metadata closeout -> PASS; release lock was changed from `RUNNING` to `FAILED`, `.env IMAGE_TAG` restored to actual running `release-20260727-onlyoffice-test-r260727-codeonly-r4`, backend/frontend remained r4 images, and no business data was modified.
+- BDD: code-only 空 APPLY 队列继续发布 -> Given code-only filtering removes every pending APPLY migration because only data or data-dependent SQL remains, When deploy-release sorts required SQL apply items, Then it passes an empty array and continues to runtime deployment instead of failing with a null `Items` argument.
+- RED: r5 deploy required SQL phase -> FAIL, expected reason PowerShell empty pipeline output bound to mandatory `Items` as `$null`.
+- Change: `Invoke-RequiredDatabaseSqlScripts` now assigns `$preflightApplyItems = @(Get-ReleasePreflightApplyItems ...)` before calling `Sort-RequiredDatabaseSqlApplyItems`.
+- GREEN: `python -X utf8 -m pytest script\tests\test_publish_int_ruoyi_to_test_tooling.py::test_deploy_release_handles_empty_code_only_apply_queue_before_sorting script\tests\test_publish_int_ruoyi_to_test_tooling.py::test_deploy_release_executes_only_preflight_apply_migrations script\tests\test_publish_int_ruoyi_to_test_tooling.py::test_deploy_release_executes_dcc_view_matrix_test_tenant_prereq_before_seed_on_test -q` -> PASS, `3 passed`.
+- GREEN: expanded publish regression -> PASS, `126 passed`.
+- GREEN: PowerShell parser, `git diff --check`, and branch runtime port guard -> PASS.
+- Experience consolidation: added code-only empty APPLY queue gate to `docs/release-build-preflight-lessons.md` and indexed `empty code-only apply queue`, `Sort-RequiredDatabaseSqlApplyItems`, and `Cannot bind argument to parameter Items because it is null`.
