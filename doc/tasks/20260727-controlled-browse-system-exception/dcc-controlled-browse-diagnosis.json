@@ -1,10 +1,10 @@
 {
   "baseUrl": "http://172.30.30.58:8081",
-  "apiBaseUrl": "http://172.30.30.58:48081/admin-api",
+  "apiBaseUrl": "http://172.30.30.58:8081/admin-api",
   "tenantName": "芋道源码",
   "username": "wangsiyu",
   "targetKeyword": "血液瓶瓶体清洗验证.pdf",
-  "startedAt": "2026-07-27T02:07:57.614Z",
+  "startedAt": "2026-07-27T02:08:56.351Z",
   "login": {
     "urlAfterLogin": "http://172.30.30.58:8081/dcc/controlled-file/browser",
     "stillOnLogin": false,
@@ -36,7 +36,7 @@
   "target": null,
   "apiProbe": {
     "browserPage": {
-      "url": "http://172.30.30.58:48081/admin-api/dcc/controlled-files/browser-page?pageNo=1&pageSize=20&keyword=%E8%A1%80%E6%B6%B2%E7%93%B6%E7%93%B6%E4%BD%93%E6%B8%85%E6%B4%97%E9%AA%8C%E8%AF%81.pdf",
+      "url": "http://172.30.30.58:8081/admin-api/dcc/controlled-files/browser-page?pageNo=1&pageSize=20&keyword=%E8%A1%80%E6%B6%B2%E7%93%B6%E7%93%B6%E4%BD%93%E6%B8%85%E6%B4%97%E9%AA%8C%E8%AF%81.pdf",
       "status": 200,
       "code": 401,
       "msg": "账号未登录",
@@ -47,7 +47,7 @@
   "applicationFailures": [
     {
       "method": "GET",
-      "url": "http://172.30.30.58:48081/admin-api/dcc/controlled-files/browser-page?pageNo=1&pageSize=20&keyword=%E8%A1%80%E6%B6%B2%E7%93%B6%E7%93%B6%E4%BD%93%E6%B8%85%E6%B4%97%E9%AA%8C%E8%AF%81.pdf",
+      "url": "http://172.30.30.58:8081/admin-api/dcc/controlled-files/browser-page?pageNo=1&pageSize=20&keyword=%E8%A1%80%E6%B6%B2%E7%93%B6%E7%93%B6%E4%BD%93%E6%B8%85%E6%B4%97%E9%AA%8C%E8%AF%81.pdf",
       "status": 200,
       "code": 401,
       "msg": "账号未登录",
@@ -57,5 +57,5 @@
   "consoleErrors": [],
   "pageText": "瑛泰管理系统 个人中心 0 审批中心 0 电子签名 文控中心 文档目录 文控权限 上传审批 文件上传 受控浏览 文控日志 系统管理 基础数据 release-20260723-dcc-viewer-permission-r260723vp-r1 文控中心 / 受控浏览 请输入菜单内容 王思雨 受控浏览 刷新 质量管理 快速过滤 全文关键字 包含 查询 当前目录 全域 高级 显示字段 文件名称 文件编号 操作 请先选择目录 Copyright ©2026 瑛泰管理系统",
   "screenshot": "",
-  "finishedAt": "2026-07-27T02:08:01.883Z"
+  "finishedAt": "2026-07-27T02:09:00.540Z"
 }
