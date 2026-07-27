@@ -7,9 +7,9 @@
 ## Milestones
 
 - [x] 创建任务记录，读取测试服发布、服务器、worktree、PowerShell、数据库、CI/CD 与经验门禁。
-- [ ] 构建新的 code-only 且 `onlyOfficeIncluded=false` release package，并完成本地/NAS manifest 与 artifact 校验。
-- [ ] 发布到测试服务器，只重启 backend/frontend，不包含 OnlyOffice 发布动作。
-- [ ] 验证测试服运行态、发布锁、镜像 tag、健康检查和无数据/无 OnlyOffice 包边界。
+- [x] 构建新的 code-only 且 `onlyOfficeIncluded=false` release package，并完成本地/NAS manifest 与 artifact 校验。
+- [x] 发布到测试服务器，只重启 backend/frontend，不包含 OnlyOffice 发布动作。
+- [x] 验证测试服运行态、发布锁、镜像 tag、健康检查和无数据/无 OnlyOffice 包边界。
 - [ ] 更新任务证据，提交并推送当前分支。
 
 ## Expected Verification
@@ -27,7 +27,20 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Verification Summary
+
+- Final releaseTag: `release-20260728-codeonly-noonlyoffice-test-r2`.
+- Build source commit: `2763b45b88974debb680903de3812969a80968a4`; sourceRepos dirty flags are `false`.
+- Local and NAS package verification: `publishScope=code-only`, `component=intruoyi`, `includeOnlyOffice=false`, `onlyOfficeIncluded=false`, no database dump, no MinIO snapshot, no runtime-data, image tar contains no `onlyoffice/documentserver`.
+- Deploy verification: test server `.env`, backend image and frontend image all use r2; backend health is `UP`; frontend HTTP is `200`; `/release-info.json` returns r2 and `code-only`; release lock is `APPLIED` with no `RUNNING` lock.
+- Scope verification: deploy log starts only `backend frontend` with `--no-deps`; OnlyOffice container image remains `onlyoffice/documentserver:latest` and `StartedAt=2026-07-27T16:04:31.094101012Z`, unchanged from pre-r2 verification.
+
+## Closeout Blocker
+
+- `task-closeout-cleanup --mode preview` is blocked because branch `codex/20260727-onlyoffice-test-release` cannot be fast-forward merged into local `int_main`; current branch is behind `int_main` by 71 commits and ahead by 15 commits.
+- Cleanup apply, worktree merge/removal and final `completed` status are intentionally not performed until integration is explicitly handled.
 
 ## 设计约束检查
 
@@ -43,3 +56,7 @@ in_progress
 - Manifest 门禁：以 `manifest.json` 为 sourceRepos、publishScope、component 和 artifact 权威；legacy `release-manifest.json` 只做兼容校验。
 - 发布日志脱敏门禁：保留或提交日志前必须扫描并脱敏 `mysql -p...`、NAS、SSH、token、私钥和连接串。
 - 并发发布门禁：发布前后检查本地/远端发布进程、`infra_release_operation_lock`、远端 `.env IMAGE_TAG` 和实际镜像，避免与其他任务重叠。
+
+## Cleanup Keep
+
+- doc/tasks/20260728-codeonly-no-onlyoffice-test-release/ci-cd-evidence.md
