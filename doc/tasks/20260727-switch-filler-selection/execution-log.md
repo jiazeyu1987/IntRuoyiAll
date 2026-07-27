@@ -12,19 +12,33 @@
 
 ## RED/GREEN
 
-- RED: pending -> 等待定位现有测试入口后补充失败命令。
-- GREEN: pending -> 等待修复后记录通过命令。
-- RED: `node tests/e2e/edhr-switch-filler-redbox-cleanup-static.spec.js` -> 待执行，预期 FAIL，当前源码仍渲染截图红框内的标题右侧说明、来源标签和 `可填写` 状态标签。
+- RED: `node tests/e2e/edhr-switch-filler-redbox-cleanup-static.spec.js` -> FAIL，当前源码仍渲染截图红框内的标题右侧 `批处理表单 + 表单槽位` 说明。
+- GREEN: `node tests/e2e/edhr-switch-filler-redbox-cleanup-static.spec.js` -> PASS，弹窗标题右侧说明、候选来源标签和候选 `可填写` 状态标签已从填写人切换弹窗移除，表单名称保留。
+- GREEN: `pnpm exec eslint src/views/mes/pro/edhr/ExecutionPage.vue tests/e2e/edhr-switch-filler-redbox-cleanup-static.spec.js --format stylish` -> PASS。
 
 ## Milestone Updates
 
-- 建立任务证据：in_progress。
+- 建立任务证据：completed。
 - 经验门禁：命中 `docs/e2e-rules.md#eDHR 右侧红框元信息隐藏门禁`；本任务仅删除弹窗红框标签，保留填写人候选菜单和表单名称。
+- 前端修复：completed，`ExecutionPage.vue` 删除标题右侧说明，并将填写人候选项副标题收敛为表单名称。
+- 定向验证：completed，静态契约与 ESLint 均通过。
 
 ## Verification Evidence
 
-- pending
+- RED: `node tests/e2e/edhr-switch-filler-redbox-cleanup-static.spec.js` -> FAIL，断言标题右侧红框说明仍存在。
+- GREEN: `node tests/e2e/edhr-switch-filler-redbox-cleanup-static.spec.js` -> PASS。
+- GREEN: `pnpm exec eslint src/views/mes/pro/edhr/ExecutionPage.vue tests/e2e/edhr-switch-filler-redbox-cleanup-static.spec.js --format stylish` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260727-switch-filler-selection\frontend-feature-evidence.md` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-switch-filler-selection --mode preview` -> ready，keep `task.md`、`execution-log.md`、`frontend-feature-evidence.md`、`verification-report.md`，delete/blocked/warnings 均为 none。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-switch-filler-selection --mode apply` -> applied，deleted_paths none。
 
 ## Blockers
 
 - 工作区开始时已有未提交改动与本地分支领先 origin 的提交；本任务将避免修改无关文件，提交/推送阶段需按项目规则单独处理。
+- 当前分支在本任务开始前已领先 `origin/int_main` 多个本地提交；最终推送会一并受这些既有 ahead 提交影响。
+
+## Closeout
+
+- Current Status: completed。
+- Cleanup: applied，无删除项、无阻塞。
+- Experience consolidation: checked `docs/e2e-rules.md` and existing frontend/eDHR gates; `eDHR 右侧红框元信息隐藏门禁` 已覆盖本次“删除红框但保留必要信息”的通用经验，无需新增或修改长期经验文档。
