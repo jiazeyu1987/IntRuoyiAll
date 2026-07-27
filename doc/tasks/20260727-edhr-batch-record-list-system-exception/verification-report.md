@@ -30,3 +30,5 @@ Concurrent unrelated edits appeared during this task in form-template files and 
 
 - Cleanup preview/apply passed for `20260727-edhr-batch-record-list-system-exception`.
 - Task status updated to `completed`.
+- Closeout docs commit `9878db8ed8990f68402235f7c5bacdcc01372683` pushed to `origin/int_main`.
+- Post-push status confirmed branch aligned with `origin/int_main`; unrelated concurrent dirty files remain excluded.

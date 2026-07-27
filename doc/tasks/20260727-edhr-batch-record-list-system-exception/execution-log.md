@@ -53,6 +53,13 @@
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-edhr-batch-record-list-system-exception --mode preview` -> PASS, keep task records and bug evidence, delete none, blocked none.
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-edhr-batch-record-list-system-exception --mode apply` -> PASS, deleted none.
 
+## Commit And Push
+
+- Closeout docs commit `9878db8ed8990f68402235f7c5bacdcc01372683 chore: preserve dirty worktree before form template actions fix` contains only this task's four closeout docs.
+- Push preflight object scan for `origin/int_main..HEAD` -> PASS, largest task blob 4,003 bytes.
+- `git push origin int_main` -> PASS, pushed `07e97d43..9878db8e`.
+- `git status --short --branch` after push -> PASS, branch aligned with `origin/int_main`; unrelated concurrent dirty files remain outside this task.
+
 ## Blockers
 
 - No task-owned blocker. Broader static contract has an unrelated pre-existing batch-delete assertion failure.
