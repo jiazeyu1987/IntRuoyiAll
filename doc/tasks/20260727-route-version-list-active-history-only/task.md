@@ -10,7 +10,7 @@
 2. `completed`：补充 RED 静态合同，复现 `CANCELLED` 版本仍显示的问题。
 3. `completed`：实现最小前端过滤，不改变后端只读快照读取能力。
 4. `completed`：运行目标静态合同、既有深链合同和类型检查。
-5. `in_progress`：记录证据、提交并推送任务分支。
+5. `completed`：记录证据、提交并推送任务分支。
 
 ## Expected Verification
 
@@ -21,6 +21,13 @@
 ## Current Status
 
 ready_for_closeout
+
+## Closeout Blocker
+
+- Implementation commit: `d1f37893 fix: hide cancelled route versions from list`。
+- Remote branch pushed: `origin/codex/20260727-route-history-cancelled-version-view`，remote HEAD `d1f378930cc5d8608e8b0f973d0543930461a280`。
+- `task-closeout-cleanup --mode preview` keeps `task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`、`frontend-feature-evidence.md` and deletes nothing。
+- Closeout apply / ff-only merge / worktree removal is blocked because current branch cannot be fast-forward merged into `int_main` and main worktree `E:\IntRuoyi` is dirty。
 
 ## 经验门禁
 

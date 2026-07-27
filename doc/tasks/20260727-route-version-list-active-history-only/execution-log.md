@@ -46,6 +46,18 @@ GREEN: `git diff --check` -> PASS, with CRLF warnings only.
 
 GREEN: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, worktree `int_main slot=8`, frontend `8089`, backend `48089`.
 
+## Commit And Closeout
+
+GREEN: implementation-commit -> PASS, `d1f37893 fix: hide cancelled route versions from list`.
+
+GREEN: git-push -> PASS, `git push origin codex/20260727-route-history-cancelled-version-view`, remote branch HEAD `d1f378930cc5d8608e8b0f973d0543930461a280`.
+
+BLOCKER: task-closeout-cleanup preview -> current branch cannot be fast-forward merged into `int_main`, and main worktree is dirty: `E:\IntRuoyi`.
+
+- Preview keep: `task.md`, `execution-log.md`, `verification-report.md`, `bug-regression-evidence.md`, `frontend-feature-evidence.md`.
+- Preview delete: none.
+- Impact: implementation is committed and pushed, but cleanup apply / ff-only merge / worktree removal cannot run safely until the target main worktree and branch merge relationship are resolved.
+
 ## Implementation
 
 - Added `isVisibleRouteVersionInWorkspace(version)` to hide only `CANCELLED` versions in the workspace table.
@@ -63,4 +75,4 @@ GREEN: experience-preflight -> PASS, no new long-term document needed.
 ## Current Status
 
 - Implementation and verification complete.
-- Current status: ready_for_closeout; commit and push pending.
+- Current status: ready_for_closeout; remote branch is pushed, closeout apply / ff-only merge is blocked.

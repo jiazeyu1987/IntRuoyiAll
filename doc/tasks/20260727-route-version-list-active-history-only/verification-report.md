@@ -39,6 +39,14 @@
 - GREEN: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1`
   - Result: PASS, frontend `8089`, backend `48089`.
 
+- GREEN: `git push origin codex/20260727-route-history-cancelled-version-view`
+  - Result: PASS.
+  - Remote HEAD: `d1f378930cc5d8608e8b0f973d0543930461a280`.
+
+- BLOCKED: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-route-version-list-active-history-only --mode preview`
+  - Result: blocked by non-ff-only merge relationship to `int_main` and dirty main worktree `E:\IntRuoyi`.
+  - Cleanup plan: keep task records and evidence; delete none.
+
 ## Coverage
 
 - Version table binds filtered rows.
