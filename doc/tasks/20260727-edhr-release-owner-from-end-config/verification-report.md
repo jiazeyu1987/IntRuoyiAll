@@ -39,6 +39,14 @@ Implemented release-owner parsing from route-level `RELEASE_APPROVE` configurati
 - The authenticated workbench response returned HTTP `200`, business code `0`, `releaseOwnerConfigured=true`, `releaseOwnerSourceType=USER`, and `releaseOwnerLabel=瑛泰管理员`.
 - The real-browser verification was read-only and sent no MES write action.
 
+## Cleanup Verification
+
+- `task-closeout-cleanup` preview and apply completed with no blockers or warnings.
+- Only `task.md`, `execution-log.md`, and `verification-report.md` remain under the task directory.
+- Task-owned Playwright sessions and temporary artifacts were removed.
+- Detached build worktree `D:\IntRuoyiWorktree\20260727-edhr-release-owner-build` was clean, unused by runtime processes, and removed.
+- The rollback Jar and current backend runtime logs remain available under `E:\IntRuoyi\output\runtime\int_main`.
+
 ## Design Constraint Check
 
 - Fallback/degradation/exception swallowing introduced: No.

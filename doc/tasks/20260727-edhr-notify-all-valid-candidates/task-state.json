@@ -1,0 +1,114 @@
+{
+  "task_id": "20260727-edhr-notify-all-valid-candidates",
+  "goal": "保持 eDHR 通知全部有效候选人的行为，并修复 yudao-module-mes 完整测试套件直至全绿",
+  "status": "executing",
+  "current_stage": "execution",
+  "planner_review_status": "approved",
+  "plan_review_status": "approved",
+  "blocking_prereqs": [
+    "权威 Excel fixture 球囊扩张导管工序(1).xlsx 尚未取得并确认完整性"
+  ],
+  "iteration_counts": {
+    "planner_revisions": 1,
+    "plan_revisions": 2,
+    "executor_loops": 0,
+    "test_loops": 0
+  },
+  "tasks": [
+    {
+      "task_id": "T0",
+      "title": "权威真实 fixture 获取与治理",
+      "status": "blocked",
+      "dependency_ids": [],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes/src/test/resources/**",
+        "fixture-dependent MES tests"
+      ],
+      "acceptance_ids": ["AC-01", "AC-02", "AC-03"],
+      "last_outcome": "Word 已由仓库固定资源与此前用户指定源 DOC 的相同 SHA-256 确认；Excel 候选副本待用户确认权威性"
+    },
+    {
+      "task_id": "T1",
+      "title": "建立完整失败清单与根因分组",
+      "status": "completed",
+      "dependency_ids": [],
+      "write_scope": ["doc/tasks/20260727-edhr-notify-all-valid-candidates/**"],
+      "acceptance_ids": ["AC-13", "AC-14", "AC-16", "AC-17"],
+      "last_outcome": "41 个失败套件已唯一映射到 T2-T7，清单见 failure-inventory.md"
+    },
+    {
+      "task_id": "T2",
+      "title": "修复静态契约与工程路径漂移",
+      "status": "completed",
+      "dependency_ids": ["T1"],
+      "write_scope": ["MES static contract tests", "approved frontend paths"],
+      "acceptance_ids": ["AC-04", "AC-05", "AC-13", "AC-14", "AC-16", "AC-17"],
+      "owner_agent": "019fa3c3-c278-76f0-9a69-cd1405cbfde8",
+      "last_outcome": "执行与独立测试均通过：10 tests、0 failures、0 errors、0 skipped"
+    },
+    {
+      "task_id": "T3",
+      "title": "修复 schema、Spring 测试上下文和 H2 隔离",
+      "status": "completed",
+      "dependency_ids": ["T1"],
+      "write_scope": ["MES schema and DB tests", "approved migrations"],
+      "acceptance_ids": ["AC-05", "AC-06", "AC-07", "AC-13", "AC-14", "AC-17"],
+      "owner_agent": "019fa3d6-2a4e-72d1-a6aa-2b297d18de11",
+      "last_outcome": "独立验证通过 T3 根因层：122 tests 全绿、唯一键用例连续两次通过；2 个产品 fail-fast 缺口正式转 T4，1 个权威 Excel 用例正式转 T7"
+    },
+    {
+      "task_id": "T4",
+      "title": "修复工艺路线与 eDHR 契约簇",
+      "status": "completed",
+      "dependency_ids": ["T1", "T3"],
+      "write_scope": ["MES route and eDHR services/tests"],
+      "acceptance_ids": ["AC-08", "AC-09", "AC-12", "AC-13", "AC-17"],
+      "owner_agent": "019fa403-9847-7320-b2c4-6e7076dd0ee1",
+      "last_outcome": "执行与独立测试均通过：242 tests 全绿；通知服务 66/66 全绿；高风险子集 8/8、8/8 全绿"
+    },
+    {
+      "task_id": "T5",
+      "title": "修复批记录解析、布局与路线生成簇",
+      "status": "in_progress",
+      "dependency_ids": ["T1", "T3"],
+      "write_scope": ["MES batchrecordreport production/tests"],
+      "acceptance_ids": ["AC-10", "AC-13", "AC-17"],
+      "owner_agent": "019fa2b2-eae2-7161-9467-4692d572baa7"
+    },
+    {
+      "task_id": "T6",
+      "title": "修复自动排产与排产订单契约簇",
+      "status": "completed",
+      "dependency_ids": ["T1"],
+      "write_scope": ["MES schedule/scheduleorder/task production/tests"],
+      "acceptance_ids": ["AC-08", "AC-11", "AC-13", "AC-17"],
+      "owner_agent": "019fa3ef-f648-7a71-a20e-01273ac9eae4",
+      "last_outcome": "执行与独立测试均通过：99 tests 全绿；高风险子集 18/18、59/59 全绿"
+    },
+    {
+      "task_id": "T7",
+      "title": "集成真实 fixture 并完成解析导入回归",
+      "status": "pending",
+      "dependency_ids": ["T0", "T3", "T5"],
+      "write_scope": ["confirmed fixtures and consumers"],
+      "acceptance_ids": ["AC-01", "AC-02", "AC-03", "AC-10", "AC-13", "AC-17"]
+    },
+    {
+      "task_id": "T8",
+      "title": "分簇集成回归与通知行为复验",
+      "status": "pending",
+      "dependency_ids": ["T2", "T4", "T6", "T7"],
+      "write_scope": ["task evidence only unless defects are routed back"],
+      "acceptance_ids": ["AC-12", "AC-13", "AC-14", "AC-16", "AC-17"]
+    },
+    {
+      "task_id": "T9",
+      "title": "完整 MES 模块独立验收",
+      "status": "pending",
+      "dependency_ids": ["T8"],
+      "write_scope": ["test-report.md"],
+      "acceptance_ids": ["AC-13", "AC-14", "AC-15", "AC-16", "AC-17"]
+    }
+  ],
+  "updated_at": "2026-07-27T23:24:04+08:00"
+}

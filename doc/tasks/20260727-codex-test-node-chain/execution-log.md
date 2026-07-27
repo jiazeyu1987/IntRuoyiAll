@@ -56,3 +56,42 @@
 - Worktree closeout note: `task_closeout.py --mode preview` 的自动 worktree 合并阶段仍阻塞，原因是当前分支不能 fast-forward 合并进 `int_main`，且主工作区 `E:\IntRuoyi` 存在并行脏改动；本次不触碰主工作区并行改动，后续仅推送当前任务分支。
 - Push: `git push origin codex/20260727-codex-test-node-chain-runtime` -> PASS，远端分支 `origin/codex/20260727-codex-test-node-chain-runtime` 已创建，初次推送 HEAD 为 `e4fb13d41ebe79d1d9a302eaa52d60199e0c420c`。
 - Remaining closeout blocker: 自动 fast-forward 合并和 worktree 删除仍未执行；阻塞条件为 `E:\IntRuoyi` 主工作区存在并行脏改动，且当前任务分支无法直接 fast-forward 到 `int_main`。本任务分支已独立推送，等待后续由主工作区所有者处理集成。
+
+## 2026-07-27 Review-Fix Worker Round 1
+
+- User intent: 修复评审阻塞项，仅补齐完整节点串选择和独立 `SEQUENTIAL` 测试项回归保护；不停止或重启本地服务，不修改本地数据库数据。
+- BDD: 完整节点串选择 -> Given 一个节点串已有第 1 和第 2 节点；When 用户只选择第 2 节点发起 `SEQUENTIAL` 执行；Then 后端拒绝该请求并提示必须从第 1 节点连续选择。
+- BDD: 独立顺序测试项领取 -> Given 两个不属于节点串的 `SEQUENTIAL` 测试项和容量为 2 的 Runner；When Runner 领取任务；Then 两个独立项都可领取。
+- BDD: 独立顺序测试项失败后继续 -> Given 两个不属于节点串的 `SEQUENTIAL` 测试项；When 第一个失败；Then 第二个仍可领取并完成，不会被标记为节点串阻断。
+- RED: `mvn -pl yudao-module-system -am "-Dtest=CodexTestExecutionServiceImplTest#startSequentialExecution_rejectsIncompleteNodeChainSelection" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, 只选择第 2 节点时未抛出 `ServiceException`。
+- RED: `mvn -pl yudao-module-system -am "-Dtest=CodexTestExecutionServiceImplTest#startSequentialExecution_rejectsIncompleteNodeChainSelection,CodexTestRunnerServiceImplTest#claimTasks_independentSequentialCasesUseAvailableCapacity+completeCase_failedIndependentSequentialCaseAllowsRemainingCaseToRun" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, 不完整节点串未被拒绝，独立 `SEQUENTIAL` 容量为 2 时只领取 1 项。
+- RED: `mvn -pl yudao-module-system -am "-Dtest=CodexTestRunnerServiceImplTest#completeCase_failedIndependentSequentialCaseAllowsRemainingCaseToRun" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, 第一个独立测试项失败后后续项被阻断，无法领取。
+- RED: `python -X utf8 -m pytest script/tests/test_codex_test_node_chain_migration.py` -> FAIL, 缺少 `node_chain_execution` 执行快照字段的迁移和 H2 测试表契约。
+- GREEN: `mvn -pl yudao-module-system -am "-Dtest=CodexTestExecutionServiceImplTest,CodexTestRunnerServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 17 tests passed.
+- GREEN: `python -X utf8 -m pytest script/tests/test_codex_test_node_chain_migration.py` -> PASS, 2 tests passed.
+- Completed work: 节点串执行批次持久化 `nodeChainExecution` 快照；严格领取和前置失败阻断仅作用于该快照为真的节点串执行；选择节点串时必须精确覆盖完整的连续 `1..N` 节点集合。
+- Supervisor verification: 后续已在 slot 7 隔离运行态完成真实 Playwright 验证，覆盖节点串筛选、顺序领取、失败阻断和独立测试项路径。
+
+## 2026-07-27 Local Runtime Data Plan
+
+- BDD: 多节点串可见 -> Given 本机 `tenant_id=1` 已有工艺路线 4 项、批记录 6 项、智能排产 4 项；When 应用节点串 schema 并执行任务自有赋值脚本；Then 页面节点串选项显示 3 条不同节点串，数量分别为 4、6、4，且各串序号从 1 连续到 N。
+- Data preflight: 仅允许 14 个精确名称目标项，执行前要求 `node_chain_name/node_chain_sort` 全部为空；任一目标缺失、已分配或影响行数不等于 14 时 fail fast。
+- Rollback: 对同一批精确名称恢复 `node_chain_name=NULL,node_chain_sort=NULL`，复核影响行数 14；不修改方法、目标、状态或业务数据。
+
+## 2026-07-27 独立后续项只读验证
+
+- User intent: 使用真实 Playwright 浏览器打开 `http://127.0.0.1:8081`，进入 `系统管理 > 测试管理`，只读确认页面标题、`测试项` 页签和 `Runner 状态` 区域可见。
+- BDD: 独立后续项被实际执行 -> Given 租户 `tenant_id=1` 的本机系统可登录；When 用户通过真实前端菜单进入测试管理；Then 页面同时显示 `测试管理`、`测试项` 和 `Runner 状态`。
+- Scope: 只读查看，不创建、修改、执行或删除任何测试项，不修改其他业务数据。
+- GREEN: experience-preflight -> PASS，已读取 `docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/worktree-restrictions.md` 和 Playwright skill；使用本机 `int_main` 固定入口 `8081/48081`。
+- GREEN: `playwright-cli -s=independent-followup-20260727` 真实页面路径 -> PASS；从首页依次点击 `系统管理`、`测试管理`，最终 URL 为 `http://127.0.0.1:8081/system/codex-test-management`，浏览器标题为 `瑛泰管理系统 - 测试管理`。
+- GREEN: 页面可见断言 -> PASS；`测试管理` 可见，`测试项` 页签可见且 `aria-selected=true`，`Runner 状态` 可见，状态文案为 `可用`。
+- Data verification: 未点击新增、执行、修改、删除或其他写入动作；本次只发生登录和页面导航，没有修改业务数据。
+- Artifact: 检查点通过，按用户要求未生成失败截图；Playwright 会话已关闭。
+
+## 2026-07-28 Mainline Merge Verification
+
+- Merge: `git merge origin/int_main --no-edit` -> CONFLICT，仅 `doc/tasks/20260727-codex-test-node-chain/task.md` 与 `execution-log.md` 冲突；已合并为主线早期计划 + 当前最终 slot 7 验证/推送证据，无源码冲突。
+- GREEN: `mvn.cmd -pl yudao-module-system -am "-Dtest=CodexTestCaseServiceImplTest,CodexTestExecutionServiceImplTest,CodexTestRunnerServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，30 tests passed。
+- GREEN: `python -X utf8 -m pytest script\tests\test_codex_test_node_chain_migration.py -q` -> PASS，2 tests passed。
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260727-codex-test-node-chain-runtime/int_main` 使用 frontend `8088`、backend `48088`。

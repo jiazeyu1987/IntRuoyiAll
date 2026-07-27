@@ -2257,7 +2257,7 @@ const openLegacyBatchRecordTargetLink = async (report: RouteFlowLegacyBatchRecor
     path: '/mes/pro/batch-record-form-list',
     query: {
       reportId,
-      formSlotType: normalizeRecordBindingSlotType(report.formSlotType, report.batchRecordReportId)
+      formSlotType: requireBatchRecordFormSlotType(report)
     }
   })
 }
@@ -2587,7 +2587,7 @@ const normalizeLegacyBatchRecord = (
     batchRecordReportId,
     batchRecordReportCode: normalizeNullableText(report.batchRecordReportCode) || null,
     batchRecordReportName: normalizeNullableText(report.batchRecordReportName) || null,
-    formSlotType: normalizeRecordBindingSlotType(report.formSlotType, batchRecordReportId),
+    formSlotType: resolveRecordBindingSlotType(report.formSlotType),
     reportSort: report.reportSort || index + 1
   }
 }
@@ -2607,6 +2607,17 @@ const isRecordBindingConfigured = (binding?: Pick<RouteFlowRecordBinding, 'formT
 const isLegacyBatchRecordConfigured = (report?: Pick<RouteFlowLegacyBatchRecord, 'batchRecordReportId'>) =>
   Boolean(normalizeNullableText(report?.batchRecordReportId))
 
+const isMainBatchRecordForm = (report: RouteFlowLegacyBatchRecord) =>
+  resolveRecordBindingSlotType(report.formSlotType) === 'MAIN'
+
+const requireBatchRecordFormSlotType = (report: RouteFlowLegacyBatchRecord) => {
+  const formSlotType = resolveRecordBindingSlotType(report.formSlotType)
+  if (!formSlotType) {
+    throw new Error(`批记录表单缺少槽位类型: reportId=${report.batchRecordReportId}`)
+  }
+  return formSlotType
+}
+
 const getRouteNodeBatchRecordBindings = (node: RouteFlowNodeVO): RouteFlowRecordBinding[] => {
   const draftRecordBindings = selectedProcessAttributeDrafts[node.routeProcessId]?.recordBindings
   if (draftRecordBindings) return draftRecordBindings
@@ -2618,12 +2629,17 @@ const getRouteNodeBatchRecordBindings = (node: RouteFlowNodeVO): RouteFlowRecord
 }
 
 const getRouteNodeLegacyBatchRecords = (node: RouteFlowNodeVO): RouteFlowLegacyBatchRecord[] => {
+  const draftBatchRecordForms = selectedProcessAttributeDrafts[node.routeProcessId]?.legacyBatchRecords
+  if (draftBatchRecordForms) return draftBatchRecordForms
   const batchConfig = findRouteProcessConfig(
     selectedProcessRouteConfigCache.value?.batchConfigs || [],
     node.routeProcessId
   )
   return buildLegacyBatchRecords(batchConfig?.batchRecordReports)
 }
+
+const getRouteNodeBatchRecordForms = (node: RouteFlowNodeVO) =>
+  getRouteNodeLegacyBatchRecords(node).filter(isMainBatchRecordForm)
 
 const getRouteNodeAdditionalFormCount = (node: RouteFlowNodeVO) => {
   return getRouteNodeBatchRecordBindings(node).filter(
@@ -2634,20 +2650,8 @@ const getRouteNodeAdditionalFormCount = (node: RouteFlowNodeVO) => {
 const isRouteNodeFormSlotConfigured = (node: RouteFlowNodeVO) =>
   getRouteNodeAdditionalFormCount(node) > 0
 
-const isRouteNodeRecordBindingConfigured = (
-  node: RouteFlowNodeVO,
-  formSlotType: ProRouteFlowFormSlotType
-) =>
-  getRouteNodeBatchRecordBindings(node).some(
-    (binding) =>
-      resolveRecordBindingSlotType(binding.formSlotType, binding.formBindingKey) === formSlotType &&
-      isRecordBindingConfigured(binding)
-  ) ||
-  getRouteNodeLegacyBatchRecords(node).some(
-    (report) =>
-      resolveRecordBindingSlotType(report.formSlotType, report.batchRecordReportId) === formSlotType &&
-      isLegacyBatchRecordConfigured(report)
-  )
+const isRouteNodeBatchRecordFormConfigured = (node: RouteFlowNodeVO) =>
+  getRouteNodeBatchRecordForms(node).some(isLegacyBatchRecordConfigured)
 
 const isRouteNodeWorkstationBound = (node: RouteFlowNodeVO) => {
   const routeProcess = candidateAwareRouteProcessRows.value.find(
@@ -2663,7 +2667,7 @@ const getRouteNodeBindingStatus = (node: RouteFlowNodeVO): RouteNodeBindingStatu
     return getRouteNodeAdditionalFormCount(node) > 0 ? 'bound' : 'none'
   }
   if (fieldKey === 'batchRecordFormNames') {
-    return isRouteNodeRecordBindingConfigured(node, 'MAIN') ? 'bound' : 'missing'
+    return isRouteNodeBatchRecordFormConfigured(node) ? 'bound' : 'missing'
   }
   if (fieldKey === 'productionQuantityFactor') {
     return isRouteNodeProductionQuantityFactorOverridden(node) ? 'bound' : 'missing'
@@ -3336,54 +3340,27 @@ const copyRecordBindingForSelectedProcess = (
   }
 }
 
-const getRecordBindingsBySlotType = (formSlotType: ProRouteFlowFormSlotType) =>
-  selectedRecordBindings.value.filter(
-    (binding) => resolveRecordBindingSlotType(binding.formSlotType, binding.formBindingKey) === formSlotType
-  )
+const buildRecordBindingValue = (binding: RouteFlowRecordBinding) =>
+  getFormBindingDisplayName(binding)
 
-const getLegacyBatchRecordsBySlotType = (formSlotType: ProRouteFlowFormSlotType) =>
-  selectedLegacyBatchRecords.value.filter(
-    (report) => resolveRecordBindingSlotType(report.formSlotType, report.batchRecordReportId) === formSlotType
-  )
+const getSelectedBatchRecordForms = () =>
+  selectedLegacyBatchRecords.value.filter(isMainBatchRecordForm)
 
-const buildRecordBindingValue = (
-  bindingOrSlotType: RouteFlowRecordBinding | ProRouteFlowFormSlotType
-) => {
-  if (typeof bindingOrSlotType !== 'string') {
-    return getFormBindingDisplayName(bindingOrSlotType)
-  }
-  const configuredBindings = getRecordBindingsBySlotType(bindingOrSlotType).filter(
-    isRecordBindingConfigured
-  )
-  const legacyReports = getLegacyBatchRecordsBySlotType(bindingOrSlotType).filter(
-    isLegacyBatchRecordConfigured
-  )
-  const displayNames = [
-    ...configuredBindings.map(getFormBindingDisplayName),
-    ...legacyReports.map(getLegacyBatchRecordDisplayName)
-  ]
+const buildBatchRecordFormValue = () => {
+  const displayNames = getSelectedBatchRecordForms()
+    .filter(isLegacyBatchRecordConfigured)
+    .map(getLegacyBatchRecordDisplayName)
   return displayNames.length ? displayNames.join('、') : '未配置'
 }
 
-const buildRecordBindingLinks = (
-  formSlotType: ProRouteFlowFormSlotType
-): ProcessDetailLinkItem[] => {
-  const formBindingLinks = getRecordBindingsBySlotType(formSlotType)
-    .filter(isRecordBindingConfigured)
-    .map((binding, index) => ({
-      key: `record-binding-${formSlotType}-${binding.formBindingKey || index}`,
-      label: getFormBindingDisplayName(binding),
-      onClick: () => openRecordBindingTargetLink(binding)
-    }))
-  const legacyBatchRecordLinks = getLegacyBatchRecordsBySlotType(formSlotType)
+const buildBatchRecordFormLinks = (): ProcessDetailLinkItem[] =>
+  getSelectedBatchRecordForms()
     .filter(isLegacyBatchRecordConfigured)
     .map((report, index) => ({
-      key: `legacy-batch-record-${formSlotType}-${report.batchRecordReportId || index}`,
+      key: `batch-record-form-${report.batchRecordReportId || index}`,
       label: getLegacyBatchRecordDisplayName(report),
       onClick: () => openLegacyBatchRecordTargetLink(report)
     }))
-  return [...formBindingLinks, ...legacyBatchRecordLinks]
-}
 
 const buildFormSlotSummaryValue = () => {
   const configuredSlots = selectedRecordBindings.value
@@ -3699,8 +3676,8 @@ const processDetailFieldOptions = computed<ProcessDetailFieldOption[]>(() => {
     {
       key: 'batchRecordFormNames',
       label: getRouteProcessSettingColumnLabel('batchRecordFormNames', '批记录表单'),
-      value: buildRecordBindingValue('MAIN'),
-      links: buildRecordBindingLinks('MAIN'),
+      value: buildBatchRecordFormValue(),
+      links: buildBatchRecordFormLinks(),
       loading: attributeLoading
     },
     {
@@ -4213,7 +4190,7 @@ const buildSelectedProcessAttributesDraftSnapshot = (draft: SelectedProcessAttri
     .filter(isLegacyBatchRecordConfigured)
     .map((report) => ({
       ...report,
-      formSlotType: normalizeRecordBindingSlotType(report.formSlotType, report.batchRecordReportId),
+      formSlotType: requireBatchRecordFormSlotType(report),
       reportSort: report.reportSort || null,
       remark: report.remark || null
     })),
@@ -4517,7 +4494,7 @@ const buildLegacyBatchRecordSaveRows = (
     .map((report, index) => ({
       ...report,
       batchRecordReportId: report.batchRecordReportId,
-      formSlotType: normalizeRecordBindingSlotType(report.formSlotType, report.batchRecordReportId),
+      formSlotType: requireBatchRecordFormSlotType(report),
       reportSort: index + 1,
       remark: report.remark || null
     }))

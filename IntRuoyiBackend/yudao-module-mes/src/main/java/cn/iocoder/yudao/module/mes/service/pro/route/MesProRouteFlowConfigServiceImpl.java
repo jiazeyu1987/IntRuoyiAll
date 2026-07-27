@@ -339,9 +339,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                                 routeVersion, routeProcesses, processMap, dynamicBatchRecords)
                         : Collections.emptyMap();
         Map<String, MesProBatchRecordReportDO> reportMap = loadReportMap(
-                readCurrentBatchBindings
-                        ? collectBatchReportIds(dynamicBatchRecords)
-                        : collectCandidateBatchReportIds(flowConfigType, configMap));
+                collectReadableBatchReportIds(flowConfigType, configMap, dynamicBatchRecords));
         List<MesProRouteFlowProcessConfigRespVO> result = new ArrayList<>(routeProcesses.size());
         for (MesProRouteProcessDO routeProcess : routeProcesses) {
             MesProProcessDO process = processMap.get(routeProcess.getProcessId());
@@ -872,6 +870,15 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
+    private Set<String> collectReadableBatchReportIds(
+            MesProRouteFlowConfigTypeEnum flowConfigType,
+            Map<Long, MesProRouteFlowProcessConfigSaveReqVO> configMap,
+            List<MesProRouteFlowProcessBatchRecordDO> currentBatchRecords) {
+        Set<String> reportIds = new LinkedHashSet<>(collectBatchReportIds(currentBatchRecords));
+        reportIds.addAll(collectCandidateBatchReportIds(flowConfigType, configMap));
+        return reportIds;
+    }
+
     private List<MesProRouteFlowBatchRecordRespVO> toCandidateBatchRecordRespList(
             MesProRouteFlowProcessConfigSaveReqVO config,
             Map<String, MesProBatchRecordReportDO> reportMap) {
@@ -1154,7 +1161,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         if (flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH) {
             boolean explicitBatchBindingSnapshot =
                     Boolean.TRUE.equals(processConfig.getBatchRecordBindingSnapshotExplicit());
-            processConfig.setBatchRecordReports(Collections.emptyList());
+            processConfig.setBatchRecordReports(resolveAndNormalizeBatchRecordReports(processConfig));
             processConfig.setFormBindings(resolveAndNormalizeFormBindings(processConfig));
             processConfig.setBatchRecordBindingSnapshotExplicit(explicitBatchBindingSnapshot ? Boolean.TRUE : null);
         } else {
@@ -1796,6 +1803,61 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .sorted(Comparator.comparing(MesProRouteFlowFormBindingSaveReqVO::getReportSort,
                         Comparator.nullsLast(Integer::compareTo)))
                 .toList();
+    }
+
+    private List<MesProRouteFlowBatchRecordSaveReqVO> resolveAndNormalizeBatchRecordReports(
+            MesProRouteFlowProcessConfigSaveReqVO saveConfig) {
+        List<MesProRouteFlowBatchRecordSaveReqVO> reports = normalizeBatchRecordReports(saveConfig);
+        if (reports.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Set<String> reportIds = new LinkedHashSet<>();
+        for (MesProRouteFlowBatchRecordSaveReqVO report : reports) {
+            String reportId = StrUtil.trim(report.getBatchRecordReportId());
+            if (StrUtil.isBlank(reportId)) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_REPORT_NOT_EXISTS);
+            }
+            if (!reportIds.add(reportId)) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_REPORT_DUPLICATE);
+            }
+        }
+        Map<String, MesProBatchRecordReportDO> reportMap = loadReportMap(reportIds);
+        if (reportMap.size() != reportIds.size()) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_REPORT_NOT_EXISTS);
+        }
+        List<MesProRouteFlowBatchRecordSaveReqVO> normalized = new ArrayList<>(reports.size());
+        for (MesProRouteFlowBatchRecordSaveReqVO report : reports) {
+            String reportId = StrUtil.trim(report.getBatchRecordReportId());
+            String formSlotType = resolveConfiguredFormSlotType(report, reportMap.get(reportId));
+            String instanceScope = resolveInstanceScope(report.getInstanceScope());
+            validateSharedFormBinding(instanceScope, report);
+            String recordCategory = resolveRecordCategory(report.getRecordCategory(), formSlotType);
+            String validationProfile = resolveValidationProfile(recordCategory, report.getValidationProfile());
+            String requiredPolicy = resolveRequiredPolicy(report.getRequiredPolicy());
+            if (REQUIRED_POLICY_CONDITIONAL_REQUIRED.equals(requiredPolicy)
+                    && StrUtil.isBlank(report.getRequiredConditionJson())) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_CONDITION_CONFIG_MISSING);
+            }
+            normalized.add(new MesProRouteFlowBatchRecordSaveReqVO()
+                    .setBatchRecordReportId(reportId)
+                    .setFormSlotType(formSlotType)
+                    .setInstanceScope(instanceScope)
+                    .setSharedFormKey(StrUtil.blankToDefault(StrUtil.trim(report.getSharedFormKey()), null))
+                    .setFillableScopeJson(StrUtil.blankToDefault(StrUtil.trim(report.getFillableScopeJson()), null))
+                    .setRecordCategory(recordCategory)
+                    .setValidationProfile(validationProfile)
+                    .setRecordbookEnabled(resolveRecordbookEnabled(report.getRecordbookEnabled(), recordCategory))
+                    .setPermissionScopeId(report.getPermissionScopeId())
+                    .setRequiredPolicy(requiredPolicy)
+                    .setRequiredConditionJson(StrUtil.blankToDefault(
+                            StrUtil.trim(report.getRequiredConditionJson()), null))
+                    .setOwnerRoleKey(resolveOwnerRoleKey(report.getOwnerRoleKey(), formSlotType))
+                    .setArchiveVisibility(resolveArchiveVisibility(report.getArchiveVisibility()))
+                    .setSlotConfigSnapshotHash(report.getSlotConfigSnapshotHash())
+                    .setReportSort(report.getReportSort())
+                    .setRemark(report.getRemark()));
+        }
+        return normalized;
     }
 
     private List<MesProRouteFlowFormBindingSaveReqVO> resolveAndNormalizeFormBindings(

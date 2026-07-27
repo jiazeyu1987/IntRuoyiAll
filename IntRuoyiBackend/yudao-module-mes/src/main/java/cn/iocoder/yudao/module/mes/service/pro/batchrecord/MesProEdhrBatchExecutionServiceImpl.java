@@ -4477,9 +4477,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         }
     }
 
-    private boolean shouldApplyBatchActionLock(String actionLockReason, TaskActionContext actionContext) {
+    private boolean shouldApplyBatchActionLock(String actionLockReason,
+                                               MesProEdhrBatchExecutionTaskDO task,
+                                               TaskActionContext actionContext) {
         return !PENDING_RELEASE_ACTION_LOCK_REASON.equals(actionLockReason)
                 || actionContext == null
+                || !isSubmittedOrdinaryRouteFormTask(task)
                 || !actionContext.allowedActions().contains("OPEN_FORM");
     }
 
@@ -4648,7 +4651,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         TaskGate resolvedGate = taskGate == null ? new TaskGate(false, "任务门禁状态缺失") : taskGate;
         TaskActionContext actionContext = resolveTaskActionContext(task, resolvedGate, activeWorkTasks,
                 currentUserId, closeRule, specialNodeFillableUserIds);
-        if (StrUtil.isNotBlank(actionLockReason) && shouldApplyBatchActionLock(actionLockReason, actionContext)) {
+        if (StrUtil.isNotBlank(actionLockReason)
+                && shouldApplyBatchActionLock(actionLockReason, task, actionContext)) {
             actionContext = new TaskActionContext(actionContext.currentUserRole(), List.of(),
                     actionLockReason, actionContext.activeWorkTaskId(),
                     actionContext.activeWorkTaskType(), actionContext.actionUrl());

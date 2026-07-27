@@ -685,6 +685,78 @@ class MesProRouteFlowConfigServiceImplTest {
     }
 
     @Test
+    void getRouteFlowProcessConfigList_shouldReadFormalBatchReportsPerRouteProcessFromDraftSnapshot() {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeVersionMapper.selectById(1002L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(1002L)
+                .routeId(10L)
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 10,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "nodes": [
+                                {"routeProcessId": 100, "processId": 1000, "sort": 1, "keyFlag": true, "checkFlag": false},
+                                {"routeProcessId": 101, "processId": 1000, "sort": 2, "keyFlag": false, "checkFlag": false}
+                              ]
+                            },
+                            "batchUseConfigs": [
+                              {
+                                "routeProcessId": 100,
+                                "enabled": true,
+                                "batchRecordBindingSnapshotExplicit": true,
+                                "batchRecordReports": [
+                                  {"batchRecordReportId": "REPORT-A", "formSlotType": "MAIN", "reportSort": 1}
+                                ],
+                                "formBindings": [
+                                  {
+                                    "formBindingKey": "FORM-SLOT-A",
+                                    "formTemplateId": 2001,
+                                    "formTemplateName": "补充动态表单",
+                                    "formSlotType": "LOSS_REPORT",
+                                    "reportSort": 2
+                                  }
+                                ]
+                              },
+                              {
+                                "routeProcessId": 101,
+                                "enabled": true,
+                                "batchRecordBindingSnapshotExplicit": true,
+                                "batchRecordReports": [
+                                  {"batchRecordReportId": "REPORT-B", "formSlotType": "MAIN", "reportSort": 1}
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                        """)
+                .build());
+        doReturn(List.of(MesProProcessDO.builder().id(1000L).code("P1000").name("重复基础工序").build()))
+                .when(processMapper).selectBatchIds(anyCollection());
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(List.of());
+        when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(
+                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(List.of());
+        when(batchRecordReportMapper.selectListByReportIds(Set.of("REPORT-A", "REPORT-B")))
+                .thenReturn(List.of(report("REPORT-A"), report("REPORT-B")));
+
+        List<MesProRouteFlowProcessConfigRespVO> result =
+                service.getRouteFlowProcessConfigList(
+                        10L, MesProRouteFlowConfigTypeEnum.BATCH.getType(), 1002L);
+
+        assertEquals(2, result.size());
+        assertEquals(100L, result.get(0).getRouteProcessId());
+        assertEquals("REPORT-A-name", result.get(0).getBatchRecordReports().get(0).getBatchRecordReportName());
+        assertEquals("FORM-SLOT-A", result.get(0).getFormBindings().get(0).getFormBindingKey());
+        assertEquals(101L, result.get(1).getRouteProcessId());
+        assertEquals("REPORT-B-name", result.get(1).getBatchRecordReports().get(0).getBatchRecordReportName());
+        assertTrue(result.get(1).getFormBindings().isEmpty());
+    }
+
+    @Test
     void getRouteFlowProcessConfigList_shouldMapCurrentProcessSettingBindingsByProcessIdentityForDraftVersion() {
         MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
         MesProRouteFlowConfigDO flowConfig = MesProRouteFlowConfigDO.builder()
@@ -1732,6 +1804,42 @@ class MesProRouteFlowConfigServiceImplTest {
         verify(routeFlowProcessConfigMapper, never()).insert(any(MesProRouteFlowProcessConfigDO.class));
         verify(routeFlowProcessConfigMapper, never()).updateById(any(MesProRouteFlowProcessConfigDO.class));
         verify(routeFlowProcessBatchRecordMapper, never()).insert(any(MesProRouteFlowProcessBatchRecordDO.class));
+    }
+
+    @Test
+    void saveRouteFlowConfig_shouldPreserveFormalBatchRecordReportsInDraftCandidateSnapshot() {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeVersionMapper.selectById(1002L)).thenReturn(draftRouteVersion(1002L));
+        when(batchRecordReportMapper.selectListByReportIds(Set.of("REPORT-CLEAN")))
+                .thenReturn(List.of(report("REPORT-CLEAN")));
+
+        MesProRouteFlowConfigSaveReqVO reqVO = new MesProRouteFlowConfigSaveReqVO();
+        reqVO.setRouteId(10L);
+        reqVO.setRouteVersionId(1002L);
+        reqVO.setUseType(MesProRouteFlowConfigTypeEnum.BATCH.getType());
+        reqVO.setProcessConfigs(List.of(new MesProRouteFlowProcessConfigSaveReqVO()
+                .setRouteProcessId(100L)
+                .setEnabled(Boolean.TRUE)
+                .setBatchRecordReports(List.of(mainBatchRecord("REPORT-CLEAN", 1)))));
+
+        service.saveRouteFlowConfig(reqVO);
+
+        verify(routeCandidateConfigService).saveConfigSnapshot(eq(1002L), eq("batchUseConfigs"),
+                argThat(snapshot -> {
+                    if (!(snapshot instanceof List<?> rows) || rows.size() != 1) {
+                        return false;
+                    }
+                    if (!(rows.get(0) instanceof MesProRouteFlowProcessConfigSaveReqVO savedConfig)) {
+                        return false;
+                    }
+                    return Boolean.TRUE.equals(savedConfig.getBatchRecordBindingSnapshotExplicit())
+                            && savedConfig.getBatchRecordReports() != null
+                            && savedConfig.getBatchRecordReports().size() == 1
+                            && "REPORT-CLEAN".equals(savedConfig.getBatchRecordReports().get(0)
+                            .getBatchRecordReportId())
+                            && "MAIN".equals(savedConfig.getBatchRecordReports().get(0).getFormSlotType());
+                }));
     }
 
     @Test

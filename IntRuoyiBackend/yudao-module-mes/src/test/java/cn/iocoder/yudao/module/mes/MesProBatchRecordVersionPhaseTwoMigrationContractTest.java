@@ -105,7 +105,7 @@ class MesProBatchRecordVersionPhaseTwoMigrationContractTest {
                 "draft reupload must reuse the real Word import route recognition service");
         assertTrue(serviceSource.contains("file, definition.getRouteKey(), definition.getBatchRecordName(), \"UPGRADE\","),
                 "draft reupload must use the explicit upgrade import action");
-        assertTrue(serviceSource.contains("oldVersion.getSourceVersionId(), productNames, true, List.of(), productNames"),
+        assertTrue(serviceSource.contains("oldVersion.getSourceVersionId(), null, productNames, true, List.of(), productNames"),
                 "draft reupload must pass the uploaded file, source version, and selected products into real import");
         assertFalse(serviceSource.contains("buildReuploadVersionNo("),
                 "draft reupload must not synthesize a new version from sourceFileName/sourceFileSha256 metadata");

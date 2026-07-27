@@ -17,8 +17,14 @@ const LOOP = process.argv.includes('--loop')
 const POLL_INTERVAL_MS = Number(process.env.CODEX_TEST_POLL_INTERVAL_MS || '5000')
 const HEARTBEAT_INTERVAL_MS = Number(process.env.CODEX_TEST_HEARTBEAT_INTERVAL_MS || '20000')
 const CODEX_EXEC_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_TIMEOUT_MS || '600000')
+const CODEX_EXEC_READONLY_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_READONLY_TIMEOUT_MS || '120000')
 const CODEX_TEST_API_TIMEOUT_MS = Number(process.env.CODEX_TEST_API_TIMEOUT_MS || '30000')
+const CODEX_CHILD_SETTLE_TIMEOUT_MS = Number(process.env.CODEX_TEST_CHILD_SETTLE_TIMEOUT_MS || '5000')
 const COMPLETE_CASE_SUMMARY_MAX_LENGTH = 512
+const RUNNER_HTTP_CONNECTION_HEADERS = { Connection: 'close' }
+const READONLY_TASK_PATTERN = /(只读|仅查看|只查看|查看|确认.{0,20}可见|不修改|不保存|不提交|read[- ]?only|view only)/i
+const NEGATED_WRITE_TASK_PATTERN = /(不修改|不新增|不创建|不编辑|不保存|不提交|不删除|不作废|不审批|不发布|不导入|不上传|不下载|不取消|不启用|不禁用|不清理|不复位|不生成|不填写|不签名|不写入)/gi
+const WRITE_TASK_PATTERN = /(新增|创建|修改|编辑|保存|提交|删除|作废|审批|发布|导入|上传|下载|取消|启用|禁用|清理|复位|生成|填写|签名|写入|create|update|edit|save|submit|delete|void|approve|publish|import|upload|cancel|enable|disable|write)/i
 
 class ServerCanceledExecutionError extends Error {}
 
@@ -36,9 +42,10 @@ function normalizeCompleteCaseSummary(summary) {
 
 function runnerHeaders(extraHeaders = {}) {
   return {
-    ...extraHeaders,
+    ...RUNNER_HTTP_CONNECTION_HEADERS,
     'tenant-id': MANAGEMENT_TENANT_ID,
-    'X-Codex-Runner-Token': RUNNER_TOKEN
+    'X-Codex-Runner-Token': RUNNER_TOKEN,
+    ...extraHeaders
   }
 }
 
@@ -63,7 +70,8 @@ async function requestWithTimeout(url, options) {
   try {
     return await fetch(`${API_BASE}${url}`, {
       ...options,
-      signal: controller.signal
+      signal: controller.signal,
+      cache: 'no-store'
     })
   } catch (error) {
     if (error?.name === 'AbortError') {
@@ -101,6 +109,31 @@ function stopWindowsProcessTree(childPid, outputFile) {
     stdio: 'ignore',
     timeout: 10000
   })
+}
+
+function releaseChildIo(child) {
+  for (const stream of [child.stdin, child.stdout, child.stderr]) {
+    if (stream && !stream.destroyed) {
+      stream.destroy()
+    }
+  }
+  child.unref()
+}
+
+async function stopChildAndWait(child, outputFile, childExitPromise) {
+  if (process.platform === 'win32') {
+    stopWindowsProcessTree(child.pid, outputFile)
+  } else if (!child.killed) {
+    child.kill()
+  }
+  const stopResult = await Promise.race([
+    childExitPromise,
+    sleep(CODEX_CHILD_SETTLE_TIMEOUT_MS).then(() => ({ closeTimedOut: true }))
+  ])
+  if (stopResult.closeTimedOut) {
+    releaseChildIo(child)
+  }
+  return stopResult
 }
 
 async function uploadArtifact(executionCaseId, checkpointSort, screenshotPath) {
@@ -165,7 +198,8 @@ function assertTaskNotCanceled(task, heartbeatResult) {
 
 async function runCodexForTask(task, runnerSessionId) {
   const outputFile = path.join(os.tmpdir(), `codex-test-result-${task.executionCaseId}-${Date.now()}.json`)
-  const prompt = buildPrompt(task)
+  const codexExecTimeoutMs = resolveCodexExecTimeoutMs(task)
+  const prompt = buildPrompt(task, codexExecTimeoutMs)
   const args = [
     'exec',
     '-',
@@ -185,14 +219,21 @@ async function runCodexForTask(task, runnerSessionId) {
   let heartbeatTimer
   let timeoutTimer
   const runningExecutionCaseIds = [task.executionCaseId]
+  const childExitPromise = new Promise((resolve) => {
+    child.once('error', (error) => resolve({ error }))
+    child.once('close', (exitCode) => resolve({ exitCode }))
+  })
+  let resolveStopRequested
+  const stopRequestedPromise = new Promise((resolve) => {
+    resolveStopRequested = resolve
+  })
+  let stopPromise
   const stopChild = () => {
-    if (process.platform === 'win32') {
-      stopWindowsProcessTree(child.pid, outputFile)
-      return
+    if (!stopPromise) {
+      stopPromise = stopChildAndWait(child, outputFile, childExitPromise)
+      resolveStopRequested(stopPromise)
     }
-    if (!child.killed) {
-      child.kill()
-    }
+    return stopPromise
   }
   child.stdout.on('data', (chunk) => stdout.push(chunk))
   child.stderr.on('data', (chunk) => stderr.push(chunk))
@@ -214,25 +255,36 @@ async function runCodexForTask(task, runnerSessionId) {
         })
     }, HEARTBEAT_INTERVAL_MS)
     timeoutTimer = setTimeout(() => {
-      timeoutError = new Error(`codex exec timed out after ${CODEX_EXEC_TIMEOUT_MS}ms`)
+      timeoutError = new Error(`codex exec timed out after ${codexExecTimeoutMs}ms`)
       stopChild()
-    }, CODEX_EXEC_TIMEOUT_MS)
-    const exitCode = await new Promise((resolve, reject) => {
-      child.once('error', reject)
-      child.once('close', resolve)
-    })
+    }, codexExecTimeoutMs)
+    const childResult = await Promise.race([
+      childExitPromise,
+      stopRequestedPromise
+    ])
     if (heartbeatError) {
       throw heartbeatError
     }
     if (timeoutError) {
       throw timeoutError
     }
+    if (childResult.error) {
+      throw childResult.error
+    }
+    if (childResult.closeTimedOut) {
+      throw new Error(`codex exec process did not settle after ${CODEX_CHILD_SETTLE_TIMEOUT_MS}ms`)
+    }
     const stderrText = Buffer.concat(stderr).toString('utf8')
-    if (exitCode !== 0) {
-      throw new Error(`codex exec failed with exit ${exitCode}: ${stderrText}`)
+    if (childResult.exitCode !== 0) {
+      throw new Error(`codex exec failed with exit ${childResult.exitCode}: ${stderrText}`)
     }
   } catch (error) {
-    stopChild()
+    const stopResult = await stopChild()
+    if (stopResult.closeTimedOut) {
+      logLoopError(
+        new Error(`codex exec child did not emit close after ${CODEX_CHILD_SETTLE_TIMEOUT_MS}ms`)
+      )
+    }
     throw error
   } finally {
     if (heartbeatTimer) {
@@ -251,9 +303,16 @@ async function runCodexForTask(task, runnerSessionId) {
   return result
 }
 
-function buildPrompt(task) {
+function buildPrompt(task, codexExecTimeoutMs = resolveCodexExecTimeoutMs(task)) {
+  const taskMode = isReadOnlyTask(task) ? 'READ_ONLY' : 'MUTATING_OR_UNKNOWN'
+  const executionBudgetSeconds = Math.max(30, Math.floor(codexExecTimeoutMs / 1000) - 10)
   return `You are executing an enterprise E2E test with Playwright.
 Use the real browser against ${FRONTEND_BASE_URL}. Do not use API-only shortcuts except read-only final verification.
+This task is classified as ${taskMode}.
+Complete the browser verification and return the final JSON within ${executionBudgetSeconds} seconds.
+Do not ask for clarification. If login, selector, data, service, permission, or runtime prerequisites are missing, return a BLOCKED checkpoint result instead of waiting.
+For READ_ONLY tasks, do not click create, save, submit, delete, import, upload, approve, cancel, or any action that mutates business data.
+Prefer the existing local Playwright/browser tooling from the frontend project, and read only the minimum local login/access guidance needed. Do not print passwords, tokens, Authorization headers, or cookies.
 Target tenant id: ${task.targetTenantId}
 Case: ${task.caseName}
 Method:
@@ -276,6 +335,29 @@ Return raw JSON only:
   ],
   "summary": "short execution summary"
 }`
+}
+
+function taskText(task) {
+  return [
+    task.caseName,
+    task.methodText,
+    task.testDataText,
+    ...(task.checkpoints || []).flatMap((item) => [item.name, item.expectedText])
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
+function isReadOnlyTask(task) {
+  const text = taskText(task)
+  const hasReadOnlyIntent = READONLY_TASK_PATTERN.test(text)
+  const textWithoutNegatedWriteIntent = text.replace(NEGATED_WRITE_TASK_PATTERN, '')
+  const hasWriteIntent = WRITE_TASK_PATTERN.test(textWithoutNegatedWriteIntent)
+  return hasReadOnlyIntent && !hasWriteIntent
+}
+
+function resolveCodexExecTimeoutMs(task) {
+  return isReadOnlyTask(task) ? CODEX_EXEC_READONLY_TIMEOUT_MS : CODEX_EXEC_TIMEOUT_MS
 }
 
 async function reportTaskResult(task, result) {

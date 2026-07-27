@@ -1118,6 +1118,12 @@ public class MesProBatchRecordReportJsonBuilder {
         BatchRecordReportCellRuleVO rule =
                 MesProBatchRecordCellRuleSupport.buildAutoCheckboxRule(rowIndex, columnIndex,
                         appendCheckboxChoiceText(cell.getText(), appendedCheckboxChoices));
+        if (MesProBatchRecordCellRuleSupport.hasMultipleUncheckedCheckboxChoiceLabels(
+                appendCheckboxChoiceText(cell.getText(), appendedCheckboxChoices))) {
+            rule.setValueType("BOOLEAN");
+            rule.setComponentFlag("checkbox");
+            rule.setConstraints(null);
+        }
         if (cell.isReviewedCellRule()) {
             String source = cell.getCellRuleSource();
             rule.setSource(source == null || source.isBlank() ? "MANUAL" : source);

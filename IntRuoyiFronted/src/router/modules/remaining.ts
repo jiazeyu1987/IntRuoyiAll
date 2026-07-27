@@ -1497,6 +1497,29 @@ const remainingRouter: AppRouteRecordRaw[] = [
     ]
   },
   {
+    path: '/mdm',
+    component: Layout,
+    name: 'MdmHiddenRoutes',
+    meta: {
+      hidden: true
+    },
+    children: [
+      {
+        path: 'form-center/template/simulate',
+        component: () => import('@/views/form-center/template/FormTemplateSimulatePage.vue'),
+        name: 'MdmFormCenterTemplateSimulate',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          title: '表单模板模拟填写',
+          activeMenu: '/mdm/form-center/template',
+          permission: ['form:template:query']
+        }
+      }
+    ]
+  },
+  {
     path: '/mes',
     component: Layout,
     name: 'MesWmRouter',

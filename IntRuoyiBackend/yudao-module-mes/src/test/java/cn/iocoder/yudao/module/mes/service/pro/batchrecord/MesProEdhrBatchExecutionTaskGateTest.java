@@ -43,7 +43,7 @@ class MesProEdhrBatchExecutionTaskGateTest {
     }
 
     @Test
-    void resolveTaskGate_shouldIgnoreLegacySequentialModeInsideSameProcess() {
+    void resolveTaskGate_shouldEnforceSequentialModeInsideSameProcess() {
         MesProEdhrBatchExecutionTaskDO batchRecord = task(1L, 101L, null, true,
                 MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING);
         batchRecord.setExecutionMode("SEQUENTIAL");
@@ -53,6 +53,8 @@ class MesProEdhrBatchExecutionTaskGateTest {
         lossRecord.setExecutionMode("SEQUENTIAL");
         lossRecord.setBatchRecordSort(2);
 
+        assertFalse(available(lossRecord, List.of(batchRecord, lossRecord)));
+        batchRecord.setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED);
         assertTrue(available(lossRecord, List.of(batchRecord, lossRecord)));
     }
 

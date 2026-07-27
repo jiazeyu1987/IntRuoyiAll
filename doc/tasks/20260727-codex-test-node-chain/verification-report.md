@@ -17,3 +17,16 @@
 - 任务产物清理：`task_closeout.py --mode apply --worktree-closeout off` -> PASS，保留核心记录和 bug 回归证据，删除临时 evidence/helper 文件；自动 worktree 合并/删除未执行，因为主工作区有并行脏改动且当前分支不能 fast-forward 到 `int_main`。
 - 分支推送：`git push origin codex/20260727-codex-test-node-chain-runtime` -> PASS，远端分支已创建，初次推送 HEAD 为 `e4fb13d41ebe79d1d9a302eaa52d60199e0c420c`。
 
+## 独立后续项只读检查
+
+- 结果：PASS。
+- 入口：`http://127.0.0.1:8081`，租户 `tenant_id=1`。
+- 真实路径：首页 -> `系统管理` -> `测试管理`。
+- 实际页面：浏览器标题 `瑛泰管理系统 - 测试管理`；`测试项` 页签可见且已选中；`Runner 状态` 区域可见，状态为 `可用`。
+- 数据影响：无业务数据写入；未触发新增、执行、修改或删除。
+- 失败截图：无，检查点通过。
+
+## 2026-07-28 Mainline Merge
+
+- 主线合并：`git merge origin/int_main --no-edit` 已解决任务文档冲突；源码无冲突。
+- 合并后回归：目标 Maven 30 tests PASS；节点串迁移契约 2 tests PASS；branch runtime port guard PASS。

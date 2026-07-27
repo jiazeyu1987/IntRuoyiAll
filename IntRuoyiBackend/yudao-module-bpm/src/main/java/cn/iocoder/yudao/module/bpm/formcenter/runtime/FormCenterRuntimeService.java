@@ -7,6 +7,8 @@ public interface FormCenterRuntimeService {
 
     PageResult<FormCenterTemplateRespVO> getTemplatePool(FormCenterTemplatePoolPageReqVO reqVO);
 
+    FormCenterTemplateRespVO getTemplateVersion(Long templateId, String versionNo);
+
     PageResult<FormPolicyRespVO> getPolicyPage(FormPolicyPageReqVO reqVO);
 
     FormCenterTemplateImportRespVO importDoc(FormCenterTemplateImportReqVO reqVO, Long applicantUserId);

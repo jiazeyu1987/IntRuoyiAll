@@ -38,6 +38,15 @@ public class FormCenterController {
         return success(formCenterRuntimeService.getTemplatePool(reqVO));
     }
 
+    @GetMapping("/templates/{templateId}/versions/{versionNo}")
+    @Operation(summary = "查询指定表单模板版本")
+    @PreAuthorize("@ss.hasPermission('form:template:query')")
+    public CommonResult<FormCenterTemplateRespVO> getTemplateVersion(
+            @PathVariable("templateId") Long templateId,
+            @PathVariable("versionNo") String versionNo) {
+        return success(formCenterRuntimeService.getTemplateVersion(templateId, versionNo));
+    }
+
     @GetMapping("/policies")
     @Operation(summary = "查询表单策略")
     @PreAuthorize("@ss.hasPermission('form:policy:query')")
