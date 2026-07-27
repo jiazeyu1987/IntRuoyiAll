@@ -65,7 +65,17 @@
 - REGRESSION BLOCKER (unrelated): `pnpm ts:check` still fails in `src/views/form-center/template/index.vue` for missing template workspace/simulation properties.
 - REGRESSION BLOCKER (unrelated): `pnpm build:local` still fails in `src/views/form-center/template/index.vue (624:3): Invalid end tag`.
 - GREEN: `experience-preflight` -> PASS，已将“批记录表单正式逐工序来源、只升版批记录表单也生成路线候选、`route_snapshot_json` 需支持大快照、前端不得用表单槽位补空”的长期经验合并到 `docs/backend-development.md`、`docs/frontend-development.md`、`docs/e2e-rules.md` 和 `docs/experience-index.md`。
+- GREEN: `git diff --check` -> PASS。
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`frontend 8086, backend 48086`。
+- GIT: implementation commit `e95b2449 fix: preserve formal batch record route bindings`，文件清单见 `git show --name-status --oneline e95b2449`。
+- Merge: `origin/int_main` 合入当前分支时 `MesProBatchRecordRouteGenerationServiceImpl.java` 与主线重建路线保留连接信息逻辑冲突；处理结果为“只升版批记录表单”继续生成 DRAFT 候选，“勾选工艺流程重建”按主线要求重建当前路线并映射保留 `next_process_id/link_type/prepare_time/wait_time/color_code/key_flag` 与人工边。
+- RED: 合并后 `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProRouteVersionLifecycleSchemaTest,MesProBatchRecordReportServiceImplDbTest,MesProBatchRecordRouteGovernanceContractTest,MesProRouteFlowConfigServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，主线新增用例 `recognizeUploadedRoute_whenUpgradingRoute_preservesStableProcessConnectionInfo` 暴露 `applyExistingRouteRebuild` 未生效。
+- GREEN: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProBatchRecordReportServiceImplDbTest#recognizeUploadedRoute_whenUpgradingRoute_preservesStableProcessConnectionInfo" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS。
+- GREEN: 合并后 `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProRouteVersionLifecycleSchemaTest,MesProBatchRecordReportServiceImplDbTest,MesProBatchRecordRouteGovernanceContractTest,MesProRouteFlowConfigServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`154` tests。
+- GREEN: 合并后 `mvn.cmd -pl yudao-server -am "-DskipTests" package` -> PASS，`BUILD SUCCESS`。
+- GIT: merge commit `ffbdbd49 merge: sync int_main before batch record binding closeout`；`git merge-base --is-ancestor int_main HEAD` 与 `git merge-base --is-ancestor origin/int_main HEAD` 均返回 `0`。
+- CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-route-flow-batch-record-form-source --mode preview` -> BLOCKED；keep 包含 `task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`、`database-schema-evidence.md`，delete 为空，唯一 blocker 为主 worktree `E:\IntRuoyi` 存在外部脏改动，不能接收 ff-only merge。
 
 ## Blockers
 
-- None.
+- Closeout apply / worktree removal blocked by dirty main worktree `E:\IntRuoyi`。只读 `git status --short --branch` 显示外部改动包括 `MesProBatchRecordReportLayoutCalibrator.java`、`MesProBatchRecordRouteBRecognizer.java`、`IntRuoyiFronted/package.json`、`src/views/mes/pro/task/calendar/index.vue` 以及若干其它任务目录；本任务未修改这些主 worktree 文件。

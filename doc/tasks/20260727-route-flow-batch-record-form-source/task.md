@@ -11,7 +11,7 @@
 3. `completed`：恢复草稿正式批记录表单快照的保存、元数据读取和逐路线工序契约。
 4. `completed`：实现关系图字段值、链接和节点状态统一读取正式批记录表单。
 5. `completed`：完成后端、前端、静态合同和真实页面验证。
-6. `pending`：沉淀经验、执行 closeout、提交并推送。
+6. `blocked`：沉淀经验、实现提交、同步主线和验证已完成；closeout apply 被主 worktree 外部脏改动阻塞。
 
 ## Expected Verification
 
@@ -25,6 +25,8 @@
 ## Current Status
 
 ready_for_closeout
+
+Closeout apply 暂未执行：`E:\IntRuoyi` 主 worktree 存在外部脏改动，cleanup preview 判定不能接收 ff-only merge。本任务分支已具备快进回 `int_main` 的提交关系，待主 worktree 清理后可继续 apply。
 
 ## 业务边界
 
@@ -65,3 +67,9 @@ ready_for_closeout
 - doc/tasks/20260727-route-flow-batch-record-form-source/bug-regression-evidence.md
 - doc/tasks/20260727-route-flow-batch-record-form-source/database-schema-evidence.md
 - doc/tasks/20260727-route-flow-batch-record-form-source/verification-report.md
+
+## Closeout Blocker
+
+- `task-closeout-cleanup --mode preview` keep 列表正确且 delete 为空。
+- Blocker: `Main worktree is dirty and cannot receive ff-only merge: E:\IntRuoyi`。
+- 当前分支已经合入 `origin/int_main`，`git merge-base --is-ancestor int_main HEAD` 与 `git merge-base --is-ancestor origin/int_main HEAD` 均返回 `0`。
