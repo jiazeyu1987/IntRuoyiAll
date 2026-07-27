@@ -85,6 +85,7 @@
 - Keywords: 草稿保存后仍可修改, 保存草稿不提交发布, 保存后不可继续编辑, 立即提交发布弹窗, submit-publish, DRAFT 被保存推进审批, RouteEditPage handleSaved, promptRouteVersionSubmit -> `docs/frontend-development.md#前端草稿保存与提交发布解耦门禁`
 - Keywords: 当前模板未绑定批记录表单, 表单模板编辑, openSelectedTemplateDesigner, openSelectedTemplateAction('edit'), resolveSelectedTemplateBatchRecordBinding, batchRecordBindingStatus, batchRecordReportId -> `docs/frontend-development.md#表单模板编辑与批记录绑定动作边界门禁`
 - Keywords: 聚合字段新增子项, 默认分类, 表单槽位, route-flow-graph-designer__node-form-count-badge, createEmptyRecordBinding, formSlotType MAIN, 新增后数字不变 -> `docs/frontend-development.md#前端聚合新增默认分类门禁`
+- Keywords: 批记录, 批记录表单, batchRecordFormNames, 工序设置批记录绑定, 表单, 表单槽位, formBindings, 工序开始, 特殊节点上传人, 附件负责人, 三类配置不得混用 -> `AGENTS.md#工艺路线三类配置术语契约`
 - eDHR 批次详情 / 动态表单 / 损耗单 / 工艺路线绑定 / 填写人 / `fillableUsers` / `routeBindingId` / 配置页有值但详情接口为空：`E:\IntRuoyi\docs\backend-development.md#edhr-详情回填门禁`
 - Keywords: 切换填写人, 协助填写人, 填写人快照, `assistSwitchTasks`, `candidateUserSnapshot`, `getEdhrBatchExecution`, `taskId`, active 执行记录, `batchExecutionId + taskId`, 弹窗打开耗时过长 -> `docs/backend-development.md#切换填写人快照读取边界`
 - Keywords: eDHR 批次任务配置来源, routeSnapshotJson, batchUseConfigs, 当前 BATCH 工序配置, 陈旧绑定, legacy flat batchRecordReportId, 发布快照不得通用 fallback, 草稿 BATCH 快照显式保存, batchRecordBindingSnapshotExplicit, flow-config/batch-record/save, 表单槽位读回为空, 草稿保存系统异常, batchRecordAttachmentOwners, 冻结快照 JSON_TYPE ARRAY, 批记录附件负责人配置无效 -> `docs/backend-development.md#edhr-批次任务配置来源门禁`
