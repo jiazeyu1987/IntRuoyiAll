@@ -51,7 +51,8 @@
 - 使用任务专用静态合同锁定样式类和颜色映射。
 - 复跑相邻单元格规则控件类型静态合同，确认下拉框类型改动未被破坏。
 - 复跑单元格规则默认全屏静态合同，确认近期 Dialog 改动未被破坏。
+- 补充真实只读页面验收：fresh Playwright context 登录本机 `http://127.0.0.1:8081`，进入 `批记录表单列表 -> 规则`，读取规则弹窗内可见单元格 computed background color；确认文本 `rgb(239, 246, 255)`、数字 `rgb(236, 253, 243)`，首轮扫描同时命中布尔类型类名。未点击保存规则，未触发 MES 写入请求。截图：`doc/tasks/20260727-cell-rule-type-background-colors/real-ui-cell-rule-colors.png`。
 
 ## Blockers And Follow-Up Skills
 
-- None yet.
+- 无当前任务阻塞。真实页面验收期间出现一次 `系统异常` toast，已定位为列表辅助填写人规则 GET 某非目标报表返回业务 `code=500`，目标 `cell-rules` 渲染接口正常。

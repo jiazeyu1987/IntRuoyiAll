@@ -41,3 +41,4 @@ completed
 ## Cleanup Keep
 
 - doc/tasks/20260727-cell-rule-type-background-colors/frontend-feature-evidence.md
+- doc/tasks/20260727-cell-rule-type-background-colors/real-ui-cell-rule-colors.png
