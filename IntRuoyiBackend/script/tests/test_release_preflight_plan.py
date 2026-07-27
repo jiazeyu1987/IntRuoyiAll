@@ -108,6 +108,27 @@ def test_preflight_accepts_dependency_planned_later_in_same_plan() -> None:
     assert [item["action"] for item in plan["items"]] == ["APPLY", "APPLY"]
 
 
+def test_preflight_preserves_manifest_order_when_dependencies_become_ready() -> None:
+    plan = build_preflight_plan(
+        [
+            migration(migrationId="binding-dependency"),
+            migration(migrationId="cleanup-dependency"),
+            migration(migrationId="cleanup", dependsOn=["cleanup-dependency"]),
+            migration(migrationId="binding", dependsOn=["binding-dependency"]),
+        ],
+        {},
+        target_environment="test",
+    )
+
+    assert plan["status"] == "passed"
+    assert [item["migrationId"] for item in plan["items"]] == [
+        "binding-dependency",
+        "cleanup-dependency",
+        "cleanup",
+        "binding",
+    ]
+
+
 def test_preflight_outputs_apply_when_safe() -> None:
     plan = build_preflight_plan([migration()], {}, target_environment="test")
 

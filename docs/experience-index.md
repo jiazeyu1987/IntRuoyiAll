@@ -221,3 +221,4 @@
 - Keywords: login-preflight.mjs 缺失, admin-only 全量 E2E, 旧目标文案执行列表, 历史 execution 直连填写页, 默认密码清理, 动态预览批次任务 -> `docs/e2e-rules.md#官方登录前置与-admin-only-全量验证门禁`
 - Keywords: stale blocked task, 提交前 blocked 状态复验, Maven compile 解除旧阻塞, pnpm ts:check 解除旧阻塞, 目标 JUnit 复验后提交 -> `docs/powershell-memory.md#提交前-stale-blocker-复验门禁`
 - Keywords: required SQL target count mismatch, ROUTE-XLSX-00002 第26道工序, test-only cleanup migration, 失败 SQL 前置清理, 不复用失败 releaseTag -> `docs/release-build-preflight-lessons.md#2026-07-27-publish-test-required-sql-目标基线多余数据门禁`
+- Keywords: release preflight stable topological order, preflight-plan migration order, FIFO ready queue, Manifest 原始顺序, cleanup before binding -> `docs/release-build-preflight-lessons.md#2026-07-27-release-preflight-拓扑排序稳定性门禁`

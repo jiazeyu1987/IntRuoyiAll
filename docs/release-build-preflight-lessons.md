@@ -818,3 +818,12 @@
 - Verification: 先补 RED 静态契约测试，断言迁移环境范围、排序、精确业务键、备份表、fail-fast 前置和软删除范围；修复后运行目标 pytest、全量 migration policy gate，使用新的 releaseTag 重建发布包并重新 `publish-test`。
 - Forbidden action: 不得手工改测试库、跳过 required SQL、放宽目标 SQL 的数量契约、复用失败 releaseTag，或把 test-only 脏数据修复声明成生产/备份也必须执行的依赖。
 - Evidence: `doc/tasks/20260727-onlyoffice-test-server-release/execution-log.md`；`release-20260727-onlyoffice-test-r260727-1445` 在 `20260717_mes_balloon_excel_device_workstation_binding.sql` 因 `ROUTE-XLSX-00002` 多出非法第 26 道工序失败，后续以 `20260716_mes_balloon_xlsx_route_00002_invalid_process_cleanup.sql` 做测试服正式清理迁移。
+
+## 2026-07-27 release preflight 拓扑排序稳定性门禁
+
+- Trigger: required SQL 的 Manifest 顺序已正确，但两个迁移分别依赖不同前置；前置在规划过程中先后变为满足时，实际 `preflight-plan.json` 顺序与 Manifest 顺序不一致。
+- Preflight check: 拓扑排序除保证依赖先于子迁移外，还必须在当前可执行节点中优先选择 Manifest 原始索引最小的节点；新增排序逻辑必须覆盖“较晚迁移先变为 ready、较早迁移后变为 ready”的回归场景。
+- Blocker: `preflight-plan.json` 将数据清理、schema 准备或测试前置迁移排在其后续校验/绑定迁移之后，即使计划整体显示 `status=passed`，也必须停止发布。
+- Verification: 使用合成迁移图执行 `test_preflight_preserves_manifest_order_when_dependencies_become_ready`，断言依赖顺序和 Manifest 稳定顺序同时成立；再运行发布脚本工具回归和 migration policy gate，重新构建新的 releaseTag。
+- Forbidden action: 不得仅靠文件名、临时 priorityMap、手工改 preflight-plan、手工改库或复用失败 releaseTag 修正执行顺序。
+- Evidence: `doc/tasks/20260727-onlyoffice-test-server-release/bug-regression-evidence.md`；`release-20260727-onlyoffice-test-r260727-1823` 的计划将 workstation binding 排在 test-only cleanup 之前，导致相同数量前置错误再次发生。

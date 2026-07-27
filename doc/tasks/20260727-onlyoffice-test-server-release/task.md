@@ -46,6 +46,7 @@ in_progress
 - 引用核对显示活动引用包括：`mes_pro_route_flow_process_config=1`、`mes_pro_route_schedule_config=1`、`mes_pro_route_use_process_config_legacy_20260709=1`、`mes_pro_schedule_order_process=11`；11 条排产工序快照 `reported_quantity=0`，可由正式迁移随同软删除。
 - 新增 `20260716_mes_balloon_xlsx_route_00002_invalid_process_cleanup.sql`，限定 `allowedEnvironments=test`，在 `20260717_mes_balloon_excel_device_workstation_binding.sql` 前执行，备份并软删除非法路线工序、前序链路、路线配置和派生排产快照。
 - RED/GREEN 已完成：新增静态契约测试先失败于清理迁移缺失，补迁移后 `11 passed`；全量 migration policy gate 通过，`migrationCount=383`。
+- `release-20260727-onlyoffice-test-r260727-1823` 复发后确认发布预检 FIFO 拓扑排序反转了 Manifest 稳定顺序；已改为按原始索引选择 ready 节点，相关发布回归 `117 passed`，migration policy gate 仍为 `383` 条通过。
 
 ## 设计约束检查
 

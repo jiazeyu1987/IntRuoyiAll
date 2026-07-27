@@ -519,7 +519,15 @@ def test_publish_script_resolves_paired_frontend_worktree_before_failing() -> No
     text = read_publish_script()
     path_resolution_block = text[text.index("$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path") : text.index("$defaultWebsiteRepo = 'D:\\ProjectPackage\\Website'")]
 
-    assert "$frontendDir = Join-Path $workspaceRoot 'yudao-ui-admin-vue3'" in path_resolution_block
+    current_frontend = "$currentFrontendDir = Join-Path $workspaceRoot 'IntRuoyiFronted'"
+    legacy_frontend = "$legacyFrontendDir = Join-Path $workspaceRoot 'yudao-ui-admin-vue3'"
+    frontend_selection = "$frontendDir = if (Test-Path -LiteralPath $currentFrontendDir) { $currentFrontendDir } else { $legacyFrontendDir }"
+
+    assert current_frontend in path_resolution_block
+    assert legacy_frontend in path_resolution_block
+    assert frontend_selection in path_resolution_block
+    assert path_resolution_block.index(current_frontend) < path_resolution_block.index(legacy_frontend)
+    assert path_resolution_block.index(legacy_frontend) < path_resolution_block.index(frontend_selection)
     assert "if (-not (Test-Path -LiteralPath $frontendDir)) {" in path_resolution_block
     assert "$worktreePortMapPath = Join-Path $scriptDir 'worktree-port-map.ps1'" in path_resolution_block
     assert ". $worktreePortMapPath" in path_resolution_block
