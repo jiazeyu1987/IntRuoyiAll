@@ -28,6 +28,8 @@ import cn.iocoder.yudao.module.mes.service.md.workstation.MesMdWorkstationServic
 import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -321,6 +323,55 @@ class MesProRouteProcessFlowServiceImplTest {
         verify(flowLayoutMapper, never()).selectListByRouteId(routeId);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"REJECTED", "CANCELLED", "SUPERSEDED"})
+    void getGraph_shouldReadClosedHistoricalRouteVersionSnapshot(String lifecycleStatus) {
+        Long routeId = 9020L;
+        Long routeVersionId = 9920L;
+        when(routeMapper.selectById(routeId)).thenReturn(route(routeId));
+        when(routeVersionMapper.selectById(routeVersionId)).thenReturn(MesProRouteVersionDO.builder()
+                .id(routeVersionId)
+                .routeId(routeId)
+                .active(Boolean.FALSE)
+                .lifecycleStatus(lifecycleStatus)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 9020,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "routeId": 9020,
+                              "graphVersion": 23,
+                              "nodes": [
+                                {"routeProcessId": 321, "processId": 3001, "sort": 1, "keyFlag": true, "checkFlag": false}
+                              ],
+                              "edges": [],
+                              "boundaryEdges": [],
+                              "layouts": [
+                                {"routeProcessId": 321, "x": 30, "y": 40}
+                              ]
+                            }
+                          }
+                        }
+                        """)
+                .build());
+        when(processService.getProcessList(List.of(3001L))).thenReturn(List.of(
+                processDefinition(3001L, "PROC-3001", "历史版本工序")
+        ));
+
+        MesProRouteProcessFlowGraphRespVO graph = flowService.getGraph(routeId, routeVersionId);
+
+        assertEquals("UNINITIALIZED", graph.getValidationStatus());
+        assertEquals(23L, graph.getGraphVersion());
+        assertEquals(1, graph.getNodes().size());
+        assertEquals(321L, graph.getNodes().get(0).getRouteProcessId());
+        assertEquals("PROC-3001", graph.getNodes().get(0).getProcessCode());
+        assertEquals(30, graph.getNodes().get(0).getX());
+        verify(routeProcessMapper, never()).selectListByRouteId(routeId);
+        verify(flowEdgeMapper, never()).selectListByRouteId(routeId);
+        verify(boundaryEdgeMapper, never()).selectListByRouteId(routeId);
+        verify(flowLayoutMapper, never()).selectListByRouteId(routeId);
+    }
+
     @Test
     void saveGraph_shouldPersistGraphWithoutSyncingLegacyNextProcessFields() {
         Long routeId = 9002L;
@@ -541,6 +592,37 @@ class MesProRouteProcessFlowServiceImplTest {
                 ErrorCodeConstants.PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE,
                 candidateRouteVersionId,
                 MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL
+        );
+
+        verify(routeCandidateConfigService, never()).saveConfigSnapshot(any(), any(), any());
+        verify(flowEdgeMapper, never()).deleteByRouteId(routeId);
+        verify(boundaryEdgeMapper, never()).deleteByRouteId(routeId);
+        verify(flowLayoutMapper, never()).deleteByRouteId(routeId);
+        verify(flowEdgeMapper, never()).insert(any(MesProRouteProcessFlowEdgeDO.class));
+        verify(boundaryEdgeMapper, never()).insert(any(MesProRouteProcessFlowBoundaryEdgeDO.class));
+        verify(flowLayoutMapper, never()).insert(any(MesProRouteProcessFlowLayoutDO.class));
+    }
+
+    @Test
+    void saveGraph_shouldRejectCancelledSnapshotWriteWithoutMutatingActiveGraph() {
+        Long routeId = 9021L;
+        Long routeVersionId = 9921L;
+        when(routeVersionMapper.selectById(routeVersionId)).thenReturn(MesProRouteVersionDO.builder()
+                .id(routeVersionId)
+                .routeId(routeId)
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED)
+                .build());
+        MesProRouteProcessFlowSaveReqVO reqVO = saveReq(routeId, 4L,
+                List.of(edge(321L, 322L)),
+                List.of(layout(321L, 10, 20), layout(322L, 220, 20)));
+        reqVO.setRouteVersionId(routeVersionId);
+
+        AssertUtils.assertServiceException(
+                () -> flowService.saveGraph(reqVO),
+                ErrorCodeConstants.PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE,
+                routeVersionId,
+                MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED
         );
 
         verify(routeCandidateConfigService, never()).saveConfigSnapshot(any(), any(), any());

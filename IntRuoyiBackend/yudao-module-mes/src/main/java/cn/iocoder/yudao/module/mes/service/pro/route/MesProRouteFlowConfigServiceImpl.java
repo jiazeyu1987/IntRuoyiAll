@@ -141,6 +141,9 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT,
             MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL,
             MesProRouteVersionLifecycleServiceImpl.STATUS_READY_TO_PUBLISH);
+    private static final Set<String> READABLE_CLOSED_CANDIDATE_SNAPSHOT_STATUSES = Set.of(
+            MesProRouteVersionLifecycleServiceImpl.STATUS_REJECTED,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED);
     private static final List<BatchRecordAttachmentDefinition> BATCH_RECORD_ATTACHMENT_DEFINITIONS = List.of(
             new BatchRecordAttachmentDefinition("INCOMING_INSPECTION_REPORT", "来料检报告",
                     "BATCH_ATTACHMENT_INCOMING_INSPECTION_REPORT_UPLOAD_1", "来料检报告上传1", 1),
@@ -215,7 +218,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 return getRouteVersionSnapshotFlowProcessConfigList(
                         routeVersion, flowConfigType, resolveCandidateBatchBindingReadStrategy(routeVersion));
             }
-            if (isPublishedSnapshotRouteVersion(routeVersion)) {
+            if (isPublishedSnapshotRouteVersion(routeVersion) || isClosedCandidateSnapshotRouteVersion(routeVersion)) {
                 return getRouteVersionSnapshotFlowProcessConfigList(
                         routeVersion, flowConfigType, RouteVersionBatchBindingReadStrategy.SNAPSHOT);
             }
@@ -1087,7 +1090,9 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     private MesProRouteVersionDO requireReadableRouteVersion(Long routeVersionId, Long routeId) {
         MesProRouteVersionDO routeVersion = requireExistingRouteVersion(routeVersionId);
         if (Objects.equals(routeVersion.getRouteId(), routeId)
-                && (isReadableCandidate(routeVersion) || isPublishedSnapshotRouteVersion(routeVersion))) {
+                && (isReadableCandidate(routeVersion)
+                || isPublishedSnapshotRouteVersion(routeVersion)
+                || isClosedCandidateSnapshotRouteVersion(routeVersion))) {
             return routeVersion;
         }
         throw exception(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE,
@@ -1122,6 +1127,12 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 || (routeVersion != null
                 && Boolean.FALSE.equals(routeVersion.getActive())
                 && MesProRouteVersionLifecycleServiceImpl.STATUS_SUPERSEDED.equals(routeVersion.getLifecycleStatus()));
+    }
+
+    private boolean isClosedCandidateSnapshotRouteVersion(MesProRouteVersionDO routeVersion) {
+        return routeVersion != null
+                && Boolean.FALSE.equals(routeVersion.getActive())
+                && READABLE_CLOSED_CANDIDATE_SNAPSHOT_STATUSES.contains(routeVersion.getLifecycleStatus());
     }
 
     private List<MesProRouteFlowProcessConfigSaveReqVO> buildCandidateUseConfigSnapshot(

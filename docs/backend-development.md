@@ -71,6 +71,15 @@
 - Forbidden action: 禁止用当前工序设置作为显式保存草稿快照的 fallback；禁止用空绑定、默认 MAIN、前端隐藏或吞异常掩盖草稿快照读写不对称。
 - Evidence: `doc/tasks/20260726-route-flow-v15-save-system-exception/verification-report.md`，`MesProRouteFlowConfigServiceImplTest#getRouteFlowProcessConfigList_shouldReadSavedDraftBatchSnapshotBeforeCurrentBindings`。
 
+### 历史关闭候选版本只读快照边界
+
+- Trigger: 工艺路线版本工作区“查看”、老版本工艺流程、`routeVersionId`、`CANCELLED`、`REJECTED`、`SUPERSEDED`、`PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE`、历史关系图或流程配置打不开。
+- Preflight check: 先区分读取与写入状态集合；只读读取应按版本生命周期从该版本 `routeSnapshotJson.configSnapshots` 读取关系图、批记录/排产/附件负责人等冻结快照，写入仍只允许 `DRAFT` 候选版本。
+- Blocker: 只读查看 `CANCELLED` / `REJECTED` / `SUPERSEDED` 被候选发布条件拦截、返回当前 ACTIVE 配置、返回空图/空配置、或写入校验因扩展读取状态而放宽时必须停止。
+- Verification: 后端回归必须同时覆盖关闭历史版本读取冻结快照、候选排产快照读取、以及 `CANCELLED` 保存关系图/流程配置/排产配置仍 fail-fast；前端静态或真实路径需证明查看动作传递历史 `routeVersionId` 且禁用写控件。
+- Forbidden action: 禁止把关闭候选版本当成待发布候选要求、禁止回退到当前工序设置或 ACTIVE 版本、禁止用空快照默认成功、禁止为了只读查看放宽提交/保存/发布写入守卫。
+- Evidence: `doc/tasks/20260727-route-history-cancelled-version-view/verification-report.md`。
+
 ### 冻结快照附件负责人 JSON 类型边界
 
 - Trigger: `batchRecordAttachmentOwners`、`PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID`、`批记录附件负责人配置无效`、已有批次冻结 `route_snapshot_json` 缺配置、路线版本发布后旧批次仍打不开。
