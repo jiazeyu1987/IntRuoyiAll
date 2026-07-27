@@ -540,15 +540,16 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             batch = batchExecutionMapper.selectById(batch.getId());
             return toResp(batch);
         } catch (ServiceException ex) {
-            if (!isDefaultReportRequired(ex)) {
+            if (!isPageBlockingConfigurationException(ex)) {
                 throw ex;
             }
             return toBlockedResp(batch, ex);
         }
     }
 
-    private boolean isDefaultReportRequired(ServiceException ex) {
-        return Objects.equals(ex.getCode(), PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED.getCode());
+    private boolean isPageBlockingConfigurationException(ServiceException ex) {
+        return Objects.equals(ex.getCode(), PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED.getCode())
+                || Objects.equals(ex.getCode(), PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID.getCode());
     }
 
     private EdhrBatchExecutionRespVO toBlockedResp(MesProEdhrBatchExecutionDO batch, ServiceException ex) {
@@ -628,7 +629,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             batchExecutionVisibilityService.requireVisibleBatch(batch, currentUserId());
             result = toResp(batch);
         } catch (ServiceException ex) {
-            if (!isDefaultReportRequired(ex)) {
+            if (!isPageBlockingConfigurationException(ex)) {
                 throw ex;
             }
             result = toBlockedResp(batch, ex);

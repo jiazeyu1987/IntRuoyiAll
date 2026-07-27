@@ -5,6 +5,7 @@
 - Root cause fixed: `FORM_TEMPLATE_UPGRADE` can no longer be published or switched to DIRECT/SIGNATURE_REQUIRED.
 - Stale seed behavior fixed: upgrade BPM seed now corrects published non-BPM policy rows before duplicate/conflict checks.
 - Regression scope covered: policy administration, Form Template upgrade executor, BPM-required orchestrator path, upgrade seed, and release contract index.
+- Cleanup complete: task closeout preview/apply kept required records and deleted nothing.
 
 ## Commands
 

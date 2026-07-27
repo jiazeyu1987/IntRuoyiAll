@@ -22,10 +22,18 @@
 
 ## TDD Evidence
 
-- RED: pending
-- GREEN: pending
-- REGRESSION: pending
+- RED: `node tests/e2e/batch-record-cell-rule-default-fullscreen-static.spec.js` -> FAIL, expected reason: `BatchRecordCellRulesConfirmDialog.vue` did not declare `:default-fullscreen="true"` and shared `Dialog.vue` did not expose `defaultFullscreen`.
+- GREEN: `node tests/e2e/batch-record-cell-rule-default-fullscreen-static.spec.js` -> PASS.
+- REGRESSION: `node tests/e2e/batch-record-cell-rule-dialog-size-static.spec.js` -> PASS.
+- REGRESSION: `node tests/e2e/batch-record-cell-rule-fillable-toggle-static.spec.js` -> PASS.
+- REGRESSION: `pnpm ts:check` -> PASS.
 
 ## Milestone Updates
 
 - Created task documentation and recorded applicable frontend / task / PowerShell gates.
+- Added `defaultFullscreen` support to shared `Dialog.vue` with default `false`, initialized the internal fullscreen state from that prop on each open, and excluded the prop from raw Element Plus binding.
+- Enabled `:default-fullscreen="true"` only on `BatchRecordCellRulesConfirmDialog.vue`.
+- Added `IntRuoyiFronted/tests/e2e/batch-record-cell-rule-default-fullscreen-static.spec.js` to lock the default-fullscreen behavior and preserve existing title, width, workspace, and save button anchors.
+- Verification passed with the target static contract, adjacent static regressions, and frontend relaxed TypeScript check.
+- Project experience consolidation: no new durable lesson needed; existing frontend static contract, dirty workspace baseline, PowerShell, and closeout gates already cover this task.
+- Parallel/unrelated dirty files remain outside this task scope, including current changes under `20260727-cell-rule-type-background-colors`, controlled browse task docs, backend MES/DCC tests, `docs/backend-development.md`, and `docs/experience-index.md`.

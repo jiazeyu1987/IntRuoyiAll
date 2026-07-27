@@ -19,7 +19,8 @@
 
 - Entry: `IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/index.vue` 中的 `BatchRecordCellRulesConfirmDialog`。
 - Component: `IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/BatchRecordCellRulesConfirmDialog.vue`。
-- Test: pending.
+- Shared component: `IntRuoyiFronted/src/components/Dialog/src/Dialog.vue`。
+- Test: `IntRuoyiFronted/tests/e2e/batch-record-cell-rule-default-fullscreen-static.spec.js`。
 
 ## API Contracts And Data States
 
@@ -31,9 +32,12 @@
 
 ## Verification
 
-- RED command: pending.
-- GREEN command: pending.
-- Responsive/accessibility/error/loading/permission checks: no behavior change beyond default dialog display mode; static contract will verify content and buttons remain present.
+- RED command: `node tests/e2e/batch-record-cell-rule-default-fullscreen-static.spec.js` failed before implementation because `defaultFullscreen` and `:default-fullscreen="true"` were missing.
+- GREEN command: `node tests/e2e/batch-record-cell-rule-default-fullscreen-static.spec.js` passed.
+- Regression command: `node tests/e2e/batch-record-cell-rule-dialog-size-static.spec.js` passed.
+- Regression command: `node tests/e2e/batch-record-cell-rule-fillable-toggle-static.spec.js` passed.
+- Regression command: `pnpm ts:check` passed.
+- Responsive/accessibility/error/loading/permission checks: behavior is unchanged beyond initial dialog display mode; static contract preserves title, width, workspace, and save button anchors.
 
 ## Blockers
 
