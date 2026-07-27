@@ -114,9 +114,11 @@ public class CodexTestCaseServiceImpl implements CodexTestCaseService {
                 newOption.setName(name);
                 newOption.setProject(testCase.getProject());
                 newOption.setNodeCount(0);
+                newOption.setNextNodeSort(1);
                 return newOption;
             });
             option.setNodeCount(option.getNodeCount() + 1);
+            option.setNextNodeSort(Math.max(option.getNextNodeSort(), testCase.getNodeChainSort() + 1));
         }
         return List.copyOf(optionMap.values());
     }

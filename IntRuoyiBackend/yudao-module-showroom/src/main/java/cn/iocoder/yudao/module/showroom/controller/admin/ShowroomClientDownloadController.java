@@ -26,10 +26,4 @@ public class ShowroomClientDownloadController {
     public ResponseEntity<Resource> downloadAndroidClient() {
         return downloadService.download(ShowroomClientDownloadFile.ANDROID);
     }
-
-    @GetMapping("/desktop-win7")
-    @Operation(summary = "下载展厅 Win7 桌面客户端")
-    public ResponseEntity<Resource> downloadDesktopClient() {
-        return downloadService.download(ShowroomClientDownloadFile.DESKTOP_WIN7);
-    }
 }

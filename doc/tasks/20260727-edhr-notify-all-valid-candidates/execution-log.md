@@ -60,19 +60,33 @@ RED: mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest#crea
 
 GREEN: mvn -pl yudao-module-mes org.apache.maven.plugins:maven-surefire-plugin:3.5.3:test "-Dtest=MesProEdhrWorkTaskServiceImplTest#createInitialFillTask_usesProcessFormPermissionRuleCandidateSnapshot+createReviewTasks_createsOneTodoPerSignatureCellAndCompletesSubmitTask+createReviewTasks_deduplicatesRepeatedFrozenCandidateNotifyRecipients" "-Dsurefire.failIfNoSpecifiedTests=true" -> PASS, 3 tests run, 0 failures, 0 errors。
 
+GREEN: mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest#createInitialFillTask_usesProcessFormPermissionRuleCandidateSnapshot+createReviewTasks_createsOneTodoPerSignatureCellAndCompletesSubmitTask+createReviewTasks_deduplicatesRepeatedFrozenCandidateNotifyRecipients" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 3 tests run, 0 failures, 0 errors；Surefire 报告更新时间为 2026-07-27 18:41:27。
+
 REGRESSION: mvn -pl yudao-module-mes org.apache.maven.plugins:maven-surefire-plugin:3.5.3:test "-Dtest=MesProEdhrWorkTaskServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=true" -> PASS, 66 tests run, 0 failures, 0 errors。
 
 COMPILE: mvn -pl yudao-module-mes -am "-DskipTests" compile -> PASS, MES 及依赖模块生产代码编译通过。
 
 CHECK: git diff --check -- IntRuoyiBackend\yudao-module-mes\src\main\java\cn\iocoder\yudao\module\mes\service\pro\batchrecord\MesProEdhrWorkTaskServiceImpl.java IntRuoyiBackend\yudao-module-mes\src\test\java\cn\iocoder\yudao\module\mes\service\pro\batchrecord\MesProEdhrWorkTaskServiceImplTest.java doc\tasks\20260727-edhr-notify-all-valid-candidates -> PASS，仅输出 Git 行尾转换 warning，无 whitespace error。
 
-BLOCKED: mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest#createInitialFillTask_usesProcessFormPermissionRuleCandidateSnapshot+createReviewTasks_createsOneTodoPerSignatureCellAndCompletesSubmitTask+createReviewTasks_deduplicatesRepeatedFrozenCandidateNotifyRecipients" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL at `testCompile` before执行本任务测试，非本任务文件 `MesProEdhrBatchExecutionServiceTest` 引用 `WorkbenchReleaseSummary#getReleaseOwnerConfigured/getReleaseOwnerSourceType/getReleaseOwnerLabel`，而当前 `EdhrBatchWorkbenchRespVO.WorkbenchReleaseSummary` 不存在这些 getter。
+BLOCKED: mvn -pl yudao-module-mes -am test -> FAIL, 上游 `yudao-module-infra` 共 415 tests，38 failures、1 error、10 skipped；MES 模块被 Maven reactor 标记为 SKIPPED。
+
+BLOCKED: mvn -pl yudao-module-mes test -> TIMEOUT after 15 minutes，未产出 2026-07-27 18:44:55 之后的新完整 Surefire 报告；确认进程属于本任务后已终止 PID 59468，未触碰其他服务或任务进程。
+
+EVIDENCE: bug regression validator -> PASS；backend API validator -> PASS。
 
 ## 里程碑 5：收尾
 
 状态：blocked
 
+### 集成状态
+
+- 并发任务基线提交：`f18927b9e3682a8a66d44d535b24c75b824b40e2`，提交时间 `2026-07-27 18:41:23 +08:00`，主题 `chore: baseline pre-existing dirty worktree`。
+- 该提交包含本任务 `MesProEdhrWorkTaskServiceImpl.java`、`MesProEdhrWorkTaskServiceImplTest.java` 以及当时的任务目录文件，并已推送到 `origin/int_main`。
+- 当前 `HEAD` 与 `origin/int_main` 均为 `f18927b9`。
+- 本次验证后新增/修正的证据文档仍为未提交状态；由于完整模块回归阻塞，不再创建额外提交或推送。
+
 ## 阻塞项
 
-- MES 标准 Maven test 生命周期被非本任务 releaseOwner 测试源码编译错误阻断，无法完成模块回归、证据脚本后的提交和推送。
-- 本任务未修改 `MesProEdhrBatchExecutionServiceTest` 或 `EdhrBatchWorkbenchRespVO`，避免混入并发/无关任务范围。
+- `-am test` 被非本任务上游 infra 失败阻断，MES 未执行。
+- MES 全量单模块测试超时，无法形成完整模块回归结论。
+- 按项目门禁，本任务不提交、不推送、不标记 `ready_for_closeout` 或 `completed`。

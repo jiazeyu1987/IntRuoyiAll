@@ -23,6 +23,8 @@ import cn.iocoder.yudao.module.system.service.tenant.TenantService;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -160,6 +162,34 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
         assertTrue(blockedResults.stream().allMatch(result -> "BLOCKED".equals(result.getStatus())));
         assertTrue(blockedResults.stream().allMatch(
                 result -> "前置节点未通过，串行节点串已停止".equals(result.getMismatchDescription())));
+        assertEquals("FAIL", codexTestExecutionMapper.selectById(executionId).getStatus());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"BLOCKED", "TIMEOUT"})
+    void completeCase_nonPassingSequentialStatusBlocksRemainingNodes(String firstNodeStatus) {
+        Long runnerSessionId = registerRunner();
+        Long firstCaseId = codexTestCaseService.createCase(
+                CodexTestCaseServiceImplTest.buildNodeChainCaseReq("批记录前置检查", 1));
+        Long secondCaseId = codexTestCaseService.createCase(
+                CodexTestCaseServiceImplTest.buildNodeChainCaseReq("批记录创建执行", 2));
+        Long executionId = codexTestExecutionService.startExecution(
+                startReq(firstCaseId, secondCaseId), 99L);
+        CodexTestRunnerClaimRespVO.Task firstTask =
+                codexTestRunnerService.claimTasks(claimReq(runnerSessionId, 2), RUNNER_TOKEN)
+                        .getTasks().get(0);
+        CodexTestRunnerCompleteCaseReqVO completeReqVO = new CodexTestRunnerCompleteCaseReqVO();
+        completeReqVO.setExecutionCaseId(firstTask.getExecutionCaseId());
+        completeReqVO.setStatus(firstNodeStatus);
+        completeReqVO.setSummary("前置节点未完成");
+
+        codexTestRunnerService.completeCase(completeReqVO, RUNNER_TOKEN);
+
+        List<CodexTestExecutionCaseDO> executionCases =
+                codexTestExecutionCaseMapper.selectListByExecutionId(executionId);
+        assertEquals(firstNodeStatus, executionCases.get(0).getStatus());
+        assertEquals("BLOCKED", executionCases.get(1).getStatus());
+        assertEquals("前置节点未通过，串行节点串已停止", executionCases.get(1).getFailureReason());
         assertEquals("FAIL", codexTestExecutionMapper.selectById(executionId).getStatus());
     }
 

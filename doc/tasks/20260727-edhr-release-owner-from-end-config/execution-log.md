@@ -10,6 +10,7 @@
 - 前端范围：`BatchExecutionDetailPage.vue` 及其批次执行响应类型。
 - 不新增数据库迁移，不修改既有路线配置数据，不引入 fallback 或吞异常。
 - 当前工作区已有其他任务脏改动：`IntRuoyiBackend/script/deploy/publish-int-ruoyi.ps1`、`IntRuoyiBackend/script/tests/test_publish_int_ruoyi_to_test_tooling.py`、`doc/tasks/20260727-codex-runner-token-invalid/`、`doc/tasks/20260727-route-version-batch-record-snapshot/`；本任务不修改、不纳入本任务提交。
+- 并发任务于 `2026-07-27 18:41:23 +08:00` 创建并推送基线提交 `f18927b9`，该提交包含本任务当时的核心后端、前端、测试和任务文档改动；它不是本任务独立实现提交。
 
 ## BDD Scenarios
 
@@ -53,16 +54,20 @@ BDD: 放行阶段展示路线级负责人 -> Given 工作台响应包含 `releas
 - REGRESSION: added `submitRejectsWhenRouteReleaseRoleHasNoEnabledMembers` to lock fail-fast behavior for an invalid empty `ROLE_GROUP` candidate pool.
 - REGRESSION: non-release stage owner display path still uses the existing stage owner logic.
 - REGRESSION: release-stage missing owner data now displays `放行责任人未配置` instead of a generic owner-role fallback.
+- REGRESSION: blank user nicknames and blank role names now fail fast instead of falling back to numeric IDs.
 - REGRESSION: no DB migration, route data rewrite, fallback, or swallowed exception introduced.
 
 ### Verification Retry
 
 - RETRY: final Maven target command including `submitRejectsWhenRouteReleaseRoleHasNoEnabledMembers` -> TIMEOUT, because multiple unrelated Maven builds were concurrently active in `E:\IntRuoyi\IntRuoyiBackend`; no test failure was produced.
 - RETRY: final `pnpm ts:check` after the explicit missing-owner label refinement -> TIMEOUT while unrelated `vue-tsc` processes were active; the task static contracts passed after the refinement.
+- GREEN: isolated `javac` compilation of the final workbench service source and the new release-service regression test -> PASS.
 - CLEANUP: stopped only the exact Maven and `vue-tsc` child processes created by this task's timed-out retries; shared `8081/48081` services and unrelated build processes were not stopped.
+- CLEANUP: removed the fixed task-owned isolated compilation directory and Java argument files from `%TEMP%`.
 
 ## Blockers
 
 - Real Playwright page verification is blocked: `48081` is an existing shared `yudao-server-exec.jar` process and has not been safely rebuilt/restarted with this task's backend code. Do not claim browser verification until the backend runtime is reloaded under local-runtime rules.
 - Final rerun of the newly added empty-role regression test is blocked by concurrent Maven builds in the same repository output tree. The earlier 9-test target report remains PASS with 0 failures.
-- Git closeout is blocked by pre-existing/concurrent dirty changes and branch already ahead of origin; implementation files must be selectively staged if/when commit is authorized.
+- Core changes are already present in pushed baseline commit `f18927b9`; the final blank-name fail-fast refinement and its evidence updates remain uncommitted until the blocked regression/E2E gates can run.
+- Git closeout is still blocked by concurrent worktree changes from other tasks; this task must not stage or commit those files as its own.

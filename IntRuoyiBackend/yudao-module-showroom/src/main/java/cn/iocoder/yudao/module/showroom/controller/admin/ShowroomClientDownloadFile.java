@@ -9,10 +9,4 @@ public record ShowroomClientDownloadFile(String code, String resourcePath, Strin
             "showroom/client-downloads/v1.0/YingtaiShowroomClient-Android-v1.0.apk",
             "YingtaiShowroomClient-Android-v1.0.apk",
             MediaType.parseMediaType("application/vnd.android.package-archive"));
-
-    public static final ShowroomClientDownloadFile DESKTOP_WIN7 = new ShowroomClientDownloadFile(
-            "desktop-win7",
-            "showroom/client-downloads/v1.0/YingtaiShowroomClient-Win7-v1.0.zip",
-            "YingtaiShowroomClient-Win7-v1.0.zip",
-            MediaType.parseMediaType("application/zip"));
 }

@@ -13,6 +13,7 @@
 - Missing route `RELEASE_APPROVE` returns `releaseOwnerConfigured=false` and `releaseOwnerLabel=放行责任人未配置` in workbench summaries.
 - Submit release fails fast with `PRO_EDHR_RELEASE_OWNER_INVALID` when the actor is not in the `RELEASE_APPROVE` candidate snapshot.
 - Invalid `ROLE_GROUP` configuration with no enabled members fails fast with `PRO_EDHR_WORK_TASK_CANDIDATE_POOL_EMPTY` before password validation.
+- Blank user nicknames and blank role names are invalid; numeric IDs are not used as display fallbacks.
 
 ## BDD
 
@@ -34,6 +35,7 @@
 
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#workbench_resolvesReleaseOwnerLabelFromRouteReleaseUserRule+workbench_resolvesReleaseOwnerLabelFromRouteReleaseRoleGroupRule+workbench_marksReleaseOwnerMissingWhenRouteReleaseRuleAbsent,MesProEdhrReleaseServiceImplTest#submitReleasesDirectlyWhenOwnerSignsAndDhrPassesAndExternalSourcesAreNotYetIntegrated+submitReleasesDirectlyBeforeBatchCloseWhenOwnerSignsAndDhrEvidenceIsComplete+submitReleasesDirectlyWhenRouteReleaseRoleMemberSigns+submitRejectsWhenCurrentUserIsNotRouteReleaseOwner+submitRejectsWhenOwnerSignaturePasswordIsMissingOrInvalid+submitRejectsWhenOnlyRouteCloseOwnerIsConfigured" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 9 tests.
 - The Surefire reports at `2026-07-27 17:49` record 3 workbench tests and 6 release tests with 0 errors and 0 failures.
+- Isolated `javac` compilation of the final `MesProEdhrBatchWorkbenchServiceImpl` source and `MesProEdhrReleaseServiceImplTest` source -> PASS.
 
 ## Verification
 

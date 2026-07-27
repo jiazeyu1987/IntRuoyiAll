@@ -50,6 +50,7 @@ export interface CodexTestNodeChainOptionVO {
   name: string
   project: CodexTestProject
   nodeCount: number
+  nextNodeSort: number
 }
 
 export interface CodexTestExecutionStartReqVO {

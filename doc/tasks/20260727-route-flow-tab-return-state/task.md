@@ -20,7 +20,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 
@@ -32,4 +32,4 @@ in_progress
 
 - 前端静态契约隔离：若既有宽契约先失败于无关历史问题，必须记录首个无关失败，并使用本任务专用最小静态契约完成 RED/GREEN；不得修改无关合同或产品逻辑绕过。
 - 路线页验证：先核对 `RouteEditPage.vue`、`RouteFormContent.vue`、路由 `query.tab` 和顶部页签导航契约，再判断是页面组件状态丢失还是标签页路由缓存/导航问题。
-
+- 隐藏路由顶部页签：`noTagsView: true` 且配置 `activeMenu` 的详情/编辑页必须显式同步现有菜单页签目标；返回菜单列表时恢复原始页签快照，不得取消隐藏路由或新增重复页签绕过。

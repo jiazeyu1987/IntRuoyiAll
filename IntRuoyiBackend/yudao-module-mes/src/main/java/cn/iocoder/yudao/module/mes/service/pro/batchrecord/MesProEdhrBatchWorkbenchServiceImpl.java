@@ -163,7 +163,10 @@ public class MesProEdhrBatchWorkbenchServiceImpl implements MesProEdhrBatchWorkb
         }
         MesProEdhrCandidateResolver.MesProEdhrCandidateContract candidate =
                 candidateResolver.resolveAssignmentRule(rule);
-        String sourceType = StrUtil.blankToDefault(candidate.sourceType(), MesProEdhrCandidateResolver.CANDIDATE_SOURCE_TYPE_USER);
+        String sourceType = candidate.sourceType();
+        if (StrUtil.isBlank(sourceType)) {
+            throw exception(PRO_EDHR_WORK_TASK_CANDIDATE_SOURCE_INVALID);
+        }
         return new EdhrBatchWorkbenchRespVO.WorkbenchReleaseSummary()
                 .setReleaseOwnerConfigured(Boolean.TRUE)
                 .setReleaseOwnerSourceType(sourceType)
@@ -173,16 +176,15 @@ public class MesProEdhrBatchWorkbenchServiceImpl implements MesProEdhrBatchWorkb
     private String resolveReleaseOwnerLabel(String sourceType,
                                             MesProEdhrCandidateResolver.MesProEdhrCandidateContract candidate) {
         if (MesProEdhrCandidateResolver.CANDIDATE_SOURCE_TYPE_USER.equals(sourceType)) {
-            Long userId = candidate.sourceId() == null ? resolveFirstCandidateUserId(candidate.userSnapshot())
-                    : candidate.sourceId();
+            Long userId = candidate.sourceId();
             if (userId == null) {
                 throw exception(PRO_EDHR_WORK_TASK_CANDIDATE_SOURCE_INVALID);
             }
             AdminUserRespDTO user = adminUserApi.getUser(userId);
-            if (user == null || !CommonStatusEnum.isEnable(user.getStatus())) {
+            if (user == null || !CommonStatusEnum.isEnable(user.getStatus()) || StrUtil.isBlank(user.getNickname())) {
                 throw exception(PRO_EDHR_WORK_TASK_ASSIGNEE_INVALID);
             }
-            return StrUtil.blankToDefault(user.getNickname(), String.valueOf(userId));
+            return user.getNickname().trim();
         }
         if (CANDIDATE_SOURCE_TYPE_ROLE_GROUP.equals(sourceType)) {
             Long roleId = candidate.sourceId();
@@ -195,24 +197,12 @@ public class MesProEdhrBatchWorkbenchServiceImpl implements MesProEdhrBatchWorkb
                     .filter(item -> Objects.equals(item.getId(), roleId))
                     .findFirst()
                     .orElse(null);
-            if (role == null || !CommonStatusEnum.isEnable(role.getStatus())) {
+            if (role == null || !CommonStatusEnum.isEnable(role.getStatus()) || StrUtil.isBlank(role.getName())) {
                 throw exception(PRO_EDHR_WORK_TASK_CANDIDATE_SOURCE_INVALID);
             }
-            return StrUtil.blankToDefault(role.getName(), String.valueOf(roleId)) + "（角色成员均可放行）";
+            return role.getName().trim() + "（角色成员均可放行）";
         }
         throw exception(PRO_EDHR_WORK_TASK_CANDIDATE_SOURCE_INVALID);
-    }
-
-    private Long resolveFirstCandidateUserId(String userSnapshot) {
-        if (StrUtil.isBlank(userSnapshot)) {
-            return null;
-        }
-        for (String item : userSnapshot.split(",")) {
-            if (StrUtil.isNotBlank(item)) {
-                return Long.valueOf(item.trim());
-            }
-        }
-        return null;
     }
 
     private EdhrBatchWorkbenchRespVO.WorkbenchAuditSummary buildAuditSummary(Long batchExecutionId) {

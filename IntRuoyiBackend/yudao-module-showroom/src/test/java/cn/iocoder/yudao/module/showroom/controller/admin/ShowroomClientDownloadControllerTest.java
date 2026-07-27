@@ -6,8 +6,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 
 import java.io.InputStream;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,19 +37,16 @@ class ShowroomClientDownloadControllerTest {
     }
 
     @Test
-    void downloadDesktopClientShouldReturnPackagedWin7Zip() throws Exception {
-        ShowroomClientDownloadService service = new ShowroomClientDownloadService();
-        ShowroomClientDownloadController controller = new ShowroomClientDownloadController(service);
+    void desktopWin7ClientShouldBeRetired() {
+        boolean desktopMappingExists = Arrays.stream(ShowroomClientDownloadController.class.getDeclaredMethods())
+                .map(method -> method.getAnnotation(GetMapping.class))
+                .filter(mapping -> mapping != null)
+                .flatMap(mapping -> Arrays.stream(mapping.value()))
+                .anyMatch("/desktop-win7"::equals);
 
-        ResponseEntity<Resource> response = controller.downloadDesktopClient();
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(MediaType.parseMediaType("application/zip"), response.getHeaders().getContentType());
-        assertEquals("YingtaiShowroomClient-Win7-v1.0.zip",
-                response.getHeaders().getContentDisposition().getFilename());
-        assertEquals("Accept-Ranges,Content-Disposition", response.getHeaders()
-                .getFirst(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS));
-        assertPackagedZipLikeResource(response.getBody());
+        assertTrue(!desktopMappingExists, "desktop Win7 download mapping must be removed");
+        assertThrows(NoSuchFieldException.class,
+                () -> ShowroomClientDownloadFile.class.getDeclaredField("DESKTOP_WIN7"));
     }
 
     @Test

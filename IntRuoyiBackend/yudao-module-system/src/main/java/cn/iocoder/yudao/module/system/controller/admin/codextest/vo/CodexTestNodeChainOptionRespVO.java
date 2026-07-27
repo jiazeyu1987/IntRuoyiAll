@@ -16,4 +16,7 @@ public class CodexTestNodeChainOptionRespVO {
     @Schema(description = "节点数量")
     private Integer nodeCount;
 
+    @Schema(description = "建议的新节点序号")
+    private Integer nextNodeSort;
+
 }

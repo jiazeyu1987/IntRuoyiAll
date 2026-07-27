@@ -115,7 +115,9 @@ async function login(page) {
     loginResponse.ok() && [0, 200].includes(payload.code),
     `login failed: HTTP ${loginResponse.status()} code=${payload.code}`
   )
-  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 60000 })
+  await page.waitForFunction(() => !window.location.pathname.includes('/login'), undefined, {
+    timeout: 60000
+  })
 }
 
 function tagsViewItem(page, text) {
@@ -139,15 +141,6 @@ async function navigateAwayInsideApp(page) {
   }
   const menuTexts = await page.locator('.el-menu').allInnerTexts()
   throw new Error(`Missing in-app navigation target away from route flow: ${menuTexts.join(' | ')}`)
-}
-
-async function openProfileTab(page) {
-  await page.goto(`${config.baseUrl}/user/profile`, {
-    waitUntil: 'domcontentloaded',
-    timeout: 60000
-  })
-  await settle(page)
-  await tagsViewItem(page, '个人中心').waitFor({ state: 'visible', timeout: 60000 })
 }
 
 async function openRouteGraph(page) {
@@ -226,7 +219,6 @@ async function main() {
 
   try {
     await login(page)
-    await openProfileTab(page)
     const selectedRouteText = await openRouteGraph(page)
 
     const awayMenu = await navigateAwayInsideApp(page)

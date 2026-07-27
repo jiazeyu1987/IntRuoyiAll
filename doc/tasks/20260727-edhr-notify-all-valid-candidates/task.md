@@ -24,7 +24,9 @@
 
 blocked
 
-阻塞原因：本任务实现、定向 GREEN、同类服务测试和生产代码编译已通过；但 `mvn -pl yudao-module-mes -am ... test` 的标准 Maven 测试生命周期会先全量编译 MES 测试源码，目前被非本任务文件 `MesProEdhrBatchExecutionServiceTest` 中 releaseOwner getter 引用阻断，无法完成 MES 模块回归、提交和推送门禁。
+阻塞原因：本任务实现、标准定向 GREEN、同类服务测试和生产代码编译已通过；但 `mvn -pl yudao-module-mes -am test` 在上游 `yudao-module-infra` 的 38 个失败、1 个错误处停止，MES 被跳过。补充执行 `mvn -pl yudao-module-mes test` 运行 15 分钟后超时且未产出新的完整汇总，已清理本次 Maven 进程。因此无法完成 MES 模块回归、提交和推送门禁。
+
+共享分支状态：并发任务于 2026-07-27 18:41:23 创建并推送基线提交 `f18927b9`，其中已包含本任务 Java 实现、测试和当时的初始任务文档。当前 `HEAD` 与 `origin/int_main` 均为 `f18927b9`；本次验证后更新的任务证据仍未提交。
 
 ## 设计约束检查
 

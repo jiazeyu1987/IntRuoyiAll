@@ -13,6 +13,8 @@ Implemented release-owner parsing from route-level `RELEASE_APPROVE` configurati
 - GREEN frontend typecheck: `pnpm ts:check` -> PASS.
 - GREEN route configuration contracts: `mes-route-flow-end-release-owner-static` and `mes-route-flow-release-owner-candidate-static` -> PASS.
 - Final static rerun confirms missing release-owner data displays `放行责任人未配置`.
+- Isolated `javac` compilation of the final backend workbench service and the new release-service regression test -> PASS.
+- Blank user/role labels now fail fast; the implementation no longer falls back to numeric IDs.
 
 ## Verification Retry Status
 
@@ -34,8 +36,14 @@ Implemented release-owner parsing from route-level `RELEASE_APPROVE` configurati
 - Root-cause and long-term maintainability: Yes; display and authorization now use the same `RELEASE_APPROVE` source.
 - Temporary patch or bypass: No.
 
+## Git Status
+
+- Concurrent baseline commit `f18927b9` was created and pushed to `origin/int_main` at `2026-07-27 18:41:23 +08:00`.
+- That baseline contains the core release-owner backend, frontend, tests, and task artifacts.
+- The later blank-name fail-fast refinement and current evidence updates remain uncommitted pending the blocked verification gates.
+
 ## Current Result
 
-- Implementation and automated regression are complete.
+- Implementation is complete.
 - The original 9-test automated regression and all focused frontend/static checks pass.
 - Task remains blocked on the new empty-role method rerun, safe backend runtime reload, and real-browser verification.

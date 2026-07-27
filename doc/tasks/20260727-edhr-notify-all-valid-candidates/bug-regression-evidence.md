@@ -36,15 +36,18 @@ GREEN: mvn -pl yudao-module-mes org.apache.maven.plugins:maven-surefire-plugin:3
 - 不改变任务候选快照、任务 assignee、模板编码和通知参数。
 - 不修改数据库 schema、权限和外部服务器运行态。
 - 同类回归 `MesProEdhrWorkTaskServiceImplTest` 66 个用例通过。
-- 标准 Maven test 生命周期暂无法完成，阻塞点来自非本任务 releaseOwner 测试源码编译错误。
+- 标准定向 Maven 生命周期 3 个目标用例通过。
+- 完整 `-am test` 被上游 infra 失败阻断，MES 被跳过。
 
 ## Verification
 
 - `mvn -pl yudao-module-mes org.apache.maven.plugins:maven-surefire-plugin:3.5.3:test "-Dtest=MesProEdhrWorkTaskServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=true"` -> PASS, 66 tests run, 0 failures, 0 errors.
+- `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest#createInitialFillTask_usesProcessFormPermissionRuleCandidateSnapshot+createReviewTasks_createsOneTodoPerSignatureCellAndCompletesSubmitTask+createReviewTasks_deduplicatesRepeatedFrozenCandidateNotifyRecipients" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests run, 0 failures, 0 errors.
 - `mvn -pl yudao-module-mes -am "-DskipTests" compile` -> PASS.
 - `git diff --check -- <task-owned files>` -> PASS, only Git line-ending conversion warnings.
-- Standard `mvn -pl yudao-module-mes -am ... test` remains blocked at unrelated `testCompile` errors.
+- `mvn -pl yudao-module-mes -am test` -> FAIL in upstream `yudao-module-infra`; MES skipped.
+- `mvn -pl yudao-module-mes test` -> TIMEOUT after 15 minutes without a fresh complete report.
 
 ## Blockers and Follow-up
 
-`mvn -pl yudao-module-mes -am ... test` 在 `testCompile` 阶段被 `MesProEdhrBatchExecutionServiceTest` 中 `getReleaseOwnerConfigured/getReleaseOwnerSourceType/getReleaseOwnerLabel` 缺失阻断；该文件和对应 VO 不属于本任务修改范围，需先由 releaseOwner 任务补齐或回退后，才能完成 MES 模块回归、提交和推送门禁。
+完整模块回归未通过放行门禁：`-am test` 在上游 infra 失败，单独 MES 全量测试超时。目标与同类服务测试均已通过，但在完整模块回归通过前不得提交、推送或标记任务完成。

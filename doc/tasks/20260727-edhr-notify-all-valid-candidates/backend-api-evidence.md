@@ -44,9 +44,10 @@ GREEN: PASS. 3 tests run, 0 failures, 0 errors.
 ## Verification
 
 - `mvn -pl yudao-module-mes org.apache.maven.plugins:maven-surefire-plugin:3.5.3:test "-Dtest=MesProEdhrWorkTaskServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=true"` -> PASS, 66 tests run, 0 failures, 0 errors.
+- `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest#createInitialFillTask_usesProcessFormPermissionRuleCandidateSnapshot+createReviewTasks_createsOneTodoPerSignatureCellAndCompletesSubmitTask+createReviewTasks_deduplicatesRepeatedFrozenCandidateNotifyRecipients" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests run, 0 failures, 0 errors.
 - `mvn -pl yudao-module-mes -am "-DskipTests" compile` -> PASS.
 - `git diff --check -- <task-owned files>` -> PASS, only Git line-ending conversion warnings.
 
 ## Blockers
 
-Standard Maven test lifecycle remains blocked before task tests execute because non-task file `MesProEdhrBatchExecutionServiceTest` references missing `WorkbenchReleaseSummary` releaseOwner getters. This prevents MES module regression, implementation commit, closeout, and push until that unrelated compile issue is resolved.
+`mvn -pl yudao-module-mes -am test` fails in upstream `yudao-module-infra` before MES executes. A direct `mvn -pl yudao-module-mes test` run timed out after 15 minutes without a fresh complete report. Full module regression, implementation commit, closeout, and push remain blocked.

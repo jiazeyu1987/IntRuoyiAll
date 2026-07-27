@@ -1,6 +1,9 @@
 package cn.iocoder.yudao.module.system.service.codextest;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCasePageReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCaseRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestNodeChainOptionRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCaseSaveReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCheckpointSaveReqVO;
@@ -119,9 +122,31 @@ class CodexTestCaseServiceImplTest extends BaseDbUnitTest {
         assertEquals("工艺路线串行验证", options.get(0).getName());
         assertEquals("工艺路线", options.get(0).getProject());
         assertEquals(1, options.get(0).getNodeCount());
+        assertEquals(2, options.get(0).getNextNodeSort());
         assertEquals("批记录串行验证", options.get(1).getName());
         assertEquals("批记录", options.get(1).getProject());
         assertEquals(2, options.get(1).getNodeCount());
+        assertEquals(3, options.get(1).getNextNodeSort());
+    }
+
+    @Test
+    void getCasePage_filtersOneNodeChainAndOrdersByNodeSort() {
+        codexTestCaseService.createCase(buildNodeChainCaseReq("批记录创建执行", 2));
+        codexTestCaseService.createCase(buildNodeChainCaseReq("批记录前置检查", 1));
+        CodexTestCaseSaveReqVO routeReqVO = buildNodeChainCaseReq("工艺路线前置检查", 1);
+        routeReqVO.setNodeChainName("工艺路线串行验证");
+        routeReqVO.setProject("工艺路线");
+        codexTestCaseService.createCase(routeReqVO);
+        CodexTestCasePageReqVO pageReqVO = new CodexTestCasePageReqVO();
+        pageReqVO.setPageNo(1);
+        pageReqVO.setPageSize(10);
+        pageReqVO.setNodeChainName("批记录串行验证");
+
+        PageResult<CodexTestCaseRespVO> pageResult = codexTestCaseService.getCasePage(pageReqVO);
+
+        assertEquals(2, pageResult.getTotal());
+        assertEquals(List.of("批记录前置检查", "批记录创建执行"),
+                pageResult.getList().stream().map(CodexTestCaseRespVO::getName).toList());
     }
 
     @Test

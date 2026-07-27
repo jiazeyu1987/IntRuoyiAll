@@ -756,7 +756,7 @@ function enforceNodeChainExecutionControl(value?: string, preserveSort = false) 
     caseForm.project = existingOption.project
   }
   if (!preserveSort || !caseForm.nodeChainSort || caseForm.nodeChainSort < 1) {
-    caseForm.nodeChainSort = existingOption ? existingOption.nodeCount + 1 : 1
+    caseForm.nodeChainSort = existingOption ? existingOption.nextNodeSort : 1
   }
 }
 

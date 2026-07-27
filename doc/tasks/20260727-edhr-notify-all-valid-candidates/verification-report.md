@@ -4,7 +4,7 @@
 
 Status: blocked.
 
-The requested business behavior is implemented and the task-owned targeted tests pass. Full MES Maven test lifecycle and closeout are blocked by unrelated releaseOwner test compilation errors in the shared dirty workspace.
+The requested business behavior is implemented and both direct and standard targeted Maven tests pass. Full MES module regression and closeout remain blocked by upstream reactor failures and a direct MES test timeout.
 
 ## Verified Behavior
 
@@ -28,6 +28,12 @@ GREEN:
 
 Result: PASS. 3 tests run, 0 failures, 0 errors.
 
+Standard targeted lifecycle:
+
+`mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest#createInitialFillTask_usesProcessFormPermissionRuleCandidateSnapshot+createReviewTasks_createsOneTodoPerSignatureCellAndCompletesSubmitTask+createReviewTasks_deduplicatesRepeatedFrozenCandidateNotifyRecipients" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+
+Result: PASS. 3 tests run, 0 failures, 0 errors.
+
 Regression:
 
 `mvn -pl yudao-module-mes org.apache.maven.plugins:maven-surefire-plugin:3.5.3:test "-Dtest=MesProEdhrWorkTaskServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=true"`
@@ -47,3 +53,15 @@ Diff check:
 Result: PASS, with Git line-ending conversion warnings only.
 
 ## Blocker
+
+`mvn -pl yudao-module-mes -am test` failed in upstream `yudao-module-infra` with 415 tests, 38 failures, 1 error, and 10 skipped; Maven skipped MES.
+
+`mvn -pl yudao-module-mes test` then ran for 15 minutes and timed out without producing a fresh complete Surefire report. The task-owned Maven process was stopped after verifying its command line and PID.
+
+## Completion Gate
+
+Do not mark this task completed, commit, or push until a complete MES module regression passes.
+
+## Integration State
+
+Concurrent baseline commit `f18927b9e3682a8a66d44d535b24c75b824b40e2` already contains the Java implementation, regression tests, and the initial task documents, and is present on `origin/int_main`. Post-verification evidence updates remain uncommitted because the complete module regression gate is still blocked.
