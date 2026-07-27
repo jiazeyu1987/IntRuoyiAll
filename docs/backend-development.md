@@ -119,6 +119,17 @@
 - Forbidden action: 禁止只改前端“当前组件”显示文案、禁止直接手工改 Jimu JSON、禁止按模板/产品/文件名硬编码日期格、禁止只把签名日期格退化成 `input-text` 或普通日期展示而丢失电子签名组件语义。
 - Evidence: `doc/tasks/20260727-jimu-signature-date-cell-type/verification-report.md`。
 
+## 业务审批策略强制 BPM 门禁
+
+### 表单模板升版/作废 executor 不得降级
+
+- Trigger: 表单模板导入升版、作废审批、`FORM_TEMPLATE_UPGRADE`、`FORM_TEMPLATE_OBSOLETE`、`form-template-upgrade-v1`、`Form template upgrade requires BPM approval`、业务审批策略切换 DIRECT/SIGNATURE_REQUIRED。
+- Preflight check: 先核对 `bpm_business_approval_policy` 中目标 executor 的 published 策略必须为 `BPM_REQUIRED`，流程 key 必须分别为 `form-template-upgrade-v1` / `form-template-obsolete-v1`；管理端发布/切换策略必须有强制 BPM 回归测试，seed 必须校正旧的非 BPM published 策略后再做 duplicate/conflict gate。
+- Blocker: 目标 executor 被解析成 DIRECT/SIGNATURE_REQUIRED、流程 key 为空或错误、seed 只新增缺失策略但不校正旧策略、或回归只能靠手工改库时必须阻塞。
+- Verification: 运行 `mvn -pl yudao-module-bpm "-Dtest=BusinessApprovalPolicyAdministrationServiceTest" test`、`python -X utf8 -m pytest script/tests/test_form_template_upgrade_bpm_seed.py`，并复验升版 executor / BPM_REQUIRED orchestrator 相邻测试。
+- Forbidden action: 禁止在 executor 中允许 direct fallback；禁止用前端隐藏错误、默认成功、跳过 BPM、手工 update 单条数据或把策略降级当作配置开关。
+- Evidence: `doc/tasks/20260727-form-template-upgrade-bpm-approval/verification-report.md`。
+
 ## 禁止做法
 
 - 禁止跨模块复制业务逻辑来绕过现有服务边界。

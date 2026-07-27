@@ -2,7 +2,7 @@
 
 ## Scope
 
-只读分析测试服务器 `172.30.30.58` 上 `wangsiyu` 账号进入文控中心受控浏览文件详情时提示“系统异常”的真实原因。未修改业务数据、未重启服务、未发布。
+分析并修复测试服务器 `172.30.30.58` 上 `wangsiyu` 账号进入文控中心受控浏览文件详情时提示“系统异常”的真实原因。未修改业务数据、未重启服务、未发布。
 
 ## Reproduction
 
@@ -26,6 +26,22 @@
 
 The error is caused by a backend validation/data-contract mismatch, not by PDF rendering, browser permissions, or OnlyOffice. DCC metadata currently allows some controlled files to have no file number, but preview access/audit generation requires `fileNumber`, so blank-number files fail at `preview-metadata` and surface as the generic `系统异常`.
 
-## Recommended Fix
+## Implemented Fix
 
-Add a regression test for preview metadata on a controlled file with blank `fileNumber`, then change the preview/access audit path to use a stable nonblank display identifier such as file title/name or controlled-file id when `fileNumber` is blank, without weakening access permission checks or swallowing exceptions.
+- Added regression coverage in `DccControlledPreviewAccessServiceTest#prepareAccess_allowsMissingFileNumberForPreviewMetadata`.
+- Removed the preview access `requireNotBlank(fileNumber)` validation.
+- Removed the watermark trace `requireNotBlank(fileNumber)` validation.
+- Normalized missing `fileNumber` to an empty string in watermark payload and watermark trace persistence so the existing audit schema remains satisfied.
+- Kept permission checks, viewer token context checks, required file/version/user validations, access logs and watermarks intact.
+
+## Verification
+
+- RED: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledPreviewAccessServiceTest#prepareAccess_allowsMissingFileNumberForPreviewMetadata" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, `IllegalArgumentException: fileNumber is required`.
+- GREEN: same command -> PASS.
+- REGRESSION: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledPreviewAccessServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests.
+- REGRESSION: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFileQueryServiceTest#getPreviewMetadata*" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 4 tests.
+- REGRESSION: `mvn -pl yudao-module-dcc -am "-Dtest=DccOnlineFilePreviewServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests.
+
+## Closeout Note
+
+Implementation and verification are complete. Git closeout was not performed because the workspace currently has unrelated concurrent dirty changes and ahead commits; this task remains ready for closeout rather than marked completed.

@@ -23,3 +23,12 @@
 - Existing worktree state: branch `int_main` is already ahead of `origin/int_main` and has unrelated modified/untracked files; this task will only touch the DCC preview/audit code, target regression tests, and this task directory.
 - BDD: 空文件编号受控文件可生成预览元数据 -> Given 受控文件 `fileNumber` 为空且用户有预览权限, When 后端生成 `preview-metadata` 的 viewer token、水印追踪和访问日志, Then 不抛出 `fileNumber is required`，并保留访问审计与水印追踪。
 - RED: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledPreviewAccessServiceTest#prepareAccess_allowsMissingFileNumberForPreviewMetadata" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected `IllegalArgumentException: fileNumber is required` from `DccControlledPreviewAccessService.requireRequest`.
+- Code change: removed `fileNumber` nonblank validation from `DccControlledPreviewAccessService.requireRequest` and `DccControlledFileAccessAuditService.requireWatermarkTrace`; normalized watermark payload and trace `fileNumber` to an empty string when missing.
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledPreviewAccessServiceTest#prepareAccess_allowsMissingFileNumberForPreviewMetadata" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS.
+- GREEN: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledPreviewAccessServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests.
+- REGRESSION: `mvn -pl yudao-module-dcc -am "-Dtest=DccControlledFileQueryServiceTest#getPreviewMetadata*" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 4 tests.
+- REGRESSION: `mvn -pl yudao-module-dcc -am "-Dtest=DccOnlineFilePreviewServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests.
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence E:\IntRuoyi\doc\tasks\20260727-controlled-browse-system-exception\bug-regression-evidence.md` -> PASS.
+- GREEN: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence E:\IntRuoyi\doc\tasks\20260727-controlled-browse-system-exception\backend-api-evidence.md` -> PASS.
+- BLOCKER: project-experience-consolidation -> suitable long-term destination is `docs/backend-development.md`, but `docs/backend-development.md` and `docs/experience-index.md` already have concurrent dirty changes; skipped long-term memory edit to avoid mixing task ownership.
+- Current status: implementation and verification complete; task marked `ready_for_closeout` because unrelated concurrent dirty changes and ahead commits make commit/push closeout unsafe in this turn.

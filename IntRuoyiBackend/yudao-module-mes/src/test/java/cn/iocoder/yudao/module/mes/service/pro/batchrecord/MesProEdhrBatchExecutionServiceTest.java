@@ -664,6 +664,55 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void getPage_marksMissingBatchRecordAttachmentOwnersAsBlockedWithoutFailingWholePage() {
+        Fixture fixture = insertRouteFixture(true, true);
+        MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
+        MesProRouteDO route = routeMapper.selectById(fixture.routeId());
+        MesProEdhrBatchExecutionDO legacyBatch = MesProEdhrBatchExecutionDO.builder()
+                .batchExecutionCode("EDHRB-PAGE-MISSING-ATTACHMENT-OWNERS")
+                .workOrderId(workOrder.getId())
+                .workOrderCode(workOrder.getCode())
+                .batchCode("BATCH-PAGE-MISSING-ATTACHMENT-OWNERS")
+                .activeContextKey(workOrder.getId() + "|" + route.getId() + "|BATCH-PAGE-MISSING-ATTACHMENT-OWNERS")
+                .productId(workOrder.getProductId())
+                .productCode(String.valueOf(workOrder.getProductId()))
+                .productName(workOrder.getName())
+                .routeId(route.getId())
+                .routeVersionId(fixture.routeVersionId())
+                .routeVersionNo(fixture.routeVersionNo())
+                .routeSnapshotJson(frozenRouteSnapshotJsonWithoutBatchRecordAttachmentOwners(
+                        route, routeProcessMapper.selectListByRouteId(route.getId())))
+                .routeCode(route.getCode())
+                .routeName(route.getName())
+                .status(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CREATED)
+                .taskTotal(4)
+                .taskApprovedCount(0)
+                .blockedCount(0)
+                .build();
+        batchExecutionMapper.insert(legacyBatch);
+        insertLegacySpecialOnlyTasks(legacyBatch.getId());
+
+        PageResult<EdhrBatchExecutionRespVO> page = batchExecutionService.getPage(
+                new EdhrBatchExecutionPageReqVO().setBatchCode("BATCH-PAGE-MISSING-ATTACHMENT-OWNERS"));
+
+        EdhrBatchExecutionRespVO row = page.getList().stream()
+                .filter(item -> item.getId().equals(legacyBatch.getId()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(Boolean.FALSE, row.getCanClose());
+        assertEquals(Boolean.FALSE, row.getCanArchive());
+        assertTrue(row.getTasks().isEmpty());
+        assertTrue(row.getCloseBlockers().stream()
+                .anyMatch(blocker -> blocker.contains("批记录附件负责人配置无效")));
+        EdhrBatchExecutionRespVO detail = batchExecutionService.get(legacyBatch.getId());
+        assertEquals(Boolean.FALSE, detail.getCanClose());
+        assertEquals(Boolean.FALSE, detail.getCanArchive());
+        assertTrue(detail.getTasks().isEmpty());
+        assertTrue(detail.getCloseBlockers().stream()
+                .anyMatch(blocker -> blocker.contains("批记录附件负责人配置无效")));
+    }
+
+    @Test
     void getDetail_shouldRecoverMissingRouteProcessTasksFromFrozenRouteSnapshotAfterRouteConfigChanges() {
         Fixture fixture = insertRouteFixture(true, true);
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
@@ -5765,6 +5814,14 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
     private String frozenRouteSnapshotJson(MesProRouteDO route, List<MesProRouteProcessDO> routeProcesses) {
         return frozenRouteSnapshotJson(route, routeProcesses, defaultBatchRecordAttachmentOwners());
+    }
+
+    @SuppressWarnings("unchecked")
+    private String frozenRouteSnapshotJsonWithoutBatchRecordAttachmentOwners(MesProRouteDO route,
+                                                                            List<MesProRouteProcessDO> routeProcesses) {
+        Map<String, Object> snapshot = JSON.parseObject(frozenRouteSnapshotJson(route, routeProcesses), Map.class);
+        ((Map<String, Object>) snapshot.get("configSnapshots")).remove("batchRecordAttachmentOwners");
+        return JSON.toJSONString(snapshot);
     }
 
     private String frozenRouteSnapshotJson(MesProRouteDO route, List<MesProRouteProcessDO> routeProcesses,

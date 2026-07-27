@@ -10,7 +10,7 @@
 - [x] 修复强制 BPM 的表单模板升版审批策略防护
 - [x] 补充迁移/静态契约，防止错误 DIRECT 策略残留
 - [x] 运行目标验证并记录结果
-- [ ] 完成 closeout 记录、提交与推送
+- [x] 完成 closeout 记录、提交与推送
 
 ## Expected Verification
 
@@ -23,7 +23,12 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
+
+## Cleanup Keep
+
+- doc/tasks/20260727-form-template-upgrade-bpm-approval/bug-regression-evidence.md
+- doc/tasks/20260727-form-template-upgrade-bpm-approval/backend-api-evidence.md
 
 ## 经验门禁
 

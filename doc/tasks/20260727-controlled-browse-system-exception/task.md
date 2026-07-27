@@ -10,9 +10,9 @@
 - [x] 用真实测试服页面路径复现受控浏览文件详情“系统异常”。
 - [x] 捕获相关前端网络响应、控制台信息或后端只读日志证据。
 - [x] 给出根因、影响范围、验证证据和后续修复建议。
-- [ ] 增加空文件编号受控预览元数据回归测试，先复现 `fileNumber is required`。
-- [ ] 调整预览访问与水印审计校验，使 `fileNumber` 按可选字段处理。
-- [ ] 运行目标 Maven 测试并记录 RED/GREEN 证据。
+- [x] 增加空文件编号受控预览元数据回归测试，先复现 `fileNumber is required`。
+- [x] 调整预览访问与水印审计校验，使 `fileNumber` 按可选字段处理。
+- [x] 运行目标 Maven 测试并记录 RED/GREEN 证据。
 
 ## Expected Verification
 
@@ -22,7 +22,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Final Finding
 

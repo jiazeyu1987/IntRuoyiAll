@@ -21,4 +21,11 @@
 - GREEN: `python -X utf8 -m pytest script/tests/test_form_template_upgrade_bpm_seed.py` -> PASS, 3 tests.
 - REGRESSION: `mvn -pl yudao-module-bpm "-Dtest=FormTemplateUpgradeBusinessApprovalEffectExecutorTest,BusinessApprovalOrchestratorBpmRequiredTest" test` -> PASS, 10 tests.
 - REGRESSION: `python -X utf8 -m pytest script/tests/test_form_action_state_machine_release_contract.py script/tests/test_mes_route_version_publish_business_approval_policy_seed.py` -> PASS, 9 tests.
+- EVIDENCE: `python -X utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260727-form-template-upgrade-bpm-approval/bug-regression-evidence.md` -> PASS.
+- EVIDENCE: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260727-form-template-upgrade-bpm-approval/backend-api-evidence.md` -> PASS.
+- UTF8: PowerShell-safe `@'...'@ | python -X utf8 -` read `task.md`, `execution-log.md`, `bug-regression-evidence.md`, `backend-api-evidence.md`, `verification-report.md` -> PASS.
+- EXPERIENCE: 更新 `docs/backend-development.md#业务审批策略强制 BPM 门禁` 与 `docs/experience-index.md`，`rg -n "Form template upgrade requires BPM approval|FORM_TEMPLATE_UPGRADE|业务审批策略强制 BPM|业务审批策略强制-bpm" docs/backend-development.md docs/experience-index.md` -> PASS.
 - STATUS: implementation and required verification complete; task set to `ready_for_closeout` pending evidence validation, cleanup preview/apply, final commit, and push.
+- CLEANUP-PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-form-template-upgrade-bpm-approval --mode preview` -> ready; keep task/evidence/report files; delete none; blocked none; warnings none.
+- CLEANUP-APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-form-template-upgrade-bpm-approval --mode apply` -> applied; deleted none; linked worktree false.
+- STATUS: task document marked `completed`; final commit and push pending.
