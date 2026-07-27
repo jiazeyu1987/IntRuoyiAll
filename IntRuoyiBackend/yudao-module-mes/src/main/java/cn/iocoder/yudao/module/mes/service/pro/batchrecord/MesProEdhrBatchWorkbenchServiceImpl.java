@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
+import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchWorkbenchRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrOperationAuditPageReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordDomainTraceSnapshotDO;
@@ -8,26 +10,38 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrOperationAuditEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionFieldAuditBatchMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordDomainTraceSnapshotMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrOperationAuditEventMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.module.system.api.permission.RoleApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ASSIGNEE_INVALID;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_CANDIDATE_SOURCE_INVALID;
 
 @Service
 public class MesProEdhrBatchWorkbenchServiceImpl implements MesProEdhrBatchWorkbenchService {
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final String RULE_SCOPE_TYPE_ROUTE = "ROUTE";
+    private static final String CANDIDATE_SOURCE_TYPE_ROLE_GROUP = "ROLE_GROUP";
 
     @Resource
     private MesProEdhrBatchExecutionMapper batchExecutionMapper;
@@ -45,6 +59,14 @@ public class MesProEdhrBatchWorkbenchServiceImpl implements MesProEdhrBatchWorkb
     private MesProEdhrBatchStageResolver batchStageResolver;
     @Resource
     private MesProEdhrBatchExecutionVisibilityService batchExecutionVisibilityService;
+    @Resource
+    private MesProEdhrWorkTaskAssignmentRuleMapper workTaskAssignmentRuleMapper;
+    @Resource
+    private MesProEdhrCandidateResolver candidateResolver;
+    @Resource
+    private AdminUserApi adminUserApi;
+    @Resource
+    private RoleApi roleApi;
 
     @Override
     public EdhrBatchWorkbenchRespVO getWorkbench(Long batchExecutionId) {
@@ -69,7 +91,7 @@ public class MesProEdhrBatchWorkbenchServiceImpl implements MesProEdhrBatchWorkb
                 .setBatchStatus(batch.getStatus())
                 .setRequiredProgress(resolveRequiredProgress(batch))
                 .setBlockedCount(batch.getBlockedCount())
-                .setReleaseSummary(buildReleaseSummary(releaseTransaction))
+                .setReleaseSummary(buildReleaseSummary(batch, releaseTransaction))
                 .setAuditSummary(buildAuditSummary(batchExecutionId));
     }
 
@@ -104,12 +126,17 @@ public class MesProEdhrBatchWorkbenchServiceImpl implements MesProEdhrBatchWorkb
                 .setBlockedCount(blocked);
     }
 
-    private EdhrBatchWorkbenchRespVO.WorkbenchReleaseSummary buildReleaseSummary(MesProEdhrReleaseTransactionDO releaseTransaction) {
+    private EdhrBatchWorkbenchRespVO.WorkbenchReleaseSummary buildReleaseSummary(MesProEdhrBatchExecutionDO batch,
+                                                                                 MesProEdhrReleaseTransactionDO releaseTransaction) {
+        EdhrBatchWorkbenchRespVO.WorkbenchReleaseSummary releaseOwnerSummary = buildReleaseOwnerSummary(batch);
         if (releaseTransaction == null) {
             return new EdhrBatchWorkbenchRespVO.WorkbenchReleaseSummary()
                     .setReleaseStatus(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_REQUIRED)
                     .setReleaseStatusLabel("待预检")
-                    .setPrecheckSummary("尚未发起放行预检");
+                    .setPrecheckSummary("尚未发起放行预检")
+                    .setReleaseOwnerConfigured(releaseOwnerSummary.getReleaseOwnerConfigured())
+                    .setReleaseOwnerSourceType(releaseOwnerSummary.getReleaseOwnerSourceType())
+                    .setReleaseOwnerLabel(releaseOwnerSummary.getReleaseOwnerLabel());
         }
         return new EdhrBatchWorkbenchRespVO.WorkbenchReleaseSummary()
                 .setReleaseTransactionId(releaseTransaction.getId())
@@ -119,7 +146,73 @@ public class MesProEdhrBatchWorkbenchServiceImpl implements MesProEdhrBatchWorkb
                 .setFailedCheckCount(releaseTransaction.getFailedCheckCount())
                 .setPrecheckSummary(buildPrecheckSummary(releaseTransaction))
                 .setLastPrecheckAt(releaseTransaction.getLastPrecheckAt() == null
-                        ? null : releaseTransaction.getLastPrecheckAt().format(DATE_TIME_FORMATTER));
+                        ? null : releaseTransaction.getLastPrecheckAt().format(DATE_TIME_FORMATTER))
+                .setReleaseOwnerConfigured(releaseOwnerSummary.getReleaseOwnerConfigured())
+                .setReleaseOwnerSourceType(releaseOwnerSummary.getReleaseOwnerSourceType())
+                .setReleaseOwnerLabel(releaseOwnerSummary.getReleaseOwnerLabel());
+    }
+
+    private EdhrBatchWorkbenchRespVO.WorkbenchReleaseSummary buildReleaseOwnerSummary(MesProEdhrBatchExecutionDO batch) {
+        MesProEdhrWorkTaskAssignmentRuleDO rule = batch == null || batch.getRouteId() == null ? null
+                : workTaskAssignmentRuleMapper.selectEnabledByScopeAndType(RULE_SCOPE_TYPE_ROUTE, batch.getRouteId(),
+                MesProEdhrWorkTaskService.TASK_TYPE_RELEASE_APPROVE);
+        if (rule == null) {
+            return new EdhrBatchWorkbenchRespVO.WorkbenchReleaseSummary()
+                    .setReleaseOwnerConfigured(Boolean.FALSE)
+                    .setReleaseOwnerLabel("放行责任人未配置");
+        }
+        MesProEdhrCandidateResolver.MesProEdhrCandidateContract candidate =
+                candidateResolver.resolveAssignmentRule(rule);
+        String sourceType = StrUtil.blankToDefault(candidate.sourceType(), MesProEdhrCandidateResolver.CANDIDATE_SOURCE_TYPE_USER);
+        return new EdhrBatchWorkbenchRespVO.WorkbenchReleaseSummary()
+                .setReleaseOwnerConfigured(Boolean.TRUE)
+                .setReleaseOwnerSourceType(sourceType)
+                .setReleaseOwnerLabel(resolveReleaseOwnerLabel(sourceType, candidate));
+    }
+
+    private String resolveReleaseOwnerLabel(String sourceType,
+                                            MesProEdhrCandidateResolver.MesProEdhrCandidateContract candidate) {
+        if (MesProEdhrCandidateResolver.CANDIDATE_SOURCE_TYPE_USER.equals(sourceType)) {
+            Long userId = candidate.sourceId() == null ? resolveFirstCandidateUserId(candidate.userSnapshot())
+                    : candidate.sourceId();
+            if (userId == null) {
+                throw exception(PRO_EDHR_WORK_TASK_CANDIDATE_SOURCE_INVALID);
+            }
+            AdminUserRespDTO user = adminUserApi.getUser(userId);
+            if (user == null || !CommonStatusEnum.isEnable(user.getStatus())) {
+                throw exception(PRO_EDHR_WORK_TASK_ASSIGNEE_INVALID);
+            }
+            return StrUtil.blankToDefault(user.getNickname(), String.valueOf(userId));
+        }
+        if (CANDIDATE_SOURCE_TYPE_ROLE_GROUP.equals(sourceType)) {
+            Long roleId = candidate.sourceId();
+            if (roleId == null) {
+                throw exception(PRO_EDHR_WORK_TASK_CANDIDATE_SOURCE_INVALID);
+            }
+            List<RoleRespDTO> roles = roleApi.getRoleList(Set.of(roleId));
+            RoleRespDTO role = (roles == null ? List.<RoleRespDTO>of() : roles).stream()
+                    .filter(Objects::nonNull)
+                    .filter(item -> Objects.equals(item.getId(), roleId))
+                    .findFirst()
+                    .orElse(null);
+            if (role == null || !CommonStatusEnum.isEnable(role.getStatus())) {
+                throw exception(PRO_EDHR_WORK_TASK_CANDIDATE_SOURCE_INVALID);
+            }
+            return StrUtil.blankToDefault(role.getName(), String.valueOf(roleId)) + "（角色成员均可放行）";
+        }
+        throw exception(PRO_EDHR_WORK_TASK_CANDIDATE_SOURCE_INVALID);
+    }
+
+    private Long resolveFirstCandidateUserId(String userSnapshot) {
+        if (StrUtil.isBlank(userSnapshot)) {
+            return null;
+        }
+        for (String item : userSnapshot.split(",")) {
+            if (StrUtil.isNotBlank(item)) {
+                return Long.valueOf(item.trim());
+            }
+        }
+        return null;
     }
 
     private EdhrBatchWorkbenchRespVO.WorkbenchAuditSummary buildAuditSummary(Long batchExecutionId) {

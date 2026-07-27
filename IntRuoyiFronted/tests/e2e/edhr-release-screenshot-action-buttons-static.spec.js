@@ -76,8 +76,18 @@ assert.match(styleBlock, /is-release-signature/, '放行图片按钮必须有独
 
 assert.match(
   detail,
-  /const releaseStageOwnerLabel = computed\([\s\S]*viewedReleaseStageViewModel\.value\.nextOwnerLabel[\s\S]*resolveReleaseOwnerRoleLabel\(workbench\.value\?\.stageOwnerRole \|\| detail\.value\?\.stageOwnerRole\)[\s\S]*'当前阶段责任人'/,
-  '当前放行负责人必须复用阶段负责人模型，缺少后端姓名字段时显示负责人角色。'
+  /const releaseStageOwnerLabel = computed\([\s\S]*viewedReleaseStageViewModel\.value\.nextOwnerLabel[\s\S]*'当前阶段责任人'/,
+  '当前放行负责人必须复用阶段负责人模型。'
+)
+assert.doesNotMatch(
+  sliceBetween(
+    detail,
+    'const releaseStageOwnerLabel = computed(',
+    'const clearReleaseActionErrorAutoHideTimer',
+    '放行负责人计算'
+  ),
+  /stageOwnerRole/,
+  '当前放行负责人不得继续兜底显示 stageOwnerRole。'
 )
 
 console.log('PASS: eDHR release screenshot action buttons static contract')

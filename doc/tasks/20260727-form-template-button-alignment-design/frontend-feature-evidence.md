@@ -55,4 +55,4 @@
 
 ## Blockers And Follow-Up
 
-- 当前无产品行为 blocker；实现提交 `3f79f736251dab6be9d0413eea602a4ee1990fa6` 已通过选择性暂存隔离其他并行任务改动，等待收尾文档提交与推送。
+- 当前无产品行为 blocker；实现提交 `3f79f736251dab6be9d0413eea602a4ee1990fa6` 与收尾记录已推送至 `origin/int_main`。

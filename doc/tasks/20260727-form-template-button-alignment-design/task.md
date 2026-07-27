@@ -18,7 +18,7 @@
 - [x] Cleanup：`task-closeout-cleanup` preview/apply 均通过，无删除项、阻塞项或警告。
 - [x] 行为冲突解除：用户已明确确认“恢复对齐”，本任务重新取得同文件行为变更授权。
 - [x] Closeout 前验证：恢复对齐、重跑静态/类型/后端/SQL/真实 E2E 验证均通过。
-- [ ] Closeout：完成 cleanup、提交并推送本任务文件。
+- [x] Closeout：完成 cleanup、提交并推送本任务文件。
 
 ## Expected Verification
 
@@ -30,7 +30,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 经验门禁
 
@@ -75,3 +75,5 @@ ready_for_closeout
 - 实现提交：`3f79f736251dab6be9d0413eea602a4ee1990fa6`
 - 实现提交文件：`IntRuoyiFronted/src/views/form-center/template/index.vue`、`IntRuoyiFronted/tests/e2e/form-template-batch-record-button-alignment-static.spec.js`、`docs/frontend-development.md`
 - 并行任务隔离：其他 MES、eDHR、路线和任务文档改动未纳入本任务提交。
+- 收尾提交：`67631b4a`，仅包含本任务四份收尾记录文档。
+- 推送结果：`origin/int_main` 已包含实现提交 `3f79f736` 和收尾提交 `67631b4a`。

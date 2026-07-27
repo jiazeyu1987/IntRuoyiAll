@@ -66,6 +66,8 @@
 - `GREEN: project-experience-consolidation before commit -> PASS, 现有 docs/frontend-development.md 已承载表单模板三按钮与批记录绑定动作边界门禁，docs/experience-index.md 可按关键词定位，无需新建长期经验文档。`
 - `GREEN: branch runtime port guard before implementation commit -> PASS, int_main 使用 frontend 8081 / backend 48081。`
 - `GREEN: implementation commit -> PASS, commit 3f79f736251dab6be9d0413eea602a4ee1990fa6，仅包含 IntRuoyiFronted/src/views/form-center/template/index.vue、IntRuoyiFronted/tests/e2e/form-template-batch-record-button-alignment-static.spec.js、docs/frontend-development.md。`
+- `GREEN: closeout commit -> PASS, commit 67631b4a，仅包含本任务 task.md、execution-log.md、frontend-feature-evidence.md、verification-report.md。`
+- `GREEN: push origin/int_main -> PASS, origin/int_main 已包含 3f79f736 与 67631b4a，推送后分支不再 ahead。`
 
 ## Milestone Updates
 
@@ -80,7 +82,12 @@
 - 临时产物清理完成：本任务专用运行态目录与临时构建快照均已删除，标准 cleanup preview/apply 通过。
 - 冲突解除：用户明确确认三个按钮按批记录表单执行，已恢复 Vue 实现、静态合同和项目级门禁。
 - 真实路径复验完成：三按钮按批记录表单行为执行，临时数据库夹具已恢复。
+- 提交推送完成：实现与收尾记录分离提交，`origin/int_main` 已同步。
 
 ## Blockers
 
-- 本任务实现已独立提交；当前只剩本任务收尾文档提交与远端推送，其他并行任务脏改动继续保留且不纳入本任务提交。
+- 无。本任务已完成验证、清理、提交和推送；其他并行任务脏改动继续保留且不纳入本任务提交。
+
+## Final Status
+
+- `completed`

@@ -259,6 +259,17 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertEquals("MES_EDHR_FILLER_MINIMAL", request.getPolicyCode());
         assertEquals(Set.of(288L, 289L), request.getResolvedUserIds());
         assertTrue(request.getSourceDigest().contains("responsibilitySourceKey=ROUTE|5120|REPORT-PERM-001|78020"));
+
+        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
+                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
+        verify(notifyMessageSendApi, times(2)).sendSingleMessageToAdmin(notifyCaptor.capture());
+        assertEquals(List.of(288L, 289L), notifyCaptor.getAllValues().stream()
+                .map(NotifySendSingleToUserReqDTO::getUserId)
+                .sorted()
+                .toList());
+        assertTrue(notifyCaptor.getAllValues().stream()
+                .allMatch(notify -> Objects.equals("MES_EDHR_FILL_TASK_ASSIGNED", notify.getTemplateCode())
+                        && Objects.equals(fillTask.getId(), notify.getTemplateParams().get("workTaskId"))));
     }
 
     @Test
@@ -1035,7 +1046,24 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertEquals(7001L, roleCandidateTask.getCandidateSourceId());
         assertEquals("88,89", roleCandidateTask.getCandidateUserSnapshot());
         assertTrue(activeReviewTasks.stream().allMatch(task -> task.getActionUrl().contains("workTaskId=" + task.getId())));
-        verify(notifyMessageSendApi, org.mockito.Mockito.times(2)).sendSingleMessageToAdmin(any(NotifySendSingleToUserReqDTO.class));
+        MesProEdhrWorkTaskDO singleCandidateTask = activeReviewTasks.stream()
+                .filter(task -> "R1C2".equals(task.getSignatureCellKey()))
+                .findFirst()
+                .orElseThrow();
+        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
+                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
+        verify(notifyMessageSendApi, times(3)).sendSingleMessageToAdmin(notifyCaptor.capture());
+        assertTrue(notifyCaptor.getAllValues().stream()
+                .anyMatch(notify -> Objects.equals(88L, notify.getUserId())
+                        && Objects.equals(roleCandidateTask.getId(), notify.getTemplateParams().get("workTaskId"))));
+        assertTrue(notifyCaptor.getAllValues().stream()
+                .anyMatch(notify -> Objects.equals(89L, notify.getUserId())
+                        && Objects.equals(roleCandidateTask.getId(), notify.getTemplateParams().get("workTaskId"))));
+        assertTrue(notifyCaptor.getAllValues().stream()
+                .anyMatch(notify -> Objects.equals(89L, notify.getUserId())
+                        && Objects.equals(singleCandidateTask.getId(), notify.getTemplateParams().get("workTaskId"))));
+        assertTrue(notifyCaptor.getAllValues().stream()
+                .allMatch(notify -> Objects.equals("MES_EDHR_REVIEW_TASK_ASSIGNED", notify.getTemplateCode())));
         ArgumentCaptor<SystemEntitlementRevokeReqDTO> captor =
                 ArgumentCaptor.forClass(SystemEntitlementRevokeReqDTO.class);
         verify(permissionApi).revokeEntitlementSource(captor.capture());
@@ -1087,6 +1115,34 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertTrue(reviewTasks.stream().allMatch(task -> "ROLE_GROUP".equals(task.getCandidateSourceType())));
         assertTrue(reviewTasks.stream().allMatch(task -> Long.valueOf(7001L).equals(task.getCandidateSourceId())));
         assertTrue(reviewTasks.stream().allMatch(task -> "88,89".equals(task.getCandidateUserSnapshot())));
+    }
+
+    @Test
+    void createReviewTasks_deduplicatesRepeatedFrozenCandidateNotifyRecipients() {
+        MesProEdhrWorkTaskDO fillTask = insertFillTask(514L, 2014L, "014");
+        insertAssignmentRule(fillTask.getRouteProcessId(), MesProEdhrWorkTaskService.TASK_TYPE_REVIEW, 120);
+
+        MesProEdhrWorkTaskDO reviewTask;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(99L);
+            security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("aoteman");
+            reviewTask = workTaskService.createReviewTasks(fillTask.getId(), 514L, List.of(
+                    reviewCommand("R1C1", 1, 1, 188L, "task-review-dedup")
+                            .setCandidateSourceType("ROLE_GROUP")
+                            .setCandidateSourceId(7002L)
+                            .setCandidateUserSnapshot("188,188,189"))).get(0);
+        }
+
+        ArgumentCaptor<NotifySendSingleToUserReqDTO> notifyCaptor =
+                ArgumentCaptor.forClass(NotifySendSingleToUserReqDTO.class);
+        verify(notifyMessageSendApi, times(2)).sendSingleMessageToAdmin(notifyCaptor.capture());
+        assertEquals(List.of(188L, 189L), notifyCaptor.getAllValues().stream()
+                .map(NotifySendSingleToUserReqDTO::getUserId)
+                .sorted()
+                .toList());
+        assertTrue(notifyCaptor.getAllValues().stream()
+                .allMatch(notify -> Objects.equals("MES_EDHR_REVIEW_TASK_ASSIGNED", notify.getTemplateCode())
+                        && Objects.equals(reviewTask.getId(), notify.getTemplateParams().get("workTaskId"))));
     }
 
     @Test

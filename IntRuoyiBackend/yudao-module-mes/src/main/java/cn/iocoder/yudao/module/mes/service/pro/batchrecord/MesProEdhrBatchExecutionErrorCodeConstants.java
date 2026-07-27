@@ -63,7 +63,7 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
     ErrorCode PRO_EDHR_RELEASE_IDEMPOTENCY_KEY_REQUIRED =
             new ErrorCode(1_040_750_434, "eDHR 放行动作缺少幂等键");
     ErrorCode PRO_EDHR_RELEASE_OWNER_INVALID =
-            new ErrorCode(1_040_750_435, "仅批次负责人可放行 eDHR 批次：{}");
+            new ErrorCode(1_040_750_435, "仅放行责任人可放行 eDHR 批次：{}");
     ErrorCode PRO_EDHR_RELEASE_SIGNATURE_PASSWORD_REQUIRED =
             new ErrorCode(1_040_750_436, "eDHR 放行必须填写负责人电子签名密码");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_CLOSE_PRECHECK_REQUIRED =
