@@ -57,6 +57,7 @@ import java.util.Map;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_ROUTE_SCHEDULE_CONFIG_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_ROUTE_FLOW_CONFIG_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_RESOURCE_CAPACITY_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -246,7 +247,8 @@ class MesProScheduleOrderAdmissionTest {
                         .hourlyCapacity(new BigDecimal("8.000000"))
                         .build()));
         when(processMapper.selectBatchIds(List.of(42L))).thenReturn(Collections.emptyList());
-        when(workstationMapper.selectListByProcessIds(List.of(42L))).thenReturn(Collections.emptyList());
+        when(workstationMapper.selectListByProcessIds(
+                List.of(42L), CommonStatusEnum.ENABLE.getStatus())).thenReturn(Collections.emptyList());
         doAnswer(invocation -> {
             MesProScheduleOrderDO scheduleOrder = invocation.getArgument(0);
             scheduleOrder.setId(902L);
@@ -387,7 +389,8 @@ class MesProScheduleOrderAdmissionTest {
                         .routeProcessId(306L)
                         .capacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode())
                         .build()));
-        when(workstationMapper.selectListByProcessIds(List.of(46L))).thenReturn(Collections.emptyList());
+        when(workstationMapper.selectListByProcessIds(
+                List.of(46L), CommonStatusEnum.ENABLE.getStatus())).thenReturn(Collections.emptyList());
 
         ServiceException ex = assertThrows(ServiceException.class,
                 () -> scheduleOrderService.createFromWorkOrder(reqVO));
@@ -443,7 +446,8 @@ class MesProScheduleOrderAdmissionTest {
                         .routeProcessId(307L)
                         .capacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode())
                         .build()));
-        when(workstationMapper.selectListByProcessIds(List.of(47L))).thenReturn(Collections.emptyList());
+        when(workstationMapper.selectListByProcessIds(
+                List.of(47L), CommonStatusEnum.ENABLE.getStatus())).thenReturn(Collections.emptyList());
 
         MesProScheduleOrderAdmissionDiffPageRespVO result = scheduleOrderService.getAdmissionDiff(reqVO);
 
@@ -454,7 +458,7 @@ class MesProScheduleOrderAdmissionTest {
     }
 
     @Test
-    void createFromWorkOrder_shouldUseDefaultShiftHoursWhenMissing() {
+    void createFromWorkOrder_shouldRejectMissingShiftHours() {
         MesProWorkOrderDO workOrder = MesProWorkOrderDO.builder()
                 .id(105L)
                 .code("ERP-MO-006")
@@ -501,7 +505,8 @@ class MesProScheduleOrderAdmissionTest {
                         .capacityMode(MesProScheduleCapacityModeEnum.FINITE_HOURLY.getMode())
                         .hourlyCapacity(new BigDecimal("12.000000"))
                         .build()));
-        when(workstationMapper.selectListByProcessIds(List.of(45L))).thenReturn(List.of(
+        when(workstationMapper.selectListByProcessIds(
+                List.of(45L), CommonStatusEnum.ENABLE.getStatus())).thenReturn(List.of(
                 cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO.builder()
                         .id(505L)
                         .processId(45L)
@@ -517,13 +522,13 @@ class MesProScheduleOrderAdmissionTest {
                         .build()));
         when(machineryProcessMapper.selectListByMachineryIds(java.util.Set.of())).thenReturn(List.of());
 
-        scheduleOrderService.createFromWorkOrder(reqVO);
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> scheduleOrderService.createFromWorkOrder(reqVO));
 
-        ArgumentCaptor<MesProScheduleOrderProcessDO> processCaptor =
-                ArgumentCaptor.forClass(MesProScheduleOrderProcessDO.class);
-        verify(scheduleOrderProcessMapper).insert(processCaptor.capture());
-        assertEquals(0, processCaptor.getValue().getShiftHours().compareTo(new BigDecimal("10.5")));
-        assertEquals(0, processCaptor.getValue().getShiftCapacityTotal().compareTo(new BigDecimal("126.0000000")));
+        assertEquals(PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED.getCode(), ex.getCode());
+        assertEquals("排产资源缺少班次小时配置，routeProcessId=305, workstationId=505", ex.getMessage());
+        verify(scheduleOrderMapper, never()).insert(any(MesProScheduleOrderDO.class));
+        verify(scheduleOrderProcessMapper, never()).insert(any(MesProScheduleOrderProcessDO.class));
     }
 
 }

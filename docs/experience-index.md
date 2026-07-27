@@ -183,6 +183,7 @@
 - Keywords: AGENTS rule conflict, 规则优先级, previous task ownership, concurrent worktree ownership, 仅测试服完成定义 -> 先读全局 `C:\Users\BJB110\.codex\AGENTS.md` 的 `Rule Precedence and Task Ownership`，再读当前目录最近的项目 `AGENTS.md`
 - Keywords: Invoke-WebRequest Content byte array, Invoke-RestMethod health status, process scan exclude current PID -> `docs/powershell-preflight-lessons.md`
 - Keywords: restart-int-ruoyi-local, Missing int_main frontend path, yudao-ui-admin-vue3, IntRuoyiFronted, local backend restart E2E -> `docs/local-runtime.md#2026-07-24-本地重启脚本路径门禁`
+- Keywords: 标准本地后端重启 Runner token, restart-int-ruoyi-local -Component backend, runner-token.txt, CODEX_TEST_RUNNER_TOKEN, token 文件为空, 后端重启后 Codex Runner token 无效或未配置, Runner 注册探针, 空闲 heartbeat -> `docs/local-runtime.md#2026-07-27-标准本地后端重启-runner-token-持久化门禁`
 - Keywords: local backend MySQL Access denied, dynamic-datasource create datasource named [master] error, Access denied for user 'root'@'localhost', 48081 未监听, 本地后端数据库凭据 -> `docs/local-runtime.md#2026-07-25-本地后端数据库凭据门禁`
 - Keywords: 本地 OnlyOffice 错误码 -4, OnlyOffice 下载失败, onlyofficeDocumentUrl, public-file-base-url, host.docker.internal, Docker onlyoffice 访问 48081 -> `docs/local-runtime.md#2026-07-27-本地-onlyoffice-容器下载地址门禁`
 - Keywords: D-Main local runtime, int_main_d, vite command not found, Java package runtime ignored, *.runtime不存在, git check-ignore runtime source -> `docs/local-runtime.md#2026-07-25-d-main-本地启动源码与依赖门禁`

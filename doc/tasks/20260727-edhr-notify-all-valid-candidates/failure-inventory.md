@@ -18,12 +18,10 @@ Baseline result: 2509 tests, 58 failures, 78 errors, 31 skipped, 41 failing suit
 | --- | --- |
 | `MesBatchRecordBaseSchemaTest` | runtime schema missing `mes_pro_batch_record_execution.batch_record_definition_id` |
 | `BalloonProcessDeviceMappingImportServiceImplTest` | Spring bean dependency injection failure |
-| `MesProBatchRecordExecutionFieldAuditQueryExportServiceTest` | Spring bean dependency injection failure |
 | `MesProBatchRecordReportRenameServiceImplDbTest` | Spring bean dependency injection failure |
 | `MesProBatchRecordReportServiceImplDbTest` | H2 unique key collision on active BATCH route flow config |
 | `ThirdPartyFeedbackImportServiceImplDbTest` | Spring bean dependency injection failure |
 | `IntGyRouteMarkdownImportServiceImplDbTest` | Spring bean dependency injection failure |
-| `Sheet1RouteExcelImportServiceImplDbTest` | Spring bean dependency injection failure |
 
 ## T4 Route And eDHR Contracts
 
@@ -36,6 +34,7 @@ Baseline result: 2509 tests, 58 failures, 78 errors, 31 skipped, 41 failing suit
 | `MesProEdhrBatchExecutionTaskGateTest` | task gate expectation drift |
 | `MesProEdhrRehearsalReadinessServiceTest` | missing process-form fill rule now correctly blocks rehearsal |
 | `MesProEdhrWorkTaskLegacyProcessTest` | tenant prerequisite missing and removed `calculateDueTime` reflection contract |
+| `MesProBatchRecordExecutionFieldAuditQueryExportServiceTest` | Spring Context repaired; responsibility export still accepts `EVIDENCE_MISSING` / `BLOCKED` evidence instead of failing fast |
 | `MesProRouteProcessServiceImplBatchRecordBindingTest` | unnecessary strict Mockito stubbing |
 | `MesProRouteServiceImplDisplayFieldsTest` | missing `platformAdapter` test dependency |
 | `MesProRouteServiceImplTest` | route behavior expectation drift |
@@ -72,6 +71,7 @@ Baseline result: 2509 tests, 58 failures, 78 errors, 31 skipped, 41 failing suit
 | `MesProBatchRecordRouteARecognizerTest` | authoritative Word `.doc` fixture |
 | `MesProBatchRecordRouteFRecognizerTest` | authoritative Word `.doc` fixture |
 | `TmpPrintBatchRecordTableTest` | authoritative Word `.doc` fixture |
+| `Sheet1RouteExcelImportServiceImplDbTest` | authoritative Excel fixture after Spring dependency repair |
 | `Sheet1RouteExcelImportServiceImplTest` | authoritative Excel fixture |
 | `Sheet1RouteExcelParserTest` | authoritative Excel fixture |
 

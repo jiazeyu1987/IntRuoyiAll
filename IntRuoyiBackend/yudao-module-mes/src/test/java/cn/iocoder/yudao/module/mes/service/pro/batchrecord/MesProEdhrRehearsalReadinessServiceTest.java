@@ -164,10 +164,13 @@ class MesProEdhrRehearsalReadinessServiceTest extends BaseDbUnitTest {
         seedRequiredMenus(APPROVER_ID, 7002L, 902000L, "审批人", APPROVER_REQUIRED_PERMISSIONS);
         seedRequiredMenus(ARCHIVER_ID, 7003L, 903000L, "归档人", ARCHIVER_REQUIRED_PERMISSIONS);
         insertArchiveAssignmentRule(ARCHIVER_ID);
-        insertRouteRecord(8001L, 1001L);
+        MesProBatchRecordReportDO report = insertReport("RPT-1");
+        insertRouteRecord(8001L, 1001L, report.getReportId(),
+                report.getBatchRecordDefinitionId(), report.getBatchRecordVersionId(), report.getFormSlotType());
         insertPermissionScope(1001L);
-        insertReport("RPT-1");
-        insertProcessFormFillRule(9902L, 9001L, String.valueOf(EXECUTOR_ID));
+        insertProcessFormFillRule(9902L, 9001L, report.getReportId(),
+                report.getBatchRecordDefinitionId(), report.getBatchRecordVersionId(),
+                String.valueOf(EXECUTOR_ID));
         seedBpmNotifyTemplates();
         when(jimuReportGateway.getReportJson("RPT-1")).thenReturn(reviewedReportJson());
         when(signatureAuthorizationService.getAuthorizationMap(List.of(EXECUTOR_ID, APPROVER_ID, ARCHIVER_ID)))
@@ -488,9 +491,12 @@ class MesProEdhrRehearsalReadinessServiceTest extends BaseDbUnitTest {
     void preflight_allowsBatchRecordWithoutPermissionScopeWhenBindingAndFillRuleExist() {
         seedHappyPathMenusAndSignatures();
         insertArchiveAssignmentRule(ARCHIVER_ID);
-        insertRouteRecord(8001L, null);
-        insertReport("RPT-1");
-        insertProcessFormFillRule(9901L, 9001L, String.valueOf(EXECUTOR_ID));
+        MesProBatchRecordReportDO report = insertReport("RPT-1");
+        insertRouteRecord(8001L, null, report.getReportId(),
+                report.getBatchRecordDefinitionId(), report.getBatchRecordVersionId(), report.getFormSlotType());
+        insertProcessFormFillRule(9901L, 9001L, report.getReportId(),
+                report.getBatchRecordDefinitionId(), report.getBatchRecordVersionId(),
+                String.valueOf(EXECUTOR_ID));
         when(jimuReportGateway.getReportJson("RPT-1")).thenReturn(reviewedReportJson());
         seedBpmStartAllowed();
 
@@ -563,10 +569,13 @@ class MesProEdhrRehearsalReadinessServiceTest extends BaseDbUnitTest {
 
     private void seedHappyPathMenusSignaturesAndTemplate() {
         seedHappyPathMenusAndSignatures();
-        insertRouteRecord(8001L, 1001L);
+        MesProBatchRecordReportDO report = insertReport("RPT-1");
+        insertRouteRecord(8001L, 1001L, report.getReportId(),
+                report.getBatchRecordDefinitionId(), report.getBatchRecordVersionId(), report.getFormSlotType());
         insertPermissionScope(1001L);
-        insertReport("RPT-1");
-        insertProcessFormFillRule(9901L, 9001L, String.valueOf(EXECUTOR_ID));
+        insertProcessFormFillRule(9901L, 9001L, report.getReportId(),
+                report.getBatchRecordDefinitionId(), report.getBatchRecordVersionId(),
+                String.valueOf(EXECUTOR_ID));
         when(jimuReportGateway.getReportJson("RPT-1")).thenReturn(reviewedReportJson());
     }
 
@@ -742,10 +751,10 @@ class MesProEdhrRehearsalReadinessServiceTest extends BaseDbUnitTest {
                 .setDecisions(decisions);
     }
 
-    private void insertReport(String reportId) {
+    private MesProBatchRecordReportDO insertReport(String reportId) {
         Long definitionId = 76000L + Math.abs((long) reportId.hashCode());
         MesProBatchRecordVersionDO version = insertBatchRecordVersion(definitionId, "V1.0", "APPROVED");
-        reportMapper.insert(new MesProBatchRecordReportDO()
+        MesProBatchRecordReportDO report = new MesProBatchRecordReportDO()
                 .setId(9001L)
                 .setSampleKey("SAMPLE-1")
                 .setBatchRecordName("棘突球囊")
@@ -760,7 +769,9 @@ class MesProEdhrRehearsalReadinessServiceTest extends BaseDbUnitTest {
                 .setLastImportTime(LocalDateTime.now())
                 .setReportId(reportId)
                 .setReportCode(reportId)
-                .setReportName("Route A Report"));
+                .setReportName("Route A Report");
+        reportMapper.insert(report);
+        return report;
     }
 
     private void insertLegacyReportWithoutStableIdentity(String reportId) {

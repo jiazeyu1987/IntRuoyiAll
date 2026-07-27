@@ -18,7 +18,7 @@
 - `mapped_task_ids`: [T0, T7]
 - `mapped_acceptance_ids`: [AC-01, AC-02, AC-03]
 - `environment or setup`: 经确认的 Word/Excel 原始文件，记录大小、SHA-256、来源和版本。
-- `steps`: 将测试资源定位到项目内稳定路径，运行所有 Word/Excel 解析、导入、结构和探针测试。
+- `steps`: 将测试资源定位到项目内稳定路径，运行所有 Word/Excel 解析、导入、DB 回滚、结构和探针测试，包括 `Sheet1RouteExcelImportServiceImplDbTest`。
 - `expected_result`: 相关测试全部通过；代码和测试不包含个人用户名或固定盘符路径。
 - `evidence`: fixture 清单、哈希、定向 Maven 结果。
 
@@ -38,8 +38,8 @@
 - `mapped_task_ids`: [T3]
 - `mapped_acceptance_ids`: [AC-05, AC-06, AC-07, AC-17]
 - `environment or setup`: Java 17、MES H2 测试 schema、当前 migration/DO/Mapper。
-- `steps`: 运行 schema 契约、BeanCreation 失败类、ApplicationContext 和唯一键用例；唯一键用例连续运行两次。
-- `expected_result`: 全部通过，Context 正常启动，重复运行无唯一键污染。
+- `steps`: 运行 schema 契约、T3 所属 BeanCreation/ApplicationContext 用例和唯一键用例；唯一键用例连续运行两次。上下文修复后暴露的责任证据产品行为由 TC-05 验证，权威 Excel 缺失由 TC-02 验证。
+- `expected_result`: T3 所属测试全部通过，Context 正常启动，重复运行无唯一键污染；不得用合成 fixture 或测试清理隐藏已转交的真实产品/fixture 缺口。
 - `evidence`: RED/GREEN 命令、H2 schema 核对与 Surefire 报告。
 
 ### TC-05 路线与 eDHR 契约
@@ -48,7 +48,7 @@
 - `mapped_task_ids`: [T4]
 - `mapped_acceptance_ids`: [AC-08, AC-09, AC-12, AC-17]
 - `environment or setup`: 当前路线/eDHR 服务和测试。
-- `steps`: 运行路线版本复制、显示字段、批记录绑定、批次执行、任务门禁、演练、legacy-process 和通知服务测试。
+- `steps`: 运行路线版本复制、显示字段、批记录绑定、批次执行、任务门禁、演练、legacy-process、责任证据导出 fail-fast 和通知服务测试。
 - `expected_result`: 严格 Mockito 下无缺失依赖/空引用，三类配置来源独立，通知 66/66 通过。
 - `evidence`: 组合 Maven 测试输出。
 

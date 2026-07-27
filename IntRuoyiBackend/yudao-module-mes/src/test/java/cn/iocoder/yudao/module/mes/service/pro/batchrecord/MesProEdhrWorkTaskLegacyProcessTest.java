@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
@@ -16,10 +17,12 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
 import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -75,6 +78,8 @@ class MesProEdhrWorkTaskLegacyProcessTest {
     private MesProEdhrCandidateResolver candidateResolver;
     @Mock
     private MesProRouteProcessService routeProcessService;
+    @Mock
+    private PermissionApi permissionApi;
 
     @BeforeEach
     void setUp() {
@@ -91,6 +96,13 @@ class MesProEdhrWorkTaskLegacyProcessTest {
         ReflectionTestUtils.setField(service, "deptApi", deptApi);
         ReflectionTestUtils.setField(service, "candidateResolver", candidateResolver);
         ReflectionTestUtils.setField(service, "routeProcessService", routeProcessService);
+        ReflectionTestUtils.setField(service, "permissionApi", permissionApi);
+        TenantContextHolder.setTenantId(1L);
+    }
+
+    @AfterEach
+    void clearTenant() {
+        TenantContextHolder.clear();
     }
 
     @Test
@@ -185,14 +197,14 @@ class MesProEdhrWorkTaskLegacyProcessTest {
                 .thenReturn(new MesProEdhrCandidateResolver.MesProEdhrCandidateContract(
                         "USER", 88L, "88"));
         Method method = MesProEdhrWorkTaskServiceImpl.class.getDeclaredMethod(
-                "calculateDueTime", MesProEdhrWorkTaskDO.class);
+                "calculateDueTime", MesProEdhrWorkTaskDO.class, MesProEdhrBatchExecutionDO.class);
         method.setAccessible(true);
         method.invoke(service, new MesProEdhrWorkTaskDO()
                 .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_FILL)
                 .setBatchTaskId(BATCH_TASK_ID)
                 .setRouteId(ROUTE_ID)
                 .setRouteProcessId(HISTORICAL_ROUTE_PROCESS_ID)
-                .setProcessId(HISTORICAL_PROCESS_ID));
+                .setProcessId(HISTORICAL_PROCESS_ID), batch());
 
         verify(assignmentRuleMapper).selectEnabledByRouteProcessAndType(
                 HISTORICAL_ROUTE_PROCESS_ID, MesProEdhrWorkTaskService.TASK_TYPE_FILL);

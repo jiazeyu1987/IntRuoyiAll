@@ -59,6 +59,15 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - Forbidden action: 禁止为了绕过脚本硬编码路径创建 `yudao-ui-admin-vue3` 假目录、修改端口、强杀未知进程或把 API-only 验证冒充 E2E。
 - Evidence: `doc/tasks/fix-batch-exec-last-update-created-time/verification-report.md`。
 
+## 2026-07-27 标准本地后端重启 Runner token 持久化门禁
+
+- Trigger: `restart-int-ruoyi-local.ps1 -Component backend`、本地后端重启后测试管理提示 `Codex Runner token 无效或未配置`、`CODEX_TEST_RUNNER_TOKEN`、Runner 注册失败或 heartbeat 过期。
+- Preflight check: 标准重启脚本必须使用工作区唯一 token 文件 `.runtime/codex-test-runner/runner-token.txt`；文件缺失时使用安全随机数生成一次，已存在时必须复用，文件为空时必须 fail-fast；在停止旧后端、构建或启动 Java 前，将同一值写入当前进程的 `CODEX_TEST_RUNNER_TOKEN`。工作区根 `.gitignore` 必须同时包含 `.runtime/` 与 `**/.runtime/`。
+- Blocker: token 文件为空、token 文件未被 Git 忽略、后端和 Runner 使用不同 token、注册探针业务码非 `0`、Runner `current_running_count` 无法归零，或空闲 heartbeat age 达到 `heartbeat-timeout-seconds` 时必须停止成功结论。
+- Verification: 运行 `python -X utf8 -m pytest script/tests/test_runtime_control_scripts.py -q`、PowerShell parser、`git check-ignore -v .runtime/codex-test-runner/runner-token.txt`；后端 health 为 `UP` 后使用同一 token 执行受控注册探针并确认业务码 `0`，再等待至少一个 heartbeat 周期，确认实际 Runner 会话 heartbeat age 小于超时阈值且 `current_running_count=0`。
+- Forbidden action: 禁止每次重启临时生成不同 token、只在当前 shell 设置 token、把 token 写入提交文件或日志、用 Runner 进程存在代替注册与 heartbeat 证明，或因 token 缺失切换端口/Runner/后端。
+- Evidence: `doc/tasks/20260727-codex-runner-token-invalid/verification-report.md`。
+
 ## 2026-07-24 隔离构建 Jar 加载门禁
 
 - Trigger: 主工作区存在并行脏改动，但需要把本任务后端修复加载到 `int_main` 的 `48081` 做真实 E2E；或页面仍提示 `请求地址不存在:<接口>`，怀疑运行中 Jar 未加载新 Controller。

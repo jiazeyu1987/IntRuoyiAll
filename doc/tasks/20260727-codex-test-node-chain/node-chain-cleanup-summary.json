@@ -1,0 +1,21 @@
+{
+  "baseUrl": "http://127.0.0.1:8088",
+  "backendUrl": "http://127.0.0.1:48088",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "checkedAt": "2026-07-27T15:09:43.722Z",
+  "officialChains": [],
+  "incompleteChainMessage": "",
+  "createdCases": [],
+  "cleanedCases": [
+    "独立顺序验证-20260727-后续项",
+    "独立顺序验证-20260727-失败项",
+    "节点串能力验证-20260727-后续节点",
+    "节点串能力验证-20260727-失败节点"
+  ],
+  "cleanupErrors": [],
+  "screenshots": {
+    "chains": "E:\\IntRuoyi\\doc\\tasks\\20260727-codex-test-node-chain\\node-chain-filtered-list.png",
+    "monitor": "E:\\IntRuoyi\\doc\\tasks\\20260727-codex-test-node-chain\\node-chain-failure-blocking.png"
+  }
+}

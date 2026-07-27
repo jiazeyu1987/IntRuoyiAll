@@ -69,3 +69,10 @@ in_progress
 - 仅写入 `node_chain_name` 和 `node_chain_sort`，不修改测试项名称、测试方法、测试数据、检查点、启停状态或业务模块数据。
 - 执行前必须确认 14 个目标项的节点串字段均为空；执行后必须精确得到 3 条节点串，数量为 4、6、4。
 - 回滚方式：按同一批精确测试项名称将 `node_chain_name` 和 `node_chain_sort` 恢复为 `NULL`，并复核影响行数为 14。
+
+## Independent Follow-up Verification Scope
+
+- 租户：`tenant_id=1`。
+- 路径：真实浏览器进入 `系统管理 > 测试管理`。
+- 断言：`测试管理`、`测试项`、`Runner 状态` 同时可见。
+- 数据边界：仅查看，不创建、修改、执行或删除测试项，不修改任何业务数据。

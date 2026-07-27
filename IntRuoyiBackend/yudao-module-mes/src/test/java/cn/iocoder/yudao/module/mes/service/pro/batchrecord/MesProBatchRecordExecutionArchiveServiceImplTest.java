@@ -59,6 +59,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -840,7 +841,7 @@ class MesProBatchRecordExecutionArchiveServiceImplTest extends BaseDbUnitTest {
         assertNotNull(response.getId());
         MesProBatchRecordExecutionArchiveDO archive = archiveMapper.selectById(response.getId());
         assertEquals(approvedSignatureHash(execution.getId()), archive.getSignatureHash());
-        assertEquals(0L, approvalSnapshotMapper.selectCount());
+        assertNull(approvalSnapshotMapper.selectByExecutionId(execution.getId()));
         verify(renderer).render(any());
         verify(fileService).createFileWithStorageRetention(eq(PROTECTED_FILE_CONFIG_ID), eq(ARCHIVE_BYTES),
                 eq("edhr-execution-v1.pdf"), eq("mes/edhr/archive"), eq(CONTENT_TYPE), any());

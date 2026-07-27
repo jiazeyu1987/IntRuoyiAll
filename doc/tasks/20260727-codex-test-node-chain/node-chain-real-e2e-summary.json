@@ -1,9 +1,9 @@
 {
-  "baseUrl": "http://127.0.0.1:8081",
-  "backendUrl": "http://127.0.0.1:48081",
+  "baseUrl": "http://127.0.0.1:8088",
+  "backendUrl": "http://127.0.0.1:48088",
   "tenant": "芋道源码",
   "username": "admin",
-  "checkedAt": "2026-07-27T13:16:19.912Z",
+  "checkedAt": "2026-07-27T15:11:15.073Z",
   "officialChains": [
     {
       "name": "工艺路线节点闭环",
@@ -41,14 +41,87 @@
       ]
     }
   ],
-  "incompleteChainMessage": "",
-  "createdCases": [],
-  "cleanedCases": [],
+  "incompleteChainMessage": "Runner 回写结果不符合结构化契约：节点串必须从第 1 节点开始连续选择",
+  "createdCases": [
+    {
+      "id": 36,
+      "name": "节点串能力验证-20260727-失败节点",
+      "nodeChainName": "节点串能力验证-20260727",
+      "nodeChainSort": 1
+    },
+    {
+      "id": 37,
+      "name": "节点串能力验证-20260727-后续节点",
+      "nodeChainName": "节点串能力验证-20260727",
+      "nodeChainSort": 2
+    },
+    {
+      "id": 38,
+      "name": "独立顺序验证-20260727-失败项",
+      "nodeChainName": null,
+      "nodeChainSort": null
+    },
+    {
+      "id": 39,
+      "name": "独立顺序验证-20260727-后续项",
+      "nodeChainName": null,
+      "nodeChainSort": null
+    }
+  ],
+  "cleanedCases": [
+    "独立顺序验证-20260727-后续项",
+    "独立顺序验证-20260727-失败项",
+    "节点串能力验证-20260727-后续节点",
+    "节点串能力验证-20260727-失败节点"
+  ],
   "cleanupErrors": [],
   "screenshots": {
     "chains": "E:\\IntRuoyi\\doc\\tasks\\20260727-codex-test-node-chain\\node-chain-filtered-list.png",
     "monitor": "E:\\IntRuoyi\\doc\\tasks\\20260727-codex-test-node-chain\\node-chain-failure-blocking.png"
   },
-  "error": "create case 节点串能力验证-20260727-失败节点 returned an empty body: HTTP 500 http://127.0.0.1:8081/admin-api/system/codex-test-case/create",
-  "errorStack": "AssertionError [ERR_ASSERTION]: create case 节点串能力验证-20260727-失败节点 returned an empty body: HTTP 500 http://127.0.0.1:8081/admin-api/system/codex-test-case/create\n    at readJsonResponse (E:\\IntRuoyi\\doc\\tasks\\20260727-codex-test-node-chain\\node-chain-real-e2e.cjs:119:10)\n    at async createCaseFromUi (E:\\IntRuoyi\\doc\\tasks\\20260727-codex-test-node-chain\\node-chain-real-e2e.cjs:511:16)\n    at async main (E:\\IntRuoyi\\doc\\tasks\\20260727-codex-test-node-chain\\node-chain-real-e2e.cjs:770:7)"
+  "expectedRunner": {
+    "name": "node-chain-slot-7-runner",
+    "sessionId": 41,
+    "heartbeatAgeSeconds": 0
+  },
+  "nodeChainExecution": {
+    "executionId": 18,
+    "executionStatus": "FAIL",
+    "cases": [
+      {
+        "name": "节点串能力验证-20260727-失败节点",
+        "status": "FAIL",
+        "claimTime": 1785165105000,
+        "runnerSessionId": 41,
+        "failureReason": "预期操作后总数增加1至19，实际仍为18。"
+      },
+      {
+        "name": "节点串能力验证-20260727-后续节点",
+        "status": "BLOCKED",
+        "claimTime": null,
+        "runnerSessionId": null,
+        "failureReason": "前置节点未通过，串行节点串已停止"
+      }
+    ]
+  },
+  "independentExecution": {
+    "executionId": 19,
+    "executionStatus": "FAIL",
+    "cases": [
+      {
+        "name": "独立顺序验证-20260727-失败项",
+        "status": "FAIL",
+        "claimTime": 1785165579000,
+        "runnerSessionId": 41,
+        "failureReason": "要求操作后总数为操作前+1（19），实际为 18。"
+      },
+      {
+        "name": "独立顺序验证-20260727-后续项",
+        "status": "PASS",
+        "claimTime": 1785165579000,
+        "runnerSessionId": 41,
+        "failureReason": null
+      }
+    ]
+  }
 }

@@ -18,7 +18,7 @@
   - 记录原文件路径、大小、SHA-256、来源和版本。
   - 定向运行所有依赖 Word/Excel fixture 的解析、导入和结构测试。
 - `done_definition`: 两个真实 fixture 均经确认并以可移植方式被测试消费，相关测试全部通过。
-- `status_note`: Word `.doc` 尚未发现；发现两个内容相同的 Excel 候选副本，SHA-256 为 `A7ACF4ADE2E09A00B68D80701B1FB86BC79B6F3CCDA55504B7C838AB85240354`，仍需确认是否为权威原件。
+- `status_note`: Word 已找到仓库固定资源 `src/test/resources/fixtures/pressure-pump-record.doc`，其长度 `905800`、SHA-256 `830A89A2E116ACA4AB9ECD63A9345F5A288998DD1DDE4A434A612B7BA57C103E` 与此前用户明确指定并用于真实回归的 `C:\Users\BJB110\Desktop\文档\批记录压力泵.doc` 完全一致，可进入 T7 验证；两个 Excel 候选副本内容相同，SHA-256 为 `A7ACF4ADE2E09A00B68D80701B1FB86BC79B6F3CCDA55504B7C838AB85240354`，仍需用户确认是否为权威原件。
 
 ### T1
 
@@ -75,8 +75,9 @@
   - 对 schema 契约、每个 BeanCreation 根因和唯一键用例分别保留 RED。
   - 核对真实 migration、DO/Mapper、H2 schema 和测试清理边界。
   - 运行 DB 测试组合并重复运行唯一键用例。
-- `done_definition`: schema 契约、全部目标 DB/Spring 测试稳定通过，重复执行不污染。
+- `done_definition`: schema 契约、T3 所属 DB/Spring 测试稳定通过，重复执行不污染；上下文修复后暴露的产品行为缺口转交对应产品任务，真实 fixture 缺失转交 T7，均不得在 T3 伪造或绕过。
 - `conflict_note`: 如需修改 SQL/migration，必须先按数据库门禁核对真实 schema；不得直接写运行库。
+- `discovered_routing`: `MesProBatchRecordExecutionFieldAuditQueryExportServiceTest` 的两个责任证据导出 fail-fast 缺口转入 T4；`Sheet1RouteExcelImportServiceImplDbTest` 在 Bean 修复后仅剩权威 Excel 缺失，转入 T7。
 
 ### T4
 
@@ -93,6 +94,7 @@
 - `acceptance_ids`: [AC-08, AC-09, AC-12, AC-13, AC-17]
 - `validation_steps`:
   - 修复缺失 mock、tenant、快照和配置前置。
+  - 修复责任证据为 `EVIDENCE_MISSING` / `BLOCKED` 时仍生成导出工作簿的产品行为，保持原强断言。
   - 保持工序开始、批记录表单、表单槽位三条来源独立。
   - 运行路线/eDHR 失败组合及通知 66 用例。
 - `done_definition`: 路线/eDHR 失败簇全部通过，通知候选人语义无回归。
@@ -143,12 +145,13 @@
 - `dependency_ids`: [T0, T3, T5]
 - `affected_paths`:
   - `IntRuoyiBackend/yudao-module-mes/src/test/resources/**`
-  - Word/Excel 解析、导入和结构测试及必要生产代码
+  - Word/Excel 解析、导入、DB 回滚和结构测试及必要生产代码
 - `write_scope`:
   - 经确认的 fixture 及直接依赖它们的实现/测试
 - `acceptance_ids`: [AC-01, AC-02, AC-03, AC-10, AC-13, AC-17]
 - `validation_steps`:
   - 运行全部真实 fixture 套件。
+  - 运行 `Sheet1RouteExcelImportServiceImplDbTest`，证明 Spring 装配修复后通过权威 Excel 完成真实回滚路径验证。
   - 核对资源路径无用户名/盘符依赖。
 - `done_definition`: 所有真实 Word/Excel 套件通过并可在项目路径复现。
 

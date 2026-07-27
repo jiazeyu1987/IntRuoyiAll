@@ -34,3 +34,14 @@
 - BDD: 多节点串可见 -> Given 本机 `tenant_id=1` 已有工艺路线 4 项、批记录 6 项、智能排产 4 项；When 应用节点串 schema 并执行任务自有赋值脚本；Then 页面节点串选项显示 3 条不同节点串，数量分别为 4、6、4，且各串序号从 1 连续到 N。
 - Data preflight: 仅允许 14 个精确名称目标项，执行前要求 `node_chain_name/node_chain_sort` 全部为空；任一目标缺失、已分配或影响行数不等于 14 时 fail fast。
 - Rollback: 对同一批精确名称恢复 `node_chain_name=NULL,node_chain_sort=NULL`，复核影响行数 14；不修改方法、目标、状态或业务数据。
+
+## 2026-07-27 独立后续项只读验证
+
+- User intent: 使用真实 Playwright 浏览器打开 `http://127.0.0.1:8081`，进入 `系统管理 > 测试管理`，只读确认页面标题、`测试项` 页签和 `Runner 状态` 区域可见。
+- BDD: 独立后续项被实际执行 -> Given 租户 `tenant_id=1` 的本机系统可登录；When 用户通过真实前端菜单进入测试管理；Then 页面同时显示 `测试管理`、`测试项` 和 `Runner 状态`。
+- Scope: 只读查看，不创建、修改、执行或删除任何测试项，不修改其他业务数据。
+- GREEN: experience-preflight -> PASS，已读取 `docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/worktree-restrictions.md` 和 Playwright skill；使用本机 `int_main` 固定入口 `8081/48081`。
+- GREEN: `playwright-cli -s=independent-followup-20260727` 真实页面路径 -> PASS；从首页依次点击 `系统管理`、`测试管理`，最终 URL 为 `http://127.0.0.1:8081/system/codex-test-management`，浏览器标题为 `瑛泰管理系统 - 测试管理`。
+- GREEN: 页面可见断言 -> PASS；`测试管理` 可见，`测试项` 页签可见且 `aria-selected=true`，`Runner 状态` 可见，状态文案为 `可用`。
+- Data verification: 未点击新增、执行、修改、删除或其他写入动作；本次只发生登录和页面导航，没有修改业务数据。
+- Artifact: 检查点通过，按用户要求未生成失败截图；Playwright 会话已关闭。

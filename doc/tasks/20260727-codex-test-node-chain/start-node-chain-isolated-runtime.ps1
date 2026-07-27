@@ -83,7 +83,8 @@ $environmentNames = @(
     'CODEX_TEST_CLAIM_CAPACITY',
     'CODEX_TEST_POLL_INTERVAL_MS',
     'CODEX_TEST_HEARTBEAT_INTERVAL_MS',
-    'CODEX_TEST_API_TIMEOUT_MS'
+    'CODEX_TEST_API_TIMEOUT_MS',
+    'YUDAO_CODEX_TEST_ARTIFACT_TEMP_DIR'
 )
 $oldEnvironment = @{}
 foreach ($name in $environmentNames) {
@@ -95,6 +96,7 @@ try {
     $env:CODEX_TEST_RUNNER_ON_DEMAND_ENABLED = 'false'
     $env:CODEX_TEST_API_BASE = "http://127.0.0.1:$backendPort/admin-api"
     $env:CODEX_TEST_FRONTEND_BASE_URL = "http://127.0.0.1:$frontendPort"
+    $env:YUDAO_CODEX_TEST_ARTIFACT_TEMP_DIR = Join-Path $runtimeDir 'artifacts'
 
     $backendProcess = Start-Process `
         -FilePath 'powershell.exe' `

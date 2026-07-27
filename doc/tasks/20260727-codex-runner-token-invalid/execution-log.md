@@ -4,6 +4,8 @@
 
 用户反馈：在测试管理列表点击“执行”时提示“Codex Runner token 无效或未配置”。
 
+2026-07-27 用户追加要求：在测试管理页签中完成一次真实 E2E 运行测试，并等待真实 Runner 执行结果。
+
 ## Command Intent
 
 - 检查前端执行按钮、Runner API wrapper、token 配置来源及后端校验。
@@ -31,6 +33,10 @@ BDD: 后端重启后测试管理初始化请求可用 -> Given `int_main` 前后
 BDD: 节点串执行必须从首节点开始 -> Given 测试项属于有序节点串；When 用户从测试管理页面发起执行；Then 选择范围必须从第 1 节点开始且连续，单独执行后续节点应 fail-fast，不得创建残缺执行批次。
 
 BDD: Runner 取消后必须有界收敛 -> Given 服务端已取消执行且 Windows Codex wrapper 被强制终止后没有触发 Node child `close` 事件；When Runner 收到取消心跳并停止该进程树；Then 当前执行必须在独立的有界等待时间内退出，后续空闲心跳的 `currentRunningCount` 必须回到 `0`，不得遗留 `CLAIMED/RUNNING` 执行项、后代进程或 `codex-test-result-*` 文件。
+
+BDD: 标准本地后端重启保持 Runner token -> Given 工作区已有受控 Runner token 文件或首次启动尚未生成；When 通过 `restart-int-ruoyi-local.ps1 -Component backend` 重启 `int_main` 后端；Then 脚本必须使用工作区唯一 token 文件，在缺失时安全生成一次、文件为空时 fail-fast，并在启动 Java 前把同一 token 注入后端环境，后续页面按需 Runner 注册不得再次提示 token 无效。
+
+BDD: 测试管理真实 E2E 执行进入终态 -> Given 本机前后端、测试租户、管理员账号、Runner token、Codex CLI、Playwright 和目标测试项前置/清理闭环均可用；When 用户通过真实测试管理页面按可见业务名称点击行级“执行”；Then 页面必须创建真实 executionId，由在线 Runner 领取并进入终态，且最终无 token 错误、系统异常、遗留活动执行项或 Runner 运行计数残留。
 
 ## Milestone 6
 
@@ -68,6 +74,23 @@ BDD: Runner 取消后必须有界收敛 -> Given 服务端已取消执行且 Win
 - REGRESSION: Runner idle check after one heartbeat interval -> PASS, Runner PID `53624` remained alive and `codex-runner.stderr.log` stayed empty.
 - EXPERIENCE: Updated `docs/e2e-rules.md` and `docs/experience-index.md` so future Codex Runner tasks route the exact `Codex Runner token 无效或未配置` symptom to the token-injection/registration-probe gate.
 
+## Milestone 8
+
+- Status: verification_complete.
+- BDD: 标准本地后端重启保持 Runner token -> Given 工作区已有受控 Runner token 文件或首次启动尚未生成；When 通过 `restart-int-ruoyi-local.ps1 -Component backend` 重启后端；Then 脚本复用工作区唯一 token，空文件 fail-fast，并在停止、构建和启动后端前注入同一 token。
+- RED: `python -X utf8 -m pytest script/tests/test_runtime_control_scripts.py -k workspace_codex_runner_token_file -q` -> FAIL，预期原因是根 `.gitignore` 缺少 `.runtime/` 与 `**/.runtime/`，持久 token 文件存在误纳入 Git 的风险。
+- GREEN: 添加根 `.gitignore` 保护后重跑同一聚焦测试 -> PASS，`1 passed, 14 deselected`；`git check-ignore -v .runtime/codex-test-runner/runner-token.txt` 命中 `**/.runtime/`。
+- REGRESSION: `python -X utf8 -m pytest script/tests/test_runtime_control_scripts.py -q` -> PASS，`15 passed`。
+- REGRESSION: `restart-int-ruoyi-local.ps1` PowerShell parser -> PASS。
+- REGRESSION: `node tests/e2e/codex-test-runner-child-settlement-static.spec.js`、`node tests/e2e/system-codex-test-management-static.spec.js`、`node --check scripts/codex-test-runner.mjs` -> PASS。
+- REGRESSION: `python -X utf8 -m pytest -q script/tests/test_codex_test_node_chain_migration.py script/tests/test_codex_test_management_migration.py` -> PASS，`4 passed`。
+- Runtime registration: 使用工作区受控 token 对当前 `48081` 后端执行最终注册探针 -> PASS，业务码 `0`，探针会话 `39`；未记录 token 明文。
+- Runtime idle heartbeat: 等待一个 heartbeat 周期后只读核对实际 Runner 会话 `36` -> `ONLINE`、`current_running_count=0`、heartbeat age `1` 秒，低于后端 `60` 秒超时。
+- Runtime ownership: 当前后端 PID `55984` 运行 `output/runtime/int_main/backend-runtime-control-20260727-214426.jar`，health `UP`；主 Runner PID `65964` 运行 `IntRuoyiFronted/scripts/codex-test-runner.mjs --loop`，仅有 `conhost.exe` 子进程。
+- Real E2E: Playwright 通过真实登录和侧边菜单进入 `系统管理 > 测试管理`；Runner 显示“可用”，租户、Runner 状态、节点串选项、测试项分页和监控请求均为 HTTP `200` / 业务码 `0`；页面无“系统异常”和 `Codex Runner token 无效或未配置`，控制台错误数 `0`，浏览器会话已关闭。
+- Isolation: `8088/48088` 节点串运行态和其 Runner 未被操作；并发批次 `14` 独立达到 `PASS`。
+- EXPERIENCE: `project-experience-consolidation` -> 将标准重启复用工作区唯一 Runner token 的前置门禁合并到 `docs/local-runtime.md`，并在 `docs/experience-index.md` 增加精确关键词路由；未新建长期经验文档。
+
 ## Blockers
 
 - 当前工作区存在与本任务无关的未跟踪目录 `doc/tasks/20260727-route-flow-tab-return-state/`，按规则保留不修改。
@@ -87,3 +110,40 @@ BDD: Runner 取消后必须有界收敛 -> Given 服务端已取消执行且 Win
 - Final runtime verification: backend health `UP` on PID `45548`, frontend PID `41928`, Runner PID `53624`; correct Runner registration contract probe returned business code `0` and `runnerSessionId=14`.
 - Probe correction note: an intermediate closeout probe used an array for `capabilities` and then omitted `tenant-id`; those probe mistakes produced `系统异常` / management-tenant validation errors, not a token failure.
 - EXPERIENCE: Existing experience index already routes `task-closeout runtime log lock`, `PermissionError WinError 32`, and long-running process logs under task directories; no new long-term experience document is needed.
+
+## 2026-07-27 Runtime Reopen
+
+- Status: in_progress.
+- RED: 当前受控 token 对 `POST /admin-api/system/codex-test-runner/register` 的正确请求返回业务码 `1002031011`，再次复现“Codex Runner token 无效或未配置”。
+- Runtime ownership: `48081` 当前监听 PID `4000`，启动时间 `2026-07-27 21:44:45`，运行不可变 Jar `output/runtime/int_main/backend-runtime-control-20260727-214426.jar`；Jar SHA256 为 `64569267E03EB99019D09292AD86EA3A323D5A71FE2EA220F1067AC60E0070FE`，修改时间早于进程启动时间。
+- Ownership boundary: PID `4000` 来自并发任务 `20260727-batch-record-list-detail-500` 的稳定 Jar 修复，该任务已 `ready_for_closeout`；并发节点串 Runner 会话 `34`、前后端 `8088/48088` 和批次 `13/14` 位于 `D:\IntRuoyiWorktree\20260727-codex-test-node-chain-build`，不依赖 `48081`，本任务不停止、不取消、不修改。
+- Safety preflight: `48081` health 为 `UP`，前端 `8081` 为 HTTP `200`，检查时 `48081` 持续连接数为 `0`；主工作区旧 Runner PID `55972` 已不存在。
+- Next action: 复用 PID `4000` 的同一不可变 Jar 与原启动参数，不从脏工作区重建；为后端和主工作区 Runner 生成同一受控本地 token，完成注册、页面和 heartbeat 复验。
+
+## 2026-07-27 Runtime Reopen Resolution
+
+- Runtime realignment: PASS；不可变 Jar 后端已由 PID `55984` 在 `48081` 运行，health `UP`，主 Runner PID `65964` 注册为会话 `36`。
+- Token contract: PASS；受控注册业务码 `0`，标准重启脚本已获得工作区持久 token 契约，后续重启不再依赖一次性手工环境注入。
+- Page and heartbeat: PASS；真实测试管理页面无系统异常/token 错误，等待一个 heartbeat 周期后会话 `36` 仍为 `ONLINE`、运行计数 `0`、heartbeat age `1` 秒。
+- Remaining blocker: 仅剩大量非本任务并发脏改动导致无法安全提交和推送；不影响本次实现与 E2E 结论，但阻止任务状态标记为 `completed`。
+- Closeout state: `ready_for_closeout`；实现、运行态、真实 E2E、回归测试、经验沉淀和文档结构验证已完成，等待 task-closeout cleanup preview/apply。
+- CLEANUP PREVIEW: PASS；keep 为四份核心任务证据，delete 为两份旧后端日志和一次性 token 对齐脚本，blocked/warnings 均为空。
+- CLEANUP APPLY: PASS；三项临时产物已删除，主工作区后端/Runner 与隔离节点串运行态未受影响。
+- CLOSEOUT BLOCKER: `git status --short --branch --untracked-files=all` 仍包含大量非本任务并发源码、测试和任务文档改动，无法安全建立基线提交或只提交本任务；因此不执行 commit/push，状态保持 `ready_for_closeout`。
+
+## Milestone 9 Real E2E Run
+
+- Status: BLOCKED；真实运行已完成，但业务结果未通过。
+- Preflight: PASS；`http://127.0.0.1:8081` HTTP `200`，`48081` health `UP`，受控 token 注册探针业务码 `0`，主 Runner 会话 `36` 初始 `ONLINE/current_running_count=0/heartbeat age=2s`，Codex CLI `0.145.0` 与 Playwright CLI 可用。
+- Target: 测试租户 `芋道源码`，测试项 `独立顺序验证-20260727-后续项`（caseId `35`）；测试方法仅查看测试管理标题、测试项页签和 Runner 状态，不修改业务数据。
+- Real page path: Playwright 打开本机登录页，以 `芋道源码/admin` 登录，依次点击 `系统管理 > 测试管理`；按页面可见行定位 caseId `35`，点击同行“执行”，页面提示“已创建执行批次 17”并切换到“运行监控”。
+- Execution claim: PASS；批次 `17` 由 Runner 会话 `36` 领取，页面显示“执行中/正在执行测试方法项第 1 项”，数据库 `execution_case=RUNNING`；进程树实际存在 `cmd.exe -> node.exe -> codex.exe`。
+- Execution heartbeat: 执行期 Runner `current_running_count=1`，heartbeat age 持续低于 `60s`。
+- Terminal result: FAIL；批次开始于 `2026-07-27 22:54:26`，结束于 `2026-07-27 23:04:27`，执行批次 `FAIL`，执行项与检查点均为 `BLOCKED`。
+- Failure reason: `Codex Runner 执行失败：codex exec timed out after 600000ms`；页面“测试记录 > 查看结果”显示相同失败描述，未伪造通过。
+- Page errors: 结果抽屉出现 `接口请求超时,请刷新页面重试!` 与 `timeout of 30000ms exceeded`；Playwright 控制台记录重复 Axios 30 秒超时，最终控制台统计为 `1 error / 2 warnings`。
+- Settlement: PASS；终态后会话 `36` 的 `current_running_count=0`，无 Codex/cmd 后代，无 `%TEMP%\codex-test-result-17-*` 文件。
+- Idle heartbeat: FAIL；会话 `36` 的 heartbeat age 持续超过 `60s`，Runner stderr 记录 `/heartbeat timed out after 30000ms` 和 `/register timed out after 30000ms`。新 PowerShell 注册探针仍在 `89ms` 返回业务码 `0`，说明 token 与后端注册接口可用，过期发生在旧 Runner HTTP 客户端。
+- Runtime cleanup: PASS；确认 PID `65964` 空闲、运行计数 `0` 且仅有 `conhost.exe` 后停止该任务自有旧 Runner；并发隔离 Runner 会话 `41` 和批次 `18` 未停止、取消或修改。
+- Evidence: `output/playwright/20260727-codex-runner-token-e2e/real-run-case-35/batch-17-failed.png`。
+- Secret cleanup: PASS；原始 Playwright 登录快照和带鉴权网络 trace 已删除，仅保留不含凭据的失败结果截图。

@@ -75,7 +75,7 @@ class MesProScheduleOrderFourRiskContractTest {
         scheduleOrderService.syncFeedbackProgress(501L);
 
         verify(scheduleOrderProcessMapper).updateProgress(701L, new BigDecimal("170.000000"),
-                BigDecimal.ZERO.setScale(6), new BigDecimal("170.000000"));
+                BigDecimal.ZERO.setScale(6), new BigDecimal("100.000000"));
         verify(scheduleOrderMapper).updateProgressSummary(501L, new BigDecimal("100.000000"),
                 new BigDecimal("100.000000"), BigDecimal.ZERO.setScale(6), new BigDecimal("100.000000"),
                 MesProScheduleOrderStatusEnum.FINISHED.getStatus());
@@ -83,7 +83,10 @@ class MesProScheduleOrderFourRiskContractTest {
                 ArgumentCaptor.forClass(MesProScheduleOrderOperationLogDO.class);
         verify(scheduleOrderOperationLogMapper).insert(logCaptor.capture());
         assertTrue(logCaptor.getValue().getOperationType().contains("SYNC_PROGRESS"));
-        assertTrue(logCaptor.getValue().getAfterSnapshotJson().contains("overReportedQuantity"));
+        String afterSnapshotJson = logCaptor.getValue().getAfterSnapshotJson();
+        assertTrue(afterSnapshotJson.contains("\"reportedQuantity\":170.000000"));
+        assertTrue(afterSnapshotJson.contains("\"overReportedQuantity\":70.000000"));
+        assertTrue(afterSnapshotJson.contains("\"progressPercent\":100.000000"));
     }
 
     private MesProFeedbackDO feedback(Long id, String quantity, Integer status) {

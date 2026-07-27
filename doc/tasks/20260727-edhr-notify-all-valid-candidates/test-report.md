@@ -24,3 +24,70 @@ Not started. Independent test passes will be appended per task after executor ev
 - Diff command: `git diff --check -- "yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/MesProEdhrFormFillLogMenuContractTest.java" "yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/MesProEdhrTemplateConfigMenuRemovalContractTest.java" "yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/MesProBatchRecordVersionPhaseTwoMigrationContractTest.java"`
 - Diff result: exit code `0`，无空白错误；仅输出 Git 既有 LF/CRLF 转换提示。
 - Unresolved issues: T2 范围内无未解决问题；任务整体仍受权威 fixture 缺失及其他 MES 完整回归失败簇阻塞，本次 PASS 不代表 TC-09 或完整任务通过。
+
+## T3 Independent Verification
+
+- Task ID: `20260727-edhr-notify-all-valid-candidates`
+- Test case: `TC-04`
+- Acceptance mapping: `AC-05`, `AC-06`, `AC-07`, `AC-13`, `AC-14`, `AC-17`
+- Expected: schema 契约只纳入仓库中已存在的正式 migration，并精确识别正式 helper；Spring 测试仅补齐当前生产服务实际依赖的精确 `@MockitoBean`；可验证 Spring/DB 子集和删除后重导唯一键用例可重复通过；不得使用合成 Excel、跳过测试、放宽断言或默认成功；不完整或阻塞的责任证据必须拒绝导出。
+- Commit review: `219169b70a17461d160d4aa47cd9295f604a4ed6` 中 T3 七个测试文件共 `39 insertions/2 deletions`。`MesBatchRecordBaseSchemaTest` 只新增读取三个已在父提交中存在的正式 migration：`20260708_mes_batch_record_version_phase_one.sql`、`20260720_mes_batch_shared_form_binding.sql`、`20260722_mes_recordbook_batch_controlled_sync.sql`；helper 匹配仅扩展为 `ensure_*_column` 和 `add_*_column_if_missing|table_exists`，与 migration 中的 `add_mes_edhr_column_if_missing`、`add_mes_edhr_column_if_table_exists` 精确对应。其余六个测试只增加生产类当前实际依赖的类型导入和精确 `@MockitoBean`，未改变业务断言、测试发现范围或 Mockito 严格性。
+- Fixture review: `Sheet1RouteExcelImportServiceImplDbTest` 在提交前后都通过 `Files.readAllBytes(FIXTURE)` 读取 `D:\ocr2\resource\球囊扩张导管工序(1).xlsx`；提交只增加 `MesProRouteOwnerPermissionService` 的精确 `@MockitoBean`，没有 `XSSFWorkbook`、`createSheet`、`createRow` 或其他合成/伪造 fixture 逻辑。
+- Verifiable subset command: `mvn -pl yudao-module-mes "-Dtest=MesBatchRecordBaseSchemaTest,BalloonProcessDeviceMappingImportServiceImplTest,MesProBatchRecordReportRenameServiceImplDbTest,MesProBatchRecordReportServiceImplDbTest,ThirdPartyFeedbackImportServiceImplDbTest,IntGyRouteMarkdownImportServiceImplDbTest" test`
+- Verifiable subset result: `PASS`，`122 tests`, `0 failures`, `0 errors`, `0 skipped`, `BUILD SUCCESS`。
+- Repeatability command, run 1: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordReportServiceImplDbTest#recognizeUploadedRoute_whenDeletedBatchRecordReimported_startsFromV1Again" test`
+- Repeatability result, run 1: `PASS`，`1 test`, `0 failures`, `0 errors`, `0 skipped`, `BUILD SUCCESS`。
+- Repeatability command, run 2: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordReportServiceImplDbTest#recognizeUploadedRoute_whenDeletedBatchRecordReimported_startsFromV1Again" test`
+- Repeatability result, run 2: `PASS`，`1 test`, `0 failures`, `0 errors`, `0 skipped`, `BUILD SUCCESS`；未复现 H2 唯一键污染。
+- Responsibility export command: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordExecutionFieldAuditQueryExportServiceTest" test`
+- Responsibility export result: `BLOCKED`，`8 tests`, `2 failures`, `0 errors`, `0 skipped`, `BUILD FAILURE`。失败精确为 `responsibilityExportRejectsIncompleteOverallEvidence` 和 `responsibilityExportRejectsBlockedEvidenceAndPreservesUnknownSummaryOrigin`：汇总状态分别已正确得到 `EVIDENCE_MISSING`、`BLOCKED`，但调用导出时均未抛出期望的 `PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_EXPORT_FAILED`。只读代码审查确认 `MesProBatchRecordExecutionFieldResponsibilityService#export` 在 `computeSummary` 后直接生成工作簿，未对 `overallStatus` 执行 fail-fast；这是两个产品行为缺口，不是 Spring Bean 装配失败。
+- Excel fixture command: `mvn -pl yudao-module-mes "-Dtest=Sheet1RouteExcelImportServiceImplDbTest" test`
+- Excel fixture result: `BLOCKED`，`1 test`, `0 failures`, `1 error`, `0 skipped`, `BUILD FAILURE`。唯一错误为 `NoSuchFileException: D:\ocr2\resource\球囊扩张导管工序(1).xlsx`；独立 `Test-Path` 结果为 `False`，未发现其他测试或产品错误。
+- Diff command: `git diff --check 219169b7^ 219169b7 -- <T3 seven test files>`
+- Diff result: `PASS`，exit code `0`，无 whitespace error。当前七个文件与提交 `219169b7` 完全一致。
+- Overall result: `BLOCKED`。`AC-05`、`AC-06` 和 `AC-07` 在当前可验证范围内通过；T3 命令未出现 skipped，提交未新增跳过、测试过滤配置、宽松 mock、放宽断言、fallback 或伪 fixture。`AC-13` 仍因上述两个产品 fail-fast 缺口和权威 Excel 缺失未满足，因此本结果不构成完整 MES 回归或任务完成放行。
+- Unresolved issues: 在 `MesProBatchRecordExecutionFieldResponsibilityService` 正式实现中补齐 `EVIDENCE_MISSING/BLOCKED` 导出拒绝逻辑并通过原两项严格断言；从权威来源取得并治理 `D:\ocr2\resource\球囊扩张导管工序(1).xlsx` 对应真实 Excel 后重新运行 Sheet1 用例。独立测试未修改任何产品代码、测试代码、`task-state.json`、`execution-log.md` 或规划文件。
+
+## T6 Independent Verification
+
+- Task ID: `20260727-edhr-notify-all-valid-candidates`
+- Test case: `TC-07`
+- Acceptance mapping: `AC-08`, `AC-11`, `AC-13`, `AC-17`
+- Expected: Gantt 契约检查真实 `SchedulePlanner` 转换边界；冻结路线版本和启用工作站调用被精确装配；夜班计划产能搜索耗尽后保留精确夜班阻塞原因，非夜班仍保留 3660 天搜索上限消息；缺班次小时 fail-fast 且不写排产订单；过量报工数量证据保留且进度封顶 100；只有正式 `MANUAL_OVERRIDE` 可在人员数量缺失时保持 `NORMAL`；不得新增 lenient、宽泛桩、跳过、fallback、默认成功或弱化断言。
+- Diff review: T6 白名单共 8 个文件，`127 insertions/39 deletions`。生产代码差异仅有 `MesProAutoScheduleServiceImpl.java` 一处：计划产能扩展搜索耗尽时按 `nightShiftEnabled` 选择既有 `buildLineCapacityInsufficientMessage` 或既有 `buildLineCapacitySearchLimitMessage`，未改变搜索天数、容量计算、写入链路或其他产品行为。其余差异均为 7 个目标测试文件。
+- Strictness review: 新增差异中 `lenient=0`、`@Disabled/@Ignore/assumption skip=0`、fallback/默认成功/吞异常/弱断言模式 `=0`。新增的两处 `any(...)` 只位于 `verify(..., never()).insert(any(...))`，用于证明缺班次小时后任何排产订单/工序实体都不得写入，不是宽泛 stubbing，也不会隐藏参数不匹配；新增 stubbing 均按正式路线版本、工作站状态和实际调用参数精确匹配。已有测试基线中的历史 `lenient` 未在本轮增加。
+- Main command: `mvn -pl yudao-module-mes "-Dtest=MesProTaskGanttWorkOrderCodeContractTest,MesProAutoScheduleAlgorithmContractTest,MesProAutoScheduleContractTest,MesProScheduleOrderAdmissionTest,MesProScheduleOrderFourRiskContractTest,MesProScheduleOrderNoDefaultConfigContractTest,MesProScheduleOrderServiceImplTest" test`
+- Main result: `PASS`，2026-07-27 22:47:39 +08:00 完成；`99 tests`, `0 failures`, `0 errors`, `0 skipped`, `BUILD SUCCESS`。
+- High-risk command 1: `mvn -pl yudao-module-mes "-Dtest=MesProAutoScheduleAlgorithmContractTest" test`
+- High-risk result 1: `PASS`，2026-07-27 22:47:59 +08:00 完成；`18 tests`, `0 failures`, `0 errors`, `0 skipped`, `BUILD SUCCESS`。
+- High-risk command 2: `mvn -pl yudao-module-mes "-Dtest=MesProScheduleOrderServiceImplTest,MesProScheduleOrderFourRiskContractTest" test`
+- High-risk result 2: `PASS`，2026-07-27 22:48:18 +08:00 完成；`59 tests`, `0 failures`, `0 errors`, `0 skipped`, `BUILD SUCCESS`。
+- Behavior review: 两个夜班阻塞用例均精确断言唯一 `CAPACITY/BLOCKING` 问题的工单、工序和完整消息为“夜班工序缺少可用夜班班次或夜班产能”；产品分支对非夜班仍调用 `buildLineCapacitySearchLimitMessage`，其中 `LINE_CAPACITY_SEARCH_DAY_LIMIT=3660`。缺班次小时用例精确断言 `PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED`、完整错误消息及两个 Mapper 均无 insert。过量报工用例精确保留 `reportedQuantity=170`、`overReportedQuantity=70`，并断言工序和汇总进度为 `100`。人员数量缺失用例显式使用 `MANUAL_OVERRIDE` 和小时产能 `2`，断言来源为 `MANUAL_OVERRIDE`、状态为 `NORMAL`、班次产能为 `16`；未把 `RESOURCE_CALCULATED` 当作隐式 fallback。Gantt 契约限定读取 `SchedulePlanner.PreviewStep#toGanttDataRespVO` 所在区间并检查 `workOrderCode` 入参与 VO 赋值。
+- Diff command: `git diff --check -- <T6 eight whitelist paths>`
+- Diff result: `PASS`，exit code `0`，无 whitespace error；仅有 Git 既有 LF/CRLF 转换提示。测试前后 8 个白名单文件 SHA-256 一致，验证期间未发生并发改写。
+- Overall result: `PASS`。T6 / TC-07 / AC-08、AC-11、AC-13、AC-17 在指定独立验证范围内满足放行条件。
+- Unresolved issues: T6 范围内无未解决问题。任务整体仍由 T0、T4、T5、T7-T9 和最终 `mvn -pl yudao-module-mes test` 决定；本次 T6 PASS 不代表完整 MES 回归或任务整体完成。独立测试未修改任何产品代码、测试代码、`task-state.json`、`execution-log.md` 或规划文件，未提交、未推送。
+
+## T4 Independent Verification
+
+- Task ID: `20260727-edhr-notify-all-valid-candidates`
+- Test case: `TC-05`
+- Acceptance mapping: `AC-08`, `AC-09`, `AC-12`, `AC-13`, `AC-17`
+- Pre-read evidence: 已完整读取 `E:\IntRuoyi\AGENTS.md`、`docs\backend-development.md`、`docs\powershell-encoding.md`、本任务 `test-plan.md` 与 `execution-log.md`；`rg --files -g AGENTS.md E:\IntRuoyi\IntRuoyiBackend` 未发现后端目录下更近的 `AGENTS.md`。
+- Expected: T4 范围只允许 2 个生产类和 10 个测试类；责任证据 `EVIDENCE_MISSING` / `BLOCKED` 导出必须 fail-fast，`COMPLETE` 仍可导出；待放行动作锁不得扩大权限；工序开始上传人、逐工序批记录表单、`formBindings` 三条来源独立；通知服务继续按每个任务 `candidateUserSnapshot` 的全部有效候选人逐人发送且去重；不得新增 lenient、宽泛 stubbing、`@Disabled`、skip、fallback、默认成功、吞异常或弱化断言。
+- Diff scope review: T4 白名单差异精确为 12 个文件：`MesProBatchRecordExecutionFieldResponsibilityService.java`、`MesProEdhrBatchExecutionServiceImpl.java`、`MesProRouteVersionAndCopyTest.java`、`MesProBatchRecordExecutionArchiveServiceImplTest.java`、`MesProEdhrBatchExecutionLegacyProcessTest.java`、`MesProEdhrBatchExecutionServiceTest.java`、`MesProEdhrBatchExecutionTaskGateTest.java`、`MesProEdhrRehearsalReadinessServiceTest.java`、`MesProEdhrWorkTaskLegacyProcessTest.java`、`MesProRouteProcessServiceImplBatchRecordBindingTest.java`、`MesProRouteServiceImplDisplayFieldsTest.java`、`MesProRouteServiceImplTest.java`；全局工作区仍有并发非 T4 脏文件，本次仅按 T4 白名单审查。
+- Diff behavior review: `MesProBatchRecordExecutionFieldResponsibilityService#export` 在 `computeSummary` 后仅新增 `overallStatus != COMPLETE` 时抛出既有 `PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_EXPORT_FAILED`，未引入新错误码或默认成功；`MesProEdhrBatchExecutionServiceImpl` 仅把待放行动作锁豁免收窄到已提交/已完成的普通路线表单任务且原 `OPEN_FORM` 已允许的场景。
+- Test diff review: 路线与 eDHR 测试只补齐当前正式依赖、tenant、冻结附件负责人、填写规则、已发布批记录版本和逐工序批记录绑定；`MesProRouteProcessServiceImplBatchRecordBindingTest` 仅删除两处不再发生真实调用的 strict stub；新增差异中 `lenient=0`、`@Disabled=0`、`@Ignore=0`、`assumeTrue/assumeFalse=0`、`fallback=0`、`default success=0`、`mock success=0`、`吞异常=0`、`跳过=0`。审查未发现新增宽泛 stubbing、跳过配置、默认成功分支或弱化断言。
+- Source independence review: 工序开始/附件负责人仍通过冻结快照 `batchRecordAttachmentOwners` 与特殊节点上传/完成链路验证；逐工序批记录表单仍通过 BATCH 工序绑定、report/version identity 和 `batchRecordReportId` 链路验证；表单槽位仍通过 `formBindings` / 动态表单中心绑定链路验证。T4 差异未把 `formBindings`、附件负责人或工序开始上传人替代为批记录表单来源，也未用批记录表单反推表单槽位。
+- Main command: `mvn -pl yudao-module-mes "-Dtest=MesProRouteVersionAndCopyTest,MesProBatchRecordExecutionArchiveServiceImplTest,MesProEdhrBatchExecutionLegacyProcessTest,MesProEdhrBatchExecutionServiceTest,MesProEdhrBatchExecutionTaskGateTest,MesProEdhrRehearsalReadinessServiceTest,MesProEdhrWorkTaskLegacyProcessTest,MesProBatchRecordExecutionFieldAuditQueryExportServiceTest,MesProRouteProcessServiceImplBatchRecordBindingTest,MesProRouteServiceImplDisplayFieldsTest,MesProRouteServiceImplTest" test`
+- Main result: `PASS`，2026-07-27 23:18:22 +08:00 完成；`242 tests`, `0 failures`, `0 errors`, `0 skipped`, `BUILD SUCCESS`。
+- Notification regression command: `mvn -pl yudao-module-mes "-Dtest=MesProEdhrWorkTaskServiceImplTest" test`
+- Notification regression result: `PASS`，2026-07-27 23:18:50 +08:00 完成；`66 tests`, `0 failures`, `0 errors`, `0 skipped`, `BUILD SUCCESS`。既有 66 个用例继续覆盖每任务按 `candidateUserSnapshot` 全部有效候选人逐人发送、任务内去重且不跨任务合并候选人。
+- Responsibility export high-risk command: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordExecutionFieldAuditQueryExportServiceTest" test`
+- Responsibility export high-risk result: `PASS`，2026-07-27 23:20:10 +08:00 完成；`8 tests`, `0 failures`, `0 errors`, `0 skipped`, `BUILD SUCCESS`。其中 `responsibilityExportRejectsIncompleteOverallEvidence` 与 `responsibilityExportRejectsBlockedEvidenceAndPreservesUnknownSummaryOrigin` 确认 `EVIDENCE_MISSING`、`BLOCKED` 均 fail-fast；`responsibilityExportCreatesCompleteSnapshotWorkbookWithoutSensitiveColumns` 与相邻完整证据用例确认 `COMPLETE` 仍可生成导出。
+- Action-lock high-risk command: `mvn -pl yudao-module-mes "-Dtest=MesProEdhrBatchExecutionTaskGateTest,MesProEdhrBatchExecutionServiceTest#openTask_pendingReleaseAllowsApprovedOrdinaryFillCompletedBeforeClose+get_releasePendingApproval_locksNormalTaskActions" test`
+- Action-lock high-risk result: `PASS`，2026-07-27 23:21:27 +08:00 完成；`8 tests`, `0 failures`, `0 errors`, `0 skipped`, `BUILD SUCCESS`。`openTask_pendingReleaseAllowsApprovedOrdinaryFillCompletedBeforeClose` 确认待放行状态下已完成/已批准的普通路线表单仍保留 `OPEN_FORM`；`get_releasePendingApproval_locksNormalTaskActions` 确认未完成普通任务 `allowedActions=[]` 且 disabled reason 为放行审批锁原因；`MesProEdhrBatchExecutionTaskGateTest` 确认顺序表单需前序达到 `APPROVED` 后才放行，未扩大后续任务权限。
+- Diff command: `git diff --check -- <T4 twelve whitelist paths>`
+- Diff result: `PASS`，exit code `0`，无 whitespace error；仅有 Git 既有 LF/CRLF 转换提示。T4 白名单文件 SHA-256 已记录用于验证期间并发改写核对。
+- Overall result: `PASS`。T4 / TC-05 / AC-08、AC-09、AC-12、AC-13、AC-17 在指定独立验证范围内满足放行条件。
+- Unresolved issues: T4 范围内无未解决问题。本次独立测试仅修改 `test-report.md`，未修改产品代码、测试代码、`task-state.json`、`execution-log.md` 或规划文档，未提交、未推送。任务整体仍需 T5、T7-T9 与最终 `mvn -pl yudao-module-mes test` 放行；本次 T4 PASS 不代表完整 MES 回归或任务整体完成。

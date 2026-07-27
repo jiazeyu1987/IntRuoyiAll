@@ -206,6 +206,13 @@ class MesProAutoScheduleAlgorithmContractTest {
         urgentOrder = scheduleOrder(501L, 1L, LocalDate.of(2026, 5, 14), null);
         laterOrder = scheduleOrder(502L, 2L, LocalDate.of(2026, 5, 20), 1);
 
+        when(routeVersionMapper.selectActiveByRouteId(200L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(700L)
+                .routeId(200L)
+                .versionNo("V1")
+                .active(Boolean.TRUE)
+                .lifecycleStatus(MesProRouteVersionMapper.STATUS_ACTIVE)
+                .build());
         lenient().when(scheduleOrderMapper.selectAutoSchedulableByIds(List.of(502L, 501L)))
                 .thenReturn(List.of(laterOrder, urgentOrder));
         lenient().when(scheduleOrderProcessMapper.selectListByScheduleOrderId(501L)).thenReturn(List.of(
@@ -491,10 +498,14 @@ class MesProAutoScheduleAlgorithmContractTest {
 
         assertEquals(0, preview.getSummary().getGeneratedTaskCount());
         assertEquals(1, preview.getSummary().getBlockingIssueCount());
-        assertTrue(preview.getIssues().stream()
-                .anyMatch(issue -> "CAPACITY".equals(issue.getIssueType())
-                        && "BLOCKING".equals(issue.getSeverity())
-                        && issue.getMessage().contains("夜班工序缺少可用夜班班次或夜班产能")));
+        var capacityIssues = preview.getIssues().stream()
+                .filter(issue -> "CAPACITY".equals(issue.getIssueType()))
+                .toList();
+        assertEquals(1, capacityIssues.size(), () -> String.valueOf(preview.getIssues()));
+        assertEquals("BLOCKING", capacityIssues.get(0).getSeverity());
+        assertEquals(1L, capacityIssues.get(0).getWorkOrderId());
+        assertEquals(300L, capacityIssues.get(0).getProcessId());
+        assertEquals("夜班工序缺少可用夜班班次或夜班产能", capacityIssues.get(0).getMessage());
     }
 
     @Test
@@ -540,23 +551,51 @@ class MesProAutoScheduleAlgorithmContractTest {
                 req(List.of(501L), LocalDateTime.of(2026, 5, 13, 8, 0)));
 
         assertEquals(0, preview.getSummary().getGeneratedTaskCount());
-        assertTrue(preview.getIssues().stream()
-                .anyMatch(issue -> "CAPACITY".equals(issue.getIssueType())
-                        && "BLOCKING".equals(issue.getSeverity())
-                        && issue.getMessage().contains("夜班工序缺少可用夜班班次或夜班产能")));
+        assertEquals(1, preview.getSummary().getBlockingIssueCount());
+        var capacityIssues = preview.getIssues().stream()
+                .filter(issue -> "CAPACITY".equals(issue.getIssueType()))
+                .toList();
+        assertEquals(1, capacityIssues.size(), () -> String.valueOf(preview.getIssues()));
+        assertEquals("BLOCKING", capacityIssues.get(0).getSeverity());
+        assertEquals(1L, capacityIssues.get(0).getWorkOrderId());
+        assertEquals(300L, capacityIssues.get(0).getProcessId());
+        assertEquals("夜班工序缺少可用夜班班次或夜班产能", capacityIssues.get(0).getMessage());
     }
 
     @Test
     void apply_shouldRefreshAndPersistNightShiftFromProductRouteConfigBeforeScheduling() {
         urgentOrder = scheduleOrder(501L, 1L, LocalDate.of(2026, 5, 14), null);
         urgentOrder.setRouteVersionId(700L);
-        lenient().when(scheduleOrderMapper.selectAutoSchedulableByIds(List.of(501L))).thenReturn(List.of(urgentOrder));
-        lenient().when(scheduleOrderProcessMapper.selectListByScheduleOrderId(501L)).thenAnswer(invocation -> List.of(
-                scheduleOrderProcess(601L, 501L, 300L, 1, 30L, MesProScheduleCapacityModeEnum.FINITE_HOURLY.getMode(),
-                        new BigDecimal("5"), null, null, false),
-                scheduleOrderProcess(602L, 501L, 301L, 2, 31L, MesProScheduleCapacityModeEnum.INFINITE_FORMULA.getMode(),
-                        null, new BigDecimal("3"), new BigDecimal("30"), false)));
-        lenient().when(routeScheduleConfigMapper.selectListByRouteVersionId(700L)).thenReturn(List.of(
+        MesProRouteProcessDO finiteRouteProcess = MesProRouteProcessDO.builder()
+                .id(30L).routeId(200L).processId(300L).sort(1).workstationId(800L)
+                .prepareTime(0).waitTime(0).colorCode("#1677ff").build();
+        MesProRouteProcessDO formulaRouteProcess = MesProRouteProcessDO.builder()
+                .id(31L).routeId(200L).processId(301L).sort(2).workstationId(801L)
+                .prepareTime(0).waitTime(0).colorCode("#52c41a").build();
+        MesMdWorkstationDO finiteWorkstation = MesMdWorkstationDO.builder()
+                .id(800L).code("WS-800").name("P1").processId(300L).productionLineId(900L)
+                .shiftHours(new BigDecimal("8")).status(0)
+                .singleStandardHourlyCapacity(new BigDecimal("5")).build();
+        MesMdWorkstationDO formulaWorkstation = MesMdWorkstationDO.builder()
+                .id(801L).code("WS-801").name("P2").processId(301L).productionLineId(900L)
+                .shiftHours(new BigDecimal("8")).status(0)
+                .singleStandardHourlyCapacity(BigDecimal.ONE).build();
+        when(scheduleOrderMapper.selectAutoSchedulableByIds(List.of(501L))).thenReturn(List.of(urgentOrder));
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderId(501L))
+                .thenAnswer(invocation -> {
+                    MesProScheduleOrderProcessDO finiteProcess = scheduleOrderProcess(
+                            601L, 501L, 300L, 1, 30L, MesProScheduleCapacityModeEnum.FINITE_HOURLY.getMode(),
+                            new BigDecimal("5"), null, null, false);
+                    finiteProcess.setShiftHours(new BigDecimal("8"));
+                    MesProScheduleOrderProcessDO formulaProcess = scheduleOrderProcess(
+                            602L, 501L, 301L, 2, 31L, MesProScheduleCapacityModeEnum.INFINITE_FORMULA.getMode(),
+                            null, new BigDecimal("3"), new BigDecimal("30"), false);
+                    formulaProcess.setShiftHours(new BigDecimal("8"));
+                    return List.of(finiteProcess, formulaProcess);
+                });
+        when(routeProcessService.getRouteProcessListByRouteId(200L))
+                .thenReturn(List.of(finiteRouteProcess, formulaRouteProcess));
+        when(routeScheduleConfigMapper.selectListByRouteVersionId(700L)).thenReturn(List.of(
                 MesProRouteScheduleConfigDO.builder()
                         .id(9001L).routeVersionId(700L).itemId(100L).routeProcessId(30L)
                         .capacityMode(MesProScheduleCapacityModeEnum.FINITE_HOURLY.getMode())
@@ -567,14 +606,21 @@ class MesProAutoScheduleAlgorithmContractTest {
                         .infiniteDurationQuantityFactor(new BigDecimal("3"))
                         .infiniteDurationBaseMinutes(new BigDecimal("30"))
                         .nightShiftEnabled(Boolean.FALSE).build()));
-        lenient().when(scheduleCalendarRuleMapper.selectById(1L)).thenReturn(MesProScheduleCalendarRuleDO.builder()
+        when(workstationMapper.selectByIds(List.of(800L, 801L)))
+                .thenReturn(List.of(finiteWorkstation, formulaWorkstation));
+        when(workstationCapacityService.getCapacityMetricsUsingShiftHours(
+                List.of(formulaWorkstation))).thenReturn(Map.of(
+                        801L, MesMdWorkstationCapacityMetrics.builder()
+                                .configuredWorkerCount(1).currentWorkerCount(1)
+                                .todayCapacity(new BigDecimal("8")).build()));
+        when(scheduleCalendarRuleMapper.selectById(1L)).thenReturn(MesProScheduleCalendarRuleDO.builder()
                 .id(1L)
                 .skipStatutoryHolidays(false)
                 .weekendRestMode("SINGLE")
                 .dateShiftModeByDateJson("{}")
                 .temporaryFreezeEnabled(false)
                 .build());
-        lenient().when(workOrderService.getWorkOrderList(any())).thenReturn(List.of(urgentWorkOrder));
+        when(workOrderService.getWorkOrderList(List.of(1L))).thenReturn(List.of(urgentWorkOrder));
         MesProAutoSchedulePreviewReqVO reqVO = req(List.of(501L), LocalDateTime.of(2026, 5, 13, 8, 0));
 
         MesProAutoSchedulePreviewRespVO preview = autoScheduleService.preview(reqVO);
@@ -893,7 +939,8 @@ class MesProAutoScheduleAlgorithmContractTest {
             BigDecimal baseMinutes, Boolean nightShiftEnabled, Long calendarRuleId) {
         Long resolvedRouteProcessId = routeProcessId != null ? routeProcessId : defaultRouteProcessId(sort);
         return MesProScheduleOrderProcessDO.builder()
-                .id(id).scheduleOrderId(scheduleOrderId).routeProcessId(resolvedRouteProcessId).processId(processId).sort(sort).enabled(Boolean.TRUE)
+                .id(id).scheduleOrderId(scheduleOrderId).routeVersionId(700L)
+                .routeProcessId(resolvedRouteProcessId).processId(processId).sort(sort).enabled(Boolean.TRUE)
                 .capacityMode(capacityMode).hourlyCapacityTotal(hourlyCapacity)
                 .infiniteDurationQuantityFactor(quantityFactor).infiniteDurationBaseMinutes(baseMinutes)
                 .plannedQuantity(new BigDecimal("10")).remainingQuantity(new BigDecimal("10"))
