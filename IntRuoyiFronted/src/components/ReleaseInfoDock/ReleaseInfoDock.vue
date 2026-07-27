@@ -1,28 +1,13 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from 'vue'
 
-interface ReleaseSourceRepo {
-  name?: string
-  pathRole?: string
-  commit?: string
-  branch?: string
-  dirty?: boolean
-}
-
 interface ReleaseChangeSet {
-  summary?: string
-  component?: string
-  items?: string[]
-  changes?: string[]
+  gitChanges?: string[]
 }
 
 interface ReleaseInfo {
   releaseTag?: string
-  packageId?: string
-  createdAt?: string
-  publishScope?: string
   changeSet?: ReleaseChangeSet
-  sourceRepos?: ReleaseSourceRepo[]
 }
 
 const releaseInfo = ref<ReleaseInfo | null>(null)
@@ -31,11 +16,9 @@ const dialogVisible = ref(false)
 
 const currentReleaseTag = computed(() => releaseInfo.value?.releaseTag?.trim() || '')
 const statusText = computed(() => currentReleaseTag.value || '版本信息未生成')
-const changeItems = computed(() => {
-  const changeSet = releaseInfo.value?.changeSet
-  return changeSet?.items?.length ? changeSet.items : changeSet?.changes || []
+const gitChangeItems = computed(() => {
+  return (releaseInfo.value?.changeSet?.gitChanges || []).slice(0, 10)
 })
-const sourceRepos = computed(() => releaseInfo.value?.sourceRepos || [])
 
 const loadReleaseInfo = async () => {
   const response = await fetch('/release-info.json', { cache: 'no-store' })
@@ -68,46 +51,12 @@ onMounted(async () => {
 
   <ElDialog v-model="dialogVisible" title="版本变更说明" width="560px" append-to-body>
     <div v-if="releaseInfo" class="release-info-dialog">
-      <dl class="release-info-dialog__meta">
-        <div>
-          <dt>版本号</dt>
-          <dd>{{ releaseInfo.releaseTag }}</dd>
-        </div>
-        <div>
-          <dt>构建时间</dt>
-          <dd>{{ releaseInfo.createdAt || '-' }}</dd>
-        </div>
-        <div>
-          <dt>发布范围</dt>
-          <dd>{{ releaseInfo.publishScope || '-' }}</dd>
-        </div>
-        <div>
-          <dt>组件</dt>
-          <dd>{{ releaseInfo.changeSet?.component || '-' }}</dd>
-        </div>
-      </dl>
-
       <section class="release-info-dialog__section">
-        <h3>摘要</h3>
-        <p>{{ releaseInfo.changeSet?.summary || '变更摘要未生成' }}</p>
-      </section>
-
-      <section class="release-info-dialog__section">
-        <h3>变更项</h3>
-        <ul v-if="changeItems.length">
-          <li v-for="item in changeItems" :key="item">{{ item }}</li>
+        <h3>Git 变更（最多 10 条）</h3>
+        <ul v-if="gitChangeItems.length">
+          <li v-for="item in gitChangeItems" :key="item">{{ item }}</li>
         </ul>
-        <p v-else>变更项未生成</p>
-      </section>
-
-      <section class="release-info-dialog__section">
-        <h3>源码提交</h3>
-        <ul v-if="sourceRepos.length">
-          <li v-for="repo in sourceRepos" :key="`${repo.name}-${repo.commit}`">
-            {{ repo.name || repo.pathRole }}：{{ repo.commit || '-' }}
-          </li>
-        </ul>
-        <p v-else>源码提交信息未生成</p>
+        <p v-else>Git 变更未生成</p>
       </section>
     </div>
     <div v-else class="release-info-dialog__error">
@@ -163,30 +112,8 @@ onMounted(async () => {
   color: #263247;
 }
 
-.release-info-dialog__meta {
-  display: grid;
-  grid-template-columns: 88px 1fr;
-  gap: 8px 12px;
-  margin: 0;
-}
-
-.release-info-dialog__meta > div {
-  display: contents;
-}
-
-.release-info-dialog__meta dt {
-  color: #4b5563;
-}
-
-.release-info-dialog__meta dd {
-  min-width: 0;
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
 .release-info-dialog__section {
-  padding-top: 12px;
-  border-top: 1px solid #edf1f6;
+  padding-top: 0;
 }
 
 .release-info-dialog__section h3 {

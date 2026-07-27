@@ -655,6 +655,15 @@
 - Forbidden action: 不得跳过真实页面验收；不得把误判失败改成忽略 console。
 - Evidence: `doc/tasks/20260713-current-head-codeonly-three-env-rerun/runtime-console-page-probe-r260713j.json`。
 
+## 2026-07-27 release-info 用户可见 Git 变更门禁
+
+- Trigger: 修改发布包 manifest、`/release-info.json`、业务前端 `版本变更说明` 弹窗，或验收“这个版本与上个版本相比 Git 里改了什么”。
+- Preflight check: 发布构建必须用上一发布包 `manifest.json.sourceRepos[*].commit` 和当前 `sourceRepos[*].commit` 生成 `previousCommit..currentCommit` 的 Git 提交摘要，写入 `changeSet.gitChanges`，并在前端构建 Docker context 之前写入 `dist-intruoyi-test/release-info.json`。
+- Blocker: 上一发布包 manifest 缺失、上一版本缺少匹配 `sourceRepos`、commit 为空或 `git log previousCommit..currentCommit` 失败；不得继续生成默认“发布包/组件范围”变更说明。
+- Verification: 静态契约必须断言弹窗只渲染 `changeSet.gitChanges.slice(0, 10)`，不显示版本号、构建时间、发布范围、组件、摘要、旧变更项或源码提交；发布脚本契约必须断言 `release-info.json` 写入早于 Docker build context。
+- Forbidden action: 禁止用 `changeSet.items` 的默认发布包描述、sourceRepos commit 列表、接口 HTTP 200、截图首页角标或人工说明替代 Git 差异；禁止 Git 差异为空时回退展示发布包元信息。
+- Evidence: `doc/tasks/20260727-release-change-git-diff-summary/execution-log.md`。
+
 ## 2026-07-13 release worktree 物理根目录复核门禁
 
 - Trigger: 发布完成后删除临时 release worktree、state dir 或执行 task closeout。

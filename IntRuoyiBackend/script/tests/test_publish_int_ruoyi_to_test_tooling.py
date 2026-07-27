@@ -137,6 +137,33 @@ def test_publish_script_uses_configured_target_hosts_instead_of_hardcoded_enviro
     assert not re.search(r"172\.30\.30\.(57|58|59)", text)
 
 
+def test_release_change_set_is_git_diff_against_previous_release_and_capped() -> None:
+    text = read_publish_script()
+
+    assert "function Get-PreviousReleaseManifestForGitChanges" in text
+    assert "function New-ReleaseGitChangeItems" in text
+    assert re.search(r"& git -C \$repoPath log", text)
+    assert "--max-count=$MaxItems" in text
+    assert "$previousCommit..$currentCommit" in text
+    assert "Select-Object -First $MaxItems" in text
+    assert "previousReleaseTag" in text
+    assert "gitChanges = @($gitChangeSummary.items)" in text
+    assert "items = @($gitChangeSummary.items)" in text
+    assert "changes = @($gitChangeSummary.items)" in text
+    assert "Release package $packageDirectoryName" not in text
+    assert "发布包：" not in text
+    assert "组件范围：" not in text
+
+
+def test_release_info_json_is_written_before_frontend_docker_context() -> None:
+    text = read_publish_script()
+
+    assert "function Write-FrontendReleaseInfo" in text
+    assert "'release-info.json'" in text
+    assert "[System.IO.File]::WriteAllText($releaseInfoPath" in text
+    assert text.index("Write-FrontendReleaseInfo -PackageTag $ReleaseTag") < text.index("Info 'Preparing Docker build context from current worktree artifacts'")
+
+
 def test_smart_release_report_only_switch_and_env_are_explicit_without_changing_mode_enum() -> None:
     text = read_publish_script()
     param_block = text[text.index("param(") : text.index("$ErrorActionPreference")]

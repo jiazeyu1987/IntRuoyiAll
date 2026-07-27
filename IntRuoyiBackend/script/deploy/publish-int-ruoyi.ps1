@@ -2895,6 +2895,238 @@ function New-ReleaseSourceRepoManifestEntries {
     return @($entries)
 }
 
+function Get-ReleaseObjectPropertyText {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Object,
+        [Parameter(Mandatory = $true)]
+        [string]$PropertyName
+    )
+
+    $property = $Object.PSObject.Properties[$PropertyName]
+    if ($null -eq $property -or $null -eq $property.Value) {
+        return ''
+    }
+    return ([string]$property.Value).Trim()
+}
+
+function Get-ReleaseManifestCreatedAt {
+    if ([string]::IsNullOrWhiteSpace($script:releaseManifestCreatedAt)) {
+        $script:releaseManifestCreatedAt = (Get-Date).ToUniversalTime().ToString('o')
+    }
+    return $script:releaseManifestCreatedAt
+}
+
+function Get-ReleaseSourceReposForManifest {
+    if ($null -eq $script:releaseSourceReposForManifest) {
+        $script:releaseSourceReposForManifest = @(New-ReleaseSourceRepoManifestEntries)
+    }
+    return @($script:releaseSourceReposForManifest)
+}
+
+function Get-ReleaseSourceRepoIdentity {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Repo
+    )
+
+    $pathRole = Get-ReleaseObjectPropertyText -Object $Repo -PropertyName 'pathRole'
+    if (-not [string]::IsNullOrWhiteSpace($pathRole)) {
+        return $pathRole.ToLowerInvariant()
+    }
+
+    $name = Get-ReleaseObjectPropertyText -Object $Repo -PropertyName 'name'
+    if (-not [string]::IsNullOrWhiteSpace($name)) {
+        return $name.ToLowerInvariant()
+    }
+
+    Fail 'Release source repo entry must include pathRole or name before git change comparison'
+}
+
+function Resolve-ReleaseSourceRepoPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Repo
+    )
+
+    $repoIdentity = Get-ReleaseSourceRepoIdentity -Repo $Repo
+    switch ($repoIdentity) {
+        'backend' { return $backendRepo }
+        'admin-frontend' { return $frontendDir }
+        'website' { return $websiteRepo }
+        default { Fail "Unknown release source repo pathRole for git change comparison: $repoIdentity" }
+    }
+}
+
+function Get-PreviousReleaseManifestForGitChanges {
+    if ([string]::IsNullOrWhiteSpace($localTempRoot) -or -not (Test-Path -LiteralPath $localTempRoot -PathType Container)) {
+        Fail "Previous release comparison requires local release package root: $localTempRoot"
+    }
+
+    $candidates = @(
+        Get-ChildItem -LiteralPath $localTempRoot -Directory |
+            Where-Object {
+                $_.Name -ne $packageDirectoryName -and
+                (Test-Path -LiteralPath (Join-Path $_.FullName 'manifest.json') -PathType Leaf)
+            } |
+            Sort-Object -Property LastWriteTimeUtc -Descending
+    )
+    if ($candidates.Count -eq 0) {
+        Fail "Previous release manifest is required to build git change summary: $localTempRoot"
+    }
+
+    $previousPackage = $candidates[0]
+    $manifestPath = Join-Path $previousPackage.FullName 'manifest.json'
+    try {
+        $manifest = [System.IO.File]::ReadAllText($manifestPath, [System.Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
+    } catch {
+        Fail "Previous release manifest parse failed for git change summary: $manifestPath. $($_.Exception.Message)"
+    }
+
+    $previousReleaseTag = Get-ReleaseObjectPropertyText -Object $manifest -PropertyName 'releaseTag'
+    if ([string]::IsNullOrWhiteSpace($previousReleaseTag)) {
+        Fail "Previous release manifest missing releaseTag for git change summary: $manifestPath"
+    }
+
+    return [pscustomobject]@{
+        Manifest = $manifest
+        ManifestPath = $manifestPath
+        PackageDirectoryName = $previousPackage.Name
+        ReleaseTag = $previousReleaseTag
+    }
+}
+
+function New-ReleaseGitChangeItems {
+    param(
+        [Parameter(Mandatory = $true)]
+        [array]$SourceRepos,
+        [int]$MaxItems = 10
+    )
+
+    $previousRelease = Get-PreviousReleaseManifestForGitChanges
+    $previousRepos = @($previousRelease.Manifest.sourceRepos)
+    if ($previousRepos.Count -eq 0) {
+        Fail "Previous release manifest missing sourceRepos for git change summary: $($previousRelease.ManifestPath)"
+    }
+
+    $changes = @()
+    foreach ($repo in @($SourceRepos)) {
+        $repoIdentity = Get-ReleaseSourceRepoIdentity -Repo $repo
+        $previousRepo = @($previousRepos | Where-Object { (Get-ReleaseSourceRepoIdentity -Repo $_) -eq $repoIdentity } | Select-Object -First 1)
+        if ($previousRepo.Count -eq 0) {
+            Fail "Previous release manifest missing source repo '$repoIdentity' for git change summary: $($previousRelease.ManifestPath)"
+        }
+
+        $previousCommit = Get-ReleaseObjectPropertyText -Object $previousRepo[0] -PropertyName 'commit'
+        $currentCommit = Get-ReleaseObjectPropertyText -Object $repo -PropertyName 'commit'
+        if ([string]::IsNullOrWhiteSpace($previousCommit) -or [string]::IsNullOrWhiteSpace($currentCommit)) {
+            Fail "Git change summary requires previous and current commit for source repo '$repoIdentity'"
+        }
+        if ($previousCommit -eq $currentCommit) {
+            continue
+        }
+
+        $repoPath = Resolve-ReleaseSourceRepoPath -Repo $repo
+        $repoName = Get-ReleaseObjectPropertyText -Object $repo -PropertyName 'name'
+        if ([string]::IsNullOrWhiteSpace($repoName)) {
+            $repoName = $repoIdentity
+        }
+
+        $range = "$previousCommit..$currentCommit"
+        $logLines = & git -C $repoPath log --no-merges "--max-count=$MaxItems" '--date=iso-strict' '--pretty=format:%cI%x09%h%x09%s' $range 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Fail "Git change summary failed for source repo '$repoIdentity' with range $range"
+        }
+
+        foreach ($line in @($logLines)) {
+            if ([string]::IsNullOrWhiteSpace($line)) {
+                continue
+            }
+            $parts = ([string]$line).Split("`t", 3)
+            if ($parts.Count -lt 3) {
+                Fail "Git change summary parse failed for source repo '$repoIdentity'"
+            }
+            $changes += [pscustomobject]@{
+                committedAt = $parts[0]
+                text = ('[{0}] {1} {2}' -f $repoName, $parts[1], $parts[2])
+            }
+        }
+    }
+
+    $items = @(
+        $changes |
+            Sort-Object -Property committedAt -Descending |
+            Select-Object -First $MaxItems |
+            ForEach-Object { $_.text }
+    )
+
+    return [ordered]@{
+        previousReleaseTag = $previousRelease.ReleaseTag
+        previousPackageId = $previousRelease.PackageDirectoryName
+        maxItems = $MaxItems
+        items = @($items)
+    }
+}
+
+function New-ReleaseChangeSetManifest {
+    param(
+        [Parameter(Mandatory = $true)]
+        [array]$SourceRepos
+    )
+
+    $gitChangeSummary = New-ReleaseGitChangeItems -SourceRepos $SourceRepos -MaxItems 10
+    return [ordered]@{
+        summary = "Git changes since previous release $($gitChangeSummary.previousReleaseTag)"
+        component = $Component
+        previousReleaseTag = $gitChangeSummary.previousReleaseTag
+        gitComparisonBase = [ordered]@{
+            previousReleaseTag = $gitChangeSummary.previousReleaseTag
+            previousPackageId = $gitChangeSummary.previousPackageId
+            maxItems = $gitChangeSummary.maxItems
+        }
+        gitChanges = @($gitChangeSummary.items)
+        items = @($gitChangeSummary.items)
+        changes = @($gitChangeSummary.items)
+        includeShowroomBuildPackage = [bool]$publishWebsite
+        includeOnlyOffice = [bool]$IncludeOnlyOffice
+    }
+}
+
+function Get-ReleaseChangeSetForManifest {
+    if ($null -eq $script:releaseChangeSetForManifest) {
+        $script:releaseChangeSetForManifest = New-ReleaseChangeSetManifest -SourceRepos (Get-ReleaseSourceReposForManifest)
+    }
+    return $script:releaseChangeSetForManifest
+}
+
+function Write-FrontendReleaseInfo {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackageTag
+    )
+
+    if (-not $publishFrontend) {
+        return
+    }
+
+    $distDir = Join-Path $frontendDir 'dist-intruoyi-test'
+    if (-not (Test-Path -LiteralPath $distDir -PathType Container)) {
+        Fail "Frontend build output missing before writing release-info.json: $distDir"
+    }
+
+    $releaseInfo = [ordered]@{
+        releaseTag = $PackageTag
+        packageId = $packageDirectoryName
+        createdAt = Get-ReleaseManifestCreatedAt
+        publishScope = if ($SkipDatabaseSync -and $SkipMinioSync) { 'code-only' } else { 'with-data' }
+        changeSet = Get-ReleaseChangeSetForManifest
+        sourceRepos = Get-ReleaseSourceReposForManifest
+    }
+    $releaseInfoJson = $releaseInfo | ConvertTo-Json -Depth 20
+    $releaseInfoPath = Join-Path $distDir 'release-info.json'
+    [System.IO.File]::WriteAllText($releaseInfoPath, $releaseInfoJson, [System.Text.UTF8Encoding]::new($false))
+}
+
 function Get-ReleaseDependencyHash {
     param(
         [Parameter(Mandatory = $true)]
@@ -3309,7 +3541,8 @@ function Write-ReleaseManifestV1 {
         $migrationPlan = @()
     }
     $components = Get-ReleaseComponentManifestNames
-    $sourceRepos = New-ReleaseSourceRepoManifestEntries
+    $sourceRepos = Get-ReleaseSourceReposForManifest
+    $changeSet = Get-ReleaseChangeSetForManifest
     $buildModules = New-ReleaseBuildModuleManifestEntries -Components $components -LegacyArtifacts $LegacyArtifacts -SourceRepos $sourceRepos -SchemaDigest $schemaDigest
     $artifacts = New-ReleaseArtifactManifestEntries -LegacyArtifacts $LegacyArtifacts -BuildModules $buildModules
     $packageType = if ($SkipDatabaseSync -and $SkipMinioSync) { 'full-release' } else { 'data-release' }
@@ -3320,15 +3553,10 @@ function Write-ReleaseManifestV1 {
         packageId = $packageDirectoryName
         releaseTag = $PackageTag
         packageType = $packageType
-        createdAt = (Get-Date).ToUniversalTime().ToString('o')
+        createdAt = Get-ReleaseManifestCreatedAt
         createdBy = $OperatorName
         sourceRepos = $sourceRepos
-        changeSet = [ordered]@{
-            summary = "Release package $packageDirectoryName"
-            component = $Component
-            includeShowroomBuildPackage = [bool]$publishWebsite
-            includeOnlyOffice = [bool]$IncludeOnlyOffice
-        }
+        changeSet = $changeSet
         publishScope = $publishScopeValue
         components = $components
         artifacts = $artifacts
@@ -4513,6 +4741,10 @@ if ($Mode -eq 'build-release') {
     $websiteNginxText = $websiteNginxTemplateText.Replace('__BACKEND_ORIGIN__', "${ServerHost}:$BackendPort")
     [System.IO.File]::WriteAllText($websiteNginxLocal, $websiteNginxText, [System.Text.UTF8Encoding]::new($false))
 }
+}
+
+if ($publishFrontend) {
+    Write-FrontendReleaseInfo -PackageTag $ReleaseTag
 }
 
 if ($publishBackend -or $publishFrontend) {
