@@ -21,7 +21,7 @@
 
 ## Current Status
 
-blocked_on_real_e2e_runtime_reload_and_shared_build_slot
+ready_for_closeout
 
 ## 设计约束检查
 
@@ -33,7 +33,13 @@ blocked_on_real_e2e_runtime_reload_and_shared_build_slot
 
 - eDHR 详情/工作台配置来源必须追溯到正式路线规则，不能从当前登录人、创建人、更新人或静态角色推断负责人。
 - 真实 E2E 必须走真实前端用户路径；缺少登录、租户、运行服务或测试批次时 fail-fast，不以 API-only 或 mock 替代。
-- 本任务不涉及数据库迁移、菜单权限、服务重启或 worktree 操作；如后续触发这些动作，先读取对应项目规则文件。
+- 本任务未涉及数据库迁移或菜单权限；用户授权本机 `int_main` 后端重建重启后，已按规则从最新 `origin/int_main` 隔离构建并安全加载到 `48081`。
+
+## Remaining Closeout
+
+- 核心实现已随提交 `f18927b9` 推送到 `origin/int_main`，最终隔离构建来源为 `a9dfaf9e`。
+- 自动化回归、Jar 构建、`48081` 健康检查、登录态工作台接口和真实 Playwright 页面验证均已通过。
+- 当前主工作区仍有多个并发任务的未提交改动；最终证据提交和推送必须等待可安全分离的 Git 收尾窗口，不得把其他任务改动纳入本任务提交。
 
 ## Cleanup Keep
 

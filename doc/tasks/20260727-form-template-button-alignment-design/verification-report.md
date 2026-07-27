@@ -55,5 +55,5 @@
 
 - 当前功能和目标验证无 blocker。
 - 物理 schema 清理不在本任务授权范围。
-- 项目经验沉淀：PASS，已合并到 `docs/frontend-development.md` 并更新 `docs/experience-index.md`，无需新建长期经验文档。
+- 项目经验沉淀：PASS，已合并到现有 `docs/frontend-development.md`，无需新建长期经验文档。
 - 提交前仍需完成 cleanup 和 Git 同步。

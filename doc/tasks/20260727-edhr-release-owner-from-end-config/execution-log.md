@@ -68,8 +68,27 @@ BDD: 放行阶段展示路线级负责人 -> Given 工作台响应包含 `releas
 
 ## Blockers
 
-- Real Playwright page verification is blocked: `48081` is an existing shared `yudao-server-exec.jar` process and has not been safely rebuilt/restarted with this task's backend code. Do not claim browser verification until the backend runtime is reloaded under local-runtime rules.
-- Runtime diagnosis: the current `48081` Java process started at `2026-07-27 18:55:43 +08:00`, but loads a Jar last written at `2026-07-27 13:50:39 +08:00`, before core fix commit `f18927b9` at `2026-07-27 18:41:23 +08:00`; frontend therefore receives no release-owner fields and shows the explicit missing-data state.
-- Final rerun of the newly added empty-role regression test is blocked by concurrent Maven builds in the same repository output tree. The earlier 9-test target report remains PASS with 0 failures.
-- Core changes are already present in pushed baseline commit `f18927b9`; the final blank-name fail-fast refinement and its evidence updates remain uncommitted until the blocked regression/E2E gates can run.
-- Git closeout is still blocked by concurrent worktree changes from other tasks; this task must not stage or commit those files as its own.
+- RESOLVED: the stale `48081` Jar was replaced with a validated Jar built from latest `origin/int_main`, and real Playwright verification now passes.
+- RESOLVED: the final Maven target rerun including the empty-role candidate-pool case passes with 10 tests, 0 failures, and 0 errors.
+- REMAINING CLOSEOUT: the core implementation is already pushed in `f18927b9`, but the current main workspace contains unrelated concurrent task changes. Final evidence commit/push must wait for a safe Git closeout window and must not include those files.
+
+## Safe Rebuild And Restart
+
+- SOURCE: current development is integrated in `int_main`, not pending in a feature worktree. Commit `f18927b9` is an ancestor of latest `origin/int_main`.
+- BUILD ISOLATION: created detached build worktree `D:\IntRuoyiWorktree\20260727-edhr-release-owner-build` at `a9dfaf9e7f9338dce43ca6955d79f1a6e6c291e2`; no runtime service was started from that worktree.
+- GREEN: isolated Maven target regression including `submitRejectsWhenRouteReleaseRoleHasNoEnabledMembers` -> PASS, 10 tests, 0 failures, 0 errors.
+- GREEN: `mvn.cmd -pl yudao-server -am "-DskipTests" package` -> PASS.
+- ARTIFACT: built `yudao-server-exec.jar` size `500646666`, SHA256 `7A3F2A015A0816D9F6876DBAAE4D99DB1619F7C5011E79E0EF7D72AE43A7DA0C`.
+- ROLLBACK: old Jar SHA256 `6B86DCDAC11258E897F2F168C3F43E0E425D7F4D8CF8B93BCCC1C2169BD8921C` was copied to `E:\IntRuoyi\output\runtime\int_main\backend-release-owner-before-20260727-195336.jar` and hash-verified before stopping the service.
+- STOP: confirmed PID `54560` owned the `48081` listener and PID `58680` used the same `E:\IntRuoyi` Jar command. Both exited normally; no force stop was used and `48081` was confirmed free before replacement.
+- START: new backend PID `61040` loads `E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`; target hash matches the isolated build artifact.
+- GREEN: `http://127.0.0.1:48081/actuator/health` -> HTTP 200, `{"status":"UP"}`.
+
+## Real Runtime Verification
+
+- LOGIN PREFLIGHT: the first cold-start login completed backend permission loading after the frontend timeout; retrying the same authorized `芋道源码/admin` path after warm-up passed. No account, tenant, port, or backend was switched.
+- GREEN: official login preflight opened `/mes/pro/feedback/edhr-batch-execution/detail?id=900000000881`.
+- GREEN: Playwright selected the visible `99 放行` node and displayed `当前放行负责人：瑛泰管理员`.
+- GREEN: the release view contained neither `放行责任人未配置` nor the generic `执行人` owner fallback.
+- GREEN: authenticated workbench response for batch `900000000881` returned HTTP 200, business code `0`, `releaseOwnerConfigured=true`, `releaseOwnerSourceType=USER`, and `releaseOwnerLabel=瑛泰管理员`.
+- SCOPE: verification was read-only; it did not run precheck, release, reject, upload, skip, complete, or any MES write action.

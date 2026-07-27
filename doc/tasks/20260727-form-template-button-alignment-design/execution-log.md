@@ -114,7 +114,7 @@
 - `GREEN: frontend/backend/database/bug/change evidence validators -> PASS。`
 - `GREEN: UTF-8 strict read -> PASS, 任务目录 11 个 Markdown 文件。`
 - `GREEN: task-owned git diff --check -> PASS。`
-- `GREEN: project-experience-consolidation -> PASS, 经验已合并到 docs/frontend-development.md 并更新 docs/experience-index.md，无需新建文档。`
+- `GREEN: project-experience-consolidation -> PASS, 经验已合并到现有 docs/frontend-development.md，无需新建文档。`
 - `GREEN: branch runtime port guard -> PASS, int_main frontend 8081 / backend 48081。`
 - `REGRESSION: node tests\e2e\form-center-static.spec.js -> FAIL, 仅失败于无关策略路由 activeMenu 断言；本任务未修改该路由或断言。`
 
@@ -125,7 +125,7 @@
 - GREEN 完成：三个按钮恢复当前模板自身工作区，七个错误字段和错误迁移从代码/发布内容移除。
 - 真实 E2E 完成：本机 Chrome 逐个点击三个按钮，弹窗、路由和错误边界均通过。
 - 文档校准完成：四份设计文档、三份交付证据、缺陷证据和验证报告均改为最终独立行为。
-- 项目经验门禁完成：`docs/frontend-development.md` 和 `docs/experience-index.md` 已记录“交互对齐不等于数据绑定”。
+- 项目经验门禁完成：`docs/frontend-development.md` 已记录“交互对齐不等于数据绑定”。
 - Closeout 待完成：cleanup、选择性提交和推送。
 
 ## Blockers

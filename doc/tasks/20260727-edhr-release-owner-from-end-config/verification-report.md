@@ -15,22 +15,29 @@ Implemented release-owner parsing from route-level `RELEASE_APPROVE` configurati
 - Final static rerun confirms missing release-owner data displays `放行责任人未配置`.
 - Isolated `javac` compilation of the final backend workbench service and the new release-service regression test -> PASS.
 - Blank user/role labels now fail fast; the implementation no longer falls back to numeric IDs.
+- Final isolated Maven target rerun -> PASS, 10 tests, 0 failures, 0 errors, including the empty `ROLE_GROUP` candidate-pool case.
+- Isolated `yudao-server` package from latest `origin/int_main` -> PASS.
 
 ## Verification Retry Status
 
 - Added `MesProEdhrReleaseServiceImplTest#submitRejectsWhenRouteReleaseRoleHasNoEnabledMembers`.
-- Final Maven rerun including this method timed out because unrelated Maven builds were concurrently active in the same `E:\IntRuoyi\IntRuoyiBackend` output tree; no failing test result was produced.
+- The earlier main-workspace Maven timeout was resolved by running the exact target suite in a detached build worktree; the final result is 10 tests passed.
 - Final `pnpm ts:check` retry after the label-only refinement timed out while unrelated `vue-tsc` processes were active; the focused static contracts passed.
 
 ## Real E2E Status
 
 - Frontend `http://127.0.0.1:8081` responded `200`.
-- Backend `http://127.0.0.1:48081` responded `200`.
+- Backend `http://127.0.0.1:48081/actuator/health` responded `200` with `{"status":"UP"}`.
 - `8081` is Vite from `E:\IntRuoyi\IntRuoyiFronted`.
-- `48081` is `java -jar E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`.
+- `48081` is PID `61040`, running `java -jar E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`.
 - Database read-only verification confirms `922119 / RT000028 / 球囊扩张压力泵` has enabled `RELEASE_APPROVE` rule `9000253153`, configured to `USER 1 / admin / 瑛泰管理员`; latest batch `900000000881` uses that route.
-- The current `48081` process started at `2026-07-27 18:55:43 +08:00`, but the loaded Jar was last written at `2026-07-27 13:50:39 +08:00`, before fix commit `f18927b9` at `2026-07-27 18:41:23 +08:00`.
-- Real Playwright verification is blocked because the shared local backend Jar has not been safely rebuilt/restarted with this task's backend changes. Restarting it now could affect concurrent tasks, and local runtime rules prohibit claiming E2E against an old Jar.
+- The loaded Jar was built from `a9dfaf9e7f9338dce43ca6955d79f1a6e6c291e2`; SHA256 is `7A3F2A015A0816D9F6876DBAAE4D99DB1619F7C5011E79E0EF7D72AE43A7DA0C`.
+- Old Jar SHA256 `6B86DCDAC11258E897F2F168C3F43E0E425D7F4D8CF8B93BCCC1C2169BD8921C` is preserved at `E:\IntRuoyi\output\runtime\int_main\backend-release-owner-before-20260727-195336.jar`.
+- Official login preflight passed with the authorized `芋道源码/admin` identity after one cold-start permission-cache warm-up retry.
+- Playwright opened batch `900000000881`, selected the visible `99 放行` node, and confirmed `当前放行负责人：瑛泰管理员`.
+- The page did not contain `放行责任人未配置` or generic owner fallback `执行人`.
+- The authenticated workbench response returned HTTP `200`, business code `0`, `releaseOwnerConfigured=true`, `releaseOwnerSourceType=USER`, and `releaseOwnerLabel=瑛泰管理员`.
+- The real-browser verification was read-only and sent no MES write action.
 
 ## Design Constraint Check
 
@@ -42,10 +49,11 @@ Implemented release-owner parsing from route-level `RELEASE_APPROVE` configurati
 
 - Concurrent baseline commit `f18927b9` was created and pushed to `origin/int_main` at `2026-07-27 18:41:23 +08:00`.
 - That baseline contains the core release-owner backend, frontend, tests, and task artifacts.
-- The later blank-name fail-fast refinement and current evidence updates remain uncommitted pending the blocked verification gates.
+- Latest `origin/int_main` commit `a9dfaf9e` contains the final release-owner implementation used for the verified Jar.
+- Current evidence updates remain uncommitted because the main workspace contains unrelated concurrent task changes that must not be included in this task's closeout commit.
 
 ## Current Result
 
 - Implementation is complete.
-- The original 9-test automated regression and all focused frontend/static checks pass.
-- Task remains blocked on the new empty-role method rerun, safe backend runtime reload, and real-browser verification.
+- Automated regression, isolated package, safe local restart, authenticated API verification, and real-browser verification pass.
+- Task is `ready_for_closeout`; only safe Git evidence commit/push remains pending due unrelated concurrent main-workspace changes.
