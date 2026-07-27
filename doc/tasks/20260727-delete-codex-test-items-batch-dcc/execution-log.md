@@ -28,3 +28,4 @@
 - completed: 删除后复核：当前租户目标项目测试项 0，目标直属检查点 0，非目标测试项 8。
 - completed: 跨租户保留项：`tenant_id=122` 下 `文控` 2 条未删除，原因是不属于当前 `芋道源码/admin` 页面上下文。
 - completed: 已清理任务临时脚本 `delete-batch-dcc-codex-test-items.e2e.cjs` 和失败截图，仅保留 summary、task、execution-log、verification-report。
+- completed: project-experience-consolidation 检查完成；本次经验已由现有数据库租户边界和测试管理 schema 门禁覆盖，不新增长期经验文档。
