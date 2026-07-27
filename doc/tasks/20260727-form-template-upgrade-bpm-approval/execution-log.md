@@ -28,4 +28,5 @@
 - STATUS: implementation and required verification complete; task set to `ready_for_closeout` pending evidence validation, cleanup preview/apply, final commit, and push.
 - CLEANUP-PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-form-template-upgrade-bpm-approval --mode preview` -> ready; keep task/evidence/report files; delete none; blocked none; warnings none.
 - CLEANUP-APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-form-template-upgrade-bpm-approval --mode apply` -> applied; deleted none; linked worktree false.
-- STATUS: task document marked `completed`; final commit and push pending.
+- STATUS: task document marked `completed`.
+- PUSH: `git push origin int_main` -> success, output `Everything up-to-date`; `git rev-list --count origin/int_main..HEAD` -> 0 and `git rev-list --count HEAD..origin/int_main` -> 0.
