@@ -804,7 +804,7 @@ def test_deploy_release_executes_only_preflight_apply_migrations() -> None:
     assert "function Invoke-ReleaseMigrationStateUpdate" in text
     assert "INSERT INTO infra_release_migration" in text
     assert "SKIPPED_ALREADY_APPLIED" in invoke_block
-    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan) -TargetEnvironment $Environment" in invoke_block
+    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan -PublishScope $releasePublishScope) -TargetEnvironment $Environment" in invoke_block
     assert "Get-RequiredDatabaseSqlEntriesForEnvironment -TargetEnvironment $Environment" not in invoke_block
     assert "Invoke-ReleaseMigrationStateUpdate -Item $item -Status 'RUNNING'" in invoke_block
     assert "Invoke-ReleaseMigrationStateUpdate -Item $item -Status 'APPLIED'" in invoke_block
@@ -848,7 +848,7 @@ def test_deploy_release_executes_dcc_view_matrix_test_tenant_prereq_before_seed_
     assert "function Sort-RequiredDatabaseSqlApplyItems" in text
     assert "'20260624_dcc_view_matrix_test_tenant_prereq' = 10" in helper_block
     assert "'20260624_dcc_view_matrix_independent_seed' = 20" in helper_block
-    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan) -TargetEnvironment $Environment" in invoke_block
+    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan -PublishScope $releasePublishScope) -TargetEnvironment $Environment" in invoke_block
 
 
 def test_deploy_release_preserves_preflight_dependency_order_for_non_priority_required_sql() -> None:

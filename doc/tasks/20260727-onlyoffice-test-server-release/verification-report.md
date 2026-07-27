@@ -4,7 +4,7 @@
 
 测试服发布仍未通过。`release-20260727-onlyoffice-test-r260727-1445`、`release-20260727-onlyoffice-test-r260727-1823` 和 `release-20260727-onlyoffice-test-r260727-1948` 均已判废，不得复用。
 
-`ROUTE-XLSX-00002` 非法第 26 道工序的清理迁移和发布预检稳定排序均已修复并通过回归，但最新发布被更早的历史 required SQL `20260709_mes_rt000006_batch_record_mapping.sql` 阻塞。
+`ROUTE-XLSX-00002` 非法第 26 道工序的清理迁移、发布预检稳定排序和 code-only 数据迁移隔离均已修复并通过回归；尚未使用新 releaseTag 完成最终测试服发布。
 
 ## 已通过
 
@@ -27,10 +27,14 @@ required SQL `20260717_mes_balloon_excel_device_workstation_binding.sql` 在第 
 ## 当前阻塞
 
 - 最新 releaseTag：`release-20260727-onlyoffice-test-r260727-1948`。
-- 失败 SQL：`20260709_mes_rt000006_batch_record_mapping.sql`。
-- 错误：`Missing RT000006 pressure pump route`。
-- 只读证据：测试库无 `id=922067` 或 `code=RT000006` 路线，无相关路线工序，三类压力泵填写员有效角色数量为 `0`。
-- 需要业务确认：路线缺失时正式 no-op，或完整重建路线、角色与映射数据。
+- 该 releaseTag 已判废，不能复用。
+- 需使用包含本次 code-only 过滤修复的新 releaseTag，重新构建并发布到 `172.30.30.58`。
+
+## Code-only 修复
+
+- 发布包保留 required SQL 的 manifest 类型，部署阶段从 manifest 建立 `migrationId -> type` 映射。
+- `publishScope=code-only` 时，`type=data` 迁移在远端 MySQL 执行前明确记录并跳过。
+- APPLY 项缺少 manifest 类型映射时直接 fail fast，不手工修改测试库、不改写迁移类型。
 
 ## 本地修复验证
 

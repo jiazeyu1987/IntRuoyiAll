@@ -14,6 +14,7 @@
 - [x] 发布到测试服；旧 releaseTag 在 required SQL 目标数据前置条件不满足时失败并判废。
 - [x] 冻结部分发布状态并将测试服恢复到部署前实际运行版本。
 - [x] 经业务确认 `ROUTE-XLSX-00002` 第 26 道工序不是合法业务数据，并补 test-only 正式数据修复迁移。
+- [x] 修复 code-only 发布语义，使 `type=data` required SQL 不进入远端 MySQL 执行队列。
 - [ ] 使用新的 releaseTag 重建发布包并重新发布到测试服。
 - [ ] 记录最终验证证据和收尾状态。
 
@@ -31,13 +32,13 @@
 
 ## Current Status
 
-blocked
+in_progress
 
-## Current Blocker
+## Resolved Blocker
 
 - `release-20260727-onlyoffice-test-r260727-1948` 已通过稳定排序修复并越过原绑定迁移顺序问题，但在更早的 `20260709_mes_rt000006_batch_record_mapping.sql` 失败，错误为 `Missing RT000006 pressure pump route`。
 - 测试库只读核对确认不存在 `id=922067` 或 `code=RT000006` 的路线，相关活动路线工序为 `0`，三类压力泵填写员有效角色也为 `0`；不是单纯 ID 或名称漂移。
-- 该历史迁移当前要求缺少路线时 fail fast。继续前必须明确：路线不存在时将迁移改为正式 no-op，或通过新迁移完整重建路线、角色及映射数据。两种方案业务影响不同，禁止未确认时静默降级或手工改库。
+- 用户已明确要求修复发布流程：发布到测试服务器时不要携带业务数据。正式方案是保持迁移元数据和结构类门禁，但 `publishScope=code-only` 时不执行 `type=data` required SQL；不为无关历史迁移补造测试库业务数据。
 - 本轮失败状态已收口，测试服继续运行 `release-20260723-dcc-viewer-permission-r260723vp-r1`，后端、前端和 OnlyOffice 均健康。
 
 ## Prior Blocker
@@ -57,8 +58,8 @@ blocked
 
 ## 设计约束检查
 
-- `是否引入 fallback/降级/吞异常`：否；本任务修复 release migration metadata 枚举错误并执行正式发布门禁，不绕过预检。
-- `是否从根因和长期维护角度解决`：是；`infra_config` 配置类 SQL 使用脚本允许的正式 `type=config`，发布脚本优先识别当前仓库标准前端目录 `IntRuoyiFronted`，测试服非法路线工序通过带备份与 fail-fast 前置的正式迁移清理。
+- `是否引入 fallback/降级/吞异常`：否；code-only 对 `type=data` 的过滤是用户确认的正式发布范围，不改 migration 类型、不吞执行异常，类型映射缺失时 fail fast。
+- `是否从根因和长期维护角度解决`：是；发布脚本按 manifest 中的 migration type 区分结构契约与业务数据迁移，使 `SkipDatabaseSync` / `SkipMinioSync` 与 code-only 实际执行边界一致。
 - `是否存在临时补丁或绕过`：否。
 
 ## 经验门禁
@@ -67,5 +68,6 @@ blocked
 - 服务器访问门禁：仅允许访问测试服务器 `172.30.30.58`，不得操作正式服 `172.30.30.57` 或备用服 `172.30.30.59`。
 - Worktree 门禁：不得从脏主工作区直接构建；发布 worktree 位于 `D:\IntRuoyiWorktree\onlyoffice-test-release-20260727`。
 - Migration metadata 门禁：build-release 前必须执行全量策略门禁；`type` 只允许 `schema/data/menu/config/permission/seed`，发现 `config-seed` 必须阻塞并修复。
+- Code-only required SQL 门禁：必须从 manifest requiredSql 回查 migration type；`type=data` 不得进入远端 MySQL APPLY 队列，缺少 migrationId/type 映射必须 fail fast。
 - PowerShell 门禁：不使用 `&&`；中文、JSON、SSH/stdin、日志证据使用 UTF-8；不得记录密码、token、私钥或连接串密钥。
 - Git 门禁：当前主工作区 ahead/dirty 不作为本轮发布输入；发布分支只提交本任务文件。

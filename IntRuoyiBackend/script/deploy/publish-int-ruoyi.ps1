@@ -3608,6 +3608,8 @@ function Get-ReleaseDatabaseSqlScripts {
             $entries += @{
                 Path = ($relativeRoot + '/' + $file.Name)
                 Environments = @($metadata.allowedEnvironments)
+                Type = [string]$metadata.type
+                MigrationId = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
             }
         }
     }
@@ -3892,6 +3894,10 @@ function Get-ReleasePackageDatabaseSqlScripts {
         @{
             Path = $sourcePath
             Environments = @($allowedEnvironments)
+            Type = [string]$_.type
+            MigrationId = [string]$_.migrationId
+            File = [string]$_.file
+            Sha256 = [string]$_.sha256
         }
     })
     if ($entries.Count -eq 0) {
@@ -4007,9 +4013,49 @@ function Assert-ProdDryRunEvidence {
 function Get-ReleasePreflightApplyItems {
     param(
         [Parameter(Mandatory = $true)]
-        $PreflightPlan
+        $PreflightPlan,
+
+        [Parameter(Mandatory = $true)]
+        [string]$PublishScope
     )
-    return @($PreflightPlan.items | Where-Object { [string]$_.action -eq 'APPLY' })
+
+    $applyItems = @($PreflightPlan.items | Where-Object { [string]$_.action -eq 'APPLY' })
+    if ($PublishScope -ne 'code-only') {
+        return $applyItems
+    }
+
+    $requiredSqlTypeByMigrationId = @{}
+    foreach ($entry in @($requiredDatabaseSqlScripts)) {
+        $migrationId = [string]$entry.MigrationId
+        if ([string]::IsNullOrWhiteSpace($migrationId)) {
+            $migrationId = [System.IO.Path]::GetFileNameWithoutExtension([string]$entry.Path)
+        }
+        if ([string]::IsNullOrWhiteSpace($migrationId)) {
+            Fail "Required SQL entry missing migrationId for code-only scope filtering: $($entry.Path)"
+        }
+        $sqlType = [string]$entry.Type
+        if ([string]::IsNullOrWhiteSpace($sqlType)) {
+            Fail "Required SQL entry missing type for code-only scope filtering: $migrationId"
+        }
+        $requiredSqlTypeByMigrationId[$migrationId] = $sqlType
+    }
+
+    $codeOnlyApplyItems = @()
+    foreach ($item in $applyItems) {
+        $migrationId = [string]$item.migrationId
+        if ([string]::IsNullOrWhiteSpace($migrationId)) {
+            Fail "preflight-plan.json APPLY item missing migrationId for code-only scope filtering"
+        }
+        if (-not $requiredSqlTypeByMigrationId.ContainsKey($migrationId)) {
+            Fail "preflight-plan.json APPLY item missing from manifest requiredSql for code-only scope filtering: $migrationId"
+        }
+        if ([string]$requiredSqlTypeByMigrationId[$migrationId] -eq 'data') {
+            Info "Skipping data required database SQL for code-only release: $migrationId"
+            continue
+        }
+        $codeOnlyApplyItems += $item
+    }
+    return $codeOnlyApplyItems
 }
 
 function Invoke-ReleaseMigrationStateUpdate {
@@ -4256,7 +4302,7 @@ function Invoke-RequiredDatabaseSqlScripts {
     foreach ($item in @($preflightPlan.items | Where-Object { [string]$_.action -eq 'SKIP_ENV_NOT_ALLOWED' })) {
         Info "Skipping required database SQL outside target environment: $($item.migrationId)"
     }
-    $applyItems = Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan) -TargetEnvironment $Environment
+    $applyItems = Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan -PublishScope $releasePublishScope) -TargetEnvironment $Environment
     foreach ($item in $applyItems) {
         $fileName = Get-RequiredDatabaseSqlFileName -RelativePath ([string]$item.file)
         $remoteSqlPath = "$remoteRequiredSqlDir/$fileName"

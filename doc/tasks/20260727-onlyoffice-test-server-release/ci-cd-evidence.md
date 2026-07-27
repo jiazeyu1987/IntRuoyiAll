@@ -28,6 +28,7 @@
 - Ordering and publish regression suite: `117 passed`.
 - Migration policy gate: `passed`, `migrationCount=383`.
 - Regenerated preflight order: cleanup migration before workstation binding.
+- Code-only required SQL regression: `123 passed`; `type=data` is filtered by manifest migration type before remote MySQL execution, while missing migration type mappings fail fast.
 - Failed test deployment was restored to the previous healthy runtime tag.
 
 ## Rollback
@@ -40,4 +41,4 @@
 
 - `release-20260727-onlyoffice-test-r260727-1823` is invalid because its preflight plan executed workstation binding before cleanup.
 - `release-20260727-onlyoffice-test-r260727-1948` is invalid because historical required SQL `20260709_mes_rt000006_batch_record_mapping.sql` requires an `RT000006` route and pressure-pump roles that are absent from the test database.
-- Continuing requires an explicit business decision: formal no-op when the route is absent, or complete data reconstruction through a migration.
+- Those historical data migrations are no longer part of the code-only remote MySQL APPLY queue. A new releaseTag is still required for the final test-server deployment.
