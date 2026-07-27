@@ -152,3 +152,5 @@
 - GREEN: slot 2 backend controlled restart -> PASS，旧 PID `67436` 经命令行确认归属当前 worktree 后停止；本地策略拦截宽 `Start-Process` 包装后，改用 scoped `Win32_Process.Create` 后台启动同一 Jar，新 PID `50564` 监听 `48083` 且归属当前 worktree；后端 health `UP`，前端 `8083` HTTP `200`。
 - GREEN: `node tests\e2e\edhr-visual-fill-config-real-flow.e2e.js` -> PASS，真实 E2E 使用 `芋道源码` 租户和用户授权账号 `admin` / `jiazeyu` / `wangxin`，本地未跟踪配置 `IntRuoyiFronted/test-results/edhr-visual-fill-config-real-flow/local-input.json`，不依赖环境变量，不打印密码；管理员通过真实页面保存填写配置、复制并发布任务专用路线、创建任务批次，两名员工均打开同一个共享辅助行工作任务并看到各自可填辅助模式，finally 恢复报表配置、作废批次 `900000000889 / EDHRB-1785167428536`、删除任务路线 `922227 / CODX-VFC-20260727`。
 - GREEN: project-experience-consolidation -> PASS，按既有归宿更新 `docs/e2e-rules.md` 和 `docs/experience-index.md`，沉淀任务专用路线副本、同名批记录报表精确选择、任务批次清理幂等三条 E2E 门禁；未新建长期经验文档。
+- COMMIT: implementation commit `8312a6f0 feat: implement eDHR visual fill config` -> PASS，包含当前任务实现、测试、任务证据和经验门禁；`scripts\preflight\branch-runtime-port-guard.ps1` commit hook PASS。
+- PUSH: `git push origin codex/202607727_yingshe` -> PASS，远端分支已创建；随后设置 upstream，`git status --short --branch` 显示 `codex/202607727_yingshe...origin/codex/202607727_yingshe`，无 ahead。
