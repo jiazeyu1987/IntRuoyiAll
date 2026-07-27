@@ -21,7 +21,8 @@
 - 术语边界确认：completed。
 - 项目规则写入：completed。
 - 结构、编码和 Git 门禁验证：completed。
-- 任务提交、集成、推送和收尾清理：pending。
+- 术语规则提交和任务分支推送：completed。
+- `int_main` 集成和收尾清理：blocked by concurrent dirty main worktree。
 
 ## Verification Evidence
 
@@ -35,7 +36,10 @@
 - GREEN: `git diff --check` -> PASS。
 - GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，任务 worktree 使用 `int_main` profile、slot 4、前端 8085、后端 48085。
 - GREEN: `git push origin int_main` -> PASS，前后端检查点 `f18927b9` 已推送，`int_main` 与 `origin/int_main` 一致。
+- GREEN: 术语规则提交在 rebase 到 `f18927b9` 后生成 `33b7e407`，`git push -u origin codex/20260727-batch-record-form-terminology` -> PASS。
+- CLOSEOUT PREVIEW: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-batch-record-form-terminology --mode preview` -> BLOCKED；三个核心任务文档均列入 keep，delete 为空，主工作区脏状态阻止 `ff-only` 合并。
 
 ## Blockers
 
-- 无。
+- 主工作区 `E:\IntRuoyi` 存在其它任务的后端、前端、测试和任务文档未提交改动，且有构建与测试进程运行。按 worktree closeout 门禁，不得自动合并、提交或清理这些并发改动。
+- 影响：术语规则已提交并推送任务分支，但尚未快进集成到 `int_main`，任务保持 `ready_for_closeout`，worktree 与 slot 4 继续保留。
