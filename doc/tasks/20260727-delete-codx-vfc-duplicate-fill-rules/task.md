@@ -13,7 +13,7 @@
 - [x] 固化删除前 87 条数据快照与回滚路径。
 - [x] 在受控事务内保留 1 条、删除 86 条并校验精确影响行数。
 - [x] 复验数据库、登录态接口和真实页面。
-- [ ] 完成任务收尾、提交和推送。
+- [x] 完成任务收尾、提交和推送。
 
 ## Expected Verification
 
@@ -27,7 +27,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Current Blocker
 

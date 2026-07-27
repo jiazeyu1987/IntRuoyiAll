@@ -123,9 +123,23 @@
   `docs/database-rules.md` 的“数据修复与写入型 E2E 恢复并发门禁”覆盖，
   无需新建或修改长期经验文档。
 
+## Closeout
+
+- Bug regression evidence 校验通过：
+  `validate_bug_regression.py -> Bug regression evidence is valid`。
+- `task-closeout-cleanup` preview：保留回滚快照、`task.md`、
+  `execution-log.md`、`verification-report.md`；删除临时
+  `bug-regression-evidence.md` 和 `repair-86-rules.sql`；无 blocked/warnings。
+- `task-closeout-cleanup` apply：成功删除上述 2 个临时文件，未触碰任务外文件。
+- 脏工作区基线提交：`cfbd6a3896fadb436213976aace97df2f2bcd602`。
+- 本任务修复与验证提交：`138f978a`，仅包含本任务目录 4 个文件。
+- GitHub 大文件门禁：`origin/int_main..HEAD` 无 `>=100 MB` blob。
+- 首次推送：`git push origin int_main -> PASS`，
+  远端从 `177ebefb` 更新到 `138f978a`。
+
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Blockers
 
