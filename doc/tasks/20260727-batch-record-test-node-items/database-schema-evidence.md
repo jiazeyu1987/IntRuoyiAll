@@ -44,8 +44,10 @@
 - Schema: `system_codex_test_case` 存在 `id/name/project/method_text/test_data_text/default_execution_mode/parallel_safe/status/sort/deleted/tenant_id`；`system_codex_test_checkpoint` 存在 `id/case_id/sort/name/expected_text/deleted/tenant_id`。
 - RED: 6 个目标节点写入前均缺失。
 - GREEN: 写入使用 `utf8mb4_0900_ai_ci` 临时表，插入测试项 6 行，插入检查点 24 行。
+- GREEN: 业务可读化修订更新测试项 6 行，替换测试目标 24 行。
 - Final verification: `final_node_cases=6`，`final_node_checkpoints=24`。
 - Structure verification: 每个节点 `method_item_count=3`，`target_item_count=4`，状态 `ENABLE`，默认执行方式 `SEQUENTIAL`，`parallelSafe=false`。
+- Business-readable verification: 内部词扫描命中数为 0，扫描词包含 `接口/ID/hash/CELL_RULE/task/open/REVIEW/API/JSON/WORM` 等。
 - Non-target verification: 当前租户非目标项目保持 `工艺路线=4`、`智能排产=4`。
 
 ## Blockers

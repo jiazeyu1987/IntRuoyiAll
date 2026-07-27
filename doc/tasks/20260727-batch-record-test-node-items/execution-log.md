@@ -19,6 +19,9 @@
 - RED: `mysql seed with temp collation=utf8mb4_unicode_ci` -> FAIL, 临时表与业务表 collation 不一致，未写入真实表。
 - GREEN: `mysql seed with temp collation=utf8mb4_0900_ai_ci` -> PASS, 插入 6 个测试项和 24 个检查点。
 - GREEN: `final verification SQL` -> PASS, 6 个节点均为 `ENABLE/SEQUENTIAL/parallelSafe=false`，每个 3 个方法项和 4 个目标项。
+- RED: `internal term scan` -> FAIL, 当前文案命中 `接口/ID/hash/CELL_RULE/task/open/REVIEW/API/JSON/WORM` 等程序员视角词。
+- GREEN: `business-readable rewrite SQL` -> PASS, 更新 6 个测试项方法/测试数据，替换 24 个目标项。
+- GREEN: `internal term scan` -> PASS, 程序员视角词命中数为 0，6 个节点和 24 个目标项仍完整。
 
 ## Activity
 
@@ -29,3 +32,4 @@
 - completed: 写入当前租户 `tenant_id=1`：测试项 6 个，检查点 24 个。
 - completed: 写入后当前租户项目统计：`工艺路线=4`，`批记录=6`，`智能排产=4`。
 - completed: project-experience-consolidation 检查完成；本次是一次性测试项数据落地，已有测试管理 schema 和租户边界门禁覆盖，不新增长期经验文档。
+- completed: 按用户要求将测试方法和测试目标改为业务测试人员可按页面观察判断的表述，删除内部字段、接口、状态码、hash、英文审批状态等程序员视角内容。

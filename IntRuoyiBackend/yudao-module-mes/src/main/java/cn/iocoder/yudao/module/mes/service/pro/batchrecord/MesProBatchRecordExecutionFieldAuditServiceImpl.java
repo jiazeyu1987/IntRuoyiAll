@@ -158,7 +158,20 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
     @Transactional(rollbackFor = Exception.class)
     public MesProBatchRecordExecutionFieldAuditSaveResult saveChanges(
             MesProBatchRecordExecutionFieldAuditSaveChangesCommand command) {
-        validateCommandShape(command);
+        return saveChangesInternal(command, true);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProBatchRecordExecutionFieldAuditSaveResult saveSystemCellLinkChanges(
+            MesProBatchRecordExecutionFieldAuditSaveChangesCommand command) {
+        return saveChangesInternal(command, false);
+    }
+
+    private MesProBatchRecordExecutionFieldAuditSaveResult saveChangesInternal(
+            MesProBatchRecordExecutionFieldAuditSaveChangesCommand command,
+            boolean requireWorkTaskValidation) {
+        validateCommandShape(command, requireWorkTaskValidation);
         List<MesProBatchRecordExecutionFieldAuditChange> sortedChanges = sortedChanges(command.getChanges());
         command.setChanges(sortedChanges)
                 .setReasonText(StrUtil.trim(command.getReasonText()));
@@ -169,24 +182,26 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         }
         boolean draftExecution = Objects.equals(execution.getStatus(), EXECUTION_STATUS_DRAFT);
         boolean preReleaseEditableExecution = Objects.equals(execution.getStatus(), EXECUTION_STATUS_FILL_COMPLETED);
-        if (!draftExecution && !preReleaseEditableExecution) {
+        if (!draftExecution && (!requireWorkTaskValidation || !preReleaseEditableExecution)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
         }
-        Long currentUserId = currentAuditUserId();
-        boolean goldenFingerMode = goldenFingerPermissionService.hasGoldenFingerPermission(currentUserId);
-        if (draftExecution) {
-            MesProEdhrWorkTaskDO workTask = goldenFingerMode
-                    ? workTaskService.validateGoldenFingerFillTaskForExecution(command.getWorkTaskId(), execution.getId())
-                    : workTaskService.validateWritableFillTaskForExecution(command.getWorkTaskId(), execution.getId());
-            if (!goldenFingerMode) {
-                validateBatchSharedFillScope(command, execution, workTask);
-            }
-        } else {
-            if (goldenFingerMode) {
-                preReleaseEditabilityService.requireSubmittedOrdinaryGoldenFingerEditable(
-                        execution, command.getWorkTaskId());
+        if (requireWorkTaskValidation) {
+            Long currentUserId = currentAuditUserId();
+            boolean goldenFingerMode = goldenFingerPermissionService.hasGoldenFingerPermission(currentUserId);
+            if (draftExecution) {
+                MesProEdhrWorkTaskDO workTask = goldenFingerMode
+                        ? workTaskService.validateGoldenFingerFillTaskForExecution(command.getWorkTaskId(), execution.getId())
+                        : workTaskService.validateWritableFillTaskForExecution(command.getWorkTaskId(), execution.getId());
+                if (!goldenFingerMode) {
+                    validateBatchSharedFillScope(command, execution, workTask);
+                }
             } else {
-                preReleaseEditabilityService.requireSubmittedOrdinaryEditable(execution, command.getWorkTaskId());
+                if (goldenFingerMode) {
+                    preReleaseEditabilityService.requireSubmittedOrdinaryGoldenFingerEditable(
+                            execution, command.getWorkTaskId());
+                } else {
+                    preReleaseEditabilityService.requireSubmittedOrdinaryEditable(execution, command.getWorkTaskId());
+                }
             }
         }
         validateBaselineAvailable(execution);
@@ -1100,8 +1115,10 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
                 .setHashVerification(verifyChain(execution.getId()));
     }
 
-    private void validateCommandShape(MesProBatchRecordExecutionFieldAuditSaveChangesCommand command) {
-        if (command == null || command.getExecutionId() == null || command.getWorkTaskId() == null
+    private void validateCommandShape(MesProBatchRecordExecutionFieldAuditSaveChangesCommand command,
+                                      boolean requireWorkTaskId) {
+        if (command == null || command.getExecutionId() == null
+                || (requireWorkTaskId && command.getWorkTaskId() == null)
                 || StrUtil.isBlank(command.getIdempotencyKey())
                 || StrUtil.isBlank(command.getBaseCellValuesHash())
                 || command.getBaseFieldAuditRevision() == null

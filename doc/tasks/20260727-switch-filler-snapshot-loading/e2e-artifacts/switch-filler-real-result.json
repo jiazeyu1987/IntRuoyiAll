@@ -1,0 +1,34 @@
+{
+  "status": "FAIL",
+  "baseUrl": "http://localhost:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "tenant": "测试租户",
+  "username": "aoteman",
+  "userId": 914520,
+  "command": "node doc/tasks/20260727-switch-filler-snapshot-loading/e2e-artifacts/switch-filler-real.e2e.cjs",
+  "workTaskPageAttempts": [
+    {
+      "pageIndex": 1,
+      "rowCount": 20,
+      "openableFillTaskCount": 12,
+      "candidateTaskIds": [
+        1760,
+        1759,
+        1758,
+        1757,
+        1756,
+        1752,
+        1751,
+        1749,
+        1748,
+        1747,
+        1746,
+        1745
+      ]
+    }
+  ],
+  "error": {
+    "message": "page.waitForResponse: Timeout 60000ms exceeded while waiting for event \"response\"",
+    "stack": "page.waitForResponse: Timeout 60000ms exceeded while waiting for event \"response\"\n    at openCandidateTask (E:\\IntRuoyi\\doc\\tasks\\20260727-switch-filler-snapshot-loading\\e2e-artifacts\\switch-filler-real.e2e.cjs:241:36)\n    at run (E:\\IntRuoyi\\doc\\tasks\\20260727-switch-filler-snapshot-loading\\e2e-artifacts\\switch-filler-real.e2e.cjs:425:15)"
+  }
+}

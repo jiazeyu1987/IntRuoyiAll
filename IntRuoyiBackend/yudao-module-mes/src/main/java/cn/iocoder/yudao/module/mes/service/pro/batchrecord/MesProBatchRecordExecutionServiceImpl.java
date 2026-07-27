@@ -87,6 +87,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationMapp
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.batch.MesWmBatchMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordCellRuleSupport;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.BatchRecordCellLinkAutoPersistCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.BatchRecordCellLinkAutoPersistResult;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkAutoPersistService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordJimuReportGateway;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrCandidateResolver.MesProEdhrCandidateUser;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
@@ -229,6 +232,8 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     private BpmTaskService bpmTaskService;
     @Resource
     private MesProBatchRecordExecutionFieldAuditService fieldAuditService;
+    @Resource
+    private MesProBatchRecordCellLinkAutoPersistService cellLinkAutoPersistService;
     @Resource
     private MesProBatchRecordDomainTraceService domainTraceService;
     @Resource
@@ -419,7 +424,11 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                         routeProcess.getId(), batchRecordReportId, batchCode,
                         ACTIVE_EXECUTION_STATUSES);
         if (existing != null) {
-            return buildOpenOrCreateResp(existing, false);
+            BatchRecordCellLinkAutoPersistResult autoPersist = cellLinkAutoPersistService.autoPersist(
+                    new BatchRecordCellLinkAutoPersistCommand()
+                            .setExecutionId(existing.getId())
+                            .setTrigger("EXECUTION_OPEN_OR_CREATE_EXISTING"));
+            return buildOpenOrCreateResp(existing, false).setCellLinkAutoPersist(autoPersist);
         }
         validateLatestPublishedBatchRecordReport(report);
         RuntimeSnapshot runtimeSnapshot = buildRuntimeSnapshotFromReport(report);
@@ -474,7 +483,11 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 .setId(execution.getId())
                 .setExecutionCode(executionCode)
                 .setRevisionRootExecutionId(execution.getId()));
-        return buildOpenOrCreateResp(execution, true);
+        BatchRecordCellLinkAutoPersistResult autoPersist = cellLinkAutoPersistService.autoPersist(
+                new BatchRecordCellLinkAutoPersistCommand()
+                        .setExecutionId(execution.getId())
+                        .setTrigger("EXECUTION_CREATE"));
+        return buildOpenOrCreateResp(execution, true).setCellLinkAutoPersist(autoPersist);
     }
 
     @Override

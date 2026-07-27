@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.B
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkPrefillRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionFieldAuditBatchMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditChange;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditHasher;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionFieldAuditSaveChangesCommand;
@@ -34,7 +35,9 @@ class MesProBatchRecordCellLinkAutoPersistServiceImplTest {
 
     @Mock
     private MesProBatchRecordExecutionMapper executionMapper;
-    @Mock
+        @Mock
+    private MesProBatchRecordExecutionFieldAuditBatchMapper auditBatchMapper;
+@Mock
     private MesProBatchRecordCellLinkService cellLinkService;
     @Mock
     private MesProBatchRecordExecutionFieldAuditService fieldAuditService;

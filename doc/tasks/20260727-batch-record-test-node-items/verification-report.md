@@ -12,6 +12,7 @@
 - 新增测试目标检查点 24 个，每个节点 4 个。
 - 每个节点包含 3 个测试方法项。
 - 所有节点均为 `ENABLE`、`SEQUENTIAL`、`parallelSafe=false`。
+- 已按用户要求改为业务测试人员可理解的页面操作/页面观察口径，不再使用只有程序员能看到的字段、接口、状态码、hash 或英文内部状态。
 
 ## Verification
 
@@ -19,6 +20,7 @@
 - GREEN: 受控事务写入 6 个测试项和 24 个检查点。
 - Final SQL verification: `final_node_cases=6`，`final_node_checkpoints=24`。
 - Structure verification: 6 个节点均为 3 个方法项 + 4 个目标项。
+- Business-readable verification: 内部词扫描命中数为 0。
 - Non-target verification: `工艺路线=4`、`智能排产=4` 保持不变。
 
 ## Notes

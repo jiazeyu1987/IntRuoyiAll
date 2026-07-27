@@ -109,6 +109,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper
 import cn.iocoder.yudao.module.mes.enums.pro.MesProEdhrDossierConstants;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.BatchRecordCellLinkAutoPersistCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.BatchRecordCellLinkAutoPersistResult;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkAutoPersistService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordJimuReportGateway;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordReportErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteFlowContextMatcher;
@@ -371,6 +374,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private MesProBatchRecordDomainTraceSnapshotMapper domainTraceSnapshotMapper;
     @Resource
     private MesProBatchRecordExecutionService singleExecutionService;
+    @Resource
+    private MesProBatchRecordCellLinkAutoPersistService cellLinkAutoPersistService;
     @Resource
     private MesProBatchRecordJimuReportGateway jimuReportGateway;
     @Resource
@@ -2314,6 +2319,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         requireOpenWorkTaskContext(reqVO, openWorkTask);
         Long permissionScopeId = resolveTaskPermissionScopeId(task);
         requireTaskFillAbility(batch, task, openWorkTask, permissionScopeId);
+        BatchRecordCellLinkAutoPersistResult cellLinkAutoPersist = null;
         if (isDynamicRouteFormTask(task)) {
             if (!hasCompleteFormCenterRouteContext(task)) {
                 throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
@@ -2323,8 +2329,15 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 openWorkTask = resolveOpenWorkTask(task.getId());
             }
         } else {
-            openOrBindTraditionalBatchRecordExecution(batch, task, openWorkTask);
+            cellLinkAutoPersist = openOrBindTraditionalBatchRecordExecution(batch, task, openWorkTask);
             requireTaskOpenContext(task);
+            if (cellLinkAutoPersist == null && task.getExecutionId() != null) {
+                cellLinkAutoPersist = cellLinkAutoPersistService.autoPersist(
+                        new BatchRecordCellLinkAutoPersistCommand()
+                                .setExecutionId(task.getExecutionId())
+                                .setWorkTaskId(openWorkTask == null ? null : openWorkTask.getId())
+                                .setTrigger("TASK_OPEN"));
+            }
         }
         if (Objects.equals(task.getStatus(), TASK_STATUS_WAITING)) {
             task.setStatus(TASK_STATUS_DRAFT)
@@ -2338,7 +2351,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (task.getExecutionId() != null) {
             workTaskService.bindExecution(task.getId(), task.getExecutionId());
         }
-        return buildTaskOpenResp(batch, task, openWorkTask, permissionScopeId);
+        return buildTaskOpenResp(batch, task, openWorkTask, permissionScopeId, cellLinkAutoPersist);
     }
 
     private EdhrBatchExecutionTaskOpenRespVO openPreReleaseSubmittedOrdinaryTaskIfAllowed(
@@ -2362,7 +2375,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         execution, reqVO.getWorkTaskId());
         Long permissionScopeId = resolveTaskPermissionScopeId(task);
         requireTaskFillAbility(batch, task, editability.workTask(), permissionScopeId);
-        return buildTaskOpenResp(batch, task, editability.workTask(), permissionScopeId);
+        return buildTaskOpenResp(batch, task, editability.workTask(), permissionScopeId, null);
     }
 
     private EdhrBatchExecutionTaskOpenRespVO openPreCloseSubmittedDynamicRouteFormIfAllowed(
@@ -2378,7 +2391,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         MesProEdhrWorkTaskDO workTask = requirePreCloseRouteFormFillWorkTask(reqVO.getWorkTaskId(), task);
         Long permissionScopeId = resolveTaskPermissionScopeId(task);
         requireTaskFillAbility(batch, task, workTask, permissionScopeId);
-        return buildTaskOpenResp(batch, task, workTask, permissionScopeId);
+        return buildTaskOpenResp(batch, task, workTask, permissionScopeId, null);
     }
 
     private MesProEdhrWorkTaskDO requirePreCloseRouteFormFillWorkTask(
@@ -2403,7 +2416,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private EdhrBatchExecutionTaskOpenRespVO buildTaskOpenResp(MesProEdhrBatchExecutionDO batch,
                                                                MesProEdhrBatchExecutionTaskDO task,
                                                                MesProEdhrWorkTaskDO openWorkTask,
-                                                               Long permissionScopeId) {
+                                                               Long permissionScopeId,
+                                                               BatchRecordCellLinkAutoPersistResult cellLinkAutoPersist) {
         Boolean effectiveRecordbookEnabled = recordbookGlobalSettingService.resolveEffectiveRecordbookEnabled(task.getRecordbookEnabled(), task.getRecordCategory());
         Map<String, Object> executionPageQuery = new LinkedHashMap<>();
         executionPageQuery.put("id", task.getExecutionId());
@@ -2469,7 +2483,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setArchiveVisibility(task.getArchiveVisibility())
                 .setSlotConfigSnapshotHash(task.getSlotConfigSnapshotHash())
                 .setStatus(task.getStatus())
-                .setExecutionPageQuery(executionPageQuery);
+                .setExecutionPageQuery(executionPageQuery)
+                .setCellLinkAutoPersist(cellLinkAutoPersist);
         recordOperationAudit("BATCH_EXECUTION_TASK", String.valueOf(task.getId()), "OPEN",
                 "打开 eDHR 工序任务", batch.getId(), task.getExecutionId(), workTaskId, batch.getRouteId(),
                 task.getRouteProcessId(), task.getBatchRecordReportId(), task.getRecordCategory(),
@@ -2526,18 +2541,20 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         return true;
     }
 
-    private void openOrBindTraditionalBatchRecordExecution(MesProEdhrBatchExecutionDO batch,
-                                                           MesProEdhrBatchExecutionTaskDO task,
-                                                           MesProEdhrWorkTaskDO openWorkTask) {
+    private BatchRecordCellLinkAutoPersistResult openOrBindTraditionalBatchRecordExecution(MesProEdhrBatchExecutionDO batch,
+                                                                                           MesProEdhrBatchExecutionTaskDO task,
+                                                                                           MesProEdhrWorkTaskDO openWorkTask) {
         if (StrUtil.isBlank(task.getBatchRecordReportId())) {
-            return;
+            return null;
         }
         if (task.getExecutionId() == null) {
             if (isBatchSharedTask(task)) {
-                return;
+                return null;
             }
             MesProBatchRecordExecutionOpenOrCreateByContextRespVO execution =
                     singleExecutionService.openOrCreateByContext(buildOpenOrCreateExecutionReq(batch, task));
+            BatchRecordCellLinkAutoPersistResult cellLinkAutoPersist = execution == null
+                    ? null : execution.getCellLinkAutoPersist();
             if (execution == null || execution.getId() == null) {
                 throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
             }
@@ -2551,7 +2568,9 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                     .setExecutionId(task.getExecutionId())
                     .setBatchRecordDefinitionId(task.getBatchRecordDefinitionId())
                     .setBatchRecordVersionId(task.getBatchRecordVersionId()));
+            return cellLinkAutoPersist;
         }
+        return null;
     }
 
     private MesProBatchRecordExecutionOpenOrCreateByContextReqVO buildOpenOrCreateExecutionReq(

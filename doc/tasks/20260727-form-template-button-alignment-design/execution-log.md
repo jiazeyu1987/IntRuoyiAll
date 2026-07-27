@@ -22,18 +22,28 @@
 
 ## RED / GREEN Notes
 
-- `RED: documentation-design-only -> NOT_RUN, 本任务不修改生产代码；后续实现任务必须先新增前端静态契约和后端接口契约测试，并记录真实 RED。`
+- `RED: node tests\e2e\form-template-batch-record-button-alignment-static.spec.js -> FAIL, FormTemplateListItemVO 缺少 batchRecordReportId 等显式绑定字段，三按钮仍使用旧弹窗/本页编辑/本页模拟填写。`
+- `RED: python -m pytest script\tests\test_form_template_batch_record_binding_sql.py -> FAIL, 缺少 IntRuoyiBackend/sql/mysql/20260727_bpm_form_template_batch_record_binding.sql。`
+- `RED: mvn.cmd -pl yudao-module-bpm "-Dtest=FormCenterTemplateBatchRecordBindingContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, FormCenterTemplateRespVO/FormTemplateVersionDO 缺少批记录绑定字段，runtime 未映射。`
 - `GREEN: documentation-structure -> PASS, 任务级设计文档已覆盖前端、后端 API、数据模型、配置安全部署四个维度。`
 - `GREEN: python -X utf8 section-check -> PASS, 任务级设计文档 UTF-8 可读，四份设计文档均包含系统设计必备章节。`
 - `GREEN: git diff --check -- doc\tasks\20260727-form-template-button-alignment-design -> PASS, 任务文档无 diff 空白错误。`
+- `GREEN: python -m pytest script\tests\test_form_template_batch_record_binding_sql.py -> PASS, SQL 迁移契约 3 项通过。`
+- `GREEN: node tests\e2e\form-template-batch-record-button-alignment-static.spec.js -> PASS, 表单模板三按钮静态合同通过。`
+- `GREEN: mvn.cmd -pl yudao-module-bpm "-Dtest=FormCenterTemplateBatchRecordBindingContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, BPM 合同测试 3 项通过。`
+- `GREEN: pnpm ts:check -> PASS, 前端 relaxed TypeScript 检查通过。`
+- `GREEN: frontend/backend/database evidence validators -> PASS, 三份技能证据文档校验通过。`
+- `GREEN: python -X utf8 docs read -> PASS, 任务目录 Markdown 均可 UTF-8 读取。`
+- `GREEN: task-owned trailing whitespace scan -> PASS, 本任务新增/修改文件均无尾随空白。`
 
 ## Milestone Updates
 
 - 现状核对完成：确认三按钮当前不一致。
 - 根因定位完成：表单模板响应缺少稳定 `reportId`，不能安全直接复用批记录按钮链路。
 - 设计完成：要求后端先暴露正式映射，前端再复用批记录三按钮路由与接口。
+- 实现完成：`bpm_form_template_version` 新增显式绑定摘要字段，模板池响应映射这些字段；表单模板 `打开 / 编辑 / 填写` 改为使用 `batchRecordReportId` 进入批记录表单设计器预览、编辑和模板模拟填写页。
 
 ## Blockers
 
-- 当前工作区在任务开始前已有本地提交领先 `origin/int_main`，且存在非本任务脏改动；验证时分支显示领先 `origin/int_main` 8 个提交。本设计文档暂不执行提交/推送，避免混入无关任务状态。
-- 后续实现必须先确认正式映射来源：新增映射表、扩展现有模板版本表，或由导入链路保存批记录报表 ID；不得用名称匹配替代。
+- 当前工作区已有本地提交领先 `origin/int_main`，且存在非本任务 MES 脏改动；验证后分支显示领先 `origin/int_main` 9 个提交。本任务暂不执行提交/推送，避免混入无关任务状态。
+- 真实页面 E2E 尚未执行；需要运行态存在已绑定 `batchRecordReportId` 的表单模板数据后再验收三按钮真实点击路径。

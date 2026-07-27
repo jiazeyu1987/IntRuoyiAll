@@ -21,6 +21,19 @@ Verified documentation-only design output for shared Word parser architecture.
 
 Documentation design is complete and verified.
 
+## Review Optimization Evidence
+
+- Addressed review finding for dependency direction by adding automated dependency gate requirements.
+- Addressed review finding for parser options divergence by defining canonical `STRUCTURAL_CANONICAL` profile constraints.
+- Addressed review finding for parser migration risk by adding old/new structure snapshot equivalence tests.
+- Addressed review finding for MES permissions by documenting current no-`@PreAuthorize` contract and requiring separate permission-change design if changed.
+- Addressed review finding for error handling by adding shared parser error mapping table for BPM and MES.
+- Addressed review finding for source file privacy by replacing raw file name diagnostics with extension and file-name hash.
+- `rg` review-optimization keyword check -> PASS.
+- `system-design-docs` validation -> PASS after optimization.
+- UTF-8 read check -> PASS after optimization.
+- Post-optimization cleanup preview/apply -> PASS, delete none, blocked none, warnings none.
+
 ## Remaining Blocker
 
 Final Git closeout is blocked by pre-existing shared-branch state: `git status --short --branch` reports `int_main...origin/int_main [ahead 8]` plus unrelated dirty/untracked files outside this task. This task did not stage, commit, push, or modify unrelated files.

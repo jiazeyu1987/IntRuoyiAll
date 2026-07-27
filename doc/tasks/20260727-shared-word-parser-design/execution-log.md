@@ -19,3 +19,18 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-shared-word-parser-design --mode preview` -> PASS, keep task core records, delete none, blocked none, warnings none.
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-shared-word-parser-design --mode apply` -> PASS, deleted none, blocked none, warnings none.
 - BLOCKER: Git final closeout -> blocked by pre-existing branch state `int_main...origin/int_main [ahead 8]` and unrelated dirty/untracked files outside this task. No staging, commit, push, cleanup merge, or unrelated file modification was performed.
+
+## 2026-07-27 Review Optimization
+
+- User intent: 对共享 Word parser 设计文档进行优化，修复 review 中指出的依赖门禁、统一 profile、等价性验证、权限、错误映射和文件名脱敏缺口。
+- Updated: `docs/system/shared-word-template-parser-design.md`.
+- Added: 自动化依赖方向门禁，要求共享模块不得依赖 BPM/MES/数据库/Flowable/Jimu，BPM 不得依赖 MES，MES 可依赖 BPM 和共享模块。
+- Added: `WordParseProfile.STRUCTURAL_CANONICAL` 统一 profile 要求，禁止 BPM/MES 通过不同 options 重新分叉解析结果。
+- Added: 批记录导入权限合同，明确当前 `recognize-uploaded` 与 `upload-extra-slot` 未声明 `@PreAuthorize`，parser 重构不得改变权限；若补权限需另起权限变更。
+- Added: shared parser error 到 BPM/MES 既有错误码的映射表和 adapter 映射测试要求。
+- Added: 旧 `MesProBatchRecordDocParser` 与共享 parser 的真实 DOC / 合成表格结构快照等价测试门禁。
+- Added: 诊断日志文件名脱敏要求，用 `sourceFileExtension` 与 `sourceFileNameHash` 替代原始文件名。
+- GREEN: `rg` review-optimization keyword check -> PASS, located dependency gate, `STRUCTURAL_CANONICAL`, error mapping, `sourceFileNameHash`, old/new parser equivalence, and permission contract sections.
+- GREEN: `python C:\Users\BJB110\.codex\skills\system-design-docs\scripts\validate_system_design.py --root .` -> PASS.
+- GREEN: `python -X utf8` read check -> PASS for design doc and task records.
+- GREEN: post-optimization cleanup preview/apply -> PASS, keep task core records, delete none, blocked none, warnings none.

@@ -38,4 +38,25 @@ public class FormCenterTemplateRespVO {
     @Schema(description = "源文件名")
     private String sourceFileName;
 
+    @Schema(description = "绑定批记录报表 ID")
+    private String batchRecordReportId;
+
+    @Schema(description = "绑定批记录报表名称")
+    private String batchRecordReportName;
+
+    @Schema(description = "绑定批记录名称")
+    private String batchRecordName;
+
+    @Schema(description = "绑定批记录版本号")
+    private String batchRecordVersionNo;
+
+    @Schema(description = "绑定批记录表单槽位类型")
+    private String batchRecordFormSlotType;
+
+    @Schema(description = "绑定状态：BOUND/UNBOUND/BROKEN")
+    private String batchRecordBindingStatus;
+
+    @Schema(description = "绑定异常说明")
+    private String batchRecordBindingError;
+
 }

@@ -38,6 +38,20 @@ public class FormTemplateVersionDO extends BaseDO {
 
     private String jimuSchemaJson;
 
+    private String batchRecordReportId;
+
+    private String batchRecordReportName;
+
+    private String batchRecordName;
+
+    private String batchRecordVersionNo;
+
+    private String batchRecordFormSlotType;
+
+    private String batchRecordBindingStatus;
+
+    private String batchRecordBindingError;
+
     private String remark;
 
 }

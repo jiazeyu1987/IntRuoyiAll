@@ -29,6 +29,13 @@ export interface FormTemplateListItemVO {
   recognizedFields?: FormRecognizedFieldVO[]
   jimuSchemaJson?: string
   sourceFileName?: string
+  batchRecordReportId?: string
+  batchRecordReportName?: string
+  batchRecordName?: string
+  batchRecordVersionNo?: string
+  batchRecordFormSlotType?: string
+  batchRecordBindingStatus?: string
+  batchRecordBindingError?: string
 }
 
 export interface FormTemplateImportRespVO {

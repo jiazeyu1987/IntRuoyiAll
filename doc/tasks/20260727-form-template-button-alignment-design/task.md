@@ -10,7 +10,7 @@
 - [x] 设计范围：定义前端、后端 API、数据模型、权限与失败行为。
 - [x] 阻塞项识别：明确表单模板响应当前缺少稳定批记录 `reportId` 映射。
 - [x] 文档输出：生成任务级系统设计文档，供后续实现按 BDD/TDD 执行。
-- [ ] 实现与验证：本任务仅做文档设计，生产代码修改另起实现任务。
+- [x] 实现与验证：补齐显式批记录绑定字段、迁移 SQL、前端三按钮同源批记录路由，并通过任务专用合同验证。
 - [ ] Closeout：受当前工作区已有非本任务脏改动和本地领先提交影响，暂不执行提交/推送。
 
 ## Expected Verification
@@ -18,11 +18,12 @@
 - 文档结构检查：四份设计文档包含系统设计技能要求的必备章节。
 - UTF-8 读取检查：所有中文任务文档可通过 `python -X utf8` 正常读取。
 - 设计一致性检查：文档明确禁止名称匹配、空值兜底、静默回退旧弹窗。
-- 后续实现验证：前端最小静态契约 + 后端接口契约测试 + 真实页面路径 E2E。
+- 实现验证：前端最小静态契约 + 后端接口契约测试 + SQL 迁移契约 + 前端类型检查。
+- 后续运行态验收：真实页面选择已绑定模板，分别点击 `打开 / 编辑 / 填写`，验证路由与批记录表单一致。
 
 ## Current Status
 
-ready_for_implementation_design_complete
+implementation_verified_closeout_blocked_by_workspace_state
 
 ## 经验门禁
 
@@ -44,4 +45,6 @@ ready_for_implementation_design_complete
 - `doc/tasks/20260727-form-template-button-alignment-design/data-model.md`
 - `doc/tasks/20260727-form-template-button-alignment-design/config-security-deployment.md`
 - `doc/tasks/20260727-form-template-button-alignment-design/verification-report.md`
-
+- `doc/tasks/20260727-form-template-button-alignment-design/frontend-feature-evidence.md`
+- `doc/tasks/20260727-form-template-button-alignment-design/backend-api-evidence.md`
+- `doc/tasks/20260727-form-template-button-alignment-design/database-schema-evidence.md`

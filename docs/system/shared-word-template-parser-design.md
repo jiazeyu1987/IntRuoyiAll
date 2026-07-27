@@ -61,6 +61,13 @@ flowchart TD
   - `MesProBatchRecordDocParser` 收敛为共享 parser 的适配层，或逐步替换为 `BatchRecordWordParseAdapter`。
   - 路线识别器、批记录版本、Jimu 报表生成、产品绑定和版本治理继续保留在 MES。
 
+依赖方向必须被自动化门禁验证：
+
+- 共享解析模块不得依赖 `yudao-module-bpm`、`yudao-module-mes`、`yudao-module-report`、数据库 starter、Flowable、Jimu 或任一业务模块。
+- `yudao-module-bpm` 可以依赖共享解析模块，但不得依赖 `yudao-module-mes`。
+- `yudao-module-mes` 可以继续依赖 `yudao-module-bpm`，并新增依赖共享解析模块。
+- 实现任务必须新增 Maven/静态契约测试，读取相关 `pom.xml` 或依赖树，明确断言上述依赖方向；该测试失败时不得进入功能迁移。
+
 ## Shared Parser Contract
 
 共享 parser 对外提供稳定的内部 Java 契约，不新增前端 API。
@@ -78,6 +85,13 @@ public interface SharedWordDocumentParser {
 - `sourceFileName`：原始文件名，用于文件类型判断和诊断。
 - `sourceBytes`：上传文件内容；为空时 fail fast。
 - `options`：解析选项，例如是否抽取段落、页眉页脚、表格边框、列宽、文档页数。
+
+`options` 不得成为 BPM/MES 解析分叉点。第一阶段必须定义并默认使用同一个 canonical profile，例如 `WordParseProfile.STRUCTURAL_CANONICAL`：
+
+- BPM 表单中心和 MES 批记录导入都必须调用 canonical profile。
+- canonical profile 必须固定开启段落、页眉页脚、顶层表格、拆分表格、合并关系、逻辑列、视觉列宽、边框、斜线、字体粗细、字号、水平/垂直对齐和非敏感诊断。
+- `options` 只能增加非破坏性诊断或性能采样；不得允许某个调用方关闭结构字段并仍宣称与另一调用方“解析一致”。
+- 如后续确需新增 profile，必须新增 profile 等价性/差异性测试，并在对应业务 adapter 文档中说明为什么不能使用 canonical profile。
 
 建议结果模型：
 
@@ -127,13 +141,17 @@ public interface SharedWordDocumentParser {
   - 用途：导入表单中心模板，创建 `DRAFT` 或触发升版审批。
   - 变更：内部识别器改用共享 parser；请求/响应不变。
 - `POST /mes/pro/batch-record-report/recognize-uploaded`
+  - 权限：当前 Controller 未声明 `@PreAuthorize`；共享 parser 重构不得改变该权限合同。
   - 用途：上传主批记录 Word，按路线和产品绑定生成批记录报表。
   - 变更：内部 doc 结构解析改用共享 parser；请求/响应不变。
 - `POST /mes/pro/batch-record-report/upload-extra-slot`
+  - 权限：当前 Controller 未声明 `@PreAuthorize`；共享 parser 重构不得改变该权限合同。
   - 用途：上传批记录附加表单槽位 Word。
   - 变更：内部 doc 结构解析改用共享 parser；请求/响应不变。
 
 不新增跨业务的“通用上传导入”HTTP 接口。共享能力只作为后端内部服务使用，避免前端绕开模板池、批记录版本治理或审批流程。
+
+若产品决定给批记录导入补充显式权限，必须另起权限变更设计，覆盖菜单/按钮权限、租户套餐、角色授权、前端 `v-hasPermi`、后端 `@PreAuthorize` 和真实登录态回归；不得混入共享 parser 重构。
 
 ### Internal Adapters
 
@@ -171,6 +189,18 @@ BPM/MES adapter 不吞共享异常：
 - 表单中心将共享异常映射为 `FormCenterException` 的明确业务错误，响应给导入弹窗。
 - MES 将共享异常映射为现有批记录导入错误码，响应给批记录导入弹窗。
 - 禁止把解析失败转换为空字段、空报表、默认成功或改走旧 parser。
+
+错误映射必须落地为测试覆盖的合同：
+
+| Shared parser error | BPM 表单中心映射 | MES 批记录映射 |
+| --- | --- | --- |
+| `WORD_PARSE_FILE_EMPTY` | `TEMPLATE_SOURCE_INVALID` | `PRO_BATCH_RECORD_REPORT_FILE_EMPTY` |
+| `WORD_PARSE_SOURCE_TYPE_UNSUPPORTED` | `TEMPLATE_SOURCE_TYPE_UNSUPPORTED` | `PRO_BATCH_RECORD_REPORT_FILE_EXTENSION_INVALID` |
+| `WORD_PARSE_SOURCE_INVALID` | `TEMPLATE_SOURCE_INVALID` | `PRO_BATCH_RECORD_REPORT_PARSE_FAILED` |
+| `WORD_PARSE_TABLE_STRUCTURE_INVALID` | `TEMPLATE_RECOGNITION_FAILED` | `PRO_BATCH_RECORD_REPORT_PARSE_FAILED` |
+| `WORD_PARSE_NO_CONTENT` | `TEMPLATE_RECOGNITION_FAILED` | `PRO_BATCH_RECORD_REPORT_TABLE_COUNT_INVALID` |
+
+实现任务必须新增 BPM/MES adapter 错误映射测试，确认前端仍收到可读业务错误，不退化成通用 500 或空成功。
 
 ## Data Model
 
@@ -217,8 +247,8 @@ BPM/MES adapter 不吞共享异常：
 
 安全：
 
-- 不在日志记录完整 Word 文本、文件内容、源文件 base64 或敏感业务数据。
-- 解析失败日志只记录 source hash、文件名、错误码、表格数量等非敏感摘要。
+- 不在日志记录完整 Word 文本、文件内容、源文件 base64、原始文件名或敏感业务数据。
+- 解析失败日志只记录 source hash、文件扩展名、脱敏后的文件名摘要、错误码、表格数量等非敏感摘要。
 - 上传文件大小、认证、租户上下文继续由现有 Controller/请求链路控制。
 
 部署：
@@ -233,7 +263,8 @@ BPM/MES adapter 不吞共享异常：
 
 - `parserVersion`
 - `sourceHash`
-- `sourceFileName`
+- `sourceFileExtension`
+- `sourceFileNameHash`
 - `fileType`
 - `paragraphCount`
 - `topLevelTableCount`
@@ -246,21 +277,26 @@ BPM/MES adapter 不吞共享异常：
 ## Migration Plan
 
 1. 新增共享解析模块和共享模型，不修改现有业务接口。
-2. 将 `MesProBatchRecordDocParser` 中纯 Word 结构解析能力迁入共享模块，保留原类作为 MES adapter。
-3. 迁移 MES 批记录测试，确保 `MesProBatchRecordDocParserTest`、路线识别器和报表构建测试在共享 parser 下保持通过。
-4. 将 `DefaultWordFormTemplateRecognizer` 改为调用共享 parser，并补充表单中心 doc/docx 标签识别测试。
-5. 更新 Maven 依赖：BPM/MES 依赖共享模块，共享模块不得依赖 BPM/MES。
-6. 移除重复 POI 解析逻辑或将其标记为 adapter，不保留两套可分叉 parser。
-7. 运行定向回归后再考虑是否暴露解析诊断字段；第一阶段不改前端 API。
+2. 新增依赖方向静态契约测试，先证明共享模块、BPM、MES 的 Maven 依赖边界不会形成循环依赖。
+3. 将 `MesProBatchRecordDocParser` 中纯 Word 结构解析能力迁入共享模块，保留原类作为 MES adapter。
+4. 在迁移 MES 业务调用前，建立旧 parser 与共享 parser 的结构快照等价测试；真实 DOC 与合成表格都必须覆盖。
+5. 迁移 MES 批记录测试，确保 `MesProBatchRecordDocParserTest`、路线识别器和报表构建测试在共享 parser 下保持通过。
+6. 将 `DefaultWordFormTemplateRecognizer` 改为调用共享 parser，并补充表单中心 doc/docx 标签识别测试。
+7. 更新 Maven 依赖：BPM/MES 依赖共享模块，共享模块不得依赖 BPM/MES。
+8. 移除重复 POI 解析逻辑或将其标记为 adapter，不保留两套可分叉 parser。
+9. 运行定向回归后再考虑是否暴露解析诊断字段；第一阶段不改前端 API。
 
 ## Verification Strategy
 
 共享 parser 单元测试：
 
+- 依赖方向测试：共享模块不得依赖 BPM/MES/数据库/Flowable/Jimu，BPM 不得依赖 MES，MES 可依赖 BPM 和共享模块。
+- canonical profile 测试：BPM/MES adapter 都使用 `STRUCTURAL_CANONICAL`，不得传入会关闭结构字段的自定义 options。
 - `.doc` 表格解析：合并单元格、rowSpan、colSpan、视觉列宽、边框、标题、页眉页脚。
 - `.docx` 表格解析：gridSpan、vMerge、表格外段落、页眉页脚、页数上下文。
 - 异常路径：空文件、非 doc/docx、损坏文件、无可识别内容。
 - 经验门禁场景：packed 物料矩阵、括号续行、短标题 + 长说明行、生产自检/合格标准/检验方法说明块。
+- 旧/新 parser 等价测试：对现有真实 DOC fixture 和最小合成表格输出稳定结构快照，至少比较表格数、标题、行列数、行高/列宽、合并关系、边框、页眉页脚和单元格文本。
 
 MES 回归：
 
@@ -268,12 +304,14 @@ MES 回归：
 - 路线识别器测试：Route A/B/D/E/F 覆盖现有差异。
 - 批记录报表 JSON、布局校准、Jimu 网关和 DB service 相关定向测试。
 - 用户指定真实 DOC 样本导入验证；缺 fixture 时必须阻塞。
+- 权限合同测试：`recognize-uploaded` 和 `upload-extra-slot` 在 parser 重构中不得新增、删除或漂移权限；如另行加权限，必须由权限变更任务覆盖。
 
 BPM 回归：
 
 - `DefaultWordFormTemplateRecognizer` 新增/更新测试，覆盖段落 label、表格 cell label、重复过滤、字段类型猜测、空字段失败。
 - `FormCenterRuntimeContractTest` 确认 `/form-center/templates/import-doc` 外部接口不变。
 - `FormTemplateLifecycleServiceTest` 或 runtime service 测试确认导入失败不会创建模板版本。
+- 错误映射测试：共享 parser 的空文件、类型不支持、损坏文件、结构失败和无内容错误必须映射到表单中心既有错误码。
 
 前端回归：
 

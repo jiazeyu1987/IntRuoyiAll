@@ -1607,10 +1607,7 @@ import type {
   BatchRecordReportCellValueType,
   BatchRecordReportSignatureCellMarkerVO
 } from '@/api/mes/pro/batchrecordreport'
-import {
-  BatchRecordCellLinkApi,
-  type BatchRecordCellLinkPrefillItemVO
-} from '@/api/mes/pro/batchrecordcelllink'
+import type { BatchRecordCellLinkPrefillItemVO } from '@/api/mes/pro/batchrecordcelllink'
 import {
   EDHR_BATCH_NODE_ROUTE_FORM,
   EDHR_BATCH_TASK_STATUS_APPROVED,
@@ -4079,11 +4076,7 @@ const hydrateStoredDraftValue = (
   return value == null ? '' : String(value)
 }
 
-const hydrateDraftState = (
-  detail: ProFeedbackEdhrExecutionVO,
-  prefills: BatchRecordCellLinkPrefillItemVO[] = [],
-  conflicts: BatchRecordCellLinkPrefillItemVO[] = []
-) => {
+const hydrateDraftState = (detail: ProFeedbackEdhrExecutionVO) => {
   const cellValueMap = new Map(
     (detail.cellValues || []).map((cellValue) => [
       buildCellValueKey(cellValue.rowIndex, cellValue.columnIndex),
@@ -4093,12 +4086,6 @@ const hydrateDraftState = (
       }
     ])
   )
-  const prefillMap = new Map(
-    prefills
-      .filter((item) => item.value != null)
-      .map((item) => [buildCellValueKey(item.targetRowIndex, item.targetColumnIndex), item])
-  )
-  const appliedPrefills: BatchRecordCellLinkPrefillItemVO[] = []
   const nextDraftValues: Record<string, DraftFieldValue> = {}
   const nextBaselineValues: Record<string, DraftFieldValue> = {}
   const nextDraftAttachmentValues: Record<string, DraftAttachmentValue> = {}
@@ -4127,13 +4114,7 @@ const hydrateDraftState = (
       }
       continue
     }
-    nextBaselineValues[field.fieldIdentity] = field.defaultValue
-    const cellLinkPrefill = prefillMap.get(cellKey)
-    if (cellLinkPrefill && !field.readonly) {
-      nextDraftValues[field.fieldIdentity] = normalizeCellLinkPrefillDraftValue(cellLinkPrefill, field)
-      appliedPrefills.push(cellLinkPrefill)
-      continue
-    }
+    nextBaselineValues[field.fieldIdentity] = field.defaultValue
     nextDraftValues[field.fieldIdentity] = field.defaultValue
   }
   draftFieldValues.value = nextDraftValues
@@ -4142,8 +4123,8 @@ const hydrateDraftState = (
   attachmentMetadataByUrl.value = {}
   baselineFieldValues.value = nextBaselineValues
   baselineFieldValueHashes.value = nextFieldHashes
-  cellLinkPrefills.value = appliedPrefills
-  cellLinkConflicts.value = conflicts
+  cellLinkPrefills.value = []
+  cellLinkConflicts.value = []
   draftRemark.value = detail.remark || ''
   fieldAuditSaveError.value = ''
   fieldAuditLastResult.value = undefined
@@ -4730,14 +4711,9 @@ const loadExecution = async () => {
     if (typeof detail.executionSnapshotJson !== 'string' || !detail.executionSnapshotJson.trim()) {
       throw new Error('eDHR 执行记录缺少 executionSnapshotJson，无法渲染执行表单。')
     }
-    const shouldLoadCellLinkPrefill =
-      !isTrackingReadonlyMode.value && detail.status === EDHR_EXECUTION_STATUS.DRAFT
-    const prefillResponse = shouldLoadCellLinkPrefill
-      ? await BatchRecordCellLinkApi.getPrefill(currentExecutionId, workTaskId.value)
-      : undefined
     if (isStaleExecutionPageRequest(requestSerial)) return
     execution.value = detail
-    hydrateDraftState(detail, prefillResponse?.prefills || [], prefillResponse?.conflicts || [])
+    hydrateDraftState(detail)
     loadedExecutionContextKey.value = currentExecutionContextKey
     deferExecutionSecondaryLoad(requestSerial)
   } catch (error) {

@@ -53,6 +53,9 @@ blocked
 - doc/tasks/20260727-switch-filler-snapshot-loading/bug-regression-evidence.md
 - doc/tasks/20260727-switch-filler-snapshot-loading/backend-api-evidence.md
 - doc/tasks/20260727-switch-filler-snapshot-loading/frontend-feature-evidence.md
+- doc/tasks/20260727-switch-filler-snapshot-loading/real-e2e-evidence.md
+- doc/tasks/20260727-switch-filler-snapshot-loading/e2e-artifacts/switch-filler-real.e2e.cjs
+- doc/tasks/20260727-switch-filler-snapshot-loading/e2e-artifacts/switch-filler-real-result.json
 
 ## Current Blocker
 

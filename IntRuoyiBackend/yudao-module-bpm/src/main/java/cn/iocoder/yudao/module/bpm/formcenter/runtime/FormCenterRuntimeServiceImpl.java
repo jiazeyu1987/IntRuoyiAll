@@ -1394,6 +1394,13 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
         respVO.setRecognizedFields(parseRecognizedFields(version.getRecognizedSchemaJson()));
         respVO.setJimuSchemaJson(version.getJimuSchemaJson());
         respVO.setSourceFileName(version.getSourceFileName());
+        respVO.setBatchRecordReportId(version.getBatchRecordReportId());
+        respVO.setBatchRecordReportName(version.getBatchRecordReportName());
+        respVO.setBatchRecordName(version.getBatchRecordName());
+        respVO.setBatchRecordVersionNo(version.getBatchRecordVersionNo());
+        respVO.setBatchRecordFormSlotType(version.getBatchRecordFormSlotType());
+        respVO.setBatchRecordBindingStatus(version.getBatchRecordBindingStatus());
+        respVO.setBatchRecordBindingError(version.getBatchRecordBindingError());
         return respVO;
     }
 
