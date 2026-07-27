@@ -26,7 +26,23 @@ RED: `node tests/e2e/frontend-error-scope-hardening-static.spec.js` -> FAIL beca
 
 ## GREEN
 
-Pending.
+GREEN: `node tests/e2e/frontend-error-scope-hardening-static.spec.js` -> PASS; primary, auxiliary, row, panel, and action errors stay in their own scope.
+
+Adjacent regression verification:
+
+- `node tests/e2e/dcc-directory-lazy-loading-static.spec.js` -> PASS
+- `node tests/e2e/edhr-delivery-static.spec.js` -> PASS
+- `node tests/e2e/edhr-validation-package-static.spec.js` -> PASS
+- `node tests/e2e/edhr-field-audit-toolbar-advanced-static.spec.js` -> PASS
+- `node tests/e2e/edhr-field-audit-detail-evidence-collapse-static.spec.js` -> PASS
+- `node tests/e2e/edhr-domain-trace-toolbar-advanced-static.spec.js` -> PASS
+- `node tests/e2e/edhr-domain-trace-detail-evidence-collapse-static.spec.js` -> PASS
+- `node tests/e2e/edhr-batch-detail-preview-scroll-static.spec.js` -> PASS
+- `pnpm ts:check` -> PASS
+
+## Verification
+
+The focused contract and all listed adjacent contracts passed after the fix. `pnpm ts:check` also passed with exit code 0. The two batch-detail contract failures listed below are unrelated existing assertions.
 
 ## Risk And Regression Scope
 
@@ -36,4 +52,4 @@ Pending.
 
 ## Blockers And Follow-up
 
-- None at task start.
+- No blocker belongs to this task. The adjacent `edhr-batch-detail-review-fusion-static.spec.js` and `edhr-batch-detail-admin-takeover-static.spec.js` contracts still fail on their existing unrelated assertions and are not changed by this fix.

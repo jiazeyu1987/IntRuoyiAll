@@ -7,10 +7,10 @@ Prevent successful primary content from being presented as a full-page load fail
 ## Milestones
 
 - [x] Audit the identified frontend error-state sharing patterns.
-- [ ] Add a focused failing static regression contract.
-- [ ] Separate primary, auxiliary, row, detail, and action error ownership.
-- [ ] Run focused and adjacent regression verification.
-- [ ] Complete experience consolidation, cleanup, commit, and push.
+- [x] Add a focused failing static regression contract.
+- [x] Separate primary, auxiliary, row, detail, and action error ownership.
+- [x] Run focused and adjacent regression verification.
+- [x] Complete experience consolidation, cleanup, commit, and push.
 
 ## Expected Verification
 
@@ -21,7 +21,7 @@ Prevent successful primary content from being presented as a full-page load fail
 
 ## Current Status
 
-in_progress
+completed
 
 ## Scope
 
@@ -39,16 +39,20 @@ in_progress
 - The worktree contains unrelated concurrent changes.
 - `BatchExecutionDetailPage.vue` contains a concurrent special-node filler display hunk around the template; this task must preserve it and only edit the non-overlapping error-scope logic.
 
-## Applicable Experience Gate
+## 经验门禁
 
 - Trigger: Primary content succeeds, but a delayed row, preview, candidate, supplemental-status, or right-side detail request fails and shows a global error.
 - Preflight check: Only primary queries may write the page-level load error; auxiliary failures must remain row, card, panel, preview, or action scoped and retain the real error text.
 - Blocker: Auxiliary failure clears primary content, overwrites the primary error, returns default success, or hides the real error.
 - Verification: Focused static contracts must prove primary errors remain global while local failures remain local.
-- Evidence: `docs/frontend-development.md#前端延迟辅助加载错误归属门禁`.
+- Evidence: `docs/frontend-development.md#前端延迟辅助加载错误归属门禁`; `docs/experience-index.md` includes the matching keywords and route.
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否；所有失败必须保留真实错误文本并显示在正确作用域。
 - `是否从根因和长期维护角度解决`：是；通过拆分错误状态消除跨区域污染。
 - `是否存在临时补丁或绕过`：否。
+
+## Cleanup Keep
+
+- doc/tasks/20260727-frontend-error-scope-hardening/bug-regression-evidence.md
