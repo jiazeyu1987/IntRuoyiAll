@@ -6,22 +6,24 @@
 
 ## Milestones
 
-- [ ] 建立缺陷复现与 BDD/TDD 证据
-- [ ] 修复强制 BPM 的表单模板升版审批策略防护
-- [ ] 补充迁移/静态契约，防止错误 DIRECT 策略残留
-- [ ] 运行目标验证并记录结果
+- [x] 建立缺陷复现与 BDD/TDD 证据
+- [x] 修复强制 BPM 的表单模板升版审批策略防护
+- [x] 补充迁移/静态契约，防止错误 DIRECT 策略残留
+- [x] 运行目标验证并记录结果
 - [ ] 完成 closeout 记录、提交与推送
 
 ## Expected Verification
 
-- `mvn -pl yudao-module-bpm -Dtest=BusinessApprovalPolicyAdministrationServiceTest test`
-- `python -X utf8 script/tests/test_form_template_upgrade_bpm_seed.py`
+- `mvn -pl yudao-module-bpm "-Dtest=BusinessApprovalPolicyAdministrationServiceTest" test`
+- `mvn -pl yudao-module-bpm "-Dtest=FormTemplateUpgradeBusinessApprovalEffectExecutorTest,BusinessApprovalOrchestratorBpmRequiredTest" test`
+- `python -X utf8 -m pytest script/tests/test_form_template_upgrade_bpm_seed.py`
+- `python -X utf8 -m pytest script/tests/test_form_action_state_machine_release_contract.py script/tests/test_mes_route_version_publish_business_approval_policy_seed.py`
 - `python -X utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260727-form-template-upgrade-bpm-approval/bug-regression-evidence.md`
 - `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260727-form-template-upgrade-bpm-approval/backend-api-evidence.md`
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 经验门禁
 
