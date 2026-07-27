@@ -244,6 +244,52 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void saveSystemCellLinkChanges_persistsAutoPrefillWithoutWorkTaskValidation() {
+        String beforeJson = "[]";
+        MesProBatchRecordExecutionDO execution = insertDraftExecution(beforeJson);
+        String beforeHash = MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(beforeJson);
+        mockFieldChangeDraftSave();
+
+        MesProBatchRecordExecutionFieldAuditSaveResult result =
+                fieldAuditService.saveSystemCellLinkChanges(new MesProBatchRecordExecutionFieldAuditSaveChangesCommand()
+                        .setExecutionId(execution.getId())
+                        .setIdempotencyKey("cell-link-auto-prefill-system")
+                        .setBaseCellValuesHash(beforeHash)
+                        .setBaseFieldAuditRevision(0L)
+                        .setBaseFieldAuditHeadHash(MesProBatchRecordExecutionFieldAuditHasher.GENESIS_HEAD_HASH)
+                        .setReasonCategory("OTHER")
+                        .setReasonText("系统根据单元格链接自动预填生产批号")
+                        .setChanges(List.of(new MesProBatchRecordExecutionFieldAuditChange()
+                                .setFieldPath(FIELD_PATH)
+                                .setFieldKey("temperature")
+                                .setRowIndex(1)
+                                .setColumnIndex(2)
+                                .setValueType(MesProBatchRecordExecutionFieldAuditValueType.NUMBER)
+                                .setNewValueJson(new BigDecimal("37.5"))
+                                .setNewValueDisplay("37.5")
+                                .setExpectedOldValueHash(MesProBatchRecordExecutionFieldAuditHasher
+                                        .hashCanonicalTypedValue("null")))));
+
+        assertEquals(1L, result.getFieldAuditRevision());
+        assertEquals(1, result.getChangedFieldCount());
+        assertEquals("VALID", result.getHashVerification().getStatus().name());
+
+        MesProBatchRecordExecutionDO updated = executionMapper.selectById(execution.getId());
+        assertEquals(result.getCellValuesHash(), updated.getCellValuesHash());
+        assertEquals(result.getFieldAuditHeadHash(), updated.getFieldAuditHeadHash());
+        assertEquals(1L, updated.getFieldAuditRevision());
+
+        List<MesProBatchRecordExecutionFieldAuditBatchDO> batches =
+                batchMapper.selectListByExecutionId(execution.getId());
+        assertEquals(1, batches.size());
+        assertEquals("OTHER", batches.get(0).getReasonCategory());
+        assertEquals("系统根据单元格链接自动预填生产批号", batches.get(0).getReasonText());
+        verify(signatureService).recordFieldChangeDraftSave(any());
+        verify(signatureService).attachFieldChangeSignature(any());
+        verifyNoInteractions(candidateResolver, responsibilityService);
+    }
+
+    @Test
     void saveChanges_withValidFillWorkTaskDoesNotRequireExecutionScopeFill() {
         String beforeJson = JsonUtils.toJsonString(List.of(Map.of(
                 "rowIndex", 1,
