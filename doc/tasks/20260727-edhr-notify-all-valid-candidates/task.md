@@ -24,7 +24,7 @@
 - 现有模板编码、通知参数和任务创建链路保持不变。
 - 定向 Maven 测试、MES 模块回归测试和任务证据脚本通过。
 
-## 当前状态
+## Current Status
 
 ready_for_closeout
 
