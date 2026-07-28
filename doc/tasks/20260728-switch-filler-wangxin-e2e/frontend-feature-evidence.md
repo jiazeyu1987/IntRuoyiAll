@@ -46,7 +46,7 @@
 
 - `node IntRuoyiFronted\tests\e2e\edhr-switch-filler-selectability-static.spec.js` -> PASS。
 - `pnpm exec eslint src/views/mes/pro/edhr/ExecutionPage.vue src/api/mes/pro/feedback/index.ts src/api/mes/pro/edhr/batchExecution.ts tests/e2e/edhr-switch-filler-selectability-static.spec.js --format stylish` -> PASS。
-- `pnpm ts:check` -> PASS。
+- `pnpm ts:check` -> FAIL，阻塞在无关既有文件 `BatchRecordCellRulesConfirmDialog.vue` 与 `BatchExecutionDetailPage.vue` 的缺失属性；当前 `ExecutionPage.vue` 无新增类型错误。
 - `node doc\tasks\20260728-switch-filler-wangxin-e2e\e2e-artifacts\switch-filler-wangxin-real.e2e.cjs` -> PASS。
 
 ## Checks
@@ -54,12 +54,12 @@
 - Permission: frontend no longer disables other users solely by current login user ID.
 - Error: backend `openTask` errors remain visible in the current dialog.
 - Loading: filler dialog no longer calls full batch execution detail.
-- E2E: `芋道源码/wangxin` 真实路径 PASS；弹窗候选 `王歆/任丹`，任丹 enabled；点击后 URL 和 `task/open` 均携带 `assistUserId=910181`，重开弹窗高亮任丹。
+- E2E: `芋道源码/wangxin` 真实路径 PASS；弹窗候选 `王歆/任丹`，任丹 enabled；点击后 URL 和 `task/open` 均携带 `assistUserId=910181`，顶部填写人显示 `任丹`，辅助填写行保持 `87` 行，重开弹窗高亮任丹。
 
 ## Verification
 
-- Static, ESLint, `pnpm ts:check`, and real wangxin Playwright E2E passed; see `verification-report.md`.
+- Static contract, ESLint and real wangxin Playwright E2E passed; full `pnpm ts:check` is blocked by unrelated existing files; see `verification-report.md`.
 
 ## Blockers
 
-- 无前端验证阻塞。
+- Full `pnpm ts:check` remains blocked by unrelated existing files: `BatchRecordCellRulesConfirmDialog.vue` and `BatchExecutionDetailPage.vue`.

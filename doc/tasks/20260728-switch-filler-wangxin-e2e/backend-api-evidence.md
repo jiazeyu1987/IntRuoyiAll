@@ -2,7 +2,7 @@
 
 ## Scope
 
-Backend behavior is expected to remain authoritative for `openTask` authorization and execution detail snapshot generation. This task should only patch backend code if verification proves the existing `assistSwitchTasks` or `batchExecutionId + taskId` isolation chain is incomplete.
+Backend behavior remains authoritative for `openTask` authorization and execution detail snapshot generation. Verification proved the `batchExecutionId + taskId` isolation chain was incomplete in `openOrCreateByContext`, so the backend was patched to carry `reqVO.getTaskId()` through active query, active key and execution creation.
 
 ## Contract
 
@@ -22,7 +22,7 @@ Backend behavior is expected to remain authoritative for `openTask` authorizatio
 
 - `assistUserId` is accepted only when it belongs to the selected work task candidate snapshot.
 - Invalid selected `assistUserId` fails with the existing task visibility error; no empty/current-user fallback is added.
-- Traditional batch-record execution records are isolated by `batchExecutionId + taskId`.
+- Traditional batch-record execution records are isolated by `batchExecutionId + taskId`, with `MesProBatchRecordExecutionOpenOrCreateByContextReqVO.taskId` persisted to `mes_pro_batch_record_execution.task_id`.
 
 ## RED:
 
@@ -32,7 +32,8 @@ Backend behavior is expected to remain authoritative for `openTask` authorizatio
 
 - `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-assist-filler-switch-snapshot-static.spec.cjs` -> PASS。
 - `mvn -pl yudao-module-mes -am "-DskipTests" compile` -> PASS。
-- `mvn -pl yudao-module-mes "-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_exposesOnlyCurrentUsersAssistRowsFromFrozenResponsibilityScope" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` -> PASS。
+- `mvn -pl yudao-module-mes "-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_exposesOnlyCurrentUsersAssistRowsFromFrozenResponsibilityScope+openTask_exposesAssistRowsWhenAllRangeScopeCoversSnapshotSourceTable" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` -> PASS。
+- `mvn -pl yudao-server -am "-DskipTests" package` -> PASS。
 
 ## Required Verification
 
