@@ -6,11 +6,11 @@
 
 ## Milestones
 
-- [ ] 复现本地重启脚本仍注入 Runner token 的现有合同失败。
-- [ ] 修改本地后端启动脚本，默认不生成、不读取、不注入 Runner token，并清理继承环境变量污染。
-- [ ] 更新运行态规则与任务证据，明确 tokenless 本地模式边界。
-- [ ] 运行目标回归验证。
-- [ ] 按 Git 门禁提交并推送当前修复。
+- [x] 复现本地重启脚本仍注入 Runner token 的现有合同失败。
+- [x] 修改本地后端启动脚本，默认不生成、不读取、不注入 Runner token，并清理继承环境变量污染。
+- [x] 更新运行态规则与任务证据，明确 tokenless 本地模式边界。
+- [x] 运行目标回归验证。
+- [x] 按 Git 门禁提交并推送当前修复。
 
 ## Expected Verification
 
@@ -21,7 +21,7 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## Applicable Gates
 
@@ -35,3 +35,7 @@ in_progress
 - 是否引入 fallback/降级/吞异常：否。移除的是本地 Runner token 前置，不绕过后端 Runner 协议或真实 Codex CLI 执行。
 - 是否从根因和长期维护角度解决：是。修复本地重启脚本把 tokenless 后端重新带回 token 模式的根因。
 - 是否存在临时补丁或绕过：否。
+
+## Cleanup Candidates
+
+- doc/tasks/20260728-codex-runner-tokenless-local-restart/restart-tokenless-int-main-backend.ps1
