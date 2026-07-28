@@ -22,6 +22,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
@@ -29,6 +30,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFo
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
@@ -90,6 +92,9 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     private static final String RULE_SCOPE_TYPE_ROUTE = "ROUTE";
     private static final String CANDIDATE_SOURCE_TYPE_USER = MesProEdhrCandidateResolver.CANDIDATE_SOURCE_TYPE_USER;
     private static final String CANDIDATE_SOURCE_TYPE_ROLE_GROUP = "ROLE_GROUP";
+    private static final String SCOPE_KEY_ALL = "ALL";
+    private static final int ALL_SCOPE_START_ROW = 0;
+    private static final int ALL_SCOPE_END_ROW = 99999;
     private static final Set<String> SUPPORTED_CANDIDATE_SOURCE_TYPES =
             Set.of(CANDIDATE_SOURCE_TYPE_USER, "USER_GROUP", CANDIDATE_SOURCE_TYPE_ROLE_GROUP, "DEPT_GROUP");
     private static final String ENTITLEMENT_SOURCE_TYPE_FILLER = "EDHR_PROCESS_FORM_FILLER";
@@ -109,6 +114,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     @Resource
     private MesProEdhrProcessFormPermissionRuleMapper processFormPermissionRuleMapper;
+    @Resource
+    private MesProBatchRecordReportMapper batchRecordReportMapper;
     @Resource
     private NotifyMessageSendApi notifyMessageSendApi;
     @Resource
@@ -2112,11 +2119,14 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
 
     private JSONObject parseRequiredFillableScope(MesProEdhrProcessFormPermissionRuleDO rule,
                                                   MesProEdhrBatchExecutionTaskDO batchTask) {
-        String scopeKey = rule == null ? null : StrUtil.blankToDefault(StrUtil.trim(rule.getScopeKey()), "ALL");
+        String scopeKey = rule == null ? null : StrUtil.blankToDefault(StrUtil.trim(rule.getScopeKey()), SCOPE_KEY_ALL);
         String fillableScopeJson = isDynamicRouteFormBindingTask(batchTask)
                 ? batchTask.getFillableScopeJson()
                 : rule == null ? null : rule.getFillableScopeJson();
         if (StrUtil.isBlank(fillableScopeJson)) {
+            if (!isDynamicRouteFormBindingTask(batchTask) && Objects.equals(SCOPE_KEY_ALL, scopeKey)) {
+                return buildAllFillableScopeFromBatchRecordReport(rule, batchTask, "scopeKey=" + scopeKey);
+            }
             throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, "scopeKey=" + scopeKey);
         }
         try {
@@ -2129,6 +2139,44 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             }
             throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, "scopeKey=" + scopeKey);
         }
+    }
+
+    private JSONObject buildAllFillableScopeFromBatchRecordReport(MesProEdhrProcessFormPermissionRuleDO rule,
+                                                                  MesProEdhrBatchExecutionTaskDO batchTask,
+                                                                  String context) {
+        Long definitionId = batchTask == null ? null : batchTask.getBatchRecordDefinitionId();
+        Long versionId = batchTask == null ? null : batchTask.getBatchRecordVersionId();
+        if (definitionId == null && rule != null) {
+            definitionId = rule.getBatchRecordDefinitionId();
+        }
+        if (versionId == null && rule != null) {
+            versionId = rule.getBatchRecordVersionId();
+        }
+        if (definitionId == null || versionId == null) {
+            throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, context);
+        }
+        List<MesProBatchRecordReportDO> reports = batchRecordReportMapper.selectListByDefinitionIdAndVersionId(
+                definitionId, versionId);
+        if (reports == null || reports.isEmpty()
+                || reports.stream().anyMatch(report -> report.getSourceTableIndex() == null)) {
+            throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, context);
+        }
+        JSONArray ranges = new JSONArray();
+        reports.stream()
+                .map(MesProBatchRecordReportDO::getSourceTableIndex)
+                .distinct()
+                .sorted()
+                .forEach(sourceTableIndex -> {
+                    JSONObject range = new JSONObject();
+                    range.put("sourceTableIndex", sourceTableIndex);
+                    range.put("startRow", ALL_SCOPE_START_ROW);
+                    range.put("endRow", ALL_SCOPE_END_ROW);
+                    ranges.add(range);
+                });
+        JSONObject fillableScope = new JSONObject();
+        fillableScope.put("ranges", ranges);
+        validateResponsibilityFillableScope(fillableScope, context);
+        return fillableScope;
     }
 
     private void validateResponsibilityFillableScope(JSONObject fillableScope, String context) {

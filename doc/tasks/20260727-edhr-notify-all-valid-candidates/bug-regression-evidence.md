@@ -59,4 +59,4 @@ GREEN: mvn -pl yudao-module-mes org.apache.maven.plugins:maven-surefire-plugin:3
 
 最终完整回归：`mvn -pl yudao-module-mes test` -> PASS，2026-07-28 08:53:25 +08:00；2530 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
 
-当前仅剩收尾提交/推送门禁：共享工作区存在非本任务脏改动，禁止混入本任务提交。
+收尾清理、最终提交和推送已完成；`HEAD` 与 `origin/int_main` 已对齐。

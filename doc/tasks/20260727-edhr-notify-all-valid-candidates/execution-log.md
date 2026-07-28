@@ -406,4 +406,4 @@ SUREFIRE: `Sheet1RouteExcelParserTest` -> 4 tests、0 failures、0 errors、0 sk
 
 EXPERIENCE: 已按 `project-experience-consolidation` 合并长期经验到 `docs/backend-development.md#批记录/路线导入真实-fixture-覆盖范围变更边界`，并在 `docs/experience-index.md` 增加 Sheet1 Excel/真实 fixture 范围变更关键词。没有新建长期经验文档。
 
-STATUS: 实现和 required verification 已完成，`task.md` 已更新为 `ready_for_closeout`。当前收尾提交/推送暂阻于共享工作区非本任务脏改动；按项目门禁不得把 `20260728-scheduler-route-flow-list-permission` 相关 SQL/测试/源码改动混入本任务提交。
+STATUS: 实现和 required verification 已完成，`task-closeout-cleanup` preview/apply 均通过且无删除项；`task.md` 已更新为 `completed`。最终提交和推送完成后，`HEAD` 与 `origin/int_main` 对齐，工作区 clean。
