@@ -1329,7 +1329,7 @@ async function readBatchRecordReportSelectionDiagnostics(reportSelect) {
   })
 }
 
-async function waitForSelectedBatchRecordReport(reportSelect, report) {
+async function waitForSelectedBatchRecordReport(reportSelect, report, clickDiagnostics) {
   const expectedReportId = String(report.reportId)
   const deadline = Date.now() + 30000
   let diagnostics = null
@@ -1348,9 +1348,47 @@ async function waitForSelectedBatchRecordReport(reportSelect, report) {
       reportId: report.reportId,
       reportCode: report.reportCode,
       reportName: report.reportName,
+      clickDiagnostics,
       diagnostics
     })}`
   )
+}
+
+async function captureBatchRecordReportOptionClickDiagnostics(page, reportOption) {
+  await page.evaluate(() => {
+    window.__codexBatchRecordReportOptionClickDiagnostics = []
+  })
+  await reportOption.evaluate((element) => {
+    const describeOptionComponent = () => {
+      const component = element.__vueParentComponent
+      return component
+        ? {
+            typeName: component.type?.name,
+            value: component.props?.value,
+            label: component.props?.label,
+            disabled: component.props?.disabled,
+            itemSelected: component.proxy?.itemSelected
+          }
+        : null
+    }
+    const record = (name, event) => {
+      window.__codexBatchRecordReportOptionClickDiagnostics.push({
+        name,
+        eventPhase: event.eventPhase,
+        defaultPrevented: event.defaultPrevented,
+        targetClassName: event.target?.className || '',
+        currentTargetClassName: event.currentTarget?.className || '',
+        optionComponent: describeOptionComponent()
+      })
+    }
+    element.addEventListener('pointerdown', (event) => record('li_pointerdown_capture', event), true)
+    element.addEventListener('click', (event) => record('li_click_capture', event), true)
+    element.addEventListener('click', (event) => record('li_click_bubble', event))
+  })
+}
+
+async function readBatchRecordReportOptionClickDiagnostics(page) {
+  return page.evaluate(() => window.__codexBatchRecordReportOptionClickDiagnostics || [])
 }
 
 async function waitForRouteProcessAttributeEditorReady(editor) {
@@ -1423,9 +1461,11 @@ async function configureTargetBatchRecordReportThroughUi(page, auth, copiedRoute
     .first()
   await reportOption.waitFor({ state: 'visible', timeout: 60000 })
   await sleep(500)
+  await captureBatchRecordReportOptionClickDiagnostics(page, reportOption)
   await reportOption.click()
+  const clickDiagnostics = await readBatchRecordReportOptionClickDiagnostics(page)
   await page.keyboard.press('Escape')
-  await waitForSelectedBatchRecordReport(reportSelect, report)
+  await waitForSelectedBatchRecordReport(reportSelect, report, clickDiagnostics)
 
   const validateResponsePromise = page.waitForResponse(
     (response) =>

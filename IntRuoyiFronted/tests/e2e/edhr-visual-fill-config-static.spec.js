@@ -157,6 +157,8 @@ includes(realFlowE2E, "'.route-flow-graph-designer__process-detail-loading'", '�
 includes(realFlowE2E, 'await reportInput.fill(report.reportCode)', '真实 E2E 必须用报表编码搜索批记录表单，避免同名报表候选误选。')
 includes(realFlowE2E, "filter({ hasText: report.reportCode })", '真实 E2E 必须按报表编码精确选择目标报表，不能只按同名文案选择第一项。')
 includes(realFlowE2E, 'await reportOption.click()', '真实 E2E 必须点击 Element Plus 原生 option 根节点，验证真实选择事件能更新 modelValue。')
+includes(realFlowE2E, 'captureBatchRecordReportOptionClickDiagnostics', '真实 E2E 必须在批记录表单选项点击失败时记录 option 组件和 DOM 点击诊断。')
+includes(realFlowE2E, 'li_click_capture', '真实 E2E 批记录表单选项诊断必须确认 click 事件到达 option 根节点。')
 includes(realFlowE2E, 'readBatchRecordReportSelectionDiagnostics', '真实 E2E 必须读取批记录表单选择器的组件 modelValue 作为选择提交证据。')
 includes(realFlowE2E, 'target batch record report selection did not update modelValue', '真实 E2E 选择失败时必须报告组件 modelValue 诊断。')
 includes(realFlowE2E, 'target batch record report must be present in batch save request', '真实 E2E 保存后必须先核对请求载荷中包含目标批记录报表绑定。')
