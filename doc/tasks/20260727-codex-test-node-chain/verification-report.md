@@ -57,3 +57,6 @@
 - 迁移契约：节点串迁移 pytest 2 tests PASS。
 - 前端静态契约：`system-codex-test-node-chain-static.spec.js` PASS。
 - 端口契约：branch runtime port guard PASS，frontend `8088`，backend `48088`。
+- 后续主线合并：`git merge --no-edit origin/int_main` -> PASS，生成 `4e1350ab`，当前任务分支包含最新 `origin/int_main` 提交 `75d54cdb`。
+- 后续验证：目标 Maven 30 tests PASS；节点串迁移契约 2 tests PASS；前端节点串静态契约 PASS；branch runtime port guard PASS。
+- 当前收尾阻塞：主工作区 `E:\IntRuoyi` 存在并行 DCC、eDHR ALL、人员选择任务的未提交源码/测试/任务文档改动，自动 ff-only merge 和 worktree 删除不能安全执行。

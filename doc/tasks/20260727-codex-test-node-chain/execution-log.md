@@ -123,3 +123,6 @@
 - GREEN: `python -X utf8 -m pytest script\tests\test_codex_test_node_chain_migration.py -q` from `IntRuoyiBackend` -> PASS，2 tests passed。
 - GREEN: `node .\tests\e2e\system-codex-test-node-chain-static.spec.js` from `IntRuoyiFronted` -> PASS。
 - GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260727-codex-test-node-chain-runtime/int_main` 使用 frontend `8088`、backend `48088`。
+- Follow-up merge: `git merge --no-edit origin/int_main` -> PASS，生成 merge commit `4e1350ab`，当前任务分支包含最新 `origin/int_main` 提交 `75d54cdb`。
+- Follow-up GREEN: 目标 Maven 30 tests PASS；节点串迁移契约 2 tests PASS；前端节点串静态契约 PASS；branch runtime port guard PASS。
+- Closeout preview blocker: 主工作区 `E:\IntRuoyi` 又出现并行 DCC、eDHR ALL、人员选择任务的源码/测试/任务文档脏改动，仍不能接收 ff-only merge；这些文件不属于本任务，未提交、未回滚、未清理。
