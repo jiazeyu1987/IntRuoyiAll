@@ -429,3 +429,7 @@ EVIDENCE: bug regression validator -> PASS；backend API validator -> PASS；`gi
 EXPERIENCE: 已按 `project-experience-consolidation` 合并本次回归经验到 `docs/backend-development.md#切换填写人快照读取边界`，明确传统批记录打开链路不得把 eDHR 批次任务 ID 写入 `MesProBatchRecordExecutionOpenOrCreateByContextReqVO.taskId` 或 `mes_pro_batch_record_execution.task_id`；同步更新 `docs/experience-index.md` 关键词。没有新建长期经验文档。
 
 CLEANUP: `task-closeout-cleanup` preview/apply 均通过，状态 `applied`，keep 本任务全部证据文档，delete `<none>`，blocked `<none>`，warnings `<none>`。
+
+COMMIT: `07d2cc34` (`fix: keep eDHR batch task out of execution task context`) -> 已提交本任务产品修复、任务证据和长期经验门禁更新。提交文件清单为 `MesProBatchRecordExecutionServiceImpl.java`、`MesProEdhrBatchExecutionServiceImpl.java`、本任务 7 个证据文档、`docs/backend-development.md`、`docs/experience-index.md`。
+
+GIT-SCOPE: 提交前使用选择性暂存；`MesProEdhrBatchExecutionServiceImpl.java` 仅暂存 `.setTaskId(null)` hunk，未混入同文件动态表单预览并行改动；`docs/experience-index.md` 仅暂存切换填写人索引行，未混入前端 route query 并行新增行。提交后工作区仍保留多个 20260728 并行任务改动，均未纳入本任务提交。
