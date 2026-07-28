@@ -207,7 +207,7 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
             Long expectedRouteId,
             Long expectedRouteVersionId,
             Boolean routeUpgradeConfirmed) {
-        return generateForUploadedWord(batchRecordName, parsedTables, reports, List.of(),
+        return generateForUploadedWord(batchRecordName, parsedTables, reports, List.of(batchRecordName),
                 batchRecordDefinitionId, batchRecordVersionId, true,
                 expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed, true);
     }

@@ -20,7 +20,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
@@ -47,6 +47,7 @@ ready_for_closeout
 - GREEN：同一命令 -> PASS，`29 passed in 2.33s`。
 - REGRESSION：`python -X utf8 -m pytest script/tests/test_mes_route_version_permission_menu_sql.py script/tests/test_mes_route_flow_config_migration_sql.py` -> PASS，`11 passed in 0.35s`。
 - 迁移门禁：全量 `run-release-migration-policy-gate.py --sql-root sql/mysql` 被既有 `20260725_mes_edhr_recordbook_global_setting.sql: config-seed` 阻塞；本次 SQL 及依赖链选择性门禁 PASS，`migrationCount=10`。
+- Cleanup：`task_closeout.py --task-id 20260728-scheduler-route-flow-list-permission --mode preview/apply` -> PASS，keep 7 项，delete/blocked/warnings 均为 none。
 
 ## Experience Consolidation
 

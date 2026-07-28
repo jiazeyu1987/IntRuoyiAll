@@ -1,8 +1,0 @@
-{
-  "status": "succeeded",
-  "summary": "Restart command dispatched for local full (int_main, frontend=8081, backend=48081)",
-  "component": "full",
-  "profile": "int_main",
-  "frontendPort": 8081,
-  "backendPort": 48081
-}

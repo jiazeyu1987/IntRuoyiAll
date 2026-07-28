@@ -27,6 +27,10 @@
 - Targeted migration policy gate: `python -X utf8 script/release/run-release-migration-policy-gate.py --sql-root sql/mysql --sql-file ... --output E:\IntRuoyi\doc\tasks\20260728-scheduler-route-flow-list-permission\migration-policy-gate-targeted.json` -> PASS, `migrationCount=10`.
 - Full migration policy gate: `python -X utf8 script/release/run-release-migration-policy-gate.py --sql-root sql/mysql --output E:\IntRuoyi\doc\tasks\20260728-scheduler-route-flow-list-permission\migration-policy-gate.json` -> FAIL due pre-existing unrelated metadata `20260725_mes_edhr_recordbook_global_setting.sql: config-seed`.
 - Evidence validators: `validate_bug_regression.py --evidence ...\bug-regression-evidence.md` -> PASS; `validate_database_schema.py --evidence ...\database-schema-evidence.md` -> PASS.
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-scheduler-route-flow-list-permission --mode preview` -> PASS, keep 7, delete none, blocked none, warnings none.
+- Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-scheduler-route-flow-list-permission --mode apply` -> PASS, deleted none.
+- Implementation/evidence commit observed on current branch: `a695165b chore: baseline current workspace changes` includes the task-owned SQL, tests, and first-pass evidence files.
+- Final closeout pending: commit the remaining completed-status task record updates and push `int_main`.
 
 ## Blockers
 
