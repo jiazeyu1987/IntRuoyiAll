@@ -53,6 +53,10 @@
 - GREEN: `node --check tests/e2e/edhr-visual-fill-config-real-flow.e2e.js` -> PASS after native option selection diff.
 - GREEN: `pnpm ts:check` -> PASS after native option selection diff.
 - GREEN: `git diff --check` -> PASS after native option selection diff, only CRLF warnings.
+- E2E readiness diff detected before push: real-flow E2E now waits for `.route-flow-graph-designer__process-detail-loading` to disappear before opening the batch-record report selector, avoiding selection before the attribute editor is ready.
+- GREEN: `node --check tests/e2e/edhr-visual-fill-config-real-flow.e2e.js` -> PASS after editor readiness diff.
+- GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS after editor readiness diff.
+- GREEN: `git diff --check` -> PASS after editor readiness diff, only CRLF warnings.
 
 ## Experience Consolidation
 
@@ -98,9 +102,16 @@
   - `IntRuoyiFronted/tests/e2e/edhr-visual-fill-config-real-flow.e2e.js`
   - `IntRuoyiFronted/tests/e2e/edhr-visual-fill-config-static.spec.js`
 - Third follow-up commit hook: `Branch runtime port guard passed for int_main/int_main: frontend 8081, backend 48081.`
-- Post-follow-up status: `## int_main...origin/int_main [ahead 1]`。
+- Task-record commit: `c74bb3d7 docs: record int main frontend backend push`。
+- Fourth follow-up implementation commit: `68c24d03 test: wait for route process editor readiness`。
+- Fourth follow-up files:
+  - `IntRuoyiFronted/tests/e2e/edhr-visual-fill-config-real-flow.e2e.js`
+  - `IntRuoyiFronted/tests/e2e/edhr-visual-fill-config-static.spec.js`
+- Fourth follow-up commit hook: `Branch runtime port guard passed for int_main/int_main: frontend 8081, backend 48081.`
+- Post-follow-up status: `## int_main...origin/int_main [ahead 3]`。
 - Unstaged concurrent files intentionally not included:
   - `doc/tasks/20260728-batch-record-product-name-dropdown/*`
+  - `docs/experience-index.md`
 
 ## Push
 

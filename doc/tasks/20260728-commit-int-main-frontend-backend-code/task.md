@@ -58,8 +58,9 @@ ready_for_closeout
 - `a3e8af3c fix: keep route report options clickable`
 - `cdc0d6a5 fix: simplify route report option pointer handling`
 - `b5e5e6b7 fix: use native report option selection`
-- 四次提交钩子 `branch-runtime-port-guard` 均通过：`int_main/int_main frontend 8081, backend 48081`。
-- 提交后复扫：`int_main...origin/int_main [ahead 1]`，仅剩无关并发任务文档 `doc/tasks/20260728-batch-record-product-name-dropdown/*` 未暂存，以及本任务收尾文档待提交。
+- `68c24d03 test: wait for route process editor readiness`
+- 五次前端/后端相关提交的 `branch-runtime-port-guard` 均通过：`int_main/int_main frontend 8081, backend 48081`。
+- 提交后复扫：`int_main...origin/int_main [ahead 3]`，仅剩无关并发任务文档 `doc/tasks/20260728-batch-record-product-name-dropdown/*` 和 `docs/experience-index.md` 未暂存。
 
 ## Cleanup Evidence
 
