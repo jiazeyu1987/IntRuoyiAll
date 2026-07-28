@@ -74,3 +74,5 @@
 - 迁移契约：节点串迁移 pytest 2 tests PASS。
 - 前端静态契约：`system-codex-test-node-chain-static.spec.js` PASS。
 - 端口契约：branch runtime port guard PASS，frontend `8088`，backend `48088`。
+- 最终补充融合：远端主线前进后再次 `git merge --no-edit origin/int_main` -> PASS，当前任务 HEAD `09545667`，远端主线 `5c3b6506` 是当前 HEAD 的祖先。
+- 最终补充验证：目标 Maven 31 tests PASS；节点串迁移契约 2 tests PASS；前端节点串静态契约 PASS；branch runtime port guard PASS。

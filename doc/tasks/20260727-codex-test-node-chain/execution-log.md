@@ -144,3 +144,6 @@
 - GREEN: `python -X utf8 -m pytest script\tests\test_codex_test_node_chain_migration.py -q` from `IntRuoyiBackend` -> PASS，2 tests passed。
 - GREEN: `node .\tests\e2e\system-codex-test-node-chain-static.spec.js` from `IntRuoyiFronted` -> PASS。
 - GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260727-codex-test-node-chain-runtime/int_main` 使用 frontend `8088`、backend `48088`。
+- Follow-up merge: `git merge --no-edit origin/int_main` -> PASS，生成 merge commit `09545667`，当前任务分支包含最新 `origin/int_main` 提交 `5c3b6506`。
+- Follow-up GREEN: `git merge-base --is-ancestor origin/int_main HEAD` -> PASS。
+- Follow-up GREEN: 目标 Maven 31 tests PASS；节点串迁移契约 2 tests PASS；前端节点串静态契约 PASS；branch runtime port guard PASS。
