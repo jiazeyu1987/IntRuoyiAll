@@ -6,11 +6,11 @@
 
 ## Milestones
 
-1. 梳理当前 DCC 提交流程中产品编号字段、分类规则和接口契约。
-2. 记录 BDD 场景并补充最小 RED 静态/单元测试。
-3. 实现产品编号自动带出或唯一候选自动选中逻辑，保留无法唯一确认时的用户选择。
-4. 运行目标验证与相邻回归，记录证据。
-5. 完成收尾、经验沉淀、提交与推送。
+1. [completed] 梳理当前 DCC 提交流程中产品编号字段、分类规则和接口契约。
+2. [completed] 记录 BDD 场景并补充最小 RED 静态/单元测试。
+3. [completed] 实现产品编号自动带出或唯一候选自动选中逻辑，保留无法唯一确认时的用户选择。
+4. [completed] 运行目标验证与相邻回归，记录证据。
+5. [completed] 完成收尾、经验沉淀、提交与推送。
 
 ## Expected Verification
 
@@ -20,7 +20,7 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## 设计约束检查
 
@@ -30,4 +30,10 @@ in_progress
 
 ## Experience Gate
 
-- 待读取 `docs/experience-index.md` 后补充。
+- 已读取 `docs/experience-index.md`。
+- 适用门禁：前端静态契约隔离门禁；本任务新增 `dcc-upload-product-autofill-static.spec.js` 作为专用静态合同，避免被无关大契约阻塞。
+- 适用门禁：DCC/DHF/DMR 产品编号必须来自正式产品主数据，不生成临时编号；实现只自动选择唯一匹配产品主数据，否则提示用户手动选择。
+
+## Cleanup Keep
+
+- doc/tasks/20260728-dcc-product-code-autofill/frontend-feature-evidence.md
