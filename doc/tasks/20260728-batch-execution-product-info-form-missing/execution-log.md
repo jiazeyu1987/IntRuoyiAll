@@ -28,8 +28,12 @@
 - 2026-07-28: 新增详情读取回归测试，覆盖已有工序生产记录任务但缺同版“产品信息”任务的活跃批次。
 - 2026-07-28: 修复读取恢复逻辑：对已有正式 `MAIN + BATCH_RECORD` 任务按 `batchRecordDefinitionId + batchRecordVersionId` 查找同版产品信息成员报表，缺失时插入等待任务并重建初始填写任务；不读取 `formBindings`。
 - 2026-07-28: 修复产品信息成员表单排序，确保插入排序在源表单之前，避免同批次、同工序、同 `batch_record_sort` 唯一键冲突。
+- 2026-07-28: 执行 bug evidence 校验：`python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260728-batch-execution-product-info-form-missing\bug-regression-evidence.md` -> PASS。
+- 2026-07-28: 执行 project-experience-consolidation，已将“已有 ROUTE_FORM 但产品信息成员表单部分缺失”的门禁沉淀到 `docs/backend-development.md`，并更新 `docs/experience-index.md` 关键词。
+- 2026-07-28: cleanup preview/apply 已执行，保留 `task.md`、`execution-log.md`、`verification-report.md` 和 `bug-regression-evidence.md`，无删除项、无 blocked、无 warnings。
+- 2026-07-28: 本任务实现提交 `842850cf fix: restore product info batch record task` 已创建。
+- 2026-07-28: `git push origin int_main` -> FAIL，远端 non-fast-forward；当前分支 `ahead 2, behind 6`，且存在非本任务并行前端改动，不能安全 pull/rebase。
 
 ## Blockers
 
-- 当前分支仍领先 `origin/int_main`；按项目规则，最终完成前需要处理提交与推送门禁。
-
+- `git push origin int_main` 被 non-fast-forward 拒绝；当前分支 `ahead 2, behind 6`，并且工作区存在非本任务并行改动 `IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/index.vue`，需要先由对应任务处理远端同步/并行改动后再推送。

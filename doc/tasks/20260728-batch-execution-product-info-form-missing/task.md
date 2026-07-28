@@ -36,4 +36,10 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
+
+## Closeout Blocker
+
+- `git push origin int_main` 被远端 non-fast-forward 拒绝。
+- 当前 `int_main` 为 `ahead 2, behind 6`，且工作区仍有非本任务并行改动 `IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/index.vue`，不能安全执行 pull/rebase 或清理。
+- 本任务实现提交：`842850cf fix: restore product info batch record task`。

@@ -20,5 +20,5 @@
 
 ## Remaining
 
-- 提交、推送和 cleanup 收尾尚未完成。
-
+- cleanup 已完成，本任务实现提交 `842850cf` 已创建。
+- 推送未完成：`git push origin int_main` 被 non-fast-forward 拒绝；当前分支 `ahead 2, behind 6`，且工作区存在非本任务并行前端改动，暂不能安全 pull/rebase。
