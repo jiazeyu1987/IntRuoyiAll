@@ -32,6 +32,12 @@
 - `GREEN: branch-runtime-port-guard -> PASS, scripts\preflight\branch-runtime-port-guard.ps1 passed for int_main/int_main frontend 8081 backend 48081`
 - `GREEN: task-closeout-preview -> PASS, keep task.md/execution-log.md/verification-report.md; delete none; blocked none; warnings none`
 - `BLOCKER: residual-dirty-rescan -> git status later showed non-task changes: deleted/modified MES Sheet1RouteExcel* tests and untracked doc/tasks/20260728-restart-local-runtime/; ownership conflicts with current task boundary, so push is paused until user confirms scope`
+- `GREEN: user-scope-confirmation -> PASS, user replied 确认 to include the later non-task current changes in the commit/push scope`
+- `GREEN: sensitive-file-scan -> PASS, no raw credential material found in the newly included files; only rule text mentions token handling`
+- `GREEN: current-workspace-baseline-commit -> PASS, commit 6f2a9fb9 chore: baseline current workspace changes`
+- `GREEN: origin-alignment-after-baseline -> PASS, HEAD and origin/int_main both at 6f2a9fb9fad235d651cbcdc976e5f15f3c23281d`
+- `GREEN: task-closeout-apply -> PASS, keep task.md/execution-log.md/verification-report.md; delete none; blocked none; warnings none`
+- `GREEN: task-status-completed -> PASS, task status marked completed after cleanup apply`
 
 ## Verification Evidence
 
@@ -49,3 +55,4 @@
 ## Blockers
 
 - Push paused: after cleanup preview, new non-task changes appeared in the shared `int_main` worktree. They include MES test deletions/modification and another in-progress task directory `doc/tasks/20260728-restart-local-runtime/`. These were not created by this task, so committing them without confirmation could mix concurrent task artifacts.
+- Resolved: user confirmed these current changes are in scope for commit/push.

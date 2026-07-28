@@ -1576,7 +1576,9 @@ const buildWordImportConfirmedSelection = (
   rebuildBatchRecord: boolean,
   selectedOptions: BatchRecordReportImportRouteProductOptionVO[]
 ): WordImportConfirmedSelection => {
-  const shouldConfirmRouteUpgrade = Boolean(selection.routeUpgradeRequired && selection.selectedOptions.length)
+  const shouldConfirmRouteUpgrade = Boolean(
+    selection.routeUpgradeRequired && (selection.selectedOptions.length || rebuildBatchRecord)
+  )
   return {
     importAction: selection.importAction,
     expectedSourceVersionId: selection.expectedSourceVersionId,
@@ -1603,7 +1605,9 @@ const confirmWordImportUpgradeSelections = async (
   const selectedOptions: BatchRecordReportImportRouteProductOptionVO[] = []
   const confirmedRouteUpgradeKeys = new Set<string>()
   const skippedRouteUpgradeKeys = new Set<string>()
-  const shouldConfirmRouteUpgrade = Boolean(selection.routeUpgradeRequired && selection.selectedOptions.length)
+  const shouldConfirmRouteUpgrade = Boolean(
+    selection.routeUpgradeRequired && (selection.selectedOptions.length || rebuildBatchRecord)
+  )
   if (isWordImportRouteDuplicateBlocked(wordImportDialog.preflight)) {
     message.warning(`存在多条同名工艺路线：${formatWordImportDuplicateRoutes(wordImportDialog.preflight)}，请先人工确定/清理唯一保留路线。`)
     return false

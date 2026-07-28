@@ -275,11 +275,15 @@ class MesProEdhrWorkTaskLegacyProcessTest {
                 .setBatchRecordReportId("RPT-LEGACY")
                 .setBatchRecordVersionId(BATCH_RECORD_VERSION_ID)
                 .setRuleType("FILL")
+                .setScopeKey("ALL")
                 .setSignatureCellKey("")
                 .setCandidateSourceType("USER")
                 .setCandidateSourceIds("99")
                 .setCompletionPolicy("ANY_ONE")
                 .setDueMinutes(45)
+                .setFillableScopeJson("""
+                        {"schemaVersion":2,"scopeKey":"ALL","cells":[{"sourceTableIndex":0,"rowIndex":0,"columnIndex":0}]}
+                        """.trim())
                 .setEnabled(true);
     }
 
