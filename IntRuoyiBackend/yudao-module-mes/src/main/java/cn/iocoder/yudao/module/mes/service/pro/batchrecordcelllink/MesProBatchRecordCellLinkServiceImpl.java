@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersionDO;
 import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormTemplateVersionMapper;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkCellVO;
@@ -1175,6 +1176,9 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         String uniqueKey() {
             return sourceType + ":" + reportId + ":" + cellKey;
         }
+    }
+
+    private record TemplateLayout(JSONObject schema, String sheetLayoutJson) {
     }
 
     private record Scope(String type, Long id, Long definitionId, Long versionId, String sourceFileSha256,

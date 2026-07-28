@@ -8,7 +8,7 @@
 - Execution detail snapshot: assistSwitchTaskCount=`3`
 - Filler options: total=`2`, enabledOthers=`1`, expectedNameHits=`王歆、任丹`
 - Full batch detail reload during switch: `0`
-- Selected other filler: taskId=`6957`, userId=`910181`, openedExecutionId=`1578`, openedAssistUserId=`910181`, assistRows=`0`
+- Selected other filler: taskId=`6957`, userId=`910181`, openedExecutionId=`1578`, openedAssistUserId=`910181`, assistRows=`87`
 - API errors during switch: `0`
 
 ## Notes

@@ -21,7 +21,7 @@
           "status": "TODO",
           "batchExecutionId": 900000000899,
           "batchTaskId": 6957,
-          "executionId": null,
+          "executionId": 1578,
           "workOrderCode": "881MO090889",
           "batchCode": "34126020001",
           "processName": "粗洗工序",
@@ -39,7 +39,7 @@
       "status": "TODO",
       "batchExecutionId": 900000000899,
       "batchTaskId": 6957,
-      "executionId": null,
+      "executionId": 1578,
       "workOrderCode": "881MO090889",
       "batchCode": "34126020001",
       "processName": "粗洗工序",
@@ -50,7 +50,7 @@
       "executionId": 1578,
       "assistSwitchTaskCount": 3,
       "currentBatchTaskId": "6957",
-      "currentAssistUserId": "810"
+      "currentAssistUserId": null
     }
   },
   "fillerSwitch": {
@@ -60,6 +60,7 @@
       {
         "taskId": "6957",
         "userId": "810",
+        "displayName": "王歆",
         "text": "王歆批处理表单 · 粗洗工序生产记录 · 可填写",
         "disabled": false,
         "active": true
@@ -67,6 +68,7 @@
       {
         "taskId": "6957",
         "userId": "910181",
+        "displayName": "任丹",
         "text": "任丹批处理表单 · 粗洗工序生产记录 · 可填写",
         "disabled": false,
         "active": false
@@ -83,8 +85,10 @@
       "openedExecutionId": 1578,
       "openedWorkTaskId": 2244,
       "openedAssistUserId": 910181,
-      "assistRowsReturnedByOpenTask": 0,
-      "assistRowCountAfterSwitch": 0,
+      "assistRowsReturnedByOpenTask": 87,
+      "assistRowCountAfterSwitch": 87,
+      "switchedFillerLabel": "任丹",
+      "assistEmptyText": "",
       "routeAssistUserId": "910181",
       "activeAfterSwitch": {
         "taskId": "6957",
