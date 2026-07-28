@@ -127,6 +127,11 @@ includes(
 )
 includes(
   routeFlowDesigner,
+  'pointer-events: auto;',
+  '批记录表单选项真实 DOM 必须允许指针事件，覆盖 Element Plus 选项内容的默认事件穿透。'
+)
+includes(
+  routeFlowDesigner,
   'selectedLegacyBatchRecords.value = resequenceLegacyBatchRecords(nextRecords)',
   '批记录表单选择必须写入正式 legacyBatchRecords/batchRecordReports 草稿链路。'
 )

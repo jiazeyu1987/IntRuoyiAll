@@ -1152,7 +1152,7 @@
                           :key="item.reportId"
                           :label="buildBatchRecordReportOptionLabel(item)"
                           :value="item.reportId"
-                          @click.prevent.stop
+                          @click.prevent.stop="handleSelectedBatchRecordReportOptionClick(item)"
                           @mousedown.prevent.stop
                         >
                           <span
@@ -9207,6 +9207,7 @@ defineExpose({
 .route-flow-graph-designer__batch-record-report-option {
   display: block;
   width: 100%;
+  pointer-events: auto;
 }
 
 .route-flow-graph-designer__copy-form-binding-panel {

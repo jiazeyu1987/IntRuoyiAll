@@ -1311,6 +1311,19 @@ async function waitForSelectedBatchRecordReport(reportSelect, selectedReportPatt
         optionHtml: Array.from(element.querySelectorAll('.el-select-dropdown__item'))
           .map((item) => item.outerHTML)
           .slice(0, 5),
+        optionStyles: Array.from(
+          element.querySelectorAll('.route-flow-graph-designer__batch-record-report-option')
+        )
+          .map((item) => {
+            const style = window.getComputedStyle(item)
+            return {
+              pointerEvents: style.pointerEvents,
+              display: style.display,
+              width: style.width,
+              height: style.height
+            }
+          })
+          .slice(0, 5),
         inputValues: Array.from(element.querySelectorAll('input')).map((input) => input.value),
         className: element.className,
         vueProps: element.__vueParentComponent
