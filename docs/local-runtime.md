@@ -127,8 +127,9 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 
 - Trigger: 本地后端 health 为 `UP`，但登录、租户查询或业务 API 长时间无响应；线程栈集中阻塞在 Logback `OutputStreamAppender`；或 task-closeout 无法删除仍被 Java 进程占用的 stdout/stderr 日志。
 - Preflight check: 启动长期运行的本地后端前，确认 stdout/stderr 有持续消费或重定向到不会被当前任务 cleanup 删除的稳定运行目录；运行态排查必须同时核对 `48081` PID/命令行、真实登录态业务接口和线程阻塞点，不能只看 health。
+- Config check: `application-local.yaml` 本地默认不得把自研 `cn.iocoder.yudao.module.*.dal.mysql` mapper 包设为 `debug`；后端应用日志默认必须进入 `output/runtime/<profile>/logs`，标准本地重启脚本必须显式传入 `--logging.file.name` 和匹配的 `yudao.runtime-control.storage-guard.log-dir`。
 - Blocker: health 为 `UP` 但登录态接口挂起，或待清理日志仍被有活动客户端连接的共享后端占用时，必须停止成功或清理结论；不得强杀共享进程、强删日志或在缺少完整运行环境变量时重启。
-- Verification: 记录 listener PID、Jar 路径、活动客户端归属、登录预检和目标业务接口结果；cleanup 前用独占文件打开检查日志句柄，只有进程已安全迁移或停止且文件不再锁定后才能删除。
+- Verification: 记录 listener PID、Jar 路径、活动客户端归属、登录预检和目标业务接口结果；cleanup 前用独占文件打开检查日志句柄，只有进程已安全迁移或停止且文件不再锁定后才能删除。涉及本地日志配置修改时，还必须运行 `mvn -pl yudao-server "-Dtest=LocalRuntimeLoggingConfigTest,RuntimeControlLocalConfigTest" test` 与 `python -X utf8 -m pytest script/tests/test_runtime_control_local_config.py script/tests/test_runtime_control_scripts.py -q`。
 - Forbidden action: 禁止把 health `UP` 等同于请求链路可用；禁止让长运行进程把日志写入任务 cleanup 候选目录；禁止因首次重启缺少安全配置而改配置、降级或跳过启动校验。
 - Evidence: `doc/tasks/20260727-form-template-button-alignment-design/execution-log.md`。
 

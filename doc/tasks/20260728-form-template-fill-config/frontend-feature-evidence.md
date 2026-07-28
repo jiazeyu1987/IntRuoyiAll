@@ -3,6 +3,7 @@
 ## Feature Goal
 
 新增表单中心模板预览区“填写配置”入口，复用批记录填写配置的单元格规则和辅助行配置体验，但保存到模板自身 `jimuSchemaJson`。
+弹窗默认最大化打开，并提供右上角最大化/恢复按钮。
 
 ## Non-Goals
 
@@ -40,9 +41,10 @@
 - PASS: `node tests/e2e/form-template-button-interaction-parity-static.spec.js`
 - PASS: `node tests/e2e/form-template-independent-button-actions-static.spec.js`
 - PASS: `node tests/e2e/edhr-visual-fill-config-static.spec.js`
+- PASS: `node tests/e2e/form-center-static.spec.js`
+- PASS: `pnpm exec eslint --ext .vue src/views/form-center/template/components/FormTemplateFillConfigDialog.vue`
 - PASS: `pnpm ts:check`
-- BLOCKED/UNRELATED: `node tests/e2e/form-center-static.spec.js` fails on existing route `activeMenu: '/mdm/form-center/policy'` expectation.
-- BLOCKED: Real E2E not run because local backend `127.0.0.1:48081` is not listening.
+- BLOCKED: Real E2E not run because local backend `127.0.0.1:48081/actuator/health` returns HTTP 503.
 
 ## Acceptance
 
@@ -51,12 +53,14 @@
 - 弹窗提供单元格填写规则、辅助行配置和辅助行填写人配置。
 - 保存仅写入模板自身 `jimuSchemaJson`，并保留 `sheetLayoutJson`、`cellRules`、`signatureCellMarkers`、`assistRows`、`fillAssignments` 和未知字段。
 - 非草稿模板只读查看并提示“只有草稿版本可以保存填写配置。”。
+- 弹窗默认最大化打开，右上角显示最大化/恢复按钮。
 
 ## BDD:
 
 - BDD: 模板自身填写配置 -> Given 用户选中非作废且无审批锁定模板；When 点击“填写配置”；Then 打开批记录式配置弹窗并使用模板自身 `jimuSchemaJson`。
 - BDD: 草稿保存约束 -> Given 模板状态为 `DRAFT`；When 保存填写配置；Then 通过 `saveTemplateJimuSchema` 保存合并后的模板 schema，且不调用 MES 批记录保存接口。
 - BDD: 非草稿只读约束 -> Given 模板状态不是 `DRAFT`；When 打开“填写配置”；Then 弹窗只读并禁用保存。
+- BDD: 默认最大化 -> Given 用户点击表单中心“填写配置”；When 弹窗打开；Then 弹窗默认最大化并可通过右上角按钮恢复/最大化。
 
 ## RED:
 
@@ -66,8 +70,8 @@
 
 - GREEN: `node tests/e2e/form-template-fill-config-static.spec.js` -> PASS。
 - GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `node tests/e2e/form-center-static.spec.js` -> PASS。
 
 ## Blockers
 
-- `node tests/e2e/form-center-static.spec.js` 当前失败在相邻路由 `activeMenu: '/mdm/form-center/policy'` 断言，不属于本任务新增按钮/弹窗/模板保存链路。
-- 真实 E2E 被本地后端 `127.0.0.1:48081` 未监听阻塞；前端 `127.0.0.1:8081` 可达，未使用 API-only 替代。
+- 真实 E2E 被本地后端 `127.0.0.1:48081/actuator/health` HTTP 503 阻塞；前端 `127.0.0.1:8081` 可达，未使用 API-only 替代。

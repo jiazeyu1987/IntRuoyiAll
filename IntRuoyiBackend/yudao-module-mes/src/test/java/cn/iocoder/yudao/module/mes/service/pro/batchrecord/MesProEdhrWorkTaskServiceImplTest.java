@@ -21,6 +21,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWork
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
@@ -29,6 +30,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskA
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
@@ -97,6 +99,8 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     private MesProEdhrProcessFormPermissionRuleMapper processFormPermissionRuleMapper;
     @Resource
     private MesProBatchRecordReportMapper batchRecordReportMapper;
+    @Resource
+    private MesProRouteFlowProcessBatchRecordMapper routeFlowProcessBatchRecordMapper;
     @Resource
     private MesProRouteMapper routeMapper;
 
@@ -218,7 +222,7 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void createInitialFillTask_createsAllOptionalCompanionTasksForSameProcess() {
+    void createInitialFillTask_createsAllCompanionTasksForSameProcess() {
         MesProEdhrBatchExecutionDO batch = batchForInitialFill(3060L, 4160L);
         MesProEdhrBatchExecutionTaskDO mainTask = batchTask(3060L, 9160L, 5160L,
                 "REPORT-MAIN-OPTIONAL-COMPANION", "ROUTE_FORM", "配液", 10)
@@ -234,9 +238,14 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
                 .setBatchRecordSort(3)
                 .setRequiredFlag(false)
                 .setRequiredPolicy("OPTIONAL");
+        MesProEdhrBatchExecutionTaskDO requiredExtraTask = batchTask(3060L, 9163L, 5160L,
+                "REPORT-REQUIRED-EXTRA-COMPANION", "ROUTE_FORM", "配液附加记录", 10)
+                .setBatchRecordSort(4)
+                .setRequiredPolicy("REQUIRED");
         batchTaskMapper.insert(mainTask);
         batchTaskMapper.insert(lossTask);
         batchTaskMapper.insert(inspectionTask);
+        batchTaskMapper.insert(requiredExtraTask);
         insertAssignmentRule(5160L, MesProEdhrWorkTaskService.TASK_TYPE_FILL, 120);
 
         workTaskService.createInitialFillTask(batch);
@@ -246,8 +255,123 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
                 .map(MesProEdhrWorkTaskDO::getBatchTaskId)
                 .sorted()
                 .toList();
-        assertEquals(List.of(mainTask.getId(), lossTask.getId(), inspectionTask.getId()),
+        assertEquals(List.of(mainTask.getId(), lossTask.getId(), inspectionTask.getId(), requiredExtraTask.getId()),
                 dispatchedBatchTaskIds);
+    }
+
+    @Test
+    void createInitialFillTask_backfillsMissingCompanionTasksWhenMainActiveTaskAlreadyExists() {
+        MesProEdhrBatchExecutionDO batch = batchForInitialFill(3065L, 4165L);
+        MesProEdhrBatchExecutionTaskDO mainTask = batchTask(3065L, 9165L, 5165L,
+                "REPORT-MAIN-COMPANION-BACKFILL", "ROUTE_FORM", "粗洗工序", 10)
+                .setBatchRecordSort(1)
+                .setRequiredPolicy("REQUIRED");
+        MesProEdhrBatchExecutionTaskDO lossTask = batchTask(3065L, 9166L, 5165L,
+                "REPORT-LOSS-COMPANION-BACKFILL", "ROUTE_FORM", "损耗单", 10)
+                .setBatchRecordSort(2)
+                .setRequiredFlag(false)
+                .setRequiredPolicy("OPTIONAL");
+        MesProEdhrBatchExecutionTaskDO inspectionTask = batchTask(3065L, 9167L, 5165L,
+                "REPORT-IPQC-COMPANION-BACKFILL", "ROUTE_FORM", "过程检验记录", 10)
+                .setBatchRecordSort(3)
+                .setRequiredPolicy("REQUIRED");
+        batchTaskMapper.insert(mainTask);
+        batchTaskMapper.insert(lossTask);
+        batchTaskMapper.insert(inspectionTask);
+        insertAssignmentRule(5165L, MesProEdhrWorkTaskService.TASK_TYPE_FILL, 120);
+        MesProEdhrWorkTaskDO mainFillTask = insertFillTask(8065L, mainTask.getId(), "main-companion-backfill")
+                .setBatchExecutionId(batch.getId())
+                .setRouteId(batch.getRouteId())
+                .setRouteProcessId(5165L)
+                .setProcessId(5165L)
+                .setProcessName("粗洗工序")
+                .setCandidateSourceType("USER")
+                .setCandidateSourceId(88L)
+                .setCandidateUserSnapshot("88")
+                .setAssigneeUserId(88L)
+                .setSourceUserId(810L);
+        workTaskMapper.updateById(mainFillTask);
+
+        workTaskService.createInitialFillTask(batch);
+        workTaskService.createInitialFillTask(batch);
+
+        Map<Long, Long> fillTaskCountByBatchTaskId = workTaskMapper.selectList().stream()
+                .filter(task -> MesProEdhrWorkTaskService.TASK_TYPE_FILL.equals(task.getTaskType()))
+                .collect(java.util.stream.Collectors.groupingBy(
+                        MesProEdhrWorkTaskDO::getBatchTaskId,
+                        java.util.stream.Collectors.counting()));
+        assertEquals(Set.of(mainTask.getId(), lossTask.getId(), inspectionTask.getId()),
+                fillTaskCountByBatchTaskId.keySet());
+        assertEquals(1L, fillTaskCountByBatchTaskId.get(mainTask.getId()));
+        assertEquals(1L, fillTaskCountByBatchTaskId.get(lossTask.getId()));
+        assertEquals(1L, fillTaskCountByBatchTaskId.get(inspectionTask.getId()));
+    }
+
+    @Test
+    void createInitialFillTask_usesRouteBindingCandidateForDynamicCompanionWithoutRules() {
+        MesProEdhrBatchExecutionDO batch = batchForInitialFill(3070L, 4170L);
+        MesProEdhrBatchExecutionTaskDO mainTask = batchTask(3070L, 9170L, 5170L,
+                "REPORT-MAIN-ROUTE-BINDING-COMPANION", "ROUTE_FORM", "粗洗工序", 10)
+                .setBatchRecordSort(1)
+                .setBatchRecordVersionId(78700L)
+                .setRequiredPolicy("REQUIRED");
+        MesProRouteFlowProcessBatchRecordDO lossBinding = MesProRouteFlowProcessBatchRecordDO.builder()
+                .id(807002L)
+                .routeFlowProcessConfigId(807001L)
+                .routeId(batch.getRouteId())
+                .routeProcessId(5170L)
+                .useType("BATCH")
+                .formSlotType("LOSS_REPORT")
+                .formBindingKey("FB-ROUTE-BINDING-LOSS")
+                .formTemplateId(807003L)
+                .formTemplateNameSnapshot("损耗单")
+                .lastPublishedTemplateVersionId(807004L)
+                .lastPublishedTemplateVersionNo("V1.0")
+                .recordCategory("INTERNAL_RECORD")
+                .validationProfile("INTERNAL_TRACE")
+                .recordbookEnabled(Boolean.TRUE)
+                .requiredPolicy("REQUIRED")
+                .ownerRoleKey("PRODUCTION")
+                .archiveVisibility("FINAL_DHR")
+                .slotConfigSnapshotHash("8070028070028070028070028070028070028070028070028070028070028070")
+                .candidateSourceType("USERS")
+                .candidateSourceIds("[152]")
+                .reportSort(2)
+                .build();
+        routeFlowProcessBatchRecordMapper.insert(lossBinding);
+        MesProEdhrBatchExecutionTaskDO lossTask = batchTask(3070L, 9171L, 5170L,
+                null, "ROUTE_FORM", "粗洗工序", 10)
+                .setBatchRecordSort(2)
+                .setFormSlotType("LOSS_REPORT")
+                .setFormBindingKey("FB-ROUTE-BINDING-LOSS")
+                .setFormTemplateId(807003L)
+                .setFormTemplateVersionId(807004L)
+                .setFormTemplateNameSnapshot("损耗单")
+                .setRouteBindingId(lossBinding.getId())
+                .setRouteBindingSnapshotHash("8070028070028070028070028070028070028070028070028070028070028070")
+                .setRequiredPolicy("REQUIRED");
+        batchTaskMapper.insert(mainTask);
+        batchTaskMapper.insert(lossTask);
+        insertProcessFormFillRule(5170L, "REPORT-MAIN-ROUTE-BINDING-COMPANION", 78700L,
+                "USERS", "88", 120);
+        when(adminUserApi.getUserList(List.of(88L))).thenReturn(List.of(
+                adminUser(88L, CommonStatusEnum.ENABLE.getStatus())));
+        when(adminUserApi.getUserList(List.of(152L))).thenReturn(List.of(
+                adminUser(152L, CommonStatusEnum.ENABLE.getStatus())));
+
+        workTaskService.createInitialFillTask(batch);
+
+        Map<Long, MesProEdhrWorkTaskDO> taskMap = workTaskMapper.selectList().stream()
+                .filter(task -> MesProEdhrWorkTaskService.TASK_TYPE_FILL.equals(task.getTaskType()))
+                .collect(java.util.stream.Collectors.toMap(MesProEdhrWorkTaskDO::getBatchTaskId, task -> task));
+        assertEquals(Set.of(mainTask.getId(), lossTask.getId()), taskMap.keySet());
+        MesProEdhrWorkTaskDO lossWorkTask = taskMap.get(lossTask.getId());
+        assertEquals("USERS", lossWorkTask.getCandidateSourceType());
+        assertEquals(152L, lossWorkTask.getCandidateSourceId());
+        assertEquals("152", lossWorkTask.getCandidateUserSnapshot());
+        assertEquals(152L, lossWorkTask.getAssigneeUserId());
+        assertTrue(lossWorkTask.getActionUrl().contains("batchTaskId=" + lossTask.getId()));
+        assertTrue(lossWorkTask.getActionUrl().contains("workTaskId=" + lossWorkTask.getId()));
     }
 
     @Test

@@ -1,5 +1,11 @@
 <template>
-  <Dialog v-model="dialogVisible" title="填写配置" width="calc(100vw - 32px)" :fullscreen="false">
+  <Dialog
+    v-model="dialogVisible"
+    title="填写配置"
+    width="calc(100vw - 32px)"
+    :fullscreen="true"
+    :default-fullscreen="true"
+  >
     <div v-loading="loading" class="batch-record-cell-rules-editor">
       <el-alert
         v-if="errorMessage"
@@ -27,7 +33,7 @@
           <el-radio-button label="辅助表单映射" value="assistMapping">辅助表单映射</el-radio-button>
         </el-radio-group>
         <span class="batch-record-cell-rules-editor__mode">
-          {{ activeConfigMode === 'assistMapping' ? '辅助表单映射：原表单选格，右侧控制栏配置，中间实时预览' : '原表单配置：左侧选单元格，右侧维护字段类型和辅助行' }}
+          {{ activeConfigMode === 'assistMapping' ? '辅助表单映射：先选辅助格，再点未分配原表格' : '原表单配置：左侧选单元格，右侧维护字段类型' }}
         </span>
       </section>
 
@@ -71,14 +77,16 @@
                     :key="cell.identity"
                     :rowspan="cell.rowSpan"
                     :colspan="cell.colSpan"
-                    :class="cell.classNames"
+                    :class="[cell.classNames, { 'is-assist-mapped': isSourceCellMappedToAssistGrid(cell) }]"
                   >
                     <button
                       type="button"
                       class="batch-record-cell-rules-editor__cell-button"
-                      aria-label="选择单元格规则"
+                      :aria-label="activeConfigMode === 'assistMapping' ? '映射原表单元格' : '选择单元格规则'"
                       :aria-pressed="cell.identity === selectedRuleKey"
-                      @click="selectRuleCell(cell)"
+                      :disabled="isSourceCellDisabledForAssistMapping(cell)"
+                      :title="resolveSourceCellAssistMappingTitle(cell)"
+                      @click="handleSourceCellClick(cell)"
                     >
                       <span v-if="cell.text" class="batch-record-cell-rules-editor__cell-text">
                         {{ cell.text }}
@@ -107,44 +115,53 @@
           <div class="batch-record-cell-rules-editor__panel-head">
             <div>
               <strong>辅助表单预览</strong>
-              <p>根据右侧控制栏实时生成员工最终看到的辅助填写表单。</p>
+              <p>点击黄色表格单元格后，再点击左侧未灰化的原表单元格建立映射。</p>
             </div>
             <el-tag type="warning" effect="plain">实时</el-tag>
           </div>
 
           <div class="batch-record-cell-rules-editor__assist-preview-scroll">
             <el-empty
-              v-if="assistPreviewRows.length === 0"
-              description="暂无辅助行，请在右侧控制栏新增映射"
+              v-if="!selectedAssistFillerUserId"
+              description="请在右侧添加并选择填写人"
             />
             <template v-else>
-              <article
-                v-for="previewRow in assistPreviewRows"
-                :key="previewRow.rowKey"
-                class="batch-record-cell-rules-editor__assist-preview-row"
-                :class="{ 'is-selected': previewRow.isSelected }"
-              >
-                <header class="batch-record-cell-rules-editor__assist-preview-row-head">
-                  <div>
-                    <strong>{{ previewRow.description }}</strong>
-                    <p>{{ previewRow.assignmentSummary }}</p>
-                  </div>
-                  <el-tag size="small" effect="plain">{{ previewRow.fields.length }} 个字段</el-tag>
-                </header>
-                <div class="batch-record-cell-rules-editor__assist-preview-fields">
-                  <div
-                    v-for="field in previewRow.fields"
-                    :key="field.key"
-                    class="batch-record-cell-rules-editor__assist-preview-field"
-                  >
-                    <span>{{ field.label }}</span>
-                    <small>{{ field.sourceCell }}</small>
-                    <el-tag size="small" :type="field.required ? 'warning' : 'info'" effect="plain">
-                      {{ field.valueTypeLabel }}{{ field.required ? ' · 必填' : '' }}
-                    </el-tag>
-                  </div>
-                </div>
-              </article>
+              <div class="batch-record-cell-rules-editor__assist-grid-meta">
+                <strong>{{ selectedAssistFillerUserLabel }}</strong>
+                <el-tag size="small" effect="plain">
+                  辅助表格 {{ assistGridRowCount }} × {{ assistGridColumnCount }}
+                </el-tag>
+              </div>
+              <table class="batch-record-cell-rules-editor__assist-grid">
+                <tbody>
+                  <tr v-for="gridRow in assistGridPreviewRows" :key="gridRow.rowIndex">
+                    <td v-for="gridCell in gridRow.cells" :key="gridCell.key">
+                      <button
+                        type="button"
+                        class="batch-record-cell-rules-editor__assist-grid-cell"
+                        :class="{
+                          'is-selected': selectedAssistGridCellKey === gridCell.key,
+                          'is-mapped': Boolean(gridCell.sourceCell)
+                        }"
+                        :data-assist-grid-cell="gridCell.key"
+                        @click="handleAssistGridCellClick(gridCell.key)"
+                      >
+                        <span>{{ gridCell.label }}</span>
+                        <small>{{ gridCell.sourceSummary || '未映射' }}</small>
+                        <em v-if="gridCell.valueTypeLabel">{{ gridCell.valueTypeLabel }}</em>
+                      </button>
+                      <button
+                        v-if="gridCell.sourceCell"
+                        type="button"
+                        class="batch-record-cell-rules-editor__assist-grid-unmap"
+                        @click.stop="removeAssistGridCellMapping(gridCell.key)"
+                      >
+                        取消映射
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </template>
           </div>
         </div>
@@ -159,8 +176,94 @@
             class="batch-record-cell-rules-editor__control-head"
           >
             <strong>映射控制栏</strong>
-            <p>在这里配置辅助行、字段类型、下拉/签名和填写人；中间预览会实时更新。</p>
+            <p>在这里设置辅助表格、填写人和当前原表字段类型；中间表格会实时更新。</p>
           </div>
+          <template v-if="activeConfigMode === 'assistMapping'">
+            <section class="batch-record-cell-rules-editor__assist-grid-control">
+              <div class="batch-record-cell-rules-editor__assist-grid-control-head">
+                <strong>辅助表格设置</strong>
+                <p>固定表格单元格；先点中间表格格子，再点左侧未灰化原表格。</p>
+              </div>
+              <div class="batch-record-cell-rules-editor__assist-grid-size">
+                <label>
+                  <span>行数</span>
+                  <el-input-number
+                    v-model="assistGridRowCount"
+                    :min="1"
+                    :max="20"
+                    :controls="false"
+                    @change="handleAssistGridSizeChange"
+                  />
+                </label>
+                <label>
+                  <span>列数</span>
+                  <el-input-number
+                    v-model="assistGridColumnCount"
+                    :min="1"
+                    :max="20"
+                    :controls="false"
+                    @change="handleAssistGridSizeChange"
+                  />
+                </label>
+              </div>
+            </section>
+
+            <section class="batch-record-cell-rules-editor__assist-filler-control">
+              <div class="batch-record-cell-rules-editor__assist-grid-control-head">
+                <strong>填写人</strong>
+                <p>每个填写人拥有自己的辅助表格；原表单元格全局只能分配一次。</p>
+              </div>
+              <div class="batch-record-cell-rules-editor__assist-filler-add">
+                <el-select
+                  v-model="pendingAssistFillerUserId"
+                  filterable
+                  clearable
+                  placeholder="选择员工"
+                >
+                  <el-option
+                    v-for="option in availableAssistFillerUserOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+                <el-button
+                  type="primary"
+                  plain
+                  :disabled="!pendingAssistFillerUserId"
+                  @click="addAssistFillerUser"
+                >
+                  添加
+                </el-button>
+              </div>
+              <el-empty
+                v-if="assistFillerUserIds.length === 0"
+                description="请先添加填写人"
+                :image-size="56"
+              />
+              <div v-else class="batch-record-cell-rules-editor__assist-filler-list">
+                <article
+                  v-for="userId in assistFillerUserIds"
+                  :key="userId"
+                  class="batch-record-cell-rules-editor__assist-filler-item"
+                  :class="{ 'is-selected': selectedAssistFillerUserId === userId }"
+                >
+                  <button type="button" @click="selectAssistFillerUser(userId)">
+                    <strong>{{ resolveUserLabelById(userId) }}</strong>
+                    <span>{{ assistGridMappedCountByUser(userId) }} 个映射</span>
+                  </button>
+                  <el-button
+                    size="small"
+                    link
+                    type="danger"
+                    @click="removeAssistFillerUser(userId)"
+                  >
+                    删除
+                  </el-button>
+                </article>
+              </div>
+            </section>
+          </template>
           <template v-if="selectedCell">
             <div class="batch-record-cell-rules-editor__fillable-toggle">
               <strong>是否可填写</strong>
@@ -322,132 +425,6 @@
                 />
               </el-form>
             </template>
-
-            <section class="batch-record-cell-rules-editor__assist-section">
-              <div class="batch-record-cell-rules-editor__assist-head">
-                <div>
-                  <strong>辅助行配置</strong>
-                  <p>把同一行要填写的单元格归在一起，并写清这一行给员工看的描述。</p>
-                </div>
-                <el-button
-                  size="small"
-                  type="primary"
-                  plain
-                  :disabled="!selectedCell"
-                  @click="addAssistRowFromSelectedCell"
-                >
-                  当前单元格新增行
-                </el-button>
-              </div>
-
-              <el-alert
-                v-if="selectedCellAssistRow"
-                :title="`当前单元格已在辅助行：${selectedCellAssistRow.description || selectedCellAssistRow.rowKey}`"
-                type="success"
-                :closable="false"
-                show-icon
-              />
-
-              <el-empty
-                v-if="assistRows.length === 0"
-                description="暂无辅助行，请选择单元格后新增"
-              />
-
-              <div v-else class="batch-record-cell-rules-editor__assist-list">
-                <article
-                  v-for="(assistRow, assistRowIndex) in assistRows"
-                  :key="assistRow.rowKey"
-                  class="batch-record-cell-rules-editor__assist-row"
-                  :class="{ 'is-selected': assistRow.rowKey === selectedAssistRowKey }"
-                >
-                  <button
-                    type="button"
-                    class="batch-record-cell-rules-editor__assist-select"
-                    @click="selectedAssistRowKey = assistRow.rowKey"
-                  >
-                    <span class="batch-record-cell-rules-editor__assist-select-copy">
-                      <strong>辅助行 {{ assistRowIndex + 1 }}</strong>
-                      <span>{{ assistRow.description || '未填写描述' }}</span>
-                    </span>
-                    <span>{{ assistRow.fields.length }} 个单元格</span>
-                  </button>
-                  <template v-if="assistRow.rowKey === selectedAssistRowKey">
-                    <el-input
-                      v-model="assistRow.description"
-                      maxlength="120"
-                      show-word-limit
-                      placeholder="例如：记录本工序温度、压力、操作人"
-                    />
-                    <div class="batch-record-cell-rules-editor__assist-assignment">
-                      <strong>辅助行填写人</strong>
-                      <div class="batch-record-cell-rules-editor__assist-assignment-grid">
-                        <el-select
-                          v-model="assistAssignments[assistRow.rowKey].candidateSourceType"
-                          placeholder="来源"
-                          @change="assistAssignments[assistRow.rowKey].candidateSourceIds = []"
-                        >
-                          <el-option label="个人" value="USERS" />
-                          <el-option label="角色" value="ROLE" />
-                        </el-select>
-                        <el-select
-                          v-model="assistAssignments[assistRow.rowKey].candidateSourceIds"
-                          multiple
-                          filterable
-                          collapse-tags
-                          collapse-tags-tooltip
-                          placeholder="选择员工或角色"
-                        >
-                          <el-option
-                            v-for="option in buildAssignmentTargetOptions(assistAssignments[assistRow.rowKey].candidateSourceType)"
-                            :key="`${assistAssignments[assistRow.rowKey].candidateSourceType}:${option.value}`"
-                            :label="option.label"
-                            :value="option.value"
-                          />
-                        </el-select>
-                        <el-select
-                          v-model="assistAssignments[assistRow.rowKey].completionPolicy"
-                          placeholder="完成策略"
-                        >
-                          <el-option label="任一人完成" value="ANY_ONE" />
-                          <el-option label="全部完成" value="ALL" />
-                        </el-select>
-                      </div>
-                    </div>
-                    <div class="batch-record-cell-rules-editor__assist-actions">
-                      <el-button
-                        size="small"
-                        :disabled="!selectedCell"
-                        @click="assignSelectedCellToAssistRow(assistRow.rowKey)"
-                      >
-                        加入当前单元格
-                      </el-button>
-                      <el-button
-                        size="small"
-                        :disabled="assistRowIndex === 0"
-                        @click="moveAssistRow(assistRow.rowKey, -1)"
-                      >
-                        上移
-                      </el-button>
-                      <el-button
-                        size="small"
-                        :disabled="assistRowIndex === assistRows.length - 1"
-                        @click="moveAssistRow(assistRow.rowKey, 1)"
-                      >
-                        下移
-                      </el-button>
-                      <el-button
-                        size="small"
-                        type="danger"
-                        plain
-                        @click="removeAssistRow(assistRow.rowKey)"
-                      >
-                        删除
-                      </el-button>
-                    </div>
-                  </template>
-                </article>
-              </div>
-            </section>
           </template>
 
           <el-empty v-else description="请在左侧表单中点击一个单元格" />
@@ -472,6 +449,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import { ElMessageBox } from 'element-plus'
 import {
   BatchRecordReportApi,
   type BatchRecordReportAssistRowVO,
@@ -496,7 +474,6 @@ import {
   type EdhrProcessFormCompletionPolicy,
   type EdhrProcessFormFillAssignment
 } from '@/api/mes/pro/edhr/processFormPermissionRule'
-import { getSimpleRoleList, type RoleVO } from '@/api/system/role'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
 
 defineOptions({ name: 'BatchRecordCellRulesConfirmDialog' })
@@ -550,20 +527,28 @@ type AssistAssignmentDraft = {
 
 type ConfigMode = 'source' | 'assistMapping'
 
-type AssistPreviewField = {
-  key: string
-  label: string
-  sourceCell: string
-  valueTypeLabel: string
-  required: boolean
+type AssistGridKey = {
+  userId: number
+  rowIndex: number
+  columnIndex: number
 }
 
-type AssistPreviewRow = {
+type AssistGridPreviewCell = AssistGridKey & {
+  key: string
+  label: string
+  sourceSummary: string
+  valueTypeLabel: string
+  sourceCell: RuleEditorCell | null
+}
+
+type AssistGridPreviewRow = {
+  rowIndex: number
+  cells: AssistGridPreviewCell[]
+}
+
+type SourceCellGridAssignment = AssistGridKey & {
   rowKey: string
-  description: string
-  assignmentSummary: string
-  fields: AssistPreviewField[]
-  isSelected: boolean
+  row: BatchRecordReportAssistRowVO
 }
 
 const props = defineProps<{
@@ -583,12 +568,16 @@ const errorMessage = ref('')
 const sheetLayoutError = ref('')
 const activeConfigMode = ref<ConfigMode>('source')
 const selectedRuleKey = ref('')
-const selectedAssistRowKey = ref('')
+const selectedAssistGridCellKey = ref('')
+const selectedAssistFillerUserId = ref<number>()
+const pendingAssistFillerUserId = ref<number>()
+const assistGridRowCount = ref(3)
+const assistGridColumnCount = ref(3)
+const assistFillerUserIds = ref<number[]>([])
 const ruleRows = ref<BatchRecordReportCellRuleVO[]>([])
 const assistRows = ref<BatchRecordReportAssistRowVO[]>([])
 const assistAssignments = reactive<Record<string, AssistAssignmentDraft>>({})
 const simpleUserOptions = ref<UserVO[]>([])
-const simpleRoleOptions = ref<RoleVO[]>([])
 const sheetLayout = ref<RuleEditorRawLayout | null>(null)
 const summary = reactive({
   unreviewedFillableCellCount: 0
@@ -597,6 +586,7 @@ const summary = reactive({
 const DEFAULT_COLUMN_WIDTH = 150
 const DEFAULT_ROW_HEIGHT = 34
 const ASSIST_ROW_KEY_PREFIX = 'ASSIST_ROW'
+const ASSIST_GRID_ROW_KEY_PREFIX = 'ASSIST_GRID'
 
 const dialogVisible = computed({
   get: () => props.modelValue,
@@ -894,105 +884,229 @@ const syncAssistAssignmentsWithRows = (rows = assistRows.value) => {
   rows.forEach((row) => ensureAssistAssignment(row.rowKey))
 }
 
+const parseAssistGridRowKey = (rowKey: string): AssistGridKey | null => {
+  const match = String(rowKey || '').match(/^ASSIST_GRID_U(\d+)_R(\d+)_C(\d+)$/)
+  if (!match) return null
+  const userId = Number(match[1])
+  const rowIndex = Number(match[2])
+  const columnIndex = Number(match[3])
+  if (!Number.isInteger(userId) || userId <= 0) return null
+  if (!Number.isInteger(rowIndex) || rowIndex < 0) return null
+  if (!Number.isInteger(columnIndex) || columnIndex < 0) return null
+  return { userId, rowIndex, columnIndex }
+}
+
+const buildAssistGridRowKey = ({ userId, rowIndex, columnIndex }: AssistGridKey) =>
+  `${ASSIST_GRID_ROW_KEY_PREFIX}_U${userId}_R${rowIndex}_C${columnIndex}`
+
+const parseAssistGridCellKey = (cellKey: string) => parseAssistGridRowKey(cellKey)
+
+const sortAssistFillerUserIds = (userIds: number[]) => {
+  const optionOrder = new Map(
+    simpleUserOptions.value.map((user, index) => [Number(user.id), index])
+  )
+  return Array.from(new Set(userIds.filter((id) => Number.isFinite(id) && id > 0))).sort(
+    (left, right) =>
+      (optionOrder.get(left) ?? Number.MAX_SAFE_INTEGER) -
+        (optionOrder.get(right) ?? Number.MAX_SAFE_INTEGER) ||
+      left - right
+  )
+}
+
+const calculateAssistGridSort = ({ userId, rowIndex, columnIndex }: AssistGridKey) => {
+  const userIndex = assistFillerUserIds.value.indexOf(userId)
+  const normalizedUserIndex = userIndex >= 0 ? userIndex : assistFillerUserIds.value.length
+  return normalizedUserIndex * 10000 + rowIndex * 100 + columnIndex + 1
+}
+
+const normalizeAssistGridSizeValue = (value: unknown) => {
+  const numericValue = Number(value)
+  return Number.isInteger(numericValue) && numericValue > 0 ? numericValue : 1
+}
+
+const orderAssistGridRows = (rows: BatchRecordReportAssistRowVO[]) =>
+  [...rows]
+    .map((row) => {
+      const parsed = parseAssistGridRowKey(row.rowKey)
+      return {
+        ...row,
+        sort: parsed ? calculateAssistGridSort(parsed) : row.sort
+      }
+    })
+    .sort((left, right) => left.sort - right.sort)
+    .map((row, index) => ({ ...row, sort: index + 1 }))
+
+const ensureSelectedAssistFillerStillExists = () => {
+  if (
+    selectedAssistFillerUserId.value &&
+    assistFillerUserIds.value.includes(selectedAssistFillerUserId.value)
+  ) {
+    return
+  }
+  selectedAssistFillerUserId.value = assistFillerUserIds.value[0]
+}
+
+const ensureSelectedAssistGridCellStillExists = () => {
+  const current = selectedAssistGridCellKey.value
+  const parsed = current ? parseAssistGridCellKey(current) : null
+  if (
+    parsed &&
+    selectedAssistFillerUserId.value === parsed.userId &&
+    parsed.rowIndex < assistGridRowCount.value &&
+    parsed.columnIndex < assistGridColumnCount.value &&
+    assistFillerUserIds.value.includes(parsed.userId)
+  ) {
+    return
+  }
+  selectedAssistGridCellKey.value = selectedAssistFillerUserId.value
+    ? buildAssistGridRowKey({
+        userId: selectedAssistFillerUserId.value,
+        rowIndex: 0,
+        columnIndex: 0
+      })
+    : ''
+}
+
+const syncAssistGridStateWithRows = (rows = assistRows.value) => {
+  const userIds = new Set(assistFillerUserIds.value)
+  let nextRowCount = normalizeAssistGridSizeValue(assistGridRowCount.value)
+  let nextColumnCount = normalizeAssistGridSizeValue(assistGridColumnCount.value)
+  rows.forEach((row) => {
+    const parsed = parseAssistGridRowKey(row.rowKey)
+    if (!parsed) return
+    userIds.add(parsed.userId)
+    nextRowCount = Math.max(nextRowCount, parsed.rowIndex + 1)
+    nextColumnCount = Math.max(nextColumnCount, parsed.columnIndex + 1)
+  })
+  assistFillerUserIds.value = sortAssistFillerUserIds(Array.from(userIds))
+  assistGridRowCount.value = nextRowCount
+  assistGridColumnCount.value = nextColumnCount
+  ensureSelectedAssistFillerStillExists()
+  ensureSelectedAssistGridCellStillExists()
+}
+
 const applyAssistAssignments = (assignments: EdhrProcessFormFillAssignment[] = []) => {
   assignments.forEach((assignment) => {
     const rowKey = String(assignment.scopeKey || '').trim()
     if (!rowKey) return
+    const parsed = parseAssistGridRowKey(rowKey)
+    const candidateSourceIds = parsed
+      ? [parsed.userId]
+      : normalizeAssignmentIds(assignment.candidateSourceIds)
     assistAssignments[rowKey] = {
-      candidateSourceType: normalizeAssignmentSourceType(assignment.candidateSourceType),
-      candidateSourceIds: normalizeAssignmentIds(assignment.candidateSourceIds),
+      candidateSourceType: parsed
+        ? 'USERS'
+        : normalizeAssignmentSourceType(assignment.candidateSourceType),
+      candidateSourceIds,
       completionPolicy: normalizeAssignmentPolicy(assignment.completionPolicy)
     }
   })
   syncAssistAssignmentsWithRows()
+  syncAssistGridStateWithRows()
 }
 
-const buildAssignmentTargetOptions = (sourceType: EdhrProcessFormCandidateSourceType) => {
-  if (normalizeAssignmentSourceType(sourceType) === 'ROLE') {
-    return simpleRoleOptions.value.map((role) => ({
-      label: role.name || role.code || String(role.id),
-      value: Number(role.id)
-    }))
-  }
-  return simpleUserOptions.value.map((user) => ({
+const assistUserOptions = computed(() =>
+  simpleUserOptions.value.map((user) => ({
     label: user.nickname || user.username || String(user.id),
     value: Number(user.id)
   }))
-}
-
-const selectedCellAssistRow = computed(() => {
-  const cell = selectedCell.value
-  if (!cell) return null
-  return (
-    assistRows.value.find((row) =>
-      row.fields.some(
-        (field) => field.rowIndex === cell.rowIndex && field.columnIndex === cell.columnIndex
-      )
-    ) || null
-  )
-})
-
-const selectedAssistRow = computed(() =>
-  assistRows.value.find((row) => row.rowKey === selectedAssistRowKey.value)
 )
 
-const resolveAssistAssignmentSummary = (rowKey: string) => {
-  const assignment = assistAssignments[rowKey]
-  if (!assignment) return '未配置填写人'
-  const candidateIds = normalizeAssignmentIds(assignment.candidateSourceIds)
-  if (!candidateIds.length) return '未配置填写人'
-  const targetOptions = buildAssignmentTargetOptions(assignment.candidateSourceType)
-  const labels = candidateIds
-    .map((id) => targetOptions.find((option) => option.value === id)?.label)
-    .filter((label): label is string => Boolean(label))
-  const sourceLabel = normalizeAssignmentSourceType(assignment.candidateSourceType) === 'ROLE'
-    ? '角色'
-    : '个人'
-  const policyLabel = normalizeAssignmentPolicy(assignment.completionPolicy) === 'ALL'
-    ? '全部完成'
-    : '任一人完成'
-  return `${sourceLabel}：${labels.join('、') || '未配置'} · ${policyLabel}`
-}
+const availableAssistFillerUserOptions = computed(() =>
+  assistUserOptions.value.filter((option) => !assistFillerUserIds.value.includes(option.value))
+)
 
-const resolveAssistFieldPreviewItems = (
-  row: BatchRecordReportAssistRowVO
-): AssistPreviewField[] =>
-  row.fields.map((field) => {
-    const key = cellIdentity(field.rowIndex, field.columnIndex)
-    const cell = findRenderedCellByIdentity(key)
-    const rule = ruleMap.value.get(key)
-    const sourceText = cell?.text?.trim()
-    return {
-      key,
-      label: String(rule?.label || sourceText || `第 ${field.rowIndex + 1} 行第 ${field.columnIndex + 1} 列`),
-      sourceCell: sourceText
-        ? `原表单：${sourceText}`
-        : `原表单：第 ${field.rowIndex + 1} 行第 ${field.columnIndex + 1} 列`,
-      valueTypeLabel: valueTypeLabelMap[rule?.valueType || 'STRING'] || rule?.valueType || '文本',
-      required: Boolean(rule?.required)
+const resolveUserLabelById = (userId: number) =>
+  assistUserOptions.value.find((option) => option.value === userId)?.label || `用户 ${userId}`
+
+const selectedAssistFillerUserLabel = computed(() =>
+  selectedAssistFillerUserId.value
+    ? resolveUserLabelById(selectedAssistFillerUserId.value)
+    : '未选择填写人'
+)
+
+const assistGridRowMap = computed(() => {
+  const map = new Map<string, BatchRecordReportAssistRowVO>()
+  assistRows.value.forEach((row) => {
+    if (parseAssistGridRowKey(row.rowKey)) {
+      map.set(row.rowKey, row)
     }
   })
+  return map
+})
 
-const assistPreviewRows = computed<AssistPreviewRow[]>(() =>
-  [...assistRows.value]
-    .sort((left, right) => left.sort - right.sort)
-    .map((row) => ({
-      rowKey: row.rowKey,
-      description: row.description || '未填写描述',
-      assignmentSummary: resolveAssistAssignmentSummary(row.rowKey),
-      fields: resolveAssistFieldPreviewItems(row),
-      isSelected: row.rowKey === selectedAssistRowKey.value
-    }))
-)
+const sourceCellGridAssignmentMap = computed(() => {
+  const map = new Map<string, SourceCellGridAssignment>()
+  assistRows.value.forEach((row) => {
+    const parsed = parseAssistGridRowKey(row.rowKey)
+    const field = row.fields[0]
+    if (!parsed || !field) return
+    const key = cellIdentity(field.rowIndex, field.columnIndex)
+    if (!map.has(key)) {
+      map.set(key, { ...parsed, rowKey: row.rowKey, row })
+    }
+  })
+  return map
+})
+
+const isSourceCellMappedToAssistGrid = (cell: RuleEditorCell) =>
+  sourceCellGridAssignmentMap.value.has(cell.identity)
+
+const isSourceCellDisabledForAssistMapping = (cell: RuleEditorCell) =>
+  activeConfigMode.value === 'assistMapping' && sourceCellGridAssignmentMap.value.has(cell.identity)
+
+const resolveSourceCellAssistMappingTitle = (cell: RuleEditorCell) => {
+  const assignment = sourceCellGridAssignmentMap.value.get(cell.identity)
+  if (activeConfigMode.value !== 'assistMapping') return '选择单元格规则'
+  if (assignment) {
+    return `已分配给 ${resolveUserLabelById(assignment.userId)}，请先在辅助表格取消映射`
+  }
+  if (!selectedAssistGridCellKey.value) return '请先点击黄色辅助表格单元格'
+  return '点击后映射到当前辅助表格单元格'
+}
+
+const resolveAssistGridPreviewCell = (
+  userId: number,
+  rowIndex: number,
+  columnIndex: number
+): AssistGridPreviewCell => {
+  const key = buildAssistGridRowKey({ userId, rowIndex, columnIndex })
+  const assistRow = assistGridRowMap.value.get(key)
+  const field = assistRow?.fields[0]
+  const sourceCell = field ? findRenderedCellByIdentity(cellIdentity(field.rowIndex, field.columnIndex)) : null
+  const rule = field ? ruleMap.value.get(cellIdentity(field.rowIndex, field.columnIndex)) : undefined
+  const sourceText = String(sourceCell?.text || '').trim()
+  const label = String(rule?.label || sourceText || '点击选择原表格').trim()
+  return {
+    key,
+    userId,
+    rowIndex,
+    columnIndex,
+    label,
+    sourceSummary: sourceCell ? `原表单：${sourceText || label}` : '',
+    valueTypeLabel: sourceCell
+      ? valueTypeLabelMap[rule?.valueType || 'STRING'] || rule?.valueType || '文本'
+      : '',
+    sourceCell
+  }
+}
+
+const assistGridPreviewRows = computed<AssistGridPreviewRow[]>(() => {
+  const userId = selectedAssistFillerUserId.value
+  if (!userId) return []
+  const rowCount = normalizeAssistGridSizeValue(assistGridRowCount.value)
+  const columnCount = normalizeAssistGridSizeValue(assistGridColumnCount.value)
+  return Array.from({ length: rowCount }, (_, rowIndex) => ({
+    rowIndex,
+    cells: Array.from({ length: columnCount }, (_, columnIndex) =>
+      resolveAssistGridPreviewCell(userId, rowIndex, columnIndex)
+    )
+  }))
+})
 
 const ensureSelectedRuleStillExists = () => {
   if (selectedRuleKey.value && selectedCell.value) return
   selectedRuleKey.value = ruleRows.value.length ? ruleIdentity(ruleRows.value[0]) : ''
-}
-
-const ensureSelectedAssistRowStillExists = () => {
-  if (selectedAssistRowKey.value && selectedAssistRow.value) return
-  selectedAssistRowKey.value = assistRows.value[0]?.rowKey || ''
 }
 
 const applyCellRulesResponse = (data: BatchRecordReportCellRulesRespVO) => {
@@ -1014,7 +1128,7 @@ const applyCellRulesResponse = (data: BatchRecordReportCellRulesRespVO) => {
     sheetLayoutError.value = resolveErrorMessage(error, '表单布局解析失败，无法进入可视化规则编辑。')
   }
   ensureSelectedRuleStillExists()
-  ensureSelectedAssistRowStillExists()
+  syncAssistGridStateWithRows()
 }
 
 const buildManualRuleFromCell = (cell: RuleEditorCell): BatchRecordReportCellRuleVO =>
@@ -1047,102 +1161,152 @@ const disableSelectedCellRule = () => {
   const key = selectedRuleKey.value
   if (!key || !ruleMap.value.has(key)) return
   ruleRows.value = ruleRows.value.filter((rule) => ruleIdentity(rule) !== key)
-  assistRows.value = assistRows.value.map((row) => ({
-    ...row,
-    fields: row.fields.filter((field) => cellIdentity(field.rowIndex, field.columnIndex) !== key)
-  }))
+  assistRows.value = orderAssistGridRows(
+    assistRows.value.filter((row) =>
+      row.fields.every((field) => cellIdentity(field.rowIndex, field.columnIndex) !== key)
+    )
+  )
+  syncAssistAssignmentsWithRows()
   selectedRuleKey.value = key
 }
 
-const removeSelectedCellFromAssistRows = () => {
-  const cell = selectedCell.value
-  if (!cell) return
-  const key = cellIdentity(cell.rowIndex, cell.columnIndex)
-  assistRows.value = assistRows.value.map((row) => ({
-    ...row,
-    fields: row.fields.filter((field) => cellIdentity(field.rowIndex, field.columnIndex) !== key)
-  }))
+const selectAssistFillerUser = (userId: number) => {
+  if (!assistFillerUserIds.value.includes(userId)) return
+  selectedAssistFillerUserId.value = userId
+  ensureSelectedAssistGridCellStillExists()
 }
 
-const buildAssistRowDescriptionFromSelectedCell = () => {
-  const cell = selectedCell.value
-  const rule = selectedRule.value
-  if (!cell) return ''
-  return (
-    String(rule?.helpText || rule?.label || cell.text || '').trim() ||
-    `第 ${cell.rowIndex + 1} 行填写项`
+const addAssistFillerUser = () => {
+  const userId = Number(pendingAssistFillerUserId.value)
+  if (!Number.isFinite(userId) || userId <= 0) return
+  if (!assistUserOptions.value.some((option) => option.value === userId)) {
+    message.warning('请选择有效填写人。')
+    return
+  }
+  if (!assistFillerUserIds.value.includes(userId)) {
+    assistFillerUserIds.value = sortAssistFillerUserIds([...assistFillerUserIds.value, userId])
+  }
+  pendingAssistFillerUserId.value = undefined
+  selectedAssistFillerUserId.value = userId
+  ensureSelectedAssistGridCellStillExists()
+}
+
+const assistGridMappedCountByUser = (userId: number) =>
+  assistRows.value.filter((row) => parseAssistGridRowKey(row.rowKey)?.userId === userId).length
+
+const removeAssistFillerUser = async (userId: number) => {
+  const mappedCount = assistGridMappedCountByUser(userId)
+  if (mappedCount > 0) {
+    try {
+      await ElMessageBox.confirm(
+        `删除 ${resolveUserLabelById(userId)} 会同时移除该填写人的 ${mappedCount} 个映射，是否继续？`,
+        '删除填写人',
+        {
+          confirmButtonText: '删除',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+      )
+    } catch (error) {
+      if (error === 'cancel' || error === 'close') return
+      throw error
+    }
+  }
+  assistFillerUserIds.value = assistFillerUserIds.value.filter((item) => item !== userId)
+  assistRows.value = orderAssistGridRows(
+    assistRows.value.filter((row) => parseAssistGridRowKey(row.rowKey)?.userId !== userId)
   )
-}
-
-const addAssistRowFromSelectedCell = () => {
-  const cell = selectedCell.value
-  if (!cell) {
-    throw new Error('请先选择一个单元格，再新增辅助行。')
-  }
-  if (!selectedRule.value) {
-    enableSelectedCellRule()
-  }
-  const rowKey = `${ASSIST_ROW_KEY_PREFIX}_${Date.now()}_${cell.rowIndex}_${cell.columnIndex}`
-  removeSelectedCellFromAssistRows()
-  assistRows.value = [
-    ...assistRows.value,
-    {
-      rowKey,
-      description: buildAssistRowDescriptionFromSelectedCell(),
-      sort: assistRows.value.length + 1,
-      fields: [{ rowIndex: cell.rowIndex, columnIndex: cell.columnIndex }]
-    }
-  ]
-  ensureAssistAssignment(rowKey)
-  selectedAssistRowKey.value = rowKey
-}
-
-const assignSelectedCellToAssistRow = (rowKey = selectedAssistRowKey.value) => {
-  const cell = selectedCell.value
-  const targetRow = assistRows.value.find((row) => row.rowKey === rowKey)
-  if (!cell || !targetRow) {
-    throw new Error('请先选择单元格和辅助行，再分配归属。')
-  }
-  if (!selectedRule.value) {
-    enableSelectedCellRule()
-  }
-  const key = cellIdentity(cell.rowIndex, cell.columnIndex)
-  assistRows.value = assistRows.value.map((row) => {
-    const fieldsWithoutSelectedCell = row.fields.filter(
-      (field) => cellIdentity(field.rowIndex, field.columnIndex) !== key
-    )
-    if (row.rowKey !== rowKey) {
-      return { ...row, fields: fieldsWithoutSelectedCell }
-    }
-    return {
-      ...row,
-      fields: normalizeAssistRowFields([
-        ...fieldsWithoutSelectedCell,
-        { rowIndex: cell.rowIndex, columnIndex: cell.columnIndex }
-      ])
+  Object.keys(assistAssignments).forEach((rowKey) => {
+    if (parseAssistGridRowKey(rowKey)?.userId === userId) {
+      delete assistAssignments[rowKey]
     }
   })
-  selectedAssistRowKey.value = rowKey
+  if (pendingAssistFillerUserId.value === userId) {
+    pendingAssistFillerUserId.value = undefined
+  }
+  ensureSelectedAssistFillerStillExists()
+  ensureSelectedAssistGridCellStillExists()
 }
 
-const moveAssistRow = (rowKey: string, direction: -1 | 1) => {
-  const currentIndex = assistRows.value.findIndex((row) => row.rowKey === rowKey)
-  const nextIndex = currentIndex + direction
-  if (currentIndex < 0 || nextIndex < 0 || nextIndex >= assistRows.value.length) return
-  const nextRows = [...assistRows.value]
-  const currentRow = nextRows[currentIndex]
-  nextRows[currentIndex] = nextRows[nextIndex]
-  nextRows[nextIndex] = currentRow
-  assistRows.value = nextRows.map((row, index) => ({ ...row, sort: index + 1 }))
-  selectedAssistRowKey.value = rowKey
+const handleAssistGridSizeChange = () => {
+  assistGridRowCount.value = normalizeAssistGridSizeValue(assistGridRowCount.value)
+  assistGridColumnCount.value = normalizeAssistGridSizeValue(assistGridColumnCount.value)
+  const mappedGridKeys = assistRows.value
+    .map((row) => parseAssistGridRowKey(row.rowKey))
+    .filter((key): key is AssistGridKey => Boolean(key))
+  const minRows = Math.max(1, ...mappedGridKeys.map((key) => key.rowIndex + 1))
+  const minColumns = Math.max(1, ...mappedGridKeys.map((key) => key.columnIndex + 1))
+  if (assistGridRowCount.value < minRows) {
+    assistGridRowCount.value = minRows
+    message.warning('已有映射位于更靠后的行，需先取消映射后才能缩小行数。')
+  }
+  if (assistGridColumnCount.value < minColumns) {
+    assistGridColumnCount.value = minColumns
+    message.warning('已有映射位于更靠后的列，需先取消映射后才能缩小列数。')
+  }
+  ensureSelectedAssistGridCellStillExists()
 }
 
-const removeAssistRow = (rowKey: string) => {
-  assistRows.value = assistRows.value
-    .filter((row) => row.rowKey !== rowKey)
-    .map((row, index) => ({ ...row, sort: index + 1 }))
+const handleAssistGridCellClick = (cellKey: string) => {
+  const parsed = parseAssistGridCellKey(cellKey)
+  if (!parsed || !assistFillerUserIds.value.includes(parsed.userId)) return
+  selectedAssistFillerUserId.value = parsed.userId
+  selectedAssistGridCellKey.value = cellKey
+}
+
+const removeAssistGridCellMapping = (cellKey = selectedAssistGridCellKey.value) => {
+  if (!cellKey) return
+  assistRows.value = orderAssistGridRows(assistRows.value.filter((row) => row.rowKey !== cellKey))
+  delete assistAssignments[cellKey]
   syncAssistAssignmentsWithRows()
-  ensureSelectedAssistRowStillExists()
+}
+
+const buildAssistGridCellDescription = (cell: RuleEditorCell) => {
+  const rule = ruleMap.value.get(cell.identity)
+  return String(rule?.helpText || rule?.label || cell.text || '辅助填写项').trim()
+}
+
+const mapSourceCellToSelectedAssistGridCell = (cell: RuleEditorCell) => {
+  if (activeConfigMode.value !== 'assistMapping') return false
+  if (!selectedAssistFillerUserId.value || !assistFillerUserIds.value.includes(selectedAssistFillerUserId.value)) {
+    message.warning('请先在右侧添加并选择填写人。')
+    return true
+  }
+  const parsed = parseAssistGridCellKey(selectedAssistGridCellKey.value)
+  if (!parsed || parsed.userId !== selectedAssistFillerUserId.value) {
+    message.warning('请先点击黄色辅助表格中的一个单元格。')
+    return true
+  }
+  if (sourceCellGridAssignmentMap.value.has(cell.identity)) {
+    message.warning('该原表单元格已分配，请先在辅助表格取消映射后再重新分配。')
+    return true
+  }
+  selectedRuleKey.value = cell.identity
+  if (!selectedRule.value) {
+    enableSelectedCellRule()
+  }
+  const rowKey = buildAssistGridRowKey(parsed)
+  const nextRow: BatchRecordReportAssistRowVO = {
+    rowKey,
+    description: buildAssistGridCellDescription(cell),
+    sort: calculateAssistGridSort(parsed),
+    fields: [{ rowIndex: cell.rowIndex, columnIndex: cell.columnIndex }]
+  }
+  assistRows.value = orderAssistGridRows([
+    ...assistRows.value.filter((row) => row.rowKey !== rowKey),
+    nextRow
+  ])
+  assistAssignments[rowKey] = {
+    candidateSourceType: 'USERS',
+    candidateSourceIds: [parsed.userId],
+    completionPolicy: 'ANY_ONE'
+  }
+  return true
+}
+
+const handleSourceCellClick = (cell: RuleEditorCell) => {
+  if (mapSourceCellToSelectedAssistGridCell(cell)) return
+  selectRuleCell(cell)
 }
 
 const isSelectedCellFillable = computed({
@@ -1265,45 +1429,60 @@ const removeSelectedStringOption = (optionIndex: number) => {
 
 const normalizedAssistRowsForSave = () => {
   if (ruleRows.value.length === 0) return []
-  const rows = normalizeAssistRows(assistRows.value)
+  if (assistFillerUserIds.value.length === 0) {
+    throw new Error('请先添加至少一个辅助表格填写人。')
+  }
+  const rows = orderAssistGridRows(normalizeAssistRows(assistRows.value))
   if (rows.length === 0) {
-    throw new Error('At least one assist row is required for fillable cells.')
+    throw new Error('请先在辅助表格中完成原表单元格映射。')
   }
   const assignedCellKeys = new Set<string>()
   rows.forEach((row, rowIndex) => {
-    if (!row.description.trim()) {
-      throw new Error(`Assist row ${rowIndex + 1} requires a description.`)
+    const parsed = parseAssistGridRowKey(row.rowKey)
+    if (!parsed) {
+      throw new Error('存在旧版辅助映射，请切换到辅助表格后重新映射。')
     }
-    if (row.fields.length === 0) {
-      throw new Error(`Assist row ${rowIndex + 1} requires at least one cell.`)
+    if (!assistFillerUserIds.value.includes(parsed.userId)) {
+      throw new Error(`辅助表格 ${rowIndex + 1} 的填写人已被删除，请重新选择填写人。`)
+    }
+    if (parsed.rowIndex >= assistGridRowCount.value || parsed.columnIndex >= assistGridColumnCount.value) {
+      throw new Error(`辅助表格 ${rowIndex + 1} 超出当前表格范围，请先取消该映射。`)
+    }
+    if (!row.description.trim()) {
+      throw new Error(`辅助表格 ${rowIndex + 1} 缺少描述。`)
+    }
+    if (row.fields.length !== 1) {
+      throw new Error(`辅助表格 ${rowIndex + 1} 必须且只能映射一个原表单元格。`)
     }
     row.fields.forEach((field) => {
       const key = cellIdentity(field.rowIndex, field.columnIndex)
       if (assignedCellKeys.has(key)) {
-        throw new Error(`Cell R${field.rowIndex + 1}C${field.columnIndex + 1} cannot belong to multiple assist rows.`)
+        throw new Error(`原表单元格 R${field.rowIndex + 1}C${field.columnIndex + 1} 不能分配给多个填写人。`)
       }
       assignedCellKeys.add(key)
     })
   })
   const uncoveredRule = ruleRows.value.find((rule) => !assignedCellKeys.has(ruleIdentity(rule)))
   if (uncoveredRule) {
-    throw new Error(`Cell R${uncoveredRule.rowIndex + 1}C${uncoveredRule.columnIndex + 1} is not assigned to an assist row.`)
+    throw new Error(`原表单元格 R${uncoveredRule.rowIndex + 1}C${uncoveredRule.columnIndex + 1} 尚未分配给填写人。`)
   }
   return rows
 }
 
-const normalizedAssistAssignmentsForSave = (rows: BatchRecordReportAssistRowVO[]) => {
-  return rows.map((row, rowIndex) => {
-    const assignment = ensureAssistAssignment(row.rowKey)
-    const candidateSourceIds = normalizeAssignmentIds(assignment.candidateSourceIds)
-    if (candidateSourceIds.length === 0) {
-      throw new Error(`辅助行 ${rowIndex + 1} 缺少填写人或角色。`)
+const normalizedAssistAssignmentsForSave = (
+  rows: BatchRecordReportAssistRowVO[]
+): EdhrProcessFormFillAssignment[] => {
+  return rows.map((row) => {
+    const parsed = parseAssistGridRowKey(row.rowKey)
+    if (!parsed) {
+      throw new Error('存在无法保存的辅助表格映射。')
     }
+    const userId = parsed.userId
     return {
       scopeKey: row.rowKey,
-      candidateSourceType: normalizeAssignmentSourceType(assignment.candidateSourceType),
-      candidateSourceIds,
-      completionPolicy: normalizeAssignmentPolicy(assignment.completionPolicy),
+      candidateSourceType: 'USERS' as const,
+      candidateSourceIds: [userId],
+      completionPolicy: 'ANY_ONE' as const,
       enabled: true,
       remark: row.description
     }
@@ -1330,14 +1509,12 @@ const loadCellRules = async () => {
   loading.value = true
   errorMessage.value = ''
   try {
-    const [data, permission, users, roles] = await Promise.all([
+    const [data, permission, users] = await Promise.all([
       BatchRecordReportApi.getCellRules(reportId.value),
       EdhrProcessFormPermissionRuleApi.getByReport(reportId.value),
-      getSimpleUserList(),
-      getSimpleRoleList()
+      getSimpleUserList()
     ])
     simpleUserOptions.value = users
-    simpleRoleOptions.value = roles
     applyCellRulesResponse(data)
     applyAssistAssignments(permission.fillAssignments || [])
   } catch (error) {
@@ -1552,75 +1729,96 @@ watch(
   padding: 12px;
 }
 
-.batch-record-cell-rules-editor__assist-preview-row {
+.batch-record-cell-rules-editor__assist-grid-meta {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  padding: 12px;
-  border: 1px solid #edd07b;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 8px 22px rgba(121, 91, 5, 0.08);
+  color: #5a3d05;
 }
 
-.batch-record-cell-rules-editor__assist-preview-row.is-selected {
+.batch-record-cell-rules-editor__assist-grid {
+  min-width: 420px;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 8px;
+  table-layout: fixed;
+}
+
+.batch-record-cell-rules-editor__assist-grid td {
+  position: relative;
+  padding: 0;
+  vertical-align: stretch;
+}
+
+.batch-record-cell-rules-editor__assist-grid-cell {
+  display: flex;
+  width: 100%;
+  min-height: 96px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #edd07b;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #5a3d05;
+  cursor: pointer;
+  font: inherit;
+  padding: 12px;
+  text-align: left;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.batch-record-cell-rules-editor__assist-grid-cell:hover,
+.batch-record-cell-rules-editor__assist-grid-cell.is-selected {
   border-color: #d29b13;
+  background: #fffdf4;
   box-shadow: 0 0 0 2px rgba(210, 155, 19, 0.18);
 }
 
-.batch-record-cell-rules-editor__assist-preview-row-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+.batch-record-cell-rules-editor__assist-grid-cell.is-mapped {
+  border-color: #d9a821;
+  background: #fff;
 }
 
-.batch-record-cell-rules-editor__assist-preview-row-head strong {
-  display: block;
-  color: #5a3d05;
-  font-size: 14px;
-}
-
-.batch-record-cell-rules-editor__assist-preview-row-head p {
-  margin: 4px 0 0;
-  color: #846318;
-  font-size: 12px;
-}
-
-.batch-record-cell-rules-editor__assist-preview-fields {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
-}
-
-.batch-record-cell-rules-editor__assist-preview-field {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px 8px;
-  align-items: center;
-  padding: 8px 10px;
-  border: 1px solid #f0dda1;
-  border-radius: 8px;
-  background: #fffdf4;
-}
-
-.batch-record-cell-rules-editor__assist-preview-field span {
+.batch-record-cell-rules-editor__assist-grid-cell span {
   min-width: 0;
   overflow: hidden;
   color: #172033;
   font-weight: 600;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
-.batch-record-cell-rules-editor__assist-preview-field small {
+.batch-record-cell-rules-editor__assist-grid-cell small {
   min-width: 0;
   overflow: hidden;
   color: #8a6a1c;
   font-size: 12px;
-  grid-column: 1 / -1;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.batch-record-cell-rules-editor__assist-grid-cell em {
+  align-self: flex-start;
+  border-radius: 999px;
+  background: #fff4c2;
+  color: #785a0b;
+  font-size: 11px;
+  font-style: normal;
+  padding: 2px 8px;
+}
+
+.batch-record-cell-rules-editor__assist-grid-unmap {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  border: 0;
+  background: transparent;
+  color: #c2410c;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
 }
 
 .batch-record-cell-rules-editor__cell {
@@ -1652,6 +1850,11 @@ watch(
   outline-offset: -2px;
 }
 
+.batch-record-cell-rules-editor__cell.is-assist-mapped {
+  background: #e5e7eb;
+  color: #7a8291;
+}
+
 .batch-record-cell-rules-editor__cell-button {
   display: flex;
   width: 100%;
@@ -1670,6 +1873,15 @@ watch(
 
 .batch-record-cell-rules-editor__cell-button:hover {
   background: rgba(37, 99, 235, 0.08);
+}
+
+.batch-record-cell-rules-editor__cell-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.batch-record-cell-rules-editor__cell-button:disabled:hover {
+  background: transparent;
 }
 
 .batch-record-cell-rules-editor__cell-text {
@@ -1719,6 +1931,89 @@ watch(
 
 .batch-record-cell-rules-editor__form {
   flex: 0 0 auto;
+}
+
+.batch-record-cell-rules-editor__assist-grid-control,
+.batch-record-cell-rules-editor__assist-filler-control {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #b9d7ff;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.batch-record-cell-rules-editor__assist-grid-control-head strong {
+  color: #123b72;
+  font-size: 13px;
+}
+
+.batch-record-cell-rules-editor__assist-grid-control-head p {
+  margin: 4px 0 0;
+  color: #31547c;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.batch-record-cell-rules-editor__assist-grid-size,
+.batch-record-cell-rules-editor__assist-filler-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.batch-record-cell-rules-editor__assist-grid-size label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #31547c;
+  font-size: 12px;
+}
+
+.batch-record-cell-rules-editor__assist-filler-add {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.batch-record-cell-rules-editor__assist-filler-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.batch-record-cell-rules-editor__assist-filler-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid #cfe0f6;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.batch-record-cell-rules-editor__assist-filler-item.is-selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.batch-record-cell-rules-editor__assist-filler-item > button {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  color: #172033;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+}
+
+.batch-record-cell-rules-editor__assist-filler-item span {
+  color: #667085;
+  font-size: 12px;
 }
 
 .batch-record-cell-rules-editor__range-grid {

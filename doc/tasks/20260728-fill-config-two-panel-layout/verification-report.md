@@ -25,6 +25,8 @@ Targeted verification passed for the `FormTemplateFillConfigDialog.vue` two-pane
 
 ## Remaining Closeout
 
-- Cleanup apply passed and deleted only the empty task-local `frontend-feature-evidence.md`.
+- Cleanup preview/apply passed and deleted nothing; task evidence kept `task.md`, `execution-log.md`, `verification-report.md`, `bug-regression-evidence.md`, and `frontend-feature-evidence.md`.
 - Implementation commit `ec63b062` contains only the component and static contract changes.
-- Final task records are prepared for a separate closeout commit; unrelated concurrent dirty changes remain outside this task scope.
+- Frontend feature evidence validator -> PASS.
+- Bug regression evidence validator -> PASS.
+- Final task records are prepared but not committed or pushed because the shared `int_main` workspace contains many unrelated concurrent dirty changes and the branch is already `ahead 1`.

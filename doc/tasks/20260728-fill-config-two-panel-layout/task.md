@@ -11,7 +11,8 @@
 - [x] RED：记录 Vite HMR overlay 复现的 Vue 模板结束标签错误，并补充 SFC 编译静态合同。
 - [x] GREEN：调整弹窗模板与样式，让表格占左侧黄框主区域，所有字段、辅助行、填写人和操作按钮进入右侧蓝框侧栏，并规范 `main`/`aside` 闭合层级。
 - [x] REGRESSION：运行目标静态合同、相邻静态合同、Vite 同源 Vue 模板编译、组件 lint、类型检查。
-- [x] CLOSEOUT：cleanup preview/apply 已完成；实现提交 `ec63b062` 已创建；收尾记录单独提交并推送当前分支。
+- [x] CLOSEOUT-CLEANUP：cleanup preview/apply 已完成；保留 `task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`、`frontend-feature-evidence.md`，无删除、无阻塞、无告警。
+- [ ] COMMIT/PUSH：实现提交 `ec63b062` 已存在于本地并领先 `origin/int_main`；最终任务记录仍未提交/推送，因为共享 `int_main` 工作区存在大量无关并行脏改。
 
 ## Expected Verification
 
@@ -39,10 +40,11 @@
 
 ## Current Status
 
-completed
+ready_for_closeout
 
-Implementation and targeted verification are complete for the two-panel fill-config layout and the Vite missing-end-tag overlay guard. Real browser screenshot verification is blocked by local login response timeout, so no API-only or mock substitute was used. Cleanup apply deleted only the empty task-local `frontend-feature-evidence.md`; implementation commit `ec63b062` contains only the component and static contract changes. The shared `int_main` workspace still contains unrelated concurrent dirty changes, but they were not staged, committed, reverted, or overwritten by this task.
+Implementation and targeted verification are complete for the two-panel fill-config layout and the Vite missing-end-tag overlay guard. Real browser screenshot verification is blocked by local login response timeout, so no API-only or mock substitute was used. Cleanup apply kept all task evidence and deleted nothing. Implementation commit `ec63b062` contains only the component and static contract changes. Final task records remain uncommitted/unpushed because the shared `int_main` workspace still contains unrelated concurrent dirty changes; they were not staged, committed, reverted, or overwritten by this task.
 
 ## Cleanup Keep
 
 - doc/tasks/20260728-fill-config-two-panel-layout/bug-regression-evidence.md
+- doc/tasks/20260728-fill-config-two-panel-layout/frontend-feature-evidence.md

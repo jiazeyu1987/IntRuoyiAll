@@ -44,6 +44,11 @@ def test_local_restart_script_is_component_scoped_and_fail_fast():
     assert "$FrontendPort = [int]$PortContext.FrontendPort" in script
     assert "$BackendPort = [int]$PortContext.BackendPort" in script
     assert '"--server.port=$BackendPort"' in script
+    assert "$backendLogDir = Join-Path $RuntimeDir 'logs'" in script
+    assert "$backendLogFile = Join-Path $backendLogDir 'yudao-server.log'" in script
+    assert "New-Item -ItemType Directory -Force -Path $backendLogDir" in script
+    assert '"--logging.file.name=$backendLogFile"' in script
+    assert '"--yudao.runtime-control.storage-guard.log-dir=$backendLogDir"' in script
     assert "-pl yudao-server -am -DskipTests package" in script
     assert "backend-runtime-control-$timestamp.jar" in script
     assert "frontend-runtime-control-$timestamp.out.log" in script

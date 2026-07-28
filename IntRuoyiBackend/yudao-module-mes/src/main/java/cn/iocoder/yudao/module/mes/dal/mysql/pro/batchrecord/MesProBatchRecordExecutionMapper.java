@@ -111,11 +111,12 @@ public interface MesProBatchRecordExecutionMapper extends BaseMapperX<MesProBatc
                                                                String batchRecordReportId,
                                                                String batchCode,
                                                                Collection<Integer> activeStatuses) {
-        return selectActiveByContext(null, null, workOrderId, routeProcessId, batchRecordReportId,
+        return selectActiveByContext(null, null, null, workOrderId, routeProcessId, batchRecordReportId,
                 batchCode, activeStatuses);
     }
 
     default MesProBatchRecordExecutionDO selectActiveByContext(Long batchExecutionId, Long taskId,
+                                                               Long workstationId,
                                                                Long workOrderId, Long routeProcessId,
                                                                String batchRecordReportId,
                                                                String batchCode,
@@ -127,7 +128,11 @@ public interface MesProBatchRecordExecutionMapper extends BaseMapperX<MesProBatc
         query.eq(MesProBatchRecordExecutionDO::getBatchRecordReportId, batchRecordReportId);
         query.eq(MesProBatchRecordExecutionDO::getBatchCode, batchCode);
         query.in(MesProBatchRecordExecutionDO::getStatus, activeStatuses);
-        query.isNull(MesProBatchRecordExecutionDO::getWorkstationId);
+        if (workstationId == null) {
+            query.isNull(MesProBatchRecordExecutionDO::getWorkstationId);
+        } else {
+            query.eq(MesProBatchRecordExecutionDO::getWorkstationId, workstationId);
+        }
         if (taskId == null) {
             query.isNull(MesProBatchRecordExecutionDO::getTaskId);
         } else {

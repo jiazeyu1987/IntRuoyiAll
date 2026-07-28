@@ -42,3 +42,4 @@
 - 当前工作区存在大量非本任务脏改动；未提交、未推送本任务改动，避免混入并行任务文件。
 - `48081` 已加载新后端 Jar；旧“未重启加载修复”阻塞已解除。
 - 登录态目标接口复验仍被本地依赖超时阻塞：登录请求超时，`/actuator/health` 连续 3 次 20 秒超时，后端日志显示 JDBC/Redis 连接获取超时，Docker 只读检查也超时。未对无关 DB/Redis/Docker 进程执行重启或终止。
+- `http://localhost:8081/mdm/form-center/template` 页面入口本身可返回 HTTP 200；当前可见报错来自登录态 API 链路。安全重启后端的标准脚本失败于 Docker Desktop Linux engine HTTP 500（检查 `int-ruoyi-mysql` 阶段），因此未继续停止/启动本机共享依赖。

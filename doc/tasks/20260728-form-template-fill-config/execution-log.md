@@ -81,3 +81,35 @@ GREEN: `pnpm ts:check` -> PASS.
 VERIFICATION NOTE: 直接执行 `pnpm exec vue-tsc --noEmit -p tsconfig.relaxed.json --pretty false` 因未带仓库脚本的 `NODE_OPTIONS=--max-old-space-size=8192` 触发 Node heap OOM；已用正式 `pnpm ts:check` 复跑通过。
 
 EXPERIENCE CONSOLIDATION: 已读取 `project-experience-consolidation` skill 并检索 `docs` 中 `no-dupe-keys`、`Duplicate key`、`defineProps`、`script setup` 等关键词；无现有长期经验命中。该问题已由 ESLint fail-fast gate 覆盖，保持任务本地证据，不新增长期经验文档。
+
+## 2026-07-28 Fill Config Default Fullscreen
+
+USER INTENT: “填写配置”的右上角有一个最大化按钮，点击可以最大化和恢复，弹框默认最大化。
+
+BDD: 填写配置默认最大化 -> Given 用户在表单中心模板预览区点击“填写配置”；When 弹窗打开；Then 弹窗默认最大化展示，并在右上角提供最大化/恢复按钮。
+
+RED: `node tests/e2e/form-template-fill-config-static.spec.js` -> FAIL, expected reason: pre-change dialog contract used `:fullscreen="false"` and did not include `:default-fullscreen="true"`.
+
+IMPLEMENTATION: `FormTemplateFillConfigDialog.vue` uses reusable `Dialog` with `:fullscreen="true"` and `:default-fullscreen="true"`; no batch-record route, `reportId`, MES cell-rule API, or template-save ownership change was introduced.
+
+GREEN: `node tests/e2e/form-template-fill-config-static.spec.js` -> PASS.
+
+REGRESSION: `node tests/e2e/form-template-button-interaction-parity-static.spec.js` -> PASS.
+
+REGRESSION: `node tests/e2e/form-template-independent-button-actions-static.spec.js` -> PASS.
+
+REGRESSION: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS.
+
+REGRESSION: `node tests/e2e/form-center-static.spec.js` -> PASS.
+
+GREEN: `pnpm exec eslint --ext .vue src/views/form-center/template/components/FormTemplateFillConfigDialog.vue` -> PASS.
+
+GREEN: `pnpm ts:check` -> PASS.
+
+REAL E2E PRECONDITION: `Invoke-WebRequest http://127.0.0.1:8081/` -> HTTP 200；`Invoke-RestMethod http://127.0.0.1:48081/actuator/health` -> BLOCKED，HTTP 503。因此真实页面写入型 E2E 缺少可用本地后端前置，按规则不执行 API-only 替代验证。
+
+WORKTREE NOTE: `git status --short --branch --untracked-files=all` shows unrelated concurrent dirty changes in DCC, MES/eDHR, NAS, and other task directories. These are not modified, staged, or committed for this form-template task.
+
+EVIDENCE CHECK: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260728-form-template-fill-config/frontend-feature-evidence.md` -> PASS.
+
+EXPERIENCE CONSOLIDATION: 已读取 `project-experience-consolidation` skill，并检索 `docs` / 当前任务中 `defaultFullscreen`、`default-fullscreen`、`Dialog fullscreen`、`弹窗最大化` 等关键词；本次是表单中心填写配置的局部 UI 行为要求，现有 `docs/frontend-development.md` 已覆盖静态合同和真实 E2E 前置门禁，无需新增长期经验文档。

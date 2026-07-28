@@ -58,6 +58,7 @@
 - pnpm approve-builds 空结果但 install 仍因 ERR_PNPM_IGNORED_BUILDS 失败：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
 
 - PowerShell 命令编排 / 中文编码 / 终端输出预检：先读权威共同规则 `E:\IntRuoyi\docs\powershell-memory.md`，维护仓专项增量再读 `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\powershell-preflight-lessons.md`
+- Keywords: PowerShell 分号串联测试, cmd1; cmd2, Node 静态合同串联, 中间测试失败被最后 PASS 掩盖, `$LASTEXITCODE`, 逐条测试退出码 -> `docs/powershell-memory.md#powershell-分号串联测试退出码门禁`
 - Keywords: PowerShell 字面管道字符, TypeScript 类型联合, command string pipe, apply_patch ACL, 文件长度变 0, PowerShell 写入超时截断, Set-Content 写源码, 反引号 r n 字面量, import 追加非法字符 -> `docs/powershell-memory.md#powershell-命令文本管道字符门禁`
 - Keywords: PowerShell Maven -D, -Dsurefire.failIfNoSpecifiedTests, -Dtest, Unknown lifecycle phase, 目标 JUnit 加引号 -> `docs/powershell-memory.md#powershell-maven--d-参数引号门禁`
 - Keywords: IncrementalBuildHelper.beforeRebuildExecution, WinNTFileSystem.delete0, Windows Maven 增量输出删除卡住, Maven 无 surefire 报告, 仅停止任务自有 Maven PID -> `docs/backend-development.md#2026-07-27-windows-maven-增量输出删除卡住门禁`
@@ -105,6 +106,7 @@
 - Keywords: 测试项固定名称, 同名测试项重复创建删除, system_codex_test_case tenant_id name deleted, DuplicateKeyException, deleteCase_allowsRepeatedCreateAndDeleteWithSameName -> `docs/backend-development.md#2026-07-27-测试项固定名称删除唯一键门禁`
 - Keywords: Windows CRLF 静态合同, static.spec.js 目标 worktree 自身失败, 真实 E2E 脚本与页面行为同步, 废弃弹窗流程, 字段审计保存直连 API -> `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁`
 - Keywords: worktree E2E 成对 URL, int_main 主端口 E2E, 8081 48081, EDHR_RELEASE_DOSSIER_E2E_BASE_URL, EDHR_RELEASE_DOSSIER_E2E_BACKEND_URL, 同一 runtime slot, 48081 旧 jar, 8086 48086 -> `docs/e2e-rules.md#worktree--int_main-运行态-url-门禁`
+- Keywords: worktree 真实 E2E env, .env.local, VITE_APP_CAPTCHA_ENABLE=false, 登录页验证码已开启, slot 前端代理后端端口, 8088 48088 -> `docs/worktree-memory.md#worktree-真实-e2e-运行产物门禁`
 - Keywords: worktree 前端 vite 缺失, Command "vite" not found, node_modules .bin vite, pnpm install --frozen-lockfile, 不复制 node_modules -> `docs/worktree-memory.md#worktree-前端依赖启动门禁`
 - Keywords: worktree 端口段, slot 1..19, slot >= 20, reserve-worktree-slot, 原子槽位, 重复活动槽位, 基准端口碰撞, int_main 误判 int_main_d -> `docs/worktree-memory.md#worktree-端口段与原子槽位门禁`
 - Keywords: 多 worktree 融合, 批量 merge worktree, dirty worktree 独立提交, merge-base --is-ancestor, 聚焦组合回归, 宽回归失败归因, 合并后删除 worktree -> `docs/worktree-memory.md#多-worktree-批量融合门禁`
@@ -197,7 +199,7 @@
 - Keywords: 本地 OnlyOffice 错误码 -4, OnlyOffice 下载失败, onlyofficeDocumentUrl, public-file-base-url, host.docker.internal, Docker onlyoffice 访问 48081 -> `docs/local-runtime.md#2026-07-27-本地-onlyoffice-容器下载地址门禁`
 - Keywords: D-Main local runtime, int_main_d, vite command not found, Java package runtime ignored, *.runtime不存在, git check-ignore runtime source -> `docs/local-runtime.md#2026-07-25-d-main-本地启动源码与依赖门禁`
 - Keywords: isolated backend jar, dirty main workspace, int_main 48081, jar SHA256, local E2E reload, clean worktree build, 未登录 401, 登录态路由验证, route-not-found, schema 字段核对 -> `docs/local-runtime.md#2026-07-24-隔离构建-jar-加载门禁`
-- Keywords: health UP 但 API 挂起, Logback OutputStreamAppender lock, stdout stderr 未消费, task-closeout 日志锁, 共享后端活动连接 -> `docs/local-runtime.md#2026-07-27-本地后端标准输出阻塞与日志目录门禁`
+- Keywords: health UP 但 API 挂起, Logback OutputStreamAppender lock, stdout stderr 未消费, SQL DEBUG, MyBatis mapper debug, logging.file.name, output/runtime logs, task-closeout 日志锁, 共享后端活动连接 -> `docs/local-runtime.md#2026-07-27-本地后端标准输出阻塞与日志目录门禁`
 - Keywords: target Jar 运行中被 Maven 覆盖, NoClassDefFoundError, ChainedPersistenceExceptionTranslator, ExceptionUtil, RequestUtil, JimuReportDao_update.sql, TemplateLoaderUtils, 稳定运行 Jar 副本 -> `docs/local-runtime.md#2026-07-27-本地后端运行-jar-不可变门禁`
 - Keywords: Element Plus el-table, 表格行复选框, 表头全选误点, indeterminate checkbox, Playwright body-wrapper row selection, 手动重排选中集合断言 -> `docs/e2e-rules.md#element-plus-表格选择门禁`
 - Keywords: edhr-batch-execution-real-flow.e2e.js, int-ruoyi-mysql, 数据库夹具, LOCAL_DATABASE_FIXTURE, 芋道源码/admin, 真实 E2E 前置条件缺失, 覆盖历史 E2E 证据 -> `docs/e2e-rules.md#edhr-批次执行数据库夹具与证据文件门禁`
@@ -208,7 +210,7 @@
 - Keywords: eDHR 任务批次清理幂等, cleanup-only, already-voided, VOIDED 批次列表排除, 批次页面作废, 只读详情确认终态, API-only 作废禁止 -> `docs/e2e-rules.md#edhr-任务批次清理幂等门禁`
 - Keywords: 全局开关 E2E, 共享配置恢复, 系统级配置开关, Playwright finally restore, 恢复后复验, global switch cleanup -> `docs/e2e-rules.md#全局开关类-e2e-恢复门禁`
 - Keywords: Element Plus el-select, Playwright 下拉选择, 租户下拉, 工单下拉, 工艺路线编码, ACTIVE route snapshot, draft independence E2E, el-popover, Popover 内下拉, teleported=false, click-outside, 复制弹层选择后误关闭 -> `docs/e2e-rules.md#element-plus-下拉选择门禁`
-- Keywords: Element Plus el-select 多选标签, Element Plus el-input-number, 数字步进控件, el-select__tags-text, 选择框显示全, 目标项名称显示全, 填写人显示全, 三列弹窗表单, grid-template-columns, codex-test-checkpoint, collapse-tags-tooltip -> `docs/e2e-rules.md#element-plus-选择框显示门禁`
+- Keywords: Element Plus el-select 多选标签, Element Plus el-input-number, Element Plus el-switch 状态标签, 数字步进控件, el-select__tags-text, 选择框显示全, Switch 提示完整显示, 未配置辅助模式, 目标项名称显示全, 填写人显示全, 三列弹窗表单, grid-template-columns, white-space nowrap, codex-test-checkpoint, collapse-tags-tooltip -> `docs/e2e-rules.md#element-plus-选择框显示门禁`
 - Keywords: Codex Runner, 系统管理 测试管理, 自然语言测试方法, 检查点截图, runner token, Codex Runner token 无效或未配置, CODEX_TEST_RUNNER_TOKEN, parallelSafe, Codex 调用 Playwright, 没有在线 Codex Runner, 按需 Runner, Runner 包装层, 裸调用 codex, codex-test-result, taskkill.exe, Windows codex.cmd 子进程, child close 不触发, currentRunningCount 不归零, heartbeat 过期, 只读 Runner 超时, CODEX_TEST_CODEX_READONLY_REASONING_EFFORT, CODEX_TEST_CODEX_READONLY_IGNORE_RULES, --ignore-rules, model_reasoning_effort, xhigh 只读冒烟超时 -> `docs/e2e-rules.md#codex-runner-自动测试门禁`
 - Keywords: Codex Runner 目标测试项, 作废测试不存在, system_codex_test_case, 测试管理页面搜索总数 0, Runner 空领取不得当成功 -> `docs/e2e-rules.md#codex-runner-目标测试项存在性门禁`
 - Keywords: 测试管理串行节点串, 节点串名称, 串内序号, node_chain_name, node_chain_sort, 节点串必须从第 1 节点开始连续选择, 前置失败后续 BLOCKED, 非节点串顺序执行不阻断 -> `docs/e2e-rules.md#测试管理串行节点串门禁`

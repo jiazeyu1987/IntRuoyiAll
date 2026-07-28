@@ -989,6 +989,9 @@ function Start-Backend {
     }
     $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $runtimeJar = Join-Path $RuntimeDir "backend-runtime-control-$timestamp.jar"
+    $backendLogDir = Join-Path $RuntimeDir 'logs'
+    $backendLogFile = Join-Path $backendLogDir 'yudao-server.log'
+    New-Item -ItemType Directory -Force -Path $backendLogDir | Out-Null
     Copy-Item -LiteralPath $sourceJar -Destination $runtimeJar -Force
     Stop-Port $BackendPort
     $backendScript = @"
@@ -1009,8 +1012,10 @@ function Start-Backend {
   "--spring.datasource.dynamic.datasource.slave.password=123456"
   "--spring.data.redis.host=$LocalDockerRuntimeHost"
   "--spring.data.redis.port=26379"
+  "--logging.file.name=$backendLogFile"
   "--yudao.runtime-control.repo-root=$RepoRoot"
   "--yudao.runtime-control.state-dir=$RuntimeControlStateDir"
+  "--yudao.runtime-control.storage-guard.log-dir=$backendLogDir"
 )
 & java @backendArgs
 "@

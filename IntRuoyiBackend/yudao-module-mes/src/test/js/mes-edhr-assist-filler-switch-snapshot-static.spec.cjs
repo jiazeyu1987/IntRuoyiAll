@@ -25,8 +25,16 @@ assert.match(feedbackApi, /assistSwitchTasks\?:\s*EdhrBatchExecutionTaskRespVO\[
 assert.match(executionRespVO, /private\s+List<EdhrBatchExecutionTaskRespVO>\s+assistSwitchTasks;/, '执行详情后端 VO 必须返回 assistSwitchTasks 快照。')
 assert.match(executionService, /setAssistSwitchTasks\(buildAssistSwitchTasksSnapshot\(execution\)\)/, '执行详情构建必须填充 assistSwitchTasks。')
 assert.match(executionService, /getCandidateUserSnapshot\(\)/, '后端快照必须来自工作任务 candidateUserSnapshot。')
+assert.match(executionService, /buildAssistSwitchProcessFormRuleMap/, '执行详情切换快照必须读取过程表单填写规则，不能只依赖主批记录 workTask。')
+assert.match(executionService, /buildAssistSwitchRouteBindingFillableUserIdsMap/, '执行详情切换快照必须读取路线绑定候选源，覆盖附加表单槽位填写人。')
+assert.doesNotMatch(
+  executionService,
+  /\.setFillableUsers\(resolveAssistSwitchFillableUsers\(workTask,\s*userMap\)\)/,
+  '切换快照 fillableUsers 不得只由 workTask 解析，否则会漏掉附加表单候选。'
+)
 assert.doesNotMatch(fillerLoader, /getEdhrBatchExecution\(/, '切换填写人不得再调用全量批次详情接口。')
 assert.match(fillerLoader, /execution\.value\?\.assistSwitchTasks/, '切换填写人必须从执行详情 assistSwitchTasks 快照读取候选人。')
+assert.match(fillerLoader, /formTemplateId[\s\S]*formSlotType === 'MAIN'/, '前端切换填写人排序必须保留附加表单槽位任务，不能只展示 MAIN 批记录。')
 assert.match(batchExecutionApi, /assistUserId\?:\s*EdhrRouteId/, '前端 openTask 请求必须声明 assistUserId。')
 assert.match(taskOpenReqVO, /private\s+Long\s+assistUserId;/, '后端 openTask 请求必须接收 assistUserId。')
 assert.match(taskOpenRespVO, /private\s+Long\s+assistUserId;/, '后端 openTask 响应必须返回已确认的 assistUserId。')

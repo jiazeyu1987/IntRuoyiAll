@@ -38,6 +38,7 @@ const assistPreviewBlock = extractBlock(
   '</section>'
 )
 const script = detail.slice(detail.indexOf('<script setup'), detail.indexOf('</script>'))
+const style = detail.slice(detail.indexOf('<style'), detail.indexOf('</style>'))
 
 assert.ok(rail.includes('<el-switch'), '右侧栏顶部必须新增 Element Plus Switch。')
 assert.ok(
@@ -56,6 +57,22 @@ assert.ok(
   assistSwitchBlock.includes('未配置辅助模式') &&
     assistSwitchBlock.includes(':disabled="!selectedPreviewAssistRowsConfigured"'),
   '无辅助配置时 Switch 必须保留但禁用，并提示“未配置辅助模式”。'
+)
+assert.ok(
+  /edhr-batch-detail__preview-mode-switch\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*auto\s+auto\s+auto;/.test(
+    style
+  ),
+  'Switch 区域必须使用三列栅格承载“原表模式 / Switch / 辅助模式”，避免禁用提示挤压文案。'
+)
+assert.ok(
+  /edhr-batch-detail__preview-mode-label\s*\{[\s\S]*white-space:\s*nowrap;/.test(style),
+  '“原表模式/辅助模式”标签必须禁止换行，避免窄右侧栏中文字被截断。'
+)
+assert.ok(
+  /edhr-batch-detail__preview-mode-disabled\s*\{[\s\S]*grid-column:\s*1\s*\/\s*-1;[\s\S]*white-space:\s*nowrap;/.test(
+    style
+  ),
+  '“未配置辅助模式”必须占满 Switch 行宽并禁止换行，确保蓝框区域文字完整可见。'
 )
 assert.ok(
   !assistSwitchBlock.includes('selectFillCarrier') &&

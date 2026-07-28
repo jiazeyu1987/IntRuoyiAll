@@ -22,10 +22,15 @@ assertIncludes(
 )
 assertIncludes(
   dialog,
-  ':default-fullscreen="true"',
-  '单元格规则弹窗显示时必须默认全屏。'
+  ':fullscreen="true"',
+  '填写配置弹窗右上角必须显示最大化/恢复按钮。'
 )
-assertIncludes(dialog, 'title="单元格规则"', '默认全屏不得移除单元格规则标题。')
+assertIncludes(
+  dialog,
+  ':default-fullscreen="true"',
+  '填写配置弹窗显示时必须默认全屏。'
+)
+assertIncludes(dialog, 'title="填写配置"', '默认全屏不得移除填写配置标题。')
 assertIncludes(
   dialog,
   'width="calc(100vw - 32px)"',
@@ -36,6 +41,6 @@ assertIncludes(
   'batch-record-cell-rules-editor__workspace',
   '默认全屏不得移除左侧预览和右侧配置工作区。'
 )
-assertIncludes(dialog, '保存规则', '默认全屏不得移除底部保存按钮。')
+assertIncludes(dialog, '保存填写配置', '默认全屏不得移除底部保存按钮。')
 
 console.log('PASS: batch record cell rule default fullscreen static contract')

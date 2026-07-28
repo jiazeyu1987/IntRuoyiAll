@@ -2330,7 +2330,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         MesProEdhrWorkTaskDO openWorkTask = resolveOpenWorkTask(task.getId());
         requireOpenWorkTaskContext(reqVO, openWorkTask);
         Long permissionScopeId = resolveTaskPermissionScopeId(task);
-        requireTaskFillAbility(batch, task, openWorkTask, permissionScopeId);
+        requireTaskFillAbility(batch, task, openWorkTask, permissionScopeId, reqVO.getAssistUserId());
         BatchRecordCellLinkAutoPersistResult cellLinkAutoPersist = null;
         if (isDynamicRouteFormTask(task)) {
             if (!hasCompleteFormCenterRouteContext(task)) {
@@ -2387,7 +2387,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         : preReleaseEditabilityService.requireSubmittedOrdinaryEditable(
                         execution, reqVO.getWorkTaskId());
         Long permissionScopeId = resolveTaskPermissionScopeId(task);
-        requireTaskFillAbility(batch, task, editability.workTask(), permissionScopeId);
+        requireTaskFillAbility(batch, task, editability.workTask(), permissionScopeId, reqVO.getAssistUserId());
         return buildTaskOpenResp(batch, task, editability.workTask(), permissionScopeId, null,
                 reqVO.getAssistUserId());
     }
@@ -2404,7 +2404,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         }
         MesProEdhrWorkTaskDO workTask = requirePreCloseRouteFormFillWorkTask(reqVO.getWorkTaskId(), task);
         Long permissionScopeId = resolveTaskPermissionScopeId(task);
-        requireTaskFillAbility(batch, task, workTask, permissionScopeId);
+        requireTaskFillAbility(batch, task, workTask, permissionScopeId, reqVO.getAssistUserId());
         return buildTaskOpenResp(batch, task, workTask, permissionScopeId, null,
                 reqVO.getAssistUserId());
     }
@@ -2520,8 +2520,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             return isFillOrReworkWorkTask(openWorkTask) ? currentUserId() : null;
         }
         if (!isFillOrReworkWorkTask(openWorkTask)
-                || !MesProEdhrWorkTaskAuthorization.containsCandidate(
-                openWorkTask.getCandidateUserSnapshot(), requestedAssistUserId)) {
+                || !isAssignedOrCandidate(openWorkTask, requestedAssistUserId)) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_NOT_VISIBLE);
         }
         return requestedAssistUserId;
@@ -2798,7 +2797,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setBatchExecutionId(batch.getId())
                 .setProcessId(task.getProcessId())
                 .setRouteProcessId(task.getRouteProcessId())
-                .setTaskId(null)
+                .setTaskId(task.getId())
                 .setWorkstationId(null)
                 .setBatchRecordReportId(task.getBatchRecordReportId())
                 .setInstanceScope(resolveInstanceScope(task.getInstanceScope()))
@@ -2838,11 +2837,15 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     private void requireTaskFillAbility(MesProEdhrBatchExecutionDO batch, MesProEdhrBatchExecutionTaskDO task,
-                                        MesProEdhrWorkTaskDO workTask, Long permissionScopeId) {
+                                        MesProEdhrWorkTaskDO workTask, Long permissionScopeId,
+                                        Long assistUserId) {
+        Long currentUserId = currentUserId();
         if (isFillOrReworkWorkTask(workTask)
                 && !hasGoldenFingerActionBypass()
-                && !isAssignedOrCandidate(workTask, currentUserId())) {
-            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_NOT_VISIBLE);
+                && !isAssignedOrCandidate(workTask, currentUserId)) {
+            if (!canCurrentProcessFillerOpenAssistWorkTask(batch, task, workTask, assistUserId, currentUserId)) {
+                throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_NOT_VISIBLE);
+            }
         }
         if (permissionScopeId == null) {
             return;
@@ -2860,6 +2863,26 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setRecordCategory(task.getRecordCategory())
                 .setPermissionCode("mes:pro-edhr-batch-execution:update")
                 .setActionName("打开 eDHR 工序任务"));
+    }
+
+    private boolean canCurrentProcessFillerOpenAssistWorkTask(MesProEdhrBatchExecutionDO batch,
+                                                              MesProEdhrBatchExecutionTaskDO task,
+                                                              MesProEdhrWorkTaskDO targetWorkTask,
+                                                              Long assistUserId,
+                                                              Long currentUserId) {
+        if (!isFillOrReworkWorkTask(targetWorkTask)
+                || assistUserId == null
+                || !isAssignedOrCandidate(targetWorkTask, assistUserId)
+                || !Objects.equals(targetWorkTask.getBatchExecutionId(), batch.getId())
+                || !Objects.equals(targetWorkTask.getBatchTaskId(), task.getId())
+                || task.getRouteProcessId() == null) {
+            return false;
+        }
+        return workTaskMapper.selectActiveListByBatchExecutionId(batch.getId()).stream()
+                .filter(this::isFillOrReworkWorkTask)
+                .filter(workTask -> !Objects.equals(workTask.getBatchTaskId(), task.getId()))
+                .filter(workTask -> Objects.equals(workTask.getRouteProcessId(), task.getRouteProcessId()))
+                .anyMatch(workTask -> isAssignedOrCandidate(workTask, currentUserId));
     }
 
     private boolean isFillOrReworkWorkTask(MesProEdhrWorkTaskDO workTask) {
@@ -2999,105 +3022,6 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         .setExecutionSnapshotJson(runtimeSnapshot.executionSnapshotJson())
                         .setCellValuesJson("[]")
                         .setSignatureCellMarkers(extractSignatureCellMarkers(runtimeSnapshot.sheetLayoutJson())));
-    }
-
-    private String buildUnopenedBatchRecordPreviewExecutionSnapshot(String reportJson) {
-        try {
-            JSONObject root = JSON.parseObject(reportJson);
-            if (root == null) {
-                throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_SNAPSHOT_INVALID);
-            }
-            JSONObject snapshot = new JSONObject(true);
-            snapshot.put("fields", extractPreviewSnapshotFields(root));
-            snapshot.put("assistRows", extractPreviewSnapshotAssistRows(root));
-            return snapshot.toJSONString();
-        } catch (ServiceException ex) {
-            throw ex;
-        } catch (RuntimeException ex) {
-            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_SNAPSHOT_INVALID);
-        }
-    }
-
-    private JSONArray extractPreviewSnapshotFields(JSONObject root) {
-        JSONArray fields = new JSONArray();
-        JSONObject rows = root.getJSONObject("rows");
-        if (rows == null || rows.isEmpty()) {
-            return fields;
-        }
-        List<Integer> rowIndexes = rows.keySet().stream()
-                .filter(StrUtil::isNumeric)
-                .map(Integer::valueOf)
-                .sorted()
-                .toList();
-        for (Integer rowIndex : rowIndexes) {
-            JSONObject row = rows.getJSONObject(String.valueOf(rowIndex));
-            JSONObject cells = row == null ? null : row.getJSONObject("cells");
-            if (cells == null || cells.isEmpty()) {
-                continue;
-            }
-            List<Integer> columnIndexes = cells.keySet().stream()
-                    .filter(StrUtil::isNumeric)
-                    .map(Integer::valueOf)
-                    .sorted()
-                    .toList();
-            for (Integer columnIndex : columnIndexes) {
-                JSONObject cell = cells.getJSONObject(String.valueOf(columnIndex));
-                JSONObject fillForm = cell == null ? null : cell.getJSONObject("fillForm");
-                if (fillForm == null || StrUtil.isBlank(fillForm.getString("field"))) {
-                    continue;
-                }
-                JSONObject cellRule = cell.getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY);
-                if (cellRule == null) {
-                    throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_SNAPSHOT_INVALID);
-                }
-                JSONObject field = new JSONObject(true);
-                field.put("fieldPath", rowIndex + ":" + columnIndex + ":" + fillForm.getString("field"));
-                field.put("fieldKey", fillForm.getString("field"));
-                field.put("label", resolvePreviewSnapshotFieldLabel(cell, fillForm, cellRule));
-                field.put("rowIndex", rowIndex);
-                field.put("columnIndex", columnIndex);
-                String valueType = StrUtil.blankToDefault(cellRule.getString("valueType"), "STRING");
-                field.put("valueType", valueType);
-                field.put("component", MesProBatchRecordCellRuleSupport.defaultComponentFlag(valueType,
-                        StrUtil.blankToDefault(cellRule.getString("componentFlag"),
-                                StrUtil.blankToDefault(fillForm.getString("componentFlag"),
-                                        StrUtil.blankToDefault(fillForm.getString("component"), "input-text")))));
-                field.put("required", Boolean.TRUE.equals(cellRule.getBoolean("required")));
-                field.put(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY,
-                        JSON.parseObject(cellRule.toJSONString()));
-                if (fillForm.containsKey("defaultValue")) {
-                    field.put("defaultValue", fillForm.get("defaultValue"));
-                }
-                if (fillForm.containsKey("value")) {
-                    field.put("value", fillForm.get("value"));
-                }
-                fields.add(field);
-            }
-        }
-        return fields;
-    }
-
-    private String resolvePreviewSnapshotFieldLabel(JSONObject cell, JSONObject fillForm, JSONObject cellRule) {
-        String label = StrUtil.trim(cellRule.getString("label"));
-        if (StrUtil.isNotBlank(label)) {
-            return label;
-        }
-        label = StrUtil.trim(fillForm.getString("labelText"));
-        if (StrUtil.isNotBlank(label)) {
-            return label;
-        }
-        label = StrUtil.trim(fillForm.getString("label"));
-        return StrUtil.blankToDefault(label, StrUtil.trimToEmpty(cell.getString("text")));
-    }
-
-    private JSONArray extractPreviewSnapshotAssistRows(JSONObject root) {
-        JSONArray assistRows = root.getJSONArray(MesProBatchRecordCellRuleSupport.ASSIST_ROWS_KEY);
-        if (assistRows == null) {
-            return new JSONArray();
-        }
-        MesProBatchRecordCellRuleSupport.validateAssistRows(
-                root, MesProBatchRecordCellRuleSupport.extractAssistRows(root));
-        return JSON.parseArray(assistRows.toJSONString());
     }
 
     private EdhrBatchExecutionTaskPreviewRespVO buildDynamicRouteFormTaskPreview(
@@ -4837,7 +4761,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 return new TaskGate(false, "工序缺少直接前置关系快照");
             }
             if (Objects.equals(EXECUTION_MODE_SEQUENTIAL, task.getExecutionMode())
-                    && !isOptionalRouteFormTask(task)) {
+                    && !isOptionalRouteFormTask(task)
+                    && !isDynamicRouteFormTask(task)) {
                 List<MesProEdhrBatchExecutionTaskDO> previousSameProcessTasks = allTasks.stream()
                         .filter(candidate -> Objects.equals(candidate.getRouteProcessId(), task.getRouteProcessId()))
                         .filter(candidate -> !Objects.equals(candidate.getId(), task.getId()))
@@ -5020,8 +4945,14 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private EdhrBatchExecutionRespVO toResp(MesProEdhrBatchExecutionDO batch) {
         MesProEdhrBatchExecutionDO latest = batchExecutionMapper.selectById(batch.getId());
         List<MesProEdhrBatchExecutionTaskDO> tasks = batchTaskMapper.selectListByBatchExecutionId(batch.getId());
+        List<MesProEdhrWorkTaskDO> activeWorkTasks = workTaskMapper.selectActiveListByBatchExecutionId(batch.getId());
+        if (isActiveBatch(latest) && shouldEnsureActiveRouteFormCompanionFillTasks(tasks, activeWorkTasks)) {
+            workTaskService.createInitialFillTask(latest);
+            tasks = batchTaskMapper.selectListByBatchExecutionId(batch.getId());
+            activeWorkTasks = workTaskMapper.selectActiveListByBatchExecutionId(batch.getId());
+        }
         Map<Long, TaskGate> taskGateMap = buildTaskGateMap(tasks);
-        Map<Long, MesProEdhrWorkTaskDO> fillableWorkTaskMap = buildFillableWorkTaskMap(batch.getId());
+        Map<Long, MesProEdhrWorkTaskDO> fillableWorkTaskMap = buildFillableWorkTaskMap(activeWorkTasks);
         Map<Long, List<MesProEdhrProcessFormPermissionRuleDO>> fillableProcessFormRuleMap =
                 buildFillableProcessFormRuleMap(tasks, fillableWorkTaskMap);
         Map<Long, MesProEdhrWorkTaskAssignmentRuleDO> fillableRuleMap =
@@ -5035,7 +4966,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         Long currentUserId = currentUserId();
         Map<Long, String> batchRecordVersionNoMap = buildBatchRecordVersionNoMap(tasks);
         Map<Long, List<MesProEdhrWorkTaskDO>> activeWorkTasksByBatchTask =
-                workTaskMapper.selectActiveListByBatchExecutionId(batch.getId()).stream()
+                activeWorkTasks.stream()
                         .filter(workTask -> workTask.getBatchTaskId() != null)
                         .collect(Collectors.groupingBy(MesProEdhrWorkTaskDO::getBatchTaskId));
         MesProEdhrWorkTaskAssignmentRuleDO closeRule = latest.getRouteId() == null ? null
@@ -5416,8 +5347,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         fillableRule, routeBindingFillableUserIds, specialNodeFillableUserIds, fillableUserMap));
     }
 
-    private Map<Long, MesProEdhrWorkTaskDO> buildFillableWorkTaskMap(Long batchExecutionId) {
-        return workTaskMapper.selectActiveListByBatchExecutionId(batchExecutionId).stream()
+    private Map<Long, MesProEdhrWorkTaskDO> buildFillableWorkTaskMap(List<MesProEdhrWorkTaskDO> activeWorkTasks) {
+        return activeWorkTasks.stream()
                 .filter(task -> WORK_TASK_TYPE_FILL.equals(task.getTaskType())
                         || WORK_TASK_TYPE_REWORK.equals(task.getTaskType()))
                 .filter(task -> task.getBatchTaskId() != null)
@@ -5426,6 +5357,42 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         task -> task,
                         (existing, replacement) -> existing,
                         LinkedHashMap::new));
+    }
+
+    private boolean shouldEnsureActiveRouteFormCompanionFillTasks(List<MesProEdhrBatchExecutionTaskDO> tasks,
+                                                                  List<MesProEdhrWorkTaskDO> activeWorkTasks) {
+        if (tasks == null || tasks.isEmpty() || activeWorkTasks == null || activeWorkTasks.isEmpty()) {
+            return false;
+        }
+        Map<Long, MesProEdhrBatchExecutionTaskDO> taskMap = tasks.stream()
+                .filter(task -> task.getId() != null)
+                .collect(Collectors.toMap(
+                        MesProEdhrBatchExecutionTaskDO::getId,
+                        task -> task,
+                        (existing, replacement) -> existing,
+                        LinkedHashMap::new));
+        Set<Long> activeBatchTaskIds = activeWorkTasks.stream()
+                .filter(task -> WORK_TASK_TYPE_FILL.equals(task.getTaskType()))
+                .map(MesProEdhrWorkTaskDO::getBatchTaskId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<Long> activeRouteProcessIds = activeWorkTasks.stream()
+                .filter(task -> WORK_TASK_TYPE_FILL.equals(task.getTaskType()))
+                .map(task -> taskMap.get(task.getBatchTaskId()))
+                .filter(Objects::nonNull)
+                .filter(this::isRouteForm)
+                .map(MesProEdhrBatchExecutionTaskDO::getRouteProcessId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (activeRouteProcessIds.isEmpty()) {
+            return false;
+        }
+        return tasks.stream()
+                .filter(task -> task.getId() != null)
+                .filter(this::isRouteForm)
+                .filter(task -> Objects.equals(task.getStatus(), TASK_STATUS_WAITING))
+                .filter(task -> activeRouteProcessIds.contains(task.getRouteProcessId()))
+                .anyMatch(task -> !activeBatchTaskIds.contains(task.getId()));
     }
 
     private Map<Long, MesProEdhrWorkTaskAssignmentRuleDO> buildFillableRuleMap(

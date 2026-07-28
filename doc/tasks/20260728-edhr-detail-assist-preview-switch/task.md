@@ -6,13 +6,15 @@
 
 ## Milestones
 
-1. [ ] 建立任务记录、经验门禁和 BDD/TDD 证据。
-2. [ ] 新增前端静态 RED 合同，锁定右侧 Switch、只读辅助预览和不改打开载体。
-3. [ ] 新增后端 RED 回归，证明未打开主生产表预览需要正式 `executionSnapshotJson.assistRows`。
-4. [ ] 实施后端预览快照增强，不新增接口、不混用动态表单来源。
-5. [ ] 实施前端 Switch 与只读辅助预览。
-6. [ ] 运行目标 GREEN、相邻回归和证据校验。
-7. [ ] 收尾清理检查并记录剩余阻塞。
+1. [x] 建立任务记录、经验门禁和 BDD/TDD 证据。
+2. [x] 新增前端静态 RED 合同，锁定右侧 Switch、只读辅助预览和不改打开载体。
+3. [x] 新增后端 RED 回归，证明未打开主生产表预览需要正式 `executionSnapshotJson.assistRows`。
+4. [x] 实施后端预览快照增强，不新增接口、不混用动态表单来源。
+5. [x] 实施前端 Switch 与只读辅助预览。
+6. [x] 运行目标 GREEN、相邻回归和证据校验。
+7. [x] 收尾清理检查并记录剩余阻塞。
+8. [x] 解决收尾 blocker：填写页辅助模式填写人来源与全量前端类型检查。
+9. [x] 修复无辅助配置时右侧 Switch 禁用提示文字被挤压/截断的问题。
 
 ## Expected Verification
 
@@ -21,7 +23,12 @@
 - `node tests/e2e/edhr-batch-detail-hide-red-box-static.spec.js`
 - `node tests/e2e/edhr-assist-fill-mode-static.spec.js`
 - `node tests/e2e/edhr-loss-form-open-action-static.spec.js`
+- `node src/test/js/mes-edhr-assist-filler-switch-snapshot-static.spec.cjs`
+- `pnpm ts:check`
+- `pnpm build:local`
+- `mvn -o -pl yudao-module-mes -am "-DskipTests" compile`
 - `mvn -o -pl yudao-module-mes "-Dtest=MesProEdhrBatchExecutionServiceTest#previewTask_returnsUnopenedBatchRecordWithExecutionSnapshotAssistRows" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+- `mvn -o -pl yudao-module-mes "-Dtest=MesProBatchRecordExecutionServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 
 ## 经验门禁
 
@@ -43,6 +50,15 @@
 - Forbidden action: 禁止修改无关合同绕过历史失败。
 - Evidence: `docs/frontend-development.md#前端静态契约隔离门禁`。
 
+### PowerShell 分号串联测试退出码门禁
+
+- Trigger: 需要批量运行多个 Node 静态合同或其它测试命令。
+- Preflight check: 验收命令必须逐条运行，或显式检查 `$LASTEXITCODE`，避免中间失败被最后一条 PASS 掩盖。
+- Blocker: 中间命令输出断言失败但最终退出码为 0 时，必须单独复跑并记录真实失败。
+- Verification: 本任务已单独复跑四条相邻静态合同并记录 `edhr-assist-fill-mode-static.spec.js` 的非本任务失败。
+- Forbidden action: 禁止把分号串联命令的最终 0 退出码当作全部通过。
+- Evidence: `docs/powershell-memory.md#powershell-分号串联测试退出码门禁`。
+
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
@@ -51,4 +67,10 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Cleanup Keep
+
+- doc/tasks/20260728-edhr-detail-assist-preview-switch/frontend-feature-evidence.md
+- doc/tasks/20260728-edhr-detail-assist-preview-switch/backend-api-evidence.md
+- doc/tasks/20260728-edhr-detail-assist-preview-switch/bug-regression-evidence.md

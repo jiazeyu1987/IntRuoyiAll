@@ -8,6 +8,7 @@
 
 - `BDD: Frontend uses persisted cell values only -> Given` 后端自动落库负责把单元格链接值写入执行详情，`When` 执行页 hydrate 草稿状态，`Then` 页面只读取已保存 `detail.cellValues`，不得再调用 `/batch-record-cell-link/prefill` 注入本地草稿值。
 - `BDD: Main runtime E2E must use real openable batch task -> Given` 本地数据库存在授权租户、账号、启用 batchCode 链接规则和可打开正式批记录任务，`When` Playwright 从批次详情点击打开填写，`Then` `task/open` 返回 `cellLinkAutoPersist` 且执行详情和页面目标格显示相同已保存值。
+- `BDD: Rough wash task must use current batch task context -> Given` 用户截图中生产批号 `881M009889` 已链接到“粗洗工序生产记录 / 生产批号”，`When` 创建/打开粗洗工序批记录，`Then` 后端必须按当前 `batchExecutionId + batchTaskId` 创建或打开执行记录并自动落库生产批号，不能传空 `taskId` 导致复用旧执行记录或跳过目标任务上下文。
 
 ## RED/GREEN Evidence
 
@@ -25,15 +26,32 @@
 - `GREEN: test-tenant fixture repair -> PASS`，经用户授权在 `测试租户` 使用任务自有数据复验；批次任务 `6955` 的 `form_slot_type` 从 `MAIN` 修正为正式报表槽位 `LOSS_REPORT`，并补入 `slot_config_snapshot_hash=0f84775df0c4a14feeedc6f606d4efc17434e2ce387ce93fb666ae91f26f8d52`，解除“打开填写”禁用和 `tasks=[]` 夹具阻塞。
 - `GREEN: node tests/e2e/edhr-batch-execution-real-flow.e2e.js -> PASS`，环境为 `EDHR_BATCH_E2E_BASE_URL=http://127.0.0.1:8081`、`EDHR_BATCH_E2E_BACKEND_URL=http://127.0.0.1:48081`、`EDHR_BATCH_E2E_TENANT_LABEL=测试租户`、`EDHR_BATCH_E2E_USERNAME=codexedhrcell01`、`EDHR_BATCH_E2E_REQUIRE_NEW_EXECUTION=0`；脚本通过真实批次详情点击“打开填写”并写入 `real-e2e-evidence.md`。
 - `GREEN: auto-persist assertion -> PASS`，批次 `BE-EDHR-CELL-20260728-104808`、任务 `6955`、执行 `1579` 打开后 `task/open` 返回 `cellLinkAutoPersist.status=NO_CHANGE_ALREADY_APPLIED`，目标单元格 `1:5` 的执行详情和原表模式页面输入控件均显示 `EDHR-CELL-20260728-104808`。
+- `DIAGNOSIS: screenshot batch 881M009889 -> LOCAL_DB_NOT_FOUND`，本机库只读查询未找到 `mes_pro_work_order.batch_code='881M009889'` 或 `mes_pro_edhr_batch_execution.batch_code='881M009889'`；截图批次不在当前本机库，不能直接用该批次做本机 DB E2E。
+- `DIAGNOSIS: code path -> FOUND`，`MesProEdhrBatchExecutionServiceImpl.buildOpenOrCreateExecutionReq(...)` 当前把传统批记录打开请求写成 `.setTaskId(null)`；该行为和 `docs/backend-development.md#切换填写人快照读取边界` 的“必须写入当前批次任务 ID”门禁冲突，可能导致粗洗工序复用旧执行记录或缺少当前任务上下文。
+- `RED: node IntRuoyiBackend/yudao-module-mes/src/test/js/mes-edhr-cell-link-task-id-context-static.spec.cjs -> FAIL`，旧代码命中 `.setTaskId(null)`，证明传统批记录打开链路未把当前批次任务 ID 传入执行记录创建/打开上下文。
+- `GREEN: code fix -> PASS`，`MesProEdhrBatchExecutionServiceImpl.buildOpenOrCreateExecutionReq(...)` 已改为 `.setTaskId(task.getId())`，不再传空 taskId。
+- `GREEN: node D:\IntRuoyiWorktree\20260728-edhr-cell-link-taskid-runtime\IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-cell-link-task-id-context-static.spec.cjs -> PASS`，静态合同确认后端打开请求传当前任务 ID，且执行记录服务按 `batchExecutionId + taskId` 查询、生成 active context key 并持久化 taskId。
+- `GREEN: mvn.cmd -pl yudao-module-mes "-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_withoutProductionTaskContext_stillOpensBatchRecordWithoutScheduleReference+openTask_ignoresSingleWorkOrderProductionTaskWhenOpeningBatchRecord" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS`，2 个聚焦 JUnit 断言传统批记录打开请求携带当前批次任务 ID。
+- `GREEN: mvn.cmd -pl yudao-module-mes "-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_bindsExistingSingleExecutionContext" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS`，补跑自动落库响应断言，确认 `task/open` 返回 `cellLinkAutoPersist`。
+- `GREEN: isolated runtime build -> PASS`，在 `D:\IntRuoyiWorktree\20260728-edhr-cell-link-taskid-runtime` 执行 `mvn.cmd -pl yudao-server -am -DskipTests package` 成功，生成修复后后端 Jar 并启动到 `48088`，health 为 `UP`；前端启动到 `8088`，HTTP `200`。
+- `BLOCKED then GREEN: slot7 frontend env -> PASS`，第一次 slot 7 E2E 因 worktree 缺 `.env.local` 导致验证码开启而阻塞；补入任务自有 `.env.local` 指向 `48088` 且 `VITE_APP_CAPTCHA_ENABLE=false` 后重新启动前端。
+- `GREEN: EDHR_BATCH_E2E_BASE_URL=http://127.0.0.1:8088 EDHR_BATCH_E2E_BACKEND_URL=http://127.0.0.1:48088 EDHR_BATCH_E2E_TENANT_LABEL=测试租户 EDHR_BATCH_E2E_USERNAME=codexedhrcell01 EDHR_BATCH_E2E_REQUIRE_NEW_EXECUTION=0 node tests/e2e/edhr-batch-execution-real-flow.e2e.js -> PASS`，slot 7 修复后运行态通过真实批次详情点击“打开填写”，证据写入 `real-e2e-slot7-evidence.md`。
+- `GREEN: slot7 cleanup -> PASS`，停止 `48088` 后端和 `8088` 前端任务自有进程；`git worktree remove --force` 先解除 Git 注册但遗留目录，确认无 Git 注册、无监听端口、无目标进程后以不跟随 reparse point 的删除逻辑清理残留目录；临时分支无独有提交并已删除；端口登记项 `20260728-edhr-cell-link-taskid-runtime` 已标记 `active=false`、补入 `deletedAt/cleanupTask`。
+- `GREEN: task-closeout-cleanup preview/apply -> PASS`，keep `task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`、`frontend-feature-evidence.md`、`real-e2e-evidence.md`、`real-e2e-slot7-evidence.md`；delete `<none>`；blocked `<none>`；warnings `<none>`。
+- `GREEN: project-experience-consolidation -> PASS`，已将 worktree slot E2E `.env.local` / 验证码关闭 / 后端端口代理门禁合并到 `docs/worktree-memory.md#Worktree 真实 E2E 运行产物门禁`，并在 `docs/experience-index.md` 增加关键词路由；未新建长期经验文档。
+- `BLOCKED: commit/push -> NOT_RUN`，当前主工作区存在大量并行任务脏改，用户当前明确要求只进行 E2E 验证；未进行宽泛 baseline commit，避免混入无关任务改动。
 
 ## Current Evidence
 
 - 主端口运行态：前端 `8081` HTTP `200`，后端 `48081` health `UP`。
+- 隔离验证运行态：worktree `D:\IntRuoyiWorktree\20260728-edhr-cell-link-taskid-runtime`，slot 7 前端 `8088`，后端 `48088`，修复后后端 Jar `backend-edhr-cell-link-taskid-20260728-170049.jar`。
+- 清理结果：slot 7 端口不再监听；worktree 目录不存在；Git worktree 列表不含该路径；端口登记项为 `active=false`。
 - 当前目标源码：`IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`。
 - 当前目标测试：`IntRuoyiFronted/tests/e2e/edhr-cell-link-auto-persist-static.spec.js` 与 `IntRuoyiFronted/tests/e2e/edhr-batch-execution-real-flow.e2e.js`。
 - 当前真实 E2E 证据：`doc/tasks/20260728-edhr-cell-link-main-e2e-repair/real-e2e-evidence.md`。
 
 ## Blockers
 
-- 本次用户要求的测试租户真实 E2E 已通过，无剩余 E2E blocker。
+- 本次用户要求的测试租户真实 E2E 已在主运行态与 slot 7 修复后运行态均通过，无剩余 E2E blocker。
 - 仍保留一项非本任务阻塞记录：`node tests/e2e/mes/batch-record-cell-link-static.spec.js` 当前失败在并行表单模板 API 合同断言 `api misses templateId?: number`，不作为本次执行页 `/prefill` 回归或真实 E2E 放行门禁。
+- 提交/推送未执行，原因是主工作区有大量并行任务脏改且当前用户范围是 E2E 验证；本次不做会混入无关改动的 baseline commit。

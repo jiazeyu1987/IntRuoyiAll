@@ -48,10 +48,16 @@ EXPERIENCE CONSOLIDATION: 已读取 `project-experience-consolidation` skill，�
 
 CLOSEOUT NOTE: 当前主工作区存在大量并行脏改，本次仅修改 `FormTemplateFillConfigDialog.vue`、`form-template-fill-config-static.spec.js` 和当前任务证据；未暂存、提交、回滚或覆盖无关改动。
 
-CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-fill-config-two-panel-layout --mode preview` -> PASS. Preview kept `task.md`, `execution-log.md`, `verification-report.md`, and `bug-regression-evidence.md`; planned deletion only for empty task-local `frontend-feature-evidence.md`.
+CLOSEOUT VALIDATION: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260728-fill-config-two-panel-layout\frontend-feature-evidence.md` -> PASS.
 
-CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-fill-config-two-panel-layout --mode apply` -> PASS. Deleted only `doc/tasks/20260728-fill-config-two-panel-layout/frontend-feature-evidence.md`.
+CLOSEOUT VALIDATION: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260728-fill-config-two-panel-layout\bug-regression-evidence.md` -> PASS.
 
-IMPLEMENTATION COMMIT: `ec63b062 fix: repair form template fill config dialog` -> committed only `IntRuoyiFronted/src/views/form-center/template/components/FormTemplateFillConfigDialog.vue` and `IntRuoyiFronted/tests/e2e/form-template-fill-config-static.spec.js`. Commit hook output included `Branch runtime port guard passed for int_main/int_main: frontend 8081, backend 48081.`
+CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-fill-config-two-panel-layout --mode preview` -> PASS. Preview kept `task.md`, `execution-log.md`, `verification-report.md`, `bug-regression-evidence.md`, and `frontend-feature-evidence.md`; delete `<none>`, blocked `<none>`, warnings `<none>`.
 
-FINAL STATUS: task marked `completed`; unrelated concurrent dirty changes remain outside this task and were not staged or committed here.
+CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-fill-config-two-panel-layout --mode apply` -> PASS. Kept the same five task evidence files; deleted paths `<none>`.
+
+IMPLEMENTATION COMMIT: `ec63b062 fix: repair form template fill config dialog` -> local commit contains only `IntRuoyiFronted/src/views/form-center/template/components/FormTemplateFillConfigDialog.vue` and `IntRuoyiFronted/tests/e2e/form-template-fill-config-static.spec.js`; branch is `int_main`, remote is `origin`.
+
+COMMIT/PUSH BLOCKER: `git status --short --branch` -> `int_main...origin/int_main [ahead 1]` plus many unrelated dirty files across backend, frontend, docs, and other task directories. Per dirty-worktree and same-workspace ownership gates, final task evidence was not staged/committed/pushed to avoid mixing unrelated concurrent work.
+
+FINAL STATUS: task remains `ready_for_closeout`; layout implementation is verified, cleanup apply is complete, and commit/push remains blocked by unrelated shared-workspace dirty state.

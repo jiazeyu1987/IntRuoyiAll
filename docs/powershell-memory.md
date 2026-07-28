@@ -43,6 +43,15 @@
 - Forbidden action: 禁止把同文件并行改动混进当前任务实现提交；禁止为了 clean 状态回滚、覆盖或删除并行改动。
 - Evidence: `doc\tasks\20260726-route-flow-form-slot-count-badge\execution-log.md`，`RouteFlowGraphDesigner.vue` 在徽标任务中与并行表单配置改动同文件共存，需选择性暂存本任务 hunks。
 
+### 文档目录精确暂存门禁
+
+- Trigger: 用户询问或授权将 `scripts`、`doc`、`docs` 纳入 Git，且工作区同时存在源码、测试或并行任务改动。
+- Preflight check: 先用 `git status --short --untracked-files=all -- scripts doc docs` 盘点候选文件，再用显式路径 `git add -- <paths>` 暂存；暂存后必须运行 `git diff --cached --name-status`。
+- Blocker: 暂存区出现非本次授权范围的源码、测试、超大产物、临时日志、pid 或无法归属文件时，必须停止提交并清理暂存边界。
+- Verification: 对误入暂存区但仍需保留工作区内容的文件，只使用 `git restore --staged -- <path>` 移出暂存区，并再次复核 cached 清单只剩授权目录。
+- Forbidden action: 禁止用 `git add doc docs scripts` 或 `git add -A` 代替候选清单；禁止为了修正暂存区而回滚、删除或覆盖工作区改动。
+- Evidence: 2026-07-28 文档目录加入 Git 前，复核发现前端源码/测试误在暂存区，使用 `git restore --staged` 保留工作区内容并只留下 `doc`、`docs` 文档文件。
+
 ### 提交后残余改动复扫门禁
 
 - Trigger: 执行基线提交、实现提交或收尾提交后，准备继续下一步提交或推送前。
@@ -71,6 +80,15 @@
 - Verification: 每个关键命令记录退出码和必要摘要；中文文件写入后使用 UTF-8 方式重新读取。
 - Forbidden action: 禁止使用 `&&`、默认编码 `Set-Content`/`Out-File` 写中文、吞掉错误、或记录密码/token/私钥。
 - Evidence: `docs\powershell-encoding.md`、`doc\tasks\<task-id>\execution-log.md`。
+
+### PowerShell 分号串联测试退出码门禁
+
+- Trigger: 在 PowerShell 中用分号串联多个 Node、Python、Maven、pnpm 或静态合同测试命令。
+- Preflight check: 每个会影响验收结论的测试命令必须单独执行，或在每条命令后检查 `$LASTEXITCODE` 并失败即停止。
+- Blocker: 前一个测试输出断言失败、异常栈或非零退出码，但后续命令继续执行并让最终命令返回 0。
+- Verification: 对目标测试逐条记录退出码；批量命令必须证明中间失败不会被最后一条 PASS 掩盖。
+- Forbidden action: 禁止把 `cmd1; cmd2; cmd3` 的最终退出码 0 当作全部测试通过；禁止只引用最后一条 PASS 输出。
+- Evidence: `doc\tasks\20260728-edhr-detail-assist-preview-switch\execution-log.md`，相邻静态合同串联运行时 `edhr-assist-fill-mode-static.spec.js` 断言失败被后续 PASS 命令掩盖，改为单独复跑后正确记录失败。
 
 ### Codex 文件 ACL 受限写入门禁
 

@@ -5281,10 +5281,12 @@ watch(
 }
 
 .edhr-batch-detail__preview-mode-switch {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto auto;
   align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
+  justify-content: end;
+  column-gap: 8px;
+  row-gap: 4px;
   border: 1px solid #dbe3ef;
   border-radius: 6px;
   background: #ffffff;
@@ -5296,12 +5298,110 @@ watch(
   font-size: 12px;
   font-weight: 700;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .edhr-batch-detail__preview-mode-disabled {
+  grid-column: 1 / -1;
+  justify-self: end;
   color: #98a2b3;
   font-size: 12px;
-  line-height: 1;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.edhr-batch-detail__assist-preview {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  min-height: 360px;
+  background: #f8fafc;
+}
+
+.edhr-batch-detail__assist-preview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px 14px;
+}
+
+.edhr-batch-detail__assist-preview-head strong {
+  display: block;
+  color: #172033;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.edhr-batch-detail__assist-preview-head span {
+  display: block;
+  margin-top: 4px;
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.edhr-batch-detail__assist-preview-row {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px 14px;
+}
+
+.edhr-batch-detail__assist-preview-row-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.edhr-batch-detail__assist-preview-field-name {
+  min-width: 0;
+  color: #172033;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.edhr-batch-detail__assist-preview-tags {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.edhr-batch-detail__assist-preview-meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr);
+  gap: 10px;
+  margin: 0;
+}
+
+.edhr-batch-detail__assist-preview-meta > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.edhr-batch-detail__assist-preview-meta dt {
+  color: #98a2b3;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.edhr-batch-detail__assist-preview-meta dd {
+  margin: 0;
+  color: #344054;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .edhr-batch-detail__rail-process-form-list {

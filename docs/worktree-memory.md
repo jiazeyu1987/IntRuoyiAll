@@ -48,10 +48,10 @@
 ## Worktree 真实 E2E 运行产物门禁
 
 - Trigger: 在 `D:\IntRuoyiWorktree\` 下执行真实 Playwright E2E，尤其需要通过登记 slot 启动前端与后端。
-- Preflight check: 启动前同时检查目标 worktree 的后端可执行 Jar（如 `IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`）、前端 Vite 依赖（`IntRuoyiFronted\node_modules\.bin\vite.cmd`）、端口登记项和目标端口监听状态；缺 Jar 时先按任务验证要求构建，缺前端依赖时只在目标 worktree 执行 `pnpm install --frozen-lockfile`。
-- Blocker: Jar 不存在、Vite 依赖不存在、端口未按登记 slot 成对启动、构建/安装失败、或端口被非当前 worktree 占用时必须停止，不得静默切回 8081/48081、复用其他 worktree 进程、API-only 代替真实页面路径。
-- Verification: 记录 Jar 存在性或构建命令退出码、Vite 依赖存在性、前后端端口监听 PID 和命令行归属、前端 HTTP 200、后端 health UP，以及真实 E2E 命令和结果。
-- Forbidden action: 禁止把缺运行产物解释为功能失败；禁止随机换端口、强杀未知进程、复制 node_modules、复用旧 Jar 或只跑静态合同冒充真实 E2E。
+- Preflight check: 启动前同时检查目标 worktree 的后端可执行 Jar（如 `IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`）、前端 Vite 依赖（`IntRuoyiFronted\node_modules\.bin\vite.cmd`）、端口登记项、目标端口监听状态和 worktree 本地前端 env；`.env.local` 或等效启动环境必须显式指向登记后端端口，并关闭无人值守 E2E 需要关闭的验证码开关。
+- Blocker: Jar 不存在、Vite 依赖不存在、端口未按登记 slot 成对启动、构建/安装失败、端口被非当前 worktree 占用、登录页验证码仍开启、或前端实际代理到其它后端端口时必须停止，不得静默切回 8081/48081、复用其他 worktree 进程、API-only 代替真实页面路径。
+- Verification: 记录 Jar 存在性或构建命令退出码、Vite 依赖存在性、worktree env 中的前后端端口与验证码开关、前后端端口监听 PID 和命令行归属、前端 HTTP 200、后端 health UP，以及真实 E2E 命令和结果。
+- Forbidden action: 禁止把缺运行产物或验证码开启解释为功能失败；禁止随机换端口、强杀未知进程、复制 node_modules、复用旧 Jar、只靠命令行临时 env 但未验证页面实际关闭验证码，或只跑静态合同冒充真实 E2E。
 
 ## Worktree 删除门禁
 

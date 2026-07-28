@@ -21,6 +21,7 @@ import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskPageReqV
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskRejectReqVO;
 import cn.iocoder.yudao.module.bpm.framework.flowable.core.enums.BpmnVariableConstants;
 import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionTaskRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordDomainTraceDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordExecutionApproveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordExecutionApprovalActionRespVO;
@@ -116,6 +117,7 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
@@ -167,7 +169,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Import({MesProBatchRecordExecutionServiceImpl.class, MesProEdhrCandidateResolver.class,
-        MesProEdhrPreReleaseEditabilityService.class, MesProEdhrGoldenFingerPermissionService.class})
+        MesProEdhrPreReleaseEditabilityService.class, MesProEdhrGoldenFingerPermissionService.class,
+        MesProBatchRecordRuntimeSnapshotSupport.class})
 class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
 
     private static final String DOMAIN_TRACE_HASH =
@@ -434,6 +437,196 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
         assertEquals(process.getId(), result.getProcessId());
         assertEquals(process.getName(), result.getProcessName());
         verify(routeProcessService, never()).resolveCurrentRouteProcess(100L, route.getId(), null);
+    }
+
+    @Test
+    void buildResp_assistSwitchTasksIncludesExtraFormFillersFromProcessRuleWithoutWorkTask() throws Exception {
+        MesProBatchRecordExecutionDO execution = insertExecution(0,
+                "BRE-ASSIST-SWITCH-EXTRA-FORM", "BATCH-ASSIST-SWITCH-EXTRA-FORM");
+        Long batchExecutionId = 91012001L;
+        Long extraTaskId = 91012003L;
+        edhrBatchExecutionMapper.insert(new MesProEdhrBatchExecutionDO()
+                .setId(batchExecutionId)
+                .setBatchExecutionCode("EDHR-" + batchExecutionId)
+                .setWorkOrderId(execution.getWorkOrderId())
+                .setWorkOrderCode(execution.getWorkOrderCode())
+                .setBatchCode(execution.getBatchCode())
+                .setRouteId(1001L)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS)
+                .setTaskTotal(2)
+                .setTaskApprovedCount(0)
+                .setBlockedCount(0));
+        edhrBatchExecutionTaskMapper.insert(new MesProEdhrBatchExecutionTaskDO()
+                .setId(91012002L)
+                .setBatchExecutionId(batchExecutionId)
+                .setNodeType(MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM)
+                .setRouteProcessId(execution.getRouteProcessId())
+                .setRouteProcessSort(1)
+                .setProcessId(2002L)
+                .setProcessCode("PROC-WASH")
+                .setProcessName("粗洗工序")
+                .setBatchRecordReportId(execution.getBatchRecordReportId())
+                .setBatchRecordReportName("粗洗工序生产记录")
+                .setBatchRecordSort(1)
+                .setFormSlotType("MAIN")
+                .setRequiredFlag(Boolean.TRUE)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING));
+        edhrBatchExecutionTaskMapper.insert(new MesProEdhrBatchExecutionTaskDO()
+                .setId(extraTaskId)
+                .setBatchExecutionId(batchExecutionId)
+                .setNodeType(MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM)
+                .setRouteProcessId(execution.getRouteProcessId())
+                .setRouteProcessSort(1)
+                .setProcessId(2002L)
+                .setProcessCode("PROC-WASH")
+                .setProcessName("粗洗工序")
+                .setBatchRecordSort(2)
+                .setFormSlotType("PROCESS_INSPECTION")
+                .setFormBindingKey("FB-ASSIST-SWITCH-EXTRA")
+                .setFormTemplateId(91012004L)
+                .setFormTemplateNameSnapshot("粗洗附加表单")
+                .setBatchRecordVersionId(91012005L)
+                .setRequiredFlag(Boolean.TRUE)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING));
+        processFormPermissionRuleMapper.insert(new MesProEdhrProcessFormPermissionRuleDO()
+                .setRouteProcessId(execution.getRouteProcessId())
+                .setBatchRecordReportId("FB-ASSIST-SWITCH-EXTRA")
+                .setBatchRecordVersionId(91012005L)
+                .setRuleType("FILL")
+                .setCandidateSourceType("USERS")
+                .setCandidateSourceIds("910181,910182")
+                .setCompletionPolicy("ANY_ONE")
+                .setDueMinutes(Integer.MAX_VALUE)
+                .setEnabled(true)
+                .setRemark("附加表单填写人"));
+        when(adminUserApi.getUserList(List.of(910181L, 910182L))).thenReturn(List.of(
+                enabledReviewUser(910181L, "张可莹"),
+                enabledReviewUser(910182L, "黎敏")));
+        when(adminUserApi.getUserMap(Set.of(910181L, 910182L))).thenReturn(Map.of(
+                910181L, enabledReviewUser(910181L, "张可莹"),
+                910182L, enabledReviewUser(910182L, "黎敏")));
+        executionMapper.updateById(new MesProBatchRecordExecutionDO()
+                .setId(execution.getId())
+                .setBatchExecutionId(batchExecutionId));
+        execution = executionMapper.selectById(execution.getId());
+        Method method = MesProBatchRecordExecutionServiceImpl.class.getDeclaredMethod(
+                "buildResp", MesProBatchRecordExecutionDO.class);
+        method.setAccessible(true);
+        MesProBatchRecordExecutionServiceImpl target = AopTestUtils.getTargetObject(executionService);
+
+        MesProBatchRecordExecutionRespVO result =
+                (MesProBatchRecordExecutionRespVO) method.invoke(target, execution);
+
+        EdhrBatchExecutionTaskRespVO extraTask = result.getAssistSwitchTasks().stream()
+                .filter(task -> extraTaskId.equals(task.getId()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("PROCESS_INSPECTION", extraTask.getFormSlotType());
+        assertEquals(List.of(910181L, 910182L), extraTask.getFillableUsers().stream()
+                .map(EdhrBatchExecutionTaskRespVO.FillableUser::getUserId)
+                .toList());
+    }
+
+    @Test
+    void buildResp_assistSwitchTasksBackfillsMissingCompanionWorkTasksBeforeSnapshot() throws Exception {
+        MesProBatchRecordExecutionDO execution = insertExecution(0,
+                "BRE-ASSIST-SWITCH-BACKFILL", "BATCH-ASSIST-SWITCH-BACKFILL");
+        Long batchExecutionId = 91012101L;
+        Long mainTaskId = 91012102L;
+        Long extraTaskId = 91012103L;
+        edhrBatchExecutionMapper.insert(new MesProEdhrBatchExecutionDO()
+                .setId(batchExecutionId)
+                .setBatchExecutionCode("EDHR-" + batchExecutionId)
+                .setWorkOrderId(execution.getWorkOrderId())
+                .setWorkOrderCode(execution.getWorkOrderCode())
+                .setBatchCode(execution.getBatchCode())
+                .setRouteId(1001L)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_IN_PROGRESS)
+                .setTaskTotal(2)
+                .setTaskApprovedCount(0)
+                .setBlockedCount(0));
+        edhrBatchExecutionTaskMapper.insert(new MesProEdhrBatchExecutionTaskDO()
+                .setId(mainTaskId)
+                .setBatchExecutionId(batchExecutionId)
+                .setNodeType(MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM)
+                .setRouteProcessId(execution.getRouteProcessId())
+                .setRouteProcessSort(1)
+                .setProcessId(2002L)
+                .setProcessCode("PROC-WASH")
+                .setProcessName("粗洗工序")
+                .setBatchRecordReportId(execution.getBatchRecordReportId())
+                .setBatchRecordReportName("粗洗工序生产记录")
+                .setBatchRecordSort(1)
+                .setFormSlotType("MAIN")
+                .setRequiredFlag(Boolean.TRUE)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING));
+        edhrBatchExecutionTaskMapper.insert(new MesProEdhrBatchExecutionTaskDO()
+                .setId(extraTaskId)
+                .setBatchExecutionId(batchExecutionId)
+                .setNodeType(MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM)
+                .setRouteProcessId(execution.getRouteProcessId())
+                .setRouteProcessSort(1)
+                .setProcessId(2002L)
+                .setProcessCode("PROC-WASH")
+                .setProcessName("粗洗工序")
+                .setBatchRecordSort(2)
+                .setFormSlotType("LOSS_REPORT")
+                .setFormBindingKey("FB-ASSIST-SWITCH-BACKFILL")
+                .setFormTemplateId(91012104L)
+                .setFormTemplateNameSnapshot("损耗单")
+                .setBatchRecordVersionId(91012105L)
+                .setRequiredFlag(Boolean.TRUE)
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING));
+        workTaskMapper.insert(MesProEdhrWorkTaskDO.builder()
+                .taskCode("WT-ASSIST-SWITCH-MAIN")
+                .taskType(MesProEdhrWorkTaskService.TASK_TYPE_FILL)
+                .batchExecutionId(batchExecutionId)
+                .batchTaskId(mainTaskId)
+                .businessScopeType("BATCH_TASK")
+                .businessScopeId(mainTaskId)
+                .workOrderId(execution.getWorkOrderId())
+                .workOrderCode(execution.getWorkOrderCode())
+                .batchCode(execution.getBatchCode())
+                .routeId(1001L)
+                .routeProcessId(execution.getRouteProcessId())
+                .processId(2002L)
+                .processName("粗洗工序")
+                .assigneeUserId(810L)
+                .candidateSourceType("USER")
+                .candidateSourceId(810L)
+                .candidateUserSnapshot("810")
+                .status(MesProEdhrWorkTaskStatus.TODO)
+                .actionUrl("/mes/pro/feedback/edhr-batch-execution/detail?id=" + batchExecutionId)
+                .remark("eDHR填写任务")
+                .build());
+        processFormPermissionRuleMapper.insert(new MesProEdhrProcessFormPermissionRuleDO()
+                .setRouteProcessId(execution.getRouteProcessId())
+                .setBatchRecordReportId("FB-ASSIST-SWITCH-BACKFILL")
+                .setBatchRecordVersionId(91012105L)
+                .setRuleType("FILL")
+                .setCandidateSourceType("USERS")
+                .setCandidateSourceIds("152")
+                .setCompletionPolicy("ANY_ONE")
+                .setDueMinutes(Integer.MAX_VALUE)
+                .setEnabled(true)
+                .setRemark("附加表单填写人"));
+        when(adminUserApi.getUserList(List.of(152L))).thenReturn(List.of(enabledReviewUser(152L, "张可莹")));
+        when(adminUserApi.getUserMap(argThat(ids -> ids != null && ids.containsAll(Set.of(152L, 810L)))))
+                .thenReturn(Map.of(
+                        152L, enabledReviewUser(152L, "张可莹"),
+                        810L, enabledReviewUser(810L, "王歆")));
+        executionMapper.updateById(new MesProBatchRecordExecutionDO()
+                .setId(execution.getId())
+                .setBatchExecutionId(batchExecutionId));
+        execution = executionMapper.selectById(execution.getId());
+        Method method = MesProBatchRecordExecutionServiceImpl.class.getDeclaredMethod(
+                "buildResp", MesProBatchRecordExecutionDO.class);
+        method.setAccessible(true);
+        MesProBatchRecordExecutionServiceImpl target = AopTestUtils.getTargetObject(executionService);
+
+        method.invoke(target, execution);
+
+        verify(workTaskService).createInitialFillTask(argThat(batch -> Objects.equals(batch.getId(), batchExecutionId)));
     }
 
     @Test
@@ -3850,7 +4043,7 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
-    void entryContextAndOpenOrCreateByContext_ignoreScheduleTaskFieldsForFutureExecutionContext() throws Exception {
+    void entryContextAndOpenOrCreateByContext_useTaskFieldsForExecutionContextIsolation() throws Exception {
         MesProWorkOrderDO workOrder = insertWorkOrder();
         MesProRouteDO route = MesProRouteDO.builder().code("ROUTE-CTX").name("执行路线").status(0).remark("").build();
         routeMapper.insert(route);
@@ -3904,8 +4097,8 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
                 .workOrderId(workOrder.getId())
                 .workOrderCode(workOrder.getCode())
                 .routeProcessId(routeProcess.getId())
-                .taskId(null)
-                .workstationId(null)
+                .taskId(3003L)
+                .workstationId(workstation.getId())
                 .batchRecordReportId("report-2002")
                 .batchCode("BATCH-CTX-01")
                 .status(0)
@@ -3932,13 +4125,13 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
         assertEquals(existing.getId(), invokeGetter(openResp, "getId"));
         assertEquals(existing.getExecutionCode(), invokeGetter(openResp, "getExecutionCode"));
         assertEquals(Boolean.FALSE, invokeGetter(openResp, "getCreated"));
-        assertEquals(existingContextKey(workOrder.getId(), null, routeProcess.getId(), null, "report-2002", "BATCH-CTX-01"),
+        assertEquals(existingContextKey(workOrder.getId(), 3003L, routeProcess.getId(), workstation.getId(), "report-2002", "BATCH-CTX-01"),
                 invokeGetter(openResp, "getActiveContextKey"));
         assertEquals(1L, executionMapper.selectCount());
     }
 
     @Test
-    void openOrCreateByContext_doesNotPersistScheduleTaskFieldsForNewExecution() {
+    void openOrCreateByContext_persistsTaskFieldsForNewExecutionIsolation() {
         MesProWorkOrderDO workOrder = insertWorkOrder();
         MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
                 .routeId(1001L)
@@ -3961,9 +4154,9 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
                         .setBatchCode("BATCH-NO-SCHEDULE-REF"));
 
         MesProBatchRecordExecutionDO execution = executionMapper.selectById(resp.getId());
-        assertNull(execution.getTaskId());
-        assertNull(execution.getWorkstationId());
-        assertEquals(existingContextKey(workOrder.getId(), null, routeProcess.getId(), null,
+        assertEquals(3003L, execution.getTaskId());
+        assertEquals(4004L, execution.getWorkstationId());
+        assertEquals(existingContextKey(workOrder.getId(), 3003L, routeProcess.getId(), 4004L,
                 "report-no-schedule-ref", "BATCH-NO-SCHEDULE-REF"), execution.getActiveContextKey());
         assertEquals(execution.getActiveContextKey(), resp.getActiveContextKey());
     }
@@ -4825,8 +5018,8 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
                 .workOrderId(workOrder.getId())
                 .workOrderCode(workOrder.getCode())
                 .routeProcessId(routeProcess.getId())
-                .taskId(null)
-                .workstationId(null)
+                .taskId(3003L)
+                .workstationId(4004L)
                 .batchRecordReportId("report-active-" + status)
                 .batchCode("BATCH-ACTIVE-" + status)
                 .status(status)

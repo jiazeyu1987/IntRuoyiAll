@@ -35,6 +35,7 @@ ready_for_closeout
 - 当前工作区存在大量非本任务脏改动；按项目提交规则，提交/推送前需要先处理脏工作区基线，但这些改动不属于本任务，未进行提交或推送。
 - `48081` 已切换到新后端 Jar `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260728-142124.jar`，PID `56272`，SHA256 `073AFE1D63B0D1C8F99847F68AB7E2916FCB090CA1DF720C63B58952D0B68903`。
 - 新后端启动后曾返回 health `UP`，但后续登录态目标接口复验被当前本地 DB/Redis/Docker 运行态超时阻塞：`/actuator/health` 连续 3 次 20 秒超时，登录 API 超时，Docker 只读检查超时；未终止或重启无关依赖进程。
+- 用户访问 `http://localhost:8081/mdm/form-center/template` 的报错已定位到同一本地依赖阻塞：8081 前端壳返回 HTTP 200，后端未登录接口返回 401，但登录态接口查库时连接池超时；标准后端重启脚本在 Docker Desktop Linux engine 500 处失败，未停止当前 Java 进程。继续恢复需要用户授权重启 Docker Desktop/本地 Docker 依赖。
 
 ## 设计约束检查
 

@@ -188,7 +188,8 @@ import static org.mockito.Mockito.when;
         MesProEdhrCandidateResolver.class,
         MesProEdhrPreReleaseEditabilityService.class,
         MesProEdhrBatchWorkbenchServiceImpl.class,
-        MesProEdhrBatchStageResolver.class
+        MesProEdhrBatchStageResolver.class,
+        MesProBatchRecordRuntimeSnapshotSupport.class
 })
 class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
@@ -2452,7 +2453,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         ArgumentCaptor<MesProBatchRecordExecutionOpenOrCreateByContextReqVO> reqCaptor =
                 ArgumentCaptor.forClass(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class);
         verify(singleExecutionService).openOrCreateByContext(reqCaptor.capture());
-        assertNull(reqCaptor.getValue().getTaskId());
+        assertEquals(batchTask.getId(), reqCaptor.getValue().getTaskId());
         assertNull(reqCaptor.getValue().getWorkstationId());
         assertEquals(batchTask.getProcessId(), reqCaptor.getValue().getProcessId());
         assertEquals(batchTask.getRouteProcessId(), reqCaptor.getValue().getRouteProcessId());
@@ -2950,6 +2951,85 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void openTask_allowsCurrentProcessFillerToOpenExtraFormCandidateWorkTask() {
+        Fixture fixture = insertRouteFixture(false, false);
+        MesProRouteProcessDO firstProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).stream()
+                .sorted(Comparator.comparing(MesProRouteProcessDO::getSort))
+                .findFirst()
+                .orElseThrow();
+        String mainReport = insertReport("RPT-OPEN-ASSIST-MAIN", "粗洗生产记录");
+        String lossReport = insertReport("RPT-OPEN-ASSIST-LOSS", "粗洗损耗单");
+        insertBatchUseConfigWithSlots(fixture.routeId(), firstProcess.getId(), "PARALLEL", List.of(
+                batchSlot(mainReport, "MAIN", null, null, null, 1),
+                batchSlot(lossReport, "LOSS_REPORT", "INTERNAL_RECORD", 5011L, "PRODUCTION", 2)
+        ));
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-OPEN-ASSIST-EXTRA")
+                .setRouteId(fixture.routeId()));
+        skipAllSpecialNodes(batch);
+        EdhrBatchExecutionTaskRespVO mainTask = routeTasks(batch).stream()
+                .filter(task -> mainReport.equals(task.getBatchRecordReportId()))
+                .findFirst()
+                .orElseThrow();
+        EdhrBatchExecutionTaskRespVO lossTask = routeTasks(batch).stream()
+                .filter(task -> lossReport.equals(task.getBatchRecordReportId()))
+                .findFirst()
+                .orElseThrow();
+        insertProductionTask(fixture.workOrderId(), fixture.routeId(), firstProcess.getProcessId(), 80044L);
+        insertWorkTask(batch, mainTask, fixture, MesProEdhrWorkTaskService.TASK_TYPE_FILL, 10001L);
+        MesProEdhrWorkTaskDO lossWorkTask = insertWorkTask(batch, lossTask, fixture,
+                MesProEdhrWorkTaskService.TASK_TYPE_FILL, 152L)
+                .setCandidateUserSnapshot("152");
+        workTaskMapper.updateById(lossWorkTask);
+        when(singleExecutionService.openOrCreateByContext(any()))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO()
+                        .setId(9044L)
+                        .setCreated(true)
+                        .setStatus(0));
+
+        EdhrBatchExecutionTaskOpenRespVO opened =
+                openTaskAs(10001L, batch.getId(), lossTask.getId(), lossWorkTask.getId(), 152L);
+
+        assertEquals(9044L, opened.getExecutionId());
+        assertEquals(lossWorkTask.getId(), opened.getExecutionPageQuery().get("workTaskId"));
+        assertEquals(152L, opened.getExecutionPageQuery().get("assistUserId"));
+    }
+
+    @Test
+    void openTask_rejectsExtraFormAssistUserWithoutCurrentProcessFillerAnchor() {
+        Fixture fixture = insertRouteFixture(false, false);
+        MesProRouteProcessDO firstProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).stream()
+                .sorted(Comparator.comparing(MesProRouteProcessDO::getSort))
+                .findFirst()
+                .orElseThrow();
+        String mainReport = insertReport("RPT-OPEN-ASSIST-NO-ANCHOR-MAIN", "粗洗生产记录");
+        String lossReport = insertReport("RPT-OPEN-ASSIST-NO-ANCHOR-LOSS", "粗洗损耗单");
+        insertBatchUseConfigWithSlots(fixture.routeId(), firstProcess.getId(), "PARALLEL", List.of(
+                batchSlot(mainReport, "MAIN", null, null, null, 1),
+                batchSlot(lossReport, "LOSS_REPORT", "INTERNAL_RECORD", 5011L, "PRODUCTION", 2)
+        ));
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-OPEN-ASSIST-NO-ANCHOR")
+                .setRouteId(fixture.routeId()));
+        skipAllSpecialNodes(batch);
+        EdhrBatchExecutionTaskRespVO lossTask = routeTasks(batch).stream()
+                .filter(task -> lossReport.equals(task.getBatchRecordReportId()))
+                .findFirst()
+                .orElseThrow();
+        insertProductionTask(fixture.workOrderId(), fixture.routeId(), firstProcess.getProcessId(), 80045L);
+        MesProEdhrWorkTaskDO lossWorkTask = insertWorkTask(batch, lossTask, fixture,
+                MesProEdhrWorkTaskService.TASK_TYPE_FILL, 152L)
+                .setCandidateUserSnapshot("152");
+        workTaskMapper.updateById(lossWorkTask);
+
+        assertServiceException(() -> openTaskAs(10001L, batch.getId(), lossTask.getId(),
+                        lossWorkTask.getId(), 152L),
+                PRO_EDHR_BATCH_EXECUTION_TASK_NOT_VISIBLE);
+    }
+
+    @Test
     void openTask_existingExecution_rebindsOverdueFillTask() {
         Fixture fixture = insertRouteFixture(true, true);
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
@@ -3321,7 +3401,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         ArgumentCaptor<MesProBatchRecordExecutionOpenOrCreateByContextReqVO> reqCaptor =
                 ArgumentCaptor.forClass(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class);
         verify(singleExecutionService).openOrCreateByContext(reqCaptor.capture());
-        assertNull(reqCaptor.getValue().getTaskId());
+        assertEquals(batchTask.getId(), reqCaptor.getValue().getTaskId());
         assertNull(reqCaptor.getValue().getWorkstationId());
     }
 
@@ -3348,7 +3428,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         ArgumentCaptor<MesProBatchRecordExecutionOpenOrCreateByContextReqVO> reqCaptor =
                 ArgumentCaptor.forClass(MesProBatchRecordExecutionOpenOrCreateByContextReqVO.class);
         verify(singleExecutionService).openOrCreateByContext(reqCaptor.capture());
-        assertNull(reqCaptor.getValue().getTaskId());
+        assertEquals(batchTask.getId(), reqCaptor.getValue().getTaskId());
         assertNull(reqCaptor.getValue().getWorkstationId());
         assertEquals(batchTask.getProcessId(), reqCaptor.getValue().getProcessId());
     }
@@ -6092,6 +6172,50 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals(List.of("张可莹（zhangkeying）"), lossTask.getFillableUsers().stream()
                 .map(EdhrBatchExecutionTaskRespVO.FillableUser::getDisplayName)
                 .toList());
+    }
+
+    @Test
+    void detailTask_triggersCompanionFillTaskBackfillWhenActiveMainTaskExists() {
+        Fixture fixture = insertRouteFixture(false, false);
+        MesProRouteDO route = routeMapper.selectById(fixture.routeId());
+        List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(fixture.routeId()).stream()
+                .sorted(Comparator.comparing(MesProRouteProcessDO::getSort))
+                .toList();
+        MesProRouteProcessDO firstProcess = routeProcesses.get(0);
+        String mainReport = insertReport("RPT-COMPANION-BACKFILL-MAIN", "粗洗工序生产记录");
+        String lossReport = insertReport("RPT-COMPANION-BACKFILL-LOSS", "损耗单");
+        insertBatchUseConfigWithSlots(fixture.routeId(), firstProcess.getId(), "SEQUENTIAL", List.of(
+                batchSlot(mainReport, "MAIN", null, null, null, 1),
+                batchSlot(lossReport, "LOSS_REPORT", "INTERNAL_RECORD", 5011L, "PRODUCTION", 2)
+        ));
+        MesProRouteFlowProcessBatchRecordDO lossBinding = routeFlowProcessBatchRecordMapper
+                .selectListByRouteProcessIdsAndUseType(List.of(firstProcess.getId()), "BATCH").stream()
+                .filter(record -> lossReport.equals(record.getBatchRecordReportId()))
+                .findFirst()
+                .orElseThrow();
+        insertCurrentProcessFillRule(firstProcess.getId(), lossBinding.getFormBindingKey(), "FILL", "USERS", "152");
+        routeVersionMapper.updateById(MesProRouteVersionDO.builder()
+                .id(fixture.routeVersionId())
+                .routeSnapshotJson(frozenRouteSnapshotJson(route, routeProcesses))
+                .build());
+        when(adminUserApi.getUserList(List.of(152L))).thenReturn(List.of(user(152L, "张可莹")));
+        when(adminUserApi.getUserMap(argThat(ids -> ids != null && ids.contains(152L)))).thenReturn(Map.of(
+                152L, user(152L, "张可莹"),
+                10001L, user(10001L, "主表填写人")));
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-COMPANION-BACKFILL")
+                .setRouteId(fixture.routeId()));
+        EdhrBatchExecutionTaskRespVO mainTask = routeTasks(batch).stream()
+                .filter(task -> mainReport.equals(task.getBatchRecordReportId()))
+                .findFirst()
+                .orElseThrow();
+        insertWorkTask(batch, mainTask, fixture, MesProEdhrWorkTaskService.TASK_TYPE_FILL, 10001L);
+        clearInvocations(workTaskService);
+
+        batchExecutionService.get(batch.getId());
+
+        verify(workTaskService).createInitialFillTask(argThat(latest -> Objects.equals(latest.getId(), batch.getId())));
     }
 
     @Test

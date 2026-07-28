@@ -4807,8 +4807,8 @@ const loadAssistFillerSwitchItems = async () => {
   assistFillerSwitchLoading.value = true
   assistFillerSwitchError.value = ''
   try {
-    const assistSwitchTasks = execution.value?.assistSwitchTasks
-    if (!Array.isArray(assistSwitchTasks)) {
+    const assistSwitchTasks = execution.value?.assistSwitchTasks || []
+    if (!Array.isArray(assistSwitchTasks) || assistSwitchTasks.length === 0) {
       throw new Error('当前执行详情缺少填写人快照，不能切换填写人。')
     }
     const currentTask = resolveCurrentAssistBatchTask(assistSwitchTasks)
