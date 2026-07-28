@@ -41,6 +41,15 @@
 - Forbidden action: 禁止前端把 `未配置` 改成配置页名称、禁止把角色/部门 ID 当用户 ID、禁止用空列表兜底掩盖缺失来源。
 - Evidence: 任务 `doc/tasks/20260724-edhr-route-form-filler-backfill/`，目标测试 `MesProEdhrBatchExecutionServiceTest#detailTask_includesFillableUsersFromRouteFormBindingWhenWorkTaskNotCreated`。
 
+### 批记录表单角色填写人名称回显边界
+
+- Trigger: eDHR、批记录表单、填写人配置、小弹窗默认填写人、`candidateSourceType=ROLE`、`candidateSourceNames` 为空、候选用户已展开但角色名不显示。
+- Preflight check: 修改填写规则响应前，同时核对 form-level `FILL` 规则和 cell-level 填写分配响应；角色来源必须既展开启用候选用户，也展开角色来源名称，不得只验证 `candidateUsers`。
+- Blocker: `get-by-report` 对 form-level ROLE 只返回成员用户、不返回角色名，或 API 只能靠前端从用户列表反推角色名时必须停止并补齐后端响应。
+- Verification: 后端回归覆盖 form-level ROLE 的 `candidateSourceNames` 与 `candidateUsers`，并用本机登录态 API 核对目标批记录表单返回业务码 `0`、角色名和候选用户数。
+- Forbidden action: 禁止用前端硬编码角色名、当前登录人、创建人、角色 ID 文案拼接或空列表兜底掩盖后端响应字段缺失。
+- Evidence: 任务 `doc/tasks/20260728-pressure-pump-batch-record-role-fillers/verification-report.md`，目标测试 `MesProEdhrProcessFormPermissionRuleServiceImplTest#getRuleByReport_returnsRoleSourceNamesForFormLevelFillRule`。
+
 ### 切换填写人快照读取边界
 
 - Trigger: eDHR 批次执行填写页、“切换填写人”、协助填写人、`assistSwitchTasks`、`candidateUserSnapshot`、`getEdhrBatchExecution`、动态路线表单候选、`formBindingKey`、`formCenterInstanceId`、损耗单表单槽位、弹窗打开耗时过长。

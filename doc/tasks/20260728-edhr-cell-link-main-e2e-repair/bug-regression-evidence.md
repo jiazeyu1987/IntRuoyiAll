@@ -24,11 +24,15 @@
 
 动态表单缺陷的根因是 `FORM_TEMPLATE_VERSION` 预填链路只接收 `workOrderId`，`PRODUCTION_WORK_ORDER.batchCode` 被读取为 `mes_pro_work_order.batch_code`。当 eDHR 批次执行本身有批号、但生产工单主表批号为空时，损耗单/过程检验记录无法拿到批号；传统批记录链路已使用执行上下文批号，所以表现为“批记录表单能带，动态表单不能带”。
 
+动态表单最终 E2E 又暴露出前端展示缺陷：后端已把链接值保存到 FormCenter 正式字段码 `field6`，但 `ActionFormPanel` 只展示快照 JSON，没有加载模板版本和实例草稿渲染真实输入控件；复用的 eDHR 模板控件也只按单元格坐标 `5:3` 读写。修复后，动态表单抽屉加载模板版本、合并最新 DRAFT 快照，并通过 `fieldIdentityMap` 将 `5:3` 映射到 `field6`。
+
 ## Regression Test
 
 - `IntRuoyiFronted/tests/e2e/edhr-cell-link-auto-persist-static.spec.js`
 - `IntRuoyiBackend/yudao-module-mes/src/test/js/mes-edhr-cell-link-task-id-context-static.spec.cjs`
 - `IntRuoyiBackend/yudao-module-mes/src/test/js/mes-edhr-dynamic-form-cell-link-batch-code-static.spec.cjs`
+- `IntRuoyiFronted/tests/e2e/edhr-dynamic-form-action-panel-prefill-static.spec.js`
+- `IntRuoyiFronted/tests/e2e/edhr-dynamic-form-cell-link-real.e2e.js`
 - `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceTest.java`
 - `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecordcelllink/MesProBatchRecordCellLinkServiceImplTest.java`
 
@@ -37,6 +41,7 @@
 - RED: `node tests/e2e/edhr-cell-link-auto-persist-static.spec.js` -> FAIL，执行页仍保留旧 `/prefill` 草稿注入路径。
 - RED: `node IntRuoyiBackend/yudao-module-mes/src/test/js/mes-edhr-cell-link-task-id-context-static.spec.cjs` -> FAIL，后端打开请求仍写成 `.setTaskId(null)`。
 - RED: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProBatchRecordCellLinkServiceImplTest#buildFormTemplateVersionPrefillData_resolvesProductionBatchCodeFromExecutionContext" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，动态表单预填接口缺少执行上下文批号参数。
+- RED: `node tests/e2e/edhr-dynamic-form-action-panel-prefill-static.spec.js` -> FAIL，动态表单动作面板没有渲染真实模板控件，也没有读取实例快照或建立 `5:3 -> field6` 映射。
 
 ## GREEN
 
@@ -50,7 +55,10 @@
 - GREEN: `node tests/e2e/edhr-batch-execution-real-flow.e2e.js` -> PASS，已在 `测试租户/codexedhrcell01` 通过真实前端批次详情“打开填写”路径断言执行 `1579` 的 `1:5` 单元格显示已落库批号 `EDHR-CELL-20260728-104808`。
 - GREEN: slot 7 (`8088/48088`) 修复后运行态 `node tests/e2e/edhr-batch-execution-real-flow.e2e.js` -> PASS，证据 `real-e2e-slot7-evidence.md`。
 - GREEN: `node IntRuoyiBackend/yudao-module-mes/src/test/js/mes-edhr-dynamic-form-cell-link-batch-code-static.spec.cjs` -> PASS。
+- GREEN: `node tests/e2e/edhr-dynamic-form-action-panel-prefill-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/form-center-static.spec.js` -> PASS。
 - GREEN: `mvn.cmd -pl yudao-module-mes -am "-DskipTests" compile` -> PASS。
+- GREEN: `node tests/e2e/edhr-dynamic-form-cell-link-real.e2e.js` -> PASS，主端口 `8081/48081`、授权 `测试租户/codexedhrcell01` 下，FormCenter 实例 `255` 的 `field6` 和页面输入控件均显示 `FIX-RULE-20260724-20260724175622`，临时规则/待办已清理恢复。
 - BLOCKED: `node tests/e2e/mes/batch-record-cell-link-static.spec.js` -> FAIL，当前失败点为并行新增的 `templateId?: number` API 合同断言，不属于本次执行页草稿预填回归。
 - BLOCKED: dynamic-form focused JUnit GREEN is blocked by unrelated product-name dropdown testCompile errors for missing `getProductNameOptions(String, boolean)`.
 
@@ -63,6 +71,7 @@
 - Real Playwright E2E passed on `int_main` main runtime after authorized test-tenant fixture repair; `task/open` returned `cellLinkAutoPersist.status=NO_CHANGE_ALREADY_APPLIED`, and both execution detail and original-form page input showed `EDHR-CELL-20260728-104808`.
 - Isolated slot 7 Playwright E2E passed after loading the task-id backend fix; this verifies the screenshot-consistent root cause without relying on the already-running main backend jar.
 - Dynamic-form static contract confirms both create-instance and open-instance paths pass `batch.getBatchCode()` into `buildFormTemplateVersionPrefillData(...)`, and the `batchCode` source branch reads `executionBatchCode` instead of `workOrder.batchCode`.
+- Dynamic-form frontend contract and real E2E confirm the persisted FormCenter field code is rendered in the drawer input, not only visible in snapshot JSON.
 
 ## Risk And Regression Scope
 
@@ -71,4 +80,4 @@
 ## Blockers
 
 - 本次回归和真实 E2E 无剩余 blocker；并行宽合同 `node tests/e2e/mes/batch-record-cell-link-static.spec.js` 仍阻塞在非本任务表单模板 API 断言。
-- 动态表单真实 Playwright E2E 尚未完成；需要任务自有测试数据验证损耗单/过程检验记录打开后 FormCenter `form_data_json` 已落入链接批号。
+- 动态表单聚焦 JUnit 仍受并行产品名称下拉 testCompile 错误影响，但已由后端静态合同、主代码编译、前端静态合同、类型检查和真实 Playwright E2E 覆盖本次行为。

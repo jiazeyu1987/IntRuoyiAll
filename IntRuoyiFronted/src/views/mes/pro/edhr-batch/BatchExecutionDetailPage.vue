@@ -3516,6 +3516,13 @@ const normalizeProcessIdentityText = (value?: string | number | null) => String(
 const isProductInfoProcessGroup = (group: ProcessTaskGroup) =>
   group.tasks.some(isProductInfoProcessTask)
 
+const isCurrentExecutableProcessGroup = (group: ProcessTaskGroup) => {
+  if (isProductInfoProcessGroup(group)) return false
+  return group.tasks.some(
+    (task) => task.available === true && !isCompletedProcessTask(task) && !isOptionalTask(task)
+  )
+}
+
 const isCurrentProcessGroup = (group: ProcessTaskGroup) => {
   if (isProductInfoProcessGroup(group)) return false
   const currentRouteProcessId = detail.value?.currentProcessRouteProcessId
@@ -3530,7 +3537,7 @@ const isCurrentProcessGroup = (group: ProcessTaskGroup) => {
 const resolveProcessGroupStateClass = (group: ProcessTaskGroup) => {
   const requiredTasks = group.tasks.filter((task) => !isOptionalTask(task))
   if (!requiredTasks.length || requiredTasks.every(isCompletedProcessTask)) return 'is-completed'
-  if (isCurrentProcessGroup(group)) return 'is-in-progress'
+  if (isCurrentExecutableProcessGroup(group) || isCurrentProcessGroup(group)) return 'is-in-progress'
   const hasStartedTask = requiredTasks.some(
     (task) => task.status != null && task.status !== EDHR_BATCH_TASK_STATUS_WAITING
   )

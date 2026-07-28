@@ -704,6 +704,8 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
     private MesProEdhrProcessFormPermissionRuleRespVO.CandidateRule toCandidateResp(
             MesProEdhrProcessFormPermissionRuleDO rule) {
         List<Long> sourceIds = parseIds(rule.getCandidateSourceIds());
+        List<MesProEdhrProcessFormPermissionRuleRespVO.CandidateUser> candidateUsers =
+                toCandidateUsers(resolveEnabledUsers(rule.getCandidateSourceType(), sourceIds));
         return new MesProEdhrProcessFormPermissionRuleRespVO.CandidateRule()
                 .setCandidateSourceType(rule.getCandidateSourceType())
                 .setCandidateSourceIds(sourceIds)
@@ -711,7 +713,9 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
                 .setDueMinutes(rule.getDueMinutes())
                 .setEnabled(rule.getEnabled())
                 .setRemark(rule.getRemark())
-                .setCandidateUsers(toCandidateUsers(resolveEnabledUsers(rule.getCandidateSourceType(), sourceIds)));
+                .setCandidateUsers(candidateUsers)
+                .setCandidateSourceNames(resolveCandidateSourceNames(
+                        rule.getCandidateSourceType(), sourceIds, candidateUsers));
     }
 
     private MesProEdhrProcessFormPermissionRuleRespVO.FillAssignment toFillAssignmentResp(

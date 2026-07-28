@@ -1439,6 +1439,24 @@ async function waitForEmployeeExecutionFormPage(page, context) {
   }
 }
 
+const sanitizeWorkTaskRow = (row) => ({
+  id: row.id,
+  taskCode: row.taskCode,
+  taskType: row.taskType,
+  status: row.status,
+  actionUrl: row.actionUrl,
+  batchExecutionId: row.batchExecutionId,
+  batchTaskId: row.batchTaskId,
+  executionId: row.executionId,
+  workOrderCode: row.workOrderCode,
+  batchCode: row.batchCode,
+  processName: row.processName,
+  candidateSourceType: row.candidateSourceType,
+  candidateSourceIds: row.candidateSourceIds,
+  responsibilitySourceType: row.responsibilitySourceType,
+  inactionReason: row.inactionReason
+})
+
 async function ensureBatchRecordDetailFieldVisible(page, editor) {
   let fieldButton = editor
     .locator('[data-flow-action="select-process-detail-field"]')
@@ -2276,6 +2294,20 @@ async function verifyEmployeeAssistMode(username, password, label, taskOwnedBatc
   })
   const context = await browser.newContext({ viewport: { width: 1440, height: 960 }, locale: 'zh-CN' })
   const page = await context.newPage()
+  const employeeBrowserDiagnostics = { console: [], pageErrors: [] }
+  page.on('console', (message) => {
+    if (employeeBrowserDiagnostics.console.length < 100) {
+      employeeBrowserDiagnostics.console.push({
+        type: message.type(),
+        text: redactSecretText(message.text())
+      })
+    }
+  })
+  page.on('pageerror', (error) => {
+    if (employeeBrowserDiagnostics.pageErrors.length < 20) {
+      employeeBrowserDiagnostics.pageErrors.push(redactSecretText(error.message || String(error)))
+    }
+  })
   try {
     await login(page, username, password, '/mes/pro/feedback/edhr-work-task')
     await page.goto(`${config.baseUrl}/mes/pro/feedback/edhr-work-task`, {
@@ -2295,7 +2327,22 @@ async function verifyEmployeeAssistMode(username, password, label, taskOwnedBatc
       )
       .catch(() => null)
     await toolbar.getByRole('button', { name: '查询' }).click()
-    await filteredResponse
+    const filteredTaskResponse = await filteredResponse
+    let filteredTaskRows = []
+    if (filteredTaskResponse) {
+      const filteredTaskData = await readBrowserBusinessData(
+        filteredTaskResponse,
+        `${label} filtered work task list`
+      )
+      filteredTaskRows = Array.isArray(filteredTaskData?.list) ? filteredTaskData.list : []
+    }
+    const matchingApiRows = filteredTaskRows
+      .filter(
+        (row) =>
+          String(row.workOrderCode || '') === String(taskOwnedBatchExecution.workOrderCode) &&
+          String(row.batchCode || '') === String(taskOwnedBatchExecution.batchCode)
+      )
+      .map(sanitizeWorkTaskRow)
     const targetRow = page
       .locator('.el-table__body-wrapper:visible tbody tr')
       .filter({ hasText: taskOwnedBatchExecution.workOrderCode })
@@ -2310,16 +2357,46 @@ async function verifyEmployeeAssistMode(username, password, label, taskOwnedBatc
         username,
         workOrderCode: taskOwnedBatchExecution.workOrderCode,
         batchCode: taskOwnedBatchExecution.batchCode,
+        matchingApiRows,
         visibleTableText: visibleTableText.slice(0, 1000)
       })
     }
+    const taskOpenResponsePromise = page
+      .waitForResponse(
+        (response) =>
+          response.url().includes('/admin-api/mes/pro/edhr-batch-execution/task/open') &&
+          response.request().method() === 'POST',
+        { timeout: 30000 }
+      )
+      .catch(() => null)
     await processButton.click()
+    const taskOpenResponse = await taskOpenResponsePromise
+    if (!taskOpenResponse) {
+      throw block('employee_work_task_open_api_not_called', {
+        label,
+        username,
+        workOrderCode: taskOwnedBatchExecution.workOrderCode,
+        batchCode: taskOwnedBatchExecution.batchCode,
+        targetBatchTaskId: taskOwnedBatchExecution.targetBatchTaskId,
+        matchingApiRows,
+        visibleMessages: await page
+          .locator('.el-message:visible, .el-notification:visible')
+          .allInnerTexts()
+          .catch(() => []),
+        currentUrl: page.url(),
+        employeeBrowserDiagnostics
+      })
+    }
+    const taskOpenData = await readBrowserBusinessData(taskOpenResponse, `${label} open work task`)
     await waitForEmployeeExecutionFormPage(page, {
       label,
       username,
       workOrderCode: taskOwnedBatchExecution.workOrderCode,
       batchCode: taskOwnedBatchExecution.batchCode,
-      targetBatchTaskId: taskOwnedBatchExecution.targetBatchTaskId
+      targetBatchTaskId: taskOwnedBatchExecution.targetBatchTaskId,
+      taskOpenData,
+      matchingApiRows,
+      employeeBrowserDiagnostics
     })
     const assistPanel = page.locator('.edhr-fill-workspace__assist-panel').first()
     await assistPanel.waitFor({ state: 'visible', timeout: 90000 })
@@ -2332,7 +2409,8 @@ async function verifyEmployeeAssistMode(username, password, label, taskOwnedBatc
       rowCount,
       url: page.url(),
       workOrderCode: taskOwnedBatchExecution.workOrderCode,
-      batchCode: taskOwnedBatchExecution.batchCode
+      batchCode: taskOwnedBatchExecution.batchCode,
+      taskOpenData
     }
   } finally {
     await context.close()

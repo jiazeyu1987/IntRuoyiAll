@@ -48,10 +48,11 @@
                 />
               </el-select>
             </el-form-item>
-            <el-form-item class="codex-test-node-chain-filter" label="串行路线">
+            <el-form-item class="codex-test-node-chain-filter">
               <el-select
                 v-model="queryParams.nodeChainName"
-                class="!w-240px"
+                aria-label="串行路线"
+                class="!w-180px"
                 clearable
                 filterable
                 placeholder="全部串行路线"

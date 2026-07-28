@@ -427,6 +427,7 @@ const props = withDefaults(
     cellRules?: BatchRecordReportCellRuleVO[]
     signatureMarkers?: BatchRecordReportSignatureCellMarkerVO[]
     modelValue: TemplateSimulationValueMap
+    fieldIdentityMap?: Record<string, string>
     fitToViewport?: boolean
     fitMode?: 'width' | 'height'
     showRuleLegend?: boolean
@@ -477,8 +478,12 @@ const editableContextMap = computed(() => {
     .forEach((marker) => markerMap.set(buildTemplateFieldIdentity(marker.rowIndex, marker.columnIndex), marker))
   const map = new Map<string, TemplateEditableCellContext>()
   normalizedRules.value.forEach((rule) => {
-    const key = buildTemplateFieldIdentity(rule.rowIndex, rule.columnIndex)
-    map.set(key, buildTemplateEditableCellContext(rule, markerMap.get(key)))
+    const cellIdentity = buildTemplateFieldIdentity(rule.rowIndex, rule.columnIndex)
+    const formDataFieldIdentity = props.fieldIdentityMap?.[cellIdentity] || cellIdentity
+    map.set(cellIdentity, {
+      ...buildTemplateEditableCellContext(rule, markerMap.get(cellIdentity)),
+      fieldIdentity: formDataFieldIdentity
+    })
   })
   return map
 })

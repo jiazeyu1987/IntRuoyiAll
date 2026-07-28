@@ -32,8 +32,8 @@ assert.match(
 )
 assert.match(
   page,
-  /<el-form-item\s+class="codex-test-node-chain-filter"\s+label="串行路线">[\s\S]*v-model="queryParams\.nodeChainName"[\s\S]*placeholder="全部串行路线"[\s\S]*@change="handleNodeChainFilterChange"[\s\S]*nodeChainFilterOptions/,
-  '测试管理页必须在快速筛选右侧提供常驻的串行路线下拉。'
+  /<el-form-item\s+class="codex-test-node-chain-filter">[\s\S]*v-model="queryParams\.nodeChainName"[\s\S]*aria-label="串行路线"[\s\S]*class="!w-180px"[\s\S]*placeholder="全部串行路线"[\s\S]*@change="handleNodeChainFilterChange"[\s\S]*nodeChainFilterOptions/,
+  '测试管理页必须在快速筛选右侧提供能放入红框区域的常驻串行路线下拉。'
 )
 assert.match(
   page,

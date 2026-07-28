@@ -12,7 +12,10 @@
 - [x] 继续处理真实 Playwright E2E 夹具前置并复验。
 - [x] 修复传统批记录打开链路未传当前批次任务 ID 的后端上下文问题。
 - [x] 使用隔离 slot 7 运行态复验真实 Playwright E2E。
-- [ ] 清理任务自有隔离运行态和 worktree。
+- [x] 修复动态表单 FormCenter 实例已落库但页面未渲染预填字段的问题。
+- [x] 使用主端口 `8081/48081` 复验动态表单真实 Playwright E2E。
+- [x] 清理任务自有隔离运行态和 worktree。
+- [ ] 提交/推送本次动态表单修复与任务收尾记录。
 
 ## Expected Verification
 
@@ -22,10 +25,13 @@
 - `node --check tests/e2e/edhr-batch-execution-real-flow.e2e.js`
 - `EDHR_BATCH_E2E_BASE_URL=http://127.0.0.1:8081 EDHR_BATCH_E2E_BACKEND_URL=http://127.0.0.1:48081 node tests/e2e/edhr-batch-execution-real-flow.e2e.js`
 - `EDHR_BATCH_E2E_BASE_URL=http://127.0.0.1:8088 EDHR_BATCH_E2E_BACKEND_URL=http://127.0.0.1:48088 node tests/e2e/edhr-batch-execution-real-flow.e2e.js`
+- `node tests/e2e/edhr-dynamic-form-action-panel-prefill-static.spec.js`
+- `node tests/e2e/form-center-static.spec.js`
+- `node tests/e2e/edhr-dynamic-form-cell-link-real.e2e.js`
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 前端静态合同已恢复：执行页当前只调用 `hydrateDraftState(detail)`，不再调用 `BatchRecordCellLinkApi.getPrefill` 或保留 `normalizeCellLinkPrefillDraftValue`。聚焦静态合同、相邻静态合同和 `pnpm ts:check` 均通过。
 
@@ -43,7 +49,11 @@ Cleanup 已完成：slot 7 运行态已停止，`D:\IntRuoyiWorktree\20260728-ed
 
 动态表单根因已定位并修复：传统批记录读取 `PRODUCTION_WORK_ORDER.batchCode` 时使用执行上下文批号，而动态表单旧链路只把 `workOrderId` 传给 `buildFormTemplateVersionPrefillData(...)`，当 `mes_pro_work_order.batch_code` 为空但 eDHR 批次执行 `batch_code` 有值时，损耗单/过程检验记录就拿不到生产批号。当前已将动态表单创建实例和再次打开实例两条链路都改为传入 `batch.getBatchCode()`，并让 `FORM_TEMPLATE_VERSION` 的 `batchCode` 来源读取该执行上下文批号。
 
-当前验证：动态表单静态合同 `node IntRuoyiBackend/yudao-module-mes/src/test/js/mes-edhr-dynamic-form-cell-link-batch-code-static.spec.cjs` 通过；主代码 `mvn.cmd -pl yudao-module-mes -am "-DskipTests" compile` 通过。聚焦 JUnit 已有 RED，但 GREEN 被并行“产品名称下拉”测试编译错误阻塞，错误为 `getProductNameOptions(String, boolean)` 方法缺失；按用户要求未处理该无关任务。真实动态表单 Playwright E2E 仍需任务自有测试数据继续复验。
+动态表单补充根因已定位并修复：后端已经把 `FORM_TEMPLATE_VERSION` 链接值按 FormCenter 字段码 `field6` 落库到 `bpm_form_action_instance.form_data_json`，但动态表单抽屉 `ActionFormPanel` 旧页面只展示快照 JSON，没有加载模板布局、实例草稿，也没有把单元格坐标 `5:3` 映射到 FormCenter 字段码 `field6`，所以用户打开损耗单/过程检验记录时看不到已落库的生产批号。当前已让 `ActionFormPanel` 按 `templateId + versionNo` 读取模板版本，读取实例最新 DRAFT 快照合并到本地草稿，并用 `EdhrExecutionTemplateEditableForm` 渲染真实模板控件；模板控件新增显式 `fieldIdentityMap`，用正式字段码读写 FormCenter 数据。
+
+当前验证：动态表单静态合同 `node IntRuoyiBackend/yudao-module-mes/src/test/js/mes-edhr-dynamic-form-cell-link-batch-code-static.spec.cjs` 通过；主代码 `mvn.cmd -pl yudao-module-mes -am "-DskipTests" compile` 通过。聚焦 JUnit 已有 RED，但 GREEN 曾被并行“产品名称下拉”测试编译错误阻塞，错误为 `getProductNameOptions(String, boolean)` 方法缺失；按用户要求未处理该无关任务。前端聚焦静态合同、相邻 FormCenter 静态合同、`pnpm ts:check` 均通过；真实动态表单 Playwright E2E 已在主端口 `8081/48081`、授权 `测试租户/codexedhrcell01` 下 PASS，证据 `dynamic-form-real-e2e-evidence.md` 显示 FormCenter 实例 `255` 的 `field6` 和页面输入控件均为 `FIX-RULE-20260724-20260724175622`，临时规则/待办已清理恢复。
+
+本轮实现和必要验证已完成，进入收尾待处理状态。提交/推送尚未执行：当前 `int_main` 落后 `origin/int_main` 且主工作区存在多项并行任务脏改，不能把无关改动混入本任务提交。
 
 ## 设计约束检查
 
@@ -65,3 +75,4 @@ Cleanup 已完成：slot 7 运行态已停止，`D:\IntRuoyiWorktree\20260728-ed
 - doc/tasks/20260728-edhr-cell-link-main-e2e-repair/frontend-feature-evidence.md
 - doc/tasks/20260728-edhr-cell-link-main-e2e-repair/real-e2e-evidence.md
 - doc/tasks/20260728-edhr-cell-link-main-e2e-repair/real-e2e-slot7-evidence.md
+- doc/tasks/20260728-edhr-cell-link-main-e2e-repair/dynamic-form-real-e2e-evidence.md

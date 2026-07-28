@@ -105,9 +105,12 @@ function findBatchField(recognizedSchemaJson) {
   const fields = JSON.parse(recognizedSchemaJson)
   const index = fields.findIndex((field) => /批号/.test(String(field?.label || '')))
   assert.ok(index >= 0, `dynamic form template must contain a batch field: ${recognizedSchemaJson.slice(0, 300)}`)
+  const fieldCode = String(fields[index]?.fieldCode || '').trim()
+  assert.ok(fieldCode, `dynamic form batch field must have a fieldCode: ${JSON.stringify(fields[index])}`)
   return {
     rowIndex: Math.floor(index / 2) + 3,
     columnIndex: index % 2 === 0 ? 1 : 3,
+    fieldCode,
     label: String(fields[index].label || '批号')
   }
 }
@@ -205,6 +208,7 @@ SELECT id
 function setupFixture(fixture) {
   ensureNoExistingRule(fixture)
   const targetCellKey = `${fixture.target.rowIndex}:${fixture.target.columnIndex}`
+  const targetFormDataKey = fixture.target.fieldCode
   const now = Date.now()
   const taskCodePrefix = `EDHRT-CODX-DYN-${now}-`
   const hash = crypto.createHash('sha256').update(`codex-dynamic-cell-link|${now}|${targetCellKey}`).digest('hex')
@@ -218,7 +222,7 @@ function setupFixture(fixture) {
   const setupRows = mysql(
     `
 UPDATE bpm_form_action_instance
-   SET form_data_json = JSON_REMOVE(COALESCE(form_data_json, JSON_OBJECT()), '$."${targetCellKey}"'),
+   SET form_data_json = JSON_REMOVE(COALESCE(form_data_json, JSON_OBJECT()), '$."${targetCellKey}"', '$."${targetFormDataKey}"'),
        updater = 'codex-e2e',
        update_time = NOW()
  WHERE id = ${Number(fixture.formCenterInstanceId)}
@@ -313,6 +317,7 @@ SELECT COALESCE(GROUP_CONCAT(id ORDER BY id), '')
   assert.equal(Number(setupRows[1]?.[0]), 1, 'fixture route snapshot repair must affect exactly one batch')
   return {
     targetCellKey,
+    targetFormDataKey,
     ruleId: Number(setupRows[2]?.[0]),
     workTaskId: Number(setupRows[3]?.[0]),
     companionTaskCount: Number(setupRows[4]?.[0] || 0),
@@ -360,10 +365,10 @@ SELECT ROW_COUNT();
   }
 }
 
-function readPersistedValue(fixture, targetCellKey) {
+function readPersistedValue(fixture, targetFormDataKey) {
   const rows = mysql(
     `
-SELECT JSON_UNQUOTE(JSON_EXTRACT(form_data_json, '$."${targetCellKey}"'))
+SELECT JSON_UNQUOTE(JSON_EXTRACT(form_data_json, '$."${targetFormDataKey}"'))
   FROM bpm_form_action_instance
  WHERE id = ${Number(fixture.formCenterInstanceId)}
    AND tenant_id = ${Number(config.tenantId)}
@@ -492,6 +497,8 @@ async function verifyThroughUi(fixture, setup) {
     assert.equal(Number(opened.taskId), Number(fixture.batchTaskId), 'task/open must open the target batch task')
     assert.equal(Number(opened.formCenterInstanceId), Number(fixture.formCenterInstanceId), 'task/open must return the target FormCenter instance')
     assert.equal(Number(opened.formTemplateVersionId), Number(fixture.formTemplateVersionId), 'task/open must return the target template version')
+    const persistedAfterOpen = readPersistedValue(fixture, setup.targetFormDataKey)
+    assert.equal(persistedAfterOpen, fixture.batchCode, 'task/open must persist the dynamic form prefill before UI render')
 
     await page.locator('.el-drawer:visible, .form-action-panel').first().waitFor({ state: 'visible', timeout: 60000 })
     await page.waitForFunction(
@@ -525,7 +532,7 @@ function writeEvidence(result) {
       ? `- 批次/任务：\`${result.fixture.batchExecutionCode}\` / task \`${result.fixture.batchTaskId}\` / instance \`${result.fixture.formCenterInstanceId}\``
       : '',
     result.setup
-      ? `- 临时规则/待办：rule \`${result.setup.ruleId}\`，workTask \`${result.setup.workTaskId}\`，target \`${result.setup.targetCellKey}\``
+      ? `- 临时规则/待办：rule \`${result.setup.ruleId}\`，workTask \`${result.setup.workTaskId}\`，target \`${result.setup.targetCellKey}\` -> \`${result.setup.targetFormDataKey}\``
       : '',
     '',
     '## BDD',
@@ -538,11 +545,14 @@ function writeEvidence(result) {
 
   if (result.status === 'PASS') {
     lines.push(`- GREEN: task/open 返回 FormCenter 实例 \`${result.opened.formCenterInstanceId}\`。`)
-    lines.push(`- GREEN: bpm_form_action_instance.form_data_json[\`${result.setup.targetCellKey}\`] = \`${result.persistedValue}\`。`)
+    lines.push(`- GREEN: bpm_form_action_instance.form_data_json[\`${result.setup.targetFormDataKey}\`] = \`${result.persistedValue}\`。`)
     lines.push(`- GREEN: 页面动态表单输入控件显示 \`${result.persistedValue}\`。`)
     lines.push(`- CLEANUP: ${JSON.stringify(result.cleanup)}`)
   } else {
     lines.push(`- FAIL: ${result.error}`)
+    if (result.persistedValue) {
+      lines.push(`- OBSERVED: bpm_form_action_instance.form_data_json[\`${result.setup.targetFormDataKey}\`] = \`${result.persistedValue}\`。`)
+    }
     if (result.cleanup) lines.push(`- CLEANUP: ${JSON.stringify(result.cleanup)}`)
   }
   fs.writeFileSync(config.evidenceFile, `${lines.join('\n')}\n`, 'utf8')
@@ -557,17 +567,25 @@ async function main() {
 
   let fixture
   let setup
+  let persistedValue
   try {
     fixture = readFixture()
     setup = setupFixture(fixture)
     const opened = await verifyThroughUi(fixture, setup)
-    const persistedValue = readPersistedValue(fixture, setup.targetCellKey)
+    persistedValue = readPersistedValue(fixture, setup.targetFormDataKey)
     assert.equal(persistedValue, fixture.batchCode, 'dynamic form persisted value must equal eDHR execution batchCode')
     const cleanup = cleanupFixture(fixture, setup)
     writeEvidence({ status: 'PASS', fixture, setup, opened, persistedValue, cleanup })
     console.log(`PASS: dynamic form cell-link prefilled ${setup.targetCellKey}=${persistedValue}`)
   } catch (error) {
     let cleanup
+    if (fixture && setup) {
+      try {
+        persistedValue = readPersistedValue(fixture, setup.targetFormDataKey)
+      } catch {
+        persistedValue = ''
+      }
+    }
     try {
       cleanup = cleanupFixture(fixture, setup)
     } catch (cleanupError) {
@@ -578,6 +596,7 @@ async function main() {
       fixture,
       setup,
       error: error instanceof Error ? error.message : String(error),
+      persistedValue,
       cleanup
     })
     throw error

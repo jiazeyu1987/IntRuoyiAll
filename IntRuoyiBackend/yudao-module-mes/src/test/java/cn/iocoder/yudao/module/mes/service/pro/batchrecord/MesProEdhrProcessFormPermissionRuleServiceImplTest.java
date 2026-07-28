@@ -142,6 +142,8 @@ class MesProEdhrProcessFormPermissionRuleServiceImplTest extends BaseDbUnitTest 
         when(adminUserApi.getUserList(Set.of(201L, 202L))).thenReturn(List.of(
                 adminUser(201L, "审批甲", CommonStatusEnum.ENABLE.getStatus()),
                 adminUser(202L, "审批乙", CommonStatusEnum.DISABLE.getStatus())));
+        when(roleApi.getRoleList(List.of(7001L))).thenReturn(List.of(
+                role(7001L, "审批角色", CommonStatusEnum.ENABLE.getStatus())));
 
         MesProEdhrProcessFormPermissionRuleRespVO saved;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -206,6 +208,8 @@ class MesProEdhrProcessFormPermissionRuleServiceImplTest extends BaseDbUnitTest 
         when(permissionApi.getUserRoleIdListByRoleIds(List.of(7001L))).thenReturn(Set.of(201L));
         when(adminUserApi.getUserList(Set.of(201L))).thenReturn(List.of(
                 adminUser(201L, "审批人", CommonStatusEnum.ENABLE.getStatus())));
+        when(roleApi.getRoleList(List.of(7001L))).thenReturn(List.of(
+                role(7001L, "审批角色", CommonStatusEnum.ENABLE.getStatus())));
 
         MesProEdhrProcessFormPermissionRuleRespVO saved;
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -240,6 +244,8 @@ class MesProEdhrProcessFormPermissionRuleServiceImplTest extends BaseDbUnitTest 
         when(adminUserApi.getUserList(Set.of(101L, 102L))).thenReturn(List.of(
                 adminUser(101L, "角色填写甲", CommonStatusEnum.ENABLE.getStatus()),
                 adminUser(102L, "角色填写乙", CommonStatusEnum.ENABLE.getStatus())));
+        when(roleApi.getRoleList(List.of(7101L))).thenReturn(List.of(
+                role(7101L, "填写角色", CommonStatusEnum.ENABLE.getStatus())));
 
         assertThrows(NoSuchMethodException.class,
                 () -> MesProEdhrProcessFormPermissionRuleSaveReqVO.class.getDeclaredMethod("getEquipmentFillRule"));
@@ -957,6 +963,42 @@ class MesProEdhrProcessFormPermissionRuleServiceImplTest extends BaseDbUnitTest 
         assertEquals("CONFIGURED", result.getFillRuleStatus());
         assertEquals(1, result.getAffectedRouteBindingCount());
         assertEquals("回显填写人", result.getFillRule().getCandidateUsers().get(0).getDisplayName());
+    }
+
+    @Test
+    void getRuleByReport_returnsRoleSourceNamesForFormLevelFillRule() {
+        insertRouteBatchRecord(8819L, 5819L, "REPORT-FORM-ROLE-NAMES", null,
+                77051L, 77052L);
+        processFormPermissionRuleMapper.insert(new MesProEdhrProcessFormPermissionRuleDO()
+                .setRouteProcessId(0L)
+                .setBatchRecordReportId("REPORT-FORM-ROLE-NAMES")
+                .setBatchRecordDefinitionId(77051L)
+                .setBatchRecordVersionId(77052L)
+                .setRuleType("FILL")
+                .setScopeKey("ALL")
+                .setSignatureCellKey("")
+                .setCandidateSourceType("ROLE")
+                .setCandidateSourceIds("7001")
+                .setCompletionPolicy("ANY_ONE")
+                .setDueMinutes(Integer.MAX_VALUE)
+                .setEnabled(true)
+                .setRemark("角色填写人列表回显"));
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(7001L))).thenReturn(Set.of(501L, 502L, 503L));
+        when(adminUserApi.getUserList(Set.of(501L, 502L, 503L))).thenReturn(List.of(
+                adminUser(501L, "角色成员甲", CommonStatusEnum.ENABLE.getStatus()),
+                adminUser(502L, "角色成员乙", CommonStatusEnum.ENABLE.getStatus()),
+                adminUser(503L, "角色成员丙", CommonStatusEnum.ENABLE.getStatus())));
+        when(roleApi.getRoleList(List.of(7001L))).thenReturn(List.of(
+                role(7001L, "粗洗工序填写者角色", CommonStatusEnum.ENABLE.getStatus())));
+
+        MesProEdhrProcessFormPermissionRuleRespVO result =
+                processFormPermissionRuleService.getRuleByReport("REPORT-FORM-ROLE-NAMES");
+
+        assertEquals("CONFIGURED", result.getFillRuleStatus());
+        assertEquals("ROLE", result.getFillRule().getCandidateSourceType());
+        assertEquals(List.of("粗洗工序填写者角色"), result.getFillRule().getCandidateSourceNames());
+        assertEquals(List.of("角色成员甲", "角色成员乙", "角色成员丙"), result.getFillRule().getCandidateUsers()
+                .stream().map(MesProEdhrProcessFormPermissionRuleRespVO.CandidateUser::getDisplayName).toList());
     }
 
     @Test

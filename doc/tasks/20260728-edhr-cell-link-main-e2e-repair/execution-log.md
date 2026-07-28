@@ -47,20 +47,30 @@
 - `GREEN: node IntRuoyiBackend/yudao-module-mes/src/test/js/mes-edhr-dynamic-form-cell-link-batch-code-static.spec.cjs -> PASS`，静态合同确认动态表单创建、打开两处均传入 `batch.getBatchCode()`，且 batchCode 分支读取 `executionBatchCode`。
 - `GREEN: mvn.cmd -pl yudao-module-mes -am "-DskipTests" compile -> PASS`，主代码编译通过，确认动态表单预填接口签名与生产调用链一致。
 - `BLOCKED: mvn.cmd -pl yudao-module-mes "-Dtest=MesProBatchRecordCellLinkServiceImplTest#buildFormTemplateVersionPrefillData_resolvesProductionBatchCodeFromExecutionContext" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL`，当前全量 testCompile 被并行“产品名称下拉”测试阻塞：`MesProBatchRecordReportControllerTest` / `MesProBatchRecordReportServiceImplDbTest` 引用缺失方法 `getProductNameOptions(String, boolean)`；该阻塞不属于本次动态表单批号修复，未按用户要求扩展处理。
+- `RED: node tests/e2e/edhr-dynamic-form-action-panel-prefill-static.spec.js -> FAIL`，旧 `ActionFormPanel` 没有导入或渲染 `EdhrExecutionTemplateEditableForm`，只显示实例快照 JSON；保存/提交仍使用父级 `props.formData` 元数据，无法把已落库的 FormCenter 字段值展示成动态表单控件。
+- `DIAGNOSIS: dynamic form UI key mapping -> FOUND`，后端已把目标值落库到 FormCenter 字段码 `field6`；复用的 eDHR 模板控件默认按单元格坐标 `5:3` 读写，需要显式 `fieldIdentityMap` 将坐标映射到正式字段码，不能用坐标 key 冒充 FormCenter 数据。
+- `GREEN: code fix -> PASS`，`ActionFormPanel` 现在按 `templateId + versionNo` 读取模板版本，加载实例最新 DRAFT 快照合并本地草稿，渲染 `EdhrExecutionTemplateEditableForm`，并把保存/提交/重提/创建实例统一改为使用本地草稿数据；`EdhrExecutionTemplateEditableForm` 新增 `fieldIdentityMap`，通过正式 FormCenter 字段码读取 `field6`。
+- `GREEN: node tests/e2e/edhr-dynamic-form-action-panel-prefill-static.spec.js -> PASS`，聚焦静态合同确认动态表单面板加载模板、读取快照、渲染真实控件并使用 `fieldIdentityMap`。
+- `GREEN: node tests/e2e/form-center-static.spec.js -> PASS`，相邻 FormCenter 合同已同步到 `actionFormData` 本地草稿源，并保留实例创建/提交/重提/放弃能力。
+- `GREEN: pnpm ts:check -> PASS`，`vue-tsc --noEmit -p tsconfig.relaxed.json` 完成且退出码 `0`。
+- `BLOCKED then GREEN: int_main backend runtime -> PASS`，第一次复制 `target` Jar 时 Jar 仍在变化，启动副本缺主清单而退出；确认 target Jar 稳定后，主端口 `48081` 由 `E:\IntRuoyi` runtime Jar 监听，health 返回 `UP`，运行 Jar SHA256 与最新 target Jar 一致。
+- `GREEN: node tests/e2e/edhr-dynamic-form-cell-link-real.e2e.js -> PASS`，在主端口 `8081/48081` 和授权 `测试租户/codexedhrcell01` 下，通过真实批次详情点击动态表单任务打开；`task/open` 返回 FormCenter 实例 `255`，`bpm_form_action_instance.form_data_json['field6']` 和页面动态表单输入控件均显示 `FIX-RULE-20260724-20260724175622`。
+- `GREEN: dynamic form E2E cleanup -> PASS`，真实 E2E finally 删除临时 cell-link rule 和临时 workTask，恢复原实例 `form_data_json`、原路线快照和任务 opened 状态；证据文件 `dynamic-form-real-e2e-evidence.md` 记录 `CLEANUP` 全部命中。
+- `GREEN: project-experience-consolidation -> PASS`，已将 FormCenter 动态表单 `fieldCode` 与电子表格坐标映射门禁合并到 `docs/frontend-development.md#FormCenter 动态表单字段码渲染门禁`，并在 `docs/experience-index.md` 增加 `fieldIdentityMap`、`field6`、`5:3`、动态表单单元格链接等关键词路由；未新建长期经验文档。
 
 ## Current Evidence
 
 - 主端口运行态：前端 `8081` HTTP `200`，后端 `48081` health `UP`。
 - 隔离验证运行态：worktree `D:\IntRuoyiWorktree\20260728-edhr-cell-link-taskid-runtime`，slot 7 前端 `8088`，后端 `48088`，修复后后端 Jar `backend-edhr-cell-link-taskid-20260728-170049.jar`。
 - 清理结果：slot 7 端口不再监听；worktree 目录不存在；Git worktree 列表不含该路径；端口登记项为 `active=false`。
-- 当前目标源码：`IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`。
-- 当前目标测试：`IntRuoyiFronted/tests/e2e/edhr-cell-link-auto-persist-static.spec.js` 与 `IntRuoyiFronted/tests/e2e/edhr-batch-execution-real-flow.e2e.js`。
+- 当前目标源码：`IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`、`IntRuoyiFronted/src/views/form-center/business-action/ActionFormPanel.vue`、`IntRuoyiFronted/src/views/mes/pro/edhr/components/EdhrExecutionTemplateEditableForm.vue`。
+- 当前目标测试：`IntRuoyiFronted/tests/e2e/edhr-cell-link-auto-persist-static.spec.js`、`IntRuoyiFronted/tests/e2e/edhr-batch-execution-real-flow.e2e.js`、`IntRuoyiFronted/tests/e2e/edhr-dynamic-form-action-panel-prefill-static.spec.js` 与 `IntRuoyiFronted/tests/e2e/edhr-dynamic-form-cell-link-real.e2e.js`。
 - 当前真实 E2E 证据：`doc/tasks/20260728-edhr-cell-link-main-e2e-repair/real-e2e-evidence.md`。
-- 当前动态表单修复证据：`IntRuoyiBackend/yudao-module-mes/src/test/js/mes-edhr-dynamic-form-cell-link-batch-code-static.spec.cjs`，以及主代码 `mvn -pl yudao-module-mes -am "-DskipTests" compile` 通过。
+- 当前动态表单修复证据：`IntRuoyiBackend/yudao-module-mes/src/test/js/mes-edhr-dynamic-form-cell-link-batch-code-static.spec.cjs`、`IntRuoyiFronted/tests/e2e/edhr-dynamic-form-action-panel-prefill-static.spec.js`、`doc/tasks/20260728-edhr-cell-link-main-e2e-repair/dynamic-form-real-e2e-evidence.md`，以及主代码 `mvn -pl yudao-module-mes -am "-DskipTests" compile`、`pnpm ts:check` 通过。
 
 ## Blockers
 
-- 本次用户要求的测试租户真实 E2E 已在主运行态与 slot 7 修复后运行态均通过，无剩余 E2E blocker。
+- 本次用户要求的测试租户真实 E2E 已在主运行态与 slot 7 修复后运行态均通过；动态表单真实 E2E 也已在主运行态通过，无剩余 E2E blocker。
 - 仍保留一项非本任务阻塞记录：`node tests/e2e/mes/batch-record-cell-link-static.spec.js` 当前失败在并行表单模板 API 合同断言 `api misses templateId?: number`，不作为本次执行页 `/prefill` 回归或真实 E2E 放行门禁。
 - 提交/推送未执行，原因是主工作区有大量并行任务脏改且当前用户范围是 E2E 验证；本次不做会混入无关改动的 baseline commit。
-- 动态表单聚焦 JUnit 当前被并行产品名称下拉测试编译错误阻塞，无法作为 GREEN 证据；已用静态合同和主代码编译补充验证，但真实动态表单 Playwright E2E 仍待使用任务自有测试数据复验。
+- 动态表单聚焦 JUnit 当前被并行产品名称下拉测试编译错误阻塞，无法作为 GREEN 证据；已用后端静态合同、主代码编译、前端静态/类型检查和真实动态表单 Playwright E2E 补充验证。

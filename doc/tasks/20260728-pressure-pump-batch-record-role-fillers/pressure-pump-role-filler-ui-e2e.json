@@ -1,0 +1,28 @@
+{
+  "status": "PASS",
+  "baseUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "tenant": "芋道源码",
+  "tenantId": 1,
+  "username": "admin",
+  "targetReport": {
+    "reportId": "1d05410f1d3140c5b8aa6786887ae69c",
+    "reportName": "粗洗工序生产记录",
+    "productName": "球囊扩张压力泵",
+    "roleName": "粗洗工序填写者角色"
+  },
+  "browserDiagnostics": {
+    "console": [],
+    "pageErrors": []
+  },
+  "pageRowVisible": true,
+  "dialogRoleVisible": true,
+  "permissionRule": {
+    "fillRuleStatus": "CONFIGURED",
+    "candidateSourceType": "ROLE",
+    "candidateSourceNames": [
+      "粗洗工序填写者角色"
+    ],
+    "candidateUserCount": 3
+  }
+}

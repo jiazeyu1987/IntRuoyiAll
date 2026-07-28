@@ -34,8 +34,12 @@ export type NormalizedEdhrWorkTaskRoute = {
 
 const EDHR_EXECUTION_PATHS = new Set([EDHR_EXECUTION_DETAIL_PATH, EDHR_EXECUTION_FORM_PATH])
 
+const normalizeTaskType = (taskType?: string) => String(taskType || '').toUpperCase()
+
+const isFillTask = (taskType?: string) => normalizeTaskType(taskType) === 'FILL'
+
 const isFillOrReworkTask = (taskType?: string) => {
-  const normalized = String(taskType || '').toUpperCase()
+  const normalized = normalizeTaskType(taskType)
   return normalized === 'FILL' || normalized === 'REWORK'
 }
 
@@ -60,6 +64,27 @@ const parseInternalActionUrl = (item: EdhrWorkTaskRouteLike, origin: string) => 
     throw new Error(`eDHR 工作任务 ${item.id || ''} 处理入口不是当前系统路由。`)
   }
   return url
+}
+
+const buildStructuredBatchFillTaskUrl = (item: EdhrWorkTaskRouteLike, origin: string) => {
+  const url = new URL(EDHR_BATCH_EXECUTION_DETAIL_PATH, origin)
+  setSearchParamIfPresent(url.searchParams, 'batchExecutionId', item.batchExecutionId)
+  setSearchParamIfPresent(url.searchParams, 'batchTaskId', item.batchTaskId)
+  setSearchParamIfPresent(url.searchParams, 'workTaskId', item.id)
+  return url
+}
+
+const hasStructuredBatchFillTaskContext = (item: EdhrWorkTaskRouteLike) =>
+  isRouteValuePresent(item.batchExecutionId) && isRouteValuePresent(item.batchTaskId)
+
+const resolveTaskNavigationUrl = (item: EdhrWorkTaskRouteLike, origin: string) => {
+  if (item.actionUrl) {
+    return parseInternalActionUrl(item, origin)
+  }
+  if (isFillTask(item.taskType) && hasStructuredBatchFillTaskContext(item)) {
+    return buildStructuredBatchFillTaskUrl(item, origin)
+  }
+  return parseInternalActionUrl(item, origin)
 }
 
 const resolveExecutionId = (item: EdhrWorkTaskRouteLike, url: URL) =>
@@ -118,7 +143,7 @@ export const normalizeEdhrWorkTaskRouteParts = (
   item: EdhrWorkTaskRouteLike,
   origin = window.location.origin
 ): NormalizedEdhrWorkTaskRoute => {
-  const url = parseInternalActionUrl(item, origin)
+  const url = resolveTaskNavigationUrl(item, origin)
   if (isFillOrReworkTask(item.taskType)) {
     const executionId = resolveExecutionId(item, url)
     if (executionId) {
@@ -149,7 +174,7 @@ export const navigateToEdhrWorkTask = async (
   item: EdhrWorkTaskRouteLike,
   origin = window.location.origin
 ) => {
-  const url = parseInternalActionUrl(item, origin)
+  const url = resolveTaskNavigationUrl(item, origin)
   if (shouldOpenBatchFillTask(item, url)) {
     const batchExecutionId = toPositiveNumber(resolveBatchExecutionId(item, url))
     const batchTaskId = toPositiveNumber(resolveBatchTaskId(item, url))
