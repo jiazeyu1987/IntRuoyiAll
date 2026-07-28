@@ -57,6 +57,10 @@
 - GREEN: `node --check tests/e2e/edhr-visual-fill-config-real-flow.e2e.js` -> PASS after editor readiness diff.
 - GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS after editor readiness diff.
 - GREEN: `git diff --check` -> PASS after editor readiness diff, only CRLF warnings.
+- Option click diagnostics diff detected before push: real-flow E2E records option component and DOM click diagnostics when the native option click does not update `modelValue`.
+- GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS after click diagnostics diff.
+- GREEN: `node --check tests/e2e/edhr-visual-fill-config-real-flow.e2e.js` -> PASS after click diagnostics diff.
+- GREEN: `git diff --check` -> PASS after click diagnostics diff, only CRLF warnings.
 
 ## Experience Consolidation
 
@@ -108,7 +112,13 @@
   - `IntRuoyiFronted/tests/e2e/edhr-visual-fill-config-real-flow.e2e.js`
   - `IntRuoyiFronted/tests/e2e/edhr-visual-fill-config-static.spec.js`
 - Fourth follow-up commit hook: `Branch runtime port guard passed for int_main/int_main: frontend 8081, backend 48081.`
-- Post-follow-up status: `## int_main...origin/int_main [ahead 3]`。
+- Task-record update commit: `17c27f55 docs: update int main push evidence`。
+- Fifth follow-up implementation commit: `db41058b test: capture report option click diagnostics`。
+- Fifth follow-up files:
+  - `IntRuoyiFronted/tests/e2e/edhr-visual-fill-config-real-flow.e2e.js`
+  - `IntRuoyiFronted/tests/e2e/edhr-visual-fill-config-static.spec.js`
+- Fifth follow-up commit hook: `Branch runtime port guard passed for int_main/int_main: frontend 8081, backend 48081.`
+- Post-follow-up status: `## int_main...origin/int_main [ahead 5]`。
 - Unstaged concurrent files intentionally not included:
   - `doc/tasks/20260728-batch-record-product-name-dropdown/*`
   - `docs/experience-index.md`
