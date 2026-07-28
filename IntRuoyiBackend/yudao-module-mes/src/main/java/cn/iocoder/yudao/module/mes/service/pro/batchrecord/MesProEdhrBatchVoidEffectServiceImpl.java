@@ -67,6 +67,8 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
     private AdminUserApi adminUserApi;
     @Resource
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
+    @Resource
+    private MesProEdhrWorkTaskService workTaskService;
 
     @Override
     public EdhrRecordChangeRespVO precheckPlatformVoidBatchExecution(EdhrRecordChangeRequestReqVO reqVO) {
@@ -300,6 +302,7 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
                     .setArchiveValidStatus("VOIDED")
                     .setInvalidatedByChangeEventId(event.getId()));
         }
+        workTaskService.cancelActiveTasksByBatch(batch.getId(), buildBatchVoidWorkTaskCancelReason(event));
         changeEventMapper.updateById(new MesProEdhrRecordChangeEventDO()
                 .setId(event.getId())
                 .setChangeStatus(CHANGE_STATUS_EFFECTIVE)
@@ -309,6 +312,14 @@ public class MesProEdhrBatchVoidEffectServiceImpl implements MesProEdhrBatchVoid
                 .setPreviousArchiveHash(archive == null ? event.getPreviousArchiveHash() : archive.getContentHash())
                 .setNewArchiveHash(archive == null ? event.getNewArchiveHash() : archive.getContentHash()));
         return toResp(changeEventMapper.selectById(event.getId()));
+    }
+
+    private String buildBatchVoidWorkTaskCancelReason(MesProEdhrRecordChangeEventDO event) {
+        String reasonText = StrUtil.blankToDefault(StrUtil.trim(event.getReasonText()), StrUtil.trim(event.getRemark()));
+        if (StrUtil.isBlank(reasonText)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_CHANGE_REASON_REQUIRED);
+        }
+        return "批次已作废：" + reasonText;
     }
 
     private EdhrRecordChangeRespVO toResp(MesProEdhrRecordChangeEventDO event) {

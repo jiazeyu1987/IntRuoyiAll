@@ -654,6 +654,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_nas_transfer_task` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `operator_user_id` BIGINT NOT NULL,
   `template_category_id` BIGINT NOT NULL,
+  `dcc_project_code_id` BIGINT NULL,
   `product_master_id` BIGINT NULL,
   `effective_date` DATE NOT NULL,
   `selected_nas_paths_json` LONGTEXT NOT NULL,

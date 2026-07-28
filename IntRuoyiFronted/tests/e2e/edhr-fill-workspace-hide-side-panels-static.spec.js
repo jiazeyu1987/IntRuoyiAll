@@ -25,9 +25,21 @@ for (const hiddenToken of [
   '<dt>生产批号</dt>',
   '<dt>工序</dt>',
   'edhr-fill-workspace__field-audit-reason',
-  'placeholder="请输入字段变更原因"'
+  'placeholder="请输入字段变更原因"',
+  'v-if="preReleaseEditNotice"',
+  ':title="preReleaseEditNotice"',
+  'v-if="goldenFingerNotice"',
+  ':title="goldenFingerNotice"'
 ]) {
   assert.ok(!workspaceRail.includes(hiddenToken), `左侧操作栏不得显示红框信息：${hiddenToken}`)
+}
+
+for (const retainedAlert of [
+  'revisionLockNotice',
+  'fieldAuditOpenGateError',
+  'fieldAuditSaveError'
+]) {
+  assert.ok(workspaceRail.includes(retainedAlert), `左侧操作栏必须保留真实告警：${retainedAlert}`)
 }
 
 assert.match(

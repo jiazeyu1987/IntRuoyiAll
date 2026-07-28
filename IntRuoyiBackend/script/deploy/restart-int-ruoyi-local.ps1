@@ -17,6 +17,7 @@ $FrontendDir = $PortContext.FrontendPath
 $BackendDir = Join-Path $RepoRoot 'yudao-server'
 $RuntimeDir = Join-Path $PortContext.WorkspaceRoot "output\runtime\$($PortContext.Name)"
 $RuntimeControlStateDir = Join-Path $RepoRoot 'runtime\runtime-control'
+$CodexTestRunnerTokenFile = Join-Path $PortContext.WorkspaceRoot '.runtime\codex-test-runner\runner-token.txt'
 $FrontendPort = [int]$PortContext.FrontendPort
 $BackendPort = [int]$PortContext.BackendPort
 $OnlyOfficeBaseUrl = 'http://127.0.0.1:8080'
@@ -606,6 +607,35 @@ function Require-EnvironmentVariable([string]$Name) {
     }
 }
 
+function Initialize-CodexTestRunnerToken {
+    $tokenDirectory = Split-Path -Parent $CodexTestRunnerTokenFile
+    if (-not (Test-Path -LiteralPath $CodexTestRunnerTokenFile)) {
+        New-Item -ItemType Directory -Force -Path $tokenDirectory | Out-Null
+        $tokenBytes = New-Object byte[] 32
+        $randomNumberGenerator = [Security.Cryptography.RandomNumberGenerator]::Create()
+        try {
+            $randomNumberGenerator.GetBytes($tokenBytes)
+        } finally {
+            $randomNumberGenerator.Dispose()
+        }
+        $token = [Convert]::ToBase64String($tokenBytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+        [System.IO.File]::WriteAllText(
+            $CodexTestRunnerTokenFile,
+            $token,
+            [System.Text.UTF8Encoding]::new($false)
+        )
+    }
+
+    $token = [System.IO.File]::ReadAllText(
+        $CodexTestRunnerTokenFile,
+        [System.Text.UTF8Encoding]::new($false)
+    ).Trim()
+    if ([string]::IsNullOrWhiteSpace($token)) {
+        Fail "Codex Runner token file is empty: $CodexTestRunnerTokenFile"
+    }
+    return $token
+}
+
 function Require-RunningContainer([string]$Name) {
     $running = docker inspect -f '{{.State.Running}}' $Name 2>$null
     if ($LASTEXITCODE -ne 0 -or $running.Trim() -ne 'true') {
@@ -925,6 +955,12 @@ function Start-Backend {
     foreach ($requiredEnv in $RequiredDccDownloadEncryptionEnv) {
         Require-EnvironmentVariable $requiredEnv
     }
+    $runnerToken = Initialize-CodexTestRunnerToken
+    [Environment]::SetEnvironmentVariable(
+        'CODEX_TEST_RUNNER_TOKEN',
+        $runnerToken,
+        [System.EnvironmentVariableTarget]::Process
+    )
     if (-not (Test-Path -LiteralPath (Join-Path $BackendDir 'pom.xml'))) {
         Fail "Missing backend workspace: $BackendDir"
     }
@@ -953,6 +989,9 @@ function Start-Backend {
     }
     $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $runtimeJar = Join-Path $RuntimeDir "backend-runtime-control-$timestamp.jar"
+    $backendLogDir = Join-Path $RuntimeDir 'logs'
+    $backendLogFile = Join-Path $backendLogDir 'yudao-server.log'
+    New-Item -ItemType Directory -Force -Path $backendLogDir | Out-Null
     Copy-Item -LiteralPath $sourceJar -Destination $runtimeJar -Force
     Stop-Port $BackendPort
     $backendScript = @"
@@ -973,8 +1012,10 @@ function Start-Backend {
   "--spring.datasource.dynamic.datasource.slave.password=123456"
   "--spring.data.redis.host=$LocalDockerRuntimeHost"
   "--spring.data.redis.port=26379"
+  "--logging.file.name=$backendLogFile"
   "--yudao.runtime-control.repo-root=$RepoRoot"
   "--yudao.runtime-control.state-dir=$RuntimeControlStateDir"
+  "--yudao.runtime-control.storage-guard.log-dir=$backendLogDir"
 )
 & java @backendArgs
 "@

@@ -14,13 +14,13 @@ assert.match(
 
 assert.match(
   globalStyle,
-  /\.el-tabs__item\s*\{[^}]*font-synthesis-weight:\s*none;[^}]*font-weight:\s*600;/,
-  'Element Plus tab labels must use a global fixed bold weight'
+  /\.el-tabs__item\s*\{[^}]*font-family:\s*var\(--app-fixed-tab-font-family\);[^}]*font-synthesis-weight:\s*none;[^}]*font-weight:\s*var\(--app-fixed-tab-font-weight\);/,
+  'Element Plus tab labels must use the global fixed font family and weight'
 )
 
 assert.match(
   globalStyle,
-  /\.el-tabs__item\.is-active\s*\{[^}]*font-weight:\s*600;/,
+  /\.el-tabs__item\.is-active\s*\{[^}]*font-weight:\s*var\(--app-fixed-tab-font-weight\);/,
   'active Element Plus tab labels must keep the same fixed bold weight'
 )
 

@@ -46,7 +46,7 @@
             @change="handleCategoryChange"
           >
             <el-option
-              v-for="item in categories"
+              v-for="item in availableCategories"
               :key="item.id"
               :label="item.name"
               :value="item.id as number"
@@ -76,28 +76,36 @@
         <el-form-item label="文件编号" prop="fileNumber">
           <el-input v-model="formData.fileNumber" class="!w-280px" placeholder="例如 EXT-001" />
         </el-form-item>
-        <el-form-item label="产品编号" prop="productMasterId">
+        <el-form-item label="DCC 项目" prop="dccProjectCodeId">
           <el-select
-            v-model="formData.productMasterId"
+            v-model="formData.dccProjectCodeId"
             class="!w-420px"
             clearable
             filterable
             remote
             reserve-keyword
-            :loading="productOptionsLoading"
-            :remote-method="loadProductOptions"
-            placeholder="可不选择产品主数据"
-            @change="handleProductMasterChange"
+            :loading="projectCodeOptionsLoading"
+            :remote-method="loadProjectCodeOptions"
+            placeholder="请选择 DCC 项目"
+            @change="handleProjectCodeChange"
           >
             <el-option
-              v-for="product in productOptions"
-              :key="product.id"
-              :label="formatProductOptionLabel(product)"
-              :value="product.id"
+              v-for="projectCode in projectCodeOptions"
+              :key="projectCode.id"
+              :label="formatProjectCodeOptionLabel(projectCode)"
+              :value="projectCode.id"
             />
           </el-select>
-          <div v-if="formData.productCode" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-            DCC 产品编号：{{ formData.productCode }}
+        </el-form-item>
+        <el-form-item label="产品编号" prop="productCode">
+          <el-input
+            v-model="formData.productCode"
+            class="!w-420px"
+            readonly
+            placeholder="选择 DCC 项目后自动生成"
+          />
+          <div v-if="selectedProjectCode" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
+            来源：DCC 项目代码 {{ selectedProjectCode.projectName }} / {{ selectedProjectCode.projectCode || '-' }}
           </div>
         </el-form-item>
         <el-form-item label="版本号" prop="versionNo">
@@ -189,16 +197,18 @@ import { getFileCategoryList, type ControlledFileCategoryVO } from '@/api/dcc/co
 import {
   cleanupControlledFileUploadSession,
   createControlledFileUploadSessionId,
-  DCC_PRODUCT_STATUS_ENABLE,
   EXTERNAL_FILE_REVIEW_PROCESS_DEFINITION_KEY,
-  getDccProductOptions,
   getControlledFileUploadDirectoryTree,
   submitExternalFileReview,
   uploadControlledFilePreview,
-  type DccControlledFileProductOptionVO,
   type ControlledFileUploadDirectoryTreeVO,
   type ControlledFileUploadRespVO
 } from '@/api/dcc/controlledFile/workflow'
+import {
+  DCC_PROJECT_CODE_STATUS_ENABLE,
+  getProjectCodePage,
+  type DccProjectCodeRespVO
+} from '@/api/dcc/controlledFile/projectCodes'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import {
   EDITABLE_SOURCE_MESSAGE,
@@ -206,7 +216,6 @@ import {
   resolveUploadErrorMessage,
   validateControlledFileSelection,
   validateDrawingPdfUpload,
-  validateProductMasterSelection,
   validateSingleUploadFileSelection
 } from '../upload/submitter'
 
@@ -219,7 +228,7 @@ const formRef = ref()
 const uploadRef = ref()
 const drawingPdfUploadRef = ref()
 const categories = ref<ControlledFileCategoryVO[]>([])
-const productOptions = ref<DccControlledFileProductOptionVO[]>([])
+const projectCodeOptions = ref<DccProjectCodeRespVO[]>([])
 const uploadDirectoryTree = ref<ControlledFileUploadDirectoryTreeVO>()
 const fileList = ref<UploadUserFile[]>([])
 const drawingPdfFileList = ref<UploadUserFile[]>([])
@@ -228,7 +237,7 @@ const drawingPdfUpload = ref<ControlledFileUploadRespVO>()
 const submitLoading = ref(false)
 const uploadPreviewLoading = ref(false)
 const uploadDrawingPdfLoading = ref(false)
-const productOptionsLoading = ref(false)
+const projectCodeOptionsLoading = ref(false)
 const uploadSessionId = createControlledFileUploadSessionId()
 const uploadSubmitted = ref(false)
 
@@ -241,15 +250,36 @@ const formData = reactive({
   participantUserIds: [] as number[],
   fileName: '',
   fileNumber: '',
-  productMasterId: null as number | null,
+  dccProjectCodeId: null as number | null,
   productCode: '',
   versionNo: '',
   effectiveDate: '',
   remark: ''
 })
 
+const categoryUploadPermissionMessage = '当前用户没有该文件类别的上传权限，请选择有上传权限的文件类别。'
+const availableCategories = computed(() =>
+  categories.value.filter((category) => category.active && category.canUpload !== false)
+)
+
 const formRules = reactive<FormRules>({
-  categoryId: [{ required: true, message: '请选择文件类别', trigger: 'change' }],
+  categoryId: [
+    {
+      validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
+        if (!value) {
+          callback(new Error('请选择文件类别'))
+          return
+        }
+        const category = categories.value.find((item) => item.id === Number(value))
+        if (category?.canUpload === false) {
+          callback(new Error(categoryUploadPermissionMessage))
+          return
+        }
+        callback()
+      },
+      trigger: 'change'
+    }
+  ],
   directoryId: [{ required: true, message: '请选择最终提交目录', trigger: 'change' }],
   externalSource: [{ required: true, message: '请输入外来来源', trigger: 'blur' }],
   externalOwner: [{ required: true, message: '请输入外来归属', trigger: 'blur' }],
@@ -257,6 +287,7 @@ const formRules = reactive<FormRules>({
   participantUserIds: [{ required: true, type: 'array', min: 1, message: '请选择参与人', trigger: 'change' }],
   fileName: [{ required: true, message: '请输入文件名称', trigger: 'blur' }],
   fileNumber: [{ required: true, message: '请输入文件编号', trigger: 'blur' }],
+  dccProjectCodeId: [{ required: true, message: '请选择 DCC 项目', trigger: 'change' }],
   versionNo: [{ required: true, message: '请输入版本号', trigger: 'blur' }],
   effectiveDate: [{ required: true, message: '请选择生效日期', trigger: 'change' }]
 })
@@ -271,31 +302,40 @@ const directoryCascaderProps = {
 
 const loadBaseData = async () => {
   categories.value = (await getFileCategoryList()).filter((item) => item.active)
-  await loadProductOptions()
+  await loadProjectCodeOptions()
 }
 
-const formatProductOptionLabel = (product: DccControlledFileProductOptionVO) =>
-  `${product.dccProductCode} · ${product.nameCn} · ${product.productCode}`
+const selectedProjectCode = computed(() =>
+  projectCodeOptions.value.find((projectCode) => projectCode.id === formData.dccProjectCodeId)
+)
 
-const loadProductOptions = async (keyword = '') => {
-  productOptionsLoading.value = true
+const formatProjectCodeOptionLabel = (projectCode: DccProjectCodeRespVO) =>
+  [projectCode.projectName, projectCode.projectCode, projectCode.docControlNo].filter(Boolean).join(' / ')
+
+const loadProjectCodeOptions = async (keyword = '') => {
+  projectCodeOptionsLoading.value = true
   try {
-    productOptions.value = await getDccProductOptions({
-      status: DCC_PRODUCT_STATUS_ENABLE,
-      requireDccProductCode: true,
+    const data = await getProjectCodePage({
+      pageNo: 1,
+      pageSize: 50,
+      status: DCC_PROJECT_CODE_STATUS_ENABLE,
       keyword: keyword.trim() || undefined
     })
+    projectCodeOptions.value = data.list
   } catch (error) {
-    productOptions.value = []
-    message.error(resolveUploadErrorMessage(error, '产品主数据加载失败，请查看错误提示后重试'))
+    projectCodeOptions.value = []
+    message.error(resolveUploadErrorMessage(error, 'DCC 项目加载失败，请查看错误提示后重试'))
   } finally {
-    productOptionsLoading.value = false
+    projectCodeOptionsLoading.value = false
   }
 }
 
-const handleProductMasterChange = (productId: number | undefined) => {
-  const product = productOptions.value.find((item) => item.id === productId)
-  formData.productCode = product?.dccProductCode || ''
+const applyDccProjectCodeProductNumber = () => {
+  formData.productCode = selectedProjectCode.value?.projectCode?.trim() || ''
+}
+
+const handleProjectCodeChange = () => {
+  applyDccProjectCodeProductNumber()
 }
 
 const resetSelectedPreview = () => {
@@ -445,12 +485,8 @@ const submitForm = async () => {
     message.warning('请先选择并完成外来文件上传')
     return
   }
-  const productMasterValidation = validateProductMasterSelection(
-    formData.productMasterId,
-    formData.productCode
-  )
-  if (!productMasterValidation.valid) {
-    message.warning(productMasterValidation.message || '产品主数据校验失败')
+  if (!formData.productCode.trim()) {
+    message.warning('请选择包含项目代码的 DCC 项目')
     return
   }
   const drawingPdfValidation = validateDrawingPdfUpload(previewUpload.value, drawingPdfUpload.value)
@@ -470,8 +506,9 @@ const submitForm = async () => {
       drawingPdfUploadTicket: drawingPdfUpload.value?.uploadTicket,
       fileName: formData.fileName.trim(),
       fileNumber: formData.fileNumber.trim(),
-      productMasterId: formData.productMasterId ?? undefined,
+      productMasterId: null,
       productCode: formData.productCode.trim() || undefined,
+      dccProjectCodeId: formData.dccProjectCodeId,
       needTraining: false,
       processType: 'EXTERNAL_REVIEW',
       changeType: 'NEW',

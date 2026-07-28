@@ -243,11 +243,45 @@ final class MesProEdhrBatchArchivePrintablePdfRenderer {
     private static void writeEvidenceAppendix(PdfCanvas canvas, JSONObject manifest) throws IOException {
         canvas.newPage();
         canvas.writeSectionTitle("归档证据附录");
+        writeReleaseApprovalAppendix(canvas, manifest);
         writeAttachmentAppendix(canvas, manifest);
         writeDossierAppendix(canvas, manifest);
         writeChangeEventAppendix(canvas, manifest);
         writeDomainTraceAppendix(canvas, manifest);
         canvas.writeKeyValue("归档哈希", manifest.getString("aggregateHash"));
+    }
+
+    private static void writeReleaseApprovalAppendix(PdfCanvas canvas, JSONObject manifest) throws IOException {
+        JSONObject release = manifest.getJSONObject("releaseTransactionSnapshot");
+        if (release == null || release.isEmpty()) {
+            return;
+        }
+        canvas.writeSubTitle("放行审核与批准");
+        canvas.writeKeyValue("放行单号", release.getString("releaseCode"));
+        canvas.writeKeyValue("放行状态", release.getString("releaseStatus"));
+        canvas.writeKeyValue("预检时间", formatDateTime(release.getString("lastPrecheckAt")));
+        canvas.writeKeyValue("审核人/提交人", value(release.get("submittedBy")));
+        canvas.writeKeyValue("审核时间", formatDateTime(release.getString("submittedAt")));
+        canvas.writeKeyValue("批准人", value(release.get("approvedBy")));
+        canvas.writeKeyValue("批准时间", formatDateTime(release.getString("approvedAt")));
+        canvas.writeKeyValue("审批意见", release.getString("approvalOpinion"));
+        canvas.writeKeyValue("签名证据哈希", release.getString("approvalSignoffEvidenceHash"));
+
+        List<JSONObject> events = jsonArrayObjects(manifest, "releaseEvents");
+        if (events.isEmpty()) {
+            return;
+        }
+        canvas.writeSubTitle("放行事件");
+        for (JSONObject event : events) {
+            canvas.writeParagraph(String.join(" | ",
+                    "事件=" + value(event.get("eventType")),
+                    "状态=" + joinNonBlank(value(event.get("fromStatus")), value(event.get("toStatus"))),
+                    "操作人=" + value(event.get("actorUserId")),
+                    "原因=" + value(firstNonBlank(event.get("reason"), event.get("opinion"))),
+                    "证据=" + value(firstNonBlank(event.get("evidenceHash"), event.get("signoffEvidenceHash"))),
+                    "时间=" + formatDateTime(event.getString("occurredAt"))));
+        }
+        canvas.writeBlankLine();
     }
 
     private static void writeAttachmentAppendix(PdfCanvas canvas, JSONObject manifest) throws IOException {

@@ -82,6 +82,20 @@ public class MesProEdhrCandidateResolver {
                 toRequiredSnapshot(users, PRO_EDHR_WORK_TASK_CANDIDATE_POOL_EMPTY, null));
     }
 
+    public MesProEdhrCandidateContract resolveRouteBindingCandidate(String sourceType, String rawSourceIds,
+                                                                    String sourceContext) {
+        List<Long> sourceIds = parseCandidateSourceIds(rawSourceIds);
+        if (StrUtil.isBlank(sourceType) || sourceIds.isEmpty()) {
+            throw exception(PRO_EDHR_WORK_TASK_CANDIDATE_SOURCE_INVALID);
+        }
+        String normalizedSourceType = StrUtil.trim(sourceType);
+        List<AdminUserRespDTO> users = resolveUsers(normalizedSourceType, sourceIds,
+                PRO_EDHR_WORK_TASK_CANDIDATE_SOURCE_INVALID, sourceContext);
+        Long sourceId = sourceIds.size() == 1 ? sourceIds.get(0) : null;
+        return new MesProEdhrCandidateContract(normalizedSourceType, sourceId,
+                toRequiredSnapshot(users, PRO_EDHR_WORK_TASK_CANDIDATE_POOL_EMPTY, sourceContext));
+    }
+
     public List<MesProEdhrCandidateUser> resolveReviewCandidates(String signatureCellKey, String reviewSourceType,
                                                                  Long reviewSourceId, List<Long> reviewSourceIds) {
         if (StrUtil.isBlank(reviewSourceType)) {
@@ -146,12 +160,20 @@ public class MesProEdhrCandidateResolver {
         if (StrUtil.isBlank(rawIds)) {
             return List.of();
         }
+        rawIds = StrUtil.trim(rawIds);
+        if (rawIds.startsWith("[") && rawIds.endsWith("]")) {
+            rawIds = rawIds.substring(1, rawIds.length() - 1);
+        }
         List<Long> ids = new ArrayList<>();
         for (String item : rawIds.split(",")) {
             if (StrUtil.isBlank(item)) {
                 continue;
             }
-            ids.add(Long.parseLong(item.trim()));
+            String normalized = item.trim();
+            if (normalized.startsWith("\"") && normalized.endsWith("\"") && normalized.length() >= 2) {
+                normalized = normalized.substring(1, normalized.length() - 1);
+            }
+            ids.add(Long.parseLong(normalized));
         }
         return ids;
     }
@@ -161,11 +183,11 @@ public class MesProEdhrCandidateResolver {
         if ("USER".equals(sourceType) || "USERS".equals(sourceType)) {
             return adminUserApi.getUserList(sourceIds);
         }
-        if ("ROLE".equals(sourceType)) {
+        if ("ROLE".equals(sourceType) || "ROLES".equals(sourceType) || "ROLE_GROUP".equals(sourceType)) {
             Set<Long> userIds = permissionApi.getUserRoleIdListByRoleIds(sourceIds);
             return userIds == null || userIds.isEmpty() ? List.of() : adminUserApi.getUserList(userIds);
         }
-        if ("DEPT".equals(sourceType)) {
+        if ("DEPT".equals(sourceType) || "DEPTS".equals(sourceType) || "DEPT_GROUP".equals(sourceType)) {
             return adminUserApi.getUserListByDeptIds(sourceIds);
         }
         if ("DEPT_LEADER".equals(sourceType)) {

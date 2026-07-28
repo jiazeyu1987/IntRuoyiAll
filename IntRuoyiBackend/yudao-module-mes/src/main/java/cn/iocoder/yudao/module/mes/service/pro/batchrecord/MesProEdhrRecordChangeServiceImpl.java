@@ -112,6 +112,8 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
     private BusinessApprovalPolicyResolveService businessApprovalPolicyResolveService;
     @Resource
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
+    @Resource
+    private MesProEdhrWorkTaskService workTaskService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -885,6 +887,7 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
                     .setArchiveValidStatus("VOIDED")
                     .setInvalidatedByChangeEventId(event.getId()));
         }
+        workTaskService.cancelActiveTasksByBatch(batch.getId(), buildBatchVoidWorkTaskCancelReason(event));
         changeEventMapper.updateById(new MesProEdhrRecordChangeEventDO()
                 .setId(event.getId())
                 .setChangeStatus(CHANGE_STATUS_EFFECTIVE)
@@ -894,6 +897,14 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
                 .setPreviousArchiveHash(archive == null ? event.getPreviousArchiveHash() : archive.getContentHash())
                 .setNewArchiveHash(archive == null ? event.getNewArchiveHash() : archive.getContentHash()));
         return toResp(changeEventMapper.selectById(event.getId()));
+    }
+
+    private String buildBatchVoidWorkTaskCancelReason(MesProEdhrRecordChangeEventDO event) {
+        String reasonText = StrUtil.blankToDefault(StrUtil.trim(event.getReasonText()), StrUtil.trim(event.getRemark()));
+        if (StrUtil.isBlank(reasonText)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_CHANGE_REASON_REQUIRED);
+        }
+        return "批次已作废：" + reasonText;
     }
 
     private MesProEdhrRecordChangeEventDO buildExecutionChangeEvent(EdhrRecordChangeRequestReqVO reqVO,

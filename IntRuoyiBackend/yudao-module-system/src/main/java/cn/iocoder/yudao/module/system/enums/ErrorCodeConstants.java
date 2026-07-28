@@ -66,6 +66,8 @@ public interface ErrorCodeConstants {
     ErrorCode CODEX_TEST_EXECUTION_NOT_EXISTS = new ErrorCode(1_002_031_010, "测试执行不存在");
     ErrorCode CODEX_TEST_RUNNER_TOKEN_INVALID = new ErrorCode(1_002_031_011, "Codex Runner token 无效或未配置");
     ErrorCode CODEX_TEST_DISABLED_CASE = new ErrorCode(1_002_031_012, "禁用测试项不能执行：{}");
+    ErrorCode CODEX_TEST_RUNNER_STARTER_MISSING = new ErrorCode(1_002_031_013, "Codex Runner 按需启动脚本未配置：{}");
+    ErrorCode CODEX_TEST_RUNNER_START_FAILED = new ErrorCode(1_002_031_014, "Codex Runner 按需启动失败：{}");
 
     // ========== 用户模块 1-002-003-000 ==========
     ErrorCode USER_USERNAME_EXISTS = new ErrorCode(1_002_003_000, "用户账号已经存在");
@@ -90,6 +92,7 @@ public interface ErrorCodeConstants {
     ErrorCode USER_DELETE_LIST_IS_EMPTY = new ErrorCode(1_002_003_020, "请选择需要删除的用户");
     ErrorCode USER_PASSWORD_STRENGTH_INVALID = new ErrorCode(1_002_003_021, "密码强度不足，至少 8 位且必须包含英文和数字");
     ErrorCode USER_TABLE_COLUMN_CONFIG_INVALID = new ErrorCode(1_002_003_022, "用户列表列配置非法");
+    ErrorCode PROFILE_WORKBENCH_TASK_VISIBILITY_INVALID = new ErrorCode(1_002_003_023, "个人工作台任务隐藏配置非法");
 
     // ========== 部门模块 1-002-004-000 ==========
     ErrorCode DEPT_NAME_DUPLICATE = new ErrorCode(1_002_004_000, "已经存在该名字的部门");

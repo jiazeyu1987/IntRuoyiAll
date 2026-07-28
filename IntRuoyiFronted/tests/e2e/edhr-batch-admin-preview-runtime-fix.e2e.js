@@ -1,29 +1,131 @@
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
+const { spawnSync } = require('node:child_process')
 const { chromium } = require('playwright')
 
 const BASE_URL = process.env.EDHR_ADMIN_PREVIEW_BASE_URL || 'http://localhost:8081'
-const TENANT = '芋道源码'
-const USERNAME = 'admin'
-const PASSWORD = 'admin123'
-const BATCH_EXECUTION_ID = 900000000480
-const TASK_ID = 3041
-const TARGET_PATH =
-  `/mes/pro/feedback/edhr-batch-execution/detail?id=${BATCH_EXECUTION_ID}` +
-  `&batchTaskId=${TASK_ID}`
+const TENANT = process.env.EDHR_ADMIN_PREVIEW_TENANT || '芋道源码'
+const USERNAME = process.env.EDHR_ADMIN_PREVIEW_USERNAME || 'admin'
+const PASSWORD = process.env.EDHR_ADMIN_PREVIEW_PASSWORD
+const EXPLICIT_BATCH_EXECUTION_ID = Number(process.env.EDHR_ADMIN_PREVIEW_BATCH_ID || 0)
+const EXPLICIT_TASK_ID = Number(process.env.EDHR_ADMIN_PREVIEW_TASK_ID || 0)
+const TASK_DOC_ID =
+  process.env.EDHR_ADMIN_PREVIEW_TASK_DOC_ID || '20260725-full-e2e-admin-validation'
 const OUTPUT_DIR = path.resolve(
-  process.cwd(),
-  'doc/tasks/20260710-edhr-batch-admin-preview-runtime-fix/e2e-output'
+  process.env.EDHR_ADMIN_PREVIEW_OUTPUT_DIR ||
+    path.join(process.cwd(), '..', 'doc', 'tasks', TASK_DOC_ID, 'admin-preview-e2e-output')
 )
 const BROWSER_EXECUTABLE =
   process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+const MYSQL_CONTAINER_NAME = process.env.EDHR_ADMIN_PREVIEW_MYSQL_CONTAINER || 'int-ruoyi-mysql'
+const DATABASE_NAME = process.env.EDHR_ADMIN_PREVIEW_DATABASE || 'ruoyi-vue-pro'
+const AUTHORIZED_TENANT_ID = 1
 
 function ensurePrerequisites() {
   assert.match(BASE_URL, /^http:\/\/(127\.0\.0\.1|localhost):8081$/, 'E2E 只能验证本机 8081 前端')
+  assert.equal(TENANT, '芋道源码', '管理员只读预览必须使用芋道源码租户')
+  assert.equal(USERNAME, 'admin', '管理员只读预览必须使用 admin')
+  assert.ok(PASSWORD, '缺少 EDHR_ADMIN_PREVIEW_PASSWORD')
+  assert.equal(
+    EXPLICIT_BATCH_EXECUTION_ID > 0,
+    EXPLICIT_TASK_ID > 0,
+    '显式指定预览目标时必须同时提供 EDHR_ADMIN_PREVIEW_BATCH_ID 和 EDHR_ADMIN_PREVIEW_TASK_ID'
+  )
   assert.ok(fs.existsSync(BROWSER_EXECUTABLE), `系统 Chrome 不存在: ${BROWSER_EXECUTABLE}`)
   fs.mkdirSync(OUTPUT_DIR, { recursive: true })
+}
+
+function parseMysqlRows(stdout) {
+  return stdout
+    .trim()
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => line.split('\t').map((value) => (value === 'NULL' ? '' : value)))
+}
+
+function queryLocalDatabase(sql, label) {
+  const result = spawnSync(
+    'docker',
+    [
+      'exec',
+      '-i',
+      MYSQL_CONTAINER_NAME,
+      'sh',
+      '-lc',
+      `MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --default-character-set=utf8mb4 -uroot -D${DATABASE_NAME} -N -B`
+    ],
+    {
+      input: sql,
+      encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024
+    }
+  )
+  if (result.error) {
+    throw new Error(`${label} 数据库读取失败：${result.error.message}`)
+  }
+  if (result.status !== 0) {
+    const stderr = (result.stderr || '').trim()
+    throw new Error(`${label} 数据库读取失败：${stderr || `docker/mysql 退出码 ${result.status}`}`)
+  }
+  return parseMysqlRows(result.stdout || '')
+}
+
+function resolvePreviewTarget() {
+  if (EXPLICIT_BATCH_EXECUTION_ID > 0 && EXPLICIT_TASK_ID > 0) {
+    return {
+      batchExecutionId: EXPLICIT_BATCH_EXECUTION_ID,
+      taskId: EXPLICIT_TASK_ID,
+      source: 'env'
+    }
+  }
+
+  const rows = queryLocalDatabase(
+    `SELECT be.id,
+            be.batch_execution_code,
+            be.status,
+            t.id,
+            COALESCE(t.process_name, ''),
+            COALESCE(t.batch_record_report_name, ''),
+            t.batch_record_report_id,
+            t.status
+       FROM mes_pro_edhr_batch_execution be
+       JOIN mes_pro_edhr_batch_execution_task t
+         ON t.batch_execution_id = be.id
+        AND t.deleted = b'0'
+      WHERE be.deleted = b'0'
+        AND be.tenant_id = ${AUTHORIZED_TENANT_ID}
+        AND be.status IN (0, 10, 20, 25)
+        AND t.node_type = 'ROUTE_FORM'
+        AND t.execution_id IS NULL
+        AND t.batch_record_report_id IS NOT NULL
+      ORDER BY be.update_time DESC, t.route_process_sort, t.batch_record_sort
+      LIMIT 1;`,
+    '管理员只读预览目标'
+  )
+  assert.ok(rows.length > 0, '本机数据库未找到授权租户下可只读预览的未开始批记录任务')
+  const [
+    batchExecutionId,
+    batchExecutionCode,
+    batchStatus,
+    taskId,
+    processName,
+    taskDisplayName,
+    batchRecordReportId,
+    taskStatus
+  ] = rows[0]
+  return {
+    batchExecutionId: Number(batchExecutionId),
+    batchExecutionCode,
+    batchStatus: Number(batchStatus),
+    taskId: Number(taskId),
+    taskStatus: Number(taskStatus),
+    processName,
+    taskDisplayName,
+    batchRecordReportId,
+    source: `${MYSQL_CONTAINER_NAME}/${DATABASE_NAME}`
+  }
 }
 
 async function login(page) {
@@ -57,12 +159,27 @@ async function login(page) {
   await usernameInput.fill(USERNAME)
   await passwordInput.fill(PASSWORD)
 
+  const loginResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/admin-api/system/auth/login') &&
+      response.request().method() === 'POST',
+    { timeout: 60000 }
+  )
   await form.getByRole('button', { name: /登录/ }).click()
+  const loginBody = await (await loginResponsePromise).json()
+  assert(
+    loginBody.code === 0 || loginBody.code === 200,
+    `登录失败：${loginBody.msg || loginBody.code}`
+  )
   await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 90000 })
 }
 
 async function run() {
   ensurePrerequisites()
+  const previewTarget = resolvePreviewTarget()
+  const targetPath =
+    `/mes/pro/feedback/edhr-batch-execution/detail?id=${previewTarget.batchExecutionId}` +
+    `&batchTaskId=${previewTarget.taskId}`
 
   const browser = await chromium.launch({
     headless: process.env.EDHR_ADMIN_PREVIEW_HEADED !== '1',
@@ -98,12 +215,12 @@ async function run() {
       (response) =>
         response.request().method() === 'GET' &&
         response.url().includes('/admin-api/mes/pro/edhr-batch-execution/task/preview') &&
-        response.url().includes(`batchExecutionId=${BATCH_EXECUTION_ID}`) &&
-        response.url().includes(`taskId=${TASK_ID}`),
+        response.url().includes(`batchExecutionId=${previewTarget.batchExecutionId}`) &&
+        response.url().includes(`taskId=${previewTarget.taskId}`),
       { timeout: 90000 }
     )
 
-    await page.goto(`${BASE_URL}${TARGET_PATH}`, {
+    await page.goto(`${BASE_URL}${targetPath}`, {
       waitUntil: 'domcontentloaded',
       timeout: 60000
     })
@@ -111,8 +228,14 @@ async function run() {
     const previewResponse = await previewResponsePromise
     const previewBody = await previewResponse.json()
     assert.equal(previewResponse.status(), 200, '只读预览接口 HTTP 状态必须为 200')
-    assert.equal(previewBody.code, 0, `只读预览接口必须成功: ${JSON.stringify(previewBody)}`)
-    assert.equal(Number(previewBody.data?.taskId), TASK_ID, '只读预览必须返回目标任务')
+    assert.ok(
+      previewBody.code === 0 || previewBody.code === 200,
+      `只读预览接口必须成功: ${JSON.stringify(previewBody)}`
+    )
+    assert.equal(Number(previewBody.data?.taskId), previewTarget.taskId, '只读预览必须返回目标任务')
+    if (previewTarget.source !== 'env') {
+      assert.equal(previewBody.data?.executionCreated, false, '数据库发现的预览目标必须保持未创建执行记录')
+    }
     assert.ok(previewBody.data?.formViewModel, '只读预览必须返回表单视图模型')
 
     const readonlyForm = page.locator('.edhr-readonly-form')
@@ -120,12 +243,13 @@ async function run() {
     await readonlyForm.waitFor({ state: 'visible', timeout: 90000 })
     await templateSheet.waitFor({ state: 'visible', timeout: 90000 })
 
-    await assert.doesNotReject(async () => {
-      await page.getByText('精洗工序生产记录', { exact: false }).first().waitFor({
+    const expectedProcessText = previewTarget.processName || previewTarget.taskDisplayName
+    if (expectedProcessText) {
+      await page.getByText(expectedProcessText, { exact: false }).first().waitFor({
         state: 'visible',
         timeout: 30000
       })
-    }, '页面必须显示精洗工序表单名称')
+    }
     assert.equal(
       await page.getByText(
         '当前表单尚未形成已填写内容，请在右侧工序表单中打开填写',
@@ -151,8 +275,16 @@ async function run() {
     await page.screenshot({ path: screenshotPath, fullPage: true })
 
     const result = {
-      batchExecutionId: BATCH_EXECUTION_ID,
-      taskId: TASK_ID,
+      tenant: TENANT,
+      username: USERNAME,
+      targetSource: previewTarget.source,
+      batchExecutionId: previewTarget.batchExecutionId,
+      batchExecutionCode: previewTarget.batchExecutionCode,
+      batchStatus: previewTarget.batchStatus,
+      taskId: previewTarget.taskId,
+      taskStatus: previewTarget.taskStatus,
+      processName: previewTarget.processName,
+      taskDisplayName: previewTarget.taskDisplayName,
       previewHttpStatus: previewResponse.status(),
       previewCode: previewBody.code,
       executionCreated: previewBody.data?.executionCreated,
@@ -171,7 +303,7 @@ async function run() {
     )
 
     console.log(
-      `PASS: admin readonly preview batch=${BATCH_EXECUTION_ID} task=${TASK_ID} executionCreated=${String(result.executionCreated)}`
+      `PASS: admin readonly preview batch=${previewTarget.batchExecutionId} task=${previewTarget.taskId} executionCreated=${String(result.executionCreated)}`
     )
     console.log(`PASS: evidence=${OUTPUT_DIR}`)
   } finally {

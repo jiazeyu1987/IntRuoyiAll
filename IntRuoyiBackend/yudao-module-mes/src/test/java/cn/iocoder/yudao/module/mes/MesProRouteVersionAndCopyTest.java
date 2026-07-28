@@ -26,6 +26,7 @@ import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProductBomService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProductService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteControlledContentAdapter;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteOwnerPermissionService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteServiceImpl;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import org.junit.jupiter.api.BeforeEach;
@@ -89,6 +90,8 @@ class MesProRouteVersionAndCopyTest {
     private MesProRouteProductBomService routeProductBomService;
     @Mock
     private MesProRouteControlledContentAdapter controlledContentAdapter;
+    @Mock
+    private MesProRouteOwnerPermissionService routeOwnerPermissionService;
 
     @BeforeEach
     void stubCurrentRouteProcessIdentity() {

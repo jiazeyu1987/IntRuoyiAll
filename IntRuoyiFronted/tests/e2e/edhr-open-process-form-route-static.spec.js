@@ -41,6 +41,15 @@ assert(routes.includes("path: 'pro/feedback/edhr-execution/form'"), '路由表�
 assert(routes.includes("title: 'eDHR执行表单'"), 'eDHR 执行表单页路由必须保持表单语义标题。')
 assert(!routes.includes("path: 'pro/feedback/edhr-execution/detail'"), '路由表不得继续注册废弃的 eDHR 执行详情页。')
 
+assert(
+  executionPage.includes('<div class="edhr-page-shell__toolbar">'),
+  '执行表单页 toolbar 必须在填写模式和追踪模式都可见。'
+)
+assert(
+  !executionPage.includes('<div v-if="isTrackingReadonlyMode" class="edhr-page-shell__toolbar">'),
+  '执行表单页 toolbar 不得只在 tracking 只读模式显示。'
+)
+
 for (const token of [
   '{{ executionPageTitle }}',
   '{{ executionPageSubtitle }}',  '{{ backToBatchLabel }}',

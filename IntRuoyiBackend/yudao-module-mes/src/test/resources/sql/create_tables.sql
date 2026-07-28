@@ -2097,6 +2097,7 @@ CREATE TABLE IF NOT EXISTS "mes_pro_edhr_batch_dossier_item" (
       "candidate_source_id" bigint DEFAULT NULL,
       "due_minutes" int DEFAULT NULL,
       "enabled" bit NOT NULL DEFAULT TRUE,
+      "fillable_scope_json" clob DEFAULT NULL,
       "remark" varchar(500) DEFAULT NULL,
       "creator" varchar(64) DEFAULT '',
       "create_time" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -2115,6 +2116,7 @@ CREATE TABLE IF NOT EXISTS "mes_pro_edhr_batch_dossier_item" (
       "batch_record_definition_id" bigint DEFAULT NULL,
       "batch_record_version_id" bigint DEFAULT NULL,
       "rule_type" varchar(32) NOT NULL,
+      "scope_key" varchar(64) NOT NULL DEFAULT 'ALL',
       "signature_cell_key" varchar(128) NOT NULL DEFAULT '',
       "signature_role" varchar(32) DEFAULT NULL,
       "candidate_source_type" varchar(32) NOT NULL,
@@ -2122,6 +2124,7 @@ CREATE TABLE IF NOT EXISTS "mes_pro_edhr_batch_dossier_item" (
       "completion_policy" varchar(32) NOT NULL,
       "due_minutes" int NOT NULL,
       "enabled" bit NOT NULL DEFAULT TRUE,
+      "fillable_scope_json" clob DEFAULT NULL,
       "remark" varchar(500) DEFAULT NULL,
       "creator" varchar(64) DEFAULT '',
       "create_time" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -2130,7 +2133,7 @@ CREATE TABLE IF NOT EXISTS "mes_pro_edhr_batch_dossier_item" (
       "deleted" bit NOT NULL DEFAULT FALSE,
       "tenant_id" bigint NOT NULL DEFAULT 0,
       PRIMARY KEY ("id"),
-      CONSTRAINT "uk_mes_pro_edhr_process_form_rule" UNIQUE ("tenant_id", "route_process_id", "batch_record_report_id", "batch_record_version_id", "rule_type", "signature_cell_key", "deleted")
+      CONSTRAINT "uk_mes_pro_edhr_process_form_rule" UNIQUE ("tenant_id", "route_process_id", "batch_record_report_id", "batch_record_version_id", "rule_type", "scope_key", "signature_cell_key", "deleted")
   );
 
   CREATE TABLE IF NOT EXISTS "mes_pro_edhr_work_task" (
@@ -2159,6 +2162,7 @@ CREATE TABLE IF NOT EXISTS "mes_pro_edhr_batch_dossier_item" (
       "responsibility_source_key" varchar(255) DEFAULT NULL,
       "responsibility_source_version" varchar(64) DEFAULT NULL,
       "responsibility_source_digest" varchar(1000) DEFAULT NULL,
+      "responsibility_scope_json" clob DEFAULT NULL,
       "ownership_locked" bit NOT NULL DEFAULT FALSE,
       "ownership_last_transferred_at" timestamp DEFAULT NULL,
       "ownership_last_transferred_by" bigint DEFAULT NULL,
@@ -2976,11 +2980,14 @@ CREATE TABLE IF NOT EXISTS "mes_pro_batch_record_cell_link_rule" (
     "route_id" bigint DEFAULT NULL,
     "batch_record_definition_id" bigint DEFAULT NULL,
     "batch_record_version_id" bigint DEFAULT NULL,
+    "source_type" varchar(32) NOT NULL DEFAULT 'BATCH_RECORD_CELL',
     "source_report_id" varchar(64) NOT NULL,
     "source_report_name" varchar(100) NOT NULL,
     "source_row_index" int NOT NULL,
     "source_column_index" int NOT NULL,
     "source_cell_key" varchar(32) NOT NULL,
+    "source_field_code" varchar(64) DEFAULT NULL,
+    "source_field_name" varchar(100) DEFAULT NULL,
     "source_label" varchar(255) DEFAULT NULL,
     "source_value_type" varchar(32) DEFAULT NULL,
     "target_report_id" varchar(64) NOT NULL,

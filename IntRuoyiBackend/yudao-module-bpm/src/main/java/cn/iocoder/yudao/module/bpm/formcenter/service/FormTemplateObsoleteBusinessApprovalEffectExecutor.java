@@ -45,9 +45,9 @@ public class FormTemplateObsoleteBusinessApprovalEffectExecutor implements Busin
 
     @Override
     public BusinessApprovalEffectResult executeDirect(BusinessApprovalContext context, BusinessApprovalRequest request) {
-        requireObsoletableVersion(context);
-        throw new BusinessApprovalException(BusinessApprovalErrorCode.BUSINESS_APPROVAL_MODE_INVALID,
-                "Form template obsolete requires BPM approval");
+        FormTemplateVersionDO version = requireObsoletableVersion(context);
+        updateStatus(version, FormTemplateStatus.OBSOLETE);
+        return BusinessApprovalEffectResult.completed(FormTemplateStatus.OBSOLETE.name());
     }
 
     @Override

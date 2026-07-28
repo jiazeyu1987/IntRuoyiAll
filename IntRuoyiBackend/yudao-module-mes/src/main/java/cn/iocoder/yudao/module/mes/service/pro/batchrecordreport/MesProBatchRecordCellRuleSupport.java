@@ -1,7 +1,9 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportAssistRowVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRuleVO;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 
 import java.util.ArrayList;
@@ -23,11 +25,12 @@ public final class MesProBatchRecordCellRuleSupport {
     public static final String SIGNATURE_KEY = "edhrSignature";
     public static final String FILL_FORM_KEY = "fillForm";
     public static final String MANUAL_FILL_CELL_KEY = "edhrManualFillCell";
+    public static final String ASSIST_ROWS_KEY = "edhrAssistRows";
 
     private static final Set<String> SUPPORTED_VALUE_TYPES = Set.of(
             "STRING", "NUMBER", "DATE", "DATETIME", "BOOLEAN", "SIGNATURE");
     private static final Set<String> SIGNATURE_ACTION_TYPES = Set.of("FORM_REVIEW", "SUBMIT", "APPROVE");
-    private static final Set<String> SINGLE_CHOICE_COMPONENT_FLAGS = Set.of("radio-group", "option-group", "single-choice");
+    private static final Set<String> SINGLE_CHOICE_COMPONENT_FLAGS = Set.of("radio-group", "option-group", "single-choice", "select");
     private static final Pattern UNIT_PATTERN = Pattern.compile("[（(]([A-Za-z%℃°μΩ/\\u4e00-\\u9fa5]{1,12})[）)]");
     private static final List<String> KNOWN_UNITS = List.of(
             "℃", "°C", "kg", "g", "mg", "μg", "L", "mL", "ml", "mm", "cm", "m",
@@ -364,6 +367,62 @@ public final class MesProBatchRecordCellRuleSupport {
         return counter.value;
     }
 
+    public static int refreshUnreviewedAutomaticSuggestions(JSONObject root, String reportCode) {
+        Counter counter = new Counter();
+        JSONObject rows = root == null ? null : root.getJSONObject("rows");
+        forEachCell(root, (rowIndex, columnIndex, cell) -> {
+            if (!isFillableCandidateCell(cell)) {
+                return;
+            }
+            JSONObject existing = cell.getJSONObject(CELL_RULE_KEY);
+            if (isReviewedRule(existing)) {
+                return;
+            }
+            String beforeRule = existing == null ? "" : existing.toJSONString();
+            JSONObject fillForm = cell.getJSONObject(FILL_FORM_KEY);
+            String beforeFillForm = fillForm == null ? "" : fillForm.toJSONString();
+            BatchRecordReportCellRuleVO suggestion = withFillFormPlaceholder(
+                    suggestRule(rows, rowIndex, columnIndex, cell), cell);
+            ensureManualFillForm(suggestion, cell, reportCode);
+            JSONObject nextRule = toRuleJson(suggestion);
+            cell.put(CELL_RULE_KEY, nextRule);
+            JSONObject nextFillForm = cell.getJSONObject(FILL_FORM_KEY);
+            String afterFillForm = nextFillForm == null ? "" : nextFillForm.toJSONString();
+            if (!Objects.equals(beforeRule, nextRule.toJSONString())
+                    || !Objects.equals(beforeFillForm, afterFillForm)) {
+                counter.value++;
+            }
+        });
+        return counter.value;
+    }
+
+    public static int materializeVersionApprovedCellRules(JSONObject root, String reportCode) {
+        Counter counter = new Counter();
+        JSONObject rows = root == null ? null : root.getJSONObject("rows");
+        forEachCell(root, (rowIndex, columnIndex, cell) -> {
+            if (!isFillableCandidateCell(cell) || hasValidSignatureMarker(cell)) {
+                return;
+            }
+            JSONObject existing = cell.getJSONObject(CELL_RULE_KEY);
+            if (isReviewedRule(existing)) {
+                return;
+            }
+            if (existing == null) {
+                BatchRecordReportCellRuleVO suggestion = withFillFormPlaceholder(
+                        suggestRule(rows, rowIndex, columnIndex, cell), cell);
+                ensureManualFillForm(suggestion, cell, reportCode);
+                cell.put(CELL_RULE_KEY, toRuleJson(suggestion));
+                existing = cell.getJSONObject(CELL_RULE_KEY);
+            }
+            if (existing != null) {
+                existing.put("source", "VERSION_APPROVED");
+                existing.put("reviewed", true);
+                counter.value++;
+            }
+        });
+        return counter.value;
+    }
+
     public static int countUnreviewedFillableCells(JSONObject root) {
         Counter counter = new Counter();
         forEachCell(root, (rowIndex, columnIndex, cell) -> {
@@ -481,6 +540,148 @@ public final class MesProBatchRecordCellRuleSupport {
         if (rule.getConfidence() != null && (rule.getConfidence() < 0 || rule.getConfidence() > 1)) {
             throw new IllegalArgumentException("confidence must be between 0 and 1");
         }
+    }
+
+    public static List<BatchRecordReportAssistRowVO> extractAssistRows(JSONObject root) {
+        JSONArray rows = root == null ? null : root.getJSONArray(ASSIST_ROWS_KEY);
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        List<BatchRecordReportAssistRowVO> result = new ArrayList<>();
+        for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+            JSONObject row = rows.getJSONObject(rowIndex);
+            if (row == null) {
+                throw new IllegalArgumentException("assist row must be object");
+            }
+            JSONArray fields = row.getJSONArray("fields");
+            List<BatchRecordReportAssistRowVO.FieldVO> fieldVOs = new ArrayList<>();
+            if (fields != null) {
+                for (int fieldIndex = 0; fieldIndex < fields.size(); fieldIndex++) {
+                    JSONObject field = fields.getJSONObject(fieldIndex);
+                    if (field == null) {
+                        throw new IllegalArgumentException("assist row field must be object");
+                    }
+                    fieldVOs.add(new BatchRecordReportAssistRowVO.FieldVO()
+                            .setRowIndex(field.getInteger("rowIndex"))
+                            .setColumnIndex(field.getInteger("columnIndex")));
+                }
+            }
+            result.add(new BatchRecordReportAssistRowVO()
+                    .setRowKey(row.getString("rowKey"))
+                    .setDescription(row.getString("description"))
+                    .setSort(row.getInteger("sort"))
+                    .setFields(fieldVOs));
+        }
+        result.sort(Comparator.comparing((BatchRecordReportAssistRowVO row) ->
+                        row.getSort() == null ? Integer.MAX_VALUE : row.getSort())
+                .thenComparing(row -> StrUtil.blankToDefault(row.getRowKey(), "")));
+        return result;
+    }
+
+    public static void applyAssistRows(JSONObject root, List<BatchRecordReportAssistRowVO> assistRows) {
+        if (root == null) {
+            throw new IllegalArgumentException("report root must not be null");
+        }
+        if (assistRows == null) {
+            root.remove(ASSIST_ROWS_KEY);
+            return;
+        }
+        validateAssistRows(root, assistRows);
+        JSONArray rows = new JSONArray();
+        for (BatchRecordReportAssistRowVO assistRow : assistRows) {
+            JSONObject row = new JSONObject(true);
+            row.put("rowKey", StrUtil.trim(assistRow.getRowKey()));
+            row.put("description", StrUtil.trim(assistRow.getDescription()));
+            row.put("sort", assistRow.getSort());
+            JSONArray fields = new JSONArray();
+            for (BatchRecordReportAssistRowVO.FieldVO field : assistRow.getFields()) {
+                JSONObject fieldJson = new JSONObject(true);
+                fieldJson.put("rowIndex", field.getRowIndex());
+                fieldJson.put("columnIndex", field.getColumnIndex());
+                fields.add(fieldJson);
+            }
+            row.put("fields", fields);
+            rows.add(row);
+        }
+        root.put(ASSIST_ROWS_KEY, rows);
+    }
+
+    public static void validateAssistRows(JSONObject root, List<BatchRecordReportAssistRowVO> assistRows) {
+        if (root == null) {
+            throw new IllegalArgumentException("report root must not be null");
+        }
+        if (assistRows == null) {
+            return;
+        }
+        Set<String> rowKeys = new LinkedHashSet<>();
+        Set<String> assignedCoordinates = new LinkedHashSet<>();
+        Set<String> fillableCoordinates = fillableAssistCoordinates(root);
+        for (BatchRecordReportAssistRowVO assistRow : assistRows) {
+            if (assistRow == null) {
+                throw new IllegalArgumentException("assist row must not be null");
+            }
+            String rowKey = StrUtil.trim(assistRow.getRowKey());
+            if (StrUtil.isBlank(rowKey)) {
+                throw new IllegalArgumentException("assist row rowKey must not be blank");
+            }
+            if (!rowKeys.add(rowKey)) {
+                throw new IllegalArgumentException("duplicate assist row rowKey " + rowKey);
+            }
+            if (StrUtil.isBlank(StrUtil.trim(assistRow.getDescription()))) {
+                throw new IllegalArgumentException("assist row " + rowKey + " description must not be blank");
+            }
+            if (assistRow.getFields() == null || assistRow.getFields().isEmpty()) {
+                throw new IllegalArgumentException("assist row " + rowKey + " must contain at least one cell");
+            }
+            for (BatchRecordReportAssistRowVO.FieldVO field : assistRow.getFields()) {
+                validateAssistRowField(root, rowKey, field, assignedCoordinates);
+            }
+        }
+        Set<String> missingCoordinates = new LinkedHashSet<>(fillableCoordinates);
+        missingCoordinates.removeAll(assignedCoordinates);
+        if (!missingCoordinates.isEmpty()) {
+            throw new IllegalArgumentException("missing assist row coverage " + missingCoordinates);
+        }
+    }
+
+    private static void validateAssistRowField(JSONObject root, String rowKey,
+                                               BatchRecordReportAssistRowVO.FieldVO field,
+                                               Set<String> assignedCoordinates) {
+        if (field == null || field.getRowIndex() == null || field.getColumnIndex() == null
+                || field.getRowIndex() < 0 || field.getColumnIndex() < 0) {
+            throw new IllegalArgumentException("assist row " + rowKey + " cell coordinate must be non-negative");
+        }
+        String coordinate = coordinate(field.getRowIndex(), field.getColumnIndex());
+        if (!assignedCoordinates.add(coordinate)) {
+            throw new IllegalArgumentException("duplicate assist row cell " + coordinate);
+        }
+        JSONObject cell = requireCell(root, field.getRowIndex(), field.getColumnIndex());
+        if (cell == null) {
+            throw new IllegalArgumentException("missing assist row cell " + coordinate);
+        }
+        if (!isAssistRowFillableCell(cell)) {
+            throw new IllegalArgumentException("non-fillable assist row cell " + coordinate);
+        }
+    }
+
+    private static Set<String> fillableAssistCoordinates(JSONObject root) {
+        Set<String> coordinates = new LinkedHashSet<>();
+        forEachCell(root, (rowIndex, columnIndex, cell) -> {
+            if (isAssistRowFillableCell(cell)) {
+                coordinates.add(coordinate(rowIndex, columnIndex));
+            }
+        });
+        return coordinates;
+    }
+
+    private static boolean isAssistRowFillableCell(JSONObject cell) {
+        return isFillableCell(cell)
+                || hasValidSignatureMarker(cell)
+                || isReviewedRule(cell == null ? null : cell.getJSONObject(CELL_RULE_KEY));
+    }
+
+    private static String coordinate(Integer rowIndex, Integer columnIndex) {
+        return rowIndex + ":" + columnIndex;
     }
 
     public static void ensureManualFillForm(BatchRecordReportCellRuleVO rule, JSONObject cell, String reportCode) {
@@ -606,36 +807,40 @@ public final class MesProBatchRecordCellRuleSupport {
         if (hasValidSignatureMarker(cell)) {
             return baseSuggestion(rowIndex, columnIndex, "SIGNATURE", "signature", label, null, 0.99, false);
         }
+        String signatureDateHeader = resolveUpperSignatureDateLabel(rows, rowIndex, columnIndex);
+        if (StrUtil.isNotBlank(signatureDateHeader)
+                && (StrUtil.isBlank(compact(ownText)) || isCheckboxChoiceText(ownText))) {
+            return baseSuggestion(rowIndex, columnIndex, "STRING", "input-text",
+                    signatureDateHeader, null, 0.38, false);
+        }
         if (isCheckboxChoiceText(ownText)) {
-            String signatureDateHeader = resolveUpperSignatureDateLabel(rows, rowIndex, columnIndex);
-            if (StrUtil.isNotBlank(signatureDateHeader)) {
-                return baseSuggestion(rowIndex, columnIndex, "STRING", defaultComponentFlag("STRING", existingComponent),
-                        signatureDateHeader, null, 0.38, false);
-            }
             return buildAutoCheckboxRule(rowIndex, columnIndex, ownText, label);
         }
         String compactLabel = compact(label);
         String unit = resolveUnit(label);
         if (isSignatureDateLabel(compactLabel)) {
-            return baseSuggestion(rowIndex, columnIndex, "STRING", defaultComponentFlag("STRING", existingComponent),
+            return baseSuggestion(rowIndex, columnIndex, "STRING", "input-text",
                     label, null, 0.35, false);
         }
         if (compactLabel.contains("□其他") || compactLabel.contains("☑其他")) {
-            return baseSuggestion(rowIndex, columnIndex, "STRING", defaultComponentFlag("STRING", existingComponent),
+            return baseSuggestion(rowIndex, columnIndex, "STRING",
+                    defaultTextComponentFlag(existingComponent, compactLabel),
                     label, null, 0.88, false);
         }
         if (containsAny(compactLabel, "日期", "年月日")) {
             return baseSuggestion(rowIndex, columnIndex, "DATE", "date", label, null, 0.9, false);
         }
         if (containsIdentifierCue(compactLabel)) {
-            return baseSuggestion(rowIndex, columnIndex, "STRING", defaultComponentFlag("STRING", existingComponent),
+            return baseSuggestion(rowIndex, columnIndex, "STRING",
+                    defaultTextComponentFlag(existingComponent, compactLabel),
                     label, null, 0.78, false);
         }
         if (hasBooleanCue(compactLabel)) {
             return baseSuggestion(rowIndex, columnIndex, "BOOLEAN", "checkbox", label, null, 0.86, false);
         }
         if (containsAny(compactLabel, "签名", "签字")) {
-            return baseSuggestion(rowIndex, columnIndex, "STRING", defaultComponentFlag("STRING", existingComponent),
+            return baseSuggestion(rowIndex, columnIndex, "STRING",
+                    defaultTextComponentFlag(existingComponent, compactLabel),
                     label, null, 0.45, false);
         }
         if (isDateTimeLabel(compactLabel, unit)) {
@@ -645,8 +850,18 @@ public final class MesProBatchRecordCellRuleSupport {
                 "高度", "厚度", "速度", "电压", "电流", "批量", "含量", "浓度", "转速", "扭矩")) {
             return baseSuggestion(rowIndex, columnIndex, "NUMBER", "input-number", label, unit, 0.84, false);
         }
-        return baseSuggestion(rowIndex, columnIndex, "STRING", defaultComponentFlag("STRING", existingComponent),
+        return baseSuggestion(rowIndex, columnIndex, "STRING",
+                defaultTextComponentFlag(existingComponent, compactLabel),
                 label, null, 0.4, false);
+    }
+
+    private static String defaultTextComponentFlag(String existingComponentFlag, String compactLabel) {
+        String normalized = StrUtil.blankToDefault(existingComponentFlag, "").trim().toLowerCase(Locale.ROOT);
+        if ((normalized.contains("checkbox") || normalized.contains("boolean"))
+                && !hasBooleanCue(compactLabel)) {
+            return "input-text";
+        }
+        return defaultComponentFlag("STRING", existingComponentFlag);
     }
 
     private static String resolveSuggestedLabel(JSONObject rows, Integer rowIndex, Integer columnIndex, String ownText) {
@@ -749,10 +964,10 @@ public final class MesProBatchRecordCellRuleSupport {
             }
             return;
         }
-        if (fillForm.get("value") == null) {
+        if (fillForm.get("value") == null || fillForm.get("value") instanceof Boolean) {
             fillForm.put("value", "");
         }
-        if (fillForm.get("defaultValue") == null) {
+        if (fillForm.get("defaultValue") == null || fillForm.get("defaultValue") instanceof Boolean) {
             fillForm.put("defaultValue", "");
         }
     }
@@ -849,6 +1064,9 @@ public final class MesProBatchRecordCellRuleSupport {
         if (isSignatureDateLabel(compact(leftLabel))) {
             return leftLabel;
         }
+        if (isCheckboxChoiceText(leftLabel) && isTypedTableColumnHeader(upperLabel)) {
+            return upperLabel;
+        }
         if (hasStrongTypeCue(leftLabel)) {
             return leftLabel;
         }
@@ -859,6 +1077,12 @@ public final class MesProBatchRecordCellRuleSupport {
             return leftLabel;
         }
         return upperLabel;
+    }
+
+    private static boolean isTypedTableColumnHeader(String label) {
+        return StrUtil.isNotBlank(label)
+                && !isCheckboxChoiceText(label)
+                && hasStrongTypeCue(label);
     }
 
     private static String resolveLeftLabel(JSONObject rows, Integer rowIndex, Integer columnIndex) {
@@ -905,7 +1129,9 @@ public final class MesProBatchRecordCellRuleSupport {
                 if (StrUtil.isBlank(text)) {
                     continue;
                 }
-                return isSignatureDateLabel(compact(text)) ? text : "";
+                if (isSignatureDateLabel(compact(text))) {
+                    return text;
+                }
             }
             String signatureDateTailLabel = resolveSignatureDateTailLabel(upperCells, columnIndex);
             if (StrUtil.isNotBlank(signatureDateTailLabel)) {
@@ -1006,6 +1232,11 @@ public final class MesProBatchRecordCellRuleSupport {
             validateNumberConstraint(constraints, "max");
             validateIntegerConstraint(constraints, "scale");
             validateIntegerConstraint(constraints, "precision");
+            Number min = (Number) constraints.get("min");
+            Number max = (Number) constraints.get("max");
+            if (min != null && max != null && min.doubleValue() > max.doubleValue()) {
+                throw new IllegalArgumentException("NUMBER min must not exceed max");
+            }
             return;
         }
         if ("STRING".equals(valueType)) {
@@ -1113,12 +1344,16 @@ public final class MesProBatchRecordCellRuleSupport {
             throw new IllegalArgumentException("STRING option group options must be array");
         }
         int count = 0;
+        Set<String> values = new LinkedHashSet<>();
         for (Object option : options) {
             Object label = readOptionValue(option, "label");
             Object value = readOptionValue(option, "value");
             if (label == null || value == null || StrUtil.isBlank(String.valueOf(label))
                     || StrUtil.isBlank(String.valueOf(value))) {
                 throw new IllegalArgumentException("STRING option group option label/value must not be blank");
+            }
+            if (!values.add(String.valueOf(value).trim())) {
+                throw new IllegalArgumentException("STRING option group option value must be unique");
             }
             count++;
         }
@@ -1185,7 +1420,8 @@ public final class MesProBatchRecordCellRuleSupport {
                 && (hasBooleanCue(compactLabel) || containsIdentifierCue(compactLabel)
                 || containsAny(compactLabel, "日期", "年月日", "时间", "时长", "用时", "时间点", "时刻", "数量", "重量", "温度", "压力", "体积",
                 "长度", "宽度", "高度", "厚度", "速度", "电压", "电流", "批量", "含量",
-                "浓度", "转速", "扭矩")
+                "浓度", "转速", "扭矩", "操作人", "复核人", "记录人", "检验人", "确认人",
+                "审核人", "批准人", "人员", "姓名", "签名", "签字")
                 || resolveUnit(label) != null);
     }
 

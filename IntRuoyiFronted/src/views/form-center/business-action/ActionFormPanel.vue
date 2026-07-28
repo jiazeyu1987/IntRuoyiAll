@@ -9,7 +9,7 @@
     />
 
     <div class="form-action-panel__actions">
-      <el-button :loading="loading" type="primary" @click="resolveAction">
+      <el-button :disabled="disabled" :loading="loading" type="primary" @click="resolveAction">
         <Icon class="mr-5px" icon="ep:connection" />
         解析
       </el-button>

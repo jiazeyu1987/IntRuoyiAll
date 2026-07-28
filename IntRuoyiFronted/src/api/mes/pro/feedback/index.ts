@@ -1,6 +1,7 @@
 import request from '@/config/axios'
 import type {
   EdhrBatchArchiveVisibility,
+  EdhrBatchExecutionTaskRespVO,
   EdhrBatchFormSlotType,
   EdhrBatchOwnerRoleKey,
   EdhrBatchRequiredPolicy,
@@ -369,8 +370,21 @@ export interface ProFeedbackEdhrSnapshotFieldVO {
   [key: string]: unknown
 }
 
+export interface ProFeedbackEdhrAssistRowFieldVO {
+  rowIndex: number
+  columnIndex: number
+}
+
+export interface ProFeedbackEdhrAssistRowVO {
+  rowKey: string
+  description: string
+  sort: number
+  fields: ProFeedbackEdhrAssistRowFieldVO[]
+}
+
 export interface ProFeedbackEdhrExecutionSnapshotVO {
   fields?: ProFeedbackEdhrSnapshotFieldVO[]
+  assistRows?: ProFeedbackEdhrAssistRowVO[]
   [key: string]: unknown
 }
 
@@ -497,6 +511,7 @@ export interface ProFeedbackEdhrExecutionVO {
   reviewAssigneeOptions?: ProFeedbackEdhrReviewAssigneeOptionVO[]
   reviewAssigneeOptionError?: string
   attachmentSummaries?: ProFeedbackEdhrExecutionAttachmentSummaryVO[]
+  assistSwitchTasks?: EdhrBatchExecutionTaskRespVO[]
   closedAt?: string
   remark?: string
   creator?: string

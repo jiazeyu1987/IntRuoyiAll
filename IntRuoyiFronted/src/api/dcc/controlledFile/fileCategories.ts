@@ -23,6 +23,7 @@ export interface ControlledFileCategoryVO {
   description?: string
   distributionRequired?: boolean
   trainingRequired?: boolean
+  canUpload?: boolean
   signoffPositionIds?: number[]
   approvalPositionIds?: number[]
   createTime?: Date | string

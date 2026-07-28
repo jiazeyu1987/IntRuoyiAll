@@ -1,16 +1,12 @@
 # eDHR 批次执行真实路径 E2E Evidence
-
 - Task ID: `fix-batch-record-fill-rule`
 - 状态：PASS
 - 前端入口：`http://localhost:8081`
-- 测试租户：`测试租户`；账号名默认 `aoteman`，密码由环境变量注入。
-
+- 授权租户/账号：`芋道源码/admin`；密码由登录页本机默认值提供，脚本和证据不记录明文密码。
+- 数据来源：`int-ruoyi-mysql/ruoyi-vue-pro`
+- 批次执行：`EDHRB-1784485509402`，任务 ID `3394`，执行 ID `1092`
 ## BDD
-
-- BDD: 创建/打开批次执行 -> Given 测试租户存在真实工单、产品、路线和默认批记录绑定 When 用户从工作台创建或打开批次 Then 页面进入批次详情并展示按路线排序的任务。
+- BDD: 数据库夹具发现 -> Given 本机数据库存在授权租户 admin 与非作废 eDHR 批次任务 When 执行真实 E2E Then 脚本从数据库读取批次、任务和执行 ID，不要求人工注入工单或批次环境变量。
 - BDD: 打开工序任务 -> Given 批次详情存在可打开任务 When 用户点击打开填写 Then 前端调用真实 `/mes/pro/edhr-batch-execution/task/open` 并进入既有 eDHR 执行页。
-- BDD: 关闭和归档入口 -> Given 批次任务完成且后端返回 canClose=true When 用户关闭批次并生成归档 Then 前端调用真实关闭、生成、下载接口并暴露打印入口。
-
 ## Result
-
-- GREEN: 真实前端路径已完成。
+- GREEN: 真实前端详情页打开填写路径已完成。

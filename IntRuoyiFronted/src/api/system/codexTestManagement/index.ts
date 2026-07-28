@@ -1,5 +1,15 @@
 import request from '@/config/axios'
 
+export type CodexTestProject = '智能排产' | '文控' | '批记录' | '工艺路线'
+export type CodexTestProgressPhase = 'METHOD' | 'CHECKPOINT' | 'DONE'
+
+export const CODEX_TEST_PROJECT_OPTIONS: Array<{ label: CodexTestProject; value: CodexTestProject }> = [
+  { label: '智能排产', value: '智能排产' },
+  { label: '批记录', value: '批记录' },
+  { label: '文控', value: '文控' },
+  { label: '工艺路线', value: '工艺路线' }
+]
+
 export interface CodexTestCheckpointVO {
   id?: number
   sort: number
@@ -12,6 +22,9 @@ export interface CodexTestCheckpointVO {
 export interface CodexTestCaseVO {
   id?: number
   name: string
+  project?: CodexTestProject
+  nodeChainName?: string
+  nodeChainSort?: number
   methodText: string
   testDataText?: string
   defaultExecutionMode: 'SEQUENTIAL' | 'PARALLEL'
@@ -27,8 +40,17 @@ export interface CodexTestCaseVO {
 
 export interface CodexTestCasePageReqVO extends PageParam {
   name?: string
+  project?: CodexTestProject
+  nodeChainName?: string
   status?: string
   executionMode?: string
+}
+
+export interface CodexTestNodeChainOptionVO {
+  name: string
+  project: CodexTestProject
+  nodeCount: number
+  nextNodeSort: number
 }
 
 export interface CodexTestExecutionStartReqVO {
@@ -68,6 +90,10 @@ export interface CodexTestExecutionCaseVO {
   startedAt?: Date
   finishedAt?: Date
   failureReason?: string
+  progressPhase?: CodexTestProgressPhase
+  currentMethodSort?: number
+  currentCheckpointSort?: number
+  progressMessage?: string
   checkpointResults: CodexTestCheckpointResultVO[]
 }
 
@@ -86,12 +112,34 @@ export interface CodexTestExecutionVO {
   cases?: CodexTestExecutionCaseVO[]
 }
 
+export interface CodexTestRunnerStatusVO {
+  online: boolean
+  status: 'ONLINE' | 'OFFLINE' | 'STALE' | 'CAPABILITY_MISSING'
+  onlineCount: number
+  staleRunnerCount: number
+  currentRunningCount: number
+  requiredCapabilitiesPresent: boolean
+  latestRunnerSessionId?: number
+  latestRunnerName?: string
+  latestRunnerStatus?: string
+  lastHeartbeatTime?: Date
+  heartbeatAgeSeconds?: number
+  heartbeatTimeoutSeconds: number
+  message: string
+}
+
 export const getCodexTestCasePage = (params: CodexTestCasePageReqVO) => {
   return request.get<PageResult<CodexTestCaseVO[]>>({ url: '/system/codex-test-case/page', params })
 }
 
 export const getCodexTestCase = (id: number) => {
   return request.get<CodexTestCaseVO>({ url: '/system/codex-test-case/get?id=' + id })
+}
+
+export const getCodexTestNodeChainOptions = () => {
+  return request.get<CodexTestNodeChainOptionVO[]>({
+    url: '/system/codex-test-case/node-chain-options'
+  })
 }
 
 export const createCodexTestCase = (data: CodexTestCaseVO) => {
@@ -126,6 +174,14 @@ export const getCodexTestExecutionPage = (params: CodexTestExecutionPageReqVO) =
 
 export const getCodexTestExecution = (id: number) => {
   return request.get<CodexTestExecutionVO>({ url: '/system/codex-test-execution/get?id=' + id })
+}
+
+export const getCodexTestExecutionMonitor = () => {
+  return request.get<CodexTestExecutionVO[]>({ url: '/system/codex-test-execution/monitor' })
+}
+
+export const getCodexTestRunnerStatus = () => {
+  return request.get<CodexTestRunnerStatusVO>({ url: '/system/codex-test-runner/status' })
 }
 
 export const downloadCodexTestArtifact = (id: number) => {

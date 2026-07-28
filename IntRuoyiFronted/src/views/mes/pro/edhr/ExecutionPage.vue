@@ -4,7 +4,7 @@
     :body-style="isTrackingReadonlyMode ? { padding: '10px' } : { padding: '0' }"
   >
     <div class="edhr-page-shell">
-      <div v-if="isTrackingReadonlyMode" class="edhr-page-shell__toolbar">
+      <div class="edhr-page-shell__toolbar">
         <div>
           <div class="edhr-page-shell__title">{{ executionPageTitle }}</div>
           <div class="edhr-page-shell__subtitle">{{ executionPageSubtitle }}</div>
@@ -295,20 +295,6 @@
                   </div>
 
                   <el-alert
-                    v-if="preReleaseEditNotice"
-                    :title="preReleaseEditNotice"
-                    type="info"
-                    :closable="false"
-                    show-icon
-                  />
-                  <el-alert
-                    v-if="goldenFingerNotice"
-                    :title="goldenFingerNotice"
-                    type="warning"
-                    :closable="false"
-                    show-icon
-                  />
-                  <el-alert
                     v-if="revisionLockNotice"
                     :title="revisionLockNotice"
                     :type="revisionLockNoticeType"
@@ -338,7 +324,7 @@
                     type="primary"
                     :loading="fieldAuditSaveLoading"
                     :disabled="!canSaveFieldAuditChanges"
-                    @click="handleSaveFieldAuditChanges"
+                    @click="openFieldAuditSignatureDialog"
                   >
                     保存草稿
                   </el-button>
@@ -376,22 +362,6 @@
                   class="edhr-fill-workspace__form-error"
                 />
                 <template v-else>
-                  <el-alert
-                    v-if="cellLinkPrefillNotice"
-                    :title="cellLinkPrefillNotice"
-                    type="success"
-                    :closable="false"
-                    show-icon
-                    class="edhr-fill-workspace__prefill-alert"
-                  />
-                  <el-alert
-                    v-if="cellLinkPrefillConflictNotice"
-                    :title="cellLinkPrefillConflictNotice"
-                    type="warning"
-                    :closable="false"
-                    show-icon
-                    class="edhr-fill-workspace__prefill-alert"
-                  />
                   <section v-if="fillViewMode === 'assist'" class="edhr-fill-workspace__assist-panel">
                     <div class="edhr-fill-workspace__assist-topbar">
                       <div class="edhr-fill-workspace__assist-heading">
@@ -607,7 +577,7 @@
 
                     <el-empty
                       v-if="assistFillFields.length === 0"
-                      description="当前没有可填写字段"
+                      :description="assistRowsConfigured ? '当前没有可填写字段' : '未配置辅助模式'"
                     />
 
                     <div v-else class="edhr-fill-workspace__assist-list">
@@ -827,16 +797,6 @@
                             size="small"
                           >
                             范围外只读
-                          </el-tag>
-                          <el-tag
-                            v-if="resolveCellLinkPrefill(context)"
-                            type="success"
-                            effect="plain"
-                            size="small"
-                            class="edhr-fill-workspace__cell-link-tag"
-                            :title="formatCellLinkPrefillSource(resolveCellLinkPrefill(context))"
-                          >
-                            跨表单带入
                           </el-tag>
                         </div>
 
@@ -1591,8 +1551,10 @@ import {
 } from '@/api/mes/pro/edhr/attachment'
 import { getEdhrExecutionSignaturePage, type EdhrSignatureSummaryVO } from '@/api/mes/pro/edhr/signatures'
 import { getEdhrTrackingTimeline, type EdhrTrackingEventVO } from '@/api/mes/pro/edhr/tracking'
+import { getEdhrRecordbookGlobalSetting } from '@/api/mes/pro/edhr/recordbookGlobalSetting'
 import {
   ProFeedbackApi,
+  type ProFeedbackEdhrAssistRowVO,
   type ProFeedbackEdhrExecutionSnapshotVO,
   type ProFeedbackEdhrExecutionVO,
   type ProFeedbackEdhrReviewAssigneeOptionVO,
@@ -1605,10 +1567,6 @@ import type {
   BatchRecordReportCellValueType,
   BatchRecordReportSignatureCellMarkerVO
 } from '@/api/mes/pro/batchrecordreport'
-import {
-  BatchRecordCellLinkApi,
-  type BatchRecordCellLinkPrefillItemVO
-} from '@/api/mes/pro/batchrecordcelllink'
 import {
   EDHR_BATCH_NODE_ROUTE_FORM,
   EDHR_BATCH_TASK_STATUS_APPROVED,
@@ -1857,6 +1815,8 @@ const fitMode = ref<'width' | 'height'>('width')
 const fillViewMode = ref<'assist' | 'original'>('assist')
 const fillWorkspaceRef = ref<HTMLElement>()
 const highlightedAssistFieldIdentity = ref('')
+const openedExecutionPageAssistRows = ref<ProFeedbackEdhrAssistRowVO[]>([])
+const openedExecutionPageAssistRowsContextKey = ref('')
 let assistHighlightTimer: number | undefined
 const isFillWorkspaceFullscreen = ref(false)
 const fieldAuditSaveLoading = ref(false)
@@ -1866,6 +1826,7 @@ const archiveLoading = ref(false)
 const archiveGenerateLoading = ref(false)
 const archiveDownloadLoading = ref(false)
 const loadError = ref('')
+const recordbookGlobalEnabled = ref(true)
 const archiveError = ref('')
 const formReviewSignError = ref('')
 const trackingError = ref('')
@@ -1881,8 +1842,6 @@ const draftImageAttachmentValues = ref<Record<string, string>>({})
 const attachmentMetadataByUrl = ref<Record<string, EdhrAttachmentPrepareUploadRespVO>>({})
 const baselineFieldValues = ref<Record<string, DraftFieldValue>>({})
 const baselineFieldValueHashes = ref<Record<string, string>>({})
-const cellLinkPrefills = ref<BatchRecordCellLinkPrefillItemVO[]>([])
-const cellLinkConflicts = ref<BatchRecordCellLinkPrefillItemVO[]>([])
 const draftRemark = ref('')
 const submitDialogVisible = ref(false)
 const fillActionResultDialogVisible = ref(false)
@@ -1929,6 +1888,10 @@ const TRACKING_VIEW_MODE = 'tracking'
 const RECORDBOOK_UNRESTRICTED_FILL_MODE = 'RECORDBOOK_UNRESTRICTED'
 const BATCH_SHARED_INSTANCE_SCOPE = 'BATCH_SHARED'
 const ASSIST_SWITCH_PAGE_SIZE = 50
+
+const isGlobalRecordbookEnabled = computed(
+  () => recordbookGlobalEnabled.value && execution.value?.recordbookEnabled === true
+)
 
 type AssistSwitchDialogType = 'task' | 'process' | 'filler'
 
@@ -2062,12 +2025,26 @@ const slotContextBlockers = computed(() => {
 
 const hasSlotContextBlockers = computed(() => slotContextBlockers.value.length > 0)
 
-const isRecordbookUnrestrictedMode = computed(
-  () =>
+const recordbookGlobalDisabledNotice = computed(() => {
+  if (
+    route.query.fillCarrier === 'RECORDBOOK' &&
+    route.query.fillMode === RECORDBOOK_UNRESTRICTED_FILL_MODE &&
+    isGlobalRecordbookEnabled.value === false
+  ) {
+    return '记录本全局开关已关闭或当前任务未启用记录本，不能进入记录本不受控填写。'
+  }
+  return ''
+})
+
+const isRecordbookUnrestrictedMode = computed(() => {
+  if (recordbookGlobalDisabledNotice.value) return false
+  return (
     execution.value?.recordbookEnabled === true &&
+    isGlobalRecordbookEnabled.value === true &&
     route.query.fillCarrier === 'RECORDBOOK' &&
     route.query.fillMode === RECORDBOOK_UNRESTRICTED_FILL_MODE
-)
+  )
+})
 
 const resolveErrorMessage = (error: unknown, defaultMessage: string) => {
   if (error instanceof Error && error.message.trim()) {
@@ -2462,9 +2439,10 @@ const normalizeSnapshotField = (
 const executionId = computed(() => parsePositiveRouteQueryId(route.query.id) || undefined)
 const isTrackingReadonlyMode = computed(() => route.query.viewMode === TRACKING_VIEW_MODE)
 const workTaskId = computed(() => parsePositiveRouteQueryId(route.query.workTaskId) || undefined)
+const assistUserId = computed(() => parsePositiveRouteQueryId(route.query.assistUserId) || undefined)
 const hasFillTaskContext = computed(() => workTaskId.value !== undefined)
 const resolveExecutionContextKey = () =>
-  executionId.value ? `${executionId.value}:${workTaskId.value || ''}` : ''
+  executionId.value ? `${executionId.value}:${workTaskId.value || ''}:${assistUserId.value || ''}` : ''
 const hasArchiveQueryPermission = computed(() => hasPermission([ARCHIVE_QUERY_PERMISSION]))
 const hasArchiveCreatePermission = computed(() => hasPermission([ARCHIVE_CREATE_PERMISSION]))
 const hasArchiveDownloadPermission = computed(() => hasPermission([ARCHIVE_DOWNLOAD_PERMISSION]))
@@ -2562,6 +2540,87 @@ const templateFieldByCell = computed(() => {
   })
   return map
 })
+
+const normalizeExecutionAssistRows = (rows: unknown): ProFeedbackEdhrAssistRowVO[] => {
+  if (!Array.isArray(rows)) return []
+  return rows
+    .map((row, index) => {
+      const record = row as Partial<ProFeedbackEdhrAssistRowVO>
+      const fields = Array.isArray(record.fields)
+        ? record.fields
+            .map((field) => {
+              const rowIndex = parseNonNegativeInteger((field as any)?.rowIndex)
+              const columnIndex = parseNonNegativeInteger((field as any)?.columnIndex)
+              return rowIndex == null || columnIndex == null ? null : { rowIndex, columnIndex }
+            })
+            .filter((field): field is { rowIndex: number; columnIndex: number } => Boolean(field))
+        : []
+      return {
+        rowKey: String(record.rowKey || `ASSIST_ROW_${index + 1}`).trim(),
+        description: String(record.description || '').trim(),
+        sort: Number.isFinite(Number(record.sort)) ? Number(record.sort) : index + 1,
+        fields
+      }
+    })
+    .filter((row) => row.rowKey && row.fields.length > 0)
+    .sort((left, right) => left.sort - right.sort)
+}
+
+const parseAssistRowsRouteQuery = () => {
+  const rawValue = Array.isArray(route.query.assistRows)
+    ? route.query.assistRows[0]
+    : route.query.assistRows
+  const text = typeof rawValue === 'string' ? rawValue.trim() : ''
+  if (!text) {
+    return { present: false, rows: [] as ProFeedbackEdhrAssistRowVO[] }
+  }
+  const parsed = JSON.parse(text)
+  return { present: true, rows: normalizeExecutionAssistRows(parsed) }
+}
+
+const visibleAssistRowsFromExecutionQueryState = computed(() => {
+  const routeRows = parseAssistRowsRouteQuery()
+  if (routeRows.present) return routeRows
+  if (openedExecutionPageAssistRowsContextKey.value === resolveExecutionContextKey()) {
+    return { present: true, rows: openedExecutionPageAssistRows.value }
+  }
+  return { present: false, rows: [] as ProFeedbackEdhrAssistRowVO[] }
+})
+
+const visibleAssistRowsFromExecutionQuery = computed(
+  () => visibleAssistRowsFromExecutionQueryState.value.rows
+)
+
+const snapshotAssistRows = computed(() =>
+  normalizeExecutionAssistRows(parsedSnapshot.value.parsed?.assistRows)
+)
+
+const activeAssistRows = computed(() =>
+  visibleAssistRowsFromExecutionQueryState.value.present
+    ? visibleAssistRowsFromExecutionQuery.value
+    : snapshotAssistRows.value
+)
+
+const assistRowsConfigured = computed(() => activeAssistRows.value.length > 0)
+
+const buildAssistFieldsFromAssistRows = (
+  rows: ProFeedbackEdhrAssistRowVO[],
+  fields: NormalizedSnapshotField[]
+) => {
+  const fieldMap = new Map(fields.map((field) => [buildCellValueKey(field.rowIndex, field.columnIndex), field]))
+  const items: NormalizedSnapshotField[] = []
+  rows.forEach((row) => {
+    row.fields.forEach((cell) => {
+      const field = fieldMap.get(buildCellValueKey(cell.rowIndex, cell.columnIndex))
+      if (!field) return
+      items.push({
+        ...field,
+        helpText: row.description || field.helpText
+      })
+    })
+  })
+  return items
+}
 
 const readSnapshotCellText = (cell?: RawExecutionSnapshotCell) => {
   if (!cell) return ''
@@ -2822,8 +2881,7 @@ const templateModelValue = computed<TemplateSimulationValueMap>(() => {
 
 const assistFillFields = computed<AssistFillField[]>(() =>
   buildAssistChoiceGroupItems(
-    snapshotFields.value
-      .filter(isFieldInCurrentFillScope)
+    buildAssistFieldsFromAssistRows(activeAssistRows.value, snapshotFields.value)
       .filter((field) => !field.readonly || field.componentKind === 'signature')
   )
 )
@@ -2863,10 +2921,26 @@ const assistProcessSwitchLabel = computed(
   () => execution.value?.processName || execution.value?.processCode || '当前工序'
 )
 
+const resolveAssistSwitchUserDisplayName = (userId?: unknown) => {
+  if (!userId || !Array.isArray(execution.value?.assistSwitchTasks)) return ''
+  for (const task of execution.value.assistSwitchTasks) {
+    const user = (task.fillableUsers || []).find((item) => sameRouteQueryId(item.userId, userId))
+    if (user) {
+      return user.displayName || `用户 ${user.userId}`
+    }
+  }
+  return ''
+}
+
 const assistFillerSwitchLabel = computed(() => {
   const routeFillerName = readRouteQueryString(route.query.fillerName)
   const user = userStore.getUser || userStore.user
-  return routeFillerName || user?.nickname || (user?.id ? `用户 ${user.id}` : '当前填写人')
+  return (
+    routeFillerName ||
+    resolveAssistSwitchUserDisplayName(assistUserId.value) ||
+    user?.nickname ||
+    (user?.id ? `用户 ${user.id}` : '当前填写人')
+  )
 })
 
 const normalizeFillActionResultText = (value: string) => {
@@ -2883,7 +2957,12 @@ const resolveFillActionResultProcessText = () =>
 const resolveFillActionResultFillerText = () => {
   const routeFillerName = readRouteQueryString(route.query.fillerName)
   const user = userStore.getUser || userStore.user
-  return normalizeFillActionResultText(routeFillerName || user?.nickname || (user?.id ? String(user.id) : ''))
+  return normalizeFillActionResultText(
+    routeFillerName ||
+      resolveAssistSwitchUserDisplayName(assistUserId.value) ||
+      user?.nickname ||
+      (user?.id ? String(user.id) : '')
+  )
 }
 
 const submitSignatureUserName = computed(resolveFillActionResultFillerText)
@@ -3258,6 +3337,9 @@ const pendingFieldChanges = computed<PendingFieldChange[]>(() => {
 const formRenderError = computed(() => {
   if (!execution.value) {
     return ''
+  }
+  if (recordbookGlobalDisabledNotice.value) {
+    return recordbookGlobalDisabledNotice.value
   }
   if (sharedFillScopeGateError.value) {
     return sharedFillScopeGateError.value
@@ -3639,16 +3721,6 @@ const isReadonly = computed(() => {
   }
   return true
 })
-const goldenFingerNotice = computed(() =>
-  hasGoldenFingerPermission.value && !isTrackingReadonlyMode.value && !isReadonly.value
-    ? '金手指测试权限：可代填并跳过普通必填/附件检查，也可绕过放行、关闭、作废或审批锁定；所有提交都会审计。'
-    : ''
-)
-const preReleaseEditNotice = computed(() =>
-  isPreReleaseEditable.value
-    ? execution.value?.preReleaseEditReason || '放行前可修改，重新提交将更新提交签名证据'
-    : ''
-)
 const executionStatusText = computed(() => {
   if (execution.value?.status === EDHR_EXECUTION_STATUS.SUBMITTED) {
     return '待审批（审批关闭后才可归档）'
@@ -3666,7 +3738,7 @@ const executionStatusText = computed(() => {
 })
 const readonlySubmitReason = computed(() => {
   if (isPreReleaseEditable.value) {
-    return '放行前可修改，重新提交将更新提交签名证据。'
+    return '关闭前可修改，重新提交将更新提交签名证据。'
   }
   if (isInactiveRevisionDraft.value) {
     return '当前执行记录不是活动修订版本，不能提交。'
@@ -3761,7 +3833,7 @@ const fieldAuditOpenGateError = computed(() => {
     return '当前执行记录不是活动修订版本，不能保存字段变更。'
   }
   if (isReadonly.value) {
-    return '当前状态不允许编辑字段，只有草稿或放行前可修改的已提交普通表单可以保存字段变更。'
+    return '当前状态不允许编辑字段，只有草稿或关闭前可修改的已提交普通表单可以保存字段变更。'
   }
   if (!hasFieldAuditUpdatePermission.value) {
     return '当前账号没有字段审计保存权限。'
@@ -3980,69 +4052,6 @@ const backToBatchLabel = computed(() =>
 
 const buildCellValueKey = (rowIndex: number, columnIndex: number) => `${rowIndex}:${columnIndex}`
 
-const cellLinkPrefillByCell = computed(() => {
-  const map = new Map<string, BatchRecordCellLinkPrefillItemVO>()
-  cellLinkPrefills.value.forEach((item) => {
-    map.set(buildCellValueKey(item.targetRowIndex, item.targetColumnIndex), item)
-  })
-  return map
-})
-
-const cellLinkPrefillNotice = computed(() => {
-  const count = cellLinkPrefills.value.length
-  return count > 0
-    ? `已根据跨表单链接预填 ${count} 个单元格，请填写变更原因并完成字段审计签名保存。`
-    : ''
-})
-
-const cellLinkPrefillConflictNotice = computed(() => {
-  const count = cellLinkConflicts.value.length
-  return count > 0 ? `有 ${count} 条跨表单链接未带入，请检查源值为空或目标已有人工值。` : ''
-})
-
-const resolveCellLinkPrefill = (context: TemplateEditableCellContext) => {
-  const field = resolveTemplateSnapshotField(context)
-  return field ? cellLinkPrefillByCell.value.get(buildCellValueKey(field.rowIndex, field.columnIndex)) : undefined
-}
-
-const formatCellLinkPrefillSource = (item?: BatchRecordCellLinkPrefillItemVO) => {
-  if (!item) {
-    return ''
-  }
-  const sourceName = item.sourceReportName || '来源表单'
-  const sourceCell = item.sourceLabel || item.sourceCellKey || ''
-  return sourceCell ? `${sourceName} / ${sourceCell}` : sourceName
-}
-
-const normalizeCellLinkPrefillDraftValue = (
-  item: BatchRecordCellLinkPrefillItemVO,
-  field: NormalizedSnapshotField
-): DraftFieldValue => {
-  if (item.value == null) {
-    return null
-  }
-  if (isSingleChoiceCheckboxField(field)) {
-    return String(item.value)
-  }
-  if (field.componentKind === 'checkbox') {
-    return String(item.value).toLowerCase() === 'true'
-  }
-  if (field.componentKind === 'number') {
-    const numericValue = Number(item.value)
-    if (!Number.isFinite(numericValue)) {
-      throw new Error(
-        `跨表单链接规则 ${item.ruleId || '--'} 带入 ${field.label} 时返回非数字值，不能预填。`
-      )
-    }
-    return numericValue
-  }
-  if (field.valueType === 'DATE' || field.valueType === 'DATETIME') {
-    const text = String(item.value).trim()
-    return text ? text : null
-  }
-  return String(item.value)
-}
-
 const hydrateStoredDraftValue = (
   value: unknown,
   field: NormalizedSnapshotField
@@ -4059,11 +4068,7 @@ const hydrateStoredDraftValue = (
   return value == null ? '' : String(value)
 }
 
-const hydrateDraftState = (
-  detail: ProFeedbackEdhrExecutionVO,
-  prefills: BatchRecordCellLinkPrefillItemVO[] = [],
-  conflicts: BatchRecordCellLinkPrefillItemVO[] = []
-) => {
+const hydrateDraftState = (detail: ProFeedbackEdhrExecutionVO) => {
   const cellValueMap = new Map(
     (detail.cellValues || []).map((cellValue) => [
       buildCellValueKey(cellValue.rowIndex, cellValue.columnIndex),
@@ -4073,12 +4078,6 @@ const hydrateDraftState = (
       }
     ])
   )
-  const prefillMap = new Map(
-    prefills
-      .filter((item) => item.value != null)
-      .map((item) => [buildCellValueKey(item.targetRowIndex, item.targetColumnIndex), item])
-  )
-  const appliedPrefills: BatchRecordCellLinkPrefillItemVO[] = []
   const nextDraftValues: Record<string, DraftFieldValue> = {}
   const nextBaselineValues: Record<string, DraftFieldValue> = {}
   const nextDraftAttachmentValues: Record<string, DraftAttachmentValue> = {}
@@ -4108,12 +4107,6 @@ const hydrateDraftState = (
       continue
     }
     nextBaselineValues[field.fieldIdentity] = field.defaultValue
-    const cellLinkPrefill = prefillMap.get(cellKey)
-    if (cellLinkPrefill && !field.readonly) {
-      nextDraftValues[field.fieldIdentity] = normalizeCellLinkPrefillDraftValue(cellLinkPrefill, field)
-      appliedPrefills.push(cellLinkPrefill)
-      continue
-    }
     nextDraftValues[field.fieldIdentity] = field.defaultValue
   }
   draftFieldValues.value = nextDraftValues
@@ -4122,8 +4115,6 @@ const hydrateDraftState = (
   attachmentMetadataByUrl.value = {}
   baselineFieldValues.value = nextBaselineValues
   baselineFieldValueHashes.value = nextFieldHashes
-  cellLinkPrefills.value = appliedPrefills
-  cellLinkConflicts.value = conflicts
   draftRemark.value = detail.remark || ''
   fieldAuditSaveError.value = ''
   fieldAuditLastResult.value = undefined
@@ -4252,6 +4243,10 @@ const handleRevertPendingFieldChange = (change: PendingFieldChange) => {
     ...draftFieldValues.value,
     [change.fieldIdentity]: baselineFieldValues.value[change.fieldIdentity]
   }
+}
+
+const openFieldAuditSignatureDialog = async () => {
+  await handleSaveFieldAuditChanges()
 }
 
 const handleSaveFieldAuditChanges = async () => {
@@ -4644,13 +4639,8 @@ const loadExecution = async () => {
     if (typeof detail.executionSnapshotJson !== 'string' || !detail.executionSnapshotJson.trim()) {
       throw new Error('eDHR 执行记录缺少 executionSnapshotJson，无法渲染执行表单。')
     }
-    const shouldLoadCellLinkPrefill =
-      !isTrackingReadonlyMode.value && detail.status === EDHR_EXECUTION_STATUS.DRAFT
-    const prefillResponse = shouldLoadCellLinkPrefill
-      ? await BatchRecordCellLinkApi.getPrefill(currentExecutionId, workTaskId.value)
-      : undefined
     execution.value = detail
-    hydrateDraftState(detail, prefillResponse?.prefills || [], prefillResponse?.conflicts || [])
+    hydrateDraftState(detail)
     await loadLatestArchive()
     await loadTrackingAndSignatures()
     loadedExecutionContextKey.value = currentExecutionContextKey
@@ -4666,12 +4656,25 @@ const loadExecution = async () => {
     attachmentMetadataByUrl.value = {}
     baselineFieldValues.value = {}
     baselineFieldValueHashes.value = {}
-    cellLinkPrefills.value = []
-    cellLinkConflicts.value = []
     draftRemark.value = ''
     loadError.value = resolveErrorMessage(error, 'eDHR 执行页加载失败，请联系管理员。')
   } finally {
     loading.value = false
+  }
+}
+
+const loadRecordbookGlobalSetting = async () => {
+  if (!hasGoldenFingerPermission.value) return
+  const setting = await getEdhrRecordbookGlobalSetting()
+  recordbookGlobalEnabled.value = setting.enabled === true
+}
+
+const initializeExecutionPage = async () => {
+  try {
+    await loadRecordbookGlobalSetting()
+    await loadExecution()
+  } catch (error) {
+    loadError.value = resolveErrorMessage(error, '记录本全局开关加载失败。')
   }
 }
 
@@ -4804,14 +4807,16 @@ const loadAssistFillerSwitchItems = async () => {
   assistFillerSwitchLoading.value = true
   assistFillerSwitchError.value = ''
   try {
-    const batchExecutionId = requireAssistBatchExecutionId()
-    const batchDetail = await getEdhrBatchExecution(batchExecutionId)
-    const currentTask = resolveCurrentAssistBatchTask(batchDetail.tasks || [])
+    const assistSwitchTasks = execution.value?.assistSwitchTasks || []
+    if (!Array.isArray(assistSwitchTasks) || assistSwitchTasks.length === 0) {
+      throw new Error('当前执行详情缺少填写人快照，不能切换填写人。')
+    }
+    const currentTask = resolveCurrentAssistBatchTask(assistSwitchTasks)
     const routeProcessId = parsePositiveNumber(currentTask.routeProcessId)
     if (!routeProcessId) {
       throw new Error(`当前批次任务 ${currentTask.id} 缺少 routeProcessId，不能解析填写人。`)
     }
-    const currentProcessTasks = [...(batchDetail.tasks || [])]
+    const currentProcessTasks = [...assistSwitchTasks]
       .filter(
         (task) =>
           !isAssistSpecialBatchTask(task) &&
@@ -4930,18 +4935,21 @@ const currentAssistUserId = () => {
   return parsePositiveNumber(user?.id)
 }
 
+const currentAssistSwitchUserId = () => assistUserId.value || currentAssistUserId()
+
 const isAssistFillerSwitchItemSelectable = (item: AssistFillerSwitchItem) =>
-  currentAssistUserId() === item.userId && isAssistBatchTaskOpenable(item.task)
+  isAssistBatchTaskOpenable(item.task)
 
 const isAssistFillerSwitchItemActive = (item: AssistFillerSwitchItem) =>
-  currentAssistUserId() === item.userId && isAssistBatchTaskActive(item.task)
+  sameRouteQueryId(currentAssistSwitchUserId(), item.userId) && isAssistBatchTaskActive(item.task)
 
 const resolveAssistRecordCategory = (row: EdhrBatchExecutionTaskRespVO) =>
   row.recordCategory === 'INTERNAL_RECORD' ? 'INTERNAL_RECORD' : 'BATCH_RECORD'
 
 const buildAssistFillCarrierExecutionQuery = (row: EdhrBatchExecutionTaskRespVO) => {
   const recordCategory = resolveAssistRecordCategory(row)
-  const fillCarrier = recordCategory === 'INTERNAL_RECORD' ? 'RECORDBOOK' : 'FORM'
+  const fillCarrier =
+    recordCategory === 'INTERNAL_RECORD' && isGlobalRecordbookEnabled.value ? 'RECORDBOOK' : 'FORM'
   const query: Record<string, string> = {
     fillCarrier,
     recordCategory
@@ -4952,10 +4960,13 @@ const buildAssistFillCarrierExecutionQuery = (row: EdhrBatchExecutionTaskRespVO)
   return query
 }
 
-const stringifyAssistRouteQuery = (value?: Record<string, string | number | null | undefined>) => {
+const stringifyAssistRouteQuery = (value?: Record<string, unknown>) => {
   const query: Record<string, string> = {}
   Object.entries(value || {}).forEach(([key, entryValue]) => {
-    if (entryValue !== undefined && entryValue !== null && entryValue !== '') {
+    if (
+      (typeof entryValue === 'string' || typeof entryValue === 'number' || typeof entryValue === 'boolean') &&
+      String(entryValue).trim()
+    ) {
       query[key] = String(entryValue)
     }
   })
@@ -4996,7 +5007,9 @@ const handleSelectAssistTaskSwitchItem = async (row: EdhrWorkTaskRespVO) => {
 const navigateToAssistBatchTask = async (
   row: EdhrBatchExecutionTaskRespVO,
   setError: (message: string) => void,
-  fallbackMessage: string
+  fallbackMessage: string,
+  selectedAssistUserId?: number,
+  selectedAssistDisplayNameInput?: string
 ) => {
   try {
     const batchExecutionId = requireAssistBatchExecutionId()
@@ -5006,12 +5019,22 @@ const navigateToAssistBatchTask = async (
     const opened = await openEdhrBatchTask({
       batchExecutionId,
       taskId: row.id,
-      workTaskId: row.activeWorkTaskId
+      workTaskId: row.activeWorkTaskId,
+      assistUserId: selectedAssistUserId
     })
     if (!opened.executionId) {
       throw new Error('打开工序任务后端未返回 executionId，不能进入 eDHR 填写页。')
     }
     const openedWorkTaskId = opened.workTaskId || opened.executionPageQuery?.workTaskId || row.activeWorkTaskId
+    const openedAssistUserId = parsePositiveNumber(
+      opened.assistUserId || opened.executionPageQuery?.assistUserId || selectedAssistUserId
+    )
+    const selectedAssistDisplayName =
+      readRouteQueryString(selectedAssistDisplayNameInput) ||
+      resolveAssistSwitchUserDisplayName(openedAssistUserId)
+    openedExecutionPageAssistRows.value = normalizeExecutionAssistRows((opened.executionPageQuery as any)?.assistRows)
+    openedExecutionPageAssistRowsContextKey.value =
+      `${opened.executionId}:${openedWorkTaskId || ''}:${openedAssistUserId || ''}`
     const query = {
       ...stringifyAssistRouteQuery(opened.executionPageQuery),
       id: String(opened.executionId),
@@ -5019,6 +5042,8 @@ const navigateToAssistBatchTask = async (
       batchExecutionId: String(batchExecutionId),
       batchTaskId: String(row.id),
       workTaskId: String(openedWorkTaskId),
+      ...(openedAssistUserId ? { assistUserId: String(openedAssistUserId) } : {}),
+      ...(selectedAssistDisplayName ? { fillerName: selectedAssistDisplayName } : {}),
       ...buildAssistFillCarrierExecutionQuery(row)
     }
     fillViewMode.value = 'assist'
@@ -5037,7 +5062,7 @@ const navigateToAssistBatchTask = async (
 
 const handleSelectAssistFillerSwitchItem = async (item: AssistFillerSwitchItem) => {
   if (!isAssistFillerSwitchItemSelectable(item)) {
-    assistFillerSwitchError.value = '该填写人不属于当前账号可处理项，不能代填或切换责任人。'
+    assistFillerSwitchError.value = '该填写人对应表单当前不可打开，不能切换。'
     message.error(assistFillerSwitchError.value)
     return
   }
@@ -5046,7 +5071,9 @@ const handleSelectAssistFillerSwitchItem = async (item: AssistFillerSwitchItem) 
     (errorMessage) => {
       assistFillerSwitchError.value = errorMessage
     },
-    '辅助模式填写人切换失败。'
+    '辅助模式填写人切换失败。',
+    item.userId,
+    item.displayName
   )
 }
 
@@ -5144,7 +5171,7 @@ const toggleFillWorkspaceFullscreen = async () => {
 }
 
 watch(
-  () => [route.name, route.query.id, route.query.workTaskId] as const,
+  () => [route.name, route.query.id, route.query.workTaskId, route.query.assistUserId] as const,
   ([routeName]) => {
     if (routeName !== 'MesProFeedbackEdhrExecutionForm') {
       return
@@ -5156,13 +5183,13 @@ watch(
     ) {
       return
     }
-    loadExecution()
+    void initializeExecutionPage()
   }
 )
 
 onMounted(() => {
   document.addEventListener('fullscreenchange', syncFillWorkspaceFullscreenState)
-  loadExecution()
+  void initializeExecutionPage()
 })
 
 onBeforeUnmount(() => {
@@ -5769,10 +5796,6 @@ onBeforeUnmount(() => {
   margin: 16px;
 }
 
-.edhr-fill-workspace__prefill-alert {
-  margin-bottom: 10px;
-}
-
 .edhr-fill-workspace__field {
   display: flex;
   flex-direction: column;
@@ -5798,10 +5821,6 @@ onBeforeUnmount(() => {
 .edhr-fill-workspace__required {
   flex: 0 0 auto;
   color: #c00000;
-}
-
-.edhr-fill-workspace__cell-link-tag {
-  flex-shrink: 0;
 }
 
 .edhr-fill-workspace__signature {

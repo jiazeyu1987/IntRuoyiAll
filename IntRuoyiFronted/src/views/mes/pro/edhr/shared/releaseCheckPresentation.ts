@@ -18,7 +18,11 @@ const RELEASE_CHECK_CODE_LABELS: Record<string, string> = {
   DEVIATION_CLOSED: '偏差关闭检查',
   REWORK_CLOSED: '返工完成检查',
   SCRAP_RECORDED: '报废记录检查',
-  INVENTORY_CONSISTENCY: '库存一致性检查'
+  INVENTORY_CONSISTENCY: '库存一致性检查',
+  DOSSIER_INCOMING_INSPECTION_REPORT: '来料检报告资料限制',
+  DOSSIER_STERILIZATION_REPORT: '灭菌报告资料限制',
+  DOSSIER_FINISHED_PRODUCT_INSPECTION_REPORT: '成品检报告资料限制',
+  DOSSIER_FINISHED_PRODUCT_INSPECTION_RECORD: '成品检记录限制'
 }
 
 const RELEASE_CHECK_CATEGORY_LABELS: Record<string, string> = {
@@ -27,7 +31,8 @@ const RELEASE_CHECK_CATEGORY_LABELS: Record<string, string> = {
   DEVIATION: '偏差',
   REWORK: '返工',
   SCRAP: '报废',
-  INVENTORY: '库存'
+  INVENTORY: '库存',
+  DOSSIER: '放行资料限制'
 }
 
 const RELEASE_CHECK_SOURCE_OBJECT_TYPE_LABELS: Record<string, string> = {
@@ -37,7 +42,8 @@ const RELEASE_CHECK_SOURCE_OBJECT_TYPE_LABELS: Record<string, string> = {
   DEVIATION: '偏差记录',
   REWORK: '返工记录',
   SCRAP: '报废记录',
-  INVENTORY: '库存记录'
+  INVENTORY: '库存记录',
+  SPECIAL_NODE_ATTACHMENT: '特殊节点附件'
 }
 
 const RELEASE_EVENT_LABELS: Record<EdhrReleaseEventType, string> = {

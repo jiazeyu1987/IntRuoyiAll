@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260614_mes_edhr_work_task_candidate_pool.sql; type=schema; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260614_mes_edhr_work_task_candidate_pool; type=schema; riskLevel=medium
 DROP PROCEDURE IF EXISTS ensure_mes_edhr_assignment_rule_candidate_nullable;
 
 DELIMITER //

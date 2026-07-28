@@ -106,6 +106,11 @@ public class FormCenterRuntimeServiceImpl implements FormCenterRuntimeService {
     }
 
     @Override
+    public FormCenterTemplateRespVO getTemplateVersion(Long templateId, String versionNo) {
+        return toTemplateResp(requireCurrentTenantTemplateVersion(templateId, versionNo));
+    }
+
+    @Override
     public PageResult<FormPolicyRespVO> getPolicyPage(FormPolicyPageReqVO reqVO) {
         reqVO.setTenantId(resolveTenantId(reqVO.getTenantId()));
         PageResult<FormActionPolicyDO> pageResult = actionPolicyMapper.selectPage(reqVO);

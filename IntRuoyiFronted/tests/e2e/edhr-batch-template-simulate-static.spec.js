@@ -21,6 +21,7 @@ assert.ok(fs.existsSync(fitViewportPath), '必须新增模板等比缩放视口�
 
 const templatePage = fs.readFileSync(templatePagePath, 'utf8')
 const simulatePage = fs.readFileSync(simulatePagePath, 'utf8')
+const simulateTemplate = simulatePage.split('<script setup')[0]
 const editableForm = fs.readFileSync(editableFormPath, 'utf8')
 const fitViewport = fs.readFileSync(fitViewportPath, 'utf8')
 
@@ -75,7 +76,8 @@ assertIncludes(
   'return []',
   '模拟页未走真实电子签名时签名记录必须保持为空，不得伪造本地签名记录'
 )
-assertIncludes(simulatePage, '模板内填写', '模拟页左侧标题必须明确是模板内填写')
+assertNotIncludes(simulateTemplate, '模板内填写', '模拟页左侧不应显示模板内填写辅助标题')
+assertIncludes(simulateTemplate, ':show-rule-legend="false"', '模拟页左侧不应显示规则图例')
 assertIncludes(simulatePage, '表单显示', '模拟页右侧标题必须明确是表单显示')
 assertIncludes(simulatePage, '模拟填写加载失败', '模拟页必须对接口或配置错误明确报错')
 assertIncludes(simulatePage, 'fit-to-viewport', '模拟页左右模板必须启用等比缩放视口')
@@ -101,6 +103,8 @@ assertIncludes(editableForm, ':rowspan="cell.rowSpan"', '模板内可编辑组�
 assertIncludes(editableForm, ':colspan="cell.colSpan"', '模板内可编辑组件必须保留合并单元格 colspan')
 assertIncludes(editableForm, 'EdhrTemplateFitViewport', '模板内可编辑组件必须接入等比缩放视口')
 assertIncludes(editableForm, 'fitToViewport', '模板内可编辑组件必须支持模板等比缩放模式')
+assertIncludes(editableForm, 'showRuleLegend?: boolean', '模板内可编辑组件必须支持控制规则图例显示')
+assertIncludes(editableForm, 'showRuleLegend: true', '模板内可编辑组件必须默认显示规则图例')
 
 assertIncludes(templateRuleHelper, 'TemplateEditableCellContext', '共享模板规则工具必须导出单元格编辑上下文类型')
 assertIncludes(templateRuleHelper, 'buildTemplateEditableCellContext', '共享模板规则工具必须支持构造可编辑单元格上下文')

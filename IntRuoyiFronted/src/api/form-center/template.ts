@@ -76,6 +76,12 @@ export const getTemplatePool = (params: FormTemplatePoolPageReqVO) => {
   })
 }
 
+export const getTemplateVersion = (templateId: number, versionNo: string) => {
+  return request.get<FormTemplateListItemVO>({
+    url: `/form-center/templates/${templateId}/versions/${versionNo}`
+  })
+}
+
 export const importTemplateDoc = (data: FormData) => {
   return request.upload<FormTemplateImportRespVO>({
     url: '/form-center/templates/import-doc',

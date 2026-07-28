@@ -31,3 +31,22 @@ Word 批记录表单导入后，粗洗工序等表单中 `操作人/日期`、`�
 ## Blockers
 
 无。
+
+
+## 真实页面 E2E 追加复现
+
+- Reproduction: `EDHR_WORD_IMPORT_PRODUCT_NAME=数显球囊扩张压力泵`、`EDHR_WORD_IMPORT_SAMPLE_DOC=E:\IntRuoyi\IntRuoyiBackend\yudao-module-mes\src\test\resources\fixtures\pressure-pump-record.doc` 执行 `node tests\e2e\edhr-word-template-import-real-flow.e2e.js`。
+- Observed: 导入成功后 API 核验失败，`粗洗工序生产记录` 第 6 行第 16 列和第 18 列位于 `操作人/日期`、`复核人/日期` 表头下方，仍生成 `fillForm.componentFlag=checkbox` 与 `edhrCellRule.componentFlag=checkbox`。
+- Refined Root Cause: 既有修复覆盖了“checkbox 文本碎片落入签名日期尾区”的场景，但真实 Word 中签名日期列是空白可填写格。自动建议先从左侧结果列取到 `□符合要求/□不符合要求` 作为 label，再由 boolean cue 将空白签名格提升为 checkbox。
+
+
+## 真实页面 E2E 二次复现与最终修复
+
+- Reproduction: 最新 Jar 首次复跑后，`清洁工序生产记录` 第 9 行第 8 列位于签名日期尾部区域，但从左侧 `□30atm压力表` 继承为 `fillForm.componentFlag=checkbox`。
+- Reproduction: 修复中间表头遮挡后再次复跑，`粗洗工序生产记录` 第 8 行第 17 列已识别为 `valueType=STRING`、`label=操作人/日期`，但旧 `fillForm.componentFlag=checkbox` 和 boolean value 仍残留。
+- Root Cause: `resolveUpperSignatureDateLabel` 在遇到最近的非签名中间表头时直接返回空字符串，导致更上层签名日期表头失效；同时 STRING 规则默认保留 existingComponentFlag，使签名日期区域旧 checkbox fillForm 未被强制改写。
+- Fix: 签名日期表头识别改为跳过非签名中间表头并继续向上查找；签名日期 STRING 规则固定使用 `input-text`；非 BOOLEAN 同步 fillForm 时清理 boolean `value/defaultValue`。
+- RED: `MesProBatchRecordCellRuleSupportTest#buildSuggestions_doesNotPromoteBlankSignatureDateCellsPastIntermediateCheckboxRows` -> FAIL，`expected: <STRING> but was: <BOOLEAN>`。
+- RED: `MesProBatchRecordCellRuleSupportTest#buildSuggestions_rewritesExistingCheckboxFillFormUnderSignatureDateHeaders` -> FAIL，`expected: <input-text> but was: <checkbox>`，随后暴露 `expected: <> but was: <false>`。
+- GREEN: 自动规则识别 5 tests PASS；JSON 构建器 2 tests PASS；真实页面 E2E PASS，`signatureDateCellsChecked=177`。
+- Risk: 已导入并保存的旧错误模板不会自动迁移，需重新导入或重新生成受影响模板。

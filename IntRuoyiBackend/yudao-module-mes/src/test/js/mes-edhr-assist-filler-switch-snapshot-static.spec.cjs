@@ -1,0 +1,74 @@
+const fs = require('fs')
+const path = require('path')
+const assert = require('assert')
+
+const workspaceRoot = path.resolve(__dirname, '../../../../..')
+const read = (relativePath) => fs.readFileSync(path.join(workspaceRoot, relativePath), 'utf8')
+
+const executionPage = read('IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue')
+const feedbackApi = read('IntRuoyiFronted/src/api/mes/pro/feedback/index.ts')
+const batchExecutionApi = read('IntRuoyiFronted/src/api/mes/pro/edhr/batchExecution.ts')
+const executionRespVO = read('IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/vo/MesProBatchRecordExecutionRespVO.java')
+const taskOpenReqVO = read('IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/vo/EdhrBatchExecutionTaskOpenReqVO.java')
+const taskOpenRespVO = read('IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/batchrecord/vo/EdhrBatchExecutionTaskOpenRespVO.java')
+const executionService = read('IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionServiceImpl.java')
+const batchExecutionService = read('IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceImpl.java')
+const executionMapper = read('IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/batchrecord/MesProBatchRecordExecutionMapper.java')
+
+const loaderStart = executionPage.indexOf('const loadAssistFillerSwitchItems = async () => {')
+const loaderEnd = executionPage.indexOf('const openAssistSwitchDialog', loaderStart)
+assert.ok(loaderStart >= 0 && loaderEnd > loaderStart, '前端必须保留切换填写人加载函数。')
+const fillerLoader = executionPage.slice(loaderStart, loaderEnd)
+
+assert.match(feedbackApi, /EdhrBatchExecutionTaskRespVO/, '执行详情前端类型必须复用批次任务快照类型。')
+assert.match(feedbackApi, /assistSwitchTasks\?:\s*EdhrBatchExecutionTaskRespVO\[\]/, '执行详情前端类型必须暴露 assistSwitchTasks 快照。')
+assert.match(executionRespVO, /private\s+List<EdhrBatchExecutionTaskRespVO>\s+assistSwitchTasks;/, '执行详情后端 VO 必须返回 assistSwitchTasks 快照。')
+assert.match(executionService, /setAssistSwitchTasks\(buildAssistSwitchTasksSnapshot\(execution\)\)/, '执行详情构建必须填充 assistSwitchTasks。')
+assert.match(executionService, /getCandidateUserSnapshot\(\)/, '后端快照必须来自工作任务 candidateUserSnapshot。')
+assert.match(executionService, /buildAssistSwitchProcessFormRuleMap/, '执行详情切换快照必须读取过程表单填写规则，不能只依赖主批记录 workTask。')
+assert.match(executionService, /buildAssistSwitchRouteBindingFillableUserIdsMap/, '执行详情切换快照必须读取路线绑定候选源，覆盖附加表单槽位填写人。')
+assert.doesNotMatch(
+  executionService,
+  /\.setFillableUsers\(resolveAssistSwitchFillableUsers\(workTask,\s*userMap\)\)/,
+  '切换快照 fillableUsers 不得只由 workTask 解析，否则会漏掉附加表单候选。'
+)
+assert.doesNotMatch(fillerLoader, /getEdhrBatchExecution\(/, '切换填写人不得再调用全量批次详情接口。')
+assert.match(fillerLoader, /execution\.value\?\.assistSwitchTasks/, '切换填写人必须从执行详情 assistSwitchTasks 快照读取候选人。')
+assert.match(fillerLoader, /formTemplateId[\s\S]*formSlotType === 'MAIN'/, '前端切换填写人排序必须保留附加表单槽位任务，不能只展示 MAIN 批记录。')
+assert.match(batchExecutionApi, /assistUserId\?:\s*EdhrRouteId/, '前端 openTask 请求必须声明 assistUserId。')
+assert.match(taskOpenReqVO, /private\s+Long\s+assistUserId;/, '后端 openTask 请求必须接收 assistUserId。')
+assert.match(taskOpenRespVO, /private\s+Long\s+assistUserId;/, '后端 openTask 响应必须返回已确认的 assistUserId。')
+assert.match(batchExecutionService, /resolveAssistUserIdForOpenTask/, '后端必须解析并校验所选 assistUserId。')
+assert.match(batchExecutionService, /resolveVisibleAssistRows\(task,\s*openWorkTask,\s*assistUserId\)/, '后端辅助行必须按所选 assistUserId 解析。')
+assert.match(batchExecutionService, /resolveVisibleAssistScopes\(openWorkTask,\s*assistUserId\)/, '后端辅助行必须读取所选填写人的正式责任范围，不能只用 rowKey 字符串集合。')
+assert.match(batchExecutionService, /assistRowVisibleInScope\(/, '后端辅助行必须支持 ALL\/ranges 职责范围投影，不能只支持 scopeKey 等于 assist rowKey。')
+assert.match(
+  batchExecutionService,
+  /if\s*\(\s*isDynamicRouteFormTask\(task\)\s*\)\s*\{\s*return resolveDynamicRouteFormVisibleAssistRows\(task,\s*visibleScopes\);\s*\}/,
+  '动态路线表单损耗单切换填写人时必须从 FormCenter 模板解析辅助行，不得继续读取批记录 execution 快照。'
+)
+assert.match(
+  batchExecutionService,
+  /FormTemplateVersionDO\s+templateVersion\s*=\s*formTemplateVersionMapper\.selectById\(task\.getFormTemplateVersionId\(\)\)/,
+  '动态路线表单损耗单辅助行必须使用任务冻结的 formTemplateVersionId 读取模板版本。'
+)
+assert.doesNotMatch(
+  batchExecutionService,
+  /if\s*\(\s*isBatchSharedTask\(task\)\s*\)\s*\{\s*return null;\s*\}/,
+  '批次共享损耗单缺少冻结 execution 时不得直接返回空导致“缺少唯一批记录路线”，必须按共享上下文打开或创建。'
+)
+assert.match(
+  batchExecutionService,
+  /bindBatchSharedTraditionalExecution\(batch\.getId\(\),\s*task,\s*execution\)/,
+  '批次共享损耗单打开时必须把正式 execution 绑定回同一 sharedFormKey 的批次任务。'
+)
+assert.match(batchExecutionService, /\.setTaskId\(task\.getId\(\)\)/, '批次任务打开传统批记录时必须把批次任务 ID 写入执行记录请求。')
+assert.match(executionService, /\.taskId\(reqVO\.getTaskId\(\)\)/, '执行记录创建必须保存请求中的批次任务 ID，避免新批次复用旧执行详情。')
+assert.match(
+  executionService,
+  /selectActiveByContext\([\s\S]*reqVO\.getBatchExecutionId\(\)[\s\S]*reqVO\.getTaskId\(\)/,
+  '执行记录 active 查询必须按 batchExecutionId + taskId 隔离新批次，不能复用其它批次旧执行详情。'
+)
+assert.match(executionMapper, /getBatchExecutionId[\s\S]*getTaskId/, '执行记录 active 查询必须支持 batchExecutionId 和 taskId 条件。')
+
+console.log('mes-edhr-assist-filler-switch-snapshot-static PASS')

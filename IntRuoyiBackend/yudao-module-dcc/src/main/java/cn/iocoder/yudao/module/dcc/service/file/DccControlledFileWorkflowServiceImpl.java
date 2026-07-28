@@ -73,8 +73,6 @@ import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
-import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
-import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -111,7 +109,6 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_FILE_NUMBER_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PRODUCT_CODE_INVALID;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PRODUCT_MASTER_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PROCESS_TYPE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_NOT_CONFIGURED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID;
@@ -196,8 +193,6 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
     private DccControlledFileFinalizationService finalizationService;
     @Resource
     private DccUploadTicketService uploadTicketService;
-    @Resource
-    private MdmProductApi productApi;
     @Resource
     private PermissionApi permissionApi;
     @Resource
@@ -962,9 +957,6 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 || reqVO.getEffectiveDate() == null) {
             throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
         }
-        if (reqVO.getProductMasterId() == null && StrUtil.isNotBlank(reqVO.getProductCode())) {
-            throw exception(CONTROLLED_FILE_PRODUCT_MASTER_INVALID);
-        }
         boolean hasUploadTicket = hasAnyUploadTicket(reqVO);
         if (requireUploadTickets && hasAnyRawFileId(reqVO)) {
             throw exception(CONTROLLED_FILE_UPLOAD_TICKET_INVALID);
@@ -1137,14 +1129,13 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         String processType = normalizeProcessType(reqVO.getProcessType());
         boolean controlledUploadSubmit = requireUploadTickets
                 && DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode().equals(processType);
-        DccProjectCodeDO projectCode = validateEnabledProjectCode(reqVO.getDccProjectCodeId(), controlledUploadSubmit);
+        DccProjectCodeDO projectCode = validateEnabledProjectCode(reqVO.getDccProjectCodeId(), true);
         ResolvedFileTypeTaxonomy fileTypeTaxonomy = resolveFileTypeTaxonomy(reqVO.getFileTypeTaxonomyId(),
                 controlledUploadSubmit);
         DccControlledFileVersion requestedVersion = parseVersion(reqVO.getVersionNo());
         DccFileCategoryDO category = validateCategory(reqVO.getCategoryId());
         validateCategoryUploadPermission(category.getId(), userId);
-        validateProductBindingPolicy(category, reqVO.getProductMasterId());
-        ResolvedDccProduct dccProduct = resolveDccProduct(reqVO.getProductMasterId());
+        ResolvedDccProduct dccProduct = resolveDccProductFromProjectCode(projectCode);
         if (requireScreenshotMetadata) {
             validateScreenshotProductCode(dccProduct);
         }
@@ -1176,12 +1167,6 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         DccControlledFileMasterDO lockedMaster = controlledFileMasterMapper.selectByIdForUpdate(master.getId());
         if (lockedMaster == null) {
             throw exception(CONTROLLED_FILE_NOT_EXISTS);
-        }
-    }
-
-    private void validateProductBindingPolicy(DccFileCategoryDO category, Long productMasterId) {
-        if (isProductBoundCategory(category) && productMasterId == null) {
-            throw exception(CONTROLLED_FILE_PRODUCT_MASTER_INVALID);
         }
     }
 
@@ -1246,7 +1231,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         reqVO.setDrawingPdfFileId(file.getDrawingPdfFileId());
         reqVO.setFileName(file.getFileName());
         reqVO.setFileNumber(file.getFileNumber());
-        reqVO.setProductMasterId(file.getProductMasterId());
+        reqVO.setProductMasterId(null);
         reqVO.setProductCode(file.getProductCode());
         reqVO.setDccProjectCodeId(file.getDccProjectCodeId());
         reqVO.setFileTypeTaxonomyId(file.getFileTypeTaxonomyId());
@@ -1272,7 +1257,7 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
                 .fileName(context.reqVO().getFileName())
                 .title(context.reqVO().getFileName())
                 .fileNumber(context.reqVO().getFileNumber())
-                .productMasterId(context.dccProduct().id())
+                .productMasterId(null)
                 .productCode(context.dccProduct().dccProductCode())
                 .productName(context.dccProduct().nameCn())
                 .dccProjectCodeId(context.projectCode() == null ? null : context.projectCode().getId())
@@ -1462,21 +1447,14 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         return new FileTrace(file.getName(), file.getPath());
     }
 
-    private ResolvedDccProduct resolveDccProduct(Long productMasterId) {
-        if (productMasterId == null) {
-            return new ResolvedDccProduct(null, null, null);
+    private ResolvedDccProduct resolveDccProductFromProjectCode(DccProjectCodeDO projectCode) {
+        if (projectCode == null || StrUtil.isBlank(projectCode.getProjectCode())
+                || StrUtil.isBlank(projectCode.getProjectName())) {
+            throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
         }
-        MdmProductRespDTO product;
-        try {
-            product = productApi.getEnabledDccProduct(productMasterId);
-        } catch (RuntimeException ex) {
-            throw exception(CONTROLLED_FILE_PRODUCT_MASTER_INVALID);
-        }
-        if (product == null || product.getId() == null || !isValidProductCode(product.getDccProductCode())
-                || StrUtil.isBlank(product.getNameCn())) {
-            throw exception(CONTROLLED_FILE_PRODUCT_MASTER_INVALID);
-        }
-        return new ResolvedDccProduct(product.getId(), product.getDccProductCode(), product.getNameCn());
+        return new ResolvedDccProduct(null,
+                StrUtil.trimToNull(projectCode.getProjectCode()),
+                StrUtil.trimToNull(projectCode.getProjectName()));
     }
 
     private boolean isValidProductCode(String productCode) {

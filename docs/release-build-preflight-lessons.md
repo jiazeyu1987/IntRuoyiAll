@@ -655,6 +655,15 @@
 - Forbidden action: 不得跳过真实页面验收；不得把误判失败改成忽略 console。
 - Evidence: `doc/tasks/20260713-current-head-codeonly-three-env-rerun/runtime-console-page-probe-r260713j.json`。
 
+## 2026-07-27 release-info 用户可见 Codex Git 摘要门禁
+
+- Trigger: 修改发布包 manifest、`/release-info.json`、业务前端 `版本变更说明` 弹窗，或验收“这个版本与上个版本相比 Git 里改了什么”。
+- Preflight check: 发布构建必须用上一发布包 `manifest.json.sourceRepos[*].commit` 和当前 `sourceRepos[*].commit` 生成 `previousCommit..currentCommit` 的 Git 事实输入，再调用 Codex CLI 用结构化 JSON 输出 1 到 10 条普通人能读懂的中文摘要，写入 `changeSet.gitChanges`，并在前端构建 Docker context 之前写入 `dist-intruoyi-test/release-info.json`。
+- Blocker: 上一发布包 manifest 缺失、上一版本缺少匹配 `sourceRepos`、commit 为空、`git log previousCommit..currentCommit --numstat` 失败、Codex CLI 缺失/未认证/退出非 0/超时、JSON 不合法、摘要为空或超过 10 条、摘要不是中文、包含 commit hash/原始提交项；不得继续生成默认“发布包/组件范围”或原始 Git subject 变更说明。
+- Verification: 静态契约必须断言弹窗只渲染 `changeSet.gitChanges.slice(0, 10)`，标题面向用户展示“版本变化”而不是“Git 变更”；发布脚本契约必须覆盖 Codex `--output-schema`、`--output-last-message`、中文/数量/hash 校验、失败即阻塞，以及 `release-info.json` 写入早于 Docker build context。
+- Forbidden action: 禁止用 raw commit subject、短 hash、sourceRepos commit 列表、接口 HTTP 200、截图首页角标、人工说明或包元信息替代 Codex 摘要；禁止 Codex 失败时回退为 Git 原文、空成功、mock 成功或其他数据源。
+- Evidence: `doc/tasks/20260727-release-change-git-diff-summary/execution-log.md`；`doc/tasks/20260727-release-change-codex-summary/execution-log.md`。
+
 ## 2026-07-13 release worktree 物理根目录复核门禁
 
 - Trigger: 发布完成后删除临时 release worktree、state dir 或执行 task closeout。
@@ -760,6 +769,7 @@
 
 - Trigger: `publish-test` / `promote-prod` / `promote-backup` 执行菜单或角色权限类 required SQL，SQL 同时校验 `system_menu.id` 与 `system_menu.permission`，尤其包含临时权限表、`tmp_*_expected_permission`、`tmp_*_expected_menu`、审计/全量管理员权限集合。
 - Preflight check: 发布前静态测试必须覆盖两类兼容性：临时权限表字符串列与 `system_menu.permission` 比较时显式使用目标列 collation，例如 `CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`；权限菜单存在旧 ID 但同一 `permission`、`status=0`、`deleted=0` 时，不得再要求偏好 ID 必须存在，主校验应以稳定业务键 `permission` 为准。
+- Preflight check: 对新增 required SQL 做专项 `run-release-migration-policy-gate.py --sql-file ...` 时，必须同时传入该 SQL 的 `dependsOn` 文件；单独传目标 SQL 会因为 manifest 子集缺少依赖而误报 `dependsOn missing migration`，不能把该误报当成真实迁移依赖缺失。
 - Blocker: 远端 MySQL 报 `ERROR 1267 Illegal mix of collations`，或 required SQL 报 `Missing enabled full-scope admin menu` 且只读核对显示缺失的是偏好菜单 ID、目标权限已由旧 ID 正常存在。
 - Verification: 先冻结失败 releaseTag、operation/migration 状态、远端 `system_menu.permission` collation、缺失 ID 与同权限菜单快照；补 RED 测试后修复 SQL，运行目标 pytest、migration policy gate，重新构建新的 releaseTag，并通过测试服真实页面/API 验收。
 - Forbidden action: 不得手工改测试库 collation、手工插入偏好 ID 菜单、删除旧权限菜单、手工更新发布锁/迁移状态，或复用失败 releaseTag 继续发布。

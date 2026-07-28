@@ -77,8 +77,6 @@ import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketService;
 import cn.iocoder.yudao.module.infra.dal.dataobject.file.FileDO;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
-import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
-import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -105,8 +103,6 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_FILE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DRAWING_PDF_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PRODUCT_CODE_INVALID;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PRODUCT_MASTER_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PROCESS_TYPE_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ROUTE_NOT_CONFIGURED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SOURCE_FILE_TYPE_INVALID;
@@ -202,8 +198,6 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     @Mock
     private DccUploadTicketService uploadTicketService;
     @Mock
-    private MdmProductApi productApi;
-    @Mock
     private PermissionApi permissionApi;
     @Mock
     private DccControlledFileCategoryPermissionSupport permissionSupport;
@@ -236,7 +230,6 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                             "SOP-001.docx",
                             "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 4L);
                 });
-        lenient().when(productApi.getEnabledDccProduct(5000L)).thenReturn(defaultProductMaster());
         lenient().when(permissionApi.hasAnyPermissions(any(Long.class), any(String[].class))).thenReturn(true);
         lenient().when(permissionSupport.hasCategoryPermission(any(Long.class), any(Long.class),
                 any(DccFileCategoryPermissionActionEnum.class))).thenReturn(true);
@@ -316,11 +309,11 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         assertEquals("SOP-001", fileCaptor.getValue().getFileName());
         assertEquals("SOP-001", fileCaptor.getValue().getFileNumber());
         assertEquals(DccControlledFileChangeTypeEnum.NEW.getCode(), fileCaptor.getValue().getChangeType());
-        assertEquals(5000L, fileCaptor.getValue().getProductMasterId());
+        assertNull(fileCaptor.getValue().getProductMasterId());
         assertEquals(100L, fileCaptor.getValue().getSourceFileId());
         assertEquals(101L, fileCaptor.getValue().getDrawingPdfFileId());
-        assertEquals("PRD20260525001", fileCaptor.getValue().getProductCode());
-        assertEquals("离心泵", fileCaptor.getValue().getProductName());
+        assertEquals("PRJ-20260719", fileCaptor.getValue().getProductCode());
+        assertEquals("验证项目", fileCaptor.getValue().getProductName());
         assertEquals(3000L, fileCaptor.getValue().getDccProjectCodeId());
         assertEquals(8803L, fileCaptor.getValue().getFileTypeTaxonomyId());
         assertEquals("一级", fileCaptor.getValue().getFileTypeLevel1());
@@ -960,31 +953,73 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     @Test
     void submitControlledFile_rejectsInvalidProductCode() {
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("V1.0");
+        mockCommonSubmitDependencies();
         when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
                 .id(10L).code("SOP").name("SOP").active(Boolean.TRUE).source("LOCAL").build());
-        when(productApi.getEnabledDccProduct(5000L)).thenReturn(MdmProductRespDTO.builder()
-                .id(5000L)
-                .productCode("PMD-001")
-                .dccProductCode("SHORT")
-                .nameCn("离心泵")
-                .status("ENABLE")
-                .build());
+        reqVO.setProductMasterId(5000L);
+        reqVO.setProductCode("not-authoritative");
+        mockSingleStageRoute();
+        doAnswer(invocation -> {
+            DccControlledFileDO file = invocation.getArgument(0);
+            file.setId(907L);
+            return 1;
+        }).when(controlledFileMapper).insert(any(DccControlledFileDO.class));
 
-        assertServiceException(() -> workflowService.submitControlledFile(99L, reqVO),
-                CONTROLLED_FILE_PRODUCT_MASTER_INVALID);
-        verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+        Long fileId = workflowService.submitControlledFile(99L, reqVO);
+
+        assertEquals(907L, fileId);
+        ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).insert(fileCaptor.capture());
+        assertNull(fileCaptor.getValue().getProductMasterId());
+        assertEquals("PRJ-20260719", fileCaptor.getValue().getProductCode());
+        assertEquals("验证项目", fileCaptor.getValue().getProductName());
     }
 
     @Test
-    void submitControlledFile_dhfCategoryRequiresProductMaster() {
+    void submitControlledFile_dhfCategoryUsesDccProjectCodeAsProductNumber() {
+        DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("V1.0");
+        reqVO.setProductMasterId(null);
+        reqVO.setProductCode(null);
+        mockCommonSubmitDependencies();
+        when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
+                .id(10L).code("DCC_FVM_DHF_005").name("项目策划书").active(Boolean.TRUE).source("LOCAL").build());
+        mockSingleStageRoute();
+        doAnswer(invocation -> {
+            DccControlledFileDO file = invocation.getArgument(0);
+            file.setId(906L);
+            return 1;
+        }).when(controlledFileMapper).insert(any(DccControlledFileDO.class));
+
+        Long fileId = workflowService.submitControlledFile(99L, reqVO);
+
+        assertEquals(906L, fileId);
+        ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).insert(fileCaptor.capture());
+        assertNull(fileCaptor.getValue().getProductMasterId());
+        assertEquals("PRJ-20260719", fileCaptor.getValue().getProductCode());
+        assertEquals("验证项目", fileCaptor.getValue().getProductName());
+    }
+
+    @Test
+    void submitControlledFile_dhfCategoryRequiresProjectCodeProductNumber() {
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("V1.0");
         reqVO.setProductMasterId(null);
         reqVO.setProductCode(null);
         when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
                 .id(10L).code("DCC_FVM_DHF_005").name("项目策划书").active(Boolean.TRUE).source("LOCAL").build());
+        when(projectCodeMapper.selectById(3000L)).thenReturn(DccProjectCodeDO.builder()
+                .id(3000L)
+                .projectName("验证项目")
+                .projectCode("")
+                .status(DccProjectCodeStatusConstants.ENABLE)
+                .build());
+        when(fileTypeTaxonomyAdminService.resolveActivePath(8803L)).thenReturn(defaultTaxonomyPath());
+        when(fileTypeTaxonomyAdminService.listActiveDescendantIds(8803L)).thenReturn(List.of(8803L));
+        when(fileTypeTaxonomyAdminService.listActiveDescendantPaths(8803L)).thenReturn(List.of(defaultTaxonomyPath()));
+        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD)).thenReturn(true);
 
         assertServiceException(() -> workflowService.submitControlledFile(99L, reqVO),
-                CONTROLLED_FILE_PRODUCT_MASTER_INVALID);
+                CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
 
         verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
     }
@@ -1130,9 +1165,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
         verify(controlledFileMapper).insert(fileCaptor.capture());
         assertNull(fileCaptor.getValue().getProductMasterId());
-        assertNull(fileCaptor.getValue().getProductCode());
-        assertNull(fileCaptor.getValue().getProductName());
-        verify(productApi, never()).getEnabledDccProduct(any());
+        assertEquals("PRJ-20260719", fileCaptor.getValue().getProductCode());
+        assertEquals("验证项目", fileCaptor.getValue().getProductName());
         verify(finalizationService).activateWithoutApproval(906L, true);
     }
 
@@ -1782,6 +1816,7 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
                 .fileNumber("SOP-001")
                 .productMasterId(5000L)
                 .productCode("PRD20260525001")
+                .dccProjectCodeId(3000L)
                 .needTraining(Boolean.FALSE)
                 .processType("CONTROLLED_FILE")
                 .changeType(DccControlledFileChangeTypeEnum.NEW.getCode())
@@ -1826,6 +1861,8 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         verify(controlledFileMapper).insert(insertCaptor.capture());
         assertEquals(700L, insertCaptor.getValue().getMasterId());
         assertEquals("V1.0", insertCaptor.getValue().getVersionNo());
+        assertNull(insertCaptor.getValue().getProductMasterId());
+        assertEquals("PRJ-20260719", insertCaptor.getValue().getProductCode());
         assertEquals(DccControlledFileStatusEnum.PENDING_DOC_CONTROL_REVIEW.getStatus(), insertCaptor.getValue().getStatus());
         ArgumentCaptor<DccControlledFileDO> updateCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
         verify(controlledFileMapper, org.mockito.Mockito.times(2)).updateById(updateCaptor.capture());
@@ -3303,16 +3340,6 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setEffectiveDate(LocalDate.of(2026, 5, 13));
         reqVO.setRemark("initial release");
         return reqVO;
-    }
-
-    private MdmProductRespDTO defaultProductMaster() {
-        return MdmProductRespDTO.builder()
-                .id(5000L)
-                .productCode("PMD-001")
-                .dccProductCode("PRD20260525001")
-                .nameCn("离心泵")
-                .status("ENABLE")
-                .build();
     }
 
     private DccFileTypeTaxonomyPath defaultTaxonomyPath() {

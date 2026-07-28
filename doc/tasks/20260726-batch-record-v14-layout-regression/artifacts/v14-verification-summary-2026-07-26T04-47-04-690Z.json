@@ -1,0 +1,31 @@
+{
+  "runId": "2026-07-26T04-47-04-690Z",
+  "mode": "existing-v14-read-repair",
+  "versionNo": "V14.0",
+  "batchRecordVersionId": "130",
+  "batchRecordName": "球囊扩张压力泵",
+  "reports": [
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "ff909645721d4c7cb9220a74e4497254",
+      "offenderCount": 0
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "bd1ac748f2be41bd8e63b2c0a924059e",
+      "offenderCount": 0
+    }
+  ],
+  "screenshots": [
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "ff909645721d4c7cb9220a74e4497254",
+      "path": "E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-v14-layout-regression\\artifacts\\v14-cleaning-fixed.png"
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "bd1ac748f2be41bd8e63b2c0a924059e",
+      "path": "E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-v14-layout-regression\\artifacts\\v14-lightcuring-fixed.png"
+    }
+  ]
+}

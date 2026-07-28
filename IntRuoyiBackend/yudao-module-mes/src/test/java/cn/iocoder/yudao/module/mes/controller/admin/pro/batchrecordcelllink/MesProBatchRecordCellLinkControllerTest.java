@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkPrefillRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkWorkbenchContextRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,6 +42,20 @@ class MesProBatchRecordCellLinkControllerTest {
 
         assertSame(expected, response.getData());
         verify(cellLinkService).getPrefill(10L, 31L);
+    }
+
+    @Test
+    void getWorkbenchContextDelegatesFormTemplateVersionScope() {
+        BatchRecordCellLinkWorkbenchContextRespVO expected = new BatchRecordCellLinkWorkbenchContextRespVO()
+                .setScopeType("FORM_TEMPLATE_VERSION")
+                .setScopeId(7001L);
+        when(cellLinkService.getWorkbenchContext(null, null, null, null, 1001L, "V3.0")).thenReturn(expected);
+
+        CommonResult<BatchRecordCellLinkWorkbenchContextRespVO> response =
+                controller.getWorkbenchContext(null, null, null, null, 1001L, "V3.0");
+
+        assertSame(expected, response.getData());
+        verify(cellLinkService).getWorkbenchContext(null, null, null, null, 1001L, "V3.0");
     }
 
     @Test

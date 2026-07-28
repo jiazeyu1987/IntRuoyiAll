@@ -17,6 +17,8 @@ import static cn.iocoder.yudao.framework.common.util.date.DateUtils.FORMAT_YEAR_
 @ToString(callSuper = true)
 public class EdhrBatchExecutionPageReqVO extends PageParam {
 
+    private List<Long> batchExecutionIds;
+
     private String batchExecutionCode;
 
     private Long workOrderId;

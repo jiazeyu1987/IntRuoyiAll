@@ -84,6 +84,7 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private static final String SCHEDULE_CONFIGS_KEY = "scheduleConfigs";
     private static final String BATCH_USE_CONFIGS_KEY = "batchUseConfigs";
     private static final String SCHEDULE_USE_CONFIGS_KEY = "scheduleUseConfigs";
+    private static final String BATCH_RECORD_ATTACHMENT_OWNERS_KEY = "batchRecordAttachmentOwners";
     public static final String DEFAULT_SCHEDULE_CONFIG_VERSION = "AUTO-DEFAULT";
     public static final String DEFAULT_SCHEDULE_REMARK = "[AUTO_DEFAULT_SCHEDULE_CONFIG]";
     private static final String DEFAULT_SCHEDULE_USE_CONFIG_VERSION = "AUTO-SCHEDULE";
@@ -217,12 +218,13 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         MesProRouteVersionDO sourceVersion = routeVersionMapper.selectActiveByRouteId(sourceRouteId);
         MesProRouteVersionDO targetVersion = createRouteVersion(targetRoute, "V1",
                 sourceVersion == null ? null : sourceVersion.getId());
+        JSONObject inheritedRouteLevelConfigSnapshots = extractReusableRouteLevelConfigSnapshots(sourceVersion);
         if (sourceVersion != null) {
             copyScheduleConfigs(sourceRouteId, sourceVersion.getId(), targetVersion.getId(), copiedRouteProcessIds);
         }
         copyRouteFlowConfigs(sourceRouteId, targetRoute.getId(), copiedRouteProcessIds);
         routeProcessFlowService.copyGraph(sourceRouteId, targetRoute.getId(), copiedRouteProcessIds);
-        refreshRouteVersionSnapshot(targetRoute, targetVersion.getId());
+        refreshRouteVersionSnapshot(targetRoute, targetVersion.getId(), inheritedRouteLevelConfigSnapshots);
         registerActiveVersionRef(targetVersion);
         return targetRoute.getId();
     }
@@ -455,7 +457,8 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     private MesProRouteVersionDO createDraftCandidateRouteVersion(MesProRouteDO route,
                                                                   MesProRouteVersionDO activeVersion) {
         MesProRouteVersionDO candidate = createRouteVersion(route, nextVersionNo(route.getId()), activeVersion.getId(),
-                Boolean.FALSE, ROUTE_VERSION_STATUS_DRAFT, extractConfigSnapshots(activeVersion));
+                Boolean.FALSE, ROUTE_VERSION_STATUS_DRAFT,
+                buildCompleteRouteConfigSnapshots(route.getId(), activeVersion.getId()));
         platformAdapter.recordCandidateCreated(activeVersion, candidate, null, "route version candidate created");
         return candidate;
     }
@@ -753,10 +756,16 @@ public class MesProRouteServiceImpl implements MesProRouteService {
     }
 
     private void refreshRouteVersionSnapshot(MesProRouteDO route, Long routeVersionId) {
+        refreshRouteVersionSnapshot(route, routeVersionId, null);
+    }
+
+    private void refreshRouteVersionSnapshot(MesProRouteDO route, Long routeVersionId,
+                                             JSONObject inheritedConfigSnapshots) {
+        JSONObject configSnapshots = buildCompleteRouteConfigSnapshots(route.getId(), routeVersionId);
+        inheritConfigSnapshotIfMissing(configSnapshots, inheritedConfigSnapshots, BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
         MesProRouteVersionDO update = new MesProRouteVersionDO();
         update.setId(routeVersionId);
-        update.setRouteSnapshotJson(buildRouteSnapshotJson(
-                route, buildCompleteRouteConfigSnapshots(route.getId(), routeVersionId)));
+        update.setRouteSnapshotJson(buildRouteSnapshotJson(route, configSnapshots));
         routeVersionMapper.updateById(update);
     }
 
@@ -779,7 +788,39 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         configSnapshots.put(BATCH_USE_CONFIGS_KEY, buildBatchUseConfigSnapshots(routeId));
         configSnapshots.put(SCHEDULE_USE_CONFIGS_KEY, JSON.toJSON(routeFlowProcessConfigMapper
                 .selectListByRouteIdAndUseType(routeId, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())));
+        Object batchRecordAttachmentOwners =
+                resolveExistingConfigSnapshot(routeVersionId, BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
+        if (batchRecordAttachmentOwners != null) {
+            configSnapshots.put(BATCH_RECORD_ATTACHMENT_OWNERS_KEY, batchRecordAttachmentOwners);
+        }
         return configSnapshots;
+    }
+
+    private Object resolveExistingConfigSnapshot(Long routeVersionId, String configKey) {
+        if (routeVersionId == null || StrUtil.isBlank(configKey)) {
+            return null;
+        }
+        MesProRouteVersionDO routeVersion = routeVersionMapper.selectById(routeVersionId);
+        if (routeVersion == null || StrUtil.isBlank(routeVersion.getRouteSnapshotJson())) {
+            return null;
+        }
+        JSONObject snapshot;
+        try {
+            snapshot = JSON.parseObject(routeVersion.getRouteSnapshotJson());
+        } catch (RuntimeException ex) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        JSONObject configSnapshots = snapshot == null ? null : snapshot.getJSONObject(SNAPSHOT_CONFIGS_KEY);
+        if (configSnapshots == null || !configSnapshots.containsKey(configKey)) {
+            return null;
+        }
+        Object configSnapshot = configSnapshots.get(configKey);
+        if (configSnapshot == null
+                || (BATCH_RECORD_ATTACHMENT_OWNERS_KEY.equals(configKey)
+                && !(configSnapshot instanceof JSONArray))) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersionId);
+        }
+        return configSnapshot;
     }
 
     private JSONArray buildBatchUseConfigSnapshots(Long routeId) {
@@ -935,6 +976,33 @@ public class MesProRouteServiceImpl implements MesProRouteService {
         }
         JSONObject snapshot = JSON.parseObject(sourceVersion.getRouteSnapshotJson());
         return snapshot == null ? null : snapshot.getJSONObject(SNAPSHOT_CONFIGS_KEY);
+    }
+
+    private JSONObject extractReusableRouteLevelConfigSnapshots(MesProRouteVersionDO sourceVersion) {
+        JSONObject sourceConfigSnapshots = extractConfigSnapshots(sourceVersion);
+        if (sourceConfigSnapshots == null) {
+            return null;
+        }
+        JSONObject reusableConfigSnapshots = new JSONObject(true);
+        if (sourceConfigSnapshots.containsKey(BATCH_RECORD_ATTACHMENT_OWNERS_KEY)) {
+            Object owners = sourceConfigSnapshots.get(BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
+            if (!(owners instanceof JSONArray)) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, sourceVersion.getId());
+            }
+            reusableConfigSnapshots.put(BATCH_RECORD_ATTACHMENT_OWNERS_KEY, owners);
+        }
+        return reusableConfigSnapshots.isEmpty() ? null : reusableConfigSnapshots;
+    }
+
+    private void inheritConfigSnapshotIfMissing(JSONObject targetConfigSnapshots,
+                                                JSONObject inheritedConfigSnapshots,
+                                                String configKey) {
+        if (targetConfigSnapshots == null || inheritedConfigSnapshots == null
+                || targetConfigSnapshots.containsKey(configKey)
+                || !inheritedConfigSnapshots.containsKey(configKey)) {
+            return;
+        }
+        targetConfigSnapshots.put(configKey, inheritedConfigSnapshots.get(configKey));
     }
 
     private String buildRouteSnapshotJson(MesProRouteDO route, JSONObject configSnapshots) {

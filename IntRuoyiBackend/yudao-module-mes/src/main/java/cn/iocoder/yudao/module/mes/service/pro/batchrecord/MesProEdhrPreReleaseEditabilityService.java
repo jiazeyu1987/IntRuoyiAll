@@ -6,11 +6,9 @@ import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
-import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
-import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
 import jakarta.annotation.Resource;
@@ -27,7 +25,6 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRec
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_TASK_NOT_EXISTS;
-import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_STATUS_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_STATUS_INVALID;
@@ -35,8 +32,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWork
 @Service
 public class MesProEdhrPreReleaseEditabilityService {
 
-    public static final String PRE_RELEASE_EDITABLE_REASON = "\u653e\u884c\u524d\u53ef\u4fee\u6539\uff0c\u91cd\u65b0\u63d0\u4ea4\u5c06\u66f4\u65b0\u63d0\u4ea4\u7b7e\u540d\u8bc1\u636e";
-    public static final String PRE_RELEASE_LOCKED_REASON = "\u653e\u884c\u5ba1\u6279\u4e2d\uff0c\u4e0d\u5141\u8bb8\u4fee\u6539\u5df2\u63d0\u4ea4\u666e\u901a\u8868\u5355";
+    public static final String PRE_RELEASE_EDITABLE_REASON = "\u5173\u95ed\u524d\u53ef\u4fee\u6539\uff0c\u91cd\u65b0\u63d0\u4ea4\u5c06\u66f4\u65b0\u63d0\u4ea4\u7b7e\u540d\u8bc1\u636e";
 
     private static final int EXECUTION_STATUS_FILL_COMPLETED = MesProEdhrApprovalStatusMapping.EXECUTION_STATUS_FILL_COMPLETED;
     private static final Set<Integer> TERMINAL_BATCH_STATUSES = Set.of(
@@ -55,8 +51,6 @@ public class MesProEdhrPreReleaseEditabilityService {
     @Resource
     private MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
     @Resource
-    private MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
-    @Resource
     private MesProEdhrWorkTaskMapper workTaskMapper;
     @Resource
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
@@ -71,7 +65,6 @@ public class MesProEdhrPreReleaseEditabilityService {
         }
         MesProEdhrBatchExecutionTaskDO batchTask = requireRouteFormBatchTask(execution.getId());
         MesProEdhrBatchExecutionDO batch = requireMutableBatch(batchTask.getBatchExecutionId());
-        requireReleaseUnlocked(batch.getId());
         MesProEdhrWorkTaskDO workTask = validateHistoricalFillTask(workTaskId, execution.getId(), batchTask);
         return new MesProEdhrPreReleaseEditability(true, PRE_RELEASE_EDITABLE_REASON, batch, batchTask, workTask);
     }
@@ -108,10 +101,6 @@ public class MesProEdhrPreReleaseEditabilityService {
         MesProEdhrWorkTaskDO workTask = goldenFingerMode
                 ? selectHistoricalFillTaskForGoldenFinger(execution.getId(), batchTask.getId())
                 : selectHistoricalFillTaskForCurrentUser(execution.getId(), batchTask.getId());
-        MesProEdhrReleaseTransactionDO releaseTransaction = releaseTransactionMapper.selectByBatchExecutionId(batch.getId());
-        if (!goldenFingerMode && isReleasePendingApproval(releaseTransaction)) {
-            return MesProEdhrPreReleaseEditability.locked(PRE_RELEASE_LOCKED_REASON, batch, batchTask, workTask);
-        }
         if (workTask == null) {
             return MesProEdhrPreReleaseEditability.locked(null, batch, batchTask, null);
         }
@@ -145,17 +134,6 @@ public class MesProEdhrPreReleaseEditabilityService {
             throw exception(PRO_EDHR_BATCH_EXECUTION_STATUS_INVALID);
         }
         return batch;
-    }
-
-    private void requireReleaseUnlocked(Long batchExecutionId) {
-        if (isReleasePendingApproval(releaseTransactionMapper.selectByBatchExecutionId(batchExecutionId))) {
-            throw exception(PRO_EDHR_RELEASE_STATUS_INVALID);
-        }
-    }
-
-    private boolean isReleasePendingApproval(MesProEdhrReleaseTransactionDO releaseTransaction) {
-        return releaseTransaction != null
-                && MesProEdhrReleaseServiceImpl.STATUS_PENDING_APPROVAL.equals(releaseTransaction.getReleaseStatus());
     }
 
     private MesProEdhrWorkTaskDO validateHistoricalFillTask(Long workTaskId, Long executionId,

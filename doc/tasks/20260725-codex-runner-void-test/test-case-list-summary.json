@@ -1,0 +1,39 @@
+{
+  "baseUrl": "http://127.0.0.1:8081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "checkedAt": "2026-07-25T15:34:46.686Z",
+  "authProbe": {
+    "keys": [
+      "ACCESS_TOKEN",
+      "Hm_lvt_a1ff8825baa73c3a78eb96aa40325abc",
+      "REFRESH_TOKEN",
+      "iconify-count",
+      "iconify-version",
+      "lang",
+      "loginForm",
+      "loginTenantHistory",
+      "roleRouters",
+      "tenantId",
+      "user"
+    ],
+    "accessTokenRawExists": true,
+    "tenantIdRawExists": true,
+    "visitTenantIdRawExists": false
+  },
+  "authDebug": {
+    "hasAccessToken": true,
+    "hasTenantId": true,
+    "hasVisitTenantId": false,
+    "httpStatus": 200
+  },
+  "total": 1,
+  "names": [
+    {
+      "id": 1,
+      "name": "排产工单手动重排 881MO093613/881MO093615",
+      "status": "ENABLE",
+      "defaultExecutionMode": "SEQUENTIAL"
+    }
+  ]
+}

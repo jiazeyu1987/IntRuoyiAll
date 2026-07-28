@@ -63,7 +63,7 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
     ErrorCode PRO_EDHR_RELEASE_IDEMPOTENCY_KEY_REQUIRED =
             new ErrorCode(1_040_750_434, "eDHR 放行动作缺少幂等键");
     ErrorCode PRO_EDHR_RELEASE_OWNER_INVALID =
-            new ErrorCode(1_040_750_435, "仅批次负责人可放行 eDHR 批次：{}");
+            new ErrorCode(1_040_750_435, "仅放行责任人可放行 eDHR 批次：{}");
     ErrorCode PRO_EDHR_RELEASE_SIGNATURE_PASSWORD_REQUIRED =
             new ErrorCode(1_040_750_436, "eDHR 放行必须填写负责人电子签名密码");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_CLOSE_PRECHECK_REQUIRED =
@@ -104,4 +104,20 @@ public interface MesProEdhrBatchExecutionErrorCodeConstants {
             new ErrorCode(1_040_750_456, "本地 eDHR 状态样本只能由芋道源码/admin 当前租户创建");
     ErrorCode PRO_EDHR_BATCH_EXECUTION_NOT_VISIBLE =
             new ErrorCode(1_040_750_457, "当前用户不可查看该 eDHR 批次执行");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_GOLDEN_FINGER_REQUIRED =
+            new ErrorCode(1_040_750_458, "仅金手指角色允许执行该 eDHR 批次批量直通作废");
+    ErrorCode PRO_EDHR_BATCH_EXECUTION_BULK_VOID_EMPTY =
+            new ErrorCode(1_040_750_459, "当前筛选条件下没有可作废的 eDHR 批次执行");
+    ErrorCode PRO_EDHR_RECORDBOOK_GLOBAL_CONFIG_MISSING =
+            new ErrorCode(1_040_750_460, "eDHR 记录本全局开关配置缺失：{}");
+    ErrorCode PRO_EDHR_RECORDBOOK_GLOBAL_CONFIG_INVALID =
+            new ErrorCode(1_040_750_461, "eDHR 记录本全局开关配置值非法：{}={}");
+    ErrorCode PRO_EDHR_RECORDBOOK_GLOBAL_DISABLED =
+            new ErrorCode(1_040_750_462, "记录本全局开关已关闭，只允许使用批记录流程");
+    ErrorCode PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_MISSING =
+            new ErrorCode(1_040_750_463, "eDHR 放行资料限制配置缺失：{}");
+    ErrorCode PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_INVALID =
+            new ErrorCode(1_040_750_464, "eDHR 放行资料限制配置值非法：{}={}");
+    ErrorCode PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE =
+            new ErrorCode(1_040_750_465, "eDHR 放行资料限制配置已变更，请重新执行放行预检");
 }

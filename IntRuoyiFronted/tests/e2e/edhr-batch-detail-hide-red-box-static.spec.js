@@ -13,13 +13,13 @@ const detailPath = path.join(
   'edhr-batch',
   'BatchExecutionDetailPage.vue'
 )
-const detail = fs.readFileSync(detailPath, 'utf8')
+const detail = fs.readFileSync(detailPath, 'utf8').replace(/\r\n/g, '\n')
 const railStart = detail.indexOf('<aside class="edhr-batch-detail__review-rail"')
 const railEnd = detail.indexOf('</aside>', railStart)
 const rail = detail.slice(railStart, railEnd)
 const mainPreview = detail.slice(0, railStart)
 
-test('eDHR batch detail moves red-box metadata to right-side first-level rail', () => {
+test('eDHR batch detail hides right-side red-box fill metadata', () => {
   assert.ok(railStart >= 0 && railEnd > railStart, 'review rail must exist')
 
   assert.doesNotMatch(rail, /edhr-batch-detail__rail-process-forms-head/)
@@ -42,18 +42,23 @@ test('eDHR batch detail moves red-box metadata to right-side first-level rail', 
   assert.doesNotMatch(rail, /<div class="edhr-batch-detail__rail-label">我的填写状态<\/div>/)
 
   assert.match(rail, /class="edhr-batch-detail__rail-process-form-item"/)
-  assert.match(rail, /class="edhr-batch-detail__rail-execution-code"/)
-  assert.match(rail, /detail\?\.batchExecutionCode/)
+  assert.doesNotMatch(rail, /class="edhr-batch-detail__rail-execution-code"/)
+  assert.doesNotMatch(rail, /detail\?\.batchExecutionCode/)
+  assert.match(rail, /class="edhr-batch-detail__rail-process-form-name"/)
+  assert.match(rail, /resolveTaskCardDisplayName\(task\)/)
+  assert.match(rail, /class="edhr-batch-detail__rail-process-form-filler"/)
+  assert.match(rail, /resolveTaskCardFillersText\(task\)/)
   assert.match(rail, /class="edhr-batch-detail__rail-process-form-action"/)
   assert.match(rail, /handleSelectedPendingTaskAction/)
-  assert.match(rail, /class="edhr-batch-detail__primary-fill-meta"/)
-  assert.match(rail, /primaryFormFillMetaItems/)
-  assert.match(rail, /v-if="showPrimaryFormFillMeta"/)
+  assert.doesNotMatch(rail, /class="edhr-batch-detail__primary-fill-meta"/)
+  assert.doesNotMatch(rail, /primaryFormFillMetaItems/)
+  assert.doesNotMatch(rail, /v-if="showPrimaryFormFillMeta"/)
   assert.doesNotMatch(rail, /primaryFormFillMetaItems\.length/)
 
   assert.doesNotMatch(mainPreview, /class="edhr-batch-detail__primary-fill-meta"/)
-  assert.match(detail, /primaryFormFillMetaItems/)
-  assert.match(detail, /const showPrimaryFormFillMeta = computed/)
-  assert.match(detail, /label:\s*'填写人'/)
-  assert.match(detail, /label:\s*'提交时间'/)
+  assert.doesNotMatch(detail, /primaryFormFillMetaItems/)
+  assert.doesNotMatch(detail, /const showPrimaryFormFillMeta = computed/)
+  assert.doesNotMatch(detail, /type PrimaryFormFillMetaItem/)
+  assert.doesNotMatch(detail, /class="edhr-batch-detail__primary-fill-label"/)
+  assert.doesNotMatch(detail, /class="edhr-batch-detail__primary-fill-value"/)
 })

@@ -1,6 +1,6 @@
 # Codex Branch Runtime Handoff
 
-PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v1
+PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 
 ## What This Protects
 
@@ -13,6 +13,7 @@ All future Codex tasks must preserve these files and rules during merge, commit,
 - `docs/worktree-restrictions.md`
 - `scripts/preflight/branch-runtime-port-guard.ps1`
 - `scripts/runtime/branch-runtime-profile.ps1`
+- `scripts/runtime/reserve-worktree-slot.ps1`
 - `.githooks/pre-commit`
 - `.githooks/pre-merge-commit`
 - `.githooks/post-merge`
@@ -22,7 +23,8 @@ All future Codex tasks must preserve these files and rules during merge, commit,
 
 | Profile | Workspace | Frontend | Backend |
 | --- | --- | ---: | ---: |
-| `int_main` | `D:\ProjectPackage\IntRuoyi\IntRuoyiAll` | `8081` | `48081` |
+| `int_main_d` | `D:\ProjectPackage\IntRuoyi\IntRuoyiAll` | `8101` | `48101` |
+| `int_main` | `E:\IntRuoyi` | `8081` | `48081` |
 | `int_batch` | `E:\IntRuoyiBranch\BatchRecord\IntRuoyiAll` | `8041` | `48041` |
 | `int_shedule` | `E:\IntRuoyiBranch\Shedule\IntRuoyiAll` | `8021` | `48021` |
 | `int_qms` | `E:\IntRuoyiBranch\QMS\IntRuoyiAll` | `8061` | `48061` |
@@ -30,10 +32,20 @@ All future Codex tasks must preserve these files and rules during merge, commit,
 ## Worktree Rule
 
 - Base workspace uses `slot = 0`.
-- Additional worktree uses a stable positive slot.
+- Additional worktree uses a stable slot in `1..19`.
 - Frontend port = profile frontend base port + slot.
 - Backend port = profile backend base port + slot.
 - Examples: `int_main slot=1 -> 8082/48082`, `int_batch slot=1 -> 8042/48042`, `int_shedule slot=1 -> 8022/48022`, `int_qms slot=1 -> 8062/48062`.
+- `slot >= 20`, base-port collisions, duplicate active profile slots, and duplicate active ports must fail fast.
+- After creating the worktree directory and before starting either service, reserve the slot with the registry script:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\runtime\reserve-worktree-slot.ps1 `
+  -Name <worktree-directory-name> `
+  -Path D:\IntRuoyiWorktree\<worktree-directory-name> `
+  -Branch <branch-name> `
+  -Profile <runtime-profile>
+```
 
 ## Required First Commands For Future Codex Tasks
 
@@ -52,7 +64,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\runtime\start-branch
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\runtime\start-branch-backend.ps1 -Build
 ```
 
-For additional worktrees, pass the assigned slot:
+For registered additional worktrees, the runtime scripts read the assigned slot from the registry. An explicit `-Slot` is optional and must match the registered slot:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\runtime\start-branch-frontend.ps1 -Slot 1

@@ -12,8 +12,12 @@ for (const expected of [
   'data-flow-action="copy-process-form-bindings"',
   'data-route-process-setting-field="copy-process-form-bindings-source"',
   'data-flow-action="confirm-copy-process-form-bindings"',
+  'v-model:visible="processFormBindingCopyPopoverVisible"',
+  ':teleported="false"',
+  '@hide="handleProcessFormBindingCopyPopoverHide"',
   'getProcessFormBindingCopySourceOptions',
   'handleProcessFormBindingCopySourceChange',
+  'handleProcessFormBindingCopyPopoverHide',
   'copySelectedProcessFormBindingsFromSource'
 ]) {
   assert.ok(component.includes(expected), `动态表单列表必须支持从其他工序复制整组绑定关系: ${expected}`)
@@ -35,6 +39,18 @@ assert.match(
   component,
   /copySelectedProcessFormBindingsFromSource[\s\S]*syncSelectedRecordBindingsToDraft\(\)[\s\S]*message\.success\('已复制工序表单绑定关系'\)/,
   '整组复制完成后必须同步当前工序草稿并给出成功反馈。'
+)
+
+assert.match(
+  component,
+  /const processFormBindingCopyPopoverVisible\s*=\s*ref\(false\)[\s\S]*const processFormBindingCopySourceRouteProcessId\s*=\s*ref<number \| null>\(null\)/,
+  '复制弹层必须使用显式可见状态，避免内部下拉选择和 click-outside 竞争。'
+)
+
+assert.match(
+  component,
+  /copySelectedProcessFormBindingsFromSource[\s\S]*processFormBindingCopySourceRouteProcessId\.value\s*=\s*null[\s\S]*processFormBindingCopyPopoverVisible\.value\s*=\s*false[\s\S]*syncSelectedRecordBindingsToDraft\(\)/,
+  '整组复制成功后必须清空来源选择并显式关闭复制弹层。'
 )
 
 console.log('mes-route-flow-copy-process-form-bindings-static PASS')

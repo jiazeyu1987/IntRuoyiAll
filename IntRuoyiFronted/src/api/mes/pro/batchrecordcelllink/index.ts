@@ -18,6 +18,9 @@ export interface BatchRecordCellLinkCellVO {
   rowIndex: number
   columnIndex: number
   cellKey: string
+  sourceType?: string
+  sourceFieldCode?: string
+  sourceFieldName?: string
   label?: string
   valueType?: string
   componentFlag?: string
@@ -35,11 +38,14 @@ export interface BatchRecordCellLinkRuleVO {
   routeId?: number
   batchRecordDefinitionId?: number
   batchRecordVersionId?: number
+  sourceType?: string
   sourceReportId: string
   sourceReportName?: string
   sourceRowIndex: number
   sourceColumnIndex: number
   sourceCellKey?: string
+  sourceFieldCode?: string
+  sourceFieldName?: string
   sourceLabel?: string
   sourceValueType?: string
   targetReportId: string
@@ -63,9 +69,17 @@ export interface BatchRecordCellLinkWorkbenchContextVO {
   batchRecordDefinitionId?: number
   batchRecordVersionId?: number
   forms: BatchRecordCellLinkFormVO[]
+  sourceFields?: BatchRecordCellLinkSourceFieldVO[]
   defaultSourceReportId?: string
   defaultTargetReportId?: string
   rules: BatchRecordCellLinkRuleVO[]
+}
+
+export interface BatchRecordCellLinkSourceFieldVO {
+  sourceType: string
+  fieldCode: string
+  fieldName: string
+  valueType?: string
 }
 
 export interface BatchRecordCellLinkFormCellsVO {
@@ -99,9 +113,12 @@ export interface BatchRecordCellLinkPrefillItemVO {
   targetColumnIndex: number
   value?: unknown
   sourceExecutionId?: number
+  sourceType?: string
   sourceReportId?: string
   sourceReportName?: string
   sourceCellKey?: string
+  sourceFieldCode?: string
+  sourceFieldName?: string
   sourceLabel?: string
   ruleId?: number
   ruleVersion?: number
@@ -121,6 +138,8 @@ export const BatchRecordCellLinkApi = {
     definitionId?: number
     versionId?: number
     sourceReportId?: string
+    templateId?: number
+    versionNo?: string
   }) => {
     return await request.get<BatchRecordCellLinkWorkbenchContextVO>({
       url: '/mes/pro/batch-record-cell-link/workbench-context',

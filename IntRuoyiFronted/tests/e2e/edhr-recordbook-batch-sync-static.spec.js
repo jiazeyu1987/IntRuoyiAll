@@ -21,8 +21,16 @@ const templateRules = read('src/views/mes/pro/batchrecord-shared/batchRecordTemp
 const realE2E = read('tests/e2e/edhr-recordbook-batch-sync-real.e2e.js')
 
 assert.match(flowConfigApi, /recordbookEnabled\??:/, '路线批记录绑定类型必须包含 recordbookEnabled。')
-assert.match(routeDesigner, /data-route-process-setting-field="recordbook-enabled"/, '路线配置必须提供记录本启用开关。')
-assert.match(routeDesigner, /recordbookEnabled:\s*binding\.recordbookEnabled\s*!==\s*false/, '保存路线配置时必须默认启用记录本。')
+assert.doesNotMatch(routeDesigner, /data-route-process-setting-field="recordbook-enabled"/, '路线配置不得再显示记录本启用开关。')
+assert.doesNotMatch(
+  routeDesigner,
+  /recordbookEnabled:\s*(report|binding)\.recordbookEnabled\s*!==\s*false/,
+  '保存路线配置时不得继续保留历史关闭状态。'
+)
+assert.ok(
+  (routeDesigner.match(/recordbookEnabled:\s*true/g) || []).length >= 3,
+  '读取、草稿快照和保存 payload 都必须默认启用记录本。'
+)
 assert.match(
   routeDesigner,
   /hasSelectedScheduleCapacityDraftChanges/,
@@ -102,22 +110,15 @@ assert.match(
 )
 assert.match(templateRules, /'min', 'max', 'scale', 'precision'/, '数字规则清洗必须保留 min/max 以冻结到运行态快照。')
 
-assert.match(realE2E, /ensureDisabledRecordbookSampleViaUi/, '真实 E2E 必须通过现有页面创建记录本禁用样本。')
-assert.match(realE2E, /restoreRecordbookEnabledViaUi/, '真实 E2E 必须通过现有页面恢复记录本启用配置。')
-assert.match(realE2E, /disabled-recordbook-route-restore/, '真实 E2E 结果必须记录禁用样本后的路线恢复证据。')
-assert.match(realE2E, /openTargetRouteCandidateEditorFromList[\s\S]*getTargetRouteBinding\(page,\s*auth,\s*context\.routeVersionId\)/, '真实 E2E 必须通过候选编辑页读取并修改记录本开关。')
+assert.doesNotMatch(
+  realE2E,
+  /ensureDisabledRecordbookSampleViaUi|restoreRecordbookEnabledViaUi|setTargetRouteRecordbookSwitch|data-route-process-setting-field="recordbook-enabled"/,
+  '真实 E2E 不得继续尝试通过已隐藏的记录本开关创建禁用样本。'
+)
+assert.match(realE2E, /recordbook-default-entry/, '真实 E2E 必须保留记录本默认入口验证。')
 assert.doesNotMatch(realE2E, /routeSnapshotJson/, '真实 E2E 不得依赖路线版本接口未暴露的 routeSnapshotJson 字段。')
-assert.match(realE2E, /cancelStaleRouteCandidateViaUi/, '真实 E2E 发现旧草稿缺目标绑定时必须通过 UI 取消旧草稿。')
-assert.match(realE2E, /\/admin-api\/mes\/pro\/route-version\/cancel/, '旧草稿清理必须走路线版本取消接口的真实 UI 请求。')
 assert.match(realE2E, /async function waitForApprovalCenterTaskRow/, '真实 E2E 审批中心必须显式等待目标待办行渲染完成。')
 assert.match(realE2E, /waitForApprovalCenterTaskRow\(page,\s*rowTexts,\s*routeVersion\.id\)/, '路线版本审批必须通过等待后的待办行定位，不能在表格渲染前即时判空。')
-assert.match(realE2E, /async function resolvePendingTargetRouteCandidateViaUi/, '真实 E2E 必须处理目标路线遗留待审批候选，避免阻塞编辑入口。')
-assert.match(realE2E, /pendingResolution\?\.status === 'APPROVED_PENDING_MATCH'/, '遗留待审批候选已符合目标状态时必须通过审批中心 UI 审批后继续。')
-assert.match(realE2E, /APPROVED_PENDING_MISMATCH/, '遗留待审批候选与目标状态不一致时必须通过审批中心 UI 发布解除阻塞，再继续创建目标状态候选。')
 assert.doesNotMatch(realE2E, /withdrawPendingRouteCandidateViaUi/, '真实 E2E 不得依赖当前返回 500 的撤回路径作为恢复前置。')
-assert.match(realE2E, /\/admin-api\/mes\/pro\/route\/flow-config\/batch-record\/save/, '真实 E2E 提交路线候选发布前必须等待批记录绑定保存完成。')
-assert.match(realE2E, /batchConfigSaveBody/, '真实 E2E 必须断言批记录绑定保存响应成功，避免发布旧的记录本开关。')
-assert.match(realE2E, /data-flow-panel="selected-process-detail"/, '真实 E2E 切换记录本开关前必须等待工序详情面板加载完成。')
-assert.match(realE2E, /data-flow-status="unsaved"/, '真实 E2E 切换记录本开关后必须等待页面产生未保存草稿标记。')
 
 console.log('PASS: eDHR recordbook batch sync static contract')

@@ -20,12 +20,25 @@ export interface EdhrProcessFormCandidateRule {
   enabled?: boolean
   remark?: string | null
   candidateUsers?: EdhrProcessFormCandidateUser[]
+  candidateSourceNames?: string[]
 }
 
 export interface EdhrProcessFormSignatureRule {
   signatureCellKey: string
   signatureRole: EdhrProcessFormSignatureRole
   rule: EdhrProcessFormCandidateRule
+}
+
+export interface EdhrProcessFormFillAssignment {
+  scopeKey: string
+  candidateSourceType: EdhrProcessFormCandidateSourceType
+  candidateSourceIds: number[]
+  completionPolicy: EdhrProcessFormCompletionPolicy
+  dueMinutes?: number | null
+  enabled?: boolean
+  remark?: string | null
+  candidateUsers?: EdhrProcessFormCandidateUser[]
+  candidateSourceNames?: string[]
 }
 
 export interface EdhrProcessFormPermissionRuleRespVO {
@@ -35,6 +48,7 @@ export interface EdhrProcessFormPermissionRuleRespVO {
   signatureRuleStatus: 'CONFIGURED' | 'NOT_CONFIGURED' | 'CANDIDATE_EMPTY' | 'INCOMPLETE'
   permissionScopeId?: number | null
   fillRule?: EdhrProcessFormCandidateRule | null
+  fillAssignments?: EdhrProcessFormFillAssignment[]
   signatureRules: EdhrProcessFormSignatureRule[]
   updateTime?: string
   affectedRouteBindingCount?: number
@@ -49,7 +63,8 @@ export interface EdhrProcessFormPermissionRuleSaveVO {
 
 export interface EdhrBatchRecordFormPermissionRuleSaveVO {
   batchRecordReportId: string
-  fillRule: EdhrProcessFormCandidateRule
+  fillRule?: EdhrProcessFormCandidateRule | null
+  fillAssignments?: EdhrProcessFormFillAssignment[]
 }
 
 export const EdhrProcessFormPermissionRuleApi = {

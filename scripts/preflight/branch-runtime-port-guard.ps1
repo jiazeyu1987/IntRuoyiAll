@@ -45,8 +45,9 @@ function Assert-EnvPort {
 }
 
 $branch = Get-GitValue -RepoRoot $repoRoot -Arguments @('branch', '--show-current')
-$profile = Resolve-BranchRuntimeProfile -RepoRoot $repoRoot -Branch $branch
-$ports = Get-BranchRuntimePorts -Profile $profile -Slot 0
+$context = Resolve-BranchRuntimeContext -RepoRoot $repoRoot -Branch $branch
+$profile = $context.Profile
+$ports = $context.Ports
 
 Assert-Contains -RelativePath 'docs\branch-runtime-ports.md' -Needles @(
     $script:PortContractVersion,
@@ -69,11 +70,13 @@ Assert-Contains -RelativePath 'docs\branch-runtime-ports.md' -Needles @(
     '`int_qms`',
     'E:\IntRuoyiBranch\QMS\IntRuoyiAll',
     '`8061`',
-    '`48061`'
+    '`48061`',
+    '`1..19`',
+    'reserve-worktree-slot.ps1'
 )
 
 Assert-Contains -RelativePath 'docs\local-runtime.md' -Needles @(
-    'PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v2',
+    'PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3',
     '`int_main_d`',
     '`8101`',
     '`48101`',
@@ -88,24 +91,36 @@ Assert-Contains -RelativePath 'docs\local-runtime.md' -Needles @(
     '`48021`',
     '`int_qms`',
     '`8061`',
-    '`48061`'
+    '`48061`',
+    '`1..19`',
+    'reserve-worktree-slot.ps1'
 )
 
 Assert-Contains -RelativePath 'docs\worktree-restrictions.md' -Needles @(
-    'PORT_CONTRACT_VERSION: 2026-07-24-branch-runtime-v2',
+    'PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3',
     '`int_main_d` profile',
     '`int_main` profile',
     '`int_batch` profile',
     '`int_shedule` profile',
     '`int_qms` profile',
     'profile',
-    'slot'
+    'slot = 1..19',
+    'reserve-worktree-slot.ps1'
+)
+
+Assert-Contains -RelativePath 'docs\codex-branch-runtime-handoff.md' -Needles @(
+    'PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3',
+    'reserve-worktree-slot.ps1',
+    '`int_main_d`',
+    '`1..19`'
 )
 
 Assert-Contains -RelativePath 'AGENTS.md' -Needles @(
     'Branch runtime port matrix',
     'docs\branch-runtime-ports.md',
-    'int_main_d=8101/48101'
+    'int_main_d=8101/48101',
+    'slot in `1..19`',
+    'reserve-worktree-slot.ps1'
 )
 
 Assert-Contains -RelativePath 'IntRuoyiFronted\vite.config.ts' -Needles @(
@@ -125,6 +140,7 @@ if (Test-Path $legacySheduleEnv) {
 
 foreach ($required in @(
     'scripts\runtime\branch-runtime-profile.ps1',
+    'scripts\runtime\reserve-worktree-slot.ps1',
     'scripts\runtime\show-branch-runtime.ps1',
     'scripts\runtime\start-branch-frontend.ps1',
     'scripts\runtime\start-branch-backend.ps1',
@@ -138,6 +154,9 @@ foreach ($required in @(
         throw "Missing required file: $required"
     }
 }
+
+$registryEntries = @(Read-BranchRuntimePortRegistryEntries)
+Assert-BranchRuntimePortRegistryEntries -Entries $registryEntries
 
 $hooksPath = (& git -C $repoRoot config --get core.hooksPath)
 if ($LASTEXITCODE -ne 0 -or $hooksPath -ne '.githooks') {

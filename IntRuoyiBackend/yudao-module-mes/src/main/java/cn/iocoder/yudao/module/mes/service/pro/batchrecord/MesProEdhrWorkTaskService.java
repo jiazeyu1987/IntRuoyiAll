@@ -94,6 +94,8 @@ public interface MesProEdhrWorkTaskService {
 
     MesProEdhrWorkTaskDO completeFillAndCreateNextFillAfterOrdinarySubmit(Long workTaskId, Long executionId);
 
+    MesProEdhrWorkTaskDO completeRouteFormFillAndCreateNextFill(Long batchTaskId, Long actorUserId);
+
     MesProEdhrWorkTaskDO completeFillAndCreateNextFillAfterGoldenFingerSubmit(Long workTaskId, Long executionId);
 
     MesProEdhrWorkTaskDO completeOneReviewTask(Long workTaskId, Long executionId);

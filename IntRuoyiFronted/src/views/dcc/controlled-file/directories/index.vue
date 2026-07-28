@@ -95,7 +95,21 @@
       :load="loadDirectoryChildren"
       :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
     >
-      <el-table-column label="目录名称" min-width="280" prop="name" show-overflow-tooltip />
+      <el-table-column label="目录名称" min-width="280" prop="name" show-overflow-tooltip>
+        <template #default="{ row }">
+          <div class="directory-name-cell">
+            <span>{{ row.name }}</span>
+            <el-tag
+              v-if="resolveDirectoryChildLoadError(row)"
+              type="danger"
+              size="small"
+              :title="resolveDirectoryChildLoadError(row)"
+            >
+              子目录加载失败
+            </el-tag>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column align="center" fixed="right" label="操作" width="320">
         <template #default="{ row }">
           <el-button
@@ -206,6 +220,7 @@ const directories = ref<ControlledFileDirectoryVO[]>([])
 const queryFormRef = ref()
 const formRef = ref()
 const loadErrorMessage = ref('')
+const childLoadErrorMessages = reactive<Record<string, string>>({})
 const directoryFormMounted = ref(false)
 const deleteDialogVisible = ref(false)
 const deleteConfirmText = ref('')
@@ -237,10 +252,20 @@ const filteredDirectories = computed(() => {
   return filterTree(directories.value)
 })
 
+const clearDirectoryChildLoadErrors = () => {
+  for (const key of Object.keys(childLoadErrorMessages)) {
+    delete childLoadErrorMessages[key]
+  }
+}
+
+const resolveDirectoryChildLoadError = (row: ControlledFileDirectoryVO) =>
+  row.id ? childLoadErrorMessages[String(row.id)] || '' : ''
+
 const getList = async () => {
   loading.value = true
   try {
     directories.value = await getDirectoryChildren()
+    clearDirectoryChildLoadErrors()
     loadErrorMessage.value = ''
   } catch (error) {
     directories.value = []
@@ -266,10 +291,10 @@ const loadDirectoryChildren = async (
     const children = await getDirectoryChildren(row.id)
     row.children = children
     resolve(children)
-    loadErrorMessage.value = ''
+    delete childLoadErrorMessages[String(row.id)]
   } catch (error) {
     resolve([])
-    loadErrorMessage.value = resolveControlledFileReadErrorMessage(
+    childLoadErrorMessages[String(row.id)] = resolveControlledFileReadErrorMessage(
       error,
       '子目录加载失败，请确认 `/admin-api/dcc/directories/children` 接口已正常发布后重试。'
     )
@@ -314,6 +339,7 @@ const handleQuery = async (skipEmptyReset = false) => {
     directories.value = appliedQueryParams.name
       ? await searchDirectories(appliedQueryParams.name, 100)
       : await getDirectoryChildren()
+    clearDirectoryChildLoadErrors()
     loadErrorMessage.value = ''
   } catch (error) {
     directories.value = []
@@ -431,6 +457,13 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.directory-name-cell {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
 .directory-summary {
   display: grid;
   gap: 6px;

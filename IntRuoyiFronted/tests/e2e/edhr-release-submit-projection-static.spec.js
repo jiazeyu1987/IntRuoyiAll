@@ -14,20 +14,20 @@ assert.match(
 
 assert.match(
   detailPage,
-  /hasReleaseTransaction\.value\s*&&\s*releasePrecheckPassed\.value\s*&&\s*batchStatus\.value\s*===\s*EDHR_BATCH_STATUS_CLOSED/,
-  '放行预检通过、存在放行事务且批次已关闭时必须允许提交放行。'
+  /hasReleaseTransaction\.value\s*&&\s*releasePrecheckPassed\.value\s*&&\s*releaseCanSubmitBatchStatus\.value/,
+  '放行预检通过、存在放行事务且批次处于待关闭或已关闭状态时必须允许提交放行。'
 )
 
 assert.match(
   detailPage,
-  /if\s*\(\s*releaseStatus\.value\s*!==\s*'PENDING_APPROVAL'\s*\)\s*\{\s*return\s*\}/,
-  'PRECHECK_PASSED 已有放行事务时不能加载平台审批实例。'
+  /const\s+releaseCanSubmitBatchStatus\s*=\s*computed\([\s\S]*EDHR_BATCH_STATUS_READY_TO_CLOSE[\s\S]*EDHR_BATCH_STATUS_CLOSED/,
+  '负责人签名直接放行必须允许 PRECHECK_PASSED 的待关闭批次，并由后端同步冻结批次。'
 )
 
 assert.match(
   detailPage,
-  /pendingInstanceId:\s*activeReleaseAction\.value\?\.id/,
-  'pendingInstanceId 必须来自审批中的平台动作实例，不能直接使用 PRECHECK_PASSED 放行事务 ID。'
+  /pendingInstanceId:\s*[\s\S]*releasePendingApproval\.value[\s\S]*\?\s*workbench\.value\?\.releaseSummary\?\.releaseTransactionId[\s\S]*:\s*undefined/,
+  'pendingInstanceId 只能在 PENDING_APPROVAL 状态设置，不能让 PRECHECK_PASSED 放行事务误判为审批中。'
 )
 
 assert.match(

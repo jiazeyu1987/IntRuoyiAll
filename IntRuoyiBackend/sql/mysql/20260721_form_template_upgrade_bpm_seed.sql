@@ -447,6 +447,30 @@ BEGIN
       AND `info`.`deleted` = b'0'
   );
 
+  UPDATE `bpm_business_approval_policy` AS `policy`
+  SET `policy`.`process_definition_key` = CASE
+        WHEN `policy`.`policy_mode` = 'BPM_REQUIRED' THEN 'form-template-upgrade-v1'
+        ELSE `policy`.`process_definition_key`
+      END,
+      `policy`.`effect_executor_code` = 'FORM_TEMPLATE_UPGRADE',
+      `policy`.`updater` = 'codex',
+      `policy`.`update_time` = NOW()
+  WHERE `policy`.`tenant_id` IN (1, 122)
+    AND `policy`.`data_domain` = 'FORM_CENTER'
+    AND `policy`.`system_code` = 'FORM_CENTER'
+    AND `policy`.`object_type` = 'FORM_TEMPLATE'
+    AND `policy`.`action_code` = 'UPGRADE'
+    AND `policy`.`object_state` = 'DRAFT'
+    AND `policy`.`status` = 'PUBLISHED'
+    AND `policy`.`deleted` = b'0'
+    AND (
+      COALESCE(`policy`.`effect_executor_code`, '') <> 'FORM_TEMPLATE_UPGRADE'
+      OR (
+        `policy`.`policy_mode` = 'BPM_REQUIRED'
+        AND COALESCE(`policy`.`process_definition_key`, '') <> 'form-template-upgrade-v1'
+      )
+    );
+
   IF EXISTS (
     SELECT 1
     FROM `bpm_business_approval_policy`
@@ -476,14 +500,14 @@ BEGIN
       AND `policy`.`object_state` = 'DRAFT'
       AND `policy`.`status` = 'PUBLISHED'
       AND `policy`.`deleted` = b'0'
+      AND `policy`.`policy_mode` = 'BPM_REQUIRED'
       AND (
-        COALESCE(`policy`.`policy_mode`, '') <> 'BPM_REQUIRED'
-        OR COALESCE(`policy`.`process_definition_key`, '') <> 'form-template-upgrade-v1'
+        COALESCE(`policy`.`process_definition_key`, '') <> 'form-template-upgrade-v1'
         OR COALESCE(`policy`.`effect_executor_code`, '') <> 'FORM_TEMPLATE_UPGRADE'
       )
   ) THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Conflicting published form template upgrade business approval policy';
+      SET MESSAGE_TEXT = 'Conflicting published form template upgrade BPM_REQUIRED business approval policy';
   END IF;
 
   INSERT INTO `bpm_business_approval_policy` (

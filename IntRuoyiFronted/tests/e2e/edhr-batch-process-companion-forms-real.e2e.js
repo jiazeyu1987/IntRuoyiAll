@@ -209,10 +209,11 @@ function buildProcessStateGroups(detail) {
   )
 }
 
+function isRequiredBatchRecordTask(task) {
+  return task.requiredFlag !== false && Boolean(task.formTemplateId || task.batchRecordReportId)
+}
 function resolveExpectedProcessState(group) {
-  const requiredTasks = group.tasks.filter(
-    (task) => task.requiredFlag !== false && Boolean(task.batchRecordReportId)
-  )
+  const requiredTasks = group.tasks.filter(isRequiredBatchRecordTask)
   if (
     !requiredTasks.length ||
     requiredTasks.every(
@@ -228,9 +229,30 @@ function resolveExpectedProcessState(group) {
     : 'is-not-started'
 }
 
+function normalProcessGroupRoots(page) {
+  return page.locator(
+    '.edhr-batch-detail__process-task-group:not(.edhr-batch-detail__special-process-task-group)'
+  )
+}
+
+function buildExecutionTrackingUrl(detail, task) {
+  const query = new URLSearchParams({
+    id: String(task.executionId),
+    executionId: String(task.executionId),
+    batchExecutionId: String(detail.id),
+    batchTaskId: String(task.id),
+    viewMode: 'tracking',
+    returnPath: '/mes/pro/feedback/edhr-batch-execution/detail'
+  })
+  if (task.batchRecordReportId) {
+    query.set('reportId', String(task.batchRecordReportId))
+    query.set('batchRecordReportId', String(task.batchRecordReportId))
+  }
+  return `${BASE_URL}/mes/pro/feedback/edhr-execution/form?${query.toString()}`
+}
 async function verifyProcessStateBackgrounds(page, detail) {
   const groups = buildProcessStateGroups(detail)
-  const groupRoots = page.locator('.edhr-batch-detail__process-task-group')
+  const groupRoots = normalProcessGroupRoots(page)
   assert.equal(await groupRoots.count(), groups.length, '页面普通工序数量必须与接口工序组一致')
   const stateSummary = []
   for (let index = 0; index < groups.length; index += 1) {
@@ -299,7 +321,12 @@ async function findRealCompanionBatch(page, batchIds) {
       }
     }
   }
-  if (structuralCandidate) return { ...structuralCandidate, scanned }
+  if (structuralCandidate) {
+    const detail = await loadBatchDetail(page, structuralCandidate.detail.id)
+    const group = findStructuralGroup(detail)
+    assert(group, `结构化候选批次 ${structuralCandidate.detail.id} 重新加载后缺少可验收工序组`)
+    return { detail, group, scanned, coverage: structuralCandidate.coverage }
+  }
   throw new Error(
     `当前租户批次中未找到 MAIN/LOSS_REPORT/PROCESS_INSPECTION/PARAMETER_RECORD 同工序任务组：${JSON.stringify(scanned)}`
   )
@@ -312,11 +339,11 @@ async function verifyGroupedForms(page, detail, group, coverage) {
       .map((task) => task.routeProcessId)
   ).size
   assert.equal(
-    await page.locator('.edhr-batch-detail__process-task-group').count(),
+    await normalProcessGroupRoots(page).count(),
     routeProcessCount,
     '批次详情必须按 routeProcessId 渲染工序组'
   )
-  const groupRoot = page.locator('.edhr-batch-detail__process-task-group').filter({
+  const groupRoot = normalProcessGroupRoots(page).filter({
     hasText: group[0].processName || group[0].processCode
   }).first()
   await groupRoot.waitFor({ state: 'visible', timeout: 60000 })
@@ -373,20 +400,29 @@ async function verifyGroupedForms(page, detail, group, coverage) {
 async function verifyReturnContext(page, detail, group) {
   const task = group.find((item) => item.executionId)
   assert(task, '同工序真实任务组缺少可只读打开的既有执行记录')
-  await page.goto(
-    `${BASE_URL}/mes/pro/feedback/edhr-execution/form?id=${task.executionId}` +
-      `&batchExecutionId=${detail.id}&batchTaskId=${task.id}` +
-      '&returnPath=/mes/pro/feedback/edhr-batch-execution/detail',
-    { waitUntil: 'domcontentloaded', timeout: 60000 }
-  )
+  await page.goto(buildExecutionTrackingUrl(detail, task), { waitUntil: 'domcontentloaded', timeout: 60000 })
   const formTitle = page.locator('.edhr-page-shell__title').first()
   await formTitle.waitFor({ state: 'visible', timeout: 60000 })
   const formTitleText = (await formTitle.innerText()).trim()
-  assert.match(formTitleText, /填写$/, `执行表单路由必须显示填写标题，实际为：${formTitleText}`)
-  assert.notEqual(formTitleText, 'eDHR 执行详情', '执行表单路由不得继续显示执行详情标题')
-  assert.equal(await page.getByText('执行摘要', { exact: true }).count(), 0, '填写模式不得显示执行摘要')
-  assert.equal(await page.getByText('技术证据', { exact: true }).count(), 0, '填写模式不得显示技术证据')
-  assert.equal(await page.getByText('最终表单归档', { exact: true }).count(), 0, '填写模式不得显示归档区')
+  assert.equal(formTitleText, 'eDHR 追踪详情', `只读执行记录必须进入追踪详情，实际为：${formTitleText}`)
+  const trackingForm = page.locator('.edhr-page-shell__tracking-form').first()
+  try {
+    await trackingForm.waitFor({ state: 'visible', timeout: 60000 })
+  } catch (error) {
+    const diagnosticText = await page.locator('body').innerText().catch(() => '')
+    await page.screenshot({
+      path: path.join(RESULT_DIR, 'execution-tracking-load-failure.png'),
+      fullPage: true
+    }).catch(() => undefined)
+    throw new Error(`执行记录只读追踪区域未渲染：${diagnosticText.slice(0, 600)}`)
+  }
+  const formBodyText = await page.locator('body').innerText()
+  assert(
+    !/对象级权限不足|eDHR 执行页加载失败|无法渲染执行表单/.test(formBodyText),
+    `执行记录只读路由不得显示加载或权限错误：${formBodyText.slice(0, 300)}`
+  )
+  assert.equal(await page.locator('.edhr-fill-workspace').count(), 0, '只读追踪模式不得渲染填写工作区')
+  await page.getByText('电子批记录表单', { exact: true }).waitFor({ state: 'visible', timeout: 60000 })
   const backButton = page.getByRole('button', { name: '返回批次详情' }).first()
   await backButton.waitFor({ state: 'visible', timeout: 60000 })
   await backButton.click()
@@ -398,7 +434,6 @@ async function verifyReturnContext(page, detail, group) {
     { timeout: 60000 }
   )
 }
-
 async function main() {
   requirePrerequisites()
   fs.mkdirSync(RESULT_DIR, { recursive: true })

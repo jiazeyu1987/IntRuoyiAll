@@ -1,5 +1,7 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo;
 
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.BatchRecordCellLinkAutoPersistResult;
+
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -14,6 +16,8 @@ public class EdhrBatchExecutionTaskOpenRespVO {
     private Long executionId;
 
     private Long workTaskId;
+
+    private Long assistUserId;
 
     private Long routeProcessId;
 
@@ -72,4 +76,6 @@ public class EdhrBatchExecutionTaskOpenRespVO {
     private Integer status;
 
     private Map<String, Object> executionPageQuery;
+
+    private BatchRecordCellLinkAutoPersistResult cellLinkAutoPersist;
 }

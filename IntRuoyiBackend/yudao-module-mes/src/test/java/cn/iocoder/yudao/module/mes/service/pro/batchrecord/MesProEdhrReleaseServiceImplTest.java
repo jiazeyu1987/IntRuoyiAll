@@ -2,28 +2,41 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
+import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO;
+import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper;
+import cn.iocoder.yudao.module.bpm.formcenter.model.FormInstanceStatus;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleasePageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleasePrecheckReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrReleaseSubmitReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionAttachmentDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionSignatureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseCheckItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionAttachmentMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionSignatureMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseCheckItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrReleaseTransactionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
+import cn.iocoder.yudao.module.system.api.dept.DeptApi;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.context.annotation.Import;
@@ -31,8 +44,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.test.core.util.RandomUtils.randomLongId;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_CANDIDATE_POOL_EMPTY;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.USER_PASSWORD_FAILED;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -44,8 +60,9 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-@Import(MesProEdhrReleaseServiceImpl.class)
+@Import({MesProEdhrReleaseServiceImpl.class, MesProEdhrCandidateResolver.class})
 class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
 
     @Resource
@@ -59,6 +76,10 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     @Resource
     private MesProBatchRecordExecutionSignatureMapper signatureMapper;
     @Resource
+    private MesProBatchRecordExecutionAttachmentMapper attachmentMapper;
+    @Resource
+    private MesProEdhrReleaseCheckItemMapper releaseCheckItemMapper;
+    @Resource
     private MesProEdhrReleaseTransactionMapper releaseTransactionMapper;
     @Resource
     private MesProEdhrBatchExecutionSignatureMapper batchSignatureMapper;
@@ -67,9 +88,26 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     @MockitoBean
     private AdminUserApi adminUserApi;
     @MockitoBean
+    private PermissionApi permissionApi;
+    @MockitoBean
+    private DeptApi deptApi;
+    @MockitoBean
     private MesProEdhrWorkTaskService workTaskService;
     @MockitoBean
     private MesProEdhrOperationAuditService operationAuditService;
+    @MockitoBean
+    private FormActionInstanceMapper formActionInstanceMapper;
+    @MockitoBean
+    private MesProEdhrReleaseDossierRequirementSettingService dossierRequirementSettingService;
+
+    @BeforeEach
+    void setUpDossierRequirementDefaults() {
+        mockDossierRequirementState(false, false, false, false, "dossier-hash-all-false");
+        when(adminUserApi.getUser(any())).thenAnswer(invocation -> {
+            Long userId = invocation.getArgument(0);
+            return user(userId, "用户" + userId);
+        });
+    }
 
     @Test
     void precheckFailsWhenOrdinaryProcessMissingSubmitSignature() {
@@ -77,8 +115,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7101L);
         insertCompletedExecution(task.getExecutionId(), false);
 
-        MesProEdhrReleaseRespVO result = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(batch.getId()));
+        MesProEdhrReleaseRespVO result = precheckAsUser(10001L, batch.getId());
 
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_FAIL, result.getDhrStatus());
     }
@@ -89,10 +126,46 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7201L);
         insertCompletedExecution(task.getExecutionId(), true);
 
-        MesProEdhrReleaseRespVO result = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(batch.getId()));
+        MesProEdhrReleaseRespVO result = precheckAsUser(10001L, batch.getId());
 
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.getDhrStatus());
+    }
+
+    @Test
+    void precheckDhrCompletenessPassesWhenBatchSharedFormCenterRouteTaskIsEffective() {
+        MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-FORMCENTER-SHARED-EFFECTIVE");
+        MesProEdhrBatchExecutionTaskDO firstSharedTask = insertApprovedFormCenterRouteTask(batch.getId(), 83001L,
+                "LOSS_SHARED", 0);
+        MesProEdhrBatchExecutionTaskDO laterSharedTask = insertApprovedFormCenterRouteTask(batch.getId(), 83001L,
+                "LOSS_SHARED", 1);
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batch.getId())
+                .setTaskTotal(2)
+                .setTaskApprovedCount(2));
+        when(formActionInstanceMapper.selectById(83001L))
+                .thenReturn(FormActionInstanceDO.builder()
+                        .id(83001L)
+                        .instanceCode("FCI-REL-FORMCENTER-SHARED")
+                        .tenantId(1L)
+                        .policyId(1L)
+                        .applicantUserId(10001L)
+                        .status(FormInstanceStatus.EFFECTIVE.name())
+                        .dataDomain("MES")
+                        .systemCode("MES")
+                        .objectType("EDHR_ROUTE_FORM")
+                        .objectId(String.valueOf(firstSharedTask.getId()))
+                        .objectVersion("9001")
+                        .actionCode("EDHR_RF_9001_LOSS_SHARED")
+                        .objectState("ACTIVE")
+                        .idempotencyKey("EDHR_ROUTE_FORM:" + batch.getId() + ":" + firstSharedTask.getId() + ":LOSS_SHARED")
+                        .businessContextJson("{}")
+                        .formDataJson("{}")
+                        .build());
+
+        MesProEdhrReleaseRespVO result = precheckAsUser(10001L, batch.getId());
+
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.getDhrStatus());
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, result.getReleaseStatus());
     }
 
     @Test
@@ -107,22 +180,149 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .setTaskTotal(3)
                 .setTaskApprovedCount(1));
 
-        MesProEdhrReleaseRespVO result = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(batch.getId()));
+        MesProEdhrReleaseRespVO result = precheckAsUser(10001L, batch.getId());
 
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, result.getDhrStatus());
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, result.getReleaseStatus());
     }
 
     @Test
+    void precheckDossierRequirementsDefaultOffDoNotBlockIncompleteSpecialNodes() {
+        MesProEdhrBatchExecutionDO batch = insertReadyToCloseBatch("BATCH-REL-DOSSIER-DEFAULT-OFF");
+        MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7261L);
+        insertCompletedExecution(task.getExecutionId(), true);
+        insertWaitingSpecialTask(batch.getId(), MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT);
+        insertWaitingSpecialTask(batch.getId(), MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_STERILIZATION_REPORT);
+        insertWaitingSpecialTask(batch.getId(),
+                MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_FINISHED_PRODUCT_INSPECTION_REPORT);
+        insertWaitingSpecialTask(batch.getId(),
+                MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_FINISHED_PRODUCT_INSPECTION_RECORD);
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batch.getId())
+                .setTaskTotal(5)
+                .setTaskApprovedCount(1));
+
+        MesProEdhrReleaseRespVO result = precheckAsUser(10001L, batch.getId());
+
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, result.getReleaseStatus());
+        assertEquals(0, result.getFailedCheckCount());
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE,
+                selectCheckItem(result.getReleaseTransactionId(),
+                        MesProEdhrReleaseServiceImpl.CHECK_DOSSIER_INCOMING_INSPECTION_REPORT).getCheckResult());
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE,
+                selectCheckItem(result.getReleaseTransactionId(),
+                        MesProEdhrReleaseServiceImpl.CHECK_DOSSIER_STERILIZATION_REPORT).getCheckResult());
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE,
+                selectCheckItem(result.getReleaseTransactionId(),
+                        MesProEdhrReleaseServiceImpl.CHECK_DOSSIER_FINISHED_PRODUCT_INSPECTION_REPORT).getCheckResult());
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE,
+                selectCheckItem(result.getReleaseTransactionId(),
+                        MesProEdhrReleaseServiceImpl.CHECK_DOSSIER_FINISHED_PRODUCT_INSPECTION_RECORD).getCheckResult());
+    }
+
+    @Test
+    void precheckDossierRequirementFailsForEachEnabledSpecialNodeWithoutSavedAttachment() {
+        List<DossierRequirementCase> cases = List.of(
+                new DossierRequirementCase(MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT,
+                        MesProEdhrReleaseServiceImpl.CHECK_DOSSIER_INCOMING_INSPECTION_REPORT,
+                        true, false, false, false),
+                new DossierRequirementCase(MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_STERILIZATION_REPORT,
+                        MesProEdhrReleaseServiceImpl.CHECK_DOSSIER_STERILIZATION_REPORT,
+                        false, true, false, false),
+                new DossierRequirementCase(
+                        MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_FINISHED_PRODUCT_INSPECTION_REPORT,
+                        MesProEdhrReleaseServiceImpl.CHECK_DOSSIER_FINISHED_PRODUCT_INSPECTION_REPORT,
+                        false, false, true, false),
+                new DossierRequirementCase(
+                        MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_FINISHED_PRODUCT_INSPECTION_RECORD,
+                        MesProEdhrReleaseServiceImpl.CHECK_DOSSIER_FINISHED_PRODUCT_INSPECTION_RECORD,
+                        false, false, false, true));
+
+        for (DossierRequirementCase requirementCase : cases) {
+            mockDossierRequirementState(requirementCase.incomingRequired(), requirementCase.sterilizationRequired(),
+                    requirementCase.finishedReportRequired(), requirementCase.finishedRecordRequired(),
+                    "dossier-hash-" + requirementCase.nodeType());
+            MesProEdhrBatchExecutionDO batch = insertReadyToCloseBatch("BATCH-REL-DOSSIER-FAIL-"
+                    + requirementCase.nodeType());
+            MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), randomLongId());
+            insertCompletedExecution(task.getExecutionId(), true);
+            insertWaitingSpecialTask(batch.getId(), requirementCase.nodeType());
+            batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                    .setId(batch.getId())
+                    .setTaskTotal(2)
+                    .setTaskApprovedCount(1));
+
+            MesProEdhrReleaseRespVO result = precheckAsUser(10001L, batch.getId());
+            MesProEdhrReleaseCheckItemDO item =
+                    selectCheckItem(result.getReleaseTransactionId(), requirementCase.checkCode());
+
+            assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_FAILED, result.getReleaseStatus(),
+                    requirementCase.nodeType());
+            assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_BLOCKER, item.getCheckResult(),
+                    requirementCase.nodeType());
+            assertEquals("BLOCKER", item.getSeverity(), requirementCase.nodeType());
+            assertTrue(item.getFailureReason().contains("未完成")
+                    || item.getFailureReason().contains("缺少已保存 ADD 附件"), requirementCase.nodeType());
+        }
+    }
+
+    @Test
+    void precheckDossierRequirementPassesWhenSpecialNodeApprovedAndSavedAddAttachmentExists() {
+        mockDossierRequirementState(true, false, false, false, "dossier-hash-incoming-required");
+        MesProEdhrBatchExecutionDO batch = insertReadyToCloseBatch("BATCH-REL-DOSSIER-PASS-INCOMING");
+        MesProEdhrBatchExecutionTaskDO ordinaryTask = insertApprovedOrdinaryTask(batch.getId(), 7271L);
+        insertCompletedExecution(ordinaryTask.getExecutionId(), true);
+        MesProEdhrBatchExecutionTaskDO specialTask = insertSpecialTask(batch.getId(),
+                MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_INCOMING_INSPECTION_REPORT,
+                MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED);
+        insertSavedSpecialNodeAttachment(specialTask, "ADD", "SPECIAL_NODE:9001",
+                "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
+        batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
+                .setId(batch.getId())
+                .setTaskTotal(2)
+                .setTaskApprovedCount(2));
+
+        MesProEdhrReleaseRespVO result = precheckAsUser(10001L, batch.getId());
+        MesProEdhrReleaseCheckItemDO item = selectCheckItem(result.getReleaseTransactionId(),
+                MesProEdhrReleaseServiceImpl.CHECK_DOSSIER_INCOMING_INSPECTION_REPORT);
+
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, result.getReleaseStatus());
+        assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, item.getCheckResult());
+        assertEquals("INFO", item.getSeverity());
+    }
+
+    @Test
+    void submitRejectsWhenDossierRequirementConfigHashChangedAfterPrecheck() {
+        mockDossierRequirementState(false, false, false, false, "dossier-hash-before-submit");
+        MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-DOSSIER-HASH-STALE");
+        insertRouteReleaseOwnerRule(batch.getRouteId(), 10001L);
+        MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7281L);
+        insertCompletedExecution(task.getExecutionId(), true);
+        MesProEdhrReleaseRespVO precheck = precheckAsUser(10001L, batch.getId());
+        mockDossierRequirementState(true, false, false, false, "dossier-hash-after-submit");
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            ServiceException exception = assertThrows(ServiceException.class,
+                    () -> releaseService.submit(new MesProEdhrReleaseSubmitReqVO()
+                            .setReleaseTransactionId(precheck.getReleaseTransactionId())
+                            .setIdempotencyKey("submit-dossier-hash-stale")
+                            .setPassword("owner-sign-secret")));
+            assertEquals(PRO_EDHR_RELEASE_DOSSIER_REQUIREMENT_CONFIG_STALE.getCode(), exception.getCode());
+        }
+
+        assertEquals(0, batchSignatureMapper.selectListByBatchExecutionId(batch.getId()).size());
+        verify(adminUserApi, never()).validatePassword(10001L, "owner-sign-secret");
+    }
+
+    @Test
     void submitReleasesDirectlyWhenOwnerSignsAndDhrPassesAndExternalSourcesAreNotYetIntegrated() {
         MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-DHR-PASS-SOURCE-NA");
-        insertRouteCloseOwnerRule(batch.getRouteId(), 10001L);
+        insertRouteReleaseOwnerRule(batch.getRouteId(), 10001L);
         MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7301L);
         insertCompletedExecution(task.getExecutionId(), true);
 
-        MesProEdhrReleaseRespVO precheck = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(batch.getId()));
+        MesProEdhrReleaseRespVO precheck = precheckAsUser(10001L, batch.getId());
 
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, precheck.getReleaseStatus());
         assertEquals(0, precheck.getFailedCheckCount());
@@ -164,12 +364,11 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     @Test
     void submitReleasesDirectlyBeforeBatchCloseWhenOwnerSignsAndDhrEvidenceIsComplete() {
         MesProEdhrBatchExecutionDO batch = insertReadyToCloseBatch("BATCH-REL-PRE-CLOSE-DHR-PASS");
-        insertRouteCloseOwnerRule(batch.getRouteId(), 10001L);
+        insertRouteReleaseOwnerRule(batch.getRouteId(), 10001L);
         MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7401L);
         insertCompletedExecution(task.getExecutionId(), true);
 
-        MesProEdhrReleaseRespVO precheck = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(batch.getId()));
+        MesProEdhrReleaseRespVO precheck = precheckAsUser(10001L, batch.getId());
 
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, precheck.getReleaseStatus());
         assertEquals(MesProEdhrReleaseServiceImpl.CHECK_RESULT_PASS, precheck.getDhrStatus());
@@ -184,17 +383,47 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         }
 
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED, submitted.getReleaseStatus());
+        MesProEdhrBatchExecutionDO releasedBatch = batchExecutionMapper.selectById(batch.getId());
+        assertEquals(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED, releasedBatch.getStatus());
+        assertNotNull(releasedBatch.getClosedAt());
+        assertEquals(10001L, releasedBatch.getClosedBy());
+        verify(workTaskService).createArchiveTaskAfterBatchClose(any());
         verify(workTaskService, never()).createReleaseApprovalTaskAfterSubmit(any(), any());
     }
 
     @Test
-    void submitRejectsWhenCurrentUserIsNotRouteCloseOwner() {
+    void submitReleasesDirectlyWhenRouteReleaseRoleMemberSigns() {
+        MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-ROLE-MEMBER");
+        insertRouteReleaseOwnerRoleRule(batch.getRouteId(), 8802L);
+        when(permissionApi.getUserRoleIdListByRoleIds(Set.of(8802L))).thenReturn(Set.of(10002L));
+        when(adminUserApi.getUserList(Set.of(10002L))).thenReturn(List.of(user(10002L, "角色放行人")));
+        MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7402L);
+        insertCompletedExecution(task.getExecutionId(), true);
+
+        MesProEdhrReleaseRespVO precheck = precheckAsUser(10001L, batch.getId());
+
+        MesProEdhrReleaseRespVO submitted;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10002L);
+            submitted = releaseService.submit(new MesProEdhrReleaseSubmitReqVO()
+                    .setReleaseTransactionId(precheck.getReleaseTransactionId())
+                    .setIdempotencyKey("submit-role-member-dhr-pass")
+                    .setPassword("role-owner-sign-secret"));
+        }
+
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_RELEASED, submitted.getReleaseStatus());
+        assertEquals(10002L, submitted.getSubmittedBy());
+        assertEquals(10002L, submitted.getApprovedBy());
+        verify(adminUserApi).validatePassword(10002L, "role-owner-sign-secret");
+    }
+
+    @Test
+    void submitRejectsWhenCurrentUserIsNotRouteReleaseOwner() {
         MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-NON-OWNER");
-        insertRouteCloseOwnerRule(batch.getRouteId(), 10001L);
+        insertRouteReleaseOwnerRule(batch.getRouteId(), 10001L);
         MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7501L);
         insertCompletedExecution(task.getExecutionId(), true);
-        MesProEdhrReleaseRespVO precheck = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(batch.getId()));
+        MesProEdhrReleaseRespVO precheck = precheckAsUser(10001L, batch.getId());
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10002L);
@@ -216,12 +445,11 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     @Test
     void submitRejectsWhenOwnerSignaturePasswordIsMissingOrInvalid() {
         MesProEdhrBatchExecutionDO missingPasswordBatch = insertClosedBatch("BATCH-REL-MISSING-SIGNATURE");
-        insertRouteCloseOwnerRule(missingPasswordBatch.getRouteId(), 10001L);
+        insertRouteReleaseOwnerRule(missingPasswordBatch.getRouteId(), 10001L);
         MesProEdhrBatchExecutionTaskDO missingPasswordTask =
                 insertApprovedOrdinaryTask(missingPasswordBatch.getId(), 7601L);
         insertCompletedExecution(missingPasswordTask.getExecutionId(), true);
-        MesProEdhrReleaseRespVO missingPasswordPrecheck = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(missingPasswordBatch.getId()));
+        MesProEdhrReleaseRespVO missingPasswordPrecheck = precheckAsUser(10001L, missingPasswordBatch.getId());
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
@@ -237,12 +465,11 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         assertEquals(0, batchSignatureMapper.selectListByBatchExecutionId(missingPasswordBatch.getId()).size());
 
         MesProEdhrBatchExecutionDO invalidPasswordBatch = insertClosedBatch("BATCH-REL-INVALID-SIGNATURE");
-        insertRouteCloseOwnerRule(invalidPasswordBatch.getRouteId(), 10001L);
+        insertRouteReleaseOwnerRule(invalidPasswordBatch.getRouteId(), 10001L);
         MesProEdhrBatchExecutionTaskDO invalidPasswordTask =
                 insertApprovedOrdinaryTask(invalidPasswordBatch.getId(), 7602L);
         insertCompletedExecution(invalidPasswordTask.getExecutionId(), true);
-        MesProEdhrReleaseRespVO invalidPasswordPrecheck = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(invalidPasswordBatch.getId()));
+        MesProEdhrReleaseRespVO invalidPasswordPrecheck = precheckAsUser(10001L, invalidPasswordBatch.getId());
         doThrow(new ServiceException(USER_PASSWORD_FAILED)).when(adminUserApi).validatePassword(10001L, "wrong-pass");
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
@@ -258,6 +485,56 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 releaseTransactionMapper.selectById(invalidPasswordPrecheck.getReleaseTransactionId()).getReleaseStatus());
         assertEquals(0, batchSignatureMapper.selectListByBatchExecutionId(invalidPasswordBatch.getId()).size());
         verify(workTaskService, never()).createReleaseApprovalTaskAfterSubmit(any(), any());
+    }
+
+    @Test
+    void submitRejectsWhenOnlyRouteCloseOwnerIsConfigured() {
+        MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-CLOSE-OWNER-NOT-RELEASE");
+        insertRouteCloseOwnerRule(batch.getRouteId(), 10001L);
+        MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7603L);
+        insertCompletedExecution(task.getExecutionId(), true);
+        MesProEdhrReleaseRespVO precheck = precheckAsUser(10001L, batch.getId());
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            ServiceException exception = assertThrows(ServiceException.class,
+                    () -> releaseService.submit(new MesProEdhrReleaseSubmitReqVO()
+                            .setReleaseTransactionId(precheck.getReleaseTransactionId())
+                            .setIdempotencyKey("submit-close-owner-without-release-owner")
+                            .setPassword("owner-sign-secret")
+                            .setSubmitReason("关闭负责人不能替代放行负责人")));
+            assertEquals(1_040_750_435, exception.getCode());
+        }
+
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED,
+                releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()).getReleaseStatus());
+        assertEquals(0, batchSignatureMapper.selectListByBatchExecutionId(batch.getId()).size());
+        verify(adminUserApi, never()).validatePassword(10001L, "owner-sign-secret");
+    }
+
+    @Test
+    void submitRejectsWhenRouteReleaseRoleHasNoEnabledMembers() {
+        MesProEdhrBatchExecutionDO batch = insertClosedBatch("BATCH-REL-EMPTY-ROLE");
+        insertRouteReleaseOwnerRoleRule(batch.getRouteId(), 8803L);
+        when(permissionApi.getUserRoleIdListByRoleIds(Set.of(8803L))).thenReturn(Set.of());
+        MesProEdhrBatchExecutionTaskDO task = insertApprovedOrdinaryTask(batch.getId(), 7604L);
+        insertCompletedExecution(task.getExecutionId(), true);
+        MesProEdhrReleaseRespVO precheck = precheckAsUser(10001L, batch.getId());
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            ServiceException exception = assertThrows(ServiceException.class,
+                    () -> releaseService.submit(new MesProEdhrReleaseSubmitReqVO()
+                            .setReleaseTransactionId(precheck.getReleaseTransactionId())
+                            .setIdempotencyKey("submit-empty-release-role")
+                            .setPassword("owner-sign-secret")));
+            assertEquals(PRO_EDHR_WORK_TASK_CANDIDATE_POOL_EMPTY.getCode(), exception.getCode());
+        }
+
+        assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED,
+                releaseTransactionMapper.selectById(precheck.getReleaseTransactionId()).getReleaseStatus());
+        assertEquals(0, batchSignatureMapper.selectListByBatchExecutionId(batch.getId()).size());
+        verify(adminUserApi, never()).validatePassword(10001L, "owner-sign-secret");
     }
 
     @Test
@@ -302,8 +579,7 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .version(1)
                 .build());
 
-        MesProEdhrReleaseRespVO result = releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
-                .setBatchExecutionId(batch.getId()));
+        MesProEdhrReleaseRespVO result = precheckAsUser(10001L, batch.getId());
 
         assertEquals(transactionId, result.getReleaseTransactionId());
         assertEquals(MesProEdhrReleaseServiceImpl.STATUS_PRECHECK_PASSED, result.getReleaseStatus());
@@ -424,6 +700,39 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         return insertClosedBatch(null, batchCode);
     }
 
+    private MesProEdhrReleaseRespVO precheckAsUser(Long actorUserId, Long batchExecutionId) {
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(actorUserId);
+            return releaseService.precheck(new MesProEdhrReleasePrecheckReqVO()
+                    .setBatchExecutionId(batchExecutionId));
+        }
+    }
+
+    private void mockDossierRequirementState(boolean incomingRequired,
+                                             boolean sterilizationRequired,
+                                             boolean finishedReportRequired,
+                                             boolean finishedRecordRequired,
+                                             String configHash) {
+        when(dossierRequirementSettingService.getRequirementState())
+                .thenReturn(new MesProEdhrReleaseDossierRequirementState(
+                        incomingRequired,
+                        sterilizationRequired,
+                        finishedReportRequired,
+                        finishedRecordRequired,
+                        configHash));
+    }
+
+    private MesProEdhrReleaseCheckItemDO selectCheckItem(Long releaseTransactionId, String checkCode) {
+        MesProEdhrReleaseCheckItemDO item = releaseCheckItemMapper.selectOne(
+                new LambdaQueryWrapperX<MesProEdhrReleaseCheckItemDO>()
+                        .eq(MesProEdhrReleaseCheckItemDO::getReleaseTransactionId, releaseTransactionId)
+                        .eq(MesProEdhrReleaseCheckItemDO::getCheckCode, checkCode)
+                        .eq(MesProEdhrReleaseCheckItemDO::getItemStatus,
+                                MesProEdhrReleaseServiceImpl.ITEM_STATUS_OPEN));
+        assertNotNull(item, "check item must exist: " + checkCode);
+        return item;
+    }
+
     private MesProEdhrBatchExecutionDO insertReadyToCloseBatch(String batchCode) {
         MesProEdhrBatchExecutionDO batch = insertClosedBatch(batchCode);
         batchExecutionMapper.updateById(new MesProEdhrBatchExecutionDO()
@@ -488,6 +797,42 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
         return task;
     }
 
+    private MesProEdhrBatchExecutionTaskDO insertApprovedFormCenterRouteTask(Long batchExecutionId, Long instanceId,
+                                                                            String sharedFormKey,
+                                                                            int routeProcessSort) {
+        MesProEdhrBatchExecutionTaskDO task = MesProEdhrBatchExecutionTaskDO.builder()
+                .batchExecutionId(batchExecutionId)
+                .nodeType("ROUTE_FORM")
+                .routeProcessId(randomLongId())
+                .routeProcessSort(routeProcessSort)
+                .processId(randomLongId())
+                .processCode("PROC-FC-" + randomLongId())
+                .processName("FormCenter 共享表单工序")
+                .batchRecordSort(routeProcessSort)
+                .instanceScope("BATCH_SHARED")
+                .sharedFormKey(sharedFormKey)
+                .executionMode("SEQUENTIAL")
+                .formSlotType("LOSS_REPORT")
+                .formBindingKey(sharedFormKey)
+                .formTemplateId(25L)
+                .formTemplateNameSnapshot("损耗单")
+                .formTemplateVersionId(27L)
+                .formTemplateVersionNo("V1.0")
+                .formCenterInstanceId(instanceId)
+                .recordCategory("ROUTE_FORM")
+                .validationProfile("FORM_CENTER")
+                .requiredPolicy("REQUIRED")
+                .ownerRoleKey("PRODUCTION")
+                .archiveVisibility("FINAL_DHR")
+                .status(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
+                .requiredFlag(Boolean.TRUE)
+                .submittedAt(LocalDateTime.now())
+                .approvedAt(LocalDateTime.now())
+                .build();
+        batchTaskMapper.insert(task);
+        return task;
+    }
+
     private void insertRouteCloseOwnerRule(Long routeId, Long ownerUserId) {
         assignmentRuleMapper.insert(MesProEdhrWorkTaskAssignmentRuleDO.builder()
                 .scopeType("ROUTE")
@@ -500,8 +845,43 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .build());
     }
 
+    private void insertRouteReleaseOwnerRule(Long routeId, Long ownerUserId) {
+        assignmentRuleMapper.insert(MesProEdhrWorkTaskAssignmentRuleDO.builder()
+                .scopeType("ROUTE")
+                .scopeId(routeId)
+                .taskType(MesProEdhrWorkTaskService.TASK_TYPE_RELEASE_APPROVE)
+                .assigneeUserId(ownerUserId)
+                .candidateSourceType("USER")
+                .candidateSourceId(ownerUserId)
+                .enabled(Boolean.TRUE)
+                .build());
+    }
+
+    private void insertRouteReleaseOwnerRoleRule(Long routeId, Long roleId) {
+        assignmentRuleMapper.insert(MesProEdhrWorkTaskAssignmentRuleDO.builder()
+                .scopeType("ROUTE")
+                .scopeId(routeId)
+                .taskType(MesProEdhrWorkTaskService.TASK_TYPE_RELEASE_APPROVE)
+                .candidateSourceType("ROLE_GROUP")
+                .candidateSourceId(roleId)
+                .enabled(Boolean.TRUE)
+                .build());
+    }
+
+    private AdminUserRespDTO user(Long id, String nickname) {
+        AdminUserRespDTO user = new AdminUserRespDTO();
+        user.setId(id);
+        user.setNickname(nickname);
+        user.setStatus(CommonStatusEnum.ENABLE.getStatus());
+        return user;
+    }
+
     private void insertWaitingSpecialTask(Long batchExecutionId, String nodeType) {
-        batchTaskMapper.insert(MesProEdhrBatchExecutionTaskDO.builder()
+        insertSpecialTask(batchExecutionId, nodeType, MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING);
+    }
+
+    private MesProEdhrBatchExecutionTaskDO insertSpecialTask(Long batchExecutionId, String nodeType, int status) {
+        MesProEdhrBatchExecutionTaskDO task = MesProEdhrBatchExecutionTaskDO.builder()
                 .batchExecutionId(batchExecutionId)
                 .nodeType(nodeType)
                 .routeProcessSort(2)
@@ -511,8 +891,53 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                 .requiredPolicy("REQUIRED")
                 .ownerRoleKey("QUALITY")
                 .archiveVisibility("FINAL_DHR")
-                .status(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING)
+                .status(status)
                 .requiredFlag(Boolean.TRUE)
+                .submittedAt(status == MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED
+                        ? LocalDateTime.now() : null)
+                .approvedAt(status == MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED
+                        ? LocalDateTime.now() : null)
+                .build();
+        batchTaskMapper.insert(task);
+        return task;
+    }
+
+    private void insertSavedSpecialNodeAttachment(MesProEdhrBatchExecutionTaskDO task,
+                                                  String action,
+                                                  String groupKey,
+                                                  String attachmentHash) {
+        String nodeType = task.getNodeType();
+        attachmentMapper.insert(MesProBatchRecordExecutionAttachmentDO.builder()
+                .executionId(0L)
+                .batchExecutionId(task.getBatchExecutionId())
+                .batchTaskId(task.getId())
+                .rowIndex(0)
+                .columnIndex(0)
+                .fieldKey(nodeType)
+                .fieldPath("specialNode." + nodeType)
+                .fieldLabel(task.getProcessName())
+                .attachmentType("PDF")
+                .attachmentGroupKey(groupKey)
+                .attachmentAction(action)
+                .versionNo(1)
+                .fileId(9001L)
+                .fileUrl("http://127.0.0.1/files/dossier.pdf")
+                .storageConfigId(28L)
+                .storagePath("/edhr/dossier.pdf")
+                .fileName("dossier.pdf")
+                .contentType("application/pdf")
+                .fileSize(1024L)
+                .sha256("dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")
+                .storageRetentionJson("{\"fileId\":9001,\"retention\":\"special-node\"}")
+                .storageRetentionHash("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+                .previousAttachmentHash(
+                        "0000000000000000000000000000000000000000000000000000000000000000")
+                .attachmentHash(attachmentHash)
+                .operatorId(10001L)
+                .operatorName("生产负责人")
+                .operatedAt(LocalDateTime.now())
+                .reasonCategory("SPECIAL_NODE_ATTACHMENT")
+                .reasonText("测试保存资料附件")
                 .build());
     }
 
@@ -555,5 +980,13 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                     .cellValuesHash("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
                     .build());
         }
+    }
+
+    private record DossierRequirementCase(String nodeType,
+                                           String checkCode,
+                                           boolean incomingRequired,
+                                           boolean sterilizationRequired,
+                                           boolean finishedReportRequired,
+                                           boolean finishedRecordRequired) {
     }
 }

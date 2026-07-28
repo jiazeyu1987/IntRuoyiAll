@@ -1,0 +1,32 @@
+{
+  "runId": "1785024829153",
+  "batchExecutionId": 900000000846,
+  "batchCode": "E2E-FULL-1785024829153",
+  "processedRouteTasks": 17,
+  "cellRuleConfirmations": 14,
+  "cellRuleSavedCount": 0,
+  "oqc": {
+    "oqcId": 146,
+    "oqcCode": "OQC-FULL-1785024829153"
+  },
+  "archiveId": 31,
+  "archiveStatus": "SEALED",
+  "archivePdf": "E:\\IntRuoyi\\doc\\tasks\\20260725-full-e2e-admin-validation\\artifacts\\full-chain-admin-1785024829153\\archive-900000000846.pdf",
+  "distinctActorCount": 1,
+  "actorUsernames": [
+    "admin",
+    "admin",
+    "admin",
+    "admin",
+    "admin",
+    "admin"
+  ],
+  "evidenceDir": "E:\\IntRuoyi\\doc\\tasks\\20260725-full-e2e-admin-validation\\artifacts\\full-chain-admin-1785024829153",
+  "coveredCoreRequirements": 54,
+  "companionRequirements": [
+    55,
+    56,
+    57,
+    58
+  ]
+}

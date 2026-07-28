@@ -13,8 +13,6 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.directory.DccFileDirectoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileRecognitionRecordMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
-import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
-import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.junit.jupiter.api.Test;
@@ -48,8 +46,6 @@ class DccControlledFileMetadataImportExportServiceTest extends BaseMockitoUnitTe
     private DccFileDirectoryMapper directoryMapper;
     @Mock
     private DccProjectCodeMapper projectCodeMapper;
-    @Mock
-    private MdmProductApi productApi;
     @Mock
     private DccControlledFileMetadataUpdateService metadataUpdateService;
     @Mock
@@ -191,7 +187,6 @@ class DccControlledFileMetadataImportExportServiceTest extends BaseMockitoUnitTe
                 DccFileDirectoryDO.builder().id(30L).name("父目录").build(),
                 DccFileDirectoryDO.builder().id(31L).parentId(30L).name("子目录").build()));
         when(projectCodeMapper.selectBatchIds(List.of(600L))).thenReturn(List.of(projectCode(600L, "离心泵项目", "P-001")));
-        when(productApi.getProduct(5000L)).thenReturn(product(7000L));
         when(recognitionRecordMapper.selectListByBatchTaskId(300L, null)).thenReturn(List.of(
                 DccControlledFileRecognitionRecordDO.builder()
                         .controlledFileId(900L)
@@ -230,7 +225,7 @@ class DccControlledFileMetadataImportExportServiceTest extends BaseMockitoUnitTe
             assertEquals("DOC-001", formatter.formatCellValue(sheet.getRow(1).getCell(2)));
             assertEquals("900", formatter.formatCellValue(sheet.getRow(1).getCell(3)));
             assertEquals("SUCCESS", formatter.formatCellValue(sheet.getRow(1).getCell(4)));
-            assertEquals("PRD20260604001", formatter.formatCellValue(sheet.getRow(1).getCell(6)));
+            assertEquals("P-001", formatter.formatCellValue(sheet.getRow(1).getCell(6)));
             assertEquals("离心泵项目", formatter.formatCellValue(sheet.getRow(1).getCell(7)));
             assertEquals("P-001", formatter.formatCellValue(sheet.getRow(1).getCell(8)));
             assertEquals("质量文件", formatter.formatCellValue(sheet.getRow(1).getCell(16)));
@@ -252,7 +247,6 @@ class DccControlledFileMetadataImportExportServiceTest extends BaseMockitoUnitTe
                 DccFileDirectoryDO.builder().id(30L).name("父目录").build(),
                 DccFileDirectoryDO.builder().id(31L).parentId(30L).name("子目录").build()));
         when(controlledFileMapper.selectList(any())).thenReturn(List.of(controlledFile(901L, "SOP-A", "DOC-001")));
-        when(productApi.getEnabledDccProductByDccProductCode("PRD20260604001")).thenReturn(product(7000L));
         when(projectCodeMapper.selectByProjectNameAndProjectCode("离心泵项目", "P-001"))
                 .thenReturn(projectCode(6000L, "离心泵项目", "P-001"));
 
@@ -284,7 +278,6 @@ class DccControlledFileMetadataImportExportServiceTest extends BaseMockitoUnitTe
         when(controlledFileMapper.selectList(any()))
                 .thenReturn(List.of(controlledFile(1900L, "SOP-A", "DOC-001")))
                 .thenReturn(List.of(controlledFile(1901L, "SOP-B", "DOC-002")));
-        when(productApi.getEnabledDccProductByDccProductCode("PRD20260604001")).thenReturn(product(7000L));
         when(projectCodeMapper.selectByProjectNameAndProjectCode("离心泵项目", "P-001"))
                 .thenReturn(projectCode(6000L, "离心泵项目", "P-001"));
 
@@ -297,8 +290,10 @@ class DccControlledFileMetadataImportExportServiceTest extends BaseMockitoUnitTe
         ArgumentCaptor<cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMetadataUpdateReqVO> captor =
                 ArgumentCaptor.forClass(cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileMetadataUpdateReqVO.class);
         verify(metadataUpdateService).updateMetadata(any(), any(), captor.capture());
-        assertEquals(7000L, captor.getValue().getProductMasterId());
+        assertEquals(null, captor.getValue().getProductMasterId());
         assertEquals(6000L, captor.getValue().getDccProjectCodeId());
+        assertEquals("P-001", captor.getValue().getProductCode());
+        assertEquals("离心泵项目", captor.getValue().getProductName());
         assertEquals("质量文件", captor.getValue().getFileTypeLevel1());
         assertEquals("SOP", captor.getValue().getFileTypeLevel2());
         assertEquals("DOC-001", captor.getValue().getFileNumber());
@@ -411,14 +406,6 @@ class DccControlledFileMetadataImportExportServiceTest extends BaseMockitoUnitTe
                 .id(id)
                 .projectName(projectName)
                 .projectCode(projectCode)
-                .build();
-    }
-
-    private MdmProductRespDTO product(Long id) {
-        return MdmProductRespDTO.builder()
-                .id(id)
-                .dccProductCode("PRD20260604001")
-                .nameCn("离心泵")
                 .build();
     }
 

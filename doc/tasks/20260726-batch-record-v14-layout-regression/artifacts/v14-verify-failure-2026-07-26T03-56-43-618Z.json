@@ -1,0 +1,31 @@
+{
+  "message": "预检目标版本不是 V14，当前 nextVersionNo=V1.0，停止导入以避免生成错误版本。",
+  "stack": "Error: 预检目标版本不是 V14，当前 nextVersionNo=V1.0，停止导入以避免生成错误版本。\n    at importWordThroughUi (E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-v14-layout-regression\\v14-ui-import-verify.cjs:256:11)\n    at async main (E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-v14-layout-regression\\v14-ui-import-verify.cjs:429:26)",
+  "consoleMessages": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting..."
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected."
+    },
+    {
+      "type": "log",
+      "text": "%c 欢迎使用 %c 瑛泰管理系统 %c background:#2d8cf0;border:1px solid #2d8cf0;\n      padding: 1px; border-radius: 4px 0 0 4px; color: #fff; border:1px solid #2d8cf0;\n      padding: 1px; border-radius: 0 4px 4px 0; color: #2d8cf0; background:transparent"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting..."
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected."
+    },
+    {
+      "type": "log",
+      "text": "%c 欢迎使用 %c 瑛泰管理系统 %c background:#2d8cf0;border:1px solid #2d8cf0;\n      padding: 1px; border-radius: 4px 0 0 4px; color: #fff; border:1px solid #2d8cf0;\n      padding: 1px; border-radius: 0 4px 4px 0; color: #2d8cf0; background:transparent"
+    }
+  ],
+  "failurePath": "E:\\IntRuoyi\\doc\\tasks\\20260726-batch-record-v14-layout-regression\\artifacts\\v14-verify-failure-2026-07-26T03-56-43-618Z.png"
+}

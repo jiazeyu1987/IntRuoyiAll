@@ -5,56 +5,22 @@
 
       <section v-else-if="currentTask && templateData" class="edhr-batch-template-simulate__panel">
         <div class="edhr-batch-template-simulate__header">
-          <div>
-            <el-button link type="primary" @click="handleBack">
-              {{ backButtonLabel }}
-            </el-button>
-            <div class="edhr-batch-template-simulate__title">
-              {{ currentTask.routeProcessSort || '--' }}.
-              {{ currentTask.processCode || '--' }}
-              {{ currentTask.processName || '--' }}
-            </div>
-            <div class="edhr-batch-template-simulate__subtitle">
-              {{ currentTask.batchRecordReportName || currentTask.batchRecordReportId || '--' }}
-            </div>
-          </div>
+          <el-button link type="primary" @click="handleBack">
+            {{ backButtonLabel }}
+          </el-button>
           <el-tag type="primary">模拟填写</el-tag>
         </div>
-
-        <el-descriptions :column="6" border>
-          <el-descriptions-item label="模板ID">
-            {{ currentTask.batchRecordReportId || '--' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="表格顺序">
-            {{ currentTask.batchRecordSort || '--' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="填写字段">
-            {{ summary.fillableCount }}
-          </el-descriptions-item>
-          <el-descriptions-item label="签名位">
-            {{ summary.signatureCount }}
-          </el-descriptions-item>
-          <el-descriptions-item label="必填">
-            {{ summary.requiredCount }}
-          </el-descriptions-item>
-          <el-descriptions-item label="附件规则">
-            {{ summary.attachmentRuleCount }}
-          </el-descriptions-item>
-        </el-descriptions>
 
         <div class="edhr-batch-template-simulate__workbench">
           <section class="edhr-batch-template-simulate__column">
             <div class="edhr-batch-template-simulate__surface">
-              <div class="edhr-batch-template-simulate__surface-head">
-                <div class="edhr-batch-template-simulate__section-title">模板内填写</div>
-                <div class="edhr-batch-template-simulate__surface-note">左侧直接在原模板格内模拟填写。</div>
-              </div>
               <div class="edhr-batch-template-simulate__surface-body fit-to-viewport width-only">
                 <EdhrExecutionTemplateEditableForm
                   v-model="simulationValues"
                   :sheet-layout-json="templateData.sheetLayoutJson"
                   :cell-rules="templateData.rules"
                   :signature-markers="templateData.markers"
+                  :show-rule-legend="false"
                   fit-to-viewport
                   @signature-action="handleSignatureAction"
                 />
@@ -171,14 +137,6 @@ const currentTask = computed<EdhrBatchExecutionTaskRespVO | undefined>(() => {
 const simulationFields = computed<TemplateSimulationField[]>(() => {
   if (!templateData.value) return []
   return buildTemplateSimulationFields(templateData.value.rules, templateData.value.markers || [])
-})
-
-const summary = computed(() => {
-  const fillableCount = simulationFields.value.length
-  const signatureCount = simulationFields.value.filter((field) => field.componentKind === 'signature').length
-  const requiredCount = simulationFields.value.filter((field) => field.required).length
-  const attachmentRuleCount = simulationFields.value.filter((field) => Boolean(field.attachmentRule)).length
-  return { fillableCount, signatureCount, requiredCount, attachmentRuleCount }
 })
 
 const previewCellValues = computed(() => {
@@ -357,22 +315,9 @@ onMounted(loadPage)
 
 .edhr-batch-template-simulate__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
-}
-
-.edhr-batch-template-simulate__title {
-  color: #172033;
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.edhr-batch-template-simulate__subtitle {
-  color: #4b5563;
-  font-size: 13px;
-  margin-top: 4px;
 }
 
 .edhr-batch-template-simulate__workbench {

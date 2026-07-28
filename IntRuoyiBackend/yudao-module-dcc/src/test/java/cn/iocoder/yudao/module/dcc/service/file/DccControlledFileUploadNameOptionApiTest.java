@@ -34,18 +34,22 @@ class DccControlledFileUploadNameOptionApiTest extends BaseMockitoUnitTest {
 
     @Test
     void getUploadNameOptions_delegatesToQueryService() {
-        when(queryService.listUploadNameOptions(10L)).thenReturn(List.of(
+        when(queryService.listUploadNameOptions(124L, 30L)).thenReturn(List.of(
                 DccControlledFileUploadNameOptionRespVO.builder()
                         .fileName("SOP-001")
                         .currentVersionNo("1.0")
+                        .controlledFileId(901L)
+                        .fileNumber("SOP-001-NO")
                         .build()));
 
         CommonResult<List<DccControlledFileUploadNameOptionRespVO>> result =
-                controller.getUploadNameOptions(10L);
+                controller.getUploadNameOptions(124L, 30L);
 
         assertEquals(1, result.getData().size());
         assertEquals("SOP-001", result.getData().get(0).getFileName());
         assertEquals("1.0", result.getData().get(0).getCurrentVersionNo());
-        verify(queryService).listUploadNameOptions(10L);
+        assertEquals(901L, result.getData().get(0).getControlledFileId());
+        assertEquals("SOP-001-NO", result.getData().get(0).getFileNumber());
+        verify(queryService).listUploadNameOptions(124L, 30L);
     }
 }

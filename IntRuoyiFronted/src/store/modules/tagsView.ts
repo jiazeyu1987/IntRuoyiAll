@@ -5,6 +5,7 @@ import { defineStore } from 'pinia'
 import { store } from '../index'
 import { findIndex } from '@/utils'
 import { useUserStoreWithOut } from './user'
+import { cloneDeep } from 'lodash-es'
 
 const TAGS_VIEW_PATH_IDENTITY_PATHS = new Set([
   'mes/md/workstation',
@@ -24,6 +25,11 @@ const normalizeTagsViewPath = (path: string) =>
     .replace(/\/+/g, '/')
     .replace(/^\/+/, '')
     .replace(/\/+$/, '')
+
+const resolveActiveMenuPath = (view: RouteLocationNormalizedLoaded) => {
+  const activeMenu = normalizeTagsViewPath(String(view.meta?.activeMenu || ''))
+  return activeMenu ? `/${activeMenu}` : ''
+}
 
 export interface TagsViewState {
   visitedViews: RouteLocationNormalizedLoaded[]
@@ -104,6 +110,43 @@ export const useTagsViewStore = defineStore('tagsView', {
       }
 
       this.visitedViews.push(visitedView)
+    },
+    replaceActiveMenuView(view: RouteLocationNormalizedLoaded) {
+      const activeMenuPath = resolveActiveMenuPath(view)
+      if (!activeMenuPath) return undefined
+
+      const viewIndex = this.visitedViews.findIndex(
+        (visitedView) => visitedView.path === activeMenuPath
+      )
+      const previousView =
+        viewIndex >= 0 ? cloneDeep(this.visitedViews[viewIndex]) : undefined
+      const nextView = this.normalizeVisitedView(cloneDeep(view))
+
+      if (viewIndex >= 0) {
+        this.visitedViews.splice(viewIndex, 1, nextView)
+      } else {
+        this.visitedViews.push(nextView)
+      }
+      this.setSelectedTag(nextView)
+      this.addCachedView()
+      return previousView
+    },
+    restoreActiveMenuView(
+      view: RouteLocationNormalizedLoaded,
+      snapshot?: RouteLocationNormalizedLoaded
+    ) {
+      const viewIdentity = this.getViewIdentity(view)
+      const viewIndex = this.visitedViews.findIndex(
+        (visitedView) => this.getViewIdentity(visitedView) === viewIdentity
+      )
+      if (viewIndex < 0) return
+
+      if (snapshot) {
+        this.visitedViews.splice(viewIndex, 1, snapshot)
+      } else {
+        this.visitedViews.splice(viewIndex, 1)
+      }
+      this.addCachedView()
     },
     // 新增缓存
     addCachedView() {

@@ -256,6 +256,19 @@ function Assert-BackupOpsConfiguration {
         Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'backup.schedule must use HH:mm in 24-hour format.' -Target 'backup.schedule'
     }
 
+    $backupFrequency = [string](Get-BackupOpsConfigValue -InputObject $ConfigObject -Path @('backup', 'frequency'))
+    if ([string]::IsNullOrWhiteSpace($backupFrequency)) {
+        $backupFrequency = 'DAILY'
+    }
+    $backupFrequency = $backupFrequency.Trim().ToUpperInvariant()
+    if ($backupFrequency -notin @('DAILY', 'WEEKLY')) {
+        Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'backup.frequency must be DAILY or WEEKLY.' -Target 'backup.frequency'
+    }
+    $backupWeekday = [string](Get-BackupOpsConfigValue -InputObject $ConfigObject -Path @('backup', 'weekday'))
+    if ($backupFrequency -eq 'WEEKLY' -and $backupWeekday -notmatch '^(?:MON|TUE|WED|THU|FRI|SAT|SUN)$') {
+        Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'backup.weekday must be MON/TUE/WED/THU/FRI/SAT/SUN when backup.frequency is WEEKLY.' -Target 'backup.weekday'
+    }
+
     $rehearsalSchedule = [string](Get-BackupOpsConfigValue -InputObject $ConfigObject -Path @('rehearsal', 'schedule'))
     if ($rehearsalSchedule -notmatch '^(?:MON|TUE|WED|THU|FRI|SAT|SUN)\s(?:[01]\d|2[0-3]):[0-5]\d$') {
         Throw-BackupOpsValidationError -Code 'INTBK-1003' -Message 'rehearsal.schedule must use DDD HH:mm, for example SUN 02:00.' -Target 'rehearsal.schedule'

@@ -35,6 +35,15 @@
       @pagination="handleTodoPagination"
     >
       <template #actions>
+        <el-radio-group
+          v-model="activeVisibilityTab"
+          size="small"
+          class="mr-8px"
+          @change="handleVisibilityTabChange"
+        >
+          <el-radio-button label="visible">待办任务</el-radio-button>
+          <el-radio-button label="hidden">已隐藏 {{ hiddenRows.length }}</el-radio-button>
+        </el-radio-group>
         <el-button :loading="loading" @click="loadWorkbench">
           <Icon icon="ep:refresh-right" class="mr-5px" />
           刷新
@@ -51,7 +60,7 @@
           :stripe="true"
           row-key="id"
           height="520"
-          empty-text="当前没有待办任务"
+          :empty-text="activeVisibilityTab === 'hidden' ? '暂无隐藏任务' : '当前没有待办任务'"
           :show-overflow-tooltip="true"
           @header-dragend="handleTodoHeaderDragend"
           @sort-change="handleTemplateSortChange"
@@ -105,11 +114,36 @@
             v-if="isTodoColumnVisible('actions')"
             label="操作"
             prop="actions"
-            :width="getTodoColumnWidthString('actions', 110)"
+            :width="getTodoColumnWidthString('actions', 170)"
             fixed="right"
           >
             <template #default="{ row }">
-              <el-button link type="primary" @click="openTodo(row)">进入/处理</el-button>
+              <el-button
+                v-if="activeVisibilityTab !== 'hidden'"
+                link
+                type="primary"
+                @click="openTodo(row)"
+              >
+                进入/处理
+              </el-button>
+              <el-button
+                v-if="activeVisibilityTab !== 'hidden'"
+                link
+                type="warning"
+                :loading="actionTaskKey === row.id"
+                @click="handleHideTodo(row)"
+              >
+                隐藏
+              </el-button>
+              <el-button
+                v-else
+                link
+                type="success"
+                :loading="actionTaskKey === row.id"
+                @click="handleRestoreTodo(row)"
+              >
+                恢复
+              </el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -120,6 +154,7 @@
 
 <script lang="ts" setup>
 import type { RouteLocationRaw } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/config/axios'
 import {
   getMyDistributionTaskPage,
@@ -134,6 +169,11 @@ import {
   type EdhrWorkTaskRespVO
 } from '@/api/mes/pro/edhr/workTask'
 import { ProWorkOrderApi, type ProWorkOrderVO } from '@/api/mes/pro/workorder'
+import {
+  getProfileWorkbenchHiddenTaskKeys,
+  hideProfileWorkbenchTask,
+  restoreProfileWorkbenchTask
+} from '@/api/system/profileWorkbenchTaskVisibility'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { CACHE_KEY, useCache } from '@/hooks/web/useCache'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
@@ -180,6 +220,9 @@ const profileWorkbenchTodoBadgeStore = useProfileWorkbenchTodoBadgeStore()
 const { wsCache } = useCache()
 
 const loading = ref(false)
+const actionTaskKey = ref('')
+const activeVisibilityTab = ref<'visible' | 'hidden'>('visible')
+const hiddenTaskKeys = ref<Set<string>>(new Set())
 const todoRows = ref<UnifiedTodoRow[]>([])
 const loadErrorMessages = ref<string[]>([])
 
@@ -188,7 +231,7 @@ const todoDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'source', label: '来源', width: 150 },
   { key: 'detail', label: '待办详情', minWidth: 360 },
   { key: 'statusTime', label: '状态/时间', width: 220 },
-  { key: 'actions', label: '操作', width: 110, hideable: false, business: false }
+  { key: 'actions', label: '操作', width: 170, hideable: false, business: false }
 ]
 
 const {
@@ -265,8 +308,14 @@ const matchesQuickFilter = (row: TodoQuickFilterRow) => {
   return filter.operator === 'eq' ? text === keyword : text.includes(keyword)
 }
 
+const visibleRows = computed(() => todoRows.value.filter((row) => !hiddenTaskKeys.value.has(row.id)))
+const hiddenRows = computed(() => todoRows.value.filter((row) => hiddenTaskKeys.value.has(row.id)))
+const activeRows = computed(() =>
+  activeVisibilityTab.value === 'hidden' ? hiddenRows.value : visibleRows.value
+)
+
 const filteredRows = computed(() => {
-  return todoRows.value.filter((row) => {
+  return activeRows.value.filter((row) => {
     if (queryParams.taskType && row.taskType !== queryParams.taskType) {
       return false
     }
@@ -532,6 +581,11 @@ const loadShowroomRows = async () => {
   return normalizeAssignmentPage(page).map(mapShowroomAssignmentRow)
 }
 
+const loadHiddenTaskKeys = async () => {
+  const keys = await getProfileWorkbenchHiddenTaskKeys()
+  hiddenTaskKeys.value = new Set(keys)
+}
+
 const loadEnabledSource = async (
   sourceLabel: string,
   loader: () => Promise<UnifiedTodoRow[]>
@@ -548,6 +602,13 @@ const loadWorkbench = async () => {
   loading.value = true
   loadErrorMessages.value = []
   try {
+    try {
+      await loadHiddenTaskKeys()
+    } catch (error) {
+      loadErrorMessages.value.push(`隐藏任务状态：${resolveErrorMessage(error, '加载失败')}`)
+      todoRows.value = []
+      return
+    }
     const loaders: Array<Promise<UnifiedTodoRow[]>> = []
     if (canViewDccDistribution.value) {
       loaders.push(loadEnabledSource('文控分发加载失败', loadDccDistributionRows))
@@ -567,7 +628,11 @@ const loadWorkbench = async () => {
     const rows = (await Promise.all(loaders)).flat()
     todoRows.value = sortTodoRows(rows)
     ensureCurrentPageInRange()
-    await profileWorkbenchTodoBadgeStore.refreshTodoTotal()
+    try {
+      await profileWorkbenchTodoBadgeStore.refreshTodoTotal()
+    } catch (error) {
+      loadErrorMessages.value.push(`待处理数量：${resolveErrorMessage(error, '刷新失败')}`)
+    }
   } finally {
     loading.value = false
   }
@@ -587,6 +652,80 @@ const openTodo = async (row: UnifiedTodoRow) => {
     return
   }
   await router.push(row.route)
+}
+
+const refreshTodoBadgeAfterVisibilityChange = async () => {
+  try {
+    await profileWorkbenchTodoBadgeStore.refreshTodoTotal()
+  } catch (error) {
+    loadErrorMessages.value.push(`待处理数量：${resolveErrorMessage(error, '刷新失败')}`)
+  }
+}
+
+const addHiddenTaskKey = (taskKey: string) => {
+  const nextKeys = new Set(hiddenTaskKeys.value)
+  nextKeys.add(taskKey)
+  hiddenTaskKeys.value = nextKeys
+}
+
+const removeHiddenTaskKey = (taskKey: string) => {
+  const nextKeys = new Set(hiddenTaskKeys.value)
+  nextKeys.delete(taskKey)
+  hiddenTaskKeys.value = nextKeys
+}
+
+const handleHideTodo = async (row: UnifiedTodoRow) => {
+  try {
+    await ElMessageBox.confirm(
+      `确认隐藏“${row.detail || row.source}”？可在“已隐藏”中恢复。`,
+      '隐藏个人工作台任务',
+      {
+        confirmButtonText: '隐藏',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+  } catch {
+    return
+  }
+  actionTaskKey.value = row.id
+  try {
+    await hideProfileWorkbenchTask({
+      taskKey: row.id,
+      taskType: row.taskType,
+      source: row.source,
+      businessId: String(row.businessId),
+      detail: row.detail
+    })
+    addHiddenTaskKey(row.id)
+    ensureCurrentPageInRange()
+    await refreshTodoBadgeAfterVisibilityChange()
+    ElMessage.success('任务已隐藏，可在已隐藏中恢复')
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '隐藏任务失败'))
+  } finally {
+    actionTaskKey.value = ''
+  }
+}
+
+const handleRestoreTodo = async (row: UnifiedTodoRow) => {
+  actionTaskKey.value = row.id
+  try {
+    await restoreProfileWorkbenchTask(row.id)
+    removeHiddenTaskKey(row.id)
+    ensureCurrentPageInRange()
+    await refreshTodoBadgeAfterVisibilityChange()
+    ElMessage.success('任务已恢复')
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '恢复任务失败'))
+  } finally {
+    actionTaskKey.value = ''
+  }
+}
+
+const handleVisibilityTabChange = () => {
+  queryParams.pageNo = 1
+  ensureCurrentPageInRange()
 }
 
 const handleTodoPagination = () => {

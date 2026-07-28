@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "baseUrl": "http://localhost:8081",
+  "accountLabel": "芋道源码/admin",
+  "routeId": 922119,
+  "routeCode": "RT000028",
+  "routeVersionId": 358,
+  "boundRouteProcessId": 927775,
+  "boundCount": 1,
+  "emptyRouteProcessId": 927778,
+  "emptyBadgeCount": 0,
+  "emptyHasMissing": false,
+  "mesWriteRequests": [],
+  "pageErrors": [],
+  "consoleErrorCount": 0
+}

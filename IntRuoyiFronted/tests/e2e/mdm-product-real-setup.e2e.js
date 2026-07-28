@@ -83,7 +83,7 @@ async function openProductPage(page) {
   await page.goto(`${BASE_URL}/mdm/product`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await settle(page)
   try {
-    await page.locator('text=产品主数据').first().waitFor({ state: 'visible', timeout: 30000 })
+    await page.locator('text=展厅主数据').first().waitFor({ state: 'visible', timeout: 30000 })
   } catch (error) {
     const bodyText = await page.locator('body').innerText().catch(() => '')
     throw new Error(

@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRuleVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportAssistRowVO;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MesProBatchRecordCellRuleSupportTest {
@@ -52,6 +54,127 @@ class MesProBatchRecordCellRuleSupportTest {
         assertEquals("DATE", leftDate.getValueType());
         assertEquals("装配日期", rightDate.getLabel());
         assertEquals("DATE", rightDate.getValueType());
+    }
+
+    @Test
+    void applyAutomaticSuggestions_prefersColumnHeaderOverLeftCheckboxChoiceForBlankTableCells() {
+        JSONObject root = JSON.parseObject("""
+                {
+                  "rows":{
+                    "0":{
+                      "cells":{
+                        "0":{"text":"操作日期"},
+                        "1":{"text":"物料编码"},
+                        "2":{"text":"物料名称"},
+                        "3":{"text":"批号"},
+                        "4":{"text":"生产数量/pcs"},
+                        "5":{"text":"自检合格数量/pcs"},
+                        "6":{"text":"不合格数量/pcs"},
+                        "7":{"text":"操作人"},
+                        "8":{"text":"复核人"}
+                      }
+                    },
+                    "1":{
+                      "cells":{
+                        "0":{"text":"","fillForm":{"field":"ebr_r1_c0","component":"Input","componentFlag":"input-text"}},
+                        "1":{"text":"","fillForm":{"field":"ebr_r1_c1","component":"Input","componentFlag":"input-text"}},
+                        "2":{"text":"□30atm压力表"},
+                        "3":{"text":"","fillForm":{"field":"ebr_r1_c3","component":"Input","componentFlag":"input-text"}},
+                        "4":{"text":"","fillForm":{"field":"ebr_r1_c4","component":"Input","componentFlag":"input-text"}},
+                        "5":{"text":"","fillForm":{"field":"ebr_r1_c5","component":"Input","componentFlag":"input-text"}},
+                        "6":{"text":"","fillForm":{"field":"ebr_r1_c6","component":"Input","componentFlag":"input-text"}},
+                        "7":{"text":"","fillForm":{"field":"ebr_r1_c7","component":"Input","componentFlag":"input-text"}},
+                        "8":{"text":"","fillForm":{"field":"ebr_r1_c8","component":"Input","componentFlag":"input-text"}}
+                      }
+                    }
+                  }
+                }
+                """);
+
+        MesProBatchRecordCellRuleSupport.applyAutomaticSuggestions(root, "REPORT-DENSE-TABLE");
+
+        JSONObject materialNameFillForm = MesProBatchRecordCellRuleSupport.requireCell(root, 1, 2)
+                .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY);
+        assertEquals("checkbox", materialNameFillForm.getString("componentFlag"));
+        assertEquals("30atm压力表", materialNameFillForm.getString("labelText"));
+
+        assertCellRuleAndFillForm(root, 1, 3, "STRING", "input-text", "批号");
+        assertCellRuleAndFillForm(root, 1, 4, "NUMBER", "input-number", "生产数量/pcs");
+        assertCellRuleAndFillForm(root, 1, 5, "NUMBER", "input-number", "自检合格数量/pcs");
+        assertCellRuleAndFillForm(root, 1, 6, "NUMBER", "input-number", "不合格数量/pcs");
+    }
+
+    @Test
+    void refreshUnreviewedAutomaticSuggestions_repairsStaleCheckboxFillFormsUnderTypedHeaders() {
+        JSONObject root = JSON.parseObject("""
+                {
+                  "rows":{
+                    "0":{
+                      "cells":{
+                        "0":{"text":"操作日期"},
+                        "1":{"text":"物料编码"},
+                        "2":{"text":"物料名称"},
+                        "3":{"text":"批号"},
+                        "4":{"text":"生产数量/pcs"},
+                        "5":{"text":"自检合格数量/pcs"},
+                        "6":{"text":"不合格数量/pcs"}
+                      }
+                    },
+                    "1":{
+                      "cells":{
+                        "2":{"text":"□30atm压力表","fillForm":{"field":"ebr_r1_c2","component":"Input","componentFlag":"checkbox","labelText":"30atm压力表","value":false,"defaultValue":false},
+                             "edhrCellRule":{"rowIndex":1,"columnIndex":2,"valueType":"BOOLEAN","componentFlag":"checkbox","required":false,"label":"30atm压力表","constraints":{},"source":"AUTO","confidence":0.9,"reviewed":false}},
+                        "3":{"text":"","fillForm":{"field":"ebr_r1_c3","component":"Input","componentFlag":"checkbox","labelText":"□30atm压力表","value":false,"defaultValue":false},
+                             "edhrCellRule":{"rowIndex":1,"columnIndex":3,"valueType":"BOOLEAN","componentFlag":"checkbox","required":false,"label":"□30atm压力表","constraints":{},"source":"AUTO","confidence":0.9,"reviewed":false}},
+                        "4":{"text":"","fillForm":{"field":"ebr_r1_c4","component":"Input","componentFlag":"checkbox","labelText":"□30atm压力表","value":false,"defaultValue":false},
+                             "edhrCellRule":{"rowIndex":1,"columnIndex":4,"valueType":"BOOLEAN","componentFlag":"checkbox","required":false,"label":"□30atm压力表","constraints":{},"source":"AUTO","confidence":0.9,"reviewed":false}},
+                        "5":{"text":"","fillForm":{"field":"ebr_r1_c5","component":"Input","componentFlag":"checkbox","labelText":"□30atm压力表","value":false,"defaultValue":false},
+                             "edhrCellRule":{"rowIndex":1,"columnIndex":5,"valueType":"BOOLEAN","componentFlag":"checkbox","required":false,"label":"□30atm压力表","constraints":{},"source":"AUTO","confidence":0.9,"reviewed":false}},
+                        "6":{"text":"","fillForm":{"field":"ebr_r1_c6","component":"Input","componentFlag":"checkbox","labelText":"□30atm压力表","value":false,"defaultValue":false},
+                             "edhrCellRule":{"rowIndex":1,"columnIndex":6,"valueType":"BOOLEAN","componentFlag":"checkbox","required":false,"label":"□30atm压力表","constraints":{},"source":"AUTO","confidence":0.9,"reviewed":false}}
+                      }
+                    }
+                  }
+                }
+                """);
+
+        int refreshedCount = MesProBatchRecordCellRuleSupport.refreshUnreviewedAutomaticSuggestions(
+                root, "REPORT-STALE-V14");
+
+        assertEquals(5, refreshedCount);
+        assertCellRuleAndFillForm(root, 1, 3, "STRING", "input-text", "批号");
+        assertCellRuleAndFillForm(root, 1, 4, "NUMBER", "input-number", "生产数量/pcs");
+        assertCellRuleAndFillForm(root, 1, 5, "NUMBER", "input-number", "自检合格数量/pcs");
+        assertCellRuleAndFillForm(root, 1, 6, "NUMBER", "input-number", "不合格数量/pcs");
+        JSONObject materialNameFillForm = MesProBatchRecordCellRuleSupport.requireCell(root, 1, 2)
+                .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY);
+        assertEquals("checkbox", materialNameFillForm.getString("componentFlag"));
+        assertEquals("30atm压力表", materialNameFillForm.getString("labelText"));
+    }
+
+    @Test
+    void refreshUnreviewedAutomaticSuggestions_keepsReviewedManualRules() {
+        JSONObject root = JSON.parseObject("""
+                {
+                  "rows":{
+                    "0":{"cells":{"0":{"text":"生产数量/pcs"}}},
+                    "1":{"cells":{
+                      "0":{"text":"","fillForm":{"field":"ebr_r1_c0","component":"Input","componentFlag":"checkbox","labelText":"人工确认","value":false,"defaultValue":false},
+                           "edhrCellRule":{"rowIndex":1,"columnIndex":0,"valueType":"BOOLEAN","componentFlag":"checkbox","required":true,"label":"人工确认","constraints":{},"source":"MANUAL","confidence":1.0,"reviewed":true}}
+                    }}
+                  }
+                }
+                """);
+
+        int refreshedCount = MesProBatchRecordCellRuleSupport.refreshUnreviewedAutomaticSuggestions(
+                root, "REPORT-MANUAL");
+
+        assertEquals(0, refreshedCount);
+        JSONObject cell = MesProBatchRecordCellRuleSupport.requireCell(root, 1, 0);
+        assertEquals("checkbox", cell.getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
+                .getString("componentFlag"));
+        assertEquals("人工确认", cell.getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY)
+                .getString("label"));
     }
 
     @Test
@@ -452,6 +575,49 @@ class MesProBatchRecordCellRuleSupportTest {
     }
 
     @Test
+    void buildSuggestions_rewritesExistingCheckboxFillFormUnderSignatureDateHeaders() {
+        JSONObject root = JSON.parseObject("""
+                {
+                  "rows":{
+                    "0":{
+                      "cells":{
+                        "0":{"text":"检查要求","merge":[0,1]},
+                        "2":{"text":"结果"},
+                        "3":{"text":"操作人/日期","merge":[0,1]}
+                      }
+                    },
+                    "1":{
+                      "cells":{
+                        "0":{"text":"设备确认","merge":[0,1]},
+                        "2":{"text":"□符合要求"},
+                        "3":{"text":"□是 □否","merge":[0,1],"fillForm":{"field":"ebr_r1_c3","component":"Input","componentFlag":"checkbox","value":false,"defaultValue":false}}
+                      }
+                    }
+                  }
+                }
+                """);
+
+        List<BatchRecordReportCellRuleVO> suggestions = MesProBatchRecordCellRuleSupport.buildSuggestions(root);
+
+        BatchRecordReportCellRuleVO operatorDateRule = findRule(suggestions, 1, 3);
+        assertEquals("STRING", operatorDateRule.getValueType());
+        assertEquals("input-text", operatorDateRule.getComponentFlag());
+        assertEquals("操作人/日期", operatorDateRule.getLabel());
+
+        MesProBatchRecordCellRuleSupport.applyAutomaticSuggestions(root, "REPORT-SIGNATURE-DATE-EXISTING-CHECKBOX");
+        JSONObject operatorDateCell = MesProBatchRecordCellRuleSupport.requireCell(root, 1, 3);
+        assertEquals("input-text", operatorDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
+                .getString("componentFlag"));
+        assertEquals("", operatorDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
+                .get("value"));
+        assertFalse("checkbox".equals(operatorDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY)
+                .getString("componentFlag")));
+    }
+
+    @Test
     void buildSuggestions_doesNotPromoteMisalignedSignatureDateTailCheckboxFragments() {
         JSONObject root = JSON.parseObject("""
                 {
@@ -492,6 +658,118 @@ class MesProBatchRecordCellRuleSupportTest {
                 .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
                 .getString("componentFlag"));
         assertFalse("checkbox".equals(shiftedSignatureDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY)
+                .getString("componentFlag")));
+    }
+
+
+    @Test
+    void buildSuggestions_doesNotPromoteBlankSignatureDateCellsFromLeftCheckboxResult() {
+        JSONObject root = JSON.parseObject("""
+                {
+                  "rows":{
+                    "0":{
+                      "cells":{
+                        "0":{"text":"生产前检查记录","merge":[2,0]},
+                        "1":{"text":"检查要求","merge":[0,10]},
+                        "12":{"text":"结果","merge":[0,2]},
+                        "15":{"text":"操作人/日期","merge":[0,1]},
+                        "17":{"text":"复核人/日期","merge":[0,2]}
+                      }
+                    },
+                    "1":{
+                      "cells":{
+                        "1":{"text":"工作场所检查","merge":[0,10]},
+                        "12":{"text":"□符合要求□不符合要求","merge":[0,2]},
+                        "15":{"text":"","merge":[0,1],"fillForm":{"field":"ebr_r1_c15","component":"Input","componentFlag":"input-text"}},
+                        "17":{"text":"","merge":[0,2],"fillForm":{"field":"ebr_r1_c17","component":"Input","componentFlag":"input-text"}}
+                      }
+                    }
+                  }
+                }
+                """);
+
+        List<BatchRecordReportCellRuleVO> suggestions = MesProBatchRecordCellRuleSupport.buildSuggestions(root);
+
+        BatchRecordReportCellRuleVO operatorDateRule = findRule(suggestions, 1, 15);
+        BatchRecordReportCellRuleVO reviewerDateRule = findRule(suggestions, 1, 17);
+        assertEquals("STRING", operatorDateRule.getValueType());
+        assertEquals("input-text", operatorDateRule.getComponentFlag());
+        assertEquals("操作人/日期", operatorDateRule.getLabel());
+        assertEquals("STRING", reviewerDateRule.getValueType());
+        assertEquals("input-text", reviewerDateRule.getComponentFlag());
+        assertEquals("复核人/日期", reviewerDateRule.getLabel());
+
+        MesProBatchRecordCellRuleSupport.applyAutomaticSuggestions(root, "REPORT-SIGNATURE-DATE-BLANKS");
+        JSONObject operatorDateCell = MesProBatchRecordCellRuleSupport.requireCell(root, 1, 15);
+        JSONObject reviewerDateCell = MesProBatchRecordCellRuleSupport.requireCell(root, 1, 17);
+        assertEquals("input-text", operatorDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
+                .getString("componentFlag"));
+        assertEquals("input-text", reviewerDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
+                .getString("componentFlag"));
+        assertFalse("checkbox".equals(operatorDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY)
+                .getString("componentFlag")));
+        assertFalse("checkbox".equals(reviewerDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY)
+                .getString("componentFlag")));
+    }
+
+    @Test
+    void buildSuggestions_doesNotPromoteBlankSignatureDateCellsPastIntermediateCheckboxRows() {
+        JSONObject root = JSON.parseObject("""
+                {
+                  "rows":{
+                    "0":{
+                      "cells":{
+                        "0":{"text":"清洁工序生产记录","merge":[0,4]},
+                        "5":{"text":"操作人/日期","merge":[0,1]},
+                        "7":{"text":"复核人/日期","merge":[0,1]}
+                      }
+                    },
+                    "1":{
+                      "cells":{
+                        "0":{"text":"物料/器具","merge":[0,4]},
+                        "5":{"text":"设备确认","merge":[0,3]}
+                      }
+                    },
+                    "2":{
+                      "cells":{
+                        "0":{"text":"□30atm压力表","merge":[0,4]},
+                        "5":{"text":"","fillForm":{"field":"ebr_r2_c5","component":"Input","componentFlag":"input-text"}},
+                        "7":{"text":"","fillForm":{"field":"ebr_r2_c7","component":"Input","componentFlag":"input-text"}}
+                      }
+                    }
+                  }
+                }
+                """);
+
+        List<BatchRecordReportCellRuleVO> suggestions = MesProBatchRecordCellRuleSupport.buildSuggestions(root);
+
+        BatchRecordReportCellRuleVO operatorDateRule = findRule(suggestions, 2, 5);
+        BatchRecordReportCellRuleVO reviewerDateRule = findRule(suggestions, 2, 7);
+        assertEquals("STRING", operatorDateRule.getValueType());
+        assertEquals("input-text", operatorDateRule.getComponentFlag());
+        assertEquals("操作人/日期", operatorDateRule.getLabel());
+        assertEquals("STRING", reviewerDateRule.getValueType());
+        assertEquals("input-text", reviewerDateRule.getComponentFlag());
+        assertEquals("复核人/日期", reviewerDateRule.getLabel());
+
+        MesProBatchRecordCellRuleSupport.applyAutomaticSuggestions(root, "REPORT-SIGNATURE-DATE-INTERMEDIATE");
+        JSONObject operatorDateCell = MesProBatchRecordCellRuleSupport.requireCell(root, 2, 5);
+        JSONObject reviewerDateCell = MesProBatchRecordCellRuleSupport.requireCell(root, 2, 7);
+        assertEquals("input-text", operatorDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
+                .getString("componentFlag"));
+        assertEquals("input-text", reviewerDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY)
+                .getString("componentFlag"));
+        assertFalse("checkbox".equals(operatorDateCell
+                .getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY)
+                .getString("componentFlag")));
+        assertFalse("checkbox".equals(reviewerDateCell
                 .getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY)
                 .getString("componentFlag")));
     }
@@ -915,6 +1193,184 @@ class MesProBatchRecordCellRuleSupportTest {
         assertEquals(20, reviewedRule.getJSONObject("constraints").getInteger("maxLength"));
     }
 
+    @Test
+    void ensureManualFillForm_syncsSelectOptionsToFillForm() {
+        JSONObject cell = JSON.parseObject("""
+                {
+                  "text":"",
+                  "fillForm":{
+                    "field":"ebr_r0_c1",
+                    "component":"Input",
+                    "componentFlag":"input-text",
+                    "value":"",
+                    "defaultValue":""
+                  }
+                }
+                """);
+        BatchRecordReportCellRuleVO rule = new BatchRecordReportCellRuleVO()
+                .setRowIndex(0)
+                .setColumnIndex(1)
+                .setValueType("STRING")
+                .setComponentFlag("select")
+                .setRequired(true)
+                .setLabel("检测结果")
+                .setConstraints(Map.of(
+                        "selectionMode", "single",
+                        "options", List.of(
+                                Map.of("label", "合格", "value", "PASS"),
+                                Map.of("label", "不合格", "value", "FAIL"))))
+                .setSource("MANUAL")
+                .setConfidence(1.0)
+                .setReviewed(true);
+
+        MesProBatchRecordCellRuleSupport.ensureManualFillForm(rule, cell, "REPORT-SELECT");
+        MesProBatchRecordCellRuleSupport.validateRule(rule, cell);
+
+        JSONObject fillForm = cell.getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY);
+        assertEquals("select", fillForm.getString("componentFlag"));
+        assertEquals("检测结果", fillForm.getString("labelText"));
+        assertNotNull(fillForm.get("options"));
+        assertEquals(2, fillForm.getJSONArray("options").size());
+        assertEquals("PASS", fillForm.getJSONArray("options").getJSONObject(0).getString("value"));
+    }
+
+    @Test
+    void applyAssistRows_roundTripsStableRowsAndCoversEveryFillableCell() {
+        JSONObject root = assistRowsRoot();
+        List<BatchRecordReportAssistRowVO> assistRows = List.of(
+                assistRow("AR_001", "填写生产批号和实际数量", 1,
+                        cell(4, 2), cell(4, 4)),
+                assistRow("AR_002", "选择生产日期", 2,
+                        cell(6, 2)));
+
+        MesProBatchRecordCellRuleSupport.validateAssistRows(root, assistRows);
+        MesProBatchRecordCellRuleSupport.applyAssistRows(root, assistRows);
+        List<BatchRecordReportAssistRowVO> extracted = MesProBatchRecordCellRuleSupport.extractAssistRows(root);
+
+        assertEquals(2, extracted.size());
+        assertEquals("AR_001", extracted.get(0).getRowKey());
+        assertEquals("填写生产批号和实际数量", extracted.get(0).getDescription());
+        assertEquals(1, extracted.get(0).getSort());
+        assertEquals(2, extracted.get(0).getFields().size());
+        assertEquals(4, extracted.get(0).getFields().get(0).getRowIndex());
+        assertEquals(2, extracted.get(0).getFields().get(0).getColumnIndex());
+        assertEquals("AR_002", extracted.get(1).getRowKey());
+    }
+
+    @Test
+    void validateAssistRows_rejectsDuplicateCoordinateAcrossRows() {
+        JSONObject root = assistRowsRoot();
+        List<BatchRecordReportAssistRowVO> assistRows = List.of(
+                assistRow("AR_001", "填写生产批号", 1, cell(4, 2)),
+                assistRow("AR_002", "重复生产批号", 2, cell(4, 2), cell(4, 4), cell(6, 2)));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> MesProBatchRecordCellRuleSupport.validateAssistRows(root, assistRows));
+
+        assertTrue(ex.getMessage().contains("duplicate assist row cell"));
+        assertTrue(ex.getMessage().contains("4:2"));
+    }
+
+    @Test
+    void validateAssistRows_rejectsBlankDescriptionAndEmptyFields() {
+        JSONObject root = assistRowsRoot();
+        List<BatchRecordReportAssistRowVO> blankDescription = List.of(
+                assistRow("AR_001", "   ", 1, cell(4, 2), cell(4, 4), cell(6, 2)));
+        List<BatchRecordReportAssistRowVO> emptyFields = List.of(
+                assistRow("AR_001", "填写生产批号", 1));
+
+        assertTrue(assertThrows(IllegalArgumentException.class,
+                () -> MesProBatchRecordCellRuleSupport.validateAssistRows(root, blankDescription))
+                .getMessage().contains("description must not be blank"));
+        assertTrue(assertThrows(IllegalArgumentException.class,
+                () -> MesProBatchRecordCellRuleSupport.validateAssistRows(root, emptyFields))
+                .getMessage().contains("must contain at least one cell"));
+    }
+
+    @Test
+    void validateAssistRows_rejectsMissingCoverageAndNonFillableCoordinate() {
+        JSONObject root = assistRowsRoot();
+        List<BatchRecordReportAssistRowVO> missingCoverage = List.of(
+                assistRow("AR_001", "填写生产批号", 1, cell(4, 2), cell(4, 4)));
+        List<BatchRecordReportAssistRowVO> nonFillableCoordinate = List.of(
+                assistRow("AR_001", "标题不可填写", 1, cell(0, 0), cell(4, 2), cell(4, 4), cell(6, 2)));
+
+        assertTrue(assertThrows(IllegalArgumentException.class,
+                () -> MesProBatchRecordCellRuleSupport.validateAssistRows(root, missingCoverage))
+                .getMessage().contains("missing assist row coverage"));
+        assertTrue(assertThrows(IllegalArgumentException.class,
+                () -> MesProBatchRecordCellRuleSupport.validateAssistRows(root, nonFillableCoordinate))
+                .getMessage().contains("non-fillable assist row cell"));
+    }
+
+    @Test
+    void validateRule_rejectsDuplicateStringOptionValues() {
+        BatchRecordReportCellRuleVO rule = new BatchRecordReportCellRuleVO()
+                .setRowIndex(4)
+                .setColumnIndex(2)
+                .setValueType("STRING")
+                .setComponentFlag("radio-group")
+                .setRequired(true)
+                .setLabel("检测结果")
+                .setConstraints(Map.of(
+                        "selectionMode", "single",
+                        "options", List.of(
+                                Map.of("label", "合格", "value", "PASS"),
+                                Map.of("label", "复核通过", "value", "PASS"))))
+                .setReviewed(true);
+        JSONObject cell = JSON.parseObject("""
+                {
+                  "text": "",
+                  "fillForm": {"field": "ebr_r4_c2", "component": "Input", "componentFlag": "radio-group"}
+                }
+                """);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> MesProBatchRecordCellRuleSupport.validateRule(rule, cell));
+
+        assertTrue(ex.getMessage().contains("option value must be unique"));
+    }
+
+    @Test
+    void validateRule_rejectsNumberMinGreaterThanMax() {
+        JSONObject cell = JSON.parseObject("""
+                {
+                  "text":"",
+                  "fillForm":{
+                    "field":"ebr_r0_c1",
+                    "component":"Input",
+                    "componentFlag":"input-number"
+                  }
+                }
+                """);
+        BatchRecordReportCellRuleVO rule = new BatchRecordReportCellRuleVO()
+                .setRowIndex(0)
+                .setColumnIndex(1)
+                .setValueType("NUMBER")
+                .setComponentFlag("input-number")
+                .setLabel("温度")
+                .setConstraints(Map.of("min", 10, "max", 2))
+                .setSource("MANUAL")
+                .setConfidence(1.0)
+                .setReviewed(true);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> MesProBatchRecordCellRuleSupport.validateRule(rule, cell));
+    }
+
+    private void assertCellRuleAndFillForm(JSONObject root, int rowIndex, int columnIndex, String valueType,
+                                           String componentFlag, String label) {
+        JSONObject cell = MesProBatchRecordCellRuleSupport.requireCell(root, rowIndex, columnIndex);
+        JSONObject rule = cell.getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY);
+        JSONObject fillForm = cell.getJSONObject(MesProBatchRecordCellRuleSupport.FILL_FORM_KEY);
+        assertEquals(valueType, rule.getString("valueType"));
+        assertEquals(componentFlag, rule.getString("componentFlag"));
+        assertEquals(label, rule.getString("label"));
+        assertEquals(componentFlag, fillForm.getString("componentFlag"));
+        assertEquals(label, fillForm.getString("labelText"));
+        assertFalse("checkbox".equals(fillForm.getString("componentFlag")));
+    }
+
     private BatchRecordReportCellRuleVO findRule(List<BatchRecordReportCellRuleVO> suggestions,
                                                  int rowIndex,
                                                  int columnIndex) {
@@ -924,5 +1380,37 @@ class MesProBatchRecordCellRuleSupportTest {
                 .orElse(null);
         assertNotNull(rule, "missing suggestion for row " + rowIndex + " column " + columnIndex);
         return rule;
+    }
+
+    private JSONObject assistRowsRoot() {
+        return JSON.parseObject("""
+                {
+                  "rows": {
+                    "0": {"cells": {"0": {"text": "标题"}}},
+                    "4": {"cells": {
+                      "2": {"text": "", "fillForm": {"field": "ebr_r4_c2", "component": "Input", "componentFlag": "input-text"}},
+                      "4": {"text": "", "fillForm": {"field": "ebr_r4_c4", "component": "Input", "componentFlag": "input-number"}}
+                    }},
+                    "6": {"cells": {
+                      "2": {"text": "", "fillForm": {"field": "ebr_r6_c2", "component": "Input", "componentFlag": "date"}}
+                    }}
+                  }
+                }
+                """);
+    }
+
+    private BatchRecordReportAssistRowVO assistRow(String rowKey, String description, Integer sort,
+                                                   BatchRecordReportAssistRowVO.FieldVO... fields) {
+        return new BatchRecordReportAssistRowVO()
+                .setRowKey(rowKey)
+                .setDescription(description)
+                .setSort(sort)
+                .setFields(List.of(fields));
+    }
+
+    private BatchRecordReportAssistRowVO.FieldVO cell(Integer rowIndex, Integer columnIndex) {
+        return new BatchRecordReportAssistRowVO.FieldVO()
+                .setRowIndex(rowIndex)
+                .setColumnIndex(columnIndex);
     }
 }

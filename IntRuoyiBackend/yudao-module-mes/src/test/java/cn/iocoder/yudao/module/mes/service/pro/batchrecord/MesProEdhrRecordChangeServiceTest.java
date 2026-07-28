@@ -102,6 +102,8 @@ class MesProEdhrRecordChangeServiceTest extends BaseDbUnitTest {
     private BusinessApprovalPolicyResolveService businessApprovalPolicyResolveService;
     @MockitoBean
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
+    @MockitoBean
+    private MesProEdhrWorkTaskService workTaskService;
 
     @BeforeEach
     void setUpBpm() {
@@ -478,6 +480,28 @@ class MesProEdhrRecordChangeServiceTest extends BaseDbUnitTest {
         assertEquals("void-process-2", event.getBpmProcessInstanceId());
         assertEquals(ACTOR_ID, event.getApprovedBy());
         assertNotNull(event.getEffectiveAt());
+    }
+
+    @Test
+    void voidBatchExecution_approvedBpmCallbackCancelsActiveWorkTasks() {
+        MesProEdhrBatchExecutionDO batch = insertClosedBatchExecution();
+        when(signatureService.recordSubmitSignature(eq(0L), eq("request-pass"), any()))
+                .thenReturn(9352L);
+        when(processInstanceApi.createProcessInstance(eq(ACTOR_ID), any(BpmProcessInstanceCreateReqDTO.class)))
+                .thenReturn("void-process-cancel-work-tasks");
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockLoginUser()) {
+            changeService.requestVoidBatchExecution(new EdhrRecordChangeRequestReqVO()
+                    .setBatchExecutionId(batch.getId())
+                    .setReasonCategory("ORDER_CANCELLED")
+                    .setReasonText("批次执行作废后工作台任务必须同步关闭。")
+                    .setPassword("request-pass"));
+            changeService.handleVoidBatchExecutionApprovalCallback("void-process-cancel-work-tasks",
+                    "event-approved", "APPROVED", "同意作废", ACTOR_ID);
+        }
+
+        verify(workTaskService).cancelActiveTasksByBatch(batch.getId(),
+                "批次已作废：批次执行作废后工作台任务必须同步关闭。");
     }
 
     @Test

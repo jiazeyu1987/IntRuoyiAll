@@ -1,0 +1,192 @@
+{
+  "status": "BLOCKED",
+  "baseUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "tenant": "芋道源码",
+  "username": "wangxin",
+  "command": "node doc/tasks/20260728-switch-filler-extra-form-candidates/e2e-artifacts/switch-filler-extra-form-wangxin-real.e2e.cjs",
+  "workTaskPageAttempts": [
+    {
+      "pageIndex": 1,
+      "rowCount": 1,
+      "openableFillTaskCount": 1,
+      "candidateTaskIds": [
+        2245
+      ],
+      "rows": [
+        {
+          "id": 2245,
+          "taskCode": "EDHRT-1785224950178",
+          "taskType": "FILL",
+          "status": "TODO",
+          "batchExecutionId": 900000000900,
+          "batchTaskId": 6981,
+          "executionId": 1586,
+          "workOrderCode": "881MO090889",
+          "batchCode": "34126020001",
+          "processName": "粗洗工序",
+          "actionUrlPresent": true,
+          "openableFillTask": true
+        }
+      ]
+    }
+  ],
+  "openedTask": {
+    "task": {
+      "id": 2245,
+      "taskCode": "EDHRT-1785224950178",
+      "taskType": "FILL",
+      "status": "TODO",
+      "batchExecutionId": 900000000900,
+      "batchTaskId": 6981,
+      "executionId": 1586,
+      "workOrderCode": "881MO090889",
+      "batchCode": "34126020001",
+      "processName": "粗洗工序",
+      "actionUrlPresent": true,
+      "openableFillTask": true
+    },
+    "detailSnapshot": {
+      "executionId": 1586,
+      "assistSwitchTaskCount": 3,
+      "extraAssistSwitchTaskCount": 2,
+      "extraAssistSwitchTasks": [
+        {
+          "id": 6982,
+          "nodeType": "ROUTE_FORM",
+          "processName": "粗洗工序",
+          "batchRecordReportName": "损耗单",
+          "formSlotType": "LOSS_REPORT",
+          "formBindingKey": "FORM_BINDING_1784782156927_1",
+          "formTemplateId": 25,
+          "status": 0,
+          "available": false,
+          "activeWorkTaskId": null,
+          "allowedActions": [],
+          "fillableUsers": [
+            {
+              "userId": 152,
+              "displayName": "张可莹"
+            }
+          ]
+        },
+        {
+          "id": 6983,
+          "nodeType": "ROUTE_FORM",
+          "processName": "粗洗工序",
+          "batchRecordReportName": "过程检验记录",
+          "formSlotType": "PROCESS_INSPECTION",
+          "formBindingKey": "FORM_BINDING_1785083586161_1",
+          "formTemplateId": 28,
+          "status": 0,
+          "available": false,
+          "activeWorkTaskId": null,
+          "allowedActions": [],
+          "fillableUsers": [
+            {
+              "userId": 149,
+              "displayName": "黎敏"
+            }
+          ]
+        }
+      ],
+      "currentBatchTaskId": "6981",
+      "currentAssistUserId": null
+    }
+  },
+  "fillerSwitch": {
+    "optionCount": 4,
+    "enabledExtraOptionCount": 0,
+    "enabledExtraOtherCount": 0,
+    "options": [
+      {
+        "taskId": "6981",
+        "userId": "810",
+        "displayName": "王歆",
+        "text": "王歆批处理表单 · 粗洗工序生产记录 · 可填写",
+        "disabled": false,
+        "active": true
+      },
+      {
+        "taskId": "6981",
+        "userId": "910181",
+        "displayName": "任丹",
+        "text": "任丹批处理表单 · 粗洗工序生产记录 · 可填写",
+        "disabled": false,
+        "active": false
+      },
+      {
+        "taskId": "6982",
+        "userId": "152",
+        "displayName": "张可莹",
+        "text": "张可莹工艺路线表单槽位 · 损耗单 · 可填写",
+        "disabled": true,
+        "active": false
+      },
+      {
+        "taskId": "6983",
+        "userId": "149",
+        "displayName": "黎敏",
+        "text": "黎敏工艺路线表单槽位 · 过程检验记录 · 可填写",
+        "disabled": true,
+        "active": false
+      }
+    ],
+    "extraTaskIds": [
+      "6982",
+      "6983"
+    ]
+  },
+  "apiErrorsDuringFillerSwitch": [],
+  "fullBatchDetailReadsDuringFillerSwitch": [],
+  "candidateAttempts": [
+    {
+      "pageIndex": 1,
+      "candidateIndex": 0,
+      "taskId": 2245,
+      "taskCode": "EDHRT-1785224950178",
+      "message": "extra form task must produce enabled filler options"
+    }
+  ],
+  "error": {
+    "message": "no_wangxin_extra_form_switch_sample_found",
+    "details": {
+      "workTaskPageAttempts": [
+        {
+          "pageIndex": 1,
+          "rowCount": 1,
+          "openableFillTaskCount": 1,
+          "candidateTaskIds": [
+            2245
+          ],
+          "rows": [
+            {
+              "id": 2245,
+              "taskCode": "EDHRT-1785224950178",
+              "taskType": "FILL",
+              "status": "TODO",
+              "batchExecutionId": 900000000900,
+              "batchTaskId": 6981,
+              "executionId": 1586,
+              "workOrderCode": "881MO090889",
+              "batchCode": "34126020001",
+              "processName": "粗洗工序",
+              "actionUrlPresent": true,
+              "openableFillTask": true
+            }
+          ]
+        }
+      ],
+      "candidateAttempts": [
+        {
+          "pageIndex": 1,
+          "candidateIndex": 0,
+          "taskId": 2245,
+          "taskCode": "EDHRT-1785224950178",
+          "message": "extra form task must produce enabled filler options"
+        }
+      ]
+    },
+    "stack": "Error: no_wangxin_extra_form_switch_sample_found\n    at failFast (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:63:17)\n    at run (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:541:13)"
+  }
+}

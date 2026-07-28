@@ -61,6 +61,8 @@ param(
     [string]$DccDownloadEncryptionArtifactDirectory = $env:DCC_DOWNLOAD_ENCRYPTION_ARTIFACT_DIRECTORY,
     [string]$DccProjectCodeCodexCliCommand = $env:DCC_PROJECT_CODE_CODEX_CLI_COMMAND,
     [string]$DccProjectCodeCodexHome = $env:DCC_PROJECT_CODE_CODEX_HOME,
+    [string]$ReleaseChangeSummaryCodexCliCommand = $env:INTRUOYI_RELEASE_CHANGE_SUMMARY_CODEX_CLI_COMMAND,
+    [int]$ReleaseChangeSummaryCodexTimeoutSeconds = 180,
     [string]$LocalCacheRoot = $env:INTRUOYI_LOCAL_CACHE_ROOT,
     [ValidateSet('offline-tar')]
     [string]$BackendRuntimeBaseMode = $env:INTRUOYI_BACKEND_RUNTIME_BASE_MODE,
@@ -2895,6 +2897,594 @@ function New-ReleaseSourceRepoManifestEntries {
     return @($entries)
 }
 
+function Get-ReleaseObjectPropertyText {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Object,
+        [Parameter(Mandatory = $true)]
+        [string]$PropertyName
+    )
+
+    $property = $Object.PSObject.Properties[$PropertyName]
+    if ($null -eq $property -or $null -eq $property.Value) {
+        return ''
+    }
+    return ([string]$property.Value).Trim()
+}
+
+function Get-ReleaseManifestCreatedAt {
+    if ([string]::IsNullOrWhiteSpace($script:releaseManifestCreatedAt)) {
+        $script:releaseManifestCreatedAt = (Get-Date).ToUniversalTime().ToString('o')
+    }
+    return $script:releaseManifestCreatedAt
+}
+
+function Get-ReleaseSourceReposForManifest {
+    if ($null -eq $script:releaseSourceReposForManifest) {
+        $script:releaseSourceReposForManifest = @(New-ReleaseSourceRepoManifestEntries)
+    }
+    return @($script:releaseSourceReposForManifest)
+}
+
+function Get-ReleaseSourceRepoIdentity {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Repo
+    )
+
+    $pathRole = Get-ReleaseObjectPropertyText -Object $Repo -PropertyName 'pathRole'
+    if (-not [string]::IsNullOrWhiteSpace($pathRole)) {
+        return $pathRole.ToLowerInvariant()
+    }
+
+    $name = Get-ReleaseObjectPropertyText -Object $Repo -PropertyName 'name'
+    if (-not [string]::IsNullOrWhiteSpace($name)) {
+        return $name.ToLowerInvariant()
+    }
+
+    Fail 'Release source repo entry must include pathRole or name before git change comparison'
+}
+
+function Resolve-ReleaseSourceRepoPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Repo
+    )
+
+    $repoIdentity = Get-ReleaseSourceRepoIdentity -Repo $Repo
+    switch ($repoIdentity) {
+        'backend' { return $backendRepo }
+        'admin-frontend' { return $frontendDir }
+        'website' { return $websiteRepo }
+        default { Fail "Unknown release source repo pathRole for git change comparison: $repoIdentity" }
+    }
+}
+
+function Get-PreviousReleaseManifestForGitChanges {
+    if ([string]::IsNullOrWhiteSpace($localTempRoot) -or -not (Test-Path -LiteralPath $localTempRoot -PathType Container)) {
+        Fail "Previous release comparison requires local release package root: $localTempRoot"
+    }
+
+    $candidates = @(
+        Get-ChildItem -LiteralPath $localTempRoot -Directory |
+            Where-Object {
+                $_.Name -ne $packageDirectoryName -and
+                (Test-Path -LiteralPath (Join-Path $_.FullName 'manifest.json') -PathType Leaf)
+            } |
+            Sort-Object -Property LastWriteTimeUtc -Descending
+    )
+    if ($candidates.Count -eq 0) {
+        Fail "Previous release manifest is required to build git change summary: $localTempRoot"
+    }
+
+    $previousPackage = $candidates[0]
+    $manifestPath = Join-Path $previousPackage.FullName 'manifest.json'
+    try {
+        $manifest = [System.IO.File]::ReadAllText($manifestPath, [System.Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
+    } catch {
+        Fail "Previous release manifest parse failed for git change summary: $manifestPath. $($_.Exception.Message)"
+    }
+
+    $previousReleaseTag = Get-ReleaseObjectPropertyText -Object $manifest -PropertyName 'releaseTag'
+    if ([string]::IsNullOrWhiteSpace($previousReleaseTag)) {
+        Fail "Previous release manifest missing releaseTag for git change summary: $manifestPath"
+    }
+
+    return [pscustomobject]@{
+        Manifest = $manifest
+        ManifestPath = $manifestPath
+        PackageDirectoryName = $previousPackage.Name
+        ReleaseTag = $previousReleaseTag
+    }
+}
+
+function Get-ReleaseGitChangeFacts {
+    param(
+        [Parameter(Mandatory = $true)]
+        [array]$SourceRepos,
+        [Parameter(Mandatory = $true)]
+        [string]$CurrentReleaseTag
+    )
+
+    $previousRelease = Get-PreviousReleaseManifestForGitChanges
+    $previousRepos = @($previousRelease.Manifest.sourceRepos)
+    if ($previousRepos.Count -eq 0) {
+        Fail "Previous release manifest missing sourceRepos for git change summary: $($previousRelease.ManifestPath)"
+    }
+
+    $changes = @()
+    foreach ($repo in @($SourceRepos)) {
+        $repoIdentity = Get-ReleaseSourceRepoIdentity -Repo $repo
+        $previousRepo = @($previousRepos | Where-Object { (Get-ReleaseSourceRepoIdentity -Repo $_) -eq $repoIdentity } | Select-Object -First 1)
+        if ($previousRepo.Count -eq 0) {
+            Fail "Previous release manifest missing source repo '$repoIdentity' for git change summary: $($previousRelease.ManifestPath)"
+        }
+
+        $previousCommit = Get-ReleaseObjectPropertyText -Object $previousRepo[0] -PropertyName 'commit'
+        $currentCommit = Get-ReleaseObjectPropertyText -Object $repo -PropertyName 'commit'
+        if ([string]::IsNullOrWhiteSpace($previousCommit) -or [string]::IsNullOrWhiteSpace($currentCommit)) {
+            Fail "Git change summary requires previous and current commit for source repo '$repoIdentity'"
+        }
+        if ($previousCommit -eq $currentCommit) {
+            continue
+        }
+
+        $repoPath = Resolve-ReleaseSourceRepoPath -Repo $repo
+        $range = "$previousCommit..$currentCommit"
+        $logLines = & git -C $repoPath log --no-merges '--date=iso-strict' '--format=%cI%x09%s' '--numstat' $range 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Fail "Git change summary failed for source repo '$repoIdentity' with range $range"
+        }
+
+        $currentFact = $null
+        foreach ($line in @($logLines)) {
+            if ([string]::IsNullOrWhiteSpace($line)) {
+                continue
+            }
+            $lineText = [string]$line
+            if ($lineText -match '^(?<committedAt>\d{4}-\d{2}-\d{2}T[^\t]+)\t(?<subject>.+)$') {
+                if ($null -ne $currentFact) {
+                    $changes += $currentFact
+                }
+                $currentFact = [pscustomobject]@{
+                    repository = $repoIdentity
+                    committedAt = $matches.committedAt
+                    subject = $matches.subject
+                    paths = @()
+                    additions = 0
+                    deletions = 0
+                }
+                continue
+            }
+
+            if ($lineText -match '^(?<additions>\d+|-)\t(?<deletions>\d+|-)\t(?<path>.+)$') {
+                if ($null -eq $currentFact) {
+                    Fail "Git change summary parse found file statistics before commit header for source repo '$repoIdentity'"
+                }
+                $currentFact.paths += $matches.path
+                if ($matches.additions -ne '-') {
+                    $currentFact.additions += [int]$matches.additions
+                }
+                if ($matches.deletions -ne '-') {
+                    $currentFact.deletions += [int]$matches.deletions
+                }
+                continue
+            }
+
+            Fail "Git change summary parse failed for source repo '$repoIdentity'"
+        }
+        if ($null -ne $currentFact) {
+            $changes += $currentFact
+        }
+    }
+
+    return [ordered]@{
+        previousReleaseTag = $previousRelease.ReleaseTag
+        previousPackageId = $previousRelease.PackageDirectoryName
+        currentReleaseTag = $CurrentReleaseTag
+        items = @($changes | Sort-Object -Property committedAt -Descending)
+    }
+}
+
+function Resolve-ReleaseChangeSummaryCodexCliCommand {
+    param(
+        [string]$ConfiguredCommand
+    )
+
+    $commandName = if ([string]::IsNullOrWhiteSpace($ConfiguredCommand)) {
+        'codex'
+    } else {
+        $ConfiguredCommand.Trim()
+    }
+    $command = Get-Command -Name $commandName -ErrorAction SilentlyContinue
+    if ($null -eq $command) {
+        Fail "Codex CLI is required to generate release change summary but was not found: $commandName"
+    }
+    return $command.Source
+}
+
+function ConvertTo-WindowsProcessArgument {
+    param(
+        [AllowNull()]
+        [string]$Value
+    )
+
+    if ($null -eq $Value) {
+        return '""'
+    }
+    if ($Value -notmatch '[\s"]') {
+        return $Value
+    }
+
+    $builder = [System.Text.StringBuilder]::new()
+    [void]$builder.Append('"')
+    $backslashCount = 0
+    foreach ($character in $Value.ToCharArray()) {
+        if ($character -eq '\') {
+            $backslashCount += 1
+            continue
+        }
+        if ($character -eq '"') {
+            [void]$builder.Append(('\' * (($backslashCount * 2) + 1)))
+            [void]$builder.Append('"')
+            $backslashCount = 0
+            continue
+        }
+        if ($backslashCount -gt 0) {
+            [void]$builder.Append(('\' * $backslashCount))
+            $backslashCount = 0
+        }
+        [void]$builder.Append($character)
+    }
+    if ($backslashCount -gt 0) {
+        [void]$builder.Append(('\' * ($backslashCount * 2)))
+    }
+    [void]$builder.Append('"')
+    return $builder.ToString()
+}
+
+function Invoke-ReleaseCodexExec {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+        [Parameter(Mandatory = $true)]
+        [string[]]$ArgumentList,
+        [Parameter(Mandatory = $true)]
+        [string]$StandardInput,
+        [int]$TimeoutSeconds = 180
+    )
+
+    if ($TimeoutSeconds -lt 30) {
+        Fail 'Codex CLI timeout must be at least 30 seconds'
+    }
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $FilePath
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardInput = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.StandardOutputEncoding = [System.Text.UTF8Encoding]::new($false)
+    $startInfo.StandardErrorEncoding = [System.Text.UTF8Encoding]::new($false)
+    $startInfo.WorkingDirectory = $backendRepo
+
+    if ($startInfo.PSObject.Properties.Name -contains 'ArgumentList') {
+        foreach ($argument in $ArgumentList) {
+            [void]$startInfo.ArgumentList.Add($argument)
+        }
+    } else {
+        $startInfo.Arguments = (($ArgumentList | ForEach-Object { ConvertTo-WindowsProcessArgument -Value $_ }) -join ' ')
+    }
+
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    if (-not $process.Start()) {
+        Fail 'Codex CLI failed to start'
+    }
+
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $process.StandardInput.Write($StandardInput)
+    $process.StandardInput.Close()
+
+    if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+        try {
+            $process.Kill()
+        } catch {
+            Fail "Codex CLI timed out after $TimeoutSeconds seconds and the timed-out process could not be terminated: $($_.Exception.Message)"
+        }
+        Fail "Codex CLI timed out after $TimeoutSeconds seconds while generating release change summary"
+    }
+
+    $stdoutText = $stdoutTask.GetAwaiter().GetResult()
+    $stderrText = $stderrTask.GetAwaiter().GetResult()
+    return [pscustomobject]@{
+        ExitCode = $process.ExitCode
+        Stdout = $stdoutText
+        Stderr = $stderrText
+    }
+}
+
+function New-ReleaseCodexSummarySchema {
+    param(
+        [int]$MaxItems = 10
+    )
+
+    if ($MaxItems -lt 1 -or $MaxItems -gt 10) {
+        Fail "Codex summary item limit must be between 1 and 10"
+    }
+
+    return ([ordered]@{
+            '$schema' = 'https://json-schema.org/draft/2020-12/schema'
+            type = 'object'
+            additionalProperties = $false
+            required = @('items')
+            properties = [ordered]@{
+                items = [ordered]@{
+                    type = 'array'
+                    minItems = 1
+                    maxItems = $MaxItems
+                    items = [ordered]@{
+                        type = 'string'
+                        minLength = 6
+                        maxLength = 240
+                    }
+                }
+            }
+        } | ConvertTo-Json -Depth 10)
+}
+
+function New-ReleaseCodexSummaryPrompt {
+    param(
+        [Parameter(Mandatory = $true)]
+        [array]$Facts,
+        [Parameter(Mandatory = $true)]
+        [string]$PreviousReleaseTag,
+        [Parameter(Mandatory = $true)]
+        [string]$CurrentReleaseTag
+    )
+
+    $input = [ordered]@{
+        previousReleaseTag = $PreviousReleaseTag
+        currentReleaseTag = $CurrentReleaseTag
+        changes = @(
+            $Facts | ForEach-Object {
+                [ordered]@{
+                    repository = $_.repository
+                    committedAt = $_.committedAt
+                    subject = $_.subject
+                    changedPaths = @($_.paths)
+                    additions = [int]$_.additions
+                    deletions = [int]$_.deletions
+                }
+            }
+        )
+    }
+    $inputJson = $input | ConvertTo-Json -Depth 20
+
+    return @"
+You are writing release notes for ordinary users.
+Create a concise plain-language summary of what changed between the previous release and the current release.
+Return only JSON that matches the supplied schema.
+Rules:
+- Return 1 to 10 items when the input contains changes.
+- Write every item in simple, natural Simplified Chinese that a non-technical user can understand.
+- Describe the user-visible feature, workflow, data, or problem change, not implementation details.
+- Combine related technical commits into one understandable result.
+- Use only the supplied Git metadata. Do not invent behavior or outcomes.
+- Do not output Markdown, bullet prefixes, repository names, branch names, dates, file paths, commit hashes, issue IDs, or raw commit subjects.
+- Do not fall back to raw Git subjects or hashes.
+Git metadata input:
+$inputJson
+"@
+}
+
+function ConvertTo-ValidatedReleaseCodexSummaryItems {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Response,
+        [Parameter(Mandatory = $true)]
+        [array]$Facts,
+        [int]$MaxItems = 10
+    )
+
+    if ($null -eq $Response.PSObject.Properties['items']) {
+        Fail 'Codex summary output must contain an items array'
+    }
+
+    $items = @($Response.items)
+    if ($items.Count -lt 1 -or $items.Count -gt $MaxItems) {
+        Fail 'Codex summary must contain between 1 and 10 items'
+    }
+    foreach ($itemValue in $items) {
+        if ($itemValue -isnot [string]) {
+            Fail 'Codex summary item must be a string'
+        }
+        $item = ([string]$itemValue).Trim()
+        if ([string]::IsNullOrWhiteSpace($item) -or $item.Length -lt 6 -or $item.Length -gt 240) {
+            Fail 'Codex summary item must be nonempty and between 6 and 240 characters'
+        }
+        if ($item -notmatch '[\u4e00-\u9fff]') {
+            Fail 'Codex summary item must be plain Chinese'
+        }
+        if ($item -match '[\r\n]' -or $item -match '^\s*[-*]\s+') {
+            Fail 'Codex summary item must not contain Markdown or line breaks'
+        }
+        if ($item -match '(?i)(?<![0-9a-f])[0-9a-f]{7,40}(?![0-9a-f])') {
+            Fail 'Codex summary must not expose raw commit identifiers'
+        }
+        if ($item -match '^\s*\[[^\]]+\]\s+') {
+            Fail 'Codex summary must not expose raw commit entries'
+        }
+        foreach ($fact in $Facts) {
+            if ($item.Equals(([string]$fact.subject).Trim(), [System.StringComparison]::OrdinalIgnoreCase)) {
+                Fail 'Codex summary must not expose raw commit entries'
+            }
+        }
+    }
+
+    return @($items)
+}
+
+function Invoke-ReleaseCodexSummary {
+    param(
+        [Parameter(Mandatory = $true)]
+        [array]$Facts,
+        [Parameter(Mandatory = $true)]
+        [string]$PreviousReleaseTag,
+        [Parameter(Mandatory = $true)]
+        [string]$CurrentReleaseTag,
+        [int]$MaxItems = 10
+    )
+
+    if ($Facts.Count -eq 0) {
+        return [ordered]@{
+            summaryGenerator = 'none'
+            items = @()
+        }
+    }
+
+    $codexCommand = Resolve-ReleaseChangeSummaryCodexCliCommand -ConfiguredCommand $ReleaseChangeSummaryCodexCliCommand
+    $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("intruoyi-release-codex-" + [Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
+    $schemaPath = Join-Path $tempRoot 'summary-schema.json'
+    $promptPath = Join-Path $tempRoot 'summary-prompt.txt'
+    $outputPath = Join-Path $tempRoot 'summary-output.json'
+    $stderrPath = Join-Path $tempRoot 'summary-stderr.txt'
+
+    try {
+        Write-Utf8LfNoBomFile -Path $schemaPath -Content (New-ReleaseCodexSummarySchema -MaxItems $MaxItems)
+        Write-Utf8LfNoBomFile -Path $promptPath -Content (New-ReleaseCodexSummaryPrompt -Facts $Facts -PreviousReleaseTag $PreviousReleaseTag -CurrentReleaseTag $CurrentReleaseTag)
+        $promptText = [System.IO.File]::ReadAllText($promptPath, [System.Text.UTF8Encoding]::new($false))
+        $codexArguments = @(
+            'exec'
+            '--ephemeral'
+            '--sandbox'
+            'read-only'
+            '-C'
+            $backendRepo
+            '--output-schema'
+            $schemaPath
+            '--output-last-message'
+            $outputPath
+            '-'
+        )
+
+        $codexResult = Invoke-ReleaseCodexExec `
+            -FilePath $codexCommand `
+            -ArgumentList $codexArguments `
+            -StandardInput $promptText `
+            -TimeoutSeconds $ReleaseChangeSummaryCodexTimeoutSeconds
+        Write-Utf8LfNoBomFile -Path $stderrPath -Content $codexResult.Stderr
+        if ($codexResult.ExitCode -ne 0) {
+            Fail "Codex CLI failed while generating release change summary with exit code $($codexResult.ExitCode)"
+        }
+        if (-not (Test-Path -LiteralPath $outputPath -PathType Leaf)) {
+            Fail "Codex summary output file was not produced"
+        }
+
+        $responseText = [System.IO.File]::ReadAllText($outputPath, [System.Text.UTF8Encoding]::new($false))
+        try {
+            $response = $responseText | ConvertFrom-Json
+        } catch {
+            Fail "Codex summary output must be valid JSON: $($_.Exception.Message)"
+        }
+        $items = @(ConvertTo-ValidatedReleaseCodexSummaryItems -Response $response -Facts $Facts -MaxItems $MaxItems)
+
+        return [ordered]@{
+            summaryGenerator = 'codex'
+            items = @($items)
+        }
+    } finally {
+        if (Test-Path -LiteralPath $tempRoot) {
+            Remove-Item -LiteralPath $tempRoot -Recurse -Force
+        }
+    }
+}
+
+function New-ReleaseGitChangeItems {
+    param(
+        [Parameter(Mandatory = $true)]
+        [array]$SourceRepos,
+        [int]$MaxItems = 10
+    )
+
+    $gitFacts = Get-ReleaseGitChangeFacts -SourceRepos $SourceRepos -CurrentReleaseTag $ReleaseTag
+    $summary = Invoke-ReleaseCodexSummary `
+        -Facts $gitFacts.items `
+        -PreviousReleaseTag $gitFacts.previousReleaseTag `
+        -CurrentReleaseTag $gitFacts.currentReleaseTag `
+        -MaxItems $MaxItems
+
+    return [ordered]@{
+        previousReleaseTag = $gitFacts.previousReleaseTag
+        previousPackageId = $gitFacts.previousPackageId
+        maxItems = $MaxItems
+        summaryGenerator = $summary.summaryGenerator
+        items = @($summary.items)
+    }
+}
+
+function New-ReleaseChangeSetManifest {
+    param(
+        [Parameter(Mandatory = $true)]
+        [array]$SourceRepos
+    )
+
+    $gitChangeSummary = New-ReleaseGitChangeItems -SourceRepos $SourceRepos -MaxItems 10
+    return [ordered]@{
+        summary = "Git changes since previous release $($gitChangeSummary.previousReleaseTag)"
+        component = $Component
+        previousReleaseTag = $gitChangeSummary.previousReleaseTag
+        summaryGenerator = $gitChangeSummary.summaryGenerator
+        gitComparisonBase = [ordered]@{
+            previousReleaseTag = $gitChangeSummary.previousReleaseTag
+            previousPackageId = $gitChangeSummary.previousPackageId
+            maxItems = $gitChangeSummary.maxItems
+        }
+        gitChanges = @($gitChangeSummary.items)
+        items = @($gitChangeSummary.items)
+        changes = @($gitChangeSummary.items)
+        includeShowroomBuildPackage = [bool]$publishWebsite
+        includeOnlyOffice = [bool]$IncludeOnlyOffice
+    }
+}
+
+function Get-ReleaseChangeSetForManifest {
+    if ($null -eq $script:releaseChangeSetForManifest) {
+        $script:releaseChangeSetForManifest = New-ReleaseChangeSetManifest -SourceRepos (Get-ReleaseSourceReposForManifest)
+    }
+    return $script:releaseChangeSetForManifest
+}
+
+function Write-FrontendReleaseInfo {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackageTag
+    )
+
+    if (-not $publishFrontend) {
+        return
+    }
+
+    $distDir = Join-Path $frontendDir 'dist-intruoyi-test'
+    if (-not (Test-Path -LiteralPath $distDir -PathType Container)) {
+        Fail "Frontend build output missing before writing release-info.json: $distDir"
+    }
+
+    $releaseInfo = [ordered]@{
+        releaseTag = $PackageTag
+        packageId = $packageDirectoryName
+        createdAt = Get-ReleaseManifestCreatedAt
+        publishScope = if ($SkipDatabaseSync -and $SkipMinioSync) { 'code-only' } else { 'with-data' }
+        changeSet = Get-ReleaseChangeSetForManifest
+        sourceRepos = Get-ReleaseSourceReposForManifest
+    }
+    $releaseInfoJson = $releaseInfo | ConvertTo-Json -Depth 20
+    $releaseInfoPath = Join-Path $distDir 'release-info.json'
+    [System.IO.File]::WriteAllText($releaseInfoPath, $releaseInfoJson, [System.Text.UTF8Encoding]::new($false))
+}
+
 function Get-ReleaseDependencyHash {
     param(
         [Parameter(Mandatory = $true)]
@@ -3309,7 +3899,8 @@ function Write-ReleaseManifestV1 {
         $migrationPlan = @()
     }
     $components = Get-ReleaseComponentManifestNames
-    $sourceRepos = New-ReleaseSourceRepoManifestEntries
+    $sourceRepos = Get-ReleaseSourceReposForManifest
+    $changeSet = Get-ReleaseChangeSetForManifest
     $buildModules = New-ReleaseBuildModuleManifestEntries -Components $components -LegacyArtifacts $LegacyArtifacts -SourceRepos $sourceRepos -SchemaDigest $schemaDigest
     $artifacts = New-ReleaseArtifactManifestEntries -LegacyArtifacts $LegacyArtifacts -BuildModules $buildModules
     $packageType = if ($SkipDatabaseSync -and $SkipMinioSync) { 'full-release' } else { 'data-release' }
@@ -3320,15 +3911,10 @@ function Write-ReleaseManifestV1 {
         packageId = $packageDirectoryName
         releaseTag = $PackageTag
         packageType = $packageType
-        createdAt = (Get-Date).ToUniversalTime().ToString('o')
+        createdAt = Get-ReleaseManifestCreatedAt
         createdBy = $OperatorName
         sourceRepos = $sourceRepos
-        changeSet = [ordered]@{
-            summary = "Release package $packageDirectoryName"
-            component = $Component
-            includeShowroomBuildPackage = [bool]$publishWebsite
-            includeOnlyOffice = [bool]$IncludeOnlyOffice
-        }
+        changeSet = $changeSet
         publishScope = $publishScopeValue
         components = $components
         artifacts = $artifacts
@@ -4513,6 +5099,10 @@ if ($Mode -eq 'build-release') {
     $websiteNginxText = $websiteNginxTemplateText.Replace('__BACKEND_ORIGIN__', "${ServerHost}:$BackendPort")
     [System.IO.File]::WriteAllText($websiteNginxLocal, $websiteNginxText, [System.Text.UTF8Encoding]::new($false))
 }
+}
+
+if ($publishFrontend) {
+    Write-FrontendReleaseInfo -PackageTag $ReleaseTag
 }
 
 if ($publishBackend -or $publishFrontend) {

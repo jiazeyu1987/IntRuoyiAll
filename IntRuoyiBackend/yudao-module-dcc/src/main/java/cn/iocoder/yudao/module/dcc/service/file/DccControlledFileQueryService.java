@@ -26,7 +26,8 @@ public interface DccControlledFileQueryService {
 
     DccControlledFileUploadDirectoryTreeRespVO getUploadDirectoryTree(Long categoryId);
 
-    List<DccControlledFileUploadNameOptionRespVO> listUploadNameOptions(Long categoryId);
+    List<DccControlledFileUploadNameOptionRespVO> listUploadNameOptions(Long dccProjectCodeId,
+                                                                        Long fileTypeTaxonomyId);
 
     DccControlledFilePreviewMetadataRespVO getPreviewMetadata(Long userId, Long id,
                                                               DccRequestAuditContext auditContext);

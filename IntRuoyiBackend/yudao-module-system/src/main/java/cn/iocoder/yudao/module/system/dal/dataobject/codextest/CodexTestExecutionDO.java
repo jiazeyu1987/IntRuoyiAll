@@ -19,6 +19,7 @@ public class CodexTestExecutionDO extends TenantBaseDO {
     private Long id;
     private Long targetTenantId;
     private String executionMode;
+    private Boolean nodeChainExecution;
     private String status;
     private Long requestedBy;
     private Long runnerSessionId;

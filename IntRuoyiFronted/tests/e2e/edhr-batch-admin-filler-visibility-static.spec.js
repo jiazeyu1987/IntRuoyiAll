@@ -14,16 +14,15 @@ assert.ok(railStart >= 0 && railEnd > railStart, '批记录详情必须保留右
 const rail = detailPage.slice(railStart, railEnd)
 
 assert.match(
-  detailPage,
-  /label:\s*'填写人'/,
-  '批记录详情一级界面必须展示填写人。'
+  rail,
+  /class="edhr-batch-detail__rail-process-form-filler"[\s\S]*resolveTaskCardFillersText\(task\)/,
+  'Batch detail must show filler on each right-side form card.'
 )
-assert.match(
+assert.doesNotMatch(
   rail,
   /primaryFormFillMetaItems/,
-  '批记录详情必须在右侧黄框一级区域展示填写人和提交时间。'
+  'Batch detail must not keep the independent right-side filler metadata block.'
 )
-
 const canOpenTaskMatch = detailPage.match(
   /const canOpenTask = \(row: EdhrBatchExecutionTaskRespVO\) =>[\s\S]*?(?=(?:\r?\n){2}const canHandlePendingTask)/
 )
@@ -59,10 +58,9 @@ assert.match(
   /const resolvePendingTaskFillableUsersText = \(row: EdhrBatchExecutionTaskRespVO\) =>[\s\S]*resolveSelectedTaskFillerGroupsText\(row\)/,
   '当前应填写人员必须优先展示任务填写人，并兜底展示当前工序应填写人员。'
 )
-assert.match(
+assert.doesNotMatch(
   detailPage,
-  /const resolvePrimaryFormFillersText = \(\) =>[\s\S]*resolvePendingTaskFillableUsersText\(selectedTask\)/,
-  '一级填写元信息必须优先展示任务填写人，并兜底展示当前工序应填写人员。'
+  /const resolvePrimaryFormFillersText = \(\)/,
+  'Batch detail must not keep independent filler metadata calculators.'
 )
-
 console.log('PASS: eDHR batch admin filler visibility static contract')

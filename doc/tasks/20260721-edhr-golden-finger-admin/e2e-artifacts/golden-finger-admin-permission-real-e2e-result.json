@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "baseUrl": "http://localhost:8081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "targetPath": "/mes/pro/feedback/edhr-batch-execution",
+  "officialPreflight": "PASS: login preflight tenant=芋道源码 username=admin target=/mes/pro/feedback/edhr-batch-execution",
+  "mesWriteRequests": [],
+  "login": {
+    "httpStatus": 200,
+    "code": 0
+  },
+  "permissionResponse": {
+    "httpStatus": 200,
+    "code": 0,
+    "includesGoldenFinger": true,
+    "permissionCount": 1273
+  },
+  "pageUrl": "http://localhost:8081/mes/pro/feedback/edhr-batch-execution",
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260721-edhr-golden-finger-admin\\e2e-artifacts\\golden-finger-admin-permission-real-e2e.png"
+}

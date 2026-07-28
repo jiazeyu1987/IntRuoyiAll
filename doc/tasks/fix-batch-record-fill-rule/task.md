@@ -16,6 +16,7 @@
 - [x] 用户授权纳入范围外编译前置：修复 `MesProRouteFlowConfigServiceImpl.resolveRecordbookEnabled(Boolean,String)` 缺失
 - [x] 修复损耗报告 Word 解析回归：期望保留 `□报废`
 - [x] 获得或发现任务专用测试账号后完成真实前端 E2E
+- [x] 改造真实 E2E 为数据库夹具读取，不再要求工单/批次/填写值/签名密码环境变量
 - [ ] 如需修复历史模板，另行授权 dry run/apply 受控修复任务
 - [ ] 完成收尾与经验沉淀
 
@@ -29,19 +30,19 @@
 
 ## Current Status
 
-ready_for_closeout；用户授权纳入的编译前置、损耗报告 Word 解析回归、真实前端 E2E PASS 证据和后续 134 个后端全类回归均已完成。当前 shell 再次复跑真实 E2E 缺少任务专用环境变量而 fail fast，未使用受保护租户替代；剩余为任务清理、经验沉淀和提交/推送门禁。
+ready_for_closeout；用户授权纳入的编译前置、损耗报告 Word 解析回归、134 个后端全类回归、数据库夹具模式真实前端 E2E 均已完成。当前真实 E2E 不再要求工单/批次/填写值/签名密码环境变量，使用本机数据库夹具和用户授权的芋道源码/admin；剩余为任务清理、经验沉淀和提交/推送门禁。
 
 
 ## 经验门禁
 
-### 任务专用 E2E 环境变量与证据文件门禁
+### eDHR 批次执行数据库夹具与证据文件门禁
 
-- Trigger: 运行 `edhr-batch-execution-real-flow.e2e.js` 或复跑真实写入型 E2E。
-- Preflight check: 显式设置当前任务 `EDHR_BATCH_E2E_TASK_ID` 或 `EDHR_BATCH_E2E_EVIDENCE_FILE`，并确认账号、工单、批次、路线、签名密码环境变量来自已授权测试租户。
-- Blocker: 任一必需环境变量缺失、目标租户受保护、或证据路径会覆盖非当前任务历史 PASS 证据时停止。
-- Verification: 记录 E2E 命令、证据路径、入口 URL、测试租户/账号标签、目标业务数据标识和 PASS/BLOCKED 结果。
-- Forbidden action: 禁止用默认任务 ID 覆盖历史证据，禁止用受保护租户或默认生产/admin 数据替代任务专用测试数据。
-- Evidence: `docs/e2e-rules.md#任务专用-e2e-环境变量与证据文件门禁`。
+- Trigger: 运行 `edhr-batch-execution-real-flow.e2e.js` 或复跑 eDHR 批次执行真实 E2E。
+- Preflight check: 从本机 Docker MySQL `int-ruoyi-mysql/ruoyi-vue-pro` 读取授权租户、账号、批次执行、任务和执行 ID；如需写入夹具，先记录原始值、影响行数与回滚 SQL。
+- Blocker: 本地数据库不可达、授权租户/账号不存在、无当前账号可打开的待办工作任务、写入影响行数异常、或证据路径会覆盖非当前任务历史 PASS 证据时停止。
+- Verification: 记录 E2E 命令、证据路径、入口 URL、租户/账号标签、数据库来源、批次执行 ID、任务 ID、执行 ID、DB 写入行数和 PASS/BLOCKED 结果。
+- Forbidden action: 禁止重新要求工单/批次/填写值/签名密码环境变量；禁止记录明文密码；禁止用 mock、API-only 或未记录数据库直改替代真实前端路径。
+- Evidence: `docs/e2e-rules.md#edhr-批次执行数据库夹具与证据文件门禁`。
 
 ## 设计约束检查
 

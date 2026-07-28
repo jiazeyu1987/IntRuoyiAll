@@ -60,8 +60,13 @@ const assistFillerLoaderMatch = executionPage.match(
 assert.ok(assistFillerLoaderMatch, '必须保留填写人列表加载函数。')
 assert.match(
   assistFillerLoaderMatch[0],
-  /getEdhrBatchExecution\(batchExecutionId\)[\s\S]*routeProcessId[\s\S]*fillableUsers/,
-  '填写人必须从当前批次详情按当前 routeProcessId 汇总各表单任务 fillableUsers。'
+  /execution\.value\?\.assistSwitchTasks[\s\S]*routeProcessId[\s\S]*fillableUsers/,
+  '填写人必须从执行详情 assistSwitchTasks 快照按当前 routeProcessId 汇总各表单任务 fillableUsers。'
+)
+assert.doesNotMatch(
+  assistFillerLoaderMatch[0],
+  /getEdhrBatchExecution\(/,
+  '填写人切换不得调用全量批次详情接口。'
 )
 assert.match(
   assistFillerLoaderMatch[0],

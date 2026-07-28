@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
@@ -22,6 +23,7 @@ import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskPageReqV
 import cn.iocoder.yudao.module.bpm.controller.admin.task.vo.task.BpmTaskRejectReqVO;
 import cn.iocoder.yudao.module.bpm.service.task.BpmTaskService;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordDomainTraceDetailRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionTaskRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordExecutionApprovalPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordExecutionApprovalActionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProBatchRecordExecutionApprovalRespVO;
@@ -52,9 +54,12 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRec
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionArchiveDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordExecutionSignatureDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProBatchRecordTemplateDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordDefinitionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
@@ -70,22 +75,33 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordEx
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordExecutionSignatureMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProBatchRecordTemplateMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFormPermissionRuleMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordDefinitionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordVersionMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordVersionMigrationItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.wm.batch.MesWmBatchMapper;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordCellRuleSupport;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.BatchRecordCellLinkAutoPersistCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.BatchRecordCellLinkAutoPersistResult;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkAutoPersistService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordJimuReportGateway;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrCandidateResolver.MesProEdhrCandidateUser;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -170,6 +186,12 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     private static final String BATCH_RECORD_VERSION_STATUS_APPROVED = "APPROVED";
     private static final String INSTANCE_SCOPE_PROCESS = "PROCESS";
     private static final String INSTANCE_SCOPE_BATCH_SHARED = "BATCH_SHARED";
+    private static final String CANDIDATE_SOURCE_TYPE_USER = "USER";
+    private static final String CANDIDATE_SOURCE_TYPE_USERS = "USERS";
+    private static final String CANDIDATE_SOURCE_TYPE_ROLE = "ROLE";
+    private static final String CANDIDATE_SOURCE_TYPE_ROLE_GROUP = "ROLE_GROUP";
+    private static final String CANDIDATE_SOURCE_TYPE_DEPT = "DEPT";
+    private static final String CANDIDATE_SOURCE_TYPE_DEPT_GROUP = "DEPT_GROUP";
     private static final int APPROVAL_FILTER_SCAN_PAGE_SIZE = 100;
 
     @Resource
@@ -182,6 +204,8 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     private MesProBatchRecordDefinitionMapper definitionMapper;
     @Resource
     private MesProBatchRecordVersionMapper versionMapper;
+    @Resource
+    private MesProBatchRecordVersionMigrationItemMapper versionMigrationItemMapper;
     @Resource
     private MesProRouteMapper routeMapper;
     @Resource
@@ -197,6 +221,8 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     @Resource
     private MesProBatchRecordJimuReportGateway jimuReportGateway;
     @Resource
+    private MesProBatchRecordRuntimeSnapshotSupport runtimeSnapshotSupport;
+    @Resource
     private MesProProcessMapper processMapper;
     @Resource
     private MesMdWorkstationMapper workstationMapper;
@@ -207,9 +233,17 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     @Resource
     private MesProBatchRecordExecutionAttachmentMapper attachmentMapper;
     @Resource
+    private MesProEdhrBatchExecutionMapper edhrBatchExecutionMapper;
+    @Resource
     private MesProEdhrBatchExecutionTaskMapper batchExecutionTaskMapper;
     @Resource
+    private MesProEdhrWorkTaskMapper workTaskMapper;
+    @Resource
     private MesProEdhrProcessFormPermissionRuleMapper processFormPermissionRuleMapper;
+    @Resource
+    private MesProEdhrWorkTaskAssignmentRuleMapper workTaskAssignmentRuleMapper;
+    @Resource
+    private MesProRouteFlowProcessBatchRecordMapper routeFlowProcessBatchRecordMapper;
     @Resource
     private MesProBatchRecordExecutionArchiveMapper archiveMapper;
     @Resource
@@ -220,6 +254,8 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     private BpmTaskService bpmTaskService;
     @Resource
     private MesProBatchRecordExecutionFieldAuditService fieldAuditService;
+    @Resource
+    private MesProBatchRecordCellLinkAutoPersistService cellLinkAutoPersistService;
     @Resource
     private MesProBatchRecordDomainTraceService domainTraceService;
     @Resource
@@ -234,6 +270,12 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
     @Resource
     private MesProEdhrOperationAuditService operationAuditService;
+    @Resource
+    private MesProEdhrRecordbookGlobalSettingService recordbookGlobalSettingService;
+    @Resource
+    private AdminUserApi adminUserApi;
+    @Resource
+    private PermissionApi permissionApi;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -402,10 +444,16 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 ? executionMapper.selectActiveByBatchShared(reqVO.getBatchExecutionId(), sharedFormKey, batchCode,
                         ACTIVE_EXECUTION_STATUSES)
                 : executionMapper.selectActiveByContext(
+                        reqVO.getBatchExecutionId(), reqVO.getTaskId(),
+                        reqVO.getWorkstationId(),
                         workOrder.getId(), routeProcess.getId(), batchRecordReportId, batchCode,
                         ACTIVE_EXECUTION_STATUSES);
         if (existing != null) {
-            return buildOpenOrCreateResp(existing, false);
+            BatchRecordCellLinkAutoPersistResult autoPersist = cellLinkAutoPersistService.autoPersist(
+                    new BatchRecordCellLinkAutoPersistCommand()
+                            .setExecutionId(existing.getId())
+                            .setTrigger("EXECUTION_OPEN_OR_CREATE_EXISTING"));
+            return buildOpenOrCreateResp(existing, false).setCellLinkAutoPersist(autoPersist);
         }
         validateLatestPublishedBatchRecordReport(report);
         RuntimeSnapshot runtimeSnapshot = buildRuntimeSnapshotFromReport(report);
@@ -413,15 +461,15 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
         String activeContextKey = INSTANCE_SCOPE_BATCH_SHARED.equals(instanceScope)
                 ? buildBatchSharedActiveContextKey(workOrder.getId(), reqVO.getBatchExecutionId(),
                         batchRecordReportId, sharedFormKey, batchCode)
-                : buildActiveContextKey(workOrder.getId(), null, routeProcess.getId(),
-                        null, batchRecordReportId, batchCode);
+                : buildActiveContextKey(workOrder.getId(), reqVO.getTaskId(), routeProcess.getId(),
+                        reqVO.getWorkstationId(), batchRecordReportId, batchCode);
         MesProBatchRecordExecutionDO execution = MesProBatchRecordExecutionDO.builder()
                 .executionCode("BRE-PENDING-" + System.nanoTime())
                 .workOrderId(workOrder.getId())
                 .workOrderCode(workOrder.getCode())
                 .routeProcessId(routeProcess == null ? null : routeProcess.getId())
-                .taskId(null)
-                .workstationId(null)
+                .taskId(reqVO.getTaskId())
+                .workstationId(reqVO.getWorkstationId())
                 .batchRecordReportId(batchRecordReportId)
                 .batchRecordDefinitionId(report.getBatchRecordDefinitionId())
                 .batchRecordVersionId(report.getBatchRecordVersionId())
@@ -460,7 +508,11 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 .setId(execution.getId())
                 .setExecutionCode(executionCode)
                 .setRevisionRootExecutionId(execution.getId()));
-        return buildOpenOrCreateResp(execution, true);
+        BatchRecordCellLinkAutoPersistResult autoPersist = cellLinkAutoPersistService.autoPersist(
+                new BatchRecordCellLinkAutoPersistCommand()
+                        .setExecutionId(execution.getId())
+                        .setTrigger("EXECUTION_CREATE"));
+        return buildOpenOrCreateResp(execution, true).setCellLinkAutoPersist(autoPersist);
     }
 
     @Override
@@ -2324,6 +2376,8 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
             respVO.setBatchRecordReportCode(report.getReportCode());
             respVO.setBatchRecordReportName(report.getReportName());
         }
+        Boolean effectiveRecordbookEnabled = recordbookGlobalSettingService.resolveEffectiveRecordbookEnabled(execution.getRecordbookEnabled(), execution.getRecordCategory());
+        respVO.setRecordbookEnabled(effectiveRecordbookEnabled);
         respVO.setInstanceScope(resolveExecutionInstanceScope(execution.getInstanceScope()));
         respVO.setActiveContextKey(buildExecutionActiveContextKey(execution));
         boolean bindingResolved = StrUtil.isNotBlank(execution.getBatchRecordReportId()) && report != null;
@@ -2354,6 +2408,7 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
         respVO.setPreReleaseEditable(preReleaseEditability.editable());
         respVO.setPreReleaseEditReason(preReleaseEditability.reason());
         if (includeCellValues) {
+            respVO.setAssistSwitchTasks(buildAssistSwitchTasksSnapshot(execution));
             respVO.setCellValues(JsonUtils.parseArray(execution.getCellValuesJson(), MesProBatchRecordExecutionCellValueVO.class));
             respVO.setSignatureSummaries(signatureMapper.selectListByExecutionId(execution.getId()).stream()
                     .map(this::buildSignatureResp)
@@ -2372,6 +2427,459 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                     .toList());
         }
         return respVO;
+    }
+
+    private List<EdhrBatchExecutionTaskRespVO> buildAssistSwitchTasksSnapshot(MesProBatchRecordExecutionDO execution) {
+        if (execution.getBatchExecutionId() == null) {
+            return List.of();
+        }
+        List<MesProEdhrBatchExecutionTaskDO> tasks = batchExecutionTaskMapper
+                .selectListByBatchExecutionId(execution.getBatchExecutionId()).stream()
+                .filter(task -> execution.getRouteProcessId() == null
+                        || Objects.equals(task.getRouteProcessId(), execution.getRouteProcessId()))
+                .toList();
+        if (tasks.isEmpty()) {
+            return List.of();
+        }
+        List<MesProEdhrWorkTaskDO> activeWorkTasks =
+                workTaskMapper.selectActiveListByBatchExecutionId(execution.getBatchExecutionId());
+        if (shouldEnsureAssistSwitchCompanionFillTasks(execution.getBatchExecutionId(), tasks, activeWorkTasks)) {
+            workTaskService.createInitialFillTask(edhrBatchExecutionMapper.selectById(execution.getBatchExecutionId()));
+            activeWorkTasks = workTaskMapper.selectActiveListByBatchExecutionId(execution.getBatchExecutionId());
+        }
+        Map<Long, MesProEdhrWorkTaskDO> workTaskMap = activeWorkTasks.stream()
+                .filter(this::isAssistSwitchFillWorkTask)
+                .collect(Collectors.toMap(
+                        MesProEdhrWorkTaskDO::getBatchTaskId,
+                        task -> task,
+                        (existing, replacement) -> existing,
+                        LinkedHashMap::new));
+        Map<Long, List<MesProEdhrProcessFormPermissionRuleDO>> processFormRuleMap =
+                buildAssistSwitchProcessFormRuleMap(tasks, workTaskMap);
+        Map<Long, MesProEdhrWorkTaskAssignmentRuleDO> fillableRuleMap =
+                buildAssistSwitchFillableRuleMap(tasks, workTaskMap, processFormRuleMap);
+        Map<Long, List<Long>> routeBindingFillableUserIdsMap = buildAssistSwitchRouteBindingFillableUserIdsMap(
+                tasks, workTaskMap, processFormRuleMap, fillableRuleMap);
+        Map<Long, AdminUserRespDTO> userMap = buildAssistSwitchUserMap(
+                workTaskMap.values(), processFormRuleMap.values(), fillableRuleMap.values(),
+                routeBindingFillableUserIdsMap.values());
+        return tasks.stream()
+                .map(task -> toAssistSwitchTaskSnapshot(task, workTaskMap.get(task.getId()),
+                        processFormRuleMap.get(task.getId()), fillableRuleMap.get(task.getId()),
+                        routeBindingFillableUserIdsMap.get(task.getId()), userMap))
+                .toList();
+    }
+
+    private boolean shouldEnsureAssistSwitchCompanionFillTasks(Long batchExecutionId,
+                                                               List<MesProEdhrBatchExecutionTaskDO> tasks,
+                                                               List<MesProEdhrWorkTaskDO> activeWorkTasks) {
+        if (batchExecutionId == null || tasks == null || tasks.isEmpty()
+                || activeWorkTasks == null || activeWorkTasks.isEmpty()) {
+            return false;
+        }
+        MesProEdhrBatchExecutionDO batch = edhrBatchExecutionMapper.selectById(batchExecutionId);
+        if (!isAssistSwitchActiveBatch(batch)) {
+            return false;
+        }
+        Map<Long, MesProEdhrBatchExecutionTaskDO> taskMap = tasks.stream()
+                .filter(task -> task.getId() != null)
+                .collect(Collectors.toMap(
+                        MesProEdhrBatchExecutionTaskDO::getId,
+                        task -> task,
+                        (existing, replacement) -> existing,
+                        LinkedHashMap::new));
+        Set<Long> activeBatchTaskIds = activeWorkTasks.stream()
+                .filter(task -> MesProEdhrWorkTaskService.TASK_TYPE_FILL.equals(task.getTaskType()))
+                .map(MesProEdhrWorkTaskDO::getBatchTaskId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<Long> activeRouteProcessIds = activeWorkTasks.stream()
+                .filter(task -> MesProEdhrWorkTaskService.TASK_TYPE_FILL.equals(task.getTaskType()))
+                .map(task -> taskMap.get(task.getBatchTaskId()))
+                .filter(Objects::nonNull)
+                .filter(this::isAssistSwitchRouteForm)
+                .map(MesProEdhrBatchExecutionTaskDO::getRouteProcessId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (activeRouteProcessIds.isEmpty()) {
+            return false;
+        }
+        return tasks.stream()
+                .filter(task -> task.getId() != null)
+                .filter(this::isAssistSwitchRouteForm)
+                .filter(task -> Objects.equals(task.getStatus(),
+                        MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING))
+                .filter(task -> activeRouteProcessIds.contains(task.getRouteProcessId()))
+                .anyMatch(task -> !activeBatchTaskIds.contains(task.getId()));
+    }
+
+    private boolean isAssistSwitchActiveBatch(MesProEdhrBatchExecutionDO batch) {
+        return batch != null
+                && !Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CLOSED)
+                && !Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_ARCHIVED)
+                && !Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_REJECTED)
+                && !Objects.equals(batch.getStatus(), MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_VOIDED);
+    }
+
+    private boolean isAssistSwitchFillWorkTask(MesProEdhrWorkTaskDO workTask) {
+        return workTask.getBatchTaskId() != null
+                && (MesProEdhrWorkTaskService.TASK_TYPE_FILL.equals(workTask.getTaskType())
+                || MesProEdhrWorkTaskService.TASK_TYPE_REWORK.equals(workTask.getTaskType()));
+    }
+
+    private EdhrBatchExecutionTaskRespVO toAssistSwitchTaskSnapshot(MesProEdhrBatchExecutionTaskDO task,
+                                                                    MesProEdhrWorkTaskDO workTask,
+                                                                    List<MesProEdhrProcessFormPermissionRuleDO> processFormRules,
+                                                                    MesProEdhrWorkTaskAssignmentRuleDO fillableRule,
+                                                                    List<Long> routeBindingFillableUserIds,
+                                                                    Map<Long, AdminUserRespDTO> userMap) {
+        boolean openable = isAssistSwitchTaskOpenable(task, workTask);
+        return new EdhrBatchExecutionTaskRespVO()
+                .setId(task.getId())
+                .setNodeType(task.getNodeType())
+                .setRouteProcessId(task.getRouteProcessId())
+                .setRouteProcessSort(task.getRouteProcessSort())
+                .setProcessId(task.getProcessId())
+                .setProcessCode(task.getProcessCode())
+                .setProcessName(task.getProcessName())
+                .setBatchRecordReportId(task.getBatchRecordReportId())
+                .setBatchRecordReportName(task.getBatchRecordReportName())
+                .setBatchRecordDefinitionId(task.getBatchRecordDefinitionId())
+                .setBatchRecordVersionId(task.getBatchRecordVersionId())
+                .setBatchRecordSort(task.getBatchRecordSort())
+                .setInstanceScope(resolveExecutionInstanceScope(task.getInstanceScope()))
+                .setSharedFormKey(task.getSharedFormKey())
+                .setFillableScopeJson(task.getFillableScopeJson())
+                .setExecutionMode(task.getExecutionMode())
+                .setFormSlotType(task.getFormSlotType())
+                .setFormBindingKey(task.getFormBindingKey())
+                .setFormTemplateId(task.getFormTemplateId())
+                .setFormTemplateName(task.getFormTemplateNameSnapshot())
+                .setFormTemplateVersionId(task.getFormTemplateVersionId())
+                .setFormTemplateVersionNo(task.getFormTemplateVersionNo())
+                .setFormCenterInstanceId(task.getFormCenterInstanceId())
+                .setRecordCategory(task.getRecordCategory())
+                .setValidationProfile(task.getValidationProfile())
+                .setRecordbookEnabled(recordbookGlobalSettingService.resolveEffectiveRecordbookEnabled(
+                        task.getRecordbookEnabled(), task.getRecordCategory()))
+                .setPermissionScopeId(task.getPermissionScopeId())
+                .setRouteBindingId(task.getRouteBindingId())
+                .setRouteBindingSnapshotHash(task.getRouteBindingSnapshotHash())
+                .setRequiredPolicy(task.getRequiredPolicy())
+                .setRequiredConditionJson(task.getRequiredConditionJson())
+                .setOwnerRoleKey(task.getOwnerRoleKey())
+                .setArchiveVisibility(task.getArchiveVisibility())
+                .setSlotConfigSnapshotHash(task.getSlotConfigSnapshotHash())
+                .setAvailable(openable)
+                .setAllowedActions(openable ? List.of("OPEN_FORM") : List.of())
+                .setActiveWorkTaskId(workTask == null ? null : workTask.getId())
+                .setActiveWorkTaskType(workTask == null ? null : workTask.getTaskType())
+                .setActiveWorkTaskActionUrl(workTask == null ? null : workTask.getActionUrl())
+                .setExecutionId(task.getExecutionId())
+                .setStatus(task.getStatus())
+                .setRequiredFlag(task.getRequiredFlag())
+                .setBlockerCode(task.getBlockerCode())
+                .setBlockerMessage(task.getBlockerMessage())
+                .setOpenedAt(task.getOpenedAt())
+                .setSubmittedAt(task.getSubmittedAt())
+                .setApprovedAt(task.getApprovedAt())
+                .setSkippedBy(task.getSkippedBy())
+                .setSkippedAt(task.getSkippedAt())
+                .setSpecialPayloadJson(task.getSpecialPayloadJson())
+                .setFillableUsers(resolveAssistSwitchFillableUsers(workTask, processFormRules,
+                        fillableRule, routeBindingFillableUserIds, userMap));
+    }
+
+    private boolean isAssistSwitchTaskOpenable(MesProEdhrBatchExecutionTaskDO task,
+                                               MesProEdhrWorkTaskDO workTask) {
+        return workTask != null
+                && !Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_BLOCKED)
+                && !Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
+                && !Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_SKIPPED);
+    }
+
+    private List<EdhrBatchExecutionTaskRespVO.FillableUser> resolveAssistSwitchFillableUsers(
+            MesProEdhrWorkTaskDO workTask,
+            List<MesProEdhrProcessFormPermissionRuleDO> processFormRules,
+            MesProEdhrWorkTaskAssignmentRuleDO fillableRule,
+            List<Long> routeBindingFillableUserIds,
+            Map<Long, AdminUserRespDTO> userMap) {
+        List<Long> userIds = workTask != null ? resolveAssistSwitchFillableUserIds(workTask)
+                : processFormRules != null && !processFormRules.isEmpty()
+                ? resolveAssistSwitchFillableUserIds(processFormRules)
+                : fillableRule != null ? resolveAssistSwitchFillableUserIds(fillableRule)
+                : routeBindingFillableUserIds == null ? List.of() : routeBindingFillableUserIds;
+        return userIds.stream()
+                .map(userId -> new EdhrBatchExecutionTaskRespVO.FillableUser()
+                        .setUserId(userId)
+                        .setDisplayName(resolveAssistSwitchUserDisplayName(userMap, userId)))
+                .toList();
+    }
+
+    private Map<Long, List<MesProEdhrProcessFormPermissionRuleDO>> buildAssistSwitchProcessFormRuleMap(
+            List<MesProEdhrBatchExecutionTaskDO> tasks,
+            Map<Long, MesProEdhrWorkTaskDO> workTaskMap) {
+        Map<Long, List<MesProEdhrProcessFormPermissionRuleDO>> result = new LinkedHashMap<>();
+        for (MesProEdhrBatchExecutionTaskDO task : tasks) {
+            if (task.getId() == null || task.getRouteProcessId() == null
+                    || workTaskMap.containsKey(task.getId()) || !isAssistSwitchRouteForm(task)) {
+                continue;
+            }
+            String bindingKey = resolveAssistSwitchProcessFormRuleBindingKey(task);
+            if (StrUtil.isBlank(bindingKey)) {
+                continue;
+            }
+            List<MesProEdhrProcessFormPermissionRuleDO> rules =
+                    processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(
+                            task.getRouteProcessId(), bindingKey, task.getBatchRecordVersionId());
+            if (!rules.isEmpty()) {
+                result.put(task.getId(), rules);
+            }
+        }
+        return result;
+    }
+
+    private Map<Long, MesProEdhrWorkTaskAssignmentRuleDO> buildAssistSwitchFillableRuleMap(
+            List<MesProEdhrBatchExecutionTaskDO> tasks,
+            Map<Long, MesProEdhrWorkTaskDO> workTaskMap,
+            Map<Long, List<MesProEdhrProcessFormPermissionRuleDO>> processFormRuleMap) {
+        Map<Long, MesProEdhrWorkTaskAssignmentRuleDO> result = new LinkedHashMap<>();
+        for (MesProEdhrBatchExecutionTaskDO task : tasks) {
+            if (task.getId() == null || task.getRouteProcessId() == null
+                    || workTaskMap.containsKey(task.getId())
+                    || processFormRuleMap.containsKey(task.getId()) || !isAssistSwitchRouteForm(task)) {
+                continue;
+            }
+            MesProEdhrWorkTaskAssignmentRuleDO rule =
+                    workTaskAssignmentRuleMapper.selectEnabledByRouteProcessAndType(
+                            task.getRouteProcessId(), MesProEdhrWorkTaskService.TASK_TYPE_FILL);
+            if (rule != null) {
+                result.put(task.getId(), rule);
+            }
+        }
+        return result;
+    }
+
+    private Map<Long, List<Long>> buildAssistSwitchRouteBindingFillableUserIdsMap(
+            List<MesProEdhrBatchExecutionTaskDO> tasks,
+            Map<Long, MesProEdhrWorkTaskDO> workTaskMap,
+            Map<Long, List<MesProEdhrProcessFormPermissionRuleDO>> processFormRuleMap,
+            Map<Long, MesProEdhrWorkTaskAssignmentRuleDO> fillableRuleMap) {
+        Map<Long, Long> taskBindingIdMap = new LinkedHashMap<>();
+        for (MesProEdhrBatchExecutionTaskDO task : tasks) {
+            if (task.getId() == null || task.getRouteBindingId() == null
+                    || workTaskMap.containsKey(task.getId())
+                    || processFormRuleMap.containsKey(task.getId())
+                    || fillableRuleMap.containsKey(task.getId()) || !isAssistSwitchRouteForm(task)) {
+                continue;
+            }
+            taskBindingIdMap.put(task.getId(), task.getRouteBindingId());
+        }
+        if (taskBindingIdMap.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, MesProRouteFlowProcessBatchRecordDO> bindingMap =
+                routeFlowProcessBatchRecordMapper.selectBatchIds(new LinkedHashSet<>(taskBindingIdMap.values()))
+                        .stream()
+                        .filter(Objects::nonNull)
+                        .filter(binding -> binding.getId() != null)
+                        .collect(Collectors.toMap(
+                                MesProRouteFlowProcessBatchRecordDO::getId,
+                                binding -> binding,
+                                (existing, replacement) -> existing,
+                                LinkedHashMap::new));
+        Map<Long, List<Long>> result = new LinkedHashMap<>();
+        taskBindingIdMap.forEach((taskId, bindingId) -> {
+            List<Long> userIds = resolveAssistSwitchRouteBindingFillableUserIds(bindingMap.get(bindingId));
+            if (!userIds.isEmpty()) {
+                result.put(taskId, userIds);
+            }
+        });
+        return result;
+    }
+
+    private Map<Long, AdminUserRespDTO> buildAssistSwitchUserMap(
+            Iterable<MesProEdhrWorkTaskDO> workTasks,
+            Iterable<List<MesProEdhrProcessFormPermissionRuleDO>> processFormRuleGroups,
+            Iterable<MesProEdhrWorkTaskAssignmentRuleDO> rules,
+            Iterable<List<Long>> routeBindingUserIds) {
+        Set<Long> userIds = new LinkedHashSet<>();
+        for (MesProEdhrWorkTaskDO workTask : workTasks) {
+            userIds.addAll(resolveAssistSwitchFillableUserIds(workTask));
+        }
+        for (List<MesProEdhrProcessFormPermissionRuleDO> processFormRules : processFormRuleGroups) {
+            userIds.addAll(resolveAssistSwitchFillableUserIds(processFormRules));
+        }
+        for (MesProEdhrWorkTaskAssignmentRuleDO rule : rules) {
+            userIds.addAll(resolveAssistSwitchFillableUserIds(rule));
+        }
+        for (List<Long> bindingUserIds : routeBindingUserIds) {
+            if (bindingUserIds != null) {
+                userIds.addAll(bindingUserIds);
+            }
+        }
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        return Objects.requireNonNull(adminUserApi.getUserMap(userIds),
+                "EDHR_ASSIST_SWITCH_USER_MAP_REQUIRED: admin user map is required");
+    }
+
+    private List<Long> resolveAssistSwitchFillableUserIds(MesProEdhrWorkTaskDO workTask) {
+        if (workTask == null) {
+            return List.of();
+        }
+        List<Long> userIds = MesProEdhrWorkTaskAuthorization
+                .parseCandidateSnapshotUserIds(workTask.getCandidateUserSnapshot());
+        if (userIds.isEmpty()) {
+            throw new IllegalStateException("EDHR_ASSIST_SWITCH_CANDIDATE_SNAPSHOT_REQUIRED: workTaskId="
+                    + workTask.getId());
+        }
+        return userIds;
+    }
+
+    private List<Long> resolveAssistSwitchFillableUserIds(List<MesProEdhrProcessFormPermissionRuleDO> rules) {
+        if (rules == null || rules.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> userIds = new LinkedHashSet<>();
+        for (MesProEdhrProcessFormPermissionRuleDO rule : rules) {
+            userIds.addAll(resolveAssistSwitchFillableUserIds(rule));
+        }
+        return List.copyOf(userIds);
+    }
+
+    private List<Long> resolveAssistSwitchFillableUserIds(MesProEdhrProcessFormPermissionRuleDO rule) {
+        if (rule == null) {
+            return List.of();
+        }
+        MesProEdhrCandidateResolver.MesProEdhrCandidateContract candidate =
+                Objects.requireNonNull(candidateResolver.resolveProcessFormRule(rule),
+                        "EDHR_ASSIST_SWITCH_PROCESS_FORM_CANDIDATE_REQUIRED: ruleId=" + rule.getId());
+        List<Long> userIds = MesProEdhrWorkTaskAuthorization.parseCandidateSnapshotUserIds(candidate.userSnapshot());
+        if (userIds.isEmpty()) {
+            throw new IllegalStateException("EDHR_ASSIST_SWITCH_PROCESS_FORM_CANDIDATE_EMPTY: ruleId="
+                    + rule.getId());
+        }
+        return userIds;
+    }
+
+    private List<Long> resolveAssistSwitchFillableUserIds(MesProEdhrWorkTaskAssignmentRuleDO rule) {
+        if (rule == null) {
+            return List.of();
+        }
+        String sourceType = StrUtil.blankToDefault(rule.getCandidateSourceType(), CANDIDATE_SOURCE_TYPE_USER);
+        Long sourceId = rule.getCandidateSourceId() == null ? rule.getAssigneeUserId() : rule.getCandidateSourceId();
+        if (sourceId == null) {
+            throw new IllegalStateException("EDHR_ASSIST_SWITCH_FILL_RULE_SOURCE_REQUIRED: ruleId=" + rule.getId());
+        }
+        if (CANDIDATE_SOURCE_TYPE_USER.equals(sourceType)) {
+            return List.of(sourceId);
+        }
+        if (CANDIDATE_SOURCE_TYPE_ROLE.equals(sourceType) || CANDIDATE_SOURCE_TYPE_ROLE_GROUP.equals(sourceType)) {
+            Set<Long> userIds = Objects.requireNonNull(permissionApi.getUserRoleIdListByRoleIds(Set.of(sourceId)),
+                    "EDHR_ASSIST_SWITCH_ROLE_USER_IDS_REQUIRED: ruleId=" + rule.getId());
+            return userIds.stream().filter(Objects::nonNull).sorted().toList();
+        }
+        if (CANDIDATE_SOURCE_TYPE_DEPT.equals(sourceType) || CANDIDATE_SOURCE_TYPE_DEPT_GROUP.equals(sourceType)) {
+            List<AdminUserRespDTO> users = Objects.requireNonNull(adminUserApi.getUserListByDeptIds(Set.of(sourceId)),
+                    "EDHR_ASSIST_SWITCH_DEPT_USERS_REQUIRED: ruleId=" + rule.getId());
+            return users.stream()
+                    .filter(Objects::nonNull)
+                    .filter(user -> user.getId() != null && CommonStatusEnum.isEnable(user.getStatus()))
+                    .map(AdminUserRespDTO::getId)
+                    .distinct()
+                    .sorted()
+                    .toList();
+        }
+        throw new IllegalStateException("EDHR_ASSIST_SWITCH_FILL_RULE_SOURCE_INVALID: ruleId="
+                + rule.getId() + ", sourceType=" + sourceType);
+    }
+
+    private List<Long> resolveAssistSwitchRouteBindingFillableUserIds(MesProRouteFlowProcessBatchRecordDO binding) {
+        if (binding == null) {
+            return List.of();
+        }
+        String sourceType = StrUtil.trim(binding.getCandidateSourceType());
+        List<Long> sourceIds = parseAssistSwitchRouteBindingCandidateSourceIds(binding.getCandidateSourceIds());
+        if (StrUtil.isBlank(sourceType) && sourceIds.isEmpty()) {
+            return List.of();
+        }
+        if (StrUtil.isBlank(sourceType) || sourceIds.isEmpty()) {
+            throw new IllegalStateException("EDHR_ASSIST_SWITCH_ROUTE_BINDING_SOURCE_REQUIRED: routeBindingId="
+                    + binding.getId());
+        }
+        if (CANDIDATE_SOURCE_TYPE_USER.equals(sourceType) || CANDIDATE_SOURCE_TYPE_USERS.equals(sourceType)) {
+            return sourceIds;
+        }
+        if (CANDIDATE_SOURCE_TYPE_ROLE.equals(sourceType) || CANDIDATE_SOURCE_TYPE_ROLE_GROUP.equals(sourceType)) {
+            Set<Long> userIds = Objects.requireNonNull(
+                    permissionApi.getUserRoleIdListByRoleIds(new LinkedHashSet<>(sourceIds)),
+                    "EDHR_ASSIST_SWITCH_ROUTE_BINDING_ROLE_USERS_REQUIRED: routeBindingId=" + binding.getId());
+            return userIds.stream().filter(Objects::nonNull).sorted().toList();
+        }
+        if (CANDIDATE_SOURCE_TYPE_DEPT.equals(sourceType) || CANDIDATE_SOURCE_TYPE_DEPT_GROUP.equals(sourceType)) {
+            List<AdminUserRespDTO> users = Objects.requireNonNull(
+                    adminUserApi.getUserListByDeptIds(new LinkedHashSet<>(sourceIds)),
+                    "EDHR_ASSIST_SWITCH_ROUTE_BINDING_DEPT_USERS_REQUIRED: routeBindingId=" + binding.getId());
+            return users.stream()
+                    .filter(Objects::nonNull)
+                    .filter(user -> user.getId() != null && CommonStatusEnum.isEnable(user.getStatus()))
+                    .map(AdminUserRespDTO::getId)
+                    .distinct()
+                    .sorted()
+                    .toList();
+        }
+        throw new IllegalStateException("EDHR_ASSIST_SWITCH_ROUTE_BINDING_SOURCE_INVALID: routeBindingId="
+                + binding.getId() + ", sourceType=" + sourceType);
+    }
+
+    private List<Long> parseAssistSwitchRouteBindingCandidateSourceIds(String rawIds) {
+        if (StrUtil.isBlank(rawIds)) {
+            return List.of();
+        }
+        String normalized = StrUtil.trim(rawIds);
+        if (normalized.startsWith("[") && normalized.endsWith("]")) {
+            JSONArray array = JSON.parseArray(normalized);
+            List<Long> ids = new ArrayList<>();
+            for (int i = 0; i < array.size(); i++) {
+                Long id = array.getLong(i);
+                if (id != null && id > 0 && !ids.contains(id)) {
+                    ids.add(id);
+                }
+            }
+            return List.copyOf(ids);
+        }
+        List<Long> ids = new ArrayList<>();
+        for (String item : normalized.split(",")) {
+            if (StrUtil.isBlank(item)) {
+                continue;
+            }
+            Long id = Long.valueOf(StrUtil.trim(item));
+            if (id > 0 && !ids.contains(id)) {
+                ids.add(id);
+            }
+        }
+        return List.copyOf(ids);
+    }
+
+    private String resolveAssistSwitchProcessFormRuleBindingKey(MesProEdhrBatchExecutionTaskDO task) {
+        if (task == null) {
+            return null;
+        }
+        return StrUtil.blankToDefault(StrUtil.trim(task.getBatchRecordReportId()),
+                StrUtil.trim(task.getFormBindingKey()));
+    }
+
+    private boolean isAssistSwitchRouteForm(MesProEdhrBatchExecutionTaskDO task) {
+        return task != null
+                && MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM.equals(task.getNodeType());
+    }
+
+    private String resolveAssistSwitchUserDisplayName(Map<Long, AdminUserRespDTO> userMap, Long userId) {
+        AdminUserRespDTO user = Objects.requireNonNull(userMap.get(userId),
+                "EDHR_ASSIST_SWITCH_USER_REQUIRED: userId=" + userId);
+        return StrUtil.blankToDefault(user.getNickname(), String.valueOf(userId));
     }
 
     private List<MesProBatchRecordExecutionRespVO.ReviewAssigneeOption> toReviewAssigneeOptions(
@@ -2453,7 +2961,8 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 .setFormSlotType(execution.getFormSlotType())
                 .setRecordCategory(execution.getRecordCategory())
                 .setValidationProfile(execution.getValidationProfile())
-                .setRecordbookEnabled(execution.getRecordbookEnabled())
+                .setRecordbookEnabled(recordbookGlobalSettingService.resolveEffectiveRecordbookEnabled(
+                        execution.getRecordbookEnabled(), execution.getRecordCategory()))
                 .setPermissionScopeId(execution.getPermissionScopeId())
                 .setRouteBindingId(execution.getRouteBindingId())
                 .setRouteBindingSnapshotHash(execution.getRouteBindingSnapshotHash())
@@ -2563,17 +3072,25 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
         if (StrUtil.isBlank(reportJson)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SNAPSHOT_SOURCE_UNAVAILABLE);
         }
-        JSONObject root = JSON.parseObject(reportJson);
-        validateConfirmedCellRules(root);
-        JSONObject layout = buildSnapshotLayout(root);
-        JSONObject meta = buildSnapshotMeta(root, report);
-        JSONObject snapshot = new JSONObject(true);
-        snapshot.put("snapshotVersion", SNAPSHOT_VERSION);
-        snapshot.put("source", buildSnapshotSource(report));
-        snapshot.put("layout", layout);
-        snapshot.put("meta", meta);
-        snapshot.put("fields", extractSnapshotFields(root));
-        return new RuntimeSnapshot(layout.toJSONString(), meta.toJSONString(), snapshot.toJSONString());
+        MesProBatchRecordRuntimeSnapshotSupport.RuntimeSnapshot runtimeSnapshot =
+                runtimeSnapshotSupport.buildRuntimeSnapshot(report, reportJson);
+        return new RuntimeSnapshot(runtimeSnapshot.sheetLayoutJson(), runtimeSnapshot.metaJson(),
+                runtimeSnapshot.executionSnapshotJson());
+    }
+
+    private void materializeApprovedVersionCellRuleSnapshot(MesProBatchRecordReportDO report, JSONObject root) {
+        if (report == null || report.getBatchRecordVersionId() == null) {
+            return;
+        }
+        MesProBatchRecordVersionDO version = versionMapper.selectById(report.getBatchRecordVersionId());
+        if (version == null || !"APPROVED".equals(version.getStatus())) {
+            return;
+        }
+        if (versionMigrationItemMapper.countBlockingItems(version.getId()) > 0
+                || !versionMigrationItemMapper.existsCellRuleReconciledEvidence(version.getId())) {
+            return;
+        }
+        MesProBatchRecordCellRuleSupport.materializeVersionApprovedCellRules(root, report.getReportCode());
     }
 
     private Map<Long, MesProRouteProcessDO> getRouteProcessMap(List<MesProBatchRecordExecutionDO> executions) {
@@ -2838,6 +3355,17 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
             }
         }
         return fields;
+    }
+
+    private JSONArray extractSnapshotAssistRows(JSONObject root) {
+        JSONArray assistRows = root == null
+                ? null : root.getJSONArray(MesProBatchRecordCellRuleSupport.ASSIST_ROWS_KEY);
+        if (assistRows == null) {
+            return new JSONArray();
+        }
+        MesProBatchRecordCellRuleSupport.validateAssistRows(
+                root, MesProBatchRecordCellRuleSupport.extractAssistRows(root));
+        return JSON.parseArray(assistRows.toJSONString());
     }
 
     private void validateConfirmedCellRules(JSONObject root) {

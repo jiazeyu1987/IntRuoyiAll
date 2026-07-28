@@ -359,8 +359,11 @@ export const ProRouteApi = {
     })
   },
   // 保存路线排产配置
-  saveScheduleConfig: async (data: ProRouteScheduleConfigVO) => {
-    return await request.post({ url: `/mes/pro/route-schedule-config/save`, data })
+  saveScheduleConfig: async (
+    data: ProRouteScheduleConfigVO,
+    options: Record<string, unknown> = {}
+  ) => {
+    return await request.post({ url: `/mes/pro/route-schedule-config/save`, data, ...options })
   },
 
   // 查询工艺路线工序流转关系图
@@ -372,18 +375,26 @@ export const ProRouteApi = {
   },
 
   // 校验工艺路线工序流转关系图
-  validateRouteProcessFlowGraph: async (data: RouteFlowGraphSaveReqVO) => {
+  validateRouteProcessFlowGraph: async (
+    data: RouteFlowGraphSaveReqVO,
+    options: Record<string, unknown> = {}
+  ) => {
     return await request.post<RouteFlowValidationVO>({
       url: `/mes/pro/route-process-flow/validate`,
-      data
+      data,
+      ...options
     })
   },
 
   // 保存工艺路线工序流转关系图
-  saveRouteProcessFlowGraph: async (data: RouteFlowGraphSaveReqVO) => {
+  saveRouteProcessFlowGraph: async (
+    data: RouteFlowGraphSaveReqVO,
+    options: Record<string, unknown> = {}
+  ) => {
     return await request.post<RouteFlowValidationVO>({
       url: `/mes/pro/route-process-flow/save`,
-      data
+      data,
+      ...options
     })
   },
 

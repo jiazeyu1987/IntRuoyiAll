@@ -23,6 +23,8 @@ export interface TableQuickFilterDefinition {
   operators?: TableQuickFilterOperator[]
   options?: readonly TableQuickFilterOption[]
   placeholder?: string
+  triggerOnFocus?: boolean
+  popperClass?: string
   fetchSuggestions?: (
     queryString: string,
     callback: (items: TableQuickFilterSuggestion[]) => void

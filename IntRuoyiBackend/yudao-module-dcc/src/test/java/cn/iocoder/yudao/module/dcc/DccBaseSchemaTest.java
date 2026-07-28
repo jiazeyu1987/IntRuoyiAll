@@ -621,6 +621,24 @@ class DccBaseSchemaTest {
     }
 
     @Test
+    void mysqlSchemaShouldPersistDccProjectCodeForNasTransferTasks() throws Exception {
+        Path projectDir = findProjectDir();
+        Path migrationFile = projectDir.resolve("sql/mysql/20260728_dcc_nas_transfer_project_code.sql");
+        Path baseSchemaFile = projectDir.resolve("sql/mysql/20260513_dcc_base_schema.sql");
+        Path testSchemaFile = projectDir.resolve("yudao-module-dcc/src/test/resources/sql/create_tables.sql");
+
+        assertTrue(Files.exists(migrationFile), "DCC NAS project-code migration must exist");
+        String migrationSchema = Files.readString(migrationFile);
+        assertSchemaIsNonDestructive(migrationSchema, "DCC NAS project-code migration");
+        assertSchemaHasColumns(migrationSchema, "dcc_controlled_file_nas_transfer_task",
+                List.of("dcc_project_code_id"));
+        assertSchemaHasColumns(Files.readString(baseSchemaFile),
+                "dcc_controlled_file_nas_transfer_task", List.of("dcc_project_code_id"));
+        assertSchemaHasColumns(Files.readString(testSchemaFile),
+                "dcc_controlled_file_nas_transfer_task", List.of("dcc_project_code_id"));
+    }
+
+    @Test
     void mysqlSchemaShouldSupportLocalFolderImportUploadProgressFields() throws Exception {
         Path projectDir = findProjectDir();
         Path migrationFile = projectDir.resolve("sql/mysql/20260614_dcc_nas_local_folder_large_import.sql");

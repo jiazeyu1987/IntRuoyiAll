@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 
@@ -43,6 +44,11 @@ def test_local_restart_script_is_component_scoped_and_fail_fast():
     assert "$FrontendPort = [int]$PortContext.FrontendPort" in script
     assert "$BackendPort = [int]$PortContext.BackendPort" in script
     assert '"--server.port=$BackendPort"' in script
+    assert "$backendLogDir = Join-Path $RuntimeDir 'logs'" in script
+    assert "$backendLogFile = Join-Path $backendLogDir 'yudao-server.log'" in script
+    assert "New-Item -ItemType Directory -Force -Path $backendLogDir" in script
+    assert '"--logging.file.name=$backendLogFile"' in script
+    assert '"--yudao.runtime-control.storage-guard.log-dir=$backendLogDir"' in script
     assert "-pl yudao-server -am -DskipTests package" in script
     assert "backend-runtime-control-$timestamp.jar" in script
     assert "frontend-runtime-control-$timestamp.out.log" in script
@@ -107,6 +113,35 @@ def test_local_restart_backend_routes_mysql_and_redis_through_unshadowed_docker_
     assert "--spring.datasource.dynamic.datasource.slave.password=123456" in script
     assert "--spring.data.redis.host=$LocalDockerRuntimeHost" in script
     assert "LOCAL_DOCKER_PORT_SHADOWED" in script
+
+
+def test_local_restart_backend_uses_workspace_codex_runner_token_file():
+    script = read_script("restart-int-ruoyi-local.ps1")
+    workspace_gitignore = (REPO_ROOT.parents[1] / ".gitignore").read_text(encoding="utf-8")
+
+    assert (
+        "$CodexTestRunnerTokenFile = Join-Path $PortContext.WorkspaceRoot "
+        "'.runtime\\codex-test-runner\\runner-token.txt'"
+    ) in script
+    assert ".runtime/" in workspace_gitignore.splitlines()
+    assert "**/.runtime/" in workspace_gitignore.splitlines()
+    assert "function Initialize-CodexTestRunnerToken" in script
+    assert "[Security.Cryptography.RandomNumberGenerator]::Create()" in script
+    assert "[System.IO.File]::WriteAllText(" in script
+    assert "Codex Runner token file is empty" in script
+
+    backend_block = script[script.index("function Start-Backend"):script.index("function Start-Website")]
+    assert "$runnerToken = Initialize-CodexTestRunnerToken" in backend_block
+    assert re.search(
+        r"\[Environment\]::SetEnvironmentVariable\(\s*"
+        r"'CODEX_TEST_RUNNER_TOKEN'\s*,\s*"
+        r"\$runnerToken\s*,\s*"
+        r"\[System\.EnvironmentVariableTarget\]::Process\s*\)",
+        backend_block,
+    )
+    assert backend_block.index("$runnerToken = Initialize-CodexTestRunnerToken") < backend_block.index(
+        "Stop-MatchingProcesses 'backend' $RuntimeDir"
+    )
 
 
 def test_local_restart_backend_protects_showroom_default_file_config_from_e2e_mutation():

@@ -23,6 +23,13 @@
       </div>
 
       <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
+      <el-alert
+        v-if="verificationError"
+        :title="verificationError"
+        type="error"
+        :closable="false"
+        show-icon
+      />
 
       <template v-if="detail">
         <div class="edhr-field-audit-detail__section">
@@ -327,6 +334,7 @@ const message = useMessage()
 const loading = ref(false)
 const verifyLoading = ref(false)
 const loadError = ref('')
+const verificationError = ref('')
 const detail = ref<EdhrFieldAuditDetailRespVO>()
 const loadedDetailQueryKey = ref('')
 const fieldAuditDetailTechnicalEvidenceNames = ref<string[]>([])
@@ -386,11 +394,12 @@ const loadDetail = async () => {
   }
   loading.value = true
   loadError.value = ''
+  verificationError.value = ''
   try {
     detail.value = await getEdhrFieldAuditDetail(detailQuery)
     loadedDetailQueryKey.value = resolveDetailQueryKey(detailQuery)
     if (detail.value.hashVerification?.status && detail.value.hashVerification.status !== 'VALID') {
-      loadError.value = `字段审计链校验未通过：${resolveHashStatusLabel(detail.value.hashVerification.status)}`
+      verificationError.value = `字段审计链校验未通过：${resolveHashStatusLabel(detail.value.hashVerification.status)}`
     }
   } catch (error) {
     detail.value = undefined
@@ -409,12 +418,12 @@ const handleVerify = async () => {
   }
   const auditBatch = detail.value.auditBatch
   if (!auditBatch?.newHeadHash || !auditBatch.afterCellValuesHash) {
-    loadError.value = '字段审计批次缺少 newHeadHash 或 afterCellValuesHash，无法校验。'
-    message.error(loadError.value)
+    verificationError.value = '字段审计批次缺少 newHeadHash 或 afterCellValuesHash，无法校验。'
+    message.error(verificationError.value)
     return
   }
   verifyLoading.value = true
-  loadError.value = ''
+  verificationError.value = ''
   try {
     const result = await verifyEdhrFieldAuditChain({
       executionId: detailQuery.executionId,
@@ -424,13 +433,13 @@ const handleVerify = async () => {
       includeBrokenItem: true
     })
     if (result.hashVerification.status !== 'VALID') {
-      loadError.value = `字段审计链校验未通过：${resolveHashStatusLabel(result.hashVerification.status)}`
+      verificationError.value = `字段审计链校验未通过：${resolveHashStatusLabel(result.hashVerification.status)}`
       return
     }
     message.success('字段审计链校验通过')
     await loadDetail()
   } catch (error) {
-    loadError.value = resolveErrorMessage(error, '字段审计链校验失败，请联系管理员。')
+    verificationError.value = resolveErrorMessage(error, '字段审计链校验失败，请联系管理员。')
   } finally {
     verifyLoading.value = false
   }

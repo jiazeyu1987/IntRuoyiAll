@@ -12,7 +12,6 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatc
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Service
@@ -24,9 +23,12 @@ public class MesProEdhrRouteFormFillEffectExecutor
             "MES_EDHR_ROUTE_FORM_FILL only accepts MES EDHR_ROUTE_FORM ACTIVE actions";
 
     private final MesProEdhrBatchExecutionTaskMapper batchTaskMapper;
+    private final MesProEdhrWorkTaskService workTaskService;
 
-    public MesProEdhrRouteFormFillEffectExecutor(MesProEdhrBatchExecutionTaskMapper batchTaskMapper) {
+    public MesProEdhrRouteFormFillEffectExecutor(MesProEdhrBatchExecutionTaskMapper batchTaskMapper,
+                                                 MesProEdhrWorkTaskService workTaskService) {
         this.batchTaskMapper = batchTaskMapper;
+        this.workTaskService = workTaskService;
     }
 
     @Override
@@ -41,19 +43,7 @@ public class MesProEdhrRouteFormFillEffectExecutor
         }
         try {
             MesProEdhrBatchExecutionTaskDO task = requireWritableTask(instance);
-            LocalDateTime now = LocalDateTime.now();
-            task.setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
-                    .setSubmittedAt(now)
-                    .setApprovedAt(now)
-                    .setBlockerCode(null)
-                    .setBlockerMessage(null);
-            if (task.getOpenedAt() == null) {
-                task.setOpenedAt(now);
-            }
-            if (task.getOpenedBy() == null) {
-                task.setOpenedBy(instance.getApplicantUserId());
-            }
-            batchTaskMapper.updateById(task);
+            workTaskService.completeRouteFormFillAndCreateNextFill(task.getId(), instance.getApplicantUserId());
             return FormBusinessEffectResult.success(String.valueOf(task.getId()));
         } catch (RuntimeException ex) {
             return FormBusinessEffectResult.failure(ex.getMessage());

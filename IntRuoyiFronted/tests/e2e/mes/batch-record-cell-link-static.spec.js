@@ -27,6 +27,18 @@ function cssBlock(selector) {
 for (const token of [
   'batch-record-cell-link__form-stage',
   'batch-record-cell-link__source-select',
+  'batch-record-cell-link__work-order-field-panel',
+  '<el-option label="生产工单" :value="PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID" />',
+  'const isProductionWorkOrderSelected = computed(() => sourceReportId.value === PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID)',
+  'sourceType.value = isProductionWorkOrderSelected.value',
+  'handleSourceSelectionChange',
+  'sourceType.value === SOURCE_TYPE_PRODUCTION_WORK_ORDER',
+  'sourceFieldCode: selectedSourceCell.value.sourceFieldCode',
+  'buildProductionWorkOrderFieldCells',
+  'const cellMetaMap = new Map<string, BatchRecordCellLinkCellVO>()',
+  'cellMetaMap.set(`${cell.rowIndex}:${cell.columnIndex}`, cell)',
+  'const reportCellKey = `${formCells.reportId}:${meta?.cellKey || key}`',
+  'selectedCell.rowIndex === rowIndex && selectedCell.columnIndex === columnIndex',
   'batch-record-cell-link__target-select',
   'batch-record-cell-link__source-link-count',
   'batch-record-cell-link__create-button',
@@ -63,6 +75,8 @@ for (const token of [
   assert.ok(page.includes(token), `page misses ${token}`)
 }
 
+assert.ok(!page.includes('batch-record-cell-link__source-type-select'), 'source type selector must be folded into the source selector')
+assert.ok(!page.includes('handleSourceTypeChange'), 'source type change handler must not remain as a separate visible control')
 assert.ok(!page.includes('batch-record-cell-link__target-tabs'), 'target tabs must be removed')
 assert.ok(!page.includes('batch-record-cell-link__relation-panel'), 'inline relation cards must be removed')
 assert.ok(!page.includes('batch-record-cell-link__footer'), 'bottom link footer must be removed')
@@ -98,9 +112,20 @@ for (const token of [
   '/mes/pro/batch-record-cell-link/workbench-context',
   '/mes/pro/batch-record-cell-link/form-cells',
   '/mes/pro/batch-record-cell-link/rules/save',
-  '/mes/pro/batch-record-cell-link/prefill'
+  '/mes/pro/batch-record-cell-link/prefill',
+  'templateId?: number',
+  'versionNo?: string'
 ]) {
   assert.ok(api.includes(token), `api misses ${token}`)
+}
+
+for (const token of [
+  'templateId: parseNumber(route.query.templateId)',
+  "versionNo: String(route.query.versionNo || '')",
+  'route.query.returnTo',
+  'route.query.returnLabel'
+]) {
+  assert.ok(page.includes(token), `cell link page misses form template route support: ${token}`)
 }
 
 assert.ok(route.includes('MesProBatchRecordCellLink'), 'route misses MesProBatchRecordCellLink')
@@ -112,13 +137,19 @@ assert.ok(template.includes('handleCellLinks(selectedReport)'), 'template action
 
 for (const token of [
   'BatchRecordCellLinkApi',
-  'getPrefill(currentExecutionId)',
+  'BatchRecordCellLinkApi.getPrefill(currentExecutionId, workTaskId.value)',
   'hydrateDraftState(detail, prefillResponse?.prefills || [], prefillResponse?.conflicts || [])',
   'normalizeCellLinkPrefillDraftValue',
   'cellLinkPrefillNotice',
+  '生产工单字段',
   '跨表单带入'
 ]) {
-  assert.ok(executionPage.includes(token), `execution page misses ${token}`)
+  assert.ok(!executionPage.includes(token), `execution page must not keep draft prefill token ${token}`)
 }
+
+assert.ok(
+  executionPage.includes('hydrateDraftState(detail)'),
+  'execution page must hydrate from persisted detail values only'
+)
 
 console.log('batch-record-cell-link static contract passed')

@@ -13,11 +13,14 @@ public class BatchRecordCellLinkRuleVO {
     private Long routeId;
     private Long batchRecordDefinitionId;
     private Long batchRecordVersionId;
+    private String sourceType;
     private String sourceReportId;
     private String sourceReportName;
     private Integer sourceRowIndex;
     private Integer sourceColumnIndex;
     private String sourceCellKey;
+    private String sourceFieldCode;
+    private String sourceFieldName;
     private String sourceLabel;
     private String sourceValueType;
     private String targetReportId;

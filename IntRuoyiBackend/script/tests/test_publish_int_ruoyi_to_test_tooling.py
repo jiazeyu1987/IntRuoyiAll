@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import json
 import os
 from pathlib import Path
 import re
@@ -85,6 +86,51 @@ def _invoke_release_package_directory_name(release_tag: str) -> subprocess.Compl
     )
 
 
+def _invoke_codex_summary_validator(
+    response: object,
+    facts: list[dict[str, str]],
+) -> subprocess.CompletedProcess[str]:
+    function_text = _extract_powershell_function(
+        read_publish_script(),
+        "ConvertTo-ValidatedReleaseCodexSummaryItems",
+    )
+    response_json = json.dumps(response, ensure_ascii=False)
+    facts_json = json.dumps(facts, ensure_ascii=False)
+    command = textwrap.dedent(
+        f"""
+        $ErrorActionPreference = 'Stop'
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+        function Fail([string]$Message) {{
+            throw $Message
+        }}
+        {function_text}
+        try {{
+            $response = @'
+{response_json}
+'@ | ConvertFrom-Json
+            $facts = @'
+{facts_json}
+'@ | ConvertFrom-Json
+            $items = @(ConvertTo-ValidatedReleaseCodexSummaryItems -Response $response -Facts @($facts) -MaxItems 10)
+            $items | ConvertTo-Json -Compress
+        }} catch {{
+            Write-Output $_.Exception.Message
+            exit 1
+        }}
+        """
+    )
+    encoded = base64.b64encode(command.encode("utf-16le")).decode("ascii")
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
 def test_only_one_publish_script_entrypoint_remains() -> None:
     publish_like = sorted(
         path.name
@@ -135,6 +181,88 @@ def test_publish_script_uses_configured_target_hosts_instead_of_hardcoded_enviro
     assert "-ArgumentName '-ProdServerHost'" in text
     assert "-ArgumentName '-BackupServerHost'" in text
     assert not re.search(r"172\.30\.30\.(57|58|59)", text)
+
+
+def test_release_change_set_uses_codex_plain_language_summary_from_previous_git_diff() -> None:
+    text = read_publish_script()
+
+    assert "function Get-PreviousReleaseManifestForGitChanges" in text
+    assert "function New-ReleaseGitChangeItems" in text
+    assert "function Get-ReleaseGitChangeFacts" in text
+    assert "function Invoke-ReleaseCodexSummary" in text
+    assert re.search(r"& git -C \$repoPath log", text)
+    assert "--numstat" in text
+    assert "$previousCommit..$currentCommit" in text
+    assert "summaryGenerator = 'codex'" in text
+    assert "--output-schema" in text
+    assert "--output-last-message" in text
+    assert "ConvertFrom-Json" in text
+    assert "plain-language" in text
+    assert r"[\u4e00-\u9fff]" in text
+    assert "previousReleaseTag" in text
+    assert "gitChanges = @($gitChangeSummary.items)" in text
+    assert "items = @($gitChangeSummary.items)" in text
+    assert "changes = @($gitChangeSummary.items)" in text
+    assert "[{0}] {1} {2}" not in text
+    assert "--pretty=format:%cI%x09%h%x09%s" not in text
+
+
+def test_release_change_set_fails_fast_without_codex_or_valid_plain_language_output() -> None:
+    text = read_publish_script()
+
+    assert "Codex CLI is required to generate release change summary" in text
+    assert "Codex CLI failed" in text
+    assert "Codex CLI timed out after $TimeoutSeconds seconds" in text
+    assert "Codex summary output must be valid JSON" in text
+    assert "Codex summary must contain between 1 and 10 items" in text
+    assert "Codex summary item must be plain Chinese" in text
+    assert "Codex summary must not expose raw commit identifiers" in text
+    assert "Do not fall back to raw Git subjects or hashes" in text
+
+
+def test_codex_summary_validator_accepts_plain_chinese_items_and_caps_at_ten() -> None:
+    result = _invoke_codex_summary_validator(
+        {"items": ["新增批次执行页面的填写人配置", "修复审批提交后状态显示不正确"]},
+        [{"subject": "feat: add filler configuration"}, {"subject": "fix: approval status"}],
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "新增批次执行页面的填写人配置" in result.stdout
+
+
+def test_codex_summary_validator_rejects_raw_hashes_and_non_chinese_items() -> None:
+    hash_result = _invoke_codex_summary_validator(
+        {"items": ["修复功能 abcdef1234567"]},
+        [{"subject": "fix: release summary"}],
+    )
+    english_result = _invoke_codex_summary_validator(
+        {"items": ["Fix the release summary"]},
+        [{"subject": "fix: release summary"}],
+    )
+
+    assert hash_result.returncode != 0
+    assert "raw commit identifiers" in hash_result.stdout
+    assert english_result.returncode != 0
+    assert "plain Chinese" in english_result.stdout
+
+
+def test_codex_summary_validator_rejects_more_than_ten_items() -> None:
+    result = _invoke_codex_summary_validator(
+        {"items": [f"第{i}项版本变化说明" for i in range(11)]},
+        [{"subject": "feat: many changes"}],
+    )
+
+    assert result.returncode != 0
+    assert "between 1 and 10 items" in result.stdout
+
+
+def test_release_info_json_is_written_before_frontend_docker_context() -> None:
+    text = read_publish_script()
+
+    assert "function Write-FrontendReleaseInfo" in text
+    assert "'release-info.json'" in text
+    assert "[System.IO.File]::WriteAllText($releaseInfoPath" in text
+    assert text.index("Write-FrontendReleaseInfo -PackageTag $ReleaseTag") < text.index("Info 'Preparing Docker build context from current worktree artifacts'")
 
 
 def test_smart_release_report_only_switch_and_env_are_explicit_without_changing_mode_enum() -> None:
