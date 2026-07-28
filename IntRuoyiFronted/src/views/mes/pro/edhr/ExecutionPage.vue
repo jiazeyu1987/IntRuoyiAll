@@ -5756,10 +5756,6 @@ onBeforeUnmount(() => {
   margin: 16px;
 }
 
-.edhr-fill-workspace__prefill-alert {
-  margin-bottom: 10px;
-}
-
 .edhr-fill-workspace__field {
   display: flex;
   flex-direction: column;
@@ -5785,10 +5781,6 @@ onBeforeUnmount(() => {
 .edhr-fill-workspace__required {
   flex: 0 0 auto;
   color: #c00000;
-}
-
-.edhr-fill-workspace__cell-link-tag {
-  flex-shrink: 0;
 }
 
 .edhr-fill-workspace__signature {
