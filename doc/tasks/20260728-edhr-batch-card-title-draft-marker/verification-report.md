@@ -29,3 +29,9 @@ Static and type verification passed. Real page verification is blocked by missin
 - Experience gate merged into `docs/e2e-rules.md`.
 - Experience index route added in `docs/experience-index.md`.
 - Cleanup preview/apply kept all task records and deleted nothing.
+
+## Git Closeout
+
+- Local implementation commit: `3dd0fa23 fix: update edhr batch card titles`
+- Push result: blocked by `origin/int_main` non-fast-forward rejection because the local branch is behind the remote branch.
+- Completion status: blocked until remote changes are integrated safely and local commits can be pushed.

@@ -77,4 +77,22 @@
 ## Blockers
 
 - Real E2E blocker: 本地前端和后端端口已监听，但缺少真实 Playwright 登录所需 `EDHR_COMPANION_E2E_PASSWORD` 与浏览器路径 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`。影响：无法走真实批次详情页面确认实际卡片标题、草稿 `*` 和控制台错误；未使用 API-only 作为替代验收。
-- Push/remote status pending: 当前分支在任务开始前已与 `origin/int_main` 分叉；提交后需要尝试 `git push origin int_main` 并记录结果。
+- Push blocker: `git push origin int_main` -> FAIL, `non-fast-forward`。当前本地 `int_main` 已落后 `origin/int_main` 6 个提交，同时包含本地 ahead 提交；未执行 rebase、force push 或自动合并远端。影响：本任务实现提交已在本地，但无法满足项目“提交后推送到 origin”的完成门禁。
+
+## Git Evidence
+
+- Implementation commit: `3dd0fa23 fix: update edhr batch card titles`
+- Implementation commit files:
+  - `IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue`
+  - `IntRuoyiFronted/tests/e2e/edhr-batch-card-title-draft-marker-static.spec.js`
+  - `IntRuoyiFronted/tests/e2e/edhr-batch-companion-forms-right-panel-static.spec.js`
+  - `IntRuoyiFronted/tests/e2e/edhr-batch-detail-hide-red-box-static.spec.js`
+  - `IntRuoyiFronted/tests/e2e/edhr-batch-process-companion-forms-static.spec.js`
+  - `doc/tasks/20260728-edhr-batch-card-title-draft-marker/bug-regression-evidence.md`
+  - `doc/tasks/20260728-edhr-batch-card-title-draft-marker/execution-log.md`
+  - `doc/tasks/20260728-edhr-batch-card-title-draft-marker/frontend-feature-evidence.md`
+  - `doc/tasks/20260728-edhr-batch-card-title-draft-marker/task.md`
+  - `doc/tasks/20260728-edhr-batch-card-title-draft-marker/verification-report.md`
+  - `docs/e2e-rules.md`
+  - `docs/experience-index.md`
+- Push attempt: `git push origin int_main` -> FAIL, remote rejected `int_main -> int_main (non-fast-forward)`.

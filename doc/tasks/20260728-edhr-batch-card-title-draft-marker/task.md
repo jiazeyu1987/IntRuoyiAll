@@ -16,7 +16,7 @@
 - [x] M2: 实现卡片标题名称与草稿 `*` 标识。
 - [x] M3: 更新受影响静态合同并获得 GREEN 证据。
 - [x] M4: 运行类型检查和可用真实页面只读验证前置检查。
-- [ ] M5: 收尾清理、经验沉淀、提交与推送状态记录。
+- [ ] M5: 收尾清理、经验沉淀、提交与推送状态记录。Blocked: `origin/int_main` 非快进拒绝推送。
 
 ## Expected Verification
 
@@ -72,4 +72,4 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
