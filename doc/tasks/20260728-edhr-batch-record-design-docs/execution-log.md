@@ -152,6 +152,9 @@
   - 需求设计保留 `1. 需求设计`、`REQ-01`、`REQ-16`。
   - 概要设计保留 `2. 概要设计`，新增 `2.9` 至 `2.14`。
   - 详细设计保留 `3. 详细设计`，新增 `3.10` 至 `3.20`。
+- GREEN: `git commit -m "docs: rebalance edhr design document detail" -> PASS`
+  - commit: `72b6c834`
+  - 文件清单：task.md、execution-log.md、verification-report.md、EDHR_Batch_Record_Outline_Design.docx、EDHR_Batch_Record_Detailed_Design.docx。
 - GREEN: `task_closeout.py --task-id 20260728-edhr-batch-record-design-docs --mode preview -> PASS`
   - keep: task.md、execution-log.md、verification-report.md、四份 DOCX。
   - delete: none。
