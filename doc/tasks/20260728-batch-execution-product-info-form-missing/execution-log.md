@@ -55,6 +55,10 @@
 - 2026-07-28: 真实 E2E 复验 -> PASS。登录本机 `芋道源码/admin`，从列表按工单 `881MO090889` 进入详情；详情批次 `EDHRB-1785224948633` / id `900000000900`；产品信息任务 id `7028`，API `batchRecordSort=80`、`routeProcessSort=1`；页面左侧存在 `80 产品信息` 独立工序；点击第 1 工序时右侧仅 `[粗洗工序生产记录*, 损耗单, 过程检验记录]`；点击 `80 产品信息` 时右侧仅 `[产品信息]`；无 MES 写请求、无 console error。截图：`output/playwright/20260728-product-info-virtual-process-80-e2e.png`。
 - 2026-07-28: 后端不需要重启；本轮是前端展示分组修复，现有 `48081` 后端已返回产品信息任务与 `batchRecordSort=80`，前端 Vite 热更新已在 `8081` 真实页面生效。
 
+
+- 2026-07-28: project-experience-consolidation 执行完成：将“产品信息虚拟 80 工序”合并到 `docs/frontend-development.md#eDHR 产品信息虚拟 80 工序门禁`，并在 `docs/experience-index.md` 增加关键词路由。
+- 2026-07-28: task-closeout cleanup preview/apply -> PASS，保留 `task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`，无删除项、无 blocked、无 warnings。
+
 ## Blockers
 
 - 当前实现与真实 E2E 无阻塞。
