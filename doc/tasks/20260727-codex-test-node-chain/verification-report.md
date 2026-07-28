@@ -46,3 +46,5 @@
 - 最终前端静态契约：节点串静态契约 PASS。
 - 最终迁移契约：节点串迁移契约 2 tests PASS。
 - 最终端口契约：branch runtime port guard PASS。
+- 收尾重试主线合并：`git merge origin/int_main --no-edit` -> PASS，生成 `205aa0da`。
+- 收尾重试验证：目标 Maven 30 tests PASS；迁移契约 2 tests PASS；节点串前端静态契约 PASS；branch runtime port guard PASS。
