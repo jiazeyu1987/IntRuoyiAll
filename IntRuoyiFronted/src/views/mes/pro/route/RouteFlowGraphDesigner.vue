@@ -1153,12 +1153,10 @@
                           :label="buildBatchRecordReportOptionLabel(item)"
                           :value="item.reportId"
                           @click.prevent.stop="handleSelectedBatchRecordReportOptionClick(item)"
-                          @mousedown.prevent.stop
                         >
                           <span
                             class="route-flow-graph-designer__batch-record-report-option"
                             @click.prevent.stop="handleSelectedBatchRecordReportOptionClick(item)"
-                            @mousedown.prevent.stop
                           >
                             {{ buildBatchRecordReportOptionLabel(item) }}
                           </span>

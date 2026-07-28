@@ -131,6 +131,15 @@
 - Forbidden action: 禁止用当前登录人、旧缓存 key、宽松 fallback、刷新页面或隐藏高亮状态掩盖 route query ID 类型不一致。
 - Evidence: 任务 `doc/tasks/20260728-switch-filler-wangxin-e2e/`，`assistUserId` 从 route query 读取为字符串，旧 active 判断与数字 `item.userId` 严格等于，导致切换到任丹后重开弹窗不高亮。
 
+## eDHR 产品信息虚拟 80 工序门禁
+
+- Trigger: 批次执行详情、`BatchExecutionDetailPage.vue`、左侧工序列表、右侧当前工序表单卡片、产品信息表、`batchRecordSort=80`、后端任务保留来源 `routeProcessId`。
+- Preflight check: 先区分“任务来源工序”和“页面显示工序”：产品信息成员任务可以保留源正式批记录绑定的 `routeProcessId/routeProcessSort` 作为追溯来源，但页面左侧必须按 `MAIN + BATCH_RECORD + 产品信息/80` 识别成独立虚拟 `80 产品信息` 工序组；`processTaskGroups` 不得只按 `routeProcessId || routeProcessSort || id` 合并所有任务。
+- Blocker: 产品信息任务仍显示在第 1 工序或任一来源工序右侧、左侧缺少独立 `80 产品信息`、点击 80 工序后右侧混入其它正式批记录表单、点击第 1 工序后右侧仍包含产品信息，或静态合同不能证明产品信息专用 group key 时必须停止。
+- Verification: 运行 `node tests/e2e/edhr-batch-product-info-virtual-process-static.spec.js`；真实 E2E 需从批次执行列表进入目标详情，断言第 1 工序右侧不含“产品信息”，`80 产品信息` 独立可见且右侧仅显示“产品信息”，并记录无 MES 写请求、无 console error。
+- Forbidden action: 禁止为了页面显示把后端来源 `routeProcessId` 改成虚拟 ID、禁止用 `formBindings`/表单槽位/当前登录人推导产品信息、禁止隐藏第 1 工序卡片或硬插普通文本冒充 80 工序、禁止 API-only 代替页面分组验证。
+- Evidence: `doc/tasks/20260728-batch-execution-product-info-form-missing/verification-report.md`，产品信息任务后端 `batchRecordSort=80` 但 `routeProcessSort=1`，前端需独立虚拟分组。
+
 ## 验证方式
 
 - 优先运行受影响范围的验证：
