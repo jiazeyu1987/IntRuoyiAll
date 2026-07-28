@@ -19,6 +19,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
@@ -27,6 +28,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFo
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
@@ -93,6 +95,8 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
     private MesProEdhrWorkTaskAssignmentRuleMapper assignmentRuleMapper;
     @Resource
     private MesProEdhrProcessFormPermissionRuleMapper processFormPermissionRuleMapper;
+    @Resource
+    private MesProBatchRecordReportMapper batchRecordReportMapper;
     @Resource
     private MesProRouteMapper routeMapper;
 
@@ -436,6 +440,60 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
         assertEquals("EDHR_PROCESS_FORM_FILLER", fillTask.getResponsibilitySourceType());
         assertEquals("ROUTE|5124|FB-SLOT-FILLER-REPORT|8124", fillTask.getResponsibilitySourceKey());
         assertEquals("8124", fillTask.getResponsibilitySourceVersion());
+    }
+
+    @Test
+    void createInitialFillTask_buildsAllScopeSnapshotFromReportMembersWhenRuleScopeIsBlank() {
+        MesProEdhrBatchExecutionDO batch = batchForInitialFill(3026L, 4126L);
+        insertBatch(batch);
+        MesProEdhrBatchExecutionTaskDO routeTask = batchTask(3026L, 9126L, 5126L,
+                "R-ALL-SCOPE-T0", "ROUTE_FORM", "整表填写", 10)
+                .setBatchRecordDefinitionId(99026L)
+                .setBatchRecordVersionId(78026L);
+        batchTaskMapper.insert(routeTask);
+        insertBatchRecordReport("R-ALL-SCOPE-T0", 99026L, 78026L, 0);
+        insertBatchRecordReport("R-ALL-SCOPE-T1", 99026L, 78026L, 1);
+        processFormPermissionRuleMapper.insert(processFormFillRule(5126L, "R-ALL-SCOPE-T0", 78026L,
+                "ALL", "USERS", "588,589", 180, null));
+        when(adminUserApi.getUserList(List.of(588L, 589L))).thenReturn(List.of(
+                adminUser(588L, CommonStatusEnum.ENABLE.getStatus()),
+                adminUser(589L, CommonStatusEnum.ENABLE.getStatus())));
+
+        workTaskService.createInitialFillTask(batch);
+
+        MesProEdhrWorkTaskDO fillTask = workTaskMapper.selectList().get(0);
+        assertEquals(routeTask.getId(), fillTask.getBatchTaskId());
+        assertEquals("588,589", fillTask.getCandidateUserSnapshot());
+        JSONObject fillableScope = JSON.parseObject(fillTask.getResponsibilityScopeJson())
+                .getJSONArray("scopes")
+                .getJSONObject(0)
+                .getJSONObject("fillableScope");
+        JSONArray ranges = fillableScope.getJSONArray("ranges");
+        assertEquals(2, ranges.size());
+        assertEquals(0, ranges.getJSONObject(0).getIntValue("sourceTableIndex"));
+        assertEquals(1, ranges.getJSONObject(1).getIntValue("sourceTableIndex"));
+        assertEquals(0, ranges.getJSONObject(0).getIntValue("startRow"));
+        assertEquals(99999, ranges.getJSONObject(0).getIntValue("endRow"));
+    }
+
+    @Test
+    void createInitialFillTask_failsFastWhenAllScopeReportMembersMissing() {
+        MesProEdhrBatchExecutionDO batch = batchForInitialFill(3027L, 4127L);
+        insertBatch(batch);
+        MesProEdhrBatchExecutionTaskDO routeTask = batchTask(3027L, 9127L, 5127L,
+                "R-ALL-SCOPE-MISSING", "ROUTE_FORM", "整表填写缺报表", 10)
+                .setBatchRecordDefinitionId(99027L)
+                .setBatchRecordVersionId(78027L);
+        batchTaskMapper.insert(routeTask);
+        processFormPermissionRuleMapper.insert(processFormFillRule(5127L, "R-ALL-SCOPE-MISSING", 78027L,
+                "ALL", "USERS", "590", 180, null));
+        when(adminUserApi.getUserList(List.of(590L))).thenReturn(List.of(
+                adminUser(590L, CommonStatusEnum.ENABLE.getStatus())));
+
+        ServiceException exception = assertThrows(ServiceException.class, () -> workTaskService.createInitialFillTask(batch));
+
+        assertEquals(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID.getCode(), exception.getCode());
+        assertTrue(workTaskMapper.selectList().isEmpty());
     }
 
     @Test
@@ -2360,6 +2418,26 @@ class MesProEdhrWorkTaskServiceImplTest extends BaseDbUnitTest {
 
     private void insertBatch(MesProEdhrBatchExecutionDO batch) {
         batchExecutionMapper.insert(batch);
+    }
+
+    private void insertBatchRecordReport(String reportId, Long definitionId, Long versionId, Integer sourceTableIndex) {
+        batchRecordReportMapper.insert(new MesProBatchRecordReportDO()
+                .setSampleKey("SAMPLE-" + reportId)
+                .setBatchRecordName("整表填写测试批记录")
+                .setProductName("整表填写测试产品")
+                .setFormSlotType("MAIN")
+                .setRouteKey("ROUTE-ALL-SCOPE")
+                .setBatchRecordDefinitionId(definitionId)
+                .setBatchRecordVersionId(versionId)
+                .setSourceFileName(reportId + ".docx")
+                .setSourceFileSha256("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .setSourceTableIndex(sourceTableIndex)
+                .setTableTitle("表格" + sourceTableIndex)
+                .setReportId(reportId)
+                .setReportCode(reportId)
+                .setReportName("整表填写测试表格" + sourceTableIndex)
+                .setReportCategoryId("CAT-ALL-SCOPE")
+                .setLastImportTime(LocalDateTime.now()));
     }
 
     private MesProEdhrWorkTaskDO completedReviewTask(Long executionId, MesProEdhrBatchExecutionTaskDO currentTask,

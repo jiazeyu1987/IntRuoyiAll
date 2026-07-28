@@ -89,4 +89,4 @@ Baseline result: 2509 tests, 58 failures, 78 errors, 31 skipped, 41 failing suit
 - Latest command: `mvn -pl yudao-module-mes test`
 - Latest result: `PASS`，2026-07-28 08:53:25 +08:00；2530 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
 - Remaining implementation/test gate: 无。
-- Remaining closeout gate: 共享工作区存在非本任务脏改动，提交/推送需先处理并发改动归属，禁止混入本任务提交。
+- Remaining closeout gate: 无；cleanup preview/apply、最终提交和推送均已完成。

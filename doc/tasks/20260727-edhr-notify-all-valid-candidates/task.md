@@ -26,15 +26,15 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 原通知行为、标准定向 GREEN、同类服务测试、生产代码编译、T4/T5/T6 目标失败簇修复与相邻回归均已通过。2026-07-28 用户明确确认 Sheet1 Excel 真实样本覆盖“不需要覆盖这个”，因此该缺失 fixture 不再作为验收前置；已删除依赖缺失真实 Excel 的导入/DB 回滚测试入口，保留 `Sheet1RouteExcelParserTest` 中 4 个合成 fail-fast/契约测试。
 
-最终验收已完成：2026-07-28 08:53:25 +08:00 在 `IntRuoyiBackend` 执行 `mvn -pl yudao-module-mes test`，结果 `BUILD SUCCESS`，2530 tests、0 failures、0 errors、18 skipped。任务实现和 required verification 已完成，进入收尾阶段。
+最终验收已完成：2026-07-28 08:53:25 +08:00 在 `IntRuoyiBackend` 执行 `mvn -pl yudao-module-mes test`，结果 `BUILD SUCCESS`，2530 tests、0 failures、0 errors、18 skipped。
 
-收尾阻塞：当前共享工作区存在非本任务脏改动（`20260728-scheduler-route-flow-list-permission` 相关 SQL/测试/任务产物及并发源码改动）。按“不得混入非本任务改动”和项目脏工作区基线门禁，当前不执行本任务提交/推送，待用户确认基线处理或并发任务清理后再完成 closeout commit/push。
+收尾已完成：`task-closeout-cleanup` preview/apply 均通过，保留本任务全部证据文档且无删除项；当前 `HEAD` 与 `origin/int_main` 对齐，工作区 clean。
 
-共享分支状态：并发任务于 2026-07-27 18:41:23 创建并推送基线提交 `f18927b9`，其中已包含本任务 Java 实现、测试和当时的初始任务文档。完整回归后的复核确认本地 `HEAD` 与 `origin/int_main` 已对齐且都包含 `f18927b9`；共享分支仍由并发任务持续推进，本次完整回归后的任务证据更新尚未提交。
+共享分支状态：并发任务于 2026-07-27 18:41:23 创建并推送基线提交 `f18927b9`，其中已包含本任务 Java 实现、测试和当时的初始任务文档。最终收尾前复核确认本地 `HEAD` 与 `origin/int_main` 对齐。
 
 ## 设计约束检查
 

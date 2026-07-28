@@ -103,4 +103,4 @@
 
 ## Release Recommendation
 
-TC-09 已通过，任务可进入 `ready_for_closeout`。在提交/推送前必须先处理当前共享工作区非本任务脏改动归属，禁止把并发任务文件混入本任务收尾提交。
+TC-09 已通过，cleanup preview/apply、最终提交和推送均已完成；任务可标记 `completed`。

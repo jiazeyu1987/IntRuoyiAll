@@ -30,7 +30,7 @@
 - Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-scheduler-route-flow-list-permission --mode preview` -> PASS, keep 7, delete none, blocked none, warnings none.
 - Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-scheduler-route-flow-list-permission --mode apply` -> PASS, deleted none.
 - Implementation/evidence commit observed on current branch: `a695165b chore: baseline current workspace changes` includes the task-owned SQL, tests, and first-pass evidence files.
-- Final closeout pending: commit the remaining completed-status task record updates and push `int_main`.
+- Final closeout commit observed on current branch: `908d212f chore: baseline current workspace changes` includes the completed-status task records.
 
 ## Blockers
 

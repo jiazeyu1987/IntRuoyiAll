@@ -2,7 +2,7 @@
 
 ## Summary
 
-Status: ready_for_closeout.
+Status: completed.
 
 The requested business behavior is implemented and both direct and standard targeted Maven tests pass. T4/T5/T6 regression clusters have been repaired and verified. The former Sheet1 authoritative Excel fixture blocker was resolved by the user-approved scope change that real Sheet1 Excel sample coverage is not required. The final complete MES module run passed with 2530 tests, 0 failures, 0 errors, and 18 skipped.
 
@@ -102,8 +102,8 @@ Result at 2026-07-28 08:53:25 +08:00: PASS. 2530 tests run, 0 failures, 0 errors
 
 ## Completion Gate
 
-Implementation and required verification are complete. The task is `ready_for_closeout`, but not yet `completed` because closeout commit/push is blocked by unrelated dirty worktree changes that must not be mixed into this task.
+Implementation, required verification, cleanup preview/apply, final commit, and push are complete.
 
 ## Integration State
 
-Concurrent baseline commit `f18927b9e3682a8a66d44d535b24c75b824b40e2` already contains the Java implementation, regression tests, and the initial task documents. Current evidence updates are intentionally uncommitted because `git status --short --branch` shows non-task dirty changes under the scheduler route-flow permission task and related backend files. Per project ownership rules, those changes must not be staged into this task's closeout commit.
+Concurrent baseline commit `f18927b9e3682a8a66d44d535b24c75b824b40e2` already contains the Java implementation, regression tests, and the initial task documents. Final closeout evidence is recorded in this task directory; `HEAD` and `origin/int_main` are aligned and the working tree is clean.

@@ -2,14 +2,14 @@
 
 ## Current Status
 
-PASS / ready_for_closeout. 用户已明确取消 Sheet1 Excel 真实样本覆盖要求；该缺失 fixture 不再作为验收前置。当前保留的 Sheet1 parser 合成 fail-fast/契约测试通过，完整 `mvn -pl yudao-module-mes test` 已通过：2530 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
+PASS / completed. 用户已明确取消 Sheet1 Excel 真实样本覆盖要求；该缺失 fixture 不再作为验收前置。当前保留的 Sheet1 parser 合成 fail-fast/契约测试通过，完整 `mvn -pl yudao-module-mes test` 已通过：2530 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`；cleanup preview/apply、最终提交和推送均已完成。
 
 ## Baseline
 
 - Command: `mvn -pl yudao-module-mes test`
 - Result: FAIL
 - Summary: 2509 tests, 58 failures, 78 errors, 31 skipped, 41 failing suites.
-- Final acceptance remains blocked by missing authoritative fixture and unresolved failure clusters.
+- Historical baseline only: this blocker was resolved by subsequent fixes and the user-approved Sheet1 scope change.
 
 ## T2 Independent Verification
 
@@ -134,4 +134,4 @@ PASS / ready_for_closeout. 用户已明确取消 Sheet1 Excel 真实样本覆盖
 - Command: `mvn -pl yudao-module-mes test`
 - Result: `PASS`，2026-07-28 08:53:25 +08:00 完成；2530 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
 - Diff/skip review: 未使用 `@Disabled`、Maven excludes、assumptions、空夹具、合成 workbook 或桌面候选文件替代真实 fixture；删除的是用户明确取消的真实样本覆盖入口。
-- Closeout state: 实现和验证完成，任务进入 `ready_for_closeout`；提交/推送暂受共享工作区非本任务脏改动阻塞。
+- Closeout state: 实现、验证、cleanup preview/apply、最终提交和推送均已完成。
