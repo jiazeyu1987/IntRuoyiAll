@@ -181,6 +181,61 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertEquals(0, result.getConflicts().size());
     }
 
+    @Test
+    void getPrefill_resolvesProductionBatchCodeFromExecutionContextWhenWorkOrderBatchCodeEmpty() {
+        MesProBatchRecordExecutionDO targetExecution = new MesProBatchRecordExecutionDO()
+                .setId(9002L)
+                .setWorkOrderId(1002L)
+                .setBatchRecordDefinitionId(2001L)
+                .setBatchRecordVersionId(3001L)
+                .setBatchRecordReportId("target-report")
+                .setBatchCode("BATCH-FROM-EXECUTION")
+                .setCellValuesJson("[]");
+        MesProBatchRecordReportDO targetReport = new MesProBatchRecordReportDO()
+                .setReportId("target-report")
+                .setReportName("批次执行记录")
+                .setBatchRecordDefinitionId(2001L)
+                .setBatchRecordVersionId(3001L);
+        MesProBatchRecordCellLinkRuleDO rule = new MesProBatchRecordCellLinkRuleDO()
+                .setId(16L)
+                .setScopeType("ROUTE_VERSION")
+                .setScopeId(3001L)
+                .setSourceType("PRODUCTION_WORK_ORDER")
+                .setSourceReportId("PRODUCTION_WORK_ORDER")
+                .setSourceReportName("生产工单")
+                .setSourceFieldCode("batchCode")
+                .setSourceFieldName("生产批号")
+                .setSourceCellKey("batchCode")
+                .setSourceLabel("生产批号")
+                .setSourceValueType("STRING")
+                .setTargetReportId("target-report")
+                .setTargetReportName("批次执行记录")
+                .setTargetRowIndex(4)
+                .setTargetColumnIndex(1)
+                .setTargetCellKey("4:1")
+                .setOverwritePolicy("ONLY_WHEN_EMPTY")
+                .setRuleVersion(7L);
+        MesProWorkOrderDO workOrder = MesProWorkOrderDO.builder()
+                .id(1002L)
+                .code("MO-002")
+                .batchCode(null)
+                .build();
+
+        when(executionMapper.selectById(9002L)).thenReturn(targetExecution);
+        when(reportMapper.selectByReportId("target-report")).thenReturn(targetReport);
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 3001L, "target-report"))
+                .thenReturn(List.of(rule));
+        when(workOrderMapper.selectById(1002L)).thenReturn(workOrder);
+
+        BatchRecordCellLinkPrefillRespVO result = service.getPrefill(9002L, null);
+
+        assertEquals(1, result.getPrefills().size());
+        assertEquals("BATCH-FROM-EXECUTION", result.getPrefills().get(0).getValue());
+        assertEquals("batchCode", result.getPrefills().get(0).getSourceFieldCode());
+        assertEquals("4:1", result.getPrefills().get(0).getTargetCellKey());
+        assertEquals(0, result.getConflicts().size());
+    }
+
     private FormTemplateVersionDO formTemplateVersion() {
         return FormTemplateVersionDO.builder()
                 .id(7001L)

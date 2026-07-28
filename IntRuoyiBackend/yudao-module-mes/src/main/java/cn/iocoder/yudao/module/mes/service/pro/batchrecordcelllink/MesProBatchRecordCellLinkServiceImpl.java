@@ -62,6 +62,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     private static final String SOURCE_TYPE_PRODUCTION_WORK_ORDER = "PRODUCTION_WORK_ORDER";
     private static final String PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID = "PRODUCTION_WORK_ORDER";
     private static final String PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME = "生产工单";
+    private static final String WORK_ORDER_SOURCE_FIELD_BATCH_CODE = "batchCode";
     private static final String OVERWRITE_POLICY_ONLY_WHEN_EMPTY = "ONLY_WHEN_EMPTY";
     private static final List<Integer> ACTIVE_EXECUTION_STATUSES = List.of(0, 1, 2, 3);
     private static final List<WorkOrderSourceField> PRODUCTION_WORK_ORDER_SOURCE_FIELDS = List.of(
@@ -608,6 +609,9 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         }
         WorkOrderSourceField field = requireWorkOrderSourceField(
                 StrUtil.blankToDefault(rule.getSourceFieldCode(), rule.getSourceCellKey()));
+        if (WORK_ORDER_SOURCE_FIELD_BATCH_CODE.equals(field.code())) {
+            return StrUtil.trim(targetExecution.getBatchCode());
+        }
         return field.valueExtractor().apply(workOrder);
     }
 
