@@ -153,7 +153,7 @@ async function assignMdmProductMenus(page) {
   await checkTreeNode(dialog, '文控中心')
   await checkTreeNode(dialog, '文控权限')
   await checkTreeNode(dialog, '基础数据')
-  await checkTreeNode(dialog, '产品主数据')
+  await checkTreeNode(dialog, '展厅主数据')
 
   if (!ALLOW_ASSIGN) {
     return {
