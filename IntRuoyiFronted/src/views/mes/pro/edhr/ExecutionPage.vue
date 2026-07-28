@@ -5022,9 +5022,6 @@ const navigateToAssistBatchTask = async (
       workTaskId: row.activeWorkTaskId,
       assistUserId: selectedAssistUserId
     })
-    if (!opened.executionId) {
-      throw new Error('打开工序任务后端未返回 executionId，不能进入 eDHR 填写页。')
-    }
     const openedWorkTaskId = opened.workTaskId || opened.executionPageQuery?.workTaskId || row.activeWorkTaskId
     const openedAssistUserId = parsePositiveNumber(
       opened.assistUserId || opened.executionPageQuery?.assistUserId || selectedAssistUserId
@@ -5035,6 +5032,29 @@ const navigateToAssistBatchTask = async (
     openedExecutionPageAssistRows.value = normalizeExecutionAssistRows((opened.executionPageQuery as any)?.assistRows)
     openedExecutionPageAssistRowsContextKey.value =
       `${opened.executionId}:${openedWorkTaskId || ''}:${openedAssistUserId || ''}`
+    if (opened.formCenterInstanceId && opened.formTemplateId) {
+      const query = {
+        ...stringifyAssistRouteQuery(opened.executionPageQuery),
+        id: String(batchExecutionId),
+        batchExecutionId: String(batchExecutionId),
+        batchTaskId: String(row.id),
+        workTaskId: String(openedWorkTaskId),
+        ...(openedAssistUserId ? { assistUserId: String(openedAssistUserId) } : {}),
+        ...(selectedAssistDisplayName ? { fillerName: selectedAssistDisplayName } : {}),
+        openRouteForm: '1'
+      }
+      fillViewMode.value = 'assist'
+      await router.push({
+        path: '/mes/pro/feedback/edhr-batch-execution/detail',
+        query
+      })
+      fillViewMode.value = 'assist'
+      closeAssistSwitchDialog()
+      return
+    }
+    if (!opened.executionId) {
+      throw new Error('打开工序任务后端未返回 executionId，不能进入 eDHR 填写页。')
+    }
     const query = {
       ...stringifyAssistRouteQuery(opened.executionPageQuery),
       id: String(opened.executionId),
