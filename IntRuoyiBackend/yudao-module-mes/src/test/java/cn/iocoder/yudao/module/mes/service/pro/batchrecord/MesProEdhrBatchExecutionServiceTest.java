@@ -3284,6 +3284,55 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void openTask_dynamicRouteFormFillerSwitchUsesTemplateAssistRowsWithoutExecutionRoute() {
+        Fixture fixture = insertRouteFixture(false, false);
+        MesProRouteProcessDO routeProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).get(0);
+        FormTemplateVersionDO templateVersion = insertPublishedFormTemplateVersion("动态损耗单辅助填写");
+        templateVersion.setJimuSchemaJson(dynamicFormJimuSchemaJsonWithAssistRows());
+        formTemplateVersionMapper.updateById(templateVersion);
+        stubFormCenterInstanceIds(85011L);
+        insertBatchFormCenterBinding(fixture.routeId(), routeProcess.getId(), templateVersion,
+                "FB_DYNAMIC_LOSS_ASSIST", "PROCESS", null,
+                "{\"cells\":[{\"sourceTableIndex\":0,\"rowIndex\":3,\"columnIndex\":1}]}");
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-DYNAMIC-LOSS-ASSIST")
+                .setRouteId(fixture.routeId()));
+        EdhrBatchExecutionTaskRespVO dynamicTask = routeTasks(batch).get(0);
+        when(formActionInstanceMapper.selectById(dynamicTask.getFormCenterInstanceId()))
+                .thenReturn(FormActionInstanceDO.builder()
+                        .id(dynamicTask.getFormCenterInstanceId())
+                        .tenantId(TenantContextHolder.getRequiredTenantId())
+                        .status(FormInstanceStatus.DRAFT.name())
+                        .formDataJson(JSON.toJSONString(new LinkedHashMap<>(Map.of(
+                                "batchExecutionId", batch.getId(),
+                                "batchTaskId", dynamicTask.getId()))))
+                        .build());
+        MesProEdhrWorkTaskDO fillTask = insertWorkTask(batch, dynamicTask, fixture,
+                MesProEdhrWorkTaskService.TASK_TYPE_FILL, 152L)
+                .setCandidateUserSnapshot("10001,152")
+                .setResponsibilitySourceType("EDHR_PROCESS_FORM_FILLER")
+                .setResponsibilityScopeJson("""
+                        {"schemaVersion":2,"sourceType":"EDHR_PROCESS_FORM_FILLER","sourceKey":"FORM|FB_DYNAMIC_LOSS_ASSIST","sourceVersion":"1","scopes":[
+                          {"scopeKey":"AR_BATCH_CODE","resolvedUserIds":[152],"fillableScope":{"cells":[{"sourceTableIndex":0,"rowIndex":3,"columnIndex":1}]}}
+                        ]}
+                        """);
+        workTaskMapper.updateById(fillTask);
+
+        EdhrBatchExecutionTaskOpenRespVO opened =
+                openTaskAs(10001L, batch.getId(), dynamicTask.getId(), fillTask.getId(), 152L);
+
+        assertNull(opened.getExecutionId());
+        assertEquals(dynamicTask.getFormCenterInstanceId(), opened.getFormCenterInstanceId());
+        assertEquals(fillTask.getId(), opened.getExecutionPageQuery().get("workTaskId"));
+        assertEquals(152L, opened.getExecutionPageQuery().get("assistUserId"));
+        JSONArray assistRows = (JSONArray) opened.getExecutionPageQuery().get("assistRows");
+        assertEquals(1, assistRows.size());
+        assertEquals("AR_BATCH_CODE", assistRows.getJSONObject(0).getString("rowKey"));
+        verify(singleExecutionService, never()).openOrCreateByContext(any());
+    }
+
+    @Test
     void previewTask_returnsDynamicRouteFormTemplatePreviewWithoutBatchReportSource() {
         Fixture fixture = insertRouteFixture(false, false);
         MesProRouteProcessDO routeProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).get(0);
@@ -7399,6 +7448,17 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         schema.put("sheetLayoutJson", JSON.toJSONString(layout));
         schema.put("cellRules", rules);
         schema.put("signatureCellMarkers", markers);
+        return JSON.toJSONString(schema);
+    }
+
+    private String dynamicFormJimuSchemaJsonWithAssistRows() {
+        JSONObject schema = JSON.parseObject(dynamicFormJimuSchemaJson());
+        schema.put("edhrAssistRows", JSON.parseArray("""
+                [
+                  {"rowKey":"AR_BATCH_CODE","description":"损耗单生产批号","sort":1,
+                    "fields":[{"rowIndex":3,"columnIndex":1}]}
+                ]
+                """));
         return JSON.toJSONString(schema);
     }
 

@@ -42,6 +42,16 @@ assert.match(batchExecutionService, /resolveAssistUserIdForOpenTask/, '后端必
 assert.match(batchExecutionService, /resolveVisibleAssistRows\(task,\s*openWorkTask,\s*assistUserId\)/, '后端辅助行必须按所选 assistUserId 解析。')
 assert.match(batchExecutionService, /resolveVisibleAssistScopes\(openWorkTask,\s*assistUserId\)/, '后端辅助行必须读取所选填写人的正式责任范围，不能只用 rowKey 字符串集合。')
 assert.match(batchExecutionService, /assistRowVisibleInScope\(/, '后端辅助行必须支持 ALL\/ranges 职责范围投影，不能只支持 scopeKey 等于 assist rowKey。')
+assert.match(
+  batchExecutionService,
+  /if\s*\(\s*isDynamicRouteFormTask\(task\)\s*\)\s*\{\s*return resolveDynamicRouteFormVisibleAssistRows\(task,\s*visibleScopes\);\s*\}/,
+  '动态路线表单损耗单切换填写人时必须从 FormCenter 模板解析辅助行，不得继续读取批记录 execution 快照。'
+)
+assert.match(
+  batchExecutionService,
+  /FormTemplateVersionDO\s+templateVersion\s*=\s*formTemplateVersionMapper\.selectById\(task\.getFormTemplateVersionId\(\)\)/,
+  '动态路线表单损耗单辅助行必须使用任务冻结的 formTemplateVersionId 读取模板版本。'
+)
 assert.doesNotMatch(
   batchExecutionService,
   /if\s*\(\s*isBatchSharedTask\(task\)\s*\)\s*\{\s*return null;\s*\}/,

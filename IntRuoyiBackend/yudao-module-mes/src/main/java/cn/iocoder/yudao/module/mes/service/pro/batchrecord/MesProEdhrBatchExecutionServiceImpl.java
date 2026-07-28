@@ -2568,6 +2568,9 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             return new JSONArray();
         }
         List<AssistVisibleScope> visibleScopes = resolveVisibleAssistScopes(openWorkTask, assistUserId);
+        if (isDynamicRouteFormTask(task)) {
+            return resolveDynamicRouteFormVisibleAssistRows(task, visibleScopes);
+        }
         MesProBatchRecordExecutionDO execution = task.getExecutionId() == null
                 ? null : executionMapper.selectById(task.getExecutionId());
         if (execution == null || StrUtil.isBlank(execution.getExecutionSnapshotJson())) {
@@ -2588,6 +2591,45 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 }
                 if (visibleScopes.stream().anyMatch(scope ->
                         assistRowVisibleInScope(assistRow, scope, snapshotSourceTableIndex))) {
+                    visibleRows.add(JSON.parseObject(assistRow.toJSONString()));
+                }
+            }
+            return visibleRows;
+        } catch (RuntimeException ex) {
+            if (ex instanceof ServiceException serviceException) {
+                throw serviceException;
+            }
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+        }
+    }
+
+    private JSONArray resolveDynamicRouteFormVisibleAssistRows(MesProEdhrBatchExecutionTaskDO task,
+                                                               List<AssistVisibleScope> visibleScopes) {
+        if (task == null || task.getFormTemplateVersionId() == null) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+        }
+        FormTemplateVersionDO templateVersion = formTemplateVersionMapper.selectById(task.getFormTemplateVersionId());
+        if (templateVersion == null || !Objects.equals(task.getFormTemplateId(), templateVersion.getTemplateId())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+        }
+        JSONArray visibleRows = new JSONArray();
+        if (StrUtil.isBlank(templateVersion.getJimuSchemaJson())) {
+            return visibleRows;
+        }
+        try {
+            JSONObject schema = JSON.parseObject(templateVersion.getJimuSchemaJson());
+            JSONArray assistRows = schema == null
+                    ? null : schema.getJSONArray(MesProBatchRecordCellRuleSupport.ASSIST_ROWS_KEY);
+            if (assistRows == null || assistRows.isEmpty()) {
+                return visibleRows;
+            }
+            for (int i = 0; i < assistRows.size(); i++) {
+                JSONObject assistRow = assistRows.getJSONObject(i);
+                if (assistRow == null) {
+                    throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+                }
+                if (visibleScopes.stream().anyMatch(scope ->
+                        assistRowVisibleInScope(assistRow, scope, 0))) {
                     visibleRows.add(JSON.parseObject(assistRow.toJSONString()));
                 }
             }
