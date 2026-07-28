@@ -23,123 +23,180 @@
       </el-col>
       <!-- 右侧：搜索表单 + 用户表格 -->
       <el-col class="h-full overflow-auto" :span="19" :xs="24">
-        <ContentWrap>
-          <el-form class="-mb-[15px]" :inline="true" :model="queryParams" label-width="72px">
-            <el-form-item label="用户名称">
-              <el-input
-                v-model="queryParams.username"
-                placeholder="请输入用户名称"
-                clearable
-                @keyup.enter="handleQuery"
-                class="!w-240px"
-              />
-            </el-form-item>
-            <el-form-item label="用户昵称">
-              <el-input
-                v-model="queryParams.nickname"
-                placeholder="请输入用户昵称"
-                clearable
-                @keyup.enter="handleQuery"
-                class="!w-240px"
-              />
-            </el-form-item>
-            <el-form-item label="手机号码">
-              <el-input
-                v-model="queryParams.mobile"
-                placeholder="请输入手机号码"
-                clearable
-                @keyup.enter="handleQuery"
-                class="!w-240px"
-              />
-            </el-form-item>
-            <el-form-item label="状态">
-              <el-select
-                v-model="queryParams.status"
-                placeholder="请选择状态"
-                clearable
-                class="!w-240px"
-              >
-                <el-option
-                  v-for="dict in getIntDictOptions(DICT_TYPE.COMMON_STATUS)"
-                  :key="dict.value"
-                  :label="dict.label"
-                  :value="dict.value"
+        <ContentWrap
+          class="h-full !mb-0 user-select-dialog__list-wrap"
+          :body-style="{ height: '100%' }"
+        >
+          <UnifiedListTemplate
+            class="user-select-dialog__list-template"
+            table-key="system.user.selectDialog"
+            :query-model="queryParams"
+            label-width="72px"
+            :filter-definitions="userSelectQuickFilterDefinitions"
+            :show-quick-filter="false"
+            :quick-filter-state="userSelectQuickFilterState"
+            :operator-options="userSelectQuickFilterOperatorOptions"
+            :columns="userSelectColumns"
+            :column-saving="userSelectColumnSaving"
+            :show-column-reset="true"
+            :total="total"
+            v-model:page="queryParams.pageNo"
+            v-model:limit="queryParams.pageSize"
+            @column-change="saveUserSelectColumnConfig"
+            @column-reset="resetUserSelectColumnConfig"
+            @pagination="getList"
+          >
+            <template #extra-filters>
+              <el-form-item label="用户名称">
+                <el-input
+                  v-model="queryParams.username"
+                  placeholder="请输入用户名称"
+                  clearable
+                  @keyup.enter="handleQuery"
+                  class="!w-240px"
                 />
-              </el-select>
-            </el-form-item>
-            <el-form-item>
+              </el-form-item>
+              <el-form-item label="用户昵称">
+                <el-input
+                  v-model="queryParams.nickname"
+                  placeholder="请输入用户昵称"
+                  clearable
+                  @keyup.enter="handleQuery"
+                  class="!w-240px"
+                />
+              </el-form-item>
+              <el-form-item label="手机号码">
+                <el-input
+                  v-model="queryParams.mobile"
+                  placeholder="请输入手机号码"
+                  clearable
+                  @keyup.enter="handleQuery"
+                  class="!w-240px"
+                />
+              </el-form-item>
+              <el-form-item label="状态">
+                <el-select
+                  v-model="queryParams.status"
+                  placeholder="请选择状态"
+                  clearable
+                  class="!w-240px"
+                >
+                  <el-option
+                    v-for="dict in getIntDictOptions(DICT_TYPE.COMMON_STATUS)"
+                    :key="dict.value"
+                    :label="dict.label"
+                    :value="dict.value"
+                  />
+                </el-select>
+              </el-form-item>
+            </template>
+
+            <template #actions>
               <el-button @click="handleQuery">
                 <Icon icon="ep:search" class="mr-5px" /> 搜索
               </el-button>
               <el-button @click="resetQuery">
                 <Icon icon="ep:refresh" class="mr-5px" /> 重置
               </el-button>
-            </el-form-item>
-          </el-form>
-        </ContentWrap>
-        <!-- 数据表格：单选 radio / 多选 checkbox 统一在一个 table 内 -->
-        <ContentWrap
-          class="h-[calc(100%-var(--content-wrap-padding,10px)*2-var(--content-wrap-margin,15px)*2-32px*2-3px*2-2px)] !mb-0"
-          :body-style="{ height: '100%', padding: 'var(--content-wrap-padding,10px)' }"
-        >
-          <el-table
-            ref="tableRef"
-            class="!h-[calc(100%-32px-30px+var(--content-wrap-padding,10px))]"
-            v-loading="loading"
-            :data="list"
-            :stripe="true"
-            :show-overflow-tooltip="true"
-            row-key="id"
-            :highlight-current-row="!multiple"
-            @selection-change="handleSelectionChange"
-            @row-click="handleRowClick"
-            @row-dblclick="handleRowDblClick"
-          >
-            <!-- 多选：checkbox（reserve-selection 保证跨页勾选不丢失） -->
-            <el-table-column
-              v-if="multiple"
-              type="selection"
-              :selectable="selectable"
-              :reserve-selection="true"
-              width="50"
-              align="center"
-            />
-            <!-- 单选：radio -->
-            <el-table-column v-else width="50" align="center">
-              <template #default="{ row }">
-                <el-radio
-                  v-model="selectedRadioId"
-                  :value="row.id"
-                  class="radio-no-label"
-                  :disabled="row.disabled"
-                  @change="handleRadioChange(row)"
+            </template>
+
+            <template #table>
+              <!-- 数据表格：单选 radio / 多选 checkbox 统一在一个 table 内 -->
+              <el-table
+                ref="tableRef"
+                class="user-select-dialog__table"
+                data-user-table-column-explicit
+                data-user-table-key="system.user.selectDialog"
+                v-loading="loading"
+                :data="list"
+                border
+                :stripe="true"
+                :show-overflow-tooltip="true"
+                row-key="id"
+                :highlight-current-row="!multiple"
+                @header-dragend="handleUserSelectHeaderDragend"
+                @selection-change="handleSelectionChange"
+                @row-click="handleRowClick"
+                @row-dblclick="handleRowDblClick"
+              >
+                <!-- 多选：checkbox（reserve-selection 保证跨页勾选不丢失） -->
+                <el-table-column
+                  v-if="multiple"
+                  type="selection"
+                  :selectable="selectable"
+                  :reserve-selection="true"
+                  width="50"
+                  align="center"
                 />
-              </template>
-            </el-table-column>
-            <el-table-column label="用户编号" align="center" prop="id" width="150" />
-            <el-table-column label="用户名称" align="center" prop="username" width="150" />
-            <el-table-column label="用户昵称" align="left" prop="nickname" min-width="150" />
-            <el-table-column label="部门" align="center" prop="deptName" width="150" />
-            <el-table-column label="手机号码" align="center" prop="mobile" width="130" />
-            <el-table-column label="状态" align="center" prop="status" width="80">
-              <template #default="scope">
-                <dict-tag :type="DICT_TYPE.COMMON_STATUS" :value="scope.row.status" />
-              </template>
-            </el-table-column>
-            <el-table-column
-              label="创建时间"
-              align="center"
-              prop="createTime"
-              :formatter="dateFormatter"
-              width="180"
-            />
-          </el-table>
-          <Pagination
-            :total="total"
-            v-model:page="queryParams.pageNo"
-            v-model:limit="queryParams.pageSize"
-            @pagination="getList"
-          />
+                <!-- 单选：radio -->
+                <el-table-column v-else width="50" align="center">
+                  <template #default="{ row }">
+                    <el-radio
+                      v-model="selectedRadioId"
+                      :value="row.id"
+                      class="radio-no-label"
+                      :disabled="row.disabled"
+                      @change="handleRadioChange(row)"
+                    />
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isUserSelectColumnVisible('id')"
+                  label="用户编号"
+                  align="center"
+                  prop="id"
+                  :width="getUserSelectColumnWidthString('id', 150)"
+                />
+                <el-table-column
+                  v-if="isUserSelectColumnVisible('username')"
+                  label="用户名称"
+                  align="center"
+                  prop="username"
+                  :width="getUserSelectColumnWidthString('username', 150)"
+                />
+                <el-table-column
+                  v-if="isUserSelectColumnVisible('nickname')"
+                  label="用户昵称"
+                  align="left"
+                  prop="nickname"
+                  :min-width="getUserSelectColumnMinWidthString('nickname', 150)"
+                />
+                <el-table-column
+                  v-if="isUserSelectColumnVisible('deptName')"
+                  label="部门"
+                  align="center"
+                  prop="deptName"
+                  :width="getUserSelectColumnWidthString('deptName', 150)"
+                />
+                <el-table-column
+                  v-if="isUserSelectColumnVisible('mobile')"
+                  label="手机号码"
+                  align="center"
+                  prop="mobile"
+                  :width="getUserSelectColumnWidthString('mobile', 130)"
+                />
+                <el-table-column
+                  v-if="isUserSelectColumnVisible('status')"
+                  label="状态"
+                  align="center"
+                  prop="status"
+                  :width="getUserSelectColumnWidthString('status', 80)"
+                >
+                  <template #default="scope">
+                    <dict-tag :type="DICT_TYPE.COMMON_STATUS" :value="scope.row.status" />
+                  </template>
+                </el-table-column>
+                <el-table-column
+                  v-if="isUserSelectColumnVisible('createTime')"
+                  label="创建时间"
+                  align="center"
+                  prop="createTime"
+                  :formatter="dateFormatter"
+                  :width="getUserSelectColumnWidthString('createTime', 180)"
+                />
+              </el-table>
+            </template>
+          </UnifiedListTemplate>
         </ContentWrap>
       </el-col>
     </el-row>
@@ -156,6 +213,12 @@ import { CommonStatusEnum } from '@/utils/constants'
 import * as UserApi from '@/api/system/user'
 import DeptTreeSelect from '@/views/system/dept/components/DeptTreeSelect.vue'
 import { dateFormatter } from '@/utils/formatTime'
+import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
+import type {
+  TableQuickFilterDefinition,
+  TableQuickFilterOperator
+} from '@/hooks/web/useTableQuickFilter'
 
 defineOptions({ name: 'UserSelectDialogV2' })
 
@@ -175,6 +238,39 @@ const message = useMessage()
 const emit = defineEmits<{
   selected: [rows: UserApi.UserVO[], activityId?: any]
 }>()
+
+type UserSelectQuickFilterState = {
+  fieldKey?: string
+  operator?: TableQuickFilterOperator
+  value?: string | number | boolean | Array<string | number>
+}
+
+const USER_SELECT_TABLE_KEY = 'system.user.selectDialog'
+
+const userSelectDefaultColumns: UserTableColumnDefinition[] = [
+  { key: 'id', label: '用户编号', width: 150 },
+  { key: 'username', label: '用户名称', width: 150 },
+  { key: 'nickname', label: '用户昵称', minWidth: 150 },
+  { key: 'deptName', label: '部门', width: 150 },
+  { key: 'mobile', label: '手机号码', width: 130 },
+  { key: 'status', label: '状态', width: 80 },
+  { key: 'createTime', label: '创建时间', width: 180 }
+]
+
+const {
+  columns: userSelectColumns,
+  saving: userSelectColumnSaving,
+  isColumnVisible: isUserSelectColumnVisible,
+  getColumnWidthString: getUserSelectColumnWidthString,
+  getColumnMinWidthString: getUserSelectColumnMinWidthString,
+  handleHeaderDragend: handleUserSelectHeaderDragend,
+  saveConfig: saveUserSelectColumnConfig,
+  resetConfig: resetUserSelectColumnConfig
+} = useUserTableColumns(USER_SELECT_TABLE_KEY, userSelectDefaultColumns)
+
+const userSelectQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [])
+const userSelectQuickFilterState = ref<UserSelectQuickFilterState>({})
+const userSelectQuickFilterOperatorOptions: TableQuickFilterOperator[] = []
 
 const dialogVisible = ref(false) // 弹窗是否展示
 const loading = ref(false) // 列表加载中
@@ -360,6 +456,31 @@ defineExpose({ open })
 </script>
 
 <style lang="scss" scoped>
+.user-select-dialog__list-wrap {
+  :deep(.el-card__body) {
+    min-height: 0;
+  }
+}
+
+.user-select-dialog__list-template {
+  min-height: 0;
+  height: 100%;
+
+  :deep(.unified-list-template__table-shell) {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+  }
+
+  :deep(.el-table) {
+    flex: 1;
+  }
+}
+
+.user-select-dialog__table {
+  height: 100%;
+}
+
 /* 隐藏 radio 的 label 文字，只保留圆圈 */
 .radio-no-label {
   :deep(.el-radio__label) {

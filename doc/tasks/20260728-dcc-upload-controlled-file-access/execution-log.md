@@ -16,6 +16,7 @@
 ## Milestone Updates
 
 - 初始化任务记录，准备定位根因和补充回归测试。
+- GREEN: experience-preflight -> PASS，命中 DCC 上传类别权限边界；本次采用后端权限投影 + 前端过滤，不放宽上传预览/提交的后端权限拦截。
 
 ## Verification Evidence
 
