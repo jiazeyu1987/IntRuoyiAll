@@ -60,3 +60,6 @@
 - 后续主线合并：`git merge --no-edit origin/int_main` -> PASS，生成 `4e1350ab`，当前任务分支包含最新 `origin/int_main` 提交 `75d54cdb`。
 - 后续验证：目标 Maven 30 tests PASS；节点串迁移契约 2 tests PASS；前端节点串静态契约 PASS；branch runtime port guard PASS。
 - 当前收尾阻塞：主工作区 `E:\IntRuoyi` 存在并行 DCC、eDHR ALL、人员选择任务的未提交源码/测试/任务文档改动，自动 ff-only merge 和 worktree 删除不能安全执行。
+- 并行基线保存：`E:\IntRuoyi` 主工作区并行脏改动已保存为 `87d3e00b chore: baseline concurrent workspace edits` 并推送到 `origin/int_main`。
+- 最新主线合并：`git merge --no-edit origin/int_main` -> PASS，生成 `9faa18d5`，当前任务分支包含最新 `origin/int_main` 提交 `87d3e00b`。
+- 最新验证：目标 Maven 30 tests PASS；节点串迁移契约 2 tests PASS；前端节点串静态契约 PASS；branch runtime port guard PASS。

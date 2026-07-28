@@ -126,3 +126,9 @@
 - Follow-up merge: `git merge --no-edit origin/int_main` -> PASS，生成 merge commit `4e1350ab`，当前任务分支包含最新 `origin/int_main` 提交 `75d54cdb`。
 - Follow-up GREEN: 目标 Maven 30 tests PASS；节点串迁移契约 2 tests PASS；前端节点串静态契约 PASS；branch runtime port guard PASS。
 - Closeout preview blocker: 主工作区 `E:\IntRuoyi` 又出现并行 DCC、eDHR ALL、人员选择任务的源码/测试/任务文档脏改动，仍不能接收 ff-only merge；这些文件不属于本任务，未提交、未回滚、未清理。
+- Concurrent baseline: `E:\IntRuoyi` 主工作区并行脏改动按项目规则保存为独立基线 `87d3e00b chore: baseline concurrent workspace edits` 并推送到 `origin/int_main`。
+- Latest merge: `git merge --no-edit origin/int_main` -> PASS，生成 merge commit `9faa18d5`，当前任务分支包含最新 `origin/int_main` 提交 `87d3e00b`。
+- Latest GREEN: `mvn.cmd -pl yudao-module-system -am "-Dtest=CodexTestCaseServiceImplTest,CodexTestExecutionServiceImplTest,CodexTestRunnerServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，30 tests passed。
+- Latest GREEN: `python -X utf8 -m pytest script\tests\test_codex_test_node_chain_migration.py -q` -> PASS，2 tests passed。
+- Latest GREEN: `node .\tests\e2e\system-codex-test-node-chain-static.spec.js` -> PASS。
+- Latest GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260727-codex-test-node-chain-runtime/int_main` 使用 frontend `8088`、backend `48088`。
