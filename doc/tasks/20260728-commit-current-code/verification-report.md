@@ -27,7 +27,9 @@
 - Current workspace baseline commit: PASS, `91441260 chore: baseline current frontend backend changes`.
 - Post-baseline rescan: PASS, `git diff --name-status` empty and branch ahead 1.
 - Cleanup preview/apply: PASS, keep task records, delete none, blocked none, warnings none.
-- Task status: completed after cleanup apply; closeout record is ready for final commit and push.
+- Task closeout commit: PASS, `a4faf67d docs: close current frontend backend commit task`.
+- Push large-object gate: PASS, no objects over 100 MB in `origin/int_main..HEAD`.
+- Push: BLOCKED, `git push origin int_main` failed twice with `Recv failure: Connection was reset`.
 
 ## Blocker
 
@@ -43,5 +45,6 @@
 ## Final Closeout Verification
 
 - Cleanup apply passed.
-- Final closeout commit and explicit `git push origin int_main` are required after this report update.
-- Final branch status must show no local commits ahead of `origin/int_main`.
+- Final closeout commit was created locally.
+- Final push is blocked by network reset; branch remains ahead of `origin/int_main`.
+- Task status is `blocked` until `git push origin int_main` succeeds and final branch status shows no local commits ahead of `origin/int_main`.

@@ -75,3 +75,8 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-commit-current-code --mode preview` -> ready，keep task.md/execution-log.md/verification-report.md，delete/blocked/warnings none。
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-commit-current-code --mode apply` -> applied，deleted_paths none。
 - STATUS: 当前任务记录更新为 `completed`；下一步提交本收尾记录并执行 `git push origin int_main`。
+- GREEN: closeout commit -> PASS，commit `a4faf67d docs: close current frontend backend commit task`。
+- GREEN: push large-object gate -> PASS，`origin/int_main..HEAD` 无超过 100 MB 的对象。
+- BLOCKER: `git push origin int_main` -> FAIL，`fatal: unable to access 'https://github.com/jiazeyu1987/IntRuoyiAll.git/': Recv failure: Connection was reset`。
+- BLOCKER: retry `git push origin int_main` -> FAIL，同一网络重置错误。影响：本地提交已完成但未推送到 `origin/int_main`，按项目规则任务不能标记完成。
+- STATUS: 当前任务状态改为 `blocked`，等待网络/GitHub 访问恢复后重新执行 `git push origin int_main`。
