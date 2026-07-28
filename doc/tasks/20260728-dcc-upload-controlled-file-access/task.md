@@ -24,7 +24,12 @@ in_progress
 
 ## 经验门禁
 
-- 待补入命中的经验门禁摘要。
+- Trigger: DCC 受控文件上传、`upload-preview`、`Current user cannot access this controlled file`、类别权限、文件类别下拉。
+- Preflight check: 先区分菜单权限 `dcc:controlled-file:submit/query` 与类别级 `UPLOAD` 权限；上传页不得展示当前用户无 `UPLOAD` 权限的类别，后端上传预览/提交仍必须 fail-fast 拦截无权限类别。
+- Blocker: 缺少类别级上传权限投影、前端仅靠上传接口报错、或为消除报错放宽后端 `UPLOAD` 权限校验时必须停止。
+- Verification: 后端类别列表投影 `canUpload`，前端静态契约验证上传页过滤 `canUpload=false`，并运行上传服务原有权限拒绝测试确保后端拦截仍保留。
+- Forbidden action: 禁止绕过 `DccControlledFileCategoryPermissionSupport`、禁止把无权限类别当可上传类别展示、禁止吞掉 `CONTROLLED_FILE_ACCESS_DENIED` 或改成默认上传成功。
+- Evidence: 本任务 `doc/tasks/20260728-dcc-upload-controlled-file-access/`。
 
 ## 设计约束检查
 

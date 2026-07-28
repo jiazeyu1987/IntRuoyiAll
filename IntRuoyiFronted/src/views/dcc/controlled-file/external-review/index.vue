@@ -46,7 +46,7 @@
             @change="handleCategoryChange"
           >
             <el-option
-              v-for="item in categories"
+              v-for="item in availableCategories"
               :key="item.id"
               :label="item.name"
               :value="item.id as number"
@@ -248,8 +248,29 @@ const formData = reactive({
   remark: ''
 })
 
+const categoryUploadPermissionMessage = '当前用户没有该文件类别的上传权限，请选择有上传权限的文件类别。'
+const availableCategories = computed(() =>
+  categories.value.filter((category) => category.active && category.canUpload !== false)
+)
+
 const formRules = reactive<FormRules>({
-  categoryId: [{ required: true, message: '请选择文件类别', trigger: 'change' }],
+  categoryId: [
+    {
+      validator: (_rule: unknown, value: unknown, callback: (error?: Error) => void) => {
+        if (!value) {
+          callback(new Error('请选择文件类别'))
+          return
+        }
+        const category = categories.value.find((item) => item.id === Number(value))
+        if (category?.canUpload === false) {
+          callback(new Error(categoryUploadPermissionMessage))
+          return
+        }
+        callback()
+      },
+      trigger: 'change'
+    }
+  ],
   directoryId: [{ required: true, message: '请选择最终提交目录', trigger: 'change' }],
   externalSource: [{ required: true, message: '请输入外来来源', trigger: 'blur' }],
   externalOwner: [{ required: true, message: '请输入外来归属', trigger: 'blur' }],

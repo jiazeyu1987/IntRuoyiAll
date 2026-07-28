@@ -6,10 +6,10 @@
 
 ## Milestones
 
-- [ ] 定位 `scopeKey=ALL` 责任范围快照生成与校验链路
-- [ ] 增加 RED 回归测试覆盖普通填写人规则无显式范围时的创建失败
-- [ ] 实现正式整表填写范围生成，不引入 fallback 或吞异常
-- [ ] 运行目标 Maven 测试并记录 GREEN/REGRESSION
+- [x] 定位 `scopeKey=ALL` 责任范围快照生成与校验链路
+- [x] 增加 RED 回归测试覆盖普通填写人规则无显式范围时的创建失败
+- [x] 实现正式整表填写范围生成，不引入 fallback 或吞异常
+- [x] 运行目标 Maven 测试并记录 GREEN/REGRESSION
 
 ## Expected Verification
 
@@ -19,13 +19,23 @@
 
 ## Current Status
 
-in_progress
+in_progress_runtime_reload
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
 - `是否从根因和长期维护角度解决`：是；目标是让 ALL 规则在保存/运行态拥有正式责任范围快照。
 - `是否存在临时补丁或绕过`：否。
+
+## Verification Result
+
+- PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest#createInitialFillTask_buildsAllScopeSnapshotFromReportMembersWhenRuleScopeIsBlank" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+- PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+- Closeout pending: 当前分支存在非本任务本地提交领先 `origin/int_main`，最终 push/完成状态需在不混入无关任务风险后处理。
+
+## Runtime Reload
+
+- in_progress: 用户要求重新打包并重启本机 `int_main` 后端 `48081`，加载已验证的 `scopeKey=ALL` 修复。
 
 ## 经验门禁
 

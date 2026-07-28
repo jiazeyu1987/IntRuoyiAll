@@ -26,8 +26,8 @@ assert(
 )
 
 assert(
-  /BatchRecordCellLinkApi\.getPrefill\(currentExecutionId,\s*workTaskId\.value\)/.test(executionPage),
-  'eDHR 填写页加载跨表单带入时必须携带当前 workTaskId。'
+  !/BatchRecordCellLinkApi\.getPrefill\(/.test(executionPage),
+  'eDHR 填写页不应再调用跨表单预填接口；单元格链接值必须由后端自动落库后随执行详情返回。'
 )
 
 assert(

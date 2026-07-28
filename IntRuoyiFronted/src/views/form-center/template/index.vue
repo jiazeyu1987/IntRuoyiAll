@@ -172,6 +172,15 @@
               填写
             </el-button>
             <el-button
+              v-if="canUseTemplateInteractiveAction(selectedTemplate)"
+              @click="openSelectedTemplateFillConfig"
+              v-hasPermi="['form:template:update']"
+              link
+              type="primary"
+            >
+              填写配置
+            </el-button>
+            <el-button
               v-hasPermi="['form:template-source:download']"
               link
               type="primary"
@@ -312,6 +321,19 @@
     v-if="!isDesignerMode && !isTemplateSimulationMode"
     ref="importDialogRef"
     @success="getList"
+  />
+  <FormTemplateFillConfigDialog
+    v-if="!isDesignerMode && !isTemplateSimulationMode"
+    v-model="fillConfigDialogVisible"
+    :template="selectedTemplate"
+    :sheet-layout-json="visualPreviewFormViewModel?.sheetLayoutJson || parsedTemplateJimuSchema?.sheetLayoutJson"
+    :cell-rules="templatePreviewCellRules"
+    :signature-cell-markers="templatePreviewSignatureMarkers"
+    :assist-rows="parsedTemplateJimuSchema?.assistRows || []"
+    :fill-assignments="parsedTemplateJimuSchema?.fillAssignments || []"
+    :readonly="selectedTemplate?.status !== 'DRAFT'"
+    :saving="fillConfigSaving"
+    @save="saveSelectedTemplateFillConfig"
   />
   <Dialog v-model="obsoleteRequestDialogVisible" title="作废表单模板" width="560px">
     <el-alert
@@ -665,13 +687,18 @@ import type {
   FormTemplateStatus
 } from '@/api/form-center/template'
 import type {
+  BatchRecordReportAssistRowVO,
   BatchRecordReportCellRuleVO,
   BatchRecordReportSignatureCellMarkerVO,
   BatchRecordReportCellValueType
 } from '@/api/mes/pro/batchrecordreport'
+import type { EdhrProcessFormFillAssignment } from '@/api/mes/pro/edhr/processFormPermissionRule'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import TemplateImportDialog from './components/TemplateImportDialog.vue'
 import FormTemplateDesignerWrapper from './components/FormTemplateDesignerWrapper.vue'
+import FormTemplateFillConfigDialog, {
+  type FormTemplateFillConfigSavePayload
+} from './components/FormTemplateFillConfigDialog.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { formatDate } from '@/utils/formatTime'
@@ -705,9 +732,11 @@ const list = ref<FormTemplateListItemVO[]>([])
 const selectedTemplateKey = ref('')
 const previewMaximized = ref(false)
 const signatureDialogVisible = ref(false)
+const fillConfigDialogVisible = ref(false)
 const obsoleteRequestDialogVisible = ref(false)
 const obsoleteRequestSubmitting = ref(false)
 const rulesSaving = ref(false)
+const fillConfigSaving = ref(false)
 const templateRouteLoadError = ref('')
 const templateFillValues = ref<TemplateSimulationValueMap>({})
 const obsoletePendingByTemplateKey = ref<Record<string, FormTemplateObsoletePendingRespVO | null>>({})
@@ -1032,6 +1061,11 @@ const openSelectedTemplateFill = async () => {
   })
 }
 
+const openSelectedTemplateFillConfig = () => {
+  if (!selectedTemplate.value) return
+  fillConfigDialogVisible.value = true
+}
+
 type FormTemplateAction = 'signature'
 type FormTemplateObsoleteOperationState = 'normal' | 'pending-withdrawable' | 'pending-readonly' | 'voided'
 
@@ -1229,10 +1263,12 @@ const saveEditableTemplateRules = async () => {
     message.error('当前模板缺少可保存的规则布局。')
     return
   }
-  const payload = JSON.stringify({
+  const payload = buildTemplateJimuSchemaPayload({
     sheetLayoutJson: formViewModel.sheetLayoutJson,
     cellRules: rules,
-    signatureCellMarkers: markers
+    signatureCellMarkers: markers,
+    assistRows: parsedTemplateJimuSchema.value?.assistRows,
+    fillAssignments: parsedTemplateJimuSchema.value?.fillAssignments
   })
   rulesSaving.value = true
   try {
@@ -1464,9 +1500,12 @@ type RuleEditorRow = {
 }
 
 type FormTemplateJimuSchemaPayload = {
+  [key: string]: unknown
   sheetLayoutJson?: string
   cellRules?: BatchRecordReportCellRuleVO[]
   signatureCellMarkers?: BatchRecordReportSignatureCellMarkerVO[]
+  assistRows?: BatchRecordReportAssistRowVO[]
+  fillAssignments?: EdhrProcessFormFillAssignment[]
 }
 
 const fieldValueType = (fieldType?: string): BatchRecordReportCellValueType => {
@@ -1517,13 +1556,22 @@ const parseTemplateJimuSchema = (schema?: string): FormTemplateJimuSchemaPayload
   if (!schema?.trim()) return undefined
   const parsed = JSON.parse(schema) as FormTemplateJimuSchemaPayload
   return {
+    ...parsed,
     sheetLayoutJson: typeof parsed.sheetLayoutJson === 'string' ? parsed.sheetLayoutJson : undefined,
     cellRules: Array.isArray(parsed.cellRules) ? parsed.cellRules : undefined,
     signatureCellMarkers: Array.isArray(parsed.signatureCellMarkers)
       ? parsed.signatureCellMarkers
-      : undefined
+      : undefined,
+    assistRows: Array.isArray(parsed.assistRows) ? parsed.assistRows : undefined,
+    fillAssignments: Array.isArray(parsed.fillAssignments) ? parsed.fillAssignments : undefined
   }
 }
+
+const buildTemplateJimuSchemaPayload = (payload: FormTemplateJimuSchemaPayload) =>
+  JSON.stringify({
+    ...(parsedTemplateJimuSchema.value || {}),
+    ...payload
+  })
 
 const sortCellRules = (rules: BatchRecordReportCellRuleVO[]) =>
   [...rules].sort((left, right) => left.rowIndex - right.rowIndex || left.columnIndex - right.columnIndex)

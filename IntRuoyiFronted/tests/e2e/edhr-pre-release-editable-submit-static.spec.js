@@ -34,9 +34,9 @@ assert.ok(
 )
 
 assert.ok(
-  source.includes('detail.status === EDHR_EXECUTION_STATUS.DRAFT') &&
-    source.includes('BatchRecordCellLinkApi.getPrefill(currentExecutionId, workTaskId.value)'),
-  'pre-release submitted records must not call draft-only cell-link prefill after detail load.'
+  source.includes('hydrateDraftState(detail)') &&
+    !source.includes('BatchRecordCellLinkApi.getPrefill'),
+  'execution detail load must hydrate only persisted values and must not call draft-only cell-link prefill.'
 )
 
 assert.ok(
