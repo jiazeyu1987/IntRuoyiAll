@@ -46,6 +46,8 @@
 - 2026-07-28: Cleanup preview -> ready, keep task core records and bug evidence, delete none, blocked none, warnings none.
 - 2026-07-28: Cleanup apply -> applied, deleted none.
 - 2026-07-28: Implementation commit `b6f5d35f fix: resolve batch cell link batch code source`.
+- 2026-07-28: Closeout commit `49d0f5ef docs: close batch cell link batch code task`.
+- 2026-07-28: Push `git push origin int_main` -> PASS, remote advanced `5946a5b6..49d0f5ef`; `git rev-list --left-right --count origin/int_main...HEAD` -> `0 0`.
 - 2026-07-28: Observed unrelated deletion `doc/tasks/20260728-edhr-batch-record-design-docs/output/电子批记录系统设计说明书.docx`; left untouched and excluded from current task scope.
 
 ## Blockers
