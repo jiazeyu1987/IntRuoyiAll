@@ -1353,6 +1353,13 @@ async function waitForSelectedBatchRecordReport(reportSelect, report) {
   )
 }
 
+async function waitForRouteProcessAttributeEditorReady(editor) {
+  await editor
+    .locator('.route-flow-graph-designer__process-detail-loading')
+    .waitFor({ state: 'hidden', timeout: 90000 })
+    .catch(() => undefined)
+}
+
 async function ensureBatchRecordDetailFieldVisible(page, editor) {
   let fieldButton = editor
     .locator('[data-flow-action="select-process-detail-field"]')
@@ -1396,9 +1403,11 @@ async function configureTargetBatchRecordReportThroughUi(page, auth, copiedRoute
   await targetNode.waitFor({ state: 'visible', timeout: 90000 })
   await targetNode.scrollIntoViewIfNeeded()
   await targetNode.click()
+  await waitForRouteProcessAttributeEditorReady(editor)
 
   const fieldButton = await ensureBatchRecordDetailFieldVisible(page, editor)
   await fieldButton.click()
+  await waitForRouteProcessAttributeEditorReady(editor)
   const reportSelect = editor
     .locator('[data-route-process-setting-field="batch-record-report"]')
     .first()

@@ -152,6 +152,8 @@ includes(realFlowE2E, 'prepareTaskOwnedRouteThroughUi', '真实 E2E 必须通过
 includes(realFlowE2E, 'copyTaskOwnedRouteThroughUi', '真实 E2E 必须通过工艺流程列表复制明确来源路线。')
 includes(realFlowE2E, 'configureTargetBatchRecordReportThroughUi', '真实 E2E 必须在候选版本页面为目标工序选择正式批记录表单。')
 includes(realFlowE2E, 'data-route-process-setting-field="batch-record-report"', '真实 E2E 必须操作逐工序批记录表单选择器。')
+includes(realFlowE2E, 'waitForRouteProcessAttributeEditorReady', '真实 E2E 必须等待工序属性编辑器加载完成后再选择批记录表单，避免空草稿覆盖用户选择。')
+includes(realFlowE2E, "'.route-flow-graph-designer__process-detail-loading'", '真实 E2E 必须以右侧工序属性加载骨架作为可编辑就绪信号。')
 includes(realFlowE2E, 'await reportInput.fill(report.reportCode)', '真实 E2E 必须用报表编码搜索批记录表单，避免同名报表候选误选。')
 includes(realFlowE2E, "filter({ hasText: report.reportCode })", '真实 E2E 必须按报表编码精确选择目标报表，不能只按同名文案选择第一项。')
 includes(realFlowE2E, 'await reportOption.click()', '真实 E2E 必须点击 Element Plus 原生 option 根节点，验证真实选择事件能更新 modelValue。')
