@@ -8,7 +8,9 @@
 
 - 候选来源只调用 `BatchRecordReportApi.getProductNameOptions(keyword, latestVersionOnly)`，不读取 DCC 项目代码或 MES 物料主数据。
 - `TableQuickFilterDefinition` 支持 `triggerOnFocus?: boolean`，默认字段不聚焦触发，仅本产品名称筛选设置 `triggerOnFocus: true`。
+- `TableQuickFilterDefinition` 支持 autocomplete `popperClass`，默认使用专用候选下拉样式完整展示较长产品名称。
 - `TableQuickFilter` 渲染 `el-autocomplete`，选择候选后 `emit('query')`；查询按钮保留给手动输入路径。
+- 快速过滤字段选择框、条件选择框、产品名称输入框均锁定不收缩宽度，避免“产品名称”“包含”和输入值被挤成省略号。
 - 批记录表单页保留 `queryParamKey: 'productName'`，候选和手输最终都走列表 `/page?productName=...`。
 
 ## BDD
@@ -16,10 +18,12 @@
 - BDD: 点击产品名称输入框展示候选 -> Given 批记录表单目录存在多个产品名称 / When 用户点击产品名称筛选输入框 / Then 下拉展示当前批记录表单目录实际存在的产品名称候选。
 - BDD: 点击候选立即过滤 -> Given 候选下拉中存在目标产品名称 / When 用户点击该候选 / Then 列表立即以该产品名称重新查询且无需点击查询按钮。
 - BDD: 手动输入查询过滤 -> Given 用户手动输入或复制产品名称 / When 用户点击查询按钮 / Then 列表以输入文本作为 `productName` 过滤。
+- BDD: 产品名称完整显示 -> Given 产品名称筛选位于较窄工具栏 / When 页面展示“产品名称”“包含”和较长产品名称候选 / Then 字段、条件和候选名称不被 flex 收缩成省略号，候选可换行完整阅读。
 
 ## RED
 
 - RED: `node -e "<dfc71011^ snapshot assertions>"` -> FAIL, expected reason: task-start parent source lacked batch-record product options API wrapper, `triggerOnFocus` definition, and productName autocomplete quick-filter contract.
+- RED: `node tests/e2e/edhr-batch-record-form-list-product-filter-autocomplete-static.spec.js` -> FAIL, expected reason: autocomplete 尚未使用专用 popper 样式，字段/条件/输入宽度未锁定不收缩。
 
 ## GREEN
 
@@ -30,6 +34,7 @@
 ## Verification
 
 - Static contract verified API wrapper URL, quick-filter `triggerOnFocus`, `el-autocomplete` rendering, `@select` immediate query, query button retention, and no DCC/MES master data source in product suggestions.
+- Static contract also verified full-display layout: field width `120px`, operator width `92px`, product value width `clamp(280px, 32vw, 420px)`, and autocomplete popper wraps long candidate names.
 - Type verification passed using `vue-tsc --noEmit -p tsconfig.relaxed.json`.
 - Real E2E reached the page and observed `/page` returning business code `0`, total `320`, first page `20` rows, and `20` rows with non-empty product names; selecting candidates could not proceed because `/product-name-options` returned business code `404` from the running backend.
 

@@ -13,8 +13,9 @@ const notIncludes = (content, token, message) => assert.ok(!content.includes(tok
 
 includes(dialog, 'assistGridRowCount', '辅助表单映射必须由右侧控制栏配置表格行数。')
 includes(dialog, 'assistGridColumnCount', '辅助表单映射必须由右侧控制栏配置表格列数。')
-includes(dialog, 'assistFillerUserIds', '辅助表单映射必须维护当前表单需要的填写人集合。')
-includes(dialog, 'selectedAssistFillerUserId', '辅助表单映射必须支持切换当前填写人。')
+includes(dialog, 'assistResponsibilitySubjects', '辅助表单映射必须维护当前表单需要的责任主体集合。')
+includes(dialog, 'selectedAssistSubjectKey', '辅助表单映射必须支持切换当前责任主体。')
+includes(dialog, 'pendingAssistSubjectType', '辅助表单映射必须支持选择个人或角色责任主体。')
 includes(dialog, 'selectedAssistGridCellKey', '辅助表单映射必须先选中辅助表格单元格。')
 includes(dialog, 'data-assist-grid-cell', '辅助表单预览必须渲染可点击的 M*N 表格单元格。')
 includes(dialog, 'handleAssistGridCellClick', '点击辅助表格单元格必须设置当前映射目标。')
@@ -27,8 +28,8 @@ includes(dialog, "'is-assist-mapped': isSourceCellMappedToAssistGrid(cell)", '�
 includes(dialog, 'sourceCellGridAssignmentMap.value.has(cell.identity)', '同一原表单元格必须全局只能归属一个辅助格。')
 includes(dialog, 'ASSIST_GRID_ROW_KEY_PREFIX', '保存时必须用稳定 rowKey 表达用户和辅助格位置。')
 includes(dialog, 'parseAssistGridRowKey', '读取已有 assistRows 时必须还原用户和辅助格位置。')
-includes(dialog, 'candidateSourceType: \'USERS\'', '每个辅助格保存时必须明确分配给单个填写人。')
-includes(dialog, 'candidateSourceIds: [userId]', '辅助格保存的 fillAssignment 必须指向当前填写人。')
+includes(dialog, 'candidateSourceType: selectedAssistSubject.value.candidateSourceType', '每个辅助格保存时必须明确使用当前责任主体类型。')
+includes(dialog, 'candidateSourceIds: [...selectedAssistSubject.value.candidateSourceIds]', '辅助格保存的 fillAssignment 必须指向当前责任主体。')
 includes(dialog, '取消映射', '用户必须可以从辅助格取消映射以释放原表单元格。')
 notIncludes(dialog, '辅助行配置', '辅助表单映射模式不应继续暴露旧辅助行配置交互。')
 

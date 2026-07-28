@@ -41,6 +41,15 @@
 - Forbidden action: 禁止为通过静态合同改产品文案或 DOM 顺序；禁止保留真实脚本里的废弃确认弹窗、签名密码输入或 API-only 替代页面点击。
 - Evidence: `doc/tasks/merge-jiluben-worktree-20260724/verification-report.md`。
 
+### 真实 E2E 阶段归因门禁
+
+- Trigger: 复用一个覆盖多阶段的真实 E2E 验证窄范围改动，脚本在目标页面保存或目标断言后继续进入路线、批次、审批、清理等后续阶段。
+- Preflight check: 运行前标出本任务必须证明的阶段和后续阶段边界；脚本结果 JSON 必须记录阶段性证据字段，例如目标弹窗可见、目标保存响应、任务自有数据清理状态。
+- Blocker: 如果目标阶段之前失败，当前任务验证不得放行；如果目标阶段已通过但后续阶段失败，必须记录后续失败位置和清理结果，不得把整条 E2E 宣称为 PASS。
+- Verification: 当前任务报告同时写入整条命令退出状态、目标阶段证据、后续失败断言文本、清理恢复结果，以及为何该失败不属于本次行为变更。
+- Forbidden action: 禁止删除后续断言来制造整条 PASS；禁止把目标阶段通过冒充 full-chain 通过；禁止在失败后遗漏共享配置恢复或任务自有数据清理。
+- Evidence: `doc/tasks/20260728-assist-role-responsibility-mode/verification-report.md`，填写配置保存阶段已返回 `adminSave.assistRowCount/assignmentCount`，后续路线绑定断言失败并完成配置恢复和路线清理。
+
 ### Schema-backed E2E 迁移与字段可选态门禁
 
 - Trigger: 真实 E2E 验证新增 schema 字段支撑的页面能力、工作台上下文字段、单元格链接、字段矩阵、合成来源字段、`source_type`、`source_field_code`、`sourceFields`、或页面接口返回 `Unknown column` / `系统异常`。

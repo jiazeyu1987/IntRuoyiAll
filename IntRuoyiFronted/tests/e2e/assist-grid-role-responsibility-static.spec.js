@@ -17,7 +17,7 @@ includes(permissionApi, 'candidateSourceNames?: string[]', '权限规则响应�
 includes(dialog, 'getSimpleRoleList', '辅助映射配置必须读取角色候选项。')
 includes(dialog, 'pendingAssistSubjectType', '辅助映射配置必须允许选择个人或角色责任主体类型。')
 includes(dialog, 'assistResponsibilitySubjects', '辅助映射配置必须维护责任主体集合，而不是只维护填写人用户集合。')
-includes(dialog, 'ASSIST_GRID_ROLE', '辅助映射 rowKey 必须能表达角色责任主体。')
+includes(dialog, 'ASSIST_GRID_(USERS|ROLE)', '辅助映射 rowKey 必须能表达个人或角色责任主体。')
 includes(dialog, 'candidateSourceType: selectedAssistSubject.value.candidateSourceType', '保存辅助格时必须使用当前选择的责任主体类型。')
 includes(dialog, 'candidateSourceIds: [...selectedAssistSubject.value.candidateSourceIds]', '保存辅助格时必须使用当前选择的责任主体 ID。')
 notIncludes(dialog, "candidateSourceType: 'USERS' as const,\n      candidateSourceIds: [userId]", '保存 payload 不能从 rowKey 反推为固定个人。')

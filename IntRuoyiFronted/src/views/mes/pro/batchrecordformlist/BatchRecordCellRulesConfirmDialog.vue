@@ -122,12 +122,12 @@
 
           <div class="batch-record-cell-rules-editor__assist-preview-scroll">
             <el-empty
-              v-if="!selectedAssistFillerUserId"
-              description="请在右侧添加并选择填写人"
+              v-if="!selectedAssistSubject"
+              description="请在右侧添加并选择责任主体"
             />
             <template v-else>
               <div class="batch-record-cell-rules-editor__assist-grid-meta">
-                <strong>{{ selectedAssistFillerUserLabel }}</strong>
+                <strong>{{ selectedAssistSubjectLabel }}</strong>
                 <el-tag size="small" effect="plain">
                   辅助表格 {{ assistGridRowCount }} × {{ assistGridColumnCount }}
                 </el-tag>
@@ -176,7 +176,7 @@
             class="batch-record-cell-rules-editor__control-head"
           >
             <strong>映射控制栏</strong>
-            <p>在这里设置辅助表格、填写人和当前原表字段类型；中间表格会实时更新。</p>
+            <p>在这里设置辅助表格、责任主体和当前原表字段类型；中间表格会实时更新。</p>
           </div>
           <template v-if="activeConfigMode === 'assistMapping'">
             <section class="batch-record-cell-rules-editor__assist-grid-control">
@@ -210,18 +210,30 @@
 
             <section class="batch-record-cell-rules-editor__assist-filler-control">
               <div class="batch-record-cell-rules-editor__assist-grid-control-head">
-                <strong>填写人</strong>
-                <p>每个填写人拥有自己的辅助表格；原表单元格全局只能分配一次。</p>
+                <strong>责任主体</strong>
+                <p>每个个人或角色拥有自己的辅助表格；原表单元格全局只能分配一次。</p>
               </div>
               <div class="batch-record-cell-rules-editor__assist-filler-add">
                 <el-select
-                  v-model="pendingAssistFillerUserId"
-                  filterable
-                  clearable
-                  placeholder="选择员工"
+                  v-model="pendingAssistSubjectType"
+                  placeholder="类型"
+                  style="width: 96px"
                 >
                   <el-option
-                    v-for="option in availableAssistFillerUserOptions"
+                    v-for="option in assistSubjectTypeOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+                <el-select
+                  v-model="pendingAssistSubjectId"
+                  filterable
+                  clearable
+                  placeholder="选择责任主体"
+                >
+                  <el-option
+                    v-for="option in availableAssistSubjectOptions"
                     :key="option.value"
                     :label="option.label"
                     :value="option.value"
@@ -230,33 +242,33 @@
                 <el-button
                   type="primary"
                   plain
-                  :disabled="!pendingAssistFillerUserId"
-                  @click="addAssistFillerUser"
+                  :disabled="!pendingAssistSubjectId"
+                  @click="addAssistResponsibilitySubject"
                 >
                   添加
                 </el-button>
               </div>
               <el-empty
-                v-if="assistFillerUserIds.length === 0"
-                description="请先添加填写人"
+                v-if="assistResponsibilitySubjects.length === 0"
+                description="请先添加责任主体"
                 :image-size="56"
               />
               <div v-else class="batch-record-cell-rules-editor__assist-filler-list">
                 <article
-                  v-for="userId in assistFillerUserIds"
-                  :key="userId"
+                  v-for="subject in assistResponsibilitySubjects"
+                  :key="subject.subjectKey"
                   class="batch-record-cell-rules-editor__assist-filler-item"
-                  :class="{ 'is-selected': selectedAssistFillerUserId === userId }"
+                  :class="{ 'is-selected': selectedAssistSubjectKey === subject.subjectKey }"
                 >
-                  <button type="button" @click="selectAssistFillerUser(userId)">
-                    <strong>{{ resolveUserLabelById(userId) }}</strong>
-                    <span>{{ assistGridMappedCountByUser(userId) }} 个映射</span>
+                  <button type="button" @click="selectAssistResponsibilitySubject(subject.subjectKey)">
+                    <strong>{{ resolveAssistSubjectLabel(subject) }}</strong>
+                    <span>{{ assistGridMappedCountBySubject(subject.subjectKey) }} 个映射</span>
                   </button>
                   <el-button
                     size="small"
                     link
                     type="danger"
-                    @click="removeAssistFillerUser(userId)"
+                    @click="removeAssistResponsibilitySubject(subject)"
                   >
                     删除
                   </el-button>
@@ -1132,6 +1144,26 @@ const assistGridRowMap = computed(() => {
   return map
 })
 
+const findAssistGridRowBySubjectCell = (
+  subject: AssistResponsibilitySubject,
+  rowIndex: number,
+  columnIndex: number
+) => {
+  const directKey = buildAssistGridRowKey({ ...subject, rowIndex, columnIndex })
+  const directRow = assistGridRowMap.value.get(directKey)
+  if (directRow) return directRow
+  return assistRows.value.find((row) => {
+    const parsed = parseAssistGridRowKey(row.rowKey)
+    if (!parsed || parsed.rowIndex !== rowIndex || parsed.columnIndex !== columnIndex) return false
+    const assignment = assistAssignments[row.rowKey]
+    const assignedSubject = createAssistResponsibilitySubject(
+      assignment?.candidateSourceType,
+      assignment?.candidateSourceIds
+    )
+    return assignedSubject?.subjectKey === subject.subjectKey
+  })
+}
+
 const sourceCellGridAssignmentMap = computed(() => {
   const map = new Map<string, SourceCellGridAssignment>()
   assistRows.value.forEach((row) => {
@@ -1140,7 +1172,12 @@ const sourceCellGridAssignmentMap = computed(() => {
     if (!parsed || !field) return
     const key = cellIdentity(field.rowIndex, field.columnIndex)
     if (!map.has(key)) {
-      map.set(key, { ...parsed, rowKey: row.rowKey, row })
+      const assignment = assistAssignments[row.rowKey]
+      const subject = createAssistResponsibilitySubject(
+        assignment?.candidateSourceType || parsed.candidateSourceType,
+        assignment?.candidateSourceIds?.length ? assignment.candidateSourceIds : parsed.candidateSourceIds
+      )
+      map.set(key, { ...parsed, ...(subject || parsed), rowKey: row.rowKey, row })
     }
   })
   return map
@@ -1168,14 +1205,14 @@ const resolveAssistGridPreviewCell = (
   columnIndex: number
 ): AssistGridPreviewCell => {
   const key = buildAssistGridRowKey({ ...subject, rowIndex, columnIndex })
-  const assistRow = assistGridRowMap.value.get(key)
+  const assistRow = findAssistGridRowBySubjectCell(subject, rowIndex, columnIndex)
   const field = assistRow?.fields[0]
   const sourceCell = field ? findRenderedCellByIdentity(cellIdentity(field.rowIndex, field.columnIndex)) : null
   const rule = field ? ruleMap.value.get(cellIdentity(field.rowIndex, field.columnIndex)) : undefined
   const sourceText = String(sourceCell?.text || '').trim()
   const label = String(rule?.label || sourceText || '点击选择原表格').trim()
   return {
-    key,
+    key: assistRow?.rowKey || key,
     ...subject,
     rowIndex,
     columnIndex,
@@ -1294,7 +1331,16 @@ const addAssistResponsibilitySubject = () => {
 }
 
 const assistGridMappedCountBySubject = (subjectKey: string) =>
-  assistRows.value.filter((row) => parseAssistGridRowKey(row.rowKey)?.subjectKey === subjectKey).length
+  assistRows.value.filter((row) => {
+    const parsed = parseAssistGridRowKey(row.rowKey)
+    if (!parsed) return false
+    const assignment = assistAssignments[row.rowKey]
+    const assignedSubject = createAssistResponsibilitySubject(
+      assignment?.candidateSourceType || parsed.candidateSourceType,
+      assignment?.candidateSourceIds?.length ? assignment.candidateSourceIds : parsed.candidateSourceIds
+    )
+    return assignedSubject?.subjectKey === subjectKey
+  }).length
 
 const removeAssistResponsibilitySubject = async (subject: AssistResponsibilitySubject) => {
   const mappedCount = assistGridMappedCountBySubject(subject.subjectKey)
@@ -1318,10 +1364,25 @@ const removeAssistResponsibilitySubject = async (subject: AssistResponsibilitySu
     (item) => item.subjectKey !== subject.subjectKey
   )
   assistRows.value = orderAssistGridRows(
-    assistRows.value.filter((row) => parseAssistGridRowKey(row.rowKey)?.subjectKey !== subject.subjectKey)
+    assistRows.value.filter((row) => {
+      const parsed = parseAssistGridRowKey(row.rowKey)
+      if (!parsed) return true
+      const assignment = assistAssignments[row.rowKey]
+      const assignedSubject = createAssistResponsibilitySubject(
+        assignment?.candidateSourceType || parsed.candidateSourceType,
+        assignment?.candidateSourceIds?.length ? assignment.candidateSourceIds : parsed.candidateSourceIds
+      )
+      return assignedSubject?.subjectKey !== subject.subjectKey
+    })
   )
   Object.keys(assistAssignments).forEach((rowKey) => {
-    if (parseAssistGridRowKey(rowKey)?.subjectKey === subject.subjectKey) {
+    const parsed = parseAssistGridRowKey(rowKey)
+    const assignment = assistAssignments[rowKey]
+    const assignedSubject = createAssistResponsibilitySubject(
+      assignment?.candidateSourceType || parsed?.candidateSourceType,
+      assignment?.candidateSourceIds?.length ? assignment.candidateSourceIds : parsed?.candidateSourceIds
+    )
+    if (assignedSubject?.subjectKey === subject.subjectKey) {
       delete assistAssignments[rowKey]
     }
   })
@@ -1536,8 +1597,8 @@ const removeSelectedStringOption = (optionIndex: number) => {
 
 const normalizedAssistRowsForSave = () => {
   if (ruleRows.value.length === 0) return []
-  if (assistFillerUserIds.value.length === 0) {
-    throw new Error('请先添加至少一个辅助表格填写人。')
+  if (assistResponsibilitySubjects.value.length === 0) {
+    throw new Error('请先添加至少一个辅助表格责任主体。')
   }
   const rows = orderAssistGridRows(normalizeAssistRows(assistRows.value))
   if (rows.length === 0) {
@@ -1549,8 +1610,16 @@ const normalizedAssistRowsForSave = () => {
     if (!parsed) {
       throw new Error('存在旧版辅助映射，请切换到辅助表格后重新映射。')
     }
-    if (!assistFillerUserIds.value.includes(parsed.userId)) {
-      throw new Error(`辅助表格 ${rowIndex + 1} 的填写人已被删除，请重新选择填写人。`)
+    const assignment = assistAssignments[row.rowKey]
+    const assignedSubject = createAssistResponsibilitySubject(
+      assignment?.candidateSourceType || parsed.candidateSourceType,
+      assignment?.candidateSourceIds?.length ? assignment.candidateSourceIds : parsed.candidateSourceIds
+    )
+    if (
+      !assignedSubject ||
+      !assistResponsibilitySubjects.value.some((subject) => subject.subjectKey === assignedSubject.subjectKey)
+    ) {
+      throw new Error(`辅助表格 ${rowIndex + 1} 的责任主体已被删除，请重新选择责任主体。`)
     }
     if (parsed.rowIndex >= assistGridRowCount.value || parsed.columnIndex >= assistGridColumnCount.value) {
       throw new Error(`辅助表格 ${rowIndex + 1} 超出当前表格范围，请先取消该映射。`)
@@ -1564,14 +1633,14 @@ const normalizedAssistRowsForSave = () => {
     row.fields.forEach((field) => {
       const key = cellIdentity(field.rowIndex, field.columnIndex)
       if (assignedCellKeys.has(key)) {
-        throw new Error(`原表单元格 R${field.rowIndex + 1}C${field.columnIndex + 1} 不能分配给多个填写人。`)
+        throw new Error(`原表单元格 R${field.rowIndex + 1}C${field.columnIndex + 1} 不能分配给多个责任主体。`)
       }
       assignedCellKeys.add(key)
     })
   })
   const uncoveredRule = ruleRows.value.find((rule) => !assignedCellKeys.has(ruleIdentity(rule)))
   if (uncoveredRule) {
-    throw new Error(`原表单元格 R${uncoveredRule.rowIndex + 1}C${uncoveredRule.columnIndex + 1} 尚未分配给填写人。`)
+    throw new Error(`原表单元格 R${uncoveredRule.rowIndex + 1}C${uncoveredRule.columnIndex + 1} 尚未分配给责任主体。`)
   }
   return rows
 }
@@ -1584,11 +1653,16 @@ const normalizedAssistAssignmentsForSave = (
     if (!parsed) {
       throw new Error('存在无法保存的辅助表格映射。')
     }
-    const userId = parsed.userId
+    const assignment = assistAssignments[row.rowKey]
+    const candidateSourceType = normalizeAssignmentSourceType(assignment?.candidateSourceType)
+    const candidateSourceIds = normalizeAssignmentIds(assignment?.candidateSourceIds)
+    if (!candidateSourceIds.length) {
+      throw new Error(`辅助表格 ${row.rowKey} 缺少责任主体。`)
+    }
     return {
       scopeKey: row.rowKey,
-      candidateSourceType: 'USERS' as const,
-      candidateSourceIds: [userId],
+      candidateSourceType,
+      candidateSourceIds,
       completionPolicy: 'ANY_ONE' as const,
       enabled: true,
       remark: row.description
@@ -1616,12 +1690,14 @@ const loadCellRules = async () => {
   loading.value = true
   errorMessage.value = ''
   try {
-    const [data, permission, users] = await Promise.all([
+    const [data, permission, users, roles] = await Promise.all([
       BatchRecordReportApi.getCellRules(reportId.value),
       EdhrProcessFormPermissionRuleApi.getByReport(reportId.value),
-      getSimpleUserList()
+      getSimpleUserList(),
+      getSimpleRoleList()
     ])
     simpleUserOptions.value = users
+    simpleRoleOptions.value = roles
     applyCellRulesResponse(data)
     applyAssistAssignments(permission.fillAssignments || [])
   } catch (error) {
@@ -1663,6 +1739,13 @@ const confirmAllRules = async () => {
     saving.value = false
   }
 }
+
+watch(
+  () => pendingAssistSubjectType.value,
+  () => {
+    pendingAssistSubjectId.value = undefined
+  }
+)
 
 watch(
   () => [dialogVisible.value, reportId.value] as const,

@@ -32,6 +32,36 @@ assert.match(
 )
 
 assert.match(
+  quickFilter,
+  /<el-autocomplete[\s\S]*:popper-class="selectedDefinition\.popperClass \|\| 'table-quick-filter-autocomplete-popper'"/,
+  '产品名称 autocomplete 候选下拉必须使用专用 popper 样式，避免候选文本被默认宽度截断。'
+)
+
+assert.match(
+  quickFilter,
+  /\.table-quick-filter__field\s*\{[\s\S]*?flex:\s*0 0 120px;[\s\S]*?min-width:\s*120px;[\s\S]*?width:\s*120px;[\s\S]*?\}/,
+  '快速过滤字段选择框必须固定足够宽度，不能把“产品名称”挤成省略号。'
+)
+
+assert.match(
+  quickFilter,
+  /\.table-quick-filter__operator\s*\{[\s\S]*?flex:\s*0 0 92px;[\s\S]*?min-width:\s*92px;[\s\S]*?width:\s*92px;[\s\S]*?\}/,
+  '快速过滤条件选择框必须固定足够宽度，不能把“包含”挤成省略号。'
+)
+
+assert.match(
+  quickFilter,
+  /\.table-quick-filter__value\s*\{[\s\S]*?flex:\s*0 0 clamp\(280px,\s*32vw,\s*420px\);[\s\S]*?min-width:\s*280px;[\s\S]*?width:\s*clamp\(280px,\s*32vw,\s*420px\);[\s\S]*?\}/,
+  '产品名称输入区必须有更宽且不收缩的宽度，保证常见产品名称完整显示。'
+)
+
+assert.match(
+  quickFilter,
+  /\.table-quick-filter-autocomplete-popper[\s\S]*?min-width:\s*320px;[\s\S]*?\.table-quick-filter-autocomplete-popper \.el-autocomplete-suggestion__list li[\s\S]*?white-space:\s*normal;[\s\S]*?overflow-wrap:\s*anywhere;/,
+  '产品名称候选下拉项必须可换行显示完整名称，不能只靠省略号或 tooltip。'
+)
+
+assert.match(
   page,
   /const queryRecordFormProductNameSuggestions = async\s*\([\s\S]*?BatchRecordReportApi\.getProductNameOptions\([\s\S]*?queryParams\.latestVersionOnly[\s\S]*?callback\(\(data \|\| \[\]\)\.map\(\(productName\) => \(\{ value: productName \}\)\)\)/,
   '批记录表单页必须从当前批记录表单目录接口加载产品名称候选。'

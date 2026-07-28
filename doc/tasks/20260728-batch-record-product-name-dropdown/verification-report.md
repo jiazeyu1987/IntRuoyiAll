@@ -4,6 +4,8 @@
 
 批记录表单列表产品名称 autocomplete 代码与自动化回归已验证通过；真实 Playwright 页面验收 blocked 于本机后端运行态未加载新增接口。
 
+用户反馈“没显示全”后，已补充并验证快速过滤控件完整显示修复：字段、条件和产品名称输入区不再被 flex 压缩，候选下拉支持较长产品名称换行完整展示。
+
 ## Commands
 
 - `node tests/e2e/edhr-batch-record-form-list-product-filter-autocomplete-static.spec.js` -> PASS.
@@ -11,6 +13,10 @@
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordReportControllerTest,MesProBatchRecordReportServiceImplDbTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 119 tests.
 - `pnpm ts:check` -> PASS.
 - `node -e "<dfc71011^ snapshot assertions>"` -> RED FAIL as expected; parent source lacked this feature contract.
+- `node tests/e2e/edhr-batch-record-form-list-product-filter-autocomplete-static.spec.js` -> RED FAIL as expected before visual fix; missing autocomplete popper and no-shrink width contract.
+- `node tests/e2e/edhr-batch-record-form-list-product-filter-autocomplete-static.spec.js` -> PASS after visual fix.
+- `node tests/e2e/edhr-batch-record-form-list-static.spec.js` -> PASS after visual fix.
+- `pnpm ts:check` -> PASS after visual fix.
 
 ## Real E2E
 

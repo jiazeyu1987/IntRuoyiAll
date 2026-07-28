@@ -700,7 +700,7 @@ async function ensureConfiguredVisualFillFixture(auth, report, evidence) {
   }
   const userIds = await resolveUserIds(auth)
   const assistRows = rules.map((rule, index) => ({
-    rowKey: `CODX_VFC_ASSIST_${index + 1}`,
+    rowKey: `ASSIST_GRID_USERS${index % 2 === 0 ? userIds.employeeA : userIds.employeeB}_R${Math.floor(index / 10)}_C${index % 10}`,
     description: `E2E辅助行${index + 1}-${rule.label}`,
     sort: index + 1,
     fields: [{ rowIndex: rule.rowIndex, columnIndex: rule.columnIndex }]
@@ -1975,8 +1975,12 @@ async function openVisualFillConfigDialog(page, report) {
   if (firstRuleCellSelected !== 'true') {
     await firstRuleCell.click()
   }
-  await dialog.getByText('辅助行配置', { exact: false }).waitFor({ state: 'visible', timeout: 30000 })
-  await dialog.getByText('辅助行填写人', { exact: false }).first().waitFor({ state: 'visible', timeout: 30000 })
+  await dialog
+    .locator('.batch-record-cell-rules-editor__mode-switch')
+    .getByText('辅助表单映射', { exact: true })
+    .click()
+  await dialog.getByText('辅助表单映射：先选辅助格', { exact: false }).waitFor({ state: 'visible', timeout: 30000 })
+  await dialog.getByText('责任主体', { exact: false }).first().waitFor({ state: 'visible', timeout: 30000 })
   await dialog.getByText('字段类型', { exact: false }).first().waitFor({ state: 'visible', timeout: 30000 })
 }
 

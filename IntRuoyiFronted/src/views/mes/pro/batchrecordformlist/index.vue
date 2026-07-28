@@ -1002,8 +1002,46 @@ const resolveFillRuleStatus = (
 }
 
 const buildFillRuleCandidateUserText = (row: RecordFormListRow) => {
+  const assignmentText = buildFillAssignmentSummaryText(row)
+  if (assignmentText) return assignmentText
+  const fillRule = row.permissionRule?.fillRule
+  if (!fillRule) return ''
+  const sourceType = normalizeFillCandidateSourceType(fillRule.candidateSourceType)
+  const sourceNames = (fillRule.candidateSourceNames || []).map((name) => String(name || '').trim()).filter(Boolean)
+  if (sourceType === 'ROLE' && sourceNames.length) {
+    return `角色：${sourceNames.join('、')}`
+  }
   const candidateUsers = row.permissionRule?.fillRule?.candidateUsers || []
   return candidateUsers.map((user) => user.displayName).filter(Boolean).join('、')
+}
+
+const buildFillAssignmentSummaryText = (row: RecordFormListRow) => {
+  const assignments = row.permissionRule?.fillAssignments || []
+  const segments: string[] = []
+  const seenSegments = new Set<string>()
+  assignments.forEach((assignment) => {
+    const sourceType = normalizeFillCandidateSourceType(assignment.candidateSourceType)
+    const sourceLabel = sourceType === 'ROLE' ? '角色' : '个人'
+    const sourceNames = (assignment.candidateSourceNames || [])
+      .map((name) => String(name || '').trim())
+      .filter(Boolean)
+    const userNames = sourceType === 'ROLE'
+      ? []
+      : (assignment.candidateUsers || [])
+          .map((user) => String(user.displayName || '').trim())
+          .filter(Boolean)
+    const sourceIds = (assignment.candidateSourceIds || [])
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0)
+      .map((id) => `${sourceLabel} ${id}`)
+    const names = sourceNames.length ? sourceNames : (userNames.length ? userNames : sourceIds)
+    if (!names.length) return
+    const segment = `${sourceLabel}：${names.join('、')}`
+    if (seenSegments.has(segment)) return
+    seenSegments.add(segment)
+    segments.push(segment)
+  })
+  return segments.join('；')
 }
 
 const isPermissionRuleLoading = (row: RecordFormListRow) =>
@@ -1132,10 +1170,14 @@ const openBatchRecordFormPermissionDialog = async (row: RecordFormListRow) => {
     return
   }
   try {
-    await loadCandidateOptions()
     const rule = await EdhrProcessFormPermissionRuleApi.getByReport(row.reportId)
     row.permissionRule = rule
     row.permissionRuleErrorMessage = ''
+    if (rule.fillAssignments?.length) {
+      openCellRulesDialog(row)
+      return
+    }
+    await loadCandidateOptions()
     permissionTarget.report = row
     permissionTarget.permissionRule = rule
     permissionForm.fillRule = cloneCandidateRule(rule.fillRule)

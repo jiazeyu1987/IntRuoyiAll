@@ -26,6 +26,7 @@
 
 - 严格无 fallback：候选接口和前端请求不得用 mock、默认成功、空数据兜底或静默吞错掩盖失败。
 - 前端静态契约隔离：当前需求新增聚焦静态合同，不为通过既有宽合同改无关行为。
+- Element Plus 选择框显示门禁：字段、条件、产品名称输入区和候选下拉必须有专用布局合同，不能只靠 tooltip 或默认省略宽度。
 - 批记录三类配置术语契约：本任务只修改批记录表单列表产品名称筛选，不触碰表单槽位 `formBindings` 或工序开始配置。
 - PowerShell / Git 门禁：脏工作区需先独立基线提交；PowerShell 不使用 `&&`；Maven `-D` 参数整体加引号。
 
@@ -39,6 +40,7 @@ blocked
 - 服务候选口径复用批记录表单列表可见视图、Jimu 报表存在性过滤、版本产品拆行、`latestVersionOnly` 和 `productName` 包含匹配。
 - 前端 `BatchRecordReportApi` 已新增 `getProductNameOptions(keyword?, latestVersionOnly?)`。
 - 批记录表单列表 `productName` 快速筛选已改为 `autocomplete`，设置 `triggerOnFocus: true`，候选选择触发快速过滤查询，手工输入仍保留“查询”按钮。
+- 已修复快速过滤控件宽度收缩：字段显示完整“产品名称”、条件显示完整“包含”、产品名称输入区加宽且不收缩，候选下拉可换行完整显示较长产品名称。
 - 已补齐后端 JUnit 和前端静态合同，并通过定向验证。
 
 ## Remaining Blockers
