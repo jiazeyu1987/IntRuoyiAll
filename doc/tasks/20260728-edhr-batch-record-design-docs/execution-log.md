@@ -121,3 +121,16 @@
   - deleted_paths: none。
   - linked worktree: false，未执行 worktree merge/remove。
 - Current status: completed。
+
+## Git Evidence
+
+- GREEN: `scripts/preflight/branch-runtime-port-guard.ps1 -> PASS`
+  - 分支：`int_main`
+  - 前端端口：8081
+  - 后端端口：48081
+- GREEN: `git diff --cached --name-status -> PASS`
+  - 暂存清单仅包含 `doc/tasks/20260728-edhr-batch-record-design-docs/` 下的任务记录和四份 DOCX。
+- GREEN: `git commit -m "docs: formalize edhr design deliverables" -> PASS`
+  - commit: `8d1478d9`
+  - 文件清单：task.md、execution-log.md、verification-report.md、EDHR_Batch_Record_System_Design.docx、EDHR_Batch_Record_Requirement_Design.docx、EDHR_Batch_Record_Outline_Design.docx、EDHR_Batch_Record_Detailed_Design.docx。
+- Boundary: 工作区存在其它并行任务未提交改动；本任务未暂存、未提交、未覆盖这些文件。
