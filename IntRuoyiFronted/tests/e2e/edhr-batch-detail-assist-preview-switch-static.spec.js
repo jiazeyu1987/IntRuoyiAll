@@ -75,6 +75,12 @@ assert.ok(
   '“未配置辅助模式”必须占满 Switch 行宽并禁止换行，确保蓝框区域文字完整可见。'
 )
 assert.ok(
+  /edhr-batch-detail__preview-mode-disabled\s*\{[\s\S]*justify-self:\s*stretch;[\s\S]*background:\s*#f8fafc;[\s\S]*color:\s*#475467;[\s\S]*font-weight:\s*600;/.test(
+    style
+  ),
+  '“未配置辅助模式”不能使用过浅禁用灰色，必须以清晰状态条样式完整可读。'
+)
+assert.ok(
   !assistSwitchBlock.includes('selectFillCarrier') &&
     !assistSwitchBlock.includes('openPendingTaskByFillCarrier') &&
     !assistSwitchBlock.includes('handleSelectedPendingTaskAction'),
