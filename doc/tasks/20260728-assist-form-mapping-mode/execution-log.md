@@ -15,3 +15,4 @@
 - REGRESSION: 真实浏览器只读冒烟 -> BLOCKED，本机 `8081/48081` 正在监听，Playwright 使用本地前端默认登录配置且未输出密码；登录页点击和回车后均未发出登录请求，因此未进入目标页面，不作为通过证据；过程中未发送 MES 写请求。
 - GREEN: project-experience-consolidation -> PASS，已搜索 `docs\login-access.md`、`docs\e2e-rules.md`、`docs\frontend-development.md`、`docs\experience-index.md`，本次无新增长期经验；登录/E2E/静态合同门禁已由既有文档覆盖。
 - GREEN: task-closeout-cleanup -> PASS，preview/apply 均无删除项、无阻塞，保留 task.md、execution-log.md、verification-report.md 与 frontend-feature-evidence.md。
+- GREEN: implementation commit -> PASS，commit `ad0c0d6c feat: add assist form mapping mode`，手动运行 `scripts\preflight\branch-runtime-port-guard.ps1` 通过，未混入并行任务文件。
