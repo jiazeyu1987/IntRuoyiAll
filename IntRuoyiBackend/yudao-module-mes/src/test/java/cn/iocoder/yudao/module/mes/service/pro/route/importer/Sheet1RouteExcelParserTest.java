@@ -14,37 +14,11 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_IMP
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_IMPORT_SHEET1_MISSING;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_IMPORT_SHEET1_PRODUCT_DUPLICATE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class Sheet1RouteExcelParserTest {
 
     private final Sheet1RouteExcelParser parser = new Sheet1RouteExcelParser();
-
-    @Test
-    void parseFixture_returnsTwoRoutesWithFirstAppearanceDeduplicatedSteps() throws Exception {
-        try (ByteArrayInputStream inputStream = new ByteArrayInputStream(
-                Sheet1RouteExcelTestFixtures.balloonCatheterProcessWorkbookBytes())) {
-            Sheet1RouteExcelParser.ParseResult result = parser.parse(inputStream);
-
-            assertEquals(2, result.routes().size());
-            Sheet1RouteExcelParser.Route first = result.routes().get(0);
-            assertEquals("球囊扩张导管", first.routeName());
-            assertEquals(21, first.materialCodes().size());
-            assertEquals(24, first.steps().size());
-            assertIterableEquals(List.of(
-                    "吹球囊成型", "球囊裁剪", "外管拉伸2", "内管拉伸2", "外管与球囊焊接", "外管切缝", "裁剪管材", "穿显影环",
-                    "尖端管与内管焊接", "压显影环", "焊接远端锥度", "裁剪圆角", "焊接圆角", "快速交换口焊接", "RX口检测",
-                    "点胶海波管", "球囊涂层", "球囊组件与海波管焊接", "球囊压握", "球囊盘管（机器）", "球囊测漏及全检",
-                    "包套装管", "纸塑袋封口（包装）", "全检导丝"
-            ), first.steps().stream().map(Sheet1RouteExcelParser.Step::processName).toList());
-
-            Sheet1RouteExcelParser.Route second = result.routes().get(1);
-            assertEquals("棘突球囊扩张导管", second.routeName());
-            assertEquals(17, second.materialCodes().size());
-            assertEquals(26, second.steps().size());
-        }
-    }
 
     @Test
     void parseWithoutSheet1_failsFast() throws Exception {

@@ -1,0 +1,8 @@
+{
+  "status": "failed",
+  "summary": "Required Docker container is not running: int-ruoyi-mysql",
+  "component": "full",
+  "profile": "int_main",
+  "frontendPort": 8081,
+  "backendPort": 48081
+}
