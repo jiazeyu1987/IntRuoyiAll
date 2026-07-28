@@ -59,3 +59,6 @@
   - `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260728-edhr-scrap-assist-switch\bug-regression-evidence.md` -> PASS.
   - `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
   - `git diff --check` -> PASS.
+- `git push origin HEAD:int_main` -> PASS; `origin/int_main` advanced to `59dc8a50`.
+- `git fetch origin int_main` plus `git rev-parse HEAD` / `git rev-parse origin/int_main` confirmed both at `59dc8a50`.
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-edhr-scrap-assist-switch --mode preview` -> BLOCKED: main worktree `E:\IntRuoyi` is dirty and cannot receive ff-only merge. Cleanup keep list preserved `task.md`, `execution-log.md`, `verification-report.md`, and `bug-regression-evidence.md`; delete list was empty.

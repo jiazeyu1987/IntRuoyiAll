@@ -39,3 +39,6 @@ ready_for_closeout
 
 ## Cleanup Keep
 - `doc/tasks/20260728-edhr-scrap-assist-switch/bug-regression-evidence.md`
+
+## Closeout Blocker
+- `task-closeout-cleanup` preview is blocked because the main worktree `E:\IntRuoyi` is dirty and cannot receive a ff-only merge. Implementation commits have already been pushed to `origin/int_main`; local worktree cleanup/removal is pending until the main worktree is clean or its unrelated dirty state is explicitly handled.
