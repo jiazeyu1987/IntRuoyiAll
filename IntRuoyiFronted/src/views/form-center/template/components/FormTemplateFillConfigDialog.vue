@@ -7,33 +7,31 @@
     :default-fullscreen="true"
   >
     <div v-loading="loading" class="batch-record-cell-rules-editor">
-      <el-alert
-        v-if="readonlyMode"
-        title="只有草稿版本可以保存填写配置。"
-        type="warning"
-        :closable="false"
-        show-icon
-      />
-      <el-alert
-        v-if="errorMessage"
-        :title="errorMessage"
-        type="error"
-        :closable="false"
-        show-icon
-      />
+      <main class="batch-record-cell-rules-editor__main-panel">
+        <el-alert
+          v-if="readonlyMode"
+          title="只有草稿版本可以保存填写配置。"
+          type="warning"
+          :closable="false"
+          show-icon
+        />
+        <el-alert
+          v-if="errorMessage"
+          :title="errorMessage"
+          type="error"
+          :closable="false"
+          show-icon
+        />
 
-      <section class="batch-record-cell-rules-editor__summary">
-        <span class="batch-record-cell-rules-editor__name">{{ templateName }}</span>
-        <el-tag type="primary" effect="plain">规则 {{ ruleRows.length }}</el-tag>
-        <el-tag :type="pendingCount > 0 ? 'warning' : 'success'" effect="plain">
-          待确认 {{ pendingCount }}
-        </el-tag>
-        <span class="batch-record-cell-rules-editor__mode">
-          填写配置：左侧选单元格，右侧维护字段类型和辅助行
-        </span>
-      </section>
+        <section class="batch-record-cell-rules-editor__summary">
+          <span class="batch-record-cell-rules-editor__name">{{ templateName }}</span>
+          <el-tag type="primary" effect="plain">规则 {{ ruleRows.length }}</el-tag>
+          <el-tag :type="pendingCount > 0 ? 'warning' : 'success'" effect="plain">
+            待确认 {{ pendingCount }}
+          </el-tag>
+        </section>
 
-      <section class="batch-record-cell-rules-editor__workspace">
+        <section class="batch-record-cell-rules-editor__workspace">
         <div class="batch-record-cell-rules-editor__preview">
           <div class="batch-record-cell-rules-editor__panel-head">
             <div>
@@ -98,7 +96,19 @@
           <el-empty v-else description="暂无可展示的表单布局" />
         </div>
 
-        <aside class="batch-record-cell-rules-editor__side-panel">
+        </section>
+      </main>
+
+      <aside
+        class="batch-record-cell-rules-editor__side-panel"
+        data-fill-config-panel="template-config-sidebar"
+      >
+        <div class="batch-record-cell-rules-editor__side-scroll">
+          <div class="batch-record-cell-rules-editor__side-intro">
+            <strong>填写配置</strong>
+            <p>左侧选单元格，右侧维护字段类型、提示词和辅助行。</p>
+          </div>
+
           <template v-if="selectedCell">
             <div class="batch-record-cell-rules-editor__fillable-toggle">
               <strong>是否可填写</strong>
@@ -396,24 +406,24 @@
           </template>
 
           <el-empty v-else description="请在左侧表单中点击一个单元格" />
-        </aside>
-      </section>
-    </div>
+        </div>
 
-    <template #footer>
-      <el-button @click="dialogVisible = false">关闭</el-button>
-      <el-button :loading="loading" :disabled="loading || saving" @click="reloadTemplateRules">
-        重新读取
-      </el-button>
-      <el-button
-        type="primary"
-        :loading="saving"
-        :disabled="!canConfirmRules"
-        @click="confirmAllRules"
-      >
-        保存填写配置
-      </el-button>
-    </template>
+        <div class="batch-record-cell-rules-editor__side-actions">
+          <el-button @click="dialogVisible = false">关闭</el-button>
+          <el-button :loading="loading" :disabled="loading || saving" @click="reloadTemplateRules">
+            重新读取
+          </el-button>
+          <el-button
+            type="primary"
+            :loading="saving"
+            :disabled="!canConfirmRules"
+            @click="confirmAllRules"
+          >
+            保存填写配置
+          </el-button>
+        </div>
+      </aside>
+    </div>
   </Dialog>
 </template>
 
@@ -1313,7 +1323,16 @@ watch(
 
 <style scoped>
 .batch-record-cell-rules-editor {
+  display: grid;
+  height: clamp(520px, calc(100vh - 96px), 900px);
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 14px;
+}
+
+.batch-record-cell-rules-editor__main-panel {
   display: flex;
+  min-width: 0;
   min-height: 0;
   flex-direction: column;
   gap: 12px;
@@ -1321,6 +1340,7 @@ watch(
 
 .batch-record-cell-rules-editor__summary {
   display: flex;
+  flex: 0 0 auto;
   min-height: 34px;
   align-items: center;
   gap: 8px;
@@ -1336,18 +1356,11 @@ watch(
   white-space: nowrap;
 }
 
-.batch-record-cell-rules-editor__mode {
-  margin-left: auto;
-  color: #5d667a;
-  font-size: 12px;
-}
-
 .batch-record-cell-rules-editor__workspace {
-  display: grid;
-  height: clamp(360px, calc(100vh - 360px), 600px);
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
   min-height: 0;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 14px;
 }
 
 .batch-record-cell-rules-editor__preview,
@@ -1371,9 +1384,47 @@ watch(
   height: 100%;
   min-height: 0;
   flex-direction: column;
-  gap: 12px;
+  overflow: hidden;
+  border-color: #9cc7ff;
+  background: #f7fbff;
+}
+
+.batch-record-cell-rules-editor__side-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
   overflow: auto;
   padding: 12px;
+}
+
+.batch-record-cell-rules-editor__side-intro {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid #b9d7ff;
+  border-radius: 8px;
+  background: #eaf3ff;
+}
+
+.batch-record-cell-rules-editor__side-intro strong {
+  display: block;
+  color: #123b72;
+  font-size: 14px;
+}
+
+.batch-record-cell-rules-editor__side-intro p {
+  margin: 4px 0 0;
+  color: #31547c;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.batch-record-cell-rules-editor__side-actions {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid #cfe1f8;
+  background: #ffffff;
 }
 
 .batch-record-cell-rules-editor__panel-head {
@@ -1633,5 +1684,26 @@ watch(
   display: grid;
   grid-template-columns: 86px minmax(0, 1fr) 112px;
   gap: 8px;
+}
+
+@media (max-width: 1180px) {
+  .batch-record-cell-rules-editor {
+    height: auto;
+    max-height: none;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .batch-record-cell-rules-editor__main-panel {
+    min-height: 520px;
+  }
+
+  .batch-record-cell-rules-editor__workspace {
+    min-height: 420px;
+  }
+
+  .batch-record-cell-rules-editor__side-panel {
+    height: auto;
+    min-height: 420px;
+  }
 }
 </style>
