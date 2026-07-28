@@ -1391,6 +1391,25 @@ async function readBatchRecordReportOptionClickDiagnostics(page) {
   return page.evaluate(() => window.__codexBatchRecordReportOptionClickDiagnostics || [])
 }
 
+async function readBatchRecordReportOptionRuntimeDiagnostics(reportOption) {
+  return reportOption.evaluate((element) => {
+    const component = element.__vueParentComponent
+    return {
+      className: element.className,
+      ariaSelected: element.getAttribute('aria-selected'),
+      optionComponent: component
+        ? {
+            typeName: component.type?.name,
+            value: component.props?.value,
+            label: component.props?.label,
+            disabled: component.props?.disabled,
+            itemSelected: component.proxy?.itemSelected
+          }
+        : null
+    }
+  })
+}
+
 async function waitForRouteProcessAttributeEditorReady(editor) {
   await editor
     .locator('.route-flow-graph-designer__process-detail-loading')
@@ -1461,9 +1480,28 @@ async function configureTargetBatchRecordReportThroughUi(page, auth, copiedRoute
     .first()
   await reportOption.waitFor({ state: 'visible', timeout: 60000 })
   await sleep(500)
-  await captureBatchRecordReportOptionClickDiagnostics(page, reportOption)
-  await reportOption.click()
-  const clickDiagnostics = await readBatchRecordReportOptionClickDiagnostics(page)
+  const beforeClickSelectionDiagnostics = await readBatchRecordReportSelectionDiagnostics(reportSelect)
+  const selectedIdsBeforeClick = Array.isArray(beforeClickSelectionDiagnostics.vueProps?.modelValue)
+    ? beforeClickSelectionDiagnostics.vueProps.modelValue.map((item) => String(item))
+    : []
+  const beforeClickOptionDiagnostics = await readBatchRecordReportOptionRuntimeDiagnostics(reportOption)
+  const isAlreadySelected =
+    selectedIdsBeforeClick.includes(String(report.reportId)) ||
+    beforeClickOptionDiagnostics.optionComponent?.itemSelected === true ||
+    String(beforeClickOptionDiagnostics.ariaSelected) === 'true' ||
+    String(beforeClickOptionDiagnostics.className || '').includes('is-selected')
+  let clickDiagnostics = [
+    {
+      name: 'option_selection_state_before_click',
+      selectionDiagnostics: beforeClickSelectionDiagnostics,
+      optionDiagnostics: beforeClickOptionDiagnostics
+    }
+  ]
+  if (!isAlreadySelected) {
+    await captureBatchRecordReportOptionClickDiagnostics(page, reportOption)
+    await reportOption.click()
+    clickDiagnostics = await readBatchRecordReportOptionClickDiagnostics(page)
+  }
   await page.keyboard.press('Escape')
   await waitForSelectedBatchRecordReport(reportSelect, report, clickDiagnostics)
 
