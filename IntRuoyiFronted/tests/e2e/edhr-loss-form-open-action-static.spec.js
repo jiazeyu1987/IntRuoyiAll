@@ -76,9 +76,10 @@ const previewGuardBlock = extractConstBlock(
 assert.ok(
   previewGuardBlock.includes('!isSpecialNode(task)') &&
     previewGuardBlock.includes('task.batchRecordReportId') &&
-    previewGuardBlock.includes('!task.formTemplateId') &&
-    previewGuardBlock.includes('!task.formCenterInstanceId'),
-  '动态表单/表单中心路线表单不得调用批记录预览接口，否则会把只读查看误报成必填路线表单跳过错误。'
+    previewGuardBlock.includes('isDynamicRouteFormPreviewTask(task)') &&
+    !previewGuardBlock.includes('!task.formTemplateId') &&
+    !previewGuardBlock.includes('!task.formCenterInstanceId'),
+  '动态表单卡片选中态必须加载只读预览；后端预览接口需按 FormCenter 上下文分流，不能再误报成必填路线表单跳过错误。'
 )
 
 const loadPreviewBlock = extractConstBlock(

@@ -19,7 +19,7 @@
 
 ## Current Status
 
-in_progress_runtime_reload
+ready_for_closeout
 
 ## 设计约束检查
 
@@ -35,7 +35,9 @@ in_progress_runtime_reload
 
 ## Runtime Reload
 
-- in_progress: 用户要求重新打包并重启本机 `int_main` 后端 `48081`，加载已验证的 `scopeKey=ALL` 修复。
+- completed: 用户要求重新打包并重启本机 `int_main` 后端 `48081`，已加载已验证的 `scopeKey=ALL` 修复。
+- PASS: `mvn -pl yudao-server -am "-DskipTests" package`
+- PASS: `http://127.0.0.1:48081/actuator/health` 返回 `UP`，新 PID 为 `42800`。
 
 ## 经验门禁
 

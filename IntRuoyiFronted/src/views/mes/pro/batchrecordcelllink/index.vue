@@ -391,14 +391,19 @@ async function loadWorkbenchContext() {
       routeId: parseNumber(route.query.routeId),
       definitionId: parseNumber(route.query.definitionId),
       versionId: parseNumber(route.query.versionId),
-      sourceReportId: String(route.query.sourceReportId || '')
+      sourceReportId: String(route.query.sourceReportId || ''),
+      templateId: parseNumber(route.query.templateId),
+      versionNo: String(route.query.versionNo || '')
     })
     context.value = data
     forms.value = data.forms || []
     productionWorkOrderSourceFields.value = data.sourceFields || []
     rules.value = data.rules || []
-    sourceType.value = SOURCE_TYPE_BATCH_RECORD_CELL
-    sourceReportId.value = data.defaultSourceReportId || forms.value[0]?.reportId || ''
+    const defaultSourceReportId = data.defaultSourceReportId || forms.value[0]?.reportId || ''
+    sourceReportId.value = defaultSourceReportId
+    sourceType.value = defaultSourceReportId === PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID
+      ? SOURCE_TYPE_PRODUCTION_WORK_ORDER
+      : SOURCE_TYPE_BATCH_RECORD_CELL
     sourceFieldCode.value = productionWorkOrderSourceFields.value[0]?.fieldCode || ''
     targetReportId.value = data.defaultTargetReportId || targetForms.value[0]?.reportId || ''
     await Promise.all([loadSourceCells(), loadTargetCells()])
@@ -603,6 +608,13 @@ const persistRules = async (nextRules: BatchRecordCellLinkRuleVO[], successMessa
 }
 
 const goBack = async () => {
+  const returnTo = String(route.query.returnTo || '')
+  const returnLabel = String(route.query.returnLabel || '')
+  void returnLabel
+  if (returnTo) {
+    await router.push(returnTo)
+    return
+  }
   await router.push({ path: '/mes/pro/batch-record-form-list' })
 }
 

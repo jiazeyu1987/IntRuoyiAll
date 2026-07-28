@@ -1,0 +1,112 @@
+{
+  "status": "PASS",
+  "baseUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "tenant": "芋道源码",
+  "username": "wangxin",
+  "command": "node doc/tasks/20260728-switch-filler-wangxin-e2e/e2e-artifacts/switch-filler-wangxin-real.e2e.cjs",
+  "workTaskPageAttempts": [
+    {
+      "pageIndex": 1,
+      "rowCount": 1,
+      "openableFillTaskCount": 1,
+      "candidateTaskIds": [
+        2244
+      ],
+      "rows": [
+        {
+          "id": 2244,
+          "taskCode": "EDHRT-1785208800924",
+          "taskType": "FILL",
+          "status": "TODO",
+          "batchExecutionId": 900000000899,
+          "batchTaskId": 6957,
+          "executionId": 1578,
+          "workOrderCode": "881MO090889",
+          "batchCode": "34126020001",
+          "processName": "粗洗工序",
+          "actionUrlPresent": true,
+          "openableFillTask": true
+        }
+      ]
+    }
+  ],
+  "openedTask": {
+    "task": {
+      "id": 2244,
+      "taskCode": "EDHRT-1785208800924",
+      "taskType": "FILL",
+      "status": "TODO",
+      "batchExecutionId": 900000000899,
+      "batchTaskId": 6957,
+      "executionId": 1578,
+      "workOrderCode": "881MO090889",
+      "batchCode": "34126020001",
+      "processName": "粗洗工序",
+      "actionUrlPresent": true,
+      "openableFillTask": true
+    },
+    "detailSnapshot": {
+      "executionId": 1578,
+      "assistSwitchTaskCount": 3,
+      "currentBatchTaskId": "6957",
+      "currentAssistUserId": null
+    }
+  },
+  "fillerSwitch": {
+    "optionCount": 2,
+    "enabledOtherCount": 1,
+    "options": [
+      {
+        "taskId": "6957",
+        "userId": "810",
+        "displayName": "王歆",
+        "text": "王歆批处理表单 · 粗洗工序生产记录 · 可填写",
+        "disabled": false,
+        "active": true
+      },
+      {
+        "taskId": "6957",
+        "userId": "910181",
+        "displayName": "任丹",
+        "text": "任丹批处理表单 · 粗洗工序生产记录 · 可填写",
+        "disabled": false,
+        "active": false
+      }
+    ],
+    "expectedNameHits": [
+      "王歆",
+      "任丹"
+    ],
+    "selectedOther": {
+      "taskId": "6957",
+      "userId": "910181",
+      "text": "任丹批处理表单 · 粗洗工序生产记录 · 可填写",
+      "openedExecutionId": 1578,
+      "openedWorkTaskId": 2244,
+      "openedAssistUserId": 910181,
+      "assistRowsReturnedByOpenTask": 87,
+      "assistRowCountAfterSwitch": 87,
+      "switchedFillerLabel": "任丹",
+      "assistEmptyText": "",
+      "routeAssistUserId": "910181",
+      "activeAfterSwitch": {
+        "taskId": "6957",
+        "userId": "910181",
+        "text": "任丹批处理表单 · 粗洗工序生产记录 · 可填写"
+      },
+      "selectedDetailAssistSwitchTaskCount": 3
+    },
+    "openRequestPayloads": [
+      {
+        "batchExecutionId": 900000000899,
+        "taskId": 6957,
+        "workTaskId": 2244,
+        "assistUserId": 910181
+      }
+    ],
+    "noFullBatchDetailReload": true
+  },
+  "apiErrorsDuringFillerSwitch": [],
+  "fullBatchDetailReadsDuringFillerSwitch": []
+}

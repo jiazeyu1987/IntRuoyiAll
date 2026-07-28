@@ -124,6 +124,19 @@ export const validateProductCode = (value: string | undefined): UploadSelectionV
   return { valid: true }
 }
 
+export const validateDccProjectProductCode = (
+  productCode: string | undefined,
+  productRequired = false
+): UploadSelectionValidation => {
+  if (productRequired && !trimText(productCode)) {
+    return {
+      valid: false,
+      message: '请选择包含项目代码的 DCC 项目'
+    }
+  }
+  return { valid: true }
+}
+
 export const validateProductMasterSelection = (
   productMasterId: number | null | undefined,
   productCode: string | undefined,

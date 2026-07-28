@@ -50,6 +50,8 @@ includes(templatePage, 'assistRows: parsedTemplateJimuSchema.value?.assistRows',
 includes(templatePage, 'fillAssignments: parsedTemplateJimuSchema.value?.fillAssignments', '模板编辑保存不得覆盖已有辅助行填写人。')
 
 includes(fillConfigDialog, 'title="填写配置"', '模板填写配置弹窗标题必须与批记录填写配置一致。')
+includes(fillConfigDialog, ':fullscreen="true"', '模板填写配置弹窗右上角必须显示最大化/恢复按钮。')
+includes(fillConfigDialog, ':default-fullscreen="true"', '模板填写配置弹窗必须默认最大化打开。')
 includes(fillConfigDialog, 'batch-record-cell-rules-editor', '模板填写配置必须复用批记录式视觉编辑器结构。')
 includes(fillConfigDialog, '辅助行配置', '模板填写配置必须提供辅助行配置。')
 includes(fillConfigDialog, '辅助行填写人', '模板填写配置必须提供辅助行填写人配置。')

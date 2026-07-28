@@ -93,6 +93,23 @@ class CodexTestExecutionServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void startSequentialExecution_allowsFirstNodePrefixWithoutRequiringWholeChain() {
+        Long firstCaseId = codexTestCaseService.createCase(
+                CodexTestCaseServiceImplTest.buildNodeChainCaseReq("批记录前置检查", 1));
+        codexTestCaseService.createCase(
+                CodexTestCaseServiceImplTest.buildNodeChainCaseReq("批记录创建执行", 2));
+        codexTestCaseService.createCase(
+                CodexTestCaseServiceImplTest.buildNodeChainCaseReq("批记录通知核验", 3));
+
+        Long executionId = codexTestExecutionService.startExecution(startReq("SEQUENTIAL", firstCaseId), 99L);
+
+        List<CodexTestExecutionCaseDO> executionCases =
+                codexTestExecutionCaseMapper.selectListByExecutionId(executionId);
+        assertEquals(1, executionCases.size());
+        assertEquals("批记录前置检查", executionCases.get(0).getCaseNameSnapshot());
+    }
+
+    @Test
     void startSequentialExecution_rejectsIncompleteNodeChainSelection() {
         codexTestCaseService.createCase(
                 CodexTestCaseServiceImplTest.buildNodeChainCaseReq("批记录前置检查", 1));

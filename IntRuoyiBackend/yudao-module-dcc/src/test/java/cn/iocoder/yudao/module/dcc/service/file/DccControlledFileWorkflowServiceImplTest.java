@@ -976,17 +976,54 @@ class DccControlledFileWorkflowServiceImplTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void submitControlledFile_dhfCategoryRequiresProductMaster() {
+    void submitControlledFile_dhfCategoryUsesDccProjectCodeAsProductNumber() {
+        DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("V1.0");
+        reqVO.setProductMasterId(null);
+        reqVO.setProductCode(null);
+        mockCommonSubmitDependencies();
+        when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
+                .id(10L).code("DCC_FVM_DHF_005").name("项目策划书").active(Boolean.TRUE).source("LOCAL").build());
+        mockSingleStageRoute();
+        doAnswer(invocation -> {
+            DccControlledFileDO file = invocation.getArgument(0);
+            file.setId(906L);
+            return 1;
+        }).when(controlledFileMapper).insert(any(DccControlledFileDO.class));
+
+        Long fileId = workflowService.submitControlledFile(99L, reqVO);
+
+        assertEquals(906L, fileId);
+        ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).insert(fileCaptor.capture());
+        assertNull(fileCaptor.getValue().getProductMasterId());
+        assertEquals("PRJ-20260719", fileCaptor.getValue().getProductCode());
+        assertEquals("验证项目", fileCaptor.getValue().getProductName());
+        verify(productApi, never()).getEnabledDccProduct(any());
+    }
+
+    @Test
+    void submitControlledFile_dhfCategoryRequiresProjectCodeProductNumber() {
         DccControlledFileSubmitReqVO reqVO = buildSubmitReqVO("V1.0");
         reqVO.setProductMasterId(null);
         reqVO.setProductCode(null);
         when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
                 .id(10L).code("DCC_FVM_DHF_005").name("项目策划书").active(Boolean.TRUE).source("LOCAL").build());
+        when(projectCodeMapper.selectById(3000L)).thenReturn(DccProjectCodeDO.builder()
+                .id(3000L)
+                .projectName("验证项目")
+                .projectCode("")
+                .status(DccProjectCodeStatusConstants.ENABLE)
+                .build());
+        when(fileTypeTaxonomyAdminService.resolveActivePath(8803L)).thenReturn(defaultTaxonomyPath());
+        when(fileTypeTaxonomyAdminService.listActiveDescendantIds(8803L)).thenReturn(List.of(8803L));
+        when(fileTypeTaxonomyAdminService.listActiveDescendantPaths(8803L)).thenReturn(List.of(defaultTaxonomyPath()));
+        when(permissionSupport.hasCategoryPermission(10L, 99L, DccFileCategoryPermissionActionEnum.UPLOAD)).thenReturn(true);
 
         assertServiceException(() -> workflowService.submitControlledFile(99L, reqVO),
-                CONTROLLED_FILE_PRODUCT_MASTER_INVALID);
+                CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
 
         verify(controlledFileMapper, never()).insert(any(DccControlledFileDO.class));
+        verify(productApi, never()).getEnabledDccProduct(any());
     }
 
     @Test

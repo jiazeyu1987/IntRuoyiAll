@@ -22,7 +22,35 @@
 
 ## Current Status
 
-in_progress
+completed
+
+## Completed Work
+
+- 前端表单中心模板预览工具栏新增“链接”按钮，跳转批记录单元格链接工作台并携带 `templateId + versionNo`。
+- 链接工作台 API 参数支持 `templateId`、`versionNo`、`returnTo`、`returnLabel`。
+- 后端新增 `FORM_TEMPLATE_VERSION` 作用域，使用 `FORMTPL:<templateVersionId>` 作为模板虚拟目标表单。
+- 模板单元格从 `bpm_form_template_version.jimuSchemaJson` 的 `sheetLayoutJson` / `cellRules` / `signatureCellMarkers` 解析，签名单元格不可作为链接目标。
+- MES 动态表单实例创建时调用单元格链接服务，把生产工单字段规则合并进 `FormInstanceCreateReqVO.formData`。
+- 补齐现有表单中心 `policy` 路由，使表单中心静态合同在当前仓库结构下通过。
+
+## Verification Evidence
+
+- PASS: `node tests/e2e/form-center-static.spec.js`
+- PASS: `node tests/e2e/form-template-button-interaction-parity-static.spec.js`
+- PASS: `node tests/e2e/form-template-independent-button-actions-static.spec.js`
+- PASS: `node tests/e2e/mes/batch-record-cell-link-static.spec.js`
+- PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordCellLinkServiceImplTest,MesProBatchRecordCellLinkControllerTest,MesProEdhrBatchExecutionServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+
+## Remaining Closeout
+
+- 已完成本任务实现提交：`40894b29`。
+- 已完成经验沉淀、cleanup preview/apply、实现提交。
+- 当前工作区仍存在其他并行任务脏改动，未纳入本任务提交。
+
+## Cleanup Keep
+
+- doc/tasks/20260728-form-template-work-order-cell-link/backend-api-evidence.md
+- doc/tasks/20260728-form-template-work-order-cell-link/frontend-feature-evidence.md
 
 ## 设计约束检查
 

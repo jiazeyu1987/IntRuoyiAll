@@ -3369,11 +3369,17 @@ const clearTaskPreview = () => {
   taskPreviewLoading.value = false
 }
 
+const isDynamicRouteFormPreviewTask = (task: EdhrBatchExecutionTaskRespVO) =>
+  !isSpecialNode(task) &&
+  !task.batchRecordReportId &&
+  Boolean(task.formBindingKey) &&
+  Boolean(task.formTemplateId) &&
+  Boolean(task.formTemplateVersionId) &&
+  Boolean(task.formCenterInstanceId)
+
 const shouldLoadTaskPreview = (task: EdhrBatchExecutionTaskRespVO) =>
   !isSpecialNode(task) &&
-  Boolean(task.batchRecordReportId) &&
-  !task.formTemplateId &&
-  !task.formCenterInstanceId
+  (Boolean(task.batchRecordReportId) || isDynamicRouteFormPreviewTask(task))
 
 const loadTaskPreview = async (task: EdhrBatchExecutionTaskRespVO) => {
   clearTaskPreview()
@@ -3387,7 +3393,7 @@ const loadTaskPreview = async (task: EdhrBatchExecutionTaskRespVO) => {
     }
   } catch (error) {
     if (requestSerial === taskPreviewRequestSerial && selectedTaskId.value === String(task.id)) {
-      taskPreviewError.value = resolveErrorMessage(error, '批记录表单只读预览加载失败。')
+      taskPreviewError.value = resolveErrorMessage(error, '表单只读预览加载失败。')
     }
   } finally {
     if (requestSerial === taskPreviewRequestSerial) {
@@ -5030,7 +5036,7 @@ watch(
 
 .edhr-batch-detail__rail-process-form-item.is-active {
   border-color: #1677ff;
-  background: #eef5ff;
+  background: #fff8e6;
   box-shadow: inset 3px 0 0 #1677ff;
 }
 

@@ -8,9 +8,9 @@
 
 - [x] 启动门禁：读取前端、E2E、任务收尾、PowerShell/Git、编码和前端功能交付规则。
 - [x] 脏工作区隔离：将任务开始前既有脏改动独立提交为基线提交 `7ee56ab4`。
-- [ ] RED：新增表单中心填写配置静态合同，先证明当前缺少入口和模板自身保存契约。
-- [ ] GREEN：实现表单中心“填写配置”入口、模板自身弹窗和 `jimuSchemaJson` 合并保存。
-- [ ] REGRESSION：运行新增静态合同、相邻表单中心合同、批记录填写配置合同和 `pnpm ts:check`。
+- [x] RED：新增表单中心填写配置静态合同，先证明当前缺少入口和模板自身保存契约。
+- [x] GREEN：实现表单中心“填写配置”入口、模板自身弹窗和 `jimuSchemaJson` 合并保存。
+- [ ] REGRESSION：新增静态合同、三按钮静态合同、独立按钮静态合同、批记录填写配置合同和 `pnpm ts:check` 已通过；`form-center-static` 存在相邻路由 `activeMenu` 既有 blocker。
 - [ ] CLOSEOUT：更新证据、执行经验沉淀、cleanup preview/apply、提交并推送。
 
 ## Expected Verification
@@ -33,9 +33,13 @@
 ## Design Constraint Check
 
 - `是否引入 fallback/降级/吞异常`：否。
-- `是否从根因和长期维护角度解决`：是，抽出复用交互核心并保留表单中心自身数据归属。
+- `是否从根因和长期维护角度解决`：是，新增表单中心专用填写配置弹窗，复用批记录式配置交互和共享规则工具，并保留表单中心自身数据归属。
 - `是否存在临时补丁或绕过`：否。
 
 ## Current Status
 
 in_progress
+
+Implementation complete. Verification has two blockers: `form-center-static` fails on existing policy route `activeMenu` expectation, and real E2E is blocked because local backend `127.0.0.1:48081` is not listening.
+
+2026-07-28 lint overlay repair: fixed `vue/no-dupe-keys` for `FormTemplateFillConfigDialog.vue` by renaming only the internal editable `assistRows` state to `editableAssistRows`. Targeted ESLint, static contract, and `pnpm ts:check` pass; broader task status remains `in_progress` because the pre-existing blockers above are still outside this lint repair.

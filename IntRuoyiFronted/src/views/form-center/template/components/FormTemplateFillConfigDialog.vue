@@ -1,5 +1,11 @@
 <template>
-  <Dialog v-model="dialogVisible" title="填写配置" width="calc(100vw - 32px)" :fullscreen="false">
+  <Dialog
+    v-model="dialogVisible"
+    title="填写配置"
+    width="calc(100vw - 32px)"
+    :fullscreen="true"
+    :default-fullscreen="true"
+  >
     <div v-loading="loading" class="batch-record-cell-rules-editor">
       <el-alert
         v-if="readonlyMode"
@@ -283,13 +289,13 @@
               />
 
               <el-empty
-                v-if="assistRows.length === 0"
+                v-if="editableAssistRows.length === 0"
                 description="暂无辅助行，请选择单元格后新增"
               />
 
               <div v-else class="batch-record-cell-rules-editor__assist-list">
                 <article
-                  v-for="(assistRow, assistRowIndex) in assistRows"
+                  v-for="(assistRow, assistRowIndex) in editableAssistRows"
                   :key="assistRow.rowKey"
                   class="batch-record-cell-rules-editor__assist-row"
                   :class="{ 'is-selected': assistRow.rowKey === selectedAssistRowKey }"
@@ -368,7 +374,7 @@
                       </el-button>
                       <el-button
                         size="small"
-                        :disabled="readonlyMode || assistRowIndex === assistRows.length - 1"
+                        :disabled="readonlyMode || assistRowIndex === editableAssistRows.length - 1"
                         @click="moveAssistRow(assistRow.rowKey, 1)"
                       >
                         下移
@@ -518,7 +524,7 @@ const sheetLayoutError = ref('')
 const selectedRuleKey = ref('')
 const selectedAssistRowKey = ref('')
 const ruleRows = ref<BatchRecordReportCellRuleVO[]>([])
-const assistRows = ref<BatchRecordReportAssistRowVO[]>([])
+const editableAssistRows = ref<BatchRecordReportAssistRowVO[]>([])
 const assistAssignments = reactive<Record<string, AssistAssignmentDraft>>({})
 const simpleUserOptions = ref<UserVO[]>([])
 const simpleRoleOptions = ref<RoleVO[]>([])
@@ -814,7 +820,7 @@ const ensureAssistAssignment = (rowKey: string) => {
   return assistAssignments[rowKey]
 }
 
-const syncAssistAssignmentsWithRows = (rows = assistRows.value) => {
+const syncAssistAssignmentsWithRows = (rows = editableAssistRows.value) => {
   const rowKeys = new Set(rows.map((row) => row.rowKey))
   Object.keys(assistAssignments).forEach((rowKey) => {
     if (!rowKeys.has(rowKey)) {
@@ -854,7 +860,7 @@ const selectedCellAssistRow = computed(() => {
   const cell = selectedCell.value
   if (!cell) return null
   return (
-    assistRows.value.find((row) =>
+    editableAssistRows.value.find((row) =>
       row.fields.some(
         (field) => field.rowIndex === cell.rowIndex && field.columnIndex === cell.columnIndex
       )
@@ -863,7 +869,7 @@ const selectedCellAssistRow = computed(() => {
 })
 
 const selectedAssistRow = computed(() =>
-  assistRows.value.find((row) => row.rowKey === selectedAssistRowKey.value)
+  editableAssistRows.value.find((row) => row.rowKey === selectedAssistRowKey.value)
 )
 
 const ensureSelectedRuleStillExists = () => {
@@ -873,7 +879,7 @@ const ensureSelectedRuleStillExists = () => {
 
 const ensureSelectedAssistRowStillExists = () => {
   if (selectedAssistRowKey.value && selectedAssistRow.value) return
-  selectedAssistRowKey.value = assistRows.value[0]?.rowKey || ''
+  selectedAssistRowKey.value = editableAssistRows.value[0]?.rowKey || ''
 }
 
 const applyTemplateRules = () => {
@@ -883,7 +889,7 @@ const applyTemplateRules = () => {
     .sort((left, right) => left.rowIndex - right.rowIndex || left.columnIndex - right.columnIndex)
     .forEach((rule) => nextRules.set(ruleIdentity(rule), rule))
   ruleRows.value = Array.from(nextRules.values())
-  assistRows.value = normalizeAssistRows(props.assistRows || [])
+  editableAssistRows.value = normalizeAssistRows(props.assistRows || [])
   Object.keys(assistAssignments).forEach((rowKey) => delete assistAssignments[rowKey])
   syncAssistAssignmentsWithRows()
   applyAssistAssignments(props.fillAssignments || [])
@@ -928,7 +934,7 @@ const disableSelectedCellRule = () => {
   const key = selectedRuleKey.value
   if (readonlyMode.value || !key || !ruleMap.value.has(key)) return
   ruleRows.value = ruleRows.value.filter((rule) => ruleIdentity(rule) !== key)
-  assistRows.value = assistRows.value.map((row) => ({
+  editableAssistRows.value = editableAssistRows.value.map((row) => ({
     ...row,
     fields: row.fields.filter((field) => cellIdentity(field.rowIndex, field.columnIndex) !== key)
   }))
@@ -939,7 +945,7 @@ const removeSelectedCellFromAssistRows = () => {
   const cell = selectedCell.value
   if (!cell) return
   const key = cellIdentity(cell.rowIndex, cell.columnIndex)
-  assistRows.value = assistRows.value.map((row) => ({
+  editableAssistRows.value = editableAssistRows.value.map((row) => ({
     ...row,
     fields: row.fields.filter((field) => cellIdentity(field.rowIndex, field.columnIndex) !== key)
   }))
@@ -966,12 +972,12 @@ const addAssistRowFromSelectedCell = () => {
   }
   const rowKey = `${ASSIST_ROW_KEY_PREFIX}_${Date.now()}_${cell.rowIndex}_${cell.columnIndex}`
   removeSelectedCellFromAssistRows()
-  assistRows.value = [
-    ...assistRows.value,
+  editableAssistRows.value = [
+    ...editableAssistRows.value,
     {
       rowKey,
       description: buildAssistRowDescriptionFromSelectedCell(),
-      sort: assistRows.value.length + 1,
+      sort: editableAssistRows.value.length + 1,
       fields: [{ rowIndex: cell.rowIndex, columnIndex: cell.columnIndex }]
     }
   ]
@@ -982,7 +988,7 @@ const addAssistRowFromSelectedCell = () => {
 const assignSelectedCellToAssistRow = (rowKey = selectedAssistRowKey.value) => {
   if (readonlyMode.value) return
   const cell = selectedCell.value
-  const targetRow = assistRows.value.find((row) => row.rowKey === rowKey)
+  const targetRow = editableAssistRows.value.find((row) => row.rowKey === rowKey)
   if (!cell || !targetRow) {
     throw new Error('请先选择单元格和辅助行，再分配归属。')
   }
@@ -990,7 +996,7 @@ const assignSelectedCellToAssistRow = (rowKey = selectedAssistRowKey.value) => {
     enableSelectedCellRule()
   }
   const key = cellIdentity(cell.rowIndex, cell.columnIndex)
-  assistRows.value = assistRows.value.map((row) => {
+  editableAssistRows.value = editableAssistRows.value.map((row) => {
     const fieldsWithoutSelectedCell = row.fields.filter(
       (field) => cellIdentity(field.rowIndex, field.columnIndex) !== key
     )
@@ -1010,20 +1016,20 @@ const assignSelectedCellToAssistRow = (rowKey = selectedAssistRowKey.value) => {
 
 const moveAssistRow = (rowKey: string, direction: -1 | 1) => {
   if (readonlyMode.value) return
-  const currentIndex = assistRows.value.findIndex((row) => row.rowKey === rowKey)
+  const currentIndex = editableAssistRows.value.findIndex((row) => row.rowKey === rowKey)
   const nextIndex = currentIndex + direction
-  if (currentIndex < 0 || nextIndex < 0 || nextIndex >= assistRows.value.length) return
-  const nextRows = [...assistRows.value]
+  if (currentIndex < 0 || nextIndex < 0 || nextIndex >= editableAssistRows.value.length) return
+  const nextRows = [...editableAssistRows.value]
   const currentRow = nextRows[currentIndex]
   nextRows[currentIndex] = nextRows[nextIndex]
   nextRows[nextIndex] = currentRow
-  assistRows.value = nextRows.map((row, index) => ({ ...row, sort: index + 1 }))
+  editableAssistRows.value = nextRows.map((row, index) => ({ ...row, sort: index + 1 }))
   selectedAssistRowKey.value = rowKey
 }
 
 const removeAssistRow = (rowKey: string) => {
   if (readonlyMode.value) return
-  assistRows.value = assistRows.value
+  editableAssistRows.value = editableAssistRows.value
     .filter((row) => row.rowKey !== rowKey)
     .map((row, index) => ({ ...row, sort: index + 1 }))
   syncAssistAssignmentsWithRows()
@@ -1152,7 +1158,7 @@ const removeSelectedStringOption = (optionIndex: number) => {
 }
 
 const normalizedAssistRowsForSave = () => {
-  const rows = normalizeAssistRows(assistRows.value)
+  const rows = normalizeAssistRows(editableAssistRows.value)
   if (ruleRows.value.length > 0 && rows.length === 0) {
     throw new Error('At least one assist row is required for fillable cells.')
   }

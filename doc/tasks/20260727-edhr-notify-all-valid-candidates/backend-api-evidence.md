@@ -62,4 +62,6 @@ Final command: `mvn -pl yudao-module-mes test`
 
 Final result at 2026-07-28 08:53:25 +08:00: PASS, 2530 tests, 0 failures, 0 errors, 18 skipped, `BUILD SUCCESS`.
 
+Latest recheck: `mvn -pl yudao-module-mes test` at 2026-07-28 12:41:40 +08:00 -> PASS, 2537 tests, 0 failures, 0 errors, 18 skipped, `BUILD SUCCESS`. The interim 12:19 failure was fixed by keeping eDHR batch task identity out of `MesProBatchRecordExecutionOpenOrCreateByContextReqVO.taskId` / `mes_pro_batch_record_execution.task_id`; eDHR task-to-execution linkage remains owned by `mes_pro_edhr_batch_execution_task.execution_id`.
+
 Closeout cleanup, final commit, and push are complete; `HEAD` and `origin/int_main` are aligned.

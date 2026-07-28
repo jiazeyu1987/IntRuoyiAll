@@ -181,6 +181,14 @@
               填写配置
             </el-button>
             <el-button
+              v-if="canUseTemplateInteractiveAction(selectedTemplate)"
+              link
+              type="primary"
+              @click="openSelectedTemplateCellLinks"
+            >
+              链接
+            </el-button>
+            <el-button
               v-hasPermi="['form:template-source:download']"
               link
               type="primary"
@@ -1061,6 +1069,20 @@ const openSelectedTemplateFill = async () => {
   })
 }
 
+const openSelectedTemplateCellLinks = async () => {
+  if (!selectedTemplate.value) return
+  const row = selectedTemplate.value
+  await router.push({
+    path: '/mes/pro/batch-record-cell-link',
+    query: {
+      templateId: row.templateId,
+      versionNo: row.versionNo,
+      returnTo: route.fullPath,
+      returnLabel: '返回表单模板'
+    }
+  })
+}
+
 const openSelectedTemplateFillConfig = () => {
   if (!selectedTemplate.value) return
   fillConfigDialogVisible.value = true
@@ -1282,6 +1304,49 @@ const saveEditableTemplateRules = async () => {
     await getList()
   } finally {
     rulesSaving.value = false
+  }
+}
+
+const saveSelectedTemplateFillConfig = async (data: FormTemplateFillConfigSavePayload) => {
+  if (!selectedTemplate.value) return
+  if (selectedTemplate.value.status !== 'DRAFT') {
+    message.warning('只有草稿版本可以保存填写配置。')
+    return
+  }
+  const rules = sortCellRules(data.cellRules.map(normalizeCellRule))
+  const markers = data.signatureCellMarkers || buildSignatureMarkersFromRules(rules)
+  const formViewModel = buildTemplateVisualPreviewModel(
+    selectedTemplate.value,
+    rules,
+    markers,
+    data.sheetLayoutJson
+  )
+  if (!formViewModel) {
+    message.error('当前模板缺少可保存的规则布局。')
+    return
+  }
+  const payload = buildTemplateJimuSchemaPayload({
+    sheetLayoutJson: formViewModel.sheetLayoutJson,
+    cellRules: rules,
+    signatureCellMarkers: markers,
+    assistRows: data.assistRows,
+    fillAssignments: data.fillAssignments
+  })
+  fillConfigSaving.value = true
+  try {
+    await TemplateApi.saveTemplateJimuSchema(
+      selectedTemplate.value.templateId,
+      selectedTemplate.value.versionNo,
+      payload
+    )
+    selectedTemplate.value.jimuSchemaJson = payload
+    fillConfigDialogVisible.value = false
+    message.success('填写配置已保存')
+    await getList()
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '填写配置保存失败，请联系管理员。'))
+  } finally {
+    fillConfigSaving.value = false
   }
 }
 

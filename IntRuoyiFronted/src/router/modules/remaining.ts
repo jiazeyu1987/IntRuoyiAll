@@ -375,6 +375,18 @@ const remainingRouter: AppRouteRecordRaw[] = [
                 }
               },
               {
+                path: 'policy',
+                component: () => import('@/views/form-center/policy/index.vue'),
+                name: 'ApprovalCenterFormCenterPolicy',
+                meta: {
+                  noCache: true,
+                  canTo: true,
+                  title: '表单策略',
+                  activeMenu: '/mdm/form-center/policy',
+                  permission: ['form:policy:query']
+                }
+              },
+              {
                 path: 'effect',
                 component: () => import('@/views/form-center/effect/index.vue'),
                 name: 'ApprovalCenterFormCenterEffect',

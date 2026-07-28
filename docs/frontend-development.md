@@ -58,6 +58,15 @@
 - Forbidden action: 禁止吞掉辅助接口错误、把真实失败改成空配置/未配置、关闭 axios 错误、或只隐藏全局 alert 而不展示错误归属。
 - Evidence: 任务 `doc/tasks/20260727-edhr-batch-record-list-system-exception/`，批记录表单列表中填写人规则延迟加载失败曾在列表已成功渲染后污染全局 `listErrorMessage`。
 
+## DCC 上传类别权限投影门禁
+
+- Trigger: DCC 受控文件上传页、外来文件评审页、文件类别下拉、`upload-preview`、`Current user cannot access this controlled file`、类别级 `UPLOAD` 权限。
+- Preflight check: 先确认类别列表接口返回当前用户类别级 `canUpload` 投影；上传页和外来评审页必须过滤 `canUpload=false` 且表单校验能拦截旧选择，同时后端 `upload-preview` / submit 继续用 `DccControlledFileCategoryPermissionSupport` fail-fast。
+- Blocker: 类别列表缺少 `canUpload`、前端只按 `active/directoryId` 展示类别、上传接口为了消除提示放宽 `UPLOAD` 校验、或静态合同不能证明无权限类别不会进入上传。
+- Verification: 运行 `node tests/e2e/dcc-upload-category-permission-static.spec.js`，并运行 `mvn -pl yudao-module-dcc "-Dtest=DccControlledFileUploadApiTest#uploadPreviewFile_withoutCategoryUploadPermission_deniesBeforePolicyOrStorage,DccFileCategoryControllerConfigPackageContractTest#getCategoryList_projectsCurrentUserUploadPermission,DccFileCategoryControllerConfigPackageContractTest#getCategoryList_withoutLoginUserDoesNotGrantUploadProjection" "-Dsurefire.failIfNoSpecifiedTests=false" test`。
+- Forbidden action: 禁止把菜单权限当类别上传权限、禁止前端展示无权限类别再依赖上传失败、禁止 catch/默认成功/默认授权掩盖 `CONTROLLED_FILE_ACCESS_DENIED`。
+- Evidence: 任务 `doc/tasks/20260728-dcc-upload-controlled-file-access/`。
+
 ## 前端草稿保存与提交发布解耦门禁
 
 - Trigger: 受控版本、候选版本、草稿页、审批流对象或发布对象存在“保存草稿”和“提交发布/提交审批”两个动作。
@@ -77,6 +86,15 @@
 - Forbidden action: 禁止把 UI/交互相似解释为共享 `reportId`；禁止用三个弹窗冒充批记录式页面流转；禁止伪造绑定、名称匹配、条件 fallback、跨域路由或只隐藏错误提示而保留错误数据契约。
 - Evidence: 任务 `doc/tasks/20260727-form-template-button-alignment-design/`、`doc/tasks/20260727-form-template-button-interaction-parity/`；用户在 2026-07-27 明确澄清实际表单与批记录表单没有直接关系，并继续确认三个按钮的页面行为必须与批记录管理对齐。
 
+## 前端静态合同仓库路径门禁
+
+- Trigger: 前端静态合同读取后端 SQL、发布迁移、任务文档或跨端源码路径，尤其出现 `../ruoyi-vue-pro/sql/mysql`、`ENOENT`、`form-center-static.spec.js` 或旧双仓路径。
+- Preflight check: 先用 `rg --files` 在当前 `E:\IntRuoyi` 工作区定位正式源文件；当前仓库后端 SQL 正式路径为 `../IntRuoyiBackend/sql/mysql`（相对 `IntRuoyiFronted`），不得沿用历史 `../ruoyi-vue-pro/sql/mysql`。
+- Blocker: 静态合同仍引用旧仓目录、为了通过测试复制 SQL 到旧目录、或创建兼容目录/软链接伪装旧仓存在时必须停止。
+- Verification: 运行对应静态合同；若路径修正涉及表单中心，至少运行 `node tests/e2e/form-center-static.spec.js`。
+- Forbidden action: 禁止通过新增旧路径副本、吞掉 `ENOENT`、跳过 SQL 断言或改成可选读取来掩盖仓库结构漂移。
+- Evidence: 任务 `doc/tasks/20260728-form-template-work-order-cell-link/`，`form-center-static` 曾因读取 `E:\IntRuoyi\ruoyi-vue-pro\sql\mysql\20260717_bpm_form_center.sql` 失败，修正为当前正式路径后通过。
+
 ## 前端聚合新增默认分类门禁
 
 - Trigger: 聚合字段编辑器新增子项，且页面摘要、徽标、保存 payload 或状态边框会按子项类型过滤，例如工艺路线表单槽位排除 `MAIN` 批记录槽位。
@@ -94,6 +112,15 @@
 - Verification: 聚焦静态合同同时锁定 `noTagsView + activeMenu`、页签目标替换、query 更新和列表快照恢复；真实 Playwright 从隐藏详情/编辑页切到其他应用内页面，再点击原菜单顶部页签返回，断言 URL、对象上下文和目标视图保持。
 - Forbidden action: 禁止通过取消隐藏路由、创建重复页签、localStorage 兜底、强制刷新、默认跳列表或吞掉路由错误掩盖状态丢失。
 - Evidence: 任务 `doc/tasks/20260727-route-flow-tab-return-state/`，路线流转关系图从顶部页签切走再返回时曾因“工艺流程”页签仍保存 `/mes/pro/route` 而回到路线列表。
+
+## 前端 Route Query ID 比较门禁
+
+- Trigger: 前端用 `route.query` 中的 `id`、`userId`、`assistUserId`、`workTaskId`、`batchTaskId` 等标识判断当前项、高亮项、上下文 key、可编辑态或请求 payload，尤其字段来自 Element/Vue Router query 字符串但业务对象字段是 number。
+- Preflight check: 先确认 query 解析函数返回类型；若 query ID 会参与对象 ID 比较，必须使用 `sameRouteQueryId(...)`、统一字符串化，或显式转成同一数值类型，不得直接用 `===` 比较 query 字符串和 number。
+- Blocker: 切换对象后 URL query 已变化但页面 active 高亮、表单上下文、缓存 key 或可点击态仍停留在当前登录人/旧对象，或静态合同无法证明字符串/数字 ID 比较一致时必须停止。
+- Verification: 聚焦静态合同必须覆盖“请求带所选 ID”“路由保存后端确认 ID”“active/highlight 用 route-id 语义比较”；真实 E2E 需在切换后重开弹窗或返回页面，断言高亮/上下文跟随所选 query ID。
+- Forbidden action: 禁止用当前登录人、旧缓存 key、宽松 fallback、刷新页面或隐藏高亮状态掩盖 route query ID 类型不一致。
+- Evidence: 任务 `doc/tasks/20260728-switch-filler-wangxin-e2e/`，`assistUserId` 从 route query 读取为字符串，旧 active 判断与数字 `item.userId` 严格等于，导致切换到任丹后重开弹窗不高亮。
 
 ## 验证方式
 

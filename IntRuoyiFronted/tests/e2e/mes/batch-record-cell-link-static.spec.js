@@ -112,9 +112,20 @@ for (const token of [
   '/mes/pro/batch-record-cell-link/workbench-context',
   '/mes/pro/batch-record-cell-link/form-cells',
   '/mes/pro/batch-record-cell-link/rules/save',
-  '/mes/pro/batch-record-cell-link/prefill'
+  '/mes/pro/batch-record-cell-link/prefill',
+  'templateId?: number',
+  'versionNo?: string'
 ]) {
   assert.ok(api.includes(token), `api misses ${token}`)
+}
+
+for (const token of [
+  'templateId: parseNumber(route.query.templateId)',
+  "versionNo: String(route.query.versionNo || '')",
+  'route.query.returnTo',
+  'route.query.returnLabel'
+]) {
+  assert.ok(page.includes(token), `cell link page misses form template route support: ${token}`)
 }
 
 assert.ok(route.includes('MesProBatchRecordCellLink'), 'route misses MesProBatchRecordCellLink')
@@ -133,7 +144,12 @@ for (const token of [
   '生产工单字段',
   '跨表单带入'
 ]) {
-  assert.ok(executionPage.includes(token), `execution page misses ${token}`)
+  assert.ok(!executionPage.includes(token), `execution page must not keep draft prefill token ${token}`)
 }
+
+assert.ok(
+  executionPage.includes('hydrateDraftState(detail)'),
+  'execution page must hydrate from persisted detail values only'
+)
 
 console.log('batch-record-cell-link static contract passed')

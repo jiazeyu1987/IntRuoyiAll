@@ -7,10 +7,10 @@
 ## Milestones
 
 - [x] 复现主端口静态合同失败和真实 E2E 夹具阻塞。
-- [ ] 移除执行页 `/batch-record-cell-link/prefill` 草稿注入路径。
-- [ ] 运行聚焦静态合同和脚本语法检查。
-- [ ] 继续处理真实 Playwright E2E 夹具前置并复验。
-- [ ] 记录验证证据和剩余 blocker。
+- [x] 移除执行页 `/batch-record-cell-link/prefill` 草稿注入路径。
+- [x] 运行聚焦静态合同、相邻静态合同和前端类型检查。
+- [x] 继续处理真实 Playwright E2E 夹具前置并复验。
+- [x] 记录验证证据和剩余 blocker。
 
 ## Expected Verification
 
@@ -20,9 +20,11 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-已确认主端口前端静态合同失败，真实 E2E 因缺少本地数据库可打开批次任务夹具而阻塞。当前先修复前端合同回归，再继续处理真实 E2E 前置。
+前端静态合同已恢复：执行页当前只调用 `hydrateDraftState(detail)`，不再调用 `BatchRecordCellLinkApi.getPrefill` 或保留 `normalizeCellLinkPrefillDraftValue`。聚焦静态合同、相邻静态合同和 `pnpm ts:check` 均通过。
+
+真实 Playwright E2E 已在 `测试租户/codexedhrcell01` 下通过。排查并修复任务自有夹具问题：批次任务 `6955` 的 `form_slot_type` 从 `MAIN` 修正为正式报表槽位 `LOSS_REPORT`，并补入按当前任务字段计算的 `slot_config_snapshot_hash=0f84775df0c4a14feeedc6f606d4efc17434e2ce387ce93fb666ae91f26f8d52`。最终 E2E 通过真实批次详情点击“打开填写”，`task/open` 返回 `cellLinkAutoPersist`，执行详情 `cell_values_json` 和原表模式页面输入控件均显示 `EDHR-CELL-20260728-104808`。
 
 ## 设计约束检查
 
@@ -35,4 +37,5 @@ in_progress
 - `docs/backend-development.md#批记录单元格链接预填落库边界`：来源值存在且规则启用时，正式结果必须落库到 `cell_values_json` 并保留字段审计；禁止把 `/prefill` 或前端 hydrate 当作保存结果。
 - `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁`：静态合同和真实 E2E 必须同步，合同失败不得宣称融合通过。
 - `docs/e2e-rules.md#edhr-批次执行数据库夹具与证据文件门禁`：真实 E2E 必须使用本地数据库真实可打开夹具；缺少 `LOCAL_DATABASE_FIXTURE` 时阻塞，不用 mock、API-only 或直接 SQL 造数替代。
+- `docs/e2e-rules.md#edhr-批次执行数据库夹具与证据文件门禁`：既有批次任务还必须核对 `form_slot_type` 与目标报表槽位一致、`slot_config_snapshot_hash` 非空；执行页单元格值断言需切到“原表模式”。
 - `docs/frontend-development.md#前端静态契约隔离门禁`：聚焦静态合同可作为当前回归的 RED/GREEN 门禁。

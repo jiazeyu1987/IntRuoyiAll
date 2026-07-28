@@ -4,7 +4,7 @@
 
 Status: completed.
 
-The requested business behavior is implemented and both direct and standard targeted Maven tests pass. T4/T5/T6 regression clusters have been repaired and verified. The former Sheet1 authoritative Excel fixture blocker was resolved by the user-approved scope change that real Sheet1 Excel sample coverage is not required. The final complete MES module run passed with 2530 tests, 0 failures, 0 errors, and 18 skipped.
+The requested business behavior is implemented and both direct and standard targeted Maven tests pass. T4/T5/T6 regression clusters have been repaired and verified. The former Sheet1 authoritative Excel fixture blocker was resolved by the user-approved scope change that real Sheet1 Excel sample coverage is not required. The final complete MES module run passed at 08:53 with 2530 tests, 0 failures, 0 errors, and 18 skipped; a later concurrent-regression recheck passed at 12:41 with 2537 tests, 0 failures, 0 errors, and 18 skipped.
 
 ## Verified Behavior
 
@@ -99,6 +99,24 @@ Complete MES regression:
 `mvn -pl yudao-module-mes test`
 
 Result at 2026-07-28 08:53:25 +08:00: PASS. 2530 tests run, 0 failures, 0 errors, 18 skipped, `BUILD SUCCESS`.
+
+Concurrent-regression targeted recheck:
+
+`mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordExecutionServiceImplTest,MesProEdhrBatchExecutionServiceTest" test`
+
+Result at 2026-07-28 12:36:59 +08:00: PASS. 246 tests run, 0 failures, 0 errors, 0 skipped, `BUILD SUCCESS`.
+
+Notification and adjacent contract recheck:
+
+`mvn -pl yudao-module-mes "-Dtest=MesProEdhrWorkTaskServiceImplTest,Sheet1RouteExcelParserTest,MesProBatchRecordCellLinkControllerTest,MesProBatchRecordCellLinkServiceImplTest" test`
+
+Result at 2026-07-28 12:37:35 +08:00: PASS. 81 tests run, 0 failures, 0 errors, 0 skipped, `BUILD SUCCESS`.
+
+Latest complete MES regression:
+
+`mvn -pl yudao-module-mes test`
+
+Result at 2026-07-28 12:41:40 +08:00: PASS. 2537 tests run, 0 failures, 0 errors, 18 skipped, `BUILD SUCCESS`.
 
 ## Completion Gate
 

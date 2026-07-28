@@ -17,6 +17,8 @@ public class EdhrBatchExecutionTaskOpenRespVO {
 
     private Long workTaskId;
 
+    private Long assistUserId;
+
     private Long routeProcessId;
 
     private String batchRecordReportId;

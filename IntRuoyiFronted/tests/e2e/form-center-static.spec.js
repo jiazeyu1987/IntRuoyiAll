@@ -122,6 +122,11 @@ assertIncludes(templatePage, 'form-template-signature-dialog')
 assertIncludes(templatePage, 'openSelectedTemplateAction')
 assertIncludes(templatePage, 'openTemplateActionDialog')
 assertIncludes(templatePage, 'openSelectedTemplateWorkspace')
+assertIncludes(templatePage, 'openSelectedTemplateCellLinks')
+assertIncludes(templatePage, "path: '/mes/pro/batch-record-cell-link'")
+assertIncludes(templatePage, 'templateId: row.templateId')
+assertIncludes(templatePage, 'versionNo: row.versionNo')
+assertIncludes(templatePage, "returnLabel: '返回表单模板'")
 if (/obsoleteTemplateVersion/.test(templatePage)) {
   throw new Error('表单模板页面不能继续调用直接作废 API，必须提交 BPM 作废申请')
 }
@@ -139,7 +144,7 @@ if (!previewActionsMatch) {
   throw new Error('表单模板右侧预览必须保留独立操作区')
 }
 const previewActions = previewActionsMatch[0]
-for (const label of ['最大化', '打开', '编辑', '填写', '作废']) {
+for (const label of ['最大化', '打开', '编辑', '填写', '链接', '作废']) {
   if (!new RegExp(`>\\s*${label}\\s*<`).test(previewActions)) {
     throw new Error(`表单模板右侧预览操作区缺少“${label}”按钮`)
   }
@@ -153,8 +158,9 @@ if (/>\s*签名\s*</.test(previewActions)) {
 if (/>\s*规则\s*</.test(previewActions)) {
   throw new Error('表单模板右侧预览操作区不应保留独立“规则”按钮，应合并到“编辑”')
 }
-if (/>\s*链接\s*</.test(previewActions)) {
-  throw new Error('表单模板右侧预览操作区不应新增“链接”按钮')
+const cellLinkButtonMatch = previewActions.match(/<el-button[\s\S]*?openSelectedTemplateCellLinks[\s\S]*?<\/el-button>/)
+if (!cellLinkButtonMatch || !/canUseTemplateInteractiveAction\(selectedTemplate\)/.test(cellLinkButtonMatch[0])) {
+  throw new Error('表单模板“链接”按钮必须受终态只读动作投影控制，并进入单元格链接工作台')
 }
 if (/>\s*重命名\s*</.test(previewActions)) {
   throw new Error('表单模板右侧预览操作区不应新增“重命名”按钮')
@@ -323,9 +329,9 @@ assertIncludes(remainingRoutes, "activeMenu: '/mdm/form-center/effect'")
 assertIncludes(remainingRoutes, "permission: ['form:template:query']")
 assertIncludes(remainingRoutes, "permission: ['form:policy:query']")
 
-const formCenterSeed = read('../ruoyi-vue-pro/sql/mysql/20260717_bpm_form_center.sql')
-const formCenterMoveSeed = read('../ruoyi-vue-pro/sql/mysql/20260721_form_center_menu_under_basic_data.sql')
-const formCenterRetireSeed = assertFile('../ruoyi-vue-pro/sql/mysql/20260722_form_center_business_action_page_retire.sql')
+const formCenterSeed = read('../IntRuoyiBackend/sql/mysql/20260717_bpm_form_center.sql')
+const formCenterMoveSeed = read('../IntRuoyiBackend/sql/mysql/20260721_form_center_menu_under_basic_data.sql')
+const formCenterRetireSeed = assertFile('../IntRuoyiBackend/sql/mysql/20260722_form_center_business_action_page_retire.sql')
 for (const sqlSource of [formCenterSeed, formCenterMoveSeed, formCenterRetireSeed]) {
   assertNotIncludes(sqlSource, "'业务动作表单'")
   assertNotIncludes(sqlSource, "'business-action'")

@@ -2,7 +2,7 @@
 
 ## Current Status
 
-PASS / completed. 用户已明确取消 Sheet1 Excel 真实样本覆盖要求；该缺失 fixture 不再作为验收前置。当前保留的 Sheet1 parser 合成 fail-fast/契约测试通过，完整 `mvn -pl yudao-module-mes test` 已通过：2530 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`；cleanup preview/apply、最终提交和推送均已完成。
+PASS / completed. 用户已明确取消 Sheet1 Excel 真实样本覆盖要求；该缺失 fixture 不再作为验收前置。当前保留的 Sheet1 parser 合成 fail-fast/契约测试通过。完整 `mvn -pl yudao-module-mes test` 于 08:53 通过：2530 tests、0 failures、0 errors、18 skipped；并发回归修复后于 12:41 再次通过：2537 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
 
 ## Baseline
 
@@ -133,5 +133,10 @@ PASS / completed. 用户已明确取消 Sheet1 Excel 真实样本覆盖要求；
 
 - Command: `mvn -pl yudao-module-mes test`
 - Result: `PASS`，2026-07-28 08:53:25 +08:00 完成；2530 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
+- Concurrent regression RED: `mvn -pl yudao-module-mes test` -> `FAIL`，2026-07-28 12:19:18 +08:00 完成；2537 tests、4 failures、2 errors、18 skipped。失败原因为传统批记录打开链路误把 eDHR 批次任务 ID 当成 execution 的排产 `task_id`。
+- Concurrent regression targeted GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordExecutionServiceImplTest,MesProEdhrBatchExecutionServiceTest" test` -> `PASS`，2026-07-28 12:36:59 +08:00 完成；246 tests、0 failures、0 errors、0 skipped。
+- Notification / adjacent regression: `mvn -pl yudao-module-mes "-Dtest=MesProEdhrWorkTaskServiceImplTest,Sheet1RouteExcelParserTest,MesProBatchRecordCellLinkControllerTest,MesProBatchRecordCellLinkServiceImplTest" test` -> `PASS`，2026-07-28 12:37:35 +08:00 完成；81 tests、0 failures、0 errors、0 skipped。
+- Latest command: `mvn -pl yudao-module-mes test`
+- Latest result: `PASS`，2026-07-28 12:41:40 +08:00 完成；2537 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
 - Diff/skip review: 未使用 `@Disabled`、Maven excludes、assumptions、空夹具、合成 workbook 或桌面候选文件替代真实 fixture；删除的是用户明确取消的真实样本覆盖入口。
 - Closeout state: 实现、验证、cleanup preview/apply、最终提交和推送均已完成。
