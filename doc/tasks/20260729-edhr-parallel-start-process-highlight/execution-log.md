@@ -50,6 +50,7 @@ BDD: 多前置汇合工序不得进入第一组当前可执行 -> Given 路线�
 - SYNC: `git fetch origin`; `git rebase origin/int_main` -> PASS，当前任务提交重放为 `483a9ce4`，基线 `origin/int_main` 为 `52a314ea`。
 - POST-REBASE GREEN: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#openOrCreate_allowsValidMultiStartMergeRouteGraphWhenBatchBindingsExist+getUsesCurrentRouteGraphWhenBatchTasksWereCreatedFromCurrentRouteConfig" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，2 tests。
 - RUNTIME CLEANUP: `Stop-Process -Id 14464,54944,33612,55808,11492,38304,17552 -Force`；`Get-NetTCPConnection -LocalPort 8093,48093` -> PASS，`8093`、`48093` 均无监听。
+- EVIDENCE NOTE: `real-e2e-evidence.md` 已同步说明截图在 closeout cleanup 阶段删除，最终证据以 Playwright 页面颜色断言和接口断言为准。
 
 ## Milestones
 

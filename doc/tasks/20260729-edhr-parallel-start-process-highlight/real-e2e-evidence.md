@@ -7,6 +7,6 @@
 - 批次执行：`900000000903 / EDHRB-1785252397713 / 34126020001`
 - 当前可执行工序组：`粗洗工序:928609`、`清洗工序:928611`、`清洁工序:928612`
 - 页面黄色工序：`粗洗工序`、`清洗工序`、`清洁工序`
-- 截图：`D:\IntRuoyiWorktree\20260729-edhr-parallel-highlight-e2e\doc\tasks\20260729-edhr-parallel-start-process-highlight\parallel-current-process-highlight.png`
+- 截图：运行过程中已生成用于人工核对，收尾清理阶段按任务规则删除；最终证据以 Playwright 页面颜色断言、详情接口断言和本文件记录为准。
 - MES 写请求数：`0`
 - RESULT: PASS
