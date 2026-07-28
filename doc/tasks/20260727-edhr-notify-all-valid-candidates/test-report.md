@@ -4,6 +4,8 @@
 
 PASS / completed. 用户已明确取消 Sheet1 Excel 真实样本覆盖要求；该缺失 fixture 不再作为验收前置。当前保留的 Sheet1 parser 合成 fail-fast/契约测试通过。完整 `mvn -pl yudao-module-mes test` 于 08:53 通过：2530 tests、0 failures、0 errors、18 skipped；并发回归修复后于 12:41 再次通过：2537 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
 
+当前工作区最新复验：2026-07-28 13:29:43 +08:00 执行 `mvn -pl yudao-module-mes test`，结果 `BUILD SUCCESS`，2540 tests、0 failures、0 errors、18 skipped。
+
 ## Baseline
 
 - Command: `mvn -pl yudao-module-mes test`
@@ -138,5 +140,11 @@ PASS / completed. 用户已明确取消 Sheet1 Excel 真实样本覆盖要求；
 - Notification / adjacent regression: `mvn -pl yudao-module-mes "-Dtest=MesProEdhrWorkTaskServiceImplTest,Sheet1RouteExcelParserTest,MesProBatchRecordCellLinkControllerTest,MesProBatchRecordCellLinkServiceImplTest" test` -> `PASS`，2026-07-28 12:37:35 +08:00 完成；81 tests、0 failures、0 errors、0 skipped。
 - Latest command: `mvn -pl yudao-module-mes test`
 - Latest result: `PASS`，2026-07-28 12:41:40 +08:00 完成；2537 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
+- Current-worktree RED: `mvn -pl yudao-module-mes test` -> `FAIL`，2026-07-28 13:13:48 +08:00 完成；2539 tests、1 failure、2 errors、18 skipped。失败仍为传统 execution 上下文误纳入 eDHR 批次任务 ID 的同类风险；清理 stale target class 并恢复源码正式口径后定向通过。
+- Current-worktree GREEN: `mvn -pl yudao-module-mes clean test "-Dtest=MesProBatchRecordExecutionServiceImplTest#entryContextAndOpenOrCreateByContext_ignoreScheduleTaskFieldsForFutureExecutionContext+openOrCreateByContext_doesNotPersistScheduleTaskFieldsForNewExecution+openOrCreateByContext_reusesSubmittedExecutionForActiveStatus"` -> `PASS`，2026-07-28 13:17:57 +08:00 完成；3 tests、0 failures、0 errors。
+- Current-worktree adjacent GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordExecutionServiceImplTest,MesProEdhrBatchExecutionServiceTest" test` -> `PASS`，2026-07-28 13:18:53 +08:00 完成；247 tests、0 failures、0 errors。
+- Current-worktree cell-link GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordCellLinkServiceImplTest" test` -> `PASS`，2026-07-28 13:25:22 +08:00 完成；5 tests、0 failures、0 errors。
+- Current-worktree final command: `mvn -pl yudao-module-mes test`
+- Current-worktree final result: `PASS`，2026-07-28 13:29:43 +08:00 完成；2540 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
 - Diff/skip review: 未使用 `@Disabled`、Maven excludes、assumptions、空夹具、合成 workbook 或桌面候选文件替代真实 fixture；删除的是用户明确取消的真实样本覆盖入口。
 - Closeout state: 实现、验证、cleanup preview/apply、最终提交和推送均已完成。

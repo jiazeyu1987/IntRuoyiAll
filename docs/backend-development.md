@@ -44,10 +44,10 @@
 ### 切换填写人快照读取边界
 
 - Trigger: eDHR 批次执行填写页、“切换填写人”、协助填写人、`assistSwitchTasks`、`candidateUserSnapshot`、`getEdhrBatchExecution`、弹窗打开耗时过长。
-- Preflight check: 先确认业务口径是否为批次执行创建后填写人固定；若固定，切换填写人候选必须来自执行详情返回的任务/填写人快照，而不是弹窗打开时重新拉取或重算全量批次详情；传统批记录打开链路必须按 `batchExecutionId + workOrderId + routeProcessId + batchRecordReportId + batchCode` 查询 active 执行记录，并通过 `mes_pro_edhr_batch_execution_task.execution_id` 维护批次任务与 execution 的关联，避免新批次复用旧执行详情。
+- Preflight check: 先确认业务口径是否为批次执行创建后填写人固定；若固定，切换填写人候选必须来自执行详情返回的任务/填写人快照，而不是弹窗打开时重新拉取或重算全量批次详情；eDHR 批次任务打开传统批记录时，必须把当前批次任务 ID 写入 `MesProBatchRecordExecutionOpenOrCreateByContextReqVO.taskId`，active 查询、active key 和 `mes_pro_batch_record_execution.task_id` 必须按 `batchExecutionId + taskId + workOrderId + routeProcessId + batchRecordReportId + batchCode` 隔离，并继续通过 `mes_pro_edhr_batch_execution_task.execution_id` 维护批次任务与 execution 的关联，避免新批次复用旧执行详情。
 - Blocker: 执行详情缺少可追溯任务快照、活动工作任务缺少 `candidateUserSnapshot`、或无法证明候选人来自创建时快照时，必须补齐后端详情链路；若 active 执行记录查询没有按批次和传统批记录上下文隔离，也必须阻塞；不得从当前登录人、角色、部门或空列表推断候选填写人。
 - Verification: 运行 `node yudao-module-mes\src\test\js\mes-edhr-assist-filler-switch-snapshot-static.spec.cjs`，并配合前端 ESLint/`pnpm ts:check` 与 `mvn -pl yudao-module-mes -am "-DskipTests" compile`。
-- Forbidden action: 禁止在切换填写人弹窗打开时调用全量 `getEdhrBatchExecution` 作为性能问题的替代方案；禁止把 eDHR 批次任务 ID 写入 `MesProBatchRecordExecutionOpenOrCreateByContextReqVO.taskId` 或 `mes_pro_batch_record_execution.task_id`，该字段属于排产/生产任务上下文；禁止用前端缓存、空列表兜底或吞异常掩盖缺失快照。
+- Forbidden action: 禁止在切换填写人弹窗打开时调用全量 `getEdhrBatchExecution` 作为性能问题的替代方案；禁止在 eDHR 批次任务打开传统批记录时省略、置空或改写 `MesProBatchRecordExecutionOpenOrCreateByContextReqVO.taskId` / `mes_pro_batch_record_execution.task_id`，导致不同批次任务复用旧执行详情；禁止用前端缓存、空列表兜底或吞异常掩盖缺失快照。
 - Evidence: 任务 `doc/tasks/20260727-switch-filler-snapshot-loading/verification-report.md`。
 
 

@@ -433,3 +433,17 @@ CLEANUP: `task-closeout-cleanup` preview/apply 均通过，状态 `applied`，ke
 COMMIT: `07d2cc34` (`fix: keep eDHR batch task out of execution task context`) -> 已提交本任务产品修复、任务证据和长期经验门禁更新。提交文件清单为 `MesProBatchRecordExecutionServiceImpl.java`、`MesProEdhrBatchExecutionServiceImpl.java`、本任务 7 个证据文档、`docs/backend-development.md`、`docs/experience-index.md`。
 
 GIT-SCOPE: 提交前使用选择性暂存；`MesProEdhrBatchExecutionServiceImpl.java` 仅暂存 `.setTaskId(null)` hunk，未混入同文件动态表单预览并行改动；`docs/experience-index.md` 仅暂存切换填写人索引行，未混入前端 route query 并行新增行。提交后工作区仍保留多个 20260728 并行任务改动，均未纳入本任务提交。
+
+## 2026-07-28：当前工作区最终复验
+
+RED: `mvn -pl yudao-module-mes test` -> FAIL，2026-07-28 13:13:48 +08:00 完成；2539 tests、1 failure、2 errors、18 skipped。失败集中在 `MesProBatchRecordExecutionServiceImplTest`：传统 `openOrCreateByContext` 若把请求中的 eDHR 批次任务 ID 纳入 active context 或新建 execution 的 `taskId`，会导致已存在的 `task_id=null` active execution 无法复用，并在新建 execution 时污染排产任务字段。
+
+GREEN: `mvn -pl yudao-module-mes clean test "-Dtest=MesProBatchRecordExecutionServiceImplTest#entryContextAndOpenOrCreateByContext_ignoreScheduleTaskFieldsForFutureExecutionContext+openOrCreateByContext_doesNotPersistScheduleTaskFieldsForNewExecution+openOrCreateByContext_reusesSubmittedExecutionForActiveStatus"` -> PASS，2026-07-28 13:17:57 +08:00 完成；3 tests、0 failures、0 errors、0 skipped。`clean` 用于清除已被并发脏改动污染的 stale target class，源码保持正式口径：查询、active context key 和新建 execution 均使用 `taskId=null`。
+
+GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordExecutionServiceImplTest,MesProEdhrBatchExecutionServiceTest" test` -> PASS，2026-07-28 13:18:53 +08:00 完成；247 tests、0 failures、0 errors、0 skipped。
+
+GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordCellLinkServiceImplTest" test` -> PASS，2026-07-28 13:25:22 +08:00 完成；5 tests、0 failures、0 errors、0 skipped。该复验确认动态表单模板缺 Jimu schema 时可按正式 `recognizedSchemaJson` 解析可链接目标单元格。
+
+FULL-REGRESSION: `mvn -pl yudao-module-mes test` -> PASS，2026-07-28 13:29:43 +08:00 完成；2540 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
+
+STATUS: 当前任务目标在当前工作区再次满足 0 failures / 0 errors。eDHR 工作任务站内信仍按 `candidateUserSnapshot` 的全部有效候选账号逐人发送；传统批记录 execution 的 `task_id` 仍只保留为排产/生产任务上下文字段，不承载 eDHR 批次任务身份。
