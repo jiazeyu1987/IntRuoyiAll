@@ -112,9 +112,20 @@ for (const token of [
   '/mes/pro/batch-record-cell-link/workbench-context',
   '/mes/pro/batch-record-cell-link/form-cells',
   '/mes/pro/batch-record-cell-link/rules/save',
-  '/mes/pro/batch-record-cell-link/prefill'
+  '/mes/pro/batch-record-cell-link/prefill',
+  'templateId?: number',
+  'versionNo?: string'
 ]) {
   assert.ok(api.includes(token), `api misses ${token}`)
+}
+
+for (const token of [
+  'templateId: parseNumber(route.query.templateId)',
+  "versionNo: String(route.query.versionNo || '')",
+  'route.query.returnTo',
+  'route.query.returnLabel'
+]) {
+  assert.ok(page.includes(token), `cell link page misses form template route support: ${token}`)
 }
 
 assert.ok(route.includes('MesProBatchRecordCellLink'), 'route misses MesProBatchRecordCellLink')

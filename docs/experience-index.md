@@ -84,8 +84,10 @@
 - Keywords: 既有大契约先失败, 最小静态契约, 专用 static.spec.js, 当前需求 RED/GREEN, 无关 ts:check blocker -> `docs/frontend-development.md#前端静态契约隔离门禁`
 - Keywords: 保存系统异常重复提示, axios 自动错误提示, ignoreErrorMessage, 子组件 rethrow 前 toast, 父组件统一 toast, save error single toast, RouteFlowGraphDesigner, RouteFormContent -> `docs/frontend-development.md#前端保存链路重复错误提示门禁`
 - Keywords: 列表首屏成功后系统异常, 延迟辅助加载, 行级权限加载失败, listErrorMessage, permissionRuleErrorMessage, 批记录表单填写人规则加载失败, 辅助查询错误归属 -> `docs/frontend-development.md#前端延迟辅助加载错误归属门禁`
+- Keywords: DCC 上传类别权限, canUpload, Current user cannot access this controlled file, upload-preview, 文件类别下拉无上传权限, 类别级 UPLOAD 权限, DccControlledFileCategoryPermissionSupport -> `docs/frontend-development.md#dcc-上传类别权限投影门禁`
 - Keywords: 草稿保存后仍可修改, 保存草稿不提交发布, 保存后不可继续编辑, 立即提交发布弹窗, submit-publish, DRAFT 被保存推进审批, RouteEditPage handleSaved, promptRouteVersionSubmit -> `docs/frontend-development.md#前端草稿保存与提交发布解耦门禁`
 - Keywords: 当前模板未绑定批记录表单, 表单模板打开编辑填写, openSelectedTemplateWorkspace, isDesignerMode, FormTemplateDesignerWrapper, FormTemplateSimulatePage, simulationOnly, MdmFormCenterTemplateSimulate, /mdm/form-center/template/simulate, batchRecordBindingStatus, batchRecordReportId -> `docs/frontend-development.md#表单模板三按钮领域边界门禁`
+- Keywords: 前端静态合同旧仓路径, form-center-static, ruoyi-vue-pro/sql/mysql, IntRuoyiBackend/sql/mysql, ENOENT, 跨端 SQL 读取路径 -> `docs/frontend-development.md#前端静态合同仓库路径门禁`
 - Keywords: 聚合字段新增子项, 默认分类, 表单槽位, route-flow-graph-designer__node-form-count-badge, createEmptyRecordBinding, formSlotType MAIN, 新增后数字不变 -> `docs/frontend-development.md#前端聚合新增默认分类门禁`
 - Keywords: noTagsView, activeMenu, 隐藏路由顶部页签, 顶部 tab 切回列表, fullPath query 丢失, replaceActiveMenuView, restoreActiveMenuView, 流转关系图页签返回 -> `docs/frontend-development.md#前端隐藏路由顶部页签状态门禁`
 - Keywords: 批记录, 批记录表单, batchRecordFormNames, 工序设置批记录绑定, 正式生产批记录, 批次执行作用, 表单, 表单槽位, formBindings, 补充动态表单, 工序开始, 特殊节点上传人, 附件负责人, 三类配置入口, 三类配置不得混用 -> `AGENTS.md#工艺路线三类配置术语契约`

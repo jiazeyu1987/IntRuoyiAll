@@ -138,6 +138,8 @@ export const BatchRecordCellLinkApi = {
     definitionId?: number
     versionId?: number
     sourceReportId?: string
+    templateId?: number
+    versionNo?: string
   }) => {
     return await request.get<BatchRecordCellLinkWorkbenchContextVO>({
       url: '/mes/pro/batch-record-cell-link/workbench-context',

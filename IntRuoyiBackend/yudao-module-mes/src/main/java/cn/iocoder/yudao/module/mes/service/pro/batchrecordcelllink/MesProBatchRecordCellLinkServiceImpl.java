@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersionDO;
+import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormTemplateVersionMapper;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkCellVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkFormCellsRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordcelllink.vo.BatchRecordCellLinkFormRespVO;
@@ -52,6 +54,8 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
 
     private static final String SCOPE_TYPE_ROUTE_VERSION = "ROUTE_VERSION";
     private static final String SCOPE_TYPE_REPORT_SET = "REPORT_SET";
+    private static final String SCOPE_TYPE_FORM_TEMPLATE_VERSION = "FORM_TEMPLATE_VERSION";
+    private static final String FORM_TEMPLATE_REPORT_PREFIX = "FORMTPL:";
     private static final String SOURCE_TYPE_BATCH_RECORD_CELL = "BATCH_RECORD_CELL";
     private static final String SOURCE_TYPE_PRODUCTION_WORK_ORDER = "PRODUCTION_WORK_ORDER";
     private static final String PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID = "PRODUCTION_WORK_ORDER";
@@ -84,28 +88,42 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     private MesProEdhrWorkTaskService workTaskService;
     @Resource
     private MesProWorkOrderMapper workOrderMapper;
+    @Resource
+    private FormTemplateVersionMapper templateVersionMapper;
 
     @Override
     public BatchRecordCellLinkWorkbenchContextRespVO getWorkbenchContext(Long routeId, Long definitionId,
-                                                                         Long versionId, String sourceReportId) {
-        Scope scope = resolveQueryScope(definitionId, versionId, sourceReportId);
-        List<MesProBatchRecordReportDO> reports = selectReportsInScope(scope);
-        if (reports.isEmpty()) {
+                                                                         Long versionId, String sourceReportId,
+                                                                         Long templateId, String versionNo) {
+        Scope scope = resolveQueryScope(definitionId, versionId, sourceReportId, templateId, versionNo);
+        List<BatchRecordCellLinkFormRespVO> forms = selectFormsInScope(scope);
+        if (forms.isEmpty()) {
             throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_FORM_LIST_EMPTY);
         }
-        List<BatchRecordCellLinkFormRespVO> forms = reports.stream().map(this::toFormVO).toList();
         Set<String> reportIds = forms.stream().map(BatchRecordCellLinkFormRespVO::getReportId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
-        String defaultSourceReportId = StrUtil.isNotBlank(sourceReportId) ? sourceReportId : forms.get(0).getReportId();
-        if (!reportIds.contains(defaultSourceReportId)) {
+        String defaultSourceReportId = Objects.equals(scope.type(), SCOPE_TYPE_FORM_TEMPLATE_VERSION)
+                ? PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID
+                : StrUtil.isNotBlank(sourceReportId) ? sourceReportId : forms.get(0).getReportId();
+        if (Objects.equals(scope.type(), SCOPE_TYPE_FORM_TEMPLATE_VERSION)
+                && StrUtil.isNotBlank(sourceReportId)
+                && !Objects.equals(sourceReportId, PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID)) {
             throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_REPORT_NOT_EXISTS,
-                    defaultSourceReportId);
+                    sourceReportId);
         }
-        String defaultTargetReportId = forms.stream()
-                .map(BatchRecordCellLinkFormRespVO::getReportId)
-                .filter(reportId -> !Objects.equals(reportId, defaultSourceReportId))
-                .findFirst()
-                .orElse(defaultSourceReportId);
+        if (!reportIds.contains(defaultSourceReportId)) {
+            if (!Objects.equals(scope.type(), SCOPE_TYPE_FORM_TEMPLATE_VERSION)) {
+                throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_REPORT_NOT_EXISTS,
+                        defaultSourceReportId);
+            }
+        }
+        String defaultTargetReportId = Objects.equals(scope.type(), SCOPE_TYPE_FORM_TEMPLATE_VERSION)
+                ? forms.get(0).getReportId()
+                : forms.stream()
+                        .map(BatchRecordCellLinkFormRespVO::getReportId)
+                        .filter(reportId -> !Objects.equals(reportId, defaultSourceReportId))
+                        .findFirst()
+                        .orElse(defaultSourceReportId);
         return new BatchRecordCellLinkWorkbenchContextRespVO()
                 .setScopeType(scope.type())
                 .setScopeId(scope.id())
@@ -121,6 +139,9 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
 
     @Override
     public BatchRecordCellLinkFormCellsRespVO getFormCells(String reportId, Long versionId) {
+        if (isFormTemplateReportId(reportId)) {
+            return getFormTemplateCells(reportId);
+        }
         MesProBatchRecordReportDO report = requireReport(reportId);
         if (versionId != null && report.getBatchRecordVersionId() != null
                 && !Objects.equals(versionId, report.getBatchRecordVersionId())) {
@@ -163,6 +184,49 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 .setCells(cells);
     }
 
+    private BatchRecordCellLinkFormCellsRespVO getFormTemplateCells(String reportId) {
+        Long templateVersionId = parseFormTemplateReportId(reportId);
+        FormTemplateVersionDO templateVersion = requireFormTemplateVersion(templateVersionId);
+        JSONObject schema = parseTemplateSchema(templateVersion);
+        String sheetLayoutJson = schema.getString("sheetLayoutJson");
+        JSONObject root = parseLayout(sheetLayoutJson, reportId);
+        Map<String, BatchRecordReportCellRuleVO> ruleMap = new LinkedHashMap<>();
+        putCellRules(ruleMap, parseTemplateCellRules(schema));
+        Set<String> signatureMarkers = parseTemplateSignatureCellMarkers(schema);
+        List<BatchRecordCellLinkCellVO> cells = new ArrayList<>();
+        MesProBatchRecordCellRuleSupport.forEachCell(root, (rowIndex, columnIndex, cell) -> {
+            String cellKey = cellKey(rowIndex, columnIndex);
+            BatchRecordReportCellRuleVO rule = ruleMap.get(cellKey);
+            boolean signatureCell = isTemplateSignatureCell(rule, cell, cellKey, signatureMarkers);
+            boolean linkable = rule != null && !signatureCell;
+            cells.add(new BatchRecordCellLinkCellVO()
+                    .setRowIndex(rowIndex)
+                    .setColumnIndex(columnIndex)
+                    .setCellKey(cellKey)
+                    .setSourceType(SOURCE_TYPE_BATCH_RECORD_CELL)
+                    .setLabel(resolveLabel(rule, cell, rowIndex, columnIndex))
+                    .setValueType(rule == null ? "STRING" : rule.getValueType())
+                    .setComponentFlag(rule == null ? null : rule.getComponentFlag())
+                    .setRequired(rule != null && Boolean.TRUE.equals(rule.getRequired()))
+                    .setReadonly(!linkable)
+                    .setSignatureCell(signatureCell)
+                    .setLinkableAsSource(false)
+                    .setLinkableAsTarget(linkable));
+        });
+        if (cells.isEmpty() || cells.stream().noneMatch(cell -> Boolean.TRUE.equals(cell.getLinkableAsTarget()))) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                    reportId);
+        }
+        return new BatchRecordCellLinkFormCellsRespVO()
+                .setReportId(reportId)
+                .setReportName(formTemplateReportName(templateVersion))
+                .setBatchRecordDefinitionId(null)
+                .setBatchRecordVersionId(null)
+                .setLayoutSnapshotHash(DigestUtil.sha256Hex(sheetLayoutJson))
+                .setSheetLayoutJson(sheetLayoutJson)
+                .setCells(cells);
+    }
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public BatchRecordCellLinkRulesSaveRespVO saveRules(BatchRecordCellLinkRulesSaveReqVO reqVO) {
@@ -175,12 +239,12 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         Set<String> targetKeys = new LinkedHashSet<>();
         Set<String> pairKeys = new LinkedHashSet<>();
         Map<String, MesProBatchRecordReportDO> reportCache = new LinkedHashMap<>();
+        Map<String, TargetSpec> targetCache = new LinkedHashMap<>();
         Map<String, BatchRecordCellLinkFormCellsRespVO> cellsCache = new LinkedHashMap<>();
         for (BatchRecordCellLinkRuleSaveItemReqVO item : reqVO.getRules()) {
             String sourceType = normalizeSourceType(item.getSourceType());
-            MesProBatchRecordReportDO targetReport = reportCache.computeIfAbsent(item.getTargetReportId(),
-                    this::requireReport);
-            requireReportInScope(scope, targetReport);
+            TargetSpec targetReport = targetCache.computeIfAbsent(item.getTargetReportId(),
+                    reportId -> resolveTargetSpec(scope, reportId));
             BatchRecordCellLinkFormCellsRespVO targetCells = cellsCache.computeIfAbsent(item.getTargetReportId(),
                     reportId -> getFormCells(reportId, scope.versionId()));
             SourceSpec sourceSpec;
@@ -189,6 +253,11 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                         StrUtil.blankToDefault(item.getSourceFieldCode(), item.getSourceCellKey()));
                 sourceSpec = SourceSpec.productionWorkOrder(sourceField);
             } else {
+                if (Objects.equals(scope.type(), SCOPE_TYPE_FORM_TEMPLATE_VERSION)) {
+                    throw exception(
+                            MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
+                            sourceType);
+                }
                 MesProBatchRecordReportDO sourceReport = reportCache.computeIfAbsent(item.getSourceReportId(),
                         this::requireReport);
                 requireReportInScope(scope, sourceReport);
@@ -202,12 +271,12 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                     item.getTargetColumnIndex());
             if (!Boolean.TRUE.equals(targetCell.getLinkableAsTarget())) {
                 throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_TARGET_NOT_WRITABLE,
-                        targetReport.getReportName(), targetCell.getCellKey());
+                        targetReport.reportName(), targetCell.getCellKey());
             }
             String targetKey = item.getTargetReportId() + ":" + targetCell.getCellKey();
             if (!targetKeys.add(targetKey)) {
                 throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_TARGET_DUPLICATE,
-                        targetReport.getReportName(), targetCell.getCellKey());
+                        targetReport.reportName(), targetCell.getCellKey());
             }
             String pairKey = sourceSpec.uniqueKey() + "->"
                     + item.getTargetReportId() + ":" + targetCell.getCellKey();
@@ -292,7 +361,73 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 .setConflicts(conflicts);
     }
 
-    private Scope resolveQueryScope(Long definitionId, Long versionId, String sourceReportId) {
+    @Override
+    public Map<String, Object> buildFormTemplateVersionPrefillData(Long templateVersionId, Long workOrderId,
+                                                                   Map<String, Object> formData) {
+        FormTemplateVersionDO templateVersion = requireFormTemplateVersion(templateVersionId);
+        String targetReportId = formTemplateReportId(templateVersion.getId());
+        List<MesProBatchRecordCellLinkRuleDO> rules = ruleMapper.selectEnabledListByScopeAndTargetReport(
+                SCOPE_TYPE_FORM_TEMPLATE_VERSION, templateVersion.getId(), targetReportId);
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (formData != null) {
+            result.putAll(formData);
+        }
+        if (rules.isEmpty()) {
+            return result;
+        }
+        if (workOrderId == null) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_WORK_ORDER_MISSING,
+                    templateVersion.getId());
+        }
+        MesProWorkOrderDO workOrder = workOrderMapper.selectById(workOrderId);
+        if (workOrder == null) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_WORK_ORDER_MISSING,
+                    templateVersion.getId());
+        }
+        for (MesProBatchRecordCellLinkRuleDO rule : rules) {
+            if (!SOURCE_TYPE_PRODUCTION_WORK_ORDER.equals(normalizeSourceType(rule.getSourceType()))) {
+                throw exception(
+                        MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SOURCE_FIELD_NOT_SUPPORTED,
+                        rule.getSourceType());
+            }
+            WorkOrderSourceField field = requireWorkOrderSourceField(
+                    StrUtil.blankToDefault(rule.getSourceFieldCode(), rule.getSourceCellKey()));
+            Object sourceValue = field.valueExtractor().apply(workOrder);
+            if (!hasPlainValue(sourceValue)) {
+                throw exception(
+                        MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_AUTO_PERSIST_SOURCE_VALUE_MISSING,
+                        templateVersion.getId(), rule.getId(), field.code(), rule.getTargetCellKey());
+            }
+            String targetCellKey = StrUtil.blankToDefault(rule.getTargetCellKey(),
+                    rule.getTargetRowIndex() == null || rule.getTargetColumnIndex() == null
+                            ? null : cellKey(rule.getTargetRowIndex(), rule.getTargetColumnIndex()));
+            if (StrUtil.isBlank(targetCellKey)) {
+                throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_CELL_MISSING,
+                        targetReportId, rule.getTargetRowIndex(), rule.getTargetColumnIndex());
+            }
+            if (hasFormDataValue(result.get(targetCellKey))
+                    && OVERWRITE_POLICY_ONLY_WHEN_EMPTY.equals(rule.getOverwritePolicy())) {
+                continue;
+            }
+            result.put(targetCellKey, sourceValue);
+        }
+        return result;
+    }
+
+    private Scope resolveQueryScope(Long definitionId, Long versionId, String sourceReportId,
+                                    Long templateId, String versionNo) {
+        if (templateId != null || StrUtil.isNotBlank(versionNo)) {
+            if (templateId == null || StrUtil.isBlank(versionNo)) {
+                throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SCOPE_REQUIRED);
+            }
+            FormTemplateVersionDO templateVersion = templateVersionMapper.selectByTemplateIdAndVersionNo(
+                    templateId, StrUtil.trim(versionNo));
+            if (templateVersion == null) {
+                throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_REPORT_NOT_EXISTS,
+                        templateId + "/" + versionNo);
+            }
+            return Scope.formTemplateVersion(templateVersion);
+        }
         if (definitionId != null && versionId != null) {
             return Scope.routeVersion(definitionId, versionId);
         }
@@ -307,6 +442,17 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     }
 
     private Scope resolveSaveScope(BatchRecordCellLinkRulesSaveReqVO reqVO) {
+        if (Objects.equals(reqVO.getScopeType(), SCOPE_TYPE_FORM_TEMPLATE_VERSION)) {
+            Long templateVersionId = reqVO.getScopeId();
+            if (templateVersionId == null && reqVO.getRules() != null && !reqVO.getRules().isEmpty()) {
+                String targetReportId = reqVO.getRules().get(0).getTargetReportId();
+                if (isFormTemplateReportId(targetReportId)) {
+                    templateVersionId = parseFormTemplateReportId(targetReportId);
+                }
+            }
+            requireFormTemplateVersion(templateVersionId);
+            return Scope.formTemplateVersion(templateVersionId);
+        }
         if (Objects.equals(reqVO.getScopeType(), SCOPE_TYPE_REPORT_SET)) {
             return resolveReportSetScope(requireReport(reqVO.getRules().get(0).getSourceReportId()));
         }
@@ -352,6 +498,33 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
             return reportMapper.selectListBySourceFileSha256AndRouteKey(scope.sourceFileSha256(), scope.routeKey());
         }
         return reportMapper.selectListByDefinitionIdAndVersionId(scope.definitionId(), scope.versionId());
+    }
+
+    private List<BatchRecordCellLinkFormRespVO> selectFormsInScope(Scope scope) {
+        if (Objects.equals(scope.type(), SCOPE_TYPE_FORM_TEMPLATE_VERSION)) {
+            return List.of(toFormTemplateFormVO(scope.templateVersion() == null
+                    ? requireFormTemplateVersion(scope.id())
+                    : scope.templateVersion()));
+        }
+        return selectReportsInScope(scope).stream().map(this::toFormVO).toList();
+    }
+
+    private TargetSpec resolveTargetSpec(Scope scope, String targetReportId) {
+        if (Objects.equals(scope.type(), SCOPE_TYPE_FORM_TEMPLATE_VERSION)) {
+            String expectedReportId = formTemplateReportId(scope.id());
+            if (!Objects.equals(expectedReportId, targetReportId)) {
+                throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_REPORT_NOT_EXISTS,
+                        targetReportId);
+            }
+            FormTemplateVersionDO templateVersion = scope.templateVersion() == null
+                    ? requireFormTemplateVersion(scope.id())
+                    : scope.templateVersion();
+            return new TargetSpec(expectedReportId, formTemplateReportName(templateVersion), null, null);
+        }
+        MesProBatchRecordReportDO report = requireReport(targetReportId);
+        requireReportInScope(scope, report);
+        return new TargetSpec(report.getReportId(), report.getReportName(),
+                report.getBatchRecordDefinitionId(), report.getBatchRecordVersionId());
     }
 
     private MesProBatchRecordReportDO requireReport(String reportId) {
@@ -445,7 +618,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     private MesProBatchRecordCellLinkRuleDO toRuleDO(BatchRecordCellLinkRulesSaveReqVO reqVO, Scope scope,
                                                      BatchRecordCellLinkRuleSaveItemReqVO item,
                                                      SourceSpec source,
-                                                     MesProBatchRecordReportDO targetReport,
+                                                     TargetSpec targetReport,
                                                      BatchRecordCellLinkCellVO targetCell,
                                                      String sourceLayoutHash, String targetLayoutHash,
                                                      long ruleVersion) {
@@ -465,8 +638,8 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         rule.setSourceFieldName(source.fieldName());
         rule.setSourceLabel(StrUtil.blankToDefault(StrUtil.trim(item.getSourceLabel()), source.label()));
         rule.setSourceValueType(source.valueType());
-        rule.setTargetReportId(targetReport.getReportId());
-        rule.setTargetReportName(targetReport.getReportName());
+        rule.setTargetReportId(targetReport.reportId());
+        rule.setTargetReportName(targetReport.reportName());
         rule.setTargetRowIndex(targetCell.getRowIndex());
         rule.setTargetColumnIndex(targetCell.getColumnIndex());
         rule.setTargetCellKey(targetCell.getCellKey());
@@ -492,6 +665,93 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 .setReportId(report.getReportId())
                 .setReportCode(report.getReportCode())
                 .setReportName(report.getReportName());
+    }
+
+    private BatchRecordCellLinkFormRespVO toFormTemplateFormVO(FormTemplateVersionDO templateVersion) {
+        return new BatchRecordCellLinkFormRespVO()
+                .setId(templateVersion.getId())
+                .setBatchRecordName(null)
+                .setFormSlotType(null)
+                .setBatchRecordDefinitionId(null)
+                .setBatchRecordVersionId(null)
+                .setSourceTableIndex(null)
+                .setTableTitle(templateVersion.getTemplateName())
+                .setReportId(formTemplateReportId(templateVersion.getId()))
+                .setReportCode(formTemplateReportId(templateVersion.getId()))
+                .setReportName(formTemplateReportName(templateVersion));
+    }
+
+    private FormTemplateVersionDO requireFormTemplateVersion(Long templateVersionId) {
+        if (templateVersionId == null) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_SCOPE_REQUIRED);
+        }
+        FormTemplateVersionDO templateVersion = templateVersionMapper.selectById(templateVersionId);
+        if (templateVersion == null) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_REPORT_NOT_EXISTS,
+                    formTemplateReportId(templateVersionId));
+        }
+        return templateVersion;
+    }
+
+    private JSONObject parseTemplateSchema(FormTemplateVersionDO templateVersion) {
+        if (templateVersion == null || StrUtil.isBlank(templateVersion.getJimuSchemaJson())) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                    templateVersion == null ? null : formTemplateReportId(templateVersion.getId()));
+        }
+        try {
+            return JSON.parseObject(templateVersion.getJimuSchemaJson());
+        } catch (Exception ex) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                    formTemplateReportId(templateVersion.getId()));
+        }
+    }
+
+    private List<BatchRecordReportCellRuleVO> parseTemplateCellRules(JSONObject schema) {
+        Object rawRules = schema == null ? null : schema.get("cellRules");
+        if (rawRules == null) {
+            return List.of();
+        }
+        try {
+            if (rawRules instanceof JSONArray array) {
+                return JSON.parseArray(array.toJSONString(), BatchRecordReportCellRuleVO.class);
+            }
+            if (rawRules instanceof String text && StrUtil.isNotBlank(text)) {
+                return JSON.parseArray(text, BatchRecordReportCellRuleVO.class);
+            }
+            return List.of();
+        } catch (Exception ex) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                    "cellRules");
+        }
+    }
+
+    private Set<String> parseTemplateSignatureCellMarkers(JSONObject schema) {
+        JSONArray markers = schema == null ? null : schema.getJSONArray("signatureCellMarkers");
+        if (markers == null || markers.isEmpty()) {
+            return Set.of();
+        }
+        Set<String> result = new LinkedHashSet<>();
+        for (int index = 0; index < markers.size(); index++) {
+            JSONObject marker = markers.getJSONObject(index);
+            Integer rowIndex = marker == null ? null : marker.getInteger("rowIndex");
+            Integer columnIndex = marker == null ? null : marker.getInteger("columnIndex");
+            if (rowIndex != null && columnIndex != null) {
+                result.add(cellKey(rowIndex, columnIndex));
+            }
+        }
+        return result;
+    }
+
+    private boolean isTemplateSignatureCell(BatchRecordReportCellRuleVO rule, JSONObject cell, String cellKey,
+                                            Set<String> signatureMarkers) {
+        if (signatureMarkers.contains(cellKey) || MesProBatchRecordCellRuleSupport.hasValidSignatureMarker(cell)) {
+            return true;
+        }
+        if (rule == null) {
+            return false;
+        }
+        return "SIGNATURE".equals(MesProBatchRecordCellRuleSupport.normalizeValueType(rule.getValueType()))
+                || StrUtil.containsIgnoreCase(rule.getComponentFlag(), "signature");
     }
 
     private List<BatchRecordCellLinkRuleVO> toRuleVOList(List<MesProBatchRecordCellLinkRuleDO> rules) {
@@ -616,8 +876,48 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         return rowIndex + ":" + columnIndex;
     }
 
+    private boolean hasFormDataValue(Object value) {
+        if (value == null) {
+            return false;
+        }
+        return !(value instanceof String text) || StrUtil.isNotBlank(text);
+    }
+
+    private String formTemplateReportId(Long templateVersionId) {
+        return FORM_TEMPLATE_REPORT_PREFIX + templateVersionId;
+    }
+
+    private boolean isFormTemplateReportId(String reportId) {
+        return StrUtil.startWith(reportId, FORM_TEMPLATE_REPORT_PREFIX);
+    }
+
+    private Long parseFormTemplateReportId(String reportId) {
+        if (!isFormTemplateReportId(reportId)) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_REPORT_NOT_EXISTS,
+                    reportId);
+        }
+        try {
+            return Long.valueOf(reportId.substring(FORM_TEMPLATE_REPORT_PREFIX.length()));
+        } catch (Exception ex) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_REPORT_NOT_EXISTS,
+                    reportId);
+        }
+    }
+
+    private String formTemplateReportName(FormTemplateVersionDO templateVersion) {
+        String templateName = StrUtil.blankToDefault(templateVersion.getTemplateName(),
+                formTemplateReportId(templateVersion.getId()));
+        return StrUtil.isBlank(templateVersion.getVersionNo())
+                ? templateName
+                : templateName + " " + StrUtil.trim(templateVersion.getVersionNo());
+    }
+
     private record WorkOrderSourceField(String code, String name, String valueType,
                                         Function<MesProWorkOrderDO, Object> valueExtractor) {
+    }
+
+    private record TargetSpec(String reportId, String reportName, Long batchRecordDefinitionId,
+                              Long batchRecordVersionId) {
     }
 
     private record SourceSpec(String sourceType, String reportId, String reportName, Integer rowIndex,
@@ -644,14 +944,23 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     }
 
     private record Scope(String type, Long id, Long definitionId, Long versionId, String sourceFileSha256,
-                         String routeKey) {
+                         String routeKey, FormTemplateVersionDO templateVersion) {
 
         static Scope routeVersion(Long definitionId, Long versionId) {
-            return new Scope(SCOPE_TYPE_ROUTE_VERSION, versionId, definitionId, versionId, null, null);
+            return new Scope(SCOPE_TYPE_ROUTE_VERSION, versionId, definitionId, versionId, null, null, null);
         }
 
         static Scope reportSet(Long scopeId, String sourceFileSha256, String routeKey) {
-            return new Scope(SCOPE_TYPE_REPORT_SET, scopeId, null, null, sourceFileSha256, routeKey);
+            return new Scope(SCOPE_TYPE_REPORT_SET, scopeId, null, null, sourceFileSha256, routeKey, null);
+        }
+
+        static Scope formTemplateVersion(Long templateVersionId) {
+            return new Scope(SCOPE_TYPE_FORM_TEMPLATE_VERSION, templateVersionId, null, null, null, null, null);
+        }
+
+        static Scope formTemplateVersion(FormTemplateVersionDO templateVersion) {
+            return new Scope(SCOPE_TYPE_FORM_TEMPLATE_VERSION, templateVersion.getId(),
+                    null, null, null, null, templateVersion);
         }
     }
 }

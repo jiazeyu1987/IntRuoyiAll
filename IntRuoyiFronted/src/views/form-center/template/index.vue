@@ -181,6 +181,14 @@
               填写配置
             </el-button>
             <el-button
+              v-if="canUseTemplateInteractiveAction(selectedTemplate)"
+              link
+              type="primary"
+              @click="openSelectedTemplateCellLinks"
+            >
+              链接
+            </el-button>
+            <el-button
               v-hasPermi="['form:template-source:download']"
               link
               type="primary"
@@ -1052,6 +1060,20 @@ const openSelectedTemplateFill = async () => {
   const row = selectedTemplate.value
   await router.push({
     path: '/mdm/form-center/template/simulate',
+    query: {
+      templateId: row.templateId,
+      versionNo: row.versionNo,
+      returnTo: route.fullPath,
+      returnLabel: '返回表单模板'
+    }
+  })
+}
+
+const openSelectedTemplateCellLinks = async () => {
+  if (!selectedTemplate.value) return
+  const row = selectedTemplate.value
+  await router.push({
+    path: '/mes/pro/batch-record-cell-link',
     query: {
       templateId: row.templateId,
       versionNo: row.versionNo,

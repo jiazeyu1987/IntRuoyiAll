@@ -112,6 +112,7 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProWorkOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.BatchRecordCellLinkAutoPersistCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.BatchRecordCellLinkAutoPersistResult;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkAutoPersistService;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordJimuReportGateway;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordReportErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteFlowContextMatcher;
@@ -158,6 +159,7 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLO
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_PROCESS_FLOW_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_PUBLISHED_VERSION_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_CHANGE_REASON_REQUIRED;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_APPROVAL_SNAPSHOT_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ARCHIVE_NOT_CLOSED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_BATCH_EXECUTION_ARCHIVE_NOT_EXISTS;
@@ -377,6 +379,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private MesProBatchRecordExecutionService singleExecutionService;
     @Resource
     private MesProBatchRecordCellLinkAutoPersistService cellLinkAutoPersistService;
+    @Resource
+    private MesProBatchRecordCellLinkService cellLinkService;
     @Resource
     private MesProBatchRecordJimuReportGateway jimuReportGateway;
     @Resource
@@ -2109,14 +2113,16 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         FormInstanceCreateReqVO reqVO = new FormInstanceCreateReqVO();
         reqVO.setContext(buildRouteFormActionContext(batch, task));
         reqVO.setIdempotencyKey(idempotencyKey);
-        reqVO.setFormData(new LinkedHashMap<>(Map.of(
+        Map<String, Object> baseFormData = new LinkedHashMap<>(Map.of(
                 "batchExecutionId", batch.getId(),
                 "batchTaskId", task.getId(),
                 "routeProcessId", task.getRouteProcessId(),
                 "formBindingKey", task.getFormBindingKey(),
                 "formTemplateId", task.getFormTemplateId(),
                 "formTemplateVersionId", task.getFormTemplateVersionId(),
-                "formTemplateVersionNo", task.getFormTemplateVersionNo())));
+                "formTemplateVersionNo", task.getFormTemplateVersionNo()));
+        reqVO.setFormData(cellLinkService.buildFormTemplateVersionPrefillData(
+                task.getFormTemplateVersionId(), batch.getWorkOrderId(), baseFormData));
         FormInstanceRespVO instance = formCenterRuntimeService.createInstance(reqVO, currentUserId());
         if (instance == null || instance.getId() == null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
@@ -2353,7 +2359,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (task.getExecutionId() != null) {
             workTaskService.bindExecution(task.getId(), task.getExecutionId());
         }
-        return buildTaskOpenResp(batch, task, openWorkTask, permissionScopeId, cellLinkAutoPersist);
+        return buildTaskOpenResp(batch, task, openWorkTask, permissionScopeId, cellLinkAutoPersist,
+                reqVO.getAssistUserId());
     }
 
     private EdhrBatchExecutionTaskOpenRespVO openPreReleaseSubmittedOrdinaryTaskIfAllowed(
@@ -2377,7 +2384,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         execution, reqVO.getWorkTaskId());
         Long permissionScopeId = resolveTaskPermissionScopeId(task);
         requireTaskFillAbility(batch, task, editability.workTask(), permissionScopeId);
-        return buildTaskOpenResp(batch, task, editability.workTask(), permissionScopeId, null);
+        return buildTaskOpenResp(batch, task, editability.workTask(), permissionScopeId, null,
+                reqVO.getAssistUserId());
     }
 
     private EdhrBatchExecutionTaskOpenRespVO openPreCloseSubmittedDynamicRouteFormIfAllowed(
@@ -2393,7 +2401,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         MesProEdhrWorkTaskDO workTask = requirePreCloseRouteFormFillWorkTask(reqVO.getWorkTaskId(), task);
         Long permissionScopeId = resolveTaskPermissionScopeId(task);
         requireTaskFillAbility(batch, task, workTask, permissionScopeId);
-        return buildTaskOpenResp(batch, task, workTask, permissionScopeId, null);
+        return buildTaskOpenResp(batch, task, workTask, permissionScopeId, null,
+                reqVO.getAssistUserId());
     }
 
     private MesProEdhrWorkTaskDO requirePreCloseRouteFormFillWorkTask(
@@ -2419,7 +2428,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                                MesProEdhrBatchExecutionTaskDO task,
                                                                MesProEdhrWorkTaskDO openWorkTask,
                                                                Long permissionScopeId,
-                                                               BatchRecordCellLinkAutoPersistResult cellLinkAutoPersist) {
+                                                               BatchRecordCellLinkAutoPersistResult cellLinkAutoPersist,
+                                                               Long requestedAssistUserId) {
         Boolean effectiveRecordbookEnabled = recordbookGlobalSettingService.resolveEffectiveRecordbookEnabled(task.getRecordbookEnabled(), task.getRecordCategory());
         Map<String, Object> executionPageQuery = new LinkedHashMap<>();
         executionPageQuery.put("id", task.getExecutionId());
@@ -2453,11 +2463,16 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (workTaskId != null) {
             executionPageQuery.put("workTaskId", workTaskId);
         }
-        executionPageQuery.put("assistRows", resolveVisibleAssistRows(task, openWorkTask));
+        Long assistUserId = resolveAssistUserIdForOpenTask(openWorkTask, requestedAssistUserId);
+        if (assistUserId != null) {
+            executionPageQuery.put("assistUserId", assistUserId);
+        }
+        executionPageQuery.put("assistRows", resolveVisibleAssistRows(task, openWorkTask, assistUserId));
         EdhrBatchExecutionTaskOpenRespVO result = new EdhrBatchExecutionTaskOpenRespVO()
                 .setTaskId(task.getId())
                 .setExecutionId(task.getExecutionId())
                 .setWorkTaskId(workTaskId)
+                .setAssistUserId(assistUserId)
                 .setRouteProcessId(task.getRouteProcessId())
                 .setBatchRecordReportId(task.getBatchRecordReportId())
                 .setBatchRecordDefinitionId(task.getBatchRecordDefinitionId())
@@ -2496,13 +2511,26 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         return result;
     }
 
+    private Long resolveAssistUserIdForOpenTask(MesProEdhrWorkTaskDO openWorkTask, Long requestedAssistUserId) {
+        if (requestedAssistUserId == null) {
+            return isFillOrReworkWorkTask(openWorkTask) ? currentUserId() : null;
+        }
+        if (!isFillOrReworkWorkTask(openWorkTask)
+                || !MesProEdhrWorkTaskAuthorization.containsCandidate(
+                openWorkTask.getCandidateUserSnapshot(), requestedAssistUserId)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_NOT_VISIBLE);
+        }
+        return requestedAssistUserId;
+    }
+
     private JSONArray resolveVisibleAssistRows(MesProEdhrBatchExecutionTaskDO task,
-                                                MesProEdhrWorkTaskDO openWorkTask) {
+                                                MesProEdhrWorkTaskDO openWorkTask,
+                                                Long assistUserId) {
         if (openWorkTask == null
                 || !ENTITLEMENT_SOURCE_TYPE_FILLER.equals(StrUtil.trim(openWorkTask.getResponsibilitySourceType()))) {
             return new JSONArray();
         }
-        Set<String> visibleScopeKeys = resolveCurrentUserResponsibilityScopeKeys(openWorkTask, currentUserId());
+        Set<String> visibleScopeKeys = resolveCurrentUserResponsibilityScopeKeys(openWorkTask, assistUserId);
         MesProBatchRecordExecutionDO execution = task.getExecutionId() == null
                 ? null : executionMapper.selectById(task.getExecutionId());
         if (execution == null || StrUtil.isBlank(execution.getExecutionSnapshotJson())) {
@@ -2669,7 +2697,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setBatchExecutionId(batch.getId())
                 .setProcessId(task.getProcessId())
                 .setRouteProcessId(task.getRouteProcessId())
-                .setTaskId(null)
+                .setTaskId(task.getId())
                 .setWorkstationId(null)
                 .setBatchRecordReportId(task.getBatchRecordReportId())
                 .setInstanceScope(resolveInstanceScope(task.getInstanceScope()))
@@ -2842,6 +2870,9 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                     .setExecutionCreated(true)
                     .setFormViewModel(review.getFormViewModel());
         }
+        if (isDynamicRouteFormTask(task)) {
+            return buildDynamicRouteFormTaskPreview(batchExecutionId, task);
+        }
         if (StrUtil.isBlank(task.getBatchRecordReportId())) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_SPECIAL_NODE_INVALID);
         }
@@ -2866,6 +2897,192 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         .setMetaJson(JSON.toJSONString(Map.of("tableTitle", tableTitle)))
                         .setCellValuesJson("[]")
                         .setSignatureCellMarkers(extractSignatureCellMarkers(reportJson)));
+    }
+
+    private EdhrBatchExecutionTaskPreviewRespVO buildDynamicRouteFormTaskPreview(
+            Long batchExecutionId,
+            MesProEdhrBatchExecutionTaskDO task) {
+        FormTemplateVersionDO templateVersion = requireDynamicRouteFormPreviewTemplate(task);
+        String sheetLayoutJson = buildDynamicRouteFormPreviewSheetLayout(templateVersion);
+        return new EdhrBatchExecutionTaskPreviewRespVO()
+                .setBatchExecutionId(batchExecutionId)
+                .setTaskId(task.getId())
+                .setTaskStatus(task.getStatus())
+                .setExecutionCreated(false)
+                .setFormViewModel(new EdhrBatchExecutionReviewTimelineRespVO.FormViewModel()
+                        .setSheetLayoutJson(sheetLayoutJson)
+                        .setMetaJson(buildDynamicRouteFormPreviewMetaJson(task, templateVersion))
+                        .setExecutionSnapshotJson(JSON.toJSONString(Map.of("fields", List.of())))
+                        .setCellValuesJson("[]")
+                        .setRemark(templateVersion.getRemark())
+                        .setSignatureCellMarkers(extractSignatureCellMarkers(sheetLayoutJson)));
+    }
+
+    private FormTemplateVersionDO requireDynamicRouteFormPreviewTemplate(MesProEdhrBatchExecutionTaskDO task) {
+        if (task == null
+                || task.getFormTemplateId() == null
+                || task.getFormTemplateVersionId() == null
+                || StrUtil.isBlank(task.getFormTemplateVersionNo())
+                || StrUtil.isBlank(task.getFormBindingKey())
+                || task.getFormCenterInstanceId() == null) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+        }
+        FormTemplateVersionDO templateVersion = formTemplateVersionMapper.selectById(task.getFormTemplateVersionId());
+        if (templateVersion == null
+                || !Objects.equals(TenantContextHolder.getRequiredTenantId(), templateVersion.getTenantId())
+                || !Objects.equals(task.getFormTemplateId(), templateVersion.getTemplateId())
+                || !"PUBLISHED".equals(StrUtil.trim(templateVersion.getStatus()))
+                || !Objects.equals(StrUtil.trim(task.getFormTemplateVersionNo()),
+                StrUtil.trim(templateVersion.getVersionNo()))) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_PUBLISHED_VERSION_NOT_EXISTS,
+                    task.getFormTemplateId());
+        }
+        return templateVersion;
+    }
+
+    private String buildDynamicRouteFormPreviewSheetLayout(FormTemplateVersionDO templateVersion) {
+        if (templateVersion == null || StrUtil.isBlank(templateVersion.getJimuSchemaJson())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_SNAPSHOT_INVALID);
+        }
+        try {
+            JSONObject schema = JSON.parseObject(templateVersion.getJimuSchemaJson());
+            if (schema == null || StrUtil.isBlank(schema.getString("sheetLayoutJson"))) {
+                throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_SNAPSHOT_INVALID);
+            }
+            JSONArray rules = schema.getJSONArray("cellRules");
+            JSONArray markers = schema.getJSONArray("signatureCellMarkers");
+            return mergeDynamicRouteFormRulesIntoSheetLayout(
+                    schema.getString("sheetLayoutJson"),
+                    rules == null ? new JSONArray() : rules,
+                    markers == null ? new JSONArray() : markers);
+        } catch (ServiceException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_SNAPSHOT_INVALID);
+        }
+    }
+
+    private String mergeDynamicRouteFormRulesIntoSheetLayout(String sheetLayoutJson, JSONArray rules, JSONArray markers) {
+        JSONObject layout = JSON.parseObject(sheetLayoutJson);
+        JSONObject rows = layout == null ? null : layout.getJSONObject("rows");
+        if (rows == null || rows.isEmpty()) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_SNAPSHOT_INVALID);
+        }
+        for (String rowKey : rows.keySet()) {
+            JSONObject row = rows.getJSONObject(rowKey);
+            JSONObject cells = row == null ? null : row.getJSONObject("cells");
+            if (cells == null) {
+                continue;
+            }
+            for (String columnKey : cells.keySet()) {
+                JSONObject cell = cells.getJSONObject(columnKey);
+                if (cell == null) {
+                    continue;
+                }
+                cell.remove("fillForm");
+                cell.remove("edhrCellRule");
+                cell.remove("edhrSignature");
+            }
+        }
+        Map<String, JSONObject> markerMap = collectDynamicRouteFormMarkerMap(markers);
+        for (Object rawRule : rules) {
+            JSONObject rule = toDynamicRouteFormJsonObject(rawRule);
+            String key = dynamicRouteFormCellKey(rule);
+            JSONObject cell = ensureDynamicRouteFormLayoutCell(rows, key);
+            JSONObject mergedCell = new JSONObject();
+            mergedCell.putAll(cell);
+            mergedCell.put("fillForm", cloneDynamicRouteFormJsonObject(rule));
+            mergedCell.put("edhrCellRule", cloneDynamicRouteFormJsonObject(rule));
+            JSONObject marker = markerMap.get(key);
+            if (marker != null) {
+                mergedCell.put("edhrSignature", cloneDynamicRouteFormJsonObject(marker));
+            }
+            putDynamicRouteFormLayoutCell(rows, key, mergedCell);
+        }
+        for (JSONObject marker : markerMap.values()) {
+            String key = dynamicRouteFormCellKey(marker);
+            JSONObject cell = ensureDynamicRouteFormLayoutCell(rows, key);
+            JSONObject mergedCell = new JSONObject();
+            mergedCell.putAll(cell);
+            mergedCell.put("edhrSignature", cloneDynamicRouteFormJsonObject(marker));
+            putDynamicRouteFormLayoutCell(rows, key, mergedCell);
+        }
+        return JSON.toJSONString(layout);
+    }
+
+    private Map<String, JSONObject> collectDynamicRouteFormMarkerMap(JSONArray markers) {
+        Map<String, JSONObject> markerMap = new LinkedHashMap<>();
+        for (Object rawMarker : markers) {
+            JSONObject marker = toDynamicRouteFormJsonObject(rawMarker);
+            markerMap.put(dynamicRouteFormCellKey(marker), marker);
+        }
+        return markerMap;
+    }
+
+    private JSONObject toDynamicRouteFormJsonObject(Object rawValue) {
+        if (rawValue instanceof JSONObject object) {
+            return object;
+        }
+        if (rawValue == null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_SNAPSHOT_INVALID);
+        }
+        JSONObject object = JSON.parseObject(JSON.toJSONString(rawValue));
+        if (object == null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_SNAPSHOT_INVALID);
+        }
+        return object;
+    }
+
+    private JSONObject cloneDynamicRouteFormJsonObject(JSONObject source) {
+        return JSON.parseObject(JSON.toJSONString(source));
+    }
+
+    private String dynamicRouteFormCellKey(JSONObject value) {
+        Integer rowIndex = value == null ? null : value.getInteger("rowIndex");
+        Integer columnIndex = value == null ? null : value.getInteger("columnIndex");
+        if (rowIndex == null || columnIndex == null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_SNAPSHOT_INVALID);
+        }
+        return rowIndex + ":" + columnIndex;
+    }
+
+    private JSONObject ensureDynamicRouteFormLayoutCell(JSONObject rows, String cellKey) {
+        String[] indexes = cellKey.split(":");
+        JSONObject row = rows.getJSONObject(indexes[0]);
+        if (row == null) {
+            row = new JSONObject();
+            row.put("height", 36);
+            row.put("cells", new JSONObject());
+            rows.put(indexes[0], row);
+        }
+        JSONObject cells = row.getJSONObject("cells");
+        if (cells == null) {
+            cells = new JSONObject();
+            row.put("cells", cells);
+        }
+        JSONObject cell = cells.getJSONObject(indexes[1]);
+        return cell == null ? new JSONObject() : cell;
+    }
+
+    private void putDynamicRouteFormLayoutCell(JSONObject rows, String cellKey, JSONObject cell) {
+        String[] indexes = cellKey.split(":");
+        JSONObject row = rows.getJSONObject(indexes[0]);
+        JSONObject cells = row.getJSONObject("cells");
+        cells.put(indexes[1], cell);
+    }
+
+    private String buildDynamicRouteFormPreviewMetaJson(
+            MesProEdhrBatchExecutionTaskDO task,
+            FormTemplateVersionDO templateVersion) {
+        Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("tableTitle", StrUtil.blankToDefault(templateVersion.getTemplateName(), task.getBatchRecordReportName()));
+        meta.put("templateId", templateVersion.getTemplateId());
+        meta.put("templateName", templateVersion.getTemplateName());
+        meta.put("templateVersionId", templateVersion.getId());
+        meta.put("templateVersionNo", templateVersion.getVersionNo());
+        meta.put("formBindingKey", task.getFormBindingKey());
+        meta.put("formCenterInstanceId", task.getFormCenterInstanceId());
+        return JSON.toJSONString(meta);
     }
 
     @Override

@@ -391,7 +391,9 @@ async function loadWorkbenchContext() {
       routeId: parseNumber(route.query.routeId),
       definitionId: parseNumber(route.query.definitionId),
       versionId: parseNumber(route.query.versionId),
-      sourceReportId: String(route.query.sourceReportId || '')
+      sourceReportId: String(route.query.sourceReportId || ''),
+      templateId: parseNumber(route.query.templateId),
+      versionNo: String(route.query.versionNo || '')
     })
     context.value = data
     forms.value = data.forms || []
@@ -603,6 +605,13 @@ const persistRules = async (nextRules: BatchRecordCellLinkRuleVO[], successMessa
 }
 
 const goBack = async () => {
+  const returnTo = String(route.query.returnTo || '')
+  const returnLabel = String(route.query.returnLabel || '')
+  void returnLabel
+  if (returnTo) {
+    await router.push(returnTo)
+    return
+  }
   await router.push({ path: '/mes/pro/batch-record-form-list' })
 }
 
