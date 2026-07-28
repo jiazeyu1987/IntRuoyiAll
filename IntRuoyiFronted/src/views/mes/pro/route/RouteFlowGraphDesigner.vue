@@ -2702,12 +2702,14 @@ const getRouteNodeAdditionalFormCount = (node: RouteFlowNodeVO) => {
 const isRouteNodeFormSlotConfigured = (node: RouteFlowNodeVO) =>
   getRouteNodeAdditionalFormCount(node) > 0
 
-const isRouteNodeBatchRecordConfigured = (node: RouteFlowNodeVO) =>
-  getRouteNodeLegacyBatchRecords(node).some(
-    (report) =>
-      resolveRecordBindingSlotType(report.formSlotType, report.batchRecordReportId) === 'MAIN' &&
-      isLegacyBatchRecordConfigured(report)
-  )
+const isMainBatchRecordForm = (report: RouteFlowLegacyBatchRecord) =>
+  resolveRecordBindingSlotType(report.formSlotType, report.batchRecordReportId) === 'MAIN'
+
+const getRouteNodeBatchRecordForms = (node: RouteFlowNodeVO) =>
+  getRouteNodeLegacyBatchRecords(node).filter(isMainBatchRecordForm)
+
+const isRouteNodeBatchRecordFormConfigured = (node: RouteFlowNodeVO) =>
+  getRouteNodeBatchRecordForms(node).some(isLegacyBatchRecordConfigured)
 
 const isRouteNodeWorkstationBound = (node: RouteFlowNodeVO) => {
   const routeProcess = candidateAwareRouteProcessRows.value.find(
@@ -2723,7 +2725,7 @@ const getRouteNodeBindingStatus = (node: RouteFlowNodeVO): RouteNodeBindingStatu
     return getRouteNodeAdditionalFormCount(node) > 0 ? 'bound' : 'none'
   }
   if (fieldKey === 'batchRecordFormNames') {
-    return isRouteNodeBatchRecordConfigured(node) ? 'bound' : 'missing'
+    return isRouteNodeBatchRecordFormConfigured(node) ? 'bound' : 'missing'
   }
   if (fieldKey === 'productionQuantityFactor') {
     return isRouteNodeProductionQuantityFactorOverridden(node) ? 'bound' : 'missing'
@@ -3503,16 +3505,14 @@ const copyRecordBindingForSelectedProcess = (
   }
 }
 
-const getLegacyBatchRecordsBySlotType = (formSlotType: ProRouteFlowFormSlotType) =>
-  selectedLegacyBatchRecords.value.filter(
-    (report) => resolveRecordBindingSlotType(report.formSlotType, report.batchRecordReportId) === formSlotType
-  )
+const getSelectedBatchRecordForms = () =>
+  selectedLegacyBatchRecords.value.filter(isMainBatchRecordForm)
 
 const buildRecordBindingValue = (binding: RouteFlowRecordBinding) =>
   getFormBindingDisplayName(binding)
 
 const buildBatchRecordFormValue = () => {
-  const reports = getLegacyBatchRecordsBySlotType('MAIN').filter(
+  const reports = getSelectedBatchRecordForms().filter(
     isLegacyBatchRecordConfigured
   )
   const displayNames = reports.map(getLegacyBatchRecordDisplayName)
@@ -3520,7 +3520,7 @@ const buildBatchRecordFormValue = () => {
 }
 
 const buildBatchRecordFormLinks = (): ProcessDetailLinkItem[] =>
-  getLegacyBatchRecordsBySlotType('MAIN')
+  getSelectedBatchRecordForms()
     .filter(isLegacyBatchRecordConfigured)
     .map((report, index) => ({
       key: `batch-record-report-${report.batchRecordReportId || index}`,

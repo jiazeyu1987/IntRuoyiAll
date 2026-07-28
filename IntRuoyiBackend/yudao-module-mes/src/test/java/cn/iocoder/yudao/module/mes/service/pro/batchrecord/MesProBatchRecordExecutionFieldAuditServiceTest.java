@@ -61,8 +61,8 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRec
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_SIGNATURE_CELL_VALUE_FORBIDDEN;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_VALUE_CONSTRAINT_VIOLATION;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_VALUE_TYPE_UNSUPPORTED;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID;
-import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RECORDBOOK_GLOBAL_DISABLED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_STATUS_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -73,7 +73,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -1146,12 +1145,9 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
         command.getChanges().get(0)
                 .setNewValueJson(new BigDecimal("50"))
                 .setNewValueDisplay("50");
-        doThrow(new ServiceException(PRO_EDHR_RECORDBOOK_GLOBAL_DISABLED))
-                .when(recordbookGlobalSettingService)
-                .requireRecordbookWriteAllowed(Boolean.FALSE, "BATCH_RECORD");
-
         assertServiceException(() -> fieldAuditService.saveChanges(command),
-                PRO_EDHR_RECORDBOOK_GLOBAL_DISABLED);
+                PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
+        verifyNoInteractions(recordbookGlobalSettingService);
         verify(signatureService, never()).recordFieldChangeSignature(any());
     }
 

@@ -15,9 +15,14 @@
 - First commit: PASS, `9af3ef9a docs: record current code push task`。
 - Post-first-commit rescan: PASS, branch ahead 1 and no unstaged residual diff.
 - `task-closeout-cleanup` preview: PASS, keep task records, delete none, blocked none, warnings none.
-- User resume confirmation: PASS, user replied `继续` after the dirty-worktree boundary report.
+- User scope confirmation: PASS, user replied `确认` to include later non-task current changes.
 - Backend minimal regression: PASS, `mvn -pl yudao-module-mes -am "-Dtest=Sheet1RouteExcelParserTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` ran 4 tests with 0 failures and 0 errors.
 - Branch runtime port guard: PASS, `scripts\preflight\branch-runtime-port-guard.ps1` passed for `int_main/int_main` ports `8081/48081`.
+- Sensitive scan: PASS, no raw credential material found in newly included files.
+- Current workspace baseline commit: PASS, `6f2a9fb9 chore: baseline current workspace changes`.
+- Origin alignment after baseline: PASS, `HEAD == origin/int_main == 6f2a9fb9fad235d651cbcdc976e5f15f3c23281d`.
+- Cleanup apply: PASS, keep task records, delete none, blocked none, warnings none.
+- Task status: completed after cleanup apply.
 
 ## Blocker
 
@@ -28,10 +33,9 @@
 - `D IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/route/importer/Sheet1RouteExcelTestFixtures.java`
 - `?? doc/tasks/20260728-restart-local-runtime/execution-log.md`
 - `?? doc/tasks/20260728-restart-local-runtime/task.md`
+- Resolved: user confirmed these changes are in scope for current-code commit/push.
 
-## Pending Closeout Verification
+## Final Closeout Verification
 
-- GitHub 100 MB blob scan before push。
-- Final closeout commit。
-- `git push origin int_main`。
-- Final `git status --short --branch` no longer ahead.
+- Cleanup apply passed.
+- Final closeout commit, explicit push, and final branch status are recorded in the Git command output for this task.

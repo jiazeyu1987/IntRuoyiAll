@@ -10,8 +10,8 @@
 - [x] 读取提交、推送、PowerShell 编排和收尾门禁。
 - [x] 检查当前分支、远端和工作区状态。
 - [x] 完成提交前验证并提交本次任务记录。
-- [ ] 推送当前分支到 `origin` 并确认不再 ahead。
-- [ ] 运行 closeout cleanup preview/apply，记录最终验证并标记完成。
+- [x] 推送当前分支到 `origin` 并确认不再 ahead。
+- [x] 运行 closeout cleanup preview/apply，记录最终验证并标记完成。
 
 ## Expected Verification
 
@@ -25,7 +25,7 @@
 
 ## Current Status
 
-blocked
+completed
 
 ## 设计约束检查
 
