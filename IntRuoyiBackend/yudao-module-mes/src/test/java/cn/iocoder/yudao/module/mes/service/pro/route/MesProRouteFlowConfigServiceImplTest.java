@@ -30,11 +30,13 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionGateService;
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import com.alibaba.fastjson.JSON;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -1692,6 +1694,62 @@ class MesProRouteFlowConfigServiceImplTest {
     }
 
     @Test
+    void saveRouteFlowConfig_shouldRoundTripDraftBatchRecordReportsWithoutConvertingToFormBindings() {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
+        MesProRouteVersionDO routeVersion = draftRouteVersion(1002L);
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeVersionMapper.selectById(1002L)).thenReturn(routeVersion);
+        doReturn(List.of(MesProProcessDO.builder().id(1000L).code("P1000").name("粗洗工序").build()))
+                .when(processMapper).selectBatchIds(anyCollection());
+
+        MesProRouteFlowConfigSaveReqVO reqVO = new MesProRouteFlowConfigSaveReqVO();
+        reqVO.setRouteId(10L);
+        reqVO.setRouteVersionId(1002L);
+        reqVO.setUseType(MesProRouteFlowConfigTypeEnum.BATCH.getType());
+        reqVO.setProcessConfigs(List.of(new MesProRouteFlowProcessConfigSaveReqVO()
+                .setRouteProcessId(100L)
+                .setEnabled(Boolean.TRUE)
+                .setBatchRecordReports(List.of(mainBatchRecord("REPORT-CLEAN", 1)))
+                .setFormBindings(List.of())));
+
+        service.saveRouteFlowConfig(reqVO);
+
+        ArgumentCaptor<Object> snapshotCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(routeCandidateConfigService).saveConfigSnapshot(
+                eq(1002L), eq("batchUseConfigs"), snapshotCaptor.capture());
+        @SuppressWarnings("unchecked")
+        List<MesProRouteFlowProcessConfigSaveReqVO> savedSnapshot =
+                (List<MesProRouteFlowProcessConfigSaveReqVO>) snapshotCaptor.getValue();
+        assertEquals(1, savedSnapshot.get(0).getBatchRecordReports().size());
+        assertEquals("REPORT-CLEAN",
+                savedSnapshot.get(0).getBatchRecordReports().get(0).getBatchRecordReportId());
+        assertTrue(savedSnapshot.get(0).getFormBindings().isEmpty());
+
+        routeVersion.setRouteSnapshotJson("""
+                {
+                  "routeId": 10,
+                  "configSnapshots": {
+                    "flowGraph": {
+                      "nodes": [
+                        {"routeProcessId": 100, "processId": 1000, "sort": 1, "keyFlag": true, "checkFlag": false}
+                      ]
+                    },
+                    "batchUseConfigs": %s
+                  }
+                }
+                """.formatted(JSON.toJSONString(savedSnapshot)));
+
+        List<MesProRouteFlowProcessConfigRespVO> result =
+                service.getRouteFlowProcessConfigList(
+                        10L, MesProRouteFlowConfigTypeEnum.BATCH.getType(), 1002L);
+
+        assertEquals(1, result.size());
+        assertEquals(1, result.get(0).getBatchRecordReports().size());
+        assertEquals("REPORT-CLEAN", result.get(0).getBatchRecordReports().get(0).getBatchRecordReportId());
+        assertTrue(result.get(0).getFormBindings().isEmpty());
+    }
+
+    @Test
     void saveRouteFlowConfig_shouldMergeDraftCandidateBatchUseSnapshotByRouteProcessId() {
         MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
         MesProRouteProcessDO firstProcess = MesProRouteProcessDO.builder()
@@ -1811,8 +1869,6 @@ class MesProRouteFlowConfigServiceImplTest {
         MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
         when(routeMapper.selectById(10L)).thenReturn(route);
         when(routeVersionMapper.selectById(1002L)).thenReturn(draftRouteVersion(1002L));
-        when(batchRecordReportMapper.selectListByReportIds(Set.of("REPORT-CLEAN")))
-                .thenReturn(List.of(report("REPORT-CLEAN")));
 
         MesProRouteFlowConfigSaveReqVO reqVO = new MesProRouteFlowConfigSaveReqVO();
         reqVO.setRouteId(10L);

@@ -61,8 +61,8 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRec
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_SIGNATURE_CELL_VALUE_FORBIDDEN;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_VALUE_CONSTRAINT_VIOLATION;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_VALUE_TYPE_UNSUPPORTED;
-import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RECORDBOOK_GLOBAL_DISABLED;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_STATUS_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -73,6 +73,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -595,6 +596,123 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void saveChanges_rejectsProcessFormResponsibilityOutOfScopeColumnBeforeSignature() {
+        String beforeJson = JsonUtils.toJsonString(List.of(
+                Map.of("rowIndex", 1, "columnIndex", 2, "value", "36.6"),
+                Map.of("rowIndex", 1, "columnIndex", 4, "value", "7.2")
+        ));
+        MesProBatchRecordExecutionDO execution = insertDraftExecution(beforeJson);
+        executionMapper.updateById(new MesProBatchRecordExecutionDO()
+                .setId(execution.getId())
+                .setMetaJson(JsonUtils.toJsonString(Map.of("sourceTableIndex", 0)))
+                .setExecutionSnapshotJson(JsonUtils.toJsonString(Map.of(
+                        "fields", List.of(
+                                Map.of("fieldPath", FIELD_PATH, "fieldKey", "temperature", "label", "Temperature",
+                                        "rowIndex", 1, "columnIndex", 2, "component", "input-number"),
+                                Map.of("fieldPath", "sheet[0].rows[1].cells[4].ph", "fieldKey", "ph",
+                                        "label", "pH", "rowIndex", 1, "columnIndex", 4,
+                                        "component", "input-number")
+                        )
+                ))));
+        insertSharedBatchExecutionTask(execution, JsonUtils.toJsonString(Map.of("ranges", List.of(Map.of(
+                "sourceTableIndex", 0,
+                "startRow", 1,
+                "endRow", 1
+        )))));
+        String beforeHash = MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(beforeJson);
+        mockFieldChangeSignature();
+        MesProBatchRecordExecutionFieldAuditSaveChangesCommand command =
+                saveCommand(execution, beforeHash, "idem-process-form-column-scope",
+                        new BigDecimal("7.2"), MesProBatchRecordExecutionFieldAuditHasher.hashTypedValue(
+                                MesProBatchRecordExecutionFieldAuditValueType.NUMBER, new BigDecimal("7.2")));
+        command.getChanges().get(0)
+                .setFieldPath("sheet[0].rows[1].cells[4].ph")
+                .setFieldKey("ph")
+                .setColumnIndex(4)
+                .setNewValueJson(new BigDecimal("7.4"))
+                .setNewValueDisplay("7.4");
+        workTaskMapper.updateById(new MesProEdhrWorkTaskDO()
+                .setId(command.getWorkTaskId())
+                .setResponsibilitySourceType("EDHR_PROCESS_FORM_FILLER")
+                .setResponsibilityScopeJson(JsonUtils.toJsonString(Map.of(
+                        "schemaVersion", 2,
+                        "sourceType", "EDHR_PROCESS_FORM_FILLER",
+                        "sourceKey", "ROUTE_PROCESS:4001:SHARED-QC",
+                        "sourceVersion", "6002",
+                        "scopes", List.of(Map.of(
+                                "scopeKey", "AR_TEMPERATURE",
+                                "resolvedUserIds", List.of(99L),
+                                "fillableScope", Map.of("cells", List.of(Map.of(
+                                        "sourceTableIndex", 0,
+                                        "rowIndex", 1,
+                                        "columnIndex", 2
+                                )))
+                        ))
+                ))));
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> fieldAuditService.saveChanges(command));
+        assertEquals(PRO_BATCH_RECORD_EXECUTION_WRITE_TASK_INVALID.getCode(), exception.getCode());
+
+        MesProBatchRecordExecutionDO unchanged = executionMapper.selectById(execution.getId());
+        assertEquals(beforeJson, unchanged.getCellValuesJson());
+        assertEquals(beforeHash, unchanged.getCellValuesHash());
+        assertTrue(batchMapper.selectListByExecutionId(execution.getId()).isEmpty());
+        assertTrue(itemMapper.selectListByExecutionId(execution.getId()).isEmpty());
+        verify(signatureService, never()).recordFieldChangeSignature(any());
+        verify(signatureService, never()).attachFieldChangeSignature(any());
+    }
+
+    @Test
+    void saveChanges_allowsProcessFormResponsibilityInScopeCellAndWritesAudit() {
+        String beforeJson = JsonUtils.toJsonString(List.of(Map.of(
+                "rowIndex", 1,
+                "columnIndex", 2,
+                "value", "36.6"
+        )));
+        MesProBatchRecordExecutionDO execution = insertDraftExecution(beforeJson);
+        executionMapper.updateById(new MesProBatchRecordExecutionDO()
+                .setId(execution.getId())
+                .setMetaJson(JsonUtils.toJsonString(Map.of("sourceTableIndex", 0))));
+        insertSharedBatchExecutionTask(execution, JsonUtils.toJsonString(Map.of("ranges", List.of(Map.of(
+                "sourceTableIndex", 0,
+                "startRow", 1,
+                "endRow", 1
+        )))));
+        String beforeHash = MesProBatchRecordExecutionFieldAuditHasher.hashCellValues(beforeJson);
+        mockFieldChangeSignature();
+        MesProBatchRecordExecutionFieldAuditSaveChangesCommand command =
+                saveCommand(execution, beforeHash, "idem-process-form-column-scope-allow",
+                        new BigDecimal("36.6"), MesProBatchRecordExecutionFieldAuditHasher.hashTypedValue(
+                                MesProBatchRecordExecutionFieldAuditValueType.NUMBER, new BigDecimal("36.6")));
+        workTaskMapper.updateById(new MesProEdhrWorkTaskDO()
+                .setId(command.getWorkTaskId())
+                .setResponsibilitySourceType("EDHR_PROCESS_FORM_FILLER")
+                .setResponsibilityScopeJson(JsonUtils.toJsonString(Map.of(
+                        "schemaVersion", 2,
+                        "sourceType", "EDHR_PROCESS_FORM_FILLER",
+                        "sourceKey", "ROUTE_PROCESS:4001:SHARED-QC",
+                        "sourceVersion", "6002",
+                        "scopes", List.of(Map.of(
+                                "scopeKey", "AR_TEMPERATURE",
+                                "resolvedUserIds", List.of(99L),
+                                "fillableScope", Map.of("cells", List.of(Map.of(
+                                        "sourceTableIndex", 0,
+                                        "rowIndex", 1,
+                                        "columnIndex", 2
+                                )))
+                        ))
+                ))));
+
+        MesProBatchRecordExecutionFieldAuditSaveResult result = fieldAuditService.saveChanges(command);
+
+        assertNotNull(result.getAuditBatchId());
+        assertEquals(1, result.getChangedFieldCount());
+        assertEquals(1, itemMapper.selectListByBatchId(result.getAuditBatchId()).size());
+        verify(signatureService).attachFieldChangeSignature(any());
+    }
+
+    @Test
     void saveChanges_goldenFingerBypassesAssigneeAndSharedScopeAndRecordsAudit() {
         String beforeJson = JsonUtils.toJsonString(List.of(Map.of(
                 "rowIndex", 1,
@@ -1028,9 +1146,12 @@ class MesProBatchRecordExecutionFieldAuditServiceTest extends BaseDbUnitTest {
         command.getChanges().get(0)
                 .setNewValueJson(new BigDecimal("50"))
                 .setNewValueDisplay("50");
+        doThrow(new ServiceException(PRO_EDHR_RECORDBOOK_GLOBAL_DISABLED))
+                .when(recordbookGlobalSettingService)
+                .requireRecordbookWriteAllowed(Boolean.FALSE, "BATCH_RECORD");
 
         assertServiceException(() -> fieldAuditService.saveChanges(command),
-                PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
+                PRO_EDHR_RECORDBOOK_GLOBAL_DISABLED);
         verify(signatureService, never()).recordFieldChangeSignature(any());
     }
 

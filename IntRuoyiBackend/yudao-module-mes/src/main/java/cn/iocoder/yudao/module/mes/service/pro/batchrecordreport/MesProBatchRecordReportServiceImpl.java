@@ -1388,6 +1388,12 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
             cell.put(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY,
                     MesProBatchRecordCellRuleSupport.toRuleJson(rule));
         }
+        try {
+            MesProBatchRecordCellRuleSupport.applyAssistRows(root, reqVO.getAssistRows());
+        } catch (IllegalArgumentException ex) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_CELL_RULE_INVALID,
+                    ex.getMessage());
+        }
         jimuReportGateway.updateReportJson(reqVO.getReportId(), root.toJSONString());
         return toCellRulesRespVO(reqVO.getReportId(), root);
     }
@@ -2850,7 +2856,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .setSheetLayoutJson(layout.toJSONString())
                 .setRules(MesProBatchRecordCellRuleSupport.extractReviewedRules(root))
                 .setSuggestions(MesProBatchRecordCellRuleSupport.buildSuggestions(root))
-                .setUnreviewedFillableCellCount(MesProBatchRecordCellRuleSupport.countUnreviewedFillableCells(root));
+                .setUnreviewedFillableCellCount(MesProBatchRecordCellRuleSupport.countUnreviewedFillableCells(root))
+                .setAssistRows(MesProBatchRecordCellRuleSupport.extractAssistRows(root));
     }
 
     private void ensureNoLegacyFormProfileLayoutOnRead(MesProBatchRecordReportDO metadata, JSONObject root) {

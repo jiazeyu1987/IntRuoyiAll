@@ -315,3 +315,69 @@ CHECK: T4 白名单执行 `git diff --check` -> PASS，仅有既有 LF/CRLF 转�
 - Git 证据：该仓库资源自基线提交 `c67686a5` 即存在；本轮未复制、转换、合成或重命名 Word 文件。
 - 结论：Word fixture 已具备可追溯来源和项目内稳定位置，可由 T7 将遗留绝对路径测试切换到该固定资源并执行真实回归。
 - 剩余 T0 blocker：Excel 仅发现两个字节一致的候选副本，尚未获得用户对权威性的明确确认，因此不得复制、改名或接入测试资源。
+
+## T5：GREEN 与完整 MES 阻塞证据（2026-07-28）
+
+- `task_id`: T5
+- `acceptance_ids`: AC-10、AC-13、AC-17
+
+### 实施结果
+
+- `MesProBatchRecordReportLayoutCalibrator` 对工序生产操作/自检记录的尾部操作列应用正式最小宽度约束，覆盖 `生产数量/pcs`、`自检合格数量/pcs`、`不合格数量/pcs`、`操作人`、`复核人`，并保持粗洗等高密度表格尾列布局不回退。
+- 批记录 Word 相关测试已改为项目内固定 `fixtures/pressure-pump-record.doc`；该 Word 资源已有 SHA-256 与用户明确指定样本一致的权威性证据。
+- 路线 Word 导入在升级已有路线时保持激活态 `route_process` / edge 不被候选重建污染，导入结果进入 DRAFT candidate snapshot。
+- 责任证据导出测试已按正式 fail-fast 语义校准：`BLOCKED` 证据包导出使用 `PRO_BATCH_RECORD_EXECUTION_FIELD_AUDIT_EXPORT_FAILED` 拒绝。
+- `TmpPrintBatchRecordTableTest#printTable` 由易受 Word-COM 识别器挂起影响的 RouteD 路径切换为正式 `MesProBatchRecordDocParser` 解析路径。
+
+### 验证证据
+
+GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordReportLayoutCalibratorTest#calibrate_shouldKeepProductionBatchSummaryBehindRoughWashSideColumn,TmpPrintBatchRecordTableTest" test` -> PASS，2026-07-28 01:11:02 +08:00 完成；5 tests、0 failures、0 errors、0 skipped，`BUILD SUCCESS`。
+
+GREEN: T5 批记录解析/布局/路线生成组合此前已通过：`mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordReportJsonBuilderTest,MesProBatchRecordReportLayoutCalibratorTest,MesProBatchRecordReportShapeRulesTest,MesProBatchRecordRouteCandidateGovernanceTest,MesProBatchRecordRouteGenerationCodeRuleTest" test` -> PASS；152 tests、0 failures、0 errors、6 skipped。
+
+GREEN: Word 真实样本相邻套件此前已通过：`mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordRouteARecognizerTest,MesProBatchRecordRouteFRecognizerTest,FullWordTableInventoryProbeTest,MesProBatchRecordJingxiTableStructureVerificationTest,TmpPrintBatchRecordTableTest" test` -> PASS；51 tests、0 failures、0 errors。
+
+GREEN: 机械工艺 Excel 解析相邻套件此前已通过：`mvn -pl yudao-module-mes "-Dtest=Sheet1MachineryProcessExcelParserTest" test` -> PASS。
+
+GREEN: 责任证据与路线升级高风险相邻用例此前已通过：`mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordExecutionFieldResponsibilityServiceTest#export_failsFastWhenEvidencePackageIsBlocked,MesProBatchRecordReportServiceImplDbTest#recognizeUploadedRoute_whenUpgradingRoute_keepsStableProcessConnectionInfoOnActiveRoute" test` -> PASS。
+
+CHECK: `git diff --check -- yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecordreport yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecordreport yudao-module-mes/src/test/resources/fixtures yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/dv/machinery/Sheet1MachineryProcessExcelParserTest.java yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionFieldResponsibilityServiceTest.java yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecordreport/MesProBatchRecordReportServiceImplDbTest.java` -> PASS，2026-07-28 01:15 +08:00；仅有 Git 既有 LF/CRLF 转换提示，无 whitespace error。
+
+### 完整模块回归
+
+RED: `mvn -pl yudao-module-mes test` -> FAIL，2026-07-28 01:15:20 +08:00 完成；2511 tests、0 failures、4 errors、18 skipped。四个 error 均为同一缺失前置：`java.nio.file.NoSuchFileException: D:\ocr2\resource\球囊扩张导管工序(1).xlsx`。
+
+- `Sheet1RouteExcelParserTest.parseFixture_returnsTwoRoutesWithFirstAppearanceDeduplicatedSteps`
+- `Sheet1RouteExcelImportServiceImplTest.importFixture_createsTwoDisabledRoutesAndDeduplicatedRouteProcesses`
+- `Sheet1RouteExcelImportServiceImplTest.importFixture_invalidProcessStatusFailsBeforeInsert`
+- `Sheet1RouteExcelImportServiceImplDbTest.importWhenRouteProcessInsertFails_rollsBackCreatedRoutesAndProcesses`
+
+BLOCKER: `rg --files -g "*球囊扩张导管工序*"` 在 `E:\IntRuoyi` 工作区未发现项目内正式 Excel 夹具；此前仅识别到桌面候选副本，SHA-256 为 `A7ACF4ADE2E09A00B68D80701B1FB86BC79B6F3CCDA55504B7C838AB85240354`，但尚无用户对权威来源的明确确认。按 no-fallback 规则，不得复制、改名、合成或跳过该 fixture。
+
+### 当前状态
+
+- T5 非 Excel 权威夹具阻塞范围已 GREEN。
+- T7/T9 和最终完整 MES 放行继续 blocked，直到用户确认权威 Excel 原件或将正式 Excel 夹具放入项目内稳定资源路径后重新执行完整回归。
+
+## T7：Sheet1 Excel 夹具路径治理预处理（2026-07-28）
+
+- `task_id`: T7
+- `acceptance_ids`: AC-01、AC-03、AC-13、AC-17
+
+BDD: Sheet1 Excel 真实夹具使用项目内稳定路径 -> Given Sheet1 路线解析和导入测试依赖真实 Excel 原件，When 运行解析、导入和 DB 回滚测试，Then 测试必须从项目内 `src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx` 读取权威资源；若资源缺失则 fail-fast 暴露缺失前置，不得读取 `D:\ocr2`、桌面候选副本、合成 workbook、跳过测试或默认成功。
+
+### 实施结果
+
+- 新增 `Sheet1RouteExcelTestFixtures`，统一读取 `fixtures/sheet1-route-balloon-catheter.xlsx`。
+- `Sheet1RouteExcelParserTest`、`Sheet1RouteExcelImportServiceImplTest`、`Sheet1RouteExcelImportServiceImplDbTest` 已移除 `D:\ocr2\resource\球囊扩张导管工序(1).xlsx` 个人盘符硬编码。
+- 当前未复制桌面候选 Excel，未新增合成 fixture，未跳过测试。
+
+### 验证证据
+
+RED: `mvn -pl yudao-module-mes "-Dtest=Sheet1RouteExcelParserTest,Sheet1RouteExcelImportServiceImplTest,Sheet1RouteExcelImportServiceImplDbTest" test` -> FAIL，2026-07-28 01:23:39 +08:00 完成；8 tests、0 failures、4 errors、0 skipped。测试编译通过，四个 error 均为 `java.nio.file.NoSuchFileException: src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx`，证明剩余阻塞是项目内权威 Excel 资源缺失。
+
+候选文件复核：`C:\Users\BJB110\Desktop\球囊扩张导管工序(1)(2).xlsx` 与 `C:\Users\BJB110\Desktop\文档\球囊扩张导管工序(1)(2).xlsx` 均为 17251 字节，SHA-256 均为 `A7ACF4ADE2E09A00B68D80701B1FB86BC79B6F3CCDA55504B7C838AB85240354`。该候选仍未获得用户明确权威性确认，因此不得接入项目资源。
+
+BLOCKER: T7 继续 blocked。解除条件为用户明确确认上述候选文件是权威原件，或提供其他权威 Excel 原件；随后才能把正式资源加入 `IntRuoyiBackend/yudao-module-mes/src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx` 并继续执行 Sheet1 套件与完整 MES 回归。
+
+FULL REGRESSION: `mvn -pl yudao-module-mes test` -> FAIL，2026-07-28 01:30:40 +08:00 完成；2511 tests、0 failures、4 errors、18 skipped。四个 error 均为 `java.nio.file.NoSuchFileException: src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx`，分别发生在 `Sheet1RouteExcelParserTest.parseFixture_returnsTwoRoutesWithFirstAppearanceDeduplicatedSteps`、`Sheet1RouteExcelImportServiceImplTest.importFixture_createsTwoDisabledRoutesAndDeduplicatedRouteProcesses`、`Sheet1RouteExcelImportServiceImplTest.importFixture_invalidProcessStatusFailsBeforeInsert`、`Sheet1RouteExcelImportServiceImplDbTest.importWhenRouteProcessInsertFails_rollsBackCreatedRoutesAndProcesses`。当前完整 MES 回归已无其他 failure/error。

@@ -22,14 +22,14 @@
 
 ## 静态合同与真实 E2E 同步门禁
 
-### Worktree 隔离运行态 URL 门禁
+### Worktree / int_main 运行态 URL 门禁
 
-- Trigger: 主工作区默认端口被并行任务占用、旧 jar 未加载当前接口、或真实 E2E 需要使用已登记 worktree slot 端口运行。
-- Preflight check: 同时显式传入前端和后端 URL，且端口必须来自同一 runtime slot；脚本要校验本机地址、显式端口和前后端端口配对关系，不能只覆盖前端或只覆盖后端。
-- Blocker: 只传一个 URL、前后端端口不属于同一 slot、未确认端口监听命令行归属目标 worktree、或后端业务接口返回配置缺失/404 时必须停止并记录真实原因，不得静默切回 8081/48081 或 API-only。
-- Verification: 记录 base URL、backend URL、端口登记项、前端 HTTP 200、后端 health UP、关键目标接口业务响应、真实页面断言，以及任务结束后的端口释放结果。
-- Forbidden action: 禁止强停并行 48081、随机换端口、只看 health 就宣称目标 Controller 已加载、或用未配对的 frontend/backend URL 造成前端访问旧后端。
-- Evidence: `doc/tasks/20260726-edhr-release-dossier-requirement-switches/execution-log.md`，48081 旧 jar 返回新增接口 404 后，使用 slot 5 的 8086/48086 成对 URL 完成真实 E2E。
+- Trigger: 主工作区默认端口被并行任务占用、旧 jar 未加载当前接口、真实 E2E 需要使用已登记 worktree slot 端口运行，或 worktree 融合后需要在 `E:\IntRuoyi` 的 `int_main` 主端口复验。
+- Preflight check: 同时显式传入前端和后端 URL；附加 worktree 必须来自同一 runtime slot，融合后主运行态只允许 `8081/48081` 且端口命令行归属 `E:\IntRuoyi`。脚本应只允许这两种合法模式：`int_main 8081/48081` 或成对 `int_main slot 1..19`。
+- Blocker: 只传一个 URL、端口既不是 `8081/48081` 又不属于同一 slot、未确认端口监听命令行归属目标 worktree/主工作区、或后端业务接口返回配置缺失/404 时必须停止并记录真实原因，不得静默切换端口或 API-only。
+- Verification: 记录 base URL、backend URL、端口归属、前端 HTTP 200、后端 health UP、关键目标接口业务响应、真实页面断言，以及任务结束后的任务自有数据清理结果。
+- Forbidden action: 禁止强停并行 48081、随机换端口、只看 health 就宣称目标 Controller 已加载、用未配对的 frontend/backend URL 造成前端访问旧后端，或让融合后 E2E 脚本拒绝合法 `int_main 8081/48081` 主运行态。
+- Evidence: `doc/tasks/20260726-edhr-release-dossier-requirement-switches/execution-log.md`，48081 旧 jar 返回新增接口 404 后，使用 slot 5 的 8086/48086 成对 URL 完成真实 E2E；`doc/tasks/20260727-edhr-visual-fill-config-implementation/execution-log.md`，融合后先在 slot 2 通过，再修正脚本允许 `int_main 8081/48081` 并完成主端口真实 E2E。
 
 ### Windows 换行与脚本行为同步
 
@@ -109,6 +109,38 @@
 - Verification: 证据需包含成对 frontend/backend URL、作废列表页行级点击、`approval-resolution` 与 `request` HTTP 200、审批中心行级“审核”点击、`tasks/review` payload 锁定同一 `processInstanceId`、批次状态 `VOIDED`、变更事件 `EFFECTIVE`、活动工作任务取消、负责人工作台 `my-page/stats` 排除、旧任务链接 fail-fast、artifact JSON 路径。
 - Forbidden action: 禁止把 `approval-resolution` 当作提交后才发生的请求；禁止硬编码固定审批人；禁止用接口直审、SQL 改状态、API-only 或前端隐藏替代真实审批中心路径。
 - Evidence: `doc/tasks/20260727-edhr-batch-void-work-task-closure/verification-report.md`。
+
+## eDHR 跨系统路线产品夹具门禁
+
+- Trigger: 真实 E2E 需要从批记录 Word 导入路线、绑定 DCC 项目代码/MES 物料、创建金蝶生产订单、同步 MES 工单并生成员工待办。
+- Preflight check: 脚本必须把任务批记录夹具名、目标表单名和路线产品名分开配置；写入前先校验 DCC 项目名与项目代码、MES 物料编码/名称、`batchFlag`、路线产品绑定、金蝶物料编码和计量单位是否一致。
+- Blocker: 任一环节缺失或不一致时必须在导入/创建工单前 fail fast，记录缺失的正式前置；不得先创建冲突 DCC 项目代码、不得用另一产品名冒充任务夹具、不得调用 MES 手工工单接口绕过金蝶同步。
+- Verification: 证据应记录本地未跟踪配置路径、租户/账号标签、路线产品名、项目代码、MES item、路线 ID、金蝶生产订单创建结果、MES 工单同步结果和员工待办打开结果；密码/token 必须脱敏。
+- Forbidden action: 禁止把任务批记录名直接当路线产品名、禁止用 API-only/样本接口/直接 SQL 造待办、禁止把金蝶物料不存在或 MES 物料未启用批次绑定解释为页面 E2E 失败。
+
+## eDHR 任务专用路线副本 E2E 门禁
+
+- Trigger: 真实 E2E 需要验证目标批记录表单生成员工待办，但共享工艺路线当前激活版本未绑定目标 `batchRecordReports`。
+- Preflight check: 先通过认证只读接口确认目标工单可用来源路线、来源 ACTIVE 版本 `configSnapshots.batchRecordAttachmentOwners` 为数组、目标工序、目标报表 ID/编码和当前绑定状态；若需要写入，只能在用户授权范围内通过真实页面复制任务专用路线、创建候选版本、逐工序绑定正式批记录报表、提交发布并启用副本。
+- Blocker: 缺少来源路线、来源 ACTIVE 附件负责人快照、目标工序、目标报表唯一编码、候选版本草稿、电子签名发布能力或任务专用路线清理能力时必须停止；不得修改共享路线、选择任意第一条路线、把表单槽位 `formBindings` 当批记录报表绑定，或用 API-only 造路线/批次。
+- Verification: E2E 必须按精确任务路线编码创建批次，创建前只读确认任务路线 ACTIVE/候选发布快照仍保留 `batchRecordAttachmentOwners` 数组，创建后只读确认目标 `batchRecordReportId` 的批次任务真实存在；finally 必须恢复报表配置、作废任务批次并删除任务路线副本。
+- Forbidden action: 禁止在共享路线缺正式批记录绑定或复制路线缺附件负责人快照时继续创建批次后再解释员工无待办；禁止用当前登录人、旧路线绑定、动态表单槽位或默认附件负责人推导批记录任务。
+
+## eDHR 同名批记录报表精确选择门禁
+
+- Trigger: 路线候选版本或其它 Element Plus 下拉需要选择批记录报表，且正式报表目录可能存在同名报表。
+- Preflight check: 下拉选项必须展示足以区分的报表编码或唯一业务键；Playwright 选择时必须按目标编码/ID 定位选项，保存后再按读回 ID 核验。
+- Blocker: 如果页面只展示报表名称、脚本只能命中第一条同名选项、保存后读回 ID 与目标不一致，必须停止并修复展示/选择合同。
+- Verification: 静态合同覆盖编码展示与脚本精确选择；真实 E2E 记录目标 `reportCode`、读回 `batchRecordReportId` 和目标 ID 一致。
+- Forbidden action: 禁止按下拉数组下标、名称首个匹配、隐藏 value 猜测或 API-only 选中替代真实页面选择。
+
+## eDHR 任务批次清理幂等门禁
+
+- Trigger: 写入型 E2E 的 finally/cleanup-only 需要清理任务自有批次，而批次列表页面会排除已作废、关闭、归档等终态批次。
+- Preflight check: cleanup 先通过真实批次列表页面定位非终态任务自有批次并执行作废；如果列表未命中，只允许用只读详情确认目标批次已处于终态。
+- Blocker: 列表未命中且只读详情不是终态、目标批次不属于当前任务标识、或清理需要 SQL/API 写操作时必须停止。
+- Verification: cleanup 证据记录批次 ID/编码、列表定位结果、作废动作或 `already-voided` 只读确认，以及最终终态。
+- Forbidden action: 禁止把列表排除终态误判为权限缺失后绕过页面清理；禁止对未作废批次用 API-only 或 SQL 执行作废。
 
 
 ## eDHR 历史执行只读验证门禁
@@ -196,11 +228,11 @@
 ### Codex Runner 自动测试门禁
 
 - Trigger: 新增、修改、运行或验收 `系统管理 > 测试管理`、Codex Runner、自然语言测试方法、检查点截图或由 Codex 调用 Playwright 的自动测试流程。
-- Preflight check: 真实执行前必须确认本机前端/后端入口、目标测试租户、测试管理员账号、Runner token、Codex CLI、Playwright 浏览器、Runner 本地凭据映射和测试数据清理责任；后端必须用当前 token 完成注册探针，Runner loop 必须在执行中和空闲轮询中持续 heartbeat；本机后端重启、换 jar 或切换运行态后必须重新确认 `yudao.codex-test.runner.token` 已注入当前后端进程，不能只检查当前 shell 环境变量或旧 Runner token 文件；不得把 `codex-test-runner.mjs --loop` 进程存在当作在线证明，必须核对后端 Runner 状态或数据库 `last_heartbeat_time` 未过期。测试管理执行入口若支持按需 Runner，前端不得因旧 Runner 离线/过期直接阻断执行，必须由后端受控启动脚本完成启动、注册、能力校验和失败原因返回。Windows timeout/cancel 必须有独立的 child 收敛超时，不能把 `close` 事件必然触发作为前提。
-- Blocker: 任一 Runner 或租户前置条件缺失、Runner token 与后端运行态不一致、Runner 进程存在但注册失败或 heartbeat 超过后端超时阈值、测试项会写入生产/非任务租户、失败检查点没有差异描述、截图路径不在受控临时目录、并行执行包含 `parallelSafe=false` 项、执行中 heartbeat 超过后端超时阈值、Windows `codex.cmd` 后代进程在超时/取消后仍持有 `codex-test-result-*` 输出文件、或进程树已消失但当前 Runner 会话仍持续上报 `currentRunningCount > 0` 时必须停止。
-- Verification: 记录 Runner 注册/领取/执行期心跳/空闲心跳/回写命令、页面执行入口、租户/用户标签、检查点结果、失败截图 artifact、最终 UI 状态和必要的只读 API 核验；空闲场景至少等待一个 heartbeat 周期后复查 heartbeat age 仍小于超时阈值；Windows Runner 必须证明 timeout/cancel 后不存在本任务 `codex-test-result-*` 子进程，执行项不遗留 `CLAIMED/RUNNING`，并证明即使 child 未触发 `close`，有界等待结束后当前会话运行计数也回到 `0`。
-- Forbidden action: 禁止把 API-only、静态合同测试、mock 截图、默认成功、Runner 离线跳过、前端硬拦截 `没有在线 Codex Runner`、裸调用 `codex` CLI、只杀 `cmd.exe` 而不处理 `node/codex.exe` 后代进程、无限等待 child `close`、或顺序执行降级当作真实 E2E 通过。
-- Evidence: `doc/tasks/20260724-codex-test-management-delivery/verification-report.md`，2026-07-24 Codex 测试管理交付；`doc/tasks/20260725-codex-runner-void-test/verification-report.md`，2026-07-26 Runner 心跳、Windows 子进程树、取消处理修复；`doc/tasks/20260726-codex-runner-on-demand-wrapper/verification-report.md`，2026-07-26 按需 Runner 包装层。
+- Preflight check: 真实执行前必须确认本机前端/后端入口、目标测试租户、测试管理员账号、Runner token、Codex CLI、Playwright 浏览器、Runner 本地凭据映射和测试数据清理责任；后端必须用当前 token 完成注册探针，Runner loop 必须在执行中和空闲轮询中持续 heartbeat；本机后端重启、换 jar 或切换运行态后必须重新确认 `yudao.codex-test.runner.token` 已注入当前后端进程，不能只检查当前 shell 环境变量或旧 Runner token 文件；不得把 `codex-test-runner.mjs --loop` 进程存在当作在线证明，必须核对后端 Runner 状态或数据库 `last_heartbeat_time` 未过期。测试管理执行入口若支持按需 Runner，前端不得因旧 Runner 离线/过期直接阻断执行，必须由后端受控启动脚本完成启动、注册、能力校验和失败原因返回。Windows timeout/cancel 必须有独立的 child 收敛超时，不能把 `close` 事件必然触发作为前提。只读测试项必须默认使用短预算、中等推理、`--ignore-rules` 和最短 Playwright 路径 prompt，避免全局高推理配置或编码任务规则把页面冒烟核验拖到超时。
+- Blocker: 任一 Runner 或租户前置条件缺失、Runner token 与后端运行态不一致、Runner 进程存在但注册失败或 heartbeat 超过后端超时阈值、测试项会写入生产/非任务租户、失败检查点没有差异描述、截图路径不在受控临时目录、并行执行包含 `parallelSafe=false` 项、执行中 heartbeat 超过后端超时阈值、Windows `codex.cmd` 后代进程在超时/取消后仍持有 `codex-test-result-*` 输出文件、进程树已消失但当前 Runner 会话仍持续上报 `currentRunningCount > 0`、只读项仍按长运行写入型预算或继承项目编码规则执行时必须停止。
+- Verification: 记录 Runner 注册/领取/执行期心跳/空闲心跳/回写命令、页面执行入口、租户/用户标签、检查点结果、失败截图 artifact、最终 UI 状态和必要的只读 API 核验；空闲场景至少等待一个 heartbeat 周期后复查 heartbeat age 仍小于超时阈值；Windows Runner 必须证明 timeout/cancel 后不存在本任务 `codex-test-result-*` 子进程，执行项不遗留 `CLAIMED/RUNNING`，并证明即使 child 未触发 `close`，有界等待结束后当前会话运行计数也回到 `0`；只读项还必须证明在只读预算内返回 JSON，且页面无写请求、无控制台错误。
+- Forbidden action: 禁止把 API-only、静态合同测试、mock 截图、默认成功、Runner 离线跳过、前端硬拦截 `没有在线 Codex Runner`、裸调用 `codex` CLI、只杀 `cmd.exe` 而不处理 `node/codex.exe` 后代进程、无限等待 child `close`、把只读项放任为仓库级编码任务探索、或顺序执行降级当作真实 E2E 通过。
+- Evidence: `doc/tasks/20260724-codex-test-management-delivery/verification-report.md`，2026-07-24 Codex 测试管理交付；`doc/tasks/20260725-codex-runner-void-test/verification-report.md`，2026-07-26 Runner 心跳、Windows 子进程树、取消处理修复；`doc/tasks/20260726-codex-runner-on-demand-wrapper/verification-report.md`，2026-07-26 按需 Runner 包装层；`doc/tasks/20260727-codex-runner-token-invalid/verification-report.md`，2026-07-28 只读 Runner 快速路径与真实测试管理自检 PASS。
 
 ### Codex Runner 目标测试项存在性门禁
 

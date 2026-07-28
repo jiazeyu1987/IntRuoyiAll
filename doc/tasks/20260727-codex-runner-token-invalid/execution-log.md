@@ -147,3 +147,25 @@ BDD: 测试管理真实 E2E 执行进入终态 -> Given 本机前后端、测试
 - Runtime cleanup: PASS；确认 PID `65964` 空闲、运行计数 `0` 且仅有 `conhost.exe` 后停止该任务自有旧 Runner；并发隔离 Runner 会话 `41` 和批次 `18` 未停止、取消或修改。
 - Evidence: `output/playwright/20260727-codex-runner-token-e2e/real-run-case-35/batch-17-failed.png`。
 - Secret cleanup: PASS；原始 Playwright 登录快照和带鉴权网络 trace 已删除，仅保留不含凭据的失败结果截图。
+
+## Milestone 10 Runtime And Readonly Runner Fix
+
+- Status: verification_complete.
+- Runtime blocker: 复验 `node doc/tasks/20260727-codex-runner-token-invalid/login-hang-probe.cjs` 在旧后端 PID `55984` 上仍超时；线程栈已定位登录链路阻塞在 Logback Console/stdout 写入。
+- Runtime fix: 确认 PID `55984` 属于 `E:\IntRuoyi` 的 `48081` 不可变 Jar 后，停止旧进程并用同一 `output/runtime/int_main/backend-runtime-control-20260727-214426.jar` 启动新后端 PID `29284`，stdout/stderr 重定向到稳定运行目录，不从脏源码重建。
+- Runtime GREEN: health `UP`；`node doc/tasks/20260727-codex-runner-token-invalid/login-hang-probe.cjs` 不再超时；按真实 Runner payload 注册探针返回业务码 `0`，探针会话 `52`。
+- BDD: 只读测试管理自检必须快速完成 -> Given 测试项只查看测试管理页面；When Runner 领取该只读测试项；Then Codex 必须在只读预算内返回 JSON 结果，不得因项目规则探索占满 600 秒或遗留 Runner 运行计数。
+- RED: `node tests/e2e/codex-test-runner-readonly-timeout-static.spec.js` -> FAIL，新增合同要求缺失 `CODEX_READONLY_REASONING_EFFORT`、只读 `--ignore-rules` 执行参数和最短 Playwright 路径 prompt。
+- GREEN: `node tests/e2e/codex-test-runner-readonly-timeout-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/codex-test-runner-http-client-static.spec.js` -> PASS。
+- GREEN: `node --check scripts/codex-test-runner.mjs` -> PASS。
+- REGRESSION: `node tests/e2e/codex-test-runner-child-settlement-static.spec.js`、`node tests/e2e/system-codex-test-management-static.spec.js`、`node tests/e2e/system-codex-test-run-monitor-static.spec.js` -> PASS。
+- Real E2E setup: 临时只读自检脚本通过真实登录进入 `系统管理 > 测试管理`，用页面“新增测试项”创建任务自有测试项，仅验证标题、测试项页签和 Runner 状态；失败/成功后均通过页面删除测试项。
+- Real E2E RED cleanup: 批次 `21` 因临时自检数据包含“删除测试项”被判为写入/未知并未进入只读预算，后通过正式取消接口置为 `CANCELED`；活动执行项归零，后续自检数据已改为只读描述。
+- Real E2E GREEN: `node doc/tasks/20260727-codex-runner-token-invalid/real-run-readonly-after-fix.e2e.cjs` -> PASS，真实页面创建执行批次 `24`，Runner 会话 `56` 领取并完成，执行项 `45=PASS`，检查点“测试管理只读区域可见=PASS”。
+- Runner settlement: 执行终态后会话 `56` 的 `current_running_count=0`、heartbeat age `18s`，活动执行项数量 `0`，无 `codex-test-result-45-*` 临时文件，无任务自有 Runner/Codex 子进程残留。
+- Page cleanup: 自检测试项 `44` 通过页面删除，`system_codex_test_case.deleted=1`；页面控制台错误数 `0`。
+- Evidence: `output/playwright/20260727-codex-runner-token-e2e/readonly-after-fix/summary.json` 与 `output/playwright/20260727-codex-runner-token-e2e/readonly-after-fix/final.png`。
+- EXPERIENCE: `project-experience-consolidation` -> 将只读 Runner 使用中等推理、`--ignore-rules` 和最短 Playwright 路径的门禁合并到 `docs/e2e-rules.md#Codex Runner 自动测试门禁`，并在 `docs/experience-index.md` 增加 `只读 Runner 超时`、`CODEX_TEST_CODEX_READONLY_REASONING_EFFORT`、`CODEX_TEST_CODEX_READONLY_IGNORE_RULES`、`xhigh 只读冒烟超时` 等路由关键词；未新建长期经验文档。
+- CLEANUP PREVIEW/APPLY: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260727-codex-runner-token-invalid --mode preview/apply` -> PASS；delete 为空，blocked/warnings 为空，保留登录阻塞线程栈、只读真实 E2E 脚本、PASS summary 和截图。
+- Closeout blocker: `git status --short --branch --untracked-files=all` 仍存在非本任务并发脏改动，不能安全提交/推送或标记 `completed`。

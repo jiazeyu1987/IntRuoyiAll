@@ -99,7 +99,7 @@
 - Keywords: 子表集合替换, 软删除唯一键, 逻辑删除占用唯一键, deleteByCaseId, system_codex_test_checkpoint, updateCase_allowsRepeatedCheckpointReplacement -> `docs/backend-development.md#2026-07-25-子表集合替换软删除唯一键门禁`
 - Keywords: 测试项固定名称, 同名测试项重复创建删除, system_codex_test_case tenant_id name deleted, DuplicateKeyException, deleteCase_allowsRepeatedCreateAndDeleteWithSameName -> `docs/backend-development.md#2026-07-27-测试项固定名称删除唯一键门禁`
 - Keywords: Windows CRLF 静态合同, static.spec.js 目标 worktree 自身失败, 真实 E2E 脚本与页面行为同步, 废弃弹窗流程, 字段审计保存直连 API -> `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁`
-- Keywords: worktree E2E 成对 URL, EDHR_RELEASE_DOSSIER_E2E_BASE_URL, EDHR_RELEASE_DOSSIER_E2E_BACKEND_URL, 同一 runtime slot, 48081 旧 jar, 8086 48086 -> `docs/e2e-rules.md#worktree-隔离运行态-url-门禁`
+- Keywords: worktree E2E 成对 URL, int_main 主端口 E2E, 8081 48081, EDHR_RELEASE_DOSSIER_E2E_BASE_URL, EDHR_RELEASE_DOSSIER_E2E_BACKEND_URL, 同一 runtime slot, 48081 旧 jar, 8086 48086 -> `docs/e2e-rules.md#worktree--int_main-运行态-url-门禁`
 - Keywords: worktree 前端 vite 缺失, Command "vite" not found, node_modules .bin vite, pnpm install --frozen-lockfile, 不复制 node_modules -> `docs/worktree-memory.md#worktree-前端依赖启动门禁`
 - Keywords: worktree 端口段, slot 1..19, slot >= 20, reserve-worktree-slot, 原子槽位, 重复活动槽位, 基准端口碰撞, int_main 误判 int_main_d -> `docs/worktree-memory.md#worktree-端口段与原子槽位门禁`
 - Keywords: 多 worktree 融合, 批量 merge worktree, dirty worktree 独立提交, merge-base --is-ancestor, 聚焦组合回归, 宽回归失败归因, 合并后删除 worktree -> `docs/worktree-memory.md#多-worktree-批量融合门禁`
@@ -196,10 +196,13 @@
 - Keywords: edhr-batch-execution-real-flow.e2e.js, int-ruoyi-mysql, 数据库夹具, LOCAL_DATABASE_FIXTURE, 芋道源码/admin, 真实 E2E 前置条件缺失, 覆盖历史 E2E 证据 -> `docs/e2e-rules.md#edhr-批次执行数据库夹具与证据文件门禁`
 - Keywords: edhr-work-task-process-advance-real.e2e.js, FormCenter 动态表单夹具, batch_record_report_id 为空, form_binding_key, form_center_instance_id, 生产工单不存在, 当前工艺路线工序未配置默认批记录报表, eDHR 批次工序任务被阻塞, EDHR-ADV, 工作台处理按钮目标行 -> `docs/e2e-rules.md#edhr-工作任务-formcenter-动态表单夹具门禁`
 - Keywords: eDHR 批次作废 BPM_REQUIRED, void-batch-execution approval-resolution, 作废弹窗审批策略, act_ru_task ASSIGNEE_, 审批中心 tasks/review, 作废后工作台待办闭环 -> `docs/e2e-rules.md#edhr-作废-bpm-审批真实-e2e-门禁`
+- Keywords: eDHR 任务专用路线副本, CODX-VFC, sourceRouteCode, preferredRouteCode, 共享路线不修改, 候选版本逐工序绑定正式批记录报表, batchRecordReports, batchRecordAttachmentOwners, 复制路线附件负责人快照, 目标报表路线绑定缺失, 员工无待办 -> `docs/e2e-rules.md#edhr-任务专用路线副本-e2e-门禁`
+- Keywords: eDHR 同名批记录报表, reportCode, 批记录报表下拉, 按编码精确选择, batchRecordReportId 读回核验, 名称首个匹配禁止 -> `docs/e2e-rules.md#edhr-同名批记录报表精确选择门禁`
+- Keywords: eDHR 任务批次清理幂等, cleanup-only, already-voided, VOIDED 批次列表排除, 批次页面作废, 只读详情确认终态, API-only 作废禁止 -> `docs/e2e-rules.md#edhr-任务批次清理幂等门禁`
 - Keywords: 全局开关 E2E, 共享配置恢复, 系统级配置开关, Playwright finally restore, 恢复后复验, global switch cleanup -> `docs/e2e-rules.md#全局开关类-e2e-恢复门禁`
 - Keywords: Element Plus el-select, Playwright 下拉选择, 租户下拉, 工单下拉, 工艺路线编码, ACTIVE route snapshot, draft independence E2E, el-popover, Popover 内下拉, teleported=false, click-outside, 复制弹层选择后误关闭 -> `docs/e2e-rules.md#element-plus-下拉选择门禁`
 - Keywords: Element Plus el-select 多选标签, Element Plus el-input-number, 数字步进控件, el-select__tags-text, 选择框显示全, 目标项名称显示全, 填写人显示全, 三列弹窗表单, grid-template-columns, codex-test-checkpoint, collapse-tags-tooltip -> `docs/e2e-rules.md#element-plus-选择框显示门禁`
-- Keywords: Codex Runner, 系统管理 测试管理, 自然语言测试方法, 检查点截图, runner token, Codex Runner token 无效或未配置, CODEX_TEST_RUNNER_TOKEN, parallelSafe, Codex 调用 Playwright, 没有在线 Codex Runner, 按需 Runner, Runner 包装层, 裸调用 codex, codex-test-result, taskkill.exe, Windows codex.cmd 子进程, child close 不触发, currentRunningCount 不归零, heartbeat 过期 -> `docs/e2e-rules.md#codex-runner-自动测试门禁`
+- Keywords: Codex Runner, 系统管理 测试管理, 自然语言测试方法, 检查点截图, runner token, Codex Runner token 无效或未配置, CODEX_TEST_RUNNER_TOKEN, parallelSafe, Codex 调用 Playwright, 没有在线 Codex Runner, 按需 Runner, Runner 包装层, 裸调用 codex, codex-test-result, taskkill.exe, Windows codex.cmd 子进程, child close 不触发, currentRunningCount 不归零, heartbeat 过期, 只读 Runner 超时, CODEX_TEST_CODEX_READONLY_REASONING_EFFORT, CODEX_TEST_CODEX_READONLY_IGNORE_RULES, --ignore-rules, model_reasoning_effort, xhigh 只读冒烟超时 -> `docs/e2e-rules.md#codex-runner-自动测试门禁`
 - Keywords: Codex Runner 目标测试项, 作废测试不存在, system_codex_test_case, 测试管理页面搜索总数 0, Runner 空领取不得当成功 -> `docs/e2e-rules.md#codex-runner-目标测试项存在性门禁`
 - Keywords: 测试管理串行节点串, 节点串名称, 串内序号, node_chain_name, node_chain_sort, 节点串必须从第 1 节点开始连续选择, 前置失败后续 BLOCKED, 非节点串顺序执行不阻断 -> `docs/e2e-rules.md#测试管理串行节点串门禁`
 - Keywords: 测试管理测试节点闭环, 自然语言测试方法, 业务可读目标, 固定样本, 前置复位, 清理恢复, 重复执行, 批记录节点 -> `docs/e2e-rules.md#测试管理测试节点闭环门禁`

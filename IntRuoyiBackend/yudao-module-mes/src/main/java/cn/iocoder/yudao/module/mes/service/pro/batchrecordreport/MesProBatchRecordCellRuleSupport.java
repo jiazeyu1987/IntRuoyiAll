@@ -1,7 +1,9 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecordreport;
 
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportAssistRowVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRuleVO;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 
 import java.util.ArrayList;
@@ -23,6 +25,7 @@ public final class MesProBatchRecordCellRuleSupport {
     public static final String SIGNATURE_KEY = "edhrSignature";
     public static final String FILL_FORM_KEY = "fillForm";
     public static final String MANUAL_FILL_CELL_KEY = "edhrManualFillCell";
+    public static final String ASSIST_ROWS_KEY = "edhrAssistRows";
 
     private static final Set<String> SUPPORTED_VALUE_TYPES = Set.of(
             "STRING", "NUMBER", "DATE", "DATETIME", "BOOLEAN", "SIGNATURE");
@@ -537,6 +540,148 @@ public final class MesProBatchRecordCellRuleSupport {
         if (rule.getConfidence() != null && (rule.getConfidence() < 0 || rule.getConfidence() > 1)) {
             throw new IllegalArgumentException("confidence must be between 0 and 1");
         }
+    }
+
+    public static List<BatchRecordReportAssistRowVO> extractAssistRows(JSONObject root) {
+        JSONArray rows = root == null ? null : root.getJSONArray(ASSIST_ROWS_KEY);
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        List<BatchRecordReportAssistRowVO> result = new ArrayList<>();
+        for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+            JSONObject row = rows.getJSONObject(rowIndex);
+            if (row == null) {
+                throw new IllegalArgumentException("assist row must be object");
+            }
+            JSONArray fields = row.getJSONArray("fields");
+            List<BatchRecordReportAssistRowVO.FieldVO> fieldVOs = new ArrayList<>();
+            if (fields != null) {
+                for (int fieldIndex = 0; fieldIndex < fields.size(); fieldIndex++) {
+                    JSONObject field = fields.getJSONObject(fieldIndex);
+                    if (field == null) {
+                        throw new IllegalArgumentException("assist row field must be object");
+                    }
+                    fieldVOs.add(new BatchRecordReportAssistRowVO.FieldVO()
+                            .setRowIndex(field.getInteger("rowIndex"))
+                            .setColumnIndex(field.getInteger("columnIndex")));
+                }
+            }
+            result.add(new BatchRecordReportAssistRowVO()
+                    .setRowKey(row.getString("rowKey"))
+                    .setDescription(row.getString("description"))
+                    .setSort(row.getInteger("sort"))
+                    .setFields(fieldVOs));
+        }
+        result.sort(Comparator.comparing((BatchRecordReportAssistRowVO row) ->
+                        row.getSort() == null ? Integer.MAX_VALUE : row.getSort())
+                .thenComparing(row -> StrUtil.blankToDefault(row.getRowKey(), "")));
+        return result;
+    }
+
+    public static void applyAssistRows(JSONObject root, List<BatchRecordReportAssistRowVO> assistRows) {
+        if (root == null) {
+            throw new IllegalArgumentException("report root must not be null");
+        }
+        if (assistRows == null) {
+            root.remove(ASSIST_ROWS_KEY);
+            return;
+        }
+        validateAssistRows(root, assistRows);
+        JSONArray rows = new JSONArray();
+        for (BatchRecordReportAssistRowVO assistRow : assistRows) {
+            JSONObject row = new JSONObject(true);
+            row.put("rowKey", StrUtil.trim(assistRow.getRowKey()));
+            row.put("description", StrUtil.trim(assistRow.getDescription()));
+            row.put("sort", assistRow.getSort());
+            JSONArray fields = new JSONArray();
+            for (BatchRecordReportAssistRowVO.FieldVO field : assistRow.getFields()) {
+                JSONObject fieldJson = new JSONObject(true);
+                fieldJson.put("rowIndex", field.getRowIndex());
+                fieldJson.put("columnIndex", field.getColumnIndex());
+                fields.add(fieldJson);
+            }
+            row.put("fields", fields);
+            rows.add(row);
+        }
+        root.put(ASSIST_ROWS_KEY, rows);
+    }
+
+    public static void validateAssistRows(JSONObject root, List<BatchRecordReportAssistRowVO> assistRows) {
+        if (root == null) {
+            throw new IllegalArgumentException("report root must not be null");
+        }
+        if (assistRows == null) {
+            return;
+        }
+        Set<String> rowKeys = new LinkedHashSet<>();
+        Set<String> assignedCoordinates = new LinkedHashSet<>();
+        Set<String> fillableCoordinates = fillableAssistCoordinates(root);
+        for (BatchRecordReportAssistRowVO assistRow : assistRows) {
+            if (assistRow == null) {
+                throw new IllegalArgumentException("assist row must not be null");
+            }
+            String rowKey = StrUtil.trim(assistRow.getRowKey());
+            if (StrUtil.isBlank(rowKey)) {
+                throw new IllegalArgumentException("assist row rowKey must not be blank");
+            }
+            if (!rowKeys.add(rowKey)) {
+                throw new IllegalArgumentException("duplicate assist row rowKey " + rowKey);
+            }
+            if (StrUtil.isBlank(StrUtil.trim(assistRow.getDescription()))) {
+                throw new IllegalArgumentException("assist row " + rowKey + " description must not be blank");
+            }
+            if (assistRow.getFields() == null || assistRow.getFields().isEmpty()) {
+                throw new IllegalArgumentException("assist row " + rowKey + " must contain at least one cell");
+            }
+            for (BatchRecordReportAssistRowVO.FieldVO field : assistRow.getFields()) {
+                validateAssistRowField(root, rowKey, field, assignedCoordinates);
+            }
+        }
+        Set<String> missingCoordinates = new LinkedHashSet<>(fillableCoordinates);
+        missingCoordinates.removeAll(assignedCoordinates);
+        if (!missingCoordinates.isEmpty()) {
+            throw new IllegalArgumentException("missing assist row coverage " + missingCoordinates);
+        }
+    }
+
+    private static void validateAssistRowField(JSONObject root, String rowKey,
+                                               BatchRecordReportAssistRowVO.FieldVO field,
+                                               Set<String> assignedCoordinates) {
+        if (field == null || field.getRowIndex() == null || field.getColumnIndex() == null
+                || field.getRowIndex() < 0 || field.getColumnIndex() < 0) {
+            throw new IllegalArgumentException("assist row " + rowKey + " cell coordinate must be non-negative");
+        }
+        String coordinate = coordinate(field.getRowIndex(), field.getColumnIndex());
+        if (!assignedCoordinates.add(coordinate)) {
+            throw new IllegalArgumentException("duplicate assist row cell " + coordinate);
+        }
+        JSONObject cell = requireCell(root, field.getRowIndex(), field.getColumnIndex());
+        if (cell == null) {
+            throw new IllegalArgumentException("missing assist row cell " + coordinate);
+        }
+        if (!isAssistRowFillableCell(cell)) {
+            throw new IllegalArgumentException("non-fillable assist row cell " + coordinate);
+        }
+    }
+
+    private static Set<String> fillableAssistCoordinates(JSONObject root) {
+        Set<String> coordinates = new LinkedHashSet<>();
+        forEachCell(root, (rowIndex, columnIndex, cell) -> {
+            if (isAssistRowFillableCell(cell)) {
+                coordinates.add(coordinate(rowIndex, columnIndex));
+            }
+        });
+        return coordinates;
+    }
+
+    private static boolean isAssistRowFillableCell(JSONObject cell) {
+        return isFillableCell(cell)
+                || hasValidSignatureMarker(cell)
+                || isReviewedRule(cell == null ? null : cell.getJSONObject(CELL_RULE_KEY));
+    }
+
+    private static String coordinate(Integer rowIndex, Integer columnIndex) {
+        return rowIndex + ":" + columnIndex;
     }
 
     public static void ensureManualFillForm(BatchRecordReportCellRuleVO rule, JSONObject cell, String reportCode) {
@@ -1199,12 +1344,16 @@ public final class MesProBatchRecordCellRuleSupport {
             throw new IllegalArgumentException("STRING option group options must be array");
         }
         int count = 0;
+        Set<String> values = new LinkedHashSet<>();
         for (Object option : options) {
             Object label = readOptionValue(option, "label");
             Object value = readOptionValue(option, "value");
             if (label == null || value == null || StrUtil.isBlank(String.valueOf(label))
                     || StrUtil.isBlank(String.valueOf(value))) {
                 throw new IllegalArgumentException("STRING option group option label/value must not be blank");
+            }
+            if (!values.add(String.valueOf(value).trim())) {
+                throw new IllegalArgumentException("STRING option group option value must be unique");
             }
             count++;
         }

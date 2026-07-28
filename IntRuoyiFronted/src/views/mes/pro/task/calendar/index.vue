@@ -899,7 +899,7 @@
 </template>
 
 <script setup lang="ts">
-import dayjs from 'dayjs'
+import dayjs, { type Dayjs } from 'dayjs'
 import { formatDateTimeValue } from '@/utils/formatTime'
 import {
   ProScheduleCalendarApi,
@@ -1069,6 +1069,7 @@ const activeSidebarTab = ref('detail')
 const capacityGenerateDays = ref(30)
 
 const monthData = ref<ProScheduleCalendarMonthRespVO>(defaultMonthData())
+const visibleMonthDays = ref<ProScheduleCalendarMonthDayVO[]>([])
 const dayDetail = ref<ProScheduleCalendarDayDetailRespVO | null>(null)
 const capacityGenerateSummary = ref<ProScheduleCalendarCapacityGenerateRespVO | null>(null)
 const autoSchedulePreview = ref<ProTaskAutoSchedulePreviewRespVO | null>(null)
@@ -1470,19 +1471,21 @@ const activeMonthStats = computed(() => {
   if (!isPreviewCalendarOverlayActive.value) {
     return formalMonthStats.value
   }
-  return [...activeCalendarDayMap.value.values()].reduce(
-    (summary, item) => {
-      summary.taskCount += item.totalTaskCount || 0
-      summary.orderCount += item.totalOrderCount || 0
-      summary.shortageCount += item.shortageCount || 0
-      return summary
-    },
-    {
-      taskCount: 0,
-      orderCount: 0,
-      shortageCount: 0
-    }
-  )
+  return [...activeCalendarDayMap.value.values()]
+    .filter((item) => dayjs(item.date).isSame(currentMonth.value, 'month'))
+    .reduce(
+      (summary, item) => {
+        summary.taskCount += item.totalTaskCount || 0
+        summary.orderCount += item.totalOrderCount || 0
+        summary.shortageCount += item.shortageCount || 0
+        return summary
+      },
+      {
+        taskCount: 0,
+        orderCount: 0,
+        shortageCount: 0
+      }
+    )
 })
 
 const selectedDayTaskRows = computed<DaySummaryTaskDetailRow[]>(() => {
@@ -1766,7 +1769,7 @@ const workOrderAnalysisProcessRows = computed<ProScheduleCalendarWorkOrderAnalys
 
 const calendarDayMap = computed(() => {
   const map = new Map<string, ProScheduleCalendarMonthDayVO>()
-  monthData.value.days.forEach((item) => {
+  visibleMonthDays.value.forEach((item) => {
     map.set(normalizeDate(item.date), {
       ...item,
       date: normalizeDate(item.date)
@@ -1891,17 +1894,24 @@ async function loadMonthCalendar() {
   monthLoading.value = true
   monthErrorMessage.value = ''
   try {
-    const data = await ProScheduleCalendarApi.getMonthCalendar({
-      month: currentMonth.value.format('YYYY-MM')
-    })
-    monthData.value = {
-      ...data,
-      simulationCurrentDate: normalizeDate(data.simulationCurrentDate),
-      days: (data.days || []).map((item) => ({
-        ...item,
-        date: normalizeDate(item.date)
+    const monthText = currentMonth.value.format('YYYY-MM')
+    const visibleMonths = resolveCalendarVisibleMonths(currentMonth.value)
+    const monthPayloads = await Promise.all(
+      visibleMonths.map(async (month) => ({
+        month,
+        data: normalizeMonthCalendarData(
+          await ProScheduleCalendarApi.getMonthCalendar({
+            month
+          })
+        )
       }))
+    )
+    const currentMonthPayload = monthPayloads.find((item) => item.month === monthText)
+    if (!currentMonthPayload) {
+      throw new Error(`排程日历当前月份数据未返回：${monthText}`)
     }
+    monthData.value = currentMonthPayload.data
+    visibleMonthDays.value = monthPayloads.flatMap((item) => item.data.days)
     if (monthData.value.simulationCurrentDate) {
       rulesForm.simulationCurrentDate = monthData.value.simulationCurrentDate
     }
@@ -1915,6 +1925,7 @@ async function loadMonthCalendar() {
     })
     monthData.value = defaultMonthData()
     monthData.value.month = currentMonth.value.format('YYYY-MM')
+    visibleMonthDays.value = []
     monthErrorMessage.value = recovery.title
     calendarRecoveryState.value = recovery
   } finally {
@@ -2677,6 +2688,30 @@ function normalizeDate(value?: string) {
   }
   const parsed = dayjs(value)
   return parsed.isValid() ? parsed.format('YYYY-MM-DD') : String(value).slice(0, 10)
+}
+
+function normalizeMonthCalendarData(
+  data: ProScheduleCalendarMonthRespVO
+): ProScheduleCalendarMonthRespVO {
+  return {
+    ...data,
+    simulationCurrentDate: normalizeDate(data.simulationCurrentDate),
+    days: (data.days || []).map((item) => ({
+      ...item,
+      date: normalizeDate(item.date)
+    }))
+  }
+}
+
+function resolveCalendarVisibleMonths(month: Dayjs) {
+  const monthStart = month.startOf('month')
+  const startOffset = (monthStart.day() + 6) % 7
+  const gridStart = monthStart.subtract(startOffset, 'day')
+  return [
+    ...new Set(
+      Array.from({ length: 42 }, (_, index) => gridStart.add(index, 'day').format('YYYY-MM'))
+    )
+  ]
 }
 
 function isWeekend(dateText: string) {

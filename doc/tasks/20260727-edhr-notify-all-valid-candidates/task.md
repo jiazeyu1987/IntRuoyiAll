@@ -28,7 +28,7 @@
 
 blocked
 
-当前处于扩大范围后的规划阶段。原通知行为、标准定向 GREEN、同类服务测试和生产代码编译已通过；完整 MES 基线为 2509 tests、58 failures、78 errors、31 skipped。已确认两个权威真实 fixture 尚未在预期路径发现，依赖它们的测试与最终全量验收保持 blocked；其余失败簇进入依赖任务图拆解。
+原通知行为、标准定向 GREEN、同类服务测试、生产代码编译、T4/T5/T6 目标失败簇修复与相邻回归均已通过。2026-07-28 01:30 +08:00 重新执行 `mvn -pl yudao-module-mes test` 后，完整 MES 回归收敛为 2511 tests、0 failures、4 errors、18 skipped；四个 error 均由缺失 Sheet1 权威 Excel 夹具导致。当前已把三处 Sheet1 测试从 `D:\ocr2` 个人盘符治理到项目资源 `IntRuoyiBackend/yudao-module-mes/src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx`，并复验三套测试编译通过但仍因该项目资源缺失而 fail-fast。桌面候选副本尚未获得用户明确权威性确认，因此 T7/T9 与最终全量验收继续 blocked，禁止复制、改名、合成 fixture 或跳过测试。
 
 共享分支状态：并发任务于 2026-07-27 18:41:23 创建并推送基线提交 `f18927b9`，其中已包含本任务 Java 实现、测试和当时的初始任务文档。完整回归后的复核确认本地 `HEAD` 与 `origin/int_main` 已对齐且都包含 `f18927b9`；共享分支仍由并发任务持续推进，本次完整回归后的任务证据更新尚未提交。
 

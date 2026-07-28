@@ -39,7 +39,22 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Milestone 10
+
+- Status: verification_complete.
+- 修复后端 health `UP` 但登录链路挂起的运行态问题：确认旧后端 PID `55984` 属于 `E:\IntRuoyi` 的 `48081` 不可变 Jar 后，停止旧进程并用同一 Jar 启动新后端 PID `29284`，stdout/stderr 重定向到 `output/runtime/int_main/backend-token-aligned-20260728-001531.*.log`。
+- 登录链路复验通过：`node doc/tasks/20260727-codex-runner-token-invalid/login-hang-probe.cjs` 不再超时；按真实 Runner payload 注册探针返回业务码 `0`，探针会话 `52`。
+- 修复只读 Runner 长时间探索：只读任务追加 `--ignore-rules` 和 `model_reasoning_effort="medium"`，并在 prompt 中要求最短浏览器路径、优先临时 Node.js Playwright 脚本、禁止建档/改文件/运行构建/无关源码探索。
+- BDD: 只读测试管理自检必须快速完成 -> Given 测试项只查看测试管理页面；When Runner 领取该只读测试项；Then Codex 必须在只读预算内返回 JSON 结果，不得因项目规则探索占满 600 秒或遗留 Runner 运行计数。
+- RED: 扩展 `node tests/e2e/codex-test-runner-readonly-timeout-static.spec.js` 后先失败，原因是 Runner 缺少 `CODEX_READONLY_REASONING_EFFORT`、只读 `--ignore-rules` 参数和最短 Playwright 路径 prompt。
+- GREEN: `node tests/e2e/codex-test-runner-readonly-timeout-static.spec.js`、`node tests/e2e/codex-test-runner-http-client-static.spec.js`、`node --check scripts/codex-test-runner.mjs` 均通过。
+- REGRESSION: `node tests/e2e/codex-test-runner-child-settlement-static.spec.js`、`node tests/e2e/system-codex-test-management-static.spec.js`、`node tests/e2e/system-codex-test-run-monitor-static.spec.js` 均通过。
+- Real E2E PASS: `node doc/tasks/20260727-codex-runner-token-invalid/real-run-readonly-after-fix.e2e.cjs` 通过真实登录和页面行级“执行”创建批次 `24`；执行项 `45=PASS`，检查点“测试管理只读区域可见=PASS”，页面控制台错误数 `0`。
+- Cleanup PASS: 自检测试项 `44` 通过页面删除；任务自有 Runner 会话 `56` 终态后 `current_running_count=0`、heartbeat age `18s`；活动执行项数量 `0`；无 `codex-test-result-45-*` 临时文件或任务自有 Runner/Codex 子进程。
+- Current runtime: 后端 PID `29284`，端口 `48081`，health `UP`；前端 PID `41928`，端口 `8081`。隔离 worktree Runner/session 未停止、未取消、未修改。
+- Closeout state: 实现与验证完成，状态进入 `ready_for_closeout`；最终 commit/push 仍被非本任务并发脏改动阻塞。
 
 ## Milestone 9
 
@@ -80,7 +95,7 @@ in_progress
 
 ## Closeout Blocker
 
-运行态 token 阻塞已解除：当前不可变 Jar 后端 PID `55984` 与主 Runner PID `65964` 使用同一受控 token，最终注册探针业务码 `0`，实际 Runner 会话 `36` 的空闲 heartbeat 持续有效。
+运行态 token 与 stdout 阻塞已解除：当前不可变 Jar 后端 PID `29284` 在 `48081` health `UP`，登录链路不再挂起；任务自有 Runner 会话 `56` 在真实执行批次 `24` 后 `current_running_count=0` 且 heartbeat 未过期。
 
 最终提交/推送仍被大量并发任务脏改动阻塞，当前无法安全建立“既有脏改动基线提交”并保证不提交未完成或敏感的其他任务内容。
 
@@ -97,6 +112,7 @@ in_progress
 - Final cleanup preview: PASS；保留 `task.md`、`execution-log.md`、`verification-report.md` 和 `bug-regression-evidence.md`，仅计划删除两份已不再占用的旧后端日志和一次性 `restart-current-backend-with-runner-token.ps1`，无 blocked 或 warnings。
 - Final cleanup apply: PASS；三项任务临时产物已删除，当前不可变 Jar 后端、主 Runner 和隔离 `8088/48088` 运行态均未停止或修改。
 - Completion state: 保持 `ready_for_closeout`；最终提交/推送仍被非本任务并发脏改动阻塞，不得标记 `completed`。
+- Final cleanup after batch `24`: preview/apply 均 PASS；delete 为空，blocked/warnings 为空；保留核心任务记录、登录阻塞线程栈、只读真实 E2E 脚本和 PASS/FAIL 截图摘要证据。
 
 ## Cleanup Keep
 
@@ -105,3 +121,8 @@ in_progress
 - doc/tasks/20260727-codex-runner-token-invalid/verification-report.md
 - doc/tasks/20260727-codex-runner-token-invalid/bug-regression-evidence.md
 - output/playwright/20260727-codex-runner-token-e2e/real-run-case-35/batch-17-failed.png
+- doc/tasks/20260727-codex-runner-token-invalid/login-hang-probe.cjs
+- doc/tasks/20260727-codex-runner-token-invalid/login-hang-thread-dump.txt
+- doc/tasks/20260727-codex-runner-token-invalid/real-run-readonly-after-fix.e2e.cjs
+- output/playwright/20260727-codex-runner-token-e2e/readonly-after-fix/summary.json
+- output/playwright/20260727-codex-runner-token-e2e/readonly-after-fix/final.png

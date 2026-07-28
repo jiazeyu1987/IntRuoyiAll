@@ -475,6 +475,9 @@ class MesProRouteServiceImplTest {
                 .versionNo("V1")
                 .active(Boolean.TRUE)
                 .lifecycleStatus("ACTIVE")
+                .routeSnapshotJson("""
+                        {"routeId":9006,"configSnapshots":{"batchRecordAttachmentOwners":[{"attachmentCode":"INCOMING_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"STERILIZATION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_RECORD","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]}]}}
+                        """)
                 .build());
         org.mockito.Mockito.doAnswer(invocation -> {
             MesProRouteVersionDO targetVersion = invocation.getArgument(0);
@@ -516,6 +519,11 @@ class MesProRouteServiceImplTest {
         assertEquals(1, snapshot.getJSONObject("configSnapshots").getJSONArray("scheduleConfigs").size());
         assertEquals(1, snapshot.getJSONObject("configSnapshots").getJSONArray("scheduleUseConfigs").size());
         assertEquals(1, snapshot.getJSONObject("configSnapshots").getJSONArray("batchUseConfigs").size());
+        JSONArray owners = snapshot.getJSONObject("configSnapshots").getJSONArray("batchRecordAttachmentOwners");
+        assertEquals(4, owners.size());
+        assertEquals("INCOMING_INSPECTION_REPORT", owners.getJSONObject(0).getString("attachmentCode"));
+        assertEquals(List.of(912398), owners.getJSONObject(0)
+                .getJSONArray("candidateSourceIds").toJavaList(Integer.class));
         ArgumentCaptor<MesProRouteVersionDO> activeCaptor = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
         verify(platformAdapter).recordActiveRegistered(activeCaptor.capture(), eq(null),
                 eq("route active version registered"));

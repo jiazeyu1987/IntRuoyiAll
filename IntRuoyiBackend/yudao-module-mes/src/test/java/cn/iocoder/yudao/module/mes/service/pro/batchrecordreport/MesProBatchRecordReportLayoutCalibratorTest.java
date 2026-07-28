@@ -18,12 +18,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MesProBatchRecordReportLayoutCalibratorTest {
 
-    private static final Path PILOT_SAMPLE = Path.of(
-            "C:\\Users\\BJB110\\Desktop\\2\\2\\RE-PP-ID-01（A 1）球囊扩张压力泵生产记录(1).doc");
+    private static final Path PILOT_SAMPLE = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
     private static final Path FIXED_SAMPLE = Path.of(
             "D:\\ProjectPackage\\Int\\IntRuoyi\\resource\\批记录模板.doc");
-    private static final Path PRESSURE_PUMP_SAMPLE = Path.of(
-            "C:\\Users\\BJB110\\Desktop\\文档\\批记录压力泵.doc");
+    private static final Path PRESSURE_PUMP_SAMPLE = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
 
     private final MesProBatchRecordDocParser parser = new MesProBatchRecordDocParser();
     private final MesProBatchRecordRouteBRecognizer routeBRecognizer = new MesProBatchRecordRouteBRecognizer();
@@ -192,8 +190,8 @@ class MesProBatchRecordReportLayoutCalibratorTest {
         assertEquals(5, summaryRow.subList(1, summaryRow.size()).stream()
                 .filter(this::isBlankCell)
                 .count());
-        assertEquals(18, summaryRow.stream().mapToInt(MesProBatchRecordParsedCell::getColSpan).sum());
-        assertEquals(19, rowEnd(summaryRow));
+        assertEquals(19, summaryRow.stream().mapToInt(MesProBatchRecordParsedCell::getColSpan).sum());
+        assertEquals(20, rowEnd(summaryRow));
     }
 
     @Test

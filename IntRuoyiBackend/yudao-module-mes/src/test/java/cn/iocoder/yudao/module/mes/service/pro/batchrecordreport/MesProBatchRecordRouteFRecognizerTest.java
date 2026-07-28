@@ -16,8 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MesProBatchRecordRouteFRecognizerTest {
 
-    private static final Path PILOT_SAMPLE = Path.of(
-            "C:\\Users\\BJB110\\Desktop\\2\\2\\RE-PP-ID-01\uFF08A 1\uFF09\u7403\u56CA\u6269\u5F20\u538B\u529B\u6CF5\u751F\u4EA7\u8BB0\u5F55(1).doc");
+    private static final Path PILOT_SAMPLE = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
 
     @Test
     void recognize_roundTripsPilotSampleThroughExcelIntermediate() throws Exception {

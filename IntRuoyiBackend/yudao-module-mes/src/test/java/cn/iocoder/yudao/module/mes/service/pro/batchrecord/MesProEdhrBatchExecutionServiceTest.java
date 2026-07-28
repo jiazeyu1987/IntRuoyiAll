@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
@@ -2459,6 +2460,76 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                         && String.valueOf(taskId).equals(command.getObjectId())
                         && workTask.getId().equals(command.getWorkTaskId())
                          && "SUCCESS".equals(command.getResultStatus())));
+    }
+
+    @Test
+    void openTask_exposesOnlyCurrentUsersAssistRowsFromFrozenResponsibilityScope() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-OPEN-ASSIST-ROWS")
+                .setRouteId(fixture.routeId()));
+        skipAllSpecialNodes(batch);
+        EdhrBatchExecutionTaskRespVO batchTask = routeTask(batch, 0);
+        insertProductionTask(fixture.workOrderId(), fixture.routeId(), batchTask.getProcessId(), 80051L);
+        MesProEdhrWorkTaskDO workTask = insertFillWorkTask(batch, batchTask, fixture)
+                .setCandidateUserSnapshot("10001,910245")
+                .setResponsibilitySourceType("EDHR_PROCESS_FORM_FILLER")
+                .setResponsibilityScopeJson("""
+                        {"schemaVersion":2,"sourceType":"EDHR_PROCESS_FORM_FILLER","sourceKey":"ROUTE_PROCESS:4001:MAIN","sourceVersion":"6002","scopes":[
+                          {"scopeKey":"AR_OPERATOR","resolvedUserIds":[10001],"fillableScope":{"cells":[{"sourceTableIndex":0,"rowIndex":0,"columnIndex":1}]}},
+                          {"scopeKey":"AR_REMARK","resolvedUserIds":[910245],"fillableScope":{"cells":[{"sourceTableIndex":0,"rowIndex":0,"columnIndex":3}]}}
+                        ]}
+                        """);
+        workTaskMapper.updateById(workTask);
+        when(singleExecutionService.openOrCreateByContext(any()))
+                .thenAnswer(invocation -> {
+                    executionMapper.insert(new MesProBatchRecordExecutionDO()
+                            .setId(9051L)
+                            .setExecutionCode("BRE-9051")
+                            .setWorkOrderId(fixture.workOrderId())
+                            .setWorkOrderCode("WO-OPEN-ASSIST")
+                            .setRouteProcessId(batchTask.getRouteProcessId())
+                            .setBatchRecordReportId(batchTask.getBatchRecordReportId())
+                            .setBatchExecutionId(batch.getId())
+                            .setRouteId(fixture.routeId())
+                            .setBatchCode(batch.getBatchCode())
+                            .setStatus(0)
+                            .setSheetLayoutJson("{\"rows\":{}}")
+                            .setMetaJson("{\"sourceTableIndex\":0}")
+                            .setExecutionSnapshotJson("""
+                                    {"snapshotVersion":"EDHR_EXECUTION_V1","fields":[],"assistRows":[
+                                      {"rowKey":"AR_OPERATOR","description":"操作信息","sort":1,"fields":[{"rowIndex":0,"columnIndex":1}]},
+                                      {"rowKey":"AR_REMARK","description":"备注信息","sort":2,"fields":[{"rowIndex":0,"columnIndex":3}]}
+                                    ]}
+                                    """)
+                            .setCellValuesJson("[]")
+                            .setCellValuesHash("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+                            .setFieldAuditRevision(0L)
+                            .setFieldAuditHeadHash("0000000000000000000000000000000000000000000000000000000000000000"));
+                    return new MesProBatchRecordExecutionOpenOrCreateByContextRespVO()
+                            .setId(9051L)
+                            .setCreated(true)
+                            .setStatus(0);
+                });
+
+        EdhrBatchExecutionTaskOpenRespVO opened =
+                openTaskAsFiller(batch.getId(), batchTask.getId(), workTask.getId());
+
+        JSONArray assistRows = JSON.parseArray(JSON.toJSONString(opened.getExecutionPageQuery().get("assistRows")));
+        assertNotNull(assistRows);
+        assertEquals(1, assistRows.size());
+        assertEquals("AR_OPERATOR", assistRows.getJSONObject(0).getString("rowKey"));
+        assertEquals("操作信息", assistRows.getJSONObject(0).getString("description"));
+
+        EdhrBatchExecutionTaskOpenRespVO openedBySecondCandidate =
+                openTaskAs(910245L, batch.getId(), batchTask.getId(), workTask.getId());
+        JSONArray secondCandidateAssistRows = JSON.parseArray(JSON.toJSONString(
+                openedBySecondCandidate.getExecutionPageQuery().get("assistRows")));
+        assertNotNull(secondCandidateAssistRows);
+        assertEquals(1, secondCandidateAssistRows.size());
+        assertEquals("AR_REMARK", secondCandidateAssistRows.getJSONObject(0).getString("rowKey"));
+        assertEquals("备注信息", secondCandidateAssistRows.getJSONObject(0).getString("description"));
     }
 
     @Test
@@ -5654,6 +5725,67 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .toList());
         assertEquals(List.of(113L, 910245L), resolvedTask.getFillableUsers().stream()
                 .map(EdhrBatchExecutionTaskRespVO.FillableUser::getUserId)
+                .toList());
+    }
+
+    @Test
+    void detailTask_includesFillableUsersFromMultipleAssistRowRulesWhenWorkTaskNotCreated() {
+        Fixture fixture = insertRouteFixture(true, true);
+        MesProRouteDO route = routeMapper.selectById(fixture.routeId());
+        routeVersionMapper.updateById(MesProRouteVersionDO.builder()
+                .id(fixture.routeVersionId())
+                .routeSnapshotJson(frozenRouteSnapshotJson(route, routeProcessMapper.selectListByRouteId(route.getId())))
+                .build());
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-MULTI-ASSIST-FILLERS")
+                .setRouteId(fixture.routeId()));
+        EdhrBatchExecutionTaskRespVO task = routeTask(batch, 0);
+        processFormPermissionRuleMapper.insert(new MesProEdhrProcessFormPermissionRuleDO()
+                .setRouteProcessId(MesProEdhrProcessFormPermissionRuleMapper.FORM_LEVEL_ROUTE_PROCESS_ID)
+                .setBatchRecordReportId(task.getBatchRecordReportId())
+                .setBatchRecordVersionId(task.getBatchRecordVersionId())
+                .setRuleType("FILL")
+                .setScopeKey("AR_001")
+                .setSignatureCellKey("")
+                .setCandidateSourceType("USERS")
+                .setCandidateSourceIds("113")
+                .setCompletionPolicy("ANY_ONE")
+                .setDueMinutes(Integer.MAX_VALUE)
+                .setEnabled(Boolean.TRUE)
+                .setFillableScopeJson("""
+                        {"schemaVersion":2,"scopeKey":"AR_001","cells":[{"sourceTableIndex":0,"rowIndex":1,"columnIndex":1}]}
+                        """.trim()));
+        processFormPermissionRuleMapper.insert(new MesProEdhrProcessFormPermissionRuleDO()
+                .setRouteProcessId(MesProEdhrProcessFormPermissionRuleMapper.FORM_LEVEL_ROUTE_PROCESS_ID)
+                .setBatchRecordReportId(task.getBatchRecordReportId())
+                .setBatchRecordVersionId(task.getBatchRecordVersionId())
+                .setRuleType("FILL")
+                .setScopeKey("AR_002")
+                .setSignatureCellKey("")
+                .setCandidateSourceType("USERS")
+                .setCandidateSourceIds("910245")
+                .setCompletionPolicy("ANY_ONE")
+                .setDueMinutes(Integer.MAX_VALUE)
+                .setEnabled(Boolean.TRUE)
+                .setFillableScopeJson("""
+                        {"schemaVersion":2,"scopeKey":"AR_002","cells":[{"sourceTableIndex":0,"rowIndex":2,"columnIndex":1}]}
+                        """.trim()));
+        when(adminUserApi.getUserList(List.of(113L))).thenReturn(List.of(user(113L, "员工甲")));
+        when(adminUserApi.getUserList(List.of(910245L))).thenReturn(List.of(user(910245L, "员工乙")));
+        when(adminUserApi.getUserMap(argThat(ids ->
+                ids != null && ids.containsAll(List.of(113L, 910245L))))).thenReturn(Map.of(
+                113L, user(113L, "员工甲"),
+                910245L, user(910245L, "员工乙")));
+
+        EdhrBatchExecutionRespVO result = batchExecutionService.get(batch.getId());
+
+        EdhrBatchExecutionTaskRespVO resolvedTask = routeTask(result, 0);
+        assertEquals(List.of(113L, 910245L), resolvedTask.getFillableUsers().stream()
+                .map(EdhrBatchExecutionTaskRespVO.FillableUser::getUserId)
+                .toList());
+        assertEquals(List.of("员工甲", "员工乙"), resolvedTask.getFillableUsers().stream()
+                .map(EdhrBatchExecutionTaskRespVO.FillableUser::getDisplayName)
                 .toList());
     }
 

@@ -62,6 +62,7 @@
     "e2e:mes:schedule-route-shared-config:static": "node tests/e2e/mes-schedule-route-shared-config-static.spec.js",
     "e2e:mes:scheduler-workbench-import-timeout:static": "node tests/e2e/mes-scheduler-workbench-import-timeout-static.spec.js",
     "e2e:mes:scheduler-workbench-process-wip-sort:static": "node tests/e2e/scheduler-workbench-process-wip-sort-static.spec.js",
+    "e2e:mes:schedule-calendar-visible-months:static": "node tests/e2e/mes-schedule-calendar-visible-months-static.spec.js",
     "e2e:edhr:approval-tracking:check": "node --check tests/e2e/edhr-approval-tracking-real-flow.e2e.js",
     "e2e:edhr:approval-tracking": "node tests/e2e/edhr-approval-tracking-real-flow.e2e.js",
     "e2e:dcc:control-buttons:static": "node tests/e2e/dcc-control-center-buttons-static.spec.js",

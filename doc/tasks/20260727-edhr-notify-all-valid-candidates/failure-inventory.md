@@ -81,3 +81,12 @@ Baseline result: 2509 tests, 58 failures, 78 errors, 31 skipped, 41 failing suit
 - No suite is assigned to a skip/exclusion task.
 - Fixture-dependent suites remain blocked until source and integrity are confirmed.
 - Current unrelated frontend modifications are not task-owned; T2 must not edit those files without ownership coordination.
+
+## Current Remaining Gate（2026-07-28）
+
+- Latest command: `mvn -pl yudao-module-mes test`
+- Latest result: `BLOCKED`，2026-07-28 01:30:40 +08:00；2511 tests、0 failures、4 errors、18 skipped。
+- Remaining prerequisite: project-owned `IntRuoyiBackend/yudao-module-mes/src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx` authoritative Excel fixture is missing.
+- Remaining affected suites: `Sheet1RouteExcelParserTest`、`Sheet1RouteExcelImportServiceImplTest`、`Sheet1RouteExcelImportServiceImplDbTest`。
+- Workspace fixture search: `rg --files -g "*球囊扩张导管工序*"` under `E:\IntRuoyi` found no project-owned official fixture; tests have now been prepared to read `fixtures/sheet1-route-balloon-catheter.xlsx`.
+- Gate decision: Do not mark complete, commit, push, copy candidate desktop files, synthesize fixture, or skip these tests until the user confirms the authoritative Excel source or provides it in the project-owned resource path.

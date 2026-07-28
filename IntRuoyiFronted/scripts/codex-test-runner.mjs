@@ -18,6 +18,8 @@ const POLL_INTERVAL_MS = Number(process.env.CODEX_TEST_POLL_INTERVAL_MS || '5000
 const HEARTBEAT_INTERVAL_MS = Number(process.env.CODEX_TEST_HEARTBEAT_INTERVAL_MS || '20000')
 const CODEX_EXEC_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_TIMEOUT_MS || '600000')
 const CODEX_EXEC_READONLY_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_READONLY_TIMEOUT_MS || '120000')
+const CODEX_READONLY_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_READONLY_REASONING_EFFORT || 'medium'
+const CODEX_READONLY_IGNORE_RULES = process.env.CODEX_TEST_CODEX_READONLY_IGNORE_RULES !== 'false'
 const CODEX_TEST_API_TIMEOUT_MS = Number(process.env.CODEX_TEST_API_TIMEOUT_MS || '30000')
 const CODEX_CHILD_SETTLE_TIMEOUT_MS = Number(process.env.CODEX_TEST_CHILD_SETTLE_TIMEOUT_MS || '5000')
 const COMPLETE_CASE_SUMMARY_MAX_LENGTH = 512
@@ -88,6 +90,20 @@ function spawnCodex(args) {
   const command = isWindowsCommandScript ? 'cmd.exe' : CODEX_COMMAND
   const commandArgs = isWindowsCommandScript ? ['/d', '/s', '/c', CODEX_COMMAND, ...args] : args
   return spawn(command, commandArgs, { stdio: ['pipe', 'pipe', 'pipe'] })
+}
+
+function codexReadOnlyExecutionArgs(task) {
+  if (!isReadOnlyTask(task)) {
+    return []
+  }
+  const args = []
+  if (CODEX_READONLY_IGNORE_RULES) {
+    args.push('--ignore-rules')
+  }
+  if (CODEX_READONLY_REASONING_EFFORT) {
+    args.push('-c', `model_reasoning_effort=${JSON.stringify(CODEX_READONLY_REASONING_EFFORT)}`)
+  }
+  return args
 }
 
 function toPowerShellSingleQuoted(value) {
@@ -206,6 +222,7 @@ async function runCodexForTask(task, runnerSessionId) {
     '--skip-git-repo-check',
     '--dangerously-bypass-approvals-and-sandbox',
     '--ephemeral',
+    ...codexReadOnlyExecutionArgs(task),
     '--output-last-message',
     outputFile,
     '-C',
@@ -312,6 +329,7 @@ This task is classified as ${taskMode}.
 Complete the browser verification and return the final JSON within ${executionBudgetSeconds} seconds.
 Do not ask for clarification. If login, selector, data, service, permission, or runtime prerequisites are missing, return a BLOCKED checkpoint result instead of waiting.
 For READ_ONLY tasks, do not click create, save, submit, delete, import, upload, approve, cancel, or any action that mutates business data.
+For READ_ONLY tasks, take the shortest browser path. Prefer one temporary Node.js Playwright script and finish once the listed checkpoints are observed. Do not create task docs, edit project files, run builds, or inspect unrelated source trees.
 Prefer the existing local Playwright/browser tooling from the frontend project, and read only the minimum local login/access guidance needed. Do not print passwords, tokens, Authorization headers, or cookies.
 Target tenant id: ${task.targetTenantId}
 Case: ${task.caseName}
