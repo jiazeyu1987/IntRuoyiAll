@@ -30,7 +30,7 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
 ## 经验门禁
 
@@ -53,14 +53,20 @@ ready_for_closeout
 - 后端 GREEN：`mvn.cmd -pl yudao-server -am -DskipTests package` -> `BUILD SUCCESS`，生成 `IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`。
 - 后端运行验证：`48101` 监听 PID `29624`，`/actuator/health` status = `UP`。
 - 前端依赖：`pnpm install --frozen-lockfile --reporter append-only` -> PASS，安装 `vite 5.1.4`。
-- 前端运行验证：`8101` 监听 PID `43336`，Vite `branch-main-d` ready，`http://127.0.0.1:8101/` -> HTTP `200 OK`。
+- 前端运行验证：`8101` 最终监听 PID `40252`，Vite `branch-main-d` ready，`http://127.0.0.1:8101/` -> HTTP `200 OK`。
 
 ## Blockers
 
-- 收尾前仍需处理提交/推送和 cleanup；当前工作区另有未跟踪目录 `doc/tasks/20260725-submit-frontend-backend-code/`，不属于本任务，未修改。
+- `git push origin int_main` 连续两次失败：`TLS connect error: unexpected eof while reading`；影响：本任务本地提交尚未全部同步到远端，任务不得标记 completed。`n- 当前工作区另有未跟踪目录 `doc/tasks/20260725-dcc-controlled-file-logs-import/`，不属于本任务，未修改。
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
 - `是否从根因和长期维护角度解决`：是，补齐同源缺失源码并按 D-Main 独立 runtime profile 启动，不改默认端口配置。
 - `是否存在临时补丁或绕过`：否。
+## Closeout Evidence
+
+- `task-closeout-cleanup --mode preview`：PASS，无删除项、无 blocker。
+- `task-closeout-cleanup --mode apply`：PASS，无删除项、无 blocker。
+- 实现提交：`e12e865c fix: restore d main runtime source packages`。
+- 推送状态：阻塞，`git push origin int_main` 连续两次失败：`TLS connect error: unexpected eof while reading`。

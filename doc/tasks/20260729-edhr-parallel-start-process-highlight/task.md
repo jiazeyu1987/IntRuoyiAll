@@ -10,7 +10,7 @@
 - [x] 用 BDD + RED 复现开始节点第一组 3 个待打开工序只标黄 1 个的问题。
 - [x] 实现正式数据链路修复，不放宽填写权限、不引入 fallback。
 - [x] 运行目标后端/前端合同和相关回归验证。
-- [ ] 完成经验沉淀、收尾清理、提交和推送。
+- [x] 完成经验沉淀、收尾清理、提交和推送。
 
 ## Expected Verification
 
@@ -21,7 +21,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 

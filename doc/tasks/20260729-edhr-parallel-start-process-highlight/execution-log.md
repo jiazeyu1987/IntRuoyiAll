@@ -27,6 +27,14 @@ BDD: 开始节点并行第一组全部显示当前运行态 -> Given 工艺路�
 - EXPERIENCE: 合并到 `docs/frontend-development.md#eDHR 当前工序运行态展示门禁`，并更新 `docs/experience-index.md` 关键字 -> PASS。
 - CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-parallel-start-process-highlight --mode preview` -> PASS，计划删除本任务临时 `bug-regression-evidence.md`、`frontend-feature-evidence.md`。
 - CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-parallel-start-process-highlight --mode apply` -> PASS。
+- WORKTREE: `git worktree add -b codex/20260729-edhr-parallel-start-process-highlight D:\IntRuoyiWorktree\20260729-edhr-parallel-start-process-highlight origin/int_main` -> PASS，用干净 worktree 隔离主工作区并行改动。
+- WORKTREE GREEN: `node tests/e2e/edhr-batch-parallel-current-process-highlight-static.spec.js`、`node tests/e2e/edhr-batch-admin-current-process-highlight-static.spec.js`、`node tests/e2e/edhr-batch-process-state-background-static.spec.js`、`node tests/e2e/edhr-batch-admin-filler-visibility-static.spec.js`、`node tests/e2e/edhr-batch-process-companion-forms-static.spec.js`、`node tests/e2e/edhr-batch-product-info-virtual-process-static.spec.js` -> PASS。
+- WORKTREE GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#openOrCreate_allowsValidMultiStartMergeRouteGraphWhenBatchBindingsExist" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS。
+- WORKTREE DEPENDENCY: `pnpm install --frozen-lockfile --reporter append-only` -> PASS；此前较短 120s/300s 安装窗口超时，未产生锁文件改动。
+- WORKTREE GREEN: `pnpm ts:check` -> PASS。
+- PORT GUARD: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main slot 12`，frontend `8093`，backend `48093`。
+- COMMIT: `git commit -m "修复批次执行并行当前工序高亮"` -> PASS，implementation commit `6423023d`。
+- PUSH: `git push origin HEAD:int_main` -> PASS，`origin/int_main` updated to implementation commit `6423023d`。
 
 ## Milestones
 
@@ -36,7 +44,8 @@ BDD: 开始节点并行第一组全部显示当前运行态 -> Given 工艺路�
 - completed: 目标静态合同、相邻批次详情合同、后端多起点路线创建回归和前端类型检查通过。
 - completed: 经验沉淀到现有前端长期门禁文档。
 - completed: 收尾清理已删除本任务临时 evidence，保留 `task.md`、`execution-log.md`、`verification-report.md`。
-- in_progress: 提交和推送。
+- completed: implementation commit `6423023d` 已推送到 `origin/int_main`。
+- in_progress: 最终 closeout 记录提交和 worktree 移除。
 
 ## Verification
 

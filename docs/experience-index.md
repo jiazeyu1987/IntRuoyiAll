@@ -96,6 +96,7 @@
 - Keywords: route.query, route query ID, assistUserId, userId, workTaskId, batchTaskId, sameRouteQueryId, 字符串数字严格等于, active 高亮丢失, 切换后高亮旧对象 -> `docs/frontend-development.md#前端-route-query-id-比较门禁`
 - Keywords: eDHR 产品信息虚拟 80 工序, 产品信息显示在第一个工序, batchRecordSort=80, routeProcessSort=1, BatchExecutionDetailPage processTaskGroups, buildProcessTaskGroupKey, isProductInfoProcessTask, 左侧 80 产品信息, 右侧卡片不含产品信息 -> `docs/frontend-development.md#edhr-产品信息虚拟-80-工序门禁`
 - Keywords: 批记录管理员 当前工序黄色背景, eDHR 当前工序运行态, BatchExecutionDetailPage is-in-progress, WAITING 待打开 当前工序, available 当前可执行工序, 工序开始直接后继, 并行第一组, currentProcessRouteProcessId, currentProcessCode, currentProcessName, OPEN_FORM 只读高亮, canOpenTask, 管理员只读不提升填写权限 -> `docs/frontend-development.md#edhr-当前工序运行态展示门禁`
+- Keywords: 切换填写人 FormCenter 槽位, 损耗单切换, 张可莹, openRouteForm, formCenterInstanceId, formTemplateId, executionId guard, eDHR 批次缺少唯一批记录路线, 二次 openTask 透传 assistUserId -> `docs/frontend-development.md#切换填写人-formcenter-槽位导航门禁`
 - Keywords: 批记录, 批记录表单, batchRecordFormNames, 工序设置批记录绑定, 正式生产批记录, 批次执行作用, 表单, 表单槽位, formBindings, 补充动态表单, 工序开始, 特殊节点上传人, 附件负责人, 三类配置入口, 三类配置不得混用 -> `AGENTS.md#工艺路线三类配置术语契约`
 - eDHR 批次详情 / 动态表单 / 损耗单 / 工艺路线绑定 / 填写人 / `fillableUsers` / `routeBindingId` / 配置页有值但详情接口为空：`E:\IntRuoyi\docs\backend-development.md#edhr-详情回填门禁`
 - Keywords: eDHR 批记录表单角色填写人, 默认填写人角色不显示, candidateSourceType ROLE, candidateSourceNames 空, get-by-report, form-level FILL, 候选用户已展开但角色名不显示 -> `docs/backend-development.md#批记录表单角色填写人名称回显边界`
@@ -116,6 +117,7 @@
 - Keywords: worktree 端口段, slot 1..19, slot >= 20, reserve-worktree-slot, 原子槽位, 重复活动槽位, 基准端口碰撞, int_main 误判 int_main_d -> `docs/worktree-memory.md#worktree-端口段与原子槽位门禁`
 - Keywords: 多 worktree 融合, 批量 merge worktree, dirty worktree 独立提交, merge-base --is-ancestor, 聚焦组合回归, 宽回归失败归因, 合并后删除 worktree -> `docs/worktree-memory.md#多-worktree-批量融合门禁`
 - Keywords: 主工作区持续并行写入, 先融合再测试, 远端快进融合, git push origin HEAD:int_main, origin/int_main ancestor, dirty main workspace closeout blocked -> `docs/worktree-memory.md#并行主工作区远端快进融合门禁`
+- Keywords: D-Main 本地主线滞后远端, int_main ahead behind, origin/int_main behind 445, git diff --cached --check upstream whitespace, 冲突经验门禁文档, branch-runtime-port-guard after merge -> `docs/worktree-memory.md#d-main-本地主线滞后远端融合门禁`
 - Keywords: schema-backed E2E, source_type, source_field_code, sourceFields, Unknown column, 字段矩阵可见但不可选, is-source-selectable, 单元格链接生产工单字段, 只读 E2E 无 MES 写请求 -> `docs/e2e-rules.md#schema-backed-e2e-迁移与字段可选态门禁`
 - Keywords: eDHR 单据填写人显示值, 损耗单卡片, fillableUsers displayName, candidateSourceNames 格式, 页面填写人断言 -> `docs/e2e-rules.md#edhr-单据填写人显示值门禁`
 - Keywords: eDHR 终态批次个人待办, edhr-work-task/my-page, edhr-work-task/stats, workTaskId, 当前 eDHR 批次状态不允许该操作, TODO 作废批次, VOIDED, CLOSED, ARCHIVED, REJECTED, openTask 终态保护 -> `docs/e2e-rules.md#edhr-终态批次个人待办门禁`

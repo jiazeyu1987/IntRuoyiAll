@@ -158,6 +158,15 @@
 - Forbidden action: 禁止为了解决高亮而放宽 `OPEN_FORM`、接管、跳过或提交权限；禁止用当前登录人、角色名、表单槽位、默认首个 `WAITING` 节点或前端文案推断当前工序；禁止把全部待打开工序统一标黄。
 - Evidence: `doc/tasks/20260728-edhr-admin-current-process-highlight/verification-report.md`，批记录管理员只读当前工序通过详情接口 `currentProcess*` 投影为黄色运行态，填写动作仍受 `OPEN_FORM` 控制。
 
+## 切换填写人 FormCenter 槽位导航门禁
+
+- Trigger: eDHR 执行页“切换填写人”选择损耗单、过程检验单、参数记录表等 `formCenterInstanceId/formTemplateId` 表单槽位候选，尤其同一工序同时存在主批记录表单和 FormCenter 表单槽位。
+- Preflight check: 先区分传统批记录任务和 FormCenter 表单槽位任务；FormCenter 候选必须先调用正式 `openTask` 校验所选 `assistUserId`，随后跳转批次详情并携带 `openRouteForm=1 + batchTaskId + workTaskId + assistUserId`，由详情页表单抽屉承载。
+- Blocker: 切换填写人导航在检测 `formCenterInstanceId/formTemplateId` 前先要求 `executionId`、跳到 `/edhr-execution/form`、二次自动打开丢失 `assistUserId`、或出现“eDHR 批次缺少唯一批记录路线”时必须停止。
+- Verification: 聚焦静态合同必须覆盖“FormCenter 分支先于 executionId guard”“跳转批次详情 openRouteForm=1”“详情页二次 openTask 透传 assistUserId”，并复跑相邻切换填写人和损耗单打开合同。
+- Forbidden action: 禁止把 FormCenter 槽位伪装成传统批记录 execution、禁止清空 `assistUserId` 让当前登录人代替所选填写人、禁止隐藏后端错误或用刷新页面绕过。
+- Evidence: 任务 `doc/tasks/20260728-edhr-scrap-assist-switch/`，选择“张可莹 / 损耗单”曾被传统执行页 `executionId` 要求和批记录路线校验拦住。
+
 ## 验证方式
 
 - 优先运行受影响范围的验证：
