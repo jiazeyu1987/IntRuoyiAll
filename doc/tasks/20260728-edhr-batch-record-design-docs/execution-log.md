@@ -147,6 +147,9 @@
 - GREEN: `task_closeout.py --task-id 20260728-edhr-batch-record-design-docs --mode apply -> PASS`
   - deleted_paths: `doc/tasks/20260728-edhr-batch-record-design-docs/output/答芝村戦殻窺.png`。
   - linked worktree: false，未执行 worktree merge/remove。
+- GREEN: `git commit -m "docs: beautify edhr word deliverables" -> PASS`
+  - commit: `519080b7`
+  - 文件清单：task.md、execution-log.md、verification-report.md、EDHR_Batch_Record_System_Design.docx、EDHR_Batch_Record_Requirement_Design.docx、EDHR_Batch_Record_Outline_Design.docx、EDHR_Batch_Record_Detailed_Design.docx。
 - Current status: completed。
 
 ## Git Evidence
