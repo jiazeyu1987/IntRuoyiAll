@@ -7,6 +7,8 @@
 - REGRESSION: `node .\tests\e2e\system-codex-test-management-static.spec.js` -> PASS。
 - TYPECHECK: `pnpm ts:check` -> PASS。
 - DIFF-CHECK: `git diff --check` -> PASS，仅有已有工作区 CRLF 提示。
+- UI-PLACEMENT: `codex-test-node-chain-filter` 使用 `!w-180px` 和 `aria-label="串行路线"`，能放入红框区域。
+- COMPACT-GREEN: 节点串静态合同、测试管理静态回归、`pnpm ts:check`、frontend/bug evidence validators 和端口守卫均通过。
 
 ## Changed Files
 
@@ -20,4 +22,4 @@
 
 ## Status
 
-ready_for_closeout；本地提交阻塞于并行脏工作区，远端正式主线已包含同等代码。
+ready_for_closeout。
