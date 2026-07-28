@@ -11,8 +11,10 @@
 - [x] 确认前端、后端目录同属根仓库。
 - [x] 保存开始本次提交前已存在的未跟踪任务记录基线提交。
 - [x] 运行提交前验证与大文件门禁。
-- [ ] 提交本次任务记录。
-- [ ] 推送 `int_main` 到 `origin` 并确认不再 ahead。
+- [x] 提交本次任务记录与前后端运行修复源码。
+- [x] rebase 集成远端 `origin/int_main` 新提交。
+- [x] 推送 `int_main` 到 `origin` 并确认不再 ahead。
+- [x] 运行 cleanup preview/apply 并完成最终收尾记录。
 
 ## Expected Verification
 
@@ -24,7 +26,7 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## 经验门禁
 
@@ -50,17 +52,28 @@ in_progress
 
 - 开始本次提交前仓库状态：`int_main...origin/int_main [ahead 1]`，未跟踪 `doc/tasks/20260725-start-d-main-runtime/`。
 - 前后端目录检查：`IntRuoyiBackend` 与 `IntRuoyiFronted` 均显示根仓库 `int_main...origin/int_main [ahead 1]`。
-- 既有未跟踪任务记录基线提交：`0a6622c8 docs: baseline d main runtime startup task`。
+- rebase 前本地基线提交：`0a6622c8 docs: baseline d main runtime startup task`；rebase 后为 `1893af79 docs: baseline d main runtime startup task`。
+- rebase 前本任务记录提交：`43d77faa docs: record frontend backend submit task`；rebase 后为 `6c2f99c2 docs: record frontend backend submit task`。
+- rebase 后 D-Main 验证记录提交：`5525e763 docs: update d main runtime verification`。
+- rebase 后前后端运行修复源码提交：`e12e865c fix: restore d main runtime source packages`。
 - `git diff --check`：通过，无 whitespace error。
 - `scripts\preflight\branch-runtime-port-guard.ps1`：通过，`int_main/int_main_d` 前端 `8101`，后端 `48101`。
 - GitHub 推送前历史对象扫描：最大 blob `4,177,309` bytes，路径 `IntRuoyiBackend/yudao-framework/yudao-spring-boot-starter-biz-ip/src/main/resources/ip2region.xdb`，低于 100 MB。
+- 初次 `git push origin int_main` 被拒绝：远端已有 4 个新提交，需要 fetch/rebase；未强推。
+- `git rebase origin/int_main`：通过，无冲突。
+- `git push origin int_main`：通过，远端从 `223482e3` 更新到 `e12e865c`。
+- 推送后 `git status --short --branch`：`## int_main...origin/int_main`，无 ahead/behind。
+- cleanup preview：`status: ready`，keep 仅本任务 `task.md`、`execution-log.md`、`verification-report.md`，delete/blocked/warnings 均为 `<none>`。
+- cleanup apply：`status: applied`，delete/blocked/warnings/deleted_paths 均为 `<none>`。
+- 未跟踪 `doc/tasks/20260725-dcc-controlled-file-logs-import/` 属于另一项进行中的 DCC 修复任务，本任务未修改、未提交。
 
 ## Blockers
 
-- 待记录。
+- 无本任务 blocker。
+- 非本任务遗留：`doc/tasks/20260725-dcc-controlled-file-logs-import/` 仍为未跟踪目录，按任务边界未处理。
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
-- `是否从根因和长期维护角度解决`：是，按提交和推送门禁处理根仓库状态，不拆分或绕过提交边界。
+- `是否从根因和长期维护角度解决`：是，按提交和推送门禁处理根仓库状态，不拆分或绕过提交边界；对远端分叉使用 fetch/rebase 非强制集成。
 - `是否存在临时补丁或绕过`：否。
