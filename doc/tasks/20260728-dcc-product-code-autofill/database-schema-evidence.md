@@ -57,7 +57,7 @@
 ## Safety
 
 - 目标限定为本机 `int-ruoyi-mysql` / `ruoyi-vue-pro` / `tenant_id=1`。
-- 不修改远端环境，不修改 DCC 文件、目录绑定、产品主数据或业务文件记录。
+- 不修改远端环境，不修改 DCC 文件、目录绑定或业务文件记录。
 - 写入均使用稳定 role code 和 `NOT EXISTS` 防重复；`dcc_file_category_permission_rule` 依赖唯一键防止重复主体规则。
 
 ## GREEN: local DCC upload role seed
@@ -70,4 +70,4 @@
 - DB readback：`DCC DHF/DMR上传员 / dcc_dhf_dmr_uploader / category=文控 / assigned_users=admin`。
 - DB readback：该角色 active `UPLOAD` 类别规则数为 59；已绑定目录且可上传的 DHF/DMR 类别数为 1。
 - Browser read-only probe：重新登录 `芋道源码/admin` 后 `uploadableProductRequired=1`，命中 `DCC_FVM_DHF_001 / 市场调研报告 / directoryId=906469`；未发送 DCC 写请求，console error 为 0。
-- Remaining blocker：当前 DCC 项目无法唯一匹配正式产品主数据，产品编号自动带出真实页面断言仍需产品样本前置。
+- Browser product-number probe：选择项目 `按压式球囊扩充压力泵 / IDI` 后，产品编号显示 `IDI`；未查询其它业务主数据选项。
