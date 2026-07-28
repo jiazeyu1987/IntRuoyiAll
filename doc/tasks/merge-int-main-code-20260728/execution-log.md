@@ -31,6 +31,11 @@
 - 第二次融合后 `python -X utf8 -m pytest script/tests/test_runtime_control_scripts.py` -> PASS，15 passed。
 - 第二次融合后 `git rev-list --left-right --count HEAD...origin/int_main` -> `8 0`。
 - 更新二次融合证据后复跑 `task_closeout.py --mode preview/apply` -> PASS，仍无删除项、无阻塞项。
+- 最终推送前再次 `git fetch origin int_main` -> PASS，远端从 `410d71aa` 前进到 `35a1255c`。
+- `git merge origin/int_main --no-edit` -> PASS，新增融合提交 `774f371b514bc22fc470365fcd19edb7667f1faf`；hook 中端口 guard 两次通过。
+- 第三次融合后 `pnpm ts:check` -> PASS。
+- 第三次融合后 `node tests/e2e/edhr-batch-admin-current-process-highlight-static.spec.js` -> PASS。
+- 第三次融合后 `git rev-list --left-right --count HEAD...origin/int_main` -> `10 0`。
 
 ## BDD / TDD
 
@@ -39,7 +44,7 @@
 ## Milestone Updates
 
 - 任务记录已创建，适用经验门禁已补入。
-- 远端 `origin/int_main` 已成功融合到本地 `int_main`，融合提交为 `c8e07b0d4faabc411c45dd0f71f1fe88dd80c479` 和推送前补融合提交 `149b58fb7bde33480641f42f805cbd8e85149d2c`。
+- 远端 `origin/int_main` 已成功融合到本地 `int_main`，融合提交为 `c8e07b0d4faabc411c45dd0f71f1fe88dd80c479`、`149b58fb7bde33480641f42f805cbd8e85149d2c`、`774f371b514bc22fc470365fcd19edb7667f1faf`。
 - 前端类型检查、后端编译和分支端口 guard 均已通过。
 - 项目长期经验已沉淀到现有 `docs/worktree-memory.md`，未新建长期经验文档。
 - 收尾清理 preview/apply 已通过，任务状态已标记 `completed`。
@@ -51,6 +56,8 @@
 - GREEN: `mvn -pl yudao-server -am -DskipTests compile` -> PASS
 - GREEN: second merge `pnpm ts:check` -> PASS
 - GREEN: second merge `python -X utf8 -m pytest script/tests/test_runtime_control_scripts.py` -> PASS
+- GREEN: third merge `pnpm ts:check` -> PASS
+- GREEN: third merge `node tests/e2e/edhr-batch-admin-current-process-highlight-static.spec.js` -> PASS
 - GREEN: `project-experience-consolidation` -> PASS，更新现有经验文档 `docs/worktree-memory.md`
 - GREEN: `task-closeout-cleanup preview/apply` -> PASS，无删除项、无阻塞项
 - NOTE: `git diff --cached --check` 在融合提交前命中远端历史中已存在的空行/尾随空格；冲突解决文件与当前任务文档的 scoped check 通过，未额外改动远端历史 whitespace。

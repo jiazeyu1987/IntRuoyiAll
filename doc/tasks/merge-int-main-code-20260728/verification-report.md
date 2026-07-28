@@ -3,8 +3,8 @@
 ## Summary
 
 - 融合结果：`origin/int_main` 已融合到本地 `int_main`。
-- 融合提交：`c8e07b0d4faabc411c45dd0f71f1fe88dd80c479`、`149b58fb7bde33480641f42f805cbd8e85149d2c`。
-- 当前差异：本地 `int_main` 领先 `origin/int_main` 8 个提交，待最终推送。
+- 融合提交：`c8e07b0d4faabc411c45dd0f71f1fe88dd80c479`、`149b58fb7bde33480641f42f805cbd8e85149d2c`、`774f371b514bc22fc470365fcd19edb7667f1faf`。
+- 当前差异：本地 `int_main` 领先 `origin/int_main` 10 个提交，待最终推送。
 
 ## Commands
 
@@ -24,6 +24,11 @@
 - 第二次融合后 `python -X utf8 -m pytest script/tests/test_runtime_control_scripts.py` -> PASS，15 passed
 - 第二次融合后 `git rev-list --left-right --count HEAD...origin/int_main` -> `8 0`
 - 更新二次融合证据后复跑 `task_closeout.py --mode preview/apply` -> PASS
+- 最终推送前再次 `git fetch origin int_main` -> PASS，远端从 `410d71aa` 前进到 `35a1255c`
+- 第三次 `git merge origin/int_main --no-edit` -> PASS，commit `774f371b514bc22fc470365fcd19edb7667f1faf`
+- 第三次融合后 `pnpm ts:check` -> PASS
+- 第三次融合后 `node tests/e2e/edhr-batch-admin-current-process-highlight-static.spec.js` -> PASS
+- 第三次融合后 `git rev-list --left-right --count HEAD...origin/int_main` -> `10 0`
 
 ## Notes
 
