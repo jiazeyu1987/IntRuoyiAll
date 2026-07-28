@@ -117,34 +117,35 @@
               v-if="assistPreviewRows.length === 0"
               description="暂无辅助行，请在右侧控制栏新增映射"
             />
-            <article
-              v-for="previewRow in assistPreviewRows"
-              v-else
-              :key="previewRow.rowKey"
-              class="batch-record-cell-rules-editor__assist-preview-row"
-              :class="{ 'is-selected': previewRow.isSelected }"
-            >
-              <header class="batch-record-cell-rules-editor__assist-preview-row-head">
-                <div>
-                  <strong>{{ previewRow.description }}</strong>
-                  <p>{{ previewRow.assignmentSummary }}</p>
+            <template v-else>
+              <article
+                v-for="previewRow in assistPreviewRows"
+                :key="previewRow.rowKey"
+                class="batch-record-cell-rules-editor__assist-preview-row"
+                :class="{ 'is-selected': previewRow.isSelected }"
+              >
+                <header class="batch-record-cell-rules-editor__assist-preview-row-head">
+                  <div>
+                    <strong>{{ previewRow.description }}</strong>
+                    <p>{{ previewRow.assignmentSummary }}</p>
+                  </div>
+                  <el-tag size="small" effect="plain">{{ previewRow.fields.length }} 个字段</el-tag>
+                </header>
+                <div class="batch-record-cell-rules-editor__assist-preview-fields">
+                  <div
+                    v-for="field in previewRow.fields"
+                    :key="field.key"
+                    class="batch-record-cell-rules-editor__assist-preview-field"
+                  >
+                    <span>{{ field.label }}</span>
+                    <small>{{ field.sourceCell }}</small>
+                    <el-tag size="small" :type="field.required ? 'warning' : 'info'" effect="plain">
+                      {{ field.valueTypeLabel }}{{ field.required ? ' · 必填' : '' }}
+                    </el-tag>
+                  </div>
                 </div>
-                <el-tag size="small" effect="plain">{{ previewRow.fields.length }} 个字段</el-tag>
-              </header>
-              <div class="batch-record-cell-rules-editor__assist-preview-fields">
-                <div
-                  v-for="field in previewRow.fields"
-                  :key="field.key"
-                  class="batch-record-cell-rules-editor__assist-preview-field"
-                >
-                  <span>{{ field.label }}</span>
-                  <small>{{ field.sourceCell }}</small>
-                  <el-tag size="small" :type="field.required ? 'warning' : 'info'" effect="plain">
-                    {{ field.valueTypeLabel }}{{ field.required ? ' · 必填' : '' }}
-                  </el-tag>
-                </div>
-              </div>
-            </article>
+              </article>
+            </template>
           </div>
         </div>
 
@@ -835,13 +836,17 @@ const renderedRows = computed<RuleEditorRow[]>(() => {
   })
 })
 
-const selectedCell = computed(() => {
-  if (!selectedRuleKey.value) return null
+const findRenderedCellByIdentity = (identity: string) => {
   for (const row of renderedRows.value) {
-    const cell = row.cells.find((item) => item.identity === selectedRuleKey.value)
+    const cell = row.cells.find((item) => item.identity === identity)
     if (cell) return cell
   }
   return null
+}
+
+const selectedCell = computed(() => {
+  if (!selectedRuleKey.value) return null
+  return findRenderedCellByIdentity(selectedRuleKey.value)
 })
 
 const createDefaultAssistAssignment = (): AssistAssignmentDraft => ({
@@ -929,6 +934,55 @@ const selectedCellAssistRow = computed(() => {
 
 const selectedAssistRow = computed(() =>
   assistRows.value.find((row) => row.rowKey === selectedAssistRowKey.value)
+)
+
+const resolveAssistAssignmentSummary = (rowKey: string) => {
+  const assignment = assistAssignments[rowKey]
+  if (!assignment) return '未配置填写人'
+  const candidateIds = normalizeAssignmentIds(assignment.candidateSourceIds)
+  if (!candidateIds.length) return '未配置填写人'
+  const targetOptions = buildAssignmentTargetOptions(assignment.candidateSourceType)
+  const labels = candidateIds
+    .map((id) => targetOptions.find((option) => option.value === id)?.label)
+    .filter((label): label is string => Boolean(label))
+  const sourceLabel = normalizeAssignmentSourceType(assignment.candidateSourceType) === 'ROLE'
+    ? '角色'
+    : '个人'
+  const policyLabel = normalizeAssignmentPolicy(assignment.completionPolicy) === 'ALL'
+    ? '全部完成'
+    : '任一人完成'
+  return `${sourceLabel}：${labels.join('、') || '未配置'} · ${policyLabel}`
+}
+
+const resolveAssistFieldPreviewItems = (
+  row: BatchRecordReportAssistRowVO
+): AssistPreviewField[] =>
+  row.fields.map((field) => {
+    const key = cellIdentity(field.rowIndex, field.columnIndex)
+    const cell = findRenderedCellByIdentity(key)
+    const rule = ruleMap.value.get(key)
+    const sourceText = cell?.text?.trim()
+    return {
+      key,
+      label: String(rule?.label || sourceText || `第 ${field.rowIndex + 1} 行第 ${field.columnIndex + 1} 列`),
+      sourceCell: sourceText
+        ? `原表单：${sourceText}`
+        : `原表单：第 ${field.rowIndex + 1} 行第 ${field.columnIndex + 1} 列`,
+      valueTypeLabel: valueTypeLabelMap[rule?.valueType || 'STRING'] || rule?.valueType || '文本',
+      required: Boolean(rule?.required)
+    }
+  })
+
+const assistPreviewRows = computed<AssistPreviewRow[]>(() =>
+  [...assistRows.value]
+    .sort((left, right) => left.sort - right.sort)
+    .map((row) => ({
+      rowKey: row.rowKey,
+      description: row.description || '未填写描述',
+      assignmentSummary: resolveAssistAssignmentSummary(row.rowKey),
+      fields: resolveAssistFieldPreviewItems(row),
+      isSelected: row.rowKey === selectedAssistRowKey.value
+    }))
 )
 
 const ensureSelectedRuleStillExists = () => {
@@ -1210,8 +1264,9 @@ const removeSelectedStringOption = (optionIndex: number) => {
 }
 
 const normalizedAssistRowsForSave = () => {
+  if (ruleRows.value.length === 0) return []
   const rows = normalizeAssistRows(assistRows.value)
-  if (ruleRows.value.length > 0 && rows.length === 0) {
+  if (rows.length === 0) {
     throw new Error('At least one assist row is required for fillable cells.')
   }
   const assignedCellKeys = new Set<string>()
@@ -1329,6 +1384,7 @@ watch(
   () => [dialogVisible.value, reportId.value] as const,
   ([visible, currentReportId]) => {
     if (!visible || !currentReportId) return
+    activeConfigMode.value = 'source'
     void loadCellRules()
   },
   { immediate: true }
@@ -1347,6 +1403,7 @@ watch(
   display: flex;
   min-height: 34px;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -1366,15 +1423,24 @@ watch(
   font-size: 12px;
 }
 
+.batch-record-cell-rules-editor__mode-switch {
+  flex: 0 0 auto;
+}
+
 .batch-record-cell-rules-editor__workspace {
   display: grid;
-  height: clamp(360px, calc(100vh - 360px), 600px);
+  height: clamp(520px, calc(100vh - 220px), 880px);
   min-height: 0;
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: 14px;
 }
 
+.batch-record-cell-rules-editor__workspace--assist-mapping {
+  grid-template-columns: minmax(320px, 1fr) minmax(280px, 0.85fr) 360px;
+}
+
 .batch-record-cell-rules-editor__preview,
+.batch-record-cell-rules-editor__assist-preview-panel,
 .batch-record-cell-rules-editor__side-panel {
   min-width: 0;
   overflow: hidden;
@@ -1390,6 +1456,15 @@ watch(
   flex-direction: column;
 }
 
+.batch-record-cell-rules-editor__assist-preview-panel {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  border-color: #f1d36d;
+  background: #fff8d6;
+}
+
 .batch-record-cell-rules-editor__side-panel {
   display: flex;
   height: 100%;
@@ -1398,6 +1473,32 @@ watch(
   gap: 12px;
   overflow: auto;
   padding: 12px;
+}
+
+.batch-record-cell-rules-editor__side-panel.is-mapping-control {
+  border-color: #9cc7ff;
+  background: #eaf3ff;
+}
+
+.batch-record-cell-rules-editor__control-head {
+  margin: -2px -2px 2px;
+  padding: 10px 12px;
+  border: 1px solid #b9d7ff;
+  border-radius: 8px;
+  background: #dcecff;
+}
+
+.batch-record-cell-rules-editor__control-head strong {
+  display: block;
+  color: #123b72;
+  font-size: 14px;
+}
+
+.batch-record-cell-rules-editor__control-head p {
+  margin: 4px 0 0;
+  color: #31547c;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .batch-record-cell-rules-editor__panel-head {
@@ -1439,6 +1540,87 @@ watch(
   background: #fff;
   color: #172033;
   font-size: 12px;
+}
+
+.batch-record-cell-rules-editor__assist-preview-scroll {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.batch-record-cell-rules-editor__assist-preview-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #edd07b;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 8px 22px rgba(121, 91, 5, 0.08);
+}
+
+.batch-record-cell-rules-editor__assist-preview-row.is-selected {
+  border-color: #d29b13;
+  box-shadow: 0 0 0 2px rgba(210, 155, 19, 0.18);
+}
+
+.batch-record-cell-rules-editor__assist-preview-row-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.batch-record-cell-rules-editor__assist-preview-row-head strong {
+  display: block;
+  color: #5a3d05;
+  font-size: 14px;
+}
+
+.batch-record-cell-rules-editor__assist-preview-row-head p {
+  margin: 4px 0 0;
+  color: #846318;
+  font-size: 12px;
+}
+
+.batch-record-cell-rules-editor__assist-preview-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.batch-record-cell-rules-editor__assist-preview-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid #f0dda1;
+  border-radius: 8px;
+  background: #fffdf4;
+}
+
+.batch-record-cell-rules-editor__assist-preview-field span {
+  min-width: 0;
+  overflow: hidden;
+  color: #172033;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-record-cell-rules-editor__assist-preview-field small {
+  min-width: 0;
+  overflow: hidden;
+  color: #8a6a1c;
+  font-size: 12px;
+  grid-column: 1 / -1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .batch-record-cell-rules-editor__cell {
@@ -1641,6 +1823,26 @@ watch(
   max-width: 220px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .batch-record-cell-rules-editor__mode {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+
+  .batch-record-cell-rules-editor__workspace,
+  .batch-record-cell-rules-editor__workspace--assist-mapping {
+    height: auto;
+    max-height: none;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .batch-record-cell-rules-editor__preview,
+  .batch-record-cell-rules-editor__assist-preview-panel,
+  .batch-record-cell-rules-editor__side-panel {
+    min-height: 320px;
+  }
 }
 
 </style>
