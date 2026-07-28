@@ -13,7 +13,7 @@ const detailPath = path.join(
   'edhr-batch',
   'BatchExecutionDetailPage.vue'
 )
-const detail = fs.readFileSync(detailPath, 'utf8')
+const detail = fs.readFileSync(detailPath, 'utf8').replace(/\r\n/g, '\n')
 const railStart = detail.indexOf('<aside class="edhr-batch-detail__review-rail"')
 const railEnd = detail.indexOf('</aside>', railStart)
 const rail = detail.slice(railStart, railEnd)
@@ -42,8 +42,10 @@ test('eDHR batch detail hides right-side red-box fill metadata', () => {
   assert.doesNotMatch(rail, /<div class="edhr-batch-detail__rail-label">我的填写状态<\/div>/)
 
   assert.match(rail, /class="edhr-batch-detail__rail-process-form-item"/)
-  assert.match(rail, /class="edhr-batch-detail__rail-execution-code"/)
-  assert.match(rail, /detail\?\.batchExecutionCode/)
+  assert.doesNotMatch(rail, /class="edhr-batch-detail__rail-execution-code"/)
+  assert.doesNotMatch(rail, /detail\?\.batchExecutionCode/)
+  assert.match(rail, /class="edhr-batch-detail__rail-process-form-name"/)
+  assert.match(rail, /resolveTaskCardDisplayName\(task\)/)
   assert.match(rail, /class="edhr-batch-detail__rail-process-form-filler"/)
   assert.match(rail, /resolveTaskCardFillersText\(task\)/)
   assert.match(rail, /class="edhr-batch-detail__rail-process-form-action"/)

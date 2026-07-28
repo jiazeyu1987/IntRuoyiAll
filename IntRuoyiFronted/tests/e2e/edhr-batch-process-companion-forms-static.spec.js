@@ -5,8 +5,8 @@ const assert = require('node:assert/strict')
 const repoRoot = path.resolve(__dirname, '..', '..')
 const detailPath = path.join(repoRoot, 'src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue')
 const executionPath = path.join(repoRoot, 'src/views/mes/pro/edhr/ExecutionPage.vue')
-const detail = fs.readFileSync(detailPath, 'utf8')
-const execution = fs.readFileSync(executionPath, 'utf8')
+const detail = fs.readFileSync(detailPath, 'utf8').replace(/\r\n/g, '\n')
+const execution = fs.readFileSync(executionPath, 'utf8').replace(/\r\n/g, '\n')
 
 assert(
   detail.includes('processTaskGroups') &&
@@ -20,6 +20,7 @@ for (const requiredMarker of [
   'class="edhr-batch-detail__rail-process-forms"',
   'v-for="task in selectedProcessTasks"',
   'selectProcessTask(task)',
+  'resolveTaskCardDisplayName(task)',
   'handleSelectedPendingTaskAction(task)'
 ]) {
   assert(detail.includes(requiredMarker), `右侧工序详情必须保留可点击的表单任务项：${requiredMarker}`)

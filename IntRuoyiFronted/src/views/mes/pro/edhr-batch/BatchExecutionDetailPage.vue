@@ -559,11 +559,10 @@
                     @keydown.space.prevent="selectProcessTask(task)"
                   >
                     <div
-                      class="edhr-batch-detail__rail-execution-code"
-                      aria-label="批次执行编号"
-                      :title="detail?.batchExecutionCode || ''"
+                      class="edhr-batch-detail__rail-process-form-name"
+                      :title="resolveTaskCardDisplayName(task)"
                     >
-                      {{ detail?.batchExecutionCode || '--' }}
+                      {{ resolveTaskCardDisplayName(task) }}
                     </div>
                     <div class="edhr-batch-detail__rail-process-form-head">
                       <span class="edhr-batch-detail__rail-process-form-slot">
@@ -583,12 +582,6 @@
                           {{ resolveTaskStatusLabel(task) }}
                         </el-tag>
                       </div>
-                    </div>
-                    <div
-                      class="edhr-batch-detail__rail-process-form-name"
-                      :title="resolveTaskDisplayName(task)"
-                    >
-                      {{ resolveTaskDisplayName(task) }}
                     </div>
                     <div
                       class="edhr-batch-detail__rail-process-form-filler"
@@ -3115,6 +3108,13 @@ const resolveTaskDisplayName = (row: EdhrBatchExecutionTaskRespVO) =>
   row.processName ||
   '--'
 
+const resolveTaskCardDisplayName = (row: EdhrBatchExecutionTaskRespVO) => {
+  const name = resolveTaskDisplayName(row)
+  const isDraft = row.status === EDHR_BATCH_TASK_STATUS_DRAFT
+  if (!isDraft || name === '--') return name
+  return `${name}*`
+}
+
 const resolvePendingTaskTitle = (row: EdhrBatchExecutionTaskRespVO) =>
   isSpecialNode(row)
     ? specialNodeLabels[row.nodeType || ''] || row.processName || row.processCode || '--'
@@ -5442,16 +5442,6 @@ watch(
   box-shadow: inset 3px 0 0 #1677ff;
 }
 
-.edhr-batch-detail__rail-execution-code {
-  min-width: 0;
-  color: #172033;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
-
 .edhr-batch-detail__rail-process-form-head {
   display: flex;
   align-items: center;
@@ -5485,11 +5475,12 @@ watch(
 .edhr-batch-detail__rail-process-form-name {
   min-width: 0;
   overflow: hidden;
-  color: #667085;
-  font-size: 11px;
+  color: #172033;
+  font-size: 12px;
+  font-weight: 700;
   line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .edhr-batch-detail__rail-process-form-filler {

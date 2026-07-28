@@ -184,6 +184,14 @@
 - Verification: 至少运行聚焦静态合同，断言 `isOptionalTask` 通过 `isOptionalRouteFormTask` 对齐 `requiredPolicy === 'OPTIONAL'`，并断言必填损耗单点击路径调用打开填写而非跳过接口；涉及动态表单卡片中心预览时，必须断言前端只对完整 FormCenter 上下文加载预览，后端从 `FormTemplateVersionDO.jimuSchemaJson` 已保存布局或 `recognizedSchemaJson` 识别字段生成 `FormViewModel` 且不调用批记录报表 JSON。涉及无填写权限但有查看权限时，真实 E2E 必须断言卡片主动作是“查看表单”、抽屉动作按钮全部禁用，未触发 `/task/open`、`/task/special-node/skip` 或表单中心写请求，且页面没有“必填路线表单不允许跳过”红色错误。
 - Forbidden action: 禁止为了避开“必填路线表单不允许跳过”而吞掉后端错误、隐藏按钮错误、改文案、API-only 直开历史 execution，或把必填表单改成可跳过。
 - Evidence: `doc/tasks/20260725-edhr-loss-form-open-action/verification-report.md`；`doc/tasks/20260728-edhr-dynamic-form-view/verification-report.md`。
+## eDHR 右侧表单卡片标题门禁
+
+- Trigger: 修改或验证 eDHR 批次详情右侧当前工序表单卡片标题、`edhr-batch-detail__rail-process-form-name`、`edhr-batch-detail__rail-execution-code`、`resolveTaskDisplayName`、`resolveTaskCardDisplayName`、草稿 `DRAFT` 标识、`EDHRB-` 批次编号展示。
+- Preflight check: 先区分页面顶部批次上下文和单据卡片任务标题；批次编号只能作为批次上下文展示，不得作为每张卡片主标题。卡片标题基础名称必须来自当前 task 的表单名称解析，草稿标识只按 `task.status === EDHR_BATCH_TASK_STATUS_DRAFT` 追加 ASCII `*`，非草稿不追加，名称无效时不得追加。右侧卡片仍必须逐 task 展示，不得为了消除重复标题合并、去重或隐藏真实表单任务。
+- Blocker: 若右侧当前工序表单卡片列表仍包含 `edhr-batch-detail__rail-execution-code` 或卡片级 `detail?.batchExecutionCode`，若标题 helper 读取批次编号，若草稿判断不用任务自身 `DRAFT` 状态，或状态标签、填写人、门禁原因、打开/查看/接管/跳过动作被一起删改，必须停止并修复。
+- Verification: 至少运行 `node tests/e2e/edhr-batch-card-title-draft-marker-static.spec.js`、`node tests/e2e/edhr-batch-companion-forms-right-panel-static.spec.js`、`node tests/e2e/edhr-batch-process-companion-forms-static.spec.js`、`node tests/e2e/edhr-batch-detail-hide-red-box-static.spec.js` 和 `node tests/e2e/edhr-batch-process-form-card-fillers-static.spec.js`；真实登录态、端口和可读批次数据齐备时，还必须用 Playwright 走批次详情页面确认标题、草稿 `*` 和无控制台错误。
+- Forbidden action: 禁止用批次编号、表单槽位、`formBindings`、当前登录人、默认 `MAIN` 或后端接口临时改造来替代表单任务名称；禁止通过合并不同表单任务、隐藏产品信息/损耗单/过程检验记录、API-only 直查详情或 mock 页面宣称标题已修复。
+- Evidence: `doc/tasks/20260728-edhr-batch-card-title-draft-marker/verification-report.md`。
 ## eDHR 右侧红框元信息隐藏门禁
 
 - Trigger: 修改 eDHR 批次详情右侧栏、单据卡片、`edhr-batch-detail__primary-fill-meta`、`primaryFormFillMetaItems`、填写人/提交时间摘要、工艺路线配置右侧 `data-flow-panel="selected-field-detail"` 或截图红框区域。
