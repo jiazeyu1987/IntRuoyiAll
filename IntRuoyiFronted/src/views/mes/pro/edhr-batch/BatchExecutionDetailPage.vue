@@ -3813,6 +3813,15 @@ const resolveRouteFormAutoOpenKey = () => {
   return `${batchExecutionId.value || ''}:${queryBatchTaskId || ''}:${queryWorkTaskId || ''}`
 }
 
+const resolveRouteFormAssistUserId = (row: EdhrBatchExecutionTaskRespVO) => {
+  if (parseRouteQueryText(route.query.openRouteForm) !== '1') return undefined
+  const queryBatchTaskId = parsePositiveRouteQueryId(route.query.batchTaskId)
+  const queryWorkTaskId = parsePositiveRouteQueryId(route.query.workTaskId)
+  if (queryBatchTaskId && !sameRouteQueryId(row.id, queryBatchTaskId)) return undefined
+  if (queryWorkTaskId && !sameRouteQueryId(row.activeWorkTaskId, queryWorkTaskId)) return undefined
+  return parsePositiveRouteQueryId(route.query.assistUserId) || undefined
+}
+
 const autoOpenRouteFormFromRoute = async () => {
   if (parseRouteQueryText(route.query.openRouteForm) !== '1') return
   const routeQueryTask = resolveRouteQueryTaskSelection()
@@ -4389,7 +4398,8 @@ const handleOpenTask = async (
     const opened = await openEdhrBatchTask({
       batchExecutionId: assertBatchExecutionId(),
       taskId: row.id,
-      workTaskId: row.activeWorkTaskId
+      workTaskId: row.activeWorkTaskId,
+      assistUserId: resolveRouteFormAssistUserId(row)
     })
     if (
       opened.formCenterInstanceId &&
