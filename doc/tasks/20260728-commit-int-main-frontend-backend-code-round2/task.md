@@ -87,4 +87,4 @@ completed
 - 推送后复核：`HEAD` = `origin/int_main` = `8fdf586abcecd8dfe394a4babd42068729c2c507`。
 - Cleanup preview：PASS，keep 三份正式任务记录，delete/blocked/warnings 均为空。
 - Cleanup apply：PASS，deleted_paths/blocked/warnings 均为空。
-- 最终任务记录与经验门禁将作为独立 closeout commit 推送。
+- 最终任务记录与经验门禁已通过 closeout commit `791513bc` 推送。

@@ -108,13 +108,22 @@
 - Post-merge GREEN: `pnpm ts:check` -> PASS。
 - Post-merge GREEN: `git diff --cached --check` and branch runtime port guard -> PASS。
 - Merge commit: `8fdf586a Merge remote-tracking branch 'origin/int_main' into int_main`。
+- Closeout commit: `791513bc docs: record int main frontend backend closeout`。
+- Closeout commit files:
+  - `doc/tasks/20260728-commit-int-main-frontend-backend-code-round2/execution-log.md`
+  - `doc/tasks/20260728-commit-int-main-frontend-backend-code-round2/task.md`
+  - `doc/tasks/20260728-commit-int-main-frontend-backend-code-round2/verification-report.md`
+  - `docs/experience-index.md`
+  - `docs/powershell-memory.md`
 
 ## Push
 
 - Outgoing object scan before first push -> PASS；largest new blob `229153` bytes at `IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue`，below GitHub 100 MB limit.
 - `git push origin int_main` -> PASS，`6cadc18d..8fdf586a int_main -> int_main`。
 - Post-push fetch and verification -> PASS，`HEAD` = `origin/int_main` = `8fdf586abcecd8dfe394a4babd42068729c2c507`，no ahead/behind state.
-- Final closeout record push pending until the closeout commit is created.
+- Closeout outgoing object scan -> PASS；largest new blob `52214` bytes at `docs/experience-index.md`。
+- Closeout `git push origin int_main` -> PASS，`8fdf586a..791513bc int_main -> int_main`。
+- Closeout post-push verification -> PASS，`HEAD` = `origin/int_main` = `791513bc6cd8baaf813754f57a821c6975b3feed`，no ahead/behind state.
 
 ## Cleanup
 
