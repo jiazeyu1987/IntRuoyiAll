@@ -40,6 +40,15 @@
 - Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；禁止跳过当前需求的最小 RED/GREEN。
 - Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。
 
+## 前端列表状态口径完整性门禁
+
+- Trigger: 前端列表、版本工作区、状态表格、历史记录、候选版本、`只显示`、`仅展示`、`有效历史`、`已生效历史版本`、`取消的不显示`、`CANCELLED`、`DRAFT`、`ACTIVE`、`SUPERSEDED`。
+- Preflight check: 先从用户原话或需求中拆出允许状态集合和禁止状态集合；若出现“只显示/仅展示”，必须按正向允许集合建模，而不是只排除截图里出现的一个异常状态。静态合同要同时断言允许集合、禁止集合和“不允许只写 `!== <badStatus>`”。
+- Blocker: 过滤谓词只排除一个报错状态、测试只覆盖截图里出现的状态、文档把“只显示 A/B”改写成“隐藏 C”、或真实 E2E 没有证明至少一个非截图异常状态也被隐藏时，不得宣称完成。
+- Verification: 聚焦静态合同必须包含一个负向断言，例如禁止 `version.lifecycleStatus !== 'CANCELLED'` 这种反向过滤；真实 E2E 若可运行，必须从页面断言允许状态可见、至少一个未生效候选状态和取消状态不可见，并记录无写请求。
+- Forbidden action: 禁止把截图症状当作完整需求口径；禁止把“取消的不显示”当成唯一验收项而忽略前半句“只显示已生效的历史版本”；禁止用仅隐藏 `CANCELLED` 的实现替代 effective-only 列表口径。
+- Evidence: 任务 `doc/tasks/20260727-route-version-list-active-history-only/`，首轮只隐藏 `CANCELLED` 后 completion audit 发现 `DRAFT` 仍可显示，最终改为 `ACTIVE/SUPERSEDED` 正向集合并用真实 E2E 证明 `V19 DRAFT` 与取消版本均隐藏。
+
 ## 前端保存链路重复错误提示门禁
 
 - Trigger: 页面保存动作由父组件聚合多个子组件/API 保存，且子组件、父组件、axios response interceptor 都可能 `message.error`/`ElMessage.error`。

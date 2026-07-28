@@ -124,13 +124,17 @@ BLOCKER: task-closeout-cleanup preview -> current branch cannot be fast-forward 
 
 ## Experience Consolidation
 
-GREEN: experience-preflight -> PASS, no new long-term document needed.
+GREEN: experience-preflight -> PASS, existing long-term documents found; no new long-term document needed.
 
 - Existing `docs/frontend-development.md#前端静态契约隔离门禁` covers the focused static contract approach.
 - Existing `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁` covers keeping the older deep-link contract green.
 - Existing `docs/e2e-rules.md#Worktree 隔离运行态 URL 门禁` covers paired slot frontend/backend URL verification for real E2E.
 - Existing `docs/local-runtime.md#2026-07-27 本地后端运行 Jar 不可变门禁` covers copying the backend Jar to `output\runtime\...` before starting the long-running E2E backend.
 - Existing `docs/worktree-memory.md#worktree-前端依赖启动门禁` covers the missing `node_modules` dependency recovery.
+
+GREEN: project-experience-consolidation -> PASS, added `docs/frontend-development.md#前端列表状态口径完整性门禁` and routed keywords in `docs/experience-index.md`.
+
+GREEN: project-experience-validation -> PASS, `git diff --check` reported no whitespace errors, and `rg` confirmed the new frontend gate plus experience-index keyword routing.
 
 ## Current Status
 
