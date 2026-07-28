@@ -47,6 +47,9 @@ BDD: 多前置汇合工序不得进入第一组当前可执行 -> Given 路线�
 - GREEN: experience-preflight -> PASS，已合并到 `docs/backend-development.md#当前配置与发布快照边界`、`docs/frontend-development.md#eDHR 当前工序运行态展示门禁`、`docs/e2e-rules.md#真实 E2E 页面加载判据门禁`，并更新 `docs/experience-index.md` 关键词。
 - CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-parallel-start-process-highlight --mode preview --worktree-closeout off` -> PASS，保留核心任务文档和 `real-e2e-evidence.md`，计划删除一次性 Playwright 脚本和截图。
 - CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-parallel-start-process-highlight --mode apply --worktree-closeout off` -> PASS，已删除 `parallel-current-real-e2e.cjs` 与 `parallel-current-process-highlight.png`。
+- SYNC: `git fetch origin`; `git rebase origin/int_main` -> PASS，当前任务提交重放为 `483a9ce4`，基线 `origin/int_main` 为 `52a314ea`。
+- POST-REBASE GREEN: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#openOrCreate_allowsValidMultiStartMergeRouteGraphWhenBatchBindingsExist+getUsesCurrentRouteGraphWhenBatchTasksWereCreatedFromCurrentRouteConfig" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，2 tests。
+- RUNTIME CLEANUP: `Stop-Process -Id 14464,54944,33612,55808,11492,38304,17552 -Force`；`Get-NetTCPConnection -LocalPort 8093,48093` -> PASS，`8093`、`48093` 均无监听。
 
 ## Milestones
 
@@ -59,8 +62,8 @@ BDD: 多前置汇合工序不得进入第一组当前可执行 -> Given 路线�
 - completed: implementation commit `6423023d` 已推送到 `origin/int_main`。
 - completed: 后端任务门禁改为使用完整直接前置集合，多前置汇合工序必须等待所有直接前置工序完成。
 - completed: 旧冻结快照与当前路线配置不一致但批次任务来自当前配置时，按当前路线关系图计算可执行工序；缺失正式图源仍显式阻塞。
-- completed: 真实芋道源码/admin Playwright E2E 已通过，页面三 个第一组工序均黄底。
-- in_progress: 最终 closeout 记录提交、推送和运行态清理。
+- completed: 真实芋道源码/admin Playwright E2E 已通过，页面三个第一组工序均黄底。
+- completed: 最终 closeout 记录已补齐，本任务运行态已清理。
 
 ## Verification
 
@@ -68,4 +71,4 @@ BDD: 多前置汇合工序不得进入第一组当前可执行 -> Given 路线�
 
 ## Blockers
 
-- NOTE: 当前验证 worktree 分支落后 `origin/int_main` 4 个提交，最终推送前需按 Git 规则处理同步；不得触碰主工作区并行冲突。
+- 无。

@@ -20,11 +20,11 @@ PASS。批次执行详情页已按后端任务门禁 `available=true` 标记所�
 
 ## Evidence
 
-- 后端 `TaskGate` 改为按完整直接前置集合判断，三 个起点工序可执行，三前置汇合工序在前置未完成前不可执行。
+- 后端 `TaskGate` 改为按完整直接前置集合判断，三个起点工序可执行，三前置汇合工序在前置未完成前不可执行。
 - 批次任务由当前路线批记录配置生成且冻结快照无法覆盖任务工序时，任务门禁按当前路线关系图计算；正式图源缺失仍阻塞。
 - 前端 `isCurrentExecutableProcessGroup` 读取任务 `available === true`，并要求未完成、非可选；填写权限仍由 `OPEN_FORM` 控制。
 - 真实 E2E 证据：`doc/tasks/20260729-edhr-parallel-start-process-highlight/real-e2e-evidence.md`。
 
 ## Residual Risk
 
-无已知未验证风险；最终完成前仍需按项目 Git 规则提交、推送并清理本任务运行态。
+无已知未验证风险；任务运行态已清理，最终提交与推送结果见收尾输出。
