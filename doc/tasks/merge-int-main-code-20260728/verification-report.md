@@ -4,7 +4,7 @@
 
 - 融合结果：`origin/int_main` 已融合到本地 `int_main`。
 - 融合提交：`c8e07b0d4faabc411c45dd0f71f1fe88dd80c479`、`149b58fb7bde33480641f42f805cbd8e85149d2c`、`774f371b514bc22fc470365fcd19edb7667f1faf`。
-- 当前差异：本地 `int_main` 领先 `origin/int_main` 10 个提交，待最终推送。
+- 当前差异：已推送；本地 `int_main` 与 `origin/int_main` 一致。
 
 ## Commands
 
@@ -29,6 +29,10 @@
 - 第三次融合后 `pnpm ts:check` -> PASS
 - 第三次融合后 `node tests/e2e/edhr-batch-admin-current-process-highlight-static.spec.js` -> PASS
 - 第三次融合后 `git rev-list --left-right --count HEAD...origin/int_main` -> `10 0`
+- `git push origin int_main` -> PASS，`35a1255c..4a57f0c3`
+- 推送后 `git fetch origin int_main` -> PASS
+- 推送后 `git status --short --branch` -> `int_main...origin/int_main`
+- 推送后 `git rev-list --left-right --count HEAD...origin/int_main` -> `0 0`
 
 ## Notes
 

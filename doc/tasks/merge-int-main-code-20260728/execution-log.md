@@ -36,6 +36,8 @@
 - 第三次融合后 `pnpm ts:check` -> PASS。
 - 第三次融合后 `node tests/e2e/edhr-batch-admin-current-process-highlight-static.spec.js` -> PASS。
 - 第三次融合后 `git rev-list --left-right --count HEAD...origin/int_main` -> `10 0`。
+- `git push origin int_main` -> PASS，远端 `int_main` 从 `35a1255c` 更新到 `4a57f0c3`。
+- 推送后 `git fetch origin int_main` -> PASS；`git status --short --branch` -> `int_main...origin/int_main`；`git rev-list --left-right --count HEAD...origin/int_main` -> `0 0`。
 
 ## BDD / TDD
 
@@ -58,6 +60,7 @@
 - GREEN: second merge `python -X utf8 -m pytest script/tests/test_runtime_control_scripts.py` -> PASS
 - GREEN: third merge `pnpm ts:check` -> PASS
 - GREEN: third merge `node tests/e2e/edhr-batch-admin-current-process-highlight-static.spec.js` -> PASS
+- GREEN: `git push origin int_main` -> PASS，推送后本地与 `origin/int_main` 一致
 - GREEN: `project-experience-consolidation` -> PASS，更新现有经验文档 `docs/worktree-memory.md`
 - GREEN: `task-closeout-cleanup preview/apply` -> PASS，无删除项、无阻塞项
 - NOTE: `git diff --cached --check` 在融合提交前命中远端历史中已存在的空行/尾随空格；冲突解决文件与当前任务文档的 scoped check 通过，未额外改动远端历史 whitespace。
