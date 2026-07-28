@@ -2,57 +2,65 @@
 
 ## Feature Goal
 
-- DHF/DMR 类受控文件提交时，“产品编号”从正式产品主数据自动带出；不得临时生成产品编号。
+- DHF/DMR 类受控文件提交时，“产品编号”只读显示所选 DCC 项目的 `projectCode`。
+- 用户纠正后的权威来源是 DCC 项目代码，不匹配、不选择、不依赖其它业务主数据。
 
 ## Non-Goals
 
-- 不新增产品主数据。
-- 不修改后端接口契约或数据库结构。
-- 不改变非 DHF/DMR 类文件的可选产品绑定规则。
+- 不新增业务主数据。
+- 不改动非 DHF/DMR 类别的既有可选绑定路径。
+- 不新增提交页手动输入或临时编号生成能力。
 
 ## Requirements And Acceptance
 
-- DHF/DMR 类别要求产品主数据时，若当前 DCC 项目可唯一匹配启用且带 DCC 产品编号的产品主数据，则自动选中该产品并显示 DCC 产品编号。
-- 若匹配不到或匹配到多个产品主数据，则不生成临时编号，并提示用户手动选择产品主数据。
-- 手动选择产品和自动带出产品使用同一绑定路径，提交 payload 继续发送 `productMasterId` 和正式 `productCode`。
+- 选择 DCC 项目后，`formData.productCode` 必须等于 `selectedProjectCode.projectCode.trim()`。
+- DHF/DMR 类别下，如果所选 DCC 项目没有项目代码，提交前必须提示“请选择包含项目代码的 DCC 项目”。
+- 上传页不得加载产品选项、不得展示产品选择器、不得出现匹配其它数据源的提示。
+- 提交 payload 中 `productMasterId` 清空，`productCode` 由 DCC 项目代码带出。
 
 ## UI And Owned Files
 
-- 页面入口：受控文件提交页。
+- 页面入口：`/dcc/controlled-file/upload`。
 - 组件：`IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue`。
-- 测试：`IntRuoyiFronted/tests/e2e/dcc-upload-product-autofill-static.spec.js`。
-- 脚本入口：`IntRuoyiFronted/package.json` 中 `e2e:dcc:upload-product-autofill:static`。
+- 提交器：`IntRuoyiFronted/src/views/dcc/controlled-file/upload/submitter.ts`。
+- 静态合同：`IntRuoyiFronted/tests/e2e/dcc-upload-product-autofill-static.spec.js`、`IntRuoyiFronted/tests/e2e/dcc-product-category-rule-static.spec.js`。
 
 ## API Contracts And Data States
 
-- 复用现有 `getDccProductOptions`，传入 `status=ENABLE`、`requireDccProductCode=true` 和 DCC 项目关键词。
-- 候选关键词来自当前 DCC 项目的 `projectName`、`projectCode`、`docControlNo`。
-- 唯一正式产品主数据命中才写入 `formData.productMasterId` 与 `formData.productCode`。
+- DCC 项目候选来自 `/dcc/project-codes/page`，字段为 `DccProjectCodeRespVO.projectCode`。
+- 文件类别仍来自 `/dcc/file-categories`，DHF/DMR 必填口径仍按 `DCC_FVM_DHF_` / `DCC_FVM_DMR_` 类别编码前缀。
+- 前端不调用 `/dcc/controlled-files/product-options` 或其它产品选项接口完成红框产品编号。
 
 ## BDD Scenarios
 
-- `BDD: DHF/DMR 产品编号自动带出 -> Given 受控文件分类要求产品主数据且当前 DCC 项目存在唯一产品关联 / When 用户选择 DCC 项目或文件类别 / Then 系统自动填入对应正式 DCC 产品编号。`
-- `BDD: 产品关联不唯一时不得默认生成 -> Given 分类要求产品主数据但无法唯一定位产品 / When 用户进入提交页或选择分类 / Then 系统提示选择产品主数据，不生成临时产品编号。`
+- `BDD: DCC 项目代码自动带出产品编号 -> Given 用户选择启用 DCC 项目 / When 项目包含 projectCode / Then 产品编号只读字段显示该 projectCode。`
+- `BDD: DHF/DMR 类别缺项目代码 fail-fast -> Given 用户选择 DHF/DMR 类别 / When 当前 DCC 项目 projectCode 为空 / Then 页面阻止提交并提示选择包含项目代码的 DCC 项目。`
+- `BDD: 不查询其它业务主数据 -> Given 产品编号权威来源是 DCC 项目代码 / When 用户选择 DCC 项目和文件类别 / Then 页面不加载产品选项接口。`
 
 ## RED / GREEN
 
-- `RED: pnpm e2e:dcc:upload-product-autofill:static -> FAIL, 缺少正式产品主数据自动带出逻辑。`
+- `RED: pnpm e2e:dcc:upload-product-autofill:static -> FAIL, 旧上传页仍依赖产品选择器，未使用 DCC 项目代码。`
+- `RED: pnpm e2e:dcc:product-category-rule:static -> FAIL, 旧校验仍要求产品选择。`
 - `GREEN: pnpm e2e:dcc:upload-product-autofill:static -> PASS。`
+- `GREEN: pnpm e2e:dcc:product-category-rule:static -> PASS。`
 
 ## Verification
 
 - `pnpm e2e:dcc:upload-project-taxonomy-revision:static` -> PASS。
 - `pnpm e2e:dcc:upload-current-version:static` -> PASS。
-- `pnpm e2e:dcc:product-category-rule:static` -> PASS。
 - `node tests/e2e/dcc-optional-product-binding-static.spec.js` -> PASS。
-- `pnpm ts:check` -> PASS。
+- `scripts/preflight/login-preflight.mjs --target-path /dcc/controlled-file/upload` -> PASS。
+- `inline Playwright readonly DCC project-code product-number E2E` -> PASS，`selectedProject=按压式球囊扩充压力泵 / IDI`，`selectedCategory=DCC_FVM_DHF_001 / 市场调研报告`，`productNumber=IDI`，`writeRequestCount=0`，`productMasterRequestCount=0`，`consoleErrorCount=0`。
+- `pnpm ts:check` -> BLOCKED，无关 MES 历史类型错误 `assistPreviewRows`。
 
 ## Responsive, Accessibility, Loading, Empty, Error, Permission
 
-- UI 结构未改，仅复用现有产品选择框和 loading 状态。
-- 自动检索失败时显示真实错误提示；匹配不唯一时要求人工选择，不吞异常。
-- 权限沿用现有产品选项接口权限和提交页权限。
+- UI 控件从选择器改为只读输入框，避免用户误选其它来源。
+- 来源说明显示“来源：DCC 项目代码 项目名称 / 项目代码”。
+- 缺项目代码时保留可见错误提示，不吞异常、不默认成功。
+- 类别上传权限仍沿用当前 `canUpload` 投影和后端类别权限校验。
 
 ## Blockers
 
-- 无。
+- 无当前 DCC 产品编号功能阻塞。
+- 全量类型检查存在无关 MES 历史阻塞，已在执行日志中记录。
