@@ -142,6 +142,15 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - Forbidden action: 禁止长期运行进程直接使用会被 Maven 重建的 `target\yudao-server-exec.jar`；禁止通过复制缺失类、吞异常、跳过 Jimu 更新或返回空详情掩盖运行归档损坏。
 - Evidence: `doc/tasks/20260727-batch-record-list-detail-500/verification-report.md`。
 
+## 2026-07-28 本地前端 pnpm 链接损坏门禁
+
+- Trigger: `restart-int-ruoyi-local.ps1 -Component frontend/full`、`pnpm dev -- --strictPort`、Vite 报 `Cannot find module '@babel/helper-validator-identifier'`、`failed to load config from IntRuoyiFronted\vite.config.ts`、或 `pnpm install --frozen-lockfile` 显示 `Already up to date` 但前端仍无法启动。
+- Preflight check: 先确认 `IntRuoyiFronted\node_modules` 存在、`pnpm list <missing-package> --depth 5` 能从 lockfile 依赖树定位缺失包，再用真实包路径执行 Node 解析探针，例如从 `node_modules\.pnpm\@babel+types@7.26.0\node_modules\@babel\types` 加载 `@babel/types` 或 `@babel/helper-validator-identifier`。
+- Blocker: lockfile 依赖树中不存在缺失包、`pnpm install --frozen-lockfile` 修改 lockfile 或失败、强制重建后真实包路径仍不能解析、或 `pnpm approve-builds`/构建脚本审批缺失导致 Vite 运行依赖不可用时必须停止启动成功结论。
+- Verification: 记录首次前端启动失败日志、`pnpm install --frozen-lockfile` 结果、必要时 `pnpm install --frozen-lockfile --force` 结果、真实包路径 Node 解析探针 PASS、重新启动前端后 `http://127.0.0.1:8081/` HTTP `200`。
+- Forbidden action: 禁止手工复制缺失包、手工创建 `node_modules` symlink/junction、修改 `package.json` 或 lockfile 绕过、换端口、跳过前端、或把后端 health `UP` 冒充前后端均已启动。
+- Evidence: `doc/tasks/20260728-start-local-frontend-backend-runtime/verification-report.md`。
+
 ## 禁止做法
 
 - 禁止把 `int_main` 改到随机端口启动。

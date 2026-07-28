@@ -8,10 +8,10 @@ Start the `int_main` local backend and frontend from `E:\IntRuoyi`, using the fi
 
 - [x] Read required local runtime, worktree, task, PowerShell, and encoding rules.
 - [x] Identify task directory and applicable experience gates.
-- [ ] Confirm required ports are safe to use.
-- [ ] Dispatch backend and frontend startup.
-- [ ] Verify backend health and frontend HTTP entry.
-- [ ] Record closeout status and blockers.
+- [x] Confirm required ports are safe to use.
+- [x] Dispatch backend and frontend startup.
+- [x] Verify backend health and frontend HTTP entry.
+- [x] Record closeout status and blockers.
 
 ## Expected Verification
 
@@ -36,4 +36,8 @@ Start the `int_main` local backend and frontend from `E:\IntRuoyi`, using the fi
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Closeout Blockers
+
+- Commit/push closeout is blocked by pre-existing unrelated dirty workspace changes. This task intentionally did not stage, commit, revert, or clean unrelated task artifacts.
