@@ -10,6 +10,7 @@
 - BDD: 点击候选立即过滤 -> Given 候选下拉中存在目标产品名称 / When 用户点击该候选 / Then 快速筛选写入 `productName` 并立即请求列表过滤，无需点击查询按钮。
 - BDD: 手动输入查询过滤 -> Given 用户手动输入或复制产品名称 / When 用户点击查询按钮 / Then 列表按输入文本作为 `productName` 过滤。
 - BDD: 产品名称完整显示 -> Given 产品名称筛选位于较窄工具栏 / When 页面展示“产品名称”“包含”和较长产品名称候选 / Then 字段、条件和候选名称不被 flex 收缩成省略号，候选可换行完整阅读。
+- BDD: 删除批量删除按钮 -> Given 批记录表单列表顶部工具栏显示导入与最新版本开关 / When 用户查看截图红框位置 / Then 不再显示“批量删除”按钮，且不保留仅服务于该按钮的多选列、选中状态和批量删除处理函数。
 - 2026-07-28: 任务启动。已加载 frontend-feature-delivery、backend-api-delivery、frontend/backend 规则、task-closeout、PowerShell 编码规则。
 - 2026-07-28: `git status --short --branch --untracked-files=all` 显示 `int_main` 分支已有既有脏改动且本地 ahead 4；本任务实现前按规则做脏工作区基线提交。
 
@@ -36,6 +37,12 @@
 - GREEN: `node tests/e2e/edhr-batch-record-form-list-product-filter-autocomplete-static.spec.js` -> PASS，新增完整显示静态合同通过。
 - GREEN: `node tests/e2e/edhr-batch-record-form-list-static.spec.js` -> PASS。
 - GREEN: `pnpm ts:check` -> PASS。
+- RED: `node tests/e2e/batch-record-form-latest-version-switch-static.spec.js` -> FAIL，expected reason: 页面仍绑定 `@click="handleBatchDelete"`，截图位置仍有“批量删除”按钮。
+- GREEN: `node tests/e2e/batch-record-form-latest-version-switch-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-batch-record-form-list-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/batch-record-force-unbind-delete-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-batch-record-form-list-product-filter-autocomplete-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
 
 ## REGRESSION
 
@@ -48,6 +55,7 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260728-batch-record-product-name-dropdown/backend-api-evidence.md` -> PASS。
 - 2026-07-28: 针对用户截图“没显示全”，修复 `TableQuickFilter` 字段选择框、条件选择框和产品名称输入框 flex 收缩问题，并为 autocomplete 候选下拉增加可换行完整显示 popper 样式。
 - 2026-07-28: 运行 project-experience-consolidation 检查；本次“选择框显示全”经验已由 `docs/e2e-rules.md#Element Plus 选择框显示门禁` 和 `docs/experience-index.md` 关键词覆盖，不新增长期经验文档。
+- 2026-07-28: 按用户截图删除工具栏“批量删除”按钮；同步删除表格多选列、`selectedRows`、`batchDeleteLoading`、`handleBatchDelete`、批量解绑删除弹窗和相关死代码，保留右侧单条“删除”动作不变。
 
 ## Blockers
 

@@ -63,22 +63,44 @@ expectIncludes('BatchRecordReportApi.getCellRules', '右侧预览必须读取真
 expectIncludes('BatchRecordReportApi.getSignatureCellMarkers', '右侧预览必须读取真实签名位。')
 expectIncludes('EdhrExecutionReadonlyForm', '右侧预览必须复用 eDHR 只读表单组件。')
 expectIncludes('@row-click="selectReport"', '点击左侧表单行必须切换右侧预览。')
-expectIncludes('type="selection"', '批记录表单列表必须提供多选列用于批量删除。')
-expectIncludes('@selection-change="handleSelectionChange"', '批记录表单列表必须维护选中行。')
-expectIncludes('批量删除', '批记录表单列表必须提供批量删除按钮。')
-expectIncludes('@click="handleBatchDelete"', '批量删除按钮必须调用批量删除处理函数。')
-expectIncludes('const selectedRows = ref<RecordFormListRow[]>([])', '批量删除必须维护选中行状态。')
-expectIncludes('const getUniqueSelectedReports = () =>', '批量删除必须按表单 ID 去重。')
-expectIncludes('const uniqueReportMap = new Map<string, RecordFormListRow>()', '批量删除去重必须使用 reportId 作为唯一键。')
-expectIncludes('uniqueReportMap.set(row.reportId, row)', '同一表单按产品拆行时必须只删除一次。')
-expectIncludes('BatchRecordReportApi.deleteGeneratedReports', '批量删除必须调用后端批量删除接口，不得直接删库。')
-expectIncludes('isRouteProcessBoundDeleteError', '批量删除必须识别工艺路线工序绑定错误。')
-expectIncludes('是否批量解绑后删除', '遇到工艺路线工序绑定错误时必须提示是否批量解绑后删除。')
-expectIncludes('deleteSelectedReports(candidates, true)', '用户确认后必须按 forceUnbind=true 执行真实批量解绑删除。')
+assert.doesNotMatch(page, /type="selection"/, '删除批量删除按钮后不应继续保留仅服务于批量操作的多选列。')
+assert.doesNotMatch(page, /@selection-change="handleSelectionChange"/, '删除批量删除按钮后不应继续维护批量选择状态。')
+assert.doesNotMatch(page, /批量删除/, '批记录表单列表顶部不得继续显示批量删除按钮。')
+assert.doesNotMatch(page, /handleBatchDelete/, '删除批量删除按钮后不应保留废弃 handleBatchDelete。')
+assert.doesNotMatch(page, /selectedRows/, '删除批量删除按钮后不应保留废弃 selectedRows 状态。')
+assert.doesNotMatch(page, /getUniqueSelectedReports/, '删除批量删除按钮后不应保留批量删除去重逻辑。')
+assert.doesNotMatch(page, /deleteSelectedReports/, '删除批量删除按钮后不应保留批量删除请求处理。')
+assert.doesNotMatch(page, /是否批量解绑后删除/, '删除批量删除按钮后不应保留批量解绑删除弹窗文案。')
 
 for (const action of ['打开', '编辑', '填写', '签名', '规则', '链接', '重命名', '删除']) {
   expectIncludes(action, `右侧预览顶部必须保留动作：${action}`)
 }
+
+const fillerDialogStart = page.indexOf('const openBatchRecordFormPermissionDialog')
+const fillerDialogEnd = page.indexOf('const submitBatchRecordFormPermission', fillerDialogStart)
+assert.notEqual(fillerDialogStart, -1, '填写人列必须绑定打开填写人设置弹窗的处理函数。')
+assert.notEqual(fillerDialogEnd, -1, '填写人设置弹窗处理函数必须在保存函数前完整定义。')
+const fillerDialogSource = page.slice(fillerDialogStart, fillerDialogEnd)
+assert.match(
+  fillerDialogSource,
+  /permissionDialogVisible\.value = true/,
+  '点击填写人列必须打开“批记录表单填写人设置”小弹窗，便于更换填写人。'
+)
+assert.doesNotMatch(
+  fillerDialogSource,
+  /openCellRulesDialog\(row\)/,
+  '点击填写人列不得跳转到全屏“填写配置”，即使当前记录存在 fillAssignments。'
+)
+assert.doesNotMatch(
+  fillerDialogSource,
+  /fillAssignments\?\.length/,
+  '填写人列不应因 fillAssignments 分流到单元格/辅助表单配置。'
+)
+assert.match(
+  page,
+  /<el-button link type="primary" @click="openTemplateAction\(selectedReport, 'cellRules'\)">填写配置<\/el-button>/,
+  '需要进入全屏填写配置时必须继续通过右侧“填写配置”动作打开。'
+)
 
 expectIncludes('class="batch-record-form-preview__actions"', '右侧预览顶部必须承载表单操作区。')
 assert(!page.includes('prop="operation"'), '批记录表单列表不应继续保留操作列。')

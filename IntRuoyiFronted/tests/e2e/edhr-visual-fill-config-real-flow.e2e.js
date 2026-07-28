@@ -1265,6 +1265,75 @@ async function findTargetRouteProcess(auth, copiedRoute, candidate) {
   return matched[0]
 }
 
+function resolvePersistedRouteProcessId(routeProcessId, routeProcessIdMap) {
+  const originalRouteProcessId = Number(routeProcessId)
+  assert.ok(
+    Number.isFinite(originalRouteProcessId) && originalRouteProcessId > 0,
+    `target route process id is invalid: ${routeProcessId}`
+  )
+  const mappedValue = routeProcessIdMap?.[String(originalRouteProcessId)]
+  if (mappedValue === undefined || mappedValue === null || mappedValue === '') {
+    return originalRouteProcessId
+  }
+  const persistedRouteProcessId = Number(mappedValue)
+  assert.ok(
+    Number.isFinite(persistedRouteProcessId) && persistedRouteProcessId > 0,
+    `routeProcessIdMap returned invalid target id: ${JSON.stringify({
+      routeProcessId: originalRouteProcessId,
+      mappedValue
+    })}`
+  )
+  return persistedRouteProcessId
+}
+
+async function waitForSelectedBatchRecordReport(reportSelect, selectedReportPattern, report) {
+  const selectedReportLocator = reportSelect
+    .locator('.el-tag, .el-select__tags-text, .el-select__selected-item, .el-select__collapse-tags')
+    .filter({ hasText: selectedReportPattern })
+    .first()
+  try {
+    await selectedReportLocator.waitFor({
+      state: 'visible',
+      timeout: 30000
+    })
+  } catch (error) {
+    const diagnostics = await reportSelect.evaluate((element) => {
+      const readTexts = (selector) =>
+        Array.from(element.querySelectorAll(selector))
+          .map((item) => item.textContent?.trim())
+          .filter(Boolean)
+      return {
+        innerText: element.innerText,
+        selectedTexts: readTexts(
+          '.el-tag, .el-select__tags-text, .el-select__selected-item, .el-select__collapse-tags'
+        ),
+        optionTexts: readTexts('.el-select-dropdown__item'),
+        optionHtml: Array.from(element.querySelectorAll('.el-select-dropdown__item'))
+          .map((item) => item.outerHTML)
+          .slice(0, 5),
+        inputValues: Array.from(element.querySelectorAll('input')).map((input) => input.value),
+        className: element.className,
+        vueProps: element.__vueParentComponent
+          ? {
+              typeName: element.__vueParentComponent.type?.name,
+              modelValue: element.__vueParentComponent.props?.modelValue,
+              multiple: element.__vueParentComponent.props?.multiple,
+              disabled: element.__vueParentComponent.props?.disabled
+            }
+          : null
+      }
+    })
+    throw new Error(
+      `target batch record report selection did not commit: ${JSON.stringify({
+        reportId: report.reportId,
+        reportCode: report.reportCode,
+        reportName: report.reportName,
+        diagnostics
+      })}; ${error.message}`
+    )
+  }
+}
+
 async function ensureBatchRecordDetailFieldVisible(page, editor) {
   let fieldButton = editor
     .locator('[data-flow-action="select-process-detail-field"]')
@@ -1317,18 +1386,20 @@ async function configureTargetBatchRecordReportThroughUi(page, auth, copiedRoute
   await reportSelect.waitFor({ state: 'visible', timeout: 30000 })
   await reportSelect.click()
   const reportInput = reportSelect.locator('input[role="combobox"]').first()
-  await reportInput.fill(report.reportName)
   assert.ok(report.reportCode, 'target batch record report code is required for exact selection')
-  const reportOption = page
-    .locator('.el-select-dropdown:visible .el-select-dropdown__item')
+  await reportInput.fill(report.reportCode)
+  const reportDropdown = reportSelect.locator('.el-select-dropdown:visible')
+  const reportOption = reportDropdown
+    .locator('.el-select-dropdown__item')
     .filter({ hasText: report.reportCode })
     .first()
   await reportOption.waitFor({ state: 'visible', timeout: 60000 })
   await reportOption.click()
-  await reportSelect.getByText(report.reportCode, { exact: false }).first().waitFor({
-    state: 'visible',
-    timeout: 30000
-  })
+  await page.keyboard.press('Escape')
+  const selectedReportPattern = new RegExp(
+    [report.reportCode, report.reportName].filter(Boolean).map(escapeRegExp).join('|')
+  )
+  await waitForSelectedBatchRecordReport(reportSelect, selectedReportPattern, report)
 
   const validateResponsePromise = page.waitForResponse(
     (response) =>
@@ -1359,7 +1430,13 @@ async function configureTargetBatchRecordReportThroughUi(page, auth, copiedRoute
     'save task-owned route flow'
   )
   assert.equal(graphSaveResult?.valid, true, 'task-owned route graph save must pass')
-  await readBrowserBusinessData(await batchSaveResponsePromise, 'save target batch record binding')
+  const persistedRouteProcessId = resolvePersistedRouteProcessId(
+    targetProcess.routeProcessId,
+    graphSaveResult?.routeProcessIdMap
+  )
+  const batchSaveResponse = await batchSaveResponsePromise
+  const batchSaveRequestPayload = JSON.parse(batchSaveResponse.request().postData() || '{}')
+  await readBrowserBusinessData(batchSaveResponse, 'save target batch record binding')
 
   const savedParams = new URLSearchParams({
     routeId: String(copiedRoute.id),
@@ -1371,14 +1448,29 @@ async function configureTargetBatchRecordReportThroughUi(page, auth, copiedRoute
     auth
   )
   const savedProcess = (Array.isArray(savedConfigs) ? savedConfigs : []).find(
-    (item) => Number(item.routeProcessId) === Number(targetProcess.routeProcessId)
+    (item) => Number(item.routeProcessId) === Number(persistedRouteProcessId)
   )
   const savedBinding = (savedProcess?.batchRecordReports || []).find(
     (item) => String(item.batchRecordReportId || '') === String(report.reportId)
   )
-  assert.ok(savedBinding, 'target batch record report must be saved on the exact route process')
+  assert.ok(
+    savedBinding,
+    `target batch record report must be saved on the exact route process: ${JSON.stringify({
+      targetRouteProcessId: Number(targetProcess.routeProcessId),
+      persistedRouteProcessId,
+      routeProcessIdMap: graphSaveResult?.routeProcessIdMap,
+      batchSaveRequestPayload,
+      savedProcess: savedProcess
+        ? {
+            routeProcessId: savedProcess.routeProcessId,
+            processName: savedProcess.processName,
+            batchRecordReports: savedProcess.batchRecordReports
+          }
+        : null
+    })}`
+  )
   return {
-    routeProcessId: Number(targetProcess.routeProcessId),
+    routeProcessId: persistedRouteProcessId,
     processName: targetProcess.processName,
     batchRecordReportId: savedBinding.batchRecordReportId,
     batchRecordReportName: savedBinding.batchRecordReportName

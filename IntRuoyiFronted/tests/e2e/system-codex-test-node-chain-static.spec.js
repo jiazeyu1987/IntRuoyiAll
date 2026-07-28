@@ -30,6 +30,16 @@ assert.match(
   /label:\s*'节点串'[\s\S]*queryParamKey:\s*'nodeChainName'[\s\S]*nodeChainFilterOptions/,
   '测试管理页必须支持按节点串快速筛选。'
 )
+assert.match(
+  page,
+  /<el-form-item\s+class="codex-test-node-chain-filter"\s+label="串行路线">[\s\S]*v-model="queryParams\.nodeChainName"[\s\S]*placeholder="全部串行路线"[\s\S]*@change="handleNodeChainFilterChange"[\s\S]*nodeChainFilterOptions/,
+  '测试管理页必须在快速筛选右侧提供常驻的串行路线下拉。'
+)
+assert.match(
+  page,
+  /async function handleNodeChainFilterChange\(\)[\s\S]*queryParams\.pageNo = 1[\s\S]*await getCaseList\(\)/,
+  '切换串行路线后必须回到第一页并刷新测试项列表。'
+)
 assert.match(page, /\{\s*key:\s*'nodeChain',\s*label:\s*'节点串'/)
 assert.match(
   page,

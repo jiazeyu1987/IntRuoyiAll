@@ -410,13 +410,68 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
                 throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_CELL_MISSING,
                         targetReportId, rule.getTargetRowIndex(), rule.getTargetColumnIndex());
             }
-            if (hasFormDataValue(result.get(targetCellKey))
+            String targetFormDataKey = resolveFormTemplateTargetFormDataKey(templateVersion, targetCellKey,
+                    rule.getTargetRowIndex(), rule.getTargetColumnIndex(), targetReportId);
+            if (hasFormDataValue(result.get(targetFormDataKey))
                     && OVERWRITE_POLICY_ONLY_WHEN_EMPTY.equals(rule.getOverwritePolicy())) {
                 continue;
             }
-            result.put(targetCellKey, sourceValue);
+            result.put(targetFormDataKey, sourceValue);
         }
         return result;
+    }
+
+    private String resolveFormTemplateTargetFormDataKey(FormTemplateVersionDO templateVersion,
+                                                        String targetCellKey,
+                                                        Integer targetRowIndex,
+                                                        Integer targetColumnIndex,
+                                                        String targetReportId) {
+        String fieldCode = resolveRecognizedFieldCode(templateVersion, targetRowIndex, targetColumnIndex,
+                targetReportId);
+        if (StrUtil.isNotBlank(fieldCode)) {
+            return fieldCode;
+        }
+        throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_CELL_MISSING,
+                targetReportId, targetRowIndex, targetColumnIndex == null ? targetCellKey : targetColumnIndex);
+    }
+
+    private String resolveRecognizedFieldCode(FormTemplateVersionDO templateVersion,
+                                              Integer targetRowIndex,
+                                              Integer targetColumnIndex,
+                                              String targetReportId) {
+        if (templateVersion == null || StrUtil.isBlank(templateVersion.getRecognizedSchemaJson())
+                || targetRowIndex == null || targetColumnIndex == null) {
+            return null;
+        }
+        JSONArray recognizedFields;
+        try {
+            recognizedFields = JSON.parseArray(templateVersion.getRecognizedSchemaJson());
+        } catch (Exception ex) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                    targetReportId);
+        }
+        if (recognizedFields == null || recognizedFields.isEmpty()) {
+            return null;
+        }
+        Integer fieldIndex = recognizedFieldIndex(targetRowIndex, targetColumnIndex);
+        if (fieldIndex == null || fieldIndex < 0 || fieldIndex >= recognizedFields.size()) {
+            return null;
+        }
+        JSONObject field = toTemplateJsonObject(recognizedFields.get(fieldIndex), targetReportId);
+        return StrUtil.trim(field.getString("fieldCode"));
+    }
+
+    private Integer recognizedFieldIndex(Integer rowIndex, Integer columnIndex) {
+        if (rowIndex == null || columnIndex == null || rowIndex < 3) {
+            return null;
+        }
+        if (columnIndex == 1) {
+            return (rowIndex - 3) * 2;
+        }
+        if (columnIndex == 3) {
+            return (rowIndex - 3) * 2 + 1;
+        }
+        return null;
     }
 
     private Object resolveFormTemplateWorkOrderFieldValue(MesProWorkOrderDO workOrder, WorkOrderSourceField field,

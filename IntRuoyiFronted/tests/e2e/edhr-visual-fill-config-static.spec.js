@@ -107,6 +107,16 @@ includes(
 )
 includes(
   routeFlowDesigner,
+  '@update:model-value="handleSelectedBatchRecordReportIdsChange"',
+  '批记录表单选择器使用受控 model-value 时必须监听 update:model-value，确保 Element Plus 选项点击能提交到草稿。'
+)
+includes(
+  routeFlowDesigner,
+  'normalizeSelectedBatchRecordReportIds',
+  '批记录表单选择器必须规范化 Element Plus 更新事件的值形态，避免单值/空值导致选择提交失败。'
+)
+includes(
+  routeFlowDesigner,
   'selectedLegacyBatchRecords.value = resequenceLegacyBatchRecords(nextRecords)',
   '批记录表单选择必须写入正式 legacyBatchRecords/batchRecordReports 草稿链路。'
 )
@@ -132,8 +142,11 @@ includes(realFlowE2E, 'prepareTaskOwnedRouteThroughUi', '真实 E2E 必须通过
 includes(realFlowE2E, 'copyTaskOwnedRouteThroughUi', '真实 E2E 必须通过工艺流程列表复制明确来源路线。')
 includes(realFlowE2E, 'configureTargetBatchRecordReportThroughUi', '真实 E2E 必须在候选版本页面为目标工序选择正式批记录表单。')
 includes(realFlowE2E, 'data-route-process-setting-field="batch-record-report"', '真实 E2E 必须操作逐工序批记录表单选择器。')
+includes(realFlowE2E, 'await reportInput.fill(report.reportCode)', '真实 E2E 必须用报表编码搜索批记录表单，避免同名报表候选误选。')
 includes(realFlowE2E, "filter({ hasText: report.reportCode })", '真实 E2E 必须按报表编码精确选择目标报表，不能只按同名文案选择第一项。')
 includes(realFlowE2E, 'data-flow-action="save-route-flow"', '真实 E2E 必须通过路线编辑页顶部保存提交候选草稿。')
+includes(realFlowE2E, 'resolvePersistedRouteProcessId', '真实 E2E 保存候选草稿后必须按 routeProcessIdMap 解析正式工序 ID。')
+includes(realFlowE2E, 'graphSaveResult?.routeProcessIdMap', '真实 E2E 读回逐工序批记录绑定必须使用保存响应中的 routeProcessIdMap。')
 includes(realFlowE2E, 'publishTaskOwnedRouteCandidateThroughUi', '真实 E2E 必须通过页面电子签名提交并发布候选版本。')
 includes(realFlowE2E, 'completeRouteApprovalThroughUi', '候选版本进入审批时，真实 E2E 必须通过审批中心完成电子签名审核。')
 includes(realFlowE2E, '审核确认', '真实 E2E 必须在审批中心完成审核确认，而不是在提交发布时伪造签名。')

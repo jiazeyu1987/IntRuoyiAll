@@ -1144,7 +1144,7 @@
                         size="small"
                         :teleported="false"
                         :remote-method="loadBatchRecordReportOptions"
-                        @change="handleSelectedBatchRecordReportIdsChange"
+                        @update:model-value="handleSelectedBatchRecordReportIdsChange"
                         @visible-change="(visible) => visible && loadBatchRecordReportOptions()"
                       >
                         <el-option
@@ -2821,8 +2821,19 @@ const buildBatchRecordReportOptionLabel = (report: BatchRecordReportSelectOption
   return batchRecordName ? `${label}（${batchRecordName}）` : label
 }
 
-const handleSelectedBatchRecordReportIdsChange = (reportIds: Array<string | number>) => {
+const normalizeSelectedBatchRecordReportIds = (
+  reportIds: Array<string | number> | string | number | null | undefined
+) => {
+  if (Array.isArray(reportIds)) return reportIds
+  if (reportIds === undefined || reportIds === null || reportIds === '') return []
+  return [reportIds]
+}
+
+const handleSelectedBatchRecordReportIdsChange = (
+  reportIds: Array<string | number> | string | number | null | undefined
+) => {
   if (recordBindingEditorDisabled.value) return
+  const selectedReportIds = normalizeSelectedBatchRecordReportIds(reportIds)
   const optionByReportId = new Map(
     buildBatchRecordReportOptions().map((option) => [String(option.reportId), option])
   )
@@ -2832,7 +2843,7 @@ const handleSelectedBatchRecordReportIdsChange = (reportIds: Array<string | numb
       report
     ])
   )
-  const nextRecords = Array.from(new Set(reportIds.map((reportId) => String(reportId))))
+  const nextRecords = Array.from(new Set(selectedReportIds.map((reportId) => String(reportId))))
     .map((reportId, index): RouteFlowLegacyBatchRecord => {
       const existing = existingByReportId.get(reportId)
       if (existing) {

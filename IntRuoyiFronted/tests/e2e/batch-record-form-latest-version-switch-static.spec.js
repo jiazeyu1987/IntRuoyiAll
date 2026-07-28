@@ -41,6 +41,14 @@ assert(
   !pageSource.includes('@click="handleBatchDelete"'),
   '截图位置的批量删除按钮必须被最新版本开关替换，不得继续绑定批量删除按钮。'
 )
+assert(
+  !pageSource.includes('批量删除'),
+  '截图位置不得继续渲染“批量删除”按钮文字。'
+)
+assert(
+  !pageSource.includes('handleBatchDelete'),
+  '删除批量删除按钮后不得保留废弃 handleBatchDelete 处理函数。'
+)
 
 assert(
   apiSource.includes('latestVersionOnly?: boolean'),

@@ -39,6 +39,9 @@
 - 2026-07-28: cleanup preview/apply 已执行，保留 `task.md`、`execution-log.md`、`verification-report.md` 和 `bug-regression-evidence.md`，无删除项、无 blocked、无 warnings。
 - 2026-07-28: 本任务实现提交 `842850cf fix: restore product info batch record task` 已创建。
 - 2026-07-28: `git push origin int_main` -> FAIL，远端 non-fast-forward；当前分支 `ahead 2, behind 6`，且存在非本任务并行前端改动，不能安全 pull/rebase。
+- 2026-07-28: 真实 E2E 运行态预检：`8081` 前端 HTTP 200，`48081/actuator/health` status `UP`，前端 PID 9040 归属 `E:\IntRuoyi\IntRuoyiFronted` Vite，后端 PID 26592 归属 `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260728-212450.jar`。
+- GREEN: 真实 Playwright 页面验证 -> PASS。登录本机 `芋道源码/admin`，打开 `/mes/pro/feedback/edhr-batch-execution/detail?id=900000000900`，详情接口返回批次 `EDHRB-1785224948633`；粗洗工序批记录表单顺序为 `[粗洗工序生产记录, 损耗单, 过程检验记录, 产品信息]`，排序 `[1, 2, 3, 80]`，产品信息任务 `formSlotType=MAIN`、`recordCategory=BATCH_RECORD`、`available=false`、门禁为“前一张批记录未填写完成”；页面右侧卡片同样显示产品信息在正式批记录之后，且未显示“打开填写”。截图：`output/playwright/20260728-product-info-80-e2e.png`。
+- 2026-07-28: 只读 DB 扫描补充风险：`tenant_id=122` 仍存在旧存量产品信息任务 `batch_record_sort=1`，说明当前真实 E2E 已证明新运行态/目标批次链路正确，但若验收口径要求所有历史存量批次也统一改为 80，需要另开受控数据修复或恢复任务；本次未直接改库。
 
 ## Blockers
 

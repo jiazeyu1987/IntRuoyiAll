@@ -580,20 +580,27 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         EdhrBatchExecutionRespVO detail = batchExecutionService.get(legacyBatch.getId());
 
         List<EdhrBatchExecutionTaskRespVO> firstProcessTasks = routeTasks(detail).stream()
-                .filter(task -> Objects.equals(firstProcess.getId(), task.getRouteProcessId()))
+                .filter(task -> Objects.equals(firstProcess.getSort(), task.getRouteProcessSort()))
                 .toList();
-        assertEquals(List.of(processReport, productInfoReport), firstProcessTasks.stream()
+        assertEquals(List.of(processReport), firstProcessTasks.stream()
                 .map(EdhrBatchExecutionTaskRespVO::getBatchRecordReportId)
                 .toList());
-        assertEquals(List.of("粗洗工序生产记录", "产品信息"), firstProcessTasks.stream()
+        assertEquals(List.of("粗洗工序生产记录"), firstProcessTasks.stream()
                 .map(EdhrBatchExecutionTaskRespVO::getBatchRecordReportName)
                 .toList());
-        assertEquals(List.of(1, 80), firstProcessTasks.stream()
+        assertEquals(List.of(1), firstProcessTasks.stream()
                 .map(EdhrBatchExecutionTaskRespVO::getBatchRecordSort)
                 .toList());
         assertEquals(Boolean.TRUE, firstProcessTasks.get(0).getAvailable());
-        assertEquals(Boolean.FALSE, firstProcessTasks.get(1).getAvailable());
-        assertEquals("前一张批记录未填写完成", firstProcessTasks.get(1).getGateMessage());
+        EdhrBatchExecutionTaskRespVO productInfoTask = routeTasks(detail).stream()
+                .filter(task -> Objects.equals(productInfoReport, task.getBatchRecordReportId()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(80, productInfoTask.getRouteProcessSort());
+        assertEquals("产品信息", productInfoTask.getProcessName());
+        assertEquals(80, productInfoTask.getBatchRecordSort());
+        assertEquals(Boolean.FALSE, productInfoTask.getAvailable());
+        assertEquals("前序批记录表单未全部填写完成", productInfoTask.getGateMessage());
         List<MesProEdhrBatchExecutionTaskDO> persistedTasks =
                 batchTaskMapper.selectListByBatchExecutionId(legacyBatch.getId());
         assertEquals(6, persistedTasks.size());
@@ -4248,20 +4255,27 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setRouteId(fixture.routeId()));
 
         List<EdhrBatchExecutionTaskRespVO> firstProcessTasks = routeTasks(created).stream()
-                .filter(task -> Objects.equals(firstProcess.getId(), task.getRouteProcessId()))
+                .filter(task -> Objects.equals(firstProcess.getSort(), task.getRouteProcessSort()))
                 .toList();
-        assertEquals(List.of(processReport, productInfoReport), firstProcessTasks.stream()
+        assertEquals(List.of(processReport), firstProcessTasks.stream()
                 .map(EdhrBatchExecutionTaskRespVO::getBatchRecordReportId)
                 .toList());
-        assertEquals(List.of("粗洗工序生产记录", "产品信息"), firstProcessTasks.stream()
+        assertEquals(List.of("粗洗工序生产记录"), firstProcessTasks.stream()
                 .map(EdhrBatchExecutionTaskRespVO::getBatchRecordReportName)
                 .toList());
-        assertEquals(List.of(1, 80), firstProcessTasks.stream()
+        assertEquals(List.of(1), firstProcessTasks.stream()
                 .map(EdhrBatchExecutionTaskRespVO::getBatchRecordSort)
                 .toList());
         assertEquals(Boolean.TRUE, firstProcessTasks.get(0).getAvailable());
-        assertEquals(Boolean.FALSE, firstProcessTasks.get(1).getAvailable());
-        assertEquals("前一张批记录未填写完成", firstProcessTasks.get(1).getGateMessage());
+        EdhrBatchExecutionTaskRespVO productInfoTask = routeTasks(created).stream()
+                .filter(task -> Objects.equals(productInfoReport, task.getBatchRecordReportId()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(80, productInfoTask.getRouteProcessSort());
+        assertEquals("产品信息", productInfoTask.getProcessName());
+        assertEquals(80, productInfoTask.getBatchRecordSort());
+        assertEquals(Boolean.FALSE, productInfoTask.getAvailable());
+        assertEquals("前序批记录表单未全部填写完成", productInfoTask.getGateMessage());
         assertTrue(firstProcessTasks.stream()
                 .allMatch(task -> "MAIN".equals(task.getFormSlotType())
                         && "BATCH_RECORD".equals(task.getRecordCategory())));

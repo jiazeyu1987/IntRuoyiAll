@@ -6,6 +6,8 @@
 
 用户反馈“没显示全”后，已补充并验证快速过滤控件完整显示修复：字段、条件和产品名称输入区不再被 flex 压缩，候选下拉支持较长产品名称换行完整展示。
 
+用户最新要求删除红框中的“批量删除”按钮；已移除该按钮，并清理仅服务于批量删除的多选列、选中状态与处理函数。
+
 ## Commands
 
 - `node tests/e2e/edhr-batch-record-form-list-product-filter-autocomplete-static.spec.js` -> PASS.
@@ -17,6 +19,12 @@
 - `node tests/e2e/edhr-batch-record-form-list-product-filter-autocomplete-static.spec.js` -> PASS after visual fix.
 - `node tests/e2e/edhr-batch-record-form-list-static.spec.js` -> PASS after visual fix.
 - `pnpm ts:check` -> PASS after visual fix.
+- `node tests/e2e/batch-record-form-latest-version-switch-static.spec.js` -> RED FAIL as expected before button removal; page still bound `@click="handleBatchDelete"`.
+- `node tests/e2e/batch-record-form-latest-version-switch-static.spec.js` -> PASS after button removal.
+- `node tests/e2e/edhr-batch-record-form-list-static.spec.js` -> PASS after button removal.
+- `node tests/e2e/batch-record-force-unbind-delete-static.spec.js` -> PASS after button removal.
+- `node tests/e2e/edhr-batch-record-form-list-product-filter-autocomplete-static.spec.js` -> PASS after button removal.
+- `pnpm ts:check` -> PASS after button removal.
 
 ## Real E2E
 

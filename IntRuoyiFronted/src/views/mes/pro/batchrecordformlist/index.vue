@@ -48,16 +48,6 @@
               <Icon icon="ep:upload" class="mr-5px" />
               导入
             </el-button>
-            <el-button
-              type="danger"
-              plain
-              :loading="batchDeleteLoading"
-              :disabled="selectedRows.length === 0"
-              @click="handleBatchDelete"
-            >
-              <Icon icon="ep:delete" class="mr-5px" />
-              批量删除
-            </el-button>
             <div class="batch-record-form-toolbar__latest-version-switch">
               <span class="batch-record-form-toolbar__latest-version-label">最新版本</span>
               <el-switch
@@ -75,11 +65,9 @@
               highlight-current-row
               border
               @row-click="selectReport"
-              @selection-change="handleSelectionChange"
               @header-dragend="handleRecordFormHeaderDragend"
               @sort-change="handleTemplateSortChange"
             >
-              <el-table-column type="selection" width="46" fixed="left" />
               <el-table-column
                 v-if="isRecordFormColumnVisible('productName')"
                 label="产品名称"
@@ -616,14 +604,11 @@ const listErrorMessage = ref('')
 const list = ref<RecordFormListRow[]>([])
 const total = ref(0)
 const selectedReportId = ref('')
-const selectedRows = ref<RecordFormListRow[]>([])
-const batchDeleteLoading = ref(false)
 const previewMaximized = ref(false)
 const previewFitMode = ref<'width' | 'height'>('width')
 const wordImporting = ref(false)
 const wordImportFileInputRef = ref<HTMLInputElement>()
 const lastWordImportResult = ref<BatchRecordReportImportResultVO>()
-const routeProcessBoundDeleteMessage = '电子批记录报表已被工艺路线工序绑定，不能删除'
 const WORD_IMPORT_PROJECT_OPTION_PAGE_SIZE = 200
 const DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE: BatchRecordFormSlotType = 'MAIN'
 const permissionDialogVisible = ref(false)
@@ -1173,10 +1158,6 @@ const openBatchRecordFormPermissionDialog = async (row: RecordFormListRow) => {
     const rule = await EdhrProcessFormPermissionRuleApi.getByReport(row.reportId)
     row.permissionRule = rule
     row.permissionRuleErrorMessage = ''
-    if (rule.fillAssignments?.length) {
-      openCellRulesDialog(row)
-      return
-    }
     await loadCandidateOptions()
     permissionTarget.report = row
     permissionTarget.permissionRule = rule
@@ -1269,10 +1250,6 @@ const recordFormQuickFilter = useTableQuickFilter(
   getList
 )
 
-const handleSelectionChange = (rows: RecordFormListRow[]) => {
-  selectedRows.value = rows
-}
-
 const handleLatestVersionOnlyChange = async () => {
   queryParams.pageNo = 1
   await getList()
@@ -1296,16 +1273,6 @@ const selectPreviewNeighbor = async (offset: number) => {
   const nextReport = list.value[selectedReportIndex.value + offset]
   if (!nextReport) return
   await selectReport(nextReport)
-}
-
-const getUniqueSelectedReports = () => {
-  const uniqueReportMap = new Map<string, RecordFormListRow>()
-  for (const row of selectedRows.value) {
-    if (row.reportId && !uniqueReportMap.has(row.reportId)) {
-      uniqueReportMap.set(row.reportId, row)
-    }
-  }
-  return Array.from(uniqueReportMap.values())
 }
 
 const selectReport = async (row: RecordFormListRow) => {
@@ -1963,7 +1930,6 @@ const runUploadedWordImport = async (
     )
     clearWordImportState()
     queryParams.pageNo = 1
-    selectedRows.value = []
     selectedReportId.value = ''
     clearTemplatePreview()
     await getList()
@@ -2064,7 +2030,6 @@ const runUploadedExtraFormSlotImport = async (file: File, selectedProjectName: s
     wordImportDialog.visible = false
     clearWordImportState()
     queryParams.pageNo = 1
-    selectedRows.value = []
     selectedReportId.value = ''
     clearTemplatePreview()
     await getList()
@@ -2177,87 +2142,6 @@ const handleDelete = async (row: RecordFormListRow) => {
     await getList()
   } catch (error) {
     message.error(resolveErrorMessage(error, '电子批记录报表删除失败，请联系管理员。'))
-  }
-}
-
-const isRouteProcessBoundDeleteError = (error: unknown) => {
-  return resolveErrorMessage(error, '').includes(routeProcessBoundDeleteMessage)
-}
-
-const deleteSelectedReports = async (candidates: RecordFormListRow[], forceUnbind = false) => {
-  return await BatchRecordReportApi.deleteGeneratedReports({
-    reportIds: candidates.map((item) => item.reportId),
-    forceUnbind
-  })
-}
-
-const handleBatchDelete = async () => {
-  const candidates = getUniqueSelectedReports()
-  if (!candidates.length) {
-    message.warning('请先勾选需要删除的批记录表单')
-    return
-  }
-  const names = candidates.map((item) => item.reportName || item.reportId).join('、')
-  try {
-    await ElMessageBox.confirm(
-      `确认删除已选中的 ${candidates.length} 个批记录表单吗？\n${names}`,
-      '批量删除批记录表单',
-      {
-        confirmButtonText: '确定删除',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-  } catch (error) {
-    if (error === 'cancel' || error === 'close') return
-    throw error
-  }
-  batchDeleteLoading.value = true
-  try {
-    const deletingReportIds = new Set(candidates.map((item) => item.reportId))
-    await deleteSelectedReports(candidates)
-    message.success(`已删除 ${candidates.length} 个批记录表单`)
-    selectedRows.value = []
-    if (deletingReportIds.has(selectedReportId.value)) {
-      selectedReportId.value = ''
-      clearTemplatePreview()
-    }
-    await getList()
-  } catch (error) {
-    if (isRouteProcessBoundDeleteError(error)) {
-      try {
-        await ElMessageBox.confirm(
-          '选中的批记录表单中存在已绑定工艺路线工序的报表，是否批量解绑后删除？',
-          '批量解绑后删除',
-          {
-            confirmButtonText: '解绑并删除',
-            cancelButtonText: '取消',
-            type: 'warning'
-          }
-        )
-      } catch (confirmError) {
-        if (confirmError === 'cancel' || confirmError === 'close') return
-        throw confirmError
-      }
-      try {
-        const deletingReportIds = new Set(candidates.map((item) => item.reportId))
-        await deleteSelectedReports(candidates, true)
-        message.success(`已批量解绑并删除 ${candidates.length} 个批记录表单`)
-        selectedRows.value = []
-        if (deletingReportIds.has(selectedReportId.value)) {
-          selectedReportId.value = ''
-          clearTemplatePreview()
-        }
-        await getList()
-        return
-      } catch (forceDeleteError) {
-        message.error(resolveErrorMessage(forceDeleteError, '批量解绑删除批记录表单失败，请联系管理员。'))
-        return
-      }
-    }
-    message.error(resolveErrorMessage(error, '批量删除批记录表单失败，请联系管理员。'))
-  } finally {
-    batchDeleteLoading.value = false
   }
 }
 
