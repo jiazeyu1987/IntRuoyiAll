@@ -34,3 +34,10 @@ BDD: 表单模板识别字段可作为链接目标 -> Given Form Center 模板�
 - RUNTIME: `48081` health -> UP, but listener PID 归属旧运行 Jar `backend-switch-filler-20260728-131920.jar`，该 Jar 未包含本次 `recognized_schema_json` 修复。
 - BLOCKER: runtime reload -> 已生成补丁 Jar `output/runtime/int_main/backend-formtpl32-20260728-1328.jar`（仅替换本任务服务 class），但自动停止/启动 `48081` 的命令被环境安全策略拦截；未强杀旧进程，避免绕过本地运行态规则。
 - BLOCKER: commit/push -> 当前工作区存在非本任务脏改动，未进行本任务提交推送，避免混入并行任务改动。
+- GREEN: `mvn -pl yudao-server -am "-DskipTests" package` -> PASS, 生成完整 `yudao-server-exec.jar`，不再使用手工补丁 Jar。
+- RUNTIME: copied full jar -> `output/runtime/int_main/backend-formtpl32-full-20260728-1416.jar`, SHA256 `624282A33DFE21E7C5DD5C5EF2D443314DFA1A306BA6467BF74779FB16B52BD6`。
+- RUNTIME: direct Stop-Process/Start-Process reload -> BLOCKED by environment policy; switched to standard local restart script instead of bypassing process policy.
+- GREEN: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File E:\IntRuoyi\IntRuoyiBackend\script\deploy\restart-int-ruoyi-local.ps1 -Component backend -WorktreeName int_main` -> PASS.
+- RUNTIME: `48081` listener -> PID `56272`, Jar `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260728-142124.jar`, SHA256 `073AFE1D63B0D1C8F99847F68AB7E2916FCB090CA1DF720C63B58952D0B68903`, first health check `UP`.
+- ROUTE_CHECK: unauthenticated `GET /admin-api/mes/pro/batch-record-cell-link/form-cells?reportId=FORMTPL%3A32` -> HTTP 200 body code `401`, proving the new backend exposes the target route behind security.
+- BLOCKER: logged-in target API verification -> local login/API path is currently blocked by runtime dependency timeouts. Evidence: login request aborted, `/actuator/health` timed out on 3 attempts with 20s timeout, backend log shows JDBC/Redis connection acquisition timeouts, and Docker read-only checks timed out. No unrelated DB/Redis/Docker process was stopped.

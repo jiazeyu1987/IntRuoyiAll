@@ -16,6 +16,10 @@
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordCellLinkServiceImplTest#getFormCells_resolvesFormTemplateCellsFromRecognizedSchemaWhenJimuSchemaMissing,MesProBatchRecordCellLinkServiceImplTest#getFormCells_resolvesFormTemplateCellsFromRootLayoutJimuSchema,MesProBatchRecordCellLinkServiceImplTest#getFormCells_resolvesFormTemplateCellsFromJimuSchema" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS
 - `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260728-form-template-cell-link-work-order-init/bug-regression-evidence.md` -> PASS
 - `git -C E:\IntRuoyi diff --check -- <task-owned-files>` -> PASS, only Git LF-to-CRLF working-copy warnings
+- `mvn -pl yudao-server -am "-DskipTests" package` -> PASS, generated full executable backend Jar
+- `powershell.exe -NoProfile -ExecutionPolicy Bypass -File E:\IntRuoyi\IntRuoyiBackend\script\deploy\restart-int-ruoyi-local.ps1 -Component backend -WorktreeName int_main` -> PASS
+- `48081` listener check -> PID `56272`, Jar `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260728-142124.jar`, SHA256 `073AFE1D63B0D1C8F99847F68AB7E2916FCB090CA1DF720C63B58952D0B68903`
+- `GET /admin-api/mes/pro/batch-record-cell-link/form-cells?reportId=FORMTPL%3A32` without login -> HTTP 200 body code `401`, target route is loaded behind security
 
 ## Root Cause
 
@@ -36,4 +40,5 @@
 ## Blockers
 
 - 当前工作区存在大量非本任务脏改动；未提交、未推送本任务改动，避免混入并行任务文件。
-- `48081` 当前运行 Jar 仍是旧的 `backend-switch-filler-20260728-131920.jar`，未加载本次 class；已生成补丁 Jar `output/runtime/int_main/backend-formtpl32-20260728-1328.jar`，但自动停止/启动旧后端进程被环境安全策略拦截，页面需后端重启加载新 Jar 后才会看到修复效果。
+- `48081` 已加载新后端 Jar；旧“未重启加载修复”阻塞已解除。
+- 登录态目标接口复验仍被本地依赖超时阻塞：登录请求超时，`/actuator/health` 连续 3 次 20 秒超时，后端日志显示 JDBC/Redis 连接获取超时，Docker 只读检查也超时。未对无关 DB/Redis/Docker 进程执行重启或终止。

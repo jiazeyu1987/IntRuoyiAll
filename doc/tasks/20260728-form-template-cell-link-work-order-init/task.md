@@ -15,6 +15,7 @@
 - [completed] 补充后端回归测试，证明识别字段数组可生成链接目标单元格
 - [completed] 修复 Form Center 模板布局解析，支持正式保存形态和识别字段形态并保留无效布局 fail-fast
 - [completed] 运行目标前后端回归验证并记录结果
+- [completed] 使用标准本地重启脚本将 `48081` 切换到包含修复的新后端 Jar
 
 ## Expected Verification
 
@@ -22,6 +23,8 @@
 - `node tests/e2e/mes/batch-record-cell-link-static.spec.js`
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordCellLinkServiceImplTest#getFormCells_resolvesFormTemplateCellsFromRootLayoutJimuSchema" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordCellLinkServiceImplTest#getFormCells_resolvesFormTemplateCellsFromRecognizedSchemaWhenJimuSchemaMissing,MesProBatchRecordCellLinkServiceImplTest#getFormCells_resolvesFormTemplateCellsFromRootLayoutJimuSchema,MesProBatchRecordCellLinkServiceImplTest#getFormCells_resolvesFormTemplateCellsFromJimuSchema" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+- `mvn -pl yudao-server -am "-DskipTests" package`
+- `powershell.exe -NoProfile -ExecutionPolicy Bypass -File E:\IntRuoyi\IntRuoyiBackend\script\deploy\restart-int-ruoyi-local.ps1 -Component backend -WorktreeName int_main`
 
 ## Current Status
 
@@ -30,7 +33,8 @@ ready_for_closeout
 ## Remaining Blockers
 
 - 当前工作区存在大量非本任务脏改动；按项目提交规则，提交/推送前需要先处理脏工作区基线，但这些改动不属于本任务，未进行提交或推送。
-- `48081` 当前运行 Jar 仍是修复前的 `backend-switch-filler-20260728-131920.jar`；已生成只替换本任务 class 的补丁 Jar `backend-formtpl32-20260728-1328.jar`，但自动停止/重启旧进程的命令被本环境安全策略拦截，因此页面需在后端重启加载新 Jar 后才会消除旧报错。
+- `48081` 已切换到新后端 Jar `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260728-142124.jar`，PID `56272`，SHA256 `073AFE1D63B0D1C8F99847F68AB7E2916FCB090CA1DF720C63B58952D0B68903`。
+- 新后端启动后曾返回 health `UP`，但后续登录态目标接口复验被当前本地 DB/Redis/Docker 运行态超时阻塞：`/actuator/health` 连续 3 次 20 秒超时，登录 API 超时，Docker 只读检查超时；未终止或重启无关依赖进程。
 
 ## 设计约束检查
 
