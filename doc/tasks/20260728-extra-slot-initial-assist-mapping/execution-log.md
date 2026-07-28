@@ -15,3 +15,13 @@
 
 - 2026-07-28: 已读取 database / PowerShell encoding / task closeout 规则，确认需要先核对真实 schema 与目标版本范围。
 - RED: `python -X utf8 doc\tasks\20260728-extra-slot-initial-assist-mapping\initialize_extra_slot_assist_mapping.py --verify` -> FAIL, `LOSS_REPORT` 与 `PROCESS_INSPECTION` 最新目标均缺少完整 `edhrAssistRows` 和 scoped fill assignments。
+- GREEN: `python -X utf8 doc\tasks\20260728-extra-slot-initial-assist-mapping\initialize_extra_slot_assist_mapping.py --apply` -> PASS, 已备份并初始化两个目标表单。
+- GREEN: `python -X utf8 doc\tasks\20260728-extra-slot-initial-assist-mapping\initialize_extra_slot_assist_mapping.py --verify` -> PASS, 两个目标表单辅助行与 scoped assignments 均完整且无重复。
+- Verification: 数据库只读分布核对 -> PASS，损耗单 55 条 scoped assignments，过程检验记录 299 条 scoped assignments，均分配给 `jiazeyu`。
+
+## Data Scope
+
+- 租户：芋道源码，`tenantId=1`。
+- 损耗单目标：`LOSS_REPORT`，`球囊扩张压力泵`，`reportId=ef191803cbef413089ed55a7bb5b9962`，当前无 `batchRecordVersionId`。
+- 过程检验记录目标：`PROCESS_INSPECTION`，`PTCA球囊扩张导管`，`batchRecordVersionId=99`，`reportId=b48d2a150afc40deb456fb5fe9da551b`。
+- 备份文件：`doc/tasks/20260728-extra-slot-initial-assist-mapping/output/extra-slot-assist-mapping-backup-20260728201537.json`。

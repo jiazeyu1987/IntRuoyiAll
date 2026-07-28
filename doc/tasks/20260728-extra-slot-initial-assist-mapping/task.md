@@ -6,10 +6,10 @@
 
 ## Milestones
 
-- [ ] 核对目标表单槽位、最新版本、租户、用户和现有保存结构。
-- [ ] 记录 BDD 和 RED 验证，确认初始化前缺少完整辅助模式映射。
-- [ ] 使用现有 Jimu JSON `edhrAssistRows` 和 `mes_pro_edhr_process_form_permission_rule` scoped assignment 初始化。
-- [ ] 验证每张目标表单辅助行覆盖完整、无重复、填写人数量符合签名单元格数且最少 1。
+- [x] 核对目标表单槽位、最新版本、租户、用户和现有保存结构。
+- [x] 记录 BDD 和 RED 验证，确认初始化前缺少完整辅助模式映射。
+- [x] 使用现有 Jimu JSON `edhrAssistRows` 和 `mes_pro_edhr_process_form_permission_rule` scoped assignment 初始化。
+- [x] 验证每张目标表单辅助行覆盖完整、无重复、填写人数量符合签名单元格数且最少 1。
 
 ## Expected Verification
 
@@ -20,7 +20,7 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## 设计约束检查
 
