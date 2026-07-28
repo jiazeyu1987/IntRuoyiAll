@@ -21,6 +21,7 @@ public class DccFileCategoryRespVO {
     private Long fileTypeTaxonomyId;
     private Boolean distributionRequired;
     private Boolean trainingRequired;
+    private Boolean canUpload;
     private List<Long> signoffPositionIds;
     private List<Long> approvalPositionIds;
     private LocalDateTime createTime;

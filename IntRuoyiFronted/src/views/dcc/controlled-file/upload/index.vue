@@ -468,8 +468,11 @@ const selectedCategory = computed(() =>
   categories.value.find((category) => category.id === formData.categoryId)
 )
 const categoryDirectoryBindingMessage = '当前文件类别未绑定提交目录，请先在 DCC 文件类别维护目录绑定'
+const categoryUploadPermissionMessage = '当前用户没有该文件类别的上传权限，请选择有上传权限的文件类别。'
 const availableCategories = computed(() =>
-  categories.value.filter((category) => category.active && Boolean(category.directoryId))
+  categories.value.filter(
+    (category) => category.active && Boolean(category.directoryId) && category.canUpload !== false
+  )
 )
 const selectedCategoryDirectoryBound = computed(() => Boolean(selectedCategory.value?.directoryId))
 const isProductRequiredForSelectedCategory = computed(() =>
@@ -588,6 +591,10 @@ const formRules = reactive<FormRules>({
         const category = categories.value.find((item) => item.id === Number(value))
         if (!category?.directoryId) {
           callback(new Error(categoryDirectoryBindingMessage))
+          return
+        }
+        if (category.canUpload === false) {
+          callback(new Error(categoryUploadPermissionMessage))
           return
         }
         callback()
