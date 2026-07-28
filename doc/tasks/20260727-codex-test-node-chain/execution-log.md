@@ -107,3 +107,8 @@
 - GREEN: `node .\tests\e2e\system-codex-test-node-chain-static.spec.js` -> PASS，前端节点串静态契约通过。
 - GREEN: `python -X utf8 -m pytest script\tests\test_codex_test_node_chain_migration.py -q` from `IntRuoyiBackend` -> PASS，2 tests passed。
 - GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260727-codex-test-node-chain-runtime/int_main` 使用 frontend `8088`、backend `48088`。
+- Final pre-closeout merge: `git merge origin/int_main --no-edit` -> PASS，生成 merge commit `bd76bc64`，包含 `de9da136` 与 `c779c6aa` 两个最新主线提交；当前任务分支再次确认包含最新 `origin/int_main`。
+- Final GREEN: `mvn.cmd -pl yudao-module-system -am "-Dtest=CodexTestCaseServiceImplTest,CodexTestExecutionServiceImplTest,CodexTestRunnerServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，30 tests passed。
+- Final GREEN: `python -X utf8 -m pytest script\tests\test_codex_test_node_chain_migration.py -q` from `IntRuoyiBackend` -> PASS，2 tests passed。
+- Final GREEN: `node .\tests\e2e\system-codex-test-node-chain-static.spec.js` -> PASS。
+- Final GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，frontend `8088`，backend `48088`。

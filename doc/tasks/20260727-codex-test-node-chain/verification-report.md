@@ -41,3 +41,8 @@
 - 前端静态契约：`node .\tests\e2e\system-codex-test-node-chain-static.spec.js` -> PASS。
 - 迁移契约：`python -X utf8 -m pytest script\tests\test_codex_test_node_chain_migration.py -q` from `IntRuoyiBackend` -> PASS，2 个测试通过。
 - 端口契约：`scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，frontend `8088`，backend `48088`。
+- 最终收尾前主线合并：`git merge origin/int_main --no-edit` -> PASS，生成 `bd76bc64`，包含 `de9da136` 与 `c779c6aa` 两个最新主线提交。
+- 最终后端回归：目标 Maven 30 tests PASS。
+- 最终前端静态契约：节点串静态契约 PASS。
+- 最终迁移契约：节点串迁移契约 2 tests PASS。
+- 最终端口契约：branch runtime port guard PASS。
