@@ -3,8 +3,8 @@
 ## Summary
 
 - 融合结果：`origin/int_main` 已融合到本地 `int_main`。
-- 融合提交：`c8e07b0d4faabc411c45dd0f71f1fe88dd80c479`。
-- 当前差异：本地 `int_main` 领先 `origin/int_main` 6 个提交，待收尾提交和推送。
+- 融合提交：`c8e07b0d4faabc411c45dd0f71f1fe88dd80c479`、`149b58fb7bde33480641f42f805cbd8e85149d2c`。
+- 当前差异：本地 `int_main` 领先 `origin/int_main` 8 个提交，待最终推送。
 
 ## Commands
 
@@ -18,7 +18,12 @@
 - `rg -n "D-Main 本地主线滞后远端|upstream whitespace|branch-runtime-port-guard after merge" docs\worktree-memory.md docs\experience-index.md` -> PASS
 - `task_closeout.py --task-id merge-int-main-code-20260728 --mode preview` -> PASS
 - `task_closeout.py --task-id merge-int-main-code-20260728 --mode apply` -> PASS
-- `git status --short --branch` -> `int_main...origin/int_main [ahead 6]`，仅当前任务目录待提交
+- 推送前 `git fetch origin int_main` -> PASS，远端从 `04dd022c` 前进到 `410d71aa`
+- 第二次 `git merge origin/int_main --no-edit` -> PASS，commit `149b58fb7bde33480641f42f805cbd8e85149d2c`
+- 第二次融合后 `pnpm ts:check` -> PASS
+- 第二次融合后 `python -X utf8 -m pytest script/tests/test_runtime_control_scripts.py` -> PASS，15 passed
+- 第二次融合后 `git rev-list --left-right --count HEAD...origin/int_main` -> `8 0`
+- 更新二次融合证据后复跑 `task_closeout.py --mode preview/apply` -> PASS
 
 ## Notes
 
