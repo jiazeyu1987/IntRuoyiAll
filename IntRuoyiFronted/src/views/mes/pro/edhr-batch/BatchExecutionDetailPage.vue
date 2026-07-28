@@ -383,8 +383,56 @@
             </div>
             <div v-else class="edhr-batch-detail__review-card">
               <div class="edhr-batch-detail__form-surface" aria-label="已填写批记录">
+                <section
+                  v-if="effectiveDetailPreviewAssistMode"
+                  class="edhr-batch-detail__assist-preview"
+                  aria-label="辅助模式只读预览"
+                >
+                  <div class="edhr-batch-detail__assist-preview-head">
+                    <div>
+                      <strong>辅助模式</strong>
+                      <span>只读预览，不提供保存、提交、签名或上传动作。</span>
+                    </div>
+                    <el-tag type="info" effect="plain">{{ selectedPreviewAssistFields.length }} 项</el-tag>
+                  </div>
+                  <div
+                    v-for="field in selectedPreviewAssistFields"
+                    :key="field.fieldIdentity"
+                    class="edhr-batch-detail__assist-preview-row"
+                  >
+                    <div class="edhr-batch-detail__assist-preview-row-title">
+                      <span class="edhr-batch-detail__assist-preview-field-name">{{ field.label }}</span>
+                      <div class="edhr-batch-detail__assist-preview-tags">
+                        <el-tag v-if="field.required" size="small" type="danger" effect="plain">必填</el-tag>
+                        <el-tag v-if="field.signature" size="small" type="warning" effect="plain">签名</el-tag>
+                        <el-tag size="small" :type="field.completed ? 'success' : 'warning'" effect="plain">
+                          {{ field.completed ? '已完成' : '未完成' }}
+                        </el-tag>
+                      </div>
+                    </div>
+                    <dl class="edhr-batch-detail__assist-preview-meta">
+                      <div>
+                        <dt>字段说明</dt>
+                        <dd>{{ field.helpText || field.assistDescription || '字段说明未配置' }}</dd>
+                      </div>
+                      <div>
+                        <dt>位置</dt>
+                        <dd>{{ field.location }}</dd>
+                      </div>
+                      <div>
+                        <dt>当前值</dt>
+                        <dd>{{ field.displayValue }}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <el-empty
+                    v-if="selectedPreviewAssistFields.length === 0"
+                    description="未配置辅助模式"
+                    :image-size="52"
+                  />
+                </section>
                 <EdhrExecutionReadonlyForm
-                  v-if="selectedExecution"
+                  v-else-if="selectedExecution"
                   :form-view-model="selectedExecution.formViewModel"
                   :signature-records="selectedExecution.signatureRecords"
                   fit-to-viewport
@@ -473,6 +521,26 @@
               </div>
             </template>
             <template v-else>
+              <div
+                v-if="selectedProcessTaskGroup"
+                class="edhr-batch-detail__preview-mode-switch"
+                :title="selectedPreviewAssistRowsConfigured ? '切换中间预览模式' : '未配置辅助模式'"
+              >
+                <span class="edhr-batch-detail__preview-mode-label">原表模式</span>
+                <el-switch
+                  v-model="detailPreviewAssistMode"
+                  size="small"
+                  :disabled="!selectedPreviewAssistRowsConfigured"
+                  aria-label="详情页辅助模式切换"
+                />
+                <span class="edhr-batch-detail__preview-mode-label">辅助模式</span>
+                <span
+                  v-if="!selectedPreviewAssistRowsConfigured"
+                  class="edhr-batch-detail__preview-mode-disabled"
+                >
+                  未配置辅助模式
+                </span>
+              </div>
               <div
                 v-if="selectedProcessTaskGroup"
                 class="edhr-batch-detail__rail-process-forms"
