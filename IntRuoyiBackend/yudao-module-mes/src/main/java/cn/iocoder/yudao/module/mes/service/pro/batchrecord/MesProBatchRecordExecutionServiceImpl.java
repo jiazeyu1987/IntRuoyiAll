@@ -207,6 +207,8 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
     @Resource
     private MesProBatchRecordJimuReportGateway jimuReportGateway;
     @Resource
+    private MesProBatchRecordRuntimeSnapshotSupport runtimeSnapshotSupport;
+    @Resource
     private MesProProcessMapper processMapper;
     @Resource
     private MesMdWorkstationMapper workstationMapper;
@@ -2718,19 +2720,10 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
         if (StrUtil.isBlank(reportJson)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_SNAPSHOT_SOURCE_UNAVAILABLE);
         }
-        JSONObject root = JSON.parseObject(reportJson);
-        materializeApprovedVersionCellRuleSnapshot(report, root);
-        validateConfirmedCellRules(root);
-        JSONObject layout = buildSnapshotLayout(root);
-        JSONObject meta = buildSnapshotMeta(root, report);
-        JSONObject snapshot = new JSONObject(true);
-        snapshot.put("snapshotVersion", SNAPSHOT_VERSION);
-        snapshot.put("source", buildSnapshotSource(report));
-        snapshot.put("layout", layout);
-        snapshot.put("meta", meta);
-        snapshot.put("fields", extractSnapshotFields(root));
-        snapshot.put("assistRows", extractSnapshotAssistRows(root));
-        return new RuntimeSnapshot(layout.toJSONString(), meta.toJSONString(), snapshot.toJSONString());
+        MesProBatchRecordRuntimeSnapshotSupport.RuntimeSnapshot runtimeSnapshot =
+                runtimeSnapshotSupport.buildRuntimeSnapshot(report, reportJson);
+        return new RuntimeSnapshot(runtimeSnapshot.sheetLayoutJson(), runtimeSnapshot.metaJson(),
+                runtimeSnapshot.executionSnapshotJson());
     }
 
     private void materializeApprovedVersionCellRuleSnapshot(MesProBatchRecordReportDO report, JSONObject root) {

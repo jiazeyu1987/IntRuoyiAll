@@ -37,8 +37,8 @@ assert.match(
 )
 assert.match(
   uploadPageSource,
-  /placeholder="选择 DCC 项目后自动带出"/,
-  '上传页产品编号必须提示来自 DCC 项目。'
+  /placeholder="选择 DCC 项目后自动生成"/,
+  '上传页产品编号必须提示由 DCC 项目自动生成。'
 )
 assert.match(
   uploadPageSource,

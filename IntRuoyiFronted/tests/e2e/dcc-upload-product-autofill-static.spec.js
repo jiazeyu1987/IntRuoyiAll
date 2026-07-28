@@ -17,8 +17,8 @@ assert.equal(
 
 assert.match(
   uploadPage,
-  /<el-form-item label="产品编号" prop="productCode">[\s\S]*<el-input[\s\S]*v-model="formData\.productCode"[\s\S]*readonly[\s\S]*placeholder="选择 DCC 项目后自动带出"/,
-  'Upload product number must be a readonly field populated from the selected DCC project code'
+  /<el-form-item label="产品编号" prop="productCode">[\s\S]*<el-input[\s\S]*v-model="formData\.productCode"[\s\S]*readonly[\s\S]*placeholder="选择 DCC 项目后自动生成"/,
+  'Upload product number must be a readonly field generated from the selected DCC project code'
 )
 
 assert.match(
@@ -30,7 +30,7 @@ assert.match(
 assert.match(
   uploadPage,
   /validateDccProjectProductCode\(\s*formData\.productCode,\s*isProductRequiredForSelectedCategory\.value\s*\)/,
-  'DHF/DMR upload validation must require the DCC project code product number, not a product master'
+  'DHF/DMR upload validation must require the DCC project code product number, not another data source'
 )
 
 assert.match(
@@ -53,7 +53,7 @@ assert(
     !uploadPage.includes('applyProductMasterSelection') &&
     !uploadPage.includes('handleProductMasterChange') &&
     !uploadPage.includes('产品主数据'),
-  'Upload product number must not depend on product master options, matching, or product-master wording'
+  'Upload product number must not depend on other data-source options, matching, or legacy wording'
 )
 
 assert(!uploadPage.includes('generateProductCode'), 'Upload page must not generate a temporary product code')

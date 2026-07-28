@@ -189,7 +189,7 @@
             v-model="formData.productCode"
             class="!w-420px"
             readonly
-            placeholder="选择 DCC 项目后自动带出"
+            placeholder="选择 DCC 项目后自动生成"
           />
           <div v-if="isProductRequiredForSelectedCategory" class="mt-6px text-12px text-[var(--el-color-danger)]">
             DHF/DMR 类别必须选择包含项目代码的 DCC 项目

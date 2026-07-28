@@ -386,6 +386,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     @Resource
     private MesProBatchRecordJimuReportGateway jimuReportGateway;
     @Resource
+    private MesProBatchRecordRuntimeSnapshotSupport runtimeSnapshotSupport;
+    @Resource
     private MesProEdhrWorkTaskService workTaskService;
     @Resource
     private MesProEdhrOperationAuditService operationAuditService;
@@ -2984,19 +2986,19 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_LINKED_REPORT_MISSING,
                     report.getReportId());
         }
-        String tableTitle = StrUtil.blankToDefault(report.getTableTitle(),
-                StrUtil.blankToDefault(report.getReportName(), task.getBatchRecordReportName()));
+        MesProBatchRecordRuntimeSnapshotSupport.RuntimeSnapshot runtimeSnapshot =
+                runtimeSnapshotSupport.buildRuntimeSnapshot(report, reportJson);
         return new EdhrBatchExecutionTaskPreviewRespVO()
                 .setBatchExecutionId(batchExecutionId)
                 .setTaskId(taskId)
                 .setTaskStatus(task.getStatus())
                 .setExecutionCreated(false)
                 .setFormViewModel(new EdhrBatchExecutionReviewTimelineRespVO.FormViewModel()
-                        .setSheetLayoutJson(reportJson)
-                        .setMetaJson(JSON.toJSONString(Map.of("tableTitle", tableTitle)))
-                        .setExecutionSnapshotJson(buildUnopenedBatchRecordPreviewExecutionSnapshot(reportJson))
+                        .setSheetLayoutJson(runtimeSnapshot.sheetLayoutJson())
+                        .setMetaJson(runtimeSnapshot.metaJson())
+                        .setExecutionSnapshotJson(runtimeSnapshot.executionSnapshotJson())
                         .setCellValuesJson("[]")
-                        .setSignatureCellMarkers(extractSignatureCellMarkers(reportJson)));
+                        .setSignatureCellMarkers(extractSignatureCellMarkers(runtimeSnapshot.sheetLayoutJson())));
     }
 
     private String buildUnopenedBatchRecordPreviewExecutionSnapshot(String reportJson) {

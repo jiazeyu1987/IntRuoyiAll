@@ -33,7 +33,7 @@
 
 ## BDD Scenarios
 
-- `BDD: DCC 项目代码自动带出产品编号 -> Given 用户选择启用 DCC 项目 / When 项目包含 projectCode / Then 产品编号只读字段显示该 projectCode。`
+- `BDD: DCC 项目代码自动生成产品编号 -> Given 用户选择启用 DCC 项目 / When 项目包含 projectCode / Then 产品编号只读字段生成该 projectCode。`
 - `BDD: DHF/DMR 类别缺项目代码 fail-fast -> Given 用户选择 DHF/DMR 类别 / When 当前 DCC 项目 projectCode 为空 / Then 页面阻止提交并提示选择包含项目代码的 DCC 项目。`
 - `BDD: 不查询其它业务数据源 -> Given 产品编号权威来源是 DCC 项目代码 / When 用户选择 DCC 项目和文件类别 / Then 页面不加载产品选项接口。`
 

@@ -2,7 +2,7 @@
 
 ## User Intent
 
-- 用户确认修改受控文件提交页红框中的“产品编号”：应自动带出已有编号，而不是手动填写或临时生成。
+- 用户确认修改受控文件提交页红框中的“产品编号”：应按当前口径自动生成编号，而不是手动填写或临时生成。
 - 用户进一步纠正口径：红框产品编号只认 DCC 项目代码数据，DCC 项目代码是权威数据。
 
 ## Initial Environment
@@ -15,7 +15,7 @@
 
 ## Milestone Updates
 
-- `BDD: DCC 项目代码自动带出产品编号 -> Given 用户在受控文件上传页选择启用 DCC 项目 / When 页面读取该项目的 projectCode / Then 红框“产品编号”只读显示该 projectCode。`
+- `BDD: DCC 项目代码自动生成产品编号 -> Given 用户在受控文件上传页选择启用 DCC 项目 / When 页面读取该项目的 projectCode / Then 红框“产品编号”只读生成该 projectCode。`
 - `BDD: DHF/DMR 类别必须有 DCC 项目代码 -> Given 用户选择 DHF/DMR 文件类别 / When 当前 DCC 项目没有 projectCode / Then 前后端阻止提交并提示缺少包含项目代码的 DCC 项目。`
 - `BDD: 不查询其它业务数据源 -> Given 红框产品编号由 DCC 项目代码决定 / When 用户选择 DCC 项目和 DHF/DMR 类别 / Then 页面不加载其它业务数据源选项，提交 payload 清空 productMasterId。`
 - 前端实现：`IntRuoyiFronted/src/views/dcc/controlled-file/upload/index.vue` 将“产品编号”改为只读 `el-input`，通过 `applyDccProjectCodeProductNumber()` 写入 `selectedProjectCode.value?.projectCode?.trim() || ''` 并清空 `productMasterId`。
@@ -24,7 +24,7 @@
 
 ## RED Evidence
 
-- `RED: pnpm e2e:dcc:upload-product-autofill:static -> FAIL, 旧上传页仍依赖产品选择器，未将红框产品编号绑定到 DCC 项目代码。`
+- `RED: pnpm e2e:dcc:upload-product-autofill:static -> FAIL, 旧上传页仍依赖产品选择器，未将红框产品编号按 DCC 项目代码自动生成。`
 - `RED: pnpm e2e:dcc:product-category-rule:static -> FAIL, 旧上传提交校验仍要求产品选择，不按 DCC 项目代码校验。`
 - `RED: mvn -pl yudao-module-dcc "-Dtest=DccControlledFileWorkflowServiceImplTest#submitControlledFile_dhfCategoryUsesDccProjectCodeAsProductNumber" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL, 旧后端仍按 productMasterId 解析并抛出 CONTROLLED_FILE_PRODUCT_MASTER_INVALID。`
 
@@ -32,6 +32,8 @@
 
 - `GREEN: pnpm e2e:dcc:upload-product-autofill:static -> PASS, PASS: DCC upload product autofill static contract。`
 - `GREEN: pnpm e2e:dcc:product-category-rule:static -> PASS, PASS: DCC product category rule static contract。`
+- `GREEN: pnpm e2e:dcc:upload-product-autofill:static -> PASS, 已复验页面提示为“选择 DCC 项目后自动生成”。`
+- `GREEN: pnpm e2e:dcc:product-category-rule:static -> PASS, 已复验产品编号提示为按 DCC 项目自动生成。`
 - `GREEN: pnpm e2e:dcc:upload-project-taxonomy-revision:static -> PASS, DCC upload project taxonomy revision static contract passed。`
 - `GREEN: pnpm e2e:dcc:upload-current-version:static -> PASS, PASS: DCC upload current version static contract。`
 - `GREEN: node tests/e2e/dcc-optional-product-binding-static.spec.js -> PASS, PASS: DCC optional product binding static contract。`

@@ -5280,6 +5280,30 @@ watch(
   border-bottom: 1px solid #e5ebf3;
 }
 
+.edhr-batch-detail__preview-mode-switch {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  border: 1px solid #dbe3ef;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.edhr-batch-detail__preview-mode-label {
+  color: #263247;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.edhr-batch-detail__preview-mode-disabled {
+  color: #98a2b3;
+  font-size: 12px;
+  line-height: 1;
+}
+
 .edhr-batch-detail__rail-process-form-list {
   display: grid;
   gap: 6px;
