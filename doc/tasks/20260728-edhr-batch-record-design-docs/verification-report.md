@@ -17,7 +17,7 @@
 - `DOCX structural verification -> PASS`
   - 段落数：95
   - 表格数：21
-  - 正文字符数：15,830
+  - 正文字符数：15,229
   - 关键章节存在：`1. 需求设计`、`2. 概要设计`、`3. 详细设计`
   - 关键需求编号存在：`REQ-01`、`REQ-16`
   - 关键后端证据存在：`MesProBatchRecordReportController`、`MesProEdhrBatchExecutionController`
@@ -49,19 +49,30 @@
 - `EDHR_Batch_Record_Requirement_Design.docx -> PASS`
   - 段落数：52
   - 表格数：9
-  - 正文字符数：5,765
+  - 正文字符数：5,234
+  - 文件大小：46,103 bytes
   - 关键内容：`1. 需求设计`、`REQ-01`、`REQ-16`
 - `EDHR_Batch_Record_Outline_Design.docx -> PASS`
-  - 段落数：36
-  - 表格数：9
-  - 正文字符数：5,320
-  - 关键内容：`2. 概要设计`、`2.1 总体架构`、`2.4 API 分组概要`
+  - 段落数：55
+  - 表格数：15
+  - 正文字符数：7,882
+  - 文件大小：49,867 bytes
+  - 关键内容：`2. 概要设计`、`2.1 总体架构`、`2.9 运行架构与部署视图`、`2.14 概要验收边界`
 - `EDHR_Batch_Record_Detailed_Design.docx -> PASS`
-  - 段落数：38
-  - 表格数：11
-  - 正文字符数：8,253
-  - 关键内容：`3. 详细设计`、`MesProBatchRecordReportController`、`mes_pro_edhr_batch_execution`
+  - 段落数：62
+  - 表格数：22
+  - 正文字符数：15,037
+  - 文件大小：58,933 bytes
+  - 关键内容：`3. 详细设计`、`3.10 接口详细设计`、`3.20 详细设计验收矩阵`、`MesProBatchRecordReportController`、`mes_pro_edhr_batch_execution`
 - 章节隔离：三份拆分文档均未包含其它设计主章节。
+
+## Document Proportion Verification
+
+- `DOCX size hierarchy -> PASS`
+  - 详细设计：58,933 bytes，15,037 正文字符，22 张表。
+  - 概要设计：49,867 bytes，7,882 正文字符，15 张表。
+  - 需求设计：46,103 bytes，5,234 正文字符，9 张表。
+  - 结果：详细设计 > 概要设计 > 需求设计，符合正式交付中详细设计体量最大、概要设计其次、需求设计相对精简的层级关系。
 
 ## Scope Confirmation
 

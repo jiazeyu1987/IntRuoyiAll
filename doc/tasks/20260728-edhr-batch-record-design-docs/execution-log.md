@@ -134,3 +134,29 @@
   - commit: `8d1478d9`
   - 文件清单：task.md、execution-log.md、verification-report.md、EDHR_Batch_Record_System_Design.docx、EDHR_Batch_Record_Requirement_Design.docx、EDHR_Batch_Record_Outline_Design.docx、EDHR_Batch_Record_Detailed_Design.docx。
 - Boundary: 工作区存在其它并行任务未提交改动；本任务未暂存、未提交、未覆盖这些文件。
+
+## Design Document Proportion Update
+
+- 用户反馈：需求设计、概要设计、详细设计三个文件大小接近，不符合正式交付常识；详细设计应最大，概要设计其次。
+- DONE: 扩充 `EDHR_Batch_Record_Detailed_Design.docx`
+  - 新增接口详细设计、服务组件详细设计、数据表详细设计、状态机详细设计、字段审计链详细设计、事务一致性、页面组件、权限隔离、归档组成、关键校验规则、详细设计验收矩阵。
+- DONE: 扩充 `EDHR_Batch_Record_Outline_Design.docx`
+  - 新增运行架构与部署视图、模块协作关系、数据域概要、接口分组概要、安全审计与异常处理概要、概要验收边界。
+- GREEN: `DOCX size hierarchy -> PASS`
+  - 需求设计：46,103 bytes，5,234 正文字符，9 张表。
+  - 概要设计：49,867 bytes，7,882 正文字符，15 张表。
+  - 详细设计：58,933 bytes，15,037 正文字符，22 张表。
+- GREEN: `DOCX formal wording scan -> PASS`
+  - 三份独立 Word 文档均未命中生成方式、源文件、工作区、倒推、反向、智能生成等不适合正式交付的表述。
+- GREEN: `DOCX chapter integrity -> PASS`
+  - 需求设计保留 `1. 需求设计`、`REQ-01`、`REQ-16`。
+  - 概要设计保留 `2. 概要设计`，新增 `2.9` 至 `2.14`。
+  - 详细设计保留 `3. 详细设计`，新增 `3.10` 至 `3.20`。
+- GREEN: `task_closeout.py --task-id 20260728-edhr-batch-record-design-docs --mode preview -> PASS`
+  - keep: task.md、execution-log.md、verification-report.md、四份 DOCX。
+  - delete: none。
+  - blocked/warnings: none。
+- GREEN: `task_closeout.py --task-id 20260728-edhr-batch-record-design-docs --mode apply -> PASS`
+  - deleted_paths: none。
+  - linked worktree: false，未执行 worktree merge/remove。
+- Current status: completed。
