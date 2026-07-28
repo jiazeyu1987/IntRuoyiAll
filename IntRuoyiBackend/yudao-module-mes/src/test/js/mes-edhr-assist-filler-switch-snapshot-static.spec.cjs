@@ -42,6 +42,16 @@ assert.match(batchExecutionService, /resolveAssistUserIdForOpenTask/, '后端必
 assert.match(batchExecutionService, /resolveVisibleAssistRows\(task,\s*openWorkTask,\s*assistUserId\)/, '后端辅助行必须按所选 assistUserId 解析。')
 assert.match(batchExecutionService, /resolveVisibleAssistScopes\(openWorkTask,\s*assistUserId\)/, '后端辅助行必须读取所选填写人的正式责任范围，不能只用 rowKey 字符串集合。')
 assert.match(batchExecutionService, /assistRowVisibleInScope\(/, '后端辅助行必须支持 ALL\/ranges 职责范围投影，不能只支持 scopeKey 等于 assist rowKey。')
+assert.doesNotMatch(
+  batchExecutionService,
+  /if\s*\(\s*isBatchSharedTask\(task\)\s*\)\s*\{\s*return null;\s*\}/,
+  '批次共享损耗单缺少冻结 execution 时不得直接返回空导致“缺少唯一批记录路线”，必须按共享上下文打开或创建。'
+)
+assert.match(
+  batchExecutionService,
+  /bindBatchSharedTraditionalExecution\(batch\.getId\(\),\s*task,\s*execution\)/,
+  '批次共享损耗单打开时必须把正式 execution 绑定回同一 sharedFormKey 的批次任务。'
+)
 assert.match(batchExecutionService, /\.setTaskId\(task\.getId\(\)\)/, '批次任务打开传统批记录时必须把批次任务 ID 写入执行记录请求。')
 assert.match(executionService, /\.taskId\(reqVO\.getTaskId\(\)\)/, '执行记录创建必须保存请求中的批次任务 ID，避免新批次复用旧执行详情。')
 assert.match(

@@ -14,3 +14,15 @@
 ## Commands And Evidence
 
 - 2026-07-28: 已读取 frontend/backend/database/login/local-runtime/e2e/PowerShell/task closeout 规则，确认需先核对 schema 与目标租户范围。
+- RED: `python -X utf8 doc\tasks\20260728-pressure-pump-initial-assist-mapping\initialize_pressure_pump_assist_mapping.py --verify` -> FAIL, V14.0 的 15 张表缺少完整 `edhrAssistRows` / scoped fill assignments；产品信息表识别到 2 个签名单元格，其余表按最少 1 个填写人处理。
+- GREEN: `python -X utf8 doc\tasks\20260728-pressure-pump-initial-assist-mapping\initialize_pressure_pump_assist_mapping.py --apply` -> PASS, 已备份并初始化 `tenantId=1`、`batchRecordVersionId=130` 的 15 张主批记录表单。
+- GREEN: `python -X utf8 doc\tasks\20260728-pressure-pump-initial-assist-mapping\initialize_pressure_pump_assist_mapping.py --verify` -> PASS, 15 张表的 `edhrAssistRows` 和 scoped fill assignments 均等于可辅助填写单元格数，且覆盖无重复。
+- Verification: 数据库只读分布核对 -> PASS，产品信息表分配给 `jiazeyu` 和 `wangxin`；其余 14 张表分配给 `jiazeyu`。
+
+## Data Scope
+
+- 租户：芋道源码，`tenantId=1`。
+- 批记录：精确名称“球囊扩张压力泵”。
+- 版本：`V14.0`，`batchRecordVersionId=130`，状态 `APPROVED`。
+- 表单范围：15 张 `MAIN` 批记录表单。
+- 备份文件：`doc/tasks/20260728-pressure-pump-initial-assist-mapping/output/pressure-pump-v130-assist-mapping-backup-20260728200411.json`。

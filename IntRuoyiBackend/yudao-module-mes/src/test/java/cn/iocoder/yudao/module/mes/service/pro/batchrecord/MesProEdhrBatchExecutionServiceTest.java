@@ -11,6 +11,7 @@ import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceCreateReqVO;
+import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceDraftReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceRespVO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersionDO;
@@ -3146,6 +3147,50 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void openTask_autoPersistsProductionWorkOrderPrefillForExistingDynamicRouteFormInstance() {
+        Fixture fixture = insertRouteFixture(false, false);
+        MesProRouteProcessDO routeProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).get(0);
+        FormTemplateVersionDO templateVersion = insertPublishedFormTemplateVersion("动态损耗单");
+        stubFormCenterInstanceIds(85001L);
+        insertBatchProcessFormCenterBinding(fixture.routeId(), routeProcess.getId(), templateVersion,
+                "FB_DYNAMIC_LOSS_PREFILL");
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-DYNAMIC-OPEN-PREFILL")
+                .setRouteId(fixture.routeId()));
+        EdhrBatchExecutionTaskRespVO dynamicTask = routeTasks(batch).get(0);
+        MesProEdhrWorkTaskDO fillTask = insertWorkTask(batch, dynamicTask, fixture,
+                MesProEdhrWorkTaskService.TASK_TYPE_FILL, 10001L);
+        when(formActionInstanceMapper.selectById(dynamicTask.getFormCenterInstanceId()))
+                .thenReturn(FormActionInstanceDO.builder()
+                        .id(dynamicTask.getFormCenterInstanceId())
+                        .tenantId(TenantContextHolder.getRequiredTenantId())
+                        .status(FormInstanceStatus.DRAFT.name())
+                        .formDataJson(JSON.toJSONString(new LinkedHashMap<>(Map.of(
+                                "batchExecutionId", batch.getId(),
+                                "batchTaskId", dynamicTask.getId()))))
+                        .build());
+        when(cellLinkService.buildFormTemplateVersionPrefillData(eq(templateVersion.getId()),
+                eq(fixture.workOrderId()), any()))
+                .thenAnswer(invocation -> {
+                    Map<String, Object> formData = new LinkedHashMap<>(invocation.getArgument(2));
+                    formData.put("3:1", "BATCH-DYNAMIC-OPEN-PREFILL");
+                    return formData;
+                });
+
+        EdhrBatchExecutionTaskOpenRespVO opened =
+                openTaskAsFiller(batch.getId(), dynamicTask.getId(), fillTask.getId());
+
+        assertEquals(dynamicTask.getFormCenterInstanceId(), opened.getFormCenterInstanceId());
+        ArgumentCaptor<FormInstanceDraftReqVO> draftCaptor =
+                ArgumentCaptor.forClass(FormInstanceDraftReqVO.class);
+        verify(formCenterRuntimeService).saveDraft(eq(dynamicTask.getFormCenterInstanceId()),
+                draftCaptor.capture(), eq(10001L));
+        assertEquals("BATCH-DYNAMIC-OPEN-PREFILL", draftCaptor.getValue().getFormData().get("3:1"));
+        assertEquals(batch.getId(), draftCaptor.getValue().getFormData().get("batchExecutionId"));
+    }
+
+    @Test
     void previewTask_returnsDynamicRouteFormTemplatePreviewWithoutBatchReportSource() {
         Fixture fixture = insertRouteFixture(false, false);
         MesProRouteProcessDO routeProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).get(0);
@@ -4395,14 +4440,14 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
-    void openTask_requiresFrozenExecutionForBatchSharedTask() {
+    void openTask_lazilyBindsBatchSharedLossFormWhenFrozenExecutionMissing() {
         Fixture fixture = insertRouteFixture(false, false);
         MesProRouteProcessDO firstProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).get(0);
-        String mainReport = insertReport("RPT-SHARED-FROZEN-MAIN", "共享冻结主表");
-        String sharedInspection = insertReport("RPT-SHARED-FROZEN-IPQC", "共享冻结过程检验单");
+        String mainReport = insertReport("RPT-SHARED-LOSS-MAIN", "共享损耗主表");
+        String sharedLoss = insertReport("RPT-SHARED-LOSS-LAZY", "共享损耗单");
         insertBatchUseConfigWithSlots(fixture.routeId(), firstProcess.getId(), "PARALLEL", List.of(
                 batchSlot(mainReport, "MAIN", null, null, null, 1),
-                sharedBatchSlot(sharedInspection, "PROCESS_INSPECTION", "IPQC_FROZEN",
+                sharedBatchSlot(sharedLoss, "LOSS_REPORT", "LOSS_SHARED_LAZY",
                         "{\"ranges\":[{\"sourceTableIndex\":0,\"startRow\":0,\"endRow\":1}]}", 2)
         ));
         MesProRouteDO route = routeMapper.selectById(fixture.routeId());
@@ -4411,13 +4456,21 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .routeSnapshotJson(frozenRouteSnapshotJson(route, routeProcessMapper.selectListByRouteId(route.getId())))
                 .build());
         when(singleExecutionService.openOrCreateByContext(any()))
-                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO().setId(9321L).setStatus(0));
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO()
+                        .setId(9321L)
+                        .setBatchRecordDefinitionId(932101L)
+                        .setBatchRecordVersionId(932102L)
+                        .setStatus(0));
         EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
-                .setBatchCode("BATCH-SHARED-FROZEN")
+                .setBatchCode("BATCH-SHARED-LOSS-LAZY")
                 .setRouteId(fixture.routeId()));
         skipAllSpecialNodes(created);
         insertProductionTask(fixture.workOrderId(), fixture.routeId(), firstProcess.getProcessId(), 81031L);
+        EdhrBatchExecutionTaskRespVO sharedRespTask = routeTasks(created).stream()
+                .filter(task -> "BATCH_SHARED".equals(task.getInstanceScope()))
+                .findFirst()
+                .orElseThrow();
         MesProEdhrBatchExecutionTaskDO sharedTask = batchTaskMapper.selectListByBatchExecutionId(created.getId()).stream()
                 .filter(task -> "BATCH_SHARED".equals(task.getInstanceScope()))
                 .findFirst()
@@ -4425,13 +4478,25 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         batchTaskMapper.update(null, new LambdaUpdateWrapper<MesProEdhrBatchExecutionTaskDO>()
                 .eq(MesProEdhrBatchExecutionTaskDO::getId, sharedTask.getId())
                 .set(MesProEdhrBatchExecutionTaskDO::getExecutionId, null));
+        MesProEdhrWorkTaskDO workTask = insertWorkTask(created, sharedRespTask, fixture,
+                MesProEdhrWorkTaskService.TASK_TYPE_FILL, 10001L);
         clearInvocations(singleExecutionService);
 
-        assertServiceException(() -> batchExecutionService.openTask(new EdhrBatchExecutionTaskOpenReqVO()
-                        .setBatchExecutionId(created.getId())
-                        .setTaskId(sharedTask.getId())),
-                PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
-        verify(singleExecutionService, never()).openOrCreateByContext(any());
+        EdhrBatchExecutionTaskOpenRespVO opened =
+                openTaskAsFiller(created.getId(), sharedTask.getId(), workTask.getId());
+
+        assertEquals(9321L, opened.getExecutionId());
+        assertEquals("LOSS_REPORT", opened.getFormSlotType());
+        assertEquals("BATCH_SHARED", opened.getInstanceScope());
+        assertEquals("LOSS_SHARED_LAZY", opened.getSharedFormKey());
+        assertEquals(workTask.getId(), opened.getExecutionPageQuery().get("workTaskId"));
+        assertEquals(9321L, batchTaskMapper.selectById(sharedTask.getId()).getExecutionId());
+        verify(singleExecutionService).openOrCreateByContext(argThat(command ->
+                Objects.equals(created.getId(), command.getBatchExecutionId())
+                        && Objects.equals(sharedTask.getId(), command.getTaskId())
+                        && "BATCH_SHARED".equals(command.getInstanceScope())
+                        && "LOSS_SHARED_LAZY".equals(command.getSharedFormKey())
+                        && "LOSS_REPORT".equals(command.getFormSlotType())));
     }
 
     @Test

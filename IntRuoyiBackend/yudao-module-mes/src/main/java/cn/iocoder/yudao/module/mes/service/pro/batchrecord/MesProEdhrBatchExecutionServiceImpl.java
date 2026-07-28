@@ -6,6 +6,7 @@ import com.alibaba.fastjson.JSONObject;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.BusinessActionContextReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceCreateReqVO;
+import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceDraftReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceRespVO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormActionInstanceDO;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersionDO;
@@ -2138,6 +2139,37 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         return instance.getId();
     }
 
+    private void autoPersistDynamicRouteFormPrefill(MesProEdhrBatchExecutionDO batch,
+                                                    MesProEdhrBatchExecutionTaskDO task) {
+        if (!isDynamicRouteFormTask(task) || task.getFormCenterInstanceId() == null) {
+            return;
+        }
+        FormActionInstanceDO instance = formActionInstanceMapper.selectById(task.getFormCenterInstanceId());
+        if (instance == null) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+        }
+        if (!Objects.equals(FormInstanceStatus.DRAFT.name(), instance.getStatus())
+                && !Objects.equals(FormInstanceStatus.REWORKING.name(), instance.getStatus())) {
+            return;
+        }
+        Map<String, Object> currentFormData = parseFormCenterFormData(instance.getFormDataJson());
+        Map<String, Object> prefilledFormData = cellLinkService.buildFormTemplateVersionPrefillData(
+                task.getFormTemplateVersionId(), batch.getWorkOrderId(), currentFormData);
+        if (Objects.equals(currentFormData, prefilledFormData)) {
+            return;
+        }
+        FormInstanceDraftReqVO draftReqVO = new FormInstanceDraftReqVO();
+        draftReqVO.setFormData(prefilledFormData);
+        formCenterRuntimeService.saveDraft(task.getFormCenterInstanceId(), draftReqVO, currentUserId());
+    }
+
+    private Map<String, Object> parseFormCenterFormData(String formDataJson) {
+        if (StrUtil.isBlank(formDataJson)) {
+            return new LinkedHashMap<>();
+        }
+        return new LinkedHashMap<>(JSON.parseObject(formDataJson));
+    }
+
     private BusinessActionContextReqVO buildRouteFormActionContext(MesProEdhrBatchExecutionDO batch,
                                                                    MesProEdhrBatchExecutionTaskDO task) {
         BusinessActionContextReqVO context = new BusinessActionContextReqVO();
@@ -2340,6 +2372,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 task = batchTaskMapper.selectById(task.getId());
                 openWorkTask = resolveOpenWorkTask(task.getId());
             }
+            autoPersistDynamicRouteFormPrefill(batch, task);
         } else {
             cellLinkAutoPersist = openOrBindTraditionalBatchRecordExecution(batch, task, openWorkTask);
             requireTaskOpenContext(task);
@@ -2763,9 +2796,6 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             return null;
         }
         if (task.getExecutionId() == null) {
-            if (isBatchSharedTask(task)) {
-                return null;
-            }
             MesProBatchRecordExecutionOpenOrCreateByContextRespVO execution =
                     singleExecutionService.openOrCreateByContext(buildOpenOrCreateExecutionReq(batch, task));
             BatchRecordCellLinkAutoPersistResult cellLinkAutoPersist = execution == null
@@ -2773,19 +2803,57 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             if (execution == null || execution.getId() == null) {
                 throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
             }
-            task.setExecutionId(execution.getId())
-                    .setBatchRecordDefinitionId(resolveTaskValue(task.getBatchRecordDefinitionId(),
-                            execution.getBatchRecordDefinitionId()))
-                    .setBatchRecordVersionId(resolveTaskValue(task.getBatchRecordVersionId(),
-                            execution.getBatchRecordVersionId()));
-            batchTaskMapper.updateById(new MesProEdhrBatchExecutionTaskDO()
-                    .setId(task.getId())
-                    .setExecutionId(task.getExecutionId())
-                    .setBatchRecordDefinitionId(task.getBatchRecordDefinitionId())
-                    .setBatchRecordVersionId(task.getBatchRecordVersionId()));
+            if (isBatchSharedTask(task)) {
+                bindBatchSharedTraditionalExecution(batch.getId(), task, execution);
+            } else {
+                bindTraditionalExecution(task, execution);
+                persistTraditionalExecutionBinding(task);
+            }
             return cellLinkAutoPersist;
         }
         return null;
+    }
+
+    private void bindBatchSharedTraditionalExecution(Long batchExecutionId,
+                                                     MesProEdhrBatchExecutionTaskDO openedTask,
+                                                     MesProBatchRecordExecutionOpenOrCreateByContextRespVO execution) {
+        String sharedFormKey = StrUtil.trim(openedTask.getSharedFormKey());
+        if (StrUtil.isBlank(sharedFormKey)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+        }
+        List<MesProEdhrBatchExecutionTaskDO> sharedTasks = batchTaskMapper
+                .selectListByBatchExecutionId(batchExecutionId).stream()
+                .filter(this::isBatchSharedTask)
+                .filter(task -> StrUtil.isNotBlank(task.getBatchRecordReportId()))
+                .filter(task -> Objects.equals(sharedFormKey, StrUtil.trim(task.getSharedFormKey())))
+                .toList();
+        if (sharedTasks.isEmpty()) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+        }
+        for (MesProEdhrBatchExecutionTaskDO sharedTask : sharedTasks) {
+            bindTraditionalExecution(sharedTask, execution);
+            persistTraditionalExecutionBinding(sharedTask);
+            if (Objects.equals(sharedTask.getId(), openedTask.getId())) {
+                bindTraditionalExecution(openedTask, execution);
+            }
+        }
+    }
+
+    private void bindTraditionalExecution(MesProEdhrBatchExecutionTaskDO task,
+                                          MesProBatchRecordExecutionOpenOrCreateByContextRespVO execution) {
+        task.setExecutionId(execution.getId())
+                .setBatchRecordDefinitionId(resolveTaskValue(task.getBatchRecordDefinitionId(),
+                        execution.getBatchRecordDefinitionId()))
+                .setBatchRecordVersionId(resolveTaskValue(task.getBatchRecordVersionId(),
+                        execution.getBatchRecordVersionId()));
+    }
+
+    private void persistTraditionalExecutionBinding(MesProEdhrBatchExecutionTaskDO task) {
+        batchTaskMapper.updateById(new MesProEdhrBatchExecutionTaskDO()
+                .setId(task.getId())
+                .setExecutionId(task.getExecutionId())
+                .setBatchRecordDefinitionId(task.getBatchRecordDefinitionId())
+                .setBatchRecordVersionId(task.getBatchRecordVersionId()));
     }
 
     private MesProBatchRecordExecutionOpenOrCreateByContextReqVO buildOpenOrCreateExecutionReq(

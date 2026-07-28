@@ -25,7 +25,7 @@
 
 ## Current Status
 
-completed
+in_progress
 
 前端静态合同已恢复：执行页当前只调用 `hydrateDraftState(detail)`，不再调用 `BatchRecordCellLinkApi.getPrefill` 或保留 `normalizeCellLinkPrefillDraftValue`。聚焦静态合同、相邻静态合同和 `pnpm ts:check` 均通过。
 
@@ -38,6 +38,8 @@ completed
 Cleanup 已完成：slot 7 运行态已停止，`D:\IntRuoyiWorktree\20260728-edhr-cell-link-taskid-runtime` 已从 Git worktree 注册和物理目录删除，临时分支 `codex/20260728-edhr-cell-link-taskid-runtime` 已删除，端口登记项已标记 `active=false`。`task-closeout-cleanup` preview/apply 均通过且无删除项。
 
 提交/推送未执行：当前主工作区存在大量并行任务脏改，且用户当前明确要求只进行 E2E 验证；本次没有进行宽泛 baseline commit，避免混入无关任务改动。
+
+用户继续补充：批记录表单与生产工单的链接数据已经带过去，但动态表单（损耗单、过程检验记录）与生产工单的链接数据没有带过去。本次重新打开任务，聚焦 `FORM_TEMPLATE_VERSION` / `formBindings` 动态表单实例创建与打开链路，不能用传统批记录 PASS 替代动态表单结论。
 
 ## 设计约束检查
 

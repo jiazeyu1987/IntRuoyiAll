@@ -6,22 +6,43 @@
 
 ## Milestones
 
-1. [in_progress] 梳理上传页、文件分类、DCC 项目和既有文件查询接口契约。
-2. [pending] 补 RED 静态/后端契约，锁定文件名称下拉、手输、版本默认值和生效日期规则。
-3. [pending] 实现后端已有文件名称选项查询和前端表单联动。
-4. [pending] 运行目标前后端验证和必要回归。
-5. [pending] 更新证据、收尾并准备提交推送。
+1. [completed] 梳理上传页、文件分类、DCC 项目和既有文件查询接口契约。
+2. [completed] 补 RED 静态/后端契约，锁定文件名称下拉、手输、版本默认值和生效日期规则。
+3. [completed] 实现后端已有文件名称选项查询和前端表单联动。
+4. [completed] 运行目标前后端验证和必要回归。
+5. [blocked] 更新证据、收尾并准备提交推送。
 
 ## Expected Verification
 
 - 前端静态契约覆盖：选择项目和分类后文件名称为可搜索下拉输入；已有文件选中时版本默认大版本 +1；手动输入时版本默认 `V1.0`；生效日期默认当天。
-- 后端目标测试覆盖：按 `dccProjectCodeId + categoryId` 查询已有文件名称和当前版本，且结果不使用产品主数据作为来源。
+- 后端目标测试覆盖：按 `dccProjectCodeId + fileTypeTaxonomyId` 查询已有文件名称和当前版本，且结果不使用产品主数据作为来源。
 - 目标前端类型检查或任务专用静态 E2E 通过。
 - 目标后端 Maven 测试通过。
 
 ## Current Status
 
-in_progress
+blocked
+
+## Completed Work
+
+- 前端上传页文件名称保留 `el-autocomplete`，支持下拉选择已有文件和手动输入新文件名。
+- 文件名称选项接口改为按 `dccProjectCodeId + fileTypeTaxonomyId` 获取当前系统已有文件，响应包含 `fileName/currentVersionNo/controlledFileId/fileNumber`。
+- 手动输入文件名称默认版本号 `V1.0`；选择已有文件名称默认下一大版本，例如 `V1.0 -> V2.0`。
+- 生效日期在上传表单创建和文件名称联动重置时默认当天。
+
+## Verification Result
+
+- PASS: `pnpm e2e:dcc:upload-name-version-autofill:static`
+- PASS: `mvn -pl yudao-module-dcc "-Dtest=DccControlledFileUploadNameOptionQueryServiceTest,DccControlledFileUploadNameOptionApiTest" test`
+- PASS: `pnpm e2e:dcc:upload-project-taxonomy-revision:static`
+- PASS: `pnpm e2e:dcc:upload-product-autofill:static`
+- PASS: `pnpm e2e:dcc:upload-current-version:static`
+- PASS: `mvn -pl yudao-module-dcc -am "-DskipTests" compile`
+- PASS: `pnpm ts:check`
+
+## Blocker
+
+- Git closeout is blocked: current `HEAD` is `f56fc825 chore: baseline dirty workspace before loss form switch fix`, and that single ahead commit contains this DCC task plus unrelated MES, eDHR, pressure-pump, and deleted docx changes. Per task ownership rules, this mixed commit cannot be pushed as this DCC task's clean implementation commit without user direction or a separate Git cleanup plan.
 
 ## 设计约束检查
 

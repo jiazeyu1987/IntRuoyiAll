@@ -15,7 +15,19 @@
 ## Evidence
 
 - `GREEN: experience-preflight -> PASS, 已读取 task/frontend/backend/encoding 规则、experience-index 和前后端 delivery skill contract；本任务应用严格无 fallback、DCC 上传类别权限和前端静态契约隔离门禁。`
+- `RED: pnpm e2e:dcc:upload-name-version-autofill:static -> FAIL, package.json 尚未注册任务专用静态契约脚本。`
+- `RED: mvn -pl yudao-module-dcc "-Dtest=DccControlledFileUploadNameOptionQueryServiceTest,DccControlledFileUploadNameOptionApiTest" test -> FAIL, 旧接口仍只接受 categoryId，响应缺少 controlledFileId/fileNumber。`
+- `GREEN: pnpm e2e:dcc:upload-name-version-autofill:static -> PASS, 文件名称为可选可手输 autocomplete，选项按 DCC 项目和文件分类加载，手输默认 V1.0，选择已有文件默认下一大版本，生效日期默认当天。`
+- `GREEN: mvn -pl yudao-module-dcc "-Dtest=DccControlledFileUploadNameOptionQueryServiceTest,DccControlledFileUploadNameOptionApiTest" test -> PASS, 5 tests / 0 failures / 0 errors。`
+- `GREEN: pnpm e2e:dcc:upload-project-taxonomy-revision:static -> PASS。`
+- `GREEN: pnpm e2e:dcc:upload-product-autofill:static -> PASS。`
+- `GREEN: pnpm e2e:dcc:upload-current-version:static -> PASS。`
+- `GREEN: mvn -pl yudao-module-dcc -am "-DskipTests" compile -> PASS。`
+- `GREEN: pnpm ts:check -> PASS。`
+- `GREEN: python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260728-dcc-file-name-version-autofill/frontend-feature-evidence.md -> PASS。`
+- `GREEN: python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260728-dcc-file-name-version-autofill/backend-api-evidence.md -> PASS。`
+- `BLOCKER: git-closeout -> 当前 ahead 1 的 HEAD=f56fc825 是混合基线提交，包含本 DCC 任务文件和无关 MES/eDHR/pressure-pump/docx 改动；按任务边界不能作为本任务 clean commit 推送。`
 
 ## Blockers
 
-- None at start.
+- Git closeout / push blocked by mixed ahead commit `f56fc825`.

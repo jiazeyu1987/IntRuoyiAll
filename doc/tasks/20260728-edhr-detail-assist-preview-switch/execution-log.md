@@ -105,3 +105,17 @@
 - EXPERIENCE: 已将窄栏 `el-switch` 状态提示完整可见规则合并到 `docs/e2e-rules.md#Element Plus 选择框显示门禁`，并在 `docs/experience-index.md` 增加 `Element Plus el-switch 状态标签`、`未配置辅助模式`、`white-space nowrap` 等关键词。
 - GREEN: `rg -n "Switch 主标签|Switch 状态提示|el-switch|换行后被裁切" docs/e2e-rules.md docs/experience-index.md` -> PASS，经验索引可定位。
 - GREEN: `git diff --check -- <本任务相关文件>` -> PASS，仅输出 Windows LF/CRLF 工作区提示，无 whitespace error。
+
+## Disabled Hint Contrast Reopen
+
+- USER: 截图反馈蓝框内“未配置辅助模式”仍然看不清。
+- BDD: 禁用提示高对比可读 -> Given eDHR 批次详情页当前表单未配置辅助模式, When 右侧栏显示禁用 Switch 提示, Then “未配置辅助模式”必须使用清晰状态条样式和足够文字对比度，不使用过浅禁用灰色造成视觉不可见。
+- RED: `node tests/e2e/edhr-batch-detail-assist-preview-switch-static.spec.js` -> FAIL，新增清晰度合同后失败于 `.edhr-batch-detail__preview-mode-disabled` 仍使用 `#98a2b3` 浅灰文字且无状态条背景。
+- FIX: `.edhr-batch-detail__preview-mode-disabled` 改为独占第二行的中性状态条，使用 `justify-self: stretch`、`background: #f8fafc`、`color: #475467`、`font-weight: 600`，并保持不换行。
+- GREEN: `node tests/e2e/edhr-batch-detail-assist-preview-switch-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` 首次 124 秒超时后确认任务自有 `ts:check` 进程已退出；使用更长窗口复跑 -> PASS。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260728-edhr-detail-assist-preview-switch/bug-regression-evidence.md` -> PASS。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260728-edhr-detail-assist-preview-switch/frontend-feature-evidence.md` -> PASS。
+- GREEN: `git diff --check -- <本任务相关文件>` -> PASS，仅输出 Windows LF/CRLF 工作区提示，无 whitespace error。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-edhr-detail-assist-preview-switch --mode preview` -> READY，delete/blocked/warnings 均为 `<none>`。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-edhr-detail-assist-preview-switch --mode apply` -> APPLIED，无删除项。
