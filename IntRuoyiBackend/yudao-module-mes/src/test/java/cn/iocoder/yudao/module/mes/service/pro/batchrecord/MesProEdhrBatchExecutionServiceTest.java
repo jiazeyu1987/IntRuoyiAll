@@ -4051,7 +4051,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     @Test
     void openOrCreate_allowsValidMultiStartMergeRouteGraphWhenBatchBindingsExist() {
         Fixture fixture = insertRouteFixture(false, false);
-        routeProcessFlowEdgeMapper.deleteByRouteId(fixture.routeId());
+        routeProcessFlowEdgeMapper.delete(new LambdaUpdateWrapper<MesProRouteProcessFlowEdgeDO>()
+                .eq(MesProRouteProcessFlowEdgeDO::getRouteId, fixture.routeId()));
         List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(fixture.routeId());
         MesProRouteProcessDO firstStart = routeProcesses.get(0);
         MesProRouteProcessDO secondStart = routeProcesses.get(1);
@@ -4094,6 +4095,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 insertReport("RPT-MULTI-START-3", "多起点3"));
         insertBatchUseConfig(fixture.routeId(), merge.getId(), "SEQUENTIAL",
                 insertReport("RPT-MULTI-MERGE", "汇合表单"));
+        refreshRouteVersionSnapshot(fixture.routeVersionId(), routeMapper.selectById(fixture.routeId()));
 
         EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
                 .setWorkOrderId(fixture.workOrderId())
@@ -4102,7 +4104,111 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
 
         List<EdhrBatchExecutionTaskRespVO> routeTasks = routeTasks(created);
         assertEquals(4, routeTasks.size());
-        assertTrue(routeTasks.stream().anyMatch(task -> Objects.equals(task.getRouteProcessId(), merge.getId())));
+        EdhrBatchExecutionTaskRespVO firstStartTask = routeTasks.stream()
+                .filter(task -> Objects.equals(task.getRouteProcessId(), firstStart.getId()))
+                .findFirst()
+                .orElseThrow();
+        EdhrBatchExecutionTaskRespVO secondStartTask = routeTasks.stream()
+                .filter(task -> Objects.equals(task.getRouteProcessId(), secondStart.getId()))
+                .findFirst()
+                .orElseThrow();
+        EdhrBatchExecutionTaskRespVO thirdStartTask = routeTasks.stream()
+                .filter(task -> Objects.equals(task.getRouteProcessId(), thirdStart.getId()))
+                .findFirst()
+                .orElseThrow();
+        EdhrBatchExecutionTaskRespVO mergeTask = routeTasks.stream()
+                .filter(task -> Objects.equals(task.getRouteProcessId(), merge.getId()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(Boolean.TRUE, firstStartTask.getAvailable(), firstStartTask.getGateMessage());
+        assertEquals(Boolean.TRUE, secondStartTask.getAvailable(), secondStartTask.getGateMessage());
+        assertEquals(Boolean.TRUE, thirdStartTask.getAvailable(), thirdStartTask.getGateMessage());
+        assertEquals(Boolean.FALSE, mergeTask.getAvailable(), mergeTask.getGateMessage());
+        assertEquals("直接前置工序批记录未全部填写完成", mergeTask.getGateMessage());
+    }
+
+    @Test
+    void getUsesCurrentRouteGraphWhenBatchTasksWereCreatedFromCurrentRouteConfig() {
+        Fixture fixture = insertRouteFixture(false, false);
+        String staleRouteSnapshotJson = routeVersionMapper.selectById(fixture.routeVersionId()).getRouteSnapshotJson();
+        routeProcessFlowEdgeMapper.delete(new LambdaUpdateWrapper<MesProRouteProcessFlowEdgeDO>()
+                .eq(MesProRouteProcessFlowEdgeDO::getRouteId, fixture.routeId()));
+        List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(fixture.routeId());
+        MesProRouteProcessDO firstStart = routeProcesses.get(0);
+        MesProRouteProcessDO secondStart = routeProcesses.get(1);
+        MesProProcessDO thirdProcess = MesProProcessDO.builder()
+                .code("P-CURRENT-GRAPH-START-3")
+                .name("当前图第三起点")
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        processMapper.insert(thirdProcess);
+        MesProRouteProcessDO thirdStart = MesProRouteProcessDO.builder()
+                .routeId(fixture.routeId())
+                .processId(thirdProcess.getId())
+                .sort(30)
+                .keyFlag(false)
+                .checkFlag(false)
+                .build();
+        routeProcessMapper.insert(thirdStart);
+        MesProProcessDO mergeProcess = MesProProcessDO.builder()
+                .code("P-CURRENT-GRAPH-MERGE")
+                .name("当前图汇合工序")
+                .status(CommonStatusEnum.ENABLE.getStatus())
+                .build();
+        processMapper.insert(mergeProcess);
+        MesProRouteProcessDO merge = MesProRouteProcessDO.builder()
+                .routeId(fixture.routeId())
+                .processId(mergeProcess.getId())
+                .sort(40)
+                .keyFlag(false)
+                .checkFlag(false)
+                .build();
+        routeProcessMapper.insert(merge);
+        insertRouteFlowEdge(fixture.routeId(), firstStart.getId(), merge.getId(), 1);
+        insertRouteFlowEdge(fixture.routeId(), secondStart.getId(), merge.getId(), 2);
+        insertRouteFlowEdge(fixture.routeId(), thirdStart.getId(), merge.getId(), 3);
+        insertBatchUseConfig(fixture.routeId(), firstStart.getId(), "SEQUENTIAL",
+                insertReport("RPT-CURRENT-GRAPH-START-1", "当前图起点1"));
+        insertBatchUseConfig(fixture.routeId(), secondStart.getId(), "SEQUENTIAL",
+                insertReport("RPT-CURRENT-GRAPH-START-2", "当前图起点2"));
+        insertBatchUseConfig(fixture.routeId(), thirdStart.getId(), "SEQUENTIAL",
+                insertReport("RPT-CURRENT-GRAPH-START-3", "当前图起点3"));
+        insertBatchUseConfig(fixture.routeId(), merge.getId(), "SEQUENTIAL",
+                insertReport("RPT-CURRENT-GRAPH-MERGE", "当前图汇合表单"));
+        routeVersionMapper.updateById(MesProRouteVersionDO.builder()
+                .id(fixture.routeVersionId())
+                .routeSnapshotJson(staleRouteSnapshotJson)
+                .build());
+
+        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-CURRENT-GRAPH-MULTI-START")
+                .setRouteId(fixture.routeId()));
+        EdhrBatchExecutionRespVO refreshed = batchExecutionService.get(created.getId());
+
+        List<EdhrBatchExecutionTaskRespVO> routeTasks = routeTasks(refreshed);
+        assertEquals(4, routeTasks.size());
+        assertEquals(Boolean.TRUE, routeTasks.stream()
+                .filter(task -> Objects.equals(task.getRouteProcessId(), firstStart.getId()))
+                .findFirst()
+                .orElseThrow()
+                .getAvailable());
+        assertEquals(Boolean.TRUE, routeTasks.stream()
+                .filter(task -> Objects.equals(task.getRouteProcessId(), secondStart.getId()))
+                .findFirst()
+                .orElseThrow()
+                .getAvailable());
+        assertEquals(Boolean.TRUE, routeTasks.stream()
+                .filter(task -> Objects.equals(task.getRouteProcessId(), thirdStart.getId()))
+                .findFirst()
+                .orElseThrow()
+                .getAvailable());
+        EdhrBatchExecutionTaskRespVO mergeTask = routeTasks.stream()
+                .filter(task -> Objects.equals(task.getRouteProcessId(), merge.getId()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(Boolean.FALSE, mergeTask.getAvailable(), mergeTask.getGateMessage());
+        assertEquals("直接前置工序批记录未全部填写完成", mergeTask.getGateMessage());
     }
 
     @Test

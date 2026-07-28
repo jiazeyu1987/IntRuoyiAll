@@ -64,12 +64,12 @@
 
 ### 当前配置与发布快照边界
 
-- Trigger: eDHR 批次执行、路线发布快照、`routeSnapshotJson`、`batchUseConfigs`、记录本/批记录融合、当前路线配置缺失或陈旧绑定。
-- Preflight check: 新建/返工批次前先同时检查当前 BATCH 工序配置是否存在、绑定是否归属启用工序配置、发布版本快照是否包含完整 `flowGraph.nodes` 与 `batchUseConfigs`。
-- Blocker: 只要当前 BATCH 工序配置存在，就必须使用当前配置并严格校验绑定归属；不得因为当前绑定陈旧而静默回退到发布快照。
-- Verification: 同时覆盖“当前配置存在优先当前绑定”“当前配置整体缺失时使用已发布快照”“陈旧绑定必须 fail fast”“legacy flat batchRecordReportId 快照可投影”的后端测试。
+- Trigger: eDHR 批次执行、路线发布快照、`routeSnapshotJson`、`batchUseConfigs`、记录本/批记录融合、当前路线配置缺失或陈旧绑定、任务门禁 `available`、开始节点并行第一组、多前置汇合工序。
+- Preflight check: 新建/返工批次前先同时检查当前 BATCH 工序配置是否存在、绑定是否归属启用工序配置、发布版本快照是否包含完整 `flowGraph.nodes` 与 `batchUseConfigs`。读取已有批次任务门禁时，还要核对任务 `routeProcessId` 是否被冻结快照 `flowGraph.nodes` 完整覆盖；若批次任务由当前 BATCH 工序配置生成且当前配置完整覆盖任务工序，任务门禁必须按当前路线关系图读取完整直接前置集合。
+- Blocker: 只要当前 BATCH 工序配置存在，就必须使用当前配置并严格校验绑定归属；不得因为当前绑定陈旧而静默回退到发布快照。批次任务 `routeProcessId` 既不能被冻结快照完整覆盖，也不能被当前 BATCH 配置完整覆盖，或当前/冻结关系图存在孤立、成环、不可达节点时必须停止；不得用单值 `predecessorRouteProcessId`、排序前一工序、默认首个 WAITING 工序或空前置集合掩盖多前置关系。
+- Verification: 同时覆盖“当前配置存在优先当前绑定”“当前配置整体缺失时使用已发布快照”“陈旧绑定必须 fail fast”“legacy flat batchRecordReportId 快照可投影”“多起点第一组均 available=true”“多前置汇合工序前置未完成时 available=false”“旧冻结快照但当前配置覆盖任务工序时按当前关系图计算”的后端测试。
 - Forbidden action: 禁止把发布快照作为通用 fallback；禁止用空绑定、默认 MAIN 或默认成功掩盖当前配置损坏。
-- Evidence: `doc/tasks/merge-jiluben-worktree-20260724/verification-report.md`。
+- Evidence: `doc/tasks/merge-jiluben-worktree-20260724/verification-report.md`；`doc/tasks/20260729-edhr-parallel-start-process-highlight/verification-report.md`。
 
 ### 草稿 BATCH 快照读写对称边界
 

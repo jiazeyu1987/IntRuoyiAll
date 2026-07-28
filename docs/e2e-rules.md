@@ -50,6 +50,15 @@
 - Forbidden action: 禁止删除后续断言来制造整条 PASS；禁止把目标阶段通过冒充 full-chain 通过；禁止在失败后遗漏共享配置恢复或任务自有数据清理。
 - Evidence: `doc/tasks/20260728-assist-role-responsibility-mode/verification-report.md`，填写配置保存阶段已返回 `adminSave.assistRowCount/assignmentCount`，后续路线绑定断言失败并完成配置恢复和路线清理。
 
+### 真实 E2E 页面加载判据门禁
+
+- Trigger: 真实 Playwright 验证只读详情页、批次执行详情、当前工序高亮、页面顶部批号/执行号/标题文案可能与接口字段不一致。
+- Preflight check: 脚本必须先等待目标业务接口命中目标对象 ID，再等待本次需求真正依赖的页面控件或状态渲染；只读页面可用任务组、状态 class、颜色、按钮可见性等目标控件作为页面加载判据。
+- Blocker: 页面不稳定展示内部执行号、生产批号或标题文本时，不得让这类文本等待替代目标行为断言；若目标业务控件未渲染或接口未命中目标 ID，必须失败并截图记录。
+- Verification: 证据需包含目标接口 ID、目标页面控件状态、截图路径、关键样式/交互断言和 MES 写请求数；修正等待条件后必须重跑真实 Playwright。
+- Forbidden action: 禁止为了通过 E2E 删除目标页面断言、改成 API-only、等待无关菜单/标题文本、或把页面未渲染解释成接口已通过。
+- Evidence: `doc/tasks/20260729-edhr-parallel-start-process-highlight/verification-report.md`，真实脚本改为接口命中目标批次后等待工序组渲染，并断言三 个当前工序黄底。
+
 ### Schema-backed E2E 迁移与字段可选态门禁
 
 - Trigger: 真实 E2E 验证新增 schema 字段支撑的页面能力、工作台上下文字段、单元格链接、字段矩阵、合成来源字段、`source_type`、`source_field_code`、`sourceFields`、或页面接口返回 `Unknown column` / `系统异常`。

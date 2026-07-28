@@ -8,6 +8,8 @@
 
 BDD: 开始节点并行第一组全部显示当前运行态 -> Given 工艺路线关系图中“工序开始”直接连到粗洗工序、清洗工序、清洁工序，且这三个批次任务都处于 `WAITING/待打开` When 批记录管理员打开批次执行详情 Then 左侧这 3 个工序都应显示黄色当前运行态，后续非直接后继工序仍保持未开始状态，填写动作仍只由 `OPEN_FORM` 控制。
 
+BDD: 多前置汇合工序不得进入第一组当前可执行 -> Given 路线关系图存在三个无入边工序共同指向一个汇合工序 When 新建批次后所有工序任务均未填写完成 Then 三个无入边工序 `available=true`，汇合工序 `available=false` 且提示直接前置工序未全部完成。
+
 ## Commands
 
 - READ: `bug-regression-fix-loop`、`backend-api-delivery`、`frontend-feature-delivery` 技能及其 contract -> PASS。
@@ -35,6 +37,16 @@ BDD: 开始节点并行第一组全部显示当前运行态 -> Given 工艺路�
 - PORT GUARD: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main slot 12`，frontend `8093`，backend `48093`。
 - COMMIT: `git commit -m "修复批次执行并行当前工序高亮"` -> PASS，implementation commit `6423023d`。
 - PUSH: `git push origin HEAD:int_main` -> PASS，`origin/int_main` updated to implementation commit `6423023d`。
+- RED: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#getUsesCurrentRouteGraphWhenBatchTasksWereCreatedFromCurrentRouteConfig" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，expected reason: 批次任务使用当前路线工序 ID，但冻结路线快照仍是旧工序 ID 时，详情门禁按旧快照校验并抛出 `PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED`。
+- GREEN: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#openOrCreate_allowsValidMultiStartMergeRouteGraphWhenBatchBindingsExist+getUsesCurrentRouteGraphWhenBatchTasksWereCreatedFromCurrentRouteConfig" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，2 tests。
+- GREEN: `mvn.cmd -pl yudao-server -am -DskipTests package` -> PASS。
+- RUNTIME: slot 12 backend restarted on `48093`; `GET http://127.0.0.1:48093/actuator/health` -> `{"status":"UP"}`。
+- API VERIFY: 芋道源码/admin 调用 `GET /admin-api/mes/pro/edhr-batch-execution/get?id=900000000903` -> PASS，`tasksLen=25`，当前可执行工序仅 `粗洗工序:928609`、`清洗工序:928611`、`清洁工序:928612`，`closeBlockers=[]`。
+- E2E RED: `node doc/tasks/20260729-edhr-parallel-start-process-highlight/parallel-current-real-e2e.cjs` -> FAIL，expected reason: 脚本等待内部执行号/批号文本，页面目标验证应以详情接口命中目标批次和工序组渲染为准。
+- E2E GREEN: `node doc/tasks/20260729-edhr-parallel-start-process-highlight/parallel-current-real-e2e.cjs` -> PASS，真实页面显示 `粗洗工序`、`清洗工序`、`清洁工序` 三个黄色当前工序，`组装Ⅰ工序` 非黄色，MES 写请求数 `0`。
+- GREEN: experience-preflight -> PASS，已合并到 `docs/backend-development.md#当前配置与发布快照边界`、`docs/frontend-development.md#eDHR 当前工序运行态展示门禁`、`docs/e2e-rules.md#真实 E2E 页面加载判据门禁`，并更新 `docs/experience-index.md` 关键词。
+- CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-parallel-start-process-highlight --mode preview --worktree-closeout off` -> PASS，保留核心任务文档和 `real-e2e-evidence.md`，计划删除一次性 Playwright 脚本和截图。
+- CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-parallel-start-process-highlight --mode apply --worktree-closeout off` -> PASS，已删除 `parallel-current-real-e2e.cjs` 与 `parallel-current-process-highlight.png`。
 
 ## Milestones
 
@@ -45,12 +57,15 @@ BDD: 开始节点并行第一组全部显示当前运行态 -> Given 工艺路�
 - completed: 经验沉淀到现有前端长期门禁文档。
 - completed: 收尾清理已删除本任务临时 evidence，保留 `task.md`、`execution-log.md`、`verification-report.md`。
 - completed: implementation commit `6423023d` 已推送到 `origin/int_main`。
-- in_progress: 最终 closeout 记录提交和 worktree 移除。
+- completed: 后端任务门禁改为使用完整直接前置集合，多前置汇合工序必须等待所有直接前置工序完成。
+- completed: 旧冻结快照与当前路线配置不一致但批次任务来自当前配置时，按当前路线关系图计算可执行工序；缺失正式图源仍显式阻塞。
+- completed: 真实芋道源码/admin Playwright E2E 已通过，页面三 个第一组工序均黄底。
+- in_progress: 最终 closeout 记录提交、推送和运行态清理。
 
 ## Verification
 
-- PASS: 见 Commands 中 RED/GREEN/REGRESSION 记录。
+- PASS: 见 Commands 中 RED/GREEN/REGRESSION/API VERIFY/E2E GREEN 记录。
 
 ## Blockers
 
-- NOTE: 当前工作区存在并行任务未提交改动，提交阶段必须按项目 Git 规则处理基线与选择性暂存；不得回滚或覆盖这些改动。
+- NOTE: 当前验证 worktree 分支落后 `origin/int_main` 4 个提交，最终推送前需按 Git 规则处理同步；不得触碰主工作区并行冲突。
