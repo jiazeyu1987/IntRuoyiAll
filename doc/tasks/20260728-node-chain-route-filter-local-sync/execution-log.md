@@ -16,3 +16,4 @@
 - GREEN(compact): `node .\tests\e2e\system-codex-test-node-chain-static.spec.js`、`node .\tests\e2e\system-codex-test-management-static.spec.js`、`pnpm ts:check`、frontend/bug evidence validators、`scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
 - Integration: 紧凑版提交 `83f37166` 后融合 `origin/int_main` `35a1255c`，生成最新 HEAD `37f66c7e`。
 - GREEN(after compact merge): `node .\tests\e2e\system-codex-test-node-chain-static.spec.js`、`node .\tests\e2e\system-codex-test-management-static.spec.js`、`pnpm ts:check`、`scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
+- Integration retry: 远端主线再次前进到 `7d59f3bf`，融合后 HEAD `4be33aa1`；节点串静态合同、测试管理静态回归、`pnpm ts:check` 和端口守卫均 PASS。
