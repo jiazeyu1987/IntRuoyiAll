@@ -9,6 +9,7 @@
 - `BDD: Frontend uses persisted cell values only -> Given` 后端自动落库负责把单元格链接值写入执行详情，`When` 执行页 hydrate 草稿状态，`Then` 页面只读取已保存 `detail.cellValues`，不得再调用 `/batch-record-cell-link/prefill` 注入本地草稿值。
 - `BDD: Main runtime E2E must use real openable batch task -> Given` 本地数据库存在授权租户、账号、启用 batchCode 链接规则和可打开正式批记录任务，`When` Playwright 从批次详情点击打开填写，`Then` `task/open` 返回 `cellLinkAutoPersist` 且执行详情和页面目标格显示相同已保存值。
 - `BDD: Rough wash task must use current batch task context -> Given` 用户截图中生产批号 `881M009889` 已链接到“粗洗工序生产记录 / 生产批号”，`When` 创建/打开粗洗工序批记录，`Then` 后端必须按当前 `batchExecutionId + batchTaskId` 创建或打开执行记录并自动落库生产批号，不能传空 `taskId` 导致复用旧执行记录或跳过目标任务上下文。
+- `BDD: Dynamic route form opens with production work order prefill -> Given` 损耗单或过程检验记录来自 `formBindings` 动态表单且 `FORM_TEMPLATE_VERSION` 链接规则把生产工单字段映射到目标字段，`When` 用户创建或再次打开该动态表单任务，`Then` 后端必须把链接值写入 FormCenter 实例草稿 `formData`，已有人工值不得被覆盖，不能只让传统批记录执行记录自动落库。
 
 ## RED/GREEN Evidence
 

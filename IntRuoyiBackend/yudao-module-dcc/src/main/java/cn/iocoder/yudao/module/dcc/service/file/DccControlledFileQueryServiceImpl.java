@@ -34,6 +34,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileTraining
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileTrainingDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileTrainingProgressDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccExternalFileReviewDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.protection.DccControlledFileAccessEventDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.protection.DccControlledFileDownloadRecordDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.protection.DccControlledFileWatermarkTraceDO;
@@ -56,19 +57,23 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileDownloa
 import cn.iocoder.yudao.module.dcc.dal.mysql.protection.DccControlledFileWatermarkTraceMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccAccessResultEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccAccessTypeEnum;
+import cn.iocoder.yudao.module.dcc.enums.DccControlledFileProcessTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStageCodeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFilePreviewKindEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileTrainingStatusEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccFileCategoryPermissionActionEnum;
+import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.dcc.service.directory.DccDirectoryAccessPermissionService;
 import cn.iocoder.yudao.module.dcc.service.download.DccDownloadFileBinary;
 import cn.iocoder.yudao.module.dcc.service.download.DccDownloadPolicyContext;
 import cn.iocoder.yudao.module.dcc.service.download.DccDownloadPolicyDecision;
 import cn.iocoder.yudao.module.dcc.service.download.DccDownloadPolicyService;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService;
+import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath;
 import cn.iocoder.yudao.module.dcc.service.preview.DccControlledPreviewAccessService;
 import cn.iocoder.yudao.module.dcc.service.preview.DccPreviewAccessRequest;
 import cn.iocoder.yudao.module.dcc.service.preview.DccPreviewAccessResult;
@@ -108,6 +113,7 @@ import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionU
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertList;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ACCESS_DENIED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_CATEGORY_DISABLED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_DOWNLOAD_WARNING_UNCONFIRMED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_ONLYOFFICE_PREVIEW_CONFIG_MISSING;
@@ -119,6 +125,9 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.DCC_DOWNLOAD_
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_DIRECTORY_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAXONOMY_LEVEL_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_DISABLED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_NOT_EXISTS;
 
 @Service
 @Validated
@@ -216,6 +225,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private DccProjectCodeAssignmentMapper projectCodeAssignmentMapper;
     @Resource
     private DccProjectCodeAssignmentFileMapper projectCodeAssignmentFileMapper;
+    @Resource
+    private DccProjectCodeMapper projectCodeMapper;
     @Resource
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
     @Override
@@ -404,36 +415,61 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     }
 
     @Override
-    public List<DccControlledFileUploadNameOptionRespVO> listUploadNameOptions(Long categoryId) {
-        validateCategory(categoryId);
-        List<DccControlledFileMasterDO> masterList = controlledFileMasterMapper
-                .selectList(DccControlledFileMasterDO::getCategoryId, categoryId);
-        if (masterList.isEmpty()) {
-            return List.of();
-        }
-        List<Long> currentActiveFileIds = masterList.stream()
-                .map(DccControlledFileMasterDO::getCurrentActiveControlledFileId)
-                .filter(java.util.Objects::nonNull)
-                .distinct()
+    public List<DccControlledFileUploadNameOptionRespVO> listUploadNameOptions(Long dccProjectCodeId,
+                                                                               Long fileTypeTaxonomyId) {
+        validateEnabledUploadNameProjectCode(dccProjectCodeId);
+        DccControlledFilePageReqVO reqVO = buildUploadNameOptionReqVO(dccProjectCodeId, fileTypeTaxonomyId);
+        return controlledFileMapper.selectWorkflowList(reqVO).stream()
+                .filter(file -> StrUtil.isNotBlank(file.getFileName()))
+                .sorted(Comparator.comparing(DccControlledFileDO::getFileName,
+                                Comparator.nullsLast(String::compareToIgnoreCase))
+                        .thenComparing(DccControlledFileDO::getFileNumber,
+                                Comparator.nullsLast(String::compareToIgnoreCase)))
+                .map(file -> DccControlledFileUploadNameOptionRespVO.builder()
+                        .fileName(file.getFileName())
+                        .currentVersionNo(file.getVersionNo())
+                        .controlledFileId(file.getId())
+                        .fileNumber(file.getFileNumber())
+                        .build())
                 .toList();
-        Map<Long, String> currentVersionMap = currentActiveFileIds.isEmpty()
-                ? Map.of()
-                : controlledFileMapper.selectBatchIds(currentActiveFileIds).stream()
-                .filter(file -> file.getId() != null)
-                .collect(Collectors.toMap(DccControlledFileDO::getId, DccControlledFileDO::getVersionNo,
-                        (left, right) -> left));
-        return masterList.stream()
-                .sorted(Comparator.comparing(DccControlledFileMasterDO::getFileName,
-                        Comparator.nullsLast(String::compareToIgnoreCase)))
-                .map(master -> {
-                    Long currentActiveControlledFileId = master.getCurrentActiveControlledFileId();
-                    return DccControlledFileUploadNameOptionRespVO.builder()
-                            .fileName(master.getFileName())
-                            .currentVersionNo(currentActiveControlledFileId == null
-                                    ? null
-                                    : currentVersionMap.get(currentActiveControlledFileId))
-                            .build();
-                })
+    }
+
+    private void validateEnabledUploadNameProjectCode(Long dccProjectCodeId) {
+        if (dccProjectCodeId == null) {
+            throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
+        }
+        DccProjectCodeDO projectCode = projectCodeMapper.selectById(dccProjectCodeId);
+        if (projectCode == null) {
+            throw exception(PROJECT_CODE_NOT_EXISTS);
+        }
+        if (!DccProjectCodeStatusConstants.ENABLE.equals(projectCode.getStatus())) {
+            throw exception(PROJECT_CODE_DISABLED);
+        }
+    }
+
+    private DccControlledFilePageReqVO buildUploadNameOptionReqVO(Long dccProjectCodeId, Long fileTypeTaxonomyId) {
+        if (fileTypeTaxonomyId == null) {
+            throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
+        }
+        DccFileTypeTaxonomyPath path = fileTypeTaxonomyAdminService.resolveActivePath(fileTypeTaxonomyId);
+        if (StrUtil.isBlank(path.level3())) {
+            throw exception(FILE_TYPE_TAXONOMY_LEVEL_INVALID);
+        }
+        DccControlledFilePageReqVO reqVO = new DccControlledFilePageReqVO();
+        reqVO.setDccProjectCodeId(dccProjectCodeId);
+        reqVO.setFileTypeTaxonomyIds(fileTypeTaxonomyAdminService.listActiveDescendantIds(fileTypeTaxonomyId));
+        reqVO.setFileTypeTaxonomyPaths(toFileTypeTaxonomyPathFilters(
+                fileTypeTaxonomyAdminService.listActiveDescendantPaths(fileTypeTaxonomyId)));
+        reqVO.setStatus(DccControlledFileStatusEnum.ACTIVE.getStatus());
+        reqVO.setProcessType(DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode());
+        return reqVO;
+    }
+
+    private List<DccControlledFilePageReqVO.FileTypeTaxonomyPathFilter> toFileTypeTaxonomyPathFilters(
+            List<DccFileTypeTaxonomyPath> paths) {
+        return paths.stream()
+                .map(item -> new DccControlledFilePageReqVO.FileTypeTaxonomyPathFilter(
+                        item.level1(), item.level2(), item.level3(), item.level4(), item.level5()))
                 .toList();
     }
 

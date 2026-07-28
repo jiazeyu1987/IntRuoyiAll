@@ -2,9 +2,8 @@ package cn.iocoder.yudao.module.dcc.service.file;
 
 import cn.iocoder.yudao.framework.test.core.ut.BaseMockitoUnitTest;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileUploadNameOptionRespVO;
-import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
-import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMasterDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileAccessLogMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileDistributionMapper;
@@ -16,22 +15,29 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileSignatureMapp
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingAssignmentMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileTrainingProgressMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
+import cn.iocoder.yudao.module.dcc.enums.DccControlledFileProcessTypeEnum;
+import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
+import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
+import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService;
+import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath;
 import cn.iocoder.yudao.module.dcc.service.directory.DccDirectoryAccessPermissionService;
 import cn.iocoder.yudao.module.infra.dal.mysql.file.FileMapper;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
-import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePageReqVO;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 
 import java.util.List;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_TYPE_TAXONOMY_LEVEL_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_NOT_EXISTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class DccControlledFileUploadNameOptionQueryServiceTest extends BaseMockitoUnitTest {
@@ -41,7 +47,11 @@ class DccControlledFileUploadNameOptionQueryServiceTest extends BaseMockitoUnitT
     @Mock
     private DccControlledFileMasterMapper controlledFileMasterMapper;
     @Mock
+    private DccProjectCodeMapper projectCodeMapper;
+    @Mock
     private DccFileCategoryMapper categoryMapper;
+    @Mock
+    private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
     @Mock
     private DccControlledFileRouteSnapshotMapper routeSnapshotMapper;
     @Mock
@@ -73,96 +83,81 @@ class DccControlledFileUploadNameOptionQueryServiceTest extends BaseMockitoUnitT
     private DccControlledFileQueryServiceImpl queryService;
 
     @Test
-    void listUploadNameOptions_returnsSortedCurrentVersions() {
-        when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
-                .id(10L)
-                .active(true)
-                .build());
-        doReturn(List.of(
-                DccControlledFileMasterDO.builder()
-                        .id(701L)
-                        .categoryId(10L)
+    void listUploadNameOptions_returnsProjectTaxonomyActiveFiles() {
+        mockEnabledProjectAndTaxonomy();
+        when(controlledFileMapper.selectWorkflowList(any(DccControlledFilePageReqVO.class))).thenReturn(List.of(
+                DccControlledFileDO.builder()
+                        .id(902L)
                         .fileName("WI-002")
-                        .currentActiveControlledFileId(902L)
+                        .fileNumber("WI-002-NO")
+                        .versionNo("V2.0")
                         .build(),
-                DccControlledFileMasterDO.builder()
-                        .id(700L)
-                        .categoryId(10L)
+                DccControlledFileDO.builder()
+                        .id(901L)
                         .fileName("SOP-001")
-                        .currentActiveControlledFileId(901L)
-                        .build(),
-                DccControlledFileMasterDO.builder()
-                        .id(702L)
-                        .categoryId(10L)
-                        .fileName("TMP-003")
-                        .currentActiveControlledFileId(null)
-                        .build()))
-                .when(controlledFileMasterMapper)
-                .selectList(org.mockito.ArgumentMatchers.<SFunction<DccControlledFileMasterDO, ?>>any(), eq(10L));
-        when(controlledFileMapper.selectBatchIds(List.of(902L, 901L))).thenReturn(List.of(
-                DccControlledFileDO.builder().id(901L).versionNo("1.0").build(),
-                DccControlledFileDO.builder().id(902L).versionNo("2.5").build()));
+                        .fileNumber("SOP-001-NO")
+                        .versionNo("V1.0")
+                        .build()));
 
-        List<DccControlledFileUploadNameOptionRespVO> result = queryService.listUploadNameOptions(10L);
-
-        assertEquals(3, result.size());
-        assertEquals("SOP-001", result.get(0).getFileName());
-        assertEquals("1.0", result.get(0).getCurrentVersionNo());
-        assertEquals("TMP-003", result.get(1).getFileName());
-        assertEquals(null, result.get(1).getCurrentVersionNo());
-        assertEquals("WI-002", result.get(2).getFileName());
-        assertEquals("2.5", result.get(2).getCurrentVersionNo());
-    }
-
-    @Test
-    void listUploadNameOptions_allCurrentActiveIdsNull_returnsNullVersions() {
-        when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
-                .id(10L)
-                .active(true)
-                .build());
-        doReturn(List.of(
-                DccControlledFileMasterDO.builder()
-                        .id(700L)
-                        .categoryId(10L)
-                        .fileName("SOP-001")
-                        .currentActiveControlledFileId(null)
-                        .build(),
-                DccControlledFileMasterDO.builder()
-                        .id(701L)
-                        .categoryId(10L)
-                        .fileName("WI-002")
-                        .currentActiveControlledFileId(null)
-                        .build()))
-                .when(controlledFileMasterMapper)
-                .selectList(org.mockito.ArgumentMatchers.<SFunction<DccControlledFileMasterDO, ?>>any(), eq(10L));
-
-        List<DccControlledFileUploadNameOptionRespVO> result = queryService.listUploadNameOptions(10L);
+        List<DccControlledFileUploadNameOptionRespVO> result = queryService.listUploadNameOptions(124L, 30L);
 
         assertEquals(2, result.size());
         assertEquals("SOP-001", result.get(0).getFileName());
-        assertEquals(null, result.get(0).getCurrentVersionNo());
+        assertEquals("V1.0", result.get(0).getCurrentVersionNo());
+        assertEquals(901L, result.get(0).getControlledFileId());
+        assertEquals("SOP-001-NO", result.get(0).getFileNumber());
         assertEquals("WI-002", result.get(1).getFileName());
-        assertEquals(null, result.get(1).getCurrentVersionNo());
+        assertEquals("V2.0", result.get(1).getCurrentVersionNo());
+
+        ArgumentCaptor<DccControlledFilePageReqVO> reqCaptor =
+                ArgumentCaptor.forClass(DccControlledFilePageReqVO.class);
+        verify(controlledFileMapper).selectWorkflowList(reqCaptor.capture());
+        DccControlledFilePageReqVO reqVO = reqCaptor.getValue();
+        assertEquals(124L, reqVO.getDccProjectCodeId());
+        assertEquals(List.of(30L, 31L), reqVO.getFileTypeTaxonomyIds());
+        assertEquals(DccControlledFileStatusEnum.ACTIVE.getStatus(), reqVO.getStatus());
+        assertEquals(DccControlledFileProcessTypeEnum.CONTROLLED_FILE.getCode(), reqVO.getProcessType());
     }
 
     @Test
     void listUploadNameOptions_withoutHistory_returnsEmptyList() {
-        when(categoryMapper.selectById(10L)).thenReturn(DccFileCategoryDO.builder()
-                .id(10L)
-                .active(true)
-                .build());
-        doReturn(List.of()).when(controlledFileMasterMapper)
-                .selectList(org.mockito.ArgumentMatchers.<SFunction<DccControlledFileMasterDO, ?>>any(), eq(10L));
+        mockEnabledProjectAndTaxonomy();
+        when(controlledFileMapper.selectWorkflowList(any(DccControlledFilePageReqVO.class))).thenReturn(List.of());
 
-        List<DccControlledFileUploadNameOptionRespVO> result = queryService.listUploadNameOptions(10L);
+        List<DccControlledFileUploadNameOptionRespVO> result = queryService.listUploadNameOptions(124L, 30L);
 
         assertEquals(0, result.size());
     }
 
     @Test
-    void listUploadNameOptions_categoryMissing_throwsNotExists() {
-        when(categoryMapper.selectById(10L)).thenReturn(null);
+    void listUploadNameOptions_projectMissing_throwsNotExists() {
+        when(projectCodeMapper.selectById(124L)).thenReturn(null);
 
-        assertServiceException(() -> queryService.listUploadNameOptions(10L), FILE_CATEGORY_NOT_EXISTS);
+        assertServiceException(() -> queryService.listUploadNameOptions(124L, 30L), PROJECT_CODE_NOT_EXISTS);
+    }
+
+    @Test
+    void listUploadNameOptions_taxonomyLessThanThreeLevels_throwsLevelInvalid() {
+        when(projectCodeMapper.selectById(124L)).thenReturn(DccProjectCodeDO.builder()
+                .id(124L)
+                .status(DccProjectCodeStatusConstants.ENABLE)
+                .build());
+        when(fileTypeTaxonomyAdminService.resolveActivePath(30L))
+                .thenReturn(new DccFileTypeTaxonomyPath(30L, "质量", "SOP", null, null, null));
+
+        assertServiceException(() -> queryService.listUploadNameOptions(124L, 30L), FILE_TYPE_TAXONOMY_LEVEL_INVALID);
+    }
+
+    private void mockEnabledProjectAndTaxonomy() {
+        when(projectCodeMapper.selectById(124L)).thenReturn(DccProjectCodeDO.builder()
+                .id(124L)
+                .status(DccProjectCodeStatusConstants.ENABLE)
+                .build());
+        when(fileTypeTaxonomyAdminService.resolveActivePath(30L))
+                .thenReturn(new DccFileTypeTaxonomyPath(30L, "质量", "SOP", "作业指导书", null, null));
+        when(fileTypeTaxonomyAdminService.listActiveDescendantIds(30L)).thenReturn(List.of(30L, 31L));
+        when(fileTypeTaxonomyAdminService.listActiveDescendantPaths(30L)).thenReturn(List.of(
+                new DccFileTypeTaxonomyPath(30L, "质量", "SOP", "作业指导书", null, null),
+                new DccFileTypeTaxonomyPath(31L, "质量", "SOP", "作业指导书", "灌装", null)));
     }
 }

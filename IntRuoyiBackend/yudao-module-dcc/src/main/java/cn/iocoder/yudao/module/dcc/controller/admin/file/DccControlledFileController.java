@@ -227,10 +227,12 @@ public class DccControlledFileController {
     }
 
     @GetMapping("/upload-name-options")
-    @Operation(summary = "List historical upload names for one controlled file category")
+    @Operation(summary = "List historical upload names for one DCC project and file type taxonomy")
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
-    public CommonResult<List<DccControlledFileUploadNameOptionRespVO>> getUploadNameOptions(Long categoryId) {
-        return success(queryService.listUploadNameOptions(categoryId));
+    public CommonResult<List<DccControlledFileUploadNameOptionRespVO>> getUploadNameOptions(
+            @RequestParam("dccProjectCodeId") Long dccProjectCodeId,
+            @RequestParam("fileTypeTaxonomyId") Long fileTypeTaxonomyId) {
+        return success(queryService.listUploadNameOptions(dccProjectCodeId, fileTypeTaxonomyId));
     }
 
     @GetMapping("/current-version")

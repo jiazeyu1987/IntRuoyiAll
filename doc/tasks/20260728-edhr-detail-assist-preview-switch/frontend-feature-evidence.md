@@ -33,6 +33,7 @@
 - BDD: 详情页原表/辅助预览切换 -> Given 当前选中右侧表单且配置辅助行, When 打开 Switch, Then 中间区域显示辅助字段只读列表。
 - BDD: 无辅助配置禁用 Switch -> Given 当前表单无 `assistRows`, When 查看右侧栏顶部 Switch, Then Switch 禁用并提示“未配置辅助模式”。
 - BDD: 禁用提示完整可见 -> Given 当前表单无辅助配置, When 右侧栏宽度较窄, Then “未配置辅助模式”独占第二行且不换行，不被蓝框裁切。
+- BDD: 禁用提示高对比可读 -> Given 当前表单无辅助配置, When Switch 显示禁用提示, Then “未配置辅助模式”必须以清晰状态条展示，不使用过浅灰色导致看不清。
 - BDD: Switch 不改变打开载体 -> Given 用户切换详情页辅助模式, When 点击右侧卡片操作, Then 仍按原卡片逻辑查看或打开表单。
 
 ## RED / GREEN
@@ -41,6 +42,8 @@
 - GREEN: `node tests/e2e/edhr-batch-detail-assist-preview-switch-static.spec.js` -> PASS。
 - RED: `node tests/e2e/edhr-batch-detail-assist-preview-switch-static.spec.js` -> FAIL，新增可见性合同后现有 Switch 单行 flex 布局会挤压“未配置辅助模式”。
 - GREEN: `node tests/e2e/edhr-batch-detail-assist-preview-switch-static.spec.js` -> PASS，Switch 三列 grid、禁用提示第二行不换行合同通过。
+- RED: `node tests/e2e/edhr-batch-detail-assist-preview-switch-static.spec.js` -> FAIL，新增清晰度合同后浅灰禁用文字仍不够可读。
+- GREEN: `node tests/e2e/edhr-batch-detail-assist-preview-switch-static.spec.js` -> PASS，禁用提示状态条合同通过。
 
 ## Verification
 
@@ -50,7 +53,7 @@
 ## Responsive / Accessibility / States
 
 - Switch 使用 `aria-label="详情页辅助模式切换"`，只在非放行工序右侧栏展示。
-- Switch 主行使用三列 grid 固定“原表模式 / Switch / 辅助模式”，禁用提示独占第二行，避免窄右侧栏裁切。
+- Switch 主行使用三列 grid 固定“原表模式 / Switch / 辅助模式”，禁用提示独占第二行并使用高对比状态条，避免窄右侧栏裁切或视觉上看不清。
 - 辅助只读列表使用字段卡片布局，长字段名和值使用 `overflow-wrap`，避免遮挡。
 - 空辅助配置显示禁用提示，不隐藏 Switch，不触发降级写入。
 

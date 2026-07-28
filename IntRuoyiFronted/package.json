@@ -101,6 +101,7 @@
     "e2e:dcc:upload-layout:static": "node tests/e2e/dcc-upload-layout-static.spec.js",
     "e2e:dcc:upload-project-taxonomy-revision:static": "node tests/e2e/dcc-upload-project-taxonomy-revision-static.spec.js",
     "e2e:dcc:upload-product-autofill:static": "node tests/e2e/dcc-upload-product-autofill-static.spec.js",
+    "e2e:dcc:upload-name-version-autofill:static": "node tests/e2e/dcc-upload-name-version-autofill-static.spec.js",
     "e2e:dcc:upload-current-version:static": "node tests/e2e/dcc-upload-current-version-static.spec.js",
     "e2e:dcc:upload-current-version:real": "node tests/e2e/dcc-upload-current-version-real.e2e.js",
     "e2e:dcc:doc-control-path-confirmation:static": "node tests/e2e/dcc-doc-control-path-confirmation-static.spec.js",

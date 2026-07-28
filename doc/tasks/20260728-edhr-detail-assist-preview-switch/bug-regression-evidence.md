@@ -53,3 +53,13 @@
 - Fix: Switch 主行改为三列 grid；“未配置辅助模式”提示独占第二行、右对齐，并对主标签和禁用提示增加 `white-space: nowrap`。
 - GREEN: `node tests/e2e/edhr-batch-detail-assist-preview-switch-static.spec.js` -> PASS。
 - GREEN: `pnpm ts:check` -> PASS。
+
+## Disabled Hint Contrast Regression
+
+- Bug: “未配置辅助模式”虽然不再换行裁切，但使用 `#98a2b3` 浅灰禁用色，白底小字号下视觉上几乎不可见。
+- Expected: 无辅助配置时提示必须清晰可读，禁用状态不能靠过浅文字表达。
+- Reproduction: `node tests/e2e/edhr-batch-detail-assist-preview-switch-static.spec.js` -> FAIL，新增清晰状态条合同后当前样式未满足 `background: #f8fafc`、`color: #475467`、`font-weight: 600`。
+- Root Cause: 上次修复只处理布局和换行，没有把禁用提示从普通浅灰小字提升为可读状态提示。
+- Fix: 将禁用提示改为撑满第二行的中性状态条，增加浅背景、边框、居中对齐、较深文字和半粗字重。
+- GREEN: `node tests/e2e/edhr-batch-detail-assist-preview-switch-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。

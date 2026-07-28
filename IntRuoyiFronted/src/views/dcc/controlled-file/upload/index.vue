@@ -346,6 +346,7 @@
 <script lang="ts" setup>
 import type { FormRules, UploadProps, UploadUserFile } from 'element-plus'
 import { handleTree } from '@/utils/tree'
+import { formatToDate } from '@/utils/dateUtil'
 import type { ControlledFileCategoryVO } from '@/api/dcc/controlledFile/fileCategories'
 import { getFileCategoryList } from '@/api/dcc/controlledFile/fileCategories'
 import {
@@ -440,6 +441,22 @@ const submitFieldErrors = reactive({
   versionNo: ''
 })
 
+const DEFAULT_MANUAL_VERSION_NO = 'V1.0'
+const VERSION_NO_PATTERN = /^V?(\d+)(?:\.\d+)?$/i
+const resolveTodayDate = () => formatToDate(new Date())
+const resolveNextMajorVersionNo = (currentVersionNo: string | null | undefined) => {
+  const matched = (currentVersionNo || '').trim().match(VERSION_NO_PATTERN)
+  if (!matched) {
+    return ''
+  }
+  const majorVersion = Number(matched[1])
+  if (!Number.isFinite(majorVersion)) {
+    return ''
+  }
+  const nextMajorVersion = majorVersion + 1
+  return `V${nextMajorVersion}.0`
+}
+
 const resolveProcessTypeByRoute = () =>
   route.path.includes('/external') ? 'EXTERNAL_REVIEW' : 'CONTROLLED_FILE'
 const isExternalReview = computed(() => resolveProcessTypeByRoute() === 'EXTERNAL_REVIEW')
@@ -482,8 +499,8 @@ const formData = reactive<UploadFormDraft>({
   selectedSignoffUserIds: [],
   processType: resolveProcessTypeByRoute(),
   changeType: 'NEW',
-  versionNo: '',
-  effectiveDate: '',
+  versionNo: DEFAULT_MANUAL_VERSION_NO,
+  effectiveDate: resolveTodayDate(),
   remark: ''
 })
 
@@ -537,6 +554,13 @@ const selectedFileTypeTaxonomyPathLabel = computed(
 
 const isFileTypeTaxonomyDepthValid = computed(
   () => (selectedFileTypeTaxonomyPath.value?.names.length || 0) >= 3
+)
+
+const canLoadUploadNameOptions = computed(
+  () =>
+    Boolean(formData.dccProjectCodeId) &&
+    Boolean(formData.fileTypeTaxonomyId) &&
+    isFileTypeTaxonomyDepthValid.value
 )
 
 const formatProjectCodeOptionLabel = (project: DccProjectCodeRespVO) =>
@@ -631,14 +655,21 @@ const clearCurrentVersionInfo = () => {
   currentVersionInfo.value = undefined
 }
 
+const ensureEffectiveDateDefault = () => {
+  if (!formData.effectiveDate) {
+    formData.effectiveDate = resolveTodayDate()
+  }
+}
+
 const resetUploadNameLinkage = (clearVersionNo: boolean) => {
   selectedHistoryFileName.value = ''
   selectedHistoryVersion.value = ''
   formData.changeType = 'NEW'
   clearRevisionTargetSelection()
   if (clearVersionNo) {
-    formData.versionNo = ''
+    formData.versionNo = DEFAULT_MANUAL_VERSION_NO
   }
+  ensureEffectiveDateDefault()
 }
 
 const resetUploadNameContext = (clearFileName: boolean) => {
@@ -808,16 +839,6 @@ const resolveHistoryRevisionTarget = async (fileName: string) => {
   }
 }
 
-const handleProjectCodeChange = async () => {
-  applyDccProjectCodeProductNumber()
-  resetUploadNameLinkage(Boolean(selectedHistoryFileName.value || selectedHistoryVersion.value))
-}
-
-const handleFileTypeTaxonomyChange = async () => {
-  resetUploadNameLinkage(Boolean(selectedHistoryFileName.value || selectedHistoryVersion.value))
-  await formRef.value?.validateField?.('fileTypeTaxonomyId').catch(() => undefined)
-}
-
 const applyDccProjectCodeProductNumber = () => {
   formData.productMasterId = null
   formData.productCode = selectedProjectCode.value?.projectCode?.trim() || ''
@@ -832,16 +853,39 @@ const loadBaseData = async () => {
   categories.value = categoryList.filter((item) => item.active)
 }
 
-const loadUploadNameOptions = async (categoryId: number) => {
+const loadUploadNameOptions = async (dccProjectCodeId: number, fileTypeTaxonomyId: number) => {
   uploadNameOptionsLoading.value = true
   try {
-    uploadNameOptions.value = await getControlledFileUploadNameOptions(categoryId)
+    uploadNameOptions.value = await getControlledFileUploadNameOptions({
+      dccProjectCodeId,
+      fileTypeTaxonomyId
+    })
   } catch (error) {
     uploadNameOptions.value = []
     message.error(resolveUploadErrorMessage(error, '历史文件名称加载失败，请查看错误提示后重试'))
   } finally {
     uploadNameOptionsLoading.value = false
   }
+}
+
+const refreshUploadNameOptionsForProjectTaxonomy = async () => {
+  uploadNameOptions.value = []
+  if (!canLoadUploadNameOptions.value || !formData.dccProjectCodeId || !formData.fileTypeTaxonomyId) {
+    return
+  }
+  await loadUploadNameOptions(formData.dccProjectCodeId, formData.fileTypeTaxonomyId)
+}
+
+const handleProjectCodeChange = async () => {
+  applyDccProjectCodeProductNumber()
+  resetUploadNameContext(true)
+  await refreshUploadNameOptionsForProjectTaxonomy()
+}
+
+const handleFileTypeTaxonomyChange = async () => {
+  resetUploadNameContext(true)
+  await formRef.value?.validateField?.('fileTypeTaxonomyId').catch(() => undefined)
+  await refreshUploadNameOptionsForProjectTaxonomy()
 }
 
 const loadUploadDirectoryTree = async (categoryId: number) => {
@@ -922,7 +966,7 @@ const queryUploadNameSuggestions = (
   queryString: string,
   callback: (items: UploadNameSuggestionItem[]) => void
 ) => {
-  if (!formData.categoryId) {
+  if (!canLoadUploadNameOptions.value) {
     callback([])
     return
   }
@@ -943,8 +987,6 @@ const handleCategoryChange = async () => {
     return
   }
   clearSubmitFieldErrors(submitFieldErrors)
-  clearCurrentVersionInfo()
-  resetUploadNameContext(true)
   resetUploadDirectoryContext()
   resetSelectedPreview()
   resetDrawingPdfUpload()
@@ -954,10 +996,7 @@ const handleCategoryChange = async () => {
       message.warning(categoryDirectoryBindingMessage)
       return
     }
-    await Promise.all([
-      loadUploadNameOptions(formData.categoryId),
-      loadUploadDirectoryTree(formData.categoryId)
-    ])
+    await loadUploadDirectoryTree(formData.categoryId)
   }
 }
 
@@ -966,7 +1005,8 @@ const handleHistoryFileNameSelect = async (item: UploadNameSuggestionItem) => {
   selectedHistoryVersion.value = item.currentVersionNo?.trim() || ''
   formData.fileName = item.value
   formData.changeType = 'REVISION'
-  formData.versionNo = selectedHistoryVersion.value
+  formData.versionNo = resolveNextMajorVersionNo(selectedHistoryVersion.value)
+  ensureEffectiveDateDefault()
   clearSubmitFieldErrors(submitFieldErrors)
   if (!applyUploadNameOptionRevisionTarget(item)) {
     await resolveHistoryRevisionTarget(item.value)

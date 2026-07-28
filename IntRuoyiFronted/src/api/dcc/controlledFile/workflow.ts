@@ -1493,10 +1493,11 @@ export const previewControlledFileRoute = async (
   return await request.post({ url: '/dcc/controlled-files/route-preview', data })
 }
 
-export const getControlledFileUploadNameOptions = async (
-  categoryId: number
-): Promise<ControlledFileUploadNameOptionVO[]> => {
-  return await request.get({ url: '/dcc/controlled-files/upload-name-options', params: { categoryId } })
+export const getControlledFileUploadNameOptions = async (params: {
+  dccProjectCodeId: number
+  fileTypeTaxonomyId: number
+}): Promise<ControlledFileUploadNameOptionVO[]> => {
+  return await request.get({ url: '/dcc/controlled-files/upload-name-options', params })
 }
 
 export const getControlledFileCurrentVersion = async (

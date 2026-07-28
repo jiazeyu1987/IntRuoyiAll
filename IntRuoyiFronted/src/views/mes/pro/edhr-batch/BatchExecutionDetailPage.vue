@@ -5303,9 +5303,17 @@ watch(
 
 .edhr-batch-detail__preview-mode-disabled {
   grid-column: 1 / -1;
-  justify-self: end;
-  color: #98a2b3;
+  justify-self: stretch;
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dbe3ef;
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #475467;
   font-size: 12px;
+  font-weight: 600;
   line-height: 16px;
   white-space: nowrap;
 }
