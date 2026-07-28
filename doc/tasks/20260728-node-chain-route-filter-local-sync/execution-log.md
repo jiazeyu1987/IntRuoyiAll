@@ -14,3 +14,5 @@
 - Commit blocker: 当前 `E:\IntRuoyi` 本地 `int_main` 仍是 `08c3eae0`，`origin/int_main` 是 `fd05b0da`，并且有大量并行任务脏改动；为避免混入并行任务，本地同步改动暂不提交。正式远端主线已经包含同等代码。
 - UI placement fix: 在最新正式 worktree 中发现外置 `label="串行路线"` 加 `!w-240px` 下拉总宽度过大，可能被工具栏操作区挤到下一行；改为 `el-form-item` 无外置标签、`el-select aria-label="串行路线"`、`class="!w-180px"`，确保能放入红框位置。
 - GREEN(compact): `node .\tests\e2e\system-codex-test-node-chain-static.spec.js`、`node .\tests\e2e\system-codex-test-management-static.spec.js`、`pnpm ts:check`、frontend/bug evidence validators、`scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
+- Integration: 紧凑版提交 `83f37166` 后融合 `origin/int_main` `35a1255c`，生成最新 HEAD `37f66c7e`。
+- GREEN(after compact merge): `node .\tests\e2e\system-codex-test-node-chain-static.spec.js`、`node .\tests\e2e\system-codex-test-management-static.spec.js`、`pnpm ts:check`、`scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
