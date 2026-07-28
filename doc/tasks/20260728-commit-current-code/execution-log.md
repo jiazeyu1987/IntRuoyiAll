@@ -80,3 +80,7 @@
 - BLOCKER: `git push origin int_main` -> FAIL，`fatal: unable to access 'https://github.com/jiazeyu1987/IntRuoyiAll.git/': Recv failure: Connection was reset`。
 - BLOCKER: retry `git push origin int_main` -> FAIL，同一网络重置错误。影响：本地提交已完成但未推送到 `origin/int_main`，按项目规则任务不能标记完成。
 - STATUS: 当前任务状态改为 `blocked`，等待网络/GitHub 访问恢复后重新执行 `git push origin int_main`。
+- ROOT CAUSE: `git config --show-origin --get-regexp "^(http|https)\..*"` 显示全局配置 `http.https://github.com.proxy=http://127.0.0.1:8902`；该本地 GeekSpeed/Clash 代理端口在线但对 GitHub HTTPS CONNECT 返回连接重置。浏览器和 curl 直连 GitHub 可用，不代表 Git 使用的该代理通道可用。
+- GREEN: no-proxy git read -> PASS，`git -c http.https://github.com.proxy= -c http.proxy= ls-remote origin HEAD` 成功。
+- GREEN: no-proxy push -> PASS，`git -c http.https://github.com.proxy= -c http.proxy= push origin int_main` 成功，将 `int_main` 从 `da282e0e` 推送到 `5946a5b6`。
+- STATUS: 当前任务状态改为 `completed`；最后提交本完成记录并使用同样 no-proxy Git 配置推送。

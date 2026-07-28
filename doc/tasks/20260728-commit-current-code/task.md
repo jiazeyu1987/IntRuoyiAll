@@ -25,7 +25,7 @@
 
 ## Current Status
 
-blocked
+completed
 
 ## 设计约束检查
 

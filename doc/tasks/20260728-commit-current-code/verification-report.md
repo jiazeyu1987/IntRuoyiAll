@@ -29,7 +29,9 @@
 - Cleanup preview/apply: PASS, keep task records, delete none, blocked none, warnings none.
 - Task closeout commit: PASS, `a4faf67d docs: close current frontend backend commit task`.
 - Push large-object gate: PASS, no objects over 100 MB in `origin/int_main..HEAD`.
-- Push: BLOCKED, `git push origin int_main` failed twice with `Recv failure: Connection was reset`.
+- Push first attempt: BLOCKED, normal `git push origin int_main` failed twice with `Recv failure: Connection was reset`.
+- Root cause: global Git config routes GitHub through `http://127.0.0.1:8902`; the local proxy accepts CONNECT then resets the TLS stream. Browser GitHub access still works because it is not proof that Git is using the same proxy path.
+- Push final: PASS, `git -c http.https://github.com.proxy= -c http.proxy= push origin int_main` succeeded.
 
 ## Blocker
 
@@ -45,6 +47,5 @@
 ## Final Closeout Verification
 
 - Cleanup apply passed.
-- Final closeout commit was created locally.
-- Final push is blocked by network reset; branch remains ahead of `origin/int_main`.
-- Task status is `blocked` until `git push origin int_main` succeeds and final branch status shows no local commits ahead of `origin/int_main`.
+- Final closeout commits through `5946a5b6` were pushed successfully with the GitHub proxy override disabled for that command.
+- A final completion-record commit remains to be pushed after this report update.
