@@ -2,12 +2,12 @@
 
 ## Scope
 
-- 用户请求提交并推送当前代码。
-- 初始工作区无业务代码脏改动；本次仅新增任务门禁与收尾记录。
+- 用户请求提交前后端代码并推送当前 `int_main`。
+- 本轮提交范围为当前工作区已存在的前后端源码、测试、运行脚本、任务证据和经验文档改动；按脏工作区基线门禁作为独立基线提交保存。
 
 ## Verification Results
 
-- `git status --short --branch` initial: PASS, `## int_main...origin/int_main`。
+- `git status --short --branch` initial: PASS, `## int_main...origin/int_main`，存在前后端工作区脏改动。
 - `git branch --show-current`: PASS, `int_main`。
 - `git remote -v`: PASS, `origin` fetch/push 指向 `https://github.com/jiazeyu1987/IntRuoyiAll.git`。
 - `git diff --check`: PASS，无空白错误。
@@ -19,10 +19,15 @@
 - Backend minimal regression: PASS, `mvn -pl yudao-module-mes -am "-Dtest=Sheet1RouteExcelParserTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` ran 4 tests with 0 failures and 0 errors.
 - Branch runtime port guard: PASS, `scripts\preflight\branch-runtime-port-guard.ps1` passed for `int_main/int_main` ports `8081/48081`.
 - Sensitive scan: PASS, no raw credential material found in newly included files.
-- Current workspace baseline commit: PASS, `6f2a9fb9 chore: baseline current workspace changes`.
-- Origin alignment after baseline: PASS, `HEAD == origin/int_main == 6f2a9fb9fad235d651cbcdc976e5f15f3c23281d`.
-- Cleanup apply: PASS, keep task records, delete none, blocked none, warnings none.
-- Task status: completed after cleanup apply.
+- Stale backend blocker recheck: PASS, route generation JSON compile target Maven tests ran 3 tests with 0 failures and 0 errors.
+- Downstream stale blocker recheck: PASS, extra-form switch target Maven tests ran 2 tests with 0 failures and 0 errors.
+- Branch runtime port guard: PASS, `scripts\preflight\branch-runtime-port-guard.ps1` passed for `int_main/int_main` ports `8081/48081`.
+- Staged whitespace check: PASS, `git diff --cached --check` returned no whitespace errors.
+- Staged large-file scan: PASS, no staged file exceeded 100 MB.
+- Current workspace baseline commit: PASS, `91441260 chore: baseline current frontend backend changes`.
+- Post-baseline rescan: PASS, `git diff --name-status` empty and branch ahead 1.
+- Cleanup preview/apply: PASS, keep task records, delete none, blocked none, warnings none.
+- Task status: completed after cleanup apply; closeout record is ready for final commit and push.
 
 ## Blocker
 
@@ -38,4 +43,5 @@
 ## Final Closeout Verification
 
 - Cleanup apply passed.
-- Final closeout commit, explicit push, and final branch status are recorded in the Git command output for this task.
+- Final closeout commit and explicit `git push origin int_main` are required after this report update.
+- Final branch status must show no local commits ahead of `origin/int_main`.

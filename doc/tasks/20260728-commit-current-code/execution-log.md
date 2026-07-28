@@ -56,3 +56,22 @@
 
 - Push paused: after cleanup preview, new non-task changes appeared in the shared `int_main` worktree. They include MES test deletions/modification and another in-progress task directory `doc/tasks/20260728-restart-local-runtime/`. These were not created by this task, so committing them without confirmation could mix concurrent task artifacts.
 - Resolved: user confirmed these current changes are in scope for commit/push.
+
+## 2026-07-28 Resume: 提交前后端代码
+
+- USER INTENT: 用户请求 `提交前后端代码`。
+- GREEN: trigger rules read -> PASS，已读取 `docs/task-closeout-rules.md`、`docs/powershell-memory.md`、`docs/powershell-encoding.md`、`docs/branch-runtime-ports.md`、`docs/local-runtime.md`、`docs/backend-development.md`、`docs/experience-index.md`。
+- GREEN: task directory identified -> PASS，复用 `doc/tasks/20260728-commit-current-code/` 记录本次提交/推送证据。
+- PRECHECK: `git status --short --branch --untracked-files=all` -> `## int_main...origin/int_main`，存在前后端源码、测试、运行脚本、任务证据和经验文档脏改动。
+- GREEN: stale backend blocker recheck -> PASS，`mvn -o -pl yudao-module-mes "-Dtest=MesProEdhrBatchExecutionServiceTest#previewTask_returnsUnopenedBatchRecordWithExecutionSnapshotAssistRows,MesProBatchRecordExecutionServiceImplTest#openOrCreateByContext_shouldNormalizeExecutionSnapshotJsonStructure+openOrCreateByContext_freezesAssistRowsInExecutionSnapshot" "-Dsurefire.failIfNoSpecifiedTests=false" test`，Tests run: 3, Failures: 0, Errors: 0。
+- GREEN: downstream stale blocker recheck -> PASS，`mvn -pl yudao-module-mes "-Dtest=MesProEdhrWorkTaskServiceImplTest#createInitialFillTask_createsAllCompanionTasksForSameProcess,MesProBatchRecordExecutionServiceImplTest#buildResp_assistSwitchTasksIncludesExtraFormFillersFromProcessRuleWithoutWorkTask" "-Dsurefire.failIfNoSpecifiedTests=false" test`，Tests run: 2, Failures: 0, Errors: 0。
+- GREEN: `git diff --check` -> PASS，仅 Windows CRLF 警告，无 whitespace error。
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，int_main/int_main frontend 8081 backend 48081。
+- GREEN: staged large-file scan -> PASS，无超过 100 MB 的 staged 文件。
+- GREEN: sensitive changed-line scan -> PASS，未发现 `application-local.yaml` 新增 secret 行；命中项为任务文档/测试中的 `token` 字段名或脱敏说明。
+- GREEN: project-experience-consolidation -> PASS，已复核现有 `docs/powershell-memory.md`、`docs/local-runtime.md`、`docs/e2e-rules.md` 和 `docs/experience-index.md`，本次无需要新增长期经验文档的通用规则。
+- GREEN: baseline commit -> PASS，commit `91441260 chore: baseline current frontend backend changes`，84 files changed。
+- GREEN: post-commit rescan -> PASS，`git status --short --branch --untracked-files=all` = `## int_main...origin/int_main [ahead 1]`，`git diff --name-status` 为空。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-commit-current-code --mode preview` -> ready，keep task.md/execution-log.md/verification-report.md，delete/blocked/warnings none。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-commit-current-code --mode apply` -> applied，deleted_paths none。
+- STATUS: 当前任务记录更新为 `completed`；下一步提交本收尾记录并执行 `git push origin int_main`。
