@@ -17,7 +17,6 @@ $FrontendDir = $PortContext.FrontendPath
 $BackendDir = Join-Path $RepoRoot 'yudao-server'
 $RuntimeDir = Join-Path $PortContext.WorkspaceRoot "output\runtime\$($PortContext.Name)"
 $RuntimeControlStateDir = Join-Path $RepoRoot 'runtime\runtime-control'
-$CodexTestRunnerTokenFile = Join-Path $PortContext.WorkspaceRoot '.runtime\codex-test-runner\runner-token.txt'
 $FrontendPort = [int]$PortContext.FrontendPort
 $BackendPort = [int]$PortContext.BackendPort
 $OnlyOfficeBaseUrl = 'http://127.0.0.1:8080'
@@ -607,35 +606,6 @@ function Require-EnvironmentVariable([string]$Name) {
     }
 }
 
-function Initialize-CodexTestRunnerToken {
-    $tokenDirectory = Split-Path -Parent $CodexTestRunnerTokenFile
-    if (-not (Test-Path -LiteralPath $CodexTestRunnerTokenFile)) {
-        New-Item -ItemType Directory -Force -Path $tokenDirectory | Out-Null
-        $tokenBytes = New-Object byte[] 32
-        $randomNumberGenerator = [Security.Cryptography.RandomNumberGenerator]::Create()
-        try {
-            $randomNumberGenerator.GetBytes($tokenBytes)
-        } finally {
-            $randomNumberGenerator.Dispose()
-        }
-        $token = [Convert]::ToBase64String($tokenBytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
-        [System.IO.File]::WriteAllText(
-            $CodexTestRunnerTokenFile,
-            $token,
-            [System.Text.UTF8Encoding]::new($false)
-        )
-    }
-
-    $token = [System.IO.File]::ReadAllText(
-        $CodexTestRunnerTokenFile,
-        [System.Text.UTF8Encoding]::new($false)
-    ).Trim()
-    if ([string]::IsNullOrWhiteSpace($token)) {
-        Fail "Codex Runner token file is empty: $CodexTestRunnerTokenFile"
-    }
-    return $token
-}
-
 function Require-RunningContainer([string]$Name) {
     $running = docker inspect -f '{{.State.Running}}' $Name 2>$null
     if ($LASTEXITCODE -ne 0 -or $running.Trim() -ne 'true') {
@@ -955,12 +925,6 @@ function Start-Backend {
     foreach ($requiredEnv in $RequiredDccDownloadEncryptionEnv) {
         Require-EnvironmentVariable $requiredEnv
     }
-    $runnerToken = Initialize-CodexTestRunnerToken
-    [Environment]::SetEnvironmentVariable(
-        'CODEX_TEST_RUNNER_TOKEN',
-        $runnerToken,
-        [System.EnvironmentVariableTarget]::Process
-    )
     if (-not (Test-Path -LiteralPath (Join-Path $BackendDir 'pom.xml'))) {
         Fail "Missing backend workspace: $BackendDir"
     }
@@ -999,6 +963,7 @@ function Start-Backend {
 `$env:DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL = '$OnlyOfficePublicFileBaseUrl'
 `$env:DCC_SIGNATURE_EVIDENCE_HMAC_SECRET = '$DccSignatureEvidenceHmacSecret'
 `$env:DCC_SIGNATURE_EVIDENCE_KEY_VERSION = '$DccSignatureEvidenceKeyVersion'
+Remove-Item -Path 'Env:\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue
 `$backendArgs = @(
   "-jar"
   "$runtimeJar"

@@ -76,4 +76,43 @@ assert.doesNotMatch(
   'FORM_TEMPLATE_VERSION 的生产批号不得回到 workOrder.batchCode。'
 )
 
+const buildFormTemplateVersionPrefillData = sliceBetween(
+  cellLinkServiceImpl,
+  'public Map<String, Object> buildFormTemplateVersionPrefillData(',
+  'private String resolveFormTemplateTargetFormDataKey',
+  'buildFormTemplateVersionPrefillData'
+)
+assert.match(
+  buildFormTemplateVersionPrefillData,
+  /String targetFormDataKey = resolveFormTemplateTargetFormDataKey\(/,
+  '动态表单自动预填必须把目标单元格坐标解析为 FormCenter formData 字段 key。'
+)
+assert.match(
+  buildFormTemplateVersionPrefillData,
+  /result\.put\(targetFormDataKey, sourceValue\)/,
+  '动态表单自动预填必须写入解析后的字段 key，而不是坐标 key。'
+)
+assert.doesNotMatch(
+  buildFormTemplateVersionPrefillData,
+  /result\.put\(targetCellKey, sourceValue\)/,
+  '动态表单自动预填不得把 5:3 这类坐标 key 写入 FormCenter formData。'
+)
+
+const resolveFormTemplateTargetFormDataKey = sliceBetween(
+  cellLinkServiceImpl,
+  'private String resolveFormTemplateTargetFormDataKey(',
+  'private Object resolveFormTemplateWorkOrderFieldValue',
+  'resolveFormTemplateTargetFormDataKey'
+)
+assert.match(
+  resolveFormTemplateTargetFormDataKey,
+  /resolveRecognizedFieldCode\(templateVersion, targetRowIndex, targetColumnIndex,/,
+  '动态表单字段 key 必须来自模板识别字段 fieldCode。'
+)
+assert.match(
+  resolveFormTemplateTargetFormDataKey,
+  /throw exception\(MesProBatchRecordCellLinkErrorCodeConstants\.PRO_BATCH_RECORD_CELL_LINK_CELL_MISSING/,
+  '动态表单目标格无法映射字段编码时必须 fail fast，不能写坐标 key 兜底。'
+)
+
 console.log('mes-edhr-dynamic-form-cell-link-batch-code-static PASS')

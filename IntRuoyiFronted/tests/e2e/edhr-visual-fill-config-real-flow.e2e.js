@@ -1417,6 +1417,28 @@ async function waitForRouteProcessAttributeEditorReady(editor) {
     .catch(() => undefined)
 }
 
+async function waitForEmployeeExecutionFormPage(page, context) {
+  try {
+    await waitForValue(
+      'employee_execution_form_url',
+      () => {
+        const url = new URL(page.url())
+        return url.pathname === '/mes/pro/feedback/edhr-execution/form' ? url.href : null
+      },
+      90000,
+      500
+    )
+  } catch (error) {
+    throw block('employee_work_task_did_not_open_execution_form', {
+      ...context,
+      currentUrl: page.url(),
+      pageTitle: await page.title().catch(() => ''),
+      visibleBodyText: (await page.locator('body').innerText().catch(() => '')).slice(0, 1500),
+      cause: error.message || String(error)
+    })
+  }
+}
+
 async function ensureBatchRecordDetailFieldVisible(page, editor) {
   let fieldButton = editor
     .locator('[data-flow-action="select-process-detail-field"]')
@@ -2292,7 +2314,13 @@ async function verifyEmployeeAssistMode(username, password, label, taskOwnedBatc
       })
     }
     await processButton.click()
-    await page.waitForURL((url) => url.pathname === '/mes/pro/feedback/edhr-execution/form', { timeout: 90000 })
+    await waitForEmployeeExecutionFormPage(page, {
+      label,
+      username,
+      workOrderCode: taskOwnedBatchExecution.workOrderCode,
+      batchCode: taskOwnedBatchExecution.batchCode,
+      targetBatchTaskId: taskOwnedBatchExecution.targetBatchTaskId
+    })
     const assistPanel = page.locator('.edhr-fill-workspace__assist-panel').first()
     await assistPanel.waitFor({ state: 'visible', timeout: 90000 })
     const emptyText = await page.getByText('未配置辅助模式', { exact: false }).first().isVisible().catch(() => false)

@@ -140,6 +140,15 @@
 - Forbidden action: 禁止为了页面显示把后端来源 `routeProcessId` 改成虚拟 ID、禁止用 `formBindings`/表单槽位/当前登录人推导产品信息、禁止隐藏第 1 工序卡片或硬插普通文本冒充 80 工序、禁止 API-only 代替页面分组验证。
 - Evidence: `doc/tasks/20260728-batch-execution-product-info-form-missing/verification-report.md`，产品信息任务后端 `batchRecordSort=80` 但 `routeProcessSort=1`，前端需独立虚拟分组。
 
+## eDHR 当前工序运行态展示门禁
+
+- Trigger: 批次执行详情、`BatchExecutionDetailPage.vue`、左侧工序列表、批记录管理员、当前工序黄色背景、`WAITING`/待打开、`currentProcessRouteProcessId/currentProcessCode/currentProcessName`、`OPEN_FORM`、`canOpenTask`、`is-in-progress`。
+- Preflight check: 先区分“运行态展示”和“填写操作权限”：当前工序高亮必须优先使用详情接口的 `currentProcessRouteProcessId/currentProcessCode/currentProcessName` 与工序组的正式工序身份匹配；`WAITING` 当前工序也可显示黄色运行态，但打开填写仍只能由任务自身 `allowedActions` 是否包含 `OPEN_FORM` 决定。产品信息虚拟 `80` 工序必须先排除，避免复用来源正式工序身份造成误高亮。
+- Blocker: 批记录管理员只读详情页看不到当前 `WAITING` 工序黄色运行态、状态展示依赖 `activeWorkTaskId`/`OPEN_FORM`/当前登录人是否为填写人、通过角色 ID 或填写人列表推断当前工序、或缺少静态合同证明展示权限未提升填写权限时必须停止。
+- Verification: 运行 `node tests/e2e/edhr-batch-admin-current-process-highlight-static.spec.js`、`node tests/e2e/edhr-batch-process-state-background-static.spec.js` 和 `node tests/e2e/edhr-batch-admin-filler-visibility-static.spec.js`；真实 E2E 需用批记录管理员账号从批次执行列表进入详情，断言当前工序黄色运行态、表单只读可见且无 MES 写请求。
+- Forbidden action: 禁止为了解决高亮而放宽 `OPEN_FORM`、接管、跳过或提交权限；禁止用当前登录人、角色名、表单槽位、默认首个 `WAITING` 节点或前端文案推断当前工序；禁止把全部待打开工序统一标黄。
+- Evidence: `doc/tasks/20260728-edhr-admin-current-process-highlight/verification-report.md`，批记录管理员只读当前工序通过详情接口 `currentProcess*` 投影为黄色运行态，填写动作仍受 `OPEN_FORM` 控制。
+
 ## 验证方式
 
 - 优先运行受影响范围的验证：

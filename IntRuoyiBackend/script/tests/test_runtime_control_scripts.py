@@ -1,4 +1,3 @@
-import re
 from pathlib import Path
 
 
@@ -115,33 +114,21 @@ def test_local_restart_backend_routes_mysql_and_redis_through_unshadowed_docker_
     assert "LOCAL_DOCKER_PORT_SHADOWED" in script
 
 
-def test_local_restart_backend_uses_workspace_codex_runner_token_file():
+def test_local_restart_backend_defaults_to_tokenless_codex_runner_mode():
     script = read_script("restart-int-ruoyi-local.ps1")
-    workspace_gitignore = (REPO_ROOT.parents[1] / ".gitignore").read_text(encoding="utf-8")
 
-    assert (
-        "$CodexTestRunnerTokenFile = Join-Path $PortContext.WorkspaceRoot "
-        "'.runtime\\codex-test-runner\\runner-token.txt'"
-    ) in script
-    assert ".runtime/" in workspace_gitignore.splitlines()
-    assert "**/.runtime/" in workspace_gitignore.splitlines()
-    assert "function Initialize-CodexTestRunnerToken" in script
-    assert "[Security.Cryptography.RandomNumberGenerator]::Create()" in script
-    assert "[System.IO.File]::WriteAllText(" in script
-    assert "Codex Runner token file is empty" in script
+    assert "$CodexTestRunnerTokenFile" not in script
+    assert "function Initialize-CodexTestRunnerToken" not in script
+    assert "[Security.Cryptography.RandomNumberGenerator]::Create()" not in script
+    assert "Codex Runner token file is empty" not in script
 
     backend_block = script[script.index("function Start-Backend"):script.index("function Start-Website")]
-    assert "$runnerToken = Initialize-CodexTestRunnerToken" in backend_block
-    assert re.search(
-        r"\[Environment\]::SetEnvironmentVariable\(\s*"
-        r"'CODEX_TEST_RUNNER_TOKEN'\s*,\s*"
-        r"\$runnerToken\s*,\s*"
-        r"\[System\.EnvironmentVariableTarget\]::Process\s*\)",
-        backend_block,
-    )
-    assert backend_block.index("$runnerToken = Initialize-CodexTestRunnerToken") < backend_block.index(
-        "Stop-MatchingProcesses 'backend' $RuntimeDir"
-    )
+    assert "$runnerToken = Initialize-CodexTestRunnerToken" not in backend_block
+    assert "'CODEX_TEST_RUNNER_TOKEN'," not in backend_block
+    assert "Remove-Item -Path 'Env:\\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue" in backend_block
+    assert backend_block.index(
+        "Remove-Item -Path 'Env:\\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue"
+    ) < backend_block.index("& java @backendArgs")
 
 
 def test_local_restart_backend_protects_showroom_default_file_config_from_e2e_mutation():

@@ -8,6 +8,8 @@
 
 用户最新要求删除红框中的“批量删除”按钮；已移除该按钮，并清理仅服务于批量删除的多选列、选中状态与处理函数。
 
+用户确认点击“填写人”列应显示 `批记录表单填写人设置` 小弹窗；已移除 `fillAssignments` 自动跳转全屏 `填写配置` 的分流，保留右侧“填写配置”入口。
+
 ## Commands
 
 - `node tests/e2e/edhr-batch-record-form-list-product-filter-autocomplete-static.spec.js` -> PASS.
@@ -25,6 +27,12 @@
 - `node tests/e2e/batch-record-force-unbind-delete-static.spec.js` -> PASS after button removal.
 - `node tests/e2e/edhr-batch-record-form-list-product-filter-autocomplete-static.spec.js` -> PASS after button removal.
 - `pnpm ts:check` -> PASS after button removal.
+- `node tests/e2e/edhr-batch-record-form-list-static.spec.js` -> RED FAIL as expected before filler-column fix; handler still called `openCellRulesDialog(row)` when `fillAssignments` existed.
+- `node tests/e2e/edhr-batch-record-form-list-static.spec.js` -> PASS after filler-column fix.
+- `node tests/e2e/edhr-batch-record-form-list-product-filter-autocomplete-static.spec.js` -> PASS after filler-column fix.
+- `node tests/e2e/batch-record-form-latest-version-switch-static.spec.js` -> PASS after filler-column fix.
+- `node tests/e2e/batch-record-force-unbind-delete-static.spec.js` -> PASS after filler-column fix.
+- `pnpm ts:check` -> PASS after filler-column fix.
 
 ## Real E2E
 
