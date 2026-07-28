@@ -32,3 +32,12 @@
 - 合并后回归：目标 Maven 30 tests PASS；节点串迁移契约 2 tests PASS；branch runtime port guard PASS。
 - 合并后清理：`task_closeout.py --mode apply --worktree-closeout off` -> PASS，清理合入主线后带回的任务临时 SQL/JSON/PS1 文件。
 - 剩余阻塞：自动 fast-forward 合并和 worktree 删除仍被 `E:\IntRuoyi` 主工作区并行脏改动阻止；当前分支已包含 `origin/int_main` 并已推送，可等待主工作区清理后执行最终 closeout。
+
+## 2026-07-28 Final Mainline Sync
+
+- 主工作区前置：`E:\IntRuoyi` 已清洁，`int_main` 已推送到 `origin/int_main`。
+- 最新主线合并：`git merge origin/int_main --no-edit` -> PASS，生成 `de69f128`，无冲突。
+- 后端回归：`mvn.cmd -pl yudao-module-system -am "-Dtest=CodexTestCaseServiceImplTest,CodexTestExecutionServiceImplTest,CodexTestRunnerServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，30 个测试通过。
+- 前端静态契约：`node .\tests\e2e\system-codex-test-node-chain-static.spec.js` -> PASS。
+- 迁移契约：`python -X utf8 -m pytest script\tests\test_codex_test_node_chain_migration.py -q` from `IntRuoyiBackend` -> PASS，2 个测试通过。
+- 端口契约：`scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，frontend `8088`，backend `48088`。

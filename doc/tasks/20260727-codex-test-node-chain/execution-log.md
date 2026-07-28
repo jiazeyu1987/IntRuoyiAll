@@ -98,3 +98,12 @@
 - Commit/Push: merge commit `f0780ea0` -> pushed to `origin/codex/20260727-codex-test-node-chain-runtime`，分支已包含 `origin/int_main`，`origin/int_main` 是当前 HEAD 的祖先。
 - Cleanup apply after merge: `task_closeout.py --task-id 20260727-codex-test-node-chain --mode apply --worktree-closeout off` -> PASS，删除合入主线后带回的 `local-node-chain-assignment.sql`、`node-chain-cleanup-summary.json`、`node-chain-real-e2e-summary.json`、`start-node-chain-isolated-runtime.ps1` 和 `stop-node-chain-isolated-runtime.ps1`。
 - Remaining blocker: 自动 worktree closeout 只剩 `Main worktree is dirty and cannot receive ff-only merge: E:\IntRuoyi`；本任务分支已可 fast-forward 集成，但不触碰主工作区并行脏改动。
+
+## 2026-07-28 Final Mainline Sync
+
+- Precondition: `E:\IntRuoyi` 主工作区已清洁且 `int_main` 已推送到 `origin/int_main`，可继续任务 worktree closeout。
+- Merge: `git merge origin/int_main --no-edit` -> PASS，生成 merge commit `de69f128`，无冲突；当前任务分支包含最新 `origin/int_main`。
+- GREEN: `mvn.cmd -pl yudao-module-system -am "-Dtest=CodexTestCaseServiceImplTest,CodexTestExecutionServiceImplTest,CodexTestRunnerServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，30 tests passed。
+- GREEN: `node .\tests\e2e\system-codex-test-node-chain-static.spec.js` -> PASS，前端节点串静态契约通过。
+- GREEN: `python -X utf8 -m pytest script\tests\test_codex_test_node_chain_migration.py -q` from `IntRuoyiBackend` -> PASS，2 tests passed。
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260727-codex-test-node-chain-runtime/int_main` 使用 frontend `8088`、backend `48088`。
