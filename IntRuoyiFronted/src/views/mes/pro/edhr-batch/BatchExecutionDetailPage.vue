@@ -3511,9 +3511,26 @@ const isCompletedProcessTask = (row: EdhrBatchExecutionTaskRespVO) =>
   row.status === EDHR_BATCH_TASK_STATUS_APPROVED ||
   row.status === EDHR_BATCH_TASK_STATUS_SKIPPED
 
+const normalizeProcessIdentityText = (value?: string | number | null) => String(value ?? '').trim()
+
+const isProductInfoProcessGroup = (group: ProcessTaskGroup) =>
+  group.tasks.some(isProductInfoProcessTask)
+
+const isCurrentProcessGroup = (group: ProcessTaskGroup) => {
+  if (isProductInfoProcessGroup(group)) return false
+  const currentRouteProcessId = detail.value?.currentProcessRouteProcessId
+  if (currentRouteProcessId != null && group.routeProcessId === currentRouteProcessId) return true
+  const currentProcessCode = normalizeProcessIdentityText(detail.value?.currentProcessCode)
+  if (currentProcessCode && currentProcessCode === normalizeProcessIdentityText(group.processCode)) return true
+  const currentProcessName = normalizeProcessIdentityText(detail.value?.currentProcessName)
+  if (currentProcessName && currentProcessName === normalizeProcessIdentityText(group.processName)) return true
+  return false
+}
+
 const resolveProcessGroupStateClass = (group: ProcessTaskGroup) => {
   const requiredTasks = group.tasks.filter((task) => !isOptionalTask(task))
   if (!requiredTasks.length || requiredTasks.every(isCompletedProcessTask)) return 'is-completed'
+  if (isCurrentProcessGroup(group)) return 'is-in-progress'
   const hasStartedTask = requiredTasks.some(
     (task) => task.status != null && task.status !== EDHR_BATCH_TASK_STATUS_WAITING
   )
