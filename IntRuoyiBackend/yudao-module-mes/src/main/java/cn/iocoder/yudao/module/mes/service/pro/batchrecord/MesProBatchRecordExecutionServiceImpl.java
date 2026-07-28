@@ -420,6 +420,7 @@ public class MesProBatchRecordExecutionServiceImpl implements MesProBatchRecordE
                 ? executionMapper.selectActiveByBatchShared(reqVO.getBatchExecutionId(), sharedFormKey, batchCode,
                         ACTIVE_EXECUTION_STATUSES)
                 : executionMapper.selectActiveByContext(
+                        reqVO.getBatchExecutionId(), null,
                         workOrder.getId(), routeProcess.getId(), batchRecordReportId, batchCode,
                         ACTIVE_EXECUTION_STATUSES);
         if (existing != null) {

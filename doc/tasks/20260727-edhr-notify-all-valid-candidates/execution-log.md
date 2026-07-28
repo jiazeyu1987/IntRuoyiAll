@@ -407,3 +407,25 @@ SUREFIRE: `Sheet1RouteExcelParserTest` -> 4 tests、0 failures、0 errors、0 sk
 EXPERIENCE: 已按 `project-experience-consolidation` 合并长期经验到 `docs/backend-development.md#批记录/路线导入真实-fixture-覆盖范围变更边界`，并在 `docs/experience-index.md` 增加 Sheet1 Excel/真实 fixture 范围变更关键词。没有新建长期经验文档。
 
 STATUS: 实现和 required verification 已完成，`task-closeout-cleanup` preview/apply 均通过且无删除项；`task.md` 已更新为 `completed`。最终提交和推送完成后，`HEAD` 与 `origin/int_main` 对齐，工作区 clean。
+
+## 2026-07-28：并发回归复验与修复
+
+BDD: 传统批记录打开不得污染排产任务上下文 -> Given eDHR 批次任务打开正式批记录，When 构造 `MesProBatchRecordExecutionOpenOrCreateByContextReqVO` 并创建/复用单 execution，Then `taskId` 和 `workstationId` 均不得写入单 execution，批次任务与 execution 的关系由 `mes_pro_edhr_batch_execution_task.execution_id` 维护。
+
+BDD: 既有 active execution 必须按传统上下文复用 -> Given 已存在 work order、route process、report、batch code 均一致且 `task_id` 为空的 active execution，When 后续打开请求携带非空批次任务上下文，Then 服务仍复用既有 execution，不重新物化运行态快照，也不因 Jimu 快照来源缺失失败。
+
+RED: `mvn -pl yudao-module-mes test` -> FAIL，2026-07-28 12:19:18 +08:00 完成；2537 tests、4 failures、2 errors、18 skipped。失败集中在 `MesProBatchRecordExecutionServiceImplTest` 与 `MesProEdhrBatchExecutionServiceTest`：传统打开链路把批次任务 ID 误写入 `MesProBatchRecordExecutionOpenOrCreateByContextReqVO.taskId` / `mes_pro_batch_record_execution.task_id`，导致 3 个 eDHR openTask 请求断言失败、1 个新建 execution 断言失败，并让 2 个复用 active execution 场景未命中既有记录后继续构建运行态快照，最终触发 `默认批记录报表缺少可用的运行态快照来源`。
+
+ROOT-CAUSE: `MesProBatchRecordExecutionOpenOrCreateByContextReqVO.taskId` 和 `mes_pro_batch_record_execution.task_id` 是排产/生产任务上下文字段；eDHR 批次任务 ID 必须保留在批次任务表和打开页 query 的 `batchTaskId` 中，不能复用该字段作为 execution 隔离键。
+
+GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordExecutionServiceImplTest,MesProEdhrBatchExecutionServiceTest" test` -> PASS，2026-07-28 12:36:59 +08:00 完成；246 tests、0 failures、0 errors、0 skipped。
+
+REGRESSION: `mvn -pl yudao-module-mes "-Dtest=MesProEdhrWorkTaskServiceImplTest,Sheet1RouteExcelParserTest,MesProBatchRecordCellLinkControllerTest,MesProBatchRecordCellLinkServiceImplTest" test` -> PASS，2026-07-28 12:37:35 +08:00 完成；81 tests、0 failures、0 errors、0 skipped。通知全部有效候选人、Sheet1 合成 fail-fast/契约和批记录单元格链接相邻链路均无回归。
+
+FULL-REGRESSION: `mvn -pl yudao-module-mes test` -> PASS，2026-07-28 12:41:40 +08:00 完成；2537 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
+
+EVIDENCE: bug regression validator -> PASS；backend API validator -> PASS；`git diff --check`（本次产品代码与任务文档路径）-> PASS，仅有 Git 行尾转换 warning。
+
+EXPERIENCE: 已按 `project-experience-consolidation` 合并本次回归经验到 `docs/backend-development.md#切换填写人快照读取边界`，明确传统批记录打开链路不得把 eDHR 批次任务 ID 写入 `MesProBatchRecordExecutionOpenOrCreateByContextReqVO.taskId` 或 `mes_pro_batch_record_execution.task_id`；同步更新 `docs/experience-index.md` 关键词。没有新建长期经验文档。
+
+CLEANUP: `task-closeout-cleanup` preview/apply 均通过，状态 `applied`，keep 本任务全部证据文档，delete `<none>`，blocked `<none>`，warnings `<none>`。
