@@ -63,3 +63,4 @@
 - 并行基线保存：`E:\IntRuoyi` 主工作区并行脏改动已保存为 `87d3e00b chore: baseline concurrent workspace edits` 并推送到 `origin/int_main`。
 - 最新主线合并：`git merge --no-edit origin/int_main` -> PASS，生成 `9faa18d5`，当前任务分支包含最新 `origin/int_main` 提交 `87d3e00b`。
 - 最新验证：目标 Maven 30 tests PASS；节点串迁移契约 2 tests PASS；前端节点串静态契约 PASS；branch runtime port guard PASS。
+- 当前收尾状态：任务分支已验证并推送，但 `task_closeout.py --mode preview` 仍被主工作区并行脏改动阻止；其中并行 `20260728-user-list-access-role` 任务文档存在 `git diff --check` EOF 空行错误，不能在不修改并行任务文件或提交不通过预检内容的情况下继续 ff-only closeout。

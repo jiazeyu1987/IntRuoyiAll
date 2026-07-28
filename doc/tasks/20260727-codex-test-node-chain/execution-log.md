@@ -132,3 +132,4 @@
 - Latest GREEN: `python -X utf8 -m pytest script\tests\test_codex_test_node_chain_migration.py -q` -> PASS，2 tests passed。
 - Latest GREEN: `node .\tests\e2e\system-codex-test-node-chain-static.spec.js` -> PASS。
 - Latest GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260727-codex-test-node-chain-runtime/int_main` 使用 frontend `8088`、backend `48088`。
+- Closeout preview: `task_closeout.py --task-id 20260727-codex-test-node-chain --mode preview` -> BLOCKED，任务分支清理 keep/delete 规则正常，但主工作区 `E:\IntRuoyi` 再次出现并行 MES/DCC/表单模板/权限任务的源码、SQL、测试和任务文档脏改动；基线提交预检还发现并行 `20260728-user-list-access-role` 任务文档存在 `git diff --check` EOF 空行错误。已取消暂存以免留下半提交状态，未修改、未回滚、未清理这些并行任务文件。
