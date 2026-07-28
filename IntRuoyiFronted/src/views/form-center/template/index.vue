@@ -1493,9 +1493,12 @@ type RuleEditorRow = {
 }
 
 type FormTemplateJimuSchemaPayload = {
+  [key: string]: unknown
   sheetLayoutJson?: string
   cellRules?: BatchRecordReportCellRuleVO[]
   signatureCellMarkers?: BatchRecordReportSignatureCellMarkerVO[]
+  assistRows?: BatchRecordReportAssistRowVO[]
+  fillAssignments?: EdhrProcessFormFillAssignment[]
 }
 
 const fieldValueType = (fieldType?: string): BatchRecordReportCellValueType => {
@@ -1546,13 +1549,22 @@ const parseTemplateJimuSchema = (schema?: string): FormTemplateJimuSchemaPayload
   if (!schema?.trim()) return undefined
   const parsed = JSON.parse(schema) as FormTemplateJimuSchemaPayload
   return {
+    ...parsed,
     sheetLayoutJson: typeof parsed.sheetLayoutJson === 'string' ? parsed.sheetLayoutJson : undefined,
     cellRules: Array.isArray(parsed.cellRules) ? parsed.cellRules : undefined,
     signatureCellMarkers: Array.isArray(parsed.signatureCellMarkers)
       ? parsed.signatureCellMarkers
-      : undefined
+      : undefined,
+    assistRows: Array.isArray(parsed.assistRows) ? parsed.assistRows : undefined,
+    fillAssignments: Array.isArray(parsed.fillAssignments) ? parsed.fillAssignments : undefined
   }
 }
+
+const buildTemplateJimuSchemaPayload = (payload: FormTemplateJimuSchemaPayload) =>
+  JSON.stringify({
+    ...(parsedTemplateJimuSchema.value || {}),
+    ...payload
+  })
 
 const sortCellRules = (rules: BatchRecordReportCellRuleVO[]) =>
   [...rules].sort((left, right) => left.rowIndex - right.rowIndex || left.columnIndex - right.columnIndex)

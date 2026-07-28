@@ -362,22 +362,6 @@
                   class="edhr-fill-workspace__form-error"
                 />
                 <template v-else>
-                  <el-alert
-                    v-if="cellLinkPrefillNotice"
-                    :title="cellLinkPrefillNotice"
-                    type="success"
-                    :closable="false"
-                    show-icon
-                    class="edhr-fill-workspace__prefill-alert"
-                  />
-                  <el-alert
-                    v-if="cellLinkPrefillConflictNotice"
-                    :title="cellLinkPrefillConflictNotice"
-                    type="warning"
-                    :closable="false"
-                    show-icon
-                    class="edhr-fill-workspace__prefill-alert"
-                  />
                   <section v-if="fillViewMode === 'assist'" class="edhr-fill-workspace__assist-panel">
                     <div class="edhr-fill-workspace__assist-topbar">
                       <div class="edhr-fill-workspace__assist-heading">
@@ -813,16 +797,6 @@
                             size="small"
                           >
                             范围外只读
-                          </el-tag>
-                          <el-tag
-                            v-if="resolveCellLinkPrefill(context)"
-                            type="success"
-                            effect="plain"
-                            size="small"
-                            class="edhr-fill-workspace__cell-link-tag"
-                            :title="formatCellLinkPrefillSource(resolveCellLinkPrefill(context))"
-                          >
-                            跨表单带入
                           </el-tag>
                         </div>
 
@@ -1594,10 +1568,6 @@ import type {
   BatchRecordReportSignatureCellMarkerVO
 } from '@/api/mes/pro/batchrecordreport'
 import {
-  BatchRecordCellLinkApi,
-  type BatchRecordCellLinkPrefillItemVO
-} from '@/api/mes/pro/batchrecordcelllink'
-import {
   EDHR_BATCH_NODE_ROUTE_FORM,
   EDHR_BATCH_TASK_STATUS_APPROVED,
   EDHR_BATCH_TASK_STATUS_BLOCKED,
@@ -1872,8 +1842,6 @@ const draftImageAttachmentValues = ref<Record<string, string>>({})
 const attachmentMetadataByUrl = ref<Record<string, EdhrAttachmentPrepareUploadRespVO>>({})
 const baselineFieldValues = ref<Record<string, DraftFieldValue>>({})
 const baselineFieldValueHashes = ref<Record<string, string>>({})
-const cellLinkPrefills = ref<BatchRecordCellLinkPrefillItemVO[]>([])
-const cellLinkConflicts = ref<BatchRecordCellLinkPrefillItemVO[]>([])
 const draftRemark = ref('')
 const submitDialogVisible = ref(false)
 const fillActionResultDialogVisible = ref(false)
@@ -4062,73 +4030,6 @@ const backToBatchLabel = computed(() =>
 
 const buildCellValueKey = (rowIndex: number, columnIndex: number) => `${rowIndex}:${columnIndex}`
 
-const cellLinkPrefillByCell = computed(() => {
-  const map = new Map<string, BatchRecordCellLinkPrefillItemVO>()
-  cellLinkPrefills.value.forEach((item) => {
-    map.set(buildCellValueKey(item.targetRowIndex, item.targetColumnIndex), item)
-  })
-  return map
-})
-
-const cellLinkPrefillNotice = computed(() => {
-  const count = cellLinkPrefills.value.length
-  return count > 0
-    ? `已根据跨表单链接预填 ${count} 个单元格，请填写变更原因并完成字段审计签名保存。`
-    : ''
-})
-
-const cellLinkPrefillConflictNotice = computed(() => {
-  const count = cellLinkConflicts.value.length
-  return count > 0 ? `有 ${count} 条跨表单链接未带入，请检查源值为空或目标已有人工值。` : ''
-})
-
-const resolveCellLinkPrefill = (context: TemplateEditableCellContext) => {
-  const field = resolveTemplateSnapshotField(context)
-  return field ? cellLinkPrefillByCell.value.get(buildCellValueKey(field.rowIndex, field.columnIndex)) : undefined
-}
-
-const formatCellLinkPrefillSource = (item?: BatchRecordCellLinkPrefillItemVO) => {
-  if (!item) {
-    return ''
-  }
-  if (item.sourceType === 'PRODUCTION_WORK_ORDER') {
-    const sourceField = item.sourceFieldName || item.sourceLabel || item.sourceFieldCode || ''
-    return sourceField ? `生产工单字段 / ${sourceField}` : '生产工单字段'
-  }
-  const sourceName = item.sourceReportName || '来源表单'
-  const sourceCell = item.sourceLabel || item.sourceCellKey || ''
-  return sourceCell ? `${sourceName} / ${sourceCell}` : sourceName
-}
-
-const normalizeCellLinkPrefillDraftValue = (
-  item: BatchRecordCellLinkPrefillItemVO,
-  field: NormalizedSnapshotField
-): DraftFieldValue => {
-  if (item.value == null) {
-    return null
-  }
-  if (isSingleChoiceCheckboxField(field)) {
-    return String(item.value)
-  }
-  if (field.componentKind === 'checkbox') {
-    return String(item.value).toLowerCase() === 'true'
-  }
-  if (field.componentKind === 'number') {
-    const numericValue = Number(item.value)
-    if (!Number.isFinite(numericValue)) {
-      throw new Error(
-        `跨表单链接规则 ${item.ruleId || '--'} 带入 ${field.label} 时返回非数字值，不能预填。`
-      )
-    }
-    return numericValue
-  }
-  if (field.valueType === 'DATE' || field.valueType === 'DATETIME') {
-    const text = String(item.value).trim()
-    return text ? text : null
-  }
-  return String(item.value)
-}
-
 const hydrateStoredDraftValue = (
   value: unknown,
   field: NormalizedSnapshotField
@@ -4145,11 +4046,7 @@ const hydrateStoredDraftValue = (
   return value == null ? '' : String(value)
 }
 
-const hydrateDraftState = (
-  detail: ProFeedbackEdhrExecutionVO,
-  prefills: BatchRecordCellLinkPrefillItemVO[] = [],
-  conflicts: BatchRecordCellLinkPrefillItemVO[] = []
-) => {
+const hydrateDraftState = (detail: ProFeedbackEdhrExecutionVO) => {
   const cellValueMap = new Map(
     (detail.cellValues || []).map((cellValue) => [
       buildCellValueKey(cellValue.rowIndex, cellValue.columnIndex),
@@ -4159,12 +4056,6 @@ const hydrateDraftState = (
       }
     ])
   )
-  const prefillMap = new Map(
-    prefills
-      .filter((item) => item.value != null)
-      .map((item) => [buildCellValueKey(item.targetRowIndex, item.targetColumnIndex), item])
-  )
-  const appliedPrefills: BatchRecordCellLinkPrefillItemVO[] = []
   const nextDraftValues: Record<string, DraftFieldValue> = {}
   const nextBaselineValues: Record<string, DraftFieldValue> = {}
   const nextDraftAttachmentValues: Record<string, DraftAttachmentValue> = {}
@@ -4194,12 +4085,6 @@ const hydrateDraftState = (
       continue
     }
     nextBaselineValues[field.fieldIdentity] = field.defaultValue
-    const cellLinkPrefill = prefillMap.get(cellKey)
-    if (cellLinkPrefill && !field.readonly) {
-      nextDraftValues[field.fieldIdentity] = normalizeCellLinkPrefillDraftValue(cellLinkPrefill, field)
-      appliedPrefills.push(cellLinkPrefill)
-      continue
-    }
     nextDraftValues[field.fieldIdentity] = field.defaultValue
   }
   draftFieldValues.value = nextDraftValues
@@ -4208,8 +4093,6 @@ const hydrateDraftState = (
   attachmentMetadataByUrl.value = {}
   baselineFieldValues.value = nextBaselineValues
   baselineFieldValueHashes.value = nextFieldHashes
-  cellLinkPrefills.value = appliedPrefills
-  cellLinkConflicts.value = conflicts
   draftRemark.value = detail.remark || ''
   fieldAuditSaveError.value = ''
   fieldAuditLastResult.value = undefined
@@ -4734,13 +4617,8 @@ const loadExecution = async () => {
     if (typeof detail.executionSnapshotJson !== 'string' || !detail.executionSnapshotJson.trim()) {
       throw new Error('eDHR 执行记录缺少 executionSnapshotJson，无法渲染执行表单。')
     }
-    const shouldLoadCellLinkPrefill =
-      !isTrackingReadonlyMode.value && detail.status === EDHR_EXECUTION_STATUS.DRAFT
-    const prefillResponse = shouldLoadCellLinkPrefill
-      ? await BatchRecordCellLinkApi.getPrefill(currentExecutionId, workTaskId.value)
-      : undefined
     execution.value = detail
-    hydrateDraftState(detail, prefillResponse?.prefills || [], prefillResponse?.conflicts || [])
+    hydrateDraftState(detail)
     await loadLatestArchive()
     await loadTrackingAndSignatures()
     loadedExecutionContextKey.value = currentExecutionContextKey
@@ -4756,8 +4634,6 @@ const loadExecution = async () => {
     attachmentMetadataByUrl.value = {}
     baselineFieldValues.value = {}
     baselineFieldValueHashes.value = {}
-    cellLinkPrefills.value = []
-    cellLinkConflicts.value = []
     draftRemark.value = ''
     loadError.value = resolveErrorMessage(error, 'eDHR 执行页加载失败，请联系管理员。')
   } finally {

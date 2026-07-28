@@ -31,8 +31,16 @@
 ## Verification Path
 
 - `node IntRuoyiFronted/tests/e2e/user-select-standard-list-template-static.spec.js`
+- `node IntRuoyiFronted/tests/e2e/unified-list-template-static.spec.js`
+- `pnpm ts:check`
 
 ## Blockers
 
 - 无。
+
+## Results
+
+- 人员选择弹窗已改为 `UnifiedListTemplate`。
+- 显示字段、列宽拖拽、列配置重置和分页由标准模板承载。
+- 原搜索字段、部门树、单选/多选、预选和确认选择链路保留。
 

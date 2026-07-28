@@ -19,18 +19,30 @@
 
 ## TDD Evidence
 
-- RED: pending
-- GREEN: pending
+- RED: `node IntRuoyiFronted\tests\e2e\user-select-standard-list-template-static.spec.js` -> FAIL, 人员选择弹窗尚未导入 `UnifiedListTemplate`。
+- GREEN: `node IntRuoyiFronted\tests\e2e\user-select-standard-list-template-static.spec.js` -> PASS。
+- GREEN: `node IntRuoyiFronted\tests\e2e\unified-list-template-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` (workdir `IntRuoyiFronted`) -> PASS。
+- GREEN: `git diff --check` -> PASS。
 
 ## Milestone Updates
 
 - 2026-07-28: 创建任务目录，记录任务目标、标准列表样式门禁、静态合同隔离门禁和 BDD 场景。
+- 2026-07-28: 新增人员选择标准列表模板静态合同，先 RED 后改造为 `UnifiedListTemplate`。
+- 2026-07-28: 人员选择弹窗右侧列表已接入标准模板、显示字段配置、列宽拖拽持久化和标准分页。
+- 2026-07-28: 验证完成，任务状态进入 `ready_for_closeout`。
 
 ## Verification Evidence
 
-- pending
+- `node IntRuoyiFronted\tests\e2e\user-select-standard-list-template-static.spec.js` -> PASS。
+- `node IntRuoyiFronted\tests\e2e\unified-list-template-static.spec.js` -> PASS。
+- `pnpm ts:check` -> PASS。
+- `git diff --check` -> PASS。
 
 ## Blockers
 
 - 无。
 
+## Cleanup Evidence
+
+- pending
