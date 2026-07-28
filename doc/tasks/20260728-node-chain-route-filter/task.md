@@ -11,6 +11,7 @@
 - [x] 先补 RED 静态契约覆盖串行路线下拉。
 - [x] 实现下拉展示、筛选参数和重置行为。
 - [x] 运行聚焦验证并记录证据。
+- [x] 按“先融合再测试”融合最新 `origin/int_main` 后复测。
 
 ## Expected Verification
 
@@ -43,6 +44,7 @@ ready_for_closeout
 - Verification: 提交和推送只包含本任务源码、测试和任务记录。
 - Forbidden action: 禁止回滚、清理或暂存主工作区并行改动。
 - Evidence: `docs/worktree-memory.md#并行主工作区远端快进融合门禁`。
+- Current evidence: 已在任务 worktree 将 `origin/int_main` `1cab989a` 融合为 `17853328`，并重跑节点串静态合同、测试管理静态回归、`pnpm ts:check` 与端口守卫。
 
 ## 设计约束检查
 

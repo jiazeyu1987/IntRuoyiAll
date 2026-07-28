@@ -17,3 +17,9 @@
 - BLOCKER CLEARED: `pnpm ts:check` 首次失败于当前 worktree 缺少 `node_modules`，`cross-env` 不存在；按 `docs/worktree-memory.md#worktree-前端依赖启动门禁` 在当前 worktree 执行 `pnpm install --frozen-lockfile`。
 - GREEN: `pnpm install --frozen-lockfile` -> PASS，`node_modules\.bin\vue-tsc.cmd` 和 `node_modules\.bin\vite.cmd` 均存在，`package.json` 与 `pnpm-lock.yaml` 无变更。
 - GREEN: `pnpm ts:check` -> PASS。
+- Integration: 按用户确认的“先融合再测试”流程，在任务 worktree 执行 `git fetch origin int_main` 后将 `origin/int_main` `1cab989a` 融合到任务分支，生成融合 HEAD `17853328`；未触碰 `E:\IntRuoyi` 并行改动。
+- EXPERIENCE: project-experience-consolidation -> PASS，复用并更新 `docs/worktree-memory.md#并行主工作区远端快进融合门禁`，未新建长期经验文档。
+- GREEN(after merge): `node .\tests\e2e\system-codex-test-node-chain-static.spec.js` -> PASS。
+- REGRESSION(after merge): `node .\tests\e2e\system-codex-test-management-static.spec.js` -> PASS。
+- GREEN(after merge): `pnpm ts:check` -> PASS。
+- GREEN(after merge): `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260728-node-chain-route-filter/int_main` 使用 frontend `8088`、backend `48088`。
