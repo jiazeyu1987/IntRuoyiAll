@@ -21,3 +21,10 @@ PASS。
 ## Result
 
 测试管理仍通过后端受控 Runner 创建执行批次、注册、领取、心跳和结构化回写；本次去掉的是本机 Runner token 必填前置。`CODEX_TEST_RUNNER_TOKEN` 未配置时，启动脚本和 Runner HTTP client 不再失败；后端未配置 runner token 时允许 tokenless 本地 Runner 协议，配置 token 时仍严格校验。
+
+## Git And Closeout
+
+- Implementation commit: `30e2dd6d`。
+- Merge commit after integrating remote `origin/int_main`: `bd2c90dd`。
+- Push: `git push origin int_main` -> PASS，local HEAD and `origin/int_main` both at `bd2c90dd`。
+- Cleanup preview/apply: PASS，no delete/blocked/warnings and no deleted paths。

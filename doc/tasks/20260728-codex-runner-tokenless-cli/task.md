@@ -20,7 +20,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Applicable Gates
 
@@ -34,3 +34,7 @@ ready_for_closeout
 - 是否引入 fallback/降级/吞异常：否。token 未配置时进入显式 tokenless 本地执行链路；Codex CLI、Node 和后端失败仍真实暴露。
 - 是否从根因和长期维护角度解决：是。根因是 Runner token 被当成必填运行前置，与用户要求的裸调模式冲突。
 - 是否存在临时补丁或绕过：否。
+
+## Cleanup Keep
+
+- doc/tasks/20260728-codex-runner-tokenless-cli/bug-regression-evidence.md

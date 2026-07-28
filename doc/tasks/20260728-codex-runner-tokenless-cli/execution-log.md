@@ -17,3 +17,9 @@
 - REGRESSION: `mvn.cmd -pl yudao-module-system -am "-Dtest=CodexTestRunnerServiceImplTest,CodexTestRunnerBootstrapServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，15 tests。
 - Boundary note: 当前不是绕过测试管理后端执行批次、Runner 会话、heartbeat 或结构化回写；“裸调”收敛为本机受控 Runner 内部直接执行 `codex exec`，不再把 Runner token 作为本地前置条件。
 - Experience: 更新 `docs/e2e-rules.md#codex-runner-自动测试门禁` 和 `docs/experience-index.md`，将 `tokenless Runner` 归入现有 Runner 门禁；明确 tokenless 不是绕过后端 Runner 协议直接裸跑 `codex`。
+- Git: implementation commit `30e2dd6d` -> `fix: allow tokenless codex runner startup`。
+- Git: push attempt initially rejected because local `int_main` was behind `origin/int_main` by 6 commits；normal merge `bd2c90dd` integrated `origin/int_main` without conflicts。
+- Push: `git push origin int_main` -> PASS，`origin/int_main` advanced to `bd2c90dd`。
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-codex-runner-tokenless-cli --mode preview` -> READY；keep includes task records and `bug-regression-evidence.md`，delete/blocked/warnings all `<none>`。
+- Cleanup apply: same command with `--mode apply` -> APPLIED；deleted paths `<none>`。
+- Final status: completed。
