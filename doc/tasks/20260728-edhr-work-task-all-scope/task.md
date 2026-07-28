@@ -19,7 +19,7 @@
 
 ## Current Status
 
-ready_for_closeout
+in_progress_runtime_reload
 
 ## 设计约束检查
 
@@ -32,6 +32,10 @@ ready_for_closeout
 - PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest#createInitialFillTask_buildsAllScopeSnapshotFromReportMembersWhenRuleScopeIsBlank" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - Closeout pending: 当前分支存在非本任务本地提交领先 `origin/int_main`，最终 push/完成状态需在不混入无关任务风险后处理。
+
+## Runtime Reload
+
+- in_progress: 用户要求重新打包并重启本机 `int_main` 后端 `48081`，加载已验证的 `scopeKey=ALL` 修复。
 
 ## 经验门禁
 

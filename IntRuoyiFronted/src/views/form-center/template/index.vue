@@ -1061,6 +1061,11 @@ const openSelectedTemplateFill = async () => {
   })
 }
 
+const openSelectedTemplateFillConfig = () => {
+  if (!selectedTemplate.value) return
+  fillConfigDialogVisible.value = true
+}
+
 type FormTemplateAction = 'signature'
 type FormTemplateObsoleteOperationState = 'normal' | 'pending-withdrawable' | 'pending-readonly' | 'voided'
 
@@ -1258,10 +1263,12 @@ const saveEditableTemplateRules = async () => {
     message.error('当前模板缺少可保存的规则布局。')
     return
   }
-  const payload = JSON.stringify({
+  const payload = buildTemplateJimuSchemaPayload({
     sheetLayoutJson: formViewModel.sheetLayoutJson,
     cellRules: rules,
-    signatureCellMarkers: markers
+    signatureCellMarkers: markers,
+    assistRows: parsedTemplateJimuSchema.value?.assistRows,
+    fillAssignments: parsedTemplateJimuSchema.value?.fillAssignments
   })
   rulesSaving.value = true
   try {

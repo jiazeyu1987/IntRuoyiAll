@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -70,7 +71,7 @@ class DccFileCategoryControllerConfigPackageContractTest extends BaseMockitoUnit
     void getCategoryList_projectsCurrentUserUploadPermission() {
         LoginUser loginUser = new LoginUser();
         loginUser.setId(99L);
-        SecurityFrameworkUtils.setLoginUser(loginUser, null);
+        SecurityFrameworkUtils.setLoginUser(loginUser, new MockHttpServletRequest());
         when(categoryAdminService.getCategoryDirectoryBindingMap()).thenReturn(Map.of(10L, 100L, 11L, 101L));
         when(categoryAdminService.getCategoryList()).thenReturn(List.of(
                 DccFileCategoryDO.builder().id(10L).code("SOP").name("SOP").active(Boolean.TRUE).sort(1).build(),

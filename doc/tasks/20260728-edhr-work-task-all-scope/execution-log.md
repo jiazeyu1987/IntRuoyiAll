@@ -24,3 +24,7 @@
 - REGRESSION: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrWorkTaskServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 71 tests, 0 failures, 0 errors.
 - Note: 未带 `-Dsurefire.failIfNoSpecifiedTests=false` 的首次 RED 命令被上游 reactor 模块 `yudao-common` 拦截，未进入目标测试；按 `docs/backend-development.md` 的指定测试类规则补充 Surefire 参数后复验。
 - Closeout blocker: 当前 `int_main` 存在非本任务本地提交领先 `origin/int_main`，不能在不混入无关任务风险的前提下声明最终 push 完成。
+
+## Runtime Reload
+
+- in_progress: 用户要求重新打包并重启本机 `48081`；已读取 `docs/local-runtime.md`、`docs/worktree-restrictions.md`、`docs/task-closeout-rules.md`、`docs/backend-development.md`。
