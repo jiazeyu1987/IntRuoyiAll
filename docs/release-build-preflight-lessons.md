@@ -769,6 +769,7 @@
 
 - Trigger: `publish-test` / `promote-prod` / `promote-backup` 执行菜单或角色权限类 required SQL，SQL 同时校验 `system_menu.id` 与 `system_menu.permission`，尤其包含临时权限表、`tmp_*_expected_permission`、`tmp_*_expected_menu`、审计/全量管理员权限集合。
 - Preflight check: 发布前静态测试必须覆盖两类兼容性：临时权限表字符串列与 `system_menu.permission` 比较时显式使用目标列 collation，例如 `CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`；权限菜单存在旧 ID 但同一 `permission`、`status=0`、`deleted=0` 时，不得再要求偏好 ID 必须存在，主校验应以稳定业务键 `permission` 为准。
+- Preflight check: 对新增 required SQL 做专项 `run-release-migration-policy-gate.py --sql-file ...` 时，必须同时传入该 SQL 的 `dependsOn` 文件；单独传目标 SQL 会因为 manifest 子集缺少依赖而误报 `dependsOn missing migration`，不能把该误报当成真实迁移依赖缺失。
 - Blocker: 远端 MySQL 报 `ERROR 1267 Illegal mix of collations`，或 required SQL 报 `Missing enabled full-scope admin menu` 且只读核对显示缺失的是偏好菜单 ID、目标权限已由旧 ID 正常存在。
 - Verification: 先冻结失败 releaseTag、operation/migration 状态、远端 `system_menu.permission` collation、缺失 ID 与同权限菜单快照；补 RED 测试后修复 SQL，运行目标 pytest、migration policy gate，重新构建新的 releaseTag，并通过测试服真实页面/API 验收。
 - Forbidden action: 不得手工改测试库 collation、手工插入偏好 ID 菜单、删除旧权限菜单、手工更新发布锁/迁移状态，或复用失败 releaseTag 继续发布。
