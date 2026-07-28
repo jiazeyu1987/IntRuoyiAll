@@ -28,7 +28,7 @@ assert.match(
 
 assert.match(
   stateClass,
-  /if \(isCurrentProcessGroup\(group\)\) return 'is-in-progress'/,
+  /if \(isCurrentExecutableProcessGroup\(group\) \|\| isCurrentProcessGroup\(group\)\) return 'is-in-progress'/,
   '当前工序组即使所有任务仍为 WAITING/待打开，也必须显示黄色运行态。'
 )
 

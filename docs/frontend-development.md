@@ -86,6 +86,15 @@
 - Forbidden action: 禁止把 UI/交互相似解释为共享 `reportId`；禁止用三个弹窗冒充批记录式页面流转；禁止伪造绑定、名称匹配、条件 fallback、跨域路由或只隐藏错误提示而保留错误数据契约。
 - Evidence: 任务 `doc/tasks/20260727-form-template-button-alignment-design/`、`doc/tasks/20260727-form-template-button-interaction-parity/`；用户在 2026-07-27 明确澄清实际表单与批记录表单没有直接关系，并继续确认三个按钮的页面行为必须与批记录管理对齐。
 
+## FormCenter 动态表单字段码渲染门禁
+
+- Trigger: eDHR 批次详情、动态表单抽屉、损耗单、过程检验记录、`ActionFormPanel`、`EdhrExecutionTemplateEditableForm`、`FORM_TEMPLATE_VERSION` 单元格链接、`fieldCode`、`fieldIdentityMap`、实例 `form_data_json` 已有值但页面输入框为空。
+- Preflight check: 先区分 FormCenter 正式数据键和电子表格坐标；FormCenter 实例草稿必须按模板识别字段 `fieldCode` 保存，例如 `field6`，前端渲染表格时才可用显式 `fieldIdentityMap` 把坐标 `5:3` 映射到 `field6`。打开动态表单时必须同时加载精确模板版本、实例最新 DRAFT 快照和模板规则；模板既缺布局又缺识别字段/规则时必须暴露配置缺失，不得画空壳。
+- Blocker: 后端 `form_data_json` 已有 `fieldCode` 值但页面只显示快照 JSON、输入控件按坐标 key 读取导致为空、保存/提交仍使用父级批次元数据覆盖实例草稿、动态表单被误导到传统批记录 `batchRecordReportId` 链路、或静态合同不能证明 `5:3 -> field6` 映射时必须停止。
+- Verification: 运行 `node tests/e2e/edhr-dynamic-form-action-panel-prefill-static.spec.js`、`node tests/e2e/form-center-static.spec.js`、`pnpm ts:check`；真实 E2E 必须通过批次详情页面打开动态表单，断言 `task/open` 返回 FormCenter 实例、DB `bpm_form_action_instance.form_data_json[fieldCode]` 和页面输入控件显示同一生产批号，并记录临时规则/待办/实例数据恢复。
+- Forbidden action: 禁止把快照 JSON 文本当作表单控件展示通过；禁止同时保存 `fieldCode` 和坐标 key 冒充兼容；禁止用 API-only、直连实例、mock、默认空布局或传统批记录 PASS 替代损耗单/过程检验记录验证。
+- Evidence: 任务 `doc/tasks/20260728-edhr-cell-link-main-e2e-repair/verification-report.md`，动态表单实例已落库 `field6`，旧页面因未渲染模板控件和缺少 `fieldIdentityMap` 导致页面为空。
+
 ## 前端静态合同仓库路径门禁
 
 - Trigger: 前端静态合同读取后端 SQL、发布迁移、任务文档或跨端源码路径，尤其出现 `../ruoyi-vue-pro/sql/mysql`、`ENOENT`、`form-center-static.spec.js` 或旧双仓路径。
@@ -142,10 +151,10 @@
 
 ## eDHR 当前工序运行态展示门禁
 
-- Trigger: 批次执行详情、`BatchExecutionDetailPage.vue`、左侧工序列表、批记录管理员、当前工序黄色背景、`WAITING`/待打开、`currentProcessRouteProcessId/currentProcessCode/currentProcessName`、`OPEN_FORM`、`canOpenTask`、`is-in-progress`。
-- Preflight check: 先区分“运行态展示”和“填写操作权限”：当前工序高亮必须优先使用详情接口的 `currentProcessRouteProcessId/currentProcessCode/currentProcessName` 与工序组的正式工序身份匹配；`WAITING` 当前工序也可显示黄色运行态，但打开填写仍只能由任务自身 `allowedActions` 是否包含 `OPEN_FORM` 决定。产品信息虚拟 `80` 工序必须先排除，避免复用来源正式工序身份造成误高亮。
-- Blocker: 批记录管理员只读详情页看不到当前 `WAITING` 工序黄色运行态、状态展示依赖 `activeWorkTaskId`/`OPEN_FORM`/当前登录人是否为填写人、通过角色 ID 或填写人列表推断当前工序、或缺少静态合同证明展示权限未提升填写权限时必须停止。
-- Verification: 运行 `node tests/e2e/edhr-batch-admin-current-process-highlight-static.spec.js`、`node tests/e2e/edhr-batch-process-state-background-static.spec.js` 和 `node tests/e2e/edhr-batch-admin-filler-visibility-static.spec.js`；真实 E2E 需用批记录管理员账号从批次执行列表进入详情，断言当前工序黄色运行态、表单只读可见且无 MES 写请求。
+- Trigger: 批次执行详情、`BatchExecutionDetailPage.vue`、左侧工序列表、批记录管理员、当前工序黄色背景、开始节点并行第一组、`WAITING`/待打开、`available`、`currentProcessRouteProcessId/currentProcessCode/currentProcessName`、`OPEN_FORM`、`canOpenTask`、`is-in-progress`。
+- Preflight check: 先区分“运行态展示”和“填写操作权限”：当前工序高亮必须优先使用详情接口任务级 `available === true` 展示所有当前可执行工序组；开始节点直接后继存在并行第一组时，这一组只要后端任务门禁为可执行就都应显示黄色运行态。单值 `currentProcessRouteProcessId/currentProcessCode/currentProcessName` 只能作为兼容性补充，不得作为唯一展示来源；`WAITING` 当前工序也可显示黄色运行态，但打开填写仍只能由任务自身 `allowedActions` 是否包含 `OPEN_FORM` 决定。产品信息虚拟 `80` 工序必须先排除，避免复用来源正式工序身份造成误高亮。
+- Blocker: 批记录管理员只读详情页看不到当前 `WAITING` 工序黄色运行态、开始节点并行第一组只标黄排序第一工序、状态展示依赖 `activeWorkTaskId`/`OPEN_FORM`/当前登录人是否为填写人、通过角色 ID 或填写人列表推断当前工序、或缺少静态合同证明展示权限未提升填写权限时必须停止。
+- Verification: 运行 `node tests/e2e/edhr-batch-parallel-current-process-highlight-static.spec.js`、`node tests/e2e/edhr-batch-admin-current-process-highlight-static.spec.js`、`node tests/e2e/edhr-batch-process-state-background-static.spec.js` 和 `node tests/e2e/edhr-batch-admin-filler-visibility-static.spec.js`；真实 E2E 需用批记录管理员账号从批次执行列表进入详情，断言开始节点并行第一组当前可执行工序均显示黄色运行态、表单只读可见且无 MES 写请求。
 - Forbidden action: 禁止为了解决高亮而放宽 `OPEN_FORM`、接管、跳过或提交权限；禁止用当前登录人、角色名、表单槽位、默认首个 `WAITING` 节点或前端文案推断当前工序；禁止把全部待打开工序统一标黄。
 - Evidence: `doc/tasks/20260728-edhr-admin-current-process-highlight/verification-report.md`，批记录管理员只读当前工序通过详情接口 `currentProcess*` 投影为黄色运行态，填写动作仍受 `OPEN_FORM` 控制。
 
