@@ -118,6 +118,18 @@ Latest complete MES regression:
 
 Result at 2026-07-28 12:41:40 +08:00: PASS. 2537 tests run, 0 failures, 0 errors, 18 skipped, `BUILD SUCCESS`.
 
+Current-worktree complete MES regression:
+
+`mvn -pl yudao-module-mes test`
+
+Result at 2026-07-28 13:29:43 +08:00: PASS. 2540 tests run, 0 failures, 0 errors, 18 skipped, `BUILD SUCCESS`.
+
+Current-worktree targeted checks:
+
+- `mvn -pl yudao-module-mes clean test "-Dtest=MesProBatchRecordExecutionServiceImplTest#entryContextAndOpenOrCreateByContext_ignoreScheduleTaskFieldsForFutureExecutionContext+openOrCreateByContext_doesNotPersistScheduleTaskFieldsForNewExecution+openOrCreateByContext_reusesSubmittedExecutionForActiveStatus"` -> PASS at 2026-07-28 13:17:57 +08:00; 3 tests, 0 failures, 0 errors.
+- `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordExecutionServiceImplTest,MesProEdhrBatchExecutionServiceTest" test` -> PASS at 2026-07-28 13:18:53 +08:00; 247 tests, 0 failures, 0 errors.
+- `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordCellLinkServiceImplTest" test` -> PASS at 2026-07-28 13:25:22 +08:00; 5 tests, 0 failures, 0 errors.
+
 ## Completion Gate
 
 Implementation, required verification, cleanup preview/apply, final commit, and push are complete.

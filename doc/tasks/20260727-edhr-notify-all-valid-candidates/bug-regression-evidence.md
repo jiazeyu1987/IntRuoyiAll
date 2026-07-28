@@ -61,4 +61,6 @@ GREEN: mvn -pl yudao-module-mes org.apache.maven.plugins:maven-surefire-plugin:3
 
 并发回归复验：2026-07-28 12:19:18 +08:00 的完整回归曾因传统批记录打开链路误把 eDHR 批次任务 ID 写入 `mes_pro_batch_record_execution.task_id` 而失败，结果为 2537 tests、4 failures、2 errors、18 skipped。根因修复后，`MesProBatchRecordExecutionServiceImplTest,MesProEdhrBatchExecutionServiceTest` 于 12:36:59 通过 246 tests、0 failures、0 errors；通知与相邻契约组合于 12:37:35 通过 81 tests、0 failures、0 errors；最新完整回归 `mvn -pl yudao-module-mes test` 于 12:41:40 通过 2537 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
 
+当前工作区复验：2026-07-28 13:13:48 +08:00 完整回归曾再次暴露传统 execution 上下文字段风险，结果为 2539 tests、1 failure、2 errors、18 skipped。清理 stale target class 并确认源码正式口径后，3 个上下文回归用例于 13:17:57 通过，execution/eDHR 相邻组合于 13:18:53 通过 247 tests、0 failures、0 errors，单元格链接 recognized schema 用例所在类于 13:25:22 通过 5 tests、0 failures、0 errors；最终完整回归 `mvn -pl yudao-module-mes test` 于 13:29:43 通过 2540 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
+
 收尾清理、最终提交和推送已完成；`HEAD` 与 `origin/int_main` 已对齐。
