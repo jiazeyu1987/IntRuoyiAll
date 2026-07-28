@@ -17,3 +17,13 @@ BDD: 表单模板与批记录填写配置保持交互一致 -> Given 批记录�
 - Gate: 已读取 `docs/experience-index.md` 并命中 `docs/frontend-development.md#前端静态契约隔离门禁`、`docs/frontend-development.md#表单模板三按钮领域边界门禁`。
 - RED: `node tests\e2e\form-template-fill-config-assist-mode-static.spec.js` -> FAIL, expected reason: `FormTemplateFillConfigDialog.vue` 缺少 `activeConfigMode` 和辅助表单映射模式入口。
 - GREEN: `node tests\e2e\form-template-fill-config-assist-mode-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\form-template-fill-config-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\assist-grid-per-user-mapping-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\form-template-button-interaction-parity-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\form-template-independent-button-actions-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\form-center-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260728-form-template-fill-config-assist-mode\frontend-feature-evidence.md` -> PASS。
+- Experience consolidation: 已按 `project-experience-consolidation` 检查；本次经验已被既有“表单模板三按钮领域边界门禁”和“前端静态契约隔离门禁”覆盖，无需新增长期经验文档。
+- Closeout preview: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-form-template-fill-config-assist-mode --mode preview` -> PASS, delete none.
+- Closeout apply: `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-form-template-fill-config-assist-mode --mode apply` -> PASS, delete none.

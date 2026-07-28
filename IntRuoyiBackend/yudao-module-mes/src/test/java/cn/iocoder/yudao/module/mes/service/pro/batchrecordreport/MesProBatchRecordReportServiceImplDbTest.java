@@ -4040,6 +4040,127 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     }
 
     @Test
+    void getProductNameOptions_returnsVisibleDistinctSortedProductsFromListScope() {
+        Long alphaItemId = seedProductItem("Alpha Product", "PRD-OPT-A");
+        Long gammaItemId = seedProductItem("Gamma Product", "PRD-OPT-G");
+        Long routeId = 940001L;
+        jdbcTemplate().update("""
+                INSERT INTO mes_pro_route
+                (id, code, name, status, remark, creator, updater, deleted, tenant_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                routeId, "ROUTE-PRODUCT-OPTIONS", "候选产品路线", CommonStatusEnum.ENABLE.getStatus(),
+                "批记录表单产品候选测试", "tester", "tester", false, 1L);
+        jdbcTemplate().update("""
+                INSERT INTO mes_pro_route_product
+                (id, route_id, item_id, quantity, production_time, time_unit_type, remark, creator, updater, deleted, tenant_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                940101L, routeId, alphaItemId, 1, BigDecimal.ONE, "MINUTE", "Alpha Product", "tester", "tester", false, 1L);
+        jdbcTemplate().update("""
+                INSERT INTO mes_pro_route_product
+                (id, route_id, item_id, quantity, production_time, time_unit_type, remark, creator, updater, deleted, tenant_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                940102L, routeId, gammaItemId, 1, BigDecimal.ONE, "MINUTE", "Gamma Product", "tester", "tester", false, 1L);
+        MesProBatchRecordDefinitionDO definition = insertVersionedDefinition("候选产品批记录");
+        MesProBatchRecordVersionDO version = insertVersion(definition.getId(), "V1.0", "APPROVED",
+                null, PILOT_FILE_NAME, "hash-product-options-v1", routeId, null);
+        MesProBatchRecordReportDO routeProductReport = TestBatchRecordFixtures.metadataReport(
+                73L, "product-options-route", 1, "product-options-route-report", "EBR_OPT_ROUTE", "路线产品表单",
+                PILOT_FILE_NAME);
+        routeProductReport.setBatchRecordName("候选产品批记录");
+        routeProductReport.setBatchRecordDefinitionId(definition.getId());
+        routeProductReport.setBatchRecordVersionId(version.getId());
+        routeProductReport.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
+        reportMapper.insert(routeProductReport);
+        MesProBatchRecordReportDO directProductReport = TestBatchRecordFixtures.metadataReport(
+                74L, "product-options-direct", 1, "product-options-direct-report", "EBR_OPT_DIRECT", "直接产品表单",
+                PILOT_FILE_NAME);
+        directProductReport.setProductName("Beta Product");
+        reportMapper.insert(directProductReport);
+        MesProBatchRecordReportDO duplicateProductReport = TestBatchRecordFixtures.metadataReport(
+                75L, "product-options-duplicate", 1, "product-options-duplicate-report", "EBR_OPT_DUP", "重复产品表单",
+                PILOT_FILE_NAME);
+        duplicateProductReport.setProductName("Alpha Product");
+        reportMapper.insert(duplicateProductReport);
+        MesProBatchRecordReportDO clearedReport = TestBatchRecordFixtures.metadataReport(
+                76L, "product-options-cleared", 1, "product-options-cleared-report", "EBR_OPT_HIDDEN", "已清理产品表单",
+                PILOT_FILE_NAME);
+        clearedReport.setProductName("Hidden Product");
+        reportMapper.insert(clearedReport);
+        when(jimuReportGateway.getReportInfo("product-options-route-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "product-options-route-report", "EBR_OPT_ROUTE", "路线产品表单", LocalDateTime.now()));
+        when(jimuReportGateway.getReportInfo("product-options-direct-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "product-options-direct-report", "EBR_OPT_DIRECT", "直接产品表单", LocalDateTime.now()));
+        when(jimuReportGateway.getReportInfo("product-options-duplicate-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "product-options-duplicate-report", "EBR_OPT_DUP", "重复产品表单", LocalDateTime.now()));
+        when(jimuReportGateway.getReportInfo("product-options-cleared-report")).thenReturn(null);
+
+        assertEquals(List.of("Alpha Product", "Beta Product", "Gamma Product"),
+                reportService.getProductNameOptions(null, false));
+        assertEquals(List.of("Alpha Product"), reportService.getProductNameOptions("alp", false));
+    }
+
+    @Test
+    void getProductNameOptions_respectsLatestVersionOnly() {
+        Long oldItemId = seedProductItem("Old Product", "PRD-OPT-OLD");
+        Long latestItemId = seedProductItem("Latest Product", "PRD-OPT-LATEST");
+        Long oldRouteId = 940011L;
+        Long latestRouteId = 940012L;
+        jdbcTemplate().update("""
+                INSERT INTO mes_pro_route
+                (id, code, name, status, remark, creator, updater, deleted, tenant_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                oldRouteId, "ROUTE-PRODUCT-OPTIONS-OLD", "旧候选产品路线", CommonStatusEnum.ENABLE.getStatus(),
+                "批记录表单产品候选旧版本测试", "tester", "tester", false, 1L,
+                latestRouteId, "ROUTE-PRODUCT-OPTIONS-LATEST", "新候选产品路线", CommonStatusEnum.ENABLE.getStatus(),
+                "批记录表单产品候选新版本测试", "tester", "tester", false, 1L);
+        jdbcTemplate().update("""
+                INSERT INTO mes_pro_route_product
+                (id, route_id, item_id, quantity, production_time, time_unit_type, remark, creator, updater, deleted, tenant_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                940111L, oldRouteId, oldItemId, 1, BigDecimal.ONE, "MINUTE", "Old Product", "tester", "tester", false, 1L,
+                940112L, latestRouteId, latestItemId, 1, BigDecimal.ONE, "MINUTE", "Latest Product", "tester", "tester", false, 1L);
+        MesProBatchRecordDefinitionDO definition = insertVersionedDefinition("最新候选产品批记录");
+        MesProBatchRecordVersionDO oldVersion = insertVersion(definition.getId(), "V1.0", "APPROVED",
+                null, PILOT_FILE_NAME, "hash-product-options-old", oldRouteId, null);
+        MesProBatchRecordVersionDO latestVersion = insertVersion(definition.getId(), "V2.0", "APPROVED",
+                oldVersion.getId(), PILOT_FILE_NAME, "hash-product-options-latest", latestRouteId, oldRouteId);
+        MesProBatchRecordReportDO oldReport = TestBatchRecordFixtures.metadataReport(
+                77L, "product-options-old-version", 1, "product-options-old-version-report", "EBR_OPT_OLD", "旧版本候选表单",
+                PILOT_FILE_NAME);
+        oldReport.setBatchRecordName("最新候选产品批记录");
+        oldReport.setBatchRecordDefinitionId(definition.getId());
+        oldReport.setBatchRecordVersionId(oldVersion.getId());
+        oldReport.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
+        reportMapper.insert(oldReport);
+        MesProBatchRecordReportDO latestReport = TestBatchRecordFixtures.metadataReport(
+                78L, "product-options-latest-version", 1, "product-options-latest-version-report", "EBR_OPT_LATEST", "最新版本候选表单",
+                PILOT_FILE_NAME);
+        latestReport.setBatchRecordName("最新候选产品批记录");
+        latestReport.setBatchRecordDefinitionId(definition.getId());
+        latestReport.setBatchRecordVersionId(latestVersion.getId());
+        latestReport.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
+        reportMapper.insert(latestReport);
+        when(jimuReportGateway.getReportInfo("product-options-old-version-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "product-options-old-version-report", "EBR_OPT_OLD", "旧版本候选表单", LocalDateTime.now()));
+        when(jimuReportGateway.getReportInfo("product-options-latest-version-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "product-options-latest-version-report", "EBR_OPT_LATEST", "最新版本候选表单", LocalDateTime.now()));
+
+        assertEquals(List.of("Latest Product", "Old Product"),
+                reportService.getProductNameOptions(null, false));
+        assertEquals(List.of("Latest Product"), reportService.getProductNameOptions(null, true));
+    }
+
+    @Test
     void getGeneratedReportPage_hidesMetadataWhoseJimuReportHasBeenCleared() {
         MesProBatchRecordReportDO report = TestBatchRecordFixtures.metadataReport(
                 31L, "sample-cleared", 13, "cleared-report-13", "EBR_A_T13", "单包装工序生产记录", PILOT_FILE_NAME);

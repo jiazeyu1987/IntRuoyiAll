@@ -3894,7 +3894,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (taskConfigs.isEmpty()) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
         }
-        return taskConfigs;
+        return includeProductInfoMemberTaskConfigs(taskConfigs);
     }
 
     private ResolvedRouteFormBinding resolveRouteFormBinding(
@@ -4068,7 +4068,99 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         if (taskConfigs.isEmpty()) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
         }
-        return taskConfigs;
+        return includeProductInfoMemberTaskConfigs(taskConfigs);
+    }
+
+    private List<BatchTaskConfig> includeProductInfoMemberTaskConfigs(List<BatchTaskConfig> taskConfigs) {
+        if (taskConfigs.isEmpty()) {
+            return taskConfigs;
+        }
+        Set<String> existingReportIds = taskConfigs.stream()
+                .filter(config -> config.batchRecord() != null)
+                .filter(config -> !isDynamicRouteFormBinding(config.batchRecord()))
+                .map(config -> config.report() == null
+                        ? config.batchRecord().getBatchRecordReportId()
+                        : config.report().getReportId())
+                .filter(StrUtil::isNotBlank)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<String> addedProductInfoKeys = new LinkedHashSet<>();
+        List<BatchTaskConfig> result = new ArrayList<>();
+        for (BatchTaskConfig taskConfig : taskConfigs) {
+            BatchTaskConfig productInfoConfig = buildProductInfoMemberTaskConfig(
+                    taskConfig, existingReportIds, addedProductInfoKeys);
+            if (productInfoConfig != null) {
+                result.add(productInfoConfig);
+                existingReportIds.add(productInfoConfig.report().getReportId());
+            }
+            result.add(taskConfig);
+        }
+        return result;
+    }
+
+    private BatchTaskConfig buildProductInfoMemberTaskConfig(
+            BatchTaskConfig sourceConfig,
+            Set<String> existingReportIds,
+            Set<String> addedProductInfoKeys) {
+        if (sourceConfig.specialNodeType() != null
+                || sourceConfig.batchRecord() == null
+                || isDynamicRouteFormBinding(sourceConfig.batchRecord())) {
+            return null;
+        }
+        MesProBatchRecordReportDO sourceReport = sourceConfig.report();
+        Long definitionId = sourceReport == null
+                ? sourceConfig.batchRecord().getBatchRecordDefinitionId()
+                : sourceReport.getBatchRecordDefinitionId();
+        Long versionId = sourceReport == null
+                ? sourceConfig.batchRecord().getBatchRecordVersionId()
+                : sourceReport.getBatchRecordVersionId();
+        if (definitionId == null || versionId == null) {
+            return null;
+        }
+        String productInfoKey = definitionId + ":" + versionId;
+        if (addedProductInfoKeys.contains(productInfoKey)) {
+            return null;
+        }
+        MesProBatchRecordReportDO productInfoReport = resolveProductInfoMemberReport(definitionId, versionId);
+        if (productInfoReport == null || existingReportIds.contains(productInfoReport.getReportId())) {
+            return null;
+        }
+        addedProductInfoKeys.add(productInfoKey);
+        MesProRouteFlowProcessBatchRecordDO productInfoRecord = copyRouteBindingWithResolvedReport(
+                sourceConfig.batchRecord(), productInfoReport, MesProBatchRecordVersionDO.builder()
+                        .id(versionId)
+                        .build());
+        productInfoRecord.setReportSort(1)
+                .setRemark("批记录固定产品信息表单");
+        return new BatchTaskConfig(sourceConfig.routeProcess(), sourceConfig.process(), productInfoRecord,
+                productInfoReport, sourceConfig.executionMode(), sourceConfig.predecessorRouteProcessId(),
+                null, null, null);
+    }
+
+    private MesProBatchRecordReportDO resolveProductInfoMemberReport(Long definitionId, Long versionId) {
+        List<MesProBatchRecordReportDO> matches = reportMapper
+                .selectListByDefinitionIdAndVersionId(definitionId, versionId).stream()
+                .filter(report -> FORM_SLOT_MAIN.equals(normalizeFormSlotType(report.getFormSlotType())))
+                .filter(this::isProductInfoMemberReport)
+                .toList();
+        if (matches.size() > 1) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
+        }
+        return matches.isEmpty() ? null : matches.get(0);
+    }
+
+    private boolean isProductInfoMemberReport(MesProBatchRecordReportDO report) {
+        return containsProductInfoTitle(report.getTableTitle())
+                || containsProductInfoTitle(report.getReportName());
+    }
+
+    private boolean containsProductInfoTitle(String text) {
+        String normalized = StrUtil.trim(text);
+        if (StrUtil.isBlank(normalized)) {
+            return false;
+        }
+        normalized = normalized.replaceAll("\\s+", "");
+        return normalized.contains("产品信息")
+                || normalized.toLowerCase(Locale.ROOT).contains("productinformation");
     }
 
     private JSONObject parseFrozenRouteSnapshot(String routeSnapshotJson) {
