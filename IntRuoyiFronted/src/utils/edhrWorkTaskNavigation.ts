@@ -1,5 +1,6 @@
 import type { Router } from 'vue-router'
 import { openEdhrBatchTask } from '@/api/mes/pro/edhr/batchExecution'
+import type { EdhrBatchExecutionTaskOpenRespVO } from '@/api/mes/pro/edhr/batchExecution'
 
 export const EDHR_BATCH_EXECUTION_DETAIL_PATH = '/mes/pro/feedback/edhr-batch-execution/detail'
 export const EDHR_EXECUTION_DETAIL_PATH = '/mes/pro/feedback/edhr-execution/detail'
@@ -7,6 +8,7 @@ export const EDHR_EXECUTION_FORM_PATH = '/mes/pro/feedback/edhr-execution/form'
 export const EDHR_APPROVAL_DETAIL_PATH = '/mes/pro/feedback/edhr-approval/detail'
 export const EDHR_FILL_CARRIER_FORM = 'FORM'
 export const EDHR_RECORD_CATEGORY_BATCH_RECORD = 'BATCH_RECORD'
+export const EDHR_FORM_SLOT_TYPE_MAIN = 'MAIN'
 
 export const EDHR_WORK_TASK_NOTIFY_PATHS = new Set([
   EDHR_BATCH_EXECUTION_DETAIL_PATH,
@@ -103,6 +105,15 @@ const stringifyQuery = (value?: Record<string, unknown>) => {
   return query
 }
 
+const resolveOpenedFormSlotType = (opened?: EdhrBatchExecutionTaskOpenRespVO) =>
+  String(opened?.executionPageQuery?.formSlotType || '').toUpperCase()
+
+const shouldOpenRouteFormDrawer = (opened?: EdhrBatchExecutionTaskOpenRespVO) => {
+  const formSlotType = resolveOpenedFormSlotType(opened)
+  return Boolean(opened?.formCenterInstanceId && opened?.formTemplateId && formSlotType) &&
+    formSlotType !== EDHR_FORM_SLOT_TYPE_MAIN
+}
+
 export const normalizeEdhrWorkTaskRouteParts = (
   item: EdhrWorkTaskRouteLike,
   origin = window.location.origin
@@ -151,7 +162,7 @@ export const navigateToEdhrWorkTask = async (
       taskId: batchTaskId,
       workTaskId
     })
-    if (opened?.formCenterInstanceId && opened?.formTemplateId) {
+    if (shouldOpenRouteFormDrawer(opened)) {
       const query = stringifyQuery(opened?.executionPageQuery)
       const openedWorkTaskId = opened?.workTaskId || workTaskId
       await router.push({

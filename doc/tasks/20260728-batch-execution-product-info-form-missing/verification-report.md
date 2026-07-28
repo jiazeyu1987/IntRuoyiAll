@@ -51,5 +51,6 @@
 
 ## Remaining
 
-- 等待本轮前端展示修复提交、cleanup apply 和 `git push origin int_main`。
-- 当前工作区有并行任务未提交改动，本任务只暂存 `BatchExecutionDetailPage.vue` 与本任务文档。
+- cleanup preview/apply 已完成，无删除项、无 blocked、无 warnings。
+- 等待本轮前端展示修复提交和 `git push origin int_main`。
+- 当前工作区有并行任务未提交改动，本任务只暂存 `BatchExecutionDetailPage.vue`、本任务文档和长期经验门禁。

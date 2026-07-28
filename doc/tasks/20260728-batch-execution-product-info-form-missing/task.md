@@ -12,7 +12,7 @@
 - [x] 运行定向回归验证并记录 RED/GREEN 证据。
 - [x] 修复详情页左侧工序分组，确保“产品信息”作为独立 80 工序显示。
 - [x] 通过真实 Playwright 页面验证工单 `881MO090889` 下产品信息不再挂在第 1 工序。
-- [ ] 收尾：状态进入 `ready_for_closeout`，生成验证报告并完成 cleanup。
+- [x] 收尾：状态进入 `ready_for_closeout`，生成验证报告并完成 cleanup。
 
 ## Expected Verification
 
@@ -40,7 +40,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Closeout Notes
 

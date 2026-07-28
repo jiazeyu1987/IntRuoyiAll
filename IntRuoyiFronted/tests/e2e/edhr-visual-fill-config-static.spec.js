@@ -219,6 +219,8 @@ includes(realFlowE2E, 'task_owned_batch_route_missing_target_report_binding', '�
 includes(realFlowE2E, 'assertTargetReportBatchTask', '真实 E2E 创建批次后必须确认目标批记录任务真实生成。')
 includes(realFlowE2E, 'task_owned_batch_execution_missing_target_report_task', '批次未生成目标报表任务时必须阻断员工辅助模式验证。')
 includes(realFlowE2E, 'taskOwnedBatchExecution', '真实 E2E 结果必须记录任务自有批次执行证据。')
+includes(realFlowE2E, 'waitForEmployeeExecutionFormPage', '真实 E2E 员工点击处理后必须用 SPA URL 轮询等待执行表单页。')
+includes(realFlowE2E, 'employee_work_task_did_not_open_execution_form', '真实 E2E 员工处理入口未进入执行页时必须记录 URL 和页面可见文本诊断。')
 includes(realFlowE2E, 'use_configured_existing_work_order', '真实 E2E 使用既有工单时必须显式记录该正式夹具策略。')
 includes(realFlowE2E, 'CODX-VFC-BATCH-', '真实 E2E 复用既有工单时仍必须创建任务自有批次编码。')
 notIncludes(realFlowE2E, '/mes/pro/work-order/create', '真实 E2E 不得调用被禁止的 MES 手工工单创建接口。')

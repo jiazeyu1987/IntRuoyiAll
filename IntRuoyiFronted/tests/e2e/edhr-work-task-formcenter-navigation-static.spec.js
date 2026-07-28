@@ -10,8 +10,14 @@ const batchDetailPage = readSource('src/views/mes/pro/edhr-batch/BatchExecutionD
 
 assert.match(
   workTaskNavigation,
-  /opened\?\.formCenterInstanceId[\s\S]*opened\?\.formTemplateId[\s\S]*EDHR_BATCH_EXECUTION_DETAIL_PATH[\s\S]*openRouteForm:\s*'1'/,
-  '个人工作台打开 FormCenter 动态表单时必须回到批次详情并携带 openRouteForm=1，而不是强制要求 executionId。'
+  /shouldOpenRouteFormDrawer[\s\S]*formSlotType[\s\S]*EDHR_FORM_SLOT_TYPE_MAIN/,
+  '统一工作任务导航必须区分 MAIN 正式批记录表单和动态表单槽位，不能只因存在 FormCenter 实例就跳过执行页辅助模式。'
+)
+
+assert.match(
+  workTaskNavigation,
+  /if\s*\(\s*shouldOpenRouteFormDrawer\(opened\)\s*\)[\s\S]*EDHR_BATCH_EXECUTION_DETAIL_PATH[\s\S]*openRouteForm:\s*'1'/,
+  '只有非 MAIN 的 FormCenter 动态表单槽位才回到批次详情并携带 openRouteForm=1。'
 )
 
 assert.match(
