@@ -242,16 +242,16 @@ public class CodexTestExecutionServiceImpl implements CodexTestExecutionService 
                 != nodeChainCases.size()) {
             throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串内存在重复序号");
         }
-        List<CodexTestCaseDO> completeNodeChain = codexTestCaseMapper.selectListByNodeChainName(
-                nodeChainNames.iterator().next());
-        int maxNodeChainSort = completeNodeChain.stream()
+        List<Integer> selectedNodeChainSorts = nodeChainCases.stream()
                 .map(CodexTestCaseDO::getNodeChainSort)
-                .max(Integer::compareTo)
-                .orElse(0);
-        Set<Long> selectedCaseIds = CollectionUtils.convertSet(nodeChainCases, CodexTestCaseDO::getId);
-        Set<Long> completeNodeChainCaseIds = CollectionUtils.convertSet(completeNodeChain, CodexTestCaseDO::getId);
-        if (completeNodeChain.size() != maxNodeChainSort
-                || !selectedCaseIds.equals(completeNodeChainCaseIds)) {
+                .sorted()
+                .toList();
+        for (int index = 0; index < selectedNodeChainSorts.size(); index++) {
+            if (selectedNodeChainSorts.get(index) != index + 1) {
+                throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串必须从第 1 节点开始连续选择");
+            }
+        }
+        if (selectedNodeChainSorts.isEmpty()) {
             throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串必须从第 1 节点开始连续选择");
         }
         return nodeChainNames.iterator().next();

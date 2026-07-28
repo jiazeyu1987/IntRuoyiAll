@@ -34,7 +34,14 @@
 - `GREEN: task-closeout-cleanup preview -> PASS, keep task.md、execution-log.md、verification-report.md、frontend-feature-evidence.md；delete/blocked/warnings 均为 none。`
 - `GREEN: task-closeout-cleanup apply -> PASS, deleted_paths none。`
 - `GREEN: frontend-feature-evidence validation -> PASS, Frontend feature evidence is valid。`
+- `BLOCKED: inline Playwright readonly real E2E probe -> BLOCKED, 本机 http://127.0.0.1:8081 登录 芋道源码/admin 后可进入 /dcc/controlled-file/upload，但当前账号可见的 DHF/DMR 产品必填类别均不可上传：file-categories total=60，productRequiredTotal=59，activeProductRequired=59，uploadableProductRequired=0；页面文件类别下拉仅 1 个非目标可用项。探针未发送 DCC 写请求，浏览器 consoleErrors=[]。`
+- `GREEN: local runtime preflight for real E2E -> PASS, 前端 http://127.0.0.1:8081 返回 HTTP 200，后端 http://127.0.0.1:48081/actuator/health 返回 UP；8081 归属 E:\IntRuoyi\IntRuoyiFronted Vite，48081 归属 E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260728-100956.jar。`
+- `RED: readonly DCC upload role preflight -> FAIL, 芋道源码 tenant_id=1 现有角色可见“文件上传”菜单，但 dcc_file_category_permission_rule 中 DHF/DMR active 类别的 UPLOAD 规则为 0；admin 因此没有类别级上传权限。`
+- `GREEN: local DCC upload role seed -> PASS, 创建 system_role id=910414 name=DCC DHF/DMR上传员 code=dcc_dhf_dmr_uploader category=文控；绑定菜单 6800/6806；分配给 admin；为 tenant=1 的 59 个 active DHF/DMR 类别插入 ROLE/UPLOAD/GLOBAL 规则。`
+- `GREEN: upload permission readback -> PASS, role_count=1、role_menu_count=2、admin_binding_count=1、upload_rule_count=59、已绑定目录且可上传 DHF/DMR 类别数=1。`
+- `BLOCKED: inline Playwright readonly product autofill probe after role seed -> BLOCKED, 重新登录芋道源码/admin 后 /dcc/controlled-file/upload 已可见 uploadableProductRequired=1，命中 DCC_FVM_DHF_001 / 市场调研报告 / directoryId=906469；但前 100 个启用 DCC 项目按项目名称、项目编码、文控号检索产品主数据均没有唯一匹配，无法完成“DCC 产品编号”自动带出页面断言。探针未发送 DCC 写请求，浏览器 consoleErrors=[]。`
 
 ## Blockers
 
-- 暂无。
+- 类别上传权限阻塞已解除：`芋道源码/admin` 当前有 1 个可上传且已绑定目录的 DHF/DMR 类别。
+- 剩余真实 E2E 阻塞：当前芋道源码本机数据没有可用于自动带出的“DCC 项目 -> 唯一正式产品主数据”匹配样本；需要补齐正式产品主数据匹配关系或授权创建任务自有产品样本后复跑。

@@ -2439,9 +2439,10 @@ const normalizeSnapshotField = (
 const executionId = computed(() => parsePositiveRouteQueryId(route.query.id) || undefined)
 const isTrackingReadonlyMode = computed(() => route.query.viewMode === TRACKING_VIEW_MODE)
 const workTaskId = computed(() => parsePositiveRouteQueryId(route.query.workTaskId) || undefined)
+const assistUserId = computed(() => parsePositiveRouteQueryId(route.query.assistUserId) || undefined)
 const hasFillTaskContext = computed(() => workTaskId.value !== undefined)
 const resolveExecutionContextKey = () =>
-  executionId.value ? `${executionId.value}:${workTaskId.value || ''}` : ''
+  executionId.value ? `${executionId.value}:${workTaskId.value || ''}:${assistUserId.value || ''}` : ''
 const hasArchiveQueryPermission = computed(() => hasPermission([ARCHIVE_QUERY_PERMISSION]))
 const hasArchiveCreatePermission = computed(() => hasPermission([ARCHIVE_CREATE_PERMISSION]))
 const hasArchiveDownloadPermission = computed(() => hasPermission([ARCHIVE_DOWNLOAD_PERMISSION]))
@@ -2920,10 +2921,26 @@ const assistProcessSwitchLabel = computed(
   () => execution.value?.processName || execution.value?.processCode || '当前工序'
 )
 
+const resolveAssistSwitchUserDisplayName = (userId?: unknown) => {
+  if (!userId || !Array.isArray(execution.value?.assistSwitchTasks)) return ''
+  for (const task of execution.value.assistSwitchTasks) {
+    const user = (task.fillableUsers || []).find((item) => sameRouteQueryId(item.userId, userId))
+    if (user) {
+      return user.displayName || `用户 ${user.userId}`
+    }
+  }
+  return ''
+}
+
 const assistFillerSwitchLabel = computed(() => {
   const routeFillerName = readRouteQueryString(route.query.fillerName)
   const user = userStore.getUser || userStore.user
-  return routeFillerName || user?.nickname || (user?.id ? `用户 ${user.id}` : '当前填写人')
+  return (
+    routeFillerName ||
+    resolveAssistSwitchUserDisplayName(assistUserId.value) ||
+    user?.nickname ||
+    (user?.id ? `用户 ${user.id}` : '当前填写人')
+  )
 })
 
 const normalizeFillActionResultText = (value: string) => {
@@ -2940,7 +2957,12 @@ const resolveFillActionResultProcessText = () =>
 const resolveFillActionResultFillerText = () => {
   const routeFillerName = readRouteQueryString(route.query.fillerName)
   const user = userStore.getUser || userStore.user
-  return normalizeFillActionResultText(routeFillerName || user?.nickname || (user?.id ? String(user.id) : ''))
+  return normalizeFillActionResultText(
+    routeFillerName ||
+      resolveAssistSwitchUserDisplayName(assistUserId.value) ||
+      user?.nickname ||
+      (user?.id ? String(user.id) : '')
+  )
 }
 
 const submitSignatureUserName = computed(resolveFillActionResultFillerText)
@@ -4785,14 +4807,16 @@ const loadAssistFillerSwitchItems = async () => {
   assistFillerSwitchLoading.value = true
   assistFillerSwitchError.value = ''
   try {
-    const batchExecutionId = requireAssistBatchExecutionId()
-    const batchDetail = await getEdhrBatchExecution(batchExecutionId)
-    const currentTask = resolveCurrentAssistBatchTask(batchDetail.tasks || [])
+    const assistSwitchTasks = execution.value?.assistSwitchTasks
+    if (!Array.isArray(assistSwitchTasks)) {
+      throw new Error('当前执行详情缺少填写人快照，不能切换填写人。')
+    }
+    const currentTask = resolveCurrentAssistBatchTask(assistSwitchTasks)
     const routeProcessId = parsePositiveNumber(currentTask.routeProcessId)
     if (!routeProcessId) {
       throw new Error(`当前批次任务 ${currentTask.id} 缺少 routeProcessId，不能解析填写人。`)
     }
-    const currentProcessTasks = [...(batchDetail.tasks || [])]
+    const currentProcessTasks = [...assistSwitchTasks]
       .filter(
         (task) =>
           !isAssistSpecialBatchTask(task) &&
@@ -4911,11 +4935,13 @@ const currentAssistUserId = () => {
   return parsePositiveNumber(user?.id)
 }
 
+const currentAssistSwitchUserId = () => assistUserId.value || currentAssistUserId()
+
 const isAssistFillerSwitchItemSelectable = (item: AssistFillerSwitchItem) =>
-  currentAssistUserId() === item.userId && isAssistBatchTaskOpenable(item.task)
+  isAssistBatchTaskOpenable(item.task)
 
 const isAssistFillerSwitchItemActive = (item: AssistFillerSwitchItem) =>
-  currentAssistUserId() === item.userId && isAssistBatchTaskActive(item.task)
+  sameRouteQueryId(currentAssistSwitchUserId(), item.userId) && isAssistBatchTaskActive(item.task)
 
 const resolveAssistRecordCategory = (row: EdhrBatchExecutionTaskRespVO) =>
   row.recordCategory === 'INTERNAL_RECORD' ? 'INTERNAL_RECORD' : 'BATCH_RECORD'
@@ -4981,7 +5007,9 @@ const handleSelectAssistTaskSwitchItem = async (row: EdhrWorkTaskRespVO) => {
 const navigateToAssistBatchTask = async (
   row: EdhrBatchExecutionTaskRespVO,
   setError: (message: string) => void,
-  fallbackMessage: string
+  fallbackMessage: string,
+  selectedAssistUserId?: number,
+  selectedAssistDisplayNameInput?: string
 ) => {
   try {
     const batchExecutionId = requireAssistBatchExecutionId()
@@ -4991,14 +5019,22 @@ const navigateToAssistBatchTask = async (
     const opened = await openEdhrBatchTask({
       batchExecutionId,
       taskId: row.id,
-      workTaskId: row.activeWorkTaskId
+      workTaskId: row.activeWorkTaskId,
+      assistUserId: selectedAssistUserId
     })
     if (!opened.executionId) {
       throw new Error('打开工序任务后端未返回 executionId，不能进入 eDHR 填写页。')
     }
     const openedWorkTaskId = opened.workTaskId || opened.executionPageQuery?.workTaskId || row.activeWorkTaskId
+    const openedAssistUserId = parsePositiveNumber(
+      opened.assistUserId || opened.executionPageQuery?.assistUserId || selectedAssistUserId
+    )
+    const selectedAssistDisplayName =
+      readRouteQueryString(selectedAssistDisplayNameInput) ||
+      resolveAssistSwitchUserDisplayName(openedAssistUserId)
     openedExecutionPageAssistRows.value = normalizeExecutionAssistRows((opened.executionPageQuery as any)?.assistRows)
-    openedExecutionPageAssistRowsContextKey.value = `${opened.executionId}:${openedWorkTaskId || ''}`
+    openedExecutionPageAssistRowsContextKey.value =
+      `${opened.executionId}:${openedWorkTaskId || ''}:${openedAssistUserId || ''}`
     const query = {
       ...stringifyAssistRouteQuery(opened.executionPageQuery),
       id: String(opened.executionId),
@@ -5006,6 +5042,8 @@ const navigateToAssistBatchTask = async (
       batchExecutionId: String(batchExecutionId),
       batchTaskId: String(row.id),
       workTaskId: String(openedWorkTaskId),
+      ...(openedAssistUserId ? { assistUserId: String(openedAssistUserId) } : {}),
+      ...(selectedAssistDisplayName ? { fillerName: selectedAssistDisplayName } : {}),
       ...buildAssistFillCarrierExecutionQuery(row)
     }
     fillViewMode.value = 'assist'
@@ -5024,7 +5062,7 @@ const navigateToAssistBatchTask = async (
 
 const handleSelectAssistFillerSwitchItem = async (item: AssistFillerSwitchItem) => {
   if (!isAssistFillerSwitchItemSelectable(item)) {
-    assistFillerSwitchError.value = '该填写人不属于当前账号可处理项，不能代填或切换责任人。'
+    assistFillerSwitchError.value = '该填写人对应表单当前不可打开，不能切换。'
     message.error(assistFillerSwitchError.value)
     return
   }
@@ -5033,7 +5071,9 @@ const handleSelectAssistFillerSwitchItem = async (item: AssistFillerSwitchItem) 
     (errorMessage) => {
       assistFillerSwitchError.value = errorMessage
     },
-    '辅助模式填写人切换失败。'
+    '辅助模式填写人切换失败。',
+    item.userId,
+    item.displayName
   )
 }
 
@@ -5131,7 +5171,7 @@ const toggleFillWorkspaceFullscreen = async () => {
 }
 
 watch(
-  () => [route.name, route.query.id, route.query.workTaskId] as const,
+  () => [route.name, route.query.id, route.query.workTaskId, route.query.assistUserId] as const,
   ([routeName]) => {
     if (routeName !== 'MesProFeedbackEdhrExecutionForm') {
       return

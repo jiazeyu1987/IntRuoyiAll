@@ -20,7 +20,11 @@
 
 ## Current Status
 
-completed
+blocked_real_e2e_product_sample
+
+- 实现、静态合同、类型检查和收尾提交已完成。
+- 用户追加要求的真实页面 E2E 已执行到上传页；DHF/DMR 类别上传权限前置已通过本机权限数据补齐解决。
+- 当前剩余阻塞是产品样本前置：`芋道源码/admin` 可见 1 个已绑定目录且可上传的 DHF/DMR 类别，但当前启用 DCC 项目无法唯一匹配正式产品主数据，因此暂不能完成页面“DCC 产品编号”自动带出断言。
 
 ## 设计约束检查
 
@@ -37,3 +41,4 @@ completed
 ## Cleanup Keep
 
 - doc/tasks/20260728-dcc-product-code-autofill/frontend-feature-evidence.md
+- doc/tasks/20260728-dcc-product-code-autofill/database-schema-evidence.md

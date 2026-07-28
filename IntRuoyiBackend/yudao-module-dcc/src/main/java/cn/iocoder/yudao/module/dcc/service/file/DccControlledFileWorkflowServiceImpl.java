@@ -1143,8 +1143,11 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         DccControlledFileVersion requestedVersion = parseVersion(reqVO.getVersionNo());
         DccFileCategoryDO category = validateCategory(reqVO.getCategoryId());
         validateCategoryUploadPermission(category.getId(), userId);
-        validateProductBindingPolicy(category, reqVO.getProductMasterId());
-        ResolvedDccProduct dccProduct = resolveDccProduct(reqVO.getProductMasterId());
+        boolean projectCodeProductSource = controlledUploadSubmit && isProductBoundCategory(category);
+        validateProductBindingPolicy(category, reqVO.getProductMasterId(), projectCode, projectCodeProductSource);
+        ResolvedDccProduct dccProduct = projectCodeProductSource
+                ? resolveDccProductFromProjectCode(projectCode)
+                : resolveDccProduct(reqVO.getProductMasterId());
         if (requireScreenshotMetadata) {
             validateScreenshotProductCode(dccProduct);
         }
@@ -1179,8 +1182,18 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
         }
     }
 
-    private void validateProductBindingPolicy(DccFileCategoryDO category, Long productMasterId) {
-        if (isProductBoundCategory(category) && productMasterId == null) {
+    private void validateProductBindingPolicy(DccFileCategoryDO category, Long productMasterId,
+                                              DccProjectCodeDO projectCode, boolean projectCodeProductSource) {
+        if (!isProductBoundCategory(category)) {
+            return;
+        }
+        if (projectCodeProductSource) {
+            if (projectCode == null || StrUtil.isBlank(projectCode.getProjectCode())) {
+                throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
+            }
+            return;
+        }
+        if (productMasterId == null) {
             throw exception(CONTROLLED_FILE_PRODUCT_MASTER_INVALID);
         }
     }
@@ -1477,6 +1490,12 @@ public class DccControlledFileWorkflowServiceImpl implements DccControlledFileWo
             throw exception(CONTROLLED_FILE_PRODUCT_MASTER_INVALID);
         }
         return new ResolvedDccProduct(product.getId(), product.getDccProductCode(), product.getNameCn());
+    }
+
+    private ResolvedDccProduct resolveDccProductFromProjectCode(DccProjectCodeDO projectCode) {
+        return new ResolvedDccProduct(null,
+                StrUtil.trimToNull(projectCode.getProjectCode()),
+                StrUtil.trimToNull(projectCode.getProjectName()));
     }
 
     private boolean isValidProductCode(String productCode) {

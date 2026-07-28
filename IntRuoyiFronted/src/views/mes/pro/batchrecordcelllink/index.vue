@@ -399,8 +399,11 @@ async function loadWorkbenchContext() {
     forms.value = data.forms || []
     productionWorkOrderSourceFields.value = data.sourceFields || []
     rules.value = data.rules || []
-    sourceType.value = SOURCE_TYPE_BATCH_RECORD_CELL
-    sourceReportId.value = data.defaultSourceReportId || forms.value[0]?.reportId || ''
+    const defaultSourceReportId = data.defaultSourceReportId || forms.value[0]?.reportId || ''
+    sourceReportId.value = defaultSourceReportId
+    sourceType.value = defaultSourceReportId === PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID
+      ? SOURCE_TYPE_PRODUCTION_WORK_ORDER
+      : SOURCE_TYPE_BATCH_RECORD_CELL
     sourceFieldCode.value = productionWorkOrderSourceFields.value[0]?.fieldCode || ''
     targetReportId.value = data.defaultTargetReportId || targetForms.value[0]?.reportId || ''
     await Promise.all([loadSourceCells(), loadTargetCells()])

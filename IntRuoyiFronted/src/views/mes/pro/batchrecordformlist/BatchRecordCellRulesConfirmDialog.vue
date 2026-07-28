@@ -18,16 +18,27 @@
         <el-tag type="info" effect="plain">
           后端待确认 {{ unreviewedFillableCellCount }}
         </el-tag>
+        <el-radio-group
+          v-model="activeConfigMode"
+          size="small"
+          class="batch-record-cell-rules-editor__mode-switch"
+        >
+          <el-radio-button label="原表单配置" value="source">原表单配置</el-radio-button>
+          <el-radio-button label="辅助表单映射" value="assistMapping">辅助表单映射</el-radio-button>
+        </el-radio-group>
         <span class="batch-record-cell-rules-editor__mode">
-          填写配置：左侧选单元格，右侧维护字段类型和辅助行
+          {{ activeConfigMode === 'assistMapping' ? '辅助表单映射：原表单选格，右侧控制栏配置，中间实时预览' : '原表单配置：左侧选单元格，右侧维护字段类型和辅助行' }}
         </span>
       </section>
 
-      <section class="batch-record-cell-rules-editor__workspace">
-        <div class="batch-record-cell-rules-editor__preview">
+      <section
+        class="batch-record-cell-rules-editor__workspace"
+        :class="{ 'batch-record-cell-rules-editor__workspace--assist-mapping': activeConfigMode === 'assistMapping' }"
+      >
+        <div class="batch-record-cell-rules-editor__preview" data-fill-config-panel="source-form">
           <div class="batch-record-cell-rules-editor__panel-head">
             <div>
-              <strong>只读表单预览</strong>
+              <strong>原表单</strong>
               <p>点击任意单元格只会选中规则目标，不会触发日期框、签名框或复选框。</p>
             </div>
             <el-tag type="info" effect="plain">只读</el-tag>
@@ -88,7 +99,67 @@
           <el-empty v-else description="暂无可展示的表单布局" />
         </div>
 
-        <aside class="batch-record-cell-rules-editor__side-panel">
+        <div
+          v-if="activeConfigMode === 'assistMapping'"
+          class="batch-record-cell-rules-editor__assist-preview-panel"
+          data-fill-config-panel="assist-preview"
+        >
+          <div class="batch-record-cell-rules-editor__panel-head">
+            <div>
+              <strong>辅助表单预览</strong>
+              <p>根据右侧控制栏实时生成员工最终看到的辅助填写表单。</p>
+            </div>
+            <el-tag type="warning" effect="plain">实时</el-tag>
+          </div>
+
+          <div class="batch-record-cell-rules-editor__assist-preview-scroll">
+            <el-empty
+              v-if="assistPreviewRows.length === 0"
+              description="暂无辅助行，请在右侧控制栏新增映射"
+            />
+            <article
+              v-for="previewRow in assistPreviewRows"
+              v-else
+              :key="previewRow.rowKey"
+              class="batch-record-cell-rules-editor__assist-preview-row"
+              :class="{ 'is-selected': previewRow.isSelected }"
+            >
+              <header class="batch-record-cell-rules-editor__assist-preview-row-head">
+                <div>
+                  <strong>{{ previewRow.description }}</strong>
+                  <p>{{ previewRow.assignmentSummary }}</p>
+                </div>
+                <el-tag size="small" effect="plain">{{ previewRow.fields.length }} 个字段</el-tag>
+              </header>
+              <div class="batch-record-cell-rules-editor__assist-preview-fields">
+                <div
+                  v-for="field in previewRow.fields"
+                  :key="field.key"
+                  class="batch-record-cell-rules-editor__assist-preview-field"
+                >
+                  <span>{{ field.label }}</span>
+                  <small>{{ field.sourceCell }}</small>
+                  <el-tag size="small" :type="field.required ? 'warning' : 'info'" effect="plain">
+                    {{ field.valueTypeLabel }}{{ field.required ? ' · 必填' : '' }}
+                  </el-tag>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <aside
+          class="batch-record-cell-rules-editor__side-panel"
+          :class="{ 'is-mapping-control': activeConfigMode === 'assistMapping' }"
+          data-fill-config-panel="mapping-control"
+        >
+          <div
+            v-if="activeConfigMode === 'assistMapping'"
+            class="batch-record-cell-rules-editor__control-head"
+          >
+            <strong>映射控制栏</strong>
+            <p>在这里配置辅助行、字段类型、下拉/签名和填写人；中间预览会实时更新。</p>
+          </div>
           <template v-if="selectedCell">
             <div class="batch-record-cell-rules-editor__fillable-toggle">
               <strong>是否可填写</strong>
@@ -476,6 +547,24 @@ type AssistAssignmentDraft = {
   completionPolicy: EdhrProcessFormCompletionPolicy
 }
 
+type ConfigMode = 'source' | 'assistMapping'
+
+type AssistPreviewField = {
+  key: string
+  label: string
+  sourceCell: string
+  valueTypeLabel: string
+  required: boolean
+}
+
+type AssistPreviewRow = {
+  rowKey: string
+  description: string
+  assignmentSummary: string
+  fields: AssistPreviewField[]
+  isSelected: boolean
+}
+
 const props = defineProps<{
   modelValue: boolean
   report?: ReportLike | null
@@ -491,6 +580,7 @@ const loading = ref(false)
 const saving = ref(false)
 const errorMessage = ref('')
 const sheetLayoutError = ref('')
+const activeConfigMode = ref<ConfigMode>('source')
 const selectedRuleKey = ref('')
 const selectedAssistRowKey = ref('')
 const ruleRows = ref<BatchRecordReportCellRuleVO[]>([])

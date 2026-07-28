@@ -86,9 +86,9 @@
 ## eDHR 批次执行数据库夹具与证据文件门禁
 
 - Trigger: 运行 `edhr-batch-execution-real-flow.e2e.js`、复跑 eDHR 批次执行真实 E2E、或脚本默认写入 `doc/tasks/<task-id>/real-e2e-evidence.md`。
-- Preflight check: 默认从本机 Docker MySQL `int-ruoyi-mysql/ruoyi-vue-pro` 读取授权租户、账号、批次执行、批次任务、工作任务和执行 ID；写型验证若需调整责任人或夹具数据，必须先记录原始值、影响行数和回滚 SQL。`EDHR_BATCH_E2E_TASK_ID`、`EDHR_BATCH_E2E_EVIDENCE_FILE`、浏览器路径等只允许作为可选运行参数，不得作为工单、批次、填写值或签名密码的必需来源。
-- Blocker: 本地数据库不可达、授权租户/账号不存在、无当前账号可打开的待办工作任务、目标租户未获当前任务明确授权、写入影响行数不是预期值、或证据路径会覆盖非当前任务历史 PASS 证据时，必须停止，不得进入浏览器或伪造通过。
-- Verification: 记录 E2E 命令、证据文件路径、入口 URL、租户/账号标签、数据库来源、批次执行 ID、任务 ID、执行 ID、DB 写入行数、回滚方式，以及脚本 PASS/BLOCKED 结果。
+- Preflight check: 默认从本机 Docker MySQL `int-ruoyi-mysql/ruoyi-vue-pro` 读取授权租户、账号、批次执行、批次任务、工作任务和执行 ID；写型验证若需调整责任人或夹具数据，必须先记录原始值、影响行数和回滚 SQL。读取既有批次任务时，还必须核对 `form_slot_type` 与目标报表 `form_slot_type` 一致，且 `slot_config_snapshot_hash` 非空，否则详情页可能返回 blocked 响应或前端禁用“打开填写”。`EDHR_BATCH_E2E_TASK_ID`、`EDHR_BATCH_E2E_EVIDENCE_FILE`、浏览器路径等只允许作为可选运行参数，不得作为工单、批次、填写值或签名密码的必需来源。
+- Blocker: 本地数据库不可达、授权租户/账号不存在、无当前账号可打开的待办工作任务、目标租户未获当前任务明确授权、写入影响行数不是预期值、`form_slot_type`/槽位快照与正式报表不一致、或证据路径会覆盖非当前任务历史 PASS 证据时，必须停止，不得进入浏览器或伪造通过。
+- Verification: 记录 E2E 命令、证据文件路径、入口 URL、租户/账号标签、数据库来源、批次执行 ID、任务 ID、执行 ID、DB 写入行数、回滚方式，以及脚本 PASS/BLOCKED 结果；打开执行页后如默认处于“填写辅助模式”，需要切到“原表模式”再断言批记录单元格输入控件显示已落库值。
 - Forbidden action: 禁止把工单/批次/密码等业务数据重新改成必需环境变量；禁止记录明文密码；禁止用 mock、API-only、默认成功、生产/未授权租户或未记录的数据库直改替代真实前端路径。
 - Evidence: `doc/tasks/fix-batch-record-fill-rule/execution-log.md`，2026-07-25 脚本已改为数据库夹具读取，并在用户授权的 `芋道源码/admin` 下完成真实前端 E2E。
 
@@ -170,11 +170,11 @@
 ## eDHR 路线表单跳过口径门禁
 
 - Trigger: 修改或验证 eDHR 批次详情右侧路线表单卡片、损耗单、过程检验单、参数记录表、`isOptionalTask`、`canSkipOptionalTask`、`requiredPolicy`、`requiredFlag`、`SKIP` 动作、无 `OPEN_FORM` 的只读查看动作，或错误“必填路线表单不允许跳过”。
-- Preflight check: 先核对详情任务的 `requiredPolicy` 和 `allowedActions`；只有 `requiredPolicy === 'OPTIONAL'` 且后端返回 `SKIP` 动作时，前端才允许显示或执行“跳过表单”。若账号无 `OPEN_FORM` 但任务存在 `formCenterInstanceId/formTemplateId` 等查看上下文，必须通过真实卡片点击验证“查看表单”只读抽屉，而不是只用预览接口或直连历史 execution 代替；动态表单选中态也不得调用 legacy `/task/preview` 批记录预览接口。
+- Preflight check: 先核对详情任务的 `requiredPolicy` 和 `allowedActions`；只有 `requiredPolicy === 'OPTIONAL'` 且后端返回 `SKIP` 动作时，前端才允许显示或执行“跳过表单”。若账号无 `OPEN_FORM` 但任务存在 `formCenterInstanceId/formTemplateId` 等查看上下文，必须通过真实卡片点击验证“查看表单”只读抽屉，而不是直连历史 execution 代替。动态表单卡片选中态可以调用统一 `/task/preview`，但后端必须先按完整 `formBindingKey/formTemplateId/formTemplateVersionId/formCenterInstanceId` 分流到 FormCenter 模板预览，已保存布局读取 `jimuSchemaJson.sheetLayoutJson/layout/rows`，未保存布局但有正式识别字段时按 `recognizedSchemaJson` 生成只读布局，禁止误走批记录 `batchRecordReportId` / Jimu 报表来源。
 - Blocker: 若前端用 `requiredFlag=false`、非必填进度口径、表单槽位类型、当前载体选择或本地状态推断可跳过，必须停止并改为后端 `requiredPolicy + allowedActions` 口径。
-- Verification: 至少运行聚焦静态合同，断言 `isOptionalTask` 通过 `isOptionalRouteFormTask` 对齐 `requiredPolicy === 'OPTIONAL'`，并断言必填损耗单点击路径调用打开填写而非跳过接口；涉及无填写权限但有查看权限时，真实 E2E 必须断言卡片主动作是“查看表单”、抽屉动作按钮全部禁用，未触发 `/task/preview`、`/task/open`、`/task/special-node/skip` 或表单中心写请求，且页面没有“必填路线表单不允许跳过”红色错误。
+- Verification: 至少运行聚焦静态合同，断言 `isOptionalTask` 通过 `isOptionalRouteFormTask` 对齐 `requiredPolicy === 'OPTIONAL'`，并断言必填损耗单点击路径调用打开填写而非跳过接口；涉及动态表单卡片中心预览时，必须断言前端只对完整 FormCenter 上下文加载预览，后端从 `FormTemplateVersionDO.jimuSchemaJson` 已保存布局或 `recognizedSchemaJson` 识别字段生成 `FormViewModel` 且不调用批记录报表 JSON。涉及无填写权限但有查看权限时，真实 E2E 必须断言卡片主动作是“查看表单”、抽屉动作按钮全部禁用，未触发 `/task/open`、`/task/special-node/skip` 或表单中心写请求，且页面没有“必填路线表单不允许跳过”红色错误。
 - Forbidden action: 禁止为了避开“必填路线表单不允许跳过”而吞掉后端错误、隐藏按钮错误、改文案、API-only 直开历史 execution，或把必填表单改成可跳过。
-- Evidence: `doc/tasks/20260725-edhr-loss-form-open-action/verification-report.md`。
+- Evidence: `doc/tasks/20260725-edhr-loss-form-open-action/verification-report.md`；`doc/tasks/20260728-edhr-dynamic-form-view/verification-report.md`。
 ## eDHR 右侧红框元信息隐藏门禁
 
 - Trigger: 修改 eDHR 批次详情右侧栏、单据卡片、`edhr-batch-detail__primary-fill-meta`、`primaryFormFillMetaItems`、填写人/提交时间摘要、工艺路线配置右侧 `data-flow-panel="selected-field-detail"` 或截图红框区域。

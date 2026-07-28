@@ -130,6 +130,7 @@ export interface EdhrBatchExecutionTaskOpenReqVO {
   batchExecutionId: EdhrRouteId
   taskId: EdhrRouteId
   workTaskId?: EdhrRouteId
+  assistUserId?: EdhrRouteId
 }
 
 export interface EdhrBatchExecutionSpecialNodeSkipReqVO {
@@ -179,6 +180,7 @@ export interface EdhrBatchExecutionTaskOpenRespVO {
   taskId: number
   executionId?: number
   workTaskId?: number
+  assistUserId?: number
   routeProcessId?: number
   batchRecordReportId?: string
   formBindingKey?: string

@@ -24,3 +24,10 @@
 ## Closeout Status
 
 Task implementation and verification are complete. Final closeout is pending because the current branch has non-task local commits ahead of `origin/int_main`; pushing or marking completed must not mix unrelated task ownership.
+
+## Runtime Reload Verification
+
+- PASS: `mvn -pl yudao-server -am "-DskipTests" package`
+- PASS: stopped old local backend PID `42652` and started new local backend PID `42800` on `48081`
+- PASS: runtime Jar `output\runtime\int_main\backend-runtime-control-20260728-100956.jar` SHA256 matches `yudao-server\target\yudao-server-exec.jar`
+- PASS: `http://127.0.0.1:48081/actuator/health` returned `UP`

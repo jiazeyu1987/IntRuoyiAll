@@ -184,32 +184,18 @@
             </template>
           </div>
         </el-form-item>
-        <el-form-item label="产品编号" prop="productMasterId">
-          <el-select
-            v-model="formData.productMasterId"
+        <el-form-item label="产品编号" prop="productCode">
+          <el-input
+            v-model="formData.productCode"
             class="!w-420px"
-            clearable
-            filterable
-            remote
-            reserve-keyword
-            :loading="productOptionsLoading"
-            :remote-method="loadProductOptions"
-            :placeholder="isProductRequiredForSelectedCategory ? '请选择产品主数据' : '可不选择产品主数据'"
-            @visible-change="handleProductOptionsVisibleChange"
-            @change="handleProductMasterChange"
-          >
-            <el-option
-              v-for="product in productOptions"
-              :key="product.id"
-              :label="formatProductOptionLabel(product)"
-              :value="product.id"
-            />
-          </el-select>
-          <div v-if="formData.productCode" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-            DCC 产品编号：{{ formData.productCode }}
-          </div>
+            readonly
+            placeholder="选择 DCC 项目后自动带出"
+          />
           <div v-if="isProductRequiredForSelectedCategory" class="mt-6px text-12px text-[var(--el-color-danger)]">
-            DHF/DMR 类别必须选择产品主数据
+            DHF/DMR 类别必须选择包含项目代码的 DCC 项目
+          </div>
+          <div v-if="selectedProjectCode" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
+            来源：DCC 项目代码 {{ selectedProjectCode.projectName }} / {{ selectedProjectCode.projectCode || '-' }}
           </div>
         </el-form-item>
         <el-form-item label="版本号" prop="versionNo" :error="submitFieldErrors.versionNo">
@@ -374,15 +360,12 @@ import {
 import {
   cleanupControlledFileUploadSession,
   createControlledFileUploadSessionId,
-  DCC_PRODUCT_STATUS_ENABLE,
-  getDccProductOptions,
   getControlledFileCurrentVersion,
   getControlledFileUploadRevisionCandidates,
   getControlledFileUploadDirectoryTree,
   getControlledFileUploadNameOptions,
   submitControlledFile,
   uploadControlledFilePreview,
-  type DccControlledFileProductOptionVO,
   type ControlledFileCurrentVersionRespVO,
   type ControlledFileVO,
   type ControlledFileUploadDirectoryNodeVO,
@@ -408,7 +391,7 @@ import {
   validateDrawingPdfUpload,
   validateControlledFileSelection,
   validateSingleUploadFileSelection,
-  validateProductMasterSelection,
+  validateDccProjectProductCode,
   type UploadFormDraft
 } from './submitter'
 
@@ -435,7 +418,6 @@ const projectCodeOptions = ref<DccProjectCodeRespVO[]>([])
 const fileTypeTaxonomies = ref<DccFileTypeTaxonomyVO[]>([])
 const selectedRevisionCandidate = ref<ControlledFileVO>()
 const uploadNameOptions = ref<ControlledFileUploadNameOptionVO[]>([])
-const productOptions = ref<DccControlledFileProductOptionVO[]>([])
 const uploadDirectoryTree = ref<ControlledFileUploadDirectoryTreeVO>()
 const currentVersionInfo = ref<ControlledFileCurrentVersionRespVO>()
 const fileList = ref<UploadUserFile[]>([])
@@ -448,7 +430,6 @@ const uploadPreviewLoading = ref(false)
 const uploadDrawingPdfLoading = ref(false)
 const uploadNameOptionsLoading = ref(false)
 const currentVersionLookupLoading = ref(false)
-const productOptionsLoading = ref(false)
 const projectCodeOptionsLoading = ref(false)
 const fileTypeTaxonomiesLoading = ref(false)
 const selectedHistoryVersion = ref('')
@@ -645,7 +626,6 @@ const currentVersionProjectionBlockReason = computed(() => {
 let currentVersionLookupTimer: ReturnType<typeof setTimeout> | undefined
 let currentVersionLookupSeq = 0
 let revisionTargetLookupSeq = 0
-let productAutofillSeq = 0
 
 const clearCurrentVersionInfo = () => {
   currentVersionInfo.value = undefined
@@ -772,8 +752,6 @@ const applyResolvedRevisionTarget = (row: ControlledFileVO) => {
   if (row.fileNumber) {
     formData.fileNumber = row.fileNumber
   }
-  formData.productMasterId = row.productMasterId ?? null
-  formData.productCode = row.productCode || ''
 }
 
 const applyUploadNameOptionRevisionTarget = (item: UploadNameSuggestionItem) => {
@@ -831,9 +809,8 @@ const resolveHistoryRevisionTarget = async (fileName: string) => {
 }
 
 const handleProjectCodeChange = async () => {
-  applyProductMasterSelection(undefined)
+  applyDccProjectCodeProductNumber()
   resetUploadNameLinkage(Boolean(selectedHistoryFileName.value || selectedHistoryVersion.value))
-  await tryAutofillProductFromSelectedProject()
 }
 
 const handleFileTypeTaxonomyChange = async () => {
@@ -841,95 +818,9 @@ const handleFileTypeTaxonomyChange = async () => {
   await formRef.value?.validateField?.('fileTypeTaxonomyId').catch(() => undefined)
 }
 
-const formatProductOptionLabel = (product: DccControlledFileProductOptionVO) =>
-  `${product.dccProductCode} · ${product.nameCn} · ${product.productCode}`
-
-const applyProductMasterSelection = (product: DccControlledFileProductOptionVO | undefined) => {
-  formData.productMasterId = product?.id ?? null
-  formData.productCode = product?.dccProductCode || ''
-}
-
-const normalizeProductAutofillKeyword = (value?: string | null) => value?.trim() || ''
-
-const resolveProjectProductAutofillKeywords = (project: DccProjectCodeRespVO | undefined) =>
-  Array.from(
-    new Set(
-      [project?.projectName, project?.projectCode, project?.docControlNo]
-        .map(normalizeProductAutofillKeyword)
-        .filter(Boolean)
-    )
-  )
-
-const uniqueProductOptionsById = (options: ReadonlyArray<DccControlledFileProductOptionVO>) =>
-  Array.from(new Map(options.map((option) => [option.id, option])).values())
-
-const tryAutofillProductFromSelectedProject = async () => {
-  if (!isProductRequiredForSelectedCategory.value || formData.productMasterId) {
-    return
-  }
-  const keywords = resolveProjectProductAutofillKeywords(selectedProjectCode.value)
-  if (!keywords.length) {
-    return
-  }
-  const requestSeq = ++productAutofillSeq
-  productOptionsLoading.value = true
-  try {
-    const keywordResults = await Promise.all(
-      keywords.map((keyword) =>
-        getDccProductOptions({
-          status: DCC_PRODUCT_STATUS_ENABLE,
-          requireDccProductCode: true,
-          keyword
-        })
-      )
-    )
-    if (requestSeq !== productAutofillSeq || formData.productMasterId || !isProductRequiredForSelectedCategory.value) {
-      return
-    }
-    const matchingProducts = uniqueProductOptionsById(keywordResults.flat())
-    productOptions.value = uniqueProductOptionsById([...matchingProducts, ...productOptions.value])
-    if (matchingProducts.length === 1) {
-      applyProductMasterSelection(matchingProducts[0])
-      return
-    }
-    message.warning('未能根据 DCC 项目唯一匹配产品主数据，请手动选择产品主数据')
-  } catch (error) {
-    if (requestSeq === productAutofillSeq) {
-      message.error(resolveUploadErrorMessage(error, '产品主数据自动带出失败，请查看错误提示后手动选择'))
-    }
-  } finally {
-    if (requestSeq === productAutofillSeq) {
-      productOptionsLoading.value = false
-    }
-  }
-}
-
-const loadProductOptions = async (keyword = '') => {
-  productOptionsLoading.value = true
-  try {
-    productOptions.value = await getDccProductOptions({
-      status: DCC_PRODUCT_STATUS_ENABLE,
-      requireDccProductCode: true,
-      keyword: keyword.trim() || undefined
-    })
-  } catch (error) {
-    productOptions.value = []
-    message.error(resolveUploadErrorMessage(error, '产品主数据加载失败，请查看错误提示后重试'))
-  } finally {
-    productOptionsLoading.value = false
-  }
-}
-
-const handleProductMasterChange = (productId: number | undefined) => {
-  const product = productOptions.value.find((item) => item.id === productId)
-  applyProductMasterSelection(product)
-}
-
-const handleProductOptionsVisibleChange = async (visible: boolean) => {
-  if (!visible || productOptions.value.length || productOptionsLoading.value) {
-    return
-  }
-  await loadProductOptions()
+const applyDccProjectCodeProductNumber = () => {
+  formData.productMasterId = null
+  formData.productCode = selectedProjectCode.value?.projectCode?.trim() || ''
 }
 
 const loadBaseData = async () => {
@@ -1013,12 +904,7 @@ const loadCurrentVersionByFileNumber = async () => {
       if (!formData.fileName && info.fileName) {
         formData.fileName = info.fileName
       }
-      if (info.productMasterId) {
-        formData.productMasterId = info.productMasterId
-      }
-      if (info.productCode) {
-        formData.productCode = info.productCode
-      }
+      applyDccProjectCodeProductNumber()
     }
   } catch (error) {
     if (requestSeq === currentVersionLookupSeq) {
@@ -1063,6 +949,7 @@ const handleCategoryChange = async () => {
   resetSelectedPreview()
   resetDrawingPdfUpload()
   if (formData.categoryId) {
+    applyDccProjectCodeProductNumber()
     if (!selectedCategoryDirectoryBound.value) {
       message.warning(categoryDirectoryBindingMessage)
       return
@@ -1071,7 +958,6 @@ const handleCategoryChange = async () => {
       loadUploadNameOptions(formData.categoryId),
       loadUploadDirectoryTree(formData.categoryId)
     ])
-    await tryAutofillProductFromSelectedProject()
   }
 }
 
@@ -1248,13 +1134,12 @@ const submitForm = async () => {
     message.warning('请先选择并完成文件预览上传')
     return
   }
-  const productMasterValidation = validateProductMasterSelection(
-    formData.productMasterId,
+  const productCodeValidation = validateDccProjectProductCode(
     formData.productCode,
     isProductRequiredForSelectedCategory.value
   )
-  if (!productMasterValidation.valid) {
-    message.warning(productMasterValidation.message || '产品主数据校验失败')
+  if (!productCodeValidation.valid) {
+    message.warning(productCodeValidation.message || '产品编号校验失败')
     return
   }
   const drawingPdfValidation = validateDrawingPdfUpload(previewUpload.value, drawingPdfUpload.value)

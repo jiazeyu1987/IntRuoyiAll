@@ -28,3 +28,9 @@
 ## Runtime Reload
 
 - in_progress: 用户要求重新打包并重启本机 `48081`；已读取 `docs/local-runtime.md`、`docs/worktree-restrictions.md`、`docs/task-closeout-rules.md`、`docs/backend-development.md`。
+- GREEN: `mvn -pl yudao-server -am "-DskipTests" package` -> PASS, 生成 `yudao-server\target\yudao-server-exec.jar`。
+- completed: 已停止旧 `48081` 后端 PID `42652`；旧 Jar 为 `backend-runtime-control-20260728-084231.jar`，早于修复提交。
+- completed: 已复制新运行 Jar `output\runtime\int_main\backend-runtime-control-20260728-100956.jar`，SHA256 `3837B5BEFBCB05A747482698045B893D79198E5EEDD1E20A4449F3917CC875CC`。
+- completed: 已启动新 `48081` 后端 PID `42800`；日志显示项目启动成功。
+- GREEN: `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` -> PASS, `status=UP`。
+- Verification: 新运行 Jar 与 `yudao-server\target\yudao-server-exec.jar` SHA256 一致，当前编译类包含 `buildAllFillableScopeFromBatchRecordReport`、`ALL_SCOPE_END_ROW` 和 `MesProBatchRecordReportMapper`。

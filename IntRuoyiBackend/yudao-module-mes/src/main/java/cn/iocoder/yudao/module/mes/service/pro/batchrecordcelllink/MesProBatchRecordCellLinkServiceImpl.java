@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -187,8 +188,9 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     private BatchRecordCellLinkFormCellsRespVO getFormTemplateCells(String reportId) {
         Long templateVersionId = parseFormTemplateReportId(reportId);
         FormTemplateVersionDO templateVersion = requireFormTemplateVersion(templateVersionId);
-        JSONObject schema = parseTemplateSchema(templateVersion);
-        String sheetLayoutJson = schema.getString("sheetLayoutJson");
+        TemplateLayout templateLayout = resolveTemplateLayout(templateVersion, reportId);
+        JSONObject schema = templateLayout.schema();
+        String sheetLayoutJson = templateLayout.sheetLayoutJson();
         JSONObject root = parseLayout(sheetLayoutJson, reportId);
         Map<String, BatchRecordReportCellRuleVO> ruleMap = new LinkedHashMap<>();
         putCellRules(ruleMap, parseTemplateCellRules(schema));
@@ -693,17 +695,249 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         return templateVersion;
     }
 
-    private JSONObject parseTemplateSchema(FormTemplateVersionDO templateVersion) {
+    private TemplateLayout resolveTemplateLayout(FormTemplateVersionDO templateVersion, String reportId) {
+        JSONObject schema = parseTemplateJimuSchema(templateVersion, reportId);
+        if (schema != null) {
+            String sheetLayoutJson = resolveTemplateSheetLayoutJson(schema, reportId);
+            if (StrUtil.isNotBlank(sheetLayoutJson)) {
+                return new TemplateLayout(schema, sheetLayoutJson);
+            }
+            if (schema.containsKey("cellRules") || schema.containsKey("signatureCellMarkers")) {
+                throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                        reportId);
+            }
+        }
+        JSONObject recognizedSchema = buildTemplateRecognizedFieldsSchema(templateVersion, reportId);
+        String recognizedSheetLayoutJson = resolveTemplateSheetLayoutJson(recognizedSchema, reportId);
+        return new TemplateLayout(recognizedSchema, recognizedSheetLayoutJson);
+    }
+
+    private JSONObject parseTemplateJimuSchema(FormTemplateVersionDO templateVersion, String reportId) {
         if (templateVersion == null || StrUtil.isBlank(templateVersion.getJimuSchemaJson())) {
-            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
-                    templateVersion == null ? null : formTemplateReportId(templateVersion.getId()));
+            return null;
         }
         try {
-            return JSON.parseObject(templateVersion.getJimuSchemaJson());
+            JSONObject schema = JSON.parseObject(templateVersion.getJimuSchemaJson());
+            if (schema == null) {
+                throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                        reportId);
+            }
+            return schema;
+        } catch (ServiceException ex) {
+            throw ex;
         } catch (Exception ex) {
             throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
-                    formTemplateReportId(templateVersion.getId()));
+                    reportId);
         }
+    }
+
+    private JSONObject buildTemplateRecognizedFieldsSchema(FormTemplateVersionDO templateVersion, String reportId) {
+        if (templateVersion == null || StrUtil.isBlank(templateVersion.getRecognizedSchemaJson())) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                    reportId);
+        }
+        try {
+            JSONArray recognizedFields = JSON.parseArray(templateVersion.getRecognizedSchemaJson());
+            if (recognizedFields == null || recognizedFields.isEmpty()) {
+                throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                        reportId);
+            }
+            JSONArray rules = buildTemplateRecognizedFieldRules(recognizedFields, reportId);
+            JSONObject schema = buildTemplateRecognizedFieldsBaseLayout(templateVersion, rules, reportId);
+            schema.put("cellRules", rules);
+            JSONArray signatureMarkers = buildTemplateSignatureMarkers(rules, reportId);
+            if (!signatureMarkers.isEmpty()) {
+                schema.put("signatureCellMarkers", signatureMarkers);
+            }
+            return schema;
+        } catch (ServiceException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                    reportId);
+        }
+    }
+
+    private String resolveTemplateSheetLayoutJson(JSONObject schema, String reportId) {
+        Object sheetLayout = schema == null ? null : schema.get("sheetLayoutJson");
+        if (sheetLayout instanceof String text) {
+            return text;
+        }
+        if (sheetLayout instanceof JSONObject object) {
+            return JSON.toJSONString(object);
+        }
+        if (sheetLayout != null) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                    reportId);
+        }
+        Object layout = schema == null ? null : schema.get("layout");
+        if (layout instanceof String text) {
+            return text;
+        }
+        if (layout instanceof JSONObject object) {
+            return JSON.toJSONString(object);
+        }
+        if (layout != null) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                    reportId);
+        }
+        return schema != null && schema.getJSONObject("rows") != null ? JSON.toJSONString(schema) : null;
+    }
+
+    private JSONArray buildTemplateRecognizedFieldRules(JSONArray recognizedFields, String reportId) {
+        JSONArray rules = new JSONArray();
+        for (int index = 0; index < recognizedFields.size(); index++) {
+            JSONObject field = toTemplateJsonObject(recognizedFields.get(index), reportId);
+            String label = StrUtil.blankToDefault(StrUtil.trim(field.getString("label")),
+                    StrUtil.trim(field.getString("fieldCode")));
+            if (StrUtil.isBlank(label)) {
+                throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                        reportId);
+            }
+            int labelColumnIndex = index % 2 == 0 ? 0 : 2;
+            int inputColumnIndex = labelColumnIndex + 1;
+            JSONObject rule = new JSONObject();
+            rule.put("rowIndex", index / 2 + 3);
+            rule.put("columnIndex", inputColumnIndex);
+            rule.put("valueType", templateRecognizedFieldValueType(field.getString("fieldType")));
+            rule.put("componentFlag", templateRecognizedFieldComponentFlag(field.getString("fieldType")));
+            rule.put("required", Boolean.TRUE.equals(field.getBoolean("required")));
+            rule.put("label", label);
+            rule.put("placeholder", "checkbox".equals(StrUtil.trimToEmpty(field.getString("fieldType"))
+                    .toLowerCase(Locale.ROOT)) ? "□" : "");
+            rule.put("source", "AUTO");
+            rule.put("reviewed", false);
+            rules.add(rule);
+        }
+        return rules;
+    }
+
+    private JSONObject buildTemplateRecognizedFieldsBaseLayout(
+            FormTemplateVersionDO templateVersion, JSONArray rules, String reportId) {
+        JSONObject schema = new JSONObject();
+        JSONObject cols = new JSONObject();
+        cols.put("0", JSON.parseObject("{\"width\":140}"));
+        cols.put("1", JSON.parseObject("{\"width\":220}"));
+        cols.put("2", JSON.parseObject("{\"width\":140}"));
+        cols.put("3", JSON.parseObject("{\"width\":220}"));
+        schema.put("cols", cols);
+        JSONObject rows = new JSONObject();
+        rows.put("0", templateRecognizedRow(28, Map.of(
+                "0", templateRecognizedTextCell(templateVersion.getTemplateName(), List.of(0, 1)),
+                "2", templateRecognizedTextCell("记录编号", null),
+                "3", templateRecognizedTextCell("TPL-" + templateVersion.getTemplateId(), null))));
+        rows.put("1", templateRecognizedRow(28, Map.of(
+                "0", templateRecognizedTextCell("版本", null),
+                "1", templateRecognizedTextCell(templateVersion.getVersionNo(), null),
+                "2", templateRecognizedTextCell("版本状态", null),
+                "3", templateRecognizedTextCell(
+                        templateStatusLabel(templateVersion.getStatus()), null))));
+        rows.put("2", templateRecognizedRow(26, Map.of(
+                "0", templateRecognizedTextCell("识别字段", List.of(0, 3)))));
+        for (Object rawRule : rules) {
+            JSONObject rule = toTemplateJsonObject(rawRule, reportId);
+            String rowKey = String.valueOf(rule.getInteger("rowIndex"));
+            JSONObject row = rows.getJSONObject(rowKey);
+            if (row == null) {
+                row = templateRecognizedRow(36, Map.of());
+                rows.put(rowKey, row);
+            }
+            JSONObject cells = row.getJSONObject("cells");
+            int labelColumnIndex = Math.max(0, rule.getInteger("columnIndex") - 1);
+            String labelText = rule.getString("label") + (Boolean.TRUE.equals(rule.getBoolean("required")) ? " *" : "");
+            cells.put(String.valueOf(labelColumnIndex), templateRecognizedTextCell(labelText, null));
+            cells.put(String.valueOf(rule.getInteger("columnIndex")), templateRecognizedTextCell("", null));
+        }
+        schema.put("rows", rows);
+        return schema;
+    }
+
+    private JSONObject templateRecognizedRow(int height, Map<String, JSONObject> cells) {
+        JSONObject row = new JSONObject();
+        row.put("height", height);
+        JSONObject cellMap = new JSONObject();
+        cellMap.putAll(cells);
+        row.put("cells", cellMap);
+        return row;
+    }
+
+    private JSONObject templateRecognizedTextCell(String text, List<Integer> merge) {
+        JSONObject cell = new JSONObject();
+        cell.put("text", StrUtil.blankToDefault(text, ""));
+        if (merge != null) {
+            cell.put("merge", merge);
+        }
+        return cell;
+    }
+
+    private JSONArray buildTemplateSignatureMarkers(JSONArray rules, String reportId) {
+        JSONArray markers = new JSONArray();
+        for (Object rawRule : rules) {
+            JSONObject rule = toTemplateJsonObject(rawRule, reportId);
+            String valueType = StrUtil.trimToEmpty(rule.getString("valueType"));
+            String componentFlag = StrUtil.trimToEmpty(rule.getString("componentFlag")).toLowerCase(Locale.ROOT);
+            if (!"SIGNATURE".equals(valueType) && !componentFlag.contains("signature")) {
+                continue;
+            }
+            JSONObject marker = new JSONObject();
+            marker.put("rowIndex", rule.getInteger("rowIndex"));
+            marker.put("columnIndex", rule.getInteger("columnIndex"));
+            marker.put("enabled", true);
+            marker.put("actionType", "FORM_REVIEW");
+            marker.put("label", StrUtil.blankToDefault(rule.getString("label"), "签名"));
+            marker.put("signatureCellKey", rule.getInteger("rowIndex") + ":" + rule.getInteger("columnIndex"));
+            markers.add(marker);
+        }
+        return markers;
+    }
+
+    private String templateRecognizedFieldValueType(String fieldType) {
+        return switch (StrUtil.trimToEmpty(fieldType).toLowerCase(Locale.ROOT)) {
+            case "number" -> "NUMBER";
+            case "date" -> "DATE";
+            case "datetime" -> "DATETIME";
+            case "checkbox" -> "BOOLEAN";
+            case "signature" -> "SIGNATURE";
+            default -> "STRING";
+        };
+    }
+
+    private String templateRecognizedFieldComponentFlag(String fieldType) {
+        return switch (StrUtil.trimToEmpty(fieldType).toLowerCase(Locale.ROOT)) {
+            case "number" -> "input-number";
+            case "date" -> "date";
+            case "datetime" -> "datetime";
+            case "checkbox" -> "checkbox";
+            case "signature" -> "signature";
+            case "textarea" -> "textarea";
+            default -> "input-text";
+        };
+    }
+
+    private String templateStatusLabel(String status) {
+        return switch (StrUtil.trimToEmpty(status)) {
+            case "DRAFT" -> "草稿";
+            case "PUBLISHED" -> "已发布";
+            case "DISABLED" -> "已停用";
+            case "OBSOLETE" -> "已作废";
+            default -> StrUtil.blankToDefault(status, "");
+        };
+    }
+
+    private JSONObject toTemplateJsonObject(Object rawValue, String reportId) {
+        if (rawValue instanceof JSONObject object) {
+            return object;
+        }
+        if (rawValue == null) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                    reportId);
+        }
+        JSONObject object = JSON.parseObject(JSON.toJSONString(rawValue));
+        if (object == null) {
+            throw exception(MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_LAYOUT_INVALID,
+                    reportId);
+        }
+        return object;
     }
 
     private List<BatchRecordReportCellRuleVO> parseTemplateCellRules(JSONObject schema) {

@@ -113,6 +113,15 @@
 - Forbidden action: 禁止通过取消隐藏路由、创建重复页签、localStorage 兜底、强制刷新、默认跳列表或吞掉路由错误掩盖状态丢失。
 - Evidence: 任务 `doc/tasks/20260727-route-flow-tab-return-state/`，路线流转关系图从顶部页签切走再返回时曾因“工艺流程”页签仍保存 `/mes/pro/route` 而回到路线列表。
 
+## 前端 Route Query ID 比较门禁
+
+- Trigger: 前端用 `route.query` 中的 `id`、`userId`、`assistUserId`、`workTaskId`、`batchTaskId` 等标识判断当前项、高亮项、上下文 key、可编辑态或请求 payload，尤其字段来自 Element/Vue Router query 字符串但业务对象字段是 number。
+- Preflight check: 先确认 query 解析函数返回类型；若 query ID 会参与对象 ID 比较，必须使用 `sameRouteQueryId(...)`、统一字符串化，或显式转成同一数值类型，不得直接用 `===` 比较 query 字符串和 number。
+- Blocker: 切换对象后 URL query 已变化但页面 active 高亮、表单上下文、缓存 key 或可点击态仍停留在当前登录人/旧对象，或静态合同无法证明字符串/数字 ID 比较一致时必须停止。
+- Verification: 聚焦静态合同必须覆盖“请求带所选 ID”“路由保存后端确认 ID”“active/highlight 用 route-id 语义比较”；真实 E2E 需在切换后重开弹窗或返回页面，断言高亮/上下文跟随所选 query ID。
+- Forbidden action: 禁止用当前登录人、旧缓存 key、宽松 fallback、刷新页面或隐藏高亮状态掩盖 route query ID 类型不一致。
+- Evidence: 任务 `doc/tasks/20260728-switch-filler-wangxin-e2e/`，`assistUserId` 从 route query 读取为字符串，旧 active 判断与数字 `item.userId` 严格等于，导致切换到任丹后重开弹窗不高亮。
+
 ## 验证方式
 
 - 优先运行受影响范围的验证：

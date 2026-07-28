@@ -103,7 +103,13 @@ async function login(page, config) {
   const loginBody = await loginResponse.json()
   assert.ok(loginResponse.ok(), `登录 HTTP 失败：${loginResponse.status()}`)
   assert.ok(loginBody.code === 0 || loginBody.code === 200, `登录失败：${loginBody.msg || loginBody.code}`)
-  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: config.timeout })
+  if (new URL(page.url()).pathname.includes('/login')) {
+    await page.waitForURL((url) => !url.pathname.includes('/login'), {
+      timeout: config.timeout,
+      waitUntil: 'commit'
+    })
+  }
+  assert.ok(!new URL(page.url()).pathname.includes('/login'), `登录成功后页面必须离开登录页：${page.url()}`)
 }
 
 async function run() {

@@ -81,6 +81,51 @@ class MesProBatchRecordCellLinkServiceImplTest {
     }
 
     @Test
+    void getFormCells_resolvesFormTemplateCellsFromRootLayoutJimuSchema() {
+        FormTemplateVersionDO templateVersion = formTemplateVersion()
+                .setId(32L)
+                .setJimuSchemaJson("""
+                        {
+                          "cols":{"0":{"width":140},"1":{"width":220}},
+                          "rows":{"3":{"height":36,"cells":{"0":{"text":"生产批号"},"1":{"text":""}}}},
+                          "cellRules":[{"rowIndex":3,"columnIndex":1,"label":"生产批号","valueType":"STRING","componentFlag":"input-text","required":true,"reviewed":true,"source":"MANUAL"}]
+                        }
+                        """);
+        when(templateVersionMapper.selectById(32L)).thenReturn(templateVersion);
+
+        BatchRecordCellLinkFormCellsRespVO result = service.getFormCells("FORMTPL:32", null);
+
+        assertEquals("FORMTPL:32", result.getReportId());
+        assertEquals(1, result.getCells().stream()
+                .filter(cell -> "3:1".equals(cell.getCellKey()))
+                .filter(cell -> Boolean.TRUE.equals(cell.getLinkableAsTarget()))
+                .count());
+    }
+
+    @Test
+    void getFormCells_resolvesFormTemplateCellsFromRecognizedSchemaWhenJimuSchemaMissing() {
+        FormTemplateVersionDO templateVersion = formTemplateVersion()
+                .setId(32L)
+                .setJimuSchemaJson(null)
+                .setRecognizedSchemaJson("""
+                        [
+                          {"fieldCode":"no","label":"NO.","fieldType":"input","required":false},
+                          {"fieldCode":"field3","label":"生产批号","fieldType":"input","required":false}
+                        ]
+                        """);
+        when(templateVersionMapper.selectById(32L)).thenReturn(templateVersion);
+
+        BatchRecordCellLinkFormCellsRespVO result = service.getFormCells("FORMTPL:32", null);
+
+        assertEquals("FORMTPL:32", result.getReportId());
+        assertEquals(1, result.getCells().stream()
+                .filter(cell -> "3:3".equals(cell.getCellKey()))
+                .filter(cell -> "生产批号".equals(cell.getLabel()))
+                .filter(cell -> Boolean.TRUE.equals(cell.getLinkableAsTarget()))
+                .count());
+    }
+
+    @Test
     void getPrefill_resolvesProductionWorkOrderFieldWithoutSourceExecution() {
         MesProBatchRecordExecutionDO targetExecution = new MesProBatchRecordExecutionDO()
                 .setId(9001L)

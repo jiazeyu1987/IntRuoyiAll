@@ -2551,6 +2551,70 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void openTask_exposesAssistRowsWhenAllRangeScopeCoversSnapshotSourceTable() {
+        Fixture fixture = insertRouteFixture(true, true);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-OPEN-ALL-RANGE-ASSIST-ROWS")
+                .setRouteId(fixture.routeId()));
+        skipAllSpecialNodes(batch);
+        EdhrBatchExecutionTaskRespVO batchTask = routeTask(batch, 0);
+        insertProductionTask(fixture.workOrderId(), fixture.routeId(), batchTask.getProcessId(), 80052L);
+        MesProEdhrWorkTaskDO workTask = insertFillWorkTask(batch, batchTask, fixture)
+                .setCandidateUserSnapshot("10001,910245")
+                .setResponsibilitySourceType("EDHR_PROCESS_FORM_FILLER")
+                .setResponsibilityScopeJson("""
+                        {"schemaVersion":2,"sourceType":"EDHR_PROCESS_FORM_FILLER","sourceKey":"FORM|REPORT-ALL|130","sourceVersion":"130","scopes":[
+                          {"scopeKey":"ALL","resolvedUserIds":[10001,910245],"fillableScope":{"ranges":[
+                            {"sourceTableIndex":2,"startRow":0,"endRow":99999}
+                          ]}}
+                        ]}
+                        """);
+        workTaskMapper.updateById(workTask);
+        when(singleExecutionService.openOrCreateByContext(any()))
+                .thenAnswer(invocation -> {
+                    executionMapper.insert(new MesProBatchRecordExecutionDO()
+                            .setId(9052L)
+                            .setExecutionCode("BRE-9052")
+                            .setWorkOrderId(fixture.workOrderId())
+                            .setWorkOrderCode("WO-OPEN-ALL-RANGE")
+                            .setRouteProcessId(batchTask.getRouteProcessId())
+                            .setBatchRecordReportId(batchTask.getBatchRecordReportId())
+                            .setBatchExecutionId(batch.getId())
+                            .setRouteId(fixture.routeId())
+                            .setBatchCode(batch.getBatchCode())
+                            .setStatus(0)
+                            .setSheetLayoutJson("{\"rows\":{}}")
+                            .setMetaJson("{\"sourceTableIndex\":2}")
+                            .setExecutionSnapshotJson("""
+                                    {"snapshotVersion":"EDHR_EXECUTION_V1","meta":{"sourceTableIndex":2},"fields":[],"assistRows":[
+                                      {"rowKey":"AR_OPERATOR","description":"操作信息","sort":1,"fields":[{"rowIndex":0,"columnIndex":1}]},
+                                      {"rowKey":"AR_REMARK","description":"备注信息","sort":2,"fields":[{"rowIndex":1,"columnIndex":3}]}
+                                    ]}
+                                    """)
+                            .setCellValuesJson("[]")
+                            .setCellValuesHash("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")
+                            .setFieldAuditRevision(0L)
+                            .setFieldAuditHeadHash("0000000000000000000000000000000000000000000000000000000000000000"));
+                    return new MesProBatchRecordExecutionOpenOrCreateByContextRespVO()
+                            .setId(9052L)
+                            .setCreated(true)
+                            .setStatus(0);
+                });
+
+        EdhrBatchExecutionTaskOpenRespVO openedBySelectedAssistUser =
+                openTaskAs(10001L, batch.getId(), batchTask.getId(), workTask.getId(), 910245L);
+
+        assertEquals(910245L, openedBySelectedAssistUser.getAssistUserId());
+        JSONArray selectedAssistRows = JSON.parseArray(JSON.toJSONString(
+                openedBySelectedAssistUser.getExecutionPageQuery().get("assistRows")));
+        assertNotNull(selectedAssistRows);
+        assertEquals(2, selectedAssistRows.size());
+        assertEquals("AR_OPERATOR", selectedAssistRows.getJSONObject(0).getString("rowKey"));
+        assertEquals("AR_REMARK", selectedAssistRows.getJSONObject(1).getString("rowKey"));
+    }
+
+    @Test
     void openTask_freezesDisabledRecordbookStateIntoTaskExecutionAndPageQuery() {
         Fixture fixture = insertRouteFixture(true, true);
         MesProRouteProcessDO firstRouteProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).stream()
@@ -3045,6 +3109,54 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals(1, preview.getFormViewModel().getSignatureCellMarkers().size());
         assertEquals(4, preview.getFormViewModel().getSignatureCellMarkers().get(0).getRowIndex());
         assertEquals(1, preview.getFormViewModel().getSignatureCellMarkers().get(0).getColumnIndex());
+        verify(jimuReportGateway, never()).getReportJson(any());
+        verify(singleExecutionService, never()).openOrCreateByContext(any());
+    }
+
+    @Test
+    void previewTask_returnsDynamicRouteFormRecognizedFieldsPreviewWithoutJimuSchema() {
+        Fixture fixture = insertRouteFixture(false, false);
+        MesProRouteProcessDO routeProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).get(0);
+        FormTemplateVersionDO templateVersion = insertPublishedFormTemplateVersion("动态识别字段表单预览");
+        templateVersion.setRecognizedSchemaJson(dynamicFormRecognizedSchemaJson());
+        templateVersion.setRemark("动态识别字段表单备注");
+        formTemplateVersionMapper.updateById(templateVersion);
+        stubFormCenterInstanceIds(85002L);
+        insertBatchProcessFormCenterBinding(fixture.routeId(), routeProcess.getId(), templateVersion,
+                "FB_DYNAMIC_RECOGNIZED_PREVIEW");
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-DYNAMIC-RECOGNIZED-PREVIEW")
+                .setRouteId(fixture.routeId()));
+        EdhrBatchExecutionTaskRespVO dynamicTask = routeTasks(batch).get(0);
+
+        EdhrBatchExecutionTaskPreviewRespVO preview =
+                batchExecutionService.previewTask(batch.getId(), dynamicTask.getId());
+
+        assertEquals(batch.getId(), preview.getBatchExecutionId());
+        assertEquals(dynamicTask.getId(), preview.getTaskId());
+        assertNull(preview.getExecutionId());
+        assertEquals(Boolean.FALSE, preview.getExecutionCreated());
+        assertNotNull(preview.getFormViewModel());
+        assertEquals("动态识别字段表单备注", preview.getFormViewModel().getRemark());
+        JSONObject layout = JSON.parseObject(preview.getFormViewModel().getSheetLayoutJson());
+        JSONObject titleCell = layout.getJSONObject("rows")
+                .getJSONObject("0")
+                .getJSONObject("cells")
+                .getJSONObject("0");
+        assertEquals("动态识别字段表单预览", titleCell.getString("text"));
+        JSONObject batchCodeCell = layout.getJSONObject("rows")
+                .getJSONObject("3")
+                .getJSONObject("cells")
+                .getJSONObject("1");
+        assertEquals("生产批号", batchCodeCell.getJSONObject("fillForm").getString("label"));
+        assertEquals("input-text", batchCodeCell.getJSONObject("edhrCellRule").getString("componentFlag"));
+        JSONObject reviewDateCell = layout.getJSONObject("rows")
+                .getJSONObject("3")
+                .getJSONObject("cells")
+                .getJSONObject("3");
+        assertEquals("复核日期", reviewDateCell.getJSONObject("fillForm").getString("label"));
+        assertEquals("date", reviewDateCell.getJSONObject("edhrCellRule").getString("componentFlag"));
         verify(jimuReportGateway, never()).getReportJson(any());
         verify(singleExecutionService, never()).openOrCreateByContext(any());
     }
@@ -6889,6 +7001,15 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         schema.put("cellRules", rules);
         schema.put("signatureCellMarkers", markers);
         return JSON.toJSONString(schema);
+    }
+
+    private String dynamicFormRecognizedSchemaJson() {
+        return """
+                [
+                  {"fieldCode":"batchCode","label":"生产批号","fieldType":"text","required":true},
+                  {"fieldCode":"reviewDate","label":"复核日期","fieldType":"date","required":false}
+                ]
+                """;
     }
 
     private void insertInitialFillAssignmentRule(Long routeId) {

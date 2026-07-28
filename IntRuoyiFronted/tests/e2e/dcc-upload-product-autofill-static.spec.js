@@ -17,38 +17,43 @@ assert.equal(
 
 assert.match(
   uploadPage,
-  /const applyProductMasterSelection = \(product: DccControlledFileProductOptionVO \| undefined\) => \{[\s\S]*formData\.productMasterId = product\?\.id \?\? null[\s\S]*formData\.productCode = product\?\.dccProductCode \|\| ''/,
-  'Product autofill must select the formal product master id and copy its DCC product code'
+  /<el-form-item label="产品编号" prop="productCode">[\s\S]*<el-input[\s\S]*v-model="formData\.productCode"[\s\S]*readonly[\s\S]*placeholder="选择 DCC 项目后自动带出"/,
+  'Upload product number must be a readonly field populated from the selected DCC project code'
 )
 
 assert.match(
   uploadPage,
-  /const resolveProjectProductAutofillKeywords = \(project: DccProjectCodeRespVO \| undefined\) =>[\s\S]*project\?\.projectName[\s\S]*project\?\.projectCode[\s\S]*project\?\.docControlNo/,
-  'Product autofill must derive candidate search keywords from the selected DCC project'
+  /const applyDccProjectCodeProductNumber = \(\) => \{[\s\S]*formData\.productMasterId = null[\s\S]*formData\.productCode = selectedProjectCode\.value\?\.projectCode\?\.trim\(\) \|\| ''[\s\S]*\}/,
+  'Product number autofill must copy selectedProjectCode.projectCode and clear productMasterId'
 )
 
 assert.match(
   uploadPage,
-  /const tryAutofillProductFromSelectedProject = async \(\) => \{[\s\S]*if \(!isProductRequiredForSelectedCategory\.value[\s\S]*return[\s\S]*const matchingProducts = uniqueProductOptionsById[\s\S]*if \(matchingProducts\.length === 1\) \{[\s\S]*applyProductMasterSelection\(matchingProducts\[0\]\)[\s\S]*return[\s\S]*message\.warning\('未能根据 DCC 项目唯一匹配产品主数据，请手动选择产品主数据'\)/,
-  'DHF/DMR upload must auto-select only one unique formal product match and otherwise require manual selection'
+  /validateDccProjectProductCode\(\s*formData\.productCode,\s*isProductRequiredForSelectedCategory\.value\s*\)/,
+  'DHF/DMR upload validation must require the DCC project code product number, not a product master'
 )
 
 assert.match(
   uploadPage,
-  /const handleProjectCodeChange = async \(\) => \{[\s\S]*await tryAutofillProductFromSelectedProject\(\)/,
-  'Changing DCC project must attempt product autofill'
+  /const handleProjectCodeChange = async \(\) => \{[\s\S]*applyDccProjectCodeProductNumber\(\)/,
+  'Changing DCC project must refresh product number from the selected project code'
 )
 
 assert.match(
   uploadPage,
-  /const handleCategoryChange = async \(\) => \{[\s\S]*await tryAutofillProductFromSelectedProject\(\)/,
-  'Changing to a DHF/DMR category must attempt product autofill'
+  /const handleCategoryChange = async \(\) => \{[\s\S]*applyDccProjectCodeProductNumber\(\)/,
+  'Changing category must keep product number aligned to the selected DCC project code'
 )
 
-assert.match(
-  uploadPage,
-  /const handleProductMasterChange = \(productId: number \| undefined\) => \{[\s\S]*applyProductMasterSelection\(product\)/,
-  'Manual product selection must use the same formal product binding path as autofill'
+assert(
+  !uploadPage.includes('getDccProductOptions') &&
+    !uploadPage.includes('DCC_PRODUCT_STATUS_ENABLE') &&
+    !uploadPage.includes('DccControlledFileProductOptionVO') &&
+    !uploadPage.includes('tryAutofillProductFromSelectedProject') &&
+    !uploadPage.includes('applyProductMasterSelection') &&
+    !uploadPage.includes('handleProductMasterChange') &&
+    !uploadPage.includes('产品主数据'),
+  'Upload product number must not depend on product master options, matching, or product-master wording'
 )
 
 assert(!uploadPage.includes('generateProductCode'), 'Upload page must not generate a temporary product code')
