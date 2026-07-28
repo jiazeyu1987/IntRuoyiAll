@@ -2,7 +2,7 @@
 
 ## Current Status
 
-Blocked pending authoritative Excel fixture. T2/T4/T6 independent checks and T5 executor verification have reduced the complete MES regression to one prerequisite: project-owned `IntRuoyiBackend/yudao-module-mes/src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx` is missing and no authoritative source has been confirmed.
+PASS / ready_for_closeout. 用户已明确取消 Sheet1 Excel 真实样本覆盖要求；该缺失 fixture 不再作为验收前置。当前保留的 Sheet1 parser 合成 fail-fast/契约测试通过，完整 `mvn -pl yudao-module-mes test` 已通过：2530 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
 
 ## Baseline
 
@@ -120,3 +120,18 @@ Blocked pending authoritative Excel fixture. T2/T4/T6 independent checks and T5 
 - Candidate evidence: `C:\Users\BJB110\Desktop\球囊扩张导管工序(1)(2).xlsx` 与 `C:\Users\BJB110\Desktop\文档\球囊扩张导管工序(1)(2).xlsx` 均为 `17251` 字节，SHA-256 均为 `A7ACF4ADE2E09A00B68D80701B1FB86BC79B6F3CCDA55504B7C838AB85240354`，但仍缺用户明确权威性确认。
 - Full MES rerun: `mvn -pl yudao-module-mes test` -> `BLOCKED`，2026-07-28 01:30:40 +08:00 完成；`2511 tests`, `0 failures`, `4 errors`, `18 skipped`, `BUILD FAILURE`。四个 errors 均为 `src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx` 缺失，无其他 failure/error。
 - Overall result: `BLOCKED`。解除条件为确认权威 Excel 原件并加入 `src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx` 后重新运行 Sheet1 套件与完整 MES 回归。
+
+## T7 Scope Change Verification
+
+- User decision: Sheet1 Excel 真实样本覆盖“不需要覆盖这个”，缺失 `sheet1-route-balloon-catheter.xlsx` 不再作为本任务验收前置。
+- Removed coverage: 删除依赖该缺失真实 Excel 的 `Sheet1RouteExcelImportServiceImplTest`、`Sheet1RouteExcelImportServiceImplDbTest` 和 `Sheet1RouteExcelTestFixtures`；删除 `Sheet1RouteExcelParserTest.parseFixture_returnsTwoRoutesWithFirstAppearanceDeduplicatedSteps`。
+- Preserved coverage: `Sheet1RouteExcelParserTest` 保留 4 个合成 fail-fast/契约测试，覆盖缺少 Sheet1、表头无效、产品重复、产品块无工序。
+- Targeted result: `mvn -pl yudao-module-mes "-Dtest=Sheet1RouteExcelParserTest" test` -> PASS；4 tests、0 failures、0 errors、0 skipped。
+- Adjacent fix result: `MesProBatchRecordExecutionFieldAuditServiceTest` 和 `MesProEdhrWorkTaskLegacyProcessTest` 在完整套件中分别为 44 tests、3 tests，均 0 failures、0 errors。
+
+## Final MES Verification
+
+- Command: `mvn -pl yudao-module-mes test`
+- Result: `PASS`，2026-07-28 08:53:25 +08:00 完成；2530 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
+- Diff/skip review: 未使用 `@Disabled`、Maven excludes、assumptions、空夹具、合成 workbook 或桌面候选文件替代真实 fixture；删除的是用户明确取消的真实样本覆盖入口。
+- Closeout state: 实现和验证完成，任务进入 `ready_for_closeout`；提交/推送暂受共享工作区非本任务脏改动阻塞。

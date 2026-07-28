@@ -111,6 +111,15 @@
 - Forbidden action: 禁止用表单名、工序名、文件名、压力泵模板名硬编码特例；禁止把缺 fixture 的结构测试当成业务逻辑失败；禁止只靠截图人工判断完成。
 - Evidence: `doc/tasks/20260725-batch-record-global-table-position-fix/verification-report.md`。
 
+### 批记录/路线导入真实 fixture 覆盖范围变更边界
+
+- Trigger: 批记录 Word、Sheet1 Excel、路线导入、真实 fixture、`NoSuchFileException`、用户明确说“不需要覆盖这个”或取消真实样本覆盖。
+- Preflight check: 先区分“业务仍要求真实样本覆盖但 fixture 缺失”和“用户明确变更验收范围取消该真实样本覆盖”；前者必须阻塞并取得权威原件，后者必须删除依赖缺失真实 fixture 的测试入口，同时保留不依赖真实文件的合成 fail-fast/契约测试。
+- Blocker: 缺少用户明确范围变更、无法证明删除的测试只覆盖被取消的真实样本链路、或删除后完整目标套件仍有 failure/error 时，必须停止，不得宣称完成。
+- Verification: 记录用户范围变更、删除/保留的测试清单，运行目标 parser/contract 定向测试和完整模块回归；完整回归必须 `BUILD SUCCESS` 且 0 failures/0 errors。
+- Forbidden action: 禁止用 `@Disabled`、Maven excludes、assumptions、空夹具、合成 workbook 或桌面候选文件冒充权威真实 fixture；禁止把真实样本覆盖取消解释成业务 fallback。
+- Evidence: `doc/tasks/20260727-edhr-notify-all-valid-candidates/verification-report.md`，用户明确取消 Sheet1 Excel 真实样本覆盖后，保留 `Sheet1RouteExcelParserTest` 合成 fail-fast 测试并通过完整 `mvn -pl yudao-module-mes test`。
+
 ### 旧版本 JSON 的 fillForm/edhrCellRule 读时刷新门禁
 
 - Trigger: 批记录截图或只读预览仍显示已修复过的错位 checkbox、V14/V14.0 等既有版本复验、`sheetLayoutJson` 的 `text` 坐标正确但页面仍渲染旧控件。

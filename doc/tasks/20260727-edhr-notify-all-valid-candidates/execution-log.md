@@ -381,3 +381,29 @@ RED: `mvn -pl yudao-module-mes "-Dtest=Sheet1RouteExcelParserTest,Sheet1RouteExc
 BLOCKER: T7 继续 blocked。解除条件为用户明确确认上述候选文件是权威原件，或提供其他权威 Excel 原件；随后才能把正式资源加入 `IntRuoyiBackend/yudao-module-mes/src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx` 并继续执行 Sheet1 套件与完整 MES 回归。
 
 FULL REGRESSION: `mvn -pl yudao-module-mes test` -> FAIL，2026-07-28 01:30:40 +08:00 完成；2511 tests、0 failures、4 errors、18 skipped。四个 error 均为 `java.nio.file.NoSuchFileException: src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx`，分别发生在 `Sheet1RouteExcelParserTest.parseFixture_returnsTwoRoutesWithFirstAppearanceDeduplicatedSteps`、`Sheet1RouteExcelImportServiceImplTest.importFixture_createsTwoDisabledRoutesAndDeduplicatedRouteProcesses`、`Sheet1RouteExcelImportServiceImplTest.importFixture_invalidProcessStatusFailsBeforeInsert`、`Sheet1RouteExcelImportServiceImplDbTest.importWhenRouteProcessInsertFails_rollsBackCreatedRoutesAndProcesses`。当前完整 MES 回归已无其他 failure/error。
+
+## T7/T9：用户范围变更与最终全量 GREEN（2026-07-28）
+
+USER-SCOPE: 用户明确确认 Sheet1 Excel 真实样本覆盖“不需要覆盖这个”。该决策解除此前缺失 `sheet1-route-balloon-catheter.xlsx` 的硬阻塞；不得复制桌面候选副本、不得用合成 workbook 冒充真实 fixture、不得使用 `@Disabled`、Maven excludes 或 assumptions 跳过测试。
+
+IMPLEMENTATION: 删除依赖缺失真实 Excel 的测试入口：
+
+- `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/route/importer/Sheet1RouteExcelImportServiceImplTest.java`
+- `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/route/importer/Sheet1RouteExcelImportServiceImplDbTest.java`
+- `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/route/importer/Sheet1RouteExcelTestFixtures.java`
+
+IMPLEMENTATION: `Sheet1RouteExcelParserTest` 删除真实 fixture 用例 `parseFixture_returnsTwoRoutesWithFirstAppearanceDeduplicatedSteps`，保留 4 个不依赖真实文件的合成 fail-fast/契约测试，覆盖缺少 Sheet1、表头无效、产品重复、产品块无工序四个正式拒绝路径。
+
+GREEN: `mvn -pl yudao-module-mes "-Dtest=Sheet1RouteExcelParserTest" test` -> PASS；4 tests、0 failures、0 errors、0 skipped。
+
+GREEN: `mvn -pl yudao-module-mes "-Dtest=MesProBatchRecordExecutionFieldAuditServiceTest#saveChanges_rejectsRecordbookModeWhenExecutionDisabledIt,MesProEdhrWorkTaskLegacyProcessTest#createInitialFillTask_shouldUseFrozenBatchRecordVersionPermissionRule" test` -> PASS；2 tests、0 failures、0 errors、0 skipped。修复点为字段审计测试按当前正式 precondition 期待 `PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID`，legacy work task 测试补齐有效责任范围 `scopeKey=ALL` 与 `fillableScopeJson`。
+
+REGRESSION: `mvn -pl yudao-module-mes test` -> PASS，2026-07-28 08:45:49 +08:00 完成；2530 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
+
+INDEPENDENT-RECHECK: `mvn -pl yudao-module-mes test` -> PASS，2026-07-28 08:53:25 +08:00 完成；2530 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`，总耗时 04:59。
+
+SUREFIRE: `Sheet1RouteExcelParserTest` -> 4 tests、0 failures、0 errors、0 skipped；`MesProBatchRecordExecutionFieldAuditServiceTest` -> 44 tests、0 failures、0 errors、0 skipped；`MesProEdhrWorkTaskLegacyProcessTest` -> 3 tests、0 failures、0 errors、0 skipped。
+
+EXPERIENCE: 已按 `project-experience-consolidation` 合并长期经验到 `docs/backend-development.md#批记录/路线导入真实-fixture-覆盖范围变更边界`，并在 `docs/experience-index.md` 增加 Sheet1 Excel/真实 fixture 范围变更关键词。没有新建长期经验文档。
+
+STATUS: 实现和 required verification 已完成，`task.md` 已更新为 `ready_for_closeout`。当前收尾提交/推送暂阻于共享工作区非本任务脏改动；按项目门禁不得把 `20260728-scheduler-route-flow-list-permission` 相关 SQL/测试/源码改动混入本任务提交。

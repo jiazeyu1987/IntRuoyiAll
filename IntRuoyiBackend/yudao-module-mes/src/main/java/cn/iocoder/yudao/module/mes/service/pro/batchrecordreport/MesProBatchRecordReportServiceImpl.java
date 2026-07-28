@@ -469,7 +469,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         List<Long> normalizedRouteProductIds = normalizeSelectedRouteProductIds(selectedRouteProductIds);
         List<String> normalizedSelectedProductNames = normalizeOptionalRouteProductNames(selectedProductNames);
         boolean routeRebuildRequested = !normalizedRouteProductIds.isEmpty() || !normalizedSelectedProductNames.isEmpty();
-        ensureRouteUpgradeConfirmedIfNeeded(normalizedBatchRecordName, routeRebuildRequested,
+        ensureRouteUpgradeConfirmedIfNeeded(normalizedBatchRecordName, routeRebuildRequested || rebuildRecord,
                 routeUpgradeConfirmed, expectedRouteId, expectedRouteVersionId);
         if (!rebuildRecord && !routeRebuildRequested) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_IMPORT_SCOPE_EMPTY);
@@ -573,7 +573,15 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                     importResult.reports());
         }
         MesProBatchRecordRouteGenerationResult routeResult = null;
-        if (routeRebuildRequested) {
+        if (!routeRebuildRequested && rebuildRecord && expectedRouteId != null) {
+            routeResult = routeGenerationService.generateBatchRecordBindingCandidateForUploadedWord(
+                    normalizedBatchRecordName, parsedTables, importResult.reports(),
+                    definition.getId(), targetVersion.getId(),
+                    expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed);
+            targetVersion.setRouteId(routeResult.routeId());
+            targetVersion.setSourceRouteId(targetSourceVersion == null ? null : targetSourceVersion.getRouteId());
+            versionMapper.updateById(targetVersion);
+        } else if (routeRebuildRequested) {
             if (routeOnlyWithoutBatchRecordVersion) {
                 routeResult = routeGenerationService.generateRouteOnlyForUploadedWord(
                         normalizedBatchRecordName, parsedTables, routeProductNames,
@@ -2001,6 +2009,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .sourceVersionId(sourceVersion == null ? null : sourceVersion.getId())
                 .sourceFileName(sourceFileName)
                 .sourceFileSha256(sha256)
+                .routeId(sourceVersion == null ? null : sourceVersion.getRouteId())
                 .sourceRouteId(sourceVersion == null ? null : sourceVersion.getRouteId())
                 .build();
         try {

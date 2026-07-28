@@ -87,6 +87,15 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - Forbidden action: 禁止静默换端口、临时改 `application-local.yaml` 凭据、切换到 mock/空数据源、只启动前端就宣称前后端完成。
 - Evidence: `doc/tasks/20260725-start-local-frontend-backend/verification-report.md`。
 
+## 2026-07-28 Docker Desktop E 盘 bind 挂载门禁
+
+- Trigger: `int-ruoyi-mysql` 启动报 `invalid mount config for type "bind"`、`bind source path does not exist`、`/run/desktop/mnt/host/e/IntRuoyi/.../ruoyi-vue-pro.sql`、Docker 临时容器挂载 `E:\IntRuoyi` 后目录为空、WSL 提示 `Failed to translate 'E:\IntRuoyi'`。
+- Preflight check: 先用 Windows `Test-Path E:\IntRuoyi\IntRuoyiBackend\sql\mysql\ruoyi-vue-pro.sql` 验证源文件真实存在，再用临时只读容器验证 Docker 能看到该文件；若 Docker/WSL 看不到 E 盘，检查 `/mnt/e`、`/mnt/host/e` 或 Docker Desktop host path 日志。
+- Blocker: Windows 文件存在但 Docker/WSL 挂载为空或缺失时，必须停止容器启动成功结论；不得复制 SQL 到假目录、删除 MySQL 数据卷、重建空库、改数据库端口或把缺失 bind 当成业务 schema 问题。
+- Verification: 修复挂载后，临时只读容器必须返回 `BIND_OK`；再启动 `int-ruoyi-mysql`，重跑标准重启脚本，并验证 `48081` health `UP`、`8081` HTTP `200`。
+- Forbidden action: 禁止用 C 盘临时副本、空初始化 SQL、容器重建换数据卷、mock 数据库或 API-only 成功绕过正式 E 盘项目路径。
+- Evidence: `doc/tasks/20260728-restart-local-runtime/verification-report.md`。
+
 ## 2026-07-25 分支本地运行复用 Docker 依赖门禁
 
 - Trigger: `int_batch`、`int_shedule`、`int_qms` 等分支工作区启动后端时出现本机 MySQL/Redis 认证或连接失败。

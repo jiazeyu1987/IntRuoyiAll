@@ -197,6 +197,21 @@ public class MesProBatchRecordRouteGenerationServiceImpl implements MesProBatchR
                 expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed, applyExistingRouteRebuild);
     }
 
+    @Override
+    public MesProBatchRecordRouteGenerationResult generateBatchRecordBindingCandidateForUploadedWord(
+            String batchRecordName,
+            List<MesProBatchRecordParsedTable> parsedTables,
+            List<MesProBatchRecordReportView> reports,
+            Long batchRecordDefinitionId,
+            Long batchRecordVersionId,
+            Long expectedRouteId,
+            Long expectedRouteVersionId,
+            Boolean routeUpgradeConfirmed) {
+        return generateForUploadedWord(batchRecordName, parsedTables, reports, List.of(batchRecordName),
+                batchRecordDefinitionId, batchRecordVersionId, true,
+                expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed, true);
+    }
+
     private MesProBatchRecordRouteGenerationResult generateForUploadedWord(String batchRecordName,
                                                                            List<MesProBatchRecordParsedTable> parsedTables,
                                                                            List<MesProBatchRecordReportView> reports,

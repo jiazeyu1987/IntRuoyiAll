@@ -9,7 +9,7 @@
 - [x] 读取任务、PowerShell、端口与本地运行态规则。
 - [x] 检查当前端口占用与旧进程归属。
 - [x] 使用标准本地重启脚本重启 backend + frontend。
-- [ ] 验证 `http://127.0.0.1:48081/actuator/health` 与 `http://127.0.0.1:8081/`。
+- [x] 验证 `http://127.0.0.1:48081/actuator/health` 与 `http://127.0.0.1:8081/`。
 - [x] 更新任务证据与最终状态。
 
 ## Expected Verification
@@ -22,13 +22,15 @@
 
 ## Current Status
 
-blocked
+completed
 
-## Blocker
+## Completed Work
 
-- 标准 full 重启脚本失败：必需 Docker 容器 `int-ruoyi-mysql` 未运行。
-- 只读 Docker 状态：`int-ruoyi-mysql` 存在但为 `Exited (255) 35 minutes ago`。
-- Impact: 后端无法完成本地数据库前置条件检查，脚本在启动 backend 前 fail fast；frontend 未被 full 脚本继续启动，避免把部分启动误报为前后端完成。
+- 修复本机运行态缺失的 E 盘 WSL/Docker Desktop 挂载，使 Docker 能访问 `E:\IntRuoyi\IntRuoyiBackend\sql\mysql\ruoyi-vue-pro.sql`。
+- 启动 `int-ruoyi-mysql` Docker 容器。
+- 使用标准脚本完成 `int_main` full 重启。
+- 验证后端 `48081` health 为 `UP`、前端 `8081` HTTP 为 `200`。
+- 验证 Runner token 文件被 Git 忽略、Runner 注册/心跳业务码为 `0`，且新探针会话 `current_running_count=0`、heartbeat age 为 `1s`。
 
 ## 设计约束检查
 

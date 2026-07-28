@@ -2,9 +2,9 @@
 
 ## Summary
 
-Status: blocked.
+Status: ready_for_closeout.
 
-The requested business behavior is implemented and both direct and standard targeted Maven tests pass. T4/T5/T6 regression clusters have been repaired and verified; the latest complete MES module run is blocked only by the missing authoritative Excel fixture required by Sheet1 route import tests.
+The requested business behavior is implemented and both direct and standard targeted Maven tests pass. T4/T5/T6 regression clusters have been repaired and verified. The former Sheet1 authoritative Excel fixture blocker was resolved by the user-approved scope change that real Sheet1 Excel sample coverage is not required. The final complete MES module run passed with 2530 tests, 0 failures, 0 errors, and 18 skipped.
 
 ## Verified Behavior
 
@@ -58,7 +58,7 @@ Diff check:
 
 Result: PASS, with Git line-ending conversion warnings only.
 
-## Blocker
+## Historical Blocker
 
 Earlier `mvn -pl yudao-module-mes -am test` failed in upstream `yudao-module-infra` with 415 tests, 38 failures, 1 error, and 10 skipped; Maven skipped MES.
 
@@ -74,10 +74,36 @@ The three Sheet1 tests now read `fixtures/sheet1-route-balloon-catheter.xlsx` th
 
 The latest full MES rerun completed at 2026-07-28 01:30:40 +08:00 with `2511 tests`, `0 failures`, `4 errors`, and `18 skipped`. All four errors are the same missing project fixture `src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx`; no other suite currently reports a failure or error.
 
+## Scope Change Resolution
+
+User decision: Sheet1 Excel real fixture coverage is not required for this task. The prior missing fixture blocker is therefore removed from the acceptance gate by explicit scope change, not by fallback.
+
+Implementation adjustment:
+
+- Removed `Sheet1RouteExcelImportServiceImplTest`, `Sheet1RouteExcelImportServiceImplDbTest`, and `Sheet1RouteExcelTestFixtures`, which depended on the missing real Excel fixture.
+- Removed only `Sheet1RouteExcelParserTest.parseFixture_returnsTwoRoutesWithFirstAppearanceDeduplicatedSteps`.
+- Preserved the four synthetic parser fail-fast tests in `Sheet1RouteExcelParserTest`.
+
+Guardrail review: no `@Disabled`, Maven excludes, assumptions, empty fixture, desktop candidate fixture, or synthetic workbook was used to masquerade as the removed real fixture coverage.
+
+## Final Verification
+
+Targeted Sheet1 parser check:
+
+`mvn -pl yudao-module-mes "-Dtest=Sheet1RouteExcelParserTest" test`
+
+Result: PASS. 4 tests run, 0 failures, 0 errors, 0 skipped.
+
+Complete MES regression:
+
+`mvn -pl yudao-module-mes test`
+
+Result at 2026-07-28 08:53:25 +08:00: PASS. 2530 tests run, 0 failures, 0 errors, 18 skipped, `BUILD SUCCESS`.
+
 ## Completion Gate
 
-Do not mark this task completed, commit, or push until a complete MES module regression passes.
+Implementation and required verification are complete. The task is `ready_for_closeout`, but not yet `completed` because closeout commit/push is blocked by unrelated dirty worktree changes that must not be mixed into this task.
 
 ## Integration State
 
-Concurrent baseline commit `f18927b9e3682a8a66d44d535b24c75b824b40e2` already contains the Java implementation, regression tests, and the initial task documents. The post-regression check confirmed that local `HEAD` and `origin/int_main` were aligned and both contained that baseline; the shared branch continues to advance through concurrent tasks, so later transient commit IDs are not used as completion evidence. Post-verification evidence updates remain uncommitted because the complete module regression gate is still blocked.
+Concurrent baseline commit `f18927b9e3682a8a66d44d535b24c75b824b40e2` already contains the Java implementation, regression tests, and the initial task documents. Current evidence updates are intentionally uncommitted because `git status --short --branch` shows non-task dirty changes under the scheduler route-flow permission task and related backend files. Per project ownership rules, those changes must not be staged into this task's closeout commit.
