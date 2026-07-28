@@ -2,7 +2,7 @@
 
 ## Result
 
-- Status: ready_for_closeout
+- Status: completed
 - Scope: `用户列表访问` 权限角色 SQL 与静态合同测试。
 
 ## Commands
@@ -18,3 +18,4 @@
 ## Notes
 
 - Full SQL policy gate over all `IntRuoyiBackend/sql/mysql` is blocked by an existing invalid metadata type `config-seed` in `20260725_mes_edhr_recordbook_global_setting.sql`; this task did not modify that file.
+- Implementation commit: `a55f2545 feat: add user list access role permission migration`。

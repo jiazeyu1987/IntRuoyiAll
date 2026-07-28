@@ -11,7 +11,7 @@
 - [x] 先补充 SQL 静态合同，锁定角色和权限绑定。
 - [x] 新增幂等 SQL 创建或修复 `用户列表访问` 角色并绑定真实权限菜单。
 - [x] 运行 SQL 合同与安全检查。
-- [ ] 更新任务文档、验证报告并提交推送。
+- [x] 更新任务文档、验证报告并提交推送。
 
 ## Expected Verification
 
@@ -21,7 +21,12 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
+
+## Final Verification Result
+
+- PASS：SQL 合同测试、专项 release migration policy gate、数据库证据校验、cleanup preview/apply 均通过。
+- Implementation commit: `a55f2545 feat: add user list access role permission migration`。
 
 ## 经验门禁
 

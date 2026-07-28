@@ -39,8 +39,9 @@
 
 ## Current Status
 
-- ready_for_closeout：实现、本任务专项验证、cleanup 和经验沉淀已完成；仍需选择性提交和推送。
+- completed：实现、本任务专项验证、cleanup、经验沉淀、实现提交和最终收尾记录均已完成；仍需推送后复扫 ahead 状态。
 
 ## Git Boundary
 
 - 提交前 `git status --short --branch` 显示多个既有/并行脏改动；本任务只暂存 `20260728_user_list_access_role.sql`、`test_user_list_access_role_sql.py`、`doc/tasks/20260728-user-list-access-role/` 和 `docs/release-build-preflight-lessons.md` 的本任务经验补充。
+- Implementation commit: `a55f2545 feat: add user list access role permission migration`，文件清单为新增 SQL、pytest 合同、任务文档和 `docs/release-build-preflight-lessons.md` 经验补充。
