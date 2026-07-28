@@ -3162,6 +3162,47 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void previewTask_returnsUnopenedBatchRecordWithExecutionSnapshotAssistRows() {
+        Fixture fixture = insertRouteFixture(true, false);
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-PREVIEW-ASSIST")
+                .setRouteId(fixture.routeId()));
+        EdhrBatchExecutionTaskRespVO batchRecordTask = routeTasks(batch).get(0);
+        when(jimuReportGateway.getReportJson(fixture.reportId1()))
+                .thenReturn(unopenedBatchRecordPreviewReportJson(true));
+
+        EdhrBatchExecutionTaskPreviewRespVO preview =
+                batchExecutionService.previewTask(batch.getId(), batchRecordTask.getId());
+
+        assertEquals(batch.getId(), preview.getBatchExecutionId());
+        assertEquals(batchRecordTask.getId(), preview.getTaskId());
+        assertEquals(Boolean.FALSE, preview.getExecutionCreated());
+        assertNotNull(preview.getFormViewModel());
+        assertNotNull(preview.getFormViewModel().getExecutionSnapshotJson());
+        JSONObject snapshot = JSON.parseObject(preview.getFormViewModel().getExecutionSnapshotJson());
+        JSONArray fields = snapshot.getJSONArray("fields");
+        assertEquals(2, fields.size());
+        JSONArray assistRows = snapshot.getJSONArray("assistRows");
+        assertNotNull(assistRows);
+        assertEquals(2, assistRows.size());
+        assertEquals("AR_OPERATOR", assistRows.getJSONObject(0).getString("rowKey"));
+        assertEquals("操作信息", assistRows.getJSONObject(0).getString("description"));
+        assertEquals(0, assistRows.getJSONObject(0).getJSONArray("fields").getJSONObject(0).getIntValue("rowIndex"));
+        assertEquals(1, assistRows.getJSONObject(0).getJSONArray("fields").getJSONObject(0).getIntValue("columnIndex"));
+
+        when(jimuReportGateway.getReportJson(fixture.reportId1()))
+                .thenReturn(unopenedBatchRecordPreviewReportJson(false));
+        EdhrBatchExecutionTaskPreviewRespVO noAssistPreview =
+                batchExecutionService.previewTask(batch.getId(), batchRecordTask.getId());
+        JSONArray noAssistRows = JSON.parseObject(noAssistPreview.getFormViewModel().getExecutionSnapshotJson())
+                .getJSONArray("assistRows");
+        assertNotNull(noAssistRows);
+        assertEquals(0, noAssistRows.size());
+        verify(singleExecutionService, never()).openOrCreateByContext(any());
+    }
+
+    @Test
     void openTask_pendingReleaseAllowsApprovedOrdinaryFillCompletedBeforeClose() {
         Fixture fixture = insertRouteFixture(true, true);
         EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
@@ -6942,6 +6983,41 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .build();
         formTemplateVersionMapper.insert(templateVersion);
         return templateVersion;
+    }
+
+    private String unopenedBatchRecordPreviewReportJson(boolean withAssistRows) {
+        JSONObject root = JSON.parseObject("""
+                {
+                  "name":"preview-assist-demo",
+                  "rows":{
+                    "0":{
+                      "cells":{
+                        "0":{"text":"操作员"},
+                        "1":{"text":"","fillForm":{"field":"ebr_preview_r0_c1","component":"Input","componentFlag":"input-text","required":true,"label":"","labelText":"","defaultValue":"OP-001","value":"OP-001"},"edhrCellRule":{"rowIndex":0,"columnIndex":1,"valueType":"STRING","componentFlag":"input-text","required":true,"label":"操作员","helpText":"填写实际执行本表单的操作人员姓名或工号","constraints":{},"source":"MANUAL","confidence":1.0,"reviewed":true}},
+                        "2":{"text":"备注"},
+                        "3":{"text":"","fillForm":{"field":"ebr_preview_r0_c3","component":"Input","componentFlag":"input-textarea","required":false,"label":"","labelText":""},"edhrCellRule":{"rowIndex":0,"columnIndex":3,"valueType":"STRING","componentFlag":"input-textarea","required":false,"label":"备注","helpText":"记录本次操作相关的补充说明","constraints":{},"source":"MANUAL","confidence":1.0,"reviewed":true}}
+                      },
+                      "height":24
+                    }
+                  },
+                  "cols":{"0":{"width":100},"1":{"width":120},"2":{"width":100},"3":{"width":180},"len":4},
+                  "merges":[],
+                  "fillFormInfo":{"layout":{"direction":"horizontal","width":180,"height":32}},
+                  "printConfig":{"paper":"A4"},
+                  "dataRectWidth":500
+                }
+                """);
+        if (withAssistRows) {
+            root.put("edhrAssistRows", JSON.parseArray("""
+                    [
+                      {"rowKey":"AR_OPERATOR","description":"操作信息","sort":1,
+                        "fields":[{"rowIndex":0,"columnIndex":1}]},
+                      {"rowKey":"AR_REMARK","description":"备注信息","sort":2,
+                        "fields":[{"rowIndex":0,"columnIndex":3}]}
+                    ]
+                    """));
+        }
+        return root.toJSONString();
     }
 
     private String dynamicFormJimuSchemaJson() {
