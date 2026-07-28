@@ -147,3 +147,11 @@
 - Follow-up merge: `git merge --no-edit origin/int_main` -> PASS，生成 merge commit `09545667`，当前任务分支包含最新 `origin/int_main` 提交 `5c3b6506`。
 - Follow-up GREEN: `git merge-base --is-ancestor origin/int_main HEAD` -> PASS。
 - Follow-up GREEN: 目标 Maven 31 tests PASS；节点串迁移契约 2 tests PASS；前端节点串静态契约 PASS；branch runtime port guard PASS。
+- Commit: final verification record `2afca08e` -> PASS，提交最新主线融合验证证据。
+- Push: `git push origin codex/20260727-codex-test-node-chain-runtime` -> PASS，任务分支远端同步到 `2afca08e`。
+- Remote integration: `git push origin HEAD:int_main` -> PASS，远端 `int_main` 从 `5c3b6506` 快进到 `2afca08e`。
+- Remote verification: `git fetch origin int_main` + `git merge-base --is-ancestor HEAD origin/int_main` -> PASS，任务 HEAD 已集成进 `origin/int_main`。
+- Cleanup preview: `task_closeout.py --task-id 20260727-codex-test-node-chain --mode preview --worktree-closeout off` -> PASS，keep 为 `task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`，无 delete、blocked 或 warnings。
+- Cleanup apply: `task_closeout.py --task-id 20260727-codex-test-node-chain --mode apply --worktree-closeout off` -> PASS，无删除项。
+- Full worktree closeout blocker: `task_closeout.py --mode preview` 仍因本地 `E:\IntRuoyi` 的 `int_main` 分支存在并行本地提交 `f6521d8a`、`5d377bc2` 且落后远端集成 HEAD 而不能执行本地 ff-only merge；这些提交不属于本任务，未修改、未回滚、未推送。
+- Final status: `task.md` -> `completed`，本任务代码、迁移、前端契约、远端主线集成和任务产物 cleanup 均完成；本地 `E:\IntRuoyi` 分叉状态作为并行任务环境保留。

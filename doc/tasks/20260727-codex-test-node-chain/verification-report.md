@@ -76,3 +76,7 @@
 - 端口契约：branch runtime port guard PASS，frontend `8088`，backend `48088`。
 - 最终补充融合：远端主线前进后再次 `git merge --no-edit origin/int_main` -> PASS，当前任务 HEAD `09545667`，远端主线 `5c3b6506` 是当前 HEAD 的祖先。
 - 最终补充验证：目标 Maven 31 tests PASS；节点串迁移契约 2 tests PASS；前端节点串静态契约 PASS；branch runtime port guard PASS。
+- 任务分支推送：`git push origin codex/20260727-codex-test-node-chain-runtime` -> PASS，远端任务分支同步到 `2afca08e`。
+- 远端主线集成：`git push origin HEAD:int_main` -> PASS，远端 `int_main` 从 `5c3b6506` 快进到 `2afca08e`，并已复核任务 HEAD 集成进 `origin/int_main`。
+- cleanup 结果：`task_closeout.py --mode preview --worktree-closeout off` 和 `--mode apply --worktree-closeout off` 均 PASS，保留核心任务记录和 `bug-regression-evidence.md`，无删除项。
+- 本地主工作区说明：完整 worktree closeout 的本地 ff-only merge 仍受 `E:\IntRuoyi` 上两个并行本地提交阻塞；本任务未修改、回滚或推送这些并行提交。

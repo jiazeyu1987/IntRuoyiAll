@@ -26,7 +26,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 经验门禁
 
@@ -110,3 +110,9 @@ ready_for_closeout
 - doc/tasks/20260727-codex-test-node-chain/execution-log.md
 - doc/tasks/20260727-codex-test-node-chain/verification-report.md
 - doc/tasks/20260727-codex-test-node-chain/bug-regression-evidence.md
+
+## Final Verification Result
+
+- 任务分支已融合最新 `origin/int_main` 并完成目标验证。
+- `git push origin HEAD:int_main` 已将远端 `int_main` 快进到已验证 HEAD。
+- cleanup 非 worktree 模式已确认只保留核心任务记录和缺陷回归证据，无可删除任务产物。
