@@ -153,8 +153,6 @@ public interface ErrorCodeConstants {
             "DCC product name recognition failed: {}");
     ErrorCode CONTROLLED_FILE_PRODUCT_NAME_RECOGNITION_EMPTY = new ErrorCode(1_080_000_128,
             "DCC product name recognition returned empty product name");
-    ErrorCode CONTROLLED_FILE_PRODUCT_MASTER_INVALID = new ErrorCode(1_080_000_129,
-            "Controlled file product master data must be enabled and contain a valid DCC product code");
     ErrorCode CONTROLLED_FILE_PROJECT_CODE_RECOGNITION_CONFIG_MISSING = new ErrorCode(1_080_000_130,
             "DCC project-code recognition Codex CLI config is missing: {}");
     ErrorCode CONTROLLED_FILE_PROJECT_CODE_RECOGNITION_SOURCE_MISSING = new ErrorCode(1_080_000_131,

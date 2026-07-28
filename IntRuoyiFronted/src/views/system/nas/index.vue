@@ -254,21 +254,33 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="DCC 产品" prop="productMasterId">
+        <el-form-item label="DCC 项目" prop="dccProjectCodeId">
           <el-select
-            v-model="transferDialog.form.productMasterId"
+            v-model="transferDialog.form.dccProjectCodeId"
             class="!w-420px"
             clearable
             filterable
-            placeholder="可不选择 DCC 产品"
+            remote
+            reserve-keyword
+            :loading="transferDialog.projectCodeOptionsLoading"
+            :remote-method="loadTransferProjectCodeOptions"
+            placeholder="请选择 DCC 项目"
           >
             <el-option
-              v-for="item in transferDialog.productOptions"
+              v-for="item in transferDialog.projectCodeOptions"
               :key="item.id"
-              :label="formatDccProductOption(item)"
+              :label="formatDccProjectCodeOption(item)"
               :value="item.id as number"
             />
           </el-select>
+        </el-form-item>
+        <el-form-item label="产品编号">
+          <el-input
+            :model-value="selectedTransferProjectCode?.projectCode || ''"
+            class="!w-420px"
+            readonly
+            placeholder="选择 DCC 项目后自动生成"
+          />
         </el-form-item>
         <el-form-item label="生效日期" prop="effectiveDate">
           <el-date-picker
@@ -409,17 +421,19 @@ import {
   LOCAL_FOLDER_IMPORT_CHUNK_BYTES,
   completeLocalFolderImportSession,
   createLocalFolderImportSession,
-  DCC_PRODUCT_STATUS_ENABLE,
-  getDccProductOptions,
   getLocalFolderImportUploadState,
   getNasTransferTaskState,
   transferNasDirectories,
   uploadLocalFolderImportChunk,
   type ControlledFileLocalFolderImportUploadStateRespVO,
   type ControlledFileLocalFolderImportSessionCreateReqVO,
-  type ControlledFileNasTransferRespVO,
-  type DccControlledFileProductOptionVO
+  type ControlledFileNasTransferRespVO
 } from '@/api/dcc/controlledFile/workflow'
+import {
+  DCC_PROJECT_CODE_STATUS_ENABLE,
+  getProjectCodePage,
+  type DccProjectCodeRespVO
+} from '@/api/dcc/controlledFile/projectCodes'
 import {
   getNasConfig,
   saveNasConfig,
@@ -500,7 +514,8 @@ const transferDialog = reactive<{
   sourceType: TransferSourceType
   errorMessage: string
   categoryOptions: ControlledFileCategoryVO[]
-  productOptions: DccControlledFileProductOptionVO[]
+  projectCodeOptions: DccProjectCodeRespVO[]
+  projectCodeOptionsLoading: boolean
   result: ControlledFileNasTransferRespVO | null
   localFolder: LocalFolderSelection
   sessionCreatedAt: string
@@ -508,7 +523,7 @@ const transferDialog = reactive<{
   uploadChunkCount: number
   form: {
     templateCategoryId?: number
-    productMasterId?: number
+    dccProjectCodeId?: number
     effectiveDate: string
   }
 }>({
@@ -517,7 +532,8 @@ const transferDialog = reactive<{
   sourceType: 'NAS',
   errorMessage: '',
   categoryOptions: [],
-  productOptions: [],
+  projectCodeOptions: [],
+  projectCodeOptionsLoading: false,
   result: null,
   localFolder: {
     files: [],
@@ -530,7 +546,7 @@ const transferDialog = reactive<{
   uploadChunkCount: 0,
   form: {
     templateCategoryId: undefined,
-    productMasterId: undefined,
+    dccProjectCodeId: undefined,
     effectiveDate: ''
   }
 })
@@ -593,6 +609,9 @@ const canSubmitTransfer = computed(
 const selectedTransferCategory = computed(() =>
   transferDialog.categoryOptions.find((item) => item.id === transferDialog.form.templateCategoryId)
 )
+const selectedTransferProjectCode = computed(() =>
+  transferDialog.projectCodeOptions.find((item) => item.id === transferDialog.form.dccProjectCodeId)
+)
 const localFolderUploadProgressPercent = computed(() => {
   const result = transferDialog.result
   if (!result || result.sourceType !== 'LOCAL_FOLDER' || !result.expectedFileCount) {
@@ -610,6 +629,7 @@ const formRules = reactive({
 })
 const transferFormRules = reactive({
   templateCategoryId: [{ required: true, message: '请选择 DCC 模板类别', trigger: 'change' }],
+  dccProjectCodeId: [{ required: true, message: '请选择 DCC 项目', trigger: 'change' }],
   effectiveDate: [{ required: true, message: '请选择生效日期', trigger: 'change' }]
 })
 
@@ -772,7 +792,8 @@ const validateLocalFolderFiles = (files: File[]): LocalFolderSelection => {
 
 const buildLocalFolderImportSessionPayload = (): ControlledFileLocalFolderImportSessionCreateReqVO => ({
   templateCategoryId: transferDialog.form.templateCategoryId as number,
-  productMasterId: transferDialog.form.productMasterId ?? undefined,
+  dccProjectCodeId: transferDialog.form.dccProjectCodeId as number,
+  productMasterId: null,
   effectiveDate: transferDialog.form.effectiveDate,
   rootDirectoryName: transferDialog.localFolder.rootDirectoryName,
   expectedFileCount: transferDialog.localFolder.files.length,
@@ -949,18 +970,24 @@ const loadTransferCategoryOptions = async () => {
   transferDialog.form.templateCategoryId = otherCategory.id
 }
 
-const loadTransferProductOptions = async () => {
-  if (!transferDialog.productOptions.length) {
-    transferDialog.productOptions = await getDccProductOptions({
-      status: DCC_PRODUCT_STATUS_ENABLE,
-      requireDccProductCode: true
+const loadTransferProjectCodeOptions = async (keyword = '') => {
+  transferDialog.projectCodeOptionsLoading = true
+  try {
+    const data = await getProjectCodePage({
+      pageNo: 1,
+      pageSize: 50,
+      status: DCC_PROJECT_CODE_STATUS_ENABLE,
+      keyword: keyword.trim() || undefined
     })
-  }
-  if (
-    transferDialog.form.productMasterId &&
-    !transferDialog.productOptions.some((item) => item.id === transferDialog.form.productMasterId)
-  ) {
-    transferDialog.form.productMasterId = undefined
+    transferDialog.projectCodeOptions = data.list
+    if (
+      transferDialog.form.dccProjectCodeId &&
+      !transferDialog.projectCodeOptions.some((item) => item.id === transferDialog.form.dccProjectCodeId)
+    ) {
+      transferDialog.form.dccProjectCodeId = undefined
+    }
+  } finally {
+    transferDialog.projectCodeOptionsLoading = false
   }
 }
 
@@ -980,10 +1007,8 @@ const escapeHtml = (value: string) =>
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;')
 
-const formatDccProductOption = (item: DccControlledFileProductOptionVO) => {
-  const code = item.dccProductCode || item.productCode
-  return code ? `${code} / ${item.nameCn}` : item.nameCn
-}
+const formatDccProjectCodeOption = (item: DccProjectCodeRespVO) =>
+  [item.projectName, item.projectCode, item.docControlNo].filter(Boolean).join(' / ')
 
 const clearTransferTaskPolling = () => {
   if (transferTaskPollingTimer) {
@@ -1183,7 +1208,7 @@ const openTransferDialog = async (sourceType: TransferSourceType) => {
     transferDialog.form.effectiveDate = new Date().toISOString().slice(0, 10)
   }
   try {
-    await Promise.all([loadTransferCategoryOptions(), loadTransferProductOptions()])
+    await Promise.all([loadTransferCategoryOptions(), loadTransferProjectCodeOptions()])
     transferDialog.visible = true
     if (hasActiveTransferTask.value) {
       scheduleTransferTaskPolling(transferDialog.result?.taskId)
@@ -1248,7 +1273,8 @@ const handleSubmitTransfer = async () => {
     const result = await transferNasDirectories({
       selectedNasPaths: [...selectedDirectoryPaths.value],
       templateCategoryId: transferDialog.form.templateCategoryId as number,
-      productMasterId: transferDialog.form.productMasterId ?? undefined,
+      dccProjectCodeId: transferDialog.form.dccProjectCodeId as number,
+      productMasterId: null,
       effectiveDate: transferDialog.form.effectiveDate
     })
     applyTransferTaskResult(result)

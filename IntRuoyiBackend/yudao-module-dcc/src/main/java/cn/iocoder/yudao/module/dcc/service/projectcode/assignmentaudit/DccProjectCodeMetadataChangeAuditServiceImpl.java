@@ -169,11 +169,11 @@ public class DccProjectCodeMetadataChangeAuditServiceImpl
 
     private List<FieldDiff> diff(DccControlledFileDO beforeFile, DccControlledFileDO afterFile) {
         return java.util.stream.Stream.of(
-                        field("productMasterId", "产品主数据", beforeFile.getProductMasterId(),
+                        field("productMasterId", "历史产品ID", beforeFile.getProductMasterId(),
                                 afterFile.getProductMasterId()),
                         field("productCode", "产品编号", beforeFile.getProductCode(), afterFile.getProductCode()),
                         field("productName", "产品名称", beforeFile.getProductName(), afterFile.getProductName()),
-                        field("dccProjectCodeId", "DCC基础条目", beforeFile.getDccProjectCodeId(),
+                        field("dccProjectCodeId", "DCC 项目代码", beforeFile.getDccProjectCodeId(),
                                 afterFile.getDccProjectCodeId()),
                         field("needTraining", "培训要求", beforeFile.getNeedTraining(), afterFile.getNeedTraining()),
                         field("fileTypeLevel1", "文件类别 I", beforeFile.getFileTypeLevel1(),

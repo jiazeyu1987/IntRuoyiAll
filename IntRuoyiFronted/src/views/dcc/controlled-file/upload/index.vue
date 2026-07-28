@@ -1150,7 +1150,11 @@ const submitForm = async () => {
 
   submitLoading.value = true
   try {
-    await uploadSubmitterService.submit(formData, previewUpload.value, drawingPdfUpload.value)
+    await uploadSubmitterService.submit(
+      { ...formData, productMasterId: null },
+      previewUpload.value,
+      drawingPdfUpload.value
+    )
     uploadSubmitted.value = true
     message.success(isExternalReview.value ? '外来文件评审已提交审批' : '受控文件已提交审批')
     await router.push({ name: 'DccControlledFileBrowser' })

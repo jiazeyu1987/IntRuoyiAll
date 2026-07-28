@@ -7,6 +7,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.directory.DccFileDirectoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileMasterDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccCategoryDirectoryBindingMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.directory.DccFileDirectoryMapper;
@@ -14,14 +15,13 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMasterMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileStatusEnum;
+import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyAdminService;
 import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath;
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignment.DccProjectCodeAssignmentAuthorization;
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignment.DccProjectCodeAssignmentService;
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignmentaudit.DccProjectCodeMetadataChangeAuditService;
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignmentaudit.DccProjectCodeMetadataChangeCommand;
-import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
-import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
@@ -38,11 +38,11 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_FILE_NUMBER_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_NOT_EXISTS;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PRODUCT_MASTER_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_DIRECTORY_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_DIRECTORY_BINDING_NOT_EXISTS;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.FILE_CATEGORY_NOT_EXISTS;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_DISABLED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_NOT_EXISTS;
 
 @Service
@@ -62,8 +62,6 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
     private DccProjectCodeMapper projectCodeMapper;
     @Resource
     private PermissionApi permissionApi;
-    @Resource
-    private MdmProductApi productApi;
     @Resource
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
     @Resource
@@ -158,41 +156,18 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
             throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
         }
         String fileNumber = StrUtil.trimToEmpty(reqVO.getFileNumber());
-        Long dccProjectCodeId = normalizeProjectCodeId(reqVO.getDccProjectCodeId());
+        DccProjectCodeDO projectCode = resolveEnabledProjectCode(reqVO.getDccProjectCodeId());
         ResolvedFileTypeTaxonomy fileTypeTaxonomy = resolveFileTypeTaxonomy(reqVO);
         FileTypeLevels fileTypeLevels = fileTypeTaxonomy.levels();
-        if (reqVO.getProductMasterId() == null) {
-            if (StrUtil.isNotBlank(reqVO.getProductCode()) || StrUtil.isNotBlank(reqVO.getProductName())) {
-                throw exception(CONTROLLED_FILE_PRODUCT_MASTER_INVALID);
-            }
-            return new NormalizedMetadata(
-                    null,
-                    null,
-                    StrUtil.trim(reqVO.getFileName()),
-                    null,
-                    fileNumber,
-                    reqVO.getCategoryId(),
-                    reqVO.getDirectoryId(),
-                    dccProjectCodeId,
-                    reqVO.getNeedTraining(),
-                    fileTypeTaxonomy.id(),
-                    fileTypeLevels.level1(),
-                    fileTypeLevels.level2(),
-                    fileTypeLevels.level3(),
-                    fileTypeLevels.level4(),
-                    fileTypeLevels.level5());
-        }
-        MdmProductRespDTO product = resolveDccProduct(reqVO.getProductMasterId());
-        String productCode = StrUtil.trimToNull(product.getDccProductCode());
         return new NormalizedMetadata(
-                product.getId(),
-                StrUtil.trim(product.getNameCn()),
+                null,
+                StrUtil.trim(projectCode.getProjectName()),
                 StrUtil.trim(reqVO.getFileName()),
-                productCode,
+                StrUtil.trim(projectCode.getProjectCode()),
                 fileNumber,
                 reqVO.getCategoryId(),
                 reqVO.getDirectoryId(),
-                dccProjectCodeId,
+                projectCode.getId(),
                 reqVO.getNeedTraining(),
                 fileTypeTaxonomy.id(),
                 fileTypeLevels.level1(),
@@ -202,14 +177,21 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
                 fileTypeLevels.level5());
     }
 
-    private Long normalizeProjectCodeId(Long dccProjectCodeId) {
+    private DccProjectCodeDO resolveEnabledProjectCode(Long dccProjectCodeId) {
         if (dccProjectCodeId == null) {
-            return null;
+            throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
         }
-        if (projectCodeMapper.selectById(dccProjectCodeId) == null) {
+        DccProjectCodeDO projectCode = projectCodeMapper.selectById(dccProjectCodeId);
+        if (projectCode == null) {
             throw exception(PROJECT_CODE_NOT_EXISTS);
         }
-        return dccProjectCodeId;
+        if (!DccProjectCodeStatusConstants.ENABLE.equals(projectCode.getStatus())) {
+            throw exception(PROJECT_CODE_DISABLED);
+        }
+        if (StrUtil.isBlank(projectCode.getProjectCode()) || StrUtil.isBlank(projectCode.getProjectName())) {
+            throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
+        }
+        return projectCode;
     }
 
     private FileTypeLevels normalizeFileTypeLevels(DccControlledFileMetadataUpdateReqVO reqVO) {
@@ -228,21 +210,6 @@ public class DccControlledFileMetadataUpdateServiceImpl implements DccControlled
         DccFileTypeTaxonomyPath path = fileTypeTaxonomyAdminService.resolveActivePath(reqVO.getFileTypeTaxonomyId());
         return new ResolvedFileTypeTaxonomy(reqVO.getFileTypeTaxonomyId(), new FileTypeLevels(
                 path.level1(), path.level2(), path.level3(), path.level4(), path.level5()));
-    }
-
-    private MdmProductRespDTO resolveDccProduct(Long productMasterId) {
-        MdmProductRespDTO product;
-        try {
-            product = productApi.getEnabledDccProduct(productMasterId);
-        } catch (RuntimeException ex) {
-            throw exception(CONTROLLED_FILE_PRODUCT_MASTER_INVALID);
-        }
-        String dccProductCode = StrUtil.trimToNull(product == null ? null : product.getDccProductCode());
-        if (product == null || product.getId() == null || StrUtil.isBlank(product.getNameCn())
-                || dccProductCode == null || !dccProductCode.matches("[A-Za-z0-9]{14}")) {
-            throw exception(CONTROLLED_FILE_PRODUCT_MASTER_INVALID);
-        }
-        return product;
     }
 
     private void validateCategory(Long categoryId) {

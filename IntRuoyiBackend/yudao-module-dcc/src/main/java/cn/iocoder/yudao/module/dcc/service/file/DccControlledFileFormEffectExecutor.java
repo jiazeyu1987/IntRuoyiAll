@@ -107,8 +107,9 @@ public class DccControlledFileFormEffectExecutor
         reqVO.setSourceFileId(optionalLong(formData, "sourceFileId"));
         reqVO.setSourceFileName(optionalString(formData, "sourceFileName"));
         reqVO.setDrawingPdfFileId(optionalLong(formData, "drawingPdfFileId"));
-        reqVO.setProductMasterId(optionalLong(formData, "productMasterId"));
+        reqVO.setProductMasterId(null);
         reqVO.setProductCode(optionalString(formData, "productCode"));
+        reqVO.setDccProjectCodeId(requiredLong(formData, "dccProjectCodeId"));
         reqVO.setNeedTraining(optionalBoolean(formData, "needTraining"));
         reqVO.setProcessType(optionalString(formData, "processType"));
         reqVO.setChangeType(requiredString(formData, "changeType"));

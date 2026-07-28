@@ -14,35 +14,42 @@
       :title="metadataDialog.inlineError"
     />
     <el-form label-width="96px">
-      <el-form-item label="产品编号" :error="metadataDialog.fieldErrors.productMasterId">
+      <el-form-item label="DCC 项目" :error="metadataDialog.fieldErrors.dccProjectCodeId">
         <el-select
-          v-model="metadataForm.productMasterId"
+          v-model="metadataForm.dccProjectCodeId"
           class="!w-full"
           clearable
           filterable
           remote
           reserve-keyword
-          :loading="productOptionsLoading"
-          :remote-method="loadProductOptions"
-          placeholder="可不选择产品主数据"
-          @change="handleProductMasterChange"
+          :loading="projectCodeOptionsLoading"
+          :remote-method="loadProjectCodeOptions"
+          placeholder="请选择 DCC 项目"
+          @change="handleProjectCodeChange"
         >
           <el-option
-            v-for="product in productOptions"
-            :key="product.id"
-            :label="formatProductOptionLabel(product)"
-            :value="product.id"
+            v-for="projectCode in projectCodeOptions"
+            :key="projectCode.id"
+            :label="formatProjectCodeOptionLabel(projectCode)"
+            :value="projectCode.id"
           />
         </el-select>
         <div class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
           当前快照：{{ props.file?.productCode || '-' }} / {{ props.file?.productName || '-' }}
         </div>
       </el-form-item>
+      <el-form-item label="产品编号" :error="metadataDialog.fieldErrors.dccProjectCodeId">
+        <el-input
+          v-model="metadataForm.productCode"
+          disabled
+          placeholder="选择 DCC 项目后自动生成"
+        />
+      </el-form-item>
       <el-form-item label="产品名称">
         <el-input
           v-model="metadataForm.productName"
           disabled
-          placeholder="选择产品编号后自动带出"
+          placeholder="选择 DCC 项目后自动生成"
         />
       </el-form-item>
       <el-form-item label="文件名称" :error="metadataDialog.fieldErrors.fileName">
@@ -60,27 +67,6 @@
           maxlength="64"
           placeholder="请输入文件编号"
         />
-      </el-form-item>
-      <el-form-item label="DCC基础条目" :error="metadataDialog.fieldErrors.dccProjectCodeId">
-        <el-select
-          v-model="metadataForm.dccProjectCodeId"
-          class="!w-full"
-          clearable
-          filterable
-          remote
-          reserve-keyword
-          :loading="projectCodeOptionsLoading"
-          :remote-method="loadProjectCodeOptions"
-          placeholder="请选择 DCC基础条目"
-          @change="clearProjectCodeError"
-        >
-          <el-option
-            v-for="projectCode in projectCodeOptions"
-            :key="projectCode.id"
-            :label="formatProjectCodeOptionLabel(projectCode)"
-            :value="projectCode.id"
-          />
-        </el-select>
       </el-form-item>
       <el-form-item label="培训要求" :error="metadataDialog.fieldErrors.needTraining">
         <el-radio-group v-model="metadataForm.needTraining">
@@ -167,10 +153,7 @@
 
 <script lang="ts" setup>
 import {
-  DCC_PRODUCT_STATUS_ENABLE,
-  getDccProductOptions,
   updateControlledFileMetadata,
-  type DccControlledFileProductOptionVO,
   type ControlledFileMetadataUpdateReqVO,
   type ControlledFileVO
 } from '@/api/dcc/controlledFile/workflow'
@@ -217,7 +200,6 @@ const metadataDialog = reactive({
 })
 
 const metadataForm = reactive({
-  productMasterId: undefined as number | undefined,
   productName: '',
   dccProjectCodeId: undefined as number | undefined,
   needTraining: false,
@@ -240,8 +222,6 @@ interface DirectoryOption {
   label: string
 }
 
-const productOptions = ref<DccControlledFileProductOptionVO[]>([])
-const productOptionsLoading = ref(false)
 const projectCodeOptions = ref<DccProjectCodeRespVO[]>([])
 const projectCodeOptionsLoading = ref(false)
 const fileTypeTaxonomies = ref<DccFileTypeTaxonomyVO[]>([])
@@ -368,8 +348,8 @@ const selectedCategory = computed(() =>
   categoryOptions.value.find((category) => category.id === metadataForm.categoryId)
 )
 
-const selectedProduct = computed(() =>
-  productOptions.value.find((product) => product.id === metadataForm.productMasterId)
+const selectedProjectCode = computed(() =>
+  projectCodeOptions.value.find((projectCode) => projectCode.id === metadataForm.dccProjectCodeId)
 )
 
 const directoryOptions = computed(() => {
@@ -390,13 +370,16 @@ const trimToNull = (value: string) => {
   return trimmed ? trimmed : null
 }
 
-const formatProductOptionLabel = (product: DccControlledFileProductOptionVO) =>
-  `${product.dccProductCode} · ${product.nameCn} · ${product.productCode}`
-
 const formatProjectCodeOptionLabel = (projectCode: DccProjectCodeRespVO) =>
   [projectCode.projectName, projectCode.projectCode, projectCode.docControlNo].filter(Boolean).join(' / ')
 
-const clearProjectCodeError = () => {
+const applyDccProjectCodeProductNumber = () => {
+  metadataForm.productCode = selectedProjectCode.value?.projectCode?.trim() || ''
+  metadataForm.productName = selectedProjectCode.value?.projectName?.trim() || ''
+}
+
+const handleProjectCodeChange = () => {
+  applyDccProjectCodeProductNumber()
   delete metadataDialog.fieldErrors.dccProjectCodeId
 }
 
@@ -456,31 +439,6 @@ const loadFileTypeTaxonomies = async () => {
   }
 }
 
-const loadProductOptions = async (keyword = '') => {
-  productOptionsLoading.value = true
-  try {
-    productOptions.value = await getDccProductOptions({
-      status: DCC_PRODUCT_STATUS_ENABLE,
-      requireDccProductCode: true,
-      keyword: keyword.trim() || undefined
-    })
-    const currentId = props.file?.productMasterId
-    if (currentId && !productOptions.value.some((product) => product.id === currentId)) {
-      metadataForm.productMasterId = undefined
-      metadataForm.productCode = ''
-      metadataForm.productName = ''
-    }
-  } catch (error) {
-    productOptions.value = []
-    metadataDialog.inlineError = resolveReadSideErrorMessage(
-      error,
-      '产品主数据加载失败，请查看错误提示后重试。'
-    )
-  } finally {
-    productOptionsLoading.value = false
-  }
-}
-
 const loadProjectCodeOptions = async (keyword = '') => {
   projectCodeOptionsLoading.value = true
   try {
@@ -499,7 +457,7 @@ const loadProjectCodeOptions = async (keyword = '') => {
     projectCodeOptions.value = []
     metadataDialog.inlineError = resolveReadSideErrorMessage(
       error,
-      'DCC基础条目加载失败，请查看错误提示后重试。'
+      'DCC 项目加载失败，请查看错误提示后重试。'
     )
   } finally {
     projectCodeOptionsLoading.value = false
@@ -524,18 +482,10 @@ const loadDialogDirectories = async () => {
   }
 }
 
-const handleProductMasterChange = (productId: number | undefined) => {
-  const product = productOptions.value.find((item) => item.id === productId)
-  metadataForm.productCode = product?.dccProductCode || ''
-  metadataForm.productName = product?.nameCn || ''
-  delete metadataDialog.fieldErrors.productMasterId
-}
-
 const resetMetadataDialog = () => {
   metadataDialog.submitting = false
   metadataDialog.inlineError = ''
   metadataDialog.fieldErrors = {}
-  metadataForm.productMasterId = props.file?.productMasterId || undefined
   metadataForm.productName = props.file?.productName || ''
   metadataForm.dccProjectCodeId = props.file?.dccProjectCodeId || undefined
   metadataForm.needTraining = Boolean(props.file?.needTraining)
@@ -568,8 +518,8 @@ const validateMetadataDialog = () => {
   if (!fileName) {
     errors.fileName = '请输入文件名称'
   }
-  if (metadataForm.productMasterId && !selectedProduct.value?.dccProductCode) {
-    errors.productMasterId = '请选择启用且包含 DCC 产品编号的产品主数据'
+  if (!metadataForm.dccProjectCodeId || !metadataForm.productCode.trim()) {
+    errors.dccProjectCodeId = '请选择包含项目代码的 DCC 项目'
   }
   if (metadataForm.needTraining === undefined || metadataForm.needTraining === null) {
     errors.needTraining = '请选择培训要求'
@@ -595,8 +545,8 @@ const validateMetadataDialog = () => {
 const buildMetadataPayload = (): ControlledFileMetadataUpdateReqVO => ({
   assignmentId: props.assignmentId,
   changeReason: trimToUndefined(metadataForm.changeReason),
-  productMasterId: metadataForm.productMasterId,
-  productName: trimToUndefined(selectedProduct.value?.nameCn || metadataForm.productName),
+  productMasterId: null,
+  productName: trimToUndefined(selectedProjectCode.value?.projectName || metadataForm.productName),
   dccProjectCodeId: metadataForm.dccProjectCodeId || null,
   needTraining: metadataForm.needTraining,
   fileTypeTaxonomyId: metadataForm.fileTypeTaxonomyId || null,
@@ -606,7 +556,7 @@ const buildMetadataPayload = (): ControlledFileMetadataUpdateReqVO => ({
   fileTypeLevel4: trimToNull(metadataForm.fileTypeLevel4),
   fileTypeLevel5: trimToNull(metadataForm.fileTypeLevel5),
   fileName: metadataForm.fileName.trim(),
-  productCode: trimToUndefined(selectedProduct.value?.dccProductCode || metadataForm.productCode),
+  productCode: trimToUndefined(selectedProjectCode.value?.projectCode || metadataForm.productCode),
   fileNumber: metadataForm.fileNumber.trim(),
   categoryId: metadataForm.categoryId as number,
   directoryId: metadataForm.directoryId as number
@@ -643,7 +593,6 @@ watch(
     if (props.modelValue) {
       resetMetadataDialog()
       await Promise.all([
-        loadProductOptions(),
         loadProjectCodeOptions(),
         loadDialogDirectories(),
         loadFileTypeTaxonomies()

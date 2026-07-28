@@ -30,7 +30,6 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePag
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePreviewMetadataRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileProjectCodeRecognitionRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePublishReqVO;
-import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileProductOptionRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRecognitionMigrationImportPreviewRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRejectTaskReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileReturnTaskReqVO;
@@ -74,7 +73,6 @@ import cn.iocoder.yudao.module.dcc.service.file.DccSignatureEvidenceExportArtifa
 import cn.iocoder.yudao.module.dcc.service.file.DccTrainingAssignmentAckService;
 import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTemporaryFileStatus;
 import cn.iocoder.yudao.module.dcc.service.upload.DccUploadTicketService;
-import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
@@ -161,8 +159,6 @@ public class DccControlledFileController {
     private DccUploadTicketService uploadTicketService;
     @Resource
     private DccControlledFileAccessAuditService accessAuditService;
-    @Resource
-    private MdmProductApi productApi;
 
     @PostMapping("/upload-preview")
     @Operation(summary = "Upload one controlled file before submit")
@@ -250,18 +246,6 @@ public class DccControlledFileController {
     @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit')")
     public CommonResult<DccControlledFileUploadDirectoryTreeRespVO> getUploadDirectoryTree(Long categoryId) {
         return success(queryService.getUploadDirectoryTree(categoryId));
-    }
-
-    @GetMapping("/product-options")
-    @Operation(summary = "List DCC product options for controlled file submission")
-    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:submit') or @ss.hasRole('doc_control')")
-    public CommonResult<List<DccControlledFileProductOptionRespVO>> getProductOptions(
-            @RequestParam(value = "status", required = false) String status,
-            @RequestParam(value = "requireDccProductCode", required = false) Boolean requireDccProductCode,
-            @RequestParam(value = "keyword", required = false) String keyword) {
-        return success(productApi.listSimpleProducts(status, requireDccProductCode, keyword).stream()
-                .map(DccControlledFileProductOptionRespVO::from)
-                .toList());
     }
 
     @GetMapping("/upload-revision-candidates")
