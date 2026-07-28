@@ -75,6 +75,15 @@ ready_for_closeout
 - Forbidden action: 禁止改随机名、吞异常、隐藏删除失败或跳过运行中 execution 校验。
 - Evidence: `docs/backend-development.md#2026-07-27-测试项固定名称删除唯一键门禁`。
 
+### 并行主工作区远端快进融合门禁
+
+- Trigger: 主工作区持续被并行任务写入，自动 worktree closeout 因 dirty main workspace 不能接收 ff-only merge。
+- Preflight check: 在任务 worktree 融合最新 `origin/int_main`，确认 `origin/int_main` 是任务 HEAD 的祖先，并重跑节点串目标验证。
+- Blocker: 远端主线不是当前任务 HEAD 祖先、验证失败、推送非快进被拒、或任务分支存在未提交改动时停止。
+- Verification: `git merge-base --is-ancestor origin/int_main HEAD`、目标 Maven、迁移 pytest、前端静态契约和 branch runtime port guard 均通过。
+- Forbidden action: 禁止清理、回滚或提交并行任务文件来制造 clean 主工作区；禁止 force push 或未验证直接更新 `int_main`。
+- Evidence: `docs/worktree-memory.md#并行主工作区远端快进融合门禁`。
+
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。

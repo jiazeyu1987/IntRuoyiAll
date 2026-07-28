@@ -133,3 +133,14 @@
 - Latest GREEN: `node .\tests\e2e\system-codex-test-node-chain-static.spec.js` -> PASS。
 - Latest GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260727-codex-test-node-chain-runtime/int_main` 使用 frontend `8088`、backend `48088`。
 - Closeout preview: `task_closeout.py --task-id 20260727-codex-test-node-chain --mode preview` -> BLOCKED，任务分支清理 keep/delete 规则正常，但主工作区 `E:\IntRuoyi` 再次出现并行 MES/DCC/表单模板/权限任务的源码、SQL、测试和任务文档脏改动；基线提交预检还发现并行 `20260728-user-list-access-role` 任务文档存在 `git diff --check` EOF 空行错误。已取消暂存以免留下半提交状态，未修改、未回滚、未清理这些并行任务文件。
+
+## 2026-07-28 Parallel Workspace Integration
+
+- User intent: 主工作区会持续被多个任务并行写入，因此本任务改为先在任务 worktree 融合最新远端主线并验证，再集成；不等待 `E:\IntRuoyi` 长时间保持 clean。
+- GREEN: project-experience-consolidation -> PASS，已将“并行主工作区远端快进融合门禁”合并到 `docs/worktree-memory.md`，并在 `docs/experience-index.md` 增加可命中关键词；未新建长期经验文档。
+- Merge: `git merge --no-edit origin/int_main` -> PASS，生成 merge commit `6e4264ee`，当前任务分支包含 `origin/int_main` 提交 `bbfc5464`。
+- GREEN: `git merge-base --is-ancestor origin/int_main HEAD` -> PASS，远端主线是当前任务 HEAD 的祖先。
+- GREEN: `mvn.cmd -pl yudao-module-system -am "-Dtest=CodexTestCaseServiceImplTest,CodexTestExecutionServiceImplTest,CodexTestRunnerServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，31 tests passed。
+- GREEN: `python -X utf8 -m pytest script\tests\test_codex_test_node_chain_migration.py -q` from `IntRuoyiBackend` -> PASS，2 tests passed。
+- GREEN: `node .\tests\e2e\system-codex-test-node-chain-static.spec.js` from `IntRuoyiFronted` -> PASS。
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260727-codex-test-node-chain-runtime/int_main` 使用 frontend `8088`、backend `48088`。

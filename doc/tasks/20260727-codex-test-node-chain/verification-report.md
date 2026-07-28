@@ -64,3 +64,13 @@
 - 最新主线合并：`git merge --no-edit origin/int_main` -> PASS，生成 `9faa18d5`，当前任务分支包含最新 `origin/int_main` 提交 `87d3e00b`。
 - 最新验证：目标 Maven 30 tests PASS；节点串迁移契约 2 tests PASS；前端节点串静态契约 PASS；branch runtime port guard PASS。
 - 当前收尾状态：任务分支已验证并推送，但 `task_closeout.py --mode preview` 仍被主工作区并行脏改动阻止；其中并行 `20260728-user-list-access-role` 任务文档存在 `git diff --check` EOF 空行错误，不能在不修改并行任务文件或提交不通过预检内容的情况下继续 ff-only closeout。
+
+## 2026-07-28 Parallel Workspace Integration
+
+- 用户决策：主工作区持续并行写入，本任务按“先融合再测试”执行，不再等待 `E:\IntRuoyi` 保持 clean。
+- 长期经验：已更新 `docs/worktree-memory.md#并行主工作区远端快进融合门禁` 和 `docs/experience-index.md`，未新建经验文档。
+- 融合基线：`git merge --no-edit origin/int_main` -> PASS，任务 HEAD `6e4264ee`，远端主线 `bbfc5464`，`origin/int_main` 是当前 HEAD 的祖先。
+- 后端回归：目标 Maven 31 tests PASS。
+- 迁移契约：节点串迁移 pytest 2 tests PASS。
+- 前端静态契约：`system-codex-test-node-chain-static.spec.js` PASS。
+- 端口契约：branch runtime port guard PASS，frontend `8088`，backend `48088`。
