@@ -1286,65 +1286,71 @@ function resolvePersistedRouteProcessId(routeProcessId, routeProcessIdMap) {
   return persistedRouteProcessId
 }
 
-async function waitForSelectedBatchRecordReport(reportSelect, selectedReportPattern, report) {
-  const selectedReportLocator = reportSelect
-    .locator('.el-tag, .el-select__tags-text, .el-select__selected-item, .el-select__collapse-tags')
-    .filter({ hasText: selectedReportPattern })
-    .first()
-  try {
-    await selectedReportLocator.waitFor({
-      state: 'visible',
-      timeout: 30000
-    })
-  } catch (error) {
-    const diagnostics = await reportSelect.evaluate((element) => {
-      const readTexts = (selector) =>
-        Array.from(element.querySelectorAll(selector))
-          .map((item) => item.textContent?.trim())
-          .filter(Boolean)
-      return {
-        innerText: element.innerText,
-        selectedTexts: readTexts(
-          '.el-tag, .el-select__tags-text, .el-select__selected-item, .el-select__collapse-tags'
-        ),
-        optionTexts: readTexts('.el-select-dropdown__item'),
-        optionHtml: Array.from(element.querySelectorAll('.el-select-dropdown__item'))
-          .map((item) => item.outerHTML)
-          .slice(0, 5),
-        optionStyles: Array.from(
-          element.querySelectorAll('.route-flow-graph-designer__batch-record-report-option')
-        )
-          .map((item) => {
-            const style = window.getComputedStyle(item)
-            return {
-              pointerEvents: style.pointerEvents,
-              display: style.display,
-              width: style.width,
-              height: style.height
-            }
-          })
-          .slice(0, 5),
-        inputValues: Array.from(element.querySelectorAll('input')).map((input) => input.value),
-        className: element.className,
-        vueProps: element.__vueParentComponent
-          ? {
-              typeName: element.__vueParentComponent.type?.name,
-              modelValue: element.__vueParentComponent.props?.modelValue,
-              multiple: element.__vueParentComponent.props?.multiple,
-              disabled: element.__vueParentComponent.props?.disabled
-            }
-          : null
-      }
-    })
-    throw new Error(
-      `target batch record report selection did not commit: ${JSON.stringify({
-        reportId: report.reportId,
-        reportCode: report.reportCode,
-        reportName: report.reportName,
-        diagnostics
-      })}; ${error.message}`
-    )
+async function readBatchRecordReportSelectionDiagnostics(reportSelect) {
+  return reportSelect.evaluate((element) => {
+    const readTexts = (selector) =>
+      Array.from(element.querySelectorAll(selector))
+        .map((item) => item.textContent?.trim())
+        .filter(Boolean)
+    const vueProps = element.__vueParentComponent
+      ? {
+          typeName: element.__vueParentComponent.type?.name,
+          modelValue: element.__vueParentComponent.props?.modelValue,
+          multiple: element.__vueParentComponent.props?.multiple,
+          disabled: element.__vueParentComponent.props?.disabled
+        }
+      : null
+    return {
+      innerText: element.innerText,
+      selectedTexts: readTexts(
+        '.el-tag, .el-select__tags-text, .el-select__selected-item, .el-select__collapse-tags'
+      ),
+      optionTexts: readTexts('.el-select-dropdown__item'),
+      optionHtml: Array.from(element.querySelectorAll('.el-select-dropdown__item'))
+        .map((item) => item.outerHTML)
+        .slice(0, 5),
+      optionStyles: Array.from(
+        element.querySelectorAll('.route-flow-graph-designer__batch-record-report-option')
+      )
+        .map((item) => {
+          const style = window.getComputedStyle(item)
+          return {
+            pointerEvents: style.pointerEvents,
+            display: style.display,
+            width: style.width,
+            height: style.height
+          }
+        })
+        .slice(0, 5),
+      inputValues: Array.from(element.querySelectorAll('input')).map((input) => input.value),
+      className: element.className,
+      vueProps
+    }
+  })
+}
+
+async function waitForSelectedBatchRecordReport(reportSelect, report) {
+  const expectedReportId = String(report.reportId)
+  const deadline = Date.now() + 30000
+  let diagnostics = null
+  while (Date.now() < deadline) {
+    diagnostics = await readBatchRecordReportSelectionDiagnostics(reportSelect)
+    const selectedIds = Array.isArray(diagnostics.vueProps?.modelValue)
+      ? diagnostics.vueProps.modelValue.map((item) => String(item))
+      : []
+    if (selectedIds.includes(expectedReportId)) {
+      return diagnostics
+    }
+    await sleep(250)
   }
+  throw new Error(
+    `target batch record report selection did not update modelValue: ${JSON.stringify({
+      reportId: report.reportId,
+      reportCode: report.reportCode,
+      reportName: report.reportName,
+      diagnostics
+    })}`
+  )
 }
 
 async function ensureBatchRecordDetailFieldVisible(page, editor) {
@@ -1408,15 +1414,9 @@ async function configureTargetBatchRecordReportThroughUi(page, auth, copiedRoute
     .first()
   await reportOption.waitFor({ state: 'visible', timeout: 60000 })
   await sleep(500)
-  await reportOption
-    .locator('.route-flow-graph-designer__batch-record-report-option')
-    .first()
-    .click()
+  await reportOption.click()
   await page.keyboard.press('Escape')
-  const selectedReportPattern = new RegExp(
-    [report.reportCode, report.reportName].filter(Boolean).map(escapeRegExp).join('|')
-  )
-  await waitForSelectedBatchRecordReport(reportSelect, selectedReportPattern, report)
+  await waitForSelectedBatchRecordReport(reportSelect, report)
 
   const validateResponsePromise = page.waitForResponse(
     (response) =>
@@ -1454,6 +1454,21 @@ async function configureTargetBatchRecordReportThroughUi(page, auth, copiedRoute
   const batchSaveResponse = await batchSaveResponsePromise
   const batchSaveRequestPayload = JSON.parse(batchSaveResponse.request().postData() || '{}')
   await readBrowserBusinessData(batchSaveResponse, 'save target batch record binding')
+  const savedRequestProcess = (batchSaveRequestPayload.processConfigs || []).find(
+    (item) => Number(item.routeProcessId) === Number(persistedRouteProcessId)
+  )
+  const savedRequestBinding = (savedRequestProcess?.batchRecordReports || []).find(
+    (item) => String(item.batchRecordReportId || '') === String(report.reportId)
+  )
+  assert.ok(
+    savedRequestBinding,
+    `target batch record report must be present in batch save request: ${JSON.stringify({
+      targetRouteProcessId: Number(targetProcess.routeProcessId),
+      persistedRouteProcessId,
+      routeProcessIdMap: graphSaveResult?.routeProcessIdMap,
+      batchSaveRequestPayload
+    })}`
+  )
 
   const savedParams = new URLSearchParams({
     routeId: String(copiedRoute.id),

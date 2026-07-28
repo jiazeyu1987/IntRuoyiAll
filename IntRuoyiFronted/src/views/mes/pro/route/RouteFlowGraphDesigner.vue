@@ -1152,11 +1152,9 @@
                           :key="item.reportId"
                           :label="buildBatchRecordReportOptionLabel(item)"
                           :value="item.reportId"
-                          @click.prevent.stop="handleSelectedBatchRecordReportOptionClick(item)"
                         >
                           <span
                             class="route-flow-graph-designer__batch-record-report-option"
-                            @click.prevent.stop="handleSelectedBatchRecordReportOptionClick(item)"
                           >
                             {{ buildBatchRecordReportOptionLabel(item) }}
                           </span>
@@ -2877,21 +2875,6 @@ const handleSelectedBatchRecordReportIdsChange = (
     })
   selectedLegacyBatchRecords.value = resequenceLegacyBatchRecords(nextRecords)
   syncSelectedLegacyBatchRecordsToDraft()
-}
-
-const handleSelectedBatchRecordReportOptionClick = (option: BatchRecordReportSelectOption) => {
-  if (recordBindingEditorDisabled.value) return
-  const reportId = normalizeNullableText(option.reportId)
-  if (!reportId) {
-    throw new Error('批记录表单选择失败：报表选项缺少 reportId')
-  }
-  const currentReportIds = selectedLegacyBatchRecords.value
-    .map((report) => normalizeNullableText(report.batchRecordReportId))
-    .filter((value): value is string => Boolean(value))
-  const nextReportIds = currentReportIds.includes(reportId)
-    ? currentReportIds.filter((currentReportId) => currentReportId !== reportId)
-    : [...currentReportIds, reportId]
-  handleSelectedBatchRecordReportIdsChange(nextReportIds)
 }
 
 const dedupeFormTemplateOptions = (items: FormTemplateListItemVO[]) => {

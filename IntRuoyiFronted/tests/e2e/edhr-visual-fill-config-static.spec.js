@@ -117,18 +117,13 @@ includes(
 )
 includes(
   routeFlowDesigner,
-  '@click.prevent.stop="handleSelectedBatchRecordReportOptionClick(item)"',
-  '批记录表单选择器必须在受控多选下显式接管鼠标点击提交，避免 option 点击不更新 modelValue。'
-)
-includes(
-  routeFlowDesigner,
   'route-flow-graph-designer__batch-record-report-option',
-  '批记录表单选项必须渲染可点击的真实 DOM 内容，确保鼠标事件不会被 el-option 组件边界吞掉。'
+  '批记录表单选项必须渲染真实 DOM 内容，确保选项文案和编码可被真实页面路径识别。'
 )
-includes(
+notIncludes(
   routeFlowDesigner,
-  'pointer-events: auto;',
-  '批记录表单选项真实 DOM 必须允许指针事件，覆盖 Element Plus 选项内容的默认事件穿透。'
+  'handleSelectedBatchRecordReportOptionClick',
+  '批记录表单选择必须使用 Element Plus el-option 原生选择事件，不得用阻止冒泡的自定义点击链路绕过 model 更新。'
 )
 includes(
   routeFlowDesigner,
@@ -159,6 +154,10 @@ includes(realFlowE2E, 'configureTargetBatchRecordReportThroughUi', '真实 E2E �
 includes(realFlowE2E, 'data-route-process-setting-field="batch-record-report"', '真实 E2E 必须操作逐工序批记录表单选择器。')
 includes(realFlowE2E, 'await reportInput.fill(report.reportCode)', '真实 E2E 必须用报表编码搜索批记录表单，避免同名报表候选误选。')
 includes(realFlowE2E, "filter({ hasText: report.reportCode })", '真实 E2E 必须按报表编码精确选择目标报表，不能只按同名文案选择第一项。')
+includes(realFlowE2E, 'await reportOption.click()', '真实 E2E 必须点击 Element Plus 原生 option 根节点，验证真实选择事件能更新 modelValue。')
+includes(realFlowE2E, 'readBatchRecordReportSelectionDiagnostics', '真实 E2E 必须读取批记录表单选择器的组件 modelValue 作为选择提交证据。')
+includes(realFlowE2E, 'target batch record report selection did not update modelValue', '真实 E2E 选择失败时必须报告组件 modelValue 诊断。')
+includes(realFlowE2E, 'target batch record report must be present in batch save request', '真实 E2E 保存后必须先核对请求载荷中包含目标批记录报表绑定。')
 includes(realFlowE2E, 'data-flow-action="save-route-flow"', '真实 E2E 必须通过路线编辑页顶部保存提交候选草稿。')
 includes(realFlowE2E, 'resolvePersistedRouteProcessId', '真实 E2E 保存候选草稿后必须按 routeProcessIdMap 解析正式工序 ID。')
 includes(realFlowE2E, 'graphSaveResult?.routeProcessIdMap', '真实 E2E 读回逐工序批记录绑定必须使用保存响应中的 routeProcessIdMap。')
