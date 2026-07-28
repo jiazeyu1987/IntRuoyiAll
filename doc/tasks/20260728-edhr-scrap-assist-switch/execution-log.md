@@ -37,4 +37,25 @@
 ## Integration Notes
 - `git fetch origin int_main` completed.
 - `origin/int_main` is not an ancestor of current `codex/20260728-edhr-scrap-assist-switch` because this branch starts from baseline commit `3fb50fa6` that contains unrelated dirty-worktree preservation.
-- To avoid mixing unrelated baseline files into `int_main`, the task implementation commit will be cherry-picked onto a clean branch from `origin/int_main` before pushing.
+- Implementation commit on source branch: `b4700d39 fix: route assist filler form slots to detail drawer`.
+- Created clean branch `codex/20260728-edhr-scrap-assist-switch-clean` from `origin/int_main`.
+- Cherry-picked task implementation commit onto clean branch; after latest rebase onto `origin/int_main` commit `7d59f3bf`, the clean implementation commit is `5e87b3ef fix: route assist filler form slots to detail drawer`.
+- Re-ran on clean branch: target static contracts, adjacent loss/dynamic-form contracts, bug-regression validator, and `pnpm ts:check` all PASS.
+- `branch-runtime-port-guard.ps1` initially failed because the port registry still recorded source branch `codex/20260728-edhr-scrap-assist-switch` for this path after switching to the clean branch.
+- Updated only the current worktree registry entry branch to `codex/20260728-edhr-scrap-assist-switch-clean`, keeping slot `10`, frontend `8091`, backend `48091`; removed failed-update temp file from `D:\IntRuoyiWorktree\.ports`.
+- `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS on clean branch.
+- Rebase conflict in `docs/frontend-development.md` and `docs/experience-index.md` was resolved by keeping both upstream eDHR current-process highlight gates and this task's FormCenter slot navigation gate.
+- Latest rebase onto `origin/int_main` commit `7d59f3bf` completed without new conflicts.
+- After rebase, `git log --oneline origin/int_main..HEAD` showed only the clean implementation commit `5e87b3ef fix: route assist filler form slots to detail drawer` and this task's integration-record commit.
+- Verification rerun after rebase:
+  - `node tests\e2e\edhr-switch-filler-formcenter-slot-static.spec.js` from `IntRuoyiFronted` -> PASS.
+  - `node tests\e2e\edhr-switch-filler-selectability-static.spec.js` from `IntRuoyiFronted` -> PASS.
+  - `node tests\e2e\edhr-work-task-formcenter-navigation-static.spec.js` from `IntRuoyiFronted` -> PASS.
+  - `node tests\e2e\edhr-loss-form-open-action-static.spec.js` from `IntRuoyiFronted` -> PASS.
+  - `node tests\e2e\edhr-dynamic-form-card-preview-static.spec.js` from `IntRuoyiFronted` -> PASS.
+  - `node tests\e2e\edhr-batch-detail-assist-preview-switch-static.spec.js` from `IntRuoyiFronted` -> PASS.
+  - `node IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-assist-filler-switch-snapshot-static.spec.cjs` from repo root -> PASS.
+  - `pnpm ts:check` from `IntRuoyiFronted` -> PASS.
+  - `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260728-edhr-scrap-assist-switch\bug-regression-evidence.md` -> PASS.
+  - `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
+  - `git diff --check` -> PASS.

@@ -19,4 +19,5 @@
 
 ## Risk
 - 当前修复仅改变前端导航分流和自动打开时的 `assistUserId` 透传；传统批记录任务仍走原 `/mes/pro/feedback/edhr-execution/form` 路径。
-- 本地 `int_main` 存在并行脏改动和本任务分支历史中存在无关基线提交；最终融合必须使用干净 `origin/int_main` 分支 cherry-pick 本任务提交，避免混入非本任务文件。
+- 本地 `int_main` 存在并行脏改动，已改用 `origin/int_main` 派生的 clean 分支承载最终提交；最新 rebase 后 clean 分支包含任务提交 `5e87b3ef` 和本集成记录提交，避免混入源分支无关基线文件。
+- worktree 端口登记已同步到 clean 分支并通过 `branch-runtime-port-guard.ps1`。

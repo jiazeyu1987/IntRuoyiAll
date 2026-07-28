@@ -16,7 +16,7 @@
 - 无新增 fallback、吞异常、默认成功或静默降级。
 
 ## Current Status
-in_progress
+ready_for_closeout
 
 ## Applicable Gates
 - `docs/frontend-development.md#切换填写人-formcenter-槽位导航门禁`：FormCenter 表单槽位候选必须跳转批次详情 `openRouteForm=1`，并在详情页二次 `openTask` 透传 `assistUserId`。
@@ -30,7 +30,12 @@ in_progress
 
 ## Worktree Evidence
 - Worktree: `D:\IntRuoyiWorktree\20260728-edhr-scrap-assist-switch`
-- Branch: `codex/20260728-edhr-scrap-assist-switch`
+- Source branch with baseline history: `codex/20260728-edhr-scrap-assist-switch`
+- Clean integration branch: `codex/20260728-edhr-scrap-assist-switch-clean`
 - Runtime profile: `int_main`, slot `10`, frontend `8091`, backend `48091`
 - Dirty baseline commit before task branch: `3fb50fa6`
-- Clean integration plan: current branch contains unrelated baseline history, so task-owned implementation will be cherry-picked onto a clean branch from `origin/int_main` before pushing to `int_main`.
+- Clean integration evidence: implementation commit `b4700d39` was cherry-picked onto clean `origin/int_main`; after rebasing onto `origin/int_main` commit `7d59f3bf`, the clean implementation commit is `5e87b3ef`, followed by this integration-record commit.
+- Worktree port registry branch was updated for the current clean branch with slot `10`, frontend `8091`, backend `48091`.
+
+## Cleanup Keep
+- `doc/tasks/20260728-edhr-scrap-assist-switch/bug-regression-evidence.md`
