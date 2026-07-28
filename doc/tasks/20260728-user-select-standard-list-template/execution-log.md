@@ -31,6 +31,9 @@
 - 2026-07-28: 新增人员选择标准列表模板静态合同，先 RED 后改造为 `UnifiedListTemplate`。
 - 2026-07-28: 人员选择弹窗右侧列表已接入标准模板、显示字段配置、列宽拖拽持久化和标准分页。
 - 2026-07-28: 验证完成，任务状态进入 `ready_for_closeout`。
+- 2026-07-28: project-experience-consolidation 检查完成，本次仅复用既有前端标准列表门禁与样式规则，无新增长期经验文档。
+- 2026-07-28: task-closeout-cleanup preview/apply 通过，无删除项、无阻塞项、无 warning。
+- 2026-07-28: 任务状态更新为 `completed`。
 
 ## Verification Evidence
 
@@ -45,4 +48,5 @@
 
 ## Cleanup Evidence
 
-- pending
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-user-select-standard-list-template --mode preview` -> PASS，keep 4 个任务记录/证据文件，delete/blocked/warnings 均为 none。
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-user-select-standard-list-template --mode apply` -> PASS，deleted_paths 为 none。

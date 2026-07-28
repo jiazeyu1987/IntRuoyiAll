@@ -11,7 +11,7 @@
 - [x] 先补充静态合同，锁定人员选择列表必须接入标准列表模板。
 - [x] 修改前端组件，使用标准列表模板承载红框内列表区域。
 - [x] 运行目标静态合同和相关前端验证。
-- [ ] 更新任务文档、验证报告并完成提交推送。
+- [x] 更新任务文档、验证报告并完成提交推送。
 
 ## Expected Verification
 
@@ -21,7 +21,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 经验门禁
 
@@ -52,3 +52,8 @@ ready_for_closeout
 ## Cleanup Keep
 
 - doc/tasks/20260728-user-select-standard-list-template/frontend-feature-evidence.md
+
+## Final Verification Result
+
+- PASS：目标静态合同、相邻标准模板合同、前端类型检查和 diff 检查均通过。
+- Cleanup：task-closeout-cleanup preview/apply 均无删除、无阻塞、无 warning。
