@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -273,7 +274,8 @@ class MesProBatchRecordCellLinkServiceImplTest {
         Map<String, Object> result = service.buildFormTemplateVersionPrefillData(
                 7001L, 1002L, "BATCH-FROM-EXECUTION", formData);
 
-        assertEquals("BATCH-FROM-EXECUTION", result.get("3:1"));
+        assertEquals("BATCH-FROM-EXECUTION", result.get("productionBatchCode"));
+        assertFalse(result.containsKey("3:1"));
         assertEquals(3002L, result.get("batchTaskId"));
     }
 
@@ -283,6 +285,9 @@ class MesProBatchRecordCellLinkServiceImplTest {
                 .templateId(1001L)
                 .templateName("过程检验记录")
                 .versionNo("V3.0")
+                .recognizedSchemaJson("""
+                        [{"fieldCode":"productionBatchCode","label":"生产批号","fieldType":"input","required":true}]
+                        """)
                 .jimuSchemaJson("""
                         {
                           "sheetLayoutJson":"{\\\"cols\\\":{\\\"0\\\":{\\\"width\\\":140},\\\"1\\\":{\\\"width\\\":220}},\\\"rows\\\":{\\\"3\\\":{\\\"height\\\":36,\\\"cells\\\":{\\\"0\\\":{\\\"text\\\":\\\"生产批号\\\"},\\\"1\\\":{\\\"text\\\":\\\"\\\"}}}}}",

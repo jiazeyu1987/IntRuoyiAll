@@ -1480,6 +1480,36 @@ type ProcessTaskGroup = {
   primaryTask: EdhrBatchExecutionTaskRespVO
 }
 
+const PRODUCT_INFO_PROCESS_SORT = 80
+const PRODUCT_INFO_PROCESS_NAME = '产品信息'
+
+const containsProductInfoTitle = (text?: string | number | null) => {
+  const normalized = String(text ?? '')
+    .trim()
+    .replace(/\s+/g, '')
+  return Boolean(normalized) && (normalized.includes('产品信息') || normalized.toLowerCase().includes('productinformation'))
+}
+
+const isProductInfoProcessTask = (task: EdhrBatchExecutionTaskRespVO) =>
+  task.nodeType === EDHR_BATCH_NODE_ROUTE_FORM &&
+  task.formSlotType === 'MAIN' &&
+  task.recordCategory === 'BATCH_RECORD' &&
+  (task.batchRecordSort === PRODUCT_INFO_PROCESS_SORT ||
+    containsProductInfoTitle(task.batchRecordReportName) ||
+    containsProductInfoTitle(task.batchRecordReportCode) ||
+    containsProductInfoTitle(task.batchRecordReportId))
+
+const buildProcessTaskGroupKey = (task: EdhrBatchExecutionTaskRespVO) => {
+  if (isProductInfoProcessTask(task)) return `product-info:${task.batchRecordReportId || task.id}`
+  return String(task.routeProcessId || task.routeProcessSort || task.id)
+}
+
+const resolveProcessTaskGroupName = (task: EdhrBatchExecutionTaskRespVO) =>
+  isProductInfoProcessTask(task) ? PRODUCT_INFO_PROCESS_NAME : task.processName
+
+const resolveProcessTaskGroupSort = (task: EdhrBatchExecutionTaskRespVO) =>
+  isProductInfoProcessTask(task) ? PRODUCT_INFO_PROCESS_SORT : task.routeProcessSort
+
 const sortedTasks = computed(() =>
   [...(detail.value?.tasks || [])].sort(
     (first, second) =>
@@ -1491,7 +1521,7 @@ const processTaskGroups = computed<ProcessTaskGroup[]>(() => {
   const groups = new Map<string, Omit<ProcessTaskGroup, 'primaryTask'>>()
   for (const task of sortedTasks.value) {
     if (isSpecialNode(task)) continue
-    const key = String(task.routeProcessId || task.routeProcessSort || task.id)
+    const key = buildProcessTaskGroupKey(task)
     const group = groups.get(key)
     if (group) {
       group.tasks.push(task)
@@ -1500,9 +1530,9 @@ const processTaskGroups = computed<ProcessTaskGroup[]>(() => {
     groups.set(key, {
       key,
       routeProcessId: task.routeProcessId,
-      routeProcessSort: task.routeProcessSort,
+      routeProcessSort: resolveProcessTaskGroupSort(task),
       processCode: task.processCode,
-      processName: task.processName,
+      processName: resolveProcessTaskGroupName(task),
       executionMode: task.executionMode,
       tasks: [task]
     })
@@ -1530,10 +1560,14 @@ const selectedProcessTaskGroup = computed(() => {
   if (isReleaseProcessSelected.value) return undefined
   const selectedTask = selectedTaskForEvidence.value
   if (!selectedTask || isSpecialNode(selectedTask)) return undefined
+  const selectedGroupKey = buildProcessTaskGroupKey(selectedTask)
   return processTaskGroups.value.find(
     (group) =>
+      group.key === selectedGroupKey ||
       group.tasks.some((task) => task.id === selectedTask.id) ||
-      (selectedTask.routeProcessId != null && group.routeProcessId === selectedTask.routeProcessId) ||
+      (!isProductInfoProcessTask(selectedTask) &&
+        selectedTask.routeProcessId != null &&
+        group.routeProcessId === selectedTask.routeProcessId) ||
       (selectedTask.routeProcessId == null &&
         group.routeProcessSort === selectedTask.routeProcessSort &&
         group.processCode === selectedTask.processCode)
@@ -3181,6 +3215,7 @@ const resolveFillerNames = (
     .join('、')
 
 const selectedTaskBelongsToCurrentProcess = (row: EdhrBatchExecutionTaskRespVO) => {
+  if (isProductInfoProcessTask(row)) return false
   const currentRouteProcessId = detail.value?.currentProcessRouteProcessId
   if (currentRouteProcessId != null && row.routeProcessId === currentRouteProcessId) return true
   const currentProcessCode = String(detail.value?.currentProcessCode || '').trim()

@@ -10,12 +10,15 @@
 - [x] 编写或更新最小回归测试，先证明“产品信息表单”缺失。
 - [x] 实施最小正式修复，保持三类配置入口边界清晰。
 - [x] 运行定向回归验证并记录 RED/GREEN 证据。
+- [x] 修复详情页左侧工序分组，确保“产品信息”作为独立 80 工序显示。
+- [x] 通过真实 Playwright 页面验证工单 `881MO090889` 下产品信息不再挂在第 1 工序。
 - [ ] 收尾：状态进入 `ready_for_closeout`，生成验证报告并完成 cleanup。
 
 ## Expected Verification
 
 - 后端或前端定向回归测试覆盖批次执行详情/页面中正式批记录表单包含“产品信息表单”。
 - 产品信息成员任务 `batchRecordSort` 固定为 `80`，在同工序正式批记录未完成前不可填写。
+- 页面左侧工序列表必须把产品信息按虚拟 80 工序独立分组展示，不得因后端保留来源 `routeProcessId` 而并入第一个工序。
 - 相邻批记录表单、表单槽位 `formBindings`、工序开始配置链路不互相替代。
 - 不引入 fallback、默认表单、空值补齐或吞异常。
 
@@ -28,7 +31,7 @@
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
-- `是否从根因和长期维护角度解决`：是；活跃批次读取时会从已有正式主批记录任务的定义/版本补齐缺失的产品信息成员任务，并统一产品信息排序为 `80`，确保正式批记录表单先填、产品信息后填，同时避免同工序排序唯一键冲突。
+- `是否从根因和长期维护角度解决`：是；活跃批次读取时会从已有正式主批记录任务的定义/版本补齐缺失的产品信息成员任务，并统一产品信息排序为 `80`；详情页按 `MAIN + BATCH_RECORD + 产品信息/80` 识别独立虚拟工序，避免后端来源 `routeProcessId` 把产品信息并入第一个工序。
 - `是否存在临时补丁或绕过`：否。
 
 ## Cleanup Keep
@@ -37,11 +40,9 @@
 
 ## Current Status
 
-blocked
+ready_for_closeout
 
-## Closeout Blocker
+## Closeout Notes
 
-- `git push origin int_main` 被远端 non-fast-forward 拒绝。
-- 当前 `int_main` 为 `ahead 6, behind 6`，且工作区仍有非本任务并行改动，不能安全执行 pull/rebase 或清理。
-- 本任务实现提交：`842850cf fix: restore product info batch record task`。
-- 本轮 80 排序补充变更尚未提交；目标回归与相邻 4 方法回归已通过，但提交/推送仍受远端 non-fast-forward 与并行未提交改动阻塞。
+- 本轮前端修复已完成并通过真实 E2E；后端接口已返回产品信息任务 `batchRecordSort=80`，本次无需重启后端。
+- 当前工作区存在其它并行任务改动；本任务提交只允许暂存 `BatchExecutionDetailPage.vue` 与本任务文档。

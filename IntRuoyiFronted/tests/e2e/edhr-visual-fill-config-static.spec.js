@@ -117,6 +117,16 @@ includes(
 )
 includes(
   routeFlowDesigner,
+  '@click.prevent.stop="handleSelectedBatchRecordReportOptionClick(item)"',
+  '批记录表单选择器必须在受控多选下显式接管鼠标点击提交，避免 option 点击不更新 modelValue。'
+)
+includes(
+  routeFlowDesigner,
+  'route-flow-graph-designer__batch-record-report-option',
+  '批记录表单选项必须渲染可点击的真实 DOM 内容，确保鼠标事件不会被 el-option 组件边界吞掉。'
+)
+includes(
+  routeFlowDesigner,
   'selectedLegacyBatchRecords.value = resequenceLegacyBatchRecords(nextRecords)',
   '批记录表单选择必须写入正式 legacyBatchRecords/batchRecordReports 草稿链路。'
 )

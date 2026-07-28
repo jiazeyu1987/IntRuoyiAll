@@ -1394,7 +1394,11 @@ async function configureTargetBatchRecordReportThroughUi(page, auth, copiedRoute
     .filter({ hasText: report.reportCode })
     .first()
   await reportOption.waitFor({ state: 'visible', timeout: 60000 })
-  await reportOption.click()
+  await sleep(500)
+  await reportOption
+    .locator('.route-flow-graph-designer__batch-record-report-option')
+    .first()
+    .click()
   await page.keyboard.press('Escape')
   const selectedReportPattern = new RegExp(
     [report.reportCode, report.reportName].filter(Boolean).map(escapeRegExp).join('|')
@@ -2234,6 +2238,20 @@ async function run() {
     })
     const context = await browser.newContext({ viewport: { width: 1440, height: 960 }, locale: 'zh-CN' })
     const page = await context.newPage()
+    evidence.browserDiagnostics = {
+      console: [],
+      pageErrors: []
+    }
+    page.on('console', (message) => {
+      if (!['error', 'warning'].includes(message.type())) return
+      evidence.browserDiagnostics.console.push({
+        type: message.type(),
+        text: redactSecretText(message.text()).slice(0, 1000)
+      })
+    })
+    page.on('pageerror', (error) => {
+      evidence.browserDiagnostics.pageErrors.push(redactSecretText(error.message).slice(0, 1000))
+    })
     try {
       const loginData = await login(page, config.adminUsername, config.adminPassword, '/mes/pro/batch-record-form-list')
       const tenantId = await resolveTenantId()
