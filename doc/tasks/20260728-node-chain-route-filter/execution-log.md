@@ -28,3 +28,6 @@
 - REGRESSION(after second merge): `node .\tests\e2e\system-codex-test-management-static.spec.js` -> PASS。
 - GREEN(after second merge): `pnpm ts:check` -> PASS。
 - GREEN(after second merge): `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260728-node-chain-route-filter/int_main` 使用 frontend `8088`、backend `48088`。
+- PUSH: `git push origin codex/20260728-node-chain-route-filter` -> PASS，任务分支已更新到 `2a757c06`。
+- PUSH: `git push origin HEAD:int_main` -> PASS，`origin/int_main` 已由 `bdeeef70` 快进到 `2a757c06`。
+- CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-node-chain-route-filter --mode preview` -> BLOCKED。阻塞原因为本地 `E:\IntRuoyi` 主工作区持续脏，且当前任务分支不能通过脚本合入本地 `int_main`；远端 `origin/int_main` 已完成快进集成，未执行 apply，未删除 worktree。

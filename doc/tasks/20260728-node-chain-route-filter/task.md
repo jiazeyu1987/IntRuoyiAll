@@ -25,6 +25,11 @@
 
 ready_for_closeout
 
+## Closeout Blocker
+
+- `task_closeout.py --mode preview` 已确认远端代码集成完成后的本地收尾仍被阻塞：`E:\IntRuoyi` 主工作区持续存在并行脏改动，脚本不能安全执行本地 `int_main` ff-only 合并和删除当前 worktree。
+- 处理原则：保持本任务 worktree 和端口登记不清理，不回滚、不暂存、不删除并行任务文件；等待主工作区可收尾窗口或用户单独授权本地 closeout。
+
 ## 经验门禁
 
 ### 前端静态契约隔离门禁

@@ -17,6 +17,8 @@
 - REGRESSION(after second merge): `node .\tests\e2e\system-codex-test-management-static.spec.js` -> PASS。
 - TYPECHECK(after second merge): `pnpm ts:check` -> PASS。
 - PORT-GUARD(after second merge): `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
+- REMOTE-INTEGRATION: `git push origin HEAD:int_main` -> PASS，`origin/int_main` 已快进到 `2a757c06`。
+- CLEANUP-PREVIEW: `task_closeout.py --mode preview` -> BLOCKED，本地 `E:\IntRuoyi` 主工作区存在并行脏改动，无法安全执行本地 ff-only 合并和 worktree 删除；未执行 apply。
 
 ## Changed Files
 
