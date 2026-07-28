@@ -15,6 +15,7 @@
 - [x] 更新任务记录、验证报告并完成收尾
 - [x] 调整三份独立设计文档内容体量，确保详细设计最多、概要设计其次、需求设计最精简
 - [x] 美化 Word 表头和章节标题样式，移除深色黑框/黑底效果
+- [x] 将交付 Word 文件名改为中文
 
 ## Expected Verification
 
@@ -45,7 +46,7 @@ completed
 
 ## Cleanup Keep
 
-- doc/tasks/20260728-edhr-batch-record-design-docs/output/EDHR_Batch_Record_System_Design.docx
-- doc/tasks/20260728-edhr-batch-record-design-docs/output/EDHR_Batch_Record_Requirement_Design.docx
-- doc/tasks/20260728-edhr-batch-record-design-docs/output/EDHR_Batch_Record_Outline_Design.docx
-- doc/tasks/20260728-edhr-batch-record-design-docs/output/EDHR_Batch_Record_Detailed_Design.docx
+- doc/tasks/20260728-edhr-batch-record-design-docs/output/电子批记录系统设计说明书.docx
+- doc/tasks/20260728-edhr-batch-record-design-docs/output/电子批记录系统需求设计.docx
+- doc/tasks/20260728-edhr-batch-record-design-docs/output/电子批记录系统概要设计.docx
+- doc/tasks/20260728-edhr-batch-record-design-docs/output/电子批记录系统详细设计.docx

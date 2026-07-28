@@ -51,17 +51,11 @@ public class MesProBatchRecordRuntimeSnapshotSupport {
     }
 
     private void materializeApprovedVersionCellRuleSnapshot(MesProBatchRecordReportDO report, JSONObject root) {
-        if (report == null || report.getBatchRecordVersionId() == null) {
-            return;
-        }
+        if (report == null || report.getBatchRecordVersionId() == null) return;
         MesProBatchRecordVersionDO version = versionMapper.selectById(report.getBatchRecordVersionId());
-        if (version == null || !BATCH_RECORD_VERSION_STATUS_APPROVED.equals(version.getStatus())) {
-            return;
-        }
+        if (version == null || !BATCH_RECORD_VERSION_STATUS_APPROVED.equals(version.getStatus())) return;
         if (versionMigrationItemMapper.countBlockingItems(version.getId()) > 0
-                || !versionMigrationItemMapper.existsCellRuleReconciledEvidence(version.getId())) {
-            return;
-        }
+                || !versionMigrationItemMapper.existsCellRuleReconciledEvidence(version.getId())) return;
         MesProBatchRecordCellRuleSupport.materializeVersionApprovedCellRules(root, report.getReportCode());
     }
 
@@ -96,68 +90,42 @@ public class MesProBatchRecordRuntimeSnapshotSupport {
     private JSONArray extractSnapshotFields(JSONObject root) {
         JSONArray fields = new JSONArray();
         JSONObject rows = root.getJSONObject("rows");
-        if (rows == null || rows.isEmpty()) {
-            return fields;
-        }
-        List<Integer> rowIndexes = rows.keySet().stream()
-                .filter(StrUtil::isNumeric)
-                .map(Integer::valueOf)
-                .sorted()
-                .toList();
-        for (Integer rowIndex : rowIndexes) {
+        if (rows == null || rows.isEmpty()) return fields;
+        for (Integer rowIndex : numericKeys(rows)) {
             JSONObject row = rows.getJSONObject(String.valueOf(rowIndex));
             JSONObject cells = row == null ? null : row.getJSONObject("cells");
-            if (cells == null || cells.isEmpty()) {
-                continue;
-            }
-            List<Integer> columnIndexes = cells.keySet().stream()
-                    .filter(StrUtil::isNumeric)
-                    .map(Integer::valueOf)
-                    .sorted()
-                    .toList();
-            for (Integer columnIndex : columnIndexes) {
+            if (cells == null || cells.isEmpty()) continue;
+            for (Integer columnIndex : numericKeys(cells)) {
                 JSONObject cell = cells.getJSONObject(String.valueOf(columnIndex));
-                if (cell == null) {
-                    continue;
-                }
-                JSONObject fillForm = cell.getJSONObject("fillForm");
-                if (fillForm == null || StrUtil.isBlank(fillForm.getString("field"))) {
-                    continue;
-                }
+                JSONObject fillForm = cell == null ? null : cell.getJSONObject("fillForm");
+                if (fillForm == null || StrUtil.isBlank(fillForm.getString("field"))) continue;
                 JSONObject cellRule = cell.getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY);
-                if (cellRule == null && MesProBatchRecordCellRuleSupport.hasValidSignatureMarker(cell)) {
-                    continue;
-                }
+                if (cellRule == null && MesProBatchRecordCellRuleSupport.hasValidSignatureMarker(cell)) continue;
                 JSONObject field = new JSONObject(true);
-                field.put("fieldPath", buildSnapshotFieldPath(rowIndex, columnIndex, fillForm.getString("field")));
-                field.put("fieldKey", fillForm.getString("field"));
+                String fieldKey = fillForm.getString("field");
+                String valueType = cellRule.getString("valueType");
+                field.put("fieldPath", String.format(Locale.ROOT, "sheet[0].rows[%d].cells[%d].%s", rowIndex, columnIndex, fieldKey));
+                field.put("fieldKey", fieldKey);
                 field.put("label", resolveFieldLabel(rows, rowIndex, columnIndex, cell, fillForm, cellRule));
                 field.put("rowIndex", rowIndex);
                 field.put("columnIndex", columnIndex);
-                String valueType = cellRule.getString("valueType");
                 field.put("valueType", valueType);
                 field.put("component", MesProBatchRecordCellRuleSupport.defaultComponentFlag(valueType,
                         StrUtil.blankToDefault(cellRule.getString("componentFlag"),
                                 StrUtil.blankToDefault(fillForm.getString("componentFlag"),
                                         StrUtil.blankToDefault(fillForm.getString("component"), "input-text")))));
                 field.put("required", Boolean.TRUE.equals(cellRule.getBoolean("required")));
-                putIfPresent(field, "placeholder", firstNonBlank(
-                        cellRule.getString("placeholder"),
-                        fillForm.getString("placeholder")));
-                putIfPresent(field, "helpText", firstNonBlank(
-                        cellRule.getString("helpText"),
-                        fillForm.getString("helpText")));
-                JSONObject snapshotCellRule = copySnapshotJsonObject(cellRule);
-                field.put("constraints", copySnapshotJsonObject(snapshotCellRule.getJSONObject("constraints")));
+                putIfPresent(field, "placeholder", firstNonBlank(cellRule.getString("placeholder"), fillForm.getString("placeholder")));
+                putIfPresent(field, "helpText", firstNonBlank(cellRule.getString("helpText"), fillForm.getString("helpText")));
+                JSONObject snapshotCellRule = copyJsonObject(cellRule);
+                field.put("constraints", copyJsonObject(snapshotCellRule.getJSONObject("constraints")));
                 putIfPresent(field, "options", resolveSnapshotFieldOptions(snapshotCellRule, fillForm));
                 JSONObject attachmentRule = snapshotCellRule.getJSONObject("attachmentRule");
-                if (attachmentRule != null && !attachmentRule.isEmpty()) {
-                    field.put("attachmentRule", copySnapshotJsonObject(attachmentRule));
-                }
+                if (attachmentRule != null && !attachmentRule.isEmpty()) field.put("attachmentRule", copyJsonObject(attachmentRule));
                 putIfPresent(field, "unit", snapshotCellRule.getString("unit"));
                 field.put(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY, snapshotCellRule);
-                putIfPresent(field, "defaultValue", copySnapshotJsonValue(fillForm.get("defaultValue")));
-                putIfPresent(field, "value", copySnapshotJsonValue(fillForm.get("value")));
+                putIfPresent(field, "defaultValue", copyJsonValue(fillForm.get("defaultValue")));
+                putIfPresent(field, "value", copyJsonValue(fillForm.get("value")));
                 fields.add(field);
             }
         }
@@ -165,102 +133,66 @@ public class MesProBatchRecordRuntimeSnapshotSupport {
     }
 
     private JSONArray extractSnapshotAssistRows(JSONObject root) {
-        JSONArray assistRows = root == null
-                ? null : root.getJSONArray(MesProBatchRecordCellRuleSupport.ASSIST_ROWS_KEY);
-        if (assistRows == null) {
-            return new JSONArray();
-        }
-        MesProBatchRecordCellRuleSupport.validateAssistRows(
-                root, MesProBatchRecordCellRuleSupport.extractAssistRows(root));
+        JSONArray assistRows = root == null ? null : root.getJSONArray(MesProBatchRecordCellRuleSupport.ASSIST_ROWS_KEY);
+        if (assistRows == null) return new JSONArray();
+        MesProBatchRecordCellRuleSupport.validateAssistRows(root, MesProBatchRecordCellRuleSupport.extractAssistRows(root));
         return JSON.parseArray(assistRows.toJSONString());
     }
 
     private void validateConfirmedCellRules(JSONObject root) {
         List<String> unreviewedCoordinates = MesProBatchRecordCellRuleSupport.unreviewedFillableCoordinates(root);
         if (!unreviewedCoordinates.isEmpty()) {
-            throw exception(PRO_BATCH_RECORD_EXECUTION_CELL_RULE_UNREVIEWED,
-                    String.join("\u3001", unreviewedCoordinates));
+            throw exception(PRO_BATCH_RECORD_EXECUTION_CELL_RULE_UNREVIEWED, String.join("\u3001", unreviewedCoordinates));
         }
         try {
             MesProBatchRecordCellRuleSupport.forEachCell(root, (rowIndex, columnIndex, cell) -> {
                 JSONObject rule = cell.getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY);
-                if (rule == null) {
-                    return;
-                }
-                MesProBatchRecordCellRuleSupport.validateRule(
-                        MesProBatchRecordCellRuleSupport.toRuleVO(rowIndex, columnIndex, rule), cell);
+                if (rule != null) MesProBatchRecordCellRuleSupport.validateRule(MesProBatchRecordCellRuleSupport.toRuleVO(rowIndex, columnIndex, rule), cell);
             });
         } catch (IllegalArgumentException ex) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_CELL_RULE_INVALID, ex.getMessage());
         }
     }
 
-    private void putIfPresent(JSONObject target, String key, Object value) {
-        if (value != null) {
-            target.put(key, value);
-        }
+    private List<Integer> numericKeys(JSONObject object) {
+        return object.keySet().stream().filter(StrUtil::isNumeric).map(Integer::valueOf).sorted().toList();
     }
 
-    private JSONObject copySnapshotJsonObject(JSONObject source) {
+    private void putIfPresent(JSONObject target, String key, Object value) {
+        if (value != null) target.put(key, value);
+    }
+
+    private JSONObject copyJsonObject(JSONObject source) {
         return source == null ? new JSONObject(true) : JSON.parseObject(source.toJSONString());
     }
 
-    private Object copySnapshotJsonValue(Object value) {
-        if (value instanceof JSONObject || value instanceof JSONArray) {
-            return JSON.parse(JSON.toJSONString(value));
-        }
-        return value;
+    private Object copyJsonValue(Object value) {
+        return value instanceof JSONObject || value instanceof JSONArray ? JSON.parse(JSON.toJSONString(value)) : value;
     }
 
     private Object resolveSnapshotFieldOptions(JSONObject cellRule, JSONObject fillForm) {
         JSONObject constraints = cellRule == null ? null : cellRule.getJSONObject("constraints");
-        if (constraints != null && constraints.get("options") != null) {
-            return constraints.get("options");
-        }
-        if (cellRule != null && cellRule.get("options") != null) {
-            return cellRule.get("options");
-        }
+        if (constraints != null && constraints.get("options") != null) return constraints.get("options");
+        if (cellRule != null && cellRule.get("options") != null) return cellRule.get("options");
         return fillForm == null ? null : fillForm.get("options");
     }
 
-    private String buildSnapshotFieldPath(Integer rowIndex, Integer columnIndex, String fieldKey) {
-        return String.format(Locale.ROOT, "sheet[0].rows[%d].cells[%d].%s", rowIndex, columnIndex, fieldKey);
-    }
-
-    private String resolveFieldLabel(JSONObject rows, Integer rowIndex, Integer columnIndex,
-                                     JSONObject cell, JSONObject fillForm, JSONObject cellRule) {
-        String direct = firstNonBlank(
-                cellRule.getString("label"),
-                fillForm.getString("label"),
-                fillForm.getString("labelText"),
-                cell.getString("text"));
-        if (StrUtil.isNotBlank(direct)) {
-            return direct.trim();
-        }
+    private String resolveFieldLabel(JSONObject rows, Integer rowIndex, Integer columnIndex, JSONObject cell, JSONObject fillForm, JSONObject cellRule) {
+        String direct = firstNonBlank(cellRule.getString("label"), fillForm.getString("label"), fillForm.getString("labelText"), cell.getString("text"));
+        if (StrUtil.isNotBlank(direct)) return direct.trim();
         JSONObject row = rows.getJSONObject(String.valueOf(rowIndex));
         JSONObject cells = row == null ? null : row.getJSONObject("cells");
-        if (cells == null) {
-            return fillForm.getString("field");
-        }
+        if (cells == null) return fillForm.getString("field");
         for (int cursor = columnIndex - 1; cursor >= 0; cursor--) {
             JSONObject leftCell = cells.getJSONObject(String.valueOf(cursor));
-            if (leftCell == null) {
-                continue;
-            }
-            String text = StrUtil.trim(leftCell.getString("text"));
-            if (StrUtil.isNotBlank(text)) {
-                return text;
-            }
+            String text = leftCell == null ? null : StrUtil.trim(leftCell.getString("text"));
+            if (StrUtil.isNotBlank(text)) return text;
         }
         return fillForm.getString("field");
     }
 
     private String firstNonBlank(String... values) {
-        for (String value : values) {
-            if (StrUtil.isNotBlank(value)) {
-                return value;
-            }
-        }
+        for (String value : values) if (StrUtil.isNotBlank(value)) return value;
         return null;
     }
 
