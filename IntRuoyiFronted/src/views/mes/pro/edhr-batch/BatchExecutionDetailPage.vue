@@ -1557,6 +1557,206 @@ const selectedExecution = computed(() => {
   if (isReleaseProcessSelected.value) return undefined
   return executionReviews.value.find((execution) => String(execution.executionId) === selectedExecutionId.value)
 })
+
+type DetailPreviewSnapshotField = {
+  fieldIdentity: string
+  rowIndex: number
+  columnIndex: number
+  label: string
+  helpText: string
+  required: boolean
+  signature: boolean
+  value: unknown
+  defaultValue: unknown
+}
+
+type DetailPreviewAssistRow = {
+  rowKey: string
+  description: string
+  sort: number
+  fields: Array<{ rowIndex: number; columnIndex: number }>
+}
+
+type DetailPreviewAssistField = DetailPreviewSnapshotField & {
+  assistDescription: string
+  location: string
+  displayValue: string
+  completed: boolean
+}
+
+const detailPreviewCellKey = (rowIndex: number, columnIndex: number) => `${rowIndex}:${columnIndex}`
+
+const parseDetailPreviewNonNegativeInteger = (value: unknown) => {
+  const numericValue = Number(value)
+  return Number.isInteger(numericValue) && numericValue >= 0 ? numericValue : undefined
+}
+
+const selectedPreviewFormViewModel = computed<EdhrBatchExecutionReviewFormViewModel | undefined>(
+  () => selectedExecution.value?.formViewModel || selectedTaskPreview.value?.formViewModel
+)
+
+const selectedPreviewSnapshot = computed(() => {
+  const rawSnapshot = selectedPreviewFormViewModel.value?.executionSnapshotJson
+  if (typeof rawSnapshot !== 'string' || !rawSnapshot.trim()) return undefined
+  try {
+    return JSON.parse(rawSnapshot) as Record<string, unknown>
+  } catch {
+    return undefined
+  }
+})
+
+const selectedPreviewCellValueMap = computed(() => {
+  const map = new Map<string, unknown>()
+  const rawCellValues = selectedPreviewFormViewModel.value?.cellValuesJson
+  if (typeof rawCellValues !== 'string' || !rawCellValues.trim()) return map
+  try {
+    const parsed = JSON.parse(rawCellValues)
+    if (!Array.isArray(parsed)) return map
+    parsed.forEach((item) => {
+      const rowIndex = parseDetailPreviewNonNegativeInteger((item as any)?.rowIndex)
+      const columnIndex = parseDetailPreviewNonNegativeInteger((item as any)?.columnIndex)
+      if (rowIndex == null || columnIndex == null) return
+      map.set(detailPreviewCellKey(rowIndex, columnIndex), (item as any)?.value)
+    })
+  } catch {
+    return map
+  }
+  return map
+})
+
+const readDetailPreviewText = (value: unknown) =>
+  typeof value === 'string' && value.trim() ? value.trim() : ''
+
+const normalizeDetailPreviewSnapshotField = (
+  field: Record<string, unknown>
+): DetailPreviewSnapshotField | undefined => {
+  const rowIndex = parseDetailPreviewNonNegativeInteger(field.rowIndex ?? (field.position as any)?.rowIndex)
+  const columnIndex = parseDetailPreviewNonNegativeInteger(
+    field.columnIndex ?? (field.position as any)?.columnIndex
+  )
+  if (rowIndex == null || columnIndex == null) return undefined
+  const fieldKey = readDetailPreviewText(field.fieldKey) || `R${rowIndex + 1}C${columnIndex + 1}`
+  const fieldPath = readDetailPreviewText(field.fieldPath) || `rows[${rowIndex}].cells[${columnIndex}]`
+  const label =
+    readDetailPreviewText(field.label) ||
+    readDetailPreviewText(field.name) ||
+    readDetailPreviewText(field.title) ||
+    fieldKey
+  const rule = (field as any)?.edhrCellRule
+  const helpText = readDetailPreviewText(field.helpText) || readDetailPreviewText(rule?.helpText)
+  const rawComponent = String(
+    field.component || field.componentFlag || field.componentType || field.inputType || field.type || ''
+  ).toLowerCase()
+  const signature =
+    String(field.valueType || '').toUpperCase() === 'SIGNATURE' ||
+    rawComponent.includes('signature') ||
+    rawComponent.includes('sign')
+  const storedValue = selectedPreviewCellValueMap.value.get(detailPreviewCellKey(rowIndex, columnIndex))
+  return {
+    fieldIdentity: `${fieldPath}::${fieldKey}::${rowIndex}:${columnIndex}`,
+    rowIndex,
+    columnIndex,
+    label,
+    helpText,
+    required: field.required === true,
+    signature,
+    value: storedValue ?? field.value,
+    defaultValue: field.defaultValue
+  }
+}
+
+const selectedPreviewSnapshotFields = computed<DetailPreviewSnapshotField[]>(() => {
+  const fields = selectedPreviewSnapshot.value?.fields
+  if (!Array.isArray(fields)) return []
+  return fields
+    .map((field) =>
+      field && typeof field === 'object'
+        ? normalizeDetailPreviewSnapshotField(field as Record<string, unknown>)
+        : undefined
+    )
+    .filter((field): field is DetailPreviewSnapshotField => Boolean(field))
+})
+
+const normalizeDetailPreviewAssistRows = (rows: unknown): DetailPreviewAssistRow[] => {
+  if (!Array.isArray(rows)) return []
+  return rows
+    .map((row, index) => {
+      const record = row as Record<string, unknown>
+      const fields = Array.isArray(record.fields)
+        ? record.fields
+            .map((field) => {
+              const rowIndex = parseDetailPreviewNonNegativeInteger((field as any)?.rowIndex)
+              const columnIndex = parseDetailPreviewNonNegativeInteger((field as any)?.columnIndex)
+              return rowIndex == null || columnIndex == null ? undefined : { rowIndex, columnIndex }
+            })
+            .filter((field): field is { rowIndex: number; columnIndex: number } => Boolean(field))
+        : []
+      return {
+        rowKey: readDetailPreviewText(record.rowKey) || `ASSIST_ROW_${index + 1}`,
+        description: readDetailPreviewText(record.description),
+        sort: Number.isFinite(Number(record.sort)) ? Number(record.sort) : index + 1,
+        fields
+      }
+    })
+    .filter((row) => row.rowKey && row.fields.length > 0)
+    .sort((left, right) => left.sort - right.sort)
+}
+
+const selectedPreviewAssistRows = computed(() =>
+  normalizeDetailPreviewAssistRows(selectedPreviewSnapshot.value?.assistRows)
+)
+
+const selectedPreviewAssistRowsConfigured = computed(() => selectedPreviewAssistRows.value.length > 0)
+
+const hasDetailPreviewValue = (value: unknown) => {
+  if (value == null) return false
+  if (Array.isArray(value)) return value.length > 0
+  if (typeof value === 'string') return value.trim().length > 0
+  return true
+}
+
+const formatDetailPreviewValue = (value: unknown) => {
+  if (!hasDetailPreviewValue(value)) return '--'
+  if (typeof value === 'boolean') return value ? '是' : '否'
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return String(value)
+    }
+  }
+  return String(value)
+}
+
+const selectedPreviewAssistFields = computed<DetailPreviewAssistField[]>(() => {
+  const fieldMap = new Map(
+    selectedPreviewSnapshotFields.value.map((field) => [
+      detailPreviewCellKey(field.rowIndex, field.columnIndex),
+      field
+    ])
+  )
+  const result: DetailPreviewAssistField[] = []
+  selectedPreviewAssistRows.value.forEach((row) => {
+    row.fields.forEach((cell) => {
+      const field = fieldMap.get(detailPreviewCellKey(cell.rowIndex, cell.columnIndex))
+      if (!field) return
+      const value = hasDetailPreviewValue(field.value) ? field.value : field.defaultValue
+      result.push({
+        ...field,
+        assistDescription: row.description,
+        location: `第 ${field.rowIndex + 1} 行第 ${field.columnIndex + 1} 列`,
+        displayValue: formatDetailPreviewValue(value),
+        completed: !field.required || hasDetailPreviewValue(value)
+      })
+    })
+  })
+  return result
+})
+
+const effectiveDetailPreviewAssistMode = computed(
+  () => detailPreviewAssistMode.value && selectedPreviewAssistRowsConfigured.value
+)
+
 const isSameRouteFormTask = (
   task: EdhrBatchExecutionTaskRespVO,
   execution: EdhrBatchExecutionReviewExecutionRespVO
