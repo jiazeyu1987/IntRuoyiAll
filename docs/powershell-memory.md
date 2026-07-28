@@ -16,6 +16,16 @@
 - Verification: 记录每个提交的 commit hash、文件清单和 `git status --short --branch` 结果；推送后必须确认本地分支不再领先 `origin`。
 - Forbidden action: 禁止用 force push、历史重写、destructive reset、丢弃脏改动、跳过 push、或把基线提交与当前任务提交混在一起作为绕过。
 - Evidence: `doc\tasks\<task-id>\execution-log.md`、`docs\task-closeout-rules.md`、当前 Git 命令输出。
+
+### Git index.lock 陈旧锁恢复门禁
+
+- Trigger: `git add`、`git commit`、`git merge` 或其它索引写操作报 `Unable to create '.git/index.lock': File exists`。
+- Preflight check: 检查 `.git/index.lock` 的绝对路径、长度和最后写入时间，并只读枚举活动 `git` / `git-lfs` 进程；只有锁文件为 0 字节、超过 60 秒未更新且不存在活动 Git 进程时，才允许删除该精确锁文件。
+- Blocker: 存在活动 Git 进程、锁文件非空、锁文件不足 60 秒、目标不是当前仓库精确 `.git/index.lock`，或删除后仍无法正常读取 Git 状态时必须停止。
+- Verification: 删除后确认锁文件不存在，重新运行 `git status --short --branch`、原失败的索引写操作和 staged 文件清单检查；记录未停止任何运行进程。
+- Forbidden action: 禁止看到 `index.lock` 就直接删除、强杀全部 Git/IDE 进程、删除其它 `.lock` 文件、清空 `.git` 或用新仓库绕过当前索引状态。
+- Evidence: `doc/tasks/20260728-commit-int-main-frontend-backend-code-round2/execution-log.md`，基线暂存前确认零字节陈旧锁且无活动 Git 进程后恢复。
+
 ### 提交前 stale blocker 复验门禁
 
 - Trigger: 准备提交时任务文档仍标记 `blocked`，但阻塞项可能已被其它并行改动修复。
