@@ -61,6 +61,14 @@
 - GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS after click diagnostics diff.
 - GREEN: `node --check tests/e2e/edhr-visual-fill-config-real-flow.e2e.js` -> PASS after click diagnostics diff.
 - GREEN: `git diff --check` -> PASS after click diagnostics diff, only CRLF warnings.
+- Idempotent option selection diff detected before push: real-flow E2E now skips clicking a batch-record report option when it is already selected, preventing accidental deselection.
+- GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS after idempotent selection diff.
+- GREEN: `node --check tests/e2e/edhr-visual-fill-config-real-flow.e2e.js` -> PASS after idempotent selection diff.
+- GREEN: `git diff --check` -> PASS after idempotent selection diff, only CRLF warnings.
+- Existing-binding save wait diff detected after first push: real-flow E2E skips waiting for `/batch-record/save` when the target report binding was already selected before save.
+- GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS after existing-binding save wait diff.
+- GREEN: `node --check tests/e2e/edhr-visual-fill-config-real-flow.e2e.js` -> PASS after existing-binding save wait diff.
+- GREEN: `git diff --check` -> PASS after existing-binding save wait diff, only CRLF warnings.
 
 ## Experience Consolidation
 
@@ -118,14 +126,31 @@
   - `IntRuoyiFronted/tests/e2e/edhr-visual-fill-config-real-flow.e2e.js`
   - `IntRuoyiFronted/tests/e2e/edhr-visual-fill-config-static.spec.js`
 - Fifth follow-up commit hook: `Branch runtime port guard passed for int_main/int_main: frontend 8081, backend 48081.`
-- Post-follow-up status: `## int_main...origin/int_main [ahead 5]`。
+- Task-record update commit: `259d53df docs: record final int main push evidence`。
+- Sixth follow-up implementation commit: `4c1a4165 test: make report option selection idempotent`。
+- Sixth follow-up files:
+  - `IntRuoyiFronted/tests/e2e/edhr-visual-fill-config-real-flow.e2e.js`
+  - `IntRuoyiFronted/tests/e2e/edhr-visual-fill-config-static.spec.js`
+- Sixth follow-up commit hook: `Branch runtime port guard passed for int_main/int_main: frontend 8081, backend 48081.`
+- Post-follow-up status before push: `## int_main...origin/int_main [ahead 7]`。
+- Seventh follow-up implementation commit: `ea70c9fe test: skip batch save wait for existing report binding`。
+- Seventh follow-up files:
+  - `IntRuoyiFronted/tests/e2e/edhr-visual-fill-config-real-flow.e2e.js`
+  - `IntRuoyiFronted/tests/e2e/edhr-visual-fill-config-static.spec.js`
+- Seventh follow-up commit hook: `Branch runtime port guard passed for int_main/int_main: frontend 8081, backend 48081.`
 - Unstaged concurrent files intentionally not included:
   - `doc/tasks/20260728-batch-record-product-name-dropdown/*`
   - `docs/experience-index.md`
 
 ## Push
 
-- 待执行。
+- `git push origin int_main` -> PASS。
+- Push output: `cdc0d6a5..4c1a4165  int_main -> int_main`。
+- Post-push verification: `HEAD` = `origin/int_main` = `4c1a4165b264e3c098de04caee14153ff7158040`，`git status --short --branch` no longer reports ahead.
+- Supplemental push: `git push origin int_main` -> PASS。
+- Supplemental push output: `4c1a4165..ea70c9fe  int_main -> int_main`。
+- Supplemental post-push verification: `HEAD` = `origin/int_main` = `ea70c9fe6432f3ce5e2400a7bfdd2fd7b2587151`。
+- External dirty after supplemental push: new in-progress tokenless local restart task changed `IntRuoyiBackend/script/deploy/restart-int-ruoyi-local.ps1`, `IntRuoyiBackend/script/tests/test_runtime_control_scripts.py`, and `doc/tasks/20260728-codex-runner-tokenless-local-restart/*`; not staged or committed by this task.
 
 ## Cleanup
 

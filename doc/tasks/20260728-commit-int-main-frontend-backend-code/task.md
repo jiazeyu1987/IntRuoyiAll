@@ -16,7 +16,7 @@
 - [x] M2: 运行相关后端与前端验证。
 - [x] M3: 提交当前前后端代码和相关任务证据。
 - [x] M4: 运行 cleanup preview/apply 并提交本任务收尾记录。
-- [ ] M5: 推送 `int_main` 到 `origin` 并复核不再 ahead。
+- [x] M5: 推送 `int_main` 到 `origin` 并复核不再 ahead。
 
 ## Expected Verification
 
@@ -50,7 +50,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Implementation Commit
 
@@ -60,8 +60,18 @@ ready_for_closeout
 - `b5e5e6b7 fix: use native report option selection`
 - `68c24d03 test: wait for route process editor readiness`
 - `db41058b test: capture report option click diagnostics`
-- 六次前端/后端相关提交的 `branch-runtime-port-guard` 均通过：`int_main/int_main frontend 8081, backend 48081`。
+- `4c1a4165 test: make report option selection idempotent`
+- `ea70c9fe test: skip batch save wait for existing report binding`
+- 八次前端/后端相关提交的 `branch-runtime-port-guard` 均通过：`int_main/int_main frontend 8081, backend 48081`。
 - 提交后复扫：`int_main...origin/int_main [ahead 5]`，仅剩无关并发任务文档 `doc/tasks/20260728-batch-record-product-name-dropdown/*` 和 `docs/experience-index.md` 未暂存。
+
+## Push Evidence
+
+- `git push origin int_main` -> PASS，远端从 `cdc0d6a5` 快进到 `4c1a4165`。
+- 推送后复核：`HEAD` = `origin/int_main` = `4c1a4165b264e3c098de04caee14153ff7158040`，`git status --short --branch` 不再显示 ahead。
+- 未纳入本任务的本地残余改动：`doc/tasks/20260728-batch-execution-product-info-form-missing/task.md`、`doc/tasks/20260728-batch-record-product-name-dropdown/*`、`docs/experience-index.md`。
+- 补充推送：`git push origin int_main` -> PASS，远端从 `4c1a4165` 快进到 `ea70c9fe`，推送后 `HEAD` = `origin/int_main` = `ea70c9fe6432f3ce5e2400a7bfdd2fd7b2587151`。
+- 补充推送后又出现未验证的并发任务改动：`IntRuoyiBackend/script/deploy/restart-int-ruoyi-local.ps1`、`IntRuoyiBackend/script/tests/test_runtime_control_scripts.py`、`doc/tasks/20260728-codex-runner-tokenless-local-restart/*`。该任务状态为 `in_progress`，本次不接管、不提交。
 
 ## Cleanup Evidence
 

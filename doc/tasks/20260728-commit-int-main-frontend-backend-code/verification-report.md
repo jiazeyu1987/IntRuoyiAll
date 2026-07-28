@@ -28,6 +28,12 @@
 - Option click diagnostics `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS
 - Option click diagnostics `node --check tests/e2e/edhr-visual-fill-config-real-flow.e2e.js` -> PASS
 - Option click diagnostics `git diff --check` -> PASS, only CRLF warnings
+- Idempotent option selection `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS
+- Idempotent option selection `node --check tests/e2e/edhr-visual-fill-config-real-flow.e2e.js` -> PASS
+- Idempotent option selection `git diff --check` -> PASS, only CRLF warnings
+- Existing binding save wait `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS
+- Existing binding save wait `node --check tests/e2e/edhr-visual-fill-config-real-flow.e2e.js` -> PASS
+- Existing binding save wait `git diff --check` -> PASS, only CRLF warnings
 
 ## Maven Target
 
@@ -41,8 +47,11 @@
 - Follow-up implementation commit: `b5e5e6b7 fix: use native report option selection`
 - Follow-up implementation commit: `68c24d03 test: wait for route process editor readiness`
 - Follow-up implementation commit: `db41058b test: capture report option click diagnostics`
+- Follow-up implementation commit: `4c1a4165 test: make report option selection idempotent`
+- Follow-up implementation commit: `ea70c9fe test: skip batch save wait for existing report binding`
 - Task-record commit: `c74bb3d7 docs: record int main frontend backend push`
 - Task-record update commit: `17c27f55 docs: update int main push evidence`
+- Task-record update commit: `259d53df docs: record final int main push evidence`
 - Commit hooks: branch runtime port guard passed for `int_main/int_main` with frontend `8081`, backend `48081`.
 - Unrelated local files left unstaged:
   - `doc/tasks/20260728-batch-record-product-name-dropdown/*`
@@ -55,4 +64,4 @@
 
 ## Status
 
-Verification passed; implementation commits completed; cleanup passed; push pending.
+Verification passed; implementation commits pushed. `HEAD` and `origin/int_main` matched `ea70c9fe6432f3ce5e2400a7bfdd2fd7b2587151` after the supplemental `git push origin int_main`.
