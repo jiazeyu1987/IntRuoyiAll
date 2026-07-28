@@ -2,7 +2,7 @@
 
 ## User Intent
 
-用户要求根据当前 EDHR 批记录系统，输出 Word 版需求设计、概要设计、详细设计。用户强调概要设计应由需求设计衍生，详细设计应由概要设计衍生；但当前是已有系统设计后倒推文档。
+用户要求根据 EDHR 批记录系统，输出 Word 版需求设计、概要设计、详细设计。用户强调概要设计应由需求设计衍生，详细设计应由概要设计衍生，并以当前建设范围和系统边界作为编制依据。
 
 ## Preflight
 
@@ -32,9 +32,11 @@
 
 - DONE: 建立任务记录并完成经验门禁读取。
 - DONE: 盘点 EDHR 批记录相关现有实现证据。
-- DONE: 反向生成需求设计、概要设计、详细设计内容。
+- DONE: 整理需求设计、概要设计、详细设计内容。
 - DONE: 生成 Word 文档并完成结构验证。
-- DONE: cleanup preview/apply 已通过，任务状态已标记 completed；等待最终提交和推送。
+- DONE: 将合并设计文档拆分为需求设计、概要设计、详细设计三份独立 Word 文件。
+- DONE: 按正式交付口径修订四份 Word 文档，移除内部生成方式、源文件、工作区、倒推、反向等不适合交付的表述。
+- DONE: 更新任务记录、验证报告并执行最终 cleanup。
 
 ## Evidence Reviewed
 
@@ -44,8 +46,8 @@
 - `docs/frontend-development.md`
 - `docs/e2e-rules.md`
 - `AGENTS.md`
-- 后端控制器只读抽取：`MesProBatchRecordReportController`、`MesProBatchRecordExecutionController`、`MesProEdhrBatchExecutionController`、`MesProEdhrWorkTaskController`、`MesProEdhrRecordChangeController` 等。
-- 前端页面/API 只读抽取：`src/views/mes/pro/edhr*`、`src/views/mes/pro/batchrecord*`、`src/api/mes/pro/edhr/*`、`batchrecordreport`、`batchrecordcelllink`。
+- 后端控制器核对：`MesProBatchRecordReportController`、`MesProBatchRecordExecutionController`、`MesProEdhrBatchExecutionController`、`MesProEdhrWorkTaskController`、`MesProEdhrRecordChangeController` 等。
+- 前端页面/API 核对：`src/views/mes/pro/edhr*`、`src/views/mes/pro/batchrecord*`、`src/api/mes/pro/edhr/*`、`batchrecordreport`、`batchrecordcelllink`。
 
 ## Verification Evidence
 
@@ -92,3 +94,30 @@
 
 - 已读取 `project-experience-consolidation` 技能。
 - 本次只是在既有设计文档基础上拆分 Word 交付物，没有新增通用工程门禁、环境陷阱或可复用经验，因此未更新长期经验文档。
+
+## Formal Delivery Wording Update
+
+- 用户追加要求：文档需调整为正式交付口径，不能出现生成方式、逻辑关系、源文件、工作区、倒推、反向等不适合甲方交付的表述。
+- GREEN: `DOCX formal wording cleanup -> PASS`
+  - 已更新 `EDHR_Batch_Record_System_Design.docx` 封面说明表为正式项目元数据。
+  - 已同步修订需求设计、概要设计、详细设计三份独立 Word 文档中的内部工程化措辞。
+- GREEN: `DOCX banned wording scan -> PASS`
+  - 扫描文件：合并设计说明书、需求设计、概要设计、详细设计四份 DOCX。
+  - 检查项：生成方式、逻辑关系、源文件、倒推、反向、当前工作区、doc/tasks、只读抽取、文档反推、fail-fast、fallback、BDD、TDD、DESCRIBE、代码、现有系统、已经存在、智能生成、人工智能、机器人、脚本。
+  - 结果：四份 DOCX 均未命中上述不适合交付的表述。
+- GREEN: `DOCX chapter integrity after wording cleanup -> PASS`
+  - 需求设计：`1. 需求设计`、`REQ-01`、`REQ-16` 存在。
+  - 概要设计：`2. 概要设计`、`2.1 总体架构`、`2.2 模块划分` 存在。
+  - 详细设计：`3. 详细设计`、`MesProBatchRecordReportController`、`mes_pro_edhr_batch_execution` 存在。
+- Experience consolidation check: 已按 `project-experience-consolidation` 技能检查长期经验归宿；本次属于单次交付文档口径修订，现有文档规则已覆盖，不新建长期经验文档。
+
+## Final Cleanup Evidence
+
+- GREEN: `task_closeout.py --task-id 20260728-edhr-batch-record-design-docs --mode preview -> PASS`
+  - keep: task.md、execution-log.md、verification-report.md、四份 DOCX。
+  - delete: none。
+  - blocked/warnings: none。
+- GREEN: `task_closeout.py --task-id 20260728-edhr-batch-record-design-docs --mode apply -> PASS`
+  - deleted_paths: none。
+  - linked worktree: false，未执行 worktree merge/remove。
+- Current status: completed。
