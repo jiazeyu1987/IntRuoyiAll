@@ -51,6 +51,7 @@
 - `node .\tests\e2e\system-codex-test-management-static.spec.js` -> PASS。
 - `pnpm ts:check` -> PASS。
 - After merging `origin/int_main` `1cab989a` into HEAD `17853328`, the same node-chain static contract, management static regression, `pnpm ts:check`, and branch runtime port guard all passed.
+- After remote `int_main` advanced again, merging `origin/int_main` `bdeeef70` into HEAD `2d07ea77` also kept the node-chain static contract, management static regression, `pnpm ts:check`, and branch runtime port guard passing.
 
 ## Verification
 

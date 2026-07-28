@@ -44,7 +44,7 @@ ready_for_closeout
 - Verification: 提交和推送只包含本任务源码、测试和任务记录。
 - Forbidden action: 禁止回滚、清理或暂存主工作区并行改动。
 - Evidence: `docs/worktree-memory.md#并行主工作区远端快进融合门禁`。
-- Current evidence: 已在任务 worktree 将 `origin/int_main` `1cab989a` 融合为 `17853328`，并重跑节点串静态合同、测试管理静态回归、`pnpm ts:check` 与端口守卫。
+- Current evidence: 已在任务 worktree 先后融合 `origin/int_main` `1cab989a` 与 `bdeeef70`，最新融合 HEAD 为 `2d07ea77`；节点串静态合同、测试管理静态回归、`pnpm ts:check` 与端口守卫均已重跑通过。
 
 ## 设计约束检查
 

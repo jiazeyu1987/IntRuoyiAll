@@ -23,3 +23,8 @@
 - REGRESSION(after merge): `node .\tests\e2e\system-codex-test-management-static.spec.js` -> PASS。
 - GREEN(after merge): `pnpm ts:check` -> PASS。
 - GREEN(after merge): `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260728-node-chain-route-filter/int_main` 使用 frontend `8088`、backend `48088`。
+- Integration retry: `git push origin HEAD:int_main` 首次因远端主线并行前进被非快进拒绝；未强推，重新 `git fetch origin int_main` 后融合 `origin/int_main` `bdeeef70`，生成最新融合 HEAD `2d07ea77`。
+- GREEN(after second merge): `node .\tests\e2e\system-codex-test-node-chain-static.spec.js` -> PASS。
+- REGRESSION(after second merge): `node .\tests\e2e\system-codex-test-management-static.spec.js` -> PASS。
+- GREEN(after second merge): `pnpm ts:check` -> PASS。
+- GREEN(after second merge): `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260728-node-chain-route-filter/int_main` 使用 frontend `8088`、backend `48088`。

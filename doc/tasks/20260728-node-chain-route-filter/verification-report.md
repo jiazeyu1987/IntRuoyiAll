@@ -12,6 +12,11 @@
 - REGRESSION(after merge): `node .\tests\e2e\system-codex-test-management-static.spec.js` -> PASS。
 - TYPECHECK(after merge): `pnpm ts:check` -> PASS。
 - PORT-GUARD(after merge): `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
+- INTEGRATION-RETRY: 首次 `git push origin HEAD:int_main` 因远端主线并行前进被非快进拒绝；重新融合 `origin/int_main` `bdeeef70` 后生成最新 HEAD `2d07ea77`。
+- GREEN(after second merge): `node .\tests\e2e\system-codex-test-node-chain-static.spec.js` -> PASS。
+- REGRESSION(after second merge): `node .\tests\e2e\system-codex-test-management-static.spec.js` -> PASS。
+- TYPECHECK(after second merge): `pnpm ts:check` -> PASS。
+- PORT-GUARD(after second merge): `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
 
 ## Changed Files
 
