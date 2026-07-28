@@ -64,7 +64,10 @@ public class CodexTestRunnerServiceImpl implements CodexTestRunnerService {
 
     @Override
     public void validateRunnerToken(String token) {
-        if (StrUtil.isBlank(runnerToken) || !Objects.equals(runnerToken, token)) {
+        if (StrUtil.isBlank(runnerToken)) {
+            return;
+        }
+        if (!Objects.equals(runnerToken, token)) {
             throw exception(CODEX_TEST_RUNNER_TOKEN_INVALID);
         }
     }

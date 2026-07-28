@@ -7,7 +7,7 @@ import path from 'node:path'
 await import('playwright')
 
 const API_BASE = requiredEnv('CODEX_TEST_API_BASE').replace(/\/$/, '')
-const RUNNER_TOKEN = requiredEnv('CODEX_TEST_RUNNER_TOKEN')
+const RUNNER_TOKEN = process.env.CODEX_TEST_RUNNER_TOKEN || ''
 const MANAGEMENT_TENANT_ID = requiredEnv('CODEX_TEST_TENANT_ID')
 const FRONTEND_BASE_URL = requiredEnv('CODEX_TEST_FRONTEND_BASE_URL')
 const WORKING_DIRECTORY = process.env.CODEX_TEST_WORKDIR || process.cwd()
@@ -43,10 +43,15 @@ function normalizeCompleteCaseSummary(summary) {
 }
 
 function runnerHeaders(extraHeaders = {}) {
-  return {
+  const headers = {
     ...RUNNER_HTTP_CONNECTION_HEADERS,
-    'tenant-id': MANAGEMENT_TENANT_ID,
-    'X-Codex-Runner-Token': RUNNER_TOKEN,
+    'tenant-id': MANAGEMENT_TENANT_ID
+  }
+  if (RUNNER_TOKEN) {
+    headers['X-Codex-Runner-Token'] = RUNNER_TOKEN
+  }
+  return {
+    ...headers,
     ...extraHeaders
   }
 }

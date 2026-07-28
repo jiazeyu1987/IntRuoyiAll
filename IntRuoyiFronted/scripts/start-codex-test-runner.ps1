@@ -72,9 +72,6 @@ if ([string]::IsNullOrWhiteSpace($runnerToken) -and -not [string]::IsNullOrWhite
     }
     $runnerToken = (Get-Content -Raw -Encoding utf8 -LiteralPath $TokenFile).Trim()
 }
-if ([string]::IsNullOrWhiteSpace($runnerToken)) {
-    throw 'CODEX_TEST_RUNNER_TOKEN or -TokenFile is required'
-}
 
 $existing = @(Get-RunnerProcesses)
 if ($existing.Count -gt 0) {
@@ -103,7 +100,11 @@ $oldEnv = @{
 try {
     $env:CODEX_TEST_API_BASE = $ApiBase
     $env:CODEX_TEST_FRONTEND_BASE_URL = $FrontendBaseUrl
-    $env:CODEX_TEST_RUNNER_TOKEN = $runnerToken
+    if ([string]::IsNullOrWhiteSpace($runnerToken)) {
+        Remove-Item -Path 'Env:\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue
+    } else {
+        $env:CODEX_TEST_RUNNER_TOKEN = $runnerToken
+    }
     $env:CODEX_TEST_TENANT_ID = $TenantId
     $env:CODEX_TEST_WORKDIR = $workspaceRoot
     $env:CODEX_CLI_COMMAND = $CodexCommand

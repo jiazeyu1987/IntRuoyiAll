@@ -111,6 +111,21 @@ class CodexTestRunnerServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    void registerRunner_allowsMissingTokenWhenLocalCliModeHasNoConfiguredToken() {
+        ReflectionTestUtils.setField(codexTestRunnerService, "runnerToken", "");
+        CodexTestRunnerRegisterReqVO registerReqVO = new CodexTestRunnerRegisterReqVO();
+        registerReqVO.setRunnerName("local-tokenless-runner");
+        registerReqVO.setCapabilities("{\"playwright\":true,\"codex\":true}");
+        registerReqVO.setMaxParallelism(1);
+
+        CodexTestRunnerRegisterRespVO registerRespVO = codexTestRunnerService.registerRunner(registerReqVO, null);
+
+        CodexTestRunnerSessionDO runnerSession =
+                codexTestRunnerSessionMapper.selectById(registerRespVO.getRunnerSessionId());
+        assertEquals("local-tokenless-runner", runnerSession.getRunnerName());
+    }
+
+    @Test
     void claimTasks_sequentialNodeChainOnlyClaimsFirstNodeWhenCapacityIsGreaterThanOne() {
         Long runnerSessionId = registerRunner();
         Long firstCaseId = codexTestCaseService.createCase(

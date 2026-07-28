@@ -35,3 +35,8 @@ assert.doesNotMatch(
   /Frontend entry is not reachable/,
   '启动失败消息不得继续出现前端入口硬阻断。'
 )
+assert.doesNotMatch(
+  starter,
+  /CODEX_TEST_RUNNER_TOKEN or -TokenFile is required/,
+  '本地裸调 Codex CLI 模式下，按需 Runner 启动脚本不得继续要求配置 Runner token。'
+)

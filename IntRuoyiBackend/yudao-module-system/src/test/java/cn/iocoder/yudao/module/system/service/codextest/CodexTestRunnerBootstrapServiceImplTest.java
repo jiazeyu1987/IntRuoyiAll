@@ -68,6 +68,32 @@ class CodexTestRunnerBootstrapServiceImplTest extends BaseDbUnitTest {
         registrationThread.join();
     }
 
+    @Test
+    void ensureRunnerAvailable_startsWrapperWhenRunnerTokenIsBlankForLocalCliMode() throws Exception {
+        Path starterScript = Files.createTempFile("codex-runner-bootstrap-tokenless-test", ".ps1");
+        Files.writeString(starterScript,
+                "param([Parameter(ValueFromRemainingArguments=$true)][string[]]$Rest)\nStart-Sleep -Milliseconds 500\n",
+                StandardCharsets.UTF_8);
+        ReflectionTestUtils.setField(codexTestRunnerBootstrapService, "runnerOnDemandEnabled", true);
+        ReflectionTestUtils.setField(codexTestRunnerBootstrapService, "runnerStarterScript", starterScript.toString());
+        ReflectionTestUtils.setField(codexTestRunnerBootstrapService, "runnerToken", "");
+        ReflectionTestUtils.setField(codexTestRunnerBootstrapService, "startupTimeoutSeconds", 3);
+        ReflectionTestUtils.setField(codexTestRunnerBootstrapService, "startupPollIntervalMillis", 50);
+
+        Thread registrationThread = new Thread(() -> {
+            try {
+                Thread.sleep(200);
+                insertOnlineRunner();
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        registrationThread.start();
+
+        assertDoesNotThrow(() -> codexTestRunnerBootstrapService.ensureRunnerAvailable());
+        registrationThread.join();
+    }
+
     private void insertOnlineRunner() {
         CodexTestRunnerSessionDO runner = new CodexTestRunnerSessionDO();
         runner.setRunnerName("local-runner");

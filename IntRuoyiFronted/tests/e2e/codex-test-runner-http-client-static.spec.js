@@ -12,8 +12,18 @@ assert.match(
 )
 assert.match(
   runner,
-  /function runnerHeaders\(extraHeaders = \{\}\)[\s\S]*\.\.\.RUNNER_HTTP_CONNECTION_HEADERS[\s\S]*'tenant-id': MANAGEMENT_TENANT_ID[\s\S]*'X-Codex-Runner-Token': RUNNER_TOKEN[\s\S]*\.\.\.extraHeaders/,
-  'Runner 协议请求必须统一注入连接关闭、租户和 token 头，再叠加调用方内容类型。'
+  /const RUNNER_TOKEN = process\.env\.CODEX_TEST_RUNNER_TOKEN \|\| ''/,
+  '本地裸调 Codex CLI 模式下，Runner token 必须是可选环境变量。'
+)
+assert.doesNotMatch(
+  runner,
+  /requiredEnv\('CODEX_TEST_RUNNER_TOKEN'\)/,
+  'Runner 进程不得因为缺少 CODEX_TEST_RUNNER_TOKEN 直接退出。'
+)
+assert.match(
+  runner,
+  /function runnerHeaders\(extraHeaders = \{\}\)[\s\S]*const headers = \{[\s\S]*\.\.\.RUNNER_HTTP_CONNECTION_HEADERS[\s\S]*'tenant-id': MANAGEMENT_TENANT_ID[\s\S]*\}[\s\S]*if \(RUNNER_TOKEN\) \{[\s\S]*headers\['X-Codex-Runner-Token'\] = RUNNER_TOKEN[\s\S]*return \{[\s\S]*\.\.\.headers[\s\S]*\.\.\.extraHeaders/,
+  'Runner 协议请求必须仅在 token 存在时注入 token 头，并始终保留连接关闭、租户和调用方内容类型。'
 )
 assert.match(
   runner,

@@ -22,7 +22,6 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RUNNER_OFFLINE;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RUNNER_STARTER_MISSING;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RUNNER_START_FAILED;
-import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RUNNER_TOKEN_INVALID;
 import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.RUNNER_ONLINE;
 
 @Service
@@ -80,9 +79,6 @@ public class CodexTestRunnerBootstrapServiceImpl implements CodexTestRunnerBoots
 
     private Process startRunnerWrapper() {
         Path starterScript = validateStarterScript();
-        if (StrUtil.isBlank(runnerToken)) {
-            throw exception(CODEX_TEST_RUNNER_TOKEN_INVALID);
-        }
         List<String> command = new ArrayList<>();
         command.add("powershell.exe");
         command.add("-NoProfile");
@@ -103,7 +99,11 @@ public class CodexTestRunnerBootstrapServiceImpl implements CodexTestRunnerBoots
             command.add("-RestartExisting");
         }
         ProcessBuilder processBuilder = new ProcessBuilder(command);
-        processBuilder.environment().put("CODEX_TEST_RUNNER_TOKEN", runnerToken);
+        if (StrUtil.isBlank(runnerToken)) {
+            processBuilder.environment().remove("CODEX_TEST_RUNNER_TOKEN");
+        } else {
+            processBuilder.environment().put("CODEX_TEST_RUNNER_TOKEN", runnerToken);
+        }
         processBuilder.redirectErrorStream(true);
         if (starterScript.getParent() != null) {
             processBuilder.directory(starterScript.getParent().toFile());
@@ -199,7 +199,9 @@ public class CodexTestRunnerBootstrapServiceImpl implements CodexTestRunnerBoots
         if (StrUtil.isBlank(rawOutput)) {
             return "";
         }
-        String sanitized = rawOutput.replace(runnerToken, "******").replaceAll("[\\r\\n]+", " ").trim();
+        String sanitized = StrUtil.isBlank(runnerToken) ? rawOutput
+                : rawOutput.replace(runnerToken, "******");
+        sanitized = sanitized.replaceAll("[\\r\\n]+", " ").trim();
         if (sanitized.length() > 800) {
             sanitized = sanitized.substring(0, 800) + "...";
         }
