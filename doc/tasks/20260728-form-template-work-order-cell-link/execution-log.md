@@ -47,5 +47,11 @@
 
 ## Current Status
 
-- 任务实现与定向验证完成，状态进入 `ready_for_closeout`。
-- 当前工作区仍存在大量并行任务脏改动；提交前必须选择性暂存本任务文件，不得使用宽泛 `git add -A`。
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-form-template-work-order-cell-link --mode preview` -> PASS，保留 `task.md`、`execution-log.md`、`verification-report.md`、`backend-api-evidence.md`、`frontend-feature-evidence.md`，无删除项、无阻塞。
+- Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260728-form-template-work-order-cell-link --mode apply` -> PASS，无删除项、无阻塞。
+- Evidence validation: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260728-form-template-work-order-cell-link/frontend-feature-evidence.md` -> PASS。
+- Evidence validation: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260728-form-template-work-order-cell-link/backend-api-evidence.md` -> PASS。
+- Experience consolidation: 已将“前端静态合同仓库路径门禁”合并到 `docs/frontend-development.md`，并在 `docs/experience-index.md` 增加关键词路由。
+- Branch runtime guard: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main` frontend 8081 / backend 48081。
+- Implementation commit: `40894b29`，`任务: 表单模板支持生产工单字段链接`。
+- Final status: completed；当前工作区仍存在其他并行任务脏改动，未纳入本任务提交。
