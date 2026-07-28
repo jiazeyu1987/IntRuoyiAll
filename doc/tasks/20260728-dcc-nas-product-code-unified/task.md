@@ -10,7 +10,7 @@
 2. [completed] 改造前端 DCC 外来评审、元数据弹窗、NAS 导入为 DCC 项目选择和只读自动生成产品编号。
 3. [completed] 改造后端 DCC/NAS 写链路按 `dccProjectCodeId` 解析项目代码，清空 `productMasterId`。
 4. [completed] 跑目标前后端验证、相邻回归和可行的真实页面 E2E。
-5. [in_progress] 完成证据、经验沉淀、提交、推送和收尾。
+5. [completed] 完成证据、经验沉淀、提交、推送和收尾。
 
 ## Expected Verification
 
@@ -22,14 +22,15 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 - 已完成实施前 Git 门禁：当前分支 `int_main`，`origin` 可用。
 - 已按规则创建脏工作区基线提交 `a8ad9591`，包含任务开始前既有 MES 改动与 `20260728-rename-product-master-tab` 文档；本任务实现文件未进入基线。
 - 代码实现、静态契约、目标 JUnit、DCC Maven reactor 编译、`pnpm ts:check`、本机登录前置和 DCC 上传页只读真实 Playwright 验证均已通过。
 - 写入型真实 E2E 已使用已授权测试租户账号通过：DCC 上传提交请求与详情均为 `dccProjectCodeId=124`、`productCode=IKFDA`、`productMasterId=null`，任务自有记录 `CODEX-DCC-PT-20260728171635` 已通过撤回和删除已撤回流程完成清理。
 - 本地后端已由旧 runtime Jar 重启到 `backend-runtime-control-20260728-170032.jar`，避免真实 E2E 命中过期旧产品主数据校验。
-- 实现与验证已完成，进入 cleanup / 经验沉淀 / 提交推送收尾阶段。
+- 实现提交 `4426f0c9` 已创建；cleanup preview/apply 均通过且无删除项。
+- 当前任务已完成，仍保留其他并行任务的未暂存工作区改动；这些改动不属于本任务。
 
 ## 设计约束检查
 

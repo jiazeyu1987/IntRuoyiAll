@@ -30,4 +30,4 @@
 - DCC/NAS frontend write payloads explicitly clear `productMasterId` as `null` and use DCC project selection.
 - DCC/NAS backend write paths recompute product code/name from `dccProjectCodeId` and persist `productMasterId=null`.
 - Historical response/DO fields remain for compatibility.
-- Task status is `ready_for_closeout`; implementation and required verification are complete, with cleanup / commit / push remaining.
+- Task status is `completed`; implementation commit `4426f0c9` and cleanup preview/apply completed successfully.

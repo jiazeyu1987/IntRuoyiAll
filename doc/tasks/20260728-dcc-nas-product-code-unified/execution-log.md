@@ -57,3 +57,10 @@
 ## Blockers
 
 - None. Previous write-path real E2E authorization blocker resolved by the user-provided test tenant account and task-owned cleanup path.
+
+## Closeout
+
+- `COMMIT: 4426f0c9 -> PASS, feat: unify dcc nas product code source；仅暂存并提交 DCC/NAS 代码、测试、SQL 与本任务证据文件，未混入并行 MES/运行态/其它任务改动。`
+- `GREEN: task-closeout-cleanup preview -> PASS, keep task.md、execution-log.md、verification-report.md 和 3 个 evidence 文档；delete=<none>、blocked=<none>、warnings=<none>。`
+- `GREEN: task-closeout-cleanup apply -> PASS, delete=<none>、deleted_paths=<none>；当前主工作区不是 linked worktree，无需 merge/remove worktree。`
+- `FINAL: task status -> completed；其他并行任务未暂存工作区改动保留原样，不属于本任务收尾范围。`
