@@ -1285,6 +1285,49 @@ const saveEditableTemplateRules = async () => {
   }
 }
 
+const saveSelectedTemplateFillConfig = async (data: FormTemplateFillConfigSavePayload) => {
+  if (!selectedTemplate.value) return
+  if (selectedTemplate.value.status !== 'DRAFT') {
+    message.warning('只有草稿版本可以保存填写配置。')
+    return
+  }
+  const rules = sortCellRules(data.cellRules.map(normalizeCellRule))
+  const markers = data.signatureCellMarkers || buildSignatureMarkersFromRules(rules)
+  const formViewModel = buildTemplateVisualPreviewModel(
+    selectedTemplate.value,
+    rules,
+    markers,
+    data.sheetLayoutJson
+  )
+  if (!formViewModel) {
+    message.error('当前模板缺少可保存的规则布局。')
+    return
+  }
+  const payload = buildTemplateJimuSchemaPayload({
+    sheetLayoutJson: formViewModel.sheetLayoutJson,
+    cellRules: rules,
+    signatureCellMarkers: markers,
+    assistRows: data.assistRows,
+    fillAssignments: data.fillAssignments
+  })
+  fillConfigSaving.value = true
+  try {
+    await TemplateApi.saveTemplateJimuSchema(
+      selectedTemplate.value.templateId,
+      selectedTemplate.value.versionNo,
+      payload
+    )
+    selectedTemplate.value.jimuSchemaJson = payload
+    fillConfigDialogVisible.value = false
+    message.success('填写配置已保存')
+    await getList()
+  } catch (error) {
+    message.error(resolveErrorMessage(error, '填写配置保存失败，请联系管理员。'))
+  } finally {
+    fillConfigSaving.value = false
+  }
+}
+
 const openEditorFromSignatureDialog = () => {
   if (!selectedTemplate.value) return
   signatureDialogVisible.value = false

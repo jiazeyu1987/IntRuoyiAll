@@ -467,6 +467,9 @@ const submitButtonText = computed(() => (isExternalReview.value ? '提交评审'
 const selectedCategory = computed(() =>
   categories.value.find((category) => category.id === formData.categoryId)
 )
+const selectedProjectCode = computed(() =>
+  projectCodeOptions.value.find((project) => project.id === formData.dccProjectCodeId)
+)
 const categoryDirectoryBindingMessage = '当前文件类别未绑定提交目录，请先在 DCC 文件类别维护目录绑定'
 const categoryUploadPermissionMessage = '当前用户没有该文件类别的上传权限，请选择有上传权限的文件类别。'
 const availableCategories = computed(() =>
@@ -642,6 +645,7 @@ const currentVersionProjectionBlockReason = computed(() => {
 let currentVersionLookupTimer: ReturnType<typeof setTimeout> | undefined
 let currentVersionLookupSeq = 0
 let revisionTargetLookupSeq = 0
+let productAutofillSeq = 0
 
 const clearCurrentVersionInfo = () => {
   currentVersionInfo.value = undefined
@@ -827,7 +831,9 @@ const resolveHistoryRevisionTarget = async (fileName: string) => {
 }
 
 const handleProjectCodeChange = async () => {
+  applyProductMasterSelection(undefined)
   resetUploadNameLinkage(Boolean(selectedHistoryFileName.value || selectedHistoryVersion.value))
+  await tryAutofillProductFromSelectedProject()
 }
 
 const handleFileTypeTaxonomyChange = async () => {
@@ -837,6 +843,66 @@ const handleFileTypeTaxonomyChange = async () => {
 
 const formatProductOptionLabel = (product: DccControlledFileProductOptionVO) =>
   `${product.dccProductCode} · ${product.nameCn} · ${product.productCode}`
+
+const applyProductMasterSelection = (product: DccControlledFileProductOptionVO | undefined) => {
+  formData.productMasterId = product?.id ?? null
+  formData.productCode = product?.dccProductCode || ''
+}
+
+const normalizeProductAutofillKeyword = (value?: string | null) => value?.trim() || ''
+
+const resolveProjectProductAutofillKeywords = (project: DccProjectCodeRespVO | undefined) =>
+  Array.from(
+    new Set(
+      [project?.projectName, project?.projectCode, project?.docControlNo]
+        .map(normalizeProductAutofillKeyword)
+        .filter(Boolean)
+    )
+  )
+
+const uniqueProductOptionsById = (options: ReadonlyArray<DccControlledFileProductOptionVO>) =>
+  Array.from(new Map(options.map((option) => [option.id, option])).values())
+
+const tryAutofillProductFromSelectedProject = async () => {
+  if (!isProductRequiredForSelectedCategory.value || formData.productMasterId) {
+    return
+  }
+  const keywords = resolveProjectProductAutofillKeywords(selectedProjectCode.value)
+  if (!keywords.length) {
+    return
+  }
+  const requestSeq = ++productAutofillSeq
+  productOptionsLoading.value = true
+  try {
+    const keywordResults = await Promise.all(
+      keywords.map((keyword) =>
+        getDccProductOptions({
+          status: DCC_PRODUCT_STATUS_ENABLE,
+          requireDccProductCode: true,
+          keyword
+        })
+      )
+    )
+    if (requestSeq !== productAutofillSeq || formData.productMasterId || !isProductRequiredForSelectedCategory.value) {
+      return
+    }
+    const matchingProducts = uniqueProductOptionsById(keywordResults.flat())
+    productOptions.value = uniqueProductOptionsById([...matchingProducts, ...productOptions.value])
+    if (matchingProducts.length === 1) {
+      applyProductMasterSelection(matchingProducts[0])
+      return
+    }
+    message.warning('未能根据 DCC 项目唯一匹配产品主数据，请手动选择产品主数据')
+  } catch (error) {
+    if (requestSeq === productAutofillSeq) {
+      message.error(resolveUploadErrorMessage(error, '产品主数据自动带出失败，请查看错误提示后手动选择'))
+    }
+  } finally {
+    if (requestSeq === productAutofillSeq) {
+      productOptionsLoading.value = false
+    }
+  }
+}
 
 const loadProductOptions = async (keyword = '') => {
   productOptionsLoading.value = true
@@ -856,7 +922,7 @@ const loadProductOptions = async (keyword = '') => {
 
 const handleProductMasterChange = (productId: number | undefined) => {
   const product = productOptions.value.find((item) => item.id === productId)
-  formData.productCode = product?.dccProductCode || ''
+  applyProductMasterSelection(product)
 }
 
 const handleProductOptionsVisibleChange = async (visible: boolean) => {
@@ -1005,6 +1071,7 @@ const handleCategoryChange = async () => {
       loadUploadNameOptions(formData.categoryId),
       loadUploadDirectoryTree(formData.categoryId)
     ])
+    await tryAutofillProductFromSelectedProject()
   }
 }
 

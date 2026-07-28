@@ -133,7 +133,12 @@ for (const token of [
   '生产工单字段',
   '跨表单带入'
 ]) {
-  assert.ok(executionPage.includes(token), `execution page misses ${token}`)
+  assert.ok(!executionPage.includes(token), `execution page must not keep draft prefill token ${token}`)
 }
+
+assert.ok(
+  executionPage.includes('hydrateDraftState(detail)'),
+  'execution page must hydrate from persisted detail values only'
+)
 
 console.log('batch-record-cell-link static contract passed')
