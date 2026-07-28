@@ -48,6 +48,16 @@
               <Icon icon="ep:upload" class="mr-5px" />
               导入
             </el-button>
+            <el-button
+              type="danger"
+              plain
+              :loading="batchDeleteLoading"
+              :disabled="selectedRows.length === 0"
+              @click="handleBatchDelete"
+            >
+              <Icon icon="ep:delete" class="mr-5px" />
+              批量删除
+            </el-button>
             <div class="batch-record-form-toolbar__latest-version-switch">
               <span class="batch-record-form-toolbar__latest-version-label">最新版本</span>
               <el-switch
