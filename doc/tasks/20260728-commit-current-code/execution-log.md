@@ -83,4 +83,6 @@
 - ROOT CAUSE: `git config --show-origin --get-regexp "^(http|https)\..*"` 显示全局配置 `http.https://github.com.proxy=http://127.0.0.1:8902`；该本地 GeekSpeed/Clash 代理端口在线但对 GitHub HTTPS CONNECT 返回连接重置。浏览器和 curl 直连 GitHub 可用，不代表 Git 使用的该代理通道可用。
 - GREEN: no-proxy git read -> PASS，`git -c http.https://github.com.proxy= -c http.proxy= ls-remote origin HEAD` 成功。
 - GREEN: no-proxy push -> PASS，`git -c http.https://github.com.proxy= -c http.proxy= push origin int_main` 成功，将 `int_main` 从 `da282e0e` 推送到 `5946a5b6`。
-- STATUS: 当前任务状态改为 `completed`；最后提交本完成记录并使用同样 no-proxy Git 配置推送。
+- GREEN: completion-record commit -> PASS，commit `04643b9d docs: mark current code push complete`。
+- BLOCKER: completion-record push retry -> FAIL，`git -c http.https://github.com.proxy= -c http.proxy= push origin int_main` 两次失败，`Failed to connect to github.com port 443 after 21s`。
+- STATUS: 主前后端代码提交已推送到 `5946a5b6`；最后完成记录提交仍本地 ahead，任务状态改回 `blocked`，等待 GitHub 直连或代理恢复后推送。

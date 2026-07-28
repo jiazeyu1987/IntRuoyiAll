@@ -48,4 +48,5 @@
 
 - Cleanup apply passed.
 - Final closeout commits through `5946a5b6` were pushed successfully with the GitHub proxy override disabled for that command.
-- A final completion-record commit remains to be pushed after this report update.
+- Completion-record commit `04643b9d` is local only because the follow-up no-proxy push could not connect to `github.com:443`.
+- Task status remains blocked until the final local commit(s) are pushed and `git status --short --branch` no longer reports ahead.
