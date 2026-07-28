@@ -79,6 +79,15 @@
 - Verification: 授权数据修复必须记录原始快照备份、回滚路径、`restoreRows/repairRows`、修复后 `JSON_TYPE=ARRAY` 与 `JSON_LENGTH`，再用真实页面 `打开/创建 -> 确认` 验证不再出现负责人配置错误。
 - Forbidden action: 禁止把缺失负责人配置默认成功、禁止把 JSON 数组通过用户变量/字符串写成 JSON 字符串、禁止 API-only 或直接详情 URL 替代确认按钮 E2E。
 - Evidence: `doc/tasks/20260727-batch-record-attachment-owner-config/verification-report.md`。
+
+### 批次任务产品信息成员表单部分缺失边界
+
+- Trigger: eDHR 批次执行、批记录表单“产品信息”缺失、已有批次存在 `ROUTE_FORM` 任务但同版产品信息成员表单未生成、`batchRecordDefinitionId + batchRecordVersionId`、`batch_record_sort` 唯一键冲突。
+- Preflight check: 读取批次详情或修复任务恢复逻辑时，必须比较目标批次任务集合与已有任务集合；不能只用“已有任一 `ROUTE_FORM` 任务”判断批记录任务完整。产品信息成员表单只能从已有正式 `MAIN + BATCH_RECORD` 任务的批记录定义/版本解析，不得从 `formBindings`、工序开始配置、当前登录人或默认槽位推断。
+- Blocker: 同版产品信息成员报表存在但活跃批次详情仍不展示、恢复逻辑会重复插入同一 `batchRecordReportId`、或产品信息与源表单使用相同 `batch_record_sort` 触发唯一键冲突时，必须停止并补齐后端任务恢复链路。
+- Verification: 后端回归必须同时覆盖“新建批次包含产品信息成员表单”“已有工序任务但缺产品信息时详情读取补齐”“完全缺工序任务的历史恢复仍可用”，并复跑相邻排序唯一键场景。
+- Forbidden action: 禁止用前端硬编码展示“产品信息”、禁止把 `formBindings` 当批记录表单来源、禁止只调整页面排序或隐藏错误来掩盖任务未持久化。
+- Evidence: `doc/tasks/20260728-batch-execution-product-info-form-missing/verification-report.md`。
 ## eDHR 批记录版本治理规则运行态门禁
 
 ### 已发布版本治理证据与 Jimu 当前 JSON 边界

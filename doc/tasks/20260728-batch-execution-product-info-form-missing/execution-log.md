@@ -9,6 +9,7 @@
 - 已读取 `docs/task-closeout-rules.md`、`docs/powershell-encoding.md`、`docs/frontend-development.md`、`docs/backend-development.md`。
 - 已读取 bug-regression-fix-loop 技能与 evidence contract。
 - `git status --short --branch` 显示当前工作区在本任务开始前已有未提交改动，并且 `int_main` 领先 `origin/int_main` 4 个提交；本任务需避免误混入既有改动。
+- 任务执行期间并行基线提交 `3fb50fa6 chore: baseline dirty workspace before edhr switch fix` 推进了 `int_main`，并将本任务早期新增测试与任务文档纳入基线；后续只继续维护本任务剩余服务修复与证据更新。
 
 ## BDD
 
@@ -16,14 +17,19 @@
 
 ## RED / GREEN
 
-- RED: 待补充。
-- GREEN: 待补充。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#getDetail_shouldRecoverMissingProductInfoMemberTaskWhenOtherRouteTaskExists" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，期望 `[RPT-DETAIL-PRODUCT-INFO-MEMBER, RPT-DETAIL-PRODUCT-INFO-PROCESS]`，实际仅 `[RPT-DETAIL-PRODUCT-INFO-PROCESS]`。
+- GREEN: 同一命令复跑 -> PASS，`Tests run: 1, Failures: 0, Errors: 0, Skipped: 0`。
+- REGRESSION: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#openOrCreate_includesProductInfoMemberFromSameBatchRecordVersion+getDetail_shouldRecoverMissingRouteProcessTasksBeforeRendering+getPage_shouldRecoverMissingRouteProcessTasksBeforeRendering+getDetail_shouldRecoverMissingProductInfoMemberTaskWhenOtherRouteTaskExists" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> 初次 FAIL，暴露产品信息与源表单同工序 `batch_record_sort=1` 唯一键冲突；修正产品信息排序为源表单前一位后复跑 PASS，`Tests run: 4, Failures: 0, Errors: 0, Skipped: 0`。
 
 ## Milestone Updates
 
 - 2026-07-28: 创建任务目录并记录适用门禁，准备定位详情接口与页面展示链路。
+- 2026-07-28: 定位根因：新建批次已有同版产品信息补入逻辑，但历史/活跃批次只要存在任一 `ROUTE_FORM` 任务，读取恢复逻辑直接返回，导致只缺“产品信息”成员表单时不会补齐。
+- 2026-07-28: 新增详情读取回归测试，覆盖已有工序生产记录任务但缺同版“产品信息”任务的活跃批次。
+- 2026-07-28: 修复读取恢复逻辑：对已有正式 `MAIN + BATCH_RECORD` 任务按 `batchRecordDefinitionId + batchRecordVersionId` 查找同版产品信息成员报表，缺失时插入等待任务并重建初始填写任务；不读取 `formBindings`。
+- 2026-07-28: 修复产品信息成员表单排序，确保插入排序在源表单之前，避免同批次、同工序、同 `batch_record_sort` 唯一键冲突。
 
 ## Blockers
 
-- 当前工作区存在本任务前置脏改动，后续提交前需按项目规则单独处理基线提交，且不得把本任务修复混入既有改动。
+- 当前分支仍领先 `origin/int_main`；按项目规则，最终完成前需要处理提交与推送门禁。
 

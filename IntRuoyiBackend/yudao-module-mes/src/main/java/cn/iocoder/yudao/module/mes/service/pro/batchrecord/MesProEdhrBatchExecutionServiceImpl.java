@@ -4129,11 +4129,15 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 sourceConfig.batchRecord(), productInfoReport, MesProBatchRecordVersionDO.builder()
                         .id(versionId)
                         .build());
-        productInfoRecord.setReportSort(1)
+        productInfoRecord.setReportSort(resolveProductInfoMemberSort(sourceConfig.batchRecord().getReportSort()))
                 .setRemark("批记录固定产品信息表单");
         return new BatchTaskConfig(sourceConfig.routeProcess(), sourceConfig.process(), productInfoRecord,
                 productInfoReport, sourceConfig.executionMode(), sourceConfig.predecessorRouteProcessId(),
                 null, null, null);
+    }
+
+    private Integer resolveProductInfoMemberSort(Integer sourceSort) {
+        return sourceSort == null ? 0 : sourceSort - 1;
     }
 
     private MesProBatchRecordReportDO resolveProductInfoMemberReport(Long definitionId, Long versionId) {
@@ -5483,7 +5487,6 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             MesProEdhrBatchExecutionTaskDO sourceTask,
             MesProBatchRecordReportDO productInfoReport) {
         Integer sourceSort = sourceTask.getBatchRecordSort();
-        Integer productInfoSort = sourceSort == null || sourceSort <= 0 ? 0 : sourceSort - 1;
         return new MesProEdhrBatchExecutionTaskDO()
                 .setBatchExecutionId(batch.getId())
                 .setNodeType(NODE_TYPE_ROUTE_FORM)
@@ -5499,7 +5502,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         StrUtil.trim(productInfoReport.getReportName()), productInfoReport.getTableTitle()))
                 .setBatchRecordDefinitionId(productInfoReport.getBatchRecordDefinitionId())
                 .setBatchRecordVersionId(productInfoReport.getBatchRecordVersionId())
-                .setBatchRecordSort(productInfoSort)
+                .setBatchRecordSort(resolveProductInfoMemberSort(sourceSort))
                 .setInstanceScope(resolveInstanceScope(sourceTask.getInstanceScope()))
                 .setExecutionMode(sourceTask.getExecutionMode())
                 .setFormSlotType(FORM_SLOT_MAIN)
