@@ -24,6 +24,7 @@ PASS。批次执行详情页已按后端任务门禁 `available=true` 标记所�
 - clean worktree `pnpm install --frozen-lockfile --reporter append-only` -> PASS
 - clean worktree `pnpm ts:check` -> PASS
 - `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS
+- `git push origin HEAD:int_main` -> PASS，implementation commit `6423023d`
 
 ## Evidence
 

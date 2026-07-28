@@ -33,6 +33,8 @@ BDD: 开始节点并行第一组全部显示当前运行态 -> Given 工艺路�
 - WORKTREE DEPENDENCY: `pnpm install --frozen-lockfile --reporter append-only` -> PASS；此前较短 120s/300s 安装窗口超时，未产生锁文件改动。
 - WORKTREE GREEN: `pnpm ts:check` -> PASS。
 - PORT GUARD: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`int_main slot 12`，frontend `8093`，backend `48093`。
+- COMMIT: `git commit -m "修复批次执行并行当前工序高亮"` -> PASS，implementation commit `6423023d`。
+- PUSH: `git push origin HEAD:int_main` -> PASS，`origin/int_main` updated to implementation commit `6423023d`。
 
 ## Milestones
 
@@ -42,7 +44,8 @@ BDD: 开始节点并行第一组全部显示当前运行态 -> Given 工艺路�
 - completed: 目标静态合同、相邻批次详情合同、后端多起点路线创建回归和前端类型检查通过。
 - completed: 经验沉淀到现有前端长期门禁文档。
 - completed: 收尾清理已删除本任务临时 evidence，保留 `task.md`、`execution-log.md`、`verification-report.md`。
-- in_progress: 提交和推送。
+- completed: implementation commit `6423023d` 已推送到 `origin/int_main`。
+- in_progress: 最终 closeout 记录提交和 worktree 移除。
 
 ## Verification
 
