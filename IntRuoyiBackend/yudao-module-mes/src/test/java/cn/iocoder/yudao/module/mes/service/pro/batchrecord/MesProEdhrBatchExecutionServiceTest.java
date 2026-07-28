@@ -317,8 +317,8 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                     respVO.setId(randomLongId());
                     return respVO;
                 });
-        when(cellLinkService.buildFormTemplateVersionPrefillData(any(), any(), any()))
-                .thenAnswer(invocation -> invocation.getArgument(2));
+        when(cellLinkService.buildFormTemplateVersionPrefillData(any(), any(), any(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(3));
     }
 
     @Test
@@ -3171,9 +3171,9 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                                 "batchTaskId", dynamicTask.getId()))))
                         .build());
         when(cellLinkService.buildFormTemplateVersionPrefillData(eq(templateVersion.getId()),
-                eq(fixture.workOrderId()), any()))
+                eq(fixture.workOrderId()), eq("BATCH-DYNAMIC-OPEN-PREFILL"), any()))
                 .thenAnswer(invocation -> {
-                    Map<String, Object> formData = new LinkedHashMap<>(invocation.getArgument(2));
+                    Map<String, Object> formData = new LinkedHashMap<>(invocation.getArgument(3));
                     formData.put("3:1", "BATCH-DYNAMIC-OPEN-PREFILL");
                     return formData;
                 });
@@ -3591,9 +3591,9 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         routeFlowProcessConfigMapper.insert(processConfig);
         FormTemplateVersionDO configuredVersion = insertPublishedFormTemplateVersion("动态生产记录表 V1");
         when(cellLinkService.buildFormTemplateVersionPrefillData(eq(configuredVersion.getId()),
-                eq(fixture.workOrderId()), any()))
+                eq(fixture.workOrderId()), eq("BATCH-DYNAMIC-FORM"), any()))
                 .thenAnswer(invocation -> {
-                    Map<String, Object> formData = new LinkedHashMap<>(invocation.getArgument(2));
+                    Map<String, Object> formData = new LinkedHashMap<>(invocation.getArgument(3));
                     formData.put("3:1", "BATCH-DYNAMIC-FORM");
                     return formData;
                 });
@@ -4082,6 +4082,41 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .setBatchExecutionId(created.getId())
                 .setTaskId(tasks.get(4).getId()));
         assertEquals(9115L, nextProcess.getExecutionId());
+    }
+
+    @Test
+    void openOrCreate_includesProductInfoMemberFromSameBatchRecordVersion() {
+        Fixture fixture = insertRouteFixture(false, false);
+        MesProRouteProcessDO firstProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).stream()
+                .min(Comparator.comparing(MesProRouteProcessDO::getSort))
+                .orElseThrow();
+        Long definitionId = randomLongId();
+        MesProBatchRecordVersionDO version = insertBatchRecordVersion(definitionId, "V1.0", "APPROVED");
+        String productInfoReport = insertVersionedReport(
+                "RPT-PRODUCT-INFO-MEMBER", "产品信息", definitionId, version.getId(), 1, "MAIN");
+        String processReport = insertVersionedReport(
+                "RPT-PRODUCT-INFO-PROCESS", "粗洗工序生产记录", definitionId, version.getId(), 2, "MAIN");
+        insertBatchUseConfigWithSlots(fixture.routeId(), firstProcess.getId(), "SEQUENTIAL", List.of(
+                batchSlot(processReport, "MAIN", null, null, null, 1)
+        ));
+
+        EdhrBatchExecutionRespVO created = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-PRODUCT-INFO-MEMBER")
+                .setRouteId(fixture.routeId()));
+
+        List<EdhrBatchExecutionTaskRespVO> firstProcessTasks = routeTasks(created).stream()
+                .filter(task -> Objects.equals(firstProcess.getId(), task.getRouteProcessId()))
+                .toList();
+        assertEquals(List.of(productInfoReport, processReport), firstProcessTasks.stream()
+                .map(EdhrBatchExecutionTaskRespVO::getBatchRecordReportId)
+                .toList());
+        assertEquals(List.of("产品信息", "粗洗工序生产记录"), firstProcessTasks.stream()
+                .map(EdhrBatchExecutionTaskRespVO::getBatchRecordReportName)
+                .toList());
+        assertTrue(firstProcessTasks.stream()
+                .allMatch(task -> "MAIN".equals(task.getFormSlotType())
+                        && "BATCH_RECORD".equals(task.getRecordCategory())));
     }
 
     @Test

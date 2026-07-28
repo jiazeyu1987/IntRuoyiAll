@@ -367,6 +367,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
 
     @Override
     public Map<String, Object> buildFormTemplateVersionPrefillData(Long templateVersionId, Long workOrderId,
+                                                                   String executionBatchCode,
                                                                    Map<String, Object> formData) {
         FormTemplateVersionDO templateVersion = requireFormTemplateVersion(templateVersionId);
         String targetReportId = formTemplateReportId(templateVersion.getId());
@@ -396,7 +397,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
             }
             WorkOrderSourceField field = requireWorkOrderSourceField(
                     StrUtil.blankToDefault(rule.getSourceFieldCode(), rule.getSourceCellKey()));
-            Object sourceValue = field.valueExtractor().apply(workOrder);
+            Object sourceValue = resolveFormTemplateWorkOrderFieldValue(workOrder, field, executionBatchCode);
             if (!hasPlainValue(sourceValue)) {
                 throw exception(
                         MesProBatchRecordCellLinkErrorCodeConstants.PRO_BATCH_RECORD_CELL_LINK_AUTO_PERSIST_SOURCE_VALUE_MISSING,
@@ -416,6 +417,14 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
             result.put(targetCellKey, sourceValue);
         }
         return result;
+    }
+
+    private Object resolveFormTemplateWorkOrderFieldValue(MesProWorkOrderDO workOrder, WorkOrderSourceField field,
+                                                          String executionBatchCode) {
+        if (WORK_ORDER_SOURCE_FIELD_BATCH_CODE.equals(field.code())) {
+            return StrUtil.trim(executionBatchCode);
+        }
+        return field.valueExtractor().apply(workOrder);
     }
 
     private Scope resolveQueryScope(Long definitionId, Long versionId, String sourceReportId,

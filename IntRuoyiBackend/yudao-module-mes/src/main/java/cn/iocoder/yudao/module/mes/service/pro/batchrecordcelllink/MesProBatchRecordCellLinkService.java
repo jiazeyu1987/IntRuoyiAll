@@ -21,5 +21,6 @@ public interface MesProBatchRecordCellLinkService {
     BatchRecordCellLinkPrefillRespVO getPrefill(Long targetExecutionId, Long workTaskId);
 
     Map<String, Object> buildFormTemplateVersionPrefillData(Long templateVersionId, Long workOrderId,
+                                                            String executionBatchCode,
                                                             Map<String, Object> formData);
 }

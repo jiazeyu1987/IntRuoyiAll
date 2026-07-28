@@ -15,3 +15,5 @@ BDD: 表单模板与批记录填写配置保持交互一致 -> Given 批记录�
 ## TDD Evidence
 
 - Gate: 已读取 `docs/experience-index.md` 并命中 `docs/frontend-development.md#前端静态契约隔离门禁`、`docs/frontend-development.md#表单模板三按钮领域边界门禁`。
+- RED: `node tests\e2e\form-template-fill-config-assist-mode-static.spec.js` -> FAIL, expected reason: `FormTemplateFillConfigDialog.vue` 缺少 `activeConfigMode` 和辅助表单映射模式入口。
+- GREEN: `node tests\e2e\form-template-fill-config-assist-mode-static.spec.js` -> PASS。

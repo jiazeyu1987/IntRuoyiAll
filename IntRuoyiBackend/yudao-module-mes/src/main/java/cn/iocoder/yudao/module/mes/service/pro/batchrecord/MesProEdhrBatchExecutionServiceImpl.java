@@ -2127,7 +2127,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 "formTemplateVersionId", task.getFormTemplateVersionId(),
                 "formTemplateVersionNo", task.getFormTemplateVersionNo()));
         reqVO.setFormData(cellLinkService.buildFormTemplateVersionPrefillData(
-                task.getFormTemplateVersionId(), batch.getWorkOrderId(), baseFormData));
+                task.getFormTemplateVersionId(), batch.getWorkOrderId(), batch.getBatchCode(), baseFormData));
         FormInstanceRespVO instance = formCenterRuntimeService.createInstance(reqVO, currentUserId());
         if (instance == null || instance.getId() == null) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
@@ -2154,7 +2154,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         }
         Map<String, Object> currentFormData = parseFormCenterFormData(instance.getFormDataJson());
         Map<String, Object> prefilledFormData = cellLinkService.buildFormTemplateVersionPrefillData(
-                task.getFormTemplateVersionId(), batch.getWorkOrderId(), currentFormData);
+                task.getFormTemplateVersionId(), batch.getWorkOrderId(), batch.getBatchCode(), currentFormData);
         if (Objects.equals(currentFormData, prefilledFormData)) {
             return;
         }
