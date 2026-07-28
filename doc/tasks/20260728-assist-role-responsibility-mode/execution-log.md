@@ -14,6 +14,8 @@
 ## Commands And Evidence
 
 - 2026-07-28: 已使用 `frontend-feature-delivery`、`backend-api-delivery`、`behavior-driven-development` 技能；已读取技能契约、`task-closeout-rules`、`frontend-development`、`backend-development`、`e2e-rules`、`powershell-memory`、`technology-stack-routing`。
+- RED: `node tests\e2e\assist-grid-role-responsibility-static.spec.js` -> FAIL, expected reason: 权限规则前端类型缺少 `candidateSourceNames`，辅助映射仍只维护用户填写人。
+- RED: `mvn -pl yudao-module-mes -Dtest=MesProEdhrProcessFormPermissionRuleServiceImplTest#getRuleByReport_returnsRoleAssignmentSourceNamesForAssistRows test` -> FAIL, expected reason: `FillAssignment` 响应缺少 `getCandidateSourceNames()`。
 
 ## Blockers
 

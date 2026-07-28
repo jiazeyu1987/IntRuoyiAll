@@ -82,11 +82,11 @@
 
 ### 批次任务产品信息成员表单部分缺失边界
 
-- Trigger: eDHR 批次执行、批记录表单“产品信息”缺失、已有批次存在 `ROUTE_FORM` 任务但同版产品信息成员表单未生成、`batchRecordDefinitionId + batchRecordVersionId`、`batch_record_sort` 唯一键冲突。
-- Preflight check: 读取批次详情或修复任务恢复逻辑时，必须比较目标批次任务集合与已有任务集合；不能只用“已有任一 `ROUTE_FORM` 任务”判断批记录任务完整。产品信息成员表单只能从已有正式 `MAIN + BATCH_RECORD` 任务的批记录定义/版本解析，不得从 `formBindings`、工序开始配置、当前登录人或默认槽位推断。
-- Blocker: 同版产品信息成员报表存在但活跃批次详情仍不展示、恢复逻辑会重复插入同一 `batchRecordReportId`、或产品信息与源表单使用相同 `batch_record_sort` 触发唯一键冲突时，必须停止并补齐后端任务恢复链路。
-- Verification: 后端回归必须同时覆盖“新建批次包含产品信息成员表单”“已有工序任务但缺产品信息时详情读取补齐”“完全缺工序任务的历史恢复仍可用”，并复跑相邻排序唯一键场景。
-- Forbidden action: 禁止用前端硬编码展示“产品信息”、禁止把 `formBindings` 当批记录表单来源、禁止只调整页面排序或隐藏错误来掩盖任务未持久化。
+- Trigger: eDHR 批次执行、批记录表单“产品信息”缺失、已有批次存在 `ROUTE_FORM` 任务但同版产品信息成员表单未生成、`batchRecordDefinitionId + batchRecordVersionId`、`batch_record_sort` 唯一键冲突、产品信息未固定排在 `80`。
+- Preflight check: 读取批次详情或修复任务恢复逻辑时，必须比较目标批次任务集合与已有任务集合；不能只用“已有任一 `ROUTE_FORM` 任务”判断批记录任务完整。产品信息成员表单只能从已有正式 `MAIN + BATCH_RECORD` 任务的批记录定义/版本解析，生成和恢复时 `batchRecordSort/reportSort` 必须统一为 `80`，不得从 `formBindings`、工序开始配置、当前登录人或默认槽位推断。
+- Blocker: 同版产品信息成员报表存在但活跃批次详情仍不展示、恢复逻辑会重复插入同一 `batchRecordReportId`、产品信息不是 `batch_record_sort=80`、产品信息排在正式批记录表单之前，或产品信息与源表单使用相同 `batch_record_sort` 触发唯一键冲突时，必须停止并补齐后端任务恢复链路。
+- Verification: 后端回归必须同时覆盖“新建批次包含产品信息成员表单”“已有工序任务但缺产品信息时详情读取补齐”“完全缺工序任务的历史恢复仍可用”，并断言产品信息固定排序 `80` 且在前序正式批记录未完成前被同工序顺序门禁阻塞。
+- Forbidden action: 禁止用前端硬编码展示“产品信息”、禁止把 `formBindings` 当批记录表单来源、禁止按源表单排序 `-1` 推算产品信息位置、禁止只调整页面排序或隐藏错误来掩盖任务未持久化。
 - Evidence: `doc/tasks/20260728-batch-execution-product-info-form-missing/verification-report.md`。
 ## eDHR 批记录版本治理规则运行态门禁
 

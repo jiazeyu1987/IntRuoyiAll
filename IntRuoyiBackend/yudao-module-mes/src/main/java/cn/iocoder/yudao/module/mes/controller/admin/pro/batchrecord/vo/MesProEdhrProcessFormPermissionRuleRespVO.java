@@ -47,6 +47,8 @@ public class MesProEdhrProcessFormPermissionRuleRespVO {
         private String remark;
 
         private List<CandidateUser> candidateUsers;
+
+        private List<String> candidateSourceNames;
     }
 
     @Data
@@ -68,6 +70,8 @@ public class MesProEdhrProcessFormPermissionRuleRespVO {
         private String remark;
 
         private List<CandidateUser> candidateUsers;
+
+        private List<String> candidateSourceNames;
     }
 
     @Data

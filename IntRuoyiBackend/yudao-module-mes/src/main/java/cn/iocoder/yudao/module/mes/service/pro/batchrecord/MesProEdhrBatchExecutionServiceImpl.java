@@ -317,6 +317,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     private static final String SPECIAL_NODE_ATTACHMENT_REASON_CATEGORY = "SPECIAL_NODE_ATTACHMENT";
     private static final String SPECIAL_NODE_ATTACHMENT_ACTION_ADD = "ADD";
     private static final String SPECIAL_NODE_ATTACHMENT_ACTION_PENDING = "PENDING";
+    private static final int PRODUCT_INFO_MEMBER_BATCH_RECORD_SORT = 80;
     private static final Pattern SHA256_PATTERN = Pattern.compile("^[0-9a-f]{64}$");
     public static final String DOSSIER_ITEM_TYPE_FINAL_INSPECTION =
             MesProEdhrDossierConstants.ITEM_TYPE_FINAL_INSPECTION;
@@ -4086,13 +4087,13 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         Set<String> addedProductInfoKeys = new LinkedHashSet<>();
         List<BatchTaskConfig> result = new ArrayList<>();
         for (BatchTaskConfig taskConfig : taskConfigs) {
+            result.add(taskConfig);
             BatchTaskConfig productInfoConfig = buildProductInfoMemberTaskConfig(
                     taskConfig, existingReportIds, addedProductInfoKeys);
             if (productInfoConfig != null) {
                 result.add(productInfoConfig);
                 existingReportIds.add(productInfoConfig.report().getReportId());
             }
-            result.add(taskConfig);
         }
         return result;
     }
@@ -4129,15 +4130,15 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 sourceConfig.batchRecord(), productInfoReport, MesProBatchRecordVersionDO.builder()
                         .id(versionId)
                         .build());
-        productInfoRecord.setReportSort(resolveProductInfoMemberSort(sourceConfig.batchRecord().getReportSort()))
+        productInfoRecord.setReportSort(resolveProductInfoMemberSort())
                 .setRemark("批记录固定产品信息表单");
         return new BatchTaskConfig(sourceConfig.routeProcess(), sourceConfig.process(), productInfoRecord,
                 productInfoReport, sourceConfig.executionMode(), sourceConfig.predecessorRouteProcessId(),
                 null, null, null);
     }
 
-    private Integer resolveProductInfoMemberSort(Integer sourceSort) {
-        return sourceSort == null ? 0 : sourceSort - 1;
+    private Integer resolveProductInfoMemberSort() {
+        return PRODUCT_INFO_MEMBER_BATCH_RECORD_SORT;
     }
 
     private MesProBatchRecordReportDO resolveProductInfoMemberReport(Long definitionId, Long versionId) {
@@ -5486,7 +5487,6 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             MesProEdhrBatchExecutionDO batch,
             MesProEdhrBatchExecutionTaskDO sourceTask,
             MesProBatchRecordReportDO productInfoReport) {
-        Integer sourceSort = sourceTask.getBatchRecordSort();
         return new MesProEdhrBatchExecutionTaskDO()
                 .setBatchExecutionId(batch.getId())
                 .setNodeType(NODE_TYPE_ROUTE_FORM)
@@ -5502,7 +5502,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                         StrUtil.trim(productInfoReport.getReportName()), productInfoReport.getTableTitle()))
                 .setBatchRecordDefinitionId(productInfoReport.getBatchRecordDefinitionId())
                 .setBatchRecordVersionId(productInfoReport.getBatchRecordVersionId())
-                .setBatchRecordSort(resolveProductInfoMemberSort(sourceSort))
+                .setBatchRecordSort(resolveProductInfoMemberSort())
                 .setInstanceScope(resolveInstanceScope(sourceTask.getInstanceScope()))
                 .setExecutionMode(sourceTask.getExecutionMode())
                 .setFormSlotType(FORM_SLOT_MAIN)

@@ -31,11 +31,23 @@
 
 ## Current Status
 
-in_progress
+blocked
+
+## Completed Work
+
+- 后端源码已包含 `GET /admin-api/mes/pro/batch-record-report/product-name-options`，委托 `MesProBatchRecordReportService#getProductNameOptions(keyword, latestVersionOnly)`。
+- 服务候选口径复用批记录表单列表可见视图、Jimu 报表存在性过滤、版本产品拆行、`latestVersionOnly` 和 `productName` 包含匹配。
+- 前端 `BatchRecordReportApi` 已新增 `getProductNameOptions(keyword?, latestVersionOnly?)`。
+- 批记录表单列表 `productName` 快速筛选已改为 `autocomplete`，设置 `triggerOnFocus: true`，候选选择触发快速过滤查询，手工输入仍保留“查询”按钮。
+- 已补齐后端 JUnit 和前端静态合同，并通过定向验证。
+
+## Remaining Blockers
+
+- 本机真实 E2E 未通过：`8081/48081` 运行态可达，但页面自身请求 `/admin-api/mes/pro/batch-record-report/product-name-options` 返回业务码 `404`；同一页面列表 `/page` 返回业务码 `0`、总数 `320`、首屏 `20` 行且均有非空产品名称，说明当前 `48081` 后端进程未加载本次新增 Controller 路由。
+- Git closeout 未完成：当前分支 `int_main` 本地 ahead 4 / behind 6，且任务外文件 `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceTest.java` 存在未提交并行改动；本任务未回滚、覆盖或提交该并行改动。
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
 - `是否从根因和长期维护角度解决`：是；新增正式只读候选接口，候选口径与列表实际可见数据一致。
 - `是否存在临时补丁或绕过`：否。
-

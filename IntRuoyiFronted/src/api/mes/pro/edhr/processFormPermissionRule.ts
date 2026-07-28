@@ -20,6 +20,7 @@ export interface EdhrProcessFormCandidateRule {
   enabled?: boolean
   remark?: string | null
   candidateUsers?: EdhrProcessFormCandidateUser[]
+  candidateSourceNames?: string[]
 }
 
 export interface EdhrProcessFormSignatureRule {
@@ -37,6 +38,7 @@ export interface EdhrProcessFormFillAssignment {
   enabled?: boolean
   remark?: string | null
   candidateUsers?: EdhrProcessFormCandidateUser[]
+  candidateSourceNames?: string[]
 }
 
 export interface EdhrProcessFormPermissionRuleRespVO {

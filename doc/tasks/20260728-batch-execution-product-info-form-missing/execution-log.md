@@ -14,12 +14,16 @@
 ## BDD
 
 - `BDD: 批次执行展示产品信息表单 -> Given 工序设置中正式逐工序批记录表单绑定包含“产品信息表单” When 用户打开批次执行详情 Then 批记录表单区域必须展示“产品信息表单”，且该结果不得由 formBindings 或工序开始配置推断。`
+- `BDD: 产品信息表后置填写 -> Given 同工序存在正式批记录表单和同版产品信息成员表单 When 用户打开批次执行详情 Then 正式批记录表单先显示且可填写，产品信息表固定排序为 80，并在前序正式批记录未完成前被门禁阻塞。`
 
 ## RED / GREEN
 
 - RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#getDetail_shouldRecoverMissingProductInfoMemberTaskWhenOtherRouteTaskExists" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，期望 `[RPT-DETAIL-PRODUCT-INFO-MEMBER, RPT-DETAIL-PRODUCT-INFO-PROCESS]`，实际仅 `[RPT-DETAIL-PRODUCT-INFO-PROCESS]`。
 - GREEN: 同一命令复跑 -> PASS，`Tests run: 1, Failures: 0, Errors: 0, Skipped: 0`。
 - REGRESSION: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#openOrCreate_includesProductInfoMemberFromSameBatchRecordVersion+getDetail_shouldRecoverMissingRouteProcessTasksBeforeRendering+getPage_shouldRecoverMissingRouteProcessTasksBeforeRendering+getDetail_shouldRecoverMissingProductInfoMemberTaskWhenOtherRouteTaskExists" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> 初次 FAIL，暴露产品信息与源表单同工序 `batch_record_sort=1` 唯一键冲突；修正产品信息排序为源表单前一位后复跑 PASS，`Tests run: 4, Failures: 0, Errors: 0, Skipped: 0`。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#getDetail_shouldRecoverMissingProductInfoMemberTaskWhenOtherRouteTaskExists" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，期望顺序 `[工序生产记录, 产品信息]`，实际 `[产品信息, 工序生产记录]`。
+- GREEN: 同一命令在固定产品信息排序 `80` 后复跑 -> PASS，`Tests run: 1, Failures: 0, Errors: 0, Skipped: 0`。
+- REGRESSION BLOCKED: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#openOrCreate_includesProductInfoMemberFromSameBatchRecordVersion+getDetail_shouldRecoverMissingRouteProcessTasksBeforeRendering+getPage_shouldRecoverMissingRouteProcessTasksBeforeRendering+getDetail_shouldRecoverMissingProductInfoMemberTaskWhenOtherRouteTaskExists" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL at testCompile，既有无关测试 `MesProEdhrProcessFormPermissionRuleServiceImplTest` 引用缺失的 `FillAssignment#getCandidateSourceNames()`。
 
 ## Milestone Updates
 
@@ -28,6 +32,8 @@
 - 2026-07-28: 新增详情读取回归测试，覆盖已有工序生产记录任务但缺同版“产品信息”任务的活跃批次。
 - 2026-07-28: 修复读取恢复逻辑：对已有正式 `MAIN + BATCH_RECORD` 任务按 `batchRecordDefinitionId + batchRecordVersionId` 查找同版产品信息成员报表，缺失时插入等待任务并重建初始填写任务；不读取 `formBindings`。
 - 2026-07-28: 修复产品信息成员表单排序，确保插入排序在源表单之前，避免同批次、同工序、同 `batch_record_sort` 唯一键冲突。
+- 2026-07-28: 根据用户确认调整产品信息成员表单排序口径：不再排在源表单之前，统一固定 `batchRecordSort/reportSort=80`，确保所有正式批记录表单填完后再填产品信息表。
+- 2026-07-28: 更新长期门禁 `docs/backend-development.md` 与 `docs/experience-index.md`，记录产品信息固定排序 `80`，禁止按源表单排序 `-1` 推算。
 - 2026-07-28: 执行 bug evidence 校验：`python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260728-batch-execution-product-info-form-missing\bug-regression-evidence.md` -> PASS。
 - 2026-07-28: 执行 project-experience-consolidation，已将“已有 ROUTE_FORM 但产品信息成员表单部分缺失”的门禁沉淀到 `docs/backend-development.md`，并更新 `docs/experience-index.md` 关键词。
 - 2026-07-28: cleanup preview/apply 已执行，保留 `task.md`、`execution-log.md`、`verification-report.md` 和 `bug-regression-evidence.md`，无删除项、无 blocked、无 warnings。
@@ -36,4 +42,5 @@
 
 ## Blockers
 
-- `git push origin int_main` 被 non-fast-forward 拒绝；当前分支 `ahead 2, behind 6`，并且工作区存在非本任务并行改动 `IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/index.vue`，需要先由对应任务处理远端同步/并行改动后再推送。
+- `git push origin int_main` 被 non-fast-forward 拒绝；当前分支存在 ahead/behind 状态，并且工作区存在非本任务并行改动，需要先由对应任务处理远端同步/并行改动后再推送。
+- 相邻 Maven 回归当前被既有无关测试编译错误阻塞：`MesProEdhrProcessFormPermissionRuleServiceImplTest` 引用缺失的 `MesProEdhrProcessFormPermissionRuleRespVO.FillAssignment#getCandidateSourceNames()`，无法完成 4 方法回归。

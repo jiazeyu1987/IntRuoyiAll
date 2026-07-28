@@ -2,7 +2,7 @@
 
 ## Task Goal
 
-修复批次执行中“批记录表单”区域未展示同批记录版本“产品信息表单”的问题，确保该表单跟随正式 `MAIN + BATCH_RECORD` 批记录任务补齐，而不是来自表单槽位 `formBindings` 或工序开始配置。
+修复批次执行中“批记录表单”区域未展示同批记录版本“产品信息表单”的问题，确保该表单跟随正式 `MAIN + BATCH_RECORD` 批记录任务补齐，并统一固定在排序 `80`，等正式批记录表单完成后再填写，而不是来自表单槽位 `formBindings` 或工序开始配置。
 
 ## Milestones
 
@@ -15,6 +15,7 @@
 ## Expected Verification
 
 - 后端或前端定向回归测试覆盖批次执行详情/页面中正式批记录表单包含“产品信息表单”。
+- 产品信息成员任务 `batchRecordSort` 固定为 `80`，在同工序正式批记录未完成前不可填写。
 - 相邻批记录表单、表单槽位 `formBindings`、工序开始配置链路不互相替代。
 - 不引入 fallback、默认表单、空值补齐或吞异常。
 
@@ -27,7 +28,7 @@
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
-- `是否从根因和长期维护角度解决`：是；活跃批次读取时会从已有正式主批记录任务的定义/版本补齐缺失的产品信息成员任务，并统一产品信息排序，避免同工序排序唯一键冲突。
+- `是否从根因和长期维护角度解决`：是；活跃批次读取时会从已有正式主批记录任务的定义/版本补齐缺失的产品信息成员任务，并统一产品信息排序为 `80`，确保正式批记录表单先填、产品信息后填，同时避免同工序排序唯一键冲突。
 - `是否存在临时补丁或绕过`：否。
 
 ## Cleanup Keep
@@ -43,3 +44,4 @@ blocked
 - `git push origin int_main` 被远端 non-fast-forward 拒绝。
 - 当前 `int_main` 为 `ahead 2, behind 6`，且工作区仍有非本任务并行改动 `IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/index.vue`，不能安全执行 pull/rebase 或清理。
 - 本任务实现提交：`842850cf fix: restore product info batch record task`。
+- 本轮 80 排序补充变更尚未提交；相邻 Maven 回归当前被既有无关测试编译错误阻塞：`MesProEdhrProcessFormPermissionRuleServiceImplTest` 引用缺失的 `FillAssignment#getCandidateSourceNames()`。

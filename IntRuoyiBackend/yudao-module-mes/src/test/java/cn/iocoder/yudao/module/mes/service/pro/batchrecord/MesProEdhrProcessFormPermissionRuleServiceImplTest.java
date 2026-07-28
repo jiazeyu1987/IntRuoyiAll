@@ -28,6 +28,8 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchReco
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
 import cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import cn.iocoder.yudao.module.system.api.permission.RoleApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.dto.SystemEntitlementSyncReqDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -91,6 +93,8 @@ class MesProEdhrProcessFormPermissionRuleServiceImplTest extends BaseDbUnitTest 
     private AdminUserApi adminUserApi;
     @MockitoBean
     private PermissionApi permissionApi;
+    @MockitoBean
+    private RoleApi roleApi;
     @MockitoBean
     private DeptApi deptApi;
     @MockitoBean
@@ -716,6 +720,49 @@ class MesProEdhrProcessFormPermissionRuleServiceImplTest extends BaseDbUnitTest 
     }
 
     @Test
+    void getRuleByReport_returnsRoleAssignmentSourceNamesForAssistRows() {
+        insertReportVersion("REPORT-ASSIST-ROLE-NAMES", 77261L, 77262L);
+        when(jimuReportGateway.getReportJson("REPORT-ASSIST-ROLE-NAMES")).thenReturn(assistRowsReportJson());
+        when(permissionApi.getUserRoleIdListByRoleIds(List.of(7001L))).thenReturn(Set.of(201L, 202L));
+        when(adminUserApi.getUserList(Set.of(201L, 202L))).thenReturn(List.of(
+                adminUser(201L, "角色成员甲", CommonStatusEnum.ENABLE.getStatus()),
+                adminUser(202L, "角色成员乙", CommonStatusEnum.ENABLE.getStatus())));
+        when(adminUserApi.getUserList(List.of(203L))).thenReturn(List.of(
+                adminUser(203L, "个人责任人", CommonStatusEnum.ENABLE.getStatus())));
+        when(roleApi.getRoleList(List.of(7001L))).thenReturn(List.of(
+                role(7001L, "生产辅助填写角色", CommonStatusEnum.ENABLE.getStatus())));
+
+        MesProEdhrProcessFormPermissionRuleRespVO saved;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(113L);
+            security.when(SecurityFrameworkUtils::getLoginUserNickname).thenReturn("aoteman");
+            saved = processFormPermissionRuleService.saveRuleByReport(
+                    new MesProEdhrBatchRecordFormPermissionRuleSaveReqVO()
+                            .setBatchRecordReportId("REPORT-ASSIST-ROLE-NAMES")
+                            .setFillAssignments(List.of(
+                                    fillAssignment("AR_001", "ROLE", List.of(7001L), "ANY_ONE", true,
+                                            "角色填写生产批号和实际数量"),
+                                    fillAssignment("AR_002", "USER", List.of(203L), "ANY_ONE", true,
+                                            "个人选择生产日期"))));
+        }
+
+        assertEquals("ROLE", saved.getFillAssignments().get(0).getCandidateSourceType());
+        assertEquals(List.of(7001L), saved.getFillAssignments().get(0).getCandidateSourceIds());
+        assertEquals(List.of("生产辅助填写角色"), saved.getFillAssignments().get(0).getCandidateSourceNames());
+        assertEquals(List.of("角色成员甲", "角色成员乙"), saved.getFillAssignments().get(0)
+                .getCandidateUsers().stream().map(MesProEdhrProcessFormPermissionRuleRespVO.CandidateUser::getDisplayName)
+                .toList());
+
+        MesProEdhrProcessFormPermissionRuleRespVO queried =
+                processFormPermissionRuleService.getRuleByReport("REPORT-ASSIST-ROLE-NAMES");
+
+        assertNull(queried.getFillRule());
+        assertEquals("ROLE", queried.getFillAssignments().get(0).getCandidateSourceType());
+        assertEquals(List.of("生产辅助填写角色"), queried.getFillAssignments().get(0).getCandidateSourceNames());
+        assertEquals("个人责任人", queried.getFillAssignments().get(1).getCandidateSourceNames().get(0));
+    }
+
+    @Test
     void saveRuleByReport_assistAssignmentsReplaceRouteScopedFillRulesButKeepSignatures() {
         String reportId = "REPORT-ASSIST-REPLACE-ROUTE";
         Long routeProcessId = 5832L;
@@ -1166,6 +1213,14 @@ class MesProEdhrProcessFormPermissionRuleServiceImplTest extends BaseDbUnitTest 
         user.setNickname(nickname);
         user.setStatus(status);
         return user;
+    }
+
+    private RoleRespDTO role(Long roleId, String name, Integer status) {
+        RoleRespDTO role = new RoleRespDTO();
+        role.setId(roleId);
+        role.setName(name);
+        role.setStatus(status);
+        return role;
     }
 
     private MesProEdhrProcessFormPermissionRuleDO permissionRule(Long routeProcessId,

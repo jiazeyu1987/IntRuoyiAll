@@ -25,6 +25,8 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchReco
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordJimuReportGateway;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteFlowContextMatcher;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
+import cn.iocoder.yudao.module.system.api.permission.RoleApi;
+import cn.iocoder.yudao.module.system.api.permission.dto.RoleRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.dto.SystemEntitlementSyncReqDTO;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
@@ -98,6 +100,8 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
     private AdminUserApi adminUserApi;
     @Resource
     private PermissionApi permissionApi;
+    @Resource
+    private RoleApi roleApi;
     @Resource
     private MesProEdhrWorkTaskService workTaskService;
     @Resource
@@ -713,6 +717,8 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
     private MesProEdhrProcessFormPermissionRuleRespVO.FillAssignment toFillAssignmentResp(
             MesProEdhrProcessFormPermissionRuleDO rule) {
         List<Long> sourceIds = parseIds(rule.getCandidateSourceIds());
+        List<MesProEdhrProcessFormPermissionRuleRespVO.CandidateUser> candidateUsers =
+                toCandidateUsers(resolveEnabledUsers(rule.getCandidateSourceType(), sourceIds));
         return new MesProEdhrProcessFormPermissionRuleRespVO.FillAssignment()
                 .setScopeKey(rule.getScopeKey())
                 .setCandidateSourceType(rule.getCandidateSourceType())
@@ -721,7 +727,9 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
                 .setDueMinutes(rule.getDueMinutes())
                 .setEnabled(rule.getEnabled())
                 .setRemark(rule.getRemark())
-                .setCandidateUsers(toCandidateUsers(resolveEnabledUsers(rule.getCandidateSourceType(), sourceIds)));
+                .setCandidateUsers(candidateUsers)
+                .setCandidateSourceNames(resolveCandidateSourceNames(
+                        rule.getCandidateSourceType(), sourceIds, candidateUsers));
     }
 
     private boolean isAssistScopeRule(MesProEdhrProcessFormPermissionRuleDO rule) {
@@ -887,6 +895,42 @@ public class MesProEdhrProcessFormPermissionRuleServiceImpl implements MesProEdh
                 .map(user -> new MesProEdhrProcessFormPermissionRuleRespVO.CandidateUser()
                         .setUserId(user.getId())
                         .setDisplayName(StrUtil.blankToDefault(user.getNickname(), String.valueOf(user.getId()))))
+                .toList();
+    }
+
+    private List<String> resolveCandidateSourceNames(
+            String sourceType,
+            List<Long> sourceIds,
+            List<MesProEdhrProcessFormPermissionRuleRespVO.CandidateUser> candidateUsers) {
+        if (CollUtil.isEmpty(sourceIds)) {
+            return List.of();
+        }
+        if (SOURCE_TYPE_ROLE.equals(sourceType)) {
+            List<RoleRespDTO> roles = roleApi.getRoleList(sourceIds);
+            Map<Long, RoleRespDTO> roleMap = CollUtil.isEmpty(roles)
+                    ? Map.of()
+                    : roles.stream()
+                            .filter(role -> role != null && role.getId() != null)
+                            .collect(Collectors.toMap(
+                                    RoleRespDTO::getId,
+                                    role -> role,
+                                    (left, right) -> left,
+                                    LinkedHashMap::new));
+            List<String> names = new ArrayList<>();
+            for (Long sourceId : sourceIds) {
+                RoleRespDTO role = roleMap.get(sourceId);
+                if (role == null
+                        || StrUtil.isBlank(role.getName())
+                        || !CommonStatusEnum.ENABLE.getStatus().equals(role.getStatus())) {
+                    throw exception(PRO_EDHR_PROCESS_FORM_PERMISSION_RULE_CANDIDATE_EMPTY);
+                }
+                names.add(role.getName());
+            }
+            return names;
+        }
+        return candidateUsers.stream()
+                .map(MesProEdhrProcessFormPermissionRuleRespVO.CandidateUser::getDisplayName)
+                .filter(StrUtil::isNotBlank)
                 .toList();
     }
 

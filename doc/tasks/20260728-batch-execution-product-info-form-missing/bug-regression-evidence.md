@@ -6,7 +6,7 @@
 
 ## Expected
 
-当正式 `MAIN + BATCH_RECORD` 批记录任务所属 `batchRecordDefinitionId + batchRecordVersionId` 存在唯一“产品信息”成员报表时，打开批次执行详情必须展示并持久化该“产品信息”任务，且不得从 `formBindings`、工序开始配置或默认 `MAIN` 推断。
+当正式 `MAIN + BATCH_RECORD` 批记录任务所属 `batchRecordDefinitionId + batchRecordVersionId` 存在唯一“产品信息”成员报表时，打开批次执行详情必须展示并持久化该“产品信息”任务；该任务必须固定 `batchRecordSort=80`，在正式批记录表单之后填写，且不得从 `formBindings`、工序开始配置或默认 `MAIN` 推断。
 
 ## Reproduction
 
@@ -14,7 +14,7 @@
 
 ## Root Cause
 
-`ensureRouteFormTasksPresent` 在发现批次已存在任一 `ROUTE_FORM` 任务后直接返回，只能恢复“完全缺失工序批记录任务”的历史批次，不能恢复“已有工序表单但缺同版产品信息成员表单”的部分缺失状态。相邻创建路径还将产品信息成员表单 `reportSort` 固定为 `1`，与源工序表单同排序时会触发同批次同工序排序唯一键冲突。
+`ensureRouteFormTasksPresent` 在发现批次已存在任一 `ROUTE_FORM` 任务后直接返回，只能恢复“完全缺失工序批记录任务”的历史批次，不能恢复“已有工序表单但缺同版产品信息成员表单”的部分缺失状态。相邻创建路径曾将产品信息成员表单排在源表单之前；用户确认产品信息表应统一固定在 `80`，等正式批记录表单填完后再填。
 
 ## RED:
 
@@ -26,10 +26,9 @@
 
 ## Verification
 
-- `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#getDetail_shouldRecoverMissingProductInfoMemberTaskWhenOtherRouteTaskExists" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS。
+- `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#getDetail_shouldRecoverMissingProductInfoMemberTaskWhenOtherRouteTaskExists" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，断言产品信息固定 `batchRecordSort=80` 且在前一张批记录未完成前不可填写。
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#openOrCreate_includesProductInfoMemberFromSameBatchRecordVersion+getDetail_shouldRecoverMissingRouteProcessTasksBeforeRendering+getPage_shouldRecoverMissingRouteProcessTasksBeforeRendering+getDetail_shouldRecoverMissingProductInfoMemberTaskWhenOtherRouteTaskExists" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS。
 
 ## Blockers
 
-当前分支仍存在 `origin/int_main` 领先状态，需要按项目提交/推送门禁完成后才能将任务标记为 `completed`。
-
+当前分支仍存在 `origin/int_main` 同步阻塞，且相邻 Maven 回归被既有无关测试编译错误阻塞：`MesProEdhrProcessFormPermissionRuleServiceImplTest` 引用缺失的 `FillAssignment#getCandidateSourceNames()`。需要按项目提交/推送门禁完成后才能将任务标记为 `completed`。

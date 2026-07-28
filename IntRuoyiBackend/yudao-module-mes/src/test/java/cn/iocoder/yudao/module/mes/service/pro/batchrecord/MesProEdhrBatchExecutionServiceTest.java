@@ -554,6 +554,7 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
                 .batchExecutionId(legacyBatch.getId())
                 .nodeType(MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM)
                 .routeProcessId(firstProcess.getId())
+                .rootProcessFlag(Boolean.TRUE)
                 .routeProcessSort(firstProcess.getSort())
                 .processId(process.getId())
                 .processCode(process.getCode())
