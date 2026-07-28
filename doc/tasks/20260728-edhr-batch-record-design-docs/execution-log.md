@@ -193,3 +193,14 @@
   - deleted_paths: none。
   - linked worktree: false，未执行 worktree merge/remove。
 - Current status: completed。
+
+## Chinese Filename Update
+
+- 用户要求：将交付 Word 文件名改成中文。
+- DONE: 四份交付 Word 已重命名。
+  - `EDHR_Batch_Record_System_Design.docx` -> `电子批记录系统设计说明书.docx`。
+  - `EDHR_Batch_Record_Requirement_Design.docx` -> `电子批记录系统需求设计.docx`。
+  - `EDHR_Batch_Record_Outline_Design.docx` -> `电子批记录系统概要设计.docx`。
+  - `EDHR_Batch_Record_Detailed_Design.docx` -> `电子批记录系统详细设计.docx`。
+- GREEN: `output directory filename check -> PASS`
+  - 输出目录仅保留四份中文命名 DOCX。
