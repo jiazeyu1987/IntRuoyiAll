@@ -122,6 +122,33 @@
   - linked worktree: false，未执行 worktree merge/remove。
 - Current status: completed。
 
+## Word Style Beautification Update
+
+- 用户反馈：Word 截图中章节标题和表头存在黑框/黑底效果，要求使用美化 Word 的技能处理，并且不要使用蓝色，所有文字和标题均使用黑色。
+- DONE: 使用 DOCX 技能和 `python-docx` 统一四份 Word 样式。
+  - 深色章节条改为浅灰标题条。
+  - 深色表头改为浅灰表头。
+  - 标题、表头、正文显式字体颜色统一为黑色。
+  - 表格边框统一为浅灰细线，避免视觉上形成黑框。
+- GREEN: `DOCX dark/blue style scan -> PASS`
+  - `EDHR_Batch_Record_System_Design.docx`、`EDHR_Batch_Record_Requirement_Design.docx`、`EDHR_Batch_Record_Outline_Design.docx`、`EDHR_Batch_Record_Detailed_Design.docx` 均未发现黑色、深色或蓝色填充。
+  - 四份 DOCX 均未发现非黑色显式字体颜色。
+- GREEN: `DOCX size hierarchy after style update -> PASS`
+  - 需求设计：47,175 bytes，5,234 正文字符，9 张表。
+  - 概要设计：50,846 bytes，7,882 正文字符，15 张表。
+  - 详细设计：60,260 bytes，15,037 正文字符，22 张表。
+- BLOCKED: `DOCX visual render -> soffice missing`
+  - 当前环境仍无法找到 LibreOffice/`soffice`，因此无法执行 DOCX -> PNG 页面渲染复核。
+- Experience consolidation check: 已按 `project-experience-consolidation` 技能核对；本次为单次 Word 交付物样式修订，既有 DOCX 技能和任务收尾规则已覆盖，不新增长期经验文档。
+- GREEN: `task_closeout.py --task-id 20260728-edhr-batch-record-design-docs --mode preview -> PASS`
+  - keep: task.md、execution-log.md、verification-report.md、四份 DOCX。
+  - delete: `output/答芝村戦殻窺.png`。
+  - blocked/warnings: none。
+- GREEN: `task_closeout.py --task-id 20260728-edhr-batch-record-design-docs --mode apply -> PASS`
+  - deleted_paths: `doc/tasks/20260728-edhr-batch-record-design-docs/output/答芝村戦殻窺.png`。
+  - linked worktree: false，未执行 worktree merge/remove。
+- Current status: completed。
+
 ## Git Evidence
 
 - GREEN: `scripts/preflight/branch-runtime-port-guard.ps1 -> PASS`

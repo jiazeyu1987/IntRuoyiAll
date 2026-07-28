@@ -13,7 +13,7 @@
 
 - `python-docx generation -> PASS`
   - 生成路径：`doc/tasks/20260728-edhr-batch-record-design-docs/output/EDHR_Batch_Record_System_Design.docx`
-  - 文件大小：57,596 bytes
+  - 文件大小：59,858 bytes
 - `DOCX structural verification -> PASS`
   - 段落数：95
   - 表格数：21
@@ -50,29 +50,37 @@
   - 段落数：52
   - 表格数：9
   - 正文字符数：5,234
-  - 文件大小：46,103 bytes
+  - 文件大小：47,175 bytes
   - 关键内容：`1. 需求设计`、`REQ-01`、`REQ-16`
 - `EDHR_Batch_Record_Outline_Design.docx -> PASS`
   - 段落数：55
   - 表格数：15
   - 正文字符数：7,882
-  - 文件大小：49,867 bytes
+  - 文件大小：50,846 bytes
   - 关键内容：`2. 概要设计`、`2.1 总体架构`、`2.9 运行架构与部署视图`、`2.14 概要验收边界`
 - `EDHR_Batch_Record_Detailed_Design.docx -> PASS`
   - 段落数：62
   - 表格数：22
   - 正文字符数：15,037
-  - 文件大小：58,933 bytes
+  - 文件大小：60,260 bytes
   - 关键内容：`3. 详细设计`、`3.10 接口详细设计`、`3.20 详细设计验收矩阵`、`MesProBatchRecordReportController`、`mes_pro_edhr_batch_execution`
 - 章节隔离：三份拆分文档均未包含其它设计主章节。
 
 ## Document Proportion Verification
 
 - `DOCX size hierarchy -> PASS`
-  - 详细设计：58,933 bytes，15,037 正文字符，22 张表。
-  - 概要设计：49,867 bytes，7,882 正文字符，15 张表。
-  - 需求设计：46,103 bytes，5,234 正文字符，9 张表。
+  - 详细设计：60,260 bytes，15,037 正文字符，22 张表。
+  - 概要设计：50,846 bytes，7,882 正文字符，15 张表。
+  - 需求设计：47,175 bytes，5,234 正文字符，9 张表。
   - 结果：详细设计 > 概要设计 > 需求设计，符合正式交付中详细设计体量最大、概要设计其次、需求设计相对精简的层级关系。
+
+## Style Verification
+
+- `DOCX dark/blue style scan -> PASS`
+  - 扫描范围：设计说明书、需求设计、概要设计、详细设计四份 DOCX。
+  - 填充检查：未发现黑色、深色或蓝色标题条/表头填充；四份文档仅保留浅灰填充 `EDEDED`。
+  - 字体颜色检查：未发现非黑色显式字体颜色；标题、表头和正文均为黑色文字。
+  - 表格边框检查：表格边框已统一为浅灰线条，避免截图中出现突兀黑框效果。
 
 ## Scope Confirmation
 
