@@ -1,14 +1,12 @@
 {
   "task_id": "20260727-edhr-notify-all-valid-candidates",
   "goal": "保持 eDHR 通知全部有效候选人的行为，并修复 yudao-module-mes 完整测试套件直至全绿",
-  "status": "ready_for_closeout",
-  "current_stage": "closeout",
+  "status": "completed",
+  "current_stage": "completed",
   "planner_review_status": "approved",
   "plan_review_status": "approved",
   "blocking_prereqs": [],
-  "closeout_blockers": [
-    "共享工作区存在非本任务脏改动，提交/推送需先处理并发改动归属"
-  ],
+  "closeout_blockers": [],
   "iteration_counts": {
     "planner_revisions": 1,
     "plan_revisions": 2,
