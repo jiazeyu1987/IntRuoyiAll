@@ -24,7 +24,7 @@
 - 前端上传页已改为只读红框产品编号，选择 DCC 项目后自动显示 `DccProjectCodeRespVO.projectCode`。
 - 后端受控上传 + DHF/DMR 类别已使用 `DccProjectCodeDO.projectCode` 落库为 `productCode`，并清空 `productMasterId`。
 - 真实页面 E2E 通过：本机 `http://127.0.0.1:8081` 登录 `芋道源码/admin`，选择项目 `按压式球囊扩充压力泵 / IDI` 和类别 `DCC_FVM_DHF_001 / 市场调研报告` 后，红框产品编号显示 `IDI`。
-- 真实页面 E2E 观测：DCC 写请求 `0`，其它业务主数据选项请求 `0`，浏览器 console error `0`。
+- 真实页面 E2E 观测：DCC 写请求 `0`，其它业务数据源选项请求 `0`，浏览器 console error `0`。
 
 ## Remaining Risk
 

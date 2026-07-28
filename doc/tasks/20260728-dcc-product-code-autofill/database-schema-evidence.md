@@ -70,4 +70,4 @@
 - DB readback：`DCC DHF/DMR上传员 / dcc_dhf_dmr_uploader / category=文控 / assigned_users=admin`。
 - DB readback：该角色 active `UPLOAD` 类别规则数为 59；已绑定目录且可上传的 DHF/DMR 类别数为 1。
 - Browser read-only probe：重新登录 `芋道源码/admin` 后 `uploadableProductRequired=1`，命中 `DCC_FVM_DHF_001 / 市场调研报告 / directoryId=906469`；未发送 DCC 写请求，console error 为 0。
-- Browser product-number probe：选择项目 `按压式球囊扩充压力泵 / IDI` 后，产品编号显示 `IDI`；未查询其它业务主数据选项。
+- Browser product-number probe：选择项目 `按压式球囊扩充压力泵 / IDI` 后，产品编号显示 `IDI`；未查询其它业务数据源选项。

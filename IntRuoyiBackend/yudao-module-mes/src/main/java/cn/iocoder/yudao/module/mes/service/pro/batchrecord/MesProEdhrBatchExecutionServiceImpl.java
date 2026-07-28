@@ -114,6 +114,7 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.BatchRecordCe
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkAutoPersistService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordcelllink.MesProBatchRecordCellLinkService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordJimuReportGateway;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordCellRuleSupport;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordReportErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteFlowContextMatcher;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
@@ -2993,8 +2994,108 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setFormViewModel(new EdhrBatchExecutionReviewTimelineRespVO.FormViewModel()
                         .setSheetLayoutJson(reportJson)
                         .setMetaJson(JSON.toJSONString(Map.of("tableTitle", tableTitle)))
+                        .setExecutionSnapshotJson(buildUnopenedBatchRecordPreviewExecutionSnapshot(reportJson))
                         .setCellValuesJson("[]")
                         .setSignatureCellMarkers(extractSignatureCellMarkers(reportJson)));
+    }
+
+    private String buildUnopenedBatchRecordPreviewExecutionSnapshot(String reportJson) {
+        try {
+            JSONObject root = JSON.parseObject(reportJson);
+            if (root == null) {
+                throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_SNAPSHOT_INVALID);
+            }
+            JSONObject snapshot = new JSONObject(true);
+            snapshot.put("fields", extractPreviewSnapshotFields(root));
+            snapshot.put("assistRows", extractPreviewSnapshotAssistRows(root));
+            return snapshot.toJSONString();
+        } catch (ServiceException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_SNAPSHOT_INVALID);
+        }
+    }
+
+    private JSONArray extractPreviewSnapshotFields(JSONObject root) {
+        JSONArray fields = new JSONArray();
+        JSONObject rows = root.getJSONObject("rows");
+        if (rows == null || rows.isEmpty()) {
+            return fields;
+        }
+        List<Integer> rowIndexes = rows.keySet().stream()
+                .filter(StrUtil::isNumeric)
+                .map(Integer::valueOf)
+                .sorted()
+                .toList();
+        for (Integer rowIndex : rowIndexes) {
+            JSONObject row = rows.getJSONObject(String.valueOf(rowIndex));
+            JSONObject cells = row == null ? null : row.getJSONObject("cells");
+            if (cells == null || cells.isEmpty()) {
+                continue;
+            }
+            List<Integer> columnIndexes = cells.keySet().stream()
+                    .filter(StrUtil::isNumeric)
+                    .map(Integer::valueOf)
+                    .sorted()
+                    .toList();
+            for (Integer columnIndex : columnIndexes) {
+                JSONObject cell = cells.getJSONObject(String.valueOf(columnIndex));
+                JSONObject fillForm = cell == null ? null : cell.getJSONObject("fillForm");
+                if (fillForm == null || StrUtil.isBlank(fillForm.getString("field"))) {
+                    continue;
+                }
+                JSONObject cellRule = cell.getJSONObject(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY);
+                if (cellRule == null) {
+                    throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_SNAPSHOT_INVALID);
+                }
+                JSONObject field = new JSONObject(true);
+                field.put("fieldPath", rowIndex + ":" + columnIndex + ":" + fillForm.getString("field"));
+                field.put("fieldKey", fillForm.getString("field"));
+                field.put("label", resolvePreviewSnapshotFieldLabel(cell, fillForm, cellRule));
+                field.put("rowIndex", rowIndex);
+                field.put("columnIndex", columnIndex);
+                String valueType = StrUtil.blankToDefault(cellRule.getString("valueType"), "STRING");
+                field.put("valueType", valueType);
+                field.put("component", MesProBatchRecordCellRuleSupport.defaultComponentFlag(valueType,
+                        StrUtil.blankToDefault(cellRule.getString("componentFlag"),
+                                StrUtil.blankToDefault(fillForm.getString("componentFlag"),
+                                        StrUtil.blankToDefault(fillForm.getString("component"), "input-text")))));
+                field.put("required", Boolean.TRUE.equals(cellRule.getBoolean("required")));
+                field.put(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY,
+                        JSON.parseObject(cellRule.toJSONString()));
+                if (fillForm.containsKey("defaultValue")) {
+                    field.put("defaultValue", fillForm.get("defaultValue"));
+                }
+                if (fillForm.containsKey("value")) {
+                    field.put("value", fillForm.get("value"));
+                }
+                fields.add(field);
+            }
+        }
+        return fields;
+    }
+
+    private String resolvePreviewSnapshotFieldLabel(JSONObject cell, JSONObject fillForm, JSONObject cellRule) {
+        String label = StrUtil.trim(cellRule.getString("label"));
+        if (StrUtil.isNotBlank(label)) {
+            return label;
+        }
+        label = StrUtil.trim(fillForm.getString("labelText"));
+        if (StrUtil.isNotBlank(label)) {
+            return label;
+        }
+        label = StrUtil.trim(fillForm.getString("label"));
+        return StrUtil.blankToDefault(label, StrUtil.trimToEmpty(cell.getString("text")));
+    }
+
+    private JSONArray extractPreviewSnapshotAssistRows(JSONObject root) {
+        JSONArray assistRows = root.getJSONArray(MesProBatchRecordCellRuleSupport.ASSIST_ROWS_KEY);
+        if (assistRows == null) {
+            return new JSONArray();
+        }
+        MesProBatchRecordCellRuleSupport.validateAssistRows(
+                root, MesProBatchRecordCellRuleSupport.extractAssistRows(root));
+        return JSON.parseArray(assistRows.toJSONString());
     }
 
     private EdhrBatchExecutionTaskPreviewRespVO buildDynamicRouteFormTaskPreview(

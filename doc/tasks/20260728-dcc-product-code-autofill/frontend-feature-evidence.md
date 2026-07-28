@@ -3,11 +3,11 @@
 ## Feature Goal
 
 - DHF/DMR 类受控文件提交时，“产品编号”只读显示所选 DCC 项目的 `projectCode`。
-- 用户纠正后的权威来源是 DCC 项目代码，不匹配、不选择、不依赖其它业务主数据。
+- 用户纠正后的权威来源是 DCC 项目代码，不匹配、不选择、不依赖其它业务数据源。
 
 ## Non-Goals
 
-- 不新增业务主数据。
+- 不新增业务数据源。
 - 不改动非 DHF/DMR 类别的既有可选绑定路径。
 - 不新增提交页手动输入或临时编号生成能力。
 
@@ -35,7 +35,7 @@
 
 - `BDD: DCC 项目代码自动带出产品编号 -> Given 用户选择启用 DCC 项目 / When 项目包含 projectCode / Then 产品编号只读字段显示该 projectCode。`
 - `BDD: DHF/DMR 类别缺项目代码 fail-fast -> Given 用户选择 DHF/DMR 类别 / When 当前 DCC 项目 projectCode 为空 / Then 页面阻止提交并提示选择包含项目代码的 DCC 项目。`
-- `BDD: 不查询其它业务主数据 -> Given 产品编号权威来源是 DCC 项目代码 / When 用户选择 DCC 项目和文件类别 / Then 页面不加载产品选项接口。`
+- `BDD: 不查询其它业务数据源 -> Given 产品编号权威来源是 DCC 项目代码 / When 用户选择 DCC 项目和文件类别 / Then 页面不加载产品选项接口。`
 
 ## RED / GREEN
 

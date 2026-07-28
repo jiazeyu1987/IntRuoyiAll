@@ -2,7 +2,7 @@
 
 ## Task Goal
 
-在受控文件提交页面中，DHF/DMR 类文件的“产品编号”字段必须来自已选择的 DCC 项目代码，权威来源为 `dcc_project_code.project_code` / `DccProjectCodeRespVO.projectCode`；不得临时生成编号，不得改用其它业务主数据、空值、默认值或表单槽位数据替代。
+在受控文件提交页面中，DHF/DMR 类文件的“产品编号”字段必须来自已选择的 DCC 项目代码，权威来源为 `dcc_project_code.project_code` / `DccProjectCodeRespVO.projectCode`；不得临时生成编号，不得改用其它业务数据源、空值、默认值或表单槽位数据替代。
 
 ## Milestones
 
@@ -18,13 +18,13 @@
 - 目标静态合同或单元测试先 RED 后 GREEN。
 - 前端目标范围静态验证通过；若全量验证存在无关历史阻塞，记录阻塞范围。
 - 后端 DCC 模块编译和目标服务测试通过。
-- 真实页面 E2E 通过：选择启用 DCC 项目后，“产品编号”显示该项目代码；选择 DHF/DMR 类别后保持一致；不发送 DCC 写请求，不查询其它业务主数据选项。
+- 真实页面 E2E 通过：选择启用 DCC 项目后，“产品编号”显示该项目代码；选择 DHF/DMR 类别后保持一致；不发送 DCC 写请求，不查询其它业务数据源选项。
 
 ## Current Status
 
 ready_for_closeout
 
-- 用户已澄清：没有产品主数据口径，只有 DCC 项目代码里的数据是权威数据。
+- 用户已澄清：红框产品编号只认 DCC 项目代码数据，DCC 项目代码是权威数据。
 - 实现已按 DCC 项目代码来源修正，前端、后端目标测试和只读真实页面 E2E 均已通过。
 - `pnpm ts:check` 仍被无关 MES 历史问题阻塞：`src/views/mes/pro/batchrecordformlist/BatchRecordCellRulesConfirmDialog.vue` 第 117、121 行引用不存在的 `assistPreviewRows`。
 
