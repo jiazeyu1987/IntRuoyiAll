@@ -24,7 +24,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
@@ -41,4 +41,8 @@ ready_for_closeout
 ## Verification Result
 
 - PASS：专用静态合同、相邻填写配置静态合同、默认全屏静态合同和 `pnpm ts:check` 均已通过。
-- Closeout note：当前工作区存在大量并行脏改动，提交/推送需要后续按选择性暂存门禁执行，不能使用宽泛 `git add -A`。
+- Closeout：`task-closeout-cleanup` preview/apply 均通过；保留 task、execution-log、verification-report、frontend-feature-evidence，无删除项、无阻塞、无警告。
+
+## Cleanup Keep
+
+- doc/tasks/20260728-assist-grid-per-user-mapping/frontend-feature-evidence.md

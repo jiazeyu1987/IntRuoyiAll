@@ -42,6 +42,10 @@
 - 2026-07-28：同步更新相邻静态合同，把旧“辅助行”断言改为“辅助表格 / 填写人 / 唯一分配”断言。
 - 2026-07-28：前端功能证据校验通过；任务文件状态复核显示仅本任务新增文档/专用合同和目标组件/相邻合同修改需要后续选择性暂存。
 - 2026-07-28：执行经验沉淀检查；已有长期文档仅命中通用“前端静态契约隔离门禁”，本任务没有新的通用工程门禁，未新建长期经验文档。
+- 2026-07-28：收尾前将 `frontend-feature-evidence.md` 写入 `Cleanup Keep`，该文件是前端功能交付技能要求的正式证据。
+- 2026-07-28：`task-closeout-cleanup --mode preview` -> PASS；keep: task.md、execution-log.md、verification-report.md、frontend-feature-evidence.md；delete/blocked/warnings 均为 none。
+- 2026-07-28：`task-closeout-cleanup --mode apply` -> PASS；deleted_paths 为 none；当前主 worktree 非 linked worktree，无 worktree merge/remove。
+- 2026-07-28：任务状态更新为 `completed`。
 
 ## Blockers
 
