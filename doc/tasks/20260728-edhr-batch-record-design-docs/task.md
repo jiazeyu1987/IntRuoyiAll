@@ -10,6 +10,7 @@
 - [x] 盘点 EDHR 批记录相关现有实现证据
 - [x] 反向生成需求设计、概要设计、详细设计内容
 - [x] 生成 Word 文档并完成结构验证；渲染验证因本机缺少 soffice 阻塞
+- [x] 将合并版设计文档拆分为需求设计、概要设计、详细设计三份独立 Word 文件
 - [x] 更新任务记录、验证报告并完成收尾
 
 ## Expected Verification
@@ -40,3 +41,6 @@ completed
 ## Cleanup Keep
 
 - doc/tasks/20260728-edhr-batch-record-design-docs/output/EDHR_Batch_Record_System_Design.docx
+- doc/tasks/20260728-edhr-batch-record-design-docs/output/EDHR_Batch_Record_Requirement_Design.docx
+- doc/tasks/20260728-edhr-batch-record-design-docs/output/EDHR_Batch_Record_Outline_Design.docx
+- doc/tasks/20260728-edhr-batch-record-design-docs/output/EDHR_Batch_Record_Detailed_Design.docx

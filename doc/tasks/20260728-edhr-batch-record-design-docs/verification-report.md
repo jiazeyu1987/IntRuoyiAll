@@ -2,9 +2,12 @@
 
 ## Summary
 
-- 结果：通过结构验证，视觉渲染因本机缺少 LibreOffice/`soffice` 被阻塞。
-- 正式输出：`doc/tasks/20260728-edhr-batch-record-design-docs/output/EDHR_Batch_Record_System_Design.docx`
-- 文档内容：一份 Word 文件，包含《需求设计》《概要设计》《详细设计》三大章节，并附证据索引。
+- 结果：合并版与拆分版均通过结构验证，视觉渲染因本机缺少 LibreOffice/`soffice` 被阻塞。
+- 合并版输出：`doc/tasks/20260728-edhr-batch-record-design-docs/output/EDHR_Batch_Record_System_Design.docx`
+- 拆分版输出：
+  - `doc/tasks/20260728-edhr-batch-record-design-docs/output/EDHR_Batch_Record_Requirement_Design.docx`
+  - `doc/tasks/20260728-edhr-batch-record-design-docs/output/EDHR_Batch_Record_Outline_Design.docx`
+  - `doc/tasks/20260728-edhr-batch-record-design-docs/output/EDHR_Batch_Record_Detailed_Design.docx`
 
 ## Verification Performed
 
@@ -29,6 +32,25 @@
   - `where.exe soffice` 返回 `INFO: Could not find files for the given pattern(s).`
   - `render_docx.py` 返回 `[WinError 2] 系统找不到指定的文件。`
 - 影响：无法完成文档技能要求的视觉页面 PNG 检查；已按规则保留结构验证结果并在最终说明中披露。
+
+## Split DOCX Verification
+
+- `EDHR_Batch_Record_Requirement_Design.docx -> PASS`
+  - 段落数：52
+  - 表格数：9
+  - 正文字符数：5,765
+  - 关键内容：`1. 需求设计`、`REQ-01`、`REQ-16`
+- `EDHR_Batch_Record_Outline_Design.docx -> PASS`
+  - 段落数：36
+  - 表格数：9
+  - 正文字符数：5,320
+  - 关键内容：`2. 概要设计`、`2.1 总体架构`、`2.4 API 分组概要`
+- `EDHR_Batch_Record_Detailed_Design.docx -> PASS`
+  - 段落数：38
+  - 表格数：11
+  - 正文字符数：8,253
+  - 关键内容：`3. 详细设计`、`MesProBatchRecordReportController`、`mes_pro_edhr_batch_execution`
+- 章节隔离：三份拆分文档均未包含其它设计主章节。
 
 ## Scope Confirmation
 

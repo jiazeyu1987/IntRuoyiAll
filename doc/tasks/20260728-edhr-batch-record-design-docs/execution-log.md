@@ -62,3 +62,33 @@
 - GREEN: `task_closeout.py --mode apply -> PASS`
   - deleted_paths: `doc/tasks/20260728-edhr-batch-record-design-docs/generate_edhr_design_docx.py`。
   - linked worktree: false，未执行 worktree merge/remove。
+
+## Split DOCX Update
+
+- 用户追加要求：将详细设计、概要设计、需求设计分成 3 个不同的 Word 文档。
+- GREEN: `split combined DOCX -> PASS`
+  - `EDHR_Batch_Record_Requirement_Design.docx`：52 段、9 表、5,765 字符。
+  - `EDHR_Batch_Record_Outline_Design.docx`：36 段、9 表、5,320 字符。
+  - `EDHR_Batch_Record_Detailed_Design.docx`：38 段、11 表、8,253 字符。
+- GREEN: `split DOCX structural isolation -> PASS`
+  - 需求设计文档包含 `1. 需求设计`、`REQ-01`、`REQ-16`，不包含概要/详细设计主章节。
+  - 概要设计文档包含 `2. 概要设计`、`2.1 总体架构`、`2.4 API 分组概要`，不包含需求/详细设计主章节。
+  - 详细设计文档包含 `3. 详细设计`、`MesProBatchRecordReportController`、`mes_pro_edhr_batch_execution`，不包含需求/概要设计主章节。
+- BLOCKED: `split DOCX visual render -> soffice missing`
+  - `Get-Command soffice` 无结果。
+  - `where.exe soffice` 返回 `INFO: Could not find files for the given pattern(s).`
+
+## Split Cleanup Evidence
+
+- GREEN: `task_closeout.py --mode preview -> PASS`
+  - keep: task.md、execution-log.md、verification-report.md、合并版 DOCX、需求设计 DOCX、概要设计 DOCX、详细设计 DOCX。
+  - delete: none。
+  - blocked/warnings: none。
+- GREEN: `task_closeout.py --mode apply -> PASS`
+  - deleted_paths: none。
+  - linked worktree: false，未执行 worktree merge/remove。
+
+## Experience Consolidation
+
+- 已读取 `project-experience-consolidation` 技能。
+- 本次只是在既有设计文档基础上拆分 Word 交付物，没有新增通用工程门禁、环境陷阱或可复用经验，因此未更新长期经验文档。
