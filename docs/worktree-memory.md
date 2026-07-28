@@ -27,6 +27,15 @@
 - Forbidden action: 禁止为了 closeout 强行清理、回滚或提交并行任务文件；禁止 force push；禁止在未验证融合后 HEAD 的情况下直接更新 `int_main`；禁止把本地 dirty 主工作区清洁失败当作远端主线已集成。
 - Evidence: `doc/tasks/20260727-codex-test-node-chain/verification-report.md`、`doc/tasks/20260728-node-chain-route-filter/verification-report.md`，主工作区持续并行写入时，任务分支先融合 `origin/int_main`、完成目标验证，再按远端快进路径集成。
 
+## D-Main 本地主线滞后远端融合门禁
+
+- Trigger: `D:\ProjectPackage\IntRuoyi\IntRuoyiAll` 的本地 `int_main` 在 `git fetch origin int_main` 后同时 `ahead` 和 `behind`，需要把远端 `origin/int_main` 融合回本地主线。
+- Preflight check: 先记录 `git status --short --branch`、`git rev-list --left-right --count HEAD...origin/int_main`、本地 ahead 提交清单和远端 behind 数量；融合前确认未跟踪/脏文件仅属于当前任务文档或已形成基线提交。
+- Blocker: 冲突文件无法通过语义合并保留双方门禁、当前任务文件可能被远端同名覆盖、远端更新后端口 guard 失败、或本地 ahead 提交无法解释时必须停止。
+- Verification: 冲突解决后先用 `rg -n "<<<<<<<|=======|>>>>>>>" <冲突文件>` 清除冲突标记，再运行 `scripts\preflight\branch-runtime-port-guard.ps1`、受影响前端/后端验证和 `git status --short --branch`；若 `git diff --cached --check` 命中远端历史已存在的 whitespace，必须用 scoped diff 证明冲突解决文件和当前任务文件未新增 whitespace，再记录上游遗留项。
+- Forbidden action: 禁止用整文件 `ours/theirs` 覆盖经验门禁文档；禁止因为上游 whitespace 遗留就静默改写大量远端历史文件；禁止在未重跑端口 guard 和目标验证前提交或推送融合结果。
+- Evidence: `doc/tasks/merge-int-main-code-20260728/verification-report.md`，本地 `int_main` 领先 5、落后 445 后融合 `origin/int_main`，保留远端新增前端经验门禁并通过前端 `ts:check`、后端 `compile` 和端口 guard。
+
 ## Worktree 前端依赖启动门禁
 
 - Trigger: 在 `D:\IntRuoyiWorktree\` 下新增或恢复 worktree 后启动前端、运行 Vite、执行真实 E2E，或日志出现 `Command "vite" not found` / `node_modules\.bin\vite` 缺失。

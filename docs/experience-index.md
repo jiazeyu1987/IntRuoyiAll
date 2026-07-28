@@ -112,6 +112,7 @@
 - Keywords: worktree 端口段, slot 1..19, slot >= 20, reserve-worktree-slot, 原子槽位, 重复活动槽位, 基准端口碰撞, int_main 误判 int_main_d -> `docs/worktree-memory.md#worktree-端口段与原子槽位门禁`
 - Keywords: 多 worktree 融合, 批量 merge worktree, dirty worktree 独立提交, merge-base --is-ancestor, 聚焦组合回归, 宽回归失败归因, 合并后删除 worktree -> `docs/worktree-memory.md#多-worktree-批量融合门禁`
 - Keywords: 主工作区持续并行写入, 先融合再测试, 远端快进融合, git push origin HEAD:int_main, origin/int_main ancestor, dirty main workspace closeout blocked -> `docs/worktree-memory.md#并行主工作区远端快进融合门禁`
+- Keywords: D-Main 本地主线滞后远端, int_main ahead behind, origin/int_main behind 445, git diff --cached --check upstream whitespace, 冲突经验门禁文档, branch-runtime-port-guard after merge -> `docs/worktree-memory.md#d-main-本地主线滞后远端融合门禁`
 - Keywords: schema-backed E2E, source_type, source_field_code, sourceFields, Unknown column, 字段矩阵可见但不可选, is-source-selectable, 单元格链接生产工单字段, 只读 E2E 无 MES 写请求 -> `docs/e2e-rules.md#schema-backed-e2e-迁移与字段可选态门禁`
 - Keywords: eDHR 单据填写人显示值, 损耗单卡片, fillableUsers displayName, candidateSourceNames 格式, 页面填写人断言 -> `docs/e2e-rules.md#edhr-单据填写人显示值门禁`
 - Keywords: eDHR 终态批次个人待办, edhr-work-task/my-page, edhr-work-task/stats, workTaskId, 当前 eDHR 批次状态不允许该操作, TODO 作废批次, VOIDED, CLOSED, ARCHIVED, REJECTED, openTask 终态保护 -> `docs/e2e-rules.md#edhr-终态批次个人待办门禁`
