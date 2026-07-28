@@ -48,6 +48,23 @@
                 />
               </el-select>
             </el-form-item>
+            <el-form-item class="codex-test-node-chain-filter" label="串行路线">
+              <el-select
+                v-model="queryParams.nodeChainName"
+                class="!w-240px"
+                clearable
+                filterable
+                placeholder="全部串行路线"
+                @change="handleNodeChainFilterChange"
+              >
+                <el-option
+                  v-for="option in nodeChainFilterOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </el-form-item>
           </template>
 
           <template #actions>
@@ -1039,6 +1056,13 @@ async function handleCasePagination(payload?: PaginationPayload) {
   if (typeof payload?.limit === 'number') {
     queryParams.pageSize = payload.limit
   }
+  await getCaseList()
+}
+
+async function handleNodeChainFilterChange() {
+  queryParams.pageNo = 1
+  selectedCases.value = []
+  selectedCaseIds.value = []
   await getCaseList()
 }
 
