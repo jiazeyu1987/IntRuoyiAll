@@ -36,6 +36,11 @@ assert.match(
 )
 assert.match(
   uploadPage,
+  /:trigger-on-focus="canLoadUploadNameOptions"/,
+  'File name dropdown must only open after DCC project and file classification are both valid'
+)
+assert.match(
+  uploadPage,
   /const DEFAULT_MANUAL_VERSION_NO = 'V1\.0'/,
   'Manual file name input must default version to V1.0'
 )
