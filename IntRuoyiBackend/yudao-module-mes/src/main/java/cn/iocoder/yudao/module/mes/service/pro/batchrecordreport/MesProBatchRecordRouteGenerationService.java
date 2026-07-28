@@ -49,4 +49,14 @@ public interface MesProBatchRecordRouteGenerationService {
                                                                    Long expectedRouteVersionId,
                                                                    Boolean routeUpgradeConfirmed,
                                                                    boolean applyExistingRouteRebuild);
+
+    MesProBatchRecordRouteGenerationResult generateBatchRecordBindingCandidateForUploadedWord(
+            String batchRecordName,
+            List<MesProBatchRecordParsedTable> parsedTables,
+            List<MesProBatchRecordReportView> reports,
+            Long batchRecordDefinitionId,
+            Long batchRecordVersionId,
+            Long expectedRouteId,
+            Long expectedRouteVersionId,
+            Boolean routeUpgradeConfirmed);
 }

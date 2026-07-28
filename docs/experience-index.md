@@ -95,6 +95,7 @@
 - Keywords: eDHR 批记录版本治理规则, CELL_RULE_RECONCILED, 1040750243, 批记录模板未确认填写规则, Jimu 当前 JSON, openOrCreateByContext -> `docs/backend-development.md#edhr-批记录版本治理规则运行态门禁`
 - Keywords: eDHR 批记录单元格链接预填落库, PRODUCTION_WORK_ORDER.batchCode, 生产批号目标格为空, /batch-record-cell-link/prefill, cell_values_json=[], hydrateDraftState, 字段审计链, 创建打开执行记录自动落库, idempotency_key varchar(64), SHA-256 幂等键 -> `docs/backend-development.md#批记录单元格链接预填落库边界`
 - Keywords: eDHR 批记录 Word 表格解析, packed 物料矩阵, 括号续行, 生产自检, 合格标准, 检验方法, 截图位置错位, fixture 缺失, 表单名特例禁止 -> `docs/backend-development.md#edhr-批记录-word-表格解析门禁`
+- Keywords: Sheet1 Excel 真实 fixture, 批记录路线导入真实 fixture, NoSuchFileException, 不需要覆盖这个, 真实样本覆盖取消, 禁止 @Disabled, Maven excludes, 合成 workbook 冒充 fixture -> `docs/backend-development.md#批记录路线导入真实-fixture-覆盖范围变更边界`
 - Keywords: Jimu fillForm 组件类型, componentFlag input-textarea, componentFlag input-text, componentFlag signature, 多行文本, 普通文本, 日期单元格, 电子签名, 签名日期宽空白格, 记录人/日期, 操作人/日期, 复核人/日期, edhrSignature -> `docs/backend-development.md#jimu-fillform-组件类型语义优先边界`
 - Keywords: 子表集合替换, 软删除唯一键, 逻辑删除占用唯一键, deleteByCaseId, system_codex_test_checkpoint, updateCase_allowsRepeatedCheckpointReplacement -> `docs/backend-development.md#2026-07-25-子表集合替换软删除唯一键门禁`
 - Keywords: Windows CRLF 静态合同, static.spec.js 目标 worktree 自身失败, 真实 E2E 脚本与页面行为同步, 废弃弹窗流程, 字段审计保存直连 API -> `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁`
@@ -186,6 +187,7 @@
 - Keywords: restart-int-ruoyi-local, Missing int_main frontend path, yudao-ui-admin-vue3, IntRuoyiFronted, local backend restart E2E -> `docs/local-runtime.md#2026-07-24-本地重启脚本路径门禁`
 - Keywords: 标准本地后端重启 Runner token, restart-int-ruoyi-local -Component backend, runner-token.txt, CODEX_TEST_RUNNER_TOKEN, token 文件为空, 后端重启后 Codex Runner token 无效或未配置, Runner 注册探针, 空闲 heartbeat -> `docs/local-runtime.md#2026-07-27-标准本地后端重启-runner-token-持久化门禁`
 - Keywords: local backend MySQL Access denied, dynamic-datasource create datasource named [master] error, Access denied for user 'root'@'localhost', 48081 未监听, 本地后端数据库凭据 -> `docs/local-runtime.md#2026-07-25-本地后端数据库凭据门禁`
+- Keywords: Docker Desktop E 盘 bind, bind source path does not exist, /run/desktop/mnt/host/e/IntRuoyi, ruoyi-vue-pro.sql, BIND_MISSING, BIND_OK, Failed to translate E:\IntRuoyi, int-ruoyi-mysql invalid mount config -> `docs/local-runtime.md#2026-07-28-docker-desktop-e-盘-bind-挂载门禁`
 - Keywords: 本地 OnlyOffice 错误码 -4, OnlyOffice 下载失败, onlyofficeDocumentUrl, public-file-base-url, host.docker.internal, Docker onlyoffice 访问 48081 -> `docs/local-runtime.md#2026-07-27-本地-onlyoffice-容器下载地址门禁`
 - Keywords: D-Main local runtime, int_main_d, vite command not found, Java package runtime ignored, *.runtime不存在, git check-ignore runtime source -> `docs/local-runtime.md#2026-07-25-d-main-本地启动源码与依赖门禁`
 - Keywords: isolated backend jar, dirty main workspace, int_main 48081, jar SHA256, local E2E reload, clean worktree build, 未登录 401, 登录态路由验证, route-not-found, schema 字段核对 -> `docs/local-runtime.md#2026-07-24-隔离构建-jar-加载门禁`

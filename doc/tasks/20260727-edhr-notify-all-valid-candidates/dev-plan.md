@@ -18,7 +18,7 @@
   - 记录原文件路径、大小、SHA-256、来源和版本。
   - 定向运行所有依赖 Word/Excel fixture 的解析、导入和结构测试。
 - `done_definition`: 两个真实 fixture 均经确认并以可移植方式被测试消费，相关测试全部通过。
-- `status_note`: Word 已找到仓库固定资源 `src/test/resources/fixtures/pressure-pump-record.doc`，其长度 `905800`、SHA-256 `830A89A2E116ACA4AB9ECD63A9345F5A288998DD1DDE4A434A612B7BA57C103E` 与此前用户明确指定并用于真实回归的 `C:\Users\BJB110\Desktop\文档\批记录压力泵.doc` 完全一致，可进入 T7 验证；两个 Excel 候选副本内容相同，SHA-256 为 `A7ACF4ADE2E09A00B68D80701B1FB86BC79B6F3CCDA55504B7C838AB85240354`，仍需用户确认是否为权威原件。
+- `status_note`: Word 已找到仓库固定资源 `src/test/resources/fixtures/pressure-pump-record.doc`，其长度 `905800`、SHA-256 `830A89A2E116ACA4AB9ECD63A9345F5A288998DD1DDE4A434A612B7BA57C103E` 与此前用户明确指定并用于真实回归的 `C:\Users\BJB110\Desktop\文档\批记录压力泵.doc` 完全一致。用户已明确取消 Sheet1 Excel 真实样本覆盖，因此 Excel 候选副本不再作为本任务验收前置；禁止复制候选副本或用合成 workbook 冒充真实 fixture。
 
 ### T1
 
@@ -140,20 +140,20 @@
 ### T7
 
 - `task_id`: T7
-- `title`: 集成真实 fixture 并完成解析导入回归
-- `objective`: 在 T0 完成后接入真实 Word/Excel 资源并修复由真实样本暴露的解析/导入问题。
+- `title`: 集成保留真实 fixture 并完成解析导入回归
+- `objective`: 接入仍保留的真实 Word 资源，删除用户明确取消的 Sheet1 Excel 真实样本覆盖入口，并修复由保留样本暴露的解析/导入问题。
 - `dependency_ids`: [T0, T3, T5]
 - `affected_paths`:
   - `IntRuoyiBackend/yudao-module-mes/src/test/resources/**`
-  - Word/Excel 解析、导入、DB 回滚和结构测试及必要生产代码
+  - Word 解析、结构测试、Sheet1 parser 合成契约测试及必要生产代码
 - `write_scope`:
-  - 经确认的 fixture 及直接依赖它们的实现/测试
+  - 经确认的 fixture、保留的 parser 契约测试及直接依赖它们的实现/测试
 - `acceptance_ids`: [AC-01, AC-02, AC-03, AC-10, AC-13, AC-17]
 - `validation_steps`:
-  - 运行全部真实 fixture 套件。
-  - 运行 `Sheet1RouteExcelImportServiceImplDbTest`，证明 Spring 装配修复后通过权威 Excel 完成真实回滚路径验证。
+  - 运行全部保留真实 fixture 套件。
+  - 运行 `Sheet1RouteExcelParserTest`，证明 Sheet1 parser 保留的合成 fail-fast/契约测试通过。
   - 核对资源路径无用户名/盘符依赖。
-- `done_definition`: 所有真实 Word/Excel 套件通过并可在项目路径复现。
+- `done_definition`: 所有保留真实 Word 套件和 Sheet1 parser 契约测试通过；用户取消的 Sheet1 Excel 真实样本覆盖入口已删除且未用跳过、伪 fixture 或合成 workbook 替代。
 
 ### T8
 
@@ -194,5 +194,5 @@
 1. T1 先完成失败清单。
 2. T2、T3、T6 在写范围无冲突时可并行；共享工作区冲突优先阻塞而非覆盖。
 3. T4、T5 在 T3 后按共享路径串行执行。
-4. T0 可与非 fixture 修复并行，但 T7 和最终验收必须等待 T0。
+4. T0 可与非 fixture 修复并行；用户取消的 Sheet1 Excel 真实样本覆盖不再阻塞 T7 和最终验收。
 5. T8 完成集成回归，T9 由独立测试角色执行。

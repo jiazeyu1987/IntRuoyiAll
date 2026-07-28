@@ -17,10 +17,10 @@
 - `test_case_id`: TC-02
 - `mapped_task_ids`: [T0, T7]
 - `mapped_acceptance_ids`: [AC-01, AC-02, AC-03]
-- `environment or setup`: 经确认的 Word/Excel 原始文件，记录大小、SHA-256、来源和版本。
-- `steps`: 将测试资源定位到项目内稳定路径，运行所有 Word/Excel 解析、导入、DB 回滚、结构和探针测试，包括 `Sheet1RouteExcelImportServiceImplDbTest`。
-- `expected_result`: 相关测试全部通过；代码和测试不包含个人用户名或固定盘符路径。
-- `evidence`: fixture 清单、哈希、定向 Maven 结果。
+- `environment or setup`: 经确认的 Word 原始文件；Sheet1 Excel 真实样本覆盖已由用户明确取消。
+- `steps`: 将仍保留的真实 Word 测试资源定位到项目内稳定路径；删除用户取消的 Sheet1 Excel 真实样本覆盖入口；运行保留的 Word/Excel parser 契约和完整 MES 回归。
+- `expected_result`: 保留测试全部通过；代码和测试不包含个人用户名或固定盘符路径；不得用 `@Disabled`、Maven excludes、assumptions、空夹具或合成 workbook 冒充真实 Excel。
+- `evidence`: Word fixture 哈希、Sheet1 范围变更记录、定向 parser 测试和完整 Maven 结果。
 
 ### TC-03 静态契约与当前工程结构
 
@@ -103,4 +103,4 @@
 
 ## Release Recommendation
 
-在 TC-09 通过前保持 `blocked`，不得提交收尾、推送任务完成状态或宣称 MES 完整回归恢复。
+TC-09 已通过，任务可进入 `ready_for_closeout`。在提交/推送前必须先处理当前共享工作区非本任务脏改动归属，禁止把并发任务文件混入本任务收尾提交。

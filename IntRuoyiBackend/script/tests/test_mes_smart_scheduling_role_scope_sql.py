@@ -154,6 +154,23 @@ def test_role_scope_sql_keeps_scheduler_process_schedule_route_save_permission()
     assert "900122" in scheduler_block, "scheduler block must keep process schedule route save permission"
 
 
+def test_role_scope_sql_keeps_scheduler_route_flow_list_operation_permissions() -> None:
+    text = _read_sql()
+
+    scheduler_block = text.split("INSERT INTO `tmp_mes_role_scope_allowed_menu` (`scope_key`, `menu_id`)\n  SELECT 'scheduler'")[1].split(
+        "INSERT INTO `tmp_mes_role_scope_allowed_menu` (`scope_key`, `menu_id`)\n  SELECT 'workshop_director'"
+    )[0]
+    workshop_block = text.split("INSERT INTO `tmp_mes_role_scope_allowed_menu` (`scope_key`, `menu_id`)\n  SELECT 'workshop_director'")[1].split(
+        "INSERT INTO `tmp_mes_role_scope_allowed_menu` (`scope_key`, `menu_id`)\n  SELECT 'team_leader'"
+    )[0]
+    team_leader_block = text.split("INSERT INTO `tmp_mes_role_scope_allowed_menu` (`scope_key`, `menu_id`)\n  SELECT 'team_leader'")[1]
+
+    for menu_id in ["5723", "5730"]:
+        assert menu_id in scheduler_block, f"scheduler block must keep route-flow list operation permission {menu_id}"
+        assert menu_id not in workshop_block, f"workshop director block must not grow into scheduler-only route-flow list permission {menu_id}"
+        assert menu_id not in team_leader_block, f"team leader block must not grow into scheduler-only route-flow list permission {menu_id}"
+
+
 def test_role_scope_sql_keeps_scheduler_work_order_button_permissions_only_for_scheduler() -> None:
     text = _read_sql()
 
@@ -192,8 +209,8 @@ def test_role_scope_sql_keeps_scheduler_feedback_button_permissions_without_expa
 def test_role_scope_sql_declares_button_permission_menu_baseline() -> None:
     text = _read_sql()
 
-    assert "WHERE `id` IN (900120, 5590, 5580, 5550, 5262, 900121, 900122, 5540, 900104, 5985, 5551, 5552, 5553, 5532, 5535, 5555, 5969, 900200)" in text
-    assert ") <> 18 THEN" in text
+    assert "WHERE `id` IN (900120, 5590, 5580, 5550, 5262, 900121, 900122, 5540, 900104, 5985, 5551, 5552, 5553, 5532, 5535, 5555, 5969, 900200, 5723, 5730)" in text
+    assert ") <> 20 THEN" in text
 
 
 def test_role_scope_sql_keeps_minimum_schedule_order_query_for_workshop_director() -> None:

@@ -1,12 +1,13 @@
 {
   "task_id": "20260727-edhr-notify-all-valid-candidates",
   "goal": "保持 eDHR 通知全部有效候选人的行为，并修复 yudao-module-mes 完整测试套件直至全绿",
-  "status": "executing",
-  "current_stage": "execution",
+  "status": "ready_for_closeout",
+  "current_stage": "closeout",
   "planner_review_status": "approved",
   "plan_review_status": "approved",
-  "blocking_prereqs": [
-    "权威 Excel fixture 球囊扩张导管工序(1).xlsx 尚未取得并确认完整性"
+  "blocking_prereqs": [],
+  "closeout_blockers": [
+    "共享工作区存在非本任务脏改动，提交/推送需先处理并发改动归属"
   ],
   "iteration_counts": {
     "planner_revisions": 1,
@@ -18,14 +19,14 @@
     {
       "task_id": "T0",
       "title": "权威真实 fixture 获取与治理",
-      "status": "blocked",
+      "status": "completed",
       "dependency_ids": [],
       "write_scope": [
         "IntRuoyiBackend/yudao-module-mes/src/test/resources/**",
         "fixture-dependent MES tests"
       ],
       "acceptance_ids": ["AC-01", "AC-02", "AC-03"],
-      "last_outcome": "Word 已由仓库固定资源与此前用户指定源 DOC 的相同 SHA-256 确认；Excel 候选副本待用户确认权威性"
+      "last_outcome": "Word 已由仓库固定资源与此前用户指定源 DOC 的相同 SHA-256 确认；用户明确取消 Sheet1 Excel 真实样本覆盖，缺失 Excel fixture 不再作为验收前置"
     },
     {
       "task_id": "T1",
@@ -69,11 +70,12 @@
     {
       "task_id": "T5",
       "title": "修复批记录解析、布局与路线生成簇",
-      "status": "in_progress",
+      "status": "completed",
       "dependency_ids": ["T1", "T3"],
       "write_scope": ["MES batchrecordreport production/tests"],
       "acceptance_ids": ["AC-10", "AC-13", "AC-17"],
-      "owner_agent": "019fa2b2-eae2-7161-9467-4692d572baa7"
+      "owner_agent": "019fa2b2-eae2-7161-9467-4692d572baa7",
+      "last_outcome": "非 Excel 权威夹具阻塞范围已通过；后续 Sheet1 Excel 真实样本覆盖由用户明确取消"
     },
     {
       "task_id": "T6",
@@ -88,27 +90,30 @@
     {
       "task_id": "T7",
       "title": "集成真实 fixture 并完成解析导入回归",
-      "status": "pending",
+      "status": "completed",
       "dependency_ids": ["T0", "T3", "T5"],
       "write_scope": ["confirmed fixtures and consumers"],
-      "acceptance_ids": ["AC-01", "AC-02", "AC-03", "AC-10", "AC-13", "AC-17"]
+      "acceptance_ids": ["AC-01", "AC-02", "AC-03", "AC-10", "AC-13", "AC-17"],
+      "last_outcome": "用户取消 Sheet1 Excel 真实样本覆盖；删除缺失真实 fixture 依赖测试入口，保留 Sheet1 parser 4 个合成 fail-fast/契约测试并通过"
     },
     {
       "task_id": "T8",
       "title": "分簇集成回归与通知行为复验",
-      "status": "pending",
+      "status": "completed",
       "dependency_ids": ["T2", "T4", "T6", "T7"],
       "write_scope": ["task evidence only unless defects are routed back"],
-      "acceptance_ids": ["AC-12", "AC-13", "AC-14", "AC-16", "AC-17"]
+      "acceptance_ids": ["AC-12", "AC-13", "AC-14", "AC-16", "AC-17"],
+      "last_outcome": "通知行为复验和完整 MES 回归均通过"
     },
     {
       "task_id": "T9",
       "title": "完整 MES 模块独立验收",
-      "status": "pending",
+      "status": "completed",
       "dependency_ids": ["T8"],
       "write_scope": ["test-report.md"],
-      "acceptance_ids": ["AC-13", "AC-14", "AC-15", "AC-16", "AC-17"]
+      "acceptance_ids": ["AC-13", "AC-14", "AC-15", "AC-16", "AC-17"],
+      "last_outcome": "mvn -pl yudao-module-mes test -> BUILD SUCCESS，2530 tests、0 failures、0 errors、18 skipped"
     }
   ],
-  "updated_at": "2026-07-27T23:24:04+08:00"
+  "updated_at": "2026-07-28T08:53:25+08:00"
 }

@@ -26,9 +26,13 @@
 
 ## 当前状态
 
-blocked
+ready_for_closeout
 
-原通知行为、标准定向 GREEN、同类服务测试、生产代码编译、T4/T5/T6 目标失败簇修复与相邻回归均已通过。2026-07-28 01:30 +08:00 重新执行 `mvn -pl yudao-module-mes test` 后，完整 MES 回归收敛为 2511 tests、0 failures、4 errors、18 skipped；四个 error 均由缺失 Sheet1 权威 Excel 夹具导致。当前已把三处 Sheet1 测试从 `D:\ocr2` 个人盘符治理到项目资源 `IntRuoyiBackend/yudao-module-mes/src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx`，并复验三套测试编译通过但仍因该项目资源缺失而 fail-fast。桌面候选副本尚未获得用户明确权威性确认，因此 T7/T9 与最终全量验收继续 blocked，禁止复制、改名、合成 fixture 或跳过测试。
+原通知行为、标准定向 GREEN、同类服务测试、生产代码编译、T4/T5/T6 目标失败簇修复与相邻回归均已通过。2026-07-28 用户明确确认 Sheet1 Excel 真实样本覆盖“不需要覆盖这个”，因此该缺失 fixture 不再作为验收前置；已删除依赖缺失真实 Excel 的导入/DB 回滚测试入口，保留 `Sheet1RouteExcelParserTest` 中 4 个合成 fail-fast/契约测试。
+
+最终验收已完成：2026-07-28 08:53:25 +08:00 在 `IntRuoyiBackend` 执行 `mvn -pl yudao-module-mes test`，结果 `BUILD SUCCESS`，2530 tests、0 failures、0 errors、18 skipped。任务实现和 required verification 已完成，进入收尾阶段。
+
+收尾阻塞：当前共享工作区存在非本任务脏改动（`20260728-scheduler-route-flow-list-permission` 相关 SQL/测试/任务产物及并发源码改动）。按“不得混入非本任务改动”和项目脏工作区基线门禁，当前不执行本任务提交/推送，待用户确认基线处理或并发任务清理后再完成 closeout commit/push。
 
 共享分支状态：并发任务于 2026-07-27 18:41:23 创建并推送基线提交 `f18927b9`，其中已包含本任务 Java 实现、测试和当时的初始任务文档。完整回归后的复核确认本地 `HEAD` 与 `origin/int_main` 已对齐且都包含 `f18927b9`；共享分支仍由并发任务持续推进，本次完整回归后的任务证据更新尚未提交。
 
@@ -45,14 +49,28 @@ blocked
 - Maven 多模块验证使用 `-pl yudao-module-mes -am`，避免兄弟模块产物边界误判。
 - 本任务不修改数据库 schema、菜单、权限和租户绑定，不执行 SQL 或远端操作。
 - 用户已明确扩大范围至 MES 完整回归全绿；任何 schema、fixture 或测试基础设施改动仍必须先按对应项目门禁确认，禁止跳过测试、伪造 fixture 或放宽断言。
+- 真实 fixture 缺失默认阻塞；若用户明确取消该真实样本覆盖，只能删除该覆盖入口并保留可执行的合成 fail-fast/契约测试，禁止 `@Disabled`、Maven excludes、assumptions、伪造 fixture 或合成 workbook 冒充真实样本。
 
 ## 范围变更
 
 - 决策证据：`docs/changes/20260727-mes-full-regression-green.md`
 - 规划产物：`request-analysis.md`、`prd.md`
 - 最终验收：在 `IntRuoyiBackend` 执行 `mvn -pl yudao-module-mes test`，退出码 0、`BUILD SUCCESS`、0 failures、0 errors。
+- 用户后续范围变更：Sheet1 Excel 真实样本覆盖不再要求；最终验收以剩余 MES 正式测试套件完整通过为准。
 
 ## 初始证据
 
 - 既有脏工作区基线提交：`868893b0`。
 - 基线文件清单和提交前状态记录在 `execution-log.md`。
+
+## Cleanup Keep
+
+- doc/tasks/20260727-edhr-notify-all-valid-candidates/backend-api-evidence.md
+- doc/tasks/20260727-edhr-notify-all-valid-candidates/bug-regression-evidence.md
+- doc/tasks/20260727-edhr-notify-all-valid-candidates/dev-plan.md
+- doc/tasks/20260727-edhr-notify-all-valid-candidates/failure-inventory.md
+- doc/tasks/20260727-edhr-notify-all-valid-candidates/prd.md
+- doc/tasks/20260727-edhr-notify-all-valid-candidates/request-analysis.md
+- doc/tasks/20260727-edhr-notify-all-valid-candidates/task-state.json
+- doc/tasks/20260727-edhr-notify-all-valid-candidates/test-plan.md
+- doc/tasks/20260727-edhr-notify-all-valid-candidates/test-report.md

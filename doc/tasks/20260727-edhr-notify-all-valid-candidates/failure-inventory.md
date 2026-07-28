@@ -84,9 +84,9 @@ Baseline result: 2509 tests, 58 failures, 78 errors, 31 skipped, 41 failing suit
 
 ## Current Remaining Gate（2026-07-28）
 
+- User scope change: Sheet1 Excel 真实样本覆盖“不需要覆盖这个”，缺失 `sheet1-route-balloon-catheter.xlsx` 不再作为本任务验收前置。
+- Scope adjustment: 删除 `Sheet1RouteExcelImportServiceImplTest`、`Sheet1RouteExcelImportServiceImplDbTest`、`Sheet1RouteExcelTestFixtures` 以及 parser 的真实 fixture 用例；保留 `Sheet1RouteExcelParserTest` 4 个合成 fail-fast/契约测试。
 - Latest command: `mvn -pl yudao-module-mes test`
-- Latest result: `BLOCKED`，2026-07-28 01:30:40 +08:00；2511 tests、0 failures、4 errors、18 skipped。
-- Remaining prerequisite: project-owned `IntRuoyiBackend/yudao-module-mes/src/test/resources/fixtures/sheet1-route-balloon-catheter.xlsx` authoritative Excel fixture is missing.
-- Remaining affected suites: `Sheet1RouteExcelParserTest`、`Sheet1RouteExcelImportServiceImplTest`、`Sheet1RouteExcelImportServiceImplDbTest`。
-- Workspace fixture search: `rg --files -g "*球囊扩张导管工序*"` under `E:\IntRuoyi` found no project-owned official fixture; tests have now been prepared to read `fixtures/sheet1-route-balloon-catheter.xlsx`.
-- Gate decision: Do not mark complete, commit, push, copy candidate desktop files, synthesize fixture, or skip these tests until the user confirms the authoritative Excel source or provides it in the project-owned resource path.
+- Latest result: `PASS`，2026-07-28 08:53:25 +08:00；2530 tests、0 failures、0 errors、18 skipped，`BUILD SUCCESS`。
+- Remaining implementation/test gate: 无。
+- Remaining closeout gate: 共享工作区存在非本任务脏改动，提交/推送需先处理并发改动归属，禁止混入本任务提交。
