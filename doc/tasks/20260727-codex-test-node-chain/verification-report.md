@@ -48,3 +48,12 @@
 - 最终端口契约：branch runtime port guard PASS。
 - 收尾重试主线合并：`git merge origin/int_main --no-edit` -> PASS，生成 `205aa0da`。
 - 收尾重试验证：目标 Maven 30 tests PASS；迁移契约 2 tests PASS；节点串前端静态契约 PASS；branch runtime port guard PASS。
+
+## 2026-07-28 Final Closeout Sync
+
+- 主工作区基线：并行脏改动已提交并推送为 `7ee56ab4`，解除本任务分支同步前置阻塞；之后主工作区新出现的 `20260728-form-template-fill-config` 未跟踪文档未纳入本任务范围。
+- 最新主线合并：`git merge --no-edit origin/int_main` -> PASS，生成 `f6d55669`，当前任务分支包含最新 `origin/int_main`。
+- 后端回归：目标 Maven 30 tests PASS。
+- 迁移契约：节点串迁移 pytest 2 tests PASS。
+- 前端静态契约：`system-codex-test-node-chain-static.spec.js` PASS。
+- 端口契约：branch runtime port guard PASS，frontend `8088`，backend `48088`。

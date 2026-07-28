@@ -114,3 +114,12 @@
 - Final GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，frontend `8088`，backend `48088`。
 - Closeout retry merge: `git merge origin/int_main --no-edit` -> PASS，生成 merge commit `205aa0da`，包含 `a695165b`、`908d212f`、`48f322fa` 等最新主线提交。
 - Closeout retry GREEN: 目标 Maven 30 tests PASS；节点串迁移契约 2 tests PASS；前端节点串静态契约 PASS；branch runtime port guard PASS。
+
+## 2026-07-28 Final Closeout Sync
+
+- Main dirty baseline: `E:\IntRuoyi` 主工作区并行脏改动已由独立基线提交 `7ee56ab4` 保存并推送到 `origin/int_main`，主工作区随后再次出现的 `20260728-form-template-fill-config` 未跟踪文档仍属于并行任务，未纳入本任务分支。
+- Merge: `git merge --no-edit origin/int_main` -> PASS，生成 merge commit `f6d55669`，当前任务分支包含最新 `origin/int_main` 提交 `7ee56ab4`。
+- GREEN: `mvn.cmd -pl yudao-module-system -am "-Dtest=CodexTestCaseServiceImplTest,CodexTestExecutionServiceImplTest,CodexTestRunnerServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，30 tests passed。
+- GREEN: `python -X utf8 -m pytest script\tests\test_codex_test_node_chain_migration.py -q` from `IntRuoyiBackend` -> PASS，2 tests passed。
+- GREEN: `node .\tests\e2e\system-codex-test-node-chain-static.spec.js` from `IntRuoyiFronted` -> PASS。
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260727-codex-test-node-chain-runtime/int_main` 使用 frontend `8088`、backend `48088`。
