@@ -6,11 +6,11 @@
 
 ## Milestones
 
-- [ ] 复现当前按需启动失败并定位前端入口检查来源。
-- [ ] 增加回归测试锁定启动脚本不得因前端入口不可达而阻断 Codex CLI/Runner 启动。
-- [ ] 修改最小启动链路，保留 token、后端和 Codex CLI 前置校验。
-- [ ] 运行目标回归验证并记录结果。
-- [ ] 提交并推送本任务相关前后端代码与任务文档。
+- [x] 复现当前按需启动失败并定位前端入口检查来源。
+- [x] 增加回归测试锁定启动脚本不得因前端入口不可达而阻断 Codex CLI/Runner 启动。
+- [x] 修改最小启动链路，保留 token、后端和 Codex CLI 前置校验。
+- [x] 运行目标回归验证并记录结果。
+- [x] 提交并推送本任务相关前后端代码与任务文档。
 
 ## Expected Verification
 
@@ -20,7 +20,7 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## Applicable Gates
 
@@ -34,3 +34,7 @@ in_progress
 - 是否引入 fallback/降级/吞异常：否。去除的是 Runner 启动脚本对前端入口的非必要硬阻断，不吞掉 Codex CLI、token 或后端注册失败。
 - 是否从根因和长期维护角度解决：是。按需 Runner 启动不应依赖当前浏览器前端入口健康，执行时仍由测试方法里的真实页面路径暴露前端不可达问题。
 - 是否存在临时补丁或绕过：否。
+
+## Cleanup Keep
+
+- doc/tasks/20260728-codex-runner-direct-cli/bug-regression-evidence.md
