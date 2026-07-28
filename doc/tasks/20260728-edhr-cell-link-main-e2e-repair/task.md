@@ -41,6 +41,10 @@ Cleanup 已完成：slot 7 运行态已停止，`D:\IntRuoyiWorktree\20260728-ed
 
 用户继续补充：批记录表单与生产工单的链接数据已经带过去，但动态表单（损耗单、过程检验记录）与生产工单的链接数据没有带过去。本次重新打开任务，聚焦 `FORM_TEMPLATE_VERSION` / `formBindings` 动态表单实例创建与打开链路，不能用传统批记录 PASS 替代动态表单结论。
 
+动态表单根因已定位并修复：传统批记录读取 `PRODUCTION_WORK_ORDER.batchCode` 时使用执行上下文批号，而动态表单旧链路只把 `workOrderId` 传给 `buildFormTemplateVersionPrefillData(...)`，当 `mes_pro_work_order.batch_code` 为空但 eDHR 批次执行 `batch_code` 有值时，损耗单/过程检验记录就拿不到生产批号。当前已将动态表单创建实例和再次打开实例两条链路都改为传入 `batch.getBatchCode()`，并让 `FORM_TEMPLATE_VERSION` 的 `batchCode` 来源读取该执行上下文批号。
+
+当前验证：动态表单静态合同 `node IntRuoyiBackend/yudao-module-mes/src/test/js/mes-edhr-dynamic-form-cell-link-batch-code-static.spec.cjs` 通过；主代码 `mvn.cmd -pl yudao-module-mes -am "-DskipTests" compile` 通过。聚焦 JUnit 已有 RED，但 GREEN 被并行“产品名称下拉”测试编译错误阻塞，错误为 `getProductNameOptions(String, boolean)` 方法缺失；按用户要求未处理该无关任务。真实动态表单 Playwright E2E 仍需任务自有测试数据继续复验。
+
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。不用 `/prefill` 或前端草稿值冒充已落库值。

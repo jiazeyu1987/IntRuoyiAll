@@ -1265,7 +1265,31 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     }
 
     @Override
+    public List<String> getProductNameOptions(String keyword, Boolean latestVersionOnly) {
+        BatchRecordReportPageReqVO optionsReqVO = new BatchRecordReportPageReqVO();
+        optionsReqVO.setProductName(keyword);
+        optionsReqVO.setLatestVersionOnly(Boolean.TRUE.equals(latestVersionOnly));
+        return getGeneratedReportList(optionsReqVO).stream()
+                .map(MesProBatchRecordReportView::productName)
+                .filter(StrUtil::isNotBlank)
+                .map(StrUtil::trim)
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
+    @Override
     public PageResult<MesProBatchRecordReportView> getGeneratedReportPage(BatchRecordReportPageReqVO pageReqVO) {
+        List<MesProBatchRecordReportView> allReports = getGeneratedReportList(pageReqVO);
+        int fromIndex = Math.max((pageReqVO.getPageNo() - 1) * pageReqVO.getPageSize(), 0);
+        int toIndex = Math.min(fromIndex + pageReqVO.getPageSize(), allReports.size());
+        List<MesProBatchRecordReportView> pageList = fromIndex >= allReports.size()
+                ? List.of()
+                : allReports.subList(fromIndex, toIndex);
+        return new PageResult<>(pageList, (long) allReports.size());
+    }
+
+    private List<MesProBatchRecordReportView> getGeneratedReportList(BatchRecordReportPageReqVO pageReqVO) {
         List<MesProBatchRecordReportView> baseReports = reportMapper.selectList()
                 .stream()
                 .map(this::toVisibleReportView)
@@ -1290,12 +1314,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         if (Boolean.TRUE.equals(pageReqVO.getLatestVersionOnly())) {
             allReports = filterLatestVisibleBatchRecordVersions(allReports);
         }
-        int fromIndex = Math.max((pageReqVO.getPageNo() - 1) * pageReqVO.getPageSize(), 0);
-        int toIndex = Math.min(fromIndex + pageReqVO.getPageSize(), allReports.size());
-        List<MesProBatchRecordReportView> pageList = fromIndex >= allReports.size()
-                ? List.of()
-                : allReports.subList(fromIndex, toIndex);
-        return new PageResult<>(pageList, (long) allReports.size());
+        return allReports;
     }
 
     @Override

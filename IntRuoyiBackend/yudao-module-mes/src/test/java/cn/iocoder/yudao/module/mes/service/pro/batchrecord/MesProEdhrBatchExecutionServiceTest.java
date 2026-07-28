@@ -511,6 +511,92 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void getDetail_shouldRecoverMissingProductInfoMemberTaskWhenOtherRouteTaskExists() {
+        Fixture fixture = insertRouteFixture(false, false);
+        MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());
+        MesProRouteDO route = routeMapper.selectById(fixture.routeId());
+        MesProRouteProcessDO firstProcess = routeProcessMapper.selectListByRouteId(route.getId()).stream()
+                .min(Comparator.comparing(MesProRouteProcessDO::getSort))
+                .orElseThrow();
+        MesProProcessDO process = processMapper.selectById(firstProcess.getProcessId());
+        Long definitionId = randomLongId();
+        MesProBatchRecordVersionDO version = insertBatchRecordVersion(definitionId, "V1.0", "APPROVED");
+        String productInfoReport = insertVersionedReport(
+                "RPT-DETAIL-PRODUCT-INFO-MEMBER", "产品信息", definitionId, version.getId(), 1, "MAIN");
+        String processReport = insertVersionedReport(
+                "RPT-DETAIL-PRODUCT-INFO-PROCESS", "粗洗工序生产记录", definitionId, version.getId(), 2, "MAIN");
+        insertBatchUseConfigWithSlots(route.getId(), firstProcess.getId(), "SEQUENTIAL", List.of(
+                batchSlot(processReport, "MAIN", null, null, null, 1)
+        ));
+        MesProEdhrBatchExecutionDO legacyBatch = MesProEdhrBatchExecutionDO.builder()
+                .batchExecutionCode("EDHRB-DETAIL-MISSING-PRODUCT-INFO")
+                .workOrderId(workOrder.getId())
+                .workOrderCode(workOrder.getCode())
+                .batchCode("BATCH-DETAIL-MISSING-PRODUCT-INFO")
+                .activeContextKey(workOrder.getId() + "|" + route.getId() + "|BATCH-DETAIL-MISSING-PRODUCT-INFO")
+                .productId(workOrder.getProductId())
+                .productCode(String.valueOf(workOrder.getProductId()))
+                .productName(workOrder.getName())
+                .routeId(route.getId())
+                .routeVersionId(fixture.routeVersionId())
+                .routeVersionNo(fixture.routeVersionNo())
+                .routeSnapshotJson(frozenRouteSnapshotJson(route, routeProcessMapper.selectListByRouteId(route.getId())))
+                .routeCode(route.getCode())
+                .routeName(route.getName())
+                .status(MesProEdhrBatchExecutionServiceImpl.BATCH_STATUS_CREATED)
+                .taskTotal(5)
+                .taskApprovedCount(0)
+                .blockedCount(0)
+                .build();
+        batchExecutionMapper.insert(legacyBatch);
+        insertLegacySpecialOnlyTasks(legacyBatch.getId());
+        batchTaskMapper.insert(MesProEdhrBatchExecutionTaskDO.builder()
+                .batchExecutionId(legacyBatch.getId())
+                .nodeType(MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM)
+                .routeProcessId(firstProcess.getId())
+                .routeProcessSort(firstProcess.getSort())
+                .processId(process.getId())
+                .processCode(process.getCode())
+                .processName(process.getName())
+                .batchRecordReportId(processReport)
+                .batchRecordReportName("粗洗工序生产记录")
+                .batchRecordDefinitionId(definitionId)
+                .batchRecordVersionId(version.getId())
+                .batchRecordSort(1)
+                .executionMode("SEQUENTIAL")
+                .formSlotType("MAIN")
+                .recordCategory("BATCH_RECORD")
+                .validationProfile("CONTROLLED_BATCH")
+                .permissionScopeId(5001L)
+                .requiredPolicy("REQUIRED")
+                .ownerRoleKey("PRODUCTION")
+                .archiveVisibility("FINAL_DHR")
+                .slotConfigSnapshotHash("1111111111111111111111111111111111111111111111111111111111111111")
+                .status(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING)
+                .requiredFlag(Boolean.TRUE)
+                .build());
+
+        EdhrBatchExecutionRespVO detail = batchExecutionService.get(legacyBatch.getId());
+
+        List<EdhrBatchExecutionTaskRespVO> firstProcessTasks = routeTasks(detail).stream()
+                .filter(task -> Objects.equals(firstProcess.getId(), task.getRouteProcessId()))
+                .toList();
+        assertEquals(List.of(productInfoReport, processReport), firstProcessTasks.stream()
+                .map(EdhrBatchExecutionTaskRespVO::getBatchRecordReportId)
+                .toList());
+        assertEquals(List.of("产品信息", "粗洗工序生产记录"), firstProcessTasks.stream()
+                .map(EdhrBatchExecutionTaskRespVO::getBatchRecordReportName)
+                .toList());
+        List<MesProEdhrBatchExecutionTaskDO> persistedTasks =
+                batchTaskMapper.selectListByBatchExecutionId(legacyBatch.getId());
+        assertEquals(6, persistedTasks.size());
+        assertEquals(1, persistedTasks.stream()
+                .filter(task -> Objects.equals(productInfoReport, task.getBatchRecordReportId()))
+                .count());
+        verify(workTaskService).createInitialFillTask(argThat(batch -> Objects.equals(batch.getId(), legacyBatch.getId())));
+    }
+
+    @Test
     void getPage_shouldRecoverMissingRouteProcessTasksBeforeRendering() {
         Fixture fixture = insertRouteFixture(true, true);
         MesProWorkOrderDO workOrder = workOrderMapper.selectById(fixture.workOrderId());

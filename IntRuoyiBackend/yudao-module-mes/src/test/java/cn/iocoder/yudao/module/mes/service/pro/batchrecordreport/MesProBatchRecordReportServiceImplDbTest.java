@@ -46,6 +46,7 @@ import cn.iocoder.yudao.module.mes.service.pro.dccprojectgovernance.MesProDccPro
 import cn.iocoder.yudao.module.mes.service.pro.dccprojectgovernance.MesProDccProjectGovernanceServiceImpl;
 import cn.iocoder.yudao.module.mes.service.pro.dccprojectgovernance.MesProDccProjectGovernanceStatus;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteOwnerPermissionServiceImpl;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteService;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import cn.hutool.core.util.StrUtil;
@@ -169,6 +170,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     private BusinessApprovalOrchestrator businessApprovalOrchestrator;
     @MockitoBean
     private MesProEdhrPermissionScopeService permissionScopeService;
+    @MockitoBean
+    private MesProRouteService routeService;
 
     @AfterEach
     void tearDown() {
@@ -4133,7 +4136,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         MesProBatchRecordVersionDO latestVersion = insertVersion(definition.getId(), "V2.0", "APPROVED",
                 oldVersion.getId(), PILOT_FILE_NAME, "hash-product-options-latest", latestRouteId, oldRouteId);
         MesProBatchRecordReportDO oldReport = TestBatchRecordFixtures.metadataReport(
-                77L, "product-options-old-version", 1, "product-options-old-version-report", "EBR_OPT_OLD", "旧版本候选表单",
+                77L, "product-options-old-version", 1, "prod-opt-old-report", "EBR_OPT_OLD", "旧版本候选表单",
                 PILOT_FILE_NAME);
         oldReport.setBatchRecordName("最新候选产品批记录");
         oldReport.setBatchRecordDefinitionId(definition.getId());
@@ -4141,19 +4144,19 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         oldReport.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
         reportMapper.insert(oldReport);
         MesProBatchRecordReportDO latestReport = TestBatchRecordFixtures.metadataReport(
-                78L, "product-options-latest-version", 1, "product-options-latest-version-report", "EBR_OPT_LATEST", "最新版本候选表单",
+                78L, "product-options-latest-version", 1, "prod-opt-latest-report", "EBR_OPT_LATEST", "最新版本候选表单",
                 PILOT_FILE_NAME);
         latestReport.setBatchRecordName("最新候选产品批记录");
         latestReport.setBatchRecordDefinitionId(definition.getId());
         latestReport.setBatchRecordVersionId(latestVersion.getId());
         latestReport.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
         reportMapper.insert(latestReport);
-        when(jimuReportGateway.getReportInfo("product-options-old-version-report"))
+        when(jimuReportGateway.getReportInfo("prod-opt-old-report"))
                 .thenReturn(TestBatchRecordFixtures.reportInfo(
-                        "product-options-old-version-report", "EBR_OPT_OLD", "旧版本候选表单", LocalDateTime.now()));
-        when(jimuReportGateway.getReportInfo("product-options-latest-version-report"))
+                        "prod-opt-old-report", "EBR_OPT_OLD", "旧版本候选表单", LocalDateTime.now()));
+        when(jimuReportGateway.getReportInfo("prod-opt-latest-report"))
                 .thenReturn(TestBatchRecordFixtures.reportInfo(
-                        "product-options-latest-version-report", "EBR_OPT_LATEST", "最新版本候选表单", LocalDateTime.now()));
+                        "prod-opt-latest-report", "EBR_OPT_LATEST", "最新版本候选表单", LocalDateTime.now()));
 
         assertEquals(List.of("Latest Product", "Old Product"),
                 reportService.getProductNameOptions(null, false));

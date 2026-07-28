@@ -8,17 +8,29 @@ Real Playwright E2E: PASS on `int_main` main runtime and authorized `测试租�
 
 Screenshot regression root-cause verification: PASS on isolated slot 7 runtime (`8088/48088`) with the backend task-id fix loaded.
 
+Dynamic form production-order link fix: CODE VERIFIED; real Playwright E2E still pending.
+
 ## Static And Type Verification
 
 - PASS: `node tests/e2e/edhr-cell-link-auto-persist-static.spec.js`
 - PASS: `node tests/e2e/edhr-pre-release-editable-submit-static.spec.js`
 - PASS: `node tests/e2e/edhr-fill-workspace-worktask-permission-static.spec.js`
 - PASS: `node IntRuoyiBackend/yudao-module-mes/src/test/js/mes-edhr-cell-link-task-id-context-static.spec.cjs`
+- PASS: `node IntRuoyiBackend/yudao-module-mes/src/test/js/mes-edhr-dynamic-form-cell-link-batch-code-static.spec.cjs`
+- PASS: `mvn.cmd -pl yudao-module-mes -am "-DskipTests" compile`
 - PASS: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_withoutProductionTaskContext_stillOpensBatchRecordWithoutScheduleReference+openTask_ignoresSingleWorkOrderProductionTaskWhenOpeningBatchRecord" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - PASS: `mvn.cmd -pl yudao-module-mes "-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_bindsExistingSingleExecutionContext" "-Dsurefire.failIfNoSpecifiedTests=false" test`
 - PASS: `node --check tests/e2e/edhr-batch-execution-real-flow.e2e.js`
 - PASS: `pnpm ts:check`
 - BLOCKED: `node tests/e2e/mes/batch-record-cell-link-static.spec.js` currently fails on unrelated form-template API assertion `api misses templateId?: number`.
+- BLOCKED: focused dynamic-form JUnit GREEN is currently blocked during testCompile by unrelated product-name dropdown tests referencing missing `getProductNameOptions(String, boolean)`.
+
+## Dynamic Form Diagnosis
+
+- Root cause: `FORM_TEMPLATE_VERSION` dynamic-form prefill only received `workOrderId`, so `PRODUCTION_WORK_ORDER.batchCode` was read from `mes_pro_work_order.batch_code`; traditional batch records already used the execution context batch code.
+- Local evidence: batch `900000000894` has eDHR `batch_code=123123123`, while work order `881MO090935` has `batch_code=NULL`; FormCenter instances `388/389/390` had empty target linked cells.
+- Fix: dynamic route form creation and re-open now pass `batch.getBatchCode()` into `buildFormTemplateVersionPrefillData(...)`; the batchCode source branch reads `executionBatchCode`.
+- Remaining verification: a real Playwright E2E with task-owned dynamic-form data is still required before claiming full runtime PASS for 损耗单/过程检验记录.
 
 ## Runtime E2E
 

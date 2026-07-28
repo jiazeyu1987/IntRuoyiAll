@@ -135,6 +135,15 @@ public class MesProBatchRecordReportController {
         return success(batchRecordReportService.getBatchRecordNameOptions());
     }
 
+    @GetMapping("/product-name-options")
+    @Operation(summary = "查询批记录表单产品名称下拉选项")
+    public CommonResult<List<String>> getProductNameOptions(
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "latestVersionOnly", required = false, defaultValue = "false")
+            Boolean latestVersionOnly) {
+        return success(batchRecordReportService.getProductNameOptions(keyword, latestVersionOnly));
+    }
+
     @GetMapping("/page")
     @Operation(summary = "分页查询电子批记录生成报表")
     public CommonResult<PageResult<BatchRecordReportRespVO>> getGeneratedReportPage(@Valid BatchRecordReportPageReqVO pageReqVO) {

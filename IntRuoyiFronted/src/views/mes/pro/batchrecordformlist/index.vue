@@ -694,6 +694,17 @@ const candidateSourceOptions: Array<{ label: string; value: EdhrProcessFormCandi
   { label: '角色', value: 'ROLE' }
 ]
 
+const queryRecordFormProductNameSuggestions = async (
+  queryString: string,
+  callback: (items: Array<{ value: string }>) => void
+) => {
+  const data = await BatchRecordReportApi.getProductNameOptions(
+    queryString,
+    queryParams.latestVersionOnly
+  )
+  callback((data || []).map((productName) => ({ value: productName })))
+}
+
 const permissionTarget = reactive<{
   report?: RecordFormListRow
   permissionRule?: EdhrProcessFormPermissionRuleRespVO | null
@@ -717,7 +728,15 @@ const isMainWordImport = computed(() => wordImportDialog.selectedFormSlotType ==
 const wordImportFileAccept = '.doc,.docx'
 
 const recordFormQuickFilterDefinitions: TableQuickFilterDefinition[] = [
-  { key: 'productName', label: '产品名称', type: 'text', queryParamKey: 'productName', placeholder: '请输入产品名称' },
+  {
+    key: 'productName',
+    label: '产品名称',
+    type: 'autocomplete',
+    queryParamKey: 'productName',
+    placeholder: '请输入产品名称',
+    triggerOnFocus: true,
+    fetchSuggestions: queryRecordFormProductNameSuggestions
+  },
   { key: 'name', label: '表单名称', type: 'text', queryParamKey: 'name', placeholder: '请输入表单名称' },
   {
     key: 'formSlotType',

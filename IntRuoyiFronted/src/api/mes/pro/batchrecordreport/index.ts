@@ -361,6 +361,13 @@ export const BatchRecordReportApi = {
     return await request.get<string[]>({ url: '/mes/pro/batch-record-report/batch-record-names' })
   },
 
+  getProductNameOptions: async (keyword?: string, latestVersionOnly?: boolean) => {
+    return await request.get<string[]>({
+      url: '/mes/pro/batch-record-report/product-name-options',
+      params: { keyword, latestVersionOnly }
+    })
+  },
+
   getGeneratedReportPage: async (params: BatchRecordReportPageReqVO) => {
     return await request.get({ url: '/mes/pro/batch-record-report/page', params })
   },

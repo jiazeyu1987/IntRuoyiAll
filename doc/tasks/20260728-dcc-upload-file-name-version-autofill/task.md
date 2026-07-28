@@ -24,10 +24,10 @@
 
 ## Milestones
 
-- [ ] 定位现有 DCC 上传表单、API、后端受控文件查询与测试结构。
-- [ ] 补 RED 静态/单元测试，覆盖文件名称下拉、手输 `V1.0`、选择历史文件主版本 +1。
-- [ ] 实现前端交互与必要后端查询能力。
-- [ ] 运行 GREEN 与回归验证，记录 E2E 或阻塞原因。
+- [x] 定位现有 DCC 上传表单、API、后端受控文件查询与测试结构。
+- [x] 补 RED 静态/单元测试，覆盖文件名称下拉、手输 `V1.0`、选择历史文件主版本 +1。
+- [x] 实现前端交互与必要后端查询能力。
+- [x] 运行 GREEN 与回归验证，记录 E2E 或阻塞原因。
 - [ ] 完成任务记录、经验沉淀、提交并推送。
 
 ## Expected Verification
@@ -40,7 +40,20 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Verification Summary
+
+- `pnpm e2e:dcc:upload-name-version-autofill:static`：PASS。
+- `mvn -pl yudao-module-dcc "-Dtest=DccControlledFileUploadNameOptionQueryServiceTest,DccControlledFileUploadNameOptionApiTest" test`：PASS，5 tests。
+- `pnpm ts:check`：PASS。
+- `mvn -pl yudao-module-dcc -am "-DskipTests" compile`：PASS。
+- 真实页面只读 E2E：BLOCKED，当前默认管理员可登录并进入 DCC 上传页，但管理员只读样本无法提供一个后端 `upload-name-options` 可成功返回的 DCC 项目 + 文件分类组合；未使用 API-only 或假数据冒充通过。
+
+## Closeout Blockers
+
+- 当前 `int_main` 存在并行未推送基线提交与新的非本任务脏改动，不能安全提交/推送本任务收尾记录。
+- 本任务代码变更已被本地基线提交 `29fde23f` 收入；后续收尾需要在并行任务工作区边界稳定后再按项目规则提交任务文档并推送。
 
 ## 设计约束检查
 

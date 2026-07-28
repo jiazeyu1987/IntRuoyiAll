@@ -95,6 +95,8 @@ public interface MesProBatchRecordReportService {
 
     List<String> getBatchRecordNameOptions();
 
+    List<String> getProductNameOptions(String keyword, Boolean latestVersionOnly);
+
     PageResult<MesProBatchRecordReportView> getGeneratedReportPage(BatchRecordReportPageReqVO pageReqVO);
 
     String getDesignerPath(String reportId);

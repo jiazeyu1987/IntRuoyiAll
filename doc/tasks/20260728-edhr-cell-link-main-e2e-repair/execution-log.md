@@ -41,6 +41,12 @@
 - `GREEN: task-closeout-cleanup preview/apply -> PASS`，keep `task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`、`frontend-feature-evidence.md`、`real-e2e-evidence.md`、`real-e2e-slot7-evidence.md`；delete `<none>`；blocked `<none>`；warnings `<none>`。
 - `GREEN: project-experience-consolidation -> PASS`，已将 worktree slot E2E `.env.local` / 验证码关闭 / 后端端口代理门禁合并到 `docs/worktree-memory.md#Worktree 真实 E2E 运行产物门禁`，并在 `docs/experience-index.md` 增加关键词路由；未新建长期经验文档。
 - `BLOCKED: commit/push -> NOT_RUN`，当前主工作区存在大量并行任务脏改，用户当前明确要求只进行 E2E 验证；未进行宽泛 baseline commit，避免混入无关任务改动。
+- `DIAGNOSIS: dynamic form batchCode source -> FOUND`，本地库存在 `FORM_TEMPLATE_VERSION` 链接规则 `16/17`，且批次 `900000000894` 的 eDHR 批号为 `123123123`、生产工单 `881MO090935` 的 `mes_pro_work_order.batch_code` 为 `NULL`；对应 FormCenter 实例 `388/389/390` 的 `form_data_json` 目标格仍为空，说明动态表单旧逻辑依赖工单表批号会复现用户反馈，而传统批记录已因执行上下文批号可通过。
+- `RED: mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProBatchRecordCellLinkServiceImplTest#buildFormTemplateVersionPrefillData_resolvesProductionBatchCodeFromExecutionContext" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL`，新增回归测试要求动态表单预填接口接收执行上下文批号，旧接口只有 `templateVersionId + workOrderId + formData` 三参，编译失败符合预期。
+- `GREEN: code fix -> PASS`，`MesProBatchRecordCellLinkService.buildFormTemplateVersionPrefillData(...)` 增加 `executionBatchCode`，`MesProEdhrBatchExecutionServiceImpl` 在创建和再次打开动态表单时均传 `batch.getBatchCode()`；`FORM_TEMPLATE_VERSION` 的 `PRODUCTION_WORK_ORDER.batchCode` 现在使用 eDHR 执行上下文批号，不再依赖 `workOrder.batchCode`。
+- `GREEN: node IntRuoyiBackend/yudao-module-mes/src/test/js/mes-edhr-dynamic-form-cell-link-batch-code-static.spec.cjs -> PASS`，静态合同确认动态表单创建、打开两处均传入 `batch.getBatchCode()`，且 batchCode 分支读取 `executionBatchCode`。
+- `GREEN: mvn.cmd -pl yudao-module-mes -am "-DskipTests" compile -> PASS`，主代码编译通过，确认动态表单预填接口签名与生产调用链一致。
+- `BLOCKED: mvn.cmd -pl yudao-module-mes "-Dtest=MesProBatchRecordCellLinkServiceImplTest#buildFormTemplateVersionPrefillData_resolvesProductionBatchCodeFromExecutionContext" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL`，当前全量 testCompile 被并行“产品名称下拉”测试阻塞：`MesProBatchRecordReportControllerTest` / `MesProBatchRecordReportServiceImplDbTest` 引用缺失方法 `getProductNameOptions(String, boolean)`；该阻塞不属于本次动态表单批号修复，未按用户要求扩展处理。
 
 ## Current Evidence
 
@@ -50,9 +56,11 @@
 - 当前目标源码：`IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`。
 - 当前目标测试：`IntRuoyiFronted/tests/e2e/edhr-cell-link-auto-persist-static.spec.js` 与 `IntRuoyiFronted/tests/e2e/edhr-batch-execution-real-flow.e2e.js`。
 - 当前真实 E2E 证据：`doc/tasks/20260728-edhr-cell-link-main-e2e-repair/real-e2e-evidence.md`。
+- 当前动态表单修复证据：`IntRuoyiBackend/yudao-module-mes/src/test/js/mes-edhr-dynamic-form-cell-link-batch-code-static.spec.cjs`，以及主代码 `mvn -pl yudao-module-mes -am "-DskipTests" compile` 通过。
 
 ## Blockers
 
 - 本次用户要求的测试租户真实 E2E 已在主运行态与 slot 7 修复后运行态均通过，无剩余 E2E blocker。
 - 仍保留一项非本任务阻塞记录：`node tests/e2e/mes/batch-record-cell-link-static.spec.js` 当前失败在并行表单模板 API 合同断言 `api misses templateId?: number`，不作为本次执行页 `/prefill` 回归或真实 E2E 放行门禁。
 - 提交/推送未执行，原因是主工作区有大量并行任务脏改且当前用户范围是 E2E 验证；本次不做会混入无关改动的 baseline commit。
+- 动态表单聚焦 JUnit 当前被并行产品名称下拉测试编译错误阻塞，无法作为 GREEN 证据；已用静态合同和主代码编译补充验证，但真实动态表单 Playwright E2E 仍待使用任务自有测试数据复验。

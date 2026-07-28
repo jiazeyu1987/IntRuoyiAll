@@ -63,7 +63,7 @@
       class="table-quick-filter__value"
       clearable
       :fetch-suggestions="selectedDefinition.fetchSuggestions"
-      :trigger-on-focus="false"
+      :trigger-on-focus="selectedDefinition.triggerOnFocus === true"
       :placeholder="selectedDefinition.placeholder || '请输入关键字'"
       @update:model-value="updateValue"
       @keyup.enter="onQuery"
