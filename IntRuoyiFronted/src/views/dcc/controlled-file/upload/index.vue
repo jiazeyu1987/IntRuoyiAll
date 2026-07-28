@@ -118,7 +118,7 @@
             clearable
             :hide-loading="!uploadNameOptionsLoading"
             :fetch-suggestions="queryUploadNameSuggestions"
-            :trigger-on-focus="Boolean(formData.categoryId)"
+            :trigger-on-focus="canLoadUploadNameOptions"
             placeholder="可选择历史文件名称，或直接输入新名称"
             @select="handleHistoryFileNameSelect"
             @input="handleFileNameInput"

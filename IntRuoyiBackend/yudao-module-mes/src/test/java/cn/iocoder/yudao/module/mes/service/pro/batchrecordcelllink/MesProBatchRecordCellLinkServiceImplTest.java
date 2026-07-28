@@ -22,7 +22,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
@@ -234,6 +236,45 @@ class MesProBatchRecordCellLinkServiceImplTest {
         assertEquals("batchCode", result.getPrefills().get(0).getSourceFieldCode());
         assertEquals("4:1", result.getPrefills().get(0).getTargetCellKey());
         assertEquals(0, result.getConflicts().size());
+    }
+
+    @Test
+    void buildFormTemplateVersionPrefillData_resolvesProductionBatchCodeFromExecutionContext() {
+        FormTemplateVersionDO templateVersion = formTemplateVersion();
+        MesProBatchRecordCellLinkRuleDO rule = new MesProBatchRecordCellLinkRuleDO()
+                .setId(21L)
+                .setScopeType("FORM_TEMPLATE_VERSION")
+                .setScopeId(7001L)
+                .setSourceType("PRODUCTION_WORK_ORDER")
+                .setSourceReportId("PRODUCTION_WORK_ORDER")
+                .setSourceReportName("生产工单")
+                .setSourceFieldCode("batchCode")
+                .setSourceFieldName("生产批号")
+                .setSourceCellKey("batchCode")
+                .setTargetReportId("FORMTPL:7001")
+                .setTargetReportName("过程检验记录 V3.0")
+                .setTargetRowIndex(3)
+                .setTargetColumnIndex(1)
+                .setTargetCellKey("3:1")
+                .setOverwritePolicy("ONLY_WHEN_EMPTY");
+        MesProWorkOrderDO workOrder = MesProWorkOrderDO.builder()
+                .id(1002L)
+                .code("MO-002")
+                .batchCode(null)
+                .build();
+        Map<String, Object> formData = new LinkedHashMap<>();
+        formData.put("batchTaskId", 3002L);
+
+        when(templateVersionMapper.selectById(7001L)).thenReturn(templateVersion);
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("FORM_TEMPLATE_VERSION", 7001L, "FORMTPL:7001"))
+                .thenReturn(List.of(rule));
+        when(workOrderMapper.selectById(1002L)).thenReturn(workOrder);
+
+        Map<String, Object> result = service.buildFormTemplateVersionPrefillData(
+                7001L, 1002L, "BATCH-FROM-EXECUTION", formData);
+
+        assertEquals("BATCH-FROM-EXECUTION", result.get("3:1"));
+        assertEquals(3002L, result.get("batchTaskId"));
     }
 
     private FormTemplateVersionDO formTemplateVersion() {

@@ -60,7 +60,6 @@ if (-not (Test-Path -LiteralPath $runnerScript)) {
 Assert-CommandExists -CommandName $NodeCommand
 Assert-CommandExists -CommandName $CodexCommand
 Assert-HttpReachable -Url ($ApiBase -replace '/admin-api$', '/actuator/health') -Name 'Backend health'
-Assert-HttpReachable -Url $FrontendBaseUrl -Name 'Frontend entry'
 
 if (-not (Test-Path -LiteralPath $runtimeDir)) {
     New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
