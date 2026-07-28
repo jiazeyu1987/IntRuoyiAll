@@ -31,4 +31,4 @@
 
 ## Blockers
 
-当前分支仍存在 `origin/int_main` 同步阻塞，且相邻 Maven 回归被既有无关测试编译错误阻塞：`MesProEdhrProcessFormPermissionRuleServiceImplTest` 引用缺失的 `FillAssignment#getCandidateSourceNames()`。需要按项目提交/推送门禁完成后才能将任务标记为 `completed`。
+当前分支仍存在 `origin/int_main` 同步阻塞，且工作区存在非本任务并行未提交改动。本轮目标回归与相邻 4 方法回归已通过；需要按项目提交/推送门禁完成后才能将任务标记为 `completed`。

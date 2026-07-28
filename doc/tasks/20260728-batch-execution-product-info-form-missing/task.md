@@ -42,6 +42,6 @@ blocked
 ## Closeout Blocker
 
 - `git push origin int_main` 被远端 non-fast-forward 拒绝。
-- 当前 `int_main` 为 `ahead 2, behind 6`，且工作区仍有非本任务并行改动 `IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/index.vue`，不能安全执行 pull/rebase 或清理。
+- 当前 `int_main` 为 `ahead 6, behind 6`，且工作区仍有非本任务并行改动，不能安全执行 pull/rebase 或清理。
 - 本任务实现提交：`842850cf fix: restore product info batch record task`。
-- 本轮 80 排序补充变更尚未提交；相邻 Maven 回归当前被既有无关测试编译错误阻塞：`MesProEdhrProcessFormPermissionRuleServiceImplTest` 引用缺失的 `FillAssignment#getCandidateSourceNames()`。
+- 本轮 80 排序补充变更尚未提交；目标回归与相邻 4 方法回归已通过，但提交/推送仍受远端 non-fast-forward 与并行未提交改动阻塞。

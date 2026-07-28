@@ -45,4 +45,4 @@
 ## Blockers
 
 - 本机真实 E2E blocked：需将 `48081` 后端重启/替换为包含本次新增 endpoint 的 verified Jar 后复跑。
-- Git closeout blocked：当前 `int_main` 本地 ahead 4 / behind 6；且任务外 `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceTest.java` 出现未提交并行改动，本任务未触碰或提交该文件。
+- Git closeout blocked：当前 `int_main` 本地 ahead 6 / behind 6；期间观察到并行提交 `70198c67`、`887abe03`，其中 `887abe03` 已包含本任务证据文档和其它任务文件；当前任务外 `IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/BatchRecordCellRulesConfirmDialog.vue` 仍有未提交并行改动，本任务未触碰或提交该文件。

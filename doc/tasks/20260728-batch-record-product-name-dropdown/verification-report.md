@@ -25,8 +25,9 @@
 ## Git / Closeout State
 
 - Baseline commit before this continuation: `1ffed41c chore: baseline residual batch record form list edits`.
-- Current branch state before closeout docs: `int_main...origin/int_main [ahead 4, behind 6]`.
-- Unrelated dirty file left untouched: `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceTest.java`.
+- Subsequent concurrent local commits observed: `70198c67 chore: baseline assist role responsibility edits` and `887abe03 chore: baseline concurrent edhr edits`; `887abe03` includes this task's evidence docs together with other task files.
+- Current branch state: `int_main...origin/int_main [ahead 6, behind 6]`.
+- Unrelated dirty file left untouched: `IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/BatchRecordCellRulesConfirmDialog.vue`.
 
 ## Blockers
 

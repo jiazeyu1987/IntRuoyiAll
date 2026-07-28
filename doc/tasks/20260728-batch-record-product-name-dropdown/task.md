@@ -44,7 +44,7 @@ blocked
 ## Remaining Blockers
 
 - 本机真实 E2E 未通过：`8081/48081` 运行态可达，但页面自身请求 `/admin-api/mes/pro/batch-record-report/product-name-options` 返回业务码 `404`；同一页面列表 `/page` 返回业务码 `0`、总数 `320`、首屏 `20` 行且均有非空产品名称，说明当前 `48081` 后端进程未加载本次新增 Controller 路由。
-- Git closeout 未完成：当前分支 `int_main` 本地 ahead 4 / behind 6，且任务外文件 `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrBatchExecutionServiceTest.java` 存在未提交并行改动；本任务未回滚、覆盖或提交该并行改动。
+- Git closeout 未完成：当前分支 `int_main` 本地 ahead 6 / behind 6，且任务外文件 `IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/BatchRecordCellRulesConfirmDialog.vue` 存在未提交并行改动；本任务未回滚、覆盖或提交该并行改动。
 
 ## 设计约束检查
 

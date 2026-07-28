@@ -474,6 +474,7 @@ import {
   type EdhrProcessFormCompletionPolicy,
   type EdhrProcessFormFillAssignment
 } from '@/api/mes/pro/edhr/processFormPermissionRule'
+import { getSimpleRoleList, type RoleVO } from '@/api/system/role'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
 
 defineOptions({ name: 'BatchRecordCellRulesConfirmDialog' })
@@ -527,8 +528,16 @@ type AssistAssignmentDraft = {
 
 type ConfigMode = 'source' | 'assistMapping'
 
+type AssistResponsibilitySubject = {
+  subjectKey: string
+  candidateSourceType: EdhrProcessFormCandidateSourceType
+  candidateSourceIds: number[]
+}
+
 type AssistGridKey = {
-  userId: number
+  subjectKey: string
+  candidateSourceType: EdhrProcessFormCandidateSourceType
+  candidateSourceIds: number[]
   rowIndex: number
   columnIndex: number
 }
@@ -569,15 +578,17 @@ const sheetLayoutError = ref('')
 const activeConfigMode = ref<ConfigMode>('source')
 const selectedRuleKey = ref('')
 const selectedAssistGridCellKey = ref('')
-const selectedAssistFillerUserId = ref<number>()
-const pendingAssistFillerUserId = ref<number>()
+const selectedAssistSubjectKey = ref('')
+const pendingAssistSubjectType = ref<EdhrProcessFormCandidateSourceType>('ROLE')
+const pendingAssistSubjectId = ref<number>()
 const assistGridRowCount = ref(3)
 const assistGridColumnCount = ref(3)
-const assistFillerUserIds = ref<number[]>([])
+const assistResponsibilitySubjects = ref<AssistResponsibilitySubject[]>([])
 const ruleRows = ref<BatchRecordReportCellRuleVO[]>([])
 const assistRows = ref<BatchRecordReportAssistRowVO[]>([])
 const assistAssignments = reactive<Record<string, AssistAssignmentDraft>>({})
 const simpleUserOptions = ref<UserVO[]>([])
+const simpleRoleOptions = ref<RoleVO[]>([])
 const sheetLayout = ref<RuleEditorRawLayout | null>(null)
 const summary = reactive({
   unreviewedFillableCellCount: 0
@@ -867,9 +878,35 @@ const normalizeAssignmentIds = (ids: unknown): number[] =>
       )
     : []
 
+const buildAssistSubjectKey = (
+  sourceType: EdhrProcessFormCandidateSourceType,
+  sourceIds: number[]
+) => `${normalizeAssignmentSourceType(sourceType)}:${normalizeAssignmentIds(sourceIds).join(',')}`
+
+const createAssistResponsibilitySubject = (
+  sourceType: unknown,
+  sourceIds: unknown
+): AssistResponsibilitySubject | null => {
+  const candidateSourceType = normalizeAssignmentSourceType(sourceType)
+  const candidateSourceIds = normalizeAssignmentIds(sourceIds)
+  if (candidateSourceIds.length !== 1) return null
+  return {
+    subjectKey: buildAssistSubjectKey(candidateSourceType, candidateSourceIds),
+    candidateSourceType,
+    candidateSourceIds
+  }
+}
+
 const ensureAssistAssignment = (rowKey: string) => {
   if (!assistAssignments[rowKey]) {
-    assistAssignments[rowKey] = createDefaultAssistAssignment()
+    const parsed = parseAssistGridRowKey(rowKey)
+    assistAssignments[rowKey] = parsed
+      ? {
+          candidateSourceType: parsed.candidateSourceType,
+          candidateSourceIds: [...parsed.candidateSourceIds],
+          completionPolicy: 'ANY_ONE'
+        }
+      : createDefaultAssistAssignment()
   }
   return assistAssignments[rowKey]
 }
@@ -885,38 +922,102 @@ const syncAssistAssignmentsWithRows = (rows = assistRows.value) => {
 }
 
 const parseAssistGridRowKey = (rowKey: string): AssistGridKey | null => {
-  const match = String(rowKey || '').match(/^ASSIST_GRID_U(\d+)_R(\d+)_C(\d+)$/)
+  const normalizedRowKey = String(rowKey || '').trim()
+  const subjectMatch = normalizedRowKey.match(/^ASSIST_GRID_(USERS|ROLE)(\d+)_R(\d+)_C(\d+)$/)
+  const legacyUserMatch = normalizedRowKey.match(/^ASSIST_GRID_U(\d+)_R(\d+)_C(\d+)$/)
+  const match = subjectMatch || legacyUserMatch
   if (!match) return null
-  const userId = Number(match[1])
-  const rowIndex = Number(match[2])
-  const columnIndex = Number(match[3])
-  if (!Number.isInteger(userId) || userId <= 0) return null
+  const candidateSourceType = subjectMatch ? normalizeAssignmentSourceType(match[1]) : 'USERS'
+  const sourceId = Number(subjectMatch ? match[2] : match[1])
+  const rowIndex = Number(subjectMatch ? match[3] : match[2])
+  const columnIndex = Number(subjectMatch ? match[4] : match[3])
+  if (!Number.isInteger(sourceId) || sourceId <= 0) return null
   if (!Number.isInteger(rowIndex) || rowIndex < 0) return null
   if (!Number.isInteger(columnIndex) || columnIndex < 0) return null
-  return { userId, rowIndex, columnIndex }
+  const candidateSourceIds = [sourceId]
+  return {
+    subjectKey: buildAssistSubjectKey(candidateSourceType, candidateSourceIds),
+    candidateSourceType,
+    candidateSourceIds,
+    rowIndex,
+    columnIndex
+  }
 }
 
-const buildAssistGridRowKey = ({ userId, rowIndex, columnIndex }: AssistGridKey) =>
-  `${ASSIST_GRID_ROW_KEY_PREFIX}_U${userId}_R${rowIndex}_C${columnIndex}`
+const buildAssistGridRowKey = ({
+  candidateSourceType,
+  candidateSourceIds,
+  rowIndex,
+  columnIndex
+}: AssistGridKey) => {
+  const sourceType = normalizeAssignmentSourceType(candidateSourceType)
+  const sourceId = normalizeAssignmentIds(candidateSourceIds)[0]
+  return `${ASSIST_GRID_ROW_KEY_PREFIX}_${sourceType}${sourceId}_R${rowIndex}_C${columnIndex}`
+}
 
 const parseAssistGridCellKey = (cellKey: string) => parseAssistGridRowKey(cellKey)
 
-const sortAssistFillerUserIds = (userIds: number[]) => {
-  const optionOrder = new Map(
-    simpleUserOptions.value.map((user, index) => [Number(user.id), index])
-  )
-  return Array.from(new Set(userIds.filter((id) => Number.isFinite(id) && id > 0))).sort(
-    (left, right) =>
-      (optionOrder.get(left) ?? Number.MAX_SAFE_INTEGER) -
-        (optionOrder.get(right) ?? Number.MAX_SAFE_INTEGER) ||
-      left - right
-  )
+const assistUserOptions = computed(() =>
+  simpleUserOptions.value.map((user) => ({
+    label: user.nickname || user.username || String(user.id),
+    value: Number(user.id)
+  }))
+)
+
+const assistRoleOptions = computed(() =>
+  simpleRoleOptions.value.map((role) => ({
+    label: role.name || role.code || String(role.id),
+    value: Number(role.id)
+  }))
+)
+
+const assistSubjectTypeOptions = [
+  { label: '个人', value: 'USERS' },
+  { label: '角色', value: 'ROLE' }
+] as const
+
+const assistSubjectOptions = computed(() =>
+  pendingAssistSubjectType.value === 'ROLE' ? assistRoleOptions.value : assistUserOptions.value
+)
+
+const resolveAssistSubjectLabel = (subject: Pick<
+  AssistResponsibilitySubject,
+  'candidateSourceType' | 'candidateSourceIds'
+>) => {
+  const sourceId = subject.candidateSourceIds[0]
+  if (subject.candidateSourceType === 'ROLE') {
+    return assistRoleOptions.value.find((option) => option.value === sourceId)?.label || `角色 ${sourceId}`
+  }
+  return assistUserOptions.value.find((option) => option.value === sourceId)?.label || `用户 ${sourceId}`
 }
 
-const calculateAssistGridSort = ({ userId, rowIndex, columnIndex }: AssistGridKey) => {
-  const userIndex = assistFillerUserIds.value.indexOf(userId)
-  const normalizedUserIndex = userIndex >= 0 ? userIndex : assistFillerUserIds.value.length
-  return normalizedUserIndex * 10000 + rowIndex * 100 + columnIndex + 1
+const sortAssistResponsibilitySubjects = (subjects: AssistResponsibilitySubject[]) => {
+  const optionOrder = new Map<string, number>()
+  assistRoleOptions.value.forEach((option, index) => optionOrder.set(`ROLE:${option.value}`, index))
+  assistUserOptions.value.forEach((option, index) => optionOrder.set(`USERS:${option.value}`, index))
+  const subjectMap = new Map<string, AssistResponsibilitySubject>()
+  subjects.forEach((subject) => {
+    if (!subjectMap.has(subject.subjectKey)) subjectMap.set(subject.subjectKey, subject)
+  })
+  return Array.from(subjectMap.values()).sort((left, right) => {
+    const leftTypeOrder = left.candidateSourceType === 'ROLE' ? 0 : 1
+    const rightTypeOrder = right.candidateSourceType === 'ROLE' ? 0 : 1
+    if (leftTypeOrder !== rightTypeOrder) return leftTypeOrder - rightTypeOrder
+    return (
+      (optionOrder.get(left.subjectKey) ?? Number.MAX_SAFE_INTEGER) -
+        (optionOrder.get(right.subjectKey) ?? Number.MAX_SAFE_INTEGER) ||
+      resolveAssistSubjectLabel(left).localeCompare(resolveAssistSubjectLabel(right), 'zh-Hans-CN') ||
+      left.candidateSourceIds[0] - right.candidateSourceIds[0]
+    )
+  })
+}
+
+const calculateAssistGridSort = ({ subjectKey, rowIndex, columnIndex }: AssistGridKey) => {
+  const subjectIndex = assistResponsibilitySubjects.value.findIndex(
+    (subject) => subject.subjectKey === subjectKey
+  )
+  const normalizedSubjectIndex = subjectIndex >= 0 ? subjectIndex : assistResponsibilitySubjects.value.length
+  return normalizedSubjectIndex * 10000 + rowIndex * 100 + columnIndex + 1
 }
 
 const normalizeAssistGridSizeValue = (value: unknown) => {
@@ -936,31 +1037,32 @@ const orderAssistGridRows = (rows: BatchRecordReportAssistRowVO[]) =>
     .sort((left, right) => left.sort - right.sort)
     .map((row, index) => ({ ...row, sort: index + 1 }))
 
-const ensureSelectedAssistFillerStillExists = () => {
-  if (
-    selectedAssistFillerUserId.value &&
-    assistFillerUserIds.value.includes(selectedAssistFillerUserId.value)
-  ) {
-    return
-  }
-  selectedAssistFillerUserId.value = assistFillerUserIds.value[0]
+const selectedAssistSubject = computed(() =>
+  assistResponsibilitySubjects.value.find((subject) => subject.subjectKey === selectedAssistSubjectKey.value)
+)
+
+const ensureSelectedAssistSubjectStillExists = () => {
+  if (selectedAssistSubject.value) return
+  selectedAssistSubjectKey.value = assistResponsibilitySubjects.value[0]?.subjectKey || ''
 }
 
 const ensureSelectedAssistGridCellStillExists = () => {
   const current = selectedAssistGridCellKey.value
   const parsed = current ? parseAssistGridCellKey(current) : null
+  const subject = selectedAssistSubject.value
   if (
     parsed &&
-    selectedAssistFillerUserId.value === parsed.userId &&
+    subject &&
+    subject.subjectKey === parsed.subjectKey &&
     parsed.rowIndex < assistGridRowCount.value &&
     parsed.columnIndex < assistGridColumnCount.value &&
-    assistFillerUserIds.value.includes(parsed.userId)
+    assistResponsibilitySubjects.value.some((item) => item.subjectKey === parsed.subjectKey)
   ) {
     return
   }
-  selectedAssistGridCellKey.value = selectedAssistFillerUserId.value
+  selectedAssistGridCellKey.value = subject
     ? buildAssistGridRowKey({
-        userId: selectedAssistFillerUserId.value,
+        ...subject,
         rowIndex: 0,
         columnIndex: 0
       })
@@ -968,20 +1070,25 @@ const ensureSelectedAssistGridCellStillExists = () => {
 }
 
 const syncAssistGridStateWithRows = (rows = assistRows.value) => {
-  const userIds = new Set(assistFillerUserIds.value)
+  const subjects = [...assistResponsibilitySubjects.value]
   let nextRowCount = normalizeAssistGridSizeValue(assistGridRowCount.value)
   let nextColumnCount = normalizeAssistGridSizeValue(assistGridColumnCount.value)
   rows.forEach((row) => {
     const parsed = parseAssistGridRowKey(row.rowKey)
     if (!parsed) return
-    userIds.add(parsed.userId)
+    const assignment = assistAssignments[row.rowKey]
+    const subject = createAssistResponsibilitySubject(
+      assignment?.candidateSourceType || parsed.candidateSourceType,
+      assignment?.candidateSourceIds?.length ? assignment.candidateSourceIds : parsed.candidateSourceIds
+    )
+    if (subject) subjects.push(subject)
     nextRowCount = Math.max(nextRowCount, parsed.rowIndex + 1)
     nextColumnCount = Math.max(nextColumnCount, parsed.columnIndex + 1)
   })
-  assistFillerUserIds.value = sortAssistFillerUserIds(Array.from(userIds))
+  assistResponsibilitySubjects.value = sortAssistResponsibilitySubjects(subjects)
   assistGridRowCount.value = nextRowCount
   assistGridColumnCount.value = nextColumnCount
-  ensureSelectedAssistFillerStillExists()
+  ensureSelectedAssistSubjectStillExists()
   ensureSelectedAssistGridCellStillExists()
 }
 
@@ -989,14 +1096,10 @@ const applyAssistAssignments = (assignments: EdhrProcessFormFillAssignment[] = [
   assignments.forEach((assignment) => {
     const rowKey = String(assignment.scopeKey || '').trim()
     if (!rowKey) return
-    const parsed = parseAssistGridRowKey(rowKey)
-    const candidateSourceIds = parsed
-      ? [parsed.userId]
-      : normalizeAssignmentIds(assignment.candidateSourceIds)
+    const candidateSourceType = normalizeAssignmentSourceType(assignment.candidateSourceType)
+    const candidateSourceIds = normalizeAssignmentIds(assignment.candidateSourceIds)
     assistAssignments[rowKey] = {
-      candidateSourceType: parsed
-        ? 'USERS'
-        : normalizeAssignmentSourceType(assignment.candidateSourceType),
+      candidateSourceType,
       candidateSourceIds,
       completionPolicy: normalizeAssignmentPolicy(assignment.completionPolicy)
     }
@@ -1005,24 +1108,18 @@ const applyAssistAssignments = (assignments: EdhrProcessFormFillAssignment[] = [
   syncAssistGridStateWithRows()
 }
 
-const assistUserOptions = computed(() =>
-  simpleUserOptions.value.map((user) => ({
-    label: user.nickname || user.username || String(user.id),
-    value: Number(user.id)
-  }))
-)
+const availableAssistSubjectOptions = computed(() => {
+  const selectedKeys = new Set(assistResponsibilitySubjects.value.map((subject) => subject.subjectKey))
+  return assistSubjectOptions.value.filter((option) => {
+    const subject = createAssistResponsibilitySubject(pendingAssistSubjectType.value, [option.value])
+    return subject ? !selectedKeys.has(subject.subjectKey) : false
+  })
+})
 
-const availableAssistFillerUserOptions = computed(() =>
-  assistUserOptions.value.filter((option) => !assistFillerUserIds.value.includes(option.value))
-)
-
-const resolveUserLabelById = (userId: number) =>
-  assistUserOptions.value.find((option) => option.value === userId)?.label || `用户 ${userId}`
-
-const selectedAssistFillerUserLabel = computed(() =>
-  selectedAssistFillerUserId.value
-    ? resolveUserLabelById(selectedAssistFillerUserId.value)
-    : '未选择填写人'
+const selectedAssistSubjectLabel = computed(() =>
+  selectedAssistSubject.value
+    ? resolveAssistSubjectLabel(selectedAssistSubject.value)
+    : '未选择责任主体'
 )
 
 const assistGridRowMap = computed(() => {
@@ -1059,18 +1156,18 @@ const resolveSourceCellAssistMappingTitle = (cell: RuleEditorCell) => {
   const assignment = sourceCellGridAssignmentMap.value.get(cell.identity)
   if (activeConfigMode.value !== 'assistMapping') return '选择单元格规则'
   if (assignment) {
-    return `已分配给 ${resolveUserLabelById(assignment.userId)}，请先在辅助表格取消映射`
+    return `已分配给 ${resolveAssistSubjectLabel(assignment)}，请先在辅助表格取消映射`
   }
   if (!selectedAssistGridCellKey.value) return '请先点击黄色辅助表格单元格'
   return '点击后映射到当前辅助表格单元格'
 }
 
 const resolveAssistGridPreviewCell = (
-  userId: number,
+  subject: AssistResponsibilitySubject,
   rowIndex: number,
   columnIndex: number
 ): AssistGridPreviewCell => {
-  const key = buildAssistGridRowKey({ userId, rowIndex, columnIndex })
+  const key = buildAssistGridRowKey({ ...subject, rowIndex, columnIndex })
   const assistRow = assistGridRowMap.value.get(key)
   const field = assistRow?.fields[0]
   const sourceCell = field ? findRenderedCellByIdentity(cellIdentity(field.rowIndex, field.columnIndex)) : null
@@ -1079,7 +1176,7 @@ const resolveAssistGridPreviewCell = (
   const label = String(rule?.label || sourceText || '点击选择原表格').trim()
   return {
     key,
-    userId,
+    ...subject,
     rowIndex,
     columnIndex,
     label,
@@ -1092,14 +1189,14 @@ const resolveAssistGridPreviewCell = (
 }
 
 const assistGridPreviewRows = computed<AssistGridPreviewRow[]>(() => {
-  const userId = selectedAssistFillerUserId.value
-  if (!userId) return []
+  const subject = selectedAssistSubject.value
+  if (!subject) return []
   const rowCount = normalizeAssistGridSizeValue(assistGridRowCount.value)
   const columnCount = normalizeAssistGridSizeValue(assistGridColumnCount.value)
   return Array.from({ length: rowCount }, (_, rowIndex) => ({
     rowIndex,
     cells: Array.from({ length: columnCount }, (_, columnIndex) =>
-      resolveAssistGridPreviewCell(userId, rowIndex, columnIndex)
+      resolveAssistGridPreviewCell(subject, rowIndex, columnIndex)
     )
   }))
 })
@@ -1170,37 +1267,42 @@ const disableSelectedCellRule = () => {
   selectedRuleKey.value = key
 }
 
-const selectAssistFillerUser = (userId: number) => {
-  if (!assistFillerUserIds.value.includes(userId)) return
-  selectedAssistFillerUserId.value = userId
+const selectAssistResponsibilitySubject = (subjectKey: string) => {
+  if (!assistResponsibilitySubjects.value.some((subject) => subject.subjectKey === subjectKey)) return
+  selectedAssistSubjectKey.value = subjectKey
   ensureSelectedAssistGridCellStillExists()
 }
 
-const addAssistFillerUser = () => {
-  const userId = Number(pendingAssistFillerUserId.value)
-  if (!Number.isFinite(userId) || userId <= 0) return
-  if (!assistUserOptions.value.some((option) => option.value === userId)) {
-    message.warning('请选择有效填写人。')
+const addAssistResponsibilitySubject = () => {
+  const sourceId = Number(pendingAssistSubjectId.value)
+  if (!Number.isFinite(sourceId) || sourceId <= 0) return
+  const subject = createAssistResponsibilitySubject(pendingAssistSubjectType.value, [sourceId])
+  if (!subject) return
+  if (!assistSubjectOptions.value.some((option) => option.value === sourceId)) {
+    message.warning('请选择有效责任主体。')
     return
   }
-  if (!assistFillerUserIds.value.includes(userId)) {
-    assistFillerUserIds.value = sortAssistFillerUserIds([...assistFillerUserIds.value, userId])
+  if (!assistResponsibilitySubjects.value.some((item) => item.subjectKey === subject.subjectKey)) {
+    assistResponsibilitySubjects.value = sortAssistResponsibilitySubjects([
+      ...assistResponsibilitySubjects.value,
+      subject
+    ])
   }
-  pendingAssistFillerUserId.value = undefined
-  selectedAssistFillerUserId.value = userId
+  pendingAssistSubjectId.value = undefined
+  selectedAssistSubjectKey.value = subject.subjectKey
   ensureSelectedAssistGridCellStillExists()
 }
 
-const assistGridMappedCountByUser = (userId: number) =>
-  assistRows.value.filter((row) => parseAssistGridRowKey(row.rowKey)?.userId === userId).length
+const assistGridMappedCountBySubject = (subjectKey: string) =>
+  assistRows.value.filter((row) => parseAssistGridRowKey(row.rowKey)?.subjectKey === subjectKey).length
 
-const removeAssistFillerUser = async (userId: number) => {
-  const mappedCount = assistGridMappedCountByUser(userId)
+const removeAssistResponsibilitySubject = async (subject: AssistResponsibilitySubject) => {
+  const mappedCount = assistGridMappedCountBySubject(subject.subjectKey)
   if (mappedCount > 0) {
     try {
       await ElMessageBox.confirm(
-        `删除 ${resolveUserLabelById(userId)} 会同时移除该填写人的 ${mappedCount} 个映射，是否继续？`,
-        '删除填写人',
+        `删除 ${resolveAssistSubjectLabel(subject)} 会同时移除该责任主体的 ${mappedCount} 个映射，是否继续？`,
+        '删除责任主体',
         {
           confirmButtonText: '删除',
           cancelButtonText: '取消',
@@ -1212,19 +1314,24 @@ const removeAssistFillerUser = async (userId: number) => {
       throw error
     }
   }
-  assistFillerUserIds.value = assistFillerUserIds.value.filter((item) => item !== userId)
+  assistResponsibilitySubjects.value = assistResponsibilitySubjects.value.filter(
+    (item) => item.subjectKey !== subject.subjectKey
+  )
   assistRows.value = orderAssistGridRows(
-    assistRows.value.filter((row) => parseAssistGridRowKey(row.rowKey)?.userId !== userId)
+    assistRows.value.filter((row) => parseAssistGridRowKey(row.rowKey)?.subjectKey !== subject.subjectKey)
   )
   Object.keys(assistAssignments).forEach((rowKey) => {
-    if (parseAssistGridRowKey(rowKey)?.userId === userId) {
+    if (parseAssistGridRowKey(rowKey)?.subjectKey === subject.subjectKey) {
       delete assistAssignments[rowKey]
     }
   })
-  if (pendingAssistFillerUserId.value === userId) {
-    pendingAssistFillerUserId.value = undefined
+  if (
+    pendingAssistSubjectType.value === subject.candidateSourceType &&
+    pendingAssistSubjectId.value === subject.candidateSourceIds[0]
+  ) {
+    pendingAssistSubjectId.value = undefined
   }
-  ensureSelectedAssistFillerStillExists()
+  ensureSelectedAssistSubjectStillExists()
   ensureSelectedAssistGridCellStillExists()
 }
 
@@ -1249,8 +1356,8 @@ const handleAssistGridSizeChange = () => {
 
 const handleAssistGridCellClick = (cellKey: string) => {
   const parsed = parseAssistGridCellKey(cellKey)
-  if (!parsed || !assistFillerUserIds.value.includes(parsed.userId)) return
-  selectedAssistFillerUserId.value = parsed.userId
+  if (!parsed || !assistResponsibilitySubjects.value.some((subject) => subject.subjectKey === parsed.subjectKey)) return
+  selectedAssistSubjectKey.value = parsed.subjectKey
   selectedAssistGridCellKey.value = cellKey
 }
 
@@ -1268,12 +1375,12 @@ const buildAssistGridCellDescription = (cell: RuleEditorCell) => {
 
 const mapSourceCellToSelectedAssistGridCell = (cell: RuleEditorCell) => {
   if (activeConfigMode.value !== 'assistMapping') return false
-  if (!selectedAssistFillerUserId.value || !assistFillerUserIds.value.includes(selectedAssistFillerUserId.value)) {
-    message.warning('请先在右侧添加并选择填写人。')
+  if (!selectedAssistSubject.value) {
+    message.warning('请先在右侧添加并选择责任主体。')
     return true
   }
   const parsed = parseAssistGridCellKey(selectedAssistGridCellKey.value)
-  if (!parsed || parsed.userId !== selectedAssistFillerUserId.value) {
+  if (!parsed || parsed.subjectKey !== selectedAssistSubject.value.subjectKey) {
     message.warning('请先点击黄色辅助表格中的一个单元格。')
     return true
   }
@@ -1297,8 +1404,8 @@ const mapSourceCellToSelectedAssistGridCell = (cell: RuleEditorCell) => {
     nextRow
   ])
   assistAssignments[rowKey] = {
-    candidateSourceType: 'USERS',
-    candidateSourceIds: [parsed.userId],
+    candidateSourceType: selectedAssistSubject.value.candidateSourceType,
+    candidateSourceIds: [...selectedAssistSubject.value.candidateSourceIds],
     completionPolicy: 'ANY_ONE'
   }
   return true

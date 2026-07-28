@@ -23,7 +23,7 @@
 - REGRESSION: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#openOrCreate_includesProductInfoMemberFromSameBatchRecordVersion+getDetail_shouldRecoverMissingRouteProcessTasksBeforeRendering+getPage_shouldRecoverMissingRouteProcessTasksBeforeRendering+getDetail_shouldRecoverMissingProductInfoMemberTaskWhenOtherRouteTaskExists" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> 初次 FAIL，暴露产品信息与源表单同工序 `batch_record_sort=1` 唯一键冲突；修正产品信息排序为源表单前一位后复跑 PASS，`Tests run: 4, Failures: 0, Errors: 0, Skipped: 0`。
 - RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#getDetail_shouldRecoverMissingProductInfoMemberTaskWhenOtherRouteTaskExists" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，期望顺序 `[工序生产记录, 产品信息]`，实际 `[产品信息, 工序生产记录]`。
 - GREEN: 同一命令在固定产品信息排序 `80` 后复跑 -> PASS，`Tests run: 1, Failures: 0, Errors: 0, Skipped: 0`。
-- REGRESSION BLOCKED: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#openOrCreate_includesProductInfoMemberFromSameBatchRecordVersion+getDetail_shouldRecoverMissingRouteProcessTasksBeforeRendering+getPage_shouldRecoverMissingRouteProcessTasksBeforeRendering+getDetail_shouldRecoverMissingProductInfoMemberTaskWhenOtherRouteTaskExists" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL at testCompile，既有无关测试 `MesProEdhrProcessFormPermissionRuleServiceImplTest` 引用缺失的 `FillAssignment#getCandidateSourceNames()`。
+- REGRESSION: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#openOrCreate_includesProductInfoMemberFromSameBatchRecordVersion+getDetail_shouldRecoverMissingRouteProcessTasksBeforeRendering+getPage_shouldRecoverMissingRouteProcessTasksBeforeRendering+getDetail_shouldRecoverMissingProductInfoMemberTaskWhenOtherRouteTaskExists" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> 初次受并行填写人规则改动 testCompile 阻塞；并行字段补齐后复跑 PASS，`Tests run: 4, Failures: 0, Errors: 0, Skipped: 0`。
 
 ## Milestone Updates
 
@@ -43,4 +43,4 @@
 ## Blockers
 
 - `git push origin int_main` 被 non-fast-forward 拒绝；当前分支存在 ahead/behind 状态，并且工作区存在非本任务并行改动，需要先由对应任务处理远端同步/并行改动后再推送。
-- 相邻 Maven 回归当前被既有无关测试编译错误阻塞：`MesProEdhrProcessFormPermissionRuleServiceImplTest` 引用缺失的 `MesProEdhrProcessFormPermissionRuleRespVO.FillAssignment#getCandidateSourceNames()`，无法完成 4 方法回归。
+- 本轮 80 排序目标回归与相邻 4 方法回归已通过；提交/推送仍受远端 non-fast-forward 与并行未提交改动阻塞。
