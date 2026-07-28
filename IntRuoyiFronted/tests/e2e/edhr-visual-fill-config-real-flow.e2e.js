@@ -1502,6 +1502,7 @@ async function configureTargetBatchRecordReportThroughUi(page, auth, copiedRoute
     await reportOption.click()
     clickDiagnostics = await readBatchRecordReportOptionClickDiagnostics(page)
   }
+  const shouldWaitForBatchSave = !isAlreadySelected
   await page.keyboard.press('Escape')
   await waitForSelectedBatchRecordReport(reportSelect, report, clickDiagnostics)
 
@@ -1517,12 +1518,14 @@ async function configureTargetBatchRecordReportThroughUi(page, auth, copiedRoute
       response.request().method() === 'POST',
     { timeout: 90000 }
   )
-  const batchSaveResponsePromise = page.waitForResponse(
-    (response) =>
-      response.url().includes('/admin-api/mes/pro/route/flow-config/batch-record/save') &&
-      response.request().method() === 'POST',
-    { timeout: 90000 }
-  )
+  const batchSaveResponsePromise = shouldWaitForBatchSave
+    ? page.waitForResponse(
+        (response) =>
+          response.url().includes('/admin-api/mes/pro/route/flow-config/batch-record/save') &&
+          response.request().method() === 'POST',
+        { timeout: 90000 }
+      )
+    : null
   await editor.locator('[data-flow-action="save-route-flow"]').click()
   const validateResult = await readBrowserBusinessData(
     await validateResponsePromise,
@@ -1538,24 +1541,29 @@ async function configureTargetBatchRecordReportThroughUi(page, auth, copiedRoute
     targetProcess.routeProcessId,
     graphSaveResult?.routeProcessIdMap
   )
-  const batchSaveResponse = await batchSaveResponsePromise
-  const batchSaveRequestPayload = JSON.parse(batchSaveResponse.request().postData() || '{}')
-  await readBrowserBusinessData(batchSaveResponse, 'save target batch record binding')
-  const savedRequestProcess = (batchSaveRequestPayload.processConfigs || []).find(
-    (item) => Number(item.routeProcessId) === Number(persistedRouteProcessId)
-  )
-  const savedRequestBinding = (savedRequestProcess?.batchRecordReports || []).find(
-    (item) => String(item.batchRecordReportId || '') === String(report.reportId)
-  )
-  assert.ok(
-    savedRequestBinding,
-    `target batch record report must be present in batch save request: ${JSON.stringify({
-      targetRouteProcessId: Number(targetProcess.routeProcessId),
-      persistedRouteProcessId,
-      routeProcessIdMap: graphSaveResult?.routeProcessIdMap,
-      batchSaveRequestPayload
-    })}`
-  )
+  let batchSaveRequestPayload = {
+    skipped: 'target batch record report was already selected before save'
+  }
+  if (batchSaveResponsePromise) {
+    const batchSaveResponse = await batchSaveResponsePromise
+    batchSaveRequestPayload = JSON.parse(batchSaveResponse.request().postData() || '{}')
+    await readBrowserBusinessData(batchSaveResponse, 'save target batch record binding')
+    const savedRequestProcess = (batchSaveRequestPayload.processConfigs || []).find(
+      (item) => Number(item.routeProcessId) === Number(persistedRouteProcessId)
+    )
+    const savedRequestBinding = (savedRequestProcess?.batchRecordReports || []).find(
+      (item) => String(item.batchRecordReportId || '') === String(report.reportId)
+    )
+    assert.ok(
+      savedRequestBinding,
+      `target batch record report must be present in batch save request: ${JSON.stringify({
+        targetRouteProcessId: Number(targetProcess.routeProcessId),
+        persistedRouteProcessId,
+        routeProcessIdMap: graphSaveResult?.routeProcessIdMap,
+        batchSaveRequestPayload
+      })}`
+    )
+  }
 
   const savedParams = new URLSearchParams({
     routeId: String(copiedRoute.id),

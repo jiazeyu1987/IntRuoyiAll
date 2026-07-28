@@ -158,6 +158,8 @@ includes(realFlowE2E, 'await reportInput.fill(report.reportCode)', '真实 E2E �
 includes(realFlowE2E, "filter({ hasText: report.reportCode })", '真实 E2E 必须按报表编码精确选择目标报表，不能只按同名文案选择第一项。')
 includes(realFlowE2E, 'readBatchRecordReportOptionRuntimeDiagnostics', '真实 E2E 必须读取批记录表单 option 运行时选中状态，避免重复点击已选报表导致反选。')
 includes(realFlowE2E, 'isAlreadySelected', '真实 E2E 批记录表单选择必须幂等：已选中目标报表时不能再次点击取消。')
+includes(realFlowE2E, 'const shouldWaitForBatchSave = !isAlreadySelected', '真实 E2E 只有新增批记录表单绑定时才等待 batch-record/save 请求。')
+includes(realFlowE2E, "skipped: 'target batch record report was already selected before save'", '真实 E2E 对来源路线已带出的批记录绑定必须通过读回配置验证，不得强等不存在的保存请求。')
 includes(realFlowE2E, 'await reportOption.click()', '真实 E2E 必须在目标报表未选中时点击 Element Plus 原生 option 根节点。')
 includes(realFlowE2E, 'option_selection_state_before_click', '真实 E2E 必须记录点击前选择状态，证明没有误取消已选批记录表单。')
 includes(realFlowE2E, 'captureBatchRecordReportOptionClickDiagnostics', '真实 E2E 必须在批记录表单选项点击失败时记录 option 组件和 DOM 点击诊断。')
