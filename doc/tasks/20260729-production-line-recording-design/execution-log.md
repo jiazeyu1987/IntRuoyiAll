@@ -180,6 +180,7 @@ BDD: subagent BDD/TDD documents pass requirement gate -> Given six subagents dra
 - GREEN: `task-closeout-cleanup --mode preview` after subagent documentation -> PASS, keep core task docs, delete none, blocked none.
 - GREEN: `task-closeout-cleanup --mode apply` after subagent documentation -> PASS, deleted none.
 - GREEN: `project-experience-consolidation` assessment after subagent documentation -> PASS, no existing long-term experience document fit a durable new rule; this update remains task/product acceptance documentation and no new long-term experience document was created.
+- GREEN: implementation documentation commit `5006da7a docs: add process pool BDD TDD acceptance plan` -> PASS, committed new acceptance docs and ready-for-closeout task records.
 
 ## Milestone Updates
 
@@ -218,8 +219,10 @@ BDD: subagent BDD/TDD documents pass requirement gate -> Given six subagents dra
 - Verified the dedicated acceptance documents and updated task status to `ready_for_closeout`.
 - Ran cleanup preview/apply after dedicated acceptance document verification; no files were deleted.
 - Ran project-experience-consolidation assessment; no durable engineering experience update was made.
+- Committed implementation documentation as `5006da7a`.
+- Marked task status `completed`; closeout record commit and push are the remaining Git operations.
 
 ## Blockers
 
 - Git closeout is blocked by current branch `ahead 1` containing an existing non-task-owned commit plus unrelated workspace changes (`doc/tasks/20260729-test-server-wangsiyu-file-upload-simulation/upload-evidence.json` and `doc/tasks/20260729-local-scheduler-tenant-copy/probe-source-full-config.json`); this documentation task did not push or stage unrelated history.
-- Current branch is ahead of origin because baseline commit `84ab9cef` was required by project dirty-worktree policy before starting this documentation update; final commit/push/closeout remains pending after verification.
+- Current branch is ahead of origin because baseline commit `84ab9cef` was required by project dirty-worktree policy before starting this documentation update, followed by implementation documentation commit `5006da7a`; final closeout commit and push are pending.

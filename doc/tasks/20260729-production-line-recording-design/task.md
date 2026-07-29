@@ -30,7 +30,7 @@
 - [x] 主线程 review 子 agent 草案并按 21 条需求门禁整合
 - [x] 写入专题 BDD/TDD/E2E/测试数据/审查报告文档
 - [x] 执行专题文档结构与 UTF-8 验证
-- [ ] Git closeout
+- [x] Git closeout
 
 ## Expected Verification
 
@@ -53,7 +53,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
@@ -88,4 +88,5 @@ ready_for_closeout
 - 已将子 agent 草案整合为 `docs/acceptance/production-line-process-pool/` 下专题验收文档，并补充 21 条需求门禁审查报告。
 - 已完成专题验收文档结构验证、UTF-8 读取验证、21 条门禁关键短语验证和 `git diff --check`。
 - `task-closeout-cleanup` preview/apply 已通过，未删除任何文件。
-- Git closeout 待执行；当前分支已包含按脏工作区基线规则保存的提交。
+- 实现文档提交：`5006da7a docs: add process pool BDD TDD acceptance plan`。
+- 收尾记录提交和远端推送在本记录更新后执行。
