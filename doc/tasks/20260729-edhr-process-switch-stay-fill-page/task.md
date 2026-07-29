@@ -42,3 +42,7 @@ ready_for_closeout
 ## Cleanup Keep
 
 - doc/tasks/20260729-edhr-process-switch-stay-fill-page/frontend-feature-evidence.md
+
+## Closeout Blocker
+
+- 当前 `int_main` 工作区存在非本任务脏改动和并行任务文件；为避免混入其它任务，本次未创建实现/收尾提交，也未推送。实现、定向验证、cleanup 和经验沉淀已完成，状态保持 `ready_for_closeout`。

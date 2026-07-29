@@ -128,6 +128,13 @@ function prepareLegacyReviewExecution() {
               }
             }
           }
+        },
+        2: {
+          cells: {
+            1: {
+              text: 'M7提交审核字段'
+            }
+          }
         }
       }
     },
@@ -365,6 +372,61 @@ async function clickFirstEnabled(locator, label) {
     }
   }
   throw new Error(`missing enabled control: ${label}; visibleControls=${JSON.stringify(visibleControls)}`)
+}
+
+async function closeResultDialogIfVisible(page, expectedText) {
+  const dialog = page
+    .locator('.edhr-fill-workspace__result-dialog .el-dialog:visible, .el-dialog:visible')
+    .filter({ hasText: expectedText })
+    .first()
+  if (!(await dialog.isVisible().catch(() => false))) {
+    return false
+  }
+  await clickFirstEnabled(dialog.getByRole('button', { name: /^确认$/ }), `close ${expectedText} result`)
+  await dialog.waitFor({ state: 'hidden', timeout: 30000 }).catch(() => undefined)
+  return true
+}
+
+async function fillAndSaveExecutionValue(page, setup) {
+  const sampleValue = `${setup.runKey}-已提交内容`
+  const fieldInputs = page.locator(
+    [
+      '.edhr-fill-workspace__form .edhr-fill-workspace__field input.el-input__inner:not([type="password"])',
+      '.edhr-fill-workspace__form .edhr-fill-workspace__field textarea',
+      '.edhr-fill-workspace input.el-input__inner:not([type="password"]):not([readonly])',
+      '.edhr-fill-workspace textarea:not([readonly])',
+      '.edhr-template-editable-form__editable-cell input.el-input__inner:not([type="password"])',
+      '.edhr-template-editable-form__editable-cell textarea',
+      '.edhr-page-shell__legacy-form input.el-input__inner:not([type="password"])',
+      '.edhr-page-shell__legacy-form textarea'
+    ].join(', ')
+  )
+  await fillFirstVisible(fieldInputs, sampleValue, 'submitted content sample field')
+  await page.getByText('待保存变更', { exact: true }).first().waitFor({ state: 'visible', timeout: 30000 })
+  const saveResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/admin-api/mes/pro/batch-record-execution/field-audit/save-changes') &&
+      response.request().method() === 'PUT',
+    { timeout: 60000 }
+  )
+  await clickFirstEnabled(page.getByRole('button', { name: '保存变更' }), 'save field changes')
+  const saveResponse = await saveResponsePromise
+  assert.equal(saveResponse.status(), 200, 'field audit save HTTP status must be 200')
+  const saveBody = await saveResponse.json()
+  assert.ok([0, 200].includes(Number(saveBody.code)), `field audit save failed: ${JSON.stringify(saveBody)}`)
+  assert.equal(
+    saveBody.data?.hashVerification?.status,
+    'VALID',
+    `field audit hash verification must be valid: ${JSON.stringify(saveBody)}`
+  )
+  await closeResultDialogIfVisible(page, '已保存')
+  await page.getByDisplayValue(sampleValue).first().waitFor({ state: 'visible', timeout: 60000 })
+  return {
+    sampleValue,
+    auditBatchId: saveBody.data?.auditBatchId,
+    fieldAuditRevision: saveBody.data?.fieldAuditRevision,
+    cellValuesHash: saveBody.data?.cellValuesHash
+  }
 }
 
 async function login(page, username = USERNAME, password = PASSWORD, target = '/index') {
@@ -787,6 +849,7 @@ async function main() {
   const page = await context.newPage()
   try {
     await login(page, USERNAME, PASSWORD, setup.actionUrl)
+    const fieldSave = await fillAndSaveExecutionValue(page, setup)
     await submitExecutionThroughUi(page, setup)
     const evidence = loadExecutionEvidence(setup.executionId)
     let approvalSummary
@@ -807,6 +870,7 @@ async function main() {
       username: USERNAME,
       approverUsername: SHOULD_COMPLETE_APPROVAL ? APPROVER_USERNAME : undefined,
       setup,
+      fieldSave,
       evidence,
       approvalSummary,
       terminalEvidence

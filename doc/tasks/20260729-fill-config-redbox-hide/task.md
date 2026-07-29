@@ -45,7 +45,7 @@ ready_for_closeout
 - `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode preview` -> ready
 - `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode apply` -> applied, deleted none
 - Commit/push -> BLOCKED by unrelated concurrent dirty changes and branch ahead state
-- 2026-07-29 补充反馈：卡片次级说明隐藏 RED/GREEN 与复验已通过，待本轮 cleanup/提交/推送门禁。
+- 2026-07-29 补充反馈：卡片次级说明隐藏 RED/GREEN、经验沉淀和 cleanup 已通过；提交/推送仍被并发 ahead commit 与非本任务脏改动阻塞。
 
 ## Cleanup Keep
 

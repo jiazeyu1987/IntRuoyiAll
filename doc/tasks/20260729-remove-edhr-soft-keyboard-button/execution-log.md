@@ -19,6 +19,8 @@
 - Baseline commit: `a93462f7 chore: preserve residual dirty baseline before soft keyboard removal`
 - Baseline commit: `68c71c2e chore: preserve residual docs before soft keyboard removal`
 - Baseline commit: `dbdcb76b chore: preserve final baseline before soft keyboard removal`
+- Concurrent baseline absorbed task test/docs: `7de25b08 chore: baseline concurrent workspace before process card update`
+- Concurrent baseline absorbed source removal: `66322922 chore: baseline concurrent process switch updates`
 
 ## BDD
 
@@ -28,10 +30,15 @@
 
 ## TDD Evidence
 
-- RED: pending.
-- GREEN: pending.
+- RED: `node tests/e2e/edhr-soft-keyboard-button-static.spec.js` -> FAIL, expected reason: `左侧工具栏不得继续渲染软键盘入口：edhr-fill-workspace__soft-keyboard-section`.
+- GREEN: `node tests/e2e/edhr-soft-keyboard-button-static.spec.js` -> PASS.
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS.
+- GREEN: `pnpm ts:check` -> PASS.
+- GREEN: `rg -n "softKeyboard|soft-keyboard|keyboard-outline|data-soft-keyboard|打开软键盘|关闭软键盘" IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue` -> no matches.
 
 ## Milestone Updates
 
 - 2026-07-29: Preflight rules loaded and multiple concurrent dirty baselines committed before current-task edits.
-
+- 2026-07-29: Rewrote `edhr-soft-keyboard-button-static.spec.js` from presence contract to deletion contract, then confirmed RED before removing implementation.
+- 2026-07-29: Removed custom soft keyboard rail template, `softKeyboard*` state/functions, focus listener and CSS from `ExecutionPage.vue`.
+- 2026-07-29: Concurrent commits advanced `origin/int_main`; task source/test changes are already present in pushed history, so remaining task-owned work is documentation closeout only.

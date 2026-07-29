@@ -4238,21 +4238,29 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                                         .setColumnIndex(1),
                                 new BatchRecordReportAssistRowVO.FieldVO()
                                         .setRowIndex(1)
-                                        .setColumnIndex(1))))));
+                                        .setColumnIndex(1)))))
+                .setAssistGridRowCount(12)
+                .setAssistGridColumnCount(9));
 
         assertEquals(0, saved.getUnreviewedFillableCellCount());
         assertEquals(2, saved.getRules().size());
         assertEquals(1, saved.getAssistRows().size());
+        assertEquals(12, saved.getAssistGridRowCount());
+        assertEquals(9, saved.getAssistGridColumnCount());
         assertEquals("AR_001", saved.getAssistRows().get(0).getRowKey());
         assertEquals("填写重量和生产日期", saved.getAssistRows().get(0).getDescription());
         assertEquals(2, saved.getAssistRows().get(0).getFields().size());
         assertTrue(reportJson.get().contains("\"edhrCellRule\""));
         assertTrue(reportJson.get().contains("\"edhrAssistRows\""));
+        assertTrue(reportJson.get().contains("\"edhrAssistGridRowCount\":12"));
+        assertTrue(reportJson.get().contains("\"edhrAssistGridColumnCount\":9"));
         assertTrue(reportJson.get().contains("\"valueType\":\"NUMBER\""));
         assertTrue(reportJson.get().contains("\"unit\":\"g\""));
 
         BatchRecordReportCellRulesRespVO reloaded = reportService.getCellRules("cell-rule-report-1");
         assertEquals(1, reloaded.getAssistRows().size());
+        assertEquals(12, reloaded.getAssistGridRowCount());
+        assertEquals(9, reloaded.getAssistGridColumnCount());
         assertEquals("AR_001", reloaded.getAssistRows().get(0).getRowKey());
         assertEquals(0, reloaded.getAssistRows().get(0).getFields().get(0).getRowIndex());
         assertEquals(1, reloaded.getAssistRows().get(0).getFields().get(0).getColumnIndex());
@@ -4264,7 +4272,11 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
 
         assertEquals(0, restoredLegacy.getRules().size());
         assertEquals(0, restoredLegacy.getAssistRows().size());
+        assertNull(restoredLegacy.getAssistGridRowCount());
+        assertNull(restoredLegacy.getAssistGridColumnCount());
         assertFalse(JSONObject.parseObject(reportJson.get()).containsKey("edhrAssistRows"));
+        assertFalse(JSONObject.parseObject(reportJson.get()).containsKey("edhrAssistGridRowCount"));
+        assertFalse(JSONObject.parseObject(reportJson.get()).containsKey("edhrAssistGridColumnCount"));
     }
 
     @Test

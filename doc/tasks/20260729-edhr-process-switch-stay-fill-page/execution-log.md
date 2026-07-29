@@ -35,8 +35,15 @@
 
 ## Blockers
 
-- None currently.
+- COMMIT/PUSH BLOCKED: current `int_main` workspace contains unrelated dirty files from concurrent tasks, including backend tests, `MesProBatchRecordReportServiceImpl.java`, fill-config task docs, and long-term docs. To avoid mixing task ownership, no implementation/closeout commit was created in this run.
 
 ## Current Status
 
 ready_for_closeout
+
+## Closeout
+
+- CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-process-switch-stay-fill-page --mode preview` -> ready, keep task/execution/frontend evidence/verification, delete none, blocked none.
+- CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-process-switch-stay-fill-page --mode apply` -> applied, deleted none.
+- EXPERIENCE: updated `docs/frontend-development.md#eDHR 辅助模式当前工序 assistRows 路由门禁` and `docs/experience-index.md` so future tasks use `batchTaskPreview=1 + task/preview` for no-execution process switching instead of the old batch-detail jump.
+- FINAL STATUS: implementation and verification complete; commit/push remains blocked by unrelated concurrent dirty workspace state.

@@ -9,6 +9,7 @@
 - `validate_bug_regression.py --evidence doc/tasks/20260729-fill-config-redbox-hide/bug-regression-evidence.md` -> PASS
 - `validate_frontend_feature.py --evidence doc/tasks/20260729-fill-config-redbox-hide/frontend-feature-evidence.md` -> PASS
 - `git diff --check -- <task-owned files>` -> PASS
+- `rg -n "batch-record-cell-rules-editor__cell-rule|gridCell.sourceSummary|原表单来源" docs/experience-index.md docs/frontend-development.md` -> PASS
 - `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode preview` -> ready
 - `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode apply` -> applied, deleted none
 
@@ -23,4 +24,4 @@
 
 ## Blockers
 
-- Closeout commit/push not performed in this turn because the workspace already contains unrelated concurrent dirty changes outside this task.
+- Closeout commit/push not performed in this turn because a concurrent `git rebase --continue` / `git commit` is active and the index already contains non-task staged files.

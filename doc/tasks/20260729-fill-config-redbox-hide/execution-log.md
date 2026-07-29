@@ -30,3 +30,10 @@
 - GREEN: `node tests/e2e/assist-grid-per-user-mapping-static.spec.js` -> PASS。
 - CHECK: `pnpm ts:check` 首次 120 秒超时，未作为通过证据。
 - GREEN: `pnpm ts:check` -> PASS，300 秒超时上限下完成。
+- EXPERIENCE: 已更新 `docs/frontend-development.md#前端填写配置红框区域隐藏门禁`，把格子内规则类型/必填/未映射/原表单来源次级说明纳入红框隐藏范围；`rg -n "batch-record-cell-rules-editor__cell-rule|gridCell.sourceSummary|原表单来源" docs/experience-index.md docs/frontend-development.md` -> PASS。
+- GREEN: `validate_bug_regression.py --evidence doc/tasks/20260729-fill-config-redbox-hide/bug-regression-evidence.md` -> PASS。
+- GREEN: `validate_frontend_feature.py --evidence doc/tasks/20260729-fill-config-redbox-hide/frontend-feature-evidence.md` -> PASS。
+- GREEN: `git diff --check -- <task-owned files and experience docs>` -> PASS。
+- CLEANUP: `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode preview` -> ready，delete none，blocked none。
+- CLEANUP: `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode apply` -> applied，deleted_paths none。
+- CLOSEOUT BLOCKER: 当前仓库存在并发 `git rebase --continue` / `git commit` 进程，且暂存区含 `20260729-edhr-process-switch-stay-fill-page` 等非本任务文件；本轮未提交/推送，避免混入并发任务或破坏对方 rebase。

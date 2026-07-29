@@ -3533,6 +3533,8 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
 
         JSONArray assistRows = snapshot.getJSONArray("assistRows");
         assertNotNull(assistRows);
+        assertEquals(12, snapshot.getIntValue("assistGridRowCount"));
+        assertEquals(9, snapshot.getIntValue("assistGridColumnCount"));
         assertEquals(2, assistRows.size());
         assertEquals("AR_OPERATOR", assistRows.getJSONObject(0).getString("rowKey"));
         assertEquals("操作信息", assistRows.getJSONObject(0).getString("description"));
@@ -3548,6 +3550,8 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
         JSONObject reopenedSnapshot =
                 JSON.parseObject(executionMapper.selectById(resp.getId()).getExecutionSnapshotJson());
         assertEquals(2, reopenedSnapshot.getJSONArray("assistRows").size());
+        assertEquals(12, reopenedSnapshot.getIntValue("assistGridRowCount"));
+        assertEquals(9, reopenedSnapshot.getIntValue("assistGridColumnCount"));
         verify(jimuReportGateway).getReportJson("report-snapshot-assist");
     }
 
@@ -5124,6 +5128,8 @@ class MesProBatchRecordExecutionServiceImplTest extends BaseDbUnitTest {
                     "fields":[{"rowIndex":0,"columnIndex":3}]}
                 ]
                 """));
+        root.put("edhrAssistGridRowCount", 12);
+        root.put("edhrAssistGridColumnCount", 9);
         return root.toJSONString();
     }
 
