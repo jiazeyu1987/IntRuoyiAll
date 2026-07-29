@@ -14,6 +14,8 @@
 
 用户要求根据 `C:\Users\BJB110\Desktop\文档\批记录压力泵.doc` 和 `C:\Users\BJB110\Desktop\文档\损耗单.doc`，列出生产一线需要填写的上一个工序输入数量、设备参数、输出数量、损耗数量。
 
+用户补充：上述内容可能由一个人填写，也可能拆分成几个人填写；每个生产工单里面有完成数量，通过数量决定这个工序是否完成。
+
 ## BDD Scenarios
 
 BDD: capture current-thread discussion only -> Given this thread contains the business discussion about production-line simplified recording, When documents are written, Then they include this thread's prior messages and exclude unrelated project history or other tasks.
@@ -29,6 +31,8 @@ BDD: feedback submit extracts two data sets -> Given a frontline employee report
 BDD: combined feedback and recordbook entry -> Given the frontline entry is both a production feedback entry and a recordbook entry, When the employee clicks confirm submit, Then the document must state that the same transaction reports work and writes the recordbook entry.
 
 BDD: extract frontline fields from pressure pump documents -> Given the user provided pressure pump batch record and loss report Word documents, When frontline fields are listed, Then the list must classify fields into previous-process input quantity, equipment parameters, output quantity, and loss quantity.
+
+BDD: split fill and quantity completion -> Given the same production work order process can be filled by one or multiple employees, When the process completion rule is documented, Then completion must be based on accumulated completed quantity rather than route order or a single record being filled.
 
 ## Command And Evidence Log
 
@@ -60,11 +64,18 @@ BDD: extract frontline fields from pressure pump documents -> Given the user pro
 - RED: combined Word COM extraction second-open attempt -> FAIL, Word COM object became invalid after reading the first document; reran `损耗单.doc` extraction in a fresh Word COM instance.
 - GREEN: extract `损耗单.doc` with fresh Word COM -> PASS, loss report fields extracted.
 - GREEN: update inception docs with document-derived frontline field inventory -> PASS, fields classified into input quantity, equipment parameters, output quantity, and loss quantity.
+- GREEN: inspect quantity completion code evidence -> PASS, found `MesProTaskDO.producedQuantity`, `MesProWorkOrderDO.quantityProduced`, and feedback service quantity update calls.
+- GREEN: apply user clarification about split fill and quantity completion -> PASS, documented one-person/multi-person split fill and quantity-based process completion.
 - GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after Word-document field extraction.
 - GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after Word-document field extraction.
 - GREEN: `git diff --check -- task-owned docs` -> PASS after Word-document field extraction; Git reported line-ending normalization warnings only.
 - GREEN: `task-closeout-cleanup --mode preview` -> PASS after Word-document field extraction, keep core task docs, delete none, blocked none.
 - GREEN: `task-closeout-cleanup --mode apply` -> PASS after Word-document field extraction, deleted none.
+- GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after split-fill quantity-completion clarification.
+- GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after split-fill quantity-completion clarification.
+- GREEN: `git diff --check -- task-owned docs` -> PASS after split-fill quantity-completion clarification; Git reported line-ending normalization warnings only.
+- GREEN: `task-closeout-cleanup --mode preview` -> PASS after split-fill quantity-completion clarification, keep core task docs, delete none, blocked none.
+- GREEN: `task-closeout-cleanup --mode apply` -> PASS after split-fill quantity-completion clarification, deleted none.
 - GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after production-work-order correction.
 - GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after production-work-order correction.
 - GREEN: `git diff --check -- task-owned docs` -> PASS after production-work-order correction; Git reported line-ending normalization warnings only.
@@ -97,9 +108,11 @@ BDD: extract frontline fields from pressure pump documents -> Given the user pro
 - Updated the integration notes after user clarified that the one-line entry should be centered on existing production feedback submission, not a standalone recordbook submission.
 - Updated the integration notes after user clarified that the one-line entry is also a recordbook entry combined with production feedback.
 - Added pressure-pump batch-record and loss-report field extraction into the inception docs.
+- Added split-fill and quantity-based process completion semantics into the inception docs.
 - Re-ran validation after the feedback-centered clarification.
 - Re-ran validation after the combined feedback-recordbook correction.
 - Re-ran validation and cleanup preview/apply after the Word-document field extraction.
+- Re-ran validation and cleanup preview/apply after the split-fill quantity-completion clarification.
 - Re-ran cleanup preview/apply after the production-work-order correction; no task-owned files were deleted.
 - Re-ran cleanup preview/apply after the feedback-centered clarification; no task-owned files were deleted.
 

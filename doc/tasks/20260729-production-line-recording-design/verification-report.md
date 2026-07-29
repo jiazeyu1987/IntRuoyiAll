@@ -2,7 +2,7 @@
 
 ## Summary
 
-Documentation writing and structural verification passed, including the latest Word-document field extraction from `批记录压力泵.doc` and `损耗单.doc`. Git closeout remains blocked because the current branch is ahead of `origin/int_main` and an unrelated untracked task directory exists.
+Documentation writing and structural verification passed, including the latest split-fill and quantity-completion clarification. Git closeout remains blocked by unrelated workspace changes.
 
 ## Evidence
 
@@ -17,6 +17,7 @@ Documentation writing and structural verification passed, including the latest W
 - PASS: User clarification applied: frontline entry is production feedback/report-work submission, and the same confirm submit should extract both feedback data and batch-record-related data.
 - PASS: User correction applied: frontline entry is also a recordbook entry, and confirm submit both reports work and writes recordbook.
 - PASS: Field inventory from `批记录压力泵.doc` and `损耗单.doc` added.
+- PASS: Split-fill and quantity-based process completion clarification added.
 - PASS: Inception structure validation and UTF-8 read validation passed after the correction.
 - PASS: Inception structure validation and UTF-8 read validation passed after the feedback-centered clarification.
 - PASS: `git diff --check` reported no whitespace errors after the feedback-centered clarification; Git reported line-ending normalization warnings only.
@@ -28,6 +29,9 @@ Documentation writing and structural verification passed, including the latest W
 - PASS: Inception structure validation and UTF-8 read validation passed after the Word-document field extraction.
 - PASS: `git diff --check` reported no whitespace errors after the Word-document field extraction; Git reported line-ending normalization warnings only.
 - PASS: Cleanup preview/apply passed after the Word-document field extraction with no deleted paths.
+- PASS: Inception structure validation and UTF-8 read validation passed after the split-fill quantity-completion clarification.
+- PASS: `git diff --check` reported no whitespace errors after the split-fill quantity-completion clarification; Git reported line-ending normalization warnings only.
+- PASS: Cleanup preview/apply passed after the split-fill quantity-completion clarification with no deleted paths.
 - BLOCKED: final Git commit/push closeout was not performed because `git status --short --branch` showed `int_main...origin/int_main [ahead 2]` and unrelated untracked directory `doc/tasks/20260729-dcc-product-catalog-project-code-columns/`.
 
 ## Final Result

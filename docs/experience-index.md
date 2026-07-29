@@ -120,7 +120,7 @@
 - Keywords: Jimu fillForm 组件类型, componentFlag input-textarea, componentFlag input-text, componentFlag signature, 多行文本, 普通文本, 日期单元格, 电子签名, 签名日期宽空白格, 记录人/日期, 操作人/日期, 复核人/日期, edhrSignature -> `docs/backend-development.md#jimu-fillform-组件类型语义优先边界`
 - Keywords: 子表集合替换, 软删除唯一键, 逻辑删除占用唯一键, deleteByCaseId, system_codex_test_checkpoint, updateCase_allowsRepeatedCheckpointReplacement -> `docs/backend-development.md#2026-07-25-子表集合替换软删除唯一键门禁`
 - Keywords: 测试项固定名称, 同名测试项重复创建删除, system_codex_test_case tenant_id name deleted, DuplicateKeyException, deleteCase_allowsRepeatedCreateAndDeleteWithSameName -> `docs/backend-development.md#2026-07-27-测试项固定名称删除唯一键门禁`
-- Keywords: Windows CRLF 静态合同, static.spec.js 目标 worktree 自身失败, 真实 E2E 脚本与页面行为同步, 废弃弹窗流程, 字段审计保存直连 API -> `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁`
+- Keywords: Windows CRLF 静态合同, static.spec.js 目标 worktree 自身失败, 真实 E2E 脚本与页面行为同步, 静态合同负向断言范围, 正则范围过宽, false positive, 废弃弹窗流程, 字段审计保存直连 API -> `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁`
 - Keywords: 真实 E2E 阶段归因, full-chain 后续阶段失败, 目标阶段已保存, adminSave, 后续路线绑定断言失败, 不宣称 full-chain PASS, 阶段性证据字段 -> `docs/e2e-rules.md#真实-e2e-阶段归因门禁`
 - Keywords: 真实 E2E 页面加载判据, 批次执行详情, 页面批号等待超时, 内部执行号, 生产批号, 接口命中目标 ID, 工序组渲染, 样式 class 颜色断言, 无 MES 写请求 -> `docs/e2e-rules.md#真实-e2e-页面加载判据门禁`
 - Keywords: worktree E2E 成对 URL, int_main 主端口 E2E, 8081 48081, EDHR_RELEASE_DOSSIER_E2E_BASE_URL, EDHR_RELEASE_DOSSIER_E2E_BACKEND_URL, 同一 runtime slot, 48081 旧 jar, 8086 48086 -> `docs/e2e-rules.md#worktree--int_main-运行态-url-门禁`
