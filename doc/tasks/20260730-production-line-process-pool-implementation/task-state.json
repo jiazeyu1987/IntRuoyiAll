@@ -1,0 +1,147 @@
+{
+  "task_id": "20260730-production-line-process-pool-implementation",
+  "goal": "启动6个子agent分别在6个worktree里实现验证生产一线报工工序池6个功能点，主线程review，全部符合21条需求后融合进int_main。",
+  "status": "ready_for_execution",
+  "current_stage": "execution",
+  "planner_review_status": "approved",
+  "plan_review_status": "approved",
+  "blocking_prereqs": [],
+  "iteration_counts": {
+    "planner_revisions": 0,
+    "plan_revisions": 0,
+    "executor_loops": 0,
+    "test_loops": 0
+  },
+  "tasks": [
+    {
+      "task_id": "F1",
+      "title": "工序池基础模型和事件服务",
+      "status": "pending",
+      "dependency_ids": [],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes",
+        "IntRuoyiBackend/sql/mysql",
+        "IntRuoyiBackend/script/tests"
+      ],
+      "acceptance_ids": [
+        "AC-01",
+        "AC-02",
+        "AC-03",
+        "AC-10",
+        "AC-17"
+      ],
+      "owner_agent": null,
+      "last_outcome": null
+    },
+    {
+      "task_id": "F2",
+      "title": "报工和记录本一体提交",
+      "status": "pending",
+      "dependency_ids": [
+        "F1"
+      ],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes",
+        "IntRuoyiFronted/src/api/mes",
+        "IntRuoyiFronted/src/views/mes/pro/feedback"
+      ],
+      "acceptance_ids": [
+        "AC-04",
+        "AC-05",
+        "AC-10",
+        "AC-17"
+      ],
+      "owner_agent": null,
+      "last_outcome": null
+    },
+    {
+      "task_id": "F3",
+      "title": "固定模板录入",
+      "status": "pending",
+      "dependency_ids": [
+        "F1"
+      ],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes",
+        "IntRuoyiFronted/src/views/mes/pro/feedback",
+        "IntRuoyiFronted/src/api/mes"
+      ],
+      "acceptance_ids": [
+        "AC-06",
+        "AC-07",
+        "AC-05",
+        "AC-17"
+      ],
+      "owner_agent": null,
+      "last_outcome": null
+    },
+    {
+      "task_id": "F4",
+      "title": "设备账号内切换实际员工",
+      "status": "pending",
+      "dependency_ids": [
+        "F1"
+      ],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes",
+        "IntRuoyiFronted/src/views/mes/pro/feedback",
+        "IntRuoyiFronted/src/api/mes"
+      ],
+      "acceptance_ids": [
+        "AC-08",
+        "AC-09",
+        "AC-02",
+        "AC-10"
+      ],
+      "owner_agent": null,
+      "last_outcome": null
+    },
+    {
+      "task_id": "F7",
+      "title": "生产工单 FIFO 分配基础逻辑",
+      "status": "pending",
+      "dependency_ids": [
+        "F1"
+      ],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes",
+        "IntRuoyiBackend/sql/mysql"
+      ],
+      "acceptance_ids": [
+        "AC-11",
+        "AC-12",
+        "AC-13",
+        "AC-14"
+      ],
+      "owner_agent": null,
+      "last_outcome": null
+    },
+    {
+      "task_id": "F8",
+      "title": "工序池时间轴 / 甘特图只读查询",
+      "status": "pending",
+      "dependency_ids": [
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F7"
+      ],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes",
+        "IntRuoyiFronted/src/views/mes/pro",
+        "IntRuoyiFronted/src/api/mes"
+      ],
+      "acceptance_ids": [
+        "AC-15",
+        "AC-16",
+        "AC-02",
+        "AC-03",
+        "AC-13"
+      ],
+      "owner_agent": null,
+      "last_outcome": null
+    }
+  ],
+  "updated_at": "2026-07-30T00:20:00+08:00"
+}
