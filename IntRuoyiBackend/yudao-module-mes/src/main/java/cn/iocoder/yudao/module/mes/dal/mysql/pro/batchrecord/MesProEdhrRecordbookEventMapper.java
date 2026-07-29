@@ -19,4 +19,12 @@ public interface MesProEdhrRecordbookEventMapper extends BaseMapperX<MesProEdhrR
                 .betweenIfPresent(MesProEdhrRecordbookEventDO::getOccurredAt, reqVO.getOccurredAt())
                 .orderByDesc(MesProEdhrRecordbookEventDO::getId));
     }
+
+    default MesProEdhrRecordbookEventDO selectLatestByEntryIdAndEventType(Long entryId, String eventType) {
+        return selectOne(new LambdaQueryWrapperX<MesProEdhrRecordbookEventDO>()
+                .eq(MesProEdhrRecordbookEventDO::getEntryId, entryId)
+                .eq(MesProEdhrRecordbookEventDO::getEventType, eventType)
+                .orderByDesc(MesProEdhrRecordbookEventDO::getId)
+                .last("LIMIT 1"));
+    }
 }
