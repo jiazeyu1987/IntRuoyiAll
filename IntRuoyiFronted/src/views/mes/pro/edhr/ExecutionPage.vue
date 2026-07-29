@@ -1006,6 +1006,14 @@
                 align-center
                 destroy-on-close
               >
+                <button
+                  type="button"
+                  class="edhr-fill-workspace__submit-sign-close"
+                  aria-label="关闭电子签名弹窗"
+                  @click="closeSubmitDialog"
+                >
+                  <Icon icon="ep:close" />
+                </button>
                 <div class="edhr-fill-workspace__submit-sign-form">
                   <div class="edhr-fill-workspace__submit-sign-row">
                     <div class="edhr-fill-workspace__submit-sign-label">姓名</div>
@@ -1629,6 +1637,7 @@ import {
   EDHR_BATCH_TASK_STATUS_SUBMITTED,
   EDHR_BATCH_TASK_STATUS_WAITING,
   getEdhrBatchExecution,
+  getEdhrBatchTaskPreview,
   openEdhrBatchTask,
   type EdhrBatchExecutionTaskRespVO
 } from '@/api/mes/pro/edhr/batchExecution'
@@ -2676,9 +2685,18 @@ const executionId = computed(() => parsePositiveRouteQueryId(route.query.id) || 
 const isTrackingReadonlyMode = computed(() => route.query.viewMode === TRACKING_VIEW_MODE)
 const workTaskId = computed(() => parsePositiveRouteQueryId(route.query.workTaskId) || undefined)
 const assistUserId = computed(() => parsePositiveRouteQueryId(route.query.assistUserId) || undefined)
+const routeBatchTaskId = computed(() => parsePositiveRouteQueryId(route.query.batchTaskId) || undefined)
+const isAssistBatchTaskPreviewMode = computed(() => route.query.batchTaskPreview === '1')
 const hasFillTaskContext = computed(() => workTaskId.value !== undefined)
-const resolveExecutionContextKey = () =>
-  executionId.value ? `${executionId.value}:${workTaskId.value || ''}:${assistUserId.value || ''}` : ''
+const resolveExecutionContextKey = () => {
+  if (isAssistBatchTaskPreviewMode.value) {
+    const batchExecutionId = readRouteQueryString(route.query.batchExecutionId)
+    return batchExecutionId && routeBatchTaskId.value
+      ? `preview:${batchExecutionId}:${routeBatchTaskId.value}:${assistUserId.value || ''}`
+      : ''
+  }
+  return executionId.value ? `${executionId.value}:${workTaskId.value || ''}:${assistUserId.value || ''}` : ''
+}
 const hasArchiveQueryPermission = computed(() => hasPermission([ARCHIVE_QUERY_PERMISSION]))
 const hasArchiveCreatePermission = computed(() => hasPermission([ARCHIVE_CREATE_PERMISSION]))
 const hasArchiveDownloadPermission = computed(() => hasPermission([ARCHIVE_DOWNLOAD_PERMISSION]))
@@ -4646,6 +4664,11 @@ const resetSubmitForm = () => {
   resetSubmitReviewAssigneeSelections()
 }
 
+const closeSubmitDialog = () => {
+  submitDialogVisible.value = false
+  resetSubmitForm()
+}
+
 const openSubmitDialog = () => {
   if (isReadonly.value) {
     message.error(readonlySubmitReason.value)
@@ -4915,9 +4938,143 @@ const loadTrackingAndSignatures = async () => {
   }
 }
 
+const parseAssistPreviewCellValues = (
+  rawCellValuesJson?: string
+): NonNullable<ProFeedbackEdhrExecutionVO['cellValues']> => {
+  if (rawCellValuesJson == null || !String(rawCellValuesJson).trim()) {
+    return []
+  }
+  const parsed = JSON.parse(String(rawCellValuesJson))
+  if (!Array.isArray(parsed)) {
+    throw new Error('工序预览 cellValuesJson 不是数组，无法在填写页查看。')
+  }
+  return parsed
+    .map((item) => {
+      const rowIndex = parseNonNegativeInteger((item as any)?.rowIndex)
+      const columnIndex = parseNonNegativeInteger((item as any)?.columnIndex)
+      if (rowIndex == null || columnIndex == null) return null
+      return {
+        rowIndex,
+        columnIndex,
+        value: (item as any)?.value ?? null,
+        valueType: (item as any)?.valueType,
+        valueDisplay: (item as any)?.valueDisplay,
+        valueHash: (item as any)?.valueHash,
+        unit: (item as any)?.unit
+      }
+    })
+    .filter((item): item is NonNullable<ProFeedbackEdhrExecutionVO['cellValues']>[number] =>
+      Boolean(item)
+    )
+}
+
+const loadAssistBatchTaskPreviewExecution = async (
+  batchExecutionId: number,
+  batchTaskId: number,
+  currentExecutionContextKey: string
+) => {
+  const [batchDetail, preview] = await Promise.all([
+    getEdhrBatchExecution(batchExecutionId),
+    getEdhrBatchTaskPreview(batchExecutionId, batchTaskId)
+  ])
+  const task = (batchDetail.tasks || []).find((item) => sameRouteQueryId(item.id, batchTaskId))
+  if (!task || isAssistSpecialBatchTask(task)) {
+    throw new Error(`批次任务 ${batchTaskId} 不是可查看的普通工序任务，无法在填写页切换。`)
+  }
+  const formViewModel = preview.formViewModel
+  if (!formViewModel || typeof formViewModel.executionSnapshotJson !== 'string' || !formViewModel.executionSnapshotJson.trim()) {
+    throw new Error(`批次任务 ${batchTaskId} 缺少正式表单预览快照，无法在填写页查看。`)
+  }
+  if (typeof formViewModel.sheetLayoutJson !== 'string' || !formViewModel.sheetLayoutJson.trim()) {
+    throw new Error(`批次任务 ${batchTaskId} 缺少正式表单布局，无法在填写页查看。`)
+  }
+  const detail: ProFeedbackEdhrExecutionVO = {
+    id: preview.executionId || 0,
+    executionCode: task.executionCode,
+    workOrderId: batchDetail.workOrderId,
+    workOrderCode: batchDetail.workOrderCode,
+    routeId: batchDetail.routeId,
+    routeCode: batchDetail.routeCode,
+    routeName: batchDetail.routeName,
+    processId: task.routeProcessId,
+    routeProcessId: task.routeProcessId,
+    processCode: task.processCode,
+    processName: task.processName,
+    batchCode: batchDetail.batchCode,
+    status: task.status,
+    taskId: task.id,
+    batchRecordReportId: task.batchRecordReportId,
+    batchRecordReportCode: task.batchRecordReportCode,
+    batchRecordReportName: task.batchRecordReportName || task.formTemplateName,
+    formSlotType: task.formSlotType,
+    recordCategory: task.recordCategory,
+    validationProfile: task.validationProfile,
+    requiredPolicy: task.requiredPolicy,
+    ownerRoleKey: task.ownerRoleKey,
+    archiveVisibility: task.archiveVisibility,
+    permissionScopeId: task.permissionScopeId,
+    slotConfigSnapshotHash: task.slotConfigSnapshotHash,
+    routeBindingId: task.routeBindingId,
+    routeBindingSnapshotHash: task.routeBindingSnapshotHash,
+    sheetLayoutJson: formViewModel.sheetLayoutJson,
+    metaJson: formViewModel.metaJson,
+    executionSnapshotJson: formViewModel.executionSnapshotJson,
+    cellValues: parseAssistPreviewCellValues(formViewModel.cellValuesJson),
+    canOpen: false,
+    canGenerateArchive: false,
+    canDownloadArchive: false,
+    preReleaseEditable: false,
+    activeRevisionFlag: true,
+    assistSwitchTasks: batchDetail.tasks || [],
+    remark: formViewModel.remark,
+    signatureCellMarkers: formViewModel.signatureCellMarkers
+  }
+  execution.value = detail
+  hydrateDraftState(detail)
+  latestArchive.value = undefined
+  trackingTimeline.value = []
+  signatureRows.value = []
+  loadedExecutionContextKey.value = currentExecutionContextKey
+}
+
 const loadExecution = async () => {
   const currentExecutionId = executionId.value
   const currentExecutionContextKey = resolveExecutionContextKey()
+  if (isAssistBatchTaskPreviewMode.value) {
+    const batchExecutionId = parsePositiveNumber(currentBatchExecutionId.value)
+    const batchTaskId = routeBatchTaskId.value
+    if (!batchExecutionId || !batchTaskId) {
+      execution.value = undefined
+      loadedExecutionContextKey.value = ''
+      latestArchive.value = undefined
+      loadError.value = '缺少批次执行编号或工序任务编号，无法在填写页查看工序。'
+      return
+    }
+    loading.value = true
+    loadError.value = ''
+    archiveError.value = ''
+    formReviewSignError.value = ''
+    try {
+      await loadAssistBatchTaskPreviewExecution(batchExecutionId, batchTaskId, currentExecutionContextKey)
+    } catch (error) {
+      execution.value = undefined
+      loadedExecutionContextKey.value = ''
+      latestArchive.value = undefined
+      trackingTimeline.value = []
+      signatureRows.value = []
+      draftFieldValues.value = {}
+      draftAttachmentValues.value = {}
+      draftImageAttachmentValues.value = {}
+      attachmentMetadataByUrl.value = {}
+      baselineFieldValues.value = {}
+      baselineFieldValueHashes.value = {}
+      draftRemark.value = ''
+      loadError.value = resolveErrorMessage(error, '工序预览加载失败，请联系管理员。')
+    } finally {
+      loading.value = false
+    }
+    return
+  }
   if (!currentExecutionId) {
     execution.value = undefined
     loadedExecutionContextKey.value = ''
@@ -5389,22 +5546,30 @@ const navigateToReadonlyAssistBatchTask = async (
   closeAssistSwitchDialog()
 }
 
-const navigateToAssistBatchProcessOverview = async (
+const navigateToAssistBatchTaskPreview = async (
   row: EdhrBatchExecutionTaskRespVO,
   batchExecutionId: number
 ) => {
   const query = {
-    id: String(batchExecutionId),
+    batchTaskPreview: '1',
+    batchExecutionId: String(batchExecutionId),
     batchTaskId: String(row.id),
     ...(row.processCode ? { processCode: row.processCode } : {}),
     ...(row.processName ? { processName: row.processName } : {}),
+    ...(readRouteQueryString(route.query.workOrderCode)
+      ? { workOrderCode: readRouteQueryString(route.query.workOrderCode) }
+      : {}),
+    ...(readRouteQueryString(route.query.batchCode)
+      ? { batchCode: readRouteQueryString(route.query.batchCode) }
+      : {}),
     ...(readRouteQueryString(route.query.batchExecutionCode)
       ? { batchExecutionCode: readRouteQueryString(route.query.batchExecutionCode) }
-      : {})
+      : {}),
+    ...buildAssistFillCarrierExecutionQuery(row)
   }
   fillViewMode.value = 'assist'
   await router.push({
-    path: '/mes/pro/feedback/edhr-batch-execution/detail',
+    path: '/mes/pro/feedback/edhr-execution/form',
     query
   })
   fillViewMode.value = 'assist'
@@ -5460,7 +5625,7 @@ const navigateToAssistBatchTask = async (
           selectedAssistDisplayNameInput
         )
       } else {
-        await navigateToAssistBatchProcessOverview(row, batchExecutionId)
+        await navigateToAssistBatchTaskPreview(row, batchExecutionId)
       }
       return
     }
@@ -6950,6 +7115,7 @@ onBeforeUnmount(() => {
 :global(.edhr-fill-workspace__submit-sign-dialog .el-dialog) {
   max-width: calc(100vw - 32px);
   border-radius: 14px;
+  position: relative;
 }
 
 :global(.edhr-fill-workspace__submit-sign-dialog .el-dialog__header) {
@@ -6967,6 +7133,32 @@ onBeforeUnmount(() => {
 .edhr-fill-workspace__submit-sign-form {
   display: grid;
   gap: 22px;
+}
+
+.edhr-fill-workspace__submit-sign-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #667085;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.edhr-fill-workspace__submit-sign-close:hover,
+.edhr-fill-workspace__submit-sign-close:focus-visible {
+  background: #f2f4f7;
+  color: #172033;
+  outline: none;
 }
 
 .edhr-fill-workspace__submit-sign-row {

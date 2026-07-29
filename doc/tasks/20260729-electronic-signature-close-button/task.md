@@ -34,4 +34,13 @@ in_progress
 ### Element Plus 全屏弹框挂载门禁
 
 - Trigger: eDHR 填写页最大化后出现签名框或结果弹框。
-- Preflight check: 弹框必须作为 `.edhr-fill-workspace` 子树渲染，并保�
+- Preflight check: 弹框必须作为 `.edhr-fill-workspace` 子树渲染，并保持 `:append-to-body="false"`。
+- Blocker: 弹框 teleport 到 body、只靠 `z-index` 或退出全屏规避遮挡。
+- Verification: 静态合同断言签名弹框位于全屏容器内部且未 teleport 到 body。
+- Forbidden action: 禁止用随机提高 `z-index`、退出全屏后再弹框、隐藏错误提示或关闭全屏能力绕过。
+- Evidence: `docs/frontend-development.md#element-plus-全屏弹框挂载门禁`。
+
+## Baseline
+
+- 既有脏工作区基线提交：`e5643370`，保存本任务开始前已有源码、测试和任务文档改动。
+- 既有残余证据基线提交：`66777526`，保存提交后残留的 E2E 证据 JSON 差异。

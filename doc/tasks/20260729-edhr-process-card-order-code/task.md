@@ -31,4 +31,7 @@ in_progress
 
 ## Experience Gate
 
-- `docs/frontend-development.md#eDHR 辅助模式当
+- `docs/frontend-development.md#eDHR 辅助模式当前工序 assistRows 路由门禁`：本任务只调整卡片展示，必须保持工序切换候选来自当前批次全部普通工序任务，点击仍走现有正式切换链路。
+- `docs/frontend-development.md#前端静态契约隔离门禁`：使用任务专用最小静态合同覆盖本次卡片高度、字体、明细隐藏和订单号展示需求，避免被无关宽合同影响。
+- `docs/powershell-memory.md#脏工作区基线门禁`：当前存在并行任务脏文件，必须先独立基线提交并确保本任务文档/实现不混入基线。
+- `docs/powershell-memory.md#PowerShell 分号串联测试退出码门禁`：验证命令逐条运行并记录退出码。

@@ -110,23 +110,38 @@ assertIncludes(
 )
 assertIncludes(
   executionPage,
-  'navigateToAssistBatchProcessOverview',
-  '非可打开且尚无执行记录/工作任务的未开始工序必须跳转批次详情选中工序，不能报错卡死。'
+  'loadAssistBatchTaskPreviewExecution',
+  '非可打开且尚无执行记录/工作任务的工序必须在执行页内加载只读预览上下文，不能跳转离开填写页。'
 )
 assertIncludes(
   navigateMatch[0],
-  'navigateToAssistBatchProcessOverview(row, batchExecutionId)',
-  '正式打开函数必须在缺少执行记录时使用批次详情工序概览入口。'
+  'navigateToAssistBatchTaskPreview(row, batchExecutionId)',
+  '正式打开函数必须在缺少执行记录时使用执行页内预览入口。'
 )
 assertIncludes(
   executionPage,
-  "path: '/mes/pro/feedback/edhr-batch-execution/detail'",
-  '未开始工序概览入口必须进入批次详情页。'
+  'getEdhrBatchTaskPreview(batchExecutionId, batchTaskId)',
+  '执行页内预览入口必须读取正式 task/preview 接口。'
+)
+assertIncludes(
+  executionPage,
+  "path: '/mes/pro/feedback/edhr-execution/form'",
+  '未开始工序查看入口必须停留在执行页。'
+)
+assertIncludes(
+  executionPage,
+  "batchTaskPreview: '1'",
+  '未开始工序查看入口必须通过显式 preview 标记触发只读预览加载。'
 )
 assertIncludes(
   executionPage,
   'batchTaskId: String(row.id)',
-  '批次详情入口必须携带 batchTaskId，确保选中用户点击的工序任务。'
+  '执行页内预览入口必须携带 batchTaskId，确保选中用户点击的工序任务。'
+)
+assertNotIncludes(
+  executionPage,
+  'navigateToAssistBatchProcessOverview',
+  '工序切换不得再通过批次详情流程页承载无执行记录工序。'
 )
 assertNotIncludes(
   navigateMatch[0],

@@ -34,4 +34,17 @@
 
 - Pending.
 
-## Responsive Accessibility Loading Empty
+## Responsive Accessibility Loading Empty Error Permission Checks
+
+- Accessibility: 关闭按钮必须有 `aria-label="关闭电子签名弹窗"` 并使用 `ep:close` 图标。
+- Responsive: 关闭按钮固定在弹框右上角，弹框仍使用 `max-width: calc(100vw - 32px)`。
+- Loading: 不改变提交 loading 状态或提交请求。
+- Empty/Error/Permission: 不新增 API、不改变错误提示或权限门禁。
+
+## E2E Or Component Verification Path
+
+- Pending.
+
+## Blockers And Follow-Up Skills
+
+- Pending.

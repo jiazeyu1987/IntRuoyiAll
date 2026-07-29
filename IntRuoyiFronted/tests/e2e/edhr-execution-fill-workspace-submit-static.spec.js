@@ -24,8 +24,10 @@ assert.ok(
   '提交执行入口应跟随保存入口，确保填表工作区可完成保存后提交。'
 )
 
-const submitDialogStart = source.indexOf('<el-dialog\n      class="edhr-fill-workspace__submit-sign-dialog"')
-assert.notEqual(submitDialogStart, -1, '提交执行电子签名弹框必须使用专用精简弹框。')
+const submitDialogClassIndex = source.indexOf('class="edhr-fill-workspace__submit-sign-dialog"')
+assert.notEqual(submitDialogClassIndex, -1, '提交执行电子签名弹框必须使用专用精简弹框。')
+const submitDialogStart = source.lastIndexOf('<el-dialog', submitDialogClassIndex)
+assert.notEqual(submitDialogStart, -1, '提交执行电子签名弹框必须使用 el-dialog。')
 const submitDialogEnd = source.indexOf('</el-dialog>', submitDialogStart)
 assert.ok(submitDialogEnd > submitDialogStart, '提交执行电子签名弹框模板必须闭合。')
 const submitDialogTemplate = source.slice(submitDialogStart, submitDialogEnd)
@@ -37,6 +39,9 @@ for (const token of [
   'edhr-fill-workspace__submit-sign-label is-required">电子签名',
   'v-model="submitForm.password"',
   '@keyup.enter="handleSubmitExecution"',
+  'edhr-fill-workspace__submit-sign-close',
+  '@click="closeSubmitDialog"',
+  'aria-label="关闭电子签名弹窗"',
   'edhr-fill-workspace__submit-sign-confirm',
   '确认'
 ]) {
@@ -65,7 +70,11 @@ assert.ok(
 
 assert.ok(
   /<el-dialog[\s\S]*class="edhr-fill-workspace__submit-sign-dialog"[\s\S]*:show-close="false"[\s\S]*:close-on-click-modal="false"[\s\S]*:close-on-press-escape="false"/.test(submitDialogTemplate),
-  '提交弹框必须禁用右上角关闭、点击遮罩关闭和 ESC 关闭，确保只有一个确认按钮。'
+  '提交弹框必须禁用 Element Plus 默认关闭、点击遮罩关闭和 ESC 关闭，只保留受控关闭按钮。'
+)
+assert.ok(
+  /<button[\s\S]*class="edhr-fill-workspace__submit-sign-close"[\s\S]*aria-label="关闭电子签名弹窗"[\s\S]*@click="closeSubmitDialog"[\s\S]*<Icon icon="ep:close" \/>[\s\S]*<\/button>/.test(submitDialogTemplate),
+  '提交弹框右上角必须提供受控关闭按钮。'
 )
 assert.ok(
   /<template #footer>[\s\S]*edhr-fill-workspace__submit-sign-confirm[\s\S]*确认[\s\S]*<\/template>/.test(submitDialogTemplate),
@@ -84,6 +93,10 @@ assert.ok(
 assert.ok(
   /\.edhr-fill-workspace__submit-sign-confirm\s*\{[\s\S]*height:\s*56px[\s\S]*font-size:\s*20px/.test(source),
   '提交确认按钮必须是大按钮。'
+)
+assert.ok(
+  /\.edhr-fill-workspace__submit-sign-close\s*\{[\s\S]*position:\s*absolute[\s\S]*top:\s*12px[\s\S]*right:\s*12px/.test(source),
+  '提交弹框关闭按钮必须固定在右上角。'
 )
 assert.ok(
   /\.edhr-fill-workspace__submit-sign-row\s*\{[\s\S]*grid-template-columns:\s*104px minmax\(0,\s*1fr\)[\s\S]*align-items:\s*center/.test(source) &&

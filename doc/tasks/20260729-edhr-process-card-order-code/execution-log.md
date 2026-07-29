@@ -18,4 +18,18 @@
 
 - BDD: 工序卡片放大展示 -> Given 用户打开“切换工序”弹框, When 工序卡片渲染, Then 卡片高度更高、工序名和状态字体更大。
 - BDD: 隐藏卡片明细说明 -> Given 工序卡片包含状态下方的序号/表单项/直接前置说明, When 弹框显示, Then 这些红框位置明细不再显示。
-- BDD: 弹框顶部展示订单号 -> Given 当前填写页有订单号上下文, When 用户打开“切换工序”弹框, Then �
+- BDD: 弹框顶部展示订单号 -> Given 当前填写页有订单号上下文, When 用户打开“切换工序”弹框, Then 弹框顶部黄框位置显示订单号。
+
+## RED / GREEN / REGRESSION
+
+- RED: pending
+- GREEN: pending
+- REGRESSION: pending
+
+## Milestone Updates
+
+- pending
+
+## Blockers
+
+- pending
