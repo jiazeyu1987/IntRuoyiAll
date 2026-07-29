@@ -545,12 +545,13 @@ async function submitExecutionThroughUi(page, setup) {
       })
     }
   })
-  await page.goto(`${BASE_URL}${setup.actionUrl}`, { waitUntil: 'domcontentloaded', timeout: 60000 })
-  await page
+  const executionGetResponse = page
     .waitForResponse((response) => response.url().includes('/admin-api/mes/pro/batch-record-execution/get'), {
       timeout: 60000
     })
     .catch(() => undefined)
+  await page.goto(`${BASE_URL}${setup.actionUrl}`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await executionGetResponse
   await page.locator('.edhr-fill-workspace').first().waitFor({ state: 'visible', timeout: 60000 })
   const submitButtonCount = await page.getByRole('button', { name: '提交执行' }).count()
   if (submitButtonCount === 0) {
