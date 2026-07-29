@@ -65,29 +65,6 @@
           </el-tag>
         </div>
 
-        <div
-          class="batch-record-cell-rules-editor__top-actions"
-          data-fill-config-actions="primary"
-        >
-          <el-button size="small" @click="dialogVisible = false">关闭</el-button>
-          <el-button
-            size="small"
-            :loading="loading"
-            :disabled="!reportId || saving || navigationLoading"
-            @click="loadCellRules"
-          >
-            重新读取
-          </el-button>
-          <el-button
-            size="small"
-            type="primary"
-            :loading="saving"
-            :disabled="!canConfirmRules"
-            @click="confirmAllRules"
-          >
-            保存填写配置
-          </el-button>
-        </div>
       </section>
 
       <section
@@ -95,14 +72,6 @@
         :class="{ 'batch-record-cell-rules-editor__workspace--assist-mapping': activeConfigMode === 'assistMapping' }"
       >
         <div class="batch-record-cell-rules-editor__preview" data-fill-config-panel="source-form">
-          <div class="batch-record-cell-rules-editor__panel-head">
-            <div>
-              <strong>原表单</strong>
-              <p>点击任意单元格只会选中规则目标，不会触发日期框、签名框或复选框。</p>
-            </div>
-            <el-tag type="info" effect="plain">只读</el-tag>
-          </div>
-
           <el-alert
             v-if="sheetLayoutError"
             :title="sheetLayoutError"
@@ -165,14 +134,6 @@
           class="batch-record-cell-rules-editor__assist-preview-panel"
           data-fill-config-panel="assist-preview"
         >
-          <div class="batch-record-cell-rules-editor__panel-head">
-            <div>
-              <strong>辅助表单预览</strong>
-              <p>点击黄色表格单元格后，再点击左侧未灰化的原表单元格建立映射。</p>
-            </div>
-            <el-tag type="warning" effect="plain">实时</el-tag>
-          </div>
-
           <div class="batch-record-cell-rules-editor__assist-preview-scroll">
             <el-empty
               v-if="!selectedAssistSubject"
@@ -216,134 +177,135 @@
           :class="{ 'is-mapping-control': activeConfigMode === 'assistMapping' }"
           data-fill-config-panel="mapping-control"
         >
-          <div
-            v-if="activeConfigMode === 'assistMapping'"
-            class="batch-record-cell-rules-editor__control-head"
-          >
-            <strong>映射控制栏</strong>
-            <p>在这里设置辅助表格、责任主体和当前原表字段类型；中间表格会实时更新。</p>
-          </div>
-          <template v-if="activeConfigMode === 'assistMapping'">
-            <section class="batch-record-cell-rules-editor__assist-grid-control">
-              <div class="batch-record-cell-rules-editor__assist-grid-control-head">
-                <strong>辅助表格设置</strong>
-                <p>固定表格单元格；先点中间表格格子，再点左侧未灰化原表格。</p>
-              </div>
-              <div class="batch-record-cell-rules-editor__assist-grid-size">
-                <label>
-                  <span>行数</span>
-                  <el-input-number
-                    v-model="assistGridRowCount"
-                    :min="1"
-                    :max="20"
-                    :controls="false"
-                    @change="handleAssistGridSizeChange"
-                  />
-                </label>
-                <label>
-                  <span>列数</span>
-                  <el-input-number
-                    v-model="assistGridColumnCount"
-                    :min="1"
-                    :max="20"
-                    :controls="false"
-                    @change="handleAssistGridSizeChange"
-                  />
-                </label>
-              </div>
-            </section>
-
-            <section class="batch-record-cell-rules-editor__assist-filler-control">
-              <div class="batch-record-cell-rules-editor__assist-grid-control-head">
-                <strong>责任主体</strong>
-                <p>每个个人或角色拥有自己的辅助表格；原表单元格全局只能分配一次。</p>
-              </div>
-              <div class="batch-record-cell-rules-editor__assist-filler-add">
-                <el-select
-                  v-model="pendingAssistSubjectType"
-                  placeholder="类型"
-                  style="width: 96px"
-                >
-                  <el-option
-                    v-for="option in assistSubjectTypeOptions"
-                    :key="option.value"
-                    :label="option.label"
-                    :value="option.value"
-                  />
-                </el-select>
-                <el-select
-                  v-model="pendingAssistSubjectId"
-                  filterable
-                  clearable
-                  placeholder="选择责任主体"
-                >
-                  <el-option
-                    v-for="option in availableAssistSubjectOptions"
-                    :key="option.value"
-                    :label="option.label"
-                    :value="option.value"
-                  />
-                </el-select>
-                <el-button
-                  type="primary"
-                  plain
-                  :disabled="!pendingAssistSubjectId"
-                  @click="addAssistResponsibilitySubject"
-                >
-                  添加
-                </el-button>
-              </div>
-              <el-empty
-                v-if="assistResponsibilitySubjects.length === 0"
-                description="请先添加责任主体"
-                :image-size="56"
-              />
-              <div v-else class="batch-record-cell-rules-editor__assist-filler-list">
-                <article
-                  v-for="subject in assistResponsibilitySubjects"
-                  :key="subject.subjectKey"
-                  class="batch-record-cell-rules-editor__assist-filler-item"
-                  :class="{ 'is-selected': selectedAssistSubjectKey === subject.subjectKey }"
-                >
-                  <button type="button" @click="selectAssistResponsibilitySubject(subject.subjectKey)">
-                    <strong>{{ resolveAssistSubjectLabel(subject) }}</strong>
-                    <span>{{ assistGridMappedCountBySubject(subject.subjectKey) }} 个映射</span>
-                  </button>
-                  <el-button
-                    size="small"
-                    link
-                    type="danger"
-                    @click="removeAssistResponsibilitySubject(subject)"
-                  >
-                    删除
-                  </el-button>
-                </article>
-              </div>
-            </section>
-          </template>
-          <template v-if="selectedCell">
-            <div class="batch-record-cell-rules-editor__fillable-toggle">
-              <strong>是否可填写</strong>
-              <el-switch
-                v-model="isSelectedCellFillable"
-                active-text="可填写"
-                inactive-text="不可填写"
-              />
+          <div class="batch-record-cell-rules-editor__side-scroll">
+            <div
+              v-if="activeConfigMode === 'assistMapping'"
+              class="batch-record-cell-rules-editor__control-head"
+            >
+              <strong>映射控制栏</strong>
+              <p>在这里设置辅助表格、责任主体和当前原表字段类型；中间表格会实时更新。</p>
             </div>
+            <template v-if="activeConfigMode === 'assistMapping'">
+              <section class="batch-record-cell-rules-editor__assist-grid-control">
+                <div class="batch-record-cell-rules-editor__assist-grid-control-head">
+                  <strong>辅助表格设置</strong>
+                  <p>固定表格单元格；先点中间表格格子，再点左侧未灰化原表格。</p>
+                </div>
+                <div class="batch-record-cell-rules-editor__assist-grid-size">
+                  <label>
+                    <span>行数</span>
+                    <el-input-number
+                      v-model="assistGridRowCount"
+                      :min="1"
+                      :max="20"
+                      :controls="false"
+                      @change="handleAssistGridSizeChange"
+                    />
+                  </label>
+                  <label>
+                    <span>列数</span>
+                    <el-input-number
+                      v-model="assistGridColumnCount"
+                      :min="1"
+                      :max="20"
+                      :controls="false"
+                      @change="handleAssistGridSizeChange"
+                    />
+                  </label>
+                </div>
+              </section>
 
-            <template v-if="selectedRule">
-              <el-form
-                label-position="top"
-                class="batch-record-cell-rules-editor__form"
-              >
-                <el-form-item label="字段名称">
-                  <el-input
-                    v-model="selectedRule.label"
-                    maxlength="80"
-                    show-word-limit
-                    placeholder="请输入字段名称"
-                  />
-                </el-form-item>
+              <section class="batch-record-cell-rules-editor__assist-filler-control">
+                <div class="batch-record-cell-rules-editor__assist-grid-control-head">
+                  <strong>责任主体</strong>
+                  <p>每个个人或角色拥有自己的辅助表格；原表单元格全局只能分配一次。</p>
+                </div>
+                <div class="batch-record-cell-rules-editor__assist-filler-add">
+                  <el-select
+                    v-model="pendingAssistSubjectType"
+                    placeholder="类型"
+                    style="width: 96px"
+                  >
+                    <el-option
+                      v-for="option in assistSubjectTypeOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                  <el-select
+                    v-model="pendingAssistSubjectId"
+                    filterable
+                    clearable
+                    placeholder="选择责任主体"
+                  >
+                    <el-option
+                      v-for="option in availableAssistSubjectOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                  <el-button
+                    type="primary"
+                    plain
+                    :disabled="!pendingAssistSubjectId"
+                    @click="addAssistResponsibilitySubject"
+                  >
+                    添加
+                  </el-button>
+                </div>
+                <el-empty
+                  v-if="assistResponsibilitySubjects.length === 0"
+                  description="请先添加责任主体"
+                  :image-size="56"
+                />
+                <div v-else class="batch-record-cell-rules-editor__assist-filler-list">
+                  <article
+                    v-for="subject in assistResponsibilitySubjects"
+                    :key="subject.subjectKey"
+                    class="batch-record-cell-rules-editor__assist-filler-item"
+                    :class="{ 'is-selected': selectedAssistSubjectKey === subject.subjectKey }"
+                  >
+                    <button type="button" @click="selectAssistResponsibilitySubject(subject.subjectKey)">
+                      <strong>{{ resolveAssistSubjectLabel(subject) }}</strong>
+                      <span>{{ assistGridMappedCountBySubject(subject.subjectKey) }} 个映射</span>
+                    </button>
+                    <el-button
+                      size="small"
+                      link
+                      type="danger"
+                      @click="removeAssistResponsibilitySubject(subject)"
+                    >
+                      删除
+                    </el-button>
+                  </article>
+                </div>
+              </section>
+            </template>
+            <template v-if="selectedCell">
+              <div class="batch-record-cell-rules-editor__fillable-toggle">
+                <strong>是否可填写</strong>
+                <el-switch
+                  v-model="isSelectedCellFillable"
+                  active-text="可填写"
+                  inactive-text="不可填写"
+                />
+              </div>
+
+              <template v-if="selectedRule">
+                <el-form
+                  label-position="top"
+                  class="batch-record-cell-rules-editor__form"
+                >
+                  <el-form-item label="字段名称">
+                    <el-input
+                      v-model="selectedRule.label"
+                      maxlength="80"
+                      show-word-limit
+                      placeholder="请输入字段名称"
+                    />
+                  </el-form-item>
 
                 <el-form-item label="单元格提示词">
                   <el-input
@@ -480,11 +442,32 @@
                   :closable="false"
                   show-icon
                 />
-              </el-form>
+                </el-form>
+              </template>
             </template>
-          </template>
 
-          <el-empty v-else description="请在左侧表单中点击一个单元格" />
+            <el-empty v-else description="请在左侧表单中点击一个单元格" />
+          </div>
+          <div class="batch-record-cell-rules-editor__side-actions" data-fill-config-actions="side">
+            <el-button size="small" @click="dialogVisible = false">关闭</el-button>
+            <el-button
+              size="small"
+              :loading="loading"
+              :disabled="!reportId || saving || navigationLoading"
+              @click="loadCellRules"
+            >
+              重新读取
+            </el-button>
+            <el-button
+              size="small"
+              type="primary"
+              :loading="saving"
+              :disabled="!canConfirmRules"
+              @click="confirmAllRules"
+            >
+              保存填写配置
+            </el-button>
+          </div>
         </aside>
       </section>
     </div>

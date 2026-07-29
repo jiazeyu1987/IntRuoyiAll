@@ -16,6 +16,8 @@
 - `node tests/e2e/edhr-batch-template-simulate-red-box-hidden-static.spec.js` -> PASS
 - `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS
 - `git diff --check` -> PASS
+- 当前源码与 `HEAD` 直接复核 -> `cell-type-display="background"`、`cellTypeDisplay`、类型 class 和七种背景色规则均存在
+- task-closeout preview/apply -> PASS，删除 0 个文件
 
 ## Known Unrelated Blockers
 

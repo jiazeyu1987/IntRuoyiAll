@@ -92,9 +92,9 @@ function queryLocalDatabase(sql, label) {
   return parseMysqlRows(result.stdout || '')
 }
 
-function decodeBase64Utf8(value) {
+function decodeHexUtf8(value) {
   if (!value) return ''
-  return Buffer.from(value, 'base64').toString('utf8')
+  return Buffer.from(value, 'hex').toString('utf8')
 }
 
 function firstSubmittedDisplayText(cellValuesJson) {
@@ -129,7 +129,7 @@ function resolveSubmittedTarget() {
             e.status,
             e.submitted_by,
             COALESCE(e.submitted_at, ''),
-            TO_BASE64(e.cell_values_json)
+            HEX(e.cell_values_json)
        FROM mes_pro_edhr_batch_execution be
        JOIN mes_pro_edhr_batch_execution_task t
          ON t.batch_execution_id = be.id
@@ -148,7 +148,7 @@ function resolveSubmittedTarget() {
     '已提交批记录执行样本'
   )
   for (const row of rows) {
-    const cellValuesJson = decodeBase64Utf8(row[14])
+    const cellValuesJson = decodeHexUtf8(row[14])
     let expectedText = ''
     try {
       expectedText = firstSubmittedDisplayText(cellValuesJson)

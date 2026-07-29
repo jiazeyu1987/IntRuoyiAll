@@ -10,7 +10,7 @@
 2. `completed`：补充聚焦静态合同并记录 RED。
 3. `completed`：实现执行页类型背景色展示，保留共享组件默认小标识模式。
 4. `completed`：运行聚焦合同、相邻回归和类型检查，类型检查保留无关历史阻塞。
-5. `in_progress`：补回被并发基线覆盖的实现，重新验证并完成收尾。
+5. `completed`：直接复核当前源码和 `HEAD`，确认实现未被覆盖；重新运行聚焦合同并完成清理。
 
 ## Expected Verification
 
@@ -34,11 +34,12 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
-## Concurrency Blocker
+## Concurrency Review
 
-- 并发基线提交后源码中的 `cell-type-display`、`cellTypeDisplay` 和类型背景色规则消失，但任务文档仍保留旧验证记录；必须基于当前源码重新实现并复验，不能按旧记录宣称完成。
+- 先前基于不完整检索结果误判实现被覆盖；随后直接读取当前源码与 `HEAD`，确认 `cell-type-display="background"`、`cellTypeDisplay`、类型 class 和七种背景色规则均完整保留。
+- 已在当前工作树重新运行聚焦合同和图例隐藏合同，结果均为 PASS；当前未发现本任务文件与并发改动冲突。
 
 ## Verification Scope Note
 
@@ -48,3 +49,4 @@ in_progress
 ## Cleanup Keep
 
 - doc/tasks/20260729-edhr-cell-type-background-indicator/frontend-feature-evidence.md
+- task-closeout preview/apply 均通过，未删除任何文件。

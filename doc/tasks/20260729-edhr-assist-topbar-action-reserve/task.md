@@ -11,7 +11,7 @@
 3. `completed`：新增 RED 静态合同，锁定顶部栏 2/3 + 1/3 布局。
 4. `completed`：实施最小模板/CSS 调整。
 5. `completed`：运行目标合同、相邻回归、类型检查和前端证据校验。
-6. `pending`：完成 cleanup、经验沉淀、提交并推送。
+6. `in_progress`：完成 cleanup、经验沉淀、提交并推送。
 
 ## Expected Verification
 
@@ -37,4 +37,8 @@
 
 ## Current Status
 
-in_progress，目标静态合同、相邻合同、前端证据校验和 `pnpm ts:check` 已通过；待 cleanup、经验沉淀、提交并推送。
+ready_for_closeout
+
+## Cleanup Keep
+
+- doc/tasks/20260729-edhr-assist-topbar-action-reserve/frontend-feature-evidence.md

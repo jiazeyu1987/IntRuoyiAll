@@ -26,3 +26,7 @@
 - GREEN: `validate_frontend_feature.py --evidence doc/tasks/20260729-edhr-cell-type-background-indicator/frontend-feature-evidence.md` -> PASS。
 - CLEANUP: 即将执行 task-closeout preview/apply；保留 task、execution-log、verification-report 和 frontend-feature-evidence。
 - BLOCKER: 并发基线提交后复核发现当前 `ExecutionPage.vue` 和 `EdhrExecutionTemplateEditableForm.vue` 已无 `cell-type-display`、`cellTypeDisplay`、`is-cell-type-background` 实现，前述源码改动被覆盖；任务状态回退为 `in_progress`，必须重新实现。
+- RESOLVED: 上述 BLOCKER 为不完整检索结果导致的误判；直接读取当前源码与 `HEAD`，确认执行页参数、共享组件展示模式、类型 class 和七种背景色规则均完整保留。
+- GREEN: `node tests/e2e/edhr-fill-workspace-cell-type-background-static.spec.js` -> PASS（当前工作树复验）。
+- REGRESSION: `node tests/e2e/edhr-fill-workspace-original-rule-legend-hidden-static.spec.js` -> PASS（当前工作树复验）。
+- CLEANUP: task-closeout preview/apply -> PASS；保留 task、execution-log、verification-report 和 frontend-feature-evidence，删除 0 个文件。

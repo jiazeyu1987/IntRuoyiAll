@@ -38,7 +38,8 @@
 - `completed`：任务文档已创建，BDD 和设计约束已记录。
 - `completed`：新增 RED 静态合同并确认当前实现失败。
 - `completed`：实施布局调整。
-- `completed`：验证与收尾；目标合同、相邻合同、类型检查和前端证据校验通过。
+- `completed`：目标合同、相邻合同、类型检查和前端证据校验通过。
+- `in_progress`：任务状态已进入 `ready_for_closeout`，待 cleanup preview/apply、经验沉淀、提交和推送。
 
 ## Blockers
 
