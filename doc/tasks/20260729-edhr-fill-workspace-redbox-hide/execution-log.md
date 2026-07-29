@@ -31,3 +31,9 @@
 - GREEN: `pnpm ts:check` -> PASS，Vue/TS relaxed 类型检查通过。
 - CHECK: `git status --short --branch --untracked-files=all` -> 验证期间并发任务推进仓库到 `ahead 3`，并出现多组非本任务改动；本轮不执行提交/推送，避免混入并发任务。
 - M6: completed -> 卡片内部元信息隐藏实现和验证完成，状态更新为 `ready_for_closeout`。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-edhr-fill-workspace-redbox-hide/frontend-feature-evidence.md` -> PASS，前端功能证据格式有效。
+- EXPERIENCE: 已按 `project-experience-consolidation` 搜索 `docs/frontend-development.md`、`docs/e2e-rules.md`、`docs/experience-index.md` 和 memory 文档；本次为填写页局部展示收敛，已有红框/辅助模式门禁覆盖相关风险，未新增长期经验文档。
+- CLEANUP: `task_closeout.py --task-id 20260729-edhr-fill-workspace-redbox-hide --mode preview` -> ready，keep task/execution-log/frontend-feature-evidence/verification-report，delete none，blocked none。
+- CLEANUP: `task_closeout.py --task-id 20260729-edhr-fill-workspace-redbox-hide --mode apply` -> applied，deleted_paths none。
+- CHECK: `git status --short --branch --untracked-files=all` -> 当前分支 `int_main` 与 `origin/int_main` 对齐；仍有其它并发任务工作区改动，当前任务待仅提交任务证据文件。
+- FINAL: completed -> 卡片内部红框元信息隐藏、目标验证、证据校验和 cleanup 均完成。

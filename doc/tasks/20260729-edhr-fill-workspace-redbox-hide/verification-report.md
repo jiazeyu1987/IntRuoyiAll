@@ -13,8 +13,11 @@
 - `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS
 - `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS
 - `pnpm ts:check` -> PASS
+- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-edhr-fill-workspace-redbox-hide/frontend-feature-evidence.md` -> PASS
+- `task_closeout.py --task-id 20260729-edhr-fill-workspace-redbox-hide --mode preview` -> ready
+- `task_closeout.py --task-id 20260729-edhr-fill-workspace-redbox-hide --mode apply` -> applied, deleted none
 
 ## Notes
 
 - Node 对 ESM 静态合同输出 `MODULE_TYPELESS_PACKAGE_JSON` warning；命令退出码为 0，非本次行为阻塞。
-- 工作区存在并发任务改动，且验证期间分支推进到 `ahead 3`；本任务本轮未提交/推送，避免混入并发任务文件。
+- 工作区存在并发任务改动；提交时只允许暂存当前任务目录和本任务相关文件，避免混入并发任务文件。
