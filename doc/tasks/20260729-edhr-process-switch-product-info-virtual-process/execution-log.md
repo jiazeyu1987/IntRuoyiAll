@@ -52,4 +52,6 @@
 
 - `task-closeout-cleanup preview` -> PASS；keep 为 `task.md`、`execution-log.md`、`verification-report.md`，delete 仅为本任务 `bug-regression-evidence.md` 和 `e2e-artifacts/`。
 - `task-closeout-cleanup apply` -> PASS；已删除临时 E2E JSON、截图和中间回归证据，未触及生产代码、正式测试或并发任务文件。
-- 清理完成后保持 `ready_for_closeout`，等待收尾提交与远端推送完成后再标记 `completed`。
+- 并发任务创建共享工作区检查点提交 `54f64b69 chore: checkpoint existing workspace changes`，其中收录本任务收尾记录；按并发所有权规则未重写该提交。
+- `git push origin int_main` -> PASS，远端从 `b43a32d1` 前进至 `54f64b69`。
+- 最终状态已更新为 `completed`，仅本任务核心记录进入最终完成状态提交。

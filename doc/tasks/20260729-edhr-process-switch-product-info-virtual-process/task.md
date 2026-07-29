@@ -11,7 +11,7 @@
 - [x] 实施最小正式修复。
 - [x] 运行目标测试、相邻回归和类型检查。
 - [x] 完成真实页面只读 E2E 验证。
-- [ ] 完成任务收尾、提交并推送。
+- [x] 完成任务收尾、提交并推送。
 
 ## Expected Verification
 
@@ -38,7 +38,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Cleanup Candidates
 
@@ -49,4 +49,4 @@ ready_for_closeout
 
 - 目标静态合同、相邻回归、`pnpm ts:check`、真实页面只读 E2E、经验门禁检查和回归证据校验均通过。
 - task-closeout-cleanup preview/apply 均通过，仅清理本任务临时证据文件。
-- 实现提交已在 `origin/int_main`；最终收尾记录正在按任务边界提交并推送。
+- 实现提交 `443621b4` 与收尾检查点提交 `54f64b69` 均已推送至 `origin/int_main`；最终完成状态单独提交并推送。
