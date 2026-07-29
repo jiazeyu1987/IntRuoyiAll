@@ -6,6 +6,8 @@
 
 用户继续询问：上面讨论的内容如何与现有系统结合，要求尽量利用现有系统、少开发新的系统。
 
+用户纠正：不考虑排产系统，订单只考虑生产工单。
+
 ## BDD Scenarios
 
 BDD: capture current-thread discussion only -> Given this thread contains the business discussion about production-line simplified recording, When documents are written, Then they include this thread's prior messages and exclude unrelated project history or other tasks.
@@ -14,7 +16,7 @@ BDD: preserve confirmed business semantics -> Given the user clarified input fie
 
 BDD: preserve batch-record terminology boundary -> Given project rules distinguish batch record forms, form slots, and process start configuration, When the new design notes mention batch records, Then they must not use `formBindings` or process-start settings as substitutes for formal per-process batch record binding.
 
-BDD: integrate with existing system first -> Given the current system already contains eDHR recordbook, work tasks, field audit, feedback, surplus pool, surplus allocation, and schedule order planned start time, When the integration note is written, Then it must map the new business idea onto those capabilities before proposing new modules.
+BDD: integrate with existing system first -> Given the current system already contains eDHR recordbook, work tasks, field audit, feedback, surplus pool, surplus allocation, and production work order planned start time, When the integration note is written, Then it must map the new business idea onto those capabilities before proposing new modules.
 
 ## Command And Evidence Log
 
@@ -32,9 +34,15 @@ BDD: integrate with existing system first -> Given the current system already co
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-production-line-recording-design --mode preview` -> PASS, keep task core docs, delete none, blocked none.
 - GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-production-line-recording-design --mode apply` -> PASS, deleted none.
 - RED: `git status --short --branch` closeout precondition -> FAIL, workspace contains pre-existing unrelated dirty files and another untracked task directory.
-- GREEN: inspect existing eDHR/recordbook/feedback/schedule code -> PASS, reusable carriers identified: recordbook template/entry/event, work task candidate snapshot, process form permission rule, field audit recordbook/batch-record value columns, feedback, surplus pool/allocation, schedule planned start fields.
+- GREEN: inspect existing eDHR/recordbook/feedback/work-order code -> PASS, reusable carriers identified: recordbook template/entry/event, work task candidate snapshot, process form permission rule, field audit recordbook/batch-record value columns, feedback, surplus pool/allocation, production work order planned start fields.
 - GREEN: update `docs/inception/project-brief.md` -> PASS, added existing-system integration approach and boundary rules.
 - GREEN: update `docs/inception/evidence-inventory.md` -> PASS, added current-thread integration request, code evidence, and integration decision.
+- GREEN: apply user correction about no scheduling system -> PASS, replaced schedule-order FIFO with production-work-order FIFO in inception docs.
+- GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after production-work-order correction.
+- GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after production-work-order correction.
+- GREEN: `git diff --check -- task-owned docs` -> PASS after production-work-order correction; Git reported line-ending normalization warnings only.
+- GREEN: `task-closeout-cleanup --mode preview` -> PASS after production-work-order correction, delete none, blocked none.
+- GREEN: `task-closeout-cleanup --mode apply` -> PASS after production-work-order correction, deleted none.
 
 ## Milestone Updates
 
@@ -45,6 +53,8 @@ BDD: integrate with existing system first -> Given the current system already co
 - Updated task state to `ready_for_closeout` after documentation verification passed.
 - Ran cleanup preview/apply successfully with no deletions.
 - Added existing-system integration notes after user asked how to minimize new-system development.
+- Updated the integration notes after user clarified that orders only mean production work orders and the scheduling system should not be considered.
+- Re-ran cleanup preview/apply after the correction; no task-owned files were deleted.
 
 ## Blockers
 
