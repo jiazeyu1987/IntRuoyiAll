@@ -106,7 +106,6 @@
                       class="batch-record-cell-rules-editor__cell-button"
                       :aria-label="activeConfigMode === 'assistMapping' ? '映射原表单元格' : '选择单元格规则'"
                       :aria-pressed="cell.identity === selectedRuleKey"
-                      :disabled="isSourceCellDisabledForAssistMapping(cell)"
                       :title="resolveSourceCellAssistMappingTitle(cell)"
                       @click="handleSourceCellClick(cell)"
                     >
@@ -1286,14 +1285,11 @@ const sourceCellGridAssignmentMap = computed(() => {
 const isSourceCellMappedToAssistGrid = (cell: RuleEditorCell) =>
   sourceCellGridAssignmentMap.value.has(cell.identity)
 
-const isSourceCellDisabledForAssistMapping = (cell: RuleEditorCell) =>
-  activeConfigMode.value === 'assistMapping' && sourceCellGridAssignmentMap.value.has(cell.identity)
-
 const resolveSourceCellAssistMappingTitle = (cell: RuleEditorCell) => {
   const assignment = sourceCellGridAssignmentMap.value.get(cell.identity)
   if (activeConfigMode.value !== 'assistMapping') return '选择单元格规则'
   if (assignment) {
-    return `已分配给 ${resolveAssistSubjectLabel(assignment)}，请先在辅助表格取消映射`
+    return `已链接到 ${resolveAssistSubjectLabel(assignment)} 的辅助表格单元格，点击可同步选中`
   }
   if (!selectedAssistGridCellKey.value) return '请先点击黄色辅助表格单元格'
   return '点击后映射到当前辅助表格单元格'
@@ -1538,8 +1534,18 @@ const buildAssistGridCellDescription = (cell: RuleEditorCell) => {
   return String(rule?.helpText || rule?.label || cell.text || '辅助填写项').trim()
 }
 
+const selectLinkedAssistGridCellForSourceCell = (cell: RuleEditorCell) => {
+  const linkedAssignment = sourceCellGridAssignmentMap.value.get(cell.identity)
+  if (!linkedAssignment) return false
+  selectedRuleKey.value = cell.identity
+  selectedAssistSubjectKey.value = linkedAssignment.subjectKey
+  selectedAssistGridCellKey.value = linkedAssignment.rowKey
+  return true
+}
+
 const mapSourceCellToSelectedAssistGridCell = (cell: RuleEditorCell) => {
   if (activeConfigMode.value !== 'assistMapping') return false
+  if (selectLinkedAssistGridCellForSourceCell(cell)) return true
   if (!selectedAssistSubject.value) {
     message.warning('请先在右侧添加并选择责任主体。')
     return true
@@ -1547,10 +1553,6 @@ const mapSourceCellToSelectedAssistGridCell = (cell: RuleEditorCell) => {
   const parsed = parseAssistGridCellKey(selectedAssistGridCellKey.value)
   if (!parsed || parsed.subjectKey !== selectedAssistSubject.value.subjectKey) {
     message.warning('请先点击黄色辅助表格中的一个单元格。')
-    return true
-  }
-  if (sourceCellGridAssignmentMap.value.has(cell.identity)) {
-    message.warning('该原表单元格已分配，请先在辅助表格取消映射后再重新分配。')
     return true
   }
   selectedRuleKey.value = cell.identity
@@ -2128,6 +2130,12 @@ watch(
   background: #fff;
 }
 
+.batch-record-cell-rules-editor__assist-grid-cell.is-mapped.is-selected {
+  border-color: #16a34a;
+  background: #f0fdf4;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.22);
+}
+
 .batch-record-cell-rules-editor__assist-grid-cell span {
   display: block;
   width: 100%;
@@ -2166,6 +2174,11 @@ watch(
 .batch-record-cell-rules-editor__cell.is-selected {
   outline: 2px solid #2563eb;
   outline-offset: -2px;
+}
+
+.batch-record-cell-rules-editor__workspace--assist-mapping .batch-record-cell-rules-editor__cell.is-selected {
+  outline-color: #16a34a;
+  box-shadow: inset 0 0 0 1px #16a34a;
 }
 
 .batch-record-cell-rules-editor__cell.is-assist-mapped {
