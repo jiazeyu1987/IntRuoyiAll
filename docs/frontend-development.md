@@ -58,6 +58,15 @@
 - Forbidden action: 禁止只更新弹窗局部 props 或 label 冒充切换完成；禁止把当前列表页筛选结果当作同集合候选全集；禁止用刷新页面或静默回到第一条掩盖上下文丢失。
 - Evidence: 任务 `doc/tasks/20260729-batch-record-fill-config-navigation/`，批记录填写配置上一张/下一张候选不按当前列表筛选缩窄，需从导航候选集合补齐页面预览上下文。
 
+## 前端填写配置红框区域隐藏门禁
+
+- Trigger: 批记录填写配置、辅助表单映射、截图红框区域、`BatchRecordCellRulesConfirmDialog`、`data-fill-config-actions="primary"`、`batch-record-cell-rules-editor__panel-head`、左侧原表单说明栏、中间辅助表单预览说明栏。
+- Preflight check: 先区分“说明/装饰性红框”与“必要操作能力”；隐藏红框标题或顶部操作组时，必须保留原表格、辅助表格、右侧映射控制栏和正式保存/重读/关闭链路，保存按钮可移到非红框固定操作区但不得改保存 API 或吞掉错误。
+- Blocker: 红框 DOM 仍存在、保存/重读能力被一起删除、辅助格或原表格不可点击、静态合同只检查隐藏不检查必要能力保留、或用 CSS 透明/遮挡伪装不显示时必须停止。
+- Verification: 运行 `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js`、`node tests/e2e/edhr-visual-fill-config-static.spec.js` 和 `pnpm ts:check`。
+- Forbidden action: 禁止通过隐藏整个填写配置工具、删除映射控制栏、关闭保存入口、改保存 payload、吞异常或 API-only 断言来满足截图红框隐藏。
+- Evidence: 任务 `doc/tasks/20260729-fill-config-redbox-hide/`。
+
 ## 前端保存链路重复错误提示门禁
 
 - Trigger: 页面保存动作由父组件聚合多个子组件/API 保存，且子组件、父组件、axios response interceptor 都可能 `message.error`/`ElMessage.error`。

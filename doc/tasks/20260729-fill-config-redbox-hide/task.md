@@ -6,16 +6,16 @@
 
 ## Milestones
 
-1. `in_progress`：确认截图对应组件、页面入口和既有静态合同。
-2. `pending`：补充 RED 静态回归，锁定红框区域不显示且必要配置能力保留。
-3. `pending`：实施最小前端修复，不引入 fallback 或静默降级。
-4. `pending`：运行目标静态合同和相邻回归验证。
-5. `pending`：更新证据、状态和剩余阻塞。
+1. `completed`：确认截图对应组件、页面入口和既有静态合同。
+2. `completed`：补充 RED 静态回归，锁定红框区域不显示且必要配置能力保留。
+3. `completed`：实施最小前端修复，不引入 fallback 或静默降级。
+4. `completed`：运行目标静态合同和相邻回归验证。
+5. `completed`：更新证据、状态和剩余阻塞。
 
 ## Expected Verification
 
 - `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js`
-- 相邻填写配置静态合同（定位后补充具体命令）
+- `node tests/e2e/edhr-visual-fill-config-static.spec.js`
 - `pnpm ts:check`
 
 ## Applicable Gates
@@ -32,8 +32,18 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Final Verification Result
 
-- 待执行。
+- `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> PASS
+- `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS
+- `pnpm ts:check` -> PASS
+- `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode preview` -> ready
+- `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode apply` -> applied, deleted none
+- Commit/push -> BLOCKED by unrelated concurrent dirty changes and branch ahead state
+
+## Cleanup Keep
+
+- doc/tasks/20260729-fill-config-redbox-hide/frontend-feature-evidence.md
+- doc/tasks/20260729-fill-config-redbox-hide/bug-regression-evidence.md

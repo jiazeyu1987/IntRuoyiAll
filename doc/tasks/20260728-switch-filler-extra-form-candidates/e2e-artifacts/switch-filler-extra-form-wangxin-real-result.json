@@ -8,14 +8,29 @@
   "workTaskPageAttempts": [
     {
       "pageIndex": 1,
-      "rowCount": 3,
-      "openableFillTaskCount": 3,
+      "rowCount": 4,
+      "openableFillTaskCount": 4,
       "candidateTaskIds": [
+        2299,
         2295,
         2291,
         2290
       ],
       "rows": [
+        {
+          "id": 2299,
+          "taskCode": "EDHRT-1785294373273",
+          "taskType": "FILL",
+          "status": "TODO",
+          "batchExecutionId": 900000000910,
+          "batchTaskId": 7231,
+          "executionId": 1590,
+          "workOrderCode": "881MO090935",
+          "batchCode": "CODEX-SWITCH-EXTRA-1785294366393",
+          "processName": "粗洗工序",
+          "actionUrlPresent": true,
+          "openableFillTask": true
+        },
         {
           "id": 2295,
           "taskCode": "EDHRT-1785289253340",
@@ -80,27 +95,67 @@
   },
   "openedTask": {
     "task": {
-      "id": 2295,
-      "taskCode": "EDHRT-1785289253340",
+      "id": 2299,
+      "taskCode": "EDHRT-1785294373273",
       "taskType": "FILL",
       "status": "TODO",
-      "batchExecutionId": 900000000909,
-      "batchTaskId": 7206,
-      "executionId": 1589,
+      "batchExecutionId": 900000000910,
+      "batchTaskId": 7231,
+      "executionId": 1590,
       "workOrderCode": "881MO090935",
-      "batchCode": "CODEX-SWITCH-EXTRA-1785289225847",
+      "batchCode": "CODEX-SWITCH-EXTRA-1785294366393",
       "processName": "粗洗工序",
       "actionUrlPresent": true,
       "openableFillTask": true
     },
     "detailSnapshot": {
-      "executionId": 1589,
+      "executionId": 1590,
+      "routeProcessId": 928609,
       "assistSwitchTaskCount": 4,
-      "extraAssistSwitchTaskCount": 2,
-      "extraAssistSwitchTasks": [
+      "assistSwitchTasks": [
         {
-          "id": 7208,
+          "id": 7231,
           "nodeType": "ROUTE_FORM",
+          "routeProcessId": 928609,
+          "routeProcessSort": 1,
+          "batchRecordSort": 1,
+          "processName": "粗洗工序",
+          "batchRecordReportName": "粗洗工序生产记录",
+          "formSlotType": "MAIN",
+          "formBindingKey": null,
+          "formTemplateId": null,
+          "status": 10,
+          "available": true,
+          "executionId": 1590,
+          "activeWorkTaskId": 2299,
+          "allowedActions": [
+            "OPEN_FORM"
+          ],
+          "fillableUsers": [
+            {
+              "userId": 435,
+              "displayName": "刘子良"
+            },
+            {
+              "userId": 810,
+              "displayName": "王歆"
+            },
+            {
+              "userId": 1106,
+              "displayName": "左文彬"
+            },
+            {
+              "userId": 1297,
+              "displayName": "丁文飞"
+            }
+          ]
+        },
+        {
+          "id": 7233,
+          "nodeType": "ROUTE_FORM",
+          "routeProcessId": 928609,
+          "routeProcessSort": 1,
+          "batchRecordSort": 2,
           "processName": "粗洗工序",
           "batchRecordReportName": "损耗单",
           "formSlotType": "LOSS_REPORT",
@@ -108,7 +163,8 @@
           "formTemplateId": 25,
           "status": 10,
           "available": true,
-          "activeWorkTaskId": 2296,
+          "executionId": null,
+          "activeWorkTaskId": 2300,
           "allowedActions": [
             "OPEN_FORM"
           ],
@@ -120,8 +176,11 @@
           ]
         },
         {
-          "id": 7209,
+          "id": 7234,
           "nodeType": "ROUTE_FORM",
+          "routeProcessId": 928609,
+          "routeProcessSort": 1,
+          "batchRecordSort": 3,
           "processName": "粗洗工序",
           "batchRecordReportName": "过程检验记录",
           "formSlotType": "PROCESS_INSPECTION",
@@ -129,7 +188,94 @@
           "formTemplateId": 28,
           "status": 0,
           "available": true,
-          "activeWorkTaskId": 2297,
+          "executionId": null,
+          "activeWorkTaskId": 2301,
+          "allowedActions": [
+            "OPEN_FORM"
+          ],
+          "fillableUsers": [
+            {
+              "userId": 149,
+              "displayName": "黎敏"
+            }
+          ]
+        },
+        {
+          "id": 7232,
+          "nodeType": "ROUTE_FORM",
+          "routeProcessId": 928609,
+          "routeProcessSort": 1,
+          "batchRecordSort": 80,
+          "processName": "粗洗工序",
+          "batchRecordReportName": "产品信息",
+          "formSlotType": "MAIN",
+          "formBindingKey": null,
+          "formTemplateId": null,
+          "status": 0,
+          "available": true,
+          "executionId": null,
+          "activeWorkTaskId": 2302,
+          "allowedActions": [
+            "OPEN_FORM"
+          ],
+          "fillableUsers": [
+            {
+              "userId": 672,
+              "displayName": "孙倩倩"
+            },
+            {
+              "userId": 1284,
+              "displayName": "马兰"
+            },
+            {
+              "userId": 1484,
+              "displayName": "严心均"
+            }
+          ]
+        }
+      ],
+      "extraAssistSwitchTaskCount": 2,
+      "extraAssistSwitchTasks": [
+        {
+          "id": 7233,
+          "nodeType": "ROUTE_FORM",
+          "routeProcessId": 928609,
+          "routeProcessSort": 1,
+          "batchRecordSort": 2,
+          "processName": "粗洗工序",
+          "batchRecordReportName": "损耗单",
+          "formSlotType": "LOSS_REPORT",
+          "formBindingKey": "FORM_BINDING_1784782156927_1",
+          "formTemplateId": 25,
+          "status": 10,
+          "available": true,
+          "executionId": null,
+          "activeWorkTaskId": 2300,
+          "allowedActions": [
+            "OPEN_FORM"
+          ],
+          "fillableUsers": [
+            {
+              "userId": 152,
+              "displayName": "张可莹"
+            }
+          ]
+        },
+        {
+          "id": 7234,
+          "nodeType": "ROUTE_FORM",
+          "routeProcessId": 928609,
+          "routeProcessSort": 1,
+          "batchRecordSort": 3,
+          "processName": "粗洗工序",
+          "batchRecordReportName": "过程检验记录",
+          "formSlotType": "PROCESS_INSPECTION",
+          "formBindingKey": "FORM_BINDING_1785083586161_1",
+          "formTemplateId": 28,
+          "status": 0,
+          "available": true,
+          "executionId": null,
+          "activeWorkTaskId": 2301,
           "allowedActions": [
             "OPEN_FORM"
           ],
@@ -141,34 +287,119 @@
           ]
         }
       ],
-      "currentBatchTaskId": "7206",
+      "currentBatchTaskId": "7231",
       "currentAssistUserId": null
     }
   },
   "fillerSwitch": {
-    "optionCount": 0,
-    "enabledExtraOptionCount": 0,
-    "enabledExtraOtherCount": 0,
-    "options": [],
+    "optionCount": 9,
+    "enabledExtraOptionCount": 2,
+    "enabledExtraOtherCount": 2,
+    "options": [
+      {
+        "taskId": "7231",
+        "userId": "435",
+        "displayName": "刘子良",
+        "text": "刘子良批处理表单 · 粗洗工序生产记录 · 草稿",
+        "disabled": false,
+        "active": false
+      },
+      {
+        "taskId": "7231",
+        "userId": "810",
+        "displayName": "王歆",
+        "text": "王歆批处理表单 · 粗洗工序生产记录 · 草稿",
+        "disabled": false,
+        "active": true
+      },
+      {
+        "taskId": "7231",
+        "userId": "1106",
+        "displayName": "左文彬",
+        "text": "左文彬批处理表单 · 粗洗工序生产记录 · 草稿",
+        "disabled": false,
+        "active": false
+      },
+      {
+        "taskId": "7231",
+        "userId": "1297",
+        "displayName": "丁文飞",
+        "text": "丁文飞批处理表单 · 粗洗工序生产记录 · 草稿",
+        "disabled": false,
+        "active": false
+      },
+      {
+        "taskId": "7232",
+        "userId": "672",
+        "displayName": "孙倩倩",
+        "text": "孙倩倩批处理表单 · 产品信息 · 待打开",
+        "disabled": false,
+        "active": false
+      },
+      {
+        "taskId": "7232",
+        "userId": "1284",
+        "displayName": "马兰",
+        "text": "马兰批处理表单 · 产品信息 · 待打开",
+        "disabled": false,
+        "active": false
+      },
+      {
+        "taskId": "7232",
+        "userId": "1484",
+        "displayName": "严心均",
+        "text": "严心均批处理表单 · 产品信息 · 待打开",
+        "disabled": false,
+        "active": false
+      },
+      {
+        "taskId": "7233",
+        "userId": "152",
+        "displayName": "张可莹",
+        "text": "张可莹工艺路线表单槽位 · 损耗单 · 草稿",
+        "disabled": false,
+        "active": false
+      },
+      {
+        "taskId": "7234",
+        "userId": "149",
+        "displayName": "黎敏",
+        "text": "黎敏工艺路线表单槽位 · 过程检验记录 · 待打开",
+        "disabled": false,
+        "active": false
+      }
+    ],
+    "menuDiagnostics": {
+      "text": "选择当前工序填写人批处理表单 + 表单槽位刘子良批处理表单 · 粗洗工序生产记录 · 草稿王歆批处理表单 · 粗洗工序生产记录 · 草稿左文彬批处理表单 · 粗洗工序生产记录 · 草稿丁文飞批处理表单 · 粗洗工序生产记录 · 草稿孙倩倩批处理表单 · 产品信息 · 待打开马兰批处理表单 · 产品信息 · 待打开严心均批处理表单 · 产品信息 · 待打开张可莹工艺路线表单槽位 · 损耗单 · 草稿黎敏工艺路线表单槽位 · 过程检验记录 · 待打开",
+      "alertText": "",
+      "emptyText": "",
+      "optionCount": 9
+    },
     "extraTaskIds": [
-      "7208",
-      "7209"
+      "7233",
+      "7234"
     ]
   },
   "apiErrorsDuringFillerSwitch": [],
-  "fullBatchDetailReadsDuringFillerSwitch": [],
+  "fullBatchDetailReadsDuringFillerSwitch": [
+    {
+      "status": 200,
+      "method": "GET",
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/edhr-batch-execution/get?id=900000000910"
+    }
+  ],
   "candidateAttempts": [
     {
       "pageIndex": 1,
       "candidateIndex": 0,
-      "taskId": 2295,
-      "taskCode": "EDHRT-1785289253340",
-      "message": "filler switch must show at least current and one other option, got 0"
+      "taskId": 2299,
+      "taskCode": "EDHRT-1785294373273",
+      "message": "route form drawer should not show error: 没有该操作权限\n\n'没有该操作权限' !== ''\n"
     }
   ],
   "error": {
-    "message": "filler switch must show at least current and one other option, got 0",
-    "stack": "AssertionError [ERR_ASSERTION]: filler switch must show at least current and one other option, got 0\n    at verifyExtraFormFillerSwitch (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:533:12)\n    at async run (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:730:11)"
+    "message": "route form drawer should not show error: 没有该操作权限\n\n'没有该操作权限' !== ''\n",
+    "stack": "AssertionError [ERR_ASSERTION]: route form drawer should not show error: 没有该操作权限\n\n'没有该操作权限' !== ''\n\n    at verifyExtraFormFillerSwitch (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:635:12)\n    at async run (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:746:11)"
   },
   "fixtureRestore": {
     "restored": true,

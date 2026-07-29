@@ -5161,7 +5161,7 @@ const loadAssistFillerSwitchItems = async () => {
       .filter(
         (task) =>
           !isAssistSpecialBatchTask(task) &&
-          task.routeProcessId === routeProcessId
+          sameRouteQueryId(task.routeProcessId, routeProcessId)
       )
       .sort(
         (first, second) =>
@@ -6197,6 +6197,7 @@ onBeforeUnmount(() => {
   border: 1px solid #f0c66a;
   border-radius: 8px;
   background: #ffffff;
+  font-size: 50%;
 }
 
 .edhr-fill-workspace__assist-row:first-child {
@@ -6238,9 +6239,17 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
 }
 
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-label {
+  font-size: 15px;
+}
+
 .edhr-fill-workspace__assist-control {
   min-width: 0;
   --edhr-assist-control-height: 48px;
+}
+
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control {
+  font-size: 7px;
 }
 
 .edhr-fill-workspace__assist-control :deep(.el-input__wrapper) {
@@ -6263,6 +6272,19 @@ onBeforeUnmount(() => {
 .edhr-fill-workspace__assist-control :deep(.el-select__placeholder),
 .edhr-fill-workspace__assist-control :deep(.el-select__selected-item) {
   line-height: var(--edhr-assist-control-height);
+}
+
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-input__inner) {
+  font-size: 7px;
+}
+
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-select__placeholder),
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-select__selected-item),
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-textarea__inner),
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-radio),
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-checkbox__label),
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-button) {
+  font-size: 7px;
 }
 
 .edhr-fill-workspace__assist-control :deep(.el-textarea__inner) {
@@ -6310,6 +6332,10 @@ onBeforeUnmount(() => {
   color: #c02626;
   font-size: 12px;
   font-weight: 700;
+}
+
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-validation {
+  font-size: 6px;
 }
 
 .edhr-fill-workspace__assist-typed-input {
@@ -6910,6 +6936,10 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.edhr-fill-workspace__assist-grid .edhr-page-shell__unit {
+  font-size: 7px;
 }
 
 .edhr-page-shell__signature-summary,

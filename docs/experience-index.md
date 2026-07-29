@@ -86,6 +86,7 @@
 - Keywords: 既有大契约先失败, 最小静态契约, 专用 static.spec.js, 当前需求 RED/GREEN, 无关 ts:check blocker -> `docs/frontend-development.md#前端静态契约隔离门禁`
 - Keywords: 只显示, 仅展示, 有效历史, 已生效历史版本, 版本列表, 状态列表, 候选版本, 取消的不显示, effective-only, ACTIVE SUPERSEDED, DRAFT CANCELLED, 只排除一个状态, `!== 'CANCELLED'` -> `docs/frontend-development.md#前端列表状态口径完整性门禁`
 - Keywords: 弹窗上一张下一张, 同集合弹窗导航, 同产品同版本切换, 候选不在当前列表页, selectedReport 候选 fallback, 预览上下文丢失, 导航后未选择表单 -> `docs/frontend-development.md#前端同集合弹窗导航上下文门禁`
+- Keywords: 填写配置红框, 辅助表单映射红框, data-fill-config-actions, batch-record-cell-rules-editor__panel-head, 保存填写配置 固定操作区 -> `docs/frontend-development.md#前端填写配置红框区域隐藏门禁`
 - Keywords: 保存系统异常重复提示, axios 自动错误提示, ignoreErrorMessage, 子组件 rethrow 前 toast, 父组件统一 toast, save error single toast, RouteFlowGraphDesigner, RouteFormContent -> `docs/frontend-development.md#前端保存链路重复错误提示门禁`
 - Keywords: 列表首屏成功后系统异常, 延迟辅助加载, 行级权限加载失败, listErrorMessage, permissionRuleErrorMessage, 批记录表单填写人规则加载失败, 辅助查询错误归属 -> `docs/frontend-development.md#前端延迟辅助加载错误归属门禁`
 - Keywords: DCC 上传类别权限, canUpload, Current user cannot access this controlled file, upload-preview, 文件类别下拉无上传权限, 类别级 UPLOAD 权限, DccControlledFileCategoryPermissionSupport -> `docs/frontend-development.md#dcc-上传类别权限投影门禁`
@@ -269,6 +270,7 @@
 - Keywords: release-info.json 返回 index.html, release-info static file missing, 前端容器缺 release-info.json, Write-FrontendReleaseInfo, New-ReleaseDockerBuildContext, code-only release-info 出包 -> `docs/test-release-preflight.md#2026-07-28-release-info-静态文件出包门禁`
 - Keywords: Python f-string literal braces, SSH verification carrier, bash SQL JSON braces SyntaxError -> `docs/powershell-preflight-lessons.md#2026-07-13-python-f-string-literal-braces-与远端验收脚本门禁`
 - Keywords: login-preflight.mjs 缺失, admin-only 全量 E2E, 旧目标文案执行列表, 历史 execution 直连填写页, 默认密码清理, 动态预览批次任务 -> `docs/e2e-rules.md#官方登录前置与-admin-only-全量验证门禁`
+- Keywords: 批记录管理员主区域, 已提交内容, 暂无已提交批记录内容, review-timeline executionReviews formViewModel, task preview 请求数, 草稿 cell_values_json 不显示, 过期冻结快照样本 -> `docs/e2e-rules.md#edhr-管理员主区域已提交内容门禁`
 - Keywords: stale blocked task, 提交前 blocked 状态复验, Maven compile 解除旧阻塞, pnpm ts:check 解除旧阻塞, 目标 JUnit 复验后提交 -> `docs/powershell-memory.md#提交前-stale-blocker-复验门禁`
 - Keywords: required SQL target count mismatch, ROUTE-XLSX-00002 第26道工序, test-only cleanup migration, 失败 SQL 前置清理, 不复用失败 releaseTag -> `docs/release-build-preflight-lessons.md#2026-07-27-publish-test-required-sql-目标基线多余数据门禁`
 - Keywords: release preflight stable topological order, preflight-plan migration order, FIFO ready queue, Manifest 原始顺序, cleanup before binding -> `docs/release-build-preflight-lessons.md#2026-07-27-release-preflight-拓扑排序稳定性门禁`

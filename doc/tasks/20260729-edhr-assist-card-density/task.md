@@ -2,15 +2,18 @@
 
 ## Task Goal
 
-按用户截图要求调整 eDHR 填写辅助模式字段卡片：每个卡片内输入框高度增加 50%，整个字段卡片高度缩减到当前约 80%，在不改变字段值、校验、保存、提交和工序/填写人切换逻辑的前提下提升可填写区域可见性。
+按用户截图要求调整 eDHR 填写辅助模式字段卡片：每个卡片内输入框高度增加 50%，整个字段卡片高度缩减到当前约 80%，辅助网格单元格内普通文字字号缩小为当前的 1/2，并按最新反馈将字段标题文字从当前大小增大一倍；在不改变字段值、校验、保存、提交和工序/填写人切换逻辑的前提下提升可填写区域可见性。
 
 ## Milestones
 
 1. `completed`：完成任务启动、脏工作区基线和适用经验门禁记录。
 2. `completed`：定位辅助填写卡片和输入控件样式，补充 RED 静态合同。
 3. `completed`：实施最小 CSS/模板调整，不引入 fallback 或行为降级。
-4. `blocked`：目标静态合同和相邻回归已通过；`pnpm ts:check` 阻塞在无关 `ActionFormPanel.vue` 既有类型错误。
-5. `blocked`：因全量类型检查未通过且工作区出现并发改动，未进入 cleanup、任务提交和推送。
+4. `completed`：补充辅助网格单元格字号减半静态合同并实施最小样式调整。
+5. `completed`：复跑目标静态合同、相邻回归和类型检查。
+6. `completed`：补充标题文字增大一倍静态合同并实施最小样式调整。
+7. `completed`：复跑目标静态合同、相邻回归和类型检查。
+8. `pending`：补齐证据、cleanup、提交并推送。
 
 ## Expected Verification
 
@@ -18,6 +21,7 @@
 - `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js`
 - `node tests/e2e/edhr-assist-fill-mode-static.spec.js`
 - `node tests/e2e/edhr-fill-workspace-static.spec.js`
+- `node tests/e2e/edhr-assist-fill-mode-configured-grid-static.spec.js`
 - `pnpm ts:check`
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-edhr-assist-card-density/frontend-feature-evidence.md`
 
@@ -37,9 +41,8 @@
 
 ## Current Status
 
-blocked
+ready_for_closeout
 
-## Blockers
+## Cleanup Keep
 
-- `pnpm ts:check` 失败于 `src/views/form-center/business-action/ActionFormPanel.vue(257,3)`：构造的 `FormTemplateListItemVO` 缺少必填 `updatedTime`。该文件不属于本次 eDHR 辅助填写卡片密度调整，当前任务未修改它。
-- 工作区存在无关并发改动：`IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue` 软键盘逻辑、`batch-record-cell-rule-dialog-size-static.spec.js`、`edhr-visual-fill-config-static.spec.js`。本任务未提交/推送，避免混入并发任务。
+- doc/tasks/20260729-edhr-assist-card-density/frontend-feature-evidence.md

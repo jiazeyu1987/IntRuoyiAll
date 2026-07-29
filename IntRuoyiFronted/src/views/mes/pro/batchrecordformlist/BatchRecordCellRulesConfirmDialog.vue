@@ -1889,14 +1889,13 @@ watch(
 .batch-record-cell-rules-editor__top-toolbar {
   display: grid;
   min-height: 42px;
-  grid-template-columns: minmax(220px, 1fr) minmax(280px, 1.1fr) minmax(320px, 1fr);
+  grid-template-columns: minmax(220px, 0.8fr) minmax(280px, 1.2fr);
   gap: 12px;
   align-items: center;
 }
 
 .batch-record-cell-rules-editor__mode-toolbar,
-.batch-record-cell-rules-editor__navigation,
-.batch-record-cell-rules-editor__top-actions {
+.batch-record-cell-rules-editor__navigation {
   display: flex;
   min-width: 0;
   align-items: center;
@@ -1935,15 +1934,6 @@ watch(
   max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.batch-record-cell-rules-editor__top-actions {
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 4px 8px;
-  border: 1px solid #9cc7ff;
-  border-radius: 8px;
-  background: #eaf3ff;
 }
 
 .batch-record-cell-rules-editor__workspace {
@@ -1990,14 +1980,34 @@ watch(
   height: 100%;
   min-height: 0;
   flex-direction: column;
-  gap: 12px;
-  overflow: auto;
-  padding: 12px;
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
 }
 
 .batch-record-cell-rules-editor__side-panel.is-mapping-control {
   border-color: #9cc7ff;
   background: #eaf3ff;
+}
+
+.batch-record-cell-rules-editor__side-scroll {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.batch-record-cell-rules-editor__side-actions {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid #cfe1f8;
+  background: #fff;
 }
 
 .batch-record-cell-rules-editor__control-head {
@@ -2450,8 +2460,7 @@ watch(
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .batch-record-cell-rules-editor__navigation,
-  .batch-record-cell-rules-editor__top-actions {
+  .batch-record-cell-rules-editor__navigation {
     justify-content: flex-start;
   }
 

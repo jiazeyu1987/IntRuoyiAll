@@ -18,3 +18,25 @@
 - CHECK: 当前工作区又出现无关并发改动，包括 `ExecutionPage.vue` 软键盘逻辑；本任务不提交/推送，避免混入并发任务。
 - M2-M3: completed -> 卡片密度实现和专用合同已完成。
 - M4-M5: blocked -> 全量类型检查和收尾提交受无关问题阻塞。
+- USER: 用户追加截图反馈“减小每个单元格的字体大小，减小为当前的1/2”。
+- BASELINE: `81bcc617 chore: baseline dirty workspace before assist font sizing`，保存追加需求前已有脏工作区改动，避免混入本轮字号实现。
+- BDD: 辅助网格单元格字号减半 -> Given 用户打开 eDHR 填写辅助模式并查看辅助网格单元格 / When 单元格展示字段名、输入内容、单位或校验提示 / Then 单元格内文字字号均缩小为当前的 1/2，字段值、校验、保存和提交逻辑不变。
+- RED: `node tests/e2e/edhr-fill-workspace-card-density-static.spec.js` -> FAIL，预期原因：当前样式缺少辅助网格字段名/输入/单位/校验字号减半规则。
+- GREEN: `node tests/e2e/edhr-fill-workspace-card-density-static.spec.js` -> PASS，网格卡片 `font-size: 50%`、字段名 `7.5px`、输入/单位 `7px`、校验提示 `6px`。
+- GREEN: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-configured-grid-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS，旧 `ActionFormPanel.vue` blocker 已在当前基线中解除。
+- STATUS: 实现和验证完成，任务状态更新为 `ready_for_closeout`；工作区仍有并发未提交改动，本任务提交需选择性暂存。
+- USER: 用户追加截图反馈“标题文字增大一倍”。
+- BDD: 辅助网格标题文字增大一倍 -> Given 用户打开 eDHR 填写辅助模式并查看辅助网格字段卡片 / When 卡片展示字段标题和输入控件 / Then 字段标题文字从当前 `7.5px` 增大一倍到 `15px`，输入内容、单位、校验提示仍保持当前紧凑字号。
+- RED: `node tests/e2e/edhr-fill-workspace-card-density-static.spec.js` -> FAIL，预期原因：辅助网格标题仍为 `7.5px`，未增大到 `15px`。
+- GREEN: `node tests/e2e/edhr-fill-workspace-card-density-static.spec.js` -> PASS，辅助网格标题字号为 `15px`，输入/单位/校验提示仍保持紧凑字号。
+- GREEN: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-configured-grid-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-edhr-assist-card-density/frontend-feature-evidence.md` -> PASS。
+- STATUS: 实现和验证完成，任务状态更新为 `ready_for_closeout`；工作区仍存在无关并发改动，收尾提交/推送需先隔离任务文件。

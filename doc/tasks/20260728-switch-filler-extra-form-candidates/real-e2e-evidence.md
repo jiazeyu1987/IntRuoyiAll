@@ -9,7 +9,7 @@
 - Fixture role restore: restored=`true`
 - Execution detail snapshot: assistSwitchTaskCount=`4`, extraAssistSwitchTaskCount=`2`
 - Extra form task: `<none>`
-- Filler options: total=`0`, enabledExtraOptions=`0`, enabledExtraOthers=`0`
+- Filler options: total=`9`, enabledExtraOptions=`2`, enabledExtraOthers=`2`
 - Full batch detail reload before option selection: ``
 - Selected extra-form filler: `<none>`
 - API errors during switch: `0`
@@ -24,4 +24,7 @@
 
 ## Error
 
-- filler switch must show at least current and one other option, got 0
+- route form drawer should not show error: 没有该操作权限
+
+'没有该操作权限' !== ''
+

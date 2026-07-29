@@ -13,6 +13,7 @@ const BASE_URL = process.env.EDHR_ADMIN_SUBMITTED_BASE_URL || 'http://127.0.0.1:
 const BACKEND_URL = process.env.EDHR_ADMIN_SUBMITTED_BACKEND_URL || 'http://127.0.0.1:48081'
 const MYSQL_CONTAINER_NAME = process.env.EDHR_ADMIN_SUBMITTED_MYSQL_CONTAINER || 'int-ruoyi-mysql'
 const DATABASE_NAME = process.env.EDHR_ADMIN_SUBMITTED_DATABASE || 'ruoyi-vue-pro'
+const VERIFY_MODE = process.env.EDHR_ADMIN_SUBMITTED_VERIFY_MODE || 'submitted-content'
 const OUTPUT_DIR = path.join(__dirname, 'admin-submitted-content-e2e-output')
 const DEFAULT_CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 const SUBMITTED_STATUSES = new Set([2, 3, 4])
@@ -44,6 +45,10 @@ function resolveLoginConfig() {
 function ensurePrerequisites() {
   assert.match(BASE_URL, /^http:\/\/(127\.0\.0\.1|localhost):8081$/, 'E2E 只能验证本机 8081 前端')
   assert.match(BACKEND_URL, /^http:\/\/127\.0\.0\.1:48081$/, 'E2E 只能验证本机 48081 后端')
+  assert.ok(
+    ['submitted-content', 'current-unsubmitted'].includes(VERIFY_MODE),
+    `未知验证模式: ${VERIFY_MODE}`
+  )
   const login = resolveLoginConfig()
   assert.equal(login.tenant, '芋道源码', '只读管理员验证必须使用芋道源码租户')
   assert.equal(login.username, 'admin', '只读管理员验证必须使用 admin')
@@ -178,6 +183,56 @@ function resolveSubmittedTarget() {
   throw new Error('本机数据库未找到可用于页面断言的已提交非空批记录执行样本')
 }
 
+function resolveCurrentUnsubmittedTarget() {
+  const rows = queryLocalDatabase(
+    `SELECT be.id,
+            be.batch_execution_code,
+            be.batch_code,
+            be.work_order_code,
+            be.status,
+            t.id,
+            t.route_process_sort,
+            t.batch_record_sort,
+            COALESCE(t.process_name, ''),
+            COALESCE(t.batch_record_report_name, ''),
+            COALESCE(t.execution_id, ''),
+            COALESCE(e.status, ''),
+            CHAR_LENGTH(COALESCE(e.cell_values_json, ''))
+       FROM mes_pro_edhr_batch_execution be
+       JOIN mes_pro_edhr_batch_execution_task t
+         ON t.batch_execution_id = be.id
+        AND t.deleted = b'0'
+       LEFT JOIN mes_pro_batch_record_execution e
+         ON e.id = t.execution_id
+        AND e.deleted = b'0'
+      WHERE be.deleted = b'0'
+        AND be.tenant_id = 1
+        AND be.work_order_code = '881MO090935'
+        AND t.node_type = 'ROUTE_FORM'
+        AND t.batch_record_report_id IS NOT NULL
+      ORDER BY be.update_time DESC, t.route_process_sort, t.batch_record_sort
+      LIMIT 1;`,
+    '截图工单当前未提交目标'
+  )
+  assert.ok(rows.length > 0, '本机数据库未找到截图工单 881MO090935 的批记录任务')
+  const row = rows[0]
+  return {
+    batchExecutionId: Number(row[0]),
+    batchExecutionCode: row[1],
+    batchCode: row[2],
+    workOrderCode: row[3],
+    batchStatus: Number(row[4]),
+    taskId: Number(row[5]),
+    routeProcessSort: Number(row[6]),
+    batchRecordSort: Number(row[7]),
+    processName: row[8],
+    reportName: row[9],
+    executionId: row[10] ? Number(row[10]) : null,
+    executionStatus: row[11] === '' ? null : Number(row[11]),
+    cellValuesLength: Number(row[12])
+  }
+}
+
 function resolveScreenshotBatchSnapshot() {
   const rows = queryLocalDatabase(
     `SELECT be.id,
@@ -291,9 +346,28 @@ function assertReviewTimelineContainsSubmittedTarget(reviewBody, target) {
   )
 }
 
+function assertReviewTimelineHasNoSubmittedContentForTask(reviewBody, target) {
+  assert.ok(reviewBody.code === 0 || reviewBody.code === 200, `review-timeline 返回失败：${reviewBody.msg || reviewBody.code}`)
+  const executions = reviewBody.data?.executionReviews || []
+  assert.ok(Array.isArray(executions), 'review-timeline 必须返回 executionReviews')
+  const matched = executions.find(
+    (item) =>
+      Number(item.taskId) === target.taskId ||
+      (target.executionId != null && Number(item.executionId) === target.executionId)
+  )
+  if (matched) {
+    assert.ok(
+      !SUBMITTED_STATUSES.has(Number(matched.status)),
+      `当前截图任务已有已提交 execution，不能作为未提交验证样本：${matched.status}`
+    )
+  }
+}
+
 async function run() {
   const loginConfig = ensurePrerequisites()
-  const target = resolveSubmittedTarget()
+  const target = VERIFY_MODE === 'current-unsubmitted'
+    ? resolveCurrentUnsubmittedTarget()
+    : resolveSubmittedTarget()
   const screenshotBatchSnapshot = resolveScreenshotBatchSnapshot()
   const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || DEFAULT_CHROME
   const browser = await chromium.launch({
@@ -338,7 +412,11 @@ async function run() {
     const reviewTimelineResponse = await reviewTimelineResponsePromise
     assert.equal(reviewTimelineResponse.status(), 200, 'review-timeline HTTP 状态必须为 200')
     const reviewTimelineBody = await reviewTimelineResponse.json()
-    assertReviewTimelineContainsSubmittedTarget(reviewTimelineBody, target)
+    if (VERIFY_MODE === 'current-unsubmitted') {
+      assertReviewTimelineHasNoSubmittedContentForTask(reviewTimelineBody, target)
+    } else {
+      assertReviewTimelineContainsSubmittedTarget(reviewTimelineBody, target)
+    }
 
     await page.locator('.edhr-batch-detail__review-list').waitFor({ state: 'visible', timeout: 90000 })
     const processButton = page
@@ -350,25 +428,40 @@ async function run() {
 
     const readonlyForm = page.locator('.edhr-readonly-form').first()
     const templateSheet = page.locator('.edhr-readonly-form .edhr-template-sheet').first()
-    await readonlyForm.waitFor({ state: 'visible', timeout: 90000 })
-    await templateSheet.waitFor({ state: 'visible', timeout: 90000 })
-    await page.getByText(target.expectedText, { exact: false }).first().waitFor({
-      state: 'visible',
-      timeout: 60000
-    })
-    const sheetText = await templateSheet.innerText()
-    assert.ok(sheetText.includes(target.expectedText), '主区域原表必须显示已提交单元格内容')
-    assert.equal(
-      await page.getByText('暂无已提交批记录内容', { exact: true }).count(),
-      0,
-      '有已提交 execution 时不得显示暂无已提交内容'
-    )
+    let sheetText = ''
+    if (VERIFY_MODE === 'current-unsubmitted') {
+      await page.getByText('暂无已提交批记录内容', { exact: true }).first().waitFor({
+        state: 'visible',
+        timeout: 60000
+      })
+      assert.equal(await readonlyForm.count(), 0, '未提交任务不得渲染只读原表内容')
+    } else {
+      await readonlyForm.waitFor({ state: 'visible', timeout: 90000 })
+      await templateSheet.waitFor({ state: 'visible', timeout: 90000 })
+      await page.getByText(target.expectedText, { exact: false }).first().waitFor({
+        state: 'visible',
+        timeout: 60000
+      })
+      sheetText = await templateSheet.innerText()
+      assert.ok(sheetText.includes(target.expectedText), '主区域原表必须显示已提交单元格内容')
+      assert.equal(
+        await page.getByText('暂无已提交批记录内容', { exact: true }).count(),
+        0,
+        '有已提交 execution 时不得显示暂无已提交内容'
+      )
+    }
     assert.equal(taskPreviewRequests.length, 0, '管理员主区域不得请求 task/preview 读取未提交预览或草稿')
     assert.equal(mesWriteRequests.length, 0, `管理员只读查看不得触发 MES 写请求: ${JSON.stringify(mesWriteRequests)}`)
 
-    const screenshotPath = path.join(OUTPUT_DIR, 'admin-submitted-content-main-area.png')
+    const screenshotPath = path.join(
+      OUTPUT_DIR,
+      VERIFY_MODE === 'current-unsubmitted'
+        ? 'admin-current-unsubmitted-main-area.png'
+        : 'admin-submitted-content-main-area.png'
+    )
     await page.screenshot({ path: screenshotPath, fullPage: true })
     const result = {
+      verifyMode: VERIFY_MODE,
       baseUrl: BASE_URL,
       backendUrl: BACKEND_URL,
       tenant: loginConfig.tenant,
@@ -378,17 +471,30 @@ async function run() {
       reviewTimelineHttpStatus: reviewTimelineResponse.status(),
       readonlyFormVisible: await readonlyForm.isVisible(),
       templateSheetVisible: await templateSheet.isVisible(),
-      expectedTextVisible: sheetText.includes(target.expectedText),
+      expectedTextVisible: VERIFY_MODE === 'submitted-content' ? sheetText.includes(target.expectedText) : false,
+      emptySubmittedContentVisible:
+        VERIFY_MODE === 'current-unsubmitted'
+          ? (await page.getByText('暂无已提交批记录内容', { exact: true }).count()) > 0
+          : false,
       taskPreviewRequests,
       mesWriteRequests,
       consoleErrors,
       pageErrors,
       screenshotPath
     }
-    const resultPath = path.join(OUTPUT_DIR, 'admin-submitted-content-main-area.json')
+    const resultPath = path.join(
+      OUTPUT_DIR,
+      VERIFY_MODE === 'current-unsubmitted'
+        ? 'admin-current-unsubmitted-main-area.json'
+        : 'admin-submitted-content-main-area.json'
+    )
     fs.writeFileSync(resultPath, `${JSON.stringify(result, null, 2)}\n`, 'utf8')
-    console.log(`PASS: admin submitted content visible batch=${target.batchExecutionId} task=${target.taskId} execution=${target.executionId}`)
-    console.log(`PASS: expectedText=${target.expectedText}`)
+    if (VERIFY_MODE === 'current-unsubmitted') {
+      console.log(`PASS: admin current unsubmitted empty state batch=${target.batchExecutionId} task=${target.taskId} execution=${target.executionId}`)
+    } else {
+      console.log(`PASS: admin submitted content visible batch=${target.batchExecutionId} task=${target.taskId} execution=${target.executionId}`)
+      console.log(`PASS: expectedText=${target.expectedText}`)
+    }
     console.log(`PASS: evidence=${resultPath}`)
   } finally {
     await context.close()

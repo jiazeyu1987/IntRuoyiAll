@@ -69,6 +69,35 @@ assert.doesNotMatch(
   '点击处理不得继续使用只按当前账号本人判断的错误提示。'
 )
 
+const loadItemsMatch = executionPage.match(
+  /const loadAssistFillerSwitchItems = async \(\) => \{[\s\S]*?(?=\r?\n\r?\nconst openAssistSwitchDialog)/
+)
+assert.ok(loadItemsMatch, '切换填写人弹窗必须从执行详情快照构造候选列表。')
+assert.match(
+  loadItemsMatch[0],
+  /execution\.value\?\.assistSwitchTasks/,
+  '切换填写人必须读取执行详情 assistSwitchTasks 快照，不能重新拉全量批次详情。'
+)
+assert.match(
+  loadItemsMatch[0],
+  /sameRouteQueryId\(task\.routeProcessId,\s*routeProcessId\)/,
+  '当前工序候选过滤必须使用 route query ID 语义，避免数字/字符串差异漏掉附加表单。'
+)
+assert.doesNotMatch(
+  loadItemsMatch[0],
+  /task\.routeProcessId\s*===\s*routeProcessId/,
+  '当前工序候选过滤不得用严格等于比较 routeProcessId。'
+)
+const currentProcessFilterMatch = loadItemsMatch[0].match(
+  /const currentProcessTasks = \[\.\.\.assistSwitchTasks\][\s\S]*?\.sort\(/
+)
+assert.ok(currentProcessFilterMatch, '当前工序候选必须显式过滤同工序任务后再排序。')
+assert.doesNotMatch(
+  currentProcessFilterMatch[0],
+  /formSlotType\s*===\s*'MAIN'[\s\S]*?fillableUsers/,
+  '切换填写人候选不得只保留 MAIN 批记录表单，必须允许同工序附加表单槽位。'
+)
+
 const navigateMatch = executionPage.match(
   /const navigateToAssistBatchTask = async \([\s\S]*?(?=\r?\n\r?\nconst handleSelectAssistFillerSwitchItem)/
 )

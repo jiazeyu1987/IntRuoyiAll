@@ -4,4 +4,19 @@
 - RULES: 已读取 `AGENTS.md`、`docs/task-closeout-rules.md`、`docs/frontend-development.md`、`docs/e2e-rules.md`、`docs/powershell-encoding.md`、`bug-regression-fix-loop` 与 `frontend-feature-delivery` 技能及其 evidence contract。
 - PREFLIGHT: `docs/experience-index.md` 存在，适用门禁为前端静态契约隔离、PowerShell/UTF-8、无 fallback。
 - BDD: 隐藏填写配置红框区域 -> Given 用户打开填写配置的辅助表单映射页面 / When 页面渲染原表格、辅助表格和右侧映射控制栏 / Then 顶部右侧操作组、左侧原表单说明栏和中央辅助表单预览说明栏不显示，右侧映射控制栏、辅助表格卡片和必要配置控件仍可见。
-- M1: in_progress -> 正在定位截图对应组件和既有静态合同。
+- M1: completed -> 定位到 `IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/BatchRecordCellRulesConfirmDialog.vue`，截图红框对应顶部 `data-fill-config-actions="primary"`、左侧/中间 `batch-record-cell-rules-editor__panel-head`。
+- CHECK: `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> FAIL，首次合同截取误命中内部 `<template>`；已修正为截取 `<script setup` 之前的完整模板。
+- RED: `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> FAIL，预期失败；现有实现缺少右侧固定操作区且顶部红框操作组仍存在。
+- ROOT_CAUSE: 填写配置辅助映射页将说明性标题栏和关闭/重读/保存操作组渲染在截图红框位置，导致用户要求隐藏的说明和操作区域仍显示。
+- FIX: 移除顶部右侧红框操作组和左/中两栏说明标题 DOM；把关闭、重新读取、保存填写配置移动到右侧固定操作区，继续调用 `loadCellRules` 和 `confirmAllRules` 正式链路。
+- GREEN: `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> PASS，目标红框 DOM 隐藏且右侧操作能力保留。
+- GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS，相邻填写配置静态合同已同步新隐藏口径。
+- GREEN: `pnpm ts:check` -> PASS，Vue/TS relaxed 类型检查通过。
+- M2-M5: completed -> RED/GREEN、实现、相邻回归和任务证据完成，状态更新为 `ready_for_closeout`。
+- EXPERIENCE: 已按 `project-experience-consolidation` 搜索现有长期文档，并更新 `docs/frontend-development.md#前端填写配置红框区域隐藏门禁` 与 `docs/experience-index.md` 索引。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260729-fill-config-redbox-hide/bug-regression-evidence.md` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-fill-config-redbox-hide/frontend-feature-evidence.md` -> PASS。
+- GREEN: `git diff --check -- <task-owned files>` -> PASS。
+- CLEANUP: `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode preview` -> ready，keep task/execution-log/verification-report/evidence，delete none，blocked none。
+- CLEANUP: `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode apply` -> applied，deleted_paths none。
+- CLOSEOUT BLOCKER: `git status --short --branch --untracked-files=all` -> 当前 `int_main` ahead 1 且存在多组非本任务并行改动；本轮未提交/推送，避免混入无关任务。
