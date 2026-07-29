@@ -47,6 +47,7 @@ PASS. 定向静态合同、`pnpm ts:check`、前端证据校验、经验索引�
 - 既有脏工作区基线提交：`18563a16 chore: baseline dirty workspace before assist grid columns`。
 - 基线提交后仍出现并行残余改动，当前任务只选择性暂存本任务文件。
 - 经验沉淀：已合并到 `docs/frontend-development.md` 既有 eDHR 辅助模式门禁，并更新 `docs/experience-index.md` 关键词。
+- 实现归属说明：代码、静态合同和经验文档已被并行基线提交 `18f2848f` 带入当前 `origin/int_main`，本任务后续只提交收尾记录。
 
 ## Cleanup Keep
 

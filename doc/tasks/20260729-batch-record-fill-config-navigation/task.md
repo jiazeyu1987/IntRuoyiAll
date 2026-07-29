@@ -34,6 +34,10 @@
 - `f410a338`：`IntRuoyiFronted/tests/e2e/edhr-assist-fill-mode-static.spec.js` 既有改动基线。
 - `3a556a26`：`doc/tasks/20260729-edhr-fill-workspace-redbox-hide/` 既有未跟踪任务文档基线。
 
+## Cleanup Keep
+
+- doc/tasks/20260729-batch-record-fill-config-navigation/frontend-feature-evidence.md
+
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。

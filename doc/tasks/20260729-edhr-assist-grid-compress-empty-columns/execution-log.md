@@ -48,4 +48,5 @@
 - Cleanup keep: preserved `frontend-feature-evidence.md` explicitly in `task.md`.
 - Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-assist-grid-compress-empty-columns --mode preview` -> PASS, keep four task files, delete none, blocked none, warnings none.
 - Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-assist-grid-compress-empty-columns --mode apply` -> PASS, deleted none.
+- Commit ownership note: implementation files and `frontend-feature-evidence.md` were swept into parallel baseline commit `18f2848f chore: baseline dirty workspace before dialog overlay fix` while this task was still open. Verified `git show --name-status --oneline 18f2848f -- IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue IntRuoyiFronted/tests/e2e/edhr-assist-fill-mode-configured-grid-static.spec.js docs/frontend-development.md docs/experience-index.md` lists the implementation, static contract, and experience files.
 - Status: completed.

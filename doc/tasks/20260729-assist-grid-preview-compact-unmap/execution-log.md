@@ -18,3 +18,12 @@
 ## Progress
 
 - in_progress: 定位到 `FormTemplateFillConfigDialog.vue` 与 `BatchRecordCellRulesConfirmDialog.vue` 的 `batch-record-cell-rules-editor__assist-grid-cell` 预览模板和样式。
+- RED: `node tests/e2e/assist-grid-per-user-mapping-static.spec.js` -> FAIL，预期原因：当前批记录填写配置辅助格缺少 `@dblclick.stop="handleAssistGridCellDoubleClick(gridCell)"`。
+- RED: `node tests/e2e/form-template-fill-config-assist-mode-static.spec.js` -> FAIL，预期原因：当前 FormCenter 模板填写配置辅助格缺少双击取消映射入口。
+- GREEN: `node tests/e2e/assist-grid-per-user-mapping-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/form-template-fill-config-assist-mode-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- completed: 两个辅助映射预览组件已移除格内字段类型圆标和独立取消映射按钮，字段名改为单行省略，双击已映射格调用既有取消映射逻辑。
+- CHECK: `git diff -- <owned files>` -> 本任务源码改动仅涉及两个辅助映射预览组件；未改变 `assistRows` 保存 payload、rowKey 协议或后端接口。
+- STATUS: 实现和验证完成，进入 `ready_for_closeout`；工作区仍存在并发任务未提交改动，本任务不触碰。

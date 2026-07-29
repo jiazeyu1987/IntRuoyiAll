@@ -27,10 +27,13 @@
 
 ## Verification
 
-- RED: pending
-- GREEN: pending
-- Responsive/accessibility: pending
-- Type check: pending
+- RED: `node tests/e2e/assist-grid-per-user-mapping-static.spec.js` -> FAIL，缺少双击取消映射入口。
+- RED: `node tests/e2e/form-template-fill-config-assist-mode-static.spec.js` -> FAIL，缺少双击取消映射入口。
+- GREEN: `node tests/e2e/assist-grid-per-user-mapping-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/form-template-fill-config-assist-mode-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS。
+- Responsive/accessibility: 字段名和来源摘要均设置 `display: block`、`width: 100%`、`text-overflow: ellipsis`、`white-space: nowrap`；双击入口复用同一可点击辅助格按钮。
+- Type check: `pnpm ts:check` -> PASS。
 
 ## Blockers
 

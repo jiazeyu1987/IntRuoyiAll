@@ -8,9 +8,9 @@
 
 - [x] 创建任务目录并读取前端、E2E、任务收尾、PowerShell 编码和经验门禁。
 - [x] 记录 BDD 场景和当前脏工作区边界。
-- [ ] 先更新静态合同并取得 RED。
-- [ ] 修改两个辅助映射预览组件的 DOM、交互和样式。
-- [ ] 运行定向 GREEN、相邻回归和类型检查。
+- [x] 先更新静态合同并取得 RED。
+- [x] 修改两个辅助映射预览组件的 DOM、交互和样式。
+- [x] 运行定向 GREEN、相邻回归和类型检查。
 - [ ] 更新证据、执行经验沉淀与收尾。
 
 ## Expected Verification
@@ -46,4 +46,4 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
