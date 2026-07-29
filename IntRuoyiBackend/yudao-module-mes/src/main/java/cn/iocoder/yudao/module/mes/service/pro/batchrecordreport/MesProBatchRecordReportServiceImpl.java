@@ -1417,6 +1417,8 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         }
         try {
             MesProBatchRecordCellRuleSupport.applyAssistRows(root, reqVO.getAssistRows());
+            applyAssistGridSize(root, reqVO.getAssistRows(), reqVO.getAssistGridRowCount(),
+                    reqVO.getAssistGridColumnCount());
         } catch (IllegalArgumentException ex) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_CELL_RULE_INVALID,
                     ex.getMessage());
@@ -2885,7 +2887,23 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .setRules(MesProBatchRecordCellRuleSupport.extractReviewedRules(root))
                 .setSuggestions(MesProBatchRecordCellRuleSupport.buildSuggestions(root))
                 .setUnreviewedFillableCellCount(MesProBatchRecordCellRuleSupport.countUnreviewedFillableCells(root))
-                .setAssistRows(MesProBatchRecordCellRuleSupport.extractAssistRows(root));
+                .setAssistRows(MesProBatchRecordCellRuleSupport.extractAssistRows(root))
+                .setAssistGridRowCount(root.getInteger(MesProBatchRecordCellRuleSupport.ASSIST_GRID_ROW_COUNT_KEY))
+                .setAssistGridColumnCount(root.getInteger(MesProBatchRecordCellRuleSupport.ASSIST_GRID_COLUMN_COUNT_KEY));
+    }
+
+    private void applyAssistGridSize(JSONObject root, List<BatchRecordReportAssistRowVO> assistRows,
+                                     Integer rowCount, Integer columnCount) {
+        if (assistRows == null || assistRows.isEmpty()) {
+            root.remove(MesProBatchRecordCellRuleSupport.ASSIST_GRID_ROW_COUNT_KEY);
+            root.remove(MesProBatchRecordCellRuleSupport.ASSIST_GRID_COLUMN_COUNT_KEY);
+            return;
+        }
+        if (rowCount == null || columnCount == null || rowCount <= 0 || columnCount <= 0) {
+            throw new IllegalArgumentException("assist grid size must be positive when assist rows exist");
+        }
+        root.put(MesProBatchRecordCellRuleSupport.ASSIST_GRID_ROW_COUNT_KEY, rowCount);
+        root.put(MesProBatchRecordCellRuleSupport.ASSIST_GRID_COLUMN_COUNT_KEY, columnCount);
     }
 
     private void ensureNoLegacyFormProfileLayoutOnRead(MesProBatchRecordReportDO metadata, JSONObject root) {

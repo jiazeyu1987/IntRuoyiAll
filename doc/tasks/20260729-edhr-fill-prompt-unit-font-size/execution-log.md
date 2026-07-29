@@ -26,6 +26,10 @@
 - 已将辅助网格卡片内 `.el-input__inner`、选择/文本域提示文本和 `.edhr-page-shell__unit` 从 `7px` 调整为 `14px`。
 - 已修正同文件预览模式类型检查问题：解析 `routeBatchTaskId` 为数字，并为预览 cell value map 结果显式声明可空目标类型。
 - 已完成聚焦静态合同、相邻辅助填写合同、单元格规则合同与 `pnpm ts:check` 验证。
+- 已运行 `frontend-feature-delivery` 证据校验脚本，结果 PASS。
+- 已执行经验沉淀检查：现有 `docs/e2e-rules.md#Element Plus 选择框显示门禁` 已覆盖本类控件显示问题，本次无新增长期经验文档。
+- 已运行 task-closeout-cleanup preview/apply：keep 为 task.md、execution-log.md、frontend-feature-evidence.md、verification-report.md；delete/blocked/warnings 均为 none。
+- 已将任务状态更新为 completed。
 
 ## Blockers
 

@@ -47,6 +47,10 @@ public class MesProBatchRecordRuntimeSnapshotSupport {
         snapshot.put("meta", meta);
         snapshot.put("fields", extractSnapshotFields(root));
         snapshot.put("assistRows", extractSnapshotAssistRows(root));
+        putIfPresent(snapshot, "assistGridRowCount",
+                root.getInteger(MesProBatchRecordCellRuleSupport.ASSIST_GRID_ROW_COUNT_KEY));
+        putIfPresent(snapshot, "assistGridColumnCount",
+                root.getInteger(MesProBatchRecordCellRuleSupport.ASSIST_GRID_COLUMN_COUNT_KEY));
         return new RuntimeSnapshot(layout.toJSONString(), meta.toJSONString(), snapshot.toJSONString());
     }
 
