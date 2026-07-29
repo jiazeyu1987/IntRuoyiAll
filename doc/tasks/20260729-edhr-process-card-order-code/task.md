@@ -6,10 +6,10 @@
 
 ## Milestones
 
-- [ ] 识别当前切换工序卡片模板、订单号字段来源和既有静态合同。
-- [ ] 编写聚焦静态合同，先覆盖更高卡片、更大字体、隐藏明细、展示订单号。
-- [ ] 修改前端模板和样式，保持工序候选来源与切换逻辑不变。
-- [ ] 运行聚焦验证和相邻回归，记录 RED/GREEN/REGRESSION。
+- [x] 识别当前切换工序卡片模板、订单号字段来源和既有静态合同。
+- [x] 编写聚焦静态合同，先覆盖更高卡片、更大字体、隐藏明细、展示订单号。
+- [x] 修改前端模板和样式，保持工序候选来源与切换逻辑不变。
+- [x] 运行聚焦验证和相邻回归，记录 RED/GREEN/REGRESSION。
 - [ ] 完成 cleanup、经验沉淀、提交与推送，或记录阻塞项。
 
 ## Expected Verification
@@ -21,7 +21,15 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Verification Evidence
+
+- RED: `node tests/e2e/edhr-assist-process-switch-card-order-static.spec.js` -> FAIL，预期原因：缺少 `assistProcessSwitchOrderCode`，卡片仍显示二级说明，且样式仍为旧高度/字号。
+- GREEN: `node tests/e2e/edhr-assist-process-switch-card-order-static.spec.js` -> PASS。
+- REGRESSION: `node tests/e2e/edhr-assist-process-switch-dialog-grid-static.spec.js` -> PASS。
+- REGRESSION: `node tests/e2e/edhr-assist-process-switch-all-statuses-static.spec.js` -> PASS。
+- TYPECHECK: `pnpm ts:check` -> PASS。
 
 ## 设计约束检查
 
@@ -35,3 +43,7 @@ in_progress
 - `docs/frontend-development.md#前端静态契约隔离门禁`：使用任务专用最小静态合同覆盖本次卡片高度、字体、明细隐藏和订单号展示需求，避免被无关宽合同影响。
 - `docs/powershell-memory.md#脏工作区基线门禁`：当前存在并行任务脏文件，必须先独立基线提交并确保本任务文档/实现不混入基线。
 - `docs/powershell-memory.md#PowerShell 分号串联测试退出码门禁`：验证命令逐条运行并记录退出码。
+
+## Cleanup Keep
+
+- doc/tasks/20260729-edhr-process-card-order-code/frontend-feature-evidence.md

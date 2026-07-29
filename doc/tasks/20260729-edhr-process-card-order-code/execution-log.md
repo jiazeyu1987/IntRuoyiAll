@@ -22,14 +22,20 @@
 
 ## RED / GREEN / REGRESSION
 
-- RED: pending
-- GREEN: pending
-- REGRESSION: pending
+- RED: `node tests/e2e/edhr-assist-process-switch-card-order-static.spec.js` -> FAIL, expected reason: current implementation lacked `assistProcessSwitchOrderCode`, still rendered `resolveAssistProcessSwitchItemSecondaryLabel(item)`, and used the old 64px card height / smaller fonts.
+- GREEN: `node tests/e2e/edhr-assist-process-switch-card-order-static.spec.js` -> PASS.
+- REGRESSION: `node tests/e2e/edhr-assist-process-switch-dialog-grid-static.spec.js` -> PASS.
+- REGRESSION: `node tests/e2e/edhr-assist-process-switch-all-statuses-static.spec.js` -> PASS.
+- TYPECHECK: `pnpm ts:check` -> PASS.
 
 ## Milestone Updates
 
-- pending
+- Identified `ExecutionPage.vue` process switch menu as the card owner and `execution.workOrderCode` / route `workOrderCode` as the existing order context.
+- Added `edhr-assist-process-switch-card-order-static.spec.js` for card height, font size, hidden secondary description, and top-centered order code.
+- Updated process switch cards to remove the secondary description line, increase card min-height to 86px, increase process title/status tag fonts, and show `订单号：...` in the process menu header.
+- Updated adjacent grid contract from 64px to 86px to match the approved larger-card requirement.
 
 ## Blockers
 
-- pending
+- None for static/type verification.
+- Real screenshot verification was not run; this task is covered by static layout contracts and `pnpm ts:check`.

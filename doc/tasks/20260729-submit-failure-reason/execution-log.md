@@ -21,4 +21,4 @@
 
 ## TDD Evidence
 
-- 待记录 RED / GREEN。
+- RED: `node tests/e2e/edhr-fill-workspace-action-result-dialog-static.spec.js` -> FAIL, expected reason: 静态合同要求 `showFillActionResultDialog('submit-failed', submitErrorMessage)`，当前弹窗未承载提交失败真实原因。

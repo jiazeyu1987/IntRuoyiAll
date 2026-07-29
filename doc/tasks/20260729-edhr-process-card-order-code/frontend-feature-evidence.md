@@ -30,7 +30,9 @@
 
 ## Owned Files
 
-- pending
+- `IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`
+- `IntRuoyiFronted/tests/e2e/edhr-assist-process-switch-card-order-static.spec.js`
+- `IntRuoyiFronted/tests/e2e/edhr-assist-process-switch-dialog-grid-static.spec.js`
 
 ## API Contracts And Data States
 
@@ -51,8 +53,11 @@
 
 ## Responsive / Accessibility / States
 
-- pending
+- Process cards remain native buttons, preserving keyboard focus and click behavior.
+- Process cards now use 86px minimum height, larger title text, and larger Element Plus status tags.
+- The secondary description row is removed only from process cards; task/filler switch lists are unchanged.
+- Order code is displayed in the process menu header center and falls back visibly to `订单号：--` when no order context exists.
 
 ## Blockers
 
-- pending
+- None for static/type verification.

@@ -975,6 +975,14 @@
                 align-center
                 destroy-on-close
               >
+                <button
+                  type="button"
+                  class="edhr-fill-workspace__result-close"
+                  aria-label="关闭结果弹窗"
+                  @click="closeFillActionResultDialog"
+                >
+                  <Icon icon="ep:close" />
+                </button>
                 <div
                   class="edhr-fill-workspace__result-body"
                   :class="`is-${fillActionResultDialog.tone}`"
@@ -993,12 +1001,19 @@
                     <strong>{{ fillActionResultDialog.fillerText }}</strong>
                     <strong>{{ fillActionResultDialog.statusText }}</strong>
                   </div>
+                  <div
+                    v-if="fillActionResultDialog.failureReasonText"
+                    class="edhr-fill-workspace__result-reason"
+                  >
+                    <span>失败原因</span>
+                    <strong>{{ fillActionResultDialog.failureReasonText }}</strong>
+                  </div>
                 </div>
                 <template #footer>
                   <el-button
                     class="edhr-fill-workspace__result-confirm"
                     type="primary"
-                    @click="fillActionResultDialogVisible = false"
+                    @click="closeFillActionResultDialog"
                   >
                     确认
                   </el-button>
@@ -1741,6 +1756,7 @@ type FillActionResultDialogState = {
   orderText: string
   processText: string
   fillerText: string
+  failureReasonText: string
 }
 
 type BatchSharedFillScopeRange = {
@@ -1844,7 +1860,8 @@ const fillActionResultDialog = reactive<FillActionResultDialogState>({
   tone: 'success',
   orderText: '--',
   processText: '--',
-  fillerText: '--'
+  fillerText: '--',
+  failureReasonText: ''
 })
 const DEFAULT_FIELD_AUDIT_DRAFT_REASON_CATEGORY: EdhrFieldChangeReasonCategory = 'OPERATOR_ENTRY'
 const DEFAULT_FIELD_AUDIT_DRAFT_REASON_TEXT = '保存草稿'
@@ -3096,6 +3113,10 @@ const showFillActionResultDialog = (type: FillActionResultType) => {
   fillActionResultDialog.processText = resolveFillActionResultProcessText()
   fillActionResultDialog.fillerText = resolveFillActionResultFillerText()
   fillActionResultDialogVisible.value = true
+}
+
+const closeFillActionResultDialog = () => {
+  fillActionResultDialogVisible.value = false
 }
 
 const resolveAssistFieldTypeLabel = (field: AssistFillField) => {
@@ -6905,6 +6926,7 @@ onBeforeUnmount(() => {
 }
 
 :global(.edhr-fill-workspace__result-dialog .el-dialog) {
+  position: relative;
   max-width: calc(100vw - 32px);
   border-radius: 14px;
 }
@@ -6925,6 +6947,32 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 22px;
   text-align: center;
+}
+
+.edhr-fill-workspace__result-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #667085;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.edhr-fill-workspace__result-close:hover,
+.edhr-fill-workspace__result-close:focus-visible {
+  background: #f2f4f7;
+  color: #172033;
+  outline: none;
 }
 
 .edhr-fill-workspace__result-status {
