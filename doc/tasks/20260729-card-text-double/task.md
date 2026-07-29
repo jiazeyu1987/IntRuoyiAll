@@ -21,7 +21,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
@@ -35,6 +35,8 @@ ready_for_closeout
 - `docs/experience-index.md` 存在；本任务命中前端页面/样式、前端静态契约隔离、PowerShell/Git 脏工作区基线与同文件选择性暂存门禁。
 - 基线提交：`443621b4 chore: baseline dirty worktree before card text sizing`，保存本任务开始前既有脏改动。
 - 额外基线提交：`a6cfc066 chore: baseline preexisting worktree changes`，保存 RED 契约与任务文档的前置状态；本任务实现提交只包含源码样式和最终任务证据。
+- 实现提交：`79280913 fix: enlarge edhr assist card text`。
+- cleanup preview/apply 通过，未删除文件；最终验证结果 PASS。
 
 ## Cleanup Keep
 

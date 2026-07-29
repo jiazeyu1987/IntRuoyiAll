@@ -4,6 +4,7 @@
 
 - Result: PASS.
 - Scope: eDHR 填写辅助模式卡片内文字字号提升为原压缩规则的 2 倍。
+- Implementation commit: `79280913 fix: enlarge edhr assist card text`.
 - Files verified:
   - `IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`
   - `IntRuoyiFronted/tests/e2e/edhr-fill-workspace-card-density-static.spec.js`

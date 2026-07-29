@@ -35,7 +35,7 @@
 - Milestone 2: completed，复用现有辅助卡片密度静态契约并先更新为 2 倍字号期望，已得到 RED。
 - Milestone 3: completed，`ExecutionPage.vue` 中辅助网格卡片内继承字号、标签、输入/占位、选择项、按钮、校验和单位文字已提高为原压缩值 2 倍。
 - Milestone 4: completed，目标静态契约、相邻辅助模式静态契约和 `pnpm ts:check` 均通过。
-- Milestone 5: in_progress，cleanup preview/apply 已通过，经验沉淀已合并到 `docs/frontend-development.md` 和 `docs/experience-index.md`，待提交和推送。
+- Milestone 5: completed，cleanup preview/apply 已通过，经验沉淀已合并到 `docs/frontend-development.md` 和 `docs/experience-index.md`，实现提交 `79280913` 已完成，最终收尾记录待提交。
 
 ## Verification
 
@@ -52,3 +52,11 @@
 
 - 当前无实现与验证 blocker。
 - 非本任务并行改动未触碰：`IntRuoyiFronted/tests/e2e/edhr-batch-admin-preview-runtime-fix-static.spec.js` 和 `doc/tasks/20260729-edhr-fill-submitted-form-content/`。
+- 实现提交后新增/保留的非本任务并行改动仍未触碰：`IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue`、`IntRuoyiFronted/tests/e2e/edhr-batch-admin-preview-runtime-fix-static.spec.js` 和 `doc/tasks/20260729-edhr-fill-submitted-form-content/`。
+
+## Commits
+
+- Baseline: `443621b4 chore: baseline dirty worktree before card text sizing`。
+- Additional baseline: `a6cfc066 chore: baseline preexisting worktree changes`。
+- Implementation: `79280913 fix: enlarge edhr assist card text`。
+- Closeout: pending。
