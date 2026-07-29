@@ -11,6 +11,7 @@ BDD: smart scheduling seed collation matches live target -> Given 测试服 `sys
 - GREEN: 修改 `20260726_system_codex_smart_scheduling_test_items.sql` 中 `tmp_codex_smart_scheduling_case_seed`、`tmp_codex_smart_scheduling_case_ids`、`tmp_codex_smart_scheduling_checkpoint_seed` 的 DDL，显式 `DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci`。
 - GREEN: `python -X utf8 -m pytest script\tests\test_codex_smart_scheduling_test_items_seed.py script\tests\test_dcc_codex_test_items_seed.py -q` -> PASS，`9 passed in 0.20s`。
 - GREEN: `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260729-head-test-only-release\evidence\migration-policy-gate-r260729c.json` -> PASS。
+- GREEN: git-push -> PASS，提交 `7d5677c7ba913d9037ae9f22d8245af0b5061e01` 与 `d15521bd5acc17c78ecfdee063f555039b87bc67` 已推送到 `origin/codex/20260729-test-release-sql-collation`，工作区除 pytest/cache 忽略目录外 clean。
 
 ## Problem Record
 

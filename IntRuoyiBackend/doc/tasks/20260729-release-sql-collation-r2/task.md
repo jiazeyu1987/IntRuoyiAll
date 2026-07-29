@@ -10,7 +10,7 @@
 - [x] 编写 RED 回归测试覆盖临时表 collation 契约。
 - [x] 修复 SQL 临时表 DDL。
 - [x] 运行定向回归与 release migration policy gate。
-- [ ] 提交并推送修复提交，供下一轮干净发布 worktree 冻结。
+- [x] 提交并推送修复提交，供下一轮干净发布 worktree 冻结。
 
 ## Expected Verification
 
@@ -36,10 +36,11 @@
 
 ## Current Status
 
-ready_for_commit
+completed
 
 ## Verification Result
 
+- COMMIT: 实现提交 `7d5677c7ba913d9037ae9f22d8245af0b5061e01`，证据提交 `d15521bd5acc17c78ecfdee063f555039b87bc67`，已推送到 `origin/codex/20260729-test-release-sql-collation`。
 - RED: `python -X utf8 -m pytest script\tests\test_codex_smart_scheduling_test_items_seed.py -q` -> FAIL，缺少 `collate=utf8mb4_0900_ai_ci`。
 - GREEN: `python -X utf8 -m pytest script\tests\test_codex_smart_scheduling_test_items_seed.py script\tests\test_dcc_codex_test_items_seed.py -q` -> PASS，`9 passed`。
 - GREEN: `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260729-head-test-only-release\evidence\migration-policy-gate-r260729c.json` -> PASS。
