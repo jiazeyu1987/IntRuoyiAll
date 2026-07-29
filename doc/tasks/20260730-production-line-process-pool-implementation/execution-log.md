@@ -248,3 +248,13 @@
 - BLOCKER: real Playwright E2E was not run because no confirmed test tenant/account, device-account route/process/employee binding data, electronic-signature test identity, production work order/process-pool seed data, or approved runtime startup scope was available. Static/API/JUnit checks are not recorded as E2E pass.
 - Experience consolidation: updated `docs/worktree-memory.md#跨分支运行时契约复验门禁` and `docs/experience-index.md` to make future multi-worktree merges verify cross-branch runtime contracts before write-side effects.
 - Task status update: `task.md` and `task-state.json` set to `ready_for_closeout`; `verification-report.md` created.
+
+## 2026-07-30 Closeout
+
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-production-line-process-pool-implementation --mode preview` -> PASS after adding formal task docs to `Cleanup Keep`; delete set empty.
+- Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-production-line-process-pool-implementation --mode apply` -> PASS; deleted paths empty.
+- Worktree removal verification: F1/F2/F3/F4/F7/F8 branches were confirmed ancestors of `int_main`; all target absolute paths were under `D:\IntRuoyiWorktree\`.
+- Worktree cleanup note: F1 had one task-log staged residual before deletion; the main execution log already retained the F1 evidence. F4 left `node_modules` long-path residuals after `git worktree remove`; cleaned the exact task-owned directory with a long-path-aware script.
+- Worktree cleanup result: `git worktree list | Select-String -Pattern '20260730-ppool'` -> no matches; all six task paths `Test-Path` -> `false`.
+- Port registry result: all six `20260730-ppool-*` entries in `D:\IntRuoyiWorktree\.ports\worktree-ports.json` have `active=false`, `deletedAt=2026-07-30T03:22:34.334560+08:00`, and cleanup task `20260730-production-line-process-pool-implementation-worktree-removal`.
+- Task status update: task records set to `completed`; final commit and push verification pending in this closeout step.

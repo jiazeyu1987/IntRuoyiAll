@@ -2,7 +2,7 @@
 
 ## Status
 
-ready_for_closeout
+completed
 
 ## Passed Verification
 
@@ -13,6 +13,8 @@ ready_for_closeout
 - Frontline template static contracts: `node IntRuoyiFronted\src\views\mes\pro\feedback\frontline-template-render.spec.cjs` and `node IntRuoyiFronted\src\views\mes\pro\feedback\frontline-template-switch.spec.cjs` -> PASS.
 - Process-pool timeline static contracts: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-frontend-static.spec.cjs` and `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> PASS.
 - Merge guards: `git diff --check` and `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
+- Closeout cleanup: `task_closeout.py --mode preview/apply` -> PASS, no task files deleted after required documentation was listed in `Cleanup Keep`.
+- Worktree cleanup: six task worktrees removed; registry entries marked inactive/deleted; no `20260730-ppool` worktree remains.
 
 ## Blocked Or Not Claimed
 

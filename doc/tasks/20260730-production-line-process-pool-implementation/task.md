@@ -14,7 +14,7 @@
 - [x] 对未通过项退回修复并复验。
 - [x] 将通过的 6 个 worktree 逐个融合进 `int_main`。
 - [x] 在 `int_main` 运行系统级验证。
-- [ ] 提交、推送并完成 closeout。
+- [x] 提交、推送并完成 closeout。
 
 ## Expected Verification
 
@@ -36,7 +36,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Verification Summary
 
@@ -45,6 +45,9 @@ ready_for_closeout
 - SQL 契约：PASS，`test_mes_process_pool_sql.py` 3 tests。
 - 前端类型检查：PASS，`pnpm --dir IntRuoyiFronted ts:check`。
 - 前端静态契约：PASS，固定模板渲染/切换、时间轴前端、时间轴 mapper。
+- Closeout 清理：PASS，任务正式文档保留，临时删除项为 0。
+- Worktree 收尾：PASS，F1/F2/F3/F4/F7/F8 六个任务 worktree 已删除，端口登记表已标记 `deletedAt`。
+- Git 推送：最终 closeout 提交后执行 `git push origin int_main` 并复核本地不再 ahead。
 - 真实 Playwright E2E：未运行；缺少已确认的测试租户、设备账号绑定、可用电子签名、生产工单/工序池样本数据和本轮授权的运行态启动范围，未将静态/API 验证冒充 E2E。
 
 ## 设计约束检查
@@ -52,3 +55,12 @@ ready_for_closeout
 - `是否引入 fallback/降级/吞异常`：否。
 - `是否从根因和长期维护角度解决`：是，目标是新增正式工序池事件、组合提交、固定模板、设备账号切换、FIFO 和时间轴链路。
 - `是否存在临时补丁或绕过`：否。
+
+## Cleanup Keep
+
+- `doc/tasks/20260730-production-line-process-pool-implementation/request-analysis.md`
+- `doc/tasks/20260730-production-line-process-pool-implementation/prd.md`
+- `doc/tasks/20260730-production-line-process-pool-implementation/dev-plan.md`
+- `doc/tasks/20260730-production-line-process-pool-implementation/test-plan.md`
+- `doc/tasks/20260730-production-line-process-pool-implementation/test-report.md`
+- `doc/tasks/20260730-production-line-process-pool-implementation/task-state.json`
