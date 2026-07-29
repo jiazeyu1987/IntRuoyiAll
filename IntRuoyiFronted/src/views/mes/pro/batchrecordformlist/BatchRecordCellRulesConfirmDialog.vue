@@ -34,27 +34,36 @@
           class="batch-record-cell-rules-editor__navigation"
           data-fill-config-navigation="same-product-version"
         >
-          <el-button
-            plain
-            size="small"
-            :loading="navigationLoading"
-            :disabled="!canNavigatePrevious || loading || saving || navigationLoading"
-            @click="requestNavigation(-1)"
+          <span
+            class="batch-record-cell-rules-editor__current-form"
+            data-fill-config-current-form="name-version"
+            :title="currentFormTitleLabel"
           >
-            上一张
-          </el-button>
-          <span class="batch-record-cell-rules-editor__navigation-label">
-            {{ navigationDisplayLabel }}
+            {{ currentFormTitleLabel }}
           </span>
-          <el-button
-            plain
-            size="small"
-            :loading="navigationLoading"
-            :disabled="!canNavigateNext || loading || saving || navigationLoading"
-            @click="requestNavigation(1)"
-          >
-            下一张
-          </el-button>
+          <div class="batch-record-cell-rules-editor__navigation-controls">
+            <el-button
+              plain
+              size="small"
+              :loading="navigationLoading"
+              :disabled="!canNavigatePrevious || loading || saving || navigationLoading"
+              @click="requestNavigation(-1)"
+            >
+              上一张
+            </el-button>
+            <span class="batch-record-cell-rules-editor__navigation-label">
+              {{ navigationDisplayLabel }}
+            </span>
+            <el-button
+              plain
+              size="small"
+              :loading="navigationLoading"
+              :disabled="!canNavigateNext || loading || saving || navigationLoading"
+              @click="requestNavigation(1)"
+            >
+              下一张
+            </el-button>
+          </div>
           <el-tag
             v-if="navigationErrorMessage"
             class="batch-record-cell-rules-editor__navigation-error"
@@ -501,7 +510,7 @@ import { getSimpleUserList, type UserVO } from '@/api/system/user'
 
 defineOptions({ name: 'BatchRecordCellRulesConfirmDialog' })
 
-type ReportLike = Pick<BatchRecordReportVO, 'reportId' | 'reportName' | 'batchRecordName'>
+type ReportLike = Pick<BatchRecordReportVO, 'reportId' | 'reportName' | 'batchRecordName' | 'versionNo'>
 
 type RuleEditorRawRow = {
   height?: unknown
@@ -635,6 +644,13 @@ const reportId = computed(() => String(props.report?.reportId || '').trim())
 const reportName = computed(
   () => props.report?.reportName || props.report?.batchRecordName || props.report?.reportId || '-'
 )
+const currentFormTitleLabel = computed(() => {
+  const formName = String(
+    props.report?.reportName || props.report?.batchRecordName || props.report?.reportId || '-'
+  ).trim()
+  const versionNo = String(props.report?.versionNo || '').trim()
+  return versionNo ? `${formName} / ${versionNo}` : formName
+})
 const canNavigatePrevious = computed(() => Boolean(props.canNavigatePrevious))
 const canNavigateNext = computed(() => Boolean(props.canNavigateNext))
 const navigationLoading = computed(() => Boolean(props.navigationLoading))
@@ -1906,12 +1922,32 @@ watch(
 }
 
 .batch-record-cell-rules-editor__navigation {
-  justify-content: center;
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto minmax(120px, 1fr);
   gap: 8px;
+  justify-content: stretch;
   padding: 4px 8px;
   border: 1px solid #f1d36d;
   border-radius: 8px;
   background: #fff8d6;
+}
+
+.batch-record-cell-rules-editor__current-form {
+  min-width: 0;
+  overflow: hidden;
+  color: #5a3d05;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-record-cell-rules-editor__navigation-controls {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .batch-record-cell-rules-editor__navigation-label {
@@ -1929,6 +1965,7 @@ watch(
 .batch-record-cell-rules-editor__navigation-error {
   max-width: 180px;
   overflow: hidden;
+  justify-self: end;
   text-overflow: ellipsis;
 }
 
@@ -2441,7 +2478,16 @@ watch(
   }
 
   .batch-record-cell-rules-editor__navigation {
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: stretch;
+  }
+
+  .batch-record-cell-rules-editor__navigation-controls {
     justify-content: flex-start;
+  }
+
+  .batch-record-cell-rules-editor__navigation-error {
+    justify-self: start;
   }
 
   .batch-record-cell-rules-editor__workspace,
