@@ -104,12 +104,12 @@
 
 ### eDHR 管理员主区域已提交内容门禁
 
-- Trigger: Playwright 验证批记录管理员在批次详情主区域查看已提交批记录内容、`review-timeline.executionReviews.formViewModel`、`暂无已提交批记录内容`、或排查主区域是否读取草稿/快照。
-- Preflight check: 浏览器路径前先用当前后端登录态确认目标批次 `review-timeline` 业务码成功，目标 `execution.status` 属于已提交/已批准/完成态，且 `formViewModel.cellValuesJson` 含可页面断言的非空单元格值；若验证当前未提交批次，则必须明确记录 `execution.status=0` 或无 submitted execution，并把空态作为目标断言。
-- Blocker: 目标批次只有草稿执行记录、历史样本 `review-timeline` 返回 `eDHR 批次执行缺少工艺流程批记录配置流程配置或默认批记录`、本地库只有过期冻结快照样本、或缺少可写测试账号/签名密码时，必须记录 BLOCKED；不得用 task preview、历史 execution 直连、API-only、草稿 cell_values_json、旧样本截图或 admin 写入替代提交后页面验证。
-- Verification: 证据需包含成对 frontend/backend URL、租户/用户标签、批次 ID、任务 ID、execution ID/status、`review-timeline` HTTP/业务码、主区域只读原表或空态断言、`/task/preview` 请求数为 0、MES 写请求数为 0、artifact JSON 和截图路径。
-- Forbidden action: 禁止把“草稿有 cell_values_json”解释为管理员应显示内容；禁止在 admin 基线租户上临时造提交样本；禁止跳过 `review-timeline` 当前接口门禁后宣称提交后显示通过。
-- Evidence: `doc/tasks/20260729-admin-submitted-content-e2e/verification-report.md`。
+- Trigger: Playwright 验证批记录管理员在批次详情主区域查看已提交批记录内容、无已提交内容时显示空表单、`review-timeline.executionReviews.formViewModel`、`selectedEmptyTaskPreviewFormViewModel`、或排查主区域是否读取草稿/快照。
+- Preflight check: 浏览器路径前先用当前后端登录态确认目标批次 `review-timeline` 业务码成功。若验证已提交内容，目标 `execution.status` 必须属于已提交/已批准/完成态，且 `formViewModel.cellValuesJson` 含可页面断言的非空单元格值。若验证无已提交内容，必须明确记录 `execution.status=0` 或无 submitted execution，并确认 `task/preview` 仅用于取得正式模板壳。
+- Blocker: 目标批次只有草稿执行记录但页面展示草稿 `cell_values_json`、空表单直接绑定 `selectedTaskPreview.formViewModel` 未清空单元值、历史样本 `review-timeline` 返回 `eDHR 批次执行缺少工艺流程批记录配置流程配置或默认批记录`、本地库只有过期冻结快照样本、或缺少可写测试账号/签名密码时，必须记录 BLOCKED；不得用历史 execution 直连、API-only、草稿 cell_values_json、旧样本截图或 admin 写入替代页面验证。
+- Verification: 证据需包含成对 frontend/backend URL、租户/用户标签、批次 ID、任务 ID、execution ID/status、`review-timeline` HTTP/业务码、主区域只读原表或空表单断言、submitted 场景 `/task/preview` 请求数为 0、空表单场景 `task/preview` HTTP/业务码且 `executionCreated=false`、MES 写请求数为 0、artifact JSON 和截图路径。
+- Forbidden action: 禁止把“草稿有 cell_values_json”解释为管理员应显示内容；禁止把 task preview 的单元值冒充已提交内容；禁止在 admin 基线租户上临时造提交样本；禁止跳过 `review-timeline` 当前接口门禁后宣称提交后显示通过。
+- Evidence: `doc/tasks/20260729-admin-submitted-content-e2e/verification-report.md`；`doc/tasks/20260729-edhr-fill-submitted-form-content/verification-report.md`。
 ## eDHR 批次执行数据库夹具与证据文件门禁
 
 - Trigger: 运行 `edhr-batch-execution-real-flow.e2e.js`、复跑 eDHR 批次执行真实 E2E、或脚本默认写入 `doc/tasks/<task-id>/real-e2e-evidence.md`。

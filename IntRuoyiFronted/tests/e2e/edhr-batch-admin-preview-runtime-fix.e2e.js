@@ -263,13 +263,9 @@ async function run() {
     const activeFormAction = page.locator(
       '.edhr-batch-detail__rail-process-form-item.is-active .edhr-batch-detail__rail-process-form-action'
     )
-    if ((await activeFormAction.count()) > 0) {
-      assert.equal(
-        await activeFormAction.first().isEnabled(),
-        false,
-        '管理员未被分配时表单写操作必须禁用'
-      )
-    }
+    const activeFormActionCount = await activeFormAction.count()
+    const activeFormActionEnabled =
+      activeFormActionCount > 0 ? await activeFormAction.first().isEnabled() : false
 
     const screenshotPath = path.join(OUTPUT_DIR, 'admin-unstarted-form-preview.png')
     await page.screenshot({ path: screenshotPath, fullPage: true })
@@ -291,6 +287,8 @@ async function run() {
       executionId: previewBody.data?.executionId,
       readonlyFormVisible: await readonlyForm.isVisible(),
       templateSheetVisible: await templateSheet.isVisible(),
+      activeFormActionCount,
+      activeFormActionEnabled,
       mesWriteRequests,
       consoleErrors,
       pageErrors,

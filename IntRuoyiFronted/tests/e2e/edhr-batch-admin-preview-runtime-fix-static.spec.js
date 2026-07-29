@@ -31,23 +31,27 @@ assert(
 
 assert(
   pageSource.includes('const selectedPreviewFormViewModel = computed<EdhrBatchExecutionReviewFormViewModel | undefined>(') &&
-    pageSource.includes('() => selectedExecution.value?.formViewModel') &&
+    pageSource.includes('selectedExecution.value?.formViewModel || selectedEmptyTaskPreviewFormViewModel.value') &&
     !pageSource.includes('selectedExecution.value?.formViewModel || selectedTaskPreview.value?.formViewModel'),
-  '主区域辅助预览也只能读取已提交 execution 的 formViewModel，不能读取 task preview。'
+  '主区域可用 task preview 渲染空表单壳，但不得直接读取 task preview 单元值。'
 )
 
 assert(
-  !pageSource.includes('getEdhrBatchTaskPreview') &&
-    !pageSource.includes('selectedTaskPreview') &&
-    !pageSource.includes('taskPreviewLoading') &&
-    !pageSource.includes('taskPreviewError') &&
+  pageSource.includes('getEdhrBatchTaskPreview') &&
+    pageSource.includes('const selectedTaskPreview = ref<EdhrBatchExecutionTaskPreviewRespVO>()') &&
+    pageSource.includes('const selectedEmptyTaskPreviewFormViewModel = computed<EdhrBatchExecutionReviewFormViewModel | undefined>(() =>') &&
+    pageSource.includes('cellValuesJson: EMPTY_FORM_CELL_VALUES_JSON') &&
+    pageSource.includes('signatureCellMarkers: []') &&
     !pageSource.includes(':form-view-model="selectedTaskPreview.formViewModel"'),
-  '批次详情主区域不得调用 task preview、渲染空模板或草稿预览。'
+  '无已提交内容时必须加载正式预览模板渲染空表单，并清空草稿单元值和签名标记。'
 )
 
 assert(
-  pageSource.includes('暂无已提交批记录内容'),
-  '没有已提交 execution 时，主区域必须明确提示暂无已提交内容。'
+  pageSource.includes(':form-view-model="selectedPreviewFormViewModel"') &&
+    pageSource.includes(':signature-records="selectedPreviewSignatureRecords"') &&
+    pageSource.includes('当前节点没有可预览的批记录表单') &&
+    !pageSource.includes('暂无已提交批记录内容'),
+  '没有已提交 execution 时，主区域必须优先显示空白表单壳；只有缺少可预览模板时才显示无法预览空态。'
 )
 
 console.log('eDHR batch admin submitted content static contract passed')

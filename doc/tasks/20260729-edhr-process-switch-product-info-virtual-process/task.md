@@ -9,8 +9,8 @@
 - [x] 定位切换工序与切换填写人的错误分组链路。
 - [x] 建立聚焦回归测试并记录 RED。
 - [x] 实施最小正式修复。
-- [ ] 运行目标测试、相邻回归和类型检查。
-- [ ] 完成真实页面只读 E2E 验证。
+- [x] 运行目标测试、相邻回归和类型检查。
+- [x] 完成真实页面只读 E2E 验证。
 - [ ] 完成任务收尾、提交并推送。
 
 ## Expected Verification
@@ -38,4 +38,15 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Cleanup Candidates
+
+- `doc/tasks/20260729-edhr-process-switch-product-info-virtual-process/bug-regression-evidence.md`
+- `doc/tasks/20260729-edhr-process-switch-product-info-virtual-process/e2e-artifacts/`
+
+## Final Verification
+
+- 目标静态合同、相邻回归、`pnpm ts:check`、真实页面只读 E2E、经验门禁检查和回归证据校验均通过。
+- task-closeout-cleanup preview/apply 均通过，仅清理本任务临时证据文件。
+- 实现提交已在 `origin/int_main`；最终收尾记录正在按任务边界提交并推送。
