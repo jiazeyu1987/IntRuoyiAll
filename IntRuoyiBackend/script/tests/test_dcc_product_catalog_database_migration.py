@@ -14,7 +14,7 @@ def test_product_catalog_migration_declares_global_table_and_seed_rows() -> None
     assert "`tenant_id` bigint NOT NULL DEFAULT 0 COMMENT '租户编号'" in sql
     assert "`uk_dcc_product_catalog_source_row`" in sql
     assert "ON DUPLICATE KEY UPDATE `id` = `id`" in sql
-    assert sql.count("('子公司产品',") == 32
+    assert "('子公司产品'," not in sql
     assert sql.count("('瑛泰产品',") == 181
 
 

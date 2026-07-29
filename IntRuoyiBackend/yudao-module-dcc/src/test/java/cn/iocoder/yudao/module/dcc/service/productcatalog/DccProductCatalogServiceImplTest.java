@@ -38,9 +38,9 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setCategoryLevel1("输注、护理和防护器械");
         reqVO.setCategoryLevel2("止血带");
         reqVO.setProductStatus("S");
-        reqVO.setDataSource("子公司产品");
+        reqVO.setDataSource("瑛泰产品");
         when(productCatalogMapper.selectPage(reqVO)).thenReturn(
-                new PageResult<>(List.of(row(10L, "子公司产品", 4, "无源止血器")), 1L));
+                new PageResult<>(List.of(row(10L, "瑛泰产品", 4, "无源止血器")), 1L));
 
         PageResult<DccProductCatalogRespVO> result = service.getProductCatalogPage(reqVO);
 
@@ -54,8 +54,8 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
 
     @Test
     void createProductCatalogShouldInsertDatabaseRowWithNextSourceRowNumber() {
-        DccProductCatalogSaveReqVO reqVO = request("子公司产品", "新增产品");
-        when(productCatalogMapper.selectMaxOriginalRowNo("子公司产品")).thenReturn(33);
+        DccProductCatalogSaveReqVO reqVO = request("瑛泰产品", "新增产品");
+        when(productCatalogMapper.selectMaxOriginalRowNo("瑛泰产品")).thenReturn(181);
         doAnswer(invocation -> {
             invocation.<DccProductCatalogDO>getArgument(0).setId(100L);
             return 1;
@@ -63,14 +63,14 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
 
         DccProductCatalogRespVO result = service.createProductCatalog(reqVO);
 
-        assertEquals(34, result.getOriginalRowNo());
+        assertEquals(182, result.getOriginalRowNo());
         assertEquals("新增产品", result.getProduct());
         assertEquals("新增项目", result.getProjectName());
         assertEquals("NEW", result.getProjectCode());
         ArgumentCaptor<DccProductCatalogDO> captor = ArgumentCaptor.forClass(DccProductCatalogDO.class);
         verify(productCatalogMapper).insert(captor.capture());
-        assertEquals(34, captor.getValue().getOriginalRowNo());
-        assertEquals("子公司产品", captor.getValue().getDataSource());
+        assertEquals(182, captor.getValue().getOriginalRowNo());
+        assertEquals("瑛泰产品", captor.getValue().getDataSource());
         assertEquals("新增项目", captor.getValue().getProjectName());
         assertEquals("NEW", captor.getValue().getProjectCode());
     }
@@ -96,10 +96,10 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
 
     @Test
     void deleteProductCatalogShouldDeleteDatabaseRowByStableRowKey() {
-        when(productCatalogMapper.selectByRowKey("子公司产品", 8))
-                .thenReturn(row(30L, "子公司产品", 8, "待删除产品"));
+        when(productCatalogMapper.selectByRowKey("瑛泰产品", 8))
+                .thenReturn(row(30L, "瑛泰产品", 8, "待删除产品"));
 
-        service.deleteProductCatalog("子公司产品", 8);
+        service.deleteProductCatalog("瑛泰产品", 8);
 
         verify(productCatalogMapper).deleteById(30L);
     }

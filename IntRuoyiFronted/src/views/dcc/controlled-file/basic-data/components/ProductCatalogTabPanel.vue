@@ -398,7 +398,6 @@ const productStatusOptions = [
 ]
 
 const dataSourceOptions = [
-  { label: '子公司产品', value: '子公司产品' },
   { label: '瑛泰产品', value: '瑛泰产品' }
 ]
 
@@ -489,7 +488,7 @@ const queryParams = reactive<DccProductCatalogPageQuery>({
 })
 
 const formData = ref<DccProductCatalogUpdateReqVO>({
-  dataSource: '子公司产品',
+  dataSource: '瑛泰产品',
   originalRowNo: 0,
   categoryLevel1: '',
   categoryLevel2: '',
@@ -517,7 +516,7 @@ const formRules = reactive<FormRules>({
 
 const resetFormData = () => {
   formData.value = {
-    dataSource: '子公司产品',
+    dataSource: '瑛泰产品',
     originalRowNo: 0,
     categoryLevel1: '',
     categoryLevel2: '',

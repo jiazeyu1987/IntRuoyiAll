@@ -136,6 +136,7 @@
     "e2e:dcc:project-code-basic-data:static": "node tests/e2e/dcc-project-code-basic-data-static.spec.js",
     "e2e:dcc:metadata-file-number-optional:static": "node tests/e2e/dcc-metadata-file-number-optional-static.spec.js",
     "e2e:dcc:basic-data-product-catalog:static": "node tests/e2e/dcc-basic-data-product-catalog-static.spec.js",
+    "e2e:dcc:product-catalog-source-options:static": "node scripts/dcc-product-catalog-source-options.test.mjs",
     "e2e:dcc:basic-data-global-submenu:static": "node tests/e2e/dcc-basic-data-global-submenu-static.spec.js",
     "e2e:dcc:position-summary:static": "node tests/e2e/dcc-position-summary-static.spec.js",
     "e2e:dcc:route-summary:static": "node tests/e2e/dcc-route-summary-static.spec.js",
