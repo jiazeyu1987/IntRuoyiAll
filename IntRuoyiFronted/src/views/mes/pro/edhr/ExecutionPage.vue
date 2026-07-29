@@ -6121,7 +6121,7 @@ onBeforeUnmount(() => {
 }
 
 .edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-label {
-  font-size: 15px;
+  font-size: 7.5px;
 }
 
 .edhr-fill-workspace__assist-control {
@@ -6156,7 +6156,7 @@ onBeforeUnmount(() => {
 }
 
 .edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-input__inner) {
-  font-size: 14px;
+  font-size: 7px;
 }
 
 .edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-select__placeholder),
@@ -6165,7 +6165,7 @@ onBeforeUnmount(() => {
 .edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-radio),
 .edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-checkbox__label),
 .edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-button) {
-  font-size: 14px;
+  font-size: 7px;
 }
 
 .edhr-fill-workspace__assist-control :deep(.el-textarea__inner) {
@@ -6820,7 +6820,7 @@ onBeforeUnmount(() => {
 }
 
 .edhr-fill-workspace__assist-grid .edhr-page-shell__unit {
-  font-size: 14px;
+  font-size: 7px;
 }
 
 .edhr-page-shell__signature-summary,

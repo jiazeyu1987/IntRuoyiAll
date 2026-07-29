@@ -46,18 +46,18 @@ assert.match(
 )
 assert.match(
   assistGridLabelRule,
-  /font-size:\s*15px/,
-  '辅助填写网格单元格标题必须从当前 7.5px 增大一倍到 15px。'
+  /font-size:\s*7\.5px/,
+  '辅助填写网格单元格标题必须从当前 15px 缩小为 7.5px。'
 )
 assert.match(
   assistGridControlTextRule,
-  /font-size:\s*14px/,
-  '辅助填写网格单元格输入提示词必须从当前 7px 增大一倍到 14px。'
+  /font-size:\s*7px/,
+  '辅助填写网格单元格输入提示词必须从当前 14px 缩小为 7px。'
 )
 assert.match(
   assistGridControlPromptRule,
-  /font-size:\s*14px/,
-  '辅助填写网格单元格选择、文本域等提示词必须从当前 7px 增大一倍到 14px。'
+  /font-size:\s*7px/,
+  '辅助填写网格单元格选择、文本域等提示词必须从当前 14px 缩小为 7px。'
 )
 assert.match(
   assistGridValidationRule,
@@ -66,8 +66,8 @@ assert.match(
 )
 assert.match(
   assistGridUnitRule,
-  /font-size:\s*14px/,
-  '辅助填写网格单元格单位文字必须从当前 7px 增大一倍到 14px。'
+  /font-size:\s*7px/,
+  '辅助填写网格单元格单位文字必须从当前 14px 缩小为 7px。'
 )
 assert.match(
   assistControlRule,
