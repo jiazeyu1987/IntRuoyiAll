@@ -21,3 +21,9 @@
   - `src/views/mes/pro/edhr/ExecutionPage.vue(4966,29)`：辅助预览 `cellValues` 过滤器类型守卫要求了可选 `valueType` 字段。
   - `src/views/mes/pro/edhr/ExecutionPage.vue(5058,67)`：辅助预览批次执行 ID 字符串传入只接受 number 的解析函数。
 - Implementation: 在 `ExecutionPage.vue` 的提交执行电子签名弹框内部增加 `edhr-fill-workspace__submit-sign-close` 图标按钮，点击调用 `closeSubmitDialog` 关闭并重置签名弹框；保持 `:append-to-body="false"`、遮罩关闭禁用和 ESC 关闭禁用。
+- Experience consolidation: 合并静态合同缩进定位经验到 `docs/e2e-rules.md#Windows 换行与脚本行为同步`，并在 `docs/experience-index.md` 增加关键词路由。
+- Frontend evidence validation: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-electronic-signature-close-button/frontend-feature-evidence.md` -> PASS。
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-electronic-signature-close-button --mode preview` -> PASS，keep 4，delete none，blocked none，warnings none。
+- Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-electronic-signature-close-button --mode apply` -> PASS，deleted none。
+- Commit tracking: 目标静态合同和任务初始证据已进入 `44bee014`；关闭按钮实现已进入当前 HEAD 历史 `dbdcb76b`。这些提交由并行基线提交保留，当前收尾只提交本任务最终记录和经验门禁增量。
+- Current status: completed，最终仍记录 `pnpm ts:check` 的既有/并行阻塞，目标行为合同已通过。

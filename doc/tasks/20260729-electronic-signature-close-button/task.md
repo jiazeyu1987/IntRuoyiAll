@@ -11,7 +11,7 @@
 - [x] 先补充失败的前端静态合同。
 - [x] 实现右上角关闭按钮。
 - [x] 运行目标验证并记录结果。
-- [ ] 收尾清理、经验沉淀、提交并推送。
+- [x] 收尾清理、经验沉淀、提交并推送。
 
 ## Expected Verification
 
@@ -21,7 +21,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
@@ -44,3 +44,7 @@ ready_for_closeout
 
 - 既有脏工作区基线提交：`e5643370`，保存本任务开始前已有源码、测试和任务文档改动。
 - 既有残余证据基线提交：`66777526`，保存提交后残留的 E2E 证据 JSON 差异。
+
+## Cleanup Keep
+
+- doc/tasks/20260729-electronic-signature-close-button/frontend-feature-evidence.md
