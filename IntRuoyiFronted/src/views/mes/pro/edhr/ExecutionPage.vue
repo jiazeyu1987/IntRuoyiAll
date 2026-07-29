@@ -1909,6 +1909,9 @@ const assistSwitchDialogTitle = computed(() => {
   if (assistSwitchDialogType.value === 'filler') return '切换填写人'
   return '切换任务 / 批次'
 })
+const assistSwitchDialogWidth = computed(() =>
+  assistSwitchDialogType.value === 'process' ? 'min(1560px, calc(100vw - 280px))' : '680px'
+)
 
 const parsePositiveNumber = (value: unknown) => {
   const numericValue = Number(value)
@@ -5637,12 +5640,23 @@ onBeforeUnmount(() => {
   padding-top: 8px;
 }
 
+:global(.edhr-fill-workspace__assist-switch-dialog.is-process-switch-dialog .el-dialog__body) {
+  max-height: calc(100vh - 180px);
+  overflow: hidden;
+}
+
 .edhr-fill-workspace__assist-switch-menu {
   display: flex;
   flex-direction: column;
   gap: 8px;
   max-height: min(60vh, 520px);
   overflow: auto;
+}
+
+.edhr-fill-workspace__assist-switch-process-menu {
+  min-height: min(72vh, 760px);
+  max-height: calc(100vh - 180px);
+  overflow: hidden;
 }
 
 .edhr-fill-workspace__assist-switch-menu-head {
@@ -5678,6 +5692,23 @@ onBeforeUnmount(() => {
   border-radius: 6px;
   background: var(--edhr-assist-process-state-background);
   cursor: pointer;
+}
+
+.edhr-fill-workspace__assist-switch-process-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-auto-rows: minmax(64px, auto);
+  gap: 8px;
+  align-content: start;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.edhr-fill-workspace__assist-process-card {
+  min-height: 64px;
+  border-left: 4px solid #0f8f4f;
+  box-shadow: 0 6px 16px rgba(23, 32, 51, 0.06);
 }
 
 .edhr-fill-workspace__assist-switch-option.is-completed {
@@ -5716,10 +5747,40 @@ onBeforeUnmount(() => {
   font-weight: 800;
 }
 
+.edhr-fill-workspace__assist-process-card .edhr-fill-workspace__assist-switch-option-main {
+  min-width: 0;
+}
+
+.edhr-fill-workspace__assist-process-card .edhr-fill-workspace__assist-switch-option-main > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .edhr-fill-workspace__assist-switch-option-sub {
   color: #5b6678;
   font-size: 12px;
   line-height: 1.35;
+}
+
+.edhr-fill-workspace__assist-process-card .edhr-fill-workspace__assist-switch-option-sub {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+@media (max-width: 1200px) {
+  .edhr-fill-workspace__assist-switch-process-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .edhr-fill-workspace__assist-switch-process-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .edhr-fill-workspace__assist-list {
