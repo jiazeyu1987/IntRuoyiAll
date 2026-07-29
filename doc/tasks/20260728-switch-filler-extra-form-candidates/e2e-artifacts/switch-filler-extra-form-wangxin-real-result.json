@@ -378,7 +378,195 @@
     "extraTaskIds": [
       "7233",
       "7234"
-    ]
+    ],
+    "selectedOpenPreview": {
+      "taskId": 7233,
+      "executionId": null,
+      "workTaskId": 2300,
+      "assistUserId": 152,
+      "routeProcessId": 928609,
+      "formBindingKey": "FORM_BINDING_1784782156927_1",
+      "formTemplateId": 25,
+      "formTemplateName": "损耗单",
+      "formTemplateVersionId": 27,
+      "formTemplateVersionNo": "V2.0",
+      "formCenterInstanceId": 431,
+      "executionPageQuery": {
+        "id": null,
+        "batchExecutionId": 900000000910,
+        "batchTaskId": 7233,
+        "batchCode": "CODEX-SWITCH-EXTRA-1785294366393",
+        "batchRecordDefinitionId": null,
+        "batchRecordVersionId": null,
+        "recordCategory": "INTERNAL_RECORD",
+        "validationProfile": "INTERNAL_TRACE",
+        "recordbookEnabled": false,
+        "permissionScopeId": null,
+        "routeBindingId": 9000252222,
+        "routeBindingSnapshotHash": null,
+        "formSlotType": "LOSS_REPORT",
+        "formBindingKey": "FORM_BINDING_1784782156927_1",
+        "formTemplateId": 25,
+        "formTemplateName": "损耗单",
+        "formTemplateVersionId": 27,
+        "formTemplateVersionNo": "V2.0",
+        "formTemplateJimuSchemaJson": "{\"assistRows\":[{\"rowKey\":\"ASSIST_GRID_U795_R0_C0\",\"description\":\"默认辅助项：编号：INT/RE/8.3-09版本：E/1\",\"sort\":1,\"fields\":[{\"rowIndex\":3,\"columnIndex\":1}]},{\"rowKey\":\"ASSIST_GRID_U795_R0_C1\",\"description\":\"默认辅助项：生产过程损耗报告单\",\"sort\":2,\"fields\":[{\"rowIndex\":3,\"columnIndex\":3}]},{\"rowKey\":\"ASSIST_GRID_U795_R0_C2\",\"description\":\"默认辅助项：产品名称\\u0007\",\"sort\":3,\"fields\":[{\"rowIndex\":4,\"columnIndex\":1}]},{\"rowKey\":\"ASSIST_GRID_U795_R0_C3\",\"description\":\"默认辅助项：\\u0007\",\"sort\":4,\"fields\":[{\"rowIndex\":4,\"columnIndex\":3}]},{\"rowKey\":\"ASSIST_GRID_U795_R0_C4\",\"description\":\"默认辅助项：型号规格\\u0007\",\"sort\":5,\"fields\":[{\"rowIndex\":5,\"columnIndex\":1}]},{\"rowKey\":\"ASSIST_GRID_U795_R0_C5\",\"description\":\"默认辅助项：批号\\u0007\",\"sort\":6,\"fields\":[{\"rowIndex\":5,\"columnIndex\":3}]},{\"rowKey\":\"ASSIST_GRID_U795_R0_C6\",\"description\":\"默认辅助项：生产数量\\u0007\",\"sort\":7,\"fields\":[{\"rowIndex\":6,\"columnIndex\":1}]},{\"rowKey\":\"ASSIST_GRID_U795_R0_C7\",\"description\":\"默认辅助项：损耗描述：\",\"sort\":8,\"fields\":[{\"rowIndex\":6,\"columnIndex\":3}]},{\"rowKey\":\"ASSIST_GRID_U795_R1_C0\",\"description\":\"默认辅助项：不合格日期\",\"sort\":9,\"fields\":[{\"rowIndex\":7,\"columnIndex\":1}]},{\"rowKey\":\"ASSIST_GRID_U795_R1_C1\",\"description\":\"默认辅助项：工序名称\",\"sort\":10,\"fields\":[{\"rowIndex\":7,\"columnIndex\":3}]},{\"rowKey\":\"ASSIST_GRID_U795_R1_C2\",\"description\":\"默认辅助项：不合格数量\",\"sort\":11,\"fields\":[{\"rowIndex\":8,\"columnIndex\":1}]},{\"rowKey\":\"ASSIST_GRID_U795_R1_C3\",\"description\":\"默认辅助项：不合格原因\",\"sort\":12,\"fields\":[{\"rowIndex\":8,\"columnIndex\":3}]},{\"rowKey\":\"ASSIST_GRID_U795_R1_C4\",\"description\":\"默认辅助项：处置方式\",\"sort\":13,\"fields\":[{\"rowIndex\":9,\"columnIndex\":1}]},{\"rowKey\":\"ASSIST_GRID_U795_R1_C5\",\"description\":\"默认辅助项：生产人员/日期\",\"sort\":14,\"fields\":[{\"rowIndex\":9,\"columnIndex\":3}]},{\"rowKey\":\"ASSIST_GRID_U795_R1_C6\",\"description\":\"默认辅助项：检验人员\",\"sort\":15,\"fields\":[{\"rowIndex\":10,\"columnIndex\":1}]},{\"rowKey\":\"ASSIST_GRID_U795_R1_C7\",\"description\":\"默认辅助项：确认/日期\",\"sort\":16,\"fields\":[{\"rowIndex\":10,\"columnIndex\":3}]},{\"rowKey\":\"ASSIST_GRID_U795_R2_C0\",\"description\":\"默认辅助项：□报废□其他：______________\",\"sort\":17,\"fields\":[{\"rowIndex\":11,\"columnIndex\":1}]},{\"rowKey\":\"ASSIST_GRID_U795_R2_C1\",\"description\":\"默认辅助项：批准人/日期：\\u0007\",\"sort\":18,\"fields\":[{\"rowIndex\":11,\"columnIndex\":3}]},{\"rowKey\":\"ASSIST_GRID_U795_R2_C2\",\"description\":\"默认辅助项：备注：记录表单填写应清晰完整，不得随意涂改；未填写区域应用“/”划掉。\",\"sort\":19,\"fields\":[{\"rowIndex\":12,\"columnIndex\":1}]}],\"fillAssignments\":[{\"scopeKey\":\"ASSIST_GRID_U795_R0_C0\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：编号：INT/RE/8.3-09版本：E/1\"},{\"scopeKey\":\"ASSIST_GRID_U795_R0_C1\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：生产过程损耗报告单\"},{\"scopeKey\":\"ASSIST_GRID_U795_R0_C2\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：产品名称\\u0007\"},{\"scopeKey\":\"ASSIST_GRID_U795_R0_C3\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：\\u0007\"},{\"scopeKey\":\"ASSIST_GRID_U795_R0_C4\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：型号规格\\u0007\"},{\"scopeKey\":\"ASSIST_GRID_U795_R0_C5\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：批号\\u0007\"},{\"scopeKey\":\"ASSIST_GRID_U795_R0_C6\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：生产数量\\u0007\"},{\"scopeKey\":\"ASSIST_GRID_U795_R0_C7\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：损耗描述：\"},{\"scopeKey\":\"ASSIST_GRID_U795_R1_C0\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：不合格日期\"},{\"scopeKey\":\"ASSIST_GRID_U795_R1_C1\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：工序名称\"},{\"scopeKey\":\"ASSIST_GRID_U795_R1_C2\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：不合格数量\"},{\"scopeKey\":\"ASSIST_GRID_U795_R1_C3\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：不合格原因\"},{\"scopeKey\":\"ASSIST_GRID_U795_R1_C4\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：处置方式\"},{\"scopeKey\":\"ASSIST_GRID_U795_R1_C5\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：生产人员/日期\"},{\"scopeKey\":\"ASSIST_GRID_U795_R1_C6\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：检验人员\"},{\"scopeKey\":\"ASSIST_GRID_U795_R1_C7\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：确认/日期\"},{\"scopeKey\":\"ASSIST_GRID_U795_R2_C0\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：□报废□其他：______________\"},{\"scopeKey\":\"ASSIST_GRID_U795_R2_C1\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：批准人/日期：\\u0007\"},{\"scopeKey\":\"ASSIST_GRID_U795_R2_C2\",\"candidateSourceType\":\"USERS\",\"candidateSourceIds\":[795],\"completionPolicy\":\"ANY_ONE\",\"enabled\":true,\"remark\":\"默认辅助项：备注：记录表单填写应清晰完整，不得随意涂改；未填写区域应用“/”划掉。\"}]}",
+        "formTemplateRecognizedFields": [
+          {
+            "fieldCode": "int_re_8_3_09_e_1",
+            "label": "编号：INT/RE/8.3-09版本：E/1",
+            "fieldType": "textarea",
+            "required": false
+          },
+          {
+            "fieldCode": "field2",
+            "label": "生产过程损耗报告单",
+            "fieldType": "input",
+            "required": false
+          },
+          {
+            "fieldCode": "field3",
+            "label": "产品名称\u0007",
+            "fieldType": "input",
+            "required": false
+          },
+          {
+            "fieldCode": "field4",
+            "label": "\u0007",
+            "fieldType": "input",
+            "required": false
+          },
+          {
+            "fieldCode": "field5",
+            "label": "型号规格\u0007",
+            "fieldType": "input",
+            "required": false
+          },
+          {
+            "fieldCode": "field6",
+            "label": "批号\u0007",
+            "fieldType": "input",
+            "required": false
+          },
+          {
+            "fieldCode": "field7",
+            "label": "生产数量\u0007",
+            "fieldType": "input",
+            "required": false
+          },
+          {
+            "fieldCode": "field8",
+            "label": "损耗描述：",
+            "fieldType": "input",
+            "required": false
+          },
+          {
+            "fieldCode": "field9",
+            "label": "不合格日期",
+            "fieldType": "date",
+            "required": false
+          },
+          {
+            "fieldCode": "field10",
+            "label": "工序名称",
+            "fieldType": "input",
+            "required": false
+          },
+          {
+            "fieldCode": "field11",
+            "label": "不合格数量",
+            "fieldType": "checkbox",
+            "required": false
+          },
+          {
+            "fieldCode": "field12",
+            "label": "不合格原因",
+            "fieldType": "checkbox",
+            "required": false
+          },
+          {
+            "fieldCode": "field13",
+            "label": "处置方式",
+            "fieldType": "input",
+            "required": false
+          },
+          {
+            "fieldCode": "field14",
+            "label": "生产人员/日期",
+            "fieldType": "date",
+            "required": false
+          },
+          {
+            "fieldCode": "field15",
+            "label": "检验人员",
+            "fieldType": "input",
+            "required": false
+          },
+          {
+            "fieldCode": "field16",
+            "label": "确认/日期",
+            "fieldType": "date",
+            "required": false
+          },
+          {
+            "fieldCode": "field17",
+            "label": "□报废□其他：______________",
+            "fieldType": "checkbox",
+            "required": false
+          },
+          {
+            "fieldCode": "field18",
+            "label": "批准人/日期：\u0007",
+            "fieldType": "date",
+            "required": false
+          },
+          {
+            "fieldCode": "field19",
+            "label": "备注：记录表单填写应清晰完整，不得随意涂改；未填写区域应用“/”划掉。",
+            "fieldType": "textarea",
+            "required": false
+          }
+        ],
+        "formCenterInstanceId": 431,
+        "instanceScope": "BATCH_SHARED",
+        "sharedFormKey": "LOSS_REPORT_25",
+        "fillableScopeJson": "{\"ranges\": [{\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 0}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 1}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 2}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 3}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 4}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 5}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 6}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 7}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 8}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 9}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 10}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 11}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 12}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 13}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 14}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 15}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 16}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 17}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 18}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 19}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 20}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 21}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 22}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 23}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 24}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 25}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 26}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 27}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 28}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 29}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 30}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 31}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 32}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 33}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 34}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 35}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 36}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 37}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 38}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 39}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 40}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 41}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 42}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 43}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 44}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 45}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 46}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 47}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 48}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 49}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 50}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 51}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 52}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 53}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 54}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 55}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 56}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 57}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 58}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 59}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 60}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 61}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 62}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 63}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 64}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 65}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 66}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 67}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 68}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 69}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 70}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 71}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 72}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 73}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 74}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 75}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 76}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 77}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 78}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 79}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 80}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 81}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 82}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 83}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 84}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 85}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 86}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 87}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 88}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 89}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 90}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 91}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 92}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 93}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 94}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 95}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 96}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 97}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 98}, {\"endRow\": 99999, \"startRow\": 0, \"sourceTableIndex\": 99}]}",
+        "requiredPolicy": "REQUIRED",
+        "requiredConditionJson": null,
+        "ownerRoleKey": "PRODUCTION",
+        "archiveVisibility": "FINAL_DHR",
+        "slotConfigSnapshotHash": "8ca66b483094d7215cb4b3cee51b6d8e9136a0702103a4ada100393834cbbcdb",
+        "workTaskId": 2300,
+        "assistUserId": 152,
+        "assistRows": []
+      }
+    },
+    "selectedBatchDetailPreview": {
+      "taskCount": 25,
+      "selectedTask": {
+        "id": 7233,
+        "nodeType": "ROUTE_FORM",
+        "routeProcessId": 928609,
+        "routeProcessSort": 1,
+        "batchRecordSort": 2,
+        "processName": "粗洗工序",
+        "batchRecordReportName": "损耗单",
+        "formSlotType": "LOSS_REPORT",
+        "formBindingKey": "FORM_BINDING_1784782156927_1",
+        "formTemplateId": 25,
+        "status": 10,
+        "available": true,
+        "executionId": null,
+        "activeWorkTaskId": 2300,
+        "allowedActions": [],
+        "fillableUsers": [
+          {
+            "userId": 152,
+            "displayName": "张可莹"
+          }
+        ]
+      }
+    }
   },
   "apiErrorsDuringFillerSwitch": [],
   "fullBatchDetailReadsDuringFillerSwitch": [
@@ -399,7 +587,7 @@
   ],
   "error": {
     "message": "route form drawer should not show error: 没有该操作权限\n\n'没有该操作权限' !== ''\n",
-    "stack": "AssertionError [ERR_ASSERTION]: route form drawer should not show error: 没有该操作权限\n\n'没有该操作权限' !== ''\n\n    at verifyExtraFormFillerSwitch (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:635:12)\n    at async run (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:746:11)"
+    "stack": "AssertionError [ERR_ASSERTION]: route form drawer should not show error: 没有该操作权限\n\n'没有该操作权限' !== ''\n\n    at verifyExtraFormFillerSwitch (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:669:12)\n    at async run (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:780:11)"
   },
   "fixtureRestore": {
     "restored": true,
