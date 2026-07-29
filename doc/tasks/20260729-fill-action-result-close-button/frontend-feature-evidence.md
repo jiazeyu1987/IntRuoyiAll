@@ -13,7 +13,9 @@
 ## UI Entry Points And Owned Files
 
 - Entry: eDHR 执行填写页保存草稿或提交执行后的结果弹窗。
-- Owned files: 待定位。
+- Owned files:
+  - `IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`
+  - `IntRuoyiFronted/tests/e2e/edhr-fill-workspace-action-result-dialog-static.spec.js`
 
 ## API Contracts And Data States
 
@@ -26,20 +28,29 @@
 
 ## RED Command And Expected Failure
 
-- Pending.
+- RED: `node tests/e2e/edhr-fill-workspace-action-result-dialog-static.spec.js` -> FAIL，合同缺少 `edhr-fill-workspace__result-close`、`closeFillActionResultDialog` 和右上角受控关闭按钮。
 
 ## GREEN Command And Passing Result
 
-- Pending.
+- GREEN: `node tests/e2e/edhr-fill-workspace-action-result-dialog-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
 
 ## Responsive Accessibility Loading Empty Error Permission Checks
 
-- Pending.
+- Responsive: 关闭按钮使用绝对定位 `top: 12px; right: 12px`，弹窗继续使用 `max-width: calc(100vw - 32px)`。
+- Accessibility: 关闭按钮提供 `aria-label="关闭结果弹窗"`，并保留 `focus-visible` 样式。
+- Loading/empty: 不改变保存、提交 loading 或空状态逻辑。
+- Error: 提交失败结果弹窗展示真实失败原因，不吞异常，不替换为默认成功。
+- Permission: 不新增权限入口；结果弹窗仅在既有保存/提交链路之后显示。
 
 ## E2E Or Component Verification Path
 
-- Pending.
+- Static component contract: `tests/e2e/edhr-fill-workspace-action-result-dialog-static.spec.js`。
+- Adjacent regression: `tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js`。
+- Type verification: `pnpm ts:check`。
 
 ## Blockers And Follow-Up Skills
 
-- Pending.
+- Blockers: 无。
+- Follow-up skills: `task-closeout-cleanup` 用于收尾 preview/apply；`project-experience-consolidation` 复核无新增长期经验条目需求。

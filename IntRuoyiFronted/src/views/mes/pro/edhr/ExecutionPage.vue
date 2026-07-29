@@ -1002,8 +1002,8 @@
                     <strong>{{ fillActionResultDialog.statusText }}</strong>
                   </div>
                   <div
-                    v-if="fillActionResultDialog.failureReasonText"
                     class="edhr-fill-workspace__result-reason"
+                    v-if="fillActionResultDialog.failureReasonText"
                   >
                     <span>失败原因</span>
                     <strong>{{ fillActionResultDialog.failureReasonText }}</strong>
@@ -3105,13 +3105,15 @@ const resolveFillActionResultFillerText = () => {
 
 const submitSignatureUserName = computed(resolveFillActionResultFillerText)
 
-const showFillActionResultDialog = (type: FillActionResultType) => {
+const showFillActionResultDialog = (type: FillActionResultType, failureReasonText = '') => {
   const result = FILL_ACTION_RESULT_MAP[type]
   fillActionResultDialog.statusText = result.statusText
   fillActionResultDialog.tone = result.tone
   fillActionResultDialog.orderText = resolveFillActionResultOrderText()
   fillActionResultDialog.processText = resolveFillActionResultProcessText()
   fillActionResultDialog.fillerText = resolveFillActionResultFillerText()
+  fillActionResultDialog.failureReasonText =
+    type === 'submit-failed' ? failureReasonText.trim() : ''
   fillActionResultDialogVisible.value = true
 }
 
@@ -4523,7 +4525,7 @@ const handleSubmitExecution = async () => {
   } catch (error) {
     const submitErrorMessage = resolveErrorMessage(error, 'eDHR 执行提交失败，请联系管理员。')
     message.error(submitErrorMessage)
-    showFillActionResultDialog('submit-failed')
+    showFillActionResultDialog('submit-failed', submitErrorMessage)
   } finally {
     submitLoading.value = false
   }
@@ -6994,6 +6996,31 @@ onBeforeUnmount(() => {
   border-color: #ffccc7;
   background: #fff1f0;
   color: #c00000;
+}
+
+.edhr-fill-workspace__result-reason {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  padding: 16px 18px;
+  border: 1px solid #ffccc7;
+  border-radius: 10px;
+  background: #fff7f6;
+  color: #c00000;
+  font-size: 20px;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.edhr-fill-workspace__result-reason span {
+  font-weight: 800;
+}
+
+.edhr-fill-workspace__result-reason strong {
+  min-width: 0;
+  font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .edhr-fill-workspace__result-context {
