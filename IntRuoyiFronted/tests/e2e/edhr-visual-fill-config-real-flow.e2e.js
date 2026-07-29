@@ -2238,7 +2238,9 @@ async function openVisualFillConfigDialog(page, report) {
     .locator('.batch-record-cell-rules-editor__mode-switch')
     .getByText('辅助表单映射', { exact: true })
     .click()
-  await dialog.getByText('辅助表单映射：先选辅助格', { exact: false }).waitFor({ state: 'visible', timeout: 30000 })
+  await dialog
+    .locator('[data-fill-config-panel="assist-preview"]')
+    .waitFor({ state: 'visible', timeout: 30000 })
   await dialog.getByText('责任主体', { exact: false }).first().waitFor({ state: 'visible', timeout: 30000 })
   await dialog.getByText('字段类型', { exact: false }).first().waitFor({ state: 'visible', timeout: 30000 })
 }

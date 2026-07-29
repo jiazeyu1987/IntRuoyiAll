@@ -15,15 +15,7 @@
         show-icon
       />
 
-      <section class="batch-record-cell-rules-editor__summary">
-        <span class="batch-record-cell-rules-editor__name">{{ reportName }}</span>
-        <el-tag type="primary" effect="plain">规则 {{ ruleRows.length }}</el-tag>
-        <el-tag :type="pendingCount > 0 ? 'warning' : 'success'" effect="plain">
-          待确认 {{ pendingCount }}
-        </el-tag>
-        <el-tag type="info" effect="plain">
-          后端待确认 {{ unreviewedFillableCellCount }}
-        </el-tag>
+      <section class="batch-record-cell-rules-editor__mode-toolbar">
         <el-radio-group
           v-model="activeConfigMode"
           size="small"
@@ -32,9 +24,6 @@
           <el-radio-button label="原表单配置" value="source">原表单配置</el-radio-button>
           <el-radio-button label="辅助表单映射" value="assistMapping">辅助表单映射</el-radio-button>
         </el-radio-group>
-        <span class="batch-record-cell-rules-editor__mode">
-          {{ activeConfigMode === 'assistMapping' ? '辅助表单映射：先选辅助格，再点未分配原表格' : '原表单配置：左侧选单元格，右侧维护字段类型' }}
-        </span>
       </section>
 
       <section
@@ -1766,28 +1755,11 @@ watch(
   gap: 12px;
 }
 
-.batch-record-cell-rules-editor__summary {
+.batch-record-cell-rules-editor__mode-toolbar {
   display: flex;
   min-height: 34px;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.batch-record-cell-rules-editor__name {
-  min-width: 0;
-  max-width: 360px;
-  overflow: hidden;
-  color: #172033;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.batch-record-cell-rules-editor__mode {
-  margin-left: auto;
-  color: #5d667a;
-  font-size: 12px;
+  justify-content: flex-start;
 }
 
 .batch-record-cell-rules-editor__mode-switch {
@@ -2311,11 +2283,6 @@ watch(
 }
 
 @media (max-width: 1180px) {
-  .batch-record-cell-rules-editor__mode {
-    flex-basis: 100%;
-    margin-left: 0;
-  }
-
   .batch-record-cell-rules-editor__workspace,
   .batch-record-cell-rules-editor__workspace--assist-mapping {
     height: auto;
