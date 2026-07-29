@@ -4949,7 +4949,7 @@ const parseAssistPreviewCellValues = (
     throw new Error('工序预览 cellValuesJson 不是数组，无法在填写页查看。')
   }
   return parsed
-    .map((item) => {
+    .map((item): NonNullable<ProFeedbackEdhrExecutionVO['cellValues']>[number] | null => {
       const rowIndex = parseNonNegativeInteger((item as any)?.rowIndex)
       const columnIndex = parseNonNegativeInteger((item as any)?.columnIndex)
       if (rowIndex == null || columnIndex == null) return null
@@ -5042,7 +5042,7 @@ const loadExecution = async () => {
   const currentExecutionContextKey = resolveExecutionContextKey()
   if (isAssistBatchTaskPreviewMode.value) {
     const batchExecutionId = parsePositiveNumber(currentBatchExecutionId.value)
-    const batchTaskId = routeBatchTaskId.value
+    const batchTaskId = parsePositiveNumber(routeBatchTaskId.value)
     if (!batchExecutionId || !batchTaskId) {
       execution.value = undefined
       loadedExecutionContextKey.value = ''

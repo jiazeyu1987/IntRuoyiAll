@@ -28,11 +28,11 @@
 
 ## RED Command And Expected Failure
 
-- `node tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js` -> FAIL，expected reason: `提交弹框必须保留用户要求内容：edhr-fill-workspace__submit-sign-close`。
+- RED: `node tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js` -> FAIL，expected reason: `提交弹框必须保留用户要求内容：edhr-fill-workspace__submit-sign-close`。
 
 ## GREEN Command And Passing Result
 
-- `node tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js` -> PASS。
 - `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS。
 - `node tests/e2e/edhr-full-chain-evidence-pack-static.spec.js` -> PASS。
 - `pnpm ts:check` -> FAIL，阻塞来自当前 HEAD 已存在的辅助工序预览类型问题，不属于关闭按钮改动。

@@ -15,4 +15,5 @@
 - VALIDATION: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-assist-grid-preview-font-half/frontend-feature-evidence.md` -> PASS。
 - CHECK: `git diff --check -- <owned files>` -> PASS；仅 CRLF 提示，无 whitespace error。
 - CLEANUP: `task_closeout.py --task-id 20260729-assist-grid-preview-font-half --mode preview` -> ready，delete none，blocked none。
-- CLEANUP: `task_closeout.py --task-id 20260729-assist-grid-preview-font-half --mode apply` -> pending at first write; final evidence to be recorded after apply.
+- CLEANUP: `task_closeout.py --task-id 20260729-assist-grid-preview-font-half --mode apply` -> applied，deleted_paths none。
+- FINAL: completed -> 本任务实现、验证和 cleanup 完成；并发任务改动保持未暂存，提交时仅选择性暂存本任务文件。
