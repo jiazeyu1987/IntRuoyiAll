@@ -392,9 +392,8 @@ async function closeResultDialogIfVisible(page, expectedText) {
 async function fillAndSaveExecutionValue(page, setup) {
   const sampleValue = `${setup.runKey}-已提交内容`
   const originalModeButton = page.locator('button:visible').filter({ hasText: '原表模式' }).first()
-  if (await originalModeButton.isVisible().catch(() => false)) {
-    await originalModeButton.click({ force: true })
-  }
+  await originalModeButton.waitFor({ state: 'visible', timeout: 30000 })
+  await originalModeButton.click({ force: true })
   await page.locator('.edhr-fill-workspace__form, .edhr-page-shell__legacy-form').first().waitFor({
     state: 'visible',
     timeout: 30000
