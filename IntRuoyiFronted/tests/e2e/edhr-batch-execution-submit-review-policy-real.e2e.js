@@ -148,7 +148,8 @@ function prepareLegacyReviewExecution() {
         required: false,
         componentType: 'input',
         inputType: 'text',
-        valueType: 'STRING'
+        valueType: 'STRING',
+        defaultValue: ''
       }
     ]
   }
@@ -391,13 +392,48 @@ async function closeResultDialogIfVisible(page, expectedText) {
 
 async function fillAndSaveExecutionValue(page, setup) {
   const sampleValue = `${setup.runKey}-已提交内容`
-  const originalModeButton = page.locator('button:visible').filter({ hasText: '原表模式' }).first()
-  await originalModeButton.waitFor({ state: 'visible', timeout: 30000 })
-  await originalModeButton.click({ force: true })
-  await page.locator('.edhr-fill-workspace__form, .edhr-page-shell__legacy-form').first().waitFor({
+  await page.locator('button:visible').filter({ hasText: '原表模式' }).first().waitFor({
     state: 'visible',
     timeout: 30000
   })
+  await page.evaluate(() => {
+    const button = Array.from(document.querySelectorAll('button')).find((item) =>
+      (item.textContent || '').includes('原表模式')
+    )
+    if (!button) {
+      throw new Error('original mode button not found')
+    }
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+  })
+  const originalForm = page.locator('.edhr-fill-workspace__form, .edhr-page-shell__legacy-form').first()
+  try {
+    await originalForm.waitFor({ state: 'visible', timeout: 30000 })
+  } catch (error) {
+    const state = await page.evaluate(() => ({
+      url: window.location.href,
+      text: document.body.innerText.replace(/\s+/g, ' ').slice(0, 2000),
+      buttons: Array.from(document.querySelectorAll('button')).map((button) => ({
+        text: button.innerText.trim(),
+        ariaPressed: button.getAttribute('aria-pressed'),
+        className: button.className
+      })),
+      counts: {
+        workspace: document.querySelectorAll('.edhr-fill-workspace').length,
+        form: document.querySelectorAll('.edhr-fill-workspace__form').length,
+        legacy: document.querySelectorAll('.edhr-page-shell__legacy-form').length,
+        assistPanel: document.querySelectorAll('.edhr-fill-workspace__assist-panel').length,
+        formError: document.querySelectorAll('.edhr-fill-workspace__form-error').length,
+        inputs: document.querySelectorAll('input, textarea').length
+      }
+    }))
+    fs.mkdirSync(ARTIFACT_DIR, { recursive: true })
+    fs.writeFileSync(
+      path.join(ARTIFACT_DIR, `debug-original-mode-${RUN_ID}.json`),
+      `${JSON.stringify(state, null, 2)}\n`,
+      'utf8'
+    )
+    throw error
+  }
   const fieldInputs = page.locator(
     [
       '.edhr-fill-workspace__form .edhr-fill-workspace__field input.el-input__inner:not([type="password"])',
@@ -411,14 +447,20 @@ async function fillAndSaveExecutionValue(page, setup) {
     ].join(', ')
   )
   await fillFirstVisible(fieldInputs, sampleValue, 'submitted content sample field')
-  await page.getByText('待保存变更', { exact: true }).first().waitFor({ state: 'visible', timeout: 30000 })
+  await page.waitForFunction(
+    () =>
+      Array.from(document.querySelectorAll('button')).some(
+        (button) => /保存草稿|保存变更/.test(button.textContent || '') && !button.disabled
+      ),
+    { timeout: 30000 }
+  )
   const saveResponsePromise = page.waitForResponse(
     (response) =>
       response.url().includes('/admin-api/mes/pro/batch-record-execution/field-audit/save-changes') &&
       response.request().method() === 'PUT',
     { timeout: 60000 }
   )
-  await clickFirstEnabled(page.getByRole('button', { name: '保存变更' }), 'save field changes')
+  await clickFirstEnabled(page.getByRole('button', { name: /保存草稿|保存变更/ }), 'save field changes')
   const saveResponse = await saveResponsePromise
   assert.equal(saveResponse.status(), 200, 'field audit save HTTP status must be 200')
   const saveBody = await saveResponse.json()
@@ -429,7 +471,16 @@ async function fillAndSaveExecutionValue(page, setup) {
     `field audit hash verification must be valid: ${JSON.stringify(saveBody)}`
   )
   await closeResultDialogIfVisible(page, '已保存')
-  await page.getByDisplayValue(sampleValue).first().waitFor({ state: 'visible', timeout: 60000 })
+  await page.waitForFunction(
+    (expected) =>
+      Array.from(document.querySelectorAll('input, textarea')).some(
+        (element) => element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement
+          ? element.value === expected
+          : false
+      ),
+    sampleValue,
+    { timeout: 60000 }
+  )
   return {
     sampleValue,
     auditBatchId: saveBody.data?.auditBatchId,

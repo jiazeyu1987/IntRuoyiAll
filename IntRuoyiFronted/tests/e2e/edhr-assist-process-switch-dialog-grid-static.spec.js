@@ -78,13 +78,13 @@ assertStyleContains(
 )
 assertStyleContains(
   '.edhr-fill-workspace__assist-switch-process-grid',
-  'grid-auto-rows: minmax(64px, auto);',
-  '工序卡片行高必须紧凑，确保单屏至少 5 行。'
+  'grid-auto-rows: minmax(86px, auto);',
+  '工序卡片行高必须在放大后仍能确保单屏至少 5 行。'
 )
 assertStyleContains(
   '.edhr-fill-workspace__assist-process-card',
-  'min-height: 64px;',
-  '工序卡片必须保持紧凑卡片高度，满足至少 30 卡片容量。'
+  'min-height: 86px;',
+  '工序卡片必须保持放大后的稳定高度，满足至少 30 卡片容量。'
 )
 
 console.log('PASS: edhr assist process switch dialog grid static contract')

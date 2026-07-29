@@ -9,7 +9,7 @@
 - [x] 建立任务记录并读取 E2E、登录、本地运行态和编码门禁。
 - [x] 确认本机前端/后端入口和验证脚本前置条件。
 - [x] 执行真实 Playwright E2E，覆盖截图批次当前未提交状态下主区域不读取草稿。
-- [ ] 执行普通填写账号提交后管理员只读查看的完整闭环。
+- [x] 执行普通填写账号提交后管理员只读查看的完整闭环。
 - [x] 记录验证证据、失败位置或阻塞前置。
 
 ## Expected Verification
@@ -21,14 +21,12 @@
 
 ## Current Status
 
-blocked
+ready_for_closeout
 
-## Blocker
+## Closeout Notes
 
-- 当前截图工单 `881MO090935` 最新批次 `900000000909` 的粗洗工序执行记录 `1589` 仍是草稿态 `status=0`，不是已提交态；管理员主区域按需求不读取草稿，因此显示“暂无已提交批记录内容”是正确行为。
-- 本地库仅找到 3 个“已提交且单元格非空”的历史样本，但这些历史样本的冻结路线快照过旧，当前 `review-timeline` 接口返回 `eDHR 批次执行缺少工艺流程批记录配置流程配置或默认批记录`，不能用来证明提交后主区域展示。
-- 当前环境未提供可写测试租户/非 admin 填写账号/签名密码，未执行会修改业务数据的“其他账号提交”闭环。
-- 用户补充的 `测试租户/auteman` 已执行真实登录前置，结果为账号密码不正确；本地库 `system_users` 当前未查到 `测试租户` 下 username=`auteman` 的启用用户，仍无法进入写入型 E2E。
+- 请求范围内的 E2E 验证已通过。
+- 未执行提交/推送 closeout；当前工作区仍有非本任务并发脏改动，未纳入本次验证收尾。
 
 ## 设计约束检查
 
@@ -48,5 +46,7 @@ blocked
 - PASS: `node tests/e2e/edhr-batch-admin-preview-runtime-fix-static.spec.js`，静态合同确认主区域只从已提交 execution review 读取 `formViewModel`，不再调用 `task/preview` 或 `selectedTaskPreview`。
 - PASS: `node scripts/preflight/login-preflight.mjs --base-url http://127.0.0.1:8081 ...`，`芋道源码/admin` 真实登录通过。
 - PASS: `EDHR_ADMIN_SUBMITTED_VERIFY_MODE=current-unsubmitted node doc/tasks/20260729-admin-submitted-content-e2e/admin-submitted-content-real.e2e.js`，截图批次当前无已提交内容，页面显示空态且无 MES 写请求。
-- BLOCKED: `EDHR_ADMIN_SUBMITTED_VERIFY_MODE=submitted-content node doc/tasks/20260729-admin-submitted-content-e2e/admin-submitted-content-real.e2e.js`，本地可用已提交样本被当前接口门禁阻塞，缺少正式可写提交样本。
-- BLOCKED: `node scripts/preflight/login-preflight.mjs --base-url http://127.0.0.1:8081 --tenant 测试租户 --username auteman ...` 返回 `登录失败，账号密码不正确`，密码已脱敏不入日志。
+- SUPERSEDED: `测试租户/auteman` 登录失败；用户更正为 `测试租户/aoteman` 后，真实登录前置通过。
+- PASS: `node --check tests/e2e/edhr-batch-execution-submit-review-policy-real.e2e.js`，真实提交审核 E2E 脚本语法通过。
+- PASS: `EDHR_EXEC_SUBMIT_REVIEW_APPROVAL_MODE=BPM_REQUIRED ... node tests/e2e/edhr-batch-execution-submit-review-policy-real.e2e.js`，`aoteman` 在真实页面填写、保存、提交并完成 BPM 审批；目标执行 `1605` 终态 `status=3/APPROVED`，单元格值为 `M7-EDHR-EXEC-BPM_REQUIRED-20260729ADMINSUBMIT15-已提交内容`。
+- PASS: `EDHR_ADMIN_SUBMITTED_VERIFY_MODE=submitted-content ... node doc/tasks/20260729-admin-submitted-content-e2e/admin-submitted-content-real.e2e.js`，管理员主区域显示执行 `1605` 的已提交单元格内容，不请求 `/task/preview`，不产生 MES 写请求。

@@ -22,3 +22,17 @@
 - RED: `node scripts/preflight/login-preflight.mjs --base-url http://127.0.0.1:8081 --tenant 测试租户 --username auteman --password [REDACTED] --target-path /index --timeout 90000` -> FAIL，真实登录接口返回 `登录失败，账号密码不正确`。
 - Supporting read-only DB check: `system_tenant.name='测试租户'` exists and enabled as tenant `122`; `system_users` in tenant `122` lists enabled users such as `admin/limin/...` but no username `auteman` was found.
 - BLOCKED remains: cannot execute the multi-user/write submission E2E until a valid enabled test-tenant account with required fill/sign permissions is available.
+- User corrected credential source: `测试租户/aoteman`，password received in chat and intentionally not recorded in task files.
+- GREEN: login preflight for `测试租户/aoteman` -> PASS，真实前端登录进入 `/index`，用户 id `914520`。
+- Implementation note: 仅调整 E2E 验证脚本 `IntRuoyiFronted/tests/e2e/edhr-batch-execution-submit-review-policy-real.e2e.js` 的测试夹具与当前 UI 选择器；生产代码未改动。夹具改为向执行表写入正式 `sheet_layout_json`，字段声明补齐 `defaultValue: ''`，并兼容当前页面的“原表模式”“保存草稿”和电子签名确认弹窗。
+- RED: `EDHR_EXEC_SUBMIT_REVIEW_RUN_ID=20260729ADMINSUBMIT13 ... node tests/e2e/edhr-batch-execution-submit-review-policy-real.e2e.js` -> FAIL，字段保存被后端并发校验拒绝：测试夹具字符串字段默认旧值为 `null`，前端按空字符串提交。
+- GREEN: `node --check tests/e2e/edhr-batch-execution-submit-review-policy-real.e2e.js` -> PASS，字段默认值夹具修正后脚本语法通过。
+- RED: `EDHR_EXEC_SUBMIT_REVIEW_RUN_ID=20260729ADMINSUBMIT14 ... node tests/e2e/edhr-batch-execution-submit-review-policy-real.e2e.js` -> FAIL，当前项目 Playwright 版本不支持 `page.getByDisplayValue`；改为 DOM 值等待。
+- GREEN: `node --check tests/e2e/edhr-batch-execution-submit-review-policy-real.e2e.js` -> PASS，DOM 值等待修正后脚本语法通过。
+- GREEN: `EDHR_EXEC_SUBMIT_REVIEW_APPROVAL_MODE=BPM_REQUIRED EDHR_EXEC_SUBMIT_REVIEW_COMPLETE_APPROVAL=1 EDHR_EXEC_SUBMIT_REVIEW_RUN_ID=20260729ADMINSUBMIT15 ... node tests/e2e/edhr-batch-execution-submit-review-policy-real.e2e.js` -> PASS，真实页面完成填写、保存、提交和 BPM 审批；`executionId=1605`，提交后证据 `status=1/SUBMITTED`，审批终态 `status=3/APPROVED`，`processInstanceId=a15e2752-8b07-11f1-8387-00155d012339`，artifact `doc/tasks/20260729-admin-submitted-content-e2e/admin-submitted-content-e2e-output/edhr-batch-execution-submit-review-20260729ADMINSUBMIT15-BPM_REQUIRED.json`。
+- Supporting read-only DB check: `executionId=1605` -> PASS，`cell_values_json` 包含 `M7-EDHR-EXEC-BPM_REQUIRED-20260729ADMINSUBMIT15-已提交内容`，`field_audit_revision=1`，执行状态 `3`。
+- GREEN: `EDHR_ADMIN_SUBMITTED_VERIFY_MODE=submitted-content EDHR_ADMIN_SUBMITTED_TENANT=测试租户 EDHR_ADMIN_SUBMITTED_USERNAME=aoteman node doc/tasks/20260729-admin-submitted-content-e2e/admin-submitted-content-real.e2e.js` -> PASS，管理员只读主区域显示 `executionId=1605` 的已提交单元格值；`taskPreviewRequests=[]`，`mesWriteRequests=[]`，artifact `doc/tasks/20260729-admin-submitted-content-e2e/admin-submitted-content-e2e-output/admin-submitted-content-main-area.json`，screenshot `doc/tasks/20260729-admin-submitted-content-e2e/admin-submitted-content-e2e-output/admin-submitted-content-main-area.png`。
+- GREEN: `node --check doc/tasks/20260729-admin-submitted-content-e2e/admin-submitted-content-real.e2e.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-batch-admin-preview-runtime-fix-static.spec.js` -> PASS，静态契约仍确认管理员主区域不读取 `/task/preview`。
+- Experience consolidation check: 已有 `docs/e2e-rules.md#eDHR 管理员主区域已提交内容门禁` 覆盖本次核心门禁；本轮不新增长期经验文档。
+- Closeout status: 请求范围内的 E2E 验证已完成；任务文档状态更新为 `ready_for_closeout`。未提交/推送，因为用户未要求本轮集成提交，且工作区仍存在非本任务并发脏改动。

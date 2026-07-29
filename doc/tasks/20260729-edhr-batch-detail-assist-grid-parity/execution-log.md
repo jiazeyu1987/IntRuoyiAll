@@ -21,9 +21,22 @@
 ## TDD
 
 - RED: `node tests/e2e/edhr-batch-detail-assist-grid-parity-static.spec.js` -> FAIL，首个断言证明详情页缺少当前 `USERS/ROLE` 与旧版 `U` 辅助格 rowKey 解析，仍无法按配置坐标构建网格。
-- GREEN: pending.
+- RED: 后续根因复盘发现只靠 `assistRows` 已映射格无法无损还原配置页 `12 × 9` 外圈空白，配置保存响应和运行快照缺少正式 `assistGridRowCount/assistGridColumnCount`。
+- GREEN: `node tests/e2e/edhr-batch-detail-assist-grid-parity-static.spec.js` -> PASS，详情页按责任主体和正式尺寸渲染网格，阻止超出尺寸的辅助格。
+- GREEN: `node tests/e2e/edhr-batch-detail-assist-preview-switch-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-configured-grid-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordReportServiceImplDbTest#getAndSaveCellRules_suggestsAndPersistsReviewedTypedMetadata" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 1 test.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordExecutionServiceImplTest#openOrCreateByContext_freezesAssistRowsInExecutionSnapshot" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 1 test.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#previewTask_returnsUnopenedBatchRecordWithExecutionSnapshotAssistRows" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 1 test.
 
 ## Milestone Updates
 
 - Task setup: completed.
 - Focused regression contract RED: completed.
+- Implementation: completed. 批次详情辅助模式不再遍历扁平字段卡片，改为解析 `ASSIST_GRID_(USERS|ROLE)<id>_R<row>_C<column>` 和旧版 `ASSIST_GRID_U<id>_R<row>_C<column>`，按责任主体构建只读表格，并保留未映射格。
+- Formal size chain: completed. 辅助表格尺寸随填写配置保存/回读，运行快照冻结 `assistGridRowCount/assistGridColumnCount`，详情页优先使用正式快照尺寸展开完整网格。
+- Verification: completed for static contracts, TypeScript, and targeted backend JUnit.
+- Real browser visual check: blocked for current runtime data. 当前登录态打开 `http://localhost:8081/mes/pro/feedback/edhr-batch-execution/detail?id=900000000909`，选择“1 粗洗工序”后右侧为“未配置辅助模式”，没有包含正式辅助表格尺寸的新运行快照，无法用该既有批次证明 `12 × 9` 视觉一致性；未做写入型造数。
+- Experience consolidation: completed. 更新 `docs/frontend-development.md#eDHR 辅助模式当前工序 assistRows 路由门禁` 和 `docs/experience-index.md`，补充 `assistGridRowCount/assistGridColumnCount` 正式尺寸门禁。
