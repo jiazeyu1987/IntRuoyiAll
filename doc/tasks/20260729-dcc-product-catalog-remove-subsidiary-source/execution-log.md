@@ -41,4 +41,6 @@
 - 2026-07-29：project-experience-consolidation 已执行；将“静态合同负向断言需收窄到目标函数/模板块，避免正则范围过宽 false positive”合并到 `docs/e2e-rules.md#静态合同与真实 E2E 同步门禁`，并更新 `docs/experience-index.md` 关键词。
 - 2026-07-29：task-closeout-cleanup preview -> PASS；keep 包含 task/execution/verification/database evidence/frontend evidence，delete/blocked/warnings 均为 none。
 - 2026-07-29：task-closeout-cleanup apply -> PASS；deleted_paths 为 none；当前主工作区非 linked worktree。
-- 2026-07-29：任务状态更新为 `completed`，等待当前任务实现/收尾提交和 push。
+- 2026-07-29：实现提交 `2f514778 fix: remove subsidiary source from dcc product catalog` 已创建，包含 DCC 产品目录实现、迁移、生成脚本和测试。
+- 2026-07-29：提交后检测到额外基线提交 `5bdaee38 chore: baseline dirty worktree before route export task`，其中包含本任务收尾文档、经验规则更新及并行任务文档；未重写历史，后续以追加收尾记录提交补齐本任务证据。
+- 2026-07-29：任务状态更新为 `completed`，等待最终 push 验证。

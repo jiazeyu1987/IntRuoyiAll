@@ -21,7 +21,7 @@
 
 - No local or remote database mutation was executed.
 - Cleanup migration is ready for release SQL application and physically deletes only rows with `HEX(data_source) = 'E5AD90E585ACE58FB8E4BAA7E59381'`.
-- Unrelated worktree changes under other task docs and `docs/inception` remain unstaged and outside this task.
+- 提交后检测到额外基线提交 `5bdaee38 chore: baseline dirty worktree before route export task`，其中包含并行任务文档；未重写历史，本报告用追加收尾记录保留本任务边界。
 - Project experience was consolidated into `docs/e2e-rules.md` and indexed in `docs/experience-index.md`.
 
 ## Cleanup Evidence
