@@ -2,7 +2,7 @@
 
 ## Summary
 
-Documentation writing and structural verification passed after the implementation milestone breakdown update. Git closeout remains blocked by unrelated workspace changes.
+Documentation writing and structural verification passed after the subagent BDD/TDD documentation update. Git closeout remains pending.
 
 ## Evidence
 
@@ -25,6 +25,19 @@ Documentation writing and structural verification passed after the implementatio
 - PASS: Existing resource pool clarification added: current system has `mes_pro_feedback_surplus_pool` and `mes_pro_feedback_surplus_allocation`, but they are report-work surplus pool capabilities rather than the complete target process pool.
 - PASS: User-confirmed final rules added: a new process pool is required; employee switching inside the device account needs no extra identity validation; electronic signature represents identity; audit copy only clamps min/max; original edits require re-signature; FIFO-allocated original records cannot be modified.
 - PASS: Implementation milestone breakdown added: 12 milestones covering requirement/model foundation, frontline feedback-recordbook closed loop, process pool/PQC/FIFO quantity loop, audit/timeline integration, and pilot verification.
+- PASS: Dirty workspace baseline commit created before subagent documentation work: `84ab9cef chore: baseline dirty workspace before process-pool docs`.
+- PASS: Six subagents produced BDD/TDD drafts for feature points 1, 2, 3, 4, 7, and 8.
+- PASS: Main review integrated drafts into `docs/acceptance/production-line-process-pool/bdd-scenarios.md`.
+- PASS: Main review integrated TDD sequencing into `docs/acceptance/production-line-process-pool/tdd-plan.md`.
+- PASS: E2E plan saved at `docs/acceptance/production-line-process-pool/e2e-plan.md`.
+- PASS: Test data plan saved at `docs/acceptance/production-line-process-pool/test-data.md`.
+- PASS: 21 requirement gate review saved at `docs/acceptance/production-line-process-pool/review-report.md`.
+- PASS: Existing `bdd-tdd-acceptance-planner` validator still passes for current root acceptance docs.
+- PASS: UTF-8 read validation passed for the new process-pool acceptance docs and task docs.
+- PASS: Custom 21 requirement gate check passed for `R01` through `R21` and key terms.
+- PASS: `git diff --check` reported no whitespace errors for new acceptance docs and task docs; Git reported line-ending normalization warnings only.
+- PASS: `task-closeout-cleanup` preview/apply completed after the subagent documentation update; delete none, blocked none.
+- PASS: `project-experience-consolidation` assessment completed; no durable long-term experience update was required.
 - PASS: Inception structure validation, UTF-8 read validation, `git diff --check`, and cleanup preview/apply passed after the implementation milestone update.
 - PASS: Inception structure validation, UTF-8 read validation, `git diff --check`, and cleanup preview/apply passed after the confirmed process-pool identity and edit-rule clarification.
 - PASS: Inception structure validation and UTF-8 read validation passed after the correction.
@@ -50,7 +63,7 @@ Documentation writing and structural verification passed after the implementatio
 - PASS: Inception structure validation and UTF-8 read validation passed after the finite-equipment account switching clarification.
 - PASS: `git diff --check` reported no whitespace errors after the finite-equipment account switching clarification; Git reported line-ending normalization warnings only.
 - PASS: Cleanup preview/apply passed after the finite-equipment account switching clarification with no deleted paths.
-- BLOCKED: final Git commit/push closeout was not performed because `git status --short --branch` showed `int_main...origin/int_main [ahead 1]` with an existing non-task-owned commit and unrelated workspace changes that this documentation task should not push.
+- PENDING: final Git commit/push closeout remains to be performed after cleanup and experience consolidation.
 
 ## Final Result
 

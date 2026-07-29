@@ -30,6 +30,8 @@
 
 用户询问：如果要实现上面的功能，需要分成哪几个里程碑。
 
+用户最新要求：先启动多个子 agent，将可以先做的 1、2、3、4、7、8 个功能点文档按照 TDD+BDD 方式写出来，由主线程 review，必须符合前面整理的 21 条需求才可以放行。
+
 ## BDD Scenarios
 
 BDD: capture current-thread discussion only -> Given this thread contains the business discussion about production-line simplified recording, When documents are written, Then they include this thread's prior messages and exclude unrelated project history or other tasks.
@@ -61,6 +63,8 @@ BDD: distinguish existing surplus pool from target process pool -> Given the cur
 BDD: lock confirmed process-pool identity and edit rules -> Given the user confirmed a new process pool is required and electronic signature represents employee identity, When the requirement document is updated, Then it must state that existing surplus pool cannot replace the new process pool, employee switching needs no extra identity check, audit copies only clamp min/max, original edits require a new electronic signature, and FIFO-allocated records cannot be modified.
 
 BDD: split implementation into milestones -> Given the confirmed requirement spans frontline feedback, recordbook entry, process pool, PQC, FIFO allocation, audit copy, electronic signatures, and finite-device account switching, When implementation milestones are documented, Then the sequence must start with requirement/model confirmation and end with integration, verification, and pilot rollout.
+
+BDD: subagent BDD/TDD documents pass requirement gate -> Given six subagents draft BDD/TDD content for process pool, integrated feedback-recordbook submit, fixed templates, device-account employee switching, production-work-order FIFO, and timeline views, When the main thread reviews and integrates the drafts, Then the final documents must satisfy all 21 confirmed requirement gates before being marked document-level approved.
 
 ## Command And Evidence Log
 
@@ -155,6 +159,27 @@ BDD: split implementation into milestones -> Given the confirmed requirement spa
 - GREEN: `task-closeout-cleanup --mode preview` -> PASS after combined feedback-recordbook correction, keep core task docs, delete none, blocked none.
 - GREEN: `task-closeout-cleanup --mode apply` -> PASS after combined feedback-recordbook correction, deleted none.
 - RED: final `git status --short --branch` closeout precondition -> FAIL, branch is `int_main...origin/int_main [ahead 2]` and unrelated untracked task directory `doc/tasks/20260729-dcc-product-catalog-project-code-columns/` exists; this task did not stage, commit, or push.
+- GREEN: `git status --short --branch --untracked-files=all` before subagent documentation -> PASS, working tree clean but branch ahead origin.
+- GREEN: baseline dirty workspace commit `84ab9cef` -> PASS, preserved pre-existing dirty files before starting new BDD/TDD documentation work.
+- GREEN: spawn subagent A -> PASS, drafted BDD/TDD for feature 1 process-pool foundation.
+- GREEN: spawn subagent B -> PASS, drafted BDD/TDD for feature 2 integrated feedback-recordbook submission.
+- GREEN: spawn subagent C -> PASS, drafted BDD/TDD for feature 3 fixed template entry.
+- GREEN: spawn subagent D -> PASS, drafted BDD/TDD for feature 4 device-account employee switching.
+- GREEN: spawn subagent E -> PASS, drafted BDD/TDD for feature 7 production-work-order FIFO allocation.
+- GREEN: spawn subagent F -> PASS, drafted BDD/TDD for feature 8 process-pool timeline/Gantt query.
+- GREEN: main review of six subagent drafts -> PASS, accepted document-level content after applying corrections for 21 requirement gates, no fallback policy, no scheduling-system target, and batch-record terminology boundaries.
+- GREEN: write `docs/acceptance/production-line-process-pool/bdd-scenarios.md` -> PASS, final BDD scenarios saved.
+- GREEN: write `docs/acceptance/production-line-process-pool/tdd-plan.md` -> PASS, final TDD plan saved.
+- GREEN: write `docs/acceptance/production-line-process-pool/e2e-plan.md` -> PASS, final E2E plan saved.
+- GREEN: write `docs/acceptance/production-line-process-pool/test-data.md` -> PASS, final test data plan saved.
+- GREEN: write `docs/acceptance/production-line-process-pool/review-report.md` -> PASS, final 21-gate review report saved.
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS, existing acceptance document structure remains valid.
+- GREEN: UTF-8 read validation for `docs/acceptance/production-line-process-pool/*.md` and task docs -> PASS.
+- GREEN: custom 21 requirement gate phrase check -> PASS, `R01` through `R21` and key terms present.
+- GREEN: `git diff --check -- docs\acceptance\production-line-process-pool doc\tasks\20260729-production-line-recording-design\...` -> PASS, Git reported line-ending normalization warnings only.
+- GREEN: `task-closeout-cleanup --mode preview` after subagent documentation -> PASS, keep core task docs, delete none, blocked none.
+- GREEN: `task-closeout-cleanup --mode apply` after subagent documentation -> PASS, deleted none.
+- GREEN: `project-experience-consolidation` assessment after subagent documentation -> PASS, no existing long-term experience document fit a durable new rule; this update remains task/product acceptance documentation and no new long-term experience document was created.
 
 ## Milestone Updates
 
@@ -187,7 +212,14 @@ BDD: split implementation into milestones -> Given the confirmed requirement spa
 - Re-ran validation and cleanup preview/apply after the finite-equipment account switching clarification.
 - Re-ran cleanup preview/apply after the production-work-order correction; no task-owned files were deleted.
 - Re-ran cleanup preview/apply after the feedback-centered clarification; no task-owned files were deleted.
+- Saved dirty-worktree baseline before new BDD/TDD documentation work: `84ab9cef chore: baseline dirty workspace before process-pool docs`.
+- Started 6 subagents and received all final drafts.
+- Integrated reviewed drafts into dedicated acceptance documents under `docs/acceptance/production-line-process-pool/`.
+- Verified the dedicated acceptance documents and updated task status to `ready_for_closeout`.
+- Ran cleanup preview/apply after dedicated acceptance document verification; no files were deleted.
+- Ran project-experience-consolidation assessment; no durable engineering experience update was made.
 
 ## Blockers
 
 - Git closeout is blocked by current branch `ahead 1` containing an existing non-task-owned commit plus unrelated workspace changes (`doc/tasks/20260729-test-server-wangsiyu-file-upload-simulation/upload-evidence.json` and `doc/tasks/20260729-local-scheduler-tenant-copy/probe-source-full-config.json`); this documentation task did not push or stage unrelated history.
+- Current branch is ahead of origin because baseline commit `84ab9cef` was required by project dirty-worktree policy before starting this documentation update; final commit/push/closeout remains pending after verification.
