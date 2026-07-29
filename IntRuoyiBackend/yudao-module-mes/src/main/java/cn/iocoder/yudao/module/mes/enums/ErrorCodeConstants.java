@@ -979,6 +979,34 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_PROCESS_POOL_PQC_RESULT_INVALID = new ErrorCode(1_040_760_003,
             "工序池 PQC 结果无效：{}");
 
+    // ========== MES 一线设备账号工序池（1-040-760-100） ==========
+    ErrorCode PRO_FRONTLINE_DEVICE_ACCOUNT_BINDING_SOURCE_MISSING = new ErrorCode(1_040_760_100,
+            "设备账号工艺路线绑定来源未接入，无法加载一线报工上下文");
+    ErrorCode PRO_FRONTLINE_DEVICE_ACCOUNT_ROUTE_EMPTY = new ErrorCode(1_040_760_101,
+            "设备账号 {} 未绑定启用工艺路线，无法切换工序");
+    ErrorCode PRO_FRONTLINE_ROUTE_PROCESS_NOT_AUTHORIZED = new ErrorCode(1_040_760_102,
+            "设备账号未授权当前工艺路线或工序，routeId={}, processId={}");
+    ErrorCode PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID = new ErrorCode(1_040_760_103,
+            "设备账号上下文不完整或不一致：{}");
+    ErrorCode PRO_FRONTLINE_ROUTE_PROCESS_WORKSTATION_REQUIRED = new ErrorCode(1_040_760_104,
+            "工艺路线工序缺少正式工作站绑定，routeId={}, processId={}");
+    ErrorCode PRO_FRONTLINE_PROCESS_EMPLOYEE_EMPTY = new ErrorCode(1_040_760_105,
+            "当前工序没有绑定可切换员工，workstationId={}, processId={}");
+    ErrorCode PRO_FRONTLINE_ACTUAL_EMPLOYEE_NOT_BOUND = new ErrorCode(1_040_760_106,
+            "实际填写员工 {} 不属于当前工序 {} 的绑定员工");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_BINDING_SOURCE_MISSING = new ErrorCode(1_040_760_107,
+            "实际员工工序模板绑定来源未接入，无法重新加载模板");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_NOT_EXISTS = new ErrorCode(1_040_760_108,
+            "实际员工 {} 在当前工序 {} 下没有正式模板绑定");
+    ErrorCode PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED = new ErrorCode(1_040_760_109,
+            "一线提交身份上下文缺少必填字段：{}");
+    ErrorCode PRO_FRONTLINE_SIGNATURE_EMPLOYEE_MISMATCH = new ErrorCode(1_040_760_110,
+            "电子签名员工必须等于实际填写员工，actualEmployeeId={}, signatureEmployeeId={}");
+    ErrorCode PRO_FRONTLINE_SUBMIT_DEVICE_CONTEXT_MISMATCH = new ErrorCode(1_040_760_111,
+            "提交设备/工作站上下文与授权工序不一致，submittedDeviceId={}, submittedWorkstationId={}, expectedDeviceId={}, expectedWorkstationId={}");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_MISMATCH = new ErrorCode(1_040_760_112,
+            "提交模板编号与当前实际员工工序模板不一致：{}");
+
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_MULTI_VERSION = new ErrorCode(1_040_107_006, "ERP 涓墿鏂?浜у搧缂栫爜 {} 鍛戒腑浜嗗涓凡瀹℃牳 BOM 鐗堟湰锛歿}");

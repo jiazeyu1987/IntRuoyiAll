@@ -140,6 +140,54 @@ export interface ProFrontlineFeedbackSubmitRespVO {
   processPoolEventId: number
 }
 
+export interface FrontlineDeviceRouteProcessVO {
+  routeId: number
+  routeCode?: string
+  routeName?: string
+  routeProcessId: number
+  processId: number
+  processCode?: string
+  processName?: string
+  sort?: number
+  deviceId: number
+  deviceCode?: string
+  deviceName?: string
+  workstationId: number
+  workstationCode?: string
+  workstationName?: string
+}
+
+export interface FrontlineEmployeeCandidateVO {
+  userId: number
+  username?: string
+  nickname?: string
+}
+
+export interface FrontlineTemplateVO {
+  templateNo: string
+  templateType?: string
+  routeProcessId: number
+  processId: number
+  actualEmployeeId: number
+}
+
+export interface FrontlineSwitchActualEmployeeReqVO {
+  routeId: number
+  routeProcessId: number
+  processId: number
+  actualEmployeeId: number
+}
+
+export interface FrontlineSwitchActualEmployeeRespVO {
+  loginUserId: number
+  actualEmployeeId: number
+  routeId: number
+  routeProcessId: number
+  processId: number
+  extraVerificationRequired: boolean
+  template: FrontlineTemplateVO
+}
+
 export interface ThirdPartyFeedbackImportResultVO {
   sheetCount: number
   importedCount: number
@@ -779,6 +827,30 @@ export const ProFeedbackApi = {
   cosignEdhrExecution: async (data: ProFeedbackEdhrFormReviewSignReqVO) => {
     return await request.put<ProFeedbackEdhrFormReviewSignRespVO>({
       url: `/mes/pro/batch-record-execution/cosign`,
+      data
+    })
+  },
+  // 获取设备账号可切换工序
+  getFrontlineDeviceAccountProcesses: async () => {
+    return await request.get<FrontlineDeviceRouteProcessVO[]>({
+      url: `/mes/pro/feedback/frontline/device-account/processes`
+    })
+  },
+  // 获取当前工序可切换员工
+  getFrontlineEmployeeCandidates: async (params: {
+    routeId: number
+    routeProcessId: number
+    processId: number
+  }) => {
+    return await request.get<FrontlineEmployeeCandidateVO[]>({
+      url: `/mes/pro/feedback/frontline/device-account/employee-candidates`,
+      params
+    })
+  },
+  // 切换实际填写员工并重新加载当前模板
+  switchFrontlineActualEmployee: async (data: FrontlineSwitchActualEmployeeReqVO) => {
+    return await request.post<FrontlineSwitchActualEmployeeRespVO>({
+      url: `/mes/pro/feedback/frontline/device-account/switch-employee`,
       data
     })
   },
