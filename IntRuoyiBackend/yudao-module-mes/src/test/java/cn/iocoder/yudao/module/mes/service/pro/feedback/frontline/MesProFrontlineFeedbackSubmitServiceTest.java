@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitRespVO;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,8 @@ class MesProFrontlineFeedbackSubmitServiceTest {
     private MesProFrontlineRecordbookEntryService recordbookEntryService;
     @Mock
     private MesProcessPoolSubmitEventService processPoolSubmitEventService;
+    @Mock
+    private MesFrontlineSubmitAuthorizationService submitAuthorizationService;
 
     private MesProFrontlineFeedbackSubmitService submitService;
 
@@ -44,6 +47,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
                 feedbackService,
                 recordbookEntryService,
                 processPoolSubmitEventService,
+                submitAuthorizationService,
                 new MesProFrontlineFeedbackPayloadSplitter());
     }
 
@@ -66,7 +70,20 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         assertEquals(702L, respVO.getRecordbookEventId());
         assertEquals(801L, respVO.getProcessPoolEventId());
 
-        InOrder inOrder = inOrder(feedbackService, recordbookEntryService, processPoolSubmitEventService);
+        InOrder inOrder = inOrder(submitAuthorizationService, feedbackService, recordbookEntryService,
+                processPoolSubmitEventService);
+        inOrder.verify(submitAuthorizationService).authorize(argThat(command -> {
+            assertEquals(9001L, command.loginUserId());
+            assertEquals(3001L, command.actualEmployeeId());
+            assertEquals(3001L, command.signatureEmployeeId());
+            assertEquals(501L, command.deviceId());
+            assertEquals(11L, command.workstationId());
+            assertEquals(21L, command.routeId());
+            assertEquals(71L, command.routeProcessId());
+            assertEquals(31L, command.processId());
+            assertEquals("PRODUCTION_SIMPLE", command.templateNo());
+            return true;
+        }));
         inOrder.verify(feedbackService).createFeedback(argThat(payload -> {
             assertEquals(new BigDecimal("100.500"), payload.getFeedbackQuantity());
             assertEquals(new BigDecimal("2.500"), payload.getUnqualifiedQuantity());
@@ -99,6 +116,22 @@ class MesProFrontlineFeedbackSubmitServiceTest {
             assertThrows(RuntimeException.class, () -> submitService.submit(reqVO));
         }
 
+        verify(feedbackService, never()).createFeedback(any());
+        verifyNoInteractions(recordbookEntryService, processPoolSubmitEventService, submitAuthorizationService);
+    }
+
+    @Test
+    void shouldRejectUnauthorizedDeviceEmployeeContextBeforeWritingAnyRecord() {
+        when(submitAuthorizationService.authorize(any()))
+                .thenThrow(new IllegalStateException("route process not authorized"));
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
+            assertThrows(IllegalStateException.class,
+                    () -> submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq()));
+        }
+
+        verify(submitAuthorizationService).authorize(any());
         verify(feedbackService, never()).createFeedback(any());
         verifyNoInteractions(recordbookEntryService, processPoolSubmitEventService);
     }

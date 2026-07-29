@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,8 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
     private MesProFrontlineRecordbookEntryService recordbookEntryService;
     @Mock
     private MesProcessPoolSubmitEventService processPoolSubmitEventService;
+    @Mock
+    private MesFrontlineSubmitAuthorizationService submitAuthorizationService;
 
     private MesProFrontlineFeedbackSubmitService submitService;
 
@@ -39,6 +42,7 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
                 feedbackService,
                 recordbookEntryService,
                 processPoolSubmitEventService,
+                submitAuthorizationService,
                 new MesProFrontlineFeedbackPayloadSplitter());
     }
 
