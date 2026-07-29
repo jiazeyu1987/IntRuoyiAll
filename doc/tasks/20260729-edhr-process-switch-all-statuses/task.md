@@ -37,7 +37,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Blocker Resolution
 
@@ -55,6 +55,6 @@ ready_for_closeout
 
 - doc/tasks/20260729-edhr-process-switch-all-statuses/frontend-feature-evidence.md
 
-## Remaining Blocker
+## Final Push
 
-- Push blocked: `git push origin int_main` failed twice with HTTPS/TLS connection reset errors on 2026-07-29. Local implementation and verification are complete, but project completion requires a successful push.
+- `git push origin int_main` initially failed twice due HTTPS/TLS reset, then succeeded and pushed local commits through `946fcc59` to `origin/int_main`.
