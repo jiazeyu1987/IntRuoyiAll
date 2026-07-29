@@ -660,6 +660,7 @@
 - Trigger: 修改发布包 manifest、`/release-info.json`、业务前端 `版本变更说明` 弹窗，或验收“这个版本与上个版本相比 Git 里改了什么”。
 - Preflight check: 发布构建必须用上一发布包 `manifest.json.sourceRepos[*].commit` 和当前 `sourceRepos[*].commit` 生成 `previousCommit..currentCommit` 的 Git 事实输入，再调用 Codex CLI 用结构化 JSON 输出 1 到 10 条普通人能读懂的中文摘要，写入 `changeSet.gitChanges`，并在前端构建 Docker context 之前写入 `dist-intruoyi-test/release-info.json`。
 - Blocker: 上一发布包 manifest 缺失、上一版本缺少匹配 `sourceRepos`、commit 为空、`git log previousCommit..currentCommit --numstat` 失败、Codex CLI 缺失/未认证/退出非 0/超时、JSON 不合法、摘要为空或超过 10 条、摘要不是中文、包含 commit hash/原始提交项；不得继续生成默认“发布包/组件范围”或原始 Git subject 变更说明。
+- Merge guard: 合并涉及发布脚本的旧分支时，必须检查 `Write-FrontendReleaseInfo` 等发布入口函数和调用点是否只保留一个正式实现；同名 PowerShell 函数重复定义或重复写入 `release-info.json` 是阻塞项，不能通过补默认参数、保留兼容旧调用或仅满足字符串断言来绕过。
 - Verification: 静态契约必须断言弹窗只渲染 `changeSet.gitChanges.slice(0, 10)`，标题面向用户展示“版本变化”而不是“Git 变更”；发布脚本契约必须覆盖 Codex `--output-schema`、`--output-last-message`、中文/数量/hash 校验、失败即阻塞，以及 `release-info.json` 写入早于 Docker build context。
 - Forbidden action: 禁止用 raw commit subject、短 hash、sourceRepos commit 列表、接口 HTTP 200、截图首页角标、人工说明或包元信息替代 Codex 摘要；禁止 Codex 失败时回退为 Git 原文、空成功、mock 成功或其他数据源。
 - Evidence: `doc/tasks/20260727-release-change-git-diff-summary/execution-log.md`；`doc/tasks/20260727-release-change-codex-summary/execution-log.md`。

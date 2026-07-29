@@ -120,6 +120,7 @@
 - Keywords: worktree 前端 vite 缺失, Command "vite" not found, node_modules .bin vite, pnpm install --frozen-lockfile, 不复制 node_modules -> `docs/worktree-memory.md#worktree-前端依赖启动门禁`
 - Keywords: worktree 端口段, slot 1..19, slot >= 20, reserve-worktree-slot, 原子槽位, 重复活动槽位, 基准端口碰撞, int_main 误判 int_main_d -> `docs/worktree-memory.md#worktree-端口段与原子槽位门禁`
 - Keywords: 多 worktree 融合, 批量 merge worktree, dirty worktree 独立提交, merge-base --is-ancestor, 聚焦组合回归, 宽回归失败归因, 合并后删除 worktree -> `docs/worktree-memory.md#多-worktree-批量融合门禁`
+- Keywords: worktree 任务 blocked, clean branch 但验证未达成, stale branch 大量删除主线证据, blocked worktree 不得强行 merge -> `docs/worktree-memory.md#多-worktree-批量融合门禁`
 - Keywords: 主工作区持续并行写入, 先融合再测试, 远端快进融合, git push origin HEAD:int_main, origin/int_main ancestor, dirty main workspace closeout blocked -> `docs/worktree-memory.md#并行主工作区远端快进融合门禁`
 - Keywords: D-Main 本地主线滞后远端, int_main ahead behind, origin/int_main behind 445, git diff --cached --check upstream whitespace, 冲突经验门禁文档, branch-runtime-port-guard after merge -> `docs/worktree-memory.md#d-main-本地主线滞后远端融合门禁`
 - Keywords: schema-backed E2E, source_type, source_field_code, sourceFields, Unknown column, 字段矩阵可见但不可选, is-source-selectable, 单元格链接生产工单字段, 只读 E2E 无 MES 写请求 -> `docs/e2e-rules.md#schema-backed-e2e-迁移与字段可选态门禁`
@@ -238,6 +239,7 @@
 - Keywords: Cleanup Keep, doc/tasks/**/*.cjs, cleanup keep 反引号, keep 路径内联说明, task_closeout preview delete, 验证脚本保留 -> `docs/task-closeout-rules.md#任务验证脚本保留门禁`
 - Keywords: release-info CRLF, releaseInfoTagOk false, console-error-string-parser, Errors: 0, Warnings: 0, residual-release-worktree-root, r260713j physical root -> `docs/release-build-preflight-lessons.md#2026-07-13-release-info-与运行控制台验收解析门禁` and `docs/release-build-preflight-lessons.md#2026-07-13-release-worktree-物理根目录复核门禁`
 - Keywords: release-info Git 变更, release-info Codex 摘要, Codex 普通人能读懂, 版本变更说明最多 10 条, gitChanges, previousCommit..currentCommit, 上一版本 Git 差异, Codex summary output, summaryGenerator -> `docs/release-build-preflight-lessons.md#2026-07-27-release-info-用户可见-codex-git-摘要门禁`
+- Keywords: Write-FrontendReleaseInfo 重复定义, release-info 重复写入, PowerShell 同名函数, 发布脚本旧分支合并 -> `docs/release-build-preflight-lessons.md#2026-07-27-release-info-用户可见-codex-git-摘要门禁`
 - Keywords: ready_for_closeout, verification-report keep, cleanup apply, closeout state machine, completed after cleanup -> `docs/release-build-preflight-lessons.md#2026-07-10-发布任务-closeout-状态与清理契约` and `E:\IntRuoyi\docs\worktree-memory.md`
 - Keywords: system_menu.id must be an integer literal, duplicate system_menu.id detected across release SQL history, INSERT INTO system_menu SELECT ON DUPLICATE KEY UPDATE VALUES, release SQL parser false positive, 20260714_signature_my_signature_admin_menu -> `docs/release-build-preflight-lessons.md#2026-07-16-release-preflight-菜单-sql-解析边界门禁`
 - Keywords: vue/no-unused-vars, vite-plugin-eslint, pnpm build:test, ProcessWipTable, sortColumnAttrs, handleTemplateSortChange, slot unused vars -> `docs/release-build-preflight-lessons.md#2026-07-16-release-build-前端-eslint-slot-未使用变量门禁`

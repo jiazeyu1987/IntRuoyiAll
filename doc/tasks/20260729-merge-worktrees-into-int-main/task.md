@@ -8,9 +8,9 @@
 
 - [x] 读取并记录 worktree / Git / 收尾规则与适用经验门禁
 - [x] 盘点主工作区与附加 worktree 列表、分支、状态
-- [ ] 逐个处理附加 worktree：提交未提交变更，验证分支状态
-- [ ] 将可安全合并的分支按顺序合并到 `int_main`
-- [ ] 运行必要验证与分支运行端口门禁
+- [x] 逐个处理附加 worktree：提交未提交变更，验证分支状态
+- [x] 将可安全合并的分支按顺序合并到 `int_main`
+- [x] 运行必要验证与分支运行端口门禁
 - [ ] 完成任务收尾、记录最终结果
 
 ## Expected Verification
@@ -23,14 +23,33 @@
 
 ## Current Status
 
-in_progress
+blocked
 
 ## Inventory Summary
 
-- Registered worktrees: 11 total.
+- Registered worktrees: 12 total.
 - Main workspace: `E:\IntRuoyi`, branch `int_main`.
-- Attached worktrees: 10 under `D:\IntRuoyiWorktree\`.
-- Initial blocker/risk: local `int_main` was `ahead 1, behind 3` after the required dirty baseline commit; first `git fetch origin int_main` failed with GitHub connection reset.
+- Attached worktrees: 11 under `D:\IntRuoyiWorktree\`.
+- Eligible result: 9 attached worktree branches are now ancestors of local `int_main`.
+- Blocked result: 2 attached worktree branches were not merged because their own task evidence is blocked or dirty with unresolved E2E prerequisites:
+  - `codex/20260727-route-flow-batch-record-form-source-e2e`
+  - `codex/restart-int-main-latest-backend-20260727`
+- Local blocker/risk: final completion cannot be marked while blocked worktree branches remain unmerged without explicit user override and formal prerequisites.
+
+## Integration Summary
+
+- Baseline commits preserved unrelated dirty task docs before merge commits: `8cf2c4f6`, `d27ca83a`, `b9187a11`.
+- Current task startup docs were committed as `99005cfa`.
+- `origin/int_main` snapshot was merged locally before integration as `cc64234d`.
+- Dirty worktree implementation commits made on their original branches: `7354b8a5`, `07ad0955`, `e3ba7c96`.
+- Merge commits into `int_main`: `d3fcbc7b`, `50453f4e`, `e9ea70a7`, `0acad930`, `0c584f71`.
+- Experience consolidation updated existing long-term docs: `docs\worktree-memory.md`, `docs\release-build-preflight-lessons.md`, `docs\experience-index.md`.
+
+## Blocked Worktrees
+
+- `D:\IntRuoyiWorktree\20260727-route-flow-batch-record-form-source-e2e` is clean but remains `not-ancestor`; its task status is `blocked` because the exact `球囊扩张导管` route lacks formal per-process batch-record reports, and `PTCA球囊扩张导管` page verification lacks a test-tenant login path.
+- `D:\IntRuoyiWorktree\20260727_int_main_latest_backend_runtime` is dirty and remains `not-ancestor`; its task status is `blocked_for_e2e_validation` because the frontend still references deprecated `/batch-record-cell-link/prefill` and real E2E lacks `LOCAL_DATABASE_FIXTURE`.
+- `D:\IntRuoyiWorktree\20260728-codex-node-chain-first-node-contract` is already an ancestor, but still contains local runtime dirtiness at `.runtime\codex-test-runner\codex-runner.pid`; this artifact was intentionally excluded from the implementation commit.
 
 ## 设计约束检查
 
