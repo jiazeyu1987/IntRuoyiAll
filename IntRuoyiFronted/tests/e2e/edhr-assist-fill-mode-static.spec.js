@@ -86,7 +86,13 @@ const assistSwitchHandlers = executionPage.slice(
   executionPage.indexOf('const resolveAssistFieldElement')
 )
 assertNotIncludes(assistSwitchHandlers, "path: '/mes/pro/feedback/edhr-batch-execution'", '任务/批次切换不能跳回批次列表。')
-assertNotIncludes(assistSwitchHandlers, "path: '/mes/pro/feedback/edhr-batch-execution/detail'", '工序/填写人切换不能跳回批次详情。')
+if (assistSwitchHandlers.includes("path: '/mes/pro/feedback/edhr-batch-execution/detail'")) {
+  assert.match(
+    assistSwitchHandlers,
+    /opened\.formCenterInstanceId && opened\.formTemplateId[\s\S]*openRouteForm: '1'[\s\S]*path: '\/mes\/pro\/feedback\/edhr-batch-execution\/detail'/,
+    '只有 FormCenter 表单槽位可回批次详情抽屉，传统批记录工序/填写人切换不能跳回批次详情。'
+  )
+}
 assertNotIncludes(assistSwitchHandlers, "focus: 'process'", '工序切换不能通过批次详情 focus 参数离开辅助模式。')
 assertNotIncludes(assistSwitchHandlers, "focus: 'fillers'", '填写人切换不能通过批次详情 focus 参数离开辅助模式。')
 assertIncludes(executionPage, '我的填写项', '辅助模式必须把当前用户需要填写的字段作为主内容。')
