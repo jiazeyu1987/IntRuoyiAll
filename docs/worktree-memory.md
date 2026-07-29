@@ -19,6 +19,15 @@
 - Forbidden action: 禁止把多个 dirty worktree 内容直接复制到主工作区；禁止用 `--force` merge、整文件 `ours/theirs`、静默跳过失败测试、或在首次推送和分支 ancestor 验证前删除 worktree。
 - Evidence: `doc/tasks/20260726-merge-worktrees-into-int-main/verification-report.md`，六个 worktree 在 dirty 内容独立提交、逐分支 merge、冲突后聚焦回归和 ancestor 验证后进入删除阶段。
 
+### 子 Agent 主工作区溢出基线门禁
+
+- Trigger: 并行子 agent 本应只写 `D:\IntRuoyiWorktree\`，但主工作区出现同一任务的新增/修改文件，且这些文件会被后续分支 merge 覆盖或触发 untracked overwrite。
+- Preflight check: 在合并任何子分支前运行主工作区 `git status --short --branch`、`git diff --name-status`、`git ls-files --others --exclude-standard`，按任务范围判断溢出文件是否属于当前任务；属于当前任务的先形成单独“spillover baseline”提交并记录文件列表和提交 hash。
+- Blocker: 溢出文件无法确认归属、包含 unrelated 用户改动、包含 secret-bearing 输出、或与待合并分支语义冲突且无法证明保留策略时必须停止。
+- Verification: baseline 提交后重新运行 `git status --short --branch`，再执行目标分支 merge；若发生 add/add 冲突，必须语义合并并运行该分支目标测试。
+- Forbidden action: 禁止删除 untracked 文件来绕过 merge 保护；禁止用整文件 `ours/theirs` 覆盖任务日志；禁止把溢出内容混入后续实现提交。
+- Evidence: `doc/tasks/20260730-production-line-process-pool-implementation/execution-log.md`，F2 子任务溢出文件先独立提交为 `028e2904`，随后再合并 F1/F2 分支并运行目标测试。
+
 ## 并行主工作区远端快进融合门禁
 
 - Trigger: 主工作区持续被并行任务写入，任务分支已在干净 worktree 中完成实现、验证和推送，但本地 `int_main` 无法保持 clean 以接收 `task_closeout.py` 的 ff-only merge。

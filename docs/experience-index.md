@@ -269,6 +269,7 @@
 - Gate: 仅测试服发布任务优先读取 `docs/test-release-preflight.md`，再按失败点跳转 `release-build-preflight-lessons.md`、`powershell-preflight-lessons.md` 和 `E:\IntRuoyi\docs\worktree-memory.md`。
 - Keywords: remote python3 absent, python3 command not found, jq command not found, backup runtime verification carrier, 远端验收工具缺失 -> `docs/powershell-preflight-lessons.md#2026-07-14-远端验收工具可用性门禁`
 - Keywords: worktree remove Directory not empty, r260713v release worktree residual, git worktree registration absent physical directory exists -> `docs/release-build-preflight-lessons.md#2026-07-13-release-worktree-物理根目录复核门禁`
+- Keywords: 子 agent 主工作区溢出, untracked overwrite, spillover baseline, add/add 冲突, 并行子任务误写主工作区 -> `docs/worktree-memory.md#子-agent-主工作区溢出基线门禁`
 - Keywords: only test release ssh stdin CRLF, .env IMAGE_TAG remote verification, runtime console change notes, release lock APPLIED -> `docs/test-release-preflight.md#2026-07-13-仅测试服发布远端验收脚本承载门禁`
 - Keywords: runtime console dialog source commits, version change notes visible, release-info source commit verification, page-visible releaseTag -> `docs/test-release-preflight.md#2026-07-13-运行控制台版本说明与-source-commit-分层验收门禁`
 - Keywords: release-info.json 返回 index.html, release-info static file missing, 前端容器缺 release-info.json, Write-FrontendReleaseInfo, New-ReleaseDockerBuildContext, code-only release-info 出包 -> `docs/test-release-preflight.md#2026-07-28-release-info-静态文件出包门禁`

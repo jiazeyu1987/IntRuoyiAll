@@ -62,7 +62,8 @@ class MesProcessPoolSchemaTest {
 
         String sql = Files.readString(resolveBackendPath("sql/mysql/20260730_mes_process_pool_foundation.sql"),
                 StandardCharsets.UTF_8);
-        assertTrue(sql.startsWith("-- release-migration: allowedEnvironments=test,backup,prod; "
+        String normalizedSql = sql.replace("\r\n", "\n");
+        assertTrue(normalizedSql.startsWith("-- release-migration: allowedEnvironments=test,backup,prod; "
                 + "dependsOn=20260729_dcc_product_catalog_remove_subsidiary_source; type=schema; riskLevel=medium\n"));
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_process_pool`"));
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_event`"));

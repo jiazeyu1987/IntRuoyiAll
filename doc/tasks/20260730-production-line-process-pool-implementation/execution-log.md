@@ -47,3 +47,22 @@
 - BDD: F2 同事务组合提交 -> Given 报工、记录本原始条目、记录本事件、工序池事件任一环节失败；When 组合服务执行；Then 异常直接暴露并由组合服务事务回滚，不返回默认成功。
 - BDD: F2 payload 拆分 -> Given payload 含输出数量、损耗数量、上工序输入数量、设备参数和原始 payload；When 后端拆分；Then 输出/损耗进入报工，上工序输入/设备参数/原始 payload 进入记录本和工序池事件，且不塞进报工备注。
 - BDD: F2 原始超限值保留和路线不阻断 -> Given 原始设备参数超出审核上下限且路线前置未完成；When 一线组合提交；Then 不裁剪、不按上下限拒绝、不按前后置顺序阻断，只保存路线作为上下文和权限边界。
+
+## 2026-07-30 F1/F2 Main Review And Merge
+
+- F2 spillover baseline: main worktree had task-related F2 files before branch merge, committed separately as `028e2904 chore: capture frontline submit spillover baseline` to preserve evidence and avoid overwriting untracked task files.
+- F1 review result: PASS. Implementation creates dedicated `mes_pro_process_pool*` tables, event/quantity/PQC models, server-side submit time, unique signature id, raw payload preservation, and does not use the existing feedback surplus pool.
+- F1 verification: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolSchemaTest,MesProcessPoolEventServiceTest,MesProcessPoolPqcEventTest,MesProcessPoolTimeSignatureTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS.
+- F1 verification: `python -m pytest IntRuoyiBackend\script\tests\test_mes_process_pool_sql.py` -> PASS, 3 passed.
+- F1 verification: targeted legacy MES regression from agent evidence -> PASS, 37 tests passed.
+- F1 merge: `c2a3c1f8 merge: integrate process pool foundation`.
+- F2 executor verification: target JUnit tests -> PASS, 8 tests passed in worktree.
+- F2 review finding: `MesProcessPoolSubmitEventService` only had an interface in F2 branch after merge; Spring runtime wiring would fail when `/mes/pro/feedback/frontline/submit` tried to persist the工序池 event.
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolSubmitEventServiceAdapterTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: `MesProcessPoolSubmitEventServiceImpl` missing.
+- F2 fix: added `MesProcessPoolSubmitEventServiceImpl` as a formal adapter from combined报工 payload to F1 `MesProcessPoolEventService#createEvent`; it preserves raw payload, maps output/loss quantity fragments, links feedback id and recordbook event id, and passes server submit time only as client context for F1 to ignore.
+- F2 merge: `d152a80a merge: integrate frontline combined submit`.
+- F2 schema-test fix: normalized CRLF/LF in `MesProcessPoolSchemaTest` because Windows checkout line endings made the migration header assertion fail without changing migration behavior.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolSubmitEventServiceAdapterTest,MesProFrontlineFeedbackSubmitControllerTest,MesProFrontlineFeedbackSubmitServiceTest,MesProFrontlineFeedbackSubmitRollbackTest,MesProFrontlineFeedbackPayloadSplitterTest,MesProFrontlineFeedbackRouteOrderGateTest,MesProFrontlineFeedbackRawLimitBypassTest,MesProcessPoolSchemaTest,MesProcessPoolEventServiceTest,MesProcessPoolPqcEventTest,MesProcessPoolTimeSignatureTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, target reports show 0 failures/errors.
+- GREEN: `python -m pytest IntRuoyiBackend\script\tests\test_mes_process_pool_sql.py` -> PASS.
+- Verification: `git diff --check` -> PASS for the F2 adapter/schema fix diff.
+- Experience consolidation: updated `docs/worktree-memory.md#子-agent-主工作区溢出基线门禁` and `docs/experience-index.md` so future multi-agent merges preflight main-worktree spillover before branch merges.
