@@ -11,7 +11,7 @@
 - [x] 将软键盘静态合同改为删除口径并先 RED
 - [x] 删除 `ExecutionPage.vue` 中软键盘模板、状态、事件处理和样式
 - [x] 运行聚焦静态合同、相邻合同和类型检查
-- [ ] 收尾清理、提交并推送
+- [x] 收尾清理、提交并推送
 
 ## Expected Verification
 
@@ -23,7 +23,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Verification Evidence
 
@@ -31,6 +31,10 @@ ready_for_closeout
 - `node tests/e2e/edhr-assist-fill-mode-static.spec.js`：PASS。
 - `pnpm ts:check`：PASS。
 - `rg -n "softKeyboard|soft-keyboard|keyboard-outline|data-soft-keyboard|打开软键盘|关闭软键盘" IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`：无匹配，证明页面源文件已无软键盘残留。
+- `validate_frontend_feature.py`：PASS，`frontend-feature-evidence.md` 结构有效。
+- `git diff --check -- doc/tasks/20260729-remove-edhr-soft-keyboard-button`：PASS。
+- `task_closeout.py --mode preview`：`blocked=<none>`、`warnings=<none>`、`delete=<none>`。
+- `task_closeout.py --mode apply`：PASS，保留四份任务记录且未删除文件。
 - 实现文件提交状态：`7de25b08` 吸收删除口径静态合同和任务初始文档，`66322922` 吸收 `ExecutionPage.vue` 软键盘删除实现并已推送到 `origin/int_main`。
 
 ## Cleanup Keep
@@ -45,6 +49,8 @@ ready_for_closeout
 - `dbdcb76b chore: preserve final baseline before soft keyboard removal`
 - `7de25b08 chore: baseline concurrent workspace before process card update`
 - `66322922 chore: baseline concurrent process switch updates`
+- `bc9ba7bc chore: preserve concurrent workspace before soft keyboard closeout`
+- `ee388379 chore: preserve residual concurrent updates before soft keyboard closeout`
 
 ## Applicable Gates
 

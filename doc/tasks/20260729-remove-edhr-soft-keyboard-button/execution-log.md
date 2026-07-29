@@ -21,6 +21,8 @@
 - Baseline commit: `dbdcb76b chore: preserve final baseline before soft keyboard removal`
 - Concurrent baseline absorbed task test/docs: `7de25b08 chore: baseline concurrent workspace before process card update`
 - Concurrent baseline absorbed source removal: `66322922 chore: baseline concurrent process switch updates`
+- Pre-closeout concurrent baseline: `bc9ba7bc chore: preserve concurrent workspace before soft keyboard closeout`
+- Residual concurrent baseline: `ee388379 chore: preserve residual concurrent updates before soft keyboard closeout`
 
 ## BDD
 
@@ -35,6 +37,8 @@
 - GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS.
 - GREEN: `pnpm ts:check` -> PASS.
 - GREEN: `rg -n "softKeyboard|soft-keyboard|keyboard-outline|data-soft-keyboard|打开软键盘|关闭软键盘" IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue` -> no matches.
+- GREEN: `validate_frontend_feature.py --evidence doc/tasks/20260729-remove-edhr-soft-keyboard-button/frontend-feature-evidence.md` -> PASS.
+- GREEN: `git diff --check -- doc/tasks/20260729-remove-edhr-soft-keyboard-button` -> PASS.
 
 ## Milestone Updates
 
@@ -42,3 +46,5 @@
 - 2026-07-29: Rewrote `edhr-soft-keyboard-button-static.spec.js` from presence contract to deletion contract, then confirmed RED before removing implementation.
 - 2026-07-29: Removed custom soft keyboard rail template, `softKeyboard*` state/functions, focus listener and CSS from `ExecutionPage.vue`.
 - 2026-07-29: Concurrent commits advanced `origin/int_main`; task source/test changes are already present in pushed history, so remaining task-owned work is documentation closeout only.
+- 2026-07-29: Cleanup preview reported no blocked paths, warnings or deletions and retained `task.md`, `execution-log.md`, `frontend-feature-evidence.md` and `verification-report.md`.
+- 2026-07-29: Cleanup apply completed successfully with no deleted paths; task status advanced from `ready_for_closeout` to `completed`.

@@ -10,6 +10,10 @@ Removed the eDHR fill workspace custom soft keyboard button and page-local keybo
 - `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS.
 - `pnpm ts:check` -> PASS.
 - `rg -n "softKeyboard|soft-keyboard|keyboard-outline|data-soft-keyboard|打开软键盘|关闭软键盘" IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue` -> no matches.
+- `validate_frontend_feature.py --evidence doc/tasks/20260729-remove-edhr-soft-keyboard-button/frontend-feature-evidence.md` -> PASS.
+- `git diff --check -- doc/tasks/20260729-remove-edhr-soft-keyboard-button` -> PASS.
+- `task_closeout.py --mode preview` -> PASS; no blocked paths, warnings or deletions.
+- `task_closeout.py --mode apply` -> PASS; retained all four task evidence files.
 
 ## Scope Notes
 
@@ -19,4 +23,4 @@ Removed the eDHR fill workspace custom soft keyboard button and page-local keybo
 
 ## Current Status
 
-ready_for_closeout
+completed

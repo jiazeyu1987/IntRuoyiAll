@@ -47,6 +47,8 @@ Remove the eDHR fill workspace custom soft keyboard button and popup implementat
 - GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` passed.
 - GREEN: `pnpm ts:check` passed.
 - GREEN: source residual scan for `softKeyboard`, `soft-keyboard`, `keyboard-outline`, `data-soft-keyboard`, `打开软键盘`, `关闭软键盘` returned no matches in `ExecutionPage.vue`.
+- GREEN: frontend feature evidence validator passed.
+- GREEN: task-document `git diff --check` passed.
 - Real E2E: not run; this is a deletion-only local UI cleanup with no runtime, data, permission, save or submit path changes.
 
 ## Responsive, Accessibility, Loading, Empty, Error, Permission Checks
@@ -58,4 +60,3 @@ Remove the eDHR fill workspace custom soft keyboard button and popup implementat
 ## Blockers
 
 - None currently.
-
