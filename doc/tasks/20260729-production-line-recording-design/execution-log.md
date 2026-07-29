@@ -24,6 +24,12 @@
 
 用户补充：设备数量有限，设备里登录的账号要可以切换用户填写；这里是切换用户，不是切换账号。登录账号绑定 `X` 个工艺路线，`X >= 1`，账号内可以切换这些工艺路线对应的所有工序。员工在账号内切换到自己后，UI 切换成该用户对应 UI，填写、电子签名并结束。
 
+用户追问：现有有资源池吗？
+
+用户确认：两个不是一个概念，需要一个新的工序池。员工在设备账号内切换到自己时不用验证身份，电子签名就代表身份。审核副本规则只处理上下限。原始记录修改必须重新电子签名。已经 FIFO 分配给生产工单的不能修改，其它内容由助手协助确认。
+
+用户询问：如果要实现上面的功能，需要分成哪几个里程碑。
+
 ## BDD Scenarios
 
 BDD: capture current-thread discussion only -> Given this thread contains the business discussion about production-line simplified recording, When documents are written, Then they include this thread's prior messages and exclude unrelated project history or other tasks.
@@ -49,6 +55,12 @@ BDD: process pool records PQC process inspection -> Given a process pool aggrega
 BDD: name process pool submissions consistently -> Given every template submission has a unique electronic signature and submitted time, When the unified object name is documented, Then it must support audit traceability and process-pool time Gantt views.
 
 BDD: support finite equipment account user switching -> Given shop-floor equipment is limited and one device login account may cover one or more process routes, When an employee reports work from that device account, Then the account can switch only its bound routes/processes, the employee switches to themself inside the account, the UI switches by actual employee, and the process-pool submission event is signed by the actual employee rather than only the login account.
+
+BDD: distinguish existing surplus pool from target process pool -> Given the current code already has feedback surplus pool tables, When the requirement document answers whether a resource pool exists, Then it must distinguish the existing surplus/overproduction pool from the new complete process pool and list the missing dimensions before reuse.
+
+BDD: lock confirmed process-pool identity and edit rules -> Given the user confirmed a new process pool is required and electronic signature represents employee identity, When the requirement document is updated, Then it must state that existing surplus pool cannot replace the new process pool, employee switching needs no extra identity check, audit copies only clamp min/max, original edits require a new electronic signature, and FIFO-allocated records cannot be modified.
+
+BDD: split implementation into milestones -> Given the confirmed requirement spans frontline feedback, recordbook entry, process pool, PQC, FIFO allocation, audit copy, electronic signatures, and finite-device account switching, When implementation milestones are documented, Then the sequence must start with requirement/model confirmation and end with integration, verification, and pilot rollout.
 
 ## Command And Evidence Log
 
@@ -108,6 +120,26 @@ BDD: support finite equipment account user switching -> Given shop-floor equipme
 - GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after production-work-order correction.
 - GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after production-work-order correction.
 - GREEN: `git diff --check -- task-owned docs` -> PASS after production-work-order correction; Git reported line-ending normalization warnings only.
+- GREEN: apply user clarification about finite equipment and account-internal user switching -> PASS, documented shared device login account, route-bound process switching, actual-employee UI switching, and employee-bound electronic signature.
+- GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after finite-equipment account switching clarification.
+- GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after finite-equipment account switching clarification.
+- GREEN: `git diff --check -- task-owned docs` -> PASS after finite-equipment account switching clarification; Git reported line-ending normalization warnings only.
+- GREEN: `task-closeout-cleanup --mode preview` -> PASS after finite-equipment account switching clarification, keep core task docs, delete none, blocked none.
+- GREEN: `task-closeout-cleanup --mode apply` -> PASS after finite-equipment account switching clarification, deleted none.
+- GREEN: inspect existing resource pool code -> PASS, found `mes_pro_feedback_surplus_pool`, `mes_pro_feedback_surplus_allocation`, `MesProFeedbackSurplusPoolDO`, `MesProFeedbackSurplusAllocationDO`, mappers, and import-record service usage.
+- GREEN: document existing resource pool answer -> PASS, recorded that current system has a report-work surplus pool but not the complete target process pool.
+- GREEN: apply confirmed process-pool identity and edit rules -> PASS, documented the need for a new process pool, electronic-signature identity, min/max-only audit copy, required re-signature for original edits, and no edits after FIFO allocation.
+- GREEN: document implementation milestones -> PASS, added 12 implementation milestones and 4 larger rollout phases to the project brief and evidence inventory.
+- GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after implementation milestone update.
+- GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after implementation milestone update.
+- GREEN: `git diff --check -- task-owned docs` -> PASS after implementation milestone update; Git reported line-ending normalization warnings only.
+- GREEN: `task-closeout-cleanup --mode preview` -> PASS after implementation milestone update, keep core task docs, delete none, blocked none.
+- GREEN: `task-closeout-cleanup --mode apply` -> PASS after implementation milestone update, deleted none.
+- GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after confirmed process-pool identity and edit rules.
+- GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after confirmed process-pool identity and edit rules.
+- GREEN: `git diff --check -- task-owned docs` -> PASS after confirmed process-pool identity and edit rules; Git reported line-ending normalization warnings only.
+- GREEN: `task-closeout-cleanup --mode preview` -> PASS after confirmed process-pool identity and edit rules, keep core task docs, delete none, blocked none.
+- GREEN: `task-closeout-cleanup --mode apply` -> PASS after confirmed process-pool identity and edit rules, deleted none.
 - GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after feedback-centered clarification.
 - GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after feedback-centered clarification.
 - GREEN: `git diff --check -- task-owned docs` -> PASS after feedback-centered clarification; Git reported line-ending normalization warnings only.
@@ -142,15 +174,20 @@ BDD: support finite equipment account user switching -> Given shop-floor equipme
 - Added PQC process inspection records into the process-pool semantics.
 - Added unified process-pool submission naming as “工序池提交事件”.
 - Added finite-equipment shared login account semantics, including route binding, process switching, actual-employee UI switching, and employee-bound electronic signature.
+- Added current-resource-pool clarification: existing `mes_pro_feedback_surplus_pool` is a report-work process surplus pool, not yet the full target process pool.
+- Added confirmed rules for new process pool, identity by electronic signature, audit-copy min/max only, re-signature on edits, and no edits after FIFO allocation.
+- Added implementation milestone breakdown covering requirement freeze, process-pool model, device account permissions, fixed templates, combined submit, quantity aggregation, PQC, FIFO, record edits, audit copies, timeline views, integration, and pilot verification.
+- Re-ran inception validation, UTF-8 read validation, diff check, and cleanup preview/apply after the implementation milestone update.
 - Re-ran validation after the feedback-centered clarification.
 - Re-ran validation after the combined feedback-recordbook correction.
 - Re-ran validation and cleanup preview/apply after the Word-document field extraction.
 - Re-ran validation and cleanup preview/apply after the split-fill quantity-completion clarification.
 - Re-ran validation and cleanup preview/apply after the process-pool correction.
 - Re-ran validation and cleanup preview/apply after the PQC process-inspection process-pool clarification.
+- Re-ran validation and cleanup preview/apply after the finite-equipment account switching clarification.
 - Re-ran cleanup preview/apply after the production-work-order correction; no task-owned files were deleted.
 - Re-ran cleanup preview/apply after the feedback-centered clarification; no task-owned files were deleted.
 
 ## Blockers
 
-- Git closeout is blocked by current branch `ahead 2` and unrelated untracked task directory `doc/tasks/20260729-dcc-product-catalog-project-code-columns/`; this documentation task did not stage, commit, or push those changes.
+- Git closeout is blocked by current branch `ahead 1` containing an existing non-task-owned commit plus unrelated workspace changes (`doc/tasks/20260729-test-server-wangsiyu-file-upload-simulation/upload-evidence.json` and `doc/tasks/20260729-local-scheduler-tenant-copy/probe-source-full-config.json`); this documentation task did not push or stage unrelated history.

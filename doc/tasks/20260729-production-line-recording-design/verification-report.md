@@ -2,7 +2,7 @@
 
 ## Summary
 
-Documentation writing and structural verification passed before the latest unified submission naming update. The latest naming update has been recorded in the inception docs and is pending re-verification in this report until the current verification commands are re-run. Git closeout remains blocked by unrelated workspace changes.
+Documentation writing and structural verification passed after the implementation milestone breakdown update. Git closeout remains blocked by unrelated workspace changes.
 
 ## Evidence
 
@@ -20,7 +20,13 @@ Documentation writing and structural verification passed before the latest unifi
 - PASS: Split-fill and quantity-based process completion clarification added.
 - PASS: Process-pool core concept added.
 - PASS: PQC process inspection records added to process-pool model.
-- PENDING: Unified process-pool submission object named “工序池提交事件”; re-verification pending.
+- PASS: Unified process-pool submission object named “工序池提交事件” and re-verified.
+- PASS: Finite-equipment account switching clarification added: device login account binds one or more process routes, employees switch to themselves inside the account, UI switches by actual employee, and electronic signature binds the actual employee.
+- PASS: Existing resource pool clarification added: current system has `mes_pro_feedback_surplus_pool` and `mes_pro_feedback_surplus_allocation`, but they are report-work surplus pool capabilities rather than the complete target process pool.
+- PASS: User-confirmed final rules added: a new process pool is required; employee switching inside the device account needs no extra identity validation; electronic signature represents identity; audit copy only clamps min/max; original edits require re-signature; FIFO-allocated original records cannot be modified.
+- PASS: Implementation milestone breakdown added: 12 milestones covering requirement/model foundation, frontline feedback-recordbook closed loop, process pool/PQC/FIFO quantity loop, audit/timeline integration, and pilot verification.
+- PASS: Inception structure validation, UTF-8 read validation, `git diff --check`, and cleanup preview/apply passed after the implementation milestone update.
+- PASS: Inception structure validation, UTF-8 read validation, `git diff --check`, and cleanup preview/apply passed after the confirmed process-pool identity and edit-rule clarification.
 - PASS: Inception structure validation and UTF-8 read validation passed after the correction.
 - PASS: Inception structure validation and UTF-8 read validation passed after the feedback-centered clarification.
 - PASS: `git diff --check` reported no whitespace errors after the feedback-centered clarification; Git reported line-ending normalization warnings only.
@@ -41,7 +47,10 @@ Documentation writing and structural verification passed before the latest unifi
 - PASS: Inception structure validation and UTF-8 read validation passed after the PQC process-inspection process-pool clarification.
 - PASS: `git diff --check` reported no whitespace errors after the PQC process-inspection process-pool clarification; Git reported line-ending normalization warnings only.
 - PASS: Cleanup preview/apply passed after the PQC process-inspection process-pool clarification with no deleted paths.
-- BLOCKED: final Git commit/push closeout was not performed because `git status --short --branch` showed `int_main...origin/int_main [ahead 2]` and unrelated untracked directory `doc/tasks/20260729-dcc-product-catalog-project-code-columns/`.
+- PASS: Inception structure validation and UTF-8 read validation passed after the finite-equipment account switching clarification.
+- PASS: `git diff --check` reported no whitespace errors after the finite-equipment account switching clarification; Git reported line-ending normalization warnings only.
+- PASS: Cleanup preview/apply passed after the finite-equipment account switching clarification with no deleted paths.
+- BLOCKED: final Git commit/push closeout was not performed because `git status --short --branch` showed `int_main...origin/int_main [ahead 1]` with an existing non-task-owned commit and unrelated workspace changes that this documentation task should not push.
 
 ## Final Result
 
