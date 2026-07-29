@@ -1926,6 +1926,14 @@ const assistSwitchDialogWidth = computed(() =>
   assistSwitchDialogType.value === 'process' ? 'min(1560px, calc(100vw - 280px))' : '680px'
 )
 
+const assistProcessSwitchOrderCode = computed(() => {
+  const orderCode =
+    execution.value?.workOrderCode ||
+    readRouteQueryString(route.query.workOrderCode) ||
+    (execution.value?.workOrderId ? String(execution.value.workOrderId) : '')
+  return orderCode ? `订单号：${orderCode}` : '订单号：--'
+})
+
 const parsePositiveNumber = (value: unknown) => {
   const numericValue = Number(value)
   return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : undefined
@@ -5859,6 +5867,11 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid #edf1f6;
 }
 
+.edhr-fill-workspace__assist-switch-process-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, auto) minmax(0, 1fr);
+}
+
 .edhr-fill-workspace__assist-switch-menu-head strong {
   color: #172033;
   font-size: 14px;
@@ -5869,6 +5882,19 @@ onBeforeUnmount(() => {
 .edhr-fill-workspace__assist-switch-loading {
   color: #6b7280;
   font-size: 12px;
+}
+
+.edhr-fill-workspace__assist-switch-order-code {
+  justify-self: center;
+  max-width: 360px;
+  padding: 6px 18px;
+  color: #172033 !important;
+  font-size: 16px !important;
+  font-weight: 800;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .edhr-fill-workspace__assist-switch-option {
@@ -5888,7 +5914,7 @@ onBeforeUnmount(() => {
 .edhr-fill-workspace__assist-switch-process-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  grid-auto-rows: minmax(64px, auto);
+  grid-auto-rows: minmax(86px, auto);
   gap: 8px;
   align-content: start;
   min-height: 0;
@@ -5897,7 +5923,8 @@ onBeforeUnmount(() => {
 }
 
 .edhr-fill-workspace__assist-process-card {
-  min-height: 64px;
+  min-height: 86px;
+  padding: 16px 18px;
   border-left: 4px solid #0f8f4f;
   box-shadow: 0 6px 16px rgba(23, 32, 51, 0.06);
 }
@@ -5940,6 +5967,8 @@ onBeforeUnmount(() => {
 
 .edhr-fill-workspace__assist-process-card .edhr-fill-workspace__assist-switch-option-main {
   min-width: 0;
+  font-size: 16px;
+  line-height: 1.35;
 }
 
 .edhr-fill-workspace__assist-process-card .edhr-fill-workspace__assist-switch-option-main > span {
@@ -5947,6 +5976,13 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.edhr-fill-workspace__assist-process-card :deep(.el-tag) {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 14px;
+  line-height: 22px;
 }
 
 .edhr-fill-workspace__assist-switch-option-sub {
