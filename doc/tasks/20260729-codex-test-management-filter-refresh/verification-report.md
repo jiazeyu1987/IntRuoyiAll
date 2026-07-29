@@ -24,4 +24,5 @@
 - 远端 `git fetch origin int_main` 两次因连接重置失败；当前融合基于本地 `int_main`，远端推送需在网络恢复后完成。
 - 远端 push 也因 `Recv failure: Connection was reset` 连续失败；代码可先本地融合验证，任务最终完成仍等待网络恢复后推送。
 - 本地 `E:\IntRuoyi` 已快进融合并复测通过，用户当前本机主工作区代码已包含红框串行路线下拉和手动刷新机制。
+- Final blocker: `origin` 推送连续失败，错误为 `Recv failure: Connection was reset`；任务保持 `ready_for_closeout`，待网络恢复后执行 `git push origin int_main`。
 - 本轮未运行真实 Playwright 写入型 E2E；改动是前端静态布局和刷新机制，已用聚焦静态合同与类型检查覆盖。

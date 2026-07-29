@@ -35,3 +35,5 @@
 - LOCAL MAIN GREEN: `node tests\e2e\system-codex-test-management-static.spec.js` from `E:\IntRuoyi\IntRuoyiFronted` -> PASS，退出码 0。
 - LOCAL MAIN GREEN: `node tests\e2e\system-codex-test-run-monitor-static.spec.js` from `E:\IntRuoyi\IntRuoyiFronted` -> PASS。
 - LOCAL MAIN GREEN: `pnpm ts:check` from `E:\IntRuoyi\IntRuoyiFronted` -> PASS。
+- LOCAL MAIN COMMIT: `aba4e271 docs: record local codex test management merge` -> PASS。
+- FINAL PUSH BLOCKER: `git push origin int_main` and `git -c http.version=HTTP/1.1 push origin int_main` -> FAIL，错误均为 `Recv failure: Connection was reset`。本地 `int_main` 已完成融合和验证，但远端推送门禁未完成。
