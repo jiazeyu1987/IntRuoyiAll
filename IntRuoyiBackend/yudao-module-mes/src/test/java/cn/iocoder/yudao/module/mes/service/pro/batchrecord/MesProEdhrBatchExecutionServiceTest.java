@@ -3098,6 +3098,56 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void get_allowsCurrentProcessAnchorFillerAfterOpeningExtraFormAssistTask() {
+        Fixture fixture = insertRouteFixture(false, false);
+        MesProRouteProcessDO firstProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).stream()
+                .sorted(Comparator.comparing(MesProRouteProcessDO::getSort))
+                .findFirst()
+                .orElseThrow();
+        String mainReport = insertReport("RPT-VIEW-ASSIST-MAIN", "粗洗生产记录");
+        String lossReport = insertReport("RPT-VIEW-ASSIST-LOSS", "粗洗损耗单");
+        insertBatchUseConfigWithSlots(fixture.routeId(), firstProcess.getId(), "PARALLEL", List.of(
+                batchSlot(mainReport, "MAIN", null, null, null, 1),
+                batchSlot(lossReport, "LOSS_REPORT", "INTERNAL_RECORD", 5011L, "PRODUCTION", 2)
+        ));
+        EdhrBatchExecutionRespVO batch = batchExecutionService.openOrCreate(new EdhrBatchExecutionOpenOrCreateReqVO()
+                .setWorkOrderId(fixture.workOrderId())
+                .setBatchCode("BATCH-VIEW-ASSIST-EXTRA")
+                .setRouteId(fixture.routeId()));
+        skipAllSpecialNodes(batch);
+        EdhrBatchExecutionTaskRespVO mainTask = routeTasks(batch).stream()
+                .filter(task -> mainReport.equals(task.getBatchRecordReportId()))
+                .findFirst()
+                .orElseThrow();
+        EdhrBatchExecutionTaskRespVO lossTask = routeTasks(batch).stream()
+                .filter(task -> lossReport.equals(task.getBatchRecordReportId()))
+                .findFirst()
+                .orElseThrow();
+        insertProductionTask(fixture.workOrderId(), fixture.routeId(), firstProcess.getProcessId(), 80046L);
+        insertWorkTask(batch, mainTask, fixture, MesProEdhrWorkTaskService.TASK_TYPE_FILL, 10001L);
+        MesProEdhrWorkTaskDO lossWorkTask = insertWorkTask(batch, lossTask, fixture,
+                MesProEdhrWorkTaskService.TASK_TYPE_FILL, 152L)
+                .setCandidateUserSnapshot("152");
+        workTaskMapper.updateById(lossWorkTask);
+        when(permissionApi.hasAnyPermissions(10001L, MesProEdhrBatchTaskVisibilityService.OVERVIEW_PERMISSION))
+                .thenReturn(false);
+        when(singleExecutionService.openOrCreateByContext(any()))
+                .thenReturn(new MesProBatchRecordExecutionOpenOrCreateByContextRespVO()
+                        .setId(9045L)
+                        .setCreated(true)
+                        .setStatus(0));
+
+        openTaskAs(10001L, batch.getId(), lossTask.getId(), lossWorkTask.getId(), 152L);
+
+        EdhrBatchExecutionRespVO detail;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(10001L);
+            detail = batchExecutionService.get(batch.getId());
+        }
+        assertEquals(batch.getId(), detail.getId());
+    }
+
+    @Test
     void openTask_rejectsExtraFormAssistUserWithoutCurrentProcessFillerAnchor() {
         Fixture fixture = insertRouteFixture(false, false);
         MesProRouteProcessDO firstProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).stream()
@@ -3217,6 +3267,13 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         Fixture fixture = insertRouteFixture(false, false);
         MesProRouteProcessDO routeProcess = routeProcessMapper.selectListByRouteId(fixture.routeId()).get(0);
         FormTemplateVersionDO templateVersion = insertPublishedFormTemplateVersion("已提交可修改动态损耗单");
+        templateVersion.setJimuSchemaJson("{\"sheetLayoutJson\":\"{\\\"rows\\\":{},\\\"cols\\\":{},\\\"merges\\\":[]}\"}");
+        templateVersion.setRecognizedSchemaJson("""
+                [
+                  {"fieldCode":"lossAmount","label":"损耗数量","fieldType":"NUMBER","required":true}
+                ]
+                """);
+        formTemplateVersionMapper.updateById(templateVersion);
         stubFormCenterInstanceIds(84001L);
         insertBatchProcessFormCenterBinding(fixture.routeId(), routeProcess.getId(), templateVersion,
                 "FB_APPROVED_DYNAMIC_LOSS");
@@ -3241,8 +3298,12 @@ class MesProEdhrBatchExecutionServiceTest extends BaseDbUnitTest {
         assertEquals(fillTask.getId(), opened.getWorkTaskId());
         assertEquals(dynamicTask.getFormCenterInstanceId(), opened.getFormCenterInstanceId());
         assertEquals(dynamicTask.getFormTemplateId(), opened.getFormTemplateId());
+        assertEquals(templateVersion.getJimuSchemaJson(), opened.getFormTemplateJimuSchemaJson());
+        assertEquals("lossAmount", opened.getFormTemplateRecognizedFields().get(0).getFieldCode());
         assertEquals(fillTask.getId(), opened.getExecutionPageQuery().get("workTaskId"));
         assertEquals(dynamicTask.getFormCenterInstanceId(), opened.getExecutionPageQuery().get("formCenterInstanceId"));
+        assertEquals(templateVersion.getJimuSchemaJson(), opened.getExecutionPageQuery().get("formTemplateJimuSchemaJson"));
+        assertFalse(((List<?>) opened.getExecutionPageQuery().get("formTemplateRecognizedFields")).isEmpty());
         verify(singleExecutionService, never()).openOrCreateByContext(any());
     }
 

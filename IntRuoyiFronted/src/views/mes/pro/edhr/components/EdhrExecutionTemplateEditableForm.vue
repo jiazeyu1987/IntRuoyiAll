@@ -60,7 +60,7 @@
                   :class="cell.classNames"
                 >
                   <span
-                    v-if="cell.ruleBadge"
+                    v-if="cell.ruleBadge && props.cellTypeDisplay === 'badge'"
                     class="edhr-template-editable-form__rule-type-badge"
                     :class="`is-${cell.ruleBadge.tone}`"
                     :title="cell.ruleTooltip"
@@ -216,7 +216,7 @@
                 :class="cell.classNames"
               >
                 <span
-                  v-if="cell.ruleBadge"
+                  v-if="cell.ruleBadge && props.cellTypeDisplay === 'badge'"
                   class="edhr-template-editable-form__rule-type-badge"
                   :class="`is-${cell.ruleBadge.tone}`"
                   :title="cell.ruleTooltip"
@@ -431,9 +431,11 @@ const props = withDefaults(
     fitToViewport?: boolean
     fitMode?: 'width' | 'height'
     showRuleLegend?: boolean
+    cellTypeDisplay?: 'badge' | 'background'
   }>(),
   {
-    showRuleLegend: true
+    showRuleLegend: true,
+    cellTypeDisplay: 'badge'
   }
 )
 
@@ -609,6 +611,7 @@ const renderedRows = computed<RenderedRow[]>(() => {
       const editableContext = editableContextMap.value.get(buildTemplateFieldIdentity(rowIndex, columnIndex))
       const ruleState = editableContext ? resolveTemplateRuleState(editableContext) : undefined
       const ruleBadge = editableContext ? resolveTemplateRuleTypeBadge(editableContext) : undefined
+      const typeClassName = ruleBadge ? `is-cell-type-${ruleBadge.tone}` : ''
       if (editableContext) {
         rowEditableHeightFloor = Math.max(rowEditableHeightFloor, resolveEditableRowMinHeight(editableContext))
       }
@@ -630,6 +633,8 @@ const renderedRows = computed<RenderedRow[]>(() => {
           'is-rule-reviewed': ruleState === 'reviewed',
           'is-rule-manual': ruleState === 'manual',
           'is-rule-error': ruleState === 'error',
+          'is-cell-type-background': props.cellTypeDisplay === 'background' && Boolean(ruleBadge),
+          [typeClassName]: props.cellTypeDisplay === 'background' && Boolean(ruleBadge),
           'is-signature': editableContext?.componentKind === 'signature',
           'is-attachment': editableContext?.componentKind === 'attachment',
           'is-empty': !editableContext && !stringifyTemplateCell(rawCell?.value ?? rawCell?.text)
@@ -816,6 +821,34 @@ const resolveNumberValue = (value: TemplateSimulationValueMap[string]) => {
 }
 
 .edhr-template-editable-form__cell.is-rule-error {
+  background: #fef2f2;
+}
+
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-text {
+  background: #fff7ed;
+}
+
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-number {
+  background: #eff6ff;
+}
+
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-date {
+  background: #ecfeff;
+}
+
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-datetime {
+  background: #f0fdfa;
+}
+
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-boolean {
+  background: #f0fdf4;
+}
+
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-signature {
+  background: #faf5ff;
+}
+
+.edhr-template-editable-form__cell.is-cell-type-background.is-cell-type-attachment {
   background: #fef2f2;
 }
 

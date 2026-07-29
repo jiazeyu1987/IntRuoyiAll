@@ -11,6 +11,10 @@ const detailSource = fs.readFileSync(
   path.join(root, 'src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue'),
   'utf8'
 )
+const actionPanelSource = fs.readFileSync(
+  path.join(root, 'src/views/form-center/business-action/ActionFormPanel.vue'),
+  'utf8'
+)
 
 const navigateStart = source.indexOf('const navigateToAssistBatchTask = async (')
 const navigateEnd = source.indexOf('const handleSelectAssistFillerSwitchItem', navigateStart)
@@ -74,6 +78,30 @@ assert.match(
   detailSource,
   /openEdhrBatchTask\(\{[\s\S]*assistUserId:\s*resolveRouteFormAssistUserId\(row\)[\s\S]*\}\)/,
   '批次详情二次 openTask 必须继续传递所选填写人，避免张可莹上下文丢失。'
+)
+assert.match(
+  detailSource,
+  /formTemplateJimuSchemaJson:\s*opened\?\.formTemplateJimuSchemaJson/,
+  '批次详情动态表单抽屉必须使用 task/open 返回的模板 Jimu 快照，不能依赖模板管理查询权限。'
+)
+assert.match(
+  detailSource,
+  /formTemplateRecognizedFields:\s*opened\?\.formTemplateRecognizedFields/,
+  '批次详情动态表单抽屉必须使用 task/open 返回的识别字段快照，避免另调 FormCenter 管理接口。'
+)
+
+const loadTemplateStart = actionPanelSource.indexOf('const loadTemplateVersionForActionForm = async')
+const loadTemplateEnd = actionPanelSource.indexOf('const blockerTitle = computed', loadTemplateStart)
+assert.ok(loadTemplateStart >= 0 && loadTemplateEnd > loadTemplateStart, 'ActionFormPanel 模板加载函数必须存在。')
+const loadTemplateBlock = actionPanelSource.slice(loadTemplateStart, loadTemplateEnd)
+assert.ok(
+  loadTemplateBlock.includes('resolveEmbeddedTemplateVersionForActionForm()'),
+  'ActionFormPanel 必须优先从业务 openTask 内嵌模板快照构造渲染模板。'
+)
+assert.match(
+  loadTemplateBlock,
+  /const template = embeddedTemplate \|\| await getTemplateVersion\(templateId, versionNo\)/,
+  '只有缺少业务内嵌模板快照时，ActionFormPanel 才能调用模板管理查询接口。'
 )
 
 console.log('edhr-switch-filler-formcenter-slot-static PASS')

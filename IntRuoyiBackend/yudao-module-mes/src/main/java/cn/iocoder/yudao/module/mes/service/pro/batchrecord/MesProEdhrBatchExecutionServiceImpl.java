@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.BusinessActionContextReqVO;
 import cn.iocoder.yudao.module.bpm.controller.admin.formcenter.vo.FormInstanceCreateReqVO;
@@ -13,6 +14,7 @@ import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersion
 import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormActionInstanceMapper;
 import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormTemplateVersionMapper;
 import cn.iocoder.yudao.module.bpm.formcenter.model.FormInstanceStatus;
+import cn.iocoder.yudao.module.bpm.formcenter.model.FormRecognizedField;
 import cn.iocoder.yudao.module.bpm.formcenter.runtime.FormCenterRuntimeService;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
@@ -2470,6 +2472,10 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                                                                BatchRecordCellLinkAutoPersistResult cellLinkAutoPersist,
                                                                Long requestedAssistUserId) {
         Boolean effectiveRecordbookEnabled = recordbookGlobalSettingService.resolveEffectiveRecordbookEnabled(task.getRecordbookEnabled(), task.getRecordCategory());
+        FormTemplateVersionDO formTemplateVersion = resolveOpenTaskFormTemplateVersion(task);
+        String formTemplateJimuSchemaJson = formTemplateVersion == null ? null : formTemplateVersion.getJimuSchemaJson();
+        List<FormRecognizedField> formTemplateRecognizedFields = formTemplateVersion == null
+                ? null : parseOpenTaskFormTemplateRecognizedFields(formTemplateVersion);
         Map<String, Object> executionPageQuery = new LinkedHashMap<>();
         executionPageQuery.put("id", task.getExecutionId());
         executionPageQuery.put("batchExecutionId", batch.getId());
@@ -2489,6 +2495,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         executionPageQuery.put("formTemplateName", task.getFormTemplateNameSnapshot());
         executionPageQuery.put("formTemplateVersionId", task.getFormTemplateVersionId());
         executionPageQuery.put("formTemplateVersionNo", task.getFormTemplateVersionNo());
+        executionPageQuery.put("formTemplateJimuSchemaJson", formTemplateJimuSchemaJson);
+        executionPageQuery.put("formTemplateRecognizedFields", formTemplateRecognizedFields);
         executionPageQuery.put("formCenterInstanceId", task.getFormCenterInstanceId());
         executionPageQuery.put("instanceScope", resolveInstanceScope(task.getInstanceScope()));
         executionPageQuery.put("sharedFormKey", task.getSharedFormKey());
@@ -2507,6 +2515,16 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             executionPageQuery.put("assistUserId", assistUserId);
         }
         executionPageQuery.put("assistRows", resolveVisibleAssistRows(task, openWorkTask, assistUserId));
+        FormTemplateVersionDO formTemplateVersion = resolveOpenResponseFormTemplateVersion(task);
+        String formTemplateJimuSchemaJson = formTemplateVersion == null ? null : formTemplateVersion.getJimuSchemaJson();
+        List<FormRecognizedField> formTemplateRecognizedFields =
+                parseOpenResponseRecognizedFields(formTemplateVersion);
+        if (formTemplateJimuSchemaJson != null) {
+            executionPageQuery.put("formTemplateJimuSchemaJson", formTemplateJimuSchemaJson);
+        }
+        if (!formTemplateRecognizedFields.isEmpty()) {
+            executionPageQuery.put("formTemplateRecognizedFields", formTemplateRecognizedFields);
+        }
         EdhrBatchExecutionTaskOpenRespVO result = new EdhrBatchExecutionTaskOpenRespVO()
                 .setTaskId(task.getId())
                 .setExecutionId(task.getExecutionId())
@@ -2527,7 +2545,11 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setFormTemplateName(task.getFormTemplateNameSnapshot())
                 .setFormTemplateVersionId(task.getFormTemplateVersionId())
                 .setFormTemplateVersionNo(task.getFormTemplateVersionNo())
+                .setFormTemplateJimuSchemaJson(formTemplateJimuSchemaJson)
+                .setFormTemplateRecognizedFields(formTemplateRecognizedFields)
                 .setFormCenterInstanceId(task.getFormCenterInstanceId())
+                .setFormTemplateJimuSchemaJson(formTemplateJimuSchemaJson)
+                .setFormTemplateRecognizedFields(formTemplateRecognizedFields)
                 .setRecordCategory(task.getRecordCategory())
                 .setValidationProfile(task.getValidationProfile())
                 .setRecordbookEnabled(effectiveRecordbookEnabled)
@@ -2548,6 +2570,47 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 "mes:pro-edhr-batch-execution:update", "ALLOW", "SUCCESS", null, null,
                 JSON.toJSONString(executionPageQuery));
         return result;
+    }
+
+    private FormTemplateVersionDO resolveOpenResponseFormTemplateVersion(MesProEdhrBatchExecutionTaskDO task) {
+        if (!isDynamicRouteFormTask(task)) {
+            return null;
+        }
+        FormTemplateVersionDO templateVersion = formTemplateVersionMapper.selectById(task.getFormTemplateVersionId());
+        if (templateVersion == null || !Objects.equals(task.getFormTemplateId(), templateVersion.getTemplateId())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+        }
+        return templateVersion;
+    }
+
+    private List<FormRecognizedField> parseOpenResponseRecognizedFields(FormTemplateVersionDO templateVersion) {
+        if (templateVersion == null || StrUtil.isBlank(templateVersion.getRecognizedSchemaJson())) {
+            return List.of();
+        }
+        try {
+            JSONArray fields = JSON.parseArray(templateVersion.getRecognizedSchemaJson());
+            if (fields == null || fields.isEmpty()) {
+                return List.of();
+            }
+            List<FormRecognizedField> result = new ArrayList<>();
+            for (int i = 0; i < fields.size(); i++) {
+                JSONObject field = fields.getJSONObject(i);
+                if (field == null || StrUtil.isBlank(field.getString("fieldCode"))) {
+                    throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+                }
+                result.add(FormRecognizedField.of(
+                        field.getString("fieldCode"),
+                        StrUtil.blankToDefault(field.getString("label"), field.getString("fieldCode")),
+                        StrUtil.blankToDefault(field.getString("fieldType"), "text"),
+                        Boolean.TRUE.equals(field.getBoolean("required"))));
+            }
+            return result;
+        } catch (RuntimeException ex) {
+            if (ex instanceof ServiceException serviceException) {
+                throw serviceException;
+            }
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+        }
     }
 
     private Long resolveAssistUserIdForOpenTask(MesProEdhrWorkTaskDO openWorkTask, Long requestedAssistUserId) {

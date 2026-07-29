@@ -20,3 +20,11 @@
 - BLOCKED: `mvn -pl yudao-module-mes "-Dtest=MesProEdhrWorkTaskServiceImplTest#createInitialFillTask_createsAllCompanionTasksForSameProcess,MesProBatchRecordExecutionServiceImplTest#buildResp_assistSwitchTasksIncludesExtraFormFillersFromProcessRuleWithoutWorkTask" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> BLOCKED，编译阶段先失败于非本任务脏文件 `MesProBatchRecordRouteGenerationServiceImpl.java` 第 263、272 行未转义 JSON 字符串；影响：目标 JUnit、模块 compile、真实 E2E 都不能作为 GREEN 结论。
 - GREEN: stale blocker复验 `mvn -pl yudao-module-mes "-Dtest=MesProEdhrWorkTaskServiceImplTest#createInitialFillTask_createsAllCompanionTasksForSameProcess,MesProBatchRecordExecutionServiceImplTest#buildResp_assistSwitchTasksIncludesExtraFormFillersFromProcessRuleWithoutWorkTask" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，Tests run: 2, Failures: 0, Errors: 0, Skipped: 0。
 - BLOCKED: 真实 E2E `node doc/tasks/20260728-switch-filler-extra-form-candidates/e2e-artifacts/switch-filler-extra-form-wangxin-real.e2e.cjs` 仍未 GREEN；`real-e2e-evidence.md` 记录 `no_wangxin_extra_form_switch_sample_found`，当前数据未找到可验证的 wangxin 附加表单切换样本。
+
+## 2026-07-29
+
+- User scope change: MES 全量测试不再作为当前任务完成门禁；仅按本任务开发文档和测试计划列出的内容做定向测试与验证，不把未运行全量写成通过。
+- BDD: eDHR 动态表单切换后不依赖模板管理权限 -> Given wangxin 已通过“切换填写人”选择同工序附加 FormCenter 表单候选且 `task/open` 已完成业务授权 / When 批次详情自动打开动态表单抽屉 / Then 抽屉使用 `task/open` 响应里的模板渲染快照，不再调用需要 `form:template:query` 的模板管理查询作为必要前置。
+- Finding: 真实 E2E 已证明附加表单候选可见可选、`workTaskId=2296` 和 `assistUserId=152` 能通过 `task/open`；后续卡在 `/admin-api/form-center/templates/25/versions/V2.0` 返回业务 `403 没有该操作权限`，这是 FormCenter 模板管理权限被运行态抽屉误用，不是候选人链路失败。
+- RED: `node tests\e2e\edhr-switch-filler-formcenter-slot-static.spec.js` -> FAIL，批次详情未把 `task/open` 返回的 `formTemplateJimuSchemaJson/formTemplateRecognizedFields` 传给 `ActionFormPanel`。
+- RED: `mvn -pl yudao-module-mes "-Dtest=MesProEdhrBatchExecutionServiceTest#openTask_allowsApprovedDynamicRouteFormBeforeCloseForCurrentFiller" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，测试编译失败于 `EdhrBatchExecutionTaskOpenRespVO` 缺少 `getFormTemplateJimuSchemaJson/getFormTemplateRecognizedFields`，证明后端 openTask 契约未提供动态表单渲染快照。

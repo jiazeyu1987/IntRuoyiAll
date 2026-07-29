@@ -37,3 +37,13 @@
 - CLEANUP: `task_closeout.py --task-id 20260729-edhr-fill-workspace-redbox-hide --mode apply` -> applied，deleted_paths none。
 - CHECK: `git status --short --branch --untracked-files=all` -> 当前分支 `int_main` 与 `origin/int_main` 对齐；仍有其它并发任务工作区改动，当前任务待仅提交任务证据文件。
 - FINAL: completed -> 卡片内部红框元信息隐藏、目标验证、证据校验和 cleanup 均完成。
+- USER: 用户继续反馈“红框里的控件，点击之后的弹框，在最大化的时候弹框会被遮挡”，目标扩展为最大化填写工作区时保存草稿/提交执行弹框不被全屏层遮挡。
+- BDD: 最大化时保存/提交弹框不被遮挡 -> Given 用户打开 eDHR 填写页并点击最大化 / When 点击左侧保存草稿或提交执行触发结果/签名弹框 / Then 弹框渲染在全屏填写工作区内部并显示在工作区上方。
+- RED: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> FAIL，预期失败；提交执行签名弹框仍渲染在全屏填写工作区外部。
+- ROOT_CAUSE: `ExecutionPage.vue` 使用浏览器 `requestFullscreen()`，但保存/提交 `el-dialog` 位于 `.edhr-fill-workspace` 外部；浏览器全屏只显示全屏元素及其子树，导致弹框被遮挡。
+- FIX: 将 `edhr-fill-workspace__submit-sign-dialog` 与 `edhr-fill-workspace__result-dialog` 移入 `.edhr-fill-workspace` 内部，并显式设置 `:append-to-body="false"`，不改保存/提交 API 逻辑。
+- GREEN: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS，最大化弹框挂载位置合同通过。
+- GREEN: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS，红框隐藏与控制栏保留回归通过。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS，辅助模式切换与填写链路回归通过。
+- GREEN: `pnpm ts:check` -> PASS，Vue/TS relaxed 类型检查通过。
+- M7: completed -> 最大化遮挡修复、静态回归和类型检查完成，状态保持 `ready_for_closeout`。

@@ -393,11 +393,12 @@
                     <el-dialog
                       v-model="assistSwitchDialogVisible"
                       :title="assistSwitchDialogTitle"
-                      width="680px"
+                      :width="assistSwitchDialogWidth"
                       :append-to-body="false"
                       align-center
                       destroy-on-close
                       class="edhr-fill-workspace__assist-switch-dialog"
+                      :class="{ 'is-process-switch-dialog': assistSwitchDialogType === 'process' }"
                     >
                       <div
                         v-if="assistSwitchDialogType === 'task'"
@@ -444,7 +445,7 @@
 
                       <div
                         v-else-if="assistSwitchDialogType === 'process'"
-                        class="edhr-fill-workspace__assist-switch-menu"
+                        class="edhr-fill-workspace__assist-switch-menu edhr-fill-workspace__assist-switch-process-menu"
                         data-assist-switch-menu="process"
                       >
                         <div class="edhr-fill-workspace__assist-switch-menu-head">
@@ -469,12 +470,16 @@
                           description="当前批次暂无可切换工序"
                           :image-size="64"
                         />
-                        <template v-else>
+                        <div
+                          v-else
+                          class="edhr-fill-workspace__assist-switch-process-grid"
+                          data-assist-switch-process-grid
+                        >
                           <button
                             v-for="item in assistProcessSwitchItems"
                             :key="item.key"
                             type="button"
-                            class="edhr-fill-workspace__assist-switch-option"
+                            class="edhr-fill-workspace__assist-switch-option edhr-fill-workspace__assist-process-card"
                             :class="[
                               resolveAssistProcessSwitchItemStateClass(item),
                               { 'is-active': isAssistProcessSwitchItemActive(item) }
@@ -494,7 +499,7 @@
                               {{ resolveAssistProcessSwitchItemSecondaryLabel(item) }}
                             </span>
                           </button>
-                        </template>
+                        </div>
                       </div>
 
                       <div
@@ -735,6 +740,7 @@
                     :model-value="templateModelValue"
                     :fit-mode="fitMode"
                     :show-rule-legend="false"
+                    cell-type-display="background"
                     class="edhr-fill-workspace__form"
                   >
                     <template #field="{ context }">
@@ -908,6 +914,85 @@
                   </EdhrExecutionTemplateEditableForm>
                 </template>
               </main>
+
+              <el-dialog
+                class="edhr-fill-workspace__submit-sign-dialog"
+                v-model="submitDialogVisible"
+                width="520px"
+                :append-to-body="false"
+                :show-close="false"
+                :close-on-click-modal="false"
+                :close-on-press-escape="false"
+                align-center
+                destroy-on-close
+              >
+                <div class="edhr-fill-workspace__submit-sign-form">
+                  <div class="edhr-fill-workspace__submit-sign-row">
+                    <div class="edhr-fill-workspace__submit-sign-label">姓名</div>
+                    <div class="edhr-fill-workspace__submit-sign-name">{{ submitSignatureUserName }}</div>
+                  </div>
+                  <div class="edhr-fill-workspace__submit-sign-row">
+                    <div class="edhr-fill-workspace__submit-sign-label is-required">电子签名</div>
+                    <el-input
+                      v-model="submitForm.password"
+                      type="password"
+                      show-password
+                      @keyup.enter="handleSubmitExecution"
+                    />
+                  </div>
+                </div>
+                <template #footer>
+                  <el-button
+                    class="edhr-fill-workspace__submit-sign-confirm"
+                    type="primary"
+                    :loading="submitLoading"
+                    @click="handleSubmitExecution"
+                  >
+                    确认
+                  </el-button>
+                </template>
+              </el-dialog>
+
+              <el-dialog
+                class="edhr-fill-workspace__result-dialog"
+                v-model="fillActionResultDialogVisible"
+                width="720px"
+                :append-to-body="false"
+                :show-close="false"
+                :close-on-click-modal="false"
+                :close-on-press-escape="false"
+                align-center
+                destroy-on-close
+              >
+                <div
+                  class="edhr-fill-workspace__result-body"
+                  :class="`is-${fillActionResultDialog.tone}`"
+                >
+                  <div class="edhr-fill-workspace__result-context">
+                    <div>
+                      <span>订单</span>
+                      <strong>{{ fillActionResultDialog.orderText }}</strong>
+                    </div>
+                    <div>
+                      <span>工序</span>
+                      <strong>{{ fillActionResultDialog.processText }}</strong>
+                    </div>
+                  </div>
+                  <div class="edhr-fill-workspace__result-status">
+                    <strong>{{ fillActionResultDialog.fillerText }}</strong>
+                    <strong>{{ fillActionResultDialog.statusText }}</strong>
+                  </div>
+                </div>
+                <template #footer>
+                  <el-button
+                    class="edhr-fill-workspace__result-confirm"
+                    type="primary"
+                    @click="fillActionResultDialogVisible = false"
+                  >
+                    确认
+                  </el-button>
+                </template>
+              </el-dialog>
             </div>
 
             <template v-if="false">
@@ -1290,83 +1375,6 @@
         <el-empty v-else-if="!loading" description="暂无可展示的 eDHR 执行数据" />
       </div>
     </div>
-
-    <el-dialog
-      class="edhr-fill-workspace__submit-sign-dialog"
-      v-model="submitDialogVisible"
-      width="520px"
-      :show-close="false"
-      :close-on-click-modal="false"
-      :close-on-press-escape="false"
-      align-center
-      destroy-on-close
-    >
-      <div class="edhr-fill-workspace__submit-sign-form">
-        <div class="edhr-fill-workspace__submit-sign-row">
-          <div class="edhr-fill-workspace__submit-sign-label">姓名</div>
-          <div class="edhr-fill-workspace__submit-sign-name">{{ submitSignatureUserName }}</div>
-        </div>
-        <div class="edhr-fill-workspace__submit-sign-row">
-          <div class="edhr-fill-workspace__submit-sign-label is-required">电子签名</div>
-          <el-input
-            v-model="submitForm.password"
-            type="password"
-            show-password
-            @keyup.enter="handleSubmitExecution"
-          />
-        </div>
-      </div>
-      <template #footer>
-        <el-button
-          class="edhr-fill-workspace__submit-sign-confirm"
-          type="primary"
-          :loading="submitLoading"
-          @click="handleSubmitExecution"
-        >
-          确认
-        </el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog
-      class="edhr-fill-workspace__result-dialog"
-      v-model="fillActionResultDialogVisible"
-      width="720px"
-      :show-close="false"
-      :close-on-click-modal="false"
-      :close-on-press-escape="false"
-      align-center
-      destroy-on-close
-    >
-      <div
-        class="edhr-fill-workspace__result-body"
-        :class="`is-${fillActionResultDialog.tone}`"
-      >
-        <div class="edhr-fill-workspace__result-context">
-          <div>
-            <span>订单</span>
-            <strong>{{ fillActionResultDialog.orderText }}</strong>
-          </div>
-          <div>
-            <span>工序</span>
-            <strong>{{ fillActionResultDialog.processText }}</strong>
-          </div>
-        </div>
-        <div class="edhr-fill-workspace__result-status">
-          <strong>{{ fillActionResultDialog.fillerText }}</strong>
-          <strong>{{ fillActionResultDialog.statusText }}</strong>
-        </div>
-      </div>
-      <template #footer>
-        <el-button
-          class="edhr-fill-workspace__result-confirm"
-          type="primary"
-          @click="fillActionResultDialogVisible = false"
-        >
-          确认
-        </el-button>
-      </template>
-    </el-dialog>
 
     <Dialog title="表单复核签名" v-model="formReviewSignDialogVisible" width="620px">
       <el-alert
