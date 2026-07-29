@@ -27,3 +27,9 @@
 - completed: 两个辅助映射预览组件已移除格内字段类型圆标和独立取消映射按钮，字段名改为单行省略，双击已映射格调用既有取消映射逻辑。
 - CHECK: `git diff -- <owned files>` -> 本任务源码改动仅涉及两个辅助映射预览组件；未改变 `assistRows` 保存 payload、rowKey 协议或后端接口。
 - STATUS: 实现和验证完成，进入 `ready_for_closeout`；工作区仍存在并发任务未提交改动，本任务不触碰。
+- VALIDATION: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-assist-grid-preview-compact-unmap/frontend-feature-evidence.md` -> PASS。
+- CHECK: `git diff --check -- <owned files>` -> PASS；仅有 CRLF 提示，无 whitespace error。
+- EXPERIENCE: 已按 `project-experience-consolidation` 搜索 `docs/*memory*.md`、`docs/frontend-development.md`、`docs/e2e-rules.md` 和 `docs/experience-index.md`；本次为既有辅助表格预览 UI 口径调整，现有门禁已覆盖，无需新增长期经验文档。
+- CLEANUP: `task_closeout.py --task-id 20260729-assist-grid-preview-compact-unmap --mode preview` -> ready，keep task/execution-log/frontend-feature-evidence/verification-report，delete none，blocked none。
+- CLEANUP: `task_closeout.py --task-id 20260729-assist-grid-preview-compact-unmap --mode apply` -> applied，deleted_paths none。
+- FINAL: completed -> 本任务实现、验证和 cleanup 完成；并发任务改动保持原状。

@@ -8,6 +8,8 @@
 
 ## Commands
 
+- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-assist-grid-preview-compact-unmap/frontend-feature-evidence.md` -> PASS。
+- `git diff --check -- <owned files>` -> PASS，仅有 CRLF 提示。
 - `node tests/e2e/assist-grid-per-user-mapping-static.spec.js` -> PASS。
 - `node tests/e2e/form-template-fill-config-assist-mode-static.spec.js` -> PASS。
 - `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS。

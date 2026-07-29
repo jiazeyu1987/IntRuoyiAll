@@ -11,7 +11,7 @@
 - [x] 先更新静态合同并取得 RED。
 - [x] 修改两个辅助映射预览组件的 DOM、交互和样式。
 - [x] 运行定向 GREEN、相邻回归和类型检查。
-- [ ] 更新证据、执行经验沉淀与收尾。
+- [x] 更新证据、执行经验沉淀与收尾。
 
 ## Expected Verification
 
@@ -46,7 +46,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Cleanup Keep
 
