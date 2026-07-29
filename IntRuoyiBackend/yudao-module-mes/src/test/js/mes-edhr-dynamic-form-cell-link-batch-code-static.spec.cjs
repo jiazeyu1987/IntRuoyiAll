@@ -3,7 +3,7 @@ const path = require('path')
 const assert = require('assert')
 
 const workspaceRoot = path.resolve(__dirname, '../../../../..')
-const read = (relativePath) => fs.readFileSync(path.join(workspaceRoot, relativePath), 'utf8')
+const read = (relativePath) => fs.readFileSync(path.join(workspaceRoot, relativePath), 'utf8').replace(/\r\n/g, '\n')
 
 function sliceBetween(source, startNeedle, endNeedle, label) {
   const start = source.indexOf(startNeedle)
