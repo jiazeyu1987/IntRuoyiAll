@@ -21,3 +21,10 @@
 - CHANGE: `scripts\runtime\reserve-worktree-slot.ps1 -Name 20260729-codex-monitor-manual-refresh -Path D:\IntRuoyiWorktree\20260729-codex-monitor-manual-refresh -Branch codex/20260729-codex-monitor-manual-refresh -Profile int_main -AsJson` -> PASS，分配 slot 13，frontend 8094，backend 48094；未启动服务。
 - PREFLIGHT: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260729-codex-monitor-manual-refresh/int_main: frontend 8094, backend 48094`。
 - CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-codex-test-management-filter-refresh --mode preview` -> BLOCKED；当前实现尚未提交，且当前分支还不能 fast-forward 合入本地 `int_main`。提交并融合后复跑。
+- COMMIT: `3f4c9a94 fix: make codex test management refresh manual` -> PASS，提交本任务页面、静态合同和任务文档。
+- REMOTE SYNC: `git fetch origin int_main` 连续两次 FAIL，原因 `Recv failure: Connection was reset`；未假设远端已同步。
+- LOCAL MERGE: `git merge --no-edit int_main` -> PASS，生成融合提交 `532ca35b`，合入本地 `int_main` 的 6 个未推送提交，无冲突。
+- POST-MERGE GREEN: `node tests\e2e\system-codex-test-node-chain-static.spec.js` -> PASS。
+- POST-MERGE GREEN: `node tests\e2e\system-codex-test-management-static.spec.js` -> PASS，退出码 0。
+- POST-MERGE GREEN: `node tests\e2e\system-codex-test-run-monitor-static.spec.js` -> PASS。
+- POST-MERGE GREEN: `pnpm ts:check` -> PASS。
