@@ -532,6 +532,18 @@ public interface ErrorCodeConstants {
     ErrorCode WORK_RECORD_NOT_CLOCK_IN = new ErrorCode(1_040_508_001, "当前用户未上工，无法下工");
     ErrorCode WORK_RECORD_ALREADY_CLOCK_IN = new ErrorCode(1_040_508_002, "当前用户已上工，请先下工再操作");
 
+    // ========== MES 生产管理-工序池 FIFO 分配（1-040-509-000） ==========
+    ErrorCode PRO_PROCESS_POOL_FIFO_WORK_ORDER_PLANNED_START_TIME_REQUIRED =
+            new ErrorCode(1_040_509_000, "生产工单缺少计划开始时间，FIFO 分配已阻塞：{}");
+    ErrorCode PRO_PROCESS_POOL_FIFO_WORK_ORDER_PLANNED_START_TIME_DUPLICATE =
+            new ErrorCode(1_040_509_001, "生产工单计划开始时间存在并列，缺少 FIFO 二级排序规则：{}");
+    ErrorCode PRO_PROCESS_POOL_FIFO_ALLOCATED_FRAGMENT_LOCKED =
+            new ErrorCode(1_040_509_002, "工序池数量片段已 FIFO 分配，禁止修改影响数量、质量状态或可分配状态的原始字段：{}");
+    ErrorCode PRO_PROCESS_POOL_FIFO_CONTEXT_REQUIRED =
+            new ErrorCode(1_040_509_003, "FIFO 分配缺少正式上下文字段：{}");
+    ErrorCode PRO_PROCESS_POOL_FIFO_QUANTITY_INVALID =
+            new ErrorCode(1_040_509_004, "FIFO 分配数量必须大于 0：{}");
+
     // ========== MES 质量管理-质检方案（1-040-600-000） ==========
     ErrorCode QC_TEMPLATE_NOT_EXISTS = new ErrorCode(1_040_600_000, "质检方案不存在");
     ErrorCode QC_TEMPLATE_CODE_DUPLICATE = new ErrorCode(1_040_600_001, "质检方案编号已存在");
