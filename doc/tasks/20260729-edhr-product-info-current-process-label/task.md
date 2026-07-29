@@ -7,9 +7,9 @@
 ## Milestones
 
 - [x] 根据用户截图定位顶部工序标签来源。
-- [ ] 建立聚焦回归测试并记录 RED。
-- [ ] 实施最小正式修复。
-- [ ] 运行目标测试、相邻回归、类型检查和真实页面 E2E。
+- [x] 建立聚焦回归测试并记录 RED。
+- [x] 实施最小正式修复。
+- [x] 运行目标测试、相邻回归、类型检查和真实页面 E2E。
 - [ ] 完成经验沉淀、清理、提交和推送。
 
 ## Expected Verification
@@ -35,4 +35,34 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Completed Work
+
+- 将当前批次任务解析拆为可选解析函数和 fail-fast 必选解析函数，顶部标签与填写人解析复用同一任务识别口径。
+- 顶部“工序”通过当前 `batchTaskId` 对应任务调用 `resolveAssistProcessSwitchItemName`；产品信息显示虚拟名称，普通工序保持正式名称。
+- 保留产品信息任务来源 `routeProcessId/processName` 追溯语义，未修改后端任务、批记录绑定或表单槽位链路。
+- 新增聚焦静态合同，锁定路由任务识别、虚拟工序显示名和旧直接读取来源工序字段的禁用。
+
+## Verification Result
+
+- 聚焦静态合同、5 项相邻回归、产品信息批次详情合同和 `pnpm ts:check` 均通过。
+- 本机 `8081/48081` 前后端可用，官方登录前置通过。
+- 真实只读 Playwright 从粗洗任务切换到产品信息任务后，顶部标签为“产品信息”，产品信息卡片为当前项，3 个填写人候选全部属于任务 `7232`，MES 写请求、MES HTTP 错误和 console error 均为 `0`。
+
+## Remaining Closeout
+
+- 完成任务自有收尾记录提交并推送 `origin/int_main`。
+
+## Cleanup Candidates
+
+- `doc/tasks/20260729-edhr-product-info-current-process-label/bug-regression-evidence.md`
+- `output/playwright/20260729-product-info-current-process-label-e2e.json`
+- `output/playwright/20260729-product-info-current-process-label-e2e.png`
+- `output/playwright/20260729-product-info-current-process-label-e2e-failure.png`
+
+## Cleanup Result
+
+- `task-closeout-cleanup` preview 与 apply 均通过。
+- 保留 `task.md`、`execution-log.md`、`verification-report.md`。
+- 已删除本任务 bug 中间证据、E2E JSON 和成功/失败截图。

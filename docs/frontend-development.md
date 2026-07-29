@@ -215,11 +215,11 @@
 ## eDHR 产品信息虚拟 80 工序门禁
 
 - Trigger: 批次执行详情、`BatchExecutionDetailPage.vue`、填写页 `ExecutionPage.vue`、左侧工序列表、右侧当前工序表单卡片、切换工序、切换填写人、产品信息表、`batchRecordSort=80`、后端任务保留来源 `routeProcessId`。
-- Preflight check: 先区分“任务来源工序”和“页面显示工序”：产品信息成员任务可以保留源正式批记录绑定的 `routeProcessId/routeProcessSort` 作为追溯来源，但批次详情和填写页都必须按 `MAIN + BATCH_RECORD + 产品信息/80` 识别成独立虚拟 `80 产品信息` 工序组；`processTaskGroups`、填写页工序切换分组和填写人候选范围不得只按 `routeProcessId || routeProcessSort || id` 合并所有任务。填写页“切换工序”和“切换填写人”必须复用同一显示工序 group key。
-- Blocker: 产品信息任务仍显示在第 1 工序或任一来源工序右侧、左侧或“切换工序”缺少独立产品信息卡片、产品信息卡片混入来源工序任务、粗洗“切换填写人”包含产品信息任务填写人、产品信息“切换填写人”包含粗洗或其它来源工序填写人，或静态合同不能证明产品信息专用 group key 时必须停止。
-- Verification: 运行 `node tests/e2e/edhr-batch-product-info-virtual-process-static.spec.js` 和 `node tests/e2e/edhr-assist-product-info-virtual-process-static.spec.js`；真实 E2E 需分别验证批次详情和填写页。填写页需打开“切换工序”，断言来源工序与“产品信息”各自只有一张独立卡片，再打开“切换填写人”断言候选任务 ID 不跨显示工序分组，并记录无 MES 写请求、无 console error。
-- Forbidden action: 禁止为了页面显示把后端来源 `routeProcessId` 改成虚拟 ID、禁止用 `formBindings`/表单槽位/当前登录人推导产品信息、禁止隐藏第 1 工序卡片或硬插普通文本冒充 80 工序、禁止只修批次详情而保留填写页按来源工序分组、禁止 API-only 代替页面分组验证。
-- Evidence: `doc/tasks/20260728-batch-execution-product-info-form-missing/verification-report.md`，产品信息任务后端 `batchRecordSort=80` 但 `routeProcessSort=1`，批次详情需独立虚拟分组；`doc/tasks/20260729-edhr-process-switch-product-info-virtual-process/verification-report.md`，填写页切换工序和填写人需复用同一产品信息虚拟分组边界。
+- Preflight check: 先区分“任务来源工序”和“页面显示工序”：产品信息成员任务可以保留源正式批记录绑定的 `routeProcessId/routeProcessSort/processName` 作为追溯来源，但批次详情和填写页都必须按 `MAIN + BATCH_RECORD + 产品信息/80` 识别成独立虚拟 `80 产品信息` 工序组；`processTaskGroups`、填写页工序切换分组和填写人候选范围不得只按 `routeProcessId || routeProcessSort || id` 合并所有任务。填写页“切换工序”“顶部当前工序标签”和“切换填写人”必须先按路由 `batchTaskId` 识别当前任务，再复用同一显示工序名称和 group key；顶部标签不得直接显示产品信息任务的来源 `processName`。
+- Blocker: 产品信息任务仍显示在第 1 工序或任一来源工序右侧、左侧或“切换工序”缺少独立产品信息卡片、产品信息卡片混入来源工序任务、切换到产品信息后顶部“工序”仍显示粗洗等来源名称、粗洗“切换填写人”包含产品信息任务填写人、产品信息“切换填写人”包含粗洗或其它来源工序填写人，或静态合同不能证明产品信息专用 group key 与当前任务显示名称时必须停止。
+- Verification: 运行 `node tests/e2e/edhr-batch-product-info-virtual-process-static.spec.js` 和 `node tests/e2e/edhr-assist-product-info-virtual-process-static.spec.js`；真实 E2E 需分别验证批次详情和填写页。填写页需打开“切换工序”，断言来源工序与“产品信息”各自只有一张独立卡片，点击产品信息后断言顶部“工序”为“产品信息”且该卡片为当前项，再打开“切换填写人”断言候选任务 ID 不跨显示工序分组，并记录无 MES 写请求、无 console error。
+- Forbidden action: 禁止为了页面显示把后端来源 `routeProcessId/processName` 改成虚拟值、禁止用 `formBindings`/表单槽位/当前登录人推导产品信息、禁止隐藏第 1 工序卡片或硬插普通文本冒充 80 工序、禁止只修卡片分组而让顶部标签继续读取来源工序、禁止只修批次详情而保留填写页按来源工序分组、禁止 API-only 代替页面分组验证。
+- Evidence: `doc/tasks/20260728-batch-execution-product-info-form-missing/verification-report.md`，产品信息任务后端 `batchRecordSort=80` 但 `routeProcessSort=1`，批次详情需独立虚拟分组；`doc/tasks/20260729-edhr-process-switch-product-info-virtual-process/verification-report.md`，填写页切换工序和填写人需复用同一产品信息虚拟分组边界；`doc/tasks/20260729-edhr-product-info-current-process-label/verification-report.md`，顶部当前工序标签必须按当前 `batchTaskId` 使用虚拟工序显示名称，不能直接读取来源 `processName`。
 
 ## eDHR 当前工序运行态展示门禁
 
