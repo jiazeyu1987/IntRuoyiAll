@@ -290,7 +290,6 @@
                   </div>
 
                   <div class="edhr-fill-workspace__section edhr-fill-workspace__soft-keyboard-section">
-                    <div class="edhr-fill-workspace__section-label">辅助工具</div>
                     <el-popover
                       v-model:visible="softKeyboardVisible"
                       trigger="click"

@@ -33,10 +33,20 @@
 ## TDD Evidence
 
 - RED: `node tests/e2e/edhr-soft-keyboard-button-static.spec.js` -> FAIL, expected reason: `红框位置必须渲染软键盘独立区域。`
-- GREEN: pending.
+- GREEN: `node tests/e2e/edhr-soft-keyboard-button-static.spec.js` -> PASS.
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS.
+- GREEN: `pnpm ts:check` -> PASS.
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-edhr-soft-keyboard-button/frontend-feature-evidence.md` -> PASS.
+- GREEN: `git diff --check -- IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue IntRuoyiFronted/tests/e2e/edhr-soft-keyboard-button-static.spec.js doc/tasks/20260729-edhr-soft-keyboard-button` -> PASS.
 
 ## Milestone Updates
 
 - 2026-07-29: Preflight rules and frontend-feature-delivery skill loaded.
 - 2026-07-29: Existing dirty worktree preserved in two baseline commits before current task edits.
 - 2026-07-29: Added focused static contract for the eDHR soft keyboard sidebar entry and popup behavior.
+- 2026-07-29: Implemented page-local soft keyboard button/panel in `ExecutionPage.vue`; button uses a keyboard icon only in the screenshot red-box area, popover is not teleported, and key actions dispatch input/change events to the active editable field.
+- 2026-07-29: Removed the extra visible `辅助工具` label so the red-box location remains an icon-only soft keyboard button.
+- 2026-07-29: Concurrent same-file hunk detected in `ExecutionPage.vue`: `sameRouteQueryId(task.routeProcessId, routeProcessId)`. It is not task-owned and must remain unstaged.
+- 2026-07-29: `task_closeout.py --task-id 20260729-edhr-soft-keyboard-button --mode preview` -> PASS; keep: task.md, execution-log.md, frontend-feature-evidence.md, verification-report.md; delete/blocked/warnings: none.
+- 2026-07-29: `task_closeout.py --task-id 20260729-edhr-soft-keyboard-button --mode apply` -> PASS; deleted_paths: none.
+- 2026-07-29: Project experience consolidation check -> no long-term doc update needed; existing `docs/powershell-memory.md` and `docs/e2e-rules.md` already cover the reusable lessons.
