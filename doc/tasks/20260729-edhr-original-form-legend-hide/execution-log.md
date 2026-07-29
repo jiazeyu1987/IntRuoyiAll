@@ -29,3 +29,5 @@
 - CLEANUP: `task_closeout.py --task-id 20260729-edhr-original-form-legend-hide --mode apply` -> applied；deleted_paths none，当前为主 worktree，无 merge/remove 动作。
 - COMMIT: 本任务源码、专用静态合同和初始任务证据已由并发任务的脏工作区基线提交 `18f2848f` 纳入；经 `git show --name-status 18f2848f` 确认包含 `ExecutionPage.vue`、专用静态合同和本任务四个证据文件。
 - FINAL: completed -> 图例隐藏、验证、证据校验和 cleanup 均完成；最终收尾记录等待独立提交与推送。
+- CLOSEOUT COMMIT: `f4d59fad docs: close edhr original form legend task`，仅包含本任务 `task.md`、`execution-log.md` 和 `verification-report.md`。
+- PUSH: `git push origin int_main` -> PASS，远端从 `946fcc59` 更新到 `efbad7ac`，其中包含本任务提交 `f4d59fad`；推送后当前分支不再领先 `origin/int_main`。
