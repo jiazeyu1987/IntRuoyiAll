@@ -30,3 +30,8 @@
 - POST-MERGE GREEN: `pnpm ts:check` -> PASS。
 - CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-codex-test-management-filter-refresh --mode preview` -> READY，keep 为核心三份任务文档，delete/blocked/warnings 均为空。
 - PUSH BLOCKER: `git push origin codex/20260729-codex-monitor-manual-refresh` 连续两次 FAIL，`git -c http.version=HTTP/1.1 push origin codex/20260729-codex-monitor-manual-refresh` 仍 FAIL，错误均为 `Recv failure: Connection was reset`。当前无法满足远端推送完成门禁。
+- LOCAL MAIN MERGE: `git merge --ff-only codex/20260729-codex-monitor-manual-refresh` from `E:\IntRuoyi` -> PASS，`int_main` 快进到 `03bfc3f2`，端口守卫通过 `int_main/int_main: frontend 8081, backend 48081`。
+- LOCAL MAIN GREEN: `node tests\e2e\system-codex-test-node-chain-static.spec.js` from `E:\IntRuoyi\IntRuoyiFronted` -> PASS。
+- LOCAL MAIN GREEN: `node tests\e2e\system-codex-test-management-static.spec.js` from `E:\IntRuoyi\IntRuoyiFronted` -> PASS，退出码 0。
+- LOCAL MAIN GREEN: `node tests\e2e\system-codex-test-run-monitor-static.spec.js` from `E:\IntRuoyi\IntRuoyiFronted` -> PASS。
+- LOCAL MAIN GREEN: `pnpm ts:check` from `E:\IntRuoyi\IntRuoyiFronted` -> PASS。
