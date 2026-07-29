@@ -13,17 +13,33 @@ const executionPage = fs.readFileSync(
 const workspaceRail = executionPage.match(
   /<aside class="edhr-fill-workspace__rail">[\s\S]*?<\/aside>/
 )?.[0]
+const assistPanelStart = executionPage.indexOf(
+  '<section v-if="fillViewMode === \'assist\'" class="edhr-fill-workspace__assist-panel">'
+)
+const originalFormStart = executionPage.indexOf('<EdhrExecutionTemplateEditableForm', assistPanelStart)
+const assistPanel =
+  assistPanelStart >= 0 && originalFormStart > assistPanelStart
+    ? executionPage.slice(assistPanelStart, originalFormStart)
+    : undefined
 
 assert.ok(workspaceRail, '填写页必须保留左侧操作栏。')
+assert.ok(assistPanel, '填写页必须保留辅助填写字段区域。')
 assert.ok(
   !executionPage.includes('edhr-fill-workspace__save-signature-dialog'),
   '填写页不得保留保存草稿前置签名弹窗。'
+)
+assert.match(
+  executionPage,
+  /<div\s+v-if="isTrackingReadonlyMode"\s+class="edhr-page-shell__toolbar">/,
+  '非追踪填写页不得显示截图红框中的外层标题和右上角工具栏。'
 )
 
 for (const hiddenToken of [
   'edhr-fill-workspace__meta',
   '<dt>生产批号</dt>',
   '<dt>工序</dt>',
+  'edhr-fill-workspace__change-summary',
+  '待保存变更',
   'edhr-fill-workspace__field-audit-reason',
   'placeholder="请输入字段变更原因"',
   'v-if="preReleaseEditNotice"',
@@ -42,6 +58,25 @@ for (const retainedAlert of [
   assert.ok(workspaceRail.includes(retainedAlert), `左侧操作栏必须保留真实告警：${retainedAlert}`)
 }
 
+for (const hiddenAssistToken of [
+  'edhr-fill-workspace__assist-topbar',
+  'edhr-fill-workspace__assist-title',
+  '我的填写项',
+  'edhr-fill-workspace__assist-switch-grid',
+  'edhr-fill-workspace__assist-missing-jump',
+  '还差 {{ assistMissingFieldCount }} 项',
+  'edhr-fill-workspace__assist-summary',
+  '未完成摘要',
+  '必填、附件和签名已完成，可以提交执行。'
+]) {
+  assert.ok(!assistPanel.includes(hiddenAssistToken), `辅助填写区域不得显示红框信息：${hiddenAssistToken}`)
+}
+
+assert.ok(
+  assistPanel.includes('edhr-fill-workspace__assist-row'),
+  '隐藏辅助顶栏后仍必须保留真实字段填写行。'
+)
+
 assert.match(
   executionPage,
   /const fieldAuditSaveGateError = computed\(\(\) => fieldAuditOpenGateError\.value\)/,
@@ -49,7 +84,7 @@ assert.match(
 )
 assert.match(
   workspaceRail,
-  /handleSaveFieldAuditChanges[\s\S]*openSubmitDialog[\s\S]*toggleFillWorkspaceFullscreen/,
+  /openFieldAuditSignatureDialog[\s\S]*openSubmitDialog[\s\S]*toggleFillWorkspaceFullscreen/,
   '左侧操作栏隐藏红框信息后仍必须保留保存、提交执行和最大化。'
 )
 

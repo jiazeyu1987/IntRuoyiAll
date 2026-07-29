@@ -5,9 +5,9 @@
 - Frontend: `http://127.0.0.1:8081`
 - Backend: `http://127.0.0.1:48081`
 - Identity: `芋道源码/wangxin`
-- Execution detail snapshot: assistSwitchTaskCount=`3`, extraAssistSwitchTaskCount=`2`
+- Execution detail snapshot: assistSwitchTaskCount=``, extraAssistSwitchTaskCount=``
 - Extra form task: `<none>`
-- Filler options: total=`4`, enabledExtraOptions=`0`, enabledExtraOthers=`0`
+- Filler options: total=``, enabledExtraOptions=``, enabledExtraOthers=``
 - Full batch detail reload during switch: `0`
 - Selected extra-form filler: `<none>`
 - API errors during switch: `0`
@@ -22,4 +22,4 @@
 ## Error
 
 - no_wangxin_extra_form_switch_sample_found
-- Details: `{"workTaskPageAttempts":[{"pageIndex":1,"rowCount":1,"openableFillTaskCount":1,"candidateTaskIds":[2245],"rows":[{"id":2245,"taskCode":"EDHRT-1785224950178","taskType":"FILL","status":"TODO","batchExecutionId":900000000900,"batchTaskId":6981,"executionId":1586,"workOrderCode":"881MO090889","batchCode":"34126020001","processName":"粗洗工序","actionUrlPresent":true,"openableFillTask":true}]}],"candidateAttempts":[{"pageIndex":1,"candidateIndex":0,"taskId":2245,"taskCode":"EDHRT-1785224950178","message":"extra form task must produce enabled filler options"}]}`
+- Details: `{"workTaskPageAttempts":[{"pageIndex":1,"rowCount":0,"openableFillTaskCount":0,"candidateTaskIds":[],"rows":[]}],"candidateAttempts":[]}`

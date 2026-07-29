@@ -1,0 +1,97 @@
+{
+  "status": "FAIL",
+  "baseUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "command": "node doc/tasks/20260728-switch-filler-extra-form-candidates/e2e-artifacts/create-wangxin-extra-form-sample.e2e.cjs",
+  "wangxin": {
+    "id": 810,
+    "username": "wangxin",
+    "nickname": "王歆"
+  },
+  "role": {
+    "id": 910416,
+    "name": "粗洗工序填写者角色"
+  },
+  "seed": {
+    "routeId": 922119,
+    "routeVersionId": 448,
+    "routeCode": "RT000028",
+    "routeName": "球囊扩张压力泵",
+    "workOrderCode": "881MO090935",
+    "sourceBatchExecutionId": 900000000907,
+    "process": {
+      "routeProcessId": 928609,
+      "processName": "粗洗工序"
+    },
+    "mainReport": {
+      "reportId": "1d05410f1d3140c5b8aa6786887ae69c",
+      "reportName": "粗洗工序生产记录",
+      "candidateSourceNames": [
+        "粗洗工序填写者角色"
+      ],
+      "candidateUsersBeforeSetup": "刘子良#435、左文彬#1106、丁文飞#1297"
+    },
+    "extraForms": [
+      {
+        "formBindingKey": "FORM_BINDING_1784782156927_1",
+        "formSlotType": "LOSS_REPORT",
+        "formTemplateId": 25,
+        "formTemplateName": "损耗单",
+        "candidateSourceType": "USERS",
+        "candidateSourceIds": [
+          152
+        ],
+        "candidateSourceNames": [
+          "张可莹（zhangkeying）"
+        ]
+      },
+      {
+        "formBindingKey": "FORM_BINDING_1785083586161_1",
+        "formSlotType": "PROCESS_INSPECTION",
+        "formTemplateId": 28,
+        "formTemplateName": "过程检验记录",
+        "candidateSourceType": "USERS",
+        "candidateSourceIds": [
+          149
+        ],
+        "candidateSourceNames": [
+          "黎敏（limin）"
+        ]
+      }
+    ]
+  },
+  "roleSetup": {
+    "originalRoleIds": [
+      910405,
+      910295
+    ],
+    "roleIdsForSetup": [
+      910405,
+      910295,
+      910416
+    ],
+    "roleAdded": true,
+    "usersAfterSetup": "刘子良#435、王歆#810、左文彬#1106、丁文飞#1297"
+  },
+  "createdBatch": {
+    "batchExecutionId": 900000000908,
+    "batchExecutionCode": "EDHRB-1785288648752",
+    "batchCode": "CODEX-SWITCH-EXTRA-1785288643908",
+    "routeId": 922119,
+    "routeVersionId": 448,
+    "workOrderCode": "881MO090935"
+  },
+  "error": {
+    "message": "created batch 900000000908 extra form tasks missing active OPEN_FORM workTask",
+    "stack": "AssertionError [ERR_ASSERTION]: created batch 900000000908 extra form tasks missing active OPEN_FORM workTask\n    at verifyCreatedBatch (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\create-wangxin-extra-form-sample.e2e.cjs:443:10)\n    at async run (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\create-wangxin-extra-form-sample.e2e.cjs:503:33)"
+  },
+  "roleRestore": {
+    "restored": true,
+    "restoredRoleIds": [
+      910295,
+      910405
+    ]
+  }
+}

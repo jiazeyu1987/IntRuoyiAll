@@ -149,6 +149,15 @@
 - Forbidden action: 禁止用当前登录人、旧缓存 key、宽松 fallback、刷新页面或隐藏高亮状态掩盖 route query ID 类型不一致。
 - Evidence: 任务 `doc/tasks/20260728-switch-filler-wangxin-e2e/`，`assistUserId` 从 route query 读取为字符串，旧 active 判断与数字 `item.userId` 严格等于，导致切换到任丹后重开弹窗不高亮。
 
+## eDHR 辅助模式当前工序 assistRows 路由门禁
+
+- Trigger: eDHR 填写页“填写辅助模式”、工作任务“处理”、批次详情打开填写、工序切换、填写人切换、`task/open`、`executionPageQuery.assistRows`、`ASSIST_GRID_U`、辅助表格预览和填写页布局不一致。
+- Preflight check: 先确认当前入口是否经过正式 `openTask`；进入 `/mes/pro/feedback/edhr-execution/form` 的路由 query 必须把后端返回的当前工序 `assistRows` 显式 JSON 序列化。执行页只按填写配置实际生成的 `ASSIST_GRID_U<userId>_R<row>_C<column>` rowKey 恢复辅助表格行列，不得推断其它 rowKey 协议。
+- Blocker: `assistRows` 作为对象数组直接展开进 route query、进入执行页后解析为空或 `[object Object]`、辅助表格 rowKey 被扁平化为字段列表、粗洗等当前工序显示成其它工序/默认字段、或静态合同不能证明批次详情和切换链路都保留当前工序 `assistRows` 时必须停止。
+- Verification: 聚焦静态合同必须覆盖 `stringifyEdhrExecutionPageQuery`、批次详情和执行页切换调用、`parseAssistGridRowKey`、`edhr-fill-workspace__assist-grid`、`data-assist-grid-cell`、`resolveAssistFieldGridStyle(field)`；真实 E2E 需用任务自有粗洗工序待办从页面按钮打开填写页，并断言辅助模式格子布局与配置预览一致。
+- Forbidden action: 禁止用 `formBindings`、默认 `MAIN`、当前登录人、正式批记录字段、快照全量字段、空布局、宽松 rowKey 兼容或前端文案替代当前工序 `assistRows`。
+- Evidence: 任务 `doc/tasks/20260729-edhr-assist-mode-process-form-mismatch/`，粗洗工序截图中配置预览是辅助表格，但填写页旧实现因 `assistRows` 未显式序列化且未恢复网格，显示为扁平字段列表。
+
 ## eDHR 产品信息虚拟 80 工序门禁
 
 - Trigger: 批次执行详情、`BatchExecutionDetailPage.vue`、左侧工序列表、右侧当前工序表单卡片、产品信息表、`batchRecordSort=80`、后端任务保留来源 `routeProcessId`。

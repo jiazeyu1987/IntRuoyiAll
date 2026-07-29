@@ -96,6 +96,7 @@
 - Keywords: noTagsView, activeMenu, 隐藏路由顶部页签, 顶部 tab 切回列表, fullPath query 丢失, replaceActiveMenuView, restoreActiveMenuView, 流转关系图页签返回 -> `docs/frontend-development.md#前端隐藏路由顶部页签状态门禁`
 - Keywords: 动态菜单页签重命名, 菜单名称改名, system_menu.name, 页面标题改名, 角色菜单树旧名称, 租户套餐菜单旧名称, 入口名称和业务对象文案区分 -> `docs/frontend-development.md#动态菜单页签重命名门禁`
 - Keywords: route.query, route query ID, assistUserId, userId, workTaskId, batchTaskId, sameRouteQueryId, 字符串数字严格等于, active 高亮丢失, 切换后高亮旧对象 -> `docs/frontend-development.md#前端-route-query-id-比较门禁`
+- Keywords: 填写辅助模式, 当前工序 assistRows, ASSIST_GRID_U, 辅助表格预览, 粗洗工序, 扁平字段列表, stringifyEdhrExecutionPageQuery, edhr-fill-workspace__assist-grid, data-assist-grid-cell, task/open executionPageQuery assistRows -> `docs/frontend-development.md#edhr-辅助模式当前工序-assistrows-路由门禁`
 - Keywords: eDHR 产品信息虚拟 80 工序, 产品信息显示在第一个工序, batchRecordSort=80, routeProcessSort=1, BatchExecutionDetailPage processTaskGroups, buildProcessTaskGroupKey, isProductInfoProcessTask, 左侧 80 产品信息, 右侧卡片不含产品信息 -> `docs/frontend-development.md#edhr-产品信息虚拟-80-工序门禁`
 - Keywords: 批记录管理员 当前工序黄色背景, eDHR 当前工序运行态, BatchExecutionDetailPage is-in-progress, WAITING 待打开 当前工序, available 当前可执行工序, 工序开始直接后继, 并行第一组, currentProcessRouteProcessId, currentProcessCode, currentProcessName, OPEN_FORM 只读高亮, canOpenTask, 管理员只读不提升填写权限 -> `docs/frontend-development.md#edhr-当前工序运行态展示门禁`
 - Keywords: 切换填写人 FormCenter 槽位, 损耗单切换, 张可莹, openRouteForm, formCenterInstanceId, formTemplateId, executionId guard, eDHR 批次缺少唯一批记录路线, 二次 openTask 透传 assistUserId -> `docs/frontend-development.md#切换填写人-formcenter-槽位导航门禁`

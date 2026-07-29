@@ -67,6 +67,11 @@ assert.match(
   /v-if="isTrackingReadonlyMode"[\s\S]*EdhrExecutionReadonlyForm/,
   '追踪只读模式必须继续使用原有只读表单'
 )
+assert.match(
+  executionPage,
+  /<div\s+v-if="isTrackingReadonlyMode"\s+class="edhr-page-shell__toolbar">/,
+  '非追踪填写模式必须隐藏截图红框中的外层标题和右上角工具栏'
+)
 assert.ok(
   !executionPage.includes('class="edhr-page-shell__form"'),
   '非追踪模式不得继续渲染旧通用字段网格'
@@ -84,7 +89,9 @@ assert.ok(
 for (const token of [
   'edhr-fill-workspace__heading',
   'edhr-fill-workspace__meta',
+  'edhr-fill-workspace__change-summary',
   'edhr-fill-workspace__field-audit-reason',
+  '待保存变更',
   '执行编号',
   '生产工单',
   '生产批号',
@@ -99,7 +106,7 @@ for (const token of [
 
 assert.match(
   workspaceRail,
-  /handleSaveFieldAuditChanges[\s\S]*openSubmitDialog[\s\S]*edhr-fill-workspace__fullscreen-action/,
+  /openFieldAuditSignatureDialog[\s\S]*openSubmitDialog[\s\S]*edhr-fill-workspace__fullscreen-action/,
   '精简控制栏必须保留保存、提交执行和最大化'
 )
 assert.match(

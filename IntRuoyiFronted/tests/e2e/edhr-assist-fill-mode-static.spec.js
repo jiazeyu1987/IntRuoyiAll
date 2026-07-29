@@ -12,6 +12,14 @@ const dialog = read('src/views/mes/pro/batchrecordformlist/BatchRecordCellRulesC
 const executionPage = read('src/views/mes/pro/edhr/ExecutionPage.vue')
 const realFlowE2e = read('tests/e2e/edhr-assist-fill-mode-real-flow.e2e.js')
 const executionPageNormalized = executionPage.replace(/\r\n/g, '\n')
+const assistPanelStart = executionPage.indexOf(
+  '<section v-if="fillViewMode === \'assist\'" class="edhr-fill-workspace__assist-panel">'
+)
+const originalFormStart = executionPage.indexOf('<EdhrExecutionTemplateEditableForm', assistPanelStart)
+const assistPanelTemplate =
+  assistPanelStart >= 0 && originalFormStart > assistPanelStart
+    ? executionPage.slice(assistPanelStart, originalFormStart)
+    : ''
 
 const assertIncludes = (content, token, message) => assert.ok(content.includes(token), message)
 const assertNotIncludes = (content, token, message) => assert.ok(!content.includes(token), message)
@@ -30,20 +38,26 @@ assertIncludes(executionPage, "const fillViewMode = ref<'assist' | 'original'>('
 assertIncludes(executionPage, '填写辅助模式', '页面必须提供填写辅助模式按钮或标题。')
 assertIncludes(executionPage, '原表模式', '页面必须提供原表模式切换按钮。')
 assertIncludes(executionPage, 'edhr-fill-workspace__assist-panel', '辅助模式必须有独立字段清单容器。')
-assertIncludes(executionPage, 'edhr-fill-workspace__assist-topbar', '辅助模式顶部必须有常驻工作台栏。')
-assertIncludes(executionPage, 'edhr-fill-workspace__assist-switch-grid', '辅助模式顶部必须提供任务、工序、填写人快速切换区。')
-assertIncludes(executionPage, 'edhr-fill-workspace__assist-switch', '辅助模式快速切换按钮必须复用同一类名，便于真实 E2E 定位。')
-assertIncludes(executionPage, '任务 / 批次', '辅助模式必须显示任务/批次快速切换。')
-assertIncludes(executionPage, '工序', '辅助模式必须显示工序快速切换。')
-assertIncludes(executionPage, '填写人', '辅助模式必须显示填写人快速切换。')
+assert.ok(assistPanelTemplate, '辅助模式必须可被静态合同定位。')
+for (const hiddenAssistChrome of [
+  'edhr-fill-workspace__assist-topbar',
+  'edhr-fill-workspace__assist-switch-grid',
+  'edhr-fill-workspace__assist-missing-jump',
+  'edhr-fill-workspace__assist-summary',
+  '我的填写项',
+  '还差 {{ assistMissingFieldCount }} 项',
+  '必填、附件和签名已完成，可以提交执行。'
+]) {
+  assertNotIncludes(assistPanelTemplate, hiddenAssistChrome, `辅助模式不得显示截图红框信息：${hiddenAssistChrome}`)
+}
 assertIncludes(executionPage, '<el-dialog', '辅助模式三个快速切换必须使用当前页面弹框选择。')
 assertIncludes(executionPage, ':append-to-body="false"', '辅助模式切换弹框必须保留在原生全屏工作区内，不能传送到 body。')
 assertIncludes(executionPage, 'edhr-fill-workspace__assist-switch-dialog', '辅助模式切换弹框必须有稳定类名。')
 assertIncludes(executionPage, 'assistSwitchDialogVisible', '辅助模式切换必须由共享弹框显示状态控制。')
 assertIncludes(executionPage, 'assistSwitchDialogType', '辅助模式切换必须复用共享弹框并按类型展示列表。')
 const assistSwitchTemplate = executionPage.slice(
-  executionPage.indexOf('edhr-fill-workspace__assist-switch-grid'),
-  executionPage.indexOf('edhr-fill-workspace__assist-summary')
+  executionPage.indexOf('edhr-fill-workspace__assist-switch-dialog'),
+  executionPage.indexOf('<template #footer>', executionPage.indexOf('edhr-fill-workspace__assist-switch-dialog'))
 )
 assertNotIncludes(assistSwitchTemplate, '<el-popover', '辅助模式快速切换不能继续使用最大化模式下可能被裁剪的 popover。')
 assertIncludes(executionPage, 'loadAssistTaskSwitchItems', '任务/批次切换必须加载当前账号可处理任务列表。')
@@ -95,10 +109,10 @@ if (assistSwitchHandlers.includes("path: '/mes/pro/feedback/edhr-batch-execution
 }
 assertNotIncludes(assistSwitchHandlers, "focus: 'process'", '工序切换不能通过批次详情 focus 参数离开辅助模式。')
 assertNotIncludes(assistSwitchHandlers, "focus: 'fillers'", '填写人切换不能通过批次详情 focus 参数离开辅助模式。')
-assertIncludes(executionPage, '我的填写项', '辅助模式必须把当前用户需要填写的字段作为主内容。')
+assertIncludes(assistPanelTemplate, 'edhr-fill-workspace__assist-row', '辅助模式必须把当前用户需要填写的字段作为主内容。')
 assertIncludes(executionPage, 'assistMissingFieldCount', '辅助模式必须实时计算未完成项数量。')
-assertIncludes(executionPage, '还差 {{ assistMissingFieldCount }} 项', '顶部必须始终显示还差 N 项。')
-assertIncludes(executionPage, '@click="scrollToFirstIncompleteAssistField"', '点击还差 N 项必须定位第一个未完成项。')
+assertNotIncludes(assistPanelTemplate, '还差 {{ assistMissingFieldCount }} 项', '辅助模式不得继续显示顶部还差 N 项红框入口。')
+assertNotIncludes(assistPanelTemplate, '@click="scrollToFirstIncompleteAssistField"', '辅助模式不得继续显示顶部未完成项跳转红框入口。')
 assertIncludes(executionPage, 'highlightedAssistFieldIdentity', '定位第一个未完成项后必须高亮该行。')
 assertIncludes(executionPage, 'data-assist-field-id', '每个辅助填写行必须有稳定字段定位属性。')
 assertIncludes(executionPage, 'edhr-fill-workspace__assist-row', '辅助模式字段必须使用紧凑行式布局。')

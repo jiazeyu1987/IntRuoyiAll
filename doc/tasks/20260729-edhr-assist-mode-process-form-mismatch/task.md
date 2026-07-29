@@ -6,11 +6,11 @@
 
 ## Milestones
 
-- [ ] 建立缺陷复现和 BDD 场景。
-- [ ] 定位辅助模式表单来源、工序切换上下文和现有测试边界。
-- [ ] 先补充失败回归测试，再实现最小修复。
-- [ ] 运行目标验证与相邻回归，记录 RED/GREEN/REGRESSION 证据。
-- [ ] 完成收尾、经验沉淀、清理、提交与推送。
+- [x] 建立缺陷复现和 BDD 场景。
+- [x] 定位辅助模式表单来源、工序切换上下文和现有测试边界。
+- [x] 先补充失败回归测试，再实现最小修复。
+- [x] 运行目标验证与相邻回归，记录 RED/GREEN/REGRESSION 证据。
+- [x] 完成收尾、经验沉淀、清理、提交与推送。
 
 ## Expected Verification
 
@@ -20,12 +20,12 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
-- `是否从根因和长期维护角度解决`：待定位后确认；若正式数据链路缺失则阻塞。
+- `是否从根因和长期维护角度解决`：是；统一序列化 `task/open` 返回的当前工序 `assistRows`，并按填写配置实际生成的辅助表格 rowKey 还原 UI。
 - `是否存在临时补丁或绕过`：否。
 
 ## 经验门禁
@@ -56,3 +56,27 @@ in_progress
 - Verification: 静态合同或页面验证证明目标表单控件按当前工序辅助表单配置渲染。
 - Forbidden action: 禁止用空布局、传统批记录 execution 或坐标兼容写入冒充通过。
 - Evidence: `docs/frontend-development.md#FormCenter 动态表单字段码渲染门禁`。
+
+### eDHR 辅助模式当前工序 assistRows 路由门禁
+
+- Trigger: eDHR 填写页“填写辅助模式”、工作任务“处理”、批次详情打开填写、工序切换、填写人切换、`task/open`、`executionPageQuery.assistRows`、`ASSIST_GRID_U`。
+- Preflight check: 进入执行页前必须确认 `assistRows` 是后端 `openTask` 对当前工序返回的正式配置，并显式 JSON 序列化进 route query。
+- Blocker: `assistRows` 丢失、解析为空、变成 `[object Object]`、辅助表格被扁平化为字段列表，或静态合同无法覆盖打开和切换链路。
+- Verification: `edhr-assist-fill-mode-configured-grid-static.spec.js` 覆盖 query 序列化、rowKey 解析、网格容器和格子定位。
+- Forbidden action: 禁止用 `formBindings`、默认 `MAIN`、当前登录人、正式批记录字段、空布局或宽松 rowKey 兼容替代当前工序 `assistRows`。
+- Evidence: `docs/frontend-development.md#eDHR 辅助模式当前工序 assistRows 路由门禁`。
+
+## Verification Summary
+
+- RED: `node tests/e2e/edhr-assist-fill-mode-configured-grid-static.spec.js` -> FAIL，缺少当前工序辅助表格 query 保留与网格渲染合同。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-configured-grid-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-work-task-formcenter-navigation-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-switch-filler-formcenter-slot-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-batch-detail-assist-preview-switch-static.spec.js` -> PASS。
+- GREEN: `node ..\IntRuoyiBackend\yudao-module-mes\src\test\js\mes-edhr-assist-filler-switch-snapshot-static.spec.cjs` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- PASS: `validate_bug_regression.py` 与 `validate_frontend_feature.py`。
+- PASS: `task_closeout.py --mode preview` / `--mode apply`，保留 `task.md`、`execution-log.md`、`verification-report.md`，清理临时 evidence 文件。
+- BLOCKED: 真实写入 E2E 缺少已授权、可追踪、可清理的任务自有粗洗工序批次/工作任务数据。

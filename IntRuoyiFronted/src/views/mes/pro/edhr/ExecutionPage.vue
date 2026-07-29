@@ -1732,9 +1732,7 @@ const isAssistChoiceGroupField = (field: AssistFillField): field is AssistChoice
   (field as AssistChoiceGroupField).type === 'choice-group'
 
 type AssistGridKey = {
-  candidateSourceType: 'USERS' | 'ROLE'
-  candidateSourceIds: number[]
-  subjectKey: string
+  userId: number
   rowIndex: number
   columnIndex: number
 }
@@ -2629,33 +2627,19 @@ const assistRowsConfigured = computed(() => activeAssistRows.value.length > 0)
 
 const ASSIST_GRID_ROW_KEY_PREFIX = 'ASSIST_GRID'
 
-const normalizeAssistGridSourceType = (value: unknown): AssistGridKey['candidateSourceType'] =>
-  String(value || '').trim().toUpperCase() === 'ROLE' ? 'ROLE' : 'USERS'
-
-const buildAssistGridSubjectKey = (
-  candidateSourceType: AssistGridKey['candidateSourceType'],
-  candidateSourceIds: number[]
-) => `${candidateSourceType}:${candidateSourceIds.join(',')}`
-
 const parseAssistGridRowKey = (rowKey: string): AssistGridKey | null => {
   const normalizedRowKey = String(rowKey || '').trim()
   if (!normalizedRowKey.startsWith(ASSIST_GRID_ROW_KEY_PREFIX)) return null
-  const subjectMatch = normalizedRowKey.match(/^ASSIST_GRID_(USERS|ROLE)(\d+)_R(\d+)_C(\d+)$/)
-  const legacyUserMatch = normalizedRowKey.match(/^ASSIST_GRID_U(\d+)_R(\d+)_C(\d+)$/)
-  const match = subjectMatch || legacyUserMatch
+  const match = normalizedRowKey.match(/^ASSIST_GRID_U(\d+)_R(\d+)_C(\d+)$/)
   if (!match) return null
-  const candidateSourceType = subjectMatch ? normalizeAssistGridSourceType(match[1]) : 'USERS'
-  const sourceId = Number(subjectMatch ? match[2] : match[1])
-  const rowIndex = Number(subjectMatch ? match[3] : match[2])
-  const columnIndex = Number(subjectMatch ? match[4] : match[3])
-  if (!Number.isInteger(sourceId) || sourceId <= 0) return null
+  const userId = Number(match[1])
+  const rowIndex = Number(match[2])
+  const columnIndex = Number(match[3])
+  if (!Number.isInteger(userId) || userId <= 0) return null
   if (!Number.isInteger(rowIndex) || rowIndex < 0) return null
   if (!Number.isInteger(columnIndex) || columnIndex < 0) return null
-  const candidateSourceIds = [sourceId]
   return {
-    candidateSourceType,
-    candidateSourceIds,
-    subjectKey: buildAssistGridSubjectKey(candidateSourceType, candidateSourceIds),
+    userId,
     rowIndex,
     columnIndex
   }

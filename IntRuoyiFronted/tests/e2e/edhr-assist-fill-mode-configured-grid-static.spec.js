@@ -11,13 +11,8 @@ const batchDetailPage = read('src/views/mes/pro/edhr-batch/BatchExecutionDetailP
 
 assert.match(
   executionPage,
-  /const\s+parseAssistGridRowKey\s*=\s*\(rowKey:\s*string\):\s*AssistGridKey\s*\|\s*null\s*=>[\s\S]*ASSIST_GRID_\(USERS\|ROLE\)/,
-  '执行页必须解析辅助表单配置的责任主体网格 rowKey。'
-)
-assert.match(
-  executionPage,
-  /const\s+parseAssistGridRowKey[\s\S]*ASSIST_GRID_U/,
-  '执行页必须继续识别既有个人网格 rowKey，避免旧配置被渲染成普通列表。'
+  /const\s+parseAssistGridRowKey\s*=\s*\(rowKey:\s*string\):\s*AssistGridKey\s*\|\s*null\s*=>[\s\S]*ASSIST_GRID_U/,
+  '执行页必须解析填写配置生成的个人辅助表格 rowKey。'
 )
 assert.match(
   executionPage,
