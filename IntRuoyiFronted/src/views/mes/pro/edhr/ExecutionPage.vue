@@ -1992,6 +1992,167 @@ const assistSwitchDialogTitle = computed(() => {
   if (assistSwitchDialogType.value === 'filler') return '切换填写人'
   return '切换任务 / 批次'
 })
+
+const softKeyboardRows = [
+  ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+  ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+  ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+  ['Z', 'X', 'C', 'V', 'B', 'N', 'M', '.', '-', '/']
+]
+
+let softKeyboardTarget: SoftKeyboardEditableElement | null = null
+
+const softKeyboardSelectionInputTypes = new Set([
+  'email',
+  'password',
+  'search',
+  'tel',
+  'text',
+  'url'
+])
+
+const softKeyboardEditableInputTypes = new Set([
+  ...softKeyboardSelectionInputTypes,
+  'number'
+])
+
+const isSoftKeyboardEditableElement = (
+  element: EventTarget | Element | null
+): element is SoftKeyboardEditableElement => {
+  if (!(element instanceof HTMLElement)) {
+    return false
+  }
+  if (element instanceof HTMLTextAreaElement) {
+    return !element.disabled && !element.readOnly
+  }
+  if (element instanceof HTMLInputElement) {
+    const inputType = (element.type || 'text').toLowerCase()
+    return !element.disabled && !element.readOnly && softKeyboardEditableInputTypes.has(inputType)
+  }
+  return element.isContentEditable
+}
+
+const canUseSoftKeyboardSelectionRange = (
+  element: HTMLInputElement | HTMLTextAreaElement
+) => {
+  if (element instanceof HTMLTextAreaElement) {
+    return true
+  }
+  return softKeyboardSelectionInputTypes.has((element.type || 'text').toLowerCase())
+}
+
+const rememberSoftKeyboardTarget = (target: EventTarget | Element | null) => {
+  if (isSoftKeyboardEditableElement(target)) {
+    softKeyboardTarget = target
+  }
+}
+
+const getSoftKeyboardTarget = () => {
+  rememberSoftKeyboardTarget(document.activeElement)
+  if (softKeyboardTarget && document.contains(softKeyboardTarget)) {
+    return softKeyboardTarget
+  }
+  return null
+}
+
+const dispatchSoftKeyboardInputEvents = (target: SoftKeyboardEditableElement) => {
+  target.dispatchEvent(new Event('input', { bubbles: true }))
+  target.dispatchEvent(new Event('change', { bubbles: true }))
+}
+
+const updateSoftKeyboardTextControl = (
+  target: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+  cursorPosition: number
+) => {
+  target.value = value
+  if (canUseSoftKeyboardSelectionRange(target)) {
+    target.setSelectionRange(cursorPosition, cursorPosition)
+  }
+  target.focus()
+  dispatchSoftKeyboardInputEvents(target)
+}
+
+const insertSoftKeyboardText = (text: string) => {
+  const target = getSoftKeyboardTarget()
+  if (!target) {
+    return
+  }
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+    const currentValue = target.value || ''
+    if (canUseSoftKeyboardSelectionRange(target)) {
+      const start = target.selectionStart ?? currentValue.length
+      const end = target.selectionEnd ?? start
+      updateSoftKeyboardTextControl(
+        target,
+        `${currentValue.slice(0, start)}${text}${currentValue.slice(end)}`,
+        start + text.length
+      )
+      return
+    }
+    updateSoftKeyboardTextControl(target, `${currentValue}${text}`, currentValue.length + text.length)
+    return
+  }
+  if (target.isContentEditable) {
+    target.focus()
+    const selection = document.getSelection()
+    if (selection && selection.rangeCount > 0) {
+      selection.deleteFromDocument()
+      selection.getRangeAt(0).insertNode(document.createTextNode(text))
+      selection.collapseToEnd()
+    } else {
+      target.textContent = `${target.textContent || ''}${text}`
+    }
+    dispatchSoftKeyboardInputEvents(target)
+  }
+}
+
+const handleSoftKeyboardBackspace = () => {
+  const target = getSoftKeyboardTarget()
+  if (!target) {
+    return
+  }
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+    const currentValue = target.value || ''
+    if (canUseSoftKeyboardSelectionRange(target)) {
+      const start = target.selectionStart ?? currentValue.length
+      const end = target.selectionEnd ?? start
+      if (start !== end) {
+        updateSoftKeyboardTextControl(target, `${currentValue.slice(0, start)}${currentValue.slice(end)}`, start)
+        return
+      }
+      if (start > 0) {
+        updateSoftKeyboardTextControl(
+          target,
+          `${currentValue.slice(0, start - 1)}${currentValue.slice(end)}`,
+          start - 1
+        )
+      }
+      return
+    }
+    updateSoftKeyboardTextControl(target, currentValue.slice(0, -1), Math.max(currentValue.length - 1, 0))
+    return
+  }
+  if (target.isContentEditable) {
+    target.focus()
+    const selection = document.getSelection()
+    if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
+      selection.deleteFromDocument()
+    } else {
+      target.textContent = (target.textContent || '').slice(0, -1)
+    }
+    dispatchSoftKeyboardInputEvents(target)
+  }
+}
+
+const openSoftKeyboard = () => {
+  rememberSoftKeyboardTarget(document.activeElement)
+  softKeyboardVisible.value = true
+}
+
+const handleSoftKeyboardFocusIn = (event: FocusEvent) => {
+  rememberSoftKeyboardTarget(event.target)
+}
 const assistSwitchDialogWidth = computed(() =>
   assistSwitchDialogType.value === 'process' ? 'min(1560px, calc(100vw - 280px))' : '680px'
 )
@@ -5471,11 +5632,13 @@ watch(
 
 onMounted(() => {
   document.addEventListener('fullscreenchange', syncFillWorkspaceFullscreenState)
+  document.addEventListener('focusin', handleSoftKeyboardFocusIn)
   void initializeExecutionPage()
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', syncFillWorkspaceFullscreenState)
+  document.removeEventListener('focusin', handleSoftKeyboardFocusIn)
 })
 </script>
 
