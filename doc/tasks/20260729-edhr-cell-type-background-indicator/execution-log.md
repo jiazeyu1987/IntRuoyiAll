@@ -23,4 +23,5 @@
 - REGRESSION: `node tests/e2e/edhr-batch-template-simulate-static.spec.js` -> FAIL，首个失败为既有无关断言“模拟页必须校验批次执行 ID”，未修改该页面或其数据契约。
 - REGRESSION: `pnpm ts:check` -> 首次 120 秒超时；复跑 180 秒后 FAIL，既有无关错误为 `src/views/form-center/business-action/ActionFormPanel.vue:257` 缺少 `updatedTime`。
 - CHECK: `git diff --check` -> PASS，仅有 Windows LF/CRLF 提示，无 whitespace error。
-- in_progress: 更新验证报告并执行 frontend evidence validator、cleanup。
+- GREEN: `validate_frontend_feature.py --evidence doc/tasks/20260729-edhr-cell-type-background-indicator/frontend-feature-evidence.md` -> PASS。
+- CLEANUP: 即将执行 task-closeout preview/apply；保留 task、execution-log、verification-report 和 frontend-feature-evidence。

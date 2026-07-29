@@ -259,6 +259,7 @@ const resolveEmbeddedTemplateVersionForActionForm = (): FormTemplateListItemVO |
     templateName: normalizeNonBlankString(props.formData.formTemplateName) || '',
     versionNo,
     status: 'PUBLISHED',
+    updatedTime: '',
     jimuSchemaJson,
     recognizedFields
   }
