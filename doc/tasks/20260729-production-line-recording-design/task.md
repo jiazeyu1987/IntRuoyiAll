@@ -15,7 +15,7 @@
 - [x] 更新验证报告
 - [x] cleanup preview/apply
 - [x] 补充现有系统结合方案
-- [x] 补充报工主入口与一次提交双提取口径
+- [x] 补充报工与记录本组合入口口径
 - [ ] Git closeout
 
 ## Expected Verification
@@ -23,7 +23,7 @@
 - `docs/inception/project-brief.md` 包含项目构想文档要求的固定章节。
 - `docs/inception/evidence-inventory.md` 包含证据清单固定章节，并保存本次线程原始对话摘录。
 - 文档明确只记录本次线程，不包含其它历史任务或项目全量对话。
-- 文档明确一线员工主动作是报工，点击确定提交时同时提取报工信息和批记录相关信息。
+- 文档明确一线入口既是报工入口，也是记录本入口；点击确定提交时同时完成报工和记录本写入。
 - 使用 UTF-8 方式读取新增文档，确认中文内容可读。
 - 运行 `project-inception-docs` 技能提供的结构校验脚本。
 
@@ -50,6 +50,6 @@ ready_for_closeout
 - 文档实现与结构验证已完成。
 - 已补充“现有系统结合方案”，记录复用 eDHR 记录本、报工、资源池、生产工单、字段审计和工序任务候选的方向。
 - 已按用户纠正更新：不考虑排产系统，订单只考虑生产工单。
-- 已按用户最新补充更新：一线入口以当前报工系统为中心，在报工确定提交时同步提取报工信息和批记录相关信息。
+- 已按用户最新补充更新：一线入口是报工与记录本组合入口，点击提交后同一事务既报工，也写入记录本。
 - `task-closeout-cleanup` preview/apply 已通过，未删除任何文件。
-- Git closeout 需先处理当前分支 `ahead 1` 和非本任务的前端文件修改（当前可见为 `IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`、`IntRuoyiFronted/tests/e2e/edhr-assist-product-info-virtual-process-static.spec.js`）；本任务不主动提交、推送或暂存无关文件。
+- Git closeout 需先处理当前分支 `ahead 2` 和非本任务的未跟踪任务目录 `doc/tasks/20260729-dcc-product-catalog-project-code-columns/`；本任务不主动提交、推送或暂存无关文件。

@@ -10,6 +10,8 @@
 
 用户补充：方案要结合当前报工系统。一线员工做的是报工，但报工时需要填写批记录相关内容；点击确定提交时，系统除了提取批记录信息，也要提取报工信息。
 
+用户进一步校正：一线入口是“报工”，也是一个记录本入口，两个结合在一起；点击提交之后，既可以报工，也可以写入记录本。
+
 ## BDD Scenarios
 
 BDD: capture current-thread discussion only -> Given this thread contains the business discussion about production-line simplified recording, When documents are written, Then they include this thread's prior messages and exclude unrelated project history or other tasks.
@@ -21,6 +23,8 @@ BDD: preserve batch-record terminology boundary -> Given project rules distingui
 BDD: integrate with existing system first -> Given the current system already contains eDHR recordbook, work tasks, field audit, feedback, surplus pool, surplus allocation, and production work order planned start time, When the integration note is written, Then it must map the new business idea onto those capabilities before proposing new modules.
 
 BDD: feedback submit extracts two data sets -> Given a frontline employee reports work in the existing feedback flow and fills batch-record-related fields, When the employee confirms submission, Then the document must describe feedback data and batch-record data being extracted from the same submission with a formal source association.
+
+BDD: combined feedback and recordbook entry -> Given the frontline entry is both a production feedback entry and a recordbook entry, When the employee clicks confirm submit, Then the document must state that the same transaction reports work and writes the recordbook entry.
 
 ## Command And Evidence Log
 
@@ -45,18 +49,25 @@ BDD: feedback submit extracts two data sets -> Given a frontline employee report
 - RED: initial backend feedback path inspection -> FAIL, old module path was wrong; corrected to `IntRuoyiBackend/yudao-module-mes/...` before using code evidence.
 - GREEN: inspect current feedback form and API code -> PASS, current `FeedbackForm.vue` and feedback API already provide report-work save/submit and eDHR entry hooks.
 - GREEN: apply user clarification about feedback-centered submission -> PASS, documented that the frontline primary action is report-work submission, with batch-record-related data extracted from the same submit payload.
+- GREEN: apply user correction about combined feedback and recordbook entry -> PASS, documented that the frontline entry is both a feedback entry and a recordbook entry, and submit writes both.
 - GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after production-work-order correction.
 - GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after production-work-order correction.
 - GREEN: `git diff --check -- task-owned docs` -> PASS after production-work-order correction; Git reported line-ending normalization warnings only.
 - GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after feedback-centered clarification.
 - GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after feedback-centered clarification.
 - GREEN: `git diff --check -- task-owned docs` -> PASS after feedback-centered clarification; Git reported line-ending normalization warnings only.
+- GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after combined feedback-recordbook correction.
+- GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after combined feedback-recordbook correction.
+- GREEN: `git diff --check -- task-owned docs` -> PASS after combined feedback-recordbook correction; Git reported line-ending normalization warnings only.
 - RED: `git status --short --branch` closeout precondition -> FAIL after feedback-centered clarification, workspace still contains staged/uncommitted files outside this task and staged prior states for task-owned docs.
 - GREEN: `task-closeout-cleanup --mode preview` -> PASS after production-work-order correction, delete none, blocked none.
 - GREEN: `task-closeout-cleanup --mode apply` -> PASS after production-work-order correction, deleted none.
 - GREEN: `task-closeout-cleanup --mode preview` -> PASS after feedback-centered clarification, keep core task docs, delete none, blocked none.
 - GREEN: `task-closeout-cleanup --mode apply` -> PASS after feedback-centered clarification, deleted none.
 - RED: final `git status --short --branch` closeout precondition -> FAIL, branch is `int_main...origin/int_main [ahead 1]` and unrelated frontend files are modified; this task did not stage, commit, or push.
+- GREEN: `task-closeout-cleanup --mode preview` -> PASS after combined feedback-recordbook correction, keep core task docs, delete none, blocked none.
+- GREEN: `task-closeout-cleanup --mode apply` -> PASS after combined feedback-recordbook correction, deleted none.
+- RED: final `git status --short --branch` closeout precondition -> FAIL, branch is `int_main...origin/int_main [ahead 2]` and unrelated untracked task directory `doc/tasks/20260729-dcc-product-catalog-project-code-columns/` exists; this task did not stage, commit, or push.
 
 ## Milestone Updates
 
@@ -69,10 +80,12 @@ BDD: feedback submit extracts two data sets -> Given a frontline employee report
 - Added existing-system integration notes after user asked how to minimize new-system development.
 - Updated the integration notes after user clarified that orders only mean production work orders and the scheduling system should not be considered.
 - Updated the integration notes after user clarified that the one-line entry should be centered on existing production feedback submission, not a standalone recordbook submission.
+- Updated the integration notes after user clarified that the one-line entry is also a recordbook entry combined with production feedback.
 - Re-ran validation after the feedback-centered clarification.
+- Re-ran validation after the combined feedback-recordbook correction.
 - Re-ran cleanup preview/apply after the production-work-order correction; no task-owned files were deleted.
 - Re-ran cleanup preview/apply after the feedback-centered clarification; no task-owned files were deleted.
 
 ## Blockers
 
-- Git closeout is blocked by current branch `ahead 1` and modified unrelated frontend files; this documentation task did not stage, commit, or push those changes.
+- Git closeout is blocked by current branch `ahead 2` and unrelated untracked task directory `doc/tasks/20260729-dcc-product-catalog-project-code-columns/`; this documentation task did not stage, commit, or push those changes.

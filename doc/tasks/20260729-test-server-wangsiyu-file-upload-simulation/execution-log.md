@@ -55,6 +55,20 @@
 - 密码仅用于当前浏览器表单提交，不写入任务证据。
 - 首次密码输入框定位命中 3 个 DOM 节点；未提交登录，已按 E2E 规则停止并重新读取页面快照，后续仅操作可见控件。
 
+### Login CAPTCHA Blocker
+
+- RED: 官方登录前置首次检查把登录页预置的隐藏验证码 DOM 判定为验证码已启用。
+- Investigation: 临时将检查收窄为可见节点后重跑官方登录前置，点击“登录”时测试服务器真实请求 `/system/captcha/get` 并弹出“请完成安全验证”的滑块验证码，登录接口未发送。
+- Verification evidence:
+  - Playwright 截图：`doc/tasks/20260729-test-server-wangsiyu-file-upload-simulation/upload-result.png`。
+  - 截图显示真实滑块验证码和“向右滑动完成验证”提示。
+  - 当前未产生 DCC 文件上传或提交请求，仅产生验证码获取请求。
+- Rollback:
+  - 已撤销 `scripts/preflight/login-preflight.mjs` 的临时可见性修改。
+  - 已删除临时静态合同；未保留无效产品代码修改。
+- BLOCKER: 浏览器安全规则要求每个 CAPTCHA 必须先取得用户明确同意，才能代为完成。影响：登录、文件选择、上传预览和提交审批尚未执行。
+- User authorization: 用户已明确允许代为完成本次滑块验证码并继续上传。
+
 ## Command Intent
 
 - 后续命令仅用于检查 Git/工具前置、驱动 Playwright 浏览器、创建任务自有测试文件与读取脱敏验证结果。

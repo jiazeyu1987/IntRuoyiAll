@@ -1,0 +1,32 @@
+{
+  "taskId": "20260729-test-server-wangsiyu-file-upload-simulation",
+  "startedAt": "2026-07-29T13:08:11.447Z",
+  "baseUrl": "http://172.30.30.58:8081",
+  "tenant": "芋道源码",
+  "username": "wangsiyu",
+  "sourceFilePath": "E:\\IntRuoyi\\doc\\tasks\\20260729-test-server-wangsiyu-file-upload-simulation\\input\\codex-upload-simulation-20260729.docx",
+  "sourceFileName": "codex-upload-simulation-20260729.docx",
+  "fileName": "Codex file upload simulation 20260729130811446-E0F375",
+  "fileNumber": "CODEX-UPLOAD-20260729130811446-E0F375",
+  "steps": [],
+  "writeRequests": [
+    {
+      "method": "POST",
+      "path": "/system/captcha/get"
+    },
+    {
+      "method": "POST",
+      "path": "/system/captcha/get"
+    },
+    {
+      "method": "POST",
+      "path": "/system/captcha/get"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "retainedTestData": true,
+  "status": "BLOCKED",
+  "blocker": "page.waitForResponse: Timeout 180000ms exceeded while waiting for event \"response\"",
+  "finishedAt": "2026-07-29T13:11:14.211Z"
+}

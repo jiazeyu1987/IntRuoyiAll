@@ -2,7 +2,7 @@
 
 ## Summary
 
-Documentation writing and structural verification passed, including the latest clarification that one-line employees submit through the production feedback/report-work flow and the same confirmation should extract both feedback data and batch-record-related data. Git closeout remains blocked because the current branch is ahead of `origin/int_main` and unrelated frontend files are modified.
+Documentation writing and structural verification passed, including the latest correction that the one-line entry is both a production feedback entry and a recordbook entry, and the same confirmation should both report work and write the recordbook. Git closeout remains blocked because the current branch is ahead of `origin/int_main` and an unrelated untracked task directory exists.
 
 ## Evidence
 
@@ -15,12 +15,16 @@ Documentation writing and structural verification passed, including the latest c
 - PASS: Existing-system integration notes added to `docs/inception/project-brief.md` and `docs/inception/evidence-inventory.md`.
 - PASS: User correction applied: FIFO and resource allocation target now use production work orders, not the scheduling system.
 - PASS: User clarification applied: frontline entry is production feedback/report-work submission, and the same confirm submit should extract both feedback data and batch-record-related data.
+- PASS: User correction applied: frontline entry is also a recordbook entry, and confirm submit both reports work and writes recordbook.
 - PASS: Inception structure validation and UTF-8 read validation passed after the correction.
 - PASS: Inception structure validation and UTF-8 read validation passed after the feedback-centered clarification.
 - PASS: `git diff --check` reported no whitespace errors after the feedback-centered clarification; Git reported line-ending normalization warnings only.
+- PASS: Inception structure validation and UTF-8 read validation passed after the combined feedback-recordbook correction.
+- PASS: `git diff --check` reported no whitespace errors after the combined feedback-recordbook correction; Git reported line-ending normalization warnings only.
 - PASS: Cleanup preview/apply passed after the correction with no deleted paths.
 - PASS: Cleanup preview/apply passed after the feedback-centered clarification with no deleted paths.
-- BLOCKED: final Git commit/push closeout was not performed because `git status --short --branch` showed `int_main...origin/int_main [ahead 1]` and unrelated modified files including `IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue` and `IntRuoyiFronted/tests/e2e/edhr-assist-product-info-virtual-process-static.spec.js`.
+- PASS: Cleanup preview/apply passed after the combined feedback-recordbook correction with no deleted paths.
+- BLOCKED: final Git commit/push closeout was not performed because `git status --short --branch` showed `int_main...origin/int_main [ahead 2]` and unrelated untracked directory `doc/tasks/20260729-dcc-product-catalog-project-code-columns/`.
 
 ## Final Result
 
