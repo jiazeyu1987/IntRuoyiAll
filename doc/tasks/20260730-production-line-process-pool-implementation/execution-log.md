@@ -13,3 +13,22 @@
 - Command note: initial UTF-8 validation used Bash heredoc syntax and failed in PowerShell with `Missing file specification after redirection operator`; command was corrected to PowerShell here-string piped to `python -X utf8 -`.
 - Verification: `python -X utf8 -` UTF-8 task-doc read -> PASS, `TASK_DOCS_UTF8_OK`.
 - Verification: `git diff --check -- doc\tasks\20260730-production-line-process-pool-implementation` -> PASS.
+
+## 2026-07-30 Worktree And Agent Launch
+
+- Baseline commit for worktrees: `7fb50a12 docs: scaffold process pool implementation task`.
+- Worktrees created:
+  - F1: `D:\IntRuoyiWorktree\20260730-ppool-f1-foundation`, branch `codex/20260730-ppool-f1-foundation`.
+  - F2: `D:\IntRuoyiWorktree\20260730-ppool-f2-submit`, branch `codex/20260730-ppool-f2-submit`.
+  - F3: `D:\IntRuoyiWorktree\20260730-ppool-f3-template`, branch `codex/20260730-ppool-f3-template`.
+  - F4: `D:\IntRuoyiWorktree\20260730-ppool-f4-device-employee`, branch `codex/20260730-ppool-f4-device-employee`.
+  - F7: `D:\IntRuoyiWorktree\20260730-ppool-f7-fifo`, branch `codex/20260730-ppool-f7-fifo`.
+  - F8: `D:\IntRuoyiWorktree\20260730-ppool-f8-timeline`, branch `codex/20260730-ppool-f8-timeline`.
+- Runtime note: no frontend/backend services were started, so no new runtime slots were reserved yet. Any runtime use must reserve a slot first.
+- Spawned agents:
+  - F1 `019faef8-bde7-7590-bb7f-faeaccd77209`.
+  - F2 `019faef9-0a3f-7c62-b592-3b625a090eee`.
+  - F3 `019faef9-4f78-73d1-a45f-eb2d6a2a39f3`.
+  - F4 `019faef9-8f7b-75b3-899e-50e1e2a3b76f`.
+  - F7 `019faef9-d1c8-7010-9ccf-655285cc7b8c`.
+  - F8 `019faefa-2306-7e72-8137-5dde1e34a3e7`.
