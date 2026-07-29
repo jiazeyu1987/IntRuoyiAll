@@ -36,6 +36,18 @@ public interface MesProRouteFlowProcessConfigMapper extends BaseMapperX<MesProRo
                 .orderByAsc(MesProRouteFlowProcessConfigDO::getRouteProcessId));
     }
 
+    default List<MesProRouteFlowProcessConfigDO> selectListByRouteIds(Collection<Long> routeIds) {
+        if (routeIds == null || routeIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProRouteFlowProcessConfigDO>()
+                .in(MesProRouteFlowProcessConfigDO::getRouteId, routeIds)
+                .orderByAsc(MesProRouteFlowProcessConfigDO::getRouteId)
+                .orderByAsc(MesProRouteFlowProcessConfigDO::getUseType)
+                .orderByAsc(MesProRouteFlowProcessConfigDO::getRouteProcessId)
+                .orderByAsc(MesProRouteFlowProcessConfigDO::getId));
+    }
+
     default MesProRouteFlowProcessConfigDO selectByRouteProcessIdAndUseType(Long routeProcessId, String useType) {
         return selectOne(MesProRouteFlowProcessConfigDO::getRouteProcessId, routeProcessId,
                 MesProRouteFlowProcessConfigDO::getUseType, useType);

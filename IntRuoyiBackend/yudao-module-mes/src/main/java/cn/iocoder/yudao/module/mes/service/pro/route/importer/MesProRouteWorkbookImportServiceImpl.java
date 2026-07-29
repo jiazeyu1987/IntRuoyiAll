@@ -3,16 +3,28 @@ package cn.iocoder.yudao.module.mes.service.pro.route.importer;
 import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.MesProRouteSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowBoundaryEdgeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowEdgeReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowLayoutReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flow.MesProRouteProcessFlowSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.process.MesProRouteProcessSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.product.MesProRouteProductSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.productbom.MesProRouteProductBomSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowConfigDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessConfigDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteScheduleConfigDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowConfigMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessConfigMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteScheduleConfigMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessFlowService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProductBomService;
@@ -55,20 +67,34 @@ import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_IMP
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_IMPORT_WORKBOOK_RESOURCE_INVALID;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_IMPORT_WORKBOOK_SHEET_MISSING;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_IMPORT_WORKBOOK_STATUS_INVALID;
+import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.BATCH_RECORD_HEADERS;
+import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.BATCH_RECORD_SHEET;
 import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.BOM_HEADERS;
 import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.BOM_SHEET;
+import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.BOUNDARY_HEADERS;
+import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.BOUNDARY_SHEET;
+import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.FLOW_CONFIG_HEADERS;
+import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.FLOW_CONFIG_SHEET;
 import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.FLOW_HEADERS;
+import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.FLOW_PROCESS_CONFIG_HEADERS;
+import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.FLOW_PROCESS_CONFIG_SHEET;
 import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.FLOW_SHEET;
+import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.LAYOUT_HEADERS;
+import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.LAYOUT_SHEET;
 import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.PROCESS_HEADERS;
 import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.PROCESS_SHEET;
 import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.PRODUCT_HEADERS;
 import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.PRODUCT_SHEET;
 import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.ROUTE_HEADERS;
 import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.ROUTE_SHEET;
+import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.SCHEDULE_CONFIG_HEADERS;
+import static cn.iocoder.yudao.module.mes.service.pro.route.importer.MesProRouteWorkbookConstants.SCHEDULE_CONFIG_SHEET;
 
 @Service
 @Validated
 public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbookImportService {
+
+    private static final List<String> ROUTE_FLOW_USE_TYPES = List.of("SCHEDULE", "BATCH");
 
     @Resource
     private MesProRouteMapper routeMapper;
@@ -76,6 +102,16 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
     private MesProProcessMapper processMapper;
     @Resource
     private MesMdItemMapper itemMapper;
+    @Resource
+    private MesProRouteVersionMapper routeVersionMapper;
+    @Resource
+    private MesProRouteScheduleConfigMapper routeScheduleConfigMapper;
+    @Resource
+    private MesProRouteFlowConfigMapper routeFlowConfigMapper;
+    @Resource
+    private MesProRouteFlowProcessConfigMapper routeFlowProcessConfigMapper;
+    @Resource
+    private MesProRouteFlowProcessBatchRecordMapper routeFlowProcessBatchRecordMapper;
     @Resource
     private MesProRouteService routeService;
     @Resource
@@ -95,8 +131,11 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
         ResolvedWorkbook resolved = resolveAndValidate(workbook);
 
         Map<String, Long> routeIdByCode = new LinkedHashMap<>();
+        Map<String, Long> activeRouteVersionIdByRouteCode = new HashMap<>();
         Map<String, Long> processIdByCode = new HashMap<>();
         Map<String, Long> routeProcessIdByKey = new HashMap<>();
+        Map<String, Long> flowConfigIdByKey = new HashMap<>();
+        Map<String, Long> flowProcessConfigIdByKey = new HashMap<>();
         for (RouteProcessRow processRow : workbook.processes()) {
             processIdByCode.put(processRow.processCode(), resolved.processByCode().get(processRow.processCode()).getId());
         }
@@ -108,7 +147,14 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
             reqVO.setOwnerName(routeRow.ownerName());
             reqVO.setDescription(routeRow.description());
             reqVO.setRemark(routeRow.remark());
-            routeIdByCode.put(routeRow.code(), routeService.createRoute(reqVO));
+            Long routeId = routeService.createRoute(reqVO);
+            routeIdByCode.put(routeRow.code(), routeId);
+            MesProRouteVersionDO activeVersion = routeVersionMapper.selectActiveByRouteId(routeId);
+            if (activeVersion == null || activeVersion.getId() == null) {
+                throw exception(PRO_ROUTE_IMPORT_WORKBOOK_RESOURCE_INVALID,
+                        "路线 " + routeRow.code() + " 创建后缺少当前生效版本");
+            }
+            activeRouteVersionIdByRouteCode.put(routeRow.code(), activeVersion.getId());
         }
         for (RouteProcessRow row : workbook.processes()) {
             MesProRouteProcessSaveReqVO reqVO = new MesProRouteProcessSaveReqVO();
@@ -139,6 +185,29 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
                         edge.setRelationType(row.relationType());
                         return edge;
                     }).toList());
+            reqVO.setBoundaryEdges(workbook.boundaries().stream()
+                    .filter(row -> row.routeCode().equals(routeRow.code()))
+                    .map(row -> {
+                        MesProRouteProcessFlowBoundaryEdgeReqVO boundaryEdge =
+                                new MesProRouteProcessFlowBoundaryEdgeReqVO();
+                        boundaryEdge.setBoundaryType(row.boundaryType());
+                        boundaryEdge.setRouteProcessId(routeProcessIdByKey.get(
+                                routeProcessKey(row.routeCode(), row.processCode())));
+                        boundaryEdge.setSort(row.sort());
+                        return boundaryEdge;
+                    }).toList());
+            reqVO.setLayouts(workbook.layouts().stream()
+                    .filter(row -> row.routeCode().equals(routeRow.code()))
+                    .map(row -> {
+                        MesProRouteProcessFlowLayoutReqVO layout = new MesProRouteProcessFlowLayoutReqVO();
+                        layout.setRouteProcessId(routeProcessIdByKey.get(
+                                routeProcessKey(row.routeCode(), row.processCode())));
+                        layout.setX(row.x());
+                        layout.setY(row.y());
+                        layout.setWidth(row.width());
+                        layout.setHeight(row.height());
+                        return layout;
+                    }).toList());
             routeProcessFlowService.saveGraph(reqVO);
         }
         for (RouteProductRow row : workbook.products()) {
@@ -161,6 +230,94 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
             reqVO.setRemark(row.remark());
             routeProductBomService.createRouteProductBom(reqVO);
         }
+        clearGeneratedDefaultConfigs(routeIdByCode, activeRouteVersionIdByRouteCode);
+        for (RouteScheduleConfigRow row : workbook.scheduleConfigs()) {
+            routeScheduleConfigMapper.insert(MesProRouteScheduleConfigDO.builder()
+                    .routeVersionId(activeRouteVersionIdByRouteCode.get(row.routeCode()))
+                    .routeProcessId(routeProcessIdByKey.get(routeProcessKey(row.routeCode(), row.processCode())))
+                    .capacityMode(row.capacityMode())
+                    .hourlyCapacity(row.hourlyCapacity())
+                    .infiniteDurationQuantityFactor(row.infiniteDurationQuantityFactor())
+                    .infiniteDurationBaseMinutes(row.infiniteDurationBaseMinutes())
+                    .nightShiftEnabled(row.nightShiftEnabled())
+                    .calendarRuleId(row.calendarRuleId())
+                    .configVersion(row.configVersion())
+                    .remark(row.remark())
+                    .build());
+        }
+        for (RouteFlowConfigRow row : workbook.flowConfigs()) {
+            MesProRouteFlowConfigDO config = MesProRouteFlowConfigDO.builder()
+                    .routeId(routeIdByCode.get(row.routeCode()))
+                    .useType(row.useType())
+                    .enabled(row.enabled())
+                    .configVersion(row.configVersion())
+                    .remark(row.remark())
+                    .build();
+            routeFlowConfigMapper.insert(config);
+            flowConfigIdByKey.put(routeUseKey(row.routeCode(), row.useType()), config.getId());
+        }
+        for (RouteFlowProcessConfigRow row : workbook.flowProcessConfigs()) {
+            String routeUseKey = routeUseKey(row.routeCode(), row.useType());
+            if (!flowConfigIdByKey.containsKey(routeUseKey)) {
+                throw exception(PRO_ROUTE_IMPORT_WORKBOOK_RESOURCE_INVALID,
+                        "工序用途配置缺少流程用途配置：" + row.routeCode() + " " + row.useType());
+            }
+            MesProRouteFlowProcessConfigDO config = MesProRouteFlowProcessConfigDO.builder()
+                    .routeFlowConfigId(flowConfigIdByKey.get(routeUseKey))
+                    .routeId(routeIdByCode.get(row.routeCode()))
+                    .routeProcessId(routeProcessIdByKey.get(routeProcessKey(row.routeCode(), row.processCode())))
+                    .useType(row.useType())
+                    .enabled(row.enabled())
+                    .executionMode(row.executionMode())
+                    .productionQuantityFactor(row.productionQuantityFactor())
+                    .batchRecordReportId(row.batchRecordReportId())
+                    .remark(row.remark())
+                    .build();
+            routeFlowProcessConfigMapper.insert(config);
+            flowProcessConfigIdByKey.put(routeUseProcessKey(row.routeCode(), row.useType(), row.processCode()),
+                    config.getId());
+        }
+        for (RouteBatchRecordRow row : workbook.batchRecords()) {
+            String useProcessKey = routeUseProcessKey(row.routeCode(), row.useType(), row.processCode());
+            if (!flowProcessConfigIdByKey.containsKey(useProcessKey)) {
+                throw exception(PRO_ROUTE_IMPORT_WORKBOOK_RESOURCE_INVALID,
+                        "工序表单绑定缺少工序用途配置：" + row.routeCode() + " " + row.useType()
+                                + " " + row.processCode());
+            }
+            routeFlowProcessBatchRecordMapper.insert(MesProRouteFlowProcessBatchRecordDO.builder()
+                    .routeFlowProcessConfigId(flowProcessConfigIdByKey.get(useProcessKey))
+                    .routeId(routeIdByCode.get(row.routeCode()))
+                    .routeProcessId(routeProcessIdByKey.get(routeProcessKey(row.routeCode(), row.processCode())))
+                    .useType(row.useType())
+                    .batchRecordReportId(row.batchRecordReportId())
+                    .batchRecordDefinitionId(row.batchRecordDefinitionId())
+                    .batchRecordVersionId(row.batchRecordVersionId())
+                    .formSlotType(row.formSlotType())
+                    .formBindingKey(row.formBindingKey())
+                    .formTemplateId(row.formTemplateId())
+                    .formTemplateNameSnapshot(row.formTemplateNameSnapshot())
+                    .lastPublishedTemplateVersionId(row.lastPublishedTemplateVersionId())
+                    .lastPublishedTemplateVersionNo(row.lastPublishedTemplateVersionNo())
+                    .instanceScope(row.instanceScope())
+                    .sharedFormKey(row.sharedFormKey())
+                    .fillableScopeJson(row.fillableScopeJson())
+                    .recordCategory(row.recordCategory())
+                    .validationProfile(row.validationProfile())
+                    .recordbookEnabled(row.recordbookEnabled())
+                    .permissionScopeId(row.permissionScopeId())
+                    .recordCategorySnapshotHash(row.recordCategorySnapshotHash())
+                    .requiredPolicy(row.requiredPolicy())
+                    .requiredConditionJson(row.requiredConditionJson())
+                    .ownerRoleKey(row.ownerRoleKey())
+                    .archiveVisibility(row.archiveVisibility())
+                    .slotConfigSnapshotHash(row.slotConfigSnapshotHash())
+                    .candidateSourceType(row.candidateSourceType())
+                    .candidateSourceIds(row.candidateSourceIds())
+                    .candidateSourceNames(row.candidateSourceNames())
+                    .reportSort(row.reportSort())
+                    .remark(row.remark())
+                    .build());
+        }
         for (RouteRow routeRow : workbook.routes()) {
             if (CommonStatusEnum.ENABLE.getStatus().equals(routeRow.status())) {
                 routeService.updateRouteStatus(routeIdByCode.get(routeRow.code()), routeRow.status());
@@ -174,6 +331,20 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
         result.setRouteProductBomCount(workbook.boms().size());
         result.setRouteCodes(new ArrayList<>(routeIdByCode.keySet()));
         return result;
+    }
+
+    private void clearGeneratedDefaultConfigs(Map<String, Long> routeIdByCode,
+                                              Map<String, Long> activeRouteVersionIdByRouteCode) {
+        for (Long activeRouteVersionId : activeRouteVersionIdByRouteCode.values()) {
+            routeScheduleConfigMapper.deleteByRouteVersionId(activeRouteVersionId);
+        }
+        for (Long routeId : routeIdByCode.values()) {
+            for (String useType : ROUTE_FLOW_USE_TYPES) {
+                routeFlowProcessBatchRecordMapper.deleteByRouteIdAndUseType(routeId, useType);
+                routeFlowProcessConfigMapper.deleteByRouteIdAndUseType(routeId, useType);
+                routeFlowConfigMapper.deleteByRouteIdAndUseType(routeId, useType);
+            }
+        }
     }
 
     private void validateFile(MultipartFile file) {
@@ -190,8 +361,14 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
                     parseRoutes(requiredSheet(workbook, ROUTE_SHEET), formatter),
                     parseProcesses(requiredSheet(workbook, PROCESS_SHEET), formatter),
                     parseFlows(requiredSheet(workbook, FLOW_SHEET), formatter),
+                    parseBoundaries(requiredSheet(workbook, BOUNDARY_SHEET), formatter),
+                    parseLayouts(requiredSheet(workbook, LAYOUT_SHEET), formatter),
                     parseProducts(requiredSheet(workbook, PRODUCT_SHEET), formatter),
-                    parseBoms(requiredSheet(workbook, BOM_SHEET), formatter));
+                    parseBoms(requiredSheet(workbook, BOM_SHEET), formatter),
+                    parseScheduleConfigs(requiredSheet(workbook, SCHEDULE_CONFIG_SHEET), formatter),
+                    parseFlowConfigs(requiredSheet(workbook, FLOW_CONFIG_SHEET), formatter),
+                    parseFlowProcessConfigs(requiredSheet(workbook, FLOW_PROCESS_CONFIG_SHEET), formatter),
+                    parseBatchRecords(requiredSheet(workbook, BATCH_RECORD_SHEET), formatter));
         } catch (ServiceException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -276,6 +453,55 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
         return rows;
     }
 
+    private List<RouteBoundaryRow> parseBoundaries(Sheet sheet, DataFormatter formatter) {
+        validateHeaders(sheet, BOUNDARY_SHEET, BOUNDARY_HEADERS, formatter);
+        List<RouteBoundaryRow> rows = new ArrayList<>();
+        Set<String> keys = new LinkedHashSet<>();
+        for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+            Row row = sheet.getRow(rowIndex);
+            if (isBlankRow(row, BOUNDARY_HEADERS.size(), formatter)) {
+                continue;
+            }
+            String routeCode = requiredCell(sheet, row, 0, "路线编码", formatter);
+            String boundaryType = requiredCell(sheet, row, 1, "边界类型", formatter);
+            String processCode = requiredCell(sheet, row, 2, "工序编码", formatter);
+            Integer sort = parseIntegerOrNull(cell(row, 3, formatter), BOUNDARY_SHEET, row);
+            String key = routeCode + ":" + boundaryType + ":" + processCode + ":" + sort;
+            if (!keys.add(key)) {
+                throw exception(PRO_ROUTE_IMPORT_WORKBOOK_DUPLICATE, key);
+            }
+            if (!"START".equals(boundaryType) && !"END".equals(boundaryType)) {
+                throw exception(PRO_ROUTE_IMPORT_WORKBOOK_RESOURCE_INVALID, "边界类型无效：" + boundaryType);
+            }
+            rows.add(new RouteBoundaryRow(routeCode, boundaryType, processCode, sort));
+        }
+        return rows;
+    }
+
+    private List<RouteLayoutRow> parseLayouts(Sheet sheet, DataFormatter formatter) {
+        validateHeaders(sheet, LAYOUT_SHEET, LAYOUT_HEADERS, formatter);
+        List<RouteLayoutRow> rows = new ArrayList<>();
+        Set<String> keys = new LinkedHashSet<>();
+        for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+            Row row = sheet.getRow(rowIndex);
+            if (isBlankRow(row, LAYOUT_HEADERS.size(), formatter)) {
+                continue;
+            }
+            String routeCode = requiredCell(sheet, row, 0, "路线编码", formatter);
+            String processCode = requiredCell(sheet, row, 1, "工序编码", formatter);
+            String key = routeCode + ":" + processCode;
+            if (!keys.add(key)) {
+                throw exception(PRO_ROUTE_IMPORT_WORKBOOK_DUPLICATE, key);
+            }
+            rows.add(new RouteLayoutRow(routeCode, processCode,
+                    parseInteger(requiredCell(sheet, row, 2, "横坐标", formatter), LAYOUT_SHEET, row),
+                    parseInteger(requiredCell(sheet, row, 3, "纵坐标", formatter), LAYOUT_SHEET, row),
+                    parseIntegerOrNull(cell(row, 4, formatter), LAYOUT_SHEET, row),
+                    parseIntegerOrNull(cell(row, 5, formatter), LAYOUT_SHEET, row)));
+        }
+        return rows;
+    }
+
     private List<RouteProductRow> parseProducts(Sheet sheet, DataFormatter formatter) {
         validateHeaders(sheet, PRODUCT_SHEET, PRODUCT_HEADERS, formatter);
         List<RouteProductRow> rows = new ArrayList<>();
@@ -319,6 +545,114 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
         return rows;
     }
 
+    private List<RouteScheduleConfigRow> parseScheduleConfigs(Sheet sheet, DataFormatter formatter) {
+        validateHeaders(sheet, SCHEDULE_CONFIG_SHEET, SCHEDULE_CONFIG_HEADERS, formatter);
+        List<RouteScheduleConfigRow> rows = new ArrayList<>();
+        Set<String> keys = new LinkedHashSet<>();
+        for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+            Row row = sheet.getRow(rowIndex);
+            if (isBlankRow(row, SCHEDULE_CONFIG_HEADERS.size(), formatter)) {
+                continue;
+            }
+            String routeCode = requiredCell(sheet, row, 0, "路线编码", formatter);
+            String processCode = requiredCell(sheet, row, 1, "工序编码", formatter);
+            if (!keys.add(routeCode + ":" + processCode)) {
+                throw exception(PRO_ROUTE_IMPORT_WORKBOOK_DUPLICATE, routeCode + " 排产配置 " + processCode);
+            }
+            rows.add(new RouteScheduleConfigRow(routeCode, processCode,
+                    requiredCell(sheet, row, 2, "产能模式", formatter),
+                    parseBigDecimalOrNull(cell(row, 3, formatter)),
+                    parseBigDecimalOrNull(cell(row, 4, formatter)),
+                    parseBigDecimalOrNull(cell(row, 5, formatter)),
+                    parseBoolean(cell(row, 6, formatter)),
+                    parseLongOrNull(cell(row, 7, formatter), SCHEDULE_CONFIG_SHEET, row),
+                    cell(row, 8, formatter),
+                    cell(row, 9, formatter)));
+        }
+        return rows;
+    }
+
+    private List<RouteFlowConfigRow> parseFlowConfigs(Sheet sheet, DataFormatter formatter) {
+        validateHeaders(sheet, FLOW_CONFIG_SHEET, FLOW_CONFIG_HEADERS, formatter);
+        List<RouteFlowConfigRow> rows = new ArrayList<>();
+        Set<String> keys = new LinkedHashSet<>();
+        for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+            Row row = sheet.getRow(rowIndex);
+            if (isBlankRow(row, FLOW_CONFIG_HEADERS.size(), formatter)) {
+                continue;
+            }
+            String routeCode = requiredCell(sheet, row, 0, "路线编码", formatter);
+            String useType = requiredCell(sheet, row, 1, "用途类型", formatter);
+            if (!keys.add(routeUseKey(routeCode, useType))) {
+                throw exception(PRO_ROUTE_IMPORT_WORKBOOK_DUPLICATE, routeCode + " 用途 " + useType);
+            }
+            rows.add(new RouteFlowConfigRow(routeCode, useType, parseBoolean(cell(row, 2, formatter)),
+                    cell(row, 3, formatter), cell(row, 4, formatter)));
+        }
+        return rows;
+    }
+
+    private List<RouteFlowProcessConfigRow> parseFlowProcessConfigs(Sheet sheet, DataFormatter formatter) {
+        validateHeaders(sheet, FLOW_PROCESS_CONFIG_SHEET, FLOW_PROCESS_CONFIG_HEADERS, formatter);
+        List<RouteFlowProcessConfigRow> rows = new ArrayList<>();
+        Set<String> keys = new LinkedHashSet<>();
+        for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+            Row row = sheet.getRow(rowIndex);
+            if (isBlankRow(row, FLOW_PROCESS_CONFIG_HEADERS.size(), formatter)) {
+                continue;
+            }
+            String routeCode = requiredCell(sheet, row, 0, "路线编码", formatter);
+            String useType = requiredCell(sheet, row, 1, "用途类型", formatter);
+            String processCode = requiredCell(sheet, row, 2, "工序编码", formatter);
+            String key = routeUseProcessKey(routeCode, useType, processCode);
+            if (!keys.add(key)) {
+                throw exception(PRO_ROUTE_IMPORT_WORKBOOK_DUPLICATE, key);
+            }
+            rows.add(new RouteFlowProcessConfigRow(routeCode, useType, processCode,
+                    parseBoolean(cell(row, 3, formatter)), cell(row, 4, formatter),
+                    parseBigDecimalOrNull(cell(row, 5, formatter)), cell(row, 6, formatter),
+                    cell(row, 7, formatter)));
+        }
+        return rows;
+    }
+
+    private List<RouteBatchRecordRow> parseBatchRecords(Sheet sheet, DataFormatter formatter) {
+        validateHeaders(sheet, BATCH_RECORD_SHEET, BATCH_RECORD_HEADERS, formatter);
+        List<RouteBatchRecordRow> rows = new ArrayList<>();
+        Set<String> keys = new LinkedHashSet<>();
+        for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+            Row row = sheet.getRow(rowIndex);
+            if (isBlankRow(row, BATCH_RECORD_HEADERS.size(), formatter)) {
+                continue;
+            }
+            String routeCode = requiredCell(sheet, row, 0, "路线编码", formatter);
+            String useType = requiredCell(sheet, row, 1, "用途类型", formatter);
+            String processCode = requiredCell(sheet, row, 2, "工序编码", formatter);
+            Integer reportSort = parseIntegerOrNull(cell(row, 28, formatter), BATCH_RECORD_SHEET, row);
+            String key = routeUseProcessKey(routeCode, useType, processCode) + ":" + reportSort + ":"
+                    + cell(row, 3, formatter) + ":" + cell(row, 7, formatter);
+            if (!keys.add(key)) {
+                throw exception(PRO_ROUTE_IMPORT_WORKBOOK_DUPLICATE, key);
+            }
+            rows.add(new RouteBatchRecordRow(routeCode, useType, processCode, cell(row, 3, formatter),
+                    parseLongOrNull(cell(row, 4, formatter), BATCH_RECORD_SHEET, row),
+                    parseLongOrNull(cell(row, 5, formatter), BATCH_RECORD_SHEET, row),
+                    cell(row, 6, formatter), cell(row, 7, formatter),
+                    parseLongOrNull(cell(row, 8, formatter), BATCH_RECORD_SHEET, row),
+                    cell(row, 9, formatter),
+                    parseLongOrNull(cell(row, 10, formatter), BATCH_RECORD_SHEET, row),
+                    cell(row, 11, formatter), cell(row, 12, formatter), cell(row, 13, formatter),
+                    cell(row, 14, formatter), cell(row, 15, formatter), cell(row, 16, formatter),
+                    parseBoolean(cell(row, 17, formatter)),
+                    parseLongOrNull(cell(row, 18, formatter), BATCH_RECORD_SHEET, row),
+                    cell(row, 19, formatter), cell(row, 20, formatter), cell(row, 21, formatter),
+                    cell(row, 22, formatter), cell(row, 23, formatter), cell(row, 24, formatter),
+                    cell(row, 25, formatter), cell(row, 26, formatter), cell(row, 27, formatter),
+                    reportSort, cell(row, 29, formatter)));
+        }
+        return rows;
+    }
+
     private ResolvedWorkbook resolveAndValidate(ParsedWorkbook workbook) {
         Map<String, RouteRow> routeByCode = new LinkedHashMap<>();
         for (RouteRow route : workbook.routes()) {
@@ -330,9 +664,16 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
         Map<String, MesProProcessDO> processByCode = new HashMap<>();
         Map<String, MesMdItemDO> itemByCode = new HashMap<>();
         validateProcesses(workbook, routeByCode, processByCode);
+        Map<String, Set<String>> processCodesByRoute = buildProcessCodesByRoute(workbook.processes());
         validateFlows(workbook, routeByCode);
+        validateBoundaries(workbook, routeByCode, processCodesByRoute);
+        validateLayouts(workbook, routeByCode, processCodesByRoute);
         validateProducts(workbook, routeByCode, itemByCode);
         validateBoms(workbook, routeByCode, processByCode, itemByCode);
+        validateScheduleConfigs(workbook, routeByCode, processCodesByRoute);
+        validateFlowConfigs(workbook, routeByCode);
+        validateFlowProcessConfigs(workbook, routeByCode, processCodesByRoute);
+        validateBatchRecords(workbook, routeByCode, processCodesByRoute);
         return new ResolvedWorkbook(processByCode, itemByCode);
     }
 
@@ -434,8 +775,25 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
         return visited;
     }
 
+    private Map<String, Set<String>> buildProcessCodesByRoute(List<RouteProcessRow> processes) {
+        Map<String, Set<String>> processCodesByRoute = new LinkedHashMap<>();
+        for (RouteProcessRow process : processes) {
+            processCodesByRoute.computeIfAbsent(process.routeCode(), key -> new LinkedHashSet<>())
+                    .add(process.processCode());
+        }
+        return processCodesByRoute;
+    }
+
     private String routeProcessKey(String routeCode, String processCode) {
         return routeCode + "\u0000" + processCode;
+    }
+
+    private String routeUseKey(String routeCode, String useType) {
+        return routeCode + "\u0000" + useType;
+    }
+
+    private String routeUseProcessKey(String routeCode, String useType, String processCode) {
+        return routeUseKey(routeCode, useType) + "\u0000" + processCode;
     }
 
     private void validateProducts(ParsedWorkbook workbook, Map<String, RouteRow> routeByCode,
@@ -462,6 +820,77 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
             if (itemByCode.computeIfAbsent(row.bomItemCode(), code -> itemMapper.selectByCode(code)) == null) {
                 throw exception(PRO_ROUTE_IMPORT_WORKBOOK_MASTER_MISSING, "BOM物料 " + row.bomItemCode());
             }
+        }
+    }
+
+    private void validateBoundaries(ParsedWorkbook workbook, Map<String, RouteRow> routeByCode,
+                                    Map<String, Set<String>> processCodesByRoute) {
+        for (RouteBoundaryRow row : workbook.boundaries()) {
+            requireRoute(routeByCode, row.routeCode());
+            requireRouteProcess(processCodesByRoute, row.routeCode(), row.processCode(), BOUNDARY_SHEET);
+        }
+    }
+
+    private void validateLayouts(ParsedWorkbook workbook, Map<String, RouteRow> routeByCode,
+                                 Map<String, Set<String>> processCodesByRoute) {
+        for (RouteLayoutRow row : workbook.layouts()) {
+            requireRoute(routeByCode, row.routeCode());
+            requireRouteProcess(processCodesByRoute, row.routeCode(), row.processCode(), LAYOUT_SHEET);
+        }
+    }
+
+    private void validateScheduleConfigs(ParsedWorkbook workbook, Map<String, RouteRow> routeByCode,
+                                         Map<String, Set<String>> processCodesByRoute) {
+        for (RouteScheduleConfigRow row : workbook.scheduleConfigs()) {
+            requireRoute(routeByCode, row.routeCode());
+            requireRouteProcess(processCodesByRoute, row.routeCode(), row.processCode(), SCHEDULE_CONFIG_SHEET);
+        }
+    }
+
+    private void validateFlowConfigs(ParsedWorkbook workbook, Map<String, RouteRow> routeByCode) {
+        for (RouteFlowConfigRow row : workbook.flowConfigs()) {
+            requireRoute(routeByCode, row.routeCode());
+        }
+    }
+
+    private void validateFlowProcessConfigs(ParsedWorkbook workbook, Map<String, RouteRow> routeByCode,
+                                            Map<String, Set<String>> processCodesByRoute) {
+        Set<String> routeUseKeys = new LinkedHashSet<>();
+        for (RouteFlowConfigRow row : workbook.flowConfigs()) {
+            routeUseKeys.add(routeUseKey(row.routeCode(), row.useType()));
+        }
+        for (RouteFlowProcessConfigRow row : workbook.flowProcessConfigs()) {
+            requireRoute(routeByCode, row.routeCode());
+            requireRouteProcess(processCodesByRoute, row.routeCode(), row.processCode(), FLOW_PROCESS_CONFIG_SHEET);
+            if (!routeUseKeys.contains(routeUseKey(row.routeCode(), row.useType()))) {
+                throw exception(PRO_ROUTE_IMPORT_WORKBOOK_RESOURCE_INVALID,
+                        "工序用途配置缺少流程用途配置：" + row.routeCode() + " " + row.useType());
+            }
+        }
+    }
+
+    private void validateBatchRecords(ParsedWorkbook workbook, Map<String, RouteRow> routeByCode,
+                                      Map<String, Set<String>> processCodesByRoute) {
+        Set<String> useProcessKeys = new LinkedHashSet<>();
+        for (RouteFlowProcessConfigRow row : workbook.flowProcessConfigs()) {
+            useProcessKeys.add(routeUseProcessKey(row.routeCode(), row.useType(), row.processCode()));
+        }
+        for (RouteBatchRecordRow row : workbook.batchRecords()) {
+            requireRoute(routeByCode, row.routeCode());
+            requireRouteProcess(processCodesByRoute, row.routeCode(), row.processCode(), BATCH_RECORD_SHEET);
+            if (!useProcessKeys.contains(routeUseProcessKey(row.routeCode(), row.useType(), row.processCode()))) {
+                throw exception(PRO_ROUTE_IMPORT_WORKBOOK_RESOURCE_INVALID,
+                        "工序表单绑定缺少工序用途配置：" + row.routeCode() + " " + row.useType()
+                                + " " + row.processCode());
+            }
+        }
+    }
+
+    private void requireRouteProcess(Map<String, Set<String>> processCodesByRoute, String routeCode,
+                                     String processCode, String sheetName) {
+        if (!processCodesByRoute.getOrDefault(routeCode, Set.of()).contains(processCode)) {
+            throw exception(PRO_ROUTE_IMPORT_WORKBOOK_RESOURCE_INVALID,
+                    sheetName + " 引用了非当前路线工序：" + routeCode + " " + processCode);
         }
     }
 
@@ -533,6 +962,18 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
         }
     }
 
+    private Long parseLongOrNull(String value, String sheetName, Row row) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(value).longValueExact();
+        } catch (Exception ex) {
+            String location = row == null ? sheetName : sheetName + " 第 " + (row.getRowNum() + 1) + " 行";
+            throw exception(PRO_ROUTE_IMPORT_WORKBOOK_RESOURCE_INVALID, location + " 长整数无效：" + value);
+        }
+    }
+
     private BigDecimal parseBigDecimalOrNull(String value) {
         if (value == null) {
             return null;
@@ -554,8 +995,14 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
     private record ParsedWorkbook(List<RouteRow> routes,
                                   List<RouteProcessRow> processes,
                                   List<RouteFlowRow> flows,
+                                  List<RouteBoundaryRow> boundaries,
+                                  List<RouteLayoutRow> layouts,
                                   List<RouteProductRow> products,
-                                  List<RouteBomRow> boms) {
+                                  List<RouteBomRow> boms,
+                                  List<RouteScheduleConfigRow> scheduleConfigs,
+                                  List<RouteFlowConfigRow> flowConfigs,
+                                  List<RouteFlowProcessConfigRow> flowProcessConfigs,
+                                  List<RouteBatchRecordRow> batchRecords) {
     }
 
     private record ResolvedWorkbook(Map<String, MesProProcessDO> processByCode,
@@ -571,7 +1018,14 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
     }
 
     private record RouteFlowRow(String routeCode, String sourceProcessCode, String targetProcessCode,
-                                String relationType) {
+                                 String relationType) {
+    }
+
+    private record RouteBoundaryRow(String routeCode, String boundaryType, String processCode, Integer sort) {
+    }
+
+    private record RouteLayoutRow(String routeCode, String processCode, Integer x, Integer y,
+                                  Integer width, Integer height) {
     }
 
     private record RouteProductRow(String routeCode, String productCode, Integer quantity, BigDecimal productionTime,
@@ -579,7 +1033,36 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
     }
 
     private record RouteBomRow(String routeCode, String processCode, String productCode, String bomItemCode,
-                               BigDecimal quantity, String remark) {
+                                BigDecimal quantity, String remark) {
+    }
+
+    private record RouteScheduleConfigRow(String routeCode, String processCode, String capacityMode,
+                                          BigDecimal hourlyCapacity, BigDecimal infiniteDurationQuantityFactor,
+                                          BigDecimal infiniteDurationBaseMinutes, Boolean nightShiftEnabled,
+                                          Long calendarRuleId, String configVersion, String remark) {
+    }
+
+    private record RouteFlowConfigRow(String routeCode, String useType, Boolean enabled, String configVersion,
+                                      String remark) {
+    }
+
+    private record RouteFlowProcessConfigRow(String routeCode, String useType, String processCode, Boolean enabled,
+                                             String executionMode, BigDecimal productionQuantityFactor,
+                                             String batchRecordReportId, String remark) {
+    }
+
+    private record RouteBatchRecordRow(String routeCode, String useType, String processCode,
+                                       String batchRecordReportId, Long batchRecordDefinitionId,
+                                       Long batchRecordVersionId, String formSlotType, String formBindingKey,
+                                       Long formTemplateId, String formTemplateNameSnapshot,
+                                       Long lastPublishedTemplateVersionId, String lastPublishedTemplateVersionNo,
+                                       String instanceScope, String sharedFormKey, String fillableScopeJson,
+                                       String recordCategory, String validationProfile, Boolean recordbookEnabled,
+                                       Long permissionScopeId, String recordCategorySnapshotHash,
+                                       String requiredPolicy, String requiredConditionJson, String ownerRoleKey,
+                                       String archiveVisibility, String slotConfigSnapshotHash,
+                                       String candidateSourceType, String candidateSourceIds,
+                                       String candidateSourceNames, Integer reportSort, String remark) {
     }
 
 }

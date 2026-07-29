@@ -10,10 +10,17 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstatio
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationWorkerDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowConfigDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessConfigDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessFlowBoundaryEdgeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessFlowEdgeDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessFlowLayoutDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductBomDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteScheduleConfigDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.dv.machinery.MesDvMachineryProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
@@ -21,11 +28,18 @@ import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationMach
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationWorkerMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowConfigMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessConfigMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessFlowBoundaryEdgeMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessFlowEdgeMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessFlowLayoutMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductBomMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteScheduleConfigMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.junit.jupiter.api.Test;
@@ -40,6 +54,8 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -54,9 +70,23 @@ class MesProRouteWorkbookExportServiceTest {
     @Mock
     private MesProRouteProcessFlowEdgeMapper routeProcessFlowEdgeMapper;
     @Mock
+    private MesProRouteProcessFlowBoundaryEdgeMapper routeProcessFlowBoundaryEdgeMapper;
+    @Mock
+    private MesProRouteProcessFlowLayoutMapper routeProcessFlowLayoutMapper;
+    @Mock
     private MesProRouteProductMapper routeProductMapper;
     @Mock
     private MesProRouteProductBomMapper routeProductBomMapper;
+    @Mock
+    private MesProRouteVersionMapper routeVersionMapper;
+    @Mock
+    private MesProRouteScheduleConfigMapper routeScheduleConfigMapper;
+    @Mock
+    private MesProRouteFlowConfigMapper routeFlowConfigMapper;
+    @Mock
+    private MesProRouteFlowProcessConfigMapper routeFlowProcessConfigMapper;
+    @Mock
+    private MesProRouteFlowProcessBatchRecordMapper routeFlowProcessBatchRecordMapper;
     @Mock
     private MesProProcessMapper processMapper;
     @Mock
@@ -74,6 +104,71 @@ class MesProRouteWorkbookExportServiceTest {
 
     @InjectMocks
     private MesProRouteWorkbookExportServiceImpl exportService;
+
+    @Test
+    void exportWorkbook_ignoresListFiltersAndWritesFullRouteDataSheets() throws Exception {
+        MesProRouteDO route = MesProRouteDO.builder()
+                .id(10L).code("ROUTE-ALL").name("全量路线").status(0).build();
+        MesProRoutePageReqVO reqVO = new MesProRoutePageReqVO();
+        reqVO.setCode("SCREEN-FILTER");
+        when(routeMapper.selectPage(any(MesProRoutePageReqVO.class))).thenAnswer(invocation -> {
+            MesProRoutePageReqVO actual = invocation.getArgument(0);
+            assertNull(actual.getCode());
+            assertNull(actual.getName());
+            assertNull(actual.getStatus());
+            return new PageResult<>(List.of(route), 1L);
+        });
+        when(routeProcessMapper.selectListByRouteIds(eq(Set.of(10L)))).thenReturn(List.of(routeProcess(20L, 30L, 1)));
+        when(routeProcessFlowEdgeMapper.selectListByRouteId(10L)).thenReturn(List.of(edge(20L, 20L, 1)));
+        when(routeProcessFlowBoundaryEdgeMapper.selectListByRouteId(10L)).thenReturn(List.of(
+                MesProRouteProcessFlowBoundaryEdgeDO.builder()
+                        .routeId(10L).routeProcessId(20L).boundaryType("START").sort(1).build()));
+        when(routeProcessFlowLayoutMapper.selectListByRouteId(10L)).thenReturn(List.of(
+                MesProRouteProcessFlowLayoutDO.builder()
+                        .routeId(10L).routeProcessId(20L).x(10).y(20).width(180).height(80).build()));
+        when(routeVersionMapper.selectListByRouteIds(eq(Set.of(10L)))).thenReturn(List.of(
+                MesProRouteVersionDO.builder().id(500L).routeId(10L).versionNo("V21")
+                        .active(true).lifecycleStatus("ACTIVE").build()));
+        when(routeScheduleConfigMapper.selectListByRouteVersionId(500L)).thenReturn(List.of(
+                MesProRouteScheduleConfigDO.builder().routeVersionId(500L).routeProcessId(20L)
+                        .capacityMode("RESOURCE_CALCULATED").configVersion("S1").build()));
+        when(routeFlowConfigMapper.selectListByRouteIds(eq(Set.of(10L)))).thenReturn(List.of(
+                MesProRouteFlowConfigDO.builder().id(600L).routeId(10L).useType("BATCH")
+                        .enabled(true).configVersion("B1").build()));
+        when(routeFlowProcessConfigMapper.selectListByRouteIds(eq(Set.of(10L)))).thenReturn(List.of(
+                MesProRouteFlowProcessConfigDO.builder().id(700L).routeFlowConfigId(600L)
+                        .routeId(10L).routeProcessId(20L).useType("BATCH").enabled(true)
+                        .executionMode("SEQUENTIAL").batchRecordReportId("BR-001").build()));
+        when(routeFlowProcessBatchRecordMapper.selectListByRouteIds(eq(Set.of(10L)))).thenReturn(List.of(
+                MesProRouteFlowProcessBatchRecordDO.builder().routeFlowProcessConfigId(700L)
+                        .routeId(10L).routeProcessId(20L).useType("BATCH")
+                        .batchRecordReportId("BR-001").formBindingKey("slot-a")
+                        .formTemplateNameSnapshot("过程记录").reportSort(1).build()));
+        when(routeProductMapper.selectListByRouteIds(eq(Set.of(10L)))).thenReturn(List.of());
+        when(routeProductBomMapper.selectList(eq(10L), eq(null), eq(null))).thenReturn(List.of());
+        when(processMapper.selectListByIds(eq(Set.of(30L)))).thenReturn(List.of(process(30L, "PROC-A")));
+
+        byte[] bytes = exportService.exportWorkbook(reqVO);
+
+        try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(bytes))) {
+            assertNotNull(workbook.getSheet("工艺路线"));
+            assertNotNull(workbook.getSheet("路线工序"));
+            assertNotNull(workbook.getSheet("流转关系"));
+            assertNotNull(workbook.getSheet("边界关系"));
+            assertNotNull(workbook.getSheet("流转布局"));
+            assertNotNull(workbook.getSheet("产品绑定"));
+            assertNotNull(workbook.getSheet("工序BOM"));
+            assertNotNull(workbook.getSheet("路线排产配置"));
+            assertNotNull(workbook.getSheet("流程用途配置"));
+            assertNotNull(workbook.getSheet("工序用途配置"));
+            assertNotNull(workbook.getSheet("工序表单绑定"));
+            assertEquals("START", workbook.getSheet("边界关系").getRow(1).getCell(1).getStringCellValue());
+            assertEquals("PROC-A", workbook.getSheet("流转布局").getRow(1).getCell(1).getStringCellValue());
+            assertEquals("RESOURCE_CALCULATED", workbook.getSheet("路线排产配置").getRow(1).getCell(2).getStringCellValue());
+            assertEquals("BATCH", workbook.getSheet("流程用途配置").getRow(1).getCell(1).getStringCellValue());
+            assertEquals("BR-001", workbook.getSheet("工序表单绑定").getRow(1).getCell(3).getStringCellValue());
+        }
+    }
 
     @Test
     void exportWorkbook_writesBranchRelationshipsFromFlowEdges() throws Exception {
@@ -115,12 +210,14 @@ class MesProRouteWorkbookExportServiceTest {
         byte[] bytes = exportService.exportWorkbook(new MesProRoutePageReqVO());
 
         try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(bytes))) {
-            assertEquals(5, workbook.getNumberOfSheets());
+            assertEquals(11, workbook.getNumberOfSheets());
             assertEquals("工艺路线", workbook.getSheetName(0));
             assertEquals("路线工序", workbook.getSheetName(1));
             assertEquals("流转关系", workbook.getSheetName(2));
-            assertEquals("产品绑定", workbook.getSheetName(3));
-            assertEquals("工序BOM", workbook.getSheetName(4));
+            assertEquals("边界关系", workbook.getSheetName(3));
+            assertEquals("流转布局", workbook.getSheetName(4));
+            assertEquals("产品绑定", workbook.getSheetName(5));
+            assertEquals("工序BOM", workbook.getSheetName(6));
             assertEquals("路线编码", workbook.getSheet("工艺路线").getRow(0).getCell(0).getStringCellValue());
             assertEquals("ROUTE-001", workbook.getSheet("工艺路线").getRow(1).getCell(0).getStringCellValue());
             assertEquals("PROC-A", workbook.getSheet("路线工序").getRow(1).getCell(2).getStringCellValue());

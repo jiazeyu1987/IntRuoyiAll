@@ -313,7 +313,7 @@ export const ProRouteApi = {
   },
 
   // 导出可导入的多 Sheet 工艺路线 Excel
-  exportRouteImportWorkbook: async (params: any) => {
+  exportRouteImportWorkbook: async (params: any = {}) => {
     return await request.download({ url: `/mes/pro/route/export-import-xlsx`, params })
   },
 

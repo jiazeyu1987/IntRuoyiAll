@@ -1260,8 +1260,8 @@ const handleExport = async () => {
     await message.exportConfirm()
     exportConfirmed = true
     exportLoading.value = true
-    const data = await ProRouteApi.exportRouteImportWorkbook(queryParams)
-    download.excel(data, '工艺路线导入导出.xlsx')
+    const data = await ProRouteApi.exportRouteImportWorkbook({})
+    download.excel(data, '工艺路线全量导入导出.xlsx')
   } catch (error) {
     if (exportConfirmed) {
       message.error(getErrorMessage(error, '导出失败，请查看后端返回错误'))

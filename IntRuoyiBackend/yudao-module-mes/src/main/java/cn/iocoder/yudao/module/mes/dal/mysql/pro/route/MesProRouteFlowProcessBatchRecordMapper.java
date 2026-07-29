@@ -40,6 +40,19 @@ public interface MesProRouteFlowProcessBatchRecordMapper
                 .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getId));
     }
 
+    default List<MesProRouteFlowProcessBatchRecordDO> selectListByRouteIds(Collection<Long> routeIds) {
+        if (routeIds == null || routeIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProRouteFlowProcessBatchRecordDO>()
+                .in(MesProRouteFlowProcessBatchRecordDO::getRouteId, routeIds)
+                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getRouteId)
+                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getUseType)
+                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getRouteProcessId)
+                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getReportSort)
+                .orderByAsc(MesProRouteFlowProcessBatchRecordDO::getId));
+    }
+
     default List<MesProRouteFlowProcessBatchRecordDO> selectListByRouteProcessIdsAndUseType(
             Collection<Long> routeProcessIds, String useType) {
         if (routeProcessIds == null || routeProcessIds.isEmpty()) {
