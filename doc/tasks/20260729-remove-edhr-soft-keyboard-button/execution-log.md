@@ -24,6 +24,7 @@
 - Pre-closeout concurrent baseline: `bc9ba7bc chore: preserve concurrent workspace before soft keyboard closeout`
 - Residual concurrent baseline: `ee388379 chore: preserve residual concurrent updates before soft keyboard closeout`
 - Final concurrent baseline before push: `c7764282 chore: preserve final concurrent test update before push`
+- Late concurrent E2E baseline before push: `ff1bb566 chore: preserve late concurrent E2E update before push`
 
 ## BDD
 
