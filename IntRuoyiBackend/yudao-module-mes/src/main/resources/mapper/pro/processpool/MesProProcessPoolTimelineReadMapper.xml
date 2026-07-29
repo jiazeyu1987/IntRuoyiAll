@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolTimelineReadMapper">
+
+    <sql id="TimelineColumns">
+        pool_event.id AS id,
+        pool_event.pool_id AS processPoolId,
+        pool_event.server_submit_time AS submittedAt,
+        pool_event.device_account_id AS loginUserId,
+        NULL AS loginUserName,
+        pool_event.actual_employee_id AS actualEmployeeUserId,
+        NULL AS actualEmployeeUserName,
+        pool_event.signature_user_id AS signatureEmployeeUserId,
+        NULL AS signatureEmployeeUserName,
+        pool_event.signature_id AS electronicSignatureId,
+        pool_event.device_id AS deviceId,
+        NULL AS deviceCode,
+        NULL AS deviceName,
+        pool_event.workstation_id AS workstationId,
+        workstation.code AS workstationCode,
+        workstation.name AS workstationName,
+        pool_event.route_id AS routeId,
+        NULL AS routeCode,
+        pool_event.route_process_id AS routeProcessId,
+        pool_event.process_id AS processId,
+        process.code AS processCode,
+        process.name AS processName,
+        pool_event.template_type AS templateType,
+        pool_event.template_type AS templateTypeName,
+        pool_event.work_order_id AS workOrderId,
+        work_order.code AS workOrderCode,
+        work_order.name AS workOrderName,
+        pool_event.feedback_source_id AS sourceFeedbackId,
+        NULL AS sourceRecordbookEntryId,
+        pool_event.recordbook_source_id AS sourceRecordbookEventId,
+        CONCAT(pool_event.event_type, ' / ', pool_event.template_type) AS submittedSummary,
+        CAST(pool_event.raw_payload AS CHAR) AS originalPayloadJson,
+        pqc.inspection_result AS pqcResult,
+        pqc.inspection_result AS pqcSummary,
+        NULL AS fifoAllocationStatus,
+        NULL AS fifoAllocationSummary,
+        NULL AS auditCopyStatus,
+        NULL AS auditCopySummary,
+        NULL AS modificationHistorySummary
+    </sql>
+
+    <sql id="TimelineFilters">
+        pool_event.deleted = 0
+        AND pool_event.server_submit_time <![CDATA[>=]]> #{reqVO.submittedAtStart}
+        AND pool_event.server_submit_time <![CDATA[<]]> #{reqVO.submittedAtEnd}
+        <if test="reqVO.employeeUserId != null">
+            AND pool_event.actual_employee_id = #{reqVO.employeeUserId}
+        </if>
+        <if test="reqVO.processId != null">
+            AND pool_event.process_id = #{reqVO.processId}
+        </if>
+        <if test="reqVO.deviceId != null">
+            AND pool_event.device_id = #{reqVO.deviceId}
+        </if>
+        <if test="reqVO.templateType != null and reqVO.templateType != ''">
+            AND pool_event.template_type = #{reqVO.templateType}
+        </if>
+        <if test="reqVO.workOrderId != null">
+            AND pool_event.work_order_id = #{reqVO.workOrderId}
+        </if>
+        <if test="reqVO.workOrderCode != null and reqVO.workOrderCode != ''">
+            AND work_order.code LIKE CONCAT('%', #{reqVO.workOrderCode}, '%')
+        </if>
+    </sql>
+
+    <select id="selectTimelineCount" resultType="java.lang.Long">
+        SELECT COUNT(1)
+        FROM mes_pro_process_pool_event pool_event
+        LEFT JOIN mes_pro_work_order work_order
+          ON work_order.id = pool_event.work_order_id
+         AND work_order.deleted = 0
+        WHERE <include refid="TimelineFilters"/>
+    </select>
+
+    <select id="selectTimelinePage" resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineEventReadDO">
+        <bind name="offset" value="(reqVO.pageNo - 1) * reqVO.pageSize"/>
+        SELECT <include refid="TimelineColumns"/>
+        FROM mes_pro_process_pool_event pool_event
+        LEFT JOIN mes_pro_work_order work_order
+          ON work_order.id = pool_event.work_order_id
+         AND work_order.deleted = 0
+        LEFT JOIN mes_pro_process process
+          ON process.id = pool_event.process_id
+         AND process.deleted = 0
+        LEFT JOIN mes_md_workstation workstation
+          ON workstation.id = pool_event.workstation_id
+         AND workstation.deleted = 0
+        LEFT JOIN mes_pro_process_pool_pqc_record pqc
+          ON pqc.event_id = pool_event.id
+         AND pqc.deleted = 0
+        WHERE <include refid="TimelineFilters"/>
+        ORDER BY pool_event.server_submit_time ASC, pool_event.id ASC
+        LIMIT #{offset}, #{reqVO.pageSize}
+    </select>
+
+    <select id="selectTimelineDetailById" resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineEventReadDO">
+        SELECT <include refid="TimelineColumns"/>
+        FROM mes_pro_process_pool_event pool_event
+        LEFT JOIN mes_pro_work_order work_order
+          ON work_order.id = pool_event.work_order_id
+         AND work_order.deleted = 0
+        LEFT JOIN mes_pro_process process
+          ON process.id = pool_event.process_id
+         AND process.deleted = 0
+        LEFT JOIN mes_md_workstation workstation
+          ON workstation.id = pool_event.workstation_id
+         AND workstation.deleted = 0
+        LEFT JOIN mes_pro_process_pool_pqc_record pqc
+          ON pqc.event_id = pool_event.id
+         AND pqc.deleted = 0
+        WHERE pool_event.deleted = 0
+          AND pool_event.id = #{id}
+    </select>
+
+</mapper>
