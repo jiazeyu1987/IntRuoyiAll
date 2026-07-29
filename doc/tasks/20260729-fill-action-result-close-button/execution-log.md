@@ -25,3 +25,11 @@
 - Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-fill-action-result-close-button --mode preview` -> PASS，keep 4 files, delete none, blocked none。
 - Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-fill-action-result-close-button --mode apply` -> PASS，deleted none。
 - Project experience consolidation: 已复核长期经验归宿；现有 `docs/frontend-development.md` 和 `docs/powershell-memory.md` 已覆盖本次静态契约、Element Plus 弹窗挂载、同文件并行改动选择性暂存门禁，本任务不新增长期经验文档。
+- Implementation/closeout commits:
+  - `591a8370 chore: baseline fill action result close docs`
+  - `9aa55220 chore: baseline fill action closeout docs`
+- Final recheck:
+  - `node tests/e2e/edhr-fill-workspace-action-result-dialog-static.spec.js` -> PASS。
+  - `node tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js` -> PASS。
+  - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-fill-action-result-close-button/frontend-feature-evidence.md` -> PASS。
+- Final status update: task marked `completed`; final push pending in this closeout step.

@@ -12,7 +12,7 @@
 - [x] 先补充失败的前端静态合同。
 - [x] 实现右上角关闭按钮。
 - [x] 运行目标验证并记录结果。
-- [ ] 收尾清理、提交并推送。
+- [x] 收尾清理、提交并推送。
 
 ## Expected Verification
 
@@ -23,7 +23,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Applicable Gates
 
