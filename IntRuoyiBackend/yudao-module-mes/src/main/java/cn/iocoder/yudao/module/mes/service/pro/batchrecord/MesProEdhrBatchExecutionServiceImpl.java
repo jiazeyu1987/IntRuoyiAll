@@ -2515,16 +2515,6 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             executionPageQuery.put("assistUserId", assistUserId);
         }
         executionPageQuery.put("assistRows", resolveVisibleAssistRows(task, openWorkTask, assistUserId));
-        FormTemplateVersionDO formTemplateVersion = resolveOpenResponseFormTemplateVersion(task);
-        String formTemplateJimuSchemaJson = formTemplateVersion == null ? null : formTemplateVersion.getJimuSchemaJson();
-        List<FormRecognizedField> formTemplateRecognizedFields =
-                parseOpenResponseRecognizedFields(formTemplateVersion);
-        if (formTemplateJimuSchemaJson != null) {
-            executionPageQuery.put("formTemplateJimuSchemaJson", formTemplateJimuSchemaJson);
-        }
-        if (!formTemplateRecognizedFields.isEmpty()) {
-            executionPageQuery.put("formTemplateRecognizedFields", formTemplateRecognizedFields);
-        }
         EdhrBatchExecutionTaskOpenRespVO result = new EdhrBatchExecutionTaskOpenRespVO()
                 .setTaskId(task.getId())
                 .setExecutionId(task.getExecutionId())

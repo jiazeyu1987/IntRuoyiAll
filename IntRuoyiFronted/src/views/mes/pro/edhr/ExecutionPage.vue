@@ -5892,9 +5892,18 @@ onBeforeUnmount(() => {
   --edhr-assist-control-height: 48px;
 }
 
-.edhr-fill-workspace__assist-control :deep(.el-input__wrapper),
-.edhr-fill-workspace__assist-control :deep(.el-select__wrapper),
-.edhr-fill-workspace__assist-control :deep(.el-input-number),
+.edhr-fill-workspace__assist-control :deep(.el-input__wrapper) {
+  height: var(--edhr-assist-control-height);
+}
+
+.edhr-fill-workspace__assist-control :deep(.el-select__wrapper) {
+  height: var(--edhr-assist-control-height);
+}
+
+.edhr-fill-workspace__assist-control :deep(.el-input-number) {
+  height: var(--edhr-assist-control-height);
+}
+
 .edhr-fill-workspace__assist-control :deep(.el-date-editor.el-input) {
   height: var(--edhr-assist-control-height);
 }
