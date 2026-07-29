@@ -9,7 +9,7 @@
 1. `completed`：确认截图红框对应共享模板单元格类型标识和执行页入口。
 2. `completed`：补充聚焦静态合同并记录 RED。
 3. `completed`：实现执行页类型背景色展示，保留共享组件默认小标识模式。
-4. `in_progress`：运行聚焦合同、相邻回归和类型检查。
+4. `completed`：运行聚焦合同、相邻回归和类型检查，类型检查保留无关历史阻塞。
 5. `pending`：更新证据、cleanup、提交并推送。
 
 ## Expected Verification
@@ -34,7 +34,12 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Verification Scope Note
+
+- `edhr-batch-template-simulate-static.spec.js` 已运行但失败在既有无关断言“模拟页必须校验批次执行 ID”，本次只保留同范围的 `edhr-batch-template-simulate-red-box-hidden-static.spec.js` 作为模拟页回归合同。
+- `pnpm ts:check` 首次超时后复跑失败在 `src/views/form-center/business-action/ActionFormPanel.vue:257` 的既有 `updatedTime` 类型错误，未涉及本任务文件。
 
 ## Cleanup Keep
 

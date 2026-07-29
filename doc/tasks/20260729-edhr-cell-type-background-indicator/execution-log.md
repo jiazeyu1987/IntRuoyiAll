@@ -16,4 +16,11 @@
 - RED: `node tests/e2e/edhr-fill-workspace-cell-type-background-static.spec.js` -> FAIL，预期原因：执行页尚未传入 `cell-type-display="background"`，共享组件也未实现背景色模式。
 - completed: 执行页传入 `cell-type-display="background"`；共享组件在背景色模式隐藏两处单元格类型 item，并按七种类型添加背景色。
 - GREEN: `node tests/e2e/edhr-fill-workspace-cell-type-background-static.spec.js` -> PASS。
-- in_progress: 运行相邻回归和类型检查。
+- REGRESSION: `node tests/e2e/edhr-fill-workspace-original-rule-legend-hidden-static.spec.js` -> PASS。
+- REGRESSION: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS。
+- REGRESSION: `node tests/e2e/edhr-batch-template-simulate-red-box-hidden-static.spec.js` -> PASS。
+- REGRESSION: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS。
+- REGRESSION: `node tests/e2e/edhr-batch-template-simulate-static.spec.js` -> FAIL，首个失败为既有无关断言“模拟页必须校验批次执行 ID”，未修改该页面或其数据契约。
+- REGRESSION: `pnpm ts:check` -> 首次 120 秒超时；复跑 180 秒后 FAIL，既有无关错误为 `src/views/form-center/business-action/ActionFormPanel.vue:257` 缺少 `updatedTime`。
+- CHECK: `git diff --check` -> PASS，仅有 Windows LF/CRLF 提示，无 whitespace error。
+- in_progress: 更新验证报告并执行 frontend evidence validator、cleanup。

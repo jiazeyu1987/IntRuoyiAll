@@ -25,16 +25,18 @@
 ## TDD Evidence
 
 - `RED: node tests/e2e/edhr-assist-topbar-action-reserve-static.spec.js -> FAIL, expected reason: 顶部 3 个切换按钮尚未包在左侧 2/3 上下文区域。`
-- `GREEN: pending`
+- `GREEN: node tests/e2e/edhr-assist-topbar-action-reserve-static.spec.js -> PASS`
+- `REGRESSION: node tests/e2e/edhr-assist-process-switch-dialog-grid-static.spec.js -> PASS`
+- `REGRESSION: pnpm ts:check -> FAIL, unrelated existing blocker: src/views/form-center/business-action/ActionFormPanel.vue(257,3) missing required updatedTime in FormTemplateListItemVO literal; current task did not modify this file.`
 
 ## Milestones
 
 - `completed`：规则、技能和适用样式经验已读取。
 - `completed`：任务文档已创建，BDD 和设计约束已记录。
 - `completed`：新增 RED 静态合同并确认当前实现失败。
-- `pending`：实施布局调整。
-- `pending`：验证与收尾。
+- `completed`：实施布局调整。
+- `in_progress`：验证与收尾；目标合同和相邻合同通过，全量类型检查存在无关阻塞。
 
 ## Blockers
 
-- None.
+- Full frontend type check is blocked by existing unrelated `ActionFormPanel.vue` type error.

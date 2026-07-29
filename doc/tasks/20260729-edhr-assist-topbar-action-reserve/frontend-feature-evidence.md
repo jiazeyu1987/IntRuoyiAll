@@ -24,15 +24,15 @@
 
 ## BDD Scenarios
 
-- `BDD: assist topbar leaves action reserve -> Given/When/Then` recorded in `execution-log.md`.
+- `BDD: assist topbar leaves action reserve -> Given` eDHR 填写页处于填写辅助模式且顶部栏展示任务/批次、工序、填写人 3 个切换按钮；`When` 页面渲染顶部栏；`Then` 3 个切换按钮位于左侧 2/3 宽度的上下文区域，右侧 1/3 保留为空白操作按钮区域，且 3 个切换按钮仍可点击打开各自切换弹窗。
 
 ## RED Command And Expected Failure
 
-- Pending.
+- `RED: node tests/e2e/edhr-assist-topbar-action-reserve-static.spec.js -> FAIL, expected reason: 顶部 3 个切换按钮尚未包在左侧 2/3 上下文区域。`
 
 ## GREEN Command And Passing Result
 
-- Pending.
+- `GREEN: node tests/e2e/edhr-assist-topbar-action-reserve-static.spec.js -> PASS`
 
 ## Responsive, Accessibility, Loading, Empty, Error, And Permission Checks
 
@@ -43,8 +43,9 @@
 ## E2E Or Component Verification Path
 
 - Static contract for template/CSS structure.
-- TypeScript check for compile safety.
+- Adjacent regression: `node tests/e2e/edhr-assist-process-switch-dialog-grid-static.spec.js -> PASS`.
+- TypeScript check: `pnpm ts:check -> FAIL` in unrelated existing `src/views/form-center/business-action/ActionFormPanel.vue(257,3)` type error; this task did not modify that file.
 
 ## Blockers And Follow-Up Skills
 
-- None.
+- Blockers: full frontend `pnpm ts:check` remains blocked by existing unrelated `ActionFormPanel.vue` missing `updatedTime` type requirement.

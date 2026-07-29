@@ -40,7 +40,12 @@
 
 - RED: `node tests/e2e/edhr-fill-workspace-cell-type-background-static.spec.js` -> FAIL，执行页未启用类型背景色模式。
 - GREEN: `node tests/e2e/edhr-fill-workspace-cell-type-background-static.spec.js` -> PASS。
-- REGRESSION: pending
+- REGRESSION: `node tests/e2e/edhr-fill-workspace-original-rule-legend-hidden-static.spec.js`、`node tests/e2e/edhr-fill-workspace-static.spec.js`、`node tests/e2e/edhr-batch-template-simulate-red-box-hidden-static.spec.js`、`node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS。
+
+## Verification
+
+- 类型背景色专用合同和相邻填写页合同通过。
+- `pnpm ts:check` 复跑失败于未涉及本任务的 `ActionFormPanel.vue:257`，保留为既有 blocker。
 
 ## Verification
 

@@ -7,9 +7,9 @@
 - Identity: `芋道源码/wangxin`
 - Fixture role setup: roleAdded=`false`, targetRole=`粗洗工序填写者角色`
 - Fixture role restore: restored=`true`
-- Execution detail snapshot: assistSwitchTaskCount=`4`, extraAssistSwitchTaskCount=`2`
+- Execution detail snapshot: assistSwitchTaskCount=``, extraAssistSwitchTaskCount=``
 - Extra form task: `<none>`
-- Filler options: total=`9`, enabledExtraOptions=`2`, enabledExtraOthers=`2`
+- Filler options: total=``, enabledExtraOptions=``, enabledExtraOthers=``
 - Full batch detail reload before option selection: ``
 - Selected extra-form filler: `<none>`
 - API errors during switch: `0`
@@ -24,4 +24,4 @@
 
 ## Error
 
-- selected filler batch detail failed: 当前用户不可查看该 eDHR 批次执行
+- response.json: Protocol error (Network.getResponseBody): No resource with given identifier found

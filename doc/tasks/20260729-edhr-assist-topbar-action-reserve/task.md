@@ -7,10 +7,10 @@
 ## Milestones
 
 1. `completed`：读取任务、前端、E2E、PowerShell 编码、Git 编排规则和前端功能交付技能。
-2. `pending`：创建任务文档并记录 BDD、适用经验门禁与脏工作区基线证据。
-3. `pending`：新增 RED 静态合同，锁定顶部栏 2/3 + 1/3 布局。
-4. `pending`：实施最小模板/CSS 调整。
-5. `pending`：运行目标合同、相邻回归、类型检查和前端证据校验。
+2. `completed`：创建任务文档并记录 BDD、适用经验门禁与脏工作区基线证据。
+3. `completed`：新增 RED 静态合同，锁定顶部栏 2/3 + 1/3 布局。
+4. `completed`：实施最小模板/CSS 调整。
+5. `in_progress`：运行目标合同、相邻回归、类型检查和前端证据校验。
 6. `pending`：完成 cleanup、经验沉淀、提交并推送。
 
 ## Expected Verification
@@ -36,4 +36,4 @@
 
 ## Current Status
 
-in_progress
+in_progress，目标静态合同已通过；`pnpm ts:check` 失败在未触碰的 `ActionFormPanel.vue` 既有类型问题，已作为全量类型检查阻塞记录。
