@@ -116,10 +116,6 @@
                       <span v-else class="batch-record-cell-rules-editor__cell-placeholder">
                         第 {{ cell.rowIndex + 1 }} 行第 {{ cell.columnIndex + 1 }} 列
                       </span>
-                      <span v-if="cell.rule" class="batch-record-cell-rules-editor__cell-rule">
-                        <span>{{ valueTypeLabelMap[cell.rule.valueType] || cell.rule.valueType }}</span>
-                        <b v-if="cell.rule.required">必填</b>
-                      </span>
                     </button>
                   </td>
                 </tr>
@@ -162,7 +158,6 @@
                         @dblclick.stop="handleAssistGridCellDoubleClick(gridCell)"
                       >
                         <span>{{ gridCell.label }}</span>
-                        <small>{{ gridCell.sourceSummary || '未映射' }}</small>
                       </button>
                     </td>
                   </tr>
@@ -573,7 +568,6 @@ type AssistGridKey = {
 type AssistGridPreviewCell = AssistGridKey & {
   key: string
   label: string
-  sourceSummary: string
   sourceCell: RuleEditorCell | null
 }
 
@@ -648,9 +642,6 @@ const navigationLoading = computed(() => Boolean(props.navigationLoading))
 const navigationErrorMessage = computed(() => String(props.navigationErrorMessage || '').trim())
 const navigationDisplayLabel = computed(() => props.navigationLabel || reportName.value)
 const unreviewedFillableCellCount = computed(() => summary.unreviewedFillableCellCount)
-const valueTypeLabelMap = Object.fromEntries(
-  cellRuleValueTypeOptions.map((option) => [option.value, option.label])
-) as Record<string, string>
 
 const componentFlagBaseOptions = [
   { label: '文本输入 input-text', value: 'input-text' },
@@ -1326,7 +1317,6 @@ const resolveAssistGridPreviewCell = (
     rowIndex,
     columnIndex,
     label,
-    sourceSummary: sourceCell ? `原表单：${sourceText || label}` : '',
     sourceCell
   }
 }
@@ -2145,17 +2135,6 @@ watch(
   white-space: nowrap;
 }
 
-.batch-record-cell-rules-editor__assist-grid-cell small {
-  display: block;
-  width: 100%;
-  min-width: 0;
-  overflow: hidden;
-  color: #8a6a1c;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .batch-record-cell-rules-editor__cell {
   min-width: 72px;
   border: 1px solid #cfd8e6;
@@ -2228,22 +2207,6 @@ watch(
 
 .batch-record-cell-rules-editor__cell-placeholder {
   color: #a0a8b8;
-}
-
-.batch-record-cell-rules-editor__cell-rule {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-self: flex-start;
-  align-items: center;
-  gap: 4px;
-  color: #2563eb;
-  font-size: 11px;
-  white-space: nowrap;
-}
-
-.batch-record-cell-rules-editor__cell-rule b {
-  color: #c2410c;
-  font-weight: 600;
 }
 
 .batch-record-cell-rules-editor__fillable-toggle {

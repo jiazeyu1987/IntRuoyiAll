@@ -34,6 +34,8 @@ blocked
 - `docs/backend-development.md#eDHR 详情回填门禁`：详情接口 `fillableUsers` 缺失时必须补后端正式数据链路，禁止前端文案或当前登录人兜底。
 - `docs/backend-development.md#切换填写人快照读取边界`：切换填写人必须来自执行详情快照，禁止弹窗打开时重新拉全量批次详情。
 - `docs/frontend-development.md#前端 Route Query ID 比较门禁`：切换后 URL query、active 高亮和表单上下文必须使用同一 ID 语义。
+- `docs/frontend-development.md#切换填写人 FormCenter 槽位导航门禁`：FormCenter 槽位切换后必须用 `openTask` 运行态模板快照渲染，禁止依赖模板管理查询权限。
+- `docs/e2e-rules.md#eDHR 工作任务 FormCenter 动态表单夹具门禁`：真实 E2E 必须证明 FormCenter 运行态表单由真实页面和 `task/open` 上下文打开，不得 API-only 或管理权限绕过。
 - `docs/e2e-rules.md#worktree--int_main-运行态-url-门禁`：真实 E2E 使用 `E:\IntRuoyi` 的 `8081/48081` 成对入口。
 - `docs/powershell-memory.md#脏工作区基线门禁`：实施前存在既有脏改动，必须独立基线提交，不能混入本任务实现。
 

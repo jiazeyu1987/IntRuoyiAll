@@ -13,4 +13,11 @@
 
 ## Evidence
 
-- Pending RED/GREEN.
+- RED: `node tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js` -> FAIL, expected reason: `提交弹框必须保留用户要求内容：edhr-fill-workspace__submit-sign-close`。
+- GREEN: `node tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js` -> PASS。
+- REGRESSION: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS，附带 Node `MODULE_TYPELESS_PACKAGE_JSON` warning，不影响退出码。
+- REGRESSION: `node tests/e2e/edhr-full-chain-evidence-pack-static.spec.js` -> PASS。
+- REGRESSION: `pnpm ts:check` -> FAIL，既有/并行类型阻塞：
+  - `src/views/mes/pro/edhr/ExecutionPage.vue(4966,29)`：辅助预览 `cellValues` 过滤器类型守卫要求了可选 `valueType` 字段。
+  - `src/views/mes/pro/edhr/ExecutionPage.vue(5058,67)`：辅助预览批次执行 ID 字符串传入只接受 number 的解析函数。
+- Implementation: 在 `ExecutionPage.vue` 的提交执行电子签名弹框内部增加 `edhr-fill-workspace__submit-sign-close` 图标按钮，点击调用 `closeSubmitDialog` 关闭并重置签名弹框；保持 `:append-to-body="false"`、遮罩关闭禁用和 ESC 关闭禁用。

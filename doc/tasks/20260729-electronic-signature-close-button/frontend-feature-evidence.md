@@ -28,11 +28,14 @@
 
 ## RED Command And Expected Failure
 
-- Pending.
+- `node tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js` -> FAIL，expected reason: `提交弹框必须保留用户要求内容：edhr-fill-workspace__submit-sign-close`。
 
 ## GREEN Command And Passing Result
 
-- Pending.
+- `node tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js` -> PASS。
+- `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS。
+- `node tests/e2e/edhr-full-chain-evidence-pack-static.spec.js` -> PASS。
+- `pnpm ts:check` -> FAIL，阻塞来自当前 HEAD 已存在的辅助工序预览类型问题，不属于关闭按钮改动。
 
 ## Responsive Accessibility Loading Empty Error Permission Checks
 
@@ -43,8 +46,10 @@
 
 ## E2E Or Component Verification Path
 
-- Pending.
+- Static contract path: `IntRuoyiFronted/tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js`。
+- Adjacent fullscreen contract: `IntRuoyiFronted/tests/e2e/edhr-fill-workspace-static.spec.js`。
+- Adjacent real-flow script contract: `IntRuoyiFronted/tests/e2e/edhr-full-chain-evidence-pack-static.spec.js`。
 
 ## Blockers And Follow-Up Skills
 
-- Pending.
+- Blocker: `pnpm ts:check` 当前因辅助工序预览逻辑的既有类型问题失败，需由对应并行任务或后续类型修复任务处理。
