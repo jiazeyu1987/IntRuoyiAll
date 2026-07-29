@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260721_mes_edhr_golden_finger_admin_permission; type=config-seed; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260721_mes_edhr_golden_finger_admin_permission; type=config; riskLevel=medium
 -- eDHR global recordbook runtime switch. Missing or invalid runtime config must fail fast in backend.
 
 SET NAMES utf8mb4;

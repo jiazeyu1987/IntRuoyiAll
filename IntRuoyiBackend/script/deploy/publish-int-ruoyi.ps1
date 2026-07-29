@@ -1835,9 +1835,10 @@ function Assert-RemoteOnlyOfficePublicFileBaseUrlReachable {
     }
 
     $healthUrl = ($DccOnlyOfficePublicFileBaseUrl.Trim().TrimEnd('/') + '/actuator/health')
-    $remoteCommand = "docker exec intruoyi-onlyoffice sh -lc `"curl -fsS --connect-timeout 5 '$healthUrl' >/dev/null && echo OK`""
+    $healthUrlLiteral = ConvertTo-ShellSingleQuotedLiteral -Value $healthUrl -Purpose 'OnlyOffice public file health URL'
+    $remoteCommand = "docker exec intruoyi-onlyoffice curl -fsS --connect-timeout 5 $healthUrlLiteral"
     $result = Invoke-SshCapture -Command $remoteCommand -IgnoreExitCode
-    if (-not ($result.Ok -and $result.Output -match 'OK')) {
+    if (-not $result.Ok) {
         Fail "ONLYOFFICE_PUBLIC_FILE_BASE_URL_UNREACHABLE: intruoyi-onlyoffice cannot reach backend health URL $healthUrl`n$($result.Output)"
     }
 }
@@ -3473,12 +3474,20 @@ function Write-FrontendReleaseInfo {
     }
 
     $releaseInfo = [ordered]@{
-        releaseTag = $PackageTag
+        manifestVersion = '1.0'
         packageId = $packageDirectoryName
+        releaseTag = $PackageTag
         createdAt = Get-ReleaseManifestCreatedAt
+        createdBy = $OperatorName
+        sourceRepos = New-ReleaseSourceRepoManifestEntries
+        changeSet = [ordered]@{
+            summary = "Release package $packageDirectoryName"
+            component = $Component
+            includeShowroomBuildPackage = [bool]$publishWebsite
+            includeOnlyOffice = [bool]$IncludeOnlyOffice
+        }
         publishScope = if ($SkipDatabaseSync -and $SkipMinioSync) { 'code-only' } else { 'with-data' }
-        changeSet = Get-ReleaseChangeSetForManifest
-        sourceRepos = Get-ReleaseSourceReposForManifest
+        components = Get-ReleaseComponentManifestNames
     }
     $releaseInfoJson = $releaseInfo | ConvertTo-Json -Depth 20
     $releaseInfoPath = Join-Path $distDir 'release-info.json'
@@ -4077,7 +4086,9 @@ $componentExplicit = $PSBoundParameters.ContainsKey('Component')
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $backendRepo = (Resolve-Path (Join-Path $scriptDir '..\..')).Path
 $workspaceRoot = (Resolve-Path (Join-Path $backendRepo '..')).Path
-$frontendDir = Join-Path $workspaceRoot 'yudao-ui-admin-vue3'
+$currentFrontendDir = Join-Path $workspaceRoot 'IntRuoyiFronted'
+$legacyFrontendDir = Join-Path $workspaceRoot 'yudao-ui-admin-vue3'
+$frontendDir = if (Test-Path -LiteralPath $currentFrontendDir) { $currentFrontendDir } else { $legacyFrontendDir }
 if (-not (Test-Path -LiteralPath $frontendDir)) {
     $worktreePortMapPath = Join-Path $scriptDir 'worktree-port-map.ps1'
     if (Test-Path -LiteralPath $worktreePortMapPath) {
@@ -4192,6 +4203,8 @@ function Get-ReleaseDatabaseSqlScripts {
             $entries += @{
                 Path = ($relativeRoot + '/' + $file.Name)
                 Environments = @($metadata.allowedEnvironments)
+                Type = [string]$metadata.type
+                MigrationId = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
             }
         }
     }
@@ -4476,6 +4489,11 @@ function Get-ReleasePackageDatabaseSqlScripts {
         @{
             Path = $sourcePath
             Environments = @($allowedEnvironments)
+            Type = [string]$_.type
+            MigrationId = [string]$_.migrationId
+            DependsOn = @($_.dependsOn)
+            File = [string]$_.file
+            Sha256 = [string]$_.sha256
         }
     })
     if ($entries.Count -eq 0) {
@@ -4591,9 +4609,90 @@ function Assert-ProdDryRunEvidence {
 function Get-ReleasePreflightApplyItems {
     param(
         [Parameter(Mandatory = $true)]
-        $PreflightPlan
+        $PreflightPlan,
+
+        [Parameter(Mandatory = $true)]
+        [string]$PublishScope
     )
-    return @($PreflightPlan.items | Where-Object { [string]$_.action -eq 'APPLY' })
+
+    $applyItems = @($PreflightPlan.items | Where-Object { [string]$_.action -eq 'APPLY' })
+    if ($PublishScope -ne 'code-only') {
+        return $applyItems
+    }
+
+    $requiredSqlTypeByMigrationId = @{}
+    $requiredSqlDependencyIdsByMigrationId = @{}
+    foreach ($entry in @($requiredDatabaseSqlScripts)) {
+        $migrationId = [string]$entry.MigrationId
+        if ([string]::IsNullOrWhiteSpace($migrationId)) {
+            $migrationId = [System.IO.Path]::GetFileNameWithoutExtension([string]$entry.Path)
+        }
+        if ([string]::IsNullOrWhiteSpace($migrationId)) {
+            Fail "Required SQL entry missing migrationId for code-only scope filtering: $($entry.Path)"
+        }
+        $sqlType = [string]$entry.Type
+        if ([string]::IsNullOrWhiteSpace($sqlType)) {
+            Fail "Required SQL entry missing type for code-only scope filtering: $migrationId"
+        }
+        if ($requiredSqlTypeByMigrationId.ContainsKey($migrationId)) {
+            Fail "Duplicate required SQL migrationId for code-only scope filtering: $migrationId"
+        }
+        $requiredSqlTypeByMigrationId[$migrationId] = $sqlType
+        $requiredSqlDependencyIdsByMigrationId[$migrationId] = @($entry.DependsOn | ForEach-Object {
+            [string]$_
+        } | Where-Object {
+            -not [string]::IsNullOrWhiteSpace($_)
+        })
+    }
+
+    $dataDependencyRootByMigrationId = @{}
+    foreach ($migrationId in @($requiredSqlTypeByMigrationId.Keys)) {
+        if ([string]$requiredSqlTypeByMigrationId[$migrationId] -eq 'data') {
+            $dataDependencyRootByMigrationId[$migrationId] = $migrationId
+        }
+    }
+
+    $dependencyClosureChanged = $true
+    while ($dependencyClosureChanged) {
+        $dependencyClosureChanged = $false
+        foreach ($migrationId in @($requiredSqlTypeByMigrationId.Keys)) {
+            if ($dataDependencyRootByMigrationId.ContainsKey($migrationId)) {
+                continue
+            }
+            foreach ($dependencyId in @($requiredSqlDependencyIdsByMigrationId[$migrationId])) {
+                if (-not $requiredSqlTypeByMigrationId.ContainsKey($dependencyId)) {
+                    Fail "Required SQL dependency missing from manifest requiredSql for code-only scope filtering: $migrationId -> $dependencyId"
+                }
+                if ($dataDependencyRootByMigrationId.ContainsKey($dependencyId)) {
+                    $dataDependencyRootByMigrationId[$migrationId] = [string]$dataDependencyRootByMigrationId[$dependencyId]
+                    $dependencyClosureChanged = $true
+                    break
+                }
+            }
+        }
+    }
+
+    $codeOnlyApplyItems = @()
+    foreach ($item in $applyItems) {
+        $migrationId = [string]$item.migrationId
+        if ([string]::IsNullOrWhiteSpace($migrationId)) {
+            Fail "preflight-plan.json APPLY item missing migrationId for code-only scope filtering"
+        }
+        if (-not $requiredSqlTypeByMigrationId.ContainsKey($migrationId)) {
+            Fail "preflight-plan.json APPLY item missing from manifest requiredSql for code-only scope filtering: $migrationId"
+        }
+        if ($dataDependencyRootByMigrationId.ContainsKey($migrationId)) {
+            $dataDependencyRoot = [string]$dataDependencyRootByMigrationId[$migrationId]
+            if ($migrationId -eq $dataDependencyRoot) {
+                Info "Skipping data required database SQL for code-only release: $migrationId"
+            } else {
+                Info "Skipping required database SQL with data dependency for code-only release: $migrationId -> $dataDependencyRoot"
+            }
+            continue
+        }
+        $codeOnlyApplyItems += $item
+    }
+    return $codeOnlyApplyItems
 }
 
 function Invoke-ReleaseMigrationStateUpdate {
@@ -4840,7 +4939,8 @@ function Invoke-RequiredDatabaseSqlScripts {
     foreach ($item in @($preflightPlan.items | Where-Object { [string]$_.action -eq 'SKIP_ENV_NOT_ALLOWED' })) {
         Info "Skipping required database SQL outside target environment: $($item.migrationId)"
     }
-    $applyItems = Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan) -TargetEnvironment $Environment
+    $preflightApplyItems = @(Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan -PublishScope $releasePublishScope)
+    $applyItems = Sort-RequiredDatabaseSqlApplyItems -Items $preflightApplyItems -TargetEnvironment $Environment
     foreach ($item in $applyItems) {
         $fileName = Get-RequiredDatabaseSqlFileName -RelativePath ([string]$item.file)
         $remoteSqlPath = "$remoteRequiredSqlDir/$fileName"

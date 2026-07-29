@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260725_mes_edhr_recordbook_global_setting; type=config-seed; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260725_mes_edhr_recordbook_global_setting; type=config; riskLevel=medium
 -- eDHR release dossier requirement switches. Missing or invalid runtime config must fail fast in backend.
 
 SET NAMES utf8mb4;

@@ -299,6 +299,24 @@ def test_build_release_smart_report_runs_validation_and_intake_after_manifest_be
     assert "-OutputDir', $intakeOutputDir" in build_report_body
 
 
+def test_build_release_writes_frontend_release_info_before_docker_context() -> None:
+    text = read_publish_script()
+
+    assert "function Write-FrontendReleaseInfo" in text
+    release_info_body = _extract_powershell_function(text, "Write-FrontendReleaseInfo")
+    assert "release-info.json" in release_info_body
+    assert "New-ReleaseSourceRepoManifestEntries" in release_info_body
+    assert "releaseTag = $PackageTag" in release_info_body
+    assert "publishScope = if ($SkipDatabaseSync -and $SkipMinioSync) { 'code-only' } else { 'with-data' }" in release_info_body
+    assert "includeOnlyOffice = [bool]$IncludeOnlyOffice" in release_info_body
+    assert "[System.IO.File]::WriteAllText($releaseInfoPath, $releaseInfoJson, [System.Text.UTF8Encoding]::new($false))" in release_info_body
+
+    write_release_info_index = text.index("Write-FrontendReleaseInfo -PackageTag $ReleaseTag")
+    docker_context_index = text.index("New-ReleaseDockerBuildContext `")
+    frontend_build_index = text.index("Invoke-FrontendViteBuild -FrontendDir $frontendDir")
+    assert frontend_build_index < write_release_info_index < docker_context_index
+
+
 def test_smart_release_report_only_keeps_legacy_publish_flow_unhooked_when_disabled() -> None:
     text = read_publish_script()
 
@@ -647,7 +665,15 @@ def test_publish_script_resolves_paired_frontend_worktree_before_failing() -> No
     text = read_publish_script()
     path_resolution_block = text[text.index("$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path") : text.index("$defaultWebsiteRepo = 'D:\\ProjectPackage\\Website'")]
 
-    assert "$frontendDir = Join-Path $workspaceRoot 'yudao-ui-admin-vue3'" in path_resolution_block
+    current_frontend = "$currentFrontendDir = Join-Path $workspaceRoot 'IntRuoyiFronted'"
+    legacy_frontend = "$legacyFrontendDir = Join-Path $workspaceRoot 'yudao-ui-admin-vue3'"
+    frontend_selection = "$frontendDir = if (Test-Path -LiteralPath $currentFrontendDir) { $currentFrontendDir } else { $legacyFrontendDir }"
+
+    assert current_frontend in path_resolution_block
+    assert legacy_frontend in path_resolution_block
+    assert frontend_selection in path_resolution_block
+    assert path_resolution_block.index(current_frontend) < path_resolution_block.index(legacy_frontend)
+    assert path_resolution_block.index(legacy_frontend) < path_resolution_block.index(frontend_selection)
     assert "if (-not (Test-Path -LiteralPath $frontendDir)) {" in path_resolution_block
     assert "$worktreePortMapPath = Join-Path $scriptDir 'worktree-port-map.ps1'" in path_resolution_block
     assert ". $worktreePortMapPath" in path_resolution_block
@@ -924,7 +950,8 @@ def test_deploy_release_executes_only_preflight_apply_migrations() -> None:
     assert "function Invoke-ReleaseMigrationStateUpdate" in text
     assert "INSERT INTO infra_release_migration" in text
     assert "SKIPPED_ALREADY_APPLIED" in invoke_block
-    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan) -TargetEnvironment $Environment" in invoke_block
+    assert "$preflightApplyItems = @(Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan -PublishScope $releasePublishScope)" in invoke_block
+    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items $preflightApplyItems -TargetEnvironment $Environment" in invoke_block
     assert "Get-RequiredDatabaseSqlEntriesForEnvironment -TargetEnvironment $Environment" not in invoke_block
     assert "Invoke-ReleaseMigrationStateUpdate -Item $item -Status 'RUNNING'" in invoke_block
     assert "Invoke-ReleaseMigrationStateUpdate -Item $item -Status 'APPLIED'" in invoke_block
@@ -968,7 +995,19 @@ def test_deploy_release_executes_dcc_view_matrix_test_tenant_prereq_before_seed_
     assert "function Sort-RequiredDatabaseSqlApplyItems" in text
     assert "'20260624_dcc_view_matrix_test_tenant_prereq' = 10" in helper_block
     assert "'20260624_dcc_view_matrix_independent_seed' = 20" in helper_block
-    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan) -TargetEnvironment $Environment" in invoke_block
+    assert "$preflightApplyItems = @(Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan -PublishScope $releasePublishScope)" in invoke_block
+    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items $preflightApplyItems -TargetEnvironment $Environment" in invoke_block
+
+
+def test_deploy_release_handles_empty_code_only_apply_queue_before_sorting() -> None:
+    text = read_publish_script()
+    invoke_start = text.index("function Invoke-RequiredDatabaseSqlScripts")
+    invoke_end = text.index("if ($Mode -eq 'mark-tested')", invoke_start)
+    invoke_block = text[invoke_start:invoke_end]
+
+    assert "$preflightApplyItems = @(Get-ReleasePreflightApplyItems" in invoke_block
+    assert "-Items (Get-ReleasePreflightApplyItems" not in invoke_block
+    assert "[AllowEmptyCollection()]" in _extract_powershell_function(text, "Sort-RequiredDatabaseSqlApplyItems")
 
 
 def test_deploy_release_preserves_preflight_dependency_order_for_non_priority_required_sql() -> None:
@@ -1142,7 +1181,11 @@ def test_deploy_checks_onlyoffice_container_can_reach_public_file_base_url() -> 
 
     assert "function Assert-RemoteOnlyOfficePublicFileBaseUrlReachable" in text
     assert "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL must not use host.docker.internal" in text
-    assert "docker exec intruoyi-onlyoffice sh -lc" in text
+    assert "$healthUrlLiteral = ConvertTo-ShellSingleQuotedLiteral -Value $healthUrl" in text
+    assert "docker exec intruoyi-onlyoffice curl -fsS --connect-timeout 5 $healthUrlLiteral" in text
+    assert "docker exec intruoyi-onlyoffice sh -lc" not in _extract_powershell_function(
+        text, "Assert-RemoteOnlyOfficePublicFileBaseUrlReachable"
+    )
     assert "/actuator/health" in text
     readiness_start = text.index('if ($IncludeOnlyOffice) {\n    Wait-RemoteHttpOk -Url "http://127.0.0.1:$OnlyOfficeHostPort/healthcheck"')
     readiness_block = text[readiness_start:text.index("if ($publishWebsite)", readiness_start)]

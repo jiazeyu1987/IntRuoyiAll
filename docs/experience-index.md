@@ -155,9 +155,9 @@
 - 2026-07-09：publish-test required SQL 不得依赖测试服手工业务数据；出现 Missing <业务对象> 时先冻结 operation/migration/业务表快照，再通过迁移自给或 dependsOn 修复并重新构建新 releaseTag；详见 docs/release-build-preflight-lessons.md#2026-07-09-publish-test-required-sql-前置业务数据必须由迁移自给或显式依赖。
 
 
-- Keywords: code-only required SQL, type=data, publishScope=code-only, SkipDatabaseSync, SkipMinioSync, preflight-plan APPLY data migration
+- Keywords: code-only required SQL, type=data, publishScope=code-only, SkipDatabaseSync, SkipMinioSync, preflight-plan APPLY data migration, data dependency closure, 依赖闭包
   - Read: `docs/release-build-preflight-lessons.md`
-  - Gate: code-only 发布前确认 data required SQL 不进入远端 MySQL 执行队列；如会执行，阻塞并修复发布脚本后重建 releaseTag。
+  - Gate: code-only 发布前确认 data required SQL 及其直接/间接依赖子节点均不进入远端 MySQL 执行队列；独立非 data 迁移仍须保留。
 
 
 - Keywords: IntRuoyi code-only component, Component intruoyi, Website dirty sourceRepos, website package directory, manifest sourceRepos dirty
@@ -165,9 +165,9 @@
   - Gate: IntRuoyi 后端/前端发布 build-release 必须显式 `-Component intruoyi`；manifest 不得包含 Website 仓或 website 包目录。
 
 
-- Keywords: preflight-plan missing type, manifest requiredSql type map, code-only data SQL skip, requiredSqlTypeByMigrationId, RT000006 data migration
+- Keywords: preflight-plan missing type, manifest requiredSql type map, manifest requiredSql dependsOn, code-only data SQL skip, requiredSqlTypeByMigrationId, RT000006 data migration
   - Read: `docs/release-build-preflight-lessons.md`
-  - Gate: code-only required SQL 过滤必须从 manifest requiredSql 回查 migration type；preflight item 缺 type 不得导致 data SQL 执行。
+  - Gate: code-only required SQL 过滤必须从 manifest requiredSql 回查 migration type 与 dependsOn 并计算依赖闭包；缺 type 或依赖映射时 fail fast。
 
 
 - Keywords: Java native memory allocation failed, Maven build memory, hs_err_pid, build-release memory, insufficient memory JVM
@@ -259,6 +259,11 @@
 - Keywords: worktree remove Directory not empty, r260713v release worktree residual, git worktree registration absent physical directory exists -> `docs/release-build-preflight-lessons.md#2026-07-13-release-worktree-物理根目录复核门禁`
 - Keywords: only test release ssh stdin CRLF, .env IMAGE_TAG remote verification, runtime console change notes, release lock APPLIED -> `docs/test-release-preflight.md#2026-07-13-仅测试服发布远端验收脚本承载门禁`
 - Keywords: runtime console dialog source commits, version change notes visible, release-info source commit verification, page-visible releaseTag -> `docs/test-release-preflight.md#2026-07-13-运行控制台版本说明与-source-commit-分层验收门禁`
+- Keywords: release-info.json 返回 index.html, release-info static file missing, 前端容器缺 release-info.json, Write-FrontendReleaseInfo, New-ReleaseDockerBuildContext, code-only release-info 出包 -> `docs/test-release-preflight.md#2026-07-28-release-info-静态文件出包门禁`
 - Keywords: Python f-string literal braces, SSH verification carrier, bash SQL JSON braces SyntaxError -> `docs/powershell-preflight-lessons.md#2026-07-13-python-f-string-literal-braces-与远端验收脚本门禁`
 - Keywords: login-preflight.mjs 缺失, admin-only 全量 E2E, 旧目标文案执行列表, 历史 execution 直连填写页, 默认密码清理, 动态预览批次任务 -> `docs/e2e-rules.md#官方登录前置与-admin-only-全量验证门禁`
 - Keywords: stale blocked task, 提交前 blocked 状态复验, Maven compile 解除旧阻塞, pnpm ts:check 解除旧阻塞, 目标 JUnit 复验后提交 -> `docs/powershell-memory.md#提交前-stale-blocker-复验门禁`
+- Keywords: required SQL target count mismatch, ROUTE-XLSX-00002 第26道工序, test-only cleanup migration, 失败 SQL 前置清理, 不复用失败 releaseTag -> `docs/release-build-preflight-lessons.md#2026-07-27-publish-test-required-sql-目标基线多余数据门禁`
+- Keywords: release preflight stable topological order, preflight-plan migration order, FIFO ready queue, Manifest 原始顺序, cleanup before binding -> `docs/release-build-preflight-lessons.md#2026-07-27-release-preflight-拓扑排序稳定性门禁`
+- Keywords: OnlyOffice public-file-base-url, ONLYOFFICE_PUBLIC_FILE_BASE_URL_UNREACHABLE, DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL, sh -lc curl, docker exec intruoyi-onlyoffice curl, backend:48081 health -> `docs/release-build-preflight-lessons.md#2026-07-27-onlyoffice-public-file-base-url-容器健康检查引号门禁`
+- Keywords: empty code-only apply queue, code-only APPLY 空队列, Sort-RequiredDatabaseSqlApplyItems, Cannot bind argument to parameter Items because it is null, Get-ReleasePreflightApplyItems 空输出 -> `docs/release-build-preflight-lessons.md#2026-07-27-code-only-空-apply-队列门禁`
