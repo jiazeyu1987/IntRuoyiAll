@@ -40,3 +40,9 @@
 - BLOCKER: `codex/20260727-route-flow-batch-record-form-source-e2e` remains `not-ancestor`; task evidence is `blocked` because exact `球囊扩张导管` lacks formal batch-record report source and PTCA page verification lacks test-tenant login.
 - BLOCKER: `codex/restart-int-main-latest-backend-20260727` remains `not-ancestor`; worktree is dirty and task evidence is `blocked_for_e2e_validation` due deprecated `/batch-record-cell-link/prefill` path and missing `LOCAL_DATABASE_FIXTURE`.
 - EXPERIENCE: project-experience-consolidation updated existing `docs\worktree-memory.md`, `docs\release-build-preflight-lessons.md`, and `docs\experience-index.md`; no new long-term document created.
+- GREEN: GitHub large blob scan over `origin/int_main..HEAD` -> PASS, `LARGE_BLOBS=0`.
+- WARN: `git fetch origin int_main` -> FAIL, GitHub connection reset (`Recv failure: Connection was reset`); follow-up push was attempted as a standalone command.
+- GREEN: `git push origin int_main` -> PASS, remote updated `6ebf9f1a..4c0db70a`.
+- GREEN: final `git status --short --branch` -> `## int_main...origin/int_main`.
+- GREEN: final `git worktree list --porcelain` count -> 12 total, 11 attached.
+- GREEN: final `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.

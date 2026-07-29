@@ -40,5 +40,5 @@ Partial integration completed. Local `int_main` contains all currently eligible 
 
 ## Residual Risk
 
-- Local push still requires final history scan and network push verification.
+- Local eligible integration commits and task records were pushed to `origin/int_main` successfully; final status is `## int_main...origin/int_main`.
 - `D:\IntRuoyiWorktree\20260728-codex-node-chain-first-node-contract` has a runtime-only dirty PID file: `.runtime\codex-test-runner\codex-runner.pid`.
