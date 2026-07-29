@@ -35,7 +35,7 @@
 - GREEN: `node tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js` -> PASS。
 - `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS。
 - `node tests/e2e/edhr-full-chain-evidence-pack-static.spec.js` -> PASS。
-- `pnpm ts:check` -> FAIL，阻塞来自当前 HEAD 已存在的辅助工序预览类型问题，不属于关闭按钮改动。
+- `pnpm ts:check` -> PASS，初次运行曾因并行辅助工序预览类型问题失败，HEAD 并行修复后最终复跑通过。
 
 ## Responsive Accessibility Loading Empty Error Permission Checks
 
@@ -52,4 +52,4 @@
 
 ## Blockers And Follow-Up Skills
 
-- Blocker: `pnpm ts:check` 当前因辅助工序预览逻辑的既有类型问题失败，需由对应并行任务或后续类型修复任务处理。
+- Blocker: 无当前任务阻塞。`pnpm ts:check` 初次运行的并行类型问题已在最终复跑时通过。
