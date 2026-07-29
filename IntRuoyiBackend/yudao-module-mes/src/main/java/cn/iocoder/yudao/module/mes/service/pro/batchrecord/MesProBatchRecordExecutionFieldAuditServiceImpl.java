@@ -185,9 +185,10 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         if (!draftExecution && (!requireWorkTaskValidation || !preReleaseEditableExecution)) {
             throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
         }
+        Long currentUserId = currentAuditUserId();
+        boolean goldenFingerMode = requireWorkTaskValidation
+                && goldenFingerPermissionService.hasGoldenFingerPermission(currentUserId);
         if (requireWorkTaskValidation) {
-            Long currentUserId = currentAuditUserId();
-            boolean goldenFingerMode = goldenFingerPermissionService.hasGoldenFingerPermission(currentUserId);
             if (draftExecution) {
                 MesProEdhrWorkTaskDO workTask = goldenFingerMode
                         ? workTaskService.validateGoldenFingerFillTaskForExecution(command.getWorkTaskId(), execution.getId())
@@ -207,6 +208,9 @@ public class MesProBatchRecordExecutionFieldAuditServiceImpl implements MesProBa
         validateBaselineAvailable(execution);
         validateBaselineMatches(command, execution);
         if (isRecordbookUnrestrictedMode(command)) {
+            if (!Boolean.TRUE.equals(execution.getRecordbookEnabled())) {
+                throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
+            }
             recordbookGlobalSettingService.requireRecordbookWriteAllowed(execution.getRecordbookEnabled(), execution.getRecordCategory());
         }
 
