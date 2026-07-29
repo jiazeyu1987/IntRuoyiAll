@@ -21,7 +21,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
@@ -34,3 +34,10 @@ ready_for_closeout
 - Worktree 已创建在 `D:\IntRuoyiWorktree\linked-cell-click-green-border`，分支 `codex/20260729-linked-cell-click-green-border`。
 - Worktree runtime slot 已登记：`slot=13`，frontend `8094`，backend `48094`。
 - 适用经验门禁：`docs/frontend-development.md` 的前端静态合同隔离门禁、`docs/e2e-rules.md` 的静态合同与真实 E2E 同步门禁；本次为窄范围点击/选中态修复，使用聚焦静态合同验证。
+
+## Closeout Result
+
+- 任务实现已推送到 `origin/codex/20260729-linked-cell-click-green-border`。
+- 已通过 `git push origin HEAD:int_main` 快进融合到 `origin/int_main`，融合后远端 HEAD 为 `3db1af3cec387a44b95e4d7acb1cf5c3bf225395`。
+- `task_closeout.py --mode preview --worktree-closeout off` -> ready，无阻塞。
+- `task_closeout.py --mode apply --worktree-closeout off` -> applied；保留核心任务记录，清理附属证据文件。

@@ -59,6 +59,14 @@
 - Final post-second-rebase GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS。
 - Final post-second-rebase port guard: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，frontend `8094`，backend `48094`。
 
+## Closeout
+
+- Remote task branch push: `git push -u origin codex/20260729-linked-cell-click-green-border` -> PASS。
+- Remote main fast-forward: `git push origin HEAD:int_main` -> PASS，`origin/int_main` advanced from `9ec65d10` to `3db1af3c`。
+- Cleanup preview with automatic worktree merge disabled: PASS，keep=`task.md`/`execution-log.md`/`verification-report.md`，delete=`bug-regression-evidence.md`/`frontend-feature-evidence.md`。
+- Cleanup apply with `--worktree-closeout off`: PASS。
+- Current main workspace had concurrent activity during the task; local worktree merge/remove was not delegated to the cleanup script. Remote `origin/int_main` fast-forward integration is the authoritative fusion evidence.
+
 ## Baseline Commits In Main Workspace
 
 - Worktree creation avoided modifying current dirty `E:\IntRuoyi` workspace directly.

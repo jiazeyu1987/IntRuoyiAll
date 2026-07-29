@@ -34,4 +34,9 @@
 
 ## Result
 
-ready_for_closeout
+completed
+
+## Closeout
+
+- `origin/int_main` contains the verified task HEAD `3db1af3cec387a44b95e4d7acb1cf5c3bf225395`.
+- Cleanup preview/apply completed with core task records preserved.
