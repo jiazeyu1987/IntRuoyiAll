@@ -86,3 +86,20 @@ def test_smart_scheduling_test_items_seed_checkpoints_are_complete() -> None:
     assert "severity" in sql
     assert "CRITICAL" in sql
     assert "MAJOR" in sql
+
+
+def test_smart_scheduling_test_items_temp_tables_match_live_target_collation() -> None:
+    sql = migration_text().replace("`", "").lower()
+
+    for table in (
+        "tmp_codex_smart_scheduling_case_seed",
+        "tmp_codex_smart_scheduling_case_ids",
+        "tmp_codex_smart_scheduling_checkpoint_seed",
+    ):
+        ddl_start = sql.index(f"create temporary table {table}")
+        ddl_end = sql.index(";", ddl_start)
+        ddl = sql[ddl_start:ddl_end]
+
+        assert "collate=utf8mb4_0900_ai_ci" in ddl
+        assert "utf8mb4_general_ci" not in ddl
+        assert "utf8mb4_unicode_ci" not in ddl

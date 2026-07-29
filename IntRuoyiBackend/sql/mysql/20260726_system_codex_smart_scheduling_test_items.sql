@@ -34,7 +34,7 @@ BEGIN
     `status` varchar(16) NOT NULL,
     `sort` int NOT NULL,
     PRIMARY KEY (`case_name`)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
   INSERT INTO `tmp_codex_smart_scheduling_case_seed` (
     `case_name`, `project`, `method_text`, `test_data_text`, `default_execution_mode`, `parallel_safe`, `status`, `sort`
@@ -123,7 +123,7 @@ BEGIN
     `case_name` varchar(128) NOT NULL,
     `case_id` bigint NOT NULL,
     PRIMARY KEY (`case_name`)
-  ) ENGINE=Memory;
+  ) ENGINE=Memory DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
   INSERT INTO `tmp_codex_smart_scheduling_case_ids` (`case_name`, `case_id`)
   SELECT `seed`.`case_name`, `case_item`.`id`
@@ -146,7 +146,7 @@ BEGIN
     `severity` varchar(16) NOT NULL,
     `remark` varchar(512) NOT NULL,
     PRIMARY KEY (`case_name`, `checkpoint_sort`)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
   INSERT INTO `tmp_codex_smart_scheduling_checkpoint_seed` (
     `case_name`, `checkpoint_sort`, `checkpoint_name`, `expected_text`, `severity`, `remark`
