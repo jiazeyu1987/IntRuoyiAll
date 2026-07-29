@@ -46,6 +46,8 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
 
         assertEquals(1L, result.getTotal());
         assertEquals("无源止血器", result.getList().get(0).getProduct());
+        assertEquals("无源止血器项目", result.getList().get(0).getProjectName());
+        assertEquals("WZY", result.getList().get(0).getProjectCode());
         assertEquals(4, result.getList().get(0).getOriginalRowNo());
         verify(productCatalogMapper).selectPage(reqVO);
     }
@@ -63,10 +65,14 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
 
         assertEquals(34, result.getOriginalRowNo());
         assertEquals("新增产品", result.getProduct());
+        assertEquals("新增项目", result.getProjectName());
+        assertEquals("NEW", result.getProjectCode());
         ArgumentCaptor<DccProductCatalogDO> captor = ArgumentCaptor.forClass(DccProductCatalogDO.class);
         verify(productCatalogMapper).insert(captor.capture());
         assertEquals(34, captor.getValue().getOriginalRowNo());
         assertEquals("子公司产品", captor.getValue().getDataSource());
+        assertEquals("新增项目", captor.getValue().getProjectName());
+        assertEquals("NEW", captor.getValue().getProjectCode());
     }
 
     @Test
@@ -83,6 +89,8 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
         verify(productCatalogMapper).updateById(captor.capture());
         assertEquals(20L, captor.getValue().getId());
         assertEquals("更新产品", captor.getValue().getProduct());
+        assertEquals("新增项目", captor.getValue().getProjectName());
+        assertEquals("NEW", captor.getValue().getProjectCode());
         assertEquals(2, captor.getValue().getOriginalRowNo());
     }
 
@@ -106,6 +114,8 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
                 .productSequence("1")
                 .product(product)
                 .productCode("P-001")
+                .projectName(product + "项目")
+                .projectCode("WZY")
                 .productStatus("S")
                 .build();
     }
@@ -118,6 +128,8 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setProductSequence("1");
         reqVO.setProduct(product);
         reqVO.setProductCode("P-001");
+        reqVO.setProjectName("新增项目");
+        reqVO.setProjectCode("NEW");
         reqVO.setProductStatus("S");
         return reqVO;
     }
@@ -129,6 +141,8 @@ class DccProductCatalogServiceImplTest extends BaseMockitoUnitTest {
         target.setProductSequence(source.getProductSequence());
         target.setProduct(source.getProduct());
         target.setProductCode(source.getProductCode());
+        target.setProjectName(source.getProjectName());
+        target.setProjectCode(source.getProjectCode());
         target.setRegistrationCertificateName(source.getRegistrationCertificateName());
         target.setRegistrationCertificateNumber(source.getRegistrationCertificateNumber());
         target.setCertificateHolder(source.getCertificateHolder());

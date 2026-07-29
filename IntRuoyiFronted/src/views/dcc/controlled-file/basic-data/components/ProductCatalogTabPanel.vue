@@ -110,6 +110,22 @@
             v-bind="sortColumnAttrs('productCode')"
           />
           <el-table-column
+            v-if="isProductCatalogColumnVisible('projectName')"
+            label="项目名称"
+            prop="projectName"
+            :width="getProductCatalogColumnWidthString('projectName')"
+            :min-width="getProductCatalogColumnMinWidthString('projectName', 180)"
+            v-bind="sortColumnAttrs('projectName')"
+          />
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('projectCode')"
+            label="项目代码"
+            prop="projectCode"
+            :width="getProductCatalogColumnWidthString('projectCode')"
+            :min-width="getProductCatalogColumnMinWidthString('projectCode', 120)"
+            v-bind="sortColumnAttrs('projectCode')"
+          />
+          <el-table-column
             v-if="isProductCatalogColumnVisible('registrationCertificateName')"
             label="注册证名称"
             prop="registrationCertificateName"
@@ -286,6 +302,12 @@
       <el-form-item label="产品编码" prop="productCode">
         <el-input v-model="formData.productCode" placeholder="请输入产品编码" />
       </el-form-item>
+      <el-form-item label="项目名称" prop="projectName">
+        <el-input v-model="formData.projectName" placeholder="请输入项目名称" />
+      </el-form-item>
+      <el-form-item label="项目代码" prop="projectCode">
+        <el-input v-model="formData.projectCode" placeholder="请输入项目代码" />
+      </el-form-item>
       <el-form-item label="注册证名称" prop="registrationCertificateName">
         <el-input v-model="formData.registrationCertificateName" placeholder="请输入注册证名称" />
       </el-form-item>
@@ -425,6 +447,8 @@ const productCatalogDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'productSequence', label: '产品序号', minWidth: 100 },
   { key: 'product', label: '产品', minWidth: 220 },
   { key: 'productCode', label: '产品编码', minWidth: 120 },
+  { key: 'projectName', label: '项目名称', minWidth: 180 },
+  { key: 'projectCode', label: '项目代码', minWidth: 120 },
   { key: 'registrationCertificateName', label: '注册证名称', minWidth: 220 },
   { key: 'registrationCertificateNumber', label: '注册证号', minWidth: 180 },
   { key: 'certificateHolder', label: '持证人', minWidth: 160 },
@@ -472,6 +496,8 @@ const formData = ref<DccProductCatalogUpdateReqVO>({
   productSequence: '',
   product: '',
   productCode: '',
+  projectName: '',
+  projectCode: '',
   registrationCertificateName: '',
   registrationCertificateNumber: '',
   certificateHolder: '',
@@ -498,6 +524,8 @@ const resetFormData = () => {
     productSequence: '',
     product: '',
     productCode: '',
+    projectName: '',
+    projectCode: '',
     registrationCertificateName: '',
     registrationCertificateNumber: '',
     certificateHolder: '',
@@ -544,6 +572,8 @@ const openForm = (type: 'create' | 'update', row?: DccProductCatalogRespVO) => {
       productSequence: row.productSequence || '',
       product: row.product || '',
       productCode: row.productCode || '',
+      projectName: row.projectName || '',
+      projectCode: row.projectCode || '',
       registrationCertificateName: row.registrationCertificateName || '',
       registrationCertificateNumber: row.registrationCertificateNumber || '',
       certificateHolder: row.certificateHolder || '',
@@ -565,6 +595,8 @@ const buildSavePayload = (): DccProductCatalogSaveReqVO => ({
   productSequence: formData.value.productSequence,
   product: formData.value.product,
   productCode: formData.value.productCode,
+  projectName: formData.value.projectName,
+  projectCode: formData.value.projectCode,
   registrationCertificateName: formData.value.registrationCertificateName,
   registrationCertificateNumber: formData.value.registrationCertificateNumber,
   certificateHolder: formData.value.certificateHolder,

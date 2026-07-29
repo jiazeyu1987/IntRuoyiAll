@@ -87,6 +87,8 @@ const columnKeys = [
   'productSequence',
   'product',
   'productCode',
+  'projectName',
+  'projectCode',
   'registrationCertificateName',
   'registrationCertificateNumber',
   'certificateHolder',

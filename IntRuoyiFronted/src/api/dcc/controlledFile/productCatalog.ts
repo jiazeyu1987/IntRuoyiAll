@@ -15,6 +15,8 @@ export interface DccProductCatalogRespVO {
   productSequence?: string | null
   product?: string | null
   productCode?: string | null
+  projectName?: string | null
+  projectCode?: string | null
   registrationCertificateName?: string | null
   registrationCertificateNumber?: string | null
   certificateHolder?: string | null
@@ -35,6 +37,8 @@ export interface DccProductCatalogSaveReqVO {
   productSequence?: string | null
   product: string
   productCode?: string | null
+  projectName?: string | null
+  projectCode?: string | null
   registrationCertificateName?: string | null
   registrationCertificateNumber?: string | null
   certificateHolder?: string | null
