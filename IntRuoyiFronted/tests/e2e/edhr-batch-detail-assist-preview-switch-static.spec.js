@@ -92,13 +92,13 @@ assert.ok(
   '中间预览区必须先判断有效辅助模式，再回落到原表只读预览。'
 )
 assert.ok(
-  assistPreviewBlock.includes('selectedPreviewAssistFields') &&
-    assistPreviewBlock.includes('字段说明') &&
-    assistPreviewBlock.includes('位置') &&
+  assistPreviewBlock.includes('selectedPreviewAssistGrids') &&
+    assistPreviewBlock.includes('data-assist-grid-cell') &&
+    assistPreviewBlock.includes('辅助表格') &&
     assistPreviewBlock.includes('当前值') &&
-    assistPreviewBlock.includes('必填') &&
-    assistPreviewBlock.includes('完成'),
-  '辅助模式必须渲染只读字段名、说明、位置、当前值、必填/完成状态。'
+    assistPreviewBlock.includes('未映射') &&
+    assistPreviewBlock.includes('typeLabel'),
+  '辅助模式必须按责任主体渲染只读辅助表格、当前值、字段类型和未映射格子。'
 )
 
 const forbiddenWriteEntrypoints = [

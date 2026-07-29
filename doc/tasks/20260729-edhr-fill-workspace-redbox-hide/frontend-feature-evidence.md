@@ -31,14 +31,14 @@
 
 ## RED
 
-- `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> FAIL，当前辅助填写卡片仍包含 `edhr-fill-workspace__assist-help`。
+- RED: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> FAIL，当前辅助填写卡片仍包含 `edhr-fill-workspace__assist-help`。
 
 ## GREEN
 
-- `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS
-- `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS
-- `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS
-- `pnpm ts:check` -> PASS
+- GREEN: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS
+- GREEN: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS
+- GREEN: `pnpm ts:check` -> PASS
 
 ## Responsive Accessibility Loading Empty Error Permission
 

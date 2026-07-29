@@ -162,18 +162,10 @@
                         }"
                         :data-assist-grid-cell="gridCell.key"
                         @click="handleAssistGridCellClick(gridCell.key)"
+                        @dblclick.stop="handleAssistGridCellDoubleClick(gridCell)"
                       >
                         <span>{{ gridCell.label }}</span>
                         <small>{{ gridCell.sourceSummary || '未映射' }}</small>
-                        <em v-if="gridCell.valueTypeLabel">{{ gridCell.valueTypeLabel }}</em>
-                      </button>
-                      <button
-                        v-if="gridCell.sourceCell"
-                        type="button"
-                        class="batch-record-cell-rules-editor__assist-grid-unmap"
-                        @click.stop="removeAssistGridCellMapping(gridCell.key)"
-                      >
-                        取消映射
                       </button>
                     </td>
                   </tr>
@@ -703,7 +695,6 @@ type AssistGridPreviewCell = AssistGridKey & {
   key: string
   label: string
   sourceSummary: string
-  valueTypeLabel: string
   sourceCell: RuleEditorCell | null
 }
 
@@ -1277,9 +1268,6 @@ const resolveAssistGridPreviewCell = (
     columnIndex,
     label,
     sourceSummary: sourceCell ? `原表单：${sourceText || label}` : '',
-    valueTypeLabel: sourceCell
-      ? valueTypeLabelMap[rule?.valueType || 'STRING'] || rule?.valueType || '文本'
-      : '',
     sourceCell
   }
 }
@@ -1470,6 +1458,12 @@ const handleAssistGridCellClick = (cellKey: string) => {
   if (!parsed || !assistFillerUserIds.value.includes(parsed.userId)) return
   selectedAssistFillerUserId.value = parsed.userId
   selectedAssistGridCellKey.value = cellKey
+}
+
+const handleAssistGridCellDoubleClick = (gridCell: AssistGridPreviewCell) => {
+  handleAssistGridCellClick(gridCell.key)
+  if (!gridCell.sourceCell) return
+  removeAssistGridCellMapping(gridCell.key)
 }
 
 const removeAssistGridCellMapping = (cellKey = selectedAssistGridCellKey.value) => {
@@ -2334,30 +2328,26 @@ watch(
 }
 
 .batch-record-cell-rules-editor__assist-grid-cell span {
-  display: -webkit-box;
+  display: block;
+  width: 100%;
+  min-width: 0;
   overflow: hidden;
   color: #271d06;
   font-weight: 600;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.batch-record-cell-rules-editor__assist-grid-cell small,
-.batch-record-cell-rules-editor__assist-grid-cell em {
+.batch-record-cell-rules-editor__assist-grid-cell small {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
   color: #806018;
   font-size: 11px;
   font-style: normal;
-}
-
-.batch-record-cell-rules-editor__assist-grid-unmap {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
-  border: 0;
-  background: transparent;
-  color: #c2410c;
-  cursor: pointer;
-  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .batch-record-cell-rules-editor__assist-grid-control,

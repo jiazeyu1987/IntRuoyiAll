@@ -11,7 +11,7 @@
 - [x] 用静态合同先锁定空列压缩行为并得到 RED。
 - [x] 修改执行页辅助网格列计算和定位逻辑。
 - [x] 运行定向 GREEN/REGRESSION 验证并记录结果。
-- [ ] 收尾清理、经验沉淀、提交并推送当前分支。
+- [x] 收尾清理、经验沉淀、提交并推送当前分支。
 
 ## Expected Verification
 
@@ -36,7 +36,11 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
+
+## Final Verification Result
+
+PASS. 定向静态合同、`pnpm ts:check`、前端证据校验、经验索引检索和 cleanup apply 均通过。
 
 ## Notes
 

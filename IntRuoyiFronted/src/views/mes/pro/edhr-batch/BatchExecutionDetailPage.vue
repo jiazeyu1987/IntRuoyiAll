@@ -395,38 +395,55 @@
                     </div>
                     <el-tag type="info" effect="plain">{{ selectedPreviewAssistFields.length }} 项</el-tag>
                   </div>
-                  <div
-                    v-for="field in selectedPreviewAssistFields"
-                    :key="field.fieldIdentity"
-                    class="edhr-batch-detail__assist-preview-row"
-                  >
-                    <div class="edhr-batch-detail__assist-preview-row-title">
-                      <span class="edhr-batch-detail__assist-preview-field-name">{{ field.label }}</span>
-                      <div class="edhr-batch-detail__assist-preview-tags">
-                        <el-tag v-if="field.required" size="small" type="danger" effect="plain">必填</el-tag>
-                        <el-tag v-if="field.signature" size="small" type="warning" effect="plain">签名</el-tag>
-                        <el-tag size="small" :type="field.completed ? 'success' : 'warning'" effect="plain">
-                          {{ field.completed ? '已完成' : '未完成' }}
+                  <el-alert
+                    v-if="selectedPreviewAssistGridErrors.length"
+                    :title="selectedPreviewAssistGridErrors.join('；')"
+                    type="error"
+                    :closable="false"
+                    show-icon
+                  />
+                  <div v-else class="edhr-batch-detail__assist-grid-list">
+                    <section
+                      v-for="grid in selectedPreviewAssistGrids"
+                      :key="grid.subjectKey"
+                      class="edhr-batch-detail__assist-grid-group"
+                    >
+                      <div class="edhr-batch-detail__assist-grid-meta">
+                        <strong>{{ grid.subjectLabel }}</strong>
+                        <el-tag size="small" effect="plain">
+                          辅助表格 {{ grid.rowCount }} × {{ grid.columnCount }}
                         </el-tag>
                       </div>
-                    </div>
-                    <dl class="edhr-batch-detail__assist-preview-meta">
-                      <div>
-                        <dt>字段说明</dt>
-                        <dd>{{ field.helpText || field.assistDescription || '字段说明未配置' }}</dd>
+                      <div class="edhr-batch-detail__assist-grid-surface">
+                        <table class="edhr-batch-detail__assist-grid">
+                          <tbody>
+                            <tr v-for="gridRow in grid.rows" :key="gridRow.rowIndex">
+                              <td v-for="gridCell in gridRow.cells" :key="gridCell.key">
+                                <div
+                                  class="edhr-batch-detail__assist-grid-cell"
+                                  :class="gridCell.field ? 'is-mapped' : 'is-empty'"
+                                  :data-assist-grid-cell="gridCell.key"
+                                  :title="gridCell.field?.location || '未映射'"
+                                >
+                                  <span>{{ gridCell.field?.label || '未映射' }}</span>
+                                  <small v-if="gridCell.field">
+                                    当前值：{{ gridCell.field.displayValue }}
+                                  </small>
+                                  <small v-else>未映射</small>
+                                  <em v-if="gridCell.field">{{ gridCell.field.typeLabel }}</em>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
                       </div>
-                      <div>
-                        <dt>位置</dt>
-                        <dd>{{ field.location }}</dd>
-                      </div>
-                      <div>
-                        <dt>当前值</dt>
-                        <dd>{{ field.displayValue }}</dd>
-                      </div>
-                    </dl>
+                    </section>
                   </div>
                   <el-empty
-                    v-if="selectedPreviewAssistFields.length === 0"
+                    v-if="
+                      selectedPreviewAssistFields.length === 0 &&
+                      selectedPreviewAssistGridErrors.length === 0
+                    "
                     description="未配置辅助模式"
                     :image-size="52"
                   />
@@ -1579,6 +1596,7 @@ type DetailPreviewSnapshotField = {
   columnIndex: number
   label: string
   helpText: string
+  typeLabel: string
   required: boolean
   signature: boolean
   value: unknown
@@ -1597,6 +1615,38 @@ type DetailPreviewAssistField = DetailPreviewSnapshotField & {
   location: string
   displayValue: string
   completed: boolean
+}
+
+type DetailPreviewAssistSubjectType = 'USERS' | 'ROLE'
+
+type DetailPreviewAssistGridKey = {
+  subjectType: DetailPreviewAssistSubjectType
+  subjectId: number
+  subjectKey: string
+  rowIndex: number
+  columnIndex: number
+}
+
+type DetailPreviewAssistGridCell = {
+  key: string
+  rowIndex: number
+  columnIndex: number
+  field?: DetailPreviewAssistField
+}
+
+type DetailPreviewAssistGridRow = {
+  rowIndex: number
+  cells: DetailPreviewAssistGridCell[]
+}
+
+type DetailPreviewAssistGrid = {
+  subjectType: DetailPreviewAssistSubjectType
+  subjectId: number
+  subjectKey: string
+  subjectLabel: string
+  rowCount: number
+  columnCount: number
+  rows: DetailPreviewAssistGridRow[]
 }
 
 const detailPreviewCellKey = (rowIndex: number, columnIndex: number) => `${rowIndex}:${columnIndex}`
@@ -1642,6 +1692,21 @@ const selectedPreviewCellValueMap = computed(() => {
 const readDetailPreviewText = (value: unknown) =>
   typeof value === 'string' && value.trim() ? value.trim() : ''
 
+const resolveDetailPreviewFieldTypeLabel = (
+  field: Record<string, unknown>,
+  rawComponent: string,
+  signature: boolean
+) => {
+  if (signature) return '签名'
+  const valueType = String(field.valueType || (field as any)?.edhrCellRule?.valueType || '').toUpperCase()
+  if (valueType === 'NUMBER' || rawComponent.includes('number')) return '数字'
+  if (valueType === 'DATE' || rawComponent === 'date') return '日期'
+  if (valueType === 'DATETIME' || rawComponent.includes('datetime')) return '日期时间'
+  if (valueType === 'BOOLEAN' || rawComponent.includes('checkbox')) return '选择'
+  if (rawComponent.includes('upload')) return '附件'
+  return '文本'
+}
+
 const normalizeDetailPreviewSnapshotField = (
   field: Record<string, unknown>
 ): DetailPreviewSnapshotField | undefined => {
@@ -1673,7 +1738,8 @@ const normalizeDetailPreviewSnapshotField = (
     columnIndex,
     label,
     helpText,
-    required: field.required === true,
+    typeLabel: resolveDetailPreviewFieldTypeLabel(field, rawComponent, signature),
+    required: field.required === true || rule?.required === true,
     signature,
     value: storedValue ?? field.value,
     defaultValue: field.defaultValue
@@ -1723,6 +1789,48 @@ const selectedPreviewAssistRows = computed(() =>
 
 const selectedPreviewAssistRowsConfigured = computed(() => selectedPreviewAssistRows.value.length > 0)
 
+const parseDetailPreviewAssistGridRowKey = (rowKey: string) => {
+  const normalizedRowKey = String(rowKey || '').trim()
+  const subjectMatch = normalizedRowKey.match(/^ASSIST_GRID_(USERS|ROLE)(\d+)_R(\d+)_C(\d+)$/)
+  const legacyUserMatch = normalizedRowKey.match(/^ASSIST_GRID_U(\d+)_R(\d+)_C(\d+)$/)
+  if (!subjectMatch && !legacyUserMatch) return undefined
+  const subjectType: DetailPreviewAssistSubjectType = subjectMatch
+    ? (subjectMatch[1] as DetailPreviewAssistSubjectType)
+    : 'USERS'
+  const subjectId = Number(subjectMatch ? subjectMatch[2] : legacyUserMatch?.[1])
+  const rowIndex = Number(subjectMatch ? subjectMatch[3] : legacyUserMatch?.[2])
+  const columnIndex = Number(subjectMatch ? subjectMatch[4] : legacyUserMatch?.[3])
+  if (!Number.isInteger(subjectId) || subjectId <= 0) return undefined
+  if (!Number.isInteger(rowIndex) || rowIndex < 0) return undefined
+  if (!Number.isInteger(columnIndex) || columnIndex < 0) return undefined
+  return {
+    subjectType,
+    subjectId,
+    subjectKey: `${subjectType}:${subjectId}`,
+    rowIndex,
+    columnIndex
+  } satisfies DetailPreviewAssistGridKey
+}
+
+const selectedPreviewAssistGridRows = computed(() =>
+  selectedPreviewAssistRows.value.map((row) => ({
+    row,
+    gridKey: parseDetailPreviewAssistGridRowKey(row.rowKey)
+  }))
+)
+
+const selectedPreviewAssistGridSize = computed(() => {
+  const gridKeys = selectedPreviewAssistGridRows.value
+    .map((item) => item.gridKey)
+    .filter((gridKey): gridKey is DetailPreviewAssistGridKey => Boolean(gridKey))
+  return {
+    rowCount: gridKeys.length ? Math.max(...gridKeys.map((gridKey) => gridKey.rowIndex)) + 1 : 0,
+    columnCount: gridKeys.length
+      ? Math.max(...gridKeys.map((gridKey) => gridKey.columnIndex)) + 1
+      : 0
+  }
+})
+
 const hasDetailPreviewValue = (value: unknown) => {
   if (value == null) return false
   if (Array.isArray(value)) return value.length > 0
@@ -1766,6 +1874,116 @@ const selectedPreviewAssistFields = computed<DetailPreviewAssistField[]>(() => {
     })
   })
   return result
+})
+
+const selectedPreviewAssistFieldMap = computed(
+  () => new Map(selectedPreviewAssistFields.value.map((field) => [
+    detailPreviewCellKey(field.rowIndex, field.columnIndex),
+    field
+  ]))
+)
+
+const selectedPreviewAssistGridErrors = computed(() => {
+  const errors: string[] = []
+  const occupiedGridCells = new Set<string>()
+  selectedPreviewAssistGridRows.value.forEach(({ row, gridKey }) => {
+    if (!gridKey) {
+      errors.push(`辅助配置 ${row.rowKey} 缺少正式辅助表格坐标`)
+      return
+    }
+    if (row.fields.length !== 1) {
+      errors.push(`辅助格 ${row.rowKey} 必须且只能映射一个原表字段`)
+      return
+    }
+    const occupiedKey = `${gridKey.subjectKey}:${gridKey.rowIndex}:${gridKey.columnIndex}`
+    if (occupiedGridCells.has(occupiedKey)) {
+      errors.push(`辅助格 ${row.rowKey} 坐标重复`)
+      return
+    }
+    occupiedGridCells.add(occupiedKey)
+    const sourceField = row.fields[0]
+    if (!selectedPreviewAssistFieldMap.value.has(
+      detailPreviewCellKey(sourceField.rowIndex, sourceField.columnIndex)
+    )) {
+      errors.push(`辅助格 ${row.rowKey} 对应的原表字段不存在`)
+    }
+  })
+  return Array.from(new Set(errors))
+})
+
+const resolveDetailPreviewAssistSubjectLabel = (
+  subjectType: DetailPreviewAssistSubjectType,
+  subjectId: number
+) => {
+  if (subjectType === 'USERS') {
+    const user = selectedProcessTasks.value
+      .flatMap((task) => task.fillableUsers || [])
+      .find((item) => Number(item.userId) === subjectId)
+    return user?.displayName || `个人 ${subjectId}`
+  }
+  return `角色 ${subjectId}`
+}
+
+const buildDetailPreviewAssistGridCellKey = (
+  subjectType: DetailPreviewAssistSubjectType,
+  subjectId: number,
+  rowIndex: number,
+  columnIndex: number
+) => `ASSIST_GRID_${subjectType}${subjectId}_R${rowIndex}_C${columnIndex}`
+
+const selectedPreviewAssistGrids = computed<DetailPreviewAssistGrid[]>(() => {
+  if (selectedPreviewAssistGridErrors.value.length) return []
+  const { rowCount, columnCount } = selectedPreviewAssistGridSize.value
+  if (!rowCount || !columnCount) return []
+  const subjects = new Map<
+    string,
+    {
+      subjectType: DetailPreviewAssistSubjectType
+      subjectId: number
+      fieldMap: Map<string, DetailPreviewAssistField>
+    }
+  >()
+  selectedPreviewAssistGridRows.value.forEach(({ row, gridKey }) => {
+    if (!gridKey) return
+    const sourceField = row.fields[0]
+    const field = selectedPreviewAssistFieldMap.value.get(
+      detailPreviewCellKey(sourceField.rowIndex, sourceField.columnIndex)
+    )
+    if (!field) return
+    if (!subjects.has(gridKey.subjectKey)) {
+      subjects.set(gridKey.subjectKey, {
+        subjectType: gridKey.subjectType,
+        subjectId: gridKey.subjectId,
+        fieldMap: new Map()
+      })
+    }
+    subjects.get(gridKey.subjectKey)?.fieldMap.set(
+      detailPreviewCellKey(gridKey.rowIndex, gridKey.columnIndex),
+      field
+    )
+  })
+  return Array.from(subjects.entries()).map(([subjectKey, subject]) => ({
+    subjectType: subject.subjectType,
+    subjectId: subject.subjectId,
+    subjectKey,
+    subjectLabel: resolveDetailPreviewAssistSubjectLabel(subject.subjectType, subject.subjectId),
+    rowCount,
+    columnCount,
+    rows: Array.from({ length: rowCount }, (_, rowIndex) => ({
+      rowIndex,
+      cells: Array.from({ length: columnCount }, (_, columnIndex) => ({
+        key: buildDetailPreviewAssistGridCellKey(
+          subject.subjectType,
+          subject.subjectId,
+          rowIndex,
+          columnIndex
+        ),
+        rowIndex,
+        columnIndex,
+        field: subject.fieldMap.get(detailPreviewCellKey(rowIndex, columnIndex))
+      }))
+    }))
+  }))
 })
 
 const effectiveDetailPreviewAssistMode = computed(
@@ -5338,64 +5556,112 @@ watch(
   line-height: 1.5;
 }
 
-.edhr-batch-detail__assist-preview-row {
+.edhr-batch-detail__assist-grid-list {
   display: grid;
-  gap: 10px;
-  border: 1px solid #dbe3ef;
-  border-radius: 8px;
-  background: #ffffff;
-  padding: 12px 14px;
+  gap: 16px;
 }
 
-.edhr-batch-detail__assist-preview-row-title {
+.edhr-batch-detail__assist-grid-group {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.edhr-batch-detail__assist-grid-meta {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
+  color: #5a3d05;
+  padding: 0 2px;
 }
 
-.edhr-batch-detail__assist-preview-field-name {
+.edhr-batch-detail__assist-grid-meta strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.edhr-batch-detail__assist-grid-surface {
   min-width: 0;
+  overflow: auto;
+  border: 1px solid #f0d783;
+  border-radius: 8px;
+  background: #fff8d6;
+  padding: 8px;
+}
+
+.edhr-batch-detail__assist-grid {
+  min-width: 720px;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 8px;
+  table-layout: fixed;
+}
+
+.edhr-batch-detail__assist-grid td {
+  padding: 0;
+  vertical-align: stretch;
+}
+
+.edhr-batch-detail__assist-grid-cell {
+  display: flex;
+  min-height: 96px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #edd07b;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #5a3d05;
+  padding: 10px;
+  text-align: left;
+}
+
+.edhr-batch-detail__assist-grid-cell.is-mapped {
+  border-color: #d9a821;
+  background: #ffffff;
+}
+
+.edhr-batch-detail__assist-grid-cell.is-empty {
+  color: #9b7b2a;
+}
+
+.edhr-batch-detail__assist-grid-cell span {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
   color: #172033;
   font-size: 13px;
   font-weight: 700;
-  line-height: 1.45;
+  line-height: 1.4;
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
-.edhr-batch-detail__assist-preview-tags {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 4px;
+.edhr-batch-detail__assist-grid-cell.is-empty span {
+  color: #9b7b2a;
+  font-weight: 600;
 }
 
-.edhr-batch-detail__assist-preview-meta {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr);
-  gap: 10px;
-  margin: 0;
-}
-
-.edhr-batch-detail__assist-preview-meta > div {
-  display: grid;
-  gap: 4px;
+.edhr-batch-detail__assist-grid-cell small {
   min-width: 0;
+  overflow: hidden;
+  color: #8a6a1c;
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.edhr-batch-detail__assist-preview-meta dt {
-  color: #98a2b3;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
-.edhr-batch-detail__assist-preview-meta dd {
-  margin: 0;
-  color: #344054;
-  font-size: 12px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
+.edhr-batch-detail__assist-grid-cell em {
+  align-self: flex-start;
+  border-radius: 8px;
+  background: #fff4c2;
+  color: #785a0b;
+  font-size: 11px;
+  font-style: normal;
+  padding: 2px 8px;
 }
 
 .edhr-batch-detail__rail-process-form-list {

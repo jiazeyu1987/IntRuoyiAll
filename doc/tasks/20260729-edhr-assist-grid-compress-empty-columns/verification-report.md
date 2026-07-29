@@ -16,6 +16,8 @@
   - PASS.
 - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --self-test`
   - PASS.
+- `rg -n "assistGridVisibleColumnIndexes|空列压缩" docs\experience-index.md docs\frontend-development.md`
+  - PASS.
 
 ## Behavior Verified
 
@@ -26,3 +28,8 @@
 ## Remaining Risk
 
 - No real browser E2E was run in this turn. The change is limited to deterministic computed layout logic and covered by the focused static contract plus TypeScript check.
+
+## Cleanup
+
+- Preview: PASS, keep `task.md`, `execution-log.md`, `verification-report.md`, and `frontend-feature-evidence.md`; delete none.
+- Apply: PASS, deleted none.

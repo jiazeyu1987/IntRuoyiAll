@@ -36,6 +36,7 @@
 - GREEN: `pnpm ts:check` -> PASS.
 - GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260729-edhr-assist-grid-compress-empty-columns\frontend-feature-evidence.md` -> PASS.
 - GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --self-test` -> PASS.
+- GREEN: `rg -n "assistGridVisibleColumnIndexes|空列压缩" docs\experience-index.md docs\frontend-development.md` -> PASS, updated experience keywords and gate text are discoverable.
 
 ## Milestone Updates
 
@@ -44,4 +45,7 @@
 - Implementation: completed. `ExecutionPage.vue` now derives `assistGridVisibleColumnIndexes`, maps original configured columns to compressed visible columns, and uses the compressed column index only for CSS Grid placement.
 - Verification: completed. Focused static contract, frontend TypeScript check, and frontend feature evidence validator passed.
 - Experience consolidation: updated existing `docs/frontend-development.md#edhr-辅助模式当前工序-assistrows-路由门禁` and `docs/experience-index.md`; no new long-term document created.
-- Status: ready_for_closeout.
+- Cleanup keep: preserved `frontend-feature-evidence.md` explicitly in `task.md`.
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-assist-grid-compress-empty-columns --mode preview` -> PASS, keep four task files, delete none, blocked none, warnings none.
+- Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-assist-grid-compress-empty-columns --mode apply` -> PASS, deleted none.
+- Status: completed.
