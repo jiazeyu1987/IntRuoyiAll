@@ -12,7 +12,7 @@
 - [x] 先补充失败的前端静态合同。
 - [x] 实现右上角关闭按钮。
 - [x] 运行目标验证并记录结果。
-- [x] 收尾清理、提交并推送。
+- [ ] 收尾清理、提交并推送。
 
 ## Expected Verification
 
@@ -23,7 +23,11 @@
 
 ## Current Status
 
-completed
+ready_for_closeout
+
+## Blockers
+
+- `git push origin int_main` 连续两次失败，错误为 `Recv failure: Connection was reset`；`git ls-remote origin HEAD` 同样失败，当前阻塞为 GitHub HTTPS 连接不可用，导致本地提交尚未推送到 `origin/int_main`。
 
 ## Applicable Gates
 

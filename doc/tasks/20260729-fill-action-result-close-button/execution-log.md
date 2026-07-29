@@ -32,4 +32,9 @@
   - `node tests/e2e/edhr-fill-workspace-action-result-dialog-static.spec.js` -> PASS。
   - `node tests/e2e/edhr-execution-fill-workspace-submit-static.spec.js` -> PASS。
   - `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-fill-action-result-close-button/frontend-feature-evidence.md` -> PASS。
-- Final status update: task marked `completed`; final push pending in this closeout step.
+- Closeout commit: `c1b34269 docs: close out fill action result dialog close`。
+- Push blocker:
+  - `git push origin int_main` -> FAIL，`Recv failure: Connection was reset`。
+  - Retry `git push origin int_main` -> FAIL，`Recv failure: Connection was reset`。
+  - `git ls-remote origin HEAD` -> FAIL，`Recv failure: Connection was reset`。
+- Final status update: task returned to `ready_for_closeout`; local commits are complete, but push is blocked by GitHub HTTPS connection reset.
