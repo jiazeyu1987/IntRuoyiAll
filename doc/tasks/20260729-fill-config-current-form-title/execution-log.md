@@ -30,9 +30,10 @@
 
 ## TDD
 
-- RED: 待执行。
+- RED: `node tests/e2e/edhr-fill-config-current-form-title-static.spec.js` -> FAIL，当前组件缺少 `data-fill-config-current-form="name-version"` 独立区域，无法在红框位置展示当前表单名称和版本。
 - GREEN: 待执行。
 
 ## Milestone Updates
 
 - 2026-07-29: 已建立任务记录，准备读取经验门禁并定位前端组件。
+- 2026-07-29: 已读取 `docs/experience-index.md` 匹配到 `docs/frontend-development.md#前端填写配置红框区域隐藏门禁`，本次只新增必要标题信息，保留原表格、辅助预览、映射控制栏和保存/重读/关闭链路。
