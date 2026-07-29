@@ -45,6 +45,8 @@
 - GREEN: bug regression evidence validator -> PASS，清理前确认中间证据结构完整。
 - GREEN: task-closeout-cleanup preview -> PASS，仅计划删除本任务 bug 中间证据和 3 个 Playwright 临时产物。
 - GREEN: task-closeout-cleanup apply -> PASS，核心任务记录保留，4 个任务自有临时文件已删除。
+- GREEN: closeout commit -> PASS，`807c2b25 fix: close out product info current process label`，暂存清单仅包含本任务记录、经验索引和产品信息虚拟工序门禁。
+- GREEN: `git push origin int_main` -> PASS，远端从 `3678c154` 快进到 `807c2b25`。
 
 ## Blockers
 

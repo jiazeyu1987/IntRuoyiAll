@@ -10,7 +10,7 @@
 - [x] 建立聚焦回归测试并记录 RED。
 - [x] 实施最小正式修复。
 - [x] 运行目标测试、相邻回归、类型检查和真实页面 E2E。
-- [ ] 完成经验沉淀、清理、提交和推送。
+- [x] 完成经验沉淀、清理、提交和推送。
 
 ## Expected Verification
 
@@ -35,7 +35,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Completed Work
 
@@ -52,7 +52,7 @@ ready_for_closeout
 
 ## Remaining Closeout
 
-- 完成任务自有收尾记录提交并推送 `origin/int_main`。
+- 无。
 
 ## Cleanup Candidates
 
@@ -66,3 +66,9 @@ ready_for_closeout
 - `task-closeout-cleanup` preview 与 apply 均通过。
 - 保留 `task.md`、`execution-log.md`、`verification-report.md`。
 - 已删除本任务 bug 中间证据、E2E JSON 和成功/失败截图。
+
+## Final Closeout
+
+- 实现和聚焦测试提交：`83191bd4`。
+- 收尾记录与经验门禁提交：`807c2b25`。
+- `git push origin int_main` 已成功，远端已包含上述提交。
