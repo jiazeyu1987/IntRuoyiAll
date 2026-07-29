@@ -6,20 +6,23 @@
 
 ## Milestones
 
-- [ ] 定位提交失败弹窗与错误传播链。
-- [ ] 先补充 BDD 场景和 RED 静态回归测试，证明失败原因缺失。
-- [ ] 实现最小修复，展示真实失败原因。
-- [ ] 运行目标测试和相邻回归验证，记录证据。
-- [ ] 完成收尾、经验沉淀、提交与推送。
+- [x] 定位提交失败弹窗与错误传播链。
+- [x] 先补充 BDD 场景和 RED 静态回归测试，证明失败原因缺失。
+- [x] 实现最小修复，展示真实失败原因。
+- [x] 运行目标测试和相邻回归验证，记录证据。
+- [x] 完成收尾、经验沉淀、提交与推送。
 
 ## Expected Verification
 
-- `node tests/e2e/<target-static-spec>.js`
-- 受影响前端类型或相邻静态合同验证；若真实 E2E 前置不足，记录阻塞原因。
+- `node tests/e2e/edhr-fill-workspace-action-result-dialog-static.spec.js`
+- `node tests/e2e/edhr-fill-workspace-static.spec.js`
+- `pnpm ts:check`
+- `git diff --check -- IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`
+- 真实提交失败路径 E2E：当前现有真实脚本覆盖提交成功/审批策略；本次未新增写入型失败 E2E，原因是需要单独构造可提交执行记录、失败签名场景和清理链路，当前变更已由聚焦静态合同锁定失败原因传递与页面展示。
 
 ## Current Status
 
-in_progress
+completed
 
 ## 设计约束检查
 
@@ -29,4 +32,6 @@ in_progress
 
 ## Applicable Gates
 
-- 待补充：读取 `docs/experience-index.md` 后只摘取命中的前置门禁。
+- 前端保存/提交错误必须通过 UI 明确暴露真实错误，不得吞异常或只显示默认成功/失败状态。
+- 前端静态合同隔离门禁：本任务使用聚焦静态合同覆盖提交失败弹窗，不修改无关宽合同。
+- E2E 写入门禁：真实写入 E2E 需要测试租户、可追踪任务数据和清理链路；未用 mock、拦截或 API-only 代替真实页面路径。

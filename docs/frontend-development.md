@@ -76,6 +76,15 @@
 - Forbidden action: 禁止用吞异常、默认成功、隐藏后端错误、只改文案、或关闭全局错误处理来减少 toast 数量。
 - Evidence: 任务 `doc/tasks/20260726-route-flow-v15-save-system-exception/`，路线流转关系图保存失败曾由 axios、RouteFlowGraphDesigner、RouteFormContent 三层重复提示“系统异常”。
 
+## 前端主结果弹窗失败原因可见门禁
+
+- Trigger: 保存、提交、审核、发布或签名动作失败后页面显示主结果弹窗、大号结果弹框、`result-dialog`、`提交失败`、`保存失败`、`发布失败` 或同类状态。
+- Preflight check: 先梳理错误传播链，主结果弹窗必须承载外层 catch 已解析的真实错误文本；若 toast 保留，弹窗也必须展示同一失败原因，成功状态必须清空失败原因。
+- Blocker: 主弹窗只显示“提交失败/保存失败”等状态、不显示后端 `msg/message` 或本地 fail-fast 原因，或静态合同无法证明失败原因字段从 catch 传入弹窗状态时必须停止。
+- Verification: 新增聚焦静态合同断言失败原因字段、模板可见区域、catch 参数传递和成功状态清空；真实写入 E2E 可用时用真实失败响应断言弹窗可见文本，不得用 mock 或拦截替代。
+- Forbidden action: 禁止只依赖短暂 toast、改成通用默认失败文案、隐藏后端错误、吞异常、用成功弹窗残留旧错误或关闭全局错误处理来满足截图。
+- Evidence: 任务 `doc/tasks/20260729-submit-failure-reason/`，eDHR 提交失败弹窗曾只显示“刘子良 提交失败”，未显示具体失败原因。
+
 ## 前端延迟辅助加载错误归属门禁
 
 - Trigger: 列表首屏已加载成功，但后续延迟加载的行级权限、预览、候选人、补充状态或右侧详情接口失败，页面出现全局 `系统异常`、列表加载失败或首屏错误条。
