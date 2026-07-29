@@ -31,3 +31,5 @@ BDD: 删除红框标注内容 -> Given 用户打开填写配置页面 When 页�
 - completed: `task-closeout-cleanup` apply -> applied；deleted_paths 为 none；当前不是 linked worktree，无需 merge 或删除 worktree。
 - completed: 实现提交 `a8baa3c7`，文件清单已通过 `git show --name-status --oneline -1` 复核。
 - completed: 任务状态更新为 completed；收尾记录将作为独立 closeout commit 提交后推送。
+- completed: 收尾记录提交 `59511809`，文件清单已通过 `git show --name-status --oneline -1` 复核。
+- BLOCKED: `git push origin int_main` -> FAIL twice，错误为 `Recv failure: Connection was reset`；`git ls-remote --heads origin int_main` 同样失败。影响：本地实现和收尾提交已完成，但远端 `origin/int_main` 尚未收到提交，按项目规则任务不能标记 completed。
