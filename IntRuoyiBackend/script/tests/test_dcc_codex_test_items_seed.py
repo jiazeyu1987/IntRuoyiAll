@@ -93,6 +93,21 @@ def test_dcc_codex_test_items_seed_matches_test_management_contract() -> None:
     assert "WHERE NOT EXISTS" in sql
 
 
+def test_dcc_codex_test_items_seed_temp_tables_match_live_target_collation() -> None:
+    sql = normalized_sql().lower()
+
+    for table in (
+        "tmp_dcc_codex_test_case_seed",
+        "tmp_dcc_codex_test_checkpoint_seed",
+    ):
+        ddl_start = sql.index(f"create temporary table {table}")
+        ddl_end = sql.index(";", ddl_start)
+        ddl = sql[ddl_start:ddl_end]
+
+        assert "collate=utf8mb4_0900_ai_ci" in ddl
+        assert "utf8mb4_unicode_ci" not in ddl
+
+
 def test_dcc_codex_test_items_seed_requires_real_paths_and_task_owned_data() -> None:
     sql = read_sql()
 

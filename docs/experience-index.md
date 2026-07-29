@@ -235,7 +235,7 @@
 - Keywords: 测试管理串行节点串, 节点串名称, 串内序号, node_chain_name, node_chain_sort, 节点串必须从第 1 节点开始连续选择, 前置失败后续 BLOCKED, 非节点串顺序执行不阻断 -> `docs/e2e-rules.md#测试管理串行节点串门禁`
 - Keywords: 测试管理测试节点闭环, 自然语言测试方法, 业务可读目标, 固定样本, 前置复位, 清理恢复, 重复执行, 批记录节点 -> `docs/e2e-rules.md#测试管理测试节点闭环门禁`
 - Keywords: 测试管理 系统异常, codex-test-case/page code 500, system_codex_test_case.project, node_chain_name, node_chain_sort, node_chain_execution, 20260726_system_codex_test_case_project.sql, 20260727_system_codex_test_node_chain.sql, Codex 测试项分页缺字段 -> `docs/database-rules.md#测试管理-schema-迁移门禁`
-- Keywords: ERROR 1267, Illegal mix of collations, 临时表排序规则, 数据修复临时表, system_codex_test_case, utf8mb4_0900_ai_ci, 中文测试项种子 -> `docs/database-rules.md#数据修复临时表排序规则门禁`
+- Keywords: ERROR 1267, Illegal mix of collations, 临时表排序规则, 数据修复临时表, system_codex_test_case, utf8mb4_0900_ai_ci, 中文测试项种子, 20260726_dcc_codex_test_items_seed -> `docs/database-rules.md#数据修复临时表排序规则门禁`
 - Keywords: system_menu.name 中文菜单名, MySQL 客户端字符集, mojibake, HEX(name), UNHEX, utf8mb4, Docker mysql stdin, 动态菜单运行态乱码 -> `docs/database-rules.md#中文菜单名称-ascii-安全迁移门禁`
 - Keywords: 个人工作台 系统异常, 待办任务加载失败, 隐藏任务状态, profile-workbench-task-visibility, hidden-keys, system_profile_workbench_task_visibility, 20260727_system_profile_workbench_task_visibility.sql -> `docs/database-rules.md#个人工作台隐藏任务状态迁移门禁`
 - Keywords: int_shedule local Docker dependencies, 23306, 26379, Docker MySQL Redis, branch local runtime dependency ports -> `docs/local-runtime.md#2026-07-25-分支本地运行复用-docker-依赖门禁`

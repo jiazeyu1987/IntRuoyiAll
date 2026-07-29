@@ -18,7 +18,7 @@
 - Blocker: MySQL 报 `ERROR 1267 Illegal mix of collations`，或发现临时字符串列与目标字符列排序规则不一致时必须停止并回滚当前事务。
 - Verification: 重试前先确认失败事务未提交；修复后记录命中行数、目标行数、字段排序规则和关键文本扫描结果。
 - Forbidden action: 禁止修改数据库默认排序规则、手改真实表排序规则、扩大 `WHERE` 范围、拆掉精确租户/删除标记条件，或把失败事务当作成功继续执行。
-- Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`。
+- Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`；`doc/tasks/20260729-test-release-sql-collation-fix/execution-log.md`。
 
 ### 中文菜单名称 ASCII 安全迁移门禁
 
