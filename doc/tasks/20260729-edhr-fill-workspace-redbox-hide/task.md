@@ -2,21 +2,23 @@
 
 ## Task Goal
 
-修复 eDHR 执行填写页中截图红框区域仍显示的问题：非追踪填写模式下隐藏外层标题/操作工具栏、辅助填写顶栏、完成提示条和左侧待保存变更摘要，只保留填写所需的显示模式、填写模式、真实告警、保存草稿、提交执行和最大化入口。
+修复 eDHR 执行填写页中截图红框区域仍显示的问题：非追踪填写模式下隐藏外层标题/操作工具栏、辅助标题、还差项、完成提示条和左侧待保存变更摘要；按用户补充要求保留“任务 / 批次、工序、填写人”三张切换卡，以及显示模式、填写模式、真实告警、保存草稿、提交执行和最大化入口。
 
 ## Milestones
 
-1. `in_progress`：确认页面入口、既有静态合同和截图红框对应 DOM。
-2. `pending`：补充 RED 静态回归，锁定红框区域不得显示。
-3. `pending`：实施最小前端修复，不引入 fallback 或静默降级。
-4. `pending`：运行目标静态合同和相邻回归验证。
-5. `pending`：更新证据、收尾状态与提交记录。
+1. `completed`：确认页面入口、既有静态合同和截图红框对应 DOM。
+2. `completed`：补充 RED 静态回归，锁定红框区域隐藏且三张切换卡保留。
+3. `completed`：实施最小前端修复，不引入 fallback 或静默降级。
+4. `completed`：运行目标静态合同和相邻回归验证。
+5. `completed`：更新证据、收尾状态与提交记录。
 
 ## Expected Verification
 
 - `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js`
 - `node tests/e2e/edhr-fill-workspace-static.spec.js`
-- 如存在前置阻塞，记录精确缺失项和影响。
+- `node tests/e2e/edhr-assist-fill-mode-static.spec.js`
+- `node --check tests/e2e/edhr-assist-fill-mode-real-flow.e2e.js`
+- `pnpm ts:check`
 
 ## Applicable Gates
 
@@ -32,4 +34,4 @@
 
 ## Current Status
 
-in_progress
+completed

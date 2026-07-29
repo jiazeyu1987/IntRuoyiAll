@@ -152,11 +152,11 @@
 ## eDHR 辅助模式当前工序 assistRows 路由门禁
 
 - Trigger: eDHR 填写页“填写辅助模式”、工作任务“处理”、批次详情打开填写、工序切换、填写人切换、`task/open`、`executionPageQuery.assistRows`、`ASSIST_GRID_U`、辅助表格预览和填写页布局不一致。
-- Preflight check: 先确认当前入口是否经过正式 `openTask`；进入 `/mes/pro/feedback/edhr-execution/form` 的路由 query 必须把后端返回的当前工序 `assistRows` 显式 JSON 序列化。执行页只按填写配置实际生成的 `ASSIST_GRID_U<userId>_R<row>_C<column>` rowKey 恢复辅助表格行列，不得推断其它 rowKey 协议。
-- Blocker: `assistRows` 作为对象数组直接展开进 route query、进入执行页后解析为空或 `[object Object]`、辅助表格 rowKey 被扁平化为字段列表、粗洗等当前工序显示成其它工序/默认字段、或静态合同不能证明批次详情和切换链路都保留当前工序 `assistRows` 时必须停止。
-- Verification: 聚焦静态合同必须覆盖 `stringifyEdhrExecutionPageQuery`、批次详情和执行页切换调用、`parseAssistGridRowKey`、`edhr-fill-workspace__assist-grid`、`data-assist-grid-cell`、`resolveAssistFieldGridStyle(field)`；真实 E2E 需用任务自有粗洗工序待办从页面按钮打开填写页，并断言辅助模式格子布局与配置预览一致。
-- Forbidden action: 禁止用 `formBindings`、默认 `MAIN`、当前登录人、正式批记录字段、快照全量字段、空布局、宽松 rowKey 兼容或前端文案替代当前工序 `assistRows`。
-- Evidence: 任务 `doc/tasks/20260729-edhr-assist-mode-process-form-mismatch/`，粗洗工序截图中配置预览是辅助表格，但填写页旧实现因 `assistRows` 未显式序列化且未恢复网格，显示为扁平字段列表。
+- Preflight check: 先确认当前入口是否经过正式 `openTask`；进入 `/mes/pro/feedback/edhr-execution/form` 的路由 query 必须把后端返回的当前工序 `assistRows` 显式 JSON 序列化。执行页只按填写配置实际生成的 `ASSIST_GRID_U<userId>_R<row>_C<column>` rowKey 恢复辅助表格行列，不得推断其它 rowKey 协议。工序切换列表必须来自当前批次全部普通工序任务，列表展示不得按 `available/allowedActions/activeWorkTaskId` 过滤；点击可打开工序才走正式 `openTask`，已有 `executionId` 但不可打开的工序走只读执行页，尚未产生 `executionId/workTaskId` 的未开始工序必须进入批次详情并携带 `batchTaskId` 选中该工序。
+- Blocker: `assistRows` 作为对象数组直接展开进 route query、进入执行页后解析为空或 `[object Object]`、辅助表格 rowKey 被扁平化为字段列表、粗洗等当前工序显示成其它工序/默认字段、静态合同不能证明批次详情和切换链路都保留当前工序 `assistRows`、工序切换只展示可打开任务、或未开始工序点击时报 `缺少可查看执行记录或工作任务` 时必须停止。
+- Verification: 聚焦静态合同必须覆盖 `stringifyEdhrExecutionPageQuery`、批次详情和执行页切换调用、`parseAssistGridRowKey`、`edhr-fill-workspace__assist-grid`、`data-assist-grid-cell`、`resolveAssistFieldGridStyle(field)`；工序切换还必须覆盖全部工序分组、状态背景、可打开任务 `openTask`、已有执行记录只读打开、无执行记录时批次详情 `batchTaskId` 选中。真实 E2E 需用任务自有粗洗工序待办从页面按钮打开填写页，并断言辅助模式格子布局与配置预览一致。
+- Forbidden action: 禁止用 `formBindings`、默认 `MAIN`、当前登录人、正式批记录字段、快照全量字段、空布局、宽松 rowKey 兼容、前端文案或伪造 `OPEN_FORM` 替代当前工序 `assistRows` 与正式工序入口。
+- Evidence: 任务 `doc/tasks/20260729-edhr-assist-mode-process-form-mismatch/`，粗洗工序截图中配置预览是辅助表格，但填写页旧实现因 `assistRows` 未显式序列化且未恢复网格，显示为扁平字段列表；任务 `doc/tasks/20260729-edhr-process-switch-all-statuses/`，工序任务 `7169` 无执行记录/工作任务时旧实现直接报错，修正为进入批次详情并按 `batchTaskId` 选中工序。
 
 ## eDHR 产品信息虚拟 80 工序门禁
 

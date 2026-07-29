@@ -14,26 +14,40 @@ const apiSource = fs.readFileSync(
 assert(
   apiSource.includes('export const getEdhrBatchTaskPreview') &&
     apiSource.includes("url: `${BATCH_EXECUTION_BASE_URL}/task/preview`"),
-  '批次详情 API 必须提供只读任务预览请求。'
+  '批次详情 API 可保留只读任务预览请求，但主区域不得再使用它冒充已提交内容。'
 )
 
 assert(
-  pageSource.includes('selectedTaskPreview') &&
-    pageSource.includes('loadTaskPreview') &&
-    pageSource.includes(':form-view-model="selectedTaskPreview.formViewModel"'),
-  '未开始普通表单必须加载并渲染只读预览。'
+  pageSource.includes('const SUBMITTED_EXECUTION_REVIEW_STATUSES = new Set([2, 3, 4])') &&
+    pageSource.includes('const submittedExecutionReviews = computed(() => executionReviews.value.filter(isSubmittedExecutionReview))'),
+  '批记录管理员主区域必须显式识别已提交、已批准、填写完成的 execution review。'
 )
 
 assert(
-  pageSource.includes('taskPreviewLoading') &&
-    pageSource.includes('taskPreviewError') &&
-    pageSource.includes('当前节点没有可预览的批记录表单'),
-  '只读预览必须具备加载、错误和无模板状态。'
+  pageSource.includes('return submittedExecutionReviews.value.find') &&
+    !pageSource.includes('return executionReviews.value.find((execution) => String(execution.executionId) === selectedExecutionId.value)'),
+  'selectedExecution 必须只从已提交 execution review 中选择，不能读取草稿 execution。'
 )
 
 assert(
-  !pageSource.includes('当前表单尚未形成已填写内容，请在右侧工序表单中打开填写'),
-  '管理员只读视图不得继续提示通过打开填写才能查看表单。'
+  pageSource.includes('const selectedPreviewFormViewModel = computed<EdhrBatchExecutionReviewFormViewModel | undefined>(') &&
+    pageSource.includes('() => selectedExecution.value?.formViewModel') &&
+    !pageSource.includes('selectedExecution.value?.formViewModel || selectedTaskPreview.value?.formViewModel'),
+  '主区域辅助预览也只能读取已提交 execution 的 formViewModel，不能读取 task preview。'
 )
 
-console.log('eDHR batch admin preview runtime fix static contract passed')
+assert(
+  !pageSource.includes('getEdhrBatchTaskPreview') &&
+    !pageSource.includes('selectedTaskPreview') &&
+    !pageSource.includes('taskPreviewLoading') &&
+    !pageSource.includes('taskPreviewError') &&
+    !pageSource.includes(':form-view-model="selectedTaskPreview.formViewModel"'),
+  '批次详情主区域不得调用 task preview、渲染空模板或草稿预览。'
+)
+
+assert(
+  pageSource.includes('暂无已提交批记录内容'),
+  '没有已提交 execution 时，主区域必须明确提示暂无已提交内容。'
+)
+
+console.log('eDHR batch admin submitted content static contract passed')

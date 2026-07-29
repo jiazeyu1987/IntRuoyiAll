@@ -437,21 +437,7 @@
                   :signature-records="selectedExecution.signatureRecords"
                   fit-to-viewport
                 />
-                <EdhrExecutionReadonlyForm
-                  v-else-if="selectedTaskPreview?.formViewModel"
-                  :form-view-model="selectedTaskPreview.formViewModel"
-                  :signature-records="[]"
-                  fit-to-viewport
-                />
-                <el-skeleton v-else-if="taskPreviewLoading" :rows="8" animated />
-                <el-alert
-                  v-else-if="taskPreviewError"
-                  :title="taskPreviewError"
-                  type="error"
-                  :closable="false"
-                  show-icon
-                />
-                <el-empty v-else description="当前节点没有可预览的批记录表单" />
+                <el-empty v-else description="暂无已提交批记录内容" />
               </div>
             </div>
           </div>
@@ -1227,7 +1213,6 @@ import {
   getLatestEdhrBatchArchive,
   getEdhrBatchExecution,
   getEdhrBatchReviewTimeline,
-  getEdhrBatchTaskPreview,
   getEdhrBatchWorkbench,
   openEdhrBatchTask,
   deleteEdhrBatchSpecialNodePendingAttachment,
@@ -1245,7 +1230,6 @@ import {
   type EdhrBatchWorkbenchRespVO,
   type EdhrBatchExecutionRespVO,
   type EdhrBatchExecutionTaskOpenRespVO,
-  type EdhrBatchExecutionTaskPreviewRespVO,
   type EdhrBatchExecutionTaskRespVO,
   type EdhrBatchSpecialNodeAttachment
 } from '@/api/mes/pro/edhr/batchExecution'
@@ -1370,10 +1354,7 @@ const reviewError = ref('')
 const reviewTimeline = ref<EdhrBatchReviewTimelineRespVO>()
 const selectedExecutionId = ref('')
 const selectedTaskId = ref('')
-const selectedTaskPreview = ref<EdhrBatchExecutionTaskPreviewRespVO>()
 const detailPreviewAssistMode = ref(false)
-const taskPreviewLoading = ref(false)
-const taskPreviewError = ref('')
 const selectedReleaseStep = ref(false)
 const viewedReleaseStageKey = ref<Exclude<ReleaseStageKey, 'unknown'> | undefined>(undefined)
 const releaseCheckItems = ref<EdhrReleaseCheckItemVO[]>([])
@@ -1580,10 +1561,16 @@ const executionReviews = computed<EdhrBatchExecutionReviewExecutionRespVO[]>(() 
     (left, right) => (left.routeProcessSort || 0) - (right.routeProcessSort || 0)
   )
 )
+const SUBMITTED_EXECUTION_REVIEW_STATUSES = new Set([2, 3, 4])
+const isSubmittedExecutionReview = (
+  execution?: EdhrBatchExecutionReviewExecutionRespVO
+): execution is EdhrBatchExecutionReviewExecutionRespVO =>
+  Boolean(execution && SUBMITTED_EXECUTION_REVIEW_STATUSES.has(Number(execution.status)))
+const submittedExecutionReviews = computed(() => executionReviews.value.filter(isSubmittedExecutionReview))
 const isReleaseProcessSelected = computed(() => selectedReleaseStep.value)
 const selectedExecution = computed(() => {
   if (isReleaseProcessSelected.value) return undefined
-  return executionReviews.value.find((execution) => String(execution.executionId) === selectedExecutionId.value)
+  return submittedExecutionReviews.value.find((execution) => String(execution.executionId) === selectedExecutionId.value)
 })
 
 type DetailPreviewSnapshotField = {
@@ -1620,7 +1607,7 @@ const parseDetailPreviewNonNegativeInteger = (value: unknown) => {
 }
 
 const selectedPreviewFormViewModel = computed<EdhrBatchExecutionReviewFormViewModel | undefined>(
-  () => selectedExecution.value?.formViewModel || selectedTaskPreview.value?.formViewModel
+  () => selectedExecution.value?.formViewModel
 )
 
 const selectedPreviewSnapshot = computed(() => {
@@ -3682,81 +3669,15 @@ const resolveArchiveStatusSummary = () => {
   return canGenerateArchive.value ? '可生成归档' : '暂无归档'
 }
 
-let taskPreviewRequestSerial = 0
-let taskPreviewFrameId: number | undefined
-
-const cancelDeferredTaskPreviewLoad = () => {
-  if (taskPreviewFrameId === undefined) return
-  cancelAnimationFrame(taskPreviewFrameId)
-  taskPreviewFrameId = undefined
-}
-
-const clearTaskPreview = () => {
-  cancelDeferredTaskPreviewLoad()
-  taskPreviewRequestSerial += 1
-  selectedTaskPreview.value = undefined
-  taskPreviewError.value = ''
-  taskPreviewLoading.value = false
-}
-
-const isDynamicRouteFormPreviewTask = (task: EdhrBatchExecutionTaskRespVO) =>
-  !isSpecialNode(task) &&
-  !task.batchRecordReportId &&
-  Boolean(task.formBindingKey) &&
-  Boolean(task.formTemplateId) &&
-  Boolean(task.formTemplateVersionId) &&
-  Boolean(task.formCenterInstanceId)
-
-const shouldLoadTaskPreview = (task: EdhrBatchExecutionTaskRespVO) =>
-  !isSpecialNode(task) &&
-  (Boolean(task.batchRecordReportId) || isDynamicRouteFormPreviewTask(task))
-
-const loadTaskPreview = async (task: EdhrBatchExecutionTaskRespVO) => {
-  clearTaskPreview()
-  if (!shouldLoadTaskPreview(task)) return
-  const requestSerial = taskPreviewRequestSerial
-  taskPreviewLoading.value = true
-  try {
-    const preview = await getEdhrBatchTaskPreview(assertBatchExecutionId(), task.id)
-    if (requestSerial === taskPreviewRequestSerial && selectedTaskId.value === String(task.id)) {
-      selectedTaskPreview.value = preview
-    }
-  } catch (error) {
-    if (requestSerial === taskPreviewRequestSerial && selectedTaskId.value === String(task.id)) {
-      taskPreviewError.value = resolveErrorMessage(error, '表单只读预览加载失败。')
-    }
-  } finally {
-    if (requestSerial === taskPreviewRequestSerial) {
-      taskPreviewLoading.value = false
-    }
-  }
-}
-
-const deferTaskPreviewLoad = (task: EdhrBatchExecutionTaskRespVO) => {
-  cancelDeferredTaskPreviewLoad()
-  const targetTaskId = String(task.id)
-  const requestSerial = taskPreviewRequestSerial
-  taskPreviewFrameId = requestAnimationFrame(() => {
-    taskPreviewFrameId = undefined
-    if (requestSerial !== taskPreviewRequestSerial || selectedTaskId.value !== targetTaskId) return
-    void loadTaskPreview(task)
-  })
-}
-
 const selectProcessTask = (task: EdhrBatchExecutionTaskRespVO) => {
-  clearTaskPreview()
   selectedReleaseStep.value = false
   viewedReleaseStageKey.value = undefined
   selectedTaskId.value = String(task.id)
-  const matchedExecution = executionReviews.value.find((execution) => isSameRouteFormTask(task, execution))
+  const matchedExecution = submittedExecutionReviews.value.find((execution) => isSameRouteFormTask(task, execution))
   selectedExecutionId.value = matchedExecution ? String(matchedExecution.executionId || '') : ''
-  if (!matchedExecution && shouldLoadTaskPreview(task)) {
-    void loadTaskPreview(task)
-  }
 }
 
 const selectReleaseProcess = () => {
-  clearTaskPreview()
   selectedReleaseStep.value = true
   viewedReleaseStageKey.value = undefined
   selectedTaskId.value = ''
@@ -3801,7 +3722,6 @@ const resolveDefaultTaskSelection = () =>
   sortedTasks.value[0]
 
 const applyInitialBatchTaskSelection = () => {
-  clearTaskPreview()
   const focus = resolveDetailFocus()
   if (focus === 'precheck' || focus === 'approval') {
     selectReleaseProcess()
@@ -3844,7 +3764,6 @@ const loadReviewTimeline = async (requestSerial?: number) => {
   if (isStaleBatchDetailRequest(requestSerial)) return
   reviewLoading.value = true
   reviewError.value = ''
-  clearTaskPreview()
   const previousSelectedExecutionId = selectedExecutionId.value
   try {
     const nextReviewTimeline = await getEdhrBatchReviewTimeline(assertBatchExecutionId())
@@ -3860,9 +3779,9 @@ const loadReviewTimeline = async (requestSerial?: number) => {
     const defaultTask = resolveDefaultTaskSelection()
     const nextSelectedExecution = routeQueryTask
       ? undefined
-      : executionReviews.value.find(
+      : submittedExecutionReviews.value.find(
         (execution) => String(execution.executionId) === previousSelectedExecutionId
-      ) || (defaultTask && canOpenTask(defaultTask) ? undefined : executionReviews.value[0])
+      ) || (defaultTask && canOpenTask(defaultTask) ? undefined : submittedExecutionReviews.value[0])
     selectedExecutionId.value = nextSelectedExecution ? String(nextSelectedExecution.executionId) : ''
     selectedTaskId.value = routeQueryTask
       ? String(routeQueryTask.id)
@@ -3870,12 +3789,6 @@ const loadReviewTimeline = async (requestSerial?: number) => {
         ? ''
         : String(defaultTask?.id || '')
     selectedReleaseStep.value = !routeQueryTask && !nextSelectedExecution && !defaultTask
-    const previewTask = selectedTaskId.value
-      ? sortedTasks.value.find((task) => String(task.id) === selectedTaskId.value)
-      : undefined
-    if (previewTask && !nextSelectedExecution) {
-      deferTaskPreviewLoad(previewTask)
-    }
   } catch (error) {
     if (isStaleBatchDetailRequest(requestSerial)) return
     reviewTimeline.value = undefined
@@ -3884,12 +3797,10 @@ const loadReviewTimeline = async (requestSerial?: number) => {
     if (focus === 'precheck' || focus === 'approval') {
       selectReleaseProcess()
       viewedReleaseStageKey.value = focus === 'precheck' ? 'precheck' : 'release-approval'
-      selectedTaskPreview.value = undefined
       return
     }
     selectedTaskId.value = String(resolveRouteQueryTaskSelection()?.id || resolveDefaultTaskSelection()?.id || '')
     selectedReleaseStep.value = !selectedTaskId.value
-    selectedTaskPreview.value = undefined
     reviewError.value = resolveErrorMessage(error, '电子批记录批次复盘时间线加载失败。')
   } finally {
     if (isStaleBatchDetailRequest(requestSerial)) return
@@ -3920,7 +3831,6 @@ const loadBatchDetailSecondaryData = async (id: string | number, requestSerial: 
     if (isStaleBatchDetailRequest(requestSerial)) return
     workbench.value = undefined
     reviewTimeline.value = undefined
-    clearTaskPreview()
     secondaryLoadError.value = resolveErrorMessage(error, '电子批记录批次辅助数据加载失败。')
   }
 }
@@ -3958,7 +3868,6 @@ const loadDetail = async () => {
     reviewTimeline.value = undefined
     selectedExecutionId.value = ''
     selectedTaskId.value = ''
-    clearTaskPreview()
     loadError.value = resolveErrorMessage(error, '电子批记录批次详情加载失败。')
   } finally {
     if (!isStaleBatchDetailRequest(requestSerial)) {
@@ -4794,7 +4703,6 @@ const deactivateFullHeightLayout = () => {
 
 const cleanupDeferredBatchDetailLoads = () => {
   cancelDeferredBatchDetailSecondaryLoad()
-  cancelDeferredTaskPreviewLoad()
 }
 
 const loadRecordbookGlobalSetting = async () => {

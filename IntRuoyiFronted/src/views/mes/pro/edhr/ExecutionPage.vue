@@ -5153,6 +5153,28 @@ const navigateToReadonlyAssistBatchTask = async (
   closeAssistSwitchDialog()
 }
 
+const navigateToAssistBatchProcessOverview = async (
+  row: EdhrBatchExecutionTaskRespVO,
+  batchExecutionId: number
+) => {
+  const query = {
+    id: String(batchExecutionId),
+    batchTaskId: String(row.id),
+    ...(row.processCode ? { processCode: row.processCode } : {}),
+    ...(row.processName ? { processName: row.processName } : {}),
+    ...(readRouteQueryString(route.query.batchExecutionCode)
+      ? { batchExecutionCode: readRouteQueryString(route.query.batchExecutionCode) }
+      : {})
+  }
+  fillViewMode.value = 'assist'
+  await router.push({
+    path: '/mes/pro/feedback/edhr-batch-execution/detail',
+    query
+  })
+  fillViewMode.value = 'assist'
+  closeAssistSwitchDialog()
+}
+
 const navigateToAssistWorkTask = async (
   row: EdhrWorkTaskRespVO,
   setError: (message: string) => void
@@ -5194,12 +5216,16 @@ const navigateToAssistBatchTask = async (
   try {
     const batchExecutionId = requireAssistBatchExecutionId()
     if (!isAssistBatchTaskOpenable(row)) {
-      await navigateToReadonlyAssistBatchTask(
-        row,
-        batchExecutionId,
-        selectedAssistUserId,
-        selectedAssistDisplayNameInput
-      )
+      if (row.executionId) {
+        await navigateToReadonlyAssistBatchTask(
+          row,
+          batchExecutionId,
+          selectedAssistUserId,
+          selectedAssistDisplayNameInput
+        )
+      } else {
+        await navigateToAssistBatchProcessOverview(row, batchExecutionId)
+      }
       return
     }
     if (!row.activeWorkTaskId) {

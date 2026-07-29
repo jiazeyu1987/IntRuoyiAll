@@ -26,7 +26,7 @@ User confirmed the design: auxiliary fill page process switch must list all curr
 
 - BDD: all-process switch list -> Given an auxiliary fill page is opened for a batch, When the user clicks the process switch, Then the dialog lists every ordinary process in the current batch instead of only openable/in-progress tasks.
 - BDD: status visual distinction -> Given the process list includes waiting, draft, submitted, rejected, rework, completed, skipped and blocked tasks, When the dialog renders, Then each option exposes a status label/tag and uses the batch execution background color family for not-started, in-progress/started, and completed groups.
-- BDD: no permission escalation -> Given a process is not openable but has an existing execution record, When the user selects it, Then the page opens read-only execution context; if neither work task nor execution exists, it fails fast instead of pretending the task is openable.
+- BDD: no permission escalation -> Given a process is not openable but has an existing execution record, When the user selects it, Then the page opens read-only execution context; if neither work task nor execution exists, Then the page enters the formal batch detail process overview selected by `batchTaskId` instead of pretending the task is openable.
 
 ## RED
 
@@ -35,12 +35,19 @@ User confirmed the design: auxiliary fill page process switch must list all curr
 ## GREEN
 
 - GREEN: `node tests/e2e/edhr-assist-process-switch-all-statuses-static.spec.js` -> PASS, current implementation draft satisfies grouped all-process status contract.
+- GREEN: User-reported error `工序任务 7169 缺少可查看执行记录或工作任务，不能切换。` fixed by adding `navigateToAssistBatchProcessOverview(row, batchExecutionId)` for non-openable tasks without `executionId`.
 
 ## Regression
 
 - REGRESSION: `node tests/e2e/edhr-switch-filler-selectability-static.spec.js` -> PASS.
-- REGRESSION: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> FAIL, expected conflict: concurrent task `20260729-edhr-fill-workspace-redbox-hide` removed `我的填写项` auxiliary topbar required by this process switch request.
+- REGRESSION: `node tests/e2e/edhr-switch-filler-formcenter-slot-static.spec.js` -> PASS.
+- REGRESSION: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS.
+- REGRESSION: `pnpm ts:check` -> PASS after one timeout retry with 300000 ms timeout.
 
 ## Blockers
 
-- BLOCKED: concurrent task `doc/tasks/20260729-edhr-fill-workspace-redbox-hide/` requires hiding the auxiliary fill topbar, while this task requires the red-box process switch button in that same topbar to remain usable. Per project task ownership rules, do not continue mutating the conflicting DOM without user decision.
+- RESOLVED: The current user follow-up changed the actionable blocker to the missing navigation path for task `7169`; implemented a formal batch detail process overview path for tasks with no `executionId` and no active work task.
+
+## Current Status
+
+ready_for_closeout

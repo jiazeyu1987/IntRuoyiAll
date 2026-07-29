@@ -761,7 +761,11 @@ const recordFormQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   { key: 'versionNo', label: '版本', type: 'text', queryParamKey: 'versionNo', placeholder: '请输入版本号' }
 ]
 
-const selectedReport = computed(() => list.value.find((item) => item.reportId === selectedReportId.value))
+const selectedReport = computed(
+  () =>
+    list.value.find((item) => item.reportId === selectedReportId.value) ||
+    cellRulesNavigation.reports.find((item) => item.reportId === selectedReportId.value)
+)
 const selectedReportIndex = computed(() =>
   list.value.findIndex((item) => item.reportId === selectedReportId.value)
 )

@@ -8,3 +8,16 @@
 - BDD: 隐藏填写页红框信息 -> Given 用户打开非追踪 eDHR 执行填写页 / When 页面渲染填写工作区 / Then 外层标题工具栏、辅助填写顶栏、完成提示条和左侧待保存摘要不显示，保存草稿、提交执行、最大化和真实告警仍可用。
 - M1: in_progress -> 已定位 `IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue` 与既有 `edhr-fill-workspace-hide-side-panels-static.spec.js`。
 - PREFLIGHT: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> FAIL，既有合同先失败在旧保存入口断言 `handleSaveFieldAuditChanges`，当前页面真实入口为 `openFieldAuditSignatureDialog`；先修正合同再补本次 RED。
+- USER: 用户补充截图确认“任务 / 批次、工序、填写人”三张切换卡必须保留；本次隐藏范围修正为外层标题/按钮、辅助标题、还差项、完成提示、左侧待保存摘要。
+- RED: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> FAIL，预期失败；当前页面仍显示外层标题和右上工具栏。
+- GREEN: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS，隐藏红框内容且保留三张切换卡。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS，辅助模式仍保留任务/工序/填写人切换弹框链路，并移除已隐藏的还差项真实 E2E 依赖。
+- GREEN: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS，填写工作区路由、左侧控制栏、全屏、适应宽高和原表模式回归通过。
+- GREEN: `node --check tests/e2e/edhr-assist-fill-mode-real-flow.e2e.js` -> PASS，真实 E2E 脚本语法通过。
+- GREEN: `pnpm ts:check` -> PASS，Vue/TS relaxed 类型检查通过。
+- CHECK: `git status --short --branch --untracked-files=all` -> 当前工作区存在并发任务改动，未触碰；本任务只拥有 `ExecutionPage.vue`、三个 eDHR 静态/真实 E2E 文件和 `doc/tasks/20260729-edhr-fill-workspace-redbox-hide/`。
+- EXPERIENCE: 已读取 `project-experience-consolidation` 技能；本次为一次性 UI 范围澄清，未新增可复用长期经验，且 `docs/experience-index.md` 已有并发改动，未修改长期经验文档。
+- M1-M5: completed -> 实现、合同、类型检查与任务证据均已完成，状态更新为 `ready_for_closeout`。
+- CLEANUP: `task_closeout.py --task-id 20260729-edhr-fill-workspace-redbox-hide --mode preview` -> ready，keep task/execution-log/verification-report，delete none，blocked none。
+- CLEANUP: `task_closeout.py --task-id 20260729-edhr-fill-workspace-redbox-hide --mode apply` -> applied，deleted_paths none。
+- FINAL: completed -> 本任务实现、验证、cleanup 均完成；并发任务改动保持未暂存、未提交。

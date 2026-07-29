@@ -109,6 +109,31 @@ assertIncludes(
   '非可打开但已有执行记录的工序必须走只读执行页，不得伪造 openTask 成功。'
 )
 assertIncludes(
+  executionPage,
+  'navigateToAssistBatchProcessOverview',
+  '非可打开且尚无执行记录/工作任务的未开始工序必须跳转批次详情选中工序，不能报错卡死。'
+)
+assertIncludes(
+  navigateMatch[0],
+  'navigateToAssistBatchProcessOverview(row, batchExecutionId)',
+  '正式打开函数必须在缺少执行记录时使用批次详情工序概览入口。'
+)
+assertIncludes(
+  executionPage,
+  "path: '/mes/pro/feedback/edhr-batch-execution/detail'",
+  '未开始工序概览入口必须进入批次详情页。'
+)
+assertIncludes(
+  executionPage,
+  'batchTaskId: String(row.id)',
+  '批次详情入口必须携带 batchTaskId，确保选中用户点击的工序任务。'
+)
+assertNotIncludes(
+  navigateMatch[0],
+  '缺少可查看执行记录或工作任务，不能切换。',
+  '工序切换主流程不得再对未开始工序抛出缺执行记录或工作任务错误。'
+)
+assertIncludes(
   navigateMatch[0],
   'isAssistBatchTaskOpenable(row)',
   '可编辑打开仍必须先满足正式可打开条件。'

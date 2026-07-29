@@ -16,7 +16,7 @@
 - R2: 列表按工序分组展示，不把同一工序下多个表单任务误当多个工序。
 - R3: 状态展示覆盖待打开、草稿、已提交、已驳回、需返工、填写完成、已跳过、阻塞。
 - R4: 选中、未开始、进行中/已开始、已完成状态视觉与批次执行页面保持一致。
-- R5: 实际进入填写仍必须走正式 openTask；非可打开但有执行记录时只读打开，缺正式入口时 fail fast。
+- R5: 实际进入填写仍必须走正式 openTask；非可打开但有执行记录时只读打开；尚未产生执行记录/工作任务的工序进入批次详情并按 `batchTaskId` 选中。
 
 ## UI Entry Points
 
@@ -41,8 +41,12 @@
 ## GREEN Command
 
 - `node tests/e2e/edhr-assist-process-switch-all-statuses-static.spec.js` -> PASS after implementation draft.
+- `node tests/e2e/edhr-switch-filler-selectability-static.spec.js` -> PASS.
+- `node tests/e2e/edhr-switch-filler-formcenter-slot-static.spec.js` -> PASS.
+- `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS.
+- `pnpm ts:check` -> PASS.
 
 ## Verification Notes
 
-- Adjacent filler selectability contract passed.
-- Adjacent assist fill mode contract is blocked by concurrent `20260729-edhr-fill-workspace-redbox-hide` task removing the same topbar required by this task.
+- The specific user-reported error path is covered by `navigateToAssistBatchProcessOverview(row, batchExecutionId)`.
+- No `OPEN_FORM` permission is granted for non-openable tasks; the route changes to the read-only batch detail process context.

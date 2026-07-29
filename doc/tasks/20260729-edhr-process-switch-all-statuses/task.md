@@ -9,8 +9,9 @@
 1. 已完成：读取任务、前端、E2E、PowerShell/Git、技能与经验门禁。
 2. 已完成：补充 RED 静态合同覆盖全工序展示与状态颜色。
 3. 已完成：实现辅助填写页工序切换列表分组、状态标签和背景色的代码草案。
-4. 阻塞：同工作区并行任务 `20260729-edhr-fill-workspace-redbox-hide` 明确要求隐藏辅助填写顶栏，与本任务红框工序切换按钮可用目标冲突。
-5. 待完成：等待用户确认保留切换顶栏或接受其它入口后，再继续验证、收尾、提交并推送。
+4. 已完成：修复工序任务缺少执行记录/工作任务时的切换入口，改为进入批次详情并选中对应工序。
+5. 已完成：运行目标静态合同、相邻切换合同和 `pnpm ts:check`。
+6. 待完成：收尾清理、提交并推送。
 
 ## Expected Verification
 
@@ -26,7 +27,7 @@
 - eDHR 当前工序运行态展示门禁：运行态黄色只表示当前可执行/当前工序展示，不得放宽 `OPEN_FORM` 或填写权限。
 - 前端 Route Query ID 比较门禁：当前选中项继续用 route query ID 语义比较，不得用字符串/数字严格等于。
 - 切换填写人 FormCenter 槽位导航门禁：本任务不得破坏 FormCenter 槽位分支和 `assistUserId` 透传。
-- Strict No-Fallback：缺少执行记录或工作任务时必须 fail fast，不得伪造可打开状态。
+- Strict No-Fallback：缺少执行记录或工作任务时不得伪造可打开状态；本次使用正式批次详情工序选择入口，不走 mock、默认成功或吞异常。
 
 ## Design Constraints Check
 
@@ -36,15 +37,20 @@
 
 ## Current Status
 
-blocked
+ready_for_closeout
 
-## Blocker
+## Blocker Resolution
 
 - `doc/tasks/20260729-edhr-fill-workspace-redbox-hide/task.md` 目标要求隐藏 `ExecutionPage.vue` 非追踪填写模式下的辅助填写顶栏。
 - 本任务目标要求红框内“工序”切换按钮可用，并且该按钮位于同一辅助填写顶栏。
-- 两个需求无法同时在同一 DOM 入口上满足；继续提交会覆盖并行任务的用户意图。
+- 用户随后反馈实际点击工序切换时报错 `工序任务 7169 缺少可查看执行记录或工作任务，不能切换。`，当前修复聚焦该正式入口缺失：缺执行记录/工作任务时进入批次详情并选中对应工序，不再阻断。
 
 ## Baseline
 
 - Dirty worktree baseline commit: `d432110f`
 - Baseline files: `IntRuoyiFronted/src/utils/edhrWorkTaskNavigation.ts`, `IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchExecutionDetailPage.vue`, `IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`, `IntRuoyiFronted/tests/e2e/edhr-assist-fill-mode-configured-grid-static.spec.js`, `doc/tasks/20260729-edhr-assist-mode-process-form-mismatch/task.md`, `doc/tasks/20260729-edhr-assist-mode-process-form-mismatch/execution-log.md`
+- Dirty worktree baseline before navigation fix: `612dc065`
+
+## Cleanup Keep
+
+- doc/tasks/20260729-edhr-process-switch-all-statuses/frontend-feature-evidence.md

@@ -84,6 +84,11 @@ assertIncludes(
 )
 assertIncludes(
   page,
+  'cellRulesNavigation.reports.find((item) => item.reportId === selectedReportId.value)',
+  '切换目标不在当前列表页时，页面预览上下文必须能从同版本候选集合解析当前表单。'
+)
+assertIncludes(
+  page,
   '@navigate="navigateCellRulesDialog"',
   '填写配置弹窗必须把导航事件接回父组件。'
 )
