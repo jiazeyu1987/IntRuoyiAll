@@ -23,7 +23,7 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## 设计约束检查
 
@@ -35,3 +35,7 @@ in_progress
 
 - 命中 `docs/frontend-development.md#前端填写配置红框区域隐藏门禁`：本次只新增必要的当前表单名称/版本信息，保留原表格主文本、辅助格主字段名、右侧映射控制栏，以及保存、重读、关闭正式链路。
 - 命中 `docs/e2e-rules.md`、`docs/local-runtime.md`、`docs/login-access.md`：真实验证只使用本机 `8081/48081`，登录身份只记录为 `芋道源码/admin`，不记录密码，不触发写入。
+
+## Cleanup Keep
+
+- doc/tasks/20260729-fill-config-current-form-title/frontend-feature-evidence.md

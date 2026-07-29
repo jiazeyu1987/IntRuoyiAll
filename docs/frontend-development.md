@@ -60,12 +60,12 @@
 
 ## 前端填写配置红框区域隐藏门禁
 
-- Trigger: 批记录填写配置、辅助表单映射、截图红框区域、`BatchRecordCellRulesConfirmDialog`、`data-fill-config-actions="primary"`、`batch-record-cell-rules-editor__panel-head`、`batch-record-cell-rules-editor__cell-rule`、`gridCell.sourceSummary`、左侧原表单说明栏、中间辅助表单预览说明栏、格子内“未映射/原表单”次级说明。
-- Preflight check: 先区分“说明/装饰性红框”与“必要操作能力”；隐藏红框标题、顶部操作组或格子内次级说明时，必须保留原表格主文本、辅助表格主字段名、右侧映射控制栏和正式保存/重读/关闭链路，保存按钮可移到非红框固定操作区但不得改保存 API 或吞掉错误。
-- Blocker: 红框 DOM 仍存在、格子内规则类型/必填/未映射/原表单来源仍显示、保存/重读能力被一起删除、辅助格或原表格不可点击、静态合同只检查隐藏不检查必要能力保留、或用 CSS 透明/遮挡伪装不显示时必须停止。
+- Trigger: 批记录填写配置、辅助表单映射、截图红框区域、`BatchRecordCellRulesConfirmDialog`、`data-fill-config-actions="primary"`、`data-fill-config-current-form="name-version"`、`batch-record-cell-rules-editor__panel-head`、`batch-record-cell-rules-editor__cell-rule`、`gridCell.sourceSummary`、左侧原表单说明栏、中间辅助表单预览说明栏、格子内“未映射/原表单”次级说明。
+- Preflight check: 先区分“说明/装饰性红框”与“必要操作能力”；隐藏红框标题、顶部操作组或格子内次级说明时，必须保留原表格主文本、辅助表格主字段名、右侧映射控制栏和正式保存/重读/关闭链路，保存按钮可移到非红框固定操作区但不得改保存 API 或吞掉错误。若红框位置承载当前表单名称和版本，必须直接使用当前 `report.reportName || report.batchRecordName || report.reportId` 与正式 `report.versionNo`，不得从同产品同版本导航标签、表格单元格正文或 `formBindings` 推导。
+- Blocker: 红框 DOM 仍存在、格子内规则类型/必填/未映射/原表单来源仍显示、保存/重读能力被一起删除、辅助格或原表格不可点击、当前表单名称版本复用导航标签或表单槽位来源、静态合同只检查隐藏不检查必要能力保留、或用 CSS 透明/遮挡伪装不显示时必须停止。
 - Verification: 运行 `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js`、`node tests/e2e/edhr-visual-fill-config-static.spec.js` 和 `pnpm ts:check`。
 - Forbidden action: 禁止通过隐藏整个填写配置工具、删除映射控制栏、关闭保存入口、改保存 payload、吞异常或 API-only 断言来满足截图红框隐藏。
-- Evidence: 任务 `doc/tasks/20260729-fill-config-redbox-hide/`，补充反馈要求连同卡片内第二行次级说明一起隐藏。
+- Evidence: 任务 `doc/tasks/20260729-fill-config-redbox-hide/`，补充反馈要求连同卡片内第二行次级说明一起隐藏；任务 `doc/tasks/20260729-fill-config-current-form-title/`，红框位置显示当前表单名称与版本时使用当前报表上下文并保留无写请求真实只读验证。
 
 ## 前端保存链路重复错误提示门禁
 
