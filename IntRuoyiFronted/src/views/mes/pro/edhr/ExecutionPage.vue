@@ -580,7 +580,15 @@
                       :description="assistRowsConfigured ? '当前没有可填写字段' : '未配置辅助模式'"
                     />
 
-                    <div v-else class="edhr-fill-workspace__assist-list">
+                    <div
+                      v-else
+                      :class="
+                        assistUsesConfiguredGrid
+                          ? 'edhr-fill-workspace__assist-grid'
+                          : 'edhr-fill-workspace__assist-list'
+                      "
+                      :style="assistGridStyle"
+                    >
                       <article
                         v-for="field in assistFillFields"
                         :key="field.fieldIdentity"
@@ -592,6 +600,8 @@
                           'is-highlighted': highlightedAssistFieldIdentity === field.fieldIdentity
                         }"
                         :data-assist-field-id="field.fieldIdentity"
+                        :data-assist-grid-cell="field.assistGridKey"
+                        :style="resolveAssistFieldGridStyle(field)"
                       >
                         <div class="edhr-fill-workspace__assist-row-meta">
                           <div class="edhr-fill-workspace__assist-label">
@@ -1585,7 +1595,10 @@ import {
 } from '@/api/mes/pro/edhr/workTask'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { useUserStore } from '@/store/modules/user'
-import { navigateToEdhrWorkTask } from '@/utils/edhrWorkTaskNavigation'
+import {
+  navigateToEdhrWorkTask,
+  stringifyEdhrExecutionPageQuery
+} from '@/utils/edhrWorkTaskNavigation'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
 import {
   edhrDateTimeFormatter,
@@ -1661,6 +1674,9 @@ type NormalizedSnapshotField = {
   fieldPath: string
   rowIndex: number
   columnIndex: number
+  assistGridKey?: string
+  assistGridRowIndex?: number
+  assistGridColumnIndex?: number
   label: string
   placeholder: string
   helpText: string
@@ -1714,6 +1730,14 @@ type AssistFillField = NormalizedSnapshotField | AssistChoiceGroupField
 
 const isAssistChoiceGroupField = (field: AssistFillField): field is AssistChoiceGroupField =>
   (field as AssistChoiceGroupField).type === 'choice-group'
+
+type AssistGridKey = {
+  candidateSourceType: 'USERS' | 'ROLE'
+  candidateSourceIds: number[]
+  subjectKey: string
+  rowIndex: number
+  columnIndex: number
+}
 
 type PendingFieldChange = EdhrFieldChangeItemReqVO & {
   fieldIdentity: string
@@ -2603,6 +2627,44 @@ const activeAssistRows = computed(() =>
 
 const assistRowsConfigured = computed(() => activeAssistRows.value.length > 0)
 
+const ASSIST_GRID_ROW_KEY_PREFIX = 'ASSIST_GRID'
+
+const normalizeAssistGridSourceType = (value: unknown): AssistGridKey['candidateSourceType'] =>
+  String(value || '').trim().toUpperCase() === 'ROLE' ? 'ROLE' : 'USERS'
+
+const buildAssistGridSubjectKey = (
+  candidateSourceType: AssistGridKey['candidateSourceType'],
+  candidateSourceIds: number[]
+) => `${candidateSourceType}:${candidateSourceIds.join(',')}`
+
+const parseAssistGridRowKey = (rowKey: string): AssistGridKey | null => {
+  const normalizedRowKey = String(rowKey || '').trim()
+  if (!normalizedRowKey.startsWith(ASSIST_GRID_ROW_KEY_PREFIX)) return null
+  const subjectMatch = normalizedRowKey.match(/^ASSIST_GRID_(USERS|ROLE)(\d+)_R(\d+)_C(\d+)$/)
+  const legacyUserMatch = normalizedRowKey.match(/^ASSIST_GRID_U(\d+)_R(\d+)_C(\d+)$/)
+  const match = subjectMatch || legacyUserMatch
+  if (!match) return null
+  const candidateSourceType = subjectMatch ? normalizeAssistGridSourceType(match[1]) : 'USERS'
+  const sourceId = Number(subjectMatch ? match[2] : match[1])
+  const rowIndex = Number(subjectMatch ? match[3] : match[2])
+  const columnIndex = Number(subjectMatch ? match[4] : match[3])
+  if (!Number.isInteger(sourceId) || sourceId <= 0) return null
+  if (!Number.isInteger(rowIndex) || rowIndex < 0) return null
+  if (!Number.isInteger(columnIndex) || columnIndex < 0) return null
+  const candidateSourceIds = [sourceId]
+  return {
+    candidateSourceType,
+    candidateSourceIds,
+    subjectKey: buildAssistGridSubjectKey(candidateSourceType, candidateSourceIds),
+    rowIndex,
+    columnIndex
+  }
+}
+
+const hasConfiguredAssistGridRows = computed(() =>
+  activeAssistRows.value.some((row) => Boolean(parseAssistGridRowKey(row.rowKey)))
+)
+
 const buildAssistFieldsFromAssistRows = (
   rows: ProFeedbackEdhrAssistRowVO[],
   fields: NormalizedSnapshotField[]
@@ -2610,12 +2672,20 @@ const buildAssistFieldsFromAssistRows = (
   const fieldMap = new Map(fields.map((field) => [buildCellValueKey(field.rowIndex, field.columnIndex), field]))
   const items: NormalizedSnapshotField[] = []
   rows.forEach((row) => {
+    const gridKey = parseAssistGridRowKey(row.rowKey)
     row.fields.forEach((cell) => {
       const field = fieldMap.get(buildCellValueKey(cell.rowIndex, cell.columnIndex))
       if (!field) return
       items.push({
         ...field,
-        helpText: row.description || field.helpText
+        helpText: row.description || field.helpText,
+        ...(gridKey
+          ? {
+              assistGridKey: row.rowKey,
+              assistGridRowIndex: gridKey.rowIndex,
+              assistGridColumnIndex: gridKey.columnIndex
+            }
+          : {})
       })
     })
   })
@@ -2879,12 +2949,60 @@ const templateModelValue = computed<TemplateSimulationValueMap>(() => {
   return values
 })
 
-const assistFillFields = computed<AssistFillField[]>(() =>
-  buildAssistChoiceGroupItems(
-    buildAssistFieldsFromAssistRows(activeAssistRows.value, snapshotFields.value)
-      .filter((field) => !field.readonly || field.componentKind === 'signature')
+const assistSourceFields = computed<NormalizedSnapshotField[]>(() =>
+  buildAssistFieldsFromAssistRows(activeAssistRows.value, snapshotFields.value).filter(
+    (field) => !field.readonly || field.componentKind === 'signature'
   )
 )
+
+const assistFillFields = computed<AssistFillField[]>(() => {
+  const sourceFields = assistSourceFields.value
+  if (hasConfiguredAssistGridRows.value) {
+    return sourceFields
+  }
+  return buildAssistChoiceGroupItems(sourceFields)
+})
+
+const assistUsesConfiguredGrid = computed(
+  () =>
+    assistFillFields.value.length > 0 &&
+    assistFillFields.value.every(
+      (field) =>
+        field.assistGridKey &&
+        field.assistGridRowIndex !== undefined &&
+        field.assistGridColumnIndex !== undefined
+    )
+)
+
+const assistGridColumnCount = computed(() => {
+  if (!assistUsesConfiguredGrid.value) return 1
+  return Math.max(
+    1,
+    ...assistFillFields.value.map((field) => Number(field.assistGridColumnIndex) + 1)
+  )
+})
+
+const assistGridStyle = computed(() =>
+  assistUsesConfiguredGrid.value
+    ? {
+        gridTemplateColumns: `repeat(${assistGridColumnCount.value}, minmax(132px, 1fr))`
+      }
+    : undefined
+)
+
+const resolveAssistFieldGridStyle = (field: AssistFillField) => {
+  if (
+    !assistUsesConfiguredGrid.value ||
+    field.assistGridRowIndex === undefined ||
+    field.assistGridColumnIndex === undefined
+  ) {
+    return undefined
+  }
+  return {
+    gridRow: String(field.assistGridRowIndex + 1),
+    gridColumn: String(field.assistGridColumnIndex + 1)
+  }
+}
 
 const resolveAssistChoiceGroupValue = (field: AssistChoiceGroupField) => {
   if (field.storageMode === 'single-choice-value') {
@@ -4960,19 +5078,6 @@ const buildAssistFillCarrierExecutionQuery = (row: EdhrBatchExecutionTaskRespVO)
   return query
 }
 
-const stringifyAssistRouteQuery = (value?: Record<string, unknown>) => {
-  const query: Record<string, string> = {}
-  Object.entries(value || {}).forEach(([key, entryValue]) => {
-    if (
-      (typeof entryValue === 'string' || typeof entryValue === 'number' || typeof entryValue === 'boolean') &&
-      String(entryValue).trim()
-    ) {
-      query[key] = String(entryValue)
-    }
-  })
-  return query
-}
-
 const navigateToAssistWorkTask = async (
   row: EdhrWorkTaskRespVO,
   setError: (message: string) => void
@@ -5034,7 +5139,7 @@ const navigateToAssistBatchTask = async (
       `${opened.executionId}:${openedWorkTaskId || ''}:${openedAssistUserId || ''}`
     if (opened.formCenterInstanceId && opened.formTemplateId) {
       const query = {
-        ...stringifyAssistRouteQuery(opened.executionPageQuery),
+        ...stringifyEdhrExecutionPageQuery(opened.executionPageQuery),
         id: String(batchExecutionId),
         batchExecutionId: String(batchExecutionId),
         batchTaskId: String(row.id),
@@ -5056,7 +5161,7 @@ const navigateToAssistBatchTask = async (
       throw new Error('打开工序任务后端未返回 executionId，不能进入 eDHR 填写页。')
     }
     const query = {
-      ...stringifyAssistRouteQuery(opened.executionPageQuery),
+      ...stringifyEdhrExecutionPageQuery(opened.executionPageQuery),
       id: String(opened.executionId),
       executionId: String(opened.executionId),
       batchExecutionId: String(batchExecutionId),
@@ -5614,6 +5719,16 @@ onBeforeUnmount(() => {
   overflow-y: auto;
 }
 
+.edhr-fill-workspace__assist-grid {
+  display: grid;
+  gap: 8px;
+  align-items: stretch;
+  min-height: 0;
+  padding: 12px;
+  overflow: auto;
+  background: #fff8d6;
+}
+
 .edhr-fill-workspace__assist-row {
   display: grid;
   grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.2fr);
@@ -5624,6 +5739,18 @@ onBeforeUnmount(() => {
   border-top: 1px solid #edf1f6;
   background: #ffffff;
   transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-row {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  min-height: 166px;
+  padding: 10px;
+  border: 1px solid #f0c66a;
+  border-radius: 8px;
+  background: #ffffff;
 }
 
 .edhr-fill-workspace__assist-row:first-child {

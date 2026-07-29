@@ -115,9 +115,19 @@ const shouldOpenBatchFillTask = (item: EdhrWorkTaskRouteLike, url: URL) =>
   Boolean(resolveBatchExecutionId(item, url)) &&
   Boolean(resolveBatchTaskId(item, url))
 
-const stringifyQuery = (value?: Record<string, unknown>) => {
+export const stringifyEdhrExecutionPageQuery = (value?: Record<string, unknown>) => {
   const query: Record<string, string> = {}
   Object.entries(value || {}).forEach(([key, entryValue]) => {
+    if (key === 'assistRows') {
+      if (Array.isArray(entryValue)) {
+        query.assistRows = JSON.stringify(entryValue)
+        return
+      }
+      if (typeof entryValue === 'string' && entryValue.trim()) {
+        query.assistRows = entryValue
+        return
+      }
+    }
     if (
       (typeof entryValue === 'string' ||
         typeof entryValue === 'number' ||
@@ -188,7 +198,7 @@ export const navigateToEdhrWorkTask = async (
       workTaskId
     })
     if (shouldOpenRouteFormDrawer(opened)) {
-      const query = stringifyQuery(opened?.executionPageQuery)
+      const query = stringifyEdhrExecutionPageQuery(opened?.executionPageQuery)
       const openedWorkTaskId = opened?.workTaskId || workTaskId
       await router.push({
         path: EDHR_BATCH_EXECUTION_DETAIL_PATH,
@@ -209,7 +219,7 @@ export const navigateToEdhrWorkTask = async (
     if (!executionId) {
       throw new Error('填写任务尚未生成执行记录，无法进入填写工作区。')
     }
-    const query = stringifyQuery(opened?.executionPageQuery)
+    const query = stringifyEdhrExecutionPageQuery(opened?.executionPageQuery)
     query.id = String(executionId)
     query.executionId = String(executionId)
     const openedWorkTaskId = opened?.workTaskId || workTaskId

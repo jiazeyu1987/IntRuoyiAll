@@ -1291,6 +1291,7 @@ import { submitTransferIntervention } from '@/api/mes/pro/edhr/flowIntervention'
 import { getEdhrRecordbookGlobalSetting } from '@/api/mes/pro/edhr/recordbookGlobalSetting'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { generateUUID } from '@/utils'
+import { stringifyEdhrExecutionPageQuery } from '@/utils/edhrWorkTaskNavigation'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
 import { useUserStore } from '@/store/modules/user'
 
@@ -4437,7 +4438,7 @@ const handleOpenTask = async (
     await router.push({
       path: '/mes/pro/feedback/edhr-execution/form',
       query: {
-        ...(opened.executionPageQuery || {}),
+        ...stringifyEdhrExecutionPageQuery(opened.executionPageQuery),
         id: String(opened.executionId),
         batchExecutionId: String(assertBatchExecutionId()),
         batchTaskId: String(row.id),
