@@ -40,3 +40,16 @@
 - Verification: completed for static contracts, TypeScript, and targeted backend JUnit.
 - Real browser visual check: blocked for current runtime data. 当前登录态打开 `http://localhost:8081/mes/pro/feedback/edhr-batch-execution/detail?id=900000000909`，选择“1 粗洗工序”后右侧为“未配置辅助模式”，没有包含正式辅助表格尺寸的新运行快照，无法用该既有批次证明 `12 × 9` 视觉一致性；未做写入型造数。
 - Experience consolidation: completed. 更新 `docs/frontend-development.md#eDHR 辅助模式当前工序 assistRows 路由门禁` 和 `docs/experience-index.md`，补充 `assistGridRowCount/assistGridColumnCount` 正式尺寸门禁。
+- 2026-07-29 12:53:22 +08:00: Continuation verification completed. Re-ran focused frontend contracts and `pnpm ts:check`; all passed.
+- 2026-07-29 12:53:22 +08:00: Cleanup preview/apply completed with no deletions pending; task keeps only `task.md`, `execution-log.md`, and `verification-report.md`.
+- 2026-07-29 12:53:22 +08:00: Current repository still has unrelated concurrent dirty files under `20260729-admin-submitted-content-e2e` and two frontend E2E specs; they are outside this task and were not staged here.
+
+## Closeout Evidence
+
+- PASS: `node tests/e2e/edhr-batch-detail-assist-grid-parity-static.spec.js` -> PASS.
+- PASS: `node tests/e2e/edhr-batch-detail-assist-preview-switch-static.spec.js` -> PASS.
+- PASS: `node tests/e2e/edhr-assist-fill-mode-configured-grid-static.spec.js` -> PASS.
+- PASS: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS.
+- PASS: `pnpm ts:check` -> PASS.
+- PASS: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-batch-detail-assist-grid-parity --mode preview` -> PASS, no delete candidates.
+- PASS: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-batch-detail-assist-grid-parity --mode apply` -> PASS, main worktree only.

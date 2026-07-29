@@ -15,6 +15,15 @@
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordReportServiceImplDbTest#getAndSaveCellRules_suggestsAndPersistsReviewedTypedMetadata" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，1 test。
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordExecutionServiceImplTest#openOrCreateByContext_freezesAssistRowsInExecutionSnapshot" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，1 test。
 - `mvn -pl yudao-module-mes -am "-Dtest=MesProEdhrBatchExecutionServiceTest#previewTask_returnsUnopenedBatchRecordWithExecutionSnapshotAssistRows" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，1 test。
+- 2026-07-29 continuation rerun:
+  - `node tests/e2e/edhr-batch-detail-assist-grid-parity-static.spec.js` -> PASS。
+  - `node tests/e2e/edhr-batch-detail-assist-preview-switch-static.spec.js` -> PASS。
+  - `node tests/e2e/edhr-assist-fill-mode-configured-grid-static.spec.js` -> PASS。
+  - `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS。
+  - `pnpm ts:check` -> PASS。
+- Cleanup:
+  - `task_closeout.py --mode preview` -> PASS, no delete candidates。
+  - `task_closeout.py --mode apply` -> PASS, main worktree only。
 
 ## Runtime Visual Check
 
@@ -26,3 +35,4 @@
 
 - Code path is complete for new assisted-grid configurations.
 - Existing legacy snapshots without formal size fields remain displayable by mapped-coordinate extent, but they cannot truthfully prove full `12 × 9` blank-boundary parity.
+- Final status: completed, with runtime visual parity blocked only by the current old sample lacking the new formal size snapshot.
