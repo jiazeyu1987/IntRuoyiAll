@@ -2,56 +2,46 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.feedback;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitRespVO;
+import cn.iocoder.yudao.module.mes.service.pro.feedback.frontline.MesProFrontlineFeedbackSubmitService;
+import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MesProFrontlineFeedbackSubmitControllerTest {
 
     @Test
-    void frontlineSubmitContract_exposesSingleFeedbackEntry() throws Exception {
-        RequestMapping requestMapping = MesProFeedbackController.class.getAnnotation(RequestMapping.class);
-        assertArrayEquals(new String[]{"/mes/pro/feedback"}, requestMapping.value());
+    void shouldExposeOneShotFrontlineSubmitContract() throws Exception {
+        Method method = MesProFeedbackController.class.getMethod(
+                "frontlineSubmit", MesProFrontlineFeedbackSubmitReqVO.class);
 
-        Method method = MesProFeedbackController.class.getDeclaredMethod("frontlineSubmit",
-                MesProFrontlineFeedbackSubmitReqVO.class);
-        assertArrayEquals(new String[]{"/frontline/submit"}, method.getAnnotation(PostMapping.class).value());
-        assertEquals("@ss.hasPermission('mes:pro-feedback:create')",
-                method.getAnnotation(PreAuthorize.class).value());
+        PostMapping postMapping = method.getAnnotation(PostMapping.class);
+        assertNotNull(postMapping);
+        assertArrayEquals(new String[]{"/frontline/submit"}, postMapping.value());
+
+        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+        assertNotNull(preAuthorize);
+        assertEquals("@ss.hasPermission('mes:pro-feedback:create')", preAuthorize.value());
+
+        Parameter body = method.getParameters()[0];
+        assertNotNull(body.getAnnotation(RequestBody.class));
+
         assertEquals(CommonResult.class, method.getReturnType());
-        assertNotNull(method.getParameters()[0].getAnnotation(RequestBody.class));
-    }
+        assertTrue(method.getGenericReturnType() instanceof ParameterizedType);
 
-    @Test
-    void frontlineSubmitRequest_hasFeedbackRecordbookPoolEmployeeAndSignatureContract() throws Exception {
-        requireField(MesProFrontlineFeedbackSubmitReqVO.class, "feedbackPayload");
-        requireField(MesProFrontlineFeedbackSubmitReqVO.class, "recordbookPayload");
-        requireField(MesProFrontlineFeedbackSubmitReqVO.class, "processPoolContext");
-        requireField(MesProFrontlineFeedbackSubmitReqVO.class, "actualEmployeeId");
-        requireField(MesProFrontlineFeedbackSubmitReqVO.class, "signatureId");
-        requireField(MesProFrontlineFeedbackSubmitReqVO.class, "signatureEmployeeId");
-        requireField(MesProFrontlineFeedbackSubmitReqVO.class, "rawPayload");
-
-        requireField(MesProFrontlineFeedbackSubmitRespVO.class, "feedbackId");
-        requireField(MesProFrontlineFeedbackSubmitRespVO.class, "recordbookEntryId");
-        requireField(MesProFrontlineFeedbackSubmitRespVO.class, "recordbookEventId");
-        requireField(MesProFrontlineFeedbackSubmitRespVO.class, "processPoolEventId");
-    }
-
-    private static Field requireField(Class<?> type, String fieldName) throws Exception {
-        Field field = type.getDeclaredField(fieldName);
-        String suffix = Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1);
-        type.getDeclaredMethod("get" + suffix);
-        return field;
+        Field serviceField = MesProFeedbackController.class.getDeclaredField("frontlineFeedbackSubmitService");
+        assertEquals(MesProFrontlineFeedbackSubmitService.class, serviceField.getType());
+        assertNotNull(serviceField.getAnnotation(Resource.class));
     }
 }

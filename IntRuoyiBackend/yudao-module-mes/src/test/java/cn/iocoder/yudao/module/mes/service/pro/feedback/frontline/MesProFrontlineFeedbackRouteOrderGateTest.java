@@ -1,29 +1,45 @@
 package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
-import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 class MesProFrontlineFeedbackRouteOrderGateTest {
 
-    @Test
-    void submit_usesRouteOnlyAsContextAndDoesNotRequirePredecessorCompletion() {
-        MesProFeedbackService feedbackService = mock(MesProFeedbackService.class);
-        MesProFrontlineRecordbookEntryService recordbookEntryService = mock(MesProFrontlineRecordbookEntryService.class);
-        MesProcessPoolSubmitEventService processPoolSubmitEventService = mock(MesProcessPoolSubmitEventService.class);
-        MesProFrontlineFeedbackSubmitService submitService = new MesProFrontlineFeedbackSubmitServiceImpl(
-                feedbackService, recordbookEntryService, processPoolSubmitEventService,
+    @Mock
+    private MesProFeedbackService feedbackService;
+    @Mock
+    private MesProFrontlineRecordbookEntryService recordbookEntryService;
+    @Mock
+    private MesProcessPoolSubmitEventService processPoolSubmitEventService;
+
+    private MesProFrontlineFeedbackSubmitService submitService;
+
+    @BeforeEach
+    void setUp() {
+        submitService = new MesProFrontlineFeedbackSubmitServiceImpl(
+                feedbackService,
+                recordbookEntryService,
+                processPoolSubmitEventService,
                 new MesProFrontlineFeedbackPayloadSplitter());
-        MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackPayloadSplitterTest.buildReq();
+    }
+
+    @Test
+    void shouldKeepRouteAsContextWithoutBlockingOnPredecessorStatusInRawPayload() {
         when(feedbackService.createFeedback(any())).thenReturn(501L);
         when(recordbookEntryService.createOriginalEntry(any()))
                 .thenReturn(new MesProFrontlineRecordbookEntryResult(701L, 702L));
@@ -31,7 +47,16 @@ class MesProFrontlineFeedbackRouteOrderGateTest {
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);
-            assertEquals(801L, submitService.submit(reqVO).getProcessPoolEventId());
+            assertEquals(801L, submitService.submit(MesProFrontlineFeedbackSubmitTestData.buildSubmitReq())
+                    .getProcessPoolEventId());
         }
+
+        verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload -> {
+            assertEquals(21L, payload.getRouteId());
+            assertEquals(71L, payload.getRouteProcessId());
+            assertEquals("WAITING",
+                    ((java.util.Map<?, ?>) payload.getRawPayload().get("routePredecessorStatuses")).get("P10"));
+            return true;
+        }));
     }
 }
