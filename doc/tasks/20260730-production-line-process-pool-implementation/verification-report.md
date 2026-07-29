@@ -15,7 +15,7 @@ completed
 - Branch runtime guard: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
 - Task closeout cleanup: `task_closeout.py --task-id 20260730-production-line-process-pool-implementation --mode preview/apply` -> PASS, no deleted paths after formal task docs were protected.
 - Worktree closeout: F1/F2/F3/F4/F7/F8 directories removed from `D:\IntRuoyiWorktree\`; `git worktree list` has no `20260730-ppool` entries; port registry entries are inactive with `deletedAt`.
-- Git push: final closeout commit is to be pushed with `git push origin int_main`; completion requires post-push status to show no ahead commits.
+- Git push: `git push origin int_main` -> PASS; post-push `git status --short --branch` showed `## int_main...origin/int_main` with no ahead commits.
 
 ## E2E Status
 

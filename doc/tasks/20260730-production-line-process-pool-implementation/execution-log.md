@@ -257,4 +257,5 @@
 - Worktree cleanup note: F1 had one task-log staged residual before deletion; the main execution log already retained the F1 evidence. F4 left `node_modules` long-path residuals after `git worktree remove`; cleaned the exact task-owned directory with a long-path-aware script.
 - Worktree cleanup result: `git worktree list | Select-String -Pattern '20260730-ppool'` -> no matches; all six task paths `Test-Path` -> `false`.
 - Port registry result: all six `20260730-ppool-*` entries in `D:\IntRuoyiWorktree\.ports\worktree-ports.json` have `active=false`, `deletedAt=2026-07-30T03:22:34.334560+08:00`, and cleanup task `20260730-production-line-process-pool-implementation-worktree-removal`.
-- Task status update: task records set to `completed`; final commit and push verification pending in this closeout step.
+- Task status update: task records set to `completed`.
+- Push verification: `git push origin int_main` -> PASS; post-push `git status --short --branch` -> `## int_main...origin/int_main`, no ahead commits.

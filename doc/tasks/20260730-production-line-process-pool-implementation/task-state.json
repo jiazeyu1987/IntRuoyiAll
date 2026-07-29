@@ -155,7 +155,7 @@
     "closeout_cleanup": "PASS",
     "worktree_cleanup": "PASS",
     "port_registry_cleanup": "PASS",
-    "git_push": "PASS_AFTER_FINAL_PUSH"
+    "git_push": "PASS"
   },
   "closeout_summary": {
     "task_closeout_cleanup": "preview/apply passed with no deleted formal task docs",

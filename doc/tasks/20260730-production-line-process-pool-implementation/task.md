@@ -47,7 +47,7 @@ completed
 - 前端静态契约：PASS，固定模板渲染/切换、时间轴前端、时间轴 mapper。
 - Closeout 清理：PASS，任务正式文档保留，临时删除项为 0。
 - Worktree 收尾：PASS，F1/F2/F3/F4/F7/F8 六个任务 worktree 已删除，端口登记表已标记 `deletedAt`。
-- Git 推送：最终 closeout 提交后执行 `git push origin int_main` 并复核本地不再 ahead。
+- Git 推送：PASS，`git push origin int_main` 成功，推送后 `git status --short --branch` 显示本地不再 ahead。
 - 真实 Playwright E2E：未运行；缺少已确认的测试租户、设备账号绑定、可用电子签名、生产工单/工序池样本数据和本轮授权的运行态启动范围，未将静态/API 验证冒充 E2E。
 
 ## 设计约束检查
