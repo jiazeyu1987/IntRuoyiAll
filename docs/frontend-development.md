@@ -40,6 +40,15 @@
 - Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；禁止跳过当前需求的最小 RED/GREEN。
 - Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。
 
+## 前端截图字号调整静态契约门禁
+
+- Trigger: 用户基于截图要求调整卡片、表格、弹窗或页面局部文字大小，尤其出现“文字大小”“字号”“放大 2 倍”“缩小一半”“卡片内文字”等表述。
+- Preflight check: 先定位目标区域已有 SFC/CSS 选择器和相邻静态契约；若已有契约锁定字号或密度，必须先按用户口径更新该契约并跑出 RED，再改最小 CSS。若没有契约，新增任务专用静态契约断言目标选择器和具体字号，不得只凭截图目测。
+- Blocker: 找不到目标选择器、无法区分卡片内文字与页面其它文字、契约无法稳定 RED/GREEN、或改动会同时改变数据、权限、接口、保存/提交链路时必须停止补齐范围。
+- Verification: 至少运行目标字号静态契约和一个相邻结构/显示契约；若改动触及 Vue/TS 逻辑或构建可受影响，再运行 `pnpm ts:check`。
+- Forbidden action: 禁止用全局 `body`/Element Plus 泛选择器批量放大、禁止隐藏/缩放容器冒充字号变化、禁止把截图局部需求扩大成整页重设计、禁止跳过 RED 直接改 CSS。
+- Evidence: 任务 `doc/tasks/20260729-card-text-double/`，eDHR 填写辅助模式卡片原有半字号静态契约先 RED，再将网格卡片内标签、输入/占位、选择项、按钮、校验和单位文字提高为 2 倍。
+
 ## 前端列表状态口径完整性门禁
 
 - Trigger: 前端列表、版本工作区、状态表格、历史记录、候选版本、`只显示`、`仅展示`、`有效历史`、`已生效历史版本`、`取消的不显示`、`CANCELLED`、`DRAFT`、`ACTIVE`、`SUPERSEDED`。

@@ -15,11 +15,13 @@
 ## Expected Verification
 
 - `node tests/e2e/edhr-fill-workspace-card-density-static.spec.js`
-- 视变更范围补充运行相邻 eDHR 辅助模式静态契约或 `pnpm ts:check`；若存在无关历史阻塞，按前端静态契约隔离门禁记录。
+- `node tests/e2e/edhr-assist-fill-mode-static.spec.js`
+- `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js`
+- `pnpm ts:check`
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 
@@ -32,3 +34,8 @@ in_progress
 - 已读取 `docs/task-closeout-rules.md`、`docs/frontend-development.md`、`docs/powershell-encoding.md`、`docs/powershell-memory.md`。
 - `docs/experience-index.md` 存在；本任务命中前端页面/样式、前端静态契约隔离、PowerShell/Git 脏工作区基线与同文件选择性暂存门禁。
 - 基线提交：`443621b4 chore: baseline dirty worktree before card text sizing`，保存本任务开始前既有脏改动。
+- 额外基线提交：`a6cfc066 chore: baseline preexisting worktree changes`，保存 RED 契约与任务文档的前置状态；本任务实现提交只包含源码样式和最终任务证据。
+
+## Cleanup Keep
+
+- doc/tasks/20260729-card-text-double/frontend-feature-evidence.md
