@@ -4,6 +4,8 @@
 
 按用户截图反馈，修复“填写配置 / 辅助表单映射”页面红框区域仍显示的问题：隐藏顶部右侧“关闭 / 重新读取 / 保存填写配置”操作组、左侧原表单说明栏、中央辅助表单预览说明栏；保留原表格、辅助表格卡片、右侧映射控制栏与必要填写配置能力。
 
+补充 2026-07-29 用户截图反馈：隐藏原表单格子和辅助表格格子内的次级说明行（如“未...”和“原...”），只保留格子主标题/字段名与映射能力。
+
 ## Milestones
 
 1. `completed`：确认截图对应组件、页面入口和既有静态合同。
@@ -11,6 +13,7 @@
 3. `completed`：实施最小前端修复，不引入 fallback 或静默降级。
 4. `completed`：运行目标静态合同和相邻回归验证。
 5. `completed`：更新证据、状态和剩余阻塞。
+6. `in_progress`：补充卡片次级说明隐藏 RED/GREEN 回归。
 
 ## Expected Verification
 
@@ -32,7 +35,7 @@
 
 ## Current Status
 
-ready_for_closeout
+in_progress
 
 ## Final Verification Result
 
@@ -42,6 +45,7 @@ ready_for_closeout
 - `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode preview` -> ready
 - `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode apply` -> applied, deleted none
 - Commit/push -> BLOCKED by unrelated concurrent dirty changes and branch ahead state
+- 2026-07-29 补充反馈处理中：卡片次级说明隐藏尚待 RED/GREEN 与复验。
 
 ## Cleanup Keep
 

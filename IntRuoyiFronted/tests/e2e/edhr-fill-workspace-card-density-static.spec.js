@@ -20,6 +20,7 @@ const assistGridRowRule = cssRule('.edhr-fill-workspace__assist-grid .edhr-fill-
 const assistControlRule = cssRule('.edhr-fill-workspace__assist-control')
 const assistGridLabelRule = cssRule('.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-label')
 const assistGridControlTextRule = cssRule('.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-input__inner)')
+const assistGridControlPromptRule = cssRule('.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-select__placeholder),\n.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-select__selected-item),\n.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-textarea__inner),\n.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-radio),\n.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-checkbox__label),\n.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-button)')
 const assistGridValidationRule = cssRule('.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-validation')
 const assistGridUnitRule = cssRule('.edhr-fill-workspace__assist-grid .edhr-page-shell__unit')
 
@@ -50,8 +51,13 @@ assert.match(
 )
 assert.match(
   assistGridControlTextRule,
-  /font-size:\s*7px/,
-  '辅助填写网格单元格输入文字必须缩小为当前约 14px 的 1/2。'
+  /font-size:\s*14px/,
+  '辅助填写网格单元格输入提示词必须从当前 7px 增大一倍到 14px。'
+)
+assert.match(
+  assistGridControlPromptRule,
+  /font-size:\s*14px/,
+  '辅助填写网格单元格选择、文本域等提示词必须从当前 7px 增大一倍到 14px。'
 )
 assert.match(
   assistGridValidationRule,
@@ -60,8 +66,8 @@ assert.match(
 )
 assert.match(
   assistGridUnitRule,
-  /font-size:\s*7px/,
-  '辅助填写网格单元格单位文字必须缩小为当前约 14px 的 1/2。'
+  /font-size:\s*14px/,
+  '辅助填写网格单元格单位文字必须从当前 7px 增大一倍到 14px。'
 )
 assert.match(
   assistControlRule,

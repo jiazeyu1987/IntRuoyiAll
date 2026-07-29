@@ -5778,7 +5778,16 @@ const toggleFillWorkspaceFullscreen = async () => {
 }
 
 watch(
-  () => [route.name, route.query.id, route.query.workTaskId, route.query.assistUserId] as const,
+  () =>
+    [
+      route.name,
+      route.query.id,
+      route.query.workTaskId,
+      route.query.assistUserId,
+      route.query.batchExecutionId,
+      route.query.batchTaskId,
+      route.query.batchTaskPreview
+    ] as const,
   ([routeName]) => {
     if (routeName !== 'MesProFeedbackEdhrExecutionForm') {
       return
@@ -6440,7 +6449,7 @@ onBeforeUnmount(() => {
 }
 
 .edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-input__inner) {
-  font-size: 7px;
+  font-size: 14px;
 }
 
 .edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-select__placeholder),
@@ -6449,7 +6458,7 @@ onBeforeUnmount(() => {
 .edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-radio),
 .edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-checkbox__label),
 .edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-button) {
-  font-size: 7px;
+  font-size: 14px;
 }
 
 .edhr-fill-workspace__assist-control :deep(.el-textarea__inner) {
@@ -7104,7 +7113,7 @@ onBeforeUnmount(() => {
 }
 
 .edhr-fill-workspace__assist-grid .edhr-page-shell__unit {
-  font-size: 7px;
+  font-size: 14px;
 }
 
 .edhr-page-shell__signature-summary,

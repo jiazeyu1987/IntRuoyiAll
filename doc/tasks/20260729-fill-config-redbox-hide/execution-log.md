@@ -20,3 +20,5 @@
 - CLEANUP: `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode preview` -> ready，keep task/execution-log/verification-report/evidence，delete none，blocked none。
 - CLEANUP: `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode apply` -> applied，deleted_paths none。
 - CLOSEOUT BLOCKER: `git status --short --branch --untracked-files=all` -> 当前 `int_main` ahead 1 且存在多组非本任务并行改动；本轮未提交/推送，避免混入无关任务。
+- USER: 2026-07-29 补充截图反馈“红框内的不显示”，红框指向原表单格子和辅助表格格子内的次级说明行（如“未...”和“原...”）。
+- BDD: 隐藏填写配置卡片次级说明 -> Given 用户打开填写配置辅助表单映射页面 / When 原表单格子和辅助表格格子渲染 / Then 格子只显示主标题或字段名，不显示规则类型、必填标记、未映射、原表单来源等次级说明行，点击映射和右侧保存/重读/关闭能力仍保留。

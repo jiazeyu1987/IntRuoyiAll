@@ -119,7 +119,7 @@ assert.match(
 )
 assert.match(
   executionPage,
-  /\(\) => \[route\.name,\s*route\.query\.id,\s*route\.query\.workTaskId,\s*route\.query\.assistUserId\]/,
+  /watch\(\s*\(\) =>[\s\S]*route\.name[\s\S]*route\.query\.id[\s\S]*route\.query\.workTaskId[\s\S]*route\.query\.assistUserId/,
   '执行页 watch 必须监听 assistUserId，切换填写人后要重新初始化当前执行上下文。'
 )
 
