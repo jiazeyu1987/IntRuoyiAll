@@ -39,10 +39,10 @@
 
 ## Worktree 前端依赖启动门禁
 
-- Trigger: 在 `D:\IntRuoyiWorktree\` 下新增或恢复 worktree 后启动前端、运行 Vite、执行真实 E2E，或日志出现 `Command "vite" not found` / `node_modules\.bin\vite` 缺失。
-- Preflight check: 启动前端前先检查目标 worktree 的 `IntRuoyiFronted\package.json`、`IntRuoyiFronted\node_modules\.bin\vite` 和 `pnpm-lock.yaml`；若缺少 `vite`，在目标 worktree 前端目录执行 `pnpm install --frozen-lockfile`，不得复制其他工作区的 `node_modules`。
-- Blocker: `pnpm install --frozen-lockfile` 失败、修改 lockfile、依赖目录仍缺 `vite`、或目标路径不是当前任务 worktree 时必须停止，不得换端口、复用旧前端进程或把后端/API 验证冒充真实页面 E2E。
-- Verification: 记录 `pnpm install --frozen-lockfile` 退出码、`node_modules\.bin\vite` 存在性、前端入口 HTTP 200、Vite 进程命令行指向目标 worktree，以及任务结束后登记端口是否释放。
+- Trigger: 在 `D:\IntRuoyiWorktree\` 下新增或恢复 worktree 后启动前端、运行 Vite、执行前端 `pnpm` 脚本、执行真实 E2E，或日志出现 `Command "vite" not found`、`node_modules\.bin\vite` 缺失、`cross-env is not recognized`。
+- Preflight check: 启动前端或运行前端脚本前先检查目标 worktree 的 `IntRuoyiFronted\package.json`、`pnpm-lock.yaml` 和目标命令需要的 `node_modules\.bin\<tool>.cmd`；例如 Vite/E2E 检查 `vite.cmd`，`pnpm ts:check` 检查 `cross-env.cmd` 与 `vue-tsc`。若依赖缺失，在目标 worktree 前端目录执行 `pnpm install --frozen-lockfile`，不得复制其他工作区的 `node_modules`。
+- Blocker: `pnpm install --frozen-lockfile` 失败、修改 lockfile、依赖目录仍缺目标脚本工具、或目标路径不是当前任务 worktree 时必须停止，不得换端口、复用旧前端进程或把后端/API 验证冒充真实页面 E2E。
+- Verification: 记录 `pnpm install --frozen-lockfile` 退出码、目标 `node_modules\.bin\<tool>.cmd` 存在性、目标前端脚本或前端入口 HTTP 200、Vite 进程命令行指向目标 worktree，以及任务结束后登记端口是否释放。
 - Forbidden action: 禁止复制 `node_modules`、使用主工作区 Vite 进程冒充 worktree 前端、改共享 `.env` 抢端口、或在依赖缺失时切换到 API-only。
 - Evidence: `doc/tasks/20260726-edhr-release-dossier-requirement-switches/execution-log.md`，slot 5 worktree 首次启动前端失败于 `Command "vite" not found`，补跑 `pnpm install --frozen-lockfile` 后 8086 前端真实启动并通过 E2E。
 
