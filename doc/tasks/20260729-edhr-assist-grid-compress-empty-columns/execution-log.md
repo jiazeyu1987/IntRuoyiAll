@@ -43,4 +43,5 @@
 - RED static contract: completed.
 - Implementation: completed. `ExecutionPage.vue` now derives `assistGridVisibleColumnIndexes`, maps original configured columns to compressed visible columns, and uses the compressed column index only for CSS Grid placement.
 - Verification: completed. Focused static contract, frontend TypeScript check, and frontend feature evidence validator passed.
+- Experience consolidation: updated existing `docs/frontend-development.md#edhr-辅助模式当前工序-assistrows-路由门禁` and `docs/experience-index.md`; no new long-term document created.
 - Status: ready_for_closeout.

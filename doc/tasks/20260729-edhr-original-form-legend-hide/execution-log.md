@@ -23,3 +23,6 @@
 - CONCURRENCY: 验证后发现 `ExecutionPage.vue` 同时包含其它任务的辅助卡片元信息隐藏和网格压缩改动；本任务只拥有 `:show-rule-legend="false"` 单行，提交时必须选择性暂存。
 - EXPERIENCE: 本次使用共享组件已有显式展示开关，经验已由前端静态契约隔离和同文件并行改动选择性暂存门禁覆盖，无需更新长期经验文档。
 - completed: 实现与必需验证完成，状态更新为 `ready_for_closeout`。
+- CHECK: frontend feature evidence 首次校验失败，缺少精确 `BDD:` 与 `Verification` 标记；已按校验器契约补齐，等待复验。
+- GREEN: `validate_frontend_feature.py --evidence doc/tasks/20260729-edhr-original-form-legend-hide/frontend-feature-evidence.md` -> PASS。
+- CLEANUP: `task_closeout.py --task-id 20260729-edhr-original-form-legend-hide --mode preview` -> ready；keep 四个任务证据文件，delete/blocked/warnings 均为 none。

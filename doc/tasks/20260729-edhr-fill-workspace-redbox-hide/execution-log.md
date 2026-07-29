@@ -24,3 +24,10 @@
 - USER: 用户继续反馈“每个卡片里面的红框的对应位置都不显示，只显示必要的内容”，目标扩展为隐藏每张辅助填写卡片内部的可选/已填、自动映射、位置和说明类元信息。
 - BDD: 隐藏辅助填写卡片内部元信息 -> Given 用户打开 eDHR 填写辅助模式 / When 页面渲染每个字段卡片 / Then 卡片只显示字段名称、填写控件、控件单位和真实校验错误，不显示可选/已填、自动映射、位置或字段说明占位。
 - RED: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> FAIL，预期失败；当前辅助填写卡片仍包含 `edhr-fill-workspace__assist-help`。
+- CHECK: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> FAIL，测试断言过宽；`<el-tag` 命中工序切换弹窗状态标签，已收窄为只检查 `edhr-fill-workspace__assist-row` 卡片模板。
+- GREEN: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS，辅助填写卡片内部不再显示说明、位置和可选/已填等徽标。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS，辅助模式切换区和字段填写链路保留，卡片内部红框元信息隐藏。
+- GREEN: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS，填写工作区控制栏、全屏和原表模式静态回归通过。
+- GREEN: `pnpm ts:check` -> PASS，Vue/TS relaxed 类型检查通过。
+- CHECK: `git status --short --branch --untracked-files=all` -> 验证期间并发任务推进仓库到 `ahead 3`，并出现多组非本任务改动；本轮不执行提交/推送，避免混入并发任务。
+- M6: completed -> 卡片内部元信息隐藏实现和验证完成，状态更新为 `ready_for_closeout`。

@@ -42,3 +42,8 @@ ready_for_closeout
 
 - 既有脏工作区基线提交：`18563a16 chore: baseline dirty workspace before assist grid columns`。
 - 基线提交后仍出现并行残余改动，当前任务只选择性暂存本任务文件。
+- 经验沉淀：已合并到 `docs/frontend-development.md` 既有 eDHR 辅助模式门禁，并更新 `docs/experience-index.md` 关键词。
+
+## Cleanup Keep
+
+- doc/tasks/20260729-edhr-assist-grid-compress-empty-columns/frontend-feature-evidence.md

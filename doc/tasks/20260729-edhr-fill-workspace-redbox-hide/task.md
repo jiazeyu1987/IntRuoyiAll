@@ -11,7 +11,7 @@
 3. `completed`：实施最小前端修复，不引入 fallback 或静默降级。
 4. `completed`：运行目标静态合同和相邻回归验证。
 5. `completed`：更新证据、收尾状态与提交记录。
-6. `in_progress`：补充卡片内部元信息隐藏合同，移除辅助填写卡片内的可选/已填、自动映射、位置和说明文本。
+6. `completed`：补充卡片内部元信息隐藏合同，移除辅助填写卡片内的可选/已填、自动映射、位置和说明文本。
 
 ## Expected Verification
 
@@ -35,4 +35,8 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Cleanup Keep
+
+- doc/tasks/20260729-edhr-fill-workspace-redbox-hide/frontend-feature-evidence.md

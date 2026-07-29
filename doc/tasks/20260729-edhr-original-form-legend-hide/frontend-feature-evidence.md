@@ -30,6 +30,7 @@
 
 ## BDD
 
+- BDD:
 - Given 用户进入 eDHR 执行填写页并切换到原表模式
 - When 原始批记录表单渲染
 - Then 顶部规则类型图例不显示，表格和单元格规则角标继续显示
@@ -39,6 +40,10 @@
 - RED: `node tests/e2e/edhr-fill-workspace-original-rule-legend-hidden-static.spec.js` -> FAIL，执行填写页未关闭规则图例。
 - GREEN: `node tests/e2e/edhr-fill-workspace-original-rule-legend-hidden-static.spec.js` -> PASS。
 - REGRESSION: `node tests/e2e/edhr-fill-workspace-static.spec.js`、`node tests/e2e/edhr-batch-template-simulate-red-box-hidden-static.spec.js`、`pnpm ts:check` -> PASS。
+
+## Verification
+
+- 聚焦静态合同、相邻原表模式合同、模拟页图例合同和 TypeScript 检查全部通过。
 
 ## UI Checks
 
