@@ -152,11 +152,13 @@ function prepareLegacyReviewExecution() {
       }
     ]
   }
+  const sheetLayout = snapshot.layout
   const output = mysql(`
 SET NAMES utf8mb4;
 SET @tenant_id := 122;
 SET @run_key := ${sqlString(runKey)};
 SET @snapshot := ${sqlString(JSON.stringify(snapshot))};
+SET @sheet_layout := ${sqlString(JSON.stringify(sheetLayout))};
 SET @source_execution_id := (
   SELECT e.id
   FROM mes_pro_batch_record_execution e
@@ -252,7 +254,7 @@ INSERT INTO mes_pro_batch_record_execution (
 )
 SELECT CONCAT('BRE-', @run_key), e.template_id, e.template_code, e.template_name, e.work_order_id, e.work_order_code,
   COALESCE(e.route_id, rp.route_id), COALESCE(e.route_process_id, wt.route_process_id), NULL, e.workstation_id, e.batch_record_report_id, e.batch_record_definition_id,
-  e.batch_record_version_id, @batch_execution_id, @run_key, 0, @snapshot, '{}', @snapshot,
+  e.batch_record_version_id, @batch_execution_id, @run_key, 0, @sheet_layout, '{}', @snapshot,
   '[]', '84b9a938bd9a94b26da55f087f6a2fab21c438a2333cfb6d45fc85e34388690b', 0, 'c89790f1db795880e667042c652ac63aaba03b9a91c1a14ae34c7d0fbf855a42', 1,
   b'1', 'INTERNAL_RECORD', 'INTERNAL_TRACE', e.slot_config_snapshot_hash, 'M7 submit review real E2E', 'codex', 'codex', b'0', @tenant_id
 FROM mes_pro_batch_record_execution e

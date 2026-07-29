@@ -451,8 +451,11 @@
                         class="edhr-fill-workspace__assist-switch-menu edhr-fill-workspace__assist-switch-process-menu"
                         data-assist-switch-menu="process"
                       >
-                        <div class="edhr-fill-workspace__assist-switch-menu-head">
+                        <div class="edhr-fill-workspace__assist-switch-menu-head edhr-fill-workspace__assist-switch-process-head">
                           <strong>选择当前批次工序</strong>
+                          <span class="edhr-fill-workspace__assist-switch-order-code">
+                            {{ assistProcessSwitchOrderCode }}
+                          </span>
                           <span>展示当前批次全部工序</span>
                         </div>
                         <el-alert
@@ -497,9 +500,6 @@
                               >
                                 {{ resolveAssistProcessSwitchItemStatusLabel(item) }}
                               </el-tag>
-                            </span>
-                            <span class="edhr-fill-workspace__assist-switch-option-sub">
-                              {{ resolveAssistProcessSwitchItemSecondaryLabel(item) }}
                             </span>
                           </button>
                         </div>
