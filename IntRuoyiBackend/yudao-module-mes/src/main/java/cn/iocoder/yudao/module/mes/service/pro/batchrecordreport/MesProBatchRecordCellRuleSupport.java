@@ -26,6 +26,8 @@ public final class MesProBatchRecordCellRuleSupport {
     public static final String FILL_FORM_KEY = "fillForm";
     public static final String MANUAL_FILL_CELL_KEY = "edhrManualFillCell";
     public static final String ASSIST_ROWS_KEY = "edhrAssistRows";
+    public static final String ASSIST_GRID_ROW_COUNT_KEY = "edhrAssistGridRowCount";
+    public static final String ASSIST_GRID_COLUMN_COUNT_KEY = "edhrAssistGridColumnCount";
 
     private static final Set<String> SUPPORTED_VALUE_TYPES = Set.of(
             "STRING", "NUMBER", "DATE", "DATETIME", "BOOLEAN", "SIGNATURE");

@@ -16,26 +16,48 @@ const railEnd = normalized.indexOf('<main', railStart)
 assert.ok(railStart >= 0 && railEnd > railStart, '必须能定位 eDHR 填写页左侧工具栏。')
 const railTemplate = normalized.slice(railStart, railEnd)
 
-assertIncludes(railTemplate, 'edhr-fill-workspace__soft-keyboard-section', '红框位置必须渲染软键盘独立区域。')
-assertIncludes(railTemplate, 'edhr-fill-workspace__soft-keyboard-trigger', '红框位置必须提供软键盘图标按钮。')
-assertIncludes(railTemplate, 'aria-label="打开软键盘"', '软键盘按钮必须有明确可访问名称。')
-assertIncludes(railTemplate, '@click="openSoftKeyboard"', '软键盘按钮点击必须打开页面内软键盘。')
-assertIncludes(railTemplate, 'edhr-fill-workspace__soft-keyboard-popover', '软键盘弹层必须挂在当前页面工具栏内。')
-assertIncludes(railTemplate, ':teleported="false"', '软键盘弹层不得传送到 body，避免全屏填写页中被裁剪或丢失上下文。')
-assertIncludes(railTemplate, 'softKeyboardVisible', '软键盘弹层必须由显式可见状态控制。')
-assertIncludes(railTemplate, '软键盘', '软键盘入口和弹层必须显示用户可识别的中文语义。')
-assertIncludes(railTemplate, 'data-soft-keyboard-action="key"', '软键盘按键必须提供稳定定位属性。')
-assertIncludes(railTemplate, 'data-soft-keyboard-action="space"', '软键盘必须提供空格键。')
-assertIncludes(railTemplate, 'data-soft-keyboard-action="backspace"', '软键盘必须提供删除键。')
-assertIncludes(railTemplate, 'data-soft-keyboard-action="close"', '软键盘必须提供关闭按钮。')
-assertIncludes(executionPage, 'const softKeyboardRows =', '软键盘按键布局必须由脚本中的稳定数组驱动。')
-assertIncludes(executionPage, 'const openSoftKeyboard = () =>', '必须提供打开软键盘的显式处理函数。')
-assertIncludes(executionPage, 'const insertSoftKeyboardText = (text: string) =>', '必须通过显式函数写入当前活动输入框。')
-assertIncludes(executionPage, 'const handleSoftKeyboardBackspace = () =>', '必须通过显式函数处理删除键。')
-assertIncludes(executionPage, 'document.activeElement', '软键盘输入必须使用当前聚焦编辑控件，不得硬编码某个字段。')
-assertIncludes(executionPage, "new Event('input'", '软键盘写入必须派发 input 事件以触发现有 v-model/update 链路。')
-assertIncludes(executionPage, "new Event('change'", '软键盘写入必须派发 change 事件以触发现有校验链路。')
-assertNotIncludes(executionPage, 'catch {}', '软键盘实现不得吞异常。')
-assertNotIncludes(executionPage, 'mockSoftKeyboard', '软键盘实现不得使用 mock 或占位成功。')
+for (const retainedControl of [
+  '适应宽度',
+  '适应高度',
+  '填写辅助模式',
+  '原表模式',
+  '保存草稿',
+  '提交执行',
+  'toggleFillWorkspaceFullscreen'
+]) {
+  assertIncludes(executionPage, retainedControl, `删除软键盘后必须保留现有填写页控制：${retainedControl}`)
+}
 
-console.log('PASS: edhr soft keyboard button static contract')
+for (const removedRailToken of [
+  'edhr-fill-workspace__soft-keyboard-section',
+  'edhr-fill-workspace__soft-keyboard-trigger',
+  'aria-label="打开软键盘"',
+  '@click="openSoftKeyboard"',
+  'edhr-fill-workspace__soft-keyboard-popover',
+  'mdi:keyboard-outline',
+  'data-soft-keyboard-action='
+]) {
+  assertNotIncludes(railTemplate, removedRailToken, `左侧工具栏不得继续渲染软键盘入口：${removedRailToken}`)
+}
+
+for (const removedSourceToken of [
+  'softKeyboardVisible',
+  'softKeyboardRows',
+  'softKeyboardTarget',
+  'SoftKeyboardEditableElement',
+  'insertSoftKeyboardText',
+  'handleSoftKeyboardBackspace',
+  'openSoftKeyboard',
+  'handleSoftKeyboardFocusIn',
+  'edhr-fill-workspace__soft-keyboard'
+]) {
+  assertNotIncludes(executionPage, removedSourceToken, `软键盘实现代码必须删除：${removedSourceToken}`)
+}
+
+assertIncludes(executionPage, "document.addEventListener('fullscreenchange'", '必须保留填写页全屏状态监听。')
+assertNotIncludes(executionPage, "document.addEventListener('focusin', handleSoftKeyboardFocusIn)", '不得保留软键盘焦点监听。')
+assertNotIncludes(executionPage, "document.removeEventListener('focusin', handleSoftKeyboardFocusIn)", '不得保留软键盘焦点监听清理。')
+assertNotIncludes(executionPage, 'catch {}', '删除软键盘不得引入吞异常。')
+assertNotIncludes(executionPage, 'mockSoftKeyboard', '删除软键盘不得保留 mock 或占位成功。')
+
+console.log('PASS: edhr soft keyboard removal static contract')

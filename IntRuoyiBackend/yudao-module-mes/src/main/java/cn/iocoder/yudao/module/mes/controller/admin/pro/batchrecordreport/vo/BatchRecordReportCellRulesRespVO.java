@@ -20,4 +20,8 @@ public class BatchRecordReportCellRulesRespVO {
     private Integer unreviewedFillableCellCount;
 
     private List<BatchRecordReportAssistRowVO> assistRows;
+
+    private Integer assistGridRowCount;
+
+    private Integer assistGridColumnCount;
 }

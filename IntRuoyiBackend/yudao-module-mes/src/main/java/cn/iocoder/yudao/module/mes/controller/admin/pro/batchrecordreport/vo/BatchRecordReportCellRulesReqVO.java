@@ -21,4 +21,8 @@ public class BatchRecordReportCellRulesReqVO {
 
     @Valid
     private List<BatchRecordReportAssistRowVO> assistRows;
+
+    private Integer assistGridRowCount;
+
+    private Integer assistGridColumnCount;
 }

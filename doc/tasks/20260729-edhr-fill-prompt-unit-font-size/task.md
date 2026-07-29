@@ -7,10 +7,10 @@
 
 ## Milestones
 
-- [ ] 定位填写页提示词与单位渲染组件及样式来源。
-- [ ] 先补充聚焦静态合同，证明提示词与单位字号需要增大一倍。
-- [ ] 实现最小样式调整。
-- [ ] 运行聚焦验证并记录结果。
+- [x] 定位填写页提示词与单位渲染组件及样式来源。
+- [x] 先补充聚焦静态合同，证明提示词与单位字号需要增大一倍。
+- [x] 实现最小样式调整。
+- [x] 运行聚焦验证并记录结果。
 - [ ] 收尾清理并更新任务状态。
 
 ## Expected Verification
@@ -21,7 +21,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 
@@ -32,4 +32,4 @@ in_progress
 ## Applicable Experience Gates
 
 - `docs/frontend-development.md#element-plus-选择框显示门禁`：涉及 Element Plus 输入/选择控件内文本展示时，需保证文本完整可见、布局不重叠。
-- `D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`：若可读取，按项目前端页面/表格/样式经验执行；若缺失则记录为非阻塞样式参考缺失。
+- `D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`：已读取，按操作台风格保持紧凑、结构化、仅改目标控件字号。

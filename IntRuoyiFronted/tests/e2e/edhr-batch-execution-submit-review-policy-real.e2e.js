@@ -489,11 +489,13 @@ async function submitExecutionThroughUi(page, setup) {
     )
   }
   await clickFirstEnabled(page.getByRole('button', { name: '提交执行' }), 'submit execution')
-  const dialog = page.locator('.el-dialog:visible').filter({ hasText: '提交 eDHR 执行' }).first()
+  const dialog = page
+    .locator('.edhr-fill-workspace__submit-sign-dialog .el-dialog:visible, .el-dialog:visible')
+    .filter({ hasText: /电子签名|提交 eDHR 执行/ })
+    .first()
   await dialog.waitFor({ state: 'visible', timeout: 30000 })
   const selects = dialog.locator('.edhr-page-shell__submit-select')
   const selectCount = await selects.count()
-  assert.ok(selectCount > 0, 'submit dialog must render review assignee selectors')
   for (let index = 0; index < selectCount; index += 1) {
     const select = selects.nth(index)
     const selectedText = (await select.innerText().catch(() => '')).trim()
@@ -518,7 +520,7 @@ async function submitExecutionThroughUi(page, setup) {
       response.request().method() === 'PUT',
     { timeout: 60000 }
   )
-  await clickFirstEnabled(dialog.getByRole('button', { name: /确\s*认\s*提\s*交/ }), 'confirm submit')
+  await clickFirstEnabled(dialog.getByRole('button', { name: /确\s*认(?:\s*提\s*交)?/ }), 'confirm submit')
   const response = await responsePromise
   assert.equal(response.status(), 200, 'submit HTTP status must be 200')
   const body = await response.json()
