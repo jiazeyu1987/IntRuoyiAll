@@ -232,3 +232,19 @@
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=ProcessPoolTimelineQueryTest,ProcessPoolTimelineDateFilterTest,ProcessPoolTimelineFilterTest,ProcessPoolTimelineTraceabilityTest,ProcessPoolTimelineContentSummaryTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 8 tests.
 - GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-frontend-static.spec.cjs` -> PASS.
 - GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> PASS.
+
+## 2026-07-30 Mainline System Verification
+
+- Merge status: F1/F2/F3/F4/F7/F8 branches are ancestors of `int_main`; branch contains checks show each feature branch and `int_main` contain the feature tip.
+- REGRESSION: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPool*Test,MesProFrontlineFeedback*Test,FrontlineTemplate*Test,ProductionTemplateContractTest,PqcSimpleTemplateContractTest,MesFrontline*Test,ProcessPoolTimeline*Test" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 57 tests.
+- REGRESSION: `mvn -pl yudao-module-mes -am "-DskipTests" compile` -> PASS.
+- REGRESSION: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_mes_process_pool_sql.py` -> PASS, 3 tests.
+- REGRESSION: `node IntRuoyiFronted\src\views\mes\pro\feedback\frontline-template-render.spec.cjs` -> PASS.
+- REGRESSION: `node IntRuoyiFronted\src\views\mes\pro\feedback\frontline-template-switch.spec.cjs` -> PASS.
+- REGRESSION: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-frontend-static.spec.cjs` -> PASS.
+- REGRESSION: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> PASS.
+- REGRESSION: `pnpm --dir IntRuoyiFronted ts:check` -> PASS.
+- REGRESSION: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
+- BLOCKER: real Playwright E2E was not run because no confirmed test tenant/account, device-account route/process/employee binding data, electronic-signature test identity, production work order/process-pool seed data, or approved runtime startup scope was available. Static/API/JUnit checks are not recorded as E2E pass.
+- Experience consolidation: updated `docs/worktree-memory.md#跨分支运行时契约复验门禁` and `docs/experience-index.md` to make future multi-worktree merges verify cross-branch runtime contracts before write-side effects.
+- Task status update: `task.md` and `task-state.json` set to `ready_for_closeout`; `verification-report.md` created.

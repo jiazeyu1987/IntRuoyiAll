@@ -19,6 +19,15 @@
 - Forbidden action: 禁止把多个 dirty worktree 内容直接复制到主工作区；禁止用 `--force` merge、整文件 `ours/theirs`、静默跳过失败测试、或在首次推送和分支 ancestor 验证前删除 worktree。
 - Evidence: `doc/tasks/20260726-merge-worktrees-into-int-main/verification-report.md`，六个 worktree 在 dirty 内容独立提交、逐分支 merge、冲突后聚焦回归和 ancestor 验证后进入删除阶段。
 
+### 跨分支运行时契约复验门禁
+
+- Trigger: 多个子分支分别实现相邻功能，且一个分支新增接口、Service、Mapper、模板或授权链路，另一个分支在运行时应调用它；典型现象是各分支单测都通过，但主线合并后 Spring 注入、接口实现、构造器参数或调用顺序仍可能缺失。
+- Preflight check: 每次合并依赖分支后，先用 `rg` 查找新增接口的生产实现和调用点，再为跨分支调用链补一个最小 RED/GREEN 测试；测试必须证明调用发生在任何写库、状态推进或外部副作用之前。
+- Blocker: 新接口只有测试 mock 或空接口、生产服务未注入、调用点只在前端/API payload 中体现、跨分支依赖靠默认值/空实现/可选 bean 运行，或无法证明失败会阻止后续写入时必须停止。
+- Verification: 运行跨分支最小 JUnit/静态合同和合并后的组合回归；记录 RED 原因、GREEN 命令、调用顺序断言和 `git diff --check`。
+- Forbidden action: 禁止把各分支独立 PASS 当作整体 PASS；禁止用 optional/autowired fallback、空实现、默认模板、默认员工或 API-only 验证掩盖运行时链路缺口；禁止等全部分支合完后才第一次看跨分支注入关系。
+- Evidence: `doc/tasks/20260730-production-line-process-pool-implementation/execution-log.md`，F2 报工提交与 F4 设备账号员工授权各自通过后，主线新增 RED/GREEN，确保 `MesProFrontlineFeedbackSubmitServiceImpl` 在创建报工/记录本/工序池事件前调用 `MesFrontlineSubmitAuthorizationService`。
+
 ### 子 Agent 主工作区溢出基线门禁
 
 - Trigger: 并行子 agent 本应只写 `D:\IntRuoyiWorktree\`，但主工作区出现同一任务的新增/修改文件，且这些文件会被后续分支 merge 覆盖或触发 untracked overwrite。

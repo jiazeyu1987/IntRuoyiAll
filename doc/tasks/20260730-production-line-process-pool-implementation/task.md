@@ -10,10 +10,10 @@
 - [x] 建立监督式交付任务文档和状态文件。
 - [x] 创建 6 个受控 worktree。
 - [x] 启动 6 个子 agent 分别实施 F1、F2、F3、F4、F7、F8。
-- [ ] 主线程 review 每个 worktree 的实现、测试和证据。
-- [ ] 对未通过项退回修复并复验。
-- [ ] 将通过的 6 个 worktree 逐个融合进 `int_main`。
-- [ ] 在 `int_main` 运行系统级验证。
+- [x] 主线程 review 每个 worktree 的实现、测试和证据。
+- [x] 对未通过项退回修复并复验。
+- [x] 将通过的 6 个 worktree 逐个融合进 `int_main`。
+- [x] 在 `int_main` 运行系统级验证。
 - [ ] 提交、推送并完成 closeout。
 
 ## Expected Verification
@@ -36,7 +36,16 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Verification Summary
+
+- 后端目标 JUnit：PASS，57 tests，覆盖 F1/F2/F3/F4/F7/F8。
+- 后端编译：PASS，`mvn -pl yudao-module-mes -am "-DskipTests" compile`。
+- SQL 契约：PASS，`test_mes_process_pool_sql.py` 3 tests。
+- 前端类型检查：PASS，`pnpm --dir IntRuoyiFronted ts:check`。
+- 前端静态契约：PASS，固定模板渲染/切换、时间轴前端、时间轴 mapper。
+- 真实 Playwright E2E：未运行；缺少已确认的测试租户、设备账号绑定、可用电子签名、生产工单/工序池样本数据和本轮授权的运行态启动范围，未将静态/API 验证冒充 E2E。
 
 ## 设计约束检查
 

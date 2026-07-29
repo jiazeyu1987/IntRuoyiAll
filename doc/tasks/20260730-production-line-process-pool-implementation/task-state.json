@@ -1,11 +1,13 @@
 {
   "task_id": "20260730-production-line-process-pool-implementation",
   "goal": "启动6个子agent分别在6个worktree里实现验证生产一线报工工序池6个功能点，主线程review，全部符合21条需求后融合进int_main。",
-  "status": "executing",
-  "current_stage": "execution",
+  "status": "ready_for_closeout",
+  "current_stage": "closeout",
   "planner_review_status": "approved",
   "plan_review_status": "approved",
-  "blocking_prereqs": [],
+  "blocking_prereqs": [
+    "真实 Playwright E2E 未运行：缺少已确认测试租户/账号、设备账号路线工序员工绑定、可用电子签名测试身份、生产工单/工序池样本数据和本轮授权的运行态启动范围。"
+  ],
   "iteration_counts": {
     "planner_revisions": 0,
     "plan_revisions": 0,
@@ -16,7 +18,7 @@
     {
       "task_id": "F1",
       "title": "工序池基础模型和事件服务",
-      "status": "in_progress",
+      "status": "merged_verified",
       "dependency_ids": [],
       "write_scope": [
         "IntRuoyiBackend/yudao-module-mes",
@@ -31,12 +33,12 @@
         "AC-17"
       ],
       "owner_agent": "019faef8-bde7-7590-bb7f-faeaccd77209",
-      "last_outcome": "spawned in D:\\IntRuoyiWorktree\\20260730-ppool-f1-foundation"
+      "last_outcome": "merged into int_main and covered by combined JUnit/SQL verification"
     },
     {
       "task_id": "F2",
       "title": "报工和记录本一体提交",
-      "status": "in_progress",
+      "status": "merged_verified",
       "dependency_ids": [
         "F1"
       ],
@@ -52,12 +54,12 @@
         "AC-17"
       ],
       "owner_agent": "019faef9-0a3f-7c62-b592-3b625a090eee",
-      "last_outcome": "spawned in D:\\IntRuoyiWorktree\\20260730-ppool-f2-submit"
+      "last_outcome": "merged into int_main; submit service authorization bridge covered by RED/GREEN"
     },
     {
       "task_id": "F3",
       "title": "固定模板录入",
-      "status": "in_progress",
+      "status": "merged_verified",
       "dependency_ids": [
         "F1"
       ],
@@ -73,12 +75,12 @@
         "AC-17"
       ],
       "owner_agent": "019faef9-4f78-73d1-a45f-eb2d6a2a39f3",
-      "last_outcome": "spawned in D:\\IntRuoyiWorktree\\20260730-ppool-f3-template"
+      "last_outcome": "merged into int_main and covered by backend/static/frontend typecheck verification"
     },
     {
       "task_id": "F4",
       "title": "设备账号内切换实际员工",
-      "status": "in_progress",
+      "status": "merged_verified",
       "dependency_ids": [
         "F1"
       ],
@@ -94,12 +96,12 @@
         "AC-10"
       ],
       "owner_agent": "019faef9-8f7b-75b3-899e-50e1e2a3b76f",
-      "last_outcome": "spawned in D:\\IntRuoyiWorktree\\20260730-ppool-f4-device-employee"
+      "last_outcome": "merged into int_main and integrated into combined submit authorization"
     },
     {
       "task_id": "F7",
       "title": "生产工单 FIFO 分配基础逻辑",
-      "status": "in_progress",
+      "status": "merged_verified",
       "dependency_ids": [
         "F1"
       ],
@@ -114,12 +116,12 @@
         "AC-14"
       ],
       "owner_agent": "019faef9-d1c8-7010-9ccf-655285cc7b8c",
-      "last_outcome": "spawned in D:\\IntRuoyiWorktree\\20260730-ppool-f7-fifo"
+      "last_outcome": "merged into int_main and covered by FIFO JUnit/SQL verification"
     },
     {
       "task_id": "F8",
       "title": "工序池时间轴 / 甘特图只读查询",
-      "status": "in_progress",
+      "status": "merged_verified",
       "dependency_ids": [
         "F1",
         "F2",
@@ -140,8 +142,16 @@
         "AC-13"
       ],
       "owner_agent": "019faefa-2306-7e72-8137-5dde1e34a3e7",
-      "last_outcome": "spawned in D:\\IntRuoyiWorktree\\20260730-ppool-f8-timeline"
+      "last_outcome": "merged into int_main and covered by timeline JUnit/static verification"
     }
   ],
-  "updated_at": "2026-07-30T00:35:00+08:00"
+  "verification_summary": {
+    "backend_target_junit": "PASS, 57 tests",
+    "backend_compile": "PASS",
+    "sql_contract": "PASS, 3 tests",
+    "frontend_typecheck": "PASS",
+    "frontend_static": "PASS",
+    "real_e2e": "NOT_RUN_MISSING_PREREQS"
+  },
+  "updated_at": "2026-07-30T03:12:00+08:00"
 }
