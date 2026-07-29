@@ -956,6 +956,17 @@ public interface ErrorCodeConstants {
             "工序表单权限规则缺少工艺用途批记录表绑定，routeProcessId={}, batchRecordReportId={}");
     ErrorCode PRO_EDHR_PROCESS_FORM_PERMISSION_RULE_VERSION_REQUIRED = new ErrorCode(1_040_750_205,
             "工序表单权限规则缺少批记录版本，routeProcessId={}, batchRecordReportId={}");
+
+    // ========== MES 工序池基础模块（1-040-760-000） ==========
+    ErrorCode PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED = new ErrorCode(1_040_760_000,
+            "工序池提交事件缺少必填上下文：{}");
+    ErrorCode PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH = new ErrorCode(1_040_760_001,
+            "工序池电子签名用户必须等于实际员工");
+    ErrorCode PRO_PROCESS_POOL_SIGNATURE_DUPLICATE = new ErrorCode(1_040_760_002,
+            "工序池提交事件电子签名已存在：{}");
+    ErrorCode PRO_PROCESS_POOL_PQC_RESULT_INVALID = new ErrorCode(1_040_760_003,
+            "工序池 PQC 结果无效：{}");
+
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_MULTI_VERSION = new ErrorCode(1_040_107_006, "ERP 涓墿鏂?浜у搧缂栫爜 {} 鍛戒腑浜嗗涓凡瀹℃牳 BOM 鐗堟湰锛歿}");
