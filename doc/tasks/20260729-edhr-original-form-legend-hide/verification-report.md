@@ -19,4 +19,11 @@
 
 - `ExecutionPage.vue` 存在其他任务的并发改动。
 - 本任务实现仅为原表模式组件调用增加 `:show-rule-legend="false"`。
-- 提交必须使用选择性暂存，不得混入辅助卡片或网格布局改动。
+- 本任务源码和专用测试已由并发基线提交 `18f2848f` 纳入；最终收尾提交只包含本任务文档。
+
+## Closeout
+
+- frontend feature evidence validator -> PASS
+- task closeout preview -> ready
+- task closeout apply -> applied，deleted_paths none
+- Final status: completed

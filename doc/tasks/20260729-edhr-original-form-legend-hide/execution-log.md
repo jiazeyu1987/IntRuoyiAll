@@ -26,3 +26,6 @@
 - CHECK: frontend feature evidence 首次校验失败，缺少精确 `BDD:` 与 `Verification` 标记；已按校验器契约补齐，等待复验。
 - GREEN: `validate_frontend_feature.py --evidence doc/tasks/20260729-edhr-original-form-legend-hide/frontend-feature-evidence.md` -> PASS。
 - CLEANUP: `task_closeout.py --task-id 20260729-edhr-original-form-legend-hide --mode preview` -> ready；keep 四个任务证据文件，delete/blocked/warnings 均为 none。
+- CLEANUP: `task_closeout.py --task-id 20260729-edhr-original-form-legend-hide --mode apply` -> applied；deleted_paths none，当前为主 worktree，无 merge/remove 动作。
+- COMMIT: 本任务源码、专用静态合同和初始任务证据已由并发任务的脏工作区基线提交 `18f2848f` 纳入；经 `git show --name-status 18f2848f` 确认包含 `ExecutionPage.vue`、专用静态合同和本任务四个证据文件。
+- FINAL: completed -> 图例隐藏、验证、证据校验和 cleanup 均完成；最终收尾记录等待独立提交与推送。

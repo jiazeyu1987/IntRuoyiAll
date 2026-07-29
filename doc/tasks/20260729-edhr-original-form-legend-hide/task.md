@@ -10,7 +10,7 @@
 2. `completed`：补充聚焦静态合同并记录 RED。
 3. `completed`：在执行填写页关闭规则图例。
 4. `completed`：运行聚焦合同、相邻回归和类型检查。
-5. `in_progress`：更新验证证据并完成收尾。
+5. `completed`：更新验证证据并完成收尾。
 
 ## Expected Verification
 
@@ -32,7 +32,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Cleanup Keep
 
