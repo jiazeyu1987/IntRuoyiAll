@@ -12,6 +12,8 @@
 4. `completed`：实施最小 CSS 调整，作用域限定在辅助网格单元格。
 5. `completed`：运行目标合同、相邻回归、类型检查和证据校验。
 6. `completed`：cleanup preview/apply、提交并推送。
+7. `completed`：按用户“继续”确认口径，覆盖后续并发放大规则，将标题、输入提示和单位统一恢复为 1/2 字号。
+8. `completed`：证据校验、cleanup、提交并推送。
 
 ## Expected Verification
 
