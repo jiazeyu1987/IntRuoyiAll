@@ -2,7 +2,7 @@
 
 ## Summary
 
-Documentation writing and structural verification passed. Git closeout remains blocked by pre-existing dirty workspace state that is outside this documentation task.
+Documentation writing and structural verification passed, including the latest clarification that one-line employees submit through the production feedback/report-work flow and the same confirmation should extract both feedback data and batch-record-related data. Git closeout remains blocked because the current branch is ahead of `origin/int_main` and unrelated frontend files are modified.
 
 ## Evidence
 
@@ -14,9 +14,13 @@ Documentation writing and structural verification passed. Git closeout remains b
 - PASS: `task-closeout-cleanup` preview/apply completed with no delete candidates and no blocked paths.
 - PASS: Existing-system integration notes added to `docs/inception/project-brief.md` and `docs/inception/evidence-inventory.md`.
 - PASS: User correction applied: FIFO and resource allocation target now use production work orders, not the scheduling system.
+- PASS: User clarification applied: frontline entry is production feedback/report-work submission, and the same confirm submit should extract both feedback data and batch-record-related data.
 - PASS: Inception structure validation and UTF-8 read validation passed after the correction.
+- PASS: Inception structure validation and UTF-8 read validation passed after the feedback-centered clarification.
+- PASS: `git diff --check` reported no whitespace errors after the feedback-centered clarification; Git reported line-ending normalization warnings only.
 - PASS: Cleanup preview/apply passed after the correction with no deleted paths.
-- BLOCKED: final Git commit/push closeout was not performed because `git status --short --branch` showed pre-existing unrelated dirty files in the workspace.
+- PASS: Cleanup preview/apply passed after the feedback-centered clarification with no deleted paths.
+- BLOCKED: final Git commit/push closeout was not performed because `git status --short --branch` showed `int_main...origin/int_main [ahead 1]` and unrelated modified files including `IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue` and `IntRuoyiFronted/tests/e2e/edhr-assist-product-info-virtual-process-static.spec.js`.
 
 ## Final Result
 

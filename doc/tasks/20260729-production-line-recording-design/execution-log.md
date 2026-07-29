@@ -8,6 +8,8 @@
 
 用户纠正：不考虑排产系统，订单只考虑生产工单。
 
+用户补充：方案要结合当前报工系统。一线员工做的是报工，但报工时需要填写批记录相关内容；点击确定提交时，系统除了提取批记录信息，也要提取报工信息。
+
 ## BDD Scenarios
 
 BDD: capture current-thread discussion only -> Given this thread contains the business discussion about production-line simplified recording, When documents are written, Then they include this thread's prior messages and exclude unrelated project history or other tasks.
@@ -17,6 +19,8 @@ BDD: preserve confirmed business semantics -> Given the user clarified input fie
 BDD: preserve batch-record terminology boundary -> Given project rules distinguish batch record forms, form slots, and process start configuration, When the new design notes mention batch records, Then they must not use `formBindings` or process-start settings as substitutes for formal per-process batch record binding.
 
 BDD: integrate with existing system first -> Given the current system already contains eDHR recordbook, work tasks, field audit, feedback, surplus pool, surplus allocation, and production work order planned start time, When the integration note is written, Then it must map the new business idea onto those capabilities before proposing new modules.
+
+BDD: feedback submit extracts two data sets -> Given a frontline employee reports work in the existing feedback flow and fills batch-record-related fields, When the employee confirms submission, Then the document must describe feedback data and batch-record data being extracted from the same submission with a formal source association.
 
 ## Command And Evidence Log
 
@@ -38,11 +42,21 @@ BDD: integrate with existing system first -> Given the current system already co
 - GREEN: update `docs/inception/project-brief.md` -> PASS, added existing-system integration approach and boundary rules.
 - GREEN: update `docs/inception/evidence-inventory.md` -> PASS, added current-thread integration request, code evidence, and integration decision.
 - GREEN: apply user correction about no scheduling system -> PASS, replaced schedule-order FIFO with production-work-order FIFO in inception docs.
+- RED: initial backend feedback path inspection -> FAIL, old module path was wrong; corrected to `IntRuoyiBackend/yudao-module-mes/...` before using code evidence.
+- GREEN: inspect current feedback form and API code -> PASS, current `FeedbackForm.vue` and feedback API already provide report-work save/submit and eDHR entry hooks.
+- GREEN: apply user clarification about feedback-centered submission -> PASS, documented that the frontline primary action is report-work submission, with batch-record-related data extracted from the same submit payload.
 - GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after production-work-order correction.
 - GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after production-work-order correction.
 - GREEN: `git diff --check -- task-owned docs` -> PASS after production-work-order correction; Git reported line-ending normalization warnings only.
+- GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after feedback-centered clarification.
+- GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after feedback-centered clarification.
+- GREEN: `git diff --check -- task-owned docs` -> PASS after feedback-centered clarification; Git reported line-ending normalization warnings only.
+- RED: `git status --short --branch` closeout precondition -> FAIL after feedback-centered clarification, workspace still contains staged/uncommitted files outside this task and staged prior states for task-owned docs.
 - GREEN: `task-closeout-cleanup --mode preview` -> PASS after production-work-order correction, delete none, blocked none.
 - GREEN: `task-closeout-cleanup --mode apply` -> PASS after production-work-order correction, deleted none.
+- GREEN: `task-closeout-cleanup --mode preview` -> PASS after feedback-centered clarification, keep core task docs, delete none, blocked none.
+- GREEN: `task-closeout-cleanup --mode apply` -> PASS after feedback-centered clarification, deleted none.
+- RED: final `git status --short --branch` closeout precondition -> FAIL, branch is `int_main...origin/int_main [ahead 1]` and unrelated frontend files are modified; this task did not stage, commit, or push.
 
 ## Milestone Updates
 
@@ -54,8 +68,11 @@ BDD: integrate with existing system first -> Given the current system already co
 - Ran cleanup preview/apply successfully with no deletions.
 - Added existing-system integration notes after user asked how to minimize new-system development.
 - Updated the integration notes after user clarified that orders only mean production work orders and the scheduling system should not be considered.
-- Re-ran cleanup preview/apply after the correction; no task-owned files were deleted.
+- Updated the integration notes after user clarified that the one-line entry should be centered on existing production feedback submission, not a standalone recordbook submission.
+- Re-ran validation after the feedback-centered clarification.
+- Re-ran cleanup preview/apply after the production-work-order correction; no task-owned files were deleted.
+- Re-ran cleanup preview/apply after the feedback-centered clarification; no task-owned files were deleted.
 
 ## Blockers
 
-- Git closeout is blocked by pre-existing dirty workspace state unrelated to this documentation task unless the user explicitly wants a dirty-worktree baseline commit.
+- Git closeout is blocked by current branch `ahead 1` and modified unrelated frontend files; this documentation task did not stage, commit, or push those changes.

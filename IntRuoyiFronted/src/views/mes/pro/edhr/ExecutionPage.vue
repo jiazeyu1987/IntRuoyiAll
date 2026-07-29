@@ -3055,10 +3055,6 @@ const assistTaskSwitchLabel = computed(() => {
   return parts.length ? parts.join(' / ') : '当前任务'
 })
 
-const assistProcessSwitchLabel = computed(
-  () => execution.value?.processName || execution.value?.processCode || '当前工序'
-)
-
 const resolveAssistSwitchUserDisplayName = (userId?: unknown) => {
   if (!userId || !Array.isArray(execution.value?.assistSwitchTasks)) return ''
   for (const task of execution.value.assistSwitchTasks) {
@@ -5101,7 +5097,7 @@ const loadAssistProcessSwitchItems = async () => {
   }
 }
 
-const resolveCurrentAssistBatchTask = (tasks: EdhrBatchExecutionTaskRespVO[]) => {
+const resolveCurrentAssistBatchTaskOrUndefined = (tasks: EdhrBatchExecutionTaskRespVO[]) => {
   const batchTaskId = parsePositiveRouteQueryId(route.query.batchTaskId)
   if (batchTaskId) {
     const batchTask = tasks.find((task) => sameRouteQueryId(task.id, batchTaskId))
@@ -5125,8 +5121,27 @@ const resolveCurrentAssistBatchTask = (tasks: EdhrBatchExecutionTaskRespVO[]) =>
     )
     if (executionTask) return executionTask
   }
+  return undefined
+}
+
+const resolveCurrentAssistBatchTask = (tasks: EdhrBatchExecutionTaskRespVO[]) => {
+  const currentTask = resolveCurrentAssistBatchTaskOrUndefined(tasks)
+  if (currentTask) return currentTask
   throw new Error('当前填写页无法识别所属批次任务，不能解析当前工序填写人。')
 }
+
+const resolveAssistCurrentProcessLabel = () => {
+  const currentTask = resolveCurrentAssistBatchTaskOrUndefined(
+    execution.value?.assistSwitchTasks || []
+  )
+  return currentTask
+    ? resolveAssistProcessSwitchItemName(currentTask) ||
+        currentTask.processCode ||
+        '当前工序'
+    : execution.value?.processName || execution.value?.processCode || '当前工序'
+}
+
+const assistProcessSwitchLabel = computed(resolveAssistCurrentProcessLabel)
 
 const loadAssistFillerSwitchItems = async () => {
   assistFillerSwitchLoading.value = true

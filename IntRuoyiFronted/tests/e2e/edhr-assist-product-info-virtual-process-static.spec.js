@@ -75,4 +75,39 @@ assert.doesNotMatch(
   '切换填写人不得继续只按来源 routeProcessId 合并产品信息和粗洗任务。'
 )
 
+const currentTaskFinderMatch = executionPage.match(
+  /const resolveCurrentAssistBatchTaskOrUndefined = \(tasks: EdhrBatchExecutionTaskRespVO\[\]\) => \{[\s\S]*?(?=\n\nconst resolveCurrentAssistBatchTask)/
+)
+assert.ok(currentTaskFinderMatch, '顶部工序标签必须复用可选的当前批次任务解析函数。')
+assert.match(
+  currentTaskFinderMatch[0],
+  /parsePositiveRouteQueryId\(route\.query\.batchTaskId\)[\s\S]*sameRouteQueryId\(task\.id,\s*batchTaskId\)/,
+  '当前批次任务必须优先按 route query batchTaskId 识别。'
+)
+
+const processLabelMatch = executionPage.match(
+  /const resolveAssistCurrentProcessLabel = \(\) => \{[\s\S]*?(?=\n\nconst assistProcessSwitchLabel)/
+)
+assert.ok(processLabelMatch, '顶部工序标签必须保留独立显示名称解析函数。')
+assert.match(
+  processLabelMatch[0],
+  /resolveCurrentAssistBatchTaskOrUndefined\(\s*execution\.value\?\.assistSwitchTasks \|\| \[\]\s*\)/,
+  '顶部工序标签必须先解析当前批次任务。'
+)
+assert.match(
+  processLabelMatch[0],
+  /resolveAssistProcessSwitchItemName\(currentTask\)/,
+  '顶部工序标签必须使用与工序卡片一致的产品信息虚拟名称解析。'
+)
+assert.match(
+  executionPage,
+  /const assistProcessSwitchLabel = computed\(resolveAssistCurrentProcessLabel\)/,
+  '顶部工序标签 computed 必须使用统一的当前显示工序解析。'
+)
+assert.doesNotMatch(
+  executionPage,
+  /const assistProcessSwitchLabel = computed\(\s*\(\) => execution\.value\?\.processName/,
+  '顶部工序标签不得继续只显示产品信息任务的来源工序名称。'
+)
+
 console.log('PASS: eDHR assist process and filler switches isolate virtual product info process 80.')
