@@ -4980,8 +4980,43 @@ const compareAssistBatchTasks = (
   (first.batchRecordSort || 0) - (second.batchRecordSort || 0) ||
   first.id - second.id
 
-const buildAssistProcessSwitchItemKey = (task: EdhrBatchExecutionTaskRespVO) =>
-  String(task.routeProcessId || task.routeProcessSort || task.processCode || task.processName || task.id)
+const ASSIST_PRODUCT_INFO_PROCESS_SORT = 80
+const ASSIST_PRODUCT_INFO_PROCESS_NAME = '产品信息'
+
+const containsAssistProductInfoTitle = (text?: string | number | null) => {
+  const normalized = String(text ?? '')
+    .trim()
+    .replace(/\s+/g, '')
+  return (
+    Boolean(normalized) &&
+    (normalized.includes('产品信息') ||
+      normalized.toLowerCase().includes('productinformation'))
+  )
+}
+
+const isAssistProductInfoProcessTask = (task: EdhrBatchExecutionTaskRespVO) =>
+  task.nodeType === EDHR_BATCH_NODE_ROUTE_FORM &&
+  task.formSlotType === 'MAIN' &&
+  task.recordCategory === 'BATCH_RECORD' &&
+  (task.batchRecordSort === ASSIST_PRODUCT_INFO_PROCESS_SORT ||
+    containsAssistProductInfoTitle(task.batchRecordReportName) ||
+    containsAssistProductInfoTitle(task.batchRecordReportCode) ||
+    containsAssistProductInfoTitle(task.batchRecordReportId))
+
+const buildAssistProcessSwitchItemKey = (task: EdhrBatchExecutionTaskRespVO) => {
+  if (isAssistProductInfoProcessTask(task)) {
+    return `product-info:${task.batchRecordReportId || task.id}`
+  }
+  return String(
+    task.routeProcessId || task.routeProcessSort || task.processCode || task.processName || task.id
+  )
+}
+
+const resolveAssistProcessSwitchItemName = (task: EdhrBatchExecutionTaskRespVO) =>
+  isAssistProductInfoProcessTask(task) ? ASSIST_PRODUCT_INFO_PROCESS_NAME : task.processName
+
+const resolveAssistProcessSwitchItemSort = (task: EdhrBatchExecutionTaskRespVO) =>
+  isAssistProductInfoProcessTask(task) ? ASSIST_PRODUCT_INFO_PROCESS_SORT : task.routeProcessSort
 
 const isAssistMainBatchRecordTask = (task: EdhrBatchExecutionTaskRespVO) =>
   !task.formTemplateId && task.formSlotType === 'MAIN'
@@ -5007,9 +5042,9 @@ const buildAssistProcessSwitchItems = (tasks: EdhrBatchExecutionTaskRespVO[]) =>
       return {
         key,
         routeProcessId: primaryTask.routeProcessId,
-        routeProcessSort: primaryTask.routeProcessSort,
+        routeProcessSort: resolveAssistProcessSwitchItemSort(primaryTask),
         processCode: primaryTask.processCode,
-        processName: primaryTask.processName,
+        processName: resolveAssistProcessSwitchItemName(primaryTask),
         tasks: sortedGroupTasks,
         primaryTask
       }
@@ -5102,15 +5137,12 @@ const loadAssistFillerSwitchItems = async () => {
       throw new Error('当前执行详情缺少填写人快照，不能切换填写人。')
     }
     const currentTask = resolveCurrentAssistBatchTask(assistSwitchTasks)
-    const routeProcessId = parsePositiveNumber(currentTask.routeProcessId)
-    if (!routeProcessId) {
-      throw new Error(`当前批次任务 ${currentTask.id} 缺少 routeProcessId，不能解析填写人。`)
-    }
+    const currentProcessGroupKey = buildAssistProcessSwitchItemKey(currentTask)
     const currentProcessTasks = [...assistSwitchTasks]
       .filter(
         (task) =>
           !isAssistSpecialBatchTask(task) &&
-          sameRouteQueryId(task.routeProcessId, routeProcessId)
+          buildAssistProcessSwitchItemKey(task) === currentProcessGroupKey
       )
       .sort(
         (first, second) =>

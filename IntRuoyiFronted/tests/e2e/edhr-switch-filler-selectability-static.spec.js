@@ -80,13 +80,13 @@ assert.match(
 )
 assert.match(
   loadItemsMatch[0],
-  /sameRouteQueryId\(task\.routeProcessId,\s*routeProcessId\)/,
-  '当前工序候选过滤必须使用 route query ID 语义，避免数字/字符串差异漏掉附加表单。'
+  /const currentProcessGroupKey = buildAssistProcessSwitchItemKey\(currentTask\)/,
+  '当前工序候选过滤必须先解析当前任务所属显示工序分组。'
 )
-assert.doesNotMatch(
+assert.match(
   loadItemsMatch[0],
-  /task\.routeProcessId\s*===\s*routeProcessId/,
-  '当前工序候选过滤不得用严格等于比较 routeProcessId。'
+  /buildAssistProcessSwitchItemKey\(task\) === currentProcessGroupKey/,
+  '当前工序候选必须按统一显示工序分组筛选，既保留普通工序附加表单又隔离产品信息虚拟工序。'
 )
 const currentProcessFilterMatch = loadItemsMatch[0].match(
   /const currentProcessTasks = \[\.\.\.assistSwitchTasks\][\s\S]*?\.sort\(/
