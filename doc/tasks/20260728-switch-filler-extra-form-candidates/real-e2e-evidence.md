@@ -5,11 +5,11 @@
 - Frontend: `http://127.0.0.1:8081`
 - Backend: `http://127.0.0.1:48081`
 - Identity: `芋道源码/wangxin`
-- Fixture role setup: roleAdded=`false`, targetRole=`粗洗工序填写者角色`
+- Fixture role setup: roleAdded=`true`, targetRole=`粗洗工序填写者角色`
 - Fixture role restore: restored=`true`
 - Execution detail snapshot: assistSwitchTaskCount=`4`, extraAssistSwitchTaskCount=`2`
 - Extra form task: `<none>`
-- Filler options: total=`9`, enabledExtraOptions=`2`, enabledExtraOthers=`2`
+- Filler options: total=`0`, enabledExtraOptions=`0`, enabledExtraOthers=`0`
 - Full batch detail reload before option selection: ``
 - Selected extra-form filler: `<none>`
 - API errors during switch: `0`
@@ -24,7 +24,4 @@
 
 ## Error
 
-- locator.waitFor: Timeout 60000ms exceeded.
-Call log:
-[2m  - waiting for locator('.el-drawer:visible').filter({ hasText: '填写表单：损耗单' }).first() to be visible[22m
-
+- filler switch must show at least current and one other option, got 0

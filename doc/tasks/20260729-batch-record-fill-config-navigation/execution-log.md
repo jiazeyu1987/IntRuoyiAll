@@ -11,3 +11,12 @@
 - BDD: 未保存变更保护 -> Given 当前填写配置有未保存修改 / When 用户点击上一张或下一张 / Then 页面先确认是否放弃未保存修改；取消时保持当前表单。
 - BDD: 导航候选加载失败显式暴露 -> Given 同产品同版本候选列表接口失败或当前表单缺少产品/版本 / When 用户打开填写配置 / Then 导航按钮禁用并显示真实阻塞原因，不返回默认成功或 mock 候选。
 - RED: `node tests/e2e/batch-record-cell-rule-navigation-static.spec.js` -> FAIL，预期失败在 `填写配置弹窗顶部必须有三段式主工具栏。`
+- RED: `node tests/e2e/batch-record-cell-rule-navigation-static.spec.js` -> FAIL，预期失败在 `切换目标不在当前列表页时，页面预览上下文必须能从同版本候选集合解析当前表单。`
+- GREEN: `node tests/e2e/batch-record-cell-rule-navigation-static.spec.js` -> PASS，顶部三段式工具栏、上一张/下一张事件、候选分页 200、batchRecordVersionId 精确过滤、候选预览上下文和 footer 移除均通过。
+- GREEN: `node tests/e2e/batch-record-cell-rule-default-fullscreen-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/batch-record-cell-rule-dialog-size-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> 首次 120s 超时未返回失败堆栈；300s 复跑 PASS。
+- REAL-E2E-PREFLIGHT: `http://127.0.0.1:8081/` -> 200；`http://127.0.0.1:48081/actuator/health` -> UP；`where.exe npx` 与 `require('playwright')` 均可用。
+- GREEN: `node tests/e2e/batch-record-cell-rule-dialog-size-real.e2e.js` -> PASS；真实页面打开“填写配置”，顶部工具栏可见，`下一张` 切换触发 cell-rules GET 从 `44eedd7cf9e44ebda68e8f264656567f` 切到 `5d78e62bf4b44f9e9b38e4c7a7eca046`，MES 写请求数 `0`。
+- STATUS: 实现和验证完成，任务进入 `ready_for_closeout`，剩余 experience consolidation、cleanup、提交和推送。

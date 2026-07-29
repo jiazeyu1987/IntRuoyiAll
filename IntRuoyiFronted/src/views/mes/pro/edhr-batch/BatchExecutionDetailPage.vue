@@ -3570,6 +3570,14 @@ const canOpenTask = (row: EdhrBatchExecutionTaskRespVO) =>
   hasActiveWorkTask(row) &&
   hasAllowedTaskAction(row, 'OPEN_FORM')
 
+const canAutoOpenRouteFormTask = (row: EdhrBatchExecutionTaskRespVO) =>
+  !isSpecialNode(row) &&
+  !resolveTaskSlotBlocker(row) &&
+  row.available !== false &&
+  row.status !== EDHR_BATCH_TASK_STATUS_BLOCKED &&
+  row.status !== EDHR_BATCH_TASK_STATUS_SKIPPED &&
+  hasActiveWorkTask(row)
+
 const canTakeOverFillTask = (row: EdhrBatchExecutionTaskRespVO) =>
   canUseFlowTransferIntervention.value &&
   !isSpecialNode(row) &&
@@ -3753,7 +3761,7 @@ const resolveRouteFormAssistUserId = (row: EdhrBatchExecutionTaskRespVO) => {
 const autoOpenRouteFormFromRoute = async () => {
   if (parseRouteQueryText(route.query.openRouteForm) !== '1') return
   const routeQueryTask = resolveRouteQueryTaskSelection()
-  if (!routeQueryTask || !canOpenTask(routeQueryTask)) return
+  if (!routeQueryTask || !canAutoOpenRouteFormTask(routeQueryTask)) return
   const autoOpenKey = resolveRouteFormAutoOpenKey()
   if (!autoOpenKey || routeFormAutoOpenKey === autoOpenKey) return
   routeFormAutoOpenKey = autoOpenKey

@@ -20,6 +20,13 @@ const assistPanelTemplate =
   assistPanelStart >= 0 && originalFormStart > assistPanelStart
     ? executionPage.slice(assistPanelStart, originalFormStart)
     : ''
+const assistRowStart = assistPanelTemplate.indexOf('class="edhr-fill-workspace__assist-row"')
+const assistRowEnd =
+  assistRowStart >= 0 ? assistPanelTemplate.indexOf('</article>', assistRowStart) : -1
+const assistRowTemplate =
+  assistRowStart >= 0 && assistRowEnd > assistRowStart
+    ? assistPanelTemplate.slice(assistRowStart, assistRowEnd)
+    : ''
 
 const assertIncludes = (content, token, message) => assert.ok(content.includes(token), message)
 const assertNotIncludes = (content, token, message) => assert.ok(!content.includes(token), message)
@@ -121,8 +128,10 @@ assertNotIncludes(executionPage, 'highlightedAssistFieldIdentity', '辅助模式
 assertIncludes(executionPage, 'data-assist-field-id', '每个辅助填写行必须有稳定字段定位属性。')
 assertIncludes(executionPage, 'edhr-fill-workspace__assist-row', '辅助模式字段必须使用紧凑行式布局。')
 assertNotIncludes(executionPage, 'edhr-fill-workspace__assist-card"', '辅助模式不能继续使用大卡片字段布局。')
-assertIncludes(executionPage, '字段说明未配置', '缺少 helpText 时必须显式显示字段说明未配置。')
-assertIncludes(executionPage, 'field.helpText', '辅助模式必须显示字段级 helpText。')
+assertNotIncludes(assistRowTemplate, '字段说明未配置', '辅助模式字段卡片不得显示字段说明占位。')
+assertNotIncludes(assistRowTemplate, 'field.helpText || field.placeholder', '辅助模式字段卡片不得显示字段说明或占位说明。')
+assertNotIncludes(assistRowTemplate, '<el-tag', '辅助模式字段卡片不得显示可选/必填/已填等红框徽标。')
+assertNotIncludes(assistRowTemplate, 'edhr-fill-workspace__assist-source', '辅助模式字段卡片不得显示位置或自动映射元信息。')
 assertIncludes(executionPage, 'helpText: resolveSnapshotFieldHelpText(field)', '执行页必须从快照字段规范化 helpText。')
 assertIncludes(executionPage, 'draftFieldValues[field.fieldIdentity]', '辅助模式必须复用现有 draftFieldValues。')
 assertNotIncludes(executionPage, 'assistDraftFieldValues', '辅助模式不得新增独立草稿对象。')

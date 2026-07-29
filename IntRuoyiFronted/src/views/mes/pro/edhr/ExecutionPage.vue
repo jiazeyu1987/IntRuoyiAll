@@ -581,29 +581,6 @@
                         <div class="edhr-fill-workspace__assist-row-meta">
                           <div class="edhr-fill-workspace__assist-label">
                             <span>{{ field.label }}</span>
-                            <el-tag
-                              v-if="isFieldRequiredForCurrentMode(field) || field.componentKind === 'signature'"
-                              size="small"
-                              type="danger"
-                              effect="plain"
-                            >
-                              {{ field.componentKind === 'signature' ? '签名' : '必填' }}
-                            </el-tag>
-                            <el-tag v-else size="small" type="info" effect="plain">可选</el-tag>
-                            <el-tag
-                              size="small"
-                              :type="resolveAssistFieldStatusTagType(field)"
-                              effect="plain"
-                            >
-                              {{ resolveAssistFieldStatusLabel(field) }}
-                            </el-tag>
-                          </div>
-                          <div class="edhr-fill-workspace__assist-help">
-                            {{ field.helpText || field.placeholder || '字段说明未配置' }}
-                          </div>
-                          <div class="edhr-fill-workspace__assist-source">
-                            <span>位置：第 {{ field.rowIndex + 1 }} 行 / 第 {{ field.columnIndex + 1 }} 列</span>
-                            <span v-if="field.unit">单位：{{ field.unit }}</span>
                           </div>
                         </div>
 
@@ -757,6 +734,7 @@
                     :signature-markers="templateSignatureMarkers"
                     :model-value="templateModelValue"
                     :fit-mode="fitMode"
+                    :show-rule-legend="false"
                     class="edhr-fill-workspace__form"
                   >
                     <template #field="{ context }">
@@ -2940,12 +2918,26 @@ const assistUsesConfiguredGrid = computed(
     )
 )
 
+const assistGridVisibleColumnIndexes = computed(() => {
+  if (!assistUsesConfiguredGrid.value) return [] as number[]
+  return Array.from(
+    new Set(
+      assistFillFields.value.map((field) => Number(field.assistGridColumnIndex))
+    )
+  ).sort((left, right) => left - right)
+})
+
+const assistGridColumnDisplayIndexMap = computed(() => {
+  const map = new Map<number, number>()
+  assistGridVisibleColumnIndexes.value.forEach((columnIndex, displayIndex) => {
+    map.set(columnIndex, displayIndex)
+  })
+  return map
+})
+
 const assistGridColumnCount = computed(() => {
   if (!assistUsesConfiguredGrid.value) return 1
-  return Math.max(
-    1,
-    ...assistFillFields.value.map((field) => Number(field.assistGridColumnIndex) + 1)
-  )
+  return assistGridVisibleColumnIndexes.value.length
 })
 
 const assistGridStyle = computed(() =>
@@ -2964,9 +2956,13 @@ const resolveAssistFieldGridStyle = (field: AssistFillField) => {
   ) {
     return undefined
   }
+  const displayColumnIndex = assistGridColumnDisplayIndexMap.value.get(field.assistGridColumnIndex)
+  if (displayColumnIndex === undefined) {
+    throw new Error('Missing compressed assist grid column index.')
+  }
   return {
     gridRow: String(field.assistGridRowIndex + 1),
-    gridColumn: String(field.assistGridColumnIndex + 1)
+    gridColumn: String(displayColumnIndex + 1)
   }
 }
 
@@ -3754,20 +3750,6 @@ const resolveAssistFieldValidationMessage = (field: AssistFillField) => {
 
 const isAssistFieldComplete = (field: AssistFillField) =>
   !isAssistFieldIncomplete(field) && !resolveAssistFieldValidationMessage(field)
-
-const resolveAssistFieldStatusLabel = (field: AssistFillField) => {
-  if (resolveAssistFieldValidationMessage(field)) return '异常'
-  if (isAssistSignatureMissing(field)) return '未签'
-  if (isAssistFieldIncomplete(field)) return '未填'
-  if (isAssistChoiceGroupField(field)) return '已选'
-  return field.componentKind === 'signature' ? '已签' : '已填'
-}
-
-const resolveAssistFieldStatusTagType = (field: AssistFillField) => {
-  if (resolveAssistFieldValidationMessage(field)) return 'danger'
-  if (isAssistFieldIncomplete(field)) return 'warning'
-  return 'success'
-}
 
 const isInactiveRevisionDraft = computed(
   () =>
@@ -5754,7 +5736,7 @@ onBeforeUnmount(() => {
   grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.2fr);
   gap: 14px;
   align-items: center;
-  min-height: 96px;
+  min-height: 74px;
   padding: 12px 14px;
   border-top: 1px solid #edf1f6;
   background: #ffffff;
@@ -5764,9 +5746,9 @@ onBeforeUnmount(() => {
 .edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-row {
   grid-template-columns: minmax(0, 1fr);
   align-content: start;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
-  min-height: 166px;
+  min-height: 118px;
   padding: 10px;
   border: 1px solid #f0c66a;
   border-radius: 8px;
@@ -5810,23 +5792,6 @@ onBeforeUnmount(() => {
 .edhr-fill-workspace__assist-label > span:first-child {
   min-width: 0;
   overflow-wrap: anywhere;
-}
-
-.edhr-fill-workspace__assist-help {
-  margin-top: 6px;
-  color: #4b5563;
-  font-size: 13px;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-
-.edhr-fill-workspace__assist-source {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 5px;
-  color: #6b7280;
-  font-size: 12px;
 }
 
 .edhr-fill-workspace__assist-control {

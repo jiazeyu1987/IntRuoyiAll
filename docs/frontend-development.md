@@ -49,6 +49,15 @@
 - Forbidden action: 禁止把截图症状当作完整需求口径；禁止把“取消的不显示”当成唯一验收项而忽略前半句“只显示已生效的历史版本”；禁止用仅隐藏 `CANCELLED` 的实现替代 effective-only 列表口径。
 - Evidence: 任务 `doc/tasks/20260727-route-version-list-active-history-only/`，首轮只隐藏 `CANCELLED` 后 completion audit 发现 `DRAFT` 仍可显示，最终改为 `ACTIVE/SUPERSEDED` 正向集合并用真实 E2E 证明 `V19 DRAFT` 与取消版本均隐藏。
 
+## 前端同集合弹窗导航上下文门禁
+
+- Trigger: 弹窗内新增上一条/下一条、上一张/下一张、同版本/同产品/同集合切换，且候选集合不受当前列表筛选或分页限制。
+- Preflight check: 先确认弹窗切换后父页面的当前对象、预览标题、操作区和详情上下文是否都能从候选集合解析；若候选可能不在当前列表页，`selected/current` 计算必须显式合并候选集合。
+- Blocker: 切换后弹窗已加载新对象但主页面显示“未选择”、预览操作区消失、详情仍指向旧对象、或静态合同只断言 emit 事件而不覆盖父页面上下文同步时必须停止。
+- Verification: 聚焦静态合同同时断言弹窗导航事件、候选集合来源和父页面 selected/current fallback；真实 E2E 可用时点击一次可用导航按钮，断言目标详情/规则请求的对象 ID 改变且无非预期写请求。
+- Forbidden action: 禁止只更新弹窗局部 props 或 label 冒充切换完成；禁止把当前列表页筛选结果当作同集合候选全集；禁止用刷新页面或静默回到第一条掩盖上下文丢失。
+- Evidence: 任务 `doc/tasks/20260729-batch-record-fill-config-navigation/`，批记录填写配置上一张/下一张候选不按当前列表筛选缩窄，需从导航候选集合补齐页面预览上下文。
+
 ## 前端保存链路重复错误提示门禁
 
 - Trigger: 页面保存动作由父组件聚合多个子组件/API 保存，且子组件、父组件、axios response interceptor 都可能 `message.error`/`ElMessage.error`。

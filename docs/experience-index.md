@@ -85,6 +85,7 @@
 - Keywords: Vite import-analysis Failed to resolve import / controlled-file/logs/index.vue / 前端源码 logs 目录被 .gitignore logs/ 忽略 / git check-ignore -> `docs/frontend-development.md#前端源码目录与-gitignore-门禁`
 - Keywords: 既有大契约先失败, 最小静态契约, 专用 static.spec.js, 当前需求 RED/GREEN, 无关 ts:check blocker -> `docs/frontend-development.md#前端静态契约隔离门禁`
 - Keywords: 只显示, 仅展示, 有效历史, 已生效历史版本, 版本列表, 状态列表, 候选版本, 取消的不显示, effective-only, ACTIVE SUPERSEDED, DRAFT CANCELLED, 只排除一个状态, `!== 'CANCELLED'` -> `docs/frontend-development.md#前端列表状态口径完整性门禁`
+- Keywords: 弹窗上一张下一张, 同集合弹窗导航, 同产品同版本切换, 候选不在当前列表页, selectedReport 候选 fallback, 预览上下文丢失, 导航后未选择表单 -> `docs/frontend-development.md#前端同集合弹窗导航上下文门禁`
 - Keywords: 保存系统异常重复提示, axios 自动错误提示, ignoreErrorMessage, 子组件 rethrow 前 toast, 父组件统一 toast, save error single toast, RouteFlowGraphDesigner, RouteFormContent -> `docs/frontend-development.md#前端保存链路重复错误提示门禁`
 - Keywords: 列表首屏成功后系统异常, 延迟辅助加载, 行级权限加载失败, listErrorMessage, permissionRuleErrorMessage, 批记录表单填写人规则加载失败, 辅助查询错误归属 -> `docs/frontend-development.md#前端延迟辅助加载错误归属门禁`
 - Keywords: DCC 上传类别权限, canUpload, Current user cannot access this controlled file, upload-preview, 文件类别下拉无上传权限, 类别级 UPLOAD 权限, DccControlledFileCategoryPermissionSupport -> `docs/frontend-development.md#dcc-上传类别权限投影门禁`

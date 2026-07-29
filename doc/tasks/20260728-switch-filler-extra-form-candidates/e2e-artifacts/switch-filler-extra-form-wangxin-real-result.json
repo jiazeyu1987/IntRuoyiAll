@@ -68,15 +68,14 @@
     "targetRoleName": "粗洗工序填写者角色",
     "originalRoleIds": [
       910295,
-      910405,
-      910416
+      910405
     ],
     "roleIdsForSetup": [
       910295,
       910405,
       910416
     ],
-    "roleAdded": false
+    "roleAdded": true
   },
   "openedTask": {
     "task": {
@@ -146,115 +145,35 @@
     }
   },
   "fillerSwitch": {
-    "optionCount": 9,
-    "enabledExtraOptionCount": 2,
-    "enabledExtraOtherCount": 2,
-    "options": [
-      {
-        "taskId": "7206",
-        "userId": "435",
-        "displayName": "刘子良",
-        "text": "刘子良批处理表单 · 粗洗工序生产记录 · 草稿",
-        "disabled": false,
-        "active": false
-      },
-      {
-        "taskId": "7206",
-        "userId": "810",
-        "displayName": "王歆",
-        "text": "王歆批处理表单 · 粗洗工序生产记录 · 草稿",
-        "disabled": false,
-        "active": true
-      },
-      {
-        "taskId": "7206",
-        "userId": "1106",
-        "displayName": "左文彬",
-        "text": "左文彬批处理表单 · 粗洗工序生产记录 · 草稿",
-        "disabled": false,
-        "active": false
-      },
-      {
-        "taskId": "7206",
-        "userId": "1297",
-        "displayName": "丁文飞",
-        "text": "丁文飞批处理表单 · 粗洗工序生产记录 · 草稿",
-        "disabled": false,
-        "active": false
-      },
-      {
-        "taskId": "7207",
-        "userId": "672",
-        "displayName": "孙倩倩",
-        "text": "孙倩倩批处理表单 · 产品信息 · 待打开",
-        "disabled": false,
-        "active": false
-      },
-      {
-        "taskId": "7207",
-        "userId": "1284",
-        "displayName": "马兰",
-        "text": "马兰批处理表单 · 产品信息 · 待打开",
-        "disabled": false,
-        "active": false
-      },
-      {
-        "taskId": "7207",
-        "userId": "1484",
-        "displayName": "严心均",
-        "text": "严心均批处理表单 · 产品信息 · 待打开",
-        "disabled": false,
-        "active": false
-      },
-      {
-        "taskId": "7208",
-        "userId": "152",
-        "displayName": "张可莹",
-        "text": "张可莹工艺路线表单槽位 · 损耗单 · 草稿",
-        "disabled": false,
-        "active": false
-      },
-      {
-        "taskId": "7209",
-        "userId": "149",
-        "displayName": "黎敏",
-        "text": "黎敏工艺路线表单槽位 · 过程检验记录 · 待打开",
-        "disabled": false,
-        "active": false
-      }
-    ],
+    "optionCount": 0,
+    "enabledExtraOptionCount": 0,
+    "enabledExtraOtherCount": 0,
+    "options": [],
     "extraTaskIds": [
       "7208",
       "7209"
     ]
   },
   "apiErrorsDuringFillerSwitch": [],
-  "fullBatchDetailReadsDuringFillerSwitch": [
-    {
-      "status": 200,
-      "method": "GET",
-      "url": "http://127.0.0.1:8081/admin-api/mes/pro/edhr-batch-execution/get?id=900000000909"
-    }
-  ],
+  "fullBatchDetailReadsDuringFillerSwitch": [],
   "candidateAttempts": [
     {
       "pageIndex": 1,
       "candidateIndex": 0,
       "taskId": 2295,
       "taskCode": "EDHRT-1785289253340",
-      "message": "locator.waitFor: Timeout 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.el-drawer:visible').filter({ hasText: '填写表单：损耗单' }).first() to be visible\u001b[22m\n"
+      "message": "filler switch must show at least current and one other option, got 0"
     }
   ],
   "error": {
-    "message": "locator.waitFor: Timeout 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.el-drawer:visible').filter({ hasText: '填写表单：损耗单' }).first() to be visible\u001b[22m\n",
-    "stack": "locator.waitFor: Timeout 60000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.el-drawer:visible').filter({ hasText: '填写表单：损耗单' }).first() to be visible\u001b[22m\n\n    at verifyExtraFormFillerSwitch (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:575:26)\n    at async run (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:702:11)"
+    "message": "filler switch must show at least current and one other option, got 0",
+    "stack": "AssertionError [ERR_ASSERTION]: filler switch must show at least current and one other option, got 0\n    at verifyExtraFormFillerSwitch (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:527:12)\n    at async run (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:724:11)"
   },
   "fixtureRestore": {
     "restored": true,
     "restoredRoleIds": [
       910295,
-      910405,
-      910416
+      910405
     ]
   }
 }

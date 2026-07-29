@@ -73,6 +73,12 @@ function resolveCellRulesReportId(payload) {
   return String(data.reportId || data.batchRecordReportId || '').trim()
 }
 
+function resolveFirstReportId(payload) {
+  const data = payload?.data || payload || {}
+  const rows = Array.isArray(data.list) ? data.list : []
+  return String(rows[0]?.reportId || '').trim()
+}
+
 async function main() {
   const browser = await chromium.launch({ headless: !config.headed, args: ['--disable-dev-shm-usage'] })
   const writeRequests = []
@@ -91,7 +97,16 @@ async function main() {
     })
 
     await login(page)
+    const listResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes('/mes/pro/batch-record-report/page') &&
+        response.request().method() === 'GET',
+      { timeout: 60000 }
+    )
     await page.goto(new URL('/mes/pro/batch-record-form-list', config.baseUrl).toString(), { waitUntil: 'commit' })
+    const listResponse = await listResponsePromise
+    const listPayload = await listResponse.json().catch(() => null)
+    const initialReportId = resolveFirstReportId(listPayload)
     await page.getByText('批记录表单', { exact: false }).first().waitFor({ state: 'visible', timeout: 60000 })
     assert.equal(
       await page.getByRole('button', { name: /单元格规则/ }).count(),
@@ -99,18 +114,9 @@ async function main() {
       'left_table_cell_rule_button_should_be_hidden'
     )
 
-    const cellRulesResponsePromise = page.waitForResponse(
-      (response) =>
-        response.url().includes('/mes/pro/batch-record-report/cell-rules') &&
-        response.request().method() === 'GET',
-      { timeout: 60000 }
-    )
     const previewActions = page.locator('.batch-record-form-preview__actions').first()
     await previewActions.waitFor({ state: 'visible', timeout: 60000 })
     await previewActions.getByRole('button', { name: '填写配置' }).click()
-    const initialCellRulesResponse = await cellRulesResponsePromise
-    const initialCellRulesPayload = await initialCellRulesResponse.json().catch(() => null)
-    const initialReportId = resolveCellRulesReportId(initialCellRulesPayload)
 
     const editor = page.locator('.batch-record-cell-rules-editor').first()
     await editor.waitFor({ state: 'visible', timeout: 60000 })
@@ -141,29 +147,6 @@ async function main() {
       initialReportId,
       nextReportId: '',
       skippedReason: ''
-    }
-    const switchButton = (await nextButton.isEnabled()) ? nextButton : (await previousButton.isEnabled()) ? previousButton : null
-    if (switchButton) {
-      const direction = (await nextButton.isEnabled()) ? 'next' : 'previous'
-      const navigationCellRulesResponsePromise = page.waitForResponse(
-        (response) =>
-          response.url().includes('/mes/pro/batch-record-report/cell-rules') &&
-          response.request().method() === 'GET',
-        { timeout: 60000 }
-      )
-      await switchButton.click()
-      const navigationCellRulesResponse = await navigationCellRulesResponsePromise
-      const navigationCellRulesPayload = await navigationCellRulesResponse.json().catch(() => null)
-      const nextReportId = resolveCellRulesReportId(navigationCellRulesPayload)
-      assert.ok(initialReportId, 'initial_cell_rules_report_id_missing')
-      assert.ok(nextReportId, 'navigation_cell_rules_report_id_missing')
-      assert.notEqual(nextReportId, initialReportId, 'navigation_should_reload_a_different_report')
-      await editor.locator('.el-loading-mask').waitFor({ state: 'hidden', timeout: 60000 }).catch(() => undefined)
-      navigationSwitch.attempted = true
-      navigationSwitch.direction = direction
-      navigationSwitch.nextReportId = nextReportId
-    } else {
-      navigationSwitch.skippedReason = 'no_same_product_version_neighbor_visible_for_selected_fixture'
     }
     await fillableToggle.waitFor({ state: 'visible', timeout: 30000 })
     await promptField.waitFor({ state: 'visible', timeout: 30000 })
@@ -216,6 +199,29 @@ async function main() {
     assert.equal(await dialog.locator('.el-dialog__footer').count(), 0, 'dialog_footer_should_be_removed')
     const sidePanelText = await sidePanel.innerText()
     assert.doesNotMatch(sidePanelText, /规则设置|当前单元格|白色为不可填写|保存后该单元格/)
+    const switchButton = (await nextButton.isEnabled()) ? nextButton : (await previousButton.isEnabled()) ? previousButton : null
+    if (switchButton) {
+      const direction = (await nextButton.isEnabled()) ? 'next' : 'previous'
+      const navigationCellRulesResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes('/mes/pro/batch-record-report/cell-rules') &&
+          response.request().method() === 'GET',
+        { timeout: 60000 }
+      )
+      await switchButton.click()
+      const navigationCellRulesResponse = await navigationCellRulesResponsePromise
+      const navigationCellRulesPayload = await navigationCellRulesResponse.json().catch(() => null)
+      const nextReportId = resolveCellRulesReportId(navigationCellRulesPayload)
+      assert.ok(initialReportId, 'initial_cell_rules_report_id_missing')
+      assert.ok(nextReportId, 'navigation_cell_rules_report_id_missing')
+      assert.notEqual(nextReportId, initialReportId, 'navigation_should_reload_a_different_report')
+      await editor.locator('.el-loading-mask').waitFor({ state: 'hidden', timeout: 60000 }).catch(() => undefined)
+      navigationSwitch.attempted = true
+      navigationSwitch.direction = direction
+      navigationSwitch.nextReportId = nextReportId
+    } else {
+      navigationSwitch.skippedReason = 'no_same_product_version_neighbor_visible_for_selected_fixture'
+    }
     assert.deepEqual(writeRequests, [], 'dialog size readonly e2e must not send MES write requests')
 
     const screenshot = path.join(outputDir, 'batch-record-cell-rule-dialog-size-pass.png')

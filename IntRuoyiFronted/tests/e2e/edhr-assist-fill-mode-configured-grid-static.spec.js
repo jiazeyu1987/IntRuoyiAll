@@ -36,6 +36,31 @@ assert.match(
 )
 assert.match(
   executionPage,
+  /const\s+assistGridVisibleColumnIndexes\s*=\s*computed\(\(\)\s*=>[\s\S]*new Set[\s\S]*assistGridColumnIndex[\s\S]*sort/,
+  '执行页必须只用存在映射字段的辅助表格列生成可见列集合。'
+)
+assert.match(
+  executionPage,
+  /const\s+assistGridColumnDisplayIndexMap\s*=\s*computed\(\(\)\s*=>[\s\S]*new Map<number,\s*number>[\s\S]*assistGridVisibleColumnIndexes\.value\.forEach[\s\S]*map\.set\(columnIndex,\s*displayIndex\)/,
+  '执行页必须把原始辅助表格列号压缩成连续的可见列号。'
+)
+assert.match(
+  executionPage,
+  /const\s+assistGridColumnCount\s*=\s*computed\(\(\)\s*=>[\s\S]*return\s+assistGridVisibleColumnIndexes\.value\.length/,
+  '辅助表格列数必须等于实际存在映射字段的列数，而不是最大原始列号。'
+)
+assert.match(
+  executionPage,
+  /assistGridColumnDisplayIndexMap\.value\.get\(field\.assistGridColumnIndex\)/,
+  '辅助字段定位必须使用压缩后的可见列号，避免未映射空列占宽。'
+)
+assert.doesNotMatch(
+  executionPage,
+  /Math\.max\([\s\S]*assistFillFields\.value\.map\(\(field\)\s*=>\s*Number\(field\.assistGridColumnIndex\)\s*\+\s*1\)/,
+  '辅助表格不能再按最大原始列号撑开可见列数。'
+)
+assert.match(
+  executionPage,
   /const\s+assistFillFields\s*=\s*computed<AssistFillField\[\]>\(\(\)\s*=>[\s\S]*hasConfiguredAssistGridRows\.value[\s\S]*return\s+sourceFields/,
   '配置为辅助表格时必须保留原始格子顺序和位置，不得先归并为普通列表。'
 )

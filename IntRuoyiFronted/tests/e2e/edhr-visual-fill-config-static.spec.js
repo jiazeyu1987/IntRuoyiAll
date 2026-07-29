@@ -55,6 +55,7 @@ includes(rulesDialog, 'pendingAssistSubjectType', '辅助表格必须支持选�
 includes(rulesDialog, 'selectedAssistGridCellKey', '辅助映射必须先选中辅助表格单元格。')
 includes(rulesDialog, 'data-assist-grid-cell', '辅助表单预览必须渲染可点击的 M*N 表格单元格。')
 includes(rulesDialog, 'handleAssistGridCellClick', '点击辅助表格单元格必须设置当前映射目标。')
+includes(rulesDialog, '@dblclick.stop="handleAssistGridCellDoubleClick(gridCell)"', '双击已映射辅助格必须取消映射。')
 includes(rulesDialog, 'mapSourceCellToSelectedAssistGridCell', '点击原表单元格必须映射到当前辅助格。')
 includes(rulesDialog, 'removeAssistGridCellMapping', '辅助格必须支持取消映射以释放原表单元格。')
 includes(rulesDialog, 'sourceCellGridAssignmentMap', '原表单元格必须有全局映射索引以禁止多责任主体重复分配。')
@@ -62,6 +63,13 @@ includes(rulesDialog, 'isSourceCellDisabledForAssistMapping', '已分配原表�
 includes(rulesDialog, 'assistRows', '弹窗必须维护 assistRows 状态。')
 includes(rulesDialog, 'ASSIST_GRID_ROW_KEY_PREFIX', '保存时必须用稳定 rowKey 表达责任主体和辅助格位置。')
 includes(rulesDialog, 'parseAssistGridRowKey', '读取已有 assistRows 时必须还原责任主体和辅助格位置。')
+assert.match(
+  rulesDialog,
+  /\.batch-record-cell-rules-editor__assist-grid-cell span \{[\s\S]*?text-overflow: ellipsis;[\s\S]*?white-space: nowrap;/,
+  '辅助表单预览已映射字段名必须单行省略。'
+)
+notIncludes(rulesDialog, 'batch-record-cell-rules-editor__assist-grid-unmap', '辅助表单预览不应继续显示独立取消映射按钮。')
+notIncludes(rulesDialog, '<em v-if="gridCell.valueTypeLabel">', '辅助表单预览不应继续显示字段类型圆标。')
 notIncludes(rulesDialog, '辅助行配置', '辅助映射模式不得继续暴露旧辅助行配置入口。')
 notIncludes(rulesDialog, '辅助行填写人', '辅助映射模式不得继续暴露旧辅助行填写人入口。')
 includes(rulesDialog, '下拉选项', '字段类型配置必须提供下拉选项编辑。')

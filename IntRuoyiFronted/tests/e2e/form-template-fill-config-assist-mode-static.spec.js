@@ -21,6 +21,8 @@ includes(dialog, 'selectedAssistFillerUserId', '表单模板辅助映射必须�
 includes(dialog, 'selectedAssistGridCellKey', '表单模板辅助映射必须先选择辅助表格单元。')
 includes(dialog, 'data-assist-grid-cell', '表单模板辅助映射必须渲染可点击 M*N 辅助表格。')
 includes(dialog, 'handleAssistGridCellClick', '点击辅助格必须设置当前映射目标。')
+includes(dialog, '@dblclick.stop="handleAssistGridCellDoubleClick(gridCell)"', '表单模板辅助映射必须支持双击已映射辅助格取消映射。')
+includes(dialog, 'handleAssistGridCellDoubleClick', '表单模板辅助映射必须有双击取消映射处理函数。')
 includes(dialog, 'mapSourceCellToSelectedAssistGridCell', '点击原表单元格必须映射到当前辅助格。')
 includes(dialog, 'removeAssistGridCellMapping', '辅助格必须支持取消映射。')
 includes(dialog, 'sourceCellGridAssignmentMap', '表单模板必须维护原表单元格全局分配索引。')
@@ -34,6 +36,13 @@ includes(dialog, "candidateSourceType: 'USERS'", '每个辅助格保存时必须
 includes(dialog, 'candidateSourceIds: [userId]', '辅助格保存的填写人必须来自当前用户。')
 includes(dialog, 'assistRows: assistRowsForSave', '保存必须继续输出模板自身 assistRows。')
 includes(dialog, 'fillAssignments: normalizedAssistAssignmentsForSave(assistRowsForSave)', '保存必须继续输出模板自身 fillAssignments。')
+assert.match(
+  dialog,
+  /\.batch-record-cell-rules-editor__assist-grid-cell span \{[\s\S]*?text-overflow: ellipsis;[\s\S]*?white-space: nowrap;/,
+  '表单模板辅助格字段名必须单行显示并用省略号截断。'
+)
+notIncludes(dialog, 'batch-record-cell-rules-editor__assist-grid-unmap', '表单模板辅助格不应继续显示独立取消映射按钮。')
+notIncludes(dialog, '<em v-if="gridCell.valueTypeLabel">', '表单模板辅助格不应继续显示字段类型圆标。')
 notIncludes(dialog, 'BatchRecordReportApi', '表单模板辅助映射不得依赖批记录报表 API。')
 notIncludes(dialog, 'batchRecordReportId', '表单模板辅助映射不得要求批记录报表 ID。')
 

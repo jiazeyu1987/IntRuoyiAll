@@ -57,6 +57,19 @@ assert.match(
   /const\s+resolveRouteFormAssistUserId\s*=\s*\(\s*row:\s*EdhrBatchExecutionTaskRespVO\s*\)[\s\S]*parsePositiveRouteQueryId\(route\.query\.assistUserId\)/,
   '批次详情自动打开路线表单时必须从 route query 解析 assistUserId。'
 )
+const autoOpenStart = detailSource.indexOf('const autoOpenRouteFormFromRoute = async () =>')
+const autoOpenEnd = detailSource.indexOf('const loadReviewTimeline = async', autoOpenStart)
+assert.ok(autoOpenStart >= 0 && autoOpenEnd > autoOpenStart, '批次详情 openRouteForm 自动打开函数必须存在。')
+const autoOpenBlock = detailSource.slice(autoOpenStart, autoOpenEnd)
+assert.ok(
+  !/canOpenTask\(routeQueryTask\)/.test(autoOpenBlock),
+  'openRouteForm=1 来自已授权切换结果，批次详情二次自动打开不得用当前用户 allowedActions 预拦截，应交给 task/open 最终授权。'
+)
+assert.match(
+  autoOpenBlock,
+  /canAutoOpenRouteFormTask\(routeQueryTask\)/,
+  '批次详情自动打开路线表单只能做槽位、状态和 activeWorkTask 基础校验。'
+)
 assert.match(
   detailSource,
   /openEdhrBatchTask\(\{[\s\S]*assistUserId:\s*resolveRouteFormAssistUserId\(row\)[\s\S]*\}\)/,
