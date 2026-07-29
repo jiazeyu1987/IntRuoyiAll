@@ -51,3 +51,10 @@ User confirmed the design: auxiliary fill page process switch must list all curr
 ## Current Status
 
 ready_for_closeout
+
+## Closeout
+
+- CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-process-switch-all-statuses --mode preview` -> ready, keep task/execution/frontend evidence/verification, delete none, blocked none.
+- CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-process-switch-all-statuses --mode apply` -> applied, deleted none.
+- EXPERIENCE: merged reusable rule into `docs/frontend-development.md#eDHR 辅助模式当前工序 assistRows 路由门禁` and routed keywords in `docs/experience-index.md`.
+- FINAL STATUS: completed.

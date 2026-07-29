@@ -21,3 +21,6 @@
 - CLEANUP: `task_closeout.py --task-id 20260729-edhr-fill-workspace-redbox-hide --mode preview` -> ready，keep task/execution-log/verification-report，delete none，blocked none。
 - CLEANUP: `task_closeout.py --task-id 20260729-edhr-fill-workspace-redbox-hide --mode apply` -> applied，deleted_paths none。
 - FINAL: completed -> 本任务实现、验证、cleanup 均完成；并发任务改动保持未暂存、未提交。
+- USER: 用户继续反馈“每个卡片里面的红框的对应位置都不显示，只显示必要的内容”，目标扩展为隐藏每张辅助填写卡片内部的可选/已填、自动映射、位置和说明类元信息。
+- BDD: 隐藏辅助填写卡片内部元信息 -> Given 用户打开 eDHR 填写辅助模式 / When 页面渲染每个字段卡片 / Then 卡片只显示字段名称、填写控件、控件单位和真实校验错误，不显示可选/已填、自动映射、位置或字段说明占位。
+- RED: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> FAIL，预期失败；当前辅助填写卡片仍包含 `edhr-fill-workspace__assist-help`。
