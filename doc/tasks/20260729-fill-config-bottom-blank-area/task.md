@@ -6,15 +6,16 @@
 
 ## Milestones
 
-1. `in_progress`：确认页面入口、组件文件和底部空白来源。
-2. `pending`：补充 RED 静态回归，证明底部空白容器或固定底部占位仍存在。
-3. `pending`：实施最小前端布局修复，不引入 fallback 或静默降级。
-4. `pending`：运行目标静态合同、相邻回归和类型检查。
-5. `pending`：更新证据、cleanup 状态和最终验证结果。
+1. `completed`：确认页面入口、组件文件和底部空白来源。
+2. `completed`：补充 RED 静态回归，证明底部空白容器或固定底部占位仍存在。
+3. `completed`：实施最小前端布局修复，不引入 fallback 或静默降级。
+4. `completed`：运行目标静态合同、相邻红框隐藏合同和类型检查。
+5. `completed`：更新证据、cleanup 状态和最终验证结果。
 
 ## Expected Verification
 
-- `node tests/e2e/<target-static-contract>.spec.js`
+- `node tests/e2e/batch-record-cell-rule-bottom-fill-static.spec.js`
+- `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js`
 - `pnpm ts:check`
 
 ## Applicable Gates
@@ -32,5 +33,20 @@
 
 ## Current Status
 
-in_progress
+completed
 
+## Final Verification Result
+
+- `node tests/e2e/batch-record-cell-rule-bottom-fill-static.spec.js` -> PASS
+- `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> PASS
+- `pnpm ts:check` -> PASS
+- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-fill-config-bottom-blank-area/frontend-feature-evidence.md` -> PASS
+- `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260729-fill-config-bottom-blank-area/bug-regression-evidence.md` -> PASS
+- `task_closeout.py --task-id 20260729-fill-config-bottom-blank-area --mode preview` -> ready
+- `task_closeout.py --task-id 20260729-fill-config-bottom-blank-area --mode apply` -> applied, deleted none
+- 相邻旧合同 `batch-record-cell-rule-navigation-static.spec.js`、`batch-record-cell-rule-dialog-size-static.spec.js`、`edhr-visual-fill-config-static.spec.js` 当前被并行红框隐藏改动阻塞：旧断言仍要求已移除的顶部操作组/说明标题，不作为本次底部空白修复通过证据。
+
+## Cleanup Keep
+
+- doc/tasks/20260729-fill-config-bottom-blank-area/frontend-feature-evidence.md
+- doc/tasks/20260729-fill-config-bottom-blank-area/bug-regression-evidence.md

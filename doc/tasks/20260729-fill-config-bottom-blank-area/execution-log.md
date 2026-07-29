@@ -4,4 +4,20 @@
 - RULES: 已读取 `docs/task-closeout-rules.md`、`docs/frontend-development.md`、`docs/powershell-encoding.md`、`docs/powershell-memory.md`、`bug-regression-fix-loop` 与 `frontend-feature-delivery` 技能及 evidence contract。
 - EXPERIENCE: 已读取 `docs/experience-index.md`；命中前端静态契约隔离、前端同集合弹窗导航上下文和 PowerShell/Git 脏工作区相关门禁，已写入 task.md。
 - BDD: 去掉填写配置弹窗底部空白 -> Given 用户打开填写配置弹窗 / When 原表单、辅助表单预览和映射控制栏渲染 / Then 底部不存在固定空白占位，三栏主内容区域填充到弹窗可用底部空间，上一张/下一张导航和保存填写配置仍可用。
-
+- M1: completed -> 定位到 `IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/BatchRecordCellRulesConfirmDialog.vue`；底部空白来自工作区仍使用 `height: clamp(520px, calc(100vh - 220px), 880px);` 预留旧页脚高度。
+- RED: `node tests/e2e/batch-record-cell-rule-dialog-size-static.spec.js` -> FAIL，预期失败；旧实现缺少 `height: calc(100vh - 84px);` 且仍按旧页脚预留底部空白。
+- RED: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> FAIL，预期失败；旧实现缺少全屏正文高度占满断言。
+- FIX: 将 `.batch-record-cell-rules-editor` 改为 `height: calc(100vh - 84px); overflow: hidden;`，将 `.batch-record-cell-rules-editor__workspace` 改为 `flex: 1; height: auto;`，让三栏主区域填充到底部。
+- GREEN: `node tests/e2e/batch-record-cell-rule-bottom-fill-static.spec.js` -> PASS，底部空白移除聚焦合同通过。
+- GREEN: `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> PASS，当前红框隐藏合同通过，确认顶部操作组/说明栏移除是并行任务意图。
+- REGRESSION: `node tests/e2e/batch-record-cell-rule-navigation-static.spec.js` -> FAIL，阻塞为并行红框隐藏改动导致旧断言仍要求 `data-fill-config-actions="primary"`。
+- REGRESSION: `node tests/e2e/batch-record-cell-rule-dialog-size-static.spec.js` -> FAIL，阻塞为并行红框隐藏改动导致旧断言仍要求顶部蓝框操作区。
+- REGRESSION: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> FAIL，阻塞为并行红框隐藏改动导致旧断言仍要求已删除的“辅助表单预览”标题。
+- GREEN: `pnpm ts:check` -> PASS。
+- EXPERIENCE: 已读取 `project-experience-consolidation` 技能；本次为局部布局高度修正，已有前端静态契约隔离和红框隐藏合同覆盖风险，未新增长期经验文档。
+- M2-M4: completed -> 目标实现、聚焦合同、红框隐藏相邻合同和类型检查均完成，状态更新为 `ready_for_closeout`。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-fill-config-bottom-blank-area/frontend-feature-evidence.md` -> PASS。
+- CHECK: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260729-fill-config-bottom-blank-area/bug-regression-evidence.md` -> 首次 FAIL，缺少 `Verification` 标记；已补充后复跑 PASS。
+- CLEANUP: `task_closeout.py --task-id 20260729-fill-config-bottom-blank-area --mode preview` -> ready，keep task/execution-log/frontend-feature-evidence/bug-regression-evidence/verification-report，delete none，blocked none。
+- CLEANUP: `task_closeout.py --task-id 20260729-fill-config-bottom-blank-area --mode apply` -> applied，deleted_paths none。
+- FINAL: completed -> 底部空白移除实现、聚焦验证、类型检查、证据校验和 cleanup 均完成；并行任务改动保持未暂存。
