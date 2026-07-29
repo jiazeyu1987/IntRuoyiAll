@@ -16,6 +16,14 @@
 
 用户补充：上述内容可能由一个人填写，也可能拆分成几个人填写；每个生产工单里面有完成数量，通过数量决定这个工序是否完成。
 
+用户纠正：最主要的是一个工序池的概念，助手前面的完整理解没有说到。
+
+用户补充：工序池还要记录 PQC 的过程检验记录。
+
+用户补充：每次提交的内容不管什么模板，都有两样共通内容：唯一电子签名、唯一提交时间；工序池可以通过时间甘特图看每天谁提交了什么内容；要求给提交到工序池的统一对象命名。
+
+用户补充：设备数量有限，设备里登录的账号要可以切换用户填写；这里是切换用户，不是切换账号。登录账号绑定 `X` 个工艺路线，`X >= 1`，账号内可以切换这些工艺路线对应的所有工序。员工在账号内切换到自己后，UI 切换成该用户对应 UI，填写、电子签名并结束。
+
 ## BDD Scenarios
 
 BDD: capture current-thread discussion only -> Given this thread contains the business discussion about production-line simplified recording, When documents are written, Then they include this thread's prior messages and exclude unrelated project history or other tasks.
@@ -33,6 +41,14 @@ BDD: combined feedback and recordbook entry -> Given the frontline entry is both
 BDD: extract frontline fields from pressure pump documents -> Given the user provided pressure pump batch record and loss report Word documents, When frontline fields are listed, Then the list must classify fields into previous-process input quantity, equipment parameters, output quantity, and loss quantity.
 
 BDD: split fill and quantity completion -> Given the same production work order process can be filled by one or multiple employees, When the process completion rule is documented, Then completion must be based on accumulated completed quantity rather than route order or a single record being filled.
+
+BDD: process pool is the core aggregation layer -> Given frontline feedback and recordbook entries belong to production processes, When the business concept is documented, Then it must state that entries first enter a process pool and production work orders are satisfied by quantities from the relevant process pools.
+
+BDD: process pool records PQC process inspection -> Given a process pool aggregates process-level production facts, When PQC records process inspection results, Then those inspection records must be captured in the corresponding process pool and connected to quality status and available quantities.
+
+BDD: name process pool submissions consistently -> Given every template submission has a unique electronic signature and submitted time, When the unified object name is documented, Then it must support audit traceability and process-pool time Gantt views.
+
+BDD: support finite equipment account user switching -> Given shop-floor equipment is limited and one device login account may cover one or more process routes, When an employee reports work from that device account, Then the account can switch only its bound routes/processes, the employee switches to themself inside the account, the UI switches by actual employee, and the process-pool submission event is signed by the actual employee rather than only the login account.
 
 ## Command And Evidence Log
 
@@ -66,6 +82,9 @@ BDD: split fill and quantity completion -> Given the same production work order 
 - GREEN: update inception docs with document-derived frontline field inventory -> PASS, fields classified into input quantity, equipment parameters, output quantity, and loss quantity.
 - GREEN: inspect quantity completion code evidence -> PASS, found `MesProTaskDO.producedQuantity`, `MesProWorkOrderDO.quantityProduced`, and feedback service quantity update calls.
 - GREEN: apply user clarification about split fill and quantity completion -> PASS, documented one-person/multi-person split fill and quantity-based process completion.
+- GREEN: apply user correction about process pool concept -> PASS, documented process pool as the core aggregation layer for quantities, completion, and FIFO satisfaction.
+- GREEN: apply user clarification about PQC process inspection in process pool -> PASS, documented PQC process inspection records as process-pool quality process details.
+- GREEN: apply user request for unified process-pool submission naming -> PASS, documented “工序池提交事件” with unique electronic signature, unique submitted time, and time Gantt usage.
 - GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after Word-document field extraction.
 - GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after Word-document field extraction.
 - GREEN: `git diff --check -- task-owned docs` -> PASS after Word-document field extraction; Git reported line-ending normalization warnings only.
@@ -76,6 +95,16 @@ BDD: split fill and quantity completion -> Given the same production work order 
 - GREEN: `git diff --check -- task-owned docs` -> PASS after split-fill quantity-completion clarification; Git reported line-ending normalization warnings only.
 - GREEN: `task-closeout-cleanup --mode preview` -> PASS after split-fill quantity-completion clarification, keep core task docs, delete none, blocked none.
 - GREEN: `task-closeout-cleanup --mode apply` -> PASS after split-fill quantity-completion clarification, deleted none.
+- GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after process-pool correction.
+- GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after process-pool correction.
+- GREEN: `git diff --check -- task-owned docs` -> PASS after process-pool correction; Git reported line-ending normalization warnings only.
+- GREEN: `task-closeout-cleanup --mode preview` -> PASS after process-pool correction, keep core task docs, delete none, blocked none.
+- GREEN: `task-closeout-cleanup --mode apply` -> PASS after process-pool correction, deleted none.
+- GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after PQC process-inspection process-pool clarification.
+- GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after PQC process-inspection process-pool clarification.
+- GREEN: `git diff --check -- task-owned docs` -> PASS after PQC process-inspection process-pool clarification; Git reported line-ending normalization warnings only.
+- GREEN: `task-closeout-cleanup --mode preview` -> PASS after PQC process-inspection process-pool clarification, keep core task docs, delete none, blocked none.
+- GREEN: `task-closeout-cleanup --mode apply` -> PASS after PQC process-inspection process-pool clarification, deleted none.
 - GREEN: `python C:\Users\BJB110\.codex\skills\project-inception-docs\scripts\validate_inception_docs.py --root E:\IntRuoyi` -> PASS after production-work-order correction.
 - GREEN: `python -X utf8 ... read docs/inception/*.md and task docs` -> PASS after production-work-order correction.
 - GREEN: `git diff --check -- task-owned docs` -> PASS after production-work-order correction; Git reported line-ending normalization warnings only.
@@ -109,10 +138,16 @@ BDD: split fill and quantity completion -> Given the same production work order 
 - Updated the integration notes after user clarified that the one-line entry is also a recordbook entry combined with production feedback.
 - Added pressure-pump batch-record and loss-report field extraction into the inception docs.
 - Added split-fill and quantity-based process completion semantics into the inception docs.
+- Added process-pool core semantics into the inception docs.
+- Added PQC process inspection records into the process-pool semantics.
+- Added unified process-pool submission naming as “工序池提交事件”.
+- Added finite-equipment shared login account semantics, including route binding, process switching, actual-employee UI switching, and employee-bound electronic signature.
 - Re-ran validation after the feedback-centered clarification.
 - Re-ran validation after the combined feedback-recordbook correction.
 - Re-ran validation and cleanup preview/apply after the Word-document field extraction.
 - Re-ran validation and cleanup preview/apply after the split-fill quantity-completion clarification.
+- Re-ran validation and cleanup preview/apply after the process-pool correction.
+- Re-ran validation and cleanup preview/apply after the PQC process-inspection process-pool clarification.
 - Re-ran cleanup preview/apply after the production-work-order correction; no task-owned files were deleted.
 - Re-ran cleanup preview/apply after the feedback-centered clarification; no task-owned files were deleted.
 

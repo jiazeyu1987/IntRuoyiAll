@@ -1949,7 +1949,7 @@ const handleFullConfigFileChange = async (event: Event) => {
     const result: SchedulerWorkbenchFullConfigImportRespVO =
       await SchedulerWorkbenchApi.importFullConfigPackage(formData)
     ElMessage.success(
-      `导入完成；用户角色绑定 ${result.userRoleBindingCount} 条；分配角色 ${result.assignedRoleCount} 条`
+      `导入完成；用户角色绑定 ${result.userRoleBindingCount} 条；分配角色 ${result.assignedRoleCount} 条；手动重排主数据 ${result.replanMasterDataCount} 条；排产工单数据 ${result.replanScheduleOrderDataCount} 条；运行态数据 ${result.replanRuntimeDataCount} 条`
     )
   } finally {
     fullConfigImporting.value = false

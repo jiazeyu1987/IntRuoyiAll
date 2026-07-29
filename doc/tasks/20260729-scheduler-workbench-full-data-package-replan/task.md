@@ -20,16 +20,22 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Applicable Experience Gates
 
 - PowerShell 命令不得使用 `&&`；Maven `-D` 参数必须整体加双引号。
 - 手动重排必须基于正式排产工单、路线配置、日历产能、任务保护、用料和库存数据，不得用 mock、默认成功或配置包空字段伪装可重排。
 - 当前工作区已有并行脏改动和 ahead 提交，本任务只修改本任务文件，提交前需要选择性暂存并避免混入无关改动。
+- 已沉淀长期经验到 `IntRuoyiBackend/docs/system/mes-scheduling-domain-contracts.md#手动重排数据包门禁`，并在 `docs/experience-index.md` 增加关键词索引。
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。缺少必要引用或数据包字段时应 fail-fast。
 - `是否从根因和长期维护角度解决`：是。扩展正式数据包契约，而不是在手动重排接口中补默认数据。
 - `是否存在临时补丁或绕过`：否。
+
+## Cleanup Keep
+
+- doc/tasks/20260729-scheduler-workbench-full-data-package-replan/backend-api-evidence.md
+- doc/tasks/20260729-scheduler-workbench-full-data-package-replan/frontend-feature-evidence.md

@@ -224,6 +224,7 @@
 - Keywords: health UP 但 API 挂起, Logback OutputStreamAppender lock, stdout stderr 未消费, SQL DEBUG, MyBatis mapper debug, logging.file.name, output/runtime logs, task-closeout 日志锁, 共享后端活动连接 -> `docs/local-runtime.md#2026-07-27-本地后端标准输出阻塞与日志目录门禁`
 - Keywords: target Jar 运行中被 Maven 覆盖, NoClassDefFoundError, ChainedPersistenceExceptionTranslator, ExceptionUtil, RequestUtil, JimuReportDao_update.sql, TemplateLoaderUtils, 稳定运行 Jar 副本 -> `docs/local-runtime.md#2026-07-27-本地后端运行-jar-不可变门禁`
 - Keywords: Element Plus el-table, 表格行复选框, 表头全选误点, indeterminate checkbox, Playwright body-wrapper row selection, 手动重排选中集合断言 -> `docs/e2e-rules.md#element-plus-表格选择门禁`
+- Keywords: 手动重排数据包, 导出全部数据包, 导入全部数据包, manualReplanDataPackage, scheduler-manual-replan-data, 排产工单快照导入, 任务扩展导入, 日历产能导入 -> `IntRuoyiBackend/docs/system/mes-scheduling-domain-contracts.md#手动重排数据包门禁`
 - Keywords: edhr-batch-execution-real-flow.e2e.js, int-ruoyi-mysql, 数据库夹具, LOCAL_DATABASE_FIXTURE, 芋道源码/admin, 真实 E2E 前置条件缺失, 覆盖历史 E2E 证据 -> `docs/e2e-rules.md#edhr-批次执行数据库夹具与证据文件门禁`
 - Keywords: edhr-work-task-process-advance-real.e2e.js, FormCenter 动态表单夹具, batch_record_report_id 为空, form_binding_key, form_center_instance_id, 生产工单不存在, 当前工艺路线工序未配置默认批记录报表, eDHR 批次工序任务被阻塞, EDHR-ADV, 工作台处理按钮目标行 -> `docs/e2e-rules.md#edhr-工作任务-formcenter-动态表单夹具门禁`
 - Keywords: eDHR 批次作废 BPM_REQUIRED, void-batch-execution approval-resolution, 作废弹窗审批策略, act_ru_task ASSIGNEE_, 审批中心 tasks/review, 作废后工作台待办闭环 -> `docs/e2e-rules.md#edhr-作废-bpm-审批真实-e2e-门禁`

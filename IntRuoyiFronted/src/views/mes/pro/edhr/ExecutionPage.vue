@@ -1724,10 +1724,19 @@ type AssistFillField = NormalizedSnapshotField | AssistChoiceGroupField
 const isAssistChoiceGroupField = (field: AssistFillField): field is AssistChoiceGroupField =>
   (field as AssistChoiceGroupField).type === 'choice-group'
 
+type AssistGridSubjectType = 'USERS' | 'ROLE'
+
 type AssistGridKey = {
-  userId: number
+  subjectType: AssistGridSubjectType
+  subjectId: number
+  subjectKey: string
   rowIndex: number
   columnIndex: number
+}
+
+type AssistRowsResolution = {
+  rows: ProFeedbackEdhrAssistRowVO[]
+  error: string
 }
 
 type PendingFieldChange = EdhrFieldChangeItemReqVO & {
@@ -2471,6 +2480,12 @@ const executionId = computed(() => parsePositiveRouteQueryId(route.query.id) || 
 const isTrackingReadonlyMode = computed(() => route.query.viewMode === TRACKING_VIEW_MODE)
 const workTaskId = computed(() => parsePositiveRouteQueryId(route.query.workTaskId) || undefined)
 const assistUserId = computed(() => parsePositiveRouteQueryId(route.query.assistUserId) || undefined)
+const currentAssistUserId = () => {
+  const user = userStore.getUser || userStore.user
+  return parsePositiveNumber(user?.id)
+}
+const currentAssistSwitchUserId = () =>
+  parsePositiveNumber(assistUserId.value) || currentAssistUserId()
 const routeBatchTaskId = computed(() => parsePositiveRouteQueryId(route.query.batchTaskId) || undefined)
 const isAssistBatchTaskPreviewMode = computed(() => route.query.batchTaskPreview === '1')
 const hasFillTaskContext = computed(() => workTaskId.value !== undefined)
@@ -2635,36 +2650,171 @@ const snapshotAssistRows = computed(() =>
   normalizeExecutionAssistRows(parsedSnapshot.value.parsed?.assistRows)
 )
 
-const activeAssistRows = computed(() =>
+const rawActiveAssistRows = computed(() =>
   visibleAssistRowsFromExecutionQueryState.value.present
     ? visibleAssistRowsFromExecutionQuery.value
     : snapshotAssistRows.value
 )
-
-const assistRowsConfigured = computed(() => activeAssistRows.value.length > 0)
 
 const ASSIST_GRID_ROW_KEY_PREFIX = 'ASSIST_GRID'
 
 const parseAssistGridRowKey = (rowKey: string): AssistGridKey | null => {
   const normalizedRowKey = String(rowKey || '').trim()
   if (!normalizedRowKey.startsWith(ASSIST_GRID_ROW_KEY_PREFIX)) return null
-  const match = normalizedRowKey.match(/^ASSIST_GRID_U(\d+)_R(\d+)_C(\d+)$/)
-  if (!match) return null
-  const userId = Number(match[1])
-  const rowIndex = Number(match[2])
-  const columnIndex = Number(match[3])
-  if (!Number.isInteger(userId) || userId <= 0) return null
+  const subjectMatch = normalizedRowKey.match(/^ASSIST_GRID_(USERS|ROLE)(\d+)_R(\d+)_C(\d+)$/)
+  const legacyUserMatch = normalizedRowKey.match(/^ASSIST_GRID_U(\d+)_R(\d+)_C(\d+)$/)
+  if (!subjectMatch && !legacyUserMatch) return null
+  const subjectType: AssistGridSubjectType = subjectMatch
+    ? (subjectMatch[1] as AssistGridSubjectType)
+    : 'USERS'
+  const subjectId = Number(subjectMatch ? subjectMatch[2] : legacyUserMatch?.[1])
+  const rowIndex = Number(subjectMatch ? subjectMatch[3] : legacyUserMatch?.[2])
+  const columnIndex = Number(subjectMatch ? subjectMatch[4] : legacyUserMatch?.[3])
+  if (!Number.isInteger(subjectId) || subjectId <= 0) return null
   if (!Number.isInteger(rowIndex) || rowIndex < 0) return null
   if (!Number.isInteger(columnIndex) || columnIndex < 0) return null
   return {
-    userId,
+    subjectType,
+    subjectId,
+    subjectKey: `${subjectType}:${subjectId}`,
     rowIndex,
     columnIndex
   }
 }
 
+const resolveAssistRowsForCurrentFiller = (
+  rows: ProFeedbackEdhrAssistRowVO[],
+  selectedUserId: number | undefined,
+  rowsAreServerScoped: boolean
+): AssistRowsResolution => {
+  const configuredRows = rows
+    .map((row) => ({ row, gridKey: parseAssistGridRowKey(row.rowKey) }))
+    .filter(
+      (item): item is { row: ProFeedbackEdhrAssistRowVO; gridKey: AssistGridKey } =>
+        Boolean(item.gridKey)
+    )
+  if (configuredRows.length === 0) {
+    return { rows, error: '' }
+  }
+
+  const subjectKeys = new Set(configuredRows.map((item) => item.gridKey.subjectKey))
+  if (rowsAreServerScoped) {
+    if (subjectKeys.size > 1) {
+      return {
+        rows: [],
+        error: '后端返回的当前填写人 assistRows 同时包含多个责任主体网格，无法合并到同一填写表格。'
+      }
+    }
+    const scopedSubject = configuredRows[0].gridKey
+    if (scopedSubject.subjectType === 'USERS') {
+      if (!selectedUserId) {
+        return {
+          rows: [],
+          error: '当前页面缺少填写人编号，无法核对后端返回的个人辅助表格责任范围。'
+        }
+      }
+      if (scopedSubject.subjectId !== selectedUserId) {
+        return {
+          rows: [],
+          error: `后端返回的个人辅助表格属于用户 ${scopedSubject.subjectId}，与当前填写人 ${selectedUserId} 不一致。`
+        }
+      }
+    }
+    return { rows, error: '' }
+  }
+
+  if (!selectedUserId) {
+    return {
+      rows: [],
+      error: '当前预览快照包含个人辅助表格，但页面缺少填写人编号，无法确定应显示的辅助字段。'
+    }
+  }
+  if (configuredRows.some((item) => item.gridKey.subjectType === 'ROLE')) {
+    return {
+      rows: [],
+      error: '当前预览快照包含角色辅助表格，但缺少当前填写人的正式责任范围，无法确定应显示的辅助字段。'
+    }
+  }
+  const matchingRows = configuredRows.filter(
+    ({ gridKey }) =>
+      gridKey.subjectType === 'USERS' && gridKey.subjectId === selectedUserId
+  )
+  if (matchingRows.length === 0) {
+    const configuredUserIds = [
+      ...new Set(configuredRows.map((item) => item.gridKey.subjectId))
+    ].join('、')
+    return {
+      rows: [],
+      error: `当前填写人 ${selectedUserId} 没有对应的辅助表格配置；快照中的个人责任主体为 ${configuredUserIds}。`
+    }
+  }
+  return {
+    rows: rows.filter((row) => {
+      const gridKey = parseAssistGridRowKey(row.rowKey)
+      return (
+        !gridKey ||
+        (gridKey.subjectType === 'USERS' && gridKey.subjectId === selectedUserId)
+      )
+    }),
+    error: ''
+  }
+}
+
+const activeAssistRowsState = computed(() =>
+  resolveAssistRowsForCurrentFiller(
+    rawActiveAssistRows.value,
+    currentAssistSwitchUserId(),
+    visibleAssistRowsFromExecutionQueryState.value.present
+  )
+)
+
+const activeAssistRows = computed(() => activeAssistRowsState.value.rows)
+const assistRowsScopeError = computed(() => activeAssistRowsState.value.error)
+const assistRowsConfigured = computed(() => rawActiveAssistRows.value.length > 0)
+
 const hasConfiguredAssistGridRows = computed(() =>
   activeAssistRows.value.some((row) => Boolean(parseAssistGridRowKey(row.rowKey)))
+)
+
+const resolveAssistGridPositionKey = (gridKey: AssistGridKey) =>
+  `${gridKey.rowIndex}:${gridKey.columnIndex}`
+
+const assistGridPositionConflictError = computed(() => {
+  const fieldMap = new Map(
+    snapshotFields.value.map((field) => [
+      buildCellValueKey(field.rowIndex, field.columnIndex),
+      field
+    ])
+  )
+  const positionFieldMap = new Map<
+    string,
+    { fieldIdentity: string; fieldLabel: string; rowKey: string }
+  >()
+  for (const row of activeAssistRows.value) {
+    const gridKey = parseAssistGridRowKey(row.rowKey)
+    if (!gridKey) continue
+    const positionKey = resolveAssistGridPositionKey(gridKey)
+    for (const cell of row.fields) {
+      const field = fieldMap.get(buildCellValueKey(cell.rowIndex, cell.columnIndex))
+      if (!field) continue
+      const existing = positionFieldMap.get(positionKey)
+      if (existing && existing.fieldIdentity !== field.fieldIdentity) {
+        return `辅助表格第 ${gridKey.rowIndex + 1} 行第 ${gridKey.columnIndex + 1} 列同时映射了不同字段“${existing.fieldLabel}”和“${field.label}”，请修正辅助表格配置。`
+      }
+      if (!existing) {
+        positionFieldMap.set(positionKey, {
+          fieldIdentity: field.fieldIdentity,
+          fieldLabel: field.label,
+          rowKey: row.rowKey
+        })
+      }
+    }
+  }
+  return ''
+})
+
+const assistGridContractError = computed(
+  () => assistRowsScopeError.value || assistGridPositionConflictError.value
 )
 
 const buildAssistFieldsFromAssistRows = (
@@ -2672,12 +2822,21 @@ const buildAssistFieldsFromAssistRows = (
   fields: NormalizedSnapshotField[]
 ) => {
   const fieldMap = new Map(fields.map((field) => [buildCellValueKey(field.rowIndex, field.columnIndex), field]))
+  const configuredGridPositionFieldMap = new Map<string, string>()
   const items: NormalizedSnapshotField[] = []
   rows.forEach((row) => {
     const gridKey = parseAssistGridRowKey(row.rowKey)
     row.fields.forEach((cell) => {
       const field = fieldMap.get(buildCellValueKey(cell.rowIndex, cell.columnIndex))
       if (!field) return
+      if (gridKey) {
+        const positionKey = resolveAssistGridPositionKey(gridKey)
+        const existingFieldIdentity = configuredGridPositionFieldMap.get(positionKey)
+        if (existingFieldIdentity === field.fieldIdentity) return
+        if (!existingFieldIdentity) {
+          configuredGridPositionFieldMap.set(positionKey, field.fieldIdentity)
+        }
+      }
       items.push({
         ...field,
         helpText: row.description || field.helpText,
@@ -2951,11 +3110,12 @@ const templateModelValue = computed<TemplateSimulationValueMap>(() => {
   return values
 })
 
-const assistSourceFields = computed<NormalizedSnapshotField[]>(() =>
-  buildAssistFieldsFromAssistRows(activeAssistRows.value, snapshotFields.value).filter(
+const assistSourceFields = computed<NormalizedSnapshotField[]>(() => {
+  if (assistGridContractError.value) return []
+  return buildAssistFieldsFromAssistRows(activeAssistRows.value, snapshotFields.value).filter(
     (field) => !field.readonly || field.componentKind === 'signature'
   )
-)
+})
 
 const assistFillFields = computed<AssistFillField[]>(() => {
   const sourceFields = assistSourceFields.value
@@ -3492,6 +3652,9 @@ const formRenderError = computed(() => {
   }
   if (snapshotFieldContractErrors.value.length > 0) {
     return snapshotFieldContractErrors.value[0]
+  }
+  if (assistGridContractError.value) {
+    return assistGridContractError.value
   }
   if (snapshotFields.value.length === 0) {
     return 'eDHR 执行快照 fields 缺少有效 rowIndex / columnIndex，无法生成最小表单。'
@@ -5324,13 +5487,6 @@ const resolveAssistFillerSwitchItemSecondaryLabel = (item: AssistFillerSwitchIte
     resolveAssistFillerFormName(item.task),
     resolveAssistBatchTaskStatusLabel(item.task)
   ].join(' · ')
-
-const currentAssistUserId = () => {
-  const user = userStore.getUser || userStore.user
-  return parsePositiveNumber(user?.id)
-}
-
-const currentAssistSwitchUserId = () => assistUserId.value || currentAssistUserId()
 
 const isAssistFillerSwitchItemSelectable = (item: AssistFillerSwitchItem) =>
   isAssistBatchTaskOpenable(item.task)

@@ -6,10 +6,10 @@
 
 ## Milestones
 
-- [ ] 确认 `芋道源码` 对应的数据库目标和当前 schema
-- [ ] 执行已验证迁移 SQL
-- [ ] 复核 181 条瑛泰产品中 115 条完全对应已回填，非完全对应未误填
-- [ ] 记录验证和收尾证据
+- [x] 确认 `芋道源码` 对应的数据库目标和当前 schema
+- [x] 执行已验证迁移 SQL
+- [x] 复核 181 条瑛泰产品中 115 条完全对应已回填，非完全对应未误填
+- [x] 记录验证和收尾证据
 
 ## Expected Verification
 
@@ -20,7 +20,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Design Constraint Check
 
@@ -28,3 +28,6 @@ in_progress
 - 是否从根因和长期维护角度解决：是，复用正式迁移 SQL，不做手工散点 update。
 - 是否存在临时补丁或绕过：否。
 
+## Cleanup Keep
+
+- doc/tasks/20260729-dcc-yudao-source-product-catalog-backfill/database-schema-evidence.md

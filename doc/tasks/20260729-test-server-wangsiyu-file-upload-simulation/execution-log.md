@@ -69,6 +69,32 @@
 - BLOCKER: 浏览器安全规则要求每个 CAPTCHA 必须先取得用户明确同意，才能代为完成。影响：登录、文件选择、上传预览和提交审批尚未执行。
 - User authorization: 用户已明确允许代为完成本次滑块验证码并继续上传。
 
+### M2 Login Completed
+
+- Status: completed
+- Verification evidence:
+  - 用户授权后通过真实页面拖动滑块，`/system/captcha/check` -> HTTP 200，`repCode=0000`。
+  - `芋道源码/wangsiyu` 登录成功并进入 `http://172.30.30.58:8081/dcc/controlled-file/upload`。
+  - 登录用户 ID：`910250`，昵称：`王思雨`。
+  - 无控制台错误、无页面异常。
+
+### M3 Upload Permission Preflight Blocked
+
+- Status: blocked
+- Read-only preflight:
+  - DCC 文件类别总数：`60`。
+  - 当前账号可上传类别数：`0`。
+  - 可选 DCC 项目数：`50`。
+  - 文件分类数据数：`67`。
+- BLOCKER: `wangsiyu` 没有任何类别级 `UPLOAD` 权限，页面无法选择合法“文件类别”，因此不能触发正式 `upload-preview` 或“提交审批”。
+- Data impact:
+  - 未发送任何 `/dcc/controlled-files/upload-preview` 或 `/dcc/controlled-files/submit` 请求。
+  - 未创建 DCC 受控文件、审批任务或测试业务数据。
+- Evidence:
+  - `doc/tasks/20260729-test-server-wangsiyu-file-upload-simulation/upload-evidence.json`。
+- Required decision:
+  - 需要用户明确授权在测试服为 `wangsiyu` 增加某个文件类别的 `UPLOAD` 权限，或明确指定本次要使用的其它正式文件上传入口。
+
 ## Command Intent
 
 - 后续命令仅用于检查 Git/工具前置、驱动 Playwright 浏览器、创建任务自有测试文件与读取脱敏验证结果。

@@ -2,7 +2,7 @@
 
 ## Summary
 
-Documentation writing and structural verification passed, including the latest split-fill and quantity-completion clarification. Git closeout remains blocked by unrelated workspace changes.
+Documentation writing and structural verification passed before the latest unified submission naming update. The latest naming update has been recorded in the inception docs and is pending re-verification in this report until the current verification commands are re-run. Git closeout remains blocked by unrelated workspace changes.
 
 ## Evidence
 
@@ -18,6 +18,9 @@ Documentation writing and structural verification passed, including the latest s
 - PASS: User correction applied: frontline entry is also a recordbook entry, and confirm submit both reports work and writes recordbook.
 - PASS: Field inventory from `批记录压力泵.doc` and `损耗单.doc` added.
 - PASS: Split-fill and quantity-based process completion clarification added.
+- PASS: Process-pool core concept added.
+- PASS: PQC process inspection records added to process-pool model.
+- PENDING: Unified process-pool submission object named “工序池提交事件”; re-verification pending.
 - PASS: Inception structure validation and UTF-8 read validation passed after the correction.
 - PASS: Inception structure validation and UTF-8 read validation passed after the feedback-centered clarification.
 - PASS: `git diff --check` reported no whitespace errors after the feedback-centered clarification; Git reported line-ending normalization warnings only.
@@ -32,6 +35,12 @@ Documentation writing and structural verification passed, including the latest s
 - PASS: Inception structure validation and UTF-8 read validation passed after the split-fill quantity-completion clarification.
 - PASS: `git diff --check` reported no whitespace errors after the split-fill quantity-completion clarification; Git reported line-ending normalization warnings only.
 - PASS: Cleanup preview/apply passed after the split-fill quantity-completion clarification with no deleted paths.
+- PASS: Inception structure validation and UTF-8 read validation passed after the process-pool correction.
+- PASS: `git diff --check` reported no whitespace errors after the process-pool correction; Git reported line-ending normalization warnings only.
+- PASS: Cleanup preview/apply passed after the process-pool correction with no deleted paths.
+- PASS: Inception structure validation and UTF-8 read validation passed after the PQC process-inspection process-pool clarification.
+- PASS: `git diff --check` reported no whitespace errors after the PQC process-inspection process-pool clarification; Git reported line-ending normalization warnings only.
+- PASS: Cleanup preview/apply passed after the PQC process-inspection process-pool clarification with no deleted paths.
 - BLOCKED: final Git commit/push closeout was not performed because `git status --short --branch` showed `int_main...origin/int_main [ahead 2]` and unrelated untracked directory `doc/tasks/20260729-dcc-product-catalog-project-code-columns/`.
 
 ## Final Result

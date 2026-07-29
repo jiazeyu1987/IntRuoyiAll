@@ -12,4 +12,13 @@ public class MesProSchedulerWorkbenchFullConfigImportRespVO {
 
     @Schema(description = "分配角色数量", example = "7")
     private Integer assignedRoleCount;
+
+    @Schema(description = "手动重排主数据导入行数", example = "32")
+    private Integer replanMasterDataCount;
+
+    @Schema(description = "手动重排排产工单数据导入行数", example = "18")
+    private Integer replanScheduleOrderDataCount;
+
+    @Schema(description = "手动重排运行态数据导入行数", example = "47")
+    private Integer replanRuntimeDataCount;
 }
