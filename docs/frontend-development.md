@@ -140,6 +140,15 @@
 - Forbidden action: 禁止通过取消隐藏路由、创建重复页签、localStorage 兜底、强制刷新、默认跳列表或吞掉路由错误掩盖状态丢失。
 - Evidence: 任务 `doc/tasks/20260727-route-flow-tab-return-state/`，路线流转关系图从顶部页签切走再返回时曾因“工艺流程”页签仍保存 `/mes/pro/route` 而回到路线列表。
 
+## Element Plus 全屏弹框挂载门禁
+
+- Trigger: 页面局部区域使用浏览器 `requestFullscreen()` / `:fullscreen` 做最大化，同时局部区域内按钮会打开 `el-dialog`、`ElMessageBox`、下拉面板、签名框、保存结果框或提交确认框。
+- Preflight check: 先确认弹框是否必须在最大化状态可见；若必须可见，弹框组件必须作为 fullscreen 元素子树渲染，并显式设置 `:append-to-body="false"` 或同等非 body teleport 约束；静态合同需同时断言弹框 DOM 位于 fullscreen 容器内部和未 teleport 到 body。
+- Blocker: 弹框仍在 fullscreen 容器外、依赖 body 级 overlay、仅通过提高 `z-index` 解决浏览器 fullscreen top layer、或保存/提交按钮在最大化后弹框不可见时必须停止。
+- Verification: 运行目标静态合同；有本地运行态和登录前置时，再用 Playwright 点击最大化后触发弹框，断言弹框可见、可操作且无控制台错误。
+- Forbidden action: 禁止用随机加大 `z-index`、退出全屏后再弹框、隐藏错误提示、改成普通 toast、或关闭浏览器 fullscreen 能力来绕过遮挡。
+- Evidence: 任务 `doc/tasks/20260729-edhr-fill-workspace-redbox-hide/`，eDHR 填写页最大化后保存/提交弹框原先位于 `.edhr-fill-workspace` 外部，被浏览器全屏层遮挡，修正为在全屏工作区内部渲染并禁用 body teleport。
+
 ## 动态菜单页签重命名门禁
 
 - Trigger: 用户要求修改动态菜单页面、左侧菜单、顶部页签、页面标题或角色/套餐菜单树中的入口名称。

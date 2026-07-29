@@ -95,6 +95,7 @@
 - Keywords: 前端静态合同旧仓路径, form-center-static, ruoyi-vue-pro/sql/mysql, IntRuoyiBackend/sql/mysql, ENOENT, 跨端 SQL 读取路径 -> `docs/frontend-development.md#前端静态合同仓库路径门禁`
 - Keywords: 聚合字段新增子项, 默认分类, 表单槽位, route-flow-graph-designer__node-form-count-badge, createEmptyRecordBinding, formSlotType MAIN, 新增后数字不变 -> `docs/frontend-development.md#前端聚合新增默认分类门禁`
 - Keywords: noTagsView, activeMenu, 隐藏路由顶部页签, 顶部 tab 切回列表, fullPath query 丢失, replaceActiveMenuView, restoreActiveMenuView, 流转关系图页签返回 -> `docs/frontend-development.md#前端隐藏路由顶部页签状态门禁`
+- Keywords: Element Plus 全屏弹框, requestFullscreen, :fullscreen, el-dialog append-to-body, body teleport, 最大化弹框遮挡, 保存草稿弹框, 提交执行签名弹框, result-dialog, fullscreen top layer -> `docs/frontend-development.md#element-plus-全屏弹框挂载门禁`
 - Keywords: 动态菜单页签重命名, 菜单名称改名, system_menu.name, 页面标题改名, 角色菜单树旧名称, 租户套餐菜单旧名称, 入口名称和业务对象文案区分 -> `docs/frontend-development.md#动态菜单页签重命名门禁`
 - Keywords: route.query, route query ID, assistUserId, userId, workTaskId, batchTaskId, sameRouteQueryId, 字符串数字严格等于, active 高亮丢失, 切换后高亮旧对象 -> `docs/frontend-development.md#前端-route-query-id-比较门禁`
 - Keywords: 填写辅助模式, 当前工序 assistRows, 工序切换, 全部工序, 未开始工序, 缺少可查看执行记录或工作任务, batchTaskId 选中工序, ASSIST_GRID_U, 辅助表格预览, 辅助网格空列, 空列压缩, assistGridVisibleColumnIndexes, 粗洗工序, 扁平字段列表, stringifyEdhrExecutionPageQuery, edhr-fill-workspace__assist-grid, data-assist-grid-cell, task/open executionPageQuery assistRows -> `docs/frontend-development.md#edhr-辅助模式当前工序-assistrows-路由门禁`

@@ -47,3 +47,4 @@
 - GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS，辅助模式切换与填写链路回归通过。
 - GREEN: `pnpm ts:check` -> PASS，Vue/TS relaxed 类型检查通过。
 - M7: completed -> 最大化遮挡修复、静态回归和类型检查完成，状态保持 `ready_for_closeout`。
+- EXPERIENCE: 已按 `project-experience-consolidation` 合并长期经验到 `docs/frontend-development.md#Element Plus 全屏弹框挂载门禁`，并更新 `docs/experience-index.md` 关键词路由。
