@@ -2356,7 +2356,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_BLOCKED);
         }
         List<MesProEdhrBatchExecutionTaskDO> allTasks = batchTaskMapper.selectListByBatchExecutionId(batch.getId());
-        TaskGate taskGate = resolveTaskGate(task, allTasks);
+        Map<Long, Set<Long>> predecessorRouteProcessIdMap = buildTaskPredecessorRouteProcessIdMap(batch, allTasks);
+        TaskGate taskGate = resolveTaskGate(task, allTasks, predecessorRouteProcessIdMap);
         if (!taskGate.available()) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_BLOCKED);
         }
@@ -3040,7 +3041,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 batchArchiveMapper.selectListByBatchExecutionId(batch.getId());
         List<MesProEdhrBatchDossierItemDO> dossierItems =
                 dossierItemMapper.selectListByBatchExecutionId(batch.getId());
-        Map<Long, TaskGate> taskGateMap = buildTaskGateMap(tasks);
+        Map<Long, TaskGate> taskGateMap = buildTaskGateMap(batch, tasks);
         List<String> taskIds = tasks.stream()
                 .map(MesProEdhrBatchExecutionTaskDO::getId)
                 .filter(Objects::nonNull)
@@ -4248,11 +4249,27 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             JSONObject flowGraph,
             Map<Long, JSONObject> nodeByRouteProcessId,
             Map<Integer, JSONObject> nodeBySort) {
+        return toSinglePredecessorMap(buildFrozenRouteProcessPredecessorSetMap(
+                flowGraph, nodeByRouteProcessId, nodeBySort, nodeByRouteProcessId.keySet()));
+    }
+
+    private Map<Long, Set<Long>> buildFrozenRouteProcessPredecessorSetMap(
+            JSONObject flowGraph,
+            Map<Long, JSONObject> nodeByRouteProcessId,
+            Map<Integer, JSONObject> nodeBySort,
+            Set<Long> routeProcessIds) {
+        Map<Long, Set<Long>> outgoingMap = new LinkedHashMap<>();
+        Map<Long, Set<Long>> incomingMap = new LinkedHashMap<>();
+        routeProcessIds.forEach(id -> {
+            outgoingMap.put(id, new LinkedHashSet<>());
+            incomingMap.put(id, new LinkedHashSet<>());
+        });
         JSONArray edges = flowGraph.getJSONArray("edges");
         if (edges == null || edges.isEmpty()) {
-            return Collections.emptyMap();
+            validateRouteProcessFlow(routeProcessIds, outgoingMap, incomingMap, true);
+            return incomingMap;
         }
-        Map<Long, Long> predecessorMap = new LinkedHashMap<>();
+        Set<String> seenEdges = new LinkedHashSet<>();
         for (Object value : edges) {
             if (!(value instanceof JSONObject edge)) {
                 throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
@@ -4261,13 +4278,23 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                     "sourceRouteProcessId", "sourceSort", nodeByRouteProcessId, nodeBySort);
             Long targetRouteProcessId = resolveFrozenEdgeRouteProcessId(edge,
                     "targetRouteProcessId", "targetSort", nodeByRouteProcessId, nodeBySort);
-            if (sourceRouteProcessId == null || targetRouteProcessId == null
-                    || Objects.equals(sourceRouteProcessId, targetRouteProcessId)
-                    || predecessorMap.putIfAbsent(targetRouteProcessId, sourceRouteProcessId) != null) {
+            if (sourceRouteProcessId == null || targetRouteProcessId == null) {
                 throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
             }
+            boolean sourceIncluded = routeProcessIds.contains(sourceRouteProcessId);
+            boolean targetIncluded = routeProcessIds.contains(targetRouteProcessId);
+            if (!sourceIncluded || !targetIncluded) {
+                continue;
+            }
+            if (Objects.equals(sourceRouteProcessId, targetRouteProcessId)
+                    || !seenEdges.add(sourceRouteProcessId + "->" + targetRouteProcessId)) {
+                throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
+            }
+            outgoingMap.get(sourceRouteProcessId).add(targetRouteProcessId);
+            incomingMap.get(targetRouteProcessId).add(sourceRouteProcessId);
         }
-        return predecessorMap;
+        validateRouteProcessFlow(routeProcessIds, outgoingMap, incomingMap, true);
+        return incomingMap;
     }
 
     private Long resolveFrozenEdgeRouteProcessId(JSONObject edge,
@@ -4763,6 +4790,10 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         Set<Long> routeProcessIds = routeProcesses.stream()
                 .map(MesProRouteProcessDO::getId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        return toSinglePredecessorMap(buildRouteProcessPredecessorSetMap(routeId, routeProcessIds));
+    }
+
+    private Map<Long, Set<Long>> buildRouteProcessPredecessorSetMap(Long routeId, Set<Long> routeProcessIds) {
         Map<Long, Set<Long>> outgoingMap = new LinkedHashMap<>();
         Map<Long, Set<Long>> incomingMap = new LinkedHashMap<>();
         routeProcessIds.forEach(id -> {
@@ -4785,30 +4816,48 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             outgoingMap.get(sourceRouteProcessId).add(targetRouteProcessId);
             incomingMap.get(targetRouteProcessId).add(sourceRouteProcessId);
         }
-        boolean hasIsolatedRouteProcess = routeProcessIds.size() > 1 && routeProcessIds.stream()
-                .anyMatch(id -> incomingMap.get(id).isEmpty() && outgoingMap.get(id).isEmpty());
-        if (hasIsolatedRouteProcess || hasRouteProcessCycle(routeProcessIds, outgoingMap)) {
-            throw exception(PRO_ROUTE_PROCESS_FLOW_INVALID);
-        }
-        Set<Long> rootRouteProcessIds = routeProcessIds.stream()
-                .filter(id -> incomingMap.get(id).isEmpty())
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (rootRouteProcessIds.isEmpty()) {
-            throw exception(PRO_ROUTE_PROCESS_FLOW_INVALID);
-        }
-        Set<Long> reachableRouteProcessIds = new LinkedHashSet<>();
-        rootRouteProcessIds.forEach(rootRouteProcessId ->
-                reachableRouteProcessIds.addAll(reachableRouteProcessIds(rootRouteProcessId, outgoingMap)));
-        if (reachableRouteProcessIds.size() != routeProcessIds.size()) {
-            throw exception(PRO_ROUTE_PROCESS_FLOW_INVALID);
-        }
+        validateRouteProcessFlow(routeProcessIds, outgoingMap, incomingMap, false);
+        return incomingMap;
+    }
+
+    private Map<Long, Long> toSinglePredecessorMap(Map<Long, Set<Long>> predecessorSetMap) {
         Map<Long, Long> predecessorMap = new LinkedHashMap<>();
-        incomingMap.forEach((routeProcessId, predecessorIds) -> {
+        predecessorSetMap.forEach((routeProcessId, predecessorIds) -> {
             if (predecessorIds.size() == 1) {
                 predecessorMap.put(routeProcessId, predecessorIds.iterator().next());
             }
         });
         return predecessorMap;
+    }
+
+    private void validateRouteProcessFlow(Set<Long> routeProcessIds,
+                                          Map<Long, Set<Long>> outgoingMap,
+                                          Map<Long, Set<Long>> incomingMap,
+                                          boolean frozenSnapshot) {
+        boolean hasIsolatedRouteProcess = routeProcessIds.size() > 1 && routeProcessIds.stream()
+                .anyMatch(id -> incomingMap.get(id).isEmpty() && outgoingMap.get(id).isEmpty());
+        if (hasIsolatedRouteProcess || hasRouteProcessCycle(routeProcessIds, outgoingMap)) {
+            throwInvalidRouteProcessFlow(frozenSnapshot);
+        }
+        Set<Long> rootRouteProcessIds = routeProcessIds.stream()
+                .filter(id -> incomingMap.get(id).isEmpty())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (rootRouteProcessIds.isEmpty()) {
+            throwInvalidRouteProcessFlow(frozenSnapshot);
+        }
+        Set<Long> reachableRouteProcessIds = new LinkedHashSet<>();
+        rootRouteProcessIds.forEach(rootRouteProcessId ->
+                reachableRouteProcessIds.addAll(reachableRouteProcessIds(rootRouteProcessId, outgoingMap)));
+        if (reachableRouteProcessIds.size() != routeProcessIds.size()) {
+            throwInvalidRouteProcessFlow(frozenSnapshot);
+        }
+    }
+
+    private void throwInvalidRouteProcessFlow(boolean frozenSnapshot) {
+        if (frozenSnapshot) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
+        }
+        throw exception(PRO_ROUTE_PROCESS_FLOW_INVALID);
     }
 
     private boolean hasRouteProcessCycle(Set<Long> routeProcessIds, Map<Long, Set<Long>> outgoingMap) {
@@ -4946,16 +4995,76 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         batchExecutionMapper.updateById(batch);
     }
 
-    private Map<Long, TaskGate> buildTaskGateMap(List<MesProEdhrBatchExecutionTaskDO> tasks) {
+    private Map<Long, TaskGate> buildTaskGateMap(MesProEdhrBatchExecutionDO batch,
+                                                 List<MesProEdhrBatchExecutionTaskDO> tasks) {
         Map<Long, TaskGate> result = new LinkedHashMap<>();
+        Map<Long, Set<Long>> predecessorRouteProcessIdMap = buildTaskPredecessorRouteProcessIdMap(batch, tasks);
         for (MesProEdhrBatchExecutionTaskDO task : tasks) {
-            result.put(task.getId(), resolveTaskGate(task, tasks));
+            result.put(task.getId(), resolveTaskGate(task, tasks, predecessorRouteProcessIdMap));
         }
         return result;
     }
 
+    private Map<Long, Set<Long>> buildTaskPredecessorRouteProcessIdMap(
+            MesProEdhrBatchExecutionDO batch,
+            List<MesProEdhrBatchExecutionTaskDO> tasks) {
+        Set<Long> routeProcessIds = tasks.stream()
+                .filter(this::isRouteForm)
+                .map(MesProEdhrBatchExecutionTaskDO::getRouteProcessId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (routeProcessIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        if (batch == null) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
+        }
+        if (batch.getRouteVersionId() != null) {
+            JSONObject snapshot = parseFrozenRouteSnapshot(batch.getRouteSnapshotJson());
+            JSONObject configSnapshots = requireFrozenObject(snapshot, "configSnapshots");
+            JSONObject flowGraph = requireFrozenObject(configSnapshots, "flowGraph");
+            Map<Long, JSONObject> nodeByRouteProcessId = new LinkedHashMap<>();
+            Map<Integer, JSONObject> nodeBySort = new LinkedHashMap<>();
+            for (JSONObject node : requireFrozenObjectArray(flowGraph, "nodes")) {
+                Long routeProcessId = node.getLong("routeProcessId");
+                Integer sort = node.getInteger("sort");
+                if (routeProcessId != null) {
+                    nodeByRouteProcessId.put(routeProcessId, node);
+                }
+                if (sort != null) {
+                    nodeBySort.put(sort, node);
+                }
+            }
+            if (!nodeByRouteProcessId.keySet().containsAll(routeProcessIds)) {
+                if (hasCurrentBatchProcessConfigForRouteProcessIds(batch.getRouteId(), routeProcessIds)) {
+                    return buildRouteProcessPredecessorSetMap(batch.getRouteId(), routeProcessIds);
+                }
+                throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
+            }
+            return buildFrozenRouteProcessPredecessorSetMap(
+                    flowGraph, nodeByRouteProcessId, nodeBySort, routeProcessIds);
+        }
+        if (batch.getRouteId() == null) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
+        }
+        return buildRouteProcessPredecessorSetMap(batch.getRouteId(), routeProcessIds);
+    }
+
+    private boolean hasCurrentBatchProcessConfigForRouteProcessIds(Long routeId, Set<Long> routeProcessIds) {
+        if (routeId == null || routeProcessIds == null || routeProcessIds.isEmpty()) {
+            return false;
+        }
+        Set<Long> currentConfigRouteProcessIds = routeFlowProcessConfigMapper
+                .selectListByRouteIdAndUseType(routeId, MesProRouteFlowConfigTypeEnum.BATCH.getType()).stream()
+                .map(MesProRouteFlowProcessConfigDO::getRouteProcessId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        return currentConfigRouteProcessIds.containsAll(routeProcessIds);
+    }
+
     private TaskGate resolveTaskGate(MesProEdhrBatchExecutionTaskDO task,
-                                     List<MesProEdhrBatchExecutionTaskDO> allTasks) {
+                                     List<MesProEdhrBatchExecutionTaskDO> allTasks,
+                                     Map<Long, Set<Long>> predecessorRouteProcessIdMap) {
         if (Objects.equals(task.getStatus(), TASK_STATUS_BLOCKED)
                 || (Boolean.FALSE.equals(task.getRequiredFlag()) && !isOptionalRouteFormTask(task))
                 || (isRouteForm(task) && StrUtil.isBlank(task.getBatchRecordReportId())
@@ -4964,7 +5073,8 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         }
         boolean previousProcessesApproved;
         if (isRouteForm(task)) {
-            if (task.getPredecessorRouteProcessId() == null && !Boolean.TRUE.equals(task.getRootProcessFlag())) {
+            Set<Long> predecessorRouteProcessIds = predecessorRouteProcessIdMap.get(task.getRouteProcessId());
+            if (task.getRouteProcessId() == null || predecessorRouteProcessIds == null) {
                 return new TaskGate(false, "工序缺少直接前置关系快照");
             }
             if (Objects.equals(EXECUTION_MODE_SEQUENTIAL, task.getExecutionMode())
@@ -4981,17 +5091,12 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                     return new TaskGate(false, "前一张批记录未填写完成");
                 }
             }
-            if (task.getPredecessorRouteProcessId() == null) {
+            if (predecessorRouteProcessIds.isEmpty()) {
                 previousProcessesApproved = true;
             } else {
-                List<MesProEdhrBatchExecutionTaskDO> predecessorTasks = allTasks.stream()
-                        .filter(candidate -> Objects.equals(
-                                candidate.getRouteProcessId(), task.getPredecessorRouteProcessId()))
-                        .filter(candidate -> !Boolean.FALSE.equals(candidate.getRequiredFlag()))
-                        .filter(this::isRouteForm)
-                        .toList();
-                previousProcessesApproved = !predecessorTasks.isEmpty()
-                        && predecessorTasks.stream().allMatch(this::isTaskApproved);
+                previousProcessesApproved = predecessorRouteProcessIds.stream()
+                        .allMatch(predecessorRouteProcessId -> isPredecessorRouteProcessApproved(
+                                predecessorRouteProcessId, allTasks));
             }
         } else {
             previousProcessesApproved = allTasks.stream()
@@ -5006,6 +5111,16 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                     : "请先完成全部必需工序记录");
         }
         return new TaskGate(true, null);
+    }
+
+    private boolean isPredecessorRouteProcessApproved(Long predecessorRouteProcessId,
+                                                      List<MesProEdhrBatchExecutionTaskDO> allTasks) {
+        List<MesProEdhrBatchExecutionTaskDO> predecessorTasks = allTasks.stream()
+                .filter(candidate -> Objects.equals(candidate.getRouteProcessId(), predecessorRouteProcessId))
+                .filter(candidate -> !Boolean.FALSE.equals(candidate.getRequiredFlag()))
+                .filter(this::isRouteForm)
+                .toList();
+        return !predecessorTasks.isEmpty() && predecessorTasks.stream().allMatch(this::isTaskApproved);
     }
 
     private boolean isRouteFormBeforeOrAtSpecialNode(MesProEdhrBatchExecutionTaskDO routeFormTask,
@@ -5158,7 +5273,7 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
             tasks = batchTaskMapper.selectListByBatchExecutionId(batch.getId());
             activeWorkTasks = workTaskMapper.selectActiveListByBatchExecutionId(batch.getId());
         }
-        Map<Long, TaskGate> taskGateMap = buildTaskGateMap(tasks);
+        Map<Long, TaskGate> taskGateMap = buildTaskGateMap(latest, tasks);
         Map<Long, MesProEdhrWorkTaskDO> fillableWorkTaskMap = buildFillableWorkTaskMap(activeWorkTasks);
         Map<Long, List<MesProEdhrProcessFormPermissionRuleDO>> fillableProcessFormRuleMap =
                 buildFillableProcessFormRuleMap(tasks, fillableWorkTaskMap);
