@@ -14,6 +14,10 @@ The eDHR batch detail main preview now renders an empty readonly form when no su
 - `pnpm ts:check` -> PASS
 - `node tests/e2e/edhr-batch-admin-preview-runtime-fix.e2e.js` -> PASS
 - `git diff --check` -> PASS
+- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-edhr-fill-submitted-form-content/frontend-feature-evidence.md` -> PASS
+- `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260729-edhr-fill-submitted-form-content/bug-regression-evidence.md` -> PASS
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-fill-submitted-form-content --mode preview` -> PASS
+- `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-fill-submitted-form-content --mode apply` -> PASS
 
 ## Real E2E Evidence
 
@@ -33,5 +37,10 @@ The eDHR batch detail main preview now renders an empty readonly form when no su
 
 ## Result
 
-- Status: ready_for_closeout
+- Status: completed
 - Blockers: none
+
+## Experience Consolidation
+
+- Updated `docs/e2e-rules.md#eDHR 管理员主区域已提交内容门禁`.
+- Updated `docs/experience-index.md` keywords for empty-form preview behavior.

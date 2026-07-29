@@ -21,7 +21,13 @@
 - GREEN: `node tests/e2e/edhr-batch-admin-preview-runtime-fix.e2e.js` -> PASS, `batchExecutionId=900000000910`, `taskId=7232`, `executionCreated=false`, readonly form visible, template sheet visible, MES write requests `[]`, console/page errors `[]`.
 - Verification artifact: `doc/tasks/20260729-edhr-fill-submitted-form-content/admin-preview-e2e-output/admin-unstarted-form-preview.json`.
 - Verification screenshot: `doc/tasks/20260729-edhr-fill-submitted-form-content/admin-preview-e2e-output/admin-unstarted-form-preview.png`.
-- Status: implementation and verification complete; task moved to `ready_for_closeout`.
+- Evidence validators: frontend feature evidence -> PASS; bug regression evidence -> PASS.
+- Cleanup preview: `task_closeout.py --task-id 20260729-edhr-fill-submitted-form-content --mode preview` -> no delete, no blocked, no warnings.
+- Cleanup apply: `task_closeout.py --task-id 20260729-edhr-fill-submitted-form-content --mode apply` -> applied, no delete.
+- Experience consolidation: updated `docs/e2e-rules.md#eDHR 管理员主区域已提交内容门禁` and `docs/experience-index.md` so future tasks allow task preview only as an empty form shell with cleared cell values.
+- Checkpoint commit: `54f64b69 chore: checkpoint existing workspace changes` contains this task implementation, tests, task evidence, and pre-existing workspace changes that were already present when cleanup apply checkpointed the worktree.
+- Current parallel dirty files not staged for this task closeout: `doc/tasks/20260729-production-line-recording-design/*`, `docs/inception/*`, and `doc/tasks/20260729-test-server-wangsiyu-file-upload-simulation/*`.
+- Status: cleanup applied and task moved to `completed`.
 
 ## Blockers
 

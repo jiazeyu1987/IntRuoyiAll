@@ -11,7 +11,7 @@
 3. 补充 RED 静态回归合同：completed
 4. 实现最小前端修复：completed
 5. 运行 GREEN/REGRESSION 验证并记录证据：completed
-6. 收尾、经验沉淀、提交和推送：pending
+6. 收尾、经验沉淀、提交和推送：completed
 
 ## Expected Verification
 
@@ -32,7 +32,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
