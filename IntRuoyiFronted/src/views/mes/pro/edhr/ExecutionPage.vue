@@ -359,35 +359,38 @@
                 <template v-else>
                   <section v-if="fillViewMode === 'assist'" class="edhr-fill-workspace__assist-panel">
                     <div class="edhr-fill-workspace__assist-topbar">
-                      <div class="edhr-fill-workspace__assist-switch-grid">
-                        <button
-                          type="button"
-                          class="edhr-fill-workspace__assist-switch"
-                          @click="handleAssistTaskSwitch"
-                        >
-                          <span>任务 / 批次</span>
-                          <strong>{{ assistTaskSwitchLabel }}</strong>
-                          <em>切换</em>
-                        </button>
-                        <button
-                          type="button"
-                          class="edhr-fill-workspace__assist-switch"
-                          @click="handleAssistProcessSwitch"
-                        >
-                          <span>工序</span>
-                          <strong>{{ assistProcessSwitchLabel }}</strong>
-                          <em>切换</em>
-                        </button>
-                        <button
-                          type="button"
-                          class="edhr-fill-workspace__assist-switch"
-                          @click="handleAssistFillerSwitch"
-                        >
-                          <span>填写人</span>
-                          <strong>{{ assistFillerSwitchLabel }}</strong>
-                          <em>切换</em>
-                        </button>
+                      <div class="edhr-fill-workspace__assist-context-strip">
+                        <div class="edhr-fill-workspace__assist-switch-grid">
+                          <button
+                            type="button"
+                            class="edhr-fill-workspace__assist-switch"
+                            @click="handleAssistTaskSwitch"
+                          >
+                            <span>任务 / 批次</span>
+                            <strong>{{ assistTaskSwitchLabel }}</strong>
+                            <em>切换</em>
+                          </button>
+                          <button
+                            type="button"
+                            class="edhr-fill-workspace__assist-switch"
+                            @click="handleAssistProcessSwitch"
+                          >
+                            <span>工序</span>
+                            <strong>{{ assistProcessSwitchLabel }}</strong>
+                            <em>切换</em>
+                          </button>
+                          <button
+                            type="button"
+                            class="edhr-fill-workspace__assist-switch"
+                            @click="handleAssistFillerSwitch"
+                          >
+                            <span>填写人</span>
+                            <strong>{{ assistFillerSwitchLabel }}</strong>
+                            <em>切换</em>
+                          </button>
+                        </div>
                       </div>
+                      <div class="edhr-fill-workspace__assist-action-reserve" aria-hidden="true"></div>
                     </div>
 
                     <el-dialog
@@ -5567,7 +5570,7 @@ onBeforeUnmount(() => {
   top: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 10px;
   align-items: stretch;
   padding: 12px;
@@ -5576,10 +5579,23 @@ onBeforeUnmount(() => {
   box-shadow: 0 8px 18px rgba(23, 32, 51, 0.06);
 }
 
+.edhr-fill-workspace__assist-context-strip {
+  min-width: 0;
+}
+
 .edhr-fill-workspace__assist-switch-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+}
+
+.edhr-fill-workspace__assist-action-reserve {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  min-height: 60px;
 }
 
 .edhr-fill-workspace__assist-switch {
@@ -5778,6 +5794,14 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 900px) {
+  .edhr-fill-workspace__assist-topbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .edhr-fill-workspace__assist-action-reserve {
+    min-height: 0;
+  }
+
   .edhr-fill-workspace__assist-switch-process-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -5803,10 +5827,10 @@ onBeforeUnmount(() => {
 .edhr-fill-workspace__assist-row {
   display: grid;
   grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.2fr);
-  gap: 14px;
+  gap: 10px;
   align-items: center;
-  min-height: 74px;
-  padding: 12px 14px;
+  min-height: 59px;
+  padding: 6px 12px;
   border-top: 1px solid #edf1f6;
   background: #ffffff;
   transition: background-color 0.2s ease, box-shadow 0.2s ease;
@@ -5817,8 +5841,8 @@ onBeforeUnmount(() => {
   align-content: start;
   gap: 8px;
   min-width: 0;
-  min-height: 118px;
-  padding: 10px;
+  min-height: 94px;
+  padding: 8px;
   border: 1px solid #f0c66a;
   border-radius: 8px;
   background: #ffffff;
@@ -5865,6 +5889,24 @@ onBeforeUnmount(() => {
 
 .edhr-fill-workspace__assist-control {
   min-width: 0;
+  --edhr-assist-control-height: 48px;
+}
+
+.edhr-fill-workspace__assist-control :deep(.el-input__wrapper),
+.edhr-fill-workspace__assist-control :deep(.el-select__wrapper),
+.edhr-fill-workspace__assist-control :deep(.el-input-number),
+.edhr-fill-workspace__assist-control :deep(.el-date-editor.el-input) {
+  height: var(--edhr-assist-control-height);
+}
+
+.edhr-fill-workspace__assist-control :deep(.el-input__inner),
+.edhr-fill-workspace__assist-control :deep(.el-select__placeholder),
+.edhr-fill-workspace__assist-control :deep(.el-select__selected-item) {
+  line-height: var(--edhr-assist-control-height);
+}
+
+.edhr-fill-workspace__assist-control :deep(.el-textarea__inner) {
+  min-height: var(--edhr-assist-control-height);
 }
 
 .edhr-fill-workspace__choice-group {
@@ -5872,8 +5914,8 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: 8px 12px;
   align-items: center;
-  min-height: 38px;
-  padding: 7px 10px;
+  min-height: var(--edhr-assist-control-height);
+  padding: 6px 10px;
   border: 1px solid #dbe3ef;
   border-radius: 6px;
   background: #fafcff;

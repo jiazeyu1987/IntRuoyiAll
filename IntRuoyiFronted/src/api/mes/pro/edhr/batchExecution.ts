@@ -1,6 +1,7 @@
 import request from '@/config/axios'
 import { downloadByData } from '@/utils/filt'
 import type { TableQuickFilterValue } from '@/hooks/web/useTableQuickFilter'
+import type { FormRecognizedFieldVO } from '@/api/form-center/template'
 
 export const EDHR_BATCH_ARCHIVE_ARTIFACT_FINAL_PDF = 'BATCH_FINAL_PDF'
 export const EDHR_BATCH_STATUS_CREATED = 0
@@ -188,6 +189,8 @@ export interface EdhrBatchExecutionTaskOpenRespVO {
   formTemplateName?: string
   formTemplateVersionId?: number
   formTemplateVersionNo?: string
+  formTemplateJimuSchemaJson?: string
+  formTemplateRecognizedFields?: FormRecognizedFieldVO[]
   formCenterInstanceId?: number
   recordCategory?: EdhrRecordCategory
   validationProfile?: EdhrValidationProfile

@@ -31,6 +31,12 @@
 - GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS
 - GREEN: `pnpm ts:check` -> PASS
 
+## Verification
+
+- Static contract and adjacent regressions passed.
+- TypeScript relaxed check passed.
+- The change keeps save draft and submit execution payloads unchanged.
+
 ## Risk And Regression Scope
 
 - Risk: 仅改变保存/提交弹框挂载位置，不改变保存草稿、提交执行、密码校验、结果展示或 API 调用逻辑。

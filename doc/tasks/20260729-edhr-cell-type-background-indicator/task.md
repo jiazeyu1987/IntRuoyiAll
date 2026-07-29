@@ -7,9 +7,9 @@
 ## Milestones
 
 1. `completed`：确认截图红框对应共享模板单元格类型标识和执行页入口。
-2. `in_progress`：补充聚焦静态合同并记录 RED。
-3. `pending`：实现执行页类型背景色展示，保留共享组件默认小标识模式。
-4. `pending`：运行聚焦合同、相邻回归和类型检查。
+2. `completed`：补充聚焦静态合同并记录 RED。
+3. `completed`：实现执行页类型背景色展示，保留共享组件默认小标识模式。
+4. `in_progress`：运行聚焦合同、相邻回归和类型检查。
 5. `pending`：更新证据、cleanup、提交并推送。
 
 ## Expected Verification

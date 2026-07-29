@@ -220,6 +220,50 @@ const normalizeNonBlankString = (value: unknown) => {
   return text || undefined
 }
 
+const normalizeEmbeddedRecognizedFields = (value: unknown): FormRecognizedFieldVO[] => {
+  if (value === undefined || value === null) return []
+  if (!Array.isArray(value)) {
+    throw new Error('动态表单模板识别字段快照格式无效。')
+  }
+  return value.map((item) => {
+    if (!item || typeof item !== 'object') {
+      throw new Error('动态表单模板识别字段快照格式无效。')
+    }
+    const field = item as Record<string, unknown>
+    const fieldCode = normalizeNonBlankString(field.fieldCode)
+    const label = normalizeNonBlankString(field.label) || fieldCode
+    const fieldType = normalizeNonBlankString(field.fieldType)
+    if (!fieldCode || !fieldType) {
+      throw new Error('动态表单模板识别字段快照缺少字段编码或类型。')
+    }
+    return {
+      fieldCode,
+      label,
+      fieldType,
+      required: Boolean(field.required)
+    }
+  })
+}
+
+const resolveEmbeddedTemplateVersionForActionForm = (): FormTemplateListItemVO | undefined => {
+  const templateId = normalizePositiveNumber(props.formData.formTemplateId)
+  const versionNo = normalizeNonBlankString(props.formData.formTemplateVersionNo)
+  if (!templateId || !versionNo) return undefined
+  const jimuSchemaJson = normalizeNonBlankString(props.formData.formTemplateJimuSchemaJson)
+  const recognizedFields = normalizeEmbeddedRecognizedFields(
+    props.formData.formTemplateRecognizedFields
+  )
+  if (!jimuSchemaJson && !recognizedFields.length) return undefined
+  return {
+    templateId,
+    templateName: normalizeNonBlankString(props.formData.formTemplateName) || '',
+    versionNo,
+    status: 'PUBLISHED',
+    jimuSchemaJson,
+    recognizedFields
+  }
+}
+
 const fieldValueType = (fieldType?: string): BatchRecordReportCellValueType => {
   const normalized = String(fieldType || '').toLowerCase()
   if (normalized === 'number') return 'NUMBER'
@@ -372,7 +416,8 @@ const loadTemplateVersionForActionForm = async (serial: number) => {
     resetActionPanelTemplate()
     return
   }
-  const template = await getTemplateVersion(templateId, versionNo)
+  const embeddedTemplate = resolveEmbeddedTemplateVersionForActionForm()
+  const template = embeddedTemplate || await getTemplateVersion(templateId, versionNo)
   if (serial !== actionFormLoadSerial) return
   const parsedSchema = parseTemplateJimuSchema(template.jimuSchemaJson)
   const recognizedRules = buildRecognizedFieldCellRules(template.recognizedFields || [])

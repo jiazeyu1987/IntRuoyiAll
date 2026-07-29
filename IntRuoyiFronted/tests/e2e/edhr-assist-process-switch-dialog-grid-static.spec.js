@@ -28,7 +28,7 @@ assertIncludes(
 )
 
 const processMenuMatch = executionPage.match(
-  /data-assist-switch-menu="process"[\s\S]*?(?=\r?\n\s*<div\s+v-else\s+class="edhr-fill-workspace__assist-switch-menu")/
+  /<div[\s\S]{0,300}data-assist-switch-menu="process"[\s\S]*?(?=\r?\n\s*<div\s+v-else\s+class="edhr-fill-workspace__assist-switch-menu")/
 )
 assert.ok(processMenuMatch, '必须保留工序切换菜单模板。')
 const processMenu = processMenuMatch[0]

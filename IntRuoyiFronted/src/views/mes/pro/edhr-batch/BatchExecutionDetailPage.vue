@@ -2098,6 +2098,8 @@ const routeFormPanelData = computed<Record<string, unknown>>(() => {
     formTemplateName: opened?.formTemplateName || task?.formTemplateName,
     formTemplateVersionId: opened?.formTemplateVersionId || task?.formTemplateVersionId,
     formTemplateVersionNo: opened?.formTemplateVersionNo || task?.formTemplateVersionNo,
+    formTemplateJimuSchemaJson: opened?.formTemplateJimuSchemaJson,
+    formTemplateRecognizedFields: opened?.formTemplateRecognizedFields,
     formCenterInstanceId: routeFormInitialInstanceId.value
   }
 })

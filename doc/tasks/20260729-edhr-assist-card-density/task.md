@@ -6,8 +6,8 @@
 
 ## Milestones
 
-1. `pending`：完成任务启动、脏工作区基线和适用经验门禁记录。
-2. `pending`：定位辅助填写卡片和输入控件样式，补充 RED 静态合同。
+1. `completed`：完成任务启动、脏工作区基线和适用经验门禁记录。
+2. `in_progress`：定位辅助填写卡片和输入控件样式，补充 RED 静态合同。
 3. `pending`：实施最小 CSS/模板调整，不引入 fallback 或行为降级。
 4. `pending`：运行目标静态合同、相邻回归和类型检查。
 5. `pending`：补齐前端证据、cleanup、提交并推送。

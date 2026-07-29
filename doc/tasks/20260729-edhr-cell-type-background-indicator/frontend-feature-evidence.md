@@ -38,8 +38,8 @@
 
 ## TDD Evidence
 
-- RED: pending
-- GREEN: pending
+- RED: `node tests/e2e/edhr-fill-workspace-cell-type-background-static.spec.js` -> FAIL，执行页未启用类型背景色模式。
+- GREEN: `node tests/e2e/edhr-fill-workspace-cell-type-background-static.spec.js` -> PASS。
 - REGRESSION: pending
 
 ## Verification

@@ -13,4 +13,7 @@
 
 - completed: 已定位红框 DOM 为 `EdhrExecutionTemplateEditableForm.vue` 两处单元格 `edhr-template-editable-form__rule-type-badge`。
 - completed: 已确认类型来源为 `resolveTemplateRuleTypeBadge(context).tone`，类型集合为 `text/number/date/datetime/boolean/signature/attachment`。
-- in_progress: 新增执行页专用静态合同，准备执行 RED。
+- RED: `node tests/e2e/edhr-fill-workspace-cell-type-background-static.spec.js` -> FAIL，预期原因：执行页尚未传入 `cell-type-display="background"`，共享组件也未实现背景色模式。
+- completed: 执行页传入 `cell-type-display="background"`；共享组件在背景色模式隐藏两处单元格类型 item，并按七种类型添加背景色。
+- GREEN: `node tests/e2e/edhr-fill-workspace-cell-type-background-static.spec.js` -> PASS。
+- in_progress: 运行相邻回归和类型检查。

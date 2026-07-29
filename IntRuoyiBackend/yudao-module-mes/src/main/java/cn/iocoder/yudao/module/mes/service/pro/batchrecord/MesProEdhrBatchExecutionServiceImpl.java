@@ -2548,8 +2548,6 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
                 .setFormTemplateJimuSchemaJson(formTemplateJimuSchemaJson)
                 .setFormTemplateRecognizedFields(formTemplateRecognizedFields)
                 .setFormCenterInstanceId(task.getFormCenterInstanceId())
-                .setFormTemplateJimuSchemaJson(formTemplateJimuSchemaJson)
-                .setFormTemplateRecognizedFields(formTemplateRecognizedFields)
                 .setRecordCategory(task.getRecordCategory())
                 .setValidationProfile(task.getValidationProfile())
                 .setRecordbookEnabled(effectiveRecordbookEnabled)
@@ -2572,45 +2570,36 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
         return result;
     }
 
-    private FormTemplateVersionDO resolveOpenResponseFormTemplateVersion(MesProEdhrBatchExecutionTaskDO task) {
-        if (!isDynamicRouteFormTask(task)) {
+    private FormTemplateVersionDO resolveOpenTaskFormTemplateVersion(MesProEdhrBatchExecutionTaskDO task) {
+        if (task == null || task.getFormTemplateId() == null) {
             return null;
         }
+        if (task.getFormTemplateVersionId() == null || StrUtil.isBlank(task.getFormTemplateVersionNo())) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
+        }
         FormTemplateVersionDO templateVersion = formTemplateVersionMapper.selectById(task.getFormTemplateVersionId());
-        if (templateVersion == null || !Objects.equals(task.getFormTemplateId(), templateVersion.getTemplateId())) {
+        Long currentTenantId = TenantContextHolder.getRequiredTenantId();
+        if (templateVersion == null
+                || !Objects.equals(templateVersion.getTenantId(), currentTenantId)
+                || !Objects.equals(task.getFormTemplateId(), templateVersion.getTemplateId())
+                || !StrUtil.equals(StrUtil.trim(templateVersion.getVersionNo()), StrUtil.trim(task.getFormTemplateVersionNo()))) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
         }
         return templateVersion;
     }
 
-    private List<FormRecognizedField> parseOpenResponseRecognizedFields(FormTemplateVersionDO templateVersion) {
+    private List<FormRecognizedField> parseOpenTaskFormTemplateRecognizedFields(FormTemplateVersionDO templateVersion) {
         if (templateVersion == null || StrUtil.isBlank(templateVersion.getRecognizedSchemaJson())) {
             return List.of();
         }
-        try {
-            JSONArray fields = JSON.parseArray(templateVersion.getRecognizedSchemaJson());
-            if (fields == null || fields.isEmpty()) {
-                return List.of();
-            }
-            List<FormRecognizedField> result = new ArrayList<>();
-            for (int i = 0; i < fields.size(); i++) {
-                JSONObject field = fields.getJSONObject(i);
-                if (field == null || StrUtil.isBlank(field.getString("fieldCode"))) {
-                    throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
-                }
-                result.add(FormRecognizedField.of(
-                        field.getString("fieldCode"),
-                        StrUtil.blankToDefault(field.getString("label"), field.getString("fieldCode")),
-                        StrUtil.blankToDefault(field.getString("fieldType"), "text"),
-                        Boolean.TRUE.equals(field.getBoolean("required"))));
-            }
-            return result;
-        } catch (RuntimeException ex) {
-            if (ex instanceof ServiceException serviceException) {
-                throw serviceException;
-            }
+        List<FormRecognizedField> fields = JsonUtils.parseArray(templateVersion.getRecognizedSchemaJson(),
+                FormRecognizedField.class);
+        if (fields == null || fields.stream().anyMatch(field -> field == null
+                || StrUtil.isBlank(field.getFieldCode())
+                || StrUtil.isBlank(field.getFieldType()))) {
             throw exception(PRO_EDHR_BATCH_EXECUTION_TASK_CONTEXT_REQUIRED);
         }
+        return fields;
     }
 
     private Long resolveAssistUserIdForOpenTask(MesProEdhrWorkTaskDO openWorkTask, Long requestedAssistUserId) {
