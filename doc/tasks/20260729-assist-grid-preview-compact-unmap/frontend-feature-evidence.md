@@ -16,6 +16,12 @@
 - R3: 预览格下方不显示独立“取消映射”按钮。
 - R4: 双击已映射辅助格调用既有 `removeAssistGridCellMapping(gridCell.key)`。
 
+## Acceptance
+
+- A1: 批记录填写配置和 FormCenter 模板填写配置两个入口都满足 R1-R4。
+- A2: 目标静态合同和 `pnpm ts:check` 全部通过。
+- A3: 不改变保存 payload、rowKey 协议、后端接口或原表单元格选择流程。
+
 ## UI Entry Points
 
 - 批记录填写规则确认弹窗辅助映射模式。

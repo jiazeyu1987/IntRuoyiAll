@@ -47,3 +47,7 @@
 ## Current Status
 
 ready_for_closeout
+
+## Cleanup Keep
+
+- doc/tasks/20260729-assist-grid-preview-compact-unmap/frontend-feature-evidence.md

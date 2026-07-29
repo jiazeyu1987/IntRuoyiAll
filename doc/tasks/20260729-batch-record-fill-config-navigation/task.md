@@ -10,7 +10,7 @@
 2. `completed`：补充任务专用 RED 静态合同，锁定顶部工具栏、导航事件、分页候选范围、候选预览上下文和 footer 移除。
 3. `completed`：修改 `BatchRecordCellRulesConfirmDialog.vue` 与批记录表单列表页，完成顶部三段式工具栏、脏数据确认和同产品同版本候选导航。
 4. `completed`：运行定向静态合同、相邻回归、真实只读 Playwright 和 `pnpm ts:check`。
-5. `in_progress`：更新验证报告、经验沉淀、cleanup、提交并推送。
+5. `completed`：更新验证报告、经验沉淀、cleanup、提交并推送。
 
 ## Expected Verification
 
@@ -46,4 +46,4 @@
 
 ## Current Status
 
-ready_for_closeout
+completed

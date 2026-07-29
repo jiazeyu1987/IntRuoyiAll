@@ -20,3 +20,7 @@
 - REAL-E2E-PREFLIGHT: `http://127.0.0.1:8081/` -> 200；`http://127.0.0.1:48081/actuator/health` -> UP；`where.exe npx` 与 `require('playwright')` 均可用。
 - GREEN: `node tests/e2e/batch-record-cell-rule-dialog-size-real.e2e.js` -> PASS；真实页面打开“填写配置”，顶部工具栏可见，`下一张` 切换触发 cell-rules GET 从 `44eedd7cf9e44ebda68e8f264656567f` 切到 `5d78e62bf4b44f9e9b38e4c7a7eca046`，MES 写请求数 `0`。
 - STATUS: 实现和验证完成，任务进入 `ready_for_closeout`，剩余 experience consolidation、cleanup、提交和推送。
+- EXPERIENCE: 已更新 `docs/frontend-development.md#前端同集合弹窗导航上下文门禁` 与 `docs/experience-index.md`，记录同集合弹窗导航必须同步父页面预览上下文。
+- CLEANUP: `task_closeout.py --task-id 20260729-batch-record-fill-config-navigation --mode preview` -> keep task/execution/frontend-feature/verification，delete none，blocked none。
+- CLEANUP: `task_closeout.py --task-id 20260729-batch-record-fill-config-navigation --mode apply` -> applied，deleted none，blocked none。
+- STATUS: cleanup 完成，任务状态更新为 `completed`。

@@ -18,6 +18,19 @@ const fitViewport = read('src/views/mes/pro/edhr/components/EdhrTemplateFitViewp
 const workspaceRail = executionPage.match(
   /<div ref="fillWorkspaceRef" class="edhr-fill-workspace">[\s\S]*?<\/aside>/
 )?.[0]
+const loadErrorIndex = executionPage.indexOf('class="edhr-fill-workspace__load-error"')
+const submitSignDialogIndex = executionPage.indexOf(
+  'class="edhr-fill-workspace__submit-sign-dialog"'
+)
+const resultDialogIndex = executionPage.indexOf('class="edhr-fill-workspace__result-dialog"')
+const submitSignDialogBlock =
+  submitSignDialogIndex >= 0
+    ? executionPage.slice(submitSignDialogIndex - 240, submitSignDialogIndex + 520)
+    : ''
+const resultDialogBlock =
+  resultDialogIndex >= 0
+    ? executionPage.slice(resultDialogIndex - 240, resultDialogIndex + 520)
+    : ''
 
 assert.ok(workspaceRail, '填写工作区必须包含左侧控制栏')
 
@@ -61,6 +74,24 @@ assert.match(
   executionPage,
   /\.edhr-fill-workspace:fullscreen\s*\{[\s\S]*height:\s*100vh/,
   '填写工作区全屏时必须占满浏览器视口'
+)
+assert.ok(
+  submitSignDialogIndex > 0 && submitSignDialogIndex < loadErrorIndex,
+  '提交执行签名弹框必须渲染在全屏填写工作区内部，避免浏览器全屏时被遮挡'
+)
+assert.ok(
+  resultDialogIndex > submitSignDialogIndex && resultDialogIndex < loadErrorIndex,
+  '保存/提交结果弹框必须渲染在全屏填写工作区内部，避免浏览器全屏时被遮挡'
+)
+assert.match(
+  submitSignDialogBlock,
+  /:append-to-body="false"/,
+  '提交执行签名弹框不得 teleport 到 body，否则全屏工作区会遮挡弹框'
+)
+assert.match(
+  resultDialogBlock,
+  /:append-to-body="false"/,
+  '保存/提交结果弹框不得 teleport 到 body，否则全屏工作区会遮挡弹框'
 )
 assert.match(
   executionPage,
