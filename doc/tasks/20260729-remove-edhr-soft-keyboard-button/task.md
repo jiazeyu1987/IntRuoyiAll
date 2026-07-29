@@ -51,6 +51,12 @@ completed
 - `66322922 chore: baseline concurrent process switch updates`
 - `bc9ba7bc chore: preserve concurrent workspace before soft keyboard closeout`
 - `ee388379 chore: preserve residual concurrent updates before soft keyboard closeout`
+- `c7764282 chore: preserve final concurrent test update before push`
+
+## Closeout Commits
+
+- `d122e50d docs: close out soft keyboard removal`
+- `8a82abb2 Merge remote-tracking branch 'origin/int_main' into int_main`
 
 ## Applicable Gates
 

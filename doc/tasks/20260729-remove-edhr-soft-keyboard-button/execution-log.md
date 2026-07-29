@@ -23,6 +23,7 @@
 - Concurrent baseline absorbed source removal: `66322922 chore: baseline concurrent process switch updates`
 - Pre-closeout concurrent baseline: `bc9ba7bc chore: preserve concurrent workspace before soft keyboard closeout`
 - Residual concurrent baseline: `ee388379 chore: preserve residual concurrent updates before soft keyboard closeout`
+- Final concurrent baseline before push: `c7764282 chore: preserve final concurrent test update before push`
 
 ## BDD
 
@@ -48,3 +49,4 @@
 - 2026-07-29: Concurrent commits advanced `origin/int_main`; task source/test changes are already present in pushed history, so remaining task-owned work is documentation closeout only.
 - 2026-07-29: Cleanup preview reported no blocked paths, warnings or deletions and retained `task.md`, `execution-log.md`, `frontend-feature-evidence.md` and `verification-report.md`.
 - 2026-07-29: Cleanup apply completed successfully with no deleted paths; task status advanced from `ready_for_closeout` to `completed`.
+- 2026-07-29: Closeout evidence committed as `d122e50d`; remote `int_main` updates were integrated by merge commit `8a82abb2` without changing the soft keyboard removal contract.
