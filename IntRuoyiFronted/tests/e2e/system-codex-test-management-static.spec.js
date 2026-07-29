@@ -156,8 +156,13 @@ assert.match(page, /runnerStatusMessage/, '页面必须把 Runner 可用性和�
 assert.match(page, /refreshRunnerStatus/, '页面必须有刷新 Runner 状态的方法。')
 assert.match(
   page,
-  /startCodexTestExecution[\s\S]*Runner 将按需启动并领取任务[\s\S]*activeTab\.value = 'monitor'[\s\S]*getMonitorList\(\)[\s\S]*startMonitorRefresh\(\)/,
-  '执行测试项必须直接进入后端按需启动链路，并切到运行监控。'
+  /startCodexTestExecution[\s\S]*Runner 将按需启动并领取任务[\s\S]*activeTab\.value = 'monitor'[\s\S]*refreshMonitorList\(\)/,
+  '执行测试项必须直接进入后端按需启动链路，并切到运行监控后刷新一次。'
+)
+assert.doesNotMatch(
+  page,
+  /startMonitorRefresh|monitorRefreshTimer|setInterval/,
+  '测试管理页运行监控不得使用前端定时轮询刷新。'
 )
 assert.match(
   page,

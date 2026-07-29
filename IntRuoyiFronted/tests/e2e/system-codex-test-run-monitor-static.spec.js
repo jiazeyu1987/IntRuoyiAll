@@ -30,7 +30,16 @@ for (const field of ['progressPhase', 'currentMethodSort', 'currentCheckpointSor
 assert.match(page, /<el-tabs[\s\S]*运行监控/, '测试管理页必须提供运行监控页签。')
 assert.match(page, /monitorRunningCount/, '运行监控页必须展示当前运行任务数量。')
 assert.match(page, /getCodexTestExecutionMonitor/, '运行监控页必须调用监控接口刷新真实状态。')
-assert.match(page, /monitorRefreshTimer/, '运行监控页必须有轮询刷新控制。')
+assert.match(
+  page,
+  /<el-button[\s\S]*:loading="monitorLoading"[\s\S]*@click="refreshMonitorList"[\s\S]*>\s*刷新\s*<\/el-button>/,
+  '运行监控页必须提供用户手动刷新按钮。'
+)
+assert.doesNotMatch(
+  page,
+  /MONITOR_REFRESH_INTERVAL_MS|monitorRefreshTimer|startMonitorRefresh|stopMonitorRefresh|setInterval|clearInterval/,
+  '运行监控页不得使用前端定时轮询刷新。'
+)
 assert.match(page, /resolveMethodStepState/, '运行监控页必须按方法项当前进度计算颜色。')
 assert.match(page, /resolveCheckpointStepState/, '运行监控页必须按目标项验证结果计算颜色。')
 for (const cssClass of [

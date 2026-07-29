@@ -48,11 +48,11 @@
                 />
               </el-select>
             </el-form-item>
-            <el-form-item class="codex-test-node-chain-filter">
+            <el-form-item class="codex-test-node-chain-filter" label="串行路线">
               <el-select
                 v-model="queryParams.nodeChainName"
                 aria-label="串行路线"
-                class="!w-180px"
+                class="!w-220px"
                 clearable
                 filterable
                 placeholder="全部串行路线"
@@ -273,7 +273,7 @@
               当前正在运行 {{ monitorRunningCount }} 个测试任务
             </div>
           </div>
-          <el-button :loading="monitorLoading" @click="getMonitorList">刷新</el-button>
+          <el-button :loading="monitorLoading" @click="refreshMonitorList">刷新</el-button>
         </div>
         <el-alert
           v-if="monitorLoadError"
@@ -554,7 +554,6 @@ const nodeChainOptions = ref<CodexTestApi.CodexTestNodeChainOptionVO[]>([])
 const monitorList = ref<CodexTestApi.CodexTestExecutionVO[]>([])
 const runnerStatus = ref<CodexTestApi.CodexTestRunnerStatusVO>()
 const runnerStatusError = ref('')
-const monitorRefreshTimer = ref<number>()
 const failedCheckpointDialogVisible = ref(false)
 const failedCheckpointContext = ref<{
   caseName: string
@@ -574,7 +573,6 @@ type CodexTestMethodItem = {
   text: string
 }
 
-const MONITOR_REFRESH_INTERVAL_MS = 3000
 const runningExecutionStatuses = ['PENDING', 'CLAIMED', 'RUNNING']
 
 const queryParams = reactive<CodexTestApi.CodexTestCasePageReqVO>({
@@ -1027,27 +1025,14 @@ async function getMonitorList() {
   }
 }
 
-function stopMonitorRefresh() {
-  if (monitorRefreshTimer.value) {
-    window.clearInterval(monitorRefreshTimer.value)
-    monitorRefreshTimer.value = undefined
-  }
-}
-
-function startMonitorRefresh() {
-  stopMonitorRefresh()
-  monitorRefreshTimer.value = window.setInterval(() => {
-    getMonitorList()
-  }, MONITOR_REFRESH_INTERVAL_MS)
+async function refreshMonitorList() {
+  await getMonitorList()
 }
 
 async function handleTabChange(name: string | number) {
   if (name === 'monitor') {
-    await getMonitorList()
-    startMonitorRefresh()
-    return
+    await refreshMonitorList()
   }
-  stopMonitorRefresh()
 }
 
 async function handleCasePagination(payload?: PaginationPayload) {
@@ -1190,8 +1175,7 @@ async function startExecution(mode: 'SEQUENTIAL' | 'PARALLEL') {
     })
     message.success(`已创建执行批次 ${executionId}，Runner 将按需启动并领取任务`)
     activeTab.value = 'monitor'
-    await getMonitorList()
-    startMonitorRefresh()
+    await refreshMonitorList()
     await refreshRunnerStatus()
   } catch (error) {
     showRequestError(error, mode === 'PARALLEL' ? '并行执行失败' : '顺序执行失败')
@@ -1217,8 +1201,7 @@ async function startSingleCaseExecution(row: CodexTestApi.CodexTestCaseVO) {
     })
     message.success(`已创建执行批次 ${executionId}，Runner 将按需启动并领取任务`)
     activeTab.value = 'monitor'
-    await getMonitorList()
-    startMonitorRefresh()
+    await refreshMonitorList()
     await refreshRunnerStatus()
   } catch (error) {
     showRequestError(error, '执行失败')
@@ -1234,9 +1217,6 @@ onMounted(async () => {
   await getCaseList()
 })
 
-onBeforeUnmount(() => {
-  stopMonitorRefresh()
-})
 </script>
 
 <style lang="scss" scoped>
