@@ -518,6 +518,18 @@ public interface ErrorCodeConstants {
             "模拟报工工序数量必须在 1 到 20 之间");
     ErrorCode PRO_FEEDBACK_SIMULATE_SOURCE_NOT_ENOUGH = new ErrorCode(1_040_506_032,
             "当前可模拟报工的排产工序数量不足，请求数量：{}，可用数量：{}");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_BINDING_REQUIRED = new ErrorCode(1_040_506_100,
+            "一线固定模板绑定缺失，actualEmployeeId={}，routeProcessId={}，processId={}");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_CONTEXT_REQUIRED = new ErrorCode(1_040_506_101,
+            "一线固定模板上下文缺失");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_UNSUPPORTED = new ErrorCode(1_040_506_102,
+            "一线固定模板不支持：{}");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_FIELD_INVALID = new ErrorCode(1_040_506_103,
+            "一线固定模板字段不允许：{}");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_PQC_RESULT_INVALID = new ErrorCode(1_040_506_104,
+            "PQC 简化模板只允许检测成功或检测失败");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_SUBMIT_TIME_FORBIDDEN = new ErrorCode(1_040_506_105,
+            "一线固定模板不允许前端录入提交时间");
 
     // ========== MES 生产管理-生产流转卡（1-040-507-000） ==========
     ErrorCode PRO_CARD_NOT_EXISTS = new ErrorCode(1_040_507_000, "生产流转卡不存在");
