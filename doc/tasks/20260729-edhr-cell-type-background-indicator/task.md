@@ -34,7 +34,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Concurrency Review
 
@@ -50,3 +50,9 @@ ready_for_closeout
 
 - doc/tasks/20260729-edhr-cell-type-background-indicator/frontend-feature-evidence.md
 - task-closeout preview/apply 均通过，未删除任何文件。
+
+## Final Result
+
+- 实现、聚焦验证、相邻回归、任务清理和远端推送均已完成。
+- 脏工作树基线提交：`e03d6ff755f711bda4be9e5ddb33bf1d40606faa`，已推送至 `origin/int_main`。
+- 最终结果：执行填写页不再显示单元格类型 item，改为七种字段类型对应的背景色标识。

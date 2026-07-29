@@ -28,3 +28,9 @@
 
 - Background colors are applied to the cell itself and do not add layout width or cover controls.
 - The shared component keeps `cellTypeDisplay: 'badge'` as its default, so other pages retain existing behavior.
+
+## Final Closeout
+
+- task-closeout preview/apply -> PASS
+- baseline commit `e03d6ff755f711bda4be9e5ddb33bf1d40606faa` -> pushed to `origin/int_main`
+- task status -> `completed`

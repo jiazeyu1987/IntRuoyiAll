@@ -30,3 +30,6 @@
 - GREEN: `node tests/e2e/edhr-fill-workspace-cell-type-background-static.spec.js` -> PASS（当前工作树复验）。
 - REGRESSION: `node tests/e2e/edhr-fill-workspace-original-rule-legend-hidden-static.spec.js` -> PASS（当前工作树复验）。
 - CLEANUP: task-closeout preview/apply -> PASS；保留 task、execution-log、verification-report 和 frontend-feature-evidence，删除 0 个文件。
+- BASELINE: `e03d6ff755f711bda4be9e5ddb33bf1d40606faa` -> 已按脏工作树基线规则提交并推送；文件清单：`BatchRecordCellRulesConfirmDialog.vue`、admin submitted content E2E/日志、assist topbar action reserve 日志/任务文档，以及本任务 task/execution-log/verification-report。
+- PUSH: `git push origin int_main` -> PASS，`e03d6ff7` 已同步到远端。
+- FINAL: 任务状态更新为 `completed`；本任务实现、验证、清理和推送均完成。
