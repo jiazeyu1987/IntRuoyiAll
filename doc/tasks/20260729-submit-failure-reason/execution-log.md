@@ -47,4 +47,9 @@
 
 ## Final Status
 
-- Current Status: `completed`。
+- Current Status: `blocked`。
+- Push blocker:
+  - `git push origin int_main` -> FAIL, `Recv failure: Connection was reset`。
+  - retry `git push origin int_main` -> FAIL, `Recv failure: Connection was reset`。
+  - `git ls-remote origin HEAD` -> FAIL, `Recv failure: Connection was reset`。
+  - `git status --short --branch` -> `## int_main...origin/int_main [ahead 5]`。

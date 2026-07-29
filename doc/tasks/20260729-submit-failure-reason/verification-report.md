@@ -4,7 +4,7 @@
 
 - 修复点：提交失败时，结果弹窗不再只显示“提交失败”，会展示 `resolveErrorMessage` 解析出的真实失败原因。
 - 范围：`IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`。
-- 状态：实现、定向验证、cleanup 和经验沉淀通过；等待提交和推送。
+- 状态：实现、定向验证、cleanup、经验沉淀和本地提交通过；推送被网络/远端连接 reset 阻塞。
 
 ## Bug
 
@@ -54,5 +54,5 @@
 
 ## Blockers
 
-- 无实现阻塞。
+- 推送阻塞：`git push origin int_main` 连续两次失败，`git ls-remote origin HEAD` 同样返回 `Recv failure: Connection was reset`。
 - 真实提交失败路径 E2E 未运行，原因见 `Real E2E`；当前验收以聚焦静态合同、相邻静态合同和类型检查为准。

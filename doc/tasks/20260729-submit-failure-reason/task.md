@@ -10,7 +10,7 @@
 - [x] 先补充 BDD 场景和 RED 静态回归测试，证明失败原因缺失。
 - [x] 实现最小修复，展示真实失败原因。
 - [x] 运行目标测试和相邻回归验证，记录证据。
-- [x] 完成收尾、经验沉淀、提交与推送。
+- [ ] 完成收尾、经验沉淀、提交与推送。
 
 ## Expected Verification
 
@@ -22,7 +22,13 @@
 
 ## Current Status
 
-completed
+blocked
+
+## Blockers
+
+- `git push origin int_main` 连续两次失败：`Recv failure: Connection was reset`。
+- `git ls-remote origin HEAD` 同样失败：`Recv failure: Connection was reset`。
+- 影响：本地实现、验证、cleanup、经验沉淀和提交已完成，但任务不能按项目规则标记完成，因为本地分支仍 ahead `origin/int_main`。
 
 ## 设计约束检查
 
