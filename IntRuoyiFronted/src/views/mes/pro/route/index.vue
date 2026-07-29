@@ -339,7 +339,7 @@
       />
       <el-table
         class="route-version-workspace__candidate-list"
-        :data="routeVersions"
+        :data="visibleRouteVersions"
         border
         :show-overflow-tooltip="true"
         empty-text="暂无版本记录"
@@ -517,13 +517,19 @@ const routeVersionErrorMessage = ref('')
 const routeProductBindLoadingId = ref<number | undefined>()
 const routeCandidateEditLoadingId = ref<number | undefined>()
 const OPEN_CANDIDATE_CONFLICT_NOTICE =
-  '当前路线存在多个打开中的候选版本，请按最高版本保留一个，关闭其余版本（通过撤回/取消流程）；保留的草稿可在候选版本行点击“提交发布”进入发布流程。'
+  '当前路线存在多个打开中的候选版本，请通过待发布版本或编辑入口处理打开候选；版本列表仅展示已生效历史版本。'
 const ROUTE_OPEN_CANDIDATE_STATUS_SET = new Set([
   'DRAFT',
   'PENDING_APPROVAL',
   'READY_TO_PUBLISH',
   'REJECTED'
 ])
+const EFFECTIVE_ROUTE_VERSION_STATUS_SET = new Set(['ACTIVE', 'SUPERSEDED'])
+const isVisibleRouteVersionInWorkspace = (version: ProRouteVersionVO) =>
+  version.active || EFFECTIVE_ROUTE_VERSION_STATUS_SET.has(String(version.lifecycleStatus))
+const visibleRouteVersions = computed(() =>
+  routeVersions.value.filter(isVisibleRouteVersionInWorkspace)
+)
 const routeVersionOpenCandidates = computed(() =>
   routeVersions.value.filter(
     (version) => !version.active && ROUTE_OPEN_CANDIDATE_STATUS_SET.has(String(version.lifecycleStatus))
@@ -565,10 +571,10 @@ const routeVersionWorkspaceHint = computed(() => {
   }
   const status = String(routeVersionPrimaryOpenCandidate.value?.lifecycleStatus || '')
   if (status === 'DRAFT') {
-    return '仅草稿候选可编辑；提交后进入审核，只能查看或撤回后再编辑。'
+    return '仅草稿候选可编辑；请通过待发布版本或编辑入口打开，提交后进入审核。'
   }
   if (status === 'PENDING_APPROVAL') {
-    return '候选版本正在审核中，仅允许查看；需要修改请先撤回后再编辑。'
+    return '候选版本正在审核中，仅允许查看；需要修改请通过待发布版本入口撤回后再编辑。'
   }
   if (status === 'READY_TO_PUBLISH') {
     return '候选版本已通过审核，系统正在发布生效；该状态不需要人工签名发布。'
@@ -887,8 +893,8 @@ const createRouteCandidateFromActive = async () => {
       actionName: '创建候选版本',
       changeReason: '前端版本工作区创建候选版本',
       success: (content) => message.success(content),
-      existingSuccessMessage: '已存在草稿候选版本，请在版本工作区继续编辑',
-      createdSuccessMessage: '候选版本已创建，发布前不会影响生产'
+      existingSuccessMessage: '已存在草稿候选版本，请从待发布版本或编辑入口继续编辑',
+      createdSuccessMessage: '候选版本已创建，请从待发布版本或编辑入口继续编辑'
     })
     await loadRouteVersions(currentRoute.id)
   } catch (error) {

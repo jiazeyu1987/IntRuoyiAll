@@ -37,6 +37,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -912,6 +914,67 @@ class MesProRouteFlowConfigServiceImplTest {
                 10L, MesProRouteFlowConfigTypeEnum.BATCH.getType());
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"REJECTED", "CANCELLED"})
+    void getRouteFlowProcessConfigList_shouldReadSnapshotForClosedCandidateVersion(String lifecycleStatus) {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeVersionMapper.selectById(181L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(181L)
+                .routeId(10L)
+                .active(Boolean.FALSE)
+                .lifecycleStatus(lifecycleStatus)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 10,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "nodes": [
+                                {"routeProcessId": 100, "processId": 1000, "sort": 1, "keyFlag": true, "checkFlag": false}
+                              ]
+                            },
+                            "batchUseConfigs": [
+                              {
+                                "routeProcessId": 100,
+                                "enabled": true,
+                                "productionQuantityFactor": 1,
+                                "formBindings": [
+                                  {
+                                    "formBindingKey": "FB-CLOSED-SNAPSHOT",
+                                    "formTemplateId": 2002,
+                                    "formTemplateName": "关闭候选生产记录",
+                                    "instanceScope": "PROCESS",
+                                    "recordCategory": "BATCH_RECORD",
+                                    "validationProfile": "CONTROLLED_BATCH",
+                                    "candidateSourceType": "USERS",
+                                    "candidateSourceIds": [9002],
+                                    "candidateSourceNames": ["李四"],
+                                    "reportSort": 1
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                        """)
+                .build());
+        doReturn(List.of(MesProProcessDO.builder().id(1000L).code("P1000").name("清洗工序").build()))
+                .when(processMapper).selectBatchIds(anyCollection());
+
+        List<MesProRouteFlowProcessConfigRespVO> result =
+                service.getRouteFlowProcessConfigList(
+                        10L, MesProRouteFlowConfigTypeEnum.BATCH.getType(), 181L);
+
+        assertEquals(1, result.size());
+        assertEquals(1, result.get(0).getFormBindings().size());
+        var binding = result.get(0).getFormBindings().get(0);
+        assertEquals("FB-CLOSED-SNAPSHOT", binding.getFormBindingKey());
+        assertEquals(2002L, binding.getFormTemplateId());
+        assertEquals("关闭候选生产记录", binding.getFormTemplateName());
+        verify(routeFlowProcessBatchRecordMapper, never()).selectListByRouteIdAndUseType(
+                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType());
+    }
+
     private void assertReviewCandidateVersionReadsCurrentProcessSettingFormBinding(String lifecycleStatus, Long routeVersionId) {
         MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
         MesProRouteFlowConfigDO flowConfig = MesProRouteFlowConfigDO.builder()
@@ -1106,6 +1169,33 @@ class MesProRouteFlowConfigServiceImplTest {
         ServiceException ex = assertThrows(ServiceException.class, () -> service.saveRouteFlowConfig(reqVO));
 
         assertEquals(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE.getCode(), ex.getCode());
+        verify(routeFlowProcessConfigMapper, never()).insert(any(MesProRouteFlowProcessConfigDO.class));
+        verify(routeFlowProcessConfigMapper, never()).updateById(any(MesProRouteFlowProcessConfigDO.class));
+    }
+
+    @Test
+    void saveRouteFlowConfig_shouldRejectCancelledRouteVersion() {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
+        MesProRouteFlowConfigSaveReqVO reqVO = new MesProRouteFlowConfigSaveReqVO();
+        reqVO.setRouteId(10L);
+        reqVO.setRouteVersionId(99L);
+        reqVO.setUseType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType());
+        MesProRouteFlowProcessConfigSaveReqVO processConfig = new MesProRouteFlowProcessConfigSaveReqVO();
+        processConfig.setRouteProcessId(100L);
+        processConfig.setEnabled(Boolean.TRUE);
+        reqVO.setProcessConfigs(List.of(processConfig));
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeVersionMapper.selectById(99L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(99L)
+                .routeId(10L)
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED)
+                .build());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.saveRouteFlowConfig(reqVO));
+
+        assertEquals(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE.getCode(), ex.getCode());
+        verify(routeCandidateConfigService, never()).saveConfigSnapshot(any(), any(), any());
         verify(routeFlowProcessConfigMapper, never()).insert(any(MesProRouteFlowProcessConfigDO.class));
         verify(routeFlowProcessConfigMapper, never()).updateById(any(MesProRouteFlowProcessConfigDO.class));
     }

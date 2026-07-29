@@ -84,6 +84,10 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
             MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT,
             MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL,
             MesProRouteVersionLifecycleServiceImpl.STATUS_READY_TO_PUBLISH);
+    private static final Set<String> READABLE_HISTORICAL_SNAPSHOT_STATUSES = Set.of(
+            MesProRouteVersionLifecycleServiceImpl.STATUS_REJECTED,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_SUPERSEDED);
 
     @Resource
     private MesProRouteMapper routeMapper;
@@ -116,7 +120,7 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
     public MesProRouteProcessFlowGraphRespVO getGraph(Long routeId, Long routeVersionId) {
         validateRouteExists(routeId);
         MesProRouteVersionDO readableRouteVersion = resolveReadableRouteVersion(routeVersionId, routeId);
-        if (isReadableCandidateVersion(readableRouteVersion)) {
+        if (isSnapshotRouteVersion(readableRouteVersion)) {
             return getCandidateGraph(readableRouteVersion, routeId);
         }
         List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(routeId);
@@ -449,7 +453,7 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
             throw exception(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE,
                     routeVersion.getId(), routeVersion.getLifecycleStatus());
         }
-        if (isReadableCandidateVersion(routeVersion) || isActiveRouteVersion(routeVersion)) {
+        if (isSnapshotRouteVersion(routeVersion) || isActiveRouteVersion(routeVersion)) {
             return routeVersion;
         }
         throw exception(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE,
@@ -512,6 +516,13 @@ public class MesProRouteProcessFlowServiceImpl implements MesProRouteProcessFlow
         return routeVersion != null
                 && Boolean.FALSE.equals(routeVersion.getActive())
                 && READABLE_CANDIDATE_STATUSES.contains(routeVersion.getLifecycleStatus());
+    }
+
+    private boolean isSnapshotRouteVersion(MesProRouteVersionDO routeVersion) {
+        return routeVersion != null
+                && Boolean.FALSE.equals(routeVersion.getActive())
+                && (READABLE_CANDIDATE_STATUSES.contains(routeVersion.getLifecycleStatus())
+                || READABLE_HISTORICAL_SNAPSHOT_STATUSES.contains(routeVersion.getLifecycleStatus()));
     }
 
     private boolean isActiveRouteVersion(MesProRouteVersionDO routeVersion) {

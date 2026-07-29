@@ -77,6 +77,12 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
     private static final String CAPACITY_SOURCE_MACHINE = "MACHINE";
     private static final String CAPACITY_SOURCE_WORKER = "WORKER";
     private static final String CAPACITY_SOURCE_UNCONFIGURED = "UNCONFIGURED";
+    private static final Set<String> READABLE_CANDIDATE_SNAPSHOT_STATUSES = Set.of(
+            MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_READY_TO_PUBLISH,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_REJECTED,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED);
 
     @Value("${mes.schedule.allow-legacy-finite-hourly-write:false}")
     private boolean allowLegacyFiniteHourlyWrite = false;
@@ -145,6 +151,12 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
     private boolean isDraftCandidate(MesProRouteVersionDO routeVersion) {
         return Boolean.FALSE.equals(routeVersion.getActive())
                 && MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(routeVersion.getLifecycleStatus());
+    }
+
+    private boolean isReadableCandidateSnapshotVersion(MesProRouteVersionDO routeVersion) {
+        return routeVersion != null
+                && Boolean.FALSE.equals(routeVersion.getActive())
+                && READABLE_CANDIDATE_SNAPSHOT_STATUSES.contains(routeVersion.getLifecycleStatus());
     }
 
     private JSONObject buildMergedScheduleConfigSnapshot(MesProRouteScheduleConfigSaveReqVO reqVO,
@@ -303,7 +315,7 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
         if (routeVersion == null) {
             throw exception(PRO_ROUTE_FLOW_CONFIG_PROCESS_REQUIRED);
         }
-        if (isDraftCandidate(routeVersion)) {
+        if (isReadableCandidateSnapshotVersion(routeVersion)) {
             return normalizeConfigRouteProcessIds(routeVersion, getCandidateScheduleConfigList(routeVersion));
         }
         return normalizeConfigRouteProcessIds(routeVersion,
@@ -316,7 +328,7 @@ public class MesProRouteScheduleConfigServiceImpl implements MesProRouteSchedule
         if (routeVersion == null) {
             throw exception(PRO_ROUTE_FLOW_CONFIG_PROCESS_REQUIRED);
         }
-        List<MesProRouteScheduleConfigDO> configs = isDraftCandidate(routeVersion)
+        List<MesProRouteScheduleConfigDO> configs = isReadableCandidateSnapshotVersion(routeVersion)
                 ? normalizeConfigRouteProcessIds(routeVersion, getCandidateScheduleConfigList(routeVersion))
                 : normalizeConfigRouteProcessIds(routeVersion,
                         routeScheduleConfigMapper.selectListByRouteVersionId(routeVersionId));
