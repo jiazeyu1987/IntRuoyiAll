@@ -31,6 +31,9 @@
 - `REGRESSION: pnpm ts:check -> FAIL, unrelated existing blocker: src/views/form-center/business-action/ActionFormPanel.vue(257,3) missing required updatedTime in FormTemplateListItemVO literal; current task did not modify this file.`
 - `GREEN: pnpm ts:check -> PASS, after adding required updatedTime metadata to the embedded FormTemplateListItemVO literal without changing API contracts.`
 - `GREEN: python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-edhr-assist-topbar-action-reserve/frontend-feature-evidence.md -> PASS`
+- `CLEANUP: python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-assist-topbar-action-reserve --mode preview -> PASS, keep task.md/execution-log.md/frontend-feature-evidence.md/verification-report.md, delete none, blocked none, warnings none.`
+- `CLEANUP: python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-assist-topbar-action-reserve --mode apply -> PASS, deleted none.`
+- `EXPERIENCE: project-experience-consolidation -> merged FormCenter embedded template type contract into docs/frontend-development.md and docs/experience-index.md; rg verified keywords.`
 
 ## Milestones
 
@@ -39,7 +42,7 @@
 - `completed`：新增 RED 静态合同并确认当前实现失败。
 - `completed`：实施布局调整。
 - `completed`：目标合同、相邻合同、类型检查和前端证据校验通过。
-- `in_progress`：任务状态已进入 `ready_for_closeout`，待 cleanup preview/apply、经验沉淀、提交和推送。
+- `completed`：cleanup preview/apply、经验沉淀和最终状态更新已完成。
 
 ## Blockers
 

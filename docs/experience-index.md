@@ -92,6 +92,7 @@
 - Keywords: 草稿保存后仍可修改, 保存草稿不提交发布, 保存后不可继续编辑, 立即提交发布弹窗, submit-publish, DRAFT 被保存推进审批, RouteEditPage handleSaved, promptRouteVersionSubmit -> `docs/frontend-development.md#前端草稿保存与提交发布解耦门禁`
 - Keywords: 当前模板未绑定批记录表单, 表单模板打开编辑填写, openSelectedTemplateWorkspace, isDesignerMode, FormTemplateDesignerWrapper, FormTemplateSimulatePage, simulationOnly, MdmFormCenterTemplateSimulate, /mdm/form-center/template/simulate, batchRecordBindingStatus, batchRecordReportId -> `docs/frontend-development.md#表单模板三按钮领域边界门禁`
 - Keywords: FormCenter 动态表单字段码, fieldCode, fieldIdentityMap, ActionFormPanel, EdhrExecutionTemplateEditableForm, 损耗单, 过程检验记录, FORM_TEMPLATE_VERSION, form_data_json, field6, 5:3, 页面输入框为空, 快照 JSON 有值, 动态表单单元格链接 -> `docs/frontend-development.md#formcenter-动态表单字段码渲染门禁`
+- Keywords: FormCenter 嵌入模板对象, FormTemplateListItemVO, updatedTime, ActionFormPanel, resolveEmbeddedTemplateVersionForActionForm, Property 'updatedTime' is missing, 本地构造模板列表项, pnpm ts:check -> `docs/frontend-development.md#formcenter-嵌入模板对象类型契约门禁`
 - Keywords: 前端静态合同旧仓路径, form-center-static, ruoyi-vue-pro/sql/mysql, IntRuoyiBackend/sql/mysql, ENOENT, 跨端 SQL 读取路径 -> `docs/frontend-development.md#前端静态合同仓库路径门禁`
 - Keywords: 聚合字段新增子项, 默认分类, 表单槽位, route-flow-graph-designer__node-form-count-badge, createEmptyRecordBinding, formSlotType MAIN, 新增后数字不变 -> `docs/frontend-development.md#前端聚合新增默认分类门禁`
 - Keywords: noTagsView, activeMenu, 隐藏路由顶部页签, 顶部 tab 切回列表, fullPath query 丢失, replaceActiveMenuView, restoreActiveMenuView, 流转关系图页签返回 -> `docs/frontend-development.md#前端隐藏路由顶部页签状态门禁`

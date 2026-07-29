@@ -11,7 +11,7 @@
 3. `completed`：新增 RED 静态合同，锁定顶部栏 2/3 + 1/3 布局。
 4. `completed`：实施最小模板/CSS 调整。
 5. `completed`：运行目标合同、相邻回归、类型检查和前端证据校验。
-6. `in_progress`：完成 cleanup、经验沉淀、提交并推送。
+6. `completed`：完成 cleanup、经验沉淀、提交并推送。
 
 ## Expected Verification
 
@@ -37,7 +37,16 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
+
+## Final Verification Result
+
+- `node tests/e2e/edhr-assist-topbar-action-reserve-static.spec.js`：PASS。
+- `node tests/e2e/edhr-assist-process-switch-dialog-grid-static.spec.js`：PASS。
+- `pnpm ts:check`：PASS。
+- `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-edhr-assist-topbar-action-reserve/frontend-feature-evidence.md`：PASS。
+- `task_closeout.py --mode preview/apply`：PASS，删除项为 `<none>`。
+- `project-experience-consolidation`：已合并到 `docs/frontend-development.md`，并更新 `docs/experience-index.md`。
 
 ## Cleanup Keep
 

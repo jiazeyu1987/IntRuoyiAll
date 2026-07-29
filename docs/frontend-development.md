@@ -113,6 +113,15 @@
 - Forbidden action: 禁止把快照 JSON 文本当作表单控件展示通过；禁止同时保存 `fieldCode` 和坐标 key 冒充兼容；禁止用 API-only、直连实例、mock、默认空布局或传统批记录 PASS 替代损耗单/过程检验记录验证。
 - Evidence: 任务 `doc/tasks/20260728-edhr-cell-link-main-e2e-repair/verification-report.md`，动态表单实例已落库 `field6`，旧页面因未渲染模板控件和缺少 `fieldIdentityMap` 导致页面为空。
 
+## FormCenter 嵌入模板对象类型契约门禁
+
+- Trigger: `ActionFormPanel`、FormCenter 动态表单嵌入快照、`resolveEmbeddedTemplateVersionForActionForm`、本地构造 `FormTemplateListItemVO`、`updatedTime`、`templateId/templateName/versionNo/status`、或 `pnpm ts:check` 报 `Property 'updatedTime' is missing`。
+- Preflight check: 本地构造 FormCenter 模板列表项时，先核对 `src/api/form-center/template.ts` 的正式 `FormTemplateListItemVO` 必填字段；嵌入快照缺少展示型元数据时按契约显式补齐稳定空值，例如 `updatedTime: ''`，不得放宽接口类型。
+- Blocker: 对象字面量缺少 `updatedTime` 等必填字段、通过 `as any`/`Partial<FormTemplateListItemVO>`/接口改可选来绕过类型检查、或嵌入模板对象字段不满足正式模板 API 契约时必须停止。
+- Verification: 运行 `pnpm ts:check`；涉及动态表单渲染时继续运行 FormCenter/eDHR 相邻静态合同，证明模板布局和字段识别链路未被改写。
+- Forbidden action: 禁止为了通过类型检查把正式 API 字段改成可选、禁止用 mock/default success 代替模板元数据、禁止吞掉嵌入快照缺失导致的真实渲染错误。
+- Evidence: 任务 `doc/tasks/20260729-edhr-assist-topbar-action-reserve/verification-report.md`，全量类型检查因 `ActionFormPanel.vue` 构造的嵌入模板对象缺少 `updatedTime` 失败，按正式 `FormTemplateListItemVO` 补齐后 `pnpm ts:check` 通过。
+
 ## 前端静态合同仓库路径门禁
 
 - Trigger: 前端静态合同读取后端 SQL、发布迁移、任务文档或跨端源码路径，尤其出现 `../ruoyi-vue-pro/sql/mysql`、`ENOENT`、`form-center-static.spec.js` 或旧双仓路径。
