@@ -47,6 +47,16 @@ assert.match(
 )
 assert.match(
   script,
+  /selectedPreviewSnapshot\.value\?\.assistGridRowCount[\s\S]*selectedPreviewSnapshot\.value\?\.assistGridColumnCount[\s\S]*snapshotRowCount[\s\S]*snapshotColumnCount/,
+  '详情页必须优先使用运行快照中的正式辅助表格尺寸，不能仅按已映射格子推断。'
+)
+assert.match(
+  script,
+  /gridKey\.rowIndex\s*>=\s*rowCount[\s\S]*gridKey\.columnIndex\s*>=\s*columnCount[\s\S]*超出辅助表格尺寸/,
+  '详情页必须阻止超出正式辅助表格尺寸的辅助格伪装成有效配置。'
+)
+assert.match(
+  script,
   /resolveDetailPreviewAssistSubjectLabel[\s\S]*fillableUsers/,
   '详情页必须优先使用批次任务填写人快照显示个人责任主体名称。'
 )

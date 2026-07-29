@@ -4,6 +4,7 @@
 
 - `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> PASS
 - `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS
+- `node tests/e2e/assist-grid-per-user-mapping-static.spec.js` -> PASS
 - `pnpm ts:check` -> PASS
 - `validate_bug_regression.py --evidence doc/tasks/20260729-fill-config-redbox-hide/bug-regression-evidence.md` -> PASS
 - `validate_frontend_feature.py --evidence doc/tasks/20260729-fill-config-redbox-hide/frontend-feature-evidence.md` -> PASS
@@ -15,6 +16,8 @@
 
 - Top-right redbox action group is no longer rendered as `data-fill-config-actions="primary"`.
 - Source-form and assist-preview redbox titles/descriptions are no longer rendered.
+- Source-form cells no longer render rule type / required-marker secondary lines.
+- Assist-grid cells no longer render unmapped / source-form secondary summaries.
 - Source form, assist preview, mapping control panel, and assist grid cells remain present.
 - Close, reload, and save actions remain available in the right-side fixed action area.
 

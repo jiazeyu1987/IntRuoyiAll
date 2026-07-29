@@ -30,4 +30,15 @@
 
 ## Evidence
 
-Pending.
+- `ExecutionPage.vue` now recognizes `batchTaskPreview=1` and uses `loadAssistBatchTaskPreviewExecution` to stay on `/mes/pro/feedback/edhr-execution/form`.
+- Non-openable tasks without `executionId` now route through `navigateToAssistBatchTaskPreview(row, batchExecutionId)`, carrying `batchTaskId` and reading the formal `getEdhrBatchTaskPreview(batchExecutionId, batchTaskId)` API.
+- Preview mode builds a read-only execution view model from formal batch detail and task preview data; save/submit remain blocked because no work task context is granted.
+- The process switch contract now forbids the old `navigateToAssistBatchProcessOverview` branch and requires explicit `batchTaskPreview: '1'`.
+
+## Verification
+
+- `node tests/e2e/edhr-assist-process-switch-all-statuses-static.spec.js` -> PASS.
+- `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS.
+- `node tests/e2e/edhr-switch-filler-selectability-static.spec.js` -> PASS.
+- `node tests/e2e/edhr-switch-filler-formcenter-slot-static.spec.js` -> PASS.
+- `pnpm ts:check` -> PASS.

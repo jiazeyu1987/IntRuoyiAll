@@ -4,9 +4,11 @@
 
 “填写配置 / 辅助表单映射”页面截图红框内的顶部操作组、左侧原表单说明栏和中央辅助表单预览说明栏仍显示。
 
+补充反馈：原表单格子和辅助表格格子内的第二行次级说明（如规则类型/必填、未映射、原表单来源）仍显示。
+
 ## Expected Behavior
 
-红框说明和顶部操作区域不显示；原表格、辅助表格、右侧映射控制栏和保存/重读/关闭能力仍可用。
+红框说明、顶部操作区域和格子内部次级说明不显示；原表格、辅助表格、右侧映射控制栏和保存/重读/关闭能力仍可用。
 
 ## Reproduction
 
@@ -17,6 +19,8 @@
 
 `BatchRecordCellRulesConfirmDialog.vue` 在辅助映射页持续渲染 `data-fill-config-actions="primary"` 顶部操作组，以及左侧和中间栏的 `batch-record-cell-rules-editor__panel-head` 说明标题。
 
+补充根因：格子内部仍渲染 `batch-record-cell-rules-editor__cell-rule` 与辅助格 `small` 来源摘要，前一轮面板级隐藏没有覆盖卡片级红框内容。
+
 ## Regression Test
 
 - Added `IntRuoyiFronted/tests/e2e/edhr-fill-config-redbox-hide-static.spec.js`.
@@ -25,16 +29,18 @@
 ## RED:
 
 - `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> FAIL, expected because the right-side fixed action area was missing and the old redbox DOM still existed.
+- `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> FAIL, expected because cell-level secondary metadata still rendered.
 
 ## GREEN:
 
 - `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> PASS
 - `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS
+- `node tests/e2e/assist-grid-per-user-mapping-static.spec.js` -> PASS
 - `pnpm ts:check` -> PASS
 
 ## Verification
 
-- Target static contract, adjacent visual fill config static contract, and TypeScript check all passed.
+- Target static contract, adjacent visual fill config static contract, assist-grid mapping static contract, and TypeScript check all passed.
 
 ## Risk And Scope
 

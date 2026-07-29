@@ -13,7 +13,7 @@
 3. `completed`：实施最小前端修复，不引入 fallback 或静默降级。
 4. `completed`：运行目标静态合同和相邻回归验证。
 5. `completed`：更新证据、状态和剩余阻塞。
-6. `in_progress`：补充卡片次级说明隐藏 RED/GREEN 回归。
+6. `completed`：补充卡片次级说明隐藏 RED/GREEN 回归。
 
 ## Expected Verification
 
@@ -35,7 +35,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Final Verification Result
 
@@ -45,7 +45,7 @@ in_progress
 - `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode preview` -> ready
 - `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode apply` -> applied, deleted none
 - Commit/push -> BLOCKED by unrelated concurrent dirty changes and branch ahead state
-- 2026-07-29 补充反馈处理中：卡片次级说明隐藏尚待 RED/GREEN 与复验。
+- 2026-07-29 补充反馈：卡片次级说明隐藏 RED/GREEN 与复验已通过，待本轮 cleanup/提交/推送门禁。
 
 ## Cleanup Keep
 

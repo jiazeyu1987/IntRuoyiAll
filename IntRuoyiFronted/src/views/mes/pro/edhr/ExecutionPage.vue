@@ -289,83 +289,6 @@
                     </div>
                   </div>
 
-                  <div class="edhr-fill-workspace__section edhr-fill-workspace__soft-keyboard-section">
-                    <el-popover
-                      v-model:visible="softKeyboardVisible"
-                      trigger="click"
-                      placement="right-start"
-                      :width="420"
-                      popper-class="edhr-fill-workspace__soft-keyboard-popover"
-                      :teleported="false"
-                    >
-                      <template #reference>
-                        <button
-                          type="button"
-                          class="edhr-fill-workspace__soft-keyboard-trigger"
-                          aria-label="打开软键盘"
-                          title="打开软键盘"
-                          @mousedown.prevent
-                          @click="openSoftKeyboard"
-                        >
-                          <Icon icon="mdi:keyboard-outline" />
-                        </button>
-                      </template>
-                      <div class="edhr-fill-workspace__soft-keyboard-panel" @mousedown.prevent>
-                        <div class="edhr-fill-workspace__soft-keyboard-head">
-                          <strong>软键盘</strong>
-                          <button
-                            type="button"
-                            data-soft-keyboard-action="close"
-                            aria-label="关闭软键盘"
-                            @click="softKeyboardVisible = false"
-                          >
-                            <Icon icon="ep:close" />
-                          </button>
-                        </div>
-                        <div class="edhr-fill-workspace__soft-keyboard-keys">
-                          <div
-                            v-for="(row, rowIndex) in softKeyboardRows"
-                            :key="rowIndex"
-                            class="edhr-fill-workspace__soft-keyboard-row"
-                          >
-                            <button
-                              v-for="key in row"
-                              :key="key"
-                              type="button"
-                              data-soft-keyboard-action="key"
-                              @click="insertSoftKeyboardText(key)"
-                            >
-                              {{ key }}
-                            </button>
-                          </div>
-                        </div>
-                        <div class="edhr-fill-workspace__soft-keyboard-actions">
-                          <button
-                            type="button"
-                            data-soft-keyboard-action="space"
-                            @click="insertSoftKeyboardText(' ')"
-                          >
-                            空格
-                          </button>
-                          <button
-                            type="button"
-                            data-soft-keyboard-action="backspace"
-                            @click="handleSoftKeyboardBackspace"
-                          >
-                            删除
-                          </button>
-                          <button
-                            type="button"
-                            data-soft-keyboard-action="close"
-                            @click="softKeyboardVisible = false"
-                          >
-                            关闭
-                          </button>
-                        </div>
-                      </div>
-                    </el-popover>
-                  </div>
-
                   <el-alert
                     v-if="revisionLockNotice"
                     :title="revisionLockNotice"
@@ -1674,7 +1597,6 @@ defineOptions({ name: 'MesProFeedbackEdhrExecutionForm' })
 
 type DraftFieldValue = string | number | boolean | null
 type DraftAttachmentValue = string | string[]
-type SoftKeyboardEditableElement = HTMLInputElement | HTMLTextAreaElement | HTMLElement
 
 type SnapshotFieldOption = {
   label: string
@@ -1886,7 +1808,6 @@ const loading = ref(false)
 const fitMode = ref<'width' | 'height'>('width')
 const fillViewMode = ref<'assist' | 'original'>('assist')
 const fillWorkspaceRef = ref<HTMLElement>()
-const softKeyboardVisible = ref(false)
 const openedExecutionPageAssistRows = ref<ProFeedbackEdhrAssistRowVO[]>([])
 const openedExecutionPageAssistRowsContextKey = ref('')
 const isFillWorkspaceFullscreen = ref(false)
@@ -2001,166 +1922,6 @@ const assistSwitchDialogTitle = computed(() => {
   return '切换任务 / 批次'
 })
 
-const softKeyboardRows = [
-  ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
-  ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
-  ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
-  ['Z', 'X', 'C', 'V', 'B', 'N', 'M', '.', '-', '/']
-]
-
-let softKeyboardTarget: SoftKeyboardEditableElement | null = null
-
-const softKeyboardSelectionInputTypes = new Set([
-  'email',
-  'password',
-  'search',
-  'tel',
-  'text',
-  'url'
-])
-
-const softKeyboardEditableInputTypes = new Set([
-  ...softKeyboardSelectionInputTypes,
-  'number'
-])
-
-const isSoftKeyboardEditableElement = (
-  element: EventTarget | Element | null
-): element is SoftKeyboardEditableElement => {
-  if (!(element instanceof HTMLElement)) {
-    return false
-  }
-  if (element instanceof HTMLTextAreaElement) {
-    return !element.disabled && !element.readOnly
-  }
-  if (element instanceof HTMLInputElement) {
-    const inputType = (element.type || 'text').toLowerCase()
-    return !element.disabled && !element.readOnly && softKeyboardEditableInputTypes.has(inputType)
-  }
-  return element.isContentEditable
-}
-
-const canUseSoftKeyboardSelectionRange = (
-  element: HTMLInputElement | HTMLTextAreaElement
-) => {
-  if (element instanceof HTMLTextAreaElement) {
-    return true
-  }
-  return softKeyboardSelectionInputTypes.has((element.type || 'text').toLowerCase())
-}
-
-const rememberSoftKeyboardTarget = (target: EventTarget | Element | null) => {
-  if (isSoftKeyboardEditableElement(target)) {
-    softKeyboardTarget = target
-  }
-}
-
-const getSoftKeyboardTarget = () => {
-  rememberSoftKeyboardTarget(document.activeElement)
-  if (softKeyboardTarget && document.contains(softKeyboardTarget)) {
-    return softKeyboardTarget
-  }
-  return null
-}
-
-const dispatchSoftKeyboardInputEvents = (target: SoftKeyboardEditableElement) => {
-  target.dispatchEvent(new Event('input', { bubbles: true }))
-  target.dispatchEvent(new Event('change', { bubbles: true }))
-}
-
-const updateSoftKeyboardTextControl = (
-  target: HTMLInputElement | HTMLTextAreaElement,
-  value: string,
-  cursorPosition: number
-) => {
-  target.value = value
-  if (canUseSoftKeyboardSelectionRange(target)) {
-    target.setSelectionRange(cursorPosition, cursorPosition)
-  }
-  target.focus()
-  dispatchSoftKeyboardInputEvents(target)
-}
-
-const insertSoftKeyboardText = (text: string) => {
-  const target = getSoftKeyboardTarget()
-  if (!target) {
-    return
-  }
-  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
-    const currentValue = target.value || ''
-    if (canUseSoftKeyboardSelectionRange(target)) {
-      const start = target.selectionStart ?? currentValue.length
-      const end = target.selectionEnd ?? start
-      updateSoftKeyboardTextControl(
-        target,
-        `${currentValue.slice(0, start)}${text}${currentValue.slice(end)}`,
-        start + text.length
-      )
-      return
-    }
-    updateSoftKeyboardTextControl(target, `${currentValue}${text}`, currentValue.length + text.length)
-    return
-  }
-  if (target.isContentEditable) {
-    target.focus()
-    const selection = document.getSelection()
-    if (selection && selection.rangeCount > 0) {
-      selection.deleteFromDocument()
-      selection.getRangeAt(0).insertNode(document.createTextNode(text))
-      selection.collapseToEnd()
-    } else {
-      target.textContent = `${target.textContent || ''}${text}`
-    }
-    dispatchSoftKeyboardInputEvents(target)
-  }
-}
-
-const handleSoftKeyboardBackspace = () => {
-  const target = getSoftKeyboardTarget()
-  if (!target) {
-    return
-  }
-  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
-    const currentValue = target.value || ''
-    if (canUseSoftKeyboardSelectionRange(target)) {
-      const start = target.selectionStart ?? currentValue.length
-      const end = target.selectionEnd ?? start
-      if (start !== end) {
-        updateSoftKeyboardTextControl(target, `${currentValue.slice(0, start)}${currentValue.slice(end)}`, start)
-        return
-      }
-      if (start > 0) {
-        updateSoftKeyboardTextControl(
-          target,
-          `${currentValue.slice(0, start - 1)}${currentValue.slice(end)}`,
-          start - 1
-        )
-      }
-      return
-    }
-    updateSoftKeyboardTextControl(target, currentValue.slice(0, -1), Math.max(currentValue.length - 1, 0))
-    return
-  }
-  if (target.isContentEditable) {
-    target.focus()
-    const selection = document.getSelection()
-    if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
-      selection.deleteFromDocument()
-    } else {
-      target.textContent = (target.textContent || '').slice(0, -1)
-    }
-    dispatchSoftKeyboardInputEvents(target)
-  }
-}
-
-const openSoftKeyboard = () => {
-  rememberSoftKeyboardTarget(document.activeElement)
-  softKeyboardVisible.value = true
-}
-
-const handleSoftKeyboardFocusIn = (event: FocusEvent) => {
-  rememberSoftKeyboardTarget(event.target)
-}
 const assistSwitchDialogWidth = computed(() =>
   assistSwitchDialogType.value === 'process' ? 'min(1560px, calc(100vw - 280px))' : '680px'
 )
@@ -5805,13 +5566,11 @@ watch(
 
 onMounted(() => {
   document.addEventListener('fullscreenchange', syncFillWorkspaceFullscreenState)
-  document.addEventListener('focusin', handleSoftKeyboardFocusIn)
   void initializeExecutionPage()
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('fullscreenchange', syncFillWorkspaceFullscreenState)
-  document.removeEventListener('focusin', handleSoftKeyboardFocusIn)
 })
 </script>
 
@@ -5967,115 +5726,6 @@ onBeforeUnmount(() => {
   color: #1677ff;
   background: #eaf4ff;
   box-shadow: inset 0 0 0 1px #1677ff;
-}
-
-.edhr-fill-workspace__soft-keyboard-section {
-  min-height: 80px;
-}
-
-.edhr-fill-workspace__soft-keyboard-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 72px;
-  border: 1px solid #dbe3ef;
-  border-radius: 0;
-  color: #344054;
-  background: #ffffff;
-  cursor: pointer;
-}
-
-.edhr-fill-workspace__soft-keyboard-trigger :deep(.el-icon) {
-  font-size: 28px;
-}
-
-.edhr-fill-workspace__soft-keyboard-trigger:hover,
-.edhr-fill-workspace__soft-keyboard-trigger:focus-visible {
-  border-color: #91caff;
-  color: #1677ff;
-  background: #f8fbff;
-  outline: none;
-}
-
-:global(.edhr-fill-workspace__soft-keyboard-popover) {
-  padding: 12px;
-}
-
-.edhr-fill-workspace__soft-keyboard-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  color: #172033;
-}
-
-.edhr-fill-workspace__soft-keyboard-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #edf1f6;
-}
-
-.edhr-fill-workspace__soft-keyboard-head strong {
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.edhr-fill-workspace__soft-keyboard-head button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid #dbe3ef;
-  border-radius: 4px;
-  color: #5b6678;
-  background: #ffffff;
-  cursor: pointer;
-}
-
-.edhr-fill-workspace__soft-keyboard-keys {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.edhr-fill-workspace__soft-keyboard-row {
-  display: grid;
-  grid-template-columns: repeat(10, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.edhr-fill-workspace__soft-keyboard-row button,
-.edhr-fill-workspace__soft-keyboard-actions button {
-  min-height: 34px;
-  border: 1px solid #dbe3ef;
-  border-radius: 4px;
-  color: #263247;
-  background: #ffffff;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.edhr-fill-workspace__soft-keyboard-row button:hover,
-.edhr-fill-workspace__soft-keyboard-row button:focus-visible,
-.edhr-fill-workspace__soft-keyboard-actions button:hover,
-.edhr-fill-workspace__soft-keyboard-actions button:focus-visible,
-.edhr-fill-workspace__soft-keyboard-head button:hover,
-.edhr-fill-workspace__soft-keyboard-head button:focus-visible {
-  border-color: #91caff;
-  color: #1677ff;
-  background: #eaf4ff;
-  outline: none;
-}
-
-.edhr-fill-workspace__soft-keyboard-actions {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  gap: 6px;
 }
 
 .edhr-fill-workspace__assist-panel {

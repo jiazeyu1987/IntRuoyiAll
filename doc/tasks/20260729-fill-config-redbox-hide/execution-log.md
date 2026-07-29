@@ -22,3 +22,11 @@
 - CLOSEOUT BLOCKER: `git status --short --branch --untracked-files=all` -> 当前 `int_main` ahead 1 且存在多组非本任务并行改动；本轮未提交/推送，避免混入无关任务。
 - USER: 2026-07-29 补充截图反馈“红框内的不显示”，红框指向原表单格子和辅助表格格子内的次级说明行（如“未...”和“原...”）。
 - BDD: 隐藏填写配置卡片次级说明 -> Given 用户打开填写配置辅助表单映射页面 / When 原表单格子和辅助表格格子渲染 / Then 格子只显示主标题或字段名，不显示规则类型、必填标记、未映射、原表单来源等次级说明行，点击映射和右侧保存/重读/关闭能力仍保留。
+- RED: `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> FAIL，预期失败；现有模板仍包含 `batch-record-cell-rules-editor__cell-rule`，原表单格子会显示规则类型/必填次级说明。
+- ROOT_CAUSE: 前一轮只隐藏了面板级红框标题/说明，格子内部仍渲染规则类型、必填标记、未映射和原表单来源摘要，导致截图红框中的第二行内容仍可见。
+- FIX: 从 `BatchRecordCellRulesConfirmDialog.vue` 移除原表单格子内 `batch-record-cell-rules-editor__cell-rule` 和辅助格子内 `small` 来源摘要 DOM，同时删除对应无用类型字段、计算映射和样式；保留主字段名、点击映射、保存、重读和关闭链路。
+- GREEN: `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/assist-grid-per-user-mapping-static.spec.js` -> PASS。
+- CHECK: `pnpm ts:check` 首次 120 秒超时，未作为通过证据。
+- GREEN: `pnpm ts:check` -> PASS，300 秒超时上限下完成。

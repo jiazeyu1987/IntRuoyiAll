@@ -238,12 +238,16 @@ export interface BatchRecordReportCellRulesRespVO {
   suggestions: BatchRecordReportCellRuleVO[]
   unreviewedFillableCellCount: number
   assistRows?: BatchRecordReportAssistRowVO[]
+  assistGridRowCount?: number
+  assistGridColumnCount?: number
 }
 
 export interface BatchRecordReportCellRulesReqVO {
   reportId: string
   rules: BatchRecordReportCellRuleVO[]
   assistRows?: BatchRecordReportAssistRowVO[]
+  assistGridRowCount?: number
+  assistGridColumnCount?: number
 }
 
 export const BatchRecordReportApi = {

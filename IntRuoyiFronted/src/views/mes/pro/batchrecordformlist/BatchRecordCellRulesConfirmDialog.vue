@@ -1348,6 +1348,8 @@ const applyCellRulesResponse = (data: BatchRecordReportCellRulesRespVO) => {
     .forEach((rule) => nextRules.set(ruleIdentity(rule), rule))
   ruleRows.value = Array.from(nextRules.values())
   assistRows.value = normalizeAssistRows(data.assistRows || [])
+  assistGridRowCount.value = normalizeAssistGridSizeValue(data.assistGridRowCount)
+  assistGridColumnCount.value = normalizeAssistGridSizeValue(data.assistGridColumnCount)
   syncAssistAssignmentsWithRows()
   summary.unreviewedFillableCellCount = Number(data.unreviewedFillableCellCount) || 0
   try {
@@ -1824,7 +1826,9 @@ const confirmAllRules = async () => {
     const data = await BatchRecordReportApi.saveCellRules({
       reportId: reportId.value,
       rules: ruleRows.value.map(toManualReviewedRule),
-      assistRows: assistRowsForSave
+      assistRows: assistRowsForSave,
+      assistGridRowCount: normalizeAssistGridSizeValue(assistGridRowCount.value),
+      assistGridColumnCount: normalizeAssistGridSizeValue(assistGridColumnCount.value)
     })
     await EdhrProcessFormPermissionRuleApi.saveByReport({
       batchRecordReportId: reportId.value,

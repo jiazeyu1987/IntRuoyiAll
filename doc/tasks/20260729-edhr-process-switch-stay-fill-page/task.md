@@ -7,11 +7,11 @@
 ## Milestones
 
 1. 已完成：读取前端、E2E、任务收尾、PowerShell、技能和既有关联经验门禁。
-2. 进行中：定位当前跳转到流程页的前端分支和现有静态合同。
-3. 待完成：补充 RED 静态合同覆盖“无 execution/workTask 的工序也留在填写页”。
-4. 待完成：实现同页只读/查看式工序切换，不放宽保存、提交、openTask 写权限。
-5. 待完成：运行目标静态合同、相邻切换合同和类型检查。
-6. 待完成：更新证据、收尾状态、提交/推送或记录阻塞。
+2. 已完成：定位当前跳转到流程页的前端分支和现有静态合同。
+3. 已完成：补充 RED 静态合同覆盖“无 execution/workTask 的工序也留在填写页”。
+4. 已完成：实现同页只读/查看式工序切换，不放宽保存、提交、openTask 写权限。
+5. 已完成：运行目标静态合同、相邻切换合同和类型检查。
+6. 待完成：收尾清理、提交并推送，或记录外部阻塞。
 
 ## Expected Verification
 
@@ -37,4 +37,8 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Cleanup Keep
+
+- doc/tasks/20260729-edhr-process-switch-stay-fill-page/frontend-feature-evidence.md

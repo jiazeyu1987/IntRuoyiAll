@@ -20,15 +20,18 @@
 
 ## RED
 
-- Pending.
+- RED: `node tests/e2e/edhr-assist-process-switch-all-statuses-static.spec.js` -> FAIL, expected reason: existing implementation still lacked `loadAssistBatchTaskPreviewExecution` and sent non-openable/no-execution process switching to batch detail.
 
 ## GREEN
 
-- Pending.
+- GREEN: `node tests/e2e/edhr-assist-process-switch-all-statuses-static.spec.js` -> PASS.
+- GREEN: `pnpm ts:check` -> PASS after fixing preview cell-value type narrowing and route query ID numeric conversion.
 
 ## Regression
 
-- Pending.
+- REGRESSION: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS.
+- REGRESSION: `node tests/e2e/edhr-switch-filler-selectability-static.spec.js` -> PASS.
+- REGRESSION: `node tests/e2e/edhr-switch-filler-formcenter-slot-static.spec.js` -> PASS.
 
 ## Blockers
 
@@ -36,4 +39,4 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout

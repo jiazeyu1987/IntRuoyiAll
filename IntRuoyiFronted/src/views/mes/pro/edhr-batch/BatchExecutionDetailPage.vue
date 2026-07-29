@@ -1656,6 +1656,11 @@ const parseDetailPreviewNonNegativeInteger = (value: unknown) => {
   return Number.isInteger(numericValue) && numericValue >= 0 ? numericValue : undefined
 }
 
+const parseDetailPreviewPositiveInteger = (value: unknown) => {
+  const numericValue = Number(value)
+  return Number.isInteger(numericValue) && numericValue > 0 ? numericValue : undefined
+}
+
 const selectedPreviewFormViewModel = computed<EdhrBatchExecutionReviewFormViewModel | undefined>(
   () => selectedExecution.value?.formViewModel
 )
@@ -1820,6 +1825,18 @@ const selectedPreviewAssistGridRows = computed(() =>
 )
 
 const selectedPreviewAssistGridSize = computed(() => {
+  const snapshotRowCount = parseDetailPreviewPositiveInteger(
+    selectedPreviewSnapshot.value?.assistGridRowCount
+  )
+  const snapshotColumnCount = parseDetailPreviewPositiveInteger(
+    selectedPreviewSnapshot.value?.assistGridColumnCount
+  )
+  if (snapshotRowCount && snapshotColumnCount) {
+    return {
+      rowCount: snapshotRowCount,
+      columnCount: snapshotColumnCount
+    }
+  }
   const gridKeys = selectedPreviewAssistGridRows.value
     .map((item) => item.gridKey)
     .filter((gridKey): gridKey is DetailPreviewAssistGridKey => Boolean(gridKey))
@@ -1893,6 +1910,11 @@ const selectedPreviewAssistGridErrors = computed(() => {
     }
     if (row.fields.length !== 1) {
       errors.push(`辅助格 ${row.rowKey} 必须且只能映射一个原表字段`)
+      return
+    }
+    const { rowCount, columnCount } = selectedPreviewAssistGridSize.value
+    if (gridKey.rowIndex >= rowCount || gridKey.columnIndex >= columnCount) {
+      errors.push(`辅助格 ${row.rowKey} 超出辅助表格尺寸`)
       return
     }
     const occupiedKey = `${gridKey.subjectKey}:${gridKey.rowIndex}:${gridKey.columnIndex}`
