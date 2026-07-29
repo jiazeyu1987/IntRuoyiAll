@@ -289,6 +289,84 @@
                     </div>
                   </div>
 
+                  <div class="edhr-fill-workspace__section edhr-fill-workspace__soft-keyboard-section">
+                    <div class="edhr-fill-workspace__section-label">辅助工具</div>
+                    <el-popover
+                      v-model:visible="softKeyboardVisible"
+                      trigger="click"
+                      placement="right-start"
+                      :width="420"
+                      popper-class="edhr-fill-workspace__soft-keyboard-popover"
+                      :teleported="false"
+                    >
+                      <template #reference>
+                        <button
+                          type="button"
+                          class="edhr-fill-workspace__soft-keyboard-trigger"
+                          aria-label="打开软键盘"
+                          title="打开软键盘"
+                          @mousedown.prevent
+                          @click="openSoftKeyboard"
+                        >
+                          <Icon icon="mdi:keyboard-outline" />
+                        </button>
+                      </template>
+                      <div class="edhr-fill-workspace__soft-keyboard-panel" @mousedown.prevent>
+                        <div class="edhr-fill-workspace__soft-keyboard-head">
+                          <strong>软键盘</strong>
+                          <button
+                            type="button"
+                            data-soft-keyboard-action="close"
+                            aria-label="关闭软键盘"
+                            @click="softKeyboardVisible = false"
+                          >
+                            <Icon icon="ep:close" />
+                          </button>
+                        </div>
+                        <div class="edhr-fill-workspace__soft-keyboard-keys">
+                          <div
+                            v-for="(row, rowIndex) in softKeyboardRows"
+                            :key="rowIndex"
+                            class="edhr-fill-workspace__soft-keyboard-row"
+                          >
+                            <button
+                              v-for="key in row"
+                              :key="key"
+                              type="button"
+                              data-soft-keyboard-action="key"
+                              @click="insertSoftKeyboardText(key)"
+                            >
+                              {{ key }}
+                            </button>
+                          </div>
+                        </div>
+                        <div class="edhr-fill-workspace__soft-keyboard-actions">
+                          <button
+                            type="button"
+                            data-soft-keyboard-action="space"
+                            @click="insertSoftKeyboardText(' ')"
+                          >
+                            空格
+                          </button>
+                          <button
+                            type="button"
+                            data-soft-keyboard-action="backspace"
+                            @click="handleSoftKeyboardBackspace"
+                          >
+                            删除
+                          </button>
+                          <button
+                            type="button"
+                            data-soft-keyboard-action="close"
+                            @click="softKeyboardVisible = false"
+                          >
+                            关闭
+                          </button>
+                        </div>
+                      </div>
+                    </el-popover>
+                  </div>
+
                   <el-alert
                     v-if="revisionLockNotice"
                     :title="revisionLockNotice"
@@ -1588,6 +1666,7 @@ defineOptions({ name: 'MesProFeedbackEdhrExecutionForm' })
 
 type DraftFieldValue = string | number | boolean | null
 type DraftAttachmentValue = string | string[]
+type SoftKeyboardEditableElement = HTMLInputElement | HTMLTextAreaElement | HTMLElement
 
 type SnapshotFieldOption = {
   label: string
@@ -1799,6 +1878,7 @@ const loading = ref(false)
 const fitMode = ref<'width' | 'height'>('width')
 const fillViewMode = ref<'assist' | 'original'>('assist')
 const fillWorkspaceRef = ref<HTMLElement>()
+const softKeyboardVisible = ref(false)
 const openedExecutionPageAssistRows = ref<ProFeedbackEdhrAssistRowVO[]>([])
 const openedExecutionPageAssistRowsContextKey = ref('')
 const isFillWorkspaceFullscreen = ref(false)

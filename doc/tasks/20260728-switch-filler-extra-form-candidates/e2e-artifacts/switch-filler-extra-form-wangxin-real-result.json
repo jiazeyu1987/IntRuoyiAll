@@ -5,7 +5,62 @@
   "tenant": "芋道源码",
   "username": "wangxin",
   "command": "node doc/tasks/20260728-switch-filler-extra-form-candidates/e2e-artifacts/switch-filler-extra-form-wangxin-real.e2e.cjs",
-  "workTaskPageAttempts": [],
+  "workTaskPageAttempts": [
+    {
+      "pageIndex": 1,
+      "rowCount": 3,
+      "openableFillTaskCount": 3,
+      "candidateTaskIds": [
+        2295,
+        2291,
+        2290
+      ],
+      "rows": [
+        {
+          "id": 2295,
+          "taskCode": "EDHRT-1785289253340",
+          "taskType": "FILL",
+          "status": "TODO",
+          "batchExecutionId": 900000000909,
+          "batchTaskId": 7206,
+          "executionId": 1589,
+          "workOrderCode": "881MO090935",
+          "batchCode": "CODEX-SWITCH-EXTRA-1785289225847",
+          "processName": "粗洗工序",
+          "actionUrlPresent": true,
+          "openableFillTask": true
+        },
+        {
+          "id": 2291,
+          "taskCode": "EDHRT-1785288649091",
+          "taskType": "FILL",
+          "status": "TODO",
+          "batchExecutionId": 900000000908,
+          "batchTaskId": 7181,
+          "executionId": null,
+          "workOrderCode": "881MO090935",
+          "batchCode": "CODEX-SWITCH-EXTRA-1785288643908",
+          "processName": "粗洗工序",
+          "actionUrlPresent": true,
+          "openableFillTask": true
+        },
+        {
+          "id": 2290,
+          "taskCode": "EDHRT-1785288214100",
+          "taskType": "FILL",
+          "status": "TODO",
+          "batchExecutionId": 900000000843,
+          "batchTaskId": 7179,
+          "executionId": null,
+          "workOrderCode": "881MO090889",
+          "batchCode": "E2E-FULL-1785005001311",
+          "processName": "粗洗工序",
+          "actionUrlPresent": true,
+          "openableFillTask": true
+        }
+      ]
+    }
+  ],
   "fixtureSetup": {
     "userId": 810,
     "username": "wangxin",
@@ -23,9 +78,97 @@
     ],
     "roleAdded": false
   },
+  "openedTask": {
+    "task": {
+      "id": 2295,
+      "taskCode": "EDHRT-1785289253340",
+      "taskType": "FILL",
+      "status": "TODO",
+      "batchExecutionId": 900000000909,
+      "batchTaskId": 7206,
+      "executionId": 1589,
+      "workOrderCode": "881MO090935",
+      "batchCode": "CODEX-SWITCH-EXTRA-1785289225847",
+      "processName": "粗洗工序",
+      "actionUrlPresent": true,
+      "openableFillTask": true
+    },
+    "detailSnapshot": {
+      "executionId": 1589,
+      "assistSwitchTaskCount": 4,
+      "extraAssistSwitchTaskCount": 2,
+      "extraAssistSwitchTasks": [
+        {
+          "id": 7208,
+          "nodeType": "ROUTE_FORM",
+          "processName": "粗洗工序",
+          "batchRecordReportName": "损耗单",
+          "formSlotType": "LOSS_REPORT",
+          "formBindingKey": "FORM_BINDING_1784782156927_1",
+          "formTemplateId": 25,
+          "status": 10,
+          "available": true,
+          "activeWorkTaskId": 2296,
+          "allowedActions": [
+            "OPEN_FORM"
+          ],
+          "fillableUsers": [
+            {
+              "userId": 152,
+              "displayName": "张可莹"
+            }
+          ]
+        },
+        {
+          "id": 7209,
+          "nodeType": "ROUTE_FORM",
+          "processName": "粗洗工序",
+          "batchRecordReportName": "过程检验记录",
+          "formSlotType": "PROCESS_INSPECTION",
+          "formBindingKey": "FORM_BINDING_1785083586161_1",
+          "formTemplateId": 28,
+          "status": 0,
+          "available": true,
+          "activeWorkTaskId": 2297,
+          "allowedActions": [
+            "OPEN_FORM"
+          ],
+          "fillableUsers": [
+            {
+              "userId": 149,
+              "displayName": "黎敏"
+            }
+          ]
+        }
+      ],
+      "currentBatchTaskId": "7206",
+      "currentAssistUserId": null
+    }
+  },
+  "fillerSwitch": {
+    "optionCount": 0,
+    "enabledExtraOptionCount": 0,
+    "enabledExtraOtherCount": 0,
+    "options": [],
+    "extraTaskIds": [
+      "7208",
+      "7209"
+    ]
+  },
+  "apiErrorsDuringFillerSwitch": [],
+  "fullBatchDetailReadsDuringFillerSwitch": [],
+  "candidateAttempts": [
+    {
+      "pageIndex": 1,
+      "candidateIndex": 0,
+      "taskId": 2295,
+      "taskCode": "EDHRT-1785289253340",
+      "message": "filler switch must show at least current and one other option, got 0"
+    }
+  ],
   "error": {
-    "message": "response.json: Protocol error (Network.getResponseBody): No resource with given identifier found",
-    "stack": "response.json: Protocol error (Network.getResponseBody): No resource with given identifier found\n    at summarizeWorkTaskPage (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:315:34)\n    at waitForWorkTaskPage (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:349:10)\n    at async run (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:714:19)"
+    "message": "filler switch must show at least current and one other option, got 0",
+    "stack": "AssertionError [ERR_ASSERTION]: filler switch must show at least current and one other option, got 0\n    at verifyExtraFormFillerSwitch (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:533:12)\n    at async run (E:\\IntRuoyi\\doc\\tasks\\20260728-switch-filler-extra-form-candidates\\e2e-artifacts\\switch-filler-extra-form-wangxin-real.e2e.cjs:730:11)"
   },
   "fixtureRestore": {
     "restored": true,

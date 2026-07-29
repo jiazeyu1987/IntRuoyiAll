@@ -7,9 +7,9 @@
 - Identity: `芋道源码/wangxin`
 - Fixture role setup: roleAdded=`false`, targetRole=`粗洗工序填写者角色`
 - Fixture role restore: restored=`true`
-- Execution detail snapshot: assistSwitchTaskCount=``, extraAssistSwitchTaskCount=``
+- Execution detail snapshot: assistSwitchTaskCount=`4`, extraAssistSwitchTaskCount=`2`
 - Extra form task: `<none>`
-- Filler options: total=``, enabledExtraOptions=``, enabledExtraOthers=``
+- Filler options: total=`0`, enabledExtraOptions=`0`, enabledExtraOthers=`0`
 - Full batch detail reload before option selection: ``
 - Selected extra-form filler: `<none>`
 - API errors during switch: `0`
@@ -24,4 +24,4 @@
 
 ## Error
 
-- response.json: Protocol error (Network.getResponseBody): No resource with given identifier found
+- filler switch must show at least current and one other option, got 0
