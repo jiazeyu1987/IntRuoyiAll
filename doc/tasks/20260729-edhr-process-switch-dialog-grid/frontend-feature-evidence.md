@@ -17,13 +17,21 @@
 - REQ-3: 首屏展示区域至少容纳 30 个卡片。
 - REQ-4: 保持现有工序点击切换、状态标签和提示信息。
 
+## Acceptance
+
+- AC-1: “切换工序”弹框使用 process-only 大尺寸宽度，任务/填写人切换弹框不受影响。
+- AC-2: 工序候选渲染在 `data-assist-switch-process-grid` 中，每项是紧凑卡片。
+- AC-3: 桌面布局使用 6 列 grid 和 64px 最小卡片高度，首屏可容纳至少 30 张卡片。
+- AC-4: 既有工序候选来源、状态展示和点击切换处理函数保持不变。
+
 ## UI Entry Points
 
 - eDHR 填写页顶部“工序”信息卡中的“切换”按钮。
 
 ## Owned Files
 
-- pending
+- `IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`
+- `IntRuoyiFronted/tests/e2e/edhr-assist-process-switch-dialog-grid-static.spec.js`
 
 ## API Contracts And Data States
 
@@ -44,8 +52,11 @@
 
 ## Responsive / Accessibility / States
 
-- pending
+- Process switch dialog uses a process-only large width and process-only CSS class.
+- Process options use button cards, preserving keyboard focus behavior from the existing buttons.
+- Grid uses 6 desktop columns, compact 64px minimum rows, and responsive fallbacks at 1200px and 900px.
+- Status classes, status labels, active state, and click handlers remain unchanged.
 
 ## Blockers
 
-- pending
+- None for static/type verification.

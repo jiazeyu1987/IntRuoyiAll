@@ -21,14 +21,25 @@
 
 ## RED / GREEN / REGRESSION
 
-- RED: pending
-- GREEN: pending
-- REGRESSION: pending
+- RED: `node tests/e2e/edhr-assist-process-switch-dialog-grid-static.spec.js` -> FAIL, expected reason: current implementation used fixed `680px` dialog and lacked process grid card container.
+- GREEN: `node tests/e2e/edhr-assist-process-switch-dialog-grid-static.spec.js` -> PASS.
+- REGRESSION: `node tests/e2e/edhr-assist-process-switch-all-statuses-static.spec.js` -> PASS.
+- REGRESSION: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS.
+- TYPECHECK: `pnpm ts:check` -> first run timed out after 184s with no conclusion; rerun with longer timeout -> PASS.
+- EVIDENCE: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-edhr-process-switch-dialog-grid/frontend-feature-evidence.md` -> PASS.
+- CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-process-switch-dialog-grid --mode preview` -> PASS, keep `task.md`, `execution-log.md`, `frontend-feature-evidence.md`, `verification-report.md`; delete none; blocked none; warnings none.
+- CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-edhr-process-switch-dialog-grid --mode apply` -> PASS, deleted none.
 
 ## Milestone Updates
 
-- pending
+- Identified `ExecutionPage.vue` as the eDHR fill page popup owner and preserved the existing process switch item model and navigation handlers.
+- Added `edhr-assist-process-switch-dialog-grid-static.spec.js` to lock process-only large dialog width, process grid container, 6-column layout, compact card row height, and process card styling.
+- Updated the process switch dialog to use process-specific width/class, render process candidates in a grid container, and style compact cards for at least 30 visible cards on one screen.
+- Verified the adjacent all-status and assist-fill-mode contracts still pass.
+- Project experience consolidation checked existing long-term gates; no new durable project lesson beyond existing frontend and PowerShell gates.
 
 ## Blockers
 
-- pending
+- None for implementation.
+- Real browser screenshot verification was not run because this task completed with static layout contracts and type checking; runtime/login confirmation would be needed before a Playwright visual pass.
+- Current workspace still has unrelated concurrent dirty files outside this task; they were not staged or modified for this task closeout.
