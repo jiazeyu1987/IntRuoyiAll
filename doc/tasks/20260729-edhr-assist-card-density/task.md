@@ -7,10 +7,10 @@
 ## Milestones
 
 1. `completed`：完成任务启动、脏工作区基线和适用经验门禁记录。
-2. `in_progress`：定位辅助填写卡片和输入控件样式，补充 RED 静态合同。
-3. `pending`：实施最小 CSS/模板调整，不引入 fallback 或行为降级。
-4. `pending`：运行目标静态合同、相邻回归和类型检查。
-5. `pending`：补齐前端证据、cleanup、提交并推送。
+2. `completed`：定位辅助填写卡片和输入控件样式，补充 RED 静态合同。
+3. `completed`：实施最小 CSS/模板调整，不引入 fallback 或行为降级。
+4. `blocked`：目标静态合同和相邻回归已通过；`pnpm ts:check` 阻塞在无关 `ActionFormPanel.vue` 既有类型错误。
+5. `blocked`：因全量类型检查未通过且工作区出现并发改动，未进入 cleanup、任务提交和推送。
 
 ## Expected Verification
 
@@ -37,4 +37,9 @@
 
 ## Current Status
 
-in_progress
+blocked
+
+## Blockers
+
+- `pnpm ts:check` 失败于 `src/views/form-center/business-action/ActionFormPanel.vue(257,3)`：构造的 `FormTemplateListItemVO` 缺少必填 `updatedTime`。该文件不属于本次 eDHR 辅助填写卡片密度调整，当前任务未修改它。
+- 工作区存在无关并发改动：`IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue` 软键盘逻辑、`batch-record-cell-rule-dialog-size-static.spec.js`、`edhr-visual-fill-config-static.spec.js`。本任务未提交/推送，避免混入并发任务。

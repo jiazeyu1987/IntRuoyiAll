@@ -5796,6 +5796,115 @@ onBeforeUnmount(() => {
   box-shadow: inset 0 0 0 1px #1677ff;
 }
 
+.edhr-fill-workspace__soft-keyboard-section {
+  min-height: 80px;
+}
+
+.edhr-fill-workspace__soft-keyboard-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 72px;
+  border: 1px solid #dbe3ef;
+  border-radius: 0;
+  color: #344054;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.edhr-fill-workspace__soft-keyboard-trigger :deep(.el-icon) {
+  font-size: 28px;
+}
+
+.edhr-fill-workspace__soft-keyboard-trigger:hover,
+.edhr-fill-workspace__soft-keyboard-trigger:focus-visible {
+  border-color: #91caff;
+  color: #1677ff;
+  background: #f8fbff;
+  outline: none;
+}
+
+:global(.edhr-fill-workspace__soft-keyboard-popover) {
+  padding: 12px;
+}
+
+.edhr-fill-workspace__soft-keyboard-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: #172033;
+}
+
+.edhr-fill-workspace__soft-keyboard-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #edf1f6;
+}
+
+.edhr-fill-workspace__soft-keyboard-head strong {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.edhr-fill-workspace__soft-keyboard-head button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #dbe3ef;
+  border-radius: 4px;
+  color: #5b6678;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.edhr-fill-workspace__soft-keyboard-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.edhr-fill-workspace__soft-keyboard-row {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.edhr-fill-workspace__soft-keyboard-row button,
+.edhr-fill-workspace__soft-keyboard-actions button {
+  min-height: 34px;
+  border: 1px solid #dbe3ef;
+  border-radius: 4px;
+  color: #263247;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.edhr-fill-workspace__soft-keyboard-row button:hover,
+.edhr-fill-workspace__soft-keyboard-row button:focus-visible,
+.edhr-fill-workspace__soft-keyboard-actions button:hover,
+.edhr-fill-workspace__soft-keyboard-actions button:focus-visible,
+.edhr-fill-workspace__soft-keyboard-head button:hover,
+.edhr-fill-workspace__soft-keyboard-head button:focus-visible {
+  border-color: #91caff;
+  color: #1677ff;
+  background: #eaf4ff;
+  outline: none;
+}
+
+.edhr-fill-workspace__soft-keyboard-actions {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 6px;
+}
+
 .edhr-fill-workspace__assist-panel {
   display: flex;
   flex-direction: column;

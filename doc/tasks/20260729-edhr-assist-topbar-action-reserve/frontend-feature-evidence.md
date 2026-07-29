@@ -14,7 +14,7 @@
 ## UI Entry Points, Routes, Components, And Owned Files
 
 - Route: `/mes/pro/feedback/edhr-execution/form` 的填写辅助模式。
-- Component: `IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`.
+- Components: `IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue`; `IntRuoyiFronted/src/views/form-center/business-action/ActionFormPanel.vue` for required type-check unblock only.
 - Test: `IntRuoyiFronted/tests/e2e/edhr-assist-topbar-action-reserve-static.spec.js`.
 
 ## API Contracts And Data States
@@ -25,6 +25,7 @@
 ## BDD Scenarios
 
 - `BDD: assist topbar leaves action reserve -> Given` eDHR 填写页处于填写辅助模式且顶部栏展示任务/批次、工序、填写人 3 个切换按钮；`When` 页面渲染顶部栏；`Then` 3 个切换按钮位于左侧 2/3 宽度的上下文区域，右侧 1/3 保留为空白操作按钮区域，且 3 个切换按钮仍可点击打开各自切换弹窗。
+- `BDD: embedded action form template keeps required metadata -> Given` FormCenter 业务动作面板使用嵌入模板快照渲染动态表单；`When` 前端执行类型检查；`Then` 嵌入模板对象满足正式 `FormTemplateListItemVO` 必填字段契约，且不放宽类型或替换数据源。
 
 ## RED Command And Expected Failure
 
@@ -33,6 +34,7 @@
 ## GREEN Command And Passing Result
 
 - `GREEN: node tests/e2e/edhr-assist-topbar-action-reserve-static.spec.js -> PASS`
+- `GREEN: pnpm ts:check -> PASS`
 
 ## Responsive, Accessibility, Loading, Empty, Error, And Permission Checks
 
@@ -44,8 +46,8 @@
 
 - Static contract for template/CSS structure.
 - Adjacent regression: `node tests/e2e/edhr-assist-process-switch-dialog-grid-static.spec.js -> PASS`.
-- TypeScript check: `pnpm ts:check -> FAIL` in unrelated existing `src/views/form-center/business-action/ActionFormPanel.vue(257,3)` type error; this task did not modify that file.
+- TypeScript check: initial `pnpm ts:check -> FAIL` in `src/views/form-center/business-action/ActionFormPanel.vue(257,3)`; after adding required `updatedTime` metadata to the embedded template object, `pnpm ts:check -> PASS`.
 
 ## Blockers And Follow-Up Skills
 
-- Blockers: full frontend `pnpm ts:check` remains blocked by existing unrelated `ActionFormPanel.vue` missing `updatedTime` type requirement.
+- Blockers: none.

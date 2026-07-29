@@ -21,6 +21,7 @@
 ## BDD
 
 - `BDD: assist topbar leaves action reserve -> Given` eDHR 填写页处于填写辅助模式且顶部栏展示任务/批次、工序、填写人 3 个切换按钮；`When` 页面渲染顶部栏；`Then` 3 个切换按钮位于左侧 2/3 宽度的上下文区域，右侧 1/3 保留为空白操作按钮区域，且 3 个切换按钮仍可点击打开各自切换弹窗。
+- `BDD: embedded action form template keeps required metadata -> Given` FormCenter 业务动作面板使用嵌入模板快照渲染动态表单；`When` 前端执行类型检查；`Then` 嵌入模板对象满足正式 `FormTemplateListItemVO` 必填字段契约，且不放宽类型或替换数据源。
 
 ## TDD Evidence
 
@@ -28,6 +29,8 @@
 - `GREEN: node tests/e2e/edhr-assist-topbar-action-reserve-static.spec.js -> PASS`
 - `REGRESSION: node tests/e2e/edhr-assist-process-switch-dialog-grid-static.spec.js -> PASS`
 - `REGRESSION: pnpm ts:check -> FAIL, unrelated existing blocker: src/views/form-center/business-action/ActionFormPanel.vue(257,3) missing required updatedTime in FormTemplateListItemVO literal; current task did not modify this file.`
+- `GREEN: pnpm ts:check -> PASS, after adding required updatedTime metadata to the embedded FormTemplateListItemVO literal without changing API contracts.`
+- `GREEN: python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-edhr-assist-topbar-action-reserve/frontend-feature-evidence.md -> PASS`
 
 ## Milestones
 
@@ -35,8 +38,8 @@
 - `completed`：任务文档已创建，BDD 和设计约束已记录。
 - `completed`：新增 RED 静态合同并确认当前实现失败。
 - `completed`：实施布局调整。
-- `in_progress`：验证与收尾；目标合同和相邻合同通过，全量类型检查存在无关阻塞。
+- `completed`：验证与收尾；目标合同、相邻合同、类型检查和前端证据校验通过。
 
 ## Blockers
 
-- Full frontend type check is blocked by existing unrelated `ActionFormPanel.vue` type error.
+- None.

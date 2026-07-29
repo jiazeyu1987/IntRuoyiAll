@@ -9,3 +9,12 @@
 - BASELINE: `10dd6c25 chore: preserve residual execution page baseline`，保存首轮基线后出现的 `ExecutionPage.vue` 残余并发改动。
 - M1: completed -> 当前工作区已清理为基线后的干净状态，本任务从基线之上开始。
 - RED: `node tests/e2e/edhr-fill-workspace-card-density-static.spec.js` -> FAIL，预期失败；当前普通字段行仍为 `min-height: 74px`，未缩减到 80%。
+- GREEN: `node tests/e2e/edhr-fill-workspace-card-density-static.spec.js` -> PASS，字段行 `59px`、网格卡片 `94px`、输入控件统一 `48px`。
+- GREEN: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS，隐藏红框区域回归通过。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS，辅助模式主链路和切换区回归通过。
+- GREEN: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS，填写工作区静态回归通过。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-configured-grid-static.spec.js` -> PASS，配置网格布局回归通过。
+- BLOCKED: `pnpm ts:check` -> FAIL，`src/views/form-center/business-action/ActionFormPanel.vue(257,3)` 构造 `FormTemplateListItemVO` 缺少必填 `updatedTime`；该文件不属于本任务改动范围。
+- CHECK: 当前工作区又出现无关并发改动，包括 `ExecutionPage.vue` 软键盘逻辑；本任务不提交/推送，避免混入并发任务。
+- M2-M3: completed -> 卡片密度实现和专用合同已完成。
+- M4-M5: blocked -> 全量类型检查和收尾提交受无关问题阻塞。

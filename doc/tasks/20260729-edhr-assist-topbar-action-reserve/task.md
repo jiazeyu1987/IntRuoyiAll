@@ -10,7 +10,7 @@
 2. `completed`：创建任务文档并记录 BDD、适用经验门禁与脏工作区基线证据。
 3. `completed`：新增 RED 静态合同，锁定顶部栏 2/3 + 1/3 布局。
 4. `completed`：实施最小模板/CSS 调整。
-5. `in_progress`：运行目标合同、相邻回归、类型检查和前端证据校验。
+5. `completed`：运行目标合同、相邻回归、类型检查和前端证据校验。
 6. `pending`：完成 cleanup、经验沉淀、提交并推送。
 
 ## Expected Verification
@@ -25,6 +25,7 @@
 - 前端样式经验：保持 IntRuoyi 蓝/中性、紧凑操作台风格；用户明确要求右侧 1/3 为空余按钮区域，因此允许保留可扩展空白但不得做装饰性大空区。
 - 前端静态契约隔离门禁：本次只改顶部栏布局，使用专用静态合同锁定 2/3 与 1/3 结构，不用无关宽合同替代。
 - eDHR 辅助模式当前工序 assistRows 路由门禁：只调整顶部展示布局，不改写 `assistRows`、工序切换、填写人切换、`openTask` 或批记录/FormCenter 链路。
+- FormCenter 模板类型契约：全量类型检查暴露既有嵌入模板对象缺少 `updatedTime` 必填字段，按现有 `FormTemplateListItemVO` 契约补齐空字符串元数据，不放宽类型、不改 API。
 - 脏工作区基线门禁：任务启动前已有非本任务改动，已作为独立基线提交保存，当前任务在 clean worktree 上开始。
 - PowerShell 分号串联测试退出码门禁：验证命令逐条执行并记录每条退出结果。
 
@@ -36,4 +37,4 @@
 
 ## Current Status
 
-in_progress，目标静态合同已通过；`pnpm ts:check` 失败在未触碰的 `ActionFormPanel.vue` 既有类型问题，已作为全量类型检查阻塞记录。
+in_progress，目标静态合同、相邻合同、前端证据校验和 `pnpm ts:check` 已通过；待 cleanup、经验沉淀、提交并推送。

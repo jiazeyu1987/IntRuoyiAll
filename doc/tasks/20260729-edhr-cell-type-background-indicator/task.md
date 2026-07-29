@@ -10,7 +10,7 @@
 2. `completed`：补充聚焦静态合同并记录 RED。
 3. `completed`：实现执行页类型背景色展示，保留共享组件默认小标识模式。
 4. `completed`：运行聚焦合同、相邻回归和类型检查，类型检查保留无关历史阻塞。
-5. `pending`：更新证据、cleanup、提交并推送。
+5. `in_progress`：补回被并发基线覆盖的实现，重新验证并完成收尾。
 
 ## Expected Verification
 
@@ -34,7 +34,11 @@
 
 ## Current Status
 
-ready_for_closeout
+in_progress
+
+## Concurrency Blocker
+
+- 并发基线提交后源码中的 `cell-type-display`、`cellTypeDisplay` 和类型背景色规则消失，但任务文档仍保留旧验证记录；必须基于当前源码重新实现并复验，不能按旧记录宣称完成。
 
 ## Verification Scope Note
 

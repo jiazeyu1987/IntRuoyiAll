@@ -25,3 +25,4 @@
 - CHECK: `git diff --check` -> PASS，仅有 Windows LF/CRLF 提示，无 whitespace error。
 - GREEN: `validate_frontend_feature.py --evidence doc/tasks/20260729-edhr-cell-type-background-indicator/frontend-feature-evidence.md` -> PASS。
 - CLEANUP: 即将执行 task-closeout preview/apply；保留 task、execution-log、verification-report 和 frontend-feature-evidence。
+- BLOCKER: 并发基线提交后复核发现当前 `ExecutionPage.vue` 和 `EdhrExecutionTemplateEditableForm.vue` 已无 `cell-type-display`、`cellTypeDisplay`、`is-cell-type-background` 实现，前述源码改动被覆盖；任务状态回退为 `in_progress`，必须重新实现。

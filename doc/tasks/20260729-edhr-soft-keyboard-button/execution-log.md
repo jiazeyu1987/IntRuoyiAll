@@ -32,11 +32,11 @@
 
 ## TDD Evidence
 
-- RED: pending.
+- RED: `node tests/e2e/edhr-soft-keyboard-button-static.spec.js` -> FAIL, expected reason: `红框位置必须渲染软键盘独立区域。`
 - GREEN: pending.
 
 ## Milestone Updates
 
 - 2026-07-29: Preflight rules and frontend-feature-delivery skill loaded.
 - 2026-07-29: Existing dirty worktree preserved in two baseline commits before current task edits.
-
+- 2026-07-29: Added focused static contract for the eDHR soft keyboard sidebar entry and popup behavior.

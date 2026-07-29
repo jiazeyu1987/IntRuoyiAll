@@ -1896,9 +1896,11 @@ watch(
 <style scoped>
 .batch-record-cell-rules-editor {
   display: flex;
+  height: calc(100vh - 84px);
   min-height: 0;
   flex-direction: column;
   gap: 12px;
+  overflow: hidden;
 }
 
 .batch-record-cell-rules-editor__top-toolbar {
@@ -1963,7 +1965,8 @@ watch(
 
 .batch-record-cell-rules-editor__workspace {
   display: grid;
-  height: clamp(520px, calc(100vh - 220px), 880px);
+  flex: 1;
+  height: auto;
   min-height: 0;
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: 14px;
