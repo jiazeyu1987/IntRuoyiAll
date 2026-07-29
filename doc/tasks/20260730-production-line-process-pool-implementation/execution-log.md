@@ -14,6 +14,20 @@
 - Verification: `python -X utf8 -` UTF-8 task-doc read -> PASS, `TASK_DOCS_UTF8_OK`.
 - Verification: `git diff --check -- doc\tasks\20260730-production-line-process-pool-implementation` -> PASS.
 
+
+## 2026-07-30 F2 Executor
+
+- Agent role: F2 执行 agent，工作目录限定为 `D:\IntRuoyiWorktree\20260730-ppool-f2-submit`，分支 `codex/20260730-ppool-f2-submit`。
+- User intent: 实现并验证“报工 + 记录本 + 工序池事件”一体提交；优先覆盖 T05-T08；不实现 FIFO、时间轴或设备账号完整切换模块；不启动前后端服务。
+- Write scope: `IntRuoyiBackend/yudao-module-mes`、`IntRuoyiFronted/src/api/mes`、`IntRuoyiFronted/src/views/mes/pro/feedback`、当前 `execution-log.md`。
+- Rules read: `AGENTS.md`, `docs/task-closeout-rules.md`, `docs/powershell-encoding.md`, `docs/powershell-memory.md`, `docs/backend-development.md`, `docs/frontend-development.md`, `docs/database-rules.md`, `docs/e2e-rules.md`, `docs/acceptance/production-line-process-pool/bdd-scenarios.md`, `docs/acceptance/production-line-process-pool/tdd-plan.md`, `dev-plan.md`, `test-plan.md`.
+- Experience index: `docs/experience-index.md` exists; applicable gates are existing project rules for PowerShell Maven `-D` quoting, reactor `-am`, no fallback, frontend static-contract isolation, E2E real-path restrictions, and batch-record terminology.
+- Git preflight: `git status --short --branch` -> `## codex/20260730-ppool-f2-submit`, clean; `git remote -v` -> `origin https://github.com/jiazeyu1987/IntRuoyiAll.git`.
+- BDD: F2 报工和记录本一次组合提交 -> Given 设备账号、实际员工、当前工序、生产工单、记录本、工序池上下文和电子签名均有效；When 员工在报工入口点击确定提交；Then 同一事务内创建报工、记录本原始条目/事件和工序池提交事件，并返回 `feedbackId`、`recordbookEntryId`、`recordbookEventId`、`processPoolEventId`。
+- BDD: F2 payload 拆分 -> Given payload 含输出数量、损耗数量、上工序输入数量、设备参数和原始 payload；When 后端处理组合提交；Then 输出/损耗只进入报工字段，上工序输入、设备参数和原始 payload 进入记录本与工序池事件，且不用备注或文本匹配替代结构化来源。
+- BDD: F2 原始超限值保留 -> Given 设备参数原始值超出审核上下限；When 一线组合提交；Then 一线提交不裁剪、不拒绝该原始值，审核副本后续再处理限值。
+- BDD: F2 路线仅作为上下文和权限边界 -> Given 工艺路线有前后置顺序；When 当前账号、工序、员工、模板和签名有效；Then 组合提交不因前置工序未完成被阻断，路线 ID/工序 ID 仍作为事件上下文保存。
+
 ## 2026-07-30 Worktree And Agent Launch
 
 - Baseline commit for worktrees: `7fb50a12 docs: scaffold process pool implementation task`.

@@ -78,6 +78,68 @@ export interface ProFeedbackVO {
   approvalImpactText?: string
 }
 
+export interface ProFrontlineFeedbackPayloadReqVO {
+  code: string
+  type: number
+  workstationId: number
+  routeId: number
+  processId: number
+  workOrderId: number
+  taskId: number
+  scheduleOrderId?: number
+  scheduleOrderProcessId?: number
+  itemId: number
+  expireDate?: string | number | Date
+  scheduledQuantity?: number
+  outputQuantity: number
+  lossQuantity: number
+  laborScrapQuantity?: number
+  materialScrapQuantity?: number
+  otherScrapQuantity?: number
+  approveUserId: number
+  remark?: string
+}
+
+export interface ProFrontlineRecordbookPayloadReqVO {
+  recordbookId: number
+  entryTitle: string
+  entryContent: Record<string, unknown>
+  previousProcessInputQuantity: number
+  equipmentParameters: Record<string, unknown>
+  tagCodes?: string[]
+  idempotencyKey: string
+  remark?: string
+}
+
+export interface ProFrontlineProcessPoolContextReqVO {
+  workOrderId: number
+  taskId: number
+  routeId: number
+  routeProcessId: number
+  processId: number
+  workstationId: number
+  deviceId: number
+  deviceAccountUserId: number
+  templateType: string
+}
+
+export interface ProFrontlineFeedbackSubmitReqVO {
+  feedbackPayload: ProFrontlineFeedbackPayloadReqVO
+  recordbookPayload: ProFrontlineRecordbookPayloadReqVO
+  processPoolContext: ProFrontlineProcessPoolContextReqVO
+  actualEmployeeId: number
+  signatureId: number
+  signatureEmployeeId: number
+  rawPayload: Record<string, unknown>
+}
+
+export interface ProFrontlineFeedbackSubmitRespVO {
+  feedbackId: number
+  recordbookEntryId: number
+  recordbookEventId: number
+  processPoolEventId: number
+}
+
 export interface ThirdPartyFeedbackImportResultVO {
   sheetCount: number
   importedCount: number
@@ -638,6 +700,13 @@ export const ProFeedbackApi = {
   // 鏂板鐢熶骇鎶ュ伐
   createFeedback: async (data: ProFeedbackVO) => {
     return await request.post({ url: `/mes/pro/feedback/create`, data })
+  },
+  // 一线报工与记录本一体提交
+  frontlineSubmit: async (data: ProFrontlineFeedbackSubmitReqVO) => {
+    return await request.post<ProFrontlineFeedbackSubmitRespVO>({
+      url: `/mes/pro/feedback/frontline/submit`,
+      data
+    })
   },
   // 淇敼鐢熶骇鎶ュ伐
   updateFeedback: async (data: ProFeedbackVO) => {
