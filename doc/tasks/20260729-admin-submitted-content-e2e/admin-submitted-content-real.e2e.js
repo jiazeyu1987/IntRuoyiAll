@@ -14,6 +14,7 @@ const BACKEND_URL = process.env.EDHR_ADMIN_SUBMITTED_BACKEND_URL || 'http://127.
 const MYSQL_CONTAINER_NAME = process.env.EDHR_ADMIN_SUBMITTED_MYSQL_CONTAINER || 'int-ruoyi-mysql'
 const DATABASE_NAME = process.env.EDHR_ADMIN_SUBMITTED_DATABASE || 'ruoyi-vue-pro'
 const VERIFY_MODE = process.env.EDHR_ADMIN_SUBMITTED_VERIFY_MODE || 'submitted-content'
+const TARGET_WORK_ORDER_CODE = process.env.EDHR_ADMIN_SUBMITTED_WORK_ORDER_CODE || '881MO090935'
 const OUTPUT_DIR = path.join(__dirname, 'admin-submitted-content-e2e-output')
 const DEFAULT_CHROME = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 const SUBMITTED_STATUSES = new Set([2, 3, 4])
@@ -50,8 +51,8 @@ function ensurePrerequisites() {
     `未知验证模式: ${VERIFY_MODE}`
   )
   const login = resolveLoginConfig()
-  assert.equal(login.tenant, '芋道源码', '只读管理员验证必须使用芋道源码租户')
-  assert.equal(login.username, 'admin', '只读管理员验证必须使用 admin')
+  assert.ok(login.tenant, '缺少登录租户')
+  assert.ok(login.username, '缺少登录账号')
   assert.ok(login.password, '缺少管理员登录密码来源')
   if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
     assert.ok(
@@ -63,6 +64,10 @@ function ensurePrerequisites() {
   }
   fs.mkdirSync(OUTPUT_DIR, { recursive: true })
   return login
+}
+
+function sqlString(value) {
+  return `'${String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "''")}'`
 }
 
 function parseMysqlRows(stdout) {
@@ -102,6 +107,32 @@ function decodeHexUtf8(value) {
   return Buffer.from(value, 'hex').toString('utf8')
 }
 
+function resolveTenantUser(login) {
+  const rows = queryLocalDatabase(
+    `SELECT t.id, t.name, t.status, u.id, u.username, COALESCE(u.nickname, ''), u.status
+       FROM system_tenant t
+       JOIN system_users u
+         ON u.tenant_id = t.id
+        AND u.deleted = b'0'
+        AND u.username = ${sqlString(login.username)}
+      WHERE t.deleted = b'0'
+        AND t.name = ${sqlString(login.tenant)}
+      LIMIT 1;`,
+    '登录租户账号'
+  )
+  assert.ok(rows.length > 0, `本地库未找到租户/账号：${login.tenant}/${login.username}`)
+  const row = rows[0]
+  assert.equal(row[2], '0', '登录租户必须启用')
+  assert.equal(row[6], '0', '登录账号必须启用')
+  return {
+    tenantId: Number(row[0]),
+    tenantName: row[1],
+    userId: Number(row[3]),
+    username: row[4],
+    nickname: row[5]
+  }
+}
+
 function firstSubmittedDisplayText(cellValuesJson) {
   const parsed = JSON.parse(cellValuesJson)
   assert.ok(Array.isArray(parsed), 'cell_values_json 必须是数组')
@@ -118,7 +149,7 @@ function firstSubmittedDisplayText(cellValuesJson) {
   return fallback?.value?.trim() || ''
 }
 
-function resolveSubmittedTarget() {
+function resolveSubmittedTarget(tenantUser) {
   const rows = queryLocalDatabase(
     `SELECT be.id,
             be.batch_execution_code,
@@ -143,7 +174,7 @@ function resolveSubmittedTarget() {
          ON e.id = t.execution_id
         AND e.deleted = b'0'
       WHERE be.deleted = b'0'
-        AND be.tenant_id = 1
+        AND be.tenant_id = ${tenantUser.tenantId}
         AND t.node_type = 'ROUTE_FORM'
         AND t.batch_record_report_id IS NOT NULL
         AND e.status IN (2, 3, 4)
@@ -183,7 +214,7 @@ function resolveSubmittedTarget() {
   throw new Error('本机数据库未找到可用于页面断言的已提交非空批记录执行样本')
 }
 
-function resolveCurrentUnsubmittedTarget() {
+function resolveCurrentUnsubmittedTarget(tenantUser) {
   const rows = queryLocalDatabase(
     `SELECT be.id,
             be.batch_execution_code,
@@ -206,15 +237,15 @@ function resolveCurrentUnsubmittedTarget() {
          ON e.id = t.execution_id
         AND e.deleted = b'0'
       WHERE be.deleted = b'0'
-        AND be.tenant_id = 1
-        AND be.work_order_code = '881MO090935'
+        AND be.tenant_id = ${tenantUser.tenantId}
+        AND be.work_order_code = ${sqlString(TARGET_WORK_ORDER_CODE)}
         AND t.node_type = 'ROUTE_FORM'
         AND t.batch_record_report_id IS NOT NULL
       ORDER BY be.update_time DESC, t.route_process_sort, t.batch_record_sort
       LIMIT 1;`,
-    '截图工单当前未提交目标'
+    '当前未提交目标'
   )
-  assert.ok(rows.length > 0, '本机数据库未找到截图工单 881MO090935 的批记录任务')
+  assert.ok(rows.length > 0, `本机数据库未找到工单 ${TARGET_WORK_ORDER_CODE} 的批记录任务`)
   const row = rows[0]
   return {
     batchExecutionId: Number(row[0]),
@@ -233,7 +264,7 @@ function resolveCurrentUnsubmittedTarget() {
   }
 }
 
-function resolveScreenshotBatchSnapshot() {
+function resolveBatchSnapshot(tenantUser, workOrderCode) {
   const rows = queryLocalDatabase(
     `SELECT be.id,
             be.batch_execution_code,
@@ -255,11 +286,11 @@ function resolveScreenshotBatchSnapshot() {
          ON e.id = t.execution_id
         AND e.deleted = b'0'
       WHERE be.deleted = b'0'
-        AND be.tenant_id = 1
-        AND be.work_order_code = '881MO090935'
+        AND be.tenant_id = ${tenantUser.tenantId}
+        AND be.work_order_code = ${sqlString(workOrderCode)}
       ORDER BY be.update_time DESC, t.route_process_sort, t.batch_record_sort
       LIMIT 30;`,
-    '截图工单当前批次状态'
+    '目标工单当前批次状态'
   )
   return rows.map((row) => ({
     batchExecutionId: Number(row[0]),
@@ -365,10 +396,11 @@ function assertReviewTimelineHasNoSubmittedContentForTask(reviewBody, target) {
 
 async function run() {
   const loginConfig = ensurePrerequisites()
+  const tenantUser = resolveTenantUser(loginConfig)
   const target = VERIFY_MODE === 'current-unsubmitted'
-    ? resolveCurrentUnsubmittedTarget()
-    : resolveSubmittedTarget()
-  const screenshotBatchSnapshot = resolveScreenshotBatchSnapshot()
+    ? resolveCurrentUnsubmittedTarget(tenantUser)
+    : resolveSubmittedTarget(tenantUser)
+  const batchSnapshot = resolveBatchSnapshot(tenantUser, target.workOrderCode || TARGET_WORK_ORDER_CODE)
   const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || DEFAULT_CHROME
   const browser = await chromium.launch({
     headless: process.env.EDHR_ADMIN_SUBMITTED_HEADED !== '1',
@@ -466,8 +498,9 @@ async function run() {
       backendUrl: BACKEND_URL,
       tenant: loginConfig.tenant,
       username: loginConfig.username,
+      tenantUser,
       target,
-      screenshotBatchSnapshot,
+      batchSnapshot,
       reviewTimelineHttpStatus: reviewTimelineResponse.status(),
       readonlyFormVisible: await readonlyForm.isVisible(),
       templateSheetVisible: await templateSheet.isVisible(),
