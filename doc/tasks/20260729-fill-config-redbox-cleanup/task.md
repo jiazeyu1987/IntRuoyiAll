@@ -10,7 +10,7 @@
 - [x] 复用并修正聚焦静态合同，锁定红框内容不再渲染
 - [x] 修改前端组件删除目标内容
 - [x] 运行聚焦验证并记录结果
-- [ ] 收尾清理、经验沉淀、提交并推送
+- [x] 收尾清理、经验沉淀、提交并推送
 
 ## Expected Verification
 
@@ -20,7 +20,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 

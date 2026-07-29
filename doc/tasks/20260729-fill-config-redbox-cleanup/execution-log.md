@@ -27,3 +27,7 @@ BDD: 删除红框标注内容 -> Given 用户打开填写配置页面 When 页�
 - REGRESSION: `git diff --check` -> PASS，存在 Git 换行提示但无 whitespace error。
 - completed: 已按 `project-experience-consolidation` 搜索长期经验归宿；本次经验已由 `docs/e2e-rules.md#静态合同与真实 E2E 同步门禁` 覆盖，无需新增长期经验文档。
 - completed: 当前状态更新为 ready_for_closeout，进入清理、经验沉淀、提交和推送阶段。
+- completed: `task-closeout-cleanup` preview -> keep task.md、execution-log.md、verification-report.md、frontend-feature-evidence.md；delete/blocked/warnings 均为 none。
+- completed: `task-closeout-cleanup` apply -> applied；deleted_paths 为 none；当前不是 linked worktree，无需 merge 或删除 worktree。
+- completed: 实现提交 `a8baa3c7`，文件清单已通过 `git show --name-status --oneline -1` 复核。
+- completed: 任务状态更新为 completed；收尾记录将作为独立 closeout commit 提交后推送。
