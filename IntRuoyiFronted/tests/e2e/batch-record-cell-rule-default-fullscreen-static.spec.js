@@ -9,6 +9,7 @@ const dialog = read('src/views/mes/pro/batchrecordformlist/BatchRecordCellRulesC
 const sharedDialog = read('src/components/Dialog/src/Dialog.vue')
 
 const assertIncludes = (content, token, message) => assert.ok(content.includes(token), message)
+const assertNotIncludes = (content, token, message) => assert.ok(!content.includes(token), message)
 
 assertIncludes(
   sharedDialog,
@@ -41,6 +42,8 @@ assertIncludes(
   'batch-record-cell-rules-editor__workspace',
   '默认全屏不得移除左侧预览和右侧配置工作区。'
 )
-assertIncludes(dialog, '保存填写配置', '默认全屏不得移除底部保存按钮。')
+assertIncludes(dialog, 'data-fill-config-actions="primary"', '默认全屏必须把保存按钮收进顶部右侧操作区。')
+assertIncludes(dialog, '保存填写配置', '默认全屏不得移除保存按钮。')
+assertNotIncludes(dialog, '<template #footer>', '默认全屏填写配置不得继续使用全宽 footer 操作区。')
 
 console.log('PASS: batch record cell rule default fullscreen static contract')

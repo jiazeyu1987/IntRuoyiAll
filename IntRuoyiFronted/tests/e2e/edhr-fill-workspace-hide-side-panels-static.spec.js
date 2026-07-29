@@ -59,10 +59,8 @@ for (const retainedAlert of [
 }
 
 for (const hiddenAssistToken of [
-  'edhr-fill-workspace__assist-topbar',
   'edhr-fill-workspace__assist-title',
   '我的填写项',
-  'edhr-fill-workspace__assist-switch-grid',
   'edhr-fill-workspace__assist-missing-jump',
   '还差 {{ assistMissingFieldCount }} 项',
   'edhr-fill-workspace__assist-summary',
@@ -70,6 +68,19 @@ for (const hiddenAssistToken of [
   '必填、附件和签名已完成，可以提交执行。'
 ]) {
   assert.ok(!assistPanel.includes(hiddenAssistToken), `辅助填写区域不得显示红框信息：${hiddenAssistToken}`)
+}
+
+for (const retainedAssistToken of [
+  'edhr-fill-workspace__assist-topbar',
+  'edhr-fill-workspace__assist-switch-grid',
+  '任务 / 批次',
+  'assistTaskSwitchLabel',
+  '工序',
+  'assistProcessSwitchLabel',
+  '填写人',
+  'assistFillerSwitchLabel'
+]) {
+  assert.ok(assistPanel.includes(retainedAssistToken), `辅助填写区域必须保留切换卡：${retainedAssistToken}`)
 }
 
 assert.ok(

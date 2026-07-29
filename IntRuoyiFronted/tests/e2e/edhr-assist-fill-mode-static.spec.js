@@ -39,9 +39,13 @@ assertIncludes(executionPage, '填写辅助模式', '页面必须提供填写辅
 assertIncludes(executionPage, '原表模式', '页面必须提供原表模式切换按钮。')
 assertIncludes(executionPage, 'edhr-fill-workspace__assist-panel', '辅助模式必须有独立字段清单容器。')
 assert.ok(assistPanelTemplate, '辅助模式必须可被静态合同定位。')
+assertIncludes(assistPanelTemplate, 'edhr-fill-workspace__assist-topbar', '辅助模式必须保留任务/工序/填写人切换条。')
+assertIncludes(assistPanelTemplate, 'edhr-fill-workspace__assist-switch-grid', '辅助模式必须保留任务、工序、填写人快速切换区。')
+assertIncludes(assistPanelTemplate, 'edhr-fill-workspace__assist-switch', '辅助模式快速切换按钮必须复用同一类名，便于真实 E2E 定位。')
+assertIncludes(assistPanelTemplate, '任务 / 批次', '辅助模式必须显示任务/批次快速切换。')
+assertIncludes(assistPanelTemplate, '工序', '辅助模式必须显示工序快速切换。')
+assertIncludes(assistPanelTemplate, '填写人', '辅助模式必须显示填写人快速切换。')
 for (const hiddenAssistChrome of [
-  'edhr-fill-workspace__assist-topbar',
-  'edhr-fill-workspace__assist-switch-grid',
   'edhr-fill-workspace__assist-missing-jump',
   'edhr-fill-workspace__assist-summary',
   '我的填写项',
@@ -97,7 +101,7 @@ assertIncludes(executionPage, '缺少 workTaskId，不能切换。', '工作任�
 assertIncludes(executionPage, '缺少批次任务编号，不能切换。', '工作任务缺少 batchTaskId 时必须在当前弹出列表内 fail-fast。')
 const assistSwitchHandlers = executionPage.slice(
   executionPage.indexOf('const handleAssistTaskSwitch'),
-  executionPage.indexOf('const resolveAssistFieldElement')
+  executionPage.indexOf('const buildAttachmentChangeRequest')
 )
 assertNotIncludes(assistSwitchHandlers, "path: '/mes/pro/feedback/edhr-batch-execution'", '任务/批次切换不能跳回批次列表。')
 if (assistSwitchHandlers.includes("path: '/mes/pro/feedback/edhr-batch-execution/detail'")) {
@@ -110,10 +114,10 @@ if (assistSwitchHandlers.includes("path: '/mes/pro/feedback/edhr-batch-execution
 assertNotIncludes(assistSwitchHandlers, "focus: 'process'", '工序切换不能通过批次详情 focus 参数离开辅助模式。')
 assertNotIncludes(assistSwitchHandlers, "focus: 'fillers'", '填写人切换不能通过批次详情 focus 参数离开辅助模式。')
 assertIncludes(assistPanelTemplate, 'edhr-fill-workspace__assist-row', '辅助模式必须把当前用户需要填写的字段作为主内容。')
-assertIncludes(executionPage, 'assistMissingFieldCount', '辅助模式必须实时计算未完成项数量。')
+assertNotIncludes(executionPage, 'assistMissingFieldCount', '辅助模式不得保留已隐藏的顶部未完成计数。')
 assertNotIncludes(assistPanelTemplate, '还差 {{ assistMissingFieldCount }} 项', '辅助模式不得继续显示顶部还差 N 项红框入口。')
-assertNotIncludes(assistPanelTemplate, '@click="scrollToFirstIncompleteAssistField"', '辅助模式不得继续显示顶部未完成项跳转红框入口。')
-assertIncludes(executionPage, 'highlightedAssistFieldIdentity', '定位第一个未完成项后必须高亮该行。')
+assertNotIncludes(executionPage, 'scrollToFirstIncompleteAssistField', '辅助模式不得保留已隐藏的顶部未完成项跳转入口。')
+assertNotIncludes(executionPage, 'highlightedAssistFieldIdentity', '辅助模式不得保留已隐藏跳转入口专用高亮状态。')
 assertIncludes(executionPage, 'data-assist-field-id', '每个辅助填写行必须有稳定字段定位属性。')
 assertIncludes(executionPage, 'edhr-fill-workspace__assist-row', '辅助模式字段必须使用紧凑行式布局。')
 assertNotIncludes(executionPage, 'edhr-fill-workspace__assist-card"', '辅助模式不能继续使用大卡片字段布局。')
@@ -154,7 +158,8 @@ assertIncludes(
 assertIncludes(executionPage, 'await saveEdhrFieldChanges({', '保存变更必须继续调用现有字段审计保存接口。')
 assertIncludes(executionPage, 'await ProFeedbackApi.submitEdhrExecution({', '提交执行必须继续调用现有 eDHR 提交接口。')
 assertIncludes(realFlowE2e, '.edhr-fill-workspace__assist-row', '真实 E2E 必须定位新的紧凑行式辅助填写项。')
-assertIncludes(realFlowE2e, 'verifyMissingJump', '真实 E2E 必须验证“还差 N 项”点击定位和高亮。')
+assertNotIncludes(realFlowE2e, 'verifyMissingJump', '真实 E2E 不得再验证已隐藏的“还差 N 项”入口。')
+assertNotIncludes(realFlowE2e, 'edhr-fill-workspace__assist-missing-jump', '真实 E2E 不得再定位已隐藏的“还差 N 项”入口。')
 assertIncludes(realFlowE2e, "const workTaskPath = '/mes/pro/feedback/edhr-work-task'", '真实 E2E 必须从当前账号工作任务看板打开填写任务。')
 assertIncludes(realFlowE2e, 'openFillableWorkTask', '真实 E2E 必须使用当前账号 FILL/REWORK 工作任务作为入口。')
 assertIncludes(realFlowE2e, '/mes/pro/edhr-work-task/my-page', '真实 E2E 必须加载当前账号可处理工作任务。')

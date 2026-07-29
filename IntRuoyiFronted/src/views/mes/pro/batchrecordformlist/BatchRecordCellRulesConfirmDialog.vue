@@ -15,15 +15,79 @@
         show-icon
       />
 
-      <section class="batch-record-cell-rules-editor__mode-toolbar">
-        <el-radio-group
-          v-model="activeConfigMode"
-          size="small"
-          class="batch-record-cell-rules-editor__mode-switch"
+      <section
+        class="batch-record-cell-rules-editor__top-toolbar"
+        data-fill-config-toolbar="primary"
+      >
+        <div class="batch-record-cell-rules-editor__mode-toolbar">
+          <el-radio-group
+            v-model="activeConfigMode"
+            size="small"
+            class="batch-record-cell-rules-editor__mode-switch"
+          >
+            <el-radio-button label="原表单配置" value="source">原表单配置</el-radio-button>
+            <el-radio-button label="辅助表单映射" value="assistMapping">辅助表单映射</el-radio-button>
+          </el-radio-group>
+        </div>
+
+        <div
+          class="batch-record-cell-rules-editor__navigation"
+          data-fill-config-navigation="same-product-version"
         >
-          <el-radio-button label="原表单配置" value="source">原表单配置</el-radio-button>
-          <el-radio-button label="辅助表单映射" value="assistMapping">辅助表单映射</el-radio-button>
-        </el-radio-group>
+          <el-button
+            plain
+            size="small"
+            :loading="navigationLoading"
+            :disabled="!canNavigatePrevious || loading || saving || navigationLoading"
+            @click="requestNavigation(-1)"
+          >
+            上一张
+          </el-button>
+          <span class="batch-record-cell-rules-editor__navigation-label">
+            {{ navigationDisplayLabel }}
+          </span>
+          <el-button
+            plain
+            size="small"
+            :loading="navigationLoading"
+            :disabled="!canNavigateNext || loading || saving || navigationLoading"
+            @click="requestNavigation(1)"
+          >
+            下一张
+          </el-button>
+          <el-tag
+            v-if="navigationErrorMessage"
+            class="batch-record-cell-rules-editor__navigation-error"
+            type="danger"
+            effect="plain"
+          >
+            {{ navigationErrorMessage }}
+          </el-tag>
+        </div>
+
+        <div
+          class="batch-record-cell-rules-editor__top-actions"
+          data-fill-config-actions="primary"
+        >
+          <el-button size="small" @click="dialogVisible = false">关闭</el-button>
+          <el-button
+            size="small"
+            :loading="loading"
+            :disabled="!reportId || saving || navigationLoading"
+            @click="loadCellRules"
+          >
+            重新读取
+          </el-button>
+          <el-button
+            size="small"
+            type="primary"
+            :loading="saving"
+            :disabled="!canConfirmRules"
+            @click="confirmAllRules"
+          >
+            保存填写配置
+          </el-button>
+        </div>
       </section>
 
       <section
@@ -433,18 +497,6 @@
       </section>
     </div>
 
-    <template #footer>
-      <el-button @click="dialogVisible = false">关闭</el-button>
-      <el-button :loading="loading" :disabled="!reportId || saving" @click="loadCellRules">重新读取</el-button>
-      <el-button
-        type="primary"
-        :loading="saving"
-        :disabled="!canConfirmRules"
-        @click="confirmAllRules"
-      >
-        保存填写配置
-      </el-button>
-    </template>
   </Dialog>
 </template>
 
@@ -564,11 +616,17 @@ type SourceCellGridAssignment = AssistGridKey & {
 const props = defineProps<{
   modelValue: boolean
   report?: ReportLike | null
+  canNavigatePrevious?: boolean
+  canNavigateNext?: boolean
+  navigationLoading?: boolean
+  navigationErrorMessage?: string
+  navigationLabel?: string
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   confirmed: [value: BatchRecordReportCellRulesRespVO]
+  navigate: [offset: -1 | 1]
 }>()
 
 const message = useMessage()
@@ -588,6 +646,7 @@ const assistResponsibilitySubjects = ref<AssistResponsibilitySubject[]>([])
 const ruleRows = ref<BatchRecordReportCellRuleVO[]>([])
 const assistRows = ref<BatchRecordReportAssistRowVO[]>([])
 const assistAssignments = reactive<Record<string, AssistAssignmentDraft>>({})
+const savedStateSignature = ref('')
 const simpleUserOptions = ref<UserVO[]>([])
 const simpleRoleOptions = ref<RoleVO[]>([])
 const sheetLayout = ref<RuleEditorRawLayout | null>(null)
@@ -609,6 +668,11 @@ const reportId = computed(() => String(props.report?.reportId || '').trim())
 const reportName = computed(
   () => props.report?.reportName || props.report?.batchRecordName || props.report?.reportId || '-'
 )
+const canNavigatePrevious = computed(() => Boolean(props.canNavigatePrevious))
+const canNavigateNext = computed(() => Boolean(props.canNavigateNext))
+const navigationLoading = computed(() => Boolean(props.navigationLoading))
+const navigationErrorMessage = computed(() => String(props.navigationErrorMessage || '').trim())
+const navigationDisplayLabel = computed(() => props.navigationLabel || reportName.value)
 const unreviewedFillableCellCount = computed(() => summary.unreviewedFillableCellCount)
 const valueTypeLabelMap = Object.fromEntries(
   cellRuleValueTypeOptions.map((option) => [option.value, option.label])
@@ -701,7 +765,7 @@ const isConfirmedRule = (rule: BatchRecordReportCellRuleVO) =>
 
 const pendingCount = computed(() => ruleRows.value.filter((rule) => !isConfirmedRule(rule)).length)
 const canConfirmRules = computed(
-  () => Boolean(reportId.value) && !loading.value && !saving.value
+  () => Boolean(reportId.value) && !loading.value && !saving.value && !navigationLoading.value
 )
 
 const cloneRecord = <T extends object | undefined>(value: T): T => (value ? ({ ...value } as T) : value)
@@ -1037,6 +1101,88 @@ const orderAssistGridRows = (rows: BatchRecordReportAssistRowVO[]) =>
     })
     .sort((left, right) => left.sort - right.sort)
     .map((row, index) => ({ ...row, sort: index + 1 }))
+
+const normalizeRuleForDirtyCheck = (rule: BatchRecordReportCellRuleVO) => {
+  const normalized = normalizeCellRule(rule)
+  return {
+    rowIndex: normalized.rowIndex,
+    columnIndex: normalized.columnIndex,
+    valueType: normalized.valueType,
+    componentFlag: normalized.componentFlag || '',
+    required: Boolean(normalized.required),
+    label: normalized.label || '',
+    placeholder: normalized.placeholder || '',
+    helpText: normalized.helpText || '',
+    constraints: cleanedRuleConstraints(normalized.constraints, normalized.valueType),
+    unit: normalized.unit || '',
+    attachmentRule: normalized.attachmentRule ? { ...normalized.attachmentRule } : undefined
+  }
+}
+
+const stableDirtyValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(stableDirtyValue)
+  if (!value || typeof value !== 'object') return value
+  return Object.keys(value as Record<string, unknown>)
+    .sort()
+    .reduce<Record<string, unknown>>((record, key) => {
+      record[key] = stableDirtyValue((value as Record<string, unknown>)[key])
+      return record
+    }, {})
+}
+
+const buildEditableStateSignature = () =>
+  JSON.stringify(
+    stableDirtyValue({
+      rules: sortRules(ruleRows.value).map(normalizeRuleForDirtyCheck),
+      assistRows: orderAssistGridRows(normalizeAssistRows(assistRows.value)),
+      assistAssignments: Object.keys(assistAssignments)
+        .sort()
+        .map((rowKey) => ({
+          rowKey,
+          candidateSourceType: normalizeAssignmentSourceType(assistAssignments[rowKey]?.candidateSourceType),
+          candidateSourceIds: normalizeAssignmentIds(assistAssignments[rowKey]?.candidateSourceIds),
+          completionPolicy: normalizeAssignmentPolicy(assistAssignments[rowKey]?.completionPolicy)
+        })),
+      assistGridRowCount: assistGridRowCount.value,
+      assistGridColumnCount: assistGridColumnCount.value,
+      assistResponsibilitySubjects: assistResponsibilitySubjects.value.map((subject) => ({
+        subjectKey: subject.subjectKey,
+        candidateSourceType: subject.candidateSourceType,
+        candidateSourceIds: normalizeAssignmentIds(subject.candidateSourceIds)
+      }))
+    })
+  )
+
+const markEditableStateClean = () => {
+  savedStateSignature.value = buildEditableStateSignature()
+}
+
+const hasUnsavedChanges = computed(
+  () => Boolean(savedStateSignature.value) && buildEditableStateSignature() !== savedStateSignature.value
+)
+
+const requestNavigation = async (offset: -1 | 1) => {
+  if (loading.value || saving.value || navigationLoading.value) return
+  if (offset < 0 && !canNavigatePrevious.value) return
+  if (offset > 0 && !canNavigateNext.value) return
+  if (hasUnsavedChanges.value) {
+    try {
+      await ElMessageBox.confirm(
+        '当前填写配置有未保存修改，切换后会放弃这些修改。是否继续？',
+        '放弃未保存修改并切换表单',
+        {
+          confirmButtonText: '放弃并切换',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+      )
+    } catch (error) {
+      if (error === 'cancel' || error === 'close') return
+      throw error
+    }
+  }
+  emit('navigate', offset)
+}
 
 const selectedAssistSubject = computed(() =>
   assistResponsibilitySubjects.value.find((subject) => subject.subjectKey === selectedAssistSubjectKey.value)
@@ -1689,6 +1835,7 @@ const loadCellRules = async () => {
     simpleRoleOptions.value = roles
     applyCellRulesResponse(data)
     applyAssistAssignments(permission.fillAssignments || [])
+    markEditableStateClean()
   } catch (error) {
     const resolved = resolveErrorMessage(error, '填写规则读取失败，请联系管理员。')
     errorMessage.value = resolved
@@ -1717,6 +1864,7 @@ const confirmAllRules = async () => {
       fillAssignments: normalizedAssistAssignmentsForSave(assistRowsForSave)
     })
     applyCellRulesResponse(data)
+    markEditableStateClean()
     emit('confirmed', data)
     message.success('填写配置已保存')
     dialogVisible.value = false
@@ -1739,7 +1887,11 @@ watch(
 watch(
   () => [dialogVisible.value, reportId.value] as const,
   ([visible, currentReportId]) => {
-    if (!visible || !currentReportId) return
+    if (!visible) {
+      savedStateSignature.value = ''
+      return
+    }
+    if (!currentReportId) return
     activeConfigMode.value = 'source'
     void loadCellRules()
   },
@@ -1755,15 +1907,64 @@ watch(
   gap: 12px;
 }
 
-.batch-record-cell-rules-editor__mode-toolbar {
-  display: flex;
-  min-height: 34px;
+.batch-record-cell-rules-editor__top-toolbar {
+  display: grid;
+  min-height: 42px;
+  grid-template-columns: minmax(220px, 1fr) minmax(280px, 1.1fr) minmax(320px, 1fr);
+  gap: 12px;
   align-items: center;
+}
+
+.batch-record-cell-rules-editor__mode-toolbar,
+.batch-record-cell-rules-editor__navigation,
+.batch-record-cell-rules-editor__top-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.batch-record-cell-rules-editor__mode-toolbar {
   justify-content: flex-start;
 }
 
 .batch-record-cell-rules-editor__mode-switch {
   flex: 0 0 auto;
+}
+
+.batch-record-cell-rules-editor__navigation {
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 1px solid #f1d36d;
+  border-radius: 8px;
+  background: #fff8d6;
+}
+
+.batch-record-cell-rules-editor__navigation-label {
+  min-width: 0;
+  max-width: 240px;
+  overflow: hidden;
+  color: #5a3d05;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-record-cell-rules-editor__navigation-error {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.batch-record-cell-rules-editor__top-actions {
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 1px solid #9cc7ff;
+  border-radius: 8px;
+  background: #eaf3ff;
 }
 
 .batch-record-cell-rules-editor__workspace {
@@ -2283,6 +2484,15 @@ watch(
 }
 
 @media (max-width: 1180px) {
+  .batch-record-cell-rules-editor__top-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .batch-record-cell-rules-editor__navigation,
+  .batch-record-cell-rules-editor__top-actions {
+    justify-content: flex-start;
+  }
+
   .batch-record-cell-rules-editor__workspace,
   .batch-record-cell-rules-editor__workspace--assist-mapping {
     height: auto;

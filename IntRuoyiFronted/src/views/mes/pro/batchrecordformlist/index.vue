@@ -467,7 +467,13 @@
     <BatchRecordCellRulesConfirmDialog
       v-model="cellRulesDialog.visible"
       :report="cellRulesDialog.report"
+      :can-navigate-previous="canNavigateCellRulesPrevious"
+      :can-navigate-next="canNavigateCellRulesNext"
+      :navigation-loading="cellRulesNavigation.loading"
+      :navigation-error-message="cellRulesNavigation.errorMessage"
+      :navigation-label="cellRulesNavigation.label"
       @confirmed="handleCellRulesConfirmed"
+      @navigate="navigateCellRulesDialog"
     />
 
     <Dialog v-model="permissionDialogVisible" title="批记录表单填写人设置" width="760px">
@@ -610,6 +616,7 @@ const wordImporting = ref(false)
 const wordImportFileInputRef = ref<HTMLInputElement>()
 const lastWordImportResult = ref<BatchRecordReportImportResultVO>()
 const WORD_IMPORT_PROJECT_OPTION_PAGE_SIZE = 200
+const CELL_RULES_NAVIGATION_PAGE_SIZE = 200
 const DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE: BatchRecordFormSlotType = 'MAIN'
 const permissionDialogVisible = ref(false)
 const permissionSaving = ref(false)
@@ -624,6 +631,12 @@ const cellRulesDialog = reactive<{
 }>({
   visible: false,
   report: undefined
+})
+const cellRulesNavigation = reactive({
+  loading: false,
+  errorMessage: '',
+  label: '',
+  reports: [] as RecordFormListRow[]
 })
 
 const wordImportDialog = reactive({
@@ -754,6 +767,17 @@ const selectedReportIndex = computed(() =>
 )
 const canPreviewPrevious = computed(() => selectedReportIndex.value > 0)
 const canPreviewNext = computed(() => selectedReportIndex.value >= 0 && selectedReportIndex.value < list.value.length - 1)
+const cellRulesNavigationIndex = computed(() =>
+  cellRulesNavigation.reports.findIndex(
+    (item) => item.reportId === cellRulesDialog.report?.reportId
+  )
+)
+const canNavigateCellRulesPrevious = computed(() => cellRulesNavigationIndex.value > 0)
+const canNavigateCellRulesNext = computed(
+  () =>
+    cellRulesNavigationIndex.value >= 0 &&
+    cellRulesNavigationIndex.value < cellRulesNavigation.reports.length - 1
+)
 
 const templatePreview = reactive({
   loading: false,
@@ -765,9 +789,13 @@ const templatePreview = reactive({
 let recordFormListRequestSerial = 0
 let recordFormSecondaryFrameId: number | undefined
 let templatePreviewRequestSerial = 0
+let cellRulesNavigationRequestSerial = 0
 
 const isStaleRecordFormListRequest = (requestSerial: number) =>
   requestSerial !== recordFormListRequestSerial
+
+const isStaleCellRulesNavigationRequest = (requestSerial: number) =>
+  requestSerial !== cellRulesNavigationRequestSerial
 
 const cancelDeferredRecordFormSecondaryLoad = () => {
   if (recordFormSecondaryFrameId === undefined) return
@@ -915,6 +943,94 @@ const normalizeTemplateAction = (value: unknown): BatchRecordTemplateAction | ''
 
 const buildCellRulesActionKey = (reportId: string) => `${reportId}:cellRules`
 
+const normalizeCellRulesNavigationText = (value: unknown) =>
+  typeof value === 'string' && value.trim() ? value.trim() : ''
+
+const buildCellRulesNavigationLabel = (sourceReport: BatchRecordReportVO) => {
+  const productName = normalizeCellRulesNavigationText(sourceReport.productName)
+  const versionNo = normalizeCellRulesNavigationText(sourceReport.versionNo)
+  if (productName && versionNo) return `${productName} / ${versionNo}`
+  return sourceReport.reportName || sourceReport.batchRecordName || sourceReport.reportId || '同版本表单'
+}
+
+const resetCellRulesNavigation = (sourceReport?: BatchRecordReportVO) => {
+  cellRulesNavigation.loading = false
+  cellRulesNavigation.errorMessage = ''
+  cellRulesNavigation.label = sourceReport ? buildCellRulesNavigationLabel(sourceReport) : ''
+  cellRulesNavigation.reports = []
+}
+
+const loadCellRulesNavigationReports = async (sourceReport: BatchRecordReportVO) => {
+  const requestSerial = ++cellRulesNavigationRequestSerial
+  resetCellRulesNavigation(sourceReport)
+  const productName = normalizeCellRulesNavigationText(sourceReport.productName)
+  const versionNo = normalizeCellRulesNavigationText(sourceReport.versionNo)
+  if (!productName || !versionNo) {
+    cellRulesNavigation.errorMessage = '当前表单缺少产品名称或版本号，无法切换同版本表单。'
+    return
+  }
+
+  cellRulesNavigation.loading = true
+  try {
+    const sourceBatchRecordVersionId = Number(sourceReport.batchRecordVersionId)
+    const shouldFilterByBatchRecordVersionId =
+      Number.isFinite(sourceBatchRecordVersionId) && sourceBatchRecordVersionId > 0
+    const allReports: RecordFormListRow[] = []
+    let pageNo = 1
+    let total = 0
+    do {
+      const data = await BatchRecordReportApi.getGeneratedReportPage({
+        pageNo,
+        pageSize: CELL_RULES_NAVIGATION_PAGE_SIZE,
+        productName: sourceReport.productName,
+        versionNo: sourceReport.versionNo
+      })
+      if (isStaleCellRulesNavigationRequest(requestSerial)) return
+      if (!Array.isArray(data.list)) {
+        throw new Error('同产品同版本表单列表响应缺少 list。')
+      }
+      const rows = data.list
+      allReports.push(...rows.map((row, index) => toRecordFormRow(row, allReports.length + index)))
+      total = Number(data.total) || allReports.length
+      if (rows.length === 0) break
+      pageNo += 1
+    } while (allReports.length < total)
+
+    const reportMap = new Map<string, RecordFormListRow>()
+    allReports
+      .filter((row) => normalizeCellRulesNavigationText(row.productName) === productName)
+      .filter((row) => normalizeCellRulesNavigationText(row.versionNo) === versionNo)
+      .filter(
+        (row) =>
+          !shouldFilterByBatchRecordVersionId ||
+          Number(row.batchRecordVersionId) === sourceBatchRecordVersionId
+      )
+      .forEach((row) => {
+        if (row.reportId && !reportMap.has(row.reportId)) {
+          reportMap.set(row.reportId, row)
+        }
+      })
+
+    const nextReports = Array.from(reportMap.values())
+    if (!nextReports.some((row) => row.reportId === sourceReport.reportId)) {
+      throw new Error('同产品同版本候选列表中未包含当前表单，无法安全切换。')
+    }
+    if (isStaleCellRulesNavigationRequest(requestSerial)) return
+    cellRulesNavigation.reports = nextReports
+  } catch (error) {
+    if (isStaleCellRulesNavigationRequest(requestSerial)) return
+    cellRulesNavigation.reports = []
+    cellRulesNavigation.errorMessage = resolveErrorMessage(
+      error,
+      '同产品同版本表单列表加载失败，无法切换。'
+    )
+  } finally {
+    if (!isStaleCellRulesNavigationRequest(requestSerial)) {
+      cellRulesNavigation.loading = false
+    }
+  }
+}
+
 const openCellRulesDialog = (row: BatchRecordReportVO) => {
   const reportId = String(row.reportId || '').trim()
   if (!reportId) {
@@ -923,6 +1039,7 @@ const openCellRulesDialog = (row: BatchRecordReportVO) => {
   consumedCellRulesActionKey.value = buildCellRulesActionKey(reportId)
   cellRulesDialog.report = row as RecordFormListRow
   cellRulesDialog.visible = true
+  void loadCellRulesNavigationReports(row)
 }
 
 const handleTemplateActionQuery = async () => {
@@ -941,10 +1058,21 @@ const handleTemplateActionQuery = async () => {
 }
 
 const handleCellRulesConfirmed = async (data: BatchRecordReportCellRulesRespVO) => {
-  const report = list.value.find((item) => item.reportId === data.reportId)
+  const report =
+    list.value.find((item) => item.reportId === data.reportId) ||
+    cellRulesNavigation.reports.find((item) => item.reportId === data.reportId)
   if (report) {
     await loadSelectedReportTemplate(report)
   }
+}
+
+const navigateCellRulesDialog = async (offset: -1 | 1) => {
+  if (cellRulesNavigation.loading) return
+  const nextReport = cellRulesNavigation.reports[cellRulesNavigationIndex.value + offset]
+  if (!nextReport) return
+  cellRulesDialog.report = nextReport
+  selectedReportId.value = nextReport.reportId
+  await loadSelectedReportTemplate(nextReport)
 }
 
 const toRecordFormRow = (row: BatchRecordReportVO, index: number): RecordFormListRow => ({

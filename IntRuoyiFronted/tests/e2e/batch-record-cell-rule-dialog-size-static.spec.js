@@ -41,6 +41,16 @@ assertIncludes(
   'batch-record-cell-rules-editor__side-panel',
   '扩大弹框后仍必须保留右侧规则编辑面板。'
 )
+assertIncludes(
+  dialog,
+  'data-fill-config-actions="primary"',
+  '截图蓝框位置必须承载关闭、重新读取和保存填写配置操作。'
+)
+assertNotIncludes(
+  dialog,
+  '<template #footer>',
+  '关闭、重新读取和保存按钮不得继续停留在弹窗底部红框。'
+)
 assertNotIncludes(
   dialog,
   'class="batch-record-cell-rules-editor__save-tip"',
