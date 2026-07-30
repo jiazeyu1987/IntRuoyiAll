@@ -34,6 +34,7 @@ completed
 - 变更评估提交：`ec66b3e2 docs: assess MES process mapping tab`。
 - 最终收尾记录提交与远端推送在本记录更新后执行。
 - 用户后续将范围收窄为只读列表，变更决策由 `ACCEPT_WITH_BLOCKERS` 更新为 `ACCEPT`。
+- 只读范围修正提交：`4a6b3612 docs: reduce MES process tab to read only`。
 
 ## 设计约束检查
 

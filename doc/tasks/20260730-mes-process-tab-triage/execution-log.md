@@ -35,6 +35,7 @@ BDD: limit formal associations -> Given only equipment and execution process req
 - GREEN: staged file boundary review -> PASS, staged list contained only the change request and three task documents.
 - GREEN: change assessment commit `ec66b3e2 docs: assess MES process mapping tab` -> PASS.
 - GREEN: apply user scope reduction -> PASS, changed the decision to `ACCEPT`, removed maintenance and downstream business linkage, and retained only equipment/execution-process associations.
+- GREEN: read-only scope correction commit `4a6b3612 docs: reduce MES process tab to read only` -> PASS.
 
 ## Findings
 
@@ -58,3 +59,4 @@ BDD: limit formal associations -> Given only equipment and execution process req
 - Completed cleanup preview/apply without deleting task evidence.
 - Committed the change assessment as `ec66b3e2`.
 - Reduced the first version to a read-only catalog with only equipment and execution-process associations.
+- Committed the read-only scope correction as `4a6b3612`.

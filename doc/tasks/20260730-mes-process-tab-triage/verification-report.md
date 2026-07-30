@@ -13,6 +13,7 @@
 - PASS: 用户收窄后的变更文档决策为 `ACCEPT`。
 - PASS: 页面范围明确为只读，无新增、编辑、删除或导入操作。
 - PASS: 只有设备和执行工序使用结构化关联，其它字段均为展示快照。
+- PASS: 只读范围修正提交为 `4a6b3612 docs: reduce MES process tab to read only`。
 - PASS: `change-request-triage` 结构校验通过。
 - PASS: UTF-8 和关键业务边界验证通过。
 - PASS: `git diff --check` 通过。
