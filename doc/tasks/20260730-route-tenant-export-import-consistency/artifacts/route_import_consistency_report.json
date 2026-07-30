@@ -1,0 +1,110 @@
+{
+  "sourceTenantId": 1,
+  "targetTenantId": 122,
+  "routeCodes": [
+    "RT000028",
+    "ROUTE-XLSX-00001",
+    "ROUTE-XLSX-00002"
+  ],
+  "sections": {
+    "route_basic": {
+      "sourceCount": 39,
+      "targetCount": 39,
+      "match": true,
+      "onlyInSourceCount": 0,
+      "onlyInTargetCount": 0,
+      "onlyInSourceSample": [],
+      "onlyInTargetSample": []
+    },
+    "route_processes": {
+      "sourceCount": 63,
+      "targetCount": 63,
+      "match": true,
+      "onlyInSourceCount": 0,
+      "onlyInTargetCount": 0,
+      "onlyInSourceSample": [],
+      "onlyInTargetSample": []
+    },
+    "flow_edges": {
+      "sourceCount": 60,
+      "targetCount": 60,
+      "match": true,
+      "onlyInSourceCount": 0,
+      "onlyInTargetCount": 0,
+      "onlyInSourceSample": [],
+      "onlyInTargetSample": []
+    },
+    "boundary_edges": {
+      "sourceCount": 8,
+      "targetCount": 8,
+      "match": true,
+      "onlyInSourceCount": 0,
+      "onlyInTargetCount": 0,
+      "onlyInSourceSample": [],
+      "onlyInTargetSample": []
+    },
+    "layouts": {
+      "sourceCount": 63,
+      "targetCount": 63,
+      "match": true,
+      "onlyInSourceCount": 0,
+      "onlyInTargetCount": 0,
+      "onlyInSourceSample": [],
+      "onlyInTargetSample": []
+    },
+    "products": {
+      "sourceCount": 16,
+      "targetCount": 16,
+      "match": true,
+      "onlyInSourceCount": 0,
+      "onlyInTargetCount": 0,
+      "onlyInSourceSample": [],
+      "onlyInTargetSample": []
+    },
+    "product_boms": {
+      "sourceCount": 49,
+      "targetCount": 49,
+      "match": true,
+      "onlyInSourceCount": 0,
+      "onlyInTargetCount": 0,
+      "onlyInSourceSample": [],
+      "onlyInTargetSample": []
+    },
+    "schedule_configs": {
+      "sourceCount": 64,
+      "targetCount": 64,
+      "match": true,
+      "onlyInSourceCount": 0,
+      "onlyInTargetCount": 0,
+      "onlyInSourceSample": [],
+      "onlyInTargetSample": []
+    },
+    "flow_configs": {
+      "sourceCount": 4,
+      "targetCount": 4,
+      "match": true,
+      "onlyInSourceCount": 0,
+      "onlyInTargetCount": 0,
+      "onlyInSourceSample": [],
+      "onlyInTargetSample": []
+    },
+    "flow_process_configs": {
+      "sourceCount": 77,
+      "targetCount": 77,
+      "match": true,
+      "onlyInSourceCount": 0,
+      "onlyInTargetCount": 0,
+      "onlyInSourceSample": [],
+      "onlyInTargetSample": []
+    },
+    "batch_record_bindings": {
+      "sourceCount": 20,
+      "targetCount": 20,
+      "match": true,
+      "onlyInSourceCount": 0,
+      "onlyInTargetCount": 0,
+      "onlyInSourceSample": [],
+      "onlyInTargetSample": []
+    }
+  }
+}
