@@ -2,7 +2,7 @@
 
 ## Current Result
 
-in_progress
+ready_for_closeout；implementation verified and committed；cleanup apply blocked by unrelated dirty main worktree.
 
 ## Evidence
 
@@ -25,8 +25,10 @@ in_progress
 - Real Playwright login preflight: 使用本机 Chrome 显式路径访问 `http://127.0.0.1:8098/mes/pro/process-pool/team-leader` -> PASS，页面展示 `工序池班组长工作台`。
 - Real Playwright page smoke: 登录 `芋道源码/admin`，切换 `提交看板/异常上报/班组维护/PQC 班组长`，目标提交看板 API HTTP 200 且业务 `code=0`，无控制台 error；截图 `output\playwright\20260730-banzuzhang\team-leader-workbench-smoke.png`。
 - Experience consolidation: 已合并到 `docs\e2e-rules.md` 与 `docs\experience-index.md`。
+- Implementation commit: `368ef63c feat: add process pool team leader workbench`，已 rebase 到 `int_main` `9f84a797` 后。
+- Cleanup preview: keep 列表保留核心任务文档和 evidence，delete 为 `<none>`；apply 阻塞在主工作区 `E:\IntRuoyi` 无关未跟踪目录 `doc/tasks/20260730-edhr-page-graph-tab/`，不能执行 ff-only merge / worktree removal。
 
 ## Pending Verification
 
-- closeout cleanup preview/apply。
-- 提交和推送当前分支。
+- cleanup apply、ff-only merge 和 worktree removal：等待主工作区无关脏目录处理后执行。
+- 推送当前分支。

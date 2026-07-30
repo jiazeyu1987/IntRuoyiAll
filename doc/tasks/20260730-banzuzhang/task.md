@@ -29,7 +29,7 @@
 
 ## Current Status
 
-ready_for_closeout；F9/F10 后端、前端、SQL 迁移门禁、静态验证、真实 Playwright 只读页面冒烟和经验沉淀均已完成。当前剩余 cleanup preview/apply、提交与推送收尾证据。
+ready_for_closeout；F9/F10 后端、前端、SQL 迁移门禁、静态验证、真实 Playwright 只读页面冒烟和经验沉淀均已完成。实现提交已 rebase 到最新 `int_main`，当前 cleanup apply 仍被主工作区 `E:\IntRuoyi` 的无关未跟踪目录 `doc/tasks/20260730-edhr-page-graph-tab/` 阻塞，不能安全 ff-only 合并和删除 worktree。
 
 ## Worktree / Runtime
 

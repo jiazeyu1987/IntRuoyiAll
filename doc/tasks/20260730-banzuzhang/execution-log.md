@@ -48,6 +48,8 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260730-banzuzhang\frontend-feature-evidence.md` -> PASS。
 - Experience consolidation: 已更新 `docs\e2e-rules.md#官方登录前置与-admin-only-全量验证门禁` 和 `docs\experience-index.md`，沉淀真实 E2E 浏览器缓存缺失时使用稳定 Chrome/Edge 可执行路径、运行库迁移缺失先 RED 后应用正式迁移再 GREEN 的门禁。
 - Task status: `task.md` 已更新为 `ready_for_closeout`，并在 `Cleanup Keep` 保留 backend/database/frontend evidence 与 migration gate JSON。
+- Commit: `git commit -m "feat: add process pool team leader workbench"` -> PASS，最终 rebase 后实现提交为 `368ef63c`，已位于最新 `int_main` `9f84a797` 之后，`git merge-base --is-ancestor int_main HEAD` -> PASS。
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-banzuzhang --mode preview` -> BLOCKED，keep 列表保留 `task.md`、`execution-log.md`、`verification-report.md`、backend/database/frontend evidence 和 migration gate JSON，delete 为 `<none>`；阻塞原因是主工作区 `E:\IntRuoyi` 脏状态 `?? doc/tasks/20260730-edhr-page-graph-tab/`，不能接收 ff-only merge。
 
 ## Evidence Files
 
