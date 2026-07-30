@@ -65,3 +65,20 @@
 - 合并到 `docs/frontend-development.md#动态菜单页签重命名门禁`：入口改名兼容旧搜索词时，`RouterSearch` 需要别名并实时读取登录后的动态路由表，不能缓存 setup 阶段的 `router.getRoutes()`。
 - 更新 `docs/experience-index.md` 关键词：`RouterSearch`、菜单搜索别名、`router.getRoutes`、动态路由快照、MES工序 搜索 标准模板列表。
 - 验证：`rg -n "RouterSearch|动态路由快照|MES工序 搜索 标准模板列表" docs\experience-index.md docs\frontend-development.md` -> PASS。
+
+## Final Real E2E 2026-07-30
+
+- 运行态问题复现：旧 `48081` Jar `E:\IntRuoyi\output\runtime\int_main\backend-route-import-graph-fix-20260730-1815-v2.jar` 调用 `/admin-api/mes/pro/route-resource/page?pageNo=1&pageSize=20` 时返回业务码 `500` / `系统异常`，后端日志根因是 `IllegalStateException: Missing route: 922138`。
+- 定向回归：主工作区 Maven 进程卡在 Windows 文件权限复制；按当前任务 PID `33116/44748` 精确停止，未停止并行 Maven 进程。
+- 隔离构建：在 `D:\IntRuoyiWorktree\standard-template-e2e-runtime` 从 `fa55ac61` 建立干净 worktree，确认源码含 `filterResolvedRouteProducts(...)` 和 `getResourcePage_doesNotFailWholePageWhenRouteProductReferencesMissingRoute`。
+- GREEN: `mvn.cmd -ntp -pl yudao-module-mes -am "-Dtest=MesProRouteResourceServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`Tests run: 3, Failures: 0, Errors: 0`。
+- GREEN: `mvn.cmd -ntp -pl yudao-server -am "-DskipTests" package` -> PASS，生成 `D:\IntRuoyiWorktree\standard-template-e2e-runtime\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar`。
+- 运行态替换：复制隔离 Jar 为 `E:\IntRuoyi\output\runtime\int_main\backend-standard-template-e2e-20260730-2115.jar`，SHA256 `C79371D6B1DC445B94D7160BAB53827679DCC54E787ABF85C49FC60F8BE2C089`；确认旧 PID `50528` 属于 `int_main` 旧 Jar 后停止并启动新 PID `53040`。
+- GREEN: `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` -> `{"status":"UP"}`；前端 `http://127.0.0.1:8081/` -> HTTP `200`。
+- E2E adjustment: Playwright 默认浏览器缓存缺少 headless shell，改用本机已安装 Chrome `C:\Program Files\Google\Chrome\Application\chrome.exe`；该调整只指定真实浏览器二进制，不切换前后端 URL、账号或数据源。
+- E2E adjustment: 顶部搜索框真实 DOM 是 `input.el-select__input[role="combobox"]`，placeholder 文案由 Element Plus 外层展示；脚本改用真实可见 combobox 作为一线用户实际入口。
+- GREEN: `node doc\tasks\20260730-standard-template-list-search-alias\standard-template-list-real.e2e.mjs` -> PASS；官方登录前置 `芋道源码/admin` PASS，搜索 `mes工序` 命中 `标准模板列表/mes/pro/mes-process`，进入 `/mes/pro/mes-process`。
+- GREEN: E2E 断言 `/admin-api/mes/pro/route-resource/page?pageNo=1&pageSize=20` HTTP `200`、业务码 `0`、total `580`；列头包含 `产品名称/路线/序号/MES工序名称/MES工序编码/执行工序/设备/设备数量/10.5小时日产能/日产人力/工序单价/报工/批记录/批记录工序名称`；页面无“系统异常”，MES 写请求数 `0`，页面错误数 `0`。
+- Evidence artifact: `E:\IntRuoyi\output\playwright\20260730-standard-template-list-search-alias\standard-template-list-evidence.json`。
+- Evidence screenshot: `E:\IntRuoyi\output\playwright\20260730-standard-template-list-search-alias\standard-template-list-success.png`。
+- Closeout blocker remains: 当前 `int_main` 有非本任务本地 ahead 提交；本次只完成 E2E 验证与证据记录，不提交/推送并行范围。
