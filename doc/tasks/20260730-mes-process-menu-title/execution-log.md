@@ -40,4 +40,10 @@
 - Shared branch note:
   - 实现文件被并行基线提交 `0809cd858ef66348fcf3a21ed4994d0c993e6a2f` 带入；该提交同时包含无关 eDHR 页签改动，未改写历史。
   - 初始任务文档被并行基线提交 `ca088c6d2d1f86b9dbc366f198592d0294fcace7` 带入。
+  - 经验门禁更新被并行基线提交 `2e2d1eb0` 带入。
+  - ready-for-closeout 记录与临时 evidence 被并行基线提交 `ad5de3a1` 带入；该提交同时包含其它任务文档。
+  - cleanup 删除被并行基线提交 `7865feca` 带入。
+- Final regression after shared commits:
+  - `node tests\e2e\mes-pro-mes-process-readonly-static.spec.js` -> PASS。
+  - `node tests\e2e\mes-route-mes-process-tab-static.spec.js` -> PASS。
 - Current status: completed。

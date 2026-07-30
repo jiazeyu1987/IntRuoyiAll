@@ -46,6 +46,9 @@ PASS
 - Product changes are present in shared baseline commit `0809cd858ef66348fcf3a21ed4994d0c993e6a2f`, which also contains another task's eDHR files.
 - Initial task records are present in shared baseline commit `ca088c6d2d1f86b9dbc366f198592d0294fcace7`.
 - No history rewrite or unrelated rollback was performed.
+- Experience gate update is present in shared baseline commit `2e2d1eb0`.
+- Ready-for-closeout evidence is present in shared baseline commit `ad5de3a1`.
+- Cleanup deletion is present in shared baseline commit `7865feca`.
 
 ## Cleanup Preview
 
@@ -60,3 +63,8 @@ PASS
 - Task-owned temporary evidence, scripts and screenshots were deleted.
 - `task.md`, `execution-log.md` and `verification-report.md` were retained.
 - Final task status: `completed`.
+
+## Final Regression
+
+- Focused MES process static contract: PASS after shared commits.
+- Adjacent MES process tab contract: PASS after shared commits.
