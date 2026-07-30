@@ -157,3 +157,33 @@
 - Commit: `fix: harden process pool event revision validation` 已创建本地提交。
 - Push: `git push origin codex/20260730-process-pool-f6-event-revision` -> first attempt FAIL, blocker: `fatal: unable to access 'https://github.com/jiazeyu1987/IntRuoyiAll.git/': Recv failure: Connection was reset`; retry PASS, branch updated on origin.
 - Current status: F6 service validation hardening 实现、聚焦验证、diff check、端口 guard、本地提交与 push 已完成；未合并 `int_main`。
+
+## 2026-07-30 Main Merge And Combined Review
+
+- Merge: F5 branch `codex/20260730-process-pool-f5-review-copy` merged into `int_main` as `cfc3fab5 merge: integrate process pool review copy`.
+- Merge: F6 branch `codex/20260730-process-pool-f6-event-revision` merged into `int_main` as `a81daadb merge: integrate process pool event revision`.
+- Baseline: after merge, unrelated concurrent task docs appeared dirty; required baseline commit `9063e080 chore: baseline concurrent docs before process pool verification` preserved those changes before final verification.
+- Main review result before extra fix: F5/F6 service/controller/schema/API wrapper tests passed, but timeline mapper directly joined `mes_pro_process_pool_review_copy`; this could duplicate one process-pool event if more than one review copy exists.
+- BDD: F5/F6 时间轴审核副本聚合 -> Given 同一工序池提交事件存在多份审核副本 / When 管理人员查询工序池时间轴 / Then 时间轴仍按提交事件一行展示，审核副本状态和字段数量来自 `tenant_id + event_id` 聚合摘要。
+- RED: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-revision-static.spec.cjs` -> FAIL, expected reason: mapper contained direct one-to-many `LEFT JOIN mes_pro_process_pool_review_copy review_copy`.
+- Implementation: `MesProProcessPoolTimelineReadMapper.xml` changed review-copy timeline join to `review_copy_summary`, grouped by `review_copy.tenant_id, review_copy.event_id`, and summed field counts from review-copy field details.
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-revision-static.spec.cjs` -> PASS.
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> PASS.
+
+## 2026-07-30 Main Verification
+
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopySchemaTest,MesProcessPoolReviewCopyServiceTest,MesProcessPoolReviewCopyControllerTest,MesProcessPoolEventRevisionSchemaTest,MesProcessPoolEventRevisionServiceTest,MesProcessPoolEventRevisionFifoLockTest,MesProcessPoolEventRevisionDiffContractTest,ProcessPoolTimelineRevisionSummaryTest,MesProcessPoolEventRevisionControllerContractTest,ProcessPoolTimelineTraceabilityTest,ProcessPoolTimelineContentSummaryTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 33 tests.
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-api-static.spec.cjs` -> PASS.
+- GREEN: `node IntRuoyiFronted\tests\e2e\process-pool-event-revision-api-static.spec.js` -> PASS.
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-revision-static.spec.cjs` -> PASS.
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> PASS.
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-frontend-static.spec.cjs` -> PASS.
+- GREEN: `pnpm run ts:check` from `IntRuoyiFronted` -> PASS.
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, branch runtime ports `int_main` frontend `8081`, backend `48081`.
+- GREEN: `python C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS.
+- GREEN: `git diff --check` -> PASS, only CRLF conversion warnings for edited text files.
+- E2E prereq check: `pnpm run test:e2e process-pool-review-copy-and-revision.spec.ts` from `IntRuoyiFronted` -> FAIL, `ERR_PNPM_NO_SCRIPT`.
+- E2E prereq check: `pnpm run test process-pool-review-copy-and-revision.spec.ts` from `IntRuoyiFronted` -> FAIL, named target unknown.
+- E2E prereq check: `rg --files IntRuoyiFronted | rg "process-pool-review-copy-and-revision|playwright|run-named-test"` -> no `process-pool-review-copy-and-revision.spec.ts` found; current scope only adds independent frontend API wrappers and time-axis read-only display, not the real write-path UI pages.
+- Experience consolidation: updated `docs\database-rules.md#一对多读模型聚合门禁`, `docs\e2e-rules.md#E2E 脚本入口存在性门禁`, and `docs\experience-index.md` keywords; no new long-term document was created.
+- Current status: implementation and non-Playwright required verification are ready for closeout; real Playwright write-path E2E remains a recorded prerequisite gap and is not claimed as passed.

@@ -18,9 +18,19 @@
 
 - 发布、审计或独立验证任务发现前端无入口时，必须 fail fast，不得临时扩大范围新增入口。
 - 功能或修复任务只有在入口属于用户批准范围，且已完成 BDD + TDD 时，才允许补入口。
+- 计划或验收文档列出的 E2E 命令必须先核对 `package.json` 实际 script 和测试文件存在性；脚本或测试文件缺失时记录为 E2E 前置缺口，不得把命令解析失败、静态合同或 API wrapper 测试写成真实 E2E 通过。
 
 
 ## 静态合同与真实 E2E 同步门禁
+
+### E2E 脚本入口存在性门禁
+
+- Trigger: 任务验收文档指定 `pnpm test:e2e ...`、`pnpm test <target>`、Playwright spec 文件或新增真实用户路径 E2E。
+- Preflight check: 运行前读取当前前端 `package.json` 的 scripts，确认命令名存在、命名 runner 能识别目标、spec 文件存在，并记录实际工作目录；PowerShell 下若 `pnpm --dir` 或 `pnpm -C` 解析异常，改用显式 `workdir` 复核，不把第一次命令解析失败当作业务 E2E 结果。
+- Blocker: `ERR_PNPM_NO_SCRIPT`、named target unknown、spec 文件缺失、真实页面入口缺失、菜单权限或测试租户账号缺失时必须停止并记录具体前置缺口。
+- Verification: 证据必须区分静态合同 PASS、TypeScript PASS、Playwright 真实路径 PASS 和 E2E BLOCKED；真实 E2E 只有在 Playwright 操作真实页面并完成目标断言后才能记为 PASS。
+- Forbidden action: 禁止新增虚假 script 包装静态测试冒充真实 E2E，禁止 API-only 替代页面路径，禁止把前端 API wrapper 存在宣称为页面入口已验收。
+- Evidence: `doc/tasks/20260730-process-pool-f5-f6-implementation/execution-log.md`。
 
 ### Worktree / int_main 运行态 URL 门禁
 

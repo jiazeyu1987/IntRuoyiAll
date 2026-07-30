@@ -11,6 +11,15 @@
 - 优先使用 `SHOW TABLES`、`DESCRIBE <table>`、已有 migration、mapper XML、现有 SQL 模板或测试夹具作为证据。
 - 不得仅凭 DO 类名、字段猜测、历史记忆或旧项目文档编写运行 SQL。
 
+### 一对多读模型聚合门禁
+
+- Trigger: 时间轴、看板、列表页、详情摘要或报表读模型需要 JOIN 审核记录、修改历史、附件、字段明细、分配记录等一对多子表。
+- Preflight check: 先判断主列表期望是一行业务主对象还是一行子明细；若期望一行主对象，子表必须在子查询中按租户和主对象 ID 聚合后再 JOIN，列表分页 count 与 page 查询必须使用同一主对象口径。
+- Blocker: 直接把一对多子表 JOIN 到主列表导致主对象重复、pageSize 被子表数量挤占、count 与列表行数口径不一致，或缺少租户维度聚合时必须停止。
+- Verification: 用静态合同或 SQL/mapper 测试断言不存在直接一对多 JOIN，并断言聚合 `GROUP BY tenant_id, <主对象ID>`；必要时用测试数据覆盖同一主对象多条子记录仍只返回一行。
+- Forbidden action: 禁止用前端去重、分页后去重、默认取第一条、隐藏重复行或修改 count 掩盖 SQL 口径错误。
+- Evidence: `doc/tasks/20260730-process-pool-f5-f6-implementation/execution-log.md`。
+
 ### 数据修复临时表排序规则门禁
 
 - Trigger: 数据修复、测试项种子、菜单/权限补齐等 SQL 使用临时表、字面量或用户变量与真实表字符列做 `JOIN`、`=`、`NOT EXISTS` 比较，尤其包含中文名称、权限字符串、表单名称、测试项名称。
