@@ -78,6 +78,7 @@ class MesProcessPoolEventRevisionFifoLockTest {
                 .changeReason("更正产出数量")
                 .revisionSignatureId(9102L)
                 .revisionSignatureUserId(2001L)
+                .revisionSignatureSnapshot("{\"signedBy\":\"张可莹\"}")
                 .modifiedByUserId(2001L)
                 .changedFields(List.of(MesProcessPoolEventRevisionFieldChangeBO.builder()
                         .fieldCode("outputQuantity")

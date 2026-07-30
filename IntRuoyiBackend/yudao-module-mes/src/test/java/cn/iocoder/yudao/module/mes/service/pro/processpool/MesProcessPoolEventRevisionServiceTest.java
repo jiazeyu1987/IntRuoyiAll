@@ -130,6 +130,65 @@ class MesProcessPoolEventRevisionServiceTest {
         verify(eventMapper, never()).updateById(any(MesProProcessPoolEventDO.class));
     }
 
+    @Test
+    void rejectsUpdateWithoutRevisionSignatureSnapshot() {
+        MesProcessPoolEventRevisionUpdateReqBO req = updateReq().setRevisionSignatureSnapshot("   ");
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(req));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
+        verify(revisionMapper, never()).insert(any(MesProProcessPoolEventRevisionDO.class));
+        verify(eventMapper, never()).updateById(any(MesProProcessPoolEventDO.class));
+    }
+
+    @Test
+    void rejectsUpdateWhenEventRawPayloadMissing() {
+        when(eventMapper.selectById(1001L)).thenReturn(event().setRawPayload(" "));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(updateReq()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
+        verify(revisionMapper, never()).insert(any(MesProProcessPoolEventRevisionDO.class));
+        verify(eventMapper, never()).updateById(any(MesProProcessPoolEventDO.class));
+    }
+
+    @Test
+    void rejectsUpdateWhenEventRawPayloadIsInvalidJson() {
+        when(eventMapper.selectById(1001L)).thenReturn(event().setRawPayload("{bad"));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(updateReq()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
+        verify(revisionMapper, never()).insert(any(MesProProcessPoolEventRevisionDO.class));
+        verify(eventMapper, never()).updateById(any(MesProProcessPoolEventDO.class));
+    }
+
+    @Test
+    void rejectsUpdateWhenAfterPayloadIsInvalidJson() {
+        MesProcessPoolEventRevisionUpdateReqBO req = updateReq().setAfterPayload("{bad");
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(req));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
+        verify(revisionMapper, never()).insert(any(MesProProcessPoolEventRevisionDO.class));
+        verify(eventMapper, never()).updateById(any(MesProProcessPoolEventDO.class));
+    }
+
+    @Test
+    void rejectsUpdateWhenAffectsQuantityFragmentIsNull() {
+        MesProcessPoolEventRevisionUpdateReqBO req = updateReq();
+        req.getChangedFields().get(0).setAffectsQuantityFragment(null);
+        when(eventMapper.selectById(1001L)).thenReturn(event());
+        when(eventMapper.selectBySignatureId(9002L)).thenReturn(null);
+        when(revisionMapper.selectBySignatureId(9002L)).thenReturn(null);
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(req));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED.getCode(), ex.getCode());
+        verify(revisionMapper, never()).insert(any(MesProProcessPoolEventRevisionDO.class));
+        verify(eventMapper, never()).updateById(any(MesProProcessPoolEventDO.class));
+    }
+
     static MesProProcessPoolEventDO event() {
         return MesProProcessPoolEventDO.builder()
                 .id(1001L)

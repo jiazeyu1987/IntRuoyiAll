@@ -39,7 +39,7 @@
 
 ## Current Status
 
-F6 后端 TDD 主链、正式写入口和前端独立 API wrapper 已完成，当前 F6 worktree 待提交并交由主 agent 合并后复验；F5 和最终 `int_main` 合并验证不在本 F6 子 agent 范围内。
+F6 后端 TDD 主链、正式写入口、前端独立 API wrapper 和 service 层直接调用 fail-fast 门禁已完成；当前 F6 worktree 已完成本地修复提交，push 因网络重置阻塞，待网络恢复后重试并交由主 agent 合并复验。F5 和最终 `int_main` 合并验证不在本 F6 子 agent 范围内。
 
 ## 设计约束检查
 

@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.processpool;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventRevisionDiffDO;
@@ -52,6 +53,7 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
         if (event == null) {
             throw exception(PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS, reqBO.getEventId());
         }
+        validateJsonPayload(event.getRawPayload(), "rawPayload");
         validateSignature(reqBO, event);
         validateDiffAndFifoLocks(reqBO);
 
@@ -93,11 +95,16 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
         if (StrUtil.isBlank(reqBO.getAfterPayload())) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "afterPayload");
         }
+        validateJsonPayload(reqBO.getAfterPayload(), "afterPayload");
         if (StrUtil.isBlank(reqBO.getChangeReason())) {
             throw exception(PRO_PROCESS_POOL_REVISION_CHANGE_REASON_REQUIRED);
         }
         requirePositive(reqBO.getRevisionSignatureId(), "revisionSignatureId");
         requirePositive(reqBO.getRevisionSignatureUserId(), "revisionSignatureUserId");
+        if (StrUtil.isBlank(reqBO.getRevisionSignatureSnapshot())) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "revisionSignatureSnapshot");
+        }
+        validateJsonPayload(reqBO.getRevisionSignatureSnapshot(), "revisionSignatureSnapshot");
         requirePositive(reqBO.getModifiedByUserId(), "modifiedByUserId");
         if (CollUtil.isEmpty(reqBO.getChangedFields())) {
             throw exception(PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED);
@@ -133,7 +140,8 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
 
     private void validateFieldDiff(MesProcessPoolEventRevisionFieldChangeBO field) {
         if (field == null || StrUtil.isBlank(field.getFieldCode()) || StrUtil.isBlank(field.getFieldName())
-                || field.getOriginalField() == null || Objects.equals(field.getBeforeValue(), field.getAfterValue())) {
+                || field.getAffectsQuantityFragment() == null || field.getOriginalField() == null
+                || Objects.equals(field.getBeforeValue(), field.getAfterValue())) {
             throw exception(PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED);
         }
     }
@@ -165,6 +173,17 @@ public class MesProcessPoolEventRevisionServiceImpl implements MesProcessPoolEve
 
     private void requirePositive(Long value, String fieldName) {
         if (value == null || value <= 0) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, fieldName);
+        }
+    }
+
+    private void validateJsonPayload(String payload, String fieldName) {
+        if (StrUtil.isBlank(payload)) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, fieldName);
+        }
+        try {
+            JsonUtils.parseTree(payload);
+        } catch (RuntimeException ex) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, fieldName);
         }
     }
