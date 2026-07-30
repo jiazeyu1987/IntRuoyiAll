@@ -45,7 +45,10 @@
 - Experience consolidation: 已将“运行态重启后的悬挂批次必须先通过真实测试记录页面收敛”和“Runner 在线之外必须增加受控 Codex CLI 自检”合并到 `docs/e2e-rules.md`，并更新 `docs/experience-index.md` 路由；未新建长期经验文档。
 - Cleanup preview: `task_closeout.py --task-id 20260730-test-management-serial-routes-verification --mode preview` -> PASS；keep 为三份核心任务记录，delete 为一次性 Playwright 脚本和本任务 `output/playwright` 目录，无 blocked/warnings。
 - Cleanup apply: `task_closeout.py --task-id 20260730-test-management-serial-routes-verification --mode apply` -> PASS；已删除一次性脚本和临时截图/JSON/日志，保留三份核心任务记录。
-- Closeout status: `ready_for_closeout`；验证和 cleanup 已完成，产品结论保持 `FAIL`，等待任务记录提交与推送。
+- Evidence commit: `d814e7fa test: verify test management serial routes`，仅包含本任务三份记录和两份既有经验文档更新。
+- First push: `git push origin int_main` -> PASS，远端从 `7770c74b` 更新到 `d814e7fa`；同时按共享分支要求推送了本地原有的两个领先提交。
+- Post-push state: `origin/int_main` 已同步到验证证据提交；未触碰并行任务目录 `doc/tasks/20260730-smart-scheduling-workorder-admission-e2e/`。
+- Final closeout status: `completed`；验证任务本身已完成，产品结论保持 `FAIL`，最终收尾记录单独提交并推送。
 
 ## Blockers
 

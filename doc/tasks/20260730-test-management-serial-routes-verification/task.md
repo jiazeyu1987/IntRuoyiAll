@@ -24,7 +24,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
@@ -45,6 +45,7 @@ ready_for_closeout
 
 ## Final Verification
 
-- Verification outcome: completed；Git 提交与推送收尾待完成。
+- Task outcome: completed verification.
 - Product verdict: FAIL，3 条正式串行路线当前均不能完整跑完。
 - Cleanup: preview/apply 均通过，保留 `task.md`、`execution-log.md`、`verification-report.md`。
+- Git: 验证证据提交 `d814e7fa` 已推送到 `origin/int_main`；最终收尾记录单独提交并推送。
