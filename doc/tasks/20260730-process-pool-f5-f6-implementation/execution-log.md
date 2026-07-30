@@ -187,3 +187,18 @@
 - E2E prereq check: `rg --files IntRuoyiFronted | rg "process-pool-review-copy-and-revision|playwright|run-named-test"` -> no `process-pool-review-copy-and-revision.spec.ts` found; current scope only adds independent frontend API wrappers and time-axis read-only display, not the real write-path UI pages.
 - Experience consolidation: updated `docs\database-rules.md#一对多读模型聚合门禁`, `docs\e2e-rules.md#E2E 脚本入口存在性门禁`, and `docs\experience-index.md` keywords; no new long-term document was created.
 - Current status: implementation and non-Playwright required verification are ready for closeout; real Playwright write-path E2E remains a recorded prerequisite gap and is not claimed as passed.
+
+## 2026-07-30 Closeout
+
+- Commit: `83547934 fix: aggregate process pool review copy timeline` preserved the main review mapper fix and combined static contract.
+- Commit: `97ba00d9 docs: record process pool F5 F6 verification` preserved verification evidence and long-term experience gates.
+- Cleanup keep: PRD, test plan, dev plan, agent reports, task state and test report were explicitly kept because they are this user-requested TDD/BDD documentation output.
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-process-pool-f5-f6-implementation --mode preview` -> PASS, delete `<none>`, blocked `<none>`, warnings `<none>`.
+- Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-process-pool-f5-f6-implementation --mode apply` -> PASS, deleted `<none>`, blocked `<none>`, warnings `<none>`.
+- Worktree cleanup precheck: F5 and F6 task worktrees were clean; ports `8097/48097/8098/48098` had no listeners; no process path matched either task worktree.
+- Worktree removal: `git worktree remove D:\IntRuoyiWorktree\20260730-process-pool-f5-review-copy` -> PASS.
+- Worktree removal: `git worktree remove D:\IntRuoyiWorktree\20260730-process-pool-f6-event-revision` -> PASS.
+- Registry update: `D:\IntRuoyiWorktree\.ports\worktree-ports.json` entries `20260730-process-pool-f5-review-copy` and `20260730-process-pool-f6-event-revision` marked `active=false`, `deletedAt=2026-07-30T10:24:06+08:00`, `cleanupTask=20260730-process-pool-f5-f6-implementation`.
+- Registry verification: both task worktree directories returned `False` for `Test-Path`; `git worktree list` no longer includes them.
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, branch runtime ports `int_main` frontend `8081`, backend `48081`.
+- Final status before push: task marked `completed`; current branch still needs final closeout commit and `git push origin int_main`.

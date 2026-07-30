@@ -2,7 +2,7 @@
 
 ## Status
 
-pass_with_e2e_prereq_gap
+completed_with_e2e_prereq_gap
 
 ## Passed
 

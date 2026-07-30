@@ -1,8 +1,8 @@
 {
   "task_id": "20260730-process-pool-f5-f6-implementation",
   "goal": "启动2个子agent分别在2个worktree里实现并验证F5/F6文档内容，主agent review后合并进int_main",
-  "status": "ready_for_closeout",
-  "current_stage": "closeout",
+  "status": "completed",
+  "current_stage": "completed",
   "planner_review_status": "approved",
   "plan_review_status": "approved",
   "blocking_prereqs": [],
@@ -58,5 +58,17 @@
   "known_gaps": [
     "Real Playwright write-path E2E was not claimed: current frontend has no test:e2e script, the named test runner does not recognize process-pool-review-copy-and-revision.spec.ts, and that spec file is absent."
   ],
+  "closeout": {
+    "cleanup_preview": "PASS, no delete/blocker/warnings",
+    "cleanup_apply": "PASS, no delete/blocker/warnings",
+    "removed_worktrees": [
+      "D:\\IntRuoyiWorktree\\20260730-process-pool-f5-review-copy",
+      "D:\\IntRuoyiWorktree\\20260730-process-pool-f6-event-revision"
+    ],
+    "released_slots": [
+      "int_main slot 16, frontend 8097, backend 48097",
+      "int_main slot 17, frontend 8098, backend 48098"
+    ]
+  },
   "updated_at": "2026-07-30T10:24:06+08:00"
 }

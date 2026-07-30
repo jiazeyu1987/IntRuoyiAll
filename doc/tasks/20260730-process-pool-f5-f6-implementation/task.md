@@ -39,9 +39,9 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-F5/F6 子 worktree 已完成主审修正并融合进 `int_main`。F5/F6 后端主链、正式写入口、前端独立 API wrapper 和时间轴只读追溯已通过合并后复验；主审额外发现并修复了时间轴审核副本一对多 JOIN 导致事件重复展开的风险。
+F5/F6 子 worktree 已完成主审修正并融合进 `int_main`。F5/F6 后端主链、正式写入口、前端独立 API wrapper 和时间轴只读追溯已通过合并后复验；主审额外发现并修复了时间轴审核副本一对多 JOIN 导致事件重复展开的风险。cleanup preview/apply 已完成，两个任务 worktree 已删除，端口槽位已释放。
 
 真实写路径 E2E 未声明通过：当前前端缺少 `test:e2e` 脚本、缺少 `process-pool-review-copy-and-revision.spec.ts`，且 F5/F6 本轮只交付独立 API wrapper 和只读时间轴展示，未新建审核副本/原始记录修改页面入口。若需要页面级闭环，应作为后续已批准 UI/E2E 任务处理。
 
@@ -60,3 +60,14 @@ F5/F6 子 worktree 已完成主审修正并融合进 `int_main`。F5/F6 后端�
 - `docs\powershell-memory.md#PowerShell Maven -D 参数引号门禁`：所有 Maven `-Dtest=...` 参数必须整体加双引号。
 - `docs\frontend-development.md#前端静态契约隔离门禁`：若宽前端合同或 `pnpm ts:check` 因历史问题失败，必须新增/运行 F5/F6 聚焦静态合同并记录无关 blocker，不能把无关失败当作通过证据。
 - `docs\e2e-rules.md#Worktree / int_main 运行态 URL 门禁`：真实 E2E 必须使用同一 worktree slot 的前后端成对 URL；合并后才允许 `int_main` 的 `8081/48081`。
+
+## Cleanup Keep
+
+- `doc/tasks/20260730-process-pool-f5-f6-implementation/agent-f5-report.md`
+- `doc/tasks/20260730-process-pool-f5-f6-implementation/agent-f6-report.md`
+- `doc/tasks/20260730-process-pool-f5-f6-implementation/dev-plan.md`
+- `doc/tasks/20260730-process-pool-f5-f6-implementation/prd.md`
+- `doc/tasks/20260730-process-pool-f5-f6-implementation/request-analysis.md`
+- `doc/tasks/20260730-process-pool-f5-f6-implementation/task-state.json`
+- `doc/tasks/20260730-process-pool-f5-f6-implementation/test-plan.md`
+- `doc/tasks/20260730-process-pool-f5-f6-implementation/test-report.md`

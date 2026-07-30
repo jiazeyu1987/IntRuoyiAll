@@ -2,7 +2,7 @@
 
 ## Status
 
-pass_with_e2e_prereq_gap
+completed_with_e2e_prereq_gap
 
 ## Evidence
 
@@ -34,3 +34,7 @@ pass_with_e2e_prereq_gap
   - `pnpm run test process-pool-review-copy-and-revision.spec.ts` from `IntRuoyiFronted` -> FAIL, named target unknown.
   - No `process-pool-review-copy-and-revision.spec.ts` file exists in current frontend tests.
   - This report does not claim Playwright real write-path E2E passed.
+- Closeout:
+  - cleanup preview/apply -> PASS, no deletes, no blockers, no warnings.
+  - task worktrees `20260730-process-pool-f5-review-copy` and `20260730-process-pool-f6-event-revision` removed with `git worktree remove`.
+  - port registry entries for slots `16` and `17` marked inactive.
