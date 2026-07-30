@@ -59,6 +59,9 @@
 - Push gate: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`frontend 8098`、`backend 48098`。
 - Push blocker: `git push origin codex/20260730-banzuzhang` -> FAIL，原因 `fatal: unable to access 'https://github.com/jiazeyu1987/IntRuoyiAll.git/': Recv failure: Connection was reset`。
 - Push retry blocker: 第二次 `git push origin codex/20260730-banzuzhang` -> FAIL，同样为 `Recv failure: Connection was reset`；当前 `git status --short --branch` 为 `codex/20260730-banzuzhang...origin/codex/20260730-banzuzhang [ahead 11]`，按完成门禁不能继续 cleanup apply / ff-only merge / worktree removal。
+- Closeout record commit: `git commit -m "docs: record team leader push blocker"` -> PASS，提交 `345f32f2`，仅包含 `doc/tasks/20260730-banzuzhang/{task.md,execution-log.md,verification-report.md}`。
+- Push retry blocker: 第三次 `git push origin codex/20260730-banzuzhang` -> FAIL，同样为 `Recv failure: Connection was reset`；当前分支为 `ahead 12`。
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-banzuzhang --mode preview` -> BLOCKED，keep 列表保留核心任务文档和 evidence，delete 为 `<none>`；阻塞原因为 `Main worktree is dirty and cannot receive ff-only merge: E:\IntRuoyi`。
 
 ## Evidence Files
 

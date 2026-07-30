@@ -2,7 +2,7 @@
 
 ## Current Result
 
-ready_for_closeout；implementation verified and committed；current branch locally merged with latest local `int_main` for ff-only closeout, but remote push is blocked by repeated connection reset.
+ready_for_closeout；implementation verified and committed；current branch locally merged with latest local `int_main` for ff-only closeout, but closeout is blocked by repeated remote push connection reset and dirty main worktree.
 
 ## Evidence
 
@@ -28,9 +28,11 @@ ready_for_closeout；implementation verified and committed；current branch loca
 - Implementation commit: `368ef63c feat: add process pool team leader workbench`，已 rebase 到 `int_main` `9f84a797` 后。
 - Prior push: `origin/codex/20260730-banzuzhang` 已创建并同步到 `ed2b9a5d`。
 - Closeout sync: `git merge int_main` -> PASS，当前 HEAD 为 `3225bc70 Merge branch 'int_main' into codex/20260730-banzuzhang`，且 `git merge-base --is-ancestor int_main HEAD` -> PASS。
-- Push blocker: `git push origin codex/20260730-banzuzhang` 连续两次失败，错误均为 `Recv failure: Connection was reset`；当前分支为 `ahead 11`，未满足完成门禁。
+- Push blocker: `git push origin codex/20260730-banzuzhang` 连续三次失败，错误均为 `Recv failure: Connection was reset`；当前分支为 `ahead 12`，未满足完成门禁。
+- Cleanup preview: `task_closeout.py --mode preview` -> BLOCKED，阻塞原因为主工作区 `E:\IntRuoyi` dirty，不能接收 ff-only merge。
 
 ## Pending Verification
 
 - 远端推送：等待 GitHub/网络连接恢复后重新执行 `git push origin codex/20260730-banzuzhang`。
+- 主工作区清理：等待并行任务处理 `E:\IntRuoyi` 的 dirty 状态。
 - cleanup apply、ff-only merge 和 worktree removal：仅在任务分支成功推送、cleanup preview 无 blocker 后执行。
