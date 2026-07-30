@@ -93,13 +93,22 @@ for (const mapperToken of [
   'applyPageSort(wrapper, reqVO);',
   'PROJECT_SORT_FIELD_NAME',
   'PROJECT_SORT_FIELD_CODE',
-  'DccProductCatalogDO::getProjectName',
-  'DccProductCatalogDO::getProjectCode',
-  'orderByAsc(DccProductCatalogDO::getDataSource)',
-  'orderByAsc(DccProductCatalogDO::getOriginalRowNo)'
+  'PROJECT_NAME_COLUMN = "project_name"',
+  'PROJECT_CODE_COLUMN = "project_code"',
+  'PROJECT_SORT_BLANK_LAST_EXPRESSION',
+  "CASE WHEN %s IS NULL OR TRIM(%s) = '' THEN 1 ELSE 0 END",
+  'wrapper.orderByAsc(blankLastOrderExpression(column));',
+  'wrapper.orderByDesc(column);',
+  'orderByAsc(COLUMN_DATA_SOURCE)',
+  'orderByAsc(COLUMN_ORIGINAL_ROW_NO)'
 ]) {
   assert.ok(mapperSource.includes(mapperToken), `后端 Mapper 必须包含项目字段分页排序契约：${mapperToken}`)
 }
+assert.match(
+  mapperSource,
+  /private void applyProjectFieldSort\(QueryWrapperX<DccProductCatalogDO> wrapper, String sortOrder,\s*String column\) \{[\s\S]*wrapper\.orderByAsc\(blankLastOrderExpression\(column\)\);[\s\S]*if \(SORT_ORDER_ASC\.equalsIgnoreCase\(sortOrder\)\) \{[\s\S]*wrapper\.orderByAsc\(column\);[\s\S]*\} else \{[\s\S]*wrapper\.orderByDesc\(column\);[\s\S]*\}/,
+  '项目字段排序必须先按空值标记升序，让降序时空单元格仍排在最后。'
+)
 assert.doesNotMatch(mapperSource, /\.last\(/, '产品目录项目字段排序不得用 last 拼接未受控 SQL。')
 
 console.log('PASS: DCC product catalog project field sort static contract')

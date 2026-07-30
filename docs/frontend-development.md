@@ -43,10 +43,10 @@
 ## 前端服务端分页排序链路门禁
 
 - Trigger: Element Plus 表格、统一列表模板、分页列表、`sort-change`、`sortColumnAttrs`、表头排序按钮、空单元格排序、跨页排序。
-- Preflight check: 先区分本地全量列表和服务端分页列表；服务端分页列表的表头排序必须从表格事件进入统一排序状态，再映射成正式分页请求参数，并由后端白名单字段排序，不能只改当前页数组顺序。
-- Blocker: 表头有排序按钮但未绑定 `sortState`，`sort-change` 只更新组件内部状态，分页请求缺少 `sortField/sortOrder`，后端 Mapper 固定排序忽略请求字段，或空值只能在当前页集中时，不得宣称排序修复完成。
-- Verification: 聚焦静态契约必须同时断言前端排序状态绑定、请求参数映射、后端请求 VO 字段、Mapper 白名单排序和稳定兜底排序；再运行相邻列表契约、`pnpm ts:check` 和目标后端分页测试。
-- Forbidden action: 禁止用前端当前页 `Array.sort` 冒充跨页排序；禁止把任意前端字段直接拼 SQL；禁止用 `.last()` 拼接受用户控制的排序 SQL；禁止只看表头箭头状态不看接口排序参数。
+- Preflight check: 先区分本地全量列表和服务端分页列表；服务端分页列表的表头排序必须从表格事件进入统一排序状态，再映射成正式分页请求参数，并由后端白名单字段排序，不能只改当前页数组顺序。若用户要求空单元格在某一方向固定置顶或置底，后端排序必须显式增加空值标记表达式，不能依赖数据库默认 `NULL`/空字符串排序。
+- Blocker: 表头有排序按钮但未绑定 `sortState`，`sort-change` 只更新组件内部状态，分页请求缺少 `sortField/sortOrder`，后端 Mapper 固定排序忽略请求字段，降序空单元格未被显式排到最后，或空值只能在当前页集中时，不得宣称排序修复完成。
+- Verification: 聚焦静态契约必须同时断言前端排序状态绑定、请求参数映射、后端请求 VO 字段、Mapper 白名单排序、空值置顶/置底表达式和稳定兜底排序；再运行相邻列表契约、`pnpm ts:check` 和目标后端分页测试。
+- Forbidden action: 禁止用前端当前页 `Array.sort` 冒充跨页排序；禁止把任意前端字段直接拼 SQL；禁止用 `.last()` 拼接受用户控制的排序 SQL；禁止依赖数据库默认空值顺序满足用户指定语义；禁止只看表头箭头状态不看接口排序参数。
 - Evidence: 任务 `doc/tasks/20260730-dcc-product-catalog-null-sort/`，DCC 产品目录“项目名称/项目代码”旧实现只触发统一列表内部排序状态，后端仍按 `dataSource/originalRowNo` 固定排序，最终补齐 `sortField/sortOrder` 与 Mapper 白名单排序。
 
 ## 前端截图字号调整静态契约门禁
