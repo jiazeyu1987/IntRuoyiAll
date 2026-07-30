@@ -44,6 +44,15 @@
 - Forbidden action: 禁止为了获得 clean worktree 而删除、回滚、覆盖或静默忽略别人/并发任务的脏改动。
 - Evidence: 用户授权记录、基线提交 hash、任务日志中的文件清单。
 
+### 共享分支并发基线提交门禁
+
+- Trigger: 多个任务共用同一分支或主工作区时，最近一次提交不是当前任务发起，且 `git show --name-status -1` 包含当前任务文件、其它任务文档、非当前模块源码或运行产物。
+- Preflight check: 每次实现改动后、提交前、cleanup 前都运行 `git log --oneline -5`、`git show --name-status --oneline -1`、`git status --short --branch` 和当前任务文件的 `git diff HEAD -- <paths>`，确认当前任务改动是否已被并发基线提交吞入。
+- Blocker: 当前任务实现被并发基线提交混入且需要严格任务独立提交、最近提交包含敏感文件/超大产物、或同一文件还有未区分 hunks 时，必须停止并让用户决定是否重建独立提交历史；不得继续用宽泛 `git add -A`。
+- Verification: 若用户允许继续，任务日志必须记录并发提交 hash、混入范围、保留/不触碰的非任务文件、已通过的目标验证和后续只选择性暂存的文件清单。
+- Forbidden action: 禁止把并发基线提交伪装成本任务实现提交；禁止因为 HEAD 已包含代码就跳过验证、任务文档或冲突记录；禁止擅自 amend、reset、force-push 或用新提交覆盖他人并发改动。
+- Evidence: `doc\tasks\20260730-dcc-product-catalog-remove-toolbar-buttons\execution-log.md`，共享分支基线提交曾把 DCC 按钮删除任务文件和其它任务文件一起提交，后续只能记录异常并选择性收尾。
+
 ### 同文件并行改动选择性暂存门禁
 
 - Trigger: 基线提交后继续出现并行改动，且当前任务与非本任务改动落在同一个源码或测试文件。

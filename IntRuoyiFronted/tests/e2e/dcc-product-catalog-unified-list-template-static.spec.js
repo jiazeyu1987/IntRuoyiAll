@@ -59,10 +59,14 @@ assert.match(
 assert.match(template, /v-model:page="queryParams\.pageNo"/, '模板分页必须绑定 pageNo。')
 assert.match(template, /v-model:limit="queryParams\.pageSize"/, '模板分页必须绑定 pageSize。')
 assert.match(template, /@pagination="getList"/, '模板分页必须复用原列表查询。')
-assert.match(
-  template,
-  /<template #actions>[\s\S]*openForm\('create'\)[\s\S]*productCatalogQuickFilter\.resetQuickFilter[\s\S]*handleCompareRegistrationExpiry/,
-  '新增产品目录、查询重置和注册证有效期比对操作必须保留。'
+const actionsMatch = template.match(/<template #actions>([\s\S]*?)<\/template>/)
+assert.ok(actionsMatch, '产品目录必须保留 actions 插槽承载新增入口。')
+const actions = actionsMatch[0]
+assert.match(actions, /openForm\('create'\)/, '产品目录 actions 插槽必须保留新增产品目录。')
+assert.doesNotMatch(
+  actions,
+  /productCatalogQuickFilter\.resetQuickFilter|handleCompareRegistrationExpiry|>\s*重置\s*<|>\s*注册证有效期\s*</,
+  '产品目录 actions 插槽不得继续渲染重置和注册证有效期按钮。'
 )
 assert.match(
   template,
@@ -142,8 +146,6 @@ assert.match(
 for (const preservedToken of [
   "openForm('update'",
   'handleDelete',
-  'getExpiryCompareTooltip',
-  'getExpiryCompareClass',
   'row.registrationInfoLink',
   'target="_blank"',
   `v-hasPermi="['dcc:project-code:create']"`,
@@ -152,10 +154,21 @@ for (const preservedToken of [
   'getProductCatalogPage',
   'createProductCatalog',
   'updateProductCatalog',
-  'deleteProductCatalog',
-  'compareRegistrationExpiry'
+  'deleteProductCatalog'
 ]) {
   assert.ok(source.includes(preservedToken), `产品目录原有能力必须保留：${preservedToken}`)
+}
+
+for (const removedToken of [
+  'productCatalogQuickFilter.resetQuickFilter',
+  'handleCompareRegistrationExpiry',
+  'compareRegistrationExpiry',
+  'expiryCompareLoading',
+  'getExpiryCompareTooltip',
+  'getExpiryCompareClass',
+  'expiry-compare-'
+]) {
+  assert.ok(!source.includes(removedToken), `产品目录 toolbar 删除后不得保留无入口逻辑：${removedToken}`)
 }
 
 const mainListEnd = source.indexOf('<Dialog')

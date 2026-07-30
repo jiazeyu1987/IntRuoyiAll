@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.schedulerworkbench;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchFullConfigImportRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchManualReplanDataImportRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchPolicySettingsRespVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.service.dept.PostConfigPackageService;
@@ -18,6 +19,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
@@ -45,6 +47,8 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
     @Mock
     private MesProSchedulerWorkbenchManualReplanDataPackageService manualReplanDataPackageService;
     @Mock
+    private MesProSchedulerWorkbenchService schedulerWorkbenchService;
+    @Mock
     private PermissionService permissionService;
     @Mock
     private RoleService roleService;
@@ -63,6 +67,7 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
                 .getBytes(StandardCharsets.UTF_8));
         when(manualReplanDataPackageService.exportPackage()).thenReturn("{\"packageVersion\":\"scheduler-manual-replan-data.v1\"}"
                 .getBytes(StandardCharsets.UTF_8));
+        when(schedulerWorkbenchService.getPolicySettings()).thenReturn(policySettings());
         when(permissionService.getUserRoleIdListByRoleId(Set.of(11L, 12L))).thenReturn(Set.of(101L));
         when(roleService.getRoleList()).thenReturn(List.of(
                 role(11L, "super_admin", "超级管理员"),
@@ -82,6 +87,8 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
         assertEquals("scheduler-route-config.v1", root.path("routeConfigPackage").path("packageVersion").asText());
         assertEquals("scheduler-manual-replan-data.v1",
                 root.path("manualReplanDataPackage").path("packageVersion").asText());
+        assertEquals("02:00", root.path("policySettings").path("erpWorkOrderSyncTime").asText());
+        assertEquals("PROMISE_DATE", root.path("policySettings").path("priorityRule").asText());
         assertEquals(1, root.path("userRoleBindings").size());
         assertEquals("smokeplan1", root.path("userRoleBindings").get(0).path("username").asText());
         assertEquals(2, root.path("userRoleBindings").get(0).path("roleCodes").size());
@@ -95,9 +102,10 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
                   "postConfigPackage":{"packageVersion":"1","posts":[]},
                   "roleConfigPackage":{"packageVersion":"1","roles":[]},
                   "routeConfigPackage":{"packageVersion":"scheduler-route-config.v1","routes":[]},
-                  "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v1"}
+                  "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v1"},
+                  "policySettings":%s
                 }
-                """.getBytes(StandardCharsets.UTF_8);
+                """.formatted(policySettingsJson()).getBytes(StandardCharsets.UTF_8);
 
         assertServiceException(() -> service.importPackage(invalid),
                 CONFIG_PACKAGE_CONTENT_INVALID, "排产员工作台全量配置包缺少 userRoleBindings");
@@ -111,12 +119,30 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
                   "postConfigPackage":{"packageVersion":"1","posts":[]},
                   "roleConfigPackage":{"packageVersion":"1","roles":[]},
                   "routeConfigPackage":{"packageVersion":"scheduler-route-config.v1","routes":[]},
+                  "policySettings":%s,
+                  "userRoleBindings":[]
+                }
+                """.formatted(policySettingsJson()).getBytes(StandardCharsets.UTF_8);
+
+        assertServiceException(() -> service.importPackage(invalid),
+                CONFIG_PACKAGE_CONTENT_INVALID, "排产员工作台全量配置包缺少手动重排数据包");
+    }
+
+    @Test
+    void importPackage_shouldFailFastWhenPolicySettingsMissing() {
+        byte[] invalid = """
+                {
+                  "packageVersion":"scheduler-workbench-full-config.v1",
+                  "postConfigPackage":{"packageVersion":"1","posts":[]},
+                  "roleConfigPackage":{"packageVersion":"1","roles":[]},
+                  "routeConfigPackage":{"packageVersion":"scheduler-route-config.v1","routes":[]},
+                  "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v1"},
                   "userRoleBindings":[]
                 }
                 """.getBytes(StandardCharsets.UTF_8);
 
         assertServiceException(() -> service.importPackage(invalid),
-                CONFIG_PACKAGE_CONTENT_INVALID, "排产员工作台全量配置包缺少手动重排数据包");
+                CONFIG_PACKAGE_CONTENT_INVALID, "排产员工作台全量配置包缺少策略设置");
     }
 
     @Test
@@ -128,9 +154,10 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
                   "roleConfigPackage":{"packageVersion":"2","roles":[]},
                   "routeConfigPackage":{"packageVersion":"scheduler-route-config.v1","routes":[{"routeId":10,"routeCode":"ROUTE-001","routeVersionId":100,"useProcessConfigs":[],"scheduleConfigs":[],"resources":[]}]},
                   "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v1"},
+                  "policySettings":%s,
                   "userRoleBindings":[]
                 }
-                """.getBytes(StandardCharsets.UTF_8);
+                """.formatted(policySettingsJson()).getBytes(StandardCharsets.UTF_8);
 
         assertServiceException(() -> service.importPackage(invalid),
                 CONFIG_PACKAGE_CONTENT_INVALID,
@@ -150,6 +177,7 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
                   "roleConfigPackage":{"packageVersion":"1","roles":[]},
                   "routeConfigPackage":{"packageVersion":"scheduler-route-config.v1","routes":[{"routeId":10,"routeCode":"ROUTE-001","routeVersionId":100,"useProcessConfigs":[],"scheduleConfigs":[],"resources":[]}]},
                   "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v1"},
+                  "policySettings":%s,
                   "userRoleBindings":[
                     {
                       "username":"smokeplan1",
@@ -157,7 +185,7 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
                     }
                   ]
                 }
-                """.getBytes(StandardCharsets.UTF_8);
+                """.formatted(policySettingsJson()).getBytes(StandardCharsets.UTF_8);
 
         assertServiceException(() -> service.importPackage(payload),
                 CONFIG_PACKAGE_REFERENCE_MISSING,
@@ -173,6 +201,7 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
                 role(12L, "mes_scheduler", "排产员")
         ));
         when(manualReplanDataPackageService.importPackage(any())).thenReturn(manualReplanImportResp(3, 4, 5));
+        when(schedulerWorkbenchService.savePolicySettings(any())).thenReturn(policySettings());
 
         byte[] payload = """
                 {
@@ -181,6 +210,7 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
                   "roleConfigPackage":{"packageVersion":"1","roles":[]},
                   "routeConfigPackage":{"packageVersion":"scheduler-route-config.v1","routes":[]},
                   "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v1"},
+                  "policySettings":%s,
                   "userRoleBindings":[
                     {
                       "username":"smokeplan1",
@@ -188,7 +218,7 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
                     }
                   ]
                 }
-                """.getBytes(StandardCharsets.UTF_8);
+                """.formatted(policySettingsJson()).getBytes(StandardCharsets.UTF_8);
 
         MesProSchedulerWorkbenchFullConfigImportRespVO result = service.importPackage(payload);
 
@@ -196,6 +226,10 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
         verify(roleConfigPackageService).importPackage(anyBytesCaptor().capture());
         verify(manualReplanDataPackageService).importPackage(anyBytesCaptor().capture());
         verify(routeConfigPackageService).importPackage(anyBytesCaptor().capture());
+        ArgumentCaptor<MesProSchedulerWorkbenchPolicySettingsRespVO> policyCaptor =
+                ArgumentCaptor.forClass(MesProSchedulerWorkbenchPolicySettingsRespVO.class);
+        verify(schedulerWorkbenchService).savePolicySettings(policyCaptor.capture());
+        assertEquals("02:00", policyCaptor.getValue().getErpWorkOrderSyncTime());
         ArgumentCaptor<Set<Long>> roleIdsCaptor = ArgumentCaptor.forClass(Set.class);
         verify(permissionService).assignUserRole(org.mockito.ArgumentMatchers.eq(101L), roleIdsCaptor.capture());
         assertEquals(Set.of(11L, 12L), roleIdsCaptor.getValue());
@@ -204,6 +238,7 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
         assertEquals(3, result.getReplanMasterDataCount());
         assertEquals(4, result.getReplanScheduleOrderDataCount());
         assertEquals(5, result.getReplanRuntimeDataCount());
+        assertEquals(1, result.getPolicySettingsCount());
     }
 
     @Test
@@ -220,6 +255,7 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
                   "roleConfigPackage":{"packageVersion":"1","roles":[]},
                   "routeConfigPackage":{"packageVersion":"scheduler-route-config.v1","routes":[{"routeId":10,"routeCode":"ROUTE-001","routeVersionId":100,"useProcessConfigs":[],"scheduleConfigs":[],"resources":[]}]},
                   "manualReplanDataPackage":{"packageVersion":"scheduler-manual-replan-data.v1"},
+                  "policySettings":%s,
                   "userRoleBindings":[
                     {
                       "username":"smokeplan1",
@@ -227,7 +263,7 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
                     }
                   ]
                 }
-                """.getBytes(StandardCharsets.UTF_8);
+                """.formatted(policySettingsJson()).getBytes(StandardCharsets.UTF_8);
 
         assertServiceException(() -> service.importPackage(payload),
                 CONFIG_PACKAGE_REFERENCE_MISSING,
@@ -254,5 +290,41 @@ class MesProSchedulerWorkbenchFullConfigPackageServiceTest {
         role.setCode(code);
         role.setName(name);
         return role;
+    }
+
+    private static MesProSchedulerWorkbenchPolicySettingsRespVO policySettings() {
+        MesProSchedulerWorkbenchPolicySettingsRespVO policySettings = new MesProSchedulerWorkbenchPolicySettingsRespVO();
+        policySettings.setErpWorkOrderSyncTime("02:00");
+        policySettings.setNightlyReplanTime("03:00");
+        policySettings.setPriorityRule("PROMISE_DATE");
+        policySettings.setProtectReportedTasks(true);
+        policySettings.setProtectCompletedTasks(true);
+        policySettings.setProtectLockedTasks(true);
+        policySettings.setDefaultScheduleUseEnabled(true);
+        policySettings.setDefaultScheduleCapacityMode("MANUAL_OVERRIDE");
+        policySettings.setDefaultFiniteHourlyCapacity(new BigDecimal("30"));
+        policySettings.setDefaultNightShiftEnabled(false);
+        policySettings.setDefaultWorkerQuantity(5);
+        policySettings.setDefaultWorkerSingleHourlyCapacity(new BigDecimal("30"));
+        return policySettings;
+    }
+
+    private static String policySettingsJson() {
+        return """
+                {
+                  "erpWorkOrderSyncTime":"02:00",
+                  "nightlyReplanTime":"03:00",
+                  "priorityRule":"PROMISE_DATE",
+                  "protectReportedTasks":true,
+                  "protectCompletedTasks":true,
+                  "protectLockedTasks":true,
+                  "defaultScheduleUseEnabled":true,
+                  "defaultScheduleCapacityMode":"MANUAL_OVERRIDE",
+                  "defaultFiniteHourlyCapacity":30,
+                  "defaultNightShiftEnabled":false,
+                  "defaultWorkerQuantity":5,
+                  "defaultWorkerSingleHourlyCapacity":30
+                }
+                """;
     }
 }

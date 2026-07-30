@@ -173,6 +173,7 @@ export interface SchedulerWorkbenchFullConfigImportRespVO {
   replanMasterDataCount: number
   replanScheduleOrderDataCount: number
   replanRuntimeDataCount: number
+  policySettingsCount: number
 }
 
 export const SchedulerWorkbenchApi = {

@@ -66,6 +66,7 @@
 - Keywords: Playwright Executable doesn't exist, npx playwright install, PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, Chrome 可执行文件, Edge 可执行文件, 浏览器缓存缺失, login-preflight 浏览器路径 -> `docs/e2e-rules.md#playwright-浏览器可执行文件门禁`
 - Keywords: PowerShell Maven -D, -Dsurefire.failIfNoSpecifiedTests, -Dtest, Unknown lifecycle phase, 目标 JUnit 加引号 -> `docs/powershell-memory.md#powershell-maven--d-参数引号门禁`
 - Keywords: IncrementalBuildHelper.beforeRebuildExecution, WinNTFileSystem.delete0, Windows Maven 增量输出删除卡住, Maven 无 surefire 报告, 仅停止任务自有 Maven PID -> `docs/backend-development.md#2026-07-27-windows-maven-增量输出删除卡住门禁`
+- Keywords: 共享分支并发基线提交, concurrent baseline commit, 最近提交不是当前任务, git show --name-status -1 包含当前任务文件, 当前任务改动被基线吞入, 严格任务独立提交 -> `docs/powershell-memory.md#共享分支并发基线提交门禁`
 - Keywords: 同文件并行改动, mixed hunks, selective staging, git apply --cached, 选择性暂存, 本任务 hunks, 并行改动未混入 -> `docs/powershell-memory.md#同文件并行改动选择性暂存门禁`
 - Keywords: 提交后残余改动, commit 后还有修改, 延迟保存改动, git status 复扫, git diff --name-status, 宽泛 git add -A 混入并行任务, residual dirty after commit -> `docs/powershell-memory.md#提交后残余改动复扫门禁`
 - 构建发布耗时 / 真实 E2E 发布预检：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
@@ -90,6 +91,8 @@
 - Keywords: 表头排序, Element Plus sort-change, UnifiedListTemplate sortState, sortColumnAttrs, 服务端分页排序, sortField, sortOrder, 空单元格排序, 降序空值最后, Mapper 白名单排序, 空值标记表达式 -> `docs/frontend-development.md#前端服务端分页排序链路门禁`
 - Keywords: 截图字号调整, 文字大小, 字号, 放大 2 倍, 缩小一半, 卡片内文字, Element Plus 泛选择器, 先改静态契约 RED, 字号静态契约 -> `docs/frontend-development.md#前端截图字号调整静态契约门禁`
 - Keywords: 只显示, 仅展示, 有效历史, 已生效历史版本, 版本列表, 状态列表, 候选版本, 取消的不显示, effective-only, ACTIVE SUPERSEDED, DRAFT CANCELLED, 只排除一个状态, `!== 'CANCELLED'` -> `docs/frontend-development.md#前端列表状态口径完整性门禁`
+- Keywords: 不同浏览器列表显示不同, 不同账号列不同, admin 默认布局, 显示字段, 用户列配置, useUserTableColumns, data-user-table-key, table key 升级, 历史列配置覆盖默认列, 权限按钮差异 -> `docs/frontend-development.md#前端列表跨账号默认列布局统一门禁`
+- Keywords: 普通用户只能看到, 只看到我的签名, 权限页签, 动态菜单默认重定向, hidden static child, permissionStore, activeMenu, 电子签名 我的签名, 签名记录 403 -> `docs/frontend-development.md#前端权限页签正向授权门禁`
 - Keywords: 弹窗上一张下一张, 同集合弹窗导航, 同产品同版本切换, 候选不在当前列表页, selectedReport 候选 fallback, 预览上下文丢失, 导航后未选择表单 -> `docs/frontend-development.md#前端同集合弹窗导航上下文门禁`
 - Keywords: 填写配置红框, 辅助表单映射红框, data-fill-config-actions, data-fill-config-current-form, 当前表单名称版本, batch-record-cell-rules-editor__panel-head, batch-record-cell-rules-editor__cell-rule, gridCell.sourceSummary, 未映射, 原表单来源, 保存填写配置 固定操作区 -> `docs/frontend-development.md#前端填写配置红框区域隐藏门禁`
 - Keywords: 保存系统异常重复提示, axios 自动错误提示, ignoreErrorMessage, 子组件 rethrow 前 toast, 父组件统一 toast, save error single toast, RouteFlowGraphDesigner, RouteFormContent -> `docs/frontend-development.md#前端保存链路重复错误提示门禁`
@@ -104,7 +107,7 @@
 - Keywords: 聚合字段新增子项, 默认分类, 表单槽位, route-flow-graph-designer__node-form-count-badge, createEmptyRecordBinding, formSlotType MAIN, 新增后数字不变 -> `docs/frontend-development.md#前端聚合新增默认分类门禁`
 - Keywords: noTagsView, activeMenu, 隐藏路由顶部页签, 顶部 tab 切回列表, fullPath query 丢失, replaceActiveMenuView, restoreActiveMenuView, 流转关系图页签返回 -> `docs/frontend-development.md#前端隐藏路由顶部页签状态门禁`
 - Keywords: Element Plus 全屏弹框, requestFullscreen, :fullscreen, el-dialog append-to-body, body teleport, 最大化弹框遮挡, 保存草稿弹框, 提交执行签名弹框, result-dialog, fullscreen top layer -> `docs/frontend-development.md#element-plus-全屏弹框挂载门禁`
-- Keywords: 动态菜单页签重命名, 菜单名称改名, system_menu.name, 页面标题改名, 角色菜单树旧名称, 租户套餐菜单旧名称, 入口名称和业务对象文案区分 -> `docs/frontend-development.md#动态菜单页签重命名门禁`
+- Keywords: 动态菜单页签重命名, 菜单名称改名, system_menu.name, 页面标题改名, 角色菜单树旧名称, 租户套餐菜单旧名称, 入口名称和业务对象文案区分, RouterSearch, 菜单搜索别名, 搜索旧关键词, router.getRoutes, 动态路由快照, MES工序 搜索 标准模板列表 -> `docs/frontend-development.md#动态菜单页签重命名门禁`
 - Keywords: route.query, route query ID, assistUserId, userId, workTaskId, batchTaskId, sameRouteQueryId, 字符串数字严格等于, active 高亮丢失, 切换后高亮旧对象 -> `docs/frontend-development.md#前端-route-query-id-比较门禁`
 - Keywords: 填写辅助模式, 当前工序 assistRows, assistGridRowCount, assistGridColumnCount, 辅助表格正式尺寸, 工序切换, 全部工序, 未开始工序, 缺少可查看执行记录或工作任务, batchTaskPreview, task/preview, 执行页内只读查看, batchTaskId 选中工序, ASSIST_GRID_U, ASSIST_GRID_USERS, ASSIST_GRID_ROLE, 当前填写人责任主体, 多填写人坐标空间, 辅助表格位置冲突, 同字段重复引用, 禁止 z-index 遮挡, 辅助表格预览, 辅助网格空列, 空列压缩, assistGridVisibleColumnIndexes, 粗洗工序, 扁平字段列表, stringifyEdhrExecutionPageQuery, edhr-fill-workspace__assist-grid, data-assist-grid-cell, task/open executionPageQuery assistRows -> `docs/frontend-development.md#edhr-辅助模式当前工序-assistrows-路由门禁`
 - Keywords: eDHR 产品信息虚拟 80 工序, 产品信息显示在第一个工序, 选择产品信息仍显示粗洗工序, 顶部当前工序标签, assistProcessSwitchLabel, resolveAssistCurrentProcessLabel, batchTaskId 当前任务, batchRecordSort=80, routeProcessSort=1, 来源 processName, BatchExecutionDetailPage processTaskGroups, ExecutionPage 切换工序, ExecutionPage 切换填写人, buildProcessTaskGroupKey, buildAssistProcessSwitchItemKey, currentProcessGroupKey, isProductInfoProcessTask, isAssistProductInfoProcessTask, 左侧 80 产品信息, 右侧卡片不含产品信息, 粗洗填写人混入产品信息 -> `docs/frontend-development.md#edhr-产品信息虚拟-80-工序门禁`
@@ -186,7 +189,7 @@
   - Read: `docs/release-build-preflight-lessons.md`
   - Gate: build-release 前检查内存余量；JVM native memory 失败必须冻结 hs_err 与内存快照，降低构建内存压力后重建新 releaseTag。
 - Keywords: prod-preflight-release, ProdDryRunEvidencePath, sanitized package workspace, Copy-Item, robocopy, shutil.copytree -> `docs/release-build-preflight-lessons.md`
-- Keywords: worktree remove failed, residual worktree directory, Invalid argument, Directory not empty, runtime-backend.err.log, Vite, esbuild, Java process locks residual worktree, Git registration absent physical directory exists, 8084 48084 pici cleanup -> `E:/IntRuoyi/docs/worktree-memory.md`
+- Keywords: worktree remove failed, residual worktree directory, Invalid argument, Directory not empty, runtime-backend.err.log, Vite, esbuild, Java process locks residual worktree, Git registration absent physical directory exists, pnpm node_modules 残留, robocopy empty mirror, 空目录镜像清空, 8084 48084 pici cleanup -> `E:/IntRuoyi/docs/worktree-memory.md`
 - Keywords: frozen release baseline, build start worktree commit, source HEAD drift after build, 不追逐后续提交 -> `docs/release-build-preflight-lessons.md`
 - Keywords: mes_pro_route_schedule_config conflict, route schedule config duplicate, 工序维度收敛, conflict guard -> `docs/release-build-preflight-lessons.md`
 - Keywords: Manifest v1 legacy release-manifest frontend commit, schema-specific manifest validation -> `docs/release-build-preflight-lessons.md`
@@ -244,7 +247,9 @@
 - Keywords: 测试管理 系统异常, codex-test-case/page code 500, system_codex_test_case.project, node_chain_name, node_chain_sort, node_chain_execution, 20260726_system_codex_test_case_project.sql, 20260727_system_codex_test_node_chain.sql, Codex 测试项分页缺字段 -> `docs/database-rules.md#测试管理-schema-迁移门禁`
 - Keywords: ERROR 1267, Illegal mix of collations, 临时表排序规则, 数据修复临时表, system_codex_test_case, utf8mb4_0900_ai_ci, 中文测试项种子 -> `docs/database-rules.md#数据修复临时表排序规则门禁`
 - Keywords: 时间轴重复行, 一对多 JOIN, 审核副本多条重复展开, 列表 pageSize 被子表挤占, GROUP BY tenant_id event_id, read model 聚合 -> `docs/database-rules.md#一对多读模型聚合门禁`
+- Keywords: MES工序 系统异常, route-resource page code 500, Missing route, Missing item, route_product 孤儿关联, 资源池只读列表, 工艺路线资源读模型, 只读资源池引用完整性 -> `docs/database-rules.md#只读资源池引用完整性门禁`
 - Keywords: system_menu.name 中文菜单名, MySQL 客户端字符集, mojibake, HEX(name), UNHEX, utf8mb4, Docker mysql stdin, 动态菜单运行态乱码 -> `docs/database-rules.md#中文菜单名称-ascii-安全迁移门禁`
+- Keywords: 工艺路线导入导出, export-import-xlsx, import-workbook-xlsx, 工艺路线导入导出 Excel, 工序BOM 工序编码 不能为空, process_id=0, 工艺路线必须要有关键工序, key_flag=0, keyFlag=false, 缺关键工序, route-random-bom-seed, 跨租户路线导入, 删除测试租户路线后导入 -> `docs/database-rules.md#工艺路线跨租户导入导出数据包完整性门禁`
 - Keywords: 个人工作台 系统异常, 待办任务加载失败, 隐藏任务状态, profile-workbench-task-visibility, hidden-keys, system_profile_workbench_task_visibility, 20260727_system_profile_workbench_task_visibility.sql -> `docs/database-rules.md#个人工作台隐藏任务状态迁移门禁`
 - Keywords: int_shedule local Docker dependencies, 23306, 26379, Docker MySQL Redis, branch local runtime dependency ports -> `docs/local-runtime.md#2026-07-25-分支本地运行复用-docker-依赖门禁`
 - Keywords: task-closeout status unknown, Current Status completed, cleanup preview apply, worktree Directory not empty -> `docs/release-build-preflight-lessons.md` and `E:\IntRuoyi\docs\worktree-memory.md`

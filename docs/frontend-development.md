@@ -67,6 +67,24 @@
 - Forbidden action: 禁止把截图症状当作完整需求口径；禁止把“取消的不显示”当成唯一验收项而忽略前半句“只显示已生效的历史版本”；禁止用仅隐藏 `CANCELLED` 的实现替代 effective-only 列表口径。
 - Evidence: 任务 `doc/tasks/20260727-route-version-list-active-history-only/`，首轮只隐藏 `CANCELLED` 后 completion audit 发现 `DRAFT` 仍可显示，最终改为 `ACTIVE/SUPERSEDED` 正向集合并用真实 E2E 证明 `V19 DRAFT` 与取消版本均隐藏。
 
+## 前端列表跨账号默认列布局统一门禁
+
+- Trigger: 同一列表在不同浏览器、账号或租户显示不同字段，页面存在“显示字段”、`useUserTableColumns`、`data-user-table-key`、用户列配置接口，或用户要求统一为 admin 默认布局。
+- Preflight check: 先区分三类差异：个人列配置控制的字段可见性/列宽、`v-hasPermi` 控制的操作按钮、视口宽度造成的横向滚动。若需求是让既有用户统一采用新的默认列集合，同时仍保留“显示字段”，必须升级稳定 table key，并同步标准列表模板、Element Plus 表格标识和 `useUserTableColumns` 调用；只修改默认 `visible` 不会覆盖旧服务端配置。
+- Blocker: 仍读取旧 table key、只改默认列但历史用户配置继续覆盖、为了视觉一致移除权限指令或给普通用户显示 admin 操作、通过清浏览器缓存或批量删数据库配置冒充正式迁移、或显示字段入口保存到与加载不同的 key 时必须停止。
+- Verification: 聚焦静态合同必须断言新 key 在模板、表格标识和 hook 三处一致，旧 key 不再使用，默认显示/隐藏字段集合明确，显示字段自动保存和既有权限码保留；真实 E2E 可用时使用同一账号分别在两个浏览器验证表头和显示字段勾选一致，并记录无业务写请求、无 console error。
+- Forbidden action: 禁止引入 localStorage fallback、静默忽略列配置接口失败、扩大角色权限、删除业务字段定义、或用不同账号的按钮差异证明浏览器渲染不一致。
+- Evidence: `doc/tasks/20260730-route-admin-list-layout-unification/verification-report.md`。
+
+## 前端权限页签正向授权门禁
+
+- Trigger: 前端页面、动态菜单、顶部页签、左侧菜单、隐藏路由或入口默认页涉及“普通用户只能看到/仅显示某页签”、`activeMenu`、`redirect`、`permissionStore`、静态隐藏子路由合并。
+- Preflight check: 先拆出普通用户允许页签集合和管理员允许页签集合；默认入口重定向必须来自已授权动态子路由或明确的普通用户页签，不得固定跳到管理员页签。隐藏静态子路由合并时，权限型壳路由不得把未授权的隐藏静态子路由补回普通用户路由表。
+- Blocker: 普通用户仍可默认进入管理员列表、无权限页签组件会 mount 并触发接口 403、只改菜单 SQL 但前端静态路由仍补回未授权子路由、或只隐藏一个截图页签而未按正向允许集合建模时必须停止。
+- Verification: 新增聚焦静态合同同时断言普通页签正向集合、管理员页签集合、默认重定向、组件 mount gate、动态权限路由合并边界和菜单/角色 SQL 授权边界；涉及 Vue/TS 路由逻辑时运行 `pnpm ts:check`。
+- Forbidden action: 禁止用前端空白、吞掉 403、默认成功、API-only 断言、只改按钮可见性或只改后端菜单授权来冒充页签隔离完成。
+- Evidence: 任务 `doc/tasks/20260730-electronic-signature-my-tab-only/`，电子签名普通用户旧实现固定进入“签名记录”并触发无权限列表，修正为普通角色只保留根入口和“我的签名”，前端按授权动态子路由重定向并禁止补回未授权治理页签。
+
 ## 前端同集合弹窗导航上下文门禁
 
 - Trigger: 弹窗内新增上一条/下一条、上一张/下一张、同版本/同产品/同集合切换，且候选集合不受当前列表筛选或分页限制。
@@ -197,11 +215,11 @@
 ## 动态菜单页签重命名门禁
 
 - Trigger: 用户要求修改动态菜单页面、左侧菜单、顶部页签、页面标题或角色/套餐菜单树中的入口名称。
-- Preflight check: 先同时定位 `system_menu.name` 的正式 SQL/迁移来源、页面内标题、真实 E2E 入口等待文本、角色菜单/租户套餐配置脚本；区分页签/入口名称和业务对象文案，避免把导入、弹窗、错误提示等非目标文案一并改名。
-- Blocker: 只改前端组件标题但未提供正式菜单迁移、只改 SQL 但真实路径脚本仍查旧名称、或新增 SQL 缺少 `release-migration` 元数据和依赖门禁时必须停止。
-- Verification: 新增聚焦静态契约同时读取页面标题、菜单迁移和真实路径脚本；运行角色/租户菜单相关静态契约；对新增菜单 SQL 使用目标 SQL + 依赖迁移执行 `run-release-migration-policy-gate.py --sql-file ...`。
+- Preflight check: 先同时定位 `system_menu.name` 的正式 SQL/迁移来源、页面内标题、真实 E2E 入口等待文本、角色菜单/租户套餐配置脚本；区分页签/入口名称和业务对象文案，避免把导入、弹窗、错误提示等非目标文案一并改名。若入口改名后仍需兼容旧搜索词，`RouterSearch` 必须登记明确别名，并且搜索过滤、历史解析和跳转不得缓存 setup 阶段的 `router.getRoutes()`，必须实时读取登录后的动态路由表。
+- Blocker: 只改前端组件标题但未提供正式菜单迁移、只改 SQL 但真实路径脚本仍查旧名称、新增 SQL 缺少 `release-migration` 元数据和依赖门禁、或真实登录态菜单搜索仍基于旧路由快照导致动态菜单搜不到时必须停止。
+- Verification: 新增聚焦静态契约同时读取页面标题、菜单迁移、真实路径脚本、搜索别名和动态路由新鲜度；运行角色/租户菜单相关静态契约；对新增菜单 SQL 使用目标 SQL + 依赖迁移执行 `run-release-migration-policy-gate.py --sql-file ...`；有本地运行态时用真实登录用户搜索旧关键词，断言命中新入口。
 - Forbidden action: 禁止用硬编码前端标题掩盖动态路由仍返回旧菜单名；禁止为了“统一”扩大修改权限按钮、导入导出、业务对象或跨模块选择文案。
-- Evidence: 任务 `doc/tasks/20260728-rename-product-master-tab/`，产品主数据页签改为“展厅主数据”时需同步 `system_menu` 迁移、页面标题、角色菜单和租户套餐真实路径脚本。
+- Evidence: 任务 `doc/tasks/20260728-rename-product-master-tab/`，产品主数据页签改为“展厅主数据”时需同步 `system_menu` 迁移、页面标题、角色菜单和租户套餐真实路径脚本；任务 `doc/tasks/20260730-standard-template-list-search-alias/`，标准模板列表兼容旧关键词 MES工序 时，`RouterSearch` 不能缓存登录前路由快照。
 
 ## 前端 Route Query ID 比较门禁
 

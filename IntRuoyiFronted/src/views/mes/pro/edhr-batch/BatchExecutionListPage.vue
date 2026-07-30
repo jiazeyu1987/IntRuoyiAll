@@ -1,6 +1,7 @@
 <template>
   <ContentWrap>
     <div class="edhr-batch-page">
+      <EdhrBatchRecordTabs active-tab="execution" />
       <UnifiedListTemplate
         class="edhr-batch-page__list-template"
         table-key="mes.pro.edhrBatch.execution.main"
@@ -754,6 +755,7 @@ import { MesProWorkOrderStatusEnum } from '@/views/mes/utils/constants'
 import { resolveBatchRequiredProgress } from './progress'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import UserTableColumnSettings from '@/components/UserTableColumnSettings/index.vue'
+import EdhrBatchRecordTabs from './EdhrBatchRecordTabs.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
   useTableQuickFilter,

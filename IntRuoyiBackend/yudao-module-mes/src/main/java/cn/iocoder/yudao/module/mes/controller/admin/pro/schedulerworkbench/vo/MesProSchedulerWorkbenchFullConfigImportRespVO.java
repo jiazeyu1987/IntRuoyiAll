@@ -21,4 +21,7 @@ public class MesProSchedulerWorkbenchFullConfigImportRespVO {
 
     @Schema(description = "手动重排运行态数据导入行数", example = "47")
     private Integer replanRuntimeDataCount;
+
+    @Schema(description = "策略设置导入数量", example = "1")
+    private Integer policySettingsCount;
 }

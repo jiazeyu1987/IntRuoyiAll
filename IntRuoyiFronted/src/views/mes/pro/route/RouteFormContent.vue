@@ -74,6 +74,13 @@
           </el-form-item>
         </el-tab-pane>
         <template v-if="formData.id">
+          <el-tab-pane label="MES 工序" name="mesProcess" lazy>
+            <RouteMesProcessList
+              :route-id="formData.id"
+              :form-type="productionConfigFormType"
+              :submitting="formLoading"
+            />
+          </el-tab-pane>
           <el-tab-pane label="流转关系图" name="flow" lazy>
             <RouteFlowGraphDesigner
               ref="routeFlowGraphDesignerRef"
@@ -120,6 +127,7 @@ import { isRouteConfirmCancel, resolveRouteOperationErrorMessage } from './route
 defineOptions({ name: 'RouteFormContent' })
 
 const RouteFlowGraphDesigner = defineAsyncComponent(() => import('./RouteFlowGraphDesigner.vue'))
+const RouteMesProcessList = defineAsyncComponent(() => import('./RouteMesProcessList.vue'))
 const RouteProductList = defineAsyncComponent(() => import('./RouteProductList.vue'))
 
 const props = withDefaults(
@@ -170,6 +178,7 @@ const YINGTAI_ROOT_NAME = '瑛泰医疗'
 const PRODUCTION_CENTER_NAME = '生产制造中心'
 type RouteFormInitialTab =
   | 'basic'
+  | 'mesProcess'
   | 'flow'
   | 'product'
 

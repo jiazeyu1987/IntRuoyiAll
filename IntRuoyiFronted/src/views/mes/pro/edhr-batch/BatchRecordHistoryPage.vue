@@ -1,10 +1,7 @@
 <template>
   <ContentWrap>
     <div class="edhr-batch-history">
-      <el-tabs model-value="history" class="edhr-batch-history__tabs" @tab-change="handleTabChange">
-        <el-tab-pane label="批次执行" name="execution" />
-        <el-tab-pane label="历史批记录" name="history" />
-      </el-tabs>
+      <EdhrBatchRecordTabs active-tab="history" />
 
       <el-form :inline="true" :model="queryParams" class="edhr-batch-history__toolbar" @submit.prevent>
         <el-form-item label="批次执行">
@@ -411,6 +408,7 @@ import {
   type EdhrBatchReviewTimelineRespVO
 } from '@/api/mes/pro/edhr/batchExecution'
 import EdhrExecutionReadonlyForm from '@/views/mes/pro/edhr/components/EdhrExecutionReadonlyForm.vue'
+import EdhrBatchRecordTabs from './EdhrBatchRecordTabs.vue'
 import {
   resolveExecutionStatusTagType,
   resolveExecutionStatusText,
@@ -878,12 +876,6 @@ const resetQuery = () => {
   queryParams.status = EDHR_BATCH_STATUS_ARCHIVED
   queryParams.createTime = undefined
   getBatchList()
-}
-
-const handleTabChange = async (name: string | number) => {
-  if (name === 'execution') {
-    await router.push({ path: '/mes/pro/feedback/edhr-batch-execution' })
-  }
 }
 
 onMounted(() => {

@@ -4,7 +4,7 @@
 
   <ContentWrap>
     <UnifiedListTemplate
-      table-key="mes.pro.route.main"
+      :table-key="ROUTE_LIST_TABLE_KEY"
       :query-model="queryParams"
       label-width="88px"
       :filter-definitions="routeQuickFilterDefinitions"
@@ -56,7 +56,7 @@
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
-          data-user-table-key="mes.pro.route.main"
+          :data-user-table-key="ROUTE_LIST_TABLE_KEY"
           :data="list"
           border
           :stripe="true"
@@ -440,14 +440,14 @@
               按意见修改
             </el-button>
             <el-button
-              v-if="canCancelRouteVersion(version)"
+              v-if="canDeleteRouteDraftVersion(version)"
               link
               type="danger"
               :loading="routeVersionActionLoadingId === version.id"
-              @click="cancelRouteCandidateVersion(version.id)"
+              @click="deleteRouteDraftVersion(version)"
               v-hasPermi="['mes:pro-route:version-cancel']"
             >
-              取消
+              删除草稿
             </el-button>
           </template>
         </el-table-column>
@@ -517,16 +517,16 @@ const routeVersionErrorMessage = ref('')
 const routeProductBindLoadingId = ref<number | undefined>()
 const routeCandidateEditLoadingId = ref<number | undefined>()
 const OPEN_CANDIDATE_CONFLICT_NOTICE =
-  '当前路线存在多个打开中的候选版本，请通过待发布版本或编辑入口处理打开候选；版本列表仅展示已生效历史版本。'
+  '当前路线存在多个打开中的候选版本，请通过待发布版本或编辑入口处理打开候选；版本列表仅展示草稿及已生效历史版本。'
 const ROUTE_OPEN_CANDIDATE_STATUS_SET = new Set([
   'DRAFT',
   'PENDING_APPROVAL',
   'READY_TO_PUBLISH',
   'REJECTED'
 ])
-const EFFECTIVE_ROUTE_VERSION_STATUS_SET = new Set(['ACTIVE', 'SUPERSEDED'])
+const ROUTE_VERSION_WORKSPACE_VISIBLE_STATUS_SET = new Set(['DRAFT', 'ACTIVE', 'SUPERSEDED'])
 const isVisibleRouteVersionInWorkspace = (version: ProRouteVersionVO) =>
-  version.active || EFFECTIVE_ROUTE_VERSION_STATUS_SET.has(String(version.lifecycleStatus))
+  version.active || ROUTE_VERSION_WORKSPACE_VISIBLE_STATUS_SET.has(String(version.lifecycleStatus))
 const visibleRouteVersions = computed(() =>
   routeVersions.value.filter(isVisibleRouteVersionInWorkspace)
 )
@@ -593,13 +593,14 @@ const routeVersionWorkspaceBlockers = computed(() => {
   }
   return []
 })
+const ROUTE_LIST_TABLE_KEY = 'mes.pro.route.main.admin-layout-v1'
 const routeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'code', label: '路线编码', minWidth: 180 },
   { key: 'name', label: '路线名称', minWidth: 200 },
-  { key: 'ownerName', label: '负责人', minWidth: 140 },
-  { key: 'keyProcessName', label: '关键工序', minWidth: 180 },
+  { key: 'ownerName', label: '负责人', visible: false, minWidth: 140 },
+  { key: 'keyProcessName', label: '关键工序', visible: false, minWidth: 180 },
   { key: 'status', label: '状态', width: 100 },
-  { key: 'flowGraphConfigured', label: '关系图', width: 100 },
+  { key: 'flowGraphConfigured', label: '关系图', visible: false, width: 100 },
   { key: 'activeRouteVersionNo', label: '当前生效版本', minWidth: 140 },
   { key: 'pendingRouteVersionNo', label: '待发布版本', minWidth: 160 },
   { key: 'productCodes', label: '关联产品', minWidth: 220 },
@@ -614,7 +615,7 @@ const {
   getColumnMinWidthString: getRouteColumnMinWidthString,
   handleHeaderDragend: handleRouteHeaderDragend,
   saveConfig: saveRouteColumnConfig
-} = useUserTableColumns('mes.pro.route.main', routeDefaultColumns)
+} = useUserTableColumns(ROUTE_LIST_TABLE_KEY, routeDefaultColumns)
 
 const resetRouteQueryState = (pageSize = 10) => ({
   pageNo: 1,
@@ -712,7 +713,7 @@ const openForm = (type: string, id?: number) => {
   formRef.value.open(type, id)
 }
 
-type RouteEditTab = 'basic' | 'flow' | 'product'
+type RouteEditTab = 'basic' | 'mesProcess' | 'flow' | 'product'
 
 const openEditPage = (id?: number, tab?: RouteEditTab) => {
   if (!id) {
@@ -1083,9 +1084,21 @@ const submitRouteCandidateVersion = async (version: ProRouteVersionVO) => {
   }
 }
 
-const cancelRouteCandidateVersion = async (id: number) => {
-  await runRouteVersionAction(id, '取消候选版本', async () => {
-    await ProRouteApi.cancelRouteCandidateVersion(id)
+const deleteRouteDraftVersion = async (version: ProRouteVersionVO) => {
+  if (!canDeleteRouteDraftVersion(version)) {
+    throw new Error('删除草稿失败：只有当前草稿候选版本允许删除')
+  }
+  try {
+    await message.confirm(
+      '删除后该草稿将关闭；再次点击编辑会基于当前已发布版本重新生成草稿。是否继续？',
+      '删除草稿确认'
+    )
+  } catch (error) {
+    if (isUserCancel(error)) return
+    throw error
+  }
+  await runRouteVersionAction(version.id, '删除草稿', async () => {
+    await ProRouteApi.cancelRouteCandidateVersion(version.id)
   })
 }
 
@@ -1148,8 +1161,8 @@ const openRouteCandidateVersionEditor = async (version: ProRouteVersionVO) => {
   routeVersionDialogVisible.value = false
 }
 
-const canCancelRouteVersion = (version: ProRouteVersionVO) =>
-  !version.active && ['DRAFT', 'REJECTED'].includes(version.lifecycleStatus)
+const canDeleteRouteDraftVersion = (version: ProRouteVersionVO) =>
+  !version.active && version.lifecycleStatus === 'DRAFT'
 
 const formatPendingRouteVersion = (row: ProRouteVO) => {
   if (!row.pendingRouteVersionNo) {

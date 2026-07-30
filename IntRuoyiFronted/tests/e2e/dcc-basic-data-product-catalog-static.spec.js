@@ -95,9 +95,7 @@ for (const requiredToken of [
   '产品类别 II',
   '产品状态',
   '数据来源',
-  '重置',
   '新增产品目录',
-  '注册证有效期',
   'getProductCatalogPage',
   'createProductCatalog',
   'updateProductCatalog',
@@ -173,24 +171,39 @@ assert.match(
   /row\.registrationInfoLink[\s\S]*target="_blank"/,
   '注册证信息链接列必须按外链按钮渲染'
 )
+const actionsMatch = productCatalogPanelSource.match(/<template #actions>([\s\S]*?)<\/template>/)
+assert.ok(actionsMatch, '产品目录独立页面必须保留 actions 插槽')
+const actionsSource = actionsMatch[0]
 assert.match(
-  productCatalogPanelSource,
-  /if \(result\?\.status === 'MISMATCH'\) \{\s*return 'expiry-compare-mismatch'/,
-  '只有真实日期不一致状态才允许显示红色'
+  actionsSource,
+  /openForm\('create'\)/,
+  '产品目录 actions 插槽必须保留新增产品目录入口'
+)
+assert.doesNotMatch(
+  actionsSource,
+  /productCatalogQuickFilter\.resetQuickFilter|handleCompareRegistrationExpiry|>\s*重置\s*<|>\s*注册证有效期\s*</,
+  '产品目录 actions 插槽不得继续渲染重置和注册证有效期按钮'
 )
 assert.match(
   productCatalogPanelSource,
-  /if \(result\?\.status === 'FETCH_FAILED'\) \{\s*return 'expiry-compare-fetch-failed'/,
-  '外站抓取失败状态必须使用独立样式，不能复用日期不一致红色'
+  /@quick-filter-query="productCatalogQuickFilter\.applyQuickFilter"[\s\S]*useTableQuickFilter\([\s\S]*queryParams[\s\S]*getList/,
+  '产品目录查询必须通过标准列表快速过滤重置页码并刷新列表'
 )
+
+for (const removedToken of [
+  'handleCompareRegistrationExpiry',
+  'compareRegistrationExpiry',
+  'expiryCompareLoading',
+  'getExpiryCompareTooltip',
+  'getExpiryCompareClass',
+  'expiry-compare-'
+]) {
+  assert.ok(!productCatalogPanelSource.includes(removedToken), `产品目录按钮删除后不得保留无入口逻辑：${removedToken}`)
+}
+
 assert.ok(
-  productCatalogPanelSource.includes('.expiry-compare-fetch-failed'),
-  '产品目录独立页面必须声明抓取失败的中性样式'
-)
-assert.match(
-  productCatalogPanelSource,
-  /@quick-filter-query="productCatalogQuickFilter\.applyQuickFilter"[\s\S]*@click="productCatalogQuickFilter\.resetQuickFilter"[\s\S]*useTableQuickFilter\([\s\S]*queryParams[\s\S]*getList/,
-  '产品目录查询和重置必须通过标准列表快速过滤重置页码并刷新列表'
+  !productCatalogApiSource.includes('compareRegistrationExpiry'),
+  '注册证有效期按钮删除后 API wrapper 不应继续暴露无前端入口的比对请求'
 )
 
 assert.doesNotMatch(

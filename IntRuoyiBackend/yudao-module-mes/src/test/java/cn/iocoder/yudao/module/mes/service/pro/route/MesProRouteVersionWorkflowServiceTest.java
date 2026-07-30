@@ -348,6 +348,45 @@ class MesProRouteVersionWorkflowServiceTest {
     }
 
     @Test
+    void cancelDraftThenCreateCandidate_shouldCreateNewDraftFromCurrentActiveVersion() {
+        MesProRouteVersionDO active = activeVersion();
+        MesProRouteVersionDO candidate = draftCandidate(active);
+        String refreshedSnapshot = validSnapshotJsonWithBatchBinding();
+        when(routeVersionMapper.selectById(candidate.getId())).thenReturn(candidate);
+        when(routeVersionMapper.selectActiveByRouteIdForUpdate(active.getRouteId())).thenReturn(active);
+        when(routeVersionMapper.selectOpenCandidateByRouteId(active.getRouteId())).thenReturn(null);
+        when(routeVersionMapper.selectMaxVersionNoByRouteId(active.getRouteId())).thenReturn("V2");
+        when(routeService.buildCurrentRouteSnapshotJson(active.getRouteId(), active.getId()))
+                .thenReturn(refreshedSnapshot);
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(508L);
+            service.cancelCandidate(candidate.getId());
+        }
+        MesProRouteVersionCreateReqVO reqVO = new MesProRouteVersionCreateReqVO();
+        reqVO.setRouteId(active.getRouteId());
+        reqVO.setSourceRouteVersionId(active.getId());
+        reqVO.setChangeReason("删除草稿后重新编辑");
+
+        MesProRouteVersionDO nextDraft = service.createCandidate(reqVO);
+
+        ArgumentCaptor<MesProRouteVersionDO> updateCaptor = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper).updateById(updateCaptor.capture());
+        assertEquals(candidate.getId(), updateCaptor.getValue().getId());
+        assertEquals(MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED,
+                updateCaptor.getValue().getLifecycleStatus());
+        ArgumentCaptor<MesProRouteVersionDO> insertCaptor = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper).insert(insertCaptor.capture());
+        assertEquals("V3", insertCaptor.getValue().getVersionNo());
+        assertEquals(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT,
+                insertCaptor.getValue().getLifecycleStatus());
+        assertEquals(active.getId(), insertCaptor.getValue().getSourceRouteVersionId());
+        assertEquals(refreshedSnapshot, insertCaptor.getValue().getRouteSnapshotJson());
+        assertEquals("V3", nextDraft.getVersionNo());
+        verify(platformAdapter).recordCancelled(candidate, 508L);
+    }
+
+    @Test
     void listByRouteId_shouldDelegateToMapper() {
         when(routeVersionMapper.selectListByRouteId(9001L)).thenReturn(List.of(activeVersion()));
 

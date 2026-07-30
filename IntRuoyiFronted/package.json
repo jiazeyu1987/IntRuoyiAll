@@ -53,6 +53,8 @@
     "e2e:mes:route-flow-height-aware-layout:static": "node tests/e2e/mes-route-flow-height-aware-layout-static.spec.js",
     "e2e:mes:route-flow-process-settings-draft-autosave:static": "node tests/e2e/mes-route-flow-process-settings-draft-autosave-static.spec.js",
     "e2e:mes:route-edit-unsaved-candidate-discard:static": "node tests/e2e/mes-route-edit-unsaved-candidate-discard-static.spec.js",
+    "e2e:mes:route-mes-process-tab:static": "node tests/e2e/mes-route-mes-process-tab-static.spec.js",
+    "e2e:mes:pro-mes-process-readonly:static": "node tests/e2e/mes-pro-mes-process-readonly-static.spec.js",
     "e2e:mes:route-flow-graph-only:static": "node tests/e2e/mes-route-flow-graph-only-static.spec.js",
     "e2e:mes:route-flow-last-selection-restore:static": "node tests/e2e/mes-route-flow-last-selection-restore-static.spec.js",
     "e2e:mes:route-flow-last-selection-restore:real": "node tests/e2e/mes-route-flow-last-selection-restore-real.e2e.js",

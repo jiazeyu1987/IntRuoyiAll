@@ -735,44 +735,52 @@ public class MesProRouteWorkbookImportServiceImpl implements MesProRouteWorkbook
                     "路线 " + routeCode + " 缺少流转关系");
         }
         Map<String, Set<String>> outgoing = new LinkedHashMap<>();
-        Map<String, String> predecessorByTarget = new HashMap<>();
-        processCodes.forEach(code -> outgoing.put(code, new LinkedHashSet<>()));
+        Map<String, Integer> incomingCount = new LinkedHashMap<>();
+        processCodes.forEach(code -> {
+            outgoing.put(code, new LinkedHashSet<>());
+            incomingCount.put(code, 0);
+        });
+        Set<String> seenEdges = new HashSet<>();
         for (RouteFlowRow flow : flows) {
-            String previousSource = predecessorByTarget.putIfAbsent(flow.targetProcessCode(), flow.sourceProcessCode());
-            if (previousSource != null) {
+            String edgeKey = flow.sourceProcessCode() + "->" + flow.targetProcessCode();
+            if (!seenEdges.add(edgeKey)) {
                 throw exception(PRO_ROUTE_IMPORT_WORKBOOK_RESOURCE_INVALID,
-                        "路线 " + routeCode + " 的工序 " + flow.targetProcessCode() + " 存在多个入口");
+                        "路线 " + routeCode + " 存在重复流转关系");
             }
             outgoing.get(flow.sourceProcessCode()).add(flow.targetProcessCode());
+            incomingCount.merge(flow.targetProcessCode(), 1, Integer::sum);
+        }
+        List<String> isolated = processCodes.stream()
+                .filter(code -> incomingCount.getOrDefault(code, 0) == 0 && outgoing.getOrDefault(code, Set.of()).isEmpty())
+                .toList();
+        if (!isolated.isEmpty()) {
+            throw exception(PRO_ROUTE_IMPORT_WORKBOOK_RESOURCE_INVALID,
+                    "路线 " + routeCode + " 存在未连接工序");
         }
         List<String> roots = processCodes.stream()
-                .filter(code -> !predecessorByTarget.containsKey(code))
+                .filter(code -> incomingCount.getOrDefault(code, 0) == 0)
                 .toList();
-        if (roots.size() != 1) {
+        if (roots.isEmpty()) {
             throw exception(PRO_ROUTE_IMPORT_WORKBOOK_RESOURCE_INVALID,
-                    "路线 " + routeCode + " 必须且只能存在一个入口工序");
+                    "路线 " + routeCode + " 必须存在至少一个入口工序");
         }
-        Set<String> reachable = reachable(roots.get(0), outgoing);
-        if (reachable.size() != processCodes.size()) {
-            throw exception(PRO_ROUTE_IMPORT_WORKBOOK_RESOURCE_INVALID,
-                    "路线 " + routeCode + " 存在循环或无法从入口到达的工序");
-        }
-    }
-
-    private Set<String> reachable(String root, Map<String, Set<String>> outgoing) {
-        Set<String> visited = new HashSet<>();
-        Queue<String> queue = new ArrayDeque<>();
-        visited.add(root);
-        queue.add(root);
+        Map<String, Integer> remainingIncoming = new HashMap<>(incomingCount);
+        Queue<String> queue = new ArrayDeque<>(roots);
+        int reachableCount = 0;
         while (!queue.isEmpty()) {
             String current = queue.poll();
+            reachableCount++;
             for (String target : outgoing.getOrDefault(current, Set.of())) {
-                if (visited.add(target)) {
+                int nextIncoming = remainingIncoming.merge(target, -1, Integer::sum);
+                if (nextIncoming == 0) {
                     queue.add(target);
                 }
             }
         }
-        return visited;
+        if (reachableCount != processCodes.size()) {
+            throw exception(PRO_ROUTE_IMPORT_WORKBOOK_RESOURCE_INVALID,
+                    "路线 " + routeCode + " 存在循环或无法从入口到达的工序");
+        }
     }
 
     private Map<String, Set<String>> buildProcessCodesByRoute(List<RouteProcessRow> processes) {

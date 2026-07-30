@@ -11,10 +11,12 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationMachineDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationWorkerDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProductMapper;
 import cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryProcessService;
 import cn.iocoder.yudao.module.mes.service.dv.machinery.MesDvMachineryService;
@@ -72,6 +74,8 @@ public class MesProRouteResourceServiceImpl implements MesProRouteResourceServic
     private MesDvMachineryService machineryService;
     @Resource
     private MesDvMachineryProcessService machineryProcessService;
+    @Resource
+    private MesProBatchRecordReportMapper batchRecordReportMapper;
 
     @Override
     public PageResult<MesProRouteResourceRespVO> getResourcePage(MesProRouteResourcePageReqVO pageReqVO) {
@@ -87,12 +91,25 @@ public class MesProRouteResourceServiceImpl implements MesProRouteResourceServic
         List<Long> itemIds = distinct(routeProducts, MesProRouteProductDO::getItemId);
         Map<Long, MesProRouteDO> routeMap = routeService.getRouteMap(routeIds);
         Map<Long, MesMdItemDO> itemMap = itemService.getItemMap(itemIds);
+        routeProducts = filterResolvedRouteProducts(routeProducts, routeMap, itemMap);
+        if (routeProducts.isEmpty()) {
+            return new PageResult<>(Collections.emptyList(), 0L);
+        }
 
         List<MesProRouteProcessDO> routeProcesses = routeProcessService.getRouteProcessListByRouteIds(routeIds);
         Map<Long, List<MesProRouteProcessDO>> routeProcessMap = routeProcesses.stream()
                 .sorted(Comparator.comparing(MesProRouteProcessDO::getSort, Comparator.nullsLast(Integer::compareTo))
                         .thenComparing(MesProRouteProcessDO::getId, Comparator.nullsLast(Long::compareTo)))
                 .collect(Collectors.groupingBy(MesProRouteProcessDO::getRouteId, LinkedHashMap::new, Collectors.toList()));
+        Set<String> batchRecordReportIds = routeProcesses.stream()
+                .map(MesProRouteProcessDO::getBatchRecordReportId)
+                .filter(StrUtil::isNotBlank)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<String, MesProBatchRecordReportDO> batchRecordReportMap = batchRecordReportIds.isEmpty()
+                ? Collections.emptyMap()
+                : batchRecordReportMapper.selectListByReportIds(batchRecordReportIds).stream()
+                        .collect(Collectors.toMap(MesProBatchRecordReportDO::getReportId,
+                                report -> report, (first, ignored) -> first, LinkedHashMap::new));
 
         List<Long> processIds = distinct(routeProcesses, MesProRouteProcessDO::getProcessId);
         Map<Long, MesProProcessDO> processMap = processService.getProcessMap(processIds);
@@ -126,7 +143,8 @@ public class MesProRouteResourceServiceImpl implements MesProRouteResourceServic
                 List<MesMdWorkstationDO> processWorkstations =
                         workstationMap.getOrDefault(routeProcess.getProcessId(), Collections.emptyList());
                 if (processWorkstations.isEmpty()) {
-                    rows.add(buildUnconfiguredRow(routeProduct, route, item, routeProcess, process));
+                    rows.add(buildUnconfiguredRow(routeProduct, route, item, routeProcess, process,
+                            batchRecordReportMap));
                     continue;
                 }
                 for (MesMdWorkstationDO workstation : processWorkstations) {
@@ -134,11 +152,13 @@ public class MesProRouteResourceServiceImpl implements MesProRouteResourceServic
                             machineBindingMap.getOrDefault(workstation.getId(), Collections.emptyList());
                     if (machines.isEmpty()) {
                         rows.add(buildWorkerRow(routeProduct, route, item, routeProcess, process, workstation,
-                                workerBindingMap.getOrDefault(workstation.getId(), Collections.emptyList())));
+                                workerBindingMap.getOrDefault(workstation.getId(), Collections.emptyList()),
+                                batchRecordReportMap));
                     } else {
                         for (MesMdWorkstationMachineDO machineBinding : machines) {
                             rows.add(buildMachineRow(routeProduct, route, item, routeProcess, process,
-                                    workstation, machineBinding, machineryMap, machineryProcessMap));
+                                    workstation, machineBinding, machineryMap, machineryProcessMap,
+                                    batchRecordReportMap));
                         }
                     }
                 }
@@ -157,8 +177,10 @@ public class MesProRouteResourceServiceImpl implements MesProRouteResourceServic
                                                            MesProRouteDO route,
                                                            MesMdItemDO item,
                                                            MesProRouteProcessDO routeProcess,
-                                                           MesProProcessDO process) {
-        MesProRouteResourceRespVO row = buildBaseRow(routeProduct, route, item, routeProcess, process);
+                                                           MesProProcessDO process,
+                                                           Map<String, MesProBatchRecordReportDO> batchRecordReportMap) {
+        MesProRouteResourceRespVO row = buildBaseRow(routeProduct, route, item, routeProcess, process,
+                batchRecordReportMap);
         row.setRowKey(buildRowKey(routeProduct, routeProcess, null, null, RESOURCE_TYPE_UNCONFIGURED));
         row.setResourceType(RESOURCE_TYPE_UNCONFIGURED);
         row.setCapacitySource("未配置");
@@ -173,7 +195,8 @@ public class MesProRouteResourceServiceImpl implements MesProRouteResourceServic
                                                      MesProRouteProcessDO routeProcess,
                                                      MesProProcessDO process,
                                                      MesMdWorkstationDO workstation,
-                                                     List<MesMdWorkstationWorkerDO> workers) {
+                                                     List<MesMdWorkstationWorkerDO> workers,
+                                                     Map<String, MesProBatchRecordReportDO> batchRecordReportMap) {
         MesMdWorkstationWorkerDO worker = workers.stream()
                 .min(Comparator.comparing(MesMdWorkstationWorkerDO::getId, Comparator.nullsLast(Long::compareTo)))
                 .orElse(null);
@@ -182,7 +205,8 @@ public class MesProRouteResourceServiceImpl implements MesProRouteResourceServic
                 ? BigDecimal.ZERO
                 : workstation.getSingleStandardHourlyCapacity();
 
-        MesProRouteResourceRespVO row = buildBaseRow(routeProduct, route, item, routeProcess, process);
+        MesProRouteResourceRespVO row = buildBaseRow(routeProduct, route, item, routeProcess, process,
+                batchRecordReportMap);
         fillWorkstation(row, workstation);
         row.setRowKey(buildRowKey(routeProduct, routeProcess, workstation.getId(),
                 worker == null ? null : worker.getId(), RESOURCE_TYPE_WORKER));
@@ -205,7 +229,8 @@ public class MesProRouteResourceServiceImpl implements MesProRouteResourceServic
                                                       MesMdWorkstationDO workstation,
                                                       MesMdWorkstationMachineDO machineBinding,
                                                       Map<Long, MesDvMachineryDO> machineryMap,
-                                                      Map<String, MesDvMachineryProcessDO> machineryProcessMap) {
+                                                      Map<String, MesDvMachineryProcessDO> machineryProcessMap,
+                                                      Map<String, MesProBatchRecordReportDO> batchRecordReportMap) {
         MesDvMachineryDO machinery = require(machineryMap, machineBinding.getMachineryId(), "machinery");
         MesDvMachineryProcessDO machineryProcess = machineryProcessMap.get(
                 buildMachineryProcessKey(machineBinding.getMachineryId(), routeProcess.getProcessId()));
@@ -214,7 +239,8 @@ public class MesProRouteResourceServiceImpl implements MesProRouteResourceServic
                 ? BigDecimal.ZERO
                 : standardHourlyCapacity.multiply(BigDecimal.valueOf(machineBinding.getQuantity()));
 
-        MesProRouteResourceRespVO row = buildBaseRow(routeProduct, route, item, routeProcess, process);
+        MesProRouteResourceRespVO row = buildBaseRow(routeProduct, route, item, routeProcess, process,
+                batchRecordReportMap);
         fillWorkstation(row, workstation);
         row.setRowKey(buildRowKey(routeProduct, routeProcess, workstation.getId(),
                 machineBinding.getId(), RESOURCE_TYPE_MACHINE));
@@ -262,7 +288,8 @@ public class MesProRouteResourceServiceImpl implements MesProRouteResourceServic
                                                    MesProRouteDO route,
                                                    MesMdItemDO item,
                                                    MesProRouteProcessDO routeProcess,
-                                                   MesProProcessDO process) {
+                                                   MesProProcessDO process,
+                                                   Map<String, MesProBatchRecordReportDO> batchRecordReportMap) {
         MesProRouteResourceRespVO row = new MesProRouteResourceRespVO();
         row.setRouteProductId(routeProduct.getId());
         row.setProductId(routeProduct.getItemId());
@@ -276,6 +303,14 @@ public class MesProRouteResourceServiceImpl implements MesProRouteResourceServic
         row.setProcessCode(process.getCode());
         row.setProcessName(process.getName());
         row.setSort(routeProcess.getSort());
+        row.setBatchRecordReportId(routeProcess.getBatchRecordReportId());
+        MesProBatchRecordReportDO report = StrUtil.isBlank(routeProcess.getBatchRecordReportId())
+                ? null
+                : batchRecordReportMap.get(routeProcess.getBatchRecordReportId());
+        if (report != null) {
+            row.setBatchRecordReportCode(report.getReportCode());
+            row.setBatchRecordReportName(report.getReportName());
+        }
         return row;
     }
 
@@ -358,6 +393,15 @@ public class MesProRouteResourceServiceImpl implements MesProRouteResourceServic
         int fromIndex = Math.min((pageNo - 1) * pageSize, rows.size());
         int toIndex = Math.min(fromIndex + pageSize, rows.size());
         return new PageResult<>(rows.subList(fromIndex, toIndex), (long) rows.size());
+    }
+
+    private List<MesProRouteProductDO> filterResolvedRouteProducts(List<MesProRouteProductDO> routeProducts,
+                                                                   Map<Long, MesProRouteDO> routeMap,
+                                                                   Map<Long, MesMdItemDO> itemMap) {
+        return routeProducts.stream()
+                .filter(routeProduct -> routeMap.containsKey(routeProduct.getRouteId()))
+                .filter(routeProduct -> itemMap.containsKey(routeProduct.getItemId()))
+                .toList();
     }
 
     private <T, R> List<R> distinct(Collection<T> rows, java.util.function.Function<T, R> mapper) {

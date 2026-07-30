@@ -30,7 +30,7 @@
       @success="handleSaved"
     />
     <div
-      v-if="!routeEditBlockingError && !['flow', 'basic', 'product'].includes(activeRouteTab)"
+      v-if="!routeEditBlockingError && !['flow', 'basic', 'mesProcess', 'product'].includes(activeRouteTab)"
       class="route-edit-page__actions"
     >
       <el-button
@@ -109,8 +109,8 @@ const routeVersionEditContext = computed<RouteVersionEditContext | undefined>(()
 })
 const initialTab = computed(() => {
   const tab = String(route.query.tab || '')
-  if (['basic', 'flow', 'product'].includes(tab)) {
-    return tab as 'basic' | 'flow' | 'product'
+  if (['basic', 'mesProcess', 'flow', 'product'].includes(tab)) {
+    return tab as 'basic' | 'mesProcess' | 'flow' | 'product'
   }
   return 'flow'
 })

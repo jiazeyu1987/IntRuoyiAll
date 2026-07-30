@@ -27,33 +27,34 @@ assert.match(
   '版本列表必须通过 computed 从 routeVersions 过滤得到展示行。'
 )
 
-const visiblePredicate = getFunctionBody(routeList, 'isVisibleRouteVersionInWorkspace')
 assert.match(
   routeList,
-  /const EFFECTIVE_ROUTE_VERSION_STATUS_SET = new Set\(\[\s*'ACTIVE',\s*'SUPERSEDED'\s*\]\)/,
-  '版本列表必须显式定义已生效历史版本状态集合。'
+  /const ROUTE_VERSION_WORKSPACE_VISIBLE_STATUS_SET = new Set\(\[\s*'DRAFT',\s*'ACTIVE',\s*'SUPERSEDED'\s*\]\)/,
+  '版本列表必须显式定义工作区可见状态集合，包含进行中草稿 DRAFT 和已生效历史版本。'
 )
+
+const visiblePredicate = getFunctionBody(routeList, 'isVisibleRouteVersionInWorkspace')
 assert.match(
   visiblePredicate,
-  /version\.active\s*\|\|\s*EFFECTIVE_ROUTE_VERSION_STATUS_SET\.has\(String\(version\.lifecycleStatus\)\)/,
-  '版本列表只能展示当前 ACTIVE 或已生效历史状态 ACTIVE/SUPERSEDED。'
+  /version\.active\s*\|\|\s*ROUTE_VERSION_WORKSPACE_VISIBLE_STATUS_SET\.has\(String\(version\.lifecycleStatus\)\)/,
+  '版本列表必须展示当前 ACTIVE、进行中 DRAFT 草稿和已生效历史状态 ACTIVE/SUPERSEDED。'
 )
 assert.doesNotMatch(
   visiblePredicate,
   /version\.lifecycleStatus\s*!==\s*'CANCELLED'/,
-  '版本列表不得只排除 CANCELLED；DRAFT、审核中、待生效和驳回候选版本也不属于已生效历史版本。'
+  '版本列表不得只排除 CANCELLED；需要正向允许 DRAFT、ACTIVE、SUPERSEDED。'
 )
 assert.doesNotMatch(
   visiblePredicate,
-  /DRAFT|PENDING_APPROVAL|READY_TO_PUBLISH|REJECTED|CANCELLED/,
-  '版本列表过滤谓词不得把非已生效候选状态纳入可见行。'
+  /PENDING_APPROVAL|READY_TO_PUBLISH|REJECTED|CANCELLED/,
+  '版本列表过滤谓词不得把审核中、待发布、驳回或取消状态纳入可见行。'
 )
 
 const canViewRouteVersion = getFunctionBody(routeList, 'canViewRouteVersion')
 assert.match(
   canViewRouteVersion,
   /version\.active\s*\|\|\s*version\.lifecycleStatus\s*!==\s*'DRAFT'/,
-  '隐藏列表行不能删除深链只读查看能力；非草稿历史上下文仍可查看。'
+  'DRAFT 草稿必须走编辑动作；非草稿历史上下文仍可只读查看。'
 )
 
-console.log('PASS: mes route version list shows effective historical versions only')
+console.log('PASS: mes route version list shows active drafts and effective history')
