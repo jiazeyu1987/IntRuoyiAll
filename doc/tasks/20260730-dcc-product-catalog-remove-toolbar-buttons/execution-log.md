@@ -26,8 +26,6 @@ BDD: DCC product catalog toolbar removes highlighted buttons -> Given a user ope
 ## TDD Evidence
 
 - RED: `node tests/e2e/dcc-product-catalog-unified-list-template-static.spec.js` -> FAIL, expected reason: actions slot still rendered `重置` and `注册证有效期`.
-- GREEN: pending.
-- REGRESSION: pending.
 - GREEN: `node tests/e2e/dcc-product-catalog-unified-list-template-static.spec.js` -> PASS.
 - REGRESSION: `node tests/e2e/dcc-basic-data-product-catalog-static.spec.js` -> PASS.
 - STATIC: `pnpm ts:check` -> PASS.

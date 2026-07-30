@@ -1859,6 +1859,34 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-batch-production-fill',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchProductionFillPage.vue'),
+        name: 'MesProEdhrBatchProductionFill',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '生产填写',
+          activeMenu: '/mes/pro/feedback/edhr-batch-production-fill',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
+        path: 'pro/feedback/edhr-batch-pqc-fill',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchPqcFillPage.vue'),
+        name: 'MesProEdhrBatchPqcFill',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: 'PQC填写',
+          activeMenu: '/mes/pro/feedback/edhr-batch-pqc-fill',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-signatures',
         component: () => import('@/views/mes/pro/edhr/SignaturePage.vue'),
         name: 'MesProFeedbackEdhrSignatures',
