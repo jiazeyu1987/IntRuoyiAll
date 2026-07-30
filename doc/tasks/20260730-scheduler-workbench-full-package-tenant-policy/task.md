@@ -11,7 +11,7 @@
 - [x] M3：实现后端正式导出/导入优化，不引入 fallback。
 - [x] M4：补前端类型与导入提示静态契约。
 - [x] M5：运行目标验证并记录结果。
-- [ ] M6：按收尾规则更新证据和状态。
+- [x] M6：按收尾规则更新证据和状态。
 
 ## Expected Verification
 
@@ -57,6 +57,16 @@ ready_for_closeout
 - `RED: node tests/e2e/mes-scheduler-workbench-import-timeout-static.spec.js -> FAIL`，缺少 `policySettingsCount: number`。
 - `GREEN: node tests/e2e/mes-scheduler-workbench-import-timeout-static.spec.js -> PASS`。
 - `GREEN: pnpm ts:check -> PASS`。
+- `BLOCKED: 2026-07-30 21:06 +08:00 复跑目标 Maven -> FAIL`，并行任务新增未跟踪测试
+  `MesFrontlineWorkstationPostRouteBindingSourceTest.java`，但对应生产类
+  `MesFrontlineWorkstationPostRouteBindingSource` 尚不存在，导致 `yudao-module-mes:testCompile`
+  在执行本任务目标测试前失败。
+- `GREEN: 2026-07-30 21:19 +08:00 复跑目标 Maven -> PASS`，并行任务补齐生产类后，
+  本任务 11 tests、0 failures、0 errors；上述临时编译 blocker 已解除。
+- 本任务实现和初始证据被并行基线提交 `67282a86` 混入；不改写历史，最终收尾提交仅包含本任务
+  状态与复验证据。
+- `GREEN: task-closeout-cleanup preview/apply -> PASS`，keep 5 个正式任务文件，delete/blocked/warnings
+  均为 `<none>`。
 
 ## Cleanup Keep
 

@@ -17,10 +17,23 @@
 
 ## Result
 
-- 目标行为通过定向后端 JUnit、前端静态契约和 TypeScript 检查。
+- 本任务实现阶段曾通过定向后端 JUnit（11 tests，0 failures，0 errors）、前端静态契约和
+  TypeScript 检查。
+- 2026-07-30 21:06 +08:00 基于最新共享工作区复验时，后端在目标测试执行前被并行任务的
+  `MesFrontlineWorkstationPostRouteBindingSourceTest.java` 阻塞：其引用的
+  `MesFrontlineWorkstationPostRouteBindingSource` 生产类不存在，`yudao-module-mes:testCompile`
+  失败。该失败不来自本任务排产数据包代码。
+- 2026-07-30 21:19 +08:00 并行任务补齐生产类后复跑同一目标 Maven -> PASS，
+  11 tests、0 failures、0 errors；临时编译 blocker 已解除。
+- 最新前端静态契约、`pnpm ts:check` 和前后端 evidence validators 仍通过。
+- `task-closeout-cleanup` preview/apply 均通过，正式任务记录和两份 evidence 保留，无删除项或阻塞项。
 - 未执行真实跨租户浏览器导入，因为本任务未获得写入测试租户真实数据授权；当前证据为代码契约级优化和定向测试。
 
 ## Residual Risks
 
+- 本任务实现被混入并行基线提交 `67282a86`，无法形成纯净独立实现提交；已保留提交边界和复验证据，
+  不执行历史改写。
+- 当前 `int_main` 相对 `origin/int_main` 为 `ahead 15, behind 8`，即使完成本地提交，最终推送
+  仍可能因非快进分叉被拒绝；禁止以 force push、reset 或静默 rebase 绕过。
 - 当前实现按原 ID upsert，不会删除目标租户包外多余数据；若需要“完全镜像恢复”，仍需另行定义清空/对账策略。
 - 用户角色绑定仍要求目标环境存在相同用户名；该 fail-fast 行为保持不变。

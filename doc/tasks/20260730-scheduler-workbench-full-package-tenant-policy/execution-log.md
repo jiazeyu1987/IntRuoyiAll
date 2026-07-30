@@ -37,7 +37,33 @@
 ## Parallel Workspace Notes
 
 - 基线提交后，工作区又出现与本任务无关的 `IntRuoyiFronted/src/views/mes/pro/route/index.vue`、历史版本 E2E 删除、其它任务文档和经验文档改动；这些改动未纳入本任务实现范围，提交时只选择性暂存本任务文件。
+- 2026-07-30 21:08 +08:00 检查发现并行任务新增
+  `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/frontline/MesFrontlineWorkstationPostRouteBindingSourceTest.java`，
+  测试引用的生产类尚不存在；该文件不属于本任务，未修改、未删除、未暂存。
+- 同期 Git 索引状态在短时间内由并行任务改变；为避免提交对方 staged 内容，本任务未执行 `git add` 或
+  `git commit`。
 
 ## Blockers
 
 - 当前分支 `int_main` 在任务开始时为 `ahead 14, behind 8`；若最终 push 被远端拒绝，将按项目规则记录为收尾 blocker。
+- `BLOCKED: mvn -pl yudao-module-mes -am "-Dtest=MesProSchedulerWorkbenchFullConfigPackageServiceTest,MesProSchedulerWorkbenchManualReplanDataPackageServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> FAIL`，
+  当前共享工作区在 `testCompile` 阶段缺少并行任务生产类
+  `MesFrontlineWorkstationPostRouteBindingSource`，本任务 11 个目标测试尚未开始执行。
+- `GREEN: node tests/e2e/mes-scheduler-workbench-import-timeout-static.spec.js -> PASS`。
+- `GREEN: pnpm ts:check -> PASS`。
+- `GREEN: backend/frontend evidence validators -> PASS`。
+- `RESOLVED: 2026-07-30 21:19 +08:00`，并行任务已新增
+  `MesFrontlineWorkstationPostRouteBindingSource.java`；复跑目标 Maven -> PASS，
+  11 tests、0 failures、0 errors。
+- 并行基线提交 `67282a86 基线: 保存当前工作区并行改动` 已混入本任务全部实现、测试、领域合同和
+  初始任务证据，同时包含其它并行任务文件。按共享分支并发基线门禁，不 amend、不 reset、不把该提交
+  伪装成本任务独立实现提交；用户要求“继续”后，本任务只提交后续收尾记录。
+- 剩余收尾条件：复查 staged 清单、运行 cleanup、提交本任务收尾记录，并处理 `int_main` 与
+  `origin/int_main` 的 `behind 8` 分叉。
+- Experience consolidation: 已按现有长期文档归宿更新
+  `IntRuoyiBackend/docs/system/mes-scheduling-domain-contracts.md`，记录全量包策略设置和跨租户
+  `tenantId` 重写门禁；该改动位于混合基线提交 `67282a86`，未新建长期经验文档。
+- Cleanup preview: `task_closeout.py --task-id 20260730-scheduler-workbench-full-package-tenant-policy --mode preview`
+  -> PASS，keep 5，delete `<none>`，blocked `<none>`，warnings `<none>`。
+- Cleanup apply: `task_closeout.py --task-id 20260730-scheduler-workbench-full-package-tenant-policy --mode apply`
+  -> PASS，deleted paths `<none>`。
