@@ -33,7 +33,9 @@ Given a user opens the DCC product catalog list, When the toolbar is rendered, T
 ## RED / GREEN Evidence
 
 - RED: `node tests/e2e/dcc-product-catalog-unified-list-template-static.spec.js` failed because the existing actions slot still rendered `productCatalogQuickFilter.resetQuickFilter` and `handleCompareRegistrationExpiry`.
-- GREEN: pending.
+- GREEN: `node tests/e2e/dcc-product-catalog-unified-list-template-static.spec.js` passed.
+- REGRESSION: `node tests/e2e/dcc-basic-data-product-catalog-static.spec.js` passed.
+- TYPECHECK: `pnpm ts:check` passed.
 
 ## UX Checks
 
@@ -43,4 +45,4 @@ Given a user opens the DCC product catalog list, When the toolbar is rendered, T
 
 ## Blockers
 
-- None for the DCC product catalog change.
+- Shared-branch commit boundary was affected by concurrent baseline commit `4158334f`; no DCC functional blocker remains.

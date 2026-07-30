@@ -28,12 +28,19 @@ BDD: DCC product catalog toolbar removes highlighted buttons -> Given a user ope
 - RED: `node tests/e2e/dcc-product-catalog-unified-list-template-static.spec.js` -> FAIL, expected reason: actions slot still rendered `重置` and `注册证有效期`.
 - GREEN: pending.
 - REGRESSION: pending.
+- GREEN: `node tests/e2e/dcc-product-catalog-unified-list-template-static.spec.js` -> PASS.
+- REGRESSION: `node tests/e2e/dcc-basic-data-product-catalog-static.spec.js` -> PASS.
+- STATIC: `pnpm ts:check` -> PASS.
+- STATIC: `git diff --check -- <task-owned files>` -> PASS.
 
 ## Milestone Updates
 
 - M1 completed: captured pre-task dirty workspace baseline commits.
 - M2 completed: recorded BDD scenario and expected RED/GREEN path.
+- M3 completed: removed `重置` and `注册证有效期` from the DCC product catalog actions slot and removed the no-entry registration-expiry compare wrapper/state/styles.
+- M4 completed: focused DCC static contracts, frontend type check, and diff whitespace check passed.
 
 ## Blockers
 
 - Non-task delayed changes currently exist outside DCC product catalog files; they are not part of this task and will not be staged with task-owned changes.
+- Shared-branch concurrency issue: commit `4158334f` was created by another baseline flow and included this task's DCC implementation/docs plus unrelated non-DCC files. This task records the anomaly and will only stage subsequent task-owned closeout edits.

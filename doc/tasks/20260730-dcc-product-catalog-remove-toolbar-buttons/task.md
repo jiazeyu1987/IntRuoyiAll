@@ -8,8 +8,8 @@ Remove the two DCC product catalog toolbar buttons highlighted by the user: `重
 
 - [x] M1: Preserve pre-existing dirty workspace changes in baseline commits.
 - [x] M2: Record BDD scenario and RED expectation for the toolbar removal.
-- [ ] M3: Remove the two buttons from the product catalog action toolbar and update static contracts.
-- [ ] M4: Run focused verification and record evidence.
+- [x] M3: Remove the two buttons from the product catalog action toolbar and update static contracts.
+- [x] M4: Run focused verification and record evidence.
 - [ ] M5: Close out with task evidence, cleanup, commits, and push.
 
 ## Expected Verification
@@ -21,7 +21,7 @@ Remove the two DCC product catalog toolbar buttons highlighted by the user: `重
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Applicable Gates
 
@@ -39,4 +39,8 @@ in_progress
 
 - `d2f2ec65`：baseline dirty worktree before this DCC button task.
 - `f9be0387`：baseline residual MES process static contract that appeared after the first baseline.
+- `4158334f`：a concurrent/shared-branch baseline captured this task's DCC implementation and task docs together with unrelated non-DCC files before this task could create its own implementation commit.
 
+## Cleanup Keep
+
+- doc/tasks/20260730-dcc-product-catalog-remove-toolbar-buttons/frontend-feature-evidence.md

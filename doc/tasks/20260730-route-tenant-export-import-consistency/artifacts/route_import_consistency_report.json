@@ -8,8 +8,8 @@
   ],
   "sections": {
     "route_basic": {
-      "sourceCount": 39,
-      "targetCount": 39,
+      "sourceCount": 3,
+      "targetCount": 3,
       "match": true,
       "onlyInSourceCount": 0,
       "onlyInTargetCount": 0,
@@ -71,8 +71,8 @@
       "onlyInTargetSample": []
     },
     "schedule_configs": {
-      "sourceCount": 64,
-      "targetCount": 64,
+      "sourceCount": 63,
+      "targetCount": 63,
       "match": true,
       "onlyInSourceCount": 0,
       "onlyInTargetCount": 0,

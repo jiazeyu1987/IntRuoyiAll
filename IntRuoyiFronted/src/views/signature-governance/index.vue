@@ -9,13 +9,13 @@
         :title="routeTabError"
       />
 
-      <SignatureGovernanceRecordsPane v-if="activeTab === 'signature-records'" />
+      <SignatureGovernanceRecordsPane v-if="activeTab === 'signature-records' && canViewGovernanceTabs" />
       <SignatureGovernanceMySignaturePane v-if="activeTab === 'my-signature'" />
       <DccSignatureAuthorizationsPane v-if="activeTab === 'authorizations' && canViewAuthorizations" />
-      <RetentionGovernanceListPane v-if="activeTab === 'retention'" />
-      <PeriodicReviewGovernanceListPane v-if="activeTab === 'periodic-review'" />
-      <CsvPackageGovernanceListPane v-if="activeTab === 'csv-package'" />
-      <PolicyGovernanceListPane v-if="activeTab === 'policy'" />
+      <RetentionGovernanceListPane v-if="activeTab === 'retention' && canViewGovernanceTabs" />
+      <PeriodicReviewGovernanceListPane v-if="activeTab === 'periodic-review' && canViewGovernanceTabs" />
+      <CsvPackageGovernanceListPane v-if="activeTab === 'csv-package' && canViewGovernanceTabs" />
+      <PolicyGovernanceListPane v-if="activeTab === 'policy' && canViewGovernanceTabs" />
     </div>
   </ContentWrap>
 </template>
@@ -42,10 +42,20 @@ type ActiveTab =
   | 'policy'
 
 const route = useRoute()
+const router = useRouter()
 const userStore = useUserStore()
 const SIGNATURE_MANAGE_PERMISSION = 'dcc:controlled-file:signature:manage'
 const SIGNATURE_ADMIN_ROLE = 'electronic_signature_admin'
+const SIGNATURE_GOVERNANCE_ADMIN_ROLES = ['electronic_signature_admin', 'audit_admin', 'super_admin']
 const ALL_PERMISSION = '*:*:*'
+const signatureGovernanceAdminTabs: ActiveTab[] = [
+  'signature-records',
+  'authorizations',
+  'retention',
+  'periodic-review',
+  'csv-package',
+  'policy'
+]
 
 const signatureTabRoutes: Record<ActiveTab, string> = {
   'signature-records': '/signature-governance/signature-records',
@@ -58,14 +68,14 @@ const signatureTabRoutes: Record<ActiveTab, string> = {
 }
 
 const routeAliases: Record<string, ActiveTab> = {
-  '/signature-governance': 'signature-records'
+  '/signature-governance': 'my-signature'
 }
 
 const resolveActiveTab = (path: string): ActiveTab => {
   const normalizedPath = path.replace(/\/+$/, '') || '/signature-governance'
   const matchedTab = (Object.entries(signatureTabRoutes) as Array<[ActiveTab, string]>)
     .find(([, routePath]) => routePath === normalizedPath)?.[0]
-  return matchedTab || routeAliases[normalizedPath] || 'signature-records'
+  return matchedTab || routeAliases[normalizedPath] || 'my-signature'
 }
 
 const activeTab = computed<ActiveTab>(() => resolveActiveTab(route.path))
@@ -74,12 +84,32 @@ const hasSignatureManagePermission = computed(
     userStore.getPermissions.has(ALL_PERMISSION) ||
     userStore.getPermissions.has(SIGNATURE_MANAGE_PERMISSION)
 )
+const canViewGovernanceTabs = computed(
+  () =>
+    userStore.getPermissions.has(ALL_PERMISSION) ||
+    SIGNATURE_GOVERNANCE_ADMIN_ROLES.some((role) => userStore.getRoles.includes(role))
+)
 const canViewAuthorizations = computed(
   () => userStore.getRoles.includes(SIGNATURE_ADMIN_ROLE) && hasSignatureManagePermission.value
 )
+const isSignatureGovernanceAdminTab = (tab: ActiveTab) => signatureGovernanceAdminTabs.includes(tab)
+
+watch(
+  [activeTab, canViewGovernanceTabs],
+  ([tab, canViewTabs]) => {
+    if (isSignatureGovernanceAdminTab(tab) && !canViewTabs) {
+      void router.replace(signatureTabRoutes['my-signature'])
+    }
+  },
+  { immediate: true }
+)
+
 const routeTabError = computed(() => {
   const normalizedPath = route.path.replace(/\/+$/, '') || '/signature-governance'
   const knownRoutes = new Set([...Object.values(signatureTabRoutes), ...Object.keys(routeAliases)])
+  if (isSignatureGovernanceAdminTab(activeTab.value) && !canViewGovernanceTabs.value) {
+    return ''
+  }
   if (normalizedPath === signatureTabRoutes.authorizations && !canViewAuthorizations.value) {
     return '当前账号没有电子签名管理员权限'
   }
