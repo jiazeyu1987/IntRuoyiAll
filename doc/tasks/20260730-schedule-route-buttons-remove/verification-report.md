@@ -22,5 +22,6 @@
 
 ## Remaining Blockers
 
-- None for implementation or verification.
-- Commit and push remain pending.
+- Push blocked: `git push origin int_main` was rejected as non-fast-forward because the local branch is behind `origin/int_main` by 8 commits.
+- The workspace has concurrent non-task dirty files, so no pull/merge/rebase/stash was attempted in this task.
+- Implementation and verification are complete locally, but final project completion requires safe integration and successful push.

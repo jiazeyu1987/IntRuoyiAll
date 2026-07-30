@@ -37,6 +37,9 @@
 - `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-schedule-route-buttons-remove --mode apply` -> PASS, deleted none.
 - Project experience consolidation check -> no durable new project memory needed; reused existing手动重排数据包 and工艺路线导入导出门禁.
 - Git pre-commit rescan -> detected concurrent non-task staged/modified files under other `doc/tasks/20260730-*`; this task will use explicit pathspec staging/commit only for owned scheduler workbench files and task records.
+- Implementation commit: `54a1d68ea51c7a8a81e980b71f98eaa774998f3d`.
+- Pre-push large object scan: PASS, no blob >= 100 MB in `origin/int_main..HEAD`.
+- PUSH: `git push origin int_main` -> FAIL, non-fast-forward because local `int_main` is behind `origin/int_main` by 8 commits while ahead by local commits. No pull/merge/rebase attempted because unrelated concurrent task files are dirty in the working tree.
 
 ## Milestones
 
@@ -46,6 +49,8 @@
 - Implementation: completed, removed route package buttons, route package hidden input, and component-local route package handlers.
 - Verification: completed.
 - Cleanup: completed, no task-owned temporary files deleted.
+- Commit: completed locally.
+- Push: blocked by non-fast-forward remote divergence and concurrent non-task working-tree changes.
 
 ## Verification Evidence
 
@@ -57,4 +62,4 @@
 
 ## Blockers
 
-- None currently.
+- Push blocked: `origin/int_main` has remote commits not integrated locally, and this workspace contains concurrent non-task changes. Task cannot be marked `completed` until integration and push are resolved safely.

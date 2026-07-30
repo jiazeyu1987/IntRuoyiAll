@@ -20,7 +20,13 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
+
+## Closeout Blocker
+
+- `git push origin int_main` failed with non-fast-forward because local `int_main` is ahead 12 and behind 8 relative to `origin/int_main`.
+- The workspace also contains concurrent non-task changes under other `doc/tasks/20260730-*` paths, so this task did not run pull, merge, rebase, stash, or cleanup against unrelated work.
+- Impact: implementation is verified and committed locally, but project policy does not allow marking the task completed until branch integration and push succeed.
 
 ## 设计约束检查
 
