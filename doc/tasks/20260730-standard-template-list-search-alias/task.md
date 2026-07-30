@@ -57,6 +57,8 @@ ready_for_closeout
 - doc/tasks/20260730-standard-template-list-search-alias/migration-policy-gate.json
 - doc/tasks/20260730-standard-template-list-search-alias/start-standard-template-e2e-backend.ps1
 - doc/tasks/20260730-standard-template-list-search-alias/standard-template-list-real.e2e.mjs
+- output/playwright/20260730-standard-template-list-search-alias/standard-template-list-evidence.json
+- output/playwright/20260730-standard-template-list-search-alias/standard-template-list-success.png
 
 
 ## Closeout Blocker
