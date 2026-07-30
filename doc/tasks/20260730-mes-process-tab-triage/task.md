@@ -30,6 +30,8 @@ completed
 
 - `task-closeout-cleanup` preview/apply 均通过。
 - 保留三个核心任务文档，删除项和阻塞项为空。
+- 变更评估提交：`ec66b3e2 docs: assess MES process mapping tab`。
+- 最终收尾记录提交与远端推送在本记录更新后执行。
 
 ## 设计约束检查
 

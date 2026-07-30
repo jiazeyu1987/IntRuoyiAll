@@ -15,6 +15,8 @@
 - PASS: UTF-8 和关键业务边界验证通过。
 - PASS: `git diff --check` 通过。
 - PASS: `task-closeout-cleanup` preview/apply 通过，删除项和阻塞项为空。
+- PASS: 暂存清单仅包含本次变更评估和三个任务文档。
+- PASS: 变更评估提交为 `ec66b3e2 docs: assess MES process mapping tab`。
 
 ## Final Result
 
