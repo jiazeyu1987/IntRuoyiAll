@@ -1,13 +1,13 @@
 {
   "taskId": "20260729-test-server-wangsiyu-file-upload-simulation",
-  "startedAt": "2026-07-30T01:00:00.670Z",
+  "startedAt": "2026-07-30T01:05:11.778Z",
   "baseUrl": "http://172.30.30.58:8081",
   "tenant": "芋道源码",
   "username": "wangsiyu",
   "sourceFilePath": "E:\\IntRuoyi\\doc\\tasks\\20260729-test-server-wangsiyu-file-upload-simulation\\input\\codex-upload-simulation-20260729.docx",
   "sourceFileName": "codex-upload-simulation-20260729.docx",
-  "fileName": "Codex file upload simulation 20260730010000669-7A7FAC",
-  "fileNumber": "CODEX-UPLOAD-20260730010000669-7A7FAC",
+  "fileName": "Codex file upload simulation 20260730010511777-593759",
+  "fileNumber": "CODEX-UPLOAD-20260730010511777-593759",
   "steps": [
     {
       "status": "PASS",
@@ -15,48 +15,48 @@
       "detail": {
         "authorized": true,
         "detection": {
-          "intrinsicOffset": 250,
-          "displayOffset": 322.5806451612903,
+          "intrinsicOffset": 242,
+          "displayOffset": 312.258064516129,
           "backgroundWidth": 310,
           "displayedWidth": 400,
           "pieceBounds": {
             "minX": 0,
             "maxX": 45,
-            "minY": 21,
-            "maxY": 66
+            "minY": 45,
+            "maxY": 90
           },
           "topCandidates": [
             {
-              "x": 250,
-              "score": 224.95764
+              "x": 242,
+              "score": 157.31208999999998
             },
             {
-              "x": 252,
-              "score": 224.51601000000014
+              "x": 244,
+              "score": 148.2421799999999
             },
             {
-              "x": 249,
-              "score": 144.56303000000003
+              "x": 241,
+              "score": 105.33119000000006
             },
             {
-              "x": 253,
-              "score": 126.51597999999998
+              "x": 245,
+              "score": 90.25544
             },
             {
-              "x": 94,
-              "score": 119.79793999999998
+              "x": 243,
+              "score": 86.07827999999999
             },
             {
-              "x": 93,
-              "score": 119.40181999999999
+              "x": 240,
+              "score": 74.5222
             },
             {
-              "x": 251,
-              "score": 116.32271000000004
+              "x": 246,
+              "score": 68.07988999999999
             },
             {
-              "x": 95,
-              "score": 111.44512999999995
+              "x": 239,
+              "score": 66.01403999999998
             }
           ]
         },
@@ -64,7 +64,7 @@
         "repCode": "0000",
         "repMsg": null
       },
-      "at": "2026-07-30T01:00:03.791Z"
+      "at": "2026-07-30T01:05:14.913Z"
     },
     {
       "status": "PASS",
@@ -72,7 +72,7 @@
       "detail": {
         "url": "http://172.30.30.58:8081/dcc/controlled-file/upload"
       },
-      "at": "2026-07-30T01:00:05.105Z"
+      "at": "2026-07-30T01:05:16.206Z"
     }
   ],
   "writeRequests": [
@@ -99,48 +99,48 @@
   "captcha": {
     "authorized": true,
     "detection": {
-      "intrinsicOffset": 250,
-      "displayOffset": 322.5806451612903,
+      "intrinsicOffset": 242,
+      "displayOffset": 312.258064516129,
       "backgroundWidth": 310,
       "displayedWidth": 400,
       "pieceBounds": {
         "minX": 0,
         "maxX": 45,
-        "minY": 21,
-        "maxY": 66
+        "minY": 45,
+        "maxY": 90
       },
       "topCandidates": [
         {
-          "x": 250,
-          "score": 224.95764
+          "x": 242,
+          "score": 157.31208999999998
         },
         {
-          "x": 252,
-          "score": 224.51601000000014
+          "x": 244,
+          "score": 148.2421799999999
         },
         {
-          "x": 249,
-          "score": 144.56303000000003
+          "x": 241,
+          "score": 105.33119000000006
         },
         {
-          "x": 253,
-          "score": 126.51597999999998
+          "x": 245,
+          "score": 90.25544
         },
         {
-          "x": 94,
-          "score": 119.79793999999998
+          "x": 243,
+          "score": 86.07827999999999
         },
         {
-          "x": 93,
-          "score": 119.40181999999999
+          "x": 240,
+          "score": 74.5222
         },
         {
-          "x": 251,
-          "score": 116.32271000000004
+          "x": 246,
+          "score": 68.07988999999999
         },
         {
-          "x": 95,
-          "score": 111.44512999999995
+          "x": 239,
+          "score": 66.01403999999998
         }
       ]
     },
@@ -171,8 +171,15 @@
     "hasCategoryManagePermission": true,
     "hasControlledFileSubmitPermission": true,
     "totalCategoryCount": 60,
-    "uploadableCategoryCount": 1,
+    "uploadableCategoryCount": 2,
     "uploadableCategories": [
+      {
+        "id": 908709,
+        "code": "DCC_FVM_DHF_001",
+        "name": "市场调研报告",
+        "directoryId": 909048,
+        "canUpload": false
+      },
       {
         "id": 906104,
         "code": "DCC_OTHER_TEMPLATE_900250",
@@ -182,6 +189,19 @@
       }
     ],
     "routeChecks": [
+      {
+        "categoryId": 908709,
+        "categoryCode": "DCC_FVM_DHF_001",
+        "categoryName": "市场调研报告",
+        "canUpload": false,
+        "routeCount": 1,
+        "activeRouteId": 913747,
+        "activeRouteNodeCount": 9,
+        "uploadPolicyOk": false,
+        "uploadPolicy": null,
+        "uploadPolicyError": "GET /dcc/protection/upload-size-policies/effective?categoryId=908709&purpose=SOURCE&fileSize=36872 failed",
+        "error": null
+      },
       {
         "categoryId": 906104,
         "categoryCode": "DCC_OTHER_TEMPLATE_900250",
@@ -200,6 +220,6 @@
     "taxonomyCount": 67
   },
   "status": "BLOCKED",
-  "blocker": "no uploadable category with an active approval route: {\"profile\":{\"id\":910250,\"username\":\"wangsiyu\",\"nickname\":\"王思雨\",\"roles\":[{\"id\":910233,\"name\":\"文控\"},{\"id\":910234,\"name\":\"文控下载\"},{\"id\":910295,\"name\":\"审批中心入口\"}]},\"hasCategoryManagePermission\":true,\"hasControlledFileSubmitPermission\":true,\"totalCategoryCount\":60,\"uploadableCategoryCount\":1,\"uploadableCategories\":[{\"id\":906104,\"code\":\"DCC_OTHER_TEMPLATE_900250\",\"name\":\"其他\",\"directoryId\":908991,\"canUpload\":false}],\"routeChecks\":[{\"categoryId\":906104,\"categoryCode\":\"DCC_OTHER_TEMPLATE_900250\",\"categoryName\":\"其他\",\"canUpload\":false,\"routeCount\":4,\"activeRouteId\":913806,\"activeRouteNodeCount\":9,\"uploadPolicyOk\":false,\"uploadPolicy\":null,\"uploadPolicyError\":\"GET /dcc/protection/upload-size-policies/effective?categoryId=906104&purpose=SOURCE&fileSize=36872 failed\",\"error\":null}],\"projectCount\":50,\"taxonomyCount\":67}",
-  "finishedAt": "2026-07-30T01:00:06.182Z"
+  "blocker": "no uploadable category with an active approval route: {\"profile\":{\"id\":910250,\"username\":\"wangsiyu\",\"nickname\":\"王思雨\",\"roles\":[{\"id\":910233,\"name\":\"文控\"},{\"id\":910234,\"name\":\"文控下载\"},{\"id\":910295,\"name\":\"审批中心入口\"}]},\"hasCategoryManagePermission\":true,\"hasControlledFileSubmitPermission\":true,\"totalCategoryCount\":60,\"uploadableCategoryCount\":2,\"uploadableCategories\":[{\"id\":908709,\"code\":\"DCC_FVM_DHF_001\",\"name\":\"市场调研报告\",\"directoryId\":909048,\"canUpload\":false},{\"id\":906104,\"code\":\"DCC_OTHER_TEMPLATE_900250\",\"name\":\"其他\",\"directoryId\":908991,\"canUpload\":false}],\"routeChecks\":[{\"categoryId\":908709,\"categoryCode\":\"DCC_FVM_DHF_001\",\"categoryName\":\"市场调研报告\",\"canUpload\":false,\"routeCount\":1,\"activeRouteId\":913747,\"activeRouteNodeCount\":9,\"uploadPolicyOk\":false,\"uploadPolicy\":null,\"uploadPolicyError\":\"GET /dcc/protection/upload-size-policies/effective?categoryId=908709&purpose=SOURCE&fileSize=36872 failed\",\"error\":null},{\"categoryId\":906104,\"categoryCode\":\"DCC_OTHER_TEMPLATE_900250\",\"categoryName\":\"其他\",\"canUpload\":false,\"routeCount\":4,\"activeRouteId\":913806,\"activeRouteNodeCount\":9,\"uploadPolicyOk\":false,\"uploadPolicy\":null,\"uploadPolicyError\":\"GET /dcc/protection/upload-size-policies/effective?categoryId=906104&purpose=SOURCE&fileSize=36872 failed\",\"error\":null}],\"projectCount\":50,\"taxonomyCount\":67}",
+  "finishedAt": "2026-07-30T01:05:17.354Z"
 }

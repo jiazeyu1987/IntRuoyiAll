@@ -108,6 +108,24 @@
 - Script adjustment:
   - 临时授权后刷新 `/dcc/controlled-file/upload` 页面，让前端重新拉取最新 `canUpload` 类别投影。
 
+### Upload Size Policy Blocker
+
+- Status: blocked
+- Evidence:
+  - 用户授权后，脚本使用正式接口为 `wangsiyu/userId=910250` 临时添加类别 `906104 / 其他` 的 `UPLOAD` 规则。
+  - 页面完成 DCC 项目、文件分类、文件类别、提交目录、文件名称、文件编号、版本号、生效日期和备注填写。
+  - 页面通过真实 `input[type=file]` 选择 `codex-upload-simulation-20260729.docx`。
+  - `/admin-api/dcc/controlled-files/upload-preview` 已触发，但后端返回 `DCC upload size policy is missing or invalid`。
+  - `finally` 已恢复类别 `906104 / 其他` 的原权限规则。
+- Category scan:
+  - `908709 / 市场调研报告`：有审批路线，但 `SOURCE` 上传大小策略缺失。
+  - `906104 / 其他`：有审批路线，但 `SOURCE` 上传大小策略缺失。
+- Data impact:
+  - 未产生 `/dcc/controlled-files/submit`。
+  - 未创建 DCC 受控文件或审批任务。
+  - 临时类别上传权限已恢复。
+- BLOCKER: 继续完成上传需要在测试服临时创建或启用类别 `SOURCE` 上传大小策略；该操作会改变测试服 DCC 配置，需用户额外授权。
+
 ## Command Intent
 
 - 后续命令仅用于检查 Git/工具前置、驱动 Playwright 浏览器、创建任务自有测试文件与读取脱敏验证结果。
