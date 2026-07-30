@@ -33,7 +33,9 @@
 
 - 本任务实现被混入并行基线提交 `67282a86`，无法形成纯净独立实现提交；已保留提交边界和复验证据，
   不执行历史改写。
-- 当前 `int_main` 相对 `origin/int_main` 为 `ahead 15, behind 8`，即使完成本地提交，最终推送
-  仍可能因非快进分叉被拒绝；禁止以 force push、reset 或静默 rebase 绕过。
+- 本任务收尾记录已提交为 `ba77c665`，但 `git push origin int_main` 与只读
+  `git ls-remote origin HEAD` 均因 `Recv failure: Connection was reset` 失败。
+- 当前 `int_main` 相对 `origin/int_main` 为 `ahead 17, behind 8`；网络恢复后仍需由共享分支
+  负责人先确认远端分叉处理方式，再普通推送。禁止以 force push、reset 或静默 rebase 绕过。
 - 当前实现按原 ID upsert，不会删除目标租户包外多余数据；若需要“完全镜像恢复”，仍需另行定义清空/对账策略。
 - 用户角色绑定仍要求目标环境存在相同用户名；该 fail-fast 行为保持不变。

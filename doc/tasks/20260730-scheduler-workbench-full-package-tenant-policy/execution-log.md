@@ -67,3 +67,15 @@
   -> PASS，keep 5，delete `<none>`，blocked `<none>`，warnings `<none>`。
 - Cleanup apply: `task_closeout.py --task-id 20260730-scheduler-workbench-full-package-tenant-policy --mode apply`
   -> PASS，deleted paths `<none>`。
+- Git port guard: `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS，
+  `int_main` 端口合同为 frontend `8081`、backend `48081`。
+- Large-file preflight: 扫描 `origin/int_main..HEAD` -> PASS，最大 blob `12,021,248` bytes，
+  未超过 GitHub 100 MB 门禁。
+- Closeout commit: `ba77c665 docs: close scheduler workbench package optimization`，仅修改本任务
+  `task.md`、`execution-log.md`、`verification-report.md`；提交后并行任务源码继续留在工作区。
+- Push attempt 1: `git push origin int_main` -> FAIL，
+  `Recv failure: Connection was reset`。
+- Push connectivity retry: `git ls-remote origin HEAD` -> FAIL，
+  `Recv failure: Connection was reset`，因此未继续无界重试。
+- Final Git blocker: `int_main...origin/int_main [ahead 17, behind 8]`；当前既有网络不可达，又存在
+  远端分叉风险。按门禁不执行 force push、reset、rebase、merge 或覆盖并行工作区。
