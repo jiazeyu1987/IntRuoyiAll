@@ -6,21 +6,23 @@
 
 ## Milestones
 
-- [ ] 建立任务记录与 BDD/TDD 验收合同。
-- [ ] 新增 eDHR 批记录共享页签组件和两个填写路由。
-- [ ] 将一线简化填写组件拆成固定 `production` / `pqc` 模式，防止员工切换时跨模板自动换 UI。
-- [ ] 完成静态合同、类型检查和可用验证记录。
+- [x] 建立任务记录与 BDD/TDD 验收合同。
+- [x] 新增 eDHR 批记录共享页签组件和两个填写路由。
+- [x] 将一线简化填写组件拆成固定 `production` / `pqc` 模式，防止员工切换时跨模板自动换 UI。
+- [x] 完成静态合同、类型检查和可用验证记录。
 
 ## Expected Verification
 
 - `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs`
 - `node src/views/mes/pro/feedback/frontline-template-render.spec.cjs`
 - `node src/views/mes/pro/feedback/frontline-template-switch.spec.cjs`
+- `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js`
 - `pnpm ts:check`
+- 本机运行态可用时：用 Playwright 打开 `生产填写` 与 `PQC填写` 两个页签并保存 1920×1080 截图。
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Design Constraint Check
 
@@ -39,3 +41,26 @@ in_progress
 
 - Baseline commit: `4158334f chore: baseline dirty workspace before edhr frontline tabs`
 - Purpose: 隔离本任务开始前已存在的未提交/未跟踪改动。
+
+## Implementation Summary
+
+- 新增共享页签组件 `EdhrBatchRecordTabs.vue`，统一 `批次执行 / 历史批记录 / 生产填写 / PQC填写` 页签入口。
+- 新增 `BatchProductionFillPage.vue` 与 `BatchPqcFillPage.vue`，分别锁定 `FrontlineFixedTemplatePanel` 的 `production` 与 `pqc` 模式。
+- 将 `FrontlineFixedTemplatePanel.vue` 调整为固定模式渲染，员工切换只记录后端模板类型，模板不一致时显式阻塞提交，不自动切换 UI。
+- 生产页隐藏工单/生产订单，仅保留工序、员工、主页、数量、设备参数、最多 3 个设备卡片和无设备状态。
+- PQC 页显示生产订单、工序、员工、主页和可输入检验内容，去除检验方法、成功/失败、巡检摘要等非必需内容。
+
+## Experience Consolidation
+
+- 已按 `project-experience-consolidation` 规则搜索 `docs/` 与 `docs/experience-index.md`。
+- 本任务未产生新的通用工程门禁；一线填写业务背景已在 `docs/inception/` 与 `docs/acceptance/production-line-process-pool/` 中存在，未新增长期经验文档。
+
+## Cleanup Keep
+
+- doc/tasks/20260730-edhr-frontline-fill-tabs/frontend-feature-evidence.md
+
+## Git Integration Blocker
+
+- `git status --short --branch` 当前显示 `int_main...origin/int_main [ahead 10, behind 8]`，且工作区存在调度、签名、权限等并行任务脏改动。
+- 本任务实现和验证已完成，cleanup 已通过；最终 push/远端同步需先由共享分支负责人完成分支分叉与并行脏改动协调。
+- 为避免触碰并行任务改动，本任务不执行 pull、rebase、merge、force push 或宽泛暂存。
