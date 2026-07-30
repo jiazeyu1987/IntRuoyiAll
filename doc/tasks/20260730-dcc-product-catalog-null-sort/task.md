@@ -21,7 +21,7 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
 ## Experience Gates
 
@@ -33,3 +33,9 @@ ready_for_closeout
 - 是否引入 fallback/降级/吞异常：否。
 - 是否从根因和长期维护角度解决：是，修复统一列表排序查询链路而不是硬编码当前页排序。
 - 是否存在临时补丁或绕过：否。
+
+## Blocker
+
+- `git push origin int_main` 连续两次失败：`fatal: unable to access 'https://github.com/jiazeyu1987/IntRuoyiAll.git/': Recv failure: Connection was reset`。
+- Impact: 本地实现和收尾记录已提交，但未推送到 `origin/int_main`；按项目规则任务不能标记 `completed`。
+- Pending local commits: `88e796d5 fix: support DCC product catalog project sorting`，`30026eea docs: record DCC product catalog sort closeout`。

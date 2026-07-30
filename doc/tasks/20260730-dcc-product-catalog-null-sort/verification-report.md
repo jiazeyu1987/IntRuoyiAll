@@ -25,6 +25,8 @@
 - `task-closeout-cleanup` preview/apply passed and removed only archived temporary bug evidence.
 - Reusable lesson was consolidated into `docs/frontend-development.md#前端服务端分页排序链路门禁` and indexed in `docs/experience-index.md`.
 - Implementation commit: `88e796d5 fix: support DCC product catalog project sorting`.
+- Closeout commit: `30026eea docs: record DCC product catalog sort closeout`.
+- Push blocker: `git push origin int_main` failed twice with `Recv failure: Connection was reset`; local branch remains ahead of `origin/int_main`.
 
 ## Risk
 

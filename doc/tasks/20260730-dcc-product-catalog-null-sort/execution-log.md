@@ -36,4 +36,6 @@
 
 ## Blockers
 
-- none
+- `git push origin int_main` attempt 1 -> FAIL: `Recv failure: Connection was reset`。
+- `git push origin int_main` attempt 2 -> FAIL: `Recv failure: Connection was reset`。
+- Impact: 当前分支本地领先 `origin/int_main` 两个提交，任务不能标记 completed；等待网络或 GitHub 访问恢复后重试 `git push origin int_main`。
