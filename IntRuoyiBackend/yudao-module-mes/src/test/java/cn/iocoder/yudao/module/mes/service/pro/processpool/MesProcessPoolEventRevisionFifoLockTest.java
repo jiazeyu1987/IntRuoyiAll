@@ -13,7 +13,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
@@ -47,7 +46,7 @@ class MesProcessPoolEventRevisionFifoLockTest {
 
     @Test
     void rejectsQuantityFieldUpdateWhenFragmentAllocated() {
-        when(eventMapper.selectById(1001L)).thenReturn(event());
+        when(eventMapper.selectById(1001L)).thenReturn(MesProcessPoolEventRevisionServiceTest.event());
         doThrow(exception(ErrorCodeConstants.PRO_PROCESS_POOL_FIFO_ALLOCATED_FRAGMENT_LOCKED, 8101L))
                 .when(fifoAllocationService)
                 .validateOriginalFieldMutationAllowed(8101L, MesProcessPoolFragmentOriginalField.OUTPUT_QUANTITY);
@@ -56,12 +55,12 @@ class MesProcessPoolEventRevisionFifoLockTest {
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_FIFO_ALLOCATED_FRAGMENT_LOCKED.getCode(), ex.getCode());
         verify(revisionMapper, never()).insert(any(MesProProcessPoolEventRevisionDO.class));
-        verify(eventMapper, never()).updateById(any());
+        verify(eventMapper, never()).updateById(any(MesProProcessPoolEventDO.class));
     }
 
     @Test
     void rejectsUpdateWhenFifoLockStatusCannotBeConfirmed() {
-        when(eventMapper.selectById(1001L)).thenReturn(event());
+        when(eventMapper.selectById(1001L)).thenReturn(MesProcessPoolEventRevisionServiceTest.event());
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.updateOriginalRecord(quantityReq(null)));
 
@@ -69,23 +68,7 @@ class MesProcessPoolEventRevisionFifoLockTest {
         verify(fifoAllocationService, never()).validateOriginalFieldMutationAllowed(
                 any(), any(MesProcessPoolFragmentOriginalField.class));
         verify(revisionMapper, never()).insert(any(MesProProcessPoolEventRevisionDO.class));
-        verify(eventMapper, never()).updateById(any());
-    }
-
-    private static MesProProcessPoolEventDO event() {
-        return MesProProcessPoolEventDO.builder()
-                .id(1001L)
-                .poolId(501L)
-                .workOrderId(3001L)
-                .routeId(4001L)
-                .routeProcessId(5001L)
-                .processId(6001L)
-                .actualEmployeeId(2001L)
-                .rawPayload("{\"outputQuantity\":10}")
-                .serverSubmitTime(LocalDateTime.of(2026, 7, 30, 8, 30))
-                .signatureId(9001L)
-                .signatureUserId(2001L)
-                .build();
+        verify(eventMapper, never()).updateById(any(MesProProcessPoolEventDO.class));
     }
 
     private static MesProcessPoolEventRevisionUpdateReqBO quantityReq(Long sourceQuantityFragmentId) {
@@ -95,6 +78,7 @@ class MesProcessPoolEventRevisionFifoLockTest {
                 .changeReason("更正产出数量")
                 .revisionSignatureId(9102L)
                 .revisionSignatureUserId(2001L)
+                .revisionSignatureSnapshot("{\"signedBy\":\"张可莹\"}")
                 .modifiedByUserId(2001L)
                 .changedFields(List.of(MesProcessPoolEventRevisionFieldChangeBO.builder()
                         .fieldCode("outputQuantity")

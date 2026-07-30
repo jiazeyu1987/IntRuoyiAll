@@ -990,6 +990,18 @@ public interface ErrorCodeConstants {
             "工序池提交事件电子签名已存在：{}");
     ErrorCode PRO_PROCESS_POOL_PQC_RESULT_INVALID = new ErrorCode(1_040_760_003,
             "工序池 PQC 结果无效：{}");
+    ErrorCode PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS = new ErrorCode(1_040_760_004,
+            "工序池提交事件不存在，无法修改原始记录：{}");
+    ErrorCode PRO_PROCESS_POOL_REVISION_CHANGE_REASON_REQUIRED = new ErrorCode(1_040_760_005,
+            "原始记录修改必须填写非空修改原因");
+    ErrorCode PRO_PROCESS_POOL_REVISION_SIGNATURE_REUSED = new ErrorCode(1_040_760_006,
+            "原始记录修改必须使用新的电子签名，不能复用原提交签名");
+    ErrorCode PRO_PROCESS_POOL_REVISION_SIGNATURE_DUPLICATE = new ErrorCode(1_040_760_007,
+            "原始记录修改电子签名已存在：{}");
+    ErrorCode PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED = new ErrorCode(1_040_760_008,
+            "原始记录修改必须提供字段级 diff，且不能只写备注或整段 payload");
+    ErrorCode PRO_PROCESS_POOL_REVISION_FIFO_LOCK_STATUS_UNKNOWN = new ErrorCode(1_040_760_009,
+            "无法确认字段对应数量片段 FIFO 锁定状态，禁止修改原始记录：{}");
 
     // ========== MES 一线设备账号工序池（1-040-760-100） ==========
     ErrorCode PRO_FRONTLINE_DEVICE_ACCOUNT_BINDING_SOURCE_MISSING = new ErrorCode(1_040_760_100,

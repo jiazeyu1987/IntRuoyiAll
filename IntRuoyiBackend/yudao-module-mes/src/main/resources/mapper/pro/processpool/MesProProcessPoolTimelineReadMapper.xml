@@ -44,7 +44,7 @@
             WHEN review_copy.id IS NULL THEN '审核副本待生成'
             ELSE CONCAT('审核副本已提交，字段 ', COALESCE(review_copy_field_stat.field_count, 0), ' 个')
         END AS auditCopySummary,
-        NULL AS modificationHistorySummary
+        COALESCE(revision_summary.summary, '原始记录暂无修改') AS modificationHistorySummary
     </sql>
 
     <sql id="TimelineFilters">
@@ -107,6 +107,17 @@
         ) review_copy_field_stat
           ON review_copy_field_stat.review_copy_id = review_copy.id
          AND review_copy_field_stat.tenant_id = review_copy.tenant_id
+        LEFT JOIN (
+            SELECT tenant_id,
+                   event_id,
+                   CONCAT('原始记录已修改 ', COUNT(1), ' 次') AS summary
+            FROM mes_pro_process_pool_event_revision
+            WHERE deleted = 0
+              AND revision_status = 'EFFECTIVE'
+            GROUP BY tenant_id, event_id
+        ) revision_summary
+          ON revision_summary.event_id = pool_event.id
+         AND revision_summary.tenant_id = pool_event.tenant_id
         WHERE <include refid="TimelineFilters"/>
         ORDER BY pool_event.server_submit_time ASC, pool_event.id ASC
         LIMIT #{offset}, #{reqVO.pageSize}
@@ -138,6 +149,17 @@
         ) review_copy_field_stat
           ON review_copy_field_stat.review_copy_id = review_copy.id
          AND review_copy_field_stat.tenant_id = review_copy.tenant_id
+        LEFT JOIN (
+            SELECT tenant_id,
+                   event_id,
+                   CONCAT('原始记录已修改 ', COUNT(1), ' 次') AS summary
+            FROM mes_pro_process_pool_event_revision
+            WHERE deleted = 0
+              AND revision_status = 'EFFECTIVE'
+            GROUP BY tenant_id, event_id
+        ) revision_summary
+          ON revision_summary.event_id = pool_event.id
+         AND revision_summary.tenant_id = pool_event.tenant_id
         WHERE pool_event.deleted = 0
           AND pool_event.id = #{id}
     </select>

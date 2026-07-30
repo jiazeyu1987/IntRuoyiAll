@@ -39,7 +39,7 @@
 
 ## Current Status
 
-F5 backend TDD chain and formal review-copy API entry complete in `D:\IntRuoyiWorktree\20260730-process-pool-f5-review-copy`; F5 agent report updated and ready for main-agent review. F6 implementation, cross-worktree review, merge into `int_main`, combined runtime/E2E verification, menu permission seed verification and final closeout remain pending.
+F5/F6 子 worktree 已完成主审修正；当前正在融合进 `int_main` 并执行合并后复验。F5/F6 后端主链、正式写入口、前端独立 API wrapper 和时间轴只读追溯均已进入主线合并范围；最终 closeout、push 和真实 E2E 证据仍待完成。
 
 ## 设计约束检查
 
