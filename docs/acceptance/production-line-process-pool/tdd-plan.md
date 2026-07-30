@@ -2,14 +2,15 @@
 
 ## Purpose and Scope
 
-本文档为 8 个可先推进的功能点定义严格 TDD 顺序、RED 预期失败、GREEN 验证命令和重构检查。文档阶段不修改生产代码；实现阶段必须先补测试，再写最小生产代码，最后运行回归。
+本文档为 10 个可先推进的功能点定义严格 TDD 顺序、RED 预期失败、GREEN 验证命令和重构检查。文档阶段不修改生产代码；实现阶段必须先补测试，再写最小生产代码，最后运行回归。
 
 ## Evidence Reviewed
 
 - `docs/acceptance/production-line-process-pool/bdd-scenarios.md`
 - `docs/inception/project-brief.md`
 - `docs/inception/evidence-inventory.md`
-- 8 个子 agent 输出草案和主审修正，其中 F5/F6 为本次增量草案。
+- F1-F8 子 agent 输出草案和主审修正，其中 F5/F6 为原审核副本与修改日志增量草案。
+- 本次线程新增 F9/F10：生产班组长 / PQC 班组长复核、异常上报和班组级基础维护口径。
 - `docs/backend-development.md`
 - `docs/frontend-development.md`
 - `docs/e2e-rules.md`
@@ -48,6 +49,14 @@
 | T28 | F6 FIFO 锁定阻塞 | `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionFifoLockTest#rejectsQuantityFieldUpdateWhenFragmentAllocated,MesProcessPoolEventRevisionFifoLockTest#rejectsUpdateWhenFifoLockStatusCannotBeConfirmed" test` | 已分配数量字段仍可改，或锁定状态查不到时默认未锁定。 | 接入 F7 锁定查询；已分配或锁定状态无法确认时拒绝。 | 同 RED 命令 PASS。 | 禁止影响生产工单 FIFO 分配结果。 |
 | T29 | F6 字段级 diff 合同 | `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionDiffContractTest#requiresFieldLevelDiff" test` | 只记录 before/after payload 或备注文本，缺字段编码和值差异。 | 每个变化字段记录 fieldCode、fieldName、beforeValue、afterValue、affectsQuantityFragment。 | 同 RED 命令 PASS。 | diff 基于固定模板字段定义，不靠文本解析。 |
 | T30 | F5/F6 前端和时间轴只读追溯 | `pnpm --dir IntRuoyiFronted test:e2e process-pool-review-copy-and-revision.spec.ts`; `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-revision-static.spec.cjs` | 页面无审核副本/修改历史入口，或时间轴提供写操作。 | 前端真实路径覆盖审核副本生成、原始记录修改重签名、时间轴只读摘要。 | 同 RED 命令 PASS。 | 时间轴仅展示 F5/F6 状态，不执行审核或修改写操作。 |
+| T31 | F9 班组长负责范围模型 | `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderScopeServiceTest#shouldResolveProductionLeaderEmployeeScope,MesTeamLeaderScopeServiceTest#shouldResolvePqcLeaderEmployeeScope" test` | 无法区分生产班组长、PQC 班组长和负责员工范围，或默认返回全量员工。 | 建立班组长负责范围查询能力，优先复用部门、岗位、角色、班组、工序或工作站配置。 | 同 RED 命令 PASS。 | 不用 admin 权限、全量员工或前端过滤替代后端范围控制。 |
+| T32 | F9 班组长提交看板查询 | `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderSubmissionWorkbenchTest#shouldListOnlyScopedEmployeeSubmissions,MesTeamLeaderSubmissionWorkbenchTest#shouldHideOutOfScopeSubmissionDetail" test` | 班组长可看到非负责员工提交，或查询缺少复核状态、PQC 状态、异常状态。 | 工作台按负责范围返回提交事件、报工、记录本和 PQC 摘要。 | 同 RED 命令 PASS。 | 后端接口必须范围过滤；前端不能拿全量数据后隐藏。 |
+| T33 | F9 复核员工提交 | `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderSubmissionReviewServiceTest#shouldCreateReviewLogWithoutChangingRawSubmission,MesTeamLeaderSubmissionReviewServiceTest#shouldRejectReviewForOutOfScopeSubmission" test` | 复核直接改写原始 payload，或越权复核成功。 | 保存复核状态、复核人、服务端时间和复核说明；原始记录只读。 | 同 RED 命令 PASS。 | 复核是管理状态，不进入原始记录 revision，也不修改电子签名。 |
+| T34 | F9 生产工单异常标记与上报 | `mvn -pl yudao-module-mes -am "-Dtest=MesWorkOrderAbnormalReportServiceTest#shouldListAllWorkOrdersForTeamLeaderAbnormalHandling,MesWorkOrderAbnormalReportServiceTest#shouldCreateAbnormalReport,MesWorkOrderAbnormalReportServiceTest#shouldNotModifyRawProcessPoolEventWhenReportAbnormal" test` | 班组长只能看到负责范围关联工单、无法保存异常上报，或异常标记改写一线提交 / FIFO 分配。 | 生产工单异常处理列表对班组长展示所有生产工单；保存异常记录和上报记录，关联工单、工序、来源事件和说明。 | 同 RED 命令 PASS。 | 全量生产工单列表不得放大员工提交明细权限；异常上报与一线原始记录、审核副本、FIFO 明细分离。 |
+| T35 | F10 班组员工添加和禁用 | `mvn -pl yudao-module-mes -am "-Dtest=MesTeamEmployeeBindingServiceTest#shouldAddEmployeeToProcessCandidate,MesTeamEmployeeBindingServiceTest#shouldDisableEmployeeForFutureSelectionOnly" test` | 添加员工不进入候选，或禁用员工隐藏历史提交。 | 维护工序可选员工绑定和禁用状态，保存审计日志。 | 同 RED 命令 PASS。 | 禁用只影响后续候选；历史事件、签名和报工来源仍可查询。 |
+| T36 | F10 不良原因列表维护 | `mvn -pl yudao-module-mes -am "-Dtest=MesDefectReasonCatalogServiceTest#shouldCreateReasonWithScopeAndAudit,MesDefectReasonCatalogServiceTest#shouldExposeReasonToLossAndPqcTemplates" test` | 不良原因无生效范围、无审计，或模板无法选择新增原因。 | 复用字典或原因配置保存不良原因、生效范围和审计记录。 | 同 RED 命令 PASS。 | 新增原因不得改写历史原因值。 |
+| T37 | F10 工序设备和参数上下限维护 | `mvn -pl yudao-module-mes -am "-Dtest=MesProcessDeviceParameterRuleServiceTest#shouldBindDeviceToProcessWithAudit,MesProcessDeviceParameterRuleServiceTest#shouldExposeLimitRuleToReviewCopyButNotRawSubmit" test` | 工序无法新增设备，或上下限变成一线提交硬拦截。 | 保存工序设备绑定、参数上下限、生效范围和审计日志；提供给审核副本规则读取。 | 同 RED 命令 PASS。 | 参数上下限只服务审核副本、复核提示和异常判断，不裁剪原始 payload。 |
+| T38 | F9/F10 前端真实路径 | `pnpm --dir IntRuoyiFronted test:e2e team-leader-workbench-and-maintenance.spec.ts`; `pnpm --dir IntRuoyiFronted test:unit team-leader-workbench-scope` | 页面没有班组长入口，或前端使用全量数据本地隐藏，或维护动作无审计反馈。 | 前端真实路径覆盖提交看板、复核、异常上报、员工启停、不良原因、工序设备和上下限维护。 | 同 RED 命令 PASS。 | 前端只展示后端授权结果；所有维护动作必须显示审计和生效范围。 |
 
 ## RED Commands
 
@@ -58,6 +67,8 @@ RED: mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolSchemaTest#shouldCreateD
 RED: pnpm --dir IntRuoyiFronted test:e2e frontline-device-account-switch-employee.spec.ts -> FAIL, 一线报工入口尚不能完成设备账号内切换员工
 RED: mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyServiceTest#shouldClampValueToMaxWhenRawValueExceedsMax" test -> FAIL, 缺少审核副本上下限修正规则
 RED: mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionServiceTest#rejectsUpdateWithoutNewSignature" test -> FAIL, 原始记录修改尚未要求重新电子签名
+RED: mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderSubmissionReviewServiceTest#shouldCreateReviewLogWithoutChangingRawSubmission" test -> FAIL, 班组长复核尚未独立于一线原始记录保存
+RED: mvn -pl yudao-module-mes -am "-Dtest=MesProcessDeviceParameterRuleServiceTest#shouldExposeLimitRuleToReviewCopyButNotRawSubmit" test -> FAIL, 设备参数上下限尚未与一线原始提交硬拦截分离
 ```
 
 ## Expected Failures
@@ -70,6 +81,9 @@ RED: mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionServiceTest
 - 审核副本生成缺少上下限元数据、字段映射、审核权限或审核电子签名时，应失败为明确 blocker。
 - 原始记录修改缺少修改原因、重新电子签名、字段级 diff 或 FIFO 锁定查询时，应失败为明确 blocker。
 - 已 FIFO 分配的数量、质量状态或可分配状态字段被修改或修正时，应失败为锁定错误。
+- 班组长负责范围缺失时，提交看板、复核、员工启停和基础维护应失败为权限或配置 blocker；生产工单异常列表仍要求班组长具备异常处理权限。
+- 班组长复核如果改写原始 payload、电子签名、报工来源、记录本来源或 FIFO 明细，应失败。
+- 工序设备参数上下限若在一线提交阶段拦截 `10/50` 原始值，应失败。
 
 ## GREEN Commands
 
@@ -84,11 +98,14 @@ mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolFifoAllocationServiceTest,Mes
 mvn -pl yudao-module-mes -am "-Dtest=ProcessPoolTimelineQueryTest,ProcessPoolTimelineDateFilterTest,ProcessPoolTimelineFilterTest,ProcessPoolTimelineContentSummaryTest,ProcessPoolTimelineTraceabilityTest" test
 mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopySchemaTest,MesProcessPoolReviewCopyServiceTest,MesProcessPoolReviewCopyPermissionTest" test
 mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionSchemaTest,MesProcessPoolEventRevisionServiceTest,MesProcessPoolEventRevisionDiffContractTest,MesProcessPoolEventRevisionFifoLockTest,ProcessPoolTimelineRevisionSummaryTest" test
+mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderScopeServiceTest,MesTeamLeaderSubmissionWorkbenchTest,MesTeamLeaderSubmissionReviewServiceTest,MesWorkOrderAbnormalReportServiceTest" test
+mvn -pl yudao-module-mes -am "-Dtest=MesTeamEmployeeBindingServiceTest,MesDefectReasonCatalogServiceTest,MesProcessDeviceParameterRuleServiceTest" test
 pnpm --dir IntRuoyiFronted ts:check
 pnpm --dir IntRuoyiFronted test:e2e frontline-feedback-integrated.spec.ts
 pnpm --dir IntRuoyiFronted test:e2e frontline-device-account-switch-employee.spec.ts
 pnpm --dir IntRuoyiFronted test:e2e process-pool-timeline.spec.ts
 pnpm --dir IntRuoyiFronted test:e2e process-pool-review-copy-and-revision.spec.ts
+pnpm --dir IntRuoyiFronted test:e2e team-leader-workbench-and-maintenance.spec.ts
 ```
 
 ## Refactor Checks
@@ -103,6 +120,10 @@ pnpm --dir IntRuoyiFronted test:e2e process-pool-review-copy-and-revision.spec.t
 - 审核副本模块不得改写原始 payload，不得使用默认上下限或跳过缺失字段。
 - 原始记录修改模块不得把修改日志写成备注文本，不得复用原提交电子签名。
 - F5/F6 都必须在写入前复核 FIFO 锁定状态；无法确认锁定状态时阻塞。
+- 班组长员工提交范围控制必须在后端完成，不能只靠前端隐藏；生产工单异常列表全量可见不得放大提交详情权限。
+- 班组长复核、异常上报和基础维护均不得覆盖一线原始记录、记录本原始条目、工序池提交事件、电子签名或 FIFO 分配明细。
+- 员工禁用只影响后续候选，不得影响历史追溯。
+- 不良原因、工序设备和参数上下限维护必须保存维护人、服务端时间、生效范围和审计日志。
 
 ## Evidence Log Template
 
@@ -114,6 +135,14 @@ REGRESSION: <命令> -> PASS, 覆盖相邻报工、记录本、eDHR、生产工�
 BLOCKER: <前置条件> -> <缺失内容和影响>
 ```
 
+## Initial Blocker Definitions
+
+- 工序池 schema 最小集：主表、事件表、数量片段表、PQC 记录表、FIFO 分配明细、审核副本主/明细、原始记录 revision/diff；缺任何一类时对应模块 RED 必须失败。
+- FIFO 计划时间：`plannedStartTime` 为空或重复时测试预期为 FAIL/blocker；不允许测试通过时偷偷改用创建时间、工单号或当前时间。
+- PQC 可分配规则：成功转 `AVAILABLE`，失败转不可分配；测试只允许 FIFO 消费 `AVAILABLE` 片段。
+- 班组长权限：提交看板必须后端范围过滤；生产工单异常列表可全量，但详情接口仍拒绝非负责员工提交明细。
+- 审核副本和原始修改：审核副本只写副本表；原始修改只写 revision/diff；两者都不得覆盖原始事件 payload。
+
 ## Test Blockers
 
 - 缺少正式工序池 schema、事件表、数量片段、分配流水。
@@ -123,4 +152,6 @@ BLOCKER: <前置条件> -> <缺失内容和影响>
 - 缺少 PQC 成功/失败对可分配数量的正式规则。
 - 缺少模板字段上下限元数据、审核权限、审核电子签名或审核副本状态枚举。
 - 缺少原始记录 revision 表、字段级 diff、修改原因、重新电子签名或 FIFO 锁定查询。
+- 缺少班组长负责范围、复核状态、全量生产工单异常入口权限、异常上报状态、员工启停状态或维护审计模型。
+- 缺少不良原因列表、工序设备绑定、设备参数上下限规则或与审核副本规则的正式关联。
 - 本地前端、后端、数据库、Redis、测试租户、账号或权限不可用时，真实 E2E 阻塞。

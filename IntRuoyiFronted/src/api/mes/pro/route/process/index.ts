@@ -79,6 +79,9 @@ export interface ProRouteProcessVO {
   resourceStatus?: 'NORMAL' | 'REPAIR' | 'CAPACITY_MISSING' | 'UNCONFIGURED' // 资源状态
   resourceStatusReason?: string // 资源状态原因
   workerSingleStandardHourlyCapacity?: number // 人工单人标准小时产能
+  batchRecordReportId?: string // 默认批记录报表编号
+  batchRecordReportCode?: string // 默认批记录报表编码
+  batchRecordReportName?: string // 默认批记录报表名称
   prepareTime?: number // 准备时间（分钟）
   waitTime?: number // 等待时间（分钟）
   colorCode?: string // 甘特图显示颜色

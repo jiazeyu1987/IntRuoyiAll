@@ -236,7 +236,45 @@ class MesProRouteWorkbookImportServiceTest {
     }
 
     @Test
-    void importWorkbook_rejectsMultipleIncomingBeforeAnyWrite() throws Exception {
+    void importWorkbook_preservesMultipleStartsAndIncomingJoin() throws Exception {
+        when(routeMapper.selectByCode("ROUTE-NEW")).thenReturn(null);
+        when(processMapper.selectByCode("PROC-A"))
+                .thenReturn(MesProProcessDO.builder().id(30L).code("PROC-A").build());
+        when(processMapper.selectByCode("PROC-B"))
+                .thenReturn(MesProProcessDO.builder().id(31L).code("PROC-B").build());
+        when(processMapper.selectByCode("PROC-C"))
+                .thenReturn(MesProProcessDO.builder().id(32L).code("PROC-C").build());
+        when(processMapper.selectByCode("PROC-D"))
+                .thenReturn(MesProProcessDO.builder().id(33L).code("PROC-D").build());
+        when(routeService.createRoute(any(MesProRouteSaveReqVO.class))).thenReturn(100L);
+        when(routeVersionMapper.selectActiveByRouteId(100L))
+                .thenReturn(MesProRouteVersionDO.builder().id(500L).routeId(100L).versionNo("V1").build());
+        when(routeProcessService.createRouteProcess(any(MesProRouteProcessSaveReqVO.class)))
+                .thenReturn(201L, 202L, 203L, 204L);
+
+        importService.importWorkbook(branchWorkbookFile(
+                "multiple-incoming.xlsx",
+                List.of(
+                        List.of("ROUTE-NEW", "PROC-A", "PROC-C", "NORMAL"),
+                        List.of("ROUTE-NEW", "PROC-B", "PROC-C", "NORMAL"),
+                        List.of("ROUTE-NEW", "PROC-C", "PROC-D", "NORMAL")),
+                List.of(
+                        List.of("ROUTE-NEW", "START", "PROC-A", "1"),
+                        List.of("ROUTE-NEW", "START", "PROC-B", "2"),
+                        List.of("ROUTE-NEW", "END", "PROC-D", "1"))));
+
+        ArgumentCaptor<MesProRouteProcessFlowSaveReqVO> flowCaptor =
+                ArgumentCaptor.forClass(MesProRouteProcessFlowSaveReqVO.class);
+        verify(routeProcessFlowService).saveGraph(flowCaptor.capture());
+        assertEquals(3, flowCaptor.getValue().getEdges().size());
+        assertEquals(3, flowCaptor.getValue().getBoundaryEdges().size());
+        assertEquals(201L, flowCaptor.getValue().getBoundaryEdges().get(0).getRouteProcessId());
+        assertEquals(202L, flowCaptor.getValue().getBoundaryEdges().get(1).getRouteProcessId());
+        assertEquals(204L, flowCaptor.getValue().getBoundaryEdges().get(2).getRouteProcessId());
+    }
+
+    @Test
+    void importWorkbook_rejectsCyclicOrUnreachableFlowBeforeAnyWrite() throws Exception {
         when(routeMapper.selectByCode("ROUTE-NEW")).thenReturn(null);
         when(processMapper.selectByCode("PROC-A"))
                 .thenReturn(MesProProcessDO.builder().id(30L).code("PROC-A").build());
@@ -248,10 +286,10 @@ class MesProRouteWorkbookImportServiceTest {
                 .thenReturn(MesProProcessDO.builder().id(33L).code("PROC-D").build());
 
         assertThrows(ServiceException.class, () -> importService.importWorkbook(branchWorkbookFile(
-                "multiple-incoming.xlsx", List.of(
-                        List.of("ROUTE-NEW", "PROC-A", "PROC-C", "NORMAL"),
+                "cycle.xlsx", List.of(
+                        List.of("ROUTE-NEW", "PROC-A", "PROC-B", "NORMAL"),
                         List.of("ROUTE-NEW", "PROC-B", "PROC-C", "NORMAL"),
-                        List.of("ROUTE-NEW", "PROC-C", "PROC-D", "NORMAL")))));
+                        List.of("ROUTE-NEW", "PROC-C", "PROC-A", "NORMAL")))));
 
         verify(routeService, never()).createRoute(any());
         verify(routeProcessFlowService, never()).saveGraph(any());
@@ -282,6 +320,11 @@ class MesProRouteWorkbookImportServiceTest {
     }
 
     private MockMultipartFile branchWorkbookFile(String filename, List<List<String>> flowRows) throws Exception {
+        return branchWorkbookFile(filename, flowRows, List.of());
+    }
+
+    private MockMultipartFile branchWorkbookFile(String filename, List<List<String>> flowRows,
+                                                 List<List<String>> boundaryRows) throws Exception {
         try (Workbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             sheet(workbook, "工艺路线", List.of("路线编码", "路线名称", "状态", "负责人", "说明", "备注"),
@@ -294,11 +337,12 @@ class MesProRouteWorkbookImportServiceTest {
                             List.of("ROUTE-NEW", "3", "PROC-C", "C", "", "", "", "false", "false", ""),
                             List.of("ROUTE-NEW", "4", "PROC-D", "D", "", "", "", "false", "false", "")));
             sheetRows(workbook, "流转关系", List.of("路线编码", "源工序编码", "目标工序编码", "关系类型"), flowRows);
+            sheetRows(workbook, "边界关系", List.of("路线编码", "边界类型", "工序编码", "序号"), boundaryRows);
             sheet(workbook, "产品绑定", List.of("路线编码", "产品编码", "产品名称", "规格", "生产数量",
                     "生产用时", "时间单位", "备注"), List.of());
             sheet(workbook, "工序BOM", List.of("路线编码", "工序编码", "产品编码", "BOM物料编码",
                     "BOM物料名称", "规格", "用料比例", "备注"), List.of());
-            emptyFullDataSheets(workbook);
+            emptyFullDataSheetsExceptBoundary(workbook);
             workbook.write(outputStream);
             return new MockMultipartFile("file", filename,
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -355,6 +399,10 @@ class MesProRouteWorkbookImportServiceTest {
 
     private void emptyFullDataSheets(Workbook workbook) {
         sheet(workbook, "边界关系", List.of("路线编码", "边界类型", "工序编码", "序号"), List.of());
+        emptyFullDataSheetsExceptBoundary(workbook);
+    }
+
+    private void emptyFullDataSheetsExceptBoundary(Workbook workbook) {
         sheet(workbook, "流转布局", List.of("路线编码", "工序编码", "横坐标", "纵坐标", "宽度", "高度"), List.of());
         sheet(workbook, "路线排产配置", List.of("路线编码", "工序编码", "产能模式", "小时产能",
                 "无限产能数量系数", "无限产能基准分钟", "夜班启用", "日历规则ID", "配置版本", "备注"), List.of());

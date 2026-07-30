@@ -166,4 +166,34 @@ class MesProRouteResourceServiceImplTest {
         assertNull(row.getBudgetDailyCapacity());
         assertEquals("设备工序产能缺失", row.getCapacitySource());
     }
+
+    @Test
+    void getResourcePage_doesNotFailWholePageWhenRouteProductReferencesMissingRoute() {
+        MesProRouteResourcePageReqVO reqVO = new MesProRouteResourcePageReqVO();
+        reqVO.setPageSize(20);
+        when(routeProductMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of(
+                MesProRouteProductDO.builder().id(1001L).routeId(1L).itemId(11L).build(),
+                MesProRouteProductDO.builder().id(1002L).routeId(99L).itemId(12L).build()));
+        when(routeService.getRouteMap(List.of(1L, 99L))).thenReturn(Map.of(1L,
+                MesProRouteDO.builder().id(1L).code("R-001").name("球囊扩张导管").build()));
+        when(itemService.getItemMap(List.of(11L, 12L))).thenReturn(Map.of(
+                11L, MesMdItemDO.builder().id(11L).code("P-001").name("PTCA球囊扩张导管").build(),
+                12L, MesMdItemDO.builder().id(12L).code("P-002").name("孤儿路线产品").build()));
+        when(routeProcessService.getRouteProcessListByRouteIds(List.of(1L, 99L))).thenReturn(List.of(
+                MesProRouteProcessDO.builder().id(201L).routeId(1L).processId(101L).sort(1).build()));
+        when(processService.getProcessMap(List.of(101L))).thenReturn(Map.of(101L,
+                MesProProcessDO.builder().id(101L).code("P101").name("吹球囊成型").build()));
+        when(workstationService.getWorkstationListByProcessIds(List.of(101L))).thenReturn(List.of());
+        when(workstationMachineService.getWorkstationMachineListByWorkstationIds(List.of())).thenReturn(List.of());
+        when(workstationWorkerService.getWorkstationWorkerListByWorkstationIds(List.of())).thenReturn(List.of());
+        when(machineryService.getMachineryMap(List.of())).thenReturn(Map.of());
+        when(machineryProcessService.getMachineryProcessListByMachineryIdsAndProcessIds(
+                List.of(), List.of(101L))).thenReturn(List.of());
+
+        PageResult<MesProRouteResourceRespVO> page = routeResourceService.getResourcePage(reqVO);
+
+        assertEquals(1L, page.getTotal());
+        assertEquals(1001L, page.getList().get(0).getRouteProductId());
+        assertEquals("R-001", page.getList().get(0).getRouteCode());
+    }
 }

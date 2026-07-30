@@ -1,0 +1,53 @@
+# 一线报工与 PQC 极简原型任务
+
+## Task Goal
+
+在 `output/` 下继续完善一线生产报工与 PQC 检验 1920×1080 静态原型，保持页面足够简单：顶部只放必要上下文卡片，工序选择从顶部“工序”卡片进入，不新增管理统计、说明文案或复杂控件。
+
+## Milestones
+
+- [x] 创建任务文档并记录设计约束。
+- [x] 统一生产与 PQC 页面的工序选择交互。
+- [x] 使用 1920×1080 浏览器截图和 Playwright 交互检查验证。
+- [x] 记录验证结果和剩余限制。
+
+## Expected Verification
+
+- 生产页点击左上角“工序”卡片后，只显示可选工序大按钮；选择后顶部工序值更新。
+- PQC 页顶部按用户截图调整为 `生产订单 / 工序 / 员工 / 主页`，点击“工序”卡片后选择工序并更新顶部工序值。
+- PQC 页左侧原生产订单卡片改为“检验内容”，长度、压力等数值可输入，外观、密封等判断项可选择合格/不合格。
+- PQC 页右侧不显示巡检卡片下方小字说明，也不显示“检验方法”输入行。
+- PQC 页右侧不显示底部“结果 / 合格 / 不合格”整行。
+- 两个页面在 1920×1080 下无横向溢出，底部提交栏不遮挡主表单。
+
+## Current Status
+
+ready_for_closeout
+
+## Verification Summary
+
+- 生产有设备页：点击左上角“工序”卡片后弹出 4 个大按钮，选择“装配”后顶部工序更新，无横向溢出。
+- 生产无设备页：顶部结构补齐为“工序 / 员工 / 主页”，点击“工序”卡片后可用同样弹层选择工序。
+- PQC 页：顶部调整为“生产订单 / 工序 / 员工 / 主页”，左侧改为可填写“检验内容”，长度和压力可输入，外观和密封可选择合格/不合格；点击“工序”卡片后使用同样弹层选择工序，选择“装配”后顶部工序更新。
+- PQC 页：已隐藏右侧黄色框区域，即巡检卡片下方 `30件 / 外观+压力 / 损耗1` 类说明和“检验方法”整行。
+- PQC 页：已隐藏右侧底部“结果 / 合格 / 不合格”整行。
+- 1920×1080 检查：三个页面 `bodyScrollWidth=1920`，主表单底部均未压到提交栏。
+
+## Output Files
+
+- `output/frontline-production-operator-1920.html`
+- `output/frontline-production-operator-1920-no-device.html`
+- `output/frontline-pqc-operator-1920.html`
+- `output/playwright/frontline-production-operator-1920-process-picker-open.png`
+- `output/playwright/frontline-production-operator-1920-no-device-process-picker-open.png`
+- `output/playwright/frontline-pqc-operator-1920-process-picker-open.png`
+- `output/playwright/frontline-pqc-operator-1920-order-process-employee-v2.png`
+- `output/playwright/frontline-pqc-operator-1920-editable-content.png`
+- `output/playwright/frontline-pqc-operator-1920-yellow-hidden.png`
+- `output/playwright/frontline-pqc-operator-1920-result-hidden.png`
+
+## 设计约束检查
+
+- `是否引入 fallback/降级/吞异常`：否，本任务只调整静态原型交互。
+- `是否从根因和长期维护角度解决`：是，统一生产与 PQC 的工序入口位置和选择方式。
+- `是否存在临时补丁或绕过`：否。

@@ -38,8 +38,8 @@ const indexOfTabOrThrow = (content, label, name) => {
 
 assertMatch(
   routeFormContent,
-  /type RouteFormInitialTab =[\s\S]*\| 'basic'[\s\S]*\| 'flow'[\s\S]*\| 'product'/,
-  'route form tab union must include basic, flow, and product tabs'
+  /type RouteFormInitialTab =[\s\S]*\| 'basic'[\s\S]*\| 'mesProcess'[\s\S]*\| 'flow'[\s\S]*\| 'product'/,
+  'route form tab union must include basic, MES process, flow, and product tabs'
 )
 assertIncludes(
   routeFormContent,
@@ -47,16 +47,18 @@ assertIncludes(
   'create flow defaults to basic tab'
 )
 indexOfTabOrThrow(routeFormContent, '基础信息', 'basic')
+indexOfTabOrThrow(routeFormContent, 'MES 工序', 'mesProcess')
 indexOfTabOrThrow(routeFormContent, '流转关系图', 'flow')
 indexOfTabOrThrow(routeFormContent, '关联产品', 'product')
 assertIncludes(routeFormContent, 'v-if="formData.id"', 'dependent route tabs remain guarded by route id')
 
 const basicTabIndex = indexOfTabOrThrow(routeFormContent, '基础信息', 'basic')
+const mesProcessTabIndex = indexOfTabOrThrow(routeFormContent, 'MES 工序', 'mesProcess')
 const flowTabIndex = indexOfTabOrThrow(routeFormContent, '流转关系图', 'flow')
 const productTabIndex = indexOfTabOrThrow(routeFormContent, '关联产品', 'product')
 
-if (!(basicTabIndex < flowTabIndex && flowTabIndex < productTabIndex)) {
-  throw new Error('route tabs must keep basic -> flow before product')
+if (!(basicTabIndex < mesProcessTabIndex && mesProcessTabIndex < flowTabIndex && flowTabIndex < productTabIndex)) {
+  throw new Error('route tabs must keep basic -> MES process -> flow before product')
 }
 
 const formStartIndex = indexOfOrThrow(routeFormContent, '<el-form', 'form start')

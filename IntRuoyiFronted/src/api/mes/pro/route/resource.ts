@@ -15,6 +15,9 @@ export interface ProRouteResourceVO {
   processCode: string
   processName: string
   sort: number
+  batchRecordReportId?: string
+  batchRecordReportCode?: string
+  batchRecordReportName?: string
   workstationId?: number
   workstationCode?: string
   workstationName?: string

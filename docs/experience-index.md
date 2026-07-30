@@ -184,7 +184,7 @@
   - Read: `docs/release-build-preflight-lessons.md`
   - Gate: build-release 前检查内存余量；JVM native memory 失败必须冻结 hs_err 与内存快照，降低构建内存压力后重建新 releaseTag。
 - Keywords: prod-preflight-release, ProdDryRunEvidencePath, sanitized package workspace, Copy-Item, robocopy, shutil.copytree -> `docs/release-build-preflight-lessons.md`
-- Keywords: worktree remove failed, residual worktree directory, Invalid argument, Directory not empty, runtime-backend.err.log, Vite, esbuild, Java process locks residual worktree, Git registration absent physical directory exists, 8084 48084 pici cleanup -> `E:/IntRuoyi/docs/worktree-memory.md`
+- Keywords: worktree remove failed, residual worktree directory, Invalid argument, Directory not empty, runtime-backend.err.log, Vite, esbuild, Java process locks residual worktree, Git registration absent physical directory exists, pnpm node_modules 残留, robocopy empty mirror, 空目录镜像清空, 8084 48084 pici cleanup -> `E:/IntRuoyi/docs/worktree-memory.md`
 - Keywords: frozen release baseline, build start worktree commit, source HEAD drift after build, 不追逐后续提交 -> `docs/release-build-preflight-lessons.md`
 - Keywords: mes_pro_route_schedule_config conflict, route schedule config duplicate, 工序维度收敛, conflict guard -> `docs/release-build-preflight-lessons.md`
 - Keywords: Manifest v1 legacy release-manifest frontend commit, schema-specific manifest validation -> `docs/release-build-preflight-lessons.md`
@@ -242,7 +242,9 @@
 - Keywords: 测试管理 系统异常, codex-test-case/page code 500, system_codex_test_case.project, node_chain_name, node_chain_sort, node_chain_execution, 20260726_system_codex_test_case_project.sql, 20260727_system_codex_test_node_chain.sql, Codex 测试项分页缺字段 -> `docs/database-rules.md#测试管理-schema-迁移门禁`
 - Keywords: ERROR 1267, Illegal mix of collations, 临时表排序规则, 数据修复临时表, system_codex_test_case, utf8mb4_0900_ai_ci, 中文测试项种子 -> `docs/database-rules.md#数据修复临时表排序规则门禁`
 - Keywords: 时间轴重复行, 一对多 JOIN, 审核副本多条重复展开, 列表 pageSize 被子表挤占, GROUP BY tenant_id event_id, read model 聚合 -> `docs/database-rules.md#一对多读模型聚合门禁`
+- Keywords: MES工序 系统异常, route-resource page code 500, Missing route, Missing item, route_product 孤儿关联, 资源池只读列表, 工艺路线资源读模型, 只读资源池引用完整性 -> `docs/database-rules.md#只读资源池引用完整性门禁`
 - Keywords: system_menu.name 中文菜单名, MySQL 客户端字符集, mojibake, HEX(name), UNHEX, utf8mb4, Docker mysql stdin, 动态菜单运行态乱码 -> `docs/database-rules.md#中文菜单名称-ascii-安全迁移门禁`
+- Keywords: 工艺路线导入导出, export-import-xlsx, import-workbook-xlsx, 工艺路线导入导出 Excel, 工序BOM 工序编码 不能为空, process_id=0, route-random-bom-seed, 跨租户路线导入, 删除测试租户路线后导入 -> `docs/database-rules.md#工艺路线跨租户导入导出数据包完整性门禁`
 - Keywords: 个人工作台 系统异常, 待办任务加载失败, 隐藏任务状态, profile-workbench-task-visibility, hidden-keys, system_profile_workbench_task_visibility, 20260727_system_profile_workbench_task_visibility.sql -> `docs/database-rules.md#个人工作台隐藏任务状态迁移门禁`
 - Keywords: int_shedule local Docker dependencies, 23306, 26379, Docker MySQL Redis, branch local runtime dependency ports -> `docs/local-runtime.md#2026-07-25-分支本地运行复用-docker-依赖门禁`
 - Keywords: task-closeout status unknown, Current Status completed, cleanup preview apply, worktree Directory not empty -> `docs/release-build-preflight-lessons.md` and `E:\IntRuoyi\docs\worktree-memory.md`

@@ -20,6 +20,15 @@
 - Forbidden action: 禁止用前端去重、分页后去重、默认取第一条、隐藏重复行或修改 count 掩盖 SQL 口径错误。
 - Evidence: `doc/tasks/20260730-process-pool-f5-f6-implementation/execution-log.md`。
 
+### 只读资源池引用完整性门禁
+
+- Trigger: 资源池、MES 工序、工艺路线资源、报工映射等只读列表复用关系表组装跨主数据读模型，出现 `Missing route`、`Missing item`、`Missing process`、`Missing machinery` 或页面 `系统异常`。
+- Preflight check: 行组装前先收集关系表引用的正式主数据 ID，批量读取父表 map，并区分“全量只读资源池”与“指定对象详情/编辑”。全量只读资源池只能展示可解析到正式父表的数据；指定对象详情/编辑若缺正式父表必须 fail fast 并暴露缺失来源。
+- Blocker: 单条历史孤儿关系导致整页 500、分页 total/count 包含不可解析关系、在循环中直接 `require(parent)` 拖垮全量列表、或缺失父表来源被改成空名称/未知对象/默认成功时必须停止。
+- Verification: 新增回归测试或静态合同覆盖一条有效关系加一条孤儿关系时只读列表返回有效行；同时用登录态 API 和真实页面证明业务码为 `0`、表格有行、无 `系统异常`。
+- Forbidden action: 禁止直接 SQL 删除业务关系来掩盖读模型缺陷，禁止 catch 后返回空页，禁止前端隐藏 toast，禁止用“未知路线/未知产品”等默认文案替代正式主数据完整性。
+- Evidence: `doc/tasks/20260730-mes-process-mapping-tab/bug-regression-evidence.md`。
+
 ### 数据修复临时表排序规则门禁
 
 - Trigger: 数据修复、测试项种子、菜单/权限补齐等 SQL 使用临时表、字面量或用户变量与真实表字符列做 `JOIN`、`=`、`NOT EXISTS` 比较，尤其包含中文名称、权限字符串、表单名称、测试项名称。
@@ -64,6 +73,15 @@
 - Verification: 事务提交后再次检查并发进程和目标范围稳定值；若 E2E 在修复后启动，必须等其恢复完成后复验最终行数和业务字段，不能只记录事务瞬时成功。
 - Forbidden action: 禁止在外部恢复任务仍活跃时把一次删除成功宣称为最终完成；禁止扩大删除范围、循环强删或终止无归属依据的并发任务。
 - Evidence: `doc/tasks/20260727-delete-duplicate-fill-rules/execution-log.md`。
+
+### 工艺路线跨租户导入导出数据包完整性门禁
+
+- Trigger: 删除测试租户工艺路线后从其它租户导入、跨租户验证 `export-import-xlsx` / `import-workbook-xlsx`、或导入报 `工序BOM ... 工序编码 不能为空`、`工艺路线导入导出 Excel`。
+- Preflight check: 在清空目标租户前，先用源租户正式导出接口生成 Excel，并只读校验所有必需 Sheet 的必填字段；尤其核对 `工序BOM.工序编码` 非空，且源库 `mes_pro_route_product_bom.process_id` 能解析到同租户未删除的 `mes_pro_process`，必要时同时确认该工序属于当前路线工序集合。
+- Blocker: 导出工作簿任一必填字段为空、源 BOM `process_id` 为 `0/NULL` 或无法解析正式工序、源/目标主数据编码缺失、目标租户已清空但导入失败，必须停止并记录；不得继续宣称一致性已验证。
+- Verification: 记录源/目标租户 ID、导出文件路径和字节数、工作簿 Sheet 行数、源异常 BOM 明细、正式导入接口响应，以及失败后目标租户路线相关表是否出现部分写入。
+- Forbidden action: 禁止手工删除 Excel 中失败行、随机补工序编码、把 `process_id=0` 推断成首工序、改用 API-only 或直接 SQL 伪造导入成功；若目标已清空，不得擅自恢复或继续修改源数据，必须先让用户在“修复源数据后重试”和“按备份恢复目标租户”之间确认。
+- Evidence: `doc/tasks/20260730-route-tenant-export-import-consistency/execution-log.md`。
 
 ## 租户和菜单权限
 
