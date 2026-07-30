@@ -46,4 +46,6 @@
 - Final regression after shared commits:
   - `node tests\e2e\mes-pro-mes-process-readonly-static.spec.js` -> PASS。
   - `node tests\e2e\mes-route-mes-process-tab-static.spec.js` -> PASS。
+- Final closeout commit: `aeb379d39fd1a79026fdce3ab38a7ae78758d98a`。
+- Push: `git push origin int_main` -> PASS；推送后 `HEAD` 与 `origin/int_main` 均为 `aeb379d39fd1a79026fdce3ab38a7ae78758d98a`，分支不再 ahead。
 - Current status: completed。
