@@ -26,3 +26,21 @@
   - FIFO lock service exists: `MesProcessPoolFifoAllocationService#validateOriginalFieldMutationAllowed`.
 - BDD: F5 审核副本上下限修正 -> Given 工序池提交事件存在原始 payload 和正式上下限元数据 / When 审核用户生成审核副本 / Then 原始值保留，修正值按上下限生成，审核签名和来源可追溯。
 - BDD: F6 原始记录修改日志与重新签名 -> Given 工序池提交事件未 FIFO 分配 / When 员工提交修改原因和新电子签名修改原始记录 / Then 保存新版本、字段级 diff、修改原因、签名和服务端修改时间。
+
+## 2026-07-30 F6 Agent Execution
+
+- Agent scope: 仅在 `D:\IntRuoyiWorktree\20260730-process-pool-f6-event-revision`、分支 `codex/20260730-process-pool-f6-event-revision` 实现 F6；不修改 `E:\IntRuoyi`，不启动额外子 agent，不合并 `int_main`。
+- BDD: F6 未分配原始记录修改成功 -> Given 工序池提交事件存在原始 payload 且目标字段未 FIFO 分配 / When 员工提交修改原因、修改后 payload、字段映射和新的唯一电子签名 / Then 当前事件 raw_payload 更新，同时创建 revision 主表记录和字段级 diff。
+- BDD: F6 修改原因和新签名强校验 -> Given 工序池提交事件已有原始电子签名 / When 修改请求缺少原因、空白原因、缺新签名、复用原签名或复用已存在签名 / Then 拒绝修改，不更新 raw_payload，不创建有效 revision。
+- BDD: F6 FIFO 锁定强校验 -> Given 修改字段影响数量、质量或可分配状态 / When 对应数量片段已分配或无法确认数量片段锁定状态 / Then 拒绝修改，不默认未锁定，不生成有效 revision。
+- BDD: F6 时间轴只读摘要 -> Given 工序池提交事件发生过原始记录修改 / When 查询时间轴列表或详情 / Then 展示修改历史摘要，并且详情动作仍为只读。
+
+## 2026-07-30 Worktree And Agent Launch
+
+- Created worktree: `D:\IntRuoyiWorktree\20260730-process-pool-f5-review-copy`, branch `codex/20260730-process-pool-f5-review-copy`, HEAD `edeb5643`.
+- Reserved F5 runtime slot: profile `int_main`, slot `16`, frontend `8097`, backend `48097`.
+- Created worktree: `D:\IntRuoyiWorktree\20260730-process-pool-f6-event-revision`, branch `codex/20260730-process-pool-f6-event-revision`, HEAD `edeb5643`.
+- Reserved F6 runtime slot: profile `int_main`, slot `17`, frontend `8098`, backend `48098`.
+- Agent F5: `019fb085-0881-7753-a1f9-35aa6aba2af4`.
+- Agent F6: `019fb085-8654-74f2-b714-ddf013444f14`.
+- `show-branch-runtime.ps1` confirmed F5 `8097/48097` and F6 `8098/48098` when run from each worktree directory.

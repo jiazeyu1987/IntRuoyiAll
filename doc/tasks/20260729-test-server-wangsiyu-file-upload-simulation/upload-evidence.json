@@ -1,13 +1,13 @@
 {
   "taskId": "20260729-test-server-wangsiyu-file-upload-simulation",
-  "startedAt": "2026-07-29T15:43:31.297Z",
+  "startedAt": "2026-07-30T01:00:00.670Z",
   "baseUrl": "http://172.30.30.58:8081",
   "tenant": "芋道源码",
   "username": "wangsiyu",
   "sourceFilePath": "E:\\IntRuoyi\\doc\\tasks\\20260729-test-server-wangsiyu-file-upload-simulation\\input\\codex-upload-simulation-20260729.docx",
   "sourceFileName": "codex-upload-simulation-20260729.docx",
-  "fileName": "Codex file upload simulation 20260729154331296-472FE2",
-  "fileNumber": "CODEX-UPLOAD-20260729154331296-472FE2",
+  "fileName": "Codex file upload simulation 20260730010000669-7A7FAC",
+  "fileNumber": "CODEX-UPLOAD-20260730010000669-7A7FAC",
   "steps": [
     {
       "status": "PASS",
@@ -15,8 +15,8 @@
       "detail": {
         "authorized": true,
         "detection": {
-          "intrinsicOffset": 158,
-          "displayOffset": 203.8709677419355,
+          "intrinsicOffset": 250,
+          "displayOffset": 322.5806451612903,
           "backgroundWidth": 310,
           "displayedWidth": 400,
           "pieceBounds": {
@@ -27,36 +27,36 @@
           },
           "topCandidates": [
             {
-              "x": 158,
-              "score": 196.16019999999997
+              "x": 250,
+              "score": 224.95764
             },
             {
-              "x": 160,
-              "score": 193.96120000000008
+              "x": 252,
+              "score": 224.51601000000014
             },
             {
-              "x": 157,
-              "score": 129.21098999999998
+              "x": 249,
+              "score": 144.56303000000003
             },
             {
-              "x": 161,
-              "score": 112.99567999999995
+              "x": 253,
+              "score": 126.51597999999998
             },
             {
-              "x": 159,
-              "score": 100.22676000000001
+              "x": 94,
+              "score": 119.79793999999998
             },
             {
-              "x": 156,
-              "score": 86.40066
+              "x": 93,
+              "score": 119.40181999999999
             },
             {
-              "x": 162,
-              "score": 77.32400999999999
+              "x": 251,
+              "score": 116.32271000000004
             },
             {
-              "x": 155,
-              "score": 73.70378000000004
+              "x": 95,
+              "score": 111.44512999999995
             }
           ]
         },
@@ -64,7 +64,7 @@
         "repCode": "0000",
         "repMsg": null
       },
-      "at": "2026-07-29T15:43:34.270Z"
+      "at": "2026-07-30T01:00:03.791Z"
     },
     {
       "status": "PASS",
@@ -72,131 +72,7 @@
       "detail": {
         "url": "http://172.30.30.58:8081/dcc/controlled-file/upload"
       },
-      "at": "2026-07-29T15:43:35.591Z"
-    },
-    {
-      "status": "PASS",
-      "step": "temporary-upload-permission-granted",
-      "detail": {
-        "categoryId": 906104,
-        "categoryName": "其他",
-        "subjectType": "USER",
-        "subjectId": 910250,
-        "actionType": "UPLOAD",
-        "temporary": true,
-        "restorePlanned": true
-      },
-      "at": "2026-07-29T15:43:36.688Z"
-    },
-    {
-      "status": "PASS",
-      "step": "read-only-preflight",
-      "detail": {
-        "profile": {
-          "id": 910250,
-          "username": "wangsiyu",
-          "nickname": "王思雨",
-          "roles": [
-            {
-              "id": 910233,
-              "name": "文控"
-            },
-            {
-              "id": 910234,
-              "name": "文控下载"
-            },
-            {
-              "id": 910295,
-              "name": "审批中心入口"
-            }
-          ]
-        },
-        "hasCategoryManagePermission": true,
-        "hasControlledFileSubmitPermission": true,
-        "category": {
-          "id": 906104,
-          "code": "DCC_OTHER_TEMPLATE_900250",
-          "name": "其他",
-          "directoryId": 908991,
-          "canUpload": true
-        },
-        "approvalRoute": {
-          "id": 913806,
-          "versionNo": 4,
-          "nodeCount": 9
-        },
-        "project": {
-          "id": 129,
-          "projectName": "按压式球囊扩充压力泵",
-          "projectCode": "IDI",
-          "docControlNo": "1"
-        },
-        "taxonomyPath": [
-          {
-            "id": 1,
-            "name": "技术文档"
-          },
-          {
-            "id": 9,
-            "name": "注册资料汇编"
-          },
-          {
-            "id": 64,
-            "name": "其它"
-          }
-        ]
-      },
-      "at": "2026-07-29T15:43:36.883Z"
-    },
-    {
-      "status": "PASS",
-      "step": "select-dcc-project",
-      "detail": {
-        "text": "按压式球囊扩充压力泵 · IDI · 1"
-      },
-      "at": "2026-07-29T15:43:37.800Z"
-    },
-    {
-      "status": "PASS",
-      "step": "select-taxonomy-node",
-      "detail": {
-        "text": "技术文档"
-      },
-      "at": "2026-07-29T15:43:38.231Z"
-    },
-    {
-      "status": "PASS",
-      "step": "select-taxonomy-node",
-      "detail": {
-        "text": "注册资料汇编"
-      },
-      "at": "2026-07-29T15:43:38.460Z"
-    },
-    {
-      "status": "PASS",
-      "step": "select-taxonomy-node",
-      "detail": {
-        "text": "其它"
-      },
-      "at": "2026-07-29T15:43:38.696Z"
-    },
-    {
-      "status": "PASS",
-      "step": "taxonomy-selected",
-      "detail": {
-        "selectedText": "技术文档 / 注册资料汇编 / 其它"
-      },
-      "at": "2026-07-29T15:43:39.218Z"
-    },
-    {
-      "status": "PASS",
-      "step": "temporary-upload-permission-restored",
-      "detail": {
-        "categoryId": 906104,
-        "categoryName": "其他",
-        "restored": true
-      },
-      "at": "2026-07-29T15:46:39.684Z"
+      "at": "2026-07-30T01:00:05.105Z"
     }
   ],
   "writeRequests": [
@@ -215,14 +91,6 @@
     {
       "method": "POST",
       "path": "/system/captcha/check"
-    },
-    {
-      "method": "PUT",
-      "path": "/dcc/file-categories/906104/permission-rules"
-    },
-    {
-      "method": "PUT",
-      "path": "/dcc/file-categories/906104/permission-rules"
     }
   ],
   "consoleErrors": [],
@@ -231,8 +99,8 @@
   "captcha": {
     "authorized": true,
     "detection": {
-      "intrinsicOffset": 158,
-      "displayOffset": 203.8709677419355,
+      "intrinsicOffset": 250,
+      "displayOffset": 322.5806451612903,
       "backgroundWidth": 310,
       "displayedWidth": 400,
       "pieceBounds": {
@@ -243,51 +111,42 @@
       },
       "topCandidates": [
         {
-          "x": 158,
-          "score": 196.16019999999997
+          "x": 250,
+          "score": 224.95764
         },
         {
-          "x": 160,
-          "score": 193.96120000000008
+          "x": 252,
+          "score": 224.51601000000014
         },
         {
-          "x": 157,
-          "score": 129.21098999999998
+          "x": 249,
+          "score": 144.56303000000003
         },
         {
-          "x": 161,
-          "score": 112.99567999999995
+          "x": 253,
+          "score": 126.51597999999998
         },
         {
-          "x": 159,
-          "score": 100.22676000000001
+          "x": 94,
+          "score": 119.79793999999998
         },
         {
-          "x": 156,
-          "score": 86.40066
+          "x": 93,
+          "score": 119.40181999999999
         },
         {
-          "x": 162,
-          "score": 77.32400999999999
+          "x": 251,
+          "score": 116.32271000000004
         },
         {
-          "x": 155,
-          "score": 73.70378000000004
+          "x": 95,
+          "score": 111.44512999999995
         }
       ]
     },
     "httpStatus": 200,
     "repCode": "0000",
     "repMsg": null
-  },
-  "permissionGrant": {
-    "categoryId": 906104,
-    "categoryName": "其他",
-    "subjectType": "USER",
-    "subjectId": 910250,
-    "actionType": "UPLOAD",
-    "temporary": true,
-    "restorePlanned": true
   },
   "preflightDiagnostics": {
     "profile": {
@@ -319,7 +178,7 @@
         "code": "DCC_OTHER_TEMPLATE_900250",
         "name": "其他",
         "directoryId": 908991,
-        "canUpload": true
+        "canUpload": false
       }
     ],
     "routeChecks": [
@@ -327,77 +186,20 @@
         "categoryId": 906104,
         "categoryCode": "DCC_OTHER_TEMPLATE_900250",
         "categoryName": "其他",
-        "canUpload": true,
+        "canUpload": false,
         "routeCount": 4,
         "activeRouteId": 913806,
         "activeRouteNodeCount": 9,
+        "uploadPolicyOk": false,
+        "uploadPolicy": null,
+        "uploadPolicyError": "GET /dcc/protection/upload-size-policies/effective?categoryId=906104&purpose=SOURCE&fileSize=36872 failed",
         "error": null
       }
     ],
     "projectCount": 50,
     "taxonomyCount": 67
   },
-  "preflight": {
-    "profile": {
-      "id": 910250,
-      "username": "wangsiyu",
-      "nickname": "王思雨",
-      "roles": [
-        {
-          "id": 910233,
-          "name": "文控"
-        },
-        {
-          "id": 910234,
-          "name": "文控下载"
-        },
-        {
-          "id": 910295,
-          "name": "审批中心入口"
-        }
-      ]
-    },
-    "hasCategoryManagePermission": true,
-    "hasControlledFileSubmitPermission": true,
-    "category": {
-      "id": 906104,
-      "code": "DCC_OTHER_TEMPLATE_900250",
-      "name": "其他",
-      "directoryId": 908991,
-      "canUpload": true
-    },
-    "approvalRoute": {
-      "id": 913806,
-      "versionNo": 4,
-      "nodeCount": 9
-    },
-    "project": {
-      "id": 129,
-      "projectName": "按压式球囊扩充压力泵",
-      "projectCode": "IDI",
-      "docControlNo": "1"
-    },
-    "taxonomyPath": [
-      {
-        "id": 1,
-        "name": "技术文档"
-      },
-      {
-        "id": 9,
-        "name": "注册资料汇编"
-      },
-      {
-        "id": 64,
-        "name": "其它"
-      }
-    ]
-  },
   "status": "BLOCKED",
-  "blocker": "locator.waitFor: Timeout 180000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.el-select-dropdown__item:visible').filter({ hasText: '其他' }).first() to be visible\u001b[22m\n",
-  "permissionGrantRestored": {
-    "categoryId": 906104,
-    "categoryName": "其他",
-    "restored": true
-  },
-  "finishedAt": "2026-07-29T15:46:39.685Z"
+  "blocker": "no uploadable category with an active approval route: {\"profile\":{\"id\":910250,\"username\":\"wangsiyu\",\"nickname\":\"王思雨\",\"roles\":[{\"id\":910233,\"name\":\"文控\"},{\"id\":910234,\"name\":\"文控下载\"},{\"id\":910295,\"name\":\"审批中心入口\"}]},\"hasCategoryManagePermission\":true,\"hasControlledFileSubmitPermission\":true,\"totalCategoryCount\":60,\"uploadableCategoryCount\":1,\"uploadableCategories\":[{\"id\":906104,\"code\":\"DCC_OTHER_TEMPLATE_900250\",\"name\":\"其他\",\"directoryId\":908991,\"canUpload\":false}],\"routeChecks\":[{\"categoryId\":906104,\"categoryCode\":\"DCC_OTHER_TEMPLATE_900250\",\"categoryName\":\"其他\",\"canUpload\":false,\"routeCount\":4,\"activeRouteId\":913806,\"activeRouteNodeCount\":9,\"uploadPolicyOk\":false,\"uploadPolicy\":null,\"uploadPolicyError\":\"GET /dcc/protection/upload-size-policies/effective?categoryId=906104&purpose=SOURCE&fileSize=36872 failed\",\"error\":null}],\"projectCount\":50,\"taxonomyCount\":67}",
+  "finishedAt": "2026-07-30T01:00:06.182Z"
 }

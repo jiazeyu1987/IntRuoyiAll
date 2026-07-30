@@ -1,8 +1,8 @@
 {
   "task_id": "20260730-process-pool-f5-f6-implementation",
   "goal": "启动2个子agent分别在2个worktree里实现并验证F5/F6文档内容，主agent review后合并进int_main",
-  "status": "planning",
-  "current_stage": "analysis",
+  "status": "executing",
+  "current_stage": "execution",
   "planner_review_status": "approved",
   "plan_review_status": "approved",
   "blocking_prereqs": [],
@@ -16,7 +16,7 @@
     {
       "task_id": "T1",
       "title": "F5 审核副本上下限修正",
-      "status": "pending",
+      "status": "in_progress",
       "dependency_ids": [],
       "write_scope": [
         "IntRuoyiBackend/yudao-module-mes",
@@ -31,13 +31,13 @@
         "AC-05",
         "AC-10"
       ],
-      "owner_agent": "",
-      "last_outcome": ""
+      "owner_agent": "019fb085-0881-7753-a1f9-35aa6aba2af4",
+      "last_outcome": "F5 worktree created at D:\\IntRuoyiWorktree\\20260730-process-pool-f5-review-copy, slot 16, ports 8097/48097"
     },
     {
       "task_id": "T2",
       "title": "F6 原始记录 revision 与重新电子签名",
-      "status": "pending",
+      "status": "in_progress",
       "dependency_ids": [],
       "write_scope": [
         "IntRuoyiBackend/yudao-module-mes",
@@ -51,10 +51,9 @@
         "AC-09",
         "AC-10"
       ],
-      "owner_agent": "",
-      "last_outcome": ""
+      "owner_agent": "019fb085-8654-74f2-b714-ddf013444f14",
+      "last_outcome": "F6 worktree created at D:\\IntRuoyiWorktree\\20260730-process-pool-f6-event-revision, slot 17, ports 8098/48098"
     }
   ],
-  "updated_at": "2026-07-30T00:00:00+08:00"
+  "updated_at": "2026-07-30T08:55:00+08:00"
 }
-

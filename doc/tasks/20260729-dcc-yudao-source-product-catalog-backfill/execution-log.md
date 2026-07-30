@@ -31,4 +31,5 @@
 
 ## Cleanup
 
-- pending
+- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-dcc-yudao-source-product-catalog-backfill --mode preview` -> ready; keep task records/evidence; delete none; blocked none.
+- `python -X utf8 C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260729-dcc-yudao-source-product-catalog-backfill --mode apply` -> applied; delete none; blocked none.
