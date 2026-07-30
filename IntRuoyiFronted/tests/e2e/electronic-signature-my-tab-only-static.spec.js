@@ -10,7 +10,7 @@ const permissionSource = readText('src/store/modules/permission.ts')
 
 assert.match(
   pageSource,
-  /const signatureGovernanceAdminTabs = \[[\s\S]*'signature-records'[\s\S]*'policy'[\s\S]*\]/,
+  /const signatureGovernanceAdminTabs(?::\s*ActiveTab\[\])?\s*=\s*\[[\s\S]*'signature-records'[\s\S]*'policy'[\s\S]*\]/,
   'management/governance tabs must be modeled as a positive admin-only tab set'
 )
 assert.match(

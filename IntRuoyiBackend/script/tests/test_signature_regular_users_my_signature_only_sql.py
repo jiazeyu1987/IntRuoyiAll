@@ -33,7 +33,9 @@ def test_regular_roles_keep_only_root_and_my_signature() -> None:
     assert "900218" in sql
     assert "900418" in sql
     assert "900411" in sql
-    assert "role.code NOT IN ('electronic_signature_admin', 'audit_admin', 'super_admin')" in sql
+    assert "LEFT JOIN tmp_signature_admin_role_code admin_role" in sql
+    assert "admin_role.role_code = role.code" in sql
+    assert "admin_role.role_code IS NULL" in sql
     assert "role_menu.deleted = b'1'" in sql
     assert "role_menu.deleted = b'0'" in sql
     assert "role_menu.menu_id NOT IN (SELECT menu_id FROM tmp_signature_regular_allowed_menu)" in sql

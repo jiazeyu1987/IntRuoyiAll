@@ -168,6 +168,13 @@ const resolveSignatureGovernanceRedirect = (
   dynamicChildren: AppRouteRecordRaw[],
   currentRedirect: AppRouteRecordRaw['redirect']
 ) => {
+  if (
+    dynamicChildren.length === 1 &&
+    normalizeComparableRoutePath(getRoutePath(dynamicChildren[0])) === SIGNATURE_MY_SIGNATURE_ROUTE_PATH
+  ) {
+    return `${SIGNATURE_GOVERNANCE_ROUTE_PATH}/${SIGNATURE_MY_SIGNATURE_ROUTE_PATH}`
+  }
+
   const firstAuthorizedChildRedirect = dynamicChildren
     .map((dynamicChild) => resolveSignatureGovernanceChildRedirect(dynamicChild))
     .find((routePath) => !!routePath)
