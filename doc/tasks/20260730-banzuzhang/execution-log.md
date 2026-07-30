@@ -55,6 +55,10 @@
 - Push: `git push origin codex/20260730-banzuzhang` -> PASS；branch runtime port guard 通过，远端分支已创建并跟踪 `origin/codex/20260730-banzuzhang`，`HEAD=origin/codex/20260730-banzuzhang=1f4f43f6`。
 - Latest cleanup preview after push: `task_closeout.py --mode preview` -> BLOCKED，当前主工作区 `E:\IntRuoyi` 已被并行任务更新为 `int_main...origin/int_main [ahead 1]`，且存在 `M IntRuoyiFronted/src/router/modules/remaining.ts`、`M doc/tasks/20260730-route-admin-list-layout-unification/{task.md,execution-log.md,verification-report.md}`、`?? IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchPageGraphPage.vue`；因此当前分支不能安全 ff-only 合并进主工作区，也不能删除 worktree。
 - Closeout blocker refresh: 收尾文档改为稳定 blocker 口径，不再绑定瞬时并行文件清单；当前阻塞条件为主工作区 `E:\IntRuoyi` 的 `int_main` 存在本地 ahead 提交和未清理工作区改动，不满足 task-closeout-cleanup 的 ff-only merge / worktree removal 前置条件。
+- Closeout sync: `git merge int_main` -> PASS，生成 `3225bc70 Merge branch 'int_main' into codex/20260730-banzuzhang`，无冲突；合入后 `git merge-base --is-ancestor int_main HEAD` -> PASS。
+- Push gate: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`frontend 8098`、`backend 48098`。
+- Push blocker: `git push origin codex/20260730-banzuzhang` -> FAIL，原因 `fatal: unable to access 'https://github.com/jiazeyu1987/IntRuoyiAll.git/': Recv failure: Connection was reset`。
+- Push retry blocker: 第二次 `git push origin codex/20260730-banzuzhang` -> FAIL，同样为 `Recv failure: Connection was reset`；当前 `git status --short --branch` 为 `codex/20260730-banzuzhang...origin/codex/20260730-banzuzhang [ahead 11]`，按完成门禁不能继续 cleanup apply / ff-only merge / worktree removal。
 
 ## Evidence Files
 

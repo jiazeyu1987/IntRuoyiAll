@@ -2,7 +2,7 @@
 
 ## Current Result
 
-ready_for_closeout；implementation verified and committed；cleanup apply blocked by unrelated dirty main worktree.
+ready_for_closeout；implementation verified and committed；current branch locally merged with latest local `int_main` for ff-only closeout, but remote push is blocked by repeated connection reset.
 
 ## Evidence
 
@@ -26,9 +26,11 @@ ready_for_closeout；implementation verified and committed；cleanup apply block
 - Real Playwright page smoke: 登录 `芋道源码/admin`，切换 `提交看板/异常上报/班组维护/PQC 班组长`，目标提交看板 API HTTP 200 且业务 `code=0`，无控制台 error；截图 `output\playwright\20260730-banzuzhang\team-leader-workbench-smoke.png`。
 - Experience consolidation: 已合并到 `docs\e2e-rules.md` 与 `docs\experience-index.md`。
 - Implementation commit: `368ef63c feat: add process pool team leader workbench`，已 rebase 到 `int_main` `9f84a797` 后。
-- Push: `origin/codex/20260730-banzuzhang` 已创建并同步。
-- Cleanup preview: keep 列表保留核心任务文档和 evidence，delete 为 `<none>`；apply 阻塞在主工作区 `E:\IntRuoyi` 的无关并行改动，当前主工作区 `int_main` 存在本地 ahead 提交和未清理工作区改动，不能执行 ff-only merge / worktree removal。
+- Prior push: `origin/codex/20260730-banzuzhang` 已创建并同步到 `ed2b9a5d`。
+- Closeout sync: `git merge int_main` -> PASS，当前 HEAD 为 `3225bc70 Merge branch 'int_main' into codex/20260730-banzuzhang`，且 `git merge-base --is-ancestor int_main HEAD` -> PASS。
+- Push blocker: `git push origin codex/20260730-banzuzhang` 连续两次失败，错误均为 `Recv failure: Connection was reset`；当前分支为 `ahead 11`，未满足完成门禁。
 
 ## Pending Verification
 
-- cleanup apply、ff-only merge 和 worktree removal：等待主工作区无关脏目录处理后执行。
+- 远端推送：等待 GitHub/网络连接恢复后重新执行 `git push origin codex/20260730-banzuzhang`。
+- cleanup apply、ff-only merge 和 worktree removal：仅在任务分支成功推送、cleanup preview 无 blocker 后执行。

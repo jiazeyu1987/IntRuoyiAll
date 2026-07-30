@@ -29,7 +29,7 @@
 
 ## Current Status
 
-ready_for_closeout；F9/F10 后端、前端、SQL 迁移门禁、静态验证、真实 Playwright 只读页面冒烟和经验沉淀均已完成。当前分支已推送到 `origin/codex/20260730-banzuzhang`。cleanup apply 仍被主工作区 `E:\IntRuoyi` 的无关并行改动阻塞：主工作区 `int_main` 存在本地 ahead 提交和未清理工作区改动，不满足 task-closeout-cleanup 的 ff-only merge / worktree removal 前置条件。
+ready_for_closeout；F9/F10 后端、前端、SQL 迁移门禁、静态验证、真实 Playwright 只读页面冒烟和经验沉淀均已完成。为满足 ff-only 收尾门禁，当前分支已将本地 `int_main` 合入并生成 `3225bc70 Merge branch 'int_main' into codex/20260730-banzuzhang`，`git merge-base --is-ancestor int_main HEAD` 已通过。当前 closeout 阻塞在远端推送前置条件：`git push origin codex/20260730-banzuzhang` 连续两次失败，错误均为 `Recv failure: Connection was reset`，因此分支仍为 `ahead 11`，不能执行 cleanup apply、ff-only merge 或 worktree removal。
 
 ## Worktree / Runtime
 
