@@ -87,6 +87,7 @@
 - 前端页面 / 表格 / 样式：`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
 - Keywords: Vite import-analysis Failed to resolve import / controlled-file/logs/index.vue / 前端源码 logs 目录被 .gitignore logs/ 忽略 / git check-ignore -> `docs/frontend-development.md#前端源码目录与-gitignore-门禁`
 - Keywords: 既有大契约先失败, 最小静态契约, 专用 static.spec.js, 当前需求 RED/GREEN, 无关 ts:check blocker -> `docs/frontend-development.md#前端静态契约隔离门禁`
+- Keywords: 表头排序, Element Plus sort-change, UnifiedListTemplate sortState, sortColumnAttrs, 服务端分页排序, sortField, sortOrder, 空单元格排序, 降序空值最后, Mapper 白名单排序, 空值标记表达式 -> `docs/frontend-development.md#前端服务端分页排序链路门禁`
 - Keywords: 截图字号调整, 文字大小, 字号, 放大 2 倍, 缩小一半, 卡片内文字, Element Plus 泛选择器, 先改静态契约 RED, 字号静态契约 -> `docs/frontend-development.md#前端截图字号调整静态契约门禁`
 - Keywords: 只显示, 仅展示, 有效历史, 已生效历史版本, 版本列表, 状态列表, 候选版本, 取消的不显示, effective-only, ACTIVE SUPERSEDED, DRAFT CANCELLED, 只排除一个状态, `!== 'CANCELLED'` -> `docs/frontend-development.md#前端列表状态口径完整性门禁`
 - Keywords: 不同浏览器列表显示不同, 不同账号列不同, admin 默认布局, 显示字段, 用户列配置, useUserTableColumns, data-user-table-key, table key 升级, 历史列配置覆盖默认列, 权限按钮差异 -> `docs/frontend-development.md#前端列表跨账号默认列布局统一门禁`
@@ -254,6 +255,7 @@
 - Keywords: task-closeout runtime log lock, PermissionError WinError 32, runtime-control-main err log, long-running process log under task dir -> `docs/release-build-preflight-lessons.md#2026-07-13-task-closeout-长运行进程日志目录门禁`
 - Keywords: 验收范围变更, 完成门禁变更, 取消全量回归, MES 全量测试不作为门禁, 只跑定向测试, 开发文档和测试计划列出的内容, Expected Verification, 不把未运行全量写成通过 -> `docs/task-closeout-rules.md#验收范围变更门禁`
 - Keywords: Cleanup Keep, doc/tasks/**/*.cjs, cleanup keep 反引号, keep 路径内联说明, task_closeout preview delete, 验证脚本保留 -> `docs/task-closeout-rules.md#任务验证脚本保留门禁`
+- Keywords: database-schema-evidence, backend-api-evidence, frontend-feature-evidence, evidence validator, task-closeout-cleanup 删除 evidence, verification-report 保留 PASS, 技能证据文件清理前归档 -> `docs/task-closeout-rules.md#技能证据文件清理前归档门禁`
 - Keywords: release-info CRLF, releaseInfoTagOk false, console-error-string-parser, Errors: 0, Warnings: 0, residual-release-worktree-root, r260713j physical root -> `docs/release-build-preflight-lessons.md#2026-07-13-release-info-与运行控制台验收解析门禁` and `docs/release-build-preflight-lessons.md#2026-07-13-release-worktree-物理根目录复核门禁`
 - Keywords: release-info Git 变更, release-info Codex 摘要, Codex 普通人能读懂, 版本变更说明最多 10 条, gitChanges, previousCommit..currentCommit, 上一版本 Git 差异, Codex summary output, summaryGenerator -> `docs/release-build-preflight-lessons.md#2026-07-27-release-info-用户可见-codex-git-摘要门禁`
 - Keywords: Write-FrontendReleaseInfo 重复定义, release-info 重复写入, PowerShell 同名函数, 发布脚本旧分支合并 -> `docs/release-build-preflight-lessons.md#2026-07-27-release-info-用户可见-codex-git-摘要门禁`
