@@ -34,8 +34,10 @@ PASS，工艺路线列表已统一为“芋道源码 / admin”默认列布局�
 - 未执行远程环境操作。
 - 未覆盖并行版本弹窗改动或调度工作台任务文档。
 
-## Remaining Closeout
+## Closeout
 
-- 运行经验沉淀和 task-closeout-cleanup。
-- 选择性暂存本任务文件并提交。
-- 处理当前分支与 `origin/int_main` 的 ahead/behind 后推送；推送未完成前不得标记 `completed`。
+- 经验沉淀、cleanup、实现提交、远端合并和合并后复验均已完成。
+- 实现提交：`c786123f`。
+- 远端合并提交：`79040df4`。
+- 合并后复验：目标静态合同、相邻合同、全局列配置合同、`pnpm ts:check`、Chrome/Edge 真实只读 E2E 均 PASS。
+- 当前任务状态：`completed`。

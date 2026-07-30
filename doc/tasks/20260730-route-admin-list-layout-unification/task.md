@@ -10,7 +10,7 @@
 2. `completed`：编写 RED 静态合同，锁定统一字段集合和权限边界。
 3. `completed`：实现 admin 默认字段布局并升级列表配置 key，保留后续个人字段配置能力。
 4. `completed`：运行目标静态合同、相邻列配置合同、TypeScript 类型检查和 Chrome/Edge 真实只读 E2E。
-5. `in_progress`：完成经验沉淀、cleanup、选择性提交和推送。
+5. `completed`：完成经验沉淀、cleanup、选择性提交、远端合并、复验和推送前收尾。
 
 ## Expected Verification
 
@@ -34,7 +34,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 

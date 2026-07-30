@@ -51,8 +51,14 @@ BDD: 权限边界保持不变 -> Given 普通用户缺少导入、导出、复�
 - 2026-07-30：task-closeout-cleanup preview -> PASS，仅计划删除 `frontend-feature-evidence.md`，保留三个核心任务文档，无 blocked/warnings。
 - 2026-07-30：task-closeout-cleanup apply -> PASS，已删除任务期辅助证据文件，未删除源码、测试或并行任务产物。
 - 2026-07-30：提交前复核显示并行任务继续修改后端、eDHR 前端和路线版本任务文档；本任务共享文件 `route/index.vue`、`mes-route-list-edit-create-candidate-static.spec.js` 的未提交 diff 均只包含本任务布局 hunk，可按显式路径暂存。
+- 2026-07-30：实现提交 `c786123f` -> PASS，仅包含本任务 9 个文件。
+- 2026-07-30：提交后并行残余改动分别基线保存为 `b4bb76b1`、`c13498a1`、`4d17773d`，避免混入本任务提交；并行调度任务另有完成提交 `9f84a797`。
+- 2026-07-30：`git merge --no-edit origin/int_main` -> PASS，merge commit `79040df4`，无冲突。
+- 2026-07-30：远端合并后复验 `node tests/e2e/mes-route-admin-list-layout-static.spec.js`、`node tests/e2e/mes-route-list-edit-create-candidate-static.spec.js`、`node tests/e2e/user-table-column-config-static.spec.js`、`pnpm ts:check`、`node tests/e2e/mes-route-admin-list-layout-real.e2e.js` -> 全部 PASS。
+- 2026-07-30：任务 closeout 文档更新为 `completed`，待最终 closeout commit 后推送 `origin int_main`。
 
-## Blockers
+## Closeout
 
-- 当前分支 `int_main` 已领先 `origin/int_main` 15 个提交、落后 8 个提交，且存在多项并行未提交改动；提交和推送阶段需按共享分支门禁单独处理。
-- 基线提交后又出现 `doc/tasks/20260730-scheduler-workbench-full-package-tenant-policy/` 并行文档改动；本任务不得暂存或修改这些文件。
+- 原 ahead/behind 已通过合并 `origin/int_main` 解决，合并后本任务关键验证全部通过。
+- 本任务没有未解决 blocker。
+- 最终推送前工作区仅包含本任务 closeout 文档改动。
