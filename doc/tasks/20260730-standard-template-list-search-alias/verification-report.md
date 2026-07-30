@@ -30,3 +30,19 @@
 ## Remaining Risk
 
 - 当前分支存在并行提交和非本任务脏改动；本任务未执行提交/推送，避免扩大变更范围。
+
+## Cleanup Evidence
+
+- PASS：task-closeout-cleanup preview/apply 均通过。
+- 删除：`output/playwright/20260730-standard-template-list-search-alias`。
+- 保留：`task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`、`migration-policy-gate.json`。
+- PASS：bug regression evidence contract validation。
+
+## Closeout Blocker
+
+- 当前共享分支为 `int_main...origin/int_main [ahead 14, behind 8]`，并存在非本任务脏改动；本任务停在 `ready_for_closeout`，不执行提交/推送。
+
+## Experience Evidence
+
+- PASS：复发经验已合并至 `docs/frontend-development.md#动态菜单页签重命名门禁`。
+- PASS：`docs/experience-index.md` 已加入可检索关键词。

@@ -2,6 +2,8 @@ package cn.iocoder.yudao.module.mes.service.pro.schedulerworkbench;
 
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
+import cn.iocoder.yudao.framework.tenant.core.db.TenantBaseDO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchManualReplanDataImportRespVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.cal.holiday.MesCalHolidayDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.cal.plan.MesCalPlanDO;
@@ -200,6 +202,7 @@ public class MesProSchedulerWorkbenchManualReplanDataPackageServiceImpl
     public MesProSchedulerWorkbenchManualReplanDataImportRespVO importPackage(byte[] content) {
         ManualReplanDataPackage payload = parsePayload(content);
         validatePayload(payload);
+        rewriteTenantScopedRows(payload);
 
         int masterDataCount = 0;
         masterDataCount += upsertRows(itemMapper, payload.getItems(), "物料主数据");
@@ -304,6 +307,35 @@ public class MesProSchedulerWorkbenchManualReplanDataPackageServiceImpl
     private void requireList(List<?> rows, String fieldName) {
         if (rows == null) {
             throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "手动重排数据包缺少 " + fieldName);
+        }
+    }
+
+    private void rewriteTenantScopedRows(ManualReplanDataPackage payload) {
+        rewriteTenantRows(payload.getItems(), payload.getProcesses(), payload.getRoutes(),
+                payload.getRouteVersions(), payload.getRouteProducts(), payload.getRouteProcesses(),
+                payload.getRouteProcessFlowEdges(), payload.getRouteFlowConfigs(),
+                payload.getRouteFlowProcessConfigs(), payload.getRouteFlowProcessBatchRecords(),
+                payload.getRouteScheduleConfigs(), payload.getProductionLines(), payload.getWorkstations(),
+                payload.getWorkstationMachines(), payload.getWorkstationWorkers(), payload.getCalendarPlans(),
+                payload.getCalendarPlanShifts(), payload.getCalendarHolidays(), payload.getScheduleCalendarRules(),
+                payload.getCapacityPlans(), payload.getCapacityActuals(), payload.getMaterialStocks(),
+                payload.getWorkOrders(), payload.getScheduleOrders(), payload.getScheduleOrderProcesses(),
+                payload.getProductionMaterialLists(), payload.getTasks(), payload.getTaskScheduleExts(),
+                payload.getTaskDependencies(), payload.getFeedbacks(), payload.getScheduleIssues(),
+                payload.getScheduleOrderOperationLogs(), payload.getReplanExplanationSnapshots());
+    }
+
+    private void rewriteTenantRows(List<?>... rowGroups) {
+        Long targetTenantId = null;
+        for (List<?> rows : rowGroups) {
+            for (Object row : rows) {
+                if (row instanceof TenantBaseDO tenantRow) {
+                    if (targetTenantId == null) {
+                        targetTenantId = TenantContextHolder.getRequiredTenantId();
+                    }
+                    tenantRow.setTenantId(targetTenantId);
+                }
+            }
         }
     }
 

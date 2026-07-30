@@ -22,7 +22,8 @@ for (const fragment of [
   'timeout: SCHEDULER_WORKBENCH_IMPORT_TIMEOUT',
   'replanMasterDataCount: number',
   'replanScheduleOrderDataCount: number',
-  'replanRuntimeDataCount: number'
+  'replanRuntimeDataCount: number',
+  'policySettingsCount: number'
 ]) {
   assert.ok(apiSource.includes(fragment), `missing scheduler workbench import timeout contract: ${fragment}`)
 }
@@ -41,7 +42,8 @@ assert.match(
 for (const fragment of [
   '手动重排主数据 ${result.replanMasterDataCount} 条',
   '排产工单数据 ${result.replanScheduleOrderDataCount} 条',
-  '运行态数据 ${result.replanRuntimeDataCount} 条'
+  '运行态数据 ${result.replanRuntimeDataCount} 条',
+  '策略设置 ${result.policySettingsCount} 条'
 ]) {
   assert.ok(pageSource.includes(fragment), `full config import message must include replan count: ${fragment}`)
 }

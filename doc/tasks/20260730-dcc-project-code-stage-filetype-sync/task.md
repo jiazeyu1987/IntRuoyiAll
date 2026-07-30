@@ -28,7 +28,7 @@
 
 ## Current Status
 
-blocked
+in_progress
 
 ## Blocked Reason
 
@@ -37,6 +37,7 @@ blocked
 - `测试租户/aoteman`：登录、`doc_control` 角色和 DCC 查询/更新权限均通过；项目代码 124 个，候选文件 1 个；但启用且绑定 `fileTypeTaxonomyId` 的类别规则数量为 0，无法按类别规则映射目标阶段/文件类型。
 - `芋道源码/admin`：类别规则完整，启用且绑定 `fileTypeTaxonomyId` 的类别 60 条，阶段分布为 `INPUT=7, PLAN=3, OUTPUT=25, VERIFICATION=5, VALIDATION=12, TRANSFER=8`；项目代码 117 个，候选项目 93 个，候选文件 15028 个；但该登录用户不具备 `doc_control` 角色，`/dcc/controlled-files/batch-recognition/tasks/latest?recognitionType=FILE_CATEGORY` 返回 403。
 - `芋道源码` 租户已只读确认存在 `doc_control` 角色，分配用户为 `wangsiyu`、`zhaohaichen`；本任务没有这些账号凭据，且不允许修改角色或绕过 `@ss.hasRole('doc_control')`。
+- 用户已补充 `芋道源码/zhaohaichen` 凭据；本任务重新进入执行态，仅通过正式 API 复核并继续，不记录密码。
 
 ## Authorization Scope
 

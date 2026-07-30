@@ -10,6 +10,8 @@
 - [x] 新增 eDHR 批记录共享页签组件和两个填写路由。
 - [x] 将一线简化填写组件拆成固定 `production` / `pqc` 模式，防止员工切换时跨模板自动换 UI。
 - [x] 完成静态合同、类型检查和可用验证记录。
+- [ ] 接入正式一线设备账号路线绑定来源，解除 `芋道源码/admin` E2E 上下文阻塞。
+- [ ] 使用 Playwright 在 `芋道源码/admin` 真实页面复验 `生产填写` 与 `PQC填写`。
 
 ## Expected Verification
 
@@ -22,7 +24,7 @@
 
 ## Current Status
 
-ready_for_closeout
+in_progress
 
 ## Design Constraint Check
 
@@ -70,3 +72,9 @@ ready_for_closeout
 - `芋道源码/admin` 登录预检可以打开 `生产填写` 和 `PQC填写` 两个页签。
 - 完整页面 E2E 被正式接口阻塞：`/admin-api/mes/pro/feedback/frontline/device-account/processes` 返回 `1040760100`，消息为 `设备账号工艺路线绑定来源未接入，无法加载一线报工上下文`。
 - 源码核对显示当前只有 `MesFrontlineDeviceAccountRouteBindingSource` 接口，没有生产实现 bean；按 no-fallback 规则不伪造设备账号路线绑定。
+
+## Continuation Scope
+
+- 用户要求继续直到 E2E 验证通过。
+- 正式绑定来源限定为现有主数据链路：登录账号岗位、工作站人力、路线工序工作站、工作站设备、启用工艺路线。
+- 真实 E2E 若需要数据，只允许使用可清理的任务自有夹具，不永久改写 admin 基线数据。

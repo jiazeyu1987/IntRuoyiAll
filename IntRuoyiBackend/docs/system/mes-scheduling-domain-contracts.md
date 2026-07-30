@@ -97,11 +97,11 @@
 ## 手动重排数据包门禁
 
 - Trigger: 排产员工作台“导出全部数据包/导入全部数据包”、手动重排复现、跨环境排产数据迁移、`manualReplanDataPackage`、`scheduler-manual-replan-data`。
-- Preflight check: 区分路线配置包和全部数据包；路线配置包只承载路线排产用途、排产配置和资源引用，全部数据包若承诺可复现手动重排，必须同时承载排产工单、生产工单、排产工序快照、路线拓扑、日历规则、计划/实际产能、现有任务、任务扩展、报工、用料、物料和库存。
-- Blocker: 只导出岗位/角色/路线配置却宣称可手动重排，或导入缺少排产工序快照、任务扩展、日历产能、用料/库存任一正式字段时，必须 fail-fast；不得用空列表、默认路线、默认产能或运行时重新同步冒充数据包完整。
-- Verification: 后端契约必须证明全量包包含手动重排数据包、缺包时导入失败、导入结果返回主数据/排产工单数据/运行态数据计数；前端按钮提示必须展示这些计数。
-- Forbidden action: 禁止把“导出排产工艺路线”扩大成业务数据导出；禁止在手动重排接口里补 mock 或默认数据；禁止导入时吞掉缺引用或用随机新 ID 破坏排产工单快照身份。
-- Evidence: `doc/tasks/20260729-scheduler-workbench-full-data-package-replan/verification-report.md`。
+- Preflight check: 区分路线配置包和全部数据包；路线配置包只承载路线排产用途、排产配置和资源引用，全部数据包若承诺可复现手动重排，必须同时承载排产工单、生产工单、排产工序快照、路线拓扑、日历规则、计划/实际产能、现有任务、任务扩展、报工、用料、物料、库存和工作台策略设置；若承诺跨租户恢复，导入必须把租户型数据行重写到目标租户上下文。
+- Blocker: 只导出岗位/角色/路线配置却宣称可手动重排，或导入缺少排产工序快照、任务扩展、日历产能、用料/库存、策略设置任一正式字段，或 `TenantBaseDO` 数据保留源租户 `tenantId` 时，必须 fail-fast；不得用空列表、默认路线、默认产能、默认策略或运行时重新同步冒充数据包完整。
+- Verification: 后端契约必须证明全量包包含手动重排数据包和策略设置、缺包时导入失败、导入结果返回主数据/排产工单数据/运行态数据/策略设置计数、跨租户导入重写 `tenantId`；前端按钮提示必须展示这些计数。
+- Forbidden action: 禁止把“导出排产工艺路线”扩大成业务数据导出；禁止在手动重排接口里补 mock 或默认数据；禁止导入时吞掉缺引用、保留源租户 `tenantId` 或用随机新 ID 破坏排产工单快照身份。
+- Evidence: `doc/tasks/20260729-scheduler-workbench-full-data-package-replan/verification-report.md`；`doc/tasks/20260730-scheduler-workbench-full-package-tenant-policy/verification-report.md`。
 
 ## 默认值与历史兼容
 

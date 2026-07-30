@@ -53,8 +53,9 @@ class MesFrontlineDeviceAccountContextServiceTest {
     void shouldListOnlyProcessesUnderBoundRoutesWithoutPreviousNextRestriction() {
         when(routeBindingSourceProvider.getIfAvailable()).thenReturn(routeBindingSource);
         when(routeBindingSource.listEnabledRouteBindings(LOGIN_USER_ID)).thenReturn(List.of(
-                routeBinding(101L, "R-A"),
-                routeBinding(102L, "R-B")));
+                routeBinding(101L, "R-A", 301L, 501L),
+                routeBinding(101L, "R-A", 302L, 502L),
+                routeBinding(102L, "R-B", 303L, 503L)));
         when(routeProcessMapper.selectListByRouteIds(anyCollection())).thenReturn(List.of(
                 routeProcess(1001L, 101L, 201L, 301L, 20),
                 routeProcess(1002L, 101L, 202L, 302L, 10),
@@ -82,9 +83,35 @@ class MesFrontlineDeviceAccountContextServiceTest {
         assertThrows(ServiceException.class, () -> contextService.listSwitchableProcesses(LOGIN_USER_ID));
     }
 
-    private static MesFrontlineDeviceRouteBinding routeBinding(Long routeId, String routeCode) {
+    @Test
+    void shouldExposeMultipleDevicesForOneProcessAndKeepNoDeviceProcessAvailable() {
+        when(routeBindingSourceProvider.getIfAvailable()).thenReturn(routeBindingSource);
+        when(routeBindingSource.listEnabledRouteBindings(LOGIN_USER_ID)).thenReturn(List.of(
+                routeBinding(101L, "R-A", 301L, 501L),
+                routeBinding(101L, "R-A", 301L, 502L),
+                routeBinding(102L, "R-B", 302L, null)));
+        when(routeProcessMapper.selectListByRouteIds(anyCollection())).thenReturn(List.of(
+                routeProcess(1001L, 101L, 201L, 301L, 10),
+                routeProcess(1002L, 102L, 202L, 302L, 20)));
+        when(processService.getProcessMap(anyCollection())).thenReturn(Map.of(
+                201L, enabledProcess(201L, "P-201", "Granulation"),
+                202L, enabledProcess(202L, "P-202", "Drying")));
+
+        List<MesFrontlineRouteProcessCandidate> candidates = contextService.listSwitchableProcesses(LOGIN_USER_ID);
+
+        assertEquals(List.of(1001L, 1001L, 1002L),
+                candidates.stream().map(MesFrontlineRouteProcessCandidate::routeProcessId).toList());
+        assertEquals(501L, candidates.get(0).deviceId());
+        assertEquals(502L, candidates.get(1).deviceId());
+        assertEquals(null, candidates.get(2).deviceId());
+    }
+
+    private static MesFrontlineDeviceRouteBinding routeBinding(Long routeId, String routeCode, Long workstationId,
+                                                               Long deviceId) {
         return new MesFrontlineDeviceRouteBinding(LOGIN_USER_ID, routeId, routeCode, routeCode + " Name",
-                501L, "D-501", "Device 501", 601L, "WS-601", "Workstation 601");
+                deviceId, deviceId == null ? null : "D-" + deviceId,
+                deviceId == null ? null : "Device " + deviceId,
+                workstationId, "WS-" + workstationId, "Workstation " + workstationId);
     }
 
     private static MesProRouteProcessDO routeProcess(Long routeProcessId, Long routeId, Long processId,

@@ -50,4 +50,18 @@
 - GREEN: `pnpm ts:check` -> PASS。
 - GREEN: 真实只读 Playwright 路径，`芋道源码/admin` 登录后搜索 `mes工序`，结果包含 `标准模板列表/mes/pro/mes-process`；MES 写请求数 `0`。
 - Runtime note: 真实页面有一条既有头像资源 502，URL 为 `http://test.yudao.iocoder.cn/user/avatar/20251220/blob_1766215463801.jpg`，与本次搜索和 MES 接口无关。
-- Closeout blocker: 当前 `int_main` 为 `ahead 10, behind 8`，并有非本任务脏改动；本任务不执行提交/推送。
+- Closeout blocker: 当前 `int_main` 为 `ahead 14, behind 8`，并有非本任务脏改动；本任务不执行提交/推送。
+
+## Cleanup Applied 2026-07-30
+
+- Cleanup preview: kept task.md, execution-log.md, verification-report.md, bug-regression-evidence.md, migration-policy-gate.json; delete target was output/playwright/20260730-standard-template-list-search-alias.
+- Cleanup apply: PASS，已删除本任务 Playwright 调试截图目录；正式证据文件全部保留。
+- Evidence validation: `python -X utf8 C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260730-standard-template-list-search-alias\bug-regression-evidence.md` -> PASS。
+- Final Git blocker: `int_main...origin/int_main [ahead 14, behind 8]`，且仍有非本任务脏改动；不提交、不推送。
+
+## Experience Consolidation 2026-07-30
+
+- 已按 project-experience-consolidation 检索现有经验归宿。
+- 合并到 `docs/frontend-development.md#动态菜单页签重命名门禁`：入口改名兼容旧搜索词时，`RouterSearch` 需要别名并实时读取登录后的动态路由表，不能缓存 setup 阶段的 `router.getRoutes()`。
+- 更新 `docs/experience-index.md` 关键词：`RouterSearch`、菜单搜索别名、`router.getRoutes`、动态路由快照、MES工序 搜索 标准模板列表。
+- 验证：`rg -n "RouterSearch|动态路由快照|MES工序 搜索 标准模板列表" docs\experience-index.md docs\frontend-development.md` -> PASS。

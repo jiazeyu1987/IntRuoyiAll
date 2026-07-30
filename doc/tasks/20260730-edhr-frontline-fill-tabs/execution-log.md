@@ -35,3 +35,9 @@
 - Yudao E2E page assertion: `生产填写` 与 `PQC填写` 页面主体可渲染；但正式接口 `/admin-api/mes/pro/feedback/frontline/device-account/processes` 返回业务码 `1040760100`，消息 `设备账号工艺路线绑定来源未接入，无法加载一线报工上下文`。
 - Yudao E2E result: BLOCKED，原因是当前后端 Spring 运行态没有 `MesFrontlineDeviceAccountRouteBindingSource` 实现 bean，无法取得芋道源码/admin 的设备账号工艺路线绑定来源；按 no-fallback 规则不伪造绑定、不 mock、不把直达页面文本可见冒充完整 E2E 通过。
 - Yudao E2E artifacts: `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs-yudao/production-fill-yudao-blocked-1920.png`；`IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs-yudao/pqc-fill-yudao-blocked-1920.png`。
+- User continuation: 要求继续直到真实 E2E 验证通过。
+- BDD: 正式账号路线来源 -> Given 登录账号已绑定岗位，岗位已绑定启用工作站，路线工序显式绑定该工作站 When 请求一线可切换工序 Then 返回该账号正式授权的启用路线工序及工作站设备。
+- BDD: 多设备工序 -> Given 同一正式工作站绑定多个设备 When 加载生产填写上下文 Then 同一工序可提供多个设备参数卡片，工序选择器仍只显示一个工序选项。
+- BDD: 无设备工序 -> Given 正式工作站未绑定设备 When 加载生产填写上下文 Then 返回该工序且设备为空，页面显示“本工序无设备，直接填数量”。
+- RED: `/admin-api/mes/pro/feedback/frontline/device-account/processes` -> FAIL，业务码 `1040760100`，原因是 `MesFrontlineDeviceAccountRouteBindingSource` 没有生产实现 bean。
+- Data preflight: 本地启用路线存在，但当前启用路线工序 `workstation_id` 全为空；默认 admin 岗位也未绑定工作站人力。产品代码不得按 admin 权限放大全路线，真实 E2E 需使用可清理任务夹具建立正式岗位/工作站/路线工序关系。

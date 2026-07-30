@@ -47,16 +47,13 @@ ready_for_closeout
 ## Closeout Status
 
 - 当前源码修复和定向验证已完成。
-- Closeout 仍被共享分支状态阻塞：`int_main` 当前 `ahead 10, behind 8`，且存在非本任务脏改动；本任务不执行提交/推送，避免混入并行任务范围。
+- Closeout 仍被共享分支状态阻塞：`int_main` 当前 `ahead 14, behind 8`，且存在非本任务脏改动；本任务不执行提交/推送，避免混入并行任务范围。
 
 ## Cleanup Keep
 
 - doc/tasks/20260730-standard-template-list-search-alias/bug-regression-evidence.md
 - doc/tasks/20260730-standard-template-list-search-alias/migration-policy-gate.json
 
-## Cleanup Candidates
-
-- output/playwright/20260730-standard-template-list-search-alias/
 
 ## Closeout Blocker
 

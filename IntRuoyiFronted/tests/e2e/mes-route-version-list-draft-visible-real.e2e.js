@@ -16,7 +16,8 @@ const STATUS_LABELS = {
   REJECTED: '已驳回',
   CANCELLED: '已取消'
 }
-const EFFECTIVE_HISTORY_STATUSES = new Set(['ACTIVE', 'SUPERSEDED'])
+const WORKSPACE_VISIBLE_STATUSES = new Set(['DRAFT', 'ACTIVE', 'SUPERSEDED'])
+const WORKSPACE_HIDDEN_STATUSES = new Set(['PENDING_APPROVAL', 'READY_TO_PUBLISH', 'REJECTED', 'CANCELLED'])
 const READ_ONLY_MES_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 function readLoginDefaults() {
@@ -210,7 +211,7 @@ async function requestJson(page, config, headers, relativePath) {
   return response.payload.data
 }
 
-async function findRouteWithCancelledAndEffectiveHistory(page, config, headers) {
+async function findRouteWithDraftAndEffectiveHistory(page, config, headers) {
   const pageSize = Number(process.env.MES_ROUTE_VERSION_LIST_E2E_ROUTE_PAGE_SIZE || 100)
   for (let pageNo = 1; pageNo <= 20; pageNo += 1) {
     const routePage = await requestJson(
@@ -229,20 +230,23 @@ async function findRouteWithCancelledAndEffectiveHistory(page, config, headers) 
         `/admin-api/mes/pro/route-version/list-by-route?routeId=${route.id}`
       )
       const versionList = Array.isArray(versions) ? versions : []
-      const effectiveHistory = versionList.filter(
-        (item) => item.active || EFFECTIVE_HISTORY_STATUSES.has(item.lifecycleStatus)
+      const visibleWorkspaceVersions = versionList.filter(
+        (item) => item.active || WORKSPACE_VISIBLE_STATUSES.has(item.lifecycleStatus)
       )
-      const hiddenNonEffective = versionList.filter(
-        (item) => !item.active && !EFFECTIVE_HISTORY_STATUSES.has(item.lifecycleStatus)
+      const draftVersions = versionList.filter(
+        (item) => !item.active && item.lifecycleStatus === 'DRAFT'
       )
-      const cancelled = hiddenNonEffective.filter((item) => item.lifecycleStatus === 'CANCELLED')
-      if (cancelled.length > 0 && effectiveHistory.length > 0) {
-        return { route, versions: versionList, cancelled, hiddenNonEffective, effectiveHistory }
+      const hiddenVersions = versionList.filter(
+        (item) => !item.active && WORKSPACE_HIDDEN_STATUSES.has(item.lifecycleStatus)
+      )
+      const hasEffectiveHistory = visibleWorkspaceVersions.some((item) => item.active || item.lifecycleStatus === 'SUPERSEDED')
+      if (draftVersions.length > 0 && hasEffectiveHistory && hiddenVersions.length > 0) {
+        return { route, versions: versionList, draftVersions, hiddenVersions, visibleWorkspaceVersions }
       }
     }
     if (routes.length < pageSize || Number(routePage?.total || 0) <= pageNo * pageSize) break
   }
-  throw new Error('BLOCKED: read-only API found no MES route with both CANCELLED and ACTIVE/SUPERSEDED versions.')
+  throw new Error('BLOCKED: read-only API found no MES route with DRAFT, ACTIVE/SUPERSEDED, and hidden closed versions.')
 }
 
 async function waitForRoutePage(page, config, routeCode) {
@@ -298,17 +302,19 @@ async function assertVersionWorkspace(dialog, target) {
   await tableBody.waitFor({ state: 'visible', timeout: 30000 })
   const tableText = await tableBody.innerText()
   assert.ok(tableText.trim().length > 0, 'version workspace table should render visible rows')
-  assert.equal(tableText.includes(STATUS_LABELS.CANCELLED), false, 'version workspace must not display 已取消 rows')
-  assert.equal(tableText.includes('CANCELLED'), false, 'version workspace must not display CANCELLED text')
-  for (const status of ['DRAFT', 'PENDING_APPROVAL', 'READY_TO_PUBLISH', 'REJECTED']) {
+  for (const status of ['PENDING_APPROVAL', 'READY_TO_PUBLISH', 'REJECTED', 'CANCELLED']) {
     assert.equal(tableText.includes(STATUS_LABELS[status]), false, `version workspace must not display ${STATUS_LABELS[status]} rows`)
     assert.equal(tableText.includes(status), false, `version workspace must not display ${status} text`)
   }
-  for (const version of target.hiddenNonEffective) {
-    assert.equal(tableText.includes(version.versionNo), false, `non-effective version should be hidden: ${version.versionNo}`)
+  for (const version of target.hiddenVersions) {
+    assert.equal(tableText.includes(version.versionNo), false, `closed or non-editable candidate version should be hidden: ${version.versionNo}`)
   }
-  for (const version of target.effectiveHistory) {
-    assert.ok(tableText.includes(version.versionNo), `effective historical version should remain visible: ${version.versionNo}`)
+  for (const version of target.draftVersions) {
+    assert.ok(tableText.includes(version.versionNo), `active draft version should be visible: ${version.versionNo}`)
+    assert.ok(tableText.includes(STATUS_LABELS.DRAFT), `draft status label should be visible for ${version.versionNo}`)
+  }
+  for (const version of target.visibleWorkspaceVersions) {
+    assert.ok(tableText.includes(version.versionNo), `workspace-visible version should remain visible: ${version.versionNo}`)
     const expectedStatusLabel = version.active ? STATUS_LABELS.ACTIVE : STATUS_LABELS[version.lifecycleStatus]
     if (expectedStatusLabel) {
       assert.ok(tableText.includes(expectedStatusLabel), `status label should remain visible for ${version.versionNo}: ${expectedStatusLabel}`)
@@ -324,7 +330,7 @@ async function main() {
     timeout: Number(process.env.MES_ROUTE_VERSION_LIST_E2E_TIMEOUT || 90000),
     artifactDir: path.resolve(
       process.env.MES_ROUTE_VERSION_LIST_E2E_ARTIFACT_DIR ||
-        path.join(repoRoot, 'output', 'e2e', 'route-version-list-active-history-only')
+        path.join(repoRoot, 'output', 'e2e', 'route-version-list-draft-visible')
     ),
     ...loginDefaults
   }
@@ -347,7 +353,7 @@ async function main() {
   try {
     await login(page, config)
     const headers = await buildAuthHeaders(page)
-    const target = await findRouteWithCancelledAndEffectiveHistory(page, config, headers)
+    const target = await findRouteWithDraftAndEffectiveHistory(page, config, headers)
     const dialog = await openVersionWorkspace(page, config, target)
     await assertVersionWorkspace(dialog, target)
     assert.deepEqual(mesWriteRequests, [], `E2E must not send MES write requests: ${JSON.stringify(mesWriteRequests)}`)
@@ -367,18 +373,18 @@ async function main() {
         code: target.route.code,
         name: target.route.name
       },
-      visibleEffectiveVersionNos: target.effectiveHistory.map((item) => ({
+      visibleWorkspaceVersionNos: target.visibleWorkspaceVersions.map((item) => ({
         id: item.id,
         versionNo: item.versionNo,
         lifecycleStatus: item.lifecycleStatus,
         active: item.active === true
       })),
-      hiddenNonEffectiveVersionNos: target.hiddenNonEffective.map((item) => ({
+      visibleDraftVersionNos: target.draftVersions.map((item) => ({
         id: item.id,
         versionNo: item.versionNo,
         lifecycleStatus: item.lifecycleStatus
       })),
-      hiddenCancelledVersionNos: target.cancelled.map((item) => ({
+      hiddenVersionNos: target.hiddenVersions.map((item) => ({
         id: item.id,
         versionNo: item.versionNo,
         lifecycleStatus: item.lifecycleStatus
@@ -387,7 +393,7 @@ async function main() {
       screenshotPath
     }
     fs.writeFileSync(resultPath, `${JSON.stringify(result, null, 2)}\n`, 'utf8')
-    console.log(`PASS: route version workspace shows effective historical versions only; result=${resultPath}`)
+    console.log(`PASS: route version workspace shows active drafts and effective history; result=${resultPath}`)
   } catch (error) {
     const failurePath = path.join(config.artifactDir, `mes-route-version-list-failure-${Date.now()}.png`)
     await page.screenshot({ path: failurePath, fullPage: true }).catch(() => null)

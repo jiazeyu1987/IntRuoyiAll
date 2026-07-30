@@ -1,7 +1,10 @@
 package cn.iocoder.yudao.module.mes.service.pro.schedulerworkbench;
 
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchManualReplanDataImportRespVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,6 +29,8 @@ class MesProSchedulerWorkbenchManualReplanDataPackageServiceTest {
 
     @Mock
     private MesProScheduleOrderMapper scheduleOrderMapper;
+    @Mock
+    private MesProWorkOrderMapper workOrderMapper;
 
     @Test
     void importPackage_shouldFailFastWhenRequiredListMissing() {
@@ -55,7 +60,35 @@ class MesProSchedulerWorkbenchManualReplanDataPackageServiceTest {
         assertEquals(0, result.getRuntimeDataCount());
     }
 
+    @Test
+    void importPackage_shouldRewriteTenantBaseRowsToCurrentTenant() {
+        TenantContextHolder.setTenantId(200L);
+        try {
+            when(workOrderMapper.selectById(7101L)).thenReturn(null);
+            byte[] payload = manualReplanDataPackageJson("[]", """
+                    [{"id":7101,"code":"WO-7101","tenantId":100}]
+                    """).getBytes(StandardCharsets.UTF_8);
+
+            MesProSchedulerWorkbenchManualReplanDataImportRespVO result = service.importPackage(payload);
+
+            ArgumentCaptor<MesProWorkOrderDO> captor = ArgumentCaptor.forClass(MesProWorkOrderDO.class);
+            verify(workOrderMapper).insert(captor.capture());
+            assertEquals(7101L, captor.getValue().getId());
+            assertEquals("WO-7101", captor.getValue().getCode());
+            assertEquals(200L, captor.getValue().getTenantId());
+            assertEquals(0, result.getMasterDataCount());
+            assertEquals(1, result.getScheduleOrderDataCount());
+            assertEquals(0, result.getRuntimeDataCount());
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
     private static String manualReplanDataPackageJson(String scheduleOrders) {
+        return manualReplanDataPackageJson(scheduleOrders, "[]");
+    }
+
+    private static String manualReplanDataPackageJson(String scheduleOrders, String workOrders) {
         return """
                 {
                   "packageVersion":"scheduler-manual-replan-data.v1",
@@ -81,7 +114,7 @@ class MesProSchedulerWorkbenchManualReplanDataPackageServiceTest {
                   "capacityPlans":[],
                   "capacityActuals":[],
                   "materialStocks":[],
-                  "workOrders":[],
+                  "workOrders":%s,
                   "scheduleOrders":%s,
                   "scheduleOrderProcesses":[],
                   "productionMaterialLists":[],
@@ -93,6 +126,6 @@ class MesProSchedulerWorkbenchManualReplanDataPackageServiceTest {
                   "scheduleOrderOperationLogs":[],
                   "replanExplanationSnapshots":[]
                 }
-                """.formatted(scheduleOrders);
+                """.formatted(workOrders, scheduleOrders);
     }
 }
