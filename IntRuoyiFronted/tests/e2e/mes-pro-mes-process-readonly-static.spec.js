@@ -83,5 +83,17 @@ assert.ok(
   routerSearch.includes('routeMatchesSearchQuery(item, keyword.value)'),
   '菜单搜索过滤必须同时匹配标题、路径和路由别名'
 )
+assert.ok(
+  !/const\s+routers\s*=\s*router\.getRoutes\(\)/.test(routerSearch),
+  '菜单搜索不得在 setup 初始化阶段缓存静态路由表，必须覆盖登录后的动态菜单路由'
+)
+assert.ok(
+  /function\s+getSearchRoutes\(\)\s*\{[\s\S]*router\.getRoutes\(\)/.test(routerSearch),
+  '菜单搜索必须通过 getSearchRoutes 实时读取最新 Vue Router 路由表'
+)
+assert.ok(
+  /getSearchRoutes\(\)\.filter\(\(item: any\)/.test(routerSearch),
+  '菜单搜索过滤必须基于最新动态路由表生成选项'
+)
 
 console.log('PASS: 标准模板列表只读页面静态合同')

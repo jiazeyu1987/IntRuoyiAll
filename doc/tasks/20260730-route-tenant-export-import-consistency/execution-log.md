@@ -33,3 +33,16 @@
 - Duplicate check: 待导入工序编码中仅 `Z3710` 在测试租户存在两条活跃 `mes_pro_process`：`922795 / 球囊裁剪 / creator=1 / 2026-05-16` 与 `922865 / 球囊裁剪 / creator=codex / 2026-07-06`。
 - Reference check: 全库含 `process_id` 的租户表扫描显示 `922865` 活跃引用仅存在于 `mes_dv_machinery_process` 和 `mes_md_workstation`，两条引用均带 `SPIKE/spike-route-excel-resource-split` 测试种子特征；`mes_pro_route_process`、`mes_pro_route_product_bom` 对 `922865` 无活跃引用。
 - Repair plan: 先备份 `922795/922865` 及其 `mes_dv_machinery_process`、`mes_md_workstation` 引用行；随后在单事务内软删除 `922865` 和仅属于该重复工序的 SPIKE 引用行，保留正式 `922795`。
+
+## 2026-07-30 48081 Completion
+
+- User authorization: 用户明确要求“直接在正式环境48081里面测试”。本次使用本机 `http://127.0.0.1:48081` 正式后端链路。
+- Runtime check: `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` -> `UP`；目标租户导入前路线相关表仍为 `0`。
+- Root cause: 源租户两条启用路线 `ROUTE-XLSX-00001`、`ROUTE-XLSX-00002` 当前工序和 ACTIVE/DRAFT 关系图快照均缺关键工序，导出如实写出 `关键工序=false`，导入启用时触发 `1040501003 / 工艺路线必须要有关键工序`。
+- Repair evidence: 备份 `artifacts/source_tenant_1_key_process_before_repair.sql`；修复脚本 `artifacts/repair_source_key_process_flags.sql` 首次因临时表 collation 触发 `ERROR 1267` 并回滚，按 `mes_pro_route.code=utf8mb4_unicode_ci` 修正后重跑通过，结果见 `artifacts/repair_source_key_process_flags_result.tsv`。
+- Key process result: `ROUTE-XLSX-00001` 关键工序为末道/END `Z830 / 纸塑袋封口（包装）`；`ROUTE-XLSX-00002` 关键工序为末道/END `Z2620 / 球囊测漏及全检`；`RT000028` 保持 `ER1561D10C0138 / 大包装工序`。
+- Export: 使用 `.env` 默认本机账号在 `tenant-id=1` 正式导出 `artifacts/source_tenant_1_route_export_key_repaired.xlsx`，大小 `26933` bytes；工作簿抽查三条路线均有且仅有一个关键工序。
+- GREEN: `POST /admin-api/mes/pro/route/import-workbook-xlsx`，`tenant-id=122` -> PASS，`code=0`，导入 `3` 条路线、`63` 条工序、`16` 条关联产品、`49` 条 BOM，结果见 `artifacts/import_result_tenant_122_after_key_repair_valid_export.json`。
+- Consistency verification: `artifacts/route_import_consistency_report.json` 显示 `route_basic`、`route_processes`、`flow_edges`、`boundary_edges`、`layouts`、`products`、`product_boms`、`schedule_configs`、`flow_configs`、`flow_process_configs`、`batch_record_bindings` 全部 `match=true`；`artifacts/route_import_consistency_diffs.tsv` 仅表头，无差异行。
+- Experience consolidation: 已将“启用路线关键工序预检”合并到 `docs/database-rules.md#工艺路线跨租户导入导出数据包完整性门禁`，并在 `docs/experience-index.md` 增加关键词路由。
+- Status: ready_for_closeout。实现和验证完成，剩余 closeout/提交推送按项目收尾门禁另行处理。

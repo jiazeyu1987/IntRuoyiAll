@@ -37,7 +37,7 @@ BDD: DCC product catalog toolbar removes highlighted buttons -> Given a user ope
 - M2 completed: recorded BDD scenario and expected RED/GREEN path.
 - M3 completed: removed `重置` and `注册证有效期` from the DCC product catalog actions slot and removed the no-entry registration-expiry compare wrapper/state/styles.
 - M4 completed: focused DCC static contracts, frontend type check, and diff whitespace check passed.
-- M5 completed: task-closeout cleanup preview/apply passed with no delete/block/warnings; task status set to completed.
+- M5 blocked: task-closeout cleanup preview/apply passed with no delete/block/warnings, but `git push origin int_main` cannot safely complete because local `int_main` and `origin/int_main` diverged after fetch.
 
 ## Experience Consolidation
 
@@ -54,3 +54,4 @@ BDD: DCC product catalog toolbar removes highlighted buttons -> Given a user ope
 
 - Non-task delayed changes currently exist outside DCC product catalog files; they are not part of this task and will not be staged with task-owned changes.
 - Shared-branch concurrency issue: commit `4158334f` was created by another baseline flow and included this task's DCC implementation/docs plus unrelated non-DCC files. This task records the anomaly and will only stage subsequent task-owned closeout edits.
+- Push blocker: `git push origin int_main` first failed with `Recv failure: Connection was reset`; after `git fetch origin int_main`, branch status became `ahead 9, behind 8`. Because this is not fast-forward-safe and the worktree also has non-task delayed changes, no merge/rebase/force-push was performed.

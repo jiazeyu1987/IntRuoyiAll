@@ -10,7 +10,7 @@ Remove the two DCC product catalog toolbar buttons highlighted by the user: `重
 - [x] M2: Record BDD scenario and RED expectation for the toolbar removal.
 - [x] M3: Remove the two buttons from the product catalog action toolbar and update static contracts.
 - [x] M4: Run focused verification and record evidence.
-- [x] M5: Close out with task evidence, cleanup, commits, and push.
+- [ ] M5: Close out with task evidence, cleanup, commits, and push.
 
 ## Expected Verification
 
@@ -21,7 +21,7 @@ Remove the two DCC product catalog toolbar buttons highlighted by the user: `重
 
 ## Current Status
 
-completed
+blocked
 
 ## Applicable Gates
 
@@ -49,6 +49,13 @@ completed
 - `git diff --check -- <task-owned files>` -> PASS.
 - `task_closeout.py --task-id 20260730-dcc-product-catalog-remove-toolbar-buttons --mode preview` -> ready, no delete/block/warnings.
 - `task_closeout.py --task-id 20260730-dcc-product-catalog-remove-toolbar-buttons --mode apply` -> applied, no deleted paths.
+- `git push origin int_main` -> BLOCKED, local `int_main` and `origin/int_main` diverged after fetch (`ahead 9, behind 8`), so a safe fast-forward push is not possible without an explicit merge/rebase decision.
+
+## Push Blocker
+
+- Local task implementation is present in HEAD and verified, but final project completion is blocked because `origin/int_main` advanced independently.
+- The branch divergence includes local commits through `b48265b9` and remote commits through `65d0a87e`.
+- No force push, rebase, merge, or history rewrite was performed.
 
 ## Cleanup Keep
 

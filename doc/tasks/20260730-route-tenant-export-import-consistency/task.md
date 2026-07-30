@@ -21,7 +21,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 
@@ -45,3 +45,10 @@ in_progress
 ## User Authorization
 
 - `2026-07-30`: 用户确认“恢复芋道源码的就可以，遇到问题解决问题”。本轮继续目标是把测试租户恢复为芋道源码导出的工艺路线数据；遇到导入阻塞时优先从正式历史、源租户版本快照或同路线唯一关系中找根因并修复，不做猜测性 fallback。
+
+## Resolution
+
+- `2026-07-30`: 用户授权直接使用本机正式链路 `48081` 测试。
+- 已修复源租户 `ROUTE-XLSX-00001` / `ROUTE-XLSX-00002` 缺关键工序问题：当前表终点工序分别为 `Z830 / 纸塑袋封口（包装）`、`Z2620 / 球囊测漏及全检`，ACTIVE/DRAFT 快照同步为布尔型 `keyFlag=true`。
+- 重新导出 `artifacts/source_tenant_1_route_export_key_repaired.xlsx` 并导入测试租户成功，接口返回 `code=0`。
+- 源/目标语义比对已完成：基础信息、工序、关系图、关联产品、BOM、排产配置、流程配置、工序配置、批记录绑定均一致；详见 `artifacts/route_import_consistency_report.json`。

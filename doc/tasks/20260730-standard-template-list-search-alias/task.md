@@ -21,7 +21,7 @@
 
 ## Current Status
 
-ready_for_closeout
+in_progress
 
 ## Applicable Gates
 
@@ -36,6 +36,11 @@ ready_for_closeout
 - `mvn.cmd -pl yudao-module-mes -am "-DskipTests" test-compile`：RED 命中 `MesProMesProcessCatalogSchemaTest` 不存在包，移除过时测试后 PASS。
 - 真实只读 Playwright 路径：`芋道源码/admin` 登录后搜索 `mes工序`，返回 `标准模板列表/mes/pro/mes-process`。
 - `pnpm ts:check`、相邻静态契约和菜单 migration policy gate 均 PASS。
+
+## Reopened Regression
+
+- 2026-07-30 用户反馈：在 `芋道源码/admin` 运行态中仍然搜索不到 `mes工序`。
+- 新增复发假设：搜索组件初始化时缓存 `router.getRoutes()`，登录后动态菜单路由追加到 Vue Router 后，搜索下拉仍使用旧路由快照。
 
 ## Closeout Blocker
 

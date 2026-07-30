@@ -67,13 +67,25 @@
           <h3>填检验</h3>
           <div class="frontline-choice-row">
             <button
-              v-for="inspectionType in inspectionTypeOptions"
-              :key="inspectionType.value"
               type="button"
-              :class="{ active: pqcDraft.inspectionType === inspectionType.value }"
-              @click="pqcDraft.inspectionType = inspectionType.value"
+              :class="{ active: pqcDraft.inspectionType === 'FIRST' }"
+              @click="pqcDraft.inspectionType = 'FIRST'"
             >
-              {{ inspectionType.label }}
+              首检
+            </button>
+            <button
+              type="button"
+              :class="{ active: pqcDraft.inspectionType === 'PATROL' }"
+              @click="pqcDraft.inspectionType = 'PATROL'"
+            >
+              巡检
+            </button>
+            <button
+              type="button"
+              :class="{ active: pqcDraft.inspectionType === 'FINAL' }"
+              @click="pqcDraft.inspectionType = 'FINAL'"
+            >
+              末检
             </button>
           </div>
           <div v-if="pqcDraft.inspectionType === 'PATROL'" class="frontline-choice-row">
@@ -298,12 +310,6 @@ const pqcDraft = reactive({
   inspectionQuantity: undefined as number | undefined,
   scrapQuantity: undefined as number | undefined
 })
-
-const inspectionTypeOptions: Array<{ value: InspectionType; label: string }> = [
-  { value: 'FIRST', label: '首检' },
-  { value: 'PATROL', label: '巡检' },
-  { value: 'FINAL', label: '末检' }
-]
 
 const patrolRounds = [1, 2, 3]
 

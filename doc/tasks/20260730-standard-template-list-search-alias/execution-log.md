@@ -8,6 +8,7 @@
 
 - `BDD: MES工序旧关键词仍可发现标准模板列表 -> Given 动态菜单入口已按用户要求重命名为标准模板列表 / When 用户在前端搜索 mes工序 / Then 应能找到同一个标准模板列表入口且页面标题仍显示标准模板列表`
 - `BDD: 后端本地启动不被过时独立目录测试阻塞 -> Given 当前方案复用已有工艺路线资源模型 / When 执行后端构建或标准本地后端重启 / Then 不应因不存在的独立 MES 工序目录包导致 testCompile 失败`
+- `BDD: 登录后动态菜单也能参与全局搜索 -> Given admin 登录后动态路由才加入 Vue Router / When 用户在顶部搜索框输入 mes工序 / Then 搜索组件必须读取最新路由表并展示 标准模板列表/mes/pro/mes-process`
 
 ## Evidence
 
@@ -34,3 +35,8 @@
 ## Blockers
 
 - Closeout blocker: 当前分支被并行任务推进到 `ahead 8`，且剩余脏改动为非本任务文件；本任务不执行提交/推送，避免混入并行任务内容。
+
+## Reopen 2026-07-30
+
+- 用户反馈：`芋道源码/admin` 运行态仍然搜索不到 `mes工序`。
+- 初步定位：`RouterSearch` 在组件 setup 阶段执行 `const routers = router.getRoutes()`，后续动态菜单路由加入后不会刷新该常量，导致真实登录态可能继续搜索旧路由快照。

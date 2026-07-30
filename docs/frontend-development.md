@@ -58,6 +58,15 @@
 - Forbidden action: 禁止把截图症状当作完整需求口径；禁止把“取消的不显示”当成唯一验收项而忽略前半句“只显示已生效的历史版本”；禁止用仅隐藏 `CANCELLED` 的实现替代 effective-only 列表口径。
 - Evidence: 任务 `doc/tasks/20260727-route-version-list-active-history-only/`，首轮只隐藏 `CANCELLED` 后 completion audit 发现 `DRAFT` 仍可显示，最终改为 `ACTIVE/SUPERSEDED` 正向集合并用真实 E2E 证明 `V19 DRAFT` 与取消版本均隐藏。
 
+## 前端权限页签正向授权门禁
+
+- Trigger: 前端页面、动态菜单、顶部页签、左侧菜单、隐藏路由或入口默认页涉及“普通用户只能看到/仅显示某页签”、`activeMenu`、`redirect`、`permissionStore`、静态隐藏子路由合并。
+- Preflight check: 先拆出普通用户允许页签集合和管理员允许页签集合；默认入口重定向必须来自已授权动态子路由或明确的普通用户页签，不得固定跳到管理员页签。隐藏静态子路由合并时，权限型壳路由不得把未授权的隐藏静态子路由补回普通用户路由表。
+- Blocker: 普通用户仍可默认进入管理员列表、无权限页签组件会 mount 并触发接口 403、只改菜单 SQL 但前端静态路由仍补回未授权子路由、或只隐藏一个截图页签而未按正向允许集合建模时必须停止。
+- Verification: 新增聚焦静态合同同时断言普通页签正向集合、管理员页签集合、默认重定向、组件 mount gate、动态权限路由合并边界和菜单/角色 SQL 授权边界；涉及 Vue/TS 路由逻辑时运行 `pnpm ts:check`。
+- Forbidden action: 禁止用前端空白、吞掉 403、默认成功、API-only 断言、只改按钮可见性或只改后端菜单授权来冒充页签隔离完成。
+- Evidence: 任务 `doc/tasks/20260730-electronic-signature-my-tab-only/`，电子签名普通用户旧实现固定进入“签名记录”并触发无权限列表，修正为普通角色只保留根入口和“我的签名”，前端按授权动态子路由重定向并禁止补回未授权治理页签。
+
 ## 前端同集合弹窗导航上下文门禁
 
 - Trigger: 弹窗内新增上一条/下一条、上一张/下一张、同版本/同产品/同集合切换，且候选集合不受当前列表筛选或分页限制。

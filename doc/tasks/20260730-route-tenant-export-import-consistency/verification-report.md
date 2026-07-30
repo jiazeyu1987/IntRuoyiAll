@@ -2,24 +2,50 @@
 
 ## Summary
 
-Blocked. The test tenant route delete had already completed and was re-verified as empty. A fresh source workbook was exported from tenant `1 / 芋道源码`, but the formal import into tenant `122 / 测试租户` failed before any rows were written because the exported `工序BOM` sheet contains blank `工序编码` values.
+Completed on local formal backend `48081`. The source tenant `1 / 芋道源码` route export was repaired at the source-data level, re-exported, imported into target tenant `122 / 测试租户`, and semantically compared. All compared business sections match.
 
-## Commands
+## Root Cause
 
-- `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` -> `UP`.
-- DB tenant check -> `1=芋道源码`, `122=测试租户`.
-- Source export -> `GET /admin-api/mes/pro/route/export-import-xlsx`, `tenant-id=1`, output `artifacts/source_tenant_1_route_export_latest.xlsx`.
-- Target import attempt via `tenant-id=1 + visit-tenant-id=122` -> `code=403`, `msg=没有该操作权限`.
-- Target import attempt via `tenant-id=122` as test E2E account -> `code=1040501417`, `msg=工艺路线导入导出 Excel 的 工序BOM 第 2 行 工序编码 不能为空`.
-- Workbook inspection -> `artifacts/workbook_sheet_summary.json`.
-- Source BOM blocker query -> `artifacts/source_bom_missing_process.tsv`.
-- Post-failed-import count query -> `artifacts/route_related_counts_after_failed_import.tsv`.
+- Initial export/import failures were caused by source and target data integrity blockers, not by the final comparison logic.
+- The final blocker was source routes `ROUTE-XLSX-00001` and `ROUTE-XLSX-00002` being enabled but missing a key process in current route-process data and ACTIVE/DRAFT relationship-graph snapshots.
+- Existing product behavior requires enabled routes to have one key process. Frontend defaulting and Markdown import rules both support the terminal/final process as the default key-process choice when none exists.
 
-## Result
+## Repair
 
-Import/export consistency cannot be proven because the import did not succeed. The source workbook is internally inconsistent with the import contract: 46 active source BOM rows have `process_id=0`, so export writes blank process codes while import requires `工序编码`. The target test tenant remains empty across the route-related tables after the failed import; there was no partial import.
+- Backed up source rows: `artifacts/source_tenant_1_key_process_before_repair.sql`.
+- Repaired source key-process flags: `artifacts/repair_source_key_process_flags.sql`.
+- Verified repair: `artifacts/repair_source_key_process_flags_result.tsv`.
+- Re-exported source workbook: `artifacts/source_tenant_1_route_export_key_repaired.xlsx` (`26933` bytes).
+- Imported into target tenant: `artifacts/import_result_tenant_122_after_key_repair_valid_export.json`, response `code=0`.
 
-## Next Decision Required
+## Import Result
 
-- Option 1: Repair source tenant BOM rows by assigning formal route process bindings, re-export, and re-import.
-- Option 2: Restore the test tenant from `artifacts/route_tenant_122_before_delete.sql` before any further retry.
+- Routes: `3`.
+- Route processes: `63`.
+- Route products: `16`.
+- Route product BOM rows: `49`.
+- Imported route codes: `RT000028`, `ROUTE-XLSX-00002`, `ROUTE-XLSX-00001`.
+
+## Consistency Result
+
+- `route_basic`: match, `3 / 3`.
+- `route_processes`: match, `63 / 63`.
+- `flow_edges`: match, `60 / 60`.
+- `boundary_edges`: match, `8 / 8`.
+- `layouts`: match, `63 / 63`.
+- `products`: match, `16 / 16`.
+- `product_boms`: match, `49 / 49`.
+- `schedule_configs`: match, `63 / 63`.
+- `flow_configs`: match, `4 / 4`.
+- `flow_process_configs`: match, `77 / 77`.
+- `batch_record_bindings`: match, `20 / 20`.
+
+## Evidence Files
+
+- Full semantic comparison: `artifacts/route_import_consistency_report.json`.
+- Diff rows: `artifacts/route_import_consistency_diffs.tsv`; file contains only the header, so no semantic differences were found.
+- Target post-import key-process check: each imported route has exactly one key process matching the source route.
+
+## Remaining Closeout
+
+The data recovery and verification are complete. Task status is `ready_for_closeout`; repository cleanup, commit, and push are not performed in this verification step.
