@@ -54,3 +54,20 @@
 - GREEN: `node tests\e2e\process-pool-event-revision-api-static.spec.js` -> PASS.
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionSchemaTest,MesProcessPoolEventRevisionServiceTest,MesProcessPoolEventRevisionFifoLockTest,MesProcessPoolEventRevisionDiffContractTest,ProcessPoolTimelineRevisionSummaryTest,MesProcessPoolEventRevisionControllerContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 11 tests.
 - Current status: F6 review fix 实现和验证完成；待提交前 guard、diff check、commit。
+
+## 2026-07-30 F6 Review Fix: Service Validation Hardening
+
+- User intent: 主审查仍不放行，要求补 service 层 fail-fast 门禁；controller VO 校验不能替代直接调用 service 时的正式前置条件。
+- BDD: F6 service 直接调用签名快照门禁 -> Given 调用方直接调用 revision service / When `revisionSignatureSnapshot` 缺失 / Then 拒绝修改，不 insert revision，不 update event。
+- BDD: F6 service 直接调用 payload JSON 门禁 -> Given 工序池事件存在或请求提交 afterPayload / When event `rawPayload` 缺失、event `rawPayload` 非法 JSON 或 `afterPayload` 非法 JSON / Then 业务层 fail fast，不能依赖 DB JSON 列报错，不 insert revision，不 update event。
+- BDD: F6 字段级 diff 显式数量影响门禁 -> Given changedFields 包含字段级 diff / When `affectsQuantityFragment` 为空 / Then 拒绝修改，不允许 null 被当作 false。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionServiceTest#rejectsUpdateWithoutRevisionSignatureSnapshot,MesProcessPoolEventRevisionServiceTest#rejectsUpdateWhenEventRawPayloadMissing,MesProcessPoolEventRevisionServiceTest#rejectsUpdateWhenEventRawPayloadIsInvalidJson,MesProcessPoolEventRevisionServiceTest#rejectsUpdateWhenAfterPayloadIsInvalidJson,MesProcessPoolEventRevisionServiceTest#rejectsUpdateWhenAffectsQuantityFragmentIsNull" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: service 层缺少签名快照、rawPayload/afterPayload 合法 JSON、`affectsQuantityFragment` 非空集中校验，5 个新增门禁测试失败。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionServiceTest#rejectsUpdateWithoutRevisionSignatureSnapshot,MesProcessPoolEventRevisionServiceTest#rejectsUpdateWhenEventRawPayloadMissing,MesProcessPoolEventRevisionServiceTest#rejectsUpdateWhenEventRawPayloadIsInvalidJson,MesProcessPoolEventRevisionServiceTest#rejectsUpdateWhenAfterPayloadIsInvalidJson,MesProcessPoolEventRevisionServiceTest#rejectsUpdateWhenAffectsQuantityFragmentIsNull" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 5 tests.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionSchemaTest,MesProcessPoolEventRevisionServiceTest,MesProcessPoolEventRevisionFifoLockTest,MesProcessPoolEventRevisionDiffContractTest,ProcessPoolTimelineRevisionSummaryTest,MesProcessPoolEventRevisionControllerContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 16 tests.
+- GREEN: `node tests\e2e\process-pool-event-revision-api-static.spec.js` -> PASS.
+- GREEN: `git diff --check` -> PASS.
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, branch runtime ports frontend 8098 / backend 48098.
+- Experience consolidation: 已按 `project-experience-consolidation` 检查 `docs/*memory*.md` 与 `docs/experience-index.md`；现有长期经验文档仅匹配 worktree/PowerShell，不适合沉淀本次 service 层业务门禁经验，未获授权不新建长期经验文档。
+- Commit: `fix: harden process pool event revision validation` 已创建本地提交。
+- Push: `git push origin codex/20260730-process-pool-f6-event-revision` -> first attempt FAIL, blocker: `fatal: unable to access 'https://github.com/jiazeyu1987/IntRuoyiAll.git/': Recv failure: Connection was reset`; retry PASS, branch updated on origin.
+- Current status: F6 service validation hardening 实现、聚焦验证、diff check、端口 guard、本地提交与 push 已完成；未合并 `int_main`。
