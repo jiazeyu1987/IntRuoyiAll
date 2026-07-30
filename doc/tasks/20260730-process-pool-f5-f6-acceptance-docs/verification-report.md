@@ -2,7 +2,7 @@
 
 ## Result
 
-ready_for_closeout
+completed
 
 ## Evidence
 
@@ -10,6 +10,9 @@ ready_for_closeout
 - Weak placeholder and stale range scan: `rg -n "TBD|TODO|fill in later|to be decided|6 个可先|本轮 6|6 个功能点" docs\acceptance\production-line-process-pool doc\tasks\20260730-process-pool-f5-f6-acceptance-docs` -> no matches.
 - Acceptance planner validator: `python C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS.
 - Diff whitespace check: `git diff --check -- docs\acceptance\production-line-process-pool doc\tasks\20260730-process-pool-f5-f6-acceptance-docs` -> PASS, only LF-to-CRLF warnings.
+- Closeout cleanup: `task_closeout.py --mode preview/apply` -> PASS, deleted paths empty.
+- Branch runtime guard: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
+- Git push: final closeout commit must be pushed to `origin int_main`; post-push status must show no ahead commits.
 
 ## Review Result
 

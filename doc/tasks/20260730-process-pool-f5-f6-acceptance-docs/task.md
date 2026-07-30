@@ -11,7 +11,7 @@
 - [x] 启动 2 个子 agent 分别起草 F5、F6。
 - [x] 主线程整合并 review 文档。
 - [x] 运行文档结构和 UTF-8 校验。
-- [ ] 提交、推送并完成 closeout。
+- [x] 提交、推送并完成 closeout。
 
 ## Expected Verification
 
@@ -31,7 +31,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 

@@ -22,3 +22,10 @@
 - Verification: `git diff --check -- docs\acceptance\production-line-process-pool doc\tasks\20260730-process-pool-f5-f6-acceptance-docs` -> PASS, only LF-to-CRLF warnings.
 - Experience consolidation: `project-experience-consolidation` skill read; searched existing docs for acceptance/BDD/TDD memory targets. No durable new engineering lesson was identified beyond the current F5/F6 acceptance scope, so no long-term experience document was changed.
 - Current status: ready_for_closeout.
+
+## 2026-07-30 Closeout
+
+- Implementation commit: `be2a3ff9 docs: add process pool F5 F6 acceptance plan`.
+- Cleanup preview/apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-process-pool-f5-f6-acceptance-docs --mode preview/apply` -> PASS; delete set empty.
+- Task status update: `task.md` and `verification-report.md` set to `completed`.
+- Final push verification pending in closeout commit.
