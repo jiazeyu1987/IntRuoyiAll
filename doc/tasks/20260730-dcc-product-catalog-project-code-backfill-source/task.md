@@ -28,7 +28,7 @@ completed
 - 后端迁移契约、DCC Service JUnit、Controller/Service 回归均已通过。
 - 前端产品目录静态契约和 `pnpm ts:check` 均已通过。
 - 本地 Docker MySQL 已执行正式迁移，`瑛泰产品` 活跃行 181 条，其中完全对应回填 115 条，非完全对应样例行 8/25/29 误填数量为 0。
-- Cleanup preview/apply 已通过；实现提交 `d0ade5eb feat: add DCC product catalog project fields` 已创建，等待收尾提交与推送。
+- Cleanup preview/apply 已通过；最终历史使用远端已有等价实现提交 `169ec7b0 feat: add DCC product catalog project fields`，本地重复实现提交 `d0ade5eb` 已在 rebase 时被跳过。
 
 ## Experience Gates
 

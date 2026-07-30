@@ -34,7 +34,8 @@
 - Cleanup preview/apply passed. Retained task records are `task.md`, `execution-log.md`, and `verification-report.md`.
 - Project experience consolidation completed by updating existing closeout rules and the experience index; no new long-term document was created.
 - Pre-commit gates passed: `git diff --check`, experience keyword lookup, and `scripts\preflight\branch-runtime-port-guard.ps1`.
-- Implementation commit created: `d0ade5eb feat: add DCC product catalog project fields`.
+- Implementation was already present in the updated remote history as `169ec7b0 feat: add DCC product catalog project fields`; local duplicate `d0ade5eb` was skipped by rebase.
+- Closeout docs replayed after remote sync as `99a026cc docs: close out DCC product catalog project fields`.
 
 ## Blockers
 

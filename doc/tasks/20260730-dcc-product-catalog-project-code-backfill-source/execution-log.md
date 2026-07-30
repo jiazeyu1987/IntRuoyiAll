@@ -44,6 +44,13 @@
 - Pre-commit check: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, `int_main/int_main_d` ports 8101/48101.
 - Implementation commit: `d0ade5eb feat: add DCC product catalog project fields`.
 - Implementation commit files: `IntRuoyiBackend/script/tests/test_dcc_product_catalog_database_migration.py`; `IntRuoyiBackend/sql/mysql/20260729_dcc_product_catalog_project_code_columns.sql`; `DccProductCatalogRespVO.java`; `DccProductCatalogSaveReqVO.java`; `DccProductCatalogDO.java`; `DccProductCatalogServiceImplTest.java`; `IntRuoyiFronted/src/api/dcc/controlledFile/productCatalog.ts`; `ProductCatalogTabPanel.vue`; `dcc-basic-data-product-catalog-static.spec.js`; `dcc-product-catalog-unified-list-template-static.spec.js`.
+- Closeout commit before remote sync: `947033cf docs: close out DCC product catalog project fields`.
+- Push attempt: `git push origin int_main` -> FAIL, network `Recv failure: Connection was reset`.
+- Remote connectivity retry: `git -c http.version=HTTP/1.1 push origin int_main` -> FAIL, rejected with `fetch first`.
+- Remote sync: `git -c http.version=HTTP/1.1 fetch origin int_main` -> PASS; branch was ahead 2 and behind 227.
+- Duplicate implementation check: `git cherry -v origin/int_main HEAD` -> `d0ade5eb` was equivalent to remote history; only closeout docs were unique.
+- Rebase: `git rebase origin/int_main` -> PASS; skipped previously applied commit `d0ade5eb` and replayed closeout docs as `99a026cc`.
+- Final implementation commit in branch history: `169ec7b0 feat: add DCC product catalog project fields`.
 
 ## Blockers
 
