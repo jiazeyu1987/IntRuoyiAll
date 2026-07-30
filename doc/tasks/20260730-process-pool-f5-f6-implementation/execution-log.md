@@ -286,3 +286,17 @@
 - Blocker: GitHub rejects blobs over 100 MB; this blob is in pending history `origin/int_main..HEAD`. A normal delete commit would not remove it from the history to be pushed.
 - Impact: safe push is blocked until the user explicitly approves a remediation such as history rewrite, Git LFS migration, or another large-object removal strategy. No push attempt was made after this preflight blocker was found.
 - Current status: F5/F6 implementation and verification are complete locally, but the overall task remains blocked by push preflight and earlier remote connectivity failures.
+
+## 2026-07-30 Remove Large Config Package From Pending Git History
+
+- User decision: 用户确认 `doc/tasks/20260729-local-scheduler-tenant-copy/source-tenant-1-full-config.json` 不提交 Git。
+- Concurrent dirty baseline: before history filtering, another task had dirty upload simulation evidence; scanned for secret keywords and validated JSON, then committed as `c2637811 chore: baseline file upload simulation closeout evidence`.
+- History cleanup command: `git filter-branch --force --index-filter 'git rm -r --cached --ignore-unmatch doc/tasks/20260729-local-scheduler-tenant-copy/source-tenant-1-full-config.json' --prune-empty -- HEAD --not origin/int_main` -> PASS; local `int_main` was rewritten.
+- Post-cleanup path scan: `git rev-list --objects origin/int_main..HEAD -- doc\tasks\20260729-local-scheduler-tenant-copy\source-tenant-1-full-config.json` -> no output.
+- Post-cleanup object scan: largest pending blob is `doc/tasks/20260729-local-scheduler-tenant-copy/probe-source-full-config-after-role-fix.json`, size `2064369` bytes; no pending blob exceeds GitHub 100MB limit.
+- Current rewritten commit references:
+  - `16020173 chore: baseline concurrent upload evidence update`
+  - `1c4ae352 feat: add process pool review and revision write pages`
+  - `5d6d9940 docs: record process pool write path closeout`
+  - `7238837c chore: baseline file upload simulation closeout evidence`
+- Current status: large-object push preflight blocker resolved; push retry remains required.

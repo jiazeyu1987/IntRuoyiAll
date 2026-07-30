@@ -2,13 +2,13 @@
 
 ## Status
 
-blocked_on_push_preflight_large_object
+ready_for_closeout_pending_push_retry
 
 ## Evidence
 
 - F5/F6 implementation merged into `int_main`:
-  - F5 merge: `cfc3fab5 merge: integrate process pool review copy`
-  - F6 merge: `a81daadb merge: integrate process pool event revision`
+  - F5 merge after local history filtering: `9c04772b merge: integrate process pool review copy`
+  - F6 merge after local history filtering: `5f5fc5d2 merge: integrate process pool event revision`
 - Main review against 21-requirement gate:
   - PASS for F5/F6 owned behavior: original records are preserved for review copy, clamp only handles lower/upper limits, original record revision requires new electronic signature and field-level diff, allocated quantity fragments are locked, timeline remains read-only.
   - PASS for existing-system integration boundary: new work is attached to the formal process-pool event model, FIFO lock service, existing MES controller/service/mapper/test patterns, and frontend API wrapper pattern; no existing surplus/resource pool is reused as the process pool.
@@ -46,10 +46,11 @@ blocked_on_push_preflight_large_object
   - port registry entries for slots `16` and `17` marked inactive.
   - frontend write-entry cleanup preview/apply -> PASS; deleted task-owned Playwright browser artifacts and `IntRuoyiFronted\test-results`; no blockers or warnings.
 - Remote push blocker:
-  - Concurrent baseline commit: `2f930542 chore: baseline concurrent upload evidence update`.
-  - Frontend write-entry implementation commit: `ee4ea909 feat: add process pool review and revision write pages`.
-  - Frontend write-entry closeout doc commit: `62bc974c docs: record process pool write path closeout`.
-  - Push preflight object scan: `git rev-list --objects origin/int_main..HEAD | git cat-file --batch-check="%(objecttype) %(objectname) %(objectsize) %(rest)"` found blob `afe9962fd8168839852f5968beb491c636846188`, size `214274437`, path `doc/tasks/20260729-local-scheduler-tenant-copy/source-tenant-1-full-config.json`.
-  - Impact: this exceeds GitHub's 100 MB blob limit. A normal delete commit would not remove the blob from pending history; history rewrite, LFS migration, or another explicit user-approved remediation is required before push can be attempted safely.
+  - Concurrent baseline commit after local history filtering: `16020173 chore: baseline concurrent upload evidence update`.
+  - Frontend write-entry implementation commit after local history filtering: `1c4ae352 feat: add process pool review and revision write pages`.
+  - Frontend write-entry closeout doc commit after local history filtering: `5d6d9940 docs: record process pool write path closeout`.
+  - User decision: `doc/tasks/20260729-local-scheduler-tenant-copy/source-tenant-1-full-config.json` must not be committed to Git.
+  - History cleanup: `git filter-branch --force --index-filter 'git rm -r --cached --ignore-unmatch doc/tasks/20260729-local-scheduler-tenant-copy/source-tenant-1-full-config.json' --prune-empty -- HEAD --not origin/int_main` removed the 214MB blob from pending history.
+  - Push preflight object scan after cleanup: the removed path no longer appears in `git rev-list --objects origin/int_main..HEAD`; largest remaining blob is `doc/tasks/20260729-local-scheduler-tenant-copy/probe-source-full-config-after-role-fix.json`, size `2064369` bytes.
   - Earlier remote status: `git push origin int_main` -> FAIL twice, `Recv failure: Connection was reset`; `git ls-remote --heads origin int_main` -> FAIL with the same error.
-  - Task cannot be marked completed under project push policy until the large blob is removed from pending push history and `git push origin int_main` succeeds.
+  - Task cannot be marked completed under project push policy until `git push origin int_main` succeeds and local branch is no longer ahead.
