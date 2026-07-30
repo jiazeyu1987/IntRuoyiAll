@@ -41,7 +41,7 @@
         NULL AS fifoAllocationSummary,
         NULL AS auditCopyStatus,
         NULL AS auditCopySummary,
-        NULL AS modificationHistorySummary
+        COALESCE(revision_summary.summary, '原始记录暂无修改') AS modificationHistorySummary
     </sql>
 
     <sql id="TimelineFilters">
@@ -93,6 +93,15 @@
         LEFT JOIN mes_pro_process_pool_pqc_record pqc
           ON pqc.event_id = pool_event.id
          AND pqc.deleted = 0
+        LEFT JOIN (
+            SELECT event_id,
+                   CONCAT('原始记录已修改 ', COUNT(1), ' 次') AS summary
+            FROM mes_pro_process_pool_event_revision
+            WHERE deleted = 0
+              AND revision_status = 'EFFECTIVE'
+            GROUP BY event_id
+        ) revision_summary
+          ON revision_summary.event_id = pool_event.id
         WHERE <include refid="TimelineFilters"/>
         ORDER BY pool_event.server_submit_time ASC, pool_event.id ASC
         LIMIT #{offset}, #{reqVO.pageSize}
@@ -113,6 +122,15 @@
         LEFT JOIN mes_pro_process_pool_pqc_record pqc
           ON pqc.event_id = pool_event.id
          AND pqc.deleted = 0
+        LEFT JOIN (
+            SELECT event_id,
+                   CONCAT('原始记录已修改 ', COUNT(1), ' 次') AS summary
+            FROM mes_pro_process_pool_event_revision
+            WHERE deleted = 0
+              AND revision_status = 'EFFECTIVE'
+            GROUP BY event_id
+        ) revision_summary
+          ON revision_summary.event_id = pool_event.id
         WHERE pool_event.deleted = 0
           AND pool_event.id = #{id}
     </select>

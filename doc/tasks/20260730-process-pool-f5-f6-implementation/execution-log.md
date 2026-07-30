@@ -26,3 +26,19 @@
   - FIFO lock service exists: `MesProcessPoolFifoAllocationService#validateOriginalFieldMutationAllowed`.
 - BDD: F5 审核副本上下限修正 -> Given 工序池提交事件存在原始 payload 和正式上下限元数据 / When 审核用户生成审核副本 / Then 原始值保留，修正值按上下限生成，审核签名和来源可追溯。
 - BDD: F6 原始记录修改日志与重新签名 -> Given 工序池提交事件未 FIFO 分配 / When 员工提交修改原因和新电子签名修改原始记录 / Then 保存新版本、字段级 diff、修改原因、签名和服务端修改时间。
+
+## 2026-07-30 F6 Agent Implementation
+
+- Worktree: `D:\IntRuoyiWorktree\20260730-process-pool-f6-event-revision`
+- Branch: `codex/20260730-process-pool-f6-event-revision`
+- BDD: F6 未分配原始记录修改 -> Given 工序池提交事件未 FIFO 分配 / When 员工提交修改后 payload、修改原因、新电子签名和字段级变化 / Then 保存 revision 主表、字段级 diff、修改原因、新签名、修改人和服务端修改时间，并更新当前事件 `raw_payload`。
+- BDD: F6 签名和原因阻塞 -> Given 工序池提交事件存在 / When 修改请求缺少原因、空白原因、复用原提交签名或使用重复签名 / Then 拒绝修改，不写 revision，不更新当前事件。
+- BDD: F6 FIFO 锁定阻塞 -> Given 修改字段影响数量片段、质量或可分配状态 / When 来源片段已分配或锁定状态无法确认 / Then 调用 F7 `MesProcessPoolFifoAllocationService#validateOriginalFieldMutationAllowed` 并拒绝修改。
+- BDD: F6 时间轴修改历史只读摘要 -> Given 工序池提交事件存在有效 revision / When 查询时间轴或详情 / Then 展示原始记录修改次数摘要，不暴露修改写入口。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionSchemaTest,MesProcessPoolEventRevisionServiceTest#updateUnallocatedEventCreatesFieldDiffAndSignatureLog" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: F6 schema、DO、mapper、service、BO 尚不存在，`yudao-module-mes` testCompile 报缺少 revision 相关类型。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionSchemaTest,MesProcessPoolEventRevisionServiceTest#updateUnallocatedEventCreatesFieldDiffAndSignatureLog" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 2 tests.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionServiceTest#rejectsUpdateWithoutNewSignature,MesProcessPoolEventRevisionServiceTest#rejectsUpdateWithoutChangeReason,MesProcessPoolEventRevisionServiceTest#rejectsUpdateWhenRevisionSignatureAlreadyUsed" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionFifoLockTest#rejectsQuantityFieldUpdateWhenFragmentAllocated,MesProcessPoolEventRevisionFifoLockTest#rejectsUpdateWhenFifoLockStatusCannotBeConfirmed" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 2 tests.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionDiffContractTest#requiresFieldLevelDiff,ProcessPoolTimelineRevisionSummaryTest#timelineMapperReadsRevisionSummaryWithoutWriteActions" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 2 tests.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionSchemaTest,MesProcessPoolEventRevisionServiceTest,MesProcessPoolEventRevisionFifoLockTest,MesProcessPoolEventRevisionDiffContractTest,ProcessPoolTimelineRevisionSummaryTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 9 tests.
+- Current status: F6 后端 TDD 主链完成；待提交前 guard、diff check、commit。
