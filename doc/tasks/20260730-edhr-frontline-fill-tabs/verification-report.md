@@ -31,10 +31,20 @@
 - PASS: Official login preflight opened `/mes/pro/feedback/edhr-batch-pqc-fill` and found `PQC填写`。
 - PASS: Playwright opened both pages at 1920×1080, checked required and forbidden text, and found no page or console errors.
 
+## Yudao Source E2E
+
+- PASS: Official login preflight used `芋道源码/admin` and opened `/mes/pro/feedback/edhr-batch-production-fill` with target text `生产填写`。
+- PASS: Official login preflight used `芋道源码/admin` and opened `/mes/pro/feedback/edhr-batch-pqc-fill` with target text `PQC填写`。
+- BLOCKED: Full page E2E for both new tabs cannot proceed to normal one-line filling context because `/admin-api/mes/pro/feedback/frontline/device-account/processes` returns `{"code":1040760100,"msg":"设备账号工艺路线绑定来源未接入，无法加载一线报工上下文","data":null}`。
+- Root cause from source inspection: `MesFrontlineDeviceAccountContextServiceImpl` requires an optional `MesFrontlineDeviceAccountRouteBindingSource` bean, but current main source only defines the interface and no production implementation, so the official context source is missing.
+- No MES write requests were sent during this read-only verification.
+
 ## Screenshot Artifacts
 
 - `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs/production-fill-1920.png`
 - `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs/pqc-fill-1920.png`
+- `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs-yudao/production-fill-yudao-blocked-1920.png`
+- `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs-yudao/pqc-fill-yudao-blocked-1920.png`
 
 ## Design Constraint Result
 
@@ -46,6 +56,7 @@
 ## Remaining Risks
 
 - 本次按计划不改后端正式提交契约；PQC 详细检验字段要进入正式保存时，需要后续补正式 payload/API 契约后再放开提交。
+- `芋道源码/admin` 的完整一线填写 E2E 仍需正式设备账号工艺路线绑定来源实现和运行态配置；当前只能证明页签入口可打开、页面 fail-fast 阻塞清晰可见。
 
 ## Closeout
 

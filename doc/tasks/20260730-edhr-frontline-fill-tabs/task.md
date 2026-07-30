@@ -64,3 +64,9 @@ ready_for_closeout
 - `git status --short --branch` 当前显示 `int_main...origin/int_main [ahead 10, behind 8]`，且工作区存在调度、签名、权限等并行任务脏改动。
 - 本任务实现和验证已完成，cleanup 已通过；最终 push/远端同步需先由共享分支负责人完成分支分叉与并行脏改动协调。
 - 为避免触碰并行任务改动，本任务不执行 pull、rebase、merge、force push 或宽泛暂存。
+
+## Yudao Source E2E Blocker
+
+- `芋道源码/admin` 登录预检可以打开 `生产填写` 和 `PQC填写` 两个页签。
+- 完整页面 E2E 被正式接口阻塞：`/admin-api/mes/pro/feedback/frontline/device-account/processes` 返回 `1040760100`，消息为 `设备账号工艺路线绑定来源未接入，无法加载一线报工上下文`。
+- 源码核对显示当前只有 `MesFrontlineDeviceAccountRouteBindingSource` 接口，没有生产实现 bean；按 no-fallback 规则不伪造设备账号路线绑定。

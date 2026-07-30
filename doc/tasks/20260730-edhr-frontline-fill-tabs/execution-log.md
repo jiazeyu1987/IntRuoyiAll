@@ -28,3 +28,10 @@
 - Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-edhr-frontline-fill-tabs --mode apply` -> PASS，deleted_paths `<none>`。
 - Git preflight: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS；`git branch --show-current` -> `int_main`；`git remote -v` -> `origin` present。
 - Git integration blocker: `git status --short --branch` -> `int_main...origin/int_main [ahead 10, behind 8]`，且存在非本任务并行脏改动；为避免触碰并行任务，不执行 pull/rebase/merge/force push/宽泛暂存。
+- User follow-up: 要求在 `芋道源码` 里进行 E2E 验证。
+- Yudao E2E runtime preflight: `http://127.0.0.1:8081/` -> HTTP 200；`http://127.0.0.1:48081/actuator/health` -> HTTP 200 `{"status":"UP"}`。
+- Yudao E2E login preflight: `node scripts\preflight\login-preflight.mjs --target-path /mes/pro/feedback/edhr-batch-production-fill --target-text 生产填写` -> PASS，身份标签 `芋道源码/admin`。
+- Yudao E2E login preflight: `node scripts\preflight\login-preflight.mjs --target-path /mes/pro/feedback/edhr-batch-pqc-fill --target-text PQC填写` -> PASS，身份标签 `芋道源码/admin`。
+- Yudao E2E page assertion: `生产填写` 与 `PQC填写` 页面主体可渲染；但正式接口 `/admin-api/mes/pro/feedback/frontline/device-account/processes` 返回业务码 `1040760100`，消息 `设备账号工艺路线绑定来源未接入，无法加载一线报工上下文`。
+- Yudao E2E result: BLOCKED，原因是当前后端 Spring 运行态没有 `MesFrontlineDeviceAccountRouteBindingSource` 实现 bean，无法取得芋道源码/admin 的设备账号工艺路线绑定来源；按 no-fallback 规则不伪造绑定、不 mock、不把直达页面文本可见冒充完整 E2E 通过。
+- Yudao E2E artifacts: `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs-yudao/production-fill-yudao-blocked-1920.png`；`IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs-yudao/pqc-fill-yudao-blocked-1920.png`。
