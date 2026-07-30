@@ -77,6 +77,9 @@
 - Worktree cleanup: 校验目标绝对路径位于 `D:\IntRuoyiWorktree\` 下且已无 `.git` 后，受控删除 `D:\IntRuoyiWorktree\20260730-banzuzhang` -> PASS；`Test-Path` 为 `False`，`git worktree list --porcelain` 不再包含本任务。
 - Slot cleanup: 使用与 `reserve-worktree-slot.ps1` 相同的注册表互斥锁和原子文件替换流程更新 `D:\IntRuoyiWorktree\.ports\worktree-ports.json`；`20260730-banzuzhang` 条目校验为 slot `17`、frontend `8098`、backend `48098` 后设置 `active=false`，`releasedAt/deletedAt=2026-07-30T23:35:46.1992651+08:00`。
 - Experience consolidation: 已按 `project-experience-consolidation` 检查长期经验归宿；`docs/worktree-memory.md#Git-注册已移除但物理目录被运行态锁住` 已完整覆盖本次 `Invalid argument`、任务 PID/端口归属核验、停止运行态、删除残留目录和释放登记槽位的门禁，因此无需重复新增长期经验条目。
+- Post-merge regression: 在 `int_main` 已包含任务分支并推送 `f59da91d` 后，`node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS。
+- Post-merge regression: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderSchemaTest,MesProcessPoolTeamLeaderControllerTest,MesTeamLeaderScopeServiceTest,MesTeamLeaderSubmissionReviewServiceTest,MesWorkOrderAbnormalReportServiceTest,MesTeamEmployeeBindingServiceTest,MesDefectReasonCatalogServiceTest,MesProcessDeviceParameterRuleServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，16 tests，0 failures，0 errors，`BUILD SUCCESS`。
+- Post-merge regression: `pnpm ts:check` -> PASS。
 - Task status: `completed`；实现、验证、任务分支推送、ff-only 合并、运行进程停止和 worktree 删除均已完成。
 
 ## Evidence Files

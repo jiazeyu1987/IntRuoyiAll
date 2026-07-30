@@ -34,10 +34,18 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
 - `是否从根因和长期维护角度解决`：是，目标是同步正式动态菜单名、页面标题和搜索验证，而不是只改截图文案。
 - `是否存在临时补丁或绕过`：否。
+
+## Cleanup Candidates
+
+- doc/tasks/20260730-mes-process-menu-title/login-diagnostic.mjs
+- doc/tasks/20260730-mes-process-menu-title/mes-process-menu-title-real.e2e.mjs
+- doc/tasks/20260730-mes-process-menu-title/frontend-feature-evidence.md
+- doc/tasks/20260730-mes-process-menu-title/bug-regression-evidence.md
+- output/playwright/20260730-mes-process-menu-title/

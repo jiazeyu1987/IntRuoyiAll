@@ -33,6 +33,9 @@ completed；implementation verified, committed, pushed, ff-only merged into `int
 - Runtime cleanup: 本任务前后端 PID `36928/19088` 已停止，登记端口 `8098/48098` 已释放。
 - Physical worktree cleanup: `D:\IntRuoyiWorktree\20260730-banzuzhang` 已受控删除，`Test-Path` -> `False`，`git worktree list --porcelain` 不再包含本任务 worktree。
 - Runtime slot cleanup: 端口登记表中 `20260730-banzuzhang` 已更新为 `active=false`，slot `17` 与端口 `8098/48098` 已在 `2026-07-30T23:35:46.1992651+08:00` 正式释放。
+- Post-merge frontend static verification: `node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS。
+- Post-merge backend verification: F9/F10 Maven 定向测试 -> PASS，16 tests，0 failures，0 errors，`BUILD SUCCESS`。
+- Post-merge frontend type verification: `pnpm ts:check` -> PASS。
 
 ## Pending Verification
 

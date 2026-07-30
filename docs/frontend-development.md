@@ -217,7 +217,7 @@
 - Trigger: 用户要求修改动态菜单页面、左侧菜单、顶部页签、页面标题或角色/套餐菜单树中的入口名称。
 - Preflight check: 先同时定位 `system_menu.name` 的正式 SQL/迁移来源、页面内标题、真实 E2E 入口等待文本、角色菜单/租户套餐配置脚本；区分页签/入口名称和业务对象文案，避免把导入、弹窗、错误提示等非目标文案一并改名。若入口改名后仍需兼容旧搜索词，`RouterSearch` 必须登记明确别名，并且搜索过滤、历史解析和跳转不得缓存 setup 阶段的 `router.getRoutes()`，必须实时读取登录后的动态路由表。
 - Blocker: 只改前端组件标题但未提供正式菜单迁移、只改 SQL 但真实路径脚本仍查旧名称、新增 SQL 缺少 `release-migration` 元数据和依赖门禁、或真实登录态菜单搜索仍基于旧路由快照导致动态菜单搜不到时必须停止。
-- Verification: 新增聚焦静态契约同时读取页面标题、菜单迁移、真实路径脚本、搜索别名和动态路由新鲜度；运行角色/租户菜单相关静态契约；对新增菜单 SQL 使用目标 SQL + 依赖迁移执行 `run-release-migration-policy-gate.py --sql-file ...`；有本地运行态时用真实登录用户搜索旧关键词，断言命中新入口。
+- Verification: 新增聚焦静态契约同时读取页面标题、菜单迁移、真实路径脚本、搜索别名和动态路由新鲜度；运行角色/租户菜单相关静态契约；对新增菜单 SQL 使用目标 SQL + 依赖迁移执行 `run-release-migration-policy-gate.py --sql-file ...`；有本地运行态时用真实登录用户搜索关键词，断言命中新入口，并核对侧边栏、顶部页签或面包屑中的至少一个真实可见标题。`doc-alert` 可能被全局配置隐藏，不能作为唯一页面标题判据；Element Plus 菜单可能保留隐藏重复 DOM，Playwright 必须选择可见菜单节点。
 - Forbidden action: 禁止用硬编码前端标题掩盖动态路由仍返回旧菜单名；禁止为了“统一”扩大修改权限按钮、导入导出、业务对象或跨模块选择文案。
 - Evidence: 任务 `doc/tasks/20260728-rename-product-master-tab/`，产品主数据页签改为“展厅主数据”时需同步 `system_menu` 迁移、页面标题、角色菜单和租户套餐真实路径脚本；任务 `doc/tasks/20260730-standard-template-list-search-alias/`，标准模板列表兼容旧关键词 MES工序 时，`RouterSearch` 不能缓存登录前路由快照。
 
