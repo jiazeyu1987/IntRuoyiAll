@@ -16,10 +16,18 @@
 
 - `node tests/e2e/edhr-batch-page-graph-tab-static.spec.js`
 - `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs`
+- `pnpm ts:check`
+- 官方登录预检与 Playwright 真实页面路径验证
 
 ## Current Status
 
 ready_for_closeout
+
+## E2E Result
+
+- `批记录页面关系图` 页签、关系图页面、节点和页面路由：PASS。
+- 完整业务流程：`GRAPH_PASS_DOWNSTREAM_BLOCKED`。
+- 下游 blocker：生产填写与 PQC填写页面缺少设备账号工艺路线绑定来源，页面提示无法加载一线报工上下文。
 
 ## 设计约束检查
 
@@ -37,3 +45,4 @@ ready_for_closeout
 
 - 实现与定向验证已完成，但当前分支 `int_main...origin/int_main [ahead 3]` 包含非本任务提交。
 - 为避免把非本任务提交一起推送，本任务未执行最终 closeout push，状态停在 `ready_for_closeout`。
+- 真实 E2E 发现生产填写/PQC填写的下游一线报工上下文前置未接入，因此不能将完整流程记录为 PASS。

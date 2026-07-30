@@ -19,3 +19,21 @@
 - Evidence validator: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260730-edhr-page-graph-tab/frontend-feature-evidence.md` -> PASS。
 - Concurrent commit gate: `git log -5 --oneline --stat` 显示当前实现已被共享分支并发基线提交纳入：`f03f77b0` 包含页签与静态合同，`f7b32cec` 包含路由与页面组件；`668ca0e4` 为非本任务 route-admin 文档提交。按 `共享分支并发基线提交门禁` 记录，不执行 amend/reset/force-push。
 - Closeout blocker update: 分支 `int_main...origin/int_main [ahead 3]` 含非本任务提交，最终 push 需要用户确认是否一起推送这些本地提交。
+
+## 2026-07-30 Real E2E
+
+- User intent: 使用真实 E2E 验证“批记录页面关系图”是否符合页面流程。
+- Runtime: `8081` 由 `E:\IntRuoyi\IntRuoyiFronted` Vite 进程监听；`48081` 由 `E:\IntRuoyi` 的 int_main Java 运行态监听；health `UP`，前端 HTTP `200`。
+- Browser: 本机 Chrome；身份标签 `芋道源码/admin`；未记录密码。
+- Login preflight: `scripts/preflight/login-preflight.mjs` -> PASS，目标 `/mes/pro/feedback/edhr-batch-execution` 可见“批记录页面关系图”。
+- E2E reproduction: 从批次执行页面点击“批记录页面关系图”后，真实 URL 未变化，Playwright 等待 `edhr-batch-page-graph` 超时。
+- Root cause: 共享页签只依赖 `tab-change`，真实点击路径未稳定执行路由跳转。
+- RED: `node tests/e2e/edhr-batch-page-graph-tab-static.spec.js` -> FAIL，原因：缺少 `@tab-click="handleTabClick"`。
+- Fix: `EdhrBatchRecordTabs.vue` 改为监听 `tab-click`，从 pane 的 `props.name` 解析目标页签并执行统一路由跳转。
+- GREEN: `node tests/e2e/edhr-batch-page-graph-tab-static.spec.js` -> PASS。
+- REGRESSION: `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- REGRESSION: `pnpm ts:check` -> PASS；首次并行调用超时，随后单独重跑通过。
+- Real E2E graph result: PASS；10 个要求节点可见，11 条页面关系可见，6 个待接入节点为 disabled，生产填写/PQC填写/正式批记录节点完成真实前端路由跳转，MES 写请求数为 0。
+- Real E2E downstream result: BLOCKED；进入生产填写和 PQC填写后各出现一次 `设备账号工艺路线绑定来源未接入，无法加载一线报工上下文`，并有相关 `502 Bad Gateway` console error。
+- Screenshot: `E:\IntRuoyi\output\playwright\edhr-page-graph-real-e2e.png`。
+- Final E2E status: `GRAPH_PASS_DOWNSTREAM_BLOCKED`，不得记录为完整业务流程 PASS。
