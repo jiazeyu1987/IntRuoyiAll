@@ -47,7 +47,7 @@ F5/F6 子 worktree 已完成主审修正并融合进 `int_main`。F5/F6 后端�
 
 新增真实验证已完成：本地 `int_main` 后端重新构建并以独立 runtime jar 启动到 `48081`，健康检查 `UP`；Playwright 使用真实登录、真实 F5/F6 页面和真实后端写接口通过 2 条测试；数据库核对确认 RUN3 审核副本将 `pressure=50` 按 `20~40` 夹到 `40`，原始记录修改将事件 `6` 的 `outputQuantity` 更新为 `91` 且保留新签名。
 
-已知阻塞项仍存在：`git push origin int_main` 两次失败，`git ls-remote --heads origin int_main` 也失败，错误均为 `Recv failure: Connection was reset`。按项目规则，在远端不可访问且本地仍 ahead 时不能标记任务 completed。
+已知阻塞项仍存在：推送前对象扫描发现待推送历史包含 `doc/tasks/20260729-local-scheduler-tenant-copy/source-tenant-1-full-config.json`，blob 大小 `214274437` bytes，超过 GitHub 100 MB 限制；此外此前 `git push origin int_main` 两次失败、`git ls-remote --heads origin int_main` 也失败，错误均为 `Recv failure: Connection was reset`。按项目规则，在超大 blob 未从待推送历史处理且远端不可确认时，不能推送或标记任务 completed。
 
 ## 设计约束检查
 

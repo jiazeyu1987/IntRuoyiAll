@@ -2,7 +2,7 @@
 
 ## Status
 
-ready_for_closeout_pending_push_retry
+blocked_on_push_preflight_large_object
 
 ## Passed
 
@@ -24,3 +24,4 @@ ready_for_closeout_pending_push_retry
 ## Not Passed Or Not Run
 
 - Final push has not yet succeeded after the frontend write-path closeout changes. Previous `git push origin int_main` and `git ls-remote --heads origin int_main` failed with `Recv failure: Connection was reset`.
+- Push preflight found pending blob `doc/tasks/20260729-local-scheduler-tenant-copy/source-tenant-1-full-config.json` at `214274437` bytes, which exceeds GitHub's 100 MB limit and blocks safe push until explicitly remediated.

@@ -277,3 +277,12 @@
 - Commit: `ee4ea909 feat: add process pool review and revision write pages`; hook ran `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
 - Commit file list: `IntRuoyiFronted/package.json`, `remaining.ts`, `ReviewCopyPage.vue`, `EventRevisionPage.vue`, frontend static/E2E specs, `docs\e2e-rules.md`, `docs\experience-index.md`, and this task's task/test/verification records.
 - Post-commit scan: `git status --short --branch --untracked-files=all` -> `int_main...origin/int_main [ahead 23]`, no unstaged or untracked files.
+
+## 2026-07-30 Push Preflight Large Object Blocker
+
+- Closeout doc commit: `62bc974c docs: record process pool write path closeout`; hook ran `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
+- Pre-push status: `git status --short --branch --untracked-files=all` -> `int_main...origin/int_main [ahead 24]`, clean working tree.
+- Push preflight object scan: `git rev-list --objects origin/int_main..HEAD | git cat-file --batch-check="%(objecttype) %(objectname) %(objectsize) %(rest)" | Sort-Object ... | Select-Object -First 20` -> largest object is blob `afe9962fd8168839852f5968beb491c636846188`, size `214274437`, path `doc/tasks/20260729-local-scheduler-tenant-copy/source-tenant-1-full-config.json`.
+- Blocker: GitHub rejects blobs over 100 MB; this blob is in pending history `origin/int_main..HEAD`. A normal delete commit would not remove it from the history to be pushed.
+- Impact: safe push is blocked until the user explicitly approves a remediation such as history rewrite, Git LFS migration, or another large-object removal strategy. No push attempt was made after this preflight blocker was found.
+- Current status: F5/F6 implementation and verification are complete locally, but the overall task remains blocked by push preflight and earlier remote connectivity failures.

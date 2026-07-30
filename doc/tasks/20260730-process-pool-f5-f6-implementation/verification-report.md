@@ -2,7 +2,7 @@
 
 ## Status
 
-ready_for_closeout_pending_push_retry
+blocked_on_push_preflight_large_object
 
 ## Evidence
 
@@ -48,6 +48,8 @@ ready_for_closeout_pending_push_retry
 - Remote push blocker:
   - Concurrent baseline commit: `2f930542 chore: baseline concurrent upload evidence update`.
   - Frontend write-entry implementation commit: `ee4ea909 feat: add process pool review and revision write pages`.
-  - `git push origin int_main` -> FAIL twice, `Recv failure: Connection was reset`.
-  - `git ls-remote --heads origin int_main` -> FAIL, `Recv failure: Connection was reset`.
-  - A new closeout commit and push retry are still required after the frontend write entry gap is committed. Task cannot be marked completed under project push policy until the remote is reachable and push succeeds.
+  - Frontend write-entry closeout doc commit: `62bc974c docs: record process pool write path closeout`.
+  - Push preflight object scan: `git rev-list --objects origin/int_main..HEAD | git cat-file --batch-check="%(objecttype) %(objectname) %(objectsize) %(rest)"` found blob `afe9962fd8168839852f5968beb491c636846188`, size `214274437`, path `doc/tasks/20260729-local-scheduler-tenant-copy/source-tenant-1-full-config.json`.
+  - Impact: this exceeds GitHub's 100 MB blob limit. A normal delete commit would not remove the blob from pending history; history rewrite, LFS migration, or another explicit user-approved remediation is required before push can be attempted safely.
+  - Earlier remote status: `git push origin int_main` -> FAIL twice, `Recv failure: Connection was reset`; `git ls-remote --heads origin int_main` -> FAIL with the same error.
+  - Task cannot be marked completed under project push policy until the large blob is removed from pending push history and `git push origin int_main` succeeds.
