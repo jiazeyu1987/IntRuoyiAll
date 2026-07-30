@@ -32,6 +32,8 @@ completed
 
 - `task-closeout-cleanup` preview/apply 均通过。
 - 保留 `task.md`、`execution-log.md`、`verification-report.md`，删除项为空，阻塞项为空。
+- 文档实现提交：`28bdfb76 docs: record pressure pump process mapping`。
+- 最终收尾记录提交与远端推送在本记录更新后执行。
 
 ## 设计约束检查
 

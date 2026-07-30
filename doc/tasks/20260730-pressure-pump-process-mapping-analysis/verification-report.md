@@ -16,6 +16,8 @@
 - PASS: UTF-8 重新读取和关键字检查通过。
 - PASS: `git diff --check` 未发现空白错误。
 - PASS: `task-closeout-cleanup` preview/apply 均通过，删除项和阻塞项为空。
+- PASS: 暂存文件清单仅包含本次两个项目构想文档和三个任务文档。
+- PASS: 文档实现提交为 `28bdfb76 docs: record pressure pump process mapping`。
 
 ## Residual Questions
 
