@@ -74,3 +74,14 @@
 - Runtime closeout: 复核后 `8083`、`48083` 均无本任务监听进程，无需停止额外服务。
 - BLOCKER: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-edhr-frontline-fill-tabs --mode preview` -> BLOCKED；keep 为 `task.md`、`execution-log.md`、`verification-report.md`、`frontend-feature-evidence.md`、`backend-api-evidence.md`，delete `<none>`；原因是当前分支不能 fast-forward 合并到 `int_main`，且主 worktree `E:\IntRuoyi` 为脏状态。
 - Closeout decision: 不执行 cleanup apply，不触碰主 worktree 并行改动，不删除隔离 worktree；任务保持 `ready_for_closeout`。
+- User closeout request: 合并到 `int_main`，然后删除当前任务 worktree。
+- Main baseline: 主工作区并行任务文档已由独立提交 `d1e2e44d 基线: 保存并行任务文档改动` 保留，`E:\IntRuoyi` 恢复 clean。
+- Integration merge: `git merge --no-edit int_main` 初次产生两处本任务证据文档冲突；按语义保留功能分支已完成的 12 项测试、真实 E2E 和清理结果，未覆盖主线其它任务文件。
+- GREEN: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，功能分支使用登记槽位 `int_main slot 2`，端口 `8083/48083`。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRouteProcessTemplateBindingSourceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineTemplateResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，12 tests，0 failures，0 errors，0 skipped。
+- GREEN: `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- GREEN: `node src/views/mes/pro/feedback/frontline-template-render.spec.cjs` -> PASS。
+- GREEN: `node src/views/mes/pro/feedback/frontline-template-switch.spec.cjs` -> PASS。
+- REGRESSION: `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js` -> PASS。
+- GREEN: `node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` -> PASS。
+- REGRESSION: `pnpm ts:check` -> PASS。

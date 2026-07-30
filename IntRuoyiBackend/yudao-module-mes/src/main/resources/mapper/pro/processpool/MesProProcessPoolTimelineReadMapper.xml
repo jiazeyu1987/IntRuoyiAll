@@ -54,6 +54,12 @@
         <if test="reqVO.employeeUserId != null">
             AND pool_event.actual_employee_id = #{reqVO.employeeUserId}
         </if>
+        <if test="reqVO.employeeUserIds != null and reqVO.employeeUserIds.size() > 0">
+            AND pool_event.actual_employee_id IN
+            <foreach collection="reqVO.employeeUserIds" item="employeeUserId" open="(" separator="," close=")">
+                #{employeeUserId}
+            </foreach>
+        </if>
         <if test="reqVO.processId != null">
             AND pool_event.process_id = #{reqVO.processId}
         </if>

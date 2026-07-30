@@ -67,3 +67,35 @@
   -> PASS，keep 5，delete `<none>`，blocked `<none>`，warnings `<none>`。
 - Cleanup apply: `task_closeout.py --task-id 20260730-scheduler-workbench-full-package-tenant-policy --mode apply`
   -> PASS，deleted paths `<none>`。
+- Git port guard: `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS，
+  `int_main` 端口合同为 frontend `8081`、backend `48081`。
+- Large-file preflight: 扫描 `origin/int_main..HEAD` -> PASS，最大 blob `12,021,248` bytes，
+  未超过 GitHub 100 MB 门禁。
+- Closeout commit: `ba77c665 docs: close scheduler workbench package optimization`，仅修改本任务
+  `task.md`、`execution-log.md`、`verification-report.md`；提交后并行任务源码继续留在工作区。
+- Push attempt 1: `git push origin int_main` -> FAIL，
+  `Recv failure: Connection was reset`。
+- Push connectivity retry: `git ls-remote origin HEAD` -> FAIL，
+  `Recv failure: Connection was reset`，因此未继续无界重试。
+- Final Git blocker: `int_main...origin/int_main [ahead 17, behind 8]`；当前既有网络不可达，又存在
+  远端分叉风险。按门禁不执行 force push、reset、rebase、merge 或覆盖并行工作区。
+- Resume network diagnosis: `Resolve-DnsName github.com` -> PASS；
+  direct `curl.exe -I https://github.com` -> TIMEOUT；Git 配置存在 GitHub 本地代理
+  `127.0.0.1:8902`，`git -c http.version=HTTP/1.1 ls-remote origin HEAD refs/heads/int_main`
+  -> PASS，远端 `int_main=65d0a87e`。
+- Resume fetch: `git -c http.version=HTTP/1.1 fetch origin int_main` -> PASS；
+  `git rev-list --left-right --count origin/int_main...HEAD` -> `8 18`。
+- Resume push: `git -c http.version=HTTP/1.1 push origin int_main` -> FAIL，
+  `[rejected] int_main -> int_main (non-fast-forward)`。
+- Shared index blocker: 推送前状态显示路线管理并行任务已 staged
+  `IntRuoyiFronted/src/views/mes/pro/route/index.vue`、相关 E2E 和任务文档；为避免提交或覆盖对方
+  工作，不执行 pull、merge、rebase、reset、stash、取消暂存或 force push。
+- Final push closeout: 并行任务后续完成远端合并，`git rev-list --left-right --count origin/int_main...HEAD`
+  -> `0 22`，本地不再落后远端。
+- Final large-file preflight: 重新扫描 `origin/int_main..HEAD` -> PASS，最大 blob
+  `12,021,248` bytes，未超过 GitHub 100 MB 门禁。
+- Final port guard: `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS。
+- Final push: `git -c http.version=HTTP/1.1 push origin int_main` -> PASS，
+  `65d0a87e..79040df4 int_main -> int_main`。
+- Final remote verification: `git rev-list --left-right --count origin/int_main...HEAD` -> `0 0`，
+  `git ls-remote origin refs/heads/int_main` -> `79040df4bc9e1ab9c4b437113a078602b17394df`。

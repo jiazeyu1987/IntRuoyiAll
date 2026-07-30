@@ -77,6 +77,9 @@
 - PASS: Frontend feature evidence and backend API evidence validators passed.
 - PASS: Reusable Playwright login-race experience was merged into existing `docs/e2e-rules.md` and indexed in `docs/experience-index.md`.
 - PASS: Implementation commit `2fea1fcd` created and pushed to `origin/codex/20260730-edhr-frontline-e2e-runtime`; local branch is not ahead.
-- BLOCKED: `task-closeout-cleanup preview` cannot proceed to apply because the branch is not fast-forward mergeable into `int_main` and main worktree `E:\IntRuoyi` is dirty.
+- PASS: Main worktree parallel documents were preserved by baseline commit `d1e2e44d`, and the main worktree is clean.
+- PASS: Updated `int_main` was merged into the feature branch; the two task-document conflicts retained the completed verification evidence.
+- PASS: Post-merge branch runtime guard, 12 target backend tests, four frontend static contracts, E2E script syntax check, and `pnpm ts:check` all passed.
+- PENDING: Push the integrated feature branch, then run `task-closeout-cleanup` preview/apply for the final fast-forward merge and worktree removal.
 - No task-owned runtime remains on ports `8083/48083`; no fixture rows remain.
 - Final local status: ready_for_closeout.

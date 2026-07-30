@@ -145,6 +145,8 @@ BLOCKER: <前置条件> -> <缺失内容和影响>
 
 ## Test Blockers
 
+初始定义和解除条件见 `docs/acceptance/production-line-process-pool/open-questions-blockers.md`；RED/GREEN 证据中遇到阻塞时，应引用对应 BLK 编号。
+
 - 缺少正式工序池 schema、事件表、数量片段、分配流水。
 - 缺少电子签名正式接口或测试签名数据。
 - 缺少设备账号、设备、工作站、实际员工、工艺路线、工序绑定和固定模板测试数据。

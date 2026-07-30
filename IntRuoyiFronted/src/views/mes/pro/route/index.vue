@@ -4,7 +4,7 @@
 
   <ContentWrap>
     <UnifiedListTemplate
-      table-key="mes.pro.route.main"
+      :table-key="ROUTE_LIST_TABLE_KEY"
       :query-model="queryParams"
       label-width="88px"
       :filter-definitions="routeQuickFilterDefinitions"
@@ -56,7 +56,7 @@
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
-          data-user-table-key="mes.pro.route.main"
+          :data-user-table-key="ROUTE_LIST_TABLE_KEY"
           :data="list"
           border
           :stripe="true"
@@ -593,13 +593,14 @@ const routeVersionWorkspaceBlockers = computed(() => {
   }
   return []
 })
+const ROUTE_LIST_TABLE_KEY = 'mes.pro.route.main.admin-layout-v1'
 const routeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'code', label: '路线编码', minWidth: 180 },
   { key: 'name', label: '路线名称', minWidth: 200 },
-  { key: 'ownerName', label: '负责人', minWidth: 140 },
-  { key: 'keyProcessName', label: '关键工序', minWidth: 180 },
+  { key: 'ownerName', label: '负责人', visible: false, minWidth: 140 },
+  { key: 'keyProcessName', label: '关键工序', visible: false, minWidth: 180 },
   { key: 'status', label: '状态', width: 100 },
-  { key: 'flowGraphConfigured', label: '关系图', width: 100 },
+  { key: 'flowGraphConfigured', label: '关系图', visible: false, width: 100 },
   { key: 'activeRouteVersionNo', label: '当前生效版本', minWidth: 140 },
   { key: 'pendingRouteVersionNo', label: '待发布版本', minWidth: 160 },
   { key: 'productCodes', label: '关联产品', minWidth: 220 },
@@ -614,7 +615,7 @@ const {
   getColumnMinWidthString: getRouteColumnMinWidthString,
   handleHeaderDragend: handleRouteHeaderDragend,
   saveConfig: saveRouteColumnConfig
-} = useUserTableColumns('mes.pro.route.main', routeDefaultColumns)
+} = useUserTableColumns(ROUTE_LIST_TABLE_KEY, routeDefaultColumns)
 
 const resetRouteQueryState = (pageSize = 10) => ({
   pageNo: 1,

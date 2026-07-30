@@ -10,6 +10,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Set;
 
 import static cn.iocoder.yudao.framework.common.util.date.DateUtils.FORMAT_YEAR_MONTH_DAY;
 
@@ -26,6 +27,9 @@ public class ProcessPoolTimelinePageReqVO extends PageParam {
 
     @Schema(description = "实际填写员工编号", example = "2001")
     private Long employeeUserId;
+
+    @Schema(description = "实际填写员工编号集合", hidden = true)
+    private Set<Long> employeeUserIds;
 
     @Schema(description = "工序编号", example = "6001")
     private Long processId;

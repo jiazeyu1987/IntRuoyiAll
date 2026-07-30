@@ -69,6 +69,8 @@
 
 ## Test Blockers
 
+初始定义和解除条件见 `docs/acceptance/production-line-process-pool/open-questions-blockers.md`；测试数据缺口应按 BLK 编号记录，不生成默认数据掩盖正式前置缺失。
+
 - 没有可授权的写入型测试租户。
 - 没有设备账号或设备账号不能绑定工艺路线。
 - 没有可作为实际员工的用户，或无法绑定到工序。

@@ -22,7 +22,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
@@ -67,6 +67,18 @@ ready_for_closeout
   状态与复验证据。
 - `GREEN: task-closeout-cleanup preview/apply -> PASS`，keep 5 个正式任务文件，delete/blocked/warnings
   均为 `<none>`。
+- 本地收尾提交：`ba77c665 docs: close scheduler workbench package optimization`，仅包含本任务
+  `task.md`、`execution-log.md`、`verification-report.md`。
+- `BLOCKED: git push origin int_main` 和随后 `git ls-remote origin HEAD` 均失败，
+  GitHub 返回 `Recv failure: Connection was reset`；当前分支仍为 `ahead 17, behind 8`。
+- 影响：本地优化和验证已完成，但无法满足项目“必须推送 origin 后才 completed”的门禁；禁止用
+  force push、reset、rebase 或历史改写绕过。
+- `BLOCKED: 2026-07-30 resumed push audit`，HTTP/1.1 只读访问和 fetch 已恢复，远端
+  `int_main=65d0a87e`；精确分叉为 `behind 8 / ahead 18`。
+- `git push origin int_main` 已被远端明确拒绝为 `non-fast-forward`。同期共享 Git 索引包含
+  路线管理并行任务的 staged 文件，当前不能安全执行 merge/rebase 或新的任务提交。
+- `GREEN: 2026-07-30 21:38 +08:00 final push closeout`，并行任务完成远端合并后，本地
+  `int_main` 已普通推送到 `origin/int_main=79040df4`；最终 `ahead/behind=0/0`。
 
 ## Cleanup Keep
 

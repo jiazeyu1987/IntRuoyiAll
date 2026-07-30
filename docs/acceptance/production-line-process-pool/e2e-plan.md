@@ -100,6 +100,8 @@
 
 ## Test Blockers
 
+初始定义和解除条件见 `docs/acceptance/production-line-process-pool/open-questions-blockers.md`；真实 E2E 前置缺失时记录 BLOCKED，不用 mock、API-only 或静态合同代替。
+
 - 本机前端或后端未运行。
 - 缺少登录前置、测试租户、设备账号、实际员工、设备、工作站。
 - 设备账号未绑定 `X >= 1` 个工艺路线。

@@ -1,5 +1,5 @@
 -- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260709_mes_route_flow_config_unification; type=menu; riskLevel=low
--- Purpose: 在“工序设置”和“工艺流程”之间新增只读标准模板列表菜单，复用现有工艺路线/工序/设备配置读模型。
+-- Purpose: 在“工序设置”和“工艺流程”之间新增只读 MES 工序菜单，复用现有工艺路线/工序/设备配置读模型。
 
 SET NAMES utf8mb4;
 
@@ -45,7 +45,7 @@ BEGIN
   )
   VALUES (
     5718,
-    CONVERT(UNHEX('E6A087E58786E6A8A1E69DBFE58897E8A1A8') USING utf8mb4),
+    CONVERT(UNHEX('4D4553E5B7A5E5BA8F') USING utf8mb4),
     '',
     2,
     25,
@@ -66,7 +66,7 @@ BEGIN
   ),
   (
     5719,
-    CONVERT(UNHEX('E6A087E58786E6A8A1E69DBFE58897E8A1A8E69FA5E8AFA2') USING utf8mb4),
+    CONVERT(UNHEX('4D4553E5B7A5E5BA8FE69FA5E8AFA2') USING utf8mb4),
     'mes:pro-mes-process:query',
     3,
     1,

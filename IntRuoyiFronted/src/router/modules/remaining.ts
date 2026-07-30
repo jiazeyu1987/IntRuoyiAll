@@ -1887,6 +1887,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-batch-page-graph',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchPageGraphPage.vue'),
+        name: 'MesProEdhrBatchPageGraph',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '批记录页面关系图',
+          activeMenu: '/mes/pro/feedback/edhr-batch-page-graph',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-signatures',
         component: () => import('@/views/mes/pro/edhr/SignaturePage.vue'),
         name: 'MesProFeedbackEdhrSignatures',
@@ -1954,6 +1968,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
           title: '工序池原始记录修改',
           activeMenu: '/mes/pro/process-pool/event-revision',
           permission: ['mes:pro-process-pool:event-revision:update']
+        }
+      },
+      {
+        path: 'pro/process-pool/team-leader',
+        component: () => import('@/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'),
+        name: 'MesProProcessPoolTeamLeader',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '工序池班组长工作台',
+          activeMenu: '/mes/pro/process-pool/team-leader',
+          permission: ['mes:pro-process-pool-team-leader:query']
         }
       },
       {

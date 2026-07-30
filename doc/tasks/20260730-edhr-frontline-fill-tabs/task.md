@@ -68,14 +68,15 @@ ready_for_closeout
 - doc/tasks/20260730-edhr-frontline-fill-tabs/frontend-feature-evidence.md
 - doc/tasks/20260730-edhr-frontline-fill-tabs/backend-api-evidence.md
 
-## Git Integration Blocker
+## Git Integration Status
 
 - 当前任务已迁移到隔离 worktree `D:\IntRuoyiWorktree\20260730-edhr-frontline-e2e-runtime`，分支 `codex/20260730-edhr-frontline-e2e-runtime`。
 - 实现提交：`2fea1fcd feat: add edhr frontline production and pqc runtime context`。
-- 当前分支已推送并跟踪 `origin/codex/20260730-edhr-frontline-e2e-runtime`，本地不再 ahead。
-- `task-closeout-cleanup preview` 保留五个任务记录文件且无删除项，但阻塞于当前分支无法 fast-forward 合并到 `int_main`，同时主 worktree `E:\IntRuoyi` 为脏状态。
-- 因 cleanup preview 阻塞，不执行 apply、不删除 worktree、不标记 `completed`；当前状态保持 `ready_for_closeout`。
-- 不触碰 `E:\IntRuoyi` 主工作区并行脏改动，不执行 force push 或历史重写。
+- 主工作区原有并行任务文档已由独立基线提交 `d1e2e44d 基线: 保存并行任务文档改动` 保留，主工作区恢复 clean。
+- 已将更新后的 `int_main` 合入功能分支；两处任务证据文档冲突按语义保留已完成的 12 项后端测试和真实 E2E 结果。
+- 合并后端口守卫、目标后端测试、四项前端静态合同、E2E 脚本语法检查和 `pnpm ts:check` 均通过。
+- 当前状态保持 `ready_for_closeout`，等待推送功能分支并执行 cleanup preview/apply 完成快进合并和 worktree 删除。
+- 未执行 force push、rebase、reset 或历史重写。
 
 ## Yudao Source E2E Result
 

@@ -16,7 +16,7 @@ const getFunctionBody = (functionName) => {
 }
 
 const templateMatch = source.match(
-  /<UnifiedListTemplate[\s\S]*?table-key="mes\.pro\.route\.main"[\s\S]*?<\/UnifiedListTemplate>/
+  /<UnifiedListTemplate[\s\S]*?:table-key="ROUTE_LIST_TABLE_KEY"[\s\S]*?<\/UnifiedListTemplate>/
 )
 assert.ok(templateMatch, '工艺路线列表必须继续使用标准列表模板。')
 const template = templateMatch[0]
