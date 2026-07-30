@@ -291,23 +291,6 @@
               <Icon icon="ep:upload" class="mr-5px" /> 导入全部数据包
             </el-button>
             <el-button
-              plain
-              class="scheduler-workbench__settings-button"
-              :loading="routeConfigExporting"
-              @click="exportRouteConfigPackage"
-            >
-              <Icon icon="ep:download" class="mr-5px" /> 导出排产工艺路线
-            </el-button>
-            <el-button
-              v-if="canUpdateSettings"
-              plain
-              class="scheduler-workbench__settings-button"
-              :loading="routeConfigImporting"
-              @click="openRouteConfigImport"
-            >
-              <Icon icon="ep:upload" class="mr-5px" /> 导入排产工艺路线
-            </el-button>
-            <el-button
               v-if="canUpdateSettings"
               type="primary"
               class="scheduler-workbench__settings-button"
@@ -322,13 +305,6 @@
       </div>
       </div>
     </Dialog>
-    <input
-      ref="routeConfigInputRef"
-      type="file"
-      class="scheduler-workbench__hidden-input"
-      accept=".json,application/json"
-      @change="handleRouteConfigFileChange"
-    />
     <input
       ref="fullConfigInputRef"
       type="file"
@@ -1140,7 +1116,6 @@ import {
   type SchedulerWorkbenchFullConfigImportRespVO,
   type SchedulerWorkbenchPolicySettingsVO,
   type SchedulerWorkbenchRouteActiveOrderVO,
-  type SchedulerWorkbenchRouteConfigImportRespVO,
   type SchedulerWorkbenchShiftHoursVO,
   type SchedulerWorkbenchSummaryVO
 } from '@/api/mes/pro/schedulerWorkbench'
@@ -1195,8 +1170,6 @@ const shiftHoursSaving = ref(false)
 const scheduleRulesLoading = ref(false)
 const scheduleRulesSaving = ref(false)
 const policySettingsSaving = ref(false)
-const routeConfigExporting = ref(false)
-const routeConfigImporting = ref(false)
 const fullConfigExporting = ref(false)
 const fullConfigImporting = ref(false)
 const schedulerSettingsLoading = ref(false)
@@ -1206,7 +1179,6 @@ const selectedDate = ref(dayjs().format('YYYY-MM-DD'))
 const router = useRouter()
 const shiftHoursFormRef = ref()
 const policySettingsFormRef = ref()
-const routeConfigInputRef = ref<HTMLInputElement>()
 const fullConfigInputRef = ref<HTMLInputElement>()
 const processWipStatistics = ref<MesProScheduleOrderProcessWipVO[]>([])
 const processWipPlannedStartDateDrafts = reactive<Record<string, string | undefined>>({})
@@ -1884,17 +1856,6 @@ const unwrapDownloadedBlob = (payload: unknown, actionName: string): Blob => {
   throw new Error(`${actionName}返回的下载数据不是 Blob`)
 }
 
-const exportRouteConfigPackage = async () => {
-  routeConfigExporting.value = true
-  try {
-    const data = await SchedulerWorkbenchApi.exportRouteConfigPackage()
-    download.json(unwrapDownloadedBlob(data, '导出排产工艺路线配置包'), '排产工艺路线配置包.json')
-    ElMessage.success('排产工艺路线配置包已导出')
-  } finally {
-    routeConfigExporting.value = false
-  }
-}
-
 const exportFullConfigPackage = async () => {
   fullConfigExporting.value = true
   try {
@@ -1906,33 +1867,8 @@ const exportFullConfigPackage = async () => {
   }
 }
 
-const openRouteConfigImport = () => {
-  routeConfigInputRef.value?.click()
-}
-
 const openFullConfigImport = () => {
   fullConfigInputRef.value?.click()
-}
-
-const handleRouteConfigFileChange = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  if (!file) {
-    return
-  }
-  const formData = new FormData()
-  formData.append('file', file)
-  routeConfigImporting.value = true
-  try {
-    const result: SchedulerWorkbenchRouteConfigImportRespVO =
-      await SchedulerWorkbenchApi.importRouteConfigPackage(formData)
-    ElMessage.success(
-      `导入完成；路线 ${result.routeCount} 条；工艺流程配置工序 ${result.flowConfigProcessCount} 条；排产配置 ${result.scheduleConfigCount} 条；资源 ${result.resourceCount} 条`
-    )
-  } finally {
-    routeConfigImporting.value = false
-  }
 }
 
 const handleFullConfigFileChange = async (event: Event) => {
