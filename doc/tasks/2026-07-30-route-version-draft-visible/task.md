@@ -12,7 +12,8 @@
 4. `completed`：运行目标静态合同、相邻历史版本合同和类型检查。
 5. `completed`：补充 DRAFT 草稿“删除草稿”确认、刷新隐藏、再次编辑基于当前 ACTIVE 新建草稿的前后端回归。
 6. `completed`：运行目标静态合同、后端回归、类型检查和证据校验。
-7. `blocked`：真实 Playwright E2E 和提交收尾受本机浏览器依赖、并行脏改动、混合基线提交与远端分叉阻塞。
+7. `completed`：使用真实 Playwright 页面路径验证复制测试路线、编辑创建草稿、版本弹窗删除草稿、再次编辑重建草稿，并完成任务自有数据清理。
+8. `blocked`：提交收尾仍受并行脏改动、混合基线提交与远端分叉阻塞。
 
 ## Expected Verification
 
@@ -22,17 +23,22 @@
 - `MesProRouteVersionWorkflowServiceTest` 覆盖草稿取消为 `CANCELLED` 后重新创建 `DRAFT`，新版本来源为当前 active。
 - 静态合同继续断言已取消、已驳回、审核中或其它非允许状态不得因为本次需求被展示。
 - 相邻历史版本只读查看静态合同仍通过。
-- 如本地运行态、测试账号、任务自有数据和 Playwright 浏览器前置完整，再用真实 Playwright 验证“打开版本弹窗 -> 删除草稿 -> 草稿行消失 -> 点击编辑 -> 进入基于当前 ACTIVE 的新草稿”。
+- 真实 Playwright 验证“复制任务自有路线 -> 点击编辑创建草稿 -> 打开版本弹窗 -> 删除草稿 -> 草稿行消失 -> 再次点击编辑 -> 进入基于当前 ACTIVE 的新草稿”，并通过页面清理任务自有路线。
 
 ## Current Status
 
-blocked
+ready_for_closeout
 
 ## Closeout Blocker
 
-- 真实 E2E 阻塞：`node tests/e2e/mes-route-version-list-draft-visible-real.e2e.js` 在启动浏览器前失败，缺少 `E:\Int\DevCache\playwright-browsers\chromium_headless_shell-1223\chrome-headless-shell-win64\chrome-headless-shell.exe`。
+- 真实 E2E 已完成：`node doc/tasks/2026-07-30-route-version-draft-visible/route-draft-delete-recreate-real.e2e.cjs` 使用本机系统 Chrome `C:\Program Files\Google\Chrome\Application\chrome.exe` 执行，因原配置的 Playwright Chromium 缓存路径仍缺少 `E:\Int\DevCache\playwright-browsers\chromium_headless_shell-1223\chrome-headless-shell-win64\chrome-headless-shell.exe`。
 - 独立提交阻塞：并行基线提交 `67282a868c449ee0ea652491cfd45dc448b258e9` 已把本任务实现、测试和任务文档与多项非本任务改动混在同一个“基线”提交中；不得擅自 amend、reset 或重写共享分支历史。
-- 提交/推送阻塞：`int_main` 与 `origin/int_main` 存在持续变化的 ahead/behind 分叉，工作区仍存在多项非本任务改动，并且 `IntRuoyiFronted/src/views/mes/pro/route/index.vue`、`IntRuoyiFronted/tests/e2e/mes-route-list-edit-create-candidate-static.spec.js` 正被并行路线列表布局任务修改；本任务不得把这些并行改动混入提交。
+- 提交/推送阻塞：最新快照为 `int_main...origin/int_main [ahead 7]`，工作区仍存在非本任务改动 `doc/tasks/20260730-route-admin-list-layout-unification/*`、`doc/tasks/20260730-standard-template-list-search-alias/*`、`docs/e2e-rules.md`、`docs/experience-index.md`；本任务不得把这些并行改动混入提交。
+- 提交保留注意：任务自有 E2E 脚本命中 `.gitignore:99 doc/tasks/**/*.cjs`，后续若要提交本任务收尾记录，必须按 closeout 门禁显式 `git add -f doc/tasks/2026-07-30-route-version-draft-visible/route-draft-delete-recreate-real.e2e.cjs`。
+
+## Cleanup Keep
+
+doc/tasks/2026-07-30-route-version-draft-visible/route-draft-delete-recreate-real.e2e.cjs
 
 ## 经验门禁
 

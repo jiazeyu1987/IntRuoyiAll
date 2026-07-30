@@ -56,9 +56,19 @@ BDD: 权限边界保持不变 -> Given 普通用户缺少导入、导出、复�
 - 2026-07-30：`git merge --no-edit origin/int_main` -> PASS，merge commit `79040df4`，无冲突。
 - 2026-07-30：远端合并后复验 `node tests/e2e/mes-route-admin-list-layout-static.spec.js`、`node tests/e2e/mes-route-list-edit-create-candidate-static.spec.js`、`node tests/e2e/user-table-column-config-static.spec.js`、`pnpm ts:check`、`node tests/e2e/mes-route-admin-list-layout-real.e2e.js` -> 全部 PASS。
 - 2026-07-30：任务 closeout 文档更新为 `completed`，待最终 closeout commit 后推送 `origin int_main`。
+- 2026-07-30：继续收尾时保存并行 eDHR 图谱页、标准模板 E2E 文档基线，合并最新 `origin/int_main` 后工作区 clean。
+- 2026-07-30：推送前门禁 `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS；`origin/int_main..HEAD` 待推送历史未发现超过 100MB blob。
+- 2026-07-30：`git push origin int_main` -> FAIL，远端先被并行任务推进，执行 `git fetch origin int_main` 与 `git merge --no-edit origin/int_main` 后无冲突。
+- 2026-07-30：重试 `git push origin int_main` -> FAIL，错误 `Recv failure: Connection was reset`；`git ls-remote --heads origin int_main` 同样连接重置；延迟 8 秒后再次 `git push origin int_main` 仍连接重置。
+- 2026-07-30：任务状态改回 `ready_for_closeout`，实现和验证完成，最终 completed 仅等待 GitHub HTTPS 连接恢复并成功推送。
+- 2026-07-30：网络诊断显示 `curl.exe -I https://github.com` 与 `Test-NetConnection github.com -Port 443` 均 PASS；`git config --show-origin --get-all http.https://github.com.proxy` 显示用户级 GitHub 代理为 `http://127.0.0.1:8902`。
+- 2026-07-30：`git -c http.https://github.com.proxy= ls-remote --heads origin int_main` -> PASS，确认连接重置来自本地 GitHub 代理链路。
+- 2026-07-30：推送前门禁复跑 `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS；待推送历史未发现超过 100MB blob。
+- 2026-07-30：`git -c http.https://github.com.proxy= push origin int_main` -> PASS，将 `42435cc8..ea89f484` 推送到 `origin/int_main`。
+- 2026-07-30：当前任务文档更新为 `completed`，待最终 closeout 文档提交并用同样临时代理覆盖推送。
 
 ## Closeout
 
 - 原 ahead/behind 已通过合并 `origin/int_main` 解决，合并后本任务关键验证全部通过。
-- 本任务没有未解决 blocker。
-- 最终推送前工作区仅包含本任务 closeout 文档改动。
+- GitHub 推送已通过临时清空当前命令的 `http.https://github.com.proxy` 完成，未修改永久 Git 配置。
+- 本任务没有未解决 blocker，最终状态为 `completed`。

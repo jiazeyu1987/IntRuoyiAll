@@ -16,6 +16,7 @@
 - PASS：真实页面只读验证，顶部菜单搜索 `mes工序` 返回 `标准模板列表/mes/pro/mes-process`。
 - PASS：复发静态契约覆盖动态路由新鲜度，禁止 `RouterSearch` 缓存 `router.getRoutes()`。
 - PASS：复发真实页面验证，`芋道源码/admin` 登录后顶部搜索 `mes工序` 返回 `标准模板列表/mes/pro/mes-process`，MES 写请求数为 `0`。
+- PASS：最终真实 E2E `node doc\tasks\20260730-standard-template-list-search-alias\standard-template-list-real.e2e.mjs`，通过顶部真实搜索框搜索 `mes工序`，进入 `/mes/pro/mes-process`，资源接口 HTTP `200` / 业务码 `0` / total `580`，页面无“系统异常”，MES 写请求数 `0`，页面错误数 `0`。
 
 ## Runtime Evidence
 
@@ -25,11 +26,15 @@
 - 前端监听进程归属 `E:\IntRuoyi\IntRuoyiFronted` 的 Vite dev server，端口为 `8081`。
 - 真实页面验证身份：`芋道源码/admin`。
 - 真实页面已确认唯一搜索结果：`标准模板列表/mes/pro/mes-process`。
+- 最终后端运行 Jar：`E:\IntRuoyi\output\runtime\int_main\backend-standard-template-e2e-20260730-2115.jar`，SHA256 `C79371D6B1DC445B94D7160BAB53827679DCC54E787ABF85C49FC60F8BE2C089`，新 PID `53040`。
+- 最终 E2E 证据：`E:\IntRuoyi\output\playwright\20260730-standard-template-list-search-alias\standard-template-list-evidence.json`。
+- 最终截图：`E:\IntRuoyi\output\playwright\20260730-standard-template-list-search-alias\standard-template-list-success.png`。
 - 运行态存在一条头像资源 502：`http://test.yudao.iocoder.cn/user/avatar/20251220/blob_1766215463801.jpg`，不属于本次搜索链路。
 
 ## Remaining Risk
 
 - 当前分支存在并行提交和非本任务脏改动；本任务未执行提交/推送，避免扩大变更范围。
+- 当前最终 `git status --short --branch` 显示 `int_main...origin/int_main [ahead 7]`，并存在其它任务文档的已暂存/未暂存改动；这些状态不归属本次 E2E 验证，未执行提交或推送。
 
 ## Cleanup Evidence
 
@@ -37,12 +42,14 @@
 - 删除：`output/playwright/20260730-standard-template-list-search-alias`。
 - 保留：`task.md`、`execution-log.md`、`verification-report.md`、`bug-regression-evidence.md`、`migration-policy-gate.json`。
 - PASS：bug regression evidence contract validation。
+- 最终 E2E 在 cleanup 后重新生成成功证据，并已加入 `task.md` 的 `Cleanup Keep`：`standard-template-list-evidence.json` 与 `standard-template-list-success.png`。
 
 ## Closeout Blocker
 
-- 当前共享分支为 `int_main...origin/int_main [ahead 14, behind 8]`，并存在非本任务脏改动；本任务停在 `ready_for_closeout`，不执行提交/推送。
+- 当前共享分支为 `int_main...origin/int_main [ahead 7]`，并存在非本任务文档改动；本任务停在 `ready_for_closeout`，不执行提交/推送。
 
 ## Experience Evidence
 
 - PASS：复发经验已合并至 `docs/frontend-development.md#动态菜单页签重命名门禁`。
+- PASS：复发经验已合并至 `docs/e2e-rules.md#Element Plus 下拉选择门禁`，覆盖 `input[placeholder]` 不可靠、优先确认 `input.el-select__input[role="combobox"]` 的真实 E2E 定位规则。
 - PASS：`docs/experience-index.md` 已加入可检索关键词。

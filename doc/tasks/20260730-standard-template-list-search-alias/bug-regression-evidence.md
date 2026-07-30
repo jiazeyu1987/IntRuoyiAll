@@ -74,3 +74,18 @@
 - GREEN: `node tests\e2e\mes-route-mes-process-tab-static.spec.js` -> PASS。
 - GREEN: `pnpm ts:check` -> PASS。
 - GREEN: 真实页面只读验证，`芋道源码/admin` 登录后搜索 `mes工序`，结果包含 `标准模板列表/mes/pro/mes-process`，MES 写请求数为 `0`。
+
+## Final Runtime Regression 2026-07-30
+
+- 用户要求继续真实 E2E，错误则继续修复，直到 E2E 成功。
+- 复现：旧 `48081` 运行 Jar 调用 `/admin-api/mes/pro/route-resource/page?pageNo=1&pageSize=20` 返回 HTTP `200` / 业务码 `500` / `系统异常`。
+- 运行态根因：旧 Jar 未加载当前源码中 `filterResolvedRouteProducts(...)` 的孤儿路线/产品引用过滤；后端日志显示 `IllegalStateException: Missing route: 922138`。
+- 已有正式修复：`MesProRouteResourceServiceImplTest#getResourcePage_doesNotFailWholePageWhenRouteProductReferencesMissingRoute` 覆盖缺失路线引用不应拖垮整页。
+
+## Final Runtime GREEN
+
+- GREEN: `mvn.cmd -ntp -pl yudao-module-mes -am "-Dtest=MesProRouteResourceServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，`Tests run: 3, Failures: 0, Errors: 0`。
+- GREEN: `mvn.cmd -ntp -pl yudao-server -am "-DskipTests" package` -> PASS，隔离 worktree 生成新 `yudao-server-exec.jar`。
+- GREEN: 新 Jar `backend-standard-template-e2e-20260730-2115.jar` 加载到 `48081` 后 `/actuator/health` 返回 `UP`。
+- GREEN: `node doc\tasks\20260730-standard-template-list-search-alias\standard-template-list-real.e2e.mjs` -> PASS；官方登录前置 `芋道源码/admin` PASS，顶部搜索 `mes工序` 命中 `标准模板列表/mes/pro/mes-process`，进入 `/mes/pro/mes-process`。
+- GREEN: 最终 E2E 断言 `/admin-api/mes/pro/route-resource/page?pageNo=1&pageSize=20` HTTP `200`、业务码 `0`、total `580`；页面列头完整、无“系统异常”、MES 写请求数 `0`、页面错误数 `0`。
