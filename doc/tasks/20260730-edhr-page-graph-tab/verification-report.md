@@ -10,6 +10,7 @@
 - PASS: `node tests/e2e/edhr-batch-page-graph-tab-static.spec.js`
 - PASS: `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs`
 - PASS: `pnpm ts:check`
+- PASS: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260730-edhr-page-graph-tab/frontend-feature-evidence.md`
 
 ## Contract Checks
 
@@ -22,4 +23,4 @@
 ## Closeout Status
 
 - Current status: `ready_for_closeout`。
-- Blocker: 当前工作区存在其它任务文档改动 `doc/tasks/20260730-route-admin-list-layout-unification/`，为避免混入非本任务改动，未执行最终 closeout commit / push。
+- Blocker: 当前分支 `int_main...origin/int_main [ahead 3]` 含非本任务提交；为避免将非本任务提交一起推送，未执行最终 closeout push。

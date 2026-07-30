@@ -16,3 +16,6 @@
 - REGRESSION: `pnpm ts:check` -> PASS。
 - Verification: 页面节点以静态前端契约表达页面/业务入口关系；正式路由节点可进入，未有正式路由的节点显示 `待接入` 且 `isDisabled`。
 - Closeout: 实现和验证已完成；当前工作区仍有其它任务文档改动 `doc/tasks/20260730-route-admin-list-layout-unification/`，为避免提交非本任务改动，最终 closeout commit / push 未执行。
+- Evidence validator: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260730-edhr-page-graph-tab/frontend-feature-evidence.md` -> PASS。
+- Concurrent commit gate: `git log -5 --oneline --stat` 显示当前实现已被共享分支并发基线提交纳入：`f03f77b0` 包含页签与静态合同，`f7b32cec` 包含路由与页面组件；`668ca0e4` 为非本任务 route-admin 文档提交。按 `共享分支并发基线提交门禁` 记录，不执行 amend/reset/force-push。
+- Closeout blocker update: 分支 `int_main...origin/int_main [ahead 3]` 含非本任务提交，最终 push 需要用户确认是否一起推送这些本地提交。

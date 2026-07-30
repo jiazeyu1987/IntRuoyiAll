@@ -35,5 +35,5 @@ ready_for_closeout
 
 ## Closeout Blocker
 
-- 实现与定向验证已完成，但当前工作区仍存在其它任务文档改动：`doc/tasks/20260730-route-admin-list-layout-unification/`。
-- 为避免提交或推送非本任务改动，本任务未执行最终 closeout commit / push，状态停在 `ready_for_closeout`。
+- 实现与定向验证已完成，但当前分支 `int_main...origin/int_main [ahead 3]` 包含非本任务提交。
+- 为避免把非本任务提交一起推送，本任务未执行最终 closeout push，状态停在 `ready_for_closeout`。
