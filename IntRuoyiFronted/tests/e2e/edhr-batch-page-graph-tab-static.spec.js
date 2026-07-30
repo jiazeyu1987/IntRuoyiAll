@@ -18,6 +18,8 @@ const page = read(pagePath)
 
 assert.match(tabs, /批记录页面关系图/, 'eDHR batch tabs must include page graph tab label.')
 assert.match(tabs, /'pageGraph'/, 'eDHR batch tab union must include pageGraph key.')
+assert.match(tabs, /@tab-click="handleTabClick"/, 'eDHR batch tabs must navigate from the real Element Plus tab click event.')
+assert.doesNotMatch(tabs, /@tab-change="handleTabChange"/, 'eDHR batch tabs must not depend only on tab-change for navigation.')
 assert.match(
   tabs,
   /pageGraph:\s*'\/mes\/pro\/feedback\/edhr-batch-page-graph'/,
