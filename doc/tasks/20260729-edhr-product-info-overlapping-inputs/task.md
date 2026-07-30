@@ -11,7 +11,7 @@
 - [x] 建立聚焦回归测试并记录 RED。
 - [x] 实施最小正式修复。
 - [x] 运行目标测试、相邻回归、类型检查和真实页面 E2E。
-- [x] 完成经验沉淀、清理、提交和推送。
+- [ ] 完成经验沉淀、清理、提交和推送。
 
 ## Expected Verification
 
@@ -42,7 +42,7 @@
 
 ## Current Status
 
-completed
+ready_for_closeout
 
 ## Verification Result
 
@@ -50,3 +50,4 @@ completed
 - 真实产品信息只读页面以填写人 `795`、`810` 分别验证，重复网格位置均为 `0`，每行最多一个可见原生控件，MES 写请求和页面错误均为 `0`。
 - 经验已合并到 `docs/frontend-development.md` 既有 eDHR assistRows 门禁，并同步 `docs/experience-index.md`。
 - 清理预览与应用通过，仅删除本任务中间证据和临时 Playwright 产物，核心任务记录保留。
+- 本地提交 `df27ad5d` 已创建；推送 `origin/int_main` 连续失败，GitHub HTTPS 连接被远端重置，待网络恢复后重试。

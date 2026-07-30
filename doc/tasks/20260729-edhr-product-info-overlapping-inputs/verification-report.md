@@ -35,3 +35,9 @@ PASS：产品信息辅助网格已按当前填写人隔离，多个填写人的�
 
 - `output/playwright/20260729-product-info-assist-grid-current-filler.png`
 - `output/playwright/20260729-product-info-assist-grid-current-filler.json`
+
+## Closeout Blocker
+
+- 本地提交已创建：`df27ad5d`
+- `git push origin int_main`、`git ls-remote origin HEAD` 和重试均因 GitHub HTTPS 连接被重置失败。
+- 任务状态保持 `ready_for_closeout`，待远端连通后推送并复核。

@@ -38,11 +38,11 @@
 - GREEN: `experience-preflight` -> PASS，复用并更新 `docs/frontend-development.md#eDHR 辅助模式当前工序 assistRows 路由门禁`，同步更新 `docs/experience-index.md`，未新建长期经验文档。
 - GREEN: `task-closeout-cleanup --mode preview` -> PASS，无 blocked/warning，仅计划删除本任务 `bug-regression-evidence.md`。
 - GREEN: `task-closeout-cleanup --mode apply` -> PASS，删除 `bug-regression-evidence.md` 及 `output/playwright/20260729-product-info-assist-grid-current-filler.{png,json}`，保留 `task.md`、`execution-log.md`、`verification-report.md`。
-- GREEN: 任务状态已由 `ready_for_closeout` 更新为 `completed`。
+- BLOCKER: `git push origin int_main` -> FAIL，`https://github.com/jiazeyu1987/IntRuoyiAll.git/` 连接被重置；`git ls-remote origin HEAD` 和第二次推送重试同样失败。影响：本地分支仍领先远端，按项目规则不能标记任务 `completed`。
 
 ## Blockers
 
-- 无。
+- origin 推送通道不可用：GitHub HTTPS 连接被重置。本地修复提交 `df27ad5d` 已保留，网络恢复后需继续执行 `git push origin int_main`，并确认分支不再 ahead。
 
 ## Cleanup Candidates
 
