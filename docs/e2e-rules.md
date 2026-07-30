@@ -33,6 +33,15 @@
 - Forbidden action: 禁止新增虚假 script 包装静态测试冒充真实 E2E，禁止 API-only 替代页面路径，禁止把前端 API wrapper 存在宣称为页面入口已验收。
 - Evidence: `doc/tasks/20260730-process-pool-f5-f6-implementation/execution-log.md`。
 
+### Playwright 浏览器可执行文件门禁
+
+- Trigger: `browserType.launch: Executable doesn't exist`、`npx playwright install` 提示、`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`、本机 Chrome/Edge 已安装但 Playwright 缓存浏览器缺失。
+- Preflight check: 先检查本机正式浏览器路径，例如 `C:\Program Files\Google\Chrome\Application\chrome.exe` 或 Edge；若存在，可通过 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` 显式传给登录预检和任务 E2E，并在任务日志记录路径来源。
+- Blocker: 本机没有可用 Chrome/Edge、指定路径不存在、或浏览器版本无法启动时，必须记录 E2E 前置缺口；不得把浏览器缺失写成产品失败。
+- Verification: 复跑官方登录预检或目标真实 E2E，证明确实使用该可执行文件完成真实页面断言。
+- Forbidden action: 禁止静默下载或切换未知浏览器缓存、禁止用 API-only 代替页面验证、禁止把 Playwright 浏览器缓存缺失冒充业务页面不可达。
+- Evidence: `doc/tasks/20260730-dcc-product-catalog-sort-real-e2e/verification-report.md`，D-Main 真实 E2E 使用本机 Chrome 完成 DCC 产品目录排序验证。
+
 ### Worktree / int_main 运行态 URL 门禁
 
 - Trigger: 主工作区默认端口被并行任务占用、旧 jar 未加载当前接口、真实 E2E 需要使用已登记 worktree slot 端口运行，或 worktree 融合后需要在 `E:\IntRuoyi` 的 `int_main` 主端口复验。

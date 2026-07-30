@@ -32,16 +32,27 @@
 
 ## BDD Scenarios
 
-- See `execution-log.md`.
+- BDD: 批记录页面关系图页签 -> Given 用户打开 eDHR 批记录页签栏, When 查看页签, Then 能看到“批记录页面关系图”并可进入独立页面。
+- BDD: 页面节点关系图 -> Given 用户进入批记录页面关系图, When 页面渲染, Then 节点代表页面/业务入口，连线表达页面数据关系，且不使用工艺路线流转配置。
+- BDD: 节点跳转边界 -> Given 某个节点已有正式路由, When 点击节点, Then 跳转到对应页面；Given 节点尚无正式路由, Then 显示待接入且不执行假跳转。
 
 ## RED / GREEN Evidence
 
-- Pending.
+- RED: `node tests/e2e/edhr-batch-page-graph-tab-static.spec.js` -> FAIL，原因：`BatchPageGraphPage.vue must exist`。
+- GREEN: `node tests/e2e/edhr-batch-page-graph-tab-static.spec.js` -> PASS。
+- REGRESSION: `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- TYPE CHECK: `pnpm ts:check` -> PASS。
 
-## Responsive, Accessibility, Loading, Empty, Error, Permission Checks
+## Verification: Responsive, Accessibility, Loading, Empty, Error, Permission Checks
 
-- Pending.
+- Responsive: 页面关系图使用 4 列、2 列和单列断点，节点文本在按钮内换行。
+- Accessibility: 页面有 `aria-label`，节点使用原生 `button`，未接入节点设置 `disabled` 和 `aria-disabled`。
+- Loading: v1 不新增 API，无异步加载态。
+- Empty: v1 使用静态页面节点定义，不存在空数据接口状态。
+- Error: v1 不新增后端请求，不新增吞异常或默认成功路径；路由跳转错误按 Vue Router 原始行为暴露。
+- Permission: 新路由复用 `mes:pro-edhr-batch-execution:query`，不新增业务写入权限。
 
 ## Blockers And Follow-Up Skills
 
 - 真实节点状态、数量徽标和权限投影需要后端聚合接口后再扩展。
+- Closeout blocker: 当前工作区仍有其它任务文档改动，未执行最终 closeout commit / push。

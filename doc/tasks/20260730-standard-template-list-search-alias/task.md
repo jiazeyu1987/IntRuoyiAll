@@ -18,6 +18,7 @@
 - 后端阻塞测试不再引用不存在的独立目录包。
 - 本地菜单 SQL 使用 UTF-8 HEX 安全写入并通过迁移门禁。
 - 定向前端静态契约、TypeScript 检查、后端重启或构建验证通过；若运行态前置缺失则记录 fail-fast blocker。
+- 真实 E2E 必须登录 `芋道源码/admin`，通过顶部搜索 `mes工序` 进入 `标准模板列表/mes/pro/mes-process`，并断言 `/admin-api/mes/pro/route-resource/page` HTTP 200、业务码 `0`、页面无“系统异常”、MES 写请求数为 `0`。
 
 ## Current Status
 
@@ -38,6 +39,7 @@ ready_for_closeout
 - `pnpm ts:check`、相邻静态契约和菜单 migration policy gate 均 PASS。
 - 复发修复：静态契约 RED 命中 `RouterSearch` 缓存 `router.getRoutes()`；改为 `getSearchRoutes()` 实时读取最新动态路由后 GREEN。
 - 复发复验：`芋道源码/admin` 真实登录后，顶部搜索 `mes工序` 返回 `标准模板列表/mes/pro/mes-process`，MES 写请求数为 0。
+- 2026-07-30 最终 E2E：隔离构建新 Jar 并替换旧 `48081` 运行态后，`node doc\tasks\20260730-standard-template-list-search-alias\standard-template-list-real.e2e.mjs` PASS；最终 URL 为 `/mes/pro/mes-process`，`route-resource/page` HTTP `200` / 业务码 `0` / total `580`，页面列头完整，无“系统异常”，MES 写请求数 `0`。
 
 ## Reopened Regression
 
@@ -47,17 +49,19 @@ ready_for_closeout
 ## Closeout Status
 
 - 当前源码修复和定向验证已完成。
-- Closeout 仍被共享分支状态阻塞：`int_main` 当前 `ahead 14, behind 8`，且存在非本任务脏改动；本任务不执行提交/推送，避免混入并行任务范围。
+- Closeout 仍被共享分支状态阻塞：`int_main` 当前已有非本任务本地 ahead 提交；本任务不执行提交/推送，避免混入并行任务范围。
 
 ## Cleanup Keep
 
 - doc/tasks/20260730-standard-template-list-search-alias/bug-regression-evidence.md
 - doc/tasks/20260730-standard-template-list-search-alias/migration-policy-gate.json
+- doc/tasks/20260730-standard-template-list-search-alias/start-standard-template-e2e-backend.ps1
+- doc/tasks/20260730-standard-template-list-search-alias/standard-template-list-real.e2e.mjs
 
 
 ## Closeout Blocker
 
-- 当前 `int_main` 分支已有并行任务提交推进到 `ahead 8`，且仍有非本任务脏改动；本任务不执行提交/推送，避免混入并行任务文件。
+- 当前 `int_main` 分支存在非本任务本地 ahead 提交；本任务不执行提交/推送，避免混入并行任务文件。
 
 ## 设计约束检查
 

@@ -1887,6 +1887,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-batch-page-graph',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchPageGraphPage.vue'),
+        name: 'MesProEdhrBatchPageGraph',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '批记录页面关系图',
+          activeMenu: '/mes/pro/feedback/edhr-batch-page-graph',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-signatures',
         component: () => import('@/views/mes/pro/edhr/SignaturePage.vue'),
         name: 'MesProFeedbackEdhrSignatures',
