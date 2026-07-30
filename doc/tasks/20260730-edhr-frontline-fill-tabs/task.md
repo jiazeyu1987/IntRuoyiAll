@@ -71,7 +71,10 @@ ready_for_closeout
 ## Git Integration Blocker
 
 - 当前任务已迁移到隔离 worktree `D:\IntRuoyiWorktree\20260730-edhr-frontline-e2e-runtime`，分支 `codex/20260730-edhr-frontline-e2e-runtime`。
-- 收尾仍需在当前隔离 worktree 内执行选择性暂存、提交、push 和 cleanup gate。
+- 实现提交：`2fea1fcd feat: add edhr frontline production and pqc runtime context`。
+- 当前分支已推送并跟踪 `origin/codex/20260730-edhr-frontline-e2e-runtime`，本地不再 ahead。
+- `task-closeout-cleanup preview` 保留五个任务记录文件且无删除项，但阻塞于当前分支无法 fast-forward 合并到 `int_main`，同时主 worktree `E:\IntRuoyi` 为脏状态。
+- 因 cleanup preview 阻塞，不执行 apply、不删除 worktree、不标记 `completed`；当前状态保持 `ready_for_closeout`。
 - 不触碰 `E:\IntRuoyi` 主工作区并行脏改动，不执行 force push 或历史重写。
 
 ## Yudao Source E2E Result

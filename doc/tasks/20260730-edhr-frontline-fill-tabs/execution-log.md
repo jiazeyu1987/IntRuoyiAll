@@ -69,3 +69,8 @@
 - GREEN: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260730-edhr-frontline-fill-tabs/backend-api-evidence.md` -> PASS。
 - GREEN: experience-preflight -> PASS；`project-experience-consolidation` 将 `Execution context was destroyed` 登录竞争门禁合并到现有 `docs/e2e-rules.md`，并更新 `docs/experience-index.md` 路由，未新建长期经验文档。
 - Status update: implementation and required verification are complete; task status moved to `ready_for_closeout` pending selective commit, push, and closeout cleanup.
+- Git implementation commit: `2fea1fcd feat: add edhr frontline production and pqc runtime context`，20 个任务自有文件，未包含截图、运行日志、密码或其他任务文件。
+- GREEN: `git push -u origin codex/20260730-edhr-frontline-e2e-runtime` -> PASS；分支已跟踪同名 origin 分支，`git status --short --branch` 不再显示 ahead。
+- Runtime closeout: 复核后 `8083`、`48083` 均无本任务监听进程，无需停止额外服务。
+- BLOCKER: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-edhr-frontline-fill-tabs --mode preview` -> BLOCKED；keep 为 `task.md`、`execution-log.md`、`verification-report.md`、`frontend-feature-evidence.md`、`backend-api-evidence.md`，delete `<none>`；原因是当前分支不能 fast-forward 合并到 `int_main`，且主 worktree `E:\IntRuoyi` 为脏状态。
+- Closeout decision: 不执行 cleanup apply，不触碰主 worktree 并行改动，不删除隔离 worktree；任务保持 `ready_for_closeout`。
