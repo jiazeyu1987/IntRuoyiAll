@@ -289,6 +289,15 @@
 - Forbidden action: 禁止把 API-only、静态合同测试、mock 截图、默认成功、Runner 离线跳过、前端硬拦截 `没有在线 Codex Runner`、绕过后端 Runner 会话和结构化回写直接裸调用 `codex` CLI、只杀 `cmd.exe` 而不处理 `node/codex.exe` 后代进程、无限等待 child `close`、把只读项放任为仓库级编码任务探索、或顺序执行降级当作真实 E2E 通过。
 - Evidence: `doc/tasks/20260724-codex-test-management-delivery/verification-report.md`，2026-07-24 Codex 测试管理交付；`doc/tasks/20260725-codex-runner-void-test/verification-report.md`，2026-07-26 Runner 心跳、Windows 子进程树、取消处理修复；`doc/tasks/20260726-codex-runner-on-demand-wrapper/verification-report.md`，2026-07-26 按需 Runner 包装层；`doc/tasks/20260727-codex-runner-token-invalid/verification-report.md`，2026-07-28 只读 Runner 快速路径与真实测试管理自检 PASS。
 
+### Codex Runner 运行态重启与 CLI 自检门禁
+
+- Trigger: 测试管理批次执行期间本机后端重启、Runner 会话变为 `STALE`、批次长期停留 `RUNNING`，或 Runner 已 `ONLINE` 但测试项在启动 Codex 后立即 `exit 1` / 达到 `600000ms` 超时。
+- Preflight check: 发起正式节点串前除注册、heartbeat 和能力字段外，还必须执行一个受控、短预算、无业务写入的 Codex CLI 自检，确认当前 provider、认证方式、插件目录同步和 feature 配置能够返回结构化结果；本机后端重启后必须先检查现有活动批次、执行项和旧 Runner session，任务自有悬挂批次应从真实 `测试记录` 页面取消并核对终态，再允许新建批次。
+- Blocker: Runner 进程存在但 session `STALE`、heartbeat age 达到超时阈值、执行项仍遗留 `CLAIMED/RUNNING`、页面启动请求未返回 executionId、Codex CLI 自检 `exit 1`、远程插件认证方式不匹配、未知 feature 配置导致启动失败，或短预算自检超时时必须停止正式长链路。
+- Verification: 记录后端重启前后 PID/运行 Jar 归属、旧新 Runner session、heartbeat age、悬挂批次页面取消结果、活动批次数量、Codex CLI 自检退出码与结构化输出；正式批次终态后还要在 `测试记录` 页面核对结果，并确认 Runner `currentRunningCount=0`。
+- Forbidden action: 禁止在旧批次仍 `RUNNING` 时继续叠加新节点串，禁止用新 Runner 进程存在替代旧执行收敛，禁止把插件认证警告或未知 feature key 静默忽略后继续长链路，禁止 API-only 取消任务自有悬挂批次。
+- Evidence: `doc/tasks/20260730-test-management-serial-routes-verification/verification-report.md`，3 条正式节点串验证中识别到后端重启后的悬挂批次、Runner session 切换、Codex CLI `exit 1` 和 `600000ms` 超时。
+
 ### Codex Runner 目标测试项存在性门禁
 
 - Trigger: 用户指定运行测试管理中的某个测试项名称，例如“作废测试”，或要求 Runner 领取并执行单个自然语言测试项。
