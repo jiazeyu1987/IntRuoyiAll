@@ -73,6 +73,8 @@ class MesFrontlineDeviceAccountContextServiceTest {
                 candidates.stream().map(MesFrontlineRouteProcessCandidate::routeProcessId).toList());
         assertEquals(List.of(202L, 201L, 203L),
                 candidates.stream().map(MesFrontlineRouteProcessCandidate::processId).toList());
+        assertEquals(List.of(502L, 501L, 503L),
+                candidates.stream().map(MesFrontlineRouteProcessCandidate::deviceId).toList());
     }
 
     @Test

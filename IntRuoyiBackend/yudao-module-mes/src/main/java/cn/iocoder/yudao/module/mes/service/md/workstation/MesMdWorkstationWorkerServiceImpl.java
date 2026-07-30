@@ -95,6 +95,14 @@ public class MesMdWorkstationWorkerServiceImpl implements MesMdWorkstationWorker
     }
 
     @Override
+    public List<MesMdWorkstationWorkerDO> getWorkstationWorkerListByPostIds(Collection<Long> postIds) {
+        if (postIds == null || postIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return workstationWorkerMapper.selectListByPostIds(postIds);
+    }
+
+    @Override
     public void deleteWorkstationWorkerByWorkstationId(Long workstationId) {
         workstationWorkerMapper.deleteByWorkstationId(workstationId);
     }

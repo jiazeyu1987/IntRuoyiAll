@@ -372,12 +372,13 @@ const selectedDeviceCards = computed(() => {
   const seen = new Set<number>()
   const cards: Array<{ key: string; label: string }> = []
   for (const process of sameProcessDevices) {
-    if (seen.has(process.deviceId)) {
+    const deviceId = Number(process.deviceId)
+    if (!Number.isFinite(deviceId) || deviceId <= 0 || seen.has(deviceId)) {
       continue
     }
-    seen.add(process.deviceId)
+    seen.add(deviceId)
     cards.push({
-      key: String(process.deviceId),
+      key: String(deviceId),
       label: process.deviceName || process.deviceCode || `设备 ${cards.length + 1}`
     })
   }
@@ -386,10 +387,22 @@ const selectedDeviceCards = computed(() => {
 
 const visibleDeviceCards = computed(() => selectedDeviceCards.value.slice(0, 3))
 
+const switchableProcessOptions = computed(() => {
+  const seen = new Set<string>()
+  return deviceState.processOptions.filter((process) => {
+    const key = `${process.routeId}-${process.routeProcessId}-${process.processId}`
+    if (seen.has(key)) {
+      return false
+    }
+    seen.add(key)
+    return true
+  })
+})
+
 const pickerOptions = computed(() => {
   if (activePicker.value === 'process') {
-    return deviceState.processOptions.map((process) => ({
-      key: `${process.routeId}-${process.routeProcessId}-${process.processId}-${process.deviceId}`,
+    return switchableProcessOptions.value.map((process) => ({
+      key: `${process.routeId}-${process.routeProcessId}-${process.processId}`,
       label: formatProcessLabel(process),
       active: isSameProcess(process, deviceState.selectedProcess),
       onClick: () => handleSelectProcess(process)
@@ -636,7 +649,7 @@ onMounted(async () => {
   hydrateContextFromRoute()
   catalog.value = await FrontlineTemplateApi.getCatalog()
   await loadFrontlineDeviceProcesses(deviceState)
-  const firstProcess = deviceState.processOptions[0]
+  const firstProcess = switchableProcessOptions.value[0]
   if (firstProcess) {
     await handleSelectProcess(firstProcess)
   }

@@ -41,3 +41,11 @@
 - BDD: 无设备工序 -> Given 正式工作站未绑定设备 When 加载生产填写上下文 Then 返回该工序且设备为空，页面显示“本工序无设备，直接填数量”。
 - RED: `/admin-api/mes/pro/feedback/frontline/device-account/processes` -> FAIL，业务码 `1040760100`，原因是 `MesFrontlineDeviceAccountRouteBindingSource` 没有生产实现 bean。
 - Data preflight: 本地启用路线存在，但当前启用路线工序 `workstation_id` 全为空；默认 admin 岗位也未绑定工作站人力。产品代码不得按 admin 权限放大全路线，真实 E2E 需使用可清理任务夹具建立正式岗位/工作站/路线工序关系。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，`MesFrontlineWorkstationPostRouteBindingSource` 尚不存在，符合预期。
+- Static contract extension: 多设备上下文必须保留完整设备卡片，但前端工序选择器必须按 `routeId + routeProcessId + processId` 去重。
+- Implementation: 新增 `MesFrontlineWorkstationPostRouteBindingSource` Spring 正式实现，按登录用户岗位、人力工作站、路线工序工作站、启用路线和工作站设备解析授权上下文。
+- Implementation: `MesFrontlineDeviceAccountContextServiceImpl` 改为按 `routeId + workstationId` 匹配，允许无设备工序返回 `deviceId=null`，并保留同工序多个设备候选。
+- Implementation: 前端工序选择器按 `routeId + routeProcessId + processId` 去重，设备卡片继续使用完整多设备上下文且最多显示 3 个。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，7 tests，0 failures，0 errors。
+- GREEN: `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- REGRESSION: `pnpm ts:check` -> PASS。

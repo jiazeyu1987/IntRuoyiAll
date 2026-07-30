@@ -10,7 +10,7 @@
 - REQ-1: `DRAFT` 草稿版本在版本弹窗表格中可见。
 - REQ-2: `ACTIVE` 当前生效版本与 `SUPERSEDED` 已替代历史版本继续可见。
 - REQ-3: `PENDING_APPROVAL`、`READY_TO_PUBLISH`、`REJECTED`、`CANCELLED` 不因本次变更重新进入表格。
-- REQ-4: 草稿仍走现有“编辑 / 提交发布 / 取消”动作；非草稿历史版本仍按现有只读查看入口处理。
+- REQ-4: 草稿仍走现有“编辑 / 提交发布”动作，DRAFT 关闭操作明确显示为“删除草稿”；非草稿历史版本仍按现有只读查看入口处理。
 - REQ-5: `DRAFT` 草稿行必须显示“删除草稿”，删除前弹出确认，成功后刷新版本弹窗并隐藏已取消草稿。
 - REQ-6: 删除草稿后再次点击路线列表“编辑”，必须基于当前 `ACTIVE` 版本创建新的 `DRAFT` 草稿。
 
@@ -19,11 +19,15 @@
 - Entry point: MES 工艺路线列表 -> 行操作 `版本` -> `工艺路线版本` 弹窗。
 - Component: `IntRuoyiFronted/src/views/mes/pro/route/index.vue`。
 - Static test: `IntRuoyiFronted/tests/e2e/mes-route-version-list-draft-visible-static.spec.js`。
+- Workspace action test: `IntRuoyiFronted/tests/e2e/mes-pro-route-version-workspace-static.spec.js`。
+- Edit/recreate test: `IntRuoyiFronted/tests/e2e/mes-route-list-edit-create-candidate-static.spec.js`。
 - Real E2E script: `IntRuoyiFronted/tests/e2e/mes-route-version-list-draft-visible-real.e2e.js`。
 
 ## API Contracts And Data States
 
 - API unchanged: `ProRouteApi.getRouteVersionList(routeId)` still returns the full route version list.
+- Delete API unchanged: `ProRouteApi.cancelRouteCandidateVersion(id)` logically closes DRAFT as `CANCELLED`.
+- Create API unchanged: `ProRouteApi.createRouteCandidateVersion({ routeId, sourceRouteVersionId: routeInfo.activeRouteVersionId, changeReason })`.
 - Display state allow set: `DRAFT`、`ACTIVE`、`SUPERSEDED`。
 - Hidden states: `PENDING_APPROVAL`、`READY_TO_PUBLISH`、`REJECTED`、`CANCELLED`。
 
@@ -38,6 +42,7 @@ BDD: 删除草稿后重新编辑新建草稿 -> Given 版本弹窗中存在当�
 ## RED Command And Expected Failure
 
 - RED: `node tests/e2e/mes-route-version-list-draft-visible-static.spec.js` -> FAIL, expected reason: implementation does not define draft-visible `ROUTE_VERSION_WORKSPACE_VISIBLE_STATUS_SET`.
+- RED: `node tests/e2e/mes-pro-route-version-workspace-static.spec.js` -> FAIL before delete-draft implementation, expected reason: missing delete label, confirmation, cancel guard, API and refresh behavior.
 
 ## GREEN Command And Passing Result
 
@@ -45,21 +50,24 @@ BDD: 删除草稿后重新编辑新建草稿 -> Given 版本弹窗中存在当�
 - GREEN: `node tests/e2e/mes-route-version-list-draft-visible-static.spec.js` -> PASS.
 - GREEN: `node tests/e2e/mes-route-cancelled-version-view-static.spec.js` -> PASS.
 - GREEN: `node tests/e2e/mes-pro-route-version-workspace-static.spec.js` -> PASS.
+- GREEN: `node tests/e2e/mes-route-list-edit-create-candidate-static.spec.js` -> PASS.
+- GREEN: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProRouteVersionWorkflowServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 17 tests.
 - GREEN: `pnpm ts:check` -> PASS.
 
 ## Responsive, Accessibility, Loading, Empty, Error, And Permission Checks
 
-- Layout unchanged; only table row allow set changed.
+- Layout unchanged; only version row visibility and DRAFT action semantics changed.
 - Loading, empty text, error alert, status labels, permission guards and row actions remain unchanged.
-- The existing `canEditRouteCandidateVersion` / `canSubmitRouteVersion` / `canCancelRouteVersion` guards continue to make visible `DRAFT` rows actionable without adding new fallback branches.
+- `canDeleteRouteDraftVersion` only accepts non-active `DRAFT`; `REJECTED` remains “按意见修改”，other states do not gain delete capability.
+- User cancellation returns before the API call; non-cancel exceptions are rethrown and not swallowed.
 
 ## E2E Or Component Verification Path
 
 - Component/static path passed.
 - Real path attempted on `http://127.0.0.1:8081` with backend `http://127.0.0.1:48081`; frontend PID `39032` belongs to `E:\IntRuoyi\IntRuoyiFronted` Vite and backend PID `50528` belongs to `E:\IntRuoyi` runtime jar.
-- Real path blocked before browser launch because Playwright Chromium executable is missing in `E:\Int\DevCache\playwright-browsers`.
+- Real path blocked before browser launch because Playwright Chromium executable is missing in `E:\Int\DevCache\playwright-browsers`; the required write path “delete -> row disappears -> edit -> new draft from active” is therefore not recorded as PASS.
 
 ## Blockers And Follow-Up Skills
 
 - Install or restore the configured Playwright Chromium browser cache, then rerun `node tests/e2e/mes-route-version-list-draft-visible-real.e2e.js` with the same local URLs.
-- Resolve unrelated dirty worktree and branch divergence before task commit/push.
+- Resolve the mixed baseline commit `67282a86`, unrelated dirty worktree, same-file concurrent changes, and branch divergence before task commit/push.
