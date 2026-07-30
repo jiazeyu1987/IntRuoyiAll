@@ -2,7 +2,7 @@
 
 ## Status
 
-blocked_on_remote_push_with_e2e_prereq_gap
+ready_for_closeout_pending_push_retry
 
 ## Evidence
 
@@ -12,7 +12,7 @@ blocked_on_remote_push_with_e2e_prereq_gap
 - Main review against 21-requirement gate:
   - PASS for F5/F6 owned behavior: original records are preserved for review copy, clamp only handles lower/upper limits, original record revision requires new electronic signature and field-level diff, allocated quantity fragments are locked, timeline remains read-only.
   - PASS for existing-system integration boundary: new work is attached to the formal process-pool event model, FIFO lock service, existing MES controller/service/mapper/test patterns, and frontend API wrapper pattern; no existing surplus/resource pool is reused as the process pool.
-  - NOT CLAIMED for full frontline UI closure: this task did not create the employee/reporting UI templates or the auditor/original-revision pages, so Playwright real write-path E2E remains a separate prerequisite gap.
+  - PASS for F5/F6 write-path UI closure: independent hidden routes and pages now call the formal F5/F6 write APIs, and Playwright real write-path E2E passed against `int_main` `8081/48081`.
 - Main review fix:
   - RED: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-revision-static.spec.cjs` -> FAIL, direct one-to-many review-copy JOIN could duplicate timeline events.
   - GREEN: same command -> PASS after aggregating review-copy summaries by `tenant_id + event_id`.
@@ -21,24 +21,31 @@ blocked_on_remote_push_with_e2e_prereq_gap
 - Frontend/static contracts:
   - `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-api-static.spec.cjs` -> PASS.
   - `node IntRuoyiFronted\tests\e2e\process-pool-event-revision-api-static.spec.js` -> PASS.
+  - `node IntRuoyiFronted\tests\e2e\process-pool-review-copy-and-revision-static.spec.js` -> PASS.
+  - `node --check IntRuoyiFronted\tests\e2e\process-pool-review-copy-and-revision.spec.ts` -> PASS.
   - `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-revision-static.spec.cjs` -> PASS.
   - `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> PASS.
   - `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-frontend-static.spec.cjs` -> PASS.
   - `pnpm run ts:check` from `IntRuoyiFronted` -> PASS.
+- Real frontend E2E:
+  - `pnpm run test:e2e process-pool-review-copy-and-revision.spec.ts` from `IntRuoyiFronted` -> PASS, 2 tests.
+  - Runtime evidence: old `48081` backend PID `27752` was confirmed as `E:\IntRuoyi` `int_main`, stopped, and replaced by runtime jar `backend-process-pool-f5f6-20260730-114729.jar`; new listener PID `46996`; health `UP`; jar SHA256 `E3956703BE44E84F6D3FAE2BE209716E88F2AAC3A52796A2DCDEE36E02920007`.
+  - DB evidence: RUN3 review event `5` saved review copy status `SUBMITTED`, signature `6073011550063`, `pressure raw_value=50`, `corrected_value=40`, `rule_type=CLAMP_TO_MAX`; RUN3 revision event `6` saved revision signature `6073011550064` and updated event raw payload `outputQuantity=91`.
+- Backend focused regression after UI closure:
+  - First Maven targeted command without `surefire.failIfNoSpecifiedTests=false` failed before `yudao-module-mes` because sibling modules had no matching test classes; this is the expected reactor boundary.
+  - `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopySchemaTest,MesProcessPoolEventRevisionSchemaTest,MesProcessPoolReviewCopyControllerTest,MesProcessPoolEventRevisionControllerContractTest,MesProcessPoolEventRevisionDiffContractTest,MesProcessPoolEventRevisionServiceTest,MesProcessPoolReviewCopyServiceTest,MesProcessPoolEventRevisionFifoLockTest,ProcessPoolTimelineRevisionSummaryTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 30 tests.
 - Guards:
   - `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, `int_main` frontend `8081`, backend `48081`.
   - `python C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS.
   - `git diff --check` -> PASS with CRLF conversion warnings only.
-- Real E2E prerequisite gap:
-  - `pnpm run test:e2e process-pool-review-copy-and-revision.spec.ts` from `IntRuoyiFronted` -> FAIL, `ERR_PNPM_NO_SCRIPT`.
-  - `pnpm run test process-pool-review-copy-and-revision.spec.ts` from `IntRuoyiFronted` -> FAIL, named target unknown.
-  - No `process-pool-review-copy-and-revision.spec.ts` file exists in current frontend tests.
-  - This report does not claim Playwright real write-path E2E passed.
+- Prior real E2E prerequisite gap:
+  - The earlier missing `test:e2e` script and absent write-path spec/page gap is closed by the frontend write entry implementation and passing real Playwright E2E above.
 - Closeout:
   - cleanup preview/apply -> PASS, no deletes, no blockers, no warnings.
   - task worktrees `20260730-process-pool-f5-review-copy` and `20260730-process-pool-f6-event-revision` removed with `git worktree remove`.
   - port registry entries for slots `16` and `17` marked inactive.
+  - frontend write-entry cleanup preview/apply -> PASS; deleted task-owned Playwright browser artifacts and `IntRuoyiFronted\test-results`; no blockers or warnings.
 - Remote push blocker:
   - `git push origin int_main` -> FAIL twice, `Recv failure: Connection was reset`.
   - `git ls-remote --heads origin int_main` -> FAIL, `Recv failure: Connection was reset`.
-  - Local `int_main` remains ahead of `origin/int_main`; task cannot be marked completed under project push policy until the remote is reachable and push succeeds.
+  - A new closeout commit and push retry are still required after the frontend write entry gap is committed. Task cannot be marked completed under project push policy until the remote is reachable and push succeeds.

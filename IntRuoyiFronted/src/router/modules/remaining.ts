@@ -1901,6 +1901,34 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/process-pool/review-copy',
+        component: () => import('@/views/mes/pro/processpool/ReviewCopyPage.vue'),
+        name: 'MesProProcessPoolReviewCopy',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '工序池审核副本',
+          activeMenu: '/mes/pro/process-pool/review-copy',
+          permission: ['mes:pro-process-pool-review-copy:generate-submit']
+        }
+      },
+      {
+        path: 'pro/process-pool/event-revision',
+        component: () => import('@/views/mes/pro/processpool/EventRevisionPage.vue'),
+        name: 'MesProProcessPoolEventRevision',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '工序池原始记录修改',
+          activeMenu: '/mes/pro/process-pool/event-revision',
+          permission: ['mes:pro-process-pool:event-revision:update']
+        }
+      },
+      {
         path: 'pro/batch-record-cell-link',
         component: () => import('@/views/mes/pro/batchrecordcelllink/index.vue'),
         name: 'MesProBatchRecordCellLink',

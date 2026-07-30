@@ -2,14 +2,18 @@
 
 ## Status
 
-blocked_on_remote_push_with_e2e_prereq_gap
+ready_for_closeout_pending_push_retry
 
 ## Passed
 
 - Maven F5/F6/timeline targeted regression: PASS, 33 tests.
+- Maven F5/F6 post-UI focused regression: PASS, 30 tests.
 - F5 API static contract: PASS.
 - F6 API static contract: PASS.
 - F5/F6 combined static contract: PASS.
+- F5/F6 frontend write-path static contract: PASS.
+- F5/F6 frontend write-path Playwright E2E: PASS, 2 tests against real `8081/48081`.
+- F5/F6 DB verification: PASS, RUN3 review copy clamps `pressure=50` to `40`; RUN3 original record revision updates event `6` `outputQuantity=91`.
 - Timeline mapper static contract: PASS.
 - Timeline frontend static contract: PASS.
 - Frontend TypeScript check: PASS.
@@ -19,4 +23,4 @@ blocked_on_remote_push_with_e2e_prereq_gap
 
 ## Not Passed Or Not Run
 
-- Real Playwright write-path E2E for `process-pool-review-copy-and-revision.spec.ts` was not run successfully because the current frontend has no `test:e2e` script, the named `test` runner does not recognize that target, and the spec file is absent.
+- Final push has not yet succeeded after the frontend write-path closeout changes. Previous `git push origin int_main` and `git ls-remote --heads origin int_main` failed with `Recv failure: Connection was reset`.

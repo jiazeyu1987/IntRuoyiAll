@@ -1,8 +1,8 @@
 {
   "task_id": "20260730-process-pool-f5-f6-implementation",
   "goal": "启动2个子agent分别在2个worktree里实现并验证F5/F6文档内容，主agent review后合并进int_main",
-  "status": "blocked",
-  "current_stage": "remote_push",
+  "status": "ready_for_closeout",
+  "current_stage": "closeout_pending",
   "planner_review_status": "approved",
   "plan_review_status": "approved",
   "blocking_prereqs": [],
@@ -32,7 +32,7 @@
         "AC-10"
       ],
       "owner_agent": "019fb085-0881-7753-a1f9-35aa6aba2af4",
-      "last_outcome": "F5 implementation merged into int_main with backend service, controller, schema, frontend API wrapper, timeline summary, static contracts, and main review fix for timeline review-copy aggregation."
+      "last_outcome": "F5 implementation merged into int_main with backend service, controller, schema, frontend API wrapper, timeline summary, static contracts, main review fix for timeline review-copy aggregation, independent review-copy page, and real Playwright write-path verification."
     },
     {
       "task_id": "T2",
@@ -52,12 +52,11 @@
         "AC-10"
       ],
       "owner_agent": "019fb085-8654-74f2-b714-ddf013444f14",
-      "last_outcome": "F6 implementation merged into int_main with revision service, controller, schema, frontend API wrapper, timeline modification summary, and service-level fail-fast validation."
+      "last_outcome": "F6 implementation merged into int_main with revision service, controller, schema, frontend API wrapper, timeline modification summary, service-level fail-fast validation, independent original-record revision page, and real Playwright write-path verification."
     }
   ],
   "known_gaps": [
-    "Real Playwright write-path E2E was not claimed: current frontend has no test:e2e script, the named test runner does not recognize process-pool-review-copy-and-revision.spec.ts, and that spec file is absent.",
-    "Final git push is blocked: git push origin int_main and git ls-remote --heads origin int_main both fail with Recv failure: Connection was reset."
+    "Final git push was previously blocked: git push origin int_main and git ls-remote --heads origin int_main both failed with Recv failure: Connection was reset. A push retry is still required after the frontend write-path closeout commit."
   ],
   "closeout": {
     "cleanup_preview": "PASS, no delete/blocker/warnings",
@@ -71,5 +70,5 @@
       "int_main slot 17, frontend 8098, backend 48098"
     ]
   },
-  "updated_at": "2026-07-30T10:24:06+08:00"
+  "updated_at": "2026-07-30T12:00:00+08:00"
 }

@@ -210,3 +210,61 @@
 - Push attempt 2: `git push origin int_main` -> FAIL with the same `Recv failure: Connection was reset`.
 - Remote probe: `git ls-remote --heads origin int_main` -> FAIL with the same `Recv failure: Connection was reset`.
 - Impact: current local `int_main` remains ahead of `origin/int_main`; under project push policy the task is blocked on remote connectivity and cannot be marked completed until push succeeds.
+
+## 2026-07-30 Frontend Write Entry Gap
+
+- User intent: 主目标要求“所有文档里的内容都实现”，因此真实写路径入口和 E2E 命令入口缺口纳入当前任务继续处理，不能只以 API wrapper 和只读时间轴作为完成证据。
+- BDD: F5/F6 独立写入口 -> Given 工序池时间轴保持只读 / When 审核员需要生成审核副本或修改未 FIFO 分配的原始记录 / Then 前端必须提供独立页面调用 F5/F6 正式写接口，并提供标准 E2E 命令入口验证该用户路径。
+- RED: `node tests\e2e\process-pool-review-copy-and-revision-static.spec.js` from `IntRuoyiFronted` -> FAIL, expected reason: `ReviewCopyPage.vue` 等 F5/F6 写路径页面、路由和 E2E 入口尚不存在。
+- Implementation: added independent F5 `ReviewCopyPage.vue`, F6 `EventRevisionPage.vue`, hidden MES remaining routes, `test:e2e` script, and `process-pool-review-copy-and-revision.spec.ts`.
+- GREEN: `node tests\e2e\process-pool-review-copy-and-revision-static.spec.js` from `IntRuoyiFronted` -> PASS.
+- GREEN: `pnpm run ts:check` from `IntRuoyiFronted` -> PASS.
+- GREEN: `node --check tests\e2e\process-pool-review-copy-and-revision.spec.ts` from `IntRuoyiFronted` -> PASS.
+- E2E real-data gate: `pnpm run test:e2e process-pool-review-copy-and-revision.spec.ts` from `IntRuoyiFronted` -> FAIL, expected blocker: missing required environment variable `PROCESS_POOL_E2E_BASE_URL`; this command now exists and fails fast before using any mock or default test data.
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-revision-static.spec.cjs` -> PASS.
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-frontend-static.spec.cjs` -> PASS.
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, branch runtime ports `int_main` frontend `8081`, backend `48081`.
+- GREEN: `git diff --check` -> PASS, only CRLF conversion warnings for edited text files.
+- Experience consolidation: updated `docs\e2e-rules.md#E2E 脚本入口存在性门禁` and `docs\experience-index.md` to record that write-path acceptance requires a real page route, permission meta, primary page action, API wrapper, and executable Playwright entry; API wrapper alone is not page-path acceptance.
+
+## 2026-07-30 Frontend Write Entry Real E2E Closure
+
+- Runtime precheck: read `docs\local-runtime.md`, `docs\worktree-restrictions.md`, `docs\backend-development.md`, `docs\database-rules.md`, and `docs\powershell-encoding.md` before restarting backend or writing local test data.
+- Runtime ownership: `Get-NetTCPConnection -LocalPort 48081 -State Listen` -> old backend listener PID `27752`; command line belonged to `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260730-091935.jar`, `--server.port=48081`, repo root `E:\IntRuoyi\IntRuoyiBackend`.
+- GREEN: `mvn.cmd -pl yudao-server -am -DskipTests package` from `IntRuoyiBackend` -> PASS, `BUILD SUCCESS`, new `yudao-server-exec.jar` generated.
+- Runtime reload: copied target jar to stable runtime jar `E:\IntRuoyi\output\runtime\int_main\backend-process-pool-f5f6-20260730-114729.jar`; SHA256 `E3956703BE44E84F6D3FAE2BE209716E88F2AAC3A52796A2DCDEE36E02920007`.
+- Runtime reload: stopped old backend PID `27752`; port `48081` released; started new hidden wrapper `run-backend-process-pool-f5f6.ps1`; new backend listener PID `46996`.
+- GREEN: `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` -> `status=UP`.
+- Local schema evidence: Docker containers `int-ruoyi-mysql` and `int-ruoyi-redis` were listening on `23306` and `26379`; local DB contained all process-pool tables including `mes_pro_process_pool_review_copy`, `mes_pro_process_pool_review_copy_field`, `mes_pro_process_pool_event_revision`, and `mes_pro_process_pool_event_revision_diff`.
+- Local E2E data: inserted task-owned RUN3 data under marker `PP_F5F6_E2E_20260730_RUN3`; `POOL_ID=3`, `REVIEW_EVENT_ID=5`, `REVISION_EVENT_ID=6`, `REVIEW_SIGNATURE_ID=6073011550063`, `REVISION_SIGNATURE_ID=6073011550064`.
+- E2E note: RUN2 test data was not used because MySQL variable output formatted generated signature IDs in scientific notation; RUN3 uses smaller integer IDs and explicit integer output.
+- RED: `pnpm run test:e2e process-pool-review-copy-and-revision.spec.ts` with original selector -> FAIL after F5 success; expected reason: F6 title assertion used broad `getByText('原始记录修改')` and matched breadcrumb, tag, and page title.
+- Implementation: tightened both Playwright page-title assertions to `.process-pool-write__title` while preserving real login, real page navigation, and real API POST observation.
+- GREEN: `pnpm run test:e2e process-pool-review-copy-and-revision.spec.ts` from `IntRuoyiFronted` using RUN3 and explicit `PROCESS_POOL_E2E_CHROME_EXECUTABLE=C:\Program Files\Google\Chrome\Application\chrome.exe` -> PASS, 2 tests.
+- DB verification: review copy `event_id=5` saved `review_status=SUBMITTED`, `reviewer_signature_id=6073011550063`, raw pressure `50`; review field `pressure` saved `raw_value=50`, `corrected_value=40`, `lower_limit=20`, `upper_limit=40`, `rule_type=CLAMP_TO_MAX`.
+- DB verification: event revision `event_id=6` saved `revision_signature_id=6073011550064`, `after_payload.outputQuantity=91`; current event `id=6` raw payload now has `outputQuantity=91`.
+- GREEN: `node tests\e2e\process-pool-review-copy-and-revision-static.spec.js` from `IntRuoyiFronted` -> PASS.
+- GREEN: `node --check tests\e2e\process-pool-review-copy-and-revision.spec.ts` from `IntRuoyiFronted` -> PASS.
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-revision-static.spec.cjs` -> PASS.
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-frontend-static.spec.cjs` -> PASS.
+- GREEN: `pnpm run ts:check` from `IntRuoyiFronted` -> PASS.
+- RED: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopySchemaTest,MesProcessPoolEventRevisionSchemaTest,MesProcessPoolReviewCopyControllerTest,MesProcessPoolEventRevisionControllerContractTest,MesProcessPoolEventRevisionDiffContractTest,MesProcessPoolEventRevisionServiceTest,MesProcessPoolReviewCopyServiceTest,MesProcessPoolEventRevisionFifoLockTest,ProcessPoolTimelineRevisionSummaryTest" test` -> FAIL, expected reason: reactor sibling modules do not contain the selected MES tests and Surefire failed on no matched tests before reaching `yudao-module-mes`.
+- GREEN: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopySchemaTest,MesProcessPoolEventRevisionSchemaTest,MesProcessPoolReviewCopyControllerTest,MesProcessPoolEventRevisionControllerContractTest,MesProcessPoolEventRevisionDiffContractTest,MesProcessPoolEventRevisionServiceTest,MesProcessPoolReviewCopyServiceTest,MesProcessPoolEventRevisionFifoLockTest,ProcessPoolTimelineRevisionSummaryTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 30 tests.
+- GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, branch runtime ports `int_main` frontend `8081`, backend `48081`.
+- GREEN: `python C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi` -> PASS.
+- GREEN: `git diff --check` -> PASS, only CRLF conversion warnings for edited text files.
+- Current status: frontend write entry gap is closed by real UI write-path E2E and DB verification; implementation is ready for closeout cleanup, commit, and push retry.
+
+## 2026-07-30 Frontend Write Entry Cleanup
+
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-process-pool-f5-f6-implementation --mode preview --extra-delete doc\tasks\20260730-process-pool-f5-f6-implementation\artifacts --extra-delete IntRuoyiFronted\test-results --json` -> PASS; delete scope limited to task-owned Playwright browser download artifacts and frontend `test-results`; blocked `<none>`; warnings `<none>`.
+- Cleanup apply: same command with `--mode apply` -> PASS; deleted `doc\tasks\20260730-process-pool-f5-f6-implementation\artifacts` and `IntRuoyiFronted\test-results`; blocked `<none>`; warnings `<none>`.
+
+## 2026-07-30 Concurrent Dirty Baseline Before Frontend Write Entry Commit
+
+- Pre-commit scan: `git status --short --branch --untracked-files=all` showed one unrelated concurrent file `doc\tasks\20260729-test-server-wangsiyu-file-upload-simulation\upload-evidence.json` plus current F5/F6 frontend write-entry files.
+- Secret scan: `rg -n -i "password|passwd|token|secret|authorization|cookie|set-cookie|private[_-]?key|access[_-]?key|refresh[_-]?token|bearer" doc\tasks\20260729-test-server-wangsiyu-file-upload-simulation\upload-evidence.json` -> no matches.
+- JSON validation: `python -X utf8 -m json.tool doc\tasks\20260729-test-server-wangsiyu-file-upload-simulation\upload-evidence.json` -> PASS.
+- Baseline staged list: `git diff --cached --name-status` -> only `M doc/tasks/20260729-test-server-wangsiyu-file-upload-simulation/upload-evidence.json`.
+- Baseline commit: `2f930542 chore: baseline concurrent upload evidence update`; hook ran `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
+- Post-baseline scan: current F5/F6 task files remain unstaged and ready for task-owned commit; baseline did not include F5/F6 implementation or verification docs.
