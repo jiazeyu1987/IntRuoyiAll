@@ -56,6 +56,14 @@
 - Blocker: 需要保留但未进入 `Cleanup Keep`、`Cleanup Keep` 因内联说明/反引号被解析成错误路径、或 `git status --untracked-files=all` 看不到脚本且未确认忽略规则时，不得提交完成。
 - Verification: cleanup preview 显示脚本在 keep 列表；提交前对被忽略但需要保留的脚本使用 `git add -f <path>`，并在任务日志记录原因。
 - Forbidden action: 禁止把生成脚本、截图、stdout/stderr 日志等临时产物混入最终提交；禁止因为脚本被忽略就误以为验证证据已提交。
+
+## 技能证据文件清理前归档门禁
+
+- Trigger: 任务使用 `database-schema-delivery`、`backend-api-delivery`、`frontend-feature-delivery` 等技能生成 `database-schema-evidence.md`、`backend-api-evidence.md`、`frontend-feature-evidence.md` 或同类临时 evidence 文件，并准备运行 `task-closeout-cleanup`。
+- Preflight check: cleanup preview/apply 前必须先运行对应 evidence validator，并把 validator PASS、RED/GREEN 摘要和关键验收结论复制到默认保留的 `execution-log.md` 或 `verification-report.md`。
+- Blocker: evidence 文件还未通过 validator、validator 结果只存在于将被 cleanup 删除的文件、或 `verification-report.md` 未记录关键 PASS 命令时，不得执行 cleanup apply。
+- Verification: cleanup preview 显示临时 evidence 文件在 delete 列表，同时 `task.md`、`execution-log.md`、`verification-report.md` 在 keep 列表；apply 后保留报告仍包含 validator PASS 和核心验收结论。
+- Forbidden action: 禁止先删除 evidence 文件再补写验证结论；禁止把已被 cleanup 删除的临时 evidence 当作最终审计证据；禁止为了保留所有中间 evidence 而跳过 cleanup。
 ## 禁止做法
 
 - 禁止跳过用户明确要求的脏工作区基线提交。

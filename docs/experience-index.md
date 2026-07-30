@@ -249,6 +249,7 @@
 - Keywords: task-closeout runtime log lock, PermissionError WinError 32, runtime-control-main err log, long-running process log under task dir -> `docs/release-build-preflight-lessons.md#2026-07-13-task-closeout-长运行进程日志目录门禁`
 - Keywords: 验收范围变更, 完成门禁变更, 取消全量回归, MES 全量测试不作为门禁, 只跑定向测试, 开发文档和测试计划列出的内容, Expected Verification, 不把未运行全量写成通过 -> `docs/task-closeout-rules.md#验收范围变更门禁`
 - Keywords: Cleanup Keep, doc/tasks/**/*.cjs, cleanup keep 反引号, keep 路径内联说明, task_closeout preview delete, 验证脚本保留 -> `docs/task-closeout-rules.md#任务验证脚本保留门禁`
+- Keywords: database-schema-evidence, backend-api-evidence, frontend-feature-evidence, evidence validator, task-closeout-cleanup 删除 evidence, verification-report 保留 PASS, 技能证据文件清理前归档 -> `docs/task-closeout-rules.md#技能证据文件清理前归档门禁`
 - Keywords: release-info CRLF, releaseInfoTagOk false, console-error-string-parser, Errors: 0, Warnings: 0, residual-release-worktree-root, r260713j physical root -> `docs/release-build-preflight-lessons.md#2026-07-13-release-info-与运行控制台验收解析门禁` and `docs/release-build-preflight-lessons.md#2026-07-13-release-worktree-物理根目录复核门禁`
 - Keywords: release-info Git 变更, release-info Codex 摘要, Codex 普通人能读懂, 版本变更说明最多 10 条, gitChanges, previousCommit..currentCommit, 上一版本 Git 差异, Codex summary output, summaryGenerator -> `docs/release-build-preflight-lessons.md#2026-07-27-release-info-用户可见-codex-git-摘要门禁`
 - Keywords: Write-FrontendReleaseInfo 重复定义, release-info 重复写入, PowerShell 同名函数, 发布脚本旧分支合并 -> `docs/release-build-preflight-lessons.md#2026-07-27-release-info-用户可见-codex-git-摘要门禁`
