@@ -21,7 +21,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## Applicable Gates
 
@@ -36,11 +36,27 @@ in_progress
 - `mvn.cmd -pl yudao-module-mes -am "-DskipTests" test-compile`：RED 命中 `MesProMesProcessCatalogSchemaTest` 不存在包，移除过时测试后 PASS。
 - 真实只读 Playwright 路径：`芋道源码/admin` 登录后搜索 `mes工序`，返回 `标准模板列表/mes/pro/mes-process`。
 - `pnpm ts:check`、相邻静态契约和菜单 migration policy gate 均 PASS。
+- 复发修复：静态契约 RED 命中 `RouterSearch` 缓存 `router.getRoutes()`；改为 `getSearchRoutes()` 实时读取最新动态路由后 GREEN。
+- 复发复验：`芋道源码/admin` 真实登录后，顶部搜索 `mes工序` 返回 `标准模板列表/mes/pro/mes-process`，MES 写请求数为 0。
 
 ## Reopened Regression
 
 - 2026-07-30 用户反馈：在 `芋道源码/admin` 运行态中仍然搜索不到 `mes工序`。
 - 新增复发假设：搜索组件初始化时缓存 `router.getRoutes()`，登录后动态菜单路由追加到 Vue Router 后，搜索下拉仍使用旧路由快照。
+
+## Closeout Status
+
+- 当前源码修复和定向验证已完成。
+- Closeout 仍被共享分支状态阻塞：`int_main` 当前 `ahead 10, behind 8`，且存在非本任务脏改动；本任务不执行提交/推送，避免混入并行任务范围。
+
+## Cleanup Keep
+
+- doc/tasks/20260730-standard-template-list-search-alias/bug-regression-evidence.md
+- doc/tasks/20260730-standard-template-list-search-alias/migration-policy-gate.json
+
+## Cleanup Candidates
+
+- output/playwright/20260730-standard-template-list-search-alias/
 
 ## Closeout Blocker
 

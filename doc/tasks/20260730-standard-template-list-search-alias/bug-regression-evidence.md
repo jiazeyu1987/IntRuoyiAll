@@ -58,3 +58,19 @@
 
 - 用户反馈：`芋道源码/admin` 中仍然无法通过 `mes工序` 搜索到标准模板列表。
 - 新增预期：搜索组件不能缓存登录前的静态路由列表，必须在过滤、历史解析和跳转时读取当前 Vue Router 的最新动态路由。
+
+## Reopened Root Cause
+
+- `RouterSearch` 在 setup 初始化阶段执行 `const routers = router.getRoutes()`，该快照可能早于 admin 登录后的动态菜单路由注册。
+- 搜索别名已经存在，但搜索过滤和历史路径解析仍基于旧路由快照，所以真实运行态可能搜不到后注册的 `/mes/pro/mes-process`。
+
+## Reopened RED
+
+- RED: `node tests\e2e\mes-pro-mes-process-readonly-static.spec.js` -> FAIL，预期原因：静态契约禁止缓存 `router.getRoutes()`，当前代码仍存在 `const routers = router.getRoutes()`。
+
+## Reopened GREEN
+
+- GREEN: `node tests\e2e\mes-pro-mes-process-readonly-static.spec.js` -> PASS。
+- GREEN: `node tests\e2e\mes-route-mes-process-tab-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: 真实页面只读验证，`芋道源码/admin` 登录后搜索 `mes工序`，结果包含 `标准模板列表/mes/pro/mes-process`，MES 写请求数为 `0`。

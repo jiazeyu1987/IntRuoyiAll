@@ -21,6 +21,9 @@ PASS。
 - 写入后目标行状态：主键 `905348/904555/905535` 均 `deleted=1`，`updater=20260730-remove-doc-control-role-menus-test`。
 - 用户菜单继承复验：`zhaohaichen` 按启用角色链路查询 `101/6804/900183` 无返回行。
 - 缓存核对：登录权限信息接口的角色菜单读取路径未缓存 `getRoleMenuListByRoleId(Collection<Long>)`，不需要额外清 Redis；已登录浏览器侧可能需要刷新或重新登录以重新拉取菜单树。
+- 追加复验：用户反馈仍可见后，用 `zhaohaichen` 当前有效 token 调权限接口，`approval-role/审批角色/dcc:controlled-file:position:manage` 计数均为 `0`。
+- 旧会话处理：吊销 `zhaohaichen(id=376)` 测试服 access/refresh token 各 `6` 条；写入后活动 access/refresh token 均为 `0`。
+- 旧 token 探针：已吊销 token 调权限接口返回业务未授权，且审批角色相关标记为 `0`。
 
 ## Non-Scope
 

@@ -11,6 +11,7 @@
 3. 在测试服精确软删除目标 `system_role_menu` 关系。`completed`
 4. 复验 `zhaohaichen` 与 `doc_control` 不再绑定目标菜单。`completed`
 5. 记录验证报告和收尾状态。`completed`
+6. 用户反馈仍可见后，复查后端权限接口并吊销旧会话。`completed`
 
 ## Expected Verification
 
@@ -45,9 +46,13 @@ completed
 - 写入后复验：目标活动绑定计数 `TARGET_ACTIVE_AFTER=0`；三条关系 `deleted=1` 且 `updater=20260730-remove-doc-control-role-menus-test`。
 - `zhaohaichen` 复验：按其启用角色链路查询 `101/6804/900183` 不再返回任何菜单行。
 - 缓存核对：`/system/auth/get-permission-info` 使用 `getRoleMenuListByRoleId(...)` 直接按角色读取 `system_role_menu`，该方法未走 `MENU_ROLE_ID_LIST` 缓存；无需删除菜单定义或租户套餐。
+- 用户反馈仍可见后复验：`zhaohaichen` 当前有效 token 调 `/system/auth/get-permission-info`，`approval-role/审批角色/dcc:controlled-file:position:manage` 计数均为 `0`。
+- 旧会话吊销：`system_oauth2_access_token` 与 `system_oauth2_refresh_token` 对 `tenant_id=1/user_id=376` 各更新 `6` 行为删除态；写入后活动 access/refresh token 均为 `0`。
+- 旧 token 探针：用已吊销 token 调权限接口，返回业务未授权信息且 `approval_markers=0`，说明旧会话无法继续拉取菜单。
 
 ## Closeout Evidence
 
 - `task-closeout-cleanup preview`：keep `task.md`、`execution-log.md`、`verification-report.md`；delete `<none>`；blocked `<none>`；warnings `<none>`。
 - `task-closeout-cleanup apply`：applied；deleted_paths `<none>`；linked worktree `false`。
+- 追加会话吊销后再次 `task-closeout-cleanup preview/apply`：keep 核心三文件；delete `<none>`；blocked `<none>`；warnings `<none>`。
 - 当前工作区存在本任务外既有状态：`int_main...origin/int_main [ahead 9]` 及并行脏改动；本任务未修改或清理这些并行文件。

@@ -4,6 +4,8 @@
 
 普通用户进入电子签名时会默认落到“签名记录”页签，页面触发全量签名记录查询并展示“没有该操作权限”。期望行为是普通用户只看到“我的签名”。
 
+Follow-up：`zhaojie` 登录本机运行态后仍看到多个电子签名左侧菜单，截图显示“签名记录 / 我的签名 / 长期留存 / 周期复核 / CSV质量包 / 统一策略”仍可见。
+
 ## Expected
 
 普通用户进入电子签名页面时只看到“我的签名”，且不触发全量签名记录或治理页签查询。
@@ -19,6 +21,7 @@
 - 电子签名根路由固定重定向到 `/signature-governance/signature-records`。
 - `permissionStore` 合并隐藏静态壳路由时，会把未授权的电子签名隐藏静态子路由补回普通用户路由表。
 - 历史菜单授权曾让普通角色获得签名记录菜单，需要正式 SQL 收回普通角色治理页签范围。
+- `zhaojie` 本机租户 1 的 `wenkong` 角色仍保留旧电子签名治理菜单授权；左侧菜单来自后端动态菜单和前端 `ROLE_ROUTERS` 缓存，不是 `index.vue` 内部组件守卫本身。
 
 ## Regression Tests
 
@@ -37,6 +40,8 @@
 - `GREEN: node --test scripts/signature-governance-page-contract.test.mjs -> PASS`
 - `GREEN: pnpm ts:check -> PASS`
 - `GREEN: python script/release/run-release-migration-policy-gate.py --sql-root sql/mysql -> PASS`
+- `GREEN: docker exec int-ruoyi-mysql mysql apply IntRuoyiBackend/sql/mysql/20260730_signature_regular_users_my_signature_only.sql -> PASS`
+- `GREEN: docker exec int-ruoyi-mysql mysql read-only zhaojie signature menu query -> PASS, effective menu ids 900218 and 900418`
 
 ## Risk
 

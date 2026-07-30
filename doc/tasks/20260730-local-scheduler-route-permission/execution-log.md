@@ -36,3 +36,8 @@
 
 - 本机修复已完成并进入 `ready_for_closeout`。
 - 仓库当前存在其它任务脏改动且分支 `int_main...origin/int_main` 处于 ahead/behind 状态；为避免提交或清理非本任务文件，本任务未执行提交、推送或全局 cleanup。
+
+## Experience Consolidation
+
+- 已按 `project-experience-consolidation` 检查长期经验归宿；本次经验已被 `docs/database-rules.md#租户和菜单权限` 以及既有 `20260728-scheduler-route-flow-list-permission` 任务证据覆盖。
+- 本次不新增长期经验文档，避免把一次性本机数据修复状态写入长期记忆。

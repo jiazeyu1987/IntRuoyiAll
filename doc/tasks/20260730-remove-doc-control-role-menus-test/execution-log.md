@@ -48,3 +48,19 @@
 - CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-remove-doc-control-role-menus-test --mode preview` -> PASS，keep 核心三文件，delete `<none>`，blocked `<none>`，warnings `<none>`。
 - CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-remove-doc-control-role-menus-test --mode apply` -> PASS，deleted_paths `<none>`。
 - FINAL STATUS: 数据修复、验证和 cleanup 已完成；任务状态更新为 `completed`。
+
+## Reopen: Approval Role Still Visible
+
+- 用户反馈：`还是可以看到审批角色`。
+- RECHECK: 远端只读 SQL -> PASS，`zhaohaichen` 当前启用角色为 `doc_control` 与 `approval_center_entry`；静态角色菜单中 `101/900183/6804` 无活动绑定。
+- RECHECK: 动态授权账本 -> PASS，`system_entitlement_grant` 对 `zhaohaichen(id=376)` 无 `101/900183/6804` 活动授权。
+- RECHECK: 同名菜单定义 -> PASS，测试服只有一条 `审批角色` 菜单定义 `id=6804/path=approval-role`，但用户没有授权关系。
+- PERMISSION API: 使用 `zhaohaichen` 现有有效 token 只读调用 `/admin-api/system/auth/get-permission-info`，仅输出匹配计数，不打印 token；结果 `approval_role_count=0`、`approval_role_name_count=0`、`permission_manage_count=0`。
+- 结论：服务端返回菜单已不含 `审批角色`；用户仍可见来自当前浏览器会话/前端路由缓存。下一步吊销 `zhaohaichen` 测试服现有 access/refresh token 和 Redis token 缓存，强制重新登录拉取新菜单。
+- TOKEN REVOKE: 先盘点 `zhaohaichen(id=376)` 测试服现有 token，`access_tokens=6`、`refresh_tokens=6`；Redis token 键删除计数为 `0`，说明当前 Redis 未命中这些键或已无对应缓存。
+- TOKEN REVOKE DB: 使用已验证 MySQL stdin 通道更新 `system_oauth2_access_token` 与 `system_oauth2_refresh_token`，结果 `access_updated=6`、`refresh_updated=6`。
+- TOKEN REVOKE VERIFY: 写入后 `active_access=0`、`active_refresh=0`。
+- OLD TOKEN CHECK: 使用一枚已吊销 token 调 `/admin-api/system/auth/get-permission-info`，只输出状态摘要不打印 token；结果 `auth_missing_count=1`、`approval_markers=0`。旧会话已经不能继续通过后端获取菜单。
+- CLEANUP PREVIEW 2: `task-closeout-cleanup --mode preview` -> PASS，delete `<none>`，blocked `<none>`。
+- CLEANUP APPLY 2: `task-closeout-cleanup --mode apply` -> PASS，deleted_paths `<none>`。
+- FINAL STATUS 2: 追加旧会话吊销完成，任务状态更新为 `completed`。

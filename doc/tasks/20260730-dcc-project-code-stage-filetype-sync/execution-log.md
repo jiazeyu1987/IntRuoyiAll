@@ -10,20 +10,28 @@ BDD: 测试服全局文件分类同步 -> Given 测试服类别列表已有启�
 
 ## TDD / Verification Evidence
 
-- RED: pending -> 执行前需用真实测试服页面/API 证明至少存在候选不一致或未分类文件，并记录候选总数；若候选为 0，则不启动写入任务。
-- GREEN: pending -> 批量任务完成后复查候选数为 0，任务失败/冲突/歧义计数为 0，并通过页面抽样核对。
+- RED: `show-int-ruoyi-test-status.bat` -> PASS，测试服运行目录存在，backend/frontend/OnlyOffice HTTP 200，后端健康 HTTP 200。
+- RED: 登录 `测试租户/aoteman` -> PASS，`doc_control=true`，DCC 查询/更新权限均为 true；但启用且绑定 `fileTypeTaxonomyId` 的类别规则数量为 0，项目代码 124 个，候选文件 1 个，目标阶段/文件类型为空。
+- RED: 登录 `芋道源码/admin` -> PASS，类别规则完整，启用且绑定 `fileTypeTaxonomyId` 的类别 60 条；项目代码 117 个，候选项目 93 个，候选文件 15028 个；但 `doc_control=false`，查询 FILE_CATEGORY 最新任务返回 403。
+- RED: `芋道源码` 租户角色只读核对 -> PASS，`doc_control` 角色存在且已分配给 `wangsiyu`、`zhaohaichen`；当前任务缺少这些账号凭据，不允许修改角色或绕过权限。
+- RED: 用户补充 `admin` 登录凭据后复核 -> `芋道源码/admin` 登录 PASS，但 `doc_control=false`，FILE_CATEGORY 最新任务接口仍返回 403；`测试租户/admin` 登录失败，提示账号密码不正确。密码未记录。
+- GREEN: blocked -> 未启动官方批量分类任务，因为没有一个已认证账号同时满足“目标租户有类别规则”和“账号具备 doc_control 角色”两个前置条件。
 
 ## Milestone Updates
 
 - 2026-07-30: 创建任务目录和基础任务文档，记录测试服授权范围、无 fallback/no SQL 约束、BDD/RED/GREEN 验证路径。
+- 2026-07-30: 测试服健康检查通过，容器和 HTTP 健康均正常。
+- 2026-07-30: 完成只读权限与候选影响面预检；因同一租户内权限与类别规则前置条件不能同时满足，任务进入 blocked，未调用 `/admin-api/dcc/controlled-files/batch-recognition/tasks`。
+- 2026-07-30: 按项目经验沉淀要求补充同租户权限/规则门禁摘要；本轮未新增长期经验文档，原因是当前阻塞仍属于本任务的具体环境前置条件，后续若复发再合并到 `docs/login-access.md` 或 DCC 专项门禁。
+- 2026-07-30: 使用用户补充的 admin 凭据只读复核，确认仍未解除 `doc_control` 前置权限阻塞。
 
 ## Command Intent Log
 
-- pending: 测试服健康预检。
-- pending: 登录与权限预检。
-- pending: 启用类别规则与候选影响面只读导出。
-- pending: 官方批量分类任务提交与轮询。
+- done: 测试服健康预检，使用官方状态脚本，只读检查容器、backend/frontend/OnlyOffice HTTP 状态。
+- done: 登录与权限预检，使用测试服 API 登录，不记录密码、token、Authorization 或 cookie。
+- done: 启用类别规则与候选影响面只读导出，分别核对 `测试租户/aoteman` 与 `芋道源码/admin` 口径。
+- blocked: 官方批量分类任务提交与轮询未执行，原因是缺少同一租户内同时满足规则与 `doc_control` 的可登录账号。
 
 ## Blockers
 
-- 当前无已确认 blocker；后续按测试服预检结果更新。
+- BLOCKED: 需要用户提供 `芋道源码` 租户中已有 `doc_control` 用户的可用登录凭据，或明确授权通过正式权限管理链路为一个可登录账号授予 `doc_control` 后再执行；当前计划不允许直接 SQL、角色修改、per-file API 绕过或跨租户切换来伪造成功。
