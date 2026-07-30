@@ -39,7 +39,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 F5/F6 子 worktree 已完成主审修正并融合进 `int_main`。F5/F6 后端主链、正式写入口、前端独立 API wrapper 和时间轴只读追溯已通过合并后复验；主审额外发现并修复了时间轴审核副本一对多 JOIN 导致事件重复展开的风险。cleanup preview/apply 已完成，两个任务 worktree 已删除，端口槽位已释放。
 
@@ -47,7 +47,7 @@ F5/F6 子 worktree 已完成主审修正并融合进 `int_main`。F5/F6 后端�
 
 新增真实验证已完成：本地 `int_main` 后端重新构建并以独立 runtime jar 启动到 `48081`，健康检查 `UP`；Playwright 使用真实登录、真实 F5/F6 页面和真实后端写接口通过 2 条测试；数据库核对确认 RUN3 审核副本将 `pressure=50` 按 `20~40` 夹到 `40`，原始记录修改将事件 `6` 的 `outputQuantity` 更新为 `91` 且保留新签名。
 
-用户确认 `doc/tasks/20260729-local-scheduler-tenant-copy/source-tenant-1-full-config.json` 不提交 Git 后，已对未推送历史执行路径级过滤；复扫 `origin/int_main..HEAD` 不再包含该 214MB 文件，当前最大待推送 blob 约 2MB。仍需执行 `git push origin int_main` 并确认本地不再 ahead 后，才能标记 completed。
+用户确认 `doc/tasks/20260729-local-scheduler-tenant-copy/source-tenant-1-full-config.json` 不提交 Git 后，已对未推送历史执行路径级过滤；复扫 `origin/int_main..HEAD` 不再包含该 214MB 文件，当前最大待推送 blob 约 2MB。随后 `git push origin int_main` 成功，`HEAD` 与 `origin/int_main` 已对齐到 `9ac4d0131dd9852808df9323b79ef0c5f60629c4`。
 
 ## 设计约束检查
 

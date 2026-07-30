@@ -2,7 +2,7 @@
 
 ## Status
 
-ready_for_closeout_pending_push_retry
+completed
 
 ## Passed
 
@@ -23,5 +23,4 @@ ready_for_closeout_pending_push_retry
 
 ## Not Passed Or Not Run
 
-- Final push has not yet succeeded after the frontend write-path closeout changes. Previous `git push origin int_main` and `git ls-remote --heads origin int_main` failed with `Recv failure: Connection was reset`.
-- The previous `214274437` byte blob `doc/tasks/20260729-local-scheduler-tenant-copy/source-tenant-1-full-config.json` has been removed from pending history after user confirmed it must not be committed to Git; post-cleanup largest pending blob is about `2 MB`.
+- None for the F5/F6 scope. The previous `214274437` byte blob was removed from pending history, and final `git push origin int_main` succeeded.

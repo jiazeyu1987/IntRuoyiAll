@@ -300,3 +300,14 @@
   - `5d6d9940 docs: record process pool write path closeout`
   - `7238837c chore: baseline file upload simulation closeout evidence`
 - Current status: large-object push preflight blocker resolved; push retry remains required.
+
+## 2026-07-30 Final Push And Completion
+
+- History cleanup record commit: `9ac4d013 docs: record removal of large config package history`; hook ran `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
+- Pre-push status: `git status --short --branch --untracked-files=all` -> `int_main...origin/int_main [ahead 27]`, clean working tree.
+- Pre-push object scan: largest pending blob `doc/tasks/20260729-local-scheduler-tenant-copy/probe-source-full-config-after-role-fix.json`, size `2064369` bytes; removed 214MB file no longer appears.
+- Push retry 1: `git push origin int_main` -> FAIL, `Recv failure: Connection was reset`.
+- Remote probe: `git ls-remote --heads origin int_main` -> PASS, remote `int_main` at `d1e9729c1b45935eac4c047b707c81ef1283c44d`.
+- Push retry 2: `git push origin int_main` -> PASS, `d1e9729c..9ac4d013 int_main -> int_main`; hook ran `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
+- Final status verification: `git status --short --branch --untracked-files=all` -> `int_main...origin/int_main`; `git rev-parse HEAD` and `git rev-parse origin/int_main` both returned `9ac4d0131dd9852808df9323b79ef0c5f60629c4`.
+- Current status: all F5/F6 implementation, review, verification, cleanup, history cleanup, and push requirements are complete.
