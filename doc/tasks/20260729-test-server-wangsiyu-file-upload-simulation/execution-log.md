@@ -126,6 +126,25 @@
   - 临时类别上传权限已恢复。
 - BLOCKER: 继续完成上传需要在测试服临时创建或启用类别 `SOURCE` 上传大小策略；该操作会改变测试服 DCC 配置，需用户额外授权。
 
+### Final Upload Run
+
+- User authorization: 用户已额外授权临时创建上传大小策略继续。
+- GREEN: real upload simulation -> PASS。
+- Evidence:
+  - 登录：`芋道源码/wangsiyu`，滑块验证码通过。
+  - 临时配置：类别 `908709 / 市场调研报告` 增加 `USER/910250/UPLOAD`；创建 `CATEGORY_PURPOSE/SOURCE` 上传大小策略 ID `3`，`maxBytes=10485760`。
+  - 页面路径：`/dcc/controlled-file/upload`。
+  - 表单选择：DCC 项目 `按压式球囊扩充压力泵 / IDI`；文件分类 `技术文档 / 设计和开发策划阶段 / 市场调研报告`；文件类别 `市场调研报告`。
+  - 上传文件：`codex-upload-simulation-20260729.docx`，`36872` 字节。
+  - `upload-preview` -> HTTP 200，业务码 `0`，`previewKind=OFFICE`。
+  - `submit` -> HTTP 200，业务码 `0`，`controlledFileId=2054545668044083977`。
+  - 只读详情复验 -> PASS，状态 `PENDING_DOC_CONTROL_REVIEW`，流程实例 `0c985e29-8bcb-11f1-8ee9-0242c0a83005`。
+- Cleanup:
+  - 临时上传大小策略 ID `3` 已更新为 disabled。
+  - 临时类别上传权限已恢复为原规则。
+- Retained data:
+  - 测试受控文件 `2054545668044083977` 保留在测试服文控审核流程中；未使用 API/SQL 强制删除。
+
 ## Command Intent
 
 - 后续命令仅用于检查 Git/工具前置、驱动 Playwright 浏览器、创建任务自有测试文件与读取脱敏验证结果。

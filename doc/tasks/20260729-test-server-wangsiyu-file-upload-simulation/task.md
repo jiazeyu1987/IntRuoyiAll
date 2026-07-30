@@ -28,9 +28,9 @@
 
 - [x] M1：读取服务器、登录、E2E、Element Plus 上传和任务收尾规则。
 - [x] M2：测试服务器可达，已通过用户授权的滑块验证码并以 `芋道源码/wangsiyu` 登录。
-- [ ] M3：已进入 DCC“受控文件提交”入口并准备任务自有测试文件；类别级上传权限可临时补充并恢复，但 SOURCE 上传大小策略缺失，当前阻塞。
-- [ ] M4：完成一次文件上传，记录页面与请求证据。
-- [ ] M5：清理或记录测试数据影响，完成验证报告和任务收尾。
+- [x] M3：已进入 DCC“受控文件提交”入口并准备任务自有测试文件；临时补充类别级上传权限和 SOURCE 上传大小策略后已恢复配置。
+- [x] M4：完成一次文件上传，记录页面与请求证据。
+- [x] M5：记录测试数据影响并完成验证报告；本任务测试受控文件保留在测试服审批流中。
 
 ## Expected Verification
 
@@ -49,4 +49,18 @@
 
 ## Current Status
 
-`blocked_missing_upload_size_policy`
+`ready_for_closeout`
+
+## Final Verification
+
+- PASS: `芋道源码/wangsiyu` 真实登录测试服并通过用户授权的滑块验证码。
+- PASS: 页面选择 DCC 项目、文件分类、文件类别、提交目录并通过真实文件控件选择 `codex-upload-simulation-20260729.docx`。
+- PASS: `/dcc/controlled-files/upload-preview` 返回成功，文件名 `codex-upload-simulation-20260729.docx`，大小 `36872` 字节，`previewKind=OFFICE`。
+- PASS: `/dcc/controlled-files/submit` 返回成功，生成受控文件 ID `2054545668044083977`。
+- PASS: 只读详情核验显示文件名 `Codex file upload simulation 20260730035911679-431F9C`，文件编号 `CODEX-UPLOAD-20260730035911679-431F9C`，状态 `PENDING_DOC_CONTROL_REVIEW`。
+- PASS: 临时类别上传权限已恢复；临时上传大小策略 ID `3` 已停用。
+
+## Retained Test Data
+
+- 测试服保留受控文件：`2054545668044083977`。
+- 保留原因：产品流程已提交进入文控审核状态，未发现页面安全删除入口；不使用 API、SQL 或服务器命令绕过清理。

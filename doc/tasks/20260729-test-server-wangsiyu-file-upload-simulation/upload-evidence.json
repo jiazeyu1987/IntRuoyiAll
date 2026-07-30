@@ -1,6 +1,6 @@
 {
   "taskId": "20260729-test-server-wangsiyu-file-upload-simulation",
-  "startedAt": "2026-07-30T03:59:11.685Z",
+  "startedAt": "2026-07-30T04:24:03.070Z",
   "baseUrl": "http://172.30.30.58:8081",
   "tenant": "芋道源码",
   "username": "wangsiyu",
@@ -15,8 +15,8 @@
       "detail": {
         "authorized": true,
         "detection": {
-          "intrinsicOffset": 187,
-          "displayOffset": 241.29032258064515,
+          "intrinsicOffset": 180,
+          "displayOffset": 232.25806451612902,
           "backgroundWidth": 310,
           "displayedWidth": 400,
           "pieceBounds": {
@@ -27,36 +27,36 @@
           },
           "topCandidates": [
             {
-              "x": 187,
-              "score": 135.63126
+              "x": 180,
+              "score": 196.70641000000012
             },
             {
-              "x": 189,
-              "score": 107.90102000000003
+              "x": 178,
+              "score": 193.33953000000002
             },
             {
-              "x": 188,
-              "score": 95.03208000000002
+              "x": 177,
+              "score": 132.23924000000005
             },
             {
-              "x": 186,
-              "score": 91.08014999999997
+              "x": 181,
+              "score": 120.86129
             },
             {
-              "x": 71,
-              "score": 76.95953
+              "x": 179,
+              "score": 100.72001999999995
             },
             {
-              "x": 111,
-              "score": 75.91554000000001
+              "x": 176,
+              "score": 97.80098
             },
             {
-              "x": 70,
-              "score": 75.67401000000004
+              "x": 182,
+              "score": 92.29795000000004
             },
             {
-              "x": 112,
-              "score": 75.30250000000002
+              "x": 175,
+              "score": 87.41306999999999
             }
           ]
         },
@@ -64,7 +64,7 @@
         "repCode": "0000",
         "repMsg": null
       },
-      "at": "2026-07-30T03:59:14.521Z"
+      "at": "2026-07-30T04:24:05.901Z"
     },
     {
       "status": "PASS",
@@ -72,213 +72,21 @@
       "detail": {
         "url": "http://172.30.30.58:8081/dcc/controlled-file/upload"
       },
-      "at": "2026-07-30T03:59:15.844Z"
+      "at": "2026-07-30T04:24:07.180Z"
     },
     {
       "status": "PASS",
-      "step": "temporary-upload-permission-granted",
+      "step": "detail-visible",
       "detail": {
-        "categoryId": 908709,
-        "categoryName": "市场调研报告",
-        "subjectType": "USER",
-        "subjectId": 910250,
-        "actionType": "UPLOAD",
-        "temporary": true,
-        "restorePlanned": true
-      },
-      "at": "2026-07-30T03:59:16.983Z"
-    },
-    {
-      "status": "PASS",
-      "step": "temporary-upload-size-policy-granted",
-      "detail": {
-        "id": 3,
-        "categoryId": 908709,
-        "categoryName": "市场调研报告",
-        "purpose": "SOURCE",
-        "maxBytes": 10485760,
-        "temporary": true,
-        "restorePlanned": true
-      },
-      "at": "2026-07-30T03:59:17.048Z"
-    },
-    {
-      "status": "PASS",
-      "step": "read-only-preflight",
-      "detail": {
-        "profile": {
-          "id": 910250,
-          "username": "wangsiyu",
-          "nickname": "王思雨",
-          "roles": [
-            {
-              "id": 910233,
-              "name": "文控"
-            },
-            {
-              "id": 910234,
-              "name": "文控下载"
-            },
-            {
-              "id": 910295,
-              "name": "审批中心入口"
-            }
-          ]
-        },
-        "hasCategoryManagePermission": true,
-        "hasControlledFileSubmitPermission": true,
-        "category": {
-          "id": 908709,
-          "code": "DCC_FVM_DHF_001",
-          "name": "市场调研报告",
-          "directoryId": 909048,
-          "canUpload": true
-        },
-        "approvalRoute": {
-          "id": 913747,
-          "versionNo": 1,
-          "nodeCount": 9
-        },
-        "project": {
-          "id": 129,
-          "projectName": "按压式球囊扩充压力泵",
-          "projectCode": "IDI",
-          "docControlNo": "1"
-        },
-        "taxonomyPath": [
-          {
-            "id": 1,
-            "name": "技术文档"
-          },
-          {
-            "id": 3,
-            "name": "设计和开发策划阶段"
-          },
-          {
-            "id": 12,
-            "name": "市场调研报告"
-          }
-        ]
-      },
-      "at": "2026-07-30T03:59:17.286Z"
-    },
-    {
-      "status": "PASS",
-      "step": "select-dcc-project",
-      "detail": {
-        "text": "按压式球囊扩充压力泵 · IDI · 1"
-      },
-      "at": "2026-07-30T03:59:18.487Z"
-    },
-    {
-      "status": "PASS",
-      "step": "select-taxonomy-node",
-      "detail": {
-        "text": "技术文档"
-      },
-      "at": "2026-07-30T03:59:18.953Z"
-    },
-    {
-      "status": "PASS",
-      "step": "select-taxonomy-node",
-      "detail": {
-        "text": "设计和开发策划阶段"
-      },
-      "at": "2026-07-30T03:59:19.183Z"
-    },
-    {
-      "status": "PASS",
-      "step": "select-taxonomy-node",
-      "detail": {
-        "text": "市场调研报告"
-      },
-      "at": "2026-07-30T03:59:19.437Z"
-    },
-    {
-      "status": "PASS",
-      "step": "taxonomy-selected",
-      "detail": {
-        "selectedText": "技术文档 / 设计和开发策划阶段 / 市场调研报告"
-      },
-      "at": "2026-07-30T03:59:19.954Z"
-    },
-    {
-      "status": "PASS",
-      "step": "select-file-category",
-      "detail": {
-        "text": "市场调研报告"
-      },
-      "at": "2026-07-30T03:59:20.635Z"
-    },
-    {
-      "status": "PASS",
-      "step": "select-directory-node",
-      "detail": {
-        "text": "word"
-      },
-      "at": "2026-07-30T03:59:21.212Z"
-    },
-    {
-      "status": "PASS",
-      "step": "select-directory-node",
-      "detail": {
-        "text": "INT∕GL∕JY-025（A∕0）医疗器械不良事件监测和报告管理制度-ok"
-      },
-      "at": "2026-07-30T03:59:21.461Z"
-    },
-    {
-      "status": "PASS",
-      "step": "form-filled",
-      "detail": {
+        "id": "2054545668044083977",
         "fileName": "Codex file upload simulation 20260730035911679-431F9C",
         "fileNumber": "CODEX-UPLOAD-20260730035911679-431F9C",
-        "versionNo": "V1.0"
-      },
-      "at": "2026-07-30T03:59:21.720Z"
-    },
-    {
-      "status": "PASS",
-      "step": "upload-preview",
-      "detail": {
-        "httpStatus": 200,
-        "code": 0,
-        "fileName": "codex-upload-simulation-20260729.docx",
-        "contentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "fileSize": 36872,
-        "previewKind": "OFFICE"
-      },
-      "at": "2026-07-30T03:59:22.346Z"
-    },
-    {
-      "status": "PASS",
-      "step": "submit",
-      "detail": {
-        "httpStatus": 200,
-        "code": 0,
-        "controlledFileId": "2054545668044083977"
-      },
-      "at": "2026-07-30T03:59:24.601Z"
-    },
-    {
-      "status": "PASS",
-      "step": "temporary-upload-size-policy-restored",
-      "detail": {
-        "id": 3,
+        "versionNo": "V1.0",
+        "status": "PENDING_DOC_CONTROL_REVIEW",
         "categoryId": 908709,
-        "purpose": "SOURCE",
-        "restored": true
+        "processInstanceId": "0c985e29-8bcb-11f1-8ee9-0242c0a83005"
       },
-      "at": "2026-07-30T04:02:24.793Z"
-    },
-    {
-      "status": "PASS",
-      "step": "temporary-upload-permission-restored",
-      "detail": {
-        "categoryId": 908709,
-        "categoryName": "市场调研报告",
-        "restored": true
-      },
-      "at": "2026-07-30T04:02:24.846Z"
+      "at": "2026-07-30T04:24:09.476Z"
     }
   ],
   "writeRequests": [
@@ -299,28 +107,8 @@
       "path": "/system/captcha/check"
     },
     {
-      "method": "PUT",
-      "path": "/dcc/file-categories/908709/permission-rules"
-    },
-    {
       "method": "POST",
-      "path": "/dcc/protection/upload-size-policies"
-    },
-    {
-      "method": "POST",
-      "path": "/dcc/controlled-files/upload-preview"
-    },
-    {
-      "method": "POST",
-      "path": "/dcc/controlled-files/submit"
-    },
-    {
-      "method": "PUT",
-      "path": "/dcc/protection/upload-size-policies/3"
-    },
-    {
-      "method": "PUT",
-      "path": "/dcc/file-categories/908709/permission-rules"
+      "path": "/system/captcha/get"
     }
   ],
   "consoleErrors": [],
@@ -329,8 +117,8 @@
   "captcha": {
     "authorized": true,
     "detection": {
-      "intrinsicOffset": 187,
-      "displayOffset": 241.29032258064515,
+      "intrinsicOffset": 180,
+      "displayOffset": 232.25806451612902,
       "backgroundWidth": 310,
       "displayedWidth": 400,
       "pieceBounds": {
@@ -341,36 +129,36 @@
       },
       "topCandidates": [
         {
-          "x": 187,
-          "score": 135.63126
+          "x": 180,
+          "score": 196.70641000000012
         },
         {
-          "x": 189,
-          "score": 107.90102000000003
+          "x": 178,
+          "score": 193.33953000000002
         },
         {
-          "x": 188,
-          "score": 95.03208000000002
+          "x": 177,
+          "score": 132.23924000000005
         },
         {
-          "x": 186,
-          "score": 91.08014999999997
+          "x": 181,
+          "score": 120.86129
         },
         {
-          "x": 71,
-          "score": 76.95953
+          "x": 179,
+          "score": 100.72001999999995
         },
         {
-          "x": 111,
-          "score": 75.91554000000001
+          "x": 176,
+          "score": 97.80098
         },
         {
-          "x": 70,
-          "score": 75.67401000000004
+          "x": 182,
+          "score": 92.29795000000004
         },
         {
-          "x": 112,
-          "score": 75.30250000000002
+          "x": 175,
+          "score": 87.41306999999999
         }
       ]
     },
@@ -378,159 +166,17 @@
     "repCode": "0000",
     "repMsg": null
   },
-  "permissionGrant": {
-    "categoryId": 908709,
-    "categoryName": "市场调研报告",
-    "subjectType": "USER",
-    "subjectId": 910250,
-    "actionType": "UPLOAD",
-    "temporary": true,
-    "restorePlanned": true
-  },
-  "uploadSizePolicyGrant": {
-    "id": 3,
-    "categoryId": 908709,
-    "categoryName": "市场调研报告",
-    "purpose": "SOURCE",
-    "maxBytes": 10485760,
-    "temporary": true,
-    "restorePlanned": true
-  },
-  "preflightDiagnostics": {
-    "profile": {
-      "id": 910250,
-      "username": "wangsiyu",
-      "nickname": "王思雨",
-      "roles": [
-        {
-          "id": 910233,
-          "name": "文控"
-        },
-        {
-          "id": 910234,
-          "name": "文控下载"
-        },
-        {
-          "id": 910295,
-          "name": "审批中心入口"
-        }
-      ]
-    },
-    "hasCategoryManagePermission": true,
-    "hasControlledFileSubmitPermission": true,
-    "totalCategoryCount": 60,
-    "uploadableCategoryCount": 1,
-    "uploadableCategories": [
-      {
-        "id": 908709,
-        "code": "DCC_FVM_DHF_001",
-        "name": "市场调研报告",
-        "directoryId": 909048,
-        "canUpload": true
-      }
-    ],
-    "routeChecks": [
-      {
-        "categoryId": 908709,
-        "categoryCode": "DCC_FVM_DHF_001",
-        "categoryName": "市场调研报告",
-        "canUpload": true,
-        "routeCount": 1,
-        "activeRouteId": 913747,
-        "activeRouteNodeCount": 9,
-        "uploadPolicyOk": true,
-        "uploadPolicy": {
-          "categoryId": 908709,
-          "purpose": "SOURCE"
-        },
-        "uploadPolicyError": null,
-        "error": null
-      }
-    ],
-    "projectCount": 50,
-    "taxonomyCount": 67
-  },
-  "preflight": {
-    "profile": {
-      "id": 910250,
-      "username": "wangsiyu",
-      "nickname": "王思雨",
-      "roles": [
-        {
-          "id": 910233,
-          "name": "文控"
-        },
-        {
-          "id": 910234,
-          "name": "文控下载"
-        },
-        {
-          "id": 910295,
-          "name": "审批中心入口"
-        }
-      ]
-    },
-    "hasCategoryManagePermission": true,
-    "hasControlledFileSubmitPermission": true,
-    "category": {
-      "id": 908709,
-      "code": "DCC_FVM_DHF_001",
-      "name": "市场调研报告",
-      "directoryId": 909048,
-      "canUpload": true
-    },
-    "approvalRoute": {
-      "id": 913747,
-      "versionNo": 1,
-      "nodeCount": 9
-    },
-    "project": {
-      "id": 129,
-      "projectName": "按压式球囊扩充压力泵",
-      "projectCode": "IDI",
-      "docControlNo": "1"
-    },
-    "taxonomyPath": [
-      {
-        "id": 1,
-        "name": "技术文档"
-      },
-      {
-        "id": 3,
-        "name": "设计和开发策划阶段"
-      },
-      {
-        "id": 12,
-        "name": "市场调研报告"
-      }
-    ]
-  },
-  "uploadPreview": {
-    "httpStatus": 200,
-    "code": 0,
-    "fileName": "codex-upload-simulation-20260729.docx",
-    "contentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "fileSize": 36872,
-    "previewKind": "OFFICE"
-  },
   "controlledFileId": "2054545668044083977",
-  "submit": {
-    "httpStatus": 200,
-    "code": 0,
-    "controlledFileId": "2054545668044083977"
-  },
-  "status": "BLOCKED",
-  "blocker": "page.waitForResponse: Timeout 180000ms exceeded while waiting for event \"response\"",
-  "uploadSizePolicyGrantRestored": {
-    "id": 3,
+  "detail": {
+    "id": "2054545668044083977",
+    "fileName": "Codex file upload simulation 20260730035911679-431F9C",
+    "fileNumber": "CODEX-UPLOAD-20260730035911679-431F9C",
+    "versionNo": "V1.0",
+    "status": "PENDING_DOC_CONTROL_REVIEW",
     "categoryId": 908709,
-    "purpose": "SOURCE",
-    "restored": true
+    "processInstanceId": "0c985e29-8bcb-11f1-8ee9-0242c0a83005"
   },
-  "permissionGrantRestored": {
-    "categoryId": 908709,
-    "categoryName": "市场调研报告",
-    "restored": true
-  },
-  "finishedAt": "2026-07-30T04:02:24.846Z"
+  "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260729-test-server-wangsiyu-file-upload-simulation\\upload-result.png",
+  "status": "PASS",
+  "finishedAt": "2026-07-30T04:24:09.544Z"
 }
