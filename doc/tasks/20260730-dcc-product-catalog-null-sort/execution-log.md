@@ -38,4 +38,5 @@
 
 - `git push origin int_main` attempt 1 -> FAIL: `Recv failure: Connection was reset`。
 - `git push origin int_main` attempt 2 -> FAIL: `Recv failure: Connection was reset`。
-- Impact: 当前分支本地领先 `origin/int_main` 两个提交，任务不能标记 completed；等待网络或 GitHub 访问恢复后重试 `git push origin int_main`。
+- `git push origin int_main` attempt 3 -> PASS，`48546a1d..6924f34b int_main -> int_main`。
+- Final status: push blocker resolved; after final completion record push, `git status --short --branch` must show no ahead commits。

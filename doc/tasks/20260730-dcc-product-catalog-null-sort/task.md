@@ -10,7 +10,7 @@
 - [x] 增加最小静态回归契约，先证明当前实现缺少项目字段空值排序
 - [x] 修复前端排序字段映射，保证项目名称/项目代码参与列表排序
 - [x] 执行定向静态契约、类型检查和收尾门禁
-- [ ] 提交并推送 `int_main`
+- [x] 提交并推送 `int_main`
 
 ## Expected Verification
 
@@ -21,7 +21,7 @@
 
 ## Current Status
 
-blocked
+completed
 
 ## Experience Gates
 
@@ -34,8 +34,8 @@ blocked
 - 是否从根因和长期维护角度解决：是，修复统一列表排序查询链路而不是硬编码当前页排序。
 - 是否存在临时补丁或绕过：否。
 
-## Blocker
+## Resolved Push Blocker
 
 - `git push origin int_main` 连续两次失败：`fatal: unable to access 'https://github.com/jiazeyu1987/IntRuoyiAll.git/': Recv failure: Connection was reset`。
-- Impact: 本地实现和收尾记录已提交，但未推送到 `origin/int_main`；按项目规则任务不能标记 `completed`。
-- Pending local commits: `88e796d5 fix: support DCC product catalog project sorting`，`30026eea docs: record DCC product catalog sort closeout`。
+- Resolution: 第三次 `git push origin int_main` 成功，`origin/int_main` 已包含实现、收尾和阻塞记录提交。
+- Pushed commits: `88e796d5 fix: support DCC product catalog project sorting`，`30026eea docs: record DCC product catalog sort closeout`，`6924f34b docs: record DCC product catalog push blocker`。
