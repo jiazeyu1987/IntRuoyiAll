@@ -42,3 +42,15 @@
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionDiffContractTest#requiresFieldLevelDiff,ProcessPoolTimelineRevisionSummaryTest#timelineMapperReadsRevisionSummaryWithoutWriteActions" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 2 tests.
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionSchemaTest,MesProcessPoolEventRevisionServiceTest,MesProcessPoolEventRevisionFifoLockTest,MesProcessPoolEventRevisionDiffContractTest,ProcessPoolTimelineRevisionSummaryTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 9 tests.
 - Current status: F6 后端 TDD 主链完成；待提交前 guard、diff check、commit。
+
+## 2026-07-30 F6 Review Fix: Formal Write Entry
+
+- User intent: 主审查不放行，要求在 F6 worktree 补正式后端写入口、前端 API wrapper、controller/static 契约测试，保持 timeline 只读边界。
+- BDD: F6 正式写入口 -> Given 前端提交原始记录修改请求 / When 调用独立 event-revision API / Then 后端使用 `POST /mes/pro/process-pool/event-revision/update-original`、专用写权限 `mes:pro-process-pool:event-revision:update` 并调用 revision service。
+- BDD: F6 前端 API 边界 -> Given 前端需要提交原始记录修改 / When 调用 API wrapper / Then 使用 `eventRevision.ts` 独立 POST wrapper，timeline API 不暴露写操作。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionControllerContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: F6 controller/VO 缺失，静态契约报找不到 `MesProProcessPoolEventRevisionController.java` 和 `ProcessPoolEventRevisionUpdateReqVO.java`。
+- RED: `node tests\e2e\process-pool-event-revision-api-static.spec.js` -> FAIL, expected reason: 前端 `src/api/mes/pro/processpool/eventRevision.ts` 缺失。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionControllerContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 2 tests.
+- GREEN: `node tests\e2e\process-pool-event-revision-api-static.spec.js` -> PASS.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionSchemaTest,MesProcessPoolEventRevisionServiceTest,MesProcessPoolEventRevisionFifoLockTest,MesProcessPoolEventRevisionDiffContractTest,ProcessPoolTimelineRevisionSummaryTest,MesProcessPoolEventRevisionControllerContractTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 11 tests.
+- Current status: F6 review fix 实现和验证完成；待提交前 guard、diff check、commit。
