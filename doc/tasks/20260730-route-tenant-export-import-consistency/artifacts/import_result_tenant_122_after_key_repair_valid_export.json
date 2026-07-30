@@ -1,0 +1,15 @@
+{
+  "code": 0,
+  "msg": "",
+  "data": {
+    "routeCount": 3,
+    "routeProcessCount": 63,
+    "routeProductCount": 16,
+    "routeProductBomCount": 49,
+    "routeCodes": [
+      "RT000028",
+      "ROUTE-XLSX-00002",
+      "ROUTE-XLSX-00001"
+    ]
+  }
+}
