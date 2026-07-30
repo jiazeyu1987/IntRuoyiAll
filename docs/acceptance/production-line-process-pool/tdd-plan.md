@@ -2,14 +2,14 @@
 
 ## Purpose and Scope
 
-本文档为 6 个可先推进的功能点定义严格 TDD 顺序、RED 预期失败、GREEN 验证命令和重构检查。文档阶段不修改生产代码；实现阶段必须先补测试，再写最小生产代码，最后运行回归。
+本文档为 8 个可先推进的功能点定义严格 TDD 顺序、RED 预期失败、GREEN 验证命令和重构检查。文档阶段不修改生产代码；实现阶段必须先补测试，再写最小生产代码，最后运行回归。
 
 ## Evidence Reviewed
 
 - `docs/acceptance/production-line-process-pool/bdd-scenarios.md`
 - `docs/inception/project-brief.md`
 - `docs/inception/evidence-inventory.md`
-- 6 个子 agent 输出草案和主审修正。
+- 8 个子 agent 输出草案和主审修正，其中 F5/F6 为本次增量草案。
 - `docs/backend-development.md`
 - `docs/frontend-development.md`
 - `docs/e2e-rules.md`
@@ -38,6 +38,16 @@
 | T18 | F8 时间轴查询 | `mvn -pl yudao-module-mes -am "-Dtest=ProcessPoolTimelineQueryTest,ProcessPoolTimelineDateFilterTest,ProcessPoolTimelineFilterTest" test` | 缺少正式工序池事件查询模型，无法按天或多条件过滤。 | 只读查询返回时间、签名、账号、员工、工序、设备、模板、生产工单。 | 同 RED 命令 PASS。 | 过滤字段必须使用正式关联字段。 |
 | T19 | F8 内容摘要和追溯 | `mvn -pl yudao-module-mes -am "-Dtest=ProcessPoolTimelineContentSummaryTest,ProcessPoolTimelineTraceabilityTest" test` | 无法展示生产、损耗、设备参数、PQC 或 FIFO/审核/修改状态。 | 事件详情只读返回模板摘要和追溯状态。 | 同 RED 命令 PASS。 | 时间轴模块只查状态，不执行分配、修正或修改。 |
 | T20 | 前端真实路径静态与 E2E | `pnpm --dir IntRuoyiFronted test:e2e frontline-device-account-switch-employee.spec.ts`; `pnpm --dir IntRuoyiFronted test:e2e process-pool-timeline.spec.ts` | 真实页面无入口、无数据、无电子签名或无法查询结果。 | Playwright 走真实报工入口、切换员工、模板填写、签名提交、时间轴查询。 | 同 RED 命令 PASS。 | 不用 mock 数据、静态 JSON、API-only 代替真实路径。 |
+| T21 | F5 审核副本 schema | `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopySchemaTest#shouldCreateReviewCopyTables" test` | 缺少审核副本主表、字段明细、修正规则、审核签名和状态字段。 | 新增审核副本主模型和字段明细模型。 | 同 RED 命令 PASS。 | 审核副本表归属工序池，不写入余量池或备注。 |
+| T22 | F5 原始值不改写 | `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyServiceTest#shouldPreserveRawEventPayloadWhenGenerateReviewCopy" test` | 生成审核副本时改写原始 payload 或记录本原始条目。 | 副本只写审核副本表，原始事件和记录本来源不更新。 | 同 RED 命令 PASS。 | 原始数据和修正数据必须分表或分字段保留。 |
+| T23 | F5 上下限修正规则 | `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyServiceTest#shouldClampValueToMaxWhenRawValueExceedsMax,MesProcessPoolReviewCopyServiceTest#shouldClampValueToMinWhenRawValueBelowMin,MesProcessPoolReviewCopyServiceTest#shouldKeepValueWhenRawValueWithinRange" test` | `50` 未修正到 `40`、`10` 未修正到 `20`，或范围内 `30` 被错误修改。 | 保存 raw/corrected/rule 三元组。 | 同 RED 命令 PASS。 | 只处理有正式上下限元数据的数值字段。 |
+| T24 | F5 元数据和字段映射阻塞 | `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyServiceTest#shouldBlockWhenLimitMetadataMissing,MesProcessPoolReviewCopyServiceTest#shouldBlockWhenFieldMappingMissing" test` | 缺上下限或字段映射时默认成功、跳过字段或按字段名猜测。 | 缺正式元数据时 fail-fast，不生成有效副本。 | 同 RED 命令 PASS。 | 禁止默认上下限、空范围和文本匹配。 |
+| T25 | F5 审核签名和 FIFO 锁定 | `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyServiceTest#shouldRequireReviewerSignatureWhenSubmitReviewCopy,MesProcessPoolReviewCopyServiceTest#shouldRejectReviewCorrectionForAllocatedQuantityFragment" test` | 无审核签名仍提交，或已分配字段仍被审核副本修正。 | 审核副本提交要求唯一电子签名；影响分配字段已分配时阻塞。 | 同 RED 命令 PASS。 | 不通过审核副本绕过 F7 锁定。 |
+| T26 | F6 revision schema 和主路径 | `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionSchemaTest,MesProcessPoolEventRevisionServiceTest#updateUnallocatedEventCreatesFieldDiffAndSignatureLog" test` | 缺 revision 表、字段级 diff、修改原因或重新签名校验。 | 新增原始记录 revision 模型；未分配记录修改写入版本和字段级日志。 | 同 RED 命令 PASS。 | 修改日志必须结构化关联工序池提交事件。 |
+| T27 | F6 签名和修改原因阻塞 | `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionServiceTest#rejectsUpdateWithoutNewSignature,MesProcessPoolEventRevisionServiceTest#rejectsUpdateWithoutChangeReason" test` | 无签名、重复签名或空修改原因仍可修改。 | 修改请求必须提供新的唯一电子签名和非空修改原因。 | 同 RED 命令 PASS。 | 不复用原提交签名，不生成默认修改原因。 |
+| T28 | F6 FIFO 锁定阻塞 | `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionFifoLockTest#rejectsQuantityFieldUpdateWhenFragmentAllocated,MesProcessPoolEventRevisionFifoLockTest#rejectsUpdateWhenFifoLockStatusCannotBeConfirmed" test` | 已分配数量字段仍可改，或锁定状态查不到时默认未锁定。 | 接入 F7 锁定查询；已分配或锁定状态无法确认时拒绝。 | 同 RED 命令 PASS。 | 禁止影响生产工单 FIFO 分配结果。 |
+| T29 | F6 字段级 diff 合同 | `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionDiffContractTest#requiresFieldLevelDiff" test` | 只记录 before/after payload 或备注文本，缺字段编码和值差异。 | 每个变化字段记录 fieldCode、fieldName、beforeValue、afterValue、affectsQuantityFragment。 | 同 RED 命令 PASS。 | diff 基于固定模板字段定义，不靠文本解析。 |
+| T30 | F5/F6 前端和时间轴只读追溯 | `pnpm --dir IntRuoyiFronted test:e2e process-pool-review-copy-and-revision.spec.ts`; `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-revision-static.spec.cjs` | 页面无审核副本/修改历史入口，或时间轴提供写操作。 | 前端真实路径覆盖审核副本生成、原始记录修改重签名、时间轴只读摘要。 | 同 RED 命令 PASS。 | 时间轴仅展示 F5/F6 状态，不执行审核或修改写操作。 |
 
 ## RED Commands
 
@@ -46,6 +56,8 @@
 ```text
 RED: mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolSchemaTest#shouldCreateDedicatedProcessPoolTables" test -> FAIL, 缺少正式工序池主表和事件表
 RED: pnpm --dir IntRuoyiFronted test:e2e frontline-device-account-switch-employee.spec.ts -> FAIL, 一线报工入口尚不能完成设备账号内切换员工
+RED: mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyServiceTest#shouldClampValueToMaxWhenRawValueExceedsMax" test -> FAIL, 缺少审核副本上下限修正规则
+RED: mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionServiceTest#rejectsUpdateWithoutNewSignature" test -> FAIL, 原始记录修改尚未要求重新电子签名
 ```
 
 ## Expected Failures
@@ -55,6 +67,9 @@ RED: pnpm --dir IntRuoyiFronted test:e2e frontline-device-account-switch-employe
 - 电子签名缺失或签名员工不一致应失败为业务校验错误。
 - 一线原始超限值测试若被 `min/max` 拦截，应失败在现有记录本校验链路。
 - 时间轴查询不得返回缺少提交时间或电子签名的事件为有效事件。
+- 审核副本生成缺少上下限元数据、字段映射、审核权限或审核电子签名时，应失败为明确 blocker。
+- 原始记录修改缺少修改原因、重新电子签名、字段级 diff 或 FIFO 锁定查询时，应失败为明确 blocker。
+- 已 FIFO 分配的数量、质量状态或可分配状态字段被修改或修正时，应失败为锁定错误。
 
 ## GREEN Commands
 
@@ -67,10 +82,13 @@ mvn -pl yudao-module-mes -am "-Dtest=FrontlineTemplateCatalogTest,FrontlineTempl
 mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineTemplateResolverTest,MesFrontlineSubmitIdentityTraceTest,MesFrontlineSubmitAuthorizationTest" test
 mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolFifoAllocationServiceTest,MesProcessPoolAllocatedFragmentLockTest,MesProcessPoolCompletionCalculatorTest,MesProcessPoolFifoAllocationConcurrencyTest" test
 mvn -pl yudao-module-mes -am "-Dtest=ProcessPoolTimelineQueryTest,ProcessPoolTimelineDateFilterTest,ProcessPoolTimelineFilterTest,ProcessPoolTimelineContentSummaryTest,ProcessPoolTimelineTraceabilityTest" test
+mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopySchemaTest,MesProcessPoolReviewCopyServiceTest,MesProcessPoolReviewCopyPermissionTest" test
+mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolEventRevisionSchemaTest,MesProcessPoolEventRevisionServiceTest,MesProcessPoolEventRevisionDiffContractTest,MesProcessPoolEventRevisionFifoLockTest,ProcessPoolTimelineRevisionSummaryTest" test
 pnpm --dir IntRuoyiFronted ts:check
 pnpm --dir IntRuoyiFronted test:e2e frontline-feedback-integrated.spec.ts
 pnpm --dir IntRuoyiFronted test:e2e frontline-device-account-switch-employee.spec.ts
 pnpm --dir IntRuoyiFronted test:e2e process-pool-timeline.spec.ts
+pnpm --dir IntRuoyiFronted test:e2e process-pool-review-copy-and-revision.spec.ts
 ```
 
 ## Refactor Checks
@@ -82,6 +100,9 @@ pnpm --dir IntRuoyiFronted test:e2e process-pool-timeline.spec.ts
 - 电子签名、实际员工、设备登录账号字段必须语义分离。
 - FIFO 模块只消费工序池已明确为可分配的数量，不临时推断 PQC 业务规则。
 - 时间轴模块保持只读，不执行修改、分配、审核副本生成。
+- 审核副本模块不得改写原始 payload，不得使用默认上下限或跳过缺失字段。
+- 原始记录修改模块不得把修改日志写成备注文本，不得复用原提交电子签名。
+- F5/F6 都必须在写入前复核 FIFO 锁定状态；无法确认锁定状态时阻塞。
 
 ## Evidence Log Template
 
@@ -100,4 +121,6 @@ BLOCKER: <前置条件> -> <缺失内容和影响>
 - 缺少设备账号、设备、工作站、实际员工、工艺路线、工序绑定和固定模板测试数据。
 - 缺少生产工单计划开始时间或 FIFO 二级排序规则。
 - 缺少 PQC 成功/失败对可分配数量的正式规则。
+- 缺少模板字段上下限元数据、审核权限、审核电子签名或审核副本状态枚举。
+- 缺少原始记录 revision 表、字段级 diff、修改原因、重新电子签名或 FIFO 锁定查询。
 - 本地前端、后端、数据库、Redis、测试租户、账号或权限不可用时，真实 E2E 阻塞。
