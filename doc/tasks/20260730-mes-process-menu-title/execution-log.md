@@ -9,4 +9,34 @@
 - BDD: 菜单标题恢复 -> Given `芋道源码/admin` 登录后展开生产管理菜单 When 查看 `/mes/pro/mes-process` 入口 Then 可见入口名称为 `MES工序` 且不可见 `标准模板列表`。
 - BDD: 搜索兼容 -> Given 顶部菜单搜索可用 When 输入 `mes工序` Then 能命中并进入 `/mes/pro/mes-process`。
 - BDD: 只读页面正常 -> Given 打开 `MES工序` 页面 When 页面请求资源池列表 Then `/admin-api/mes/pro/route-resource/page` 返回业务码 `0`，页面无 `系统异常` 且不产生 MES 写请求。
-- Current status: in_progress。
+- RED: `node tests\e2e\mes-pro-mes-process-readonly-static.spec.js` -> FAIL，预期原因是页面仍显示 `【生产】标准模板列表`。
+- Implementation:
+  - 页面 `doc-alert` 标题恢复为 `【生产】MES工序`。
+  - 菜单迁移 5718 名称改为 UTF-8 HEX `4D4553E5B7A5E5BA8F`，5719 查询权限名称改为 `4D4553E5B7A5E5BA8FE69FA5E8AFA2`。
+  - 静态契约增加旧标题和旧 HEX 的负向断言。
+- GREEN: `node tests\e2e\mes-pro-mes-process-readonly-static.spec.js` -> PASS。
+- REGRESSION: `node tests\e2e\mes-route-mes-process-tab-static.spec.js` -> PASS。
+- Migration gate:
+  - 首次只传目标 SQL，因未同时传入依赖迁移而按预期失败。
+  - 使用 `20260512_mes_base_schema`、`20260709_mes_route_process_flow_graph`、`20260709_mes_route_flow_config_unification` 和目标菜单 SQL 重跑 -> PASS，migrationCount=4。
+- Copy scan: 聚焦扫描 `src/views/mes/pro/mes-process`，乱码 0、英文界面文案 0；`MES` 为用户明确要求保留的业务术语。
+- Runtime database:
+  - 修改前 5718/5719 分别为“标准模板列表”和“标准模板列表查询”的 UTF-8 HEX。
+  - 使用精确主键、父菜单、路径、组件和权限条件更新 2 行。
+  - 修改后 5718 HEX=`4D4553E5B7A5E5BA8F`，5719 HEX=`4D4553E5B7A5E5BA8FE69FA5E8AFA2`，路径、组件和权限保持不变。
+- Type check: `pnpm ts:check` 首次无输出返回非 0，捕获 stderr 重跑后 124 秒超时；本次仅修改模板静态标题，无 TypeScript 逻辑变化，完成门禁由聚焦静态契约、相邻契约和真实 E2E 覆盖。
+- Real E2E:
+  - 首轮官方登录前置出现一次跳转等待超时；脱敏诊断确认登录、权限接口和 `/index` 跳转正常，无控制台错误。
+  - 第二轮脚本误选隐藏的重复菜单 DOM；改为逐级展开 `MES 系统 > 生产管理` 并选择可见节点。
+  - 第三轮依赖被全局隐藏的 `doc-alert`；改为断言真实可见的侧边栏、顶部页签或面包屑。
+  - 最终 `node doc\tasks\20260730-mes-process-menu-title\mes-process-menu-title-real.e2e.mjs` -> PASS。
+  - 最终证据：身份 `芋道源码/admin`，侧边栏 `MES工序`，搜索结果 `MES工序/mes/pro/mes-process`，最终 URL `/mes/pro/mes-process`，资源接口 HTTP 200 / code 0 / total 580，MES 写请求 0，MES HTTP 失败 0，page error 0。
+- Experience consolidation: 已将“动态菜单真实 E2E 必须选择可见菜单节点，且不能只依赖可能被隐藏的 doc-alert”合并到 `docs/frontend-development.md` 的动态菜单页签重命名门禁。
+- Evidence validators:
+  - `validate_frontend_feature.py` -> PASS。
+  - `validate_bug_regression.py` -> PASS。
+- Cleanup preview: keep `task.md`、`execution-log.md`、`verification-report.md`；delete 两份临时 evidence、两份一次性 E2E/诊断脚本和任务截图目录；blocked=0，warnings=0。
+- Shared branch note:
+  - 实现文件被并行基线提交 `0809cd858ef66348fcf3a21ed4994d0c993e6a2f` 带入；该提交同时包含无关 eDHR 页签改动，未改写历史。
+  - 初始任务文档被并行基线提交 `ca088c6d2d1f86b9dbc366f198592d0294fcace7` 带入。
+- Current status: ready_for_closeout。
