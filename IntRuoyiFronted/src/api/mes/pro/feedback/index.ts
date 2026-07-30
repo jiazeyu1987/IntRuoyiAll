@@ -118,7 +118,7 @@ export interface ProFrontlineProcessPoolContextReqVO {
   routeProcessId: number
   processId: number
   workstationId: number
-  deviceId: number
+  deviceId?: number
   deviceAccountUserId: number
   templateType: string
 }

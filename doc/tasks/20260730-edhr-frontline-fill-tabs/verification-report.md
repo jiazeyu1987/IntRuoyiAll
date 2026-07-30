@@ -5,7 +5,7 @@
 - 新增 eDHR 批记录页签 `生产填写` 与 `PQC填写`。
 - 接入真实 Vue 前端路由和共享页签组件。
 - 复用 `FrontlineFixedTemplatePanel.vue`，按 `production` / `pqc` 固定模式渲染。
-- 不修改后端接口、数据库迁移、菜单 SQL 或正式提交契约。
+- 补齐正式一线账号路线绑定和模板绑定来源，不新增后端接口、数据库迁移、菜单 SQL 或默认成功路径。
 
 ## Static Verification
 
@@ -23,6 +23,12 @@
 
 - PASS: `pnpm ts:check`
 
+## Backend Verification
+
+- PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRouteProcessTemplateBindingSourceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineTemplateResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
+- Result: 12 tests，0 failures，0 errors，0 skipped。
+- Coverage: 登录账号岗位 -> 工作站人力 -> 路线工序工作站 -> 启用路线 -> 工作站设备；三设备、无设备、模板类型和员工切换相邻逻辑均覆盖。
+
 ## Runtime Verification
 
 - PASS: Frontend `http://127.0.0.1:8081/` returned HTTP 200。
@@ -35,9 +41,11 @@
 
 - PASS: Official login preflight used `芋道源码/admin` and opened `/mes/pro/feedback/edhr-batch-production-fill` with target text `生产填写`。
 - PASS: Official login preflight used `芋道源码/admin` and opened `/mes/pro/feedback/edhr-batch-pqc-fill` with target text `PQC填写`。
-- BLOCKED: Full page E2E for both new tabs cannot proceed to normal one-line filling context because `/admin-api/mes/pro/feedback/frontline/device-account/processes` returns `{"code":1040760100,"msg":"设备账号工艺路线绑定来源未接入，无法加载一线报工上下文","data":null}`。
-- Root cause from source inspection: `MesFrontlineDeviceAccountContextServiceImpl` requires an optional `MesFrontlineDeviceAccountRouteBindingSource` bean, but current main source only defines the interface and no production implementation, so the official context source is missing.
-- No MES write requests were sent during this read-only verification.
+- PASS: `node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs`。
+- PASS: `node tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` using real frontend `http://127.0.0.1:8083`, real backend `http://127.0.0.1:48083`, system Chrome, and identity label `芋道源码/admin`。
+- PASS: E2E task-owned fixture marker `CODX-EDHR-FRONTLINE-20260730` created the formal route/workstation/device/post bindings, exercised the real pages, then cleaned itself up.
+- PASS: Fixture cleanup verified `mes_pro_route=0`、`mes_pro_process=0`、`mes_md_workstation=0`、`mes_dv_machinery=0` for the marker after the run.
+- PASS: Frontend port `8083` had no listener after test cleanup; backend port `48083` still belonged to the task-owned worktree runtime jar.
 
 ## Screenshot Artifacts
 
@@ -45,6 +53,10 @@
 - `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs/pqc-fill-1920.png`
 - `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs-yudao/production-fill-yudao-blocked-1920.png`
 - `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs-yudao/pqc-fill-yudao-blocked-1920.png`
+- `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs-yudao-real/production-three-device-1920.png`
+- `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs-yudao-real/production-no-device-1920.png`
+- `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs-yudao-real/pqc-fill-1920.png`
+- `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs-yudao-real/result.json`
 
 ## Design Constraint Result
 
@@ -56,11 +68,13 @@
 ## Remaining Risks
 
 - 本次按计划不改后端正式提交契约；PQC 详细检验字段要进入正式保存时，需要后续补正式 payload/API 契约后再放开提交。
-- `芋道源码/admin` 的完整一线填写 E2E 仍需正式设备账号工艺路线绑定来源实现和运行态配置；当前只能证明页签入口可打开、页面 fail-fast 阻塞清晰可见。
+- 当前已通过 `芋道源码/admin` 真实页面 E2E；后续风险仅剩 PQC 详细字段正式提交契约未纳入本任务范围。
 
 ## Closeout
 
-- PASS: Frontend feature evidence validator passed.
-- PASS: task-closeout-cleanup preview/apply passed with no deleted paths and no blockers.
-- BLOCKED: final remote push is not performed because the shared branch is both ahead of and behind `origin/int_main` and the worktree has unrelated concurrent dirty changes.
+- PASS: Frontend and backend target verification passed.
+- PASS: Real E2E in registered worktree runtime passed.
+- PASS: Frontend feature evidence and backend API evidence validators passed.
+- PASS: Reusable Playwright login-race experience was merged into existing `docs/e2e-rules.md` and indexed in `docs/experience-index.md`.
+- PENDING: selective commit, push, and final cleanup gate remain before marking task `completed`.
 - Final local status: ready_for_closeout.

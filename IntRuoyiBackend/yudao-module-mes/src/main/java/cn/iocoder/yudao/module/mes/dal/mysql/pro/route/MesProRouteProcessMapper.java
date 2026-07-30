@@ -81,6 +81,17 @@ public interface MesProRouteProcessMapper extends BaseMapperX<MesProRouteProcess
                 .in(MesProRouteProcessDO::getRouteId, routeIds));
     }
 
+    default List<MesProRouteProcessDO> selectListByWorkstationIds(Collection<Long> workstationIds) {
+        if (workstationIds == null || workstationIds.isEmpty()) {
+            return List.of();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProRouteProcessDO>()
+                .in(MesProRouteProcessDO::getWorkstationId, workstationIds)
+                .orderByAsc(MesProRouteProcessDO::getRouteId)
+                .orderByAsc(MesProRouteProcessDO::getSort)
+                .orderByAsc(MesProRouteProcessDO::getId));
+    }
+
     default Long countByBatchRecordReportId(String batchRecordReportId) {
         return selectCount(MesProRouteProcessDO::getBatchRecordReportId, batchRecordReportId);
     }

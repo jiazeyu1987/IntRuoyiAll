@@ -41,3 +41,31 @@
 - BDD: 无设备工序 -> Given 正式工作站未绑定设备 When 加载生产填写上下文 Then 返回该工序且设备为空，页面显示“本工序无设备，直接填数量”。
 - RED: `/admin-api/mes/pro/feedback/frontline/device-account/processes` -> FAIL，业务码 `1040760100`，原因是 `MesFrontlineDeviceAccountRouteBindingSource` 没有生产实现 bean。
 - Data preflight: 本地启用路线存在，但当前启用路线工序 `workstation_id` 全为空；默认 admin 岗位也未绑定工作站人力。产品代码不得按 admin 权限放大全路线，真实 E2E 需使用可清理任务夹具建立正式岗位/工作站/路线工序关系。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，`MesFrontlineWorkstationPostRouteBindingSource` 尚不存在，符合预期。
+- Static contract extension: 多设备上下文必须保留完整设备卡片，但前端工序选择器必须按 `routeId + routeProcessId + processId` 去重。
+- Implementation: 新增 `MesFrontlineWorkstationPostRouteBindingSource` Spring 正式实现，按登录用户岗位、人力工作站、路线工序工作站、启用路线和工作站设备解析授权上下文。
+- Implementation: `MesFrontlineDeviceAccountContextServiceImpl` 改为按 `routeId + workstationId` 匹配，允许无设备工序返回 `deviceId=null`，并保留同工序多个设备候选。
+- Implementation: 前端工序选择器按 `routeId + routeProcessId + processId` 去重，设备卡片继续使用完整多设备上下文且最多显示 3 个。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，7 tests，0 failures，0 errors。
+- GREEN: `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- REGRESSION: `pnpm ts:check` -> PASS。
+- Implementation: 新增 `MesFrontlineRouteProcessTemplateBindingSource`，按路线工序 `check_flag` 返回 `PQC_SIMPLIFIED` 或 `PRODUCTION_SIMPLIFIED`，员工切换后仍保持当前页签固定模式并显式阻塞不匹配模板。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRouteProcessTemplateBindingSourceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineTemplateResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，12 tests，0 failures，0 errors，0 skipped。
+- GREEN: `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- GREEN: `node src/views/mes/pro/feedback/frontline-template-render.spec.cjs` -> PASS。
+- GREEN: `node src/views/mes/pro/feedback/frontline-template-switch.spec.cjs` -> PASS。
+- REGRESSION: `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js` -> PASS。
+- REGRESSION: `pnpm ts:check` -> PASS。
+- Real E2E preflight: registered worktree runtime slot `int_main slot 2` uses frontend `http://127.0.0.1:8083` and backend `http://127.0.0.1:48083`; backend health on `48083` -> HTTP 200。
+- Real E2E script hardening: `login(page)` removed second post-navigation storage clear that could race with Vue redirect in a fresh Playwright context; no product behavior changed。
+- GREEN: `node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` -> PASS。
+- GREEN: `node tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` with `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe`, `EDHR_FRONTLINE_E2E_BASE_URL=http://127.0.0.1:8083`, `EDHR_FRONTLINE_E2E_BACKEND_URL=http://127.0.0.1:48083` -> PASS，输出 `PASS: eDHR frontline fill tabs real E2E marker=CODX-EDHR-FRONTLINE-20260730 tenant=芋道源码 username=admin`。
+- Real E2E assertions: `生产填写` 三设备工序显示 3 个设备卡片并可输入参数；无设备工序显示“本工序无设备，直接填数量”；`PQC填写` 显示生产订单、工序、员工、主页和全部可输入检验字段；禁止文案 `生产工单/工单/检验方法/成功/失败/巡检摘要` 均未出现在对应区域。
+- Real E2E artifacts: `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs-yudao-real/production-three-device-1920.png`；`production-no-device-1920.png`；`pqc-fill-1920.png`；`result.json`。
+- Fixture cleanup: marker `CODX-EDHR-FRONTLINE-20260730` 清理后 `mes_pro_route=0`、`mes_pro_process=0`、`mes_md_workstation=0`、`mes_dv_machinery=0`。
+- Runtime cleanup check: frontend port `8083` has no listener after the Start-Job Vite wrapper stopped; backend `48083` listener remains the task-owned worktree runtime jar at `output/runtime/edhr-frontline-e2e/backend-edhr-frontline-e2e-20260730.jar`。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260730-edhr-frontline-fill-tabs/frontend-feature-evidence.md` -> PASS。
+- RED: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260730-edhr-frontline-fill-tabs/backend-api-evidence.md` -> FAIL，expected reason: evidence 缺少 validator 要求的显式 `BDD:`、`RED:`、`Verification`、`Blockers` 标记。
+- GREEN: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260730-edhr-frontline-fill-tabs/backend-api-evidence.md` -> PASS。
+- GREEN: experience-preflight -> PASS；`project-experience-consolidation` 将 `Execution context was destroyed` 登录竞争门禁合并到现有 `docs/e2e-rules.md`，并更新 `docs/experience-index.md` 路由，未新建长期经验文档。
+- Status update: implementation and required verification are complete; task status moved to `ready_for_closeout` pending selective commit, push, and closeout cleanup.

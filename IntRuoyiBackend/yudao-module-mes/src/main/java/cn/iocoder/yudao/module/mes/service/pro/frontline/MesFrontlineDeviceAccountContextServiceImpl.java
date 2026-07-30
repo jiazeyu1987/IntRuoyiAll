@@ -57,18 +57,23 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
 
     @Override
     public List<MesFrontlineRouteProcessCandidate> listSwitchableProcesses(Long loginUserId) {
-        Map<Long, MesFrontlineDeviceRouteBinding> bindingByRouteId = routeBindingByRouteId(loginUserId);
-        List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteIds(bindingByRouteId.keySet());
+        RouteBindingContext bindingContext = routeBindingContext(loginUserId);
+        List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteIds(bindingContext.routeIds());
         if (CollUtil.isEmpty(routeProcesses)) {
             throw exception(PRO_FRONTLINE_ROUTE_PROCESS_NOT_AUTHORIZED, loginUserId);
         }
 
         Set<Long> processIds = new LinkedHashSet<>();
         for (MesProRouteProcessDO routeProcess : routeProcesses) {
-            if (routeProcess != null && bindingByRouteId.containsKey(routeProcess.getRouteId())) {
-                requireRouteProcessIdentity(routeProcess);
-                processIds.add(routeProcess.getProcessId());
+            if (routeProcess == null) {
+                continue;
             }
+            requireRouteProcessIdentity(routeProcess);
+            requireRouteProcessWorkstation(routeProcess);
+            if (!bindingContext.bindingsByRouteWorkstation().containsKey(routeWorkstationKey(routeProcess))) {
+                continue;
+            }
+            processIds.add(routeProcess.getProcessId());
         }
         if (processIds.isEmpty()) {
             throw exception(PRO_FRONTLINE_ROUTE_PROCESS_NOT_AUTHORIZED, loginUserId);
@@ -76,23 +81,29 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
         Map<Long, MesProProcessDO> processMap = processService.getProcessMap(processIds);
 
         List<MesFrontlineRouteProcessCandidate> candidates = new ArrayList<>();
-        Set<Long> acceptedRouteProcessIds = new LinkedHashSet<>();
+        Set<CandidateKey> acceptedCandidates = new LinkedHashSet<>();
         for (MesProRouteProcessDO routeProcess : routeProcesses) {
-            if (routeProcess == null || !bindingByRouteId.containsKey(routeProcess.getRouteId())) {
+            if (routeProcess == null) {
                 continue;
             }
             requireRouteProcessIdentity(routeProcess);
-            if (!acceptedRouteProcessIds.add(routeProcess.getId())) {
+            requireRouteProcessWorkstation(routeProcess);
+            List<MesFrontlineDeviceRouteBinding> routeBindings =
+                    bindingContext.bindingsByRouteWorkstation().get(routeWorkstationKey(routeProcess));
+            if (CollUtil.isEmpty(routeBindings)) {
                 continue;
             }
-            MesFrontlineDeviceRouteBinding routeBinding = bindingByRouteId.get(routeProcess.getRouteId());
-            requireRouteProcessWorkstation(routeProcess);
             MesProProcessDO process = processMap.get(routeProcess.getProcessId());
             if (process == null || !CommonStatusEnum.isEnable(process.getStatus())) {
                 throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID,
                         "processId=" + routeProcess.getProcessId());
             }
-            candidates.add(toCandidate(routeBinding, routeProcess, process));
+            for (MesFrontlineDeviceRouteBinding routeBinding : routeBindings) {
+                if (!acceptedCandidates.add(new CandidateKey(routeProcess.getId(), routeBinding.deviceId()))) {
+                    continue;
+                }
+                candidates.add(toCandidate(routeBinding, routeProcess, process));
+            }
         }
         if (candidates.isEmpty()) {
             throw exception(PRO_FRONTLINE_ROUTE_PROCESS_NOT_AUTHORIZED, loginUserId);
@@ -100,7 +111,9 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
         candidates.sort(Comparator
                 .comparing(MesFrontlineRouteProcessCandidate::routeId)
                 .thenComparing(candidate -> candidate.sort() == null ? Integer.MAX_VALUE : candidate.sort())
-                .thenComparing(MesFrontlineRouteProcessCandidate::routeProcessId));
+                .thenComparing(MesFrontlineRouteProcessCandidate::routeProcessId)
+                .thenComparing(MesFrontlineRouteProcessCandidate::deviceId,
+                        Comparator.nullsLast(Long::compareTo)));
         return candidates;
     }
 
@@ -166,7 +179,7 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
                 .orElseThrow(() -> exception(PRO_FRONTLINE_ACTUAL_EMPLOYEE_NOT_BOUND, actualEmployeeId, processId));
     }
 
-    private Map<Long, MesFrontlineDeviceRouteBinding> routeBindingByRouteId(Long loginUserId) {
+    private RouteBindingContext routeBindingContext(Long loginUserId) {
         requireValue(loginUserId, "loginUserId");
         MesFrontlineDeviceAccountRouteBindingSource routeBindingSource = routeBindingSourceProvider.getIfAvailable();
         if (routeBindingSource == null) {
@@ -176,21 +189,27 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
         if (CollUtil.isEmpty(routeBindings)) {
             throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_ROUTE_EMPTY, loginUserId);
         }
-        Map<Long, MesFrontlineDeviceRouteBinding> bindingByRouteId = new LinkedHashMap<>();
+        Set<Long> routeIds = new LinkedHashSet<>();
+        Map<RouteWorkstationKey, List<MesFrontlineDeviceRouteBinding>> bindingsByRouteWorkstation =
+                new LinkedHashMap<>();
         for (MesFrontlineDeviceRouteBinding routeBinding : routeBindings) {
             requireRouteBinding(loginUserId, routeBinding);
-            bindingByRouteId.putIfAbsent(routeBinding.routeId(), routeBinding);
+            routeIds.add(routeBinding.routeId());
+            bindingsByRouteWorkstation
+                    .computeIfAbsent(new RouteWorkstationKey(routeBinding.routeId(), routeBinding.workstationId()),
+                            ignored -> new ArrayList<>())
+                    .add(routeBinding);
         }
-        if (bindingByRouteId.isEmpty()) {
+        if (bindingsByRouteWorkstation.isEmpty()) {
             throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_ROUTE_EMPTY, loginUserId);
         }
-        return bindingByRouteId;
+        return new RouteBindingContext(routeIds, bindingsByRouteWorkstation);
     }
 
     private static void requireRouteBinding(Long loginUserId, MesFrontlineDeviceRouteBinding routeBinding) {
         if (routeBinding == null
                 || routeBinding.routeId() == null
-                || routeBinding.deviceId() == null) {
+                || routeBinding.workstationId() == null) {
             throw exception(PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID, "route binding");
         }
         if (routeBinding.loginUserId() != null && !Objects.equals(routeBinding.loginUserId(), loginUserId)) {
@@ -219,10 +238,11 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
                 process.getCode(), process.getName(), routeProcess.getSort(),
                 routeBinding.deviceId(), routeBinding.deviceCode(), routeBinding.deviceName(),
                 routeProcess.getWorkstationId(),
-                Objects.equals(routeProcess.getWorkstationId(), routeBinding.workstationId())
-                        ? routeBinding.workstationCode() : null,
-                Objects.equals(routeProcess.getWorkstationId(), routeBinding.workstationId())
-                        ? routeBinding.workstationName() : null);
+                routeBinding.workstationCode(), routeBinding.workstationName());
+    }
+
+    private static RouteWorkstationKey routeWorkstationKey(MesProRouteProcessDO routeProcess) {
+        return new RouteWorkstationKey(routeProcess.getRouteId(), routeProcess.getWorkstationId());
     }
 
     private static Set<Long> collectPostIds(Collection<MesMdWorkstationWorkerDO> workers) {
@@ -249,6 +269,17 @@ public class MesFrontlineDeviceAccountContextServiceImpl implements MesFrontline
         if (value == null) {
             throw exception(PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED, fieldName);
         }
+    }
+
+    private record RouteWorkstationKey(Long routeId, Long workstationId) {
+    }
+
+    private record CandidateKey(Long routeProcessId, Long deviceId) {
+    }
+
+    private record RouteBindingContext(
+            Set<Long> routeIds,
+            Map<RouteWorkstationKey, List<MesFrontlineDeviceRouteBinding>> bindingsByRouteWorkstation) {
     }
 
 }
