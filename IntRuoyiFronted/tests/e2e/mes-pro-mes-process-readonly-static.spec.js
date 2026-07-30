@@ -8,6 +8,7 @@ const read = (relativePath) => fs.readFileSync(path.join(repoRoot, relativePath)
 const page = read('src/views/mes/pro/mes-process/index.vue').replace(/\r\n/g, '\n')
 const api = read('src/api/mes/pro/mes-process/index.ts').replace(/\r\n/g, '\n')
 const resourceApi = read('src/api/mes/pro/route/resource.ts').replace(/\r\n/g, '\n')
+const routerSearch = read('src/components/RouterSearch/index.vue').replace(/\r\n/g, '\n')
 const menuSql = read('../IntRuoyiBackend/sql/mysql/20260730_mes_process_readonly_catalog_menu.sql')
 const resourceController = read(
   '../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/route/MesProRouteResourceController.java'
@@ -74,5 +75,13 @@ assert.ok(resourceController.includes("'mes:pro-mes-process:query'"))
 assert.ok(menuSql.includes('5710 THEN 20'))
 assert.ok(menuSql.includes('5718 THEN 25'))
 assert.ok(menuSql.includes('5720 THEN 30'))
+assert.ok(routerSearch.includes('ROUTER_SEARCH_ALIASES'), '菜单搜索必须支持重命名后的旧关键词别名')
+assert.ok(routerSearch.includes("'/mes/pro/mes-process'"), '标准模板列表路由必须登记搜索别名')
+assert.ok(routerSearch.includes("'MES工序'"), '标准模板列表必须可通过 MES工序 旧关键词搜索')
+assert.ok(routerSearch.includes('normalizeSearchText'), '搜索匹配必须统一大小写，支持 mes工序 小写输入')
+assert.ok(
+  routerSearch.includes('routeMatchesSearchQuery(item, keyword.value)'),
+  '菜单搜索过滤必须同时匹配标题、路径和路由别名'
+)
 
 console.log('PASS: 标准模板列表只读页面静态合同')
