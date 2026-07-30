@@ -11,6 +11,7 @@
 - 有些机器有设备名称，有些机器没有设备名称。
 - 有些 MES 工序有工序编码和产能。
 - 用户要求判断是否能够理解这些内容。
+- 用户随后明确：只看 `二代压力泵` 这个工作表即可。
 
 ## BDD Scenarios
 
@@ -41,10 +42,12 @@ BDD: block ambiguous automatic import -> Given the workbook contains inconsisten
 - GREEN: `task_closeout.py --mode apply` -> PASS, deleted none and completed cleanup safely.
 - GREEN: staged file boundary review -> PASS, staged list contained only the two inception documents and three task documents owned by this task.
 - GREEN: implementation documentation commit `28bdfb76 docs: record pressure pump process mapping` -> PASS, five task-owned files committed.
+- GREEN: apply user scope correction -> PASS, current analysis now uses only the `二代压力泵` sheet and removes all first-generation-sheet questions.
 
 ## Current Findings
 
 - Every populated `工序名称` row should be treated as a MES process row visible to frontline employees.
+- Only rows from the `二代压力泵` sheet are in the current requirement scope.
 - `批记录工序名称` is a separate external naming layer and must be mapped explicitly.
 - A MES process may map one-to-one to a batch-record process, multiple MES processes may merge into one batch-record process, or a MES process may not independently form a batch record.
 - Equipment codes are actual equipment identities. Equipment names are optional labels.
@@ -54,8 +57,6 @@ BDD: block ambiguous automatic import -> Given the workbook contains inconsisten
 ## Blockers
 
 - `A03378/A03377` contains two equipment codes while `设备数量` is `1`; the meaning must be confirmed before import.
-- The `一代压力泵` sheet contains MES process name `测二代压力泵全套`; whether this is a retained common MES name or a typo must be confirmed.
-- The `一代压力泵` sheet contains external batch-record names `中包装` and `大包装` without corresponding MES process rows.
 - The `二代压力泵` sheet ends with three capacity-only values `588`, `7481`, and `10225` without process names.
 - Slash-separated equipment codes need a common rule distinguishing multiple required devices from alternative selectable devices.
 
@@ -69,3 +70,4 @@ BDD: block ambiguous automatic import -> Given the workbook contains inconsisten
 - Completed structure, UTF-8, keyword, and diff validation.
 - Completed cleanup preview/apply with no deleted or blocked paths.
 - Committed the pressure-pump mapping documentation as `28bdfb76`.
+- Narrowed the documented scope to the `二代压力泵` sheet after the user's correction.
