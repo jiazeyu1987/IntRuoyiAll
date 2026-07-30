@@ -40,6 +40,15 @@
 - Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；禁止跳过当前需求的最小 RED/GREEN。
 - Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。
 
+## 前端服务端分页排序链路门禁
+
+- Trigger: Element Plus 表格、统一列表模板、分页列表、`sort-change`、`sortColumnAttrs`、表头排序按钮、空单元格排序、跨页排序。
+- Preflight check: 先区分本地全量列表和服务端分页列表；服务端分页列表的表头排序必须从表格事件进入统一排序状态，再映射成正式分页请求参数，并由后端白名单字段排序，不能只改当前页数组顺序。
+- Blocker: 表头有排序按钮但未绑定 `sortState`，`sort-change` 只更新组件内部状态，分页请求缺少 `sortField/sortOrder`，后端 Mapper 固定排序忽略请求字段，或空值只能在当前页集中时，不得宣称排序修复完成。
+- Verification: 聚焦静态契约必须同时断言前端排序状态绑定、请求参数映射、后端请求 VO 字段、Mapper 白名单排序和稳定兜底排序；再运行相邻列表契约、`pnpm ts:check` 和目标后端分页测试。
+- Forbidden action: 禁止用前端当前页 `Array.sort` 冒充跨页排序；禁止把任意前端字段直接拼 SQL；禁止用 `.last()` 拼接受用户控制的排序 SQL；禁止只看表头箭头状态不看接口排序参数。
+- Evidence: 任务 `doc/tasks/20260730-dcc-product-catalog-null-sort/`，DCC 产品目录“项目名称/项目代码”旧实现只触发统一列表内部排序状态，后端仍按 `dataSource/originalRowNo` 固定排序，最终补齐 `sortField/sortOrder` 与 Mapper 白名单排序。
+
 ## 前端截图字号调整静态契约门禁
 
 - Trigger: 用户基于截图要求调整卡片、表格、弹窗或页面局部文字大小，尤其出现“文字大小”“字号”“放大 2 倍”“缩小一半”“卡片内文字”等表述。

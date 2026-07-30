@@ -17,10 +17,12 @@
       :total="total"
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
+      v-model:sort-state="productCatalogSortState"
       @update:quick-filter-state="productCatalogQuickFilter.updateState"
       @quick-filter-query="productCatalogQuickFilter.applyQuickFilter"
       @column-change="saveProductCatalogColumnConfig"
       @column-reset="resetProductCatalogColumnConfig"
+      @sort-change="handleProductCatalogSortChange"
       @pagination="getList"
     >
       <template #actions>
@@ -477,6 +479,14 @@ type DccProductCatalogPageQuery = DccProductCatalogPageReqVO & {
   pageSize: number
 }
 
+type ProductCatalogSortChange = {
+  prop?: string
+  order?: 'ascending' | 'descending' | null
+}
+
+const productCatalogSortState = ref<ProductCatalogSortChange>({})
+const PRODUCT_CATALOG_SERVER_SORT_FIELDS = new Set(['projectName', 'projectCode'])
+
 const queryParams = reactive<DccProductCatalogPageQuery>({
   pageNo: 1,
   pageSize: 10,
@@ -484,7 +494,9 @@ const queryParams = reactive<DccProductCatalogPageQuery>({
   categoryLevel1: undefined,
   categoryLevel2: undefined,
   productStatus: undefined,
-  dataSource: undefined
+  dataSource: undefined,
+  sortField: undefined,
+  sortOrder: undefined
 })
 
 const formData = ref<DccProductCatalogUpdateReqVO>({
@@ -557,6 +569,20 @@ const productCatalogQuickFilter = useTableQuickFilter(
   queryParams,
   getList
 )
+
+const handleProductCatalogSortChange = ({ prop, order }: ProductCatalogSortChange) => {
+  queryParams.pageNo = 1
+  const sortField = prop || ''
+  if (!order || !PRODUCT_CATALOG_SERVER_SORT_FIELDS.has(sortField)) {
+    queryParams.sortField = undefined
+    queryParams.sortOrder = undefined
+    getList()
+    return
+  }
+  queryParams.sortField = sortField
+  queryParams.sortOrder = order === 'ascending' ? 'asc' : 'desc'
+  getList()
+}
 
 const openForm = (type: 'create' | 'update', row?: DccProductCatalogRespVO) => {
   formVisible.value = true

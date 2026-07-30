@@ -86,6 +86,7 @@
 - 前端页面 / 表格 / 样式：`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
 - Keywords: Vite import-analysis Failed to resolve import / controlled-file/logs/index.vue / 前端源码 logs 目录被 .gitignore logs/ 忽略 / git check-ignore -> `docs/frontend-development.md#前端源码目录与-gitignore-门禁`
 - Keywords: 既有大契约先失败, 最小静态契约, 专用 static.spec.js, 当前需求 RED/GREEN, 无关 ts:check blocker -> `docs/frontend-development.md#前端静态契约隔离门禁`
+- Keywords: 表头排序, Element Plus sort-change, UnifiedListTemplate sortState, sortColumnAttrs, 服务端分页排序, sortField, sortOrder, 空单元格排序, Mapper 白名单排序 -> `docs/frontend-development.md#前端服务端分页排序链路门禁`
 - Keywords: 截图字号调整, 文字大小, 字号, 放大 2 倍, 缩小一半, 卡片内文字, Element Plus 泛选择器, 先改静态契约 RED, 字号静态契约 -> `docs/frontend-development.md#前端截图字号调整静态契约门禁`
 - Keywords: 只显示, 仅展示, 有效历史, 已生效历史版本, 版本列表, 状态列表, 候选版本, 取消的不显示, effective-only, ACTIVE SUPERSEDED, DRAFT CANCELLED, 只排除一个状态, `!== 'CANCELLED'` -> `docs/frontend-development.md#前端列表状态口径完整性门禁`
 - Keywords: 弹窗上一张下一张, 同集合弹窗导航, 同产品同版本切换, 候选不在当前列表页, selectedReport 候选 fallback, 预览上下文丢失, 导航后未选择表单 -> `docs/frontend-development.md#前端同集合弹窗导航上下文门禁`

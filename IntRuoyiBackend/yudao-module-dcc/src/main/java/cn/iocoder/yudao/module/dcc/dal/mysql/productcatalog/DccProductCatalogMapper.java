@@ -15,6 +15,11 @@ import java.util.List;
 @Mapper
 public interface DccProductCatalogMapper extends BaseMapperX<DccProductCatalogDO> {
 
+    String PROJECT_SORT_FIELD_NAME = "projectName";
+    String PROJECT_SORT_FIELD_CODE = "projectCode";
+    String SORT_ORDER_ASC = "asc";
+    String SORT_ORDER_DESC = "desc";
+
     default PageResult<DccProductCatalogDO> selectPage(DccProductCatalogPageReqVO reqVO) {
         LambdaQueryWrapperX<DccProductCatalogDO> wrapper = new LambdaQueryWrapperX<>();
         wrapper.eqIfPresent(DccProductCatalogDO::getCategoryLevel1, reqVO.getCategoryLevel1())
@@ -29,9 +34,34 @@ public interface DccProductCatalogMapper extends BaseMapperX<DccProductCatalogDO
                     .or().like(DccProductCatalogDO::getRegistrationCertificateNumber, keyword)
                     .or().like(DccProductCatalogDO::getCertificateHolder, keyword));
         }
+        applyPageSort(wrapper, reqVO);
+        return selectPage(reqVO, wrapper);
+    }
+
+    private void applyPageSort(LambdaQueryWrapperX<DccProductCatalogDO> wrapper,
+            DccProductCatalogPageReqVO reqVO) {
+        String sortField = StrUtil.trimToEmpty(reqVO.getSortField());
+        String sortOrder = StrUtil.trimToEmpty(reqVO.getSortOrder());
+        boolean hasProjectSort = SORT_ORDER_ASC.equalsIgnoreCase(sortOrder)
+                || SORT_ORDER_DESC.equalsIgnoreCase(sortOrder);
+        if (hasProjectSort) {
+            if (PROJECT_SORT_FIELD_NAME.equals(sortField)) {
+                applyProjectFieldSort(wrapper, sortOrder, DccProductCatalogDO::getProjectName);
+            } else if (PROJECT_SORT_FIELD_CODE.equals(sortField)) {
+                applyProjectFieldSort(wrapper, sortOrder, DccProductCatalogDO::getProjectCode);
+            }
+        }
         wrapper.orderByAsc(DccProductCatalogDO::getDataSource)
                 .orderByAsc(DccProductCatalogDO::getOriginalRowNo);
-        return selectPage(reqVO, wrapper);
+    }
+
+    private void applyProjectFieldSort(LambdaQueryWrapperX<DccProductCatalogDO> wrapper, String sortOrder,
+            com.baomidou.mybatisplus.core.toolkit.support.SFunction<DccProductCatalogDO, ?> column) {
+        if (SORT_ORDER_ASC.equalsIgnoreCase(sortOrder)) {
+            wrapper.orderByAsc(column);
+        } else {
+            wrapper.orderByDesc(column);
+        }
     }
 
     default DccProductCatalogDO selectByRowKey(String dataSource, Integer originalRowNo) {
