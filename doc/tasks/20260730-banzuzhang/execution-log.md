@@ -50,6 +50,10 @@
 - Task status: `task.md` 已更新为 `ready_for_closeout`，并在 `Cleanup Keep` 保留 backend/database/frontend evidence 与 migration gate JSON。
 - Commit: `git commit -m "feat: add process pool team leader workbench"` -> PASS，最终 rebase 后实现提交为 `368ef63c`，已位于最新 `int_main` `9f84a797` 之后，`git merge-base --is-ancestor int_main HEAD` -> PASS。
 - Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-banzuzhang --mode preview` -> BLOCKED，keep 列表保留 `task.md`、`execution-log.md`、`verification-report.md`、backend/database/frontend evidence 和 migration gate JSON，delete 为 `<none>`；阻塞原因是主工作区 `E:\IntRuoyi` 脏状态 `?? doc/tasks/20260730-edhr-page-graph-tab/`，不能接收 ff-only merge。
+- Rebase: 主工作区 `int_main` 更新到 `9f84a797` 后，当前分支再次 `git rebase int_main` -> PASS，当前实现提交重放为 `368ef63c`。
+- Closeout record commit: `git commit -m "docs: record team leader closeout blocker"` -> PASS，提交 `1f4f43f6`。
+- Push: `git push origin codex/20260730-banzuzhang` -> PASS；branch runtime port guard 通过，远端分支已创建并跟踪 `origin/codex/20260730-banzuzhang`，`HEAD=origin/codex/20260730-banzuzhang=1f4f43f6`。
+- Latest cleanup preview after push: `task_closeout.py --mode preview` -> BLOCKED，当前主工作区 `E:\IntRuoyi` 已被并行任务更新为 `int_main...origin/int_main [ahead 1]`，且存在 `M IntRuoyiFronted/src/router/modules/remaining.ts`、`M doc/tasks/20260730-route-admin-list-layout-unification/{task.md,execution-log.md,verification-report.md}`、`?? IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchPageGraphPage.vue`；因此当前分支不能安全 ff-only 合并进主工作区，也不能删除 worktree。
 
 ## Evidence Files
 
