@@ -21,7 +21,7 @@
 ## Git Baseline
 
 - `0e51c3c3 chore: baseline workspace before assist grid overlap fix`：记录本任务实施前的脏工作区及本任务初始文档。
-- 后续并行任务基线提交 `5738a1f8 chore: baseline dirty workspace before dcc catalog cleanup` 不属于本任务；本任务不修改其 DCC 文件。
+- 本任务源码、聚焦静态合同和初始任务记录随后随并行工作区基线提交 `473d74ba chore: baseline dirty worktree before tenant route copy` 纳入；该提交同时包含其它并行任务文件，本任务不拆分或回写其内容。
 
 ## Verification Evidence
 
@@ -32,8 +32,19 @@
 - GREEN: `node tests/e2e/edhr-batch-detail-assist-grid-parity-static.spec.js` -> PASS。
 - BASELINE-FAIL: `node tests/e2e/assist-grid-per-user-mapping-static.spec.js` -> FAIL，当前配置弹框缺少既有静态合同标记 `isSourceCellDisabledForAssistMapping`；文件不在本任务改动范围。
 - BASELINE-FAIL: `node tests/e2e/assist-grid-role-responsibility-static.spec.js` -> FAIL，当前列表页缺少既有静态合同文本 `rule.fillAssignments?.length`；文件不在本任务改动范围。
-- 待记录类型检查和真实 E2E。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: 本机真实 Playwright 只读验证 -> PASS：产品信息任务 `7232` 在填写人 `795` 下渲染 `52` 条辅助行，在填写人 `810` 下渲染 `73` 条辅助行；两次均只有一个责任主体、重复网格位置 `0`、每行最多一个可见原生控件、MES 写请求 `0`、MES HTTP 错误 `0`、console/page error `0`。
+- GREEN: 真实验证页面顶部工序均为“产品信息”，截图和 JSON 证据分别为 `output/playwright/20260729-product-info-assist-grid-current-filler.png` 和 `output/playwright/20260729-product-info-assist-grid-current-filler.json`。
+- GREEN: `experience-preflight` -> PASS，复用并更新 `docs/frontend-development.md#eDHR 辅助模式当前工序 assistRows 路由门禁`，同步更新 `docs/experience-index.md`，未新建长期经验文档。
+- GREEN: `task-closeout-cleanup --mode preview` -> PASS，无 blocked/warning，仅计划删除本任务 `bug-regression-evidence.md`。
+- GREEN: `task-closeout-cleanup --mode apply` -> PASS，删除 `bug-regression-evidence.md` 及 `output/playwright/20260729-product-info-assist-grid-current-filler.{png,json}`，保留 `task.md`、`execution-log.md`、`verification-report.md`。
+- GREEN: 任务状态已由 `ready_for_closeout` 更新为 `completed`。
 
 ## Blockers
 
 - 无。
+
+## Cleanup Candidates
+
+- `output/playwright/20260729-product-info-assist-grid-current-filler.png`
+- `output/playwright/20260729-product-info-assist-grid-current-filler.json`
