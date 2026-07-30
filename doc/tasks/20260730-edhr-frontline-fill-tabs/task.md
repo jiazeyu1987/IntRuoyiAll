@@ -75,7 +75,9 @@ ready_for_closeout
 - 主工作区原有并行任务文档已由独立基线提交 `d1e2e44d 基线: 保存并行任务文档改动` 保留，主工作区恢复 clean。
 - 已将更新后的 `int_main` 合入功能分支；两处任务证据文档冲突按语义保留已完成的 12 项后端测试和真实 E2E 结果。
 - 合并后端口守卫、目标后端测试、四项前端静态合同、E2E 脚本语法检查和 `pnpm ts:check` 均通过。
-- 当前状态保持 `ready_for_closeout`，等待推送功能分支并执行 cleanup preview/apply 完成快进合并和 worktree 删除。
+- 并行任务后续更新已由主线独立提交保留；最终同步后的功能分支 HEAD 为 `2e58c44d`，已推送到 `origin/codex/20260730-edhr-frontline-e2e-runtime`。
+- `04603154..2e58c44d` 在 `IntRuoyiBackend` 与 `IntRuoyiFronted` 下无新增差异，后续主线同步仅包含任务/经验文档。
+- 当前状态保持 `ready_for_closeout`，等待 cleanup preview/apply 完成快进合并和 worktree 删除。
 - 未执行 force push、rebase、reset 或历史重写。
 
 ## Yudao Source E2E Result

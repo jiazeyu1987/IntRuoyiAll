@@ -85,3 +85,10 @@
 - REGRESSION: `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js` -> PASS。
 - GREEN: `node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` -> PASS。
 - REGRESSION: `pnpm ts:check` -> PASS。
+- Concurrent main preservation: 主工作区后续出现的并行任务提交与文档改动由独立主线提交 `2e2d1eb0`、`6bd7ba2a`、`ad5de3a1`、`7865feca`、`ff8ee179`、`aeb379d3` 保留，未覆盖或丢弃。
+- Integration sync: 功能分支继续合入最新 `int_main`，最终 HEAD `2e58c44d`；`git merge-base --is-ancestor int_main HEAD` -> PASS。
+- Integration scope check: `git diff --name-status 04603154..2e58c44d -- IntRuoyiBackend IntRuoyiFronted` -> empty，后续同步仅包含任务/经验文档，无需重复运行未受影响的产品测试。
+- GREEN: frontend feature evidence validator -> PASS。
+- GREEN: backend API evidence validator -> PASS。
+- Push preflight: branch runtime port guard -> PASS；新增 push 范围 100 MB 大对象扫描 -> PASS。
+- GREEN: `git push origin codex/20260730-edhr-frontline-e2e-runtime` -> PASS，远端功能分支更新到 `2e58c44d`。
