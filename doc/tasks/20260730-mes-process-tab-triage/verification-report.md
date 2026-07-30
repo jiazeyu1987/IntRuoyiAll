@@ -1,0 +1,21 @@
+# Verification Report
+
+## Summary
+
+“MES工序”页签需求已完成现状核对和变更评估。需求建议接受，但在关系基数、适用范围、设备使用方式、产能归属和历史变更规则确认前不进入代码实施。
+
+## Evidence
+
+- PASS: 确认“工序设置”和“工艺流程”为同级菜单，排序分别为 `2` 和 `3`。
+- PASS: 确认现有 `mes_pro_process` 已承担正式工序、路线引用和批记录绑定职责。
+- PASS: 确认现有设备主数据、工作站设备绑定、设备工序产能和路线工序设备列表可复用。
+- PASS: 确认当前缺少独立的一线 MES 工序对象及其到正式工序的显式映射。
+- PASS: 变更文档决策为 `ACCEPT_WITH_BLOCKERS`。
+- PASS: `change-request-triage` 结构校验通过。
+- PASS: UTF-8 和关键业务边界验证通过。
+- PASS: `git diff --check` 通过。
+- PASS: `task-closeout-cleanup` preview/apply 通过，删除项和阻塞项为空。
+
+## Final Result
+
+completed
