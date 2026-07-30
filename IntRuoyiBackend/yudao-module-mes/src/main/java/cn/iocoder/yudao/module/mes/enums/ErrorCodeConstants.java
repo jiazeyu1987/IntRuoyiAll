@@ -1019,6 +1019,18 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_FRONTLINE_TEMPLATE_MISMATCH = new ErrorCode(1_040_760_112,
             "提交模板编号与当前实际员工工序模板不一致：{}");
 
+    // ========== MES 工序池审核副本（1-040-760-200） ==========
+    ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_FIELD_MAPPING_REQUIRED = new ErrorCode(1_040_760_200,
+            "工序池审核副本缺少正式字段映射：{}");
+    ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_LIMIT_METADATA_REQUIRED = new ErrorCode(1_040_760_201,
+            "工序池审核副本缺少字段上下限元数据：{}");
+    ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_REVIEWER_SIGNATURE_REQUIRED = new ErrorCode(1_040_760_202,
+            "工序池审核副本缺少审核电子签名：{}");
+    ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_REVIEWER_SIGNATURE_MISMATCH = new ErrorCode(1_040_760_203,
+            "工序池审核副本电子签名用户必须等于审核人");
+    ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_SIGNATURE_DUPLICATE = new ErrorCode(1_040_760_204,
+            "工序池审核副本电子签名已存在：{}");
+
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_MULTI_VERSION = new ErrorCode(1_040_107_006, "ERP 涓墿鏂?浜у搧缂栫爜 {} 鍛戒腑浜嗗涓凡瀹℃牳 BOM 鐗堟湰锛歿}");

@@ -31,7 +31,7 @@
 ### 子 Agent 主工作区溢出基线门禁
 
 - Trigger: 并行子 agent 本应只写 `D:\IntRuoyiWorktree\`，但主工作区出现同一任务的新增/修改文件，且这些文件会被后续分支 merge 覆盖或触发 untracked overwrite。
-- Preflight check: 在合并任何子分支前运行主工作区 `git status --short --branch`、`git diff --name-status`、`git ls-files --others --exclude-standard`，按任务范围判断溢出文件是否属于当前任务；属于当前任务的先形成单独“spillover baseline”提交并记录文件列表和提交 hash。
+- Preflight check: 子 agent 开始后先确认 shell `workdir` 是目标 worktree；凡使用 `apply_patch` 修改文件，文件路径必须写目标 worktree 下的绝对路径，不能使用相对路径。合并任何子分支前运行主工作区 `git status --short --branch`、`git diff --name-status`、`git ls-files --others --exclude-standard`，按任务范围判断溢出文件是否属于当前任务；属于当前任务的先形成单独“spillover baseline”提交并记录文件列表和提交 hash。
 - Blocker: 溢出文件无法确认归属、包含 unrelated 用户改动、包含 secret-bearing 输出、或与待合并分支语义冲突且无法证明保留策略时必须停止。
 - Verification: baseline 提交后重新运行 `git status --short --branch`，再执行目标分支 merge；若发生 add/add 冲突，必须语义合并并运行该分支目标测试。
 - Forbidden action: 禁止删除 untracked 文件来绕过 merge 保护；禁止用整文件 `ours/theirs` 覆盖任务日志；禁止把溢出内容混入后续实现提交。
