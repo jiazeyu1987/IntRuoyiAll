@@ -24,6 +24,7 @@
 ## Blockers
 
 - 3306 old local MySQL is inaccessible with the configured root credential; impact is limited to that separate database. The `芋道源码` local runtime target is the Docker 23306 database and is verified complete.
+- `git push origin int_main` -> FAIL twice with `Recv failure: Connection was reset`; impact: local branch remains ahead of `origin/int_main`, so task cannot be marked completed until push succeeds.
 
 ## Experience Consolidation
 
