@@ -46,6 +46,8 @@ ready_for_closeout_pending_push_retry
   - port registry entries for slots `16` and `17` marked inactive.
   - frontend write-entry cleanup preview/apply -> PASS; deleted task-owned Playwright browser artifacts and `IntRuoyiFronted\test-results`; no blockers or warnings.
 - Remote push blocker:
+  - Concurrent baseline commit: `2f930542 chore: baseline concurrent upload evidence update`.
+  - Frontend write-entry implementation commit: `ee4ea909 feat: add process pool review and revision write pages`.
   - `git push origin int_main` -> FAIL twice, `Recv failure: Connection was reset`.
   - `git ls-remote --heads origin int_main` -> FAIL, `Recv failure: Connection was reset`.
   - A new closeout commit and push retry are still required after the frontend write entry gap is committed. Task cannot be marked completed under project push policy until the remote is reachable and push succeeds.

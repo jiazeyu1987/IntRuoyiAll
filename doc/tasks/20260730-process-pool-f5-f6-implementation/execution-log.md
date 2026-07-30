@@ -268,3 +268,12 @@
 - Baseline staged list: `git diff --cached --name-status` -> only `M doc/tasks/20260729-test-server-wangsiyu-file-upload-simulation/upload-evidence.json`.
 - Baseline commit: `2f930542 chore: baseline concurrent upload evidence update`; hook ran `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
 - Post-baseline scan: current F5/F6 task files remain unstaged and ready for task-owned commit; baseline did not include F5/F6 implementation or verification docs.
+
+## 2026-07-30 Frontend Write Entry Commit
+
+- Task staged list: `git diff --cached --name-status` contained only F5/F6 frontend write-entry pages, route/script/test changes, E2E/experience docs, and this task's status/verification documents.
+- Staged secret scan: `git diff --cached | rg -n -i "password|passwd|token|secret|authorization|cookie|set-cookie|private[_-]?key|access[_-]?key|refresh[_-]?token|bearer"` -> matches were environment variable names, cookie-clearing code, and the documented baseline scan command; no plaintext credential was staged.
+- GREEN: `git diff --cached --check` -> PASS.
+- Commit: `ee4ea909 feat: add process pool review and revision write pages`; hook ran `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
+- Commit file list: `IntRuoyiFronted/package.json`, `remaining.ts`, `ReviewCopyPage.vue`, `EventRevisionPage.vue`, frontend static/E2E specs, `docs\e2e-rules.md`, `docs\experience-index.md`, and this task's task/test/verification records.
+- Post-commit scan: `git status --short --branch --untracked-files=all` -> `int_main...origin/int_main [ahead 23]`, no unstaged or untracked files.
