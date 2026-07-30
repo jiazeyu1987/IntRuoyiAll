@@ -73,6 +73,10 @@ blocked
   GitHub 返回 `Recv failure: Connection was reset`；当前分支仍为 `ahead 17, behind 8`。
 - 影响：本地优化和验证已完成，但无法满足项目“必须推送 origin 后才 completed”的门禁；禁止用
   force push、reset、rebase 或历史改写绕过。
+- `BLOCKED: 2026-07-30 resumed push audit`，HTTP/1.1 只读访问和 fetch 已恢复，远端
+  `int_main=65d0a87e`；精确分叉为 `behind 8 / ahead 18`。
+- `git push origin int_main` 已被远端明确拒绝为 `non-fast-forward`。同期共享 Git 索引包含
+  路线管理并行任务的 staged 文件，当前不能安全执行 merge/rebase 或新的任务提交。
 
 ## Cleanup Keep
 

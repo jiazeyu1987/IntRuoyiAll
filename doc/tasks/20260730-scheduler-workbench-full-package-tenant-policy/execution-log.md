@@ -79,3 +79,14 @@
   `Recv failure: Connection was reset`，因此未继续无界重试。
 - Final Git blocker: `int_main...origin/int_main [ahead 17, behind 8]`；当前既有网络不可达，又存在
   远端分叉风险。按门禁不执行 force push、reset、rebase、merge 或覆盖并行工作区。
+- Resume network diagnosis: `Resolve-DnsName github.com` -> PASS；
+  direct `curl.exe -I https://github.com` -> TIMEOUT；Git 配置存在 GitHub 本地代理
+  `127.0.0.1:8902`，`git -c http.version=HTTP/1.1 ls-remote origin HEAD refs/heads/int_main`
+  -> PASS，远端 `int_main=65d0a87e`。
+- Resume fetch: `git -c http.version=HTTP/1.1 fetch origin int_main` -> PASS；
+  `git rev-list --left-right --count origin/int_main...HEAD` -> `8 18`。
+- Resume push: `git -c http.version=HTTP/1.1 push origin int_main` -> FAIL，
+  `[rejected] int_main -> int_main (non-fast-forward)`。
+- Shared index blocker: 推送前状态显示路线管理并行任务已 staged
+  `IntRuoyiFronted/src/views/mes/pro/route/index.vue`、相关 E2E 和任务文档；为避免提交或覆盖对方
+  工作，不执行 pull、merge、rebase、reset、stash、取消暂存或 force push。

@@ -37,5 +37,9 @@
   `git ls-remote origin HEAD` 均因 `Recv failure: Connection was reset` 失败。
 - 当前 `int_main` 相对 `origin/int_main` 为 `ahead 17, behind 8`；网络恢复后仍需由共享分支
   负责人先确认远端分叉处理方式，再普通推送。禁止以 force push、reset 或静默 rebase 绕过。
+- 续跑时 Git HTTP/1.1 访问与 fetch 已恢复，精确分叉更新为 `ahead 18, behind 8`；普通 push
+  被远端明确拒绝为 `non-fast-forward`。
+- 当前共享索引包含路线管理并行任务 staged 文件，不能在不干扰其它任务的前提下进行远端合并或
+  提交本次新增阻塞记录。
 - 当前实现按原 ID upsert，不会删除目标租户包外多余数据；若需要“完全镜像恢复”，仍需另行定义清空/对账策略。
 - 用户角色绑定仍要求目标环境存在相同用户名；该 fail-fast 行为保持不变。
