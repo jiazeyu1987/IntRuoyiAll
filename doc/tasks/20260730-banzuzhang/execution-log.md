@@ -62,6 +62,22 @@
 - Closeout record commit: `git commit -m "docs: record team leader push blocker"` -> PASS，提交 `345f32f2`，仅包含 `doc/tasks/20260730-banzuzhang/{task.md,execution-log.md,verification-report.md}`。
 - Push retry blocker: 第三次 `git push origin codex/20260730-banzuzhang` -> FAIL，同样为 `Recv failure: Connection was reset`；当前分支为 `ahead 12`。
 - Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-banzuzhang --mode preview` -> BLOCKED，keep 列表保留核心任务文档和 evidence，delete 为 `<none>`；阻塞原因为 `Main worktree is dirty and cannot receive ff-only merge: E:\IntRuoyi`。
+- User closeout authorization: 用户要求“先提交代码，然后融合”；按规则将主工作区连续出现的并行脏改动分别作为独立基线提交，没有混入班组长实现提交。
+- Dirty baseline: `ca088c6d 基线: 保存并行 MES 工序菜单标题任务记录`，文件为 `doc/tasks/20260730-mes-process-menu-title/{task.md,execution-log.md}`。
+- Dirty baseline: `51abcc06 基线: 保存并行 MES 工序菜单标题静态契约`，文件为 `IntRuoyiFronted/tests/e2e/mes-pro-mes-process-readonly-static.spec.js`。
+- Dirty baseline: `0809cd85 基线: 保存并行 MES 菜单与 eDHR 页签改动`，包含 MES 菜单 SQL/页面/静态合同及 eDHR 页签组件/静态合同共 5 个文件。
+- Dirty baseline: `ec99a8c5 基线: 保存并行测试管理串行路线验证记录`，文件为 `doc/tasks/20260730-test-management-serial-routes-verification/{task.md,execution-log.md}`。
+- Dirty baseline: `19f9b782 基线: 保存并行 eDHR 图谱验证记录`，包含 `doc/tasks/20260730-edhr-page-graph-tab/` 下 5 个证据和任务记录文件。
+- Main branch baseline pushes: `ca088c6d`、`51abcc06`、`0809cd85` 均已成功推送到 `origin/int_main`；后续基线和本任务最终收尾记录随最终主分支 push 一并推送。
+- Closeout sync: 持续把最新 `int_main` 合入 `codex/20260730-banzuzhang`，最终任务分支 HEAD 为 `4d6acc51`，`git merge-base --is-ancestor int_main HEAD` -> PASS。
+- Task branch push: `git push origin codex/20260730-banzuzhang` -> PASS，远端分支更新到 `4d6acc51`。
+- Cleanup preview GREEN: `task_closeout.py --task-id 20260730-banzuzhang --mode preview` -> `status: ready`，keep 为核心任务文档和 4 个 evidence，delete 为 `<none>`，blocked/warnings 均为 `<none>`。
+- Cleanup apply: ff-only merge 到 `E:\IntRuoyi` 的 `int_main` -> PASS；Git worktree 登记已移除。物理目录删除首次失败，错误为 `Invalid argument`，原因是 `yudao-server-exec.jar` 仍被本任务后端进程占用。
+- Runtime cleanup: `netstat -ano` 确认 `48098 -> PID 19088`、`8098 -> PID 36928`，均为本任务登记端口；停止两个任务专属进程后，两个端口均不再监听。
+- Worktree cleanup: 校验目标绝对路径位于 `D:\IntRuoyiWorktree\` 下且已无 `.git` 后，受控删除 `D:\IntRuoyiWorktree\20260730-banzuzhang` -> PASS；`Test-Path` 为 `False`，`git worktree list --porcelain` 不再包含本任务。
+- Slot cleanup: 使用与 `reserve-worktree-slot.ps1` 相同的注册表互斥锁和原子文件替换流程更新 `D:\IntRuoyiWorktree\.ports\worktree-ports.json`；`20260730-banzuzhang` 条目校验为 slot `17`、frontend `8098`、backend `48098` 后设置 `active=false`，`releasedAt/deletedAt=2026-07-30T23:35:46.1992651+08:00`。
+- Experience consolidation: 已按 `project-experience-consolidation` 检查长期经验归宿；`docs/worktree-memory.md#Git-注册已移除但物理目录被运行态锁住` 已完整覆盖本次 `Invalid argument`、任务 PID/端口归属核验、停止运行态、删除残留目录和释放登记槽位的门禁，因此无需重复新增长期经验条目。
+- Task status: `completed`；实现、验证、任务分支推送、ff-only 合并、运行进程停止和 worktree 删除均已完成。
 
 ## Evidence Files
 

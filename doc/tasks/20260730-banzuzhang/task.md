@@ -18,7 +18,7 @@
 - [x] RED：补齐 F9/F10 前端静态合同或 E2E 入口测试
 - [x] GREEN：实现班组长工作台和维护入口
 - [x] REGRESSION：运行定向后端、前端和可用 E2E 验证
-- [ ] 更新验证报告、经验沉淀、closeout 证据
+- [x] 更新验证报告、经验沉淀、closeout 证据
 
 ## Expected Verification
 
@@ -29,7 +29,7 @@
 
 ## Current Status
 
-ready_for_closeout；F9/F10 后端、前端、SQL 迁移门禁、静态验证、真实 Playwright 只读页面冒烟和经验沉淀均已完成。为满足 ff-only 收尾门禁，当前分支已将本地 `int_main` 合入并生成 `3225bc70 Merge branch 'int_main' into codex/20260730-banzuzhang`，`git merge-base --is-ancestor int_main HEAD` 已通过。当前 closeout 有两个阻塞：一是 `git push origin codex/20260730-banzuzhang` 连续三次失败，错误均为 `Recv failure: Connection was reset`，当前分支仍为 `ahead 12`；二是 cleanup preview 显示主工作区 `E:\IntRuoyi` 为 dirty，不能接收 ff-only merge。因此不能执行 cleanup apply、ff-only merge 或 worktree removal。
+completed；F9/F10 后端、前端、SQL 迁移门禁、静态验证、真实 Playwright 页面冒烟和经验沉淀均已完成。任务分支已推送到 `origin/codex/20260730-banzuzhang` 的 `4d6acc51`，cleanup preview 为 `ready`，随后 ff-only 合并到 `E:\IntRuoyi` 的 `int_main`。cleanup apply 已移除 Git worktree 登记；Windows 因本任务运行 Jar 被占用而未能删除物理目录，停止任务专属 PID `19088/36928`、释放 `48098/8098` 后已受控删除残留目录。`git worktree list` 不再包含本任务 worktree。
 
 ## Worktree / Runtime
 
@@ -39,6 +39,10 @@ ready_for_closeout；F9/F10 后端、前端、SQL 迁移门禁、静态验证、
 - Reserved slot: `17`
 - Frontend port: `8098`
 - Backend port: `48098`
+- Final worktree state: 已从 Git worktree 列表和文件系统移除
+- Final runtime state: PID `19088/36928` 已停止，`48098/8098` 已释放
+- Final merge state: `codex/20260730-banzuzhang` 已 ff-only 合入 `int_main`
+- Final slot state: `D:\IntRuoyiWorktree\.ports\worktree-ports.json` 中 `20260730-banzuzhang` 已设为 `active=false`，slot `17` 于 `2026-07-30T23:35:46.1992651+08:00` 释放
 
 ## 设计约束检查
 
