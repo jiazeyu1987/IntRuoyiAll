@@ -46,3 +46,17 @@
 - GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-frontend-static.spec.cjs` -> PASS。
 - Experience consolidation: 已将子 agent `apply_patch` 必须使用目标 worktree 绝对路径的规则合并进 `docs\worktree-memory.md#子 Agent 主工作区溢出基线门禁`。
 - Current status: F5 backend TDD main chain complete; frontend real E2E and F5/F6 combined runtime verification remain for main agent after merge.
+
+## 2026-07-30 F5 Review Fix: Formal API Entry
+
+- User intent: 主审不放行，F5 必须补正式 controller、专用写权限和前端 API wrapper；仍只在 F5 worktree 工作。
+- BDD: F5 正式审核副本写入口 -> Given 审核人员持有工序池事件、电子签名和字段上下限映射 / When 调用 `POST /mes/pro/process-pool/review-copy/generate-submit` / Then controller 使用审核副本专用写权限，接收完整请求 VO，调用 `MesProcessPoolReviewCopyService`，不直接写 mapper。
+- BDD: F5 前端 API wrapper 独立 -> Given 时间轴 API 必须只读 / When 前端需要生成并提交审核副本 / Then 使用独立 `reviewCopy.ts` 暴露 F5 POST 写请求，时间轴 API 和时间轴页面仍不暴露写操作。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, 缺少 `ProcessPoolReviewCopyGenerateSubmitReqVO`。
+- RED: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-api-static.spec.cjs` -> FAIL, 缺少 `IntRuoyiFronted/src/api/mes/pro/processpool/reviewCopy.ts`。
+- Implementation: 新增 `MesProcessPoolReviewCopyController`、`ProcessPoolReviewCopyGenerateSubmitReqVO`、`reviewCopy.ts` 和静态合同；controller 只做 VO 到 DTO 转换并调用 service，权限为 `mes:pro-process-pool-review-copy:generate-submit`。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 2 tests。
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-api-static.spec.cjs` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopySchemaTest,MesProcessPoolReviewCopyServiceTest,MesProcessPoolReviewCopyControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 14 tests。
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-api-static.spec.cjs; node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-frontend-static.spec.cjs; node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> PASS。
+- Remaining merge-time check: 真实 E2E 仍需主 agent 在合并 F5/F6、确认菜单权限种子数据后运行。

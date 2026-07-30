@@ -13,10 +13,13 @@
 - BDD: 上下限修正 -> Given 字段映射提供正式字段编码、字段名称、上下限元数据 / When 原始值高于上限、低于下限或处于范围内 / Then correctedValue 分别 clamp 到上限、clamp 到下限或保持原值，并保存 rawValue/correctedValue/ruleType 三元组。
 - BDD: 缺失前置条件阻塞 -> Given 缺 raw payload、缺字段映射、缺上下限元数据、缺审核签名、签名人不是审核人、签名重复或字段已被 FIFO 分配锁定 / When 生成审核副本 / Then fail fast 拒绝提交，不写入审核副本。
 - BDD: 时间轴只读摘要 -> Given 工序池时间轴查询提交事件 / When 存在或不存在审核副本 / Then 只读展示审核副本状态和字段数量摘要，不暴露生成、提交或 FIFO 写操作。
+- BDD: 审核人员从正式入口提交审核副本 -> Given 审核页面持有事件、签名和字段上下限映射 / When 前端调用审核副本写 API / Then 后端 controller 使用专用写权限接收请求，转换为 DTO 并调用 `MesProcessPoolReviewCopyService`，不直接写 mapper。
 
 ## RED Evidence
 
 - RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopySchemaTest#shouldCreateReviewCopyTables" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL. Method: temporarily reversed only F5 production implementation patch in this worktree while keeping F5 tests. Expected reason: missing F5 production classes and schema. Observed reason: testCompile failed because `MesProcessPoolReviewCopyDO`, `MesProcessPoolReviewCopyFieldDO`, review copy mappers, service and DTOs were not found.
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL. Expected reason: controller/VO not implemented. Observed reason: testCompile failed because `ProcessPoolReviewCopyGenerateSubmitReqVO` was not found.
+- RED: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-api-static.spec.cjs` -> FAIL. Expected reason: frontend review-copy API wrapper not implemented. Observed reason: `IntRuoyiFronted/src/api/mes/pro/processpool/reviewCopy.ts` missing.
 
 ## GREEN Evidence
 
@@ -27,6 +30,9 @@
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyServiceTest#shouldRequireReviewerSignatureWhenSubmitReviewCopy,MesProcessPoolReviewCopyServiceTest#shouldRejectReviewCorrectionForAllocatedQuantityFragment" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 2 tests.
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopySchemaTest,MesProcessPoolReviewCopyServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 12 tests.
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=ProcessPoolTimelineTraceabilityTest,ProcessPoolTimelineContentSummaryTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 2 tests.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopySchemaTest,MesProcessPoolReviewCopyServiceTest,MesProcessPoolReviewCopyControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 14 tests.
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-api-static.spec.cjs` -> PASS.
 - GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> PASS.
 - GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-frontend-static.spec.cjs` -> PASS.
 
@@ -37,6 +43,8 @@
 - Added review copy service and DTOs. The service reads the source event raw payload, validates explicit field mappings and explicit limit metadata, clamps numeric values, saves raw/corrected/rule fields, keeps source feedback/recordbook traceability, and preserves the original event payload.
 - Added fail-fast blocks for missing raw payload, missing field mapping, missing limit metadata, missing reviewer signature, signer/reviewer mismatch, duplicate signature and FIFO allocated quantity fragment mutation.
 - Extended process pool timeline SQL to expose read-only audit copy status and summary. Timeline static checks confirm no write action was added.
+- Added formal backend write endpoint `POST /mes/pro/process-pool/review-copy/generate-submit` with dedicated permission `mes:pro-process-pool-review-copy:generate-submit`.
+- Added frontend API wrapper `IntRuoyiFronted/src/api/mes/pro/processpool/reviewCopy.ts`; timeline API module remains read-only.
 
 ## Requirement Gate
 
@@ -46,6 +54,7 @@
 - R21: timeline remains read-only and only displays status/summary.
 - No surplus pool reuse; schema test asserts no `mes_pro_feedback_surplus_pool` dependency.
 - No front-end write path or timeline write request was introduced.
+- F5 write API uses a dedicated review-copy permission and calls the service layer; controller contract asserts no mapper direct-write path.
 
 ## Changed Paths
 
@@ -58,10 +67,15 @@
 - `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolReviewCopyServiceImpl.java`
 - `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/dto/MesProcessPoolReviewCopyGenerateReqDTO.java`
 - `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/dto/MesProcessPoolReviewCopyFieldMappingDTO.java`
+- `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/MesProcessPoolReviewCopyController.java`
+- `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/vo/ProcessPoolReviewCopyGenerateSubmitReqVO.java`
 - `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/enums/ErrorCodeConstants.java`
 - `IntRuoyiBackend/yudao-module-mes/src/main/resources/mapper/pro/processpool/MesProProcessPoolTimelineReadMapper.xml`
 - `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/MesProcessPoolReviewCopySchemaTest.java`
 - `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolReviewCopyServiceTest.java`
+- `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/controller/admin/pro/processpool/MesProcessPoolReviewCopyControllerTest.java`
+- `IntRuoyiBackend/yudao-module-mes/src/test/js/process-pool-review-copy-api-static.spec.cjs`
+- `IntRuoyiFronted/src/api/mes/pro/processpool/reviewCopy.ts`
 - `IntRuoyiBackend/yudao-module-mes/src/test/resources/sql/create_tables.sql`
 - `IntRuoyiBackend/yudao-module-mes/src/test/resources/sql/clean.sql`
 - `docs/worktree-memory.md`
@@ -71,6 +85,6 @@
 
 ## Merge-Time Reverification
 
-- Frontend real E2E was not run in this F5 worktree; main agent should run the F5/F6 combined real path after merging with the paired frontend/backend runtime.
+- Frontend real E2E was not run in this F5 worktree; main agent should run the F5/F6 combined real path after merging with the paired frontend/backend runtime and menu/permission seed data.
 - Main agent should verify migration ordering with the final F5/F6 merged schema set.
-- Main agent should confirm menu/API exposure strategy for a formal review-copy entry if product scope requires a write API beyond service-level integration.
+- Main agent should confirm menu permission seed data for `mes:pro-process-pool-review-copy:generate-submit` before real reviewer E2E.
