@@ -95,6 +95,19 @@
 - Required decision:
   - 需要用户明确授权在测试服为 `wangsiyu` 增加某个文件类别的 `UPLOAD` 权限，或明确指定本次要使用的其它正式文件上传入口。
 
+### 2026-07-30 Continuation
+
+- User authorization: 用户已明确授权为 `wangsiyu` 增加测试服类别级 `UPLOAD` 权限以继续本次模拟。
+- Permission approach:
+  - 使用 `wangsiyu` 当前登录态和正式类别权限接口。
+  - 仅临时添加当前用户对单一可用类别的 `UPLOAD` 规则。
+  - 每次失败或完成后通过 `finally` 恢复原权限规则。
+- Recovery evidence:
+  - 前两次尝试中临时授权类别 `906104 / 其他` 后，因页面下拉状态问题未到达上传；`finally` 均已恢复原规则。
+  - 未产生 `/dcc/controlled-files/upload-preview` 或 `/dcc/controlled-files/submit` 请求。
+- Script adjustment:
+  - 临时授权后刷新 `/dcc/controlled-file/upload` 页面，让前端重新拉取最新 `canUpload` 类别投影。
+
 ## Command Intent
 
 - 后续命令仅用于检查 Git/工具前置、驱动 Playwright 浏览器、创建任务自有测试文件与读取脱敏验证结果。
