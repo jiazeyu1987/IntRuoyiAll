@@ -33,19 +33,6 @@
           <Icon icon="ep:plus" class="mr-5px" />
           新增产品目录
         </el-button>
-        <el-button @click="productCatalogQuickFilter.resetQuickFilter">
-          <Icon icon="ep:refresh" class="mr-5px" />
-          重置
-        </el-button>
-        <el-button
-          plain
-          type="info"
-          :loading="expiryCompareLoading"
-          @click="handleCompareRegistrationExpiry"
-        >
-          <Icon icon="ep:refresh-right" class="mr-5px" />
-          注册证有效期
-        </el-button>
       </template>
       <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
         <el-table
@@ -174,18 +161,7 @@
             prop="expiryDate"
             :width="getProductCatalogColumnWidthString('expiryDate', 120)"
             v-bind="sortColumnAttrs('expiryDate')"
-          >
-            <template #default="{ row }">
-              <el-tooltip
-                v-if="getExpiryCompareTooltip(row)"
-                :content="getExpiryCompareTooltip(row)"
-                placement="top"
-              >
-                <span :class="getExpiryCompareClass(row)">{{ row.expiryDate || '-' }}</span>
-              </el-tooltip>
-              <span v-else :class="getExpiryCompareClass(row)">{{ row.expiryDate || '-' }}</span>
-            </template>
-          </el-table-column>
+          />
           <el-table-column
             v-if="isProductCatalogColumnVisible('classification')"
             label="分类"
@@ -363,13 +339,11 @@ import {
 } from '@/hooks/web/useTableQuickFilter'
 import type {
   DccProductCatalogPageReqVO,
-  DccProductCatalogRegistrationExpiryCompareRespVO,
   DccProductCatalogRespVO,
   DccProductCatalogSaveReqVO,
   DccProductCatalogUpdateReqVO
 } from '@/api/dcc/controlledFile/productCatalog'
 import {
-  compareRegistrationExpiry,
   createProductCatalog,
   deleteProductCatalog,
   getProductCatalogPage,
@@ -380,16 +354,12 @@ defineOptions({ name: 'ProductCatalogTabPanel' })
 
 const message = useMessage()
 const loading = ref(false)
-const expiryCompareLoading = ref(false)
 const formVisible = ref(false)
 const formLoading = ref(false)
 const formType = ref<'create' | 'update'>('create')
 const total = ref(0)
 const list = ref<DccProductCatalogRespVO[]>([])
 const formRef = ref()
-const expiryCompareResultMap = ref(
-  new Map<string, DccProductCatalogRegistrationExpiryCompareRespVO>()
-)
 
 const productStatusOptions = [
   { label: '在研(N)', value: 'N' },
@@ -545,7 +515,6 @@ const getList = async () => {
     const data = await getProductCatalogPage(queryParams)
     list.value = data.list
     total.value = data.total
-    clearExpiryCompareResults()
   } finally {
     loading.value = false
   }
@@ -648,70 +617,6 @@ const handleDelete = async (row: DccProductCatalogRespVO) => {
   }
 }
 
-const handleCompareRegistrationExpiry = async () => {
-  if (!list.value.length) {
-    message.warning('当前页没有可比对的产品目录数据')
-    return
-  }
-  expiryCompareLoading.value = true
-  try {
-    const rows = list.value.map((row) => ({
-      dataSource: row.dataSource,
-      originalRowNo: row.originalRowNo
-    }))
-    const results = await compareRegistrationExpiry({ rows })
-    expiryCompareResultMap.value = new Map(
-      results.map((result) => [buildExpiryCompareKey(result), result])
-    )
-    message.success('注册证有效期比对完成')
-  } finally {
-    expiryCompareLoading.value = false
-  }
-}
-
-const clearExpiryCompareResults = () => {
-  expiryCompareResultMap.value = new Map()
-}
-
-const buildExpiryCompareKey = (row: Pick<DccProductCatalogRespVO, 'dataSource' | 'originalRowNo'>) =>
-  `${row.dataSource}#${row.originalRowNo}`
-
-const getExpiryCompareResult = (row: DccProductCatalogRespVO) =>
-  expiryCompareResultMap.value.get(buildExpiryCompareKey(row))
-
-const getExpiryCompareClass = (row: DccProductCatalogRespVO) => {
-  const result = getExpiryCompareResult(row)
-  if (result?.status === 'MATCH') {
-    return 'expiry-compare-match'
-  }
-  if (result?.status === 'MISMATCH') {
-    return 'expiry-compare-mismatch'
-  }
-  if (result?.status === 'FETCH_FAILED') {
-    return 'expiry-compare-fetch-failed'
-  }
-  return ''
-}
-
-const getExpiryCompareTooltip = (row: DccProductCatalogRespVO) => {
-  const result = getExpiryCompareResult(row)
-  if (!result || result.status === 'NO_LINK' || result.status === 'UNSUPPORTED') {
-    return ''
-  }
-  if (result.status === 'MATCH') {
-    return `有效期一致：${result.localExpiryDate || row.expiryDate || '-'}`
-  }
-  if (result.status === 'MISMATCH') {
-    return `有效期不一致：当前 ${result.localExpiryDate || row.expiryDate || '-'}，外站 ${
-      result.remoteExpiryDate || '-'
-    }`
-  }
-  if (result.status === 'FETCH_FAILED') {
-    return result.message || '注册证信息链接访问失败'
-  }
-  return ''
-}
-
 const formatProductStatus = (status?: string | null) => {
   const normalized = status?.trim()
   const labels: Record<string, string> = {
@@ -751,18 +656,4 @@ onMounted(async () => {
   border-right-color: #1677ff;
 }
 
-.expiry-compare-match {
-  color: #1f9d55;
-  font-weight: 600;
-}
-
-.expiry-compare-mismatch {
-  color: #d93026;
-  font-weight: 600;
-}
-
-.expiry-compare-fetch-failed {
-  color: #8a94a6;
-  font-weight: 600;
-}
 </style>

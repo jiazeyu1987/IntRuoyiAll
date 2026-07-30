@@ -132,6 +132,9 @@ interface SearchHistoryRecord {
 
 const ROUTER_SEARCH_HISTORY_KEY = 'routerSearchHistory'
 const ROUTER_SEARCH_HISTORY_LIMIT = 20
+const ROUTER_SEARCH_ALIASES: Record<string, string[]> = {
+  '/mes/pro/mes-process': ['MES工序']
+}
 
 defineProps({
   isModal: {
@@ -160,14 +163,17 @@ const filteredOptions = computed<SearchHistoryRecord[]>(() => {
     return []
   }
   const list = routers.filter((item: any) => {
-    return (
-      isSearchableRoute(item) &&
-      (item.meta.title?.indexOf(keyword.value) > -1 || item.path.indexOf(keyword.value) > -1)
-    )
+    return isSearchableRoute(item) && routeMatchesSearchQuery(item, keyword.value)
   })
   return list.map((item) => createSearchRecord(item, keyword.value))
 })
 const showHistoryGroup = computed(() => !keyword.value && recentOptions.value.length > 0)
+
+function normalizeSearchText(value: unknown) {
+  return String(value || '')
+    .trim()
+    .toLocaleLowerCase()
+}
 
 function normalizeSearchPath(path: string) {
   const rawPath = String(path || '').split(/[?#]/)[0].trim()
@@ -190,6 +196,20 @@ function findRouteBySearchPath(path: string) {
 
 function isSearchableRoute(route: any) {
   return Boolean(route?.path && route?.meta?.title && !route.meta?.hidden)
+}
+
+function getRouteSearchAliases(route: any) {
+  return ROUTER_SEARCH_ALIASES[normalizeSearchPath(route?.path)] || []
+}
+
+function routeMatchesSearchQuery(route: any, query: string) {
+  const normalizedQuery = normalizeSearchText(query)
+  if (!normalizedQuery) {
+    return false
+  }
+  return [route.meta?.title, route.path, ...getRouteSearchAliases(route)].some((text) =>
+    normalizeSearchText(text).includes(normalizedQuery)
+  )
 }
 
 function createSearchRecord(route: any, query: string): SearchHistoryRecord {
