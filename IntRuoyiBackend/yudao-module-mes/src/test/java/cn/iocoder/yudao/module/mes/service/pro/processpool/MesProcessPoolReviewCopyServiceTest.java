@@ -115,6 +115,19 @@ class MesProcessPoolReviewCopyServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void shouldBlockWhenRawPayloadMissing() {
+        Long eventId = insertEvent("");
+        MesProcessPoolReviewCopyGenerateReqDTO req = validReq(eventId,
+                List.of(mapping("pressure", "压力", "20", "40", false, null)));
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> reviewCopyService.generateAndSubmitReviewCopy(req));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED.getCode(), ex.getCode());
+        assertEquals(0L, reviewCopyMapper.selectCount());
+    }
+
+    @Test
     void shouldRequireReviewerSignatureWhenSubmitReviewCopy() {
         Long eventId = insertEvent("{\"pressure\":50}");
         MesProcessPoolReviewCopyGenerateReqDTO req = validReq(eventId,
@@ -127,6 +140,43 @@ class MesProcessPoolReviewCopyServiceTest extends BaseDbUnitTest {
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REVIEW_COPY_REVIEWER_SIGNATURE_REQUIRED.getCode(),
                 ex.getCode());
         assertEquals(0L, reviewCopyMapper.selectCount());
+    }
+
+    @Test
+    void shouldRejectReviewerSignatureWhenSignerIsNotReviewer() {
+        Long eventId = insertEvent("{\"pressure\":50}");
+        MesProcessPoolReviewCopyGenerateReqDTO req = validReq(eventId,
+                List.of(mapping("pressure", "压力", "20", "40", false, null)));
+        req.setReviewerSignatureUserId(randomLongId());
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> reviewCopyService.generateAndSubmitReviewCopy(req));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REVIEW_COPY_REVIEWER_SIGNATURE_MISMATCH.getCode(),
+                ex.getCode());
+        assertEquals(0L, reviewCopyMapper.selectCount());
+    }
+
+    @Test
+    void shouldRejectDuplicateReviewerSignature() {
+        Long eventId = insertEvent("{\"pressure\":50}");
+        MesProcessPoolReviewCopyGenerateReqDTO req = validReq(eventId,
+                List.of(mapping("pressure", "压力", "20", "40", false, null)));
+        Long signatureId = req.getReviewerSignatureId();
+        Long reviewCopyId = reviewCopyService.generateAndSubmitReviewCopy(req);
+        assertNotNull(reviewCopyId);
+        Long anotherEventId = insertEvent("{\"pressure\":30}");
+        MesProcessPoolReviewCopyGenerateReqDTO duplicateReq = validReq(anotherEventId,
+                List.of(mapping("pressure", "压力", "20", "40", false, null)));
+        duplicateReq.setReviewerSignatureId(signatureId);
+        duplicateReq.setReviewerUserId(req.getReviewerUserId());
+        duplicateReq.setReviewerSignatureUserId(req.getReviewerUserId());
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> reviewCopyService.generateAndSubmitReviewCopy(duplicateReq));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REVIEW_COPY_SIGNATURE_DUPLICATE.getCode(), ex.getCode());
+        assertEquals(1L, reviewCopyMapper.selectCount());
     }
 
     @Test

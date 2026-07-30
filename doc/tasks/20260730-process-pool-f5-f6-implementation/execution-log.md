@@ -78,3 +78,37 @@
   - `doc/tasks/20260729-test-server-wangsiyu-file-upload-simulation/execution-log.md`
   - `doc/tasks/20260729-test-server-wangsiyu-file-upload-simulation/task.md`
   - `doc/tasks/20260729-test-server-wangsiyu-file-upload-simulation/upload-evidence.json`
+
+## 2026-07-30 F5 Agent Implementation
+
+- User correction: only work in `D:\IntRuoyiWorktree\20260730-process-pool-f5-review-copy`; all shell commands set workdir to F5 worktree; all `apply_patch` paths use absolute F5 worktree paths. Main workspace overflow files are not completion evidence.
+- BDD: F5 保留原始 payload -> Given 工序池提交事件已有 raw payload、报工来源和记录本来源 / When 审核人生成审核副本 / Then `mes_pro_process_pool_event.raw_payload` 不改写，审核副本保存 raw payload 快照和来源追溯字段。
+- BDD: F5 上下限 clamp -> Given 字段映射包含明确字段编码、名称、下限和上限 / When 原始值为 50、10、30 且范围为 20~40 / Then 分别保存 correctedValue 为 40、20、30，并保存 rawValue/correctedValue/ruleType。
+- BDD: F5 阻塞缺失前置条件 -> Given 缺 raw payload、缺字段映射、缺上下限元数据、缺审核签名、签名人不是审核人、签名重复或 FIFO 已分配数量片段 / When 生成审核副本 / Then fail fast，不写入审核副本。
+- BDD: F5 时间轴只读摘要 -> Given 工序池时间轴查询提交事件 / When 审核副本存在或不存在 / Then 只读展示审核状态和摘要，不暴露生成、提交、FIFO 写入口。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopySchemaTest#shouldCreateReviewCopyTables" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, 临时反向应用 F5 生产实现补丁并保留测试后，测试编译失败，缺少 `MesProcessPoolReviewCopyDO`、字段 DO、mapper、service、DTO。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopySchemaTest#shouldCreateReviewCopyTables" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyServiceTest#shouldPreserveRawEventPayloadWhenGenerateReviewCopy" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyServiceTest#shouldClampValueToMaxWhenRawValueExceedsMax,MesProcessPoolReviewCopyServiceTest#shouldClampValueToMinWhenRawValueBelowMin,MesProcessPoolReviewCopyServiceTest#shouldKeepValueWhenRawValueWithinRange" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyServiceTest#shouldBlockWhenLimitMetadataMissing,MesProcessPoolReviewCopyServiceTest#shouldBlockWhenFieldMappingMissing" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyServiceTest#shouldRequireReviewerSignatureWhenSubmitReviewCopy,MesProcessPoolReviewCopyServiceTest#shouldRejectReviewCorrectionForAllocatedQuantityFragment" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopySchemaTest,MesProcessPoolReviewCopyServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 12 tests。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=ProcessPoolTimelineTraceabilityTest,ProcessPoolTimelineContentSummaryTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 3 tests。
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> PASS。
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-frontend-static.spec.cjs` -> PASS。
+- Experience consolidation: 已将子 agent `apply_patch` 必须使用目标 worktree 绝对路径的规则合并进 `docs\worktree-memory.md#子 Agent 主工作区溢出基线门禁`。
+- Current status: F5 backend TDD main chain complete; frontend real E2E and F5/F6 combined runtime verification remain for main agent after merge.
+
+## 2026-07-30 F5 Review Fix: Formal API Entry
+
+- User intent: 主审不放行，F5 必须补正式 controller、专用写权限和前端 API wrapper；仍只在 F5 worktree 工作。
+- BDD: F5 正式审核副本写入口 -> Given 审核人员持有工序池事件、电子签名和字段上下限映射 / When 调用 `POST /mes/pro/process-pool/review-copy/generate-submit` / Then controller 使用审核副本专用写权限，接收完整请求 VO，调用 `MesProcessPoolReviewCopyService`，不直接写 mapper。
+- BDD: F5 前端 API wrapper 独立 -> Given 时间轴 API 必须只读 / When 前端需要生成并提交审核副本 / Then 使用独立 `reviewCopy.ts` 暴露 F5 POST 写请求，时间轴 API 和时间轴页面仍不暴露写操作。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, 缺少 `ProcessPoolReviewCopyGenerateSubmitReqVO`。
+- RED: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-api-static.spec.cjs` -> FAIL, 缺少 `IntRuoyiFronted/src/api/mes/pro/processpool/reviewCopy.ts`。
+- Implementation: 新增 `MesProcessPoolReviewCopyController`、`ProcessPoolReviewCopyGenerateSubmitReqVO`、`reviewCopy.ts` 和静态合同；controller 只做 VO 到 DTO 转换并调用 service，权限为 `mes:pro-process-pool-review-copy:generate-submit`。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 2 tests。
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-api-static.spec.cjs` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopySchemaTest,MesProcessPoolReviewCopyServiceTest,MesProcessPoolReviewCopyControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 14 tests。
+- GREEN: `node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-review-copy-api-static.spec.cjs; node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-frontend-static.spec.cjs; node IntRuoyiBackend\yudao-module-mes\src\test\js\process-pool-timeline-mapper-static.spec.cjs` -> PASS。
+- Remaining merge-time check: 真实 E2E 仍需主 agent 在合并 F5/F6、确认菜单权限种子数据后运行。
