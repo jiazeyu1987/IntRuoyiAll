@@ -22,7 +22,7 @@
 
 ## Current Status
 
-blocked
+completed
 
 ## 设计约束检查
 
@@ -77,6 +77,8 @@ blocked
   `int_main=65d0a87e`；精确分叉为 `behind 8 / ahead 18`。
 - `git push origin int_main` 已被远端明确拒绝为 `non-fast-forward`。同期共享 Git 索引包含
   路线管理并行任务的 staged 文件，当前不能安全执行 merge/rebase 或新的任务提交。
+- `GREEN: 2026-07-30 21:38 +08:00 final push closeout`，并行任务完成远端合并后，本地
+  `int_main` 已普通推送到 `origin/int_main=79040df4`；最终 `ahead/behind=0/0`。
 
 ## Cleanup Keep
 

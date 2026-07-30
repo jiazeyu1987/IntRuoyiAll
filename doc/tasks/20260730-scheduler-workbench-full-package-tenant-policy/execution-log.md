@@ -90,3 +90,12 @@
 - Shared index blocker: 推送前状态显示路线管理并行任务已 staged
   `IntRuoyiFronted/src/views/mes/pro/route/index.vue`、相关 E2E 和任务文档；为避免提交或覆盖对方
   工作，不执行 pull、merge、rebase、reset、stash、取消暂存或 force push。
+- Final push closeout: 并行任务后续完成远端合并，`git rev-list --left-right --count origin/int_main...HEAD`
+  -> `0 22`，本地不再落后远端。
+- Final large-file preflight: 重新扫描 `origin/int_main..HEAD` -> PASS，最大 blob
+  `12,021,248` bytes，未超过 GitHub 100 MB 门禁。
+- Final port guard: `scripts/preflight/branch-runtime-port-guard.ps1` -> PASS。
+- Final push: `git -c http.version=HTTP/1.1 push origin int_main` -> PASS，
+  `65d0a87e..79040df4 int_main -> int_main`。
+- Final remote verification: `git rev-list --left-right --count origin/int_main...HEAD` -> `0 0`，
+  `git ls-remote origin refs/heads/int_main` -> `79040df4bc9e1ab9c4b437113a078602b17394df`。
