@@ -1,0 +1,60 @@
+{
+  "task_id": "20260730-process-pool-f5-f6-implementation",
+  "goal": "启动2个子agent分别在2个worktree里实现并验证F5/F6文档内容，主agent review后合并进int_main",
+  "status": "planning",
+  "current_stage": "analysis",
+  "planner_review_status": "approved",
+  "plan_review_status": "approved",
+  "blocking_prereqs": [],
+  "iteration_counts": {
+    "planner_revisions": 0,
+    "plan_revisions": 0,
+    "executor_loops": 0,
+    "test_loops": 0
+  },
+  "tasks": [
+    {
+      "task_id": "T1",
+      "title": "F5 审核副本上下限修正",
+      "status": "pending",
+      "dependency_ids": [],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes",
+        "IntRuoyiFronted/src/api/mes",
+        "IntRuoyiFronted/src/views/mes"
+      ],
+      "acceptance_ids": [
+        "AC-01",
+        "AC-02",
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-10"
+      ],
+      "owner_agent": "",
+      "last_outcome": ""
+    },
+    {
+      "task_id": "T2",
+      "title": "F6 原始记录 revision 与重新电子签名",
+      "status": "pending",
+      "dependency_ids": [],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes",
+        "IntRuoyiFronted/src/api/mes",
+        "IntRuoyiFronted/src/views/mes"
+      ],
+      "acceptance_ids": [
+        "AC-06",
+        "AC-07",
+        "AC-08",
+        "AC-09",
+        "AC-10"
+      ],
+      "owner_agent": "",
+      "last_outcome": ""
+    }
+  ],
+  "updated_at": "2026-07-30T00:00:00+08:00"
+}
+
