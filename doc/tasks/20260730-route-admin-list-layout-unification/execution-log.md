@@ -61,9 +61,14 @@ BDD: 权限边界保持不变 -> Given 普通用户缺少导入、导出、复�
 - 2026-07-30：`git push origin int_main` -> FAIL，远端先被并行任务推进，执行 `git fetch origin int_main` 与 `git merge --no-edit origin/int_main` 后无冲突。
 - 2026-07-30：重试 `git push origin int_main` -> FAIL，错误 `Recv failure: Connection was reset`；`git ls-remote --heads origin int_main` 同样连接重置；延迟 8 秒后再次 `git push origin int_main` 仍连接重置。
 - 2026-07-30：任务状态改回 `ready_for_closeout`，实现和验证完成，最终 completed 仅等待 GitHub HTTPS 连接恢复并成功推送。
+- 2026-07-30：网络诊断显示 `curl.exe -I https://github.com` 与 `Test-NetConnection github.com -Port 443` 均 PASS；`git config --show-origin --get-all http.https://github.com.proxy` 显示用户级 GitHub 代理为 `http://127.0.0.1:8902`。
+- 2026-07-30：`git -c http.https://github.com.proxy= ls-remote --heads origin int_main` -> PASS，确认连接重置来自本地 GitHub 代理链路。
+- 2026-07-30：推送前门禁复跑 `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS；待推送历史未发现超过 100MB blob。
+- 2026-07-30：`git -c http.https://github.com.proxy= push origin int_main` -> PASS，将 `42435cc8..ea89f484` 推送到 `origin/int_main`。
+- 2026-07-30：当前任务文档更新为 `completed`，待最终 closeout 文档提交并用同样临时代理覆盖推送。
 
 ## Closeout
 
 - 原 ahead/behind 已通过合并 `origin/int_main` 解决，合并后本任务关键验证全部通过。
-- 当前 closeout blocker：GitHub HTTPS 连接持续重置，无法完成 `git push origin int_main`。
-- 本任务实现没有未解决 blocker；最终 completed 仅等待网络恢复后推送成功。
+- GitHub 推送已通过临时清空当前命令的 `http.https://github.com.proxy` 完成，未修改永久 Git 配置。
+- 本任务没有未解决 blocker，最终状态为 `completed`。

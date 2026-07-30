@@ -10,7 +10,7 @@
 2. `completed`：编写 RED 静态合同，锁定统一字段集合和权限边界。
 3. `completed`：实现 admin 默认字段布局并升级列表配置 key，保留后续个人字段配置能力。
 4. `completed`：运行目标静态合同、相邻列配置合同、TypeScript 类型检查和 Chrome/Edge 真实只读 E2E。
-5. `ready_for_closeout`：完成经验沉淀、cleanup、选择性提交、远端合并和复验；最终推送当前被 GitHub HTTPS 连接重置阻塞。
+5. `completed`：完成经验沉淀、cleanup、选择性提交、远端合并、复验和最终推送。
 
 ## Expected Verification
 
@@ -34,13 +34,13 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
-## Closeout Blocker
+## Closeout Result
 
-- `git push origin int_main` 连续失败，错误为 `Recv failure: Connection was reset`；`git ls-remote --heads origin int_main` 也因同一连接重置失败。
-- 影响：本地实现、验证、合并和收尾提交已完成，但当前分支仍领先 `origin/int_main`，任务不能标记为最终 completed。
-- 后续动作：网络恢复后重新执行 `git push origin int_main`，再用 `git status --short --branch` 确认不再 ahead。
+- `git -c http.https://github.com.proxy= push origin int_main` -> PASS，已将本地提交推送到 `origin/int_main`。
+- 推送后 `git status --short --branch` -> `## int_main...origin/int_main`，本地分支不再 ahead。
+- 说明：失败根因是用户级 GitHub 代理 `http://127.0.0.1:8902` 连接重置；本次仅对当前命令临时清空该代理参数，未修改永久 Git 配置。
 
 ## 设计约束检查
 

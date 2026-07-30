@@ -40,5 +40,6 @@ PASS，工艺路线列表已统一为“芋道源码 / admin”默认列布局�
 - 实现提交：`c786123f`。
 - 远端合并提交：`79040df4`。
 - 合并后复验：目标静态合同、相邻合同、全局列配置合同、`pnpm ts:check`、Chrome/Edge 真实只读 E2E 均 PASS。
-- 当前推送阻塞：`git push origin int_main`、`git ls-remote --heads origin int_main` 和延迟后的再次 push 均因 `Recv failure: Connection was reset` 失败。
-- 当前任务状态：`ready_for_closeout`；实现和验证 PASS，最终 completed 等待 GitHub HTTPS 连接恢复并成功推送。
+- 推送阻塞解除：用户级 GitHub 代理 `http://127.0.0.1:8902` 导致 Git 连接重置；本次仅对当前 Git 命令使用 `-c http.https://github.com.proxy=` 临时绕过，未修改永久配置。
+- `git -c http.https://github.com.proxy= push origin int_main` -> PASS，已推送到 `origin/int_main`。
+- 当前任务状态：`completed`。
