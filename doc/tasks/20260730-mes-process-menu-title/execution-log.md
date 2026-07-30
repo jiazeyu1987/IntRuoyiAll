@@ -36,7 +36,8 @@
   - `validate_frontend_feature.py` -> PASS。
   - `validate_bug_regression.py` -> PASS。
 - Cleanup preview: keep `task.md`、`execution-log.md`、`verification-report.md`；delete 两份临时 evidence、两份一次性 E2E/诊断脚本和任务截图目录；blocked=0，warnings=0。
+- Cleanup apply: PASS；已删除 preview 中列出的任务自有临时文件，三份正式任务记录保留。
 - Shared branch note:
   - 实现文件被并行基线提交 `0809cd858ef66348fcf3a21ed4994d0c993e6a2f` 带入；该提交同时包含无关 eDHR 页签改动，未改写历史。
   - 初始任务文档被并行基线提交 `ca088c6d2d1f86b9dbc366f198592d0294fcace7` 带入。
-- Current status: ready_for_closeout。
+- Current status: completed。
