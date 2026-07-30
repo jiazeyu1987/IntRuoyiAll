@@ -1,8 +1,8 @@
 {
   "task_id": "20260730-process-pool-f5-f6-implementation",
   "goal": "启动2个子agent分别在2个worktree里实现并验证F5/F6文档内容，主agent review后合并进int_main",
-  "status": "completed",
-  "current_stage": "completed",
+  "status": "blocked",
+  "current_stage": "remote_push",
   "planner_review_status": "approved",
   "plan_review_status": "approved",
   "blocking_prereqs": [],
@@ -56,7 +56,8 @@
     }
   ],
   "known_gaps": [
-    "Real Playwright write-path E2E was not claimed: current frontend has no test:e2e script, the named test runner does not recognize process-pool-review-copy-and-revision.spec.ts, and that spec file is absent."
+    "Real Playwright write-path E2E was not claimed: current frontend has no test:e2e script, the named test runner does not recognize process-pool-review-copy-and-revision.spec.ts, and that spec file is absent.",
+    "Final git push is blocked: git push origin int_main and git ls-remote --heads origin int_main both fail with Recv failure: Connection was reset."
   ],
   "closeout": {
     "cleanup_preview": "PASS, no delete/blocker/warnings",

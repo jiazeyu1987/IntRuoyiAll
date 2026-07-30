@@ -2,7 +2,7 @@
 
 ## Status
 
-completed_with_e2e_prereq_gap
+blocked_on_remote_push_with_e2e_prereq_gap
 
 ## Evidence
 
@@ -38,3 +38,7 @@ completed_with_e2e_prereq_gap
   - cleanup preview/apply -> PASS, no deletes, no blockers, no warnings.
   - task worktrees `20260730-process-pool-f5-review-copy` and `20260730-process-pool-f6-event-revision` removed with `git worktree remove`.
   - port registry entries for slots `16` and `17` marked inactive.
+- Remote push blocker:
+  - `git push origin int_main` -> FAIL twice, `Recv failure: Connection was reset`.
+  - `git ls-remote --heads origin int_main` -> FAIL, `Recv failure: Connection was reset`.
+  - Local `int_main` remains ahead of `origin/int_main`; task cannot be marked completed under project push policy until the remote is reachable and push succeeds.

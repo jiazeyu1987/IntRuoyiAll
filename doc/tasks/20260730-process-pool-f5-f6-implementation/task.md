@@ -39,11 +39,13 @@
 
 ## Current Status
 
-completed
+blocked_remote_push
 
 F5/F6 子 worktree 已完成主审修正并融合进 `int_main`。F5/F6 后端主链、正式写入口、前端独立 API wrapper 和时间轴只读追溯已通过合并后复验；主审额外发现并修复了时间轴审核副本一对多 JOIN 导致事件重复展开的风险。cleanup preview/apply 已完成，两个任务 worktree 已删除，端口槽位已释放。
 
 真实写路径 E2E 未声明通过：当前前端缺少 `test:e2e` 脚本、缺少 `process-pool-review-copy-and-revision.spec.ts`，且 F5/F6 本轮只交付独立 API wrapper 和只读时间轴展示，未新建审核副本/原始记录修改页面入口。若需要页面级闭环，应作为后续已批准 UI/E2E 任务处理。
+
+阻塞项：`git push origin int_main` 两次失败，`git ls-remote --heads origin int_main` 也失败，错误均为 `Recv failure: Connection was reset`。按项目规则，在远端不可访问且本地仍 ahead 时不能标记任务 completed。
 
 ## 设计约束检查
 

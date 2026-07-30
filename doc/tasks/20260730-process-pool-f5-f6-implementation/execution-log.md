@@ -201,4 +201,12 @@
 - Registry update: `D:\IntRuoyiWorktree\.ports\worktree-ports.json` entries `20260730-process-pool-f5-review-copy` and `20260730-process-pool-f6-event-revision` marked `active=false`, `deletedAt=2026-07-30T10:24:06+08:00`, `cleanupTask=20260730-process-pool-f5-f6-implementation`.
 - Registry verification: both task worktree directories returned `False` for `Test-Path`; `git worktree list` no longer includes them.
 - GREEN: `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS, branch runtime ports `int_main` frontend `8081`, backend `48081`.
-- Final status before push: task marked `completed`; current branch still needs final closeout commit and `git push origin int_main`.
+- Final status before push attempt: closeout evidence had been recorded locally; current branch still needed final closeout commit and `git push origin int_main`.
+
+## 2026-07-30 Remote Push Blocker
+
+- Commit: `c20e0918 docs: close process pool F5 F6 task` created final closeout record; commit hook ran `scripts\preflight\branch-runtime-port-guard.ps1` -> PASS.
+- Push attempt 1: `git push origin int_main` -> FAIL, `fatal: unable to access 'https://github.com/jiazeyu1987/IntRuoyiAll.git/': Recv failure: Connection was reset`.
+- Push attempt 2: `git push origin int_main` -> FAIL with the same `Recv failure: Connection was reset`.
+- Remote probe: `git ls-remote --heads origin int_main` -> FAIL with the same `Recv failure: Connection was reset`.
+- Impact: current local `int_main` remains ahead of `origin/int_main`; under project push policy the task is blocked on remote connectivity and cannot be marked completed until push succeeds.
