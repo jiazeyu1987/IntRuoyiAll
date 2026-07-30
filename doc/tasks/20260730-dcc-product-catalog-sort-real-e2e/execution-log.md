@@ -32,3 +32,4 @@
 - Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-dcc-product-catalog-sort-real-e2e --mode preview` -> PASS，keep 仅包含 `task.md`、`execution-log.md`、`verification-report.md`，delete 为临时 E2E 脚本、artifacts、运行日志和 JVM crash/replay 文件，blocked/warnings 为空。
 - Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-dcc-product-catalog-sort-real-e2e --mode apply` -> PASS，临时文件已删除。
 - Final status: `task.md` 已更新为 `completed`。
+- Closeout commit: `e8d15dd7 docs: record DCC product catalog sort E2E`，文件清单为本任务 3 个任务文档和 `docs/e2e-rules.md`、`docs/experience-index.md`。
