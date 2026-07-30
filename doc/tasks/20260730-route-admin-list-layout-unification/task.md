@@ -10,7 +10,7 @@
 2. `completed`：编写 RED 静态合同，锁定统一字段集合和权限边界。
 3. `completed`：实现 admin 默认字段布局并升级列表配置 key，保留后续个人字段配置能力。
 4. `completed`：运行目标静态合同、相邻列配置合同、TypeScript 类型检查和 Chrome/Edge 真实只读 E2E。
-5. `completed`：完成经验沉淀、cleanup、选择性提交、远端合并、复验和推送前收尾。
+5. `ready_for_closeout`：完成经验沉淀、cleanup、选择性提交、远端合并和复验；最终推送当前被 GitHub HTTPS 连接重置阻塞。
 
 ## Expected Verification
 
@@ -34,7 +34,13 @@
 
 ## Current Status
 
-completed
+ready_for_closeout
+
+## Closeout Blocker
+
+- `git push origin int_main` 连续失败，错误为 `Recv failure: Connection was reset`；`git ls-remote --heads origin int_main` 也因同一连接重置失败。
+- 影响：本地实现、验证、合并和收尾提交已完成，但当前分支仍领先 `origin/int_main`，任务不能标记为最终 completed。
+- 后续动作：网络恢复后重新执行 `git push origin int_main`，再用 `git status --short --branch` 确认不再 ahead。
 
 ## 设计约束检查
 
