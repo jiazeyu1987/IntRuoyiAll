@@ -493,6 +493,8 @@ And 不得把班组配置变成一线提交硬拦截
 
 ## Open Questions
 
+初始定义和编号见 `docs/acceptance/production-line-process-pool/open-questions-blockers.md`；BDD 场景中涉及未冻结口径时，应引用对应 OQ 编号。
+
 - 组合提交采用新增接口还是扩展现有 `createFeedback/updateFeedback/submitFeedback`。
 - 工序池归集维度是否包含产品、物料、批号、班次、质量状态、工作站等字段。
 - 设备账号绑定路线、工序绑定员工、员工工序模板绑定的正式配置入口。
@@ -525,6 +527,8 @@ And 不得把班组配置变成一线提交硬拦截
 - 设备参数上下限按工序设备和模板字段维护；一线原始超限值仍提交并留痕。
 
 ## Test Blockers
+
+初始定义和解除条件见 `docs/acceptance/production-line-process-pool/open-questions-blockers.md`；测试执行日志中遇到阻塞时，应引用对应 BLK 编号。
 
 - 缺少新增正式工序池模型和工序池提交事件模型。
 - 缺少电子签名正式接口和签名员工校验契约。

@@ -123,6 +123,8 @@
 
 ## Open Questions
 
+初始定义和编号见 `docs/acceptance/production-line-process-pool/open-questions-blockers.md`。本节保留当前线程证据中抽取出的原始待确认项。
+
 - 工序池按照哪些维度归集和消耗。
 - 新增工序池与现有报工余量池之间是否需要同步可分配余量，以及同步触发条件、字段映射和回滚规则。
 - 工序池提交事件的电子签名来源、签名场景和签名原因是否复用现有电子签名能力。
@@ -171,6 +173,8 @@
 - 压力泵设备编码初始定义：斜杠设备编码先按候选设备处理，提交时选择实际设备；数量冲突和孤立产能值不自动导入正式主数据。
 
 ## Blockers
+
+初始定义和解除条件见 `docs/acceptance/production-line-process-pool/open-questions-blockers.md`。本节保留证据清单中的阻塞摘要；开发任务应引用 BLK 编号。
 
 - 缺少工序池维度定义，无法完成工序池模型设计。
 - 缺少固定 UI 模板清单，无法完成一线填报页面和模板接口设计。

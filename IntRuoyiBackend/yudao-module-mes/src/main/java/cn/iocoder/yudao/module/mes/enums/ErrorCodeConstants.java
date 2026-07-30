@@ -1043,6 +1043,20 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_SIGNATURE_DUPLICATE = new ErrorCode(1_040_760_204,
             "工序池审核副本电子签名已存在：{}");
 
+    // ========== MES 工序池班组长工作台（1-040-760-300） ==========
+    ErrorCode PRO_PROCESS_POOL_TEAM_SCOPE_DENIED = new ErrorCode(1_040_760_300,
+            "班组长不在该员工或工序的负责范围内");
+    ErrorCode PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED = new ErrorCode(1_040_760_301,
+            "班组长工作台缺少负责范围上下文：{}");
+    ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_STATUS_INVALID = new ErrorCode(1_040_760_302,
+            "班组长复核状态无效：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_EMPLOYEE_BINDING_NOT_EXISTS = new ErrorCode(1_040_760_303,
+            "班组员工绑定不存在：{}");
+    ErrorCode PRO_PROCESS_POOL_DEFECT_REASON_REQUIRED = new ErrorCode(1_040_760_304,
+            "不良原因缺少必填字段：{}");
+    ErrorCode PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID = new ErrorCode(1_040_760_305,
+            "设备参数上下限无效，下限不能大于上限：{}");
+
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_MULTI_VERSION = new ErrorCode(1_040_107_006, "ERP 涓墿鏂?浜у搧缂栫爜 {} 鍛戒腑浜嗗涓凡瀹℃牳 BOM 鐗堟湰锛歿}");
