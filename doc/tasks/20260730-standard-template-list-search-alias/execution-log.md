@@ -14,15 +14,23 @@
 - Skill loaded: `bug-regression-fix-loop`
 - Trigger docs read: `docs/frontend-development.md`, `docs/backend-development.md`, `docs/database-rules.md`, `docs/local-runtime.md`, `docs/task-closeout-rules.md`, `docs/powershell-encoding.md`, `docs/worktree-restrictions.md`
 - Bug contract loaded: `C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\references\bug-contract.md`
+- Experience index read: `docs\experience-index.md`; applied dynamic menu rename, Chinese menu HEX, static contract isolation, local Maven blocker gates.
 
 ## RED
 
-- Pending.
+- `node tests\e2e\mes-pro-mes-process-readonly-static.spec.js` -> FAIL，预期原因：搜索组件缺少 `ROUTER_SEARCH_ALIASES`，旧关键词 `mes工序` 不能匹配改名后的“标准模板列表”。
+- `mvn.cmd -pl yudao-module-mes -am "-DskipTests" test-compile` -> FAIL，预期原因：过时测试 `MesProMesProcessCatalogSchemaTest` 引用不存在的 `cn.iocoder.yudao.module.mes.dal.dataobject.pro.mesprocess` 包。
 
 ## GREEN
 
-- Pending.
+- `node tests\e2e\mes-pro-mes-process-readonly-static.spec.js` -> PASS。
+- `mvn.cmd -pl yudao-module-mes -am "-DskipTests" test-compile` -> PASS。
+- `node tests\e2e\mes-pro-route-resource-orphan-static.spec.js` -> PASS。
+- `node tests\e2e\mes-route-mes-process-tab-static.spec.js` -> PASS。
+- `python -X utf8 IntRuoyiBackend\script\release\run-release-migration-policy-gate.py --sql-root IntRuoyiBackend\sql\mysql --sql-file IntRuoyiBackend\sql\mysql\20260512_mes_base_schema.sql --sql-file IntRuoyiBackend\sql\mysql\20260709_mes_route_process_flow_graph.sql --sql-file IntRuoyiBackend\sql\mysql\20260709_mes_route_flow_config_unification.sql --sql-file IntRuoyiBackend\sql\mysql\20260730_mes_process_readonly_catalog_menu.sql --output doc\tasks\20260730-standard-template-list-search-alias\migration-policy-gate.json` -> PASS。
+- `pnpm ts:check` -> PASS。
+- 真实只读页面验证：本机 Chrome + Playwright，`芋道源码/admin` 登录后在顶部菜单搜索输入 `mes工序`，结果包含 `标准模板列表/mes/pro/mes-process`，未出现 `系统异常`。
 
 ## Blockers
 
-- Pending inspection.
+- Closeout blocker: 当前分支被并行任务推进到 `ahead 8`，且剩余脏改动为非本任务文件；本任务不执行提交/推送，避免混入并行任务内容。

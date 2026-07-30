@@ -21,7 +21,25 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
+
+## Applicable Gates
+
+- 动态菜单页签重命名门禁：入口主标题保持“标准模板列表”，不把业务列名“MES工序名称 / MES工序编码”扩大改名。
+- 前端静态契约隔离门禁：用 `mes-pro-mes-process-readonly-static.spec.js` 覆盖本次搜索别名与只读页面契约。
+- 中文菜单名称 ASCII 安全迁移门禁：菜单 SQL 仍使用 `CONVERT(UNHEX(... ) USING utf8mb4)`，并用依赖链 migration policy gate 复验。
+- 本地后端 Maven test-compile blocker 门禁：过时独立目录测试引用不存在包时必须移除冲突测试，不能用跳过 test-compile 代替修复。
+
+## Verification Summary
+
+- `node tests\e2e\mes-pro-mes-process-readonly-static.spec.js`：RED 命中缺少 `ROUTER_SEARCH_ALIASES`，GREEN 后 PASS。
+- `mvn.cmd -pl yudao-module-mes -am "-DskipTests" test-compile`：RED 命中 `MesProMesProcessCatalogSchemaTest` 不存在包，移除过时测试后 PASS。
+- 真实只读 Playwright 路径：`芋道源码/admin` 登录后搜索 `mes工序`，返回 `标准模板列表/mes/pro/mes-process`。
+- `pnpm ts:check`、相邻静态契约和菜单 migration policy gate 均 PASS。
+
+## Closeout Blocker
+
+- 当前 `int_main` 分支已有并行任务提交推进到 `ahead 8`，且仍有非本任务脏改动；本任务不执行提交/推送，避免混入并行任务文件。
 
 ## 设计约束检查
 

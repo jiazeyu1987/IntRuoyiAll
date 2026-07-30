@@ -76,11 +76,11 @@
 
 ### 工艺路线跨租户导入导出数据包完整性门禁
 
-- Trigger: 删除测试租户工艺路线后从其它租户导入、跨租户验证 `export-import-xlsx` / `import-workbook-xlsx`、或导入报 `工序BOM ... 工序编码 不能为空`、`工艺路线导入导出 Excel`。
-- Preflight check: 在清空目标租户前，先用源租户正式导出接口生成 Excel，并只读校验所有必需 Sheet 的必填字段；尤其核对 `工序BOM.工序编码` 非空，且源库 `mes_pro_route_product_bom.process_id` 能解析到同租户未删除的 `mes_pro_process`，必要时同时确认该工序属于当前路线工序集合。
-- Blocker: 导出工作簿任一必填字段为空、源 BOM `process_id` 为 `0/NULL` 或无法解析正式工序、源/目标主数据编码缺失、目标租户已清空但导入失败，必须停止并记录；不得继续宣称一致性已验证。
-- Verification: 记录源/目标租户 ID、导出文件路径和字节数、工作簿 Sheet 行数、源异常 BOM 明细、正式导入接口响应，以及失败后目标租户路线相关表是否出现部分写入。
-- Forbidden action: 禁止手工删除 Excel 中失败行、随机补工序编码、把 `process_id=0` 推断成首工序、改用 API-only 或直接 SQL 伪造导入成功；若目标已清空，不得擅自恢复或继续修改源数据，必须先让用户在“修复源数据后重试”和“按备份恢复目标租户”之间确认。
+- Trigger: 删除测试租户工艺路线后从其它租户导入、跨租户验证 `export-import-xlsx` / `import-workbook-xlsx`、或导入报 `工序BOM ... 工序编码 不能为空`、`工艺路线导入导出 Excel`、`工艺路线必须要有关键工序`。
+- Preflight check: 在清空目标租户前，先用源租户正式导出接口生成 Excel，并只读校验所有必需 Sheet 的必填字段；尤其核对 `工序BOM.工序编码` 非空，且源库 `mes_pro_route_product_bom.process_id` 能解析到同租户未删除的 `mes_pro_process`，必要时同时确认该工序属于当前路线工序集合；启用路线还必须核对当前 `mes_pro_route_process.key_flag` 恰好 1 个，且 ACTIVE/DRAFT 关系图快照若存在也必须有且仅有一个布尔型 `keyFlag=true`。
+- Blocker: 导出工作簿任一必填字段为空、源 BOM `process_id` 为 `0/NULL` 或无法解析正式工序、源/目标主数据编码缺失、启用路线当前表或最新关系图快照缺少关键工序/存在多个关键工序、目标租户已清空但导入失败，必须停止并记录；不得继续宣称一致性已验证。
+- Verification: 记录源/目标租户 ID、导出文件路径和字节数、工作簿 Sheet 行数、源异常 BOM 明细、关键工序计数与 END/末道节点证据、正式导入接口响应，以及失败后目标租户路线相关表是否出现部分写入。
+- Forbidden action: 禁止手工删除 Excel 中失败行、随机补工序编码、把 `process_id=0` 推断成首工序、把缺失关键工序默认为首工序、改用 API-only 或直接 SQL 伪造导入成功；若目标已清空，不得擅自恢复或继续修改源数据，必须先让用户在“修复源数据后重试”和“按备份恢复目标租户”之间确认。
 - Evidence: `doc/tasks/20260730-route-tenant-export-import-consistency/execution-log.md`。
 
 ## 租户和菜单权限

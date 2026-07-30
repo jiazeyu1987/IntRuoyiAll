@@ -11,6 +11,8 @@ The DCC product catalog toolbar no longer renders the highlighted `重置` and `
 - REGRESSION: `node tests/e2e/dcc-basic-data-product-catalog-static.spec.js` -> PASS.
 - TYPECHECK: `pnpm ts:check` -> PASS.
 - STATIC: `git diff --check -- <task-owned files>` -> PASS.
+- CLEANUP PREVIEW: `task_closeout.py --task-id 20260730-dcc-product-catalog-remove-toolbar-buttons --mode preview` -> ready, no delete/block/warnings.
+- CLEANUP APPLY: `task_closeout.py --task-id 20260730-dcc-product-catalog-remove-toolbar-buttons --mode apply` -> applied, no deleted paths.
 
 ## Result
 

@@ -102,7 +102,13 @@
 
       <footer class="frontline-submit-bar">
         <span>{{ statusText }}</span>
-        <el-button type="primary" size="large" :loading="payloadLoading" @click="handleValidate">
+        <el-button
+          type="primary"
+          size="large"
+          :loading="payloadLoading"
+          :disabled="isSubmitBlocked"
+          @click="handleValidate"
+        >
           提交
         </el-button>
       </footer>
@@ -162,9 +168,9 @@
 
         <section class="frontline-work-panel">
           <h3>设备参数</h3>
-          <div v-if="selectedDeviceCards.length" class="frontline-device-grid">
+          <div v-if="visibleDeviceCards.length" class="frontline-device-grid">
             <label
-              v-for="device in selectedDeviceCards"
+              v-for="device in visibleDeviceCards"
               :key="device.key"
               class="frontline-device-card"
             >
@@ -182,7 +188,13 @@
 
       <footer class="frontline-submit-bar">
         <span>{{ statusText }}</span>
-        <el-button type="primary" size="large" :loading="payloadLoading" @click="handleValidate">
+        <el-button
+          type="primary"
+          size="large"
+          :loading="payloadLoading"
+          :disabled="isSubmitBlocked"
+          @click="handleValidate"
+        >
           提交
         </el-button>
       </footer>
@@ -239,6 +251,10 @@ import {
 type PickerType = 'process' | 'employee'
 type InspectionType = 'FIRST' | 'PATROL' | 'FINAL'
 
+const props = withDefaults(defineProps<{ mode?: 'production' | 'pqc' }>(), {
+  mode: 'production'
+})
+
 const message = useMessage()
 const router = useRouter()
 const route = useRoute()
@@ -248,9 +264,16 @@ const payloadLoading = ref(false)
 const payloadPreview = ref<FrontlineTemplatePayloadVO>()
 const activePicker = ref<PickerType>()
 const deviceState = reactive(createFrontlineDeviceEmployeeState())
+const employeeTemplateCode = ref<FrontlineTemplateCode>()
+
+const expectedTemplateCode = computed<FrontlineTemplateCode>(() =>
+  props.mode === 'pqc'
+    ? FRONTLINE_TEMPLATE_CODES.PQC_SIMPLIFIED
+    : FRONTLINE_TEMPLATE_CODES.PRODUCTION_SIMPLIFIED
+)
 
 const context = reactive<FrontlineTemplateContext>({
-  templateCode: FRONTLINE_TEMPLATE_CODES.PRODUCTION_SIMPLIFIED
+  templateCode: expectedTemplateCode.value
 })
 
 const draft = reactive<FrontlineTemplateDraft>({
@@ -288,11 +311,27 @@ const productionOrderLabel = computed(() =>
   firstRouteQueryText(['productionOrderCode', 'workOrderCode', 'orderCode']) || '未选择订单'
 )
 
-const isPqcMode = computed(() => context.templateCode === FRONTLINE_TEMPLATE_CODES.PQC_SIMPLIFIED)
+const isPqcMode = computed(() => props.mode === 'pqc')
 
 const selectedProcessLabel = computed(() => formatProcessLabel(deviceState.selectedProcess))
 
 const selectedEmployeeLabel = computed(() => formatEmployeeLabel(deviceState.selectedEmployee))
+
+const templateModeMismatch = computed(() =>
+  Boolean(employeeTemplateCode.value && employeeTemplateCode.value !== expectedTemplateCode.value)
+)
+
+const templateBindingMissing = computed(() =>
+  Boolean(deviceState.selectedEmployee && !employeeTemplateCode.value)
+)
+
+const isSubmitBlocked = computed(() =>
+  payloadLoading.value ||
+  templateModeMismatch.value ||
+  templateBindingMissing.value ||
+  !deviceState.selectedProcess ||
+  !deviceState.selectedEmployee
+)
 
 const statusText = computed(() => {
   if (deviceState.lastError) {
@@ -303,6 +342,12 @@ const statusText = computed(() => {
   }
   if (!deviceState.selectedEmployee) {
     return '请选择员工'
+  }
+  if (templateBindingMissing.value) {
+    return '当前员工缺少一线填写模板'
+  }
+  if (templateModeMismatch.value) {
+    return `当前员工绑定的是${formatTemplateName(employeeTemplateCode.value)}，请切换${formatTemplateName(expectedTemplateCode.value)}员工`
   }
   return '准备提交'
 })
@@ -329,12 +374,11 @@ const selectedDeviceCards = computed(() => {
       key: String(process.deviceId),
       label: process.deviceName || process.deviceCode || `设备 ${cards.length + 1}`
     })
-    if (cards.length >= 3) {
-      break
-    }
   }
   return cards
 })
+
+const visibleDeviceCards = computed(() => selectedDeviceCards.value.slice(0, 3))
 
 const pickerOptions = computed(() => {
   if (activePicker.value === 'process') {
@@ -357,6 +401,16 @@ const pickerOptions = computed(() => {
 })
 
 const frontlineContextKey = computed(() => resolveFrontlineContextKey(context))
+
+watch(
+  expectedTemplateCode,
+  (templateCode) => {
+    context.templateCode = templateCode
+    Object.assign(draft.fieldValues, createFrontlineDefaultValues(templateCode))
+    payloadPreview.value = undefined
+  },
+  { flush: 'sync' }
+)
 
 watch(
   frontlineContextKey,
@@ -395,6 +449,7 @@ const handleHome = () => {
 const handleSelectProcess = async (process: FrontlineDeviceRouteProcessVO) => {
   await selectFrontlineProcess(deviceState, process)
   applyProcessToContext(process)
+  employeeTemplateCode.value = undefined
   const firstEmployee = deviceState.employeeOptions[0]
   if (firstEmployee) {
     await handleSelectEmployee(firstEmployee)
@@ -406,13 +461,21 @@ const handleSelectEmployee = async (employee: FrontlineEmployeeCandidateVO) => {
   const result = await switchFrontlineActualEmployee(deviceState, employee.userId)
   context.actualEmployeeId = result.actualEmployeeId
   const templateCode = resolveTemplateCode(result.template?.templateNo, result.template?.templateType)
-  if (templateCode) {
-    context.templateCode = templateCode
-  }
+  employeeTemplateCode.value = templateCode
   closePicker()
 }
 
 const handleValidate = async () => {
+  if (templateBindingMissing.value) {
+    const error = new Error('当前员工缺少一线填写模板，无法提交。')
+    message.error(error.message)
+    throw error
+  }
+  if (templateModeMismatch.value) {
+    const error = new Error(statusText.value)
+    message.error(error.message)
+    throw error
+  }
   if (isPqcMode.value) {
     const error = new Error('PQC 详细检验内容尚未纳入正式模板字段，无法按正式 payload 提交。')
     message.error(error.message)
@@ -456,11 +519,11 @@ const assertFormalPayloadContext = () => {
 const buildProductionFieldValues = () => ({
   [FRONTLINE_FIELD_CODES.PREVIOUS_PROCESS_INPUT_QUANTITY]:
     productionDraft.previousProcessInputQuantity,
-  [FRONTLINE_FIELD_CODES.DEVICE]: selectedDeviceCards.value.length
-    ? selectedDeviceCards.value.map((device) => device.label).join('、')
+  [FRONTLINE_FIELD_CODES.DEVICE]: visibleDeviceCards.value.length
+    ? visibleDeviceCards.value.map((device) => device.label).join('、')
     : '无设备',
   [FRONTLINE_FIELD_CODES.DEVICE_PARAMETERS]: Object.fromEntries(
-    selectedDeviceCards.value.map((device) => [device.label, deviceParameterDraft[device.key] || ''])
+    visibleDeviceCards.value.map((device) => [device.label, deviceParameterDraft[device.key] || ''])
   ),
   [FRONTLINE_FIELD_CODES.OUTPUT_QUANTITY]: productionDraft.outputQuantity,
   [FRONTLINE_FIELD_CODES.SCRAP_QUANTITY]: productionDraft.scrapQuantity
@@ -479,9 +542,8 @@ const hydrateContextFromRoute = () => {
   context.processId = firstRouteQueryNumber(['processId']) ?? context.processId
   context.actualEmployeeId = firstRouteQueryNumber(['actualEmployeeId']) ?? context.actualEmployeeId
   const queryTemplateCode = resolveTemplateCode(firstRouteQueryText(['templateCode', 'templateNo']))
-  if (queryTemplateCode) {
-    context.templateCode = queryTemplateCode
-  }
+  employeeTemplateCode.value = queryTemplateCode
+  context.templateCode = expectedTemplateCode.value
 }
 
 const firstRouteQueryText = (keys: string[]) => {
@@ -545,6 +607,16 @@ const formatEmployeeLabel = (employee?: FrontlineEmployeeCandidateVO) => {
     return '未选择'
   }
   return employee.nickname || employee.username || String(employee.userId)
+}
+
+const formatTemplateName = (templateCode?: FrontlineTemplateCode) => {
+  if (templateCode === FRONTLINE_TEMPLATE_CODES.PQC_SIMPLIFIED) {
+    return 'PQC填写'
+  }
+  if (templateCode === FRONTLINE_TEMPLATE_CODES.PRODUCTION_SIMPLIFIED) {
+    return '生产填写'
+  }
+  return '未知模板'
 }
 
 const resolveErrorMessage = (error: unknown) => {

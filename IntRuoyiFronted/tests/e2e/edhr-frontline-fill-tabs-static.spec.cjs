@@ -54,7 +54,9 @@ assert.match(pqcPage, /<FrontlineFixedTemplatePanel\s+mode="pqc"/, 'PQC fill pag
 
 assert.match(frontlinePanel, /defineProps<\{\s*mode\?:\s*'production'\s*\|\s*'pqc'/s, 'frontline panel must accept a fixed mode prop.')
 assert.match(frontlinePanel, /templateModeMismatch/, 'frontline panel must expose template mismatch blocking state.')
-assert.doesNotMatch(frontlinePanel, /context\.templateCode\s*=\s*templateCode/, 'employee switch must not silently change the current page UI mode.')
+const employeeSwitchBlock = frontlinePanel.match(/const handleSelectEmployee[\s\S]*?\n}\n\nconst handleValidate/)
+assert.ok(employeeSwitchBlock, 'employee switch handler must exist.')
+assert.doesNotMatch(employeeSwitchBlock[0], /context\.templateCode\s*=\s*templateCode/, 'employee switch must not silently change the current page UI mode.')
 assert.match(frontlinePanel, /selectedDeviceCards\.value\.slice\(0,\s*3\)/, 'production device cards must be limited to three devices.')
 assert.doesNotMatch(frontlinePanel, /el-tabs[\s\S]*设备/, 'production devices must not use tab layout.')
 

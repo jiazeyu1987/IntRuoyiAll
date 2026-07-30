@@ -10,7 +10,7 @@ Remove the two DCC product catalog toolbar buttons highlighted by the user: `重
 - [x] M2: Record BDD scenario and RED expectation for the toolbar removal.
 - [x] M3: Remove the two buttons from the product catalog action toolbar and update static contracts.
 - [x] M4: Run focused verification and record evidence.
-- [ ] M5: Close out with task evidence, cleanup, commits, and push.
+- [x] M5: Close out with task evidence, cleanup, commits, and push.
 
 ## Expected Verification
 
@@ -21,7 +21,7 @@ Remove the two DCC product catalog toolbar buttons highlighted by the user: `重
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Applicable Gates
 
@@ -40,6 +40,15 @@ ready_for_closeout
 - `d2f2ec65`：baseline dirty worktree before this DCC button task.
 - `f9be0387`：baseline residual MES process static contract that appeared after the first baseline.
 - `4158334f`：a concurrent/shared-branch baseline captured this task's DCC implementation and task docs together with unrelated non-DCC files before this task could create its own implementation commit.
+
+## Final Verification
+
+- `node tests/e2e/dcc-product-catalog-unified-list-template-static.spec.js` -> PASS.
+- `node tests/e2e/dcc-basic-data-product-catalog-static.spec.js` -> PASS.
+- `pnpm ts:check` -> PASS.
+- `git diff --check -- <task-owned files>` -> PASS.
+- `task_closeout.py --task-id 20260730-dcc-product-catalog-remove-toolbar-buttons --mode preview` -> ready, no delete/block/warnings.
+- `task_closeout.py --task-id 20260730-dcc-product-catalog-remove-toolbar-buttons --mode apply` -> applied, no deleted paths.
 
 ## Cleanup Keep
 

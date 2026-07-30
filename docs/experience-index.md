@@ -65,6 +65,7 @@
 - Keywords: pnpm test:e2e 缺失, ERR_PNPM_NO_SCRIPT, named target unknown, process-pool-review-copy-and-revision.spec.ts, E2E 脚本入口缺失, 静态合同不能冒充真实 E2E, 写入型用户路径页面入口缺失, 只有 API wrapper 不能算页面验收 -> `docs/e2e-rules.md#e2e-脚本入口存在性门禁`
 - Keywords: PowerShell Maven -D, -Dsurefire.failIfNoSpecifiedTests, -Dtest, Unknown lifecycle phase, 目标 JUnit 加引号 -> `docs/powershell-memory.md#powershell-maven--d-参数引号门禁`
 - Keywords: IncrementalBuildHelper.beforeRebuildExecution, WinNTFileSystem.delete0, Windows Maven 增量输出删除卡住, Maven 无 surefire 报告, 仅停止任务自有 Maven PID -> `docs/backend-development.md#2026-07-27-windows-maven-增量输出删除卡住门禁`
+- Keywords: 共享分支并发基线提交, concurrent baseline commit, 最近提交不是当前任务, git show --name-status -1 包含当前任务文件, 当前任务改动被基线吞入, 严格任务独立提交 -> `docs/powershell-memory.md#共享分支并发基线提交门禁`
 - Keywords: 同文件并行改动, mixed hunks, selective staging, git apply --cached, 选择性暂存, 本任务 hunks, 并行改动未混入 -> `docs/powershell-memory.md#同文件并行改动选择性暂存门禁`
 - Keywords: 提交后残余改动, commit 后还有修改, 延迟保存改动, git status 复扫, git diff --name-status, 宽泛 git add -A 混入并行任务, residual dirty after commit -> `docs/powershell-memory.md#提交后残余改动复扫门禁`
 - 构建发布耗时 / 真实 E2E 发布预检：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
@@ -244,7 +245,7 @@
 - Keywords: 时间轴重复行, 一对多 JOIN, 审核副本多条重复展开, 列表 pageSize 被子表挤占, GROUP BY tenant_id event_id, read model 聚合 -> `docs/database-rules.md#一对多读模型聚合门禁`
 - Keywords: MES工序 系统异常, route-resource page code 500, Missing route, Missing item, route_product 孤儿关联, 资源池只读列表, 工艺路线资源读模型, 只读资源池引用完整性 -> `docs/database-rules.md#只读资源池引用完整性门禁`
 - Keywords: system_menu.name 中文菜单名, MySQL 客户端字符集, mojibake, HEX(name), UNHEX, utf8mb4, Docker mysql stdin, 动态菜单运行态乱码 -> `docs/database-rules.md#中文菜单名称-ascii-安全迁移门禁`
-- Keywords: 工艺路线导入导出, export-import-xlsx, import-workbook-xlsx, 工艺路线导入导出 Excel, 工序BOM 工序编码 不能为空, process_id=0, route-random-bom-seed, 跨租户路线导入, 删除测试租户路线后导入 -> `docs/database-rules.md#工艺路线跨租户导入导出数据包完整性门禁`
+- Keywords: 工艺路线导入导出, export-import-xlsx, import-workbook-xlsx, 工艺路线导入导出 Excel, 工序BOM 工序编码 不能为空, process_id=0, 工艺路线必须要有关键工序, key_flag=0, keyFlag=false, 缺关键工序, route-random-bom-seed, 跨租户路线导入, 删除测试租户路线后导入 -> `docs/database-rules.md#工艺路线跨租户导入导出数据包完整性门禁`
 - Keywords: 个人工作台 系统异常, 待办任务加载失败, 隐藏任务状态, profile-workbench-task-visibility, hidden-keys, system_profile_workbench_task_visibility, 20260727_system_profile_workbench_task_visibility.sql -> `docs/database-rules.md#个人工作台隐藏任务状态迁移门禁`
 - Keywords: int_shedule local Docker dependencies, 23306, 26379, Docker MySQL Redis, branch local runtime dependency ports -> `docs/local-runtime.md#2026-07-25-分支本地运行复用-docker-依赖门禁`
 - Keywords: task-closeout status unknown, Current Status completed, cleanup preview apply, worktree Directory not empty -> `docs/release-build-preflight-lessons.md` and `E:\IntRuoyi\docs\worktree-memory.md`

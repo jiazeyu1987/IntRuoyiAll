@@ -37,6 +37,18 @@ BDD: DCC product catalog toolbar removes highlighted buttons -> Given a user ope
 - M2 completed: recorded BDD scenario and expected RED/GREEN path.
 - M3 completed: removed `重置` and `注册证有效期` from the DCC product catalog actions slot and removed the no-entry registration-expiry compare wrapper/state/styles.
 - M4 completed: focused DCC static contracts, frontend type check, and diff whitespace check passed.
+- M5 completed: task-closeout cleanup preview/apply passed with no delete/block/warnings; task status set to completed.
+
+## Experience Consolidation
+
+- Updated `docs/powershell-memory.md` with a shared-branch concurrent baseline commit gate.
+- Updated `docs/experience-index.md` with matching searchable keywords.
+- Verification: `rg -n "共享分支并发基线提交" docs/experience-index.md docs/powershell-memory.md` -> PASS.
+
+## Cleanup
+
+- PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-dcc-product-catalog-remove-toolbar-buttons --mode preview` -> ready, no delete/block/warnings.
+- APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-dcc-product-catalog-remove-toolbar-buttons --mode apply` -> applied, no deleted paths.
 
 ## Blockers
 
