@@ -37,3 +37,7 @@
 - Real E2E downstream result: BLOCKED；进入生产填写和 PQC填写后各出现一次 `设备账号工艺路线绑定来源未接入，无法加载一线报工上下文`，并有相关 `502 Bad Gateway` console error。
 - Screenshot: `E:\IntRuoyi\output\playwright\edhr-page-graph-real-e2e.png`。
 - Final E2E status: `GRAPH_PASS_DOWNSTREAM_BLOCKED`，不得记录为完整业务流程 PASS。
+- Bug evidence validator: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260730-edhr-page-graph-tab/bug-regression-evidence.md` -> PASS。
+- Frontend evidence validator: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260730-edhr-page-graph-tab/frontend-feature-evidence.md` -> PASS。
+- Concurrent commit gate: `0809cd85` 已将本任务 `EdhrBatchRecordTabs.vue` 与页签静态合同和其它并行 MES 文件一起纳入基线提交；不执行 amend/reset/force-push。
+- Git closeout blocker: 当前 `int_main` 领先 `origin/int_main`，且本地提交包含多个非本任务并行提交，未执行 push。
