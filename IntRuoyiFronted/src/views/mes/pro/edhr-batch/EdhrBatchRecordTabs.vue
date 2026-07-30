@@ -3,7 +3,7 @@
     :model-value="activeTab"
     class="edhr-batch-record-tabs"
     data-edhr-batch-record-tabs
-    @tab-change="handleTabChange"
+    @tab-click="handleTabClick"
   >
     <el-tab-pane label="批次执行" name="execution" />
     <el-tab-pane label="历史批记录" name="history" />
@@ -17,6 +17,11 @@
 defineOptions({ name: 'MesProEdhrBatchRecordTabs' })
 
 type EdhrBatchRecordTab = 'execution' | 'history' | 'production' | 'pqc' | 'pageGraph'
+type EdhrBatchTabPane = {
+  props?: {
+    name?: string | number
+  }
+}
 
 const props = defineProps<{
   activeTab: EdhrBatchRecordTab
@@ -32,16 +37,20 @@ const routeByTab: Record<EdhrBatchRecordTab, string> = {
   pageGraph: '/mes/pro/feedback/edhr-batch-page-graph'
 }
 
-const handleTabChange = async (name: string | number) => {
+const navigateToTab = async (name: string | number | undefined) => {
   const nextTab = String(name) as EdhrBatchRecordTab
-  if (nextTab === props.activeTab) {
-    return
-  }
   const nextPath = routeByTab[nextTab]
   if (!nextPath) {
     throw new Error(`未知 eDHR 批记录页签：${String(name)}`)
   }
+  if (nextTab === props.activeTab || router.currentRoute.value.path === nextPath) {
+    return
+  }
   await router.push({ path: nextPath })
+}
+
+const handleTabClick = async (pane: EdhrBatchTabPane) => {
+  await navigateToTab(pane.props?.name)
 }
 </script>
 

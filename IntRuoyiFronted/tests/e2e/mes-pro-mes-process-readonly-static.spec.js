@@ -78,7 +78,7 @@ assert.ok(menuSql.includes('5710 THEN 20'))
 assert.ok(menuSql.includes('5718 THEN 25'))
 assert.ok(menuSql.includes('5720 THEN 30'))
 assert.ok(routerSearch.includes('ROUTER_SEARCH_ALIASES'), '菜单搜索必须支持重命名后的旧关键词别名')
-assert.ok(routerSearch.includes("'/mes/pro/mes-process'"), '标准模板列表路由必须登记搜索别名')
+assert.ok(routerSearch.includes("'/mes/pro/mes-process'"), 'MES工序路由必须登记搜索别名')
 assert.ok(routerSearch.includes("'MES工序'"), 'MES工序必须可通过 mes工序 小写关键词搜索')
 assert.ok(routerSearch.includes('normalizeSearchText'), '搜索匹配必须统一大小写，支持 mes工序 小写输入')
 assert.ok(

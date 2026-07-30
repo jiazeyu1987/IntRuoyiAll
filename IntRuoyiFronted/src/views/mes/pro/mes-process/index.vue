@@ -1,5 +1,5 @@
 <template>
-  <doc-alert title="【生产】标准模板列表" url="https://doc.iocoder.cn/mes/pro/process-route/" />
+  <doc-alert title="【生产】MES工序" url="https://doc.iocoder.cn/mes/pro/process-route/" />
 
   <ContentWrap>
     <div class="mes-process-page">
