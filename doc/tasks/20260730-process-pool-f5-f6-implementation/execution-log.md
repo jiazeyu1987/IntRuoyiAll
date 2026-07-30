@@ -44,3 +44,37 @@
 - Agent F5: `019fb085-0881-7753-a1f9-35aa6aba2af4`.
 - Agent F6: `019fb085-8654-74f2-b714-ddf013444f14`.
 - `show-branch-runtime.ps1` confirmed F5 `8097/48097` and F6 `8098/48098` when run from each worktree directory.
+
+## 2026-07-30 Main Workspace Baseline Before Merge
+
+- Main workspace was dirty before integrating child worktrees, so a required dirty-worktree baseline commit was created.
+- Baseline commit: `d433f38cc7a67fdbc1bea2cb0ee4372c700591d2` (`chore: baseline dirty workspace before process pool merge`).
+- Baseline command evidence: `git status --short --branch --untracked-files=all`, `git diff --name-status`, `git ls-files --others --exclude-standard`, secret-pattern scan with `rg`, then `git add -A` and `git commit`.
+- Secret scan conclusion: no raw password/token/private-key credential was identified in the baseline set. Matches were schema field names, documentation text, permission-key strings, or base64 configuration payloads from an unrelated concurrent task.
+- Baseline file list:
+  - `IntRuoyiBackend/sql/mysql/20260730_mes_process_pool_review_copy.sql`
+  - `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/MesProcessPoolReviewCopyDO.java`
+  - `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/dataobject/pro/processpool/MesProcessPoolReviewCopyFieldDO.java`
+  - `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/MesProcessPoolReviewCopyFieldMapper.java`
+  - `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/mysql/pro/processpool/MesProcessPoolReviewCopyMapper.java`
+  - `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/enums/ErrorCodeConstants.java`
+  - `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolReviewCopyService.java`
+  - `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolReviewCopyServiceImpl.java`
+  - `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/dto/MesProcessPoolReviewCopyFieldMappingDTO.java`
+  - `IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/processpool/dto/MesProcessPoolReviewCopyGenerateReqDTO.java`
+  - `IntRuoyiBackend/yudao-module-mes/src/main/resources/mapper/pro/processpool/MesProProcessPoolTimelineReadMapper.xml`
+  - `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/MesProcessPoolEventRevisionSchemaTest.java`
+  - `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/MesProcessPoolReviewCopySchemaTest.java`
+  - `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolEventRevisionDiffContractTest.java`
+  - `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolEventRevisionFifoLockTest.java`
+  - `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolEventRevisionServiceTest.java`
+  - `IntRuoyiBackend/yudao-module-mes/src/test/java/cn/iocoder/yudao/module/mes/service/pro/processpool/MesProcessPoolReviewCopyServiceTest.java`
+  - `IntRuoyiBackend/yudao-module-mes/src/test/resources/sql/clean.sql`
+  - `IntRuoyiBackend/yudao-module-mes/src/test/resources/sql/create_tables.sql`
+  - `doc/tasks/20260729-local-scheduler-tenant-copy/execution-log.md`
+  - `doc/tasks/20260729-local-scheduler-tenant-copy/probe-source-full-config-after-role-fix.json`
+  - `doc/tasks/20260729-local-scheduler-tenant-copy/role-category-backup-before-update.json`
+  - `doc/tasks/20260729-local-scheduler-tenant-copy/source-tenant-1-full-config.json`
+  - `doc/tasks/20260729-test-server-wangsiyu-file-upload-simulation/execution-log.md`
+  - `doc/tasks/20260729-test-server-wangsiyu-file-upload-simulation/task.md`
+  - `doc/tasks/20260729-test-server-wangsiyu-file-upload-simulation/upload-evidence.json`
