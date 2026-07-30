@@ -54,6 +54,7 @@
 - Closeout record commit: `git commit -m "docs: record team leader closeout blocker"` -> PASS，提交 `1f4f43f6`。
 - Push: `git push origin codex/20260730-banzuzhang` -> PASS；branch runtime port guard 通过，远端分支已创建并跟踪 `origin/codex/20260730-banzuzhang`，`HEAD=origin/codex/20260730-banzuzhang=1f4f43f6`。
 - Latest cleanup preview after push: `task_closeout.py --mode preview` -> BLOCKED，当前主工作区 `E:\IntRuoyi` 已被并行任务更新为 `int_main...origin/int_main [ahead 1]`，且存在 `M IntRuoyiFronted/src/router/modules/remaining.ts`、`M doc/tasks/20260730-route-admin-list-layout-unification/{task.md,execution-log.md,verification-report.md}`、`?? IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchPageGraphPage.vue`；因此当前分支不能安全 ff-only 合并进主工作区，也不能删除 worktree。
+- Closeout blocker refresh: 收尾文档改为稳定 blocker 口径，不再绑定瞬时并行文件清单；当前阻塞条件为主工作区 `E:\IntRuoyi` 的 `int_main` 存在本地 ahead 提交和未清理工作区改动，不满足 task-closeout-cleanup 的 ff-only merge / worktree removal 前置条件。
 
 ## Evidence Files
 

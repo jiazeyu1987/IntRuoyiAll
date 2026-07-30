@@ -26,8 +26,8 @@ ready_for_closeout；implementation verified and committed；cleanup apply block
 - Real Playwright page smoke: 登录 `芋道源码/admin`，切换 `提交看板/异常上报/班组维护/PQC 班组长`，目标提交看板 API HTTP 200 且业务 `code=0`，无控制台 error；截图 `output\playwright\20260730-banzuzhang\team-leader-workbench-smoke.png`。
 - Experience consolidation: 已合并到 `docs\e2e-rules.md` 与 `docs\experience-index.md`。
 - Implementation commit: `368ef63c feat: add process pool team leader workbench`，已 rebase 到 `int_main` `9f84a797` 后。
-- Push: `origin/codex/20260730-banzuzhang` 已创建并同步到 `1f4f43f6`。
-- Cleanup preview: keep 列表保留核心任务文档和 evidence，delete 为 `<none>`；apply 阻塞在主工作区 `E:\IntRuoyi` 的无关并行改动，本地 `int_main` ahead 1 且存在 `remaining.ts`、`doc/tasks/20260730-route-admin-list-layout-unification/*`、`BatchPageGraphPage.vue` 脏改动，不能执行 ff-only merge / worktree removal。
+- Push: `origin/codex/20260730-banzuzhang` 已创建并同步。
+- Cleanup preview: keep 列表保留核心任务文档和 evidence，delete 为 `<none>`；apply 阻塞在主工作区 `E:\IntRuoyi` 的无关并行改动，当前主工作区 `int_main` 存在本地 ahead 提交和未清理工作区改动，不能执行 ff-only merge / worktree removal。
 
 ## Pending Verification
 

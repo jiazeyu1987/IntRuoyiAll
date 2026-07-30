@@ -29,7 +29,7 @@
 
 ## Current Status
 
-ready_for_closeout；F9/F10 后端、前端、SQL 迁移门禁、静态验证、真实 Playwright 只读页面冒烟和经验沉淀均已完成。当前分支已推送到 `origin/codex/20260730-banzuzhang`。cleanup apply 仍被主工作区 `E:\IntRuoyi` 的无关并行改动阻塞：`int_main` 本地 ahead 1，且存在 `IntRuoyiFronted/src/router/modules/remaining.ts`、`doc/tasks/20260730-route-admin-list-layout-unification/*`、`IntRuoyiFronted/src/views/mes/pro/edhr-batch/BatchPageGraphPage.vue` 等脏改动，不能安全 ff-only 合并和删除 worktree。
+ready_for_closeout；F9/F10 后端、前端、SQL 迁移门禁、静态验证、真实 Playwright 只读页面冒烟和经验沉淀均已完成。当前分支已推送到 `origin/codex/20260730-banzuzhang`。cleanup apply 仍被主工作区 `E:\IntRuoyi` 的无关并行改动阻塞：主工作区 `int_main` 存在本地 ahead 提交和未清理工作区改动，不满足 task-closeout-cleanup 的 ff-only merge / worktree removal 前置条件。
 
 ## Worktree / Runtime
 
