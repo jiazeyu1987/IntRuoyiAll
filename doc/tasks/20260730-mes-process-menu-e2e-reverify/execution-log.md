@@ -19,4 +19,7 @@
 - E2E: `系统异常` 为 `0`，MES 写请求为 `0`，MES HTTP 失败为 `0`，浏览器 page error 为 `0`。
 - VISUAL: 已检查临时截图 `output/playwright/20260730-mes-process-menu-e2e-reverify/mes-process-menu-success.png`，页面页签与面包屑显示 `MES工序`，列表和分页正常渲染。
 - EXPERIENCE: 已执行 `project-experience-consolidation` 复核；本轮没有出现新的复发模式，现有 `docs/frontend-development.md#动态菜单页签重命名门禁`、`docs/e2e-rules.md` 和 `docs/database-rules.md#只读资源池引用完整性门禁` 已完整覆盖，不新增或修改长期经验文档。
-- Current status: ready_for_closeout。
+- GIT: 验证记录提交 `6a01d1be`，仅包含本任务三份正式文档。
+- CLEANUP PREVIEW: keep 为 `task.md`、`execution-log.md`、`verification-report.md`；delete 为 `output/playwright/20260730-mes-process-menu-e2e-reverify/`；blocked `0`，warnings `0`。
+- CLEANUP APPLY: PASS，仅删除本任务临时 Playwright 脚本、JSON 和截图目录，三份正式文档保留。
+- Current status: completed。

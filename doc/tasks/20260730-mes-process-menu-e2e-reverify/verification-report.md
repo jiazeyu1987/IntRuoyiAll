@@ -49,3 +49,13 @@ PASS
 ## Remaining Risk
 
 - 本轮是当前 `int_main` 本机运行态的只读复验，没有执行写入型业务流程。
+
+## Cleanup
+
+- `task-closeout-cleanup` preview -> PASS
+- `task-closeout-cleanup` apply -> PASS
+- Keep: `task.md`, `execution-log.md`, `verification-report.md`
+- Delete: `output/playwright/20260730-mes-process-menu-e2e-reverify/`
+- Blocked: `0`
+- Warnings: `0`
+- Final task status: `completed`
