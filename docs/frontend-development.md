@@ -58,6 +58,15 @@
 - Forbidden action: 禁止把截图症状当作完整需求口径；禁止把“取消的不显示”当成唯一验收项而忽略前半句“只显示已生效的历史版本”；禁止用仅隐藏 `CANCELLED` 的实现替代 effective-only 列表口径。
 - Evidence: 任务 `doc/tasks/20260727-route-version-list-active-history-only/`，首轮只隐藏 `CANCELLED` 后 completion audit 发现 `DRAFT` 仍可显示，最终改为 `ACTIVE/SUPERSEDED` 正向集合并用真实 E2E 证明 `V19 DRAFT` 与取消版本均隐藏。
 
+## 前端列表跨账号默认列布局统一门禁
+
+- Trigger: 同一列表在不同浏览器、账号或租户显示不同字段，页面存在“显示字段”、`useUserTableColumns`、`data-user-table-key`、用户列配置接口，或用户要求统一为 admin 默认布局。
+- Preflight check: 先区分三类差异：个人列配置控制的字段可见性/列宽、`v-hasPermi` 控制的操作按钮、视口宽度造成的横向滚动。若需求是让既有用户统一采用新的默认列集合，同时仍保留“显示字段”，必须升级稳定 table key，并同步标准列表模板、Element Plus 表格标识和 `useUserTableColumns` 调用；只修改默认 `visible` 不会覆盖旧服务端配置。
+- Blocker: 仍读取旧 table key、只改默认列但历史用户配置继续覆盖、为了视觉一致移除权限指令或给普通用户显示 admin 操作、通过清浏览器缓存或批量删数据库配置冒充正式迁移、或显示字段入口保存到与加载不同的 key 时必须停止。
+- Verification: 聚焦静态合同必须断言新 key 在模板、表格标识和 hook 三处一致，旧 key 不再使用，默认显示/隐藏字段集合明确，显示字段自动保存和既有权限码保留；真实 E2E 可用时使用同一账号分别在两个浏览器验证表头和显示字段勾选一致，并记录无业务写请求、无 console error。
+- Forbidden action: 禁止引入 localStorage fallback、静默忽略列配置接口失败、扩大角色权限、删除业务字段定义、或用不同账号的按钮差异证明浏览器渲染不一致。
+- Evidence: `doc/tasks/20260730-route-admin-list-layout-unification/verification-report.md`。
+
 ## 前端权限页签正向授权门禁
 
 - Trigger: 前端页面、动态菜单、顶部页签、左侧菜单、隐藏路由或入口默认页涉及“普通用户只能看到/仅显示某页签”、`activeMenu`、`redirect`、`permissionStore`、静态隐藏子路由合并。
