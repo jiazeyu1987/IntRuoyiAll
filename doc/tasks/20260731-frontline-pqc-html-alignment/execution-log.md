@@ -13,6 +13,7 @@
 ## BDD
 
 - BDD: PQC 主页面对齐 -> Given 用户进入真实 `PQC填写` 页签 / When 页面加载 / Then 顶部、左右主面板和底部操作与目标 HTML 使用相同结构，且真实工序、员工和订单上下文保持原数据源。
+- BDD: PQC 首屏默认态对齐 -> Given 用户进入真实 `PQC填写` 页签且未开始逐件填写 / When 页面渲染默认巡检第 1 次 / Then 检验数量为 `30`、损耗数量为 `1`，检验内容进度基于 `0/30` 显示，PQC 工序弹窗显示 `选工序 / 返回`。
 - BDD: 数值逐件检验 -> Given 当前检验数量大于 0 / When 用户点击长度或压力 / Then 打开逐件数值弹框，按 5 列网格展示每件默认值、减号、手工输入、加号和单位。
 - BDD: 判断项目批量与逐件选择 -> Given 当前检验项目为外观或密封 / When 用户选择全部合格、全部不良或逐件选择 / Then 当前数量范围内的逐件状态正确更新并回显完成数量。
 - BDD: 上下文隔离 -> Given 用户切换工序、首检/巡检/末检或巡检次数 / When 填写不同项目 / Then 本地逐件状态按工序、检验类型、巡检次数和项目隔离。
@@ -31,6 +32,8 @@
 ## Implementation
 
 - Updated `FrontlineFixedTemplatePanel.vue` PQC 分支：左侧改为长度、外观、密封、压力四项目标布局。
+- Review fix: PQC 首屏默认 `inspectionQuantity=30`、`scrapQuantity=1`，使目标 HTML 的巡检第 1 次数量和 `0/30` 进度口径在真实页默认态可见。
+- Review fix: PQC 模式下工序选择弹窗文案改为 `选工序`，关闭按钮改为 `返回`；生产模式保持 `选择工序 / 关闭`。
 - Added PQC piece inspection state: `length / appearance / seal / pressure` 按工序、检验类型、巡检次数和项目组合隔离。
 - Added number defaults: 长度默认 `32.5` 厘米、步长 `0.1`；压力默认 `50` MPa、步长 `1`。
 - Added choice actions: 外观和密封提供 `全部合格 / 全部不良 / 逐件选择`，批量结果可回显到逐件列表。
@@ -46,6 +49,18 @@
 - GREEN: `node src/views/mes/pro/feedback/frontline-template-switch.spec.cjs` -> PASS。
 - GREEN: `pnpm ts:check` -> PASS。
 - GREEN: `node --check tests/e2e/edhr-frontline-pqc-html-alignment-real.e2e.cjs` -> PASS。
+
+## Review Fix 2026-07-31
+
+- RED: `node tests/e2e/edhr-frontline-pqc-html-alignment-static.spec.cjs` -> FAIL，原因是当前实现未锁定目标 HTML 的 `inspectionQuantity=30` 默认态。
+- Implementation: 补充静态合同断言 `30/1` 默认数量、逐件弹框标题继续使用当前检验数量，以及 PQC 工序弹窗 `选工序 / 返回` 文案。
+- Implementation: 修改 `FrontlineFixedTemplatePanel.vue`，仅调整 PQC 默认本地数量和 PQC 模式 picker 文案；未修改 API、DTO、后端、数据源或正式提交门禁。
+- Concurrent baseline note: 最近提交 `a9deae829 chore: baseline frontline worktree before pqc visibility` 吸收了本轮实现和并发前线合同/CSS改动；按共享分支规则未改写历史，当前 HEAD 已复验。
+- GREEN: `node tests/e2e/edhr-frontline-pqc-html-alignment-static.spec.cjs` -> PASS。
+- REGRESSION: `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- REGRESSION: `node src/views/mes/pro/feedback/frontline-template-render.spec.cjs` -> PASS。
+- REGRESSION: `node src/views/mes/pro/feedback/frontline-template-switch.spec.cjs` -> PASS。
+- REGRESSION: `pnpm ts:check` -> PASS。
 
 ## Real Browser Verification
 
