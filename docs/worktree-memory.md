@@ -99,6 +99,15 @@
 - Forbidden action: 禁止因残留目录删除失败就强杀未知 Java/Node/PowerShell；禁止用父目录批量删除；禁止在未确认 `.git` 已消失前把注册 worktree 当普通目录删除；禁止释放其他 active worktree 的端口登记项。
 - Evidence: `doc/tasks/20260727-merge-d-worktrees/verification-report.md`，`20260727_pici` 在 Git 注册移除后被 8084/48084 运行态锁住，确认 PID 和命令行归属后停止目标进程并删除残留目录。
 
+### Git 注册已移除但空目录删除被当前进程占用
+
+- Trigger: `task-closeout-cleanup --mode apply` 已完成 ff-only merge 和 cleanup commit，但 `git worktree remove --force <path>` 返回 `Permission denied`；`git worktree list` 已不再显示目标 worktree，残留目录为空且没有 `.git`。
+- Preflight check: 从主工作区或目标外部目录执行核对，确认 `git worktree list` 无该路径、`Test-Path <path>\.git` 为 false、`Get-ChildItem -Force <path>` 计数为 0、目标绝对路径仍在 `D:\IntRuoyiWorktree\` 下。
+- Blocker: 残留目录非空、存在 `.git`、仍有 Git 注册、路径越界、或目录内有无法归属文件时必须停止；不得用递归删除扩大清理范围。
+- Verification: 仅对确认空目录执行 `Remove-Item -LiteralPath <path>`，随后记录 `Test-Path <path>` 为 false、`git worktree list` 不含该路径、主工作区 `git status --short --branch` clean 或仅 ahead。
+- Forbidden action: 禁止从残留 worktree 当前目录反复运行删除；禁止把 `Permission denied` 直接升级为 `Remove-Item -Recurse`；禁止删除父级 `D:\IntRuoyiWorktree\` 或其他任务目录。
+- Evidence: `doc/tasks/20260731-dcc-file-category-rules/execution-log.md`，cleanup apply 已创建清理提交并从 Git 注册移除 worktree，但 Windows 因当前目录占用留下空目录，确认无 `.git` 且子项计数 0 后从 `E:\IntRuoyi` 删除空目录。
+
 ### Git 注册已移除但前端依赖目录残留
 
 - Trigger: `git worktree remove <path>` 已移除 Git 注册，但返回 `Directory not empty`，且残留主要位于 `IntRuoyiFronted\node_modules`、pnpm/esbuild 依赖目录、或 Windows 报 `Access to the path '<name>' is denied`。

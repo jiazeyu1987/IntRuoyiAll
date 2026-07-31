@@ -30,9 +30,11 @@
 - No direct SQL repair of `dcc_controlled_file` was introduced.
 - Long-term experience gate was consolidated into `docs/database-rules.md#DCC 文件类别规则种子门禁` and indexed from `docs/experience-index.md`.
 
-## Remaining Boundary
+## Closeout
 
 - This task does not deploy to `172.30.30.58` and does not mutate test-server business data.
 - Applying the fix to the test server requires a later authorized deploy/migration and official batch-recognition run.
-- Post-merge verification is complete; cleanup apply is pending after the merge-resolution commit/push and a fresh cleanup preview.
-- `doc/tasks/20260731-dcc-file-category-rules/migration-policy-gate-after-merge.json` is a temporary evidence artifact; PASS summary is retained here and in `execution-log.md`.
+- Cleanup preview kept only `task.md`, `execution-log.md`, and `verification-report.md`; cleanup apply deleted tracked schema/gate artifacts, and final closeout records remove the remaining tracked `backend-api-evidence.md` while preserving its PASS summary here and in `execution-log.md`.
+- Cleanup apply created closeout commit `3dff034db` and ff-only merged the task branch into `E:\IntRuoyi` `int_main`.
+- The linked worktree registration was removed; a Windows `Permission denied` left an empty physical directory, which was verified as no `.git` and 0 children before deleting only that task-owned empty directory.
+- Final worktree check: `Test-Path D:\IntRuoyiWorktree\20260731-dcc-file-category-rules -> False`, and `git worktree list` no longer contains the task path.

@@ -18,7 +18,7 @@
 - [x] 实现正式类别匹配规则表、迁移、DO/Mapper、测试夹具与服务读取逻辑。
 - [x] GREEN：目标 JUnit 通过，保留原有泛化歧义仍为 `AMBIGUOUS` 的行为。
 - [x] 完成 schema/backend evidence、验证报告与经验沉淀。
-- [ ] 完成提交与推送。
+- [x] 完成提交、推送、cleanup、ff-only 合并和 worktree 删除。
 
 ## Expected Verification
 
@@ -29,11 +29,11 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Authorization Scope
 
-用户已确认可在一个干净 worktree/新任务环境里继续。当前 worktree 为 `D:\IntRuoyiWorktree\20260731-dcc-file-category-rules`，分支为 `codex/20260731-dcc-file-category-rules`，不触碰主工作区 `E:\IntRuoyi` 的脏状态。
+用户已确认可在一个干净 worktree/新任务环境里继续。任务 worktree `D:\IntRuoyiWorktree\20260731-dcc-file-category-rules` 已通过 cleanup 合并回 `E:\IntRuoyi` 的 `int_main`，并已从 Git worktree 注册和物理目录中移除。
 
 ## Blocker Policy
 
@@ -75,4 +75,7 @@ ready_for_closeout
 - `GREEN: python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output ..\doc\tasks\20260731-dcc-file-category-rules\migration-policy-gate-after-merge.json -> PASS, status=passed, migrationCount=402.`
 - `GREEN: scripts\preflight\branch-runtime-port-guard.ps1 -> PASS, frontend 8085, backend 48085.`
 - `GREEN: git diff --check -> PASS after merge.`
+- Closeout: `task-closeout-cleanup --mode preview -> ready`，keep 仅三份核心任务文档，delete 仅当前任务临时 evidence/gate JSON。
+- Closeout: `task-closeout-cleanup --mode apply -> reported deleted_paths=4, closeout_commit=3dff034db`；已 ff-only 合并到 `E:\IntRuoyi` 的 `int_main`。最终主工作区树中 `database-schema-evidence.md` 与 `migration-policy-gate.json` 已由 cleanup commit 删除；剩余已跟踪临时文件 `backend-api-evidence.md` 已在最终收尾记录中显式删除，未跟踪 `migration-policy-gate-after-merge.json` 随 worktree 删除消失。
+- Worktree removal: cleanup apply 已移除 Git worktree 注册；Windows 留下空目录后，经 `git worktree list` 无目标路径、`.git` missing、子项计数 0 复核，从主工作区删除空目录，最终 `Test-Path D:\IntRuoyiWorktree\20260731-dcc-file-category-rules -> False`。
 - Experience consolidation: 已更新 `docs/database-rules.md#DCC 文件类别规则种子门禁` 与 `docs/experience-index.md` 路由。

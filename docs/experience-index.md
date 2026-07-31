@@ -191,7 +191,7 @@
   - Read: `docs/release-build-preflight-lessons.md`
   - Gate: build-release 前检查内存余量；JVM native memory 失败必须冻结 hs_err 与内存快照，降低构建内存压力后重建新 releaseTag。
 - Keywords: prod-preflight-release, ProdDryRunEvidencePath, sanitized package workspace, Copy-Item, robocopy, shutil.copytree -> `docs/release-build-preflight-lessons.md`
-- Keywords: worktree remove failed, residual worktree directory, Invalid argument, Directory not empty, runtime-backend.err.log, Vite, esbuild, Java process locks residual worktree, Git registration absent physical directory exists, pnpm node_modules 残留, robocopy empty mirror, 空目录镜像清空, 8084 48084 pici cleanup -> `E:/IntRuoyi/docs/worktree-memory.md`
+- Keywords: worktree remove failed, residual worktree directory, Invalid argument, Directory not empty, Permission denied, 当前目录占用, 空目录残留, runtime-backend.err.log, Vite, esbuild, Java process locks residual worktree, Git registration absent physical directory exists, pnpm node_modules 残留, robocopy empty mirror, 空目录镜像清空, 8084 48084 pici cleanup -> `E:/IntRuoyi/docs/worktree-memory.md`
 - Keywords: frozen release baseline, build start worktree commit, source HEAD drift after build, 不追逐后续提交 -> `docs/release-build-preflight-lessons.md`
 - Keywords: mes_pro_route_schedule_config conflict, route schedule config duplicate, 工序维度收敛, conflict guard -> `docs/release-build-preflight-lessons.md`
 - Keywords: Manifest v1 legacy release-manifest frontend commit, schema-specific manifest validation -> `docs/release-build-preflight-lessons.md`
