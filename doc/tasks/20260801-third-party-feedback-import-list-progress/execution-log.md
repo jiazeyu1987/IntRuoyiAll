@@ -29,3 +29,8 @@
 - VERIFICATION: `node tests/e2e/mes-direct-work-report-refresh-schedule-order-static.spec.js` -> PASS，确认弹框后报工页广播受影响排产工单刷新 payload，排产页按当前列表命中后重新拉取真实进度。
 - NOTE: `node tests/e2e/mes-feedback-tracking-static.spec.js` -> FAIL，失败 token 为 `删除报工失败，请检查后端接口。`；该报工追踪宽口径静态合同与本次直接报工导入修复无直接关系，且对应前端文件属于基线/并发任务范围，本次未修改其业务行为。
 - GIT NOTE: 并发基线提交 `7186c11a2 chore: baseline dirty workspace before dcc auto classify` 已把本任务后端实现、测试和初始任务文档纳入 HEAD；本任务后续只提交剩余验证文档和静态合同同步，不重写历史。
+- EVIDENCE VALIDATOR: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\20260801-third-party-feedback-import-list-progress\bug-regression-evidence.md` -> PASS。
+- EXPERIENCE: 已按 `project-experience-consolidation` 归档到 `docs/backend-development.md#第三方报工直报正式链路门禁`，并更新 `docs/experience-index.md` 检索入口。
+- CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260801-third-party-feedback-import-list-progress --mode preview` -> PASS，keep 4 个正式任务文件，delete/blocked/warnings 均为空。
+- CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260801-third-party-feedback-import-list-progress --mode apply` -> PASS，无删除项。
+- FINAL STATUS: task.md 已更新为 `completed`。

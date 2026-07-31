@@ -6,15 +6,15 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## Milestones
 
-1. 建立问题复现与现有链路定位。
-2. 编写第三方报工导入后列表/进度更新的回归测试并取得 RED。
-3. 实施最小正式修复，禁止 fallback、空成功或前端假刷新。
-4. 运行目标 GREEN、相邻回归和必要的静态/接口验证。
-5. 完成收尾记录、经验沉淀、cleanup、提交与推送。
+1. completed - 建立问题复现与现有链路定位。
+2. completed - 编写第三方报工导入后列表/进度更新的回归测试并取得 RED。
+3. completed - 实施最小正式修复，禁止 fallback、空成功或前端假刷新。
+4. completed - 运行目标 GREEN、相邻回归和必要的静态/接口验证。
+5. completed - 完成收尾记录、经验沉淀、cleanup、提交与推送。
 
 ## Expected Verification
 
@@ -37,4 +37,14 @@ in_progress
 
 ## Blockers
 
-- 初始 `git status` 显示工作区已有大量未提交改动，且包含 `IntRuoyiFronted/src/views/mes/pro/feedback/index.vue`。按项目规则需要先保存既有脏工作区基线并记录文件清单，再进行本任务实现。
+- 并发基线提交 `7186c11a2` 已把本任务后端实现、测试和初始任务文档纳入 HEAD；本任务剩余收尾只 stage 本任务文档、直接报工静态合同和长期经验文档。
+- 真实 Playwright 页面导入未执行：本轮未启动本地前后端，也未确认可写测试租户/账号；不得把后端单测或静态合同冒充真实 E2E。
+
+## Final Verification
+
+- 后端目标 GREEN、后端导入服务整类回归、前端直接报工结果静态合同、前端排产刷新静态合同均通过。
+- `task-closeout-cleanup` preview/apply 均通过，无删除项，保留 task、execution log、verification report 和 bug-regression evidence。
+
+## Cleanup Keep
+
+- `doc/tasks/20260801-third-party-feedback-import-list-progress/bug-regression-evidence.md`
