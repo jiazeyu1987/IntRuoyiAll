@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[4]
 TASK_DIR = ROOT / "doc" / "tasks" / "20260731-mes-three-tab-test-sync"
 ARTIFACT_DIR = TASK_DIR / "artifacts"
 REMAP_PLAN_PATH = ARTIFACT_DIR / "dependency-remap-plan.json"
+REMAINING_REMAP_PLAN_PATH = ARTIFACT_DIR / "remaining-dependency-remap-plan.json"
 
 LOCAL_MYSQL_CMD = [
     "docker",
@@ -342,21 +343,31 @@ def dependency_ids(dep_rows):
 
 
 def load_dependency_remap_plan():
+    remaps = {}
+    loaded_paths = []
     if not REMAP_PLAN_PATH.exists():
-        return {
-            "path": str(REMAP_PLAN_PATH),
-            "loaded": False,
-            "remaps": {},
-        }
-    plan = json.loads(REMAP_PLAN_PATH.read_text(encoding="utf-8"))
-    return {
-        "path": str(REMAP_PLAN_PATH),
-        "loaded": True,
-        "generated_at": plan.get("generated_at"),
-        "remaps": {
+        plan = {}
+    else:
+        plan = json.loads(REMAP_PLAN_PATH.read_text(encoding="utf-8"))
+        loaded_paths.append(str(REMAP_PLAN_PATH))
+        remaps.update({
             "user_id": {str(k): str(v) for k, v in plan.get("remap", {}).get("system_users", {}).items()},
             "work_order_id": {str(k): str(v) for k, v in plan.get("remap", {}).get("mes_pro_work_order", {}).items()},
-        },
+        })
+    if REMAINING_REMAP_PLAN_PATH.exists():
+        remaining_plan = json.loads(REMAINING_REMAP_PLAN_PATH.read_text(encoding="utf-8"))
+        loaded_paths.append(str(REMAINING_REMAP_PLAN_PATH))
+        remaps["workstation_id"] = {
+            str(k): str(v)
+            for k, v in remaining_plan.get("remap", {}).get("mes_md_workstation", {}).items()
+        }
+    return {
+        "path": str(REMAP_PLAN_PATH),
+        "remaining_path": str(REMAINING_REMAP_PLAN_PATH),
+        "loaded": bool(loaded_paths),
+        "loaded_paths": loaded_paths,
+        "generated_at": plan.get("generated_at"),
+        "remaps": remaps,
     }
 
 
@@ -439,6 +450,13 @@ ORDER BY TABLE_NAME, COLUMN_NAME
     ]
     statements = []
     for table, cols in sorted(table_cols.items()):
+        if (
+            table.startswith("m3rembk_")
+            or table.startswith("m3extbk_")
+            or table.startswith("m3syncbk_")
+            or table.startswith("mes_three_tab_dep_")
+        ):
+            continue
         if table in WHITELIST_TABLES or "tenant_id" not in cols:
             continue
         for column, values in ref_specs:
@@ -573,6 +591,7 @@ def main():
         "mes_md_workstation",
         dep_ids.get("workstation_id", []),
         ["id", "code", "name", "process_id", "status", "deleted", "tenant_id"],
+        dependency_remaps.get("workstation_id"),
     ))
     dependency_checks.append(check_dependency_table(
         report,
@@ -616,7 +635,7 @@ def main():
 
     size = report["source_snapshot_size"]
     over_limit = int(size.get("route_snapshots_over_text_limit") or 0)
-    if over_limit:
+    if over_limit and route_snapshot.get("DATA_TYPE") == "text":
         report["blockers"].append({
             "type": "schema",
             "message": "source route snapshots exceed target TEXT capacity",
@@ -676,6 +695,7 @@ def main():
         f"- Dependency remap plan loaded: `{report['dependency_remap_plan']['loaded']}`",
         f"- User remaps: `{len(report['dependency_remap_plan']['remaps'].get('user_id', {}))}`",
         f"- Work order remaps: `{len(report['dependency_remap_plan']['remaps'].get('work_order_id', {}))}`",
+        f"- Workstation remaps: `{len(report['dependency_remap_plan']['remaps'].get('workstation_id', {}))}`",
         f"- Blockers: `{len(report['blockers'])}`",
         "",
         "## Blockers",

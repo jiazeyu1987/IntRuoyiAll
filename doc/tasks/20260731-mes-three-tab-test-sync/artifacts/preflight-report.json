@@ -1,267 +1,30 @@
 {
-  "generated_at": "2026-07-31T01:24:52.728676+00:00",
+  "generated_at": "2026-07-31T03:03:25.409730+00:00",
   "source": "local docker int-ruoyi-mysql / ruoyi-vue-pro / tenant_id=1",
   "target": "ssh root@172.30.30.58 / intruoyi-mysql / ruoyi-vue-pro / tenant_id=1",
   "warnings": [
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001EC187D14F0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000017EB46D4BD0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001F31C5A5690",
-    "close - IO is still pending on closed socket. read:1, write:0, io:00000222786064A0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001FE20742CD0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001DD4A0841D0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:00000263A574B670",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001BA6AB44870",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000020CF1356BA0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001FF3F85CC80",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001FD42D37360",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000002466FA4EFB0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000002F1682EC460",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001FCD33783F0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001EAA990D0E0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001CA9B1A92A0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000021259315C30",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000021E740ABE90",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000021A23CC76F0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000026376D44190"
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002244EDB4090",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000018A7F0E7AC0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000021A7FD20880",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000017AD1BD8A60",
+    "close - IO is still pending on closed socket. read:1, write:0, io:00000184DC6D7750",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001F38AD47430",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001F3256A7D00",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000024C4E8D5490",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000020374807030",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002B7DFB71DD0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000022CC8FD9190",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000026415589A00",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001CEC958C290",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000023930011070",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001FEC1735BE0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002195C127450",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001F866236170",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001D1BF1061D0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000024746284800",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001E92ECF6450"
   ],
-  "blockers": [
-    {
-      "type": "schema",
-      "message": "target mes_pro_route_version.route_snapshot_json is not MEDIUMTEXT",
-      "current": {
-        "TABLE_NAME": "mes_pro_route_version",
-        "COLUMN_NAME": "route_snapshot_json",
-        "DATA_TYPE": "text",
-        "COLUMN_TYPE": "text",
-        "CHARACTER_MAXIMUM_LENGTH": "65535",
-        "IS_NULLABLE": "YES"
-      }
-    },
-    {
-      "type": "schema",
-      "message": "target mes_pro_schedule_order.promise_date is not nullable",
-      "current": {
-        "TABLE_NAME": "mes_pro_schedule_order",
-        "COLUMN_NAME": "promise_date",
-        "DATA_TYPE": "date",
-        "COLUMN_TYPE": "date",
-        "CHARACTER_MAXIMUM_LENGTH": "NULL",
-        "IS_NULLABLE": "NO"
-      }
-    },
-    {
-      "type": "schema",
-      "message": "target mes_pro_batch_record_report.form_definition_id is missing"
-    },
-    {
-      "type": "schema",
-      "message": "target mes_pro_batch_record_report.form_version_id is missing"
-    },
-    {
-      "type": "schema",
-      "message": "source route snapshots exceed target TEXT capacity",
-      "over_text_limit_rows": 6,
-      "max_route_snapshot_bytes": 68872
-    },
-    {
-      "type": "dependency",
-      "message": "target dependency check failed for form_template_version_id",
-      "table": "bpm_form_template_version",
-      "required_count": 2,
-      "missing_count": 2,
-      "mismatch_count": 0,
-      "missing_ids": [
-        "27",
-        "32"
-      ],
-      "mismatched": []
-    },
-    {
-      "type": "dependency",
-      "message": "target dependency check failed for permission_scope_id",
-      "table": "mes_pro_edhr_permission_scope",
-      "required_count": 14,
-      "missing_count": 14,
-      "mismatch_count": 0,
-      "missing_ids": [
-        "346",
-        "396",
-        "423",
-        "450",
-        "477",
-        "504",
-        "531",
-        "558",
-        "585",
-        "612",
-        "639",
-        "666",
-        "693",
-        "720"
-      ],
-      "mismatched": []
-    },
-    {
-      "type": "dependency",
-      "message": "target dependency check failed for calendar_rule_id",
-      "table": "mes_pro_schedule_calendar_rule",
-      "required_count": 1,
-      "missing_count": 0,
-      "mismatch_count": 1,
-      "missing_ids": [],
-      "mismatched": [
-        {
-          "id": "1",
-          "target_id": "1",
-          "diffs": {
-            "skip_statutory_holidays": {
-              "source": "\u0000",
-              "target": "\u0001"
-            },
-            "weekend_rest_mode": {
-              "source": "DOUBLE",
-              "target": "SINGLE"
-            },
-            "date_shift_mode_by_date_json": {
-              "source": "{\"2026-05-17\": \"DAY\"}",
-              "target": "{}"
-            },
-            "temporary_freeze_enabled": {
-              "source": "\u0000",
-              "target": "\u0001"
-            }
-          }
-        }
-      ]
-    },
-    {
-      "type": "dependency",
-      "message": "target dependency check failed for workstation_id",
-      "table": "mes_md_workstation",
-      "required_count": 1,
-      "missing_count": 0,
-      "mismatch_count": 1,
-      "missing_ids": [],
-      "mismatched": [
-        {
-          "id": "900131",
-          "target_id": "900131",
-          "diffs": {
-            "process_id": {
-              "source": "922925",
-              "target": "900395"
-            },
-            "deleted": {
-              "source": "\u0001",
-              "target": "\u0000"
-            }
-          }
-        }
-      ]
-    },
-    {
-      "type": "external_reference",
-      "message": "target has active non-whitelist references to rows that would be replaced",
-      "reference_count": 19,
-      "top_references": [
-        {
-          "table": "mes_dv_machinery_process",
-          "column": "process_id",
-          "active_ref_count": 129
-        },
-        {
-          "table": "mes_md_workstation",
-          "column": "process_id",
-          "active_ref_count": 93
-        },
-        {
-          "table": "mes_pro_edhr_operation_audit_event",
-          "column": "route_id",
-          "active_ref_count": 16
-        },
-        {
-          "table": "mes_pro_feedback",
-          "column": "process_id",
-          "active_ref_count": 152
-        },
-        {
-          "table": "mes_pro_feedback",
-          "column": "route_id",
-          "active_ref_count": 29
-        },
-        {
-          "table": "mes_pro_feedback",
-          "column": "schedule_order_id",
-          "active_ref_count": 29
-        },
-        {
-          "table": "mes_pro_feedback",
-          "column": "schedule_order_process_id",
-          "active_ref_count": 29
-        },
-        {
-          "table": "mes_pro_feedback_import_record",
-          "column": "schedule_order_id",
-          "active_ref_count": 9
-        },
-        {
-          "table": "mes_pro_feedback_import_record",
-          "column": "schedule_order_process_id",
-          "active_ref_count": 9
-        },
-        {
-          "table": "mes_pro_feedback_surplus_pool",
-          "column": "process_id",
-          "active_ref_count": 12
-        },
-        {
-          "table": "mes_pro_route_use_config_legacy_20260709",
-          "column": "route_id",
-          "active_ref_count": 5
-        },
-        {
-          "table": "mes_pro_route_use_process_batch_record_legacy_20260709",
-          "column": "route_id",
-          "active_ref_count": 1
-        },
-        {
-          "table": "mes_pro_route_use_process_batch_record_legacy_20260709",
-          "column": "route_process_id",
-          "active_ref_count": 1
-        },
-        {
-          "table": "mes_pro_route_use_process_config_legacy_20260709",
-          "column": "route_id",
-          "active_ref_count": 102
-        },
-        {
-          "table": "mes_pro_route_use_process_config_legacy_20260709",
-          "column": "route_process_id",
-          "active_ref_count": 102
-        },
-        {
-          "table": "mes_pro_task",
-          "column": "process_id",
-          "active_ref_count": 664
-        },
-        {
-          "table": "mes_pro_task",
-          "column": "route_id",
-          "active_ref_count": 663
-        },
-        {
-          "table": "mes_pro_task_schedule_ext",
-          "column": "schedule_order_id",
-          "active_ref_count": 663
-        },
-        {
-          "table": "mes_pro_task_schedule_ext",
-          "column": "schedule_order_process_id",
-          "active_ref_count": 663
-        }
-      ]
-    }
-  ],
+  "blockers": [],
   "schema": {
     "local": [
       {
@@ -331,11 +94,27 @@
         "IS_NULLABLE": "YES"
       },
       {
+        "TABLE_NAME": "mes_pro_batch_record_report",
+        "COLUMN_NAME": "form_definition_id",
+        "DATA_TYPE": "bigint",
+        "COLUMN_TYPE": "bigint",
+        "CHARACTER_MAXIMUM_LENGTH": "NULL",
+        "IS_NULLABLE": "YES"
+      },
+      {
+        "TABLE_NAME": "mes_pro_batch_record_report",
+        "COLUMN_NAME": "form_version_id",
+        "DATA_TYPE": "bigint",
+        "COLUMN_TYPE": "bigint",
+        "CHARACTER_MAXIMUM_LENGTH": "NULL",
+        "IS_NULLABLE": "YES"
+      },
+      {
         "TABLE_NAME": "mes_pro_route_version",
         "COLUMN_NAME": "route_snapshot_json",
-        "DATA_TYPE": "text",
-        "COLUMN_TYPE": "text",
-        "CHARACTER_MAXIMUM_LENGTH": "65535",
+        "DATA_TYPE": "mediumtext",
+        "COLUMN_TYPE": "mediumtext",
+        "CHARACTER_MAXIMUM_LENGTH": "16777215",
         "IS_NULLABLE": "YES"
       },
       {
@@ -344,7 +123,7 @@
         "DATA_TYPE": "date",
         "COLUMN_TYPE": "date",
         "CHARACTER_MAXIMUM_LENGTH": "NULL",
-        "IS_NULLABLE": "NO"
+        "IS_NULLABLE": "YES"
       }
     ]
   },
@@ -371,26 +150,26 @@
     "mes_pro_schedule_order_process": 976
   },
   "target_current_whitelist_counts": {
-    "mes_pro_edhr_work_task_assignment_rule": 0,
-    "mes_pro_process": 142,
+    "mes_pro_edhr_work_task_assignment_rule": 1,
+    "mes_pro_process": 65,
     "mes_pro_process_content": 0,
-    "mes_pro_route": 6,
-    "mes_pro_route_flow_config": 5,
-    "mes_pro_route_flow_process_batch_record": 0,
-    "mes_pro_route_flow_process_config": 102,
-    "mes_pro_route_process": 150,
-    "mes_pro_route_process_flow_boundary_edge": 0,
-    "mes_pro_route_process_flow_edge": 0,
-    "mes_pro_route_process_flow_layout": 0,
-    "mes_pro_route_product": 4,
-    "mes_pro_route_product_bom": 50,
-    "mes_pro_route_schedule_config": 101,
-    "mes_pro_route_version": 4,
-    "mes_pro_schedule_order": 17,
+    "mes_pro_route": 3,
+    "mes_pro_route_flow_config": 4,
+    "mes_pro_route_flow_process_batch_record": 20,
+    "mes_pro_route_flow_process_config": 77,
+    "mes_pro_route_process": 63,
+    "mes_pro_route_process_flow_boundary_edge": 8,
+    "mes_pro_route_process_flow_edge": 60,
+    "mes_pro_route_process_flow_layout": 63,
+    "mes_pro_route_product": 16,
+    "mes_pro_route_product_bom": 49,
+    "mes_pro_route_schedule_config": 63,
+    "mes_pro_route_version": 46,
+    "mes_pro_schedule_order": 40,
     "mes_pro_schedule_order_daily_compare": 0,
-    "mes_pro_schedule_order_diff": 0,
-    "mes_pro_schedule_order_operation_log": 85,
-    "mes_pro_schedule_order_process": 430
+    "mes_pro_schedule_order_diff": 2,
+    "mes_pro_schedule_order_operation_log": 1433,
+    "mes_pro_schedule_order_process": 976
   },
   "source_snapshot_size": {
     "max_route_snapshot_bytes": "68872",
@@ -508,7 +287,12 @@
   },
   "dependency_remap_plan": {
     "path": "E:\\IntRuoyi\\doc\\tasks\\20260731-mes-three-tab-test-sync\\artifacts\\dependency-remap-plan.json",
+    "remaining_path": "E:\\IntRuoyi\\doc\\tasks\\20260731-mes-three-tab-test-sync\\artifacts\\remaining-dependency-remap-plan.json",
     "loaded": true,
+    "loaded_paths": [
+      "E:\\IntRuoyi\\doc\\tasks\\20260731-mes-three-tab-test-sync\\artifacts\\dependency-remap-plan.json",
+      "E:\\IntRuoyi\\doc\\tasks\\20260731-mes-three-tab-test-sync\\artifacts\\remaining-dependency-remap-plan.json"
+    ],
     "generated_at": "2026-07-31T01:20:40.146934+00:00",
     "remaps": {
       "user_id": {
@@ -533,6 +317,9 @@
         "925724": "925796",
         "925729": "925797",
         "925732": "925798"
+      },
+      "workstation_id": {
+        "900131": "922057"
       }
     }
   },
@@ -545,12 +332,12 @@
     "schedule_order_process_ids": 976
   },
   "target_current_id_counts": {
-    "process_ids": 142,
-    "route_ids": 6,
-    "route_version_ids": 4,
-    "route_process_ids": 150,
-    "schedule_order_ids": 17,
-    "schedule_order_process_ids": 430
+    "process_ids": 65,
+    "route_ids": 3,
+    "route_version_ids": 46,
+    "route_process_ids": 63,
+    "schedule_order_ids": 40,
+    "schedule_order_process_ids": 976
   },
   "dependency_checks": [
     {
@@ -584,10 +371,7 @@
       "dep_type": "form_template_version_id",
       "table": "bpm_form_template_version",
       "required_count": 2,
-      "missing_ids": [
-        "27",
-        "32"
-      ],
+      "missing_ids": [],
       "mismatched": [],
       "mismatch_count": 0,
       "remapped_ids": {}
@@ -596,22 +380,7 @@
       "dep_type": "permission_scope_id",
       "table": "mes_pro_edhr_permission_scope",
       "required_count": 14,
-      "missing_ids": [
-        "346",
-        "396",
-        "423",
-        "450",
-        "477",
-        "504",
-        "531",
-        "558",
-        "585",
-        "612",
-        "639",
-        "666",
-        "693",
-        "720"
-      ],
+      "missing_ids": [],
       "mismatched": [],
       "mismatch_count": 0,
       "remapped_ids": {}
@@ -658,31 +427,8 @@
       "table": "mes_pro_schedule_calendar_rule",
       "required_count": 1,
       "missing_ids": [],
-      "mismatched": [
-        {
-          "id": "1",
-          "target_id": "1",
-          "diffs": {
-            "skip_statutory_holidays": {
-              "source": "\u0000",
-              "target": "\u0001"
-            },
-            "weekend_rest_mode": {
-              "source": "DOUBLE",
-              "target": "SINGLE"
-            },
-            "date_shift_mode_by_date_json": {
-              "source": "{\"2026-05-17\": \"DAY\"}",
-              "target": "{}"
-            },
-            "temporary_freeze_enabled": {
-              "source": "\u0000",
-              "target": "\u0001"
-            }
-          }
-        }
-      ],
-      "mismatch_count": 1,
+      "mismatched": [],
+      "mismatch_count": 0,
       "remapped_ids": {}
     },
     {
@@ -690,24 +436,11 @@
       "table": "mes_md_workstation",
       "required_count": 1,
       "missing_ids": [],
-      "mismatched": [
-        {
-          "id": "900131",
-          "target_id": "900131",
-          "diffs": {
-            "process_id": {
-              "source": "922925",
-              "target": "900395"
-            },
-            "deleted": {
-              "source": "\u0001",
-              "target": "\u0000"
-            }
-          }
-        }
-      ],
-      "mismatch_count": 1,
-      "remapped_ids": {}
+      "mismatched": [],
+      "mismatch_count": 0,
+      "remapped_ids": {
+        "900131": "922057"
+      }
     },
     {
       "dep_type": "user_id",
@@ -722,101 +455,5 @@
     }
   ],
   "authorized_dependency_sync_scope": [],
-  "target_external_active_refs": [
-    {
-      "table": "mes_dv_machinery_process",
-      "column": "process_id",
-      "active_ref_count": 129
-    },
-    {
-      "table": "mes_md_workstation",
-      "column": "process_id",
-      "active_ref_count": 93
-    },
-    {
-      "table": "mes_pro_edhr_operation_audit_event",
-      "column": "route_id",
-      "active_ref_count": 16
-    },
-    {
-      "table": "mes_pro_feedback",
-      "column": "process_id",
-      "active_ref_count": 152
-    },
-    {
-      "table": "mes_pro_feedback",
-      "column": "route_id",
-      "active_ref_count": 29
-    },
-    {
-      "table": "mes_pro_feedback",
-      "column": "schedule_order_id",
-      "active_ref_count": 29
-    },
-    {
-      "table": "mes_pro_feedback",
-      "column": "schedule_order_process_id",
-      "active_ref_count": 29
-    },
-    {
-      "table": "mes_pro_feedback_import_record",
-      "column": "schedule_order_id",
-      "active_ref_count": 9
-    },
-    {
-      "table": "mes_pro_feedback_import_record",
-      "column": "schedule_order_process_id",
-      "active_ref_count": 9
-    },
-    {
-      "table": "mes_pro_feedback_surplus_pool",
-      "column": "process_id",
-      "active_ref_count": 12
-    },
-    {
-      "table": "mes_pro_route_use_config_legacy_20260709",
-      "column": "route_id",
-      "active_ref_count": 5
-    },
-    {
-      "table": "mes_pro_route_use_process_batch_record_legacy_20260709",
-      "column": "route_id",
-      "active_ref_count": 1
-    },
-    {
-      "table": "mes_pro_route_use_process_batch_record_legacy_20260709",
-      "column": "route_process_id",
-      "active_ref_count": 1
-    },
-    {
-      "table": "mes_pro_route_use_process_config_legacy_20260709",
-      "column": "route_id",
-      "active_ref_count": 102
-    },
-    {
-      "table": "mes_pro_route_use_process_config_legacy_20260709",
-      "column": "route_process_id",
-      "active_ref_count": 102
-    },
-    {
-      "table": "mes_pro_task",
-      "column": "process_id",
-      "active_ref_count": 664
-    },
-    {
-      "table": "mes_pro_task",
-      "column": "route_id",
-      "active_ref_count": 663
-    },
-    {
-      "table": "mes_pro_task_schedule_ext",
-      "column": "schedule_order_id",
-      "active_ref_count": 663
-    },
-    {
-      "table": "mes_pro_task_schedule_ext",
-      "column": "schedule_order_process_id",
-      "active_ref_count": 663
-    }
-  ]
+  "target_external_active_refs": []
 }

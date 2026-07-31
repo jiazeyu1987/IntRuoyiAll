@@ -1,0 +1,21 @@
+{
+  "generatedAt": "2026-07-31T03:20:46.994Z",
+  "baseUrl": "http://172.30.30.58:8081/",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "login": {
+    "captcha": {
+      "attempt": 1,
+      "dragDistance": 160,
+      "normalizedX": 124,
+      "naturalX": 123,
+      "score": 25833.162000000008,
+      "backgroundWidth": 310,
+      "panelWidth": 400
+    }
+  },
+  "tabs": [],
+  "status": "FAIL",
+  "error": "Error: process settings verification failed: [{\"path\":\"/mes/pro/process\",\"message\":\"process settings API failed: 系统异常\"}]\n    at verifyTab (file:///E:/IntRuoyi/doc/tasks/20260731-mes-three-tab-test-sync/tools/verify_test_server_three_tabs.mjs:306:9)\n    at async run (file:///E:/IntRuoyi/doc/tasks/20260731-mes-three-tab-test-sync/tools/verify_test_server_three_tabs.mjs:370:24)",
+  "failureScreenshot": "E:\\IntRuoyi\\doc\\tasks\\20260731-mes-three-tab-test-sync\\artifacts\\test-server-e2e\\failure.png"
+}

@@ -1,22 +1,14 @@
 # Three Tab Sync Preflight Summary
 
-- Generated: `2026-07-31T01:24:52.728676+00:00`
+- Generated: `2026-07-31T03:03:25.409730+00:00`
 - Source whitelist rows: `2989`
-- Target current whitelist rows: `1096`
+- Target current whitelist rows: `2989`
 - Authorized dependency sync scopes: `0`
 - Dependency remap plan loaded: `True`
 - User remaps: `1`
 - Work order remaps: `18`
-- Blockers: `10`
+- Workstation remaps: `1`
+- Blockers: `0`
 
 ## Blockers
-- `schema`: target mes_pro_route_version.route_snapshot_json is not MEDIUMTEXT
-- `schema`: target mes_pro_schedule_order.promise_date is not nullable
-- `schema`: target mes_pro_batch_record_report.form_definition_id is missing
-- `schema`: target mes_pro_batch_record_report.form_version_id is missing
-- `schema`: source route snapshots exceed target TEXT capacity
-- `dependency`: target dependency check failed for form_template_version_id
-- `dependency`: target dependency check failed for permission_scope_id
-- `dependency`: target dependency check failed for calendar_rule_id
-- `dependency`: target dependency check failed for workstation_id
-- `external_reference`: target has active non-whitelist references to rows that would be replaced
+- None
