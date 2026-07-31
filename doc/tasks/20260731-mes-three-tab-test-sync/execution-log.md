@@ -53,3 +53,28 @@
 - RED: `python -X utf8 doc\tasks\20260731-mes-three-tab-test-sync\tools\three_tab_sync_preflight.py` -> FAIL by design，expected reason: 剩余 `10` 项阻塞仍未解决，主三页签白名单替换未执行。
 - Remaining blockers: schema `5` 项、缺失 `bpm_form_template_version` `2` 个、缺失 `mes_pro_edhr_permission_scope` `14` 个、`calendar_rule_id` 不一致、`workstation_id` 不一致、白名单外活动引用仍存在。
 - STATUS: blocked，授权依赖已同步完成；主三页签同步仍未执行。
+
+## 2026-07-31 Continued Authorization And Final Sync
+
+- USER INTENT: 用户回复“继续授权”，按当前上下文授权解决剩余阻塞，包括 schema 对齐、表单模板版本、权限范围、日历/工作站不一致、白名单外引用处理，以及后续页面验证发现的最小正式依赖。
+- POLICY: 扩展同步仍限定为三页签运行必需依赖；禁止同步无关业务数据、覆盖其它租户冲突行、关闭约束或使用默认值掩盖缺失来源。
+- BDD: 剩余阻塞授权闭环 -> Given 用户授权继续处理剩余三页签阻塞 / When schema、依赖、外部引用和索引差异被处理 / Then 主白名单同步前后必须有备份、显式结果和 blocker=0 预检。
+- BDD: 真实页面运行依赖 -> Given 白名单 hash 已对齐但页面列表接口仍因正式报表元数据缺失失败 / When 同步最小批记录报表元数据依赖 / Then 工序设置列表必须通过正式页面和接口验证，不得用 API-only 或空值绕过。
+- GREEN: `python -X utf8 doc\tasks\20260731-mes-three-tab-test-sync\tools\sync_remaining_authorized_blockers.py` -> PASS，插入表单模板版本 `27/32`、14 条权限范围，更新日历规则 `1`，工作站 `900131 -> 922057`。
+- GREEN: `python -X utf8 doc\tasks\20260731-mes-three-tab-test-sync\tools\apply_whitelist_schema_delta.py` -> PASS，补齐白名单承载所需 schema 列并保留 `artifacts/whitelist-schema-delta-result.json`。
+- GREEN: `python -X utf8 doc\tasks\20260731-mes-three-tab-test-sync\tools\cleanup_authorized_external_references.py` -> PASS，19 组白名单外活动引用已备份并软删除；复验 active references = 0，备份表 `m3extbk_20260731023513_*`。
+- GREEN: `python -X utf8 doc\tasks\20260731-mes-three-tab-test-sync\tools\sync_three_tab_whitelist.py` -> PASS，20 张白名单表替换完成，插入源端 `2,989` 行，备份表 `m3syncbk_20260731025926_*`，逐表 hash 对齐。
+- GREEN: `python -X utf8 doc\tasks\20260731-mes-three-tab-test-sync\tools\apply_whitelist_index_delta.py` -> PASS，补齐源端唯一索引差异，结果见 `artifacts/whitelist-index-delta-result.json`。
+- GREEN: `python -X utf8 doc\tasks\20260731-mes-three-tab-test-sync\tools\three_tab_sync_preflight.py` -> PASS，`blocker_count=0`，source whitelist total `2,989`，target whitelist total `2,989`。
+- RED: `node doc\tasks\20260731-mes-three-tab-test-sync\tools\verify_test_server_three_tabs.mjs --timeout 90000` -> FAIL，expected reason: 真实测试服页面登录和滑块验证码通过，但 `/admin-api/mes/pro/process/page` 返回 `系统异常`；后端日志为 `Missing batch record report: routeProcessId=928609, reportId=1d05410f1d3140c5b8aa6786887ae69c`。
+- GREEN: `python -X utf8 doc\tasks\20260731-mes-three-tab-test-sync\tools\sync_missing_batch_record_reports.py` -> PASS，插入最小正式依赖：`mes_pro_batch_record_definition=1`、`mes_pro_batch_record_version=1`、`mes_pro_batch_record_report=14`；后置缺失报表数 `0`，备份表 `m3brepbk_20260731115458_*`。
+- GREEN: `python -X utf8 doc\tasks\20260731-mes-three-tab-test-sync\tools\three_tab_sync_preflight.py` -> PASS，最终 `blocker_count=0`，source/target whitelist rows 均为 `2,989`。
+- GREEN: `node doc\tasks\20260731-mes-three-tab-test-sync\tools\verify_test_server_three_tabs.mjs --timeout 90000` -> PASS，测试服 `http://172.30.30.58:8081/`、`芋道源码/admin` 真实登录并完成滑块验证码；工序设置 total `65`、工艺流程 total `3`、排产工单 total `10`，截图写入 `artifacts/test-server-e2e/*.png`。
+- STATUS: ready_for_closeout，数据同步和必要验证已完成；剩余为 cleanup preview/apply、经验沉淀、提交和推送门禁。
+
+## 2026-07-31 Closeout Evidence
+
+- GREEN: project-experience-consolidation -> PASS，已将批记录报表元数据依赖核对补入 `docs/database-rules.md#mes-三页签跨环境同步完整性门禁`，并在 `docs/experience-index.md` 增加 `Missing batch record report` 等关键词路由。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260731-mes-three-tab-test-sync --mode preview` -> PASS，keep 包含 task/execution-log/verification-report/tools/artifacts，delete/blocked/warnings 均为 none。
+- GREEN: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260731-mes-three-tab-test-sync --mode apply` -> PASS，无删除、无阻塞、无 warnings。
+- STATUS: completed，数据同步、真实页面验证、经验沉淀和 cleanup apply 均完成；Git 提交/推送状态单独按仓库状态记录。
