@@ -6,7 +6,7 @@
       data-frontline-pqc-operator
     >
       <header class="frontline-operator-top is-pqc">
-        <button class="frontline-top-card" type="button">
+        <button class="frontline-top-card" type="button" @click="openPicker('order')">
           <span>生产订单</span>
           <strong class="frontline-top-card__order">{{ productionOrderLabel }}</strong>
         </button>
@@ -521,7 +521,9 @@
         <h3>
           {{
             isPqcMode
-              ? activePicker === 'process' ? '选工序' : '选择员工'
+              ? activePicker === 'order'
+                ? '选择订单'
+                : activePicker === 'process' ? '选工序' : '选择员工'
               : activePicker === 'process' ? '选择工序' : '选择员工'
           }}
         </h3>
@@ -547,6 +549,7 @@
 <script setup lang="ts">
 import {
   FRONTLINE_FIELD_CODES,
+  FRONTLINE_PQC_RESULTS,
   FRONTLINE_TEMPLATE_CODES,
   FrontlineTemplateApi,
   type FrontlineTemplateCode,
@@ -554,6 +557,7 @@ import {
   type FrontlineTemplatePayloadVO
 } from '@/api/mes/pro/feedbackFrontlineTemplate'
 import type {
+  FrontlineActiveOrderVO,
   FrontlineDeviceRouteProcessVO,
   FrontlineEmployeeCandidateVO
 } from '@/api/mes/pro/feedback'
@@ -568,11 +572,15 @@ import {
 import {
   createFrontlineDeviceEmployeeState,
   loadFrontlineDeviceProcesses,
+  loadFrontlinePqcActiveOrders,
   selectFrontlineProcess,
-  switchFrontlineActualEmployee
+  selectFrontlinePqcActiveOrder,
+  selectFrontlinePqcProcess,
+  switchFrontlineActualEmployee,
+  switchFrontlinePqcActualEmployee
 } from './frontlineDeviceEmployeeContext'
 
-type PickerType = 'process' | 'employee'
+type PickerType = 'order' | 'process' | 'employee'
 type InspectionType = 'FIRST' | 'PATROL' | 'FINAL'
 type PqcInspectionItemKey = 'length' | 'appearance' | 'seal' | 'pressure'
 type PqcChoiceResult = '合格' | '不合格'
@@ -687,11 +695,15 @@ const activePqcInspectionKey = ref<PqcInspectionItemKey>()
 const pqcPieceDraftValues = ref<string[]>([])
 const pqcPieceValues = reactive<Record<string, string[]>>({})
 
-const productionOrderLabel = computed(() =>
-  firstRouteQueryText(['productionOrderCode', 'workOrderCode', 'orderCode']) || '未选择订单'
-)
-
 const isPqcMode = computed(() => props.mode === 'pqc')
+
+const productionOrderLabel = computed(() => {
+  const selectedOrder = deviceState.selectedActiveOrder
+  return selectedOrder?.workOrderCode ||
+    selectedOrder?.workOrderName ||
+    firstRouteQueryText(['productionOrderCode', 'workOrderCode', 'orderCode']) ||
+    '未选择订单'
+})
 
 const selectedProcessLabel = computed(() => formatProcessLabel(deviceState.selectedProcess))
 
@@ -739,6 +751,7 @@ const isSubmitBlocked = computed(() =>
   payloadLoading.value ||
   templateModeMismatch.value ||
   templateBindingMissing.value ||
+  (isPqcMode.value && !deviceState.selectedActiveOrder) ||
   !deviceState.selectedProcess ||
   !deviceState.selectedEmployee
 )
@@ -746,6 +759,9 @@ const isSubmitBlocked = computed(() =>
 const statusText = computed(() => {
   if (deviceState.lastError) {
     return deviceState.lastError
+  }
+  if (isPqcMode.value && !deviceState.selectedActiveOrder) {
+    return '请选择活跃订单'
   }
   if (!deviceState.selectedProcess) {
     return '请选择工序'
@@ -809,6 +825,14 @@ const switchableProcessOptions = computed(() => {
 })
 
 const pickerOptions = computed(() => {
+  if (activePicker.value === 'order') {
+    return deviceState.activeOrderOptions.map((order) => ({
+      key: `${order.workOrderId}-${order.routeId}`,
+      label: formatActiveOrderLabel(order),
+      active: isSameActiveOrder(order, deviceState.selectedActiveOrder),
+      onClick: () => handleSelectActiveOrder(order)
+    }))
+  }
   if (activePicker.value === 'process') {
     return switchableProcessOptions.value.map((process) => ({
       key: `${process.routeId}-${process.routeProcessId}-${process.processId}`,
@@ -871,6 +895,16 @@ watch(
   () => {
     if (!isPqcMode.value) {
       Object.assign(draft.fieldValues, buildProductionFieldValues())
+    }
+  },
+  { deep: true }
+)
+
+watch(
+  [pqcDraft, pqcPieceValues],
+  () => {
+    if (isPqcMode.value) {
+      Object.assign(draft.fieldValues, buildPqcFieldValues())
     }
   },
   { deep: true }
@@ -1136,10 +1170,28 @@ const handleHome = () => {
   router.push('/')
 }
 
+const handleSelectActiveOrder = async (activeOrder: FrontlineActiveOrderVO) => {
+  const processes = await selectFrontlinePqcActiveOrder(deviceState, activeOrder)
+  applyActiveOrderToContext(activeOrder)
+  employeeTemplateCode.value = undefined
+  payloadPreview.value = undefined
+  const firstProcess = processes[0]
+  if (firstProcess) {
+    await handleSelectProcess(firstProcess)
+  } else {
+    closePicker()
+  }
+}
+
 const handleSelectProcess = async (process: FrontlineDeviceRouteProcessVO) => {
-  await selectFrontlineProcess(deviceState, process)
+  if (isPqcMode.value) {
+    await selectFrontlinePqcProcess(deviceState, process)
+  } else {
+    await selectFrontlineProcess(deviceState, process)
+  }
   applyProcessToContext(process)
   employeeTemplateCode.value = undefined
+  payloadPreview.value = undefined
   const firstEmployee = deviceState.employeeOptions[0]
   if (firstEmployee) {
     await handleSelectEmployee(firstEmployee)
@@ -1148,10 +1200,13 @@ const handleSelectProcess = async (process: FrontlineDeviceRouteProcessVO) => {
 }
 
 const handleSelectEmployee = async (employee: FrontlineEmployeeCandidateVO) => {
-  const result = await switchFrontlineActualEmployee(deviceState, employee.userId)
+  const result = isPqcMode.value
+    ? await switchFrontlinePqcActualEmployee(deviceState, employee.userId)
+    : await switchFrontlineActualEmployee(deviceState, employee.userId)
   context.actualEmployeeId = result.actualEmployeeId
   const templateCode = resolveTemplateCode(result.template?.templateNo, result.template?.templateType)
   employeeTemplateCode.value = templateCode
+  payloadPreview.value = undefined
   closePicker()
 }
 
@@ -1166,12 +1221,10 @@ const handleValidate = async () => {
     message.error(error.message)
     throw error
   }
-  if (isPqcMode.value) {
-    const error = new Error('PQC 详细检验内容尚未纳入正式模板字段，无法按正式 payload 提交。')
-    message.error(error.message)
-    throw error
-  }
-  Object.assign(draft.fieldValues, buildProductionFieldValues())
+  Object.assign(
+    draft.fieldValues,
+    isPqcMode.value ? buildPqcFieldValues() : buildProductionFieldValues()
+  )
   payloadLoading.value = true
   try {
     assertFormalPayloadContext()
@@ -1227,6 +1280,28 @@ const buildProductionFieldValues = () => ({
   [FRONTLINE_FIELD_CODES.OUTPUT_QUANTITY]: productionDraft.outputQuantity,
   [FRONTLINE_FIELD_CODES.SCRAP_QUANTITY]: productionScrapQuantity.value
 })
+
+const buildPqcFieldValues = () => ({
+  [FRONTLINE_FIELD_CODES.PQC_RESULT]: resolvePqcResult()
+})
+
+const resolvePqcResult = () => {
+  if (normalizePqcQuantity(pqcDraft.scrapQuantity) > 0) {
+    return FRONTLINE_PQC_RESULTS.DETECTION_FAILED
+  }
+  for (const itemKey of pqcInspectionItemKeys) {
+    const values = getPqcStoredPieceValues(itemKey).slice(0, pqcInspectionQuantity.value)
+    if (values.some((value) => value === '不合格')) {
+      return FRONTLINE_PQC_RESULTS.DETECTION_FAILED
+    }
+  }
+  return FRONTLINE_PQC_RESULTS.DETECTION_SUCCESS
+}
+
+const applyActiveOrderToContext = (activeOrder: FrontlineActiveOrderVO) => {
+  context.workOrderId = activeOrder.workOrderId
+  context.routeId = activeOrder.routeId
+}
 
 const applyProcessToContext = (process: FrontlineDeviceRouteProcessVO) => {
   context.routeId = process.routeId
@@ -1293,6 +1368,24 @@ const isSameProcess = (
   left.routeProcessId === right.routeProcessId &&
   left.processId === right.processId
 
+const isSameActiveOrder = (
+  left?: FrontlineActiveOrderVO,
+  right?: FrontlineActiveOrderVO
+) =>
+  Boolean(left && right) &&
+  left.workOrderId === right.workOrderId &&
+  left.routeId === right.routeId
+
+const formatActiveOrderLabel = (activeOrder?: FrontlineActiveOrderVO) => {
+  if (!activeOrder) {
+    return '未选择'
+  }
+  const orderText = activeOrder.workOrderCode || activeOrder.workOrderName || `订单 ${activeOrder.workOrderId}`
+  const productText = activeOrder.productCode || activeOrder.productName
+  const routeText = activeOrder.routeName || activeOrder.routeCode
+  return [orderText, productText, routeText].filter(Boolean).join(' / ')
+}
+
 const formatProcessLabel = (process?: FrontlineDeviceRouteProcessVO) => {
   if (!process) {
     return '未选择'
@@ -1328,6 +1421,18 @@ const resolveErrorMessage = (error: unknown) => {
 onMounted(async () => {
   hydrateContextFromRoute()
   catalog.value = await FrontlineTemplateApi.getCatalog()
+  if (isPqcMode.value) {
+    const activeOrders = await loadFrontlinePqcActiveOrders(deviceState)
+    const initialActiveOrder = activeOrders.find((order) =>
+      order.workOrderId === context.workOrderId &&
+      (!context.routeId || order.routeId === context.routeId)
+    ) || activeOrders[0]
+    if (initialActiveOrder) {
+      await handleSelectActiveOrder(initialActiveOrder)
+    }
+    Object.assign(draft.fieldValues, buildPqcFieldValues())
+    return
+  }
   await loadFrontlineDeviceProcesses(deviceState)
   const firstProcess = switchableProcessOptions.value[0]
   if (firstProcess) {

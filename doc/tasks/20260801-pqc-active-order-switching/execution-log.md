@@ -24,20 +24,42 @@ BDD: PQC leader review is consistent with inspector submissions -> Given PQC ins
 
 - Read backend/frontend/database delivery skills and project trigger rules before implementation.
 - Created task directory `doc/tasks/20260801-pqc-active-order-switching/`.
+- Read `docs/experience-index.md`; applicable gates recorded in `task.md`.
+- Implementation summary:
+  - Backend: added PQC active-order context service, active process-pool queries, PQC personnel lookup, PQC switching endpoints.
+  - Frontend: PQC order picker now opens active-order options; selected active order loads route processes; selected process loads PQC employees + leaders; employee switch uses PQC endpoint; PQC submit payload maps UI draft to formal `PQC_RESULT`.
+  - Non-conflict boundary: production mode still uses device-account process and employee-binding APIs; PQC mode uses separate `/pqc/*` endpoints.
 
 ## RED
 
-待补充。
+- RED: `node tests\e2e\mes-frontline-pqc-active-order-switching-static.spec.js` -> FAIL, expected reason: panel lacked order picker / active-order source contract.
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: missing `MesFrontlinePqcContextService`.
 
 ## GREEN
 
-待补充。
+- GREEN: `node tests\e2e\mes-frontline-pqc-active-order-switching-static.spec.js` -> PASS.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 5 tests, 0 failures, 0 errors.
+- GREEN: `pnpm ts:check` -> PASS.
 
 ## Regression
 
-待补充。
+- REGRESSION: `node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS.
+- REGRESSION: `node tests\e2e\process-pool-review-copy-and-revision-static.spec.js` -> PASS.
+- REGRESSION: `node tests\e2e\process-pool-event-revision-api-static.spec.js` -> PASS.
+- REGRESSION: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 10 tests, 0 failures, 0 errors.
+- REGRESSION: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyControllerTest,MesProcessPoolReviewCopyServiceTest,MesTeamLeaderSubmissionReviewServiceTest,MesProcessPoolEventRevisionControllerContractTest,MesProcessPoolEventRevisionServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 26 tests, 0 failures, 0 errors.
+
+## Evidence Validation
+
+- GREEN: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260801-pqc-active-order-switching\backend-api-evidence.md` -> PASS.
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260801-pqc-active-order-switching\frontend-feature-evidence.md` -> PASS.
+- GREEN: `git diff --check -- <task-owned implementation and doc files>` -> PASS, only CRLF conversion warnings.
+
+## Experience Consolidation
+
+- Checked docs/*memory*.md, docs/experience-index.md, frontend/backend/database/E2E/PowerShell/closeout rules for matching long-term experience destinations.
+- No new general engineering lesson was added: applicable gates already exist for static contract isolation, Maven -D quoting, and evidence validation; PQC active-order source is a task-specific product contract captured in this task evidence and tests.
 
 ## Blockers
 
-无。
-
+- Closeout blocker: current working tree contains unrelated concurrent changes and branch is already ahead of origin; commit/push not performed to avoid mixing task-owned and unrelated work.

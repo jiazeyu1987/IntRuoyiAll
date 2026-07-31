@@ -519,6 +519,31 @@ assert.ok(
 )
 assert.ok(!page.includes('标准模板列表'), 'MES工序页面不得继续显示标准模板列表旧标题')
 
+assert.equal(
+  (page.match(/<ContentWrap>/g) || []).length,
+  2,
+  'MES工序页必须使用标准列表模板：查询区 ContentWrap + 列表区 ContentWrap'
+)
+assert.ok(page.includes('<!-- 搜索工作栏 -->'), 'MES工序页必须保留标准搜索工作栏注释')
+assert.ok(page.includes('<!-- 列表 -->'), 'MES工序页必须保留标准列表区注释')
+assert.ok(page.includes('class="-mb-15px"'), '搜索表单必须使用标准列表模板的 -mb-15px 类')
+assert.ok(page.includes(':stripe="true"'), '表格必须启用标准列表模板的 stripe 属性')
+assert.ok(
+  /<el-table[\s\S]*v-loading="loading"[\s\S]*:data="list"[\s\S]*:stripe="true"[\s\S]*:show-overflow-tooltip="true"/.test(
+    page
+  ),
+  '表格必须使用标准 Element Plus 列表模板属性顺序'
+)
+assert.ok(
+  /<Pagination[\s\S]*:total="total"[\s\S]*v-model:page="queryParams\.pageNo"[\s\S]*v-model:limit="queryParams\.pageSize"[\s\S]*@pagination="getList"[\s\S]*\/>\s*<\/ContentWrap>/.test(
+    page
+  ),
+  '分页必须直接位于标准列表 ContentWrap 内'
+)
+assert.ok(!page.includes('mes-process-page'), 'MES工序页不得保留自定义列表 wrapper 或 scoped 样式类')
+assert.ok(!page.includes('height="620"'), '标准列表模板不得使用自定义固定表格高度')
+assert.ok(!page.includes('<style scoped>'), '标准列表模板不得保留本页自定义 scoped 样式')
+
 for (const label of [
   '产品名称',
   '设备编码',

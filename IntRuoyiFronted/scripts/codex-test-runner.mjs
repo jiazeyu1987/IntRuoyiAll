@@ -419,6 +419,7 @@ For Element Plus dialogs, click visible buttons by accessible role or exact visi
 Element Plus dialog/drawer footer action buttons such as save or confirm may be outside the field form scope; after filling fields, search the entire visible dialog/drawer or page for 保存/确定/提交, not only the field form scope.
 Use this deterministic Element Plus footer selector after filling a dialog or drawer: page.locator('.el-dialog__footer button, .el-drawer__footer button').filter({ hasText: /保存|确定|提交/ }).last().click().
 For field-selector list filters, first read the visible selected field label and use the matching identifier input instead of assuming a name field exists. On the 工艺路线 list, the default selected field is 路线编码; for the fixed basic-maintenance sample, search with route code TN-ROUTE-BASIC-001 before trying route name.
+List query buttons may be labeled 查询 or 搜索; use page.getByRole('button', { name: /查询|搜索/ }) or page.locator('button, .el-button').filter({ hasText: /查询|搜索/ }) instead of searching only for 搜索.
 Playwright project root: ${FRONTEND_PROJECT_ROOT}
 Project guidance root: ${PROJECT_ROOT}
 Playwright dependency note: temporary Node scripts can use require('playwright') because NODE_PATH includes ${FRONTEND_PROJECT_ROOT}/node_modules.

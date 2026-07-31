@@ -12,6 +12,7 @@
 - [x] 编写或更新回归测试，先证明当前系统列表与 Excel 不一致。
 - [x] 实施最小正式修复，使系统数据与 Excel 完全一致。
 - [x] 运行定向验证并记录 RED/GREEN/REGRESSION 证据。
+- [x] 修复 2026-08-01 运行态路由缺失：重建并切换 48081 后端 runtime Jar，应用本机目录表 SQL。
 - [ ] 收尾：更新验证报告、经验沉淀、cleanup、提交并推送。
 
 ## Expected Verification
@@ -23,7 +24,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 
@@ -52,9 +53,20 @@ in_progress
 - GREEN: `pnpm ts:check` -> PASS。
 - GREEN: `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output ..\doc\tasks\mes-process-xlsx-sync-20260731\migration-policy-gate.json` -> PASS，migrationCount=403。
 - NEW BUG: 2026-08-01 用户反馈运行态请求 `admin-api/mes/pro/mes-process/page` 返回“请求地址不存在”，旧验证尚未证明当前 48081 运行后端已加载新增 Controller，需要补充路由注册/运行态验证。
+- RED: `node doc\tasks\mes-process-xlsx-sync-20260731\tools\check-mes-process-runtime-route.mjs` -> FAIL，当前 48081 actuator mappings 缺少 `/mes/pro/mes-process/page`，运行 Jar 内未加载新 Controller。
+- GREEN: `mvn.cmd -pl yudao-server -am "-DskipTests" package` -> BUILD SUCCESS，并复制为 `output\runtime\int_main\backend-runtime-control-20260801-002326.jar`。
+- GREEN: 48081 后端已切换到新 runtime Jar，health `UP`，`node doc\tasks\mes-process-xlsx-sync-20260731\tools\check-mes-process-runtime-route.mjs` -> PASS。
+- GREEN: 本机 MySQL 应用 `20260731_mes_process_catalog_from_pressure_pump_xlsx.sql` -> PASS；目录表 32 行，源 Excel 行号 2-33，排序 1-32。
+- GREEN: 登录态请求 `/admin-api/mes/pro/mes-process/page?pageNo=1&pageSize=50` -> `code=0`，`total=32`，首条 `粗洗`，末条 `W包装打包`。
+- BLOCKED REGRESSION: 重新运行 `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProMesProcessServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` 在 `testCompile` 阶段被无关历史 MES 测试缺失符号阻塞；本轮未修改这些测试，运行态 API 与静态合同已覆盖本次 404/500 修复。
 
 ## Known Risks
 
 - 当前 `int_main` 工作区已有大量未提交改动且分支领先 `origin/int_main`，本任务不得覆盖或混入无关改动；若目标文件与既有改动冲突，需先阻塞确认。
-- 收尾提交/推送尚未执行：当前工作区仍存在多项非本任务脏改动与 `ahead 19`，本任务只更新任务自有文件与 MES 工序相关文件，未触碰无关并发任务文件。
+- 收尾提交/推送尚未执行：当前工作区存在无关第三方报工进度任务改动，且最新并发基线提交 `ec52d8dc8` 已吸收部分 MES 工序任务文件；本轮未 stage、未 commit、未 push，避免混入无关改动。
 - Cleanup apply 未执行：cleanup preview 将 `C:\Users\BJB110\.cache\codex-runtimes\...node_modules` 等工作区外运行时依赖列入 delete，超出本任务清理范围。
+
+## Cleanup Keep
+
+doc/tasks/mes-process-xlsx-sync-20260731/bug-regression-evidence.md
+doc/tasks/mes-process-xlsx-sync-20260731/tools/check-mes-process-runtime-route.mjs

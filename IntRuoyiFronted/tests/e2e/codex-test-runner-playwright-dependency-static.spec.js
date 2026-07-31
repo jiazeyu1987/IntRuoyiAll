@@ -60,5 +60,10 @@ assert.match(
   /field-selector list filters[\s\S]*visible selected field[\s\S]*路线编码[\s\S]*TN-ROUTE-BASIC-001/,
   'Runner prompt 必须提醒子任务遇到字段选择器列表筛选时可按当前可见字段搜索，工艺路线固定样本应优先用路线编码。'
 )
+assert.match(
+  runner,
+  /query buttons may be labeled 查询 or 搜索[\s\S]*getByRole\('button', \{ name: \/查询\|搜索\/ \}\)/,
+  'Runner prompt 必须提醒子任务列表查询按钮可能叫“查询”或“搜索”，并给出确定性 selector。'
+)
 
 console.log('PASS: Codex runner Playwright dependency static contract')

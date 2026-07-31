@@ -29,3 +29,17 @@
 - Status update: 新增运行态路由缺失回归后，任务状态由 `ready_for_closeout` 改回 `in_progress`。
 - BDD: MES 工序分页接口必须在运行后端注册 -> Given 前端 MES 工序页请求 `/admin-api/mes/pro/mes-process/page` When 后端服务加载 MES 模块 Then 请求不应返回“请求地址不存在”，应进入正式 Controller 并按权限/业务规则返回响应。
 - Planned RED: 用静态/构建级契约或本机运行态探针证明当前路由未被当前服务注册或未被当前运行 Jar 加载。
+- Runtime ownership: `48081` 旧监听 PID `37212` 归属 `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260731-200535.jar`，命令行其它启动参数已按凭据规则脱敏处理。
+- RED: `node doc\tasks\mes-process-xlsx-sync-20260731\tools\check-mes-process-runtime-route.mjs` -> FAIL，actuator mappings 缺少 `/mes/pro/mes-process/page`；旧 runtime Jar 内未包含 `MesProMesProcessController`。
+- GREEN: `mvn.cmd -pl yudao-server -am "-DskipTests" package` -> BUILD SUCCESS，`yudao-server-exec.jar` SHA256 `D44F5BE85C16F116959C3F259A62B4D48DEB7BA45A144CED43137ABEC61FAE5A`。
+- Runtime reload: 将新 Jar 复制为 `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260801-002326.jar`，停止旧 PID `37212`，启动新 PID `54564`；`http://127.0.0.1:48081/actuator/health` -> `UP`。
+- GREEN: `node doc\tasks\mes-process-xlsx-sync-20260731\tools\check-mes-process-runtime-route.mjs` -> PASS，actuator mappings 已包含 `/mes/pro/mes-process/page`。
+- RED: 登录态请求 `/admin-api/mes/pro/mes-process/page?pageNo=1&pageSize=50` -> FAIL，业务码 `500`；日志根因为本机库缺少 `mes_pro_mes_process_catalog`，说明路由已进入正式 Controller 但目录迁移未应用。
+- Local DB precheck: `int-ruoyi-mysql` / `int-ruoyi-redis` 均为本机 Docker 依赖；菜单权限 `mes:pro-mes-process:query` 已存在，缺失范围仅为 `mes_pro_mes_process_catalog` 与 `mes_pro_mes_process_catalog_machinery` 两张目录表。
+- GREEN: 本机 Docker MySQL 执行 `sql\mysql\20260731_mes_process_catalog_from_pressure_pump_xlsx.sql` -> PASS，仅创建/填充 MES 工序 Excel 目录表。
+- GREEN: DB count -> `mes_pro_mes_process_catalog` 32 行，`source_row_no` 2-33，`sort_no` 1-32；设备明细表 19 行。
+- GREEN: 登录态请求 `/admin-api/mes/pro/mes-process/page?pageNo=1&pageSize=50` -> PASS，业务码 `0`，`total=32`，首条 `粗洗`，末条 `W包装打包`。
+- GREEN: `node tests\e2e\mes-pro-mes-process-readonly-static.spec.js` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc\tasks\mes-process-xlsx-sync-20260731\bug-regression-evidence.md` -> PASS，bug regression evidence is valid。
+- BLOCKED REGRESSION: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesProMesProcessServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，阻塞在 `testCompile`，大量无关历史 MES 测试引用已不存在的 route/batchrecord/processpool 符号；本轮未修改这些测试，且 `mvn.cmd -pl yudao-server -am "-DskipTests" package`、运行态路由、DB count 和登录态分页均已通过。
+- CONCURRENT COMMIT NOTICE: 最新提交变为 `ec52d8dc8 chore: baseline preexisting worktree changes`，该并发基线已包含本任务部分文件以及其它任务文件；当前工作区仍有无关第三方报工进度任务改动，本轮未执行 stage/commit/push。

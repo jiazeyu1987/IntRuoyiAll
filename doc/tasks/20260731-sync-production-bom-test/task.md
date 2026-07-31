@@ -22,7 +22,7 @@
 
 ## Current Status
 
-in_progress
+blocked
 
 ## 设计约束检查
 
@@ -38,3 +38,8 @@ in_progress
 - Manifest 门禁：构建后必须校验 `manifest.json` 中 `releaseTag`、`component=intruoyi`、`publishScope=code-only`、backend/frontend commit、`dirty=false` 和 artifact 哈希。
 - 测试服运行态：发布后必须核对远端 `.env IMAGE_TAG`、backend/frontend 实际镜像、容器 running、后端 health、前端 HTTP 200、release lock 和 migration 状态。
 - Worktree 清理：发布验证完成后，release worktree 只能按当前任务范围清理；不得删除并行任务 worktree、进程或端口登记项。
+
+## Current Blocker
+
+- `git push -u origin codex/sync-production-bom-test-r260731pml` 失败：GitHub HTTPS remote 被 Git 配置代理到 `127.0.0.1:7890`，但该端口未监听；直连 GitHub HTTPS `ls-remote` 返回 `Recv failure: Connection was reset`；SSH 443 可达但当前 key 未被 GitHub 接受。
+- Impact：本地 release worktree 已修复 `build-release` manifest 阻塞并提交为 `f95edbb88`，但提交未推送；按项目 Git/发布规则不得继续部署未推送提交到测试服务器。
