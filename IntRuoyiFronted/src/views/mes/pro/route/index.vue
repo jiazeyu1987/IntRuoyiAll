@@ -24,6 +24,16 @@
       @pagination="getList"
     >
       <template #extra-filters>
+        <el-form-item class="route-list__create-action">
+          <el-button
+            type="primary"
+            plain
+            @click="openForm('create')"
+            v-hasPermi="['mes:pro-route:create']"
+          >
+            <Icon icon="ep:plus" class="mr-5px" /> 新增
+          </el-button>
+        </el-form-item>
         <el-form-item class="route-list__column-settings">
           <UserTableColumnSettings
             :columns="routeColumns"
