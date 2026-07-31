@@ -38,6 +38,15 @@
 - Forbidden action: 禁止修改数据库默认排序规则、手改真实表排序规则、扩大 `WHERE` 范围、拆掉精确租户/删除标记条件，或把失败事务当作成功继续执行。
 - Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`。
 
+### DCC 文件类别规则种子门禁
+
+- Trigger: DCC 项目代码文件分类、`dcc_file_category_match_rule`、OQ/PQ、零配件图纸、类别规则 seed、批量识别 `AMBIGUOUS` / `UNCLASSIFIED` 根因修复。
+- Preflight check: 写类别规则 seed 前先核对目标 `dcc_file_category` 启用且未删除类别是否存在、同租户同名类别是否唯一、规则表是否有唯一键防重复、测试 schema 是否同步；规则 seed 必须通过存储过程或等价机制在类别缺失、歧义或插入不完整时 fail fast。
+- Blocker: seed 在目标类别不存在时仍成功、同一租户同名类别无法唯一定位、规则表缺唯一键、未知 `match_type` 被默认成功、或迁移直接更新 `dcc_controlled_file` 分类字段时必须停止。
+- Verification: 运行目标 JUnit 覆盖 OQ/PQ 明确规则优先、图纸扩展名规则和泛化同分歧义保留；运行对应 `script/tests/test_dcc_file_category_match_rule_sql.py`、`run-release-migration-policy-gate.py`，并记录 backend/database evidence validator PASS。
+- Forbidden action: 禁止直接 SQL 修 `dcc_controlled_file` 分类、禁止循环单文件 API 打补丁、禁止 seed 静默插入 0 行、禁止把 `AMBIGUOUS` / `UNCLASSIFIED` 当成功、禁止用硬编码 fallback 掩盖类别规则缺口。
+- Evidence: `doc/tasks/20260731-dcc-file-category-rules/verification-report.md`。
+
 ### 中文菜单名称 ASCII 安全迁移门禁
 
 - Trigger: 菜单、权限、租户套餐或动态路由 SQL 需要写入中文入口名称，尤其通过 MySQL 客户端、Docker `mysql < file.sql`、PowerShell/stdin 或发布迁移执行 `system_menu.name` 更新。

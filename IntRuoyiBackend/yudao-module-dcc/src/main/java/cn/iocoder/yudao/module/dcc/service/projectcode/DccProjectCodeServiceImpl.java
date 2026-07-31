@@ -16,11 +16,13 @@ import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCod
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeSaveReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeUpdateReqVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryMatchRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeImportBatchDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeImportRowDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMatchRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeImportBatchMapper;
@@ -57,6 +59,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -82,6 +85,8 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     private static final String TECHNICAL_FILE_TYPE_LEVEL1 = "技术文档";
     private static final String UNCLASSIFIED_STAGE = "未分类";
     private static final String UNCLASSIFIED_FILE_TYPE = "未分类文件类型";
+    private static final String CATEGORY_MATCH_TYPE_CONTAINS = "CONTAINS";
+    private static final String CATEGORY_MATCH_TYPE_EXTENSION = "EXTENSION";
     private static final String ASSIGNMENT_EXECUTE_PERMISSION = "dcc:project-code-assignment:execute";
     private static final String[] FULL_PROJECT_CODE_SCOPE_PERMISSIONS = {
             "dcc:project-code:create",
@@ -147,6 +152,8 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     private DccControlledFileMapper controlledFileMapper;
     @Resource
     private DccFileCategoryMapper categoryMapper;
+    @Resource
+    private DccFileCategoryMatchRuleMapper categoryMatchRuleMapper;
     @Resource
     private DccControlledFileQueryService controlledFileQueryService;
     @Resource
@@ -255,7 +262,9 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
             throw exception(PROJECT_CODE_ASSOCIATED_FILE_ALREADY_CATEGORIZED);
         }
 
-        FileTypeCategoryTarget target = resolveAiCategoryTarget(controlledFile, activeCategories);
+        Map<Long, List<DccFileCategoryMatchRuleDO>> categoryMatchRules =
+                listActiveCategoryMatchRules(activeCategories);
+        FileTypeCategoryTarget target = resolveAiCategoryTarget(controlledFile, activeCategories, categoryMatchRules);
         if (target.ambiguous()) {
             return toAiCategoryResp(controlledFile, target);
         }
@@ -389,6 +398,22 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
                 .toList();
     }
 
+    private Map<Long, List<DccFileCategoryMatchRuleDO>> listActiveCategoryMatchRules(
+            List<DccFileCategoryDO> activeCategories) {
+        Set<Long> categoryIds = activeCategories.stream()
+                .map(DccFileCategoryDO::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (categoryIds.isEmpty()) {
+            return Map.of();
+        }
+        return categoryMatchRuleMapper.selectList(new LambdaQueryWrapperX<DccFileCategoryMatchRuleDO>()
+                        .in(DccFileCategoryMatchRuleDO::getCategoryId, categoryIds)
+                        .eq(DccFileCategoryMatchRuleDO::getActive, true))
+                .stream()
+                .collect(Collectors.groupingBy(DccFileCategoryMatchRuleDO::getCategoryId));
+    }
+
     private boolean requiresAiCategory(DccControlledFileDO file, List<DccFileCategoryDO> activeCategories) {
         Long taxonomyId = file.getFileTypeTaxonomyId();
         if (taxonomyId != null && activeCategories.stream()
@@ -408,14 +433,19 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
         });
     }
 
-    private FileTypeCategoryTarget resolveAiCategoryTarget(DccControlledFileDO controlledFile,
-                                                           List<DccFileCategoryDO> activeCategories) {
+    private FileTypeCategoryTarget resolveAiCategoryTarget(
+            DccControlledFileDO controlledFile,
+            List<DccFileCategoryDO> activeCategories,
+            Map<Long, List<DccFileCategoryMatchRuleDO>> categoryMatchRules) {
         List<String> fileMatchTexts = resolveAssociatedFileMatchTexts(controlledFile);
+        List<String> rawFileMatchTexts = resolveAssociatedFileRawMatchTexts(controlledFile);
         if (fileMatchTexts.isEmpty()) {
             return FileTypeCategoryTarget.unclassified();
         }
         List<CategoryMatch> matches = activeCategories.stream()
-                .map(category -> new CategoryMatch(category, categoryMatchScore(fileMatchTexts, category)))
+                .map(category -> new CategoryMatch(category, categoryMatchScore(
+                        fileMatchTexts, rawFileMatchTexts, category,
+                        categoryMatchRules.getOrDefault(category.getId(), List.of()))))
                 .filter(match -> match.score() > 0)
                 .toList();
         if (matches.isEmpty()) {
@@ -450,13 +480,20 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
                 path.level5());
     }
 
-    private int categoryMatchScore(List<String> fileMatchTexts, DccFileCategoryDO category) {
+    private int categoryMatchScore(List<String> fileMatchTexts, List<String> rawFileMatchTexts,
+                                   DccFileCategoryDO category, List<DccFileCategoryMatchRuleDO> matchRules) {
         String categoryName = StrUtil.trim(category.getName());
-        return resolveCategoryMatchNames(category).stream()
+        int legacyScore = resolveCategoryMatchNames(category).stream()
                 .filter(matchName -> fileMatchTexts.stream().anyMatch(text -> text.contains(matchName)))
                 .mapToInt(matchName -> categoryMatchScore(categoryName, matchName))
                 .max()
                 .orElse(0);
+        int ruleScore = matchRules.stream()
+                .filter(rule -> Boolean.TRUE.equals(rule.getActive()))
+                .mapToInt(rule -> categoryMatchRuleScore(rule, fileMatchTexts, rawFileMatchTexts))
+                .max()
+                .orElse(0);
+        return Math.max(legacyScore, ruleScore);
     }
 
     private int categoryMatchScore(String categoryName, String matchName) {
@@ -495,6 +532,84 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
+    }
+
+    private List<String> resolveAssociatedFileRawMatchTexts(DccControlledFileDO controlledFile) {
+        return Arrays.asList(
+                controlledFile.getFileName(),
+                controlledFile.getTitle(),
+                controlledFile.getFileNumber()).stream()
+                .map(StrUtil::trimToNull)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+    }
+
+    private int categoryMatchRuleScore(DccFileCategoryMatchRuleDO rule, List<String> fileMatchTexts,
+                                       List<String> rawFileMatchTexts) {
+        String matchType = StrUtil.trimToNull(rule.getMatchType());
+        if (matchType == null) {
+            matchType = CATEGORY_MATCH_TYPE_CONTAINS;
+        }
+        matchType = matchType.toUpperCase(Locale.ROOT);
+        return switch (matchType) {
+            case CATEGORY_MATCH_TYPE_CONTAINS -> categoryContainsRuleScore(rule, fileMatchTexts);
+            case CATEGORY_MATCH_TYPE_EXTENSION -> categoryExtensionRuleScore(rule, rawFileMatchTexts);
+            default -> throw new IllegalStateException(
+                    "Unsupported DCC file category match rule type: " + rule.getMatchType());
+        };
+    }
+
+    private int categoryContainsRuleScore(DccFileCategoryMatchRuleDO rule, List<String> fileMatchTexts) {
+        String matchText = normalizeCategoryMatchText(rule.getMatchText());
+        if (matchText == null) {
+            throw new IllegalStateException("DCC file category match rule has blank matchText: " + rule.getId());
+        }
+        return fileMatchTexts.stream().anyMatch(text -> text.contains(matchText))
+                ? categoryMatchRuleBaseScore(rule, matchText)
+                : 0;
+    }
+
+    private int categoryExtensionRuleScore(DccFileCategoryMatchRuleDO rule, List<String> rawFileMatchTexts) {
+        String extension = normalizeRuleExtension(rule.getMatchText());
+        if (extension == null) {
+            throw new IllegalStateException("DCC file category extension rule has blank matchText: " + rule.getId());
+        }
+        return rawFileMatchTexts.stream()
+                .map(this::extractFileExtension)
+                .filter(Objects::nonNull)
+                .anyMatch(extension::equals)
+                ? categoryMatchRuleBaseScore(rule, extension)
+                : 0;
+    }
+
+    private int categoryMatchRuleBaseScore(DccFileCategoryMatchRuleDO rule, String normalizedMatchText) {
+        int weight = rule.getWeight() == null ? 0 : rule.getWeight();
+        return weight + normalizedMatchText.length();
+    }
+
+    private String normalizeRuleExtension(String value) {
+        String normalized = StrUtil.trimToNull(value);
+        if (normalized == null) {
+            return null;
+        }
+        if (normalized.startsWith(".")) {
+            normalized = normalized.substring(1);
+        }
+        return StrUtil.trimToNull(normalized.toLowerCase(Locale.ROOT));
+    }
+
+    private String extractFileExtension(String value) {
+        String fileName = StrUtil.trimToNull(value);
+        if (fileName == null) {
+            return null;
+        }
+        int slashIndex = Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\'));
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex <= slashIndex || dotIndex == fileName.length() - 1) {
+            return null;
+        }
+        return fileName.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
     }
 
     private DccFileTypeTaxonomyPath resolveCategoryTaxonomyPath(DccFileCategoryDO category) {
