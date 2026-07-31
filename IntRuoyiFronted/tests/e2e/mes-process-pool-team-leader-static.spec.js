@@ -47,6 +47,12 @@ for (const apiName of [
 
 assert(page.includes("activeTab = ref<'submission' | 'abnormal' | 'maintenance'>"), '页面必须拆分提交看板、异常上报、班组维护三类入口。')
 assert(page.includes('PQC') && page.includes('PRODUCTION'), '页面必须支持生产班组长和 PQC 班组长切换。')
+assert(page.includes('data-team-leader-type-tabs'), '页面必须提供生产组长和 PQC 组长一级页签。')
+assert(page.includes('label="生产组长" name="PRODUCTION"'), '页面必须提供生产组长页签。')
+assert(page.includes('label="PQC 组长" name="PQC"'), '页面必须提供 PQC 组长页签。')
+assert(page.includes('data-team-leader-pqc-placeholder'), 'PQC 组长页签必须提供明确占位内容。')
+assert(page.includes("if (leaderType === 'PRODUCTION')"), '切换回生产组长时才允许查询生产组长看板。')
+assert(!page.includes('<el-radio-group v-model="queryParams.leaderType"'), '组长类型必须使用页签，不得继续使用单选按钮。')
 assert(page.includes('originalPayloadJson'), '提交详情必须展示原始 payload，复核不能替代原始记录。')
 assert(page.includes('reviewStatus') && page.includes('reviewRemark'), '提交复核必须包含复核状态和说明。')
 assert(page.includes('lowerLimit') && page.includes('upperLimit'), '设备参数维护必须包含上下限字段。')
