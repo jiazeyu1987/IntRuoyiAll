@@ -26,7 +26,7 @@
 
 ## Current Status
 
-blocked
+ready_for_closeout
 
 ## Design Constraint Check
 
@@ -82,6 +82,7 @@ blocked
 - GitHub `origin/int_main` 后续新增 `b8251624 docs: record int_main merge closeout`；该提交仅含 `doc/tasks/20260731-merge-int-main/*`，已合入临时集成分支并复跑端口守卫、目标 Maven、前端静态合同、E2E 脚本语法检查和 `pnpm ts:check` 通过。
 - GitHub `origin/int_main` 后续又合入 `011999ef merge: sync origin int_main` 及相关 NAS/DCC 并行内容；临时集成分支合并后，eDHR 前端静态合同、E2E 脚本语法检查、`pnpm ts:check` 和端口守卫仍通过，但必跑后端 Maven 门禁在 `yudao-module-dcc` testCompile 阶段失败。
 - 当前状态改为 `blocked`：失败点是无关 DCC 测试 `DccProjectCodeServiceImplTest` 引用了缺失的 `DccFileCategoryMatchRuleDO` 与 `DccFileCategoryMatchRuleMapper`。在该主线编译问题修复并且远端可拉取前，不能按本任务要求推送到 `origin/int_main`、执行 closeout apply 或删除原任务 worktree。
+- 用户继续后，已在同一干净临时集成分支新增受控 DCC 解阻任务 `doc/tasks/20260731-dcc-category-match-rule-compile-unblock/`，补齐正式规则表、DO、Mapper 和服务读取链路；DCC 目标测试、eDHR 后端门禁、前端静态合同、E2E 脚本语法检查和 `pnpm ts:check` 均已通过，当前状态恢复为 `ready_for_closeout`。
 - 未执行 force push、rebase、reset 或历史重写。
 
 ## Yudao Source E2E Result

@@ -92,6 +92,8 @@
 - PASS: Latest clean integration branch runtime guard, frontend static contracts, E2E syntax check, and `pnpm ts:check` still pass at HEAD `c97d0f09`.
 - BLOCKED: Latest backend target Maven fails before MES tests because unrelated `yudao-module-dcc` test compile references missing `DccFileCategoryMatchRuleDO` and `DccFileCategoryMatchRuleMapper` from `DccProjectCodeServiceImplTest`.
 - PASS: Latest `git fetch origin int_main` now succeeds; `origin/int_main` remains at `011999ef merge: sync origin int_main`, with no newer remote fix visible.
-- PENDING: After the unrelated DCC mainline compile issue is fixed in mainline, rerun the backend Maven gate, then push/merge to `origin/int_main`, run cleanup preview/apply, and remove the task worktrees.
+- PASS: DCC compile blocker resolved by `doc/tasks/20260731-dcc-category-match-rule-compile-unblock/`; `mvn -pl yudao-module-dcc -am "-Dtest=DccProjectCodeServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` passed with 26 tests。
+- PASS: Post-unblock backend Maven gate passed with 12 MES frontline tests; frontend static contracts, E2E syntax check, and `pnpm ts:check` also passed.
+- PENDING: Commit and push the unblock integration, then run cleanup preview/apply and remove the task worktrees.
 - No task-owned runtime remains on ports `8083/48083`; no fixture rows remain.
-- Final local status: blocked.
+- Final local status: ready_for_closeout.

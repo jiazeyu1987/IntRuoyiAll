@@ -135,3 +135,15 @@
 - GREEN: `rg -n "DccFileCategoryMatchRuleDO|Maven -am 依赖模块 testCompile|当前任务源码未改依赖模块不得跳过" docs/experience-index.md docs/worktree-memory.md` -> PASS。
 - GREEN: `git diff --check -- doc/tasks/20260730-edhr-frontline-fill-tabs/task.md doc/tasks/20260730-edhr-frontline-fill-tabs/execution-log.md doc/tasks/20260730-edhr-frontline-fill-tabs/verification-report.md docs/worktree-memory.md docs/experience-index.md` -> PASS。
 - Remote refresh final check: `git fetch origin int_main` -> PASS；`origin/int_main` 仍为 `011999ef merge: sync origin int_main`，远端暂无修复 DCC `testCompile` 缺失类的后续提交。
+- User continuation: 用户要求继续，授权当前线程继续处理阻塞项。
+- DCC unblock implementation: 新建任务 `doc/tasks/20260731-dcc-category-match-rule-compile-unblock/`，补齐 `dcc_file_category_match_rule` 正式表、DO、Mapper、测试 schema 和 DCC 项目代码分类服务读取链路。
+- GREEN: DCC unblock `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_dcc_file_category_match_rule_sql.py` -> PASS，2 passed。
+- GREEN: DCC unblock `mvn -pl yudao-module-dcc -am "-Dtest=DccProjectCodeServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，26 tests，0 failures，0 errors，0 skipped。
+- GREEN: blocker resolved `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRouteProcessTemplateBindingSourceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineTemplateResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，12 tests，0 failures，0 errors，0 skipped。
+- GREEN: post-unblock `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- GREEN: post-unblock `node src/views/mes/pro/feedback/frontline-template-render.spec.cjs` -> PASS。
+- GREEN: post-unblock `node src/views/mes/pro/feedback/frontline-template-switch.spec.cjs` -> PASS。
+- REGRESSION: post-unblock `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js` -> PASS。
+- GREEN: post-unblock `node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` -> PASS。
+- REGRESSION: post-unblock `pnpm ts:check` -> PASS。
+- Status update: DCC 编译阻塞已正式解除；eDHR 任务状态恢复为 `ready_for_closeout`，等待提交、推送到 `int_main`、cleanup preview/apply 和 worktree 删除。
