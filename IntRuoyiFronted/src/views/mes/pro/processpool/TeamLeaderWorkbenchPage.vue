@@ -19,7 +19,7 @@
     </el-tabs>
   </ContentWrap>
 
-  <template v-if="activeLeaderTab === 'PRODUCTION'">
+  <template>
     <ContentWrap v-if="loadError">
       <el-alert :title="loadError" type="error" :closable="false" show-icon />
     </ContentWrap>
@@ -27,8 +27,8 @@
     <ContentWrap>
       <el-tabs v-model="activeTab">
         <el-tab-pane label="提交看板" name="submission" />
-        <el-tab-pane label="异常上报" name="abnormal" />
-        <el-tab-pane label="班组维护" name="maintenance" />
+        <el-tab-pane v-if="isProductionLeader" label="异常上报" name="abnormal" />
+        <el-tab-pane v-if="isProductionLeader" label="班组维护" name="maintenance" />
       </el-tabs>
     </ContentWrap>
 
@@ -49,7 +49,7 @@
             class="!w-180px"
           />
         </el-form-item>
-        <el-form-item label="员工" prop="employeeUserId">
+        <el-form-item :label="employeeFilterLabel" prop="employeeUserId">
           <el-input-number
             v-model="queryParams.employeeUserId"
             :min="1"
@@ -103,7 +103,7 @@
         <el-table-column label="提交时间" prop="submittedAt" min-width="160">
           <template #default="{ row }">{{ formatDateTime(row.submittedAt) }}</template>
         </el-table-column>
-        <el-table-column label="员工" min-width="140">
+        <el-table-column :label="employeeColumnLabel" min-width="140">
           <template #default="{ row }">
             {{ row.actualEmployeeUserName || row.actualEmployeeUserId || '--' }}
           </template>
@@ -121,6 +121,11 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="提交内容" min-width="220">
+          <template #default="{ row }">
+            {{ row.submittedSummary || row.pqcSummary || '--' }}
+          </template>
+        </el-table-column>
         <el-table-column label="审核副本" min-width="130">
           <template #default="{ row }">{{ row.auditCopyStatus || '--' }}</template>
         </el-table-column>
@@ -128,7 +133,9 @@
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
             <el-button link type="success" @click="openReview(row)">复核</el-button>
-            <el-button link type="warning" @click="prefillAbnormal(row)">标记异常</el-button>
+            <el-button v-if="isProductionLeader" link type="warning" @click="prefillAbnormal(row)">
+              标记异常
+            </el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -282,13 +289,13 @@
       </div>
     </ContentWrap>
 
-    <el-drawer v-model="detailVisible" title="员工提交详情" size="620px" destroy-on-close>
+    <el-drawer v-model="detailVisible" :title="detailDrawerTitle" size="620px" destroy-on-close>
       <div v-loading="detailLoading">
         <el-descriptions v-if="detail" :column="1" border>
           <el-descriptions-item label="服务端提交时间">
             {{ formatDateTime(detail.submittedAt) }}
           </el-descriptions-item>
-          <el-descriptions-item label="实际员工">
+          <el-descriptions-item :label="employeeDetailLabel">
             {{ detail.actualEmployeeUserName || detail.actualEmployeeUserId || '--' }}
           </el-descriptions-item>
           <el-descriptions-item label="工序">
@@ -299,6 +306,11 @@
           </el-descriptions-item>
           <el-descriptions-item label="提交摘要">
             {{ detail.submittedSummary || '--' }}
+          </el-descriptions-item>
+          <el-descriptions-item v-if="detail.pqcResult || detail.pqcSummary" label="PQC检验内容">
+            <el-tag :type="resolvePqcTagType(detail.pqcResult)" effect="plain">
+              {{ detail.pqcSummary || detail.pqcResult }}
+            </el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="原始 payload">
             <pre class="team-leader-workbench__payload">{{
@@ -329,10 +341,6 @@
       </template>
     </el-dialog>
   </template>
-
-  <ContentWrap v-else data-team-leader-pqc-placeholder>
-    <el-empty description="PQC 组长功能正在建设中" />
-  </ContentWrap>
 </template>
 
 <script setup lang="ts">
@@ -373,6 +381,20 @@ const submissionTotal = ref(0)
 const submissionList = ref<ProcessPoolTimelineEventVO[]>([])
 const detail = ref<ProcessPoolTimelineDetailVO>()
 const reviewEvent = ref<ProcessPoolTimelineEventVO>()
+
+const isProductionLeader = computed(() => activeLeaderTab.value === 'PRODUCTION')
+const employeeFilterLabel = computed(() =>
+  activeLeaderTab.value === 'PQC' ? 'PQC检验员' : '员工'
+)
+const employeeColumnLabel = computed(() =>
+  activeLeaderTab.value === 'PQC' ? 'PQC检验员' : '员工'
+)
+const employeeDetailLabel = computed(() =>
+  activeLeaderTab.value === 'PQC' ? 'PQC检验员' : '实际员工'
+)
+const detailDrawerTitle = computed(() =>
+  activeLeaderTab.value === 'PQC' ? 'PQC检验员提交详情' : '员工提交详情'
+)
 
 const queryParams = reactive<TeamLeaderSubmissionPageReqVO>({
   pageNo: 1,
@@ -497,17 +519,23 @@ const handleQuery = () => {
 const handleLeaderTypeChange = (value: string | number) => {
   const leaderType = String(value) as TeamLeaderType
   queryParams.leaderType = leaderType
-  if (leaderType === 'PRODUCTION') {
-    handleQuery()
+  if (leaderType === 'PQC') {
+    activeTab.value = 'submission'
+    queryParams.templateType = 'PQC_SIMPLIFIED'
+  } else if (queryParams.templateType === 'PQC_SIMPLIFIED') {
+    queryParams.templateType = undefined
   }
+  handleQuery()
 }
 
 const resetQuery = () => {
+  const leaderType = activeLeaderTab.value
   queryFormRef.value?.resetFields()
   queryParams.pageNo = 1
   queryParams.pageSize = 10
-  queryParams.leaderType = 'PRODUCTION'
+  queryParams.leaderType = leaderType
   queryParams.submitDate = new Date().toISOString().slice(0, 10)
+  queryParams.templateType = leaderType === 'PQC' ? 'PQC_SIMPLIFIED' : undefined
   getSubmissionList()
 }
 
