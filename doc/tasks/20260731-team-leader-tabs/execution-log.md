@@ -19,8 +19,22 @@
 
 ## Verification Evidence
 
-待补充 RED、GREEN、REGRESSION 和最终验证结果。
+- `RED: node tests\e2e\mes-process-pool-team-leader-static.spec.js -> FAIL, 现有页面没有生产组长/PQC 组长一级页签契约。`
+- `GREEN: node tests\e2e\mes-process-pool-team-leader-static.spec.js -> PASS, 输出 mes-process-pool-team-leader-static PASS。`
+- `REGRESSION: pnpm ts:check -> PASS。首次 120 秒检查超时且遗留本任务 vue-tsc 进程，停止精确任务进程后以 300 秒预算复跑通过；最终格式化后再次复跑通过。`
+- `REGRESSION: pnpm exec prettier --check src\views\mes\pro\processpool\TeamLeaderWorkbenchPage.vue -> PASS。`
+- `REGRESSION: git diff --check -- <task-owned paths> -> PASS。`
+- `EVIDENCE SELF-TEST: validate_frontend_feature.py --self-test -> PASS。`
+- `EVIDENCE: validate_frontend_feature.py --evidence doc\tasks\20260731-team-leader-tabs\frontend-feature-evidence.md -> PASS，输出 Frontend feature evidence is valid。`
+- 实现范围：现有生产组长提交看板、异常上报、班组维护和详情/复核弹窗均位于 `activeLeaderTab === 'PRODUCTION'` 分支；PQC 分支仅显示 `PQC 组长功能正在建设中`。
+- 实现范围：`handleLeaderTypeChange` 仅在切换到 `PRODUCTION` 时调用 `handleQuery`，PQC 页签不触发生产提交分页接口。
+- Dirty baseline commit: `1cf2294e3 chore: baseline existing workspace changes`，未包含本任务文件。
+- Concurrent baseline commit: `62cdf8de2 chore: baseline concurrent team leader changes`，并发任务将本任务聚焦静态契约和初始任务文档纳入该提交；页面实现仍保留为本任务独立改动，后续仅选择性暂存任务自有文件。
+- Implementation commit: `2ed21ef45 feat: split team leader workbench tabs`，仅包含 `TeamLeaderWorkbenchPage.vue`。
+- Project experience consolidation: 并发基线吞入当前任务文件的处理已由 `docs/powershell-memory.md#共享分支并发基线提交门禁` 和 `docs/experience-index.md` 覆盖，本次没有新增可复用门禁，不修改长期经验文档。
+- Cleanup preview: `task_closeout.py --task-id 20260731-team-leader-tabs --mode preview` -> `status: ready`；keep 三个核心任务记录，delete 仅 `frontend-feature-evidence.md`，blocked/warnings 均为 `<none>`。
+- Cleanup apply: `task_closeout.py --task-id 20260731-team-leader-tabs --mode apply` -> `status: applied`；仅删除临时 `frontend-feature-evidence.md`。
 
 ## Current Blockers
 
-- 工作区在本任务开始前已有其他任务的 tracked/untracked 改动，当前任务不得回滚或覆盖这些改动。
+- 无。
