@@ -36,9 +36,9 @@ Not run. This feature performs batch writes to controlled file metadata, and thi
 - `task-closeout-cleanup --mode preview` -> PASS，keep 为 `task.md`、`execution-log.md`、`verification-report.md`，delete 为临时 `frontend-feature-evidence.md`。
 - `task-closeout-cleanup --mode apply` -> PASS，临时 evidence 已删除，无 blocked/warnings。
 
-## Push Blocker
+## Push Resolution
 
-- `git push origin int_main` -> FAIL：GitHub HTTPS 代理 `127.0.0.1:7890` 未监听。
-- `git -c http.https://github.com.proxy= ls-remote origin HEAD` -> FAIL：直连 Git HTTPS 超时。
-- `ssh -T -o BatchMode=yes git@ssh.github.com -p 443` -> FAIL：当前 SSH 公钥未被 GitHub 接受。
-- 影响：本地代码和任务记录已提交，但远端未同步；按项目规则任务状态保持 `blocked`，不能标记 completed。
+- `Test-NetConnection 127.0.0.1 -Port 7890` -> FAIL：确认原 GitHub 代理端口未监听。
+- `git config --global --unset http.https://github.com.proxy` -> PASS：移除失效 GitHub 专用代理配置。
+- `git ls-remote origin refs/heads/int_main` -> PASS：GitHub 443 直连恢复。
+- `git push origin int_main` -> PASS：远端 `origin/int_main` 已同步到 `9420210f7ad4fb2519c179458fae0e823d082b54`。
