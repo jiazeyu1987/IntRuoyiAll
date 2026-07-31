@@ -1,7 +1,5 @@
 <template>
   <ContentWrap>
-    <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
-
     <div class="team-leader-workbench__header">
       <div>
         <div class="team-leader-workbench__title">工序池班组长工作台</div>
@@ -9,294 +7,332 @@
           负责员工提交复核、生产工单异常上报、班组基础维护
         </div>
       </div>
-      <el-radio-group v-model="queryParams.leaderType" @change="handleQuery">
-        <el-radio-button label="PRODUCTION">生产班组长</el-radio-button>
-        <el-radio-button label="PQC">PQC 班组长</el-radio-button>
-      </el-radio-group>
     </div>
 
-    <el-tabs v-model="activeTab">
-      <el-tab-pane label="提交看板" name="submission" />
-      <el-tab-pane label="异常上报" name="abnormal" />
-      <el-tab-pane label="班组维护" name="maintenance" />
+    <el-tabs
+      v-model="activeLeaderTab"
+      data-team-leader-type-tabs
+      @tab-change="handleLeaderTypeChange"
+    >
+      <el-tab-pane label="生产组长" name="PRODUCTION" />
+      <el-tab-pane label="PQC 组长" name="PQC" />
     </el-tabs>
   </ContentWrap>
 
-  <ContentWrap v-if="activeTab === 'submission'">
-    <el-form
-      ref="queryFormRef"
-      class="team-leader-workbench__query"
-      :model="queryParams"
-      :inline="true"
-      label-width="88px"
-    >
-      <el-form-item label="提交日期" prop="submitDate">
-        <el-date-picker
-          v-model="queryParams.submitDate"
-          value-format="YYYY-MM-DD"
-          type="date"
-          placeholder="请选择提交日期"
-          class="!w-180px"
-        />
-      </el-form-item>
-      <el-form-item label="员工" prop="employeeUserId">
-        <el-input-number
-          v-model="queryParams.employeeUserId"
-          :min="1"
-          :controls="false"
-          placeholder="员工编号"
-          class="!w-180px"
-        />
-      </el-form-item>
-      <el-form-item label="工序" prop="processId">
-        <el-input-number
-          v-model="queryParams.processId"
-          :min="1"
-          :controls="false"
-          placeholder="工序编号"
-          class="!w-180px"
-        />
-      </el-form-item>
-      <el-form-item label="模板类型" prop="templateType">
-        <el-select
-          v-model="queryParams.templateType"
-          clearable
-          filterable
-          placeholder="请选择模板"
-          class="!w-190px"
+  <template v-if="activeLeaderTab === 'PRODUCTION'">
+    <ContentWrap v-if="loadError">
+      <el-alert :title="loadError" type="error" :closable="false" show-icon />
+    </ContentWrap>
+
+    <ContentWrap>
+      <el-tabs v-model="activeTab">
+        <el-tab-pane label="提交看板" name="submission" />
+        <el-tab-pane label="异常上报" name="abnormal" />
+        <el-tab-pane label="班组维护" name="maintenance" />
+      </el-tabs>
+    </ContentWrap>
+
+    <ContentWrap v-if="activeTab === 'submission'">
+      <el-form
+        ref="queryFormRef"
+        class="team-leader-workbench__query"
+        :model="queryParams"
+        :inline="true"
+        label-width="88px"
+      >
+        <el-form-item label="提交日期" prop="submitDate">
+          <el-date-picker
+            v-model="queryParams.submitDate"
+            value-format="YYYY-MM-DD"
+            type="date"
+            placeholder="请选择提交日期"
+            class="!w-180px"
+          />
+        </el-form-item>
+        <el-form-item label="员工" prop="employeeUserId">
+          <el-input-number
+            v-model="queryParams.employeeUserId"
+            :min="1"
+            :controls="false"
+            placeholder="员工编号"
+            class="!w-180px"
+          />
+        </el-form-item>
+        <el-form-item label="工序" prop="processId">
+          <el-input-number
+            v-model="queryParams.processId"
+            :min="1"
+            :controls="false"
+            placeholder="工序编号"
+            class="!w-180px"
+          />
+        </el-form-item>
+        <el-form-item label="模板类型" prop="templateType">
+          <el-select
+            v-model="queryParams.templateType"
+            clearable
+            filterable
+            placeholder="请选择模板"
+            class="!w-190px"
+          >
+            <el-option label="生产简化模板" value="PRODUCTION_SIMPLIFIED" />
+            <el-option label="PQC 简化模板" value="PQC_SIMPLIFIED" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="生产工单" prop="workOrderCode">
+          <el-input
+            v-model="queryParams.workOrderCode"
+            clearable
+            placeholder="工单编码"
+            class="!w-220px"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleQuery">
+            <Icon icon="ep:search" class="mr-5px" />
+            搜索
+          </el-button>
+          <el-button @click="resetQuery">
+            <Icon icon="ep:refresh" class="mr-5px" />
+            重置
+          </el-button>
+        </el-form-item>
+      </el-form>
+
+      <el-table v-loading="loading" :data="submissionList" border stripe>
+        <el-table-column label="提交时间" prop="submittedAt" min-width="160">
+          <template #default="{ row }">{{ formatDateTime(row.submittedAt) }}</template>
+        </el-table-column>
+        <el-table-column label="员工" min-width="140">
+          <template #default="{ row }">
+            {{ row.actualEmployeeUserName || row.actualEmployeeUserId || '--' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="工序" min-width="150">
+          <template #default="{ row }">{{ row.processName || row.processCode || '--' }}</template>
+        </el-table-column>
+        <el-table-column label="生产工单" min-width="160">
+          <template #default="{ row }">{{ row.workOrderCode || '--' }}</template>
+        </el-table-column>
+        <el-table-column label="PQC" min-width="130">
+          <template #default="{ row }">
+            <el-tag :type="resolvePqcTagType(row.pqcResult)" effect="plain">
+              {{ row.pqcSummary || row.pqcResult || '--' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="审核副本" min-width="130">
+          <template #default="{ row }">{{ row.auditCopyStatus || '--' }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="220" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="openDetail(row)">详情</el-button>
+            <el-button link type="success" @click="openReview(row)">复核</el-button>
+            <el-button link type="warning" @click="prefillAbnormal(row)">标记异常</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <Pagination
+        :total="submissionTotal"
+        v-model:page="queryParams.pageNo"
+        v-model:limit="queryParams.pageSize"
+        @pagination="getSubmissionList"
+      />
+    </ContentWrap>
+
+    <ContentWrap v-if="activeTab === 'abnormal'">
+      <el-form
+        ref="abnormalFormRef"
+        :model="abnormalForm"
+        :rules="abnormalRules"
+        label-width="120px"
+        class="team-leader-workbench__form"
+      >
+        <el-form-item label="生产工单ID" prop="workOrderId">
+          <el-input-number v-model="abnormalForm.workOrderId" :min="1" :controls="false" />
+        </el-form-item>
+        <el-form-item label="工序ID" prop="processId">
+          <el-input-number v-model="abnormalForm.processId" :min="1" :controls="false" />
+        </el-form-item>
+        <el-form-item label="来源提交ID" prop="sourceEventId">
+          <el-input-number v-model="abnormalForm.sourceEventId" :min="1" :controls="false" />
+        </el-form-item>
+        <el-form-item label="异常原因" prop="abnormalReasonCode">
+          <el-input v-model="abnormalForm.abnormalReasonCode" placeholder="请输入异常原因编码" />
+        </el-form-item>
+        <el-form-item label="异常说明" prop="abnormalDescription">
+          <el-input
+            v-model="abnormalForm.abnormalDescription"
+            type="textarea"
+            :rows="4"
+            placeholder="请输入异常说明"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="warning" :loading="abnormalSubmitting" @click="submitAbnormal">
+            <Icon icon="ep:warning-filled" class="mr-5px" />
+            标记并上报
+          </el-button>
+        </el-form-item>
+      </el-form>
+    </ContentWrap>
+
+    <ContentWrap v-if="activeTab === 'maintenance'">
+      <div class="team-leader-workbench__maintenance-grid">
+        <el-card shadow="never">
+          <template #header>员工工序绑定</template>
+          <el-form :model="employeeBindingForm" label-width="98px">
+            <el-form-item label="工序ID">
+              <el-input-number v-model="employeeBindingForm.processId" :min="1" :controls="false" />
+            </el-form-item>
+            <el-form-item label="员工ID">
+              <el-input-number
+                v-model="employeeBindingForm.employeeUserId"
+                :min="1"
+                :controls="false"
+              />
+            </el-form-item>
+            <el-form-item>
+              <el-button
+                type="primary"
+                :loading="maintenanceSubmitting"
+                @click="submitEmployeeBinding"
+              >
+                添加员工
+              </el-button>
+            </el-form-item>
+          </el-form>
+          <el-divider />
+          <el-form :model="employeeDisableForm" label-width="98px">
+            <el-form-item label="绑定ID">
+              <el-input-number v-model="employeeDisableForm.bindingId" :min="1" :controls="false" />
+            </el-form-item>
+            <el-form-item>
+              <el-button
+                type="danger"
+                plain
+                :loading="maintenanceSubmitting"
+                @click="submitDisableBinding"
+              >
+                禁用员工
+              </el-button>
+            </el-form-item>
+          </el-form>
+        </el-card>
+
+        <el-card shadow="never">
+          <template #header>不良原因列表</template>
+          <el-form :model="defectReasonForm" label-width="98px">
+            <el-form-item label="工序ID">
+              <el-input-number v-model="defectReasonForm.processId" :min="1" :controls="false" />
+            </el-form-item>
+            <el-form-item label="原因类型">
+              <el-select v-model="defectReasonForm.reasonType">
+                <el-option label="损耗" value="LOSS" />
+                <el-option label="不合格" value="UNQUALIFIED" />
+                <el-option label="PQC 失败" value="PQC_FAILURE" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="原因编码">
+              <el-input v-model="defectReasonForm.reasonCode" />
+            </el-form-item>
+            <el-form-item label="原因名称">
+              <el-input v-model="defectReasonForm.reasonName" />
+            </el-form-item>
+            <el-form-item>
+              <el-button
+                type="primary"
+                :loading="maintenanceSubmitting"
+                @click="submitDefectReason"
+              >
+                新增原因
+              </el-button>
+            </el-form-item>
+          </el-form>
+        </el-card>
+
+        <el-card shadow="never">
+          <template #header>设备参数上下限</template>
+          <el-form :model="deviceRuleForm" label-width="98px">
+            <el-form-item label="工序ID">
+              <el-input-number v-model="deviceRuleForm.processId" :min="1" :controls="false" />
+            </el-form-item>
+            <el-form-item label="设备ID">
+              <el-input-number v-model="deviceRuleForm.deviceId" :min="1" :controls="false" />
+            </el-form-item>
+            <el-form-item label="参数编码">
+              <el-input v-model="deviceRuleForm.parameterCode" />
+            </el-form-item>
+            <el-form-item label="参数名称">
+              <el-input v-model="deviceRuleForm.parameterName" />
+            </el-form-item>
+            <el-form-item label="下限">
+              <el-input-number v-model="deviceRuleForm.lowerLimit" :controls="false" />
+            </el-form-item>
+            <el-form-item label="上限">
+              <el-input-number v-model="deviceRuleForm.upperLimit" :controls="false" />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="maintenanceSubmitting" @click="submitDeviceRule">
+                保存参数
+              </el-button>
+            </el-form-item>
+          </el-form>
+        </el-card>
+      </div>
+    </ContentWrap>
+
+    <el-drawer v-model="detailVisible" title="员工提交详情" size="620px" destroy-on-close>
+      <div v-loading="detailLoading">
+        <el-descriptions v-if="detail" :column="1" border>
+          <el-descriptions-item label="服务端提交时间">
+            {{ formatDateTime(detail.submittedAt) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="实际员工">
+            {{ detail.actualEmployeeUserName || detail.actualEmployeeUserId || '--' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="工序">
+            {{ detail.processName || detail.processCode || '--' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="生产工单">
+            {{ detail.workOrderCode || '--' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="提交摘要">
+            {{ detail.submittedSummary || '--' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="原始 payload">
+            <pre class="team-leader-workbench__payload">{{
+              detail.originalPayloadJson || '--'
+            }}</pre>
+          </el-descriptions-item>
+        </el-descriptions>
+      </div>
+    </el-drawer>
+
+    <el-dialog v-model="reviewVisible" title="复核员工提交" width="520px">
+      <el-form :model="reviewForm" label-width="92px">
+        <el-form-item label="复核结果">
+          <el-select v-model="reviewForm.reviewStatus">
+            <el-option label="通过" value="APPROVED" />
+            <el-option label="退回" value="REJECTED" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="复核说明">
+          <el-input v-model="reviewForm.reviewRemark" type="textarea" :rows="4" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="reviewVisible = false">取消</el-button>
+        <el-button type="primary" :loading="reviewSubmitting" @click="submitReview"
+          >提交复核</el-button
         >
-          <el-option label="生产简化模板" value="PRODUCTION_SIMPLIFIED" />
-          <el-option label="PQC 简化模板" value="PQC_SIMPLIFIED" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="生产工单" prop="workOrderCode">
-        <el-input
-          v-model="queryParams.workOrderCode"
-          clearable
-          placeholder="工单编码"
-          class="!w-220px"
-        />
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" @click="handleQuery">
-          <Icon icon="ep:search" class="mr-5px" />
-          搜索
-        </el-button>
-        <el-button @click="resetQuery">
-          <Icon icon="ep:refresh" class="mr-5px" />
-          重置
-        </el-button>
-      </el-form-item>
-    </el-form>
+      </template>
+    </el-dialog>
+  </template>
 
-    <el-table v-loading="loading" :data="submissionList" border stripe>
-      <el-table-column label="提交时间" prop="submittedAt" min-width="160">
-        <template #default="{ row }">{{ formatDateTime(row.submittedAt) }}</template>
-      </el-table-column>
-      <el-table-column label="员工" min-width="140">
-        <template #default="{ row }">
-          {{ row.actualEmployeeUserName || row.actualEmployeeUserId || '--' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="工序" min-width="150">
-        <template #default="{ row }">{{ row.processName || row.processCode || '--' }}</template>
-      </el-table-column>
-      <el-table-column label="生产工单" min-width="160">
-        <template #default="{ row }">{{ row.workOrderCode || '--' }}</template>
-      </el-table-column>
-      <el-table-column label="PQC" min-width="130">
-        <template #default="{ row }">
-          <el-tag :type="resolvePqcTagType(row.pqcResult)" effect="plain">
-            {{ row.pqcSummary || row.pqcResult || '--' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="审核副本" min-width="130">
-        <template #default="{ row }">{{ row.auditCopyStatus || '--' }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="220" fixed="right">
-        <template #default="{ row }">
-          <el-button link type="primary" @click="openDetail(row)">详情</el-button>
-          <el-button link type="success" @click="openReview(row)">复核</el-button>
-          <el-button link type="warning" @click="prefillAbnormal(row)">标记异常</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-    <Pagination
-      :total="submissionTotal"
-      v-model:page="queryParams.pageNo"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getSubmissionList"
-    />
+  <ContentWrap v-else data-team-leader-pqc-placeholder>
+    <el-empty description="PQC 组长功能正在建设中" />
   </ContentWrap>
-
-  <ContentWrap v-if="activeTab === 'abnormal'">
-    <el-form
-      ref="abnormalFormRef"
-      :model="abnormalForm"
-      :rules="abnormalRules"
-      label-width="120px"
-      class="team-leader-workbench__form"
-    >
-      <el-form-item label="生产工单ID" prop="workOrderId">
-        <el-input-number v-model="abnormalForm.workOrderId" :min="1" :controls="false" />
-      </el-form-item>
-      <el-form-item label="工序ID" prop="processId">
-        <el-input-number v-model="abnormalForm.processId" :min="1" :controls="false" />
-      </el-form-item>
-      <el-form-item label="来源提交ID" prop="sourceEventId">
-        <el-input-number v-model="abnormalForm.sourceEventId" :min="1" :controls="false" />
-      </el-form-item>
-      <el-form-item label="异常原因" prop="abnormalReasonCode">
-        <el-input v-model="abnormalForm.abnormalReasonCode" placeholder="请输入异常原因编码" />
-      </el-form-item>
-      <el-form-item label="异常说明" prop="abnormalDescription">
-        <el-input
-          v-model="abnormalForm.abnormalDescription"
-          type="textarea"
-          :rows="4"
-          placeholder="请输入异常说明"
-        />
-      </el-form-item>
-      <el-form-item>
-        <el-button type="warning" :loading="abnormalSubmitting" @click="submitAbnormal">
-          <Icon icon="ep:warning-filled" class="mr-5px" />
-          标记并上报
-        </el-button>
-      </el-form-item>
-    </el-form>
-  </ContentWrap>
-
-  <ContentWrap v-if="activeTab === 'maintenance'">
-    <div class="team-leader-workbench__maintenance-grid">
-      <el-card shadow="never">
-        <template #header>员工工序绑定</template>
-        <el-form :model="employeeBindingForm" label-width="98px">
-          <el-form-item label="工序ID">
-            <el-input-number v-model="employeeBindingForm.processId" :min="1" :controls="false" />
-          </el-form-item>
-          <el-form-item label="员工ID">
-            <el-input-number v-model="employeeBindingForm.employeeUserId" :min="1" :controls="false" />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" :loading="maintenanceSubmitting" @click="submitEmployeeBinding">
-              添加员工
-            </el-button>
-          </el-form-item>
-        </el-form>
-        <el-divider />
-        <el-form :model="employeeDisableForm" label-width="98px">
-          <el-form-item label="绑定ID">
-            <el-input-number v-model="employeeDisableForm.bindingId" :min="1" :controls="false" />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="danger" plain :loading="maintenanceSubmitting" @click="submitDisableBinding">
-              禁用员工
-            </el-button>
-          </el-form-item>
-        </el-form>
-      </el-card>
-
-      <el-card shadow="never">
-        <template #header>不良原因列表</template>
-        <el-form :model="defectReasonForm" label-width="98px">
-          <el-form-item label="工序ID">
-            <el-input-number v-model="defectReasonForm.processId" :min="1" :controls="false" />
-          </el-form-item>
-          <el-form-item label="原因类型">
-            <el-select v-model="defectReasonForm.reasonType">
-              <el-option label="损耗" value="LOSS" />
-              <el-option label="不合格" value="UNQUALIFIED" />
-              <el-option label="PQC 失败" value="PQC_FAILURE" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="原因编码">
-            <el-input v-model="defectReasonForm.reasonCode" />
-          </el-form-item>
-          <el-form-item label="原因名称">
-            <el-input v-model="defectReasonForm.reasonName" />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" :loading="maintenanceSubmitting" @click="submitDefectReason">
-              新增原因
-            </el-button>
-          </el-form-item>
-        </el-form>
-      </el-card>
-
-      <el-card shadow="never">
-        <template #header>设备参数上下限</template>
-        <el-form :model="deviceRuleForm" label-width="98px">
-          <el-form-item label="工序ID">
-            <el-input-number v-model="deviceRuleForm.processId" :min="1" :controls="false" />
-          </el-form-item>
-          <el-form-item label="设备ID">
-            <el-input-number v-model="deviceRuleForm.deviceId" :min="1" :controls="false" />
-          </el-form-item>
-          <el-form-item label="参数编码">
-            <el-input v-model="deviceRuleForm.parameterCode" />
-          </el-form-item>
-          <el-form-item label="参数名称">
-            <el-input v-model="deviceRuleForm.parameterName" />
-          </el-form-item>
-          <el-form-item label="下限">
-            <el-input-number v-model="deviceRuleForm.lowerLimit" :controls="false" />
-          </el-form-item>
-          <el-form-item label="上限">
-            <el-input-number v-model="deviceRuleForm.upperLimit" :controls="false" />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" :loading="maintenanceSubmitting" @click="submitDeviceRule">
-              保存参数
-            </el-button>
-          </el-form-item>
-        </el-form>
-      </el-card>
-    </div>
-  </ContentWrap>
-
-  <el-drawer v-model="detailVisible" title="员工提交详情" size="620px" destroy-on-close>
-    <div v-loading="detailLoading">
-      <el-descriptions v-if="detail" :column="1" border>
-        <el-descriptions-item label="服务端提交时间">
-          {{ formatDateTime(detail.submittedAt) }}
-        </el-descriptions-item>
-        <el-descriptions-item label="实际员工">
-          {{ detail.actualEmployeeUserName || detail.actualEmployeeUserId || '--' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="工序">
-          {{ detail.processName || detail.processCode || '--' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="生产工单">
-          {{ detail.workOrderCode || '--' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="提交摘要">
-          {{ detail.submittedSummary || '--' }}
-        </el-descriptions-item>
-        <el-descriptions-item label="原始 payload">
-          <pre class="team-leader-workbench__payload">{{ detail.originalPayloadJson || '--' }}</pre>
-        </el-descriptions-item>
-      </el-descriptions>
-    </div>
-  </el-drawer>
-
-  <el-dialog v-model="reviewVisible" title="复核员工提交" width="520px">
-    <el-form :model="reviewForm" label-width="92px">
-      <el-form-item label="复核结果">
-        <el-select v-model="reviewForm.reviewStatus">
-          <el-option label="通过" value="APPROVED" />
-          <el-option label="退回" value="REJECTED" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="复核说明">
-        <el-input v-model="reviewForm.reviewRemark" type="textarea" :rows="4" />
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <el-button @click="reviewVisible = false">取消</el-button>
-      <el-button type="primary" :loading="reviewSubmitting" @click="submitReview">提交复核</el-button>
-    </template>
-  </el-dialog>
 </template>
 
 <script setup lang="ts">
@@ -323,6 +359,7 @@ defineOptions({ name: 'MesProProcessPoolTeamLeaderWorkbench' })
 
 const queryFormRef = ref()
 const abnormalFormRef = ref()
+const activeLeaderTab = ref<TeamLeaderType>('PRODUCTION')
 const activeTab = ref<'submission' | 'abnormal' | 'maintenance'>('submission')
 const loading = ref(false)
 const detailLoading = ref(false)
@@ -397,7 +434,8 @@ const abnormalRules = {
 }
 
 const resolveErrorMessage = (error: unknown, fallback: string) => {
-  const responseMessage = (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
+  const responseMessage =
+    (error as any)?.response?.data?.msg || (error as any)?.response?.data?.message
   if (typeof responseMessage === 'string' && responseMessage.trim()) return responseMessage
   if (error instanceof Error && error.message.trim()) return error.message
   return fallback
@@ -456,6 +494,14 @@ const handleQuery = () => {
   getSubmissionList()
 }
 
+const handleLeaderTypeChange = (value: string | number) => {
+  const leaderType = String(value) as TeamLeaderType
+  queryParams.leaderType = leaderType
+  if (leaderType === 'PRODUCTION') {
+    handleQuery()
+  }
+}
+
 const resetQuery = () => {
   queryFormRef.value?.resetFields()
   queryParams.pageNo = 1
@@ -471,7 +517,10 @@ const openDetail = async (event: ProcessPoolTimelineEventVO) => {
   detailLoading.value = true
   detail.value = undefined
   try {
-    detail.value = await getTeamLeaderSubmissionDetail(eventId, queryParams.leaderType as TeamLeaderType)
+    detail.value = await getTeamLeaderSubmissionDetail(
+      eventId,
+      queryParams.leaderType as TeamLeaderType
+    )
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '员工提交详情加载失败'))
   } finally {
