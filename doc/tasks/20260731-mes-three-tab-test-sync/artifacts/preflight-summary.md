@@ -1,6 +1,6 @@
 # Three Tab Sync Preflight Summary
 
-- Generated: `2026-07-31T03:03:25.409730+00:00`
+- Generated: `2026-07-31T03:55:14.406695+00:00`
 - Source whitelist rows: `2989`
 - Target current whitelist rows: `2989`
 - Authorized dependency sync scopes: `0`
