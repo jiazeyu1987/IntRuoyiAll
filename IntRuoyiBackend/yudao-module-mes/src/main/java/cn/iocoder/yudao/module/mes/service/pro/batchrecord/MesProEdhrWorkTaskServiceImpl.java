@@ -7,6 +7,7 @@ import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.core.util.ReflectUtil;
+import cn.hutool.crypto.digest.DigestUtil;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrCandidateResolver.MesProEdhrCandidateContract;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskArchiveRuleReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.MesProEdhrWorkTaskAssignmentRuleRespVO;
@@ -21,6 +22,8 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProc
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrReleaseTransactionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrWorkTaskDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessBatchRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrBatchExecutionTaskMapper;
@@ -28,7 +31,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrProcessFo
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskAssignmentRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecord.MesProEdhrWorkTaskStatus;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
 import cn.iocoder.yudao.module.system.api.dept.dto.DeptRespDTO;
@@ -41,6 +46,8 @@ import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import static cn.iocoder.yudao.framework.common.exception.enums.GlobalErrorCodeConstants.UNAUTHORIZED;
@@ -72,6 +80,7 @@ import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWork
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_OWNERSHIP_SOURCE_MISSING;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_OWNERSHIP_TRANSFER_LOCKED;
+import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_REVIEW_USER_MISSING;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_REVIEW_CONTEXT_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrWorkTaskErrorCodeConstants.PRO_EDHR_WORK_TASK_STATUS_INVALID;
@@ -85,6 +94,9 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     private static final String RULE_SCOPE_TYPE_ROUTE = "ROUTE";
     private static final String CANDIDATE_SOURCE_TYPE_USER = MesProEdhrCandidateResolver.CANDIDATE_SOURCE_TYPE_USER;
     private static final String CANDIDATE_SOURCE_TYPE_ROLE_GROUP = "ROLE_GROUP";
+    private static final String SCOPE_KEY_ALL = "ALL";
+    private static final int ALL_SCOPE_START_ROW = 0;
+    private static final int ALL_SCOPE_END_ROW = 99999;
     private static final Set<String> SUPPORTED_CANDIDATE_SOURCE_TYPES =
             Set.of(CANDIDATE_SOURCE_TYPE_USER, "USER_GROUP", CANDIDATE_SOURCE_TYPE_ROLE_GROUP, "DEPT_GROUP");
     private static final String ENTITLEMENT_SOURCE_TYPE_FILLER = "EDHR_PROCESS_FORM_FILLER";
@@ -105,9 +117,13 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     @Resource
     private MesProEdhrProcessFormPermissionRuleMapper processFormPermissionRuleMapper;
     @Resource
+    private MesProBatchRecordReportMapper batchRecordReportMapper;
+    @Resource
     private NotifyMessageSendApi notifyMessageSendApi;
     @Resource
     private MesProRouteMapper routeMapper;
+    @Resource
+    private MesProRouteFlowProcessBatchRecordMapper routeFlowProcessBatchRecordMapper;
     @Resource
     private AdminUserApi adminUserApi;
     @Resource
@@ -367,6 +383,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         if (!isProcessableStatus(workTask.getStatus())) {
             throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
         }
+        validateProcessFormResponsibilityScopeSnapshot(workTask);
         return workTask;
     }
 
@@ -390,6 +407,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         if (!isProcessableStatus(workTask.getStatus())) {
             throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
         }
+        validateProcessFormResponsibilityScopeSnapshot(workTask);
         return workTask;
     }
 
@@ -404,6 +422,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         if (!fillTaskType || !isProcessableStatus(workTask.getStatus())) {
             throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
         }
+        validateProcessFormResponsibilityScopeSnapshot(workTask);
         return workTask;
     }
 
@@ -428,6 +447,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     public MesProEdhrWorkTaskDO getAssignedTaskForDetail(Long workTaskId, Long executionId, String expectedTaskType) {
         MesProEdhrWorkTaskDO workTask = workTaskMapper.selectById(workTaskId);
         validateAssignedTask(workTask, executionId, expectedTaskType);
+        validateProcessFormResponsibilityScopeSnapshot(workTask);
         return workTask;
     }
 
@@ -457,6 +477,35 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         }
     }
 
+    private void validateProcessFormResponsibilityScopeSnapshot(MesProEdhrWorkTaskDO workTask) {
+        if (workTask == null || !ENTITLEMENT_SOURCE_TYPE_FILLER.equals(workTask.getResponsibilitySourceType())) {
+            return;
+        }
+        String context = "workTaskId=" + workTask.getId();
+        if (StrUtil.isBlank(workTask.getResponsibilityScopeJson())) {
+            throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, context);
+        }
+        try {
+            JSONObject snapshot = JSON.parseObject(workTask.getResponsibilityScopeJson());
+            JSONArray scopes = snapshot == null ? null : snapshot.getJSONArray("scopes");
+            if (snapshot == null || snapshot.getIntValue("schemaVersion") != 2 || scopes == null || scopes.isEmpty()) {
+                throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, context);
+            }
+            for (int i = 0; i < scopes.size(); i++) {
+                JSONObject scope = scopes.getJSONObject(i);
+                JSONObject fillableScope = scope == null ? null : scope.getJSONObject("fillableScope");
+                if (StrUtil.isBlank(scope == null ? null : scope.getString("scopeKey"))) {
+                    throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, context);
+                }
+                validateResponsibilityFillableScope(fillableScope, context);
+            }
+        } catch (RuntimeException ex) {
+            if (ex instanceof cn.iocoder.yudao.framework.common.exception.ServiceException) {
+                throw ex;
+            }
+            throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, context);
+        }
+    }
     private PageResult<MesProEdhrWorkTaskRespVO> buildWorkTaskRespPage(PageResult<MesProEdhrWorkTaskDO> page,
                                                                        Long currentUserId) {
         List<MesProEdhrWorkTaskDO> list = page.getList();
@@ -655,24 +704,18 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         if (Objects.equals(sourceTask.getSourceUserId(), loginUserId)) {
             return;
         }
-        if (hasCandidateUser(sourceTask.getCandidateUserSnapshot(), loginUserId)) {
+        if (MesProEdhrWorkTaskAuthorization.containsCandidate(sourceTask.getCandidateUserSnapshot(), loginUserId)) {
             return;
         }
         throw new IllegalStateException("APPROVAL_TIMELINE_ACCESS_DENIED: EDHR timeline is not visible to login user");
     }
 
-    private static boolean hasCandidateUser(String snapshot, Long loginUserId) {
-        if (snapshot == null || snapshot.isBlank() || loginUserId == null) {
-            return false;
-        }
-        String token = "," + loginUserId + ",";
-        return ("," + snapshot + ",").contains(token);
-    }
-
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void createInitialFillTask(MesProEdhrBatchExecutionDO batch) {
-        MesProEdhrBatchExecutionTaskDO firstTask = batchTaskMapper.selectListByBatchExecutionId(batch.getId()).stream()
+        List<MesProEdhrBatchExecutionTaskDO> batchTasks = batchTaskMapper.selectListByBatchExecutionId(batch.getId());
+        createCompanionFillTasksForActiveAnchors(batch, batchTasks);
+        MesProEdhrBatchExecutionTaskDO firstTask = batchTasks.stream()
                 .filter(task -> !Boolean.FALSE.equals(task.getRequiredFlag()))
                 .filter(task -> Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING))
                 .filter(task -> task.getRouteProcessId() != null)
@@ -684,10 +727,14 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         }
         MesProRouteProcessDO currentRouteProcess = resolveFrozenRouteProcess(batch == null ? null : batch.getRouteId(),
                 firstTask.getRouteProcessId(), firstTask.getProcessId());
-        MesProEdhrProcessFormPermissionRuleDO processFormRule = findProcessFormFillRule(currentRouteProcess, firstTask);
+        MesProEdhrProcessFormPermissionRuleDO processFormRule =
+                findProcessFormFillRule(batch, currentRouteProcess, firstTask);
         MesProEdhrWorkTaskAssignmentRuleDO rule = processFormRule == null
                 ? findRule(currentRouteProcess, TASK_TYPE_FILL) : null;
-        List<String> missingItems = collectAdvancePrerequisiteNames(batch, firstTask, processFormRule, rule, null);
+        MesProRouteFlowProcessBatchRecordDO routeBinding = processFormRule == null && rule == null
+                ? findRouteBinding(firstTask) : null;
+        List<String> missingItems = collectAdvancePrerequisiteNames(batch, firstTask, processFormRule, rule,
+                routeBinding, null);
         if (!missingItems.isEmpty()) {
             if (missingItems.size() == 1 && missingItems.contains("权限")) {
                 return;
@@ -696,11 +743,14 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                     String.join("、", missingItems));
         }
         if ((processFormRule == null || !hasProcessFormCandidateSource(processFormRule))
-                && (rule == null || !hasCandidateSource(rule))) {
+                && (rule == null || !hasCandidateSource(rule))
+                && !hasRouteBindingCandidateSource(routeBinding)) {
             return;
         }
-        createFillTask(batch, firstTask, null, null);
-        createOptionalCompanionFillTasks(batch, firstTask, null);
+        if (!hasActiveFillForBatchTask(firstTask.getId())) {
+            createFillTask(batch, firstTask, null, null);
+        }
+        createCompanionFillTasks(batch, firstTask, null);
     }
 
     @Override
@@ -903,7 +953,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public MesProEdhrWorkTaskDO completeFillAndCreateNextFillAfterOrdinarySubmit(Long workTaskId, Long executionId) {
-        MesProEdhrWorkTaskDO workTask = validateSubmitTask(workTaskId, executionId);
+        Long actorUserId = requireLoginUserId();
+        MesProEdhrWorkTaskDO workTask = validateSubmitTask(workTaskId, executionId, actorUserId);
         completeTask(workTask);
         MesProEdhrBatchExecutionTaskDO batchTask = batchTaskMapper.selectById(workTask.getBatchTaskId());
         if (batchTask != null) {
@@ -912,10 +963,46 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                     .setExecutionId(executionId)
                     .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
                     .setSubmittedAt(LocalDateTime.now())
-                    .setApprovedAt(LocalDateTime.now()));
+                .setApprovedAt(LocalDateTime.now()));
         }
         MesProEdhrWorkTaskDO completed = workTaskMapper.selectById(workTask.getId());
-        createNextFillAfterReview(completed);
+        createNextFillAfterReview(completed, actorUserId);
+        return completed;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MesProEdhrWorkTaskDO completeRouteFormFillAndCreateNextFill(Long batchTaskId, Long actorUserId) {
+        MesProEdhrWorkTaskDO workTask = workTaskMapper.selectActiveByBatchTaskAndType(batchTaskId, TASK_TYPE_FILL);
+        if (workTask == null || !isActiveFillOrReworkStatus(workTask.getStatus())) {
+            throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
+        }
+        if (!isAssignedOrCandidate(workTask, actorUserId)) {
+            throw exception(PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH);
+        }
+        MesProEdhrBatchExecutionTaskDO batchTask = batchTaskMapper.selectById(batchTaskId);
+        if (batchTask == null || !MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM.equals(batchTask.getNodeType())
+                || batchTask.getFormCenterInstanceId() == null) {
+            throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
+        }
+        LocalDateTime now = LocalDateTime.now();
+        completeTask(workTask, "FORM_CENTER_SUBMIT", "表单中心路线表单提交");
+        MesProEdhrBatchExecutionTaskDO update = new MesProEdhrBatchExecutionTaskDO()
+                .setId(batchTask.getId())
+                .setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED)
+                .setSubmittedAt(now)
+                .setApprovedAt(now)
+                .setBlockerCode(null)
+                .setBlockerMessage(null);
+        if (batchTask.getOpenedAt() == null) {
+            update.setOpenedAt(now);
+        }
+        if (batchTask.getOpenedBy() == null) {
+            update.setOpenedBy(actorUserId);
+        }
+        batchTaskMapper.updateById(update);
+        MesProEdhrWorkTaskDO completed = workTaskMapper.selectById(workTask.getId());
+        createNextFillAfterReview(completed, actorUserId);
         return completed;
     }
 
@@ -939,11 +1026,15 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     }
 
     private MesProEdhrWorkTaskDO validateSubmitTask(Long workTaskId, Long executionId) {
+        return validateSubmitTask(workTaskId, executionId, requireLoginUserId());
+    }
+
+    private MesProEdhrWorkTaskDO validateSubmitTask(Long workTaskId, Long executionId, Long actorUserId) {
         MesProEdhrWorkTaskDO workTask = workTaskMapper.selectById(workTaskId);
         if (workTask == null || !Objects.equals(workTask.getExecutionId(), executionId)) {
             throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
         }
-        if (!isAssignedOrCandidate(workTask, requireLoginUserId())) {
+        if (!isAssignedOrCandidate(workTask, actorUserId)) {
             throw exception(PRO_EDHR_WORK_TASK_ASSIGNEE_MISMATCH);
         }
         boolean submitTaskType = TASK_TYPE_FILL.equals(workTask.getTaskType())
@@ -951,6 +1042,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         if (!submitTaskType || !isProcessableStatus(workTask.getStatus())) {
             throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
         }
+        validateProcessFormResponsibilityScopeSnapshot(workTask);
         return workTask;
     }
 
@@ -1084,8 +1176,9 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             throw exception(PRO_EDHR_WORK_TASK_STATUS_INVALID);
         }
         MesProEdhrBatchExecutionTaskDO batchTask = batchTaskMapper.selectById(workTask.getBatchTaskId());
+        MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(workTask.getBatchExecutionId());
         MesProEdhrProcessFormPermissionRuleDO processFormRule =
-                findProcessFormFillRule(workTask.getRouteId(), batchTask);
+                findProcessFormFillRule(batch, workTask.getRouteId(), batchTask);
         if (processFormRule == null || !hasProcessFormCandidateSource(processFormRule)) {
             throw exception(PRO_EDHR_WORK_TASK_ASSIGNMENT_RULE_MISSING);
         }
@@ -1105,7 +1198,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 .setOwnershipLocked(false)
                 .setOwnershipLastTransferredAt(LocalDateTime.now())
                 .setOwnershipLastTransferredBy(SecurityFrameworkUtils.getLoginUserId())
-                .setDueTime(calculateDueTime(workTask))
+                .setDueTime(calculateDueTime(workTask, batch))
                 .setReason(reason)
                 .setActionUrl(buildActionUrl(workTask))
                 .setRemark(StrUtil.blankToDefault(reason, "按当前工序表单权限规则重新派发"));
@@ -1136,7 +1229,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         LocalDateTime now = LocalDateTime.now();
         for (MesProEdhrWorkTaskDO task : workTaskMapper.selectActiveFillOrReworkList()) {
             MesProEdhrBatchExecutionTaskDO batchTask = batchTaskMapper.selectById(task.getBatchTaskId());
-            if (!isSameProcessFormResponsibilityTarget(batchTask, fillRule)) {
+            MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(task.getBatchExecutionId());
+            if (!isSameProcessFormResponsibilityTarget(batch, batchTask, fillRule)) {
                 continue;
             }
             if (StrUtil.isBlank(task.getResponsibilitySourceKey())) {
@@ -1203,6 +1297,10 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void createNextFillAfterReview(MesProEdhrWorkTaskDO completedTask) {
+        createNextFillAfterReview(completedTask, resolveAdvanceActorUserId(completedTask));
+    }
+
+    private void createNextFillAfterReview(MesProEdhrWorkTaskDO completedTask, Long advanceActorUserId) {
         if (completedTask == null || completedTask.getBatchTaskId() == null || completedTask.getBatchExecutionId() == null) {
             throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
         }
@@ -1215,9 +1313,9 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         if (TASK_TYPE_REVIEW.equals(completedTask.getTaskType()) && hasPendingReviewForCurrentExecution(completedTask)) {
             return;
         }
-        createNextFillAfterBatchTask(completedTask.getBatchExecutionId(), currentBatchTask, null,
+        createNextFillAfterBatchTask(completedTask.getBatchExecutionId(), currentBatchTask, advanceActorUserId,
                 TASK_TYPE_REVIEW.equals(completedTask.getTaskType()) ? completedTask.getSignatureCellKey() : null,
-                completedTask, batchTasks);
+                completedTask, batchTasks, advanceActorUserId);
     }
 
     @Override
@@ -1239,7 +1337,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         MesProEdhrBatchExecutionTaskDO anchorTask =
                 resolveSpecialNodeAdvanceAnchor(persistedSpecialTask, batchTasks);
         createNextFillAfterBatchTask(persistedSpecialTask.getBatchExecutionId(), anchorTask,
-                null, null, null, batchTasks);
+                null, null, null, batchTasks, null);
     }
 
     private void createNextFillAfterBatchTask(Long batchExecutionId,
@@ -1247,7 +1345,8 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                                               Long sourceUserId,
                                               String requiredSignatureCellKey,
                                               MesProEdhrWorkTaskDO contextTask,
-                                              List<MesProEdhrBatchExecutionTaskDO> batchTasks) {
+                                              List<MesProEdhrBatchExecutionTaskDO> batchTasks,
+                                              Long advanceActorUserId) {
         if (batchExecutionId == null || currentBatchTask == null) {
             throw exception(PRO_EDHR_WORK_TASK_NOT_EXISTS);
         }
@@ -1267,6 +1366,9 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                     || hasActiveFillForBatchTask(nextTask.getId())) {
                 return;
             }
+            if (!sameProcessNext && !isProcessAdvanceActor(currentBatchTask, batchTasks, advanceActorUserId)) {
+                return;
+            }
             MesProEdhrBatchExecutionDO batch = batchExecutionMapper.selectById(batchExecutionId);
             if (batch == null && contextTask != null) {
                 batch = new MesProEdhrBatchExecutionDO()
@@ -1281,7 +1383,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             }
             Long resolvedSourceUserId = sourceUserId == null ? requireLoginUserId() : sourceUserId;
             createFillTask(batch, nextTask, resolvedSourceUserId, requiredSignatureCellKey);
-            createOptionalCompanionFillTasks(batch, nextTask, resolvedSourceUserId);
+            createCompanionFillTasks(batch, nextTask, resolvedSourceUserId);
         }
     }
 
@@ -1352,6 +1454,73 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         return workTaskMapper.selectActiveListByExecutionAndType(reviewTask.getExecutionId(), TASK_TYPE_REVIEW).stream()
                 .anyMatch(task -> !Objects.equals(task.getId(), reviewTask.getId())
                         && Objects.equals(task.getBatchTaskId(), reviewTask.getBatchTaskId()));
+    }
+
+    private Long resolveAdvanceActorUserId(MesProEdhrWorkTaskDO completedTask) {
+        if (completedTask == null) {
+            return null;
+        }
+        if ((TASK_TYPE_REVIEW.equals(completedTask.getTaskType())
+                || TASK_TYPE_APPROVE.equals(completedTask.getTaskType()))
+                && completedTask.getSourceUserId() != null) {
+            return completedTask.getSourceUserId();
+        }
+        return null;
+    }
+
+    private boolean isProcessAdvanceActor(MesProEdhrBatchExecutionTaskDO currentTask,
+                                          List<MesProEdhrBatchExecutionTaskDO> batchTasks,
+                                          Long actorUserId) {
+        if (actorUserId == null) {
+            return true;
+        }
+        return resolveProcessAdvanceUserIds(currentTask, batchTasks).contains(actorUserId);
+    }
+
+    private Set<Long> resolveProcessAdvanceUserIds(MesProEdhrBatchExecutionTaskDO currentTask,
+                                                   List<MesProEdhrBatchExecutionTaskDO> batchTasks) {
+        if (currentTask == null || currentTask.getBatchExecutionId() == null) {
+            return Set.of();
+        }
+        Map<Long, MesProEdhrBatchExecutionTaskDO> currentProcessTasks = batchTasks.stream()
+                .filter(task -> Objects.equals(task.getBatchExecutionId(), currentTask.getBatchExecutionId()))
+                .filter(task -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM.equals(task.getNodeType()))
+                .filter(task -> Objects.equals(task.getRouteProcessId(), currentTask.getRouteProcessId()))
+                .filter(task -> task.getId() != null)
+                .collect(Collectors.toMap(MesProEdhrBatchExecutionTaskDO::getId, task -> task,
+                        (left, right) -> left, LinkedHashMap::new));
+        if (currentProcessTasks.isEmpty()) {
+            return Set.of();
+        }
+        Set<Long> allProcessFillers = new LinkedHashSet<>();
+        Set<Long> inspectionFillers = new LinkedHashSet<>();
+        workTaskMapper.selectList().stream()
+                .filter(task -> Objects.equals(task.getBatchExecutionId(), currentTask.getBatchExecutionId()))
+                .filter(this::isFillOrReworkTask)
+                .filter(task -> currentProcessTasks.containsKey(task.getBatchTaskId()))
+                .forEach(task -> {
+                    MesProEdhrBatchExecutionTaskDO batchTask = currentProcessTasks.get(task.getBatchTaskId());
+                    Set<Long> taskUsers = resolveWorkTaskUserIds(task);
+                    allProcessFillers.addAll(taskUsers);
+                    if ("PROCESS_INSPECTION".equals(batchTask.getFormSlotType())) {
+                        inspectionFillers.addAll(taskUsers);
+                    }
+                });
+        return inspectionFillers.isEmpty() ? allProcessFillers : inspectionFillers;
+    }
+
+    private boolean isFillOrReworkTask(MesProEdhrWorkTaskDO task) {
+        return task != null && (TASK_TYPE_FILL.equals(task.getTaskType())
+                || TASK_TYPE_REWORK.equals(task.getTaskType()));
+    }
+
+    private Set<Long> resolveWorkTaskUserIds(MesProEdhrWorkTaskDO task) {
+        Set<Long> userIds = new LinkedHashSet<>(
+                MesProEdhrWorkTaskAuthorization.parseCandidateSnapshotUserIds(task.getCandidateUserSnapshot()));
+        if (task.getAssigneeUserId() != null) {
+            userIds.add(task.getAssigneeUserId());
+        }
+        return userIds;
     }
 
     private boolean hasUnsatisfiedParallelPeer(MesProEdhrBatchExecutionTaskDO currentTask,
@@ -1505,12 +1674,19 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         MesProRouteProcessDO currentRouteProcess = resolveFrozenRouteProcess(batch == null ? null : batch.getRouteId(),
                 batchTask == null ? null : batchTask.getRouteProcessId(),
                 batchTask == null ? null : batchTask.getProcessId());
-        MesProEdhrProcessFormPermissionRuleDO processFormRule = findProcessFormFillRule(currentRouteProcess, batchTask);
+        List<MesProEdhrProcessFormPermissionRuleDO> processFormRules =
+                findProcessFormFillRules(batch, currentRouteProcess, batchTask);
+        MesProEdhrProcessFormPermissionRuleDO processFormRule = processFormRules.isEmpty()
+                ? null : processFormRules.get(0);
         MesProEdhrWorkTaskAssignmentRuleDO rule = processFormRule == null
                 ? findRule(currentRouteProcess, TASK_TYPE_FILL) : null;
-        validateAdvancePrerequisites(batch, batchTask, processFormRule, rule, requiredSignatureCellKey);
-        MesProEdhrCandidateContract candidate = processFormRule == null
-                ? candidateResolver.resolveAssignmentRule(rule) : candidateResolver.resolveProcessFormRule(processFormRule);
+        MesProRouteFlowProcessBatchRecordDO routeBinding = processFormRule == null && rule == null
+                ? findRouteBinding(batchTask) : null;
+        validateAdvancePrerequisites(batch, batchTask, processFormRule, rule, routeBinding, requiredSignatureCellKey);
+        ProcessFormResponsibilitySnapshot responsibilitySnapshot = processFormRule == null
+                ? null : buildProcessFormResponsibilitySnapshot(processFormRules, currentRouteProcess, batchTask);
+        MesProEdhrCandidateContract candidate = resolveFillCandidate(processFormRule, rule, routeBinding,
+                responsibilitySnapshot);
         MesProEdhrWorkTaskDO task = new MesProEdhrWorkTaskDO()
                 .setTaskType(TASK_TYPE_FILL)
                 .setBatchExecutionId(batch.getId())
@@ -1522,7 +1698,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 .setRouteProcessId(currentRouteProcess.getId())
                 .setProcessId(currentRouteProcess.getProcessId())
                 .setProcessName(batchTask.getProcessName())
-                .setAssigneeUserId(processFormRule == null
+                .setAssigneeUserId(processFormRule == null && rule != null
                         ? resolveCandidateAssigneeUserId(candidate, rule.getAssigneeUserId())
                         : resolveFirstCandidateUserId(candidate.userSnapshot()))
                 .setCandidateSourceType(candidate.sourceType())
@@ -1532,18 +1708,18 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 .setRemark("eDHR填写任务");
         if (processFormRule != null) {
             task.setResponsibilitySourceType(ENTITLEMENT_SOURCE_TYPE_FILLER)
-                    .setResponsibilitySourceKey(buildProcessFormResponsibilitySourceKey(
-                            processFormRule, currentRouteProcess, batchTask))
-                    .setResponsibilitySourceVersion(String.valueOf(requireProcessFormResponsibilityVersionId(processFormRule)))
-                    .setResponsibilitySourceDigest(buildProcessFormResponsibilitySourceDigest(processFormRule))
+                    .setResponsibilitySourceKey(responsibilitySnapshot.sourceKey())
+                    .setResponsibilitySourceVersion(responsibilitySnapshot.sourceVersion())
+                    .setResponsibilitySourceDigest(responsibilitySnapshot.sourceDigest())
+                    .setResponsibilityScopeJson(responsibilitySnapshot.scopeJson())
                     .setOwnershipLocked(false);
         }
-        createTask(task);
+        createTask(task, batch);
     }
 
-    private void createOptionalCompanionFillTasks(MesProEdhrBatchExecutionDO batch,
-                                                  MesProEdhrBatchExecutionTaskDO anchorTask,
-                                                  Long sourceUserId) {
+    private void createCompanionFillTasks(MesProEdhrBatchExecutionDO batch,
+                                          MesProEdhrBatchExecutionTaskDO anchorTask,
+                                          Long sourceUserId) {
         if (batch == null || batch.getId() == null || anchorTask == null || anchorTask.getRouteProcessId() == null) {
             return;
         }
@@ -1551,7 +1727,6 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 .filter(task -> !Objects.equals(task.getId(), anchorTask.getId()))
                 .filter(task -> Objects.equals(task.getRouteProcessId(), anchorTask.getRouteProcessId()))
                 .filter(task -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM.equals(task.getNodeType()))
-                .filter(task -> Boolean.FALSE.equals(task.getRequiredFlag()))
                 .filter(task -> Objects.equals(task.getStatus(), MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING))
                 .filter(task -> !hasActiveFillForBatchTask(task.getId()))
                 .sorted(Comparator.comparing(MesProEdhrBatchExecutionTaskDO::getBatchRecordSort,
@@ -1561,13 +1736,37 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 .forEach(task -> createFillTask(batch, task, sourceUserId, null));
     }
 
+    private void createCompanionFillTasksForActiveAnchors(MesProEdhrBatchExecutionDO batch,
+                                                          List<MesProEdhrBatchExecutionTaskDO> batchTasks) {
+        if (batch == null || batch.getId() == null || batchTasks == null || batchTasks.isEmpty()) {
+            return;
+        }
+        Map<Long, MesProEdhrBatchExecutionTaskDO> taskMap = batchTasks.stream()
+                .filter(task -> task.getId() != null)
+                .collect(Collectors.toMap(
+                        MesProEdhrBatchExecutionTaskDO::getId,
+                        task -> task,
+                        (existing, replacement) -> existing,
+                        LinkedHashMap::new));
+        workTaskMapper.selectActiveListByBatchExecutionId(batch.getId()).stream()
+                .filter(task -> TASK_TYPE_FILL.equals(task.getTaskType()))
+                .filter(task -> task.getBatchTaskId() != null)
+                .map(task -> Map.entry(task, taskMap.get(task.getBatchTaskId())))
+                .filter(entry -> entry.getValue() != null)
+                .filter(entry -> MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_ROUTE_FORM.equals(
+                        entry.getValue().getNodeType()))
+                .forEach(entry -> createCompanionFillTasks(batch, entry.getValue(),
+                        entry.getKey().getSourceUserId()));
+    }
+
     private void validateAdvancePrerequisites(MesProEdhrBatchExecutionDO batch,
                                               MesProEdhrBatchExecutionTaskDO batchTask,
                                               MesProEdhrProcessFormPermissionRuleDO processFormRule,
                                               MesProEdhrWorkTaskAssignmentRuleDO rule,
+                                              MesProRouteFlowProcessBatchRecordDO routeBinding,
                                               String requiredSignatureCellKey) {
         List<String> missingItems = collectAdvancePrerequisiteNames(batch, batchTask, processFormRule, rule,
-                requiredSignatureCellKey);
+                routeBinding, requiredSignatureCellKey);
         if (!missingItems.isEmpty()) {
             throw exception(PRO_EDHR_WORK_TASK_ADVANCE_PREREQUISITE_MISSING,
                     String.join("、", missingItems));
@@ -1578,6 +1777,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                                                          MesProEdhrBatchExecutionTaskDO batchTask,
                                                          MesProEdhrProcessFormPermissionRuleDO processFormRule,
                                                          MesProEdhrWorkTaskAssignmentRuleDO rule,
+                                                         MesProRouteFlowProcessBatchRecordDO routeBinding,
                                                          String requiredSignatureCellKey) {
         List<String> missingItems = new ArrayList<>();
         if (batch == null || batch.getWorkOrderId() == null || StrUtil.isBlank(batch.getWorkOrderCode())) {
@@ -1603,10 +1803,28 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
             missingItems.add("签名位");
         }
         if ((processFormRule == null || !hasProcessFormCandidateSource(processFormRule))
-                && (rule == null || !hasCandidateSource(rule))) {
+                && (rule == null || !hasCandidateSource(rule))
+                && !hasRouteBindingCandidateSource(routeBinding)) {
             missingItems.add("权限");
         }
         return missingItems;
+    }
+
+    private MesProEdhrCandidateContract resolveFillCandidate(MesProEdhrProcessFormPermissionRuleDO processFormRule,
+                                                             MesProEdhrWorkTaskAssignmentRuleDO rule,
+                                                             MesProRouteFlowProcessBatchRecordDO routeBinding,
+                                                             ProcessFormResponsibilitySnapshot responsibilitySnapshot) {
+        if (processFormRule != null) {
+            return responsibilitySnapshot.candidate();
+        }
+        if (rule != null) {
+            return candidateResolver.resolveAssignmentRule(rule);
+        }
+        if (hasRouteBindingCandidateSource(routeBinding)) {
+            return candidateResolver.resolveRouteBindingCandidate(routeBinding.getCandidateSourceType(),
+                    routeBinding.getCandidateSourceIds(), "routeBindingId=" + routeBinding.getId());
+        }
+        throw exception(PRO_EDHR_WORK_TASK_ASSIGNMENT_RULE_MISSING);
     }
 
     private void createTask(String taskType, MesProEdhrWorkTaskDO sourceTask, Long assigneeUserId,
@@ -1673,11 +1891,15 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     }
 
     private MesProEdhrWorkTaskDO createTask(MesProEdhrWorkTaskDO task) {
+        return createTask(task, null);
+    }
+
+    private MesProEdhrWorkTaskDO createTask(MesProEdhrWorkTaskDO task, MesProEdhrBatchExecutionDO batchContext) {
         fillBusinessScope(task);
         task.setStatus(MesProEdhrWorkTaskStatus.TODO)
                 .setSignatureCellKey(StrUtil.blankToDefault(task.getSignatureCellKey(), ""))
                 .setTaskCode("EDHRT-" + System.currentTimeMillis())
-                .setDueTime(calculateDueTime(task))
+                .setDueTime(calculateDueTime(task, batchContext))
                 .setActionUrl("");
         workTaskMapper.insert(task);
         task.setActionUrl(buildActionUrl(task));
@@ -1751,22 +1973,85 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     }
 
     private MesProEdhrProcessFormPermissionRuleDO findProcessFormFillRule(Long routeId,
-                                                                          MesProEdhrBatchExecutionTaskDO batchTask) {
-        return findProcessFormFillRule(resolveFrozenRouteProcess(routeId,
+                                                                           MesProEdhrBatchExecutionTaskDO batchTask) {
+        return findProcessFormFillRule(null, routeId, batchTask);
+    }
+
+    private MesProEdhrProcessFormPermissionRuleDO findProcessFormFillRule(MesProEdhrBatchExecutionDO batch,
+                                                                           Long routeId,
+                                                                           MesProEdhrBatchExecutionTaskDO batchTask) {
+        return findProcessFormFillRule(batch, resolveFrozenRouteProcess(routeId,
                 batchTask == null ? null : batchTask.getRouteProcessId(),
                 batchTask == null ? null : batchTask.getProcessId()), batchTask);
     }
 
-    private MesProEdhrProcessFormPermissionRuleDO findProcessFormFillRule(MesProRouteProcessDO currentRouteProcess,
+    private MesProEdhrProcessFormPermissionRuleDO findProcessFormFillRule(MesProEdhrBatchExecutionDO batch,
+                                                                           MesProRouteProcessDO currentRouteProcess,
                                                                            MesProEdhrBatchExecutionTaskDO batchTask) {
+        List<MesProEdhrProcessFormPermissionRuleDO> rules = findProcessFormFillRules(batch, currentRouteProcess,
+                batchTask);
+        return rules.isEmpty() ? null : rules.get(0);
+    }
+
+    private List<MesProEdhrProcessFormPermissionRuleDO> findProcessFormFillRules(MesProEdhrBatchExecutionDO batch,
+                                                                                  MesProRouteProcessDO currentRouteProcess,
+                                                                                  MesProEdhrBatchExecutionTaskDO batchTask) {
         String bindingKey = resolveProcessFormRuleBindingKey(batchTask);
         if (currentRouteProcess == null || currentRouteProcess.getId() == null
                 || batchTask == null || StrUtil.isBlank(bindingKey)) {
+            return List.of();
+        }
+        Long responsibilityVersionId = resolveProcessFormRuleVersionId(batch, batchTask);
+        List<MesProEdhrProcessFormPermissionRuleDO> rules = processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(
+                currentRouteProcess.getId(), bindingKey, responsibilityVersionId);
+        rejectLegacyNullVersionRuleForVersionedBatchTask(currentRouteProcess.getId(), bindingKey,
+                responsibilityVersionId, rules.isEmpty() ? null : rules.get(0));
+        return rules;
+    }
+
+    private MesProEdhrProcessFormPermissionRuleDO findProcessFormFillRule(MesProRouteProcessDO currentRouteProcess,
+                                                                           MesProEdhrBatchExecutionTaskDO batchTask) {
+        return findProcessFormFillRule(null, currentRouteProcess, batchTask);
+    }
+
+    private void rejectLegacyNullVersionRuleForVersionedBatchTask(Long routeProcessId, String bindingKey,
+                                                                  Long responsibilityVersionId,
+                                                                  MesProEdhrProcessFormPermissionRuleDO rule) {
+        if (rule != null || responsibilityVersionId == null || StrUtil.isBlank(bindingKey)) {
+            return;
+        }
+        MesProEdhrProcessFormPermissionRuleDO legacyRule =
+                processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(routeProcessId, bindingKey, null)
+                        .stream()
+                        .findFirst()
+                        .orElse(null);
+        if (legacyRule != null && legacyRule.getBatchRecordVersionId() == null) {
+            throw exception(PRO_EDHR_PROCESS_FORM_PERMISSION_RULE_VERSION_REQUIRED,
+                    legacyRule.getRouteProcessId(), legacyRule.getBatchRecordReportId());
+        }
+    }
+
+    private Long resolveProcessFormRuleVersionId(MesProEdhrBatchExecutionDO batch,
+                                                 MesProEdhrBatchExecutionTaskDO batchTask) {
+        if (batchTask == null) {
             return null;
         }
-        return processFormPermissionRuleMapper.selectEnabledFillRuleForRouteOrReport(
-                currentRouteProcess.getId(), bindingKey,
-                batchTask.getBatchRecordVersionId());
+        if (batchTask.getBatchRecordVersionId() != null) {
+            return batchTask.getBatchRecordVersionId();
+        }
+        if (isDynamicRouteFormBindingTask(batchTask) && batch != null) {
+            return batch.getRouteVersionId();
+        }
+        return null;
+    }
+
+    private boolean isDynamicRouteFormBindingTask(MesProEdhrBatchExecutionTaskDO batchTask) {
+        return batchTask != null
+                && StrUtil.isNotBlank(batchTask.getFormBindingKey())
+                && batchTask.getFormTemplateVersionId() != null
+                && (StrUtil.isBlank(batchTask.getBatchRecordReportId())
+                || Objects.equals(StrUtil.trim(batchTask.getBatchRecordReportId()),
+                StrUtil.trim(batchTask.getFormBindingKey())));
     }
 
     private MesProRouteProcessDO resolveFrozenRouteProcess(Long routeId, Long routeProcessId, Long processId) {
@@ -1782,6 +2067,31 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     private boolean hasProcessFormCandidateSource(MesProEdhrProcessFormPermissionRuleDO rule) {
         return rule != null && StrUtil.isNotBlank(rule.getCandidateSourceType())
                 && StrUtil.isNotBlank(rule.getCandidateSourceIds());
+    }
+
+    private MesProRouteFlowProcessBatchRecordDO findRouteBinding(MesProEdhrBatchExecutionTaskDO batchTask) {
+        if (batchTask == null || batchTask.getRouteBindingId() == null) {
+            return null;
+        }
+        MesProRouteFlowProcessBatchRecordDO routeBinding =
+                routeFlowProcessBatchRecordMapper.selectById(batchTask.getRouteBindingId());
+        if (routeBinding == null) {
+            throw exception(PRO_EDHR_WORK_TASK_OWNERSHIP_SOURCE_MISSING,
+                    "routeBindingId=" + batchTask.getRouteBindingId());
+        }
+        return routeBinding;
+    }
+
+    private boolean hasRouteBindingCandidateSource(MesProRouteFlowProcessBatchRecordDO routeBinding) {
+        if (routeBinding == null) {
+            return false;
+        }
+        boolean hasSourceType = StrUtil.isNotBlank(routeBinding.getCandidateSourceType());
+        boolean hasSourceIds = StrUtil.isNotBlank(routeBinding.getCandidateSourceIds());
+        if (hasSourceType != hasSourceIds) {
+            throw exception(PRO_EDHR_WORK_TASK_CANDIDATE_SOURCE_INVALID);
+        }
+        return hasSourceType;
     }
 
     private String resolveProcessFormRuleBindingKey(MesProEdhrBatchExecutionTaskDO batchTask) {
@@ -1838,7 +2148,155 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
                 + ";enabled=" + Boolean.TRUE.equals(rule.getEnabled());
     }
 
-    private boolean isSameProcessFormResponsibilityTarget(MesProEdhrBatchExecutionTaskDO batchTask,
+    private ProcessFormResponsibilitySnapshot buildProcessFormResponsibilitySnapshot(
+            List<MesProEdhrProcessFormPermissionRuleDO> rules,
+            MesProRouteProcessDO currentRouteProcess,
+            MesProEdhrBatchExecutionTaskDO batchTask) {
+        if (rules == null || rules.isEmpty()) {
+            throw exception(PRO_EDHR_WORK_TASK_OWNERSHIP_SOURCE_MISSING, "processFormRules");
+        }
+        MesProEdhrProcessFormPermissionRuleDO anchorRule = rules.get(0);
+        String sourceKey = buildProcessFormResponsibilitySourceKey(anchorRule, currentRouteProcess, batchTask);
+        String sourceVersion = String.valueOf(requireProcessFormResponsibilityVersionId(anchorRule));
+        Set<Long> allUserIds = new TreeSet<>();
+        List<Map<String, Object>> scopes = new ArrayList<>();
+        MesProEdhrCandidateContract singleCandidate = null;
+        for (MesProEdhrProcessFormPermissionRuleDO rule : rules) {
+            MesProEdhrCandidateContract candidate = candidateResolver.resolveProcessFormRule(rule);
+            if (singleCandidate == null) {
+                singleCandidate = candidate;
+            }
+            List<Long> resolvedUserIds = MesProEdhrWorkTaskAuthorization.parseCandidateSnapshotUserIds(
+                    candidate.userSnapshot()).stream().sorted().toList();
+            if (resolvedUserIds.isEmpty()) {
+                throw exception(PRO_EDHR_WORK_TASK_CANDIDATE_POOL_EMPTY);
+            }
+            allUserIds.addAll(resolvedUserIds);
+            JSONObject fillableScope = parseRequiredFillableScope(rule, batchTask);
+            String scopeKey = StrUtil.blankToDefault(StrUtil.trim(rule.getScopeKey()), "ALL");
+            Map<String, Object> scope = new LinkedHashMap<>();
+            scope.put("scopeKey", scopeKey);
+            scope.put("candidateSourceType", rule.getCandidateSourceType());
+            scope.put("candidateSourceIds", parseRawIds(rule.getCandidateSourceIds()).stream().sorted().toList());
+            scope.put("resolvedUserIds", resolvedUserIds);
+            scope.put("fillableScope", fillableScope);
+            scopes.add(scope);
+        }
+        String candidateSnapshot = allUserIds.stream().map(String::valueOf).collect(Collectors.joining(","));
+        MesProEdhrCandidateContract aggregateCandidate = rules.size() == 1
+                ? new MesProEdhrCandidateContract(singleCandidate.sourceType(), singleCandidate.sourceId(), candidateSnapshot)
+                : new MesProEdhrCandidateContract("ASSIST_ROWS", null, candidateSnapshot);
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("schemaVersion", 2);
+        snapshot.put("sourceType", ENTITLEMENT_SOURCE_TYPE_FILLER);
+        snapshot.put("sourceKey", sourceKey);
+        snapshot.put("sourceVersion", sourceVersion);
+        snapshot.put("scopes", scopes);
+        String snapshotJson = JSON.toJSONString(snapshot);
+        return new ProcessFormResponsibilitySnapshot(aggregateCandidate, sourceKey, sourceVersion,
+                "scopes-sha256=" + DigestUtil.sha256Hex(snapshotJson), snapshotJson);
+    }
+
+    private JSONObject parseRequiredFillableScope(MesProEdhrProcessFormPermissionRuleDO rule,
+                                                  MesProEdhrBatchExecutionTaskDO batchTask) {
+        String scopeKey = rule == null ? null : StrUtil.blankToDefault(StrUtil.trim(rule.getScopeKey()), SCOPE_KEY_ALL);
+        String fillableScopeJson = isDynamicRouteFormBindingTask(batchTask)
+                ? batchTask.getFillableScopeJson()
+                : rule == null ? null : rule.getFillableScopeJson();
+        if (StrUtil.isBlank(fillableScopeJson)) {
+            if (!isDynamicRouteFormBindingTask(batchTask) && Objects.equals(SCOPE_KEY_ALL, scopeKey)) {
+                return buildAllFillableScopeFromBatchRecordReport(rule, batchTask, "scopeKey=" + scopeKey);
+            }
+            throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, "scopeKey=" + scopeKey);
+        }
+        try {
+            JSONObject fillableScope = JSON.parseObject(fillableScopeJson);
+            validateResponsibilityFillableScope(fillableScope, "scopeKey=" + scopeKey);
+            return fillableScope;
+        } catch (RuntimeException ex) {
+            if (ex instanceof cn.iocoder.yudao.framework.common.exception.ServiceException) {
+                throw ex;
+            }
+            throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, "scopeKey=" + scopeKey);
+        }
+    }
+
+    private JSONObject buildAllFillableScopeFromBatchRecordReport(MesProEdhrProcessFormPermissionRuleDO rule,
+                                                                  MesProEdhrBatchExecutionTaskDO batchTask,
+                                                                  String context) {
+        Long definitionId = batchTask == null ? null : batchTask.getBatchRecordDefinitionId();
+        Long versionId = batchTask == null ? null : batchTask.getBatchRecordVersionId();
+        if (definitionId == null && rule != null) {
+            definitionId = rule.getBatchRecordDefinitionId();
+        }
+        if (versionId == null && rule != null) {
+            versionId = rule.getBatchRecordVersionId();
+        }
+        if (definitionId == null || versionId == null) {
+            throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, context);
+        }
+        List<MesProBatchRecordReportDO> reports = batchRecordReportMapper.selectListByDefinitionIdAndVersionId(
+                definitionId, versionId);
+        if (reports == null || reports.isEmpty()
+                || reports.stream().anyMatch(report -> report.getSourceTableIndex() == null)) {
+            throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, context);
+        }
+        JSONArray ranges = new JSONArray();
+        reports.stream()
+                .map(MesProBatchRecordReportDO::getSourceTableIndex)
+                .distinct()
+                .sorted()
+                .forEach(sourceTableIndex -> {
+                    JSONObject range = new JSONObject();
+                    range.put("sourceTableIndex", sourceTableIndex);
+                    range.put("startRow", ALL_SCOPE_START_ROW);
+                    range.put("endRow", ALL_SCOPE_END_ROW);
+                    ranges.add(range);
+                });
+        JSONObject fillableScope = new JSONObject();
+        fillableScope.put("ranges", ranges);
+        validateResponsibilityFillableScope(fillableScope, context);
+        return fillableScope;
+    }
+
+    private void validateResponsibilityFillableScope(JSONObject fillableScope, String context) {
+        JSONArray cells = fillableScope == null ? null : fillableScope.getJSONArray("cells");
+        JSONArray ranges = fillableScope == null ? null : fillableScope.getJSONArray("ranges");
+        boolean hasCells = cells != null && !cells.isEmpty();
+        boolean hasRanges = ranges != null && !ranges.isEmpty();
+        if (hasCells == hasRanges) {
+            throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, context);
+        }
+        if (hasCells) {
+            for (int i = 0; i < cells.size(); i++) {
+                JSONObject cell = cells.getJSONObject(i);
+                if (cell == null || cell.getInteger("sourceTableIndex") == null
+                        || cell.getInteger("rowIndex") == null || cell.getInteger("columnIndex") == null) {
+                    throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, context);
+                }
+            }
+            return;
+        }
+        for (int i = 0; i < ranges.size(); i++) {
+            JSONObject range = ranges.getJSONObject(i);
+            Integer startRow = range == null ? null : range.getInteger("startRow");
+            Integer endRow = range == null ? null : range.getInteger("endRow");
+            if (range == null || range.getInteger("sourceTableIndex") == null
+                    || startRow == null || endRow == null || startRow > endRow) {
+                throw exception(PRO_EDHR_WORK_TASK_RESPONSIBILITY_SCOPE_INVALID, context);
+            }
+        }
+    }
+
+    private record ProcessFormResponsibilitySnapshot(MesProEdhrCandidateContract candidate,
+                                                     String sourceKey,
+                                                     String sourceVersion,
+                                                     String sourceDigest,
+                                                     String scopeJson) {
+    }
+
+    private boolean isSameProcessFormResponsibilityTarget(MesProEdhrBatchExecutionDO batch,
+                                                          MesProEdhrBatchExecutionTaskDO batchTask,
                                                           MesProEdhrProcessFormPermissionRuleDO fillRule) {
         String bindingKey = resolveProcessFormRuleBindingKey(batchTask);
         if (batchTask == null || fillRule == null
@@ -1849,7 +2307,7 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         if (!Objects.equals(bindingKey, StrUtil.trim(fillRule.getBatchRecordReportId()))) {
             return false;
         }
-        if (!Objects.equals(batchTask.getBatchRecordVersionId(), fillRule.getBatchRecordVersionId())) {
+        if (!Objects.equals(resolveProcessFormRuleVersionId(batch, batchTask), fillRule.getBatchRecordVersionId())) {
             return false;
         }
         if (Objects.equals(fillRule.getRouteProcessId(),
@@ -2028,16 +2486,29 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
         }
     }
 
-    private LocalDateTime calculateDueTime(MesProEdhrWorkTaskDO task) {
+    private LocalDateTime calculateDueTime(MesProEdhrWorkTaskDO task, MesProEdhrBatchExecutionDO batchContext) {
         if (TASK_TYPE_FILL.equals(task.getTaskType())) {
             MesProEdhrBatchExecutionTaskDO batchTask = batchTaskMapper.selectById(task.getBatchTaskId());
+            MesProEdhrBatchExecutionDO batch = batchContext != null
+                    ? batchContext : batchExecutionMapper.selectById(task.getBatchExecutionId());
             MesProEdhrProcessFormPermissionRuleDO processFormRule =
-                    findProcessFormFillRule(task.getRouteId(), batchTask);
+                    findProcessFormFillRule(batch, task.getRouteId(), batchTask);
             if (processFormRule != null) {
                 if (processFormRule.getDueMinutes() == null || processFormRule.getDueMinutes() <= 0) {
                     throw exception(PRO_EDHR_WORK_TASK_DUE_RULE_MISSING);
                 }
                 return LocalDateTime.now().plusMinutes(processFormRule.getDueMinutes());
+            }
+            MesProEdhrWorkTaskAssignmentRuleDO fillRule =
+                    findRule(task.getRouteId(), task.getRouteProcessId(), task.getProcessId(), task.getTaskType());
+            if (fillRule != null) {
+                if (fillRule.getDueMinutes() == null || fillRule.getDueMinutes() <= 0) {
+                    throw exception(PRO_EDHR_WORK_TASK_DUE_RULE_MISSING);
+                }
+                return LocalDateTime.now().plusMinutes(fillRule.getDueMinutes());
+            }
+            if (hasRouteBindingCandidateSource(findRouteBinding(batchTask))) {
+                return null;
             }
         }
         if (TASK_TYPE_RELEASE_APPROVE.equals(task.getTaskType())) {
@@ -2070,17 +2541,21 @@ public class MesProEdhrWorkTaskServiceImpl implements MesProEdhrWorkTaskService 
     }
 
     private void sendNotify(MesProEdhrWorkTaskDO task) {
-        NotifySendSingleToUserReqDTO reqDTO = new NotifySendSingleToUserReqDTO();
-        reqDTO.setUserId(task.getAssigneeUserId());
-        reqDTO.setTemplateCode(resolveNotifyTemplateCode(task.getTaskType()));
-        reqDTO.setTemplateParams(Map.of(
+        String templateCode = resolveNotifyTemplateCode(task.getTaskType());
+        Map<String, Object> templateParams = Map.of(
                 "workOrderCode", Objects.toString(task.getWorkOrderCode(), ""),
                 "batchCode", Objects.toString(task.getBatchCode(), ""),
                 "processName", Objects.toString(task.getProcessName(), ""),
                 "actionUrl", task.getActionUrl(),
                 "reason", Objects.toString(task.getReason(), ""),
-                "workTaskId", task.getId()));
-        notifyMessageSendApi.sendSingleMessageToAdmin(reqDTO);
+                "workTaskId", task.getId());
+        for (Long userId : parseCandidateUserIds(task.getCandidateUserSnapshot())) {
+            NotifySendSingleToUserReqDTO reqDTO = new NotifySendSingleToUserReqDTO();
+            reqDTO.setUserId(userId);
+            reqDTO.setTemplateCode(templateCode);
+            reqDTO.setTemplateParams(templateParams);
+            notifyMessageSendApi.sendSingleMessageToAdmin(reqDTO);
+        }
     }
 
     private void sendReassignmentNotify(MesProEdhrWorkTaskDO task, String reason) {

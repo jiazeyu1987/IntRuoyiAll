@@ -127,7 +127,7 @@ import {
   getEdhrBatchReviewTimeline,
   type EdhrBatchReviewTimelineRespVO
 } from '@/api/mes/pro/edhr/batchExecution'
-import { formatDate } from '@/utils/formatTime'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 import type { BatchExecutionTraceContext } from './traceContext'
 
 defineOptions({ name: 'MesProEdhrFormTraceBatchExecutionTraceDrawer' })
@@ -179,15 +179,7 @@ const parsePositiveNumber = (value: unknown) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
 }
 
-const formatTraceTime = (value?: string | number | Date) => {
-  if (!value) return '--'
-  const parsedDate =
-    typeof value === 'number' || /^\d+$/.test(String(value))
-      ? new Date(Number(value))
-      : new Date(value)
-  if (Number.isNaN(parsedDate.getTime())) return '--'
-  return formatDate(parsedDate, 'YYYY-MM-DD HH:mm')
-}
+const formatTraceTime = (value?: string | number | Date) => formatEdhrDateTime(value)
 
 const traceBatchExecutionId = computed(() => parsePositiveNumber(props.context?.batchExecutionId))
 const traceReleaseTransactionId = computed(() =>

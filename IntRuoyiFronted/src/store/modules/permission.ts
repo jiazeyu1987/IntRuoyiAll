@@ -14,6 +14,7 @@ const SIGNATURE_GOVERNANCE_ROUTE_NAME = 'SignatureGovernance'
 const SIGNATURE_RECORDS_ROUTE_PATH = 'signature-records'
 const SIGNATURE_RECORDS_ROUTE_NAME = 'SignatureGovernanceSignatureRecords'
 const SIGNATURE_RECORDS_ROUTE_TITLE = '签名记录'
+const SIGNATURE_MY_SIGNATURE_ROUTE_PATH = 'my-signature'
 const LEGACY_SIGNATURE_GOVERNANCE_OVERVIEW_CHILD_PATH = 'overview'
 const LEGACY_SIGNATURE_GOVERNANCE_OVERVIEW_ROUTE_NAME = 'SignatureGovernanceOverview'
 const LEGACY_SIGNATURE_GOVERNANCE_OVERVIEW_TITLE = '总览'
@@ -152,13 +153,43 @@ const isLegacySignatureGovernanceStandaloneOverviewRoute = (route: AppRouteRecor
   )
 }
 
+const resolveSignatureGovernanceChildRedirect = (route: AppRouteRecordRaw) => {
+  const routePath = normalizeComparableRoutePath(getRoutePath(route))
+  if (!routePath) {
+    return ''
+  }
+  if (routePath.startsWith(`${normalizeComparableRoutePath(SIGNATURE_GOVERNANCE_ROUTE_PATH)}/`)) {
+    return `/${routePath}`
+  }
+  return `${SIGNATURE_GOVERNANCE_ROUTE_PATH}/${routePath}`
+}
+
+const resolveSignatureGovernanceRedirect = (
+  dynamicChildren: AppRouteRecordRaw[],
+  currentRedirect: AppRouteRecordRaw['redirect']
+) => {
+  if (
+    dynamicChildren.length === 1 &&
+    normalizeComparableRoutePath(getRoutePath(dynamicChildren[0])) === SIGNATURE_MY_SIGNATURE_ROUTE_PATH
+  ) {
+    return `${SIGNATURE_GOVERNANCE_ROUTE_PATH}/${SIGNATURE_MY_SIGNATURE_ROUTE_PATH}`
+  }
+
+  const firstAuthorizedChildRedirect = dynamicChildren
+    .map((dynamicChild) => resolveSignatureGovernanceChildRedirect(dynamicChild))
+    .find((routePath) => !!routePath)
+
+  return firstAuthorizedChildRedirect || currentRedirect
+}
+
 const resolveHiddenShellRedirect = (
   staticRoute: AppRouteRecordRaw,
   dynamicRoute: AppRouteRecordRaw,
-  currentRedirect: AppRouteRecordRaw['redirect']
+  currentRedirect: AppRouteRecordRaw['redirect'],
+  dynamicChildren: AppRouteRecordRaw[] = dynamicRoute.children || []
 ) => {
   if (isSignatureGovernanceShellRoute(staticRoute)) {
-    return staticRoute.redirect ?? currentRedirect
+    return resolveSignatureGovernanceRedirect(dynamicChildren, currentRedirect)
   }
 
   return dynamicRoute.redirect ?? currentRedirect
@@ -300,6 +331,7 @@ const mergeHiddenStaticShellRoute = (
   }
   collectDynamicDescendants(dynamicChildren)
   const hiddenStaticChildren = (staticRoute.children || []).filter((child) => child.meta?.hidden)
+  const appendUncoveredHiddenStaticChildren = !isSignatureGovernanceShellRoute(staticRoute)
   const mergedStaticChildKeys = new Set<string>()
 
   const isHiddenStaticChildCovered = (child: AppRouteRecordRaw) => {
@@ -325,9 +357,11 @@ const mergeHiddenStaticShellRoute = (
       mergedStaticChildKeys.add(getHiddenStaticChildKey(staticChild))
       return mergeHiddenStaticChildWithDynamicChild(staticChild, dynamicChild)
     }),
-    ...hiddenStaticChildren
-      .filter((child) => !isHiddenStaticChildCovered(child))
-      .map((child) => cloneDeep(child))
+    ...(appendUncoveredHiddenStaticChildren
+      ? hiddenStaticChildren
+        .filter((child) => !isHiddenStaticChildCovered(child))
+        .map((child) => cloneDeep(child))
+      : [])
   ]
 
   mergedRoute.meta = {
@@ -335,7 +369,12 @@ const mergeHiddenStaticShellRoute = (
     ...dynamicRoute.meta,
     hidden: dynamicRoute.meta?.hidden ?? false
   }
-  mergedRoute.redirect = resolveHiddenShellRedirect(staticRoute, dynamicRoute, mergedRoute.redirect)
+  mergedRoute.redirect = resolveHiddenShellRedirect(
+    staticRoute,
+    dynamicRoute,
+    mergedRoute.redirect,
+    dynamicChildren
+  )
 
   return mergedRoute
 }

@@ -25,6 +25,39 @@ export type ProRouteFlowArchiveVisibility =
   | 'AUDIT_ONLY'
   | 'ATTACHMENT_REFERENCE'
 
+export interface ProRouteBatchRecordAttachmentOwnerVO {
+  attachmentCode: string
+  attachmentName: string
+  defaultRoleCode: string
+  defaultRoleName: string
+  candidateSourceType: EdhrProcessFormCandidateSourceType
+  candidateSourceIds: number[]
+  candidateSourceNames?: string[]
+  assignedUserIds?: number[]
+  assignedUserNames?: string[]
+  sort: number
+  remark?: string | null
+}
+
+export interface ProRouteBatchRecordAttachmentOwnerItemSaveVO {
+  attachmentCode: string
+  candidateSourceType: EdhrProcessFormCandidateSourceType
+  candidateSourceIds: number[]
+  candidateSourceNames?: string[]
+  remark?: string | null
+}
+
+export interface ProRouteBatchRecordAttachmentOwnerSaveVO {
+  routeId: number
+  routeVersionId: number
+  items: ProRouteBatchRecordAttachmentOwnerItemSaveVO[]
+}
+
+export interface ProRouteBatchRecordAttachmentOwnerInitVO {
+  routeId: number
+  routeVersionId: number
+}
+
 export interface ProRouteFlowFormBindingVO {
   formBindingKey?: string | null
   formSlotType?: ProRouteFlowFormSlotType | null
@@ -38,6 +71,7 @@ export interface ProRouteFlowFormBindingVO {
   fillableScopeJson?: string | null
   recordCategory?: ProRouteFlowRecordCategory | null
   validationProfile?: ProRouteFlowValidationProfile | null
+  recordbookEnabled?: boolean | null
   requiredPolicy?: ProRouteFlowRequiredPolicy | null
   requiredConditionJson?: string | null
   ownerRoleKey?: ProRouteFlowOwnerRoleKey | null
@@ -64,6 +98,7 @@ export interface ProRouteFlowBatchRecordVO {
   fillableScopeJson?: string | null
   recordCategory?: ProRouteFlowRecordCategory | null
   validationProfile?: ProRouteFlowValidationProfile | null
+  recordbookEnabled?: boolean | null
   permissionScopeId?: number | null
   requiredPolicy?: ProRouteFlowRequiredPolicy | null
   requiredConditionJson?: string | null
@@ -76,6 +111,7 @@ export interface ProRouteFlowBatchRecordVO {
 
 export interface ProRouteFlowFormBindingSaveVO {
   formBindingKey?: string | null
+  formSlotType?: ProRouteFlowFormSlotType | null
   formTemplateId: number
   formTemplateName?: string | null
   instanceScope?: 'PROCESS' | 'BATCH_SHARED' | string
@@ -83,6 +119,7 @@ export interface ProRouteFlowFormBindingSaveVO {
   fillableScopeJson?: string | null
   recordCategory?: ProRouteFlowRecordCategory | null
   validationProfile?: ProRouteFlowValidationProfile | null
+  recordbookEnabled?: boolean | null
   requiredPolicy?: ProRouteFlowRequiredPolicy | null
   requiredConditionJson?: string | null
   ownerRoleKey?: ProRouteFlowOwnerRoleKey | null
@@ -127,6 +164,7 @@ export interface ProRouteFlowProcessConfigSaveVO {
   enabled: boolean
   executionMode?: ProRouteFlowExecutionMode | null
   productionQuantityFactor?: number | null
+  batchRecordReports?: ProRouteFlowBatchRecordVO[]
   formBindings?: ProRouteFlowFormBindingSaveVO[]
   remark?: string | null
 }
@@ -148,16 +186,45 @@ export const ProRouteFlowConfigApi = {
     })
   },
 
-  saveScheduleConfig: async (data: ProRouteFlowConfigSaveVO) => {
+  saveScheduleConfig: async (
+    data: ProRouteFlowConfigSaveVO,
+    options: Record<string, unknown> = {}
+  ) => {
     return await request.post({
       url: '/mes/pro/route/flow-config/schedule/save',
+      data,
+      ...options
+    })
+  },
+
+  saveBatchRecordConfig: async (
+    data: ProRouteFlowConfigSaveVO,
+    options: Record<string, unknown> = {}
+  ) => {
+    return await request.post({
+      url: '/mes/pro/route/flow-config/batch-record/save',
+      data,
+      ...options
+    })
+  },
+
+  getBatchRecordAttachmentOwners: async (routeId: number, routeVersionId?: number) => {
+    return await request.get<ProRouteBatchRecordAttachmentOwnerVO[]>({
+      url: '/mes/pro/route/flow-config/batch-record-attachment-owners',
+      params: { routeId, routeVersionId }
+    })
+  },
+
+  initBatchRecordAttachmentOwners: async (data: ProRouteBatchRecordAttachmentOwnerInitVO) => {
+    return await request.post<ProRouteBatchRecordAttachmentOwnerVO[]>({
+      url: '/mes/pro/route/flow-config/batch-record-attachment-owners/init-defaults',
       data
     })
   },
 
-  saveBatchRecordConfig: async (data: ProRouteFlowConfigSaveVO) => {
+  saveBatchRecordAttachmentOwners: async (data: ProRouteBatchRecordAttachmentOwnerSaveVO) => {
     return await request.post({
-      url: '/mes/pro/route/flow-config/batch-record/save',
+      url: '/mes/pro/route/flow-config/batch-record-attachment-owners/save',
       data
     })
   }

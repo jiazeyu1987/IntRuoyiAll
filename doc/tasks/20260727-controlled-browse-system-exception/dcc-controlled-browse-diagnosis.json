@@ -1,0 +1,60 @@
+{
+  "baseUrl": "http://172.30.30.58:8081",
+  "apiBaseUrl": "http://172.30.30.58:8081/admin-api",
+  "tenantName": "芋道源码",
+  "username": "wangsiyu",
+  "targetKeyword": "血液瓶瓶体清洗验证.pdf",
+  "startedAt": "2026-07-27T02:14:02.705Z",
+  "login": {
+    "urlAfterLogin": "http://172.30.30.58:8081/dcc/controlled-file/browser",
+    "stillOnLogin": false,
+    "tenantId": "1",
+    "visitTenantId": null,
+    "authDebug": {
+      "localStorageKeys": [
+        "ACCESS_TOKEN",
+        "Hm_lvt_a1ff8825baa73c3a78eb96aa40325abc",
+        "REFRESH_TOKEN",
+        "dcc.controlledFile.browser.metadata:schema-1:tenant-1:visit-none:user-910250",
+        "iconify-count",
+        "iconify-version",
+        "iconify0",
+        "iconify1",
+        "iconify2",
+        "lang",
+        "loginForm",
+        "loginTenantHistory",
+        "roleRouters",
+        "tenantId",
+        "user"
+      ],
+      "accessTokenLength": 34,
+      "accessTokenShape": "string",
+      "tenantIdLength": 1
+    }
+  },
+  "target": {
+    "id": "2054545668044071537",
+    "title": "血液瓶瓶体清洗验证.pdf",
+    "fileName": null,
+    "fileNumber": null,
+    "status": null,
+    "versionNo": null
+  },
+  "apiProbe": {},
+  "failedResponses": [],
+  "applicationFailures": [
+    {
+      "method": "GET",
+      "url": "http://172.30.30.58:8081/admin-api/dcc/controlled-files/2054545668044071537/preview-metadata",
+      "status": 200,
+      "code": 500,
+      "msg": "系统异常",
+      "details": null
+    }
+  ],
+  "consoleErrors": [],
+  "pageText": "瑛泰管理系统 个人中心 0 审批中心 0 电子签名 文控中心 文档目录 文控权限 上传审批 文件上传 受控浏览 文控日志 系统管理 基础数据 release-20260723-dcc-viewer-permission-r260723vp-r1 文控中心 / 受控浏览 请输入菜单内容 王思雨 受控文件详情 返回 下载当前受控副本 血液瓶瓶体清洗验证.pdf 当前预览会根据文件类型自动切换到 PDF、图片、文本、OnlyOffice、音频或视频只读视图，并继续保留受控阅读限制。 系统异常 审批 分发 版本 修改 文件类别 其他 受控目录 4验证阶段 文件名称 血液瓶瓶体清洗验证.pdf 产品编号 XSCX 产品名称 一次性使用血栓抽吸系统 识别基础信息 DCC基础条目 一次性使用血栓抽吸系统 / XSCX 文件类别 I 技术文档 文件类别 II 设计和开发验证 文件类别 III - 文件类别 IV - 文件类别 V - 培训要求 无需培训 现行版本 V1.0 流程实例 - 提交人 瑛泰管理员 (admin) 提交时间 2026-06-16 18:28:18 发布时间 2026-06-16 18:28:18 流程定义 - 提交备注 Local folder import source: 2.DHF/大文控-研发转移项目纸质文件/9一次性使用血栓抽吸系统XSCX/4验证阶段/血液瓶瓶体清洗验证.pdf Copyright ©2026 瑛泰管理系统",
+  "screenshot": "doc\\tasks\\20260727-controlled-browse-system-exception\\dcc-controlled-browse-system-exception.png",
+  "finishedAt": "2026-07-27T02:14:11.384Z"
+}

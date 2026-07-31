@@ -1,0 +1,47 @@
+package cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+import lombok.experimental.Accessors;
+
+import java.util.Map;
+
+@Schema(description = "管理后台 - MES 一线报工与记录本一体提交 Request VO")
+@Data
+@Accessors(chain = true)
+public class MesProFrontlineFeedbackSubmitReqVO {
+
+    @Schema(description = "报工载荷", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Valid
+    @NotNull(message = "报工载荷不能为空")
+    private MesProFrontlineFeedbackPayloadReqVO feedbackPayload;
+
+    @Schema(description = "记录本原始条目载荷", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Valid
+    @NotNull(message = "记录本原始条目载荷不能为空")
+    private MesProFrontlineRecordbookPayloadReqVO recordbookPayload;
+
+    @Schema(description = "工序池上下文", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Valid
+    @NotNull(message = "工序池上下文不能为空")
+    private MesProFrontlineProcessPoolContextReqVO processPoolContext;
+
+    @Schema(description = "实际操作员工编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "3001")
+    @NotNull(message = "实际操作员工不能为空")
+    private Long actualEmployeeId;
+
+    @Schema(description = "签名编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "4001")
+    @NotNull(message = "签名不能为空")
+    private Long signatureId;
+
+    @Schema(description = "签名员工编号", requiredMode = Schema.RequiredMode.REQUIRED, example = "3001")
+    @NotNull(message = "签名员工不能为空")
+    private Long signatureEmployeeId;
+
+    @Schema(description = "一线原始提交载荷", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "一线原始提交载荷不能为空")
+    private Map<String, Object> rawPayload;
+
+}

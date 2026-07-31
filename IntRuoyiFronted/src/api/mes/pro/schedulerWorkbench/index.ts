@@ -170,6 +170,10 @@ export interface SchedulerWorkbenchRouteConfigImportRespVO {
 export interface SchedulerWorkbenchFullConfigImportRespVO {
   userRoleBindingCount: number
   assignedRoleCount: number
+  replanMasterDataCount: number
+  replanScheduleOrderDataCount: number
+  replanRuntimeDataCount: number
+  policySettingsCount: number
 }
 
 export const SchedulerWorkbenchApi = {

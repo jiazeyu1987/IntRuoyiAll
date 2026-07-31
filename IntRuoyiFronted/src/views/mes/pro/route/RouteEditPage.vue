@@ -30,7 +30,7 @@
       @success="handleSaved"
     />
     <div
-      v-if="!routeEditBlockingError && !['flow', 'basic', 'product'].includes(activeRouteTab)"
+      v-if="!routeEditBlockingError && !['flow', 'basic', 'mesProcess', 'product'].includes(activeRouteTab)"
       class="route-edit-page__actions"
     >
       <el-button
@@ -46,6 +46,7 @@
 
 <script setup lang="ts">
 import { ElMessageBox } from 'element-plus'
+import type { RouteLocationNormalizedLoaded } from 'vue-router'
 import {
   ProRouteApi,
   type ProRouteVersionVO,
@@ -58,12 +59,14 @@ import {
   ensureSameSourceDraftCandidateForProductionConfig
 } from './routeCandidateEntry'
 import { isRouteConfirmCancel, resolveRouteOperationErrorMessage } from './routeError'
+import { useTagsViewStore } from '@/store/modules/tagsView'
 
 defineOptions({ name: 'MesProRouteEdit' })
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const tagsViewStore = useTagsViewStore()
 const contentRef = ref<InstanceType<typeof RouteFormContent>>()
 const loadedRouteRequestKey = ref<string>()
 const routeVersionActionLoading = ref(false)
@@ -106,8 +109,8 @@ const routeVersionEditContext = computed<RouteVersionEditContext | undefined>(()
 })
 const initialTab = computed(() => {
   const tab = String(route.query.tab || '')
-  if (['basic', 'flow', 'product'].includes(tab)) {
-    return tab as 'basic' | 'flow' | 'product'
+  if (['basic', 'mesProcess', 'flow', 'product'].includes(tab)) {
+    return tab as 'basic' | 'mesProcess' | 'flow' | 'product'
   }
   return 'flow'
 })
@@ -120,8 +123,9 @@ const routeVersionEditContextKey = computed(() => {
 })
 const listEditCandidateDraftSaved = ref(false)
 const listEditCandidateDraftDiscarded = ref(false)
-const suppressRouteVersionSubmitAfterSaveOnce = ref(false)
 const routeLeaveAlreadyConfirmed = ref(false)
+const routeEditTabSnapshot = ref<RouteLocationNormalizedLoaded>()
+const routeEditTabSynced = ref(false)
 const routeCandidateDraftKey = computed(
   () => `${routeId.value}:${routeVersionEditContextKey.value}:${routeDraftOrigin.value}:${discardOnUnsavedExit.value}`
 )
@@ -145,8 +149,27 @@ const shouldPromptUnsavedCandidateDraftBeforeExit = computed(() => {
 const buildRouteRequestKey = () =>
   `${routeId.value}:${initialTab.value}:${routeVersionEditContextKey.value}`
 
-type RouteFormSavedPayload = {
-  promptRouteVersionSubmit?: boolean
+const hasRouteEditTopTag = () => {
+  const routeEditIdentity = tagsViewStore.getViewIdentity(route)
+  return tagsViewStore.getVisitedViews.some(
+    (visitedView) => tagsViewStore.getViewIdentity(visitedView) === routeEditIdentity
+  )
+}
+
+const syncRouteEditTopTag = () => {
+  if (!routeEditTabSynced.value || !hasRouteEditTopTag()) {
+    routeEditTabSnapshot.value = tagsViewStore.replaceActiveMenuView(route)
+    routeEditTabSynced.value = true
+    return
+  }
+  tagsViewStore.updateVisitedView(route)
+}
+
+const restoreRouteEditTopTag = () => {
+  if (!routeEditTabSynced.value) return
+  tagsViewStore.restoreActiveMenuView(route, routeEditTabSnapshot.value)
+  routeEditTabSnapshot.value = undefined
+  routeEditTabSynced.value = false
 }
 
 type SubmitRouteCandidateVersionOptions = {
@@ -289,25 +312,9 @@ const clearListEditDraftExitQuery = async () => {
   })
 }
 
-const confirmSubmitRouteCandidateVersionAfterSave = async () => {
-  const context = routeVersionEditContext.value
-  if (!context || context.lifecycleStatus !== 'DRAFT') return
-  await submitRouteCandidateVersion({
-    confirmMessage:
-      '草稿已保存，是否立即提交发布？提交后当前候选版本将进入审批阶段，审批通过后自动发布生效。',
-    confirmTitle: '提交发布'
-  })
-}
-
-const handleSaved = async (payload?: RouteFormSavedPayload) => {
+const handleSaved = async () => {
   markListEditCandidateDraftSaved()
-  if (suppressRouteVersionSubmitAfterSaveOnce.value) {
-    suppressRouteVersionSubmitAfterSaveOnce.value = false
-    return
-  }
   await clearListEditDraftExitQuery()
-  if (payload?.promptRouteVersionSubmit === false) return
-  await confirmSubmitRouteCandidateVersionAfterSave()
 }
 
 const handleEditProductionConfig = async () => {
@@ -381,8 +388,7 @@ const confirmUnsavedCandidateDraftBeforeExit = async () => {
         type: 'warning'
       }
     )
-    suppressRouteVersionSubmitAfterSaveOnce.value = true
-    await content.submitForm({ promptRouteVersionSubmit: false })
+    await content.submitForm()
     markListEditCandidateDraftSaved()
     return true
   } catch (error) {
@@ -429,26 +435,47 @@ const handleBackToList = async () => {
   if (canLeave === false) return
   routeLeaveAlreadyConfirmed.value = true
   try {
+    restoreRouteEditTopTag()
     await router.push('/mes/pro/route')
   } finally {
     routeLeaveAlreadyConfirmed.value = false
   }
 }
 
-onBeforeRouteLeave(async () => {
+onBeforeRouteLeave(async (to) => {
   if (routeLeaveAlreadyConfirmed.value) {
     routeLeaveAlreadyConfirmed.value = false
     return true
   }
-  return await confirmRouteEditPageLeave()
+  const canLeave = await confirmRouteEditPageLeave()
+  if (canLeave && to.path === String(route.meta.activeMenu || '')) {
+    restoreRouteEditTopTag()
+  }
+  return canLeave
 })
+
+onMounted(() => {
+  void nextTick(syncRouteEditTopTag)
+})
+
+onActivated(() => {
+  void nextTick(syncRouteEditTopTag)
+})
+
+watch(
+  () => route.fullPath,
+  () => {
+    if (routeEditTabSynced.value) {
+      tagsViewStore.updateVisitedView(route)
+    }
+  }
+)
 
 watch(
   routeCandidateDraftKey,
   () => {
     listEditCandidateDraftSaved.value = false
     listEditCandidateDraftDiscarded.value = false
-    suppressRouteVersionSubmitAfterSaveOnce.value = false
   },
   { immediate: true }
 )

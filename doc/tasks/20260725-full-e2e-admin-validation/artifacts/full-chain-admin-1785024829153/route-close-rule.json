@@ -1,0 +1,24 @@
+{
+  "runId": "1785024829153",
+  "routeId": 922119,
+  "closeOwner": {
+    "username": "admin",
+    "userId": 1
+  },
+  "rule": {
+    "id": 9000253154,
+    "routeProcessId": null,
+    "scopeType": "ROUTE",
+    "scopeId": 922119,
+    "taskType": "CLOSE",
+    "assigneeUserId": 1,
+    "reviewUserId": null,
+    "candidateSourceType": "USER",
+    "candidateSourceId": 1,
+    "dueMinutes": 240,
+    "enabled": true,
+    "remark": "E2E full-chain close owner 1785024829153",
+    "createTime": 1784492142000,
+    "updateTime": 1785024874000
+  }
+}

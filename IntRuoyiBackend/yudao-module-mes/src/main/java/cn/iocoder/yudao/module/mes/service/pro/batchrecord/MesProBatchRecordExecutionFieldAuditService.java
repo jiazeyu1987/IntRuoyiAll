@@ -21,6 +21,9 @@ public interface MesProBatchRecordExecutionFieldAuditService {
     MesProBatchRecordExecutionFieldAuditSaveResult saveChanges(
             MesProBatchRecordExecutionFieldAuditSaveChangesCommand command);
 
+    MesProBatchRecordExecutionFieldAuditSaveResult saveSystemCellLinkChanges(
+            MesProBatchRecordExecutionFieldAuditSaveChangesCommand command);
+
     MesProBatchRecordExecutionFieldAuditHashVerification verifyChain(Long executionId);
 
     PageResult<MesProBatchRecordExecutionFieldAuditItemRespVO> getPage(

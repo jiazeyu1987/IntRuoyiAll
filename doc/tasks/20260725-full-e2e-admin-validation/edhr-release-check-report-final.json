@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-26T00:29:08.824Z",
+  "mode": "check",
+  "status": "passed",
+  "command": "node scripts/edhr-release-e2e-coverage-gate.mjs --check --report ..\\doc\\tasks\\20260725-full-e2e-admin-validation\\edhr-release-check-report-final.json",
+  "featureCount": 14,
+  "features": [
+    {
+      "featureId": "feedback-entry/open-or-create",
+      "featureName": "eDHR feedback entry open-or-create",
+      "e2eFile": "tests/e2e/edhr-approval-tracking-real-flow.e2e.js",
+      "packageScript": "e2e:edhr:approval-tracking",
+      "checkScript": "e2e:edhr:approval-tracking:check",
+      "status": "passed"
+    },
+    {
+      "featureId": "execution-detail/save-submit",
+      "featureName": "eDHR execution form save and submit",
+      "e2eFile": "tests/e2e/edhr-approval-tracking-real-flow.e2e.js",
+      "packageScript": "e2e:edhr:approval-tracking",
+      "checkScript": "e2e:edhr:approval-tracking:check",
+      "status": "passed"
+    },
+    {
+      "featureId": "approval-workbench/detail-approve-reject",
+      "featureName": "eDHR approval workbench detail approve and reject",
+      "e2eFile": "tests/e2e/edhr-approval-tracking-real-flow.e2e.js",
+      "packageScript": "e2e:edhr:approval-tracking",
+      "checkScript": "e2e:edhr:approval-tracking:check",
+      "status": "passed"
+    },
+    {
+      "featureId": "archive-generate-download",
+      "featureName": "eDHR archive generate and download",
+      "e2eFile": "tests/e2e/edhr-approval-tracking-real-flow.e2e.js",
+      "packageScript": "e2e:edhr:approval-tracking",
+      "checkScript": "e2e:edhr:approval-tracking:check",
+      "status": "passed"
+    },
+    {
+      "featureId": "final-archive-work-task",
+      "featureName": "eDHR final archive work task",
+      "e2eFile": "tests/e2e/edhr-final-archive-work-task-real-flow.e2e.js",
+      "packageScript": "e2e:edhr:final-archive-task",
+      "checkScript": "e2e:edhr:final-archive-task:check",
+      "status": "passed"
+    },
+    {
+      "featureId": "record-change/void-reopen-supplement",
+      "featureName": "eDHR record change void reopen supplement",
+      "e2eFile": "tests/e2e/edhr-change-record-real-flow.e2e.js",
+      "packageScript": "e2e:edhr:record-change",
+      "checkScript": "e2e:edhr:record-change:check",
+      "status": "passed"
+    },
+    {
+      "featureId": "batch-execution",
+      "featureName": "eDHR batch execution replacement entry",
+      "e2eFile": "tests/e2e/edhr-batch-execution-real-flow.e2e.js",
+      "packageScript": "e2e:edhr:batch-execution",
+      "checkScript": "e2e:edhr:batch-execution:check",
+      "status": "passed"
+    },
+    {
+      "featureId": "execution-attachment/upload-save",
+      "featureName": "eDHR execution attachment upload and signed save",
+      "e2eFile": "tests/e2e/edhr-attachment-upload-real-flow.e2e.js",
+      "packageScript": "e2e:edhr:attachment-upload",
+      "checkScript": "e2e:edhr:attachment-upload:check",
+      "status": "passed"
+    },
+    {
+      "featureId": "tracking-signature",
+      "featureName": "eDHR tracking and signature pages",
+      "e2eFile": "tests/e2e/edhr-tracking-signature-real-flow.e2e.js",
+      "packageScript": "e2e:edhr:tracking-signature",
+      "checkScript": "e2e:edhr:tracking-signature:check",
+      "status": "passed"
+    },
+    {
+      "featureId": "field-audit",
+      "featureName": "eDHR field audit",
+      "e2eFile": "tests/e2e/edhr-field-audit-real-flow.e2e.js",
+      "packageScript": "e2e:edhr:field-audit",
+      "checkScript": "e2e:edhr:field-audit:check",
+      "status": "passed"
+    },
+    {
+      "featureId": "domain-trace",
+      "featureName": "eDHR domain trace",
+      "e2eFile": "tests/e2e/edhr-domain-trace-real-flow.e2e.js",
+      "packageScript": "e2e:edhr:domain-trace",
+      "checkScript": "e2e:edhr:domain-trace:check",
+      "status": "passed"
+    },
+    {
+      "featureId": "permission-matrix",
+      "featureName": "eDHR role and tenant permission matrix",
+      "e2eFile": "tests/e2e/edhr-permission-tenant-matrix.e2e.js",
+      "packageScript": "e2e:edhr:permission-matrix",
+      "checkScript": "e2e:edhr:permission-matrix:check",
+      "status": "passed"
+    },
+    {
+      "featureId": "archive-health/runtime-control",
+      "featureName": "eDHR archive health runtime-control",
+      "e2eFile": "tests/e2e/runtime-control-edhr-archive-health.e2e.js",
+      "packageScript": "e2e:edhr:archive-health",
+      "checkScript": "e2e:edhr:archive-health:check",
+      "status": "passed"
+    },
+    {
+      "featureId": "batch-version/phase1-approval",
+      "featureName": "eDHR batch record version phase 1 approval",
+      "e2eFile": "tests/e2e/edhr-batch-version-phase1-real-flow.e2e.js",
+      "packageScript": "e2e:edhr:batch-version-phase1",
+      "checkScript": "e2e:edhr:batch-version-phase1:check",
+      "status": "passed"
+    }
+  ],
+  "checkedScripts": [
+    "e2e:edhr:approval-tracking:check",
+    "e2e:edhr:final-archive-task:check",
+    "e2e:edhr:record-change:check",
+    "e2e:edhr:batch-execution:check",
+    "e2e:edhr:attachment-upload:check",
+    "e2e:edhr:tracking-signature:check",
+    "e2e:edhr:field-audit:check",
+    "e2e:edhr:domain-trace:check",
+    "e2e:edhr:permission-matrix:check",
+    "e2e:edhr:archive-health:check",
+    "e2e:edhr:batch-version-phase1:check"
+  ],
+  "checkedE2eFiles": [
+    "tests/e2e/edhr-approval-tracking-real-flow.e2e.js",
+    "tests/e2e/edhr-final-archive-work-task-real-flow.e2e.js",
+    "tests/e2e/edhr-change-record-real-flow.e2e.js",
+    "tests/e2e/edhr-batch-execution-real-flow.e2e.js",
+    "tests/e2e/edhr-attachment-upload-real-flow.e2e.js",
+    "tests/e2e/edhr-tracking-signature-real-flow.e2e.js",
+    "tests/e2e/edhr-field-audit-real-flow.e2e.js",
+    "tests/e2e/edhr-domain-trace-real-flow.e2e.js",
+    "tests/e2e/edhr-permission-tenant-matrix.e2e.js",
+    "tests/e2e/runtime-control-edhr-archive-health.e2e.js",
+    "tests/e2e/edhr-batch-version-phase1-real-flow.e2e.js"
+  ],
+  "failures": [],
+  "realGateClaimed": false
+}

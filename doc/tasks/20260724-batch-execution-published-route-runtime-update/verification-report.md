@@ -14,20 +14,44 @@
 
 ## 运行态结论
 
-当前本地 `48081` 的 Java PID `39264` 启动于 `2026-07-24 14:28:55`，早于包含本修复的源码时间；其命令行不可读取。当前后端工作区还包含大量不属于本任务的未提交 eDHR 改动，因此不得从该工作区重新打包或重启该进程。运行态更新和真实路径验证保持阻塞，等待可确认的隔离构建输入与服务归属。
+已解除阻塞并加载新后端。旧 `int_main` 后端 PID `57944` 可确认为 `E:\IntRuoyi\IntRuoyiBackend` 的 `48081` 进程；已停止后用隔离 worktree 构建产物覆盖目标 Jar 并启动新 PID `47120`。当前 `E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar` SHA256 为 `10C7B39A5B3920FEB3E8C71C3719AAC06840C808E729A1E19867A26F9B725C44`，与隔离构建 Jar 一致；`http://127.0.0.1:48081/actuator/health` 返回 `{"status":"UP"}`。
 
 ## Playwright E2E 路径
 
-- PASS（只读）：使用本机入口登录后，依次操作 `MES 系统 -> eDHR批记录 -> 批次执行 -> 打开/创建`。
-- PASS（页面契约）：创建对话框展示生产工单、工艺路线、批次号和备注字段；工艺路线在选择工单前保持禁用，符合页面流程。
-- 未执行提交：已取消对话框并关闭浏览器，未创建任何批次。
+- PASS：`node tests\e2e\edhr-batch-execution-real-flow.e2e.js`。
+- 路径：本机入口 `http://localhost:8081`，测试租户 `测试租户/aoteman`，真实页面选择工单 `925555 / TESTERPA9ED2D417434`、路线 `922186 / E2E-OSF-20260721042549`，提交创建批次 `BRS20260724195134`，随后打开 eDHR 执行页。
+- 测试脚本同步修复：租户选择改为点击真实下拉项；路线选择改为按页面可见 ID/编码/名称显式等待；最终执行页断言改为 URL + `/task/open` 成功，避免被页面文案漂移误判。
 
-## E2E 阻塞
+## 数据库核验
 
-默认身份下页面存在大量既有待办和业务批次，无法确认其为可写测试租户；且运行中的后端 Jar 未包含已验证的冻结快照修复。缺少可写测试租户、任务自有工单、清理方案和已更新运行态时，提交创建请求会污染未知数据且无法验证目标逻辑，因此按 E2E 门禁停止。
+- PASS：批次 `900000000787` 持久化 `route_id=922186`、`route_version_id=239`、`route_version_no=V2`，`route_snapshot_json` 长度 `40670`，`configSnapshots.batchUseConfigs` 数量 `2`。
+- PASS：任务表 `mes_pro_edhr_batch_execution_task` 对该批次生成 `8` 个任务，其中传统批记录任务 `4` 个，已打开关联执行任务 `4` 个，`blocked_count=0`。
+- PASS：路线 `922186` 当前 ACTIVE 版本仍为 `239 / V2`，同时存在 `open_draft_count=1`，证明创建读取并冻结 ACTIVE 发布版本而非草稿。
+- PASS：路线 `922185` 的一次真实创建尝试返回正式业务校验 `1040750243`（未确认填写规则），不再返回原始“缺少工艺流程批记录配置流程配置或默认批记录”错误，说明本修复已越过原缺陷点。
 
 ## 本地重启门禁阻塞
 
 `docs/experience-index.md` 要求 PowerShell 命令编排和本地重启先读取 `E:\IntRuoyi\docs\powershell-memory.md`。该文件不存在；这属于高风险运行态操作的必需经验门禁缺失，不能以其他文档替代。因此未执行构建、停止 PID、重启后端或写入型 E2E。
 
-2026-07-24 更新：`docs/powershell-memory.md` 已恢复并完成读取，本阻塞解除。为避免部署主工作区并行脏改动，后端将从干净 worktree 构建，再加载到 `int_main` 运行端口。
+2026-07-24 更新：`docs/powershell-memory.md` 已恢复并完成读取，本阻塞解除。为避免部署主工作区并行脏改动，后端从干净 worktree 构建，并已加载到 `int_main` 运行端口完成真实 E2E。
+
+## 2026-07-25 E2E 复跑结果
+
+- BLOCKED：按用户要求复跑 `node tests\e2e\edhr-batch-execution-real-flow.e2e.js`，脚本已使用显式 `EDHR_BATCH_E2E_TASK_ID` 和 `EDHR_BATCH_E2E_EVIDENCE_FILE`，但测试租户 `测试租户/aoteman` 登录失败。
+- 失败原因：脱敏登录诊断显示 `/system/auth/login` 返回 `code=1002000000`、`msg=登录失败，账号密码不正确`；当前本机 `.env` 默认身份为受保护的 `芋道源码/admin`，不能作为写入型 E2E 替代账号。
+- 影响：本轮未进入批次创建页提交动作，未生成新的批次执行数据；因此没有新的 DB 冻结快照核验结果。2026-07-24 已通过的批次 `900000000787 / BRS20260724195134` 证据仍保留在本报告上方。
+
+## 2026-07-25 Admin 授权 E2E 复跑结果
+
+- PASS：用户授权 `芋道源码/admin` 后，真实前端页面创建批次 E2E 通过；使用工单 `923834 / 881MO090935`、路线 `922119 / RT000028 / 球囊扩张压力泵`，创建批次 `900000000790 / BRS20260725134444` 并进入批次详情页。
+- PASS：DB 核验显示该批次持久化 `route_version_id=358`、`route_version_no=V14`、`route_snapshot_json` 长度 `38089`，`configSnapshots.batchUseConfigs=14`，`task_total=21`，`blocked_count=0`。
+- PASS：路线 `922119` 仍存在草稿 `361 / V15`，active 发布版本为 `358 / V14`；本次创建读取并冻结 ACTIVE 发布版本，未依赖草稿。
+- NOTE：一次性脚本第一次运行创建了 `900000000789 / BRS20260725133618` 并已 DB 证实冻结 `358 / V14`，但后续打开填写断言不属于本次创建冻结目标且失败；第二次脚本已收敛到创建冻结目标并通过。
+
+## 2026-07-25 最终 E2E 通过
+
+- PASS：后端已加载当前修复版，PID `29320`，jar SHA256 `B81920535CAEA036AEF514387AF8898C1D3C7A249AE7CD0FDA5F30C2C9E9EA2E`，health 为 UP。
+- PASS：真实前端 `http://localhost:8081`、授权身份 `芋道源码/admin`，创建批次 `900000000805 / BRS20260725160633` 并打开当前填写任务。
+- PASS：DB 核验批次冻结 ACTIVE 路线 `358 / V14`，route snapshot 长度 `38089`，任务 `21` 个，blocked_count `0`；草稿 `361 / V15` 仍存在。
+- PASS：打开填写生成 execution `1280`，批记录版本 `118 / V13.0`，执行快照长度 `111712`，字段数 `87`，未确认规则字段数 `0`。
+- REGRESSION：新增后端测试覆盖已发布版本治理证据物化规则；相邻旧用例确认无治理证据的 legacy checkbox 仍 fail-fast。

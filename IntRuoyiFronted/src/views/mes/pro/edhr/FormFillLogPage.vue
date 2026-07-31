@@ -223,8 +223,18 @@
       <el-table-column label="单元格标签" prop="fieldLabel" min-width="150">
         <template #default="{ row }">{{ row.fieldLabel || row.fieldKey || '--' }}</template>
       </el-table-column>
-      <el-table-column label="旧值" prop="oldValueDisplay" min-width="180" />
-      <el-table-column label="新值" prop="newValueDisplay" min-width="180" />
+      <template v-if="usesRecordbookSyncValues">
+        <el-table-column label="记录本填写值" prop="recordbookValueDisplay" min-width="180">
+          <template #default="{ row }">{{ row.recordbookValueDisplay ?? '--' }}</template>
+        </el-table-column>
+        <el-table-column label="批记录存储值" prop="batchRecordValueDisplay" min-width="180">
+          <template #default="{ row }">{{ row.batchRecordValueDisplay ?? '--' }}</template>
+        </el-table-column>
+      </template>
+      <template v-else>
+        <el-table-column label="旧值" prop="oldValueDisplay" min-width="180" />
+        <el-table-column label="新值" prop="newValueDisplay" min-width="180" />
+      </template>
       <el-table-column label="写入时间" prop="changedAt" width="210">
         <template #default="{ row }">{{ formatFormLogDateTime(row.changedAt) }}</template>
       </el-table-column>
@@ -244,7 +254,7 @@ import {
 } from '@/api/mes/pro/edhr/formFillLog'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
-import { formatDate } from '@/utils/formatTime'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProEdhrFormFillLogPage' })
 
@@ -292,6 +302,11 @@ const detailVisible = ref(false)
 const detailLoading = ref(false)
 const detailError = ref('')
 const detail = ref<FormFillLogDetailRespVO>()
+const usesRecordbookSyncValues = computed(() =>
+  detail.value?.items?.some(
+    (item) => item.recordbookValueDisplay !== undefined || item.batchRecordValueDisplay !== undefined
+  ) === true
+)
 
 const formFillLogQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   {
@@ -332,10 +347,7 @@ const normalizeTextParam = (value?: string) => {
 }
 
 const formatFormLogDateTime = (value?: string | number | null) => {
-  if (value === undefined || value === null || value === '') return '--'
-  const parsedDate = new Date(value)
-  if (Number.isNaN(parsedDate.getTime())) return String(value)
-  return formatDate(parsedDate, 'YYYY年M月D日 HH:mm:ss')
+  return formatEdhrDateTime(value)
 }
 
 const columnIndexToLetters = (columnIndex: number) => {

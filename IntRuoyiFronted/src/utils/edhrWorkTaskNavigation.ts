@@ -1,5 +1,6 @@
 import type { Router } from 'vue-router'
 import { openEdhrBatchTask } from '@/api/mes/pro/edhr/batchExecution'
+import type { EdhrBatchExecutionTaskOpenRespVO } from '@/api/mes/pro/edhr/batchExecution'
 
 export const EDHR_BATCH_EXECUTION_DETAIL_PATH = '/mes/pro/feedback/edhr-batch-execution/detail'
 export const EDHR_EXECUTION_DETAIL_PATH = '/mes/pro/feedback/edhr-execution/detail'
@@ -7,6 +8,7 @@ export const EDHR_EXECUTION_FORM_PATH = '/mes/pro/feedback/edhr-execution/form'
 export const EDHR_APPROVAL_DETAIL_PATH = '/mes/pro/feedback/edhr-approval/detail'
 export const EDHR_FILL_CARRIER_FORM = 'FORM'
 export const EDHR_RECORD_CATEGORY_BATCH_RECORD = 'BATCH_RECORD'
+export const EDHR_FORM_SLOT_TYPE_MAIN = 'MAIN'
 
 export const EDHR_WORK_TASK_NOTIFY_PATHS = new Set([
   EDHR_BATCH_EXECUTION_DETAIL_PATH,
@@ -32,8 +34,12 @@ export type NormalizedEdhrWorkTaskRoute = {
 
 const EDHR_EXECUTION_PATHS = new Set([EDHR_EXECUTION_DETAIL_PATH, EDHR_EXECUTION_FORM_PATH])
 
+const normalizeTaskType = (taskType?: string) => String(taskType || '').toUpperCase()
+
+const isFillTask = (taskType?: string) => normalizeTaskType(taskType) === 'FILL'
+
 const isFillOrReworkTask = (taskType?: string) => {
-  const normalized = String(taskType || '').toUpperCase()
+  const normalized = normalizeTaskType(taskType)
   return normalized === 'FILL' || normalized === 'REWORK'
 }
 
@@ -58,6 +64,27 @@ const parseInternalActionUrl = (item: EdhrWorkTaskRouteLike, origin: string) => 
     throw new Error(`eDHR 工作任务 ${item.id || ''} 处理入口不是当前系统路由。`)
   }
   return url
+}
+
+const buildStructuredBatchFillTaskUrl = (item: EdhrWorkTaskRouteLike, origin: string) => {
+  const url = new URL(EDHR_BATCH_EXECUTION_DETAIL_PATH, origin)
+  setSearchParamIfPresent(url.searchParams, 'batchExecutionId', item.batchExecutionId)
+  setSearchParamIfPresent(url.searchParams, 'batchTaskId', item.batchTaskId)
+  setSearchParamIfPresent(url.searchParams, 'workTaskId', item.id)
+  return url
+}
+
+const hasStructuredBatchFillTaskContext = (item: EdhrWorkTaskRouteLike) =>
+  isRouteValuePresent(item.batchExecutionId) && isRouteValuePresent(item.batchTaskId)
+
+const resolveTaskNavigationUrl = (item: EdhrWorkTaskRouteLike, origin: string) => {
+  if (item.actionUrl) {
+    return parseInternalActionUrl(item, origin)
+  }
+  if (isFillTask(item.taskType) && hasStructuredBatchFillTaskContext(item)) {
+    return buildStructuredBatchFillTaskUrl(item, origin)
+  }
+  return parseInternalActionUrl(item, origin)
 }
 
 const resolveExecutionId = (item: EdhrWorkTaskRouteLike, url: URL) =>
@@ -88,21 +115,45 @@ const shouldOpenBatchFillTask = (item: EdhrWorkTaskRouteLike, url: URL) =>
   Boolean(resolveBatchExecutionId(item, url)) &&
   Boolean(resolveBatchTaskId(item, url))
 
-const stringifyQuery = (value?: Record<string, string | number | undefined>) => {
+export const stringifyEdhrExecutionPageQuery = (value?: Record<string, unknown>) => {
   const query: Record<string, string> = {}
   Object.entries(value || {}).forEach(([key, entryValue]) => {
-    if (entryValue !== undefined && entryValue !== null && entryValue !== '') {
+    if (key === 'assistRows') {
+      if (Array.isArray(entryValue)) {
+        query.assistRows = JSON.stringify(entryValue)
+        return
+      }
+      if (typeof entryValue === 'string' && entryValue.trim()) {
+        query.assistRows = entryValue
+        return
+      }
+    }
+    if (
+      (typeof entryValue === 'string' ||
+        typeof entryValue === 'number' ||
+        typeof entryValue === 'boolean') &&
+      entryValue !== ''
+    ) {
       query[key] = String(entryValue)
     }
   })
   return query
 }
 
+const resolveOpenedFormSlotType = (opened?: EdhrBatchExecutionTaskOpenRespVO) =>
+  String(opened?.executionPageQuery?.formSlotType || '').toUpperCase()
+
+const shouldOpenRouteFormDrawer = (opened?: EdhrBatchExecutionTaskOpenRespVO) => {
+  const formSlotType = resolveOpenedFormSlotType(opened)
+  return Boolean(opened?.formCenterInstanceId && opened?.formTemplateId && formSlotType) &&
+    formSlotType !== EDHR_FORM_SLOT_TYPE_MAIN
+}
+
 export const normalizeEdhrWorkTaskRouteParts = (
   item: EdhrWorkTaskRouteLike,
   origin = window.location.origin
 ): NormalizedEdhrWorkTaskRoute => {
-  const url = parseInternalActionUrl(item, origin)
+  const url = resolveTaskNavigationUrl(item, origin)
   if (isFillOrReworkTask(item.taskType)) {
     const executionId = resolveExecutionId(item, url)
     if (executionId) {
@@ -133,7 +184,7 @@ export const navigateToEdhrWorkTask = async (
   item: EdhrWorkTaskRouteLike,
   origin = window.location.origin
 ) => {
-  const url = parseInternalActionUrl(item, origin)
+  const url = resolveTaskNavigationUrl(item, origin)
   if (shouldOpenBatchFillTask(item, url)) {
     const batchExecutionId = toPositiveNumber(resolveBatchExecutionId(item, url))
     const batchTaskId = toPositiveNumber(resolveBatchTaskId(item, url))
@@ -146,11 +197,29 @@ export const navigateToEdhrWorkTask = async (
       taskId: batchTaskId,
       workTaskId
     })
+    if (shouldOpenRouteFormDrawer(opened)) {
+      const query = stringifyEdhrExecutionPageQuery(opened?.executionPageQuery)
+      const openedWorkTaskId = opened?.workTaskId || workTaskId
+      await router.push({
+        path: EDHR_BATCH_EXECUTION_DETAIL_PATH,
+        query: {
+          ...query,
+          id: String(batchExecutionId),
+          batchExecutionId: String(
+            opened?.executionPageQuery?.batchExecutionId || batchExecutionId
+          ),
+          batchTaskId: String(opened?.executionPageQuery?.batchTaskId || opened?.taskId || batchTaskId),
+          ...(openedWorkTaskId ? { workTaskId: String(openedWorkTaskId) } : {}),
+          openRouteForm: '1'
+        }
+      })
+      return
+    }
     const executionId = opened?.executionId || resolveExecutionId(item, url)
     if (!executionId) {
       throw new Error('填写任务尚未生成执行记录，无法进入填写工作区。')
     }
-    const query = stringifyQuery(opened?.executionPageQuery)
+    const query = stringifyEdhrExecutionPageQuery(opened?.executionPageQuery)
     query.id = String(executionId)
     query.executionId = String(executionId)
     const openedWorkTaskId = opened?.workTaskId || workTaskId

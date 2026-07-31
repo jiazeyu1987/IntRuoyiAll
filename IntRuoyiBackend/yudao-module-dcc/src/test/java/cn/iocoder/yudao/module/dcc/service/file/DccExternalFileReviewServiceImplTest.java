@@ -30,6 +30,7 @@ import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FI
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.EXTERNAL_FILE_REVIEW_OUTPUT_FILE_REQUIRED;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.EXTERNAL_FILE_REVIEW_PROCESS_DEFINITION_MISSING;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -73,7 +74,8 @@ class DccExternalFileReviewServiceImplTest extends BaseMockitoUnitTest {
         assertEquals(DccControlledFileProcessTypeEnum.EXTERNAL_REVIEW.getCode(), submitCaptor.getValue().getProcessType());
         assertEquals("session-external", submitCaptor.getValue().getSessionId());
         assertEquals("UT-EXTERNAL-ORIGINAL", submitCaptor.getValue().getOriginalUploadTicket());
-        assertEquals(5000L, submitCaptor.getValue().getProductMasterId());
+        assertNull(submitCaptor.getValue().getProductMasterId());
+        assertEquals(3000L, submitCaptor.getValue().getDccProjectCodeId());
         assertEquals(List.of(201L, 202L), submitCaptor.getValue().getSelectedSignoffUserIds());
         ArgumentCaptor<DccExternalFileReviewDO> reviewCaptor = ArgumentCaptor.forClass(DccExternalFileReviewDO.class);
         verify(externalReviewMapper).insert(reviewCaptor.capture());
@@ -188,6 +190,7 @@ class DccExternalFileReviewServiceImplTest extends BaseMockitoUnitTest {
         reqVO.setFileNumber("EXT-001");
         reqVO.setProductMasterId(5000L);
         reqVO.setProductCode("PRD20260525001");
+        reqVO.setDccProjectCodeId(3000L);
         reqVO.setNeedTraining(Boolean.FALSE);
         reqVO.setVersionNo("V1.0");
         reqVO.setEffectiveDate(LocalDate.of(2026, 5, 27));

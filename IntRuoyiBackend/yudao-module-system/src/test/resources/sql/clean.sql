@@ -22,6 +22,7 @@ DELETE FROM "system_post";
 DELETE FROM "system_user_post";
 DELETE FROM "system_notice";
 DELETE FROM "system_user_table_column_config";
+DELETE FROM "system_profile_workbench_task_visibility";
 DELETE FROM "system_login_log";
 DELETE FROM "system_operate_log";
 DELETE FROM "system_users";

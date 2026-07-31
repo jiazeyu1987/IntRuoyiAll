@@ -36,7 +36,7 @@
           {{ activeTemplate.templateFileId }}
         </el-descriptions-item>
         <el-descriptions-item label="更新时间">
-          {{ activeTemplate.updateTime || '-' }}
+          {{ formatDateTimeValue(activeTemplate.updateTime) }}
         </el-descriptions-item>
         <el-descriptions-item label="备注" :span="2">
           {{ activeTemplate.remark || '-' }}
@@ -135,6 +135,7 @@
 <script setup lang="ts">
 import type { UploadFile, UploadUserFile } from 'element-plus'
 import { updateFile } from '@/api/infra/file'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import {
   getActiveApprovalPrintTemplate,
   saveActiveApprovalPrintTemplate,

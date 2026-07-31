@@ -65,6 +65,7 @@
   </ContentWrap>
 
   <ContentWrap v-if="activeTab === 'feedback'">
+    <FrontlineFixedTemplatePanel class="mb-12px" />
     <el-alert
       v-if="isApprovalReviewFilterActive"
       title="A5 审批职责：归属会按所选订单工序生成草稿正式报工；提交正式报工后回写排产进度；审批用于质量/合规确认，不再重复归属同一导入记录。"
@@ -457,7 +458,7 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
 import { shallowRef } from 'vue'
-import { dateFormatter } from '@/utils/formatTime'
+import { dateFormatter, formatDateTimeValue } from '@/utils/formatTime'
 import { DICT_TYPE, getIntDictOptions } from '@/utils/dict'
 import download from '@/utils/download'
 import {
@@ -474,6 +475,7 @@ import { MesProFeedbackStatusEnum } from '@/views/mes/utils/constants'
 import { useEmitt } from '@/hooks/web/useEmitt'
 import { checkPermi } from '@/utils/permission'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
+import FrontlineFixedTemplatePanel from './FrontlineFixedTemplatePanel.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
   useTableQuickFilter,
@@ -966,14 +968,7 @@ const handleTabChange = async () => {
 }
 
 const formatImportAttributionTime = (value?: string | number | Date) => {
-  if (!value) {
-    return '-'
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return String(value)
-  }
-  return date.toLocaleString('zh-CN', { hour12: false })
+  return formatDateTimeValue(value, '-')
 }
 
 const syncCurrentImportBatchSummary = (summary?: ProFeedbackImportBatchSummaryVO) => {

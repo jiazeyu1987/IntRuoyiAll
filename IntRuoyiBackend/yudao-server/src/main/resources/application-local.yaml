@@ -174,30 +174,30 @@ spring:
 # 日志文件配置
 logging:
   file:
-    name: ${user.home}/logs/${spring.application.name}.log # 日志文件名，全路径
+    name: ${INTRUOYI_BACKEND_LOG_FILE:${INTRUOYI_RUNTIME_LOG_DIR:../output/runtime/${INTRUOYI_RUNTIME_PROFILE:int_main}/logs}/${spring.application.name}.log} # 本地默认写入 runtime 独立日志目录
   level:
-    # 配置自己写的 MyBatis Mapper 打印日志
-    cn.iocoder.yudao.module.bpm.dal.mysql: debug
-    cn.iocoder.yudao.module.infra.dal.mysql: debug
+    # 本地默认关闭自研 MyBatis Mapper DEBUG SQL；排查 SQL 时用环境变量或启动参数临时打开目标包。
+    cn.iocoder.yudao.module.bpm.dal.mysql: info
+    cn.iocoder.yudao.module.infra.dal.mysql: info
     cn.iocoder.yudao.module.infra.dal.mysql.logger.ApiErrorLogMapper: INFO # 配置 ApiErrorLogMapper 的日志级别为 info，避免和 GlobalExceptionHandler 重复打印
     cn.iocoder.yudao.module.infra.dal.mysql.job.JobLogMapper: INFO # 配置 JobLogMapper 的日志级别为 info
     cn.iocoder.yudao.module.infra.dal.mysql.file.FileConfigMapper: INFO # 配置 FileConfigMapper 的日志级别为 info
-    cn.iocoder.yudao.module.pay.dal.mysql: debug
+    cn.iocoder.yudao.module.pay.dal.mysql: info
     cn.iocoder.yudao.module.pay.dal.mysql.notify.PayNotifyTaskMapper: INFO # 配置 PayNotifyTaskMapper 的日志级别为 info
-    cn.iocoder.yudao.module.system.dal.mysql: debug
+    cn.iocoder.yudao.module.system.dal.mysql: info
     cn.iocoder.yudao.module.system.dal.mysql.sms.SmsChannelMapper: INFO # 配置 SmsChannelMapper 的日志级别为 info
-    cn.iocoder.yudao.module.tool.dal.mysql: debug
-    cn.iocoder.yudao.module.member.dal.mysql: debug
-    cn.iocoder.yudao.module.trade.dal.mysql: debug
-    cn.iocoder.yudao.module.promotion.dal.mysql: debug
-    cn.iocoder.yudao.module.statistics.dal.mysql: debug
-    cn.iocoder.yudao.module.crm.dal.mysql: debug
-    cn.iocoder.yudao.module.erp.dal.mysql: debug
-    cn.iocoder.yudao.module.mes.dal.mysql: debug
-    cn.iocoder.yudao.module.iot.dal.mysql: debug
-    cn.iocoder.yudao.module.iot.dal.tdengine: DEBUG
+    cn.iocoder.yudao.module.tool.dal.mysql: info
+    cn.iocoder.yudao.module.member.dal.mysql: info
+    cn.iocoder.yudao.module.trade.dal.mysql: info
+    cn.iocoder.yudao.module.promotion.dal.mysql: info
+    cn.iocoder.yudao.module.statistics.dal.mysql: info
+    cn.iocoder.yudao.module.crm.dal.mysql: info
+    cn.iocoder.yudao.module.erp.dal.mysql: info
+    cn.iocoder.yudao.module.mes.dal.mysql: info
+    cn.iocoder.yudao.module.iot.dal.mysql: info
+    cn.iocoder.yudao.module.iot.dal.tdengine: INFO
     cn.iocoder.yudao.module.iot.service.rule: debug
-    cn.iocoder.yudao.module.ai.dal.mysql: debug
+    cn.iocoder.yudao.module.ai.dal.mysql: info
     org.springframework.context.support.PostProcessorRegistrationDelegate: ERROR # TODO 芋艿：先禁用，Spring Boot 3.X 存在部分错误的 WARN 提示
 
 debug: false
@@ -279,6 +279,26 @@ yudao:
     codex-cli:
       open-ai-api-key: ${SHOWROOM_CODEX_IMAGE_OPENAI_API_KEY:}
       open-ai-base-url: ${SHOWROOM_CODEX_IMAGE_OPENAI_BASE_URL:}
+  codex-test:
+    artifact-temp-dir: ${CODEX_TEST_ARTIFACT_TEMP_DIR:${INTRUOYI_RUNTIME_ARTIFACT_DIR:../output/runtime/${INTRUOYI_RUNTIME_PROFILE:int_main}/codex-test-artifacts}}
+    artifact-retention-hours: ${CODEX_TEST_ARTIFACT_RETENTION_HOURS:24}
+    runner:
+      token: ${CODEX_TEST_RUNNER_TOKEN:}
+      heartbeat-timeout-seconds: ${CODEX_TEST_RUNNER_HEARTBEAT_TIMEOUT_SECONDS:60}
+      on-demand:
+        enabled: ${CODEX_TEST_RUNNER_ON_DEMAND_ENABLED:true}
+        starter-script: ${CODEX_TEST_RUNNER_STARTER_SCRIPT:E:/IntRuoyi/IntRuoyiFronted/scripts/start-codex-test-runner.ps1}
+        api-base: ${CODEX_TEST_API_BASE:http://127.0.0.1:48081/admin-api}
+        frontend-base-url: ${CODEX_TEST_FRONTEND_BASE_URL:http://127.0.0.1:8081}
+        management-tenant-id: ${CODEX_TEST_TENANT_ID:1}
+        runner-name: ${CODEX_TEST_RUNNER_NAME:local-codex-runner-on-demand}
+        node-command: ${CODEX_TEST_NODE_COMMAND:node.exe}
+        codex-command: ${CODEX_CLI_COMMAND:codex.cmd}
+        restart-existing: ${CODEX_TEST_RUNNER_RESTART_EXISTING:true}
+        startup-probe-seconds: ${CODEX_TEST_RUNNER_STARTUP_PROBE_SECONDS:8}
+        startup-timeout-seconds: ${CODEX_TEST_RUNNER_STARTUP_TIMEOUT_SECONDS:30}
+        poll-interval-millis: ${CODEX_TEST_RUNNER_STARTUP_POLL_INTERVAL_MS:1000}
+        api-timeout-millis: ${CODEX_TEST_API_TIMEOUT_MS:30000}
   dcc:
     int-auth:
       base-url: http://127.0.0.1:8020
@@ -289,7 +309,7 @@ yudao:
         base-url: ${DCC_ONLYOFFICE_BASE_URL:http://127.0.0.1:8080}
         jwt-secret: ${DCC_ONLYOFFICE_JWT_SECRET:dev-onlyoffice-preview-secret}
         callback-url: ${DCC_ONLYOFFICE_CALLBACK_URL:http://127.0.0.1:${server.port}/admin-api/dcc/controlled-files/onlyoffice/callback}
-        public-file-base-url: ${DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL:http://127.0.0.1:${server.port}}
+        public-file-base-url: ${DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL:http://host.docker.internal:${server.port}}
         token-expire-seconds: ${DCC_ONLYOFFICE_TOKEN_EXPIRE_SECONDS:300}
     dmr-sheet:
       root-path: ${DCC_DMR_SHEET_ROOT_PATH:3.DMR}
@@ -351,7 +371,7 @@ yudao:
       backup:
         host: ${INTRUOYI_RUNTIME_CONTROL_BACKUP_HOST:172.30.30.59}
     storage-guard:
-      log-dir: ${INTRUOYI_RUNTIME_CONTROL_LOG_DIR:${user.home}/logs}
+      log-dir: ${INTRUOYI_RUNTIME_CONTROL_LOG_DIR:${INTRUOYI_RUNTIME_LOG_DIR:../output/runtime/${INTRUOYI_RUNTIME_PROFILE:int_main}/logs}}
     backup-ops:
       nas-backup-points-root: ${INTRUOYI_RUNTIME_CONTROL_NAS_BACKUP_POINTS_ROOT:Backup/BackupPackage}
     release-package:

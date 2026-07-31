@@ -1,0 +1,89 @@
+{
+  "status": "PASS",
+  "baseUrl": "http://localhost:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "tenant": "测试租户",
+  "username": "aoteman",
+  "userId": 914520,
+  "command": "node doc/tasks/20260727-switch-filler-snapshot-loading/e2e-artifacts/switch-filler-real.e2e.cjs",
+  "workTaskPageAttempts": [
+    {
+      "pageIndex": 1,
+      "rowCount": 20,
+      "openableFillTaskCount": 12,
+      "candidateTaskIds": [
+        1760,
+        1759,
+        1758,
+        1757,
+        1756,
+        1752,
+        1751,
+        1749,
+        1748,
+        1747,
+        1746,
+        1745
+      ]
+    }
+  ],
+  "openedTask": {
+    "task": {
+      "id": 1760,
+      "taskCode": "EDHRT-1784859328050",
+      "taskType": "FILL",
+      "status": "TODO",
+      "batchExecutionId": 900000000783,
+      "batchTaskId": 5362,
+      "executionId": 1273,
+      "workOrderCode": "TESTERPA9ED2D417434",
+      "batchCode": "JILUBEN-E2E-1784859323164",
+      "processName": "吹球囊成型",
+      "actionUrlPresent": true,
+      "openableFillTask": true
+    },
+    "openResponse": null,
+    "detailSnapshot": {
+      "executionId": 1273,
+      "assistSwitchTaskCount": 1,
+      "currentBatchTaskId": "5362"
+    }
+  },
+  "fillerSwitch": {
+    "optionCount": 3,
+    "enabledOtherCount": 2,
+    "options": [
+      {
+        "taskId": "5362",
+        "userId": "914520",
+        "text": "??1产品信息",
+        "disabled": false,
+        "active": true
+      },
+      {
+        "taskId": "5362",
+        "userId": "912398",
+        "text": "瑛泰管理员产品信息",
+        "disabled": false,
+        "active": false
+      },
+      {
+        "taskId": "5362",
+        "userId": "912399",
+        "text": "黎敏产品信息",
+        "disabled": false,
+        "active": false
+      }
+    ],
+    "noFullBatchDetailReload": true,
+    "selectedOther": {
+      "taskId": "5362",
+      "userId": "912398",
+      "text": "瑛泰管理员产品信息",
+      "openedExecutionId": 1273,
+      "openedWorkTaskId": 1760
+    }
+  },
+  "apiErrorsDuringFillerSwitch": [],
+  "fullBatchDetailReadsDuringFillerSwitch": []
+}

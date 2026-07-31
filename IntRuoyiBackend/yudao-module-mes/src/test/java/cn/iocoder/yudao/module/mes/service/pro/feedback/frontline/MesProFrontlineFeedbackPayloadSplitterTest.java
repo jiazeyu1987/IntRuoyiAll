@@ -1,0 +1,64 @@
+package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
+
+import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.MesProFeedbackSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventCreateReqBO;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
+class MesProFrontlineFeedbackPayloadSplitterTest {
+
+    @Test
+    void shouldSplitFeedbackQuantitiesAndRecordbookRawContent() {
+        MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        LocalDateTime submittedAt = LocalDateTime.of(2026, 7, 30, 9, 10, 11);
+
+        MesProFrontlineFeedbackSplitPayload splitPayload =
+                new MesProFrontlineFeedbackPayloadSplitter().split(reqVO, 9001L, submittedAt);
+
+        MesProFeedbackSaveReqVO feedbackPayload = splitPayload.getFeedbackPayload();
+        assertEquals(new BigDecimal("100.500"), feedbackPayload.getFeedbackQuantity());
+        assertEquals(new BigDecimal("2.500"), feedbackPayload.getUnqualifiedQuantity());
+        assertEquals(new BigDecimal("1.000"), feedbackPayload.getLaborScrapQuantity());
+        assertEquals(new BigDecimal("1.500"), feedbackPayload.getMaterialScrapQuantity());
+        assertEquals(new BigDecimal("0.000"), feedbackPayload.getOtherScrapQuantity());
+        assertEquals(3001L, feedbackPayload.getFeedbackUserId());
+        assertEquals(submittedAt, feedbackPayload.getFeedbackTime());
+        assertEquals(7001L, feedbackPayload.getApproveUserId());
+        assertEquals("frontline production", feedbackPayload.getRemark());
+        assertFalse(feedbackPayload.getRemark().contains("pressure"));
+
+        MesProFrontlineRecordbookEntryPayload recordbookPayload = splitPayload.getRecordbookEntryPayload();
+        assertEquals(901L, recordbookPayload.getRecordbookId());
+        Map<String, Object> content = recordbookPayload.getEntryContent();
+        assertEquals(new BigDecimal("120.000"), content.get("previousProcessInputQuantity"));
+        assertEquals(reqVO.getRecordbookPayload().getEquipmentParameters(), content.get("equipmentParameters"));
+        assertEquals(reqVO.getRawPayload(), content.get("rawPayload"));
+
+        MesProcessPoolSubmitEventCreateReqBO eventPayload = splitPayload.getProcessPoolEventPayload();
+        assertEquals(41L, eventPayload.getWorkOrderId());
+        assertEquals(51L, eventPayload.getTaskId());
+        assertEquals(21L, eventPayload.getRouteId());
+        assertEquals(71L, eventPayload.getRouteProcessId());
+        assertEquals(31L, eventPayload.getProcessId());
+        assertEquals(11L, eventPayload.getWorkstationId());
+        assertEquals(501L, eventPayload.getDeviceId());
+        assertEquals(9001L, eventPayload.getDeviceAccountUserId());
+        assertEquals(3001L, eventPayload.getActualEmployeeId());
+        assertEquals(3001L, eventPayload.getSignatureEmployeeId());
+        assertEquals(4001L, eventPayload.getSignatureId());
+        assertEquals("PRODUCTION_SIMPLE", eventPayload.getTemplateType());
+        assertEquals(new BigDecimal("100.500"), eventPayload.getOutputQuantity());
+        assertEquals(new BigDecimal("2.500"), eventPayload.getLossQuantity());
+        assertEquals(new BigDecimal("120.000"), eventPayload.getPreviousProcessInputQuantity());
+        assertEquals(reqVO.getRecordbookPayload().getEquipmentParameters(), eventPayload.getEquipmentParameters());
+        assertEquals(reqVO.getRawPayload(), eventPayload.getRawPayload());
+        assertEquals(submittedAt, eventPayload.getSubmittedAt());
+    }
+}

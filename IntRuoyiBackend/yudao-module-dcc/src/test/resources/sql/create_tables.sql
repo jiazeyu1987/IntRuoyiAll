@@ -60,6 +60,26 @@ CREATE TABLE IF NOT EXISTS `dcc_file_category` (
   KEY `idx_dcc_file_category_taxonomy` (`tenant_id`, `file_type_taxonomy_id`, `deleted`)
 );
 
+CREATE TABLE IF NOT EXISTS `dcc_file_category_match_rule` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `category_id` BIGINT NOT NULL,
+  `match_text` VARCHAR(255) NOT NULL,
+  `match_type` VARCHAR(32) NOT NULL DEFAULT 'CONTAINS',
+  `weight` INT NOT NULL DEFAULT 0,
+  `active` TINYINT NOT NULL DEFAULT 1,
+  `remark` VARCHAR(255) NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_dcc_file_category_match_rule_unique` (`tenant_id`, `category_id`, `match_text`, `match_type`, `deleted`),
+  KEY `idx_dcc_file_category_match_rule_category` (`tenant_id`, `category_id`, `active`, `deleted`),
+  KEY `idx_dcc_file_category_match_rule_type` (`tenant_id`, `match_type`, `active`, `deleted`)
+);
+
 CREATE TABLE IF NOT EXISTS `dcc_file_type_taxonomy` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `parent_id` BIGINT NOT NULL DEFAULT 0,
@@ -654,6 +674,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_nas_transfer_task` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `operator_user_id` BIGINT NOT NULL,
   `template_category_id` BIGINT NOT NULL,
+  `dcc_project_code_id` BIGINT NULL,
   `product_master_id` BIGINT NULL,
   `effective_date` DATE NOT NULL,
   `selected_nas_paths_json` LONGTEXT NOT NULL,
@@ -720,6 +741,65 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_local_folder_upload_chunk` (
   `chunk_sha256` VARCHAR(64) NOT NULL,
   `chunk_temp_path` VARCHAR(1024) NOT NULL,
   `status` VARCHAR(32) NOT NULL DEFAULT 'COMPLETED',
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_nas_source` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `controlled_file_id` BIGINT NOT NULL,
+  `nas_share_name` VARCHAR(128) NOT NULL,
+  `normalized_relative_path` VARCHAR(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `path_hash` CHAR(64) NOT NULL,
+  `source_type` VARCHAR(32) NOT NULL,
+  `source_confidence` VARCHAR(32) NOT NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_nas_control_audit_task` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `operator_user_id` BIGINT NOT NULL,
+  `nas_share_name` VARCHAR(128) NOT NULL,
+  `scan_roots_json` LONGTEXT NOT NULL,
+  `status` VARCHAR(32) NOT NULL,
+  `current_path` VARCHAR(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,
+  `scanned_file_count` BIGINT NOT NULL DEFAULT 0,
+  `controlled_file_count` BIGINT NOT NULL DEFAULT 0,
+  `not_controlled_file_count` BIGINT NOT NULL DEFAULT 0,
+  `ambiguous_file_count` BIGINT NOT NULL DEFAULT 0,
+  `source_missing_count` BIGINT NOT NULL DEFAULT 0,
+  `skipped_directory_count` BIGINT NOT NULL DEFAULT 0,
+  `report_file_id` BIGINT NULL,
+  `report_file_name` VARCHAR(255) NULL,
+  `started_at` DATETIME NULL,
+  `completed_at` DATETIME NULL,
+  `failure_reason` VARCHAR(512) NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`)
+);
+
+CREATE TABLE IF NOT EXISTS `dcc_nas_control_audit_skipped_directory` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `task_id` BIGINT NOT NULL,
+  `directory_path` VARCHAR(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `skip_reason` VARCHAR(64) NOT NULL,
+  `skipped_at` DATETIME NOT NULL,
   `tenant_id` BIGINT NOT NULL DEFAULT 0,
   `create_time` DATETIME NULL,
   `update_time` DATETIME NULL,

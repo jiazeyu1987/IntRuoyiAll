@@ -8,8 +8,15 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.api.task.BpmProcessInstanceApi;
-import cn.iocoder.yudao.module.bpm.api.task.dto.BpmProcessInstanceCreateReqDTO;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalContext;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalPolicyMode;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalPolicyResolution;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalRequest;
+import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalOrchestrator;
+import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalPolicyResolveService;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeApproveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchVoidApprovalResolutionReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchVoidApprovalResolutionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangePageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeRequestReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeRespVO;
@@ -34,7 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.annotation.Resource;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -100,7 +107,13 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
     @Resource
     private AdminUserApi adminUserApi;
     @Resource
+    private BusinessApprovalOrchestrator businessApprovalOrchestrator;
+    @Resource
+    private BusinessApprovalPolicyResolveService businessApprovalPolicyResolveService;
+    @Resource
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
+    @Resource
+    private MesProEdhrWorkTaskService workTaskService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -200,18 +213,30 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
         assertNoOpenBatchChange(batch.getId(), CHANGE_TYPE_VOID);
 
         Long actorUserId = SecurityFrameworkUtils.getLoginUserId();
-        Long signatureId = recordBatchVoidRequestSignature(batch, actorUserId, reqVO.getPassword(), reqVO.getComment());
-        MesProEdhrBatchExecutionArchiveDO archive = latestBatchArchive(batch.getId());
-        MesProEdhrRecordChangeEventDO event = buildBatchVoidChangeEvent(reqVO, batch, archive, signatureId, actorUserId);
-        String processInstanceId = processInstanceApi.createProcessInstance(actorUserId,
-                buildBatchVoidProcessCreateReq(batch, event, reqVO, actorUserId));
-        if (StrUtil.isBlank(processInstanceId)) {
-            throw exception(PRO_BATCH_RECORD_EXECUTION_APPROVAL_PROCESS_DEFINITION_NOT_EXISTS,
-                    BATCH_EXECUTION_VOID_PROCESS_DEFINITION_KEY);
+        BusinessApprovalRequest approvalRequest = businessApprovalOrchestrator.submit(
+                buildBatchVoidBusinessApprovalContext(reqVO, batch, actorUserId));
+        return toResp(requireLatestBatchVoidEventAfterBusinessApprovalSubmit(batch.getId(), approvalRequest));
+    }
+
+    @Override
+    public EdhrBatchVoidApprovalResolutionRespVO resolveVoidBatchExecutionApproval(
+            EdhrBatchVoidApprovalResolutionReqVO reqVO) {
+        MesProEdhrBatchExecutionDO batch = requireBatchExecution(reqVO.getBatchExecutionId());
+        requireReleaseActionUnlocked(batch.getId());
+        if (Integer.valueOf(BATCH_STATUS_VOIDED).equals(batch.getStatus())) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID);
         }
-        event.setBpmProcessInstanceId(processInstanceId);
-        changeEventMapper.insert(event);
-        return toResp(event);
+        assertNoOpenBatchChange(batch.getId(), CHANGE_TYPE_VOID);
+
+        Long actorUserId = SecurityFrameworkUtils.getLoginUserId();
+        BusinessApprovalPolicyResolution resolution = businessApprovalPolicyResolveService.resolve(
+                buildBatchVoidBusinessApprovalResolutionContext(batch, actorUserId));
+        return new EdhrBatchVoidApprovalResolutionRespVO()
+                .setPolicyId(resolution.getPolicyId())
+                .setPolicyMode(resolution.getMode().name())
+                .setRequiresBpm(resolution.getMode() == BusinessApprovalPolicyMode.BPM_REQUIRED)
+                .setBpmProcessKey(resolution.getProcessDefinitionKey())
+                .setEffectExecutorCode(resolution.getEffectExecutorCode());
     }
 
     @Override
@@ -761,11 +786,50 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
         return signature.getId();
     }
 
-    private BpmProcessInstanceCreateReqDTO buildBatchVoidProcessCreateReq(MesProEdhrBatchExecutionDO batch,
-                                                                          MesProEdhrRecordChangeEventDO event,
-                                                                          EdhrRecordChangeRequestReqVO reqVO,
+    private BusinessApprovalContext buildBatchVoidBusinessApprovalContext(EdhrRecordChangeRequestReqVO reqVO,
+                                                                          MesProEdhrBatchExecutionDO batch,
                                                                           Long actorUserId) {
-        Map<String, Object> variables = new HashMap<>();
+        Map<String, Object> transientVariables = new LinkedHashMap<>();
+        transientVariables.put("password", StrUtil.trim(reqVO.getPassword()));
+        return BusinessApprovalContext.builder()
+                .tenantId(TenantContextHolder.getRequiredTenantId())
+                .dataDomain("MES")
+                .systemCode("MES")
+                .objectType("EDHR_BATCH_EXECUTION")
+                .objectId(String.valueOf(batch.getId()))
+                .objectVersion(String.valueOf(batch.getId()))
+                .actionCode(CHANGE_TYPE_VOID)
+                .objectState(batch.getStatus() == null ? null : String.valueOf(batch.getStatus()))
+                .applicantUserId(actorUserId)
+                .reason(StrUtil.trim(reqVO.getReasonText()))
+                .startUserSelectAssignees(reqVO.getStartUserSelectAssignees())
+                .variables(buildBatchVoidBusinessApprovalVariables(batch, reqVO, actorUserId))
+                .transientVariables(transientVariables)
+                .build();
+    }
+
+    private BusinessApprovalContext buildBatchVoidBusinessApprovalResolutionContext(MesProEdhrBatchExecutionDO batch,
+                                                                                   Long actorUserId) {
+        return BusinessApprovalContext.builder()
+                .tenantId(TenantContextHolder.getRequiredTenantId())
+                .dataDomain("MES")
+                .systemCode("MES")
+                .objectType("EDHR_BATCH_EXECUTION")
+                .objectId(String.valueOf(batch.getId()))
+                .objectVersion(String.valueOf(batch.getId()))
+                .actionCode(CHANGE_TYPE_VOID)
+                .objectState(batch.getStatus() == null ? null : String.valueOf(batch.getStatus()))
+                .applicantUserId(actorUserId)
+                .reason("eDHR batch void approval")
+                .variables(Map.of())
+                .transientVariables(Map.of())
+                .build();
+    }
+
+    private Map<String, Object> buildBatchVoidBusinessApprovalVariables(MesProEdhrBatchExecutionDO batch,
+                                                                        EdhrRecordChangeRequestReqVO reqVO,
+                                                                        Long actorUserId) {
+        Map<String, Object> variables = new LinkedHashMap<>();
         variables.put("businessType", BATCH_EXECUTION_VOID_BUSINESS_TYPE);
         variables.put("batchExecutionId", batch.getId());
         variables.put("batchExecutionCode", batch.getBatchExecutionCode());
@@ -778,12 +842,29 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
         variables.put("reasonText", StrUtil.trim(reqVO.getReasonText()));
         variables.put("comment", StrUtil.trim(reqVO.getComment()));
         variables.put("submittedBy", actorUserId);
-        variables.put("submittedAt", event.getRequestedAt().toString());
+        variables.put("submittedAt", now().toString());
         variables.put("tenantId", TenantContextHolder.getTenantId());
-        return new BpmProcessInstanceCreateReqDTO()
-                .setProcessDefinitionKey(BATCH_EXECUTION_VOID_PROCESS_DEFINITION_KEY)
-                .setBusinessKey(BATCH_EXECUTION_VOID_BUSINESS_TYPE + ":" + batch.getId())
-                .setVariables(variables);
+        return variables;
+    }
+
+    private MesProEdhrRecordChangeEventDO requireLatestBatchVoidEventAfterBusinessApprovalSubmit(
+            Long batchExecutionId, BusinessApprovalRequest approvalRequest) {
+        LambdaQueryWrapperX<MesProEdhrRecordChangeEventDO> query = new LambdaQueryWrapperX<MesProEdhrRecordChangeEventDO>()
+                .eq(MesProEdhrRecordChangeEventDO::getBatchExecutionId, batchExecutionId)
+                .eq(MesProEdhrRecordChangeEventDO::getChangeType, CHANGE_TYPE_VOID)
+                .eq(MesProEdhrRecordChangeEventDO::getTargetScope, TARGET_SCOPE_BATCH)
+                .orderByDesc(MesProEdhrRecordChangeEventDO::getId)
+                .last("LIMIT 1");
+        if (approvalRequest != null && StrUtil.isNotBlank(approvalRequest.getProcessInstanceId())) {
+            query.eq(MesProEdhrRecordChangeEventDO::getBpmProcessInstanceId,
+                    StrUtil.trim(approvalRequest.getProcessInstanceId()));
+        }
+        MesProEdhrRecordChangeEventDO event = changeEventMapper.selectOne(query);
+        if (event == null) {
+            throw new IllegalStateException("eDHR batch void business approval did not create a change event: "
+                    + batchExecutionId);
+        }
+        return event;
     }
 
     private EdhrRecordChangeRespVO approveVoidBatchExecutionByBpm(MesProEdhrRecordChangeEventDO event,
@@ -806,6 +887,7 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
                     .setArchiveValidStatus("VOIDED")
                     .setInvalidatedByChangeEventId(event.getId()));
         }
+        workTaskService.cancelActiveTasksByBatch(batch.getId(), buildBatchVoidWorkTaskCancelReason(event));
         changeEventMapper.updateById(new MesProEdhrRecordChangeEventDO()
                 .setId(event.getId())
                 .setChangeStatus(CHANGE_STATUS_EFFECTIVE)
@@ -815,6 +897,14 @@ public class MesProEdhrRecordChangeServiceImpl implements MesProEdhrRecordChange
                 .setPreviousArchiveHash(archive == null ? event.getPreviousArchiveHash() : archive.getContentHash())
                 .setNewArchiveHash(archive == null ? event.getNewArchiveHash() : archive.getContentHash()));
         return toResp(changeEventMapper.selectById(event.getId()));
+    }
+
+    private String buildBatchVoidWorkTaskCancelReason(MesProEdhrRecordChangeEventDO event) {
+        String reasonText = StrUtil.blankToDefault(StrUtil.trim(event.getReasonText()), StrUtil.trim(event.getRemark()));
+        if (StrUtil.isBlank(reasonText)) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_CHANGE_REASON_REQUIRED);
+        }
+        return "批次已作废：" + reasonText;
     }
 
     private MesProEdhrRecordChangeEventDO buildExecutionChangeEvent(EdhrRecordChangeRequestReqVO reqVO,

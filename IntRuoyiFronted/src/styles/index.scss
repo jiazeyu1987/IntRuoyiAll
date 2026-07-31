@@ -18,12 +18,13 @@
 }
 
 .el-tabs__item {
+  font-family: var(--app-fixed-tab-font-family);
   font-synthesis-weight: none;
-  font-weight: 600;
+  font-weight: var(--app-fixed-tab-font-weight);
 }
 
 .el-tabs__item.is-active {
-  font-weight: 600;
+  font-weight: var(--app-fixed-tab-font-weight);
 }
 
 // 确认框可能从业务弹窗中触发，必须高于普通 Dialog，避免按钮被下层表单拦截。

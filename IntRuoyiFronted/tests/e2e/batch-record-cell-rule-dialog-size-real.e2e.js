@@ -59,6 +59,26 @@ async function login(page) {
   await page.waitForURL((current) => !current.pathname.includes('/login'), { timeout: 60000, waitUntil: 'commit' })
 }
 
+async function waitForNavigationSettled(page, navigationBar) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    const loadingCount = await navigationBar.locator('.is-loading').count()
+    if (loadingCount === 0) return
+    await page.waitForTimeout(500)
+  }
+  throw new Error('fill_config_navigation_loading_timeout')
+}
+
+function resolveCellRulesReportId(payload) {
+  const data = payload?.data || payload || {}
+  return String(data.reportId || data.batchRecordReportId || '').trim()
+}
+
+function resolveFirstReportId(payload) {
+  const data = payload?.data || payload || {}
+  const rows = Array.isArray(data.list) ? data.list : []
+  return String(rows[0]?.reportId || '').trim()
+}
+
 async function main() {
   const browser = await chromium.launch({ headless: !config.headed, args: ['--disable-dev-shm-usage'] })
   const writeRequests = []
@@ -77,7 +97,16 @@ async function main() {
     })
 
     await login(page)
+    const listResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes('/mes/pro/batch-record-report/page') &&
+        response.request().method() === 'GET',
+      { timeout: 60000 }
+    )
     await page.goto(new URL('/mes/pro/batch-record-form-list', config.baseUrl).toString(), { waitUntil: 'commit' })
+    const listResponse = await listResponsePromise
+    const listPayload = await listResponse.json().catch(() => null)
+    const initialReportId = resolveFirstReportId(listPayload)
     await page.getByText('批记录表单', { exact: false }).first().waitFor({ state: 'visible', timeout: 60000 })
     assert.equal(
       await page.getByRole('button', { name: /单元格规则/ }).count(),
@@ -85,35 +114,55 @@ async function main() {
       'left_table_cell_rule_button_should_be_hidden'
     )
 
-    const cellRulesResponsePromise = page.waitForResponse(
-      (response) =>
-        response.url().includes('/mes/pro/batch-record-report/cell-rules') &&
-        response.request().method() === 'GET',
-      { timeout: 60000 }
-    )
     const previewActions = page.locator('.batch-record-form-preview__actions').first()
     await previewActions.waitFor({ state: 'visible', timeout: 60000 })
-    await previewActions.getByRole('button', { name: '规则' }).click()
-    await cellRulesResponsePromise
+    await previewActions.getByRole('button', { name: '填写配置' }).click()
 
     const editor = page.locator('.batch-record-cell-rules-editor').first()
     await editor.waitFor({ state: 'visible', timeout: 60000 })
 
     const dialog = page.locator('.el-dialog').filter({ has: editor }).first()
+    const topToolbar = editor.locator('[data-fill-config-toolbar="primary"]').first()
+    const navigationBar = editor.locator('[data-fill-config-navigation="same-product-version"]').first()
+    const topActions = editor.locator('[data-fill-config-actions="primary"]').first()
     const workspace = editor.locator('.batch-record-cell-rules-editor__workspace').first()
     const sidePanel = editor.locator('.batch-record-cell-rules-editor__side-panel').first()
     const fillableToggle = editor.locator('.batch-record-cell-rules-editor__fillable-toggle').first()
     const promptField = sidePanel.locator('.el-form-item').filter({ hasText: '单元格提示词' }).first()
 
+    await topToolbar.waitFor({ state: 'visible', timeout: 30000 })
+    await navigationBar.waitFor({ state: 'visible', timeout: 30000 })
+    await topActions.waitFor({ state: 'visible', timeout: 30000 })
+    await navigationBar.getByRole('button', { name: '上一张' }).waitFor({ state: 'visible', timeout: 30000 })
+    await navigationBar.getByRole('button', { name: '下一张' }).waitFor({ state: 'visible', timeout: 30000 })
+    await topActions.getByRole('button', { name: '关闭' }).waitFor({ state: 'visible', timeout: 30000 })
+    await topActions.getByRole('button', { name: '重新读取' }).waitFor({ state: 'visible', timeout: 30000 })
+    await topActions.getByRole('button', { name: '保存填写配置' }).waitFor({ state: 'visible', timeout: 30000 })
+    await waitForNavigationSettled(page, navigationBar)
+    const previousButton = navigationBar.getByRole('button', { name: '上一张' })
+    const nextButton = navigationBar.getByRole('button', { name: '下一张' })
+    const navigationSwitch = {
+      attempted: false,
+      direction: '',
+      initialReportId,
+      nextReportId: '',
+      skippedReason: ''
+    }
     await fillableToggle.waitFor({ state: 'visible', timeout: 30000 })
     await promptField.waitFor({ state: 'visible', timeout: 30000 })
 
     const dialogBox = await dialog.boundingBox()
+    const topToolbarBox = await topToolbar.boundingBox()
+    const navigationBarBox = await navigationBar.boundingBox()
+    const topActionsBox = await topActions.boundingBox()
     const workspaceBox = await workspace.boundingBox()
     const sidePanelBox = await sidePanel.boundingBox()
     const fillableToggleBox = await fillableToggle.boundingBox()
     const promptFieldBox = await promptField.boundingBox()
     assert.ok(dialogBox, 'dialog_box_missing')
+    assert.ok(topToolbarBox, 'top_toolbar_box_missing')
+    assert.ok(navigationBarBox, 'navigation_bar_box_missing')
+    assert.ok(topActionsBox, 'top_actions_box_missing')
     assert.ok(workspaceBox, 'workspace_box_missing')
     assert.ok(sidePanelBox, 'side_panel_box_missing')
     assert.ok(fillableToggleBox, 'fillable_toggle_box_missing')
@@ -122,6 +171,8 @@ async function main() {
     assert.ok(dialogBox.width >= viewport.width - 48, `dialog_width_not_red_frame:${dialogBox.width}`)
     assert.ok(dialogBox.x <= 20, `dialog_left_margin_too_large:${dialogBox.x}`)
     assert.ok(viewport.width - dialogBox.x - dialogBox.width <= 20, `dialog_right_margin_too_large:${dialogBox.width}`)
+    assert.ok(navigationBarBox.x > topToolbarBox.x, 'navigation_bar_should_be_center_toolbar_section')
+    assert.ok(topActionsBox.x > navigationBarBox.x, 'top_actions_should_be_right_toolbar_section')
     assert.ok(workspaceBox.height >= viewport.height - 260, `workspace_height_too_short:${workspaceBox.height}`)
     assert.ok(fillableToggleBox.y >= sidePanelBox.y, 'fillable_toggle_top_outside_side_panel')
     assert.ok(
@@ -145,8 +196,32 @@ async function main() {
       0,
       'static_tip_should_be_hidden'
     )
+    assert.equal(await dialog.locator('.el-dialog__footer').count(), 0, 'dialog_footer_should_be_removed')
     const sidePanelText = await sidePanel.innerText()
     assert.doesNotMatch(sidePanelText, /规则设置|当前单元格|白色为不可填写|保存后该单元格/)
+    const switchButton = (await nextButton.isEnabled()) ? nextButton : (await previousButton.isEnabled()) ? previousButton : null
+    if (switchButton) {
+      const direction = (await nextButton.isEnabled()) ? 'next' : 'previous'
+      const navigationCellRulesResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes('/mes/pro/batch-record-report/cell-rules') &&
+          response.request().method() === 'GET',
+        { timeout: 60000 }
+      )
+      await switchButton.click()
+      const navigationCellRulesResponse = await navigationCellRulesResponsePromise
+      const navigationCellRulesPayload = await navigationCellRulesResponse.json().catch(() => null)
+      const nextReportId = resolveCellRulesReportId(navigationCellRulesPayload)
+      assert.ok(initialReportId, 'initial_cell_rules_report_id_missing')
+      assert.ok(nextReportId, 'navigation_cell_rules_report_id_missing')
+      assert.notEqual(nextReportId, initialReportId, 'navigation_should_reload_a_different_report')
+      await editor.locator('.el-loading-mask').waitFor({ state: 'hidden', timeout: 60000 }).catch(() => undefined)
+      navigationSwitch.attempted = true
+      navigationSwitch.direction = direction
+      navigationSwitch.nextReportId = nextReportId
+    } else {
+      navigationSwitch.skippedReason = 'no_same_product_version_neighbor_visible_for_selected_fixture'
+    }
     assert.deepEqual(writeRequests, [], 'dialog size readonly e2e must not send MES write requests')
 
     const screenshot = path.join(outputDir, 'batch-record-cell-rule-dialog-size-pass.png')
@@ -162,6 +237,7 @@ async function main() {
       sidePanelBox,
       fillableToggleBox,
       promptFieldBox,
+      navigationSwitch,
       writeRequests,
       screenshot
     }

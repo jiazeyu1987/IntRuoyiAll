@@ -8,12 +8,14 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
 import cn.iocoder.yudao.module.mes.service.pro.process.MesProProcessService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -48,9 +50,6 @@ class MesProRouteProcessServiceImplBatchRecordBindingTest {
             routeProcess.setId(100L);
             return 1;
         }).when(routeProcessMapper).insert(any(MesProRouteProcessDO.class));
-        when(routeProcessMapper.selectListByRouteId(10L)).thenReturn(java.util.List.of(
-                MesProRouteProcessDO.builder().id(100L).routeId(10L).processId(20L).sort(1).build()
-        ));
 
         routeProcessService.createRouteProcess(reqVO);
 
@@ -74,14 +73,12 @@ class MesProRouteProcessServiceImplBatchRecordBindingTest {
             routeProcess.setId(100L);
             return 1;
         }).when(routeProcessMapper).insert(any(MesProRouteProcessDO.class));
-        when(routeProcessMapper.selectListByRouteId(10L)).thenReturn(java.util.List.of(
-                MesProRouteProcessDO.builder().id(100L).routeId(10L).processId(20L).sort(1).build()
-        ));
 
         routeProcessService.createRouteProcess(reqVO);
 
         verify(routeProcessMapper).insert(any(MesProRouteProcessDO.class));
-        verify(routeService).maintainRouteVersionAfterProcessChange(10L);
-        verify(routeService).ensureDefaultScheduleArtifacts(10L, 100L);
+        InOrder order = inOrder(routeService);
+        order.verify(routeService).ensureDefaultScheduleArtifacts(10L, 100L);
+        order.verify(routeService).maintainRouteVersionAfterProcessChange(10L);
     }
 }

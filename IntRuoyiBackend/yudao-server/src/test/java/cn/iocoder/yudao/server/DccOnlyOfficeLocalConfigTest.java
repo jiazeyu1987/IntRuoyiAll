@@ -13,6 +13,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 class DccOnlyOfficeLocalConfigTest {
 
     private static final String EXPECTED_LOCAL_ONLYOFFICE_URL = "http://127.0.0.1:8080";
+    private static final String EXPECTED_LOCAL_ONLYOFFICE_PUBLIC_FILE_URL = "http://host.docker.internal:${server.port}";
+    private static final String STALE_ONLYOFFICE_PUBLIC_FILE_URL = "http://127.0.0.1:${server.port}";
     private static final String STALE_ONLYOFFICE_URL = "http://127.0.0.1:8082";
 
     private final Path projectDir = findProjectDir();
@@ -21,6 +23,18 @@ class DccOnlyOfficeLocalConfigTest {
     void localAndDevOnlyOfficeDefaultsShouldMatchLocalDocumentServerPort() throws IOException {
         assertOnlyOfficeDefaultMatchesLocalPort("yudao-server/src/main/resources/application-local.yaml");
         assertOnlyOfficeDefaultMatchesLocalPort("yudao-server/src/main/resources/application-dev.yaml");
+    }
+
+    @Test
+    void localOnlyOfficePublicFileDefaultShouldBeReachableFromDockerDocumentServer() throws IOException {
+        String content = Files.readString(projectDir.resolve("yudao-server/src/main/resources/application-local.yaml"),
+                StandardCharsets.UTF_8);
+
+        String publicFileBaseUrlDefault = extractOnlyOfficePublicFileBaseUrlDefault(content);
+        assertEquals(EXPECTED_LOCAL_ONLYOFFICE_PUBLIC_FILE_URL, publicFileBaseUrlDefault,
+                "application-local.yaml must expose backend file downloads through host.docker.internal for Docker OnlyOffice");
+        assertFalse(STALE_ONLYOFFICE_PUBLIC_FILE_URL.equals(publicFileBaseUrlDefault),
+                "application-local.yaml must not expose OnlyOffice file downloads through container-local 127.0.0.1");
     }
 
     private void assertOnlyOfficeDefaultMatchesLocalPort(String relativePath) throws IOException {
@@ -34,16 +48,35 @@ class DccOnlyOfficeLocalConfigTest {
 
     private static String extractOnlyOfficeBaseUrlDefault(String content) {
         String marker = "base-url: ${DCC_ONLYOFFICE_BASE_URL:";
+        return extractPlaceholderDefault(content, marker, "DCC_ONLYOFFICE_BASE_URL");
+    }
+
+    private static String extractOnlyOfficePublicFileBaseUrlDefault(String content) {
+        String marker = "public-file-base-url: ${DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL:";
+        return extractPlaceholderDefault(content, marker, "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL");
+    }
+
+    private static String extractPlaceholderDefault(String content, String marker, String propertyName) {
         int startIndex = content.indexOf(marker);
         if (startIndex < 0) {
-            throw new AssertionError("DCC_ONLYOFFICE_BASE_URL placeholder must be present");
+            throw new AssertionError(propertyName + " placeholder must be present");
         }
         int valueStartIndex = startIndex + marker.length();
-        int endIndex = content.indexOf('}', valueStartIndex);
-        if (endIndex < 0) {
-            throw new AssertionError("DCC_ONLYOFFICE_BASE_URL placeholder must be closed");
+        int depth = 1;
+        for (int index = valueStartIndex; index < content.length(); index++) {
+            if (content.charAt(index) == '$' && index + 1 < content.length() && content.charAt(index + 1) == '{') {
+                depth++;
+                index++;
+                continue;
+            }
+            if (content.charAt(index) == '}') {
+                depth--;
+                if (depth == 0) {
+                    return content.substring(valueStartIndex, index);
+                }
+            }
         }
-        return content.substring(valueStartIndex, endIndex);
+        throw new AssertionError(propertyName + " placeholder must be closed");
     }
 
     private static Path findProjectDir() {

@@ -46,6 +46,8 @@ export interface FormFillLogItemRespVO {
   columnIndex?: number
   oldValueDisplay?: string
   newValueDisplay?: string
+  recordbookValueDisplay?: string
+  batchRecordValueDisplay?: string
   changedAt?: string
 }
 

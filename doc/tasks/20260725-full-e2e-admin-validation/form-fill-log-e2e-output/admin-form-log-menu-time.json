@@ -1,0 +1,30 @@
+{
+  "baseUrl": "http://localhost:8081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "targetPath": "/mes/pro/feedback/edhr-form-fill-log",
+  "menuEvidence": [
+    "批记录表单",
+    "批次执行",
+    "表单追溯",
+    "表单日志",
+    "基础数据",
+    "仓库管理"
+  ],
+  "timeEvidence": {
+    "auditBatchId": "2080250873209262081",
+    "rawChangedAt": 1784805431000,
+    "expectedChangedAt": "2026-07-23 19:17:11",
+    "matchedRowIndex": 0,
+    "matchedRowText": "精洗工序生产记录E2E-REL-reject-1784496395607881MO090889BRE202607201752427311041王歆2026-07-23 19:17:111□不符合要求=true证据完整明细"
+  },
+  "detailLocationEvidence": {
+    "auditItemId": "2080250873255399425",
+    "rawFieldPath": "sheet[0].rows[5].cells[15].ebr_EBR_TN1_B_DOC_830a89a2_V98_T03_r5_c15",
+    "expectedLocation": "P6 / 表1 · 第6行，第16列"
+  },
+  "mesWriteRequests": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260725-full-e2e-admin-validation\\form-fill-log-e2e-output\\admin-form-log-menu-time.png"
+}

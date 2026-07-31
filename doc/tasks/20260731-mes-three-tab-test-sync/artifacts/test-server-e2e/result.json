@@ -1,0 +1,44 @@
+{
+  "generatedAt": "2026-07-31T03:55:50.361Z",
+  "baseUrl": "http://172.30.30.58:8081/",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "login": {
+    "captcha": {
+      "attempt": 1,
+      "dragDistance": 260.64516129032256,
+      "normalizedX": 202,
+      "naturalX": 201,
+      "score": 25089.528000000006,
+      "backgroundWidth": 310,
+      "panelWidth": 400
+    }
+  },
+  "tabs": [
+    {
+      "id": "process",
+      "name": "process settings",
+      "path": "/mes/pro/process",
+      "apiPath": "/admin-api/mes/pro/process/page",
+      "total": 65,
+      "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260731-mes-three-tab-test-sync\\artifacts\\test-server-e2e\\process.png"
+    },
+    {
+      "id": "route",
+      "name": "route flow",
+      "path": "/mes/pro/route",
+      "apiPath": "/admin-api/mes/pro/route/page",
+      "total": 3,
+      "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260731-mes-three-tab-test-sync\\artifacts\\test-server-e2e\\route.png"
+    },
+    {
+      "id": "schedule-order",
+      "name": "schedule order",
+      "path": "/mes/pro/schedule-order",
+      "apiPath": "/admin-api/mes/pro/schedule-order/page",
+      "total": 10,
+      "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260731-mes-three-tab-test-sync\\artifacts\\test-server-e2e\\schedule-order.png"
+    }
+  ],
+  "status": "PASS"
+}

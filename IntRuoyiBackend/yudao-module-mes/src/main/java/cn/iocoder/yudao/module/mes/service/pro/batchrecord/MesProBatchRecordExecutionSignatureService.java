@@ -45,6 +45,7 @@ public class MesProBatchRecordExecutionSignatureService {
     public static final String ACTION_FIELD_CHANGE = "FIELD_CHANGE";
     public static final String ACTION_FORM_REVIEW = "FORM_REVIEW";
     public static final String SIGNATURE_MODE_PASSWORD = "PASSWORD";
+    public static final String SIGNATURE_MODE_LOGIN_SESSION = "LOGIN_SESSION";
     public static final String SIGNATURE_TIME_MODE_SERVER = "SERVER_TIME";
     public static final String SIGNATURE_TIME_MODE_USER_SELECTED = "USER_SELECTED";
     public static final String SIGNATURE_TIME_POLICY_VERSION = "EDHR_SIGNATURE_TIME_V1";
@@ -235,6 +236,74 @@ public class MesProBatchRecordExecutionSignatureService {
                 .setActorName(user.getNickname())
                 .setSignedAt(signedAt)
                 .setSelectedSignedAt(signatureTimeEvidence.selectedSignedAt())
+                .setSignatureDisplayAt(signatureTimeEvidence.signatureDisplayAt())
+                .setSignatureTimeMode(signatureTimeEvidence.signatureTimeMode())
+                .setSelectedTimeZone(signatureTimeEvidence.selectedTimeZone())
+                .setSelectedTimeReason(signatureTimeEvidence.selectedTimeReason())
+                .setSelectedTimePolicyVersion(signatureTimeEvidence.selectedTimePolicyVersion())
+                .setSelectedTimeAuditHash(signatureTimeEvidence.selectedTimeAuditHash());
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public MesProBatchRecordExecutionFieldAuditSignatureResult recordFieldChangeDraftSave(
+            MesProBatchRecordExecutionFieldAuditSignatureCommand command) {
+        if (command == null || command.getExecutionId() == null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
+        }
+        Long actorId = SecurityFrameworkUtils.getLoginUserId();
+        if (actorId == null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
+        }
+        AdminUserDO user = adminUserService.getUser(actorId);
+        if (user == null) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
+        }
+        LocalDateTime signedAt = nowAtDatabasePrecision();
+        SignatureTimeEvidence signatureTimeEvidence =
+                buildSignatureTimeEvidence(command.getExecutionId(), ACTION_FIELD_CHANGE, actorId, signedAt, null);
+        SignatureActorSnapshot actorSnapshot = buildActorSnapshot(user, ACTION_FIELD_CHANGE, null, null);
+        MesProBatchRecordExecutionSignatureDO signature = MesProBatchRecordExecutionSignatureDO.builder()
+                .executionId(command.getExecutionId())
+                .actorId(actorId)
+                .actionType(ACTION_FIELD_CHANGE)
+                .signatureMode(SIGNATURE_MODE_LOGIN_SESSION)
+                .passwordVerified(Boolean.FALSE)
+                .comment(StrUtil.blankToDefault(StrUtil.trim(command.getReasonText()), null))
+                .signedAt(signedAt)
+                .signatureDisplayAt(signatureTimeEvidence.signatureDisplayAt())
+                .signatureTimeMode(signatureTimeEvidence.signatureTimeMode())
+                .selectedTimeZone(signatureTimeEvidence.selectedTimeZone())
+                .selectedTimeReason(signatureTimeEvidence.selectedTimeReason())
+                .selectedTimePolicyVersion(signatureTimeEvidence.selectedTimePolicyVersion())
+                .selectedTimeAuditHash(signatureTimeEvidence.selectedTimeAuditHash())
+                .reason(command.getReasonText())
+                .actorName(user.getNickname())
+                .actorUsernameSnapshot(actorSnapshot.actorUsernameSnapshot())
+                .actorNicknameSnapshot(actorSnapshot.actorNicknameSnapshot())
+                .actorDeptIdSnapshot(actorSnapshot.actorDeptIdSnapshot())
+                .actorDeptNameSnapshot(actorSnapshot.actorDeptNameSnapshot())
+                .actorPostNamesSnapshot(actorSnapshot.actorPostNamesSnapshot())
+                .actorRoleNamesSnapshot(actorSnapshot.actorRoleNamesSnapshot())
+                .signaturePurpose(actorSnapshot.signaturePurpose())
+                .authorizationBasis("登录会话保存；未执行电子签名")
+                .authenticationMethod(SIGNATURE_MODE_LOGIN_SESSION)
+                .recordVersionSnapshot(actorSnapshot.recordVersionSnapshot())
+                .recordHashSnapshot(actorSnapshot.recordHashSnapshot())
+                .clientIpSnapshot(actorSnapshot.clientIpSnapshot())
+                .userAgentSnapshot(actorSnapshot.userAgentSnapshot())
+                .snapshotStatus(actorSnapshot.snapshotStatus())
+                .reasonCategory(command.getReasonCategory())
+                .signatureChallengeHash(command.getSignatureChallengeHash())
+                .build();
+        int inserted = signatureMapper.insert(signature);
+        if (inserted <= 0) {
+            throw exception(PRO_BATCH_RECORD_EXECUTION_SIGNATURE_PERSIST_FAILED);
+        }
+        return new MesProBatchRecordExecutionFieldAuditSignatureResult()
+                .setSignatureId(signature.getId())
+                .setActorId(actorId)
+                .setActorName(user.getNickname())
+                .setSignedAt(signedAt)
                 .setSignatureDisplayAt(signatureTimeEvidence.signatureDisplayAt())
                 .setSignatureTimeMode(signatureTimeEvidence.signatureTimeMode())
                 .setSelectedTimeZone(signatureTimeEvidence.selectedTimeZone())

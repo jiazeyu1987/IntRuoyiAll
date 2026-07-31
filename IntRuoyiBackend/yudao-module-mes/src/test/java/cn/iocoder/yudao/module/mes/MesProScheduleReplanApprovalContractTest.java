@@ -28,11 +28,12 @@ class MesProScheduleReplanApprovalContractTest {
                 "manual replan approval policy must have a release-managed retirement migration");
 
         String retireSql = Files.readString(retirePath, StandardCharsets.UTF_8);
-        assertTrue(retireSql.contains("bpm_form_action_policy"));
+        assertTrue(retireSql.contains("bpm_business_approval_policy"));
+        assertFalse(retireSql.contains("bpm_form_action_policy"));
         assertTrue(retireSql.contains("'MES_SCHEDULE_REPLAN'"));
         assertTrue(retireSql.contains("'SCHEDULE_REPLAN_SCOPE'"));
         assertTrue(retireSql.contains("'REPLAN'"));
-        assertTrue(retireSql.contains("status` = 'RETIRED'"));
+        assertTrue(retireSql.contains("status` = 'DISABLED'"));
         assertTrue(retireSql.contains("SIGNAL SQLSTATE '45000'"));
     }
 }

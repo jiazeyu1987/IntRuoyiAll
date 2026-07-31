@@ -1,0 +1,51 @@
+{
+  "generated_at": "2026-07-31T03:55:03.795909+00:00",
+  "status": "applied",
+  "backup_tables": {
+    "mes_pro_batch_record_definition": "m3brepbk_20260731115458_def",
+    "mes_pro_batch_record_version": "m3brepbk_20260731115458_ver",
+    "mes_pro_batch_record_report": "m3brepbk_20260731115458_report"
+  },
+  "inserted": {
+    "mes_pro_batch_record_definition": 1,
+    "mes_pro_batch_record_version": 1,
+    "mes_pro_batch_record_report": 14
+  },
+  "report_ids": [
+    "1d05410f1d3140c5b8aa6786887ae69c",
+    "2631e6faf5b4423aa747d3392c0a10d8",
+    "273239492aa24b838f70b06d7d624406",
+    "3de93e21dbe4426596b51e767624b491",
+    "6c50023db4324ff2825f6e2650028280",
+    "72e111d292a244f1adf13ab65901cc5f",
+    "7ed5ae6f05bb43a1a845763c1236fcc8",
+    "9d78beff251548538f73cb6f98c624fc",
+    "a218356158d045058cfb476f31f8c7cc",
+    "a3b59100db094cc2bacb48286d2c6eea",
+    "bd1ac748f2be41bd8e63b2c0a924059e",
+    "c4561f71bb844f9b86409ae8b468f0c1",
+    "e82eec5927d14cd093bb66c0886489e1",
+    "ff909645721d4c7cb9220a74e4497254"
+  ],
+  "definition_ids": [
+    "47"
+  ],
+  "version_ids": [
+    "130"
+  ],
+  "postcheck": {
+    "remaining_missing_report_ids": [],
+    "definition_count": 1,
+    "version_count": 1
+  },
+  "warnings": [
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001CBA1B0C860",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000027C7FB95CB0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000027524A163A0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002A892D11860",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000022466D212D0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002298D0C0450",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000029203F95E90",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002C1A2740210"
+  ]
+}

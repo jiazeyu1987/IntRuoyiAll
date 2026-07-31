@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordReportDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecordreport.MesProBatchRecordVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowConfigDO;
@@ -8,6 +9,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProce
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteFlowProcessConfigDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordReportMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.batchrecordreport.MesProBatchRecordVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowConfigMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessBatchRecordMapper;
@@ -38,6 +40,8 @@ class MesProEdhrBatchExecutionLegacyProcessTest {
     private static final Long CURRENT_ROUTE_PROCESS_ID = 100L;
     private static final Long HISTORICAL_ROUTE_PROCESS_ID = 99L;
     private static final Long PROCESS_ID = 1000L;
+    private static final Long BATCH_RECORD_DEFINITION_ID = 6001L;
+    private static final Long BATCH_RECORD_VERSION_ID = 6002L;
 
     @Mock
     private MesProRouteFlowConfigMapper routeFlowConfigMapper;
@@ -47,6 +51,8 @@ class MesProEdhrBatchExecutionLegacyProcessTest {
     private MesProRouteFlowProcessBatchRecordMapper routeFlowProcessBatchRecordMapper;
     @Mock
     private MesProBatchRecordReportMapper reportMapper;
+    @Mock
+    private MesProBatchRecordVersionMapper batchRecordVersionMapper;
     @Mock
     private MesProProcessMapper processMapper;
     @Mock
@@ -63,6 +69,7 @@ class MesProEdhrBatchExecutionLegacyProcessTest {
         ReflectionTestUtils.setField(service, "routeFlowProcessConfigMapper", routeFlowProcessConfigMapper);
         ReflectionTestUtils.setField(service, "routeFlowProcessBatchRecordMapper", routeFlowProcessBatchRecordMapper);
         ReflectionTestUtils.setField(service, "reportMapper", reportMapper);
+        ReflectionTestUtils.setField(service, "batchRecordVersionMapper", batchRecordVersionMapper);
         ReflectionTestUtils.setField(service, "processMapper", processMapper);
         ReflectionTestUtils.setField(service, "routeProcessFlowEdgeMapper", routeProcessFlowEdgeMapper);
         ReflectionTestUtils.setField(service, "routeProcessService", routeProcessService);
@@ -99,6 +106,8 @@ class MesProEdhrBatchExecutionLegacyProcessTest {
                 .routeProcessId(HISTORICAL_ROUTE_PROCESS_ID)
                 .useType("BATCH")
                 .batchRecordReportId("REPORT-1")
+                .batchRecordDefinitionId(BATCH_RECORD_DEFINITION_ID)
+                .batchRecordVersionId(BATCH_RECORD_VERSION_ID)
                 .formSlotType("MAIN")
                 .recordCategory("BATCH_RECORD")
                 .validationProfile("CONTROLLED_BATCH")
@@ -110,6 +119,10 @@ class MesProEdhrBatchExecutionLegacyProcessTest {
                 .build();
         MesProBatchRecordReportDO report = new MesProBatchRecordReportDO();
         report.setReportId("REPORT-1");
+        report.setBatchRecordDefinitionId(BATCH_RECORD_DEFINITION_ID);
+        report.setBatchRecordVersionId(BATCH_RECORD_VERSION_ID);
+        report.setFormSlotType("MAIN");
+        report.setSourceTableIndex(1);
 
         when(routeFlowConfigMapper.selectByRouteIdAndUseType(ROUTE_ID, "BATCH"))
                 .thenReturn(MesProRouteFlowConfigDO.builder()
@@ -125,6 +138,15 @@ class MesProEdhrBatchExecutionLegacyProcessTest {
         when(routeFlowProcessBatchRecordMapper.selectListByRouteProcessIdsAndUseType(
                 anyCollection(), eq("BATCH"))).thenReturn(List.of(historicalRecord));
         when(reportMapper.selectListByReportIds(anyCollection())).thenReturn(List.of(report));
+        when(batchRecordVersionMapper.selectLatestApprovedByDefinitionId(BATCH_RECORD_DEFINITION_ID))
+                .thenReturn(MesProBatchRecordVersionDO.builder()
+                        .id(BATCH_RECORD_VERSION_ID)
+                        .definitionId(BATCH_RECORD_DEFINITION_ID)
+                        .versionNo("V1.0")
+                        .status("APPROVED")
+                        .build());
+        when(reportMapper.selectListByDefinitionIdAndVersionId(
+                BATCH_RECORD_DEFINITION_ID, BATCH_RECORD_VERSION_ID)).thenReturn(List.of(report));
         when(processMapper.selectBatchIds(anyCollection()))
                 .thenReturn(List.of(MesProProcessDO.builder().id(PROCESS_ID).name("历史工序").build()));
         when(routeProcessFlowEdgeMapper.selectListByRouteId(ROUTE_ID)).thenReturn(List.of());

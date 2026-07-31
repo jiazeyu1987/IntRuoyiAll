@@ -375,6 +375,18 @@ const remainingRouter: AppRouteRecordRaw[] = [
                 }
               },
               {
+                path: 'policy',
+                component: () => import('@/views/form-center/policy/index.vue'),
+                name: 'ApprovalCenterFormCenterPolicy',
+                meta: {
+                  noCache: true,
+                  canTo: true,
+                  title: '表单策略',
+                  activeMenu: '/mdm/form-center/policy',
+                  permission: ['form:policy:query']
+                }
+              },
+              {
                 path: 'effect',
                 component: () => import('@/views/form-center/effect/index.vue'),
                 name: 'ApprovalCenterFormCenterEffect',
@@ -1497,6 +1509,29 @@ const remainingRouter: AppRouteRecordRaw[] = [
     ]
   },
   {
+    path: '/mdm',
+    component: Layout,
+    name: 'MdmHiddenRoutes',
+    meta: {
+      hidden: true
+    },
+    children: [
+      {
+        path: 'form-center/template/simulate',
+        component: () => import('@/views/form-center/template/FormTemplateSimulatePage.vue'),
+        name: 'MdmFormCenterTemplateSimulate',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          title: '表单模板模拟填写',
+          activeMenu: '/mdm/form-center/template',
+          permission: ['form:template:query']
+        }
+      }
+    ]
+  },
+  {
     path: '/mes',
     component: Layout,
     name: 'MesWmRouter',
@@ -1824,6 +1859,48 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/feedback/edhr-batch-production-fill',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchProductionFillPage.vue'),
+        name: 'MesProEdhrBatchProductionFill',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '生产填写',
+          activeMenu: '/mes/pro/feedback/edhr-batch-production-fill',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
+        path: 'pro/feedback/edhr-batch-pqc-fill',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchPqcFillPage.vue'),
+        name: 'MesProEdhrBatchPqcFill',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: 'PQC填写',
+          activeMenu: '/mes/pro/feedback/edhr-batch-pqc-fill',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
+        path: 'pro/feedback/edhr-batch-page-graph',
+        component: () => import('@/views/mes/pro/edhr-batch/BatchPageGraphPage.vue'),
+        name: 'MesProEdhrBatchPageGraph',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '批记录页面关系图',
+          activeMenu: '/mes/pro/feedback/edhr-batch-page-graph',
+          permission: ['mes:pro-edhr-batch-execution:query']
+        }
+      },
+      {
         path: 'pro/feedback/edhr-signatures',
         component: () => import('@/views/mes/pro/edhr/SignaturePage.vue'),
         name: 'MesProFeedbackEdhrSignatures',
@@ -1863,6 +1940,48 @@ const remainingRouter: AppRouteRecordRaw[] = [
           title: 'eDHR统一变更',
           activeMenu: '/mes/pro/feedback/edhr-unified-change',
           permission: ['mes:pro-edhr-unified-change:query']
+        }
+      },
+      {
+        path: 'pro/process-pool/review-copy',
+        component: () => import('@/views/mes/pro/processpool/ReviewCopyPage.vue'),
+        name: 'MesProProcessPoolReviewCopy',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '工序池审核副本',
+          activeMenu: '/mes/pro/process-pool/review-copy',
+          permission: ['mes:pro-process-pool-review-copy:generate-submit']
+        }
+      },
+      {
+        path: 'pro/process-pool/event-revision',
+        component: () => import('@/views/mes/pro/processpool/EventRevisionPage.vue'),
+        name: 'MesProProcessPoolEventRevision',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '工序池原始记录修改',
+          activeMenu: '/mes/pro/process-pool/event-revision',
+          permission: ['mes:pro-process-pool:event-revision:update']
+        }
+      },
+      {
+        path: 'pro/process-pool/team-leader',
+        component: () => import('@/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'),
+        name: 'MesProProcessPoolTeamLeader',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '工序池班组长工作台',
+          activeMenu: '/mes/pro/process-pool/team-leader',
+          permission: ['mes:pro-process-pool-team-leader:query']
         }
       },
       {

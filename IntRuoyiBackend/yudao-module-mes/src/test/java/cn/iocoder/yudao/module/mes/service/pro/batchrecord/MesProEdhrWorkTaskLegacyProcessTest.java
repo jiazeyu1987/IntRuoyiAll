@@ -1,6 +1,7 @@
 package cn.iocoder.yudao.module.mes.service.pro.batchrecord;
 
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrBatchExecutionTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.batchrecord.MesProEdhrProcessFormPermissionRuleDO;
@@ -16,10 +17,12 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteProcessService;
 import cn.iocoder.yudao.module.system.api.dept.DeptApi;
 import cn.iocoder.yudao.module.system.api.notify.NotifyMessageSendApi;
+import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import cn.iocoder.yudao.module.system.api.user.dto.AdminUserRespDTO;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -75,6 +78,8 @@ class MesProEdhrWorkTaskLegacyProcessTest {
     private MesProEdhrCandidateResolver candidateResolver;
     @Mock
     private MesProRouteProcessService routeProcessService;
+    @Mock
+    private PermissionApi permissionApi;
 
     @BeforeEach
     void setUp() {
@@ -91,6 +96,13 @@ class MesProEdhrWorkTaskLegacyProcessTest {
         ReflectionTestUtils.setField(service, "deptApi", deptApi);
         ReflectionTestUtils.setField(service, "candidateResolver", candidateResolver);
         ReflectionTestUtils.setField(service, "routeProcessService", routeProcessService);
+        ReflectionTestUtils.setField(service, "permissionApi", permissionApi);
+        TenantContextHolder.setTenantId(1L);
+    }
+
+    @AfterEach
+    void clearTenant() {
+        TenantContextHolder.clear();
     }
 
     @Test
@@ -142,9 +154,9 @@ class MesProEdhrWorkTaskLegacyProcessTest {
         when(batchTaskMapper.selectById(BATCH_TASK_ID)).thenReturn(batchTask);
         when(routeProcessService.resolveFrozenRouteProcess(
                 HISTORICAL_ROUTE_PROCESS_ID, ROUTE_ID, HISTORICAL_PROCESS_ID)).thenReturn(frozenRouteProcess);
-        when(processFormPermissionRuleMapper.selectEnabledFillRuleForRouteOrReport(
+        when(processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(
                 HISTORICAL_ROUTE_PROCESS_ID, "RPT-LEGACY", BATCH_RECORD_VERSION_ID))
-                .thenReturn(frozenVersionRule);
+                .thenReturn(List.of(frozenVersionRule));
         when(candidateResolver.resolveProcessFormRule(frozenVersionRule))
                 .thenReturn(new MesProEdhrCandidateResolver.MesProEdhrCandidateContract(
                         "USER", null, "99"));
@@ -162,9 +174,9 @@ class MesProEdhrWorkTaskLegacyProcessTest {
             service.createInitialFillTask(batch);
         }
 
-        verify(processFormPermissionRuleMapper, atLeastOnce()).selectEnabledFillRuleForRouteOrReport(
+        verify(processFormPermissionRuleMapper, atLeastOnce()).selectEnabledFillRulesForRouteOrReport(
                 HISTORICAL_ROUTE_PROCESS_ID, "RPT-LEGACY", BATCH_RECORD_VERSION_ID);
-        verify(processFormPermissionRuleMapper, never()).selectEnabledFillRuleForRouteOrReport(
+        verify(processFormPermissionRuleMapper, never()).selectEnabledFillRulesForRouteOrReport(
                 HISTORICAL_ROUTE_PROCESS_ID, "RPT-LEGACY");
         verify(assignmentRuleMapper, never()).selectEnabledByRouteProcessAndType(
                 HISTORICAL_ROUTE_PROCESS_ID, MesProEdhrWorkTaskService.TASK_TYPE_FILL);
@@ -185,14 +197,14 @@ class MesProEdhrWorkTaskLegacyProcessTest {
                 .thenReturn(new MesProEdhrCandidateResolver.MesProEdhrCandidateContract(
                         "USER", 88L, "88"));
         Method method = MesProEdhrWorkTaskServiceImpl.class.getDeclaredMethod(
-                "calculateDueTime", MesProEdhrWorkTaskDO.class);
+                "calculateDueTime", MesProEdhrWorkTaskDO.class, MesProEdhrBatchExecutionDO.class);
         method.setAccessible(true);
         method.invoke(service, new MesProEdhrWorkTaskDO()
                 .setTaskType(MesProEdhrWorkTaskService.TASK_TYPE_FILL)
                 .setBatchTaskId(BATCH_TASK_ID)
                 .setRouteId(ROUTE_ID)
                 .setRouteProcessId(HISTORICAL_ROUTE_PROCESS_ID)
-                .setProcessId(HISTORICAL_PROCESS_ID));
+                .setProcessId(HISTORICAL_PROCESS_ID), batch());
 
         verify(assignmentRuleMapper).selectEnabledByRouteProcessAndType(
                 HISTORICAL_ROUTE_PROCESS_ID, MesProEdhrWorkTaskService.TASK_TYPE_FILL);
@@ -263,11 +275,15 @@ class MesProEdhrWorkTaskLegacyProcessTest {
                 .setBatchRecordReportId("RPT-LEGACY")
                 .setBatchRecordVersionId(BATCH_RECORD_VERSION_ID)
                 .setRuleType("FILL")
+                .setScopeKey("ALL")
                 .setSignatureCellKey("")
                 .setCandidateSourceType("USER")
                 .setCandidateSourceIds("99")
                 .setCompletionPolicy("ANY_ONE")
                 .setDueMinutes(45)
+                .setFillableScopeJson("""
+                        {"schemaVersion":2,"scopeKey":"ALL","cells":[{"sourceTableIndex":0,"rowIndex":0,"columnIndex":0}]}
+                        """.trim())
                 .setEnabled(true);
     }
 

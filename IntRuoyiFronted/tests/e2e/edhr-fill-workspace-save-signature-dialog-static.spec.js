@@ -5,51 +5,46 @@ const assert = require('node:assert/strict')
 const pagePath = path.resolve(process.cwd(), 'src/views/mes/pro/edhr/ExecutionPage.vue')
 const source = fs.readFileSync(pagePath, 'utf8')
 
-const dialogStart = source.indexOf('class="edhr-fill-workspace__save-signature-dialog"')
-assert.notEqual(dialogStart, -1, '保存草稿前置签名弹框必须使用少字大字的新样式。')
-const templateStart = source.lastIndexOf('<el-dialog', dialogStart)
-const templateEnd = source.indexOf('</el-dialog>', dialogStart)
-assert.ok(templateStart > -1 && templateEnd > templateStart, '保存草稿前置签名弹框模板必须完整。')
-const dialogTemplate = source.slice(templateStart, templateEnd)
-
-for (const text of ['保存草稿', '订单', '工序', '变更', '原因分类', '原因说明', '签名密码', '确认保存']) {
-  assert.ok(dialogTemplate.includes(text), `保存草稿签名弹框必须保留必要短文案：${text}`)
-}
-
-for (const token of [
-  '>FIELD_CHANGE<',
-  '签名动作',
-  '签名含义',
-  '不可篡改审计链',
-  '执行编号',
-  '单元格值哈希',
-  '字段审计版本',
-  '字段审计头哈希',
-  '待保存附件',
-  'fileUrl',
-  'attachmentGroupKey'
-]) {
-  assert.ok(!dialogTemplate.includes(token), `保存草稿签名弹框不得展示技术内容：${token}`)
-}
+assert.ok(!source.includes('edhr-fill-workspace__save-signature-dialog'), '保存草稿点击后不得再弹保存前确认或签名弹框。')
+assert.ok(!source.includes('fieldAuditSignatureDialogVisible'), '保存草稿不得保留保存前签名弹框状态。')
+assert.ok(!source.includes('fieldAuditSignatureForm'), '保存草稿不得要求输入签名密码。')
+assert.ok(!source.includes('确认保存'), '保存草稿不得出现二次确认按钮。')
+assert.ok(!source.includes('openFieldAuditSignatureDialog'), '保存草稿按钮不得先打开确认弹框。')
 
 assert.ok(
-  /<el-dialog[\s\S]*class="edhr-fill-workspace__save-signature-dialog"[\s\S]*width="720px"[\s\S]*:show-close="false"[\s\S]*:close-on-click-modal="false"[\s\S]*:close-on-press-escape="false"/.test(dialogTemplate),
-  '保存草稿签名弹框必须是大弹框，并禁用右上角关闭、遮罩关闭和 ESC 关闭。'
+  /@click="handleSaveFieldAuditChanges"[\s\S]{0,500}保存草稿/.test(source),
+  '左侧“保存草稿”按钮必须点击即调用真实保存函数。'
 )
 
 assert.ok(
-  /pendingFieldChanges\.length\s*\+\s*pendingAttachmentChanges\.length/.test(dialogTemplate),
-  '保存草稿签名弹框的变更数量必须同时包含字段变更和附件变更。'
+  /@click="handleSaveFieldAuditChanges"[\s\S]{0,500}保存变更/.test(source),
+  '待保存变更区“保存变更”按钮必须点击即调用真实保存函数。'
 )
 
+const saveCallStart = source.indexOf('const handleSaveFieldAuditChanges = async () =>')
+const saveCallEnd = source.indexOf('const submitReviewAssigneeOptions', saveCallStart)
+assert.ok(saveCallStart > -1 && saveCallEnd > saveCallStart, '保存草稿真实保存函数必须存在。')
+const saveCallSource = source.slice(saveCallStart, saveCallEnd)
+
+assert.ok(saveCallSource.includes('saveEdhrFieldChanges({'), '保存草稿必须调用真实保存接口。')
+assert.ok(!saveCallSource.includes('signature:'), '保存草稿接口请求不得携带电子签名密码对象。')
+assert.ok(saveCallSource.includes("showFillActionResultDialog('save-success')"), '保存成功后仍必须显示“已保存”大弹框。')
 assert.ok(
-  /\.edhr-fill-workspace__save-signature-title\s*\{[\s\S]*font-size:\s*34px/.test(source),
-  '保存草稿签名弹框标题必须使用 34px 大字。'
+  source.includes('const fieldAuditSaveGateError = computed(() => fieldAuditOpenGateError.value)'),
+  '保存草稿按钮只能受结构性门禁控制，不得因为原因未填写而禁用。'
 )
-
 assert.ok(
-  /\.edhr-fill-workspace__save-signature-confirm\s*\{[\s\S]*height:\s*64px[\s\S]*font-size:\s*24px/.test(source),
-  '保存草稿签名弹框确认按钮必须高 64px 且 24px 大字。'
+  source.includes("const DEFAULT_FIELD_AUDIT_DRAFT_REASON_CATEGORY: EdhrFieldChangeReasonCategory = 'OPERATOR_ENTRY'"),
+  '保存草稿必须内置最小审计原因分类，确保点击即可保存。'
+)
+assert.ok(
+  source.includes("const DEFAULT_FIELD_AUDIT_DRAFT_REASON_TEXT = '保存草稿'"),
+  '保存草稿必须内置最小审计原因说明，确保点击即可保存。'
+)
+assert.ok(
+  saveCallSource.includes('reasonCategory: resolveFieldAuditDraftReasonCategory()') &&
+    saveCallSource.includes('reasonText: resolveFieldAuditDraftReasonText()'),
+  '保存草稿接口必须使用自动审计原因，不得要求用户先填写原因。'
 )
 
-console.log('PASS: EDHR fill workspace save signature dialog static contract')
+console.log('PASS: EDHR fill workspace draft save direct static contract')

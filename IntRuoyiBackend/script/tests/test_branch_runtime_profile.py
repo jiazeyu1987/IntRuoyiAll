@@ -8,6 +8,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 PROFILE_SCRIPT = REPO_ROOT / "scripts" / "runtime" / "branch-runtime-profile.ps1"
 SHOW_SCRIPT = REPO_ROOT / "scripts" / "runtime" / "show-branch-runtime.ps1"
 START_FRONTEND_SCRIPT = REPO_ROOT / "scripts" / "runtime" / "start-branch-frontend.ps1"
+START_BACKEND_SCRIPT = REPO_ROOT / "scripts" / "runtime" / "start-branch-backend.ps1"
 RESERVE_SLOT_SCRIPT = REPO_ROOT / "scripts" / "runtime" / "reserve-worktree-slot.ps1"
 
 
@@ -373,3 +374,13 @@ def test_branch_frontend_start_injects_required_local_runtime_env() -> None:
     assert "$env:VITE_API_URL = '/admin-api'" in script
     assert "$env:VITE_APP_CAPTCHA_ENABLE = 'false'" in script
     assert "$env:VITE_BASE_URL = \"http://127.0.0.1:$($ports.BackendPort)\"" in script
+
+
+def test_branch_backend_start_uses_immutable_runtime_jar_and_stable_logs() -> None:
+    script = START_BACKEND_SCRIPT.read_text(encoding="utf-8")
+
+    assert '"output\\runtime\\$($profile.Name)"' in script
+    assert "Copy-Item -LiteralPath $sourceJarPath -Destination $runtimeJarPath -Force" in script
+    assert '"--logging.file.name=$runtimeLogPath"' in script
+    assert '"--yudao.runtime-control.storage-guard.log-dir=$runtimeLogDir"' in script
+    assert "'-jar',\n    $runtimeJarPath," in script

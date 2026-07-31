@@ -28,7 +28,8 @@ public class MesProRouteResourceController {
 
     @GetMapping("/page")
     @Operation(summary = "获得产品工艺资源大表分页")
-    @PreAuthorize("@ss.hasPermission('mes:pro-route:schedule-config:query')")
+    @PreAuthorize("@ss.hasAnyPermissions('mes:pro-route:query', 'mes:pro-route:schedule-config:query', "
+            + "'mes:pro-mes-process:query')")
     public CommonResult<PageResult<MesProRouteResourceRespVO>> getResourcePage(
             @Valid MesProRouteResourcePageReqVO pageReqVO) {
         return success(routeResourceService.getResourcePage(pageReqVO));

@@ -62,6 +62,8 @@ class DccControlledFileFormEffectExecutorTest extends BaseMockitoUnitTest {
         assertEquals(21L, submitReqVO.getDirectoryId());
         assertEquals("SOP-001", submitReqVO.getFileName());
         assertEquals("SOP-001", submitReqVO.getFileNumber());
+        assertEquals(3000L, submitReqVO.getDccProjectCodeId());
+        assertEquals(null, submitReqVO.getProductMasterId());
         assertEquals("V1.0", submitReqVO.getVersionNo());
         assertEquals(LocalDate.of(2026, 7, 18), submitReqVO.getEffectiveDate());
         assertEquals(List.of(201L, 202L), submitReqVO.getSelectedSignoffUserIds());
@@ -162,6 +164,7 @@ class DccControlledFileFormEffectExecutorTest extends BaseMockitoUnitTest {
         formData.put("fileNumber", "SOP-001");
         formData.put("productMasterId", 5000L);
         formData.put("productCode", "PRD2026071801");
+        formData.put("dccProjectCodeId", 3000L);
         formData.put("needTraining", Boolean.FALSE);
         formData.put("selectedSignoffUserIds", List.of(201L, 202L));
         formData.put("processType", "CONTROLLED_FILE");

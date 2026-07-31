@@ -6,27 +6,31 @@ const { chromium } = require('playwright')
 const BASE_URL = process.env.EDHR_FORM_FILL_LOG_E2E_BASE_URL || 'http://localhost:8081'
 const TENANT = process.env.EDHR_FORM_FILL_LOG_E2E_TENANT || '芋道源码'
 const USERNAME = process.env.EDHR_FORM_FILL_LOG_E2E_USERNAME || 'admin'
-const PASSWORD = process.env.EDHR_FORM_FILL_LOG_E2E_PASSWORD || 'admin123'
+const PASSWORD = process.env.EDHR_FORM_FILL_LOG_E2E_PASSWORD
 const TARGET_PATH = '/mes/pro/feedback/edhr-form-fill-log'
 const TARGET_TEXT = '表单日志'
 const BROWSER_EXECUTABLE =
   process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
 const OUTPUT_DIR = path.resolve(
-  __dirname,
-  '..',
-  '..',
-  '..',
-  'doc',
-  'tasks',
-  '20260714-edhr-form-log-human-cell-location',
-  'e2e-artifacts'
+  process.env.EDHR_FORM_FILL_LOG_E2E_OUTPUT_DIR ||
+    path.join(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      'doc',
+      'tasks',
+      '20260725-full-e2e-admin-validation',
+      'form-fill-log-e2e-output'
+    )
 )
 
 function ensurePrerequisites() {
   assert.match(BASE_URL, /^http:\/\/(127\.0\.0\.1|localhost):8081$/, 'E2E 只能验证本机 8081 前端')
   assert.equal(TENANT, '芋道源码', '表单日志最终只读复验必须使用芋道源码租户')
   assert.equal(USERNAME, 'admin', '表单日志最终只读复验必须使用 admin')
+  assert.ok(PASSWORD, '缺少 EDHR_FORM_FILL_LOG_E2E_PASSWORD')
   assert.ok(fs.existsSync(BROWSER_EXECUTABLE), `系统 Chrome 不存在: ${BROWSER_EXECUTABLE}`)
   fs.mkdirSync(OUTPUT_DIR, { recursive: true })
 }
@@ -93,11 +97,15 @@ function unwrapResponse(body, label) {
   return body.data
 }
 
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 function formatHumanDateTime(value) {
   const date = new Date(value)
   assert.ok(Number.isFinite(date.getTime()), `填写时间不是可解析时间: ${value}`)
   const pad = (num) => String(num).padStart(2, '0')
-  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
 function columnIndexToLetters(columnIndex) {
@@ -171,25 +179,40 @@ async function verifyTimeFormat(page) {
   const data = unwrapResponse(body, '表单日志分页')
   const rows = Array.isArray(data?.list) ? data.list : Array.isArray(data?.records) ? data.records : []
   assert.ok(rows.length > 0, '芋道源码租户必须存在真实表单日志记录，不能用空列表替代 E2E')
-  const firstWithTime = rows.find((row) => row.changedAt)
-  assert.ok(firstWithTime, '真实表单日志记录必须包含 changedAt')
+  const rowsWithTime = rows
+    .filter((row) => row.changedAt)
+    .map((row) => ({ row, expected: formatHumanDateTime(row.changedAt) }))
+  assert.ok(rowsWithTime.length > 0, '真实表单日志记录必须包含 changedAt')
 
-  const expected = formatHumanDateTime(firstWithTime.changedAt)
-  const firstDataRow = page.locator('.el-table__body-wrapper tbody tr').first()
-  await firstDataRow.waitFor({ state: 'visible', timeout: 60000 })
-  const firstRowText = await firstDataRow.innerText()
-  assert.match(firstRowText, new RegExp(expected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), '首行必须显示年月日 时分秒格式')
-  assert.doesNotMatch(firstRowText, /T\d{2}:\d{2}:\d{2}/, '首行填写时间不得显示 ISO T 分隔符')
+  const visibleRows = page.locator('.el-table__body-wrapper tbody tr')
+  await visibleRows.first().waitFor({ state: 'visible', timeout: 60000 })
+  const visibleRowTexts = await visibleRows.evaluateAll((elements) =>
+    elements.map((element) => element.textContent?.replace(/\s+/g, ' ').trim() || '')
+  )
+  const matchedRow = rowsWithTime
+    .map((candidate) => ({
+      ...candidate,
+      rowIndex: visibleRowTexts.findIndex((text) => text.includes(candidate.expected))
+    }))
+    .find((candidate) => candidate.rowIndex >= 0)
+  assert.ok(
+    matchedRow,
+    `当前页必须显示接口返回的 YYYY-MM-DD HH:mm:ss 格式: ${JSON.stringify(rowsWithTime.map((item) => item.expected))}`
+  )
+  for (const rowText of visibleRowTexts) {
+    assert.doesNotMatch(rowText, /T\d{2}:\d{2}:\d{2}/, '填写时间不得显示 ISO T 分隔符')
+  }
 
   return {
-    auditBatchId: firstWithTime.auditBatchId,
-    rawChangedAt: firstWithTime.changedAt,
-    expectedChangedAt: expected,
-    firstRowText
+    auditBatchId: matchedRow.row.auditBatchId,
+    rawChangedAt: matchedRow.row.changedAt,
+    expectedChangedAt: matchedRow.expected,
+    matchedRowIndex: matchedRow.rowIndex,
+    matchedRowText: visibleRowTexts[matchedRow.rowIndex]
   }
 }
 
-async function verifyDetailCellLocation(page, auditBatchId) {
+async function verifyDetailCellLocation(page, auditBatchId, rowIndex) {
   const detailResponse = page.waitForResponse(
     (response) =>
       response.url().includes('/admin-api/mes/pro/batch-record-execution/form-fill-log/detail') &&
@@ -199,7 +222,7 @@ async function verifyDetailCellLocation(page, auditBatchId) {
   )
   await page
     .locator('.el-table__body-wrapper tbody tr')
-    .first()
+    .nth(rowIndex)
     .getByRole('button', { name: '明细' })
     .click()
   const detailBody = await (await detailResponse).json()
@@ -212,8 +235,8 @@ async function verifyDetailCellLocation(page, auditBatchId) {
   const drawer = page.locator('.el-drawer').filter({ hasText: '填写单元格明细' }).first()
   await drawer.waitFor({ state: 'visible', timeout: 60000 })
   const drawerText = await drawer.innerText()
-  assert.match(drawerText, new RegExp(expectedLocation.code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), '明细必须以 Excel 风格坐标作为主显示')
-  assert.match(drawerText, new RegExp(expectedLocation.detail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), '明细必须显示一基行列说明')
+  assert.match(drawerText, new RegExp(escapeRegex(expectedLocation.code)), '明细必须以 Excel 风格坐标作为主显示')
+  assert.match(drawerText, new RegExp(escapeRegex(expectedLocation.detail)), '明细必须显示一基行列说明')
   assert.doesNotMatch(drawerText, /sheet\[\d+\]\.rows\[\d+\]\.cells\[\d+\]/, '明细主显示不得暴露技术路径定位')
 
   return {
@@ -255,7 +278,11 @@ async function run() {
   try {
     await login(page)
     const timeEvidence = await verifyTimeFormat(page)
-    const detailLocationEvidence = await verifyDetailCellLocation(page, timeEvidence.auditBatchId)
+    const detailLocationEvidence = await verifyDetailCellLocation(
+      page,
+      timeEvidence.auditBatchId,
+      timeEvidence.matchedRowIndex
+    )
     const menuEvidence = await verifyMenuPosition(page)
 
     assert.equal(

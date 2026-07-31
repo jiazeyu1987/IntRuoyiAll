@@ -18,4 +18,10 @@ public class BatchRecordReportCellRulesRespVO {
     private List<BatchRecordReportCellRuleVO> suggestions;
 
     private Integer unreviewedFillableCellCount;
+
+    private List<BatchRecordReportAssistRowVO> assistRows;
+
+    private Integer assistGridRowCount;
+
+    private Integer assistGridColumnCount;
 }

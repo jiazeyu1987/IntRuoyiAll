@@ -18,6 +18,19 @@ const fitViewport = read('src/views/mes/pro/edhr/components/EdhrTemplateFitViewp
 const workspaceRail = executionPage.match(
   /<div ref="fillWorkspaceRef" class="edhr-fill-workspace">[\s\S]*?<\/aside>/
 )?.[0]
+const loadErrorIndex = executionPage.indexOf('class="edhr-fill-workspace__load-error"')
+const submitSignDialogIndex = executionPage.indexOf(
+  'class="edhr-fill-workspace__submit-sign-dialog"'
+)
+const resultDialogIndex = executionPage.indexOf('class="edhr-fill-workspace__result-dialog"')
+const submitSignDialogBlock =
+  submitSignDialogIndex >= 0
+    ? executionPage.slice(submitSignDialogIndex - 240, submitSignDialogIndex + 520)
+    : ''
+const resultDialogBlock =
+  resultDialogIndex >= 0
+    ? executionPage.slice(resultDialogIndex - 240, resultDialogIndex + 520)
+    : ''
 
 assert.ok(workspaceRail, '填写工作区必须包含左侧控制栏')
 
@@ -62,10 +75,33 @@ assert.match(
   /\.edhr-fill-workspace:fullscreen\s*\{[\s\S]*height:\s*100vh/,
   '填写工作区全屏时必须占满浏览器视口'
 )
+assert.ok(
+  submitSignDialogIndex > 0 && submitSignDialogIndex < loadErrorIndex,
+  '提交执行签名弹框必须渲染在全屏填写工作区内部，避免浏览器全屏时被遮挡'
+)
+assert.ok(
+  resultDialogIndex > submitSignDialogIndex && resultDialogIndex < loadErrorIndex,
+  '保存/提交结果弹框必须渲染在全屏填写工作区内部，避免浏览器全屏时被遮挡'
+)
+assert.match(
+  submitSignDialogBlock,
+  /:append-to-body="false"/,
+  '提交执行签名弹框不得 teleport 到 body，否则全屏工作区会遮挡弹框'
+)
+assert.match(
+  resultDialogBlock,
+  /:append-to-body="false"/,
+  '保存/提交结果弹框不得 teleport 到 body，否则全屏工作区会遮挡弹框'
+)
 assert.match(
   executionPage,
   /v-if="isTrackingReadonlyMode"[\s\S]*EdhrExecutionReadonlyForm/,
   '追踪只读模式必须继续使用原有只读表单'
+)
+assert.match(
+  executionPage,
+  /<div\s+v-if="isTrackingReadonlyMode"\s+class="edhr-page-shell__toolbar">/,
+  '非追踪填写模式必须隐藏截图红框中的外层标题和右上角工具栏'
 )
 assert.ok(
   !executionPage.includes('class="edhr-page-shell__form"'),
@@ -84,7 +120,9 @@ assert.ok(
 for (const token of [
   'edhr-fill-workspace__heading',
   'edhr-fill-workspace__meta',
+  'edhr-fill-workspace__change-summary',
   'edhr-fill-workspace__field-audit-reason',
+  '待保存变更',
   '执行编号',
   '生产工单',
   '生产批号',

@@ -19,6 +19,13 @@
 
 
       <section class="edhr-batch-detail__review" aria-label="工序复盘">
+        <el-alert
+          v-if="secondaryLoadError"
+          :title="secondaryLoadError"
+          type="error"
+          :closable="false"
+          show-icon
+        />
         <el-alert v-if="reviewError" :title="reviewError" type="error" :closable="false" show-icon />
         <div class="edhr-batch-detail__review-workbench">
           <nav class="edhr-batch-detail__process-panel edhr-batch-detail__process-list edhr-batch-detail__review-list" aria-label="工序列表">
@@ -137,60 +144,65 @@
                 <span :title="detail?.workOrderCode || ''">{{ detail?.workOrderCode || '--' }}</span>
                 <span :title="resolveCurrentBatchRecordNo()">{{ resolveCurrentBatchRecordNo() }}</span>
               </div>
-              <button
-                type="button"
-                class="edhr-batch-detail__preview-route-link"
-                :disabled="!batchProcessRouteId"
-                :title="batchProcessRouteTitle"
-                :aria-label="batchProcessRouteTitle"
-                @click.stop="openBatchProcessRoute"
-              >
-                工艺流程：{{ batchProcessRouteLabel }}
-              </button>
-              <el-button
-                type="primary"
-                size="small"
-                :loading="syncLoading"
-                class="edhr-batch-detail__preview-sync"
-                @click.stop="handleSync"
-              >
-                同步状态
-              </el-button>
-              <span
-                v-if="currentFormVersionNo"
-                class="edhr-batch-detail__preview-form-version"
-                :title="`版本号：${currentFormVersionNo}`"
-                aria-label="当前表单版本号"
-              >
-                版本：{{ currentFormVersionNo }}
-              </span>
-              <div
-                v-if="selectedTaskForEvidence && !isSpecialNode(selectedTaskForEvidence)"
-                class="edhr-batch-detail__preview-carrier"
-                aria-label="填写载体"
-                @click.stop
-              >
-                <div class="edhr-batch-detail__preview-carrier-control">
-                  <button
-                    type="button"
-                    class="edhr-batch-detail__preview-carrier-option"
-                    :class="{ 'is-active': currentProcessFillCarrier === 'FORM' }"
-                    :aria-pressed="currentProcessFillCarrier === 'FORM'"
-                    aria-label="选择批记录填写"
-                    @click.stop="selectFillCarrier('FORM')"
-                  >
-                    批记录
-                  </button>
-                  <button
-                    type="button"
-                    class="edhr-batch-detail__preview-carrier-option"
-                    :class="{ 'is-active': currentProcessFillCarrier === 'RECORDBOOK' }"
-                    :aria-pressed="currentProcessFillCarrier === 'RECORDBOOK'"
-                    aria-label="选择记录本填写"
-                    @click.stop="selectFillCarrier('RECORDBOOK')"
-                  >
-                    记录本
-                  </button>
+              <div class="edhr-batch-detail__preview-actions" aria-label="批记录操作">
+                <button
+                  type="button"
+                  class="edhr-batch-detail__preview-route-link"
+                  :disabled="!batchProcessRouteId"
+                  :title="batchProcessRouteTitle"
+                  :aria-label="batchProcessRouteTitle"
+                  @click.stop="openBatchProcessRoute"
+                >
+                  工艺流程：{{ batchProcessRouteLabel }}
+                </button>
+                <el-button
+                  type="primary"
+                  size="small"
+                  :loading="syncLoading"
+                  class="edhr-batch-detail__preview-sync"
+                  @click.stop="handleSync"
+                >
+                  同步状态
+                </el-button>
+              </div>
+              <div class="edhr-batch-detail__preview-extra" aria-label="批记录附加操作">
+                <span
+                  v-if="currentFormVersionNo"
+                  class="edhr-batch-detail__preview-form-version"
+                  :title="`版本号：${currentFormVersionNo}`"
+                  aria-label="当前表单版本号"
+                >
+                  版本：{{ currentFormVersionNo }}
+                </span>
+                <div
+                  v-if="selectedTaskForEvidence && !isSpecialNode(selectedTaskForEvidence) && isGlobalRecordbookEnabled"
+                  class="edhr-batch-detail__preview-carrier"
+                  aria-label="填写载体"
+                  @click.stop
+                >
+                  <div class="edhr-batch-detail__preview-carrier-control">
+                    <button
+                      type="button"
+                      class="edhr-batch-detail__preview-carrier-option"
+                      :class="{ 'is-active': currentProcessFillCarrier === 'FORM' }"
+                      :aria-pressed="currentProcessFillCarrier === 'FORM'"
+                      aria-label="选择批记录填写"
+                      @click.stop="selectFillCarrier('FORM')"
+                    >
+                      批记录
+                    </button>
+                    <button
+                      v-if="isRecordbookEnabledForCurrentTask"
+                      type="button"
+                      class="edhr-batch-detail__preview-carrier-option"
+                      :class="{ 'is-active': currentProcessFillCarrier === 'RECORDBOOK' }"
+                      :aria-pressed="currentProcessFillCarrier === 'RECORDBOOK'"
+                      aria-label="选择记录本填写"
+                      @click.stop="selectFillCarrier('RECORDBOOK')"
+                    >
+                      记录本
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -371,16 +383,75 @@
             </div>
             <div v-else class="edhr-batch-detail__review-card">
               <div class="edhr-batch-detail__form-surface" aria-label="已填写批记录">
+                <section
+                  v-if="effectiveDetailPreviewAssistMode"
+                  class="edhr-batch-detail__assist-preview"
+                  aria-label="辅助模式只读预览"
+                >
+                  <div class="edhr-batch-detail__assist-preview-head">
+                    <div>
+                      <strong>辅助模式</strong>
+                      <span>只读预览，不提供保存、提交、签名或上传动作。</span>
+                    </div>
+                    <el-tag type="info" effect="plain">{{ selectedPreviewAssistFields.length }} 项</el-tag>
+                  </div>
+                  <el-alert
+                    v-if="selectedPreviewAssistGridErrors.length"
+                    :title="selectedPreviewAssistGridErrors.join('；')"
+                    type="error"
+                    :closable="false"
+                    show-icon
+                  />
+                  <div v-else class="edhr-batch-detail__assist-grid-list">
+                    <section
+                      v-for="grid in selectedPreviewAssistGrids"
+                      :key="grid.subjectKey"
+                      class="edhr-batch-detail__assist-grid-group"
+                    >
+                      <div class="edhr-batch-detail__assist-grid-meta">
+                        <strong>{{ grid.subjectLabel }}</strong>
+                        <el-tag size="small" effect="plain">
+                          辅助表格 {{ grid.rowCount }} × {{ grid.columnCount }}
+                        </el-tag>
+                      </div>
+                      <div class="edhr-batch-detail__assist-grid-surface">
+                        <table class="edhr-batch-detail__assist-grid">
+                          <tbody>
+                            <tr v-for="gridRow in grid.rows" :key="gridRow.rowIndex">
+                              <td v-for="gridCell in gridRow.cells" :key="gridCell.key">
+                                <div
+                                  class="edhr-batch-detail__assist-grid-cell"
+                                  :class="gridCell.field ? 'is-mapped' : 'is-empty'"
+                                  :data-assist-grid-cell="gridCell.key"
+                                  :title="gridCell.field?.location || '未映射'"
+                                >
+                                  <span>{{ gridCell.field?.label || '未映射' }}</span>
+                                  <small v-if="gridCell.field">
+                                    当前值：{{ gridCell.field.displayValue }}
+                                  </small>
+                                  <small v-else>未映射</small>
+                                  <em v-if="gridCell.field">{{ gridCell.field.typeLabel }}</em>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </section>
+                  </div>
+                  <el-empty
+                    v-if="
+                      selectedPreviewAssistFields.length === 0 &&
+                      selectedPreviewAssistGridErrors.length === 0
+                    "
+                    description="未配置辅助模式"
+                    :image-size="52"
+                  />
+                </section>
                 <EdhrExecutionReadonlyForm
-                  v-if="selectedExecution"
-                  :form-view-model="selectedExecution.formViewModel"
-                  :signature-records="selectedExecution.signatureRecords"
-                  fit-to-viewport
-                />
-                <EdhrExecutionReadonlyForm
-                  v-else-if="selectedTaskPreview?.formViewModel"
-                  :form-view-model="selectedTaskPreview.formViewModel"
-                  :signature-records="[]"
+                  v-else-if="selectedPreviewFormViewModel"
+                  :form-view-model="selectedPreviewFormViewModel"
+                  :signature-records="selectedPreviewSignatureRecords"
                   fit-to-viewport
                 />
                 <el-skeleton v-else-if="taskPreviewLoading" :rows="8" animated />
@@ -463,6 +534,26 @@
             <template v-else>
               <div
                 v-if="selectedProcessTaskGroup"
+                class="edhr-batch-detail__preview-mode-switch"
+                :title="selectedPreviewAssistRowsConfigured ? '切换中间预览模式' : '未配置辅助模式'"
+              >
+                <span class="edhr-batch-detail__preview-mode-label">原表模式</span>
+                <el-switch
+                  v-model="detailPreviewAssistMode"
+                  size="small"
+                  :disabled="!selectedPreviewAssistRowsConfigured"
+                  aria-label="详情页辅助模式切换"
+                />
+                <span class="edhr-batch-detail__preview-mode-label">辅助模式</span>
+                <span
+                  v-if="!selectedPreviewAssistRowsConfigured"
+                  class="edhr-batch-detail__preview-mode-disabled"
+                >
+                  未配置辅助模式
+                </span>
+              </div>
+              <div
+                v-if="selectedProcessTaskGroup"
                 class="edhr-batch-detail__rail-process-forms"
                 aria-label="当前工序表单列表"
               >
@@ -479,11 +570,10 @@
                     @keydown.space.prevent="selectProcessTask(task)"
                   >
                     <div
-                      class="edhr-batch-detail__rail-execution-code"
-                      aria-label="批次执行编号"
-                      :title="detail?.batchExecutionCode || ''"
+                      class="edhr-batch-detail__rail-process-form-name"
+                      :title="resolveTaskCardDisplayName(task)"
                     >
-                      {{ detail?.batchExecutionCode || '--' }}
+                      {{ resolveTaskCardDisplayName(task) }}
                     </div>
                     <div class="edhr-batch-detail__rail-process-form-head">
                       <span class="edhr-batch-detail__rail-process-form-slot">
@@ -503,12 +593,6 @@
                           {{ resolveTaskStatusLabel(task) }}
                         </el-tag>
                       </div>
-                    </div>
-                    <div
-                      class="edhr-batch-detail__rail-process-form-name"
-                      :title="resolveTaskDisplayName(task)"
-                    >
-                      {{ resolveTaskDisplayName(task) }}
                     </div>
                     <div
                       class="edhr-batch-detail__rail-process-form-filler"
@@ -564,6 +648,14 @@
                 class="edhr-batch-detail__special-node-action-grid"
                 aria-label="特殊节点操作"
               >
+                <div
+                  class="edhr-batch-detail__special-node-filler edhr-batch-detail__rail-process-form-filler"
+                  :title="resolveTaskCardFillersText(selectedTaskForEvidence)"
+                  aria-label="特殊节点填写人"
+                >
+                  <span>填写人</span>
+                  <strong>{{ resolveTaskCardFillersText(selectedTaskForEvidence) }}</strong>
+                </div>
                 <el-upload
                   ref="specialNodeRailUploadRef"
                   class="edhr-batch-detail__special-node-hidden-upload"
@@ -921,6 +1013,9 @@
         <el-button v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']" :disabled="isViewedReleaseStageReadonly" @click="handleDownloadArchive">
           下载打印版 PDF
         </el-button>
+        <el-button v-hasPermi="['mes:pro-edhr-batch-execution-archive:download']" :disabled="isViewedReleaseStageReadonly" @click="handlePrintArchive">
+          打印
+        </el-button>
       </div>
     </el-drawer>
 
@@ -967,6 +1062,7 @@
             :object-id="traceRecordBatchExecutionId"
             :batch-execution-id="traceRecordBatchExecutionId"
             :show-object-filters="false"
+            :hide-recordbook-mode="!isRecordbookEnabledForCurrentTask"
           />
           <el-empty v-else description="当前批次不存在，暂无操作审计记录" />
         </el-tab-pane>
@@ -1025,6 +1121,14 @@
       destroy-on-close
     >
       <el-alert
+        v-if="routeFormReadonly"
+        title="当前账号仅有查看权限，表单保存、提交、重提和放弃操作已禁用。"
+        type="info"
+        :closable="false"
+        show-icon
+        class="edhr-batch-detail__dialog-alert"
+      />
+      <el-alert
         v-if="!routeFormBusinessActionContext"
         title="当前任务缺少表单中心动作上下文，无法打开动态表单。"
         type="error"
@@ -1037,6 +1141,7 @@
         :context="routeFormBusinessActionContext"
         :form-data="routeFormPanelData"
         :idempotency-key="routeFormIdempotencyKey"
+        :disabled="routeFormReadonly"
         :initial-instance-id="routeFormInitialInstanceId"
         :initial-instance-code="routeFormInitialInstanceCode"
         :initial-instance-status="routeFormInitialInstanceStatus"
@@ -1144,13 +1249,14 @@ import {
   reexecuteRejectedEdhrBatchExecution,
   skipEdhrBatchSpecialNode,
   syncEdhrBatchExecutionStatus,
+  type EdhrBatchExecutionReviewFormViewModel,
   type EdhrBatchExecutionReviewExecutionRespVO,
   type EdhrBatchExecutionReviewSignatureRecord,
+  type EdhrBatchExecutionTaskPreviewRespVO,
   type EdhrBatchReviewTimelineRespVO,
   type EdhrBatchWorkbenchRespVO,
   type EdhrBatchExecutionRespVO,
   type EdhrBatchExecutionTaskOpenRespVO,
-  type EdhrBatchExecutionTaskPreviewRespVO,
   type EdhrBatchExecutionTaskRespVO,
   type EdhrBatchSpecialNodeAttachment
 } from '@/api/mes/pro/edhr/batchExecution'
@@ -1181,7 +1287,11 @@ import {
   resolveReleaseCheckResultTagType,
   resolveReleaseCheckSourceObjectTypeLabel
 } from '@/views/mes/pro/edhr/shared/releaseCheckPresentation'
-import { isRequiredBatchRecordTask, resolveBatchRequiredProgressText } from './progress'
+import {
+  isOptionalRouteFormTask,
+  isRequiredBatchRecordTask,
+  resolveBatchRequiredProgressText
+} from './progress'
 import { buildSignatureTimePayload, createSignatureTimeForm, type EdhrSignatureTimeForm } from '../edhr/signatureTime'
 import { type BusinessActionContextVO } from '@/api/form-center/businessAction'
 import {
@@ -1189,8 +1299,10 @@ import {
   type ControlledActionProjectionVO
 } from '@/api/form-center/actionProjection'
 import { submitTransferIntervention } from '@/api/mes/pro/edhr/flowIntervention'
+import { getEdhrRecordbookGlobalSetting } from '@/api/mes/pro/edhr/recordbookGlobalSetting'
 import UserSelectV2 from '@/views/system/user/components/UserSelectV2.vue'
 import { generateUUID } from '@/utils'
+import { stringifyEdhrExecutionPageQuery } from '@/utils/edhrWorkTaskNavigation'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
 import { useUserStore } from '@/store/modules/user'
 
@@ -1225,7 +1337,7 @@ const canUseFlowTransferIntervention = computed(
     userStore.permissions.has('*:*:*') ||
     FLOW_TRANSFER_ADMIN_ROLES.some((role) => userStore.roles.includes(role))
 )
-type EdhrBatchExecutionDetailFocus = 'process' | 'approval'
+type EdhrBatchExecutionDetailFocus = 'process' | 'precheck' | 'approval'
 type TraceRecordTab = 'release' | 'change' | 'audit' | 'domain' | 'fieldResponsibility'
 
 const loading = ref(false)
@@ -1237,6 +1349,8 @@ const specialNodeSkipLoading = ref(false)
 const specialNodeCompleteLoading = ref(false)
 const specialNodeAttachmentUploading = ref(false)
 const loadError = ref('')
+const secondaryLoadError = ref('')
+const recordbookGlobalEnabled = ref(true)
 const reopenError = ref('')
 const reexecuteError = ref('')
 const qualityRejectError = ref('')
@@ -1244,12 +1358,16 @@ const specialNodeSkipError = ref('')
 const specialNodeCompleteError = ref('')
 const releaseActionError = ref('')
 const releaseSignatureError = ref('')
+const RELEASE_ACTION_ERROR_AUTO_HIDE_DELAY_MS = 5000
+let releaseActionErrorAutoHideTimer: number | undefined
+let routeFormAutoOpenKey = ''
 const detail = ref<EdhrBatchExecutionRespVO>()
 const workbench = ref<EdhrBatchWorkbenchRespVO>()
 const archivePrintDrawerVisible = ref(false)
 const traceRecordDrawerVisible = ref(false)
 const uxChecklistDrawerVisible = ref(false)
 const routeFormDrawerVisible = ref(false)
+const routeFormReadonly = ref(false)
 const routeFormOpenedTask = ref<EdhrBatchExecutionTaskRespVO>()
 const routeFormOpenResp = ref<EdhrBatchExecutionTaskOpenRespVO>()
 const releasePrecheckLoading = ref(false)
@@ -1264,6 +1382,7 @@ const reviewTimeline = ref<EdhrBatchReviewTimelineRespVO>()
 const selectedExecutionId = ref('')
 const selectedTaskId = ref('')
 const selectedTaskPreview = ref<EdhrBatchExecutionTaskPreviewRespVO>()
+const detailPreviewAssistMode = ref(false)
 const taskPreviewLoading = ref(false)
 const taskPreviewError = ref('')
 const selectedReleaseStep = ref(false)
@@ -1348,7 +1467,7 @@ const parseRouteQueryText = (value: unknown) => {
 
 const resolveDetailFocus = (): EdhrBatchExecutionDetailFocus | undefined => {
   const focus = parseRouteQueryText(route.query.focus)
-  if (focus === 'process' || focus === 'approval') return focus
+  if (focus === 'process' || focus === 'precheck' || focus === 'approval') return focus
   return undefined
 }
 
@@ -1373,6 +1492,36 @@ type ProcessTaskGroup = {
   primaryTask: EdhrBatchExecutionTaskRespVO
 }
 
+const PRODUCT_INFO_PROCESS_SORT = 80
+const PRODUCT_INFO_PROCESS_NAME = '产品信息'
+
+const containsProductInfoTitle = (text?: string | number | null) => {
+  const normalized = String(text ?? '')
+    .trim()
+    .replace(/\s+/g, '')
+  return Boolean(normalized) && (normalized.includes('产品信息') || normalized.toLowerCase().includes('productinformation'))
+}
+
+const isProductInfoProcessTask = (task: EdhrBatchExecutionTaskRespVO) =>
+  task.nodeType === EDHR_BATCH_NODE_ROUTE_FORM &&
+  task.formSlotType === 'MAIN' &&
+  task.recordCategory === 'BATCH_RECORD' &&
+  (task.batchRecordSort === PRODUCT_INFO_PROCESS_SORT ||
+    containsProductInfoTitle(task.batchRecordReportName) ||
+    containsProductInfoTitle(task.batchRecordReportCode) ||
+    containsProductInfoTitle(task.batchRecordReportId))
+
+const buildProcessTaskGroupKey = (task: EdhrBatchExecutionTaskRespVO) => {
+  if (isProductInfoProcessTask(task)) return `product-info:${task.batchRecordReportId || task.id}`
+  return String(task.routeProcessId || task.routeProcessSort || task.id)
+}
+
+const resolveProcessTaskGroupName = (task: EdhrBatchExecutionTaskRespVO) =>
+  isProductInfoProcessTask(task) ? PRODUCT_INFO_PROCESS_NAME : task.processName
+
+const resolveProcessTaskGroupSort = (task: EdhrBatchExecutionTaskRespVO) =>
+  isProductInfoProcessTask(task) ? PRODUCT_INFO_PROCESS_SORT : task.routeProcessSort
+
 const sortedTasks = computed(() =>
   [...(detail.value?.tasks || [])].sort(
     (first, second) =>
@@ -1384,7 +1533,7 @@ const processTaskGroups = computed<ProcessTaskGroup[]>(() => {
   const groups = new Map<string, Omit<ProcessTaskGroup, 'primaryTask'>>()
   for (const task of sortedTasks.value) {
     if (isSpecialNode(task)) continue
-    const key = String(task.routeProcessId || task.routeProcessSort || task.id)
+    const key = buildProcessTaskGroupKey(task)
     const group = groups.get(key)
     if (group) {
       group.tasks.push(task)
@@ -1393,9 +1542,9 @@ const processTaskGroups = computed<ProcessTaskGroup[]>(() => {
     groups.set(key, {
       key,
       routeProcessId: task.routeProcessId,
-      routeProcessSort: task.routeProcessSort,
+      routeProcessSort: resolveProcessTaskGroupSort(task),
       processCode: task.processCode,
-      processName: task.processName,
+      processName: resolveProcessTaskGroupName(task),
       executionMode: task.executionMode,
       tasks: [task]
     })
@@ -1423,10 +1572,14 @@ const selectedProcessTaskGroup = computed(() => {
   if (isReleaseProcessSelected.value) return undefined
   const selectedTask = selectedTaskForEvidence.value
   if (!selectedTask || isSpecialNode(selectedTask)) return undefined
+  const selectedGroupKey = buildProcessTaskGroupKey(selectedTask)
   return processTaskGroups.value.find(
     (group) =>
+      group.key === selectedGroupKey ||
       group.tasks.some((task) => task.id === selectedTask.id) ||
-      (selectedTask.routeProcessId != null && group.routeProcessId === selectedTask.routeProcessId) ||
+      (!isProductInfoProcessTask(selectedTask) &&
+        selectedTask.routeProcessId != null &&
+        group.routeProcessId === selectedTask.routeProcessId) ||
       (selectedTask.routeProcessId == null &&
         group.routeProcessSort === selectedTask.routeProcessSort &&
         group.processCode === selectedTask.processCode)
@@ -1438,11 +1591,452 @@ const executionReviews = computed<EdhrBatchExecutionReviewExecutionRespVO[]>(() 
     (left, right) => (left.routeProcessSort || 0) - (right.routeProcessSort || 0)
   )
 )
+const SUBMITTED_EXECUTION_REVIEW_STATUSES = new Set([2, 3, 4])
+const isSubmittedExecutionReview = (
+  execution?: EdhrBatchExecutionReviewExecutionRespVO
+): execution is EdhrBatchExecutionReviewExecutionRespVO =>
+  Boolean(execution && SUBMITTED_EXECUTION_REVIEW_STATUSES.has(Number(execution.status)))
+const submittedExecutionReviews = computed(() => executionReviews.value.filter(isSubmittedExecutionReview))
 const isReleaseProcessSelected = computed(() => selectedReleaseStep.value)
 const selectedExecution = computed(() => {
   if (isReleaseProcessSelected.value) return undefined
-  return executionReviews.value.find((execution) => String(execution.executionId) === selectedExecutionId.value)
+  return submittedExecutionReviews.value.find((execution) => String(execution.executionId) === selectedExecutionId.value)
 })
+const EMPTY_FORM_CELL_VALUES_JSON = '[]'
+const selectedEmptyTaskPreviewFormViewModel = computed<EdhrBatchExecutionReviewFormViewModel | undefined>(() => {
+  const formViewModel = selectedTaskPreview.value?.formViewModel
+  if (!formViewModel) return undefined
+  return {
+    ...formViewModel,
+    cellValuesJson: EMPTY_FORM_CELL_VALUES_JSON,
+    remark: undefined,
+    signatureCellMarkers: []
+  }
+})
+
+type DetailPreviewSnapshotField = {
+  fieldIdentity: string
+  rowIndex: number
+  columnIndex: number
+  label: string
+  helpText: string
+  typeLabel: string
+  required: boolean
+  signature: boolean
+  value: unknown
+  defaultValue: unknown
+}
+
+type DetailPreviewAssistRow = {
+  rowKey: string
+  description: string
+  sort: number
+  fields: Array<{ rowIndex: number; columnIndex: number }>
+}
+
+type DetailPreviewAssistField = DetailPreviewSnapshotField & {
+  assistDescription: string
+  location: string
+  displayValue: string
+  completed: boolean
+}
+
+type DetailPreviewAssistSubjectType = 'USERS' | 'ROLE'
+
+type DetailPreviewAssistGridKey = {
+  subjectType: DetailPreviewAssistSubjectType
+  subjectId: number
+  subjectKey: string
+  rowIndex: number
+  columnIndex: number
+}
+
+type DetailPreviewAssistGridCell = {
+  key: string
+  rowIndex: number
+  columnIndex: number
+  field?: DetailPreviewAssistField
+}
+
+type DetailPreviewAssistGridRow = {
+  rowIndex: number
+  cells: DetailPreviewAssistGridCell[]
+}
+
+type DetailPreviewAssistGrid = {
+  subjectType: DetailPreviewAssistSubjectType
+  subjectId: number
+  subjectKey: string
+  subjectLabel: string
+  rowCount: number
+  columnCount: number
+  rows: DetailPreviewAssistGridRow[]
+}
+
+const detailPreviewCellKey = (rowIndex: number, columnIndex: number) => `${rowIndex}:${columnIndex}`
+
+const parseDetailPreviewNonNegativeInteger = (value: unknown) => {
+  const numericValue = Number(value)
+  return Number.isInteger(numericValue) && numericValue >= 0 ? numericValue : undefined
+}
+
+const parseDetailPreviewPositiveInteger = (value: unknown) => {
+  const numericValue = Number(value)
+  return Number.isInteger(numericValue) && numericValue > 0 ? numericValue : undefined
+}
+
+const selectedPreviewFormViewModel = computed<EdhrBatchExecutionReviewFormViewModel | undefined>(
+  () => selectedExecution.value?.formViewModel || selectedEmptyTaskPreviewFormViewModel.value
+)
+const selectedPreviewSignatureRecords = computed(() => selectedExecution.value?.signatureRecords || [])
+
+const selectedPreviewSnapshot = computed(() => {
+  const rawSnapshot = selectedPreviewFormViewModel.value?.executionSnapshotJson
+  if (typeof rawSnapshot !== 'string' || !rawSnapshot.trim()) return undefined
+  try {
+    return JSON.parse(rawSnapshot) as Record<string, unknown>
+  } catch {
+    return undefined
+  }
+})
+
+const selectedPreviewCellValueMap = computed(() => {
+  const map = new Map<string, unknown>()
+  const rawCellValues = selectedPreviewFormViewModel.value?.cellValuesJson
+  if (typeof rawCellValues !== 'string' || !rawCellValues.trim()) return map
+  try {
+    const parsed = JSON.parse(rawCellValues)
+    if (!Array.isArray(parsed)) return map
+    parsed.forEach((item) => {
+      const rowIndex = parseDetailPreviewNonNegativeInteger((item as any)?.rowIndex)
+      const columnIndex = parseDetailPreviewNonNegativeInteger((item as any)?.columnIndex)
+      if (rowIndex == null || columnIndex == null) return
+      map.set(detailPreviewCellKey(rowIndex, columnIndex), (item as any)?.value)
+    })
+  } catch {
+    return map
+  }
+  return map
+})
+
+const readDetailPreviewText = (value: unknown) =>
+  typeof value === 'string' && value.trim() ? value.trim() : ''
+
+const resolveDetailPreviewFieldTypeLabel = (
+  field: Record<string, unknown>,
+  rawComponent: string,
+  signature: boolean
+) => {
+  if (signature) return '签名'
+  const valueType = String(field.valueType || (field as any)?.edhrCellRule?.valueType || '').toUpperCase()
+  if (valueType === 'NUMBER' || rawComponent.includes('number')) return '数字'
+  if (valueType === 'DATE' || rawComponent === 'date') return '日期'
+  if (valueType === 'DATETIME' || rawComponent.includes('datetime')) return '日期时间'
+  if (valueType === 'BOOLEAN' || rawComponent.includes('checkbox')) return '选择'
+  if (rawComponent.includes('upload')) return '附件'
+  return '文本'
+}
+
+const normalizeDetailPreviewSnapshotField = (
+  field: Record<string, unknown>
+): DetailPreviewSnapshotField | undefined => {
+  const rowIndex = parseDetailPreviewNonNegativeInteger(field.rowIndex ?? (field.position as any)?.rowIndex)
+  const columnIndex = parseDetailPreviewNonNegativeInteger(
+    field.columnIndex ?? (field.position as any)?.columnIndex
+  )
+  if (rowIndex == null || columnIndex == null) return undefined
+  const fieldKey = readDetailPreviewText(field.fieldKey) || `R${rowIndex + 1}C${columnIndex + 1}`
+  const fieldPath = readDetailPreviewText(field.fieldPath) || `rows[${rowIndex}].cells[${columnIndex}]`
+  const label =
+    readDetailPreviewText(field.label) ||
+    readDetailPreviewText(field.name) ||
+    readDetailPreviewText(field.title) ||
+    fieldKey
+  const rule = (field as any)?.edhrCellRule
+  const helpText = readDetailPreviewText(field.helpText) || readDetailPreviewText(rule?.helpText)
+  const rawComponent = String(
+    field.component || field.componentFlag || field.componentType || field.inputType || field.type || ''
+  ).toLowerCase()
+  const signature =
+    String(field.valueType || '').toUpperCase() === 'SIGNATURE' ||
+    rawComponent.includes('signature') ||
+    rawComponent.includes('sign')
+  const storedValue = selectedPreviewCellValueMap.value.get(detailPreviewCellKey(rowIndex, columnIndex))
+  return {
+    fieldIdentity: `${fieldPath}::${fieldKey}::${rowIndex}:${columnIndex}`,
+    rowIndex,
+    columnIndex,
+    label,
+    helpText,
+    typeLabel: resolveDetailPreviewFieldTypeLabel(field, rawComponent, signature),
+    required: field.required === true || rule?.required === true,
+    signature,
+    value: storedValue ?? field.value,
+    defaultValue: field.defaultValue
+  }
+}
+
+const selectedPreviewSnapshotFields = computed<DetailPreviewSnapshotField[]>(() => {
+  const fields = selectedPreviewSnapshot.value?.fields
+  if (!Array.isArray(fields)) return []
+  return fields
+    .map((field) =>
+      field && typeof field === 'object'
+        ? normalizeDetailPreviewSnapshotField(field as Record<string, unknown>)
+        : undefined
+    )
+    .filter((field): field is DetailPreviewSnapshotField => Boolean(field))
+})
+
+const normalizeDetailPreviewAssistRows = (rows: unknown): DetailPreviewAssistRow[] => {
+  if (!Array.isArray(rows)) return []
+  return rows
+    .map((row, index) => {
+      const record = row as Record<string, unknown>
+      const fields = Array.isArray(record.fields)
+        ? record.fields
+            .map((field) => {
+              const rowIndex = parseDetailPreviewNonNegativeInteger((field as any)?.rowIndex)
+              const columnIndex = parseDetailPreviewNonNegativeInteger((field as any)?.columnIndex)
+              return rowIndex == null || columnIndex == null ? undefined : { rowIndex, columnIndex }
+            })
+            .filter((field): field is { rowIndex: number; columnIndex: number } => Boolean(field))
+        : []
+      return {
+        rowKey: readDetailPreviewText(record.rowKey) || `ASSIST_ROW_${index + 1}`,
+        description: readDetailPreviewText(record.description),
+        sort: Number.isFinite(Number(record.sort)) ? Number(record.sort) : index + 1,
+        fields
+      }
+    })
+    .filter((row) => row.rowKey && row.fields.length > 0)
+    .sort((left, right) => left.sort - right.sort)
+}
+
+const selectedPreviewAssistRows = computed(() =>
+  normalizeDetailPreviewAssistRows(selectedPreviewSnapshot.value?.assistRows)
+)
+
+const selectedPreviewAssistRowsConfigured = computed(() => selectedPreviewAssistRows.value.length > 0)
+
+const parseDetailPreviewAssistGridRowKey = (rowKey: string) => {
+  const normalizedRowKey = String(rowKey || '').trim()
+  const subjectMatch = normalizedRowKey.match(/^ASSIST_GRID_(USERS|ROLE)(\d+)_R(\d+)_C(\d+)$/)
+  const legacyUserMatch = normalizedRowKey.match(/^ASSIST_GRID_U(\d+)_R(\d+)_C(\d+)$/)
+  if (!subjectMatch && !legacyUserMatch) return undefined
+  const subjectType: DetailPreviewAssistSubjectType = subjectMatch
+    ? (subjectMatch[1] as DetailPreviewAssistSubjectType)
+    : 'USERS'
+  const subjectId = Number(subjectMatch ? subjectMatch[2] : legacyUserMatch?.[1])
+  const rowIndex = Number(subjectMatch ? subjectMatch[3] : legacyUserMatch?.[2])
+  const columnIndex = Number(subjectMatch ? subjectMatch[4] : legacyUserMatch?.[3])
+  if (!Number.isInteger(subjectId) || subjectId <= 0) return undefined
+  if (!Number.isInteger(rowIndex) || rowIndex < 0) return undefined
+  if (!Number.isInteger(columnIndex) || columnIndex < 0) return undefined
+  return {
+    subjectType,
+    subjectId,
+    subjectKey: `${subjectType}:${subjectId}`,
+    rowIndex,
+    columnIndex
+  } satisfies DetailPreviewAssistGridKey
+}
+
+const selectedPreviewAssistGridRows = computed(() =>
+  selectedPreviewAssistRows.value.map((row) => ({
+    row,
+    gridKey: parseDetailPreviewAssistGridRowKey(row.rowKey)
+  }))
+)
+
+const selectedPreviewAssistGridSize = computed(() => {
+  const snapshotRowCount = parseDetailPreviewPositiveInteger(
+    selectedPreviewSnapshot.value?.assistGridRowCount
+  )
+  const snapshotColumnCount = parseDetailPreviewPositiveInteger(
+    selectedPreviewSnapshot.value?.assistGridColumnCount
+  )
+  if (snapshotRowCount && snapshotColumnCount) {
+    return {
+      rowCount: snapshotRowCount,
+      columnCount: snapshotColumnCount
+    }
+  }
+  const gridKeys = selectedPreviewAssistGridRows.value
+    .map((item) => item.gridKey)
+    .filter((gridKey): gridKey is DetailPreviewAssistGridKey => Boolean(gridKey))
+  return {
+    rowCount: gridKeys.length ? Math.max(...gridKeys.map((gridKey) => gridKey.rowIndex)) + 1 : 0,
+    columnCount: gridKeys.length
+      ? Math.max(...gridKeys.map((gridKey) => gridKey.columnIndex)) + 1
+      : 0
+  }
+})
+
+const hasDetailPreviewValue = (value: unknown) => {
+  if (value == null) return false
+  if (Array.isArray(value)) return value.length > 0
+  if (typeof value === 'string') return value.trim().length > 0
+  return true
+}
+
+const formatDetailPreviewValue = (value: unknown) => {
+  if (!hasDetailPreviewValue(value)) return '--'
+  if (typeof value === 'boolean') return value ? '是' : '否'
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return String(value)
+    }
+  }
+  return String(value)
+}
+
+const selectedPreviewAssistFields = computed<DetailPreviewAssistField[]>(() => {
+  const fieldMap = new Map(
+    selectedPreviewSnapshotFields.value.map((field) => [
+      detailPreviewCellKey(field.rowIndex, field.columnIndex),
+      field
+    ])
+  )
+  const result: DetailPreviewAssistField[] = []
+  selectedPreviewAssistRows.value.forEach((row) => {
+    row.fields.forEach((cell) => {
+      const field = fieldMap.get(detailPreviewCellKey(cell.rowIndex, cell.columnIndex))
+      if (!field) return
+      const value = hasDetailPreviewValue(field.value) ? field.value : field.defaultValue
+      result.push({
+        ...field,
+        assistDescription: row.description,
+        location: `第 ${field.rowIndex + 1} 行第 ${field.columnIndex + 1} 列`,
+        displayValue: formatDetailPreviewValue(value),
+        completed: !field.required || hasDetailPreviewValue(value)
+      })
+    })
+  })
+  return result
+})
+
+const selectedPreviewAssistFieldMap = computed(
+  () => new Map(selectedPreviewAssistFields.value.map((field) => [
+    detailPreviewCellKey(field.rowIndex, field.columnIndex),
+    field
+  ]))
+)
+
+const selectedPreviewAssistGridErrors = computed(() => {
+  const errors: string[] = []
+  const occupiedGridCells = new Set<string>()
+  selectedPreviewAssistGridRows.value.forEach(({ row, gridKey }) => {
+    if (!gridKey) {
+      errors.push(`辅助配置 ${row.rowKey} 缺少正式辅助表格坐标`)
+      return
+    }
+    if (row.fields.length !== 1) {
+      errors.push(`辅助格 ${row.rowKey} 必须且只能映射一个原表字段`)
+      return
+    }
+    const { rowCount, columnCount } = selectedPreviewAssistGridSize.value
+    if (gridKey.rowIndex >= rowCount || gridKey.columnIndex >= columnCount) {
+      errors.push(`辅助格 ${row.rowKey} 超出辅助表格尺寸`)
+      return
+    }
+    const occupiedKey = `${gridKey.subjectKey}:${gridKey.rowIndex}:${gridKey.columnIndex}`
+    if (occupiedGridCells.has(occupiedKey)) {
+      errors.push(`辅助格 ${row.rowKey} 坐标重复`)
+      return
+    }
+    occupiedGridCells.add(occupiedKey)
+    const sourceField = row.fields[0]
+    if (!selectedPreviewAssistFieldMap.value.has(
+      detailPreviewCellKey(sourceField.rowIndex, sourceField.columnIndex)
+    )) {
+      errors.push(`辅助格 ${row.rowKey} 对应的原表字段不存在`)
+    }
+  })
+  return Array.from(new Set(errors))
+})
+
+const resolveDetailPreviewAssistSubjectLabel = (
+  subjectType: DetailPreviewAssistSubjectType,
+  subjectId: number
+) => {
+  if (subjectType === 'USERS') {
+    const user = selectedProcessTasks.value
+      .flatMap((task) => task.fillableUsers || [])
+      .find((item) => Number(item.userId) === subjectId)
+    return user?.displayName || `个人 ${subjectId}`
+  }
+  return `角色 ${subjectId}`
+}
+
+const buildDetailPreviewAssistGridCellKey = (
+  subjectType: DetailPreviewAssistSubjectType,
+  subjectId: number,
+  rowIndex: number,
+  columnIndex: number
+) => `ASSIST_GRID_${subjectType}${subjectId}_R${rowIndex}_C${columnIndex}`
+
+const selectedPreviewAssistGrids = computed<DetailPreviewAssistGrid[]>(() => {
+  if (selectedPreviewAssistGridErrors.value.length) return []
+  const { rowCount, columnCount } = selectedPreviewAssistGridSize.value
+  if (!rowCount || !columnCount) return []
+  const subjects = new Map<
+    string,
+    {
+      subjectType: DetailPreviewAssistSubjectType
+      subjectId: number
+      fieldMap: Map<string, DetailPreviewAssistField>
+    }
+  >()
+  selectedPreviewAssistGridRows.value.forEach(({ row, gridKey }) => {
+    if (!gridKey) return
+    const sourceField = row.fields[0]
+    const field = selectedPreviewAssistFieldMap.value.get(
+      detailPreviewCellKey(sourceField.rowIndex, sourceField.columnIndex)
+    )
+    if (!field) return
+    if (!subjects.has(gridKey.subjectKey)) {
+      subjects.set(gridKey.subjectKey, {
+        subjectType: gridKey.subjectType,
+        subjectId: gridKey.subjectId,
+        fieldMap: new Map()
+      })
+    }
+    subjects.get(gridKey.subjectKey)?.fieldMap.set(
+      detailPreviewCellKey(gridKey.rowIndex, gridKey.columnIndex),
+      field
+    )
+  })
+  return Array.from(subjects.entries()).map(([subjectKey, subject]) => ({
+    subjectType: subject.subjectType,
+    subjectId: subject.subjectId,
+    subjectKey,
+    subjectLabel: resolveDetailPreviewAssistSubjectLabel(subject.subjectType, subject.subjectId),
+    rowCount,
+    columnCount,
+    rows: Array.from({ length: rowCount }, (_, rowIndex) => ({
+      rowIndex,
+      cells: Array.from({ length: columnCount }, (_, columnIndex) => ({
+        key: buildDetailPreviewAssistGridCellKey(
+          subject.subjectType,
+          subject.subjectId,
+          rowIndex,
+          columnIndex
+        ),
+        rowIndex,
+        columnIndex,
+        field: subject.fieldMap.get(detailPreviewCellKey(rowIndex, columnIndex))
+      }))
+    }))
+  }))
+})
+
+const effectiveDetailPreviewAssistMode = computed(
+  () => detailPreviewAssistMode.value && selectedPreviewAssistRowsConfigured.value
+)
+
 const isSameRouteFormTask = (
   task: EdhrBatchExecutionTaskRespVO,
   execution: EdhrBatchExecutionReviewExecutionRespVO
@@ -1506,7 +2100,8 @@ const routeFormInitialInstanceCode = computed(() =>
 const routeFormInitialInstanceStatus = computed(() => 'DRAFT' as const)
 const routeFormDrawerTitle = computed(() => {
   const task = routeFormOpenedTask.value
-  return task ? `填写表单：${resolveTaskDisplayName(task)}` : '填写动态表单'
+  if (!task) return routeFormReadonly.value ? '查看动态表单' : '填写动态表单'
+  return `${routeFormReadonly.value ? '查看表单' : '填写表单'}：${resolveTaskDisplayName(task)}`
 })
 const routeFormBusinessActionContext = computed<BusinessActionContextVO | null>(() => {
   const batch = detail.value
@@ -1550,6 +2145,8 @@ const routeFormPanelData = computed<Record<string, unknown>>(() => {
     formTemplateName: opened?.formTemplateName || task?.formTemplateName,
     formTemplateVersionId: opened?.formTemplateVersionId || task?.formTemplateVersionId,
     formTemplateVersionNo: opened?.formTemplateVersionNo || task?.formTemplateVersionNo,
+    formTemplateJimuSchemaJson: opened?.formTemplateJimuSchemaJson,
+    formTemplateRecognizedFields: opened?.formTemplateRecognizedFields,
     formCenterInstanceId: routeFormInitialInstanceId.value
   }
 })
@@ -1567,11 +2164,17 @@ const showFieldResponsibilityTab = computed(
 )
 const releaseStatus = computed(() => workbench.value?.releaseSummary?.releaseStatus || 'PRECHECK_REQUIRED')
 const releasePrecheckPassed = computed(() => releaseStatus.value === 'PRECHECK_PASSED')
+const releasePendingApproval = computed(() => releaseStatus.value === 'PENDING_APPROVAL')
+const releaseCanSubmitBatchStatus = computed(
+  () =>
+    batchStatus.value === EDHR_BATCH_STATUS_READY_TO_CLOSE ||
+    batchStatus.value === EDHR_BATCH_STATUS_CLOSED
+)
 const RELEASE_ACTION_LOCKED_MESSAGE = '放行审批中，只能处理放行审批或撤回放行。'
 const releaseActionLocked = computed(
   () =>
     !hasGoldenFingerActionBypass.value &&
-    (detail.value?.releaseActionLocked === true || releaseStatus.value === 'PENDING_APPROVAL')
+    (detail.value?.releaseActionLocked === true || releasePendingApproval.value)
 )
 const releaseActionLockMessage = computed(
   () => detail.value?.releaseActionLockReason || RELEASE_ACTION_LOCKED_MESSAGE
@@ -1584,13 +2187,20 @@ const pendingVoidActionLockMessage = computed(() =>
     : PENDING_VOID_ACTION_LOCKED_MESSAGE
 )
 const edhrReleaseActionProjection = computed(() =>
-  resolveEdhrBatchActionProjection('EDHR_RELEASE', '提交放行', hasReleaseTransaction.value && releasePrecheckPassed.value, {
+  resolveEdhrBatchActionProjection('EDHR_RELEASE', '提交放行', hasReleaseTransaction.value && releasePrecheckPassed.value && releaseCanSubmitBatchStatus.value, {
     locked: releaseActionLocked.value,
-    pending: releaseStatus.value === 'PENDING_APPROVAL',
-    pendingInstanceId: workbench.value?.releaseSummary?.releaseTransactionId,
-    pendingStatus: releaseStatus.value,
+    pending: releasePendingApproval.value,
+    pendingInstanceId:
+      releasePendingApproval.value
+        ? workbench.value?.releaseSummary?.releaseTransactionId
+        : undefined,
+    pendingStatus: releasePendingApproval.value ? releaseStatus.value : undefined,
     lockReason: releaseActionLockMessage.value,
-    disabledReason: hasReleaseTransaction.value ? releaseActionLockMessage.value : '当前批次尚未生成放行事务。'
+    disabledReason: hasReleaseTransaction.value
+      ? releaseCanSubmitBatchStatus.value
+        ? releaseActionLockMessage.value
+        : '当前批次尚未满足放行状态。'
+      : '当前批次尚未生成放行事务。'
   })
 )
 const edhrVoidActionProjection = computed(() =>
@@ -1741,6 +2351,11 @@ const resolveReleaseOwnerRoleLabel = (role?: string | null) => {
 const resolveStageOwnerLabel = (defaultOwner: string) =>
   resolveReleaseOwnerRoleLabel(workbench.value?.stageOwnerRole || detail.value?.stageOwnerRole) || defaultOwner
 
+const resolveReleaseOwnerLabel = () => {
+  const releaseOwnerLabel = String(workbench.value?.releaseSummary?.releaseOwnerLabel || '').trim()
+  return releaseOwnerLabel || '放行责任人未配置'
+}
+
 const resolveReleaseStageKey = (): ReleaseStageKey => {
   if (batchStatus.value === EDHR_BATCH_STATUS_REJECTED) return 'quality-terminal'
   if (batchStatus.value === EDHR_BATCH_STATUS_ARCHIVED) return 'archived'
@@ -1803,7 +2418,7 @@ const resolveReleaseStageViewModel = (stageKey: ReleaseStageKey): ReleaseStageVi
         description: '预检已通过，当前重点是核对预检项并执行拒收或电子签名放行。',
         releaseStatusTitle,
         releaseStatusLabel,
-        nextOwnerLabel: resolveStageOwnerLabel('放行负责人'),
+        nextOwnerLabel: resolveReleaseOwnerLabel(),
         nextStepText: '请确认预检列表后在右侧执行“拒收”或“放行”。'
       }
     case 'archive':
@@ -1827,7 +2442,7 @@ const resolveReleaseStageViewModel = (stageKey: ReleaseStageKey): ReleaseStageVi
         description: '先执行放行预检；预检失败时继续修订后重跑。',
         releaseStatusTitle,
         releaseStatusLabel: resolveStageAwareReleaseStatusSummary('precheck'),
-        nextOwnerLabel: resolveStageOwnerLabel('质量放行责任人'),
+        nextOwnerLabel: resolveReleaseOwnerLabel(),
         nextStepText: '请联系质量放行责任人处理预检失败项或执行放行预检。'
       }
     default:
@@ -1867,14 +2482,34 @@ const releaseStagePanelHint = computed(() =>
 const releaseStageOwnerLabel = computed(
   () =>
     viewedReleaseStageViewModel.value.nextOwnerLabel ||
-    resolveReleaseOwnerRoleLabel(workbench.value?.stageOwnerRole || detail.value?.stageOwnerRole) ||
     '当前阶段责任人'
 )
+
+const clearReleaseActionErrorAutoHideTimer = () => {
+  if (!releaseActionErrorAutoHideTimer) return
+  window.clearTimeout(releaseActionErrorAutoHideTimer)
+  releaseActionErrorAutoHideTimer = undefined
+}
+
+const clearReleaseActionError = () => {
+  clearReleaseActionErrorAutoHideTimer()
+  releaseActionError.value = ''
+}
+
+const showReleaseActionError = (errorText: string) => {
+  clearReleaseActionErrorAutoHideTimer()
+  releaseActionError.value = errorText
+  releaseActionErrorAutoHideTimer = window.setTimeout(() => {
+    if (releaseActionError.value === errorText) {
+      clearReleaseActionError()
+    }
+  }, RELEASE_ACTION_ERROR_AUTO_HIDE_DELAY_MS)
+}
 
 const ensureViewedReleaseStageWritable = (targetText = '当前动作') => {
   if (canUseViewedReleaseStageActions.value) return true
   const errorText = `${viewedReleaseStageReadonlyMessage.value}${targetText}仅允许在当前流程阶段执行。`
-  releaseActionError.value = errorText
+  showReleaseActionError(errorText)
   releaseSignatureError.value = errorText
   message.error(errorText)
   return false
@@ -2207,6 +2842,7 @@ type SignoffSummaryRecord = {
   signedAtSort: number
 }
 
+
 type TraceRecordFieldResponsibilityEntry = {
   key: string
   executionId: number
@@ -2235,25 +2871,63 @@ const appendDefinedQuery = (query: Record<string, string>, key: string, value: u
   query[key] = String(value)
 }
 
+type RecordbookEnabledContext = {
+  recordCategory?: string | null
+  recordbookEnabled?: boolean | null
+}
+
 const resolveRecordCategoryFromContext = () =>
   selectedTaskForEvidence.value?.recordCategory ||
   selectedTaskForExecution.value?.recordCategory ||
   selectedExecution.value?.recordCategory
 
-const resolveFillCarrier = (recordCategory?: string): FillCarrier => {
-  if (recordCategory === 'BATCH_RECORD') return 'FORM'
+const isRecordbookEnabledForContext = (context?: RecordbookEnabledContext) => {
+  if (!context) return false
+  if (context.recordCategory === 'INTERNAL_RECORD') return context.recordbookEnabled !== false
+  if (context.recordCategory !== 'BATCH_RECORD') return false
+  return context.recordbookEnabled !== false
+}
+
+const resolveRecordbookEnabledFromContext = () => {
+  const contexts: Array<RecordbookEnabledContext | undefined> = [
+    selectedTaskForEvidence.value,
+    selectedTaskForExecution.value,
+    selectedExecution.value
+  ]
+  return contexts.some(isRecordbookEnabledForContext)
+}
+
+const isRecordbookEnabledForCurrentTask = computed(() => resolveRecordbookEnabledFromContext())
+const isGlobalRecordbookEnabled = computed(
+  () => recordbookGlobalEnabled.value && resolveRecordbookEnabledFromContext()
+)
+
+const resolveFillCarrier = (recordCategory?: string, recordbookEnabled = false): FillCarrier => {
+  if (recordCategory === 'BATCH_RECORD') return recordbookEnabled ? 'RECORDBOOK' : 'FORM'
   if (recordCategory === 'INTERNAL_RECORD') return 'RECORDBOOK'
   return 'UNCONFIGURED'
 }
 
 const currentProcessFillCarrier = computed<FillCarrier>(() => {
+  if (!isGlobalRecordbookEnabled.value) return 'FORM'
+  if (selectedFillCarrier.value === 'RECORDBOOK' && !isRecordbookEnabledForCurrentTask.value) {
+    return 'FORM'
+  }
   if (selectedFillCarrier.value) return selectedFillCarrier.value
-  return resolveFillCarrier(resolveRecordCategoryFromContext())
+  return resolveFillCarrier(resolveRecordCategoryFromContext(), isRecordbookEnabledForCurrentTask.value)
 })
 
 const selectFillCarrier = (fillCarrier: Exclude<FillCarrier, 'UNCONFIGURED'>) => {
   const row = selectedTaskForEvidence.value
   if (!row || isSpecialNode(row)) return
+  if (fillCarrier === 'RECORDBOOK' && !isGlobalRecordbookEnabled.value) {
+    message.error('记录本全局开关已关闭，只能使用批记录模式。')
+    return
+  }
+  if (fillCarrier === 'RECORDBOOK' && !isRecordbookEnabledForCurrentTask.value) {
+    message.error('当前任务已禁用记录本，只能使用批记录模式。')
+    return
+  }
   selectedFillCarrier.value = fillCarrier
 }
 
@@ -2305,6 +2979,12 @@ const resolveFillCarrierLabel = (fillCarrier?: FillCarrier) => {
 }
 
 const resolveCurrentBatchRecordNo = () => {
+  const selectedTask = selectedTaskForEvidence.value
+  if (selectedTask && isSpecialNode(selectedTask)) {
+    const selectedTaskName = resolveTaskDisplayName(selectedTask)
+    if (selectedTaskName && selectedTaskName !== '--') return selectedTaskName
+  }
+
   const candidates = [
     selectedExecution.value?.batchRecordReportName,
     selectedTaskForEvidence.value?.batchRecordReportName,
@@ -2441,7 +3121,8 @@ const selectedProcessEvidenceItems = computed<ProcessEvidenceItem[]>(() => {
       path: '/mes/pro/feedback/edhr-operation-audit',
       query: buildSelectedProcessEvidenceQuery({
         objectType: 'BATCH_RECORD_EXECUTION',
-        objectId: executionId
+        objectId: executionId,
+        hideRecordbookMode: !isRecordbookEnabledForCurrentTask.value ? 'true' : undefined
       }),
       disabled: executionRequired
     },
@@ -2490,19 +3171,25 @@ const selectedProcessEvidenceItems = computed<ProcessEvidenceItem[]>(() => {
       path: '/mes/pro/feedback/edhr-form',
       query: buildSelectedProcessEvidenceQuery()
     },
-    {
-      key: 'recordbook',
-      label: '记录本填写',
-      description: '在当前批次执行表单中按记录本方式不受控填写。',
-      path: '/mes/pro/feedback/edhr-execution/form',
-      query: buildSelectedProcessEvidenceQuery({
-        id: executionId,
-        executionId,
-        ...buildFillCarrierExecutionQuery('RECORDBOOK'),
-        returnPath: '/mes/pro/feedback/edhr-batch-execution/detail'
-      }),
-      disabled: executionRequired
-    }
+    ...(
+      isRecordbookEnabledForCurrentTask.value
+        ? [
+            {
+              key: 'recordbook',
+              label: '记录本填写',
+              description: '在当前批次执行表单中按记录本方式不受控填写。',
+              path: '/mes/pro/feedback/edhr-execution/form',
+              query: buildSelectedProcessEvidenceQuery({
+                id: executionId,
+                executionId,
+                ...buildFillCarrierExecutionQuery('RECORDBOOK'),
+                returnPath: '/mes/pro/feedback/edhr-batch-execution/detail'
+              }),
+              disabled: executionRequired
+            }
+          ]
+        : []
+    )
   ]
 })
 
@@ -2701,6 +3388,7 @@ const isSterilizationNode = (row?: EdhrBatchExecutionTaskRespVO) =>
   row?.nodeType === EDHR_BATCH_NODE_STERILIZATION_REPORT
 
 const resolveTaskDisplayName = (row: EdhrBatchExecutionTaskRespVO) =>
+  (isSpecialNode(row) && row.nodeType ? specialNodeLabels[row.nodeType] : '') ||
   row.formTemplateName ||
   row.batchRecordReportName ||
   row.batchRecordReportCode ||
@@ -2708,6 +3396,13 @@ const resolveTaskDisplayName = (row: EdhrBatchExecutionTaskRespVO) =>
   (row.nodeType ? specialNodeLabels[row.nodeType] : '') ||
   row.processName ||
   '--'
+
+const resolveTaskCardDisplayName = (row: EdhrBatchExecutionTaskRespVO) => {
+  const name = resolveTaskDisplayName(row)
+  const isDraft = row.status === EDHR_BATCH_TASK_STATUS_DRAFT
+  if (!isDraft || name === '--') return name
+  return `${name}*`
+}
 
 const resolvePendingTaskTitle = (row: EdhrBatchExecutionTaskRespVO) =>
   isSpecialNode(row)
@@ -2775,6 +3470,7 @@ const resolveFillerNames = (
     .join('、')
 
 const selectedTaskBelongsToCurrentProcess = (row: EdhrBatchExecutionTaskRespVO) => {
+  if (isProductInfoProcessTask(row)) return false
   const currentRouteProcessId = detail.value?.currentProcessRouteProcessId
   if (currentRouteProcessId != null && row.routeProcessId === currentRouteProcessId) return true
   const currentProcessCode = String(detail.value?.currentProcessCode || '').trim()
@@ -2814,6 +3510,7 @@ const resolveTaskCardFillersText = (row: EdhrBatchExecutionTaskRespVO) => {
   )
   return names.length ? names.join('、') : '未配置'
 }
+
 
 const selectedSpecialNodeForEvidence = computed(() => {
   const task = selectedTaskForEvidence.value
@@ -2964,8 +3661,9 @@ const ensurePendingSpecialNodeAttachmentsSavedBeforeRelease = async () => {
   if (pendingSpecialNodeAttachmentCount.value <= 0) return true
   const batchExecutionId = detail.value?.id
   if (!batchExecutionId) {
-    releaseActionError.value = '当前批次不存在，无法保存待提交附件。'
-    message.error(releaseActionError.value)
+    const errorText = '当前批次不存在，无法保存待提交附件。'
+    showReleaseActionError(errorText)
+    message.error(errorText)
     return false
   }
   try {
@@ -2979,8 +3677,9 @@ const ensurePendingSpecialNodeAttachmentsSavedBeforeRelease = async () => {
       }
     )
   } catch (error) {
-    releaseActionError.value = '已取消放行操作，待提交附件尚未保存。'
-    message.warning(releaseActionError.value)
+    const warningText = '已取消放行操作，待提交附件尚未保存。'
+    showReleaseActionError(warningText)
+    message.warning(warningText)
     return false
   }
   try {
@@ -2992,8 +3691,9 @@ const ensurePendingSpecialNodeAttachmentsSavedBeforeRelease = async () => {
     await loadDetail()
     return true
   } catch (error) {
-    releaseActionError.value = resolveErrorMessage(error, '待提交特殊节点附件保存失败，已中止放行操作。')
-    message.error(releaseActionError.value)
+    const errorText = resolveErrorMessage(error, '待提交特殊节点附件保存失败，已中止放行操作。')
+    showReleaseActionError(errorText)
+    message.error(errorText)
     return false
   }
 }
@@ -3023,7 +3723,8 @@ const syncSpecialNodePendingAttachmentsFromDetail = (nextDetail?: EdhrBatchExecu
   }
 }
 
-const isOptionalTask = (row: EdhrBatchExecutionTaskRespVO) => !isSpecialNode(row) && !isRequiredBatchRecordTask(row)
+const isOptionalTask = (row: EdhrBatchExecutionTaskRespVO) =>
+  !isSpecialNode(row) && isOptionalRouteFormTask(row)
 
 const currentSkipTaskIsOptional = computed(() =>
   currentSpecialNode.value ? isOptionalTask(currentSpecialNode.value) : false
@@ -3065,9 +3766,33 @@ const isCompletedProcessTask = (row: EdhrBatchExecutionTaskRespVO) =>
   row.status === EDHR_BATCH_TASK_STATUS_APPROVED ||
   row.status === EDHR_BATCH_TASK_STATUS_SKIPPED
 
+const normalizeProcessIdentityText = (value?: string | number | null) => String(value ?? '').trim()
+
+const isProductInfoProcessGroup = (group: ProcessTaskGroup) =>
+  group.tasks.some(isProductInfoProcessTask)
+
+const isCurrentExecutableProcessGroup = (group: ProcessTaskGroup) => {
+  if (isProductInfoProcessGroup(group)) return false
+  return group.tasks.some(
+    (task) => task.available === true && !isCompletedProcessTask(task) && !isOptionalTask(task)
+  )
+}
+
+const isCurrentProcessGroup = (group: ProcessTaskGroup) => {
+  if (isProductInfoProcessGroup(group)) return false
+  const currentRouteProcessId = detail.value?.currentProcessRouteProcessId
+  if (currentRouteProcessId != null && group.routeProcessId === currentRouteProcessId) return true
+  const currentProcessCode = normalizeProcessIdentityText(detail.value?.currentProcessCode)
+  if (currentProcessCode && currentProcessCode === normalizeProcessIdentityText(group.processCode)) return true
+  const currentProcessName = normalizeProcessIdentityText(detail.value?.currentProcessName)
+  if (currentProcessName && currentProcessName === normalizeProcessIdentityText(group.processName)) return true
+  return false
+}
+
 const resolveProcessGroupStateClass = (group: ProcessTaskGroup) => {
   const requiredTasks = group.tasks.filter((task) => !isOptionalTask(task))
   if (!requiredTasks.length || requiredTasks.every(isCompletedProcessTask)) return 'is-completed'
+  if (isCurrentExecutableProcessGroup(group) || isCurrentProcessGroup(group)) return 'is-in-progress'
   const hasStartedTask = requiredTasks.some(
     (task) => task.status != null && task.status !== EDHR_BATCH_TASK_STATUS_WAITING
   )
@@ -3108,10 +3833,17 @@ const canOpenTask = (row: EdhrBatchExecutionTaskRespVO) =>
   !resolveTaskSlotBlocker(row) &&
   row.available !== false &&
   row.status !== EDHR_BATCH_TASK_STATUS_BLOCKED &&
-  row.status !== EDHR_BATCH_TASK_STATUS_APPROVED &&
   row.status !== EDHR_BATCH_TASK_STATUS_SKIPPED &&
   hasActiveWorkTask(row) &&
   hasAllowedTaskAction(row, 'OPEN_FORM')
+
+const canAutoOpenRouteFormTask = (row: EdhrBatchExecutionTaskRespVO) =>
+  !isSpecialNode(row) &&
+  !resolveTaskSlotBlocker(row) &&
+  row.available !== false &&
+  row.status !== EDHR_BATCH_TASK_STATUS_BLOCKED &&
+  row.status !== EDHR_BATCH_TASK_STATUS_SKIPPED &&
+  hasActiveWorkTask(row)
 
 const canTakeOverFillTask = (row: EdhrBatchExecutionTaskRespVO) =>
   canUseFlowTransferIntervention.value &&
@@ -3144,8 +3876,15 @@ const canSkipOptionalTask = (row: EdhrBatchExecutionTaskRespVO) =>
   detail.value?.status !== EDHR_BATCH_STATUS_ARCHIVED &&
   detail.value?.status !== EDHR_BATCH_STATUS_REJECTED
 
+const canViewRouteFormTask = (row: EdhrBatchExecutionTaskRespVO) =>
+  !isSpecialNode(row) &&
+  !resolveTaskSlotBlocker(row) &&
+  Boolean(row.formTemplateId || row.batchRecordReportId || row.formCenterInstanceId || row.executionId)
+
 const canHandlePendingTask = (row: EdhrBatchExecutionTaskRespVO) =>
-  isSpecialNode(row) ? canOperateSpecialNode(row) : canOpenTask(row) || canSkipOptionalTask(row)
+  isSpecialNode(row)
+    ? canOperateSpecialNode(row)
+    : canOpenTask(row) || canSkipOptionalTask(row) || canViewRouteFormTask(row)
 
 const canUploadSpecialNodeAttachment = (row: EdhrBatchExecutionTaskRespVO) =>
   isSpecialNode(row) &&
@@ -3173,6 +3912,7 @@ const resolveOpenTaskActionLabel = (row: EdhrBatchExecutionTaskRespVO) =>
 const resolvePendingTaskActionLabel = (row: EdhrBatchExecutionTaskRespVO) => {
   if (!isSpecialNode(row)) {
     if (!canOpenTask(row) && canSkipOptionalTask(row)) return '跳过表单'
+    if (!canOpenTask(row) && canViewRouteFormTask(row)) return '查看表单'
     return resolveOpenTaskActionLabel(row)
   }
   if (isSterilizationNode(row)) return '完成节点'
@@ -3221,9 +3961,21 @@ const clearTaskPreview = () => {
   taskPreviewLoading.value = false
 }
 
+const isDynamicRouteFormPreviewTask = (task: EdhrBatchExecutionTaskRespVO) =>
+  !isSpecialNode(task) &&
+  !task.batchRecordReportId &&
+  Boolean(task.formBindingKey) &&
+  Boolean(task.formTemplateId) &&
+  Boolean(task.formTemplateVersionId) &&
+  Boolean(task.formCenterInstanceId)
+
+const shouldLoadTaskPreview = (task: EdhrBatchExecutionTaskRespVO) =>
+  !isSpecialNode(task) &&
+  (Boolean(task.batchRecordReportId) || isDynamicRouteFormPreviewTask(task))
+
 const loadTaskPreview = async (task: EdhrBatchExecutionTaskRespVO) => {
   clearTaskPreview()
-  if (isSpecialNode(task)) return
+  if (!shouldLoadTaskPreview(task)) return
   const requestSerial = taskPreviewRequestSerial
   taskPreviewLoading.value = true
   try {
@@ -3233,7 +3985,7 @@ const loadTaskPreview = async (task: EdhrBatchExecutionTaskRespVO) => {
     }
   } catch (error) {
     if (requestSerial === taskPreviewRequestSerial && selectedTaskId.value === String(task.id)) {
-      taskPreviewError.value = resolveErrorMessage(error, '批记录表单只读预览加载失败。')
+      taskPreviewError.value = resolveErrorMessage(error, '表单只读预览加载失败。')
     }
   } finally {
     if (requestSerial === taskPreviewRequestSerial) {
@@ -3258,9 +4010,9 @@ const selectProcessTask = (task: EdhrBatchExecutionTaskRespVO) => {
   selectedReleaseStep.value = false
   viewedReleaseStageKey.value = undefined
   selectedTaskId.value = String(task.id)
-  const matchedExecution = executionReviews.value.find((execution) => isSameRouteFormTask(task, execution))
+  const matchedExecution = submittedExecutionReviews.value.find((execution) => isSameRouteFormTask(task, execution))
   selectedExecutionId.value = matchedExecution ? String(matchedExecution.executionId || '') : ''
-  if (!matchedExecution) {
+  if (!matchedExecution?.formViewModel && shouldLoadTaskPreview(task)) {
     void loadTaskPreview(task)
   }
 }
@@ -3300,7 +4052,7 @@ const applyRouteFocus = () => {
     processDetailDialogVisible.value = true
     return
   }
-  if (focus === 'approval') {
+  if (focus === 'precheck' || focus === 'approval') {
     void openReleaseCheckGroup()
   }
 }
@@ -3311,10 +4063,10 @@ const resolveDefaultTaskSelection = () =>
   sortedTasks.value[0]
 
 const applyInitialBatchTaskSelection = () => {
-  clearTaskPreview()
-  if (resolveDetailFocus() === 'approval') {
+  const focus = resolveDetailFocus()
+  if (focus === 'precheck' || focus === 'approval') {
     selectReleaseProcess()
-    viewedReleaseStageKey.value = 'release-approval'
+    viewedReleaseStageKey.value = focus === 'precheck' ? 'precheck' : 'release-approval'
     return
   }
   selectedExecutionId.value = ''
@@ -3322,28 +4074,55 @@ const applyInitialBatchTaskSelection = () => {
   selectedReleaseStep.value = !selectedTaskId.value
 }
 
+const resolveRouteFormAutoOpenKey = () => {
+  if (parseRouteQueryText(route.query.openRouteForm) !== '1') return ''
+  const queryBatchTaskId = parsePositiveRouteQueryId(route.query.batchTaskId)
+  const queryWorkTaskId = parsePositiveRouteQueryId(route.query.workTaskId)
+  if (!queryBatchTaskId && !queryWorkTaskId) return ''
+  return `${batchExecutionId.value || ''}:${queryBatchTaskId || ''}:${queryWorkTaskId || ''}`
+}
+
+const resolveRouteFormAssistUserId = (row: EdhrBatchExecutionTaskRespVO) => {
+  if (parseRouteQueryText(route.query.openRouteForm) !== '1') return undefined
+  const queryBatchTaskId = parsePositiveRouteQueryId(route.query.batchTaskId)
+  const queryWorkTaskId = parsePositiveRouteQueryId(route.query.workTaskId)
+  if (queryBatchTaskId && !sameRouteQueryId(row.id, queryBatchTaskId)) return undefined
+  if (queryWorkTaskId && !sameRouteQueryId(row.activeWorkTaskId, queryWorkTaskId)) return undefined
+  return parsePositiveRouteQueryId(route.query.assistUserId) || undefined
+}
+
+const autoOpenRouteFormFromRoute = async () => {
+  if (parseRouteQueryText(route.query.openRouteForm) !== '1') return
+  const routeQueryTask = resolveRouteQueryTaskSelection()
+  if (!routeQueryTask || !canAutoOpenRouteFormTask(routeQueryTask)) return
+  const autoOpenKey = resolveRouteFormAutoOpenKey()
+  if (!autoOpenKey || routeFormAutoOpenKey === autoOpenKey) return
+  routeFormAutoOpenKey = autoOpenKey
+  await handleOpenTask(routeQueryTask)
+}
+
 const loadReviewTimeline = async (requestSerial?: number) => {
   if (isStaleBatchDetailRequest(requestSerial)) return
   reviewLoading.value = true
   reviewError.value = ''
-  clearTaskPreview()
   const previousSelectedExecutionId = selectedExecutionId.value
   try {
     const nextReviewTimeline = await getEdhrBatchReviewTimeline(assertBatchExecutionId())
     if (isStaleBatchDetailRequest(requestSerial)) return
     reviewTimeline.value = nextReviewTimeline
-    if (resolveDetailFocus() === 'approval') {
+    const focus = resolveDetailFocus()
+    if (focus === 'precheck' || focus === 'approval') {
       selectReleaseProcess()
-      viewedReleaseStageKey.value = 'release-approval'
+      viewedReleaseStageKey.value = focus === 'precheck' ? 'precheck' : 'release-approval'
       return
     }
     const routeQueryTask = resolveRouteQueryTaskSelection()
     const defaultTask = resolveDefaultTaskSelection()
     const nextSelectedExecution = routeQueryTask
       ? undefined
-      : executionReviews.value.find(
+      : submittedExecutionReviews.value.find(
         (execution) => String(execution.executionId) === previousSelectedExecutionId
-      ) || (defaultTask && canOpenTask(defaultTask) ? undefined : executionReviews.value[0])
+      ) || (defaultTask && canOpenTask(defaultTask) ? undefined : submittedExecutionReviews.value[0])
     selectedExecutionId.value = nextSelectedExecution ? String(nextSelectedExecution.executionId) : ''
     selectedTaskId.value = routeQueryTask
       ? String(routeQueryTask.id)
@@ -3354,22 +4133,22 @@ const loadReviewTimeline = async (requestSerial?: number) => {
     const previewTask = selectedTaskId.value
       ? sortedTasks.value.find((task) => String(task.id) === selectedTaskId.value)
       : undefined
-    if (previewTask && !nextSelectedExecution) {
+    if (previewTask && !nextSelectedExecution?.formViewModel) {
       deferTaskPreviewLoad(previewTask)
     }
   } catch (error) {
     if (isStaleBatchDetailRequest(requestSerial)) return
     reviewTimeline.value = undefined
     selectedExecutionId.value = ''
-    if (resolveDetailFocus() === 'approval') {
+    const focus = resolveDetailFocus()
+    if (focus === 'precheck' || focus === 'approval') {
       selectReleaseProcess()
-      viewedReleaseStageKey.value = 'release-approval'
-      selectedTaskPreview.value = undefined
+      viewedReleaseStageKey.value = focus === 'precheck' ? 'precheck' : 'release-approval'
       return
     }
     selectedTaskId.value = String(resolveRouteQueryTaskSelection()?.id || resolveDefaultTaskSelection()?.id || '')
     selectedReleaseStep.value = !selectedTaskId.value
-    selectedTaskPreview.value = undefined
+    clearTaskPreview()
     reviewError.value = resolveErrorMessage(error, '电子批记录批次复盘时间线加载失败。')
   } finally {
     if (isStaleBatchDetailRequest(requestSerial)) return
@@ -3384,6 +4163,7 @@ const cancelDeferredBatchDetailSecondaryLoad = () => {
 }
 
 const loadBatchDetailSecondaryData = async (id: string | number, requestSerial: number) => {
+  secondaryLoadError.value = ''
   try {
     const nextWorkbench = await getEdhrBatchWorkbench(id)
     if (isStaleBatchDetailRequest(requestSerial)) return
@@ -3394,12 +4174,13 @@ const loadBatchDetailSecondaryData = async (id: string | number, requestSerial: 
     if (selectedReleaseStep.value) {
       await loadReleaseCheckItems()
     }
+    await autoOpenRouteFormFromRoute()
   } catch (error) {
     if (isStaleBatchDetailRequest(requestSerial)) return
     workbench.value = undefined
     reviewTimeline.value = undefined
     clearTaskPreview()
-    loadError.value = resolveErrorMessage(error, '电子批记录批次辅助数据加载失败。')
+    secondaryLoadError.value = resolveErrorMessage(error, '电子批记录批次辅助数据加载失败。')
   }
 }
 
@@ -3415,8 +4196,10 @@ const deferInitialBatchDetailSecondaryLoad = (id: string | number, requestSerial
 const loadDetail = async () => {
   const requestSerial = ++batchDetailRequestSerial
   cancelDeferredBatchDetailSecondaryLoad()
+  clearTaskPreview()
   loading.value = true
   loadError.value = ''
+  secondaryLoadError.value = ''
   try {
     const id = assertBatchExecutionId()
     workbench.value = undefined
@@ -3646,20 +4429,22 @@ const openBatchHistoryPage = async () => {
 const handleReleasePrecheck = async () => {
   if (!ensureViewedReleaseStageWritable('执行放行预检')) return
   if (!canRunReleasePrecheck.value) {
-    releaseActionError.value = batchActionLocked.value ? batchActionLockMessage.value : '当前批次不存在，无法执行放行预检。'
-    message.error(releaseActionError.value)
+    const errorText = batchActionLocked.value ? batchActionLockMessage.value : '当前批次不存在，无法执行放行预检。'
+    showReleaseActionError(errorText)
+    message.error(errorText)
     return
   }
   const batchExecutionId = detail.value?.id
   if (!batchExecutionId) {
-    releaseActionError.value = '当前批次不存在，无法执行放行预检。'
-    message.error(releaseActionError.value)
+    const errorText = '当前批次不存在，无法执行放行预检。'
+    showReleaseActionError(errorText)
+    message.error(errorText)
     return
   }
   const pendingAttachmentsSaved = await ensurePendingSpecialNodeAttachmentsSavedBeforeRelease()
   if (!pendingAttachmentsSaved) return
   releasePrecheckLoading.value = true
-  releaseActionError.value = ''
+  clearReleaseActionError()
   try {
     await precheckEdhrRelease({ batchExecutionId })
     message.success('放行预检已完成')
@@ -3668,8 +4453,9 @@ const handleReleasePrecheck = async () => {
     await loadBatchDetailSecondaryData(batchExecutionId, batchDetailRequestSerial)
     await loadReleaseCheckItems()
   } catch (error) {
-    releaseActionError.value = resolveErrorMessage(error, '当前批次放行预检失败。')
-    message.error(releaseActionError.value)
+    const errorText = resolveErrorMessage(error, '当前批次放行预检失败。')
+    showReleaseActionError(errorText)
+    message.error(errorText)
   } finally {
     releasePrecheckLoading.value = false
   }
@@ -3681,7 +4467,7 @@ const loadReleaseCheckItems = async () => {
     releaseCheckItems.value = []
     return
   }
-  releaseActionError.value = ''
+  clearReleaseActionError()
   releaseCheckLoading.value = true
   try {
     const page = await getEdhrReleaseCheckItemPage({
@@ -3694,8 +4480,9 @@ const loadReleaseCheckItems = async () => {
     releaseCheckItems.value = page.list || []
   } catch (error) {
     releaseCheckItems.value = []
-    releaseActionError.value = resolveErrorMessage(error, '放行预检项加载失败。')
-    message.error(releaseActionError.value)
+    const errorText = resolveErrorMessage(error, '放行预检项加载失败。')
+    showReleaseActionError(errorText)
+    message.error(errorText)
   } finally {
     releaseCheckLoading.value = false
   }
@@ -3708,7 +4495,7 @@ const openReleaseCheckGroup = async () => {
 
 const openTraceRecordGroup = () => {
   traceRecordTab.value = 'release'
-  releaseActionError.value = ''
+  clearReleaseActionError()
   traceRecordDrawerVisible.value = true
 }
 
@@ -3867,15 +4654,31 @@ const handleOpenTask = async (
   row: EdhrBatchExecutionTaskRespVO,
   fillCarrier: Exclude<FillCarrier, 'UNCONFIGURED'> = 'FORM'
 ) => {
+  const effectiveFillCarrier =
+    !isGlobalRecordbookEnabled.value || (fillCarrier === 'RECORDBOOK' && !isRecordbookEnabledForContext(row))
+      ? 'FORM'
+      : fillCarrier
   try {
+    routeFormReadonly.value = false
     if (!row.activeWorkTaskId) {
       throw new Error('当前工序缺少可填写工作任务，无法打开。')
     }
     const opened = await openEdhrBatchTask({
       batchExecutionId: assertBatchExecutionId(),
       taskId: row.id,
-      workTaskId: row.activeWorkTaskId
+      workTaskId: row.activeWorkTaskId,
+      assistUserId: resolveRouteFormAssistUserId(row)
     })
+    if (
+      opened.formCenterInstanceId &&
+      opened.formTemplateId &&
+      opened.instanceScope === 'BATCH_SHARED' &&
+      opened.status === EDHR_BATCH_TASK_STATUS_APPROVED
+    ) {
+      message.success('共享表单已生效，当前任务已自动完成')
+      await loadDetail()
+      return
+    }
     if (opened.formCenterInstanceId && opened.formTemplateId) {
       routeFormOpenedTask.value = {
         ...row,
@@ -3895,19 +4698,31 @@ const handleOpenTask = async (
     await router.push({
       path: '/mes/pro/feedback/edhr-execution/form',
       query: {
-        ...(opened.executionPageQuery || {}),
+        ...stringifyEdhrExecutionPageQuery(opened.executionPageQuery),
         id: String(opened.executionId),
         batchExecutionId: String(assertBatchExecutionId()),
         batchTaskId: String(row.id),
         executionId: String(opened.executionId),
         ...(openedWorkTaskId ? { workTaskId: String(openedWorkTaskId) } : {}),
-        ...buildFillCarrierExecutionQuery(fillCarrier),
+        ...buildFillCarrierExecutionQuery(effectiveFillCarrier),
         returnPath: '/mes/pro/feedback/edhr-batch-execution/detail'
       }
     })
   } catch (error) {
     message.error(resolveErrorMessage(error, '工序任务打开失败。'))
   }
+}
+
+const openReadonlyRouteFormTask = (row: EdhrBatchExecutionTaskRespVO) => {
+  selectProcessTask(row)
+  if (row.formTemplateId || row.formCenterInstanceId) {
+    routeFormReadonly.value = true
+    routeFormOpenedTask.value = { ...row }
+    routeFormOpenResp.value = undefined
+    routeFormDrawerVisible.value = true
+    return
+  }
+  message.info('已切换到只读预览。')
 }
 
 const buildSha256Hex = async (value: string) => {
@@ -4159,11 +4974,11 @@ const openPendingTaskByFillCarrier = async (row: EdhrBatchExecutionTaskRespVO, f
     message.error(resolveTaskGateText(row) || '当前工序尚未满足处理条件。')
     return
   }
-  if (fillCarrier === 'RECORDBOOK') {
+  if (fillCarrier === 'RECORDBOOK' && isGlobalRecordbookEnabled.value && isRecordbookEnabledForContext(row)) {
     await handleOpenTask(row, 'RECORDBOOK')
     return
   }
-  await handlePendingTaskAction(row)
+  await handleOpenTask(row, 'FORM')
 }
 
 const handleSelectedPendingTaskAction = async (row: EdhrBatchExecutionTaskRespVO) => {
@@ -4173,6 +4988,10 @@ const handleSelectedPendingTaskAction = async (row: EdhrBatchExecutionTaskRespVO
   }
   if (!canOpenTask(row) && canSkipOptionalTask(row)) {
     await handleSkipOptionalTask(row)
+    return
+  }
+  if (!canOpenTask(row) && canViewRouteFormTask(row)) {
+    openReadonlyRouteFormTask(row)
     return
   }
   const fillCarrier = currentProcessFillCarrier.value
@@ -4193,7 +5012,14 @@ const handlePendingTaskAction = async (row: EdhrBatchExecutionTaskRespVO) => {
       await handleSkipOptionalTask(row)
       return
     }
-    await handleOpenTask(row, resolveFillCarrier(row.recordCategory) === 'RECORDBOOK' ? 'RECORDBOOK' : 'FORM')
+    if (!canOpenTask(row) && canViewRouteFormTask(row)) {
+      openReadonlyRouteFormTask(row)
+      return
+    }
+    await handleOpenTask(
+      row,
+      resolveFillCarrier(row.recordCategory, isRecordbookEnabledForContext(row)) === 'RECORDBOOK' ? 'RECORDBOOK' : 'FORM'
+    )
     return
   }
   if (isSterilizationNode(row)) {
@@ -4231,14 +5057,30 @@ const cleanupDeferredBatchDetailLoads = () => {
   cancelDeferredTaskPreviewLoad()
 }
 
-onMounted(() => {
+const loadRecordbookGlobalSetting = async () => {
+  if (!hasGoldenFingerPermission.value) return
+  const setting = await getEdhrRecordbookGlobalSetting()
+  recordbookGlobalEnabled.value = setting.enabled === true
+}
+
+const initializeBatchDetailPage = async () => {
   activateFullHeightLayout()
-  loadDetail()
+  try {
+    await loadRecordbookGlobalSetting()
+    await loadDetail()
+  } catch (error) {
+    loadError.value = resolveErrorMessage(error, '记录本全局开关加载失败。')
+  }
+}
+
+onMounted(() => {
+  void initializeBatchDetailPage()
 })
 onActivated(activateFullHeightLayout)
 onDeactivated(deactivateFullHeightLayout)
 onBeforeUnmount(deactivateFullHeightLayout)
 onBeforeUnmount(cleanupDeferredBatchDetailLoads)
+onBeforeUnmount(clearReleaseActionErrorAutoHideTimer)
 watch(
   () => [route.name, route.query.id] as const,
   ([routeName, routeId]) => {
@@ -4768,6 +5610,186 @@ watch(
   border-bottom: 1px solid #e5ebf3;
 }
 
+.edhr-batch-detail__preview-mode-switch {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  align-items: center;
+  justify-content: end;
+  column-gap: 8px;
+  row-gap: 4px;
+  border: 1px solid #dbe3ef;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.edhr-batch-detail__preview-mode-label {
+  color: #263247;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.edhr-batch-detail__preview-mode-disabled {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dbe3ef;
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.edhr-batch-detail__assist-preview {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  min-height: 360px;
+  background: #f8fafc;
+}
+
+.edhr-batch-detail__assist-preview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 12px 14px;
+}
+
+.edhr-batch-detail__assist-preview-head strong {
+  display: block;
+  color: #172033;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.edhr-batch-detail__assist-preview-head span {
+  display: block;
+  margin-top: 4px;
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.edhr-batch-detail__assist-grid-list {
+  display: grid;
+  gap: 16px;
+}
+
+.edhr-batch-detail__assist-grid-group {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.edhr-batch-detail__assist-grid-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #5a3d05;
+  padding: 0 2px;
+}
+
+.edhr-batch-detail__assist-grid-meta strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.edhr-batch-detail__assist-grid-surface {
+  min-width: 0;
+  overflow: auto;
+  border: 1px solid #f0d783;
+  border-radius: 8px;
+  background: #fff8d6;
+  padding: 8px;
+}
+
+.edhr-batch-detail__assist-grid {
+  min-width: 720px;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 8px;
+  table-layout: fixed;
+}
+
+.edhr-batch-detail__assist-grid td {
+  padding: 0;
+  vertical-align: stretch;
+}
+
+.edhr-batch-detail__assist-grid-cell {
+  display: flex;
+  min-height: 96px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #edd07b;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #5a3d05;
+  padding: 10px;
+  text-align: left;
+}
+
+.edhr-batch-detail__assist-grid-cell.is-mapped {
+  border-color: #d9a821;
+  background: #ffffff;
+}
+
+.edhr-batch-detail__assist-grid-cell.is-empty {
+  color: #9b7b2a;
+}
+
+.edhr-batch-detail__assist-grid-cell span {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  color: #172033;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.edhr-batch-detail__assist-grid-cell.is-empty span {
+  color: #9b7b2a;
+  font-weight: 600;
+}
+
+.edhr-batch-detail__assist-grid-cell small {
+  min-width: 0;
+  overflow: hidden;
+  color: #8a6a1c;
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edhr-batch-detail__assist-grid-cell em {
+  align-self: flex-start;
+  border-radius: 8px;
+  background: #fff4c2;
+  color: #785a0b;
+  font-size: 11px;
+  font-style: normal;
+  padding: 2px 8px;
+}
+
 .edhr-batch-detail__rail-process-form-list {
   display: grid;
   gap: 6px;
@@ -4794,18 +5816,8 @@ watch(
 
 .edhr-batch-detail__rail-process-form-item.is-active {
   border-color: #1677ff;
-  background: #eef5ff;
+  background: #fff8e6;
   box-shadow: inset 3px 0 0 #1677ff;
-}
-
-.edhr-batch-detail__rail-execution-code {
-  min-width: 0;
-  color: #172033;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-  white-space: normal;
 }
 
 .edhr-batch-detail__rail-process-form-head {
@@ -4841,11 +5853,12 @@ watch(
 .edhr-batch-detail__rail-process-form-name {
   min-width: 0;
   overflow: hidden;
-  color: #667085;
-  font-size: 11px;
+  color: #172033;
+  font-size: 12px;
+  font-weight: 700;
   line-height: 1.35;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .edhr-batch-detail__rail-process-form-filler {
@@ -5004,9 +6017,9 @@ watch(
 }
 
 .edhr-batch-detail__preview-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   min-height: 42px;
   flex-shrink: 0;
@@ -5052,6 +6065,24 @@ watch(
 .edhr-batch-detail__preview-context span:last-child {
   flex: 1 1 auto;
   color: #344054;
+}
+
+.edhr-batch-detail__preview-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.edhr-batch-detail__preview-extra {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  justify-self: end;
+  gap: 12px;
+  min-width: 0;
 }
 
 .edhr-batch-detail__preview-route-link {
@@ -5116,7 +6147,7 @@ watch(
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  flex: 1 1 0;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -5908,8 +6939,20 @@ watch(
   }
 
   .edhr-batch-detail__preview-header {
+    grid-template-columns: 1fr;
     align-items: flex-start;
-    flex-direction: column;
+  }
+
+  .edhr-batch-detail__preview-actions {
+    justify-self: start;
+    flex-wrap: wrap;
+  }
+
+  .edhr-batch-detail__preview-extra {
+    justify-self: start;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    width: 100%;
   }
 
   .edhr-batch-detail__preview-route-link {

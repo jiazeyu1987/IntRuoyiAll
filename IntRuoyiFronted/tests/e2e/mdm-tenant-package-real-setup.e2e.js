@@ -17,7 +17,7 @@ const REQUIRED_PACKAGE_MENU_LABELS = [
   '文控权限',
   '运行控制台',
   '角色管理',
-  '产品主数据'
+  '展厅主数据'
 ]
 const REQUIRED_PACKAGE_MENU_CONTEXT_LABELS = [
   '文控中心',

@@ -1,0 +1,360 @@
+{
+  "baseUrl": "http://localhost:8081",
+  "tenant": "芋道源码",
+  "username": "admin",
+  "routeId": 922119,
+  "expectedDraftVersionId": 361,
+  "candidateStatus": "ACTIVE",
+  "ownersBefore": [
+    {
+      "attachmentCode": "INCOMING_INSPECTION_REPORT",
+      "attachmentName": "来料检报告",
+      "candidateSourceType": "ROLE",
+      "candidateSourceIds": [
+        910410
+      ],
+      "candidateSourceNames": [
+        "来料检报告上传1（BATCH_ATTACHMENT_INCOMING_INSPECTION_REPORT_UPLOAD_1）"
+      ],
+      "assignedUserIds": [
+        1,
+        149
+      ],
+      "assignedUserNames": [
+        "瑛泰管理员（admin）",
+        "黎敏（limin）"
+      ]
+    },
+    {
+      "attachmentCode": "STERILIZATION_REPORT",
+      "attachmentName": "灭菌报告",
+      "candidateSourceType": "ROLE",
+      "candidateSourceIds": [
+        910411
+      ],
+      "candidateSourceNames": [
+        "灭菌报告上传1（BATCH_ATTACHMENT_STERILIZATION_REPORT_UPLOAD_1）"
+      ],
+      "assignedUserIds": [
+        1,
+        149,
+        150,
+        151
+      ],
+      "assignedUserNames": [
+        "瑛泰管理员（admin）",
+        "黎敏（limin）",
+        "白艳萍（baiyanping）",
+        "彭云凤（pengyunfeng）"
+      ]
+    },
+    {
+      "attachmentCode": "FINISHED_PRODUCT_INSPECTION_REPORT",
+      "attachmentName": "成品检报告",
+      "candidateSourceType": "ROLE",
+      "candidateSourceIds": [
+        910412
+      ],
+      "candidateSourceNames": [
+        "成品检报告上传1（BATCH_ATTACHMENT_FINISHED_PRODUCT_INSPECTION_REPORT_UPLOAD_1）"
+      ],
+      "assignedUserIds": [
+        1,
+        149,
+        150
+      ],
+      "assignedUserNames": [
+        "瑛泰管理员（admin）",
+        "黎敏（limin）",
+        "白艳萍（baiyanping）"
+      ]
+    },
+    {
+      "attachmentCode": "FINISHED_PRODUCT_INSPECTION_RECORD",
+      "attachmentName": "成品检记录",
+      "candidateSourceType": "ROLE",
+      "candidateSourceIds": [
+        910413
+      ],
+      "candidateSourceNames": [
+        "成品检记录上传1（BATCH_ATTACHMENT_FINISHED_PRODUCT_INSPECTION_RECORD_UPLOAD_1）"
+      ],
+      "assignedUserIds": [
+        1,
+        149,
+        150,
+        151
+      ],
+      "assignedUserNames": [
+        "瑛泰管理员（admin）",
+        "黎敏（limin）",
+        "白艳萍（baiyanping）",
+        "彭云凤（pengyunfeng）"
+      ]
+    }
+  ],
+  "initializedOwners": [
+    {
+      "attachmentCode": "INCOMING_INSPECTION_REPORT",
+      "attachmentName": "来料检报告",
+      "candidateSourceType": "ROLE",
+      "candidateSourceIds": [
+        910410
+      ],
+      "candidateSourceNames": [
+        "来料检报告上传1（BATCH_ATTACHMENT_INCOMING_INSPECTION_REPORT_UPLOAD_1）"
+      ],
+      "assignedUserIds": [
+        1,
+        149
+      ],
+      "assignedUserNames": [
+        "瑛泰管理员（admin）",
+        "黎敏（limin）"
+      ]
+    },
+    {
+      "attachmentCode": "STERILIZATION_REPORT",
+      "attachmentName": "灭菌报告",
+      "candidateSourceType": "ROLE",
+      "candidateSourceIds": [
+        910411
+      ],
+      "candidateSourceNames": [
+        "灭菌报告上传1（BATCH_ATTACHMENT_STERILIZATION_REPORT_UPLOAD_1）"
+      ],
+      "assignedUserIds": [
+        1,
+        149,
+        150,
+        151
+      ],
+      "assignedUserNames": [
+        "瑛泰管理员（admin）",
+        "黎敏（limin）",
+        "白艳萍（baiyanping）",
+        "彭云凤（pengyunfeng）"
+      ]
+    },
+    {
+      "attachmentCode": "FINISHED_PRODUCT_INSPECTION_REPORT",
+      "attachmentName": "成品检报告",
+      "candidateSourceType": "ROLE",
+      "candidateSourceIds": [
+        910412
+      ],
+      "candidateSourceNames": [
+        "成品检报告上传1（BATCH_ATTACHMENT_FINISHED_PRODUCT_INSPECTION_REPORT_UPLOAD_1）"
+      ],
+      "assignedUserIds": [
+        1,
+        149,
+        150
+      ],
+      "assignedUserNames": [
+        "瑛泰管理员（admin）",
+        "黎敏（limin）",
+        "白艳萍（baiyanping）"
+      ]
+    },
+    {
+      "attachmentCode": "FINISHED_PRODUCT_INSPECTION_RECORD",
+      "attachmentName": "成品检记录",
+      "candidateSourceType": "ROLE",
+      "candidateSourceIds": [
+        910413
+      ],
+      "candidateSourceNames": [
+        "成品检记录上传1（BATCH_ATTACHMENT_FINISHED_PRODUCT_INSPECTION_RECORD_UPLOAD_1）"
+      ],
+      "assignedUserIds": [
+        1,
+        149,
+        150,
+        151
+      ],
+      "assignedUserNames": [
+        "瑛泰管理员（admin）",
+        "黎敏（limin）",
+        "白艳萍（baiyanping）",
+        "彭云凤（pengyunfeng）"
+      ]
+    }
+  ],
+  "blockersAfterInit": null,
+  "published": {
+    "id": 361,
+    "routeId": 922119,
+    "versionNo": "V15",
+    "active": true,
+    "lifecycleStatus": "ACTIVE",
+    "sourceRouteVersionId": 358,
+    "submittedBy": 1,
+    "submittedTime": 1785132990000,
+    "approvalProcessInstanceId": null,
+    "publishedBy": 1,
+    "publishedTime": 1785132991000,
+    "remark": "工艺路线候选版本，发布后生效"
+  },
+  "versionsAfter": [
+    {
+      "id": 361,
+      "routeId": 922119,
+      "versionNo": "V15",
+      "active": true,
+      "lifecycleStatus": "ACTIVE",
+      "sourceRouteVersionId": 358,
+      "publishedTime": 1785132991000
+    },
+    {
+      "id": 358,
+      "routeId": 922119,
+      "versionNo": "V14",
+      "active": false,
+      "lifecycleStatus": "SUPERSEDED",
+      "sourceRouteVersionId": 310,
+      "publishedTime": 1784816647000
+    },
+    {
+      "id": 310,
+      "routeId": 922119,
+      "versionNo": "V13",
+      "active": false,
+      "lifecycleStatus": "SUPERSEDED",
+      "sourceRouteVersionId": 71,
+      "publishedTime": 1784782276000
+    },
+    {
+      "id": 309,
+      "routeId": 922119,
+      "versionNo": "V12",
+      "active": false,
+      "lifecycleStatus": "CANCELLED",
+      "sourceRouteVersionId": 71,
+      "publishedTime": null
+    },
+    {
+      "id": 308,
+      "routeId": 922119,
+      "versionNo": "V11",
+      "active": false,
+      "lifecycleStatus": "CANCELLED",
+      "sourceRouteVersionId": 71,
+      "publishedTime": null
+    },
+    {
+      "id": 307,
+      "routeId": 922119,
+      "versionNo": "V10",
+      "active": false,
+      "lifecycleStatus": "CANCELLED",
+      "sourceRouteVersionId": 71,
+      "publishedTime": null
+    },
+    {
+      "id": 306,
+      "routeId": 922119,
+      "versionNo": "V9",
+      "active": false,
+      "lifecycleStatus": "CANCELLED",
+      "sourceRouteVersionId": 71,
+      "publishedTime": null
+    },
+    {
+      "id": 305,
+      "routeId": 922119,
+      "versionNo": "V8",
+      "active": false,
+      "lifecycleStatus": "CANCELLED",
+      "sourceRouteVersionId": 71,
+      "publishedTime": null
+    },
+    {
+      "id": 301,
+      "routeId": 922119,
+      "versionNo": "V7",
+      "active": false,
+      "lifecycleStatus": "CANCELLED",
+      "sourceRouteVersionId": 71,
+      "publishedTime": null
+    },
+    {
+      "id": 217,
+      "routeId": 922119,
+      "versionNo": "V6",
+      "active": false,
+      "lifecycleStatus": "CANCELLED",
+      "sourceRouteVersionId": 71,
+      "publishedTime": null
+    },
+    {
+      "id": 120,
+      "routeId": 922119,
+      "versionNo": "V5",
+      "active": false,
+      "lifecycleStatus": "CANCELLED",
+      "sourceRouteVersionId": 71,
+      "publishedTime": null
+    },
+    {
+      "id": 71,
+      "routeId": 922119,
+      "versionNo": "V4",
+      "active": false,
+      "lifecycleStatus": "SUPERSEDED",
+      "sourceRouteVersionId": 70,
+      "publishedTime": null
+    },
+    {
+      "id": 70,
+      "routeId": 922119,
+      "versionNo": "V3",
+      "active": false,
+      "lifecycleStatus": "ACTIVE",
+      "sourceRouteVersionId": 68,
+      "publishedTime": null
+    },
+    {
+      "id": 68,
+      "routeId": 922119,
+      "versionNo": "V2",
+      "active": false,
+      "lifecycleStatus": "ACTIVE",
+      "sourceRouteVersionId": 63,
+      "publishedTime": null
+    },
+    {
+      "id": 63,
+      "routeId": 922119,
+      "versionNo": "V1",
+      "active": false,
+      "lifecycleStatus": "ACTIVE",
+      "sourceRouteVersionId": null,
+      "publishedTime": null
+    }
+  ],
+  "steps": [
+    {
+      "name": "listVersionsBefore",
+      "status": 200,
+      "ok": true,
+      "code": 0,
+      "msg": ""
+    },
+    {
+      "name": "ownersBefore",
+      "status": 200,
+      "ok": true,
+      "code": 0,
+      "msg": ""
+    },
+    {
+      "name": "listVersionsAfter",
+      "status": 200,
+      "ok": true,
+      "code": 0,
+      "msg": ""
+    }
+  ],
+  "resultPath": "E:\\IntRuoyi\\doc\\tasks\\20260727-batch-record-attachment-owner-config\\runtime-artifacts\\configure-route-attachment-owners.json"
+}

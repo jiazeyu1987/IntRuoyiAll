@@ -1,0 +1,87 @@
+{
+  "generated_at": "2026-07-31T02:14:33.491523+00:00",
+  "schema_actions": [],
+  "remap": {
+    "mes_md_workstation": {
+      "900131": "922057"
+    }
+  },
+  "preserve": {
+    "bpm_form_template_version": [
+      "27",
+      "32"
+    ],
+    "mes_pro_edhr_permission_scope": [
+      "346",
+      "396",
+      "423",
+      "450",
+      "477",
+      "504",
+      "531",
+      "558",
+      "585",
+      "612",
+      "639",
+      "666",
+      "693",
+      "720"
+    ],
+    "mes_pro_schedule_calendar_rule": [
+      "1"
+    ],
+    "mes_md_workstation": []
+  },
+  "insert_ids": {
+    "bpm_form_template_version": [
+      "27",
+      "32"
+    ],
+    "mes_pro_edhr_permission_scope": [
+      "346",
+      "396",
+      "423",
+      "450",
+      "477",
+      "504",
+      "531",
+      "558",
+      "585",
+      "612",
+      "639",
+      "666",
+      "693",
+      "720"
+    ],
+    "mes_md_workstation": [
+      "922057"
+    ]
+  },
+  "update_ids": {
+    "mes_pro_schedule_calendar_rule": [
+      "1"
+    ]
+  },
+  "already_exact_ids": {
+    "bpm_form_template_version": [],
+    "mes_pro_edhr_permission_scope": [],
+    "mes_pro_schedule_calendar_rule": [],
+    "mes_md_workstation": []
+  },
+  "warnings": [
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002AB0B4920E0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000022E27D858C0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001CCBACA7A90",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000020705AB9570",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000023C93C69370",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000018BA42B0DB0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001E5659C50D0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000018B4936CBD0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001C5A4A87270",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001B049EE3950",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000017859556180",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000018CB7EA4260",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002364BBF46A0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001F1509E6C60"
+  ]
+}

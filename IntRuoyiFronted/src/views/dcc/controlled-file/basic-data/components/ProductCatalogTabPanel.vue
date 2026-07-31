@@ -17,10 +17,12 @@
       :total="total"
       v-model:page="queryParams.pageNo"
       v-model:limit="queryParams.pageSize"
+      v-model:sort-state="productCatalogSortState"
       @update:quick-filter-state="productCatalogQuickFilter.updateState"
       @quick-filter-query="productCatalogQuickFilter.applyQuickFilter"
       @column-change="saveProductCatalogColumnConfig"
       @column-reset="resetProductCatalogColumnConfig"
+      @sort-change="handleProductCatalogSortChange"
       @pagination="getList"
     >
       <template #actions>
@@ -32,19 +34,6 @@
         >
           <Icon icon="ep:plus" class="mr-5px" />
           新增产品目录
-        </el-button>
-        <el-button @click="productCatalogQuickFilter.resetQuickFilter">
-          <Icon icon="ep:refresh" class="mr-5px" />
-          重置
-        </el-button>
-        <el-button
-          plain
-          type="info"
-          :loading="expiryCompareLoading"
-          @click="handleCompareRegistrationExpiry"
-        >
-          <Icon icon="ep:refresh-right" class="mr-5px" />
-          注册证有效期
         </el-button>
       </template>
       <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
@@ -110,6 +99,22 @@
             v-bind="sortColumnAttrs('productCode')"
           />
           <el-table-column
+            v-if="isProductCatalogColumnVisible('projectName')"
+            label="项目名称"
+            prop="projectName"
+            :width="getProductCatalogColumnWidthString('projectName')"
+            :min-width="getProductCatalogColumnMinWidthString('projectName', 180)"
+            v-bind="sortColumnAttrs('projectName')"
+          />
+          <el-table-column
+            v-if="isProductCatalogColumnVisible('projectCode')"
+            label="项目代码"
+            prop="projectCode"
+            :width="getProductCatalogColumnWidthString('projectCode')"
+            :min-width="getProductCatalogColumnMinWidthString('projectCode', 120)"
+            v-bind="sortColumnAttrs('projectCode')"
+          />
+          <el-table-column
             v-if="isProductCatalogColumnVisible('registrationCertificateName')"
             label="注册证名称"
             prop="registrationCertificateName"
@@ -158,18 +163,7 @@
             prop="expiryDate"
             :width="getProductCatalogColumnWidthString('expiryDate', 120)"
             v-bind="sortColumnAttrs('expiryDate')"
-          >
-            <template #default="{ row }">
-              <el-tooltip
-                v-if="getExpiryCompareTooltip(row)"
-                :content="getExpiryCompareTooltip(row)"
-                placement="top"
-              >
-                <span :class="getExpiryCompareClass(row)">{{ row.expiryDate || '-' }}</span>
-              </el-tooltip>
-              <span v-else :class="getExpiryCompareClass(row)">{{ row.expiryDate || '-' }}</span>
-            </template>
-          </el-table-column>
+          />
           <el-table-column
             v-if="isProductCatalogColumnVisible('classification')"
             label="分类"
@@ -286,6 +280,12 @@
       <el-form-item label="产品编码" prop="productCode">
         <el-input v-model="formData.productCode" placeholder="请输入产品编码" />
       </el-form-item>
+      <el-form-item label="项目名称" prop="projectName">
+        <el-input v-model="formData.projectName" placeholder="请输入项目名称" />
+      </el-form-item>
+      <el-form-item label="项目代码" prop="projectCode">
+        <el-input v-model="formData.projectCode" placeholder="请输入项目代码" />
+      </el-form-item>
       <el-form-item label="注册证名称" prop="registrationCertificateName">
         <el-input v-model="formData.registrationCertificateName" placeholder="请输入注册证名称" />
       </el-form-item>
@@ -341,13 +341,11 @@ import {
 } from '@/hooks/web/useTableQuickFilter'
 import type {
   DccProductCatalogPageReqVO,
-  DccProductCatalogRegistrationExpiryCompareRespVO,
   DccProductCatalogRespVO,
   DccProductCatalogSaveReqVO,
   DccProductCatalogUpdateReqVO
 } from '@/api/dcc/controlledFile/productCatalog'
 import {
-  compareRegistrationExpiry,
   createProductCatalog,
   deleteProductCatalog,
   getProductCatalogPage,
@@ -358,16 +356,12 @@ defineOptions({ name: 'ProductCatalogTabPanel' })
 
 const message = useMessage()
 const loading = ref(false)
-const expiryCompareLoading = ref(false)
 const formVisible = ref(false)
 const formLoading = ref(false)
 const formType = ref<'create' | 'update'>('create')
 const total = ref(0)
 const list = ref<DccProductCatalogRespVO[]>([])
 const formRef = ref()
-const expiryCompareResultMap = ref(
-  new Map<string, DccProductCatalogRegistrationExpiryCompareRespVO>()
-)
 
 const productStatusOptions = [
   { label: '在研(N)', value: 'N' },
@@ -376,7 +370,6 @@ const productStatusOptions = [
 ]
 
 const dataSourceOptions = [
-  { label: '子公司产品', value: '子公司产品' },
   { label: '瑛泰产品', value: '瑛泰产品' }
 ]
 
@@ -425,6 +418,8 @@ const productCatalogDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'productSequence', label: '产品序号', minWidth: 100 },
   { key: 'product', label: '产品', minWidth: 220 },
   { key: 'productCode', label: '产品编码', minWidth: 120 },
+  { key: 'projectName', label: '项目名称', minWidth: 180 },
+  { key: 'projectCode', label: '项目代码', minWidth: 120 },
   { key: 'registrationCertificateName', label: '注册证名称', minWidth: 220 },
   { key: 'registrationCertificateNumber', label: '注册证号', minWidth: 180 },
   { key: 'certificateHolder', label: '持证人', minWidth: 160 },
@@ -454,6 +449,14 @@ type DccProductCatalogPageQuery = DccProductCatalogPageReqVO & {
   pageSize: number
 }
 
+type ProductCatalogSortChange = {
+  prop?: string
+  order?: 'ascending' | 'descending' | null
+}
+
+const productCatalogSortState = ref<ProductCatalogSortChange>({})
+const PRODUCT_CATALOG_SERVER_SORT_FIELDS = new Set(['projectName', 'projectCode'])
+
 const queryParams = reactive<DccProductCatalogPageQuery>({
   pageNo: 1,
   pageSize: 10,
@@ -461,17 +464,21 @@ const queryParams = reactive<DccProductCatalogPageQuery>({
   categoryLevel1: undefined,
   categoryLevel2: undefined,
   productStatus: undefined,
-  dataSource: undefined
+  dataSource: undefined,
+  sortField: undefined,
+  sortOrder: undefined
 })
 
 const formData = ref<DccProductCatalogUpdateReqVO>({
-  dataSource: '子公司产品',
+  dataSource: '瑛泰产品',
   originalRowNo: 0,
   categoryLevel1: '',
   categoryLevel2: '',
   productSequence: '',
   product: '',
   productCode: '',
+  projectName: '',
+  projectCode: '',
   registrationCertificateName: '',
   registrationCertificateNumber: '',
   certificateHolder: '',
@@ -491,13 +498,15 @@ const formRules = reactive<FormRules>({
 
 const resetFormData = () => {
   formData.value = {
-    dataSource: '子公司产品',
+    dataSource: '瑛泰产品',
     originalRowNo: 0,
     categoryLevel1: '',
     categoryLevel2: '',
     productSequence: '',
     product: '',
     productCode: '',
+    projectName: '',
+    projectCode: '',
     registrationCertificateName: '',
     registrationCertificateNumber: '',
     certificateHolder: '',
@@ -518,7 +527,6 @@ const getList = async () => {
     const data = await getProductCatalogPage(queryParams)
     list.value = data.list
     total.value = data.total
-    clearExpiryCompareResults()
   } finally {
     loading.value = false
   }
@@ -530,6 +538,20 @@ const productCatalogQuickFilter = useTableQuickFilter(
   queryParams,
   getList
 )
+
+const handleProductCatalogSortChange = ({ prop, order }: ProductCatalogSortChange) => {
+  queryParams.pageNo = 1
+  const sortField = prop || ''
+  if (!order || !PRODUCT_CATALOG_SERVER_SORT_FIELDS.has(sortField)) {
+    queryParams.sortField = undefined
+    queryParams.sortOrder = undefined
+    getList()
+    return
+  }
+  queryParams.sortField = sortField
+  queryParams.sortOrder = order === 'ascending' ? 'asc' : 'desc'
+  getList()
+}
 
 const openForm = (type: 'create' | 'update', row?: DccProductCatalogRespVO) => {
   formVisible.value = true
@@ -544,6 +566,8 @@ const openForm = (type: 'create' | 'update', row?: DccProductCatalogRespVO) => {
       productSequence: row.productSequence || '',
       product: row.product || '',
       productCode: row.productCode || '',
+      projectName: row.projectName || '',
+      projectCode: row.projectCode || '',
       registrationCertificateName: row.registrationCertificateName || '',
       registrationCertificateNumber: row.registrationCertificateNumber || '',
       certificateHolder: row.certificateHolder || '',
@@ -565,6 +589,8 @@ const buildSavePayload = (): DccProductCatalogSaveReqVO => ({
   productSequence: formData.value.productSequence,
   product: formData.value.product,
   productCode: formData.value.productCode,
+  projectName: formData.value.projectName,
+  projectCode: formData.value.projectCode,
   registrationCertificateName: formData.value.registrationCertificateName,
   registrationCertificateNumber: formData.value.registrationCertificateNumber,
   certificateHolder: formData.value.certificateHolder,
@@ -617,70 +643,6 @@ const handleDelete = async (row: DccProductCatalogRespVO) => {
   }
 }
 
-const handleCompareRegistrationExpiry = async () => {
-  if (!list.value.length) {
-    message.warning('当前页没有可比对的产品目录数据')
-    return
-  }
-  expiryCompareLoading.value = true
-  try {
-    const rows = list.value.map((row) => ({
-      dataSource: row.dataSource,
-      originalRowNo: row.originalRowNo
-    }))
-    const results = await compareRegistrationExpiry({ rows })
-    expiryCompareResultMap.value = new Map(
-      results.map((result) => [buildExpiryCompareKey(result), result])
-    )
-    message.success('注册证有效期比对完成')
-  } finally {
-    expiryCompareLoading.value = false
-  }
-}
-
-const clearExpiryCompareResults = () => {
-  expiryCompareResultMap.value = new Map()
-}
-
-const buildExpiryCompareKey = (row: Pick<DccProductCatalogRespVO, 'dataSource' | 'originalRowNo'>) =>
-  `${row.dataSource}#${row.originalRowNo}`
-
-const getExpiryCompareResult = (row: DccProductCatalogRespVO) =>
-  expiryCompareResultMap.value.get(buildExpiryCompareKey(row))
-
-const getExpiryCompareClass = (row: DccProductCatalogRespVO) => {
-  const result = getExpiryCompareResult(row)
-  if (result?.status === 'MATCH') {
-    return 'expiry-compare-match'
-  }
-  if (result?.status === 'MISMATCH') {
-    return 'expiry-compare-mismatch'
-  }
-  if (result?.status === 'FETCH_FAILED') {
-    return 'expiry-compare-fetch-failed'
-  }
-  return ''
-}
-
-const getExpiryCompareTooltip = (row: DccProductCatalogRespVO) => {
-  const result = getExpiryCompareResult(row)
-  if (!result || result.status === 'NO_LINK' || result.status === 'UNSUPPORTED') {
-    return ''
-  }
-  if (result.status === 'MATCH') {
-    return `有效期一致：${result.localExpiryDate || row.expiryDate || '-'}`
-  }
-  if (result.status === 'MISMATCH') {
-    return `有效期不一致：当前 ${result.localExpiryDate || row.expiryDate || '-'}，外站 ${
-      result.remoteExpiryDate || '-'
-    }`
-  }
-  if (result.status === 'FETCH_FAILED') {
-    return result.message || '注册证信息链接访问失败'
-  }
-  return ''
-}
-
 const formatProductStatus = (status?: string | null) => {
   const normalized = status?.trim()
   const labels: Record<string, string> = {
@@ -720,18 +682,4 @@ onMounted(async () => {
   border-right-color: #1677ff;
 }
 
-.expiry-compare-match {
-  color: #1f9d55;
-  font-weight: 600;
-}
-
-.expiry-compare-mismatch {
-  color: #d93026;
-  font-weight: 600;
-}
-
-.expiry-compare-fetch-failed {
-  color: #8a94a6;
-  font-weight: 600;
-}
 </style>

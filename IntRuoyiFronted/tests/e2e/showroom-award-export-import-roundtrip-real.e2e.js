@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
+const os = require('node:os')
 const path = require('node:path')
 const { Readable } = require('node:stream')
 const { finished } = require('node:stream/promises')
@@ -20,11 +21,10 @@ const config = {
   headed: process.env.SHOWROOM_AWARD_ROUNDTRIP_HEADED === '1'
 }
 
-const taskDir = path.resolve(
-  __dirname,
-  '../../doc/tasks/20260615-showroom-award-export-import-real-e2e'
+const downloadPath = path.join(
+  os.tmpdir(),
+  `int-ruoyi-showroom-award-roundtrip-${process.pid}-${Date.now()}.xlsx`
 )
-const downloadPath = path.join(taskDir, '产品资料修改版-补充产品资料.xlsx')
 
 async function settle(page) {
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {})
@@ -172,7 +172,6 @@ async function exportWorkbook(page) {
     200,
     `export excel stream http status must be 200, got ${downloadResponse.status}`
   )
-  fs.mkdirSync(taskDir, { recursive: true })
   await finished(Readable.fromWeb(downloadResponse.body).pipe(fs.createWriteStream(downloadPath)))
   assert.ok(fs.existsSync(downloadPath), `downloaded workbook is missing: ${downloadPath}`)
   assert.ok(fs.statSync(downloadPath).size > 0, 'downloaded workbook must not be empty')
@@ -236,6 +235,7 @@ async function main() {
       `PASS: showroom award export/import roundtrip awards=${afterAwards.length} awardSuccess=${importResult.awardSuccessCount} workbook=${workbookPath}`
     )
   } finally {
+    fs.rmSync(downloadPath, { force: true })
     await context.close()
     await browser.close()
   }

@@ -3,9 +3,14 @@ package cn.iocoder.yudao.module.mes.service.pro.route;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.digest.DigestUtil;
+import cn.iocoder.yudao.framework.common.enums.CommonStatusEnum;
 import cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder;
 import cn.iocoder.yudao.module.bpm.dal.dataobject.formcenter.FormTemplateVersionDO;
 import cn.iocoder.yudao.module.bpm.dal.mysql.formcenter.FormTemplateVersionMapper;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerInitReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteBatchRecordAttachmentOwnerSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowBatchRecordRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowBatchRecordSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.route.vo.flowconfig.MesProRouteFlowConfigSaveReqVO;
@@ -35,6 +40,15 @@ import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionG
 import cn.iocoder.yudao.module.mes.service.pro.batchrecordreport.MesProBatchRecordFormSlotType;
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import cn.iocoder.yudao.module.system.controller.admin.permission.vo.role.RoleSaveReqVO;
+import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleCategoryDO;
+import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
+import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
+import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleCategoryMapper;
+import cn.iocoder.yudao.module.system.dal.mysql.permission.RoleMapper;
+import cn.iocoder.yudao.module.system.service.permission.PermissionService;
+import cn.iocoder.yudao.module.system.service.permission.RoleService;
+import cn.iocoder.yudao.module.system.service.user.AdminUserService;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -61,6 +75,9 @@ import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.
 import static cn.iocoder.yudao.framework.common.util.collection.CollectionUtils.convertSet;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_PROCESS_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_ROUTE_REQUIRED;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_ENABLED_USER_NOT_ENOUGH;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID;
+import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_ROLE_CATEGORY_REQUIRED;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_BATCH_REPORT_DUPLICATE;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_BATCH_REPORT_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants.PRO_ROUTE_FLOW_CONFIG_BATCH_REPORT_REQUIRED;
@@ -116,10 +133,30 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     private static final String FLOW_GRAPH_KEY = "flowGraph";
     private static final String BATCH_USE_CONFIGS_KEY = "batchUseConfigs";
     private static final String SCHEDULE_USE_CONFIGS_KEY = "scheduleUseConfigs";
+    private static final String BATCH_RECORD_ATTACHMENT_OWNERS_KEY = "batchRecordAttachmentOwners";
+    private static final String BATCH_RECORD_ROLE_CATEGORY_CODE = "batch-record";
+    private static final int BATCH_RECORD_ATTACHMENT_MIN_USERS = 2;
+    private static final int BATCH_RECORD_ATTACHMENT_MAX_USERS = 4;
     private static final Set<String> READABLE_CANDIDATE_STATUSES = Set.of(
             MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT,
             MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL,
             MesProRouteVersionLifecycleServiceImpl.STATUS_READY_TO_PUBLISH);
+    private static final Set<String> READABLE_CLOSED_CANDIDATE_SNAPSHOT_STATUSES = Set.of(
+            MesProRouteVersionLifecycleServiceImpl.STATUS_REJECTED,
+            MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED);
+    private static final List<BatchRecordAttachmentDefinition> BATCH_RECORD_ATTACHMENT_DEFINITIONS = List.of(
+            new BatchRecordAttachmentDefinition("INCOMING_INSPECTION_REPORT", "来料检报告",
+                    "BATCH_ATTACHMENT_INCOMING_INSPECTION_REPORT_UPLOAD_1", "来料检报告上传1", 1),
+            new BatchRecordAttachmentDefinition("STERILIZATION_REPORT", "灭菌报告",
+                    "BATCH_ATTACHMENT_STERILIZATION_REPORT_UPLOAD_1", "灭菌报告上传1", 2),
+            new BatchRecordAttachmentDefinition("FINISHED_PRODUCT_INSPECTION_REPORT", "成品检报告",
+                    "BATCH_ATTACHMENT_FINISHED_PRODUCT_INSPECTION_REPORT_UPLOAD_1", "成品检报告上传1", 3),
+            new BatchRecordAttachmentDefinition("FINISHED_PRODUCT_INSPECTION_RECORD", "成品检记录",
+                    "BATCH_ATTACHMENT_FINISHED_PRODUCT_INSPECTION_RECORD_UPLOAD_1", "成品检记录上传1", 4));
+
+    private record BatchRecordAttachmentDefinition(String code, String name, String defaultRoleCode,
+                                                   String defaultRoleName, int sort) {
+    }
 
     private enum RouteVersionBatchBindingReadStrategy {
         SNAPSHOT,
@@ -154,6 +191,16 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     private AdminUserApi adminUserApi;
     @Resource
     private RoleApi roleApi;
+    @Resource
+    private AdminUserService adminUserService;
+    @Resource
+    private RoleService roleService;
+    @Resource
+    private RoleMapper roleMapper;
+    @Resource
+    private RoleCategoryMapper roleCategoryMapper;
+    @Resource
+    private PermissionService permissionService;
 
     @Override
     public List<MesProRouteFlowProcessConfigRespVO> getRouteFlowProcessConfigList(Long routeId, String useType) {
@@ -171,10 +218,15 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 return getRouteVersionSnapshotFlowProcessConfigList(
                         routeVersion, flowConfigType, resolveCandidateBatchBindingReadStrategy(routeVersion));
             }
-            if (isActiveRouteVersion(routeVersion)) {
+            if (isPublishedSnapshotRouteVersion(routeVersion) || isClosedCandidateSnapshotRouteVersion(routeVersion)) {
                 return getRouteVersionSnapshotFlowProcessConfigList(
                         routeVersion, flowConfigType, RouteVersionBatchBindingReadStrategy.SNAPSHOT);
             }
+        }
+        MesProRouteVersionDO activeRouteVersion = routeVersionMapper.selectActiveByRouteId(routeId);
+        if (isActiveRouteVersion(activeRouteVersion)) {
+            return getRouteVersionSnapshotFlowProcessConfigList(
+                    activeRouteVersion, flowConfigType, RouteVersionBatchBindingReadStrategy.SNAPSHOT);
         }
         List<MesProRouteProcessDO> routeProcesses = routeProcessMapper.selectListByRouteId(routeId);
         Map<Long, MesProRouteProcessDO> routeProcessMap =
@@ -262,16 +314,24 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             MesProRouteFlowConfigTypeEnum flowConfigType,
             RouteVersionBatchBindingReadStrategy batchBindingReadStrategy) {
         JSONObject configSnapshots = resolveCandidateConfigSnapshots(routeVersion);
-        List<MesProRouteProcessDO> routeProcesses = parseCandidateRouteProcessesFromConfigSnapshots(routeVersion, configSnapshots);
+        List<MesProRouteProcessDO> snapshotRouteProcesses = parseCandidateRouteProcessesFromConfigSnapshots(
+                routeVersion, configSnapshots);
+        Map<Long, MesProProcessDO> snapshotProcessMap = loadProcessMap(snapshotRouteProcesses);
+        List<MesProRouteProcessDO> routeProcesses = resolveRouteProcessesForSnapshotRead(
+                routeVersion, snapshotRouteProcesses);
+        Map<Long, MesProProcessDO> processMap = routeProcesses == snapshotRouteProcesses
+                ? snapshotProcessMap
+                : loadProcessMap(routeProcesses);
         Map<Long, MesProRouteFlowProcessConfigSaveReqVO> configMap = parseCandidateUseConfigMap(
                 routeVersion,
                 configSnapshots.get(flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH
                         ? BATCH_USE_CONFIGS_KEY : SCHEDULE_USE_CONFIGS_KEY));
-        Map<Long, MesProProcessDO> processMap = convertMap(
-                processMapper.selectBatchIds(convertSet(routeProcesses, MesProRouteProcessDO::getProcessId)),
-                MesProProcessDO::getId);
         boolean readCurrentBatchBindings = batchBindingReadStrategy
                 == RouteVersionBatchBindingReadStrategy.CURRENT_PROCESS_SETTINGS;
+        if (!readCurrentBatchBindings) {
+            configMap = projectCandidateUseConfigMapToRouteProcesses(
+                    routeVersion, configMap, snapshotRouteProcesses, snapshotProcessMap, routeProcesses, processMap);
+        }
         List<MesProRouteFlowProcessBatchRecordDO> dynamicBatchRecords =
                 readCurrentBatchBindings && flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH
                         ? selectCurrentOwnedBatchRecords(routeVersion.getRouteId(), flowConfigType)
@@ -282,9 +342,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                                 routeVersion, routeProcesses, processMap, dynamicBatchRecords)
                         : Collections.emptyMap();
         Map<String, MesProBatchRecordReportDO> reportMap = loadReportMap(
-                readCurrentBatchBindings
-                        ? collectBatchReportIds(dynamicBatchRecords)
-                        : collectCandidateBatchReportIds(flowConfigType, configMap));
+                collectReadableBatchReportIds(flowConfigType, configMap, dynamicBatchRecords));
         List<MesProRouteFlowProcessConfigRespVO> result = new ArrayList<>(routeProcesses.size());
         for (MesProRouteProcessDO routeProcess : routeProcesses) {
             MesProProcessDO process = processMap.get(routeProcess.getProcessId());
@@ -305,7 +363,9 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             vo.setProductionQuantityFactor(config == null
                     ? DEFAULT_PRODUCTION_QUANTITY_FACTOR
                     : resolveProductionQuantityFactor(routeProcess.getId(), config.getProductionQuantityFactor()));
-            if (flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH && readCurrentBatchBindings) {
+            if (flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH
+                    && readCurrentBatchBindings
+                    && !shouldReadCandidateBatchBindingSnapshot(routeVersion, config)) {
                 List<MesProRouteFlowProcessBatchRecordDO> records = dynamicBatchRecordMap.getOrDefault(
                         routeProcess.getId(), Collections.emptyList());
                 vo.setBatchRecordReports(toBatchRecordRespList(records, reportMap));
@@ -324,9 +384,122 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         return result;
     }
 
+    private List<MesProRouteProcessDO> resolveRouteProcessesForSnapshotRead(
+            MesProRouteVersionDO routeVersion,
+            List<MesProRouteProcessDO> snapshotRouteProcesses) {
+        if (isActiveRouteVersion(routeVersion)) {
+            List<MesProRouteProcessDO> currentRouteProcesses = routeProcessMapper.selectListByRouteId(routeVersion.getRouteId());
+            if (CollUtil.isEmpty(currentRouteProcesses) && CollUtil.isNotEmpty(snapshotRouteProcesses)) {
+                throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersion.getId());
+            }
+            return currentRouteProcesses;
+        }
+        return snapshotRouteProcesses;
+    }
+
+    private Map<Long, MesProRouteFlowProcessConfigSaveReqVO> projectCandidateUseConfigMapToRouteProcesses(
+            MesProRouteVersionDO routeVersion,
+            Map<Long, MesProRouteFlowProcessConfigSaveReqVO> configMap,
+            List<MesProRouteProcessDO> snapshotRouteProcesses,
+            Map<Long, MesProProcessDO> snapshotProcessMap,
+            List<MesProRouteProcessDO> targetRouteProcesses,
+            Map<Long, MesProProcessDO> targetProcessMap) {
+        if (configMap.isEmpty()) {
+            return configMap;
+        }
+        Map<Long, MesProRouteProcessDO> targetRouteProcessById =
+                convertMap(targetRouteProcesses, MesProRouteProcessDO::getId);
+        Map<String, MesProRouteProcessDO> targetRouteProcessByIdentity = buildRouteProcessByIdentity(
+                routeVersion.getRouteId(), targetRouteProcesses, targetProcessMap);
+        Map<Long, MesProRouteProcessDO> snapshotRouteProcessById =
+                convertMap(snapshotRouteProcesses, MesProRouteProcessDO::getId);
+        Map<Long, MesProRouteFlowProcessConfigSaveReqVO> result = new LinkedHashMap<>();
+        Map<Long, List<Long>> sourceRouteProcessIdsByTargetId = new LinkedHashMap<>();
+        for (Map.Entry<Long, MesProRouteFlowProcessConfigSaveReqVO> entry : configMap.entrySet()) {
+            Long configRouteProcessId = entry.getKey();
+            MesProRouteProcessDO sourceRouteProcess = resolveCandidateUseConfigRouteProcess(
+                    routeVersion, configRouteProcessId, targetRouteProcessById, snapshotRouteProcessById);
+            MesProProcessDO sourceProcess = targetProcessMap.get(sourceRouteProcess.getProcessId());
+            if (sourceProcess == null) {
+                sourceProcess = snapshotProcessMap.get(sourceRouteProcess.getProcessId());
+            }
+            if (sourceProcess == null) {
+                sourceProcess = processMapper.selectById(sourceRouteProcess.getProcessId());
+            }
+            String processIdentity = requireProcessIdentity(routeVersion.getRouteId(), sourceRouteProcess, sourceProcess);
+            MesProRouteProcessDO targetRouteProcess = targetRouteProcessByIdentity.get(processIdentity);
+            if (targetRouteProcess == null) {
+                throw exception(PRO_ROUTE_PROCESS_IDENTITY_NOT_FOUND,
+                        routeVersion.getRouteId(), sourceRouteProcess.getProcessId(), sourceRouteProcess.getId(),
+                        processIdentity);
+            }
+            List<Long> sourceRouteProcessIds = sourceRouteProcessIdsByTargetId.computeIfAbsent(
+                    targetRouteProcess.getId(), key -> new ArrayList<>());
+            sourceRouteProcessIds.add(configRouteProcessId);
+            if (sourceRouteProcessIds.size() > 1) {
+                throw exception(PRO_ROUTE_PROCESS_IDENTITY_AMBIGUOUS,
+                        routeVersion.getRouteId(), targetRouteProcess.getProcessId(), processIdentity,
+                        sourceRouteProcessIds);
+            }
+            result.put(targetRouteProcess.getId(), copyCandidateUseConfig(entry.getValue(), targetRouteProcess.getId()));
+        }
+        return result;
+    }
+
+    private MesProRouteProcessDO resolveCandidateUseConfigRouteProcess(
+            MesProRouteVersionDO routeVersion,
+            Long routeProcessId,
+            Map<Long, MesProRouteProcessDO> targetRouteProcessById,
+            Map<Long, MesProRouteProcessDO> snapshotRouteProcessById) {
+        MesProRouteProcessDO routeProcess = targetRouteProcessById.get(routeProcessId);
+        if (routeProcess != null) {
+            return routeProcess;
+        }
+        routeProcess = snapshotRouteProcessById.get(routeProcessId);
+        if (routeProcess != null) {
+            return routeProcess;
+        }
+        routeProcess = routeProcessMapper.selectById(routeProcessId);
+        if (routeProcess == null || !Objects.equals(routeVersion.getRouteId(), routeProcess.getRouteId())) {
+            throw exception(PRO_ROUTE_PROCESS_IDENTITY_NOT_FOUND,
+                    routeVersion.getRouteId(), null, routeProcessId, null);
+        }
+        return routeProcess;
+    }
+
+    private MesProRouteFlowProcessConfigSaveReqVO copyCandidateUseConfig(
+            MesProRouteFlowProcessConfigSaveReqVO source,
+            Long routeProcessId) {
+        MesProRouteFlowProcessConfigSaveReqVO copy = new MesProRouteFlowProcessConfigSaveReqVO();
+        copy.setRouteProcessId(routeProcessId);
+        copy.setEnabled(source.getEnabled());
+        copy.setExecutionMode(source.getExecutionMode());
+        copy.setProductionQuantityFactor(source.getProductionQuantityFactor());
+        copy.setBatchRecordReports(source.getBatchRecordReports());
+        copy.setFormBindings(source.getFormBindings());
+        copy.setBatchRecordBindingSnapshotExplicit(source.getBatchRecordBindingSnapshotExplicit());
+        copy.setRemark(source.getRemark());
+        return copy;
+    }
+
+    private boolean shouldReadCandidateBatchBindingSnapshot(
+            MesProRouteVersionDO routeVersion,
+            MesProRouteFlowProcessConfigSaveReqVO config) {
+        return routeVersion != null
+                && MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(routeVersion.getLifecycleStatus())
+                && config != null
+                && Boolean.TRUE.equals(config.getBatchRecordBindingSnapshotExplicit());
+    }
+
+    private Map<Long, MesProProcessDO> loadProcessMap(List<MesProRouteProcessDO> routeProcesses) {
+        return convertMap(
+                processMapper.selectBatchIds(convertSet(routeProcesses, MesProRouteProcessDO::getProcessId)),
+                MesProProcessDO::getId);
+    }
+
     private RouteVersionBatchBindingReadStrategy resolveCandidateBatchBindingReadStrategy(
             MesProRouteVersionDO routeVersion) {
-        if (MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT.equals(routeVersion.getLifecycleStatus())) {
+        if (isReadableCandidate(routeVersion)) {
             return RouteVersionBatchBindingReadStrategy.CURRENT_PROCESS_SETTINGS;
         }
         return RouteVersionBatchBindingReadStrategy.SNAPSHOT;
@@ -378,23 +551,14 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             List<MesProRouteProcessDO> snapshotRouteProcesses,
             Map<Long, MesProProcessDO> snapshotProcessMap) {
         Map<Long, Long> routeProcessIdMap = new LinkedHashMap<>();
-        Map<String, MesProRouteProcessDO> snapshotRouteProcessByIdentity = new LinkedHashMap<>();
+        Map<String, MesProRouteProcessDO> snapshotRouteProcessByIdentity = buildRouteProcessByIdentity(
+                routeVersion.getRouteId(), snapshotRouteProcesses, snapshotProcessMap);
         for (MesProRouteProcessDO snapshotRouteProcess : snapshotRouteProcesses) {
             routeProcessIdMap.put(snapshotRouteProcess.getId(), snapshotRouteProcess.getId());
-            String processIdentity = requireProcessIdentity(
-                    routeVersion.getRouteId(), snapshotRouteProcess, snapshotProcessMap.get(snapshotRouteProcess.getProcessId()));
-            MesProRouteProcessDO existing = snapshotRouteProcessByIdentity.putIfAbsent(processIdentity, snapshotRouteProcess);
-            if (existing != null) {
-                throw exception(PRO_ROUTE_PROCESS_IDENTITY_AMBIGUOUS,
-                        routeVersion.getRouteId(), snapshotRouteProcess.getProcessId(), processIdentity,
-                        List.of(existing.getId(), snapshotRouteProcess.getId()));
-            }
         }
 
         List<MesProRouteProcessDO> currentRouteProcesses = routeProcessMapper.selectListByRouteId(routeVersion.getRouteId());
-        Map<Long, MesProProcessDO> currentProcessMap = convertMap(
-                processMapper.selectBatchIds(convertSet(currentRouteProcesses, MesProRouteProcessDO::getProcessId)),
-                MesProProcessDO::getId);
+        Map<Long, MesProProcessDO> currentProcessMap = loadProcessMap(currentRouteProcesses);
         Map<String, List<MesProRouteProcessDO>> currentRouteProcessesByIdentity = new LinkedHashMap<>();
         for (MesProRouteProcessDO currentRouteProcess : currentRouteProcesses) {
             String processIdentity = requireProcessIdentity(
@@ -417,6 +581,24 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             routeProcessIdMap.put(currentMatches.get(0).getId(), entry.getValue().getId());
         }
         return routeProcessIdMap;
+    }
+
+    private Map<String, MesProRouteProcessDO> buildRouteProcessByIdentity(
+            Long routeId,
+            List<MesProRouteProcessDO> routeProcesses,
+            Map<Long, MesProProcessDO> processMap) {
+        Map<String, MesProRouteProcessDO> routeProcessByIdentity = new LinkedHashMap<>();
+        for (MesProRouteProcessDO routeProcess : routeProcesses) {
+            String processIdentity = requireProcessIdentity(
+                    routeId, routeProcess, processMap.get(routeProcess.getProcessId()));
+            MesProRouteProcessDO existing = routeProcessByIdentity.putIfAbsent(processIdentity, routeProcess);
+            if (existing != null) {
+                throw exception(PRO_ROUTE_PROCESS_IDENTITY_AMBIGUOUS,
+                        routeId, routeProcess.getProcessId(), processIdentity,
+                        List.of(existing.getId(), routeProcess.getId()));
+            }
+        }
+        return routeProcessByIdentity;
     }
 
     private String requireProcessIdentity(Long routeId, MesProRouteProcessDO routeProcess, MesProProcessDO process) {
@@ -530,6 +712,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         reqVO.setProductionQuantityFactor(config.getBigDecimal("productionQuantityFactor"));
         reqVO.setBatchRecordReports(parseCandidateBatchRecordReports(config));
         reqVO.setFormBindings(parseCandidateFormBindings(config));
+        reqVO.setBatchRecordBindingSnapshotExplicit(config.getBoolean("batchRecordBindingSnapshotExplicit"));
         reqVO.setRemark(config.getString("remark"));
         result.put(routeProcessId, reqVO);
     }
@@ -565,6 +748,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .setFormTemplateId(templateId)
                 .setFormTemplateName(StrUtil.blankToDefault(binding.getString("formTemplateName"),
                         binding.getString("formTemplateNameSnapshot")))
+                .setFormSlotType(binding.getString("formSlotType"))
                 .setLastPublishedTemplateVersionId(binding.getLong("lastPublishedTemplateVersionId"))
                 .setLastPublishedTemplateVersionNo(binding.getString("lastPublishedTemplateVersionNo"))
                 .setInstanceScope(binding.getString("instanceScope"))
@@ -593,18 +777,20 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     vo.setFormBindingKey(StrUtil.trim(binding.getFormBindingKey()));
                     vo.setFormTemplateId(binding.getFormTemplateId());
                     vo.setFormTemplateName(StrUtil.trim(binding.getFormTemplateName()));
+                    String formSlotType = resolveConfiguredFormSlotType(binding);
+                    vo.setFormSlotType(formSlotType);
                     vo.setLastPublishedTemplateVersionId(binding.getLastPublishedTemplateVersionId());
                     vo.setLastPublishedTemplateVersionNo(binding.getLastPublishedTemplateVersionNo());
                     vo.setInstanceScope(resolveInstanceScope(binding.getInstanceScope()));
                     vo.setSharedFormKey(StrUtil.blankToDefault(StrUtil.trim(binding.getSharedFormKey()), null));
                     vo.setFillableScopeJson(StrUtil.blankToDefault(StrUtil.trim(binding.getFillableScopeJson()), null));
-                    vo.setRecordCategory(resolveRecordCategory(binding.getRecordCategory(), SLOT_TYPE_MAIN));
+                    vo.setRecordCategory(resolveRecordCategory(binding.getRecordCategory(), formSlotType));
                     vo.setValidationProfile(resolveValidationProfile(vo.getRecordCategory(), binding.getValidationProfile()));
                     vo.setRecordbookEnabled(resolveRecordbookEnabled(binding.getRecordbookEnabled(), vo.getRecordCategory()));
                     vo.setPermissionScopeId(binding.getPermissionScopeId());
                     vo.setRequiredPolicy(resolveRequiredPolicy(binding.getRequiredPolicy()));
                     vo.setRequiredConditionJson(binding.getRequiredConditionJson());
-                    vo.setOwnerRoleKey(resolveOwnerRoleKey(binding.getOwnerRoleKey(), SLOT_TYPE_MAIN));
+                    vo.setOwnerRoleKey(resolveOwnerRoleKey(binding.getOwnerRoleKey(), formSlotType));
                     vo.setArchiveVisibility(resolveArchiveVisibility(binding.getArchiveVisibility()));
                     vo.setCandidateSourceType(normalizeCandidateSourceTypeOptional(binding.getCandidateSourceType()));
                     vo.setCandidateSourceIds(normalizeCandidateSourceIds(binding));
@@ -687,6 +873,15 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
+    private Set<String> collectReadableBatchReportIds(
+            MesProRouteFlowConfigTypeEnum flowConfigType,
+            Map<Long, MesProRouteFlowProcessConfigSaveReqVO> configMap,
+            List<MesProRouteFlowProcessBatchRecordDO> currentBatchRecords) {
+        Set<String> reportIds = new LinkedHashSet<>(collectBatchReportIds(currentBatchRecords));
+        reportIds.addAll(collectCandidateBatchReportIds(flowConfigType, configMap));
+        return reportIds;
+    }
+
     private List<MesProRouteFlowBatchRecordRespVO> toCandidateBatchRecordRespList(
             MesProRouteFlowProcessConfigSaveReqVO config,
             Map<String, MesProBatchRecordReportDO> reportMap) {
@@ -748,6 +943,65 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         saveRouteFlowConfigInternal(saveReqVO, false);
     }
 
+    @Override
+    public List<MesProRouteBatchRecordAttachmentOwnerRespVO> getBatchRecordAttachmentOwners(
+            Long routeId, Long routeVersionId) {
+        validateRouteExists(routeId);
+        MesProRouteVersionDO routeVersion = routeVersionId == null
+                ? routeVersionMapper.selectActiveByRouteId(routeId)
+                : requireReadableRouteVersion(routeVersionId, routeId);
+        Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> savedItems =
+                routeVersion == null ? Collections.emptyMap()
+                        : parseBatchRecordAttachmentOwnerSnapshot(routeVersion);
+        return buildBatchRecordAttachmentOwnerRespList(savedItems, loadEnabledCurrentTenantUserMap());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public List<MesProRouteBatchRecordAttachmentOwnerRespVO> initializeBatchRecordAttachmentOwners(
+            MesProRouteBatchRecordAttachmentOwnerInitReqVO initReqVO) {
+        MesProRouteDO route = validateRouteExists(initReqVO.getRouteId());
+        requireRouteBatchRecordConfigEditAbility(route, "初始化批记录附件负责人");
+        MesProRouteVersionDO routeVersion = requireDraftCandidateVersion(initReqVO.getRouteVersionId(), route.getId());
+        RoleCategoryDO category = requireBatchRecordRoleCategory();
+        List<AdminUserDO> enabledUsers = loadEnabledCurrentTenantUsers();
+        if (enabledUsers.size() < BATCH_RECORD_ATTACHMENT_MIN_USERS) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_ENABLED_USER_NOT_ENOUGH);
+        }
+        Map<Long, AdminUserDO> enabledUserMap = convertMap(enabledUsers, AdminUserDO::getId);
+        Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> snapshotItems = new LinkedHashMap<>();
+        Map<Long, List<Long>> initializedRoleUserIds = new LinkedHashMap<>();
+        for (BatchRecordAttachmentDefinition definition : BATCH_RECORD_ATTACHMENT_DEFINITIONS) {
+            RoleDO role = ensureBatchRecordAttachmentRole(definition, category);
+            List<Long> assignedUserIds = ensureBatchRecordAttachmentRoleUsers(definition, role, enabledUsers, enabledUserMap);
+            initializedRoleUserIds.put(role.getId(), assignedUserIds);
+            snapshotItems.put(definition.code(), new MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO()
+                    .setAttachmentCode(definition.code())
+                    .setCandidateSourceType(CANDIDATE_SOURCE_TYPE_ROLE)
+                    .setCandidateSourceIds(List.of(role.getId()))
+                    .setCandidateSourceNames(List.of(formatRoleSnapshotName(role)))
+                    .setRemark("工序开始批记录附件默认上传角色"));
+        }
+        List<MesProRouteBatchRecordAttachmentOwnerRespVO> result =
+                buildBatchRecordAttachmentOwnerRespList(snapshotItems, enabledUserMap, initializedRoleUserIds);
+        saveBatchRecordAttachmentOwnerSnapshot(routeVersion.getId(), result);
+        return result;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveBatchRecordAttachmentOwners(MesProRouteBatchRecordAttachmentOwnerSaveReqVO saveReqVO) {
+        MesProRouteDO route = validateRouteExists(saveReqVO.getRouteId());
+        requireRouteBatchRecordConfigEditAbility(route, "保存批记录附件负责人");
+        MesProRouteVersionDO routeVersion = requireDraftCandidateVersion(saveReqVO.getRouteVersionId(), route.getId());
+        Map<Long, AdminUserDO> enabledUserMap = loadEnabledCurrentTenantUserMap();
+        Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> normalized =
+                normalizeBatchRecordAttachmentOwnerSaveItems(saveReqVO.getItems(), enabledUserMap);
+        List<MesProRouteBatchRecordAttachmentOwnerRespVO> result =
+                buildBatchRecordAttachmentOwnerRespList(normalized, enabledUserMap);
+        saveBatchRecordAttachmentOwnerSnapshot(routeVersion.getId(), result);
+    }
+
     private void saveRouteFlowConfigInternal(MesProRouteFlowConfigSaveReqVO saveReqVO, boolean requireRouteEditPermission) {
         MesProRouteFlowConfigTypeEnum flowConfigType = validateUseType(saveReqVO.getUseType());
         MesProRouteDO route = validateRouteExists(saveReqVO.getRouteId());
@@ -765,8 +1019,9 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         List<MesProRouteProcessDO> routeProcesses = parseCandidateRouteProcessesFromConfigSnapshots(routeVersion, configSnapshots);
         Map<Long, MesProRouteProcessDO> routeProcessMap =
                 convertMap(routeProcesses, MesProRouteProcessDO::getId);
+        Set<Long> validRouteProcessIds = new LinkedHashSet<>(routeProcessMap.keySet());
         for (MesProRouteFlowProcessConfigSaveReqVO processConfig : saveReqVO.getProcessConfigs()) {
-            if (!routeProcessMap.containsKey(processConfig.getRouteProcessId())) {
+            if (!validRouteProcessIds.contains(processConfig.getRouteProcessId())) {
                 throw exception(PRO_ROUTE_FLOW_CONFIG_PROCESS_REQUIRED);
             }
         }
@@ -774,18 +1029,28 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         for (MesProRouteFlowProcessConfigSaveReqVO processConfig : saveReqVO.getProcessConfigs()) {
             saveMap.put(processConfig.getRouteProcessId(), processConfig);
         }
-        for (MesProRouteProcessDO routeProcess : routeProcesses) {
-            MesProRouteFlowProcessConfigSaveReqVO saveConfig = saveMap.get(routeProcess.getId());
-            if (saveConfig == null) {
-                continue;
-            }
+        for (MesProRouteFlowProcessConfigSaveReqVO saveConfig : saveMap.values()) {
             validateBatchProcessConfig(flowConfigType, saveConfig);
         }
         String configKey = flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH
                 ? BATCH_USE_CONFIGS_KEY : SCHEDULE_USE_CONFIGS_KEY;
         routeCandidateConfigService.saveConfigSnapshot(routeVersion.getId(), configKey,
                 buildCandidateUseConfigSnapshot(routeVersion, configKey, flowConfigType,
-                        saveReqVO, routeProcessMap.keySet()));
+                        saveReqVO, validRouteProcessIds));
+    }
+
+    private Set<Long> resolveCandidateSaveRouteProcessIds(
+            MesProRouteVersionDO routeVersion, Set<Long> currentRouteProcessIds) {
+        if (routeVersion == null || StrUtil.isBlank(routeVersion.getRouteSnapshotJson())) {
+            return currentRouteProcessIds;
+        }
+        JSONObject flowGraph = resolveCandidateConfigSnapshots(routeVersion).getJSONObject(FLOW_GRAPH_KEY);
+        if (flowGraph == null) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersion.getId());
+        }
+        return parseCandidateRouteProcesses(routeVersion, flowGraph).stream()
+                .map(MesProRouteProcessDO::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private MesProRouteVersionDO requireDraftCandidateVersion(Long routeVersionId, Long routeId) {
@@ -825,7 +1090,9 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     private MesProRouteVersionDO requireReadableRouteVersion(Long routeVersionId, Long routeId) {
         MesProRouteVersionDO routeVersion = requireExistingRouteVersion(routeVersionId);
         if (Objects.equals(routeVersion.getRouteId(), routeId)
-                && (isReadableCandidate(routeVersion) || isActiveRouteVersion(routeVersion))) {
+                && (isReadableCandidate(routeVersion)
+                || isPublishedSnapshotRouteVersion(routeVersion)
+                || isClosedCandidateSnapshotRouteVersion(routeVersion))) {
             return routeVersion;
         }
         throw exception(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE,
@@ -844,13 +1111,28 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
     }
 
     private boolean isReadableCandidate(MesProRouteVersionDO routeVersion) {
-        return Boolean.FALSE.equals(routeVersion.getActive())
+        return routeVersion != null
+                && Boolean.FALSE.equals(routeVersion.getActive())
                 && READABLE_CANDIDATE_STATUSES.contains(routeVersion.getLifecycleStatus());
     }
 
     private boolean isActiveRouteVersion(MesProRouteVersionDO routeVersion) {
-        return Boolean.TRUE.equals(routeVersion.getActive())
+        return routeVersion != null
+                && Boolean.TRUE.equals(routeVersion.getActive())
                 && MesProRouteVersionLifecycleServiceImpl.STATUS_ACTIVE.equals(routeVersion.getLifecycleStatus());
+    }
+
+    private boolean isPublishedSnapshotRouteVersion(MesProRouteVersionDO routeVersion) {
+        return isActiveRouteVersion(routeVersion)
+                || (routeVersion != null
+                && Boolean.FALSE.equals(routeVersion.getActive())
+                && MesProRouteVersionLifecycleServiceImpl.STATUS_SUPERSEDED.equals(routeVersion.getLifecycleStatus()));
+    }
+
+    private boolean isClosedCandidateSnapshotRouteVersion(MesProRouteVersionDO routeVersion) {
+        return routeVersion != null
+                && Boolean.FALSE.equals(routeVersion.getActive())
+                && READABLE_CLOSED_CANDIDATE_SNAPSHOT_STATUSES.contains(routeVersion.getLifecycleStatus());
     }
 
     private List<MesProRouteFlowProcessConfigSaveReqVO> buildCandidateUseConfigSnapshot(
@@ -870,6 +1152,9 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         }
         if (saveReqVO.getProcessConfigs() != null) {
             for (MesProRouteFlowProcessConfigSaveReqVO processConfig : saveReqVO.getProcessConfigs()) {
+                if (flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH) {
+                    processConfig.setBatchRecordBindingSnapshotExplicit(Boolean.TRUE);
+                }
                 merged.put(processConfig.getRouteProcessId(), processConfig);
             }
         }
@@ -885,10 +1170,14 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         processConfig.setProductionQuantityFactor(resolveProductionQuantityFactor(
                 processConfig.getRouteProcessId(), processConfig.getProductionQuantityFactor()));
         if (flowConfigType == MesProRouteFlowConfigTypeEnum.BATCH) {
-            processConfig.setBatchRecordReports(Collections.emptyList());
+            boolean explicitBatchBindingSnapshot =
+                    Boolean.TRUE.equals(processConfig.getBatchRecordBindingSnapshotExplicit());
+            processConfig.setBatchRecordReports(normalizeBatchRecordReports(processConfig));
             processConfig.setFormBindings(resolveAndNormalizeFormBindings(processConfig));
+            processConfig.setBatchRecordBindingSnapshotExplicit(explicitBatchBindingSnapshot ? Boolean.TRUE : null);
         } else {
             processConfig.setFormBindings(Collections.emptyList());
+            processConfig.setBatchRecordBindingSnapshotExplicit(null);
         }
         return processConfig;
     }
@@ -908,6 +1197,388 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         }
         JSONObject configSnapshots = snapshot.getJSONObject(SNAPSHOT_CONFIGS_KEY);
         return configSnapshots == null ? null : configSnapshots.get(configKey);
+    }
+
+    private Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> parseBatchRecordAttachmentOwnerSnapshot(
+            MesProRouteVersionDO routeVersion) {
+        Object snapshot = resolveExistingCandidateUseConfigSnapshot(routeVersion, BATCH_RECORD_ATTACHMENT_OWNERS_KEY);
+        if (snapshot == null) {
+            return Collections.emptyMap();
+        }
+        if (!(snapshot instanceof JSONArray items)) {
+            throw exception(PRO_ROUTE_VERSION_SNAPSHOT_INCOMPLETE, routeVersion.getId());
+        }
+        Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> result = new LinkedHashMap<>();
+        for (Object value : items) {
+            JSONObject item = toCandidateJsonObject(routeVersion, value);
+            String attachmentCode = StrUtil.trim(item.getString("attachmentCode"));
+            if (!isBatchRecordAttachmentCode(attachmentCode)) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, attachmentCode);
+            }
+            result.put(attachmentCode, new MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO()
+                    .setAttachmentCode(attachmentCode)
+                    .setCandidateSourceType(normalizeBatchRecordAttachmentCandidateSourceType(
+                            item.getString("candidateSourceType")))
+                    .setCandidateSourceIds(normalizeBatchRecordAttachmentCandidateSourceIds(
+                            parseCandidateSourceIds(item.get("candidateSourceIds"))))
+                    .setCandidateSourceNames(parseBatchRecordAttachmentCandidateSourceNames(
+                            item.get("candidateSourceNames")))
+                    .setRemark(item.getString("remark")));
+        }
+        return result;
+    }
+
+    private Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> normalizeBatchRecordAttachmentOwnerSaveItems(
+            List<MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> items,
+            Map<Long, AdminUserDO> enabledUserMap) {
+        Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> configuredByCode = new LinkedHashMap<>();
+        for (MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO item : items) {
+            String attachmentCode = StrUtil.trim(item.getAttachmentCode());
+            if (!isBatchRecordAttachmentCode(attachmentCode)) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, attachmentCode);
+            }
+            if (configuredByCode.putIfAbsent(attachmentCode, item) != null) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, attachmentCode);
+            }
+        }
+        Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> result = new LinkedHashMap<>();
+        for (BatchRecordAttachmentDefinition definition : BATCH_RECORD_ATTACHMENT_DEFINITIONS) {
+            MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO item = configuredByCode.get(definition.code());
+            if (item == null) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, definition.code());
+            }
+            String sourceType = normalizeBatchRecordAttachmentCandidateSourceType(item.getCandidateSourceType());
+            List<Long> sourceIds = normalizeBatchRecordAttachmentCandidateSourceIds(item.getCandidateSourceIds());
+            validateBatchRecordAttachmentCandidateSource(sourceType, sourceIds, enabledUserMap);
+            List<String> sourceNames = resolveBatchRecordAttachmentCandidateSourceNames(
+                    sourceType, sourceIds, item.getCandidateSourceNames(), enabledUserMap);
+            result.put(definition.code(), new MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO()
+                    .setAttachmentCode(definition.code())
+                    .setCandidateSourceType(sourceType)
+                    .setCandidateSourceIds(sourceIds)
+                    .setCandidateSourceNames(sourceNames)
+                    .setRemark(StrUtil.blankToDefault(StrUtil.trim(item.getRemark()), null)));
+        }
+        return result;
+    }
+
+    private List<MesProRouteBatchRecordAttachmentOwnerRespVO> buildBatchRecordAttachmentOwnerRespList(
+            Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> savedItems,
+            Map<Long, AdminUserDO> enabledUserMap) {
+        return buildBatchRecordAttachmentOwnerRespList(savedItems, enabledUserMap, Collections.emptyMap());
+    }
+
+    private List<MesProRouteBatchRecordAttachmentOwnerRespVO> buildBatchRecordAttachmentOwnerRespList(
+            Map<String, MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO> savedItems,
+            Map<Long, AdminUserDO> enabledUserMap,
+            Map<Long, List<Long>> assignedUserIdsByRoleId) {
+        List<MesProRouteBatchRecordAttachmentOwnerRespVO> result = new ArrayList<>();
+        for (BatchRecordAttachmentDefinition definition : BATCH_RECORD_ATTACHMENT_DEFINITIONS) {
+            MesProRouteBatchRecordAttachmentOwnerItemSaveReqVO savedItem = savedItems.get(definition.code());
+            RoleDO defaultRole = roleMapper.selectByCode(definition.defaultRoleCode());
+            List<Long> candidateSourceIds = savedItem == null
+                    ? defaultRole == null ? Collections.emptyList() : List.of(defaultRole.getId())
+                    : normalizeBatchRecordAttachmentCandidateSourceIds(savedItem.getCandidateSourceIds());
+            String candidateSourceType = savedItem == null ? CANDIDATE_SOURCE_TYPE_ROLE
+                    : normalizeBatchRecordAttachmentCandidateSourceType(savedItem.getCandidateSourceType());
+            List<String> candidateSourceNames = savedItem == null
+                    ? defaultRole == null ? List.of(definition.defaultRoleName()) : List.of(formatRoleSnapshotName(defaultRole))
+                    : resolveBatchRecordAttachmentCandidateSourceNames(
+                            candidateSourceType, candidateSourceIds, savedItem.getCandidateSourceNames(), enabledUserMap);
+            Long defaultRoleId = defaultRole == null
+                    ? resolveBatchRecordAttachmentDefaultRoleId(candidateSourceType, candidateSourceIds)
+                    : defaultRole.getId();
+            List<Long> assignedUserIds = resolveDefaultRoleAssignedEnabledUserIds(
+                    defaultRoleId, enabledUserMap, assignedUserIdsByRoleId);
+            result.add(new MesProRouteBatchRecordAttachmentOwnerRespVO()
+                    .setAttachmentCode(definition.code())
+                    .setAttachmentName(definition.name())
+                    .setDefaultRoleCode(definition.defaultRoleCode())
+                    .setDefaultRoleName(definition.defaultRoleName())
+                    .setCandidateSourceType(candidateSourceType)
+                    .setCandidateSourceIds(candidateSourceIds)
+                    .setCandidateSourceNames(candidateSourceNames)
+                    .setAssignedUserIds(assignedUserIds)
+                    .setAssignedUserNames(assignedUserIds.stream()
+                            .map(enabledUserMap::get)
+                            .filter(Objects::nonNull)
+                            .map(this::formatUserSnapshotName)
+                            .toList())
+                    .setSort(definition.sort())
+                    .setRemark(savedItem == null ? null : savedItem.getRemark()));
+        }
+        return result;
+    }
+
+    private void saveBatchRecordAttachmentOwnerSnapshot(
+            Long routeVersionId,
+            List<MesProRouteBatchRecordAttachmentOwnerRespVO> owners) {
+        List<Map<String, Object>> snapshot = owners.stream()
+                .map(owner -> {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("attachmentCode", owner.getAttachmentCode());
+                    item.put("attachmentName", owner.getAttachmentName());
+                    item.put("defaultRoleCode", owner.getDefaultRoleCode());
+                    item.put("defaultRoleName", owner.getDefaultRoleName());
+                    item.put("candidateSourceType", owner.getCandidateSourceType());
+                    item.put("candidateSourceIds", owner.getCandidateSourceIds());
+                    item.put("candidateSourceNames", owner.getCandidateSourceNames());
+                    item.put("sort", owner.getSort());
+                    item.put("remark", owner.getRemark());
+                    return item;
+                })
+                .toList();
+        routeCandidateConfigService.saveConfigSnapshot(
+                routeVersionId, BATCH_RECORD_ATTACHMENT_OWNERS_KEY, snapshot);
+    }
+
+    private RoleCategoryDO requireBatchRecordRoleCategory() {
+        RoleCategoryDO category = roleCategoryMapper.selectByCode(BATCH_RECORD_ROLE_CATEGORY_CODE);
+        if (category == null || !CommonStatusEnum.ENABLE.getStatus().equals(category.getStatus())) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_ROLE_CATEGORY_REQUIRED);
+        }
+        return category;
+    }
+
+    private RoleDO ensureBatchRecordAttachmentRole(BatchRecordAttachmentDefinition definition,
+                                                   RoleCategoryDO category) {
+        RoleDO role = roleMapper.selectByCode(definition.defaultRoleCode());
+        if (role != null) {
+            if (!CommonStatusEnum.ENABLE.getStatus().equals(role.getStatus())
+                    || !Objects.equals(category.getId(), role.getCategoryId())) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, definition.defaultRoleName());
+            }
+            return role;
+        }
+        RoleSaveReqVO reqVO = new RoleSaveReqVO();
+        reqVO.setName(definition.defaultRoleName());
+        reqVO.setCode(definition.defaultRoleCode());
+        reqVO.setSort(900 + definition.sort());
+        reqVO.setStatus(CommonStatusEnum.ENABLE.getStatus());
+        reqVO.setCategoryId(category.getId());
+        reqVO.setRemark("工序开始批记录附件默认上传角色");
+        Long roleId = roleService.createRole(reqVO, null);
+        RoleDO created = new RoleDO();
+        created.setId(roleId);
+        created.setName(definition.defaultRoleName());
+        created.setCode(definition.defaultRoleCode());
+        created.setStatus(CommonStatusEnum.ENABLE.getStatus());
+        created.setCategoryId(category.getId());
+        return created;
+    }
+
+    private List<Long> ensureBatchRecordAttachmentRoleUsers(BatchRecordAttachmentDefinition definition,
+                                                            RoleDO role,
+                                                            List<AdminUserDO> enabledUsers,
+                                                            Map<Long, AdminUserDO> enabledUserMap) {
+        Set<Long> assignedUserIds = permissionService.getUserRoleIdListByRoleId(Set.of(role.getId()));
+        List<Long> enabledAssignedUserIds = assignedUserIds.stream()
+                .filter(enabledUserMap::containsKey)
+                .sorted()
+                .toList();
+        if (CollUtil.isNotEmpty(assignedUserIds)) {
+            if (assignedUserIds.size() != enabledAssignedUserIds.size()
+                    || enabledAssignedUserIds.size() < BATCH_RECORD_ATTACHMENT_MIN_USERS
+                    || enabledAssignedUserIds.size() > BATCH_RECORD_ATTACHMENT_MAX_USERS) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, definition.defaultRoleName());
+            }
+            return enabledAssignedUserIds;
+        }
+        List<AdminUserDO> selectedUsers = selectDeterministicAttachmentUsers(definition, enabledUsers);
+        for (AdminUserDO user : selectedUsers) {
+            Set<Long> nextRoleIds = new LinkedHashSet<>(permissionService.getUserRoleIdListByUserId(user.getId()));
+            if (nextRoleIds.add(role.getId())) {
+                permissionService.assignUserRole(user.getId(), nextRoleIds);
+            }
+        }
+        return selectedUsers.stream()
+                .map(AdminUserDO::getId)
+                .filter(Objects::nonNull)
+                .sorted()
+                .toList();
+    }
+
+    private List<AdminUserDO> selectDeterministicAttachmentUsers(BatchRecordAttachmentDefinition definition,
+                                                                 List<AdminUserDO> enabledUsers) {
+        int maxCount = Math.min(BATCH_RECORD_ATTACHMENT_MAX_USERS, enabledUsers.size());
+        int countRange = maxCount - BATCH_RECORD_ATTACHMENT_MIN_USERS + 1;
+        int selectedCount = BATCH_RECORD_ATTACHMENT_MIN_USERS
+                + Math.floorMod(Objects.hash(TenantContextHolder.getTenantId(), definition.defaultRoleCode()), countRange);
+        return enabledUsers.stream()
+                .sorted(Comparator
+                        .comparingInt((AdminUserDO user) -> Math.floorMod(
+                                Objects.hash(TenantContextHolder.getTenantId(), definition.defaultRoleCode(), user.getId()),
+                                Integer.MAX_VALUE))
+                        .thenComparing(AdminUserDO::getId))
+                .limit(selectedCount)
+                .toList();
+    }
+
+    private Map<Long, AdminUserDO> loadEnabledCurrentTenantUserMap() {
+        return convertMap(loadEnabledCurrentTenantUsers(), AdminUserDO::getId);
+    }
+
+    private List<AdminUserDO> loadEnabledCurrentTenantUsers() {
+        return adminUserService.getUserListByStatus(CommonStatusEnum.ENABLE.getStatus()).stream()
+                .filter(user -> user.getId() != null)
+                .filter(user -> CommonStatusEnum.ENABLE.getStatus().equals(user.getStatus()))
+                .collect(Collectors.toMap(AdminUserDO::getId, user -> user, (left, right) -> left, LinkedHashMap::new))
+                .values()
+                .stream()
+                .sorted(Comparator.comparing(AdminUserDO::getId))
+                .toList();
+    }
+
+    private List<Long> resolveDefaultRoleAssignedEnabledUserIds(RoleDO role,
+                                                                Map<Long, AdminUserDO> enabledUserMap) {
+        return resolveDefaultRoleAssignedEnabledUserIds(
+                role == null ? null : role.getId(), enabledUserMap, Collections.emptyMap());
+    }
+
+    private List<Long> resolveDefaultRoleAssignedEnabledUserIds(Long roleId,
+                                                                Map<Long, AdminUserDO> enabledUserMap,
+                                                                Map<Long, List<Long>> assignedUserIdsByRoleId) {
+        if (roleId == null) {
+            return Collections.emptyList();
+        }
+        List<Long> assignedUserIds = assignedUserIdsByRoleId.get(roleId);
+        if (assignedUserIds != null) {
+            return assignedUserIds.stream()
+                    .filter(enabledUserMap::containsKey)
+                    .sorted()
+                    .toList();
+        }
+        return permissionService.getUserRoleIdListByRoleId(Set.of(roleId)).stream()
+                .filter(enabledUserMap::containsKey)
+                .sorted()
+                .toList();
+    }
+
+    private Long resolveBatchRecordAttachmentDefaultRoleId(String candidateSourceType, List<Long> candidateSourceIds) {
+        if (!CANDIDATE_SOURCE_TYPE_ROLE.equals(candidateSourceType) || CollUtil.isEmpty(candidateSourceIds)) {
+            return null;
+        }
+        return candidateSourceIds.get(0);
+    }
+
+    private List<String> resolveBatchRecordAttachmentCandidateSourceNames(
+            String sourceType,
+            List<Long> sourceIds,
+            List<String> configuredNames,
+            Map<Long, AdminUserDO> enabledUserMap) {
+        List<String> names = normalizeCandidateSourceNames(configuredNames);
+        if (!names.isEmpty()) {
+            return names;
+        }
+        if (CANDIDATE_SOURCE_TYPE_USERS.equals(sourceType)) {
+            return sourceIds.stream()
+                    .map(enabledUserMap::get)
+                    .filter(Objects::nonNull)
+                    .map(this::formatUserSnapshotName)
+                    .toList();
+        }
+        return roleService.getRoleList(sourceIds).stream()
+                .filter(Objects::nonNull)
+                .map(this::formatRoleSnapshotName)
+                .toList();
+    }
+
+    private List<Long> normalizeBatchRecordAttachmentCandidateSourceIds(List<Long> ids) {
+        List<Long> normalized = ids == null ? Collections.emptyList()
+                : ids.stream()
+                .filter(Objects::nonNull)
+                .filter(id -> id > 0)
+                .distinct()
+                .toList();
+        if (normalized.isEmpty()) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, "负责人为空");
+        }
+        return normalized;
+    }
+
+    private String normalizeBatchRecordAttachmentCandidateSourceType(String candidateSourceType) {
+        String normalized = StrUtil.trim(candidateSourceType);
+        if (CANDIDATE_SOURCE_TYPE_USER.equals(normalized)
+                || CANDIDATE_SOURCE_TYPE_USERS.equals(normalized)) {
+            return CANDIDATE_SOURCE_TYPE_USERS;
+        }
+        if (CANDIDATE_SOURCE_TYPE_ROLE.equals(normalized)) {
+            return CANDIDATE_SOURCE_TYPE_ROLE;
+        }
+        throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, candidateSourceType);
+    }
+
+    private void validateBatchRecordAttachmentCandidateSource(String sourceType,
+                                                              List<Long> sourceIds,
+                                                              Map<Long, AdminUserDO> enabledUserMap) {
+        if (CANDIDATE_SOURCE_TYPE_USERS.equals(sourceType)) {
+            boolean allEnabledCurrentTenantUsers = sourceIds.stream().allMatch(enabledUserMap::containsKey);
+            if (!allEnabledCurrentTenantUsers) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID, sourceIds);
+            }
+            return;
+        }
+        roleService.validateRoleList(sourceIds);
+    }
+
+    private List<String> parseBatchRecordAttachmentCandidateSourceNames(Object rawValue) {
+        if (rawValue == null) {
+            return Collections.emptyList();
+        }
+        if (rawValue instanceof JSONArray array) {
+            return normalizeCandidateSourceNames(array.stream()
+                    .map(value -> value == null ? null : String.valueOf(value))
+                    .toList());
+        }
+        if (rawValue instanceof List<?> list) {
+            return normalizeCandidateSourceNames(list.stream()
+                    .map(value -> value == null ? null : String.valueOf(value))
+                    .toList());
+        }
+        String text = StrUtil.trim(String.valueOf(rawValue));
+        if (StrUtil.isBlank(text)) {
+            return Collections.emptyList();
+        }
+        if (text.startsWith("[") && text.endsWith("]")) {
+            return normalizeCandidateSourceNames(JSON.parseArray(text, String.class));
+        }
+        return normalizeCandidateSourceNames(List.of(text));
+    }
+
+    private boolean isBatchRecordAttachmentCode(String attachmentCode) {
+        return BATCH_RECORD_ATTACHMENT_DEFINITIONS.stream()
+                .anyMatch(definition -> definition.code().equals(attachmentCode));
+    }
+
+    private String formatRoleSnapshotName(RoleDO role) {
+        if (role == null) {
+            return "";
+        }
+        if (StrUtil.isNotBlank(role.getName()) && StrUtil.isNotBlank(role.getCode())) {
+            return role.getName() + "（" + role.getCode() + "）";
+        }
+        return StrUtil.blankToDefault(role.getName(), role.getCode());
+    }
+
+    private String formatUserSnapshotName(AdminUserDO user) {
+        if (user == null) {
+            return "";
+        }
+        if (StrUtil.isNotBlank(user.getNickname()) && StrUtil.isNotBlank(user.getUsername())) {
+            return user.getNickname() + "（" + user.getUsername() + "）";
+        }
+        return StrUtil.blankToDefault(user.getNickname(),
+                StrUtil.blankToDefault(user.getUsername(), String.valueOf(user.getId())));
+    }
+
+    private void requireRouteBatchRecordConfigEditAbility(MesProRouteDO route, String actionName) {
+        permissionGateService.requireAbility(new MesProEdhrPermissionGateCommand()
+                .setObjectType("ROUTE")
+                .setObjectId(String.valueOf(route.getId()))
+                .setAbility("ROUTE_EDIT")
+                .setRouteId(route.getId())
+                .setPermissionCode("mes:pro-route:batch-record-config:update")
+                .setActionName(actionName));
     }
 
     private MesProRouteFlowProcessConfigDO findHistoricalProcessConfig(
@@ -988,6 +1659,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
             validateSharedFormBinding(instanceScope, report);
             String recordCategory = resolveRecordCategory(report.getRecordCategory(), formSlotType);
             String validationProfile = resolveValidationProfile(recordCategory, report.getValidationProfile());
+            Boolean recordbookEnabled = resolveRecordbookEnabled(report.getRecordbookEnabled(), recordCategory);
             String requiredPolicy = resolveRequiredPolicy(report.getRequiredPolicy());
             String archiveVisibility = resolveArchiveVisibility(report.getArchiveVisibility());
             String ownerRoleKey = resolveOwnerRoleKey(report.getOwnerRoleKey(), formSlotType);
@@ -1006,6 +1678,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .fillableScopeJson(StrUtil.blankToDefault(StrUtil.trim(report.getFillableScopeJson()), null))
                     .recordCategory(recordCategory)
                     .validationProfile(validationProfile)
+                    .recordbookEnabled(recordbookEnabled)
                     .permissionScopeId(permissionScopeId)
                     .recordCategorySnapshotHash(buildRecordCategorySnapshotHash(route.getId(),
                             processConfig.getRouteProcessId(), report, permissionScopeId,
@@ -1029,10 +1702,12 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 ? Collections.emptyList() : saveConfig.getFormBindings();
         for (int index = 0; index < bindings.size(); index++) {
             MesProRouteFlowFormBindingSaveReqVO binding = bindings.get(index);
-            String recordCategory = resolveRecordCategory(binding.getRecordCategory(), SLOT_TYPE_MAIN);
+            String formSlotType = resolveConfiguredFormSlotType(binding);
+            String recordCategory = resolveRecordCategory(binding.getRecordCategory(), formSlotType);
             String validationProfile = resolveValidationProfile(recordCategory, binding.getValidationProfile());
+            Boolean recordbookEnabled = resolveRecordbookEnabled(binding.getRecordbookEnabled(), recordCategory);
             String requiredPolicy = resolveRequiredPolicy(binding.getRequiredPolicy());
-            String ownerRoleKey = resolveOwnerRoleKey(binding.getOwnerRoleKey(), SLOT_TYPE_MAIN);
+            String ownerRoleKey = resolveOwnerRoleKey(binding.getOwnerRoleKey(), formSlotType);
             String archiveVisibility = resolveArchiveVisibility(binding.getArchiveVisibility());
             routeFlowProcessBatchRecordMapper.insert(MesProRouteFlowProcessBatchRecordDO.builder()
                     .routeFlowProcessConfigId(processConfig.getId())
@@ -1042,7 +1717,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .batchRecordReportId(null)
                     .batchRecordDefinitionId(null)
                     .batchRecordVersionId(null)
-                    .formSlotType(null)
+                    .formSlotType(formSlotType)
                     .formBindingKey(resolveFormBindingKey(processConfig.getRouteProcessId(), binding, index + 1))
                     .formTemplateId(binding.getFormTemplateId())
                     .formTemplateNameSnapshot(StrUtil.trim(binding.getFormTemplateName()))
@@ -1053,6 +1728,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .fillableScopeJson(StrUtil.blankToDefault(StrUtil.trim(binding.getFillableScopeJson()), null))
                     .recordCategory(recordCategory)
                     .validationProfile(validationProfile)
+                    .recordbookEnabled(recordbookEnabled)
                     .permissionScopeId(binding.getPermissionScopeId())
                     .requiredPolicy(requiredPolicy)
                     .requiredConditionJson(StrUtil.blankToDefault(StrUtil.trim(binding.getRequiredConditionJson()), null))
@@ -1140,6 +1816,61 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .toList();
     }
 
+    private List<MesProRouteFlowBatchRecordSaveReqVO> resolveAndNormalizeBatchRecordReports(
+            MesProRouteFlowProcessConfigSaveReqVO saveConfig) {
+        List<MesProRouteFlowBatchRecordSaveReqVO> reports = normalizeBatchRecordReports(saveConfig);
+        if (reports.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Set<String> reportIds = new LinkedHashSet<>();
+        for (MesProRouteFlowBatchRecordSaveReqVO report : reports) {
+            String reportId = StrUtil.trim(report.getBatchRecordReportId());
+            if (StrUtil.isBlank(reportId)) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_REPORT_NOT_EXISTS);
+            }
+            if (!reportIds.add(reportId)) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_REPORT_DUPLICATE);
+            }
+        }
+        Map<String, MesProBatchRecordReportDO> reportMap = loadReportMap(reportIds);
+        if (reportMap.size() != reportIds.size()) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_BATCH_REPORT_NOT_EXISTS);
+        }
+        List<MesProRouteFlowBatchRecordSaveReqVO> normalized = new ArrayList<>(reports.size());
+        for (MesProRouteFlowBatchRecordSaveReqVO report : reports) {
+            String reportId = StrUtil.trim(report.getBatchRecordReportId());
+            String formSlotType = resolveConfiguredFormSlotType(report, reportMap.get(reportId));
+            String instanceScope = resolveInstanceScope(report.getInstanceScope());
+            validateSharedFormBinding(instanceScope, report);
+            String recordCategory = resolveRecordCategory(report.getRecordCategory(), formSlotType);
+            String validationProfile = resolveValidationProfile(recordCategory, report.getValidationProfile());
+            String requiredPolicy = resolveRequiredPolicy(report.getRequiredPolicy());
+            if (REQUIRED_POLICY_CONDITIONAL_REQUIRED.equals(requiredPolicy)
+                    && StrUtil.isBlank(report.getRequiredConditionJson())) {
+                throw exception(PRO_ROUTE_FLOW_CONFIG_CONDITION_CONFIG_MISSING);
+            }
+            normalized.add(new MesProRouteFlowBatchRecordSaveReqVO()
+                    .setBatchRecordReportId(reportId)
+                    .setFormSlotType(formSlotType)
+                    .setInstanceScope(instanceScope)
+                    .setSharedFormKey(StrUtil.blankToDefault(StrUtil.trim(report.getSharedFormKey()), null))
+                    .setFillableScopeJson(StrUtil.blankToDefault(StrUtil.trim(report.getFillableScopeJson()), null))
+                    .setRecordCategory(recordCategory)
+                    .setValidationProfile(validationProfile)
+                    .setRecordbookEnabled(resolveRecordbookEnabled(report.getRecordbookEnabled(), recordCategory))
+                    .setPermissionScopeId(report.getPermissionScopeId())
+                    .setRequiredPolicy(requiredPolicy)
+                    .setRequiredConditionJson(StrUtil.blankToDefault(
+                            StrUtil.trim(report.getRequiredConditionJson()), null))
+                    .setOwnerRoleKey(resolveOwnerRoleKey(report.getOwnerRoleKey(), formSlotType))
+                    .setArchiveVisibility(resolveArchiveVisibility(report.getArchiveVisibility()))
+                    .setSlotConfigSnapshotHash(report.getSlotConfigSnapshotHash())
+                    .setReportSort(report.getReportSort())
+                    .setRemark(report.getRemark()));
+        }
+        return normalized;
+    }
+
     private List<MesProRouteFlowFormBindingSaveReqVO> resolveAndNormalizeFormBindings(
             MesProRouteFlowProcessConfigSaveReqVO saveConfig) {
         List<MesProRouteFlowFormBindingSaveReqVO> bindings = normalizeFormBindings(saveConfig);
@@ -1158,10 +1889,12 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 throw exception(PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_DUPLICATE);
             }
             FormTemplateVersionDO publishedVersion = resolveLatestPublishedTemplateVersion(binding.getFormTemplateId());
+            String formSlotType = resolveConfiguredFormSlotType(binding);
             String instanceScope = resolveInstanceScope(binding.getInstanceScope());
             validateSharedFormBinding(instanceScope, binding);
-            String recordCategory = resolveRecordCategory(binding.getRecordCategory(), SLOT_TYPE_MAIN);
+            String recordCategory = resolveRecordCategory(binding.getRecordCategory(), formSlotType);
             String validationProfile = resolveValidationProfile(recordCategory, binding.getValidationProfile());
+            Boolean recordbookEnabled = resolveRecordbookEnabled(binding.getRecordbookEnabled(), recordCategory);
             String requiredPolicy = resolveRequiredPolicy(binding.getRequiredPolicy());
             if (REQUIRED_POLICY_CONDITIONAL_REQUIRED.equals(requiredPolicy)
                     && StrUtil.isBlank(binding.getRequiredConditionJson())) {
@@ -1175,6 +1908,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .setFormBindingKey(resolveFormBindingKey(saveConfig.getRouteProcessId(), binding, index + 1))
                     .setFormTemplateId(binding.getFormTemplateId())
                     .setFormTemplateName(StrUtil.trim(publishedVersion.getTemplateName()))
+                    .setFormSlotType(formSlotType)
                     .setLastPublishedTemplateVersionId(publishedVersion.getId())
                     .setLastPublishedTemplateVersionNo(StrUtil.trim(publishedVersion.getVersionNo()))
                     .setInstanceScope(instanceScope)
@@ -1182,10 +1916,11 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     .setFillableScopeJson(StrUtil.blankToDefault(StrUtil.trim(binding.getFillableScopeJson()), null))
                     .setRecordCategory(recordCategory)
                     .setValidationProfile(validationProfile)
+                    .setRecordbookEnabled(recordbookEnabled)
                     .setPermissionScopeId(binding.getPermissionScopeId())
                     .setRequiredPolicy(requiredPolicy)
                     .setRequiredConditionJson(StrUtil.blankToDefault(StrUtil.trim(binding.getRequiredConditionJson()), null))
-                    .setOwnerRoleKey(resolveOwnerRoleKey(binding.getOwnerRoleKey(), SLOT_TYPE_MAIN))
+                    .setOwnerRoleKey(resolveOwnerRoleKey(binding.getOwnerRoleKey(), formSlotType))
                     .setArchiveVisibility(archiveVisibility)
                     .setCandidateSourceType(candidateSourceType)
                     .setCandidateSourceIds(candidateSourceIds)
@@ -1365,6 +2100,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     vo.setFillableScopeJson(record.getFillableScopeJson());
                     vo.setRecordCategory(resolveExistingRecordCategory(record));
                     vo.setValidationProfile(resolveExistingValidationProfile(record));
+                    vo.setRecordbookEnabled(resolveRecordbookEnabled(record.getRecordbookEnabled(), vo.getRecordCategory()));
                     vo.setPermissionScopeId(record.getPermissionScopeId());
                     vo.setRequiredPolicy(resolveExistingRequiredPolicy(record));
                     vo.setRequiredConditionJson(record.getRequiredConditionJson());
@@ -1390,6 +2126,8 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 .map(record -> {
                     MesProRouteFlowFormBindingRespVO vo = new MesProRouteFlowFormBindingRespVO();
                     vo.setFormBindingKey(record.getFormBindingKey());
+                    String formSlotType = resolveFormSlotType(record, null);
+                    vo.setFormSlotType(formSlotType);
                     vo.setFormTemplateId(record.getFormTemplateId());
                     vo.setFormTemplateName(record.getFormTemplateNameSnapshot());
                     vo.setLastPublishedTemplateVersionId(record.getLastPublishedTemplateVersionId());
@@ -1397,12 +2135,13 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                     vo.setInstanceScope(resolveExistingInstanceScope(record));
                     vo.setSharedFormKey(record.getSharedFormKey());
                     vo.setFillableScopeJson(record.getFillableScopeJson());
-                    vo.setRecordCategory(resolveRecordCategory(record.getRecordCategory(), SLOT_TYPE_MAIN));
+                    vo.setRecordCategory(resolveRecordCategory(record.getRecordCategory(), formSlotType));
                     vo.setValidationProfile(resolveValidationProfile(vo.getRecordCategory(), record.getValidationProfile()));
+                    vo.setRecordbookEnabled(resolveRecordbookEnabled(record.getRecordbookEnabled(), vo.getRecordCategory()));
                     vo.setPermissionScopeId(record.getPermissionScopeId());
                     vo.setRequiredPolicy(resolveExistingRequiredPolicy(record));
                     vo.setRequiredConditionJson(record.getRequiredConditionJson());
-                    vo.setOwnerRoleKey(resolveOwnerRoleKey(record.getOwnerRoleKey(), SLOT_TYPE_MAIN));
+                    vo.setOwnerRoleKey(resolveOwnerRoleKey(record.getOwnerRoleKey(), formSlotType));
                     vo.setArchiveVisibility(resolveExistingArchiveVisibility(record));
                     vo.setSlotConfigSnapshotHash(record.getSlotConfigSnapshotHash());
                     vo.setCandidateSourceType(normalizeCandidateSourceTypeOptional(record.getCandidateSourceType()));
@@ -1494,6 +2233,14 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
         return resolveConfiguredFormSlotType(report, null);
     }
 
+    private String resolveConfiguredFormSlotType(MesProRouteFlowFormBindingSaveReqVO binding) {
+        String normalized = MesProBatchRecordFormSlotType.normalize(binding == null ? null : binding.getFormSlotType());
+        if (StrUtil.isBlank(normalized)) {
+            throw exception(PRO_ROUTE_FLOW_CONFIG_FORM_SLOT_TYPE_INVALID);
+        }
+        return normalized;
+    }
+
     private String resolveConfiguredFormSlotType(MesProRouteFlowBatchRecordSaveReqVO report,
                                                  MesProBatchRecordReportDO metadata) {
         String raw = StrUtil.blankToDefault(StrUtil.trim(report.getFormSlotType()),
@@ -1570,15 +2317,16 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 StrUtil.nullToEmpty(report.getBatchRecordReportId()),
                 StrUtil.nullToEmpty(recordCategory),
                 StrUtil.nullToEmpty(validationProfile),
+                nullToEmpty(resolveRecordbookEnabled(report.getRecordbookEnabled(), recordCategory)),
                 nullToEmpty(permissionScopeId),
                 nullToEmpty(report.getReportSort())));
     }
 
     private String buildSlotConfigSnapshotHash(Long routeId, Long routeProcessId,
                                                MesProRouteFlowBatchRecordSaveReqVO report,
-                                               Long permissionScopeId, String formSlotType,
-                                               String requiredPolicy, String archiveVisibility,
-                                               String recordCategory, String validationProfile) {
+                                                Long permissionScopeId, String formSlotType,
+                                                String requiredPolicy, String archiveVisibility,
+                                                String recordCategory, String validationProfile) {
         return DigestUtil.sha256Hex(String.join("|",
                 nullToEmpty(routeId),
                 nullToEmpty(routeProcessId),
@@ -1586,6 +2334,7 @@ public class MesProRouteFlowConfigServiceImpl implements MesProRouteFlowConfigSe
                 StrUtil.nullToEmpty(formSlotType),
                 StrUtil.nullToEmpty(recordCategory),
                 StrUtil.nullToEmpty(validationProfile),
+                nullToEmpty(resolveRecordbookEnabled(report.getRecordbookEnabled(), recordCategory)),
                 nullToEmpty(permissionScopeId),
                 StrUtil.nullToEmpty(requiredPolicy),
                 StrUtil.nullToEmpty(report.getRequiredConditionJson()),

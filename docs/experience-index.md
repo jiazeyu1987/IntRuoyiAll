@@ -66,6 +66,7 @@
 - Keywords: Playwright Executable doesn't exist, npx playwright install, PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, Chrome 可执行文件, Edge 可执行文件, 浏览器缓存缺失, login-preflight 浏览器路径 -> `docs/e2e-rules.md#playwright-浏览器可执行文件门禁`
 - Keywords: PowerShell Maven -D, -Dsurefire.failIfNoSpecifiedTests, -Dtest, Unknown lifecycle phase, 目标 JUnit 加引号 -> `docs/powershell-memory.md#powershell-maven--d-参数引号门禁`
 - Keywords: IncrementalBuildHelper.beforeRebuildExecution, WinNTFileSystem.delete0, Windows Maven 增量输出删除卡住, Maven 无 surefire 报告, 仅停止任务自有 Maven PID -> `docs/backend-development.md#2026-07-27-windows-maven-增量输出删除卡住门禁`
+- Keywords: 合并后启动后端, 旧 jar 禁止启动, Java 17 基线, JDK 21 编译失败, Lombok getter setter builder 不存在, annotationProcessorPaths, maven.compiler.proc=full, yudao-module-bpm 编译失败 -> `docs/backend-development.md#2026-07-31-合并后源码完整性与后端启动构建门禁`
 - Keywords: 共享分支并发基线提交, concurrent baseline commit, 最近提交不是当前任务, git show --name-status -1 包含当前任务文件, 当前任务改动被基线吞入, 严格任务独立提交 -> `docs/powershell-memory.md#共享分支并发基线提交门禁`
 - Keywords: 同文件并行改动, mixed hunks, selective staging, git apply --cached, 选择性暂存, 本任务 hunks, 并行改动未混入 -> `docs/powershell-memory.md#同文件并行改动选择性暂存门禁`
 - Keywords: 提交后残余改动, commit 后还有修改, 延迟保存改动, git status 复扫, git diff --name-status, 宽泛 git add -A 混入并行任务, residual dirty after commit -> `docs/powershell-memory.md#提交后残余改动复扫门禁`

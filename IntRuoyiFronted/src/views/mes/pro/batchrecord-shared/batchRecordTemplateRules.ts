@@ -26,6 +26,7 @@ export type TemplateSimulationComponentKind =
   | 'date'
   | 'datetime'
   | 'checkbox'
+  | 'select'
   | 'signature'
   | 'attachment'
 
@@ -40,6 +41,11 @@ export type TemplateRuleTypeBadge = {
 export type TemplateSimulationSignatureValue = {
   actorName?: string
   signedAt?: string
+}
+
+export type TemplateSimulationOption = {
+  label: string
+  value: string
 }
 
 export type TemplateSimulationValue =
@@ -63,6 +69,7 @@ export type TemplateSimulationField = {
   helpText?: string
   unit?: string
   format?: string
+  options?: TemplateSimulationOption[]
   attachmentRule?: BatchRecordReportCellAttachmentRuleVO
   signatureActionType?: BatchRecordReportSignatureCellMarkerVO['actionType']
   signatureLabel?: string
@@ -83,6 +90,7 @@ export type TemplateEditableCellContext = {
   reviewed: boolean
   unit?: string
   format?: string
+  options?: TemplateSimulationOption[]
   attachmentRule?: BatchRecordReportCellAttachmentRuleVO
   signatureActionType?: BatchRecordReportSignatureCellMarkerVO['actionType']
   signatureLabel?: string
@@ -184,6 +192,26 @@ export const cleanedAttachmentRule = (attachmentRule?: BatchRecordReportCellAtta
   return Object.keys(cleaned).length ? cleaned : undefined
 }
 
+export const cleanedSelectOptions = (rawOptions: unknown): TemplateSimulationOption[] => {
+  if (!Array.isArray(rawOptions)) return []
+  const options: TemplateSimulationOption[] = []
+  rawOptions.forEach((rawOption) => {
+    let label = ''
+    let value = ''
+    if (rawOption && typeof rawOption === 'object') {
+      const optionRecord = rawOption as Record<string, unknown>
+      label = String(optionRecord.label ?? '').trim()
+      value = String(optionRecord.value ?? label).trim()
+    } else {
+      label = String(rawOption ?? '').trim()
+      value = label
+    }
+    if (!label || !value || options.some((option) => option.value === value)) return
+    options.push({ label, value })
+  })
+  return options
+}
+
 export const buildTemplateFieldIdentity = (rowIndex: number, columnIndex: number) =>
   `${rowIndex}:${columnIndex}`
 
@@ -204,6 +232,11 @@ export const cleanedRuleConstraints = (
   }
   if (valueType === 'STRING') {
     ;(['minLength', 'maxLength'] as const).forEach(copyNumber)
+    const options = cleanedSelectOptions(source.options)
+    if (source.selectionMode === 'single' || options.length) {
+      cleaned.selectionMode = 'single'
+      cleaned.options = options
+    }
   }
   if ((valueType === 'DATE' || valueType === 'DATETIME') && typeof source.format === 'string' && source.format.trim()) {
     cleaned.format = source.format.trim()
@@ -314,6 +347,9 @@ const resolveTemplateSimulationComponentKind = (
     return 'signature'
   }
   const rawComponent = String(rule.componentFlag || '').toLowerCase()
+  if (rawComponent === 'select') {
+    return 'select'
+  }
   if (
     rawComponent.includes('upload-file') ||
     rawComponent.includes('upload-image') ||
@@ -347,6 +383,7 @@ export const buildTemplateSimulationField = (
     helpText: normalizedRule.helpText,
     unit: normalizedRule.unit || undefined,
     format: typeof cleanedConstraints.format === 'string' ? cleanedConstraints.format : undefined,
+    options: cleanedSelectOptions(cleanedConstraints.options),
     attachmentRule: cleanedAttachmentRule(normalizedRule.attachmentRule),
     signatureActionType: marker?.actionType,
     signatureLabel: marker?.enabled ? resolveTemplateSignatureActionLabel(marker) : undefined
@@ -374,6 +411,7 @@ export const buildTemplateEditableCellContext = (
     reviewed: normalizedRule.reviewed,
     unit: field.unit,
     format: field.format,
+    options: field.options,
     attachmentRule: field.attachmentRule,
     signatureActionType: field.signatureActionType,
     signatureLabel: field.signatureLabel

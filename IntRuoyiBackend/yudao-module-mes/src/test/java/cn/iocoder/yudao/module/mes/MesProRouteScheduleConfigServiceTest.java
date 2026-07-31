@@ -37,6 +37,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -287,6 +289,61 @@ class MesProRouteScheduleConfigServiceTest {
         verify(routeScheduleConfigMapper, never()).selectListByRouteVersionId(1002L);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"PENDING_APPROVAL", "READY_TO_PUBLISH", "REJECTED", "CANCELLED"})
+    void getConfigRespListByRouteVersionId_shouldReadCandidateScheduleSnapshotForReadonlyStatuses(
+            String lifecycleStatus) {
+        MesProRouteVersionDO candidate = MesProRouteVersionDO.builder()
+                .id(1003L)
+                .routeId(10L)
+                .active(Boolean.FALSE)
+                .lifecycleStatus(lifecycleStatus)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 10,
+                          "routeCode": "R-10",
+                          "routeName": "测试路线",
+                          "configSnapshots": {
+                            "flowGraph": {"nodes": [{"routeProcessId": 200}]},
+                            "products": [],
+                            "scheduleConfigs": {
+                              "200": {
+                                "routeVersionId": 1003,
+                                "routeProcessId": 200,
+                                "capacityMode": "MANUAL_OVERRIDE",
+                                "hourlyCapacity": 15,
+                                "nightShiftEnabled": false,
+                                "configVersion": "CFG-READONLY",
+                                "remark": "readonly snapshot"
+                              }
+                            },
+                            "batchUseConfigs": [],
+                            "scheduleUseConfigs": []
+                          }
+                        }
+                        """)
+                .build();
+        when(routeVersionMapper.selectById(1003L)).thenReturn(candidate);
+        when(routeProcessMapper.selectListByRouteId(10L)).thenReturn(List.of(process()));
+        when(workstationService.getWorkstationList(Set.of(800L)))
+                .thenReturn(List.of(MesMdWorkstationDO.builder()
+                        .id(800L)
+                        .processId(300L)
+                        .shiftHours(new BigDecimal("8"))
+                        .build()));
+
+        List<MesProRouteScheduleConfigRespVO> rows = service.getConfigRespListByRouteVersionId(1003L);
+
+        assertEquals(1, rows.size());
+        assertEquals(1003L, rows.get(0).getRouteVersionId());
+        assertEquals(200L, rows.get(0).getRouteProcessId());
+        assertEquals("MANUAL_OVERRIDE", rows.get(0).getCapacityMode());
+        assertEquals(0, rows.get(0).getHourlyCapacity().compareTo(new BigDecimal("15")));
+        assertEquals(0, rows.get(0).getShiftHours().compareTo(new BigDecimal("8")));
+        assertEquals(0, rows.get(0).getStandardShiftCapacity().compareTo(new BigDecimal("120")));
+        verify(routeScheduleConfigMapper, never()).selectListByRouteVersionId(1003L);
+    }
+
     @Test
     void saveConfig_shouldRejectDraftLegacyFiniteHourlyModeAfterCapacityModeUnification() {
         MesProRouteScheduleConfigSaveReqVO reqVO = baseReq();
@@ -317,6 +374,27 @@ class MesProRouteScheduleConfigServiceTest {
         reqVO.setHourlyCapacity(new BigDecimal("12"));
         when(routeVersionMapper.selectById(99L)).thenReturn(
                 MesProRouteVersionDO.builder().id(99L).routeId(10L).active(Boolean.TRUE).build());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.saveConfig(reqVO));
+
+        assertEquals(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE.getCode(), ex.getCode());
+        verify(routeScheduleConfigMapper, never()).insert(any(MesProRouteScheduleConfigDO.class));
+        verify(routeScheduleConfigMapper, never()).updateById(any(MesProRouteScheduleConfigDO.class));
+        verify(routeCandidateConfigService, never()).saveConfigSnapshot(anyLong(), anyString(), any());
+    }
+
+    @Test
+    void saveConfig_shouldRejectCancelledRouteVersionWithoutWrite() {
+        MesProRouteScheduleConfigSaveReqVO reqVO = baseReq();
+        reqVO.setRouteVersionId(99L);
+        reqVO.setCapacityMode("MANUAL_OVERRIDE");
+        reqVO.setHourlyCapacity(new BigDecimal("12"));
+        when(routeVersionMapper.selectById(99L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(99L)
+                .routeId(10L)
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED)
+                .build());
 
         ServiceException ex = assertThrows(ServiceException.class, () -> service.saveConfig(reqVO));
 

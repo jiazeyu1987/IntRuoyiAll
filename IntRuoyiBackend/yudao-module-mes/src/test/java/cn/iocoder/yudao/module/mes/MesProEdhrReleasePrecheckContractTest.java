@@ -1,12 +1,26 @@
 package cn.iocoder.yudao.module.mes;
 
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.MesProEdhrReleaseSettingController;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrReleaseDossierRequirementSettingRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrReleaseDossierRequirementSettingUpdateReqVO;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrReleaseDossierRequirementSettingService;
+import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MesProEdhrReleasePrecheckContractTest {
@@ -59,10 +73,63 @@ class MesProEdhrReleasePrecheckContractTest {
         assertTrue(source.contains("EVENT_TYPE_REJECT"));
         assertTrue(source.contains("EVENT_TYPE_WITHDRAW"));
         assertTrue(source.contains("public MesProEdhrReleaseRespVO submit("));
+        assertTrue(source.contains("dossierRequirementConfigHash"));
+        assertTrue(source.contains("requireCurrentConfigHash"));
+        assertTrue(source.contains("CHECK_DOSSIER_INCOMING_INSPECTION_REPORT"));
+        assertTrue(source.contains("CHECK_DOSSIER_STERILIZATION_REPORT"));
+        assertTrue(source.contains("CHECK_DOSSIER_FINISHED_PRODUCT_INSPECTION_REPORT"));
+        assertTrue(source.contains("CHECK_DOSSIER_FINISHED_PRODUCT_INSPECTION_RECORD"));
         assertTrue(source.contains("public MesProEdhrReleaseRespVO approve("));
         assertTrue(source.contains("public MesProEdhrReleaseRespVO reject("));
         assertTrue(source.contains("public MesProEdhrReleaseRespVO withdraw("));
         assertTrue(source.contains("public PageResult<MesProEdhrReleaseEventRespVO> getEventPage("));
+    }
+
+    @Test
+    void dossierRequirementSettingControllerUsesGoldenFingerPermission() throws Exception {
+        RequestMapping mapping = MesProEdhrReleaseSettingController.class.getAnnotation(RequestMapping.class);
+        assertArrayEquals(new String[]{"/mes/pro/edhr-release-setting"}, mapping.value());
+
+        Method get = MesProEdhrReleaseSettingController.class.getDeclaredMethod("getDossierRequirements");
+        assertArrayEquals(new String[]{"/dossier-requirements"}, get.getAnnotation(GetMapping.class).value());
+        assertEquals("@ss.hasPermission('mes:pro-batch-record-execution:golden-finger')",
+                get.getAnnotation(PreAuthorize.class).value());
+
+        Method update = MesProEdhrReleaseSettingController.class.getDeclaredMethod("updateDossierRequirements",
+                EdhrReleaseDossierRequirementSettingUpdateReqVO.class);
+        assertArrayEquals(new String[]{"/dossier-requirements"}, update.getAnnotation(PutMapping.class).value());
+        assertEquals("@ss.hasPermission('mes:pro-batch-record-execution:golden-finger')",
+                update.getAnnotation(PreAuthorize.class).value());
+    }
+
+    @Test
+    void dossierRequirementSettingServiceAndVoExposeCompleteBooleanContract() throws Exception {
+        assertEquals("mes.edhr.release.dossier.requirements",
+                MesProEdhrReleaseDossierRequirementSettingService.CONFIG_KEY);
+        MesProEdhrReleaseDossierRequirementSettingService.class.getDeclaredMethod("getRequirementSetting");
+        MesProEdhrReleaseDossierRequirementSettingService.class.getDeclaredMethod("updateRequirementSetting",
+                EdhrReleaseDossierRequirementSettingUpdateReqVO.class);
+        MesProEdhrReleaseDossierRequirementSettingService.class.getDeclaredMethod("getRequirementState");
+        MesProEdhrReleaseDossierRequirementSettingService.class.getDeclaredMethod("requireCurrentConfigHash",
+                String.class);
+
+        requireGetter(EdhrReleaseDossierRequirementSettingRespVO.class, "getIncomingInspectionReportRequired");
+        requireGetter(EdhrReleaseDossierRequirementSettingRespVO.class, "getSterilizationReportRequired");
+        requireGetter(EdhrReleaseDossierRequirementSettingRespVO.class, "getFinishedProductInspectionReportRequired");
+        requireGetter(EdhrReleaseDossierRequirementSettingRespVO.class, "getFinishedProductInspectionRecordRequired");
+        requireGetter(EdhrReleaseDossierRequirementSettingRespVO.class, "getConfigKey");
+        requireGetter(EdhrReleaseDossierRequirementSettingRespVO.class, "getConfigHash");
+
+        for (String fieldName : new String[]{
+                "incomingInspectionReportRequired",
+                "sterilizationReportRequired",
+                "finishedProductInspectionReportRequired",
+                "finishedProductInspectionRecordRequired"}) {
+            Field field = EdhrReleaseDossierRequirementSettingUpdateReqVO.class.getDeclaredField(fieldName);
+            assertNotNull(field.getAnnotation(NotNull.class), fieldName + " must be required");
+            requireGetter(EdhrReleaseDossierRequirementSettingUpdateReqVO.class,
+                    "get" + Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1));
+        }
     }
 
     @Test
@@ -71,6 +138,7 @@ class MesProEdhrReleasePrecheckContractTest {
         String lifecycleSql = read("sql/mysql/20260618_mes_edhr_release_transaction_lifecycle.sql");
         String visibleTabsSql = read("sql/mysql/20260702_mes_edhr_seven_visible_tabs.sql");
         String traceMenuSql = read("sql/mysql/20260714_mes_edhr_release_trace_menu.sql");
+        String dossierRequirementSql = read("sql/mysql/20260726_mes_edhr_release_dossier_requirements.sql");
 
         assertTrue(precheckSql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_edhr_release_transaction`"));
         assertTrue(precheckSql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_edhr_release_check_item`"));
@@ -99,6 +167,17 @@ class MesProEdhrReleasePrecheckContractTest {
 
         assertFalse(precheckSql.toUpperCase().contains("INSERT IGNORE"));
         assertFalse(lifecycleSql.toUpperCase().contains("INSERT IGNORE"));
+        assertTrue(dossierRequirementSql.contains("mes.edhr.release.dossier.requirements"));
+        assertTrue(dossierRequirementSql.contains("\"incomingInspectionReportRequired\":false"));
+        assertTrue(dossierRequirementSql.contains("\"sterilizationReportRequired\":false"));
+        assertTrue(dossierRequirementSql.contains("\"finishedProductInspectionReportRequired\":false"));
+        assertTrue(dossierRequirementSql.contains("\"finishedProductInspectionRecordRequired\":false"));
+        assertTrue(dossierRequirementSql.contains("Missing infra_config table"));
+        assertFalse(dossierRequirementSql.toUpperCase().contains("INSERT IGNORE"));
+    }
+
+    private static void requireGetter(Class<?> type, String getterName) throws Exception {
+        type.getDeclaredMethod(getterName);
     }
 
     private String read(String relativePath) throws Exception {

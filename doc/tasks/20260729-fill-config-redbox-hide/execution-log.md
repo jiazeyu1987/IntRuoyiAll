@@ -1,0 +1,39 @@
+# Execution Log
+
+- USER: 截图反馈“红框内的内容不显示”，目标为填写配置 / 辅助表单映射页面隐藏截图标注的顶部操作组、左侧原表单说明栏和中央辅助表单预览说明栏。
+- RULES: 已读取 `AGENTS.md`、`docs/task-closeout-rules.md`、`docs/frontend-development.md`、`docs/e2e-rules.md`、`docs/powershell-encoding.md`、`bug-regression-fix-loop` 与 `frontend-feature-delivery` 技能及其 evidence contract。
+- PREFLIGHT: `docs/experience-index.md` 存在，适用门禁为前端静态契约隔离、PowerShell/UTF-8、无 fallback。
+- BDD: 隐藏填写配置红框区域 -> Given 用户打开填写配置的辅助表单映射页面 / When 页面渲染原表格、辅助表格和右侧映射控制栏 / Then 顶部右侧操作组、左侧原表单说明栏和中央辅助表单预览说明栏不显示，右侧映射控制栏、辅助表格卡片和必要配置控件仍可见。
+- M1: completed -> 定位到 `IntRuoyiFronted/src/views/mes/pro/batchrecordformlist/BatchRecordCellRulesConfirmDialog.vue`，截图红框对应顶部 `data-fill-config-actions="primary"`、左侧/中间 `batch-record-cell-rules-editor__panel-head`。
+- CHECK: `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> FAIL，首次合同截取误命中内部 `<template>`；已修正为截取 `<script setup` 之前的完整模板。
+- RED: `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> FAIL，预期失败；现有实现缺少右侧固定操作区且顶部红框操作组仍存在。
+- ROOT_CAUSE: 填写配置辅助映射页将说明性标题栏和关闭/重读/保存操作组渲染在截图红框位置，导致用户要求隐藏的说明和操作区域仍显示。
+- FIX: 移除顶部右侧红框操作组和左/中两栏说明标题 DOM；把关闭、重新读取、保存填写配置移动到右侧固定操作区，继续调用 `loadCellRules` 和 `confirmAllRules` 正式链路。
+- GREEN: `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> PASS，目标红框 DOM 隐藏且右侧操作能力保留。
+- GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS，相邻填写配置静态合同已同步新隐藏口径。
+- GREEN: `pnpm ts:check` -> PASS，Vue/TS relaxed 类型检查通过。
+- M2-M5: completed -> RED/GREEN、实现、相邻回归和任务证据完成，状态更新为 `ready_for_closeout`。
+- EXPERIENCE: 已按 `project-experience-consolidation` 搜索现有长期文档，并更新 `docs/frontend-development.md#前端填写配置红框区域隐藏门禁` 与 `docs/experience-index.md` 索引。
+- GREEN: `python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence doc/tasks/20260729-fill-config-redbox-hide/bug-regression-evidence.md` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-fill-config-redbox-hide/frontend-feature-evidence.md` -> PASS。
+- GREEN: `git diff --check -- <task-owned files>` -> PASS。
+- CLEANUP: `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode preview` -> ready，keep task/execution-log/verification-report/evidence，delete none，blocked none。
+- CLEANUP: `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode apply` -> applied，deleted_paths none。
+- CLOSEOUT BLOCKER: `git status --short --branch --untracked-files=all` -> 当前 `int_main` ahead 1 且存在多组非本任务并行改动；本轮未提交/推送，避免混入无关任务。
+- USER: 2026-07-29 补充截图反馈“红框内的不显示”，红框指向原表单格子和辅助表格格子内的次级说明行（如“未...”和“原...”）。
+- BDD: 隐藏填写配置卡片次级说明 -> Given 用户打开填写配置辅助表单映射页面 / When 原表单格子和辅助表格格子渲染 / Then 格子只显示主标题或字段名，不显示规则类型、必填标记、未映射、原表单来源等次级说明行，点击映射和右侧保存/重读/关闭能力仍保留。
+- RED: `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> FAIL，预期失败；现有模板仍包含 `batch-record-cell-rules-editor__cell-rule`，原表单格子会显示规则类型/必填次级说明。
+- ROOT_CAUSE: 前一轮只隐藏了面板级红框标题/说明，格子内部仍渲染规则类型、必填标记、未映射和原表单来源摘要，导致截图红框中的第二行内容仍可见。
+- FIX: 从 `BatchRecordCellRulesConfirmDialog.vue` 移除原表单格子内 `batch-record-cell-rules-editor__cell-rule` 和辅助格子内 `small` 来源摘要 DOM，同时删除对应无用类型字段、计算映射和样式；保留主字段名、点击映射、保存、重读和关闭链路。
+- GREEN: `node tests/e2e/edhr-fill-config-redbox-hide-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/assist-grid-per-user-mapping-static.spec.js` -> PASS。
+- CHECK: `pnpm ts:check` 首次 120 秒超时，未作为通过证据。
+- GREEN: `pnpm ts:check` -> PASS，300 秒超时上限下完成。
+- EXPERIENCE: 已更新 `docs/frontend-development.md#前端填写配置红框区域隐藏门禁`，把格子内规则类型/必填/未映射/原表单来源次级说明纳入红框隐藏范围；`rg -n "batch-record-cell-rules-editor__cell-rule|gridCell.sourceSummary|原表单来源" docs/experience-index.md docs/frontend-development.md` -> PASS。
+- GREEN: `validate_bug_regression.py --evidence doc/tasks/20260729-fill-config-redbox-hide/bug-regression-evidence.md` -> PASS。
+- GREEN: `validate_frontend_feature.py --evidence doc/tasks/20260729-fill-config-redbox-hide/frontend-feature-evidence.md` -> PASS。
+- GREEN: `git diff --check -- <task-owned files and experience docs>` -> PASS。
+- CLEANUP: `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode preview` -> ready，delete none，blocked none。
+- CLEANUP: `task_closeout.py --task-id 20260729-fill-config-redbox-hide --mode apply` -> applied，deleted_paths none。
+- CLOSEOUT BLOCKER: 当前仓库存在并发 `git rebase --continue` / `git commit` 进程，且暂存区含 `20260729-edhr-process-switch-stay-fill-page` 等非本任务文件；本轮未提交/推送，避免混入并发任务或破坏对方 rebase。

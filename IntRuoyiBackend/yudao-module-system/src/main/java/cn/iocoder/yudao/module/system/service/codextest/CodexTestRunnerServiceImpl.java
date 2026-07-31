@@ -8,8 +8,10 @@ import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRun
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerCompleteCaseReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerHeartbeatReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerHeartbeatRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerProgressReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerRegisterRespVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestRunnerStatusRespVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestCheckpointResultDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionCaseDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestExecutionDO;
@@ -24,7 +26,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -60,7 +64,10 @@ public class CodexTestRunnerServiceImpl implements CodexTestRunnerService {
 
     @Override
     public void validateRunnerToken(String token) {
-        if (StrUtil.isBlank(runnerToken) || !Objects.equals(runnerToken, token)) {
+        if (StrUtil.isBlank(runnerToken)) {
+            return;
+        }
+        if (!Objects.equals(runnerToken, token)) {
             throw exception(CODEX_TEST_RUNNER_TOKEN_INVALID);
         }
     }
@@ -78,6 +85,7 @@ public class CodexTestRunnerServiceImpl implements CodexTestRunnerService {
         runnerSession.setCodexVersion(registerReqVO.getCodexVersion());
         runnerSession.setLastHeartbeatTime(LocalDateTime.now());
         runnerSession.setCurrentRunningCount(0);
+        CodexTestRunnerAuditSupport.stampRunnerAudit(runnerSession);
         codexTestRunnerSessionMapper.insert(runnerSession);
         CodexTestRunnerRegisterRespVO respVO = new CodexTestRunnerRegisterRespVO();
         respVO.setRunnerSessionId(runnerSession.getId());
@@ -90,16 +98,33 @@ public class CodexTestRunnerServiceImpl implements CodexTestRunnerService {
         validateRunnerToken(token);
         CodexTestRunnerSessionDO runnerSession = validateOnlineRunner(claimReqVO.getRunnerSessionId());
         int capacity = Math.min(Math.min(claimReqVO.getCapacity(), maxClaimSize), runnerSession.getMaxParallelism());
-        List<CodexTestRunnerClaimRespVO.Task> tasks = codexTestExecutionCaseMapper
-                .selectPendingClaimCandidates(capacity).stream()
-                .filter(executionCase -> codexTestExecutionCaseMapper.claim(executionCase.getId(),
-                        runnerSession.getId(), LocalDateTime.now()) == 1)
-                .map(executionCase -> buildTask(executionCase, runnerSession.getId()))
-                .toList();
+        List<CodexTestRunnerClaimRespVO.Task> tasks = new ArrayList<>(capacity);
+        for (CodexTestExecutionCaseDO executionCase : codexTestExecutionCaseMapper.selectPendingClaimCandidates()) {
+            if (tasks.size() >= capacity) {
+                break;
+            }
+            if (!isClaimable(executionCase)) {
+                continue;
+            }
+            if (codexTestExecutionCaseMapper.claim(
+                    executionCase.getId(), runnerSession.getId(), LocalDateTime.now()) == 1) {
+                tasks.add(buildTask(executionCase, runnerSession.getId()));
+            }
+        }
         codexTestRunnerSessionMapper.heartbeat(runnerSession.getId(), LocalDateTime.now(), tasks.size());
         CodexTestRunnerClaimRespVO respVO = new CodexTestRunnerClaimRespVO();
         respVO.setTasks(tasks);
         return respVO;
+    }
+
+    private boolean isClaimable(CodexTestExecutionCaseDO executionCase) {
+        CodexTestExecutionDO execution = codexTestExecutionMapper.selectById(executionCase.getExecutionId());
+        if (execution == null) {
+            throw exception(CODEX_TEST_EXECUTION_NOT_EXISTS);
+        }
+        return !Boolean.TRUE.equals(execution.getNodeChainExecution())
+                || codexTestExecutionCaseMapper.selectEarlierNotPassedCount(
+                        executionCase.getExecutionId(), executionCase.getId()) == 0;
     }
 
     @Override
@@ -117,6 +142,42 @@ public class CodexTestRunnerServiceImpl implements CodexTestRunnerService {
         CodexTestRunnerHeartbeatRespVO respVO = new CodexTestRunnerHeartbeatRespVO();
         respVO.setServerTime(LocalDateTime.now());
         respVO.setCancelExecutionCaseIds(cancelIds);
+        return respVO;
+    }
+
+    @Override
+    public CodexTestRunnerStatusRespVO getRunnerStatus() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime threshold = now.minusSeconds(runnerHeartbeatTimeoutSeconds);
+        List<CodexTestRunnerSessionDO> recentSessions = codexTestRunnerSessionMapper.selectLatestSessions(20);
+        List<CodexTestRunnerSessionDO> onlineSessions = recentSessions.stream()
+                .filter(runnerSession -> RUNNER_ONLINE.equals(runnerSession.getStatus()))
+                .filter(runnerSession -> !runnerSession.getLastHeartbeatTime().isBefore(threshold))
+                .toList();
+        CodexTestRunnerSessionDO latestSession = recentSessions.stream().findFirst().orElse(null);
+        boolean requiredCapabilitiesPresent = onlineSessions.stream().anyMatch(this::hasRequiredCapabilities);
+
+        CodexTestRunnerStatusRespVO respVO = new CodexTestRunnerStatusRespVO();
+        respVO.setOnline(!onlineSessions.isEmpty() && requiredCapabilitiesPresent);
+        respVO.setOnlineCount(onlineSessions.size());
+        respVO.setStaleRunnerCount((int) recentSessions.stream()
+                .filter(runnerSession -> RUNNER_ONLINE.equals(runnerSession.getStatus()))
+                .filter(runnerSession -> runnerSession.getLastHeartbeatTime().isBefore(threshold))
+                .count());
+        respVO.setCurrentRunningCount(onlineSessions.stream()
+                .map(CodexTestRunnerSessionDO::getCurrentRunningCount)
+                .filter(Objects::nonNull)
+                .reduce(0, Integer::sum));
+        respVO.setRequiredCapabilitiesPresent(requiredCapabilitiesPresent);
+        respVO.setHeartbeatTimeoutSeconds(runnerHeartbeatTimeoutSeconds);
+        if (latestSession != null) {
+            respVO.setLatestRunnerSessionId(latestSession.getId());
+            respVO.setLatestRunnerName(latestSession.getRunnerName());
+            respVO.setLatestRunnerStatus(latestSession.getStatus());
+            respVO.setLastHeartbeatTime(latestSession.getLastHeartbeatTime());
+            respVO.setHeartbeatAgeSeconds(resolveHeartbeatAgeSeconds(latestSession.getLastHeartbeatTime(), now));
+        }
+        fillRunnerStatusMessage(respVO);
         return respVO;
     }
 
@@ -145,6 +206,22 @@ public class CodexTestRunnerServiceImpl implements CodexTestRunnerService {
     }
 
     @Override
+    public void reportProgress(CodexTestRunnerProgressReqVO progressReqVO, String token) {
+        validateRunnerToken(token);
+        validateProgress(progressReqVO);
+        CodexTestExecutionCaseDO executionCase = validateExecutionCaseExists(progressReqVO.getExecutionCaseId());
+        if (!List.of(EXECUTION_CLAIMED, EXECUTION_RUNNING).contains(executionCase.getStatus())) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "执行项状态不允许回写进度");
+        }
+        LocalDateTime startedAt = executionCase.getStartedAt() == null ? LocalDateTime.now() : null;
+        if (codexTestExecutionCaseMapper.updateProgress(executionCase.getId(), executionCase.getRunnerSessionId(),
+                progressReqVO.getPhase(), progressReqVO.getCurrentMethodSort(),
+                progressReqVO.getCurrentCheckpointSort(), progressReqVO.getProgressMessage(), startedAt) != 1) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "执行项状态不允许回写进度");
+        }
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void completeCase(CodexTestRunnerCompleteCaseReqVO completeReqVO, String token) {
         validateRunnerToken(token);
@@ -170,6 +247,58 @@ public class CodexTestRunnerServiceImpl implements CodexTestRunnerService {
         }
         if (!StrUtil.contains(capabilities, "codex")) {
             throw exception(CODEX_TEST_RUNNER_CAPABILITY_MISSING, "codex");
+        }
+    }
+
+    private boolean hasRequiredCapabilities(CodexTestRunnerSessionDO runnerSession) {
+        return StrUtil.contains(runnerSession.getCapabilitiesJson(), "playwright")
+                && StrUtil.contains(runnerSession.getCapabilitiesJson(), "codex");
+    }
+
+    private long resolveHeartbeatAgeSeconds(LocalDateTime heartbeatTime, LocalDateTime now) {
+        if (heartbeatTime == null) {
+            return -1L;
+        }
+        return Math.max(0L, Duration.between(heartbeatTime, now).getSeconds());
+    }
+
+    private void fillRunnerStatusMessage(CodexTestRunnerStatusRespVO respVO) {
+        if (Boolean.TRUE.equals(respVO.getOnline())) {
+            respVO.setStatus("ONLINE");
+            respVO.setMessage("Runner 在线，最近心跳 " + respVO.getHeartbeatAgeSeconds() + " 秒前");
+            return;
+        }
+        if (respVO.getLatestRunnerSessionId() == null) {
+            respVO.setStatus("OFFLINE");
+            respVO.setMessage("未发现 Codex Runner 注册记录，请启动本机 Runner");
+            return;
+        }
+        if (respVO.getOnlineCount() > 0 && !Boolean.TRUE.equals(respVO.getRequiredCapabilitiesPresent())) {
+            respVO.setStatus("CAPABILITY_MISSING");
+            respVO.setMessage("在线 Runner 缺少 playwright 或 codex 能力，请检查 Runner 启动环境");
+            return;
+        }
+        if (respVO.getHeartbeatAgeSeconds() == null || respVO.getHeartbeatAgeSeconds() < 0) {
+            respVO.setStatus("OFFLINE");
+            respVO.setMessage("最近 Runner 心跳时间缺失，请重新启动本机 Runner");
+            return;
+        }
+        respVO.setStatus("STALE");
+        respVO.setMessage("Runner 心跳已过期 " + respVO.getHeartbeatAgeSeconds()
+                + " 秒，超过 " + respVO.getHeartbeatTimeoutSeconds() + " 秒，请检查或重启本机 Runner");
+    }
+
+    private void validateProgress(CodexTestRunnerProgressReqVO progressReqVO) {
+        if (!PROGRESS_PHASES.contains(progressReqVO.getPhase())) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "执行阶段必须是 METHOD、CHECKPOINT 或 DONE");
+        }
+        if (PROGRESS_PHASE_METHOD.equals(progressReqVO.getPhase())
+                && (progressReqVO.getCurrentMethodSort() == null || progressReqVO.getCurrentMethodSort() < 1)) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "METHOD 阶段必须包含当前测试方法项序号");
+        }
+        if (PROGRESS_PHASE_CHECKPOINT.equals(progressReqVO.getPhase())
+                && (progressReqVO.getCurrentCheckpointSort() == null || progressReqVO.getCurrentCheckpointSort() < 1)) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "CHECKPOINT 阶段必须包含当前目标项序号");
         }
     }
 

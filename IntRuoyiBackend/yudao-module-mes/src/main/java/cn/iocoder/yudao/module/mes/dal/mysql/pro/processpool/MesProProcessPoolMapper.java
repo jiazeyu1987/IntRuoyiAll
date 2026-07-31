@@ -1,0 +1,21 @@
+package cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool;
+
+import cn.iocoder.yudao.framework.mybatis.core.mapper.BaseMapperX;
+import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolDO;
+import org.apache.ibatis.annotations.Mapper;
+
+@Mapper
+public interface MesProProcessPoolMapper extends BaseMapperX<MesProProcessPoolDO> {
+
+    default MesProProcessPoolDO selectByContext(Long workOrderId, Long routeId, Long routeProcessId,
+                                                Long processId, Long deviceId, Long workstationId) {
+        return selectOne(new LambdaQueryWrapperX<MesProProcessPoolDO>()
+                .eq(MesProProcessPoolDO::getWorkOrderId, workOrderId)
+                .eq(MesProProcessPoolDO::getRouteId, routeId)
+                .eq(MesProProcessPoolDO::getRouteProcessId, routeProcessId)
+                .eq(MesProProcessPoolDO::getProcessId, processId)
+                .eq(MesProProcessPoolDO::getDeviceId, deviceId)
+                .eq(MesProProcessPoolDO::getWorkstationId, workstationId));
+    }
+}

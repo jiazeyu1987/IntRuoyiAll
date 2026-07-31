@@ -1,0 +1,8 @@
+{
+  "stepId": "02-created-or-opened-batch",
+  "url": "http://localhost:8081/mes/pro/feedback/edhr-batch-execution/detail?id=900000000846&batchTaskId=6575",
+  "capturedAt": "2026-07-26T00:20:57.248Z",
+  "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260725-full-e2e-admin-validation\\artifacts\\full-chain-admin-1785024829153\\02-created-or-opened-batch.png",
+  "batchExecutionId": 900000000846,
+  "batchCode": "E2E-FULL-1785024829153"
+}

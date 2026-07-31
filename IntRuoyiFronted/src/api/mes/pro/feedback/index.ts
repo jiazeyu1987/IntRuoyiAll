@@ -1,6 +1,7 @@
 import request from '@/config/axios'
 import type {
   EdhrBatchArchiveVisibility,
+  EdhrBatchExecutionTaskRespVO,
   EdhrBatchFormSlotType,
   EdhrBatchOwnerRoleKey,
   EdhrBatchRequiredPolicy,
@@ -75,6 +76,116 @@ export interface ProFeedbackVO {
   sourceImportRowNo?: number
   sourceImportAttributionTime?: string | number | Date
   approvalImpactText?: string
+}
+
+export interface ProFrontlineFeedbackPayloadReqVO {
+  code: string
+  type: number
+  workstationId: number
+  routeId: number
+  processId: number
+  workOrderId: number
+  taskId: number
+  scheduleOrderId?: number
+  scheduleOrderProcessId?: number
+  itemId: number
+  expireDate?: string | number | Date
+  scheduledQuantity?: number
+  outputQuantity: number
+  lossQuantity: number
+  laborScrapQuantity?: number
+  materialScrapQuantity?: number
+  otherScrapQuantity?: number
+  approveUserId: number
+  remark?: string
+}
+
+export interface ProFrontlineRecordbookPayloadReqVO {
+  recordbookId: number
+  entryTitle: string
+  entryContent: Record<string, unknown>
+  previousProcessInputQuantity: number
+  equipmentParameters: Record<string, unknown>
+  tagCodes?: string[]
+  idempotencyKey: string
+  remark?: string
+}
+
+export interface ProFrontlineProcessPoolContextReqVO {
+  workOrderId: number
+  taskId: number
+  routeId: number
+  routeProcessId: number
+  processId: number
+  workstationId: number
+  deviceId?: number
+  deviceAccountUserId: number
+  templateType: string
+}
+
+export interface ProFrontlineFeedbackSubmitReqVO {
+  feedbackPayload: ProFrontlineFeedbackPayloadReqVO
+  recordbookPayload: ProFrontlineRecordbookPayloadReqVO
+  processPoolContext: ProFrontlineProcessPoolContextReqVO
+  actualEmployeeId: number
+  signatureId: number
+  signatureEmployeeId: number
+  rawPayload: Record<string, unknown>
+}
+
+export interface ProFrontlineFeedbackSubmitRespVO {
+  feedbackId: number
+  recordbookEntryId: number
+  recordbookEventId: number
+  processPoolEventId: number
+}
+
+export interface FrontlineDeviceRouteProcessVO {
+  routeId: number
+  routeCode?: string
+  routeName?: string
+  routeProcessId: number
+  processId: number
+  processCode?: string
+  processName?: string
+  sort?: number
+  deviceId: number
+  deviceCode?: string
+  deviceName?: string
+  workstationId: number
+  workstationCode?: string
+  workstationName?: string
+}
+
+export interface FrontlineEmployeeCandidateVO {
+  userId: number
+  username?: string
+  nickname?: string
+}
+
+export interface FrontlineTemplateVO {
+  templateNo: string
+  templateType?: string
+  routeProcessId: number
+  processId: number
+  actualEmployeeId: number
+}
+
+export interface FrontlineSwitchActualEmployeeReqVO {
+  routeId: number
+  routeProcessId: number
+  processId: number
+  actualEmployeeId: number
+}
+
+export interface FrontlineSwitchActualEmployeeRespVO {
+  loginUserId: number
+  actualEmployeeId: number
+  routeId: number
+  routeProcessId: number
+  processId: number
+  extraVerificationRequired: boolean
+  template: FrontlineTemplateVO
 }
 
 export interface ThirdPartyFeedbackImportResultVO {
@@ -281,6 +392,7 @@ export interface ProFeedbackEdhrEntryContextVO {
   formSlotType?: EdhrExecutionFormSlotType
   recordCategory?: EdhrRecordCategory
   validationProfile?: EdhrValidationProfile
+  recordbookEnabled?: boolean | null
   requiredPolicy?: EdhrExecutionRequiredPolicy
   ownerRoleKey?: EdhrExecutionOwnerRoleKey
   archiveVisibility?: EdhrExecutionArchiveVisibility
@@ -327,6 +439,7 @@ export interface ProFeedbackEdhrOpenOrCreateRespVO {
   slotConfigSnapshotHash?: string | null
   routeBindingId?: number
   routeBindingSnapshotHash?: string
+  recordbookEnabled?: boolean | null
   canOpen?: boolean
   bindingResolved?: boolean
   created?: boolean
@@ -367,8 +480,21 @@ export interface ProFeedbackEdhrSnapshotFieldVO {
   [key: string]: unknown
 }
 
+export interface ProFeedbackEdhrAssistRowFieldVO {
+  rowIndex: number
+  columnIndex: number
+}
+
+export interface ProFeedbackEdhrAssistRowVO {
+  rowKey: string
+  description: string
+  sort: number
+  fields: ProFeedbackEdhrAssistRowFieldVO[]
+}
+
 export interface ProFeedbackEdhrExecutionSnapshotVO {
   fields?: ProFeedbackEdhrSnapshotFieldVO[]
+  assistRows?: ProFeedbackEdhrAssistRowVO[]
   [key: string]: unknown
 }
 
@@ -495,6 +621,7 @@ export interface ProFeedbackEdhrExecutionVO {
   reviewAssigneeOptions?: ProFeedbackEdhrReviewAssigneeOptionVO[]
   reviewAssigneeOptionError?: string
   attachmentSummaries?: ProFeedbackEdhrExecutionAttachmentSummaryVO[]
+  assistSwitchTasks?: EdhrBatchExecutionTaskRespVO[]
   closedAt?: string
   remark?: string
   creator?: string
@@ -622,6 +749,13 @@ export const ProFeedbackApi = {
   createFeedback: async (data: ProFeedbackVO) => {
     return await request.post({ url: `/mes/pro/feedback/create`, data })
   },
+  // 一线报工与记录本一体提交
+  frontlineSubmit: async (data: ProFrontlineFeedbackSubmitReqVO) => {
+    return await request.post<ProFrontlineFeedbackSubmitRespVO>({
+      url: `/mes/pro/feedback/frontline/submit`,
+      data
+    })
+  },
   // 淇敼鐢熶骇鎶ュ伐
   updateFeedback: async (data: ProFeedbackVO) => {
     return await request.put({ url: `/mes/pro/feedback/update`, data })
@@ -693,6 +827,30 @@ export const ProFeedbackApi = {
   cosignEdhrExecution: async (data: ProFeedbackEdhrFormReviewSignReqVO) => {
     return await request.put<ProFeedbackEdhrFormReviewSignRespVO>({
       url: `/mes/pro/batch-record-execution/cosign`,
+      data
+    })
+  },
+  // 获取设备账号可切换工序
+  getFrontlineDeviceAccountProcesses: async () => {
+    return await request.get<FrontlineDeviceRouteProcessVO[]>({
+      url: `/mes/pro/feedback/frontline/device-account/processes`
+    })
+  },
+  // 获取当前工序可切换员工
+  getFrontlineEmployeeCandidates: async (params: {
+    routeId: number
+    routeProcessId: number
+    processId: number
+  }) => {
+    return await request.get<FrontlineEmployeeCandidateVO[]>({
+      url: `/mes/pro/feedback/frontline/device-account/employee-candidates`,
+      params
+    })
+  },
+  // 切换实际填写员工并重新加载当前模板
+  switchFrontlineActualEmployee: async (data: FrontlineSwitchActualEmployeeReqVO) => {
+    return await request.post<FrontlineSwitchActualEmployeeRespVO>({
+      url: `/mes/pro/feedback/frontline/device-account/switch-employee`,
       data
     })
   },

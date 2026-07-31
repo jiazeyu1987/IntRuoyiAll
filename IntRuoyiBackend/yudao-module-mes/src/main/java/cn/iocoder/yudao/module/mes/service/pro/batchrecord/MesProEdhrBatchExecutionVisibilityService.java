@@ -145,13 +145,19 @@ public class MesProEdhrBatchExecutionVisibilityService {
             return Map.of();
         }
         ResolvedTaskFormBinding resolvedBinding = resolveLatestApprovedTaskFormBinding(currentProcessTask);
-        Map<String, MesProEdhrProcessFormPermissionRuleDO> latestRuleMap =
+        List<MesProEdhrProcessFormPermissionRuleDO> rules =
                 processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(
-                                currentProcessTask.getRouteProcessId(), resolvedBinding.reportId(),
-                                resolvedBinding.versionId())
-                        .stream()
-                        .collect(Collectors.toMap(MesProEdhrProcessFormPermissionRuleDO::getRuleType,
-                                rule -> rule, (first, ignored) -> first, LinkedHashMap::new));
+                        currentProcessTask.getRouteProcessId(), resolvedBinding.reportId(),
+                        resolvedBinding.versionId());
+        if (rules.isEmpty()) {
+            // Read-only current-filler display keeps legacy null-version rules visible.
+            // Fill task dispatch and entitlement synchronization remain version-strict.
+            rules = processFormPermissionRuleMapper.selectEnabledFillRulesForRouteOrReport(
+                    currentProcessTask.getRouteProcessId(), resolvedBinding.reportId());
+        }
+        Map<String, MesProEdhrProcessFormPermissionRuleDO> latestRuleMap = rules.stream()
+                .collect(Collectors.toMap(MesProEdhrProcessFormPermissionRuleDO::getRuleType,
+                        rule -> rule, (first, ignored) -> first, LinkedHashMap::new));
         Map<String, List<Long>> ruleUserIdMap = new LinkedHashMap<>();
         for (Map.Entry<String, MesProEdhrProcessFormPermissionRuleDO> entry : latestRuleMap.entrySet()) {
             MesProEdhrCandidateResolver.MesProEdhrCandidateContract candidate =

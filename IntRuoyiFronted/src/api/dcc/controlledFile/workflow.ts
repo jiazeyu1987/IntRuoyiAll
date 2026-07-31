@@ -46,7 +46,7 @@ export interface ControlledFileSubmitReqVO {
   drawingPdfUploadTicket?: string
   fileName: string
   fileNumber: string
-  productMasterId?: number | null
+  productMasterId?: null
   productCode?: string
   dccProjectCodeId?: number | null
   fileTypeTaxonomyId?: number | null
@@ -63,7 +63,7 @@ export interface ControlledFileSubmitReqVO {
 export interface ControlledFileMetadataUpdateReqVO {
   assignmentId?: number
   changeReason?: string
-  productMasterId?: number | null
+  productMasterId?: null
   productName?: string
   dccProjectCodeId?: number | null
   needTraining: boolean
@@ -215,19 +215,6 @@ export interface ControlledFileCurrentVersionRespVO {
   modifying?: boolean | null
   actionProjection?: DccControlledFileActionProjectionVO | null
 }
-
-export interface DccControlledFileProductOptionVO {
-  id: number
-  productCode: string
-  dccProductCode?: string | null
-  nameCn: string
-  nameEn?: string | null
-  modelSpecification?: string | null
-  category?: string | null
-  status: string
-}
-
-export const DCC_PRODUCT_STATUS_ENABLE = 'ENABLE'
 
 export interface ControlledFileUploadDirectoryNodeVO {
   id: number
@@ -749,13 +736,15 @@ export interface ControlledFilePublishReqVO {
 export interface ControlledFileNasTransferReqVO {
   selectedNasPaths: string[]
   templateCategoryId: number
-  productMasterId?: number | null
+  dccProjectCodeId: number
+  productMasterId?: null
   effectiveDate: string
 }
 
 export interface ControlledFileLocalFolderImportSessionCreateReqVO {
   templateCategoryId: number
-  productMasterId?: number | null
+  dccProjectCodeId: number
+  productMasterId?: null
   effectiveDate: string
   rootDirectoryName: string
   expectedFileCount: number
@@ -1504,10 +1493,11 @@ export const previewControlledFileRoute = async (
   return await request.post({ url: '/dcc/controlled-files/route-preview', data })
 }
 
-export const getControlledFileUploadNameOptions = async (
-  categoryId: number
-): Promise<ControlledFileUploadNameOptionVO[]> => {
-  return await request.get({ url: '/dcc/controlled-files/upload-name-options', params: { categoryId } })
+export const getControlledFileUploadNameOptions = async (params: {
+  dccProjectCodeId: number
+  fileTypeTaxonomyId: number
+}): Promise<ControlledFileUploadNameOptionVO[]> => {
+  return await request.get({ url: '/dcc/controlled-files/upload-name-options', params })
 }
 
 export const getControlledFileCurrentVersion = async (
@@ -1517,14 +1507,6 @@ export const getControlledFileCurrentVersion = async (
     url: '/dcc/controlled-files/current-version',
     params: { fileNumber }
   })
-}
-
-export const getDccProductOptions = async (params?: {
-  status?: string
-  requireDccProductCode?: boolean
-  keyword?: string
-}): Promise<DccControlledFileProductOptionVO[]> => {
-  return await request.get({ url: '/dcc/controlled-files/product-options', params })
 }
 
 export const getControlledFileUploadDirectoryTree = async (

@@ -4,7 +4,7 @@
 
   <ContentWrap>
     <UnifiedListTemplate
-      table-key="mes.pro.route.main"
+      :table-key="ROUTE_LIST_TABLE_KEY"
       :query-model="queryParams"
       label-width="88px"
       :filter-definitions="routeQuickFilterDefinitions"
@@ -56,7 +56,7 @@
         <el-table
           v-loading="loading"
           data-user-table-column-explicit
-          data-user-table-key="mes.pro.route.main"
+          :data-user-table-key="ROUTE_LIST_TABLE_KEY"
           :data="list"
           border
           :stripe="true"
@@ -339,7 +339,7 @@
       />
       <el-table
         class="route-version-workspace__candidate-list"
-        :data="routeVersions"
+        :data="visibleRouteVersions"
         border
         :show-overflow-tooltip="true"
         empty-text="暂无版本记录"
@@ -360,7 +360,7 @@
         </el-table-column>
         <el-table-column label="发布时间" prop="publishedTime" min-width="170">
           <template #default="{ row: version }">
-            {{ version.publishedTime || '-' }}
+            {{ formatDateTimeValue(version.publishedTime, '-') }}
           </template>
         </el-table-column>
         <el-table-column label="发布阻断项" min-width="260">
@@ -440,14 +440,14 @@
               按意见修改
             </el-button>
             <el-button
-              v-if="canCancelRouteVersion(version)"
+              v-if="canDeleteRouteDraftVersion(version)"
               link
               type="danger"
               :loading="routeVersionActionLoadingId === version.id"
-              @click="cancelRouteCandidateVersion(version.id)"
+              @click="deleteRouteDraftVersion(version)"
               v-hasPermi="['mes:pro-route:version-cancel']"
             >
-              取消
+              删除草稿
             </el-button>
           </template>
         </el-table-column>
@@ -459,7 +459,7 @@
 <script setup lang="ts">
 import { ElMessageBox } from 'element-plus'
 import { getIntDictOptions, DICT_TYPE } from '@/utils/dict'
-import { dateFormatter } from '@/utils/formatTime'
+import { dateFormatter, formatDateTimeValue } from '@/utils/formatTime'
 import { CommonStatusEnum } from '@/utils/constants'
 import { checkPermi } from '@/utils/permission'
 import download from '@/utils/download'
@@ -479,8 +479,6 @@ import {
   useTableQuickFilter,
   type TableQuickFilterDefinition
 } from '@/hooks/web/useTableQuickFilter'
-import RouteForm from './RouteForm.vue'
-import RouteWorkbookExcelImportForm from './RouteWorkbookExcelImportForm.vue'
 import {
   buildRouteCandidateEditQuery,
   ensureSameSourceDraftCandidateForProductionConfig,
@@ -489,6 +487,9 @@ import {
 } from './routeCandidateEntry'
 
 defineOptions({ name: 'MesProRoute' })
+
+const RouteForm = defineAsyncComponent(() => import('./RouteForm.vue'))
+const RouteWorkbookExcelImportForm = defineAsyncComponent(() => import('./RouteWorkbookExcelImportForm.vue'))
 
 const message = useMessage() // 消息弹窗
 const { t } = useI18n() // 国际化
@@ -516,13 +517,19 @@ const routeVersionErrorMessage = ref('')
 const routeProductBindLoadingId = ref<number | undefined>()
 const routeCandidateEditLoadingId = ref<number | undefined>()
 const OPEN_CANDIDATE_CONFLICT_NOTICE =
-  '当前路线存在多个打开中的候选版本，请按最高版本保留一个，关闭其余版本（通过撤回/取消流程）；保留的草稿可在候选版本行点击“提交发布”进入发布流程。'
+  '当前路线存在多个打开中的候选版本，请通过待发布版本或编辑入口处理打开候选；版本列表仅展示草稿及已生效历史版本。'
 const ROUTE_OPEN_CANDIDATE_STATUS_SET = new Set([
   'DRAFT',
   'PENDING_APPROVAL',
   'READY_TO_PUBLISH',
   'REJECTED'
 ])
+const ROUTE_VERSION_WORKSPACE_VISIBLE_STATUS_SET = new Set(['DRAFT', 'ACTIVE', 'SUPERSEDED'])
+const isVisibleRouteVersionInWorkspace = (version: ProRouteVersionVO) =>
+  version.active || ROUTE_VERSION_WORKSPACE_VISIBLE_STATUS_SET.has(String(version.lifecycleStatus))
+const visibleRouteVersions = computed(() =>
+  routeVersions.value.filter(isVisibleRouteVersionInWorkspace)
+)
 const routeVersionOpenCandidates = computed(() =>
   routeVersions.value.filter(
     (version) => !version.active && ROUTE_OPEN_CANDIDATE_STATUS_SET.has(String(version.lifecycleStatus))
@@ -564,10 +571,10 @@ const routeVersionWorkspaceHint = computed(() => {
   }
   const status = String(routeVersionPrimaryOpenCandidate.value?.lifecycleStatus || '')
   if (status === 'DRAFT') {
-    return '仅草稿候选可编辑；提交后进入审核，只能查看或撤回后再编辑。'
+    return '仅草稿候选可编辑；请通过待发布版本或编辑入口打开，提交后进入审核。'
   }
   if (status === 'PENDING_APPROVAL') {
-    return '候选版本正在审核中，仅允许查看；需要修改请先撤回后再编辑。'
+    return '候选版本正在审核中，仅允许查看；需要修改请通过待发布版本入口撤回后再编辑。'
   }
   if (status === 'READY_TO_PUBLISH') {
     return '候选版本已通过审核，系统正在发布生效；该状态不需要人工签名发布。'
@@ -586,13 +593,14 @@ const routeVersionWorkspaceBlockers = computed(() => {
   }
   return []
 })
+const ROUTE_LIST_TABLE_KEY = 'mes.pro.route.main.admin-layout-v1'
 const routeDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'code', label: '路线编码', minWidth: 180 },
   { key: 'name', label: '路线名称', minWidth: 200 },
-  { key: 'ownerName', label: '负责人', minWidth: 140 },
-  { key: 'keyProcessName', label: '关键工序', minWidth: 180 },
+  { key: 'ownerName', label: '负责人', visible: false, minWidth: 140 },
+  { key: 'keyProcessName', label: '关键工序', visible: false, minWidth: 180 },
   { key: 'status', label: '状态', width: 100 },
-  { key: 'flowGraphConfigured', label: '关系图', width: 100 },
+  { key: 'flowGraphConfigured', label: '关系图', visible: false, width: 100 },
   { key: 'activeRouteVersionNo', label: '当前生效版本', minWidth: 140 },
   { key: 'pendingRouteVersionNo', label: '待发布版本', minWidth: 160 },
   { key: 'productCodes', label: '关联产品', minWidth: 220 },
@@ -607,7 +615,7 @@ const {
   getColumnMinWidthString: getRouteColumnMinWidthString,
   handleHeaderDragend: handleRouteHeaderDragend,
   saveConfig: saveRouteColumnConfig
-} = useUserTableColumns('mes.pro.route.main', routeDefaultColumns)
+} = useUserTableColumns(ROUTE_LIST_TABLE_KEY, routeDefaultColumns)
 
 const resetRouteQueryState = (pageSize = 10) => ({
   pageNo: 1,
@@ -705,7 +713,7 @@ const openForm = (type: string, id?: number) => {
   formRef.value.open(type, id)
 }
 
-type RouteEditTab = 'basic' | 'flow' | 'product'
+type RouteEditTab = 'basic' | 'mesProcess' | 'flow' | 'product'
 
 const openEditPage = (id?: number, tab?: RouteEditTab) => {
   if (!id) {
@@ -886,8 +894,8 @@ const createRouteCandidateFromActive = async () => {
       actionName: '创建候选版本',
       changeReason: '前端版本工作区创建候选版本',
       success: (content) => message.success(content),
-      existingSuccessMessage: '已存在草稿候选版本，请在版本工作区继续编辑',
-      createdSuccessMessage: '候选版本已创建，发布前不会影响生产'
+      existingSuccessMessage: '已存在草稿候选版本，请从待发布版本或编辑入口继续编辑',
+      createdSuccessMessage: '候选版本已创建，请从待发布版本或编辑入口继续编辑'
     })
     await loadRouteVersions(currentRoute.id)
   } catch (error) {
@@ -1076,9 +1084,21 @@ const submitRouteCandidateVersion = async (version: ProRouteVersionVO) => {
   }
 }
 
-const cancelRouteCandidateVersion = async (id: number) => {
-  await runRouteVersionAction(id, '取消候选版本', async () => {
-    await ProRouteApi.cancelRouteCandidateVersion(id)
+const deleteRouteDraftVersion = async (version: ProRouteVersionVO) => {
+  if (!canDeleteRouteDraftVersion(version)) {
+    throw new Error('删除草稿失败：只有当前草稿候选版本允许删除')
+  }
+  try {
+    await message.confirm(
+      '删除后该草稿将关闭；再次点击编辑会基于当前已发布版本重新生成草稿。是否继续？',
+      '删除草稿确认'
+    )
+  } catch (error) {
+    if (isUserCancel(error)) return
+    throw error
+  }
+  await runRouteVersionAction(version.id, '删除草稿', async () => {
+    await ProRouteApi.cancelRouteCandidateVersion(version.id)
   })
 }
 
@@ -1141,8 +1161,8 @@ const openRouteCandidateVersionEditor = async (version: ProRouteVersionVO) => {
   routeVersionDialogVisible.value = false
 }
 
-const canCancelRouteVersion = (version: ProRouteVersionVO) =>
-  !version.active && ['DRAFT', 'REJECTED'].includes(version.lifecycleStatus)
+const canDeleteRouteDraftVersion = (version: ProRouteVersionVO) =>
+  !version.active && version.lifecycleStatus === 'DRAFT'
 
 const formatPendingRouteVersion = (row: ProRouteVO) => {
   if (!row.pendingRouteVersionNo) {
@@ -1253,8 +1273,8 @@ const handleExport = async () => {
     await message.exportConfirm()
     exportConfirmed = true
     exportLoading.value = true
-    const data = await ProRouteApi.exportRouteImportWorkbook(queryParams)
-    download.excel(data, '工艺路线导入导出.xlsx')
+    const data = await ProRouteApi.exportRouteImportWorkbook({})
+    download.excel(data, '工艺路线全量导入导出.xlsx')
   } catch (error) {
     if (exportConfirmed) {
       message.error(getErrorMessage(error, '导出失败，请查看后端返回错误'))

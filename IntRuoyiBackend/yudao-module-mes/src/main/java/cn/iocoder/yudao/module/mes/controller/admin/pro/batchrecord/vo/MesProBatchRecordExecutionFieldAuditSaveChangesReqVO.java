@@ -43,7 +43,6 @@ public class MesProBatchRecordExecutionFieldAuditSaveChangesReqVO {
     private String reasonText;
 
     @Valid
-    @NotNull(message = "signature 不能为空")
     private Signature signature;
 
     @Valid

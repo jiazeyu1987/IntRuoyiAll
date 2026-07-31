@@ -1,0 +1,315 @@
+{
+  "total": 290,
+  "targetCount": 38,
+  "batchRecordNames": [
+    "球囊扩张压力泵",
+    "按压式球囊扩充压力泵",
+    "PTCA球囊扩张导管"
+  ],
+  "targets": [
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "ff909645721d4c7cb9220a74e4497254",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V14.0",
+      "batchRecordVersionId": 130
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "bd1ac748f2be41bd8e63b2c0a924059e",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V14.0",
+      "batchRecordVersionId": 130
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "43c5c981309f424698e928cb6b6fff1b",
+      "batchRecordName": "按压式球囊扩充压力泵",
+      "productName": "按压式球囊扩充压力泵",
+      "versionNo": "V4.0",
+      "batchRecordVersionId": 129
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "fc201a880474407087711f282673055e",
+      "batchRecordName": "按压式球囊扩充压力泵",
+      "productName": "按压式球囊扩充压力泵",
+      "versionNo": "V4.0",
+      "batchRecordVersionId": 129
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "d8edd623125d4f668f0c656576df1998",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V13.0",
+      "batchRecordVersionId": 118
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "79de2d503ab043989f089da2237ba852",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V13.0",
+      "batchRecordVersionId": 118
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "14098ab04e30435eb7e32cd17bc09edd",
+      "batchRecordName": "按压式球囊扩充压力泵",
+      "productName": "按压式球囊扩充压力泵",
+      "versionNo": "V3.0",
+      "batchRecordVersionId": 110
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "00e403c7eda14706b8c1012943d1a2b2",
+      "batchRecordName": "按压式球囊扩充压力泵",
+      "productName": "按压式球囊扩充压力泵",
+      "versionNo": "V3.0",
+      "batchRecordVersionId": 110
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "42a67d47f23c406f8aeec26d0e4f0ae4",
+      "batchRecordName": "按压式球囊扩充压力泵",
+      "productName": "按压式球囊扩充压力泵",
+      "versionNo": "V2.0",
+      "batchRecordVersionId": 109
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "8b55674be14b497a80d54e3de3ef6750",
+      "batchRecordName": "按压式球囊扩充压力泵",
+      "productName": "按压式球囊扩充压力泵",
+      "versionNo": "V2.0",
+      "batchRecordVersionId": 109
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "51c96af859164cabb8b22405866edf17",
+      "batchRecordName": "按压式球囊扩充压力泵",
+      "productName": "按压式球囊扩充压力泵",
+      "versionNo": "V1.0",
+      "batchRecordVersionId": 108
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "30180f1a108b47d893dbcbce05de0054",
+      "batchRecordName": "按压式球囊扩充压力泵",
+      "productName": "按压式球囊扩充压力泵",
+      "versionNo": "V1.0",
+      "batchRecordVersionId": 108
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "83d06087005047198faddcc5fc29307f",
+      "batchRecordName": "PTCA球囊扩张导管",
+      "productName": "PTCA球囊扩张导管",
+      "versionNo": "V1.0",
+      "batchRecordVersionId": 100
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "c08d880b5d1243e88461552681e2f3ab",
+      "batchRecordName": "PTCA球囊扩张导管",
+      "productName": "PTCA球囊扩张导管",
+      "versionNo": "V1.0",
+      "batchRecordVersionId": 100
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "5616edd991794c159836f51ee3ce57df",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V12.0",
+      "batchRecordVersionId": 98
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "ef348ed649c14e5489a9e1d8ef8f027d",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V12.0",
+      "batchRecordVersionId": 98
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "d3301a7df4dd4570a4a6a1429e0faa35",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V11.0",
+      "batchRecordVersionId": 88
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "d6fefe4f6cce44d08fa464206a1a4eac",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V11.0",
+      "batchRecordVersionId": 88
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "eee1f3f6d4bf4849b8e06bd2be2840fe",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V10.0",
+      "batchRecordVersionId": 87
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "57b51a21dc0340f18d1ea9f306c07e83",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V10.0",
+      "batchRecordVersionId": 87
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "21070c5e32304f7a9fb2981b87c9bb37",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V9.0",
+      "batchRecordVersionId": 86
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "8d649b784819457ab5f6e004a13b7b17",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V9.0",
+      "batchRecordVersionId": 86
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "e05b4bcf10af4cc994ed97609a70ccba",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V8.0",
+      "batchRecordVersionId": 85
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "176bcac6d7f742b096fdb181402720e8",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V8.0",
+      "batchRecordVersionId": 85
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "800b2a52842e4bcea22a2da3ec7c9c9a",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V7.0",
+      "batchRecordVersionId": 84
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "92d98d33e7224842afaac7e11a444efe",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V7.0",
+      "batchRecordVersionId": 84
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "2baffe406a7b46459eb13498fefb2d1b",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V6.0",
+      "batchRecordVersionId": 83
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "50a5821259af4fbaaba9a2506b5d8f65",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V6.0",
+      "batchRecordVersionId": 83
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "82d97782bb8c45cc8561f1d79b569861",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V5.0",
+      "batchRecordVersionId": 82
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "178fc4f11b1e4ef4b304b7677a2b241e",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V5.0",
+      "batchRecordVersionId": 82
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "c11b251dcdb14de5b15daabbc1815397",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V4.0",
+      "batchRecordVersionId": 79
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "3993e1c530c74b818faf59b0f8007fa3",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V4.0",
+      "batchRecordVersionId": 79
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "026c099245034c99a05cbf80a61c8b19",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V3.0",
+      "batchRecordVersionId": 78
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "8d05d3885dc142f9a4e472feab6a787c",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V3.0",
+      "batchRecordVersionId": 78
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "4393ebf070a646f4bc49f7b48893afdb",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V2.0",
+      "batchRecordVersionId": 75
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "f8c7196809954d8f85b3e3792ff4dea2",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V2.0",
+      "batchRecordVersionId": 75
+    },
+    {
+      "reportName": "清洁工序生产记录",
+      "reportId": "009f5826b7c9411b9e4689b35b8cdc42",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V1.0",
+      "batchRecordVersionId": 67
+    },
+    {
+      "reportName": "光固Ⅰ工序生产记录",
+      "reportId": "380dc6a45150489e8b143c96699494aa",
+      "batchRecordName": "球囊扩张压力泵",
+      "productName": "球囊扩张压力泵",
+      "versionNo": "V1.0",
+      "batchRecordVersionId": 67
+    }
+  ]
+}

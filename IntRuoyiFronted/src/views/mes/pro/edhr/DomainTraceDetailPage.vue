@@ -24,6 +24,7 @@
       </div>
 
       <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
+      <el-alert v-if="verifyError" :title="verifyError" type="error" :closable="false" show-icon />
 
       <template v-if="detail">
         <el-alert
@@ -68,7 +69,7 @@
             <div class="edhr-domain-trace-detail__summary-item">
               <div class="edhr-domain-trace-detail__label">最近校验</div>
               <div class="edhr-domain-trace-detail__value">
-                {{ detail.verifiedAt || '未校验' }}
+                {{ formatEdhrDateTime(detail.verifiedAt, '未校验') }}
               </div>
             </div>
             <div class="edhr-domain-trace-detail__summary-item">
@@ -218,6 +219,7 @@ import {
 } from '@/api/mes/pro/edhr/domainTrace'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProFeedbackEdhrDomainTraceDetail' })
 
@@ -227,6 +229,7 @@ const message = useMessage()
 const loading = ref(false)
 const verifyLoading = ref(false)
 const loadError = ref('')
+const verifyError = ref('')
 const detail = ref<EdhrDomainTraceDetailRespVO>()
 const domainTraceDetailTechnicalEvidenceNames = ref<string[]>([])
 
@@ -330,6 +333,7 @@ const loadDetail = async () => {
   }
   loading.value = true
   loadError.value = ''
+  verifyError.value = ''
   try {
     const data = await getEdhrDomainTraceDetail({ executionId })
     if (!data?.executionId) {
@@ -354,7 +358,7 @@ const handleVerify = async () => {
     return
   }
   verifyLoading.value = true
-  loadError.value = ''
+  verifyError.value = ''
   try {
     const result = await verifyEdhrDomainTrace({
       executionId: detail.value.executionId,
@@ -362,14 +366,13 @@ const handleVerify = async () => {
     })
     detail.value = result
     if (result.status !== 'VERIFIED') {
-      loadError.value = blockedMessage.value || '主数据追溯校验未通过。'
-      message.error(loadError.value)
+      message.error(blockedMessage.value || '主数据追溯校验未通过。')
       return
     }
     message.success('主数据追溯校验通过')
   } catch (error) {
-    loadError.value = resolveErrorMessage(error, '主数据追溯校验失败，请联系管理员。')
-    message.error(loadError.value)
+    verifyError.value = resolveErrorMessage(error, '主数据追溯校验失败，请联系管理员。')
+    message.error(verifyError.value)
   } finally {
     verifyLoading.value = false
   }

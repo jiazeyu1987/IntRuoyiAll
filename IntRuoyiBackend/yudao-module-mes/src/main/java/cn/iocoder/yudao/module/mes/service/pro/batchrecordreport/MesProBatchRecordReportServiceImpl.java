@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalContex
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalRequest;
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalRequestStatus;
 import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalOrchestrator;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportAssistRowVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportDeleteAllRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRuleVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRulesReqVO;
@@ -469,7 +470,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         List<Long> normalizedRouteProductIds = normalizeSelectedRouteProductIds(selectedRouteProductIds);
         List<String> normalizedSelectedProductNames = normalizeOptionalRouteProductNames(selectedProductNames);
         boolean routeRebuildRequested = !normalizedRouteProductIds.isEmpty() || !normalizedSelectedProductNames.isEmpty();
-        ensureRouteUpgradeConfirmedIfNeeded(normalizedBatchRecordName, routeRebuildRequested,
+        ensureRouteUpgradeConfirmedIfNeeded(normalizedBatchRecordName, routeRebuildRequested || rebuildRecord,
                 routeUpgradeConfirmed, expectedRouteId, expectedRouteVersionId);
         if (!rebuildRecord && !routeRebuildRequested) {
             throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_IMPORT_SCOPE_EMPTY);
@@ -573,7 +574,15 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                     importResult.reports());
         }
         MesProBatchRecordRouteGenerationResult routeResult = null;
-        if (routeRebuildRequested) {
+        if (!routeRebuildRequested && rebuildRecord && expectedRouteId != null) {
+            routeResult = routeGenerationService.generateBatchRecordBindingCandidateForUploadedWord(
+                    normalizedBatchRecordName, parsedTables, importResult.reports(),
+                    definition.getId(), targetVersion.getId(),
+                    expectedRouteId, expectedRouteVersionId, routeUpgradeConfirmed);
+            targetVersion.setRouteId(routeResult.routeId());
+            targetVersion.setSourceRouteId(targetSourceVersion == null ? null : targetSourceVersion.getRouteId());
+            versionMapper.updateById(targetVersion);
+        } else if (routeRebuildRequested) {
             if (routeOnlyWithoutBatchRecordVersion) {
                 routeResult = routeGenerationService.generateRouteOnlyForUploadedWord(
                         normalizedBatchRecordName, parsedTables, routeProductNames,
@@ -1257,7 +1266,31 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
     }
 
     @Override
+    public List<String> getProductNameOptions(String keyword, Boolean latestVersionOnly) {
+        BatchRecordReportPageReqVO optionsReqVO = new BatchRecordReportPageReqVO();
+        optionsReqVO.setProductName(keyword);
+        optionsReqVO.setLatestVersionOnly(Boolean.TRUE.equals(latestVersionOnly));
+        return getGeneratedReportList(optionsReqVO).stream()
+                .map(MesProBatchRecordReportView::productName)
+                .filter(StrUtil::isNotBlank)
+                .map(StrUtil::trim)
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
+    @Override
     public PageResult<MesProBatchRecordReportView> getGeneratedReportPage(BatchRecordReportPageReqVO pageReqVO) {
+        List<MesProBatchRecordReportView> allReports = getGeneratedReportList(pageReqVO);
+        int fromIndex = Math.max((pageReqVO.getPageNo() - 1) * pageReqVO.getPageSize(), 0);
+        int toIndex = Math.min(fromIndex + pageReqVO.getPageSize(), allReports.size());
+        List<MesProBatchRecordReportView> pageList = fromIndex >= allReports.size()
+                ? List.of()
+                : allReports.subList(fromIndex, toIndex);
+        return new PageResult<>(pageList, (long) allReports.size());
+    }
+
+    private List<MesProBatchRecordReportView> getGeneratedReportList(BatchRecordReportPageReqVO pageReqVO) {
         List<MesProBatchRecordReportView> baseReports = reportMapper.selectList()
                 .stream()
                 .map(this::toVisibleReportView)
@@ -1271,17 +1304,18 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                                 Comparator.nullsLast(Comparator.reverseOrder()))
                         .thenComparing(MesProBatchRecordReportView::sourceTableIndex))
                 .toList();
-        List<MesProBatchRecordReportView> allReports = expandReportsByVersionProducts(baseReports)
+        List<MesProBatchRecordReportView> latestScopedReports = Boolean.TRUE.equals(pageReqVO.getLatestVersionOnly())
+                ? filterLatestBatchRecordVersions(baseReports)
+                : baseReports;
+        List<MesProBatchRecordReportView> allReports = expandReportsByVersionProducts(latestScopedReports)
                 .stream()
                 .filter(report -> filterByProductName(report, pageReqVO.getProductName()))
                 .filter(report -> filterByVersionNo(report, pageReqVO.getVersionNo()))
                 .toList();
-        int fromIndex = Math.max((pageReqVO.getPageNo() - 1) * pageReqVO.getPageSize(), 0);
-        int toIndex = Math.min(fromIndex + pageReqVO.getPageSize(), allReports.size());
-        List<MesProBatchRecordReportView> pageList = fromIndex >= allReports.size()
-                ? List.of()
-                : allReports.subList(fromIndex, toIndex);
-        return new PageResult<>(pageList, (long) allReports.size());
+        if (Boolean.TRUE.equals(pageReqVO.getLatestVersionOnly())) {
+            allReports = filterLatestVisibleBatchRecordVersions(allReports);
+        }
+        return allReports;
     }
 
     @Override
@@ -1351,7 +1385,10 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
         MesProBatchRecordReportDO metadata = requireMetadata(reportId);
         JSONObject root = parseReportJson(reportId);
         ensureNoLegacyFormProfileLayoutOnRead(metadata, root);
-        if (MesProBatchRecordCellRuleSupport.normalizeAutomaticRulesAsUnreviewed(root) > 0) {
+        int normalizedCount = MesProBatchRecordCellRuleSupport.normalizeAutomaticRulesAsUnreviewed(root);
+        int refreshedCount = MesProBatchRecordCellRuleSupport.refreshUnreviewedAutomaticSuggestions(
+                root, metadata.getReportCode());
+        if (normalizedCount > 0 || refreshedCount > 0) {
             jimuReportGateway.updateReportJson(metadata.getReportId(), root.toJSONString());
         }
         return toCellRulesRespVO(reportId, root);
@@ -1378,6 +1415,14 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
             }
             cell.put(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY,
                     MesProBatchRecordCellRuleSupport.toRuleJson(rule));
+        }
+        try {
+            MesProBatchRecordCellRuleSupport.applyAssistRows(root, reqVO.getAssistRows());
+            applyAssistGridSize(root, reqVO.getAssistRows(), reqVO.getAssistGridRowCount(),
+                    reqVO.getAssistGridColumnCount());
+        } catch (IllegalArgumentException ex) {
+            throw exception(MesProBatchRecordReportErrorCodeConstants.PRO_BATCH_RECORD_REPORT_CELL_RULE_INVALID,
+                    ex.getMessage());
         }
         jimuReportGateway.updateReportJson(reqVO.getReportId(), root.toJSONString());
         return toCellRulesRespVO(reqVO.getReportId(), root);
@@ -1986,6 +2031,7 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .sourceVersionId(sourceVersion == null ? null : sourceVersion.getId())
                 .sourceFileName(sourceFileName)
                 .sourceFileSha256(sha256)
+                .routeId(sourceVersion == null ? null : sourceVersion.getRouteId())
                 .sourceRouteId(sourceVersion == null ? null : sourceVersion.getRouteId())
                 .build();
         try {
@@ -2336,6 +2382,81 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                     .forEach(productName -> expandedReports.add(copyReportWithVersionProduct(report, version, productName)));
         }
         return expandedReports;
+    }
+
+    private List<MesProBatchRecordReportView> filterLatestBatchRecordVersions(List<MesProBatchRecordReportView> reports) {
+        if (reports.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> definitionIds = reports.stream()
+                .map(MesProBatchRecordReportView::batchRecordDefinitionId)
+                .filter(Objects::nonNull)
+                .collect(LinkedHashSet::new, Set::add, Set::addAll);
+        if (definitionIds.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, Long> latestVersionIdByDefinitionId = new LinkedHashMap<>();
+        for (Long definitionId : definitionIds) {
+            MesProBatchRecordVersionDO latestVersion =
+                    latestBatchRecordVersion(versionMapper.selectListByDefinitionId(definitionId));
+            if (latestVersion != null && latestVersion.getId() != null) {
+                latestVersionIdByDefinitionId.put(definitionId, latestVersion.getId());
+            }
+        }
+        return reports.stream()
+                .filter(report -> {
+                    Long latestVersionId = latestVersionIdByDefinitionId.get(report.batchRecordDefinitionId());
+                    return latestVersionId != null && Objects.equals(report.batchRecordVersionId(), latestVersionId);
+                })
+                .toList();
+    }
+
+    private List<MesProBatchRecordReportView> filterLatestVisibleBatchRecordVersions(
+            List<MesProBatchRecordReportView> reports) {
+        if (reports.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> versionIds = reports.stream()
+                .map(MesProBatchRecordReportView::batchRecordVersionId)
+                .filter(Objects::nonNull)
+                .collect(LinkedHashSet::new, Set::add, Set::addAll);
+        if (versionIds.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, MesProBatchRecordVersionDO> versionById = versionMapper.selectBatchIds(versionIds)
+                .stream()
+                .collect(LinkedHashMap::new, (map, version) -> map.put(version.getId(), version), Map::putAll);
+        Map<String, MesProBatchRecordVersionDO> latestVersionByVisibleGroup = new LinkedHashMap<>();
+        for (MesProBatchRecordReportView report : reports) {
+            MesProBatchRecordVersionDO version = versionById.get(report.batchRecordVersionId());
+            if (version == null) {
+                continue;
+            }
+            String visibleGroupKey = latestVisibleBatchRecordGroupKey(report);
+            MesProBatchRecordVersionDO currentLatest = latestVersionByVisibleGroup.get(visibleGroupKey);
+            if (currentLatest == null || compareBatchRecordVersion(currentLatest, version) < 0) {
+                latestVersionByVisibleGroup.put(visibleGroupKey, version);
+            }
+        }
+        return reports.stream()
+                .filter(report -> {
+                    MesProBatchRecordVersionDO latestVersion =
+                            latestVersionByVisibleGroup.get(latestVisibleBatchRecordGroupKey(report));
+                    return latestVersion != null && Objects.equals(report.batchRecordVersionId(), latestVersion.getId());
+                })
+                .toList();
+    }
+
+    private String latestVisibleBatchRecordGroupKey(MesProBatchRecordReportView report) {
+        return normalizeLatestVisibleGroupPart(StrUtil.blankToDefault(report.productName(), report.batchRecordName()))
+                + "|"
+                + normalizeLatestVisibleGroupPart(report.batchRecordName())
+                + "|"
+                + normalizeLatestVisibleGroupPart(report.formSlotType());
+    }
+
+    private String normalizeLatestVisibleGroupPart(String value) {
+        return StrUtil.trimToEmpty(value).toLowerCase(Locale.ROOT);
     }
 
     private MesProBatchRecordReportView copyReportWithVersionProduct(MesProBatchRecordReportView report,
@@ -2766,7 +2887,24 @@ public class MesProBatchRecordReportServiceImpl implements MesProBatchRecordRepo
                 .setSheetLayoutJson(layout.toJSONString())
                 .setRules(MesProBatchRecordCellRuleSupport.extractReviewedRules(root))
                 .setSuggestions(MesProBatchRecordCellRuleSupport.buildSuggestions(root))
-                .setUnreviewedFillableCellCount(MesProBatchRecordCellRuleSupport.countUnreviewedFillableCells(root));
+                .setUnreviewedFillableCellCount(MesProBatchRecordCellRuleSupport.countUnreviewedFillableCells(root))
+                .setAssistRows(MesProBatchRecordCellRuleSupport.extractAssistRows(root))
+                .setAssistGridRowCount(root.getInteger(MesProBatchRecordCellRuleSupport.ASSIST_GRID_ROW_COUNT_KEY))
+                .setAssistGridColumnCount(root.getInteger(MesProBatchRecordCellRuleSupport.ASSIST_GRID_COLUMN_COUNT_KEY));
+    }
+
+    private void applyAssistGridSize(JSONObject root, List<BatchRecordReportAssistRowVO> assistRows,
+                                     Integer rowCount, Integer columnCount) {
+        if (assistRows == null || assistRows.isEmpty()) {
+            root.remove(MesProBatchRecordCellRuleSupport.ASSIST_GRID_ROW_COUNT_KEY);
+            root.remove(MesProBatchRecordCellRuleSupport.ASSIST_GRID_COLUMN_COUNT_KEY);
+            return;
+        }
+        if (rowCount == null || columnCount == null || rowCount <= 0 || columnCount <= 0) {
+            throw new IllegalArgumentException("assist grid size must be positive when assist rows exist");
+        }
+        root.put(MesProBatchRecordCellRuleSupport.ASSIST_GRID_ROW_COUNT_KEY, rowCount);
+        root.put(MesProBatchRecordCellRuleSupport.ASSIST_GRID_COLUMN_COUNT_KEY, columnCount);
     }
 
     private void ensureNoLegacyFormProfileLayoutOnRead(MesProBatchRecordReportDO metadata, JSONObject root) {

@@ -10,6 +10,7 @@
 
 - BDD: 创建批次使用已发布路线快照 -> Given 工艺路线存在 ACTIVE 版本且草稿配置已发生变化 / When 创建 eDHR 批次执行 / Then 批次持久化 ACTIVE 版本和路线快照，并仅从该快照生成任务
 - BDD: 已创建批次不受草稿影响 -> Given 批次已经按 ACTIVE 路线快照创建 / When 修改当前草稿配置 / Then 批次任务和其表单绑定保持创建时冻结内容
+- BDD: 打开当前填写任务 -> Given admin 创建批次后存在当前活动填写 work task / When admin 在批次详情按后端 allowedActions 点击“打开填写”或“管理员接管并填写” / Then 系统通过正式页面入口打开真实填写表单
 
 ## Initial Evidence
 
@@ -29,3 +30,63 @@
 - GREEN: experience-preflight -> PASS，`docs/powershell-memory.md` 已恢复并完成读取；同时复核 `docs/local-runtime.md`、`docs/worktree-restrictions.md`、`docs/e2e-rules.md`、`docs/login-access.md` 和 `docs/task-closeout-rules.md`。
 - 运行态归属：`48081` 当前监听 PID `39264`，命令行为 `java -jar E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar --server.port=48081 ... --yudao.runtime-control.repo-root=E:\IntRuoyi\IntRuoyiBackend`，可确认为当前 `int_main` 旧后端；`8081` 为 `E:\IntRuoyi\IntRuoyiFronted` Vite 前端。
 - 构建策略：主工作区仍有大量并行脏改动，不直接从主工作区打包；创建 `D:\IntRuoyiWorktree\batch-route-snapshot-e2e-20260724` 干净 worktree，从当前 HEAD 构建新 Jar，再加载到 `int_main` 后端目标路径。
+
+## Runtime Reload And E2E Verification
+
+- GREEN: isolated backend jar -> PASS，`D:\IntRuoyiWorktree\batch-route-snapshot-e2e-20260724\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar` 构建产物 SHA256 为 `10C7B39A5B3920FEB3E8C71C3719AAC06840C808E729A1E19867A26F9B725C44`。
+- GREEN: backend reload -> PASS，确认旧 `int_main` 后端 PID `57944` 运行 `E:\IntRuoyi\IntRuoyiBackend\yudao-server\target\yudao-server-exec.jar --server.port=48081 --yudao.runtime-control.repo-root=E:\IntRuoyi\IntRuoyiBackend` 后停止；用隔离构建 Jar 覆盖目标 Jar 并启动新 PID `47120`。
+- GREEN: health check -> PASS，`Invoke-WebRequest http://127.0.0.1:48081/actuator/health` 返回 `{"status":"UP"}`；目标 Jar SHA256 与隔离构建 Jar 一致。
+- RED: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> FAIL，测试脚本登录时只填租户未点击可见下拉项，导致真实前端未发出 `/system/auth/login`；已修正为点击真实租户选项。
+- RED: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> FAIL，路线下拉页面显示编码/名称/ID 文本但脚本只按 ID 即时查找；已修正为按可见路线编码/名称/ID 显式等待。
+- RED: route `922185` create attempt -> FAIL，业务响应 `1040750243`，原因是该测试路线对应批记录模板存在未确认填写规则；这不是原始缺少发布批记录配置错误，说明后端已进入正式批记录校验链路。
+- GREEN: `node --check tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS。
+- GREEN: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS，真实前端 `http://localhost:8081` 使用测试租户 `测试租户/aoteman`，工单 `925555 / TESTERPA9ED2D417434`，路线 `922186 / E2E-OSF-20260721042549`，创建批次 `BRS20260724195134` 并打开 eDHR 执行页。
+- GREEN: final DB verification -> PASS，批次 `900000000787` 持久化 `route_id=922186`、`route_version_id=239`、`route_version_no=V2`、`route_snapshot_json` 长度 `40670`，`configSnapshots.batchUseConfigs` 数量 `2`，`task_total=8`，`blocked_count=0`。
+- GREEN: draft independence evidence -> PASS，路线 `922186` 当前 ACTIVE 版本仍为 `239 / V2`，同时存在 `open_draft_count=1`；本次批次冻结的是 ACTIVE `V2` 而非草稿。
+- GREEN: bug evidence validation -> PASS，`python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence ...\bug-regression-evidence.md` 返回 `Bug regression evidence is valid.`
+- 当前状态：实现和 required verification 已完成；任务进入 `ready_for_closeout`，仍待 cleanup preview/apply、提交与推送门禁。
+- GREEN: project experience consolidation -> PASS，已更新 `docs/local-runtime.md#2026-07-24-隔离构建-jar-加载门禁`、`docs/e2e-rules.md#element-plus-下拉选择门禁`，并在 `docs/experience-index.md` 登记关键词。
+- BLOCKER: cleanup closeout -> `task_closeout.py --mode preview` 在隔离 worktree 返回 blocked：当前分支 `e2e/batch-route-snapshot-20260724` 不能 fast-forward 合并到 `int_main`，主工作区 `E:\IntRuoyi` 仍有其他任务脏改动，且 worktree 存在非本任务改动 `MesProRouteFlowConfigServiceImpl.java`。按任务归属和 no-fallback 规则，未执行自动合并、删除 worktree 或提交无关文件。
+- GREEN: cleanup keep scope -> PASS，已在 task.md 增加 `Cleanup Keep`，保留 `bug-regression-evidence.md` 和 `real-e2e-evidence.md`，避免后续清理误删关键验证证据。
+- GREEN: main workspace cleanup apply -> PASS，`task_closeout.py --mode apply` 仅删除本任务 `artifacts/login-debug-111111.png` 与 `artifacts/login-debug.png`，保留 task.md、execution-log.md、verification-report.md 及两份 evidence 文档。
+
+## 2026-07-25 E2E Rerun Attempt
+
+- GREEN: E2E preflight -> PASS，已读取 `docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`、`docs/worktree-restrictions.md`、`docs/branch-runtime-ports.md`、`docs/task-closeout-rules.md` 和 Playwright skill；`http://localhost:8081/login?redirect=/index` 返回 HTTP 200，后端 `http://127.0.0.1:48081/actuator/health` 为 UP。
+- GREEN: `node --check tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> PASS。
+- RED: `node tests\e2e\edhr-batch-execution-real-flow.e2e.js` -> FAIL，使用测试租户 `测试租户/aoteman`、工单 `925555 / TESTERPA9ED2D417434`、路线 `922186 / E2E-OSF-20260721042549`，登录后 `page.waitForURL` 超时。
+- BLOCKER: login credential -> 脱敏 Playwright 登录诊断确认 `/system/auth/login` 返回 `code=1002000000`、`msg=登录失败，账号密码不正确`；本机 `.env` 默认租户/用户为受保护的 `芋道源码/admin`，不能按 E2E 规则改用该默认身份。本轮未进入批次创建，未生成新批次，未执行 DB 冻结快照复核。
+
+## 2026-07-25 Admin Authorized Creation E2E
+
+- AUTHORIZATION: 用户明确授权在 `芋道源码/admin` 下执行本次写入型 E2E，密码通过环境变量注入，任务日志和证据不记录明文密码。
+- GREEN: readonly fixture discovery -> PASS，工单 `881MO090935` 在 tenant `1` 下对应 `work_order_id=923834`，产品绑定路线 `922119 / RT000028 / 球囊扩张压力泵`；路线 active 发布版本为 `358 / V14`，同时存在草稿 `361 / V15`。
+- RED: shared script path -> FAIL，当前共享 `edhr-batch-execution-real-flow.e2e.js` 已被其他任务改为“本地数据库夹具打开既有任务”模式，且登录依赖页面默认密码，不适合验证本任务创建批次逻辑；未继续修改共享脚本，改用本任务目录一次性脚本。
+- RED: `node admin-create-published-route.e2e.cjs` -> FAIL，批次 `BRS20260725133618` 页面创建成功，但后续“打开填写”断言失败；DB 只读核验确认该批次已冻结 `route_version_id=358 / V14`，不是草稿。
+- GREEN: `node --check doc/tasks/20260724-batch-execution-published-route-runtime-update/admin-create-published-route.e2e.cjs` -> PASS。
+- GREEN: `node doc/tasks/20260724-batch-execution-published-route-runtime-update/admin-create-published-route.e2e.cjs` -> PASS，使用本机前端 `http://localhost:8081`、授权租户 `芋道源码/admin`、工单 `923834 / 881MO090935`、路线 `922119 / RT000028` 创建批次 `900000000790 / BRS20260725134444` 并进入批次详情页。
+- GREEN: final DB verification -> PASS，批次 `900000000790` 持久化 `route_id=922119`、`route_version_id=358`、`route_version_no=V14`、`route_snapshot_json` 长度 `38089`，`configSnapshots.batchUseConfigs=14`，`task_total=21`，`blocked_count=0`。
+- GREEN: draft independence evidence -> PASS，路线 `922119` 当前 active 版本仍为 `358 / V14`，同时存在草稿 `361 / V15`；本次批次冻结的是 ACTIVE `V14` 而非草稿。
+
+## 2026-07-25 Admin Takeover Fill E2E
+
+- RED: admin direct open assumption -> FAIL，新建批次已存在 active FILL work task，但该任务责任人为配置填写人 `810 / wangxin`，admin 不具备直接 `OPEN_FORM`；真实页面应走“管理员接管并填写”，不得改成 API-only、SQL 直改或让 admin 跳过流程干预。
+- CHANGE: task-local E2E script -> 更新 `admin-create-published-route.e2e.cjs`，创建并进入详情后优先按正式 `OPEN_FORM` 点击“打开填写”；若无 `OPEN_FORM` 再选择“管理员接管并填写”，等待正式转办和 `/mes/pro/edhr-batch-execution/task/open` 成功，并断言真实填写表单打开。
+- RED: takeover-only script -> FAIL，当前新建批次首个活动任务 `1772` 已对 admin 返回 `OPEN_FORM`，原脚本只寻找可接管任务而失败；修正为按后端 allowedActions 走正式页面动作。
+
+- RED: direct open without rail-card selection -> FAIL，点击“打开填写”后未发出 `/task/open`，原因是脚本只选中了工序组，未先点击右侧具体表单卡片以刷新填写载体；已补齐右侧表单卡片和“批记录”载体选择。
+
+- CHANGE: direct open locator -> 将“打开填写”限定在右侧 active 表单卡片内，并等待卡片 is-active 与“批记录”载体 aria-pressed 生效后再点击，避免误点非当前任务按钮。
+
+## 2026-07-25 Published Version Cell Rule Runtime Fix And E2E PASS
+
+- RED: real E2E open task -> FAIL，批次创建已冻结路线 ACTIVE V14，但打开填写返回业务错误 `1040750243`：批记录模板存在未确认填写规则；定位为运行态只读取 Jimu 当前 JSON 的 reviewed 标记，未识别已发布版本 `CELL_RULE_RECONCILED` 治理证据。
+- CHANGE: backend runtime -> 新增 `MesProBatchRecordCellRuleSupport.materializeVersionApprovedCellRules`，仅当批记录版本为 `APPROVED`、无 blocking migration item 且存在 `CELL_RULE_RECONCILED` 治理证据时，才把自动填写规则物化为 `VERSION_APPROVED` 运行态规则；无治理证据仍维持未确认规则 fail-fast。
+- GREEN: `mvn.cmd -pl yudao-module-mes '-Dtest=MesProBatchRecordExecutionServiceImplTest#openOrCreateByContext_materializesApprovedVersionCellRuleGovernanceIntoExecutionSnapshot' surefire:test` -> PASS。
+- GREEN: `mvn.cmd -pl yudao-module-mes '-Dtest=MesProBatchRecordExecutionServiceImplTest#openOrCreateByContext_legacyStaticCheckboxCellsRequireRuleReviewBeforeExecution' surefire:test` -> PASS，确认无治理证据的旧 checkbox 仍阻塞。
+- GREEN: `mvn.cmd -pl yudao-server -am '-DskipTests' package` -> PASS，生成新 `yudao-server-exec.jar`。
+- GREEN: backend reload -> PASS，停止冲突 PID `50968`，启动当前修复版 PID `29320`，jar SHA256 `B81920535CAEA036AEF514387AF8898C1D3C7A249AE7CD0FDA5F30C2C9E9EA2E`，`/actuator/health` 为 UP。
+- GREEN: `node --check doc/tasks/20260724-batch-execution-published-route-runtime-update/admin-create-published-route.e2e.cjs` -> PASS。
+- GREEN: `node doc/tasks/20260724-batch-execution-published-route-runtime-update/admin-create-published-route.e2e.cjs` -> PASS，真实前端创建批次 `900000000805 / BRS20260725160633`，打开 workTask `1779`，后端返回 execution `1280`。
+- GREEN: final DB verification -> PASS，批次 `900000000805` 冻结路线 `922119` 的 `358 / V14`，草稿 `361 / V15` 仍存在；execution `1280` 快照长度 `111712`，字段数 `87`，未确认规则字段数 `0`。
+- GREEN: project experience consolidation -> PASS，已将“已发布批记录版本治理证据物化运行态规则”的可复用门禁合并到 `docs/backend-development.md` 并在 `docs/experience-index.md` 登记关键词。

@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.service.pro.schedulerworkbench;
 import cn.hutool.core.collection.CollUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchFullConfigImportRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchManualReplanDataImportRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.schedulerworkbench.vo.MesProSchedulerWorkbenchPolicySettingsRespVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.permission.RoleDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.user.AdminUserDO;
 import cn.iocoder.yudao.module.system.service.dept.PostConfigPackageService;
@@ -45,6 +47,10 @@ public class MesProSchedulerWorkbenchFullConfigPackageServiceImpl
     @Resource
     private MesProSchedulerWorkbenchRouteConfigPackageService routeConfigPackageService;
     @Resource
+    private MesProSchedulerWorkbenchManualReplanDataPackageService manualReplanDataPackageService;
+    @Resource
+    private MesProSchedulerWorkbenchService schedulerWorkbenchService;
+    @Resource
     private PermissionService permissionService;
     @Resource
     private RoleService roleService;
@@ -56,14 +62,18 @@ public class MesProSchedulerWorkbenchFullConfigPackageServiceImpl
         byte[] postBytes = postConfigPackageService.exportPackage();
         byte[] roleBytes = roleConfigPackageService.exportPackage();
         byte[] routeBytes = routeConfigPackageService.exportPackage();
+        byte[] manualReplanDataBytes = manualReplanDataPackageService.exportPackage();
         FullConfigPackage payload = new FullConfigPackage();
         payload.setPackageVersion(PACKAGE_VERSION);
         payload.setPostConfigPackageBase64(encode(postBytes));
         payload.setRoleConfigPackageBase64(encode(roleBytes));
         payload.setRouteConfigPackageBase64(encode(routeBytes));
+        payload.setManualReplanDataPackageBase64(encode(manualReplanDataBytes));
         payload.setPostConfigPackage(JsonUtils.parseObject(postBytes, Object.class));
         payload.setRoleConfigPackage(JsonUtils.parseObject(roleBytes, Object.class));
         payload.setRouteConfigPackage(JsonUtils.parseObject(routeBytes, Object.class));
+        payload.setManualReplanDataPackage(JsonUtils.parseObject(manualReplanDataBytes, Object.class));
+        payload.setPolicySettings(schedulerWorkbenchService.getPolicySettings());
         payload.setUserRoleBindings(buildUserRoleBindings());
         return JsonUtils.toJsonByte(payload);
     }
@@ -77,9 +87,18 @@ public class MesProSchedulerWorkbenchFullConfigPackageServiceImpl
                 payload.getPostConfigPackage(), "岗位配置包"));
         roleConfigPackageService.importPackage(decode(payload.getRoleConfigPackageBase64(),
                 payload.getRoleConfigPackage(), "角色配置包"));
+        MesProSchedulerWorkbenchManualReplanDataImportRespVO manualReplanDataResult =
+                manualReplanDataPackageService.importPackage(decode(payload.getManualReplanDataPackageBase64(),
+                        payload.getManualReplanDataPackage(), "手动重排数据包"));
         routeConfigPackageService.importPackage(decode(payload.getRouteConfigPackageBase64(),
                 payload.getRouteConfigPackage(), "排产路线配置包"));
-        return replayUserRoles(payload.getUserRoleBindings());
+        schedulerWorkbenchService.savePolicySettings(payload.getPolicySettings());
+        MesProSchedulerWorkbenchFullConfigImportRespVO result = replayUserRoles(payload.getUserRoleBindings());
+        result.setReplanMasterDataCount(manualReplanDataResult.getMasterDataCount());
+        result.setReplanScheduleOrderDataCount(manualReplanDataResult.getScheduleOrderDataCount());
+        result.setReplanRuntimeDataCount(manualReplanDataResult.getRuntimeDataCount());
+        result.setPolicySettingsCount(1);
+        return result;
     }
 
     private List<UserRoleBindingItem> buildUserRoleBindings() {
@@ -171,6 +190,13 @@ public class MesProSchedulerWorkbenchFullConfigPackageServiceImpl
         if (!StringUtils.hasText(payload.getRouteConfigPackageBase64()) && payload.getRouteConfigPackage() == null) {
             throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "排产员工作台全量配置包缺少排产路线配置包");
         }
+        if (!StringUtils.hasText(payload.getManualReplanDataPackageBase64())
+                && payload.getManualReplanDataPackage() == null) {
+            throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "排产员工作台全量配置包缺少手动重排数据包");
+        }
+        if (payload.getPolicySettings() == null) {
+            throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "排产员工作台全量配置包缺少策略设置");
+        }
         if (payload.getUserRoleBindings() == null) {
             throw exception(CONFIG_PACKAGE_CONTENT_INVALID, "排产员工作台全量配置包缺少 userRoleBindings");
         }
@@ -211,9 +237,12 @@ public class MesProSchedulerWorkbenchFullConfigPackageServiceImpl
         private String postConfigPackageBase64;
         private String roleConfigPackageBase64;
         private String routeConfigPackageBase64;
+        private String manualReplanDataPackageBase64;
         private Object postConfigPackage;
         private Object roleConfigPackage;
         private Object routeConfigPackage;
+        private Object manualReplanDataPackage;
+        private MesProSchedulerWorkbenchPolicySettingsRespVO policySettings;
         private List<UserRoleBindingItem> userRoleBindings;
     }
 

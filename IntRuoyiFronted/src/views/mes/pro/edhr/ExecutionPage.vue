@@ -17,8 +17,8 @@
             v-if="!isTrackingReadonlyMode && !isReadonly"
             v-hasPermi="['mes:pro-batch-record-execution:field-audit-update', 'mes:pro-batch-record-execution:update', 'mes:pro-batch-record-execution:golden-finger']"
             :loading="fieldAuditSaveLoading"
-            :disabled="!canOpenFieldAuditSignatureDialog"
-            @click="openFieldAuditSignatureDialog"
+            :disabled="!canSaveFieldAuditChanges"
+            @click="handleSaveFieldAuditChanges"
           >
             保存变更
           </el-button>
@@ -231,7 +231,7 @@
                       {{ row.rejectReason || row.comment || '--' }}
                     </template>
                   </el-table-column>
-                  <el-table-column label="处理时间" prop="occurredAt" width="180" />
+                  <el-table-column label="处理时间" prop="occurredAt" width="180" :formatter="edhrDateTimeFormatter" />
                 </el-table>
               </section>
             </div>
@@ -289,25 +289,6 @@
                     </div>
                   </div>
 
-                  <div class="edhr-fill-workspace__change-summary">
-                    <span>待保存变更</span>
-                    <strong>{{ pendingFieldChanges.length + pendingAttachmentChanges.length }}</strong>
-                  </div>
-
-                  <el-alert
-                    v-if="preReleaseEditNotice"
-                    :title="preReleaseEditNotice"
-                    type="info"
-                    :closable="false"
-                    show-icon
-                  />
-                  <el-alert
-                    v-if="goldenFingerNotice"
-                    :title="goldenFingerNotice"
-                    type="warning"
-                    :closable="false"
-                    show-icon
-                  />
                   <el-alert
                     v-if="revisionLockNotice"
                     :title="revisionLockNotice"
@@ -337,7 +318,7 @@
                     class="edhr-fill-workspace__primary-action"
                     type="primary"
                     :loading="fieldAuditSaveLoading"
-                    :disabled="!canOpenFieldAuditSignatureDialog"
+                    :disabled="!canSaveFieldAuditChanges"
                     @click="openFieldAuditSignatureDialog"
                   >
                     保存草稿
@@ -376,74 +357,51 @@
                   class="edhr-fill-workspace__form-error"
                 />
                 <template v-else>
-                  <el-alert
-                    v-if="cellLinkPrefillNotice"
-                    :title="cellLinkPrefillNotice"
-                    type="success"
-                    :closable="false"
-                    show-icon
-                    class="edhr-fill-workspace__prefill-alert"
-                  />
-                  <el-alert
-                    v-if="cellLinkPrefillConflictNotice"
-                    :title="cellLinkPrefillConflictNotice"
-                    type="warning"
-                    :closable="false"
-                    show-icon
-                    class="edhr-fill-workspace__prefill-alert"
-                  />
                   <section v-if="fillViewMode === 'assist'" class="edhr-fill-workspace__assist-panel">
                     <div class="edhr-fill-workspace__assist-topbar">
-                      <div class="edhr-fill-workspace__assist-heading">
-                        <div class="edhr-fill-workspace__assist-title">我的填写项</div>
+                      <div class="edhr-fill-workspace__assist-context-strip">
+                        <div class="edhr-fill-workspace__assist-switch-grid">
+                          <button
+                            type="button"
+                            class="edhr-fill-workspace__assist-switch"
+                            @click="handleAssistTaskSwitch"
+                          >
+                            <span>任务 / 批次</span>
+                            <strong>{{ assistTaskSwitchLabel }}</strong>
+                            <em>切换</em>
+                          </button>
+                          <button
+                            type="button"
+                            class="edhr-fill-workspace__assist-switch"
+                            @click="handleAssistProcessSwitch"
+                          >
+                            <span>工序</span>
+                            <strong>{{ assistProcessSwitchLabel }}</strong>
+                            <em>切换</em>
+                          </button>
+                          <button
+                            type="button"
+                            class="edhr-fill-workspace__assist-switch"
+                            @click="handleAssistFillerSwitch"
+                          >
+                            <span>填写人</span>
+                            <strong>{{ assistFillerSwitchLabel }}</strong>
+                            <em>切换</em>
+                          </button>
+                        </div>
                       </div>
-                      <div class="edhr-fill-workspace__assist-switch-grid">
-                        <button
-                          type="button"
-                          class="edhr-fill-workspace__assist-switch"
-                          @click="handleAssistTaskSwitch"
-                        >
-                          <span>任务 / 批次</span>
-                          <strong>{{ assistTaskSwitchLabel }}</strong>
-                          <em>切换</em>
-                        </button>
-                        <button
-                          type="button"
-                          class="edhr-fill-workspace__assist-switch"
-                          @click="handleAssistProcessSwitch"
-                        >
-                          <span>工序</span>
-                          <strong>{{ assistProcessSwitchLabel }}</strong>
-                          <em>切换</em>
-                        </button>
-                        <button
-                          type="button"
-                          class="edhr-fill-workspace__assist-switch"
-                          @click="handleAssistFillerSwitch"
-                        >
-                          <span>填写人</span>
-                          <strong>{{ assistFillerSwitchLabel }}</strong>
-                          <em>切换</em>
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        class="edhr-fill-workspace__assist-missing-jump"
-                        :class="{ 'is-done': assistMissingFieldCount === 0 }"
-                        @click="scrollToFirstIncompleteAssistField"
-                      >
-                        <span>还差 {{ assistMissingFieldCount }} 项</span>
-                      </button>
+                      <div class="edhr-fill-workspace__assist-action-reserve" aria-hidden="true"></div>
                     </div>
 
                     <el-dialog
                       v-model="assistSwitchDialogVisible"
                       :title="assistSwitchDialogTitle"
-                      width="680px"
+                      :width="assistSwitchDialogWidth"
                       :append-to-body="false"
                       align-center
                       destroy-on-close
                       class="edhr-fill-workspace__assist-switch-dialog"
+                      :class="{ 'is-process-switch-dialog': assistSwitchDialogType === 'process' }"
                     >
                       <div
                         v-if="assistSwitchDialogType === 'task'"
@@ -490,12 +448,15 @@
 
                       <div
                         v-else-if="assistSwitchDialogType === 'process'"
-                        class="edhr-fill-workspace__assist-switch-menu"
+                        class="edhr-fill-workspace__assist-switch-menu edhr-fill-workspace__assist-switch-process-menu"
                         data-assist-switch-menu="process"
                       >
-                        <div class="edhr-fill-workspace__assist-switch-menu-head">
+                        <div class="edhr-fill-workspace__assist-switch-menu-head edhr-fill-workspace__assist-switch-process-head">
                           <strong>选择当前批次工序</strong>
-                          <span>仅显示当前批次可打开任务</span>
+                          <span class="edhr-fill-workspace__assist-switch-order-code">
+                            {{ assistProcessSwitchOrderCode }}
+                          </span>
+                          <span>展示当前批次全部工序</span>
                         </div>
                         <el-alert
                           v-if="assistProcessSwitchError"
@@ -515,23 +476,33 @@
                           description="当前批次暂无可切换工序"
                           :image-size="64"
                         />
-                        <template v-else>
+                        <div
+                          v-else
+                          class="edhr-fill-workspace__assist-switch-process-grid"
+                          data-assist-switch-process-grid
+                        >
                           <button
                             v-for="item in assistProcessSwitchItems"
-                            :key="item.id"
+                            :key="item.key"
                             type="button"
-                            class="edhr-fill-workspace__assist-switch-option"
-                            :class="{ 'is-active': isAssistBatchTaskActive(item) }"
+                            class="edhr-fill-workspace__assist-switch-option edhr-fill-workspace__assist-process-card"
+                            :class="[
+                              resolveAssistProcessSwitchItemStateClass(item),
+                              { 'is-active': isAssistProcessSwitchItemActive(item) }
+                            ]"
                             @click="handleSelectAssistProcessSwitchItem(item)"
                           >
                             <span class="edhr-fill-workspace__assist-switch-option-main">
-                              {{ resolveAssistBatchTaskPrimaryLabel(item) }}
-                            </span>
-                            <span class="edhr-fill-workspace__assist-switch-option-sub">
-                              {{ resolveAssistBatchTaskSecondaryLabel(item) }}
+                              <span>{{ resolveAssistProcessSwitchItemPrimaryLabel(item) }}</span>
+                              <el-tag
+                                size="small"
+                                :type="resolveAssistProcessSwitchItemStatusType(item)"
+                              >
+                                {{ resolveAssistProcessSwitchItemStatusLabel(item) }}
+                              </el-tag>
                             </span>
                           </button>
-                        </template>
+                        </div>
                       </div>
 
                       <div
@@ -588,29 +559,20 @@
                       </template>
                     </el-dialog>
 
-                    <div
-                      v-if="assistIncompleteItems.length > 0"
-                      class="edhr-fill-workspace__assist-summary"
-                    >
-                      <span class="edhr-fill-workspace__assist-summary-title">未完成摘要</span>
-                      <span
-                        v-for="item in assistIncompleteItems.slice(0, 4)"
-                        :key="item.fieldIdentity"
-                        class="edhr-fill-workspace__assist-summary-item"
-                      >
-                        {{ item.label }}：{{ item.reason }}
-                      </span>
-                    </div>
-                    <div v-else class="edhr-fill-workspace__assist-summary is-complete">
-                      必填、附件和签名已完成，可以提交执行。
-                    </div>
-
                     <el-empty
                       v-if="assistFillFields.length === 0"
-                      description="当前没有可填写字段"
+                      :description="assistRowsConfigured ? '当前没有可填写字段' : '未配置辅助模式'"
                     />
 
-                    <div v-else class="edhr-fill-workspace__assist-list">
+                    <div
+                      v-else
+                      :class="
+                        assistUsesConfiguredGrid
+                          ? 'edhr-fill-workspace__assist-grid'
+                          : 'edhr-fill-workspace__assist-list'
+                      "
+                      :style="assistGridStyle"
+                    >
                       <article
                         v-for="field in assistFillFields"
                         :key="field.fieldIdentity"
@@ -618,37 +580,15 @@
                         :class="{
                           'is-missing': isAssistFieldIncomplete(field),
                           'is-error': Boolean(resolveAssistFieldValidationMessage(field)),
-                          'is-complete': isAssistFieldComplete(field),
-                          'is-highlighted': highlightedAssistFieldIdentity === field.fieldIdentity
+                          'is-complete': isAssistFieldComplete(field)
                         }"
                         :data-assist-field-id="field.fieldIdentity"
+                        :data-assist-grid-cell="field.assistGridKey"
+                        :style="resolveAssistFieldGridStyle(field)"
                       >
                         <div class="edhr-fill-workspace__assist-row-meta">
                           <div class="edhr-fill-workspace__assist-label">
                             <span>{{ field.label }}</span>
-                            <el-tag
-                              v-if="isFieldRequiredForCurrentMode(field) || field.componentKind === 'signature'"
-                              size="small"
-                              type="danger"
-                              effect="plain"
-                            >
-                              {{ field.componentKind === 'signature' ? '签名' : '必填' }}
-                            </el-tag>
-                            <el-tag v-else size="small" type="info" effect="plain">可选</el-tag>
-                            <el-tag
-                              size="small"
-                              :type="resolveAssistFieldStatusTagType(field)"
-                              effect="plain"
-                            >
-                              {{ resolveAssistFieldStatusLabel(field) }}
-                            </el-tag>
-                          </div>
-                          <div class="edhr-fill-workspace__assist-help">
-                            {{ field.helpText || field.placeholder || '字段说明未配置' }}
-                          </div>
-                          <div class="edhr-fill-workspace__assist-source">
-                            <span>位置：第 {{ field.rowIndex + 1 }} 行 / 第 {{ field.columnIndex + 1 }} 列</span>
-                            <span v-if="field.unit">单位：{{ field.unit }}</span>
                           </div>
                         </div>
 
@@ -802,6 +742,8 @@
                     :signature-markers="templateSignatureMarkers"
                     :model-value="templateModelValue"
                     :fit-mode="fitMode"
+                    :show-rule-legend="false"
+                    cell-type-display="background"
                     class="edhr-fill-workspace__form"
                   >
                     <template #field="{ context }">
@@ -827,16 +769,6 @@
                             size="small"
                           >
                             范围外只读
-                          </el-tag>
-                          <el-tag
-                            v-if="resolveCellLinkPrefill(context)"
-                            type="success"
-                            effect="plain"
-                            size="small"
-                            class="edhr-fill-workspace__cell-link-tag"
-                            :title="formatCellLinkPrefillSource(resolveCellLinkPrefill(context))"
-                          >
-                            跨表单带入
                           </el-tag>
                         </div>
 
@@ -985,6 +917,108 @@
                   </EdhrExecutionTemplateEditableForm>
                 </template>
               </main>
+
+              <el-dialog
+                class="edhr-fill-workspace__submit-sign-dialog"
+                v-model="submitDialogVisible"
+                width="520px"
+                :append-to-body="false"
+                :show-close="false"
+                :close-on-click-modal="false"
+                :close-on-press-escape="false"
+                align-center
+                destroy-on-close
+              >
+                <button
+                  type="button"
+                  class="edhr-fill-workspace__submit-sign-close"
+                  aria-label="关闭电子签名弹窗"
+                  @click="closeSubmitDialog"
+                >
+                  <Icon icon="ep:close" />
+                </button>
+                <div class="edhr-fill-workspace__submit-sign-form">
+                  <div class="edhr-fill-workspace__submit-sign-row">
+                    <div class="edhr-fill-workspace__submit-sign-label">姓名</div>
+                    <div class="edhr-fill-workspace__submit-sign-name">{{ submitSignatureUserName }}</div>
+                  </div>
+                  <div class="edhr-fill-workspace__submit-sign-row">
+                    <div class="edhr-fill-workspace__submit-sign-label is-required">电子签名</div>
+                    <el-input
+                      v-model="submitForm.password"
+                      type="password"
+                      show-password
+                      @keyup.enter="handleSubmitExecution"
+                    />
+                  </div>
+                </div>
+                <template #footer>
+                  <el-button
+                    class="edhr-fill-workspace__submit-sign-confirm"
+                    type="primary"
+                    :loading="submitLoading"
+                    @click="handleSubmitExecution"
+                  >
+                    确认
+                  </el-button>
+                </template>
+              </el-dialog>
+
+              <el-dialog
+                class="edhr-fill-workspace__result-dialog"
+                v-model="fillActionResultDialogVisible"
+                width="720px"
+                :append-to-body="false"
+                :show-close="false"
+                :close-on-click-modal="false"
+                :close-on-press-escape="false"
+                align-center
+                destroy-on-close
+              >
+                <button
+                  type="button"
+                  class="edhr-fill-workspace__result-close"
+                  aria-label="关闭结果弹窗"
+                  @click="closeFillActionResultDialog"
+                >
+                  <Icon icon="ep:close" />
+                </button>
+                <div
+                  class="edhr-fill-workspace__result-body"
+                  :class="`is-${fillActionResultDialog.tone}`"
+                >
+                  <div class="edhr-fill-workspace__result-context">
+                    <div>
+                      <span>订单</span>
+                      <strong>{{ fillActionResultDialog.orderText }}</strong>
+                    </div>
+                    <div>
+                      <span>工序</span>
+                      <strong>{{ fillActionResultDialog.processText }}</strong>
+                    </div>
+                  </div>
+                  <div class="edhr-fill-workspace__result-status">
+                    <strong>{{ fillActionResultDialog.fillerText }}</strong>
+                    <strong>{{ fillActionResultDialog.statusText }}</strong>
+                  </div>
+                  <div
+                    class="edhr-fill-workspace__result-reason"
+                    v-if="fillActionResultDialog.failureReasonText"
+                  >
+                    <span>失败原因</span>
+                    <strong>{{ fillActionResultDialog.failureReasonText }}</strong>
+                  </div>
+                </div>
+                <template #footer>
+                  <el-button
+                    class="edhr-fill-workspace__result-confirm"
+                    type="primary"
+                    @click="closeFillActionResultDialog"
+                  >
+                    确认
+                  </el-button>
+                </template>
+              </el-dialog>
             </div>
 
             <template v-if="false">
@@ -1185,8 +1219,8 @@
                   v-hasPermi="['mes:pro-batch-record-execution:field-audit-update', 'mes:pro-batch-record-execution:update', 'mes:pro-batch-record-execution:golden-finger']"
                   type="primary"
                   :loading="fieldAuditSaveLoading"
-                  :disabled="!canOpenFieldAuditSignatureDialog"
-                  @click="openFieldAuditSignatureDialog"
+                  :disabled="!canSaveFieldAuditChanges"
+                  @click="handleSaveFieldAuditChanges"
                 >
                   保存变更
                 </el-button>
@@ -1368,222 +1402,6 @@
       </div>
     </div>
 
-    <el-dialog
-      class="edhr-fill-workspace__save-signature-dialog"
-      v-model="fieldAuditSignatureDialogVisible"
-      width="720px"
-      :show-close="false"
-      :close-on-click-modal="false"
-      :close-on-press-escape="false"
-      align-center
-      destroy-on-close
-    >
-      <el-alert
-        v-if="fieldAuditSaveError"
-        :title="fieldAuditSaveError"
-        type="error"
-        :closable="false"
-        show-icon
-        class="edhr-page-shell__archive-alert"
-      />
-      <div class="edhr-fill-workspace__save-signature-body">
-        <div class="edhr-fill-workspace__save-signature-title">保存草稿</div>
-        <div class="edhr-fill-workspace__save-signature-context">
-          <div>
-            <span>订单</span>
-            <strong>{{ resolveFillActionResultOrderText() }}</strong>
-          </div>
-          <div>
-            <span>工序</span>
-            <strong>{{ resolveFillActionResultProcessText() }}</strong>
-          </div>
-          <div>
-            <span>变更</span>
-            <strong>{{ pendingFieldChanges.length + pendingAttachmentChanges.length }} 项</strong>
-          </div>
-        </div>
-      </div>
-      <el-form label-position="top" class="edhr-fill-workspace__save-signature-form">
-        <el-form-item label="原因分类" required>
-          <el-select
-            v-model="fieldAuditReasonForm.reasonCategory"
-            clearable
-            placeholder="请选择原因分类"
-            class="!w-1/1"
-          >
-            <el-option
-              v-for="option in EDHR_FIELD_CHANGE_REASON_OPTIONS"
-              :key="option.value"
-              :label="option.label"
-              :value="option.value"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="原因说明" required>
-          <el-input
-            v-model="fieldAuditReasonForm.reasonText"
-            clearable
-            placeholder="请输入字段变更原因"
-          />
-        </el-form-item>
-        <el-form-item label="签名密码" required>
-          <el-input
-            v-model="fieldAuditSignatureForm.password"
-            type="password"
-            show-password
-            placeholder="请输入当前账号密码"
-            @keyup.enter="handleSaveFieldAuditChanges"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button class="edhr-fill-workspace__save-signature-cancel" @click="fieldAuditSignatureDialogVisible = false">取消</el-button>
-        <el-button
-          class="edhr-fill-workspace__save-signature-confirm"
-          type="primary"
-          :loading="fieldAuditSaveLoading"
-          @click="handleSaveFieldAuditChanges"
-        >
-          确认保存
-        </el-button>
-      </template>
-    </el-dialog>
-
-    <Dialog title="提交 eDHR 执行" v-model="submitDialogVisible" width="520px">
-      <el-form label-width="90px">
-        <el-alert
-          title="普通工序提交只校验填写完整性和电子签名；审核、批准在放行阶段处理。"
-          type="info"
-          :closable="false"
-          show-icon
-          class="edhr-page-shell__alert"
-        />
-        <el-alert
-          v-if="hasGoldenFingerPermission"
-          title="金手指测试权限：将绕过填写人、必填项、附件、普通检查以及放行、关闭、作废或审批锁定；提交会写入审计记录。"
-          type="warning"
-          :closable="false"
-          show-icon
-          class="edhr-page-shell__alert"
-        />
-        <template v-if="hasSubmitReviewAssigneeOptions">
-          <el-divider content-position="left">审核/批准人</el-divider>
-          <el-alert
-            v-if="execution?.reviewAssigneeOptionError"
-            :title="execution.reviewAssigneeOptionError"
-            type="error"
-            :closable="false"
-            show-icon
-            class="edhr-page-shell__alert"
-          />
-          <el-form-item
-            v-for="option in submitReviewAssigneeOptions"
-            :key="option.signatureCellKey"
-            :label="formatSubmitReviewAssigneeLabel(option)"
-            required
-          >
-            <el-select
-              v-model="submitReviewAssigneeSelections[option.signatureCellKey]"
-              class="edhr-page-shell__submit-select !w-1/1"
-              filterable
-              placeholder="请选择审核/批准人"
-            >
-              <el-option
-                v-for="candidate in option.candidates"
-                :key="candidate.userId"
-                :label="formatSubmitReviewCandidateLabel(candidate)"
-                :value="candidate.userId"
-              />
-            </el-select>
-          </el-form-item>
-        </template>
-        <el-form-item label="提交密码" required>
-          <el-input
-            v-model="submitForm.password"
-            type="password"
-            show-password
-            placeholder="请输入当前账号密码"
-            @keyup.enter="handleSubmitExecution"
-          />
-        </el-form-item>
-        <el-form-item label="提交备注">
-          <el-input
-            v-model="submitForm.comment"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入提交备注（可选）"
-          />
-        </el-form-item>
-        <el-divider content-position="left">签名显示时间</el-divider>
-        <el-form-item label="签名时间">
-          <el-date-picker
-            v-model="submitSignatureTimeForm.selectedSignedAt"
-            type="datetime"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            placeholder="可选择人工签名时间"
-            class="!w-1/1"
-          />
-        </el-form-item>
-        <el-form-item label="签名时区">
-          <el-input v-model="submitSignatureTimeForm.selectedTimeZone" placeholder="例如 Asia/Shanghai" />
-        </el-form-item>
-        <el-form-item label="时间原因">
-          <el-input
-            v-model="submitSignatureTimeForm.selectedTimeReason"
-            type="textarea"
-            :rows="2"
-            placeholder="选择人工签名时间时必须说明原因"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="submitDialogVisible = false">取 消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmitExecution">
-          确 认 提 交
-        </el-button>
-      </template>
-    </Dialog>
-
-    <el-dialog
-      class="edhr-fill-workspace__result-dialog"
-      v-model="fillActionResultDialogVisible"
-      width="720px"
-      :show-close="false"
-      :close-on-click-modal="false"
-      :close-on-press-escape="false"
-      align-center
-      destroy-on-close
-    >
-      <div
-        class="edhr-fill-workspace__result-body"
-        :class="`is-${fillActionResultDialog.tone}`"
-      >
-        <div class="edhr-fill-workspace__result-context">
-          <div>
-            <span>订单</span>
-            <strong>{{ fillActionResultDialog.orderText }}</strong>
-          </div>
-          <div>
-            <span>工序</span>
-            <strong>{{ fillActionResultDialog.processText }}</strong>
-          </div>
-        </div>
-        <div class="edhr-fill-workspace__result-status">
-          <strong>{{ fillActionResultDialog.fillerText }}</strong>
-          <strong>{{ fillActionResultDialog.statusText }}</strong>
-        </div>
-      </div>
-      <template #footer>
-        <el-button
-          class="edhr-fill-workspace__result-confirm"
-          type="primary"
-          @click="fillActionResultDialogVisible = false"
-        >
-          确认
-        </el-button>
-      </template>
-    </el-dialog>
-
     <Dialog title="表单复核签名" v-model="formReviewSignDialogVisible" width="620px">
       <el-alert
         v-if="formReviewSignError"
@@ -1730,8 +1548,10 @@ import {
 } from '@/api/mes/pro/edhr/attachment'
 import { getEdhrExecutionSignaturePage, type EdhrSignatureSummaryVO } from '@/api/mes/pro/edhr/signatures'
 import { getEdhrTrackingTimeline, type EdhrTrackingEventVO } from '@/api/mes/pro/edhr/tracking'
+import { getEdhrRecordbookGlobalSetting } from '@/api/mes/pro/edhr/recordbookGlobalSetting'
 import {
   ProFeedbackApi,
+  type ProFeedbackEdhrAssistRowVO,
   type ProFeedbackEdhrExecutionSnapshotVO,
   type ProFeedbackEdhrExecutionVO,
   type ProFeedbackEdhrReviewAssigneeOptionVO,
@@ -1745,15 +1565,17 @@ import type {
   BatchRecordReportSignatureCellMarkerVO
 } from '@/api/mes/pro/batchrecordreport'
 import {
-  BatchRecordCellLinkApi,
-  type BatchRecordCellLinkPrefillItemVO
-} from '@/api/mes/pro/batchrecordcelllink'
-import {
   EDHR_BATCH_NODE_ROUTE_FORM,
   EDHR_BATCH_TASK_STATUS_APPROVED,
   EDHR_BATCH_TASK_STATUS_BLOCKED,
+  EDHR_BATCH_TASK_STATUS_DRAFT,
+  EDHR_BATCH_TASK_STATUS_REJECTED,
+  EDHR_BATCH_TASK_STATUS_REWORK_REQUIRED,
   EDHR_BATCH_TASK_STATUS_SKIPPED,
+  EDHR_BATCH_TASK_STATUS_SUBMITTED,
+  EDHR_BATCH_TASK_STATUS_WAITING,
   getEdhrBatchExecution,
+  getEdhrBatchTaskPreview,
   openEdhrBatchTask,
   type EdhrBatchExecutionTaskRespVO
 } from '@/api/mes/pro/edhr/batchExecution'
@@ -1766,9 +1588,16 @@ import {
 } from '@/api/mes/pro/edhr/workTask'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { useUserStore } from '@/store/modules/user'
-import { formatDate } from '@/utils/formatTime'
-import { navigateToEdhrWorkTask } from '@/utils/edhrWorkTaskNavigation'
+import {
+  navigateToEdhrWorkTask,
+  stringifyEdhrExecutionPageQuery
+} from '@/utils/edhrWorkTaskNavigation'
 import { parsePositiveRouteQueryId, sameRouteQueryId } from '@/utils/routeQueryId'
+import {
+  edhrDateTimeFormatter,
+  formatEdhrDateTime,
+  toEdhrDateTime
+} from '@/views/mes/pro/edhr/shared/dateTime'
 import { UploadFile, UploadImg, UploadImgs } from '@/components/UploadFile'
 import type { UploadRequestOptions } from 'element-plus/es/components/upload/src/upload'
 import type {
@@ -1838,6 +1667,9 @@ type NormalizedSnapshotField = {
   fieldPath: string
   rowIndex: number
   columnIndex: number
+  assistGridKey?: string
+  assistGridRowIndex?: number
+  assistGridColumnIndex?: number
   label: string
   placeholder: string
   helpText: string
@@ -1892,6 +1724,21 @@ type AssistFillField = NormalizedSnapshotField | AssistChoiceGroupField
 const isAssistChoiceGroupField = (field: AssistFillField): field is AssistChoiceGroupField =>
   (field as AssistChoiceGroupField).type === 'choice-group'
 
+type AssistGridSubjectType = 'USERS' | 'ROLE'
+
+type AssistGridKey = {
+  subjectType: AssistGridSubjectType
+  subjectId: number
+  subjectKey: string
+  rowIndex: number
+  columnIndex: number
+}
+
+type AssistRowsResolution = {
+  rows: ProFeedbackEdhrAssistRowVO[]
+  error: string
+}
+
 type PendingFieldChange = EdhrFieldChangeItemReqVO & {
   fieldIdentity: string
   fieldLabel: string
@@ -1909,12 +1756,6 @@ type PendingAttachmentChange = Omit<EdhrFieldAttachmentChangeReqVO, 'workTaskId'
   validationMessage: string
 }
 
-type AssistIncompleteItem = {
-  fieldIdentity: string
-  label: string
-  reason: string
-}
-
 type FillActionResultType = 'save-success' | 'submit-success' | 'submit-failed'
 type FillActionResultTone = 'success' | 'danger'
 
@@ -1924,6 +1765,7 @@ type FillActionResultDialogState = {
   orderText: string
   processText: string
   fillerText: string
+  failureReasonText: string
 }
 
 type BatchSharedFillScopeRange = {
@@ -1991,8 +1833,8 @@ const loading = ref(false)
 const fitMode = ref<'width' | 'height'>('width')
 const fillViewMode = ref<'assist' | 'original'>('assist')
 const fillWorkspaceRef = ref<HTMLElement>()
-const highlightedAssistFieldIdentity = ref('')
-let assistHighlightTimer: number | undefined
+const openedExecutionPageAssistRows = ref<ProFeedbackEdhrAssistRowVO[]>([])
+const openedExecutionPageAssistRowsContextKey = ref('')
 const isFillWorkspaceFullscreen = ref(false)
 const fieldAuditSaveLoading = ref(false)
 const formReviewSignLoading = ref(false)
@@ -2001,6 +1843,7 @@ const archiveLoading = ref(false)
 const archiveGenerateLoading = ref(false)
 const archiveDownloadLoading = ref(false)
 const loadError = ref('')
+const recordbookGlobalEnabled = ref(true)
 const archiveError = ref('')
 const formReviewSignError = ref('')
 const trackingError = ref('')
@@ -2016,29 +1859,25 @@ const draftImageAttachmentValues = ref<Record<string, string>>({})
 const attachmentMetadataByUrl = ref<Record<string, EdhrAttachmentPrepareUploadRespVO>>({})
 const baselineFieldValues = ref<Record<string, DraftFieldValue>>({})
 const baselineFieldValueHashes = ref<Record<string, string>>({})
-const cellLinkPrefills = ref<BatchRecordCellLinkPrefillItemVO[]>([])
-const cellLinkConflicts = ref<BatchRecordCellLinkPrefillItemVO[]>([])
 const draftRemark = ref('')
 const submitDialogVisible = ref(false)
 const fillActionResultDialogVisible = ref(false)
 const formReviewSignDialogVisible = ref(false)
-const fieldAuditSignatureDialogVisible = ref(false)
 const archiveDialogVisible = ref(false)
 const fillActionResultDialog = reactive<FillActionResultDialogState>({
   statusText: '',
   tone: 'success',
   orderText: '--',
   processText: '--',
-  fillerText: '--'
+  fillerText: '--',
+  failureReasonText: ''
 })
+const DEFAULT_FIELD_AUDIT_DRAFT_REASON_CATEGORY: EdhrFieldChangeReasonCategory = 'OPERATOR_ENTRY'
+const DEFAULT_FIELD_AUDIT_DRAFT_REASON_TEXT = '保存草稿'
 const fieldAuditReasonForm = reactive({
   reasonCategory: undefined as EdhrFieldChangeReasonCategory | undefined,
   reasonText: ''
 })
-const fieldAuditSignatureForm = reactive({
-  password: ''
-})
-const fieldAuditSignatureTimeForm = reactive<EdhrSignatureTimeForm>(createSignatureTimeForm())
 const fieldAuditSaveError = ref('')
 const fieldAuditLastResult = ref<EdhrFieldChangeSaveRespVO>()
 const fieldAuditLastSuccessTitle = computed(() => {
@@ -2049,11 +1888,9 @@ const fieldAuditLastSuccessTitle = computed(() => {
 })
 const fieldAuditIdempotencyKey = ref('')
 const submitForm = reactive({
-  password: '',
-  comment: ''
+  password: ''
 })
 const submitReviewAssigneeSelections = reactive<Record<string, number | undefined>>({})
-const submitSignatureTimeForm = reactive<EdhrSignatureTimeForm>(createSignatureTimeForm())
 const formReviewSignForm = reactive({
   password: '',
   comment: ''
@@ -2070,7 +1907,21 @@ const RECORDBOOK_UNRESTRICTED_FILL_MODE = 'RECORDBOOK_UNRESTRICTED'
 const BATCH_SHARED_INSTANCE_SCOPE = 'BATCH_SHARED'
 const ASSIST_SWITCH_PAGE_SIZE = 50
 
+const isGlobalRecordbookEnabled = computed(
+  () => recordbookGlobalEnabled.value && execution.value?.recordbookEnabled === true
+)
+
 type AssistSwitchDialogType = 'task' | 'process' | 'filler'
+
+type AssistProcessSwitchItem = {
+  key: string
+  routeProcessId?: number
+  routeProcessSort?: number
+  processCode?: string
+  processName?: string
+  tasks: EdhrBatchExecutionTaskRespVO[]
+  primaryTask: EdhrBatchExecutionTaskRespVO
+}
 
 type AssistFillerSwitchItem = {
   key: string
@@ -2086,7 +1937,7 @@ const assistTaskSwitchError = ref('')
 const assistTaskSwitchItems = ref<EdhrWorkTaskRespVO[]>([])
 const assistProcessSwitchLoading = ref(false)
 const assistProcessSwitchError = ref('')
-const assistProcessSwitchItems = ref<EdhrBatchExecutionTaskRespVO[]>([])
+const assistProcessSwitchItems = ref<AssistProcessSwitchItem[]>([])
 const assistFillerSwitchLoading = ref(false)
 const assistFillerSwitchError = ref('')
 const assistFillerSwitchItems = ref<AssistFillerSwitchItem[]>([])
@@ -2095,6 +1946,18 @@ const assistSwitchDialogTitle = computed(() => {
   if (assistSwitchDialogType.value === 'process') return '切换工序'
   if (assistSwitchDialogType.value === 'filler') return '切换填写人'
   return '切换任务 / 批次'
+})
+
+const assistSwitchDialogWidth = computed(() =>
+  assistSwitchDialogType.value === 'process' ? 'min(1560px, calc(100vw - 280px))' : '680px'
+)
+
+const assistProcessSwitchOrderCode = computed(() => {
+  const orderCode =
+    execution.value?.workOrderCode ||
+    readRouteQueryString(route.query.workOrderCode) ||
+    (execution.value?.workOrderId ? String(execution.value.workOrderId) : '')
+  return orderCode ? `订单号：${orderCode}` : '订单号：--'
 })
 
 const parsePositiveNumber = (value: unknown) => {
@@ -2202,11 +2065,26 @@ const slotContextBlockers = computed(() => {
 
 const hasSlotContextBlockers = computed(() => slotContextBlockers.value.length > 0)
 
-const isRecordbookUnrestrictedMode = computed(
-  () =>
+const recordbookGlobalDisabledNotice = computed(() => {
+  if (
+    route.query.fillCarrier === 'RECORDBOOK' &&
+    route.query.fillMode === RECORDBOOK_UNRESTRICTED_FILL_MODE &&
+    isGlobalRecordbookEnabled.value === false
+  ) {
+    return '记录本全局开关已关闭或当前任务未启用记录本，不能进入记录本不受控填写。'
+  }
+  return ''
+})
+
+const isRecordbookUnrestrictedMode = computed(() => {
+  if (recordbookGlobalDisabledNotice.value) return false
+  return (
+    execution.value?.recordbookEnabled === true &&
+    isGlobalRecordbookEnabled.value === true &&
     route.query.fillCarrier === 'RECORDBOOK' &&
     route.query.fillMode === RECORDBOOK_UNRESTRICTED_FILL_MODE
-)
+  )
+})
 
 const resolveErrorMessage = (error: unknown, defaultMessage: string) => {
   if (error instanceof Error && error.message.trim()) {
@@ -2601,9 +2479,25 @@ const normalizeSnapshotField = (
 const executionId = computed(() => parsePositiveRouteQueryId(route.query.id) || undefined)
 const isTrackingReadonlyMode = computed(() => route.query.viewMode === TRACKING_VIEW_MODE)
 const workTaskId = computed(() => parsePositiveRouteQueryId(route.query.workTaskId) || undefined)
+const assistUserId = computed(() => parsePositiveRouteQueryId(route.query.assistUserId) || undefined)
+const currentAssistUserId = () => {
+  const user = userStore.getUser || userStore.user
+  return parsePositiveNumber(user?.id)
+}
+const currentAssistSwitchUserId = () =>
+  parsePositiveNumber(assistUserId.value) || currentAssistUserId()
+const routeBatchTaskId = computed(() => parsePositiveRouteQueryId(route.query.batchTaskId) || undefined)
+const isAssistBatchTaskPreviewMode = computed(() => route.query.batchTaskPreview === '1')
 const hasFillTaskContext = computed(() => workTaskId.value !== undefined)
-const resolveExecutionContextKey = () =>
-  executionId.value ? `${executionId.value}:${workTaskId.value || ''}` : ''
+const resolveExecutionContextKey = () => {
+  if (isAssistBatchTaskPreviewMode.value) {
+    const batchExecutionId = readRouteQueryString(route.query.batchExecutionId)
+    return batchExecutionId && routeBatchTaskId.value
+      ? `preview:${batchExecutionId}:${routeBatchTaskId.value}:${assistUserId.value || ''}`
+      : ''
+  }
+  return executionId.value ? `${executionId.value}:${workTaskId.value || ''}:${assistUserId.value || ''}` : ''
+}
 const hasArchiveQueryPermission = computed(() => hasPermission([ARCHIVE_QUERY_PERMISSION]))
 const hasArchiveCreatePermission = computed(() => hasPermission([ARCHIVE_CREATE_PERMISSION]))
 const hasArchiveDownloadPermission = computed(() => hasPermission([ARCHIVE_DOWNLOAD_PERMISSION]))
@@ -2701,6 +2595,263 @@ const templateFieldByCell = computed(() => {
   })
   return map
 })
+
+const normalizeExecutionAssistRows = (rows: unknown): ProFeedbackEdhrAssistRowVO[] => {
+  if (!Array.isArray(rows)) return []
+  return rows
+    .map((row, index) => {
+      const record = row as Partial<ProFeedbackEdhrAssistRowVO>
+      const fields = Array.isArray(record.fields)
+        ? record.fields
+            .map((field) => {
+              const rowIndex = parseNonNegativeInteger((field as any)?.rowIndex)
+              const columnIndex = parseNonNegativeInteger((field as any)?.columnIndex)
+              return rowIndex == null || columnIndex == null ? null : { rowIndex, columnIndex }
+            })
+            .filter((field): field is { rowIndex: number; columnIndex: number } => Boolean(field))
+        : []
+      return {
+        rowKey: String(record.rowKey || `ASSIST_ROW_${index + 1}`).trim(),
+        description: String(record.description || '').trim(),
+        sort: Number.isFinite(Number(record.sort)) ? Number(record.sort) : index + 1,
+        fields
+      }
+    })
+    .filter((row) => row.rowKey && row.fields.length > 0)
+    .sort((left, right) => left.sort - right.sort)
+}
+
+const parseAssistRowsRouteQuery = () => {
+  const rawValue = Array.isArray(route.query.assistRows)
+    ? route.query.assistRows[0]
+    : route.query.assistRows
+  const text = typeof rawValue === 'string' ? rawValue.trim() : ''
+  if (!text) {
+    return { present: false, rows: [] as ProFeedbackEdhrAssistRowVO[] }
+  }
+  const parsed = JSON.parse(text)
+  return { present: true, rows: normalizeExecutionAssistRows(parsed) }
+}
+
+const visibleAssistRowsFromExecutionQueryState = computed(() => {
+  const routeRows = parseAssistRowsRouteQuery()
+  if (routeRows.present) return routeRows
+  if (openedExecutionPageAssistRowsContextKey.value === resolveExecutionContextKey()) {
+    return { present: true, rows: openedExecutionPageAssistRows.value }
+  }
+  return { present: false, rows: [] as ProFeedbackEdhrAssistRowVO[] }
+})
+
+const visibleAssistRowsFromExecutionQuery = computed(
+  () => visibleAssistRowsFromExecutionQueryState.value.rows
+)
+
+const snapshotAssistRows = computed(() =>
+  normalizeExecutionAssistRows(parsedSnapshot.value.parsed?.assistRows)
+)
+
+const rawActiveAssistRows = computed(() =>
+  visibleAssistRowsFromExecutionQueryState.value.present
+    ? visibleAssistRowsFromExecutionQuery.value
+    : snapshotAssistRows.value
+)
+
+const ASSIST_GRID_ROW_KEY_PREFIX = 'ASSIST_GRID'
+
+const parseAssistGridRowKey = (rowKey: string): AssistGridKey | null => {
+  const normalizedRowKey = String(rowKey || '').trim()
+  if (!normalizedRowKey.startsWith(ASSIST_GRID_ROW_KEY_PREFIX)) return null
+  const subjectMatch = normalizedRowKey.match(/^ASSIST_GRID_(USERS|ROLE)(\d+)_R(\d+)_C(\d+)$/)
+  const legacyUserMatch = normalizedRowKey.match(/^ASSIST_GRID_U(\d+)_R(\d+)_C(\d+)$/)
+  if (!subjectMatch && !legacyUserMatch) return null
+  const subjectType: AssistGridSubjectType = subjectMatch
+    ? (subjectMatch[1] as AssistGridSubjectType)
+    : 'USERS'
+  const subjectId = Number(subjectMatch ? subjectMatch[2] : legacyUserMatch?.[1])
+  const rowIndex = Number(subjectMatch ? subjectMatch[3] : legacyUserMatch?.[2])
+  const columnIndex = Number(subjectMatch ? subjectMatch[4] : legacyUserMatch?.[3])
+  if (!Number.isInteger(subjectId) || subjectId <= 0) return null
+  if (!Number.isInteger(rowIndex) || rowIndex < 0) return null
+  if (!Number.isInteger(columnIndex) || columnIndex < 0) return null
+  return {
+    subjectType,
+    subjectId,
+    subjectKey: `${subjectType}:${subjectId}`,
+    rowIndex,
+    columnIndex
+  }
+}
+
+const resolveAssistRowsForCurrentFiller = (
+  rows: ProFeedbackEdhrAssistRowVO[],
+  selectedUserId: number | undefined,
+  rowsAreServerScoped: boolean
+): AssistRowsResolution => {
+  const configuredRows = rows
+    .map((row) => ({ row, gridKey: parseAssistGridRowKey(row.rowKey) }))
+    .filter(
+      (item): item is { row: ProFeedbackEdhrAssistRowVO; gridKey: AssistGridKey } =>
+        Boolean(item.gridKey)
+    )
+  if (configuredRows.length === 0) {
+    return { rows, error: '' }
+  }
+
+  const subjectKeys = new Set(configuredRows.map((item) => item.gridKey.subjectKey))
+  if (rowsAreServerScoped) {
+    if (subjectKeys.size > 1) {
+      return {
+        rows: [],
+        error: '后端返回的当前填写人 assistRows 同时包含多个责任主体网格，无法合并到同一填写表格。'
+      }
+    }
+    const scopedSubject = configuredRows[0].gridKey
+    if (scopedSubject.subjectType === 'USERS') {
+      if (!selectedUserId) {
+        return {
+          rows: [],
+          error: '当前页面缺少填写人编号，无法核对后端返回的个人辅助表格责任范围。'
+        }
+      }
+      if (scopedSubject.subjectId !== selectedUserId) {
+        return {
+          rows: [],
+          error: `后端返回的个人辅助表格属于用户 ${scopedSubject.subjectId}，与当前填写人 ${selectedUserId} 不一致。`
+        }
+      }
+    }
+    return { rows, error: '' }
+  }
+
+  if (!selectedUserId) {
+    return {
+      rows: [],
+      error: '当前预览快照包含个人辅助表格，但页面缺少填写人编号，无法确定应显示的辅助字段。'
+    }
+  }
+  if (configuredRows.some((item) => item.gridKey.subjectType === 'ROLE')) {
+    return {
+      rows: [],
+      error: '当前预览快照包含角色辅助表格，但缺少当前填写人的正式责任范围，无法确定应显示的辅助字段。'
+    }
+  }
+  const matchingRows = configuredRows.filter(
+    ({ gridKey }) =>
+      gridKey.subjectType === 'USERS' && gridKey.subjectId === selectedUserId
+  )
+  if (matchingRows.length === 0) {
+    const configuredUserIds = [
+      ...new Set(configuredRows.map((item) => item.gridKey.subjectId))
+    ].join('、')
+    return {
+      rows: [],
+      error: `当前填写人 ${selectedUserId} 没有对应的辅助表格配置；快照中的个人责任主体为 ${configuredUserIds}。`
+    }
+  }
+  return {
+    rows: rows.filter((row) => {
+      const gridKey = parseAssistGridRowKey(row.rowKey)
+      return (
+        !gridKey ||
+        (gridKey.subjectType === 'USERS' && gridKey.subjectId === selectedUserId)
+      )
+    }),
+    error: ''
+  }
+}
+
+const activeAssistRowsState = computed(() =>
+  resolveAssistRowsForCurrentFiller(
+    rawActiveAssistRows.value,
+    currentAssistSwitchUserId(),
+    visibleAssistRowsFromExecutionQueryState.value.present
+  )
+)
+
+const activeAssistRows = computed(() => activeAssistRowsState.value.rows)
+const assistRowsScopeError = computed(() => activeAssistRowsState.value.error)
+const assistRowsConfigured = computed(() => rawActiveAssistRows.value.length > 0)
+
+const hasConfiguredAssistGridRows = computed(() =>
+  activeAssistRows.value.some((row) => Boolean(parseAssistGridRowKey(row.rowKey)))
+)
+
+const resolveAssistGridPositionKey = (gridKey: AssistGridKey) =>
+  `${gridKey.rowIndex}:${gridKey.columnIndex}`
+
+const assistGridPositionConflictError = computed(() => {
+  const fieldMap = new Map(
+    snapshotFields.value.map((field) => [
+      buildCellValueKey(field.rowIndex, field.columnIndex),
+      field
+    ])
+  )
+  const positionFieldMap = new Map<
+    string,
+    { fieldIdentity: string; fieldLabel: string; rowKey: string }
+  >()
+  for (const row of activeAssistRows.value) {
+    const gridKey = parseAssistGridRowKey(row.rowKey)
+    if (!gridKey) continue
+    const positionKey = resolveAssistGridPositionKey(gridKey)
+    for (const cell of row.fields) {
+      const field = fieldMap.get(buildCellValueKey(cell.rowIndex, cell.columnIndex))
+      if (!field) continue
+      const existing = positionFieldMap.get(positionKey)
+      if (existing && existing.fieldIdentity !== field.fieldIdentity) {
+        return `辅助表格第 ${gridKey.rowIndex + 1} 行第 ${gridKey.columnIndex + 1} 列同时映射了不同字段“${existing.fieldLabel}”和“${field.label}”，请修正辅助表格配置。`
+      }
+      if (!existing) {
+        positionFieldMap.set(positionKey, {
+          fieldIdentity: field.fieldIdentity,
+          fieldLabel: field.label,
+          rowKey: row.rowKey
+        })
+      }
+    }
+  }
+  return ''
+})
+
+const assistGridContractError = computed(
+  () => assistRowsScopeError.value || assistGridPositionConflictError.value
+)
+
+const buildAssistFieldsFromAssistRows = (
+  rows: ProFeedbackEdhrAssistRowVO[],
+  fields: NormalizedSnapshotField[]
+) => {
+  const fieldMap = new Map(fields.map((field) => [buildCellValueKey(field.rowIndex, field.columnIndex), field]))
+  const configuredGridPositionFieldMap = new Map<string, string>()
+  const items: NormalizedSnapshotField[] = []
+  rows.forEach((row) => {
+    const gridKey = parseAssistGridRowKey(row.rowKey)
+    row.fields.forEach((cell) => {
+      const field = fieldMap.get(buildCellValueKey(cell.rowIndex, cell.columnIndex))
+      if (!field) return
+      if (gridKey) {
+        const positionKey = resolveAssistGridPositionKey(gridKey)
+        const existingFieldIdentity = configuredGridPositionFieldMap.get(positionKey)
+        if (existingFieldIdentity === field.fieldIdentity) return
+        if (!existingFieldIdentity) {
+          configuredGridPositionFieldMap.set(positionKey, field.fieldIdentity)
+        }
+      }
+      items.push({
+        ...field,
+        helpText: row.description || field.helpText,
+        ...(gridKey
+          ? {
+              assistGridKey: row.rowKey,
+              assistGridRowIndex: gridKey.rowIndex,
+              assistGridColumnIndex: gridKey.columnIndex
+            }
+          : {})
+      })
+    })
+  })
+  return items
+}
 
 const readSnapshotCellText = (cell?: RawExecutionSnapshotCell) => {
   if (!cell) return ''
@@ -2959,13 +3110,79 @@ const templateModelValue = computed<TemplateSimulationValueMap>(() => {
   return values
 })
 
-const assistFillFields = computed<AssistFillField[]>(() =>
-  buildAssistChoiceGroupItems(
-    snapshotFields.value
-      .filter(isFieldInCurrentFillScope)
-      .filter((field) => !field.readonly || field.componentKind === 'signature')
+const assistSourceFields = computed<NormalizedSnapshotField[]>(() => {
+  if (assistGridContractError.value) return []
+  return buildAssistFieldsFromAssistRows(activeAssistRows.value, snapshotFields.value).filter(
+    (field) => !field.readonly || field.componentKind === 'signature'
   )
+})
+
+const assistFillFields = computed<AssistFillField[]>(() => {
+  const sourceFields = assistSourceFields.value
+  if (hasConfiguredAssistGridRows.value) {
+    return sourceFields
+  }
+  return buildAssistChoiceGroupItems(sourceFields)
+})
+
+const assistUsesConfiguredGrid = computed(
+  () =>
+    assistFillFields.value.length > 0 &&
+    assistFillFields.value.every(
+      (field) =>
+        field.assistGridKey &&
+        field.assistGridRowIndex !== undefined &&
+        field.assistGridColumnIndex !== undefined
+    )
 )
+
+const assistGridVisibleColumnIndexes = computed(() => {
+  if (!assistUsesConfiguredGrid.value) return [] as number[]
+  return Array.from(
+    new Set(
+      assistFillFields.value.map((field) => Number(field.assistGridColumnIndex))
+    )
+  ).sort((left, right) => left - right)
+})
+
+const assistGridColumnDisplayIndexMap = computed(() => {
+  const map = new Map<number, number>()
+  assistGridVisibleColumnIndexes.value.forEach((columnIndex, displayIndex) => {
+    map.set(columnIndex, displayIndex)
+  })
+  return map
+})
+
+const assistGridColumnCount = computed(() => {
+  if (!assistUsesConfiguredGrid.value) return 1
+  return assistGridVisibleColumnIndexes.value.length
+})
+
+const assistGridStyle = computed(() =>
+  assistUsesConfiguredGrid.value
+    ? {
+        gridTemplateColumns: `repeat(${assistGridColumnCount.value}, minmax(132px, 1fr))`
+      }
+    : undefined
+)
+
+const resolveAssistFieldGridStyle = (field: AssistFillField) => {
+  if (
+    !assistUsesConfiguredGrid.value ||
+    field.assistGridRowIndex === undefined ||
+    field.assistGridColumnIndex === undefined
+  ) {
+    return undefined
+  }
+  const displayColumnIndex = assistGridColumnDisplayIndexMap.value.get(field.assistGridColumnIndex)
+  if (displayColumnIndex === undefined) {
+    throw new Error('Missing compressed assist grid column index.')
+  }
+  return {
+    gridRow: String(field.assistGridRowIndex + 1),
+    gridColumn: String(displayColumnIndex + 1)
+  }
+}
 
 const resolveAssistChoiceGroupValue = (field: AssistChoiceGroupField) => {
   if (field.storageMode === 'single-choice-value') {
@@ -2998,14 +3215,26 @@ const assistTaskSwitchLabel = computed(() => {
   return parts.length ? parts.join(' / ') : '当前任务'
 })
 
-const assistProcessSwitchLabel = computed(
-  () => execution.value?.processName || execution.value?.processCode || '当前工序'
-)
+const resolveAssistSwitchUserDisplayName = (userId?: unknown) => {
+  if (!userId || !Array.isArray(execution.value?.assistSwitchTasks)) return ''
+  for (const task of execution.value.assistSwitchTasks) {
+    const user = (task.fillableUsers || []).find((item) => sameRouteQueryId(item.userId, userId))
+    if (user) {
+      return user.displayName || `用户 ${user.userId}`
+    }
+  }
+  return ''
+}
 
 const assistFillerSwitchLabel = computed(() => {
   const routeFillerName = readRouteQueryString(route.query.fillerName)
   const user = userStore.getUser || userStore.user
-  return routeFillerName || user?.nickname || (user?.id ? `用户 ${user.id}` : '当前填写人')
+  return (
+    routeFillerName ||
+    resolveAssistSwitchUserDisplayName(assistUserId.value) ||
+    user?.nickname ||
+    (user?.id ? `用户 ${user.id}` : '当前填写人')
+  )
 })
 
 const normalizeFillActionResultText = (value: string) => {
@@ -3022,17 +3251,30 @@ const resolveFillActionResultProcessText = () =>
 const resolveFillActionResultFillerText = () => {
   const routeFillerName = readRouteQueryString(route.query.fillerName)
   const user = userStore.getUser || userStore.user
-  return normalizeFillActionResultText(routeFillerName || user?.nickname || (user?.id ? String(user.id) : ''))
+  return normalizeFillActionResultText(
+    routeFillerName ||
+      resolveAssistSwitchUserDisplayName(assistUserId.value) ||
+      user?.nickname ||
+      (user?.id ? String(user.id) : '')
+  )
 }
 
-const showFillActionResultDialog = (type: FillActionResultType) => {
+const submitSignatureUserName = computed(resolveFillActionResultFillerText)
+
+const showFillActionResultDialog = (type: FillActionResultType, failureReasonText = '') => {
   const result = FILL_ACTION_RESULT_MAP[type]
   fillActionResultDialog.statusText = result.statusText
   fillActionResultDialog.tone = result.tone
   fillActionResultDialog.orderText = resolveFillActionResultOrderText()
   fillActionResultDialog.processText = resolveFillActionResultProcessText()
   fillActionResultDialog.fillerText = resolveFillActionResultFillerText()
+  fillActionResultDialog.failureReasonText =
+    type === 'submit-failed' ? failureReasonText.trim() : ''
   fillActionResultDialogVisible.value = true
+}
+
+const closeFillActionResultDialog = () => {
+  fillActionResultDialogVisible.value = false
 }
 
 const resolveAssistFieldTypeLabel = (field: AssistFillField) => {
@@ -3396,6 +3638,9 @@ const formRenderError = computed(() => {
   if (!execution.value) {
     return ''
   }
+  if (recordbookGlobalDisabledNotice.value) {
+    return recordbookGlobalDisabledNotice.value
+  }
   if (sharedFillScopeGateError.value) {
     return sharedFillScopeGateError.value
   }
@@ -3407,6 +3652,9 @@ const formRenderError = computed(() => {
   }
   if (snapshotFieldContractErrors.value.length > 0) {
     return snapshotFieldContractErrors.value[0]
+  }
+  if (assistGridContractError.value) {
+    return assistGridContractError.value
   }
   if (snapshotFields.value.length === 0) {
     return 'eDHR 执行快照 fields 缺少有效 rowIndex / columnIndex，无法生成最小表单。'
@@ -3726,41 +3974,6 @@ const resolveAssistFieldValidationMessage = (field: AssistFillField) => {
 const isAssistFieldComplete = (field: AssistFillField) =>
   !isAssistFieldIncomplete(field) && !resolveAssistFieldValidationMessage(field)
 
-const resolveAssistIncompleteReason = (field: AssistFillField) => {
-  const validationMessage = resolveAssistFieldValidationMessage(field)
-  if (validationMessage) return '异常'
-  if (isAssistSignatureMissing(field)) return '未签名'
-  if (isAssistAttachmentIncomplete(field)) return '附件未满足'
-  if (isAssistTypedFieldMissing(field)) return '未填写'
-  return ''
-}
-
-const assistIncompleteItems = computed<AssistIncompleteItem[]>(() =>
-  assistFillFields.value
-    .map((field) => ({
-      fieldIdentity: field.fieldIdentity,
-      label: field.label,
-      reason: resolveAssistIncompleteReason(field)
-    }))
-    .filter((item) => Boolean(item.reason))
-)
-
-const assistMissingFieldCount = computed(() => assistIncompleteItems.value.length)
-
-const resolveAssistFieldStatusLabel = (field: AssistFillField) => {
-  if (resolveAssistFieldValidationMessage(field)) return '异常'
-  if (isAssistSignatureMissing(field)) return '未签'
-  if (isAssistFieldIncomplete(field)) return '未填'
-  if (isAssistChoiceGroupField(field)) return '已选'
-  return field.componentKind === 'signature' ? '已签' : '已填'
-}
-
-const resolveAssistFieldStatusTagType = (field: AssistFillField) => {
-  if (resolveAssistFieldValidationMessage(field)) return 'danger'
-  if (isAssistFieldIncomplete(field)) return 'warning'
-  return 'success'
-}
-
 const isInactiveRevisionDraft = computed(
   () =>
     execution.value?.status === EDHR_EXECUTION_STATUS.DRAFT &&
@@ -3776,16 +3989,6 @@ const isReadonly = computed(() => {
   }
   return true
 })
-const goldenFingerNotice = computed(() =>
-  hasGoldenFingerPermission.value && !isTrackingReadonlyMode.value && !isReadonly.value
-    ? '金手指测试权限：可代填并跳过普通必填/附件检查，也可绕过放行、关闭、作废或审批锁定；所有提交都会审计。'
-    : ''
-)
-const preReleaseEditNotice = computed(() =>
-  isPreReleaseEditable.value
-    ? execution.value?.preReleaseEditReason || '放行前可修改，重新提交将更新提交签名证据'
-    : ''
-)
 const executionStatusText = computed(() => {
   if (execution.value?.status === EDHR_EXECUTION_STATUS.SUBMITTED) {
     return '待审批（审批关闭后才可归档）'
@@ -3803,7 +4006,7 @@ const executionStatusText = computed(() => {
 })
 const readonlySubmitReason = computed(() => {
   if (isPreReleaseEditable.value) {
-    return '放行前可修改，重新提交将更新提交签名证据。'
+    return '关闭前可修改，重新提交将更新提交签名证据。'
   }
   if (isInactiveRevisionDraft.value) {
     return '当前执行记录不是活动修订版本，不能提交。'
@@ -3868,14 +4071,7 @@ const formatTrackingReadonlyDate = (value?: string | number | Date) => {
   if (!value) {
     return '--'
   }
-  const parsedDate =
-    typeof value === 'number' || /^\d+$/.test(String(value))
-      ? new Date(Number(value))
-      : new Date(value)
-  if (Number.isNaN(parsedDate.getTime())) {
-    throw new Error(`追踪执行参数时间不可解析：${String(value)}`)
-  }
-  return formatDate(parsedDate, 'YYYY年M月D日')
+  return formatEdhrDateTime(value)
 }
 
 const hasPendingFieldChanges = computed(() => pendingFieldChanges.value.length > 0)
@@ -3883,26 +4079,16 @@ const hasPendingAttachmentChanges = computed(() => pendingAttachmentChanges.valu
 const hasPendingFieldAuditChanges = computed(
   () => hasPendingFieldChanges.value || hasPendingAttachmentChanges.value
 )
-const fieldAuditReasonComplete = computed(() => {
-  if (!fieldAuditReasonForm.reasonCategory || !fieldAuditReasonForm.reasonText.trim()) {
-    return false
-  }
-  return (
-    fieldAuditReasonForm.reasonCategory !== 'OTHER' ||
-    fieldAuditReasonForm.reasonText.trim().length >= 10
-  )
-})
+const resolveFieldAuditDraftReasonCategory = () =>
+  fieldAuditReasonForm.reasonCategory || DEFAULT_FIELD_AUDIT_DRAFT_REASON_CATEGORY
+const resolveFieldAuditDraftReasonText = () =>
+  fieldAuditReasonForm.reasonText.trim() || DEFAULT_FIELD_AUDIT_DRAFT_REASON_TEXT
 const fieldAuditBaseReady = computed(() => {
   return Boolean(
     execution.value?.cellValuesHash &&
       typeof execution.value.fieldAuditRevision === 'number' &&
       execution.value?.fieldAuditHeadHash
   )
-})
-const fieldAuditReasonGateError = computed(() => {
-  return fieldAuditReasonComplete.value
-    ? ''
-    : '原因不能为空；原因类别为 OTHER 时原因说明至少 10 个字符。'
 })
 const fieldAuditOpenGateError = computed(() => {
   if (!execution.value?.id) {
@@ -3915,7 +4101,7 @@ const fieldAuditOpenGateError = computed(() => {
     return '当前执行记录不是活动修订版本，不能保存字段变更。'
   }
   if (isReadonly.value) {
-    return '当前状态不允许编辑字段，只有草稿或放行前可修改的已提交普通表单可以保存字段变更。'
+    return '当前状态不允许编辑字段，只有草稿或关闭前可修改的已提交普通表单可以保存字段变更。'
   }
   if (!hasFieldAuditUpdatePermission.value) {
     return '当前账号没有字段审计保存权限。'
@@ -3941,8 +4127,8 @@ const fieldAuditOpenGateError = computed(() => {
   }
   return ''
 })
-const fieldAuditSaveGateError = computed(() => fieldAuditOpenGateError.value || fieldAuditReasonGateError.value)
-const canOpenFieldAuditSignatureDialog = computed(() => !fieldAuditOpenGateError.value)
+const fieldAuditSaveGateError = computed(() => fieldAuditOpenGateError.value)
+const canSaveFieldAuditChanges = computed(() => !fieldAuditSaveGateError.value)
 
 const normalizeSignatureActionType = (value?: string) => (value || '').trim().toUpperCase()
 
@@ -3952,18 +4138,11 @@ const resolveSignatureCellActionLabel = (field: NormalizedSnapshotField) => {
 }
 
 const toSignatureTime = (value?: string) => {
-  if (!value) return 0
-  const time = new Date(value).getTime()
-  return Number.isNaN(time) ? 0 : time
+  return toEdhrDateTime(value)?.getTime() ?? 0
 }
 
 const formatSignatureCellTime = (value?: string) => {
-  if (!value) return '--'
-  const parsedDate = new Date(value)
-  if (Number.isNaN(parsedDate.getTime())) {
-    return value
-  }
-  return formatDate(parsedDate, 'YYYY-MM-DD HH:mm')
+  return formatEdhrDateTime(value)
 }
 
 const findSignatureCellRecord = (field: NormalizedSnapshotField) => {
@@ -4029,7 +4208,7 @@ const handleSignatureCellAction = (field: NormalizedSnapshotField) => {
   }
   switch (normalizeSignatureActionType(field.signatureActionType)) {
     case 'FIELD_CHANGE':
-      openFieldAuditSignatureDialog()
+      handleSaveFieldAuditChanges()
       return
     case 'FORM_REVIEW':
       openFormReviewSignDialog()
@@ -4141,69 +4320,6 @@ const backToBatchLabel = computed(() =>
 
 const buildCellValueKey = (rowIndex: number, columnIndex: number) => `${rowIndex}:${columnIndex}`
 
-const cellLinkPrefillByCell = computed(() => {
-  const map = new Map<string, BatchRecordCellLinkPrefillItemVO>()
-  cellLinkPrefills.value.forEach((item) => {
-    map.set(buildCellValueKey(item.targetRowIndex, item.targetColumnIndex), item)
-  })
-  return map
-})
-
-const cellLinkPrefillNotice = computed(() => {
-  const count = cellLinkPrefills.value.length
-  return count > 0
-    ? `已根据跨表单链接预填 ${count} 个单元格，请填写变更原因并完成字段审计签名保存。`
-    : ''
-})
-
-const cellLinkPrefillConflictNotice = computed(() => {
-  const count = cellLinkConflicts.value.length
-  return count > 0 ? `有 ${count} 条跨表单链接未带入，请检查源值为空或目标已有人工值。` : ''
-})
-
-const resolveCellLinkPrefill = (context: TemplateEditableCellContext) => {
-  const field = resolveTemplateSnapshotField(context)
-  return field ? cellLinkPrefillByCell.value.get(buildCellValueKey(field.rowIndex, field.columnIndex)) : undefined
-}
-
-const formatCellLinkPrefillSource = (item?: BatchRecordCellLinkPrefillItemVO) => {
-  if (!item) {
-    return ''
-  }
-  const sourceName = item.sourceReportName || '来源表单'
-  const sourceCell = item.sourceLabel || item.sourceCellKey || ''
-  return sourceCell ? `${sourceName} / ${sourceCell}` : sourceName
-}
-
-const normalizeCellLinkPrefillDraftValue = (
-  item: BatchRecordCellLinkPrefillItemVO,
-  field: NormalizedSnapshotField
-): DraftFieldValue => {
-  if (item.value == null) {
-    return null
-  }
-  if (isSingleChoiceCheckboxField(field)) {
-    return String(item.value)
-  }
-  if (field.componentKind === 'checkbox') {
-    return String(item.value).toLowerCase() === 'true'
-  }
-  if (field.componentKind === 'number') {
-    const numericValue = Number(item.value)
-    if (!Number.isFinite(numericValue)) {
-      throw new Error(
-        `跨表单链接规则 ${item.ruleId || '--'} 带入 ${field.label} 时返回非数字值，不能预填。`
-      )
-    }
-    return numericValue
-  }
-  if (field.valueType === 'DATE' || field.valueType === 'DATETIME') {
-    const text = String(item.value).trim()
-    return text ? text : null
-  }
-  return String(item.value)
-}
-
 const hydrateStoredDraftValue = (
   value: unknown,
   field: NormalizedSnapshotField
@@ -4220,11 +4336,7 @@ const hydrateStoredDraftValue = (
   return value == null ? '' : String(value)
 }
 
-const hydrateDraftState = (
-  detail: ProFeedbackEdhrExecutionVO,
-  prefills: BatchRecordCellLinkPrefillItemVO[] = [],
-  conflicts: BatchRecordCellLinkPrefillItemVO[] = []
-) => {
+const hydrateDraftState = (detail: ProFeedbackEdhrExecutionVO) => {
   const cellValueMap = new Map(
     (detail.cellValues || []).map((cellValue) => [
       buildCellValueKey(cellValue.rowIndex, cellValue.columnIndex),
@@ -4234,12 +4346,6 @@ const hydrateDraftState = (
       }
     ])
   )
-  const prefillMap = new Map(
-    prefills
-      .filter((item) => item.value != null)
-      .map((item) => [buildCellValueKey(item.targetRowIndex, item.targetColumnIndex), item])
-  )
-  const appliedPrefills: BatchRecordCellLinkPrefillItemVO[] = []
   const nextDraftValues: Record<string, DraftFieldValue> = {}
   const nextBaselineValues: Record<string, DraftFieldValue> = {}
   const nextDraftAttachmentValues: Record<string, DraftAttachmentValue> = {}
@@ -4269,12 +4375,6 @@ const hydrateDraftState = (
       continue
     }
     nextBaselineValues[field.fieldIdentity] = field.defaultValue
-    const cellLinkPrefill = prefillMap.get(cellKey)
-    if (cellLinkPrefill && !field.readonly) {
-      nextDraftValues[field.fieldIdentity] = normalizeCellLinkPrefillDraftValue(cellLinkPrefill, field)
-      appliedPrefills.push(cellLinkPrefill)
-      continue
-    }
     nextDraftValues[field.fieldIdentity] = field.defaultValue
   }
   draftFieldValues.value = nextDraftValues
@@ -4283,8 +4383,6 @@ const hydrateDraftState = (
   attachmentMetadataByUrl.value = {}
   baselineFieldValues.value = nextBaselineValues
   baselineFieldValueHashes.value = nextFieldHashes
-  cellLinkPrefills.value = appliedPrefills
-  cellLinkConflicts.value = conflicts
   draftRemark.value = detail.remark || ''
   fieldAuditSaveError.value = ''
   fieldAuditLastResult.value = undefined
@@ -4408,23 +4506,15 @@ const buildFieldAuditChangeRequest = (change: PendingFieldChange): EdhrFieldChan
   }
 }
 
-const openFieldAuditSignatureDialog = () => {
-  if (fieldAuditOpenGateError.value) {
-    message.error(fieldAuditOpenGateError.value)
-    return
-  }
-  fieldAuditSaveError.value = ''
-  fieldAuditSignatureForm.password = ''
-  resetSignatureTimeForm(fieldAuditSignatureTimeForm)
-  fieldAuditIdempotencyKey.value = createFieldAuditIdempotencyKey()
-  fieldAuditSignatureDialogVisible.value = true
-}
-
 const handleRevertPendingFieldChange = (change: PendingFieldChange) => {
   draftFieldValues.value = {
     ...draftFieldValues.value,
     [change.fieldIdentity]: baselineFieldValues.value[change.fieldIdentity]
   }
+}
+
+const openFieldAuditSignatureDialog = async () => {
+  await handleSaveFieldAuditChanges()
 }
 
 const handleSaveFieldAuditChanges = async () => {
@@ -4437,10 +4527,6 @@ const handleSaveFieldAuditChanges = async () => {
     message.error('工作任务编号缺失，不能保存字段变更。')
     return
   }
-  if (!fieldAuditSignatureForm.password.trim()) {
-    fieldAuditSaveError.value = '签名密码不能为空。'
-    return
-  }
   if (!fieldAuditIdempotencyKey.value) {
     fieldAuditIdempotencyKey.value = createFieldAuditIdempotencyKey()
   }
@@ -4451,18 +4537,20 @@ const handleSaveFieldAuditChanges = async () => {
     const response = await saveEdhrFieldChanges({
       executionId: execution.value!.id,
       workTaskId: workTaskId.value,
+      ...(isRecordbookUnrestrictedMode.value
+        ? {
+            fillCarrier: 'RECORDBOOK',
+            fillMode: RECORDBOOK_UNRESTRICTED_FILL_MODE
+          }
+        : {}),
       idempotencyKey: fieldAuditIdempotencyKey.value,
       baseCellValuesHash: String(execution.value!.cellValuesHash),
       baseFieldAuditRevision: Number(execution.value!.fieldAuditRevision),
       baseFieldAuditHeadHash: String(execution.value!.fieldAuditHeadHash),
-      reasonCategory: fieldAuditReasonForm.reasonCategory!,
-      reasonText: fieldAuditReasonForm.reasonText.trim(),
+      reasonCategory: resolveFieldAuditDraftReasonCategory(),
+      reasonText: resolveFieldAuditDraftReasonText(),
       changes: pendingFieldChanges.value.map(buildFieldAuditChangeRequest),
-      attachmentChanges: pendingAttachmentChanges.value.map(buildAttachmentChangeRequest),
-      signature: {
-        password: fieldAuditSignatureForm.password.trim(),
-        signatureTime: buildSignatureTimePayload(fieldAuditSignatureTimeForm)
-      }
+      attachmentChanges: pendingAttachmentChanges.value.map(buildAttachmentChangeRequest)
     })
     if (response.hashVerification.status !== 'VALID') {
       throw new Error(
@@ -4470,9 +4558,6 @@ const handleSaveFieldAuditChanges = async () => {
       )
     }
     fieldAuditLastResult.value = response
-    fieldAuditSignatureDialogVisible.value = false
-    fieldAuditSignatureForm.password = ''
-    resetSignatureTimeForm(fieldAuditSignatureTimeForm)
     fieldAuditIdempotencyKey.value = ''
     showFillActionResultDialog('save-success')
     await loadExecution()
@@ -4527,9 +4612,12 @@ const hasMissingSubmitReviewAssigneeSelection = () =>
 
 const resetSubmitForm = () => {
   submitForm.password = ''
-  submitForm.comment = ''
   resetSubmitReviewAssigneeSelections()
-  resetSignatureTimeForm(submitSignatureTimeForm)
+}
+
+const closeSubmitDialog = () => {
+  submitDialogVisible.value = false
+  resetSubmitForm()
 }
 
 const openSubmitDialog = () => {
@@ -4587,8 +4675,6 @@ const handleSubmitExecution = async () => {
       id: execution.value.id,
       workTaskId: workTaskId.value,
       password: submitForm.password.trim(),
-      comment: submitForm.comment.trim() || undefined,
-      signatureTime: buildSignatureTimePayload(submitSignatureTimeForm),
       reviewAssigneeSelections: buildSubmitReviewAssigneeSelections()
     })
     submitDialogVisible.value = false
@@ -4598,7 +4684,7 @@ const handleSubmitExecution = async () => {
   } catch (error) {
     const submitErrorMessage = resolveErrorMessage(error, 'eDHR 执行提交失败，请联系管理员。')
     message.error(submitErrorMessage)
-    showFillActionResultDialog('submit-failed')
+    showFillActionResultDialog('submit-failed', submitErrorMessage)
   } finally {
     submitLoading.value = false
   }
@@ -4803,9 +4889,143 @@ const loadTrackingAndSignatures = async () => {
   }
 }
 
+const parseAssistPreviewCellValues = (
+  rawCellValuesJson?: string
+): NonNullable<ProFeedbackEdhrExecutionVO['cellValues']> => {
+  if (rawCellValuesJson == null || !String(rawCellValuesJson).trim()) {
+    return []
+  }
+  const parsed = JSON.parse(String(rawCellValuesJson))
+  if (!Array.isArray(parsed)) {
+    throw new Error('工序预览 cellValuesJson 不是数组，无法在填写页查看。')
+  }
+  return parsed
+    .map((item): NonNullable<ProFeedbackEdhrExecutionVO['cellValues']>[number] | null => {
+      const rowIndex = parseNonNegativeInteger((item as any)?.rowIndex)
+      const columnIndex = parseNonNegativeInteger((item as any)?.columnIndex)
+      if (rowIndex == null || columnIndex == null) return null
+      return {
+        rowIndex,
+        columnIndex,
+        value: (item as any)?.value ?? null,
+        valueType: (item as any)?.valueType,
+        valueDisplay: (item as any)?.valueDisplay,
+        valueHash: (item as any)?.valueHash,
+        unit: (item as any)?.unit
+      }
+    })
+    .filter((item): item is NonNullable<ProFeedbackEdhrExecutionVO['cellValues']>[number] =>
+      Boolean(item)
+    )
+}
+
+const loadAssistBatchTaskPreviewExecution = async (
+  batchExecutionId: number,
+  batchTaskId: number,
+  currentExecutionContextKey: string
+) => {
+  const [batchDetail, preview] = await Promise.all([
+    getEdhrBatchExecution(batchExecutionId),
+    getEdhrBatchTaskPreview(batchExecutionId, batchTaskId)
+  ])
+  const task = (batchDetail.tasks || []).find((item) => sameRouteQueryId(item.id, batchTaskId))
+  if (!task || isAssistSpecialBatchTask(task)) {
+    throw new Error(`批次任务 ${batchTaskId} 不是可查看的普通工序任务，无法在填写页切换。`)
+  }
+  const formViewModel = preview.formViewModel
+  if (!formViewModel || typeof formViewModel.executionSnapshotJson !== 'string' || !formViewModel.executionSnapshotJson.trim()) {
+    throw new Error(`批次任务 ${batchTaskId} 缺少正式表单预览快照，无法在填写页查看。`)
+  }
+  if (typeof formViewModel.sheetLayoutJson !== 'string' || !formViewModel.sheetLayoutJson.trim()) {
+    throw new Error(`批次任务 ${batchTaskId} 缺少正式表单布局，无法在填写页查看。`)
+  }
+  const detail: ProFeedbackEdhrExecutionVO = {
+    id: preview.executionId || 0,
+    executionCode: task.executionCode,
+    workOrderId: batchDetail.workOrderId,
+    workOrderCode: batchDetail.workOrderCode,
+    routeId: batchDetail.routeId,
+    routeCode: batchDetail.routeCode,
+    routeName: batchDetail.routeName,
+    processId: task.routeProcessId,
+    routeProcessId: task.routeProcessId,
+    processCode: task.processCode,
+    processName: task.processName,
+    batchCode: batchDetail.batchCode,
+    status: task.status,
+    taskId: task.id,
+    batchRecordReportId: task.batchRecordReportId,
+    batchRecordReportCode: task.batchRecordReportCode,
+    batchRecordReportName: task.batchRecordReportName || task.formTemplateName,
+    formSlotType: task.formSlotType,
+    recordCategory: task.recordCategory,
+    validationProfile: task.validationProfile,
+    requiredPolicy: task.requiredPolicy,
+    ownerRoleKey: task.ownerRoleKey,
+    archiveVisibility: task.archiveVisibility,
+    permissionScopeId: task.permissionScopeId,
+    slotConfigSnapshotHash: task.slotConfigSnapshotHash,
+    routeBindingId: task.routeBindingId,
+    routeBindingSnapshotHash: task.routeBindingSnapshotHash,
+    sheetLayoutJson: formViewModel.sheetLayoutJson,
+    metaJson: formViewModel.metaJson,
+    executionSnapshotJson: formViewModel.executionSnapshotJson,
+    cellValues: parseAssistPreviewCellValues(formViewModel.cellValuesJson),
+    canOpen: false,
+    canGenerateArchive: false,
+    canDownloadArchive: false,
+    preReleaseEditable: false,
+    activeRevisionFlag: true,
+    assistSwitchTasks: batchDetail.tasks || [],
+    remark: formViewModel.remark,
+    signatureCellMarkers: formViewModel.signatureCellMarkers
+  }
+  execution.value = detail
+  hydrateDraftState(detail)
+  latestArchive.value = undefined
+  trackingTimeline.value = []
+  signatureRows.value = []
+  loadedExecutionContextKey.value = currentExecutionContextKey
+}
+
 const loadExecution = async () => {
   const currentExecutionId = executionId.value
   const currentExecutionContextKey = resolveExecutionContextKey()
+  if (isAssistBatchTaskPreviewMode.value) {
+    const batchExecutionId = parsePositiveNumber(currentBatchExecutionId.value)
+    const batchTaskId = parsePositiveNumber(routeBatchTaskId.value)
+    if (!batchExecutionId || !batchTaskId) {
+      execution.value = undefined
+      loadedExecutionContextKey.value = ''
+      latestArchive.value = undefined
+      loadError.value = '缺少批次执行编号或工序任务编号，无法在填写页查看工序。'
+      return
+    }
+    loading.value = true
+    loadError.value = ''
+    archiveError.value = ''
+    formReviewSignError.value = ''
+    try {
+      await loadAssistBatchTaskPreviewExecution(batchExecutionId, batchTaskId, currentExecutionContextKey)
+    } catch (error) {
+      execution.value = undefined
+      loadedExecutionContextKey.value = ''
+      latestArchive.value = undefined
+      trackingTimeline.value = []
+      signatureRows.value = []
+      draftFieldValues.value = {}
+      draftAttachmentValues.value = {}
+      draftImageAttachmentValues.value = {}
+      attachmentMetadataByUrl.value = {}
+      baselineFieldValues.value = {}
+      baselineFieldValueHashes.value = {}
+      draftRemark.value = ''
+      loadError.value = resolveErrorMessage(error, '工序预览加载失败，请联系管理员。')
+    } finally {
+      loading.value = false
+    }
+    return
+  }
   if (!currentExecutionId) {
     execution.value = undefined
     loadedExecutionContextKey.value = ''
@@ -4826,13 +5046,8 @@ const loadExecution = async () => {
     if (typeof detail.executionSnapshotJson !== 'string' || !detail.executionSnapshotJson.trim()) {
       throw new Error('eDHR 执行记录缺少 executionSnapshotJson，无法渲染执行表单。')
     }
-    const shouldLoadCellLinkPrefill =
-      !isTrackingReadonlyMode.value && detail.status === EDHR_EXECUTION_STATUS.DRAFT
-    const prefillResponse = shouldLoadCellLinkPrefill
-      ? await BatchRecordCellLinkApi.getPrefill(currentExecutionId, workTaskId.value)
-      : undefined
     execution.value = detail
-    hydrateDraftState(detail, prefillResponse?.prefills || [], prefillResponse?.conflicts || [])
+    hydrateDraftState(detail)
     await loadLatestArchive()
     await loadTrackingAndSignatures()
     loadedExecutionContextKey.value = currentExecutionContextKey
@@ -4848,12 +5063,25 @@ const loadExecution = async () => {
     attachmentMetadataByUrl.value = {}
     baselineFieldValues.value = {}
     baselineFieldValueHashes.value = {}
-    cellLinkPrefills.value = []
-    cellLinkConflicts.value = []
     draftRemark.value = ''
     loadError.value = resolveErrorMessage(error, 'eDHR 执行页加载失败，请联系管理员。')
   } finally {
     loading.value = false
+  }
+}
+
+const loadRecordbookGlobalSetting = async () => {
+  if (!hasGoldenFingerPermission.value) return
+  const setting = await getEdhrRecordbookGlobalSetting()
+  recordbookGlobalEnabled.value = setting.enabled === true
+}
+
+const initializeExecutionPage = async () => {
+  try {
+    await loadRecordbookGlobalSetting()
+    await loadExecution()
+  } catch (error) {
+    loadError.value = resolveErrorMessage(error, '记录本全局开关加载失败。')
   }
 }
 
@@ -4903,6 +5131,90 @@ const isAssistBatchTaskOpenable = (row: EdhrBatchExecutionTaskRespVO) =>
   Boolean(row.activeWorkTaskId) &&
   hasAssistOpenFormAction(row)
 
+const compareAssistBatchTasks = (
+  first: EdhrBatchExecutionTaskRespVO,
+  second: EdhrBatchExecutionTaskRespVO
+) =>
+  (first.routeProcessSort || 0) - (second.routeProcessSort || 0) ||
+  (first.batchRecordSort || 0) - (second.batchRecordSort || 0) ||
+  first.id - second.id
+
+const ASSIST_PRODUCT_INFO_PROCESS_SORT = 80
+const ASSIST_PRODUCT_INFO_PROCESS_NAME = '产品信息'
+
+const containsAssistProductInfoTitle = (text?: string | number | null) => {
+  const normalized = String(text ?? '')
+    .trim()
+    .replace(/\s+/g, '')
+  return (
+    Boolean(normalized) &&
+    (normalized.includes('产品信息') ||
+      normalized.toLowerCase().includes('productinformation'))
+  )
+}
+
+const isAssistProductInfoProcessTask = (task: EdhrBatchExecutionTaskRespVO) =>
+  task.nodeType === EDHR_BATCH_NODE_ROUTE_FORM &&
+  task.formSlotType === 'MAIN' &&
+  task.recordCategory === 'BATCH_RECORD' &&
+  (task.batchRecordSort === ASSIST_PRODUCT_INFO_PROCESS_SORT ||
+    containsAssistProductInfoTitle(task.batchRecordReportName) ||
+    containsAssistProductInfoTitle(task.batchRecordReportCode) ||
+    containsAssistProductInfoTitle(task.batchRecordReportId))
+
+const buildAssistProcessSwitchItemKey = (task: EdhrBatchExecutionTaskRespVO) => {
+  if (isAssistProductInfoProcessTask(task)) {
+    return `product-info:${task.batchRecordReportId || task.id}`
+  }
+  return String(
+    task.routeProcessId || task.routeProcessSort || task.processCode || task.processName || task.id
+  )
+}
+
+const resolveAssistProcessSwitchItemName = (task: EdhrBatchExecutionTaskRespVO) =>
+  isAssistProductInfoProcessTask(task) ? ASSIST_PRODUCT_INFO_PROCESS_NAME : task.processName
+
+const resolveAssistProcessSwitchItemSort = (task: EdhrBatchExecutionTaskRespVO) =>
+  isAssistProductInfoProcessTask(task) ? ASSIST_PRODUCT_INFO_PROCESS_SORT : task.routeProcessSort
+
+const isAssistMainBatchRecordTask = (task: EdhrBatchExecutionTaskRespVO) =>
+  !task.formTemplateId && task.formSlotType === 'MAIN'
+
+const chooseAssistProcessSwitchPrimaryTask = (tasks: EdhrBatchExecutionTaskRespVO[]) =>
+  tasks.find((task) => isAssistBatchTaskOpenable(task) && isAssistMainBatchRecordTask(task)) ||
+  tasks.find(isAssistBatchTaskOpenable) ||
+  tasks.find((task) => isAssistMainBatchRecordTask(task) && task.executionId) ||
+  tasks.find((task) => isAssistMainBatchRecordTask(task)) ||
+  tasks.find((task) => task.executionId) ||
+  tasks[0]
+
+const buildAssistProcessSwitchItems = (tasks: EdhrBatchExecutionTaskRespVO[]) => {
+  const grouped = new Map<string, EdhrBatchExecutionTaskRespVO[]>()
+  for (const task of [...tasks].filter((item) => !isAssistSpecialBatchTask(item)).sort(compareAssistBatchTasks)) {
+    const key = buildAssistProcessSwitchItemKey(task)
+    grouped.set(key, [...(grouped.get(key) || []), task])
+  }
+  return [...grouped.entries()]
+    .map(([key, groupTasks]) => {
+      const sortedGroupTasks = [...groupTasks].sort(compareAssistBatchTasks)
+      const primaryTask = chooseAssistProcessSwitchPrimaryTask(sortedGroupTasks)
+      return {
+        key,
+        routeProcessId: primaryTask.routeProcessId,
+        routeProcessSort: resolveAssistProcessSwitchItemSort(primaryTask),
+        processCode: primaryTask.processCode,
+        processName: resolveAssistProcessSwitchItemName(primaryTask),
+        tasks: sortedGroupTasks,
+        primaryTask
+      }
+    })
+    .sort(
+      (first, second) =>
+        (first.routeProcessSort || 0) - (second.routeProcessSort || 0) ||
+        first.key.localeCompare(second.key)
+    )
+}
+
 const loadAssistWorkTaskSwitchItems = async () => {
   const data = await getEdhrWorkTaskMyPage({
     pageNo: 1,
@@ -4939,14 +5251,7 @@ const loadAssistProcessSwitchItems = async () => {
   try {
     const batchExecutionId = requireAssistBatchExecutionId()
     const batchDetail = await getEdhrBatchExecution(batchExecutionId)
-    assistProcessSwitchItems.value = [...(batchDetail.tasks || [])]
-      .filter(isAssistBatchTaskOpenable)
-      .sort(
-        (first, second) =>
-          (first.routeProcessSort || 0) - (second.routeProcessSort || 0) ||
-          (first.batchRecordSort || 0) - (second.batchRecordSort || 0) ||
-          first.id - second.id
-      )
+    assistProcessSwitchItems.value = buildAssistProcessSwitchItems(batchDetail.tasks || [])
   } catch (error) {
     assistProcessSwitchItems.value = []
     assistProcessSwitchError.value = resolveErrorMessage(error, '辅助模式工序列表加载失败。')
@@ -4955,7 +5260,7 @@ const loadAssistProcessSwitchItems = async () => {
   }
 }
 
-const resolveCurrentAssistBatchTask = (tasks: EdhrBatchExecutionTaskRespVO[]) => {
+const resolveCurrentAssistBatchTaskOrUndefined = (tasks: EdhrBatchExecutionTaskRespVO[]) => {
   const batchTaskId = parsePositiveRouteQueryId(route.query.batchTaskId)
   if (batchTaskId) {
     const batchTask = tasks.find((task) => sameRouteQueryId(task.id, batchTaskId))
@@ -4979,25 +5284,43 @@ const resolveCurrentAssistBatchTask = (tasks: EdhrBatchExecutionTaskRespVO[]) =>
     )
     if (executionTask) return executionTask
   }
+  return undefined
+}
+
+const resolveCurrentAssistBatchTask = (tasks: EdhrBatchExecutionTaskRespVO[]) => {
+  const currentTask = resolveCurrentAssistBatchTaskOrUndefined(tasks)
+  if (currentTask) return currentTask
   throw new Error('当前填写页无法识别所属批次任务，不能解析当前工序填写人。')
 }
+
+const resolveAssistCurrentProcessLabel = () => {
+  const currentTask = resolveCurrentAssistBatchTaskOrUndefined(
+    execution.value?.assistSwitchTasks || []
+  )
+  return currentTask
+    ? resolveAssistProcessSwitchItemName(currentTask) ||
+        currentTask.processCode ||
+        '当前工序'
+    : execution.value?.processName || execution.value?.processCode || '当前工序'
+}
+
+const assistProcessSwitchLabel = computed(resolveAssistCurrentProcessLabel)
 
 const loadAssistFillerSwitchItems = async () => {
   assistFillerSwitchLoading.value = true
   assistFillerSwitchError.value = ''
   try {
-    const batchExecutionId = requireAssistBatchExecutionId()
-    const batchDetail = await getEdhrBatchExecution(batchExecutionId)
-    const currentTask = resolveCurrentAssistBatchTask(batchDetail.tasks || [])
-    const routeProcessId = parsePositiveNumber(currentTask.routeProcessId)
-    if (!routeProcessId) {
-      throw new Error(`当前批次任务 ${currentTask.id} 缺少 routeProcessId，不能解析填写人。`)
+    const assistSwitchTasks = execution.value?.assistSwitchTasks || []
+    if (!Array.isArray(assistSwitchTasks) || assistSwitchTasks.length === 0) {
+      throw new Error('当前执行详情缺少填写人快照，不能切换填写人。')
     }
-    const currentProcessTasks = [...(batchDetail.tasks || [])]
+    const currentTask = resolveCurrentAssistBatchTask(assistSwitchTasks)
+    const currentProcessGroupKey = buildAssistProcessSwitchItemKey(currentTask)
+    const currentProcessTasks = [...assistSwitchTasks]
       .filter(
         (task) =>
           !isAssistSpecialBatchTask(task) &&
-          task.routeProcessId === routeProcessId
+          buildAssistProcessSwitchItemKey(task) === currentProcessGroupKey
       )
       .sort(
         (first, second) =>
@@ -5068,10 +5391,23 @@ const resolveAssistBatchTaskPrimaryLabel = (row: EdhrBatchExecutionTaskRespVO) =
   row.processName || row.processCode || `工序任务 ${row.id}`
 
 const resolveAssistBatchTaskStatusLabel = (row: EdhrBatchExecutionTaskRespVO) => {
-  if (row.status === EDHR_BATCH_TASK_STATUS_APPROVED) return '已完成'
+  if (row.status === EDHR_BATCH_TASK_STATUS_WAITING) return '待打开'
+  if (row.status === EDHR_BATCH_TASK_STATUS_DRAFT) return '草稿'
+  if (row.status === EDHR_BATCH_TASK_STATUS_SUBMITTED) return '已提交'
+  if (row.status === EDHR_BATCH_TASK_STATUS_REJECTED) return '已驳回'
+  if (row.status === EDHR_BATCH_TASK_STATUS_REWORK_REQUIRED) return '需返工'
+  if (row.status === EDHR_BATCH_TASK_STATUS_APPROVED) return '填写完成'
   if (row.status === EDHR_BATCH_TASK_STATUS_SKIPPED) return '已跳过'
-  if (row.status === EDHR_BATCH_TASK_STATUS_BLOCKED) return '已阻塞'
-  return '可填写'
+  if (row.status === EDHR_BATCH_TASK_STATUS_BLOCKED) return '阻塞'
+  return row.status == null ? '--' : String(row.status)
+}
+
+const resolveAssistBatchTaskStatusType = (row: EdhrBatchExecutionTaskRespVO) => {
+  if (row.status === EDHR_BATCH_TASK_STATUS_APPROVED || row.status === EDHR_BATCH_TASK_STATUS_SKIPPED) return 'success'
+  if (row.status === EDHR_BATCH_TASK_STATUS_REJECTED || row.status === EDHR_BATCH_TASK_STATUS_BLOCKED) return 'danger'
+  if (row.status === EDHR_BATCH_TASK_STATUS_SUBMITTED || row.status === EDHR_BATCH_TASK_STATUS_REWORK_REQUIRED) return 'warning'
+  if (row.status === EDHR_BATCH_TASK_STATUS_DRAFT) return 'primary'
+  return 'info'
 }
 
 const resolveAssistBatchTaskSecondaryLabel = (row: EdhrBatchExecutionTaskRespVO) => {
@@ -5090,6 +5426,51 @@ const isAssistBatchTaskActive = (row: EdhrBatchExecutionTaskRespVO) =>
   sameRouteQueryId(executionId.value, row.executionId) ||
   readRouteQueryString(route.query.batchTaskId) === String(row.id)
 
+const isAssistProcessSwitchItemActive = (item: AssistProcessSwitchItem) =>
+  item.tasks.some(isAssistBatchTaskActive)
+
+const isAssistBatchTaskCompleted = (row: EdhrBatchExecutionTaskRespVO) =>
+  row.status === EDHR_BATCH_TASK_STATUS_APPROVED ||
+  row.status === EDHR_BATCH_TASK_STATUS_SKIPPED
+
+const isAssistProcessSwitchItemCompleted = (item: AssistProcessSwitchItem) =>
+  item.tasks.length > 0 && item.tasks.every(isAssistBatchTaskCompleted)
+
+const isAssistProcessSwitchItemStarted = (item: AssistProcessSwitchItem) =>
+  item.tasks.some(
+    (task) =>
+      isAssistBatchTaskOpenable(task) ||
+      task.available === true ||
+      (task.status != null && task.status !== EDHR_BATCH_TASK_STATUS_WAITING)
+  )
+
+const resolveAssistProcessSwitchItemStateClass = (item: AssistProcessSwitchItem) => {
+  if (isAssistProcessSwitchItemCompleted(item)) return 'is-completed'
+  if (isAssistProcessSwitchItemStarted(item)) return 'is-in-progress'
+  return 'is-not-started'
+}
+
+const resolveAssistProcessSwitchItemPrimaryLabel = (item: AssistProcessSwitchItem) =>
+  item.processName || item.processCode || resolveAssistBatchTaskPrimaryLabel(item.primaryTask)
+
+const resolveAssistProcessSwitchItemStatusLabel = (item: AssistProcessSwitchItem) =>
+  resolveAssistBatchTaskStatusLabel(item.primaryTask)
+
+const resolveAssistProcessSwitchItemStatusType = (item: AssistProcessSwitchItem) =>
+  resolveAssistBatchTaskStatusType(item.primaryTask)
+
+const resolveAssistProcessSwitchItemSecondaryLabel = (item: AssistProcessSwitchItem) => {
+  const formNames = item.tasks
+    .map((task) => task.batchRecordReportName || task.formTemplateName || task.executionCode || '')
+    .filter(Boolean)
+  const parts = [
+    item.routeProcessSort == null ? '' : `序号 ${item.routeProcessSort}`,
+    item.tasks.length > 1 ? `表单 ${item.tasks.length} 项` : formNames[0] || '',
+    item.primaryTask.disabledReason || item.primaryTask.gateMessage || item.primaryTask.slotBlockerMessage || ''
+  ].filter(Boolean)
+  return parts.join(' · ')
+}
+
 const resolveAssistFillerFormSourceLabel = (row: EdhrBatchExecutionTaskRespVO) =>
   !row.formTemplateId && row.formSlotType === 'MAIN' ? '批处理表单' : '工艺路线表单槽位'
 
@@ -5107,23 +5488,19 @@ const resolveAssistFillerSwitchItemSecondaryLabel = (item: AssistFillerSwitchIte
     resolveAssistBatchTaskStatusLabel(item.task)
   ].join(' · ')
 
-const currentAssistUserId = () => {
-  const user = userStore.getUser || userStore.user
-  return parsePositiveNumber(user?.id)
-}
-
 const isAssistFillerSwitchItemSelectable = (item: AssistFillerSwitchItem) =>
-  currentAssistUserId() === item.userId && isAssistBatchTaskOpenable(item.task)
+  isAssistBatchTaskOpenable(item.task)
 
 const isAssistFillerSwitchItemActive = (item: AssistFillerSwitchItem) =>
-  currentAssistUserId() === item.userId && isAssistBatchTaskActive(item.task)
+  sameRouteQueryId(currentAssistSwitchUserId(), item.userId) && isAssistBatchTaskActive(item.task)
 
 const resolveAssistRecordCategory = (row: EdhrBatchExecutionTaskRespVO) =>
   row.recordCategory === 'INTERNAL_RECORD' ? 'INTERNAL_RECORD' : 'BATCH_RECORD'
 
 const buildAssistFillCarrierExecutionQuery = (row: EdhrBatchExecutionTaskRespVO) => {
   const recordCategory = resolveAssistRecordCategory(row)
-  const fillCarrier = recordCategory === 'INTERNAL_RECORD' ? 'RECORDBOOK' : 'FORM'
+  const fillCarrier =
+    recordCategory === 'INTERNAL_RECORD' && isGlobalRecordbookEnabled.value ? 'RECORDBOOK' : 'FORM'
   const query: Record<string, string> = {
     fillCarrier,
     recordCategory
@@ -5134,14 +5511,64 @@ const buildAssistFillCarrierExecutionQuery = (row: EdhrBatchExecutionTaskRespVO)
   return query
 }
 
-const stringifyAssistRouteQuery = (value?: Record<string, string | number | null | undefined>) => {
-  const query: Record<string, string> = {}
-  Object.entries(value || {}).forEach(([key, entryValue]) => {
-    if (entryValue !== undefined && entryValue !== null && entryValue !== '') {
-      query[key] = String(entryValue)
-    }
+const navigateToReadonlyAssistBatchTask = async (
+  row: EdhrBatchExecutionTaskRespVO,
+  batchExecutionId: number,
+  selectedAssistUserId?: number,
+  selectedAssistDisplayNameInput?: string
+) => {
+  if (!row.executionId) {
+    throw new Error(`工序任务 ${row.id} 缺少可查看执行记录或工作任务，不能切换。`)
+  }
+  const selectedAssistDisplayName =
+    readRouteQueryString(selectedAssistDisplayNameInput) ||
+    resolveAssistSwitchUserDisplayName(selectedAssistUserId)
+  const query = {
+    id: String(row.executionId),
+    executionId: String(row.executionId),
+    batchExecutionId: String(batchExecutionId),
+    batchTaskId: String(row.id),
+    ...(selectedAssistUserId ? { assistUserId: String(selectedAssistUserId) } : {}),
+    ...(selectedAssistDisplayName ? { fillerName: selectedAssistDisplayName } : {}),
+    ...buildAssistFillCarrierExecutionQuery(row)
+  }
+  fillViewMode.value = 'assist'
+  await router.push({
+    path: '/mes/pro/feedback/edhr-execution/form',
+    query
   })
-  return query
+  fillViewMode.value = 'assist'
+  closeAssistSwitchDialog()
+}
+
+const navigateToAssistBatchTaskPreview = async (
+  row: EdhrBatchExecutionTaskRespVO,
+  batchExecutionId: number
+) => {
+  const query = {
+    batchTaskPreview: '1',
+    batchExecutionId: String(batchExecutionId),
+    batchTaskId: String(row.id),
+    ...(row.processCode ? { processCode: row.processCode } : {}),
+    ...(row.processName ? { processName: row.processName } : {}),
+    ...(readRouteQueryString(route.query.workOrderCode)
+      ? { workOrderCode: readRouteQueryString(route.query.workOrderCode) }
+      : {}),
+    ...(readRouteQueryString(route.query.batchCode)
+      ? { batchCode: readRouteQueryString(route.query.batchCode) }
+      : {}),
+    ...(readRouteQueryString(route.query.batchExecutionCode)
+      ? { batchExecutionCode: readRouteQueryString(route.query.batchExecutionCode) }
+      : {}),
+    ...buildAssistFillCarrierExecutionQuery(row)
+  }
+  fillViewMode.value = 'assist'
+  await router.push({
+    path: '/mes/pro/feedback/edhr-execution/form',
+    query
+  })
+  fillViewMode.value = 'assist'
+  closeAssistSwitchDialog()
 }
 
 const navigateToAssistWorkTask = async (
@@ -5178,29 +5605,76 @@ const handleSelectAssistTaskSwitchItem = async (row: EdhrWorkTaskRespVO) => {
 const navigateToAssistBatchTask = async (
   row: EdhrBatchExecutionTaskRespVO,
   setError: (message: string) => void,
-  fallbackMessage: string
+  fallbackMessage: string,
+  selectedAssistUserId?: number,
+  selectedAssistDisplayNameInput?: string
 ) => {
   try {
     const batchExecutionId = requireAssistBatchExecutionId()
+    if (!isAssistBatchTaskOpenable(row)) {
+      if (row.executionId) {
+        await navigateToReadonlyAssistBatchTask(
+          row,
+          batchExecutionId,
+          selectedAssistUserId,
+          selectedAssistDisplayNameInput
+        )
+      } else {
+        await navigateToAssistBatchTaskPreview(row, batchExecutionId)
+      }
+      return
+    }
     if (!row.activeWorkTaskId) {
       throw new Error(`工序任务 ${row.id} 缺少工作任务编号，不能切换。`)
     }
     const opened = await openEdhrBatchTask({
       batchExecutionId,
       taskId: row.id,
-      workTaskId: row.activeWorkTaskId
+      workTaskId: row.activeWorkTaskId,
+      assistUserId: selectedAssistUserId
     })
+    const openedWorkTaskId = opened.workTaskId || opened.executionPageQuery?.workTaskId || row.activeWorkTaskId
+    const openedAssistUserId = parsePositiveNumber(
+      opened.assistUserId || opened.executionPageQuery?.assistUserId || selectedAssistUserId
+    )
+    const selectedAssistDisplayName =
+      readRouteQueryString(selectedAssistDisplayNameInput) ||
+      resolveAssistSwitchUserDisplayName(openedAssistUserId)
+    openedExecutionPageAssistRows.value = normalizeExecutionAssistRows((opened.executionPageQuery as any)?.assistRows)
+    openedExecutionPageAssistRowsContextKey.value =
+      `${opened.executionId}:${openedWorkTaskId || ''}:${openedAssistUserId || ''}`
+    if (opened.formCenterInstanceId && opened.formTemplateId) {
+      const query = {
+        ...stringifyEdhrExecutionPageQuery(opened.executionPageQuery),
+        id: String(batchExecutionId),
+        batchExecutionId: String(batchExecutionId),
+        batchTaskId: String(row.id),
+        workTaskId: String(openedWorkTaskId),
+        ...(openedAssistUserId ? { assistUserId: String(openedAssistUserId) } : {}),
+        ...(selectedAssistDisplayName ? { fillerName: selectedAssistDisplayName } : {}),
+        openRouteForm: '1'
+      }
+      fillViewMode.value = 'assist'
+      await router.push({
+        path: '/mes/pro/feedback/edhr-batch-execution/detail',
+        query
+      })
+      fillViewMode.value = 'assist'
+      closeAssistSwitchDialog()
+      return
+    }
     if (!opened.executionId) {
       throw new Error('打开工序任务后端未返回 executionId，不能进入 eDHR 填写页。')
     }
-    const openedWorkTaskId = opened.workTaskId || opened.executionPageQuery?.workTaskId || row.activeWorkTaskId
     const query = {
-      ...stringifyAssistRouteQuery(opened.executionPageQuery),
+      ...stringifyEdhrExecutionPageQuery(opened.executionPageQuery),
       id: String(opened.executionId),
       executionId: String(opened.executionId),
       batchExecutionId: String(batchExecutionId),
       batchTaskId: String(row.id),
       workTaskId: String(openedWorkTaskId),
+      ...(openedAssistUserId ? { assistUserId: String(openedAssistUserId) } : {}),
+      ...(selectedAssistDisplayName ? { fillerName: selectedAssistDisplayName } : {}),
       ...buildAssistFillCarrierExecutionQuery(row)
     }
     fillViewMode.value = 'assist'
@@ -5219,7 +5693,7 @@ const navigateToAssistBatchTask = async (
 
 const handleSelectAssistFillerSwitchItem = async (item: AssistFillerSwitchItem) => {
   if (!isAssistFillerSwitchItemSelectable(item)) {
-    assistFillerSwitchError.value = '该填写人不属于当前账号可处理项，不能代填或切换责任人。'
+    assistFillerSwitchError.value = '该填写人对应表单当前不可打开，不能切换。'
     message.error(assistFillerSwitchError.value)
     return
   }
@@ -5228,47 +5702,20 @@ const handleSelectAssistFillerSwitchItem = async (item: AssistFillerSwitchItem) 
     (errorMessage) => {
       assistFillerSwitchError.value = errorMessage
     },
-    '辅助模式填写人切换失败。'
+    '辅助模式填写人切换失败。',
+    item.userId,
+    item.displayName
   )
 }
 
-const handleSelectAssistProcessSwitchItem = async (row: EdhrBatchExecutionTaskRespVO) => {
+const handleSelectAssistProcessSwitchItem = async (item: AssistProcessSwitchItem) => {
   await navigateToAssistBatchTask(
-    row,
+    item.primaryTask,
     (errorMessage) => {
       assistProcessSwitchError.value = errorMessage
     },
     '辅助模式工序切换失败。'
   )
-}
-
-const resolveAssistFieldElement = (fieldIdentity: string) => {
-  const elements = fillWorkspaceRef.value?.querySelectorAll<HTMLElement>('[data-assist-field-id]') || []
-  return Array.from(elements).find((element) => element.dataset.assistFieldId === fieldIdentity)
-}
-
-const scrollToFirstIncompleteAssistField = async () => {
-  const firstIncomplete = assistIncompleteItems.value[0]
-  if (!firstIncomplete) {
-    message.success('当前没有未完成填写项。')
-    return
-  }
-  await nextTick()
-  const target = resolveAssistFieldElement(firstIncomplete.fieldIdentity)
-  if (!target) {
-    message.warning('未找到未完成填写项，请刷新后重试。')
-    return
-  }
-  target.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  highlightedAssistFieldIdentity.value = firstIncomplete.fieldIdentity
-  if (assistHighlightTimer) {
-    window.clearTimeout(assistHighlightTimer)
-  }
-  assistHighlightTimer = window.setTimeout(() => {
-    if (highlightedAssistFieldIdentity.value === firstIncomplete.fieldIdentity) {
-      highlightedAssistFieldIdentity.value = ''
-    }
-  }, 1800)
 }
 
 const buildAttachmentChangeRequest = (
@@ -5326,7 +5773,16 @@ const toggleFillWorkspaceFullscreen = async () => {
 }
 
 watch(
-  () => [route.name, route.query.id, route.query.workTaskId] as const,
+  () =>
+    [
+      route.name,
+      route.query.id,
+      route.query.workTaskId,
+      route.query.assistUserId,
+      route.query.batchExecutionId,
+      route.query.batchTaskId,
+      route.query.batchTaskPreview
+    ] as const,
   ([routeName]) => {
     if (routeName !== 'MesProFeedbackEdhrExecutionForm') {
       return
@@ -5338,13 +5794,13 @@ watch(
     ) {
       return
     }
-    loadExecution()
+    void initializeExecutionPage()
   }
 )
 
 onMounted(() => {
   document.addEventListener('fullscreenchange', syncFillWorkspaceFullscreenState)
-  loadExecution()
+  void initializeExecutionPage()
 })
 
 onBeforeUnmount(() => {
@@ -5523,7 +5979,7 @@ onBeforeUnmount(() => {
   top: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: minmax(180px, 0.8fr) minmax(360px, 1.4fr) 132px;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 10px;
   align-items: stretch;
   padding: 12px;
@@ -5532,24 +5988,8 @@ onBeforeUnmount(() => {
   box-shadow: 0 8px 18px rgba(23, 32, 51, 0.06);
 }
 
-.edhr-fill-workspace__assist-heading {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+.edhr-fill-workspace__assist-context-strip {
   min-width: 0;
-}
-
-.edhr-fill-workspace__assist-title {
-  color: #172033;
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.edhr-fill-workspace__assist-subtitle {
-  margin-top: 4px;
-  color: #5b6678;
-  font-size: 12px;
-  line-height: 1.35;
 }
 
 .edhr-fill-workspace__assist-switch-grid {
@@ -5558,8 +5998,16 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 
-.edhr-fill-workspace__assist-switch,
-.edhr-fill-workspace__assist-missing-jump {
+.edhr-fill-workspace__assist-action-reserve {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  min-height: 60px;
+}
+
+.edhr-fill-workspace__assist-switch {
   min-width: 0;
   border: 1px solid #dbe3ef;
   border-radius: 8px;
@@ -5617,12 +6065,23 @@ onBeforeUnmount(() => {
   padding-top: 8px;
 }
 
+:global(.edhr-fill-workspace__assist-switch-dialog.is-process-switch-dialog .el-dialog__body) {
+  max-height: calc(100vh - 180px);
+  overflow: hidden;
+}
+
 .edhr-fill-workspace__assist-switch-menu {
   display: flex;
   flex-direction: column;
   gap: 8px;
   max-height: min(60vh, 520px);
   overflow: auto;
+}
+
+.edhr-fill-workspace__assist-switch-process-menu {
+  min-height: min(72vh, 760px);
+  max-height: calc(100vh - 180px);
+  overflow: hidden;
 }
 
 .edhr-fill-workspace__assist-switch-menu-head {
@@ -5632,6 +6091,11 @@ onBeforeUnmount(() => {
   align-items: center;
   padding-bottom: 6px;
   border-bottom: 1px solid #edf1f6;
+}
+
+.edhr-fill-workspace__assist-switch-process-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, auto) minmax(0, 1fr);
 }
 
 .edhr-fill-workspace__assist-switch-menu-head strong {
@@ -5646,7 +6110,21 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
+.edhr-fill-workspace__assist-switch-order-code {
+  justify-self: center;
+  max-width: 360px;
+  padding: 6px 18px;
+  color: #172033 !important;
+  font-size: 16px !important;
+  font-weight: 800;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .edhr-fill-workspace__assist-switch-option {
+  --edhr-assist-process-state-background: #f7f9fc;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -5655,15 +6133,41 @@ onBeforeUnmount(() => {
   text-align: left;
   border: 1px solid #e5ebf3;
   border-radius: 6px;
-  background: #ffffff;
+  background: var(--edhr-assist-process-state-background);
   cursor: pointer;
+}
+
+.edhr-fill-workspace__assist-switch-process-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-auto-rows: minmax(86px, auto);
+  gap: 8px;
+  align-content: start;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.edhr-fill-workspace__assist-process-card {
+  min-height: 86px;
+  padding: 16px 18px;
+  border-left: 4px solid #0f8f4f;
+  box-shadow: 0 6px 16px rgba(23, 32, 51, 0.06);
+}
+
+.edhr-fill-workspace__assist-switch-option.is-completed {
+  --edhr-assist-process-state-background: #f0f9eb;
+}
+
+.edhr-fill-workspace__assist-switch-option.is-in-progress {
+  --edhr-assist-process-state-background: #fff8e6;
 }
 
 .edhr-fill-workspace__assist-switch-option:hover,
 .edhr-fill-workspace__assist-switch-option:focus-visible,
 .edhr-fill-workspace__assist-switch-option.is-active {
   border-color: #91caff;
-  background: #f4f9ff;
+  background: var(--edhr-assist-process-state-background);
   outline: none;
 }
 
@@ -5674,13 +6178,37 @@ onBeforeUnmount(() => {
 
 .edhr-fill-workspace__assist-switch-option:disabled:hover {
   border-color: #e5ebf3;
-  background: #ffffff;
+  background: var(--edhr-assist-process-state-background);
 }
 
 .edhr-fill-workspace__assist-switch-option-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   color: #172033;
   font-size: 13px;
   font-weight: 800;
+}
+
+.edhr-fill-workspace__assist-process-card .edhr-fill-workspace__assist-switch-option-main {
+  min-width: 0;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.edhr-fill-workspace__assist-process-card .edhr-fill-workspace__assist-switch-option-main > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edhr-fill-workspace__assist-process-card :deep(.el-tag) {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 14px;
+  line-height: 22px;
 }
 
 .edhr-fill-workspace__assist-switch-option-sub {
@@ -5689,57 +6217,31 @@ onBeforeUnmount(() => {
   line-height: 1.35;
 }
 
-.edhr-fill-workspace__assist-missing-jump {
-  display: grid;
-  place-items: center;
-  padding: 6px 8px;
-  color: #d92d20;
-  background: #fff7f6;
-  border-color: #ffd0ca;
-  font-weight: 800;
+.edhr-fill-workspace__assist-process-card .edhr-fill-workspace__assist-switch-option-sub {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
-.edhr-fill-workspace__assist-missing-jump strong {
-  font-size: 30px;
-  line-height: 1;
+@media (max-width: 1200px) {
+  .edhr-fill-workspace__assist-switch-process-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
 }
 
-.edhr-fill-workspace__assist-missing-jump.is-done {
-  color: #13a36b;
-  background: #e9f8f1;
-  border-color: #c9eadb;
-}
+@media (max-width: 900px) {
+  .edhr-fill-workspace__assist-topbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
 
-.edhr-fill-workspace__assist-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin: 0 12px;
-  padding: 8px 10px;
-  border: 1px solid #ffe1a8;
-  border-radius: 8px;
-  color: #8a4b00;
-  background: #fffaf0;
-  font-size: 13px;
-  font-weight: 700;
-}
+  .edhr-fill-workspace__assist-action-reserve {
+    min-height: 0;
+  }
 
-.edhr-fill-workspace__assist-summary.is-complete {
-  border-color: #c9eadb;
-  color: #0f7a4c;
-  background: #f0fbf6;
-}
-
-.edhr-fill-workspace__assist-summary-title {
-  color: #172033;
-  font-weight: 800;
-}
-
-.edhr-fill-workspace__assist-summary-item {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: #ffffff;
+  .edhr-fill-workspace__assist-switch-process-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .edhr-fill-workspace__assist-list {
@@ -5749,16 +6251,39 @@ onBeforeUnmount(() => {
   overflow-y: auto;
 }
 
+.edhr-fill-workspace__assist-grid {
+  display: grid;
+  gap: 8px;
+  align-items: stretch;
+  min-height: 0;
+  padding: 12px;
+  overflow: auto;
+  background: #fff8d6;
+}
+
 .edhr-fill-workspace__assist-row {
   display: grid;
   grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.2fr);
-  gap: 14px;
+  gap: 10px;
   align-items: center;
-  min-height: 96px;
-  padding: 12px 14px;
+  min-height: 59px;
+  padding: 6px 12px;
   border-top: 1px solid #edf1f6;
   background: #ffffff;
   transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-row {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 94px;
+  padding: 8px;
+  border: 1px solid #f0c66a;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 100%;
 }
 
 .edhr-fill-workspace__assist-row:first-child {
@@ -5777,11 +6302,6 @@ onBeforeUnmount(() => {
 
 .edhr-fill-workspace__assist-row.is-complete {
   box-shadow: inset 5px 0 0 #13a36b;
-}
-
-.edhr-fill-workspace__assist-row.is-highlighted {
-  background: #eaf4ff;
-  box-shadow: inset 6px 0 0 #1677ff, 0 0 0 2px #91caff inset;
 }
 
 .edhr-fill-workspace__assist-row-meta {
@@ -5805,25 +6325,56 @@ onBeforeUnmount(() => {
   overflow-wrap: anywhere;
 }
 
-.edhr-fill-workspace__assist-help {
-  margin-top: 6px;
-  color: #4b5563;
-  font-size: 13px;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-
-.edhr-fill-workspace__assist-source {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 5px;
-  color: #6b7280;
-  font-size: 12px;
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-label {
+  font-size: 15px;
 }
 
 .edhr-fill-workspace__assist-control {
   min-width: 0;
+  --edhr-assist-control-height: 48px;
+}
+
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control {
+  font-size: 14px;
+}
+
+.edhr-fill-workspace__assist-control :deep(.el-input__wrapper) {
+  height: var(--edhr-assist-control-height);
+}
+
+.edhr-fill-workspace__assist-control :deep(.el-select__wrapper) {
+  height: var(--edhr-assist-control-height);
+}
+
+.edhr-fill-workspace__assist-control :deep(.el-input-number) {
+  height: var(--edhr-assist-control-height);
+}
+
+.edhr-fill-workspace__assist-control :deep(.el-date-editor.el-input) {
+  height: var(--edhr-assist-control-height);
+}
+
+.edhr-fill-workspace__assist-control :deep(.el-input__inner),
+.edhr-fill-workspace__assist-control :deep(.el-select__placeholder),
+.edhr-fill-workspace__assist-control :deep(.el-select__selected-item) {
+  line-height: var(--edhr-assist-control-height);
+}
+
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-input__inner) {
+  font-size: 14px;
+}
+
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-select__placeholder),
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-select__selected-item),
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-textarea__inner),
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-radio),
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-checkbox__label),
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-control :deep(.el-button) {
+  font-size: 14px;
+}
+
+.edhr-fill-workspace__assist-control :deep(.el-textarea__inner) {
+  min-height: var(--edhr-assist-control-height);
 }
 
 .edhr-fill-workspace__choice-group {
@@ -5831,8 +6382,8 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   gap: 8px 12px;
   align-items: center;
-  min-height: 38px;
-  padding: 7px 10px;
+  min-height: var(--edhr-assist-control-height);
+  padding: 6px 10px;
   border: 1px solid #dbe3ef;
   border-radius: 6px;
   background: #fafcff;
@@ -5867,6 +6418,10 @@ onBeforeUnmount(() => {
   color: #c02626;
   font-size: 12px;
   font-weight: 700;
+}
+
+.edhr-fill-workspace__assist-grid .edhr-fill-workspace__assist-validation {
+  font-size: 12px;
 }
 
 .edhr-fill-workspace__assist-typed-input {
@@ -5951,10 +6506,6 @@ onBeforeUnmount(() => {
   margin: 16px;
 }
 
-.edhr-fill-workspace__prefill-alert {
-  margin-bottom: 10px;
-}
-
 .edhr-fill-workspace__field {
   display: flex;
   flex-direction: column;
@@ -5980,10 +6531,6 @@ onBeforeUnmount(() => {
 .edhr-fill-workspace__required {
   flex: 0 0 auto;
   color: #c00000;
-}
-
-.edhr-fill-workspace__cell-link-tag {
-  flex-shrink: 0;
 }
 
 .edhr-fill-workspace__signature {
@@ -6477,12 +7024,114 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.edhr-fill-workspace__assist-grid .edhr-page-shell__unit {
+  font-size: 14px;
+}
+
 .edhr-page-shell__signature-summary,
 .edhr-page-shell__signature-form {
   margin-top: 12px;
 }
 
+:global(.edhr-fill-workspace__submit-sign-dialog .el-dialog) {
+  max-width: calc(100vw - 32px);
+  border-radius: 14px;
+  position: relative;
+}
+
+:global(.edhr-fill-workspace__submit-sign-dialog .el-dialog__header) {
+  display: none;
+}
+
+:global(.edhr-fill-workspace__submit-sign-dialog .el-dialog__body) {
+  padding: 34px 34px 22px;
+}
+
+:global(.edhr-fill-workspace__submit-sign-dialog .el-dialog__footer) {
+  padding: 0 34px 32px;
+}
+
+.edhr-fill-workspace__submit-sign-form {
+  display: grid;
+  gap: 22px;
+}
+
+.edhr-fill-workspace__submit-sign-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #667085;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.edhr-fill-workspace__submit-sign-close:hover,
+.edhr-fill-workspace__submit-sign-close:focus-visible {
+  background: #f2f4f7;
+  color: #172033;
+  outline: none;
+}
+
+.edhr-fill-workspace__submit-sign-row {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 26px;
+  align-items: center;
+}
+
+.edhr-fill-workspace__submit-sign-label {
+  position: relative;
+  color: #172033;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 48px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.edhr-fill-workspace__submit-sign-label.is-required::before {
+  content: '*';
+  position: absolute;
+  left: -14px;
+  color: #f56c6c;
+  font-size: 18px;
+  line-height: 48px;
+}
+
+.edhr-fill-workspace__submit-sign-form :deep(.el-input__wrapper) {
+  min-height: 48px;
+  font-size: 20px;
+}
+
+.edhr-fill-workspace__submit-sign-name {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  color: #172033;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.edhr-fill-workspace__submit-sign-confirm {
+  width: 100%;
+  height: 56px;
+  border-radius: 10px;
+  font-size: 20px;
+  font-weight: 900;
+}
+
 :global(.edhr-fill-workspace__result-dialog .el-dialog) {
+  position: relative;
   max-width: calc(100vw - 32px);
   border-radius: 14px;
 }
@@ -6505,6 +7154,32 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
+.edhr-fill-workspace__result-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #667085;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.edhr-fill-workspace__result-close:hover,
+.edhr-fill-workspace__result-close:focus-visible {
+  background: #f2f4f7;
+  color: #172033;
+  outline: none;
+}
+
 .edhr-fill-workspace__result-status {
   display: flex;
   flex-wrap: wrap;
@@ -6524,6 +7199,31 @@ onBeforeUnmount(() => {
   border-color: #ffccc7;
   background: #fff1f0;
   color: #c00000;
+}
+
+.edhr-fill-workspace__result-reason {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  padding: 16px 18px;
+  border: 1px solid #ffccc7;
+  border-radius: 10px;
+  background: #fff7f6;
+  color: #c00000;
+  font-size: 20px;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.edhr-fill-workspace__result-reason span {
+  font-weight: 800;
+}
+
+.edhr-fill-workspace__result-reason strong {
+  min-width: 0;
+  font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .edhr-fill-workspace__result-context {
@@ -6559,99 +7259,6 @@ onBeforeUnmount(() => {
 }
 
 .edhr-fill-workspace__result-confirm {
-  width: 100%;
-  height: 64px;
-  border-radius: 10px;
-  font-size: 24px;
-  font-weight: 900;
-}
-
-:global(.edhr-fill-workspace__save-signature-dialog .el-dialog) {
-  max-width: calc(100vw - 32px);
-  border-radius: 14px;
-}
-
-:global(.edhr-fill-workspace__save-signature-dialog .el-dialog__header) {
-  display: none;
-}
-
-:global(.edhr-fill-workspace__save-signature-dialog .el-dialog__body) {
-  padding: 36px 36px 24px;
-}
-
-:global(.edhr-fill-workspace__save-signature-dialog .el-dialog__footer) {
-  display: grid;
-  grid-template-columns: 160px minmax(0, 1fr);
-  gap: 16px;
-  padding: 0 36px 34px;
-}
-
-.edhr-fill-workspace__save-signature-body {
-  display: grid;
-  gap: 22px;
-}
-
-.edhr-fill-workspace__save-signature-title {
-  padding: 22px 18px;
-  border: 2px solid #b7ebc6;
-  border-radius: 12px;
-  background: #f0fff4;
-  color: #128044;
-  font-size: 34px;
-  font-weight: 900;
-  line-height: 1.2;
-  text-align: center;
-}
-
-.edhr-fill-workspace__save-signature-context {
-  display: grid;
-  gap: 14px;
-  color: #172033;
-  font-size: 22px;
-  line-height: 1.35;
-}
-
-.edhr-fill-workspace__save-signature-context > div {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  gap: 16px;
-  align-items: center;
-  padding: 14px 18px;
-  border: 1px solid #dbe3ef;
-  border-radius: 10px;
-  background: #fafcff;
-}
-
-.edhr-fill-workspace__save-signature-context span {
-  color: #4b5563;
-  font-weight: 700;
-}
-
-.edhr-fill-workspace__save-signature-context strong {
-  min-width: 0;
-  color: #172033;
-  font-weight: 900;
-  overflow-wrap: anywhere;
-}
-
-.edhr-fill-workspace__save-signature-form {
-  margin-top: 24px;
-}
-
-.edhr-fill-workspace__save-signature-form :deep(.el-form-item__label) {
-  color: #172033;
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.edhr-fill-workspace__save-signature-form :deep(.el-input__wrapper),
-.edhr-fill-workspace__save-signature-form :deep(.el-select__wrapper) {
-  min-height: 52px;
-  font-size: 18px;
-}
-
-.edhr-fill-workspace__save-signature-cancel,
-.edhr-fill-workspace__save-signature-confirm {
   width: 100%;
   height: 64px;
   border-radius: 10px;

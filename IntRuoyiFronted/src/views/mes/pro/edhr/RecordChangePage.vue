@@ -134,8 +134,18 @@
               <div class="edhr-record-change__muted">{{ row.reasonText || '--' }}</div>
             </template>
           </el-table-column>
-          <el-table-column label="申请时间" prop="requestedAt" width="180" />
-          <el-table-column label="生效时间" prop="effectiveAt" width="180" />
+          <el-table-column
+            label="申请时间"
+            prop="requestedAt"
+            width="180"
+            :formatter="edhrDateTimeFormatter"
+          />
+          <el-table-column
+            label="生效时间"
+            prop="effectiveAt"
+            width="180"
+            :formatter="edhrDateTimeFormatter"
+          />
           <el-table-column label="操作" width="100" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" @click="openDetail(row)">详情</el-button>
@@ -167,7 +177,7 @@
         </div>
         <div class="edhr-record-change__detail-summary-item">
           <span>生效时间</span>
-          <strong>{{ selectedChange?.effectiveAt || '--' }}</strong>
+          <strong>{{ formatEdhrDateTime(selectedChange?.effectiveAt) }}</strong>
         </div>
       </div>
 
@@ -203,7 +213,9 @@
           <span v-else class="edhr-record-change__object-link--disabled">--</span>
         </el-descriptions-item>
         <el-descriptions-item label="原因分类">{{ selectedChange?.reasonCategory || '--' }}</el-descriptions-item>
-        <el-descriptions-item label="申请时间">{{ selectedChange?.requestedAt || '--' }}</el-descriptions-item>
+        <el-descriptions-item label="申请时间">
+          {{ formatEdhrDateTime(selectedChange?.requestedAt) }}
+        </el-descriptions-item>
         <el-descriptions-item label="原因说明" :span="2">{{ selectedChange?.reasonText || '--' }}</el-descriptions-item>
       </el-descriptions>
 
@@ -242,6 +254,10 @@
 </template>
 
 <script setup lang="ts">
+import {
+  edhrDateTimeFormatter,
+  formatEdhrDateTime
+} from '@/views/mes/pro/edhr/shared/dateTime'
 import {
   EDHR_CHANGE_STATUS_APPROVED,
   EDHR_CHANGE_STATUS_DRAFT,

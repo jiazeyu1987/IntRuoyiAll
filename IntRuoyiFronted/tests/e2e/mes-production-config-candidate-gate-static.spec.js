@@ -114,7 +114,7 @@ assert.doesNotMatch(
 )
 assert.match(
   routeFormContent,
-  /const assertRouteCandidateVersionWritable = \(\) => \{[\s\S]*routeVersionEditContext\.value[\s\S]*!isDraftCandidateVersion\.value[\s\S]*当前候选版本已离开草稿状态，仅允许查看[\s\S]*throw new Error[\s\S]*\}[\s\S]*const submitForm = async \(options: RouteFormSubmitOptions = \{\}\) => \{[\s\S]*assertRouteCandidateVersionWritable\(\)[\s\S]*await formRef\.value\.validate\(\)/,
+  /const assertRouteCandidateVersionWritable = \(\) => \{[\s\S]*routeVersionEditContext\.value[\s\S]*!isDraftCandidateVersion\.value[\s\S]*当前候选版本已离开草稿状态，仅允许查看[\s\S]*throw new Error[\s\S]*\}[\s\S]*const submitForm = async \(\) => \{[\s\S]*assertRouteCandidateVersionWritable\(\)[\s\S]*await formRef\.value\.validate\(\)/,
   'RouteFormContent 父级保存必须在表单校验和成功提示前阻断 PENDING_APPROVAL / READY_TO_PUBLISH 候选，避免只读候选“空保存成功”。'
 )
 

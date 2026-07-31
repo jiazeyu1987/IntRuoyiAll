@@ -94,7 +94,7 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="生成时间" prop="generatedAt" width="180" />
+          <el-table-column label="生成时间" prop="generatedAt" width="180" :formatter="edhrDateTimeFormatter" />
           <el-table-column label="操作" width="150" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" @click="openDetailDrawer(row)">详情</el-button>
@@ -163,7 +163,7 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="启用时间" prop="activeAt" width="180" />
+          <el-table-column label="启用时间" prop="activeAt" width="180" :formatter="edhrDateTimeFormatter" />
           <el-table-column label="操作" width="110" fixed="right">
             <template #default="{ row }">
               <el-button
@@ -307,7 +307,7 @@
         <el-table-column label="操作人" min-width="130">
           <template #default="{ row }">{{ row.operatorUsername || row.operatorUserId || '--' }}</template>
         </el-table-column>
-        <el-table-column label="发生时间" prop="occurredAt" width="180" />
+        <el-table-column label="发生时间" prop="occurredAt" width="180" :formatter="edhrDateTimeFormatter" />
       </el-table>
       <Pagination
         :total="eventTotal"
@@ -334,6 +334,7 @@ import {
   type EdhrTravelerTemplateCreateReqVO,
   type EdhrTravelerTemplateRespVO
 } from '@/api/mes/pro/edhr/traveler'
+import { edhrDateTimeFormatter } from '@/views/mes/pro/edhr/shared/dateTime'
 
 const message = useMessage()
 

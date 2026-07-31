@@ -1,6 +1,7 @@
 import request from '@/config/axios'
 import { downloadByData } from '@/utils/filt'
 import type { TableQuickFilterValue } from '@/hooks/web/useTableQuickFilter'
+import type { FormRecognizedFieldVO } from '@/api/form-center/template'
 
 export const EDHR_BATCH_ARCHIVE_ARTIFACT_FINAL_PDF = 'BATCH_FINAL_PDF'
 export const EDHR_BATCH_STATUS_CREATED = 0
@@ -56,6 +57,7 @@ export interface EdhrSignatureTimeReqVO {
 }
 
 export interface EdhrBatchExecutionPageReqVO extends PageParam {
+  batchExecutionIds?: number[]
   batchExecutionCode?: string
   workOrderCode?: string
   batchCode?: string
@@ -129,6 +131,7 @@ export interface EdhrBatchExecutionTaskOpenReqVO {
   batchExecutionId: EdhrRouteId
   taskId: EdhrRouteId
   workTaskId?: EdhrRouteId
+  assistUserId?: EdhrRouteId
 }
 
 export interface EdhrBatchExecutionSpecialNodeSkipReqVO {
@@ -176,8 +179,9 @@ export interface EdhrBatchSpecialNodeAttachmentPrepareUploadReqVO {
 
 export interface EdhrBatchExecutionTaskOpenRespVO {
   taskId: number
-  executionId: number
+  executionId?: number
   workTaskId?: number
+  assistUserId?: number
   routeProcessId?: number
   batchRecordReportId?: string
   formBindingKey?: string
@@ -185,19 +189,22 @@ export interface EdhrBatchExecutionTaskOpenRespVO {
   formTemplateName?: string
   formTemplateVersionId?: number
   formTemplateVersionNo?: string
+  formTemplateJimuSchemaJson?: string
+  formTemplateRecognizedFields?: FormRecognizedFieldVO[]
   formCenterInstanceId?: number
   recordCategory?: EdhrRecordCategory
   validationProfile?: EdhrValidationProfile
   permissionScopeId?: number | null
   routeBindingId?: number
   routeBindingSnapshotHash?: string
+  recordbookEnabled?: boolean | null
   batchRecordSort?: number
   instanceScope?: 'PROCESS' | 'BATCH_SHARED' | string
   sharedFormKey?: string
   fillableScopeJson?: string
   executionMode?: 'SEQUENTIAL' | 'PARALLEL'
   status?: number
-  executionPageQuery?: Record<string, string | number | null | undefined>
+  executionPageQuery?: Record<string, unknown>
 }
 
 export interface EdhrBatchExecutionTaskFillableUserRespVO {
@@ -230,6 +237,29 @@ export interface EdhrBatchExecutionReexecuteReqVO {
   remark?: string
 }
 
+export interface EdhrBatchExecutionGoldenFingerBulkVoidReqVO {
+  filter: EdhrBatchExecutionPageReqVO
+  reasonCategory: string
+  reasonText: string
+  password: string
+  comment?: string
+}
+
+export interface EdhrBatchExecutionGoldenFingerBulkVoidItem {
+  batchExecutionId?: number
+  batchExecutionCode?: string
+  status?: number
+  result?: string
+  message?: string
+  changeEventId?: number
+}
+
+export interface EdhrBatchExecutionGoldenFingerBulkVoidRespVO {
+  matchedCount?: number
+  voidedCount?: number
+  skippedCount?: number
+  items?: EdhrBatchExecutionGoldenFingerBulkVoidItem[]
+}
 export interface EdhrBatchExecutionArchiveGenerateReqVO {
   batchExecutionId: EdhrRouteId
   artifactType: string
@@ -281,6 +311,7 @@ export interface EdhrBatchExecutionTaskRespVO {
   slotBlockerMessage?: string | null
   routeBindingId?: number
   routeBindingSnapshotHash?: string
+  recordbookEnabled?: boolean | null
   batchRecordSort?: number
   instanceScope?: 'PROCESS' | 'BATCH_SHARED' | string
   sharedFormKey?: string
@@ -403,6 +434,9 @@ export interface EdhrBatchWorkbenchRespVO {
     failedCheckCount?: number
     precheckSummary?: string
     lastPrecheckAt?: string
+    releaseOwnerConfigured?: boolean
+    releaseOwnerSourceType?: string
+    releaseOwnerLabel?: string
   }
   auditSummary?: {
     latestOperationAuditId?: number
@@ -847,6 +881,14 @@ export const reexecuteRejectedEdhrBatchExecution = async (data: EdhrBatchExecuti
   })
 }
 
+export const goldenFingerBulkVoidEdhrBatchExecutions = async (
+  data: EdhrBatchExecutionGoldenFingerBulkVoidReqVO
+) => {
+  return await request.post<EdhrBatchExecutionGoldenFingerBulkVoidRespVO>({
+    url: `${BATCH_EXECUTION_BASE_URL}/golden-finger/bulk-void`,
+    data
+  })
+}
 export const getEdhrBatchReviewTimeline = async (id: EdhrRouteId) => {
   return await request.get<EdhrBatchReviewTimelineRespVO>({
     url: `${BATCH_EXECUTION_BASE_URL}/review-timeline`,

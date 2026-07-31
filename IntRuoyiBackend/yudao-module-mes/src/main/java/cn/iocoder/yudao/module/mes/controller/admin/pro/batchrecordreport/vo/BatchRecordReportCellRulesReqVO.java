@@ -18,4 +18,11 @@ public class BatchRecordReportCellRulesReqVO {
     @NotNull(message = "单元格规则不能为空")
     @Valid
     private List<BatchRecordReportCellRuleVO> rules;
+
+    @Valid
+    private List<BatchRecordReportAssistRowVO> assistRows;
+
+    private Integer assistGridRowCount;
+
+    private Integer assistGridColumnCount;
 }

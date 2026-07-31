@@ -1,0 +1,42 @@
+# Execution Log
+
+- USER: 用户截图要求“每个卡片的输入框的高度增加50%，整个卡片的高度缩减到80%”。
+- RULES: 已读取 `frontend-feature-delivery` 技能、`references/frontend-contract.md`、`docs/task-closeout-rules.md`、`docs/frontend-development.md`、`docs/e2e-rules.md`、`docs/powershell-encoding.md`、`docs/powershell-memory.md`。
+- PREFLIGHT: `git status --short --branch --untracked-files=all` -> 工作区已有未提交改动，包含 `ExecutionPage.vue`、前端静态合同、后端测试和其它任务文档；需先做脏工作区基线提交再实施本任务。
+- EXPERIENCE: 已读取 `docs/experience-index.md`，命中 `docs/frontend-development.md#前端静态契约隔离门禁`、`docs/frontend-development.md#edhr-辅助模式当前工序-assistrows-路由门禁`、`docs/e2e-rules.md#element-plus-选择框显示门禁`、`docs/powershell-memory.md#脏工作区基线门禁` 和 `docs/powershell-memory.md#powershell-分号串联测试退出码门禁`，并已摘入 `task.md`。
+- BDD: 辅助填写卡片密度调整 -> Given 用户打开 eDHR 填写辅助模式 / When 字段卡片以网格方式展示 / Then 每张卡片整体高度缩减到当前约 80%，卡片内输入控件高度提升 50%，字段名称、控件、单位和真实校验错误仍正常展示。
+- BASELINE: `7fb94427 chore: preserve pre-task dirty worktree baseline`，保存任务启动前已有源码、测试和任务文档改动。
+- BASELINE: `10dd6c25 chore: preserve residual execution page baseline`，保存首轮基线后出现的 `ExecutionPage.vue` 残余并发改动。
+- M1: completed -> 当前工作区已清理为基线后的干净状态，本任务从基线之上开始。
+- RED: `node tests/e2e/edhr-fill-workspace-card-density-static.spec.js` -> FAIL，预期失败；当前普通字段行仍为 `min-height: 74px`，未缩减到 80%。
+- GREEN: `node tests/e2e/edhr-fill-workspace-card-density-static.spec.js` -> PASS，字段行 `59px`、网格卡片 `94px`、输入控件统一 `48px`。
+- GREEN: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS，隐藏红框区域回归通过。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS，辅助模式主链路和切换区回归通过。
+- GREEN: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS，填写工作区静态回归通过。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-configured-grid-static.spec.js` -> PASS，配置网格布局回归通过。
+- BLOCKED: `pnpm ts:check` -> FAIL，`src/views/form-center/business-action/ActionFormPanel.vue(257,3)` 构造 `FormTemplateListItemVO` 缺少必填 `updatedTime`；该文件不属于本任务改动范围。
+- CHECK: 当前工作区又出现无关并发改动，包括 `ExecutionPage.vue` 软键盘逻辑；本任务不提交/推送，避免混入并发任务。
+- M2-M3: completed -> 卡片密度实现和专用合同已完成。
+- M4-M5: blocked -> 全量类型检查和收尾提交受无关问题阻塞。
+- USER: 用户追加截图反馈“减小每个单元格的字体大小，减小为当前的1/2”。
+- BASELINE: `81bcc617 chore: baseline dirty workspace before assist font sizing`，保存追加需求前已有脏工作区改动，避免混入本轮字号实现。
+- BDD: 辅助网格单元格字号减半 -> Given 用户打开 eDHR 填写辅助模式并查看辅助网格单元格 / When 单元格展示字段名、输入内容、单位或校验提示 / Then 单元格内文字字号均缩小为当前的 1/2，字段值、校验、保存和提交逻辑不变。
+- RED: `node tests/e2e/edhr-fill-workspace-card-density-static.spec.js` -> FAIL，预期原因：当前样式缺少辅助网格字段名/输入/单位/校验字号减半规则。
+- GREEN: `node tests/e2e/edhr-fill-workspace-card-density-static.spec.js` -> PASS，网格卡片 `font-size: 50%`、字段名 `7.5px`、输入/单位 `7px`、校验提示 `6px`。
+- GREEN: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-configured-grid-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS，旧 `ActionFormPanel.vue` blocker 已在当前基线中解除。
+- STATUS: 实现和验证完成，任务状态更新为 `ready_for_closeout`；工作区仍有并发未提交改动，本任务提交需选择性暂存。
+- USER: 用户追加截图反馈“标题文字增大一倍”。
+- BDD: 辅助网格标题文字增大一倍 -> Given 用户打开 eDHR 填写辅助模式并查看辅助网格字段卡片 / When 卡片展示字段标题和输入控件 / Then 字段标题文字从当前 `7.5px` 增大一倍到 `15px`，输入内容、单位、校验提示仍保持当前紧凑字号。
+- RED: `node tests/e2e/edhr-fill-workspace-card-density-static.spec.js` -> FAIL，预期原因：辅助网格标题仍为 `7.5px`，未增大到 `15px`。
+- GREEN: `node tests/e2e/edhr-fill-workspace-card-density-static.spec.js` -> PASS，辅助网格标题字号为 `15px`，输入/单位/校验提示仍保持紧凑字号。
+- GREEN: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-configured-grid-static.spec.js` -> PASS。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-edhr-assist-card-density/frontend-feature-evidence.md` -> PASS。
+- STATUS: 实现和验证完成，任务状态更新为 `ready_for_closeout`；工作区仍存在无关并发改动，收尾提交/推送需先隔离任务文件。

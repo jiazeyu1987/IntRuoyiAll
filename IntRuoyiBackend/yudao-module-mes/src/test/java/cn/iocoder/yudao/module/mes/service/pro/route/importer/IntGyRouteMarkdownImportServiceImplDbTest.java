@@ -6,6 +6,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessMapper;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteOwnerPermissionService;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
@@ -35,6 +36,8 @@ class IntGyRouteMarkdownImportServiceImplDbTest extends BaseDbUnitTest {
 
     @MockitoBean
     private MesProRouteProcessMapper routeProcessMapper;
+    @MockitoBean
+    private MesProRouteOwnerPermissionService routeOwnerPermissionService;
 
     @Test
     void importWhenRouteProcessInsertFails_rollsBackCreatedRoutesAndProcesses() throws Exception {

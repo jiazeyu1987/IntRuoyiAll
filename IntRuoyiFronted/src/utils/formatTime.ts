@@ -72,6 +72,43 @@ export function formatDate(date: Date, format?: string): string {
   return date ? dayjs(date).format(format ?? 'YYYY-MM-DD HH:mm:ss') : ''
 }
 
+export type DateTimeDisplayValue = string | number | Date | null | undefined
+
+export function toDateTimeValue(value: DateTimeDisplayValue): Date | undefined {
+  if (value === null || value === undefined || value === '') return undefined
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? undefined : value
+
+  if (typeof value === 'number') {
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? undefined : date
+  }
+
+  const trimmedValue = value.trim()
+  const date = /^\d+$/.test(trimmedValue) ? new Date(Number(trimmedValue)) : new Date(trimmedValue)
+
+  return Number.isNaN(date.getTime()) ? undefined : date
+}
+
+export function formatDateTimeValue(
+  value: DateTimeDisplayValue,
+  emptyText = '--',
+  invalidText = '时间格式异常'
+): string {
+  if (value === null || value === undefined || value === '') return emptyText
+  if (typeof value === 'string' && value.trim() === '') return emptyText
+
+  const date = toDateTimeValue(value)
+  return date ? formatDate(date, 'YYYY-MM-DD HH:mm:ss') : invalidText
+}
+
+export function dateTimeValueFormatter(
+  _row: any,
+  _column: TableColumnCtx<any>,
+  cellValue: DateTimeDisplayValue
+): string {
+  return formatDateTimeValue(cellValue, '')
+}
+
 /**
  * 获取当前的日期+时间
  */
@@ -198,7 +235,7 @@ export function formatPast2(ms: number): string {
  * @param cellValue 字段值
  */
 export function dateFormatter(_row: any, _column: TableColumnCtx<any>, cellValue: any): string {
-  return cellValue ? formatDate(cellValue) : ''
+  return formatDateTimeValue(cellValue, '')
 }
 
 /**
@@ -209,7 +246,11 @@ export function dateFormatter(_row: any, _column: TableColumnCtx<any>, cellValue
  * @param cellValue 字段值
  */
 export function dateFormatter2(_row: any, _column: TableColumnCtx<any>, cellValue: any): string {
-  return cellValue ? formatDate(cellValue, 'YYYY-MM-DD') : ''
+  if (cellValue === null || cellValue === undefined || cellValue === '') return ''
+  if (typeof cellValue === 'string' && cellValue.trim() === '') return ''
+
+  const date = toDateTimeValue(cellValue)
+  return date ? formatDate(date, 'YYYY-MM-DD') : '时间格式异常'
 }
 
 /**

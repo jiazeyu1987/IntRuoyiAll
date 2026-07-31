@@ -50,7 +50,7 @@ assertIncludes(routeGraph, "links: buildProcessDetailValueLinks('workstation'", 
 assertIncludes(routeGraph, "links: buildProcessDetailValueLinks('shiftCapacity'", 'schedule strategy value link')
 assertIncludes(routeGraph, "links: buildProcessDetailValueLinks('successors'", 'successor value links')
 assertIncludes(routeGraph, "links: buildProcessDetailValueLinks('processCode'", 'process code value link')
-assertIncludes(routeGraph, "links: buildRecordBindingLinks('MAIN')", 'batch record value link')
+assertIncludes(routeGraph, 'links: buildBatchRecordFormLinks()', 'batch record value link')
 assertIncludes(routeGraph, 'PROCESS_DETAIL_STANDALONE_RESOURCE_FIELD_KEYS', 'legacy resource focus fields are folded into workstation')
 assertIncludes(routeGraph, 'buildWorkstationDetailLinks', 'workstation value must render composite clickable segments')
 assertIncludes(routeGraph, 'buildWorkstationMachineryLinks', 'workstation value must include equipment links')

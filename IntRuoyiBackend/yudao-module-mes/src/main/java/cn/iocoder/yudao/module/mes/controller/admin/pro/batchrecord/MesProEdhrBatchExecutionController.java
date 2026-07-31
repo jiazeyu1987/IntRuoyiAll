@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionCloseReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionGoldenFingerBulkVoidRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionOpenOrCreateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionQualityRejectReqVO;
@@ -100,6 +102,13 @@ public class MesProEdhrBatchExecutionController {
     public CommonResult<EdhrBatchExecutionRespVO> reexecuteRejectedBatch(
             @Valid @RequestBody EdhrBatchExecutionReexecuteReqVO reqVO) {
         return success(batchExecutionService.reexecuteRejectedBatch(reqVO));
+    }
+
+    @PostMapping("/golden-finger/bulk-void")
+    @PreAuthorize("@ss.hasPermission('mes:pro-batch-record-execution:golden-finger')")
+    public CommonResult<EdhrBatchExecutionGoldenFingerBulkVoidRespVO> goldenFingerBulkVoid(
+            @Valid @RequestBody EdhrBatchExecutionGoldenFingerBulkVoidReqVO reqVO) {
+        return success(batchExecutionService.goldenFingerBulkVoid(reqVO));
     }
 
     @PostMapping("/local-state-sample")

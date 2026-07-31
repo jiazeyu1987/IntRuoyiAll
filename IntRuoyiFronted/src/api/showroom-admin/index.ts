@@ -5,9 +5,7 @@ const SHOWROOM_RELEASE_PUBLISH_REQUEST_TIMEOUT = 0
 const SHOWROOM_PRODUCT_IMPORT_REQUEST_TIMEOUT = 5 * 60 * 1000
 const SHOWROOM_PRODUCT_RESOURCE_PACKAGE_EXPORT_TIMEOUT = 5 * 60 * 1000
 export const SHOWROOM_ANDROID_CLIENT_DOWNLOAD_URL = '/showroom/client-downloads/android'
-export const SHOWROOM_DESKTOP_CLIENT_DOWNLOAD_URL = '/showroom/client-downloads/desktop-win7'
 export const SHOWROOM_ANDROID_CLIENT_FILE_NAME = 'YingtaiShowroomClient-Android-v1.0.apk'
-export const SHOWROOM_DESKTOP_CLIENT_FILE_NAME = 'YingtaiShowroomClient-Win7-v1.0.zip'
 
 export interface ShowroomSubmitReqVO {
   targetId: number
@@ -573,9 +571,6 @@ export const ShowroomAdminApi = {
   },
   downloadAndroidClient: async () => {
     return await request.download({ url: SHOWROOM_ANDROID_CLIENT_DOWNLOAD_URL })
-  },
-  downloadDesktopClient: async () => {
-    return await request.download({ url: SHOWROOM_DESKTOP_CLIENT_DOWNLOAD_URL })
   },
   generateCompanyNarrationScript: async (
     data: ShowroomCompanyNarrationScriptGenerateReqVO

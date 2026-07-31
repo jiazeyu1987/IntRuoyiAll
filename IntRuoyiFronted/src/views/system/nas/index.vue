@@ -96,6 +96,15 @@
               刷新目录
             </el-button>
             <el-button
+              type="danger"
+              plain
+              @click="handleStartControlAudit"
+              :loading="controlAuditDialog.loading"
+              v-if="canControlAuditPermission"
+            >
+              统计未受控文件
+            </el-button>
+            <el-button
               @click="handleToggleSelectionMode"
               :disabled="!directoryTree.length"
               v-hasPermi="['infra:nas:query']"
@@ -254,21 +263,33 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="DCC 产品" prop="productMasterId">
+        <el-form-item label="DCC 项目" prop="dccProjectCodeId">
           <el-select
-            v-model="transferDialog.form.productMasterId"
+            v-model="transferDialog.form.dccProjectCodeId"
             class="!w-420px"
             clearable
             filterable
-            placeholder="可不选择 DCC 产品"
+            remote
+            reserve-keyword
+            :loading="transferDialog.projectCodeOptionsLoading"
+            :remote-method="loadTransferProjectCodeOptions"
+            placeholder="请选择 DCC 项目"
           >
             <el-option
-              v-for="item in transferDialog.productOptions"
+              v-for="item in transferDialog.projectCodeOptions"
               :key="item.id"
-              :label="formatDccProductOption(item)"
+              :label="formatDccProjectCodeOption(item)"
               :value="item.id as number"
             />
           </el-select>
+        </el-form-item>
+        <el-form-item label="产品编号">
+          <el-input
+            :model-value="selectedTransferProjectCode?.projectCode || ''"
+            class="!w-420px"
+            readonly
+            placeholder="选择 DCC 项目后自动生成"
+          />
         </el-form-item>
         <el-form-item label="生效日期" prop="effectiveDate">
           <el-date-picker
@@ -397,37 +418,97 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="controlAuditDialog.visible"
+      title="统计未受控文件"
+      width="720px"
+      destroy-on-close
+    >
+      <el-alert
+        v-if="controlAuditDialog.errorMessage"
+        type="error"
+        title="统计任务失败"
+        :description="controlAuditDialog.errorMessage"
+        show-icon
+        :closable="false"
+        class="mb-16px"
+      />
+      <div v-if="controlAuditDialog.result" class="rounded-[6px] border border-[#dbe3ef] bg-[#fafcff] p-12px">
+        <div class="mb-10px flex items-center justify-between gap-12px">
+          <div class="text-[14px] font-600 text-[#172033]">NAS 受控状态统计任务</div>
+          <el-tag :type="resolveControlAuditStatusType(controlAuditDialog.result.status)">
+            {{ resolveControlAuditStatusLabel(controlAuditDialog.result.status) }}
+          </el-tag>
+        </div>
+        <div class="grid grid-cols-1 gap-10px text-[13px] text-[#4b5563] md:grid-cols-2">
+          <div>任务编号：{{ controlAuditDialog.result.taskId }}</div>
+          <div>NAS 共享：{{ controlAuditDialog.result.nasShareName || '-' }}</div>
+          <div>当前扫描目录：{{ controlAuditDialog.result.currentPath || '-' }}</div>
+          <div>已扫描文件数：{{ controlAuditDialog.result.scannedFileCount }}</div>
+          <div>已跳过目录数：{{ controlAuditDialog.result.skippedDirectoryCount }}</div>
+          <div>未受控数量：{{ controlAuditDialog.result.notControlledFileCount }}</div>
+          <div>待确认数量：{{ controlAuditDialog.result.ambiguousFileCount }}</div>
+          <div>来源缺失数量：{{ controlAuditDialog.result.sourceMissingCount }}</div>
+          <div>无法扫描的文件数量：{{ controlAuditDialog.result.unscannedFileCountLabel || '未知' }}</div>
+          <div v-if="controlAuditDialog.result.completedAt">完成时间：{{ controlAuditDialog.result.completedAt }}</div>
+        </div>
+        <div class="mt-12px rounded-[6px] border border-[#dbe3ef] bg-white px-12px py-10px text-[12px] leading-[20px] text-[#4b5563]">
+          <div>固定扫描目录：1. QMS documents、2.DHF、3.DMR</div>
+          <div>遇到无权限子目录会跳过该目录及其子树，并在报告“跳过目录”工作表记录。</div>
+        </div>
+      </div>
+      <el-empty v-else description="尚未创建统计任务" />
+      <template #footer>
+        <el-button @click="controlAuditDialog.visible = false">关闭</el-button>
+        <el-button
+          type="primary"
+          :loading="controlAuditDialog.downloading"
+          :disabled="controlAuditDialog.result?.status !== 'COMPLETED'"
+          @click="handleDownloadControlAuditReport(false)"
+        >
+          重新下载报告
+        </el-button>
+      </template>
+    </el-dialog>
   </ContentWrap>
 </template>
 
 <script setup lang="ts">
 import { ElMessageBox, type ElTree } from 'element-plus'
 import { CardTitle } from '@/components/Card'
+import { downloadByData } from '@/utils/filt'
 import { getFileCategoryList, type ControlledFileCategoryVO } from '@/api/dcc/controlledFile/fileCategories'
 import NasPermissionRestorePanel from './components/NasPermissionRestorePanel.vue'
 import {
   LOCAL_FOLDER_IMPORT_CHUNK_BYTES,
   completeLocalFolderImportSession,
   createLocalFolderImportSession,
-  DCC_PRODUCT_STATUS_ENABLE,
-  getDccProductOptions,
   getLocalFolderImportUploadState,
   getNasTransferTaskState,
   transferNasDirectories,
   uploadLocalFolderImportChunk,
   type ControlledFileLocalFolderImportUploadStateRespVO,
   type ControlledFileLocalFolderImportSessionCreateReqVO,
-  type ControlledFileNasTransferRespVO,
-  type DccControlledFileProductOptionVO
+  type ControlledFileNasTransferRespVO
 } from '@/api/dcc/controlledFile/workflow'
+import {
+  DCC_PROJECT_CODE_STATUS_ENABLE,
+  getProjectCodePage,
+  type DccProjectCodeRespVO
+} from '@/api/dcc/controlledFile/projectCodes'
 import {
   getNasConfig,
   saveNasConfig,
   listNasFiles,
+  startNasControlAudit,
+  getNasControlAuditTask,
+  downloadNasControlAuditReport,
   testNasConfig,
   type NasConfigVO,
   type NasFileItemVO,
-  type NasDirectoryTreeSkippedVO
+  type NasDirectoryTreeSkippedVO,
+  type NasControlAuditTaskRespVO
 } from '@/api/system/nas'
 import { checkPermi } from '@/utils/permission'
 
@@ -436,6 +517,7 @@ defineOptions({ name: 'SystemNasManagement' })
 const { t } = useI18n()
 const message = useMessage()
 const NAS_TRANSFER_LAST_TASK_ID_KEY = 'int-ruoyi:nas-transfer:last-task-id'
+const NAS_CONTROL_AUDIT_LAST_TASK_ID_KEY = 'int-ruoyi:nas-control-audit:last-task-id'
 const NAS_TRANSFER_CONFIRM_MODAL_CLASS = 'nas-transfer-confirm-message-box-overlay'
 const DCC_TEMPLATE_CATEGORY_DIRECTORY_REQUIRED_MESSAGE =
   '当前 DCC 模板类别未绑定受控目录，请先在 DCC 文件类别维护目录绑定'
@@ -494,13 +576,17 @@ const canTransferPermission = computed(
     checkPermi(['dcc:controlled-file:directory:manage']) &&
     checkPermi(['dcc:controlled-file:category:manage'])
 )
+const canControlAuditPermission = computed(
+  () => checkPermi(['infra:nas:query']) && checkPermi(['dcc:controlled-file:query'])
+)
 const transferDialog = reactive<{
   visible: boolean
   submitting: boolean
   sourceType: TransferSourceType
   errorMessage: string
   categoryOptions: ControlledFileCategoryVO[]
-  productOptions: DccControlledFileProductOptionVO[]
+  projectCodeOptions: DccProjectCodeRespVO[]
+  projectCodeOptionsLoading: boolean
   result: ControlledFileNasTransferRespVO | null
   localFolder: LocalFolderSelection
   sessionCreatedAt: string
@@ -508,7 +594,7 @@ const transferDialog = reactive<{
   uploadChunkCount: number
   form: {
     templateCategoryId?: number
-    productMasterId?: number
+    dccProjectCodeId?: number
     effectiveDate: string
   }
 }>({
@@ -517,7 +603,8 @@ const transferDialog = reactive<{
   sourceType: 'NAS',
   errorMessage: '',
   categoryOptions: [],
-  productOptions: [],
+  projectCodeOptions: [],
+  projectCodeOptionsLoading: false,
   result: null,
   localFolder: {
     files: [],
@@ -530,11 +617,26 @@ const transferDialog = reactive<{
   uploadChunkCount: 0,
   form: {
     templateCategoryId: undefined,
-    productMasterId: undefined,
+    dccProjectCodeId: undefined,
     effectiveDate: ''
   }
 })
+const controlAuditDialog = reactive<{
+  visible: boolean
+  loading: boolean
+  downloading: boolean
+  errorMessage: string
+  result: NasControlAuditTaskRespVO | null
+}>({
+  visible: false,
+  loading: false,
+  downloading: false,
+  errorMessage: '',
+  result: null
+})
 let transferTaskPollingTimer: number | undefined
+let controlAuditPollingTimer: number | undefined
+const autoDownloadedControlAuditTaskIds = new Set<number>()
 const treeProps = {
   children: 'children',
   label: 'name',
@@ -593,6 +695,9 @@ const canSubmitTransfer = computed(
 const selectedTransferCategory = computed(() =>
   transferDialog.categoryOptions.find((item) => item.id === transferDialog.form.templateCategoryId)
 )
+const selectedTransferProjectCode = computed(() =>
+  transferDialog.projectCodeOptions.find((item) => item.id === transferDialog.form.dccProjectCodeId)
+)
 const localFolderUploadProgressPercent = computed(() => {
   const result = transferDialog.result
   if (!result || result.sourceType !== 'LOCAL_FOLDER' || !result.expectedFileCount) {
@@ -610,6 +715,7 @@ const formRules = reactive({
 })
 const transferFormRules = reactive({
   templateCategoryId: [{ required: true, message: '请选择 DCC 模板类别', trigger: 'change' }],
+  dccProjectCodeId: [{ required: true, message: '请选择 DCC 项目', trigger: 'change' }],
   effectiveDate: [{ required: true, message: '请选择生效日期', trigger: 'change' }]
 })
 
@@ -772,7 +878,8 @@ const validateLocalFolderFiles = (files: File[]): LocalFolderSelection => {
 
 const buildLocalFolderImportSessionPayload = (): ControlledFileLocalFolderImportSessionCreateReqVO => ({
   templateCategoryId: transferDialog.form.templateCategoryId as number,
-  productMasterId: transferDialog.form.productMasterId ?? undefined,
+  dccProjectCodeId: transferDialog.form.dccProjectCodeId as number,
+  productMasterId: null,
   effectiveDate: transferDialog.form.effectiveDate,
   rootDirectoryName: transferDialog.localFolder.rootDirectoryName,
   expectedFileCount: transferDialog.localFolder.files.length,
@@ -949,18 +1056,24 @@ const loadTransferCategoryOptions = async () => {
   transferDialog.form.templateCategoryId = otherCategory.id
 }
 
-const loadTransferProductOptions = async () => {
-  if (!transferDialog.productOptions.length) {
-    transferDialog.productOptions = await getDccProductOptions({
-      status: DCC_PRODUCT_STATUS_ENABLE,
-      requireDccProductCode: true
+const loadTransferProjectCodeOptions = async (keyword = '') => {
+  transferDialog.projectCodeOptionsLoading = true
+  try {
+    const data = await getProjectCodePage({
+      pageNo: 1,
+      pageSize: 50,
+      status: DCC_PROJECT_CODE_STATUS_ENABLE,
+      keyword: keyword.trim() || undefined
     })
-  }
-  if (
-    transferDialog.form.productMasterId &&
-    !transferDialog.productOptions.some((item) => item.id === transferDialog.form.productMasterId)
-  ) {
-    transferDialog.form.productMasterId = undefined
+    transferDialog.projectCodeOptions = data.list
+    if (
+      transferDialog.form.dccProjectCodeId &&
+      !transferDialog.projectCodeOptions.some((item) => item.id === transferDialog.form.dccProjectCodeId)
+    ) {
+      transferDialog.form.dccProjectCodeId = undefined
+    }
+  } finally {
+    transferDialog.projectCodeOptionsLoading = false
   }
 }
 
@@ -980,10 +1093,8 @@ const escapeHtml = (value: string) =>
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;')
 
-const formatDccProductOption = (item: DccControlledFileProductOptionVO) => {
-  const code = item.dccProductCode || item.productCode
-  return code ? `${code} / ${item.nameCn}` : item.nameCn
-}
+const formatDccProjectCodeOption = (item: DccProjectCodeRespVO) =>
+  [item.projectName, item.projectCode, item.docControlNo].filter(Boolean).join(' / ')
 
 const clearTransferTaskPolling = () => {
   if (transferTaskPollingTimer) {
@@ -992,14 +1103,27 @@ const clearTransferTaskPolling = () => {
   }
 }
 
+const clearControlAuditPolling = () => {
+  if (controlAuditPollingTimer) {
+    window.clearTimeout(controlAuditPollingTimer)
+    controlAuditPollingTimer = undefined
+  }
+}
+
 const closeTransferDialogOnRouteLeave = () => {
   clearTransferTaskPolling()
+  clearControlAuditPolling()
   transferDialog.visible = false
+  controlAuditDialog.visible = false
   transferDialog.submitting = false
+  controlAuditDialog.loading = false
 }
 
 const isTransferTaskActive = (status?: string | null) =>
   ['UPLOADING', 'WAITING', 'RUNNING'].includes(status || '')
+
+const isControlAuditTaskActive = (status?: string | null) =>
+  ['WAITING', 'RUNNING'].includes(status || '')
 
 const persistLastTransferTaskId = (taskId?: number | null) => {
   if (typeof taskId !== 'number' || !Number.isSafeInteger(taskId) || taskId <= 0) {
@@ -1018,6 +1142,27 @@ const readLastTransferTaskId = () => {
   const taskId = Number(rawTaskId)
   if (!Number.isSafeInteger(taskId) || taskId <= 0) {
     throw new Error('最近 NAS 转移任务编号无效，请重新发起转移')
+  }
+  return taskId
+}
+
+const persistLastControlAuditTaskId = (taskId?: number | null) => {
+  if (typeof taskId !== 'number' || !Number.isSafeInteger(taskId) || taskId <= 0) {
+    throw new Error('NAS 受控统计任务编号无效，无法保存任务上下文')
+  }
+  localStorage.setItem(NAS_CONTROL_AUDIT_LAST_TASK_ID_KEY, String(taskId))
+}
+
+const clearLastControlAuditTaskId = () => {
+  localStorage.removeItem(NAS_CONTROL_AUDIT_LAST_TASK_ID_KEY)
+}
+
+const readLastControlAuditTaskId = () => {
+  const rawTaskId = localStorage.getItem(NAS_CONTROL_AUDIT_LAST_TASK_ID_KEY)
+  if (!rawTaskId) return undefined
+  const taskId = Number(rawTaskId)
+  if (!Number.isSafeInteger(taskId) || taskId <= 0) {
+    throw new Error('最近 NAS 受控统计任务编号无效，请重新发起统计')
   }
   return taskId
 }
@@ -1042,6 +1187,12 @@ const clearStaleNasTransferTask = () => {
   transferDialog.result = null
 }
 
+const clearStaleControlAuditTask = () => {
+  clearControlAuditPolling()
+  clearLastControlAuditTaskId()
+  controlAuditDialog.result = null
+}
+
 const applyTransferTaskResult = (result: ControlledFileNasTransferRespVO) => {
   persistLastTransferTaskId(result.taskId)
   transferDialog.sourceType = result.sourceType || 'NAS'
@@ -1063,6 +1214,152 @@ const resolveTransferTaskStatusType = (status?: string | null) => {
   if (status === 'COMPLETED') return 'success'
   if (status === 'FAILED') return 'danger'
   return 'warning'
+}
+
+const applyControlAuditTaskResult = (result: NasControlAuditTaskRespVO) => {
+  persistLastControlAuditTaskId(result.taskId)
+  controlAuditDialog.result = result
+  controlAuditDialog.errorMessage =
+    result.status === 'FAILED' ? result.failureReason || 'NAS 受控状态统计任务失败' : ''
+}
+
+const resolveControlAuditStatusLabel = (status?: string | null) => {
+  if (status === 'RUNNING') return '扫描中'
+  if (status === 'COMPLETED') return '已完成'
+  if (status === 'FAILED') return '已失败'
+  return '排队中'
+}
+
+const resolveControlAuditStatusType = (status?: string | null) => {
+  if (status === 'RUNNING') return 'primary'
+  if (status === 'COMPLETED') return 'success'
+  if (status === 'FAILED') return 'danger'
+  return 'warning'
+}
+
+const handleDownloadControlAuditReport = async (showSuccessMessage = true) => {
+  const task = controlAuditDialog.result
+  if (!task || task.status !== 'COMPLETED') {
+    controlAuditDialog.errorMessage = 'NAS 受控状态统计报告尚未生成，无法下载'
+    return false
+  }
+  controlAuditDialog.downloading = true
+  try {
+    const blob = await downloadNasControlAuditReport(task.taskId)
+    const fileName = task.reportFileName || `nas-control-audit-${task.taskId}.xlsx`
+    downloadByData(
+      blob,
+      fileName,
+      blob.type ||
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    if (showSuccessMessage) {
+      message.success('NAS 受控状态统计报告已下载')
+    }
+    return true
+  } catch (error: any) {
+    controlAuditDialog.errorMessage = error?.message || 'NAS 受控状态统计报告下载失败'
+    return false
+  } finally {
+    controlAuditDialog.downloading = false
+  }
+}
+
+const scheduleControlAuditPolling = (taskId?: number) => {
+  if (!taskId) return
+  clearControlAuditPolling()
+  controlAuditPollingTimer = window.setTimeout(async () => {
+    const previousStatus = controlAuditDialog.result?.status
+    try {
+      const result = await getNasControlAuditTask(taskId)
+      applyControlAuditTaskResult(result)
+      if (!isControlAuditTaskActive(result.status)) {
+        clearControlAuditPolling()
+        if (
+          isControlAuditTaskActive(previousStatus) &&
+          result.status === 'COMPLETED' &&
+          !autoDownloadedControlAuditTaskIds.has(result.taskId)
+        ) {
+          autoDownloadedControlAuditTaskIds.add(result.taskId)
+          if (await handleDownloadControlAuditReport(false)) {
+            message.success('NAS 受控状态统计完成，报告已自动下载')
+          }
+        }
+        return
+      }
+      scheduleControlAuditPolling(result.taskId)
+    } catch (error: any) {
+      clearControlAuditPolling()
+      const errorMessage = error?.message || 'NAS 受控状态统计任务状态获取失败'
+      if (
+        errorMessage.includes('nas control audit task not found') ||
+        errorMessage.includes('NAS 受控统计任务不存在') ||
+        errorMessage.includes('最近 NAS 受控统计任务编号无效')
+      ) {
+        clearStaleControlAuditTask()
+        controlAuditDialog.errorMessage = '最近 NAS 受控统计任务已不存在，请重新发起统计'
+        message.warning('最近 NAS 受控统计任务已不存在，请重新发起统计')
+        return
+      }
+      controlAuditDialog.errorMessage = errorMessage
+    }
+  }, 3000)
+}
+
+const confirmControlAuditBeforeStart = async () => {
+  const messageHtml = `
+    <div class="text-[13px] leading-[20px] text-[#374151]">
+      <div>即将统计 NAS 共享下固定三个目录：</div>
+      <ul class="mt-8px list-disc pl-18px">
+        <li>1. QMS documents</li>
+        <li>2.DHF</li>
+        <li>3.DMR</li>
+      </ul>
+      <div class="mt-8px text-[12px] text-[#92400e]">
+        遇到无权限子目录会跳过该目录及其子树，并在报告“跳过目录”工作表记录。
+      </div>
+      <div class="mt-4px text-[12px] text-[#4b5563]">扫描会在后台执行，完成后自动下载 Excel 报告。</div>
+    </div>
+  `
+  try {
+    await ElMessageBox.confirm(messageHtml, '统计未受控文件确认', {
+      confirmButtonText: '确认统计',
+      cancelButtonText: '取消',
+      type: 'warning',
+      modalClass: NAS_TRANSFER_CONFIRM_MODAL_CLASS,
+      dangerouslyUseHTMLString: true
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+const handleStartControlAudit = async () => {
+  if (!canControlAuditPermission.value) return
+  const confirmed = await confirmControlAuditBeforeStart()
+  if (!confirmed) return
+  controlAuditDialog.visible = true
+  controlAuditDialog.loading = true
+  controlAuditDialog.errorMessage = ''
+  try {
+    clearControlAuditPolling()
+    const result = await startNasControlAudit()
+    applyControlAuditTaskResult(result)
+    if (isControlAuditTaskActive(result.status)) {
+      scheduleControlAuditPolling(result.taskId)
+      return
+    }
+    if (result.status === 'COMPLETED') {
+      if (await handleDownloadControlAuditReport(false)) {
+        message.success('NAS 受控状态统计完成，报告已自动下载')
+      }
+    }
+  } catch (error: any) {
+    controlAuditDialog.errorMessage = error?.message || 'NAS 受控状态统计任务创建失败'
+  } finally {
+    controlAuditDialog.loading = false
+  }
 }
 
 const scheduleTransferTaskPolling = (taskId?: number) => {
@@ -1183,7 +1480,7 @@ const openTransferDialog = async (sourceType: TransferSourceType) => {
     transferDialog.form.effectiveDate = new Date().toISOString().slice(0, 10)
   }
   try {
-    await Promise.all([loadTransferCategoryOptions(), loadTransferProductOptions()])
+    await Promise.all([loadTransferCategoryOptions(), loadTransferProjectCodeOptions()])
     transferDialog.visible = true
     if (hasActiveTransferTask.value) {
       scheduleTransferTaskPolling(transferDialog.result?.taskId)
@@ -1248,7 +1545,8 @@ const handleSubmitTransfer = async () => {
     const result = await transferNasDirectories({
       selectedNasPaths: [...selectedDirectoryPaths.value],
       templateCategoryId: transferDialog.form.templateCategoryId as number,
-      productMasterId: transferDialog.form.productMasterId ?? undefined,
+      dccProjectCodeId: transferDialog.form.dccProjectCodeId as number,
+      productMasterId: null,
       effectiveDate: transferDialog.form.effectiveDate
     })
     applyTransferTaskResult(result)
@@ -1441,9 +1739,48 @@ const restoreLastTransferTask = async () => {
   }
 }
 
+const restoreLastControlAuditTask = async () => {
+  try {
+    const taskId = readLastControlAuditTaskId()
+    if (!taskId || controlAuditDialog.result) return
+    const result = await getNasControlAuditTask(taskId)
+    applyControlAuditTaskResult(result)
+    if (isControlAuditTaskActive(result.status)) {
+      controlAuditDialog.visible = true
+      scheduleControlAuditPolling(result.taskId)
+      return
+    }
+    if (result.status === 'FAILED') {
+      controlAuditDialog.visible = true
+      controlAuditDialog.errorMessage = result.failureReason || '最近 NAS 受控统计任务失败'
+      return
+    }
+    if (result.status === 'COMPLETED') {
+      controlAuditDialog.visible = true
+    }
+  } catch (error: any) {
+    clearControlAuditPolling()
+    const errorMessage = error?.message || '最近 NAS 受控统计任务恢复失败'
+    if (
+      errorMessage.includes('nas control audit task not found') ||
+      errorMessage.includes('NAS 受控统计任务不存在') ||
+      errorMessage.includes('最近 NAS 受控统计任务编号无效')
+    ) {
+      clearStaleControlAuditTask()
+      controlAuditDialog.visible = false
+      controlAuditDialog.errorMessage = ''
+      message.warning('最近 NAS 受控统计任务已不存在，请重新发起统计')
+      return
+    }
+    controlAuditDialog.visible = true
+    controlAuditDialog.errorMessage = errorMessage
+  }
+}
+
 onMounted(() => {
   getConfig()
   restoreLastTransferTask()
+  restoreLastControlAuditTask()
 })
 
 onBeforeRouteLeave(() => {
@@ -1453,6 +1790,7 @@ onBeforeRouteLeave(() => {
 
 onUnmounted(() => {
   clearTransferTaskPolling()
+  clearControlAuditPolling()
 })
 </script>
 

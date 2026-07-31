@@ -123,7 +123,7 @@
           </el-table-column>
           <el-table-column label="最近校验" width="180">
             <template #default="{ row }">
-              {{ row.verifiedAt || '未校验' }}
+              {{ formatEdhrDateTime(row.verifiedAt, '未校验') }}
             </template>
           </el-table-column>
           <el-table-column label="操作" width="120" fixed="right">
@@ -155,6 +155,7 @@ import {
 } from '@/api/mes/pro/edhr/domainTrace'
 import { hasPermission } from '@/directives/permission/hasPermi'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProFeedbackEdhrDomainTrace' })
 

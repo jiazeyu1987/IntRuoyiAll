@@ -1,0 +1,74 @@
+{
+  "task_id": "20260730-process-pool-f5-f6-implementation",
+  "goal": "启动2个子agent分别在2个worktree里实现并验证F5/F6文档内容，主agent review后合并进int_main",
+  "status": "completed",
+  "current_stage": "completed",
+  "planner_review_status": "approved",
+  "plan_review_status": "approved",
+  "blocking_prereqs": [],
+  "iteration_counts": {
+    "planner_revisions": 0,
+    "plan_revisions": 0,
+    "executor_loops": 0,
+    "test_loops": 0
+  },
+  "tasks": [
+    {
+      "task_id": "T1",
+      "title": "F5 审核副本上下限修正",
+      "status": "completed",
+      "dependency_ids": [],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes",
+        "IntRuoyiFronted/src/api/mes",
+        "IntRuoyiFronted/src/views/mes"
+      ],
+      "acceptance_ids": [
+        "AC-01",
+        "AC-02",
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-10"
+      ],
+      "owner_agent": "019fb085-0881-7753-a1f9-35aa6aba2af4",
+      "last_outcome": "F5 implementation merged into int_main with backend service, controller, schema, frontend API wrapper, timeline summary, static contracts, main review fix for timeline review-copy aggregation, independent review-copy page, and real Playwright write-path verification."
+    },
+    {
+      "task_id": "T2",
+      "title": "F6 原始记录 revision 与重新电子签名",
+      "status": "completed",
+      "dependency_ids": [],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes",
+        "IntRuoyiFronted/src/api/mes",
+        "IntRuoyiFronted/src/views/mes"
+      ],
+      "acceptance_ids": [
+        "AC-06",
+        "AC-07",
+        "AC-08",
+        "AC-09",
+        "AC-10"
+      ],
+      "owner_agent": "019fb085-8654-74f2-b714-ddf013444f14",
+      "last_outcome": "F6 implementation merged into int_main with revision service, controller, schema, frontend API wrapper, timeline modification summary, service-level fail-fast validation, independent original-record revision page, and real Playwright write-path verification."
+    }
+  ],
+  "known_gaps": [
+    "None. The previous 214274437-byte blob doc/tasks/20260729-local-scheduler-tenant-copy/source-tenant-1-full-config.json was removed from origin/int_main..HEAD by path-level history filtering after user confirmed it must not be committed to Git, and git push origin int_main succeeded."
+  ],
+  "closeout": {
+    "cleanup_preview": "PASS, no delete/blocker/warnings",
+    "cleanup_apply": "PASS, no delete/blocker/warnings",
+    "removed_worktrees": [
+      "D:\\IntRuoyiWorktree\\20260730-process-pool-f5-review-copy",
+      "D:\\IntRuoyiWorktree\\20260730-process-pool-f6-event-revision"
+    ],
+    "released_slots": [
+      "int_main slot 16, frontend 8097, backend 48097",
+      "int_main slot 17, frontend 8098, backend 48098"
+    ]
+  },
+  "updated_at": "2026-07-30T12:55:00+08:00"
+}

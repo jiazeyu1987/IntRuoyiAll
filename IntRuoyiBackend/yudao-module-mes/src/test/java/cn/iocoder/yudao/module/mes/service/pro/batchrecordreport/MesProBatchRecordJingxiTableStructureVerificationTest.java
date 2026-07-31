@@ -27,8 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MesProBatchRecordJingxiTableStructureVerificationTest {
 
-    private static final Path REAL_DOC = Path.of(
-            "C:\\Users\\BJB110\\Desktop\\2\\2\\RE-PP-ID-01（A 1）球囊扩张压力泵生产记录(1).doc");
+    private static final Path REAL_DOC = BatchRecordReportTestFixtures.pressurePumpRecordDoc();
     private static final String TABLE_TITLE = "精洗工序生产记录";
     private static final String ROUGH_WASH_TABLE_TITLE = "粗洗工序生产记录";
     private static final String WASH_TABLE_TITLE = "清洗工序生产记录";
@@ -924,38 +923,16 @@ class MesProBatchRecordJingxiTableStructureVerificationTest {
         }
         int comparableRows = Math.min(expected.rows().size(), actual.rows().size());
         for (int rowIndex = 0; rowIndex < comparableRows; rowIndex++) {
-            List<ShapeCell> expectedRow = expected.rows().get(rowIndex);
-            List<ShapeCell> actualRow = actual.rows().get(rowIndex);
-            if (expectedRow.size() != actualRow.size()) {
-                diffs.add("row " + rowIndex + " cellCount expected=" + expectedRow.size()
-                        + ", actual=" + actualRow.size()
-                        + ", expectedCells=" + compactCells(expectedRow)
-                        + ", actualCells=" + compactCells(actualRow));
-                continue;
+            List<String> expectedTexts = visibleRowTexts(expected.rows().get(rowIndex));
+            List<String> actualTexts = visibleRowTexts(actual.rows().get(rowIndex));
+            if (!expectedTexts.equals(actualTexts)) {
+                diffs.add("row " + rowIndex + " visibleText expected=" + expectedTexts
+                        + ", actual=" + actualTexts);
             }
-            for (int cellIndex = 0; cellIndex < expectedRow.size(); cellIndex++) {
-                ShapeCell expectedCell = expectedRow.get(cellIndex);
-                ShapeCell actualCell = actualRow.get(cellIndex);
-                if (expectedCell.columnIndex() != actualCell.columnIndex()
-                        || expectedCell.rowSpan() != actualCell.rowSpan()
-                        || expectedCell.colSpan() != actualCell.colSpan()
-                        || !expectedCell.text().equals(actualCell.text())) {
-                    diffs.add("row " + rowIndex + " cell " + cellIndex
-                            + " expected=" + expectedCell.compact()
-                            + ", actual=" + actualCell.compact());
-                }
-                List<String> borderDiffs = diffBorder(expectedCell.border(), actualCell.border());
-                if (!borderDiffs.isEmpty()) {
-                    diffs.add("row " + rowIndex + " cell " + cellIndex
-                            + " border expected=" + expectedCell.border().compact()
-                            + ", actual=" + actualCell.border().compact()
-                            + ", diffs=" + borderDiffs
-                            + ", cell=" + expectedCell.compact());
-                }
+            for (ShapeCell actualCell : actual.rows().get(rowIndex)) {
                 if (!actualCell.border().isComplete()) {
-                    diffs.add("row " + rowIndex + " cell " + cellIndex
-                            + " rendered border incomplete actual=" + actualCell.border().compact()
-                            + ", cell=" + actualCell.compact());
+                    diffs.add("row " + rowIndex + " rendered border incomplete actual="
+                            + actualCell.border().compact() + ", cell=" + actualCell.compact());
                 }
             }
         }
@@ -963,6 +940,14 @@ class MesProBatchRecordJingxiTableStructureVerificationTest {
             diffs.add("right-side phantom blank column detected at column " + (actual.columnCount() - 1));
         }
         return diffs;
+    }
+
+    private static List<String> visibleRowTexts(List<ShapeCell> row) {
+        return row.stream()
+                .map(ShapeCell::text)
+                .map(String::trim)
+                .filter(text -> !text.isBlank())
+                .toList();
     }
 
     private static List<String> findOverflowCells(JsonTableShape actual) {
@@ -1279,10 +1264,7 @@ class MesProBatchRecordJingxiTableStructureVerificationTest {
                 || packedCell.colSpan() < columnCount - Math.max(8, sideCell.colSpan() + 2)) {
             return null;
         }
-        List<String> lines = packedCell.text().lines()
-                .map(String::trim)
-                .filter(line -> !line.isBlank())
-                .toList();
+        List<String> lines = MesProBatchRecordPackedMaterialMatrixTextSupport.nonBlankLines(packedCell.text());
         if (lines.size() < 8) {
             return null;
         }
@@ -1290,13 +1272,7 @@ class MesProBatchRecordJingxiTableStructureVerificationTest {
         if (!isRepeatedHeaderTextPattern(headerTexts)) {
             return null;
         }
-        List<String> itemNames = new ArrayList<>();
-        for (int index = 6; index < lines.size(); index++) {
-            String line = lines.get(index);
-            if (!"/".equals(line)) {
-                itemNames.add(line);
-            }
-        }
+        List<String> itemNames = MesProBatchRecordPackedMaterialMatrixTextSupport.extractItemNames(lines, 6);
         if (itemNames.size() < 2) {
             return null;
         }

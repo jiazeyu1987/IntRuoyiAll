@@ -19,8 +19,6 @@ import cn.iocoder.yudao.module.dcc.service.category.DccFileTypeTaxonomyPath;
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignment.DccProjectCodeAssignmentAuthorization;
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignment.DccProjectCodeAssignmentService;
 import cn.iocoder.yudao.module.dcc.service.projectcode.assignmentaudit.DccProjectCodeMetadataChangeAuditService;
-import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
-import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -32,8 +30,7 @@ import java.util.List;
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_FILE_NUMBER_CONFLICT;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_METADATA_UPDATE_NOT_ALLOWED;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PRODUCT_CODE_INVALID;
-import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_PRODUCT_MASTER_INVALID;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_DIRECTORY_INVALID;
 import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_NOT_EXISTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -61,8 +58,6 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     private DccProjectCodeMapper projectCodeMapper;
     @Mock
     private PermissionApi permissionApi;
-    @Mock
-    private MdmProductApi productApi;
     @Mock
     private DccFileTypeTaxonomyAdminService fileTypeTaxonomyAdminService;
     @Mock
@@ -105,9 +100,9 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         assertEquals("NEW-SOP", fileCaptor.getValue().getFileName());
         assertEquals("NEW-SOP", fileCaptor.getValue().getTitle());
         assertEquals("DOC-NEW", fileCaptor.getValue().getFileNumber());
-        assertEquals(5000L, fileCaptor.getValue().getProductMasterId());
-        assertEquals("PRD20260604001", fileCaptor.getValue().getProductCode());
-        assertEquals("离心泵", fileCaptor.getValue().getProductName());
+        assertNull(fileCaptor.getValue().getProductMasterId());
+        assertEquals("YCKPR", fileCaptor.getValue().getProductCode());
+        assertEquals("按压式Y型连接器", fileCaptor.getValue().getProductName());
         assertEquals(3000L, fileCaptor.getValue().getDccProjectCodeId());
         assertEquals(Boolean.TRUE, fileCaptor.getValue().getNeedTraining());
         assertEquals("体系文件", fileCaptor.getValue().getFileTypeLevel1());
@@ -160,7 +155,6 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
                 .thenReturn(false);
         when(projectCodeAssignmentService.assertMetadataUpdateAllowed(123L, 900L, 9100L))
                 .thenReturn(DccProjectCodeAssignmentAuthorization.assignedUser(9100L, 3000L));
-        when(productApi.getEnabledDccProduct(5000L)).thenReturn(defaultProductMaster());
         when(projectCodeMapper.selectById(3000L)).thenReturn(
                 cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO.builder()
                         .id(3000L)
@@ -214,28 +208,20 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     }
 
     @Test
-    void updateMetadata_allowsClearingProductBinding() {
+    void updateMetadata_requiresDccProjectCodeProductNumber() {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
         reqVO.setProductMasterId(null);
         reqVO.setProductName(null);
         reqVO.setProductCode(null);
         reqVO.setDccProjectCodeId(null);
-        DccControlledFileDO file = activeFile();
         when(permissionApi.hasAnyRoles(99L, "doc_control"))
                 .thenReturn(true);
-        mockTargetCategoryAndDirectory();
-        when(controlledFileMapper.selectById(900L)).thenReturn(file);
-        when(controlledFileMasterMapper.selectById(700L)).thenReturn(oldMaster());
-        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(file));
 
-        metadataUpdateService.updateMetadata(99L, 900L, reqVO);
+        assertServiceException(() -> metadataUpdateService.updateMetadata(99L, 900L, reqVO),
+                CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
 
-        ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
-        verify(controlledFileMapper).updateById(fileCaptor.capture());
-        assertNull(fileCaptor.getValue().getProductMasterId());
-        assertNull(fileCaptor.getValue().getProductCode());
-        assertNull(fileCaptor.getValue().getProductName());
-        verify(productApi, never()).getEnabledDccProduct(any());
+        verify(controlledFileMapper, never()).selectById(900L);
+        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
     }
 
     @Test
@@ -320,19 +306,21 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     void updateMetadata_productCodeMustKeepExistingFourteenAlnumRule() {
         DccControlledFileMetadataUpdateReqVO reqVO = updateReq();
         mockDocControl();
-        when(productApi.getEnabledDccProduct(5000L)).thenReturn(MdmProductRespDTO.builder()
-                .id(5000L)
-                .productCode("PMD-001")
-                .dccProductCode("bad-code")
-                .nameCn("离心泵")
-                .status("ENABLE")
-                .build());
+        reqVO.setProductMasterId(5000L);
+        reqVO.setProductCode("client-value-is-ignored");
+        reqVO.setProductName("client-name-is-ignored");
+        mockTargetCategoryAndDirectory();
+        when(controlledFileMapper.selectById(900L)).thenReturn(activeFile());
+        when(controlledFileMasterMapper.selectById(700L)).thenReturn(oldMaster());
+        when(controlledFileMapper.selectListByMasterId(700L)).thenReturn(List.of(activeFile()));
 
-        assertServiceException(() -> metadataUpdateService.updateMetadata(99L, 900L, reqVO),
-                CONTROLLED_FILE_PRODUCT_MASTER_INVALID);
+        metadataUpdateService.updateMetadata(99L, 900L, reqVO);
 
-        verify(controlledFileMapper, never()).selectById(900L);
-        verify(controlledFileMapper, never()).updateById(any(DccControlledFileDO.class));
+        ArgumentCaptor<DccControlledFileDO> fileCaptor = ArgumentCaptor.forClass(DccControlledFileDO.class);
+        verify(controlledFileMapper).updateById(fileCaptor.capture());
+        assertNull(fileCaptor.getValue().getProductMasterId());
+        assertEquals("YCKPR", fileCaptor.getValue().getProductCode());
+        assertEquals("按压式Y型连接器", fileCaptor.getValue().getProductName());
     }
 
     @Test
@@ -382,7 +370,6 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
     private void mockDocControl() {
         when(permissionApi.hasAnyRoles(99L, "doc_control"))
                 .thenReturn(true);
-        when(productApi.getEnabledDccProduct(5000L)).thenReturn(defaultProductMaster());
         when(projectCodeMapper.selectById(3000L)).thenReturn(
                 cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO.builder()
                         .id(3000L)
@@ -446,16 +433,6 @@ class DccControlledFileMetadataUpdateServiceTest extends BaseMockitoUnitTest {
         reqVO.setFileTypeLevel4("验证资料");
         reqVO.setFileTypeLevel5("归档件");
         return reqVO;
-    }
-
-    private MdmProductRespDTO defaultProductMaster() {
-        return MdmProductRespDTO.builder()
-                .id(5000L)
-                .productCode("PMD-001")
-                .dccProductCode("PRD20260604001")
-                .nameCn("离心泵")
-                .status("ENABLE")
-                .build();
     }
 
     private DccFileDirectoryDO directory(Long id, Long parentId) {

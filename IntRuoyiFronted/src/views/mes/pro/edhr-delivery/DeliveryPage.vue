@@ -128,6 +128,13 @@
             <span>证据包</span>
             <span class="edhr-delivery__muted">{{ packageList.length }} 项</span>
           </div>
+          <el-alert
+            v-if="packageError"
+            :title="packageError"
+            type="error"
+            :closable="false"
+            show-icon
+          />
           <el-table
             v-loading="packageLoading"
             :data="packageList"
@@ -162,6 +169,7 @@
             <span>门禁说明</span>
             <span class="edhr-delivery__muted">{{ gateSummary?.gateStatus || '未加载' }}</span>
           </div>
+          <el-alert v-if="gateError" :title="gateError" type="error" :closable="false" show-icon />
           <el-descriptions v-if="gateSummary" :column="2" border class="edhr-delivery__summary">
             <el-descriptions-item label="证据包">{{ gateSummary.packageCount }}</el-descriptions-item>
             <el-descriptions-item label="门禁项">{{ gateSummary.gateCount }}</el-descriptions-item>
@@ -198,6 +206,7 @@
       </section>
 
       <el-dialog v-model="createDialogVisible" title="新建交付项目" width="760px">
+        <el-alert v-if="createError" :title="createError" type="error" :closable="false" show-icon />
         <el-form
           ref="createFormRef"
           :model="createForm"
@@ -274,6 +283,9 @@ const packageLoading = ref(false)
 const gateLoading = ref(false)
 const submitLoading = ref(false)
 const loadError = ref('')
+const packageError = ref('')
+const gateError = ref('')
+const createError = ref('')
 
 const projectList = ref<EdhrDeliveryProjectRespVO[]>([])
 const projectTotal = ref(0)
@@ -357,6 +369,8 @@ const buildProjectQuery = (): EdhrDeliveryProjectPageReqVO => ({
 const getProjectList = async () => {
   projectLoading.value = true
   loadError.value = ''
+  packageError.value = ''
+  gateError.value = ''
   try {
     const page = assertPageResult<EdhrDeliveryProjectRespVO>(
       await getEdhrDeliveryProjectPage(buildProjectQuery()),
@@ -382,10 +396,11 @@ const getProjectList = async () => {
 const getPackageList = async () => {
   if (!selectedProject.value) {
     packageList.value = []
+    packageError.value = ''
     return
   }
   packageLoading.value = true
-  loadError.value = ''
+  packageError.value = ''
   try {
     const page = assertPageResult<EdhrEvidencePackageRespVO>(
       await getEdhrEvidencePackagePage({
@@ -398,7 +413,7 @@ const getPackageList = async () => {
     packageList.value = page.list
   } catch (error) {
     packageList.value = []
-    loadError.value = resolveErrorMessage(error, '证据包加载失败，请检查项目和权限。')
+    packageError.value = resolveErrorMessage(error, '证据包加载失败，请检查项目和权限。')
   } finally {
     packageLoading.value = false
   }
@@ -407,15 +422,16 @@ const getPackageList = async () => {
 const getGateSummary = async () => {
   if (!selectedProject.value) {
     gateSummary.value = undefined
+    gateError.value = ''
     return
   }
   gateLoading.value = true
-  loadError.value = ''
+  gateError.value = ''
   try {
     gateSummary.value = await getEdhrDeliveryGateSummary(selectedProject.value.id)
   } catch (error) {
     gateSummary.value = undefined
-    loadError.value = resolveErrorMessage(error, '门禁说明加载失败，请检查交付证据对象。')
+    gateError.value = resolveErrorMessage(error, '门禁说明加载失败，请检查交付证据对象。')
   } finally {
     gateLoading.value = false
   }
@@ -432,6 +448,8 @@ const handleProjectQuery = () => {
   selectedProject.value = undefined
   packageList.value = []
   gateSummary.value = undefined
+  packageError.value = ''
+  gateError.value = ''
   getProjectList()
 }
 
@@ -461,11 +479,12 @@ const resetCreateForm = () => {
 
 const openCreateDialog = () => {
   resetCreateForm()
+  createError.value = ''
   createDialogVisible.value = true
 }
 
 const handleCreateProject = async () => {
-  loadError.value = ''
+  createError.value = ''
   try {
     await createFormRef.value?.validate()
   } catch (error) {
@@ -480,7 +499,7 @@ const handleCreateProject = async () => {
     await getProjectList()
     await handleSelectProject(project)
   } catch (error) {
-    loadError.value = resolveErrorMessage(error, '交付项目创建失败，请检查必填项、接口和权限。')
+    createError.value = resolveErrorMessage(error, '交付项目创建失败，请检查必填项、接口和权限。')
   } finally {
     submitLoading.value = false
   }

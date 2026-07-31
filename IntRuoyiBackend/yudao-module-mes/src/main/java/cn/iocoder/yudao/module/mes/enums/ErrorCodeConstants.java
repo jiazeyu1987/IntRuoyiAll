@@ -274,6 +274,9 @@ public interface ErrorCodeConstants {
     ErrorCode PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_PUBLISHED_VERSION_NOT_EXISTS = new ErrorCode(1_040_271_045, "表单中心模板最新已发布版本不存在，templateId={}");
     ErrorCode PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_FILLER_REQUIRED = new ErrorCode(1_040_271_046, "工艺流程动态表单配置必须选择填写人，formBindingKey={}");
     ErrorCode PRO_ROUTE_FLOW_CONFIG_FORM_TEMPLATE_FILLER_SOURCE_INVALID = new ErrorCode(1_040_271_047, "工艺流程动态表单配置填写人来源无效，formBindingKey={}，candidateSourceType={}");
+    ErrorCode PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_ROLE_CATEGORY_REQUIRED = new ErrorCode(1_040_271_048, "批记录附件默认角色分类 batch-record 不存在或未启用");
+    ErrorCode PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_ENABLED_USER_NOT_ENOUGH = new ErrorCode(1_040_271_049, "当前租户启用用户少于 2 人，无法初始化批记录附件上传角色");
+    ErrorCode PRO_ROUTE_FLOW_CONFIG_BATCH_ATTACHMENT_OWNER_INVALID = new ErrorCode(1_040_271_050, "批记录附件负责人配置无效：{}");
     ErrorCode PRO_ROUTE_VERSION_STALE = new ErrorCode(1_040_271_029, "工艺路线版本已变更，请刷新后再操作，routeId={}，expectedRouteVersionId={}，activeRouteVersionId={}");
     ErrorCode PRO_ROUTE_VERSION_NOT_EXISTS = new ErrorCode(1_040_271_030, "工艺路线版本不存在，routeVersionId={}");
     ErrorCode PRO_ROUTE_VERSION_ACTIVE_NOT_EXISTS = new ErrorCode(1_040_271_031, "工艺路线缺少当前生效版本，routeId={}");
@@ -515,6 +518,18 @@ public interface ErrorCodeConstants {
             "模拟报工工序数量必须在 1 到 20 之间");
     ErrorCode PRO_FEEDBACK_SIMULATE_SOURCE_NOT_ENOUGH = new ErrorCode(1_040_506_032,
             "当前可模拟报工的排产工序数量不足，请求数量：{}，可用数量：{}");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_BINDING_REQUIRED = new ErrorCode(1_040_506_100,
+            "一线固定模板绑定缺失，actualEmployeeId={}，routeProcessId={}，processId={}");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_CONTEXT_REQUIRED = new ErrorCode(1_040_506_101,
+            "一线固定模板上下文缺失");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_UNSUPPORTED = new ErrorCode(1_040_506_102,
+            "一线固定模板不支持：{}");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_FIELD_INVALID = new ErrorCode(1_040_506_103,
+            "一线固定模板字段不允许：{}");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_PQC_RESULT_INVALID = new ErrorCode(1_040_506_104,
+            "PQC 简化模板只允许检测成功或检测失败");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_SUBMIT_TIME_FORBIDDEN = new ErrorCode(1_040_506_105,
+            "一线固定模板不允许前端录入提交时间");
 
     // ========== MES 生产管理-生产流转卡（1-040-507-000） ==========
     ErrorCode PRO_CARD_NOT_EXISTS = new ErrorCode(1_040_507_000, "生产流转卡不存在");
@@ -528,6 +543,18 @@ public interface ErrorCodeConstants {
     // ========== MES 生产管理-工作记录（1-040-508-000） ==========
     ErrorCode WORK_RECORD_NOT_CLOCK_IN = new ErrorCode(1_040_508_001, "当前用户未上工，无法下工");
     ErrorCode WORK_RECORD_ALREADY_CLOCK_IN = new ErrorCode(1_040_508_002, "当前用户已上工，请先下工再操作");
+
+    // ========== MES 生产管理-工序池 FIFO 分配（1-040-509-000） ==========
+    ErrorCode PRO_PROCESS_POOL_FIFO_WORK_ORDER_PLANNED_START_TIME_REQUIRED =
+            new ErrorCode(1_040_509_000, "生产工单缺少计划开始时间，FIFO 分配已阻塞：{}");
+    ErrorCode PRO_PROCESS_POOL_FIFO_WORK_ORDER_PLANNED_START_TIME_DUPLICATE =
+            new ErrorCode(1_040_509_001, "生产工单计划开始时间存在并列，缺少 FIFO 二级排序规则：{}");
+    ErrorCode PRO_PROCESS_POOL_FIFO_ALLOCATED_FRAGMENT_LOCKED =
+            new ErrorCode(1_040_509_002, "工序池数量片段已 FIFO 分配，禁止修改影响数量、质量状态或可分配状态的原始字段：{}");
+    ErrorCode PRO_PROCESS_POOL_FIFO_CONTEXT_REQUIRED =
+            new ErrorCode(1_040_509_003, "FIFO 分配缺少正式上下文字段：{}");
+    ErrorCode PRO_PROCESS_POOL_FIFO_QUANTITY_INVALID =
+            new ErrorCode(1_040_509_004, "FIFO 分配数量必须大于 0：{}");
 
     // ========== MES 质量管理-质检方案（1-040-600-000） ==========
     ErrorCode QC_TEMPLATE_NOT_EXISTS = new ErrorCode(1_040_600_000, "质检方案不存在");
@@ -953,6 +980,83 @@ public interface ErrorCodeConstants {
             "工序表单权限规则缺少工艺用途批记录表绑定，routeProcessId={}, batchRecordReportId={}");
     ErrorCode PRO_EDHR_PROCESS_FORM_PERMISSION_RULE_VERSION_REQUIRED = new ErrorCode(1_040_750_205,
             "工序表单权限规则缺少批记录版本，routeProcessId={}, batchRecordReportId={}");
+
+    // ========== MES 工序池基础模块（1-040-760-000） ==========
+    ErrorCode PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED = new ErrorCode(1_040_760_000,
+            "工序池提交事件缺少必填上下文：{}");
+    ErrorCode PRO_PROCESS_POOL_SIGNATURE_EMPLOYEE_MISMATCH = new ErrorCode(1_040_760_001,
+            "工序池电子签名用户必须等于实际员工");
+    ErrorCode PRO_PROCESS_POOL_SIGNATURE_DUPLICATE = new ErrorCode(1_040_760_002,
+            "工序池提交事件电子签名已存在：{}");
+    ErrorCode PRO_PROCESS_POOL_PQC_RESULT_INVALID = new ErrorCode(1_040_760_003,
+            "工序池 PQC 结果无效：{}");
+    ErrorCode PRO_PROCESS_POOL_REVISION_EVENT_NOT_EXISTS = new ErrorCode(1_040_760_004,
+            "工序池提交事件不存在，无法修改原始记录：{}");
+    ErrorCode PRO_PROCESS_POOL_REVISION_CHANGE_REASON_REQUIRED = new ErrorCode(1_040_760_005,
+            "原始记录修改必须填写非空修改原因");
+    ErrorCode PRO_PROCESS_POOL_REVISION_SIGNATURE_REUSED = new ErrorCode(1_040_760_006,
+            "原始记录修改必须使用新的电子签名，不能复用原提交签名");
+    ErrorCode PRO_PROCESS_POOL_REVISION_SIGNATURE_DUPLICATE = new ErrorCode(1_040_760_007,
+            "原始记录修改电子签名已存在：{}");
+    ErrorCode PRO_PROCESS_POOL_REVISION_DIFF_REQUIRED = new ErrorCode(1_040_760_008,
+            "原始记录修改必须提供字段级 diff，且不能只写备注或整段 payload");
+    ErrorCode PRO_PROCESS_POOL_REVISION_FIFO_LOCK_STATUS_UNKNOWN = new ErrorCode(1_040_760_009,
+            "无法确认字段对应数量片段 FIFO 锁定状态，禁止修改原始记录：{}");
+
+    // ========== MES 一线设备账号工序池（1-040-760-100） ==========
+    ErrorCode PRO_FRONTLINE_DEVICE_ACCOUNT_BINDING_SOURCE_MISSING = new ErrorCode(1_040_760_100,
+            "设备账号工艺路线绑定来源未接入，无法加载一线报工上下文");
+    ErrorCode PRO_FRONTLINE_DEVICE_ACCOUNT_ROUTE_EMPTY = new ErrorCode(1_040_760_101,
+            "设备账号 {} 未绑定启用工艺路线，无法切换工序");
+    ErrorCode PRO_FRONTLINE_ROUTE_PROCESS_NOT_AUTHORIZED = new ErrorCode(1_040_760_102,
+            "设备账号未授权当前工艺路线或工序，routeId={}, processId={}");
+    ErrorCode PRO_FRONTLINE_DEVICE_ACCOUNT_CONTEXT_INVALID = new ErrorCode(1_040_760_103,
+            "设备账号上下文不完整或不一致：{}");
+    ErrorCode PRO_FRONTLINE_ROUTE_PROCESS_WORKSTATION_REQUIRED = new ErrorCode(1_040_760_104,
+            "工艺路线工序缺少正式工作站绑定，routeId={}, processId={}");
+    ErrorCode PRO_FRONTLINE_PROCESS_EMPLOYEE_EMPTY = new ErrorCode(1_040_760_105,
+            "当前工序没有绑定可切换员工，workstationId={}, processId={}");
+    ErrorCode PRO_FRONTLINE_ACTUAL_EMPLOYEE_NOT_BOUND = new ErrorCode(1_040_760_106,
+            "实际填写员工 {} 不属于当前工序 {} 的绑定员工");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_BINDING_SOURCE_MISSING = new ErrorCode(1_040_760_107,
+            "实际员工工序模板绑定来源未接入，无法重新加载模板");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_NOT_EXISTS = new ErrorCode(1_040_760_108,
+            "实际员工 {} 在当前工序 {} 下没有正式模板绑定");
+    ErrorCode PRO_FRONTLINE_SUBMIT_CONTEXT_REQUIRED = new ErrorCode(1_040_760_109,
+            "一线提交身份上下文缺少必填字段：{}");
+    ErrorCode PRO_FRONTLINE_SIGNATURE_EMPLOYEE_MISMATCH = new ErrorCode(1_040_760_110,
+            "电子签名员工必须等于实际填写员工，actualEmployeeId={}, signatureEmployeeId={}");
+    ErrorCode PRO_FRONTLINE_SUBMIT_DEVICE_CONTEXT_MISMATCH = new ErrorCode(1_040_760_111,
+            "提交设备/工作站上下文与授权工序不一致，submittedDeviceId={}, submittedWorkstationId={}, expectedDeviceId={}, expectedWorkstationId={}");
+    ErrorCode PRO_FRONTLINE_TEMPLATE_MISMATCH = new ErrorCode(1_040_760_112,
+            "提交模板编号与当前实际员工工序模板不一致：{}");
+
+    // ========== MES 工序池审核副本（1-040-760-200） ==========
+    ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_FIELD_MAPPING_REQUIRED = new ErrorCode(1_040_760_200,
+            "工序池审核副本缺少正式字段映射：{}");
+    ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_LIMIT_METADATA_REQUIRED = new ErrorCode(1_040_760_201,
+            "工序池审核副本缺少字段上下限元数据：{}");
+    ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_REVIEWER_SIGNATURE_REQUIRED = new ErrorCode(1_040_760_202,
+            "工序池审核副本缺少审核电子签名：{}");
+    ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_REVIEWER_SIGNATURE_MISMATCH = new ErrorCode(1_040_760_203,
+            "工序池审核副本电子签名用户必须等于审核人");
+    ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_SIGNATURE_DUPLICATE = new ErrorCode(1_040_760_204,
+            "工序池审核副本电子签名已存在：{}");
+
+    // ========== MES 工序池班组长工作台（1-040-760-300） ==========
+    ErrorCode PRO_PROCESS_POOL_TEAM_SCOPE_DENIED = new ErrorCode(1_040_760_300,
+            "班组长不在该员工或工序的负责范围内");
+    ErrorCode PRO_PROCESS_POOL_TEAM_SCOPE_REQUIRED = new ErrorCode(1_040_760_301,
+            "班组长工作台缺少负责范围上下文：{}");
+    ErrorCode PRO_PROCESS_POOL_SUBMISSION_REVIEW_STATUS_INVALID = new ErrorCode(1_040_760_302,
+            "班组长复核状态无效：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_EMPLOYEE_BINDING_NOT_EXISTS = new ErrorCode(1_040_760_303,
+            "班组员工绑定不存在：{}");
+    ErrorCode PRO_PROCESS_POOL_DEFECT_REASON_REQUIRED = new ErrorCode(1_040_760_304,
+            "不良原因缺少必填字段：{}");
+    ErrorCode PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID = new ErrorCode(1_040_760_305,
+            "设备参数上下限无效，下限不能大于上限：{}");
+
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_MULTI_VERSION = new ErrorCode(1_040_107_006, "ERP 涓墿鏂?浜у搧缂栫爜 {} 鍛戒腑浜嗗涓凡瀹℃牳 BOM 鐗堟湰锛歿}");

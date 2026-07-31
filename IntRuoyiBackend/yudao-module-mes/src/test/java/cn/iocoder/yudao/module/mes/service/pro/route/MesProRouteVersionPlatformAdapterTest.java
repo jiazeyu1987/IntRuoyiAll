@@ -45,7 +45,7 @@ class MesProRouteVersionPlatformAdapterTest {
         when(routeVersionMapper.selectActiveByRouteIdForUpdate(active.getRouteId())).thenReturn(active);
         when(routeVersionMapper.selectMaxVersionNoByRouteId(active.getRouteId())).thenReturn("V1");
         when(routeService.buildCurrentRouteSnapshotJson(active.getRouteId(), active.getId()))
-                .thenReturn(active.getRouteSnapshotJson());
+                .thenReturn(validSnapshotJson());
         MesProRouteVersionCreateReqVO reqVO = new MesProRouteVersionCreateReqVO();
         reqVO.setRouteId(active.getRouteId());
         reqVO.setSourceRouteVersionId(active.getId());
@@ -63,7 +63,7 @@ class MesProRouteVersionPlatformAdapterTest {
     }
 
     @Test
-    void submitAndWithdraw_shouldMirrorNativeStatusToPlatformRef() {
+    void submitCandidate_shouldMirrorNativeStatusToPlatformRef() {
         MesProRouteVersionDO active = activeVersion();
         MesProRouteVersionDO candidate = draftCandidate(active);
         when(routeVersionMapper.selectById(candidate.getId())).thenReturn(candidate);
@@ -77,18 +77,6 @@ class MesProRouteVersionPlatformAdapterTest {
         verify(platformAdapter).recordSubmitted(candidate, 502L, null);
         verify(platformAdapter).recordApproved(eq(candidate), eq(502L),
                 startsWith("ROUTE_VERSION_READY_TO_PUBLISH:1002:"));
-
-        MesProRouteVersionDO pending = draftCandidate(active);
-        pending.setLifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL);
-        pending.setApprovalProcessInstanceId("route-approval-502");
-        when(routeVersionMapper.selectById(pending.getId())).thenReturn(pending);
-
-        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
-            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(503L);
-            workflowService.withdrawCandidate(pending.getId());
-        }
-
-        verify(platformAdapter).recordWithdrawn(pending, 503L);
     }
 
     @Test

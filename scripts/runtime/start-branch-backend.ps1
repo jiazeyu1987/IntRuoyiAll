@@ -1,5 +1,5 @@
 param(
-    [int]$Slot = 0,
+    [Nullable[int]]$Slot = $null,
     [switch]$Build,
     [string[]]$ExtraArgs = @()
 )
@@ -11,10 +11,13 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Get-CurrentRepoRoot
 $branch = Get-GitValue -RepoRoot $repoRoot -Arguments @('branch', '--show-current')
-$profile = Resolve-BranchRuntimeProfile -RepoRoot $repoRoot -Branch $branch
-$ports = Get-BranchRuntimePorts -Profile $profile -Slot $Slot
+$context = Resolve-BranchRuntimeContext -RepoRoot $repoRoot -Branch $branch -RequestedSlot $Slot
+$profile = $context.Profile
+$ports = $context.Ports
 $backendRoot = Join-Path $repoRoot 'IntRuoyiBackend'
-$jarPath = Join-Path $backendRoot 'yudao-server\target\yudao-server-exec.jar'
+$sourceJarPath = Join-Path $backendRoot 'yudao-server\target\yudao-server-exec.jar'
+$runtimeDir = Join-Path $repoRoot "output\runtime\$($profile.Name)"
+$runtimeLogDir = Join-Path $runtimeDir 'logs'
 
 $listeners = @(Get-NetTCPConnection -LocalPort $ports.BackendPort -State Listen -ErrorAction SilentlyContinue)
 if ($listeners.Count -gt 0) {
@@ -34,15 +37,23 @@ if ($Build) {
     }
 }
 
-if (-not (Test-Path $jarPath)) {
-    throw "Missing backend executable jar: $jarPath. Run with -Build or package yudao-server first."
+if (-not (Test-Path $sourceJarPath)) {
+    throw "Missing backend executable jar: $sourceJarPath. Run with -Build or package yudao-server first."
 }
+
+$timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$runtimeJarPath = Join-Path $runtimeDir "backend-$timestamp.jar"
+$runtimeLogPath = Join-Path $runtimeLogDir 'yudao-server.log'
+New-Item -ItemType Directory -Force -Path $runtimeLogDir | Out-Null
+Copy-Item -LiteralPath $sourceJarPath -Destination $runtimeJarPath -Force
 
 $javaArgs = @(
     '-jar',
-    $jarPath,
+    $runtimeJarPath,
     "--server.port=$($ports.BackendPort)",
-    '--spring.profiles.active=local'
+    '--spring.profiles.active=local',
+    "--logging.file.name=$runtimeLogPath",
+    "--yudao.runtime-control.storage-guard.log-dir=$runtimeLogDir"
 ) + $ExtraArgs
 
 Write-Host "Starting $($profile.Name) backend on $($ports.BackendPort)."

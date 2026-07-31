@@ -118,7 +118,7 @@
             clearable
             :hide-loading="!uploadNameOptionsLoading"
             :fetch-suggestions="queryUploadNameSuggestions"
-            :trigger-on-focus="Boolean(formData.categoryId)"
+            :trigger-on-focus="canLoadUploadNameOptions"
             placeholder="可选择历史文件名称，或直接输入新名称"
             @select="handleHistoryFileNameSelect"
             @input="handleFileNameInput"
@@ -184,32 +184,18 @@
             </template>
           </div>
         </el-form-item>
-        <el-form-item label="产品编号" prop="productMasterId">
-          <el-select
-            v-model="formData.productMasterId"
+        <el-form-item label="产品编号" prop="productCode">
+          <el-input
+            v-model="formData.productCode"
             class="!w-420px"
-            clearable
-            filterable
-            remote
-            reserve-keyword
-            :loading="productOptionsLoading"
-            :remote-method="loadProductOptions"
-            :placeholder="isProductRequiredForSelectedCategory ? '请选择产品主数据' : '可不选择产品主数据'"
-            @visible-change="handleProductOptionsVisibleChange"
-            @change="handleProductMasterChange"
-          >
-            <el-option
-              v-for="product in productOptions"
-              :key="product.id"
-              :label="formatProductOptionLabel(product)"
-              :value="product.id"
-            />
-          </el-select>
-          <div v-if="formData.productCode" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
-            DCC 产品编号：{{ formData.productCode }}
-          </div>
+            readonly
+            placeholder="选择 DCC 项目后自动生成"
+          />
           <div v-if="isProductRequiredForSelectedCategory" class="mt-6px text-12px text-[var(--el-color-danger)]">
-            DHF/DMR 类别必须选择产品主数据
+            DHF/DMR 类别必须选择包含项目代码的 DCC 项目
+          </div>
+          <div v-if="selectedProjectCode" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
+            来源：DCC 项目代码 {{ selectedProjectCode.projectName }} / {{ selectedProjectCode.projectCode || '-' }}
           </div>
         </el-form-item>
         <el-form-item label="版本号" prop="versionNo" :error="submitFieldErrors.versionNo">
@@ -360,6 +346,7 @@
 <script lang="ts" setup>
 import type { FormRules, UploadProps, UploadUserFile } from 'element-plus'
 import { handleTree } from '@/utils/tree'
+import { formatToDate } from '@/utils/dateUtil'
 import type { ControlledFileCategoryVO } from '@/api/dcc/controlledFile/fileCategories'
 import { getFileCategoryList } from '@/api/dcc/controlledFile/fileCategories'
 import {
@@ -374,15 +361,12 @@ import {
 import {
   cleanupControlledFileUploadSession,
   createControlledFileUploadSessionId,
-  DCC_PRODUCT_STATUS_ENABLE,
-  getDccProductOptions,
   getControlledFileCurrentVersion,
   getControlledFileUploadRevisionCandidates,
   getControlledFileUploadDirectoryTree,
   getControlledFileUploadNameOptions,
   submitControlledFile,
   uploadControlledFilePreview,
-  type DccControlledFileProductOptionVO,
   type ControlledFileCurrentVersionRespVO,
   type ControlledFileVO,
   type ControlledFileUploadDirectoryNodeVO,
@@ -408,7 +392,7 @@ import {
   validateDrawingPdfUpload,
   validateControlledFileSelection,
   validateSingleUploadFileSelection,
-  validateProductMasterSelection,
+  validateDccProjectProductCode,
   type UploadFormDraft
 } from './submitter'
 
@@ -435,7 +419,6 @@ const projectCodeOptions = ref<DccProjectCodeRespVO[]>([])
 const fileTypeTaxonomies = ref<DccFileTypeTaxonomyVO[]>([])
 const selectedRevisionCandidate = ref<ControlledFileVO>()
 const uploadNameOptions = ref<ControlledFileUploadNameOptionVO[]>([])
-const productOptions = ref<DccControlledFileProductOptionVO[]>([])
 const uploadDirectoryTree = ref<ControlledFileUploadDirectoryTreeVO>()
 const currentVersionInfo = ref<ControlledFileCurrentVersionRespVO>()
 const fileList = ref<UploadUserFile[]>([])
@@ -448,7 +431,6 @@ const uploadPreviewLoading = ref(false)
 const uploadDrawingPdfLoading = ref(false)
 const uploadNameOptionsLoading = ref(false)
 const currentVersionLookupLoading = ref(false)
-const productOptionsLoading = ref(false)
 const projectCodeOptionsLoading = ref(false)
 const fileTypeTaxonomiesLoading = ref(false)
 const selectedHistoryVersion = ref('')
@@ -459,6 +441,22 @@ const submitFieldErrors = reactive({
   versionNo: ''
 })
 
+const DEFAULT_MANUAL_VERSION_NO = 'V1.0'
+const VERSION_NO_PATTERN = /^V?(\d+)(?:\.\d+)?$/i
+const resolveTodayDate = () => formatToDate(new Date())
+const resolveNextMajorVersionNo = (currentVersionNo: string | null | undefined) => {
+  const matched = (currentVersionNo || '').trim().match(VERSION_NO_PATTERN)
+  if (!matched) {
+    return ''
+  }
+  const majorVersion = Number(matched[1])
+  if (!Number.isFinite(majorVersion)) {
+    return ''
+  }
+  const nextMajorVersion = majorVersion + 1
+  return `V${nextMajorVersion}.0`
+}
+
 const resolveProcessTypeByRoute = () =>
   route.path.includes('/external') ? 'EXTERNAL_REVIEW' : 'CONTROLLED_FILE'
 const isExternalReview = computed(() => resolveProcessTypeByRoute() === 'EXTERNAL_REVIEW')
@@ -467,9 +465,15 @@ const submitButtonText = computed(() => (isExternalReview.value ? '提交评审'
 const selectedCategory = computed(() =>
   categories.value.find((category) => category.id === formData.categoryId)
 )
+const selectedProjectCode = computed(() =>
+  projectCodeOptions.value.find((project) => project.id === formData.dccProjectCodeId)
+)
 const categoryDirectoryBindingMessage = '当前文件类别未绑定提交目录，请先在 DCC 文件类别维护目录绑定'
+const categoryUploadPermissionMessage = '当前用户没有该文件类别的上传权限，请选择有上传权限的文件类别。'
 const availableCategories = computed(() =>
-  categories.value.filter((category) => category.active && Boolean(category.directoryId))
+  categories.value.filter(
+    (category) => category.active && Boolean(category.directoryId) && category.canUpload !== false
+  )
 )
 const selectedCategoryDirectoryBound = computed(() => Boolean(selectedCategory.value?.directoryId))
 const isProductRequiredForSelectedCategory = computed(() =>
@@ -495,8 +499,8 @@ const formData = reactive<UploadFormDraft>({
   selectedSignoffUserIds: [],
   processType: resolveProcessTypeByRoute(),
   changeType: 'NEW',
-  versionNo: '',
-  effectiveDate: '',
+  versionNo: DEFAULT_MANUAL_VERSION_NO,
+  effectiveDate: resolveTodayDate(),
   remark: ''
 })
 
@@ -552,6 +556,13 @@ const isFileTypeTaxonomyDepthValid = computed(
   () => (selectedFileTypeTaxonomyPath.value?.names.length || 0) >= 3
 )
 
+const canLoadUploadNameOptions = computed(
+  () =>
+    Boolean(formData.dccProjectCodeId) &&
+    Boolean(formData.fileTypeTaxonomyId) &&
+    isFileTypeTaxonomyDepthValid.value
+)
+
 const formatProjectCodeOptionLabel = (project: DccProjectCodeRespVO) =>
   [project.projectName, project.projectCode, project.docControlNo].filter(Boolean).join(' · ')
 
@@ -588,6 +599,10 @@ const formRules = reactive<FormRules>({
         const category = categories.value.find((item) => item.id === Number(value))
         if (!category?.directoryId) {
           callback(new Error(categoryDirectoryBindingMessage))
+          return
+        }
+        if (category.canUpload === false) {
+          callback(new Error(categoryUploadPermissionMessage))
           return
         }
         callback()
@@ -640,14 +655,21 @@ const clearCurrentVersionInfo = () => {
   currentVersionInfo.value = undefined
 }
 
+const ensureEffectiveDateDefault = () => {
+  if (!formData.effectiveDate) {
+    formData.effectiveDate = resolveTodayDate()
+  }
+}
+
 const resetUploadNameLinkage = (clearVersionNo: boolean) => {
   selectedHistoryFileName.value = ''
   selectedHistoryVersion.value = ''
   formData.changeType = 'NEW'
   clearRevisionTargetSelection()
   if (clearVersionNo) {
-    formData.versionNo = ''
+    formData.versionNo = DEFAULT_MANUAL_VERSION_NO
   }
+  ensureEffectiveDateDefault()
 }
 
 const resetUploadNameContext = (clearFileName: boolean) => {
@@ -761,8 +783,6 @@ const applyResolvedRevisionTarget = (row: ControlledFileVO) => {
   if (row.fileNumber) {
     formData.fileNumber = row.fileNumber
   }
-  formData.productMasterId = row.productMasterId ?? null
-  formData.productCode = row.productCode || ''
 }
 
 const applyUploadNameOptionRevisionTarget = (item: UploadNameSuggestionItem) => {
@@ -819,44 +839,9 @@ const resolveHistoryRevisionTarget = async (fileName: string) => {
   }
 }
 
-const handleProjectCodeChange = async () => {
-  resetUploadNameLinkage(Boolean(selectedHistoryFileName.value || selectedHistoryVersion.value))
-}
-
-const handleFileTypeTaxonomyChange = async () => {
-  resetUploadNameLinkage(Boolean(selectedHistoryFileName.value || selectedHistoryVersion.value))
-  await formRef.value?.validateField?.('fileTypeTaxonomyId').catch(() => undefined)
-}
-
-const formatProductOptionLabel = (product: DccControlledFileProductOptionVO) =>
-  `${product.dccProductCode} · ${product.nameCn} · ${product.productCode}`
-
-const loadProductOptions = async (keyword = '') => {
-  productOptionsLoading.value = true
-  try {
-    productOptions.value = await getDccProductOptions({
-      status: DCC_PRODUCT_STATUS_ENABLE,
-      requireDccProductCode: true,
-      keyword: keyword.trim() || undefined
-    })
-  } catch (error) {
-    productOptions.value = []
-    message.error(resolveUploadErrorMessage(error, '产品主数据加载失败，请查看错误提示后重试'))
-  } finally {
-    productOptionsLoading.value = false
-  }
-}
-
-const handleProductMasterChange = (productId: number | undefined) => {
-  const product = productOptions.value.find((item) => item.id === productId)
-  formData.productCode = product?.dccProductCode || ''
-}
-
-const handleProductOptionsVisibleChange = async (visible: boolean) => {
-  if (!visible || productOptions.value.length || productOptionsLoading.value) {
-    return
-  }
-  await loadProductOptions()
+const applyDccProjectCodeProductNumber = () => {
+  formData.productMasterId = null
+  formData.productCode = selectedProjectCode.value?.projectCode?.trim() || ''
 }
 
 const loadBaseData = async () => {
@@ -868,16 +853,39 @@ const loadBaseData = async () => {
   categories.value = categoryList.filter((item) => item.active)
 }
 
-const loadUploadNameOptions = async (categoryId: number) => {
+const loadUploadNameOptions = async (dccProjectCodeId: number, fileTypeTaxonomyId: number) => {
   uploadNameOptionsLoading.value = true
   try {
-    uploadNameOptions.value = await getControlledFileUploadNameOptions(categoryId)
+    uploadNameOptions.value = await getControlledFileUploadNameOptions({
+      dccProjectCodeId,
+      fileTypeTaxonomyId
+    })
   } catch (error) {
     uploadNameOptions.value = []
     message.error(resolveUploadErrorMessage(error, '历史文件名称加载失败，请查看错误提示后重试'))
   } finally {
     uploadNameOptionsLoading.value = false
   }
+}
+
+const refreshUploadNameOptionsForProjectTaxonomy = async () => {
+  uploadNameOptions.value = []
+  if (!canLoadUploadNameOptions.value || !formData.dccProjectCodeId || !formData.fileTypeTaxonomyId) {
+    return
+  }
+  await loadUploadNameOptions(formData.dccProjectCodeId, formData.fileTypeTaxonomyId)
+}
+
+const handleProjectCodeChange = async () => {
+  applyDccProjectCodeProductNumber()
+  resetUploadNameContext(true)
+  await refreshUploadNameOptionsForProjectTaxonomy()
+}
+
+const handleFileTypeTaxonomyChange = async () => {
+  resetUploadNameContext(true)
+  await formRef.value?.validateField?.('fileTypeTaxonomyId').catch(() => undefined)
+  await refreshUploadNameOptionsForProjectTaxonomy()
 }
 
 const loadUploadDirectoryTree = async (categoryId: number) => {
@@ -940,12 +948,7 @@ const loadCurrentVersionByFileNumber = async () => {
       if (!formData.fileName && info.fileName) {
         formData.fileName = info.fileName
       }
-      if (info.productMasterId) {
-        formData.productMasterId = info.productMasterId
-      }
-      if (info.productCode) {
-        formData.productCode = info.productCode
-      }
+      applyDccProjectCodeProductNumber()
     }
   } catch (error) {
     if (requestSeq === currentVersionLookupSeq) {
@@ -963,7 +966,7 @@ const queryUploadNameSuggestions = (
   queryString: string,
   callback: (items: UploadNameSuggestionItem[]) => void
 ) => {
-  if (!formData.categoryId) {
+  if (!canLoadUploadNameOptions.value) {
     callback([])
     return
   }
@@ -984,20 +987,16 @@ const handleCategoryChange = async () => {
     return
   }
   clearSubmitFieldErrors(submitFieldErrors)
-  clearCurrentVersionInfo()
-  resetUploadNameContext(true)
   resetUploadDirectoryContext()
   resetSelectedPreview()
   resetDrawingPdfUpload()
   if (formData.categoryId) {
+    applyDccProjectCodeProductNumber()
     if (!selectedCategoryDirectoryBound.value) {
       message.warning(categoryDirectoryBindingMessage)
       return
     }
-    await Promise.all([
-      loadUploadNameOptions(formData.categoryId),
-      loadUploadDirectoryTree(formData.categoryId)
-    ])
+    await loadUploadDirectoryTree(formData.categoryId)
   }
 }
 
@@ -1006,7 +1005,8 @@ const handleHistoryFileNameSelect = async (item: UploadNameSuggestionItem) => {
   selectedHistoryVersion.value = item.currentVersionNo?.trim() || ''
   formData.fileName = item.value
   formData.changeType = 'REVISION'
-  formData.versionNo = selectedHistoryVersion.value
+  formData.versionNo = resolveNextMajorVersionNo(selectedHistoryVersion.value)
+  ensureEffectiveDateDefault()
   clearSubmitFieldErrors(submitFieldErrors)
   if (!applyUploadNameOptionRevisionTarget(item)) {
     await resolveHistoryRevisionTarget(item.value)
@@ -1174,13 +1174,12 @@ const submitForm = async () => {
     message.warning('请先选择并完成文件预览上传')
     return
   }
-  const productMasterValidation = validateProductMasterSelection(
-    formData.productMasterId,
+  const productCodeValidation = validateDccProjectProductCode(
     formData.productCode,
     isProductRequiredForSelectedCategory.value
   )
-  if (!productMasterValidation.valid) {
-    message.warning(productMasterValidation.message || '产品主数据校验失败')
+  if (!productCodeValidation.valid) {
+    message.warning(productCodeValidation.message || '产品编号校验失败')
     return
   }
   const drawingPdfValidation = validateDrawingPdfUpload(previewUpload.value, drawingPdfUpload.value)
@@ -1191,7 +1190,11 @@ const submitForm = async () => {
 
   submitLoading.value = true
   try {
-    await uploadSubmitterService.submit(formData, previewUpload.value, drawingPdfUpload.value)
+    await uploadSubmitterService.submit(
+      { ...formData, productMasterId: null },
+      previewUpload.value,
+      drawingPdfUpload.value
+    )
     uploadSubmitted.value = true
     message.success(isExternalReview.value ? '外来文件评审已提交审批' : '受控文件已提交审批')
     await router.push({ name: 'DccControlledFileBrowser' })

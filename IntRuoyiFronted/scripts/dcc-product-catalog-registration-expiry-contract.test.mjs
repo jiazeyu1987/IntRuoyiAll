@@ -23,8 +23,13 @@ test('DCC product catalog registration expiry compare is wired through current-p
   assert.doesNotMatch(panelSource, /handleRefresh/)
   assert.match(panelSource, /handleCompareRegistrationExpiry/)
   assert.match(panelSource, /compareRegistrationExpiry/)
-  assert.match(panelSource, /list\.value\.map\(\(row\) => \(\{\s*dataSource:\s*row\.dataSource,\s*originalRowNo:\s*row\.originalRowNo/s)
-  assert.doesNotMatch(panelSource, /registrationInfoLink:\s*row\.registrationInfoLink/)
+  const compareHandlerMatch = panelSource.match(
+    /const handleCompareRegistrationExpiry = async \(\) => \{[\s\S]*?\n\}/
+  )
+  assert.ok(compareHandlerMatch, 'missing registration expiry compare handler')
+  const compareHandlerSource = compareHandlerMatch[0]
+  assert.match(compareHandlerSource, /list\.value\.map\(\(row\) => \(\{\s*dataSource:\s*row\.dataSource,\s*originalRowNo:\s*row\.originalRowNo/s)
+  assert.doesNotMatch(compareHandlerSource, /registrationInfoLink:\s*row\.registrationInfoLink/)
   assert.match(panelSource, /expiryCompareResultMap/)
   assert.match(panelSource, /getExpiryCompareClass/)
   assert.match(panelSource, /expiry-compare-match/)

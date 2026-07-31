@@ -158,8 +158,8 @@
         <el-table-column label="时间状态" min-width="220">
           <template #default="{ row }">
             <div>到期时间：{{ resolveTaskTimeSummary(row) }}</div>
-            <div class="edhr-work-task-page__muted">创建：{{ row.createTime || '--' }}</div>
-            <div class="edhr-work-task-page__muted">完成：{{ row.completedAt || '--' }}</div>
+            <div class="edhr-work-task-page__muted">创建：{{ formatEdhrDateTime(row.createTime) }}</div>
+            <div class="edhr-work-task-page__muted">完成：{{ formatEdhrDateTime(row.completedAt) }}</div>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
@@ -286,6 +286,7 @@ import { ProRouteApi, type ProRouteVO } from '@/api/mes/pro/route'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
 import { navigateToEdhrWorkTask } from '@/utils/edhrWorkTaskNavigation'
 import type { FormInstance, FormRules } from 'element-plus'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProEdhrWorkTaskBoardPage' })
 
@@ -469,8 +470,8 @@ const resolveTaskPrompt = (row: EdhrWorkTaskRespVO) => {
 }
 
 const resolveTaskTimeSummary = (row: EdhrWorkTaskRespVO) => {
-  if (row.overdueAt) return `逾期时间：${row.overdueAt}`
-  if (row.dueTime) return `到期时间：${row.dueTime}`
+  if (row.overdueAt) return `逾期时间：${formatEdhrDateTime(row.overdueAt)}`
+  if (row.dueTime) return `到期时间：${formatEdhrDateTime(row.dueTime)}`
   return row.status === EDHR_WORK_TASK_STATUS_DONE ? '已完成' : '无明确时限'
 }
 

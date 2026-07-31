@@ -19,16 +19,16 @@ assert.ok(
   '批记录表单页导入按钮不得直接触发隐藏文件选择器。'
 )
 
-assert.match(
+assert.doesNotMatch(
   pageSource,
-  /<el-form-item label="表单类型" required>[\s\S]*?v-model="wordImportDialog\.selectedFormSlotType"[\s\S]*?formSlotTypeOptions/,
-  '导入弹窗必须先提供必选表单类型。'
+  /<el-form-item label="表单类型"/,
+  '导入弹窗不得显示表单类型整行。'
 )
 
 assert.match(
   pageSource,
-  /const formSlotTypeOptions[\s\S]*?MAIN[\s\S]*?LOSS_REPORT[\s\S]*?PROCESS_INSPECTION[\s\S]*?PARAMETER_RECORD/,
-  '表单类型必须包含批记录、损耗单、过程检验单和参数记录表。'
+  /const DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE:\s*BatchRecordFormSlotType\s*=\s*'MAIN'[\s\S]*?selectedFormSlotType:\s*DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE/,
+  '隐藏表单类型后导入状态必须固定初始化为 MAIN。'
 )
 
 assert.match(
@@ -58,7 +58,7 @@ assert.match(
 assert.match(
   pageSource,
   /if \(!wordImportDialog\.selectedFormSlotType\)[\s\S]*?请选择表单类型[\s\S]*?if \(!selectedProjectName\)[\s\S]*?请选择产品名称[\s\S]*?if \(!file\)[\s\S]*?请选择 Word 文件/,
-  '确认导入前必须校验表单类型、产品名称和 Word 文件。'
+  '确认导入前必须保留内部类型、产品名称和 Word 文件的完整校验。'
 )
 
 assert.match(

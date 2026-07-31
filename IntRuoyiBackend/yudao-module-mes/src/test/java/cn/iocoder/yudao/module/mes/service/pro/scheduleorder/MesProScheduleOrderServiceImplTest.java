@@ -1151,7 +1151,7 @@ class MesProScheduleOrderServiceImplTest {
     }
 
     @Test
-    void getProcessWipStatistics_shouldUseManualWorkerCapacityWhenWorkerQuantityMissing() {
+    void getProcessWipStatistics_shouldUseManualOverrideCapacityWhenWorkerQuantityMissing() {
         MesProScheduleOrderDO order = MesProScheduleOrderDO.builder()
                 .id(900467L)
                 .routeId(500467L)
@@ -1202,7 +1202,8 @@ class MesProScheduleOrderServiceImplTest {
                         .id(750467L)
                         .routeVersionId(600467L)
                         .routeProcessId(922467L)
-                        .capacityMode(MesProScheduleCapacityModeEnum.RESOURCE_CALCULATED.getMode())
+                        .capacityMode(MesProScheduleCapacityModeEnum.MANUAL_OVERRIDE.getMode())
+                        .hourlyCapacity(new BigDecimal("2.000000"))
                         .nightShiftEnabled(Boolean.FALSE)
                         .build());
         when(routeProcessService.getProcessIdentityMap(List.of(700467L))).thenReturn(Map.of(700467L, 700467L));
@@ -1219,7 +1220,7 @@ class MesProScheduleOrderServiceImplTest {
         assertEquals(1, result.size());
         MesProScheduleOrderProcessWipRespVO row = result.get(0);
         assertEquals(922467L, row.getRouteProcessId());
-        assertEquals("WORKER", row.getCapacitySource());
+        assertEquals("MANUAL_OVERRIDE", row.getCapacitySource());
         assertEquals("NORMAL", row.getResourceStatus());
         assertEquals("正常", row.getResourceStatusReason());
         assertEquals(new BigDecimal("16.00000000").setScale(6), row.getShiftCapacityTotal().setScale(6));

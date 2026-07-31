@@ -1,6 +1,8 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeApproveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchVoidApprovalResolutionReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchVoidApprovalResolutionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangePageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeRequestReqVO;
@@ -37,6 +39,8 @@ class MesProEdhrRecordChangeContractTest {
                 "/void-execution/approve", "mes:pro-edhr-change:approve");
         assertPost("requestVoidBatchExecution", new Class[]{EdhrRecordChangeRequestReqVO.class},
                 "/void-batch-execution/request", "mes:pro-edhr-change:void");
+        assertPost("resolveVoidBatchExecutionApproval", new Class[]{EdhrBatchVoidApprovalResolutionReqVO.class},
+                "/void-batch-execution/approval-resolution", "mes:pro-edhr-change:void");
         assertPost("withdrawVoidBatchExecution", new Class[]{EdhrRecordChangeApproveReqVO.class},
                 "/void-batch-execution/withdraw", "mes:pro-edhr-change:void");
         assertPost("requestReopenBatch", new Class[]{EdhrRecordChangeRequestReqVO.class},
@@ -72,6 +76,8 @@ class MesProEdhrRecordChangeContractTest {
         MesProEdhrRecordChangeService.class.getDeclaredMethod("approveVoidExecution", EdhrRecordChangeApproveReqVO.class);
         MesProEdhrRecordChangeService.class.getDeclaredMethod("requestVoidBatchExecution",
                 EdhrRecordChangeRequestReqVO.class);
+        MesProEdhrRecordChangeService.class.getDeclaredMethod("resolveVoidBatchExecutionApproval",
+                EdhrBatchVoidApprovalResolutionReqVO.class);
         MesProEdhrRecordChangeService.class.getDeclaredMethod("withdrawVoidBatchExecution",
                 EdhrRecordChangeApproveReqVO.class);
         MesProEdhrRecordChangeService.class.getDeclaredMethod("handleVoidBatchExecutionApprovalCallback",
@@ -124,6 +130,12 @@ class MesProEdhrRecordChangeContractTest {
         requireGetter(EdhrBatchExecutionRespVO.class, "getPendingVoidChangeCode");
         requireGetter(EdhrBatchExecutionRespVO.class, "getPendingVoidProcessInstanceId");
         requireGetter(EdhrBatchExecutionRespVO.class, "getCanWithdrawVoidRequest");
+        requireGetter(EdhrBatchVoidApprovalResolutionReqVO.class, "getBatchExecutionId");
+        requireGetter(EdhrBatchVoidApprovalResolutionRespVO.class, "getPolicyId");
+        requireGetter(EdhrBatchVoidApprovalResolutionRespVO.class, "getPolicyMode");
+        requireGetter(EdhrBatchVoidApprovalResolutionRespVO.class, "getRequiresBpm");
+        requireGetter(EdhrBatchVoidApprovalResolutionRespVO.class, "getBpmProcessKey");
+        requireGetter(EdhrBatchVoidApprovalResolutionRespVO.class, "getEffectExecutorCode");
     }
 
     private static void assertPost(String methodName, Class<?>[] parameterTypes, String path, String permission)

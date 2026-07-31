@@ -237,7 +237,7 @@
                 {{ latestArchive.fileName || '--' }}
               </el-descriptions-item>
               <el-descriptions-item label="封存时间">
-                {{ latestArchive.sealedAt || '--' }}
+                {{ formatEdhrDateTime(latestArchive.sealedAt) }}
               </el-descriptions-item>
             </el-descriptions>
             <el-empty v-else description="未归档" />
@@ -349,8 +349,8 @@ import {
   type EdhrTrackingEventVO
 } from '@/api/mes/pro/edhr/tracking'
 import { hasPermission } from '@/directives/permission/hasPermi'
-import { formatDate } from '@/utils/formatTime'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 import ExecutionRenderer from './ExecutionRenderer.vue'
 import { buildSignatureTimePayload, createSignatureTimeForm, type EdhrSignatureTimeForm } from './signatureTime'
 
@@ -598,17 +598,7 @@ const formatApprovalSnapshotStatus = (status?: EdhrApprovalDetailVO['approvalSna
   return label
 }
 
-const formatApprovalDetailTime = (value?: string | number | Date) => {
-  if (!value) return ''
-  const parsedDate =
-    typeof value === 'number' || /^\d+$/.test(String(value))
-      ? new Date(Number(value))
-      : new Date(value)
-  if (Number.isNaN(parsedDate.getTime())) {
-    throw new Error(`审批详情时间不可解析：${String(value)}`)
-  }
-  return formatDate(parsedDate, 'YYYY年M月D日 HH:mm:ss')
-}
+const formatApprovalDetailTime = (value?: string | number | Date) => formatEdhrDateTime(value, '')
 
 const resolveRejectSuccessMessage = (result: Awaited<ReturnType<typeof rejectEdhrExecution>>) => {
   if (!result.revisionExecutionId || !result.reworkTaskId) {

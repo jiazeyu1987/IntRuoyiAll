@@ -1,0 +1,46 @@
+# Frontend Feature Evidence
+
+## Feature Goal
+
+辅助表格映射预览中，已映射字段名单行省略显示，删除格内字段类型圆标和独立取消映射按钮，改为双击已映射格取消映射。
+
+## Non-goals
+
+- 不改变辅助表格行列配置、保存 payload、rowKey 协议或后端接口。
+- 不改变原表格字段选择和映射建立流程。
+
+## Requirements
+
+- R1: 已映射辅助格字段名 `white-space: nowrap`，超出显示 `...`。
+- R2: 预览格内不显示字段类型圆标。
+- R3: 预览格下方不显示独立“取消映射”按钮。
+- R4: 双击已映射辅助格调用既有 `removeAssistGridCellMapping(gridCell.key)`。
+
+## Acceptance
+
+- A1: 批记录填写配置和 FormCenter 模板填写配置两个入口都满足 R1-R4。
+- A2: 目标静态合同和 `pnpm ts:check` 全部通过。
+- A3: 不改变保存 payload、rowKey 协议、后端接口或原表单元格选择流程。
+
+## UI Entry Points
+
+- 批记录填写规则确认弹窗辅助映射模式。
+- FormCenter 模板填写配置弹窗辅助映射模式。
+
+## BDD Scenarios
+
+- BDD: 映射格紧凑显示与双击取消 -> Given 用户在辅助映射模式中看到已映射辅助格 / When 字段名称超出格宽且用户需要取消映射 / Then 字段名称保持单行并用省略号截断，格内不显示字段类型圆标和独立取消映射按钮，双击已映射辅助格会调用取消映射逻辑释放原表单元格。
+
+## Verification
+
+- RED: `node tests/e2e/assist-grid-per-user-mapping-static.spec.js` -> FAIL，缺少双击取消映射入口。
+- RED: `node tests/e2e/form-template-fill-config-assist-mode-static.spec.js` -> FAIL，缺少双击取消映射入口。
+- GREEN: `node tests/e2e/assist-grid-per-user-mapping-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/form-template-fill-config-assist-mode-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/edhr-visual-fill-config-static.spec.js` -> PASS。
+- Responsive/accessibility: 字段名和来源摘要均设置 `display: block`、`width: 100%`、`text-overflow: ellipsis`、`white-space: nowrap`；双击入口复用同一可点击辅助格按钮。
+- Type check: `pnpm ts:check` -> PASS。
+
+## Blockers
+
+- None currently.

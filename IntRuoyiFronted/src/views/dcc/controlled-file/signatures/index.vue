@@ -85,7 +85,7 @@
                 <div class="signature-record-summary__meta">
                   目的：{{ formatDccSignatureSnapshotValue(row.signaturePurpose || row.meaningCode) }}
                 </div>
-                <div class="signature-record-summary__meta">时间：{{ row.signedAt || '-' }}</div>
+                <div class="signature-record-summary__meta">时间：{{ formatDateTimeValue(row.signedAt) }}</div>
               </div>
             </template>
           </el-table-column>
@@ -262,7 +262,7 @@
           </el-table-column>
           <el-table-column v-if="isAuthorizationColumnVisible('latestAuditAt')" label="最新审计时间" prop="latestAuditAt" align="center" :width="getAuthorizationColumnWidthString('latestAuditAt', 180)" v-bind="sortColumnAttrs('latestAuditAt')">
             <template #default="{ row }">
-              {{ row.latestAuditAt || '-' }}
+              {{ formatDateTimeValue(row.latestAuditAt) }}
             </template>
           </el-table-column>
           <el-table-column v-if="isAuthorizationColumnVisible('operation')" label="操作" prop="operation" align="center" fixed="right" :width="getAuthorizationColumnWidthString('operation', 150)">
@@ -411,7 +411,7 @@
             label="操作时间"
             align="center"
             :width="getAuthorizationAuditColumnWidthString('operatedAt', 180)"
-            prop="operatedAt"
+            prop="operatedAt" :formatter="dateTimeValueFormatter"
             v-bind="sortColumnAttrs('operatedAt')"
           />
           <el-table-column
@@ -504,6 +504,7 @@ import {
 } from '../shared/signature-evidence'
 import { formatDccSimpleUserLabel } from '../shared/utils'
 import { openControlledFileViewer } from '../shared/viewer-navigation'
+import { dateTimeValueFormatter, formatDateTimeValue } from '@/utils/formatTime'
 
 defineOptions({ name: 'DccControlledFileSignatures' })
 

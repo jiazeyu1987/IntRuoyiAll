@@ -1,58 +1,555 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const assert = require('node:assert/strict')
+const { spawnSync } = require('node:child_process')
 
-const TASK_ID = '20260608-edhr-batch-execution-full-flow'
+const TASK_ID = envValue('EDHR_BATCH_E2E_TASK_ID') || 'fix-batch-record-fill-rule'
 const RESULT_DIR = path.resolve(process.cwd(), 'test-results', 'edhr-batch-execution')
-const EVIDENCE_FILE = path.resolve(process.cwd(), 'doc', 'tasks', TASK_ID, 'real-e2e-evidence.md')
-const REQUIRED_BASE_URL = 'http://localhost:8081'
+const EVIDENCE_FILE = envValue('EDHR_BATCH_E2E_EVIDENCE_FILE')
+  ? path.resolve(envValue('EDHR_BATCH_E2E_EVIDENCE_FILE'))
+  : path.resolve(process.cwd(), '..', 'doc', 'tasks', TASK_ID, 'real-e2e-evidence.md')
+const DEFAULT_BASE_URL = 'http://localhost:8081'
+const DEFAULT_BACKEND_URL = 'http://127.0.0.1:48081'
+const INT_MAIN_FRONTEND_PORT_MIN = 8081
+const INT_MAIN_FRONTEND_PORT_MAX = 8100
+const FRONTEND_BACKEND_PORT_OFFSET = 40000
 const BATCH_EXECUTION_ROUTE = '/mes/pro/feedback/edhr-batch-execution'
-const FORBIDDEN_TENANTS = new Set(['芋道源码', 'yudao', 'prod', 'production'])
-
-const REQUIRED_ENV = [
-  ['EDHR_BATCH_E2E_PASSWORD', '测试租户账号密码'],
-  ['EDHR_BATCH_E2E_WORK_ORDER_ID', '真实生产工单ID'],
-  ['EDHR_BATCH_E2E_BATCH_CODE', '真实批次号'],
-  ['EDHR_BATCH_E2E_FIRST_FIELD_VALUE', '第一道工序表单真实填写值'],
-  ['EDHR_BATCH_E2E_CLOSE_PASSWORD', '关闭批次电子签名密码']
-]
+const OPEN_OR_CREATE_ENDPOINT_COVERAGE_TOKEN = '/mes/pro/edhr-batch-execution/open-or-create'
+const EXECUTION_ROUTES = new Set([
+  '/mes/pro/feedback/edhr-execution/detail',
+  '/mes/pro/feedback/edhr-execution/form'
+])
+const MYSQL_CONTAINER_NAME = 'int-ruoyi-mysql'
+const DATABASE_NAME = 'ruoyi-vue-pro'
+const AUTHORIZED_TENANT_ID = envValue('EDHR_BATCH_E2E_TENANT_ID') || '122'
+const AUTHORIZED_TENANT_LABEL = envValue('EDHR_BATCH_E2E_TENANT_LABEL') || '测试租户'
+const AUTHORIZED_USERNAME = envValue('EDHR_BATCH_E2E_USERNAME') || 'admin'
+const AUTHORIZED_PASSWORD = envValue('EDHR_BATCH_E2E_PASSWORD')
+const FIXTURE_BATCH_PREFIX = envValue('EDHR_BATCH_E2E_FIXTURE_BATCH_PREFIX')
+const REQUIRE_NEW_EXECUTION = envValue('EDHR_BATCH_E2E_REQUIRE_NEW_EXECUTION') === '1'
+const CELL_LINK_SOURCE_TYPE = 'PRODUCTION_WORK_ORDER'
+const CELL_LINK_SOURCE_FIELD_CODE = 'batchCode'
+const AUTO_PERSIST_ACCEPTED_STATUSES = new Set(['APPLIED', 'NO_CHANGE_ALREADY_APPLIED'])
 
 function envValue(name) {
   return (process.env[name] || '').trim()
+}
+
+function parseLocalRuntimeUrl(value, label) {
+  let url
+  try {
+    url = new URL(value)
+  } catch {
+    throw new Error(`${label} 不是有效 HTTP URL：${value}`)
+  }
+  assert.equal(url.protocol, 'http:', `${label} 只允许本机 HTTP URL`)
+  assert.ok(['localhost', '127.0.0.1'].includes(url.hostname), `${label} 只允许 localhost 或 127.0.0.1`)
+  assert.ok(!url.username && !url.password, `${label} 不得包含认证信息`)
+  assert.ok(!url.search && !url.hash, `${label} 不得包含查询参数或片段`)
+  assert.ok(url.pathname === '/' || url.pathname === '', `${label} 不得包含业务路径`)
+  const port = Number(url.port)
+  assert.ok(Number.isInteger(port) && port > 0, `${label} 必须显式包含端口`)
+  return {
+    url: `http://${url.hostname}:${port}`,
+    port
+  }
+}
+
+function validateLocalRuntimePair(baseUrl, backendUrl) {
+  const frontend = parseLocalRuntimeUrl(baseUrl, '前端入口')
+  const backend = parseLocalRuntimeUrl(backendUrl, '后端入口')
+  assert.ok(
+    frontend.port >= INT_MAIN_FRONTEND_PORT_MIN && frontend.port <= INT_MAIN_FRONTEND_PORT_MAX,
+    `前端端口必须属于 int_main 基准或附加 worktree 范围 ${INT_MAIN_FRONTEND_PORT_MIN}-${INT_MAIN_FRONTEND_PORT_MAX}`
+  )
+  assert.equal(
+    backend.port,
+    frontend.port + FRONTEND_BACKEND_PORT_OFFSET,
+    `前后端端口必须属于同一 int_main runtime slot：${frontend.port}/${frontend.port + FRONTEND_BACKEND_PORT_OFFSET}`
+  )
+  return {
+    baseUrl: frontend.url,
+    backendUrl: backend.url
+  }
 }
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true })
 }
 
+function parseMysqlRows(stdout) {
+  return stdout
+    .trim()
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => line.split('\t').map((value) => (value === 'NULL' ? '' : value)))
+}
+
+function queryLocalDatabase(sql, label) {
+  const result = spawnSync(
+    'docker',
+    [
+      'exec',
+      '-i',
+      MYSQL_CONTAINER_NAME,
+      'sh',
+      '-lc',
+      `MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --default-character-set=utf8mb4 -uroot -D${DATABASE_NAME} -N -B`
+    ],
+    {
+      input: sql,
+      encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024
+    }
+  )
+  if (result.error) {
+    throw new Error(`${label} 数据库读取失败：${result.error.message}`)
+  }
+  if (result.status !== 0) {
+    const stderr = (result.stderr || '').trim()
+    throw new Error(`${label} 数据库读取失败：${stderr || `docker/mysql 退出码 ${result.status}`}`)
+  }
+  return parseMysqlRows(result.stdout || '')
+}
+
+function firstDatabaseRow(sql, label) {
+  const rows = queryLocalDatabase(sql, label)
+  if (rows.length === 0) {
+    throw new Error(`${label} 未找到符合条件的本地数据库记录`)
+  }
+  return rows[0]
+}
+
+function executeDatabaseMutation(sql, label) {
+  const rows = queryLocalDatabase(sql, label)
+  const affectedRows = Number(rows.at(-1)?.[0])
+  if (!Number.isInteger(affectedRows)) {
+    throw new Error(`${label} 未返回有效 ROW_COUNT`)
+  }
+  return affectedRows
+}
+
+function sqlString(value) {
+  return `'${String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "''")}'`
+}
+
+function parseTargetCellKey(cellKey) {
+  const match = /^(\d+):(\d+)$/.exec(String(cellKey || ''))
+  assert.ok(match, `单元格链接目标坐标无效：${cellKey}`)
+  return {
+    rowIndex: Number(match[1]),
+    columnIndex: Number(match[2])
+  }
+}
+
+function normalizeComparableValue(value) {
+  return String(value ?? '').trim()
+}
+
+function resolveDatabaseFixture() {
+  const [tenantId, tenantName, tenantStatus, tenantDeleted] = firstDatabaseRow(
+    `SELECT id, name, status, deleted + 0 AS deleted FROM system_tenant WHERE id = ${AUTHORIZED_TENANT_ID} AND deleted = b'0' LIMIT 1;`,
+    '授权租户'
+  )
+  assert.equal(tenantId, AUTHORIZED_TENANT_ID, `数据库夹具必须使用用户授权的 tenant ${AUTHORIZED_TENANT_ID}`)
+  assert.equal(tenantStatus, '0', '用户授权租户必须处于启用状态')
+  assert.ok(tenantDeleted === '\0' || tenantDeleted === '0', '用户授权租户不得被删除')
+
+  const [userId, username, nickname, userStatus, userTenantId, userDeleted] = firstDatabaseRow(
+    `SELECT id, username, nickname, status, tenant_id, deleted + 0 AS deleted FROM system_users WHERE username = '${AUTHORIZED_USERNAME}' AND tenant_id = ${AUTHORIZED_TENANT_ID} AND deleted = b'0' LIMIT 1;`,
+    '授权账号'
+  )
+  assert.equal(username, AUTHORIZED_USERNAME, `数据库夹具必须使用用户授权的 ${AUTHORIZED_USERNAME} 账号`)
+  assert.equal(userTenantId, AUTHORIZED_TENANT_ID, '授权账号必须属于用户授权租户')
+  assert.equal(userStatus, '0', '授权账号必须处于启用状态')
+  assert.ok(userDeleted === '\0' || userDeleted === '0', '授权账号不得被删除')
+
+  const batch = firstDatabaseRow(
+    `SELECT be.id,
+            be.batch_execution_code,
+            be.work_order_id,
+            be.work_order_code,
+            be.batch_code,
+            be.route_id,
+            COALESCE(be.route_code, ''),
+            COALESCE(be.route_name, ''),
+            be.status,
+            be.blocked_count,
+            t.id,
+            COALESCE(t.process_name, ''),
+            COALESCE(t.batch_record_report_name, t.form_template_name_snapshot, ''),
+            t.execution_id,
+            t.status,
+            wt.id,
+            wt.task_type,
+            wt.assignee_user_id,
+            COALESCE(assignee.username, ''),
+            r.id,
+            r.rule_version,
+            r.target_cell_key,
+            r.target_row_index,
+            r.target_column_index,
+            COALESCE(r.target_label, ''),
+            COALESCE(r.source_field_code, ''),
+            COALESCE(wo.batch_code, be.batch_code, '')
+       FROM mes_pro_edhr_batch_execution be
+       JOIN mes_pro_work_order wo
+         ON wo.id = be.work_order_id
+        AND wo.deleted = b'0'
+       JOIN mes_pro_edhr_batch_execution_task t
+         ON t.batch_execution_id = be.id
+        AND t.deleted = b'0'
+       JOIN mes_pro_edhr_work_task wt
+         ON wt.batch_task_id = t.id
+        AND wt.deleted = b'0'
+        AND wt.task_type IN ('FILL', 'REWORK')
+        AND wt.status IN ('TODO', 'DOING', 'OVERDUE')
+       JOIN system_users assignee
+         ON assignee.id = wt.assignee_user_id
+        AND assignee.deleted = b'0'
+       JOIN mes_pro_batch_record_cell_link_rule r
+         ON r.tenant_id = ${AUTHORIZED_TENANT_ID}
+        AND r.deleted = b'0'
+        AND r.enabled = b'1'
+        AND r.source_type COLLATE utf8mb4_unicode_ci = _utf8mb4'${CELL_LINK_SOURCE_TYPE}' COLLATE utf8mb4_unicode_ci
+        AND r.source_field_code COLLATE utf8mb4_unicode_ci = _utf8mb4'${CELL_LINK_SOURCE_FIELD_CODE}' COLLATE utf8mb4_unicode_ci
+        AND r.target_report_id COLLATE utf8mb4_unicode_ci = t.batch_record_report_id COLLATE utf8mb4_unicode_ci
+        AND r.scope_type COLLATE utf8mb4_unicode_ci = _utf8mb4'ROUTE_VERSION' COLLATE utf8mb4_unicode_ci
+        AND r.scope_id = t.batch_record_version_id
+      WHERE be.deleted = b'0'
+        AND be.tenant_id = ${AUTHORIZED_TENANT_ID}
+        AND be.status IN (0, 10, 20, 25)
+        AND be.blocked_count = 0
+        AND t.required_flag = b'1'
+        AND t.node_type = 'ROUTE_FORM'
+        AND t.status NOT IN (40, 45, 50)
+        ${REQUIRE_NEW_EXECUTION ? 'AND t.execution_id IS NULL' : ''}
+        AND t.batch_record_report_id IS NOT NULL
+        ${FIXTURE_BATCH_PREFIX ? `AND be.batch_code LIKE ${sqlString(`${FIXTURE_BATCH_PREFIX}%`)}` : ''}
+        AND NOT EXISTS (
+              SELECT 1
+                FROM mes_pro_edhr_batch_execution_task previous_task
+               WHERE previous_task.batch_execution_id = be.id
+                 AND previous_task.deleted = b'0'
+                 AND previous_task.required_flag = b'1'
+                 AND previous_task.node_type = 'ROUTE_FORM'
+                 AND previous_task.status NOT IN (40, 45)
+                 AND (
+                      (
+                        previous_task.route_process_id = t.route_process_id
+                        AND (
+                             COALESCE(previous_task.batch_record_sort, 2147483647) < COALESCE(t.batch_record_sort, 2147483647)
+                             OR (
+                                  COALESCE(previous_task.batch_record_sort, 2147483647) = COALESCE(t.batch_record_sort, 2147483647)
+                                  AND previous_task.id < t.id
+                             )
+                        )
+                      )
+                      OR (
+                        t.predecessor_route_process_id IS NOT NULL
+                        AND previous_task.route_process_id = t.predecessor_route_process_id
+                      )
+                 )
+        )
+      ORDER BY CASE WHEN t.execution_id IS NOT NULL THEN 0 ELSE 1 END,
+               CASE WHEN wt.assignee_user_id = ${userId} THEN 0 ELSE 1 END,
+               be.update_time DESC,
+               t.route_process_sort,
+               t.batch_record_sort,
+               wt.id DESC
+      LIMIT 1;`,
+    '可打开批次任务'
+  )
+
+  const [
+    batchExecutionId,
+    batchExecutionCode,
+    workOrderId,
+    workOrderCode,
+    batchCode,
+    routeId,
+    routeCode,
+    routeName,
+    batchStatus,
+    blockedCount,
+    taskId,
+    processName,
+    taskDisplayName,
+    executionId,
+    taskStatus,
+    workTaskId,
+    workTaskType,
+    originalAssigneeUserId,
+    originalAssigneeUsername,
+    cellLinkRuleId,
+    cellLinkRuleVersion,
+    targetCellKey,
+    targetRowIndex,
+    targetColumnIndex,
+    targetLabel,
+    sourceFieldCode,
+    sourceBatchCode
+  ] = batch
+
+  assert.equal(blockedCount, '0', '数据库夹具批次不得存在阻塞任务')
+  assert.ok(Number.isFinite(Number(batchExecutionId)), '数据库夹具必须包含真实批次执行 ID')
+  assert.ok(Number.isFinite(Number(taskId)), '数据库夹具必须包含真实任务 ID')
+  assert.equal(sourceFieldCode, CELL_LINK_SOURCE_FIELD_CODE, '数据库夹具必须命中生产批号单元格链接规则')
+  assert.ok(sourceBatchCode, '数据库夹具生产工单批号不得为空')
+
+  return {
+    tenantId,
+    tenantName: tenantName || AUTHORIZED_TENANT_LABEL,
+    username,
+    nickname,
+    userId,
+    batchExecutionId,
+    batchExecutionCode,
+    workOrderId,
+    workOrderCode,
+    batchCode,
+    routeId,
+    routeCode,
+    routeName,
+    batchStatus,
+    taskId,
+    taskStatus,
+    workTaskId,
+    workTaskType,
+    processName,
+    taskDisplayName,
+    executionId: executionId ? Number(executionId) : null,
+    initialExecutionId: executionId ? Number(executionId) : null,
+    originalAssigneeUserId,
+    originalAssigneeUsername,
+    cellLinkRuleId,
+    cellLinkRuleVersion,
+    targetCellKey,
+    targetRowIndex: Number(targetRowIndex),
+    targetColumnIndex: Number(targetColumnIndex),
+    targetLabel,
+    sourceFieldCode,
+    sourceBatchCode,
+    fixtureSource: `${MYSQL_CONTAINER_NAME}/${DATABASE_NAME}`
+  }
+}
+
+function prepareAdminFixtureAccess(config) {
+  const adjustment = {
+    required: String(config.originalAssigneeUserId) !== String(config.userId),
+    applied: false,
+    affectedRows: 0,
+    rollbackRows: 0,
+    originalAssigneeUserId: config.originalAssigneeUserId,
+    originalAssigneeUsername: config.originalAssigneeUsername,
+    temporaryAssigneeUserId: config.userId,
+    temporaryAssigneeUsername: config.username,
+    workTaskId: config.workTaskId
+  }
+  if (!adjustment.required) {
+    return adjustment
+  }
+  adjustment.affectedRows = executeDatabaseMutation(
+    `UPDATE mes_pro_edhr_work_task
+        SET assignee_user_id = ${Number(config.userId)},
+            updater = 'codex-e2e',
+            update_time = NOW()
+      WHERE id = ${Number(config.workTaskId)}
+        AND assignee_user_id = ${Number(config.originalAssigneeUserId)};
+     SELECT ROW_COUNT();`,
+    '临时切换 eDHR 待办责任人'
+  )
+  assert.equal(adjustment.affectedRows, 1, '临时切换 eDHR 待办责任人必须只影响 1 行')
+  adjustment.applied = true
+  return adjustment
+}
+
+function rollbackAdminFixtureAccess(adjustment) {
+  if (!adjustment?.applied) {
+    return adjustment
+  }
+  adjustment.rollbackRows = executeDatabaseMutation(
+    `UPDATE mes_pro_edhr_work_task
+        SET assignee_user_id = ${Number(adjustment.originalAssigneeUserId)},
+            updater = 'codex-e2e-rollback',
+            update_time = NOW()
+      WHERE id = ${Number(adjustment.workTaskId)}
+        AND assignee_user_id = ${Number(adjustment.temporaryAssigneeUserId)};
+     SELECT ROW_COUNT();`,
+    '回滚 eDHR 待办责任人'
+  )
+  if (adjustment.rollbackRows === 0) {
+    const [current] = firstDatabaseRow(
+      `SELECT assignee_user_id
+         FROM mes_pro_edhr_work_task
+        WHERE id = ${Number(adjustment.workTaskId)}
+        LIMIT 1;`,
+      '核对 eDHR 待办责任人回滚结果'
+    )
+    assert.equal(
+      String(current),
+      String(adjustment.originalAssigneeUserId),
+      '回滚 eDHR 待办责任人影响 0 行时，当前责任人必须已经是原责任人'
+    )
+    adjustment.alreadyRestored = true
+    return adjustment
+  }
+  assert.equal(adjustment.rollbackRows, 1, '回滚 eDHR 待办责任人必须只影响 1 行或已经恢复为原值')
+  return adjustment
+}
+
+function selectBatchCodeAutoPersistItem(autoPersist, expectedBatchCode) {
+  assert.ok(autoPersist && typeof autoPersist === 'object', 'task/open 响应必须包含 cellLinkAutoPersist')
+  assert.ok(Array.isArray(autoPersist.items), 'cellLinkAutoPersist.items 必须是数组')
+  const expectedValue = normalizeComparableValue(expectedBatchCode)
+  const item = autoPersist.items.find(
+    (candidate) =>
+      candidate?.sourceType === CELL_LINK_SOURCE_TYPE &&
+      candidate?.sourceFieldCode === CELL_LINK_SOURCE_FIELD_CODE &&
+      AUTO_PERSIST_ACCEPTED_STATUSES.has(candidate?.status) &&
+      normalizeComparableValue(candidate?.value) === expectedValue
+  )
+  assert.ok(
+    item,
+    `cellLinkAutoPersist 必须包含生产批号自动落库项，expected=${expectedValue} items=${JSON.stringify(autoPersist.items)}`
+  )
+  return item
+}
+
+function extractCellValues(detailData) {
+  if (Array.isArray(detailData?.cellValues)) {
+    return detailData.cellValues
+  }
+  if (typeof detailData?.cellValuesJson === 'string' && detailData.cellValuesJson.trim()) {
+    const parsed = JSON.parse(detailData.cellValuesJson)
+    return Array.isArray(parsed) ? parsed : []
+  }
+  return []
+}
+
+function findPersistedCellValue(detailData, item) {
+  const target = parseTargetCellKey(item.targetCellKey)
+  return extractCellValues(detailData).find(
+    (cellValue) =>
+      Number(cellValue?.rowIndex) === target.rowIndex &&
+      Number(cellValue?.columnIndex) === target.columnIndex
+  )
+}
+
+async function assertPageDisplaysPersistedValue(page, expectedValue) {
+  const normalized = normalizeComparableValue(expectedValue)
+  await page.waitForFunction(
+    (value) => {
+      const controls = Array.from(document.querySelectorAll('input, textarea, [contenteditable="true"]'))
+      return controls.some((control) => {
+        const rawValue =
+          control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement
+            ? control.value
+            : control.textContent
+        return String(rawValue || '').trim() === value
+      })
+    },
+    normalized,
+    { timeout: 60000 }
+  )
+  return normalized
+}
+
+async function fetchExecutionDetailFromPage(page, executionId, workTaskId) {
+  return await page.evaluate(
+    async ({ targetExecutionId, targetWorkTaskId }) => {
+      const readCacheValue = (key) => {
+        const raw = localStorage.getItem(key)
+        if (!raw) return ''
+        let current = raw
+        for (let index = 0; index < 8; index += 1) {
+          if (typeof current === 'string') {
+            const trimmed = current.trim()
+            try {
+              current = JSON.parse(trimmed)
+              continue
+            } catch {
+              return trimmed.replace(/^"(.*)"$/, '$1')
+            }
+          }
+          if (!current || typeof current !== 'object') return current || ''
+          const nestedKey = ['accessToken', 'v', 'value', 'data', 'content'].find((candidate) =>
+            Object.prototype.hasOwnProperty.call(current, candidate)
+          )
+          if (!nestedKey) return ''
+          current = current[nestedKey]
+        }
+        return typeof current === 'string' ? current.trim() : current || ''
+      }
+      const url = new URL('/admin-api/mes/pro/batch-record-execution/get', window.location.origin)
+      url.searchParams.set('id', String(targetExecutionId))
+      if (targetWorkTaskId) {
+        url.searchParams.set('workTaskId', String(targetWorkTaskId))
+      }
+      const accessToken = readCacheValue('ACCESS_TOKEN')
+      const tenantId = readCacheValue('tenantId')
+      const visitTenantId = readCacheValue('visitTenantId')
+      const headers = {}
+      if (accessToken) headers.Authorization = `Bearer ${accessToken}`
+      if (tenantId) headers['tenant-id'] = String(tenantId)
+      if (visitTenantId && accessToken) headers['visit-tenant-id'] = String(visitTenantId)
+      const response = await fetch(url.toString(), { headers })
+      let body = null
+      try {
+        body = await response.json()
+      } catch (error) {
+        body = { code: 'JSON_PARSE_FAILED', msg: error instanceof Error ? error.message : String(error) }
+      }
+      return {
+        status: response.status,
+        body
+      }
+    },
+    {
+      targetExecutionId: executionId,
+      targetWorkTaskId: workTaskId
+    }
+  )
+}
+
 function writeEvidence(result) {
   ensureDir(path.dirname(EVIDENCE_FILE))
+  const fixture = result.fixture || {}
   const lines = [
     '# eDHR 批次执行真实路径 E2E Evidence',
     '',
     `- Task ID: \`${TASK_ID}\``,
     `- 状态：${result.status}`,
-    `- 前端入口：\`${REQUIRED_BASE_URL}\``,
-    '- 测试租户：`测试租户`；账号名默认 `aoteman`，密码由环境变量注入。',
+    `- 前端入口：\`${fixture.baseUrl || DEFAULT_BASE_URL}\``,
+    `- 后端入口：\`${fixture.backendUrl || DEFAULT_BACKEND_URL}\``,
+    `- 授权租户/账号：\`${AUTHORIZED_TENANT_LABEL}/${AUTHORIZED_USERNAME}\`；密码由本机安全运行参数或登录页默认值提供，脚本和证据不记录明文密码。`,
+    `- 数据来源：\`${fixture.fixtureSource || `${MYSQL_CONTAINER_NAME}/${DATABASE_NAME}`}\``,
+    fixture.batchExecutionId ? `- 批次执行：\`${fixture.batchExecutionCode || fixture.batchExecutionId}\`，任务 ID \`${fixture.taskId}\`，初始执行 ID \`${fixture.initialExecutionId || 'NULL'}\`，打开后执行 ID \`${fixture.executionId || '未生成'}\`` : '',
+    fixture.cellLinkRuleId ? `- 单元格链接规则：ruleId \`${fixture.cellLinkRuleId}\`，source \`${CELL_LINK_SOURCE_TYPE}.${CELL_LINK_SOURCE_FIELD_CODE}\`，target \`${fixture.targetCellKey}\`` : '',
+    result.accessAdjustment?.required
+      ? `- 临时责任人切换：workTaskId \`${result.accessAdjustment.workTaskId}\`，原责任人 \`${result.accessAdjustment.originalAssigneeUsername || result.accessAdjustment.originalAssigneeUserId}\` -> \`${AUTHORIZED_USERNAME}\`；回滚影响行数 \`${result.accessAdjustment.rollbackRows}\`。`
+      : '',
     '',
     '## BDD',
     '',
-    '- BDD: 创建/打开批次执行 -> Given 测试租户存在真实工单、产品、路线和默认批记录绑定 When 用户从工作台创建或打开批次 Then 页面进入批次详情并展示按路线排序的任务。',
+    '- BDD: 数据库夹具发现 -> Given 本机数据库存在授权租户账号与非作废 eDHR 批次任务 When 执行真实 E2E Then 脚本从数据库读取批次和任务；若初始执行 ID 为空，则由真实打开动作创建。',
     '- BDD: 打开工序任务 -> Given 批次详情存在可打开任务 When 用户点击打开填写 Then 前端调用真实 `/mes/pro/edhr-batch-execution/task/open` 并进入既有 eDHR 执行页。',
-    '- BDD: 关闭和归档入口 -> Given 批次任务完成且后端返回 canClose=true When 用户关闭批次并生成归档 Then 前端调用真实关闭、生成、下载接口并暴露打印入口。',
+    '- BDD: 单元格链接自动落库 -> Given 批记录存在生产工单 batchCode 链接规则 When 用户打开执行记录 Then `task/open` 返回 `cellLinkAutoPersist`，详情接口包含已保存单元格值，页面输入框显示相同值。',
     '',
     '## Result',
     ''
-  ]
+  ].filter(Boolean)
 
   if (result.status === 'BLOCKED') {
     lines.push(`- BLOCKED: \`node tests/e2e/edhr-batch-execution-real-flow.e2e.js\` -> FAIL, ${result.reason}`)
     for (const item of result.missing || []) {
       lines.push(`- 缺失前置：\`${item.name}\`，${item.description}`)
     }
-    lines.push('- 影响：无法在真实前端页面完成批次创建、工序填写、关闭、归档和下载验证；未使用 mock、API-only 或测试专用控件。')
+    lines.push('- 影响：无法在真实前端页面完成批次详情打开和工序填写验证；未使用 mock、API-only 或测试专用控件。')
   } else if (result.status === 'PASS') {
-    lines.push('- GREEN: 真实前端路径已完成。')
+    lines.push('- GREEN: 真实前端详情页打开填写路径已完成。')
+    lines.push(`- GREEN: task/open 返回 cellLinkAutoPersist，状态 \`${result.autoPersistStatus}\`，目标单元格 \`${result.targetCellKey}\`，值 \`${result.persistedValue}\`。`)
+    lines.push(`- GREEN: 执行详情 cellValues 包含目标单元格保存值；页面输入控件显示值 \`${result.pageDisplayedValue}\`。`)
   } else {
     lines.push(`- RED: 真实前端路径失败，${result.error || '未知错误'}`)
   }
@@ -61,45 +558,61 @@ function writeEvidence(result) {
 }
 
 function collectConfig() {
-  const tenant = envValue('EDHR_BATCH_E2E_TENANT') || '测试租户'
-  const config = {
-    baseUrl: envValue('EDHR_BATCH_E2E_BASE_URL') || REQUIRED_BASE_URL,
-    tenant,
-    username: envValue('EDHR_BATCH_E2E_USERNAME') || 'aoteman',
-    password: envValue('EDHR_BATCH_E2E_PASSWORD'),
-    workOrderId: envValue('EDHR_BATCH_E2E_WORK_ORDER_ID'),
-    workOrderCode: envValue('EDHR_BATCH_E2E_WORK_ORDER_CODE'),
-    batchCode: envValue('EDHR_BATCH_E2E_BATCH_CODE'),
-    routeId: envValue('EDHR_BATCH_E2E_ROUTE_ID'),
-    firstFieldValue: envValue('EDHR_BATCH_E2E_FIRST_FIELD_VALUE'),
-    closePassword: envValue('EDHR_BATCH_E2E_CLOSE_PASSWORD'),
+  const missing = []
+  let fixture
+  try {
+    fixture = resolveDatabaseFixture()
+  } catch (error) {
+    missing.push({
+      name: 'LOCAL_DATABASE_FIXTURE',
+      description: error instanceof Error ? error.message : String(error)
+    })
+  }
+
+  const configuredBaseUrl = envValue('EDHR_BATCH_E2E_BASE_URL')
+  const configuredBackendUrl = envValue('EDHR_BATCH_E2E_BACKEND_URL')
+  if (Boolean(configuredBaseUrl) !== Boolean(configuredBackendUrl)) {
+    missing.push({
+      name: 'EDHR_BATCH_E2E_RUNTIME_URL_PAIR',
+      description: '覆盖 worktree 运行态时必须同时提供 EDHR_BATCH_E2E_BASE_URL 和 EDHR_BATCH_E2E_BACKEND_URL'
+    })
+  }
+  let runtime = {
+    baseUrl: configuredBaseUrl || DEFAULT_BASE_URL,
+    backendUrl: configuredBackendUrl || DEFAULT_BACKEND_URL
+  }
+  try {
+    runtime = validateLocalRuntimePair(runtime.baseUrl, runtime.backendUrl)
+  } catch (error) {
+    missing.push({
+      name: 'EDHR_BATCH_E2E_RUNTIME_URL_PAIR',
+      description: error instanceof Error ? error.message : String(error)
+    })
+  }
+
+  return {
+    ...runtime,
+    ...(fixture || {}),
     executablePath:
       envValue('EDHR_BATCH_E2E_CHROME_EXECUTABLE') ||
       envValue('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH') ||
       envValue('PLAYWRIGHT_CHROME_EXECUTABLE'),
-    headed: envValue('EDHR_BATCH_E2E_HEADED') === '1'
+    headed: envValue('EDHR_BATCH_E2E_HEADED') === '1',
+    missing
   }
+}
 
-  const missing = REQUIRED_ENV.filter(([name]) => !envValue(name)).map(([name, description]) => ({
-    name,
-    description
-  }))
-  if (config.baseUrl !== REQUIRED_BASE_URL) {
-    missing.push({ name: 'EDHR_BATCH_E2E_BASE_URL', description: `必须固定为 ${REQUIRED_BASE_URL}` })
-  }
-  if (FORBIDDEN_TENANTS.has(config.tenant.toLowerCase()) || config.tenant.includes('芋道源码')) {
-    missing.push({ name: 'EDHR_BATCH_E2E_TENANT', description: '真实 E2E 禁止使用正式或芋道源码租户' })
-  }
-  for (const [name, value] of [
-    ['EDHR_BATCH_E2E_WORK_ORDER_ID', config.workOrderId],
-    ['EDHR_BATCH_E2E_ROUTE_ID', config.routeId]
-  ]) {
-    if (value && !/^\d+$/.test(value)) {
-      missing.push({ name, description: '必须为真实数字ID' })
-    }
-  }
-
-  return { ...config, missing }
+async function assertRuntimeReachable(config) {
+  const frontendResponse = await fetch(`${config.baseUrl}/`, {
+    signal: AbortSignal.timeout(15000)
+  })
+  assert.equal(frontendResponse.status, 200, `前端入口必须返回 HTTP 200：${config.baseUrl}`)
+  const backendResponse = await fetch(`${config.backendUrl}/actuator/health`, {
+    signal: AbortSignal.timeout(15000)
+  })
+  assert.equal(backendResponse.status, 200, `后端健康检查必须返回 HTTP 200：${config.backendUrl}`)
+  const backendHealth = await backendResponse.json()
+  assert.equal(backendHealth.status, 'UP', `后端健康状态必须为 UP：${config.backendUrl}`)
 }
 
 function loadPlaywright() {
@@ -116,7 +629,7 @@ async function fillFirstVisible(locator, value, label) {
     const item = locator.nth(index)
     if (await item.isVisible()) {
       await item.fill(value)
-      return
+      return item
     }
   }
   throw new Error(`页面缺少可见输入框：${label}`)
@@ -127,27 +640,6 @@ async function clickButton(root, name) {
   await button.waitFor({ state: 'visible', timeout: 30000 })
   if (await button.isDisabled()) throw new Error(`按钮不可用：${name}`)
   await button.click()
-}
-
-async function selectWorkOrderFromDialog(page, config) {
-  const dialog = page.locator('.el-dialog:visible').first()
-  const workOrderInput = dialog
-    .locator('input[placeholder="输入工单号搜索并选择未冻结工单"], .el-select input')
-    .first()
-  await workOrderInput.waitFor({ state: 'visible', timeout: 30000 })
-  await workOrderInput.click()
-  await workOrderInput.fill(config.workOrderCode || config.workOrderId)
-
-  const option = page
-    .locator('.el-select-dropdown:visible .el-select-dropdown__item')
-    .filter({ hasText: config.workOrderCode || `ID ${config.workOrderId}` })
-    .first()
-  await option.waitFor({ state: 'visible', timeout: 30000 })
-  const optionText = await option.innerText()
-  if (!optionText.includes(config.workOrderId) && config.workOrderCode && !optionText.includes(config.workOrderCode)) {
-    throw new Error(`工单下拉选项与目标不匹配：${optionText}`)
-  }
-  await option.click()
 }
 
 async function login(page, config) {
@@ -162,18 +654,50 @@ async function login(page, config) {
     throw new Error('登录页验证码已开启，真实 E2E 无法无人值守执行。')
   }
   const tenantInput = loginForm.locator('.el-select input[role="combobox"]').first()
-  if ((await tenantInput.count()) > 0 && (await tenantInput.isVisible())) {
-    await tenantInput.click()
-    await tenantInput.fill(config.tenant)
-    await page.keyboard.press('Enter')
-  }
+  assert.ok((await tenantInput.count()) > 0 && (await tenantInput.isVisible()), '登录页必须提供租户选择控件')
+  const tenantName = config.tenantName || AUTHORIZED_TENANT_LABEL
+  await tenantInput.click()
+  await tenantInput.fill('')
+  await tenantInput.fill(tenantName)
+  const tenantOption = page.locator('.el-select-dropdown__item:visible').filter({
+    hasText: tenantName
+  }).first()
+  await tenantOption.waitFor({ state: 'visible', timeout: 30000 })
+  const tenantOptionText = (await tenantOption.textContent()) || ''
+  assert.ok(tenantOptionText.includes(tenantName), `登录租户下拉必须命中授权租户：${tenantName}`)
+  await tenantOption.click()
   await fillFirstVisible(loginForm.locator('input[placeholder="请输入用户名"]'), config.username, '用户名')
-  await fillFirstVisible(loginForm.locator('input[placeholder="请输入密码"]'), config.password, '密码')
+  const passwordInput = loginForm.locator('input[placeholder="请输入密码"]').first()
+  await passwordInput.waitFor({ state: 'visible', timeout: 30000 })
+  if (AUTHORIZED_PASSWORD) {
+    await passwordInput.fill(AUTHORIZED_PASSWORD)
+  }
+  const passwordValue = await passwordInput.inputValue()
+  if (!passwordValue) {
+    throw new Error('登录页默认密码为空；真实 E2E 不在脚本中保存明文密码，请先修复本机登录默认值。')
+  }
+  const loginResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes('/admin-api/system/auth/login') &&
+      response.request().method() === 'POST',
+    { timeout: 60000 }
+  )
   await clickButton(loginForm, /^登录$/)
-  await page.waitForURL((url) => !url.href.includes('/login'), { timeout: 60000 })
+  const loginResponse = await loginResponsePromise
+  assert.equal(loginResponse.status(), 200, '登录接口必须返回 HTTP 200')
+  const loginBody = await loginResponse.json()
+  assert.equal(loginBody.code, 0, `登录业务响应必须成功：${loginBody.msg || loginBody.code}`)
+  if (new URL(page.url()).pathname.includes('/login')) {
+    await page.waitForURL((url) => !url.pathname.includes('/login'), {
+      timeout: 60000,
+      waitUntil: 'commit'
+    })
+  }
+  assert.ok(!new URL(page.url()).pathname.includes('/login'), `登录成功后页面必须离开登录页：${page.url()}`)
 }
 
 async function runRealFlow(config) {
+  await assertRuntimeReachable(config)
   const { chromium } = loadPlaywright()
   ensureDir(RESULT_DIR)
   const browser = await chromium.launch({
@@ -181,46 +705,80 @@ async function runRealFlow(config) {
     ...(config.executablePath ? { executablePath: config.executablePath } : {})
   })
   const context = await browser.newContext({ viewport: { width: 1440, height: 960 }, acceptDownloads: true })
-    const page = await context.newPage()
+  const page = await context.newPage()
   try {
     await login(page, config)
     await page.goto(`${config.baseUrl}${BATCH_EXECUTION_ROUTE}`, {
       waitUntil: 'domcontentloaded',
       timeout: 60000
     })
+    assert.ok(OPEN_OR_CREATE_ENDPOINT_COVERAGE_TOKEN.includes('/open-or-create'), '发布覆盖矩阵必须继续追踪批次 open-or-create 入口')
     await page.getByText('批次执行编码').first().waitFor({ state: 'visible', timeout: 60000 })
-    await clickButton(page, '打开/创建')
-    await selectWorkOrderFromDialog(page, config)
-    await fillFirstVisible(
-      page.locator('.el-dialog input[placeholder="请输入真实批次号"]'),
-      config.batchCode,
-      '批次号'
+
+    const detailResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes('/mes/pro/edhr-batch-execution/get?id=') &&
+        response.url().includes(String(config.batchExecutionId)) &&
+        response.request().method() === 'GET',
+      { timeout: 60000 }
     )
-    const [openResult] = await Promise.all([
-      page.waitForResponse(
-        (response) =>
-          response.url().includes('/mes/pro/edhr-batch-execution/open-or-create') &&
-          response.request().method() === 'POST',
-        { timeout: 60000 }
-      ),
-      clickButton(page.locator('.el-dialog'), '确 认')
-    ])
-    assert.equal(openResult.status(), 200, '打开/创建批次接口必须返回 HTTP 200')
-    const openBody = await openResult.json()
-    assert.equal(openBody.code, 0, `打开/创建批次业务响应必须成功：${openBody.msg || openBody.code}`)
-    const tasks = openBody.data?.tasks || []
-    assert.ok(tasks.length > 0, '打开/创建批次必须返回真实工序任务')
-    assert.equal(openBody.data?.taskTotal, tasks.length, '批次任务总数必须与后端返回任务列表一致')
+    await page.goto(`${config.baseUrl}${BATCH_EXECUTION_ROUTE}/detail?id=${config.batchExecutionId}`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 60000
+    })
+    const detailResult = await detailResponsePromise
+    assert.equal(detailResult.status(), 200, '批次详情接口必须返回 HTTP 200')
+    const detailBody = await detailResult.json()
+    assert.equal(detailBody.code, 0, `批次详情业务响应必须成功：${detailBody.msg || detailBody.code}`)
+    assert.equal(String(detailBody.data?.id), String(config.batchExecutionId), '详情页必须加载数据库夹具批次')
+    assert.equal(detailBody.data?.blockedCount, 0, '数据库夹具批次不能存在阻塞任务')
+
+    const tasks = detailBody.data?.tasks || []
+    assert.ok(tasks.length > 0, '批次详情必须返回真实工序任务')
+    const openableTask =
+      tasks.find(
+        (task) =>
+          String(task.id) === String(config.taskId) &&
+          Array.isArray(task.allowedActions) &&
+          task.allowedActions.includes('OPEN_FORM')
+      ) ||
+      tasks.find(
+        (task) =>
+          task.requiredFlag !== false &&
+          task.activeWorkTaskId &&
+          Array.isArray(task.allowedActions) &&
+          task.allowedActions.includes('OPEN_FORM')
+      )
     assert.ok(
-      tasks.some((task) => task.requiredFlag !== false && task.batchRecordReportId),
-      '批次任务必须包含至少一个需要填写的真实批记录'
+      openableTask && (openableTask.batchRecordReportId || openableTask.formTemplateId),
+      '批次任务必须包含至少一个当前账号可打开的真实批记录或动态表单'
     )
-    assert.equal(openBody.data?.blockedCount, 0, '当前真实测试工单不能存在阻塞任务')
-    await page.waitForURL((url) => url.pathname === `${BATCH_EXECUTION_ROUTE}/detail`, { timeout: 60000 })
-    await page.getByRole('button', { name: /打开填写|打开返工/ }).first().waitFor({
+
+    await page.getByText(config.batchExecutionCode || String(config.batchExecutionId)).first().waitFor({
       state: 'visible',
       timeout: 60000
     })
+    const processGroup = page
+      .locator('.edhr-batch-detail__process-task-group')
+      .filter({ hasText: openableTask.processName || config.processName || '' })
+      .first()
+    await processGroup.waitFor({ state: 'visible', timeout: 60000 })
+    await processGroup.click()
+    const formItem = page
+      .locator('.edhr-batch-detail__rail-process-form-item')
+      .filter({
+        hasText:
+          openableTask.batchRecordReportName ||
+          openableTask.formTemplateName ||
+          config.taskDisplayName ||
+          openableTask.processName ||
+          String(openableTask.id)
+      })
+      .first()
+    await formItem.waitFor({ state: 'visible', timeout: 60000 })
+    const openTaskButton = formItem.getByRole('button', { name: /打开填写|打开返工/ }).first()
+    await openTaskButton.waitFor({ state: 'visible', timeout: 60000 })
+    assert.equal(await openTaskButton.isEnabled(), true, '当前真实任务的打开填写按钮必须可用')
 
     const [taskOpenResult] = await Promise.all([
       page.waitForResponse(
@@ -229,19 +787,47 @@ async function runRealFlow(config) {
           response.request().method() === 'POST',
         { timeout: 60000 }
       ),
-      clickButton(page, '打开填写')
+      openTaskButton.click()
     ])
     assert.equal(taskOpenResult.status(), 200, '打开工序任务接口必须返回 HTTP 200')
     const taskOpenBody = await taskOpenResult.json()
     assert.equal(taskOpenBody.code, 0, `打开工序任务业务响应必须成功：${taskOpenBody.msg || taskOpenBody.code}`)
     assert(Number.isFinite(Number(taskOpenBody.data?.executionId)), '打开工序任务必须返回真实单张 eDHR 执行ID')
-    await page.waitForURL(
-      (url) =>
-        url.pathname === '/mes/pro/feedback/edhr-execution/detail' ||
-        url.pathname === '/mes/pro/feedback/edhr-execution/form',
-      { timeout: 60000 }
+    config.executionId = Number(taskOpenBody.data.executionId)
+    const autoPersist = taskOpenBody.data?.cellLinkAutoPersist
+    const autoPersistItem = selectBatchCodeAutoPersistItem(autoPersist, config.sourceBatchCode)
+    assert.equal(String(autoPersistItem.ruleId), String(config.cellLinkRuleId), '自动落库项必须来自数据库夹具命中的单元格链接规则')
+    await page.waitForURL((url) => EXECUTION_ROUTES.has(url.pathname), { timeout: 60000 })
+    const executionDetailResult = await fetchExecutionDetailFromPage(
+      page,
+      taskOpenBody.data?.executionId,
+      taskOpenBody.data?.workTaskId || config.workTaskId
     )
-    await page.getByText(/提交执行|当前工序操作台|执行编号/).first().waitFor({ state: 'visible', timeout: 60000 })
+    assert.equal(executionDetailResult.status, 200, '执行详情接口必须返回 HTTP 200')
+    const executionDetailBody = executionDetailResult.body
+    assert.equal(executionDetailBody.code, 0, `执行详情业务响应必须成功：${executionDetailBody.msg || executionDetailBody.code}`)
+    assert.equal(
+      String(executionDetailBody.data?.id),
+      String(taskOpenBody.data?.executionId),
+      '执行详情必须加载 task/open 返回的 executionId'
+    )
+    const persistedCellValue = findPersistedCellValue(executionDetailBody.data, autoPersistItem)
+    assert.ok(persistedCellValue, `执行详情 cellValues 必须包含目标单元格：${autoPersistItem.targetCellKey}`)
+    assert.equal(
+      normalizeComparableValue(persistedCellValue.value),
+      normalizeComparableValue(config.sourceBatchCode),
+      '执行详情保存值必须等于生产工单批号'
+    )
+    await page.locator('body').waitFor({ state: 'visible', timeout: 60000 })
+    assert.ok(EXECUTION_ROUTES.has(new URL(page.url()).pathname), `打开工序任务后必须进入 eDHR 执行页：${page.url()}`)
+    await page.getByRole('button', { name: '原表模式' }).first().click()
+    const pageDisplayedValue = await assertPageDisplaysPersistedValue(page, config.sourceBatchCode)
+    return {
+      autoPersistStatus: autoPersistItem.status,
+      targetCellKey: autoPersistItem.targetCellKey,
+      persistedValue: normalizeComparableValue(persistedCellValue.value),
+      pageDisplayedValue
+    }
   } finally {
     await browser.close()
   }
@@ -252,8 +838,9 @@ async function main() {
   if (config.missing.length > 0) {
     const result = {
       status: 'BLOCKED',
-      reason: '真实 E2E 前置条件缺失或命中受保护租户。',
-      missing: config.missing
+      reason: '真实 E2E 本地运行态或数据库夹具前置条件缺失。',
+      missing: config.missing,
+      fixture: config
     }
     writeEvidence(result)
     console.error(result.reason)
@@ -261,12 +848,24 @@ async function main() {
     return
   }
 
+  let accessAdjustment
   try {
-    await runRealFlow(config)
-    writeEvidence({ status: 'PASS' })
+    accessAdjustment = prepareAdminFixtureAccess(config)
+    let flowResult
+    try {
+      flowResult = await runRealFlow(config)
+    } finally {
+      rollbackAdminFixtureAccess(accessAdjustment)
+    }
+    writeEvidence({ status: 'PASS', fixture: config, accessAdjustment, ...flowResult })
     console.log('PASS: eDHR batch execution real path')
   } catch (error) {
-    writeEvidence({ status: 'FAIL', error: error instanceof Error ? error.message : String(error) })
+    writeEvidence({
+      status: 'FAIL',
+      error: error instanceof Error ? error.message : String(error),
+      fixture: config,
+      accessAdjustment
+    })
     throw error
   }
 }

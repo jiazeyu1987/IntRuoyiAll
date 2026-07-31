@@ -79,6 +79,7 @@ public class CodexTestArtifactServiceImpl implements CodexTestArtifactService {
         artifact.setSizeBytes(file.getSize());
         artifact.setSha256(DigestUtil.sha256Hex(targetFile));
         artifact.setExpiresAt(LocalDateTime.now().plusHours(artifactRetentionHours));
+        CodexTestRunnerAuditSupport.stampRunnerAudit(artifact);
         codexTestArtifactMapper.insert(artifact);
         CodexTestArtifactRespVO respVO = new CodexTestArtifactRespVO();
         respVO.setArtifactId(artifact.getId());

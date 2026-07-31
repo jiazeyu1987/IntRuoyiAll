@@ -87,7 +87,6 @@ assertIncludes(templatePage, '状态')
 assertIncludes(templatePage, '修改时间')
 assertIncludes(templatePage, '备注')
 assertIncludes(templatePage, 'TemplateImportDialog')
-assertIncludes(templatePage, 'TemplateViewDialog')
 assertIncludes(templatePage, '表单预览')
 assertIncludes(templatePage, '识别字段')
 assertIncludes(templatePage, 'highlight-current-row')
@@ -117,13 +116,17 @@ assertIncludes(templatePage, "'voided'")
 assertIncludes(templatePage, 'resolveTemplateObsoleteOperationState')
 assertIncludes(templatePage, '撤回作废申请')
 assertIncludes(templatePage, '作废申请中')
-assertIncludes(templatePage, 'form-template-fill-dialog')
-assertIncludes(templatePage, 'form-template-rules-dialog')
+assertIncludes(templatePage, 'form-template-route-workspace')
 assertIncludes(templatePage, 'form-template-fill-workspace')
 assertIncludes(templatePage, 'form-template-signature-dialog')
 assertIncludes(templatePage, 'openSelectedTemplateAction')
 assertIncludes(templatePage, 'openTemplateActionDialog')
-assertIncludes(templatePage, "openSelectedTemplateAction('edit')")
+assertIncludes(templatePage, 'openSelectedTemplateWorkspace')
+assertIncludes(templatePage, 'openSelectedTemplateCellLinks')
+assertIncludes(templatePage, "path: '/mes/pro/batch-record-cell-link'")
+assertIncludes(templatePage, 'templateId: row.templateId')
+assertIncludes(templatePage, 'versionNo: row.versionNo')
+assertIncludes(templatePage, "returnLabel: '返回表单模板'")
 if (/obsoleteTemplateVersion/.test(templatePage)) {
   throw new Error('表单模板页面不能继续调用直接作废 API，必须提交 BPM 作废申请')
 }
@@ -141,7 +144,7 @@ if (!previewActionsMatch) {
   throw new Error('表单模板右侧预览必须保留独立操作区')
 }
 const previewActions = previewActionsMatch[0]
-for (const label of ['最大化', '打开', '编辑', '填写', '作废']) {
+for (const label of ['最大化', '打开', '编辑', '填写', '链接', '作废']) {
   if (!new RegExp(`>\\s*${label}\\s*<`).test(previewActions)) {
     throw new Error(`表单模板右侧预览操作区缺少“${label}”按钮`)
   }
@@ -155,8 +158,9 @@ if (/>\s*签名\s*</.test(previewActions)) {
 if (/>\s*规则\s*</.test(previewActions)) {
   throw new Error('表单模板右侧预览操作区不应保留独立“规则”按钮，应合并到“编辑”')
 }
-if (/>\s*链接\s*</.test(previewActions)) {
-  throw new Error('表单模板右侧预览操作区不应新增“链接”按钮')
+const cellLinkButtonMatch = previewActions.match(/<el-button[\s\S]*?openSelectedTemplateCellLinks[\s\S]*?<\/el-button>/)
+if (!cellLinkButtonMatch || !/canUseTemplateInteractiveAction\(selectedTemplate\)/.test(cellLinkButtonMatch[0])) {
+  throw new Error('表单模板“链接”按钮必须受终态只读动作投影控制，并进入单元格链接工作台')
 }
 if (/>\s*重命名\s*</.test(previewActions)) {
   throw new Error('表单模板右侧预览操作区不应新增“重命名”按钮')
@@ -203,7 +207,7 @@ if (/form-template-preview__field-grid/.test(templatePage)) {
   throw new Error('表单模板右侧红框主内容不得继续使用字段卡片网格，应渲染与批记录表单页签一致的视觉表格预览')
 }
 const editFunction = templatePage.match(/const editSelectedTemplate = (?:async )?\(\) => \{[\s\S]*?\n\}/)
-if (!editFunction || !/openSelectedTemplateAction\('edit'\)/.test(editFunction[0])) {
+if (!editFunction || !/openSelectedTemplateWorkspace\('edit'\)/.test(editFunction[0])) {
   throw new Error('表单模板“编辑”按钮应进入模板编辑工作区，不得打开导入/升版弹窗')
 }
 if (editFunction && /importDialogRef/.test(editFunction[0])) {
@@ -225,13 +229,11 @@ if (obsoleteFunction && /TemplateApi\./.test(obsoleteFunction[0])) {
 if (/rulesDialogVisible\.value\s*=\s*true/.test(templatePage) && !/editableTemplateCellRules/.test(templatePage)) {
   throw new Error('表单模板“编辑”按钮不得只打开静态表格，应进入可编辑规则工作区')
 }
-const rulesDialogMatch = templatePage.match(/<Dialog[\s\S]*?v-model=["']rulesDialogVisible["'][\s\S]*?<\/Dialog>/)
-if (!rulesDialogMatch) {
-  throw new Error('表单模板“编辑”按钮必须打开规则确认弹窗')
+if (!/isDesignerMode\s*&&\s*templateDesignerMode\s*===\s*'edit'/.test(templatePage)) {
+  throw new Error('表单模板“编辑”按钮必须进入路由驱动的 DesignerWrapper 规则确认工作区')
 }
-const rulesDialog = rulesDialogMatch[0]
-if (/<el-table[\s>]/.test(rulesDialog)) {
-  throw new Error('表单模板“编辑”按钮不得使用整表字段清单，应对齐批记录单元格选择式规则确认')
+if (/v-model=["']rulesDialogVisible["']/.test(templatePage)) {
+  throw new Error('表单模板“编辑”按钮不得继续依赖规则确认弹窗')
 }
 for (const expected of [
   'batch-record-cell-rules-editor__sheet',
@@ -251,8 +253,8 @@ for (const expected of [
 if (/editableTemplateCellRules\.value\.length > 0/.test(templatePage)) {
   throw new Error('form template rules must allow saving an empty rule set after all cells are switched to non-fillable')
 }
-const fillDialogMatch = templatePage.match(/<Dialog v-model="fillDialogVisible"[\s\S]*?<\/Dialog>/)
-if (!fillDialogMatch || !fillDialogMatch[0].includes('EdhrExecutionTemplateEditableForm') || !fillDialogMatch[0].includes('EdhrExecutionReadonlyForm')) {
+const fillWorkspaceMatch = templatePage.match(/v-if="isTemplateSimulationMode"[\s\S]*?form-template-fill-workspace[\s\S]*?<\/ContentWrap>/)
+if (!fillWorkspaceMatch || !fillWorkspaceMatch[0].includes('EdhrExecutionTemplateEditableForm') || !fillWorkspaceMatch[0].includes('EdhrExecutionReadonlyForm')) {
   throw new Error('表单模板“填写”按钮应像批记录模拟填写一样同时展示模板内填写和表单显示预览')
 }
 
@@ -272,15 +274,16 @@ if (/prop=["']versionNo["']/.test(importDialog)) {
   throw new Error('导入弹窗不得保留手工版本号输入项')
 }
 
-const viewDialog = assertFile('src/views/form-center/template/components/TemplateViewDialog.vue')
-assertIncludes(viewDialog, 'defineExpose({ open })')
-assertIncludes(viewDialog, '查看表单模板')
-assertIncludes(viewDialog, '当前生效版本')
-assertIncludes(viewDialog, '待发布版本')
-assertIncludes(viewDialog, 'formatTemplateUpdatedTime')
-assertIncludes(viewDialog, 'YYYY-MM-DD HH:mm:ss')
-assertIncludes(viewDialog, 'EdhrExecutionReadonlyForm')
-assertIncludes(viewDialog, 'formViewModel')
+assertNoFile('src/views/form-center/template/components/TemplateViewDialog.vue')
+const templateDesignerWrapper = assertFile(
+  'src/views/form-center/template/components/FormTemplateDesignerWrapper.vue'
+)
+assertIncludes(templateDesignerWrapper, "name: 'FormCenterTemplateDesignerWrapper'")
+const templateSimulatePage = assertFile(
+  'src/views/form-center/template/FormTemplateSimulatePage.vue'
+)
+assertIncludes(templateSimulatePage, "name: 'FormCenterTemplateSimulatePage'")
+assertIncludes(templateSimulatePage, "import FormTemplateIndex from './index.vue'")
 
 const actionPanel = assertFile('src/views/form-center/business-action/ActionFormPanel.vue')
 assertIncludes(actionPanel, 'resolveBusinessAction')
@@ -289,7 +292,10 @@ assertIncludes(actionPanel, 'submitFormInstance')
 assertIncludes(actionPanel, 'reworkSubmitFormInstance')
 assertIncludes(actionPanel, 'abandonFormInstance')
 assertIncludes(actionPanel, 'buildSubmitPayload')
-assertIncludes(actionPanel, 'props.formData.startUserSelectAssignees')
+assertIncludes(actionPanel, 'actionFormData.value.startUserSelectAssignees')
+assertIncludes(actionPanel, 'EdhrExecutionTemplateEditableForm')
+assertIncludes(actionPanel, 'getTemplateVersion')
+assertIncludes(actionPanel, 'applyLatestDraftSnapshotFormData')
 assertIncludes(actionPanel, 'startUserSelectAssignees 必须是对象')
 assertIncludes(actionPanel, 'FORM_POLICY_NOT_FOUND')
 assertIncludes(actionPanel, 'BPM_BINDING_MISSING')
@@ -311,6 +317,9 @@ assertIncludes(policyPage, 'loadPublishedTemplates')
 const remainingRoutes = assertFile('src/router/modules/remaining.ts')
 assertIncludes(remainingRoutes, 'ApprovalCenterFormCenter')
 assertIncludes(remainingRoutes, '/approval-center/manager/form-center/template')
+assertIncludes(remainingRoutes, "path: 'form-center/template/simulate'")
+assertIncludes(remainingRoutes, "MdmFormCenterTemplateSimulate")
+assertIncludes(remainingRoutes, "@/views/form-center/template/FormTemplateSimulatePage.vue")
 assertNotIncludes(remainingRoutes, "path: 'business-action'")
 assertNotIncludes(remainingRoutes, "ApprovalCenterFormCenterBusinessAction")
 assertNotIncludes(remainingRoutes, "import('@/views/form-center/business-action/index.vue')")
@@ -323,9 +332,9 @@ assertIncludes(remainingRoutes, "activeMenu: '/mdm/form-center/effect'")
 assertIncludes(remainingRoutes, "permission: ['form:template:query']")
 assertIncludes(remainingRoutes, "permission: ['form:policy:query']")
 
-const formCenterSeed = read('../ruoyi-vue-pro/sql/mysql/20260717_bpm_form_center.sql')
-const formCenterMoveSeed = read('../ruoyi-vue-pro/sql/mysql/20260721_form_center_menu_under_basic_data.sql')
-const formCenterRetireSeed = assertFile('../ruoyi-vue-pro/sql/mysql/20260722_form_center_business_action_page_retire.sql')
+const formCenterSeed = read('../IntRuoyiBackend/sql/mysql/20260717_bpm_form_center.sql')
+const formCenterMoveSeed = read('../IntRuoyiBackend/sql/mysql/20260721_form_center_menu_under_basic_data.sql')
+const formCenterRetireSeed = assertFile('../IntRuoyiBackend/sql/mysql/20260722_form_center_business_action_page_retire.sql')
 for (const sqlSource of [formCenterSeed, formCenterMoveSeed, formCenterRetireSeed]) {
   assertNotIncludes(sqlSource, "'业务动作表单'")
   assertNotIncludes(sqlSource, "'business-action'")
@@ -343,8 +352,9 @@ for (const file of [
   'src/api/form-center/instance.ts',
   'src/api/form-center/policy.ts',
   'src/views/form-center/template/index.vue',
+  'src/views/form-center/template/FormTemplateSimulatePage.vue',
+  'src/views/form-center/template/components/FormTemplateDesignerWrapper.vue',
   'src/views/form-center/template/components/TemplateImportDialog.vue',
-  'src/views/form-center/template/components/TemplateViewDialog.vue',
   'src/views/form-center/business-action/ActionFormPanel.vue',
   'src/views/form-center/policy/index.vue'
 ]) {

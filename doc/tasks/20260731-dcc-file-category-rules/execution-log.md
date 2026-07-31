@@ -1,0 +1,46 @@
+# Execution Log
+
+## 2026-07-31
+
+- User intent: 用户确认可在干净 worktree/新任务环境继续 DCC 文件类别规则改造；不在日志记录测试服密码或 token。
+- Workspace: `D:\IntRuoyiWorktree\20260731-dcc-file-category-rules`，branch `codex/20260731-dcc-file-category-rules`，`git status --short --branch` 显示相对 `origin/int_main` 无已跟踪脏改动。
+- Skills/rules read: `backend-api-delivery`、`database-schema-delivery`、`behavior-driven-development`；项目规则 `docs/backend-development.md`、`docs/database-rules.md`、`docs/powershell-encoding.md`、`docs/powershell-memory.md`、`docs/task-closeout-rules.md`；经验索引 `docs/experience-index.md`。
+- Experience gate: 适用 DCC `lifecycle_stage` / schema 迁移经验，要求全表历史归档行也纳入 schema 风险判断，不直接手工改测试库。
+- Boundary correction: 首次 `apply_patch` 默认落在主工作区 `E:\IntRuoyi`，已用精确补丁撤回本轮误写的任务文档和测试片段；后续补丁使用绝对路径落在当前 worktree。
+- `BDD: 可维护规则消除 OQ/PQ 宽泛工艺歧义 -> Given 启用类别同时存在 OQ/PQ 验证类别和工序卡/作业指导书类别, When 文件名包含 OQ/PQ 明确验证方案或报告规则, Then 官方分类选择对应 OQ/PQ 类别并落入其阶段/文件类型, And 不因宽泛工艺关键词返回 AMBIGUOUS。`
+- `BDD: 可维护规则识别图纸类未分类文件 -> Given 启用类别存在绑定文件类型的零配件图纸类别, When 项目代码关联文件名或标题包含受控图纸扩展名或图纸关键词, Then 分类结果写入零配件图纸的阶段/文件类型。`
+- `BDD: 泛化同分仍显式歧义 -> Given 两个启用类别只有相同强度的泛化匹配规则, When 文件名同时命中两者且没有更明确规则, Then 分类结果仍为 AMBIGUOUS 并保留候选用于人工规则治理。`
+- `RED: mvn -pl yudao-module-dcc -am "-Dtest=DccProjectCodeServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" clean test -> FAIL, expected reason: 新增测试引用正式规则 DO/Mapper，当前代码缺少 DccFileCategoryMatchRuleDO 与 DccFileCategoryMatchRuleMapper，testCompile 编译失败。`
+- Implemented: 新增 `dcc_file_category_match_rule` 正式规则表、DO、Mapper、测试 schema、OQ/PQ 与零配件图纸 seed 规则；分类服务读取 active 规则并支持 `CONTAINS` / `EXTENSION`，未知类型和空规则文本 fail fast。
+- Hardening: seed SQL 增加 fail-fast 存储过程，类别缺失、同租户同名类别歧义或插入不完整时 `SIGNAL`，并新增唯一键 `uk_dcc_file_category_match_rule_unique` 防止重复 active 规则行。
+- `GREEN: mvn -pl yudao-module-dcc -am "-Dtest=DccProjectCodeServiceImplTest,DccBaseSchemaTest#mysqlSchemaShouldSupportDccFileCategoryMatchRules" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, BUILD SUCCESS; Tests run: 27, Failures: 0, Errors: 0, Skipped: 0.`
+- `GREEN: python -X utf8 -m pytest script/tests/test_dcc_file_category_match_rule_sql.py -q -> PASS, 3 passed.`
+- `GREEN: python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output doc\tasks\20260731-dcc-file-category-rules\migration-policy-gate.json -> PASS, status=passed, migrationCount=401, includes 20260731_dcc_file_category_match_rule and 20260731_dcc_file_category_match_rule_seed.`
+- Evidence files created: `backend-api-evidence.md`, `database-schema-evidence.md`, `verification-report.md`; cleanup 前已把 validator 所需 PASS 摘要同步到本日志与验证报告。
+- Validator retry note: first evidence validator run failed only because evidence markdown lacked exact `RED:` / `GREEN:` / `Validation` markers; evidence files were updated with required markers.
+- `GREEN: python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260731-dcc-file-category-rules/backend-api-evidence.md -> PASS, Backend API evidence is valid.`
+- `GREEN: python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260731-dcc-file-category-rules/database-schema-evidence.md -> PASS, Database schema evidence is valid.`
+- Project experience consolidation: 更新 `docs/database-rules.md#DCC 文件类别规则种子门禁`，要求 DCC 类别规则 seed 对缺类别/歧义/插入不完整 fail fast；同步 `docs/experience-index.md` 关键词路由。`rg -n "dcc_file_category_match_rule|DCC 文件类别规则种子门禁" docs/experience-index.md docs/database-rules.md -> PASS`。
+- `GREEN: git diff --check -> PASS, only CRLF conversion warnings for existing Windows checkout behavior.`
+- Status: implementation and required verification complete; `task.md` marked `ready_for_closeout` before cleanup preview/apply.
+- Implementation commit: `23034852 feat: add DCC file category match rules`; file list verified with `git show --name-status --oneline -1`.
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260731-dcc-file-category-rules --mode preview -> BLOCKED`; delete candidates were only temporary evidence files (`backend-api-evidence.md`, `database-schema-evidence.md`, `migration-policy-gate.json`), keep list contained `task.md`, `execution-log.md`, `verification-report.md`.
+- Closeout blocker: current linked worktree cannot be fast-forward merged into `int_main` because branch lacks current `int_main` ancestry, and main worktree `E:\IntRuoyi` is dirty. Cleanup apply was not run and `--worktree-closeout off` was not used because that would bypass the worktree closeout gate.
+- User authorization: 用户授权先在主工作区做脏工作区基线提交，再继续 DCC 文件类别规则改造；另确认可以在干净 worktree/新任务环境继续。
+- Main baseline context before merge: 本轮继续前，`E:\IntRuoyi` 的并发脏状态已由用户授权保存为独立基线提交 `9bf0e44fc`、`762e237fe`、`0233269e2`、`30e5b5a8b`，随后本地 `int_main` 合入 `origin/int_main` 得到 `bb890184c`。本任务未回滚或删除这些并行改动。
+- Merge resolution: 在当前 worktree 执行 `git merge --no-edit int_main` 后出现 7 个 DCC 冲突文件；解析策略为保留当前任务的 fail-fast seed、`uk_dcc_file_category_match_rule_unique` 唯一键、`TINYINT` schema、无 match-rule 物理删除入口，并吸收主线的 `EXACT/PREFIX/SUFFIX` 匹配类型和 `idx_dcc_file_category_match_rule_type` 索引。
+- Hardening after merge: `DccProjectCodeServiceImpl` 现在对空 `matchType`、空 `matchText`、未知规则类型 fail fast；不默认成功、不直接修写 `dcc_controlled_file`，并避免在 `resolveAiCategoryTarget` 内重复查询 active rules。
+- `GREEN: mvn -pl yudao-module-dcc -am "-Dtest=DccProjectCodeServiceImplTest,DccBaseSchemaTest#mysqlSchemaShouldSupportDccFileCategoryMatchRules" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS after merge, BUILD SUCCESS; Tests run: 27, Failures: 0, Errors: 0, Skipped: 0.`
+- `GREEN: python -X utf8 -m pytest script/tests/test_dcc_file_category_match_rule_sql.py -q -> PASS after merge, 3 passed.`
+- Retry note: migration gate first rerun failed before policy evaluation because output path was incorrectly resolved under `IntRuoyiBackend\doc\...` and the directory did not exist; rerun used the repo-root task directory via `..\doc\...`.
+- `GREEN: python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output ..\doc\tasks\20260731-dcc-file-category-rules\migration-policy-gate-after-merge.json -> PASS, status=passed, migrationCount=402, includes merged mainline SQL plus DCC match-rule schema/seed.`
+- `GREEN: scripts\preflight\branch-runtime-port-guard.ps1 -> PASS, Branch runtime port guard passed for codex/20260731-dcc-file-category-rules/int_main: frontend 8085, backend 48085.`
+- `GREEN: git diff --check -> PASS after merge.`
+- Status: merge conflict resolution and post-merge verification complete; pending merge-resolution commit and push.
+- Latest main sync: `int_main` advanced to `88bd3c0cb`; merged latest `int_main` into task branch with commit `e0a09e002`, no DCC source conflicts, branch runtime port guard passed, and pushed `origin/codex/20260731-dcc-file-category-rules`.
+- Cleanup preview final: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260731-dcc-file-category-rules --mode preview -> ready`; keep list was `task.md`, `execution-log.md`, `verification-report.md`; delete list was `backend-api-evidence.md`, `database-schema-evidence.md`, `migration-policy-gate.json`, `migration-policy-gate-after-merge.json`; blocked/warnings were none.
+- Cleanup apply: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260731-dcc-file-category-rules --mode apply -> reported deleted_paths=4, closeout_commit=3dff034db`; cleanup commit was ff-only merged into `E:\IntRuoyi` `int_main`. Final main-tree check showed `backend-api-evidence.md` still tracked, so this final closeout record explicitly removes that remaining task evidence file while retaining its PASS summary in `execution-log.md` and `verification-report.md`.
+- Worktree removal recovery: apply reported `git worktree remove --force D:\IntRuoyiWorktree\20260731-dcc-file-category-rules -> Permission denied`, but `git worktree list` no longer contained the target and the residual directory had no `.git` and 0 children. Removed only that empty task-owned directory from `E:\IntRuoyi`.
+- `GREEN: Test-Path D:\IntRuoyiWorktree\20260731-dcc-file-category-rules -> False; git worktree list no longer contains 20260731-dcc-file-category-rules.`
+- Project experience consolidation: 更新 `docs/worktree-memory.md#Git 注册已移除但空目录删除被当前进程占用`，并在 `docs/experience-index.md` 增加 `Permission denied`、当前目录占用、空目录残留关键词。
+- Status: cleanup、ff-only merge、worktree 删除和任务文档保留完成；`task.md` marked `completed`.

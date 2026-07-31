@@ -19,8 +19,14 @@ const importDialogTemplate = source.slice(dialogStart, dialogEnd)
 
 assert.doesNotMatch(
   importDialogTemplate,
-  /label="表单类型"|请选择表单类型|batch-record-word-import-form__slot-select/,
-  '导入 Word 弹窗不得继续展示表单类型选择项。'
+  /<el-form-item label="表单类型"/,
+  '导入 Word 弹窗不得显示表单类型选择项。'
+)
+
+assert.doesNotMatch(
+  source,
+  /const formSlotTypeOptions/,
+  '隐藏表单类型后不得保留无入口使用的下拉选项列表。'
 )
 
 assert.match(
@@ -47,10 +53,10 @@ assert.doesNotMatch(
   '导入 Word 弹窗中的产品名称与文件按钮不得再被隐藏的表单类型禁用。'
 )
 
-assert.doesNotMatch(
+assert.match(
   source,
-  /请选择表单类型/,
-  '导入 Word 交互不得再提示用户选择已隐藏的表单类型。'
+  /if \(!wordImportDialog\.selectedFormSlotType\)[\s\S]*?请选择表单类型/,
+  '导入 Word 交互必须在确认时校验表单类型。'
 )
 
-console.log('PASS: batch record Word import defaults to main form without visible type selector')
+console.log('PASS: batch record Word import hides the type selector and defaults to main')

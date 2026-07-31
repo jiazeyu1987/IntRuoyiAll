@@ -12,6 +12,7 @@ import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalReques
 import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalRequestStatus;
 import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalErrorCode;
 import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalOrchestrator;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportAssistRowVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRuleVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRulesReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportCellRulesRespVO;
@@ -38,12 +39,14 @@ import cn.iocoder.yudao.module.mes.enums.md.autocode.MesMdAutoCodeRuleCodeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
 import cn.iocoder.yudao.module.mes.service.md.autocode.MesMdAutoCodeRecordService;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionRuleCommand;
+import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionScopeDetailResult;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionScopeSaveCommand;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionScopeService;
 import cn.iocoder.yudao.module.mes.service.pro.dccprojectgovernance.MesProDccProjectGovernanceService;
 import cn.iocoder.yudao.module.mes.service.pro.dccprojectgovernance.MesProDccProjectGovernanceServiceImpl;
 import cn.iocoder.yudao.module.mes.service.pro.dccprojectgovernance.MesProDccProjectGovernanceStatus;
 import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteOwnerPermissionServiceImpl;
+import cn.iocoder.yudao.module.mes.service.pro.route.MesProRouteService;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import cn.hutool.core.util.StrUtil;
@@ -167,6 +170,8 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     private BusinessApprovalOrchestrator businessApprovalOrchestrator;
     @MockitoBean
     private MesProEdhrPermissionScopeService permissionScopeService;
+    @MockitoBean
+    private MesProRouteService routeService;
 
     @AfterEach
     void tearDown() {
@@ -196,6 +201,18 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
         AtomicInteger routeCodeCounter = new AtomicInteger();
         when(autoCodeRecordService.generateAutoCode(eq(MesMdAutoCodeRuleCodeEnum.PRO_ROUTE_CODE.getCode())))
                 .thenAnswer(invocation -> "ROUTE-IMPORT-" + routeCodeCounter.incrementAndGet());
+        AtomicInteger permissionScopeCounter = new AtomicInteger(700000);
+        when(permissionScopeService.saveRules(any(MesProEdhrPermissionScopeSaveCommand.class)))
+                .thenAnswer(invocation -> {
+                    MesProEdhrPermissionScopeSaveCommand command = invocation.getArgument(0);
+                    return new MesProEdhrPermissionScopeDetailResult()
+                            .setScopeId((long) permissionScopeCounter.incrementAndGet())
+                            .setScopeName(command.getScopeName())
+                            .setObjectType(command.getObjectType())
+                            .setObjectId(command.getObjectId())
+                            .setStatus("ENABLED")
+                            .setVersion(1);
+                });
         AtomicInteger processInstanceCounter = new AtomicInteger();
         when(businessApprovalOrchestrator.submit(any(BusinessApprovalContext.class)))
                 .thenAnswer(invocation -> {
@@ -846,11 +863,23 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                   AND record_category_snapshot_hash IS NOT NULL
                   AND slot_config_snapshot_hash IS NOT NULL
                 """, result.routeId()));
+        assertEquals(0, rawCount("""
+                SELECT COUNT(*) FROM mes_pro_route_flow_process_batch_record
+                WHERE route_id = ? AND permission_scope_id = route_process_id
+                """, result.routeId()));
+        assertEquals(2, rawCount("""
+                SELECT COUNT(*) FROM mes_pro_route_flow_process_batch_record
+                WHERE route_id = ? AND permission_scope_id >= 700000
+                """, result.routeId()));
 
         ArgumentCaptor<MesProEdhrPermissionScopeSaveCommand> permissionCaptor =
                 ArgumentCaptor.forClass(MesProEdhrPermissionScopeSaveCommand.class);
-        verify(permissionScopeService).saveRules(permissionCaptor.capture());
-        MesProEdhrPermissionScopeSaveCommand permissionCommand = permissionCaptor.getValue();
+        verify(permissionScopeService, times(3)).saveRules(permissionCaptor.capture());
+        List<MesProEdhrPermissionScopeSaveCommand> permissionCommands = permissionCaptor.getAllValues();
+        MesProEdhrPermissionScopeSaveCommand permissionCommand = permissionCommands.stream()
+                .filter(command -> Objects.equals("ROUTE", command.getObjectType()))
+                .findFirst()
+                .orElseThrow();
         assertEquals("route-" + result.routeId(), permissionCommand.getScopeName());
         assertEquals("ROUTE", permissionCommand.getObjectType());
         assertEquals(String.valueOf(result.routeId()), permissionCommand.getObjectId());
@@ -863,6 +892,18 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
             assertEquals(creatorUserId, rule.getSubjectId());
             assertEquals("ALLOW", rule.getDecision());
             assertEquals("ENABLED", rule.getStatus());
+        });
+        List<MesProEdhrPermissionScopeSaveCommand> bindingPermissionCommands = permissionCommands.stream()
+                .filter(command -> Objects.equals("ROUTE_PROCESS_BATCH_RECORD", command.getObjectType()))
+                .toList();
+        assertEquals(2, bindingPermissionCommands.size());
+        bindingPermissionCommands.forEach(command -> {
+            assertTrue(command.getScopeName().startsWith("route-process-batch-record-"));
+            assertTrue(command.getObjectId().contains("|"));
+            assertEquals(creatorUserId, command.getActorUserId());
+            assertEquals("word-importer", command.getActorUsername());
+            assertEquals(List.of("VIEW", "FILL"),
+                    command.getRules().stream().map(MesProEdhrPermissionRuleCommand::getAbility).toList());
         });
     }
 
@@ -1057,7 +1098,7 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     }
 
     @Test
-    void recognizeUploadedRoute_whenUpgradingRoute_preservesStableProcessConnectionInfo() {
+    void recognizeUploadedRoute_whenUpgradingRoute_keepsStableProcessConnectionInfoOnActiveRoute() {
         List<MesProBatchRecordParsedTable> parsedTables = List.of(
                 TestBatchRecordFixtures.parsedTable(1, "产品信息"),
                 TestBatchRecordFixtures.parsedTable(2, "粗洗工序"),
@@ -1171,27 +1212,30 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                 List.of(currentRouteProduct.getId()), List.of(), true,
                 currentRoute.getId(), currentRouteVersion.getId(), null);
 
-        Long newStartRouteProcessId = jdbcTemplate().queryForObject("""
-                SELECT id FROM mes_pro_route_process
-                WHERE route_id = ? AND process_id = ? AND deleted = FALSE
-                """, Long.class, currentRoute.getId(), 931001L);
-        Long newEndRouteProcessId = jdbcTemplate().queryForObject("""
-                SELECT id FROM mes_pro_route_process
-                WHERE route_id = ? AND process_id = ? AND deleted = FALSE
-                """, Long.class, currentRoute.getId(), 931003L);
         assertEquals(currentRoute.getId(), result.routeId());
-        assertNotEquals(932001L, newStartRouteProcessId);
-        assertNotEquals(932003L, newEndRouteProcessId);
+        assertNotEquals(currentRouteVersion.getId(), result.routeVersionId());
+        assertEquals(3, result.routeProcessCount());
+        assertEquals(3, result.batchRecordRouteBindingCount());
+        MesProRouteVersionDO candidateRouteVersion = routeVersionMapper.selectById(result.routeVersionId());
+        assertEquals(currentRouteVersion.getId(), candidateRouteVersion.getSourceRouteVersionId());
+        assertEquals(false, candidateRouteVersion.getActive());
+        assertEquals("DRAFT", candidateRouteVersion.getLifecycleStatus());
+        JSONObject candidateSnapshot = JSONObject.parseObject(candidateRouteVersion.getRouteSnapshotJson());
+        JSONObject candidateConfigSnapshots = candidateSnapshot.getJSONObject("configSnapshots");
+        assertEquals(3, candidateConfigSnapshots.getJSONObject("flowGraph").getJSONArray("nodes").size());
+        assertEquals(3, candidateConfigSnapshots.getJSONArray("batchUseConfigs").size());
+        assertEquals(3, rawCount("SELECT COUNT(*) FROM mes_pro_route_process WHERE route_id = ? AND deleted = FALSE",
+                currentRoute.getId()));
         assertEquals(1, rawCount("""
                 SELECT COUNT(*) FROM mes_pro_route_process
                 WHERE id = ? AND next_process_id = ? AND link_type = ? AND prepare_time = ?
                   AND wait_time = ? AND color_code = ? AND key_flag = TRUE AND deleted = FALSE
-                """, newStartRouteProcessId, newEndRouteProcessId, 2, 15, 5, "#00AA00"));
+                """, 932001L, 932003L, 2, 15, 5, "#00AA00"));
         assertEquals(1, rawCount("""
                 SELECT COUNT(*) FROM mes_pro_route_process_flow_edge
                 WHERE route_id = ? AND source_route_process_id = ? AND target_route_process_id = ?
                   AND graph_version = ? AND relation_type = ? AND sort = ? AND deleted = FALSE
-                """, currentRoute.getId(), newStartRouteProcessId, newEndRouteProcessId,
+                """, currentRoute.getId(), 932001L, 932003L,
                 7L, "MANUAL_SKIP", 9));
     }
 
@@ -3806,6 +3850,108 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     }
 
     @Test
+    void getGeneratedReportPage_latestVersionOnlyKeepsNewestVersionPerDefinition() {
+        MesProBatchRecordDefinitionDO definition = insertVersionedDefinition("最新版本过滤批记录");
+        MesProBatchRecordVersionDO oldVersion = insertVersion(definition.getId(), "V1.0", "APPROVED",
+                null, PILOT_FILE_NAME, "hash-latest-filter-v1", null, null);
+        MesProBatchRecordVersionDO latestVersion = insertVersion(definition.getId(), "V2.0", "PENDING_APPROVAL",
+                oldVersion.getId(), PILOT_FILE_NAME, "hash-latest-filter-v2", null, null);
+        definition.setCurrentVersionId(oldVersion.getId());
+        definitionMapper.updateById(definition);
+        MesProBatchRecordReportDO oldReport = TestBatchRecordFixtures.metadataReport(
+                13L, "latest-filter-v1", 1, "latest-filter-v1-report", "EBR_LATEST_V1", "旧版本表单",
+                PILOT_FILE_NAME);
+        oldReport.setBatchRecordName("最新版本过滤批记录");
+        oldReport.setBatchRecordDefinitionId(definition.getId());
+        oldReport.setBatchRecordVersionId(oldVersion.getId());
+        oldReport.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
+        MesProBatchRecordReportDO latestReport = TestBatchRecordFixtures.metadataReport(
+                14L, "latest-filter-v2", 1, "latest-filter-v2-report", "EBR_LATEST_V2", "最新版本表单",
+                PILOT_FILE_NAME);
+        latestReport.setBatchRecordName("最新版本过滤批记录");
+        latestReport.setBatchRecordDefinitionId(definition.getId());
+        latestReport.setBatchRecordVersionId(latestVersion.getId());
+        latestReport.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
+        reportMapper.insert(oldReport);
+        reportMapper.insert(latestReport);
+        when(jimuReportGateway.getReportInfo("latest-filter-v1-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "latest-filter-v1-report", "EBR_LATEST_V1", "旧版本表单", LocalDateTime.now()));
+        when(jimuReportGateway.getReportInfo("latest-filter-v2-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "latest-filter-v2-report", "EBR_LATEST_V2", "最新版本表单", LocalDateTime.now()));
+
+        BatchRecordReportPageReqVO pageReqVO = new BatchRecordReportPageReqVO();
+        pageReqVO.setPageNo(1);
+        pageReqVO.setPageSize(20);
+        pageReqVO.setLatestVersionOnly(true);
+
+        PageResult<MesProBatchRecordReportView> pageResult = reportService.getGeneratedReportPage(pageReqVO);
+
+        assertEquals(1L, pageResult.getTotal());
+        MesProBatchRecordReportView row = pageResult.getList().get(0);
+        assertEquals("latest-filter-v2-report", row.reportId());
+        assertEquals(latestVersion.getId(), row.batchRecordVersionId());
+        assertEquals("V2.0", row.versionNo());
+        assertEquals("PENDING_APPROVAL", row.versionStatus());
+    }
+
+    @Test
+    void getGeneratedReportPage_latestVersionOnlyExcludesOlderDuplicateDefinitionRows() {
+        String productName = "球囊扩张压力泵";
+        MesProBatchRecordDefinitionDO obsoleteDefinition = insertDefinition(productName,
+                MesProBatchRecordRecognitionRouteKeys.A);
+        MesProBatchRecordVersionDO obsoleteVersion = insertVersion(obsoleteDefinition.getId(), "V13.0", "OBSOLETE",
+                null, PILOT_FILE_NAME, "hash-latest-filter-v13", null, null);
+        obsoleteDefinition.setCurrentVersionId(obsoleteVersion.getId());
+        definitionMapper.updateById(obsoleteDefinition);
+        MesProBatchRecordDefinitionDO latestDefinition = insertDefinition(productName,
+                MesProBatchRecordRecognitionRouteKeys.B);
+        MesProBatchRecordVersionDO latestVersion = insertVersion(latestDefinition.getId(), "V14.0", "APPROVED",
+                null, PILOT_FILE_NAME, "hash-latest-filter-v14", null, null);
+        latestDefinition.setCurrentVersionId(latestVersion.getId());
+        definitionMapper.updateById(latestDefinition);
+        MesProBatchRecordReportDO obsoleteReport = TestBatchRecordFixtures.metadataReport(
+                15L, "latest-duplicate-v13", 1, "latest-duplicate-v13-report", "EBR_LATEST_V13", "旧定义旧版本表单",
+                PILOT_FILE_NAME);
+        obsoleteReport.setBatchRecordName(productName);
+        obsoleteReport.setProductName(productName);
+        obsoleteReport.setBatchRecordDefinitionId(obsoleteDefinition.getId());
+        obsoleteReport.setBatchRecordVersionId(obsoleteVersion.getId());
+        obsoleteReport.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
+        MesProBatchRecordReportDO latestReport = TestBatchRecordFixtures.metadataReport(
+                16L, "latest-duplicate-v14", 1, "latest-duplicate-v14-report", "EBR_LATEST_V14", "新定义最新版本表单",
+                PILOT_FILE_NAME);
+        latestReport.setBatchRecordName(productName);
+        latestReport.setProductName(productName);
+        latestReport.setBatchRecordDefinitionId(latestDefinition.getId());
+        latestReport.setBatchRecordVersionId(latestVersion.getId());
+        latestReport.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
+        reportMapper.insert(obsoleteReport);
+        reportMapper.insert(latestReport);
+        when(jimuReportGateway.getReportInfo("latest-duplicate-v13-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "latest-duplicate-v13-report", "EBR_LATEST_V13", "旧定义旧版本表单", LocalDateTime.now()));
+        when(jimuReportGateway.getReportInfo("latest-duplicate-v14-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "latest-duplicate-v14-report", "EBR_LATEST_V14", "新定义最新版本表单", LocalDateTime.now()));
+
+        BatchRecordReportPageReqVO pageReqVO = new BatchRecordReportPageReqVO();
+        pageReqVO.setPageNo(1);
+        pageReqVO.setPageSize(20);
+        pageReqVO.setProductName(productName);
+        pageReqVO.setLatestVersionOnly(true);
+
+        PageResult<MesProBatchRecordReportView> pageResult = reportService.getGeneratedReportPage(pageReqVO);
+
+        assertEquals(1L, pageResult.getTotal());
+        MesProBatchRecordReportView row = pageResult.getList().get(0);
+        assertEquals("latest-duplicate-v14-report", row.reportId());
+        assertEquals("V14.0", row.versionNo());
+        assertEquals("APPROVED", row.versionStatus());
+    }
+
+    @Test
     void getGeneratedReportPage_expandsVersionRouteProductsIntoRowsAndKeepsBlankWhenUnbound() {
         MesProBatchRecordDefinitionDO definition = insertVersionedDefinition("拆行批记录");
         Long firstItemId = seedProductItem("产品A", "PRD-A");
@@ -3897,6 +4043,127 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
     }
 
     @Test
+    void getProductNameOptions_returnsVisibleDistinctSortedProductsFromListScope() {
+        Long alphaItemId = seedProductItem("Alpha Product", "PRD-OPT-A");
+        Long gammaItemId = seedProductItem("Gamma Product", "PRD-OPT-G");
+        Long routeId = 940001L;
+        jdbcTemplate().update("""
+                INSERT INTO mes_pro_route
+                (id, code, name, status, remark, creator, updater, deleted, tenant_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                routeId, "ROUTE-PRODUCT-OPTIONS", "候选产品路线", CommonStatusEnum.ENABLE.getStatus(),
+                "批记录表单产品候选测试", "tester", "tester", false, 1L);
+        jdbcTemplate().update("""
+                INSERT INTO mes_pro_route_product
+                (id, route_id, item_id, quantity, production_time, time_unit_type, remark, creator, updater, deleted, tenant_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                940101L, routeId, alphaItemId, 1, BigDecimal.ONE, "MINUTE", "Alpha Product", "tester", "tester", false, 1L);
+        jdbcTemplate().update("""
+                INSERT INTO mes_pro_route_product
+                (id, route_id, item_id, quantity, production_time, time_unit_type, remark, creator, updater, deleted, tenant_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                940102L, routeId, gammaItemId, 1, BigDecimal.ONE, "MINUTE", "Gamma Product", "tester", "tester", false, 1L);
+        MesProBatchRecordDefinitionDO definition = insertVersionedDefinition("候选产品批记录");
+        MesProBatchRecordVersionDO version = insertVersion(definition.getId(), "V1.0", "APPROVED",
+                null, PILOT_FILE_NAME, "hash-product-options-v1", routeId, null);
+        MesProBatchRecordReportDO routeProductReport = TestBatchRecordFixtures.metadataReport(
+                73L, "product-options-route", 1, "product-options-route-report", "EBR_OPT_ROUTE", "路线产品表单",
+                PILOT_FILE_NAME);
+        routeProductReport.setBatchRecordName("候选产品批记录");
+        routeProductReport.setBatchRecordDefinitionId(definition.getId());
+        routeProductReport.setBatchRecordVersionId(version.getId());
+        routeProductReport.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
+        reportMapper.insert(routeProductReport);
+        MesProBatchRecordReportDO directProductReport = TestBatchRecordFixtures.metadataReport(
+                74L, "product-options-direct", 1, "product-options-direct-report", "EBR_OPT_DIRECT", "直接产品表单",
+                PILOT_FILE_NAME);
+        directProductReport.setProductName("Beta Product");
+        reportMapper.insert(directProductReport);
+        MesProBatchRecordReportDO duplicateProductReport = TestBatchRecordFixtures.metadataReport(
+                75L, "product-options-duplicate", 1, "product-options-duplicate-report", "EBR_OPT_DUP", "重复产品表单",
+                PILOT_FILE_NAME);
+        duplicateProductReport.setProductName("Alpha Product");
+        reportMapper.insert(duplicateProductReport);
+        MesProBatchRecordReportDO clearedReport = TestBatchRecordFixtures.metadataReport(
+                76L, "product-options-cleared", 1, "product-options-cleared-report", "EBR_OPT_HIDDEN", "已清理产品表单",
+                PILOT_FILE_NAME);
+        clearedReport.setProductName("Hidden Product");
+        reportMapper.insert(clearedReport);
+        when(jimuReportGateway.getReportInfo("product-options-route-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "product-options-route-report", "EBR_OPT_ROUTE", "路线产品表单", LocalDateTime.now()));
+        when(jimuReportGateway.getReportInfo("product-options-direct-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "product-options-direct-report", "EBR_OPT_DIRECT", "直接产品表单", LocalDateTime.now()));
+        when(jimuReportGateway.getReportInfo("product-options-duplicate-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "product-options-duplicate-report", "EBR_OPT_DUP", "重复产品表单", LocalDateTime.now()));
+        when(jimuReportGateway.getReportInfo("product-options-cleared-report")).thenReturn(null);
+
+        assertEquals(List.of("Alpha Product", "Beta Product", "Gamma Product"),
+                reportService.getProductNameOptions(null, false));
+        assertEquals(List.of("Alpha Product"), reportService.getProductNameOptions("alp", false));
+    }
+
+    @Test
+    void getProductNameOptions_respectsLatestVersionOnly() {
+        Long oldItemId = seedProductItem("Old Product", "PRD-OPT-OLD");
+        Long latestItemId = seedProductItem("Latest Product", "PRD-OPT-LATEST");
+        Long oldRouteId = 940011L;
+        Long latestRouteId = 940012L;
+        jdbcTemplate().update("""
+                INSERT INTO mes_pro_route
+                (id, code, name, status, remark, creator, updater, deleted, tenant_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                oldRouteId, "ROUTE-PRODUCT-OPTIONS-OLD", "旧候选产品路线", CommonStatusEnum.ENABLE.getStatus(),
+                "批记录表单产品候选旧版本测试", "tester", "tester", false, 1L,
+                latestRouteId, "ROUTE-PRODUCT-OPTIONS-LATEST", "新候选产品路线", CommonStatusEnum.ENABLE.getStatus(),
+                "批记录表单产品候选新版本测试", "tester", "tester", false, 1L);
+        jdbcTemplate().update("""
+                INSERT INTO mes_pro_route_product
+                (id, route_id, item_id, quantity, production_time, time_unit_type, remark, creator, updater, deleted, tenant_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                940111L, oldRouteId, oldItemId, 1, BigDecimal.ONE, "MINUTE", "Old Product", "tester", "tester", false, 1L,
+                940112L, latestRouteId, latestItemId, 1, BigDecimal.ONE, "MINUTE", "Latest Product", "tester", "tester", false, 1L);
+        MesProBatchRecordDefinitionDO definition = insertVersionedDefinition("最新候选产品批记录");
+        MesProBatchRecordVersionDO oldVersion = insertVersion(definition.getId(), "V1.0", "APPROVED",
+                null, PILOT_FILE_NAME, "hash-product-options-old", oldRouteId, null);
+        MesProBatchRecordVersionDO latestVersion = insertVersion(definition.getId(), "V2.0", "APPROVED",
+                oldVersion.getId(), PILOT_FILE_NAME, "hash-product-options-latest", latestRouteId, oldRouteId);
+        MesProBatchRecordReportDO oldReport = TestBatchRecordFixtures.metadataReport(
+                77L, "product-options-old-version", 1, "prod-opt-old-report", "EBR_OPT_OLD", "旧版本候选表单",
+                PILOT_FILE_NAME);
+        oldReport.setBatchRecordName("最新候选产品批记录");
+        oldReport.setBatchRecordDefinitionId(definition.getId());
+        oldReport.setBatchRecordVersionId(oldVersion.getId());
+        oldReport.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
+        reportMapper.insert(oldReport);
+        MesProBatchRecordReportDO latestReport = TestBatchRecordFixtures.metadataReport(
+                78L, "product-options-latest-version", 1, "prod-opt-latest-report", "EBR_OPT_LATEST", "最新版本候选表单",
+                PILOT_FILE_NAME);
+        latestReport.setBatchRecordName("最新候选产品批记录");
+        latestReport.setBatchRecordDefinitionId(definition.getId());
+        latestReport.setBatchRecordVersionId(latestVersion.getId());
+        latestReport.setFormSlotType(MesProBatchRecordFormSlotType.MAIN.getType());
+        reportMapper.insert(latestReport);
+        when(jimuReportGateway.getReportInfo("prod-opt-old-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "prod-opt-old-report", "EBR_OPT_OLD", "旧版本候选表单", LocalDateTime.now()));
+        when(jimuReportGateway.getReportInfo("prod-opt-latest-report"))
+                .thenReturn(TestBatchRecordFixtures.reportInfo(
+                        "prod-opt-latest-report", "EBR_OPT_LATEST", "最新版本候选表单", LocalDateTime.now()));
+
+        assertEquals(List.of("Latest Product", "Old Product"),
+                reportService.getProductNameOptions(null, false));
+        assertEquals(List.of("Latest Product"), reportService.getProductNameOptions(null, true));
+    }
+
+    @Test
     void getGeneratedReportPage_hidesMetadataWhoseJimuReportHasBeenCleared() {
         MesProBatchRecordReportDO report = TestBatchRecordFixtures.metadataReport(
                 31L, "sample-cleared", 13, "cleared-report-13", "EBR_A_T13", "单包装工序生产记录", PILOT_FILE_NAME);
@@ -3960,13 +4227,56 @@ class MesProBatchRecordReportServiceImplDbTest extends BaseDbUnitTest {
                                 .setConstraints(Map.of("format", "yyyy-MM-dd"))
                                 .setSource("MANUAL")
                                 .setConfidence(1.0)
-                                .setReviewed(true))));
+                                .setReviewed(true)))
+                .setAssistRows(List.of(new BatchRecordReportAssistRowVO()
+                        .setRowKey("AR_001")
+                        .setDescription("填写重量和生产日期")
+                        .setSort(1)
+                        .setFields(List.of(
+                                new BatchRecordReportAssistRowVO.FieldVO()
+                                        .setRowIndex(0)
+                                        .setColumnIndex(1),
+                                new BatchRecordReportAssistRowVO.FieldVO()
+                                        .setRowIndex(1)
+                                        .setColumnIndex(1)))))
+                .setAssistGridRowCount(12)
+                .setAssistGridColumnCount(9));
 
         assertEquals(0, saved.getUnreviewedFillableCellCount());
         assertEquals(2, saved.getRules().size());
+        assertEquals(1, saved.getAssistRows().size());
+        assertEquals(12, saved.getAssistGridRowCount());
+        assertEquals(9, saved.getAssistGridColumnCount());
+        assertEquals("AR_001", saved.getAssistRows().get(0).getRowKey());
+        assertEquals("填写重量和生产日期", saved.getAssistRows().get(0).getDescription());
+        assertEquals(2, saved.getAssistRows().get(0).getFields().size());
         assertTrue(reportJson.get().contains("\"edhrCellRule\""));
+        assertTrue(reportJson.get().contains("\"edhrAssistRows\""));
+        assertTrue(reportJson.get().contains("\"edhrAssistGridRowCount\":12"));
+        assertTrue(reportJson.get().contains("\"edhrAssistGridColumnCount\":9"));
         assertTrue(reportJson.get().contains("\"valueType\":\"NUMBER\""));
         assertTrue(reportJson.get().contains("\"unit\":\"g\""));
+
+        BatchRecordReportCellRulesRespVO reloaded = reportService.getCellRules("cell-rule-report-1");
+        assertEquals(1, reloaded.getAssistRows().size());
+        assertEquals(12, reloaded.getAssistGridRowCount());
+        assertEquals(9, reloaded.getAssistGridColumnCount());
+        assertEquals("AR_001", reloaded.getAssistRows().get(0).getRowKey());
+        assertEquals(0, reloaded.getAssistRows().get(0).getFields().get(0).getRowIndex());
+        assertEquals(1, reloaded.getAssistRows().get(0).getFields().get(0).getColumnIndex());
+
+        BatchRecordReportCellRulesRespVO restoredLegacy = reportService.saveCellRules(new BatchRecordReportCellRulesReqVO()
+                .setReportId("cell-rule-report-1")
+                .setRules(List.of())
+                .setAssistRows(null));
+
+        assertEquals(0, restoredLegacy.getRules().size());
+        assertEquals(0, restoredLegacy.getAssistRows().size());
+        assertNull(restoredLegacy.getAssistGridRowCount());
+        assertNull(restoredLegacy.getAssistGridColumnCount());
+        assertFalse(JSONObject.parseObject(reportJson.get()).containsKey("edhrAssistRows"));
+        assertFalse(JSONObject.parseObject(reportJson.get()).containsKey("edhrAssistGridRowCount"));
+        assertFalse(JSONObject.parseObject(reportJson.get()).containsKey("edhrAssistGridColumnCount"));
     }
 
     @Test

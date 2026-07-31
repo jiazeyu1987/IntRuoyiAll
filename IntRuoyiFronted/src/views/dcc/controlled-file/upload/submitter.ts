@@ -11,7 +11,7 @@ export interface UploadFormDraft {
   directoryId: number | null
   fileName: string
   fileNumber: string
-  productMasterId: number | null
+  productMasterId: null
   productCode: string
   dccProjectCodeId: number | null
   fileTypeTaxonomyId: number | null
@@ -124,27 +124,17 @@ export const validateProductCode = (value: string | undefined): UploadSelectionV
   return { valid: true }
 }
 
-export const validateProductMasterSelection = (
-  productMasterId: number | null | undefined,
+export const validateDccProjectProductCode = (
   productCode: string | undefined,
   productRequired = false
 ): UploadSelectionValidation => {
-  if (!productMasterId) {
-    if (productRequired) {
-      return {
-        valid: false,
-        message: '请选择产品主数据'
-      }
-    }
-    if (!trimText(productCode)) {
-      return { valid: true }
-    }
+  if (productRequired && !trimText(productCode)) {
     return {
       valid: false,
-      message: '请选择产品主数据或清空产品编号'
+      message: '请选择包含项目代码的 DCC 项目'
     }
   }
-  return validateProductCode(productCode)
+  return { valid: true }
 }
 
 export const isDccProductRequiredForCategoryCode = (categoryCode?: string | null) => {
@@ -234,7 +224,7 @@ export const buildSubmitPayload = (
   drawingPdfUploadTicket: drawingPdfUpload?.uploadTicket,
   fileName: trimText(draft.fileName),
   fileNumber: trimText(draft.fileNumber),
-  productMasterId: draft.productMasterId ?? undefined,
+  productMasterId: null,
   productCode: trimText(draft.productCode) || undefined,
   dccProjectCodeId: draft.dccProjectCodeId ?? undefined,
   fileTypeTaxonomyId: draft.fileTypeTaxonomyId ?? undefined,

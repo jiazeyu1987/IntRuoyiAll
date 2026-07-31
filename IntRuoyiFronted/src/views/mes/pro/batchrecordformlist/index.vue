@@ -48,14 +48,13 @@
               <Icon icon="ep:upload" class="mr-5px" />
               导入
             </el-button>
-            <el-button
-              type="danger"
-              :disabled="!selectedRows.length"
-              :loading="batchDeleteLoading"
-              @click="handleBatchDelete"
-            >
-              批量删除
-            </el-button>
+            <div class="batch-record-form-toolbar__latest-version-switch">
+              <span class="batch-record-form-toolbar__latest-version-label">最新版本</span>
+              <el-switch
+                v-model="queryParams.latestVersionOnly"
+                @change="handleLatestVersionOnlyChange"
+              />
+            </div>
           </template>
           <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
             <el-table
@@ -66,11 +65,9 @@
               highlight-current-row
               border
               @row-click="selectReport"
-              @selection-change="handleSelectionChange"
               @header-dragend="handleRecordFormHeaderDragend"
               @sort-change="handleTemplateSortChange"
             >
-              <el-table-column type="selection" width="46" fixed="left" />
               <el-table-column
                 v-if="isRecordFormColumnVisible('productName')"
                 label="产品名称"
@@ -102,35 +99,47 @@
                 v-bind="sortColumnAttrs('fillRule')"
               >
                 <template #default="{ row }">
-                  <button
-                    type="button"
-                    class="batch-record-form-filler-cell"
-                    @click.stop="openBatchRecordFormPermissionDialog(row)"
+                  <el-tooltip
+                    :disabled="!row.permissionRuleErrorMessage"
+                    :content="row.permissionRuleErrorMessage"
+                    placement="top"
                   >
-                    <el-tag
-                      effect="plain"
-                      :type="
-                        resolveFillRuleStatus(
-                          row.permissionRule?.fillRuleStatus,
-                          isPermissionRuleLoading(row)
-                        ).type
-                      "
+                    <button
+                      type="button"
+                      class="batch-record-form-filler-cell"
+                      :title="row.permissionRuleErrorMessage || undefined"
+                      @click.stop="openBatchRecordFormPermissionDialog(row)"
                     >
-                      {{
-                        resolveFillRuleStatus(
-                          row.permissionRule?.fillRuleStatus,
+                      <el-tag
+                        effect="plain"
+                        :type="
+                          resolveFillRuleStatus(
+                            row.permissionRule?.fillRuleStatus,
+                            isPermissionRuleLoading(row),
+                            row.permissionRuleErrorMessage
+                          ).type
+                        "
+                      >
+                        {{
+                          resolveFillRuleStatus(
+                            row.permissionRule?.fillRuleStatus,
+                            isPermissionRuleLoading(row),
+                            row.permissionRuleErrorMessage
+                          ).label
+                        }}
+                      </el-tag>
+                      <span
+                        v-if="!row.permissionRuleErrorMessage"
+                        class="batch-record-form-filler-cell__text"
+                      >
+                        {{
                           isPermissionRuleLoading(row)
-                        ).label
-                      }}
-                    </el-tag>
-                    <span class="batch-record-form-filler-cell__text">
-                      {{
-                        isPermissionRuleLoading(row)
-                          ? '填写规则加载中'
-                          : buildFillRuleCandidateUserText(row) || '配置填写人'
-                      }}
-                    </span>
-                  </button>
+                            ? '填写规则加载中'
+                            : buildFillRuleCandidateUserText(row) || '配置填写人'
+                        }}
+                      </span>
+                    </button>
+                  </el-tooltip>
                 </template>
               </el-table-column>
               <el-table-column
@@ -206,7 +215,7 @@
             <el-button link type="primary" @click="openDesigner(selectedReport.reportId, 'edit')">编辑</el-button>
             <el-button link type="primary" @click="openSimulate(selectedReport)">填写</el-button>
             <el-button link type="primary" @click="openTemplateAction(selectedReport, 'signature')">签名</el-button>
-            <el-button link type="primary" @click="openTemplateAction(selectedReport, 'cellRules')">规则</el-button>
+            <el-button link type="primary" @click="openTemplateAction(selectedReport, 'cellRules')">填写配置</el-button>
             <el-button link type="primary" @click="handleCellLinks(selectedReport)">链接</el-button>
             <el-button link type="primary" @click="handleRename(selectedReport)">重命名</el-button>
             <el-button link type="danger" @click="handleDelete(selectedReport)">删除</el-button>
@@ -458,7 +467,13 @@
     <BatchRecordCellRulesConfirmDialog
       v-model="cellRulesDialog.visible"
       :report="cellRulesDialog.report"
+      :can-navigate-previous="canNavigateCellRulesPrevious"
+      :can-navigate-next="canNavigateCellRulesNext"
+      :navigation-loading="cellRulesNavigation.loading"
+      :navigation-error-message="cellRulesNavigation.errorMessage"
+      :navigation-label="cellRulesNavigation.label"
       @confirmed="handleCellRulesConfirmed"
+      @navigate="navigateCellRulesDialog"
     />
 
     <Dialog v-model="permissionDialogVisible" title="批记录表单填写人设置" width="760px">
@@ -486,12 +501,12 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="填写人" class="batch-record-form-permission-field">
+          <el-form-item label="填写人" class="batch-record-form-permission-field batch-record-form-permission-filler-field">
             <el-select
               v-model="permissionForm.fillRule.candidateSourceIds"
               multiple
               filterable
-              class="batch-record-form-permission-control"
+              class="batch-record-form-permission-control batch-record-form-permission-filler-control"
               placeholder="请选择个人或角色"
             >
               <el-option
@@ -531,7 +546,7 @@
 <script setup lang="ts">
 import { ElLoading, ElMessageBox } from 'element-plus'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { formatDate } from '@/utils/formatTime'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
@@ -579,6 +594,7 @@ defineOptions({ name: 'MesProBatchRecordFormList' })
 type RecordFormListRow = BatchRecordReportVO & {
   rowKey: string
   permissionRule?: EdhrProcessFormPermissionRuleRespVO | null
+  permissionRuleErrorMessage?: string
 }
 
 const route = useRoute()
@@ -594,15 +610,13 @@ const listErrorMessage = ref('')
 const list = ref<RecordFormListRow[]>([])
 const total = ref(0)
 const selectedReportId = ref('')
-const selectedRows = ref<RecordFormListRow[]>([])
-const batchDeleteLoading = ref(false)
 const previewMaximized = ref(false)
 const previewFitMode = ref<'width' | 'height'>('width')
 const wordImporting = ref(false)
 const wordImportFileInputRef = ref<HTMLInputElement>()
 const lastWordImportResult = ref<BatchRecordReportImportResultVO>()
-const routeProcessBoundDeleteMessage = '电子批记录报表已被工艺路线工序绑定，不能删除'
 const WORD_IMPORT_PROJECT_OPTION_PAGE_SIZE = 200
+const CELL_RULES_NAVIGATION_PAGE_SIZE = 200
 const DEFAULT_WORD_IMPORT_FORM_SLOT_TYPE: BatchRecordFormSlotType = 'MAIN'
 const permissionDialogVisible = ref(false)
 const permissionSaving = ref(false)
@@ -617,6 +631,12 @@ const cellRulesDialog = reactive<{
 }>({
   visible: false,
   report: undefined
+})
+const cellRulesNavigation = reactive({
+  loading: false,
+  errorMessage: '',
+  label: '',
+  reports: [] as RecordFormListRow[]
 })
 
 const wordImportDialog = reactive({
@@ -643,6 +663,7 @@ const queryParams = reactive({
   productName: '',
   versionNo: normalizeRouteQueryText(route.query.versionNo),
   formSlotType: undefined as BatchRecordFormSlotType | undefined,
+  latestVersionOnly: false,
   quickFilter: undefined as any
 })
 
@@ -681,6 +702,17 @@ const candidateSourceOptions: Array<{ label: string; value: EdhrProcessFormCandi
   { label: '角色', value: 'ROLE' }
 ]
 
+const queryRecordFormProductNameSuggestions = async (
+  queryString: string,
+  callback: (items: Array<{ value: string }>) => void
+) => {
+  const data = await BatchRecordReportApi.getProductNameOptions(
+    queryString,
+    queryParams.latestVersionOnly
+  )
+  callback((data || []).map((productName) => ({ value: productName })))
+}
+
 const permissionTarget = reactive<{
   report?: RecordFormListRow
   permissionRule?: EdhrProcessFormPermissionRuleRespVO | null
@@ -704,7 +736,15 @@ const isMainWordImport = computed(() => wordImportDialog.selectedFormSlotType ==
 const wordImportFileAccept = '.doc,.docx'
 
 const recordFormQuickFilterDefinitions: TableQuickFilterDefinition[] = [
-  { key: 'productName', label: '产品名称', type: 'text', queryParamKey: 'productName', placeholder: '请输入产品名称' },
+  {
+    key: 'productName',
+    label: '产品名称',
+    type: 'autocomplete',
+    queryParamKey: 'productName',
+    placeholder: '请输入产品名称',
+    triggerOnFocus: true,
+    fetchSuggestions: queryRecordFormProductNameSuggestions
+  },
   { key: 'name', label: '表单名称', type: 'text', queryParamKey: 'name', placeholder: '请输入表单名称' },
   {
     key: 'formSlotType',
@@ -721,12 +761,27 @@ const recordFormQuickFilterDefinitions: TableQuickFilterDefinition[] = [
   { key: 'versionNo', label: '版本', type: 'text', queryParamKey: 'versionNo', placeholder: '请输入版本号' }
 ]
 
-const selectedReport = computed(() => list.value.find((item) => item.reportId === selectedReportId.value))
+const selectedReport = computed(
+  () =>
+    list.value.find((item) => item.reportId === selectedReportId.value) ||
+    cellRulesNavigation.reports.find((item) => item.reportId === selectedReportId.value)
+)
 const selectedReportIndex = computed(() =>
   list.value.findIndex((item) => item.reportId === selectedReportId.value)
 )
 const canPreviewPrevious = computed(() => selectedReportIndex.value > 0)
 const canPreviewNext = computed(() => selectedReportIndex.value >= 0 && selectedReportIndex.value < list.value.length - 1)
+const cellRulesNavigationIndex = computed(() =>
+  cellRulesNavigation.reports.findIndex(
+    (item) => item.reportId === cellRulesDialog.report?.reportId
+  )
+)
+const canNavigateCellRulesPrevious = computed(() => cellRulesNavigationIndex.value > 0)
+const canNavigateCellRulesNext = computed(
+  () =>
+    cellRulesNavigationIndex.value >= 0 &&
+    cellRulesNavigationIndex.value < cellRulesNavigation.reports.length - 1
+)
 
 const templatePreview = reactive({
   loading: false,
@@ -738,9 +793,13 @@ const templatePreview = reactive({
 let recordFormListRequestSerial = 0
 let recordFormSecondaryFrameId: number | undefined
 let templatePreviewRequestSerial = 0
+let cellRulesNavigationRequestSerial = 0
 
 const isStaleRecordFormListRequest = (requestSerial: number) =>
   requestSerial !== recordFormListRequestSerial
+
+const isStaleCellRulesNavigationRequest = (requestSerial: number) =>
+  requestSerial !== cellRulesNavigationRequestSerial
 
 const cancelDeferredRecordFormSecondaryLoad = () => {
   if (recordFormSecondaryFrameId === undefined) return
@@ -888,6 +947,94 @@ const normalizeTemplateAction = (value: unknown): BatchRecordTemplateAction | ''
 
 const buildCellRulesActionKey = (reportId: string) => `${reportId}:cellRules`
 
+const normalizeCellRulesNavigationText = (value: unknown) =>
+  typeof value === 'string' && value.trim() ? value.trim() : ''
+
+const buildCellRulesNavigationLabel = (sourceReport: BatchRecordReportVO) => {
+  const productName = normalizeCellRulesNavigationText(sourceReport.productName)
+  const versionNo = normalizeCellRulesNavigationText(sourceReport.versionNo)
+  if (productName && versionNo) return `${productName} / ${versionNo}`
+  return sourceReport.reportName || sourceReport.batchRecordName || sourceReport.reportId || '同版本表单'
+}
+
+const resetCellRulesNavigation = (sourceReport?: BatchRecordReportVO) => {
+  cellRulesNavigation.loading = false
+  cellRulesNavigation.errorMessage = ''
+  cellRulesNavigation.label = sourceReport ? buildCellRulesNavigationLabel(sourceReport) : ''
+  cellRulesNavigation.reports = []
+}
+
+const loadCellRulesNavigationReports = async (sourceReport: BatchRecordReportVO) => {
+  const requestSerial = ++cellRulesNavigationRequestSerial
+  resetCellRulesNavigation(sourceReport)
+  const productName = normalizeCellRulesNavigationText(sourceReport.productName)
+  const versionNo = normalizeCellRulesNavigationText(sourceReport.versionNo)
+  if (!productName || !versionNo) {
+    cellRulesNavigation.errorMessage = '当前表单缺少产品名称或版本号，无法切换同版本表单。'
+    return
+  }
+
+  cellRulesNavigation.loading = true
+  try {
+    const sourceBatchRecordVersionId = Number(sourceReport.batchRecordVersionId)
+    const shouldFilterByBatchRecordVersionId =
+      Number.isFinite(sourceBatchRecordVersionId) && sourceBatchRecordVersionId > 0
+    const allReports: RecordFormListRow[] = []
+    let pageNo = 1
+    let total = 0
+    do {
+      const data = await BatchRecordReportApi.getGeneratedReportPage({
+        pageNo,
+        pageSize: CELL_RULES_NAVIGATION_PAGE_SIZE,
+        productName: sourceReport.productName,
+        versionNo: sourceReport.versionNo
+      })
+      if (isStaleCellRulesNavigationRequest(requestSerial)) return
+      if (!Array.isArray(data.list)) {
+        throw new Error('同产品同版本表单列表响应缺少 list。')
+      }
+      const rows = data.list
+      allReports.push(...rows.map((row, index) => toRecordFormRow(row, allReports.length + index)))
+      total = Number(data.total) || allReports.length
+      if (rows.length === 0) break
+      pageNo += 1
+    } while (allReports.length < total)
+
+    const reportMap = new Map<string, RecordFormListRow>()
+    allReports
+      .filter((row) => normalizeCellRulesNavigationText(row.productName) === productName)
+      .filter((row) => normalizeCellRulesNavigationText(row.versionNo) === versionNo)
+      .filter(
+        (row) =>
+          !shouldFilterByBatchRecordVersionId ||
+          Number(row.batchRecordVersionId) === sourceBatchRecordVersionId
+      )
+      .forEach((row) => {
+        if (row.reportId && !reportMap.has(row.reportId)) {
+          reportMap.set(row.reportId, row)
+        }
+      })
+
+    const nextReports = Array.from(reportMap.values())
+    if (!nextReports.some((row) => row.reportId === sourceReport.reportId)) {
+      throw new Error('同产品同版本候选列表中未包含当前表单，无法安全切换。')
+    }
+    if (isStaleCellRulesNavigationRequest(requestSerial)) return
+    cellRulesNavigation.reports = nextReports
+  } catch (error) {
+    if (isStaleCellRulesNavigationRequest(requestSerial)) return
+    cellRulesNavigation.reports = []
+    cellRulesNavigation.errorMessage = resolveErrorMessage(
+      error,
+      '同产品同版本表单列表加载失败，无法切换。'
+    )
+  } finally {
+    if (!isStaleCellRulesNavigationRequest(requestSerial)) {
+      cellRulesNavigation.loading = false
+    }
+  }
+}
+
 const openCellRulesDialog = (row: BatchRecordReportVO) => {
   const reportId = String(row.reportId || '').trim()
   if (!reportId) {
@@ -896,6 +1043,7 @@ const openCellRulesDialog = (row: BatchRecordReportVO) => {
   consumedCellRulesActionKey.value = buildCellRulesActionKey(reportId)
   cellRulesDialog.report = row as RecordFormListRow
   cellRulesDialog.visible = true
+  void loadCellRulesNavigationReports(row)
 }
 
 const handleTemplateActionQuery = async () => {
@@ -914,10 +1062,21 @@ const handleTemplateActionQuery = async () => {
 }
 
 const handleCellRulesConfirmed = async (data: BatchRecordReportCellRulesRespVO) => {
-  const report = list.value.find((item) => item.reportId === data.reportId)
+  const report =
+    list.value.find((item) => item.reportId === data.reportId) ||
+    cellRulesNavigation.reports.find((item) => item.reportId === data.reportId)
   if (report) {
     await loadSelectedReportTemplate(report)
   }
+}
+
+const navigateCellRulesDialog = async (offset: -1 | 1) => {
+  if (cellRulesNavigation.loading) return
+  const nextReport = cellRulesNavigation.reports[cellRulesNavigationIndex.value + offset]
+  if (!nextReport) return
+  cellRulesDialog.report = nextReport
+  selectedReportId.value = nextReport.reportId
+  await loadSelectedReportTemplate(nextReport)
 }
 
 const toRecordFormRow = (row: BatchRecordReportVO, index: number): RecordFormListRow => ({
@@ -948,8 +1107,10 @@ const cloneCandidateRule = (
 
 const resolveFillRuleStatus = (
   status?: EdhrProcessFormPermissionRuleRespVO['fillRuleStatus'],
-  loading = false
+  loading = false,
+  errorMessage = ''
 ): { label: string; type: FillRuleStatusTagType } => {
+  if (errorMessage) return { label: '加载失败', type: 'danger' }
   if (loading) return { label: '加载中', type: 'info' }
   if (status === 'CONFIGURED') return { label: '已配置', type: 'success' }
   if (status === 'CANDIDATE_EMPTY') return { label: '候选为空', type: 'danger' }
@@ -958,8 +1119,46 @@ const resolveFillRuleStatus = (
 }
 
 const buildFillRuleCandidateUserText = (row: RecordFormListRow) => {
+  const assignmentText = buildFillAssignmentSummaryText(row)
+  if (assignmentText) return assignmentText
+  const fillRule = row.permissionRule?.fillRule
+  if (!fillRule) return ''
+  const sourceType = normalizeFillCandidateSourceType(fillRule.candidateSourceType)
+  const sourceNames = (fillRule.candidateSourceNames || []).map((name) => String(name || '').trim()).filter(Boolean)
+  if (sourceType === 'ROLE' && sourceNames.length) {
+    return `角色：${sourceNames.join('、')}`
+  }
   const candidateUsers = row.permissionRule?.fillRule?.candidateUsers || []
   return candidateUsers.map((user) => user.displayName).filter(Boolean).join('、')
+}
+
+const buildFillAssignmentSummaryText = (row: RecordFormListRow) => {
+  const assignments = row.permissionRule?.fillAssignments || []
+  const segments: string[] = []
+  const seenSegments = new Set<string>()
+  assignments.forEach((assignment) => {
+    const sourceType = normalizeFillCandidateSourceType(assignment.candidateSourceType)
+    const sourceLabel = sourceType === 'ROLE' ? '角色' : '个人'
+    const sourceNames = (assignment.candidateSourceNames || [])
+      .map((name) => String(name || '').trim())
+      .filter(Boolean)
+    const userNames = sourceType === 'ROLE'
+      ? []
+      : (assignment.candidateUsers || [])
+          .map((user) => String(user.displayName || '').trim())
+          .filter(Boolean)
+    const sourceIds = (assignment.candidateSourceIds || [])
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0)
+      .map((id) => `${sourceLabel} ${id}`)
+    const names = sourceNames.length ? sourceNames : (userNames.length ? userNames : sourceIds)
+    if (!names.length) return
+    const segment = `${sourceLabel}：${names.join('、')}`
+    if (seenSegments.has(segment)) return
+    seenSegments.add(segment)
+    segments.push(segment)
+  })
+  return segments.join('；')
 }
 
 const isPermissionRuleLoading = (row: RecordFormListRow) =>
@@ -997,6 +1196,7 @@ const loadRecordFormPermissionRules = async (
   for (const row of rows) {
     if (!row.reportId) {
       row.permissionRule = null
+      row.permissionRuleErrorMessage = ''
       continue
     }
     const reportRows = rowsByReportId.get(row.reportId)
@@ -1013,6 +1213,17 @@ const loadRecordFormPermissionRules = async (
         if (isStaleRecordFormListRequest(requestSerial)) return
         for (const row of reportRows) {
           row.permissionRule = rule
+          row.permissionRuleErrorMessage = ''
+        }
+      } catch (error) {
+        if (isStaleRecordFormListRequest(requestSerial)) return
+        const errorMessage = resolveErrorMessage(
+          error,
+          '批记录表单填写人规则加载失败，请联系管理员检查权限规则链路。'
+        )
+        for (const row of reportRows) {
+          row.permissionRule = null
+          row.permissionRuleErrorMessage = errorMessage
         }
       } finally {
         if (!isStaleRecordFormListRequest(requestSerial)) {
@@ -1038,9 +1249,9 @@ const loadRecordFormSecondaryData = async (
     ])
   } catch (error) {
     if (isStaleRecordFormListRequest(requestSerial)) return
-    listErrorMessage.value = resolveErrorMessage(
+    templatePreview.errorMessage = resolveErrorMessage(
       error,
-      '批记录表单填写人规则加载失败，请联系管理员检查权限规则链路。'
+      '批记录表单辅助数据加载失败，请联系管理员检查权限规则链路。'
     )
   }
 }
@@ -1076,9 +1287,10 @@ const openBatchRecordFormPermissionDialog = async (row: RecordFormListRow) => {
     return
   }
   try {
-    await loadCandidateOptions()
     const rule = await EdhrProcessFormPermissionRuleApi.getByReport(row.reportId)
     row.permissionRule = rule
+    row.permissionRuleErrorMessage = ''
+    await loadCandidateOptions()
     permissionTarget.report = row
     permissionTarget.permissionRule = rule
     permissionForm.fillRule = cloneCandidateRule(rule.fillRule)
@@ -1125,10 +1337,12 @@ const getList = async () => {
     const data = await BatchRecordReportApi.getGeneratedReportPage({
       pageNo: queryParams.pageNo,
       pageSize: queryParams.pageSize,
+      reportId: normalizeRouteQueryText(route.query.reportId) || undefined,
       name: queryParams.name || undefined,
       productName: queryParams.productName || undefined,
       versionNo: queryParams.versionNo || undefined,
-      formSlotType: queryParams.formSlotType || undefined
+      formSlotType: queryParams.formSlotType || undefined,
+      latestVersionOnly: queryParams.latestVersionOnly || undefined
     })
     if (isStaleRecordFormListRequest(requestSerial)) return
     const nextList = (Array.isArray(data.list) ? data.list : []).map(toRecordFormRow)
@@ -1168,8 +1382,9 @@ const recordFormQuickFilter = useTableQuickFilter(
   getList
 )
 
-const handleSelectionChange = (rows: RecordFormListRow[]) => {
-  selectedRows.value = rows
+const handleLatestVersionOnlyChange = async () => {
+  queryParams.pageNo = 1
+  await getList()
 }
 
 const enterPreviewMaximize = () => {
@@ -1192,16 +1407,6 @@ const selectPreviewNeighbor = async (offset: number) => {
   await selectReport(nextReport)
 }
 
-const getUniqueSelectedReports = () => {
-  const uniqueReportMap = new Map<string, RecordFormListRow>()
-  for (const row of selectedRows.value) {
-    if (row.reportId && !uniqueReportMap.has(row.reportId)) {
-      uniqueReportMap.set(row.reportId, row)
-    }
-  }
-  return Array.from(uniqueReportMap.values())
-}
-
 const selectReport = async (row: RecordFormListRow) => {
   selectedReportId.value = row.reportId
   await loadSelectedReportTemplate(row)
@@ -1210,10 +1415,7 @@ const selectReport = async (row: RecordFormListRow) => {
 const resolveFormSlotTypeLabel = (formSlotType?: BatchRecordFormSlotType) =>
   formSlotTypeLabels[formSlotType || 'MAIN'] || formSlotType || '-'
 
-const formatNullableDate = (value?: Date | string) => {
-  if (!value) return '-'
-  return formatDate(new Date(value), 'YYYY-MM-DD HH:mm')
-}
+const formatNullableDate = (value?: Date | string | number) => formatDateTimeValue(value, '-')
 
 const resolveVersionStatusPresentation = (status?: string): { label: string; type: VersionStatusTagType } => {
   const statusMap: Record<string, { label: string; type: VersionStatusTagType }> = {
@@ -1544,7 +1746,9 @@ const buildWordImportConfirmedSelection = (
   rebuildBatchRecord: boolean,
   selectedOptions: BatchRecordReportImportRouteProductOptionVO[]
 ): WordImportConfirmedSelection => {
-  const shouldConfirmRouteUpgrade = Boolean(selection.routeUpgradeRequired && selection.selectedOptions.length)
+  const shouldConfirmRouteUpgrade = Boolean(
+    selection.routeUpgradeRequired && (selection.selectedOptions.length || rebuildBatchRecord)
+  )
   return {
     importAction: selection.importAction,
     expectedSourceVersionId: selection.expectedSourceVersionId,
@@ -1571,7 +1775,9 @@ const confirmWordImportUpgradeSelections = async (
   const selectedOptions: BatchRecordReportImportRouteProductOptionVO[] = []
   const confirmedRouteUpgradeKeys = new Set<string>()
   const skippedRouteUpgradeKeys = new Set<string>()
-  const shouldConfirmRouteUpgrade = Boolean(selection.routeUpgradeRequired && selection.selectedOptions.length)
+  const shouldConfirmRouteUpgrade = Boolean(
+    selection.routeUpgradeRequired && (selection.selectedOptions.length || rebuildBatchRecord)
+  )
   if (isWordImportRouteDuplicateBlocked(wordImportDialog.preflight)) {
     message.warning(`存在多条同名工艺路线：${formatWordImportDuplicateRoutes(wordImportDialog.preflight)}，请先人工确定/清理唯一保留路线。`)
     return false
@@ -1679,6 +1885,10 @@ const cancelWordImportDialog = () => {
 
 const confirmWordImportDialog = async () => {
   const selectedProjectName = wordImportDialog.selectedProjectName.trim()
+  if (!wordImportDialog.selectedFormSlotType) {
+    message.warning('请选择表单类型。')
+    return
+  }
   if (!selectedProjectName) {
     message.warning('请选择产品名称。')
     return
@@ -1852,7 +2062,6 @@ const runUploadedWordImport = async (
     )
     clearWordImportState()
     queryParams.pageNo = 1
-    selectedRows.value = []
     selectedReportId.value = ''
     clearTemplatePreview()
     await getList()
@@ -1953,7 +2162,6 @@ const runUploadedExtraFormSlotImport = async (file: File, selectedProjectName: s
     wordImportDialog.visible = false
     clearWordImportState()
     queryParams.pageNo = 1
-    selectedRows.value = []
     selectedReportId.value = ''
     clearTemplatePreview()
     await getList()
@@ -1991,6 +2199,10 @@ const openSimulate = async (row: BatchRecordReportVO) => {
 }
 
 const openTemplateAction = async (row: BatchRecordReportVO, action: 'signature' | 'cellRules') => {
+  if (action === 'cellRules') {
+    openCellRulesDialog(row)
+    return
+  }
   await router.push({
     path: '/mes/pro/batch-record-form-list',
     query: {
@@ -1998,9 +2210,6 @@ const openTemplateAction = async (row: BatchRecordReportVO, action: 'signature' 
       action
     }
   })
-  if (action === 'cellRules') {
-    openCellRulesDialog(row)
-  }
 }
 
 const handleCellLinks = async (row: BatchRecordReportVO) => {
@@ -2068,87 +2277,6 @@ const handleDelete = async (row: RecordFormListRow) => {
   }
 }
 
-const isRouteProcessBoundDeleteError = (error: unknown) => {
-  return resolveErrorMessage(error, '').includes(routeProcessBoundDeleteMessage)
-}
-
-const deleteSelectedReports = async (candidates: RecordFormListRow[], forceUnbind = false) => {
-  return await BatchRecordReportApi.deleteGeneratedReports({
-    reportIds: candidates.map((item) => item.reportId),
-    forceUnbind
-  })
-}
-
-const handleBatchDelete = async () => {
-  const candidates = getUniqueSelectedReports()
-  if (!candidates.length) {
-    message.warning('请先勾选需要删除的批记录表单')
-    return
-  }
-  const names = candidates.map((item) => item.reportName || item.reportId).join('、')
-  try {
-    await ElMessageBox.confirm(
-      `确认删除已选中的 ${candidates.length} 个批记录表单吗？\n${names}`,
-      '批量删除批记录表单',
-      {
-        confirmButtonText: '确定删除',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-  } catch (error) {
-    if (error === 'cancel' || error === 'close') return
-    throw error
-  }
-  batchDeleteLoading.value = true
-  try {
-    const deletingReportIds = new Set(candidates.map((item) => item.reportId))
-    await deleteSelectedReports(candidates)
-    message.success(`已删除 ${candidates.length} 个批记录表单`)
-    selectedRows.value = []
-    if (deletingReportIds.has(selectedReportId.value)) {
-      selectedReportId.value = ''
-      clearTemplatePreview()
-    }
-    await getList()
-  } catch (error) {
-    if (isRouteProcessBoundDeleteError(error)) {
-      try {
-        await ElMessageBox.confirm(
-          '选中的批记录表单中存在已绑定工艺路线工序的报表，是否批量解绑后删除？',
-          '批量解绑后删除',
-          {
-            confirmButtonText: '解绑并删除',
-            cancelButtonText: '取消',
-            type: 'warning'
-          }
-        )
-      } catch (confirmError) {
-        if (confirmError === 'cancel' || confirmError === 'close') return
-        throw confirmError
-      }
-      try {
-        const deletingReportIds = new Set(candidates.map((item) => item.reportId))
-        await deleteSelectedReports(candidates, true)
-        message.success(`已批量解绑并删除 ${candidates.length} 个批记录表单`)
-        selectedRows.value = []
-        if (deletingReportIds.has(selectedReportId.value)) {
-          selectedReportId.value = ''
-          clearTemplatePreview()
-        }
-        await getList()
-        return
-      } catch (forceDeleteError) {
-        message.error(resolveErrorMessage(forceDeleteError, '批量解绑删除批记录表单失败，请联系管理员。'))
-        return
-      }
-    }
-    message.error(resolveErrorMessage(error, '批量删除批记录表单失败，请联系管理员。'))
-  } finally {
-    batchDeleteLoading.value = false
-  }
-}
-
 onMounted(() => {
   if (!isDesignerMode.value) {
     getList()
@@ -2161,18 +2289,6 @@ onBeforeUnmount(() => {
   permissionRuleLoadingReportIds.clear()
   templatePreviewRequestSerial += 1
 })
-
-watch(
-  () => wordImportDialog.selectedFormSlotType,
-  () => {
-    if (!wordImportDialog.visible) {
-      return
-    }
-    wordImportDialog.selectedProjectName = ''
-    clearWordImportState()
-    resetWordImportPreflightState()
-  }
-)
 
 watch(
   () => wordImportDialog.selectedProjectName,
@@ -2217,7 +2333,6 @@ watch(
   display: none;
 }
 
-.batch-record-word-import-form__slot-select,
 .batch-record-word-import-form__project-select {
   width: 100%;
 }
@@ -2373,6 +2488,23 @@ watch(
   white-space: nowrap;
 }
 
+.batch-record-form-toolbar__latest-version-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--el-border-color);
+  border-radius: var(--el-border-radius-base);
+  background: var(--el-fill-color-blank);
+  white-space: nowrap;
+}
+
+.batch-record-form-toolbar__latest-version-label {
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+}
+
 .batch-record-form-filler-cell {
   display: inline-flex;
   max-width: 100%;
@@ -2401,7 +2533,7 @@ watch(
 
 .batch-record-form-permission-rule {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(180px, 0.85fr) minmax(280px, 1.4fr) minmax(220px, 1fr);
   gap: 10px;
 }
 
@@ -2411,6 +2543,11 @@ watch(
 
 .batch-record-form-permission-control {
   width: 100%;
+}
+
+.batch-record-form-permission-filler-control :deep(.el-select__tags-text) {
+  max-width: none;
+  overflow: visible;
 }
 
 .batch-record-form-layout {

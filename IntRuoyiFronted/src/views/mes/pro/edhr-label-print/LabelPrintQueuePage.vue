@@ -149,7 +149,7 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="生成时间" prop="generatedAt" width="180" />
+          <el-table-column label="生成时间" prop="generatedAt" width="180" :formatter="edhrDateTimeFormatter" />
         </el-table>
         <Pagination
           :total="labelTotal"
@@ -245,7 +245,7 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="发起时间" prop="requestedAt" width="180" />
+          <el-table-column label="发起时间" prop="requestedAt" width="180" :formatter="edhrDateTimeFormatter" />
           <el-table-column label="操作" width="330" fixed="right">
             <template #default="{ row }">
               <el-button
@@ -734,6 +734,7 @@ import {
   type EdhrPrintTaskRespVO,
   type EdhrReprintApplyReqVO
 } from '@/api/mes/pro/edhr/labelPrint'
+import { edhrDateTimeFormatter } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProFeedbackEdhrLabelPrint' })
 

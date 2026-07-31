@@ -57,10 +57,10 @@ class DccProductCatalogControllerTest extends BaseMockitoUnitTest {
         assertTrue(preAuthorize.value().contains("dcc:project-code:create"));
 
         DccProductCatalogSaveReqVO reqVO = new DccProductCatalogSaveReqVO();
-        reqVO.setDataSource("子公司产品");
+        reqVO.setDataSource("瑛泰产品");
         reqVO.setProduct("测试产品");
         DccProductCatalogRespVO row = new DccProductCatalogRespVO();
-        row.setDataSource("子公司产品");
+        row.setDataSource("瑛泰产品");
         row.setProduct("测试产品");
         row.setOriginalRowNo(22);
         when(productCatalogService.createProductCatalog(reqVO)).thenReturn(row);
@@ -98,10 +98,10 @@ class DccProductCatalogControllerTest extends BaseMockitoUnitTest {
         assertNotNull(preAuthorize, "Missing @PreAuthorize on product catalog delete endpoint");
         assertTrue(preAuthorize.value().contains("dcc:project-code:delete"));
 
-        CommonResult<Boolean> result = controller.deleteProductCatalog("子公司产品", 12);
+        CommonResult<Boolean> result = controller.deleteProductCatalog("瑛泰产品", 12);
 
         assertTrue(Boolean.TRUE.equals(result.isSuccess()));
-        verify(productCatalogService).deleteProductCatalog("子公司产品", 12);
+        verify(productCatalogService).deleteProductCatalog("瑛泰产品", 12);
     }
 
     @Test
@@ -116,7 +116,7 @@ class DccProductCatalogControllerTest extends BaseMockitoUnitTest {
         reqVO.setPageNo(1);
         reqVO.setPageSize(10);
         DccProductCatalogRespVO row = new DccProductCatalogRespVO();
-        row.setDataSource("子公司产品");
+        row.setDataSource("瑛泰产品");
         row.setProduct("导管鞘组（大腔鞘）");
         when(productCatalogService.getProductCatalogPage(reqVO))
                 .thenReturn(new PageResult<>(List.of(row), 1L));
@@ -139,11 +139,11 @@ class DccProductCatalogControllerTest extends BaseMockitoUnitTest {
 
         DccProductCatalogRegistrationExpiryCompareReqVO reqVO =
                 new DccProductCatalogRegistrationExpiryCompareReqVO();
-        reqVO.setRows(List.of(new DccProductCatalogRegistrationExpiryCompareReqVO.RowKey("子公司产品", 2)));
+        reqVO.setRows(List.of(new DccProductCatalogRegistrationExpiryCompareReqVO.RowKey("瑛泰产品", 2)));
 
         DccProductCatalogRegistrationExpiryCompareRespVO row =
                 new DccProductCatalogRegistrationExpiryCompareRespVO();
-        row.setDataSource("子公司产品");
+        row.setDataSource("瑛泰产品");
         row.setOriginalRowNo(2);
         row.setStatus("MATCH");
         row.setLocalExpiryDate("2029-08-19");

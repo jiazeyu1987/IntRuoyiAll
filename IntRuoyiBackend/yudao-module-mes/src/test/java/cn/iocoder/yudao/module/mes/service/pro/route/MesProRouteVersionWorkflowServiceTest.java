@@ -12,7 +12,6 @@ import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.MockedStatic;
 import org.mockito.Mock;
@@ -25,8 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
@@ -47,12 +46,14 @@ class MesProRouteVersionWorkflowServiceTest {
     private MesProRouteControlledContentAdapter platformAdapter;
 
     @Test
-    void createCandidate_shouldCopyActiveSnapshotAsDraft() {
-        String completeSnapshot = validSnapshotJsonWithBatchBinding();
+    void createCandidate_shouldRefreshCurrentConfigSnapshotAsDraft() {
+        String staleActiveSnapshot = validSnapshotJson(9001L, "RT-9001", "工艺路线 V1");
+        String refreshedSnapshot = validSnapshotJsonWithBatchBinding();
         MesProRouteVersionDO active = activeVersion();
-        active.setRouteSnapshotJson(completeSnapshot);
+        active.setRouteSnapshotJson(staleActiveSnapshot);
         when(routeVersionMapper.selectActiveByRouteIdForUpdate(9001L)).thenReturn(active);
         when(routeVersionMapper.selectMaxVersionNoByRouteId(9001L)).thenReturn("V1");
+        when(routeService.buildCurrentRouteSnapshotJson(9001L, 1001L)).thenReturn(refreshedSnapshot);
         MesProRouteVersionCreateReqVO reqVO = new MesProRouteVersionCreateReqVO();
         reqVO.setRouteId(9001L);
         reqVO.setSourceRouteVersionId(1001L);
@@ -66,10 +67,10 @@ class MesProRouteVersionWorkflowServiceTest {
         assertEquals(Boolean.FALSE, captor.getValue().getActive());
         assertEquals(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT, captor.getValue().getLifecycleStatus());
         assertEquals(active.getId(), captor.getValue().getSourceRouteVersionId());
-        assertEquals(completeSnapshot, captor.getValue().getRouteSnapshotJson());
+        assertEquals(refreshedSnapshot, captor.getValue().getRouteSnapshotJson());
         assertTrue(captor.getValue().getRouteSnapshotJson().contains("FORM_BINDING_COPY_1"),
-                "候选版本必须完整继承 active 快照中的批记录表单槽位绑定");
-        verify(routeService, never()).buildCurrentRouteSnapshotJson(9001L, 1001L);
+                "后续候选版本必须从当前工序配置生成包含 formBindings 的完整快照");
+        verify(routeService).buildCurrentRouteSnapshotJson(9001L, 1001L);
         assertEquals("V2", candidate.getVersionNo());
     }
 
@@ -244,7 +245,8 @@ class MesProRouteVersionWorkflowServiceTest {
                 org.mockito.ArgumentMatchers.eq(503L),
                 org.mockito.ArgumentMatchers.eq("fbede791-8138-11f1-80b5-00155d3585b8"),
                 org.mockito.ArgumentMatchers.anyString());
-        verify(routeVersionMapper).updateApprovalFieldsToDraft(pending.getId());
+        verify(routeVersionMapper, never()).updateApprovalFieldsToDraft(pending.getId());
+        verify(platformAdapter, never()).recordWithdrawn(pending, 503L);
         assertEquals(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT, withdrawn.getLifecycleStatus());
         assertEquals(null, withdrawn.getSubmittedBy());
         assertEquals(null, withdrawn.getSubmittedTime());
@@ -252,23 +254,24 @@ class MesProRouteVersionWorkflowServiceTest {
     }
 
     @Test
-    void withdrawCandidate_shouldPersistDraftBeforeCancellingBpm() {
+    void withdrawCandidate_shouldNotMutateDomainWhenBpmCancelFails() {
         MesProRouteVersionDO pending = openCandidate(activeVersion(),
                 MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL);
         pending.setApprovalProcessInstanceId("fbede791-8138-11f1-80b5-00155d3585b8");
         when(routeVersionMapper.selectById(pending.getId())).thenReturn(pending);
+        doThrow(new IllegalStateException("approval cancel callback failed")).when(bpmProcessInstanceApi)
+                .cancelProcessInstance(
+                        org.mockito.ArgumentMatchers.eq(503L),
+                        org.mockito.ArgumentMatchers.eq("fbede791-8138-11f1-80b5-00155d3585b8"),
+                        org.mockito.ArgumentMatchers.anyString());
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(503L);
-            service.withdrawCandidate(pending.getId());
+            assertThrows(IllegalStateException.class, () -> service.withdrawCandidate(pending.getId()));
         }
 
-        InOrder order = inOrder(routeVersionMapper, bpmProcessInstanceApi);
-        order.verify(routeVersionMapper).updateApprovalFieldsToDraft(pending.getId());
-        order.verify(bpmProcessInstanceApi).cancelProcessInstance(
-                org.mockito.ArgumentMatchers.eq(503L),
-                org.mockito.ArgumentMatchers.eq("fbede791-8138-11f1-80b5-00155d3585b8"),
-                org.mockito.ArgumentMatchers.anyString());
+        verify(routeVersionMapper, never()).updateApprovalFieldsToDraft(pending.getId());
+        verify(platformAdapter, never()).recordWithdrawn(pending, 503L);
     }
 
     @Test
@@ -342,6 +345,45 @@ class MesProRouteVersionWorkflowServiceTest {
         assertEquals(candidate.getId(), captor.getValue().getId());
         assertEquals(MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED, captor.getValue().getLifecycleStatus());
         verify(platformAdapter).recordCancelled(candidate, 507L);
+    }
+
+    @Test
+    void cancelDraftThenCreateCandidate_shouldCreateNewDraftFromCurrentActiveVersion() {
+        MesProRouteVersionDO active = activeVersion();
+        MesProRouteVersionDO candidate = draftCandidate(active);
+        String refreshedSnapshot = validSnapshotJsonWithBatchBinding();
+        when(routeVersionMapper.selectById(candidate.getId())).thenReturn(candidate);
+        when(routeVersionMapper.selectActiveByRouteIdForUpdate(active.getRouteId())).thenReturn(active);
+        when(routeVersionMapper.selectOpenCandidateByRouteId(active.getRouteId())).thenReturn(null);
+        when(routeVersionMapper.selectMaxVersionNoByRouteId(active.getRouteId())).thenReturn("V2");
+        when(routeService.buildCurrentRouteSnapshotJson(active.getRouteId(), active.getId()))
+                .thenReturn(refreshedSnapshot);
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
+            security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(508L);
+            service.cancelCandidate(candidate.getId());
+        }
+        MesProRouteVersionCreateReqVO reqVO = new MesProRouteVersionCreateReqVO();
+        reqVO.setRouteId(active.getRouteId());
+        reqVO.setSourceRouteVersionId(active.getId());
+        reqVO.setChangeReason("删除草稿后重新编辑");
+
+        MesProRouteVersionDO nextDraft = service.createCandidate(reqVO);
+
+        ArgumentCaptor<MesProRouteVersionDO> updateCaptor = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper).updateById(updateCaptor.capture());
+        assertEquals(candidate.getId(), updateCaptor.getValue().getId());
+        assertEquals(MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED,
+                updateCaptor.getValue().getLifecycleStatus());
+        ArgumentCaptor<MesProRouteVersionDO> insertCaptor = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
+        verify(routeVersionMapper).insert(insertCaptor.capture());
+        assertEquals("V3", insertCaptor.getValue().getVersionNo());
+        assertEquals(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT,
+                insertCaptor.getValue().getLifecycleStatus());
+        assertEquals(active.getId(), insertCaptor.getValue().getSourceRouteVersionId());
+        assertEquals(refreshedSnapshot, insertCaptor.getValue().getRouteSnapshotJson());
+        assertEquals("V3", nextDraft.getVersionNo());
+        verify(platformAdapter).recordCancelled(candidate, 508L);
     }
 
     @Test

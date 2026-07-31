@@ -23,6 +23,13 @@
       </div>
 
       <el-alert v-if="loadError" :title="loadError" type="error" :closable="false" show-icon />
+      <el-alert
+        v-if="verificationError"
+        :title="verificationError"
+        type="error"
+        :closable="false"
+        show-icon
+      />
 
       <template v-if="detail">
         <div class="edhr-field-audit-detail__section">
@@ -45,7 +52,7 @@
             <div class="edhr-field-audit-detail__summary-item">
               <div class="edhr-field-audit-detail__label">变更时间</div>
               <div class="edhr-field-audit-detail__value">
-                {{ detail.auditBatch?.changedAt || detail.signature?.signedAt || '--' }}
+                {{ formatEdhrDateTime(detail.auditBatch?.changedAt || detail.signature?.signedAt) }}
               </div>
             </div>
             <div class="edhr-field-audit-detail__summary-item">
@@ -113,18 +120,30 @@
                         rowIndex={{ row.rowIndex }} / columnIndex={{ row.columnIndex }}
                       </div>
                     </div>
-                    <div class="edhr-field-audit-detail__evidence-item">
-                      <div class="edhr-field-audit-detail__label">旧值 JSON</div>
-                      <div class="edhr-field-audit-detail__value">{{ formatJson(row.oldValueJson) }}</div>
-                    </div>
-                    <div class="edhr-field-audit-detail__evidence-item">
-                      <div class="edhr-field-audit-detail__label">旧值 hash</div>
-                      <div class="edhr-field-audit-detail__value">{{ row.oldValueHash || '--' }}</div>
-                    </div>
-                    <div class="edhr-field-audit-detail__evidence-item">
-                      <div class="edhr-field-audit-detail__label">新值 JSON</div>
-                      <div class="edhr-field-audit-detail__value">{{ formatJson(row.newValueJson) }}</div>
-                    </div>
+                    <template v-if="isRecordbookSyncAudit(row)">
+                      <div class="edhr-field-audit-detail__evidence-item">
+                        <div class="edhr-field-audit-detail__label">记录本填写值 JSON</div>
+                        <div class="edhr-field-audit-detail__value">{{ formatJson(row.recordbookValueJson) }}</div>
+                      </div>
+                      <div class="edhr-field-audit-detail__evidence-item">
+                        <div class="edhr-field-audit-detail__label">批记录存储值 JSON</div>
+                        <div class="edhr-field-audit-detail__value">{{ formatJson(row.batchRecordValueJson) }}</div>
+                      </div>
+                    </template>
+                    <template v-else>
+                      <div class="edhr-field-audit-detail__evidence-item">
+                        <div class="edhr-field-audit-detail__label">旧值 JSON</div>
+                        <div class="edhr-field-audit-detail__value">{{ formatJson(row.oldValueJson) }}</div>
+                      </div>
+                      <div class="edhr-field-audit-detail__evidence-item">
+                        <div class="edhr-field-audit-detail__label">旧值 hash</div>
+                        <div class="edhr-field-audit-detail__value">{{ row.oldValueHash || '--' }}</div>
+                      </div>
+                      <div class="edhr-field-audit-detail__evidence-item">
+                        <div class="edhr-field-audit-detail__label">新值 JSON</div>
+                        <div class="edhr-field-audit-detail__value">{{ formatJson(row.newValueJson) }}</div>
+                      </div>
+                    </template>
                     <div class="edhr-field-audit-detail__evidence-item">
                       <div class="edhr-field-audit-detail__label">新值 hash</div>
                       <div class="edhr-field-audit-detail__value">{{ row.newValueHash || '--' }}</div>
@@ -149,13 +168,25 @@
             </el-table-column>
             <el-table-column label="变更值" min-width="260">
               <template #default="{ row }">
-                <div class="edhr-field-audit-detail__change-value">
-                  {{ row.oldValueDisplay || '--' }}
-                </div>
-                <div class="edhr-field-audit-detail__change-arrow">→</div>
-                <div class="edhr-field-audit-detail__change-value">
-                  {{ row.newValueDisplay || '--' }}
-                </div>
+                <template v-if="isRecordbookSyncAudit(row)">
+                  <div class="edhr-field-audit-detail__muted">记录本填写值</div>
+                  <div class="edhr-field-audit-detail__change-value">
+                    {{ row.recordbookValueDisplay ?? '--' }}
+                  </div>
+                  <div class="edhr-field-audit-detail__muted">批记录存储值</div>
+                  <div class="edhr-field-audit-detail__change-value">
+                    {{ row.batchRecordValueDisplay ?? '--' }}
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="edhr-field-audit-detail__change-value">
+                    {{ row.oldValueDisplay || '--' }}
+                  </div>
+                  <div class="edhr-field-audit-detail__change-arrow">→</div>
+                  <div class="edhr-field-audit-detail__change-value">
+                    {{ row.newValueDisplay || '--' }}
+                  </div>
+                </template>
               </template>
             </el-table-column>
             <el-table-column label="原因" min-width="220">
@@ -167,7 +198,7 @@
             <el-table-column label="修改人 / 时间" min-width="180">
               <template #default="{ row }">
                 <div class="edhr-field-audit-detail__strong">{{ row.actorName || '--' }}</div>
-                <div class="edhr-field-audit-detail__muted">{{ row.changedAt || '--' }}</div>
+                <div class="edhr-field-audit-detail__muted">{{ formatEdhrDateTime(row.changedAt) }}</div>
               </template>
             </el-table-column>
             <el-table-column label="签名" width="130">
@@ -203,7 +234,7 @@
                     {{ detail.signature?.passwordVerified === true ? '通过' : '未通过' }}
                   </el-descriptions-item>
                   <el-descriptions-item label="签名时间">
-                    {{ detail.signature?.signedAt || '--' }}
+                    {{ formatEdhrDateTime(detail.signature?.signedAt) }}
                   </el-descriptions-item>
                   <el-descriptions-item label="校验状态">
                     <el-tag :type="resolveHashStatusType(detail.hashVerification?.status)">
@@ -211,7 +242,7 @@
                     </el-tag>
                   </el-descriptions-item>
                   <el-descriptions-item label="校验时间">
-                    {{ detail.hashVerification?.checkedAt || '--' }}
+                    {{ formatEdhrDateTime(detail.hashVerification?.checkedAt) }}
                   </el-descriptions-item>
                   <el-descriptions-item label="校验批次数">
                     {{ detail.hashVerification?.checkedBatchCount ?? '--' }}
@@ -289,9 +320,11 @@ import {
   getEdhrFieldAuditDetail,
   verifyEdhrFieldAuditChain,
   type EdhrFieldAuditDetailReqVO,
-  type EdhrFieldAuditDetailRespVO
+  type EdhrFieldAuditDetailRespVO,
+  type EdhrFieldAuditEntryVO
 } from '@/api/mes/pro/edhr/fieldAudit'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProFeedbackEdhrFieldAuditDetail' })
 
@@ -301,6 +334,7 @@ const message = useMessage()
 const loading = ref(false)
 const verifyLoading = ref(false)
 const loadError = ref('')
+const verificationError = ref('')
 const detail = ref<EdhrFieldAuditDetailRespVO>()
 const loadedDetailQueryKey = ref('')
 const fieldAuditDetailTechnicalEvidenceNames = ref<string[]>([])
@@ -345,6 +379,11 @@ const resolveHashStatusType = (status?: string) => {
 }
 
 const formatJson = (value: unknown) => (value === undefined ? '--' : JSON.stringify(value))
+const isRecordbookSyncAudit = (row: EdhrFieldAuditEntryVO) =>
+  row.recordbookValueJson !== undefined ||
+  row.recordbookValueDisplay !== undefined ||
+  row.batchRecordValueJson !== undefined ||
+  row.batchRecordValueDisplay !== undefined
 
 const loadDetail = async () => {
   const detailQuery = parseDetailQuery()
@@ -355,11 +394,12 @@ const loadDetail = async () => {
   }
   loading.value = true
   loadError.value = ''
+  verificationError.value = ''
   try {
     detail.value = await getEdhrFieldAuditDetail(detailQuery)
     loadedDetailQueryKey.value = resolveDetailQueryKey(detailQuery)
     if (detail.value.hashVerification?.status && detail.value.hashVerification.status !== 'VALID') {
-      loadError.value = `字段审计链校验未通过：${resolveHashStatusLabel(detail.value.hashVerification.status)}`
+      verificationError.value = `字段审计链校验未通过：${resolveHashStatusLabel(detail.value.hashVerification.status)}`
     }
   } catch (error) {
     detail.value = undefined
@@ -378,12 +418,12 @@ const handleVerify = async () => {
   }
   const auditBatch = detail.value.auditBatch
   if (!auditBatch?.newHeadHash || !auditBatch.afterCellValuesHash) {
-    loadError.value = '字段审计批次缺少 newHeadHash 或 afterCellValuesHash，无法校验。'
-    message.error(loadError.value)
+    verificationError.value = '字段审计批次缺少 newHeadHash 或 afterCellValuesHash，无法校验。'
+    message.error(verificationError.value)
     return
   }
   verifyLoading.value = true
-  loadError.value = ''
+  verificationError.value = ''
   try {
     const result = await verifyEdhrFieldAuditChain({
       executionId: detailQuery.executionId,
@@ -393,13 +433,13 @@ const handleVerify = async () => {
       includeBrokenItem: true
     })
     if (result.hashVerification.status !== 'VALID') {
-      loadError.value = `字段审计链校验未通过：${resolveHashStatusLabel(result.hashVerification.status)}`
+      verificationError.value = `字段审计链校验未通过：${resolveHashStatusLabel(result.hashVerification.status)}`
       return
     }
     message.success('字段审计链校验通过')
     await loadDetail()
   } catch (error) {
-    loadError.value = resolveErrorMessage(error, '字段审计链校验失败，请联系管理员。')
+    verificationError.value = resolveErrorMessage(error, '字段审计链校验失败，请联系管理员。')
   } finally {
     verifyLoading.value = false
   }

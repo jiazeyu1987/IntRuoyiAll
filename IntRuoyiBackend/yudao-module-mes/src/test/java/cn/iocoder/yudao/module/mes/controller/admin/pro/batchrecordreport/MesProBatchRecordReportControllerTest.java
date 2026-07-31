@@ -94,6 +94,7 @@ class MesProBatchRecordReportControllerTest {
                 .thenReturn(importResult);
         when(reportService.existsBatchRecordName("B", "测试批记录")).thenReturn(true);
         when(reportService.getBatchRecordNameOptions()).thenReturn(List.of("测试批记录", "棘突球囊"));
+        when(reportService.getProductNameOptions("压力", true)).thenReturn(List.of("球囊扩张压力泵"));
         when(reportService.getGeneratedReportPage(any()))
                 .thenReturn(new PageResult<>(List.of(MesProBatchRecordReportView.builder()
                         .batchRecordName("测试批记录")
@@ -137,6 +138,7 @@ class MesProBatchRecordReportControllerTest {
                         false, null, null);
         CommonResult<Boolean> existsResult = controller.existsBatchRecordName("B", "测试批记录");
         CommonResult<List<String>> namesResult = controller.getBatchRecordNameOptions();
+        CommonResult<List<String>> productNamesResult = controller.getProductNameOptions("压力", true);
         CommonResult<PageResult<BatchRecordReportRespVO>> pageResult =
                 controller.getGeneratedReportPage(new BatchRecordReportPageReqVO());
         CommonResult<cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecordreport.vo.BatchRecordReportDesignerPathRespVO>
@@ -173,6 +175,7 @@ class MesProBatchRecordReportControllerTest {
         assertEquals(List.of("无编码产品"), uploadedRouteResult.getData().getSkippedProductNames());
         assertTrue(existsResult.getData());
         assertEquals(List.of("测试批记录", "棘突球囊"), namesResult.getData());
+        assertEquals(List.of("球囊扩张压力泵"), productNamesResult.getData());
         assertEquals(1L, pageResult.getData().getTotal());
         assertEquals("测试批记录", pageResult.getData().getList().get(0).getBatchRecordName());
         assertEquals(10L, pageResult.getData().getList().get(0).getBatchRecordDefinitionId());
@@ -199,6 +202,7 @@ class MesProBatchRecordReportControllerTest {
                 false, null, null, null);
         verify(reportService).existsBatchRecordName("B", "测试批记录");
         verify(reportService).getBatchRecordNameOptions();
+        verify(reportService).getProductNameOptions("压力", true);
         verify(reportService).getGeneratedReportPage(any());
         verify(reportService).getDesignerPath("report-1");
         verify(reportService).getEditPath("report-1");
@@ -311,6 +315,17 @@ class MesProBatchRecordReportControllerTest {
 
         Method namesMethod = MesProBatchRecordReportController.class.getDeclaredMethod("getBatchRecordNameOptions");
         assertArrayEquals(new String[]{"/batch-record-names"}, namesMethod.getAnnotation(GetMapping.class).value());
+
+        Method productNamesMethod = MesProBatchRecordReportController.class.getDeclaredMethod(
+                "getProductNameOptions", String.class, Boolean.class);
+        assertArrayEquals(new String[]{"/product-name-options"},
+                productNamesMethod.getAnnotation(GetMapping.class).value());
+        assertEquals("keyword",
+                productNamesMethod.getParameters()[0].getAnnotation(RequestParam.class).value());
+        assertEquals("latestVersionOnly",
+                productNamesMethod.getParameters()[1].getAnnotation(RequestParam.class).value());
+        assertEquals("false",
+                productNamesMethod.getParameters()[1].getAnnotation(RequestParam.class).defaultValue());
     }
 
     @Test

@@ -353,9 +353,9 @@
 
 ### Gate: code-only 发布不得执行 `type=data` required SQL
 - Trigger: 使用 `SkipDatabaseSync` 与 `SkipMinioSync` 构建或发布 `publishScope=code-only` 包，且 manifest / preflight-plan 包含 required SQL。
-- Preflight check: 发布脚本必须在远端 MySQL 执行前按 `publishScope` 过滤 required SQL；`code-only` 只允许执行结构/菜单/配置/权限/种子等代码契约必需迁移，不得执行业务数据迁移 `type=data`。
-- Blocker: 若 `preflight-plan.json` 中 `type=data` 项会进入 APPLY 执行队列，必须阻塞并修复发布脚本，重新生成新的 releaseTag。
-- Verification: 运行 `python -X utf8 -m pytest tests/test_code_only_required_sql_contract.py -q`，并在发布日志中看到 `Skipping data required database SQL for code-only release` 后再继续三环境发布。
+- Preflight check: 发布脚本必须在远端 MySQL 执行前按 `publishScope` 过滤 required SQL；`code-only` 不得执行业务数据迁移 `type=data`，也不得执行任何直接或间接依赖被跳过 data migration 的结构/菜单/配置/权限/种子迁移。独立的非 data 迁移仍可执行。
+- Blocker: 若 `preflight-plan.json` 中 `type=data` 项或其依赖子节点会进入 APPLY 执行队列，或 manifest requiredSql 缺少 type/dependsOn/依赖 migrationId，必须阻塞并修复发布脚本，重新生成新的 releaseTag。
+- Verification: 运行 `python -X utf8 -m pytest script/tests/test_code_only_required_sql_contract.py -q`，并在发布日志中同时核对 `Skipping data required database SQL for code-only release` 与 `Skipping required database SQL with data dependency for code-only release`；用真实 manifest/preflight 复算确认独立 schema 仍入队。
 - Forbidden action: 不得手工补测试库业务数据、不得把 data SQL 改成 schema 绕过、不得复用失败 releaseTag 拼接后续环境结果。
 - Evidence: `doc/tasks/20260709-codeonly-three-env-head-release/evidence/maintenance-codeonly-required-sql-contract-fix-summary.json`。
 
@@ -371,11 +371,11 @@
 
 ### Gate: code-only required SQL 过滤必须以 manifest 类型为准
 - Trigger: `publishScope=code-only` 发布包生成 `preflight-plan.json` 并准备执行 required SQL。
-- Preflight check: 发布脚本不得依赖 `preflight-plan.json` item 的 `type` 字段；必须从 manifest requiredSql 建立 `migrationId -> type` 映射，并按该映射跳过 `type=data`。
-- Blocker: 若任一 APPLY item 无法在 manifest requiredSql 中找到 migrationId 或 type，必须 fail fast，不得继续执行远端 MySQL。
-- Verification: `python -X utf8 -m pytest tests/test_code_only_required_sql_contract.py -q` 通过，并在发布日志中看到 data SQL 的 `Skipping data required database SQL for code-only release`。
+- Preflight check: 发布脚本不得依赖 `preflight-plan.json` item 的 `type` 字段；必须从 manifest requiredSql 建立 `migrationId -> type + dependsOn` 映射，计算完整 data 依赖闭包，再过滤 APPLY 队列。
+- Blocker: 若任一 APPLY item 无法在 manifest requiredSql 中找到 migrationId/type，或任一 dependsOn 无法解析到 manifest migrationId，必须 fail fast，不得继续执行远端 MySQL。
+- Verification: `python -X utf8 -m pytest script/tests/test_code_only_required_sql_contract.py -q` 通过；真实包复算必须排除 data 及其传递依赖，同时保留不依赖 data 的非 data 迁移。
 - Forbidden action: 不得用手工补测试库 RT000006、手工改 preflight-plan、或把 data SQL 改成 schema 来绕过门禁。
-- Evidence: `doc/tasks/20260709-codeonly-three-env-head-release/evidence/maintenance-codeonly-required-sql-contract-v2-fix-summary.json`。
+- Evidence: `doc/tasks/20260727-onlyoffice-test-server-release/code-only-required-sql-regression-evidence.md`。
 
 
 ### Gate: build-release 前检查 Java/Maven native memory 余量
@@ -437,7 +437,7 @@
 - Blocker: 任一待保留或待提交文件含明文凭据；无法证明日志已脱敏。
 - Verification: 脱敏扫描命中数为 0；任务文档只记录命令意图、退出码、计数和脱敏摘要，原始秘密日志已从任务产物中删除。
 - Forbidden action: 不得把含明文密码的 stdout/stderr、operation dump 或命令历史提交到 Git，不得为“完整证据”保留凭据原文。
-- Evidence: `doc/tasks/20260710-current-head-test-only-release-completion-audit/execution-log.md`；`doc/tasks/20260712-intmain-codeonly-three-env-release/issues.md#p007`；修复发布 stdout 中检测到明文 MySQL 密码命令，完成摘要后必须删除原始日志。
+- Evidence: `doc/tasks/20260710-current-head-test-only-release-completion-audit/execution-log.md`；`doc/tasks/20260712-intmain-codeonly-three-env-release/issues.md#p007`；`doc/tasks/20260727-onlyoffice-test-server-release/execution-log.md`；修复发布 stdout 中检测到明文 MySQL 密码命令，完成摘要后必须删除或脱敏原始日志。
 
 ## 2026-07-13 required SQL 兼容路线流迁移重命名顺序
 
@@ -655,6 +655,16 @@
 - Forbidden action: 不得跳过真实页面验收；不得把误判失败改成忽略 console。
 - Evidence: `doc/tasks/20260713-current-head-codeonly-three-env-rerun/runtime-console-page-probe-r260713j.json`。
 
+## 2026-07-27 release-info 用户可见 Codex Git 摘要门禁
+
+- Trigger: 修改发布包 manifest、`/release-info.json`、业务前端 `版本变更说明` 弹窗，或验收“这个版本与上个版本相比 Git 里改了什么”。
+- Preflight check: 发布构建必须用上一发布包 `manifest.json.sourceRepos[*].commit` 和当前 `sourceRepos[*].commit` 生成 `previousCommit..currentCommit` 的 Git 事实输入，再调用 Codex CLI 用结构化 JSON 输出 1 到 10 条普通人能读懂的中文摘要，写入 `changeSet.gitChanges`，并在前端构建 Docker context 之前写入 `dist-intruoyi-test/release-info.json`。
+- Blocker: 上一发布包 manifest 缺失、上一版本缺少匹配 `sourceRepos`、commit 为空、`git log previousCommit..currentCommit --numstat` 失败、Codex CLI 缺失/未认证/退出非 0/超时、JSON 不合法、摘要为空或超过 10 条、摘要不是中文、包含 commit hash/原始提交项；不得继续生成默认“发布包/组件范围”或原始 Git subject 变更说明。
+- Merge guard: 合并涉及发布脚本的旧分支时，必须检查 `Write-FrontendReleaseInfo` 等发布入口函数和调用点是否只保留一个正式实现；同名 PowerShell 函数重复定义或重复写入 `release-info.json` 是阻塞项，不能通过补默认参数、保留兼容旧调用或仅满足字符串断言来绕过。
+- Verification: 静态契约必须断言弹窗只渲染 `changeSet.gitChanges.slice(0, 10)`，标题面向用户展示“版本变化”而不是“Git 变更”；发布脚本契约必须覆盖 Codex `--output-schema`、`--output-last-message`、中文/数量/hash 校验、失败即阻塞，以及 `release-info.json` 写入早于 Docker build context。
+- Forbidden action: 禁止用 raw commit subject、短 hash、sourceRepos commit 列表、接口 HTTP 200、截图首页角标、人工说明或包元信息替代 Codex 摘要；禁止 Codex 失败时回退为 Git 原文、空成功、mock 成功或其他数据源。
+- Evidence: `doc/tasks/20260727-release-change-git-diff-summary/execution-log.md`；`doc/tasks/20260727-release-change-codex-summary/execution-log.md`。
+
 ## 2026-07-13 release worktree 物理根目录复核门禁
 
 - Trigger: 发布完成后删除临时 release worktree、state dir 或执行 task closeout。
@@ -760,6 +770,7 @@
 
 - Trigger: `publish-test` / `promote-prod` / `promote-backup` 执行菜单或角色权限类 required SQL，SQL 同时校验 `system_menu.id` 与 `system_menu.permission`，尤其包含临时权限表、`tmp_*_expected_permission`、`tmp_*_expected_menu`、审计/全量管理员权限集合。
 - Preflight check: 发布前静态测试必须覆盖两类兼容性：临时权限表字符串列与 `system_menu.permission` 比较时显式使用目标列 collation，例如 `CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`；权限菜单存在旧 ID 但同一 `permission`、`status=0`、`deleted=0` 时，不得再要求偏好 ID 必须存在，主校验应以稳定业务键 `permission` 为准。
+- Preflight check: 对新增 required SQL 做专项 `run-release-migration-policy-gate.py --sql-file ...` 时，必须同时传入该 SQL 的 `dependsOn` 文件；单独传目标 SQL 会因为 manifest 子集缺少依赖而误报 `dependsOn missing migration`，不能把该误报当成真实迁移依赖缺失。
 - Blocker: 远端 MySQL 报 `ERROR 1267 Illegal mix of collations`，或 required SQL 报 `Missing enabled full-scope admin menu` 且只读核对显示缺失的是偏好菜单 ID、目标权限已由旧 ID 正常存在。
 - Verification: 先冻结失败 releaseTag、operation/migration 状态、远端 `system_menu.permission` collation、缺失 ID 与同权限菜单快照；补 RED 测试后修复 SQL，运行目标 pytest、migration policy gate，重新构建新的 releaseTag，并通过测试服真实页面/API 验收。
 - Forbidden action: 不得手工改测试库 collation、手工插入偏好 ID 菜单、删除旧权限菜单、手工更新发布锁/迁移状态，或复用失败 releaseTag 继续发布。
@@ -809,3 +820,39 @@
 - Verification: 记录 `git ls-tree -l` 或等价历史扫描结果、目标远端 URL、分支、失败/通过的 `git push` 退出码；修复后再次运行大文件扫描并确认 `git push` 成功。
 - Forbidden action: 不得强推、静默改写历史、自动迁移 Git LFS、创建无历史快照分支替代原推送，或删除 evidence 文件后宣称已保留完整历史，除非用户明确授权该具体方案。
 - Evidence: `doc/tasks/20260724-push-maintenance-github/`；推送 `int_main` 到 `https://github.com/jiazeyu1987/IntRuoyiMaintance.git` 时，GitHub 拒绝已提交文件 `doc/tasks/20260709-codeonly-three-env-head-release/evidence/build-release-v5-result.json`，本地 blob 大小 `390728434` bytes，远端报告 `372.63 MB`。
+
+## 2026-07-27 publish-test required SQL 目标基线多余数据门禁
+
+- Trigger: `publish-test` / `promote-prod` / `promote-backup` 执行 required SQL，脚本固定校验业务基线数量，例如路线工序、菜单、角色、配置项数量，目标库实际多出一条或多条业务数据导致 `count mismatch`。
+- Preflight check: 先冻结失败 releaseTag、operation/migration 状态和远端只读查询；用真实业务键定位多余记录，并枚举所有 `route_process_id`、菜单 ID、角色 ID 等外观引用列，确认是否存在已报工、已审批、已消费等不可归档业务记录。若业务负责人确认是测试服非法数据，应补正式迁移，排在失败 required SQL 前执行，并备份所有将被修改的行。
+- Blocker: 多余记录仍未被业务确认、存在已报工或不可逆业务消费、无法列清派生配置/快照引用、或需要 test-only 修复却试图让全环境迁移依赖 test-only 迁移时，必须停止发布。
+- Verification: 先补 RED 静态契约测试，断言迁移环境范围、排序、精确业务键、备份表、fail-fast 前置和软删除范围；修复后运行目标 pytest、全量 migration policy gate，使用新的 releaseTag 重建发布包并重新 `publish-test`。
+- Forbidden action: 不得手工改测试库、跳过 required SQL、放宽目标 SQL 的数量契约、复用失败 releaseTag，或把 test-only 脏数据修复声明成生产/备份也必须执行的依赖。
+- Evidence: `doc/tasks/20260727-onlyoffice-test-server-release/execution-log.md`；`release-20260727-onlyoffice-test-r260727-1445` 在 `20260717_mes_balloon_excel_device_workstation_binding.sql` 因 `ROUTE-XLSX-00002` 多出非法第 26 道工序失败，后续以 `20260716_mes_balloon_xlsx_route_00002_invalid_process_cleanup.sql` 做测试服正式清理迁移。
+
+## 2026-07-27 release preflight 拓扑排序稳定性门禁
+
+- Trigger: required SQL 的 Manifest 顺序已正确，但两个迁移分别依赖不同前置；前置在规划过程中先后变为满足时，实际 `preflight-plan.json` 顺序与 Manifest 顺序不一致。
+- Preflight check: 拓扑排序除保证依赖先于子迁移外，还必须在当前可执行节点中优先选择 Manifest 原始索引最小的节点；新增排序逻辑必须覆盖“较晚迁移先变为 ready、较早迁移后变为 ready”的回归场景。
+- Blocker: `preflight-plan.json` 将数据清理、schema 准备或测试前置迁移排在其后续校验/绑定迁移之后，即使计划整体显示 `status=passed`，也必须停止发布。
+- Verification: 使用合成迁移图执行 `test_preflight_preserves_manifest_order_when_dependencies_become_ready`，断言依赖顺序和 Manifest 稳定顺序同时成立；再运行发布脚本工具回归和 migration policy gate，重新构建新的 releaseTag。
+- Forbidden action: 不得仅靠文件名、临时 priorityMap、手工改 preflight-plan、手工改库或复用失败 releaseTag 修正执行顺序。
+- Evidence: `doc/tasks/20260727-onlyoffice-test-server-release/bug-regression-evidence.md`；`release-20260727-onlyoffice-test-r260727-1823` 的计划将 workstation binding 排在 test-only cleanup 之前，导致相同数量前置错误再次发生。
+
+## 2026-07-27 OnlyOffice public-file-base URL 容器健康检查引号门禁
+
+- Trigger: `publish-test` / `deploy-release` 包含 OnlyOffice，发布脚本需要从 `intruoyi-onlyoffice` 容器内校验 `DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL` 是否能访问后端健康检查。
+- Preflight check: 容器内 URL 校验命令不得通过嵌套 `sh -lc` 拼接带引号 URL；应先用脚本内单引号 literal 函数生成 URL 参数，再直接执行 `docker exec intruoyi-onlyoffice curl -fsS --connect-timeout 5 '<healthUrl>'`。静态测试必须断言目标函数内不存在 `docker exec intruoyi-onlyoffice sh -lc`。
+- Blocker: `ONLYOFFICE_PUBLIC_FILE_BASE_URL_UNREACHABLE` 出现时，若从 `intruoyi-onlyoffice` 容器直接 `wget` / `curl` 同一 `backend:48081/actuator/health` 返回 200，必须判定为发布脚本校验命令问题，不能把运行态网络或 OnlyOffice 配置当作失败根因。
+- Verification: 运行 `python -X utf8 -m pytest script/tests/test_publish_int_ruoyi_to_test_tooling.py::test_deploy_checks_onlyoffice_container_can_reach_public_file_base_url -q` 和扩展发布脚本回归；远端复验用容器内 `wget http://backend:48081/actuator/health` 或等价 curl 证明真实网络路径。
+- Forbidden action: 不得复用已失败 releaseTag；不得因为外部 backend/frontend/OnlyOffice HTTP 200 就手工标记发布成功；不得跳过 OnlyOffice 容器内可达性检查。
+- Evidence: `doc/tasks/20260727-onlyoffice-test-server-release/bug-regression-evidence.md`；`release-20260727-onlyoffice-test-r260727-codeonly-r4` 容器已切换且外部健康通过，但最终校验因 `sh -lc` 拆参失败，发布锁已收口为 `FAILED`，后续必须用新 tag。
+
+## 2026-07-27 code-only 空 APPLY 队列门禁
+
+- Trigger: `publish-test` / `deploy-release` 的 `publishScope=code-only` 过滤掉全部待执行 APPLY 项，尤其目标库已应用独立非 data 迁移，仅剩 data 迁移及其依赖子节点需要跳过。
+- Preflight check: 发布脚本将过滤结果传给排序或执行函数前，必须显式用数组包装：`$preflightApplyItems = @(Get-ReleasePreflightApplyItems ...)`；静态测试必须覆盖空 APPLY 队列不会把参数绑定为 `$null`。
+- Blocker: 发布日志出现 `Cannot bind argument to parameter 'Items' because it is null`、`Sort-RequiredDatabaseSqlApplyItems` 在 code-only 过滤后失败，或空队列被当作发布失败而不是“没有 required SQL 需要执行”。
+- Verification: 运行 `python -X utf8 -m pytest script/tests/test_publish_int_ruoyi_to_test_tooling.py::test_deploy_release_handles_empty_code_only_apply_queue_before_sorting -q` 和扩展发布脚本回归；重新构建新 releaseTag，部署日志应显示 data/data-dependent SQL 被跳过且不会执行任何 required SQL APPLY。
+- Forbidden action: 不得手工标绿失败 releaseTag；不得为了避免空队列而保留 data 或 data-dependent 迁移进入 APPLY；不得把 `SkipDatabaseSync`/`SkipMinioSync` 解释为可以跳过 schema/config/seed 门禁。
+- Evidence: `doc/tasks/20260727-onlyoffice-test-server-release/bug-regression-evidence.md`；`release-20260727-onlyoffice-test-r260727-codeonly-r5` 在容器重启前失败，发布锁已收口为 `FAILED`，`.env IMAGE_TAG` 恢复到实际运行 r4，后续必须用新 tag。

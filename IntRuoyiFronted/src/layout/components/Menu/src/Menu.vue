@@ -205,7 +205,12 @@ $prefix-cls: #{$namespace}-menu;
 
     // 设置子菜单悬停的高亮和背景色
     .#{$elNamespace}-sub-menu__title,
-    .#{$elNamespace}-menu-item {
+    .#{$elNamespace}-menu-item,
+    .#{$prefix-cls}__title {
+      font-family: var(--app-fixed-tab-font-family);
+      font-synthesis-weight: none;
+      font-weight: var(--app-fixed-tab-font-weight);
+
       &:hover {
         color: var(--left-menu-text-active-color) !important;
         background-color: var(--left-menu-bg-color) !important;
@@ -349,7 +354,12 @@ $prefix-cls: #{$namespace}-menu-popper;
 
   // 设置子菜单悬停的高亮和背景色
   .el-sub-menu__title,
-  .el-menu-item {
+  .el-menu-item,
+  .v-menu__title {
+    font-family: var(--app-fixed-tab-font-family);
+    font-synthesis-weight: none;
+    font-weight: var(--app-fixed-tab-font-weight);
+
     &:hover {
       color: var(--left-menu-text-active-color) !important;
       background-color: var(--left-menu-bg-color) !important;

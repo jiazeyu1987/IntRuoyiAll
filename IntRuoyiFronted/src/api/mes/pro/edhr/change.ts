@@ -63,6 +63,18 @@ export interface EdhrRecordChangeRespVO {
   bpmTaskId?: string
 }
 
+export interface EdhrBatchVoidApprovalResolutionReqVO {
+  batchExecutionId: number
+}
+
+export interface EdhrBatchVoidApprovalResolutionRespVO {
+  policyId: number
+  policyMode: 'BPM_REQUIRED' | 'SIGNATURE_REQUIRED' | 'DIRECT'
+  requiresBpm: boolean
+  bpmProcessKey?: string
+  effectExecutorCode?: string
+}
+
 export const requestVoidExecution = async (data: EdhrRecordChangeRequestReqVO) =>
   request.post<EdhrRecordChangeRespVO>({ url: '/mes/pro/edhr-change/void-execution/request', data })
 
@@ -72,6 +84,14 @@ export const approveVoidExecution = async (data: EdhrRecordChangeApproveReqVO) =
 export const requestVoidBatchExecution = async (data: EdhrRecordChangeRequestReqVO) =>
   request.post<EdhrRecordChangeRespVO>({
     url: '/mes/pro/edhr-change/void-batch-execution/request',
+    data
+  })
+
+export const resolveVoidBatchExecutionApproval = async (
+  data: EdhrBatchVoidApprovalResolutionReqVO
+) =>
+  request.post<EdhrBatchVoidApprovalResolutionRespVO>({
+    url: '/mes/pro/edhr-change/void-batch-execution/approval-resolution',
     data
   })
 

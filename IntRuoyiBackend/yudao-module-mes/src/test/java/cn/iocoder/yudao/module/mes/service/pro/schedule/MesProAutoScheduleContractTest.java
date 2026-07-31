@@ -16,6 +16,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessDO
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProcessFlowEdgeDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteProductDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteScheduleConfigDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.route.MesProRouteVersionDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.schedule.MesProCapacityPlanDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProScheduleOrderProcessDO;
@@ -29,6 +30,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteProcessFlowEdgeMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteFlowProcessConfigMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteScheduleConfigMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.route.MesProRouteVersionMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProCapacityActualMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProCapacityPlanMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.schedule.MesProScheduleIssueMapper;
@@ -150,6 +152,8 @@ class MesProAutoScheduleContractTest {
     private MesProRouteFlowProcessConfigMapper routeFlowProcessConfigMapper;
     @Mock
     private MesProRouteScheduleConfigMapper routeScheduleConfigMapper;
+    @Mock
+    private MesProRouteVersionMapper routeVersionMapper;
     @Mock
     private MesProScheduleOrderService scheduleOrderService;
     @Mock
@@ -439,6 +443,13 @@ class MesProAutoScheduleContractTest {
         when(scheduleOrderMapper.selectByIds(List.of(501L))).thenReturn(List.of(scheduleOrder));
         when(scheduleOrderMapper.selectAutoSchedulableByIds(List.of(501L))).thenReturn(List.of(scheduleOrder));
         when(scheduleOrderProcessMapper.selectListByScheduleOrderId(501L)).thenReturn(List.of(scheduleOrderProcess));
+        when(routeVersionMapper.selectActiveByRouteId(20L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(700L)
+                .routeId(20L)
+                .versionNo("V1")
+                .active(Boolean.TRUE)
+                .lifecycleStatus(MesProRouteVersionMapper.STATUS_ACTIVE)
+                .build());
         when(productionMaterialListMapper.selectListByWorkOrderIds(any())).thenReturn(Collections.emptyList());
         when(workstationMapper.selectListByProcessIds(any(), any())).thenReturn(List.of(workstation));
         when(productionLineService.getProductionLineMap(any())).thenReturn(Map.of(40L, productionLine));

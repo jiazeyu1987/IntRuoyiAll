@@ -7,12 +7,12 @@
 ## Milestones
 
 - [x] 创建任务目录，加载开发规则和设计输入。
-- [ ] 核对现有 schema、迁移、系统模块测试模式、菜单权限和 Codex CLI 能力。
-- [ ] 先建立失败测试和迁移合同，新增测试管理表、角色、菜单和 admin 赋权。
-- [ ] 实现后端测试项、执行编排、Runner、artifact API 与服务测试。
-- [ ] 实现前端测试管理页面、API wrapper、权限展示和静态前端测试。
-- [ ] 运行后端、前端、迁移合同、类型检查和可用的真实 E2E 验证。
-- [ ] 完成任务验证、清理预检和收尾。
+- [x] 核对现有 schema、迁移、系统模块测试模式、菜单权限和 Codex CLI 能力。
+- [x] 先建立失败测试和迁移合同，新增测试管理表、角色、菜单和 admin 赋权。
+- [x] 实现后端测试项、执行编排、Runner、artifact API 与服务测试。
+- [x] 实现前端测试管理页面、API wrapper、权限展示和静态前端测试。
+- [x] 运行后端、前端、迁移合同和可用验证；真实 E2E 因 Runner/租户凭据前置条件未确认而阻塞。
+- [x] 完成任务验证、清理预检和收尾记录。
 
 ## Expected Verification
 
@@ -26,7 +26,7 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## 设计约束检查
 
@@ -60,7 +60,7 @@ in_progress
 
 - Trigger: PowerShell 编排、中文文本、Playwright、本机运行态和真实租户登录。
 - Preflight check: 使用 UTF-8 读取/写入；真实 E2E 前确认本机 `8081/48081` 服务、测试租户、测试管理员身份、Runner token、Codex CLI、Playwright 和浏览器。
-- Blocker: `docs/experience-index.md` 指向的 `docs/powershell-memory.md` 当前不存在；真实 E2E 或其他长链路高风险动作前必须记录该缺失，并仅在用户明确授权风险后继续。
+- Blocker: 真实 E2E 前必须确认本机数据库、Runner token、Codex CLI、Playwright 浏览器、目标测试租户和 Runner 本地凭据映射；缺任一项不得用 API-only 或 mock 成功替代。
 - Verification: 所有文本写入使用 `apply_patch`，真实 E2E 记录服务端口、身份标签、测试数据标识、页面断言和敏感信息脱敏。
 - Forbidden action: 不得使用 API-only 冒充 E2E，不得切换到远端环境、账号或租户，不得在日志中写入密码或 Runner token。
-- Evidence: `docs/powershell-encoding.md`、`docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`；缺失文件探测：`rg --files -g "*powershell*memory*" docs`。
+- Evidence: `docs/powershell-encoding.md`、`docs/powershell-memory.md`、`docs/e2e-rules.md`、`docs/login-access.md`、`docs/local-runtime.md`。

@@ -67,7 +67,7 @@
       <el-table-column label="对账金额" width="130" align="right">
         <template #default="{ row }">{{ row.reconciliation?.reconciliationAmount ?? '-' }}</template>
       </el-table-column>
-      <el-table-column label="创建时间" prop="createTime" width="180" :formatter="dateFormatter" />
+      <el-table-column label="创建时间" prop="createTime" width="180" :formatter="dateTimeValueFormatter" />
       <el-table-column label="操作" width="220" fixed="right" align="center">
         <template #default="{ row }">
           <el-button link type="primary" @click="openDetail(row)">详情</el-button>
@@ -187,7 +187,7 @@
         </el-table-column>
         <el-table-column label="操作人" prop="operatorName" width="120" />
         <el-table-column label="事件说明" prop="eventRemark" min-width="220" />
-        <el-table-column label="事件时间" prop="eventTime" width="180" />
+        <el-table-column label="事件时间" prop="eventTime" width="180" :formatter="dateTimeValueFormatter" />
       </el-table>
     </template>
   </Dialog>
@@ -196,7 +196,7 @@
 <script setup lang="ts">
 import { isSearchFormInputEmpty } from '@/utils/search'
 import type { FormInstance, FormRules } from 'element-plus'
-import { dateFormatter } from '@/utils/formatTime'
+import { dateTimeValueFormatter } from '@/utils/formatTime'
 import {
   SrmOutsourceExecutionApi,
   srmOutsourceExecutionStatusOptions,

@@ -34,6 +34,9 @@ public class MesProRouteFlowProcessConfigSaveReqVO {
     @Valid
     private List<MesProRouteFlowFormBindingSaveReqVO> formBindings;
 
+    @Schema(description = "是否显式保存过批记录表单绑定快照")
+    private Boolean batchRecordBindingSnapshotExplicit;
+
     @Schema(description = "备注")
     private String remark;
 

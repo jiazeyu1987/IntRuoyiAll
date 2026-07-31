@@ -148,6 +148,7 @@
               登记条目
             </el-button>
           </div>
+          <el-alert v-if="itemError" :title="itemError" type="error" :closable="false" show-icon />
           <el-table
             v-loading="itemLoading"
             :data="itemList"
@@ -199,6 +200,7 @@
               计算OQ Ready
             </el-button>
           </div>
+          <el-alert v-if="traceError" :title="traceError" type="error" :closable="false" show-icon />
 
           <el-descriptions v-if="traceSummary" :column="3" border class="edhr-validation__summary">
             <el-descriptions-item label="URS">{{ traceSummary.ursCount }}</el-descriptions-item>
@@ -241,6 +243,13 @@
       </section>
 
       <el-dialog v-model="packageDialogVisible" title="新建验证包" width="780px">
+        <el-alert
+          v-if="packageActionError"
+          :title="packageActionError"
+          type="error"
+          :closable="false"
+          show-icon
+        />
         <el-form
           ref="packageFormRef"
           :model="packageForm"
@@ -296,6 +305,13 @@
       </el-dialog>
 
       <el-dialog v-model="itemDialogVisible" title="登记验证条目" width="720px">
+        <el-alert
+          v-if="itemActionError"
+          :title="itemActionError"
+          type="error"
+          :closable="false"
+          show-icon
+        />
         <el-form
           ref="itemFormRef"
           :model="itemForm"
@@ -352,6 +368,13 @@
       </el-dialog>
 
       <el-dialog v-model="traceDialogVisible" title="建立追溯关系" width="680px">
+        <el-alert
+          v-if="traceActionError"
+          :title="traceActionError"
+          type="error"
+          :closable="false"
+          show-icon
+        />
         <el-form
           ref="traceFormRef"
           :model="traceForm"
@@ -433,6 +456,11 @@ const itemLoading = ref(false)
 const traceLoading = ref(false)
 const submitLoading = ref(false)
 const loadError = ref('')
+const itemError = ref('')
+const traceError = ref('')
+const packageActionError = ref('')
+const itemActionError = ref('')
+const traceActionError = ref('')
 
 const packageList = ref<EdhrValidationPackageRespVO[]>([])
 const packageTotal = ref(0)
@@ -559,6 +587,8 @@ const buildPackageQuery = (): EdhrValidationPackagePageReqVO => ({
 const getPackageList = async () => {
   packageLoading.value = true
   loadError.value = ''
+  itemError.value = ''
+  traceError.value = ''
   try {
     const page = assertPageResult<EdhrValidationPackageRespVO>(
       await getEdhrValidationPackagePage(buildPackageQuery()),
@@ -584,10 +614,11 @@ const getPackageList = async () => {
 const getItemList = async () => {
   if (!selectedPackage.value) {
     itemList.value = []
+    itemError.value = ''
     return
   }
   itemLoading.value = true
-  loadError.value = ''
+  itemError.value = ''
   try {
     const page = assertPageResult<EdhrValidationRequirementItemRespVO>(
       await getEdhrValidationRequirementItemPage({
@@ -600,7 +631,7 @@ const getItemList = async () => {
     itemList.value = page.list
   } catch (error) {
     itemList.value = []
-    loadError.value = resolveErrorMessage(error, '验证条目加载失败，请检查验证包和权限。')
+    itemError.value = resolveErrorMessage(error, '验证条目加载失败，请检查验证包和权限。')
   } finally {
     itemLoading.value = false
   }
@@ -613,7 +644,7 @@ const refreshSelectedPackage = async () => {
     selectedPackage.value = latestPackage
     syncPackageListRow(latestPackage)
   } catch (error) {
-    loadError.value = resolveErrorMessage(error, '验证包详情刷新失败，请重新选择验证包。')
+    traceError.value = resolveErrorMessage(error, '验证包详情刷新失败，请重新选择验证包。')
   }
 }
 
@@ -627,6 +658,7 @@ const syncPackageListRow = (latestPackage: EdhrValidationPackageRespVO) => {
 const handleSelectPackage = async (row: EdhrValidationPackageRespVO) => {
   selectedPackage.value = row
   traceSummary.value = undefined
+  traceError.value = ''
   await getItemList()
 }
 
@@ -635,6 +667,8 @@ const handlePackageQuery = () => {
   selectedPackage.value = undefined
   itemList.value = []
   traceSummary.value = undefined
+  itemError.value = ''
+  traceError.value = ''
   getPackageList()
 }
 
@@ -693,33 +727,36 @@ const resetTraceForm = () => {
 
 const openCreatePackageDialog = () => {
   resetPackageForm()
+  packageActionError.value = ''
   packageDialogVisible.value = true
 }
 
 const openCreateItemDialog = () => {
   if (!selectedPackage.value) {
-    loadError.value = '请先选择验证包。'
+    itemError.value = '请先选择验证包。'
     return
   }
   resetItemForm()
+  itemActionError.value = ''
   itemDialogVisible.value = true
 }
 
 const openCreateTraceDialog = () => {
   if (!selectedPackage.value) {
-    loadError.value = '请先选择验证包。'
+    traceError.value = '请先选择验证包。'
     return
   }
   if (ursItems.value.length === 0 || traceTargetItems.value.length === 0) {
-    loadError.value = '建立追溯前必须至少有一条URS和一条FRS/风险/IQ/OQ/PQ条目。'
+    traceError.value = '建立追溯前必须至少有一条URS和一条FRS/风险/IQ/OQ/PQ条目。'
     return
   }
   resetTraceForm()
+  traceActionError.value = ''
   traceDialogVisible.value = true
 }
 
 const handleCreatePackage = async () => {
-  loadError.value = ''
+  packageActionError.value = ''
   try {
     await packageFormRef.value?.validate()
   } catch (error) {
@@ -734,7 +771,7 @@ const handleCreatePackage = async () => {
     await getPackageList()
     await handleSelectPackage(validationPackage)
   } catch (error) {
-    loadError.value = resolveErrorMessage(error, '验证包创建失败，请检查CSV基础信息、接口和权限。')
+    packageActionError.value = resolveErrorMessage(error, '验证包创建失败，请检查CSV基础信息、接口和权限。')
   } finally {
     submitLoading.value = false
   }
@@ -742,10 +779,10 @@ const handleCreatePackage = async () => {
 
 const handleCreateItem = async () => {
   if (!selectedPackage.value) {
-    loadError.value = '请先选择验证包。'
+    itemError.value = '请先选择验证包。'
     return
   }
-  loadError.value = ''
+  itemActionError.value = ''
   try {
     await itemFormRef.value?.validate()
   } catch (error) {
@@ -759,7 +796,7 @@ const handleCreateItem = async () => {
     traceSummary.value = undefined
     await getItemList()
   } catch (error) {
-    loadError.value = resolveErrorMessage(error, '验证条目登记失败，请检查条目类型、接口和权限。')
+    itemActionError.value = resolveErrorMessage(error, '验证条目登记失败，请检查条目类型、接口和权限。')
   } finally {
     submitLoading.value = false
   }
@@ -767,10 +804,10 @@ const handleCreateItem = async () => {
 
 const handleCreateTraceLink = async () => {
   if (!selectedPackage.value) {
-    loadError.value = '请先选择验证包。'
+    traceError.value = '请先选择验证包。'
     return
   }
-  loadError.value = ''
+  traceActionError.value = ''
   try {
     await traceFormRef.value?.validate()
   } catch (error) {
@@ -783,7 +820,7 @@ const handleCreateTraceLink = async () => {
     traceDialogVisible.value = false
     traceSummary.value = undefined
   } catch (error) {
-    loadError.value = resolveErrorMessage(error, '追溯关系建立失败，请确认来源为URS且目标类型匹配。')
+    traceActionError.value = resolveErrorMessage(error, '追溯关系建立失败，请确认来源为URS且目标类型匹配。')
   } finally {
     submitLoading.value = false
   }
@@ -791,22 +828,22 @@ const handleCreateTraceLink = async () => {
 
 const handleEvaluateTrace = async () => {
   if (!selectedPackage.value) {
-    loadError.value = '请先选择验证包。'
+    traceError.value = '请先选择验证包。'
     return
   }
   traceLoading.value = true
-  loadError.value = ''
+  traceError.value = ''
   try {
     traceSummary.value = await evaluateEdhrValidationTrace(selectedPackage.value.id)
     await refreshSelectedPackage()
     if (traceSummary.value.oqReady) {
       ElMessage.success('追溯矩阵完整，可进入OQ Ready准备状态')
     } else {
-      loadError.value = traceSummary.value.blockedReason || '追溯矩阵存在断裂，OQ Ready保持阻塞。'
+      traceError.value = traceSummary.value.blockedReason || '追溯矩阵存在断裂，OQ Ready保持阻塞。'
     }
   } catch (error) {
     traceSummary.value = undefined
-    loadError.value = resolveErrorMessage(error, '追溯门禁评估失败，请检查验证条目和追溯关系。')
+    traceError.value = resolveErrorMessage(error, '追溯门禁评估失败，请检查验证条目和追溯关系。')
   } finally {
     traceLoading.value = false
   }

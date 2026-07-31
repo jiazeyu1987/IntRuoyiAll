@@ -735,7 +735,7 @@
           v-if="batchMediaSummaryKind === 'COVER' && batchMediaSummaryResult.taskId"
           label="下一次检查时间"
         >
-          {{ batchMediaSummaryResult.nextCheckAt || '待计算' }}
+          {{ formatDateTimeValue(batchMediaSummaryResult.nextCheckAt, '待计算') }}
         </el-descriptions-item>
         <el-descriptions-item label="状态">
           {{ resolveBatchSummaryStatusText(batchMediaSummaryKind, batchMediaSummaryResult) }}
@@ -806,6 +806,7 @@ import * as DeptApi from '@/api/system/dept'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
 import { useUserStore } from '@/store/modules/user'
 import download from '@/utils/download'
+import { formatDateTimeValue } from '@/utils/formatTime'
 import { ElMessageBox } from 'element-plus'
 import ApprovalTaskPanel from '@/views/showroom-admin/approval/ApprovalTaskPanel.vue'
 import AssignmentWorkbench from '@/views/showroom-admin/assignment/AssignmentWorkbench.vue'

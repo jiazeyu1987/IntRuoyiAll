@@ -9,6 +9,7 @@ import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCas
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCaseRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCaseSaveReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestCheckpointSaveReqVO;
+import cn.iocoder.yudao.module.system.controller.admin.codextest.vo.CodexTestNodeChainOptionRespVO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestCaseDO;
 import cn.iocoder.yudao.module.system.dal.dataobject.codextest.CodexTestCheckpointDO;
 import cn.iocoder.yudao.module.system.dal.mysql.codextest.CodexTestCaseMapper;
@@ -20,7 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
 import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_CASE_EMPTY_CHECKPOINT;
@@ -28,8 +31,10 @@ import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_CASE_NOT_EXISTS;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_EXECUTION_RUNNING;
 import static cn.iocoder.yudao.module.system.enums.ErrorCodeConstants.CODEX_TEST_RESULT_SCHEMA_INVALID;
+import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.CASE_PROJECTS;
 import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.CASE_STATUSES;
 import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.EXECUTION_MODES;
+import static cn.iocoder.yudao.module.system.service.codextest.CodexTestConstants.MODE_SEQUENTIAL;
 
 @Service
 @Validated
@@ -71,7 +76,7 @@ public class CodexTestCaseServiceImpl implements CodexTestCaseService {
             throw exception(CODEX_TEST_EXECUTION_RUNNING);
         }
         codexTestCheckpointMapper.deleteByCaseId(id);
-        codexTestCaseMapper.deleteById(id);
+        codexTestCaseMapper.deletePhysicalById(id);
     }
 
     @Override
@@ -100,6 +105,24 @@ public class CodexTestCaseServiceImpl implements CodexTestCaseService {
         return new PageResult<>(list, pageResult.getTotal());
     }
 
+    @Override
+    public List<CodexTestNodeChainOptionRespVO> getNodeChainOptions() {
+        Map<String, CodexTestNodeChainOptionRespVO> optionMap = new LinkedHashMap<>();
+        for (CodexTestCaseDO testCase : codexTestCaseMapper.selectNodeChainCases()) {
+            CodexTestNodeChainOptionRespVO option = optionMap.computeIfAbsent(testCase.getNodeChainName(), name -> {
+                CodexTestNodeChainOptionRespVO newOption = new CodexTestNodeChainOptionRespVO();
+                newOption.setName(name);
+                newOption.setProject(testCase.getProject());
+                newOption.setNodeCount(0);
+                newOption.setNextNodeSort(1);
+                return newOption;
+            });
+            option.setNodeCount(option.getNodeCount() + 1);
+            option.setNextNodeSort(Math.max(option.getNextNodeSort(), testCase.getNodeChainSort() + 1));
+        }
+        return List.copyOf(optionMap.values());
+    }
+
     private CodexTestCaseDO validateCaseExists(Long id) {
         CodexTestCaseDO testCase = codexTestCaseMapper.selectById(id);
         if (testCase == null) {
@@ -112,8 +135,12 @@ public class CodexTestCaseServiceImpl implements CodexTestCaseService {
         if (update && reqVO.getId() == null) {
             throw exception(CODEX_TEST_CASE_NOT_EXISTS);
         }
+        normalizeAndValidateNodeChain(reqVO);
         if (StrUtil.isBlank(reqVO.getMethodText())) {
             throw exception(CODEX_TEST_CASE_EMPTY_METHOD);
+        }
+        if (StrUtil.isBlank(reqVO.getProject()) || !CASE_PROJECTS.contains(reqVO.getProject())) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "测试项项目必须是 智能排产、文控、批记录 或 工艺路线");
         }
         if (CollUtil.isEmpty(reqVO.getCheckpoints())) {
             throw exception(CODEX_TEST_CASE_EMPTY_CHECKPOINT);
@@ -137,6 +164,38 @@ public class CodexTestCaseServiceImpl implements CodexTestCaseService {
             if (StrUtil.isBlank(checkpoint.getExpectedText())) {
                 throw exception(CODEX_TEST_CASE_EMPTY_CHECKPOINT);
             }
+        }
+    }
+
+    private void normalizeAndValidateNodeChain(CodexTestCaseSaveReqVO reqVO) {
+        String nodeChainName = StrUtil.trim(reqVO.getNodeChainName());
+        if (StrUtil.isBlank(nodeChainName)) {
+            reqVO.setNodeChainName(null);
+            if (reqVO.getNodeChainSort() != null) {
+                throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "未填写节点串时串内序号必须为空");
+            }
+            return;
+        }
+        reqVO.setNodeChainName(nodeChainName);
+        if (reqVO.getNodeChainSort() == null || reqVO.getNodeChainSort() <= 0) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串测试项的串内序号必须大于 0");
+        }
+        if (!MODE_SEQUENTIAL.equals(reqVO.getDefaultExecutionMode())) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串测试项只能使用顺序执行");
+        }
+        if (Boolean.TRUE.equals(reqVO.getParallelSafe())) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "节点串测试项不允许标记为并行安全");
+        }
+        if (codexTestCaseMapper.selectCountByNodeChainNameAndSort(
+                nodeChainName, reqVO.getNodeChainSort(), reqVO.getId()) > 0) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID,
+                    "节点串【" + nodeChainName + "】已存在第 " + reqVO.getNodeChainSort() + " 节点");
+        }
+        boolean differentProjectExists = codexTestCaseMapper.selectListByNodeChainName(nodeChainName).stream()
+                .filter(testCase -> !Objects.equals(testCase.getId(), reqVO.getId()))
+                .anyMatch(testCase -> !Objects.equals(testCase.getProject(), reqVO.getProject()));
+        if (differentProjectExists) {
+            throw exception(CODEX_TEST_RESULT_SCHEMA_INVALID, "同一节点串内的所属项目必须一致");
         }
     }
 

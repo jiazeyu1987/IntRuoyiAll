@@ -310,9 +310,9 @@ import {
 } from '@/api/mes/pro/edhr/batchExecution'
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
-import { formatDate } from '@/utils/formatTime'
 import BatchExecutionTraceDrawer from './BatchExecutionTraceDrawer.vue'
 import type { BatchExecutionTraceContext } from './traceContext'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 import {
   resolveReleaseCheckCategoryLabel,
   resolveReleaseCheckCodeLabel,
@@ -594,14 +594,7 @@ const loadEventList = async () => {
 }
 
 const formatDateTime = (value?: string | number) => {
-  if (!value) {
-    return '--'
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return '时间格式异常'
-  }
-  return formatDate(date, 'YYYY-MM-DD HH:mm')
+  return formatEdhrDateTime(value)
 }
 
 onMounted(() => getList())

@@ -43,7 +43,7 @@ class MesProEdhrBatchExecutionTaskGateTest {
     }
 
     @Test
-    void resolveTaskGate_shouldIgnoreLegacySequentialModeInsideSameProcess() {
+    void resolveTaskGate_shouldEnforceSequentialModeInsideSameProcess() {
         MesProEdhrBatchExecutionTaskDO batchRecord = task(1L, 101L, null, true,
                 MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING);
         batchRecord.setExecutionMode("SEQUENTIAL");
@@ -53,7 +53,28 @@ class MesProEdhrBatchExecutionTaskGateTest {
         lossRecord.setExecutionMode("SEQUENTIAL");
         lossRecord.setBatchRecordSort(2);
 
+        assertFalse(available(lossRecord, List.of(batchRecord, lossRecord)));
+        batchRecord.setStatus(MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_APPROVED);
         assertTrue(available(lossRecord, List.of(batchRecord, lossRecord)));
+    }
+
+    @Test
+    void resolveTaskGate_shouldAllowDynamicCompanionFormBeforeMainApproved() {
+        MesProEdhrBatchExecutionTaskDO mainRecord = task(1L, 101L, null, true,
+                MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_DRAFT);
+        mainRecord.setExecutionMode("SEQUENTIAL");
+        mainRecord.setBatchRecordSort(1);
+        mainRecord.setFormSlotType("MAIN");
+        MesProEdhrBatchExecutionTaskDO lossForm = task(2L, 101L, null, true,
+                MesProEdhrBatchExecutionServiceImpl.TASK_STATUS_WAITING);
+        lossForm.setExecutionMode("SEQUENTIAL");
+        lossForm.setBatchRecordSort(2);
+        lossForm.setBatchRecordReportId(null);
+        lossForm.setFormSlotType("LOSS_REPORT");
+        lossForm.setFormBindingKey("FB-LOSS-101");
+        lossForm.setFormTemplateId(25L);
+
+        assertTrue(available(lossForm, List.of(mainRecord, lossForm)));
     }
 
     @Test

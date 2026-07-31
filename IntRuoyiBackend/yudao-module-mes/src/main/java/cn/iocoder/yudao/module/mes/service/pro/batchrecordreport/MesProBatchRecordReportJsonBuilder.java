@@ -1089,6 +1089,7 @@ public class MesProBatchRecordReportJsonBuilder {
                 signatureDateCheckboxFragment);
         if (renderFillForm) {
             boolean visibleSingleLineBlankEntry = isVisibleSingleLineBlankEntryCell(cell, sourceRow);
+            boolean sameRowSignatureDateBlankFillCell = isSameRowSignatureDateBlankFillCell(cell, sourceRow);
             boolean visuallyQuietFillCell = signatureDateCheckboxFragment
                     || (!visibleSingleLineBlankEntry && shouldUseVisuallyQuietBlankFillForm(cell, rowType, sourceRow));
             cellObject.put("text", visibleText);
@@ -1097,6 +1098,7 @@ public class MesProBatchRecordReportJsonBuilder {
                     visuallyQuietFillCell,
                     visibleSingleLineBlankEntry,
                     signatureDateCheckboxFragment,
+                    sameRowSignatureDateBlankFillCell,
                     appendedCheckboxChoices));
             if (!signatureDateCheckboxFragment && isRecognizedCheckboxChoiceCell(cell)) {
                 cellObject.put(MesProBatchRecordCellRuleSupport.CELL_RULE_KEY,
@@ -1116,6 +1118,12 @@ public class MesProBatchRecordReportJsonBuilder {
         BatchRecordReportCellRuleVO rule =
                 MesProBatchRecordCellRuleSupport.buildAutoCheckboxRule(rowIndex, columnIndex,
                         appendCheckboxChoiceText(cell.getText(), appendedCheckboxChoices));
+        if (MesProBatchRecordCellRuleSupport.hasMultipleUncheckedCheckboxChoiceLabels(
+                appendCheckboxChoiceText(cell.getText(), appendedCheckboxChoices))) {
+            rule.setValueType("BOOLEAN");
+            rule.setComponentFlag("checkbox");
+            rule.setConstraints(null);
+        }
         if (cell.isReviewedCellRule()) {
             String source = cell.getCellRuleSource();
             rule.setSource(source == null || source.isBlank() ? "MANUAL" : source);
@@ -1212,7 +1220,7 @@ public class MesProBatchRecordReportJsonBuilder {
                 blankObject.put("fillForm",
                         buildFillForm(blankCell, reportCode, rowIndex, columnIndex, effectiveWidth,
                                 compactFillLayout, shouldUseVisuallyQuietBlankFillForm(blankCell, rowType, sourceRow),
-                                false, false, List.of()));
+                                false, false, false, List.of()));
             }
             cellsObject.put(String.valueOf(columnIndex), blankObject);
         }
@@ -1741,6 +1749,27 @@ public class MesProBatchRecordReportJsonBuilder {
             }
         }
         return materialTripletCount >= 1;
+    }
+
+    private boolean isSameRowSignatureDateBlankFillCell(MesProBatchRecordParsedCell cell,
+                                                        List<MesProBatchRecordParsedCell> sourceRow) {
+        if (cell == null || sourceRow == null
+                || !MesProBatchRecordReportShapeRules.isFillable(cell)
+                || !MesProBatchRecordReportShapeRules.normalizeRecognizedText(cell.getText()).isBlank()) {
+            return false;
+        }
+        int cellIndex = indexOfCellByIdentity(sourceRow, cell);
+        if (cellIndex <= 0) {
+            return false;
+        }
+        for (int index = cellIndex - 1; index >= 0; index--) {
+            String previousText = compactText(sourceRow.get(index).getText());
+            if (previousText.isBlank()) {
+                continue;
+            }
+            return isSignatureDateHeaderText(previousText);
+        }
+        return false;
     }
 
     private int indexOfCellByIdentity(List<MesProBatchRecordParsedCell> sourceRow, MesProBatchRecordParsedCell cell) {
@@ -2884,19 +2913,23 @@ public class MesProBatchRecordReportJsonBuilder {
                                      boolean compactFillLayout, boolean visuallyQuietFillCell,
                                      boolean visibleSingleLineBlankEntry,
                                      boolean forcePlainTextInput,
+                                     boolean signatureFillCell,
                                      List<String> appendedCheckboxChoices) {
         JSONObject fillForm = new JSONObject(true);
-        String inputType = forcePlainTextInput
+        String inputType = (forcePlainTextInput || signatureFillCell)
                 ? MesProBatchRecordReportShapeRules.INPUT_TYPE_INPUT
                 : resolveFillInputType(cell, effectiveWidth);
         boolean compactFillCell = compactFillLayout
                 && MesProBatchRecordReportShapeRules.isCompactFillableCell(cell, effectiveWidth);
         boolean checkboxFillCell = !forcePlainTextInput
+                && !signatureFillCell
                 && MesProBatchRecordReportShapeRules.INPUT_TYPE_CHECKBOX.equals(inputType);
         Object defaultValue = MesProBatchRecordCellRuleSupport.defaultFillValue(checkboxFillCell ? "BOOLEAN" : "STRING");
         fillForm.put("component", "Input");
         fillForm.put("field", buildFieldName(reportCode, rowIndex, columnIndex));
-        fillForm.put("componentFlag", checkboxFillCell
+        fillForm.put("componentFlag", signatureFillCell
+                ? MesProBatchRecordCellRuleSupport.defaultComponentFlag("SIGNATURE", null)
+                : checkboxFillCell
                 ? "checkbox"
                 : MesProBatchRecordReportShapeRules.INPUT_TYPE_TEXTAREA.equals(inputType)
                 ? "input-textarea"
@@ -2904,6 +2937,8 @@ public class MesProBatchRecordReportJsonBuilder {
         fillForm.put("value", defaultValue);
         fillForm.put("defaultValue", defaultValue);
         fillForm.put("placeholder", checkboxFillCell
+                ? ""
+                : signatureFillCell
                 ? ""
                 : forcePlainTextInput
                 ? ""

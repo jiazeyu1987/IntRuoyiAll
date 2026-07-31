@@ -123,7 +123,7 @@
         <el-table-column label="事件类型" prop="eventTypeLabel" width="140" />
         <el-table-column label="操作人" prop="operatorName" width="120" />
         <el-table-column label="事件说明" prop="eventRemark" min-width="220" />
-        <el-table-column label="事件时间" prop="eventTime" width="180" />
+        <el-table-column label="事件时间" prop="eventTime" width="180" :formatter="dateTimeValueFormatter" />
       </el-table>
     </template>
   </Dialog>
@@ -132,6 +132,7 @@
 <script setup lang="ts">
 import { isSearchFormInputEmpty } from '@/utils/search'
 import type { FormInstance, FormRules } from 'element-plus'
+import { dateTimeValueFormatter } from '@/utils/formatTime'
 import {
   SrmOutsourceExecutionApi,
   srmOutsourceExecutionStatusOptions,

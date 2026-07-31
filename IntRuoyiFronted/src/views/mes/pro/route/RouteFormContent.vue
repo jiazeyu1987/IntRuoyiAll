@@ -74,6 +74,13 @@
           </el-form-item>
         </el-tab-pane>
         <template v-if="formData.id">
+          <el-tab-pane label="MES 工序" name="mesProcess" lazy>
+            <RouteMesProcessList
+              :route-id="formData.id"
+              :form-type="productionConfigFormType"
+              :submitting="formLoading"
+            />
+          </el-tab-pane>
           <el-tab-pane label="流转关系图" name="flow" lazy>
             <RouteFlowGraphDesigner
               ref="routeFlowGraphDesignerRef"
@@ -115,11 +122,13 @@ import { AutoCodeRecordApi } from '@/api/mes/md/autocode/record'
 import * as DeptApi from '@/api/system/dept'
 import * as UserApi from '@/api/system/user'
 import { MesAutoCodeRuleCode } from '@/views/mes/utils/constants'
-import RouteFlowGraphDesigner from './RouteFlowGraphDesigner.vue'
-import RouteProductList from './RouteProductList.vue'
 import { isRouteConfirmCancel, resolveRouteOperationErrorMessage } from './routeError'
 
 defineOptions({ name: 'RouteFormContent' })
+
+const RouteFlowGraphDesigner = defineAsyncComponent(() => import('./RouteFlowGraphDesigner.vue'))
+const RouteMesProcessList = defineAsyncComponent(() => import('./RouteMesProcessList.vue'))
+const RouteProductList = defineAsyncComponent(() => import('./RouteProductList.vue'))
 
 const props = withDefaults(
   defineProps<{
@@ -169,12 +178,9 @@ const YINGTAI_ROOT_NAME = '瑛泰医疗'
 const PRODUCTION_CENTER_NAME = '生产制造中心'
 type RouteFormInitialTab =
   | 'basic'
+  | 'mesProcess'
   | 'flow'
   | 'product'
-
-type RouteFormSubmitOptions = {
-  promptRouteVersionSubmit?: boolean
-}
 
 const activeTab = ref<RouteFormInitialTab>('basic')
 const formData = ref<ProRouteVO>({
@@ -190,7 +196,8 @@ const formRules = reactive({
   name: [{ required: true, message: '名称不能为空', trigger: 'blur' }]
 })
 const formRef = ref()
-const routeFlowGraphDesignerRef = ref<InstanceType<typeof RouteFlowGraphDesigner>>()
+const routeFlowGraphDesignerRef =
+  ref<InstanceType<typeof import('./RouteFlowGraphDesigner.vue')['default']>>()
 const pendingFlowAutoLayout = ref(false)
 const pendingFlowAutoLayoutKey = ref('')
 const completedFlowAutoLayoutEntryKey = ref('')
@@ -245,7 +252,7 @@ const assertRouteCandidateVersionWritable = () => {
   }
 }
 
-const submitForm = async (options: RouteFormSubmitOptions = {}) => {
+const submitForm = async () => {
   assertRouteCandidateVersionWritable()
   await formRef.value.validate()
   const shouldSaveFlowGraph = shouldSaveFlowGraphOnSubmit()
@@ -263,9 +270,7 @@ const submitForm = async (options: RouteFormSubmitOptions = {}) => {
     }
     await saveFlowGraphAfterRouteSave(shouldSaveFlowGraph)
     message.success(successMessage)
-    emit('success', {
-      promptRouteVersionSubmit: options.promptRouteVersionSubmit !== false
-    })
+    emit('success')
   } catch (error) {
     if (formType.value === 'create' && isDuplicateRouteNameError(error)) {
       if (await confirmDuplicateRouteVersionUpgrade(formData.value.name)) {
@@ -353,7 +358,7 @@ const confirmFlowGraphDraftSaveBeforeExit = async () => {
       distinguishCancelAndClose: true,
       type: 'warning'
     })
-    await submitForm({ promptRouteVersionSubmit: false })
+    await submitForm()
     return true
   } catch (error) {
     if (error === 'cancel') {

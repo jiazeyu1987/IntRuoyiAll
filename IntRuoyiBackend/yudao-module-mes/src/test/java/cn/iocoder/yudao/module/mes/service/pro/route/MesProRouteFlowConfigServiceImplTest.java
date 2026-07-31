@@ -30,11 +30,15 @@ import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
 import cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrPermissionGateService;
 import cn.iocoder.yudao.module.system.api.permission.RoleApi;
 import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
+import com.alibaba.fastjson.JSON;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -101,7 +105,7 @@ class MesProRouteFlowConfigServiceImplTest {
 
     @BeforeEach
     void stubActiveRouteVersion() {
-        lenient().when(routeVersionMapper.selectActiveByRouteId(10L)).thenReturn(activeRouteVersion(100L));
+        lenient().when(routeVersionMapper.selectActiveByRouteId(10L)).thenReturn(null);
     }
 
     @AfterEach
@@ -178,6 +182,8 @@ class MesProRouteFlowConfigServiceImplTest {
                 .build();
         when(routeMapper.selectById(10L)).thenReturn(route);
         when(routeVersionMapper.selectById(100L)).thenReturn(publishedVersion);
+        when(routeProcessMapper.selectListByRouteId(10L)).thenReturn(List.of(MesProRouteProcessDO.builder()
+                .id(100L).routeId(10L).processId(1000L).sort(1).build()));
         doReturn(List.of(MesProProcessDO.builder().id(1000L).code("P1000").name("生效工序").build()))
                 .when(processMapper).selectBatchIds(anyCollection());
 
@@ -192,6 +198,143 @@ class MesProRouteFlowConfigServiceImplTest {
         verify(routeFlowProcessBatchRecordMapper, never()).selectListByRouteIdAndUseType(
                 10L, MesProRouteFlowConfigTypeEnum.BATCH.getType());
         verify(routeCandidateConfigService, never()).saveConfigSnapshot(any(), any(), any());
+    }
+
+    @Test
+    void getRouteFlowProcessConfigList_shouldProjectActiveVersionSnapshotBindingsOntoCurrentRouteProcesses() {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
+        MesProRouteVersionDO activeVersion = MesProRouteVersionDO.builder()
+                .id(310L)
+                .routeId(10L)
+                .active(Boolean.TRUE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_ACTIVE)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 10,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "nodes": [
+                                {"routeProcessId": 3100, "processId": 1000, "sort": 1, "keyFlag": true, "checkFlag": false}
+                              ]
+                            },
+                            "batchUseConfigs": [
+                              {
+                                "routeProcessId": 3100,
+                                "enabled": true,
+                                "productionQuantityFactor": 1,
+                                "formBindings": [
+                                  {
+                                    "formBindingKey": "FB-ACTIVE-SNAPSHOT",
+                                    "formTemplateId": 2001,
+                                    "formTemplateName": "已发布生产记录表",
+                                    "lastPublishedTemplateVersionId": 3001,
+                                    "lastPublishedTemplateVersionNo": "V1",
+                                    "candidateSourceType": "USERS",
+                                    "candidateSourceIds": [9001],
+                                    "candidateSourceNames": ["张三"],
+                                    "reportSort": 1
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                        """)
+                .build();
+        MesProRouteProcessDO currentRouteProcess = MesProRouteProcessDO.builder()
+                .id(2000L).routeId(10L).processId(1000L).sort(1).build();
+        MesProRouteFlowProcessConfigDO currentConfig = MesProRouteFlowProcessConfigDO.builder()
+                .id(901L)
+                .routeId(10L)
+                .routeProcessId(2000L)
+                .useType(MesProRouteFlowConfigTypeEnum.BATCH.getType())
+                .enabled(Boolean.TRUE)
+                .build();
+        MesProRouteFlowProcessBatchRecordDO oldCurrentBinding = MesProRouteFlowProcessBatchRecordDO.builder()
+                .routeFlowProcessConfigId(901L)
+                .routeId(10L)
+                .routeProcessId(2000L)
+                .useType(MesProRouteFlowConfigTypeEnum.BATCH.getType())
+                .formBindingKey("FB-LIVE-OLD")
+                .formTemplateId(2002L)
+                .formTemplateNameSnapshot("实时旧绑定")
+                .lastPublishedTemplateVersionId(3002L)
+                .lastPublishedTemplateVersionNo("V1")
+                .recordCategory("BATCH_RECORD")
+                .validationProfile("CONTROLLED_BATCH")
+                .candidateSourceType("USERS")
+                .candidateSourceIds("9002")
+                .candidateSourceNames("[\"李四\"]")
+                .reportSort(1)
+                .build();
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeVersionMapper.selectActiveByRouteId(10L)).thenReturn(activeVersion);
+        when(routeVersionMapper.selectById(310L)).thenReturn(activeVersion);
+        when(routeProcessMapper.selectListByRouteId(10L)).thenReturn(List.of(currentRouteProcess));
+        doReturn(List.of(MesProProcessDO.builder().id(1000L).code("P1000").name("已发布快照工序").build()))
+                .when(processMapper).selectBatchIds(anyCollection());
+        lenient().when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(List.of(currentConfig));
+        lenient().when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(
+                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(List.of(oldCurrentBinding));
+
+        List<MesProRouteFlowProcessConfigRespVO> omittedVersionResult =
+                service.getRouteFlowProcessConfigList(10L, MesProRouteFlowConfigTypeEnum.BATCH.getType());
+        List<MesProRouteFlowProcessConfigRespVO> explicitActiveVersionResult =
+                service.getRouteFlowProcessConfigList(10L, MesProRouteFlowConfigTypeEnum.BATCH.getType(), 310L);
+
+        for (List<MesProRouteFlowProcessConfigRespVO> result : List.of(
+                omittedVersionResult, explicitActiveVersionResult)) {
+            assertEquals(1, result.size());
+            assertEquals(2000L, result.get(0).getRouteProcessId());
+            assertEquals("P1000", result.get(0).getProcessCode());
+            assertEquals("已发布快照工序", result.get(0).getProcessName());
+            assertEquals(1, result.get(0).getFormBindings().size());
+            assertEquals("FB-ACTIVE-SNAPSHOT", result.get(0).getFormBindings().get(0).getFormBindingKey());
+        }
+        verify(routeFlowProcessBatchRecordMapper, never()).selectListByRouteIdAndUseType(
+                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType());
+    }
+
+    @Test
+    void getRouteFlowProcessConfigList_shouldReadCurrentSettingsWhenNoActiveVersionExists() {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
+        MesProRouteProcessDO currentRouteProcess = MesProRouteProcessDO.builder()
+                .id(2000L).routeId(10L).processId(1000L).sort(1).build();
+        MesProRouteFlowConfigDO flowConfig = MesProRouteFlowConfigDO.builder()
+                .id(800L)
+                .routeId(10L)
+                .useType(MesProRouteFlowConfigTypeEnum.BATCH.getType())
+                .enabled(Boolean.TRUE)
+                .build();
+        MesProRouteFlowProcessConfigDO currentConfig = MesProRouteFlowProcessConfigDO.builder()
+                .id(901L)
+                .routeFlowConfigId(800L)
+                .routeId(10L)
+                .routeProcessId(2000L)
+                .useType(MesProRouteFlowConfigTypeEnum.BATCH.getType())
+                .enabled(Boolean.TRUE)
+                .productionQuantityFactor(BigDecimal.ONE)
+                .build();
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeProcessMapper.selectListByRouteId(10L)).thenReturn(List.of(currentRouteProcess));
+        doReturn(List.of(MesProProcessDO.builder().id(1000L).code("P1000").name("当前工序").build()))
+                .when(processMapper).selectBatchIds(anyCollection());
+        when(routeFlowConfigMapper.selectByRouteIdAndUseType(
+                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(flowConfig);
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(List.of(currentConfig));
+        when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(
+                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(List.of());
+
+        List<MesProRouteFlowProcessConfigRespVO> result =
+                service.getRouteFlowProcessConfigList(10L, MesProRouteFlowConfigTypeEnum.BATCH.getType());
+
+        assertEquals(1, result.size());
+        assertEquals(2000L, result.get(0).getRouteProcessId());
+        assertEquals("P1000", result.get(0).getProcessCode());
+        assertEquals("当前工序", result.get(0).getProcessName());
+        assertTrue(result.get(0).getFormBindings().isEmpty());
     }
 
     @Test
@@ -325,6 +468,8 @@ class MesProRouteFlowConfigServiceImplTest {
                         }
                         """)
                 .build());
+        when(routeProcessMapper.selectListByRouteId(10L)).thenReturn(List.of(MesProRouteProcessDO.builder()
+                .id(100L).routeId(10L).processId(1000L).sort(1).build()));
         doReturn(List.of(MesProProcessDO.builder().id(1000L).code("P1000").name("候选工序").build()))
                 .when(processMapper).selectBatchIds(anyCollection());
 
@@ -371,6 +516,7 @@ class MesProRouteFlowConfigServiceImplTest {
                 .routeId(10L)
                 .routeProcessId(100L)
                 .useType(MesProRouteFlowConfigTypeEnum.BATCH.getType())
+                .formSlotType("LOSS_REPORT")
                 .formBindingKey("FB-LIVE")
                 .formTemplateId(2002L)
                 .formTemplateNameSnapshot("工序设置当前生产记录")
@@ -408,6 +554,8 @@ class MesProRouteFlowConfigServiceImplTest {
                 .build());
         doReturn(List.of(MesProProcessDO.builder().id(1000L).code("P1000").name("清洗工序").build()))
                 .when(processMapper).selectBatchIds(anyCollection());
+        when(routeProcessMapper.selectListByRouteId(10L)).thenReturn(List.of(MesProRouteProcessDO.builder()
+                .id(100L).routeId(10L).processId(1000L).sort(1).build()));
         when(routeFlowConfigMapper.selectByRouteIdAndUseType(
                 10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(flowConfig);
         when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
@@ -423,12 +571,193 @@ class MesProRouteFlowConfigServiceImplTest {
         assertEquals(1, result.get(0).getFormBindings().size());
         var binding = result.get(0).getFormBindings().get(0);
         assertEquals("FB-LIVE", binding.getFormBindingKey());
+        assertEquals("LOSS_REPORT", binding.getFormSlotType());
         assertEquals(2002L, binding.getFormTemplateId());
         assertEquals("工序设置当前生产记录", binding.getFormTemplateName());
         assertEquals("PROCESS", binding.getInstanceScope());
         assertEquals("USERS", binding.getCandidateSourceType());
         assertEquals(List.of(9002L), binding.getCandidateSourceIds());
         assertEquals(List.of("李四"), binding.getCandidateSourceNames());
+    }
+
+    @Test
+    void getRouteFlowProcessConfigList_shouldReadSavedDraftBatchSnapshotBeforeCurrentBindings() {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
+        MesProRouteFlowConfigDO flowConfig = MesProRouteFlowConfigDO.builder()
+                .id(800L)
+                .routeId(10L)
+                .useType(MesProRouteFlowConfigTypeEnum.BATCH.getType())
+                .enabled(Boolean.TRUE)
+                .build();
+        MesProRouteFlowProcessConfigDO processConfig = MesProRouteFlowProcessConfigDO.builder()
+                .id(901L)
+                .routeFlowConfigId(800L)
+                .routeId(10L)
+                .routeProcessId(100L)
+                .useType(MesProRouteFlowConfigTypeEnum.BATCH.getType())
+                .enabled(Boolean.TRUE)
+                .productionQuantityFactor(BigDecimal.ONE)
+                .build();
+        MesProRouteFlowProcessBatchRecordDO currentBinding = MesProRouteFlowProcessBatchRecordDO.builder()
+                .id(9901L)
+                .routeFlowProcessConfigId(901L)
+                .routeId(10L)
+                .routeProcessId(100L)
+                .useType(MesProRouteFlowConfigTypeEnum.BATCH.getType())
+                .formSlotType("LOSS_REPORT")
+                .formBindingKey("FB-LIVE")
+                .formTemplateId(2002L)
+                .formTemplateNameSnapshot("当前工序设置")
+                .lastPublishedTemplateVersionId(3002L)
+                .lastPublishedTemplateVersionNo("V2")
+                .instanceScope("PROCESS")
+                .recordCategory("BATCH_RECORD")
+                .validationProfile("CONTROLLED_BATCH")
+                .candidateSourceType("USERS")
+                .candidateSourceIds("9002")
+                .candidateSourceNames("[\"李四\"]")
+                .reportSort(1)
+                .build();
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeVersionMapper.selectById(1002L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(1002L)
+                .routeId(10L)
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 10,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "nodes": [
+                                {"routeProcessId": 100, "processId": 1000, "sort": 1, "keyFlag": true, "checkFlag": false}
+                              ]
+                            },
+                            "batchUseConfigs": [
+                              {
+                                "routeProcessId": 100,
+                                "enabled": true,
+                                "productionQuantityFactor": 1,
+                                "batchRecordBindingSnapshotExplicit": true,
+                                "formBindings": [
+                                  {
+                                    "formBindingKey": "FB-DRAFT-SAVED",
+                                    "formTemplateId": 2001,
+                                    "formTemplateName": "草稿已保存损耗单",
+                                    "lastPublishedTemplateVersionId": 3001,
+                                    "lastPublishedTemplateVersionNo": "V1",
+                                    "formSlotType": "LOSS_REPORT",
+                                    "instanceScope": "BATCH_SHARED",
+                                    "sharedFormKey": "LOSS_REPORT_2001",
+                                    "candidateSourceType": "USERS",
+                                    "candidateSourceIds": [9001],
+                                    "candidateSourceNames": ["张三"],
+                                    "reportSort": 1
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                        """)
+                .build());
+        doReturn(List.of(MesProProcessDO.builder().id(1000L).code("P1000").name("清洗工序").build()))
+                .when(processMapper).selectBatchIds(anyCollection());
+        when(routeProcessMapper.selectListByRouteId(10L)).thenReturn(List.of(MesProRouteProcessDO.builder()
+                .id(100L).routeId(10L).processId(1000L).sort(1).build()));
+        when(routeFlowConfigMapper.selectByRouteIdAndUseType(
+                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(flowConfig);
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(List.of(processConfig));
+        when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(
+                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(List.of(currentBinding));
+
+        List<MesProRouteFlowProcessConfigRespVO> result =
+                service.getRouteFlowProcessConfigList(
+                        10L, MesProRouteFlowConfigTypeEnum.BATCH.getType(), 1002L);
+
+        assertEquals(1, result.size());
+        assertEquals(1, result.get(0).getFormBindings().size());
+        var binding = result.get(0).getFormBindings().get(0);
+        assertEquals("FB-DRAFT-SAVED", binding.getFormBindingKey());
+        assertEquals(2001L, binding.getFormTemplateId());
+        assertEquals("草稿已保存损耗单", binding.getFormTemplateName());
+        assertEquals("BATCH_SHARED", binding.getInstanceScope());
+        assertEquals("LOSS_REPORT_2001", binding.getSharedFormKey());
+        assertEquals(List.of(9001L), binding.getCandidateSourceIds());
+        assertEquals(List.of("张三"), binding.getCandidateSourceNames());
+    }
+
+    @Test
+    void getRouteFlowProcessConfigList_shouldReadFormalBatchReportsPerRouteProcessFromDraftSnapshot() {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeVersionMapper.selectById(1002L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(1002L)
+                .routeId(10L)
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 10,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "nodes": [
+                                {"routeProcessId": 100, "processId": 1000, "sort": 1, "keyFlag": true, "checkFlag": false},
+                                {"routeProcessId": 101, "processId": 1000, "sort": 2, "keyFlag": false, "checkFlag": false}
+                              ]
+                            },
+                            "batchUseConfigs": [
+                              {
+                                "routeProcessId": 100,
+                                "enabled": true,
+                                "batchRecordBindingSnapshotExplicit": true,
+                                "batchRecordReports": [
+                                  {"batchRecordReportId": "REPORT-A", "formSlotType": "MAIN", "reportSort": 1}
+                                ],
+                                "formBindings": [
+                                  {
+                                    "formBindingKey": "FORM-SLOT-A",
+                                    "formTemplateId": 2001,
+                                    "formTemplateName": "补充动态表单",
+                                    "formSlotType": "LOSS_REPORT",
+                                    "reportSort": 2
+                                  }
+                                ]
+                              },
+                              {
+                                "routeProcessId": 101,
+                                "enabled": true,
+                                "batchRecordBindingSnapshotExplicit": true,
+                                "batchRecordReports": [
+                                  {"batchRecordReportId": "REPORT-B", "formSlotType": "MAIN", "reportSort": 1}
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                        """)
+                .build());
+        doReturn(List.of(MesProProcessDO.builder().id(1000L).code("P1000").name("重复基础工序").build()))
+                .when(processMapper).selectBatchIds(anyCollection());
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(List.of());
+        when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(
+                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(List.of());
+        when(batchRecordReportMapper.selectListByReportIds(Set.of("REPORT-A", "REPORT-B")))
+                .thenReturn(List.of(report("REPORT-A"), report("REPORT-B")));
+
+        List<MesProRouteFlowProcessConfigRespVO> result =
+                service.getRouteFlowProcessConfigList(
+                        10L, MesProRouteFlowConfigTypeEnum.BATCH.getType(), 1002L);
+
+        assertEquals(2, result.size());
+        assertEquals(100L, result.get(0).getRouteProcessId());
+        assertEquals("REPORT-A-name", result.get(0).getBatchRecordReports().get(0).getBatchRecordReportName());
+        assertEquals("FORM-SLOT-A", result.get(0).getFormBindings().get(0).getFormBindingKey());
+        assertEquals(101L, result.get(1).getRouteProcessId());
+        assertEquals("REPORT-B-name", result.get(1).getBatchRecordReports().get(0).getBatchRecordReportName());
+        assertTrue(result.get(1).getFormBindings().isEmpty());
     }
 
     @Test
@@ -514,18 +843,139 @@ class MesProRouteFlowConfigServiceImplTest {
     }
 
     @Test
-    void getRouteFlowProcessConfigList_shouldReadSnapshotFormBindingsForPendingApprovalVersion() {
-        assertReviewCandidateVersionReadsSnapshotFormBinding(
+    void getRouteFlowProcessConfigList_shouldReadCurrentProcessSettingFormBindingsForPendingApprovalVersion() {
+        assertReviewCandidateVersionReadsCurrentProcessSettingFormBinding(
                 MesProRouteVersionLifecycleServiceImpl.STATUS_PENDING_APPROVAL, 160L);
     }
 
     @Test
-    void getRouteFlowProcessConfigList_shouldReadSnapshotFormBindingsForReadyToPublishVersion() {
-        assertReviewCandidateVersionReadsSnapshotFormBinding(
+    void getRouteFlowProcessConfigList_shouldReadCurrentProcessSettingFormBindingsForReadyToPublishVersion() {
+        assertReviewCandidateVersionReadsCurrentProcessSettingFormBinding(
                 MesProRouteVersionLifecycleServiceImpl.STATUS_READY_TO_PUBLISH, 170L);
     }
 
-    private void assertReviewCandidateVersionReadsSnapshotFormBinding(String lifecycleStatus, Long routeVersionId) {
+    @Test
+    void getRouteFlowProcessConfigList_shouldReadSnapshotFormBindingsForSupersededVersion() {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeVersionMapper.selectById(180L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(180L)
+                .routeId(10L)
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_SUPERSEDED)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 10,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "nodes": [
+                                {"routeProcessId": 100, "processId": 1000, "sort": 1, "keyFlag": true, "checkFlag": false}
+                              ]
+                            },
+                            "batchUseConfigs": [
+                              {
+                                "routeProcessId": 100,
+                                "enabled": true,
+                                "productionQuantityFactor": 1,
+                                "formBindings": [
+                                  {
+                                    "formBindingKey": "FB-SUPERSEDED-SNAPSHOT",
+                                    "formTemplateId": 2001,
+                                    "formTemplateName": "已发布历史生产记录",
+                                    "instanceScope": "PROCESS",
+                                    "recordCategory": "BATCH_RECORD",
+                                    "validationProfile": "CONTROLLED_BATCH",
+                                    "candidateSourceType": "USERS",
+                                    "candidateSourceIds": [9001],
+                                    "candidateSourceNames": ["张三"],
+                                    "reportSort": 1
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                        """)
+                .build());
+        doReturn(List.of(MesProProcessDO.builder().id(1000L).code("P1000").name("清洗工序").build()))
+                .when(processMapper).selectBatchIds(anyCollection());
+
+        List<MesProRouteFlowProcessConfigRespVO> result =
+                service.getRouteFlowProcessConfigList(
+                        10L, MesProRouteFlowConfigTypeEnum.BATCH.getType(), 180L);
+
+        assertEquals(1, result.size());
+        assertEquals(1, result.get(0).getFormBindings().size());
+        var binding = result.get(0).getFormBindings().get(0);
+        assertEquals("FB-SUPERSEDED-SNAPSHOT", binding.getFormBindingKey());
+        assertEquals(2001L, binding.getFormTemplateId());
+        assertEquals("已发布历史生产记录", binding.getFormTemplateName());
+        verify(routeFlowProcessBatchRecordMapper, never()).selectListByRouteIdAndUseType(
+                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"REJECTED", "CANCELLED"})
+    void getRouteFlowProcessConfigList_shouldReadSnapshotForClosedCandidateVersion(String lifecycleStatus) {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeVersionMapper.selectById(181L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(181L)
+                .routeId(10L)
+                .active(Boolean.FALSE)
+                .lifecycleStatus(lifecycleStatus)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 10,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "nodes": [
+                                {"routeProcessId": 100, "processId": 1000, "sort": 1, "keyFlag": true, "checkFlag": false}
+                              ]
+                            },
+                            "batchUseConfigs": [
+                              {
+                                "routeProcessId": 100,
+                                "enabled": true,
+                                "productionQuantityFactor": 1,
+                                "formBindings": [
+                                  {
+                                    "formBindingKey": "FB-CLOSED-SNAPSHOT",
+                                    "formTemplateId": 2002,
+                                    "formTemplateName": "关闭候选生产记录",
+                                    "instanceScope": "PROCESS",
+                                    "recordCategory": "BATCH_RECORD",
+                                    "validationProfile": "CONTROLLED_BATCH",
+                                    "candidateSourceType": "USERS",
+                                    "candidateSourceIds": [9002],
+                                    "candidateSourceNames": ["李四"],
+                                    "reportSort": 1
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                        """)
+                .build());
+        doReturn(List.of(MesProProcessDO.builder().id(1000L).code("P1000").name("清洗工序").build()))
+                .when(processMapper).selectBatchIds(anyCollection());
+
+        List<MesProRouteFlowProcessConfigRespVO> result =
+                service.getRouteFlowProcessConfigList(
+                        10L, MesProRouteFlowConfigTypeEnum.BATCH.getType(), 181L);
+
+        assertEquals(1, result.size());
+        assertEquals(1, result.get(0).getFormBindings().size());
+        var binding = result.get(0).getFormBindings().get(0);
+        assertEquals("FB-CLOSED-SNAPSHOT", binding.getFormBindingKey());
+        assertEquals(2002L, binding.getFormTemplateId());
+        assertEquals("关闭候选生产记录", binding.getFormTemplateName());
+        verify(routeFlowProcessBatchRecordMapper, never()).selectListByRouteIdAndUseType(
+                10L, MesProRouteFlowConfigTypeEnum.BATCH.getType());
+    }
+
+    private void assertReviewCandidateVersionReadsCurrentProcessSettingFormBinding(String lifecycleStatus, Long routeVersionId) {
         MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
         MesProRouteFlowConfigDO flowConfig = MesProRouteFlowConfigDO.builder()
                 .id(800L)
@@ -548,6 +998,7 @@ class MesProRouteFlowConfigServiceImplTest {
                 .routeId(10L)
                 .routeProcessId(100L)
                 .useType(MesProRouteFlowConfigTypeEnum.BATCH.getType())
+                .formSlotType("MAIN")
                 .formBindingKey("FB-LIVE")
                 .formTemplateId(2002L)
                 .formTemplateNameSnapshot("工序设置当前生产记录")
@@ -605,11 +1056,13 @@ class MesProRouteFlowConfigServiceImplTest {
                 .build());
         doReturn(List.of(MesProProcessDO.builder().id(1000L).code("P1000").name("清洗工序").build()))
                 .when(processMapper).selectBatchIds(anyCollection());
-        lenient().when(routeFlowConfigMapper.selectByRouteIdAndUseType(
+        when(routeProcessMapper.selectListByRouteId(10L)).thenReturn(List.of(MesProRouteProcessDO.builder()
+                .id(100L).routeId(10L).processId(1000L).sort(1).build()));
+        when(routeFlowConfigMapper.selectByRouteIdAndUseType(
                 10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(flowConfig);
-        lenient().when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
                 10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(List.of(processConfig));
-        lenient().when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(
+        when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(
                 10L, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(List.of(currentBinding));
 
         List<MesProRouteFlowProcessConfigRespVO> result =
@@ -619,11 +1072,12 @@ class MesProRouteFlowConfigServiceImplTest {
         assertEquals(1, result.size());
         assertEquals(1, result.get(0).getFormBindings().size());
         var binding = result.get(0).getFormBindings().get(0);
-        assertEquals("FB-SNAPSHOT", binding.getFormBindingKey());
-        assertEquals(2001L, binding.getFormTemplateId());
-        assertEquals("提交时生产记录", binding.getFormTemplateName());
-        assertEquals(List.of(9001L), binding.getCandidateSourceIds());
-        verify(routeFlowProcessBatchRecordMapper, never()).selectListByRouteIdAndUseType(
+        assertEquals("FB-LIVE", binding.getFormBindingKey());
+        assertEquals("MAIN", binding.getFormSlotType());
+        assertEquals(2002L, binding.getFormTemplateId());
+        assertEquals("工序设置当前生产记录", binding.getFormTemplateName());
+        assertEquals(List.of(9002L), binding.getCandidateSourceIds());
+        verify(routeFlowProcessBatchRecordMapper).selectListByRouteIdAndUseType(
                 10L, MesProRouteFlowConfigTypeEnum.BATCH.getType());
     }
 
@@ -655,6 +1109,50 @@ class MesProRouteFlowConfigServiceImplTest {
     }
 
     @Test
+    void saveRouteFlowConfig_shouldAcceptDraftCandidateScheduleProcessIdsFromFlowGraphSnapshot() {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
+        MesProRouteProcessDO activeRouteProcess = MesProRouteProcessDO.builder()
+                .id(100L).routeId(10L).processId(1000L).sort(1).build();
+        MesProRouteFlowProcessConfigSaveReqVO processConfig = new MesProRouteFlowProcessConfigSaveReqVO();
+        processConfig.setRouteProcessId(200L);
+        processConfig.setEnabled(Boolean.TRUE);
+        processConfig.setProductionQuantityFactor(new BigDecimal("2.000000"));
+        MesProRouteFlowConfigSaveReqVO reqVO = new MesProRouteFlowConfigSaveReqVO();
+        reqVO.setRouteId(10L);
+        reqVO.setRouteVersionId(1002L);
+        reqVO.setUseType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType());
+        reqVO.setProcessConfigs(List.of(processConfig));
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeVersionMapper.selectById(1002L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(1002L)
+                .routeId(10L)
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_DRAFT)
+                .routeSnapshotJson("""
+                        {
+                          "routeId": 10,
+                          "configSnapshots": {
+                            "flowGraph": {
+                              "nodes": [
+                                {"routeProcessId": 200, "processId": 1000, "sort": 1, "keyFlag": true, "checkFlag": false}
+                              ]
+                            },
+                            "scheduleUseConfigs": []
+                          }
+                        }
+                        """)
+                .build());
+        service.saveRouteFlowConfig(reqVO);
+
+        verify(routeCandidateConfigService).saveConfigSnapshot(eq(1002L), eq("scheduleUseConfigs"),
+                argThat(snapshot -> snapshot instanceof List<?>
+                        && snapshot.toString().contains("routeProcessId=200")
+                        && snapshot.toString().contains("productionQuantityFactor=2.000000")));
+        verify(routeFlowProcessConfigMapper, never()).insert(any(MesProRouteFlowProcessConfigDO.class));
+        verify(routeFlowProcessConfigMapper, never()).updateById(any(MesProRouteFlowProcessConfigDO.class));
+    }
+
+    @Test
     void saveRouteFlowConfig_shouldRejectNonDraftRouteVersion() {
         MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
         MesProRouteFlowConfigSaveReqVO reqVO = new MesProRouteFlowConfigSaveReqVO();
@@ -671,6 +1169,33 @@ class MesProRouteFlowConfigServiceImplTest {
         ServiceException ex = assertThrows(ServiceException.class, () -> service.saveRouteFlowConfig(reqVO));
 
         assertEquals(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE.getCode(), ex.getCode());
+        verify(routeFlowProcessConfigMapper, never()).insert(any(MesProRouteFlowProcessConfigDO.class));
+        verify(routeFlowProcessConfigMapper, never()).updateById(any(MesProRouteFlowProcessConfigDO.class));
+    }
+
+    @Test
+    void saveRouteFlowConfig_shouldRejectCancelledRouteVersion() {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
+        MesProRouteFlowConfigSaveReqVO reqVO = new MesProRouteFlowConfigSaveReqVO();
+        reqVO.setRouteId(10L);
+        reqVO.setRouteVersionId(99L);
+        reqVO.setUseType(MesProRouteFlowConfigTypeEnum.SCHEDULE.getType());
+        MesProRouteFlowProcessConfigSaveReqVO processConfig = new MesProRouteFlowProcessConfigSaveReqVO();
+        processConfig.setRouteProcessId(100L);
+        processConfig.setEnabled(Boolean.TRUE);
+        reqVO.setProcessConfigs(List.of(processConfig));
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeVersionMapper.selectById(99L)).thenReturn(MesProRouteVersionDO.builder()
+                .id(99L)
+                .routeId(10L)
+                .active(Boolean.FALSE)
+                .lifecycleStatus(MesProRouteVersionLifecycleServiceImpl.STATUS_CANCELLED)
+                .build());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.saveRouteFlowConfig(reqVO));
+
+        assertEquals(PRO_ROUTE_VERSION_CANDIDATE_NOT_PUBLISHABLE.getCode(), ex.getCode());
+        verify(routeCandidateConfigService, never()).saveConfigSnapshot(any(), any(), any());
         verify(routeFlowProcessConfigMapper, never()).insert(any(MesProRouteFlowProcessConfigDO.class));
         verify(routeFlowProcessConfigMapper, never()).updateById(any(MesProRouteFlowProcessConfigDO.class));
     }
@@ -1067,9 +1592,55 @@ class MesProRouteFlowConfigServiceImplTest {
         assertEquals("FB-INTERNAL-1", list.get(0).getFormBindings().get(0).getFormBindingKey());
         assertEquals("INTERNAL_RECORD", list.get(0).getFormBindings().get(0).getRecordCategory());
         assertEquals("INTERNAL_TRACE", list.get(0).getFormBindings().get(0).getValidationProfile());
+        assertEquals(Boolean.FALSE, list.get(0).getFormBindings().get(0).getRecordbookEnabled());
         assertEquals(5001L, list.get(0).getFormBindings().get(0).getPermissionScopeId());
         assertEquals("ROLE", list.get(0).getFormBindings().get(0).getCandidateSourceType());
         assertEquals(List.of(8001L), list.get(0).getFormBindings().get(0).getCandidateSourceIds());
+    }
+
+    @Test
+    void getRouteFlowProcessConfigList_shouldDefaultRecordbookEnabledForBatchRecordBinding() {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
+        MesProRouteProcessDO routeProcess = MesProRouteProcessDO.builder()
+                .id(100L).routeId(10L).processId(1000L).sort(1).batchRecordReportId("BASE-REPORT").build();
+        MesProProcessDO process = MesProProcessDO.builder().id(1000L).code("B010").name("吹球囊成型").build();
+        MesProRouteFlowProcessConfigDO existingConfig = MesProRouteFlowProcessConfigDO.builder()
+                .id(901L)
+                .routeFlowConfigId(800L)
+                .routeId(10L)
+                .routeProcessId(100L)
+                .useType(MesProRouteFlowConfigTypeEnum.BATCH.getType())
+                .enabled(Boolean.TRUE)
+                .executionMode("SEQUENTIAL")
+                .build();
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeProcessMapper.selectListByRouteId(10L)).thenReturn(List.of(routeProcess));
+        doReturn(List.of(process)).when(processMapper).selectBatchIds(anyCollection());
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(10L, MesProRouteFlowConfigTypeEnum.BATCH.getType()))
+                .thenReturn(List.of(existingConfig));
+        when(routeFlowConfigMapper.selectByRouteIdAndUseType(10L, MesProRouteFlowConfigTypeEnum.BATCH.getType()))
+                .thenReturn(MesProRouteFlowConfigDO.builder()
+                        .id(800L).routeId(10L).useType(MesProRouteFlowConfigTypeEnum.BATCH.getType())
+                        .enabled(Boolean.TRUE).build());
+        when(routeFlowProcessBatchRecordMapper.selectListByRouteIdAndUseType(10L, MesProRouteFlowConfigTypeEnum.BATCH.getType()))
+                .thenReturn(List.of(MesProRouteFlowProcessBatchRecordDO.builder()
+                        .routeFlowProcessConfigId(901L)
+                        .routeId(10L)
+                        .routeProcessId(100L)
+                        .useType(MesProRouteFlowConfigTypeEnum.BATCH.getType())
+                        .batchRecordReportId("BATCH-RECORD-1")
+                        .formSlotType("MAIN")
+                        .recordCategory("BATCH_RECORD")
+                        .validationProfile("CONTROLLED_BATCH")
+                        .reportSort(1)
+                        .build()));
+        when(batchRecordReportMapper.selectListByReportIds(anyCollection()))
+                .thenReturn(List.of(report("BATCH-RECORD-1")));
+
+        List<MesProRouteFlowProcessConfigRespVO> list =
+                service.getRouteFlowProcessConfigList(10L, MesProRouteFlowConfigTypeEnum.BATCH.getType());
+
+        assertEquals(Boolean.TRUE, list.get(0).getBatchRecordReports().get(0).getRecordbookEnabled());
     }
 
     @Test
@@ -1213,6 +1784,62 @@ class MesProRouteFlowConfigServiceImplTest {
     }
 
     @Test
+    void saveRouteFlowConfig_shouldRoundTripDraftBatchRecordReportsWithoutConvertingToFormBindings() {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
+        MesProRouteVersionDO routeVersion = draftRouteVersion(1002L);
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeVersionMapper.selectById(1002L)).thenReturn(routeVersion);
+        doReturn(List.of(MesProProcessDO.builder().id(1000L).code("P1000").name("粗洗工序").build()))
+                .when(processMapper).selectBatchIds(anyCollection());
+
+        MesProRouteFlowConfigSaveReqVO reqVO = new MesProRouteFlowConfigSaveReqVO();
+        reqVO.setRouteId(10L);
+        reqVO.setRouteVersionId(1002L);
+        reqVO.setUseType(MesProRouteFlowConfigTypeEnum.BATCH.getType());
+        reqVO.setProcessConfigs(List.of(new MesProRouteFlowProcessConfigSaveReqVO()
+                .setRouteProcessId(100L)
+                .setEnabled(Boolean.TRUE)
+                .setBatchRecordReports(List.of(mainBatchRecord("REPORT-CLEAN", 1)))
+                .setFormBindings(List.of())));
+
+        service.saveRouteFlowConfig(reqVO);
+
+        ArgumentCaptor<Object> snapshotCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(routeCandidateConfigService).saveConfigSnapshot(
+                eq(1002L), eq("batchUseConfigs"), snapshotCaptor.capture());
+        @SuppressWarnings("unchecked")
+        List<MesProRouteFlowProcessConfigSaveReqVO> savedSnapshot =
+                (List<MesProRouteFlowProcessConfigSaveReqVO>) snapshotCaptor.getValue();
+        assertEquals(1, savedSnapshot.get(0).getBatchRecordReports().size());
+        assertEquals("REPORT-CLEAN",
+                savedSnapshot.get(0).getBatchRecordReports().get(0).getBatchRecordReportId());
+        assertTrue(savedSnapshot.get(0).getFormBindings().isEmpty());
+
+        routeVersion.setRouteSnapshotJson("""
+                {
+                  "routeId": 10,
+                  "configSnapshots": {
+                    "flowGraph": {
+                      "nodes": [
+                        {"routeProcessId": 100, "processId": 1000, "sort": 1, "keyFlag": true, "checkFlag": false}
+                      ]
+                    },
+                    "batchUseConfigs": %s
+                  }
+                }
+                """.formatted(JSON.toJSONString(savedSnapshot)));
+
+        List<MesProRouteFlowProcessConfigRespVO> result =
+                service.getRouteFlowProcessConfigList(
+                        10L, MesProRouteFlowConfigTypeEnum.BATCH.getType(), 1002L);
+
+        assertEquals(1, result.size());
+        assertEquals(1, result.get(0).getBatchRecordReports().size());
+        assertEquals("REPORT-CLEAN", result.get(0).getBatchRecordReports().get(0).getBatchRecordReportId());
+        assertTrue(result.get(0).getFormBindings().isEmpty());
+    }
+
+    @Test
     void saveRouteFlowConfig_shouldMergeDraftCandidateBatchUseSnapshotByRouteProcessId() {
         MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
         MesProRouteProcessDO firstProcess = MesProRouteProcessDO.builder()
@@ -1308,13 +1935,15 @@ class MesProRouteFlowConfigServiceImplTest {
                 .setRouteProcessId(100L)
                 .setExecutionMode("SEQUENTIAL")
                 .setFormBindings(List.of(formBinding("FB-USER", 2001L, "USER",
-                        List.of(9001L), List.of("张三"), 1)))));
+                        List.of(9001L), List.of("张三"), 1)
+                        .setRecordbookEnabled(Boolean.FALSE)))));
 
         service.saveRouteFlowConfig(reqVO);
 
         verify(routeCandidateConfigService).saveConfigSnapshot(eq(1002L), eq("batchUseConfigs"),
                 argThat(snapshot -> snapshot instanceof List<?>
                         && snapshot.toString().contains("FB-USER")
+                        && snapshot.toString().contains("recordbookEnabled=false")
                         && snapshot.toString().contains("candidateSourceType=USERS")
                         && snapshot.toString().contains("candidateSourceIds=[9001]")));
         verify(adminUserApi).validateUserList(List.of(9001L));
@@ -1323,6 +1952,40 @@ class MesProRouteFlowConfigServiceImplTest {
         verify(routeFlowProcessConfigMapper, never()).insert(any(MesProRouteFlowProcessConfigDO.class));
         verify(routeFlowProcessConfigMapper, never()).updateById(any(MesProRouteFlowProcessConfigDO.class));
         verify(routeFlowProcessBatchRecordMapper, never()).insert(any(MesProRouteFlowProcessBatchRecordDO.class));
+    }
+
+    @Test
+    void saveRouteFlowConfig_shouldPreserveFormalBatchRecordReportsInDraftCandidateSnapshot() {
+        MesProRouteDO route = MesProRouteDO.builder().id(10L).code("ROUTE-1").name("Route1").build();
+        when(routeMapper.selectById(10L)).thenReturn(route);
+        when(routeVersionMapper.selectById(1002L)).thenReturn(draftRouteVersion(1002L));
+
+        MesProRouteFlowConfigSaveReqVO reqVO = new MesProRouteFlowConfigSaveReqVO();
+        reqVO.setRouteId(10L);
+        reqVO.setRouteVersionId(1002L);
+        reqVO.setUseType(MesProRouteFlowConfigTypeEnum.BATCH.getType());
+        reqVO.setProcessConfigs(List.of(new MesProRouteFlowProcessConfigSaveReqVO()
+                .setRouteProcessId(100L)
+                .setEnabled(Boolean.TRUE)
+                .setBatchRecordReports(List.of(mainBatchRecord("REPORT-CLEAN", 1)))));
+
+        service.saveRouteFlowConfig(reqVO);
+
+        verify(routeCandidateConfigService).saveConfigSnapshot(eq(1002L), eq("batchUseConfigs"),
+                argThat(snapshot -> {
+                    if (!(snapshot instanceof List<?> rows) || rows.size() != 1) {
+                        return false;
+                    }
+                    if (!(rows.get(0) instanceof MesProRouteFlowProcessConfigSaveReqVO savedConfig)) {
+                        return false;
+                    }
+                    return Boolean.TRUE.equals(savedConfig.getBatchRecordBindingSnapshotExplicit())
+                            && savedConfig.getBatchRecordReports() != null
+                            && savedConfig.getBatchRecordReports().size() == 1
+                            && "REPORT-CLEAN".equals(savedConfig.getBatchRecordReports().get(0)
+                            .getBatchRecordReportId())
+                            && "MAIN".equals(savedConfig.getBatchRecordReports().get(0).getFormSlotType());
+                }));
     }
 
     @Test

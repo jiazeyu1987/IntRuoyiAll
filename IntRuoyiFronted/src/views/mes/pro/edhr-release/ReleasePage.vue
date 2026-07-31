@@ -224,7 +224,6 @@ import {
   type EdhrReleaseRowVO,
   type EdhrReleaseStatus
 } from '@/api/mes/pro/edhr/release'
-import { formatDate } from '@/utils/formatTime'
 import {
   resolveReleaseCheckCategoryLabel,
   resolveReleaseCheckCodeLabel,
@@ -235,6 +234,7 @@ import {
   resolveReleaseStatusLabel,
   resolveReleaseTagType
 } from '@/views/mes/pro/edhr/shared/releaseCheckPresentation'
+import { formatEdhrDateTime } from '@/views/mes/pro/edhr/shared/dateTime'
 
 defineOptions({ name: 'MesProEdhrReleasePage' })
 
@@ -402,14 +402,7 @@ const loadEventList = async () => {
 }
 
 const formatDateTime = (value?: string | number) => {
-  if (!value) {
-    return '--'
-  }
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return '时间格式异常'
-  }
-  return formatDate(date, 'YYYY-MM-DD HH:mm')
+  return formatEdhrDateTime(value)
 }
 
 onMounted(() => {

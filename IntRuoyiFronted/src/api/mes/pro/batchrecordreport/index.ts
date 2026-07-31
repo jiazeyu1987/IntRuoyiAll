@@ -25,6 +25,7 @@ export interface BatchRecordReportPageReqVO extends PageParam {
   productName?: string
   versionNo?: string
   formSlotType?: BatchRecordFormSlotType
+  latestVersionOnly?: boolean
   routeKey?: string
   name?: string
 }
@@ -188,6 +189,8 @@ export interface BatchRecordReportCellRuleConstraints {
   minLength?: number
   maxLength?: number
   format?: string
+  selectionMode?: string
+  options?: Array<{ label: string; value: string }>
   [key: string]: unknown
 }
 
@@ -197,6 +200,18 @@ export interface BatchRecordReportCellAttachmentRuleVO {
   maxCount?: number
   attachmentType?: string
   groupKey?: string
+}
+
+export interface BatchRecordReportAssistRowFieldVO {
+  rowIndex: number
+  columnIndex: number
+}
+
+export interface BatchRecordReportAssistRowVO {
+  rowKey: string
+  description: string
+  sort: number
+  fields: BatchRecordReportAssistRowFieldVO[]
 }
 
 export interface BatchRecordReportCellRuleVO {
@@ -222,11 +237,17 @@ export interface BatchRecordReportCellRulesRespVO {
   rules: BatchRecordReportCellRuleVO[]
   suggestions: BatchRecordReportCellRuleVO[]
   unreviewedFillableCellCount: number
+  assistRows?: BatchRecordReportAssistRowVO[]
+  assistGridRowCount?: number
+  assistGridColumnCount?: number
 }
 
 export interface BatchRecordReportCellRulesReqVO {
   reportId: string
   rules: BatchRecordReportCellRuleVO[]
+  assistRows?: BatchRecordReportAssistRowVO[]
+  assistGridRowCount?: number
+  assistGridColumnCount?: number
 }
 
 export const BatchRecordReportApi = {
@@ -342,6 +363,13 @@ export const BatchRecordReportApi = {
 
   getBatchRecordNameOptions: async () => {
     return await request.get<string[]>({ url: '/mes/pro/batch-record-report/batch-record-names' })
+  },
+
+  getProductNameOptions: async (keyword?: string, latestVersionOnly?: boolean) => {
+    return await request.get<string[]>({
+      url: '/mes/pro/batch-record-report/product-name-options',
+      params: { keyword, latestVersionOnly }
+    })
   },
 
   getGeneratedReportPage: async (params: BatchRecordReportPageReqVO) => {

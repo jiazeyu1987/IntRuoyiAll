@@ -49,7 +49,7 @@
           <el-table-column label="新值" min-width="220" prop="newValue" show-overflow-tooltip />
           <el-table-column label="操作人ID" width="120" prop="operatorId" />
           <el-table-column label="操作动作" width="140" prop="operatorAction" show-overflow-tooltip />
-          <el-table-column label="时间" width="180" prop="createdAt" show-overflow-tooltip />
+          <el-table-column label="时间" width="180" prop="createdAt" :formatter="dateTimeValueFormatter" show-overflow-tooltip />
         </el-table>
       </div>
     </div>
@@ -58,6 +58,7 @@
 
 <script setup lang="ts">
 import { ShowroomAdminApi } from '@/api/showroom-admin'
+import { dateTimeValueFormatter } from '@/utils/formatTime'
 import {
   normalizeProductHistory,
   resolveProductStatusTagType,

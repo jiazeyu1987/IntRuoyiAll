@@ -54,6 +54,20 @@ class MesProBatchRecordSharedRowTypeRulesTest {
     }
 
     @Test
+    void classifyRow_returnsLongDescriptionForLabeledSelfInspectionNarrativeRows() {
+        assertEquals(MesProBatchRecordSharedRowTypeRules.RowType.LONG_DESCRIPTION, classify(List.of(
+                row("通用工序生产记录"),
+                row("操作日期", "物料编码", "物料名称", "批号",
+                        "生产数量/pcs", "自检合格数量/pcs", "不合格数量/pcs", "操作人", "复核人"),
+                row("", "/", "□30atm压力表", "", "", "", "", "", ""),
+                row("", "/", "□40atm压力表", "", "", "", "", "", ""),
+                row("生产自检",
+                        "合格标准：用清洁、不掉绒的无尘布，以75%酒精湿润，擦拭产品表面无尘。"
+                                + "检验方法：正常视力或矫正视力在光线充足情况下距离产品30-40cm处观察。")
+        ), 4));
+    }
+
+    @Test
     void classifyRow_returnsTableHeaderForColumnLabelAndValueHeaderRows() {
         assertEquals(MesProBatchRecordSharedRowTypeRules.RowType.TABLE_HEADER, classify(List.of(
                 row("通用工序生产记录"),

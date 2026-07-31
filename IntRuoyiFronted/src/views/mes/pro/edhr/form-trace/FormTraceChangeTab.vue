@@ -185,6 +185,7 @@
             label="申请时间"
             prop="requestedAt"
             :width="getChangeColumnWidthString('requestedAt', 180)"
+            :formatter="edhrDateTimeFormatter"
             v-bind="sortColumnAttrs('requestedAt')"
           />
           <el-table-column
@@ -192,6 +193,7 @@
             label="生效时间"
             prop="effectiveAt"
             :width="getChangeColumnWidthString('effectiveAt', 180)"
+            :formatter="edhrDateTimeFormatter"
             v-bind="sortColumnAttrs('effectiveAt')"
           />
           <el-table-column
@@ -226,7 +228,7 @@
         </div>
         <div class="edhr-form-trace-change__detail-summary-item">
           <span>生效时间</span>
-          <strong>{{ selectedChange?.effectiveAt || '--' }}</strong>
+          <strong>{{ formatEdhrDateTime(selectedChange?.effectiveAt) }}</strong>
         </div>
       </div>
 
@@ -261,7 +263,9 @@
           <span v-else class="edhr-form-trace-change__object-link--disabled">--</span>
         </el-descriptions-item>
         <el-descriptions-item label="原因分类">{{ selectedChange?.reasonCategory || '--' }}</el-descriptions-item>
-        <el-descriptions-item label="申请时间">{{ selectedChange?.requestedAt || '--' }}</el-descriptions-item>
+        <el-descriptions-item label="申请时间">
+          {{ formatEdhrDateTime(selectedChange?.requestedAt) }}
+        </el-descriptions-item>
         <el-descriptions-item label="原因说明" :span="2">{{ selectedChange?.reasonText || '--' }}</el-descriptions-item>
       </el-descriptions>
 
@@ -320,6 +324,10 @@ import {
 import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import { parsePositiveRouteQueryId } from '@/utils/routeQueryId'
+import {
+  edhrDateTimeFormatter,
+  formatEdhrDateTime
+} from '@/views/mes/pro/edhr/shared/dateTime'
 import BatchExecutionTraceDrawer from './BatchExecutionTraceDrawer.vue'
 import type { BatchExecutionTraceContext } from './traceContext'
 

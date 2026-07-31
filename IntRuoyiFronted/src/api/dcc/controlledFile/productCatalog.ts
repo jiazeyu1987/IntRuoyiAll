@@ -6,6 +6,8 @@ export interface DccProductCatalogPageReqVO extends PageParam {
   categoryLevel2?: string
   productStatus?: string
   dataSource?: string
+  sortField?: string
+  sortOrder?: 'asc' | 'desc'
 }
 
 export interface DccProductCatalogRespVO {
@@ -15,6 +17,8 @@ export interface DccProductCatalogRespVO {
   productSequence?: string | null
   product?: string | null
   productCode?: string | null
+  projectName?: string | null
+  projectCode?: string | null
   registrationCertificateName?: string | null
   registrationCertificateNumber?: string | null
   certificateHolder?: string | null
@@ -35,6 +39,8 @@ export interface DccProductCatalogSaveReqVO {
   productSequence?: string | null
   product: string
   productCode?: string | null
+  projectName?: string | null
+  projectCode?: string | null
   registrationCertificateName?: string | null
   registrationCertificateNumber?: string | null
   certificateHolder?: string | null
@@ -49,22 +55,6 @@ export interface DccProductCatalogSaveReqVO {
 
 export interface DccProductCatalogUpdateReqVO extends DccProductCatalogSaveReqVO {
   originalRowNo: number
-}
-
-export interface DccProductCatalogRegistrationExpiryCompareReqVO {
-  rows: Array<{
-    dataSource: string
-    originalRowNo: number
-  }>
-}
-
-export interface DccProductCatalogRegistrationExpiryCompareRespVO {
-  dataSource: string
-  originalRowNo: number
-  status: 'MATCH' | 'MISMATCH' | 'FETCH_FAILED' | 'NO_LINK' | 'UNSUPPORTED'
-  localExpiryDate?: string | null
-  remoteExpiryDate?: string | null
-  message?: string | null
 }
 
 export const getProductCatalogPage = async (
@@ -93,10 +83,4 @@ export const deleteProductCatalog = async (
     url: '/dcc/product-catalog/delete',
     params: { dataSource, originalRowNo }
   })
-}
-
-export const compareRegistrationExpiry = async (
-  data: DccProductCatalogRegistrationExpiryCompareReqVO
-): Promise<DccProductCatalogRegistrationExpiryCompareRespVO[]> => {
-  return await request.post({ url: '/dcc/product-catalog/registration-expiry/compare', data })
 }

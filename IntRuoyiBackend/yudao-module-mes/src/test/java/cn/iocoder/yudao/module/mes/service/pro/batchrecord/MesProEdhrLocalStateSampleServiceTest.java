@@ -62,6 +62,8 @@ class MesProEdhrLocalStateSampleServiceTest extends BaseDbUnitTest {
     @MockitoBean
     private AdminUserApi adminUserApi;
     @MockitoBean
+    private MesProEdhrPermissionScopeService permissionScopeService;
+    @MockitoBean
     private MesProEdhrOperationAuditService operationAuditService;
 
     @BeforeEach
@@ -69,6 +71,8 @@ class MesProEdhrLocalStateSampleServiceTest extends BaseDbUnitTest {
         TenantContextHolder.setTenantId(1L);
         ReflectionTestUtils.setField(sampleService, "activeProfiles", "local");
         when(adminUserApi.getUser(ADMIN_USER_ID)).thenReturn(adminUser("admin"));
+        when(permissionScopeService.saveRules(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new MesProEdhrPermissionScopeDetailResult().setScopeId(88001L));
     }
 
     @ParameterizedTest
@@ -94,6 +98,11 @@ class MesProEdhrLocalStateSampleServiceTest extends BaseDbUnitTest {
         assertTrue(batch.getRemark().contains("[LOCAL_STATE_SAMPLE]"));
         assertEquals(1L, batchTaskMapper.selectCount(
                 MesProEdhrBatchExecutionTaskDO::getBatchExecutionId, batch.getId()));
+        MesProEdhrBatchExecutionTaskDO batchTask = batchTaskMapper.selectListByBatchExecutionId(batch.getId())
+                .stream()
+                .findFirst()
+                .orElseThrow();
+        assertEquals(88001L, batchTask.getPermissionScopeId());
 
         MesProEdhrReleaseTransactionDO release = releaseTransactionMapper.selectByBatchExecutionId(batch.getId());
         if ("CLOSE".equals(state)) {

@@ -1,0 +1,50 @@
+# Execution Log
+
+- USER: 截图反馈“红框里的内容不显示”，目标为 eDHR 执行填写页隐藏截图标注区域。
+- RULES: 已读取 `docs/task-closeout-rules.md`、`docs/frontend-development.md`、`docs/powershell-encoding.md`、`docs/powershell-memory.md`、`bug-regression-fix-loop` 与 `frontend-feature-delivery` 技能及其 evidence contract。
+- PREFLIGHT: `git status --short --branch --untracked-files=all` -> `## int_main...origin/int_main [ahead 4]`，存在既有脏改动 `M IntRuoyiFronted/tests/e2e/edhr-assist-fill-mode-static.spec.js`。
+- BASELINE: `git commit -m "chore: baseline pre-existing edhr assist static test change"` -> `f410a338`，文件清单：`M IntRuoyiFronted/tests/e2e/edhr-assist-fill-mode-static.spec.js`。
+- BASELINE: `git show --name-status --oneline -1` -> 后续本任务文档已由 `3a556a26 docs: baseline preexisting edhr fill workspace task docs` 纳入 Git，文件清单：`A doc/tasks/20260729-edhr-fill-workspace-redbox-hide/{task.md,execution-log.md}`。
+- BDD: 隐藏填写页红框信息 -> Given 用户打开非追踪 eDHR 执行填写页 / When 页面渲染填写工作区 / Then 外层标题工具栏、辅助填写顶栏、完成提示条和左侧待保存摘要不显示，保存草稿、提交执行、最大化和真实告警仍可用。
+- M1: in_progress -> 已定位 `IntRuoyiFronted/src/views/mes/pro/edhr/ExecutionPage.vue` 与既有 `edhr-fill-workspace-hide-side-panels-static.spec.js`。
+- PREFLIGHT: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> FAIL，既有合同先失败在旧保存入口断言 `handleSaveFieldAuditChanges`，当前页面真实入口为 `openFieldAuditSignatureDialog`；先修正合同再补本次 RED。
+- USER: 用户补充截图确认“任务 / 批次、工序、填写人”三张切换卡必须保留；本次隐藏范围修正为外层标题/按钮、辅助标题、还差项、完成提示、左侧待保存摘要。
+- RED: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> FAIL，预期失败；当前页面仍显示外层标题和右上工具栏。
+- GREEN: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS，隐藏红框内容且保留三张切换卡。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS，辅助模式仍保留任务/工序/填写人切换弹框链路，并移除已隐藏的还差项真实 E2E 依赖。
+- GREEN: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS，填写工作区路由、左侧控制栏、全屏、适应宽高和原表模式回归通过。
+- GREEN: `node --check tests/e2e/edhr-assist-fill-mode-real-flow.e2e.js` -> PASS，真实 E2E 脚本语法通过。
+- GREEN: `pnpm ts:check` -> PASS，Vue/TS relaxed 类型检查通过。
+- CHECK: `git status --short --branch --untracked-files=all` -> 当前工作区存在并发任务改动，未触碰；本任务只拥有 `ExecutionPage.vue`、三个 eDHR 静态/真实 E2E 文件和 `doc/tasks/20260729-edhr-fill-workspace-redbox-hide/`。
+- EXPERIENCE: 已读取 `project-experience-consolidation` 技能；本次为一次性 UI 范围澄清，未新增可复用长期经验，且 `docs/experience-index.md` 已有并发改动，未修改长期经验文档。
+- M1-M5: completed -> 实现、合同、类型检查与任务证据均已完成，状态更新为 `ready_for_closeout`。
+- CLEANUP: `task_closeout.py --task-id 20260729-edhr-fill-workspace-redbox-hide --mode preview` -> ready，keep task/execution-log/verification-report，delete none，blocked none。
+- CLEANUP: `task_closeout.py --task-id 20260729-edhr-fill-workspace-redbox-hide --mode apply` -> applied，deleted_paths none。
+- FINAL: completed -> 本任务实现、验证、cleanup 均完成；并发任务改动保持未暂存、未提交。
+- USER: 用户继续反馈“每个卡片里面的红框的对应位置都不显示，只显示必要的内容”，目标扩展为隐藏每张辅助填写卡片内部的可选/已填、自动映射、位置和说明类元信息。
+- BDD: 隐藏辅助填写卡片内部元信息 -> Given 用户打开 eDHR 填写辅助模式 / When 页面渲染每个字段卡片 / Then 卡片只显示字段名称、填写控件、控件单位和真实校验错误，不显示可选/已填、自动映射、位置或字段说明占位。
+- RED: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> FAIL，预期失败；当前辅助填写卡片仍包含 `edhr-fill-workspace__assist-help`。
+- CHECK: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> FAIL，测试断言过宽；`<el-tag` 命中工序切换弹窗状态标签，已收窄为只检查 `edhr-fill-workspace__assist-row` 卡片模板。
+- GREEN: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS，辅助填写卡片内部不再显示说明、位置和可选/已填等徽标。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS，辅助模式切换区和字段填写链路保留，卡片内部红框元信息隐藏。
+- GREEN: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS，填写工作区控制栏、全屏和原表模式静态回归通过。
+- GREEN: `pnpm ts:check` -> PASS，Vue/TS relaxed 类型检查通过。
+- CHECK: `git status --short --branch --untracked-files=all` -> 验证期间并发任务推进仓库到 `ahead 3`，并出现多组非本任务改动；本轮不执行提交/推送，避免混入并发任务。
+- M6: completed -> 卡片内部元信息隐藏实现和验证完成，状态更新为 `ready_for_closeout`。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260729-edhr-fill-workspace-redbox-hide/frontend-feature-evidence.md` -> PASS，前端功能证据格式有效。
+- EXPERIENCE: 已按 `project-experience-consolidation` 搜索 `docs/frontend-development.md`、`docs/e2e-rules.md`、`docs/experience-index.md` 和 memory 文档；本次为填写页局部展示收敛，已有红框/辅助模式门禁覆盖相关风险，未新增长期经验文档。
+- CLEANUP: `task_closeout.py --task-id 20260729-edhr-fill-workspace-redbox-hide --mode preview` -> ready，keep task/execution-log/frontend-feature-evidence/verification-report，delete none，blocked none。
+- CLEANUP: `task_closeout.py --task-id 20260729-edhr-fill-workspace-redbox-hide --mode apply` -> applied，deleted_paths none。
+- CHECK: `git status --short --branch --untracked-files=all` -> 当前分支 `int_main` 与 `origin/int_main` 对齐；仍有其它并发任务工作区改动，当前任务待仅提交任务证据文件。
+- FINAL: completed -> 卡片内部红框元信息隐藏、目标验证、证据校验和 cleanup 均完成。
+- USER: 用户继续反馈“红框里的控件，点击之后的弹框，在最大化的时候弹框会被遮挡”，目标扩展为最大化填写工作区时保存草稿/提交执行弹框不被全屏层遮挡。
+- BDD: 最大化时保存/提交弹框不被遮挡 -> Given 用户打开 eDHR 填写页并点击最大化 / When 点击左侧保存草稿或提交执行触发结果/签名弹框 / Then 弹框渲染在全屏填写工作区内部并显示在工作区上方。
+- RED: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> FAIL，预期失败；提交执行签名弹框仍渲染在全屏填写工作区外部。
+- ROOT_CAUSE: `ExecutionPage.vue` 使用浏览器 `requestFullscreen()`，但保存/提交 `el-dialog` 位于 `.edhr-fill-workspace` 外部；浏览器全屏只显示全屏元素及其子树，导致弹框被遮挡。
+- FIX: 将 `edhr-fill-workspace__submit-sign-dialog` 与 `edhr-fill-workspace__result-dialog` 移入 `.edhr-fill-workspace` 内部，并显式设置 `:append-to-body="false"`，不改保存/提交 API 逻辑。
+- GREEN: `node tests/e2e/edhr-fill-workspace-static.spec.js` -> PASS，最大化弹框挂载位置合同通过。
+- GREEN: `node tests/e2e/edhr-fill-workspace-hide-side-panels-static.spec.js` -> PASS，红框隐藏与控制栏保留回归通过。
+- GREEN: `node tests/e2e/edhr-assist-fill-mode-static.spec.js` -> PASS，辅助模式切换与填写链路回归通过。
+- GREEN: `pnpm ts:check` -> PASS，Vue/TS relaxed 类型检查通过。
+- M7: completed -> 最大化遮挡修复、静态回归和类型检查完成，状态保持 `ready_for_closeout`。
+- EXPERIENCE: 已按 `project-experience-consolidation` 合并长期经验到 `docs/frontend-development.md#Element Plus 全屏弹框挂载门禁`，并更新 `docs/experience-index.md` 关键词路由。

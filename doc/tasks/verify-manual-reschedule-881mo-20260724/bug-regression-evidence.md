@@ -22,11 +22,11 @@
 - Existing regression test: `IntRuoyiFronted/tests/e2e/mes-replan-product-code-current-selection-static.spec.js`.
 - Required assertion: the successful apply flow calls `updateLastReplanParticipatingScheduleOrders(freshPreview)` only after `replanApply`.
 
-## RED
+## RED:
 
 - `node tests/e2e/mes-replan-product-code-current-selection-static.spec.js` -> FAIL，断言“成功应用重排后必须调用 `updateLastReplanParticipatingScheduleOrders(freshPreview)`”未满足。
 
-## GREEN
+## GREEN:
 
 - `node tests/e2e/mes-replan-product-code-current-selection-static.spec.js` -> PASS。
 - `node tests/e2e/mes-pro-schedule-order-replan-apply-enabled-static.spec.js` -> PASS。
@@ -34,6 +34,13 @@
 - `node tests/e2e/mes-pro-schedule-order-replan-skipped-selected-confirm-static.spec.js` -> PASS。
 - `node tests/e2e/mes-replan-whole-day-apply-static.spec.js` -> PASS。
 - `pnpm ts:check:schedule` -> PASS。
+- `node doc/tasks/verify-manual-reschedule-881mo-20260724/manual-reschedule-repair-verify.e2e.cjs` -> PASS，真实前端路径在 2026-07-24 17:32 验证 a/b/c/d 全部通过。
+- Evidence artifact: `output/playwright/verify-manual-reschedule-881mo-20260724-repair/repair-verification-report.json`.
+
+## Verification
+
+- Static regression, related schedule-order static tests, TypeScript schedule check, and real Playwright UI verification all passed.
+- Real E2E confirmed the two target product codes use the orange scheduled class/color and non-target rows remain unscheduled.
 
 ## Risk And Scope
 

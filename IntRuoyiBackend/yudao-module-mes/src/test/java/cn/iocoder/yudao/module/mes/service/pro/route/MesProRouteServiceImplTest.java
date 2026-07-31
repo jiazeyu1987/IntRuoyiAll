@@ -286,6 +286,15 @@ class MesProRouteServiceImplTest {
         when(routeMapper.selectByName(reqVO.getName())).thenReturn(null);
         when(routeVersionMapper.selectActiveByRouteId(reqVO.getId())).thenReturn(activeVersion);
         when(routeVersionMapper.selectMaxVersionNoByRouteId(reqVO.getId())).thenReturn("V1");
+        MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
+        graph.setRouteId(reqVO.getId());
+        MesProRouteProcessFlowNodeRespVO node = new MesProRouteProcessFlowNodeRespVO();
+        node.setRouteProcessId(3001L);
+        node.setProcessId(4001L);
+        node.setProcessName("工序");
+        node.setSort(1);
+        graph.setNodes(List.of(node));
+        when(routeProcessFlowService.getGraph(reqVO.getId())).thenReturn(graph);
 
         routeService.updateRoute(reqVO);
 
@@ -336,6 +345,15 @@ class MesProRouteServiceImplTest {
         when(routeMapper.selectByName(reqVO.getName())).thenReturn(null);
         when(routeVersionMapper.selectActiveByRouteId(reqVO.getId())).thenReturn(activeVersion);
         when(routeVersionMapper.selectMaxVersionNoByRouteId(reqVO.getId())).thenReturn("V1");
+        MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
+        graph.setRouteId(reqVO.getId());
+        MesProRouteProcessFlowNodeRespVO node = new MesProRouteProcessFlowNodeRespVO();
+        node.setRouteProcessId(3001L);
+        node.setProcessId(4001L);
+        node.setProcessName("工序");
+        node.setSort(1);
+        graph.setNodes(List.of(node));
+        when(routeProcessFlowService.getGraph(reqVO.getId())).thenReturn(graph);
 
         routeService.updateRoute(reqVO);
 
@@ -457,6 +475,9 @@ class MesProRouteServiceImplTest {
                 .versionNo("V1")
                 .active(Boolean.TRUE)
                 .lifecycleStatus("ACTIVE")
+                .routeSnapshotJson("""
+                        {"routeId":9006,"configSnapshots":{"batchRecordAttachmentOwners":[{"attachmentCode":"INCOMING_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"STERILIZATION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_RECORD","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]}]}}
+                        """)
                 .build());
         org.mockito.Mockito.doAnswer(invocation -> {
             MesProRouteVersionDO targetVersion = invocation.getArgument(0);
@@ -498,6 +519,11 @@ class MesProRouteServiceImplTest {
         assertEquals(1, snapshot.getJSONObject("configSnapshots").getJSONArray("scheduleConfigs").size());
         assertEquals(1, snapshot.getJSONObject("configSnapshots").getJSONArray("scheduleUseConfigs").size());
         assertEquals(1, snapshot.getJSONObject("configSnapshots").getJSONArray("batchUseConfigs").size());
+        JSONArray owners = snapshot.getJSONObject("configSnapshots").getJSONArray("batchRecordAttachmentOwners");
+        assertEquals(4, owners.size());
+        assertEquals("INCOMING_INSPECTION_REPORT", owners.getJSONObject(0).getString("attachmentCode"));
+        assertEquals(List.of(912398), owners.getJSONObject(0)
+                .getJSONArray("candidateSourceIds").toJavaList(Integer.class));
         ArgumentCaptor<MesProRouteVersionDO> activeCaptor = ArgumentCaptor.forClass(MesProRouteVersionDO.class);
         verify(platformAdapter).recordActiveRegistered(activeCaptor.capture(), eq(null),
                 eq("route active version registered"));
@@ -584,6 +610,45 @@ class MesProRouteServiceImplTest {
         assertEquals(1, batchRecordReports.size());
         assertEquals("REPORT-LIVE", batchRecordReports.getJSONObject(0).getString("batchRecordReportId"));
         assertEquals("MAIN", batchRecordReports.getJSONObject(0).getString("formSlotType"));
+    }
+
+    @Test
+    void buildCurrentRouteSnapshotJson_shouldPreserveExistingBatchRecordAttachmentOwners() {
+        Long routeId = 922119L;
+        Long routeVersionId = 34126020001L;
+        MesProRouteDO route = MesProRouteDO.builder()
+                .id(routeId)
+                .code("RT000028")
+                .name("球囊扩张压力泵")
+                .build();
+        MesProRouteVersionDO routeVersion = MesProRouteVersionDO.builder()
+                .id(routeVersionId)
+                .routeId(routeId)
+                .routeSnapshotJson("""
+                        {"routeId":922119,"configSnapshots":{"batchRecordAttachmentOwners":[{"attachmentCode":"INCOMING_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"STERILIZATION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912398],"candidateSourceNames":["张三"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_REPORT","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]},{"attachmentCode":"FINISHED_PRODUCT_INSPECTION_RECORD","candidateSourceType":"USERS","candidateSourceIds":[912399],"candidateSourceNames":["李四"]}]}}
+                        """)
+                .build();
+        MesProRouteProcessFlowGraphRespVO graph = new MesProRouteProcessFlowGraphRespVO();
+        graph.setRouteId(routeId);
+        graph.setNodes(emptyList());
+        when(routeMapper.selectById(routeId)).thenReturn(route);
+        when(routeVersionMapper.selectById(routeVersionId)).thenReturn(routeVersion);
+        when(routeProcessFlowService.getGraph(routeId)).thenReturn(graph);
+        when(routeProductMapper.selectListByRouteId(routeId)).thenReturn(emptyList());
+        when(routeProductBomMapper.selectList(routeId, null, null)).thenReturn(emptyList());
+        when(routeScheduleConfigMapper.selectListByRouteVersionId(routeVersionId)).thenReturn(emptyList());
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                routeId, MesProRouteFlowConfigTypeEnum.BATCH.getType())).thenReturn(emptyList());
+        when(routeFlowProcessConfigMapper.selectListByRouteIdAndUseType(
+                routeId, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType())).thenReturn(emptyList());
+
+        JSONObject snapshot = JSON.parseObject(routeService.buildCurrentRouteSnapshotJson(routeId, routeVersionId));
+
+        JSONArray owners = snapshot.getJSONObject("configSnapshots").getJSONArray("batchRecordAttachmentOwners");
+        assertEquals(4, owners.size());
+        assertEquals("INCOMING_INSPECTION_REPORT", owners.getJSONObject(0).getString("attachmentCode"));
+        assertEquals(List.of(912398), owners.getJSONObject(0)
+                .getJSONArray("candidateSourceIds").toJavaList(Integer.class));
     }
 
     @Test

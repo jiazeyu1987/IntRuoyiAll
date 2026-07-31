@@ -37,6 +37,9 @@ class MesBatchRecordBaseSchemaTest {
         Path rejectionRevisionSchemaFile = projectDir.resolve("sql/mysql/20260611_mes_edhr_rejection_revision_flow.sql");
         Path voidReopenSupplementSchemaFile = projectDir.resolve("sql/mysql/20260612_mes_edhr_void_reopen_supplement.sql");
         Path tailGoalSchemaFile = projectDir.resolve("sql/mysql/20260615_mes_edhr_tail_four_goals.sql");
+        Path versionPhaseOneSchemaFile = projectDir.resolve("sql/mysql/20260708_mes_batch_record_version_phase_one.sql");
+        Path sharedFormBindingSchemaFile = projectDir.resolve("sql/mysql/20260720_mes_batch_shared_form_binding.sql");
+        Path recordbookSyncSchemaFile = projectDir.resolve("sql/mysql/20260722_mes_recordbook_batch_controlled_sync.sql");
         Path testSchemaFile = projectDir.resolve("yudao-module-mes/src/test/resources/sql/create_tables.sql");
 
         assertTrue(Files.exists(runtimeSchemaFile), "MES MySQL base schema file must exist");
@@ -49,6 +52,9 @@ class MesBatchRecordBaseSchemaTest {
         assertTrue(Files.exists(rejectionRevisionSchemaFile), "MES rejection revision schema file must exist");
         assertTrue(Files.exists(voidReopenSupplementSchemaFile), "MES void/reopen/supplement schema file must exist");
         assertTrue(Files.exists(tailGoalSchemaFile), "MES eDHR tail goals schema file must exist");
+        assertTrue(Files.exists(versionPhaseOneSchemaFile), "MES batch record version phase one schema file must exist");
+        assertTrue(Files.exists(sharedFormBindingSchemaFile), "MES shared form binding schema file must exist");
+        assertTrue(Files.exists(recordbookSyncSchemaFile), "MES recordbook sync schema file must exist");
         assertTrue(Files.exists(testSchemaFile), "MES test schema file must exist");
 
         String runtimeSchema = Files.readString(runtimeSchemaFile, StandardCharsets.UTF_8)
@@ -60,7 +66,10 @@ class MesBatchRecordBaseSchemaTest {
                 + "\n" + Files.readString(multiSignatureSchemaFile, StandardCharsets.UTF_8)
                 + "\n" + Files.readString(rejectionRevisionSchemaFile, StandardCharsets.UTF_8)
                 + "\n" + Files.readString(voidReopenSupplementSchemaFile, StandardCharsets.UTF_8)
-                + "\n" + Files.readString(tailGoalSchemaFile, StandardCharsets.UTF_8);
+                + "\n" + Files.readString(tailGoalSchemaFile, StandardCharsets.UTF_8)
+                + "\n" + Files.readString(versionPhaseOneSchemaFile, StandardCharsets.UTF_8)
+                + "\n" + Files.readString(sharedFormBindingSchemaFile, StandardCharsets.UTF_8)
+                + "\n" + Files.readString(recordbookSyncSchemaFile, StandardCharsets.UTF_8);
         String testSchema = Files.readString(testSchemaFile, StandardCharsets.UTF_8);
         assertSchemaIsNonDestructive(runtimeSchema, "runtime");
         assertSchemaIsNonDestructive(testSchema, "test");
@@ -128,7 +137,8 @@ class MesBatchRecordBaseSchemaTest {
             return true;
         }
         Pattern helperPattern = Pattern.compile(
-                "ensure_[a-z0-9_]+_column\\s*\\(\\s*['\"]" + Pattern.quote(tableName)
+                "(?:ensure_[a-z0-9_]+_column|add_[a-z0-9_]+_column_if_(?:missing|table_exists))"
+                        + "\\s*\\(\\s*['\"]" + Pattern.quote(tableName)
                         + "['\"]\\s*,\\s*['\"]" + Pattern.quote(column) + "['\"]",
                 Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
         return helperPattern.matcher(schema).find();

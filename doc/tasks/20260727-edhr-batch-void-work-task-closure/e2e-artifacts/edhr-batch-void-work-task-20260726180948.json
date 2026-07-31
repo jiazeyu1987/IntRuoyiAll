@@ -1,0 +1,464 @@
+{
+  "status": "PASS",
+  "frontendUrl": "http://127.0.0.1:8081",
+  "backendUrl": "http://127.0.0.1:48081",
+  "tenant": "测试租户",
+  "username": "aoteman",
+  "setup": {
+    "runKey": "M7-VOID-WORKTASK-20260726180948",
+    "batchCode": "M7-VOID-WORKTASK-20260726180948",
+    "batchTaskId": 6603,
+    "doneWorkTaskId": 2193,
+    "todoWorkTaskId": 2190,
+    "doingWorkTaskId": 2191,
+    "batchExecutionId": 900000000859,
+    "overdueWorkTaskId": 2192,
+    "batchExecutionCode": "BE-M7-VOID-WORKTASK-20260726180948",
+    "canceledWorkTaskId": 2194
+  },
+  "submitSummary": {
+    "resolution": {
+      "policyId": 94,
+      "policyMode": "BPM_REQUIRED",
+      "requiresBpm": true,
+      "bpmProcessKey": "mes-edhr-batch-execution-void-v1",
+      "effectExecutorCode": "EDHR_BATCH_VOID"
+    },
+    "changeEvent": {
+      "id": 122,
+      "changeCode": "EDHR-VOID-BATCH-900000000859-1785089401373",
+      "changeType": "VOID",
+      "targetScope": "BATCH",
+      "batchExecutionId": 900000000859,
+      "executionId": null,
+      "sourceExecutionId": null,
+      "newExecutionId": null,
+      "sourceArchiveId": null,
+      "newArchiveId": null,
+      "changeStatus": "SUBMITTED",
+      "reasonCategory": "OTHER",
+      "reasonText": "批次作废取消工作台任务验证 20260726180948",
+      "requestedBy": 914520,
+      "requestSignatureId": 648,
+      "approvedBy": null,
+      "approvalSignatureId": null,
+      "effectiveAt": null,
+      "previousStatus": "10",
+      "newStatus": "60",
+      "previousHeadHash": null,
+      "newHeadHash": null,
+      "previousArchiveHash": null,
+      "newArchiveHash": null,
+      "requestedAt": 1785089401000,
+      "approvedAt": null,
+      "bpmProcessInstanceId": "37ecab40-891d-11f1-b943-00155d541292",
+      "bpmTaskId": null,
+      "remark": "batch void work-task closure 20260726180948"
+    },
+    "reasonText": "批次作废取消工作台任务验证 20260726180948"
+  },
+  "beforeTodo": {
+    "total": 1,
+    "list": [
+      {
+        "id": 2190,
+        "taskCode": "WT-M7-VOID-WORKTASK-20260726180948-TODO",
+        "taskType": "FILL",
+        "batchExecutionId": 900000000859,
+        "batchTaskId": 6603,
+        "businessScopeType": "BATCH_TASK",
+        "businessScopeId": 6603,
+        "executionId": null,
+        "sourceExecutionId": 1273,
+        "workOrderId": 925555,
+        "workOrderCode": "TESTERPA9ED2D417434",
+        "batchCode": "M7-VOID-WORKTASK-20260726180948",
+        "routeProcessId": 926443,
+        "processName": "吹球囊成型",
+        "assigneeUserId": 914520,
+        "assigneeUserName": "??1",
+        "candidateSourceType": "USER",
+        "candidateSourceId": 914520,
+        "candidatePoolName": "??1",
+        "candidateUserSnapshot": "914520",
+        "candidateSnapshotDisplay": "??1(914520)",
+        "sourceUserId": 914520,
+        "sourceUserName": "??1",
+        "responsibilitySource": "工序填写责任",
+        "inactionReason": "当前用户为直接责任人，可处理",
+        "signatureCellKey": "",
+        "signatureRowIndex": null,
+        "signatureColumnIndex": null,
+        "reviewSourceType": null,
+        "reviewSourceId": null,
+        "reviewSourceName": null,
+        "bpmTaskId": null,
+        "status": "TODO",
+        "dueTime": 1785175788000,
+        "overdueAt": null,
+        "overdueReason": null,
+        "completedAt": null,
+        "actionUrl": "/mes/pro/feedback/edhr-batch-execution/task/open?batchExecutionId=900000000859&taskId=6603",
+        "reason": "E2E active TODO before void",
+        "remark": "E2E active TODO before void",
+        "createTime": 1785089388000
+      }
+    ]
+  },
+  "beforeOverdue": {
+    "total": 1,
+    "list": [
+      {
+        "id": 2192,
+        "taskCode": "WT-M7-VOID-WORKTASK-20260726180948-OVERDUE",
+        "taskType": "FILL",
+        "batchExecutionId": 900000000859,
+        "batchTaskId": 6603,
+        "businessScopeType": "BATCH_TASK",
+        "businessScopeId": 6603,
+        "executionId": null,
+        "sourceExecutionId": 1273,
+        "workOrderId": 925555,
+        "workOrderCode": "TESTERPA9ED2D417434",
+        "batchCode": "M7-VOID-WORKTASK-20260726180948",
+        "routeProcessId": 926443,
+        "processName": "吹球囊成型",
+        "assigneeUserId": 914520,
+        "assigneeUserName": "??1",
+        "candidateSourceType": "USER",
+        "candidateSourceId": 914520,
+        "candidatePoolName": "??1",
+        "candidateUserSnapshot": "914520",
+        "candidateSnapshotDisplay": "??1(914520)",
+        "sourceUserId": 914520,
+        "sourceUserName": "??1",
+        "responsibilitySource": "工序填写责任",
+        "inactionReason": "当前用户为直接责任人，可处理",
+        "signatureCellKey": "",
+        "signatureRowIndex": null,
+        "signatureColumnIndex": null,
+        "reviewSourceType": null,
+        "reviewSourceId": null,
+        "reviewSourceName": null,
+        "bpmTaskId": null,
+        "status": "OVERDUE",
+        "dueTime": 1785002988000,
+        "overdueAt": 1785089388000,
+        "overdueReason": "E2E overdue before void",
+        "completedAt": null,
+        "actionUrl": "/mes/pro/feedback/edhr-batch-execution/task/open?batchExecutionId=900000000859&taskId=6603",
+        "reason": "E2E active OVERDUE before void",
+        "remark": "E2E active OVERDUE before void",
+        "createTime": 1785089388000
+      }
+    ]
+  },
+  "beforeStats": {
+    "todoCount": 129,
+    "fillCount": 129,
+    "reviewCount": 0,
+    "reworkCount": 0,
+    "archiveCount": 0,
+    "overdueCount": 3,
+    "doneCount": 256
+  },
+  "approvalSummary": {
+    "approverUsername": "aoteman",
+    "approverSource": "bpm-task-assignee",
+    "approverUserId": "914520",
+    "approvalTask": {
+      "id": "BPM:BPM_TASK_TODO:37f86b31-891d-11f1-b943-00155d541292",
+      "moduleCode": "BPM",
+      "sourceTaskType": "BPM_TASK_TODO",
+      "sourceTaskId": "37f86b31-891d-11f1-b943-00155d541292",
+      "businessKey": "37ecab40-891d-11f1-b943-00155d541292",
+      "businessTitle": "作废 BE-M7-VOID-WORKTASK-20260726180948 TESTERPA9ED2D417434",
+      "businessCode": null,
+      "businessStatus": "TODO",
+      "businessDeleted": null,
+      "currentNodeCode": "batchExecutionVoidApprove",
+      "currentNodeName": "作废 BE-M7-VOID-WORKTASK-20260726180948 TESTERPA9ED2D417434",
+      "initiatorUserId": null,
+      "assigneeUserId": 914520,
+      "assigneeUserName": "aoteman",
+      "processInstanceId": "37ecab40-891d-11f1-b943-00155d541292",
+      "initiatedAt": null,
+      "taskCreatedAt": 1785089401126,
+      "taskCompletedAt": null,
+      "approvalResult": null,
+      "approvalRemark": null,
+      "requiresSignature": true,
+      "detailRoute": "/bpm/process-instance/detail",
+      "detailQuery": {
+        "id": "37ecab40-891d-11f1-b943-00155d541292",
+        "taskId": "37f86b31-891d-11f1-b943-00155d541292"
+      },
+      "decisionDetailRoute": "/mes/pro/feedback/edhr-change",
+      "decisionDetailQuery": {
+        "businessType": "EDHR_BATCH_EXECUTION_VOID",
+        "changeType": "VOID",
+        "targetScope": "BATCH",
+        "batchExecutionId": "900000000859",
+        "batchExecutionCode": "BE-M7-VOID-WORKTASK-20260726180948",
+        "workOrderId": "925555",
+        "workOrderCode": "TESTERPA9ED2D417434",
+        "batchCode": "M7-VOID-WORKTASK-20260726180948",
+        "reasonCategory": "OTHER",
+        "reasonText": "批次作废取消工作台任务验证 20260726180948",
+        "processInstanceId": "37ecab40-891d-11f1-b943-00155d541292"
+      },
+      "availableActions": [
+        "REJECT",
+        "OPEN_DETAIL",
+        "APPROVE"
+      ],
+      "capabilities": [
+        "NOTIFICATION",
+        "AUDIT"
+      ],
+      "matchedIndex": 0
+    },
+    "reviewResult": true,
+    "requestPayload": {
+      "moduleCode": "BPM",
+      "sourceTaskType": "BPM_TASK_TODO",
+      "sourceTaskId": "37f86b31-891d-11f1-b943-00155d541292",
+      "businessKey": "37ecab40-891d-11f1-b943-00155d541292",
+      "processInstanceId": "37ecab40-891d-11f1-b943-00155d541292",
+      "result": "APPROVE",
+      "signaturePassword": "[REDACTED]"
+    }
+  },
+  "afterTodo": {
+    "total": 0,
+    "list": []
+  },
+  "afterOverdue": {
+    "total": 0,
+    "list": []
+  },
+  "afterStats": {
+    "todoCount": 128,
+    "fillCount": 128,
+    "reviewCount": 0,
+    "reworkCount": 0,
+    "archiveCount": 0,
+    "overdueCount": 2,
+    "doneCount": 256
+  },
+  "oldOpenFailure": {
+    "code": 1040750406,
+    "msg": "当前 eDHR 批次状态不允许该操作",
+    "data": null
+  },
+  "evidence": {
+    "workTasks": [
+      {
+        "id": 2190,
+        "reason": "批次已作废：批次作废取消工作台任务验证 20260726180948",
+        "status": "CANCELED",
+        "taskCode": "WT-M7-VOID-WORKTASK-20260726180948-TODO",
+        "completedAt": "2026-07-27 02:10:14"
+      },
+      {
+        "id": 2191,
+        "reason": "批次已作废：批次作废取消工作台任务验证 20260726180948",
+        "status": "CANCELED",
+        "taskCode": "WT-M7-VOID-WORKTASK-20260726180948-DOING",
+        "completedAt": "2026-07-27 02:10:14"
+      },
+      {
+        "id": 2192,
+        "reason": "批次已作废：批次作废取消工作台任务验证 20260726180948",
+        "status": "CANCELED",
+        "taskCode": "WT-M7-VOID-WORKTASK-20260726180948-OVERDUE",
+        "completedAt": "2026-07-27 02:10:14"
+      },
+      {
+        "id": 2193,
+        "reason": "E2E DONE history before void",
+        "status": "DONE",
+        "taskCode": "WT-M7-VOID-WORKTASK-20260726180948-DONE",
+        "completedAt": "2026-07-27 02:09:48"
+      },
+      {
+        "id": 2194,
+        "reason": "E2E already canceled before void",
+        "status": "CANCELED",
+        "taskCode": "WT-M7-VOID-WORKTASK-20260726180948-CANCELED",
+        "completedAt": "2026-07-27 02:09:48"
+      }
+    ],
+    "reasonText": "批次作废取消工作台任务验证 20260726180948",
+    "batchStatus": 60,
+    "changeStatus": "EFFECTIVE",
+    "changeEventId": 122,
+    "doneTaskCount": 1,
+    "activeTaskCount": 0,
+    "activeContextKey": null,
+    "batchExecutionId": 900000000859,
+    "canceledTaskCount": 4,
+    "processInstanceId": "37ecab40-891d-11f1-b943-00155d541292",
+    "requestSignatureId": 648,
+    "canceledReasonPrefixCount": 3,
+    "requestSignatureActionType": "BATCH_VOID_REQUEST"
+  },
+  "observedResponses": [
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/src/api/approval-center/index.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/edhr-work-task/my-page?pageNo=1&pageSize=1&status=TODO"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/src/api/approval-center/index.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/edhr-work-task/my-page?pageNo=1&pageSize=1&status=TODO"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/edhr-batch-execution/page?pageNo=1&pageSize=20&batchExecutionCode=BE-M7-VOID-WORKTASK-20260726180948&excludeStatuses%5B0%5D=40&excludeStatuses%5B1%5D=50&excludeReleased=true"
+    },
+    {
+      "method": "POST",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/edhr-change/void-batch-execution/approval-resolution"
+    },
+    {
+      "method": "POST",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/edhr-change/void-batch-execution/request"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/edhr-batch-execution/page?pageNo=1&pageSize=20&batchExecutionCode=BE-M7-VOID-WORKTASK-20260726180948&excludeStatuses%5B0%5D=40&excludeStatuses%5B1%5D=50&excludeReleased=true"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/src/api/approval-center/index.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/edhr-work-task/my-page?pageNo=1&pageSize=1&status=TODO"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/approval-center/todo"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/approval-center/todo?moduleCode=BPM"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/src/views/approval-center/index.vue"
+    },
+    {
+      "method": "GET",
+      "status": 304,
+      "url": "http://127.0.0.1:8081/src/api/approval-center/index.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/src/views/approval-center/index.vue?vue&type=style&index=0&scoped=4980b070&lang.css"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/edhr-work-task/my-page?pageNo=1&pageSize=1&status=TODO"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/modules"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=20&viewType=TODO&moduleCode=BPM&keyword="
+    },
+    {
+      "method": "POST",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/review"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=20&viewType=TODO&moduleCode=BPM&keyword="
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/src/views/mes/pro/edhr-work-task/WorkTaskBoardPage.vue"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/src/views/mes/pro/edhr-work-task/WorkTaskBoardPage.vue?vue&type=style&index=0&scoped=aaafcaed&lang.css"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/src/api/approval-center/index.ts"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/edhr-work-task/my-page?pageNo=1&pageSize=1&status=TODO"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/edhr-work-task/my-page?pageNo=1&pageSize=20&batchCode=M7-VOID-WORKTASK-20260726180948&status=TODO"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/edhr-work-task/my-page?pageNo=1&pageSize=20&status=TODO"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/approval-center/tasks/page?pageNo=1&pageSize=10&viewType=TODO"
+    },
+    {
+      "method": "GET",
+      "status": 200,
+      "url": "http://127.0.0.1:8081/admin-api/mes/pro/edhr-work-task/stats"
+    }
+  ],
+  "pageErrors": []
+}

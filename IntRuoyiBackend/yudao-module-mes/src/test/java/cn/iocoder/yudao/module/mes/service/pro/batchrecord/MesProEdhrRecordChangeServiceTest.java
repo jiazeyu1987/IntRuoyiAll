@@ -6,7 +6,19 @@ import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.framework.test.core.ut.BaseDbUnitTest;
 import cn.iocoder.yudao.module.bpm.api.task.BpmProcessInstanceApi;
 import cn.iocoder.yudao.module.bpm.api.task.dto.BpmProcessInstanceCreateReqDTO;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalContext;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalException;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalPolicy;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalPolicyMode;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalPolicyResolution;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalRequest;
+import cn.iocoder.yudao.module.bpm.businessapproval.model.BusinessApprovalRequestStatus;
+import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalErrorCode;
+import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalOrchestrator;
+import cn.iocoder.yudao.module.bpm.businessapproval.service.BusinessApprovalPolicyResolveService;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchExecutionPageReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchVoidApprovalResolutionReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrBatchVoidApprovalResolutionRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeApproveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangePageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.batchrecord.vo.EdhrRecordChangeRequestReqVO;
@@ -29,22 +41,25 @@ import cn.iocoder.yudao.module.system.api.user.AdminUserApi;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.invocation.InvocationOnMock;
 import org.mockito.MockedStatic;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import jakarta.annotation.Resource;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static cn.iocoder.yudao.framework.test.core.util.AssertUtils.assertServiceException;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_CHANGE_REASON_REQUIRED;
-import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_APPROVAL_PROCESS_DEFINITION_NOT_EXISTS;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProBatchRecordExecutionErrorCodeConstants.PRO_BATCH_RECORD_EXECUTION_STATUS_INVALID;
 import static cn.iocoder.yudao.module.mes.service.pro.batchrecord.MesProEdhrBatchExecutionErrorCodeConstants.PRO_EDHR_RELEASE_STATUS_INVALID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
@@ -82,11 +97,19 @@ class MesProEdhrRecordChangeServiceTest extends BaseDbUnitTest {
     @MockitoBean
     private AdminUserApi adminUserApi;
     @MockitoBean
+    private BusinessApprovalOrchestrator businessApprovalOrchestrator;
+    @MockitoBean
+    private BusinessApprovalPolicyResolveService businessApprovalPolicyResolveService;
+    @MockitoBean
     private MesProEdhrGoldenFingerPermissionService goldenFingerPermissionService;
+    @MockitoBean
+    private MesProEdhrWorkTaskService workTaskService;
 
     @BeforeEach
     void setUpBpm() {
         when(processInstanceApi.createProcessInstance(any(), any())).thenReturn("void-process-default");
+        when(businessApprovalOrchestrator.submit(any(BusinessApprovalContext.class)))
+                .thenAnswer(invocation -> submitBatchVoidBusinessApprovalInTest(invocation));
     }
 
     @Test
@@ -320,7 +343,8 @@ class MesProEdhrRecordChangeServiceTest extends BaseDbUnitTest {
                     .setReasonCategory("ORDER_CANCELLED")
                     .setReasonText("工单对应批次执行需要按 BPM 作废。")
                     .setPassword("request-pass")
-                    .setComment("void comment"));
+                    .setComment("void comment")
+                    .setStartUserSelectAssignees(Map.of("Activity_approve", List.of(201L))));
         }
 
         assertEquals("VOID", response.getChangeType());
@@ -354,12 +378,75 @@ class MesProEdhrRecordChangeServiceTest extends BaseDbUnitTest {
         verify(processInstanceApi).createProcessInstance(eq(ACTOR_ID), bpmCaptor.capture());
         BpmProcessInstanceCreateReqDTO bpmReq = bpmCaptor.getValue();
         assertEquals("mes-edhr-batch-execution-void-v1", bpmReq.getProcessDefinitionKey());
-        assertEquals("EDHR_BATCH_EXECUTION_VOID:" + batch.getId(), bpmReq.getBusinessKey());
+        assertEquals("BUSINESS_APPROVAL:4101", bpmReq.getBusinessKey());
+        assertEquals(Map.of("Activity_approve", List.of(201L)), bpmReq.getStartUserSelectAssignees());
+        assertEquals("EDHR_BATCH_EXECUTION_VOID", bpmReq.getVariables().get("businessType"));
+        assertEquals("EDHR_BATCH_EXECUTION", bpmReq.getVariables().get("objectType"));
+        assertEquals(String.valueOf(batch.getId()), bpmReq.getVariables().get("objectId"));
+        assertEquals("VOID", bpmReq.getVariables().get("actionCode"));
+        assertEquals("10", bpmReq.getVariables().get("objectState"));
         assertEquals(batch.getId(), bpmReq.getVariables().get("batchExecutionId"));
         assertEquals(batch.getBatchExecutionCode(), bpmReq.getVariables().get("batchExecutionCode"));
         assertEquals(batch.getWorkOrderId(), bpmReq.getVariables().get("workOrderId"));
         assertEquals(batch.getWorkOrderCode(), bpmReq.getVariables().get("workOrderCode"));
         assertEquals("ORDER_CANCELLED", bpmReq.getVariables().get("reasonCategory"));
+        assertNull(bpmReq.getVariables().get("password"));
+
+        ArgumentCaptor<BusinessApprovalContext> contextCaptor =
+                ArgumentCaptor.forClass(BusinessApprovalContext.class);
+        verify(businessApprovalOrchestrator).submit(contextCaptor.capture());
+        BusinessApprovalContext context = contextCaptor.getValue();
+        assertEquals("MES", context.getSystemCode());
+        assertEquals("EDHR_BATCH_EXECUTION", context.getObjectType());
+        assertEquals("VOID", context.getActionCode());
+        assertEquals("10", context.getObjectState());
+        assertEquals("request-pass", context.getTransientVariables().get("password"));
+        assertNull(context.getVariables().get("password"));
+    }
+
+    @Test
+    void resolveVoidBatchExecutionApproval_usesBusinessPolicyWithoutSubmittingApproval() {
+        MesProEdhrBatchExecutionDO batch = insertActiveBatchExecution();
+        when(businessApprovalPolicyResolveService.resolve(any(BusinessApprovalContext.class)))
+                .thenReturn(BusinessApprovalPolicyResolution.from(BusinessApprovalPolicy.builder()
+                        .policyId(7101L)
+                        .tenantId(1L)
+                        .dataDomain("MES")
+                        .systemCode("MES")
+                        .objectType("EDHR_BATCH_EXECUTION")
+                        .actionCode("VOID")
+                        .objectState(BusinessApprovalPolicy.OBJECT_STATE_ALL)
+                        .mode(BusinessApprovalPolicyMode.BPM_REQUIRED)
+                        .processDefinitionKey("mes-edhr-batch-execution-void-v1")
+                        .effectExecutorCode(MesProEdhrBatchVoidFormEffectExecutor.EXECUTOR_CODE)
+                        .status(BusinessApprovalPolicy.STATUS_PUBLISHED)
+                        .build()));
+
+        EdhrBatchVoidApprovalResolutionRespVO response;
+        try (MockedStatic<SecurityFrameworkUtils> security = mockLoginUser()) {
+            response = changeService.resolveVoidBatchExecutionApproval(
+                    new EdhrBatchVoidApprovalResolutionReqVO().setBatchExecutionId(batch.getId()));
+        }
+
+        assertEquals(7101L, response.getPolicyId());
+        assertEquals("BPM_REQUIRED", response.getPolicyMode());
+        assertEquals(Boolean.TRUE, response.getRequiresBpm());
+        assertEquals("mes-edhr-batch-execution-void-v1", response.getBpmProcessKey());
+        assertEquals(MesProEdhrBatchVoidFormEffectExecutor.EXECUTOR_CODE, response.getEffectExecutorCode());
+
+        ArgumentCaptor<BusinessApprovalContext> contextCaptor =
+                ArgumentCaptor.forClass(BusinessApprovalContext.class);
+        verify(businessApprovalPolicyResolveService).resolve(contextCaptor.capture());
+        BusinessApprovalContext context = contextCaptor.getValue();
+        assertEquals("MES", context.getSystemCode());
+        assertEquals("EDHR_BATCH_EXECUTION", context.getObjectType());
+        assertEquals("VOID", context.getActionCode());
+        assertEquals(String.valueOf(batch.getId()), context.getObjectId());
+        assertEquals("10", context.getObjectState());
+        verify(businessApprovalOrchestrator, never()).submit(any(BusinessApprovalContext.class));
+        assertEquals(0, changeEventMapper.selectList(new LambdaQueryWrapperX<MesProEdhrRecordChangeEventDO>()
+                .eq(MesProEdhrRecordChangeEventDO::getBatchExecutionId, batch.getId())
+                .eq(MesProEdhrRecordChangeEventDO::getChangeType, "VOID")).size());
     }
 
     @Test
@@ -393,6 +480,28 @@ class MesProEdhrRecordChangeServiceTest extends BaseDbUnitTest {
         assertEquals("void-process-2", event.getBpmProcessInstanceId());
         assertEquals(ACTOR_ID, event.getApprovedBy());
         assertNotNull(event.getEffectiveAt());
+    }
+
+    @Test
+    void voidBatchExecution_approvedBpmCallbackCancelsActiveWorkTasks() {
+        MesProEdhrBatchExecutionDO batch = insertClosedBatchExecution();
+        when(signatureService.recordSubmitSignature(eq(0L), eq("request-pass"), any()))
+                .thenReturn(9352L);
+        when(processInstanceApi.createProcessInstance(eq(ACTOR_ID), any(BpmProcessInstanceCreateReqDTO.class)))
+                .thenReturn("void-process-cancel-work-tasks");
+
+        try (MockedStatic<SecurityFrameworkUtils> security = mockLoginUser()) {
+            changeService.requestVoidBatchExecution(new EdhrRecordChangeRequestReqVO()
+                    .setBatchExecutionId(batch.getId())
+                    .setReasonCategory("ORDER_CANCELLED")
+                    .setReasonText("批次执行作废后工作台任务必须同步关闭。")
+                    .setPassword("request-pass"));
+            changeService.handleVoidBatchExecutionApprovalCallback("void-process-cancel-work-tasks",
+                    "event-approved", "APPROVED", "同意作废", ACTOR_ID);
+        }
+
+        verify(workTaskService).cancelActiveTasksByBatch(batch.getId(),
+                "批次已作废：批次执行作废后工作台任务必须同步关闭。");
     }
 
     @Test
@@ -616,12 +725,14 @@ class MesProEdhrRecordChangeServiceTest extends BaseDbUnitTest {
                 .thenReturn(" ");
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockLoginUser()) {
-            assertServiceException(() -> changeService.requestVoidBatchExecution(new EdhrRecordChangeRequestReqVO()
-                            .setBatchExecutionId(batch.getId())
-                            .setReasonCategory("ORDER_CANCELLED")
-                            .setReasonText("BPM 未启动时不能创建作废事件。")
-                            .setPassword("request-pass")),
-                    PRO_BATCH_RECORD_EXECUTION_APPROVAL_PROCESS_DEFINITION_NOT_EXISTS);
+            BusinessApprovalException exception = assertThrows(BusinessApprovalException.class,
+                    () -> changeService.requestVoidBatchExecution(new EdhrRecordChangeRequestReqVO()
+                                    .setBatchExecutionId(batch.getId())
+                                    .setReasonCategory("ORDER_CANCELLED")
+                                    .setReasonText("BPM 未启动时不能创建作废事件。")
+                                    .setPassword("request-pass")));
+            assertEquals(BusinessApprovalErrorCode.BUSINESS_APPROVAL_PROCESS_NOT_STARTED,
+                    exception.getErrorCode());
         }
 
         Long count = changeEventMapper.selectCount(new LambdaQueryWrapperX<MesProEdhrRecordChangeEventDO>()
@@ -896,6 +1007,61 @@ class MesProEdhrRecordChangeServiceTest extends BaseDbUnitTest {
                 .setBlockingCheckCount(0)
                 .setFailedCheckCount(0)
                 .setRequiredCheckCount(6));
+    }
+
+    private BusinessApprovalRequest submitBatchVoidBusinessApprovalInTest(InvocationOnMock invocation) {
+        BusinessApprovalContext context = invocation.getArgument(0);
+        Long requestId = 4101L;
+        BpmProcessInstanceCreateReqDTO bpmReq = new BpmProcessInstanceCreateReqDTO();
+        bpmReq.setProcessDefinitionKey(MesProEdhrRecordChangeServiceImpl.BATCH_EXECUTION_VOID_PROCESS_DEFINITION_KEY);
+        bpmReq.setBusinessKey("BUSINESS_APPROVAL:" + requestId);
+        bpmReq.setVariables(buildBusinessApprovalBpmVariables(context, requestId));
+        bpmReq.setStartUserSelectAssignees(context.getStartUserSelectAssignees());
+        String processInstanceId = processInstanceApi.createProcessInstance(context.getApplicantUserId(), bpmReq);
+        if (processInstanceId == null || processInstanceId.isBlank()) {
+            throw new BusinessApprovalException(BusinessApprovalErrorCode.BUSINESS_APPROVAL_PROCESS_NOT_STARTED,
+                    "BPM process instance was not started for eDHR batch void test");
+        }
+        BusinessApprovalRequest request = BusinessApprovalRequest.builder()
+                .requestId(requestId)
+                .tenantId(context.getTenantId())
+                .policyMode(BusinessApprovalPolicyMode.BPM_REQUIRED)
+                .processDefinitionKey(MesProEdhrRecordChangeServiceImpl.BATCH_EXECUTION_VOID_PROCESS_DEFINITION_KEY)
+                .effectExecutorCode(MesProEdhrBatchVoidFormEffectExecutor.EXECUTOR_CODE)
+                .status(BusinessApprovalRequestStatus.PENDING_BPM)
+                .context(context)
+                .processInstanceId(processInstanceId)
+                .build();
+        changeService.requestPlatformVoidBatchExecution(toBatchVoidRequest(context), processInstanceId);
+        return request;
+    }
+
+    private Map<String, Object> buildBusinessApprovalBpmVariables(BusinessApprovalContext context, Long requestId) {
+        Map<String, Object> variables = new LinkedHashMap<>();
+        variables.put("tenantId", context.getTenantId());
+        variables.put("businessType", context.getVariables().get("businessType"));
+        variables.put("approvalRequestId", requestId);
+        variables.put("dataDomain", context.getDataDomain());
+        variables.put("systemCode", context.getSystemCode());
+        variables.put("objectType", context.getObjectType());
+        variables.put("objectId", context.getObjectId());
+        variables.put("objectVersion", context.getObjectVersion());
+        variables.put("actionCode", context.getActionCode());
+        variables.put("objectState", context.getObjectState());
+        variables.put("businessKey", context.getObjectType() + ":" + context.getObjectId() + ":"
+                + context.getActionCode());
+        variables.put("reason", context.getReason());
+        context.getVariables().forEach(variables::putIfAbsent);
+        return variables;
+    }
+
+    private EdhrRecordChangeRequestReqVO toBatchVoidRequest(BusinessApprovalContext context) {
+        return new EdhrRecordChangeRequestReqVO()
+                .setBatchExecutionId(Long.valueOf(context.getObjectId()))
+                .setReasonCategory(String.valueOf(context.getVariables().get("reasonCategory")))
+                .setReasonText(String.valueOf(context.getVariables().get("reasonText")))
+                .setPassword(String.valueOf(context.getTransientVariables().get("password")))
+                .setComment((String) context.getVariables().get("comment"));
     }
 
     private MockedStatic<SecurityFrameworkUtils> mockLoginUser() {
