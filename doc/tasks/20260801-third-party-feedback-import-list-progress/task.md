@@ -6,7 +6,7 @@
 
 ## Current Status
 
-completed
+ready_for_closeout
 
 ## Milestones
 
@@ -14,7 +14,7 @@ completed
 2. completed - 编写第三方报工导入后列表/进度更新的回归测试并取得 RED。
 3. completed - 实施最小正式修复，禁止 fallback、空成功或前端假刷新。
 4. completed - 运行目标 GREEN、相邻回归和必要的静态/接口验证。
-5. completed - 完成收尾记录、经验沉淀、cleanup、提交与推送。
+5. pending - 完成收尾记录、经验沉淀、cleanup、提交与推送；当前阻塞在 GitHub 远端连接/推送。
 
 ## Expected Verification
 
@@ -39,11 +39,13 @@ completed
 
 - 并发基线提交 `7186c11a2` 已把本任务后端实现、测试和初始任务文档纳入 HEAD；本任务剩余收尾只 stage 本任务文档、直接报工静态合同和长期经验文档。
 - 真实 Playwright 页面导入未执行：本轮未启动本地前后端，也未确认可写测试租户/账号；不得把后端单测或静态合同冒充真实 E2E。
+- GitHub 推送阻塞：当前分支 `int_main` 仍领先 `origin/int_main`；`git ls-remote origin HEAD` 因 `127.0.0.1:7890` 本地代理未监听失败，清空代理后直连 `github.com:443` 也连接失败。按项目规则，推送完成前不得标记 `completed`。
 
 ## Final Verification
 
 - 后端目标 GREEN、后端导入服务整类回归、前端直接报工结果静态合同、前端排产刷新静态合同均通过。
 - `task-closeout-cleanup` preview/apply 均通过，无删除项，保留 task、execution log、verification report 和 bug-regression evidence。
+- Closeout 尚未完成：等待 GitHub 连接恢复后推送当前分支，并验证不再 ahead。
 
 ## Cleanup Keep
 

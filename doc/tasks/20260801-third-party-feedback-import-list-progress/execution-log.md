@@ -33,4 +33,11 @@
 - EXPERIENCE: 已按 `project-experience-consolidation` 归档到 `docs/backend-development.md#第三方报工直报正式链路门禁`，并更新 `docs/experience-index.md` 检索入口。
 - CLEANUP PREVIEW: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260801-third-party-feedback-import-list-progress --mode preview` -> PASS，keep 4 个正式任务文件，delete/blocked/warnings 均为空。
 - CLEANUP APPLY: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260801-third-party-feedback-import-list-progress --mode apply` -> PASS，无删除项。
-- FINAL STATUS: task.md 已更新为 `completed`。
+- PUSH ATTEMPT: `git push origin int_main` -> FAIL，GitHub HTTPS 走 `127.0.0.1:7890` 本地代理失败，错误摘要：`Failed to connect to github.com port 443 via 127.0.0.1` / `Could not connect to server`。
+- PUSH ATTEMPT: `git -c http.proxy= -c https.proxy= push origin int_main` -> FAIL，仍命中 GitHub-specific proxy 配置。
+- PUSH ATTEMPT: `git -c http.https://github.com.proxy= -c http.proxy= -c https.proxy= push origin int_main` -> FAIL，错误摘要：`Recv failure: Connection was reset`。
+- PUSH PREFLIGHT: `Test-NetConnection 127.0.0.1 -Port 7890` -> FAIL，`TcpTestSucceeded=False`，本地代理端口未监听。
+- PUSH PREFLIGHT: `git config --show-origin --get-regexp "proxy|insteadOf|http\.version"` -> GitHub-specific proxy 存在：`http.https://github.com.proxy http://127.0.0.1:7890`。
+- PUSH PREFLIGHT: `git ls-remote origin HEAD` -> FAIL，错误摘要：`Failed to connect to github.com port 443 via 127.0.0.1 after 2108 ms: Could not connect to server`。
+- PUSH PREFLIGHT: 清空 `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` 并覆盖 Git proxy 后执行 `git ls-remote origin HEAD` -> FAIL，错误摘要：`Failed to connect to github.com port 443 after 21088 ms: Could not connect to server`。
+- FINAL STATUS: task.md 已回退为 `ready_for_closeout`；实现、验证、cleanup 已完成，但 GitHub 连接/推送未完成，当前分支仍 ahead，不得标记 completed。
