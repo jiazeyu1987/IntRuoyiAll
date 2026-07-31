@@ -34,6 +34,7 @@
 - Project experience consolidation: 并发基线吞入当前任务文件的处理已由 `docs/powershell-memory.md#共享分支并发基线提交门禁` 和 `docs/experience-index.md` 覆盖，本次没有新增可复用门禁，不修改长期经验文档。
 - Cleanup preview: `task_closeout.py --task-id 20260731-team-leader-tabs --mode preview` -> `status: ready`；keep 三个核心任务记录，delete 仅 `frontend-feature-evidence.md`，blocked/warnings 均为 `<none>`。
 - Cleanup apply: `task_closeout.py --task-id 20260731-team-leader-tabs --mode apply` -> `status: applied`；仅删除临时 `frontend-feature-evidence.md`。
+- Closeout record commit: `3b1f606cf docs: complete team leader tabs task`，包含三个保留任务记录和临时前端证据文件删除。
 
 ## Current Blockers
 

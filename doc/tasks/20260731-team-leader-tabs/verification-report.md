@@ -27,6 +27,7 @@ completed；生产组长与 PQC 组长一级页签已拆分，生产组长保留
 - 既有脏工作区基线：`1cf2294e3`。
 - 并发基线：`62cdf8de2`，包含本任务静态契约和初始任务文档。
 - 页面实现提交：`2ed21ef45 feat: split team leader workbench tabs`。
+- 收尾记录提交：`3b1f606cf docs: complete team leader tabs task`。
 - 其它并发任务文件保持未暂存，不回滚、不覆盖。
 
 ## Experience Consolidation
