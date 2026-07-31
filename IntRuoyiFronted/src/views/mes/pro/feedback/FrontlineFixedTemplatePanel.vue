@@ -21,108 +21,299 @@
         <button class="frontline-home-button" type="button" @click="handleHome">主页</button>
       </header>
 
-      <main class="frontline-operator-main">
-        <section class="frontline-work-panel" data-frontline-pqc-inspection-content>
+      <div
+        v-if="activePqcInspectionItem"
+        class="frontline-pqc-piece-modal"
+        data-pqc-piece-modal
+        role="dialog"
+        aria-modal="true"
+        :aria-label="`${activePqcInspectionItem.label}逐件检验`"
+        @click.self="closePqcPieceInspection(false)"
+      >
+        <section class="frontline-pqc-piece-dialog">
+          <h3>{{ activePqcInspectionItem.label }}（{{ pqcInspectionQuantity }}件）</h3>
+          <div class="frontline-pqc-piece-list" data-pqc-piece-list>
+            <article
+              v-for="pieceIndex in pqcInspectionQuantity"
+              :key="pieceIndex"
+              class="frontline-pqc-piece-row"
+            >
+              <strong>{{ pieceIndex }}</strong>
+              <div
+                v-if="activePqcInspectionItem.type === 'number'"
+                class="frontline-pqc-piece-value-control"
+              >
+                <button
+                  type="button"
+                  :aria-label="`第 ${pieceIndex} 件${activePqcInspectionItem.label}减少`"
+                  @click="stepPqcPieceValue(pieceIndex - 1, -activePqcInspectionItem.step)"
+                >
+                  -
+                </button>
+                <input
+                  :value="pqcPieceDraftValues[pieceIndex - 1]"
+                  type="number"
+                  :step="activePqcInspectionItem.step"
+                  :aria-label="`第 ${pieceIndex} 件${activePqcInspectionItem.label}`"
+                  @input="updatePqcPieceDraftValue(pieceIndex - 1, $event)"
+                />
+                <button
+                  type="button"
+                  :aria-label="`第 ${pieceIndex} 件${activePqcInspectionItem.label}增加`"
+                  @click="stepPqcPieceValue(pieceIndex - 1, activePqcInspectionItem.step)"
+                >
+                  +
+                </button>
+                <span>{{ activePqcInspectionItem.unit }}</span>
+              </div>
+              <div v-else class="frontline-pqc-piece-choice">
+                <button
+                  type="button"
+                  class="pass"
+                  :class="{ active: pqcPieceDraftValues[pieceIndex - 1] === '合格' }"
+                  :aria-label="`第 ${pieceIndex} 件${activePqcInspectionItem.label}合格`"
+                  @click="pqcPieceDraftValues[pieceIndex - 1] = '合格'"
+                >
+                  合格
+                </button>
+                <button
+                  type="button"
+                  class="fail"
+                  :class="{ active: pqcPieceDraftValues[pieceIndex - 1] === '不合格' }"
+                  :aria-label="`第 ${pieceIndex} 件${activePqcInspectionItem.label}不合格`"
+                  @click="pqcPieceDraftValues[pieceIndex - 1] = '不合格'"
+                >
+                  不合格
+                </button>
+              </div>
+            </article>
+          </div>
+          <footer class="frontline-pqc-piece-actions">
+            <button type="button" @click="closePqcPieceInspection(false)">返回</button>
+            <button type="button" class="primary" @click="closePqcPieceInspection(true)">
+              完成
+            </button>
+          </footer>
+        </section>
+      </div>
+
+      <main class="frontline-operator-main is-pqc">
+        <section
+          class="frontline-work-panel frontline-pqc-content-panel"
+          data-frontline-pqc-inspection-content
+        >
           <h3>检验内容</h3>
-          <div class="frontline-inspection-list">
-            <label class="frontline-inspection-row">
+          <div class="frontline-pqc-inspection-list">
+            <button
+              class="frontline-pqc-content-item"
+              type="button"
+              data-pqc-inspection-entry="length"
+              aria-label="长度（厘米）逐件检验"
+              @click="openPqcPieceInspection('length')"
+            >
               <span>长度</span>
-              <el-input-number
-                v-model="pqcDraft.lengthCm"
-                :min="0"
-                :step="1"
-                controls-position="right"
-              />
-              <em>厘米</em>
-            </label>
-            <label class="frontline-inspection-row">
-              <span>外观</span>
-              <el-radio-group v-model="pqcDraft.appearanceQualified">
-                <el-radio-button :label="true">合格</el-radio-button>
-                <el-radio-button :label="false">不合格</el-radio-button>
-              </el-radio-group>
-            </label>
-            <label class="frontline-inspection-row">
-              <span>密封</span>
-              <el-radio-group v-model="pqcDraft.sealQualified">
-                <el-radio-button :label="true">合格</el-radio-button>
-                <el-radio-button :label="false">不合格</el-radio-button>
-              </el-radio-group>
-            </label>
-            <label class="frontline-inspection-row">
+              <em>{{ getPqcProgressText('length') }}</em>
+              <strong aria-hidden="true">&gt;</strong>
+            </button>
+
+            <div
+              class="frontline-pqc-choice-item"
+              data-pqc-inspection-entry="appearance"
+              data-pqc-inspection-group="appearance"
+            >
+              <div class="frontline-pqc-choice-title">外观</div>
+              <div class="frontline-pqc-choice-actions">
+                <button
+                  type="button"
+                  class="pass"
+                  :class="{ active: isPqcBulkChoiceActive('appearance', '合格') }"
+                  @click="applyPqcBulkChoice('appearance', '合格')"
+                >
+                  全部合格
+                </button>
+                <button
+                  type="button"
+                  class="fail"
+                  :class="{ active: isPqcBulkChoiceActive('appearance', '不合格') }"
+                  @click="applyPqcBulkChoice('appearance', '不合格')"
+                >
+                  全部不良
+                </button>
+                <button
+                  type="button"
+                  class="manual"
+                  :class="{ active: isPqcManualChoiceActive('appearance') }"
+                  @click="openPqcPieceInspection('appearance')"
+                >
+                  <span>逐件选择</span>
+                  <em>{{ getPqcProgressText('appearance') }}</em>
+                  <strong aria-hidden="true">&gt;</strong>
+                </button>
+              </div>
+            </div>
+
+            <div
+              class="frontline-pqc-choice-item"
+              data-pqc-inspection-entry="seal"
+              data-pqc-inspection-group="seal"
+            >
+              <div class="frontline-pqc-choice-title">密封</div>
+              <div class="frontline-pqc-choice-actions">
+                <button
+                  type="button"
+                  class="pass"
+                  :class="{ active: isPqcBulkChoiceActive('seal', '合格') }"
+                  @click="applyPqcBulkChoice('seal', '合格')"
+                >
+                  全部合格
+                </button>
+                <button
+                  type="button"
+                  class="fail"
+                  :class="{ active: isPqcBulkChoiceActive('seal', '不合格') }"
+                  @click="applyPqcBulkChoice('seal', '不合格')"
+                >
+                  全部不良
+                </button>
+                <button
+                  type="button"
+                  class="manual"
+                  :class="{ active: isPqcManualChoiceActive('seal') }"
+                  @click="openPqcPieceInspection('seal')"
+                >
+                  <span>逐件选择</span>
+                  <em>{{ getPqcProgressText('seal') }}</em>
+                  <strong aria-hidden="true">&gt;</strong>
+                </button>
+              </div>
+            </div>
+
+            <button
+              class="frontline-pqc-content-item"
+              type="button"
+              data-pqc-inspection-entry="pressure"
+              aria-label="压力（MPa）逐件检验"
+              @click="openPqcPieceInspection('pressure')"
+            >
               <span>压力</span>
-              <el-input-number
-                v-model="pqcDraft.pressureMpa"
-                :min="0"
-                :precision="1"
-                :step="0.1"
-                controls-position="right"
-              />
-              <em>MPa</em>
-            </label>
+              <em>{{ getPqcProgressText('pressure') }}</em>
+              <strong aria-hidden="true">&gt;</strong>
+            </button>
           </div>
         </section>
 
-        <section class="frontline-work-panel">
+        <section class="frontline-work-panel frontline-pqc-fill-panel">
           <h3>填检验</h3>
-          <div class="frontline-choice-row">
+          <div class="frontline-pqc-type-tabs">
             <button
               type="button"
               :class="{ active: pqcDraft.inspectionType === 'FIRST' }"
-              @click="pqcDraft.inspectionType = 'FIRST'"
+              @click="selectPqcInspectionType('FIRST')"
             >
               首检
             </button>
             <button
               type="button"
               :class="{ active: pqcDraft.inspectionType === 'PATROL' }"
-              @click="pqcDraft.inspectionType = 'PATROL'"
+              @click="selectPqcInspectionType('PATROL')"
             >
               巡检
             </button>
             <button
               type="button"
               :class="{ active: pqcDraft.inspectionType === 'FINAL' }"
-              @click="pqcDraft.inspectionType = 'FINAL'"
+              @click="selectPqcInspectionType('FINAL')"
             >
               末检
             </button>
           </div>
-          <div v-if="pqcDraft.inspectionType === 'PATROL'" class="frontline-choice-row">
+          <div
+            class="frontline-pqc-round-tabs"
+            :style="{ gridTemplateColumns: `repeat(${pqcVisibleRounds.length}, minmax(0, 1fr))` }"
+          >
             <button
-              v-for="round in patrolRounds"
-              :key="round"
+              v-for="round in pqcVisibleRounds"
+              :key="round.value"
               type="button"
-              :class="{ active: pqcDraft.patrolRound === round }"
-              @click="pqcDraft.patrolRound = round"
+              :class="{ active: pqcDraft.patrolRound === round.value }"
+              @click="pqcDraft.patrolRound = round.value"
             >
-              第 {{ round }} 次
+              {{ round.label }}
             </button>
           </div>
-          <div class="frontline-number-grid">
-            <label>
-              <span>检验数量</span>
-              <el-input-number v-model="pqcDraft.inspectionQuantity" :min="0" :step="1" />
-            </label>
-            <label>
-              <span>损耗数量</span>
-              <el-input-number v-model="pqcDraft.scrapQuantity" :min="0" :step="1" />
-            </label>
+          <div class="frontline-pqc-form-area">
+            <div class="frontline-pqc-number-field">
+              <label for="frontlinePqcInspectionQuantity">检验数量</label>
+              <button
+                type="button"
+                aria-label="检验数量减少"
+                @click="adjustPqcQuantity('inspectionQuantity', -1)"
+              >
+                -
+              </button>
+              <input
+                id="frontlinePqcInspectionQuantity"
+                :value="pqcDraft.inspectionQuantity ?? ''"
+                type="number"
+                min="0"
+                inputmode="numeric"
+                @input="updatePqcQuantity('inspectionQuantity', $event)"
+              />
+              <button
+                type="button"
+                aria-label="检验数量增加"
+                @click="adjustPqcQuantity('inspectionQuantity', 1)"
+              >
+                +
+              </button>
+              <span>件</span>
+            </div>
+            <div class="frontline-pqc-number-field">
+              <label for="frontlinePqcScrapQuantity">损耗数量</label>
+              <button
+                type="button"
+                aria-label="损耗数量减少"
+                @click="adjustPqcQuantity('scrapQuantity', -1)"
+              >
+                -
+              </button>
+              <input
+                id="frontlinePqcScrapQuantity"
+                :value="pqcDraft.scrapQuantity ?? ''"
+                type="number"
+                min="0"
+                inputmode="numeric"
+                @input="updatePqcQuantity('scrapQuantity', $event)"
+              />
+              <button
+                type="button"
+                aria-label="损耗数量增加"
+                @click="adjustPqcQuantity('scrapQuantity', 1)"
+              >
+                +
+              </button>
+              <span>件</span>
+            </div>
           </div>
         </section>
       </main>
 
-      <footer class="frontline-submit-bar">
-        <span>{{ statusText }}</span>
-        <el-button
-          type="primary"
-          size="large"
-          :loading="payloadLoading"
+      <footer class="frontline-pqc-submit-bar">
+        <button
+          class="frontline-pqc-reset-button"
+          type="button"
+          @click="handleResetPqc"
+        >
+          重填
+        </button>
+        <button
+          class="frontline-pqc-submit-button"
+          type="button"
           :disabled="isSubmitBlocked"
           @click="handleValidate"
         >
-          提交
-        </el-button>
+          {{ payloadLoading ? '提交中' : '提交' }}
+        </button>
       </footer>
     </div>
 
@@ -262,6 +453,50 @@ import {
 
 type PickerType = 'process' | 'employee'
 type InspectionType = 'FIRST' | 'PATROL' | 'FINAL'
+type PqcInspectionItemKey = 'length' | 'appearance' | 'seal' | 'pressure'
+type PqcChoiceResult = '合格' | '不合格'
+type PqcQuantityField = 'inspectionQuantity' | 'scrapQuantity'
+
+interface PqcInspectionItem {
+  label: string
+  type: 'number' | 'choice'
+  unit: string
+  defaultValue: string
+  step: number
+}
+
+const pqcInspectionItems: Record<PqcInspectionItemKey, PqcInspectionItem> = {
+  length: {
+    label: '长度',
+    type: 'number',
+    unit: '厘米',
+    defaultValue: '32.5',
+    step: 0.1
+  },
+  appearance: {
+    label: '外观',
+    type: 'choice',
+    unit: '',
+    defaultValue: '',
+    step: 0
+  },
+  seal: {
+    label: '密封',
+    type: 'choice',
+    unit: '',
+    defaultValue: '',
+    step: 0
+  },
+  pressure: {
+    label: '压力',
+    type: 'number',
+    unit: 'MPa',
+    defaultValue: '50',
+    step: 1
+  }
+}
+
+const pqcInspectionItemKeys = Object.keys(pqcInspectionItems) as PqcInspectionItemKey[]
 
 const props = withDefaults(defineProps<{ mode?: 'production' | 'pqc' }>(), {
   mode: 'production'
@@ -301,17 +536,15 @@ const productionDraft = reactive({
 const deviceParameterDraft = reactive<Record<string, string>>({})
 
 const pqcDraft = reactive({
-  lengthCm: undefined as number | undefined,
-  appearanceQualified: true,
-  sealQualified: true,
-  pressureMpa: undefined as number | undefined,
-  inspectionType: 'FIRST' as InspectionType,
+  inspectionType: 'PATROL' as InspectionType,
   patrolRound: 1,
   inspectionQuantity: undefined as number | undefined,
   scrapQuantity: undefined as number | undefined
 })
 
-const patrolRounds = [1, 2, 3]
+const activePqcInspectionKey = ref<PqcInspectionItemKey>()
+const pqcPieceDraftValues = ref<string[]>([])
+const pqcPieceValues = reactive<Record<string, string[]>>({})
 
 const productionOrderLabel = computed(() =>
   firstRouteQueryText(['productionOrderCode', 'workOrderCode', 'orderCode']) || '未选择订单'
@@ -322,6 +555,29 @@ const isPqcMode = computed(() => props.mode === 'pqc')
 const selectedProcessLabel = computed(() => formatProcessLabel(deviceState.selectedProcess))
 
 const selectedEmployeeLabel = computed(() => formatEmployeeLabel(deviceState.selectedEmployee))
+
+const pqcInspectionQuantity = computed(() =>
+  normalizePqcQuantity(pqcDraft.inspectionQuantity)
+)
+
+const activePqcInspectionItem = computed(() =>
+  activePqcInspectionKey.value
+    ? pqcInspectionItems[activePqcInspectionKey.value]
+    : undefined
+)
+
+const pqcVisibleRounds = computed(() => {
+  if (pqcDraft.inspectionType === 'FIRST') {
+    return [{ value: 1, label: '首检' }]
+  }
+  if (pqcDraft.inspectionType === 'FINAL') {
+    return [{ value: 1, label: '末检' }]
+  }
+  return [1, 2, 3].map((round) => ({
+    value: round,
+    label: `第 ${round} 次`
+  }))
+})
 
 const templateModeMismatch = computed(() =>
   Boolean(employeeTemplateCode.value && employeeTemplateCode.value !== expectedTemplateCode.value)
@@ -452,6 +708,163 @@ watch(
   },
   { deep: true }
 )
+
+const normalizePqcQuantity = (value?: number) => {
+  if (!Number.isFinite(value)) {
+    return 0
+  }
+  return Math.max(0, Math.trunc(Number(value)))
+}
+
+const getPqcPieceStateKey = (itemKey: PqcInspectionItemKey) => {
+  const process = deviceState.selectedProcess
+  if (!process) {
+    return undefined
+  }
+  const inspectionType = pqcDraft.inspectionType
+  const patrolRound = pqcDraft.patrolRound
+  return [
+    process.routeId,
+    process.routeProcessId,
+    process.processId,
+    inspectionType,
+    patrolRound,
+    itemKey
+  ].join(':')
+}
+
+const getPqcStoredPieceValues = (itemKey: PqcInspectionItemKey) => {
+  const stateKey = getPqcPieceStateKey(itemKey)
+  if (!stateKey) {
+    return []
+  }
+  const item = pqcInspectionItems[itemKey]
+  const quantity = pqcInspectionQuantity.value
+  const values = pqcPieceValues[stateKey] || []
+  while (values.length < quantity) {
+    values.push(item.defaultValue)
+  }
+  pqcPieceValues[stateKey] = values
+  return values
+}
+
+const getPqcCompletedCount = (itemKey: PqcInspectionItemKey) =>
+  getPqcStoredPieceValues(itemKey)
+    .slice(0, pqcInspectionQuantity.value)
+    .filter((value) => value.trim().length > 0).length
+
+const getPqcProgressText = (itemKey: PqcInspectionItemKey) =>
+  `已填 ${getPqcCompletedCount(itemKey)}/${pqcInspectionQuantity.value}`
+
+const getPqcCurrentChoiceValues = (itemKey: 'appearance' | 'seal') =>
+  getPqcStoredPieceValues(itemKey).slice(0, pqcInspectionQuantity.value)
+
+const isPqcBulkChoiceActive = (
+  itemKey: 'appearance' | 'seal',
+  result: PqcChoiceResult
+) => {
+  const values = getPqcCurrentChoiceValues(itemKey)
+  return values.length > 0 && values.every((value) => value === result)
+}
+
+const isPqcManualChoiceActive = (itemKey: 'appearance' | 'seal') => {
+  const values = getPqcCurrentChoiceValues(itemKey)
+  const completed = values.filter((value) => value.trim().length > 0).length
+  const allPass = values.length > 0 && values.every((value) => value === '合格')
+  const allFail = values.length > 0 && values.every((value) => value === '不合格')
+  return completed > 0 && !allPass && !allFail
+}
+
+const assertPqcPieceContext = () => {
+  if (!deviceState.selectedProcess) {
+    const error = new Error('请先选择工序，再填写逐件检验。')
+    message.error(error.message)
+    throw error
+  }
+  if (pqcInspectionQuantity.value <= 0) {
+    const error = new Error('请先填写大于 0 的检验数量。')
+    message.error(error.message)
+    throw error
+  }
+}
+
+const openPqcPieceInspection = (itemKey: PqcInspectionItemKey) => {
+  assertPqcPieceContext()
+  activePqcInspectionKey.value = itemKey
+  pqcPieceDraftValues.value = getPqcStoredPieceValues(itemKey).slice()
+}
+
+const closePqcPieceInspection = (saveChanges: boolean) => {
+  const itemKey = activePqcInspectionKey.value
+  if (saveChanges && itemKey) {
+    const stateKey = getPqcPieceStateKey(itemKey)
+    if (!stateKey) {
+      const error = new Error('当前工序上下文已失效，无法保存逐件检验。')
+      message.error(error.message)
+      throw error
+    }
+    pqcPieceValues[stateKey] = pqcPieceDraftValues.value.slice()
+  }
+  activePqcInspectionKey.value = undefined
+  pqcPieceDraftValues.value = []
+}
+
+const applyPqcBulkChoice = (
+  itemKey: 'appearance' | 'seal',
+  result: PqcChoiceResult
+) => {
+  assertPqcPieceContext()
+  const values = getPqcStoredPieceValues(itemKey)
+  for (let index = 0; index < pqcInspectionQuantity.value; index += 1) {
+    values[index] = result
+  }
+}
+
+const stepPqcPieceValue = (index: number, delta: number) => {
+  const item = activePqcInspectionItem.value
+  if (!item || item.type !== 'number') {
+    const error = new Error('当前检验项目不是数值项目，无法调整数值。')
+    message.error(error.message)
+    throw error
+  }
+  const current = Number(pqcPieceDraftValues.value[index] || item.defaultValue)
+  const precision = item.step < 1 ? String(item.step).split('.')[1]?.length || 0 : 0
+  pqcPieceDraftValues.value[index] = String(
+    Number((current + delta).toFixed(precision))
+  )
+}
+
+const updatePqcPieceDraftValue = (index: number, event: Event) => {
+  pqcPieceDraftValues.value[index] = (event.target as HTMLInputElement).value
+}
+
+const selectPqcInspectionType = (inspectionType: InspectionType) => {
+  pqcDraft.inspectionType = inspectionType
+  pqcDraft.patrolRound = 1
+}
+
+const updatePqcQuantity = (field: PqcQuantityField, event: Event) => {
+  const inputValue = (event.target as HTMLInputElement).value
+  pqcDraft[field] = inputValue === '' ? undefined : normalizePqcQuantity(Number(inputValue))
+}
+
+const adjustPqcQuantity = (field: PqcQuantityField, delta: number) => {
+  pqcDraft[field] = normalizePqcQuantity(pqcDraft[field]) + delta
+  if (pqcDraft[field] < 0) {
+    pqcDraft[field] = 0
+  }
+}
+
+const handleResetPqc = () => {
+  for (const itemKey of pqcInspectionItemKeys) {
+    const stateKey = getPqcPieceStateKey(itemKey)
+    if (stateKey) {
+      delete pqcPieceValues[stateKey]
+    }
+  }
+  activePqcInspectionKey.value = undefined
+  pqcPieceDraftValues.value = []
+}
 
 const openPicker = (picker: PickerType) => {
   activePicker.value = picker
@@ -676,9 +1089,15 @@ onMounted(async () => {
   min-height: min(1080px, calc(100vh - 180px));
   padding: 28px;
   overflow: hidden;
+  position: relative;
   border-radius: 18px;
   background: var(--frontline-bg);
   color: var(--frontline-ink);
+
+  &.is-pqc {
+    grid-template-rows: 130px minmax(0, 1fr) 126px;
+    min-height: 860px;
+  }
 }
 
 .frontline-operator-top {
@@ -744,6 +1163,10 @@ onMounted(async () => {
   grid-template-columns: 780px minmax(0, 1fr);
   gap: 28px;
   min-height: 0;
+
+  &.is-pqc {
+    grid-template-columns: 780px minmax(0, 1fr);
+  }
 }
 
 .frontline-work-panel {
@@ -764,8 +1187,7 @@ onMounted(async () => {
   }
 }
 
-.frontline-production-field,
-.frontline-inspection-row {
+.frontline-production-field {
   display: grid;
   align-items: center;
   min-width: 0;
@@ -831,26 +1253,416 @@ onMounted(async () => {
   font-weight: 900;
 }
 
-.frontline-inspection-list {
+.frontline-pqc-inspection-list {
   display: grid;
   gap: 14px;
 }
 
-.frontline-inspection-row {
-  grid-template-columns: 150px minmax(0, 1fr) auto;
-  gap: 14px;
-  padding: 14px 18px;
+.frontline-pqc-content-panel {
+  gap: 18px;
+}
+
+.frontline-pqc-content-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 48px;
+  gap: 18px;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 100px;
+  padding: 0 22px;
   border: 3px solid var(--frontline-line);
   border-radius: 20px;
   background: #f8faf8;
+  color: var(--frontline-ink);
+  text-align: left;
+  cursor: pointer;
 
   span {
-    color: var(--frontline-muted);
-    font-size: 30px;
+    font-size: 40px;
+    font-weight: 900;
   }
 
   em {
-    font-size: 28px;
+    color: var(--frontline-muted);
+    font-size: 30px;
+    font-style: normal;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  strong {
+    font-size: 48px;
+    line-height: 1;
+    text-align: right;
+  }
+
+  &:focus-visible {
+    outline: 5px solid #86c8ad;
+    outline-offset: 2px;
+  }
+}
+
+.frontline-pqc-choice-item {
+  min-height: 142px;
+  overflow: hidden;
+  border: 3px solid var(--frontline-line);
+  border-radius: 20px;
+  background: #f8faf8;
+}
+
+.frontline-pqc-choice-title {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 18px;
+  border-bottom: 3px solid var(--frontline-line);
+  background: #ffffff;
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.frontline-pqc-choice-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.5fr;
+  min-height: 88px;
+
+  > button {
+    min-width: 0;
+    padding: 10px 12px;
+    border: 0;
+    border-right: 3px solid var(--frontline-line);
+    background: #f8faf8;
+    color: var(--frontline-ink);
+    font-size: 31px;
+    font-weight: 900;
+    white-space: nowrap;
+    cursor: pointer;
+
+    &:last-child {
+      border-right: 0;
+    }
+
+    &:focus-visible {
+      outline: 5px solid #86c8ad;
+      outline-offset: -6px;
+    }
+
+    &.pass.active {
+      background: #dff2ea;
+      color: #15815f;
+    }
+
+    &.fail.active {
+      background: #f8dfdc;
+      color: #b9382f;
+    }
+  }
+
+  .manual {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 38px;
+    grid-template-rows: auto auto;
+    gap: 4px 10px;
+    align-items: center;
+    padding: 10px 16px;
+    text-align: left;
+
+    &.active {
+      background: #e7f0eb;
+    }
+
+    span {
+      font-size: 30px;
+      line-height: 1;
+    }
+
+    em {
+      color: var(--frontline-muted);
+      font-size: 25px;
+      font-style: normal;
+      white-space: nowrap;
+    }
+
+    strong {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      font-size: 40px;
+      line-height: 1;
+    }
+  }
+}
+
+.frontline-pqc-fill-panel {
+  grid-template-rows: auto 86px 104px minmax(0, 1fr);
+  gap: 14px;
+  overflow: hidden;
+}
+
+.frontline-pqc-type-tabs,
+.frontline-pqc-round-tabs {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+
+  button {
+    min-width: 0;
+    border: 3px solid var(--frontline-line);
+    border-radius: 20px;
+    background: #f8faf8;
+    color: var(--frontline-ink);
+    font-weight: 900;
+    cursor: pointer;
+
+    &.active {
+      border-color: var(--frontline-dark);
+      background: var(--frontline-dark);
+      color: #ffffff;
+    }
+  }
+}
+
+.frontline-pqc-type-tabs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  button {
+    font-size: 36px;
+  }
+}
+
+.frontline-pqc-round-tabs {
+  button {
+    padding: 0 14px;
+    font-size: 36px;
+  }
+}
+
+.frontline-pqc-form-area {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+  padding: 20px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 24px;
+  background: #fbfdfb;
+}
+
+.frontline-pqc-number-field {
+  display: grid;
+  grid-template-columns: 190px 82px minmax(0, 1fr) 82px 70px;
+  gap: 14px;
+  align-items: center;
+  min-width: 0;
+
+  label {
+    font-size: 34px;
+    font-weight: 900;
+  }
+
+  button,
+  input {
+    width: 100%;
+    height: 76px;
+    min-width: 0;
+    border: 3px solid var(--frontline-line);
+    border-radius: 16px;
+    background: #f8faf8;
+    color: var(--frontline-ink);
+    text-align: center;
+    font-weight: 900;
+  }
+
+  button {
+    font-size: 44px;
+    cursor: pointer;
+  }
+
+  input {
+    font-size: 42px;
+  }
+
+  span {
+    font-size: 30px;
+    font-weight: 900;
+  }
+}
+
+.frontline-pqc-submit-bar {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 24px;
+}
+
+.frontline-pqc-reset-button,
+.frontline-pqc-submit-button {
+  border: 0;
+  border-radius: 28px;
+  font-size: 54px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.frontline-pqc-reset-button {
+  border: 3px solid var(--frontline-line);
+  background: #ffffff;
+  color: var(--frontline-ink);
+}
+
+.frontline-pqc-submit-button {
+  background: #15815f;
+  color: #ffffff;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+  }
+}
+
+.frontline-pqc-piece-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: rgba(17, 26, 21, 0.5);
+}
+
+.frontline-pqc-piece-dialog {
+  display: grid;
+  grid-template-rows: 86px minmax(0, 1fr) 96px;
+  gap: 14px;
+  width: min(1580px, calc(100% - 48px));
+  height: min(930px, calc(100% - 48px));
+  min-height: 0;
+  padding: 24px;
+  overflow: hidden;
+  border: 3px solid var(--frontline-line);
+  border-radius: 28px;
+  background: #ffffff;
+
+  h3 {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    font-size: 48px;
+    font-weight: 900;
+    line-height: 1;
+  }
+}
+
+.frontline-pqc-piece-list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-auto-rows: minmax(100px, 1fr);
+  gap: 10px;
+  align-content: start;
+  min-height: 0;
+  padding-right: 8px;
+  overflow-y: auto;
+}
+
+.frontline-pqc-piece-row {
+  display: grid;
+  grid-template-rows: 24px 52px;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+  min-height: 100px;
+  padding: 6px 10px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 16px;
+  background: #f8faf8;
+
+  > strong {
+    font-size: 24px;
+    font-weight: 900;
+  }
+}
+
+.frontline-pqc-piece-value-control {
+  display: grid;
+  grid-template-columns: 44px minmax(80px, 1fr) 44px 52px;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+
+  button,
+  input {
+    width: 100%;
+    height: 50px;
+    min-width: 0;
+    padding: 0;
+    border: 3px solid var(--frontline-line);
+    border-radius: 12px;
+    background: #ffffff;
+    color: var(--frontline-ink);
+    text-align: center;
+    font-size: 30px;
+    font-weight: 900;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  span {
+    font-size: 22px;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+}
+
+.frontline-pqc-piece-choice {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  min-width: 0;
+
+  button {
+    height: 56px;
+    border: 3px solid var(--frontline-line);
+    border-radius: 12px;
+    background: #ffffff;
+    color: var(--frontline-ink);
+    font-size: 24px;
+    font-weight: 900;
+    cursor: pointer;
+
+    &.pass.active {
+      border-color: #86c8ad;
+      background: #dff2ea;
+      color: #15815f;
+    }
+
+    &.fail.active {
+      border-color: #dfa8a2;
+      background: #f8dfdc;
+      color: #b9382f;
+    }
+  }
+}
+
+.frontline-pqc-piece-actions {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 18px;
+
+  button {
+    border: 3px solid var(--frontline-line);
+    border-radius: 22px;
+    background: #ffffff;
+    color: var(--frontline-ink);
+    font-size: 40px;
+    font-weight: 900;
+    cursor: pointer;
+
+    &.primary {
+      border-color: #15815f;
+      background: #15815f;
+      color: #ffffff;
+    }
   }
 }
 
@@ -1023,6 +1835,22 @@ onMounted(async () => {
   .frontline-device-grid,
   .frontline-number-grid {
     grid-template-columns: 1fr;
+  }
+
+  .frontline-pqc-choice-actions,
+  .frontline-pqc-type-tabs,
+  .frontline-pqc-round-tabs,
+  .frontline-pqc-number-field,
+  .frontline-pqc-submit-bar {
+    grid-template-columns: 1fr !important;
+  }
+
+  .frontline-pqc-piece-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .frontline-pqc-piece-actions {
+    grid-template-columns: 1fr 1fr;
   }
 }
 </style>
