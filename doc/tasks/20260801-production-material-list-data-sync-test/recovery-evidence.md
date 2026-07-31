@@ -26,6 +26,12 @@
 - Backup existence/hash/gzip verification passed.
 - Full destructive restore test is not run because the target table has not yet been modified; if upsert proceeds and validation fails, restore execution becomes the next required step.
 
+## Verification
+
+- GREEN: remote-target-backup -> PASS, gzip backup created at `/var/lib/docker/intruoyi-data/runtime-data/task-backups/20260801-production-material-list-data-sync-test/mes_kingdee_production_material_list_before_20260801-005623.sql.gz`.
+- GREEN: gzip -t backup -> PASS.
+- GREEN: sha256sum backup -> PASS, `a35afce295013118dab19761130eeeb553aced1800215b8d7043e7ee58752a7e`.
+
 ## Owners
 
 - Operator: current Codex task under user authorization.

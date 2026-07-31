@@ -33,6 +33,8 @@
 - GREEN: remote-target-backup -> PASS，测试服目标表备份 gzip/hash/大小验证通过。
 - GREEN: staging-load-verify -> PASS，staging 行数与本地源一致，且加载后已清理。
 - RED: safe-direct-upsert-preflight -> FAIL，本地关联 ID 与测试服主数据大量不匹配，且测试服按编码重算存在重复/缺失依赖，直接复制全部字段或静默重算 ID 均不安全。
+- GREEN: python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc\tasks\20260801-production-material-list-data-sync-test\database-schema-evidence.md -> PASS。
+- GREEN: python C:\Users\BJB110\.codex\skills\backup-disaster-recovery-readiness\scripts\validate_backup_disaster_recovery.py --evidence doc\tasks\20260801-production-material-list-data-sync-test\recovery-evidence.md -> PASS。
 
 ## Blockers
 

@@ -57,7 +57,7 @@ assert.match(
 )
 assert.match(
   runner,
-  /custom footer rows[\s\S]*page\.locator\('button, \.el-button'\)[\s\S]*hasText: \/\^保存\$\|\^确定\$\|\^提交\$\/,
+  /custom footer rows[\s\S]*page\.locator\('button, \.el-button'\)[\s\S]*hasText: \/\^保存\$\|\^确定\$\|\^提交\$/,
   'Runner prompt 必须要求子任务在 Element Plus 标准 footer 缺失时继续定位可见自定义底部保存按钮。'
 )
 assert.match(

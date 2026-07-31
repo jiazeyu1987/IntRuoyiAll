@@ -41,4 +41,4 @@ PASS: PQC 检验员切换订单、工序、员工来源已实现并通过定向�
 
 ## Closeout Blocker
 
-当前分支 `int_main...origin/int_main [ahead 1]` 且工作区存在并行无关改动；为避免混入其它任务，本任务未提交/推送，任务状态保持 `ready_for_closeout`。
+当前分支 `int_main...origin/int_main [ahead 2]` 且工作区存在并行无关改动；最近基线提交 `7186c11a2` 已将本任务实现与其它任务文件一起纳入同一提交。为避免继续混入其它任务，本轮未追加提交/推送，任务状态保持 `ready_for_closeout`。

@@ -44,4 +44,5 @@ ready_for_closeout
 ## Closeout Notes
 
 - 实现和验证已完成，但当前工作区存在并行无关改动与分支 ahead 状态；为避免混入其它任务改动，本任务未执行提交/推送。
+- 2026-08-01 复核时，最近提交 `7186c11a2 chore: baseline dirty workspace before dcc auto classify` 已将本任务部分实现和证据连同其它任务改动纳入同一个基线提交；未改写历史，当前任务仍保持 `ready_for_closeout`。
 - 本任务代码改动与生产组长任务不冲突：生产模式仍走设备账号授权工序/员工绑定链路，PQC 模式新增独立的活跃订单、路线工序和 PQC 人员链路。

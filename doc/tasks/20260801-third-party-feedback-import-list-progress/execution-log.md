@@ -23,3 +23,9 @@
 - BASELINE POST-SCAN: `git status --short --branch --untracked-files=all` -> branch `int_main...origin/int_main [ahead 1]`; only current task docs remain untracked.
 - ROOT CAUSE: `ThirdPartyFeedbackImportServiceImpl#importDirectWorkReportWorkbook` 对李萍直报 Excel 只写 `MesProFeedbackImportRecordDO` 的 `DIRECT_WORK_REPORT` 进度字段并重算排产，没有创建 `MesProFeedbackDO` 正式报工；前端确认弹框后切换到正式报工列表，因此列表无新增记录。
 - RED: `mvn -pl yudao-module-mes -am "-Dtest=ThirdPartyFeedbackImportServiceImplTest#importDirectWorkReportWorkbook_shouldCreateSubmittedFeedbackAndLinkImportRecordForMatchedRow" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, expected reason: 新增回归期望创建/提交正式报工并关联导入记录，实际 `submittedCount` 为 0。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=ThirdPartyFeedbackImportServiceImplTest#importDirectWorkReportWorkbook_shouldCreateSubmittedFeedbackAndLinkImportRecordForMatchedRow" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，直报匹配行创建正式报工、关联导入记录、提交审批中并用正式报工重算排产进度。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=ThirdPartyFeedbackImportServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，25 tests, 0 failures, 17 skipped；相邻直报缺用户、重复导入、超剩余数量契约已改为正式报工或明确跳过，不再直接写进度。
+- VERIFICATION: `node tests/e2e/mes-direct-work-report-import-result-static.spec.js` -> PASS，导入结果弹框结构化展示合同通过。
+- VERIFICATION: `node tests/e2e/mes-direct-work-report-refresh-schedule-order-static.spec.js` -> PASS，确认弹框后报工页广播受影响排产工单刷新 payload，排产页按当前列表命中后重新拉取真实进度。
+- NOTE: `node tests/e2e/mes-feedback-tracking-static.spec.js` -> FAIL，失败 token 为 `删除报工失败，请检查后端接口。`；该报工追踪宽口径静态合同与本次直接报工导入修复无直接关系，且对应前端文件属于基线/并发任务范围，本次未修改其业务行为。
+- GIT NOTE: 并发基线提交 `7186c11a2 chore: baseline dirty workspace before dcc auto classify` 已把本任务后端实现、测试和初始任务文档纳入 HEAD；本任务后续只提交剩余验证文档和静态合同同步，不重写历史。
