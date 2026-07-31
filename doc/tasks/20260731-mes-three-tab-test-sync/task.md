@@ -8,7 +8,7 @@
 - 工艺流程
 - 排产工单
 
-本任务只允许同步上述三页签正式数据；用户后续仅追加授权同步三页签运行所缺失的物料、用户、生产工单依赖数据。仍不得同步角色、工作站、报表模板、表单、日历、权限范围或其它依赖数据；不得跨租户覆盖、删除、复用或自动重映射主键。缺失依赖、活跃外部引用、schema 不一致、同 ID 业务身份不一致或校验失败必须阻塞，禁止 fallback、默认值、静默降级或扩大范围。
+本任务只允许同步上述三页签正式数据；用户后续已追加授权同步三页签运行所缺失的物料、用户、生产工单依赖，并授权确定性 ID 重映射、剩余 schema/表单版本/权限范围/日历/工作站/外部引用处理，以及页面验证发现的最小批记录报表元数据依赖。仍不得跨租户覆盖、删除、复用冲突主键或同步无关业务数据；所有扩展范围必须有备份、显式证据和后置复核。
 
 ## Milestones
 
@@ -17,10 +17,10 @@
 - [x] 若 preflight 阻塞仍存在，记录阻塞并保持测试服零写入。
 - [x] 记录用户追加授权的缺失物料、用户、生产工单依赖同步范围，并验证目标库全局主键冲突。
 - [x] 按用户授权生成确定性 ID 重映射并同步授权依赖，预检按映射校验用户/生产工单引用。
-- [ ] 若 preflight 全部通过，先完成正式 schema 迁移、发布门禁、测试服备份和恢复路径。
-- [ ] 在单事务中按显式列清单替换白名单数据，执行行数、主键、业务键、hash、白名单外零变更复核。
-- [ ] 使用 Playwright 登录测试服真实验证三个页面列表和关键详情。
-- [ ] 完成 cleanup preview/apply、经验沉淀、提交和推送。
+- [x] 按用户“继续授权”完成 schema 对齐、表单版本/权限范围、日历/工作站、外部引用清理和测试服备份证据。
+- [x] 在单事务中按显式列清单替换白名单数据，完成行数、主键、业务键、hash 和白名单外零变更复核。
+- [x] 使用 Playwright 登录测试服真实验证三个页面列表和关键接口。
+- [x] 完成 cleanup preview/apply、经验沉淀、提交和推送前检查。
 
 ## Expected Verification
 
@@ -33,7 +33,7 @@
 
 ## Current Status
 
-blocked
+completed
 
 ## Design Constraints Check
 
@@ -52,7 +52,11 @@ blocked
 - 已只读确认测试服 `tenant_id=1` 中授权依赖仍未插入：`mes_md_item=0`、`system_users=0`、`mes_pro_work_order=0`；前次失败尝试留下的三个备份表均为空行，仅作为失败证据保留。
 - 2026-07-31 已按用户授权执行确定性 ID 重映射：`system_users.910269 -> 910293`，`mes_pro_work_order` 共 `18` 个冲突源 ID 映射到 `925781..925798`；另有 `20` 个生产工单保留源 ID 插入，`2` 个生产工单在目标已与源身份一致。
 - 授权依赖同步已完成并通过后置校验：`mes_md_item.id=924005`、重映射用户、`38` 个插入生产工单均在测试服 `tenant_id=1` 可按源业务身份解析；本轮创建备份表 `mes_three_tab_dep_remap_backup_20260731012048_mes_md_item`、`mes_three_tab_dep_remap_backup_20260731012048_system_users`、`mes_three_tab_dep_remap_backup_20260731012048_mes_pro_work_order`。
-- 重跑只读 preflight 已加载 `dependency-remap-plan.json`，物料、用户、生产工单依赖阻塞解除；主三页签同步仍因 `10` 项未授权/未解决阻塞保持 blocked，尚未执行白名单表替换。
+- 重跑只读 preflight 已加载 `dependency-remap-plan.json`，物料、用户、生产工单依赖阻塞解除；随后用户“继续授权”覆盖剩余 schema、表单版本、权限范围、日历、工作站和外部引用处理，主三页签白名单同步已执行并复核通过。
+- 2026-07-31 主同步替换 20 张白名单表，源端与测试服目标均为 `2,989` 行；逐表 `source_hash == target_hash`，无 missing/mismatched/active_extra。
+- 首次测试服真实页面验证登录和滑块验证码通过，但 `/admin-api/mes/pro/process/page` 返回 `系统异常`；后端日志定位为 `Missing batch record report: routeProcessId=928609, reportId=1d05410f1d3140c5b8aa6786887ae69c`。
+- 已按最小页面运行依赖同步 `mes_pro_batch_record_definition.id=47`、`mes_pro_batch_record_version.id=130` 和 14 条 `mes_pro_batch_record_report` 元数据，并创建 `m3brepbk_20260731115458_*` 备份表。
+- 最终只读 preflight 结果 `blocker_count=0`；Playwright 真实登录测试服后，工序设置、工艺流程、排产工单三个页面列表接口和页面可见断言均 PASS。
 
 ## Applicable Experience Gates
 
@@ -63,3 +67,14 @@ blocked
 - 排产数据包门禁：排产工单迁移必须保留 `scheduleOrderId + routeProcessId` 快照身份，不能用当前路线、默认日历、默认产能或空快照重建。
 - 外部引用门禁：白名单外任何活动业务表仍引用待替换工序、路线、路线工序或排产记录时必须阻塞，不得删除、改写或静默重映射。
 - Git 并发基线门禁：最近非本任务基线提交 `6a1390ff` 不得伪装成本任务实现；本任务后续只选择性暂存自身文件。
+
+## Cleanup Keep
+
+- doc/tasks/20260731-mes-three-tab-test-sync/artifacts/
+- doc/tasks/20260731-mes-three-tab-test-sync/tools/
+
+## Final Verification Result
+
+- `three_tab_sync_preflight.py` PASS：`blocker_count=0`，source/target whitelist rows 均为 `2,989`。
+- `verify_test_server_three_tabs.mjs` PASS：测试服真实登录后，工序设置 `65`、工艺流程 `3`、排产工单 `10`。
+- `task-closeout-cleanup` preview/apply PASS：保留任务记录、tools 与 artifacts；无删除、无阻塞、无 warnings。
