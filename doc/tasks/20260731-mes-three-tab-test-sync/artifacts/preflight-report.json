@@ -1,28 +1,28 @@
 {
-  "generated_at": "2026-07-31T00:52:32.474469+00:00",
+  "generated_at": "2026-07-31T01:24:52.728676+00:00",
   "source": "local docker int-ruoyi-mysql / ruoyi-vue-pro / tenant_id=1",
   "target": "ssh root@172.30.30.58 / intruoyi-mysql / ruoyi-vue-pro / tenant_id=1",
   "warnings": [
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000025B3E8B6180",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001F004CD62C0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000013BA7B52000",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000024CA3FA78D0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000027F943561C0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000029FA0936C60",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000018B5B3449B0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001F46560A140",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001B2E65BB9A0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001EF2CFB61F0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000025F345B4270",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000002743A4886B0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001973C0690F0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000022891353D20",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000002144CFC4410",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000018139BE1870",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000002240EE30AB0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000022DB2953A10",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000024E7A8E6030",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000020D75BC98D0"
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001EC187D14F0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000017EB46D4BD0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001F31C5A5690",
+    "close - IO is still pending on closed socket. read:1, write:0, io:00000222786064A0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001FE20742CD0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001DD4A0841D0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:00000263A574B670",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001BA6AB44870",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000020CF1356BA0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001FF3F85CC80",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001FD42D37360",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002466FA4EFB0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002F1682EC460",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001FCD33783F0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001EAA990D0E0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001CA9B1A92A0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000021259315C30",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000021E740ABE90",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000021A23CC76F0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000026376D44190"
   ],
   "blockers": [
     {
@@ -103,102 +103,6 @@
     },
     {
       "type": "dependency",
-      "message": "target dependency check failed for work_order_id",
-      "table": "mes_pro_work_order",
-      "required_count": 40,
-      "missing_count": 0,
-      "mismatch_count": 5,
-      "missing_ids": [],
-      "mismatched": [
-        {
-          "id": "925553",
-          "diffs": {
-            "code": {
-              "source": "TESTERPA9ED2D417434",
-              "target": "SMART-SMOKE-20260629-ADMIN-D"
-            },
-            "product_id": {
-              "source": "907175",
-              "target": "902476"
-            },
-            "quantity": {
-              "source": "565.00",
-              "target": "1.00"
-            },
-            "batch_code": {
-              "source": "NULL",
-              "target": "SMART-SMOKE-20260629-ADMIN-D-BATCH"
-            }
-          }
-        },
-        {
-          "id": "925698",
-          "diffs": {
-            "code": {
-              "source": "SMART-SMOKE-20260629-ADMIN-G5",
-              "target": "SMART-SCHED-20260630-RERUN3-MO"
-            },
-            "batch_code": {
-              "source": "SMART-SMOKE-20260629-ADMIN-G5-B1",
-              "target": "TEST-SMOKE-BATCH"
-            }
-          }
-        },
-        {
-          "id": "925704",
-          "diffs": {
-            "code": {
-              "source": "SMART-SMOKE-20260629-ADMIN-G7-MO",
-              "target": "SMART-SCHED-20260630-RERUN9-MO"
-            },
-            "batch_code": {
-              "source": "SMART-SMOKE-20260629-ADMIN-G7-B1",
-              "target": "SMART-SCHED-20260630-BATCH"
-            }
-          }
-        },
-        {
-          "id": "925710",
-          "diffs": {
-            "code": {
-              "source": "SMART-SMOKE-20260629-ADMIN-G8-MO",
-              "target": "TESTERP4A96E54218FA"
-            },
-            "quantity": {
-              "source": "10.00",
-              "target": "682.00"
-            },
-            "batch_code": {
-              "source": "SMART-SMOKE-20260629-ADMIN-G8-B1",
-              "target": "NULL"
-            }
-          }
-        },
-        {
-          "id": "925711",
-          "diffs": {
-            "code": {
-              "source": "SMART-SMOKE-20260629-ADMIN-G9-MO",
-              "target": "TESTERP62AF41D87EFA"
-            },
-            "product_id": {
-              "source": "902476",
-              "target": "902262"
-            },
-            "quantity": {
-              "source": "10.00",
-              "target": "685.00"
-            },
-            "batch_code": {
-              "source": "SMART-SMOKE-20260629-ADMIN-G9-B1",
-              "target": "NULL"
-            }
-          }
-        }
-      ]
-    },
-    {
-      "type": "dependency",
       "message": "target dependency check failed for calendar_rule_id",
       "table": "mes_pro_schedule_calendar_rule",
       "required_count": 1,
@@ -208,6 +112,7 @@
       "mismatched": [
         {
           "id": "1",
+          "target_id": "1",
           "diffs": {
             "skip_statutory_holidays": {
               "source": "\u0000",
@@ -240,6 +145,7 @@
       "mismatched": [
         {
           "id": "900131",
+          "target_id": "900131",
           "diffs": {
             "process_id": {
               "source": "922925",
@@ -600,6 +506,36 @@
       "900131"
     ]
   },
+  "dependency_remap_plan": {
+    "path": "E:\\IntRuoyi\\doc\\tasks\\20260731-mes-three-tab-test-sync\\artifacts\\dependency-remap-plan.json",
+    "loaded": true,
+    "generated_at": "2026-07-31T01:20:40.146934+00:00",
+    "remaps": {
+      "user_id": {
+        "910269": "910293"
+      },
+      "work_order_id": {
+        "925473": "925781",
+        "925477": "925782",
+        "925483": "925783",
+        "925553": "925784",
+        "925671": "925785",
+        "925675": "925786",
+        "925685": "925787",
+        "925689": "925788",
+        "925693": "925789",
+        "925698": "925790",
+        "925704": "925791",
+        "925710": "925792",
+        "925711": "925793",
+        "925716": "925794",
+        "925721": "925795",
+        "925724": "925796",
+        "925729": "925797",
+        "925732": "925798"
+      }
+    }
+  },
   "source_id_counts": {
     "process_ids": 65,
     "route_ids": 3,
@@ -623,7 +559,8 @@
       "required_count": 8,
       "missing_ids": [],
       "mismatched": [],
-      "mismatch_count": 0
+      "mismatch_count": 0,
+      "remapped_ids": {}
     },
     {
       "dep_type": "batch_record_definition_id",
@@ -631,7 +568,8 @@
       "required_count": 0,
       "missing_ids": [],
       "mismatched": [],
-      "mismatch_count": 0
+      "mismatch_count": 0,
+      "remapped_ids": {}
     },
     {
       "dep_type": "batch_record_version_id",
@@ -639,7 +577,8 @@
       "required_count": 0,
       "missing_ids": [],
       "mismatched": [],
-      "mismatch_count": 0
+      "mismatch_count": 0,
+      "remapped_ids": {}
     },
     {
       "dep_type": "form_template_version_id",
@@ -650,7 +589,8 @@
         "32"
       ],
       "mismatched": [],
-      "mismatch_count": 0
+      "mismatch_count": 0,
+      "remapped_ids": {}
     },
     {
       "dep_type": "permission_scope_id",
@@ -673,145 +613,45 @@
         "720"
       ],
       "mismatched": [],
-      "mismatch_count": 0
+      "mismatch_count": 0,
+      "remapped_ids": {}
     },
     {
       "dep_type": "item_id",
       "table": "mes_md_item",
       "required_count": 23,
-      "missing_ids": [
-        "924005"
-      ],
+      "missing_ids": [],
       "mismatched": [],
-      "mismatch_count": 0
+      "mismatch_count": 0,
+      "remapped_ids": {}
     },
     {
       "dep_type": "work_order_id",
       "table": "mes_pro_work_order",
       "required_count": 40,
-      "missing_ids": [
-        "925473",
-        "925477",
-        "925483",
-        "925671",
-        "925675",
-        "925685",
-        "925689",
-        "925693",
-        "925716",
-        "925721",
-        "925724",
-        "925729",
-        "925732",
-        "925809",
-        "925813",
-        "925816",
-        "925820",
-        "925825",
-        "925827",
-        "925828",
-        "925829",
-        "925830",
-        "925843",
-        "925850",
-        "925854",
-        "925858",
-        "925864",
-        "925865",
-        "925866",
-        "925867",
-        "925868",
-        "925874",
-        "925877"
-      ],
-      "mismatched": [
-        {
-          "id": "925553",
-          "diffs": {
-            "code": {
-              "source": "TESTERPA9ED2D417434",
-              "target": "SMART-SMOKE-20260629-ADMIN-D"
-            },
-            "product_id": {
-              "source": "907175",
-              "target": "902476"
-            },
-            "quantity": {
-              "source": "565.00",
-              "target": "1.00"
-            },
-            "batch_code": {
-              "source": "NULL",
-              "target": "SMART-SMOKE-20260629-ADMIN-D-BATCH"
-            }
-          }
-        },
-        {
-          "id": "925698",
-          "diffs": {
-            "code": {
-              "source": "SMART-SMOKE-20260629-ADMIN-G5",
-              "target": "SMART-SCHED-20260630-RERUN3-MO"
-            },
-            "batch_code": {
-              "source": "SMART-SMOKE-20260629-ADMIN-G5-B1",
-              "target": "TEST-SMOKE-BATCH"
-            }
-          }
-        },
-        {
-          "id": "925704",
-          "diffs": {
-            "code": {
-              "source": "SMART-SMOKE-20260629-ADMIN-G7-MO",
-              "target": "SMART-SCHED-20260630-RERUN9-MO"
-            },
-            "batch_code": {
-              "source": "SMART-SMOKE-20260629-ADMIN-G7-B1",
-              "target": "SMART-SCHED-20260630-BATCH"
-            }
-          }
-        },
-        {
-          "id": "925710",
-          "diffs": {
-            "code": {
-              "source": "SMART-SMOKE-20260629-ADMIN-G8-MO",
-              "target": "TESTERP4A96E54218FA"
-            },
-            "quantity": {
-              "source": "10.00",
-              "target": "682.00"
-            },
-            "batch_code": {
-              "source": "SMART-SMOKE-20260629-ADMIN-G8-B1",
-              "target": "NULL"
-            }
-          }
-        },
-        {
-          "id": "925711",
-          "diffs": {
-            "code": {
-              "source": "SMART-SMOKE-20260629-ADMIN-G9-MO",
-              "target": "TESTERP62AF41D87EFA"
-            },
-            "product_id": {
-              "source": "902476",
-              "target": "902262"
-            },
-            "quantity": {
-              "source": "10.00",
-              "target": "685.00"
-            },
-            "batch_code": {
-              "source": "SMART-SMOKE-20260629-ADMIN-G9-B1",
-              "target": "NULL"
-            }
-          }
-        }
-      ],
-      "mismatch_count": 5
+      "missing_ids": [],
+      "mismatched": [],
+      "mismatch_count": 0,
+      "remapped_ids": {
+        "925473": "925781",
+        "925477": "925782",
+        "925483": "925783",
+        "925553": "925784",
+        "925671": "925785",
+        "925675": "925786",
+        "925685": "925787",
+        "925689": "925788",
+        "925693": "925789",
+        "925698": "925790",
+        "925704": "925791",
+        "925710": "925792",
+        "925711": "925793",
+        "925716": "925794",
+        "925721": "925795",
+        "925724": "925796",
+        "925729": "925797",
+        "925732": "925798"
+      }
     },
     {
       "dep_type": "calendar_rule_id",
@@ -821,6 +661,7 @@
       "mismatched": [
         {
           "id": "1",
+          "target_id": "1",
           "diffs": {
             "skip_statutory_holidays": {
               "source": "\u0000",
@@ -841,7 +682,8 @@
           }
         }
       ],
-      "mismatch_count": 1
+      "mismatch_count": 1,
+      "remapped_ids": {}
     },
     {
       "dep_type": "workstation_id",
@@ -851,6 +693,7 @@
       "mismatched": [
         {
           "id": "900131",
+          "target_id": "900131",
           "diffs": {
             "process_id": {
               "source": "922925",
@@ -863,80 +706,22 @@
           }
         }
       ],
-      "mismatch_count": 1
+      "mismatch_count": 1,
+      "remapped_ids": {}
     },
     {
       "dep_type": "user_id",
       "table": "system_users",
       "required_count": 3,
-      "missing_ids": [
-        "910269"
-      ],
+      "missing_ids": [],
       "mismatched": [],
-      "mismatch_count": 0
+      "mismatch_count": 0,
+      "remapped_ids": {
+        "910269": "910293"
+      }
     }
   ],
-  "authorized_dependency_sync_scope": [
-    {
-      "dep_type": "item_id",
-      "table": "mes_md_item",
-      "authorized_missing_ids": [
-        "924005"
-      ],
-      "authorized_mismatch_ids": [],
-      "note": "user authorized missing material/user/production work order dependency sync"
-    },
-    {
-      "dep_type": "work_order_id",
-      "table": "mes_pro_work_order",
-      "authorized_missing_ids": [
-        "925473",
-        "925477",
-        "925483",
-        "925671",
-        "925675",
-        "925685",
-        "925689",
-        "925693",
-        "925716",
-        "925721",
-        "925724",
-        "925729",
-        "925732",
-        "925809",
-        "925813",
-        "925816",
-        "925820",
-        "925825",
-        "925827",
-        "925828",
-        "925829",
-        "925830",
-        "925843",
-        "925850",
-        "925854",
-        "925858",
-        "925864",
-        "925865",
-        "925866",
-        "925867",
-        "925868",
-        "925874",
-        "925877"
-      ],
-      "authorized_mismatch_ids": [],
-      "note": "user authorized missing material/user/production work order dependency sync"
-    },
-    {
-      "dep_type": "user_id",
-      "table": "system_users",
-      "authorized_missing_ids": [
-        "910269"
-      ],
-      "authorized_mismatch_ids": [],
-      "note": "user authorized missing material/user/production work order dependency sync"
-    }
-  ],
+  "authorized_dependency_sync_scope": [],
   "target_external_active_refs": [
     {
       "table": "mes_dv_machinery_process",

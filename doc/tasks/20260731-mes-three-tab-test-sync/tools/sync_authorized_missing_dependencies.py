@@ -212,6 +212,25 @@ SELECT
     return int(rows[0]["max_id"]), int(rows[0]["auto_increment_value"])
 
 
+def existing_remap_backup_tables(warnings):
+    sql = """
+SELECT TABLE_NAME
+FROM information_schema.TABLES
+WHERE TABLE_SCHEMA=DATABASE()
+  AND TABLE_NAME LIKE 'mes_three_tab_dep_remap_backup_%'
+ORDER BY TABLE_NAME
+"""
+    rows, warn = run(REMOTE_MYSQL, sql, "remote existing remap backup tables")
+    warnings.extend(warn)
+    latest = {}
+    for row in rows:
+        name = row["TABLE_NAME"]
+        for table in DEPENDENCY_TABLES:
+            if name.endswith("_" + table):
+                latest[table] = name
+    return latest
+
+
 def row_identity(row, columns):
     return {column: normalize(row.get(column)) for column in columns}
 
@@ -246,7 +265,7 @@ def find_next_ids(table, count, reserved, warnings):
     return selected
 
 
-def build_plan(precheck):
+def load_source_and_columns(precheck):
     warnings = []
     source_dep_ids = precheck.get("source_dependency_ids", {})
     columns = {table: assert_same_columns(table, warnings) for table in DEPENDENCY_TABLES}
@@ -254,6 +273,11 @@ def build_plan(precheck):
         table: source_rows(table, source_dep_ids.get(spec["dep_type"], []), columns[table], warnings)
         for table, spec in DEPENDENCY_TABLES.items()
     }
+    return source, columns, warnings
+
+
+def build_plan(precheck):
+    source, columns, warnings = load_source_and_columns(precheck)
 
     plan = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -319,6 +343,29 @@ def build_plan(precheck):
 
     collect_business_key_duplicates(plan, source, warnings)
     return plan, source, columns
+
+
+def pending_insert_ids(plan, source):
+    warnings = []
+    pending = {"mes_md_item": [], "system_users": [], "mes_pro_work_order": []}
+    for table in pending:
+        id_map = plan["remap"].get(table, {})
+        target_ids = sorted({id_map.get(source_id, source_id) for source_id in source[table]}, key=int)
+        rows = target_rows(table, target_ids, warnings, tenant_only=True)
+        by_id = {str(row["id"]): row for row in rows}
+        identity_cols = DEPENDENCY_TABLES[table]["identity_columns"]
+        for source_id, source_row in sorted(source[table].items(), key=lambda item: int(item[0])):
+            target_id = id_map.get(source_id, source_id)
+            target_row = by_id.get(str(target_id))
+            if not target_row:
+                pending[table].append(str(target_id))
+                continue
+            if row_identity(target_row, identity_cols) != source_identity(source_row, identity_cols):
+                fail(
+                    "target row exists but does not match source identity: "
+                    f"table={table}, source_id={source_id}, target_id={target_id}"
+                )
+    return pending, warnings
 
 
 def collect_business_key_duplicates(plan, source, warnings):
@@ -404,7 +451,7 @@ def insert_statement(table, row, columns, id_map):
     return f"INSERT INTO `{table}` ({quoted_names}) VALUES ({', '.join(literals)});"
 
 
-def build_apply_sql(plan, source, columns):
+def build_apply_sql(plan, source, columns, pending_ids):
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     backup_tables = {
         table: f"mes_three_tab_dep_remap_backup_{timestamp}_{table}"
@@ -426,7 +473,7 @@ def build_apply_sql(plan, source, columns):
         if table == "mes_md_item":
             id_map = {}
         rows_by_source_id = source[table]
-        insert_targets = set(plan["insert_ids"][table])
+        insert_targets = set(pending_ids.get(table, []))
         for source_id in sorted(rows_by_source_id, key=int):
             target_id = id_map.get(source_id, source_id)
             if target_id not in insert_targets:
@@ -502,31 +549,49 @@ def write_plan_summary(plan):
 def main():
     ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
     precheck = load_precheck()
-    plan, source, columns = build_plan(precheck)
-    PLAN_PATH.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
+    if PLAN_PATH.exists():
+        source, columns, source_warnings = load_source_and_columns(precheck)
+        plan = json.loads(PLAN_PATH.read_text(encoding="utf-8"))
+        plan.setdefault("warnings", []).extend(source_warnings)
+        plan_source = "existing"
+    else:
+        plan, source, columns = build_plan(precheck)
+        PLAN_PATH.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
+        plan_source = "generated"
     write_plan_summary(plan)
 
-    apply_sql, backup_tables = build_apply_sql(plan, source, columns)
-    stdout, stderr = apply_remote(apply_sql, "remote authorized dependency remap apply")
+    pending_ids, pending_warnings = pending_insert_ids(plan, source)
+    pending_total = sum(len(values) for values in pending_ids.values())
+    if pending_total:
+        apply_sql, backup_tables = build_apply_sql(plan, source, columns, pending_ids)
+        stdout, stderr = apply_remote(apply_sql, "remote authorized dependency remap apply")
+    else:
+        backup_tables = existing_remap_backup_tables(pending_warnings)
+        stdout = "SKIPPED: dependency rows already match dependency-remap-plan.json"
+        stderr = ""
     checks, verify_warnings = verify_plan(plan, source)
     result = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "plan_source": plan_source,
         "plan": str(PLAN_PATH),
         "summary": str(SUMMARY_PATH),
         "backup_tables": backup_tables,
+        "pending_insert_ids": pending_ids,
         "postcheck": checks,
         "apply_stdout": stdout.strip(),
         "warnings": [stderr] if stderr else [],
     }
-    result["warnings"].extend(verify_warnings)
+    result["warnings"].extend(pending_warnings + verify_warnings)
     RESULT_PATH.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps({
+        "plan_source": plan_source,
         "plan": str(PLAN_PATH),
         "summary": str(SUMMARY_PATH),
         "result": str(RESULT_PATH),
         "user_remaps": len(plan["remap"]["system_users"]),
         "work_order_remaps": len(plan["remap"]["mes_pro_work_order"]),
         "work_order_preserved_inserts": len(plan["preserve"]["mes_pro_work_order"]),
+        "pending_insert_total": pending_total,
         "backup_tables": backup_tables,
     }, ensure_ascii=False, indent=2))
 

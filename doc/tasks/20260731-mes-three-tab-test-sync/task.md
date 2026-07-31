@@ -16,6 +16,7 @@
 - [x] 生成并运行只读 preflight，复核源端范围、目标依赖、schema 差异和白名单外引用。
 - [x] 若 preflight 阻塞仍存在，记录阻塞并保持测试服零写入。
 - [x] 记录用户追加授权的缺失物料、用户、生产工单依赖同步范围，并验证目标库全局主键冲突。
+- [x] 按用户授权生成确定性 ID 重映射并同步授权依赖，预检按映射校验用户/生产工单引用。
 - [ ] 若 preflight 全部通过，先完成正式 schema 迁移、发布门禁、测试服备份和恢复路径。
 - [ ] 在单事务中按显式列清单替换白名单数据，执行行数、主键、业务键、hash、白名单外零变更复核。
 - [ ] 使用 Playwright 登录测试服真实验证三个页面列表和关键详情。
@@ -49,6 +50,9 @@ blocked
 - 用户已追加授权缺失 `mes_md_item.id=924005`、`system_users.id=910269` 和 `33` 个缺失 `mes_pro_work_order` 依赖同步；重新预检后授权范围被识别为 `3` 类依赖，剩余阻塞为 `11` 项。
 - 授权依赖同步当前仍阻塞：测试服 `system_users.id=910269` 已被 `tenant_id=122` 占用，且 `13` 个缺失生产工单 ID 已被 `tenant_id=122/162` 占用；在未获得“主键重映射并同步更新三页签引用”或“清理/覆盖其它租户冲突行”的明确授权前，不能插入这些依赖到 `tenant_id=1`。
 - 已只读确认测试服 `tenant_id=1` 中授权依赖仍未插入：`mes_md_item=0`、`system_users=0`、`mes_pro_work_order=0`；前次失败尝试留下的三个备份表均为空行，仅作为失败证据保留。
+- 2026-07-31 已按用户授权执行确定性 ID 重映射：`system_users.910269 -> 910293`，`mes_pro_work_order` 共 `18` 个冲突源 ID 映射到 `925781..925798`；另有 `20` 个生产工单保留源 ID 插入，`2` 个生产工单在目标已与源身份一致。
+- 授权依赖同步已完成并通过后置校验：`mes_md_item.id=924005`、重映射用户、`38` 个插入生产工单均在测试服 `tenant_id=1` 可按源业务身份解析；本轮创建备份表 `mes_three_tab_dep_remap_backup_20260731012048_mes_md_item`、`mes_three_tab_dep_remap_backup_20260731012048_system_users`、`mes_three_tab_dep_remap_backup_20260731012048_mes_pro_work_order`。
+- 重跑只读 preflight 已加载 `dependency-remap-plan.json`，物料、用户、生产工单依赖阻塞解除；主三页签同步仍因 `10` 项未授权/未解决阻塞保持 blocked，尚未执行白名单表替换。
 
 ## Applicable Experience Gates
 

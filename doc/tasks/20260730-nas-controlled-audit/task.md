@@ -8,13 +8,13 @@
 
 ## Milestones
 
-1. `in_progress` - 建立任务文档，核对代码边界、数据库 schema、权限、运行规则和现有 NAS 扫描实现。
-2. `pending` - 设计并落地 NAS 来源映射、统计任务、统计结果和报告文件持久化结构。
-3. `pending` - 在 `infra` 增加通用 SMB 单连接异步递归扫描能力，支持子目录权限跳过和根目录 fail-fast。
-4. `pending` - 在 `dcc` 增加受控状态统计服务、任务状态 API、流式 Excel 报告生成和下载接口。
-5. `pending` - 在 NAS 转移创建受控文件的同一事务中写入来源映射；历史来源只迁移精确 `NAS transfer source: <path>` 记录，无法唯一确认的记录进入待确认。
-6. `pending` - 在 NAS 管理页面增加按钮、确认提示、任务轮询、真实失败原因展示、自动下载和重新下载入口。
-7. `pending` - 完成后端/Mapper/SQL/Excel、前端静态合同和定向回归验证；具备运行态与授权后执行一次真实 NAS 只读验证。
+1. `completed` - 建立任务文档，核对代码边界、数据库 schema、权限、运行规则和现有 NAS 扫描实现。
+2. `completed` - 设计并落地 NAS 来源映射、统计任务、统计结果和报告文件持久化结构。
+3. `completed` - 在 `infra` 增加通用 SMB 单连接异步递归扫描能力，支持子目录权限跳过和根目录 fail-fast。
+4. `completed` - 在 `dcc` 增加受控状态统计服务、任务状态 API、流式 Excel 报告生成和下载接口。
+5. `completed` - 在 NAS 转移创建受控文件的同一事务中写入来源映射；历史来源只迁移精确 `NAS transfer source: <path>` 记录，无法唯一确认的记录进入待确认。
+6. `completed` - 在 NAS 管理页面增加按钮、确认提示、任务轮询、真实失败原因展示、自动下载和重新下载入口。
+7. `blocked` - 完成后端/Mapper/SQL/Excel、前端静态合同和定向回归验证；真实后端运行态当前被同仓重启构建卡住，无法执行真实 NAS 页面 E2E。
 8. `pending` - 生成 verification-report，完成 evidence validator、经验沉淀、cleanup preview/apply、提交和推送。
 
 ## Expected Verification
@@ -72,4 +72,8 @@
 
 ## Current Status
 
-`in_progress`
+`blocked_on_runtime`
+
+当前可验证部分：前端 NAS 统计按钮/确认/轮询/下载/失败提示静态合同通过，任务相关文件 `git diff --check` 通过。
+
+当前阻塞：本机 `48081` 后端未监听；另一个同仓本地重启任务正在执行 `restart-int-ruoyi-local.ps1 -Component full`，其 Maven 主线程卡在 `WinNTFileSystem.delete0 / IncrementalBuildHelper.beforeRebuildExecution`。在不终止该并发任务、不清理共享 `target` 目录的前提下，无法完成后端 JUnit、后端加载和真实 Playwright NAS 管理 E2E。

@@ -48,7 +48,17 @@ RED: `mvn -pl yudao-module-infra "-Dtest=NasRecursiveScanServiceTest" "-Dsurefir
 
 RED: `mvn -pl yudao-module-dcc "-Dtest=DccNasControlAuditControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, 首个失败原因：缺少 `DccNasControlAuditTaskRespVO`、`DccNasControlAuditService` 与 `DccNasControlAuditController`。
 
-GREEN / REGRESSION: 待补充。
+GREEN: `node E:\IntRuoyi\IntRuoyiFronted\tests\e2e\nas-control-audit-static.spec.js` -> PASS, 前端静态合同确认独立“统计未受控文件”按钮、确认提示、任务轮询、自动下载/重新下载、失败原因展示和 NAS 统计 API wrapper。
+
+REGRESSION: `git diff --check -- IntRuoyiFronted/src/views/system/nas/index.vue IntRuoyiFronted/src/api/system/nas/index.ts IntRuoyiFronted/tests/e2e/nas-control-audit-static.spec.js IntRuoyiBackend/yudao-module-dcc/pom.xml IntRuoyiBackend/yudao-module-dcc/src/test/java/cn/iocoder/yudao/module/dcc/service/file/DccControlledFileNasTransferServiceTest.java` -> PASS。
+
+BLOCKED: `mvn -pl yudao-module-infra -am "-Dtest=NasRecursiveScanServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> TIMEOUT after 180s, 未生成本测试 surefire 报告；线程栈显示本任务 Maven 进程停在 Java 文件描述符关闭/Windows 文件系统操作，已只终止本任务启动的 Maven 进程。
+
+BLOCKED: `mvn -pl yudao-module-dcc -am "-Dtest=DccNasControlAuditControllerTest,DccBaseSchemaTest,DccControlledFileNasTransferServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> TIMEOUT after 180s, 未生成本次目标测试 surefire 报告；线程栈显示主线程停在 `WinNTFileSystem.delete0` / `IncrementalBuildHelper.beforeRebuildExecution`，已只终止本任务启动的 Maven 进程。
+
+BLOCKED: `mvn -pl yudao-module-dcc -am "-DskipTests" "-Dmaven.compiler.useIncrementalCompilation=false" compile` -> FAIL, 诊断性编译失败在共享框架模块 `yudao-spring-boot-starter-web`，首个失败为 `ChineseNameDesensitize.class` 类文件 0 字节截断，后续 Lombok 生成方法/日志符号缺失为同一共享构建目录不一致症状；该命令不作为标准 GREEN。
+
+BLOCKED: `pnpm ts:check` -> TIMEOUT after 180s，已只终止本任务启动的 `vue-tsc` 进程；不得将该命令记录为通过。
 
 ## Milestone Updates
 
@@ -66,17 +76,31 @@ GREEN / REGRESSION: 待补充。
 - Verification: 见 RED 记录。
 - Blockers: 无。
 
+### M3-M6 - 功能实现
+
+- Status: `completed`
+- Completed: 已新增 NAS 来源映射、统计任务持久化、子目录无权限跳过记录、DCC 统计服务/控制器/Excel 报告、NAS 转移同事务来源映射、前端按钮/确认/轮询/下载/失败展示。
+- Verification: 前端任务专用静态合同已 PASS；后端目标 JUnit 受本机 Maven/共享构建目录阻塞，尚未取得 PASS。
+- Blockers: 本机同仓 `restart-int-ruoyi-local.ps1 -Component full` 仍有 Maven 进程占用同一后端构建目录，主线程卡在 `WinNTFileSystem.delete0 / IncrementalBuildHelper.beforeRebuildExecution`，`48081` 后端未监听。
+
+### M7 - E2E 验证
+
+- Status: `blocked`
+- Completed: 已确认本机前端 `http://127.0.0.1:8081/` HTTP 200，`npx`、项目 Playwright 依赖和本机 Chrome 可用。
+- Verification: `Invoke-RestMethod http://127.0.0.1:48081/actuator/health` -> FAIL，连接被拒绝；真实 NAS 管理页面 E2E 未执行。
+- Blockers: 缺少可用后端运行态、登录前置和真实 NAS 只读授权证据；不得用静态合同、API-only 或前端空页面冒充真实 E2E。
+
 ## Evidence
 
 - Backend API evidence: 待生成。
 - Database schema evidence: 待生成。
-- Frontend feature evidence: 待生成。
-- QA evidence: 待生成。
-- Verification report: 待生成。
+- Frontend feature evidence: `node E:\IntRuoyi\IntRuoyiFronted\tests\e2e\nas-control-audit-static.spec.js` PASS；`pnpm ts:check` 超时未通过。
+- QA evidence: 真实 E2E 当前 BLOCKED，阻塞原因为本机后端运行态缺失且同仓重启 Maven 卡住。
+- Verification report: `verification-report.md` 已生成草稿并标记 BLOCKED。
 
 ## Closeout
 
-- Current status: `in_progress`
+- Current status: `blocked_on_runtime`
 - Cleanup keep: `task.md`
 - Cleanup keep: `execution-log.md`
 - Cleanup keep: `verification-report.md`
