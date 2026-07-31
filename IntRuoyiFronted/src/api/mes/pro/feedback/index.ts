@@ -104,7 +104,6 @@ export interface ProFrontlineRecordbookPayloadReqVO {
   recordbookId: number
   entryTitle: string
   entryContent: Record<string, unknown>
-  previousProcessInputQuantity: number
   equipmentParameters: Record<string, unknown>
   tagCodes?: string[]
   idempotencyKey: string

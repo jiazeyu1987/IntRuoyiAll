@@ -77,6 +77,10 @@ final class ProcessPoolTimelineTestSupport {
                 .setFifoAllocationSummary("已分配 6，待分配 4")
                 .setAuditCopyStatus("PENDING")
                 .setAuditCopySummary("审核副本待生成")
+                .setSubmissionReviewStatus("REJECTED")
+                .setSubmissionReviewRemark("压力填写不正确，已要求修正")
+                .setSubmissionReviewLeaderUserId(3001L)
+                .setSubmissionReviewedAt(LocalDateTime.parse("2026-07-30T09:30:00"))
                 .setModificationHistorySummary("原始记录暂无修改");
     }
 

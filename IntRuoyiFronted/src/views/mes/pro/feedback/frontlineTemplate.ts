@@ -16,7 +16,6 @@ export type FrontlineTemplateContext = FrontlineTemplateResolveReqVO & {
 }
 
 export const PRODUCTION_SIMPLIFIED_FIELD_CODES = [
-  'PREVIOUS_PROCESS_INPUT_QUANTITY',
   'DEVICE',
   'DEVICE_PARAMETERS',
   'OUTPUT_QUANTITY',

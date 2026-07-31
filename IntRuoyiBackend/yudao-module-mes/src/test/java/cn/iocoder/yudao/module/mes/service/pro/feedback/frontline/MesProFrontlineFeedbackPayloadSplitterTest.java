@@ -1,10 +1,12 @@
 package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.MesProFeedbackSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineRecordbookPayloadReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventCreateReqBO;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -37,7 +39,7 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
         MesProFrontlineRecordbookEntryPayload recordbookPayload = splitPayload.getRecordbookEntryPayload();
         assertEquals(901L, recordbookPayload.getRecordbookId());
         Map<String, Object> content = recordbookPayload.getEntryContent();
-        assertEquals(new BigDecimal("120.000"), content.get("previousProcessInputQuantity"));
+        assertFalse(content.containsKey("previousProcessInputQuantity"));
         assertEquals(reqVO.getRecordbookPayload().getEquipmentParameters(), content.get("equipmentParameters"));
         assertEquals(reqVO.getRawPayload(), content.get("rawPayload"));
 
@@ -56,9 +58,14 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
         assertEquals("PRODUCTION_SIMPLE", eventPayload.getTemplateType());
         assertEquals(new BigDecimal("100.500"), eventPayload.getOutputQuantity());
         assertEquals(new BigDecimal("2.500"), eventPayload.getLossQuantity());
-        assertEquals(new BigDecimal("120.000"), eventPayload.getPreviousProcessInputQuantity());
         assertEquals(reqVO.getRecordbookPayload().getEquipmentParameters(), eventPayload.getEquipmentParameters());
         assertEquals(reqVO.getRawPayload(), eventPayload.getRawPayload());
         assertEquals(submittedAt, eventPayload.getSubmittedAt());
+    }
+
+    @Test
+    void recordbookPayloadContractShouldNotExposePreviousProcessInputQuantity() {
+        assertFalse(Arrays.stream(MesProFrontlineRecordbookPayloadReqVO.class.getDeclaredFields())
+                .anyMatch(field -> "previousProcessInputQuantity".equals(field.getName())));
     }
 }

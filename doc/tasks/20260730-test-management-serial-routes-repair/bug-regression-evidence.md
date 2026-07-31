@@ -16,6 +16,7 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - 批记录首节点要求的 `E:\IntRuoyi\resource\批记录节点-解析样本.docx` 不存在。
 - 修复 Runner 隔离与固定样本后，从真实页面顺序执行 `工艺路线节点闭环` 创建批次 `37`；首节点不再触发仓库任务文档/Git 流程，但回写失败截图时被后端配置缺口阻断：`artifact 临时目录未配置`。
 - 2026-07-31 复核发现 artifact 配置回归测试已存在，但 `application-local.yaml` 实际未包含对应本地配置；补齐配置后，静态断言和 Maven 定向测试均通过。
+- 最新真实执行 `47` 证明 Codex 子任务已经开始运行临时 Playwright 脚本，但脚本依赖默认 Playwright 浏览器缓存；本机缓存 `chromium_headless_shell-1223` 不存在，导致首节点 `BLOCKED`，后续串行节点按前置失败阻断。
 
 ## Root Cause
 
@@ -24,6 +25,7 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 3. 非零退出错误从 stderr 头部截断，已知非致命 warning 覆盖了真实尾部错误。
 4. 批记录解析节点还缺少正式固定 Word 样本，属于独立前置缺口。
 5. 本地后端 `application-local.yaml` 配置了 Codex Runner 启动参数，但未配置 `yudao.codex-test.artifact-temp-dir`；当 Codex 返回失败截图 `screenshotPath` 时，Runner artifact 上传接口按设计 fail-fast，导致串行路线首节点 `BLOCKED`。
+6. Runner 只把前端 `node_modules` 传给隔离 Codex 子任务，没有同时传入本机正式 Chrome/Edge executablePath，也没有在 prompt 中要求临时 Playwright 脚本显式使用该路径；因此子任务在缺少 Playwright 浏览器缓存的本机上仍会调用默认缓存浏览器并失败。
 
 ## Regression Test
 
@@ -31,6 +33,7 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `IntRuoyiFronted/tests/e2e/codex-runner-on-demand-startup-script-static.spec.js`
 - `IntRuoyiFronted/tests/e2e/codex-test-runner-failure-diagnostics-static.spec.js`
 - `IntRuoyiBackend/yudao-server/src/test/java/cn/iocoder/yudao/server/CodexTestLocalConfigTest.java`
+- `IntRuoyiFronted/tests/e2e/codex-test-runner-playwright-dependency-static.spec.js`
 - `doc/tasks/20260730-test-management-serial-routes-repair/run-serial-routes-real-e2e.mjs`
 
 ## RED
@@ -39,6 +42,7 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `RED: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> FAIL, expected reason: Runner 工作目录仍为仓库根目录`
 - `RED: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> FAIL, expected reason: 错误诊断未脱敏保留 stderr 尾部`
 - `RED: node stdin static config assertion -> FAIL, expected reason: application-local.yaml 缺少 yudao.codex-test.artifact-temp-dir`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner 未解析本机 Chrome/Edge executablePath，未传递 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH 给子任务`
 
 ## GREEN
 
@@ -48,6 +52,7 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
 - `GREEN: node --check doc\tasks\20260730-test-management-serial-routes-repair\run-serial-routes-real-e2e.mjs -> PASS`
 - `GREEN: node stdin static config assertion -> PASS, application-local.yaml 已包含运行态 artifact 临时目录和保留时长`
 - `GREEN: mvn.cmd -pl yudao-server -Dtest=CodexTestLocalConfigTest test -> PASS, Tests run: 1, Failures: 0, Errors: 0, BUILD SUCCESS`
@@ -56,14 +61,13 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 
 - `Verification: 真实 E2E preflight -> PASS, 三条节点串筛选数量为 4/6/4，Runner session 95 ONLINE/currentRunningCount=0`
 - `Verification: 真实 E2E partial -> BLOCKED, 工艺路线节点闭环 execution 37 因 artifact 临时目录未配置失败；该配置缺口已补齐但 48081 尚未恢复，不能继续页面复验`
+- `Verification: Runner browser dependency static regression -> PASS, 子任务环境现在包含前端 Playwright 依赖与本机浏览器 executablePath prompt/环境变量`
 
 ## Risk And Regression Scope
 
 - 覆盖 Runner Codex 子进程隔离、失败诊断、子进程超时收敛、artifact 截图上传、本地后端运行态配置和三条正式串行路线。
-- 仍需在 `48081` 加载最新配置后复跑真实页面三路线，确认 `artifact-temp-dir` 不再阻断 Runner 回写。
+- 仍需在真实页面复跑三路线，确认 `artifact-temp-dir` 与本机浏览器 executablePath 均不再阻断 Runner 回写。
 
 ## Blockers And Follow-up
 
-- 当前共享 `48081` 正由独立重启任务打包/重启，health 暂不可达；恢复前不能重新创建正式长运行批次。
-- Maven 定向 `CodexTestLocalConfigTest` 首次运行超时无 surefire 报告；2026-07-31 已复跑通过。
-- 当前 `48081` 仍拒绝连接；真实三路线复验需等待本地后端恢复并加载最新 `application-local.yaml`。
+- 当前剩余工作是重启任务自有 Runner 并通过真实 `系统管理 > 测试管理` 页面复跑 3 条串行路线；不得用 API-only、静态合同或缓存浏览器下载替代最终页面证据。

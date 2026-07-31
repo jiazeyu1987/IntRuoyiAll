@@ -104,6 +104,9 @@ public class ProcessPoolTimelineEventRespVO {
     @Schema(description = "提交摘要")
     private String submittedSummary;
 
+    @Schema(description = "原始 payload")
+    private String originalPayloadJson;
+
     @Schema(description = "PQC 结果", example = "PASS")
     private String pqcResult;
 
@@ -121,6 +124,18 @@ public class ProcessPoolTimelineEventRespVO {
 
     @Schema(description = "审核副本摘要")
     private String auditCopySummary;
+
+    @Schema(description = "最新组长复核状态", example = "REJECTED")
+    private String submissionReviewStatus;
+
+    @Schema(description = "最新组长复核说明")
+    private String submissionReviewRemark;
+
+    @Schema(description = "最新组长复核人用户编号", example = "3001")
+    private Long submissionReviewLeaderUserId;
+
+    @Schema(description = "最新组长复核时间")
+    private LocalDateTime submissionReviewedAt;
 
     @Schema(description = "修改历史摘要")
     private String modificationHistorySummary;

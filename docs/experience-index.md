@@ -73,6 +73,7 @@
 - 构建发布耗时 / 真实 E2E 发布预检：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
 - 已提交 git 版本发布 / clean worktree 发布输入 / 发布前置门禁：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
 - GitHub 推送 / git push / GH001 / Large files detected / pre-receive hook declined / 历史大文件 / Git LFS / 100 MB：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md#2026-07-24-github-推送前历史大文件门禁`
+- GitHub HTTPS 443 / Failed to connect to github.com port 443 via 127.0.0.1 / Git proxy 127.0.0.1:7890 / FlClash helper 在线但 mixed-port 未监听 / ssh.github.com 443 Permission denied publickey：`docs/powershell-memory.md#github-https-443-本地代理门禁`
 - Windows 发布 worktree 长路径 / Filename too long / 维护仓历史 evidence 检出失败：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
 - build-release 目标主机参数 / TestServerHost / BackupServerHost / ProdServerHost / runtime env 生成：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
 - publish-int-ruoyi NasConfigPath / NAS JSON / runtime-control.local.yaml 误传 / ConvertFrom-Json maintenance：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
@@ -194,8 +195,8 @@
   - Gate: build-release 前检查内存余量；JVM native memory 失败必须冻结 hs_err 与内存快照，降低构建内存压力后重建新 releaseTag。
 - Keywords: prod-preflight-release, ProdDryRunEvidencePath, sanitized package workspace, Copy-Item, robocopy, shutil.copytree -> `docs/release-build-preflight-lessons.md`
 - Keywords: worktree remove failed, residual worktree directory, Invalid argument, Directory not empty, Permission denied, 当前目录占用, 空目录残留, runtime-backend.err.log, Vite, esbuild, Java process locks residual worktree, Git registration absent physical directory exists, pnpm node_modules 残留, robocopy empty mirror, 空目录镜像清空, 8084 48084 pici cleanup -> `E:/IntRuoyi/docs/worktree-memory.md`
-- Keywords: frozen release baseline, build start worktree commit, source HEAD drift after build, 不追逐后续提交 -> `docs/release-build-preflight-lessons.md`
 - Keywords: release worktree physical root, 发布 release worktree, D:\ProjectPackage\Int\IntRuoyiWorktrees, r260731d ignored node_modules residual, Git registration absent but physical root exists, state dir Test-Path false -> `docs/worktree-memory.md#发布-release-worktree-物理根复核门禁`
+- Keywords: frozen release baseline, build start worktree commit, source HEAD drift after build, 不追逐后续提交 -> `docs/release-build-preflight-lessons.md`
 - Keywords: mes_pro_route_schedule_config conflict, route schedule config duplicate, 工序维度收敛, conflict guard -> `docs/release-build-preflight-lessons.md`
 - Keywords: Manifest v1 legacy release-manifest frontend commit, schema-specific manifest validation -> `docs/release-build-preflight-lessons.md`
 - Keywords: Manifest artifact sha256 prefix, sha256:<64hex>, 281 hash mismatch, hash prefix normalization -> `docs/release-build-preflight-lessons.md#2026-07-10-manifest-artifact-sha256-前缀门禁`
@@ -294,6 +295,7 @@
 - Keywords: Python f-string literal braces, SSH verification carrier, bash SQL JSON braces SyntaxError -> `docs/powershell-preflight-lessons.md#2026-07-13-python-f-string-literal-braces-与远端验收脚本门禁`
 - Keywords: login-preflight.mjs 缺失, admin-only 全量 E2E, 旧目标文案执行列表, 历史 execution 直连填写页, 默认密码清理, 动态预览批次任务 -> `docs/e2e-rules.md#官方登录前置与-admin-only-全量验证门禁`
 - Keywords: Playwright 默认浏览器缓存缺失, PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, 本机 Chrome Edge, 真实 E2E 浏览器前置, 运行库迁移缺失后复跑 GREEN, 班组长工作台冒烟 -> `docs/e2e-rules.md#官方登录前置与-admin-only-全量验证门禁`
+- Keywords: 登录图形验证码, 登录页验证码, captchaVerification, LoginForm Verify, AdminAuthServiceImpl.login, 账号密码登录验证码关闭 -> `docs/login-access.md#登录图形验证码链路门禁`
 - Keywords: 批记录管理员主区域, 已提交内容, 空表单, 无已提交内容, selectedEmptyTaskPreviewFormViewModel, 暂无已提交批记录内容, review-timeline executionReviews formViewModel, task preview 请求数, 草稿 cell_values_json 不显示, 过期冻结快照样本 -> `docs/e2e-rules.md#edhr-管理员主区域已提交内容门禁`
 - Keywords: stale blocked task, 提交前 blocked 状态复验, Maven compile 解除旧阻塞, pnpm ts:check 解除旧阻塞, 目标 JUnit 复验后提交 -> `docs/powershell-memory.md#提交前-stale-blocker-复验门禁`
 - Keywords: required SQL target count mismatch, ROUTE-XLSX-00002 第26道工序, test-only cleanup migration, 失败 SQL 前置清理, 不复用失败 releaseTag -> `docs/release-build-preflight-lessons.md#2026-07-27-publish-test-required-sql-目标基线多余数据门禁`

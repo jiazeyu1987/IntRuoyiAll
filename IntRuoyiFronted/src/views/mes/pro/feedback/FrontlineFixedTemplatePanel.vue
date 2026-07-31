@@ -663,7 +663,6 @@ const draft = reactive<FrontlineTemplateDraft>({
 })
 
 const productionDraft = reactive({
-  previousProcessInputQuantity: undefined as number | undefined,
   outputQuantity: undefined as number | undefined
 })
 
@@ -1216,8 +1215,6 @@ const buildProductionDeviceParameterPayload = (deviceKey: string) => {
 }
 
 const buildProductionFieldValues = () => ({
-  [FRONTLINE_FIELD_CODES.PREVIOUS_PROCESS_INPUT_QUANTITY]:
-    productionDraft.previousProcessInputQuantity,
   [FRONTLINE_FIELD_CODES.DEVICE]: visibleDeviceCards.value.length
     ? visibleDeviceCards.value.map((device) => device.label).join('、')
     : '无设备',
@@ -1243,9 +1240,6 @@ const hydrateContextFromRoute = () => {
   context.routeProcessId = firstRouteQueryNumber(['routeProcessId']) ?? context.routeProcessId
   context.processId = firstRouteQueryNumber(['processId']) ?? context.processId
   context.actualEmployeeId = firstRouteQueryNumber(['actualEmployeeId']) ?? context.actualEmployeeId
-  productionDraft.previousProcessInputQuantity =
-    firstRouteQueryNumber(['previousProcessInputQuantity', 'previousInputQuantity']) ??
-    productionDraft.previousProcessInputQuantity
   const queryTemplateCode = resolveTemplateCode(firstRouteQueryText(['templateCode', 'templateNo']))
   employeeTemplateCode.value = queryTemplateCode
   context.templateCode = expectedTemplateCode.value

@@ -17,8 +17,8 @@ assert.match(
 )
 assert.match(
   runner,
-  /const CODEX_MUTATING_REASONING_EFFORT = process\.env\.CODEX_TEST_CODEX_MUTATING_REASONING_EFFORT \|\| 'medium'/,
-  'Runner 写入型任务也必须使用独立受控推理预算，不能继承用户级 xhigh 配置。'
+  /const CODEX_MUTATING_REASONING_EFFORT = process\.env\.CODEX_TEST_CODEX_MUTATING_REASONING_EFFORT \|\| 'low'/,
+  'Runner 写入型页面执行必须默认使用低推理预算，避免临时 Playwright 脚本生成阶段耗尽 600 秒。'
 )
 assert.match(
   runner,
@@ -79,6 +79,21 @@ assert.match(
   runner,
   /This is a browser execution task, not a repository development task[\s\S]*Do not create or modify repository files, task documents, source code, configuration, build outputs, Git state, commits, branches, or worktrees[\s\S]*Do not run project builds or project test suites[\s\S]*Use only task-owned temporary files under \$\{WORKING_DIRECTORY\}/,
   '所有业务测试 prompt 必须禁止仓库开发、建档和 Git 操作，仅允许隔离目录中的临时文件。'
+)
+assert.match(
+  runner,
+  /Execution strategy:[\s\S]*create one temporary Node\.js Playwright script under \$\{WORKING_DIRECTORY\}[\s\S]*run it with node[\s\S]*Do not inspect the repository before the first browser attempt/,
+  '写入型业务测试 prompt 必须要求先生成并运行一个临时 Playwright 脚本，避免 Codex 长时间探索仓库。'
+)
+assert.match(
+  runner,
+  /When the temporary script prints raw JSON with checkpointResults, return that JSON immediately/,
+  '临时脚本已经给出 PASS/FAIL/BLOCKED JSON 时，Codex 必须立即交回 Runner，不能继续自由调试直到超时。'
+)
+assert.match(
+  runner,
+  /For Element Plus dialogs, click visible buttons by accessible role or exact visible text/,
+  '业务页面 prompt 必须要求按可访问 role 或可见文本点击 Element Plus 弹框按钮，避免保存按钮可见但脚本定位不到。'
 )
 assert.match(
   runner,

@@ -11,10 +11,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
@@ -58,7 +60,6 @@ class MesProcessPoolSubmitEventServiceAdapterTest {
                 .setTemplateType("PRODUCTION_SIMPLE")
                 .setOutputQuantity(new BigDecimal("100.500"))
                 .setLossQuantity(new BigDecimal("2.500"))
-                .setPreviousProcessInputQuantity(new BigDecimal("120.000"))
                 .setEquipmentParameters(Map.of("pressure", new BigDecimal("50.000")))
                 .setRawPayload(rawPayload)
                 .setSubmittedAt(LocalDateTime.of(2026, 7, 30, 9, 0)));
@@ -87,8 +88,12 @@ class MesProcessPoolSubmitEventServiceAdapterTest {
         assertEquals("OUTPUT", dto.getQuantityFragments().get(0).getSourceQuantityType());
         assertEquals(0, new BigDecimal("100.500")
                 .compareTo(dto.getQuantityFragments().get(0).getTotalQuantity()));
+        assertFalse(dto.getQuantityFragments().get(0).getRawPayload().contains("previousProcessInputQuantity"));
         assertEquals("LOSS", dto.getQuantityFragments().get(1).getSourceQuantityType());
         assertEquals(0, new BigDecimal("2.500")
                 .compareTo(dto.getQuantityFragments().get(1).getTotalQuantity()));
+        assertFalse(dto.getQuantityFragments().get(1).getRawPayload().contains("previousProcessInputQuantity"));
+        assertFalse(Arrays.stream(MesProcessPoolSubmitEventCreateReqBO.class.getDeclaredFields())
+                .anyMatch(field -> "previousProcessInputQuantity".equals(field.getName())));
     }
 }

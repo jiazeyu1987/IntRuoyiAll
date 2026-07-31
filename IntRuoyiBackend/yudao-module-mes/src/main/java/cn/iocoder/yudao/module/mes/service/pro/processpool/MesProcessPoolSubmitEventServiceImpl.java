@@ -80,7 +80,6 @@ public class MesProcessPoolSubmitEventServiceImpl implements MesProcessPoolSubmi
         fragmentPayload.put("feedbackId", reqBO.getFeedbackId());
         fragmentPayload.put("recordbookEntryId", reqBO.getRecordbookEntryId());
         fragmentPayload.put("recordbookEventId", reqBO.getRecordbookEventId());
-        fragmentPayload.put("previousProcessInputQuantity", reqBO.getPreviousProcessInputQuantity());
         fragmentPayload.put("equipmentParameters", reqBO.getEquipmentParameters());
         fragments.add(MesProcessPoolQuantityFragmentCreateDTO.builder()
                 .sourceQuantityType(sourceQuantityType)

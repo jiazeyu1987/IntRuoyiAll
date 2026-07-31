@@ -8,7 +8,7 @@
 
 - [x] M1: 复现并隔离 Runner/Codex CLI 首节点退出与超时根因
 - [x] M2: 建立失败回归测试并记录 RED
-- [ ] M3: 实施最小正式修复并记录 GREEN（Runner 隔离、固定样本和 artifact 本地配置已补齐；等待运行态加载后复验）
+- [ ] M3: 实施最小正式修复并记录 GREEN（Runner 隔离、固定样本、artifact 本地配置与本机浏览器 executablePath 注入已补齐；等待真实页面复验）
 - [ ] M4: 通过真实页面完整复验 3 条串行路线并完成任务自有清理
 - [ ] M5: 完成经验沉淀、收尾校验、提交与推送
 
@@ -52,4 +52,4 @@ doc/tasks/20260730-test-management-serial-routes-repair/run-serial-routes-real-e
 
 ## Current Blocker
 
-- 后端已恢复 `UP`，但标准 `restart-int-ruoyi-local.ps1 -Component frontend` 启动的 Vite 在 `8081` 监听后，真实页面模块请求持续零字节超时。最小 Vite 诊断服务可返回 `200`，但不是本任务允许使用的正式运行态。执行 `40` 尚未通过真实“测试记录”页面取消；在用户明确授权改变 `VITE_OPTIMIZE_PROFILE=windows-safe` 启动路径前，不得切换非标准前端运行态或创建新批次。
+- 最新真实执行 `47` 的首节点已进入 Codex 临时 Playwright 脚本，但失败于 Playwright 默认缓存浏览器不存在；已补充 Runner 本机 Chrome/Edge executablePath 解析与 prompt 约束，等待重新启动 Runner 并通过真实页面复验 3 条串行路线。

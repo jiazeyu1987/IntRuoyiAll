@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -94,7 +95,7 @@ class MesProFrontlineFeedbackSubmitServiceTest {
         inOrder.verify(recordbookEntryService).createOriginalEntry(argThat(payload -> {
             assertEquals(501L, payload.getFeedbackId());
             assertEquals(901L, payload.getRecordbookId());
-            assertEquals(new BigDecimal("120.000"), payload.getEntryContent().get("previousProcessInputQuantity"));
+            assertFalse(payload.getEntryContent().containsKey("previousProcessInputQuantity"));
             return true;
         }));
         inOrder.verify(processPoolSubmitEventService).createSubmitEvent(argThat(payload -> {

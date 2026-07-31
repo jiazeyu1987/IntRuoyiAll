@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -21,7 +22,7 @@ const HEARTBEAT_INTERVAL_MS = Number(process.env.CODEX_TEST_HEARTBEAT_INTERVAL_M
 const CODEX_EXEC_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_TIMEOUT_MS || '600000')
 const CODEX_EXEC_READONLY_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_READONLY_TIMEOUT_MS || '120000')
 const CODEX_READONLY_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_READONLY_REASONING_EFFORT || 'medium'
-const CODEX_MUTATING_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_MUTATING_REASONING_EFFORT || 'medium'
+const CODEX_MUTATING_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_MUTATING_REASONING_EFFORT || 'low'
 const CODEX_IGNORE_RULES = process.env.CODEX_TEST_CODEX_IGNORE_RULES !== 'false'
 const CODEX_TEST_API_TIMEOUT_MS = Number(process.env.CODEX_TEST_API_TIMEOUT_MS || '30000')
 const CODEX_CHILD_SETTLE_TIMEOUT_MS = Number(process.env.CODEX_TEST_CHILD_SETTLE_TIMEOUT_MS || '5000')
@@ -98,7 +99,60 @@ function spawnCodex(args) {
   const isWindowsCommandScript = process.platform === 'win32' && /\.(cmd|bat)$/i.test(CODEX_COMMAND)
   const command = isWindowsCommandScript ? 'cmd.exe' : CODEX_COMMAND
   const commandArgs = isWindowsCommandScript ? ['/d', '/s', '/c', CODEX_COMMAND, ...args] : args
-  return spawn(command, commandArgs, { stdio: ['pipe', 'pipe', 'pipe'] })
+  return spawn(command, commandArgs, {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      NODE_PATH: resolveFrontendNodePath(),
+      PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: resolveBrowserExecutablePath()
+    }
+  })
+}
+
+function resolveFrontendNodePath() {
+  const frontendNodeModules = path.join(FRONTEND_PROJECT_ROOT, 'node_modules')
+  const currentNodePath = process.env.NODE_PATH || ''
+  return [frontendNodeModules, currentNodePath].filter(Boolean).join(path.delimiter)
+}
+
+function resolveBrowserExecutablePath() {
+  const configuredPath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+  if (configuredPath) {
+    if (!existsSync(configuredPath)) {
+      throw new Error(`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH does not exist: ${configuredPath}`)
+    }
+    return configuredPath
+  }
+  const browserCandidates = [
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
+  ]
+  const browserExecutablePath = browserCandidates.find((candidate) => existsSync(candidate))
+  if (!browserExecutablePath) {
+    throw new Error('No local Chrome or Edge executable found for Playwright browser launch')
+  }
+  return browserExecutablePath
+}
+
+function resolveNavigationHints(task) {
+  const text = taskText(task)
+  const hints = [
+    'This frontend uses Vue history routes, not hash routes; do not navigate with /#/ paths.'
+  ]
+  if (/工艺路线|route/i.test(text)) {
+    hints.push('工艺路线 list page: /mes/pro/route (Vue history route; do not use /#/mes/route).')
+  }
+  if (/批记录|eDHR|edhr|batch record/i.test(text)) {
+    hints.push('批记录 execution list page: /mes/pro/feedback/edhr-batch-execution (Vue history route).')
+    hints.push('批记录表单配置 list page: /mes/pro/batch-record-form-list (Vue history route).')
+  }
+  if (/智能排产|排产|排程|schedule/i.test(text)) {
+    hints.push('智能排产 task list page: /mes/pro/task (Vue history route).')
+    hints.push('排程日历 page: /mes/pro/schedule-calendar (Vue history route).')
+  }
+  return hints.join('\n')
 }
 
 function codexExecutionArgs(task) {
@@ -358,8 +412,17 @@ This is a browser execution task, not a repository development task.
 Do not create or modify repository files, task documents, source code, configuration, build outputs, Git state, commits, branches, or worktrees.
 Do not run project builds or project test suites.
 Use only task-owned temporary files under ${WORKING_DIRECTORY}.
+Execution strategy: create one temporary Node.js Playwright script under ${WORKING_DIRECTORY}, run it with node, then return the final JSON.
+Do not inspect the repository before the first browser attempt; inspect local source only if the browser path is blocked by selectors, routes, or prerequisite evidence.
+When the temporary script prints raw JSON with checkpointResults, return that JSON immediately.
+For Element Plus dialogs, click visible buttons by accessible role or exact visible text.
 Playwright project root: ${FRONTEND_PROJECT_ROOT}
 Project guidance root: ${PROJECT_ROOT}
+Playwright dependency note: temporary Node scripts can use require('playwright') because NODE_PATH includes ${FRONTEND_PROJECT_ROOT}/node_modules.
+Browser executable path: ${resolveBrowserExecutablePath()}
+Browser launch note: temporary Playwright scripts must launch with chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || '${resolveBrowserExecutablePath()}' }).
+Navigation hints:
+${resolveNavigationHints(task)}
 Complete the browser verification and return the final JSON within ${executionBudgetSeconds} seconds.
 Do not ask for clarification. If login, selector, data, service, permission, or runtime prerequisites are missing, return a BLOCKED checkpoint result instead of waiting.
 For READ_ONLY tasks, do not click create, save, submit, delete, import, upload, approve, cancel, or any action that mutates business data.

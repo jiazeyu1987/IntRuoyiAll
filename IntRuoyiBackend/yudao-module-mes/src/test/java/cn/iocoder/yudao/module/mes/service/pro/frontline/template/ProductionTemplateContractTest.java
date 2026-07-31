@@ -16,12 +16,13 @@ class ProductionTemplateContractTest {
         FrontlineTemplateDefinition template = service.getTemplate(FrontlineTemplateCodes.PRODUCTION_SIMPLIFIED);
 
         assertEquals(List.of(
-                FrontlineTemplateFieldCodes.PREVIOUS_PROCESS_INPUT_QUANTITY,
                 FrontlineTemplateFieldCodes.DEVICE,
                 FrontlineTemplateFieldCodes.DEVICE_PARAMETERS,
                 FrontlineTemplateFieldCodes.OUTPUT_QUANTITY,
                 FrontlineTemplateFieldCodes.SCRAP_QUANTITY
         ), template.fields().stream().map(FrontlineTemplateField::code).toList());
+        assertFalse(template.fields().stream()
+                .anyMatch(field -> "PREVIOUS_PROCESS_INPUT_QUANTITY".equals(field.code())));
         assertFalse(template.fields().stream().anyMatch(field -> field.code().toLowerCase().contains("time")));
     }
 }

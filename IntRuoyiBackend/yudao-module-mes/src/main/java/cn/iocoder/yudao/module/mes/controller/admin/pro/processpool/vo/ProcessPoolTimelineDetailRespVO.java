@@ -13,9 +13,6 @@ import lombok.experimental.Accessors;
 @ToString(callSuper = true)
 public class ProcessPoolTimelineDetailRespVO extends ProcessPoolTimelineEventRespVO {
 
-    @Schema(description = "原始 payload")
-    private String originalPayloadJson;
-
     @Schema(description = "只读动作边界")
     private ReadonlyActions readonlyActions;
 

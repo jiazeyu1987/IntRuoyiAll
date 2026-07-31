@@ -5,13 +5,13 @@ const path = require('node:path')
 const root = path.resolve(__dirname, '../../../..')
 const viewSource = fs.readFileSync(path.join(__dirname, 'FrontlineFixedTemplatePanel.vue'), 'utf8')
 const helperSource = fs.readFileSync(path.join(__dirname, 'frontlineTemplate.ts'), 'utf8')
+const feedbackApiSource = fs.readFileSync(path.join(root, 'api/mes/pro/feedback/index.ts'), 'utf8')
 const apiSource = fs.readFileSync(
   path.join(root, 'api/mes/pro/feedbackFrontlineTemplate.ts'),
   'utf8'
 )
 
 const productionContractFields = [
-  'PREVIOUS_PROCESS_INPUT_QUANTITY',
   'DEVICE',
   'DEVICE_PARAMETERS',
   'OUTPUT_QUANTITY',
@@ -32,6 +32,10 @@ assert.match(apiSource, /PQC_SIMPLIFIED/, 'API contract must expose PQC simplifi
 for (const field of productionContractFields) {
   assert.match(helperSource, new RegExp(`['"]${field}['"]`), `production template must include ${field}.`)
 }
+assert.doesNotMatch(apiSource, /PREVIOUS_PROCESS_INPUT_QUANTITY/, 'API field codes must not expose previous-process input quantity.')
+assert.doesNotMatch(feedbackApiSource, /previousProcessInputQuantity/, 'recordbook submit API must not require previous-process input quantity.')
+assert.doesNotMatch(helperSource, /PREVIOUS_PROCESS_INPUT_QUANTITY/, 'production template allowed fields must not include previous-process input quantity.')
+assert.doesNotMatch(viewSource, /PREVIOUS_PROCESS_INPUT_QUANTITY|previousProcessInputQuantity|previousInputQuantity/, 'production UI payload must not submit previous-process input quantity.')
 assert.doesNotMatch(viewSource, /el-date-picker/, 'fixed frontline template must not render editable date picker.')
 assert.doesNotMatch(viewSource, /feedbackTime|submitTime|submittedAt/, 'fixed template UI must not expose editable submit time.')
 assert.match(viewSource, /data-frontline-production-operator/, 'production UI must expose the simplified production operator surface.')

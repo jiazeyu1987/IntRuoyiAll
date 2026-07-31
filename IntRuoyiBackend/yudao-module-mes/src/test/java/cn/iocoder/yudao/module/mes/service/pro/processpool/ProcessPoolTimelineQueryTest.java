@@ -32,5 +32,11 @@ class ProcessPoolTimelineQueryTest {
         assertEquals("device-account-A", page.getList().get(0).getLoginUserName());
         assertEquals("PQC_SIMPLIFIED", page.getList().get(0).getTemplateType());
         assertEquals("WO-30002", page.getList().get(0).getWorkOrderCode());
+        assertEquals("{\"outputQuantity\":10,\"lossQuantity\":1}", page.getList().get(0).getOriginalPayloadJson());
+        assertEquals("REJECTED", page.getList().get(0).getSubmissionReviewStatus());
+        assertEquals("压力填写不正确，已要求修正", page.getList().get(0).getSubmissionReviewRemark());
+        assertEquals(3001L, page.getList().get(0).getSubmissionReviewLeaderUserId());
+        assertEquals(LocalDateTime.parse("2026-07-30T09:30:00"),
+                page.getList().get(0).getSubmissionReviewedAt());
     }
 }

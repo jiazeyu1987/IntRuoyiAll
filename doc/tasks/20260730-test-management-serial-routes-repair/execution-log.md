@@ -73,9 +73,29 @@
 - Execution safety: execution `40` remains the task-owned suspended batch from the previous run. No new execution was created, and no Runner was started while the real `测试记录` page was unavailable.
 - Blocker: continuing requires changing or bypassing the standard `VITE_OPTIMIZE_PROFILE=windows-safe` startup path. This is not authorized under the strict no-fallback policy; pause before using a non-standard frontend runtime.
 
+## 2026-07-31 Resume After User Runtime Confirmation
+
+- User update: 用户确认“现在可以运行了”，允许继续真实运行态复验。
+- Runtime blocker update: latest real route execution `47` reached the Codex-generated temporary Playwright script, but the child script launched default Playwright bundled Chromium and failed because `E:\Int\DevCache\playwright-browsers\chromium_headless_shell-1223\chrome-headless-shell-win64\chrome-headless-shell.exe` did not exist.
+- Browser precondition: `C:\Program Files\Google\Chrome\Application\chrome.exe` exists; `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe` exists.
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner lacked resolveBrowserExecutablePath() and did not pass PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH to Codex child tasks`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` now resolves a configured browser executable path first, then known local Chrome/Edge paths, passes `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` into `spawnCodex`, and instructs temporary Playwright scripts to launch with that executable path.
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+- Real execution `48`: browser executable blocker resolved; `工艺路线节点：基础维护` reached real browser execution but generated script failed to locate the current route list page. Checkpoint 1 actual text showed the browser remained on `个人中心 / 个人工作台`, while generated script only tried hash-style candidates such as `/#/mes/route`; source route evidence shows the official Vue history route is `/mes/pro/route`.
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt lacked official navigation hints for Vue history routes and 工艺路线 /mes/pro/route`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` now adds task-text navigation hints, states this frontend uses Vue history routes rather than hash routes, and provides official path hints for 工艺路线、批记录 and 智能排产 pages.
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+
 ## Blockers
 
-- 当前共享 `48081` 后端正在由独立 `20260731-restart-local-frontend-backend` 任务执行 full restart/package，health 暂不可达；本任务不得强停或接管该并行任务。
-- 待 `48081` 恢复后，需要确认新运行态已加载 `artifact-temp-dir` 配置，再重新从真实页面执行 3 条串行路线。
-- 2026-07-31 09:53 后复查：`48081` 仍拒绝连接；独立重启任务状态为 `blocked`，本任务未停止、重启或接管该任务进程。
-- 2026-07-31 17:16 复查：后端已恢复 `UP`，但标准前端页面模块请求持续零字节超时；最小 Vite 诊断服务通过后已停止。未获授权前不得切换前端优化/启动路径，执行 `40` 尚未通过真实页面取消。
+- 当前剩余门禁是重新启动任务自有 Runner，并从真实 `系统管理 > 测试管理` 页面复跑 3 条串行路线；不得用 API-only 或静态合同替代最终页面证据。
