@@ -109,3 +109,13 @@
 - GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260730-edhr-frontline-fill-tabs/frontend-feature-evidence.md` -> PASS。
 - GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260730-edhr-frontline-fill-tabs/backend-api-evidence.md` -> PASS。
 - Status update: clean integration verification passed; ready for selective commit and push to `origin/int_main` without local NAS/DCC changes.
+- Remote main refresh: `git fetch origin int_main` -> PASS，remote `origin/int_main` advanced to `b8251624 docs: record int_main merge closeout`，该提交仅新增 `doc/tasks/20260731-merge-int-main/*`。
+- Integration merge: `git merge --no-edit origin/int_main` -> PASS，merge commit `d7853210`，仅合入远端 merge closeout 任务文档。
+- GREEN: post-merge `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
+- GREEN: post-merge `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRouteProcessTemplateBindingSourceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineTemplateResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，12 tests，0 failures，0 errors，0 skipped。
+- GREEN: post-merge `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- GREEN: post-merge `node src/views/mes/pro/feedback/frontline-template-render.spec.cjs` -> PASS。
+- GREEN: post-merge `node src/views/mes/pro/feedback/frontline-template-switch.spec.cjs` -> PASS。
+- REGRESSION: post-merge `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js` -> PASS。
+- GREEN: post-merge `node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` -> PASS。
+- REGRESSION: post-merge `pnpm ts:check` -> PASS。

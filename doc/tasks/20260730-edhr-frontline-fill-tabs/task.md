@@ -79,6 +79,7 @@ ready_for_closeout
 - `04603154..2e58c44d` 在 `IntRuoyiBackend` 与 `IntRuoyiFronted` 下无新增差异，后续主线同步仅包含任务/经验文档。
 - 2026-07-31 主工作区继续存在无关 NAS/DCC 并行改动；为避免把未验证改动合入本任务，已从干净 `origin/int_main` commit `57112d97` 创建临时集成目录 `D:\IntRuoyiWorktree\20260731-edhr-frontline-clean-clone`。
 - 临时集成分支 `codex/20260731-edhr-frontline-clean-integration` 只包含 eDHR 一线填写任务净差异；端口守卫、目标 Maven、前端静态合同、E2E 脚本语法检查、`pnpm ts:check` 和 evidence validators 均通过。
+- GitHub `origin/int_main` 后续新增 `b8251624 docs: record int_main merge closeout`；该提交仅含 `doc/tasks/20260731-merge-int-main/*`，已合入临时集成分支并复跑端口守卫、目标 Maven、前端静态合同、E2E 脚本语法检查和 `pnpm ts:check` 通过。
 - 当前状态保持 `ready_for_closeout`，等待 cleanup preview/apply 完成快进合并和 worktree 删除。
 - 未执行 force push、rebase、reset 或历史重写。
 

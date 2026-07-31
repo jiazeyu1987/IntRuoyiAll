@@ -87,6 +87,8 @@
 - PASS: Clean integration branch runtime guard passed after registering `int_main slot 3` (`8084/48084`) and installing hooks.
 - PASS: Clean integration backend target Maven test passed with 12 tests, 0 failures, 0 errors, 0 skipped.
 - PASS: Clean integration frontend static contracts, E2E script syntax check, evidence validators, and `pnpm ts:check` passed.
+- PASS: Remote `origin/int_main` commit `b8251624` was merged into the clean integration branch; it only added `doc/tasks/20260731-merge-int-main/*`.
+- PASS: Post-merge branch runtime guard, backend target Maven, frontend static contracts, E2E syntax check, and `pnpm ts:check` passed.
 - PENDING: Run `task-closeout-cleanup` preview/apply for the final fast-forward merge and worktree removal.
 - No task-owned runtime remains on ports `8083/48083`; no fixture rows remain.
 - Final local status: ready_for_closeout.
