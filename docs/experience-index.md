@@ -102,6 +102,7 @@
 - Keywords: 主结果弹窗失败原因, result-dialog, 提交失败只显示状态, 保存失败原因可见, 发布失败原因可见, 大号结果弹框, failureReasonText, showFillActionResultDialog, toast 有原因但弹窗无原因 -> `docs/frontend-development.md#前端主结果弹窗失败原因可见门禁`
 - Keywords: 列表首屏成功后系统异常, 延迟辅助加载, 行级权限加载失败, listErrorMessage, permissionRuleErrorMessage, 批记录表单填写人规则加载失败, 辅助查询错误归属 -> `docs/frontend-development.md#前端延迟辅助加载错误归属门禁`
 - Keywords: DCC 上传类别权限, canUpload, Current user cannot access this controlled file, upload-preview, 文件类别下拉无上传权限, 类别级 UPLOAD 权限, DccControlledFileCategoryPermissionSupport -> `docs/frontend-development.md#dcc-上传类别权限投影门禁`
+- Keywords: DCC 基础条目关联文档, DCC项目代码关联文档, 三栏导航文件类型, fileTypeTaxonomyId, fileTypeLevel3, DCC 文件分类树, 技术文档阶段展开, 未分类文件类型 -> `docs/frontend-development.md#dcc-基础条目关联文档分类树门禁`
 - Keywords: 草稿保存后仍可修改, 保存草稿不提交发布, 保存后不可继续编辑, 立即提交发布弹窗, submit-publish, DRAFT 被保存推进审批, RouteEditPage handleSaved, promptRouteVersionSubmit -> `docs/frontend-development.md#前端草稿保存与提交发布解耦门禁`
 - Keywords: 当前模板未绑定批记录表单, 表单模板打开编辑填写, openSelectedTemplateWorkspace, isDesignerMode, FormTemplateDesignerWrapper, FormTemplateSimulatePage, simulationOnly, MdmFormCenterTemplateSimulate, /mdm/form-center/template/simulate, batchRecordBindingStatus, batchRecordReportId -> `docs/frontend-development.md#表单模板三按钮领域边界门禁`
 - Keywords: FormCenter 动态表单字段码, fieldCode, fieldIdentityMap, ActionFormPanel, EdhrExecutionTemplateEditableForm, 损耗单, 过程检验记录, FORM_TEMPLATE_VERSION, form_data_json, field6, 5:3, 页面输入框为空, 快照 JSON 有值, 动态表单单元格链接 -> `docs/frontend-development.md#formcenter-动态表单字段码渲染门禁`
@@ -255,6 +256,7 @@
 - Keywords: ERROR 1267, Illegal mix of collations, 临时表排序规则, 数据修复临时表, system_codex_test_case, utf8mb4_0900_ai_ci, 中文测试项种子 -> `docs/database-rules.md#数据修复临时表排序规则门禁`
 - Keywords: 时间轴重复行, 一对多 JOIN, 审核副本多条重复展开, 列表 pageSize 被子表挤占, GROUP BY tenant_id event_id, read model 聚合 -> `docs/database-rules.md#一对多读模型聚合门禁`
 - Keywords: MES工序 系统异常, route-resource page code 500, Missing route, Missing item, route_product 孤儿关联, 资源池只读列表, 工艺路线资源读模型, 只读资源池引用完整性 -> `docs/database-rules.md#只读资源池引用完整性门禁`
+- Keywords: tenant_id=0 全局只读种子, TenantIgnore, ignore-tables, Excel 源基线, 只读 Excel 目录, 业务租户列表为空, 主表明细表租户过滤 -> `docs/database-rules.md#全局只读-excel-种子租户边界门禁`
 - Keywords: system_menu.name 中文菜单名, MySQL 客户端字符集, mojibake, HEX(name), UNHEX, utf8mb4, Docker mysql stdin, 动态菜单运行态乱码 -> `docs/database-rules.md#中文菜单名称-ascii-安全迁移门禁`
 - Keywords: 工艺路线导入导出, export-import-xlsx, import-workbook-xlsx, 工艺路线导入导出 Excel, 工序BOM 工序编码 不能为空, process_id=0, 工艺路线必须要有关键工序, key_flag=0, keyFlag=false, 缺关键工序, route-random-bom-seed, 跨租户路线导入, 删除测试租户路线后导入 -> `docs/database-rules.md#工艺路线跨租户导入导出数据包完整性门禁`
 - Keywords: MES 三页签同步, 工序设置同步, 工艺流程同步, 排产工单同步, 只同步这些页签, 其它不同步, schema 承载源数据, 白名单外活动引用, 目标同 ID 业务身份, route_snapshot_json MEDIUMTEXT, promise_date nullable, scheduleOrderId routeProcessId 快照身份, Missing batch record report, batch_record_report_id, mes_pro_batch_record_report.report_id, mes_pro_batch_record_definition, mes_pro_batch_record_version -> `docs/database-rules.md#mes-三页签跨环境同步完整性门禁`

@@ -822,8 +822,11 @@ import { openControlledFileViewer } from '../../shared/viewer-navigation'
 import {
   DCC_UNCLASSIFIED_TAXONOMY_STAGE,
   buildDccFileTypeTaxonomyStageNameMap,
+  buildDccFileTypeTaxonomyStageTypeNameMap,
+  buildDccFileTypeTaxonomyStageTypeOptionsMap,
   getDccFileTypeTaxonomyStageRows,
   resolveDccFileTypeTaxonomyStageName,
+  resolveDccFileTypeTaxonomyStageTypeName,
   toDccFileTypeTaxonomyStageOptions
 } from '../../shared/file-type-taxonomy-stage'
 import { getSimpleUserList, type UserVO } from '@/api/system/user'
@@ -842,6 +845,7 @@ defineOptions({ name: 'ProjectCodeTabPanel' })
 type AssociatedTypeGroup = {
   key: string
   label: string
+  taxonomyId?: number
   files: ControlledFileVO[]
 }
 
@@ -1113,6 +1117,12 @@ const associatedTaxonomyStageNames = computed(
 const associatedTaxonomyStageNameMap = computed(() =>
   buildDccFileTypeTaxonomyStageNameMap(fileTypeTaxonomies.value)
 )
+const associatedTaxonomyStageTypeNameMap = computed(() =>
+  buildDccFileTypeTaxonomyStageTypeNameMap(fileTypeTaxonomies.value)
+)
+const associatedTaxonomyStageTypeOptionsMap = computed(() =>
+  buildDccFileTypeTaxonomyStageTypeOptionsMap(fileTypeTaxonomies.value)
+)
 const resolveAssociatedStageKey = (file: ControlledFileVO) => {
   const stage = normalizeAssociatedLevel(file.fileTypeLevel2)
   if (stage && associatedTaxonomyStageNames.value.has(stage)) {
@@ -1123,24 +1133,46 @@ const resolveAssociatedStageKey = (file: ControlledFileVO) => {
     DCC_UNCLASSIFIED_TAXONOMY_STAGE
   )
 }
-const resolveAssociatedTypeName = (file: ControlledFileVO) =>
-  normalizeAssociatedLevel(file.fileTypeLevel3) || DCC_PROJECT_CODE_UNCLASSIFIED_TYPE
+const resolveAssociatedTypeName = (file: ControlledFileVO) => {
+  const resolvedTaxonomyType = resolveDccFileTypeTaxonomyStageTypeName(
+    file,
+    associatedTaxonomyStageTypeNameMap.value
+  )
+  return (
+    resolvedTaxonomyType?.typeName ||
+    normalizeAssociatedLevel(file.fileTypeLevel3) ||
+    DCC_PROJECT_CODE_UNCLASSIFIED_TYPE
+  )
+}
+const createAssociatedStageGroup = (stageKey: string, label = stageKey): AssociatedStageGroup => {
+  const associatedStageTypeOptions = associatedTaxonomyStageTypeOptionsMap.value.get(stageKey) || []
+  const typeMap = new Map<string, AssociatedTypeGroup>()
+  for (const option of associatedStageTypeOptions) {
+    typeMap.set(option.value, {
+      key: option.value,
+      label: option.label,
+      taxonomyId: option.taxonomyId,
+      files: []
+    })
+  }
+  return {
+    key: stageKey,
+    label,
+    count: 0,
+    types: Array.from(typeMap.values())
+  }
+}
 const associatedStageGroups = computed<AssociatedStageGroup[]>(() => {
   const stageMap = new Map<string, AssociatedStageGroup>()
   for (const option of associatedTaxonomyStageOptions.value) {
-    stageMap.set(option.value, { key: option.value, label: option.label, count: 0, types: [] })
+    stageMap.set(option.value, createAssociatedStageGroup(option.value, option.label))
   }
 
   for (const file of associatedNavigationFiles.value) {
     const stageKey = resolveAssociatedStageKey(file)
     let stageGroup = stageMap.get(stageKey)
     if (!stageGroup) {
-      stageGroup = {
-        key: stageKey,
-        label: stageKey,
-        count: 0,
-        types: []
-      }
+      stageGroup = createAssociatedStageGroup(stageKey)
       stageMap.set(stageKey, stageGroup)
     }
     const typeName = resolveAssociatedTypeName(file)
@@ -1187,6 +1219,8 @@ const handleAssociatedFilePagination = () => {
     associatedFilePage.pageNo = maxPage
   }
 }
+const resolveAssociatedInitialTypeKey = (stage: AssociatedStageGroup) =>
+  stage.types.find((typeGroup) => typeGroup.files.length > 0)?.key || stage.types[0]?.key || ''
 const ensureAssociatedSelection = () => {
   const stages = associatedStageGroups.value
   if (stages.length === 0) {
@@ -1201,7 +1235,7 @@ const ensureAssociatedSelection = () => {
   const previousTypeKey = selectedAssociatedTypeKey.value
   selectedAssociatedStageKey.value = nextStage.key
   const currentType = nextStage.types.find((typeGroup) => typeGroup.key === selectedAssociatedTypeKey.value)
-  selectedAssociatedTypeKey.value = currentType?.key || nextStage.types[0]?.key || ''
+  selectedAssociatedTypeKey.value = currentType?.key || resolveAssociatedInitialTypeKey(nextStage)
   if (
     previousStageKey !== selectedAssociatedStageKey.value ||
     previousTypeKey !== selectedAssociatedTypeKey.value
@@ -1213,7 +1247,7 @@ const ensureAssociatedSelection = () => {
 const selectAssociatedStage = (stageKey: string) => {
   selectedAssociatedStageKey.value = stageKey
   const stage = associatedStageGroups.value.find((item) => item.key === stageKey)
-  selectedAssociatedTypeKey.value = stage?.types[0]?.key || ''
+  selectedAssociatedTypeKey.value = stage ? resolveAssociatedInitialTypeKey(stage) : ''
   selectedAssociatedFileIds.value = []
   resetAssociatedFilePage()
 }
