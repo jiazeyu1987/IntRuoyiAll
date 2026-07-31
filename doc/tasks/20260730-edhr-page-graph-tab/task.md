@@ -18,6 +18,7 @@
 - `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs`
 - `pnpm ts:check`
 - 官方登录预检与 Playwright 真实页面路径验证
+- `node doc/tasks/20260730-edhr-page-graph-tab/edhr-page-graph-real-e2e.mjs`
 
 ## Current Status
 
@@ -26,8 +27,10 @@ ready_for_closeout
 ## E2E Result
 
 - `批记录页面关系图` 页签、关系图页面、节点和页面路由：PASS。
-- 完整业务流程：`GRAPH_PASS_DOWNSTREAM_BLOCKED`。
-- 下游 blocker：生产填写与 PQC填写页面缺少设备账号工艺路线绑定来源，页面提示无法加载一线报工上下文。
+- 最新真实 E2E：`GRAPH_AND_DOWNSTREAM_PASS`。
+- 关系图显示 12 个页面节点、11 条页面关系、6 个待接入禁用节点。
+- 生产填写、PQC填写、正式批记录节点均完成真实前端路由跳转；生产/PQC 页面不再出现“设备账号工艺路线绑定来源未接入”或“账号没有可用路线/岗位工位绑定”阻塞。
+- MES 写请求数为 0；仅发现 1 个非 MES 头像资源 `502`，不影响本次只读页面流程结论。
 
 ## 设计约束检查
 
@@ -45,4 +48,7 @@ ready_for_closeout
 
 - 实现与定向验证已完成，但当前分支领先 `origin/int_main`，且包含非本任务并行提交。
 - 为避免把非本任务提交一起推送，本任务未执行最终 closeout push，状态停在 `ready_for_closeout`。
-- 真实 E2E 发现生产填写/PQC填写的下游一线报工上下文前置未接入，因此不能将完整流程记录为 PASS。
+
+## Cleanup Keep
+
+doc/tasks/20260730-edhr-page-graph-tab/edhr-page-graph-real-e2e.mjs
