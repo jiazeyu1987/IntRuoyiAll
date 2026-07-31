@@ -64,6 +64,7 @@
 - Keywords: 静态合同缩进定位, Vue SFC 弹框块定位, el-dialog class 回找, CRLF LF, source.indexOf 精确缩进失败 -> `docs/e2e-rules.md#windows-换行与脚本行为同步`
 - Keywords: pnpm test:e2e 缺失, ERR_PNPM_NO_SCRIPT, named target unknown, process-pool-review-copy-and-revision.spec.ts, E2E 脚本入口缺失, 静态合同不能冒充真实 E2E, 写入型用户路径页面入口缺失, 只有 API wrapper 不能算页面验收 -> `docs/e2e-rules.md#e2e-脚本入口存在性门禁`
 - Keywords: Playwright Executable doesn't exist, npx playwright install, PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, Chrome 可执行文件, Edge 可执行文件, 浏览器缓存缺失, login-preflight 浏览器路径 -> `docs/e2e-rules.md#playwright-浏览器可执行文件门禁`
+- Keywords: Playwright CLI daemon residual, cliDaemon.js, .playwright-cli page snapshot, page-*.yml, output/playwright task directory lock, 登录页预填字段快照, stop task-owned daemon only -> `docs/e2e-rules.md#playwright-快照与-daemon-收尾门禁`
 - Keywords: PowerShell Maven -D, -Dsurefire.failIfNoSpecifiedTests, -Dtest, Unknown lifecycle phase, 目标 JUnit 加引号 -> `docs/powershell-memory.md#powershell-maven--d-参数引号门禁`
 - Keywords: IncrementalBuildHelper.beforeRebuildExecution, WinNTFileSystem.delete0, Windows Maven 增量输出删除卡住, Maven 无 surefire 报告, 仅停止任务自有 Maven PID -> `docs/backend-development.md#2026-07-27-windows-maven-增量输出删除卡住门禁`
 - Keywords: 共享分支并发基线提交, concurrent baseline commit, 最近提交不是当前任务, git show --name-status -1 包含当前任务文件, 当前任务改动被基线吞入, 严格任务独立提交 -> `docs/powershell-memory.md#共享分支并发基线提交门禁`
@@ -194,6 +195,7 @@
 - Keywords: prod-preflight-release, ProdDryRunEvidencePath, sanitized package workspace, Copy-Item, robocopy, shutil.copytree -> `docs/release-build-preflight-lessons.md`
 - Keywords: worktree remove failed, residual worktree directory, Invalid argument, Directory not empty, Permission denied, 当前目录占用, 空目录残留, runtime-backend.err.log, Vite, esbuild, Java process locks residual worktree, Git registration absent physical directory exists, pnpm node_modules 残留, robocopy empty mirror, 空目录镜像清空, 8084 48084 pici cleanup -> `E:/IntRuoyi/docs/worktree-memory.md`
 - Keywords: frozen release baseline, build start worktree commit, source HEAD drift after build, 不追逐后续提交 -> `docs/release-build-preflight-lessons.md`
+- Keywords: release worktree physical root, 发布 release worktree, D:\ProjectPackage\Int\IntRuoyiWorktrees, r260731d ignored node_modules residual, Git registration absent but physical root exists, state dir Test-Path false -> `docs/worktree-memory.md#发布-release-worktree-物理根复核门禁`
 - Keywords: mes_pro_route_schedule_config conflict, route schedule config duplicate, 工序维度收敛, conflict guard -> `docs/release-build-preflight-lessons.md`
 - Keywords: Manifest v1 legacy release-manifest frontend commit, schema-specific manifest validation -> `docs/release-build-preflight-lessons.md`
 - Keywords: Manifest artifact sha256 prefix, sha256:<64hex>, 281 hash mismatch, hash prefix normalization -> `docs/release-build-preflight-lessons.md#2026-07-10-manifest-artifact-sha256-前缀门禁`

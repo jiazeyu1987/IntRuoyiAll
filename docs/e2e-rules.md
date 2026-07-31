@@ -42,6 +42,15 @@
 - Forbidden action: 禁止静默下载或切换未知浏览器缓存、禁止用 API-only 代替页面验证、禁止把 Playwright 浏览器缓存缺失冒充业务页面不可达。
 - Evidence: `doc/tasks/20260730-dcc-product-catalog-sort-real-e2e/verification-report.md`，D-Main 真实 E2E 使用本机 Chrome 完成 DCC 产品目录排序验证。
 
+### Playwright 快照与 daemon 收尾门禁
+
+- Trigger: 使用 Playwright CLI / headed browser 验证登录页、发布控制台、版本变更说明或任何可能包含输入框内容的真实页面。
+- Preflight check: 运行前把输出目录限定到当前任务或 releaseTag；验收后扫描 `.playwright-cli\page-*.yml`、trace、截图、视频和 CLI daemon 进程，判断是否包含登录预填字段、账号、密码、token 或任务敏感数据。
+- Blocker: 任务输出目录存在未脱敏 `page-*.yml`、trace、视频或截图，或存在命令行可证明属于当前任务的 `cliDaemon.js <task-or-release>` 进程仍占用输出目录时，任务不得 closeout。
+- Verification: 删除或脱敏任务自有 Playwright artifact；若目录被锁，只停止命令行明确属于当前任务的 daemon 和子进程；最终记录任务输出目录 `Test-Path=False` 或 artifact 清单为空。
+- Forbidden action: 禁止提交原始 Playwright snapshot；禁止为了清理目录误停其他并发 E2E/Playwright 任务；禁止用旧页面快照代替本轮真实页面验证。
+- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260730-head-test-only-release\execution-log.md`，发布验收后清理当前任务 `.playwright-cli` 快照，并只停止 `cliDaemon.js r260731c-r2 --headed` 任务归属进程树。
+
 ### Worktree / int_main 运行态 URL 门禁
 
 - Trigger: 主工作区默认端口被并行任务占用、旧 jar 未加载当前接口、真实 E2E 需要使用已登记 worktree slot 端口运行，或 worktree 融合后需要在 `E:\IntRuoyi` 的 `int_main` 主端口复验。
