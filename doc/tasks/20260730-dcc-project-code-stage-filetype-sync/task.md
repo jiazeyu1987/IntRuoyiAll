@@ -16,9 +16,9 @@
 - [x] 建立任务记录、BDD/TDD 证据、授权范围和阻塞策略。
 - [x] 只读预检测试服健康、登录权限、角色权限、页面入口和启用类别规则数量。
 - [x] 只读导出候选影响面，并记录 RED 证据。
-- [ ] 若候选数量大于 0，调用官方批量分类接口并轮询终态。
-- [ ] 执行 API 与 Playwright 真实路径复核，记录 GREEN 或 blocker。
-- [ ] 完成验证报告、经验沉淀和任务收尾。
+- [x] 若候选数量大于 0，调用官方批量分类接口并轮询终态。
+- [x] 执行 API 复核并记录 blocker。
+- [x] 完成验证报告和任务阻塞记录。
 
 ## Expected Verification
 
@@ -28,16 +28,26 @@
 
 ## Current Status
 
-in_progress
+blocked
 
 ## Blocked Reason
 
-测试服官方批量分类前置条件未同时满足，已按无 fallback/no SQL 策略停止，未调用写入型批量任务：
+测试服官方批量分类任务已按授权使用 `芋道源码/zhaohaichen` 执行完成，但 GREEN 条件未满足，按无 fallback/no SQL 策略保持阻塞：
 
-- `测试租户/aoteman`：登录、`doc_control` 角色和 DCC 查询/更新权限均通过；项目代码 124 个，候选文件 1 个；但启用且绑定 `fileTypeTaxonomyId` 的类别规则数量为 0，无法按类别规则映射目标阶段/文件类型。
-- `芋道源码/admin`：类别规则完整，启用且绑定 `fileTypeTaxonomyId` 的类别 60 条，阶段分布为 `INPUT=7, PLAN=3, OUTPUT=25, VERIFICATION=5, VALIDATION=12, TRANSFER=8`；项目代码 117 个，候选项目 93 个，候选文件 15028 个；但该登录用户不具备 `doc_control` 角色，`/dcc/controlled-files/batch-recognition/tasks/latest?recognitionType=FILE_CATEGORY` 返回 403。
-- `芋道源码` 租户已只读确认存在 `doc_control` 角色，分配用户为 `wangsiyu`、`zhaohaichen`；本任务没有这些账号凭据，且不允许修改角色或绕过 `@ss.hasRole('doc_control')`。
-- 用户已补充 `芋道源码/zhaohaichen` 凭据；本任务重新进入执行态，仅通过正式 API 复核并继续，不记录密码。
+- 批量任务 `35` 终态为 `COMPLETED`，`totalCount=14990`、`processedCount=14990`、`successCount=6292`、`failedCount=0`、`conflictCount=0`、`ambiguousCount=1207`、`unclassifiedCount=7491`、`remainingCount=0`。
+- 批量任务成功分类了 6292 个文件，但仍有 1207 个歧义、7491 个未识别；这些文件未满足“按启用类别规则聚合，不再留在未分类文件类型”的验收标准。
+- 任务后复扫 DCC 项目代码关联文件，仍有 `candidateTotal=8736`、`candidateProjectCount=93`，样本仍显示 `未分类 / 未分类文件类型` 或阶段有值但文件类型为空。
+- 已导出明细：`task-35-ambiguous-recognition-records.xlsx`、`task-35-unclassified-recognition-records.xlsx`，并保存终态核验证据 `task-35-final-verification.json`。
+- 未改用 SQL、未修改类别规则、未循环调用单文件 API、未把 `UNCLASSIFIED/AMBIGUOUS` 当作成功。
+
+## Failure Analysis
+
+- 2026-07-31 继续执行只读失败明细分析，输出 `failure-analysis.md`。
+- 歧义导出 1207 条，与任务计数一致；未识别导出 7366 条，比任务 `unclassifiedCount=7491` 少 125 条，正式修复前需复核导出接口口径。
+- 歧义集中在 OQ/PQ 方案/报告与“工序卡/作业指导书”同分；未识别集中在 `.pdf`、SolidWorks 图纸/零件、图纸、零配件名、记录表和 OQ/PQ 参数组。
+- 源码核对确认当前分类只使用文件名、标题、文件编号匹配启用类别名称和内置别名；不使用目录阶段线索，且 `dcc_file_category` 无数据级别别名字段。
+- 当前任务仍 blocked；下一步必须先获得正式规则/代码改造授权，不能在本计划内自动改名、修数或绕过。
+- 后续正式修复建议已记录到 `remediation-plan.md`；该计划需要用户另行授权后才能进入代码/配置/测试服发布。
 
 ## Authorization Scope
 
@@ -50,7 +60,7 @@ in_progress
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否。
-- `是否从根因和长期维护角度解决`：否，正式批量链路前置条件未满足；需要同一租户内同时具备启用且绑定 `fileTypeTaxonomyId` 的类别规则，以及有 `doc_control` 角色的可登录账号。
+- `是否从根因和长期维护角度解决`：否，官方批量分类链路已执行但仍存在 1207 个歧义和 7491 个未识别，需要补充正式类别匹配规则或人工处理歧义后再重跑。
 - `是否存在临时补丁或绕过`：否。
 
 ## Experience Gate

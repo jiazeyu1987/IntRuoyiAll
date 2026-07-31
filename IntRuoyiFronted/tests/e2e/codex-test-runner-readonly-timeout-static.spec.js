@@ -17,6 +17,16 @@ assert.match(
 )
 assert.match(
   runner,
+  /const CODEX_MUTATING_REASONING_EFFORT = process\.env\.CODEX_TEST_CODEX_MUTATING_REASONING_EFFORT \|\| 'medium'/,
+  'Runner 写入型任务也必须使用独立受控推理预算，不能继承用户级 xhigh 配置。'
+)
+assert.match(
+  runner,
+  /const CODEX_IGNORE_RULES = process\.env\.CODEX_TEST_CODEX_IGNORE_RULES !== 'false'/,
+  'Runner 必须对所有业务页面测试使用统一的执行策略开关。'
+)
+assert.match(
+  runner,
   /const NEGATED_WRITE_TASK_PATTERN = \/[\s\S]*不修改[\s\S]*不新增[\s\S]*不保存[\s\S]*不提交[\s\S]*不删除[\s\S]*\//,
   'Runner 必须识别“不修改/不新增/不保存/不提交/不删除”等否定写入词，不能把它们当成真实写入意图。'
 )
@@ -37,13 +47,13 @@ assert.match(
 )
 assert.match(
   runner,
-  /function codexReadOnlyExecutionArgs\(task\)[\s\S]*isReadOnlyTask\(task\)[\s\S]*--ignore-rules[\s\S]*model_reasoning_effort=\$\{JSON\.stringify\(CODEX_READONLY_REASONING_EFFORT\)\}/,
-  'Runner 必须为只读任务追加忽略编码任务规则和中等推理参数，避免无关仓库规则导致页面冒烟核验超时。'
+  /function codexExecutionArgs\(task\)[\s\S]*CODEX_IGNORE_RULES[\s\S]*--ignore-rules[\s\S]*--disable[\s\S]*remote_plugin[\s\S]*isReadOnlyTask\(task\)[\s\S]*CODEX_READONLY_REASONING_EFFORT[\s\S]*CODEX_MUTATING_REASONING_EFFORT[\s\S]*model_reasoning_effort=\$\{JSON\.stringify\(reasoningEffort\)\}/,
+  'Runner 必须为所有业务页面任务忽略仓库执行规则、关闭远程插件同步并设置受控推理预算。'
 )
 assert.match(
   runner,
-  /const args = \[[\s\S]*'--ephemeral',[\s\S]*\.\.\.codexReadOnlyExecutionArgs\(task\),[\s\S]*'--output-last-message'/,
-  'Runner 启动 codex exec 时必须把只读快速路径参数应用到实际执行参数。'
+  /const args = \[[\s\S]*'--ephemeral',[\s\S]*\.\.\.codexExecutionArgs\(task\),[\s\S]*'--output-last-message'/,
+  'Runner 启动 codex exec 时必须把统一业务测试执行策略应用到实际参数。'
 )
 assert.match(
   runner,
@@ -67,8 +77,13 @@ assert.match(
 )
 assert.match(
   runner,
-  /For READ_ONLY tasks, take the shortest browser path[\s\S]*one temporary Node\.js Playwright script[\s\S]*Do not create task docs, edit project files, run builds, or inspect unrelated source trees/,
-  '只读 prompt 必须禁止建档、改文件和无关源码探索，并要求使用短 Playwright 脚本完成页面核验。'
+  /This is a browser execution task, not a repository development task[\s\S]*Do not create or modify repository files, task documents, source code, configuration, build outputs, Git state, commits, branches, or worktrees[\s\S]*Do not run project builds or project test suites[\s\S]*Use only task-owned temporary files under \$\{WORKING_DIRECTORY\}/,
+  '所有业务测试 prompt 必须禁止仓库开发、建档和 Git 操作，仅允许隔离目录中的临时文件。'
+)
+assert.match(
+  runner,
+  /Playwright project root: \$\{FRONTEND_PROJECT_ROOT\}[\s\S]*Project guidance root: \$\{PROJECT_ROOT\}/,
+  '隔离工作目录下仍必须向 Codex 明确提供正式 Playwright 工程和最小只读指导路径。'
 )
 
 console.log('PASS: Codex runner read-only timeout static contract')

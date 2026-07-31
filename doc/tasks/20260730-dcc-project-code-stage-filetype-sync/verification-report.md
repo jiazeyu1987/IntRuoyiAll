@@ -2,7 +2,7 @@
 
 ## Result
 
-BLOCKED。未执行官方批量分类写入任务，原因是测试服同一租户内尚未同时满足“启用且绑定 `fileTypeTaxonomyId` 的类别规则”和“可登录账号具备 `doc_control` 角色”两个前置条件。
+BLOCKED。官方批量分类任务已执行并完成，但未满足 GREEN 条件；仍存在歧义与未识别文件，DCC 项目代码详情仍有可识别候选未聚合到目标阶段/文件类型。
 
 ## Evidence
 
@@ -11,13 +11,23 @@ BLOCKED。未执行官方批量分类写入任务，原因是测试服同一租�
 - `芋道源码/admin`：登录成功，类别规则完整，启用且绑定 `fileTypeTaxonomyId` 的类别 60 条，阶段分布为 `INPUT=7, PLAN=3, OUTPUT=25, VERIFICATION=5, VALIDATION=12, TRANSFER=8`；候选文件 15028 个；但 `doc_control=false`，批量任务权限接口返回 403。
 - `芋道源码` 租户只读角色核对：存在 `doc_control` 角色，已分配用户为 `wangsiyu`、`zhaohaichen`；当前任务没有这些账号凭据。
 - 用户补充 `admin` 凭据后复核：`芋道源码/admin` 仍为 `doc_control=false` 且批量任务权限接口返回 403；`测试租户/admin` 登录失败。密码未记录。
+- 用户补充 `芋道源码/zhaohaichen` 凭据后复核：`doc_control=true`，DCC 查询/更新权限通过，启用且绑定 `fileTypeTaxonomyId` 类别 60 条。
+- 官方任务 `35`：`COMPLETED`，`totalCount=14990`，`successCount=6292`，`failedCount=0`，`conflictCount=0`，`ambiguousCount=1207`，`unclassifiedCount=7491`。
+- 任务后复扫：项目代码 117 个，仍有候选项目 93 个、候选文件 8736 个，样本仍出现 `未分类 / 未分类文件类型`。
+- 已导出阻塞明细：`task-35-ambiguous-recognition-records.xlsx`、`task-35-unclassified-recognition-records.xlsx`；终态核验 JSON 为 `task-35-final-verification.json`。
+- 只读失败分析：`failure-analysis.md` 确认歧义导出 1207 条与任务计数一致，未识别导出 7366 条比任务计数少 125 条；主要歧义为 OQ/PQ 方案/报告与“工序卡/作业指导书”同分，主要未识别为图纸、零配件名、记录表、OQ/PQ 参数组等。
+- 源码核对：当前分类匹配只使用文件名、标题、文件编号对类别名称和内置别名打分，不使用目录阶段线索，且 `dcc_file_category` 无数据级别别名字段。
+- 后续方案：`remediation-plan.md` 记录需额外授权的类别别名/评分规则改造路径。
 
-## Not Executed
+## Executed
 
-- 未调用 `POST /admin-api/dcc/controlled-files/batch-recognition/tasks`。
+- 已调用 `POST /admin-api/dcc/controlled-files/batch-recognition/tasks` 创建任务 `35`。
+- 已轮询至终态并复扫候选影响面。
+- 已导出 `AMBIGUOUS` 与 `UNCLASSIFIED` 识别记录。
+- 已完成失败明细只读归因分析。
+- 已记录后续正式修复建议。
 - 未直接写 SQL、未修改角色、未跨租户搬运类别规则、未改代码、未使用 per-file API 批量绕过。
-- 未执行 GREEN 页面复核，因为写入任务未启动。
 
 ## Required Next Step
 
-若继续执行，需要用户提供 `芋道源码` 租户中已有 `doc_control` 用户的可用登录凭据，或明确授权通过正式权限管理链路为一个可登录账号授予 `doc_control`；随后可重新执行本任务的只读预检、批量分类任务提交、轮询和页面抽样复核。
+若继续执行，需要先明确并授权正式修复路径：补充可维护文件类别匹配规则/别名能力，或由业务调整正式类别名称与文件元数据后再重跑。未经授权不应自动修改类别、文件元数据、SQL 或代码；处理后再使用同一官方批量分类链路重跑并复查候选数为 0。

@@ -80,6 +80,10 @@
 - Post-merge regression: 在 `int_main` 已包含任务分支并推送 `f59da91d` 后，`node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS。
 - Post-merge regression: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderSchemaTest,MesProcessPoolTeamLeaderControllerTest,MesTeamLeaderScopeServiceTest,MesTeamLeaderSubmissionReviewServiceTest,MesWorkOrderAbnormalReportServiceTest,MesTeamEmployeeBindingServiceTest,MesDefectReasonCatalogServiceTest,MesProcessDeviceParameterRuleServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，16 tests，0 failures，0 errors，`BUILD SUCCESS`。
 - Post-merge regression: `pnpm ts:check` -> PASS。
+- Post-merge int_main E2E preflight: `node scripts\preflight\login-preflight.mjs --base-url http://127.0.0.1:8081 --target-path /mes/pro/process-pool/team-leader --target-text 工序池班组长工作台` with password supplied from local env and redacted from logs -> PASS，登录 `芋道源码/admin`。
+- Post-merge int_main E2E GREEN: 真实 Playwright 页面冒烟 -> PASS；入口 `http://127.0.0.1:8081/mes/pro/process-pool/team-leader`，后端 `http://127.0.0.1:48081/actuator/health` 为 `UP`，切换 `提交看板/异常上报/班组维护/PQC 班组长`，目标提交看板 API 初始与 PQC 切换均 HTTP 200 且业务 `code=0`，无 console error、无 pageerror、无 MES 写请求；截图 `output\playwright\20260730-banzuzhang\team-leader-workbench-int-main-smoke.png`。
+- Experience consolidation check: `docs\e2e-rules.md#官方登录前置与-admin-only-全量验证门禁` 与 `docs\experience-index.md` 已覆盖本次融合后 admin-only 真实 E2E、Chrome 显式路径和无 MES 写请求门禁；无需新增长期经验文档。
+- Dirty-worktree baselines: 主工作区存在并行任务持续写入；已按规则独立保存非班组长改动为 `57453152`、`1a429537`、`5a22db16`、`ce6854c6`、`91f832da`、`4764cc5b`，当前班组长提交仅选择性暂存 `doc/tasks/20260730-banzuzhang/{task.md,execution-log.md,verification-report.md}`。
 - Task status: `completed`；实现、验证、任务分支推送、ff-only 合并、运行进程停止和 worktree 删除均已完成。
 
 ## Evidence Files

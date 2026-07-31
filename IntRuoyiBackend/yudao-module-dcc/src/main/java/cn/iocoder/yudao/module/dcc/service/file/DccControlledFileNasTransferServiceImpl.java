@@ -21,6 +21,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryPermis
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryTrainingRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.directory.DccDirectoryAccessRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.directory.DccFileDirectoryDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasSourceDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileLocalFolderUploadChunkDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasTransferTaskDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasTransferTaskItemDO;
@@ -34,6 +35,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryPermissionR
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryTrainingRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.directory.DccDirectoryAccessRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.directory.DccFileDirectoryMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasSourceMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileLocalFolderUploadChunkMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasTransferTaskItemMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasTransferTaskMapper;
@@ -48,6 +50,7 @@ import cn.iocoder.yudao.module.infra.controller.admin.file.vo.file.FileNasListRe
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.infra.service.file.NasAclReadResult;
 import cn.iocoder.yudao.module.infra.service.file.NasBrowserService;
+import cn.iocoder.yudao.module.infra.service.file.NasSettingsService;
 import cn.iocoder.yudao.module.infra.service.file.NasFileReadResult;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -154,11 +157,15 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
     @Resource
     private DccControlledFileNasTransferTaskItemMapper taskItemMapper;
     @Resource
+    private DccControlledFileNasSourceMapper nasSourceMapper;
+    @Resource
     private DccProjectCodeMapper projectCodeMapper;
     @Resource
     private DccControlledFileLocalFolderUploadChunkMapper uploadChunkMapper;
     @Resource
     private DccNasPermissionSnapshotCaptureService snapshotCaptureService;
+    @Resource
+    private NasSettingsService nasSettingsService;
     @Resource
     private PlatformTransactionManager transactionManager;
     @Value("${spring.servlet.multipart.location:${java.io.tmpdir}}")
@@ -1224,6 +1231,7 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
 
         DccControlledFilePreviewKindEnum previewKind = DccControlledFilePreviewKindEnum.resolve(
                 sourceFile.name(), sourceFile.contentType());
+        String nasShareName = nasSettingsService.getRequiredNasConfig().share();
         LocalDateTime now = LocalDateTime.now();
         try {
             tx().executeWithoutResult(status -> {
@@ -1256,7 +1264,18 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
                 submitReqVO.setVersionNo("V1.0");
                 submitReqVO.setEffectiveDate(task.getEffectiveDate());
                 submitReqVO.setRemark("NAS transfer source: " + item.getNasPath());
-                workflowService.submitControlledFileWithoutApproval(task.getOperatorUserId(), submitReqVO);
+                Long controlledFileId = workflowService.submitControlledFileWithoutApproval(
+                        task.getOperatorUserId(), submitReqVO);
+                String normalizedPath = DccNasPathUtils.normalizeRelativePath(item.getNasPath());
+                nasSourceMapper.insert(DccControlledFileNasSourceDO.builder()
+                        .controlledFileId(controlledFileId)
+                        .nasShareName(nasShareName)
+                        .normalizedRelativePath(normalizedPath)
+                        .pathHash(DccNasPathUtils.pathHash(nasShareName, normalizedPath))
+                        .sourceType(DccNasControlAuditServiceImpl.SOURCE_TYPE_NAS_TRANSFER)
+                        .sourceConfidence(DccNasControlAuditServiceImpl.SOURCE_CONFIDENCE_EXACT)
+                        .tenantId(TenantContextHolder.getRequiredTenantId())
+                        .build());
 
                 current.setStatus(ITEM_STATUS_COMPLETED);
                 current.setAttemptCount(incrementCount(current.getAttemptCount()));

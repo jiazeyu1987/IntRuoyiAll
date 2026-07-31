@@ -83,6 +83,15 @@
 - Forbidden action: 禁止手工删除 Excel 中失败行、随机补工序编码、把 `process_id=0` 推断成首工序、把缺失关键工序默认为首工序、改用 API-only 或直接 SQL 伪造导入成功；若目标已清空，不得擅自恢复或继续修改源数据，必须先让用户在“修复源数据后重试”和“按备份恢复目标租户”之间确认。
 - Evidence: `doc/tasks/20260730-route-tenant-export-import-consistency/execution-log.md`。
 
+### MES 三页签跨环境同步完整性门禁
+
+- Trigger: 将工序设置、工艺流程、排产工单等 MES 页面数据从本机、其它租户或其它环境同步到测试服/正式服，且用户要求“只同步这些页签、其它不同步”。
+- Preflight check: 写入前必须先生成白名单表清单和显式列清单，只读核对源/目标 schema、源数据父子范围、依赖闭包、目标同 ID 业务身份、以及所有白名单外活动引用；排产配置按当前路线工序身份收敛，排产工单按 `scheduleOrderId + routeProcessId` 快照身份收敛。
+- Blocker: 目标 schema 不能承载源数据、目标缺正式依赖、同 ID 业务身份不一致、目标白名单外存在活动引用、源数据存在孤儿子记录或删除历史混入范围，必须停止；不得删除或改写目标数据。
+- Verification: 记录源/目标租户、白名单逐表行数、缺失/不一致依赖、白名单外引用表列计数、源关键快照容量、目标 schema 列类型、备份恢复路径和零写入/事务回滚证据；写入后还必须比对行数、主键集合、业务键和显式列 hash。
+- Forbidden action: 禁止用表单槽位 `formBindings` 补批记录表单、用当前路线重建历史排产快照、自动补默认日历/产能/用户/物料、随机重映射 ID、关闭外键、全库重置、API-only 伪验证或把依赖数据偷偷纳入“页签同步”。
+- Evidence: `doc/tasks/20260731-mes-three-tab-test-sync/verification-report.md`。
+
 ## 租户和菜单权限
 
 - 动态菜单页面交付必须同时核对：

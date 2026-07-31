@@ -1,0 +1,339 @@
+{
+  "finalTask": {
+    "taskId": 35,
+    "status": "COMPLETED",
+    "totalCount": 14990,
+    "processedCount": 14990,
+    "successCount": 6292,
+    "failedCount": 0,
+    "conflictCount": 0,
+    "ambiguousCount": 1207,
+    "unclassifiedCount": 7491,
+    "remainingCount": 0,
+    "lastFailureMessage": null,
+    "failureSummaries": [],
+    "completedAt": 1785438080000
+  },
+  "after": {
+    "projectCodeCount": 117,
+    "candidateProjectCount": 93,
+    "candidateTotal": 8736,
+    "candidateStatusCounts": {
+      "(empty)": 8736
+    },
+    "sampleCandidates": [
+      {
+        "projectCode": "IDI",
+        "projectName": "按压式球囊扩充压力泵",
+        "fileId": "2054545668044082542",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDI",
+        "projectName": "按压式球囊扩充压力泵",
+        "fileId": "2054545668044082541",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDI",
+        "projectName": "按压式球囊扩充压力泵",
+        "fileId": "2054545668044082537",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDI",
+        "projectName": "按压式球囊扩充压力泵",
+        "fileId": "2054545668044082535",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDI",
+        "projectName": "按压式球囊扩充压力泵",
+        "fileId": "2054545668044082529",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDI",
+        "projectName": "按压式球囊扩充压力泵",
+        "fileId": "2054545668044082525",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDI",
+        "projectName": "按压式球囊扩充压力泵",
+        "fileId": "2054545668044082524",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDI",
+        "projectName": "按压式球囊扩充压力泵",
+        "fileId": "2054545668044082523",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDI",
+        "projectName": "按压式球囊扩充压力泵",
+        "fileId": "2054545668044082522",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDI",
+        "projectName": "按压式球囊扩充压力泵",
+        "fileId": "2054545668044082521",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDI",
+        "projectName": "按压式球囊扩充压力泵",
+        "fileId": "2054545668044082520",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDI",
+        "projectName": "按压式球囊扩充压力泵",
+        "fileId": "2054545668044082518",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDI",
+        "projectName": "按压式球囊扩充压力泵",
+        "fileId": "2054545668044082516",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDE",
+        "projectName": "数显球囊扩张压力泵",
+        "fileId": "2054545668044081348",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDE",
+        "projectName": "数显球囊扩张压力泵",
+        "fileId": "2054545668044081344",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDE",
+        "projectName": "数显球囊扩张压力泵",
+        "fileId": "2054545668044081343",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDE",
+        "projectName": "数显球囊扩张压力泵",
+        "fileId": "2054545668044081341",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDE",
+        "projectName": "数显球囊扩张压力泵",
+        "fileId": "2054545668044081332",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDE",
+        "projectName": "数显球囊扩张压力泵",
+        "fileId": "2054545668044081319",
+        "currentStage": "设计和开发验证",
+        "currentFileType": "",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDE",
+        "projectName": "数显球囊扩张压力泵",
+        "fileId": "2054545668044081318",
+        "currentStage": "设计和开发验证",
+        "currentFileType": "",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDE",
+        "projectName": "数显球囊扩张压力泵",
+        "fileId": "2054545668044081317",
+        "currentStage": "设计和开发验证",
+        "currentFileType": "",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDE",
+        "projectName": "数显球囊扩张压力泵",
+        "fileId": "2054545668044081311",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDE",
+        "projectName": "数显球囊扩张压力泵",
+        "fileId": "2054545668044081310",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDE",
+        "projectName": "数显球囊扩张压力泵",
+        "fileId": "2054545668044081309",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDE",
+        "projectName": "数显球囊扩张压力泵",
+        "fileId": "2054545668044081308",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDE",
+        "projectName": "数显球囊扩张压力泵",
+        "fileId": "2054545668044081307",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDE",
+        "projectName": "数显球囊扩张压力泵",
+        "fileId": "2054545668044081306",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDE",
+        "projectName": "数显球囊扩张压力泵",
+        "fileId": "2054545668044081305",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDE",
+        "projectName": "数显球囊扩张压力泵",
+        "fileId": "2054545668044081304",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      },
+      {
+        "projectCode": "IDE",
+        "projectName": "数显球囊扩张压力泵",
+        "fileId": "2054545668044081303",
+        "currentStage": "未分类",
+        "currentFileType": "未分类文件类型",
+        "targetStage": "",
+        "targetFileType": "",
+        "status": "(empty)"
+      }
+    ]
+  },
+  "exports": [
+    {
+      "path": "E:\\IntRuoyi\\doc\\tasks\\20260730-dcc-project-code-stage-filetype-sync\\task-35-ambiguous-recognition-records.xlsx",
+      "bytes": 98828,
+      "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    },
+    {
+      "path": "E:\\IntRuoyi\\doc\\tasks\\20260730-dcc-project-code-stage-filetype-sync\\task-35-unclassified-recognition-records.xlsx",
+      "bytes": 588571,
+      "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    }
+  ]
+}

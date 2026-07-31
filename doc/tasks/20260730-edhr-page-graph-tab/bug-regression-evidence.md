@@ -34,12 +34,13 @@
 
 - Official login preflight: PASS。
 - Graph page: PASS。
-- Visible required nodes: 10。
+- Visible page nodes: 12。
 - Relationship edges: 11。
 - Pending disabled nodes: 生产工单、工序池、班组长复核、FIFO分配、归档、MES工序/班组设置。
 - Route navigation: 生产填写、PQC填写、正式批记录均完成真实前端路由跳转。
 - MES mutating requests: 0。
-- Screenshot: `E:\IntRuoyi\output\playwright\edhr-page-graph-real-e2e.png`。
+- Downstream rerun: 生产填写和 PQC填写均未出现设备账号工艺路线绑定来源缺失或账号路线/岗位工位绑定缺失阻塞。
+- Screenshot: `E:\IntRuoyi\output\playwright\edhr-page-graph-real-e2e-rerun.png`。
 
 ## Risk And Regression Scope
 
@@ -48,7 +49,5 @@
 
 ## Blockers And Follow-Up
 
-- Full business flow is not fully PASS.
-- Entering production and PQC fill pages triggers `设备账号工艺路线绑定来源未接入，无法加载一线报工上下文` twice.
-- Browser also reports a related `502 Bad Gateway` resource error.
-- This is a downstream frontline-reporting context prerequisite, not a page-graph rendering or tab-navigation failure.
+- Full business flow for this page graph verification is PASS after current backend runtime reload.
+- Browser still reports one non-MES avatar resource `502`; this is outside the page graph, production/PQC and formal batch-record route assertions.

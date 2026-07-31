@@ -38,15 +38,32 @@ BDD: NAS 转移来源同事务落库 -> Given NAS 转移成功创建受控文件
 
 ## RED / GREEN / REGRESSION
 
-待补充。每个里程碑必须记录实际命令、退出码、首个失败原因和通过证据，不以静态阅读代替测试。
+RED: `mvn -pl yudao-module-infra -Dtest=NasRecursiveScanServiceTest -Dsurefire.failIfNoSpecifiedTests=false test` -> FAIL, PowerShell 将 `-Dsurefire.failIfNoSpecifiedTests=false` 解析为非法 lifecycle phase `.failIfNoSpecifiedTests=false`，按 Maven `-D` 参数门禁改用引号重跑。
+
+RED: `mvn -pl yudao-module-dcc -Dtest=DccNasControlAuditControllerTest -Dsurefire.failIfNoSpecifiedTests=false test` -> FAIL, PowerShell 将 `-Dsurefire.failIfNoSpecifiedTests=false` 解析为非法 lifecycle phase `.failIfNoSpecifiedTests=false`，按 Maven `-D` 参数门禁改用引号重跑。
+
+RED: `node E:\IntRuoyi\IntRuoyiFronted\tests\e2e\nas-control-audit-static.spec.js` -> FAIL, 首个失败原因：NAS 管理页缺少独立的“统计未受控文件”按钮。
+
+RED: `mvn -pl yudao-module-infra "-Dtest=NasRecursiveScanServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, 首个失败原因：缺少 `NasRecursiveScanServiceImpl` 与 `NasRecursiveScanHandler`。
+
+RED: `mvn -pl yudao-module-dcc "-Dtest=DccNasControlAuditControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, 首个失败原因：缺少 `DccNasControlAuditTaskRespVO`、`DccNasControlAuditService` 与 `DccNasControlAuditController`。
+
+GREEN / REGRESSION: 待补充。
 
 ## Milestone Updates
 
 ### M1 - 任务与边界
 
-- Status: `in_progress`
-- Completed: 创建任务文档，记录用户目标、BDD 场景、预期验证和设计约束。
-- Verification: 待补充代码边界、schema 和经验文档核对结果。
+- Status: `completed`
+- Completed: 创建任务文档，记录用户目标、BDD 场景、预期验证、设计约束，并补入适用经验门禁摘要。
+- Verification: 定位 NAS 单连接入口 `NasBrowserService.executeInSession(...)`、DCC NAS 转移提交链路 `DccControlledFileNasTransferServiceImpl#processFileItem`、受控文件当前版本字段 `dcc_controlled_file_master.current_active_controlled_file_id`、NAS 管理页面 `src/views/system/nas/index.vue`。
+- Blockers: 无。
+
+### M2 - RED 合同测试
+
+- Status: `completed`
+- Completed: 新增 infra 递归扫描 RED 单元测试、DCC 控制器 RED 合同测试、前端 NAS 统计按钮 RED 静态合同。
+- Verification: 见 RED 记录。
 - Blockers: 无。
 
 ## Evidence

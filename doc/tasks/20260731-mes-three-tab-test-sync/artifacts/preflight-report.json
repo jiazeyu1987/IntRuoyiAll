@@ -1,0 +1,1037 @@
+{
+  "generated_at": "2026-07-31T00:52:32.474469+00:00",
+  "source": "local docker int-ruoyi-mysql / ruoyi-vue-pro / tenant_id=1",
+  "target": "ssh root@172.30.30.58 / intruoyi-mysql / ruoyi-vue-pro / tenant_id=1",
+  "warnings": [
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000025B3E8B6180",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001F004CD62C0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000013BA7B52000",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000024CA3FA78D0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000027F943561C0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000029FA0936C60",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000018B5B3449B0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001F46560A140",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001B2E65BB9A0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001EF2CFB61F0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000025F345B4270",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002743A4886B0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001973C0690F0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000022891353D20",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002144CFC4410",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000018139BE1870",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002240EE30AB0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000022DB2953A10",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000024E7A8E6030",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000020D75BC98D0"
+  ],
+  "blockers": [
+    {
+      "type": "schema",
+      "message": "target mes_pro_route_version.route_snapshot_json is not MEDIUMTEXT",
+      "current": {
+        "TABLE_NAME": "mes_pro_route_version",
+        "COLUMN_NAME": "route_snapshot_json",
+        "DATA_TYPE": "text",
+        "COLUMN_TYPE": "text",
+        "CHARACTER_MAXIMUM_LENGTH": "65535",
+        "IS_NULLABLE": "YES"
+      }
+    },
+    {
+      "type": "schema",
+      "message": "target mes_pro_schedule_order.promise_date is not nullable",
+      "current": {
+        "TABLE_NAME": "mes_pro_schedule_order",
+        "COLUMN_NAME": "promise_date",
+        "DATA_TYPE": "date",
+        "COLUMN_TYPE": "date",
+        "CHARACTER_MAXIMUM_LENGTH": "NULL",
+        "IS_NULLABLE": "NO"
+      }
+    },
+    {
+      "type": "schema",
+      "message": "target mes_pro_batch_record_report.form_definition_id is missing"
+    },
+    {
+      "type": "schema",
+      "message": "target mes_pro_batch_record_report.form_version_id is missing"
+    },
+    {
+      "type": "schema",
+      "message": "source route snapshots exceed target TEXT capacity",
+      "over_text_limit_rows": 6,
+      "max_route_snapshot_bytes": 68872
+    },
+    {
+      "type": "dependency",
+      "message": "target dependency check failed for form_template_version_id",
+      "table": "bpm_form_template_version",
+      "required_count": 2,
+      "missing_count": 2,
+      "mismatch_count": 0,
+      "missing_ids": [
+        "27",
+        "32"
+      ],
+      "mismatched": []
+    },
+    {
+      "type": "dependency",
+      "message": "target dependency check failed for permission_scope_id",
+      "table": "mes_pro_edhr_permission_scope",
+      "required_count": 14,
+      "missing_count": 14,
+      "mismatch_count": 0,
+      "missing_ids": [
+        "346",
+        "396",
+        "423",
+        "450",
+        "477",
+        "504",
+        "531",
+        "558",
+        "585",
+        "612",
+        "639",
+        "666",
+        "693",
+        "720"
+      ],
+      "mismatched": []
+    },
+    {
+      "type": "dependency",
+      "message": "target dependency check failed for work_order_id",
+      "table": "mes_pro_work_order",
+      "required_count": 40,
+      "missing_count": 0,
+      "mismatch_count": 5,
+      "missing_ids": [],
+      "mismatched": [
+        {
+          "id": "925553",
+          "diffs": {
+            "code": {
+              "source": "TESTERPA9ED2D417434",
+              "target": "SMART-SMOKE-20260629-ADMIN-D"
+            },
+            "product_id": {
+              "source": "907175",
+              "target": "902476"
+            },
+            "quantity": {
+              "source": "565.00",
+              "target": "1.00"
+            },
+            "batch_code": {
+              "source": "NULL",
+              "target": "SMART-SMOKE-20260629-ADMIN-D-BATCH"
+            }
+          }
+        },
+        {
+          "id": "925698",
+          "diffs": {
+            "code": {
+              "source": "SMART-SMOKE-20260629-ADMIN-G5",
+              "target": "SMART-SCHED-20260630-RERUN3-MO"
+            },
+            "batch_code": {
+              "source": "SMART-SMOKE-20260629-ADMIN-G5-B1",
+              "target": "TEST-SMOKE-BATCH"
+            }
+          }
+        },
+        {
+          "id": "925704",
+          "diffs": {
+            "code": {
+              "source": "SMART-SMOKE-20260629-ADMIN-G7-MO",
+              "target": "SMART-SCHED-20260630-RERUN9-MO"
+            },
+            "batch_code": {
+              "source": "SMART-SMOKE-20260629-ADMIN-G7-B1",
+              "target": "SMART-SCHED-20260630-BATCH"
+            }
+          }
+        },
+        {
+          "id": "925710",
+          "diffs": {
+            "code": {
+              "source": "SMART-SMOKE-20260629-ADMIN-G8-MO",
+              "target": "TESTERP4A96E54218FA"
+            },
+            "quantity": {
+              "source": "10.00",
+              "target": "682.00"
+            },
+            "batch_code": {
+              "source": "SMART-SMOKE-20260629-ADMIN-G8-B1",
+              "target": "NULL"
+            }
+          }
+        },
+        {
+          "id": "925711",
+          "diffs": {
+            "code": {
+              "source": "SMART-SMOKE-20260629-ADMIN-G9-MO",
+              "target": "TESTERP62AF41D87EFA"
+            },
+            "product_id": {
+              "source": "902476",
+              "target": "902262"
+            },
+            "quantity": {
+              "source": "10.00",
+              "target": "685.00"
+            },
+            "batch_code": {
+              "source": "SMART-SMOKE-20260629-ADMIN-G9-B1",
+              "target": "NULL"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "dependency",
+      "message": "target dependency check failed for calendar_rule_id",
+      "table": "mes_pro_schedule_calendar_rule",
+      "required_count": 1,
+      "missing_count": 0,
+      "mismatch_count": 1,
+      "missing_ids": [],
+      "mismatched": [
+        {
+          "id": "1",
+          "diffs": {
+            "skip_statutory_holidays": {
+              "source": "\u0000",
+              "target": "\u0001"
+            },
+            "weekend_rest_mode": {
+              "source": "DOUBLE",
+              "target": "SINGLE"
+            },
+            "date_shift_mode_by_date_json": {
+              "source": "{\"2026-05-17\": \"DAY\"}",
+              "target": "{}"
+            },
+            "temporary_freeze_enabled": {
+              "source": "\u0000",
+              "target": "\u0001"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "dependency",
+      "message": "target dependency check failed for workstation_id",
+      "table": "mes_md_workstation",
+      "required_count": 1,
+      "missing_count": 0,
+      "mismatch_count": 1,
+      "missing_ids": [],
+      "mismatched": [
+        {
+          "id": "900131",
+          "diffs": {
+            "process_id": {
+              "source": "922925",
+              "target": "900395"
+            },
+            "deleted": {
+              "source": "\u0001",
+              "target": "\u0000"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "external_reference",
+      "message": "target has active non-whitelist references to rows that would be replaced",
+      "reference_count": 19,
+      "top_references": [
+        {
+          "table": "mes_dv_machinery_process",
+          "column": "process_id",
+          "active_ref_count": 129
+        },
+        {
+          "table": "mes_md_workstation",
+          "column": "process_id",
+          "active_ref_count": 93
+        },
+        {
+          "table": "mes_pro_edhr_operation_audit_event",
+          "column": "route_id",
+          "active_ref_count": 16
+        },
+        {
+          "table": "mes_pro_feedback",
+          "column": "process_id",
+          "active_ref_count": 152
+        },
+        {
+          "table": "mes_pro_feedback",
+          "column": "route_id",
+          "active_ref_count": 29
+        },
+        {
+          "table": "mes_pro_feedback",
+          "column": "schedule_order_id",
+          "active_ref_count": 29
+        },
+        {
+          "table": "mes_pro_feedback",
+          "column": "schedule_order_process_id",
+          "active_ref_count": 29
+        },
+        {
+          "table": "mes_pro_feedback_import_record",
+          "column": "schedule_order_id",
+          "active_ref_count": 9
+        },
+        {
+          "table": "mes_pro_feedback_import_record",
+          "column": "schedule_order_process_id",
+          "active_ref_count": 9
+        },
+        {
+          "table": "mes_pro_feedback_surplus_pool",
+          "column": "process_id",
+          "active_ref_count": 12
+        },
+        {
+          "table": "mes_pro_route_use_config_legacy_20260709",
+          "column": "route_id",
+          "active_ref_count": 5
+        },
+        {
+          "table": "mes_pro_route_use_process_batch_record_legacy_20260709",
+          "column": "route_id",
+          "active_ref_count": 1
+        },
+        {
+          "table": "mes_pro_route_use_process_batch_record_legacy_20260709",
+          "column": "route_process_id",
+          "active_ref_count": 1
+        },
+        {
+          "table": "mes_pro_route_use_process_config_legacy_20260709",
+          "column": "route_id",
+          "active_ref_count": 102
+        },
+        {
+          "table": "mes_pro_route_use_process_config_legacy_20260709",
+          "column": "route_process_id",
+          "active_ref_count": 102
+        },
+        {
+          "table": "mes_pro_task",
+          "column": "process_id",
+          "active_ref_count": 664
+        },
+        {
+          "table": "mes_pro_task",
+          "column": "route_id",
+          "active_ref_count": 663
+        },
+        {
+          "table": "mes_pro_task_schedule_ext",
+          "column": "schedule_order_id",
+          "active_ref_count": 663
+        },
+        {
+          "table": "mes_pro_task_schedule_ext",
+          "column": "schedule_order_process_id",
+          "active_ref_count": 663
+        }
+      ]
+    }
+  ],
+  "schema": {
+    "local": [
+      {
+        "TABLE_NAME": "mes_pro_batch_record_report",
+        "COLUMN_NAME": "batch_record_definition_id",
+        "DATA_TYPE": "bigint",
+        "COLUMN_TYPE": "bigint",
+        "CHARACTER_MAXIMUM_LENGTH": "NULL",
+        "IS_NULLABLE": "YES"
+      },
+      {
+        "TABLE_NAME": "mes_pro_batch_record_report",
+        "COLUMN_NAME": "batch_record_version_id",
+        "DATA_TYPE": "bigint",
+        "COLUMN_TYPE": "bigint",
+        "CHARACTER_MAXIMUM_LENGTH": "NULL",
+        "IS_NULLABLE": "YES"
+      },
+      {
+        "TABLE_NAME": "mes_pro_batch_record_report",
+        "COLUMN_NAME": "form_definition_id",
+        "DATA_TYPE": "bigint",
+        "COLUMN_TYPE": "bigint",
+        "CHARACTER_MAXIMUM_LENGTH": "NULL",
+        "IS_NULLABLE": "YES"
+      },
+      {
+        "TABLE_NAME": "mes_pro_batch_record_report",
+        "COLUMN_NAME": "form_version_id",
+        "DATA_TYPE": "bigint",
+        "COLUMN_TYPE": "bigint",
+        "CHARACTER_MAXIMUM_LENGTH": "NULL",
+        "IS_NULLABLE": "YES"
+      },
+      {
+        "TABLE_NAME": "mes_pro_route_version",
+        "COLUMN_NAME": "route_snapshot_json",
+        "DATA_TYPE": "mediumtext",
+        "COLUMN_TYPE": "mediumtext",
+        "CHARACTER_MAXIMUM_LENGTH": "16777215",
+        "IS_NULLABLE": "YES"
+      },
+      {
+        "TABLE_NAME": "mes_pro_schedule_order",
+        "COLUMN_NAME": "promise_date",
+        "DATA_TYPE": "date",
+        "COLUMN_TYPE": "date",
+        "CHARACTER_MAXIMUM_LENGTH": "NULL",
+        "IS_NULLABLE": "YES"
+      }
+    ],
+    "remote": [
+      {
+        "TABLE_NAME": "mes_pro_batch_record_report",
+        "COLUMN_NAME": "batch_record_definition_id",
+        "DATA_TYPE": "bigint",
+        "COLUMN_TYPE": "bigint",
+        "CHARACTER_MAXIMUM_LENGTH": "NULL",
+        "IS_NULLABLE": "YES"
+      },
+      {
+        "TABLE_NAME": "mes_pro_batch_record_report",
+        "COLUMN_NAME": "batch_record_version_id",
+        "DATA_TYPE": "bigint",
+        "COLUMN_TYPE": "bigint",
+        "CHARACTER_MAXIMUM_LENGTH": "NULL",
+        "IS_NULLABLE": "YES"
+      },
+      {
+        "TABLE_NAME": "mes_pro_route_version",
+        "COLUMN_NAME": "route_snapshot_json",
+        "DATA_TYPE": "text",
+        "COLUMN_TYPE": "text",
+        "CHARACTER_MAXIMUM_LENGTH": "65535",
+        "IS_NULLABLE": "YES"
+      },
+      {
+        "TABLE_NAME": "mes_pro_schedule_order",
+        "COLUMN_NAME": "promise_date",
+        "DATA_TYPE": "date",
+        "COLUMN_TYPE": "date",
+        "CHARACTER_MAXIMUM_LENGTH": "NULL",
+        "IS_NULLABLE": "NO"
+      }
+    ]
+  },
+  "source_whitelist_counts": {
+    "mes_pro_edhr_work_task_assignment_rule": 1,
+    "mes_pro_process": 65,
+    "mes_pro_process_content": 0,
+    "mes_pro_route": 3,
+    "mes_pro_route_flow_config": 4,
+    "mes_pro_route_flow_process_batch_record": 20,
+    "mes_pro_route_flow_process_config": 77,
+    "mes_pro_route_process": 63,
+    "mes_pro_route_process_flow_boundary_edge": 8,
+    "mes_pro_route_process_flow_edge": 60,
+    "mes_pro_route_process_flow_layout": 63,
+    "mes_pro_route_product": 16,
+    "mes_pro_route_product_bom": 49,
+    "mes_pro_route_schedule_config": 63,
+    "mes_pro_route_version": 46,
+    "mes_pro_schedule_order": 40,
+    "mes_pro_schedule_order_daily_compare": 0,
+    "mes_pro_schedule_order_diff": 2,
+    "mes_pro_schedule_order_operation_log": 1433,
+    "mes_pro_schedule_order_process": 976
+  },
+  "target_current_whitelist_counts": {
+    "mes_pro_edhr_work_task_assignment_rule": 0,
+    "mes_pro_process": 142,
+    "mes_pro_process_content": 0,
+    "mes_pro_route": 6,
+    "mes_pro_route_flow_config": 5,
+    "mes_pro_route_flow_process_batch_record": 0,
+    "mes_pro_route_flow_process_config": 102,
+    "mes_pro_route_process": 150,
+    "mes_pro_route_process_flow_boundary_edge": 0,
+    "mes_pro_route_process_flow_edge": 0,
+    "mes_pro_route_process_flow_layout": 0,
+    "mes_pro_route_product": 4,
+    "mes_pro_route_product_bom": 50,
+    "mes_pro_route_schedule_config": 101,
+    "mes_pro_route_version": 4,
+    "mes_pro_schedule_order": 17,
+    "mes_pro_schedule_order_daily_compare": 0,
+    "mes_pro_schedule_order_diff": 0,
+    "mes_pro_schedule_order_operation_log": 85,
+    "mes_pro_schedule_order_process": 430
+  },
+  "source_snapshot_size": {
+    "max_route_snapshot_bytes": "68872",
+    "route_snapshots_over_text_limit": "6"
+  },
+  "source_dependency_ids": {
+    "batch_record_report_id": [
+      "1d05410f1d3140c5b8aa6786887ae69c",
+      "2631e6faf5b4423aa747d3392c0a10d8",
+      "273239492aa24b838f70b06d7d624406",
+      "3de93e21dbe4426596b51e767624b491",
+      "6c50023db4324ff2825f6e2650028280",
+      "72e111d292a244f1adf13ab65901cc5f",
+      "7ed5ae6f05bb43a1a845763c1236fcc8",
+      "9d78beff251548538f73cb6f98c624fc"
+    ],
+    "calendar_rule_id": [
+      "1"
+    ],
+    "form_template_version_id": [
+      "27",
+      "32"
+    ],
+    "item_id": [
+      "901965",
+      "902101",
+      "902149",
+      "902231",
+      "902252",
+      "902262",
+      "902476",
+      "907035",
+      "907167",
+      "907172",
+      "907175",
+      "907176",
+      "907242",
+      "909393",
+      "910152",
+      "910359",
+      "910447",
+      "910587",
+      "910650",
+      "916875",
+      "916923",
+      "917590",
+      "924005"
+    ],
+    "permission_scope_id": [
+      "346",
+      "396",
+      "423",
+      "450",
+      "477",
+      "504",
+      "531",
+      "558",
+      "585",
+      "612",
+      "639",
+      "666",
+      "693",
+      "720"
+    ],
+    "user_id": [
+      "1",
+      "1074",
+      "910269"
+    ],
+    "work_order_id": [
+      "903200",
+      "903245",
+      "925473",
+      "925477",
+      "925483",
+      "925553",
+      "925671",
+      "925675",
+      "925685",
+      "925689",
+      "925693",
+      "925698",
+      "925704",
+      "925710",
+      "925711",
+      "925716",
+      "925721",
+      "925724",
+      "925729",
+      "925732",
+      "925809",
+      "925813",
+      "925816",
+      "925820",
+      "925825",
+      "925827",
+      "925828",
+      "925829",
+      "925830",
+      "925843",
+      "925850",
+      "925854",
+      "925858",
+      "925864",
+      "925865",
+      "925866",
+      "925867",
+      "925868",
+      "925874",
+      "925877"
+    ],
+    "workstation_id": [
+      "900131"
+    ]
+  },
+  "source_id_counts": {
+    "process_ids": 65,
+    "route_ids": 3,
+    "route_version_ids": 46,
+    "route_process_ids": 63,
+    "schedule_order_ids": 40,
+    "schedule_order_process_ids": 976
+  },
+  "target_current_id_counts": {
+    "process_ids": 142,
+    "route_ids": 6,
+    "route_version_ids": 4,
+    "route_process_ids": 150,
+    "schedule_order_ids": 17,
+    "schedule_order_process_ids": 430
+  },
+  "dependency_checks": [
+    {
+      "dep_type": "batch_record_report_id",
+      "table": "mes_pro_batch_record_report",
+      "required_count": 8,
+      "missing_ids": [],
+      "mismatched": [],
+      "mismatch_count": 0
+    },
+    {
+      "dep_type": "batch_record_definition_id",
+      "table": "mes_pro_batch_record_definition",
+      "required_count": 0,
+      "missing_ids": [],
+      "mismatched": [],
+      "mismatch_count": 0
+    },
+    {
+      "dep_type": "batch_record_version_id",
+      "table": "mes_pro_batch_record_version",
+      "required_count": 0,
+      "missing_ids": [],
+      "mismatched": [],
+      "mismatch_count": 0
+    },
+    {
+      "dep_type": "form_template_version_id",
+      "table": "bpm_form_template_version",
+      "required_count": 2,
+      "missing_ids": [
+        "27",
+        "32"
+      ],
+      "mismatched": [],
+      "mismatch_count": 0
+    },
+    {
+      "dep_type": "permission_scope_id",
+      "table": "mes_pro_edhr_permission_scope",
+      "required_count": 14,
+      "missing_ids": [
+        "346",
+        "396",
+        "423",
+        "450",
+        "477",
+        "504",
+        "531",
+        "558",
+        "585",
+        "612",
+        "639",
+        "666",
+        "693",
+        "720"
+      ],
+      "mismatched": [],
+      "mismatch_count": 0
+    },
+    {
+      "dep_type": "item_id",
+      "table": "mes_md_item",
+      "required_count": 23,
+      "missing_ids": [
+        "924005"
+      ],
+      "mismatched": [],
+      "mismatch_count": 0
+    },
+    {
+      "dep_type": "work_order_id",
+      "table": "mes_pro_work_order",
+      "required_count": 40,
+      "missing_ids": [
+        "925473",
+        "925477",
+        "925483",
+        "925671",
+        "925675",
+        "925685",
+        "925689",
+        "925693",
+        "925716",
+        "925721",
+        "925724",
+        "925729",
+        "925732",
+        "925809",
+        "925813",
+        "925816",
+        "925820",
+        "925825",
+        "925827",
+        "925828",
+        "925829",
+        "925830",
+        "925843",
+        "925850",
+        "925854",
+        "925858",
+        "925864",
+        "925865",
+        "925866",
+        "925867",
+        "925868",
+        "925874",
+        "925877"
+      ],
+      "mismatched": [
+        {
+          "id": "925553",
+          "diffs": {
+            "code": {
+              "source": "TESTERPA9ED2D417434",
+              "target": "SMART-SMOKE-20260629-ADMIN-D"
+            },
+            "product_id": {
+              "source": "907175",
+              "target": "902476"
+            },
+            "quantity": {
+              "source": "565.00",
+              "target": "1.00"
+            },
+            "batch_code": {
+              "source": "NULL",
+              "target": "SMART-SMOKE-20260629-ADMIN-D-BATCH"
+            }
+          }
+        },
+        {
+          "id": "925698",
+          "diffs": {
+            "code": {
+              "source": "SMART-SMOKE-20260629-ADMIN-G5",
+              "target": "SMART-SCHED-20260630-RERUN3-MO"
+            },
+            "batch_code": {
+              "source": "SMART-SMOKE-20260629-ADMIN-G5-B1",
+              "target": "TEST-SMOKE-BATCH"
+            }
+          }
+        },
+        {
+          "id": "925704",
+          "diffs": {
+            "code": {
+              "source": "SMART-SMOKE-20260629-ADMIN-G7-MO",
+              "target": "SMART-SCHED-20260630-RERUN9-MO"
+            },
+            "batch_code": {
+              "source": "SMART-SMOKE-20260629-ADMIN-G7-B1",
+              "target": "SMART-SCHED-20260630-BATCH"
+            }
+          }
+        },
+        {
+          "id": "925710",
+          "diffs": {
+            "code": {
+              "source": "SMART-SMOKE-20260629-ADMIN-G8-MO",
+              "target": "TESTERP4A96E54218FA"
+            },
+            "quantity": {
+              "source": "10.00",
+              "target": "682.00"
+            },
+            "batch_code": {
+              "source": "SMART-SMOKE-20260629-ADMIN-G8-B1",
+              "target": "NULL"
+            }
+          }
+        },
+        {
+          "id": "925711",
+          "diffs": {
+            "code": {
+              "source": "SMART-SMOKE-20260629-ADMIN-G9-MO",
+              "target": "TESTERP62AF41D87EFA"
+            },
+            "product_id": {
+              "source": "902476",
+              "target": "902262"
+            },
+            "quantity": {
+              "source": "10.00",
+              "target": "685.00"
+            },
+            "batch_code": {
+              "source": "SMART-SMOKE-20260629-ADMIN-G9-B1",
+              "target": "NULL"
+            }
+          }
+        }
+      ],
+      "mismatch_count": 5
+    },
+    {
+      "dep_type": "calendar_rule_id",
+      "table": "mes_pro_schedule_calendar_rule",
+      "required_count": 1,
+      "missing_ids": [],
+      "mismatched": [
+        {
+          "id": "1",
+          "diffs": {
+            "skip_statutory_holidays": {
+              "source": "\u0000",
+              "target": "\u0001"
+            },
+            "weekend_rest_mode": {
+              "source": "DOUBLE",
+              "target": "SINGLE"
+            },
+            "date_shift_mode_by_date_json": {
+              "source": "{\"2026-05-17\": \"DAY\"}",
+              "target": "{}"
+            },
+            "temporary_freeze_enabled": {
+              "source": "\u0000",
+              "target": "\u0001"
+            }
+          }
+        }
+      ],
+      "mismatch_count": 1
+    },
+    {
+      "dep_type": "workstation_id",
+      "table": "mes_md_workstation",
+      "required_count": 1,
+      "missing_ids": [],
+      "mismatched": [
+        {
+          "id": "900131",
+          "diffs": {
+            "process_id": {
+              "source": "922925",
+              "target": "900395"
+            },
+            "deleted": {
+              "source": "\u0001",
+              "target": "\u0000"
+            }
+          }
+        }
+      ],
+      "mismatch_count": 1
+    },
+    {
+      "dep_type": "user_id",
+      "table": "system_users",
+      "required_count": 3,
+      "missing_ids": [
+        "910269"
+      ],
+      "mismatched": [],
+      "mismatch_count": 0
+    }
+  ],
+  "authorized_dependency_sync_scope": [
+    {
+      "dep_type": "item_id",
+      "table": "mes_md_item",
+      "authorized_missing_ids": [
+        "924005"
+      ],
+      "authorized_mismatch_ids": [],
+      "note": "user authorized missing material/user/production work order dependency sync"
+    },
+    {
+      "dep_type": "work_order_id",
+      "table": "mes_pro_work_order",
+      "authorized_missing_ids": [
+        "925473",
+        "925477",
+        "925483",
+        "925671",
+        "925675",
+        "925685",
+        "925689",
+        "925693",
+        "925716",
+        "925721",
+        "925724",
+        "925729",
+        "925732",
+        "925809",
+        "925813",
+        "925816",
+        "925820",
+        "925825",
+        "925827",
+        "925828",
+        "925829",
+        "925830",
+        "925843",
+        "925850",
+        "925854",
+        "925858",
+        "925864",
+        "925865",
+        "925866",
+        "925867",
+        "925868",
+        "925874",
+        "925877"
+      ],
+      "authorized_mismatch_ids": [],
+      "note": "user authorized missing material/user/production work order dependency sync"
+    },
+    {
+      "dep_type": "user_id",
+      "table": "system_users",
+      "authorized_missing_ids": [
+        "910269"
+      ],
+      "authorized_mismatch_ids": [],
+      "note": "user authorized missing material/user/production work order dependency sync"
+    }
+  ],
+  "target_external_active_refs": [
+    {
+      "table": "mes_dv_machinery_process",
+      "column": "process_id",
+      "active_ref_count": 129
+    },
+    {
+      "table": "mes_md_workstation",
+      "column": "process_id",
+      "active_ref_count": 93
+    },
+    {
+      "table": "mes_pro_edhr_operation_audit_event",
+      "column": "route_id",
+      "active_ref_count": 16
+    },
+    {
+      "table": "mes_pro_feedback",
+      "column": "process_id",
+      "active_ref_count": 152
+    },
+    {
+      "table": "mes_pro_feedback",
+      "column": "route_id",
+      "active_ref_count": 29
+    },
+    {
+      "table": "mes_pro_feedback",
+      "column": "schedule_order_id",
+      "active_ref_count": 29
+    },
+    {
+      "table": "mes_pro_feedback",
+      "column": "schedule_order_process_id",
+      "active_ref_count": 29
+    },
+    {
+      "table": "mes_pro_feedback_import_record",
+      "column": "schedule_order_id",
+      "active_ref_count": 9
+    },
+    {
+      "table": "mes_pro_feedback_import_record",
+      "column": "schedule_order_process_id",
+      "active_ref_count": 9
+    },
+    {
+      "table": "mes_pro_feedback_surplus_pool",
+      "column": "process_id",
+      "active_ref_count": 12
+    },
+    {
+      "table": "mes_pro_route_use_config_legacy_20260709",
+      "column": "route_id",
+      "active_ref_count": 5
+    },
+    {
+      "table": "mes_pro_route_use_process_batch_record_legacy_20260709",
+      "column": "route_id",
+      "active_ref_count": 1
+    },
+    {
+      "table": "mes_pro_route_use_process_batch_record_legacy_20260709",
+      "column": "route_process_id",
+      "active_ref_count": 1
+    },
+    {
+      "table": "mes_pro_route_use_process_config_legacy_20260709",
+      "column": "route_id",
+      "active_ref_count": 102
+    },
+    {
+      "table": "mes_pro_route_use_process_config_legacy_20260709",
+      "column": "route_process_id",
+      "active_ref_count": 102
+    },
+    {
+      "table": "mes_pro_task",
+      "column": "process_id",
+      "active_ref_count": 664
+    },
+    {
+      "table": "mes_pro_task",
+      "column": "route_id",
+      "active_ref_count": 663
+    },
+    {
+      "table": "mes_pro_task_schedule_ext",
+      "column": "schedule_order_id",
+      "active_ref_count": 663
+    },
+    {
+      "table": "mes_pro_task_schedule_ext",
+      "column": "schedule_order_process_id",
+      "active_ref_count": 663
+    }
+  ]
+}

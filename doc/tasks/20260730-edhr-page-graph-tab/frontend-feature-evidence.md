@@ -52,12 +52,12 @@
 - Error: v1 不新增后端请求，不新增吞异常或默认成功路径；路由跳转错误按 Vue Router 原始行为暴露。
 - Permission: 新路由复用 `mes:pro-edhr-batch-execution:query`，不新增业务写入权限。
 - Real E2E: 官方登录预检 PASS；从批次执行真实点击页签进入关系图 PASS。
-- Real E2E: 10 个目标节点、11 条关系、6 个待接入禁用节点 PASS。
-- Real E2E: 生产填写、PQC填写、正式批记录节点路由跳转 PASS，MES 写请求数为 0。
+- Real E2E: 12 个页面节点、11 条关系、6 个待接入禁用节点 PASS。
+- Real E2E: 生产填写、PQC填写、正式批记录节点路由跳转 PASS，生产/PQC 下游上下文阻塞已解除，MES 写请求数为 0。
 
 ## Blockers And Follow-Up Skills
 
 - 真实节点状态、数量徽标和权限投影需要后端聚合接口后再扩展。
-- 下游 blocker: 生产填写与 PQC填写页面缺少设备账号工艺路线绑定来源，无法加载一线报工上下文，并出现相关 502 resource error。
-- Final E2E status: `GRAPH_PASS_DOWNSTREAM_BLOCKED`。
+- 非阻塞观察: 浏览器记录 1 个非 MES 头像资源 `502`，不影响 eDHR 图谱流程验证。
+- Final E2E status: `GRAPH_AND_DOWNSTREAM_PASS`。
 - Closeout blocker: 当前分支领先 `origin/int_main` 且含非本任务提交，未执行最终 closeout push。

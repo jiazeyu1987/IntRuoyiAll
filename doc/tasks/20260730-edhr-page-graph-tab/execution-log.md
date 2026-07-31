@@ -41,3 +41,25 @@
 - Frontend evidence validator: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260730-edhr-page-graph-tab/frontend-feature-evidence.md` -> PASS。
 - Concurrent commit gate: `0809cd85` 已将本任务 `EdhrBatchRecordTabs.vue` 与页签静态合同和其它并行 MES 文件一起纳入基线提交；不执行 amend/reset/force-push。
 - Git closeout blocker: 当前 `int_main` 领先 `origin/int_main`，且本地提交包含多个非本任务并行提交，未执行 push。
+
+## 2026-07-31 Runtime Reload And Real E2E Rerun
+
+- User intent: 继续执行真实 E2E，确认“批记录页面关系图”是否符合页面流程。
+- Rules read: `docs/e2e-rules.md`、`docs/local-runtime.md`、`docs/login-access.md`、`docs/backend-development.md`、`docs/task-closeout-rules.md`、`docs/powershell-memory.md`、`docs/worktree-restrictions.md`、`docs/powershell-encoding.md`。
+- Backend targeted tests: `mvn.cmd -pl yudao-module-mes -am "-Dtest=MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，4 tests / 0 failures / 0 errors。
+- Backend package: `mvn.cmd -pl yudao-server -am "-DskipTests" package` -> PASS，生成 `yudao-server-exec.jar`。
+- Runtime jar check: copied current build to `E:\IntRuoyi\output\runtime\int_main\backend-edhr-page-graph-e2e-7865feca.jar`，SHA256 `0BAEA72D7426F2A5A180C9E1EA2C96A64082590354B82EBD36B917F0A5089AB9`，nested MES jar contains `MesFrontlineWorkstationPostRouteBindingSource.class`。
+- Runtime switch: confirmed old 48081 owner PID `53040` was `backend-standard-template-e2e-20260730-2115.jar` and stopped it. During the restart window, standard local runtime control started PID `37596` with `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260731-001040.jar`; this process was not stopped because it belongs to the same `int_main` profile and current source build.
+- Running backend check: PID `37596`, port `48081`, health `UP`, runtime jar SHA256 `0F1838781622F8938AEFE2D1D377895CEEC2DF54D94592C2E1BFDBA8900C12D0`, jar immutable after process start, nested MES jar contains `MesFrontlineWorkstationPostRouteBindingSource.class`。
+- Frontend/runtime preflight: `http://127.0.0.1:8081/` -> HTTP 200；`http://127.0.0.1:48081/actuator/health` -> `UP`。
+- Login preflight: `scripts/preflight/login-preflight.mjs` -> PASS，目标 `/mes/pro/feedback/edhr-batch-execution` 可见“批记录页面关系图”；密码从本机 `.env` 读取，未写入任务记录。
+- E2E script: `node --check doc/tasks/20260730-edhr-page-graph-tab/edhr-page-graph-real-e2e.mjs` -> PASS。
+- Real E2E rerun: `node doc/tasks/20260730-edhr-page-graph-tab/edhr-page-graph-real-e2e.mjs` -> PASS，status `GRAPH_AND_DOWNSTREAM_PASS`。
+- Real E2E evidence: 12 page nodes, 11 relationships, 6 disabled pending nodes; required labels `生产填写`、`PQC填写`、`工序池`、`FIFO分配`、`EDHR审核副本`、`正式批记录` all visible.
+- Real E2E route navigation: `production-fill` -> `/mes/pro/feedback/edhr-batch-production-fill` PASS; `pqc-fill` -> `/mes/pro/feedback/edhr-batch-pqc-fill` PASS; `formal-record` -> `/mes/pro/feedback/edhr-batch-execution` PASS。
+- Real E2E downstream signals: production/PQC `bindingSourceMissing=false` and `noAvailableRoute=false`; previous stale-runtime blocker is cleared.
+- Real E2E safety: MES mutating requests = 0. Browser saw one non-MES avatar resource `502` from `test.yudao.iocoder.cn`; it does not affect the eDHR graph/page-flow assertion.
+- Screenshot: `E:\IntRuoyi\output\playwright\edhr-page-graph-real-e2e-rerun.png`。
+- REGRESSION rerun: `node tests/e2e/edhr-batch-page-graph-tab-static.spec.js` -> PASS。
+- REGRESSION rerun: `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- Git closeout blocker update: `git status --short --branch --untracked-files=all` shows current branch `int_main...origin/int_main [ahead 1]` plus unrelated untracked files under other task directories and `resource/`; final push remains blocked to avoid pushing non-task commit/history.
