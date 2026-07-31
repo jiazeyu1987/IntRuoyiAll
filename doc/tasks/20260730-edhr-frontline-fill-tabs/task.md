@@ -26,7 +26,7 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
 ## Design Constraint Check
 
@@ -80,7 +80,8 @@ ready_for_closeout
 - 2026-07-31 主工作区继续存在无关 NAS/DCC 并行改动；为避免把未验证改动合入本任务，已从干净 `origin/int_main` commit `57112d97` 创建临时集成目录 `D:\IntRuoyiWorktree\20260731-edhr-frontline-clean-clone`。
 - 临时集成分支 `codex/20260731-edhr-frontline-clean-integration` 只包含 eDHR 一线填写任务净差异；端口守卫、目标 Maven、前端静态合同、E2E 脚本语法检查、`pnpm ts:check` 和 evidence validators 均通过。
 - GitHub `origin/int_main` 后续新增 `b8251624 docs: record int_main merge closeout`；该提交仅含 `doc/tasks/20260731-merge-int-main/*`，已合入临时集成分支并复跑端口守卫、目标 Maven、前端静态合同、E2E 脚本语法检查和 `pnpm ts:check` 通过。
-- 当前状态保持 `ready_for_closeout`，等待 cleanup preview/apply 完成快进合并和 worktree 删除。
+- GitHub `origin/int_main` 后续又合入 `011999ef merge: sync origin int_main` 及相关 NAS/DCC 并行内容；临时集成分支合并后，eDHR 前端静态合同、E2E 脚本语法检查、`pnpm ts:check` 和端口守卫仍通过，但必跑后端 Maven 门禁在 `yudao-module-dcc` testCompile 阶段失败。
+- 当前状态改为 `blocked`：失败点是无关 DCC 测试 `DccProjectCodeServiceImplTest` 引用了缺失的 `DccFileCategoryMatchRuleDO` 与 `DccFileCategoryMatchRuleMapper`。在该主线编译问题修复并且远端可拉取前，不能按本任务要求推送到 `origin/int_main`、执行 closeout apply 或删除原任务 worktree。
 - 未执行 force push、rebase、reset 或历史重写。
 
 ## Yudao Source E2E Result

@@ -119,3 +119,18 @@
 - REGRESSION: post-merge `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js` -> PASS。
 - GREEN: post-merge `node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` -> PASS。
 - REGRESSION: post-merge `pnpm ts:check` -> PASS。
+- Remote refresh retry: `git fetch origin int_main` -> FAIL，`Recv failure: Connection was reset`；`git -c http.version=HTTP/1.1 fetch origin int_main` 与 `git ls-remote origin refs/heads/int_main` 同样失败，暂无法确认远端是否已有后续修复。
+- Integration refresh: 当前临时集成分支 HEAD `c97d0f09` 已合入本地可见的 `origin/int_main` 后续内容。
+- GREEN: latest `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260731-edhr-frontline-clean-integration/int_main` uses `8084/48084`。
+- GREEN: latest `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- GREEN: latest `node src/views/mes/pro/feedback/frontline-template-render.spec.cjs` -> PASS。
+- GREEN: latest `node src/views/mes/pro/feedback/frontline-template-switch.spec.cjs` -> PASS。
+- REGRESSION: latest `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js` -> PASS。
+- GREEN: latest `node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` -> PASS。
+- REGRESSION: latest `pnpm ts:check` -> PASS。
+- BLOCKED: latest `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRouteProcessTemplateBindingSourceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineTemplateResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL before MES tests run。失败发生在无关依赖模块 `yudao-module-dcc` 的 `testCompile`：`DccProjectCodeServiceImplTest` 引用缺失的 `DccFileCategoryMatchRuleDO` 与 `DccFileCategoryMatchRuleMapper`。
+- Closeout blocker: 按 no-fallback 与必跑验证规则，不能跳过 DCC 依赖模块 testCompile、不能把 eDHR 变更推送到 `origin/int_main`、不能执行 cleanup apply，也不能删除原任务 worktree；需先等远端主线修复该 DCC 编译缺口并成功拉取，或由用户明确授权扩大范围处理 DCC。
+- Experience consolidation: 已按 `project-experience-consolidation` 规则把本次 “Maven -am 依赖模块 testCompile 失败也阻塞远端快进融合” 合并到现有 `docs/worktree-memory.md#并行主工作区远端快进融合门禁`，并在 `docs/experience-index.md` 增加 `DccFileCategoryMatchRuleDO`、`DccFileCategoryMatchRuleMapper`、`当前任务源码未改依赖模块不得跳过` 等关键词。
+- GREEN: `rg -n "依赖模块|DccProjectCodeServiceImplTest|testCompile" docs/worktree-memory.md` -> PASS。
+- GREEN: `rg -n "DccFileCategoryMatchRuleDO|Maven -am 依赖模块 testCompile|当前任务源码未改依赖模块不得跳过" docs/experience-index.md docs/worktree-memory.md` -> PASS。
+- GREEN: `git diff --check -- doc/tasks/20260730-edhr-frontline-fill-tabs/task.md doc/tasks/20260730-edhr-frontline-fill-tabs/execution-log.md doc/tasks/20260730-edhr-frontline-fill-tabs/verification-report.md docs/worktree-memory.md docs/experience-index.md` -> PASS。

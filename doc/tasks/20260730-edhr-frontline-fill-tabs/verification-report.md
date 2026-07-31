@@ -89,6 +89,9 @@
 - PASS: Clean integration frontend static contracts, E2E script syntax check, evidence validators, and `pnpm ts:check` passed.
 - PASS: Remote `origin/int_main` commit `b8251624` was merged into the clean integration branch; it only added `doc/tasks/20260731-merge-int-main/*`.
 - PASS: Post-merge branch runtime guard, backend target Maven, frontend static contracts, E2E syntax check, and `pnpm ts:check` passed.
-- PENDING: Run `task-closeout-cleanup` preview/apply for the final fast-forward merge and worktree removal.
+- PASS: Latest clean integration branch runtime guard, frontend static contracts, E2E syntax check, and `pnpm ts:check` still pass at HEAD `c97d0f09`.
+- BLOCKED: Latest backend target Maven fails before MES tests because unrelated `yudao-module-dcc` test compile references missing `DccFileCategoryMatchRuleDO` and `DccFileCategoryMatchRuleMapper` from `DccProjectCodeServiceImplTest`.
+- BLOCKED: `git fetch origin int_main` and `git ls-remote origin refs/heads/int_main` currently fail with `Recv failure: Connection was reset`, so the task cannot confirm a newer remote fix.
+- PENDING: After the unrelated DCC mainline compile issue is fixed and remote fetch succeeds, rerun the backend Maven gate, then push/merge to `origin/int_main`, run cleanup preview/apply, and remove the task worktrees.
 - No task-owned runtime remains on ports `8083/48083`; no fixture rows remain.
-- Final local status: ready_for_closeout.
+- Final local status: blocked.
