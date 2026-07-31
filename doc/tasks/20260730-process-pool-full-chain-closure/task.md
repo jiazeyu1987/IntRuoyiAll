@@ -48,4 +48,5 @@ blocked
 - AC-07：真实 Playwright 全链路 PASS，marker `PPFC-1785436288416-51980`，证据位于 `IntRuoyiFronted/output/playwright/process-pool-full-chain-real-flow/PPFC-1785436288416-51980/`。
 - 真实链路结果：生产 `feedbackId=783 / recordbookEntryId=10 / eventId=16`，PQC `feedbackId=784 / recordbookEntryId=11 / eventId=17`，FIFO 先满足工单 `925936=20` 再满足 `925937=30`，审核副本 `reviewCopyId=7` 将 `50` clamp 为 `40`。
 - 实现提交：`79aaecd0 feat: close process pool frontline full chain` 已在本地分支生成，任务自有运行态已停止，`8082/48082` 当前无监听。
-- 收尾阻塞：`git push -u origin codex/process-pool-full-chain-closure-20260730` 于 2026-07-31 仍因 GitHub HTTPS 连接重置失败；主工作区 `E:\IntRuoyi` 当前无脏文件但 `int_main...origin/int_main [ahead 5]`，远端未同步前不得自动快进融合、cleanup apply、删除 worktree 或标记 completed。
+- 推送状态：当前任务分支已成功推送到 `origin/codex/process-pool-full-chain-closure-20260730`。
+- 收尾阻塞：主工作区 `E:\IntRuoyi` 当前为 `int_main...origin/int_main [ahead 5]`，且存在并行 DCC/MES/文档任务的暂存和未暂存改动；不得自动快进融合、cleanup apply、删除 worktree 或标记 completed。

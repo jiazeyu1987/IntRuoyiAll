@@ -224,3 +224,9 @@
 - Main workspace gate: `git -C E:\IntRuoyi status --short --branch --untracked-files=all` returned `## int_main...origin/int_main [ahead 5]`; the main workspace is currently clean but not synchronized with origin.
 - Merge safety evidence: an earlier closeout merge probe from this task branch into `int_main` produced conflicts in `IntRuoyiFronted/src/router/modules/remaining.ts`, `IntRuoyiFronted/src/views/mes/pro/edhr-batch/EdhrBatchRecordTabs.vue`, `IntRuoyiFronted/src/views/mes/pro/feedback/FrontlineFixedTemplatePanel.vue`, `IntRuoyiFronted/src/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue`, and this task's records; the merge was aborted and the branch was reverified clean at `79aaecd0`.
 - Status update: implementation and required verification remain PASS, but `task.md`, `task-state.json`, and `verification-report.md` are now marked `blocked` because push/network and base-branch synchronization gates prevent cleanup apply, worktree removal, and completed status.
+
+## 2026-07-31 Push Restored, Integration Still Blocked
+- GREEN: `git push -u origin codex/process-pool-full-chain-closure-20260730` -> PASS; branch now tracks `origin/codex/process-pool-full-chain-closure-20260730`.
+- Branch status after push: `## codex/process-pool-full-chain-closure-20260730...origin/codex/process-pool-full-chain-closure-20260730` with no local ahead/behind marker.
+- Main workspace gate: `git -C E:\IntRuoyi status --short --branch --untracked-files=all` returned `## int_main...origin/int_main [ahead 5]` plus parallel staged and unstaged DCC, MES, and task-document changes. This task will not touch or push those unrelated changes.
+- Status update: closeout remains `blocked`, but the active blocker is now main-workspace integration safety, not GitHub connectivity.
