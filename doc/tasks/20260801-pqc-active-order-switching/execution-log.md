@@ -75,4 +75,4 @@ BDD: PQC leader review is consistent with inspector submissions -> Given PQC ins
 ## Blockers
 
 - Closeout blocker: current working tree contains unrelated concurrent changes and branch is already ahead of origin; commit/push not performed to avoid mixing task-owned and unrelated work.
-- 2026-08-01 closeout refresh: branch is `int_main...origin/int_main [ahead 2]`; recent baseline commit `7186c11a2` includes this task's implementation/evidence together with unrelated concurrent task files. Current working tree still has unrelated dirty/untracked files, so no additional commit/push was performed.
+- 2026-08-01 closeout refresh: branch is `int_main...origin/int_main [ahead 3]`; recent baseline commits `7186c11a2` and `c64cc99b4` include this task's implementation/evidence together with unrelated concurrent task files. Current working tree still has unrelated dirty/untracked files, so no additional commit/push was performed.
