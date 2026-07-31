@@ -60,6 +60,24 @@ CREATE TABLE IF NOT EXISTS `dcc_file_category` (
   KEY `idx_dcc_file_category_taxonomy` (`tenant_id`, `file_type_taxonomy_id`, `deleted`)
 );
 
+CREATE TABLE IF NOT EXISTS `dcc_file_category_match_rule` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `category_id` BIGINT NOT NULL,
+  `match_text` VARCHAR(255) NOT NULL,
+  `match_type` VARCHAR(32) NOT NULL,
+  `weight` INT NOT NULL DEFAULT 0,
+  `active` TINYINT NOT NULL DEFAULT 1,
+  `remark` VARCHAR(255) NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  KEY `idx_dcc_file_category_match_rule_category` (`tenant_id`, `category_id`, `active`, `deleted`)
+);
+
 CREATE TABLE IF NOT EXISTS `dcc_file_type_taxonomy` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `parent_id` BIGINT NOT NULL DEFAULT 0,
