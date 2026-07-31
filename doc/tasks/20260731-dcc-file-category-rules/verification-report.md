@@ -28,3 +28,4 @@
 
 - This task does not deploy to `172.30.30.58` and does not mutate test-server business data.
 - Applying the fix to the test server requires a later authorized deploy/migration and official batch-recognition run.
+- Closeout cleanup apply is blocked: current linked worktree cannot be fast-forward merged into `int_main`, and main worktree `E:\IntRuoyi` is dirty. Current task status remains `ready_for_closeout`.

@@ -23,3 +23,6 @@
 - Project experience consolidation: 更新 `docs/database-rules.md#DCC 文件类别规则种子门禁`，要求 DCC 类别规则 seed 对缺类别/歧义/插入不完整 fail fast；同步 `docs/experience-index.md` 关键词路由。`rg -n "dcc_file_category_match_rule|DCC 文件类别规则种子门禁" docs/experience-index.md docs/database-rules.md -> PASS`。
 - `GREEN: git diff --check -> PASS, only CRLF conversion warnings for existing Windows checkout behavior.`
 - Status: implementation and required verification complete; `task.md` marked `ready_for_closeout` before cleanup preview/apply.
+- Implementation commit: `23034852 feat: add DCC file category match rules`; file list verified with `git show --name-status --oneline -1`.
+- Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260731-dcc-file-category-rules --mode preview -> BLOCKED`; delete candidates were only temporary evidence files (`backend-api-evidence.md`, `database-schema-evidence.md`, `migration-policy-gate.json`), keep list contained `task.md`, `execution-log.md`, `verification-report.md`.
+- Closeout blocker: current linked worktree cannot be fast-forward merged into `int_main` because branch lacks current `int_main` ancestry, and main worktree `E:\IntRuoyi` is dirty. Cleanup apply was not run and `--worktree-closeout off` was not used because that would bypass the worktree closeout gate.
