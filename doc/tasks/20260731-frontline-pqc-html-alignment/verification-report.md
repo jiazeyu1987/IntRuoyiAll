@@ -45,3 +45,4 @@
 - Implementation and static/typing verification are complete.
 - Real browser visual layout is verified.
 - Real piece interaction remains blocked by missing formal process data and should be rerun after a test process/employee fixture is available.
+- Closeout remains `ready_for_closeout` because `git push origin int_main` failed with GitHub 443 connection failure via `127.0.0.1`.

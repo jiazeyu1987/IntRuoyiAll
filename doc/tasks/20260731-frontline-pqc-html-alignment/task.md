@@ -28,14 +28,19 @@
 
 ## Current Status
 
-completed
+ready_for_closeout
+
+## Closeout Blocker
+
+- `git push origin int_main` 失败：`Failed to connect to github.com port 443 via 127.0.0.1 ... Could not connect to server`。
+- 当前任务实现和验证已完成并已本地提交，但按项目规则，远端推送成功前不得标记为 `completed`。
 
 ## Verification Blocker
 
 - 真实浏览器主布局验证已通过并生成截图。
 - 真实逐件弹框交互验证被正式前置阻塞：本机 `芋道源码/admin` 的 `/admin-api/mes/pro/feedback/frontline/device-account/processes` 返回无可选工序，页面无法建立逐件检验所需的正式工序上下文。
 - 按 no-fallback 规则，未伪造工序、未 mock API、未改数据源、未绕过 `assertPqcPieceContext`。
-- 本次代码实现、静态合同、相邻合同、类型检查和主布局真实浏览器验证均已完成；该 blocker 仅限制“正式数据下逐件弹框交互”复验。
+- 本次代码实现、静态合同、相邻合同、类型检查和主布局真实浏览器验证均已完成；该 blocker 仅限制“正式数据下逐件弹框交互”复验，不是推送 blocker。
 
 ## Applicable Gates
 

@@ -68,4 +68,5 @@
 - Cleanup preview: `task_closeout.py --task-id 20260731-frontline-pqc-html-alignment --mode preview` -> PASS；keep `task.md`、`execution-log.md`、`verification-report.md`、`frontend-feature-evidence.md`；delete none；blocked none。
 - Cleanup apply: `task_closeout.py --task-id 20260731-frontline-pqc-html-alignment --mode apply` -> PASS；deleted none。
 - Project experience consolidation: 已读取 `project-experience-consolidation` 并搜索 `docs/*memory*.md` 与既有 E2E/一线经验；本次经验属于已有“真实页面、真实数据源、缺正式前置不 mock/fallback”门禁的具体命中，不新增长期经验文档。
-- Final status: `completed`，并保留 verification blocker：缺少本机默认账号可选正式工序，无法完成逐件弹框真实交互复验。
+- Push attempt: `git push origin int_main` -> FAIL，错误为 `Failed to connect to github.com port 443 via 127.0.0.1 ... Could not connect to server`。
+- Final status: `ready_for_closeout`，实现和验证已完成；远端推送因本机 GitHub 网络/代理不可达被阻塞。
