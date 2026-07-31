@@ -147,3 +147,12 @@
 - GREEN: post-unblock `node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` -> PASS。
 - REGRESSION: post-unblock `pnpm ts:check` -> PASS。
 - Status update: DCC 编译阻塞已正式解除；eDHR 任务状态恢复为 `ready_for_closeout`，等待提交、推送到 `int_main`、cleanup preview/apply 和 worktree 删除。
+- GREEN: implementation commit `560d4f34 fix: add dcc file category match rules` -> PASS；集成分支已推送到 `origin/codex/20260731-edhr-frontline-clean-integration`。
+- Remote refresh: `git -c http.sslBackend=schannel fetch --no-tags --filter=blob:none origin +refs/heads/int_main:refs/remotes/origin/int_main` -> PASS；`origin/int_main` 从 `011999ef` 更新到 `d1ffcef8`。
+- Merge: `git merge origin/int_main` -> PASS，merge commit `8a34cfe3`；未发生冲突。
+- GREEN: final merged SQL contract `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_dcc_file_category_match_rule_sql.py` -> PASS，2 passed。
+- GREEN: final merged DCC Maven `mvn -pl yudao-module-dcc -am "-Dtest=DccProjectCodeServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，23 tests，0 failures，0 errors，0 skipped。
+- GREEN: final merged eDHR Maven `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRouteProcessTemplateBindingSourceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineTemplateResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，12 tests，0 failures，0 errors，0 skipped。
+- GREEN: final merged frontend contracts and typecheck -> PASS：`node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs`、`node src/views/mes/pro/feedback/frontline-template-render.spec.cjs`、`node src/views/mes/pro/feedback/frontline-template-switch.spec.cjs`、`node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js`、`node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs`、`pnpm ts:check`。
+- GREEN: `git -c http.sslBackend=schannel push origin HEAD:int_main` -> PASS；`origin/int_main` now points to `8a34cfe3`。
+- CLEANUP: `task-closeout-cleanup` preview/apply -> PASS；eDHR task kept `task.md`、`execution-log.md`、`verification-report.md`、`frontend-feature-evidence.md`、`backend-api-evidence.md`。

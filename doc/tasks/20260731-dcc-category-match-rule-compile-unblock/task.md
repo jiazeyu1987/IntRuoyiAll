@@ -10,7 +10,7 @@
 - [x] 补齐 DCC 文件类别匹配规则正式 schema、DO、Mapper 与测试夹具。
 - [x] 让项目代码分类服务读取可维护规则，并保持既有硬编码别名作为存量内置规则。
 - [x] 复跑 DCC 目标测试、eDHR 后端门禁和前端/eDHR验证。
-- [ ] 更新 eDHR 收尾记录，完成推送与后续 closeout。
+- [x] 更新 eDHR 收尾记录，完成推送与后续 closeout。
 
 ## Expected Verification
 
@@ -21,7 +21,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 

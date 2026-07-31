@@ -10,7 +10,7 @@
 ## Results
 
 - PASS: `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_dcc_file_category_match_rule_sql.py`，2 passed。
-- PASS: `mvn -pl yudao-module-dcc -am "-Dtest=DccProjectCodeServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`，26 tests，0 failures，0 errors，0 skipped。
+- PASS: `mvn -pl yudao-module-dcc -am "-Dtest=DccProjectCodeServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`，26 tests，0 failures，0 errors，0 skipped；合入最新 `origin/int_main` 后复跑为 23 tests，0 failures，0 errors，0 skipped。
 - PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRouteProcessTemplateBindingSourceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineTemplateResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`，12 tests，0 failures，0 errors，0 skipped。
 - PASS: eDHR 前端静态合同、E2E 脚本语法检查和 `pnpm ts:check`。
 
@@ -26,4 +26,10 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
+
+## Closeout
+
+- PASS: Implementation commit `560d4f34` was pushed to `origin/codex/20260731-edhr-frontline-clean-integration`.
+- PASS: Latest `origin/int_main` (`d1ffcef8`) was merged and final verified HEAD `8a34cfe3` was pushed to `origin/int_main`.
+- PASS: `task-closeout-cleanup` preview/apply removed `bug-regression-evidence.md`; validator results and key evidence remain in `execution-log.md` and this report.

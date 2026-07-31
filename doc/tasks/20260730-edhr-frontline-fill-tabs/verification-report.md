@@ -94,6 +94,9 @@
 - PASS: Latest `git fetch origin int_main` now succeeds; `origin/int_main` remains at `011999ef merge: sync origin int_main`, with no newer remote fix visible.
 - PASS: DCC compile blocker resolved by `doc/tasks/20260731-dcc-category-match-rule-compile-unblock/`; `mvn -pl yudao-module-dcc -am "-Dtest=DccProjectCodeServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` passed with 26 tests。
 - PASS: Post-unblock backend Maven gate passed with 12 MES frontline tests; frontend static contracts, E2E syntax check, and `pnpm ts:check` also passed.
-- PENDING: Commit and push the unblock integration, then run cleanup preview/apply and remove the task worktrees.
+- PASS: DCC unblock implementation commit `560d4f34` and merge commit `8a34cfe3` were pushed to `origin/codex/20260731-edhr-frontline-clean-integration`.
+- PASS: Final verified HEAD `8a34cfe3` was pushed to `origin/int_main` after `origin/int_main` advanced to `d1ffcef8` and was merged back into the clean integration branch.
+- PASS: Post-final-merge verification passed: SQL contract 2 passed; DCC Maven 23 tests, 0 failures/errors/skipped; MES Maven 12 tests, 0 failures/errors/skipped; frontend static contracts, E2E script syntax, and `pnpm ts:check` passed.
+- PASS: `task-closeout-cleanup` preview/apply removed the DCC temporary bug-regression evidence and kept all required eDHR task records.
 - No task-owned runtime remains on ports `8083/48083`; no fixture rows remain.
-- Final local status: ready_for_closeout.
+- Final local status: completed.
