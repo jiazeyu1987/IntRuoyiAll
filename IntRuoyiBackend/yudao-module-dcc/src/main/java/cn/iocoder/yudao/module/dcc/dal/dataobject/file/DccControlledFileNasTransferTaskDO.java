@@ -29,6 +29,8 @@ public class DccControlledFileNasTransferTaskDO extends BaseDO {
 
     private Long templateCategoryId;
 
+    private Long dccProjectCodeId;
+
     private Long productMasterId;
 
     private LocalDate effectiveDate;

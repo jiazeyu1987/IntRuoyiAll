@@ -58,6 +58,12 @@ def test_form_template_upgrade_bpm_seed_wires_process_and_business_policy() -> N
     )
     assert "COALESCE(`policy`.`effect_executor_code`, '') <> 'FORM_TEMPLATE_UPGRADE'" in sql
     assert "COALESCE(`policy`.`process_definition_key`, '') <> 'form-template-upgrade-v1'" in sql
+    assert "UPDATE `bpm_business_approval_policy` AS `policy`" in sql
+    assert "SET `policy`.`policy_mode` = 'BPM_REQUIRED'" not in sql
+    assert "COALESCE(`policy`.`policy_mode`, '') <> 'BPM_REQUIRED'" not in sql
+    assert "`policy`.`policy_mode` = 'BPM_REQUIRED'" in sql
+    assert "WHEN `policy`.`policy_mode` = 'BPM_REQUIRED' THEN 'form-template-upgrade-v1'" in sql
+    assert "`policy`.`effect_executor_code` = 'FORM_TEMPLATE_UPGRADE'" in sql
 
 
 def test_form_template_upgrade_bpm_seed_is_tenant_scoped_and_non_destructive() -> None:

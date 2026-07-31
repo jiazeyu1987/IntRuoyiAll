@@ -19,8 +19,6 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.directory.DccFileDirectoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileRecognitionRecordMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
-import cn.iocoder.yudao.module.mdm.api.product.MdmProductApi;
-import cn.iocoder.yudao.module.mdm.api.product.dto.MdmProductRespDTO;
 import cn.iocoder.yudao.module.system.api.permission.PermissionApi;
 import jakarta.annotation.Resource;
 import org.apache.poi.ss.usermodel.Cell;
@@ -75,8 +73,6 @@ public class DccControlledFileMetadataImportExportServiceImpl implements DccCont
     private DccFileDirectoryMapper directoryMapper;
     @Resource
     private DccProjectCodeMapper projectCodeMapper;
-    @Resource
-    private MdmProductApi productApi;
     @Resource
     private DccControlledFileMetadataUpdateService metadataUpdateService;
     @Resource
@@ -212,7 +208,6 @@ public class DccControlledFileMetadataImportExportServiceImpl implements DccCont
         Map<Long, DccControlledFileDO> fileById = buildFileMapForRecords(records, browserCandidates);
         Map<Long, String> directoryPathById = buildDirectoryPathById();
         Map<Long, DccProjectCodeDO> projectCodeById = buildProjectCodeById(records);
-        Map<Long, MdmProductRespDTO> productById = buildProductById(fileById.values());
         return records.stream()
                 .filter(record -> fileById.containsKey(record.getControlledFileId()))
                 .map(record -> {
@@ -221,25 +216,9 @@ public class DccControlledFileMetadataImportExportServiceImpl implements DccCont
                             file,
                             directoryPathById.get(file.getDirectoryId()),
                             record,
-                            projectCodeById.get(record.getMatchedProjectCodeId()),
-                            productById.get(file.getProductMasterId()));
+                            projectCodeById.get(record.getMatchedProjectCodeId()));
                 })
                 .toList();
-    }
-
-    private Map<Long, MdmProductRespDTO> buildProductById(Iterable<DccControlledFileDO> files) {
-        Map<Long, MdmProductRespDTO> productById = new HashMap<>();
-        for (DccControlledFileDO file : files) {
-            Long productMasterId = file.getProductMasterId();
-            if (productMasterId == null || productById.containsKey(productMasterId)) {
-                continue;
-            }
-            MdmProductRespDTO product = productApi.getProduct(productMasterId);
-            if (product != null) {
-                productById.put(productMasterId, product);
-            }
-        }
-        return productById;
     }
 
     private Map<Long, DccControlledFileDO> buildFileMapForRecords(List<DccControlledFileRecognitionRecordDO> records,
@@ -383,41 +362,36 @@ public class DccControlledFileMetadataImportExportServiceImpl implements DccCont
         String fileName = StrUtil.trim(draft.fileName());
         String fileNumber = StrUtil.trim(draft.fileNumber());
         if (StrUtil.isBlank(directoryPath)) {
-            return blockedMigrationRow(draft, null, null, "目录路径不能为空");
+            return blockedMigrationRow(draft, null, "目录路径不能为空");
         }
         if (StrUtil.isBlank(fileName)) {
-            return blockedMigrationRow(draft, null, null, "文件名称不能为空");
+            return blockedMigrationRow(draft, null, "文件名称不能为空");
         }
         DccFileDirectoryDO directory = findDirectoryByPath(directoryPath);
         if (directory == null) {
-            return blockedMigrationRow(draft, null, null, "正式服目录不存在: " + directoryPath);
+            return blockedMigrationRow(draft, null, "正式服目录不存在: " + directoryPath);
         }
         List<DccControlledFileDO> matchedFiles = findMigrationTargetFiles(directory.getId(), fileName, fileNumber);
         if (matchedFiles.isEmpty()) {
-            return blockedMigrationRow(draft, null, null, "正式服文件不存在");
+            return blockedMigrationRow(draft, null, "正式服文件不存在");
         }
         if (matchedFiles.size() > 1) {
-            return blockedMigrationRow(draft, null, null, "正式服文件匹配到多条");
+            return blockedMigrationRow(draft, null, "正式服文件匹配到多条");
         }
         DccControlledFileDO targetFile = matchedFiles.get(0);
         if (!isRecognitionSuccess(draft.recognitionStatus())) {
-            return blockedMigrationRow(draft, targetFile, null,
+            return blockedMigrationRow(draft, targetFile,
                     "测试服识别失败: " + StrUtil.blankToDefault(StrUtil.trim(draft.failureMessage()), "未提供失败原因"));
-        }
-        ProductResolution productResolution = resolveMigrationProduct(draft);
-        MdmProductRespDTO product = productResolution.product();
-        if (product == null) {
-            return blockedMigrationRow(draft, targetFile, null, productResolution.failureReason());
         }
         DccProjectCodeDO projectCode = resolveMigrationProjectCode(draft);
         if (projectCode == null) {
-            return blockedMigrationRow(draft, targetFile, product, "正式服项目编码不存在: "
+            return blockedMigrationRow(draft, targetFile, "正式服项目编码不存在: "
                     + StrUtil.blankToDefault(StrUtil.trim(draft.projectName()), "-") + "/"
                     + StrUtil.blankToDefault(StrUtil.trim(draft.projectCode()), "-"));
         }
         if (applyUpdate) {
             metadataUpdateService.updateMetadata(userId, targetFile.getId(),
-                    buildMigrationUpdateReq(targetFile, draft, product, projectCode));
+                    buildMigrationUpdateReq(targetFile, draft, projectCode));
         }
         return DccControlledFileRecognitionMigrationImportRowRespVO.builder()
                 .rowNo(draft.rowNo())
@@ -430,9 +404,9 @@ public class DccControlledFileMetadataImportExportServiceImpl implements DccCont
                 .targetFileNumber(targetFile.getFileNumber())
                 .recognitionStatus(StrUtil.trim(draft.recognitionStatus()))
                 .importAction(ACTION_APPLICABLE)
-                .productName(product.getNameCn())
-                .productCode(product.getDccProductCode())
-                .productMasterId(product.getId())
+                .productName(projectCode.getProjectName())
+                .productCode(projectCode.getProjectCode())
+                .productMasterId(null)
                 .projectName(projectCode.getProjectName())
                 .projectCode(projectCode.getProjectCode())
                 .dccProjectCodeId(projectCode.getId())
@@ -445,7 +419,7 @@ public class DccControlledFileMetadataImportExportServiceImpl implements DccCont
     }
 
     private DccControlledFileRecognitionMigrationImportRowRespVO blockedMigrationRow(
-            RecognitionMigrationRowDraft draft, DccControlledFileDO targetFile, MdmProductRespDTO product, String reason) {
+            RecognitionMigrationRowDraft draft, DccControlledFileDO targetFile, String reason) {
         return DccControlledFileRecognitionMigrationImportRowRespVO.builder()
                 .rowNo(draft.rowNo())
                 .directoryPath(normalizePath(draft.directoryPath()))
@@ -458,9 +432,9 @@ public class DccControlledFileMetadataImportExportServiceImpl implements DccCont
                 .recognitionStatus(StrUtil.trim(draft.recognitionStatus()))
                 .importAction(ACTION_BLOCKED)
                 .failureReason(reason)
-                .productName(product == null ? StrUtil.trim(draft.productName()) : product.getNameCn())
-                .productCode(product == null ? StrUtil.trim(draft.productCode()) : product.getDccProductCode())
-                .productMasterId(product == null ? null : product.getId())
+                .productName(StrUtil.trim(draft.productName()))
+                .productCode(StrUtil.trim(draft.productCode()))
+                .productMasterId(null)
                 .projectName(StrUtil.trim(draft.projectName()))
                 .projectCode(StrUtil.trim(draft.projectCode()))
                 .fileTypeLevel1(StrUtil.trimToNull(draft.fileTypeLevel1()))
@@ -513,9 +487,9 @@ public class DccControlledFileMetadataImportExportServiceImpl implements DccCont
     private DccControlledFileMetadataUpdateReqVO buildUpdateReq(DccControlledFileDO file, String fileName,
                                                                 String fileNumber) {
         DccControlledFileMetadataUpdateReqVO reqVO = new DccControlledFileMetadataUpdateReqVO();
-        reqVO.setProductMasterId(file.getProductMasterId());
-        reqVO.setProductCode(file.getProductCode());
-        reqVO.setProductName(file.getProductName());
+        reqVO.setProductMasterId(null);
+        reqVO.setProductCode(null);
+        reqVO.setProductName(null);
         reqVO.setDccProjectCodeId(file.getDccProjectCodeId());
         reqVO.setNeedTraining(file.getNeedTraining());
         reqVO.setFileTypeLevel1(file.getFileTypeLevel1());
@@ -532,12 +506,11 @@ public class DccControlledFileMetadataImportExportServiceImpl implements DccCont
 
     private DccControlledFileMetadataUpdateReqVO buildMigrationUpdateReq(DccControlledFileDO file,
                                                                          RecognitionMigrationRowDraft draft,
-                                                                         MdmProductRespDTO product,
                                                                          DccProjectCodeDO projectCode) {
         DccControlledFileMetadataUpdateReqVO reqVO = new DccControlledFileMetadataUpdateReqVO();
-        reqVO.setProductMasterId(product.getId());
-        reqVO.setProductCode(product.getDccProductCode());
-        reqVO.setProductName(product.getNameCn());
+        reqVO.setProductMasterId(null);
+        reqVO.setProductCode(projectCode.getProjectCode());
+        reqVO.setProductName(projectCode.getProjectName());
         reqVO.setDccProjectCodeId(projectCode.getId());
         reqVO.setNeedTraining(file.getNeedTraining());
         reqVO.setFileTypeLevel1(StrUtil.trimToNull(draft.fileTypeLevel1()));
@@ -772,22 +745,6 @@ public class DccControlledFileMetadataImportExportServiceImpl implements DccCont
         return controlledFileMapper.selectList(query);
     }
 
-    private ProductResolution resolveMigrationProduct(RecognitionMigrationRowDraft draft) {
-        String productCode = StrUtil.trimToNull(draft.productCode());
-        if (productCode == null) {
-            return new ProductResolution(null, "迁移包产品编码不能为空");
-        }
-        try {
-            MdmProductRespDTO product = productApi.getEnabledDccProductByDccProductCode(productCode);
-            if (product == null || product.getId() == null) {
-                return new ProductResolution(null, "正式服产品不存在或不可用: " + productCode);
-            }
-            return new ProductResolution(product, null);
-        } catch (IllegalStateException ex) {
-            return new ProductResolution(null, "正式服产品校验失败: " + ex.getMessage());
-        }
-    }
-
     private DccProjectCodeDO resolveMigrationProjectCode(RecognitionMigrationRowDraft draft) {
         String projectName = StrUtil.trimToNull(draft.projectName());
         String projectCode = StrUtil.trimToNull(draft.projectCode());
@@ -946,9 +903,6 @@ public class DccControlledFileMetadataImportExportServiceImpl implements DccCont
     }
 
     private record ImportRowDraft(int rowNo, Long controlledFileId, String fileName, String fileNumber) {
-    }
-
-    private record ProductResolution(MdmProductRespDTO product, String failureReason) {
     }
 
     private record RecognitionMigrationRowDraft(

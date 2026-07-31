@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS `bpm_business_approval_policy` (
   `policy_mode` varchar(32) NOT NULL COMMENT 'BPM_REQUIRED, SIGNATURE_REQUIRED or DIRECT',
   `process_definition_key` varchar(128) DEFAULT NULL COMMENT 'BPM process definition key',
   `effect_executor_code` varchar(128) NOT NULL COMMENT 'domain effect executor code',
+  `form_policy_type` varchar(32) DEFAULT NULL COMMENT 'form policy type when the action needs form slots',
+  `form_slots_json` longtext DEFAULT NULL COMMENT 'form policy slots json',
   `status` varchar(32) NOT NULL COMMENT 'DRAFT or PUBLISHED or DISABLED',
   `remark` varchar(500) DEFAULT NULL COMMENT 'remark',
   `published_match_key` varchar(512) GENERATED ALWAYS AS (

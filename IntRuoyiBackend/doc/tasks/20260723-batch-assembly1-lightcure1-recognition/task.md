@@ -25,7 +25,7 @@
 
 ## Current Status
 
-blocked
+completed
 
 ## 经验门禁
 
@@ -68,3 +68,9 @@ blocked
 - 2026-07-23：用户要求融合进 `int_main`；预检确认目标提交 `95cd191e3d` 的合并树无已提交历史冲突，但主后端工作区 `D:\ProjectPackage\Int\IntRuoyi\ruoyi-vue-pro` 存在同文件未提交改动，重叠文件为 `yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProBatchRecordExecutionServiceImpl.java`。按 `docs/worktree-memory.md` 主工作区脏改同文件重叠门禁，当前暂停融合，未执行 merge/stash/覆盖。
 
 - 2026-07-23：按用户指令先提交主线阻塞改动，再融合；主线阻塞改动已提交为 `a8e5ea61fa`，`codex/20260723_batch` 已通过合并提交 `226813a203` 融入后端 `int_main`。合并后验证 `mvn -pl yudao-module-mes -am "-DskipTests" compile` 失败，失败点来自主工作区既有 eDHR 审批适配器/VO/DO 编译不一致，非本次压力泵识别合并文件；因此不执行 worktree 清理，任务状态保持阻塞。
+
+- 2026-07-23：用户要求修复融合后验证问题；当前 `int_main` 合并结果中 `MesProBatchRecordParsedCell` 保留了重复的 `reviewedCellRule` / `cellRuleSource` 字段定义，已删除末尾重复定义，仅保留前置正式字段定义。
+
+- 2026-07-23：融合结果验证恢复：新增 `MesProBatchRecordParsedCellTest` 覆盖审计字段唯一性与 builder 契约，`mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordParsedCellTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` PASS，1 test；`mvn -pl yudao-module-mes -am "-DskipTests" compile` PASS；`mvn -pl yudao-module-mes -am "-Dtest=MesProBatchRecordPressurePumpCellDiffReportTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` PASS，1 test，0 failures，0 errors，0 skipped。首次目标测试运行在 `yudao-module-bpm` 编译阶段失败于 `target\generated-sources\annotations\cn\iocoder\yudao\module\bpm\convert\task` 缺失，未修改源码后复跑通过。
+
+- 2026-07-23：收尾完成：主后端工作区 `task-closeout-cleanup` preview/apply 均 PASS，删除临时差异报告并保留 `task.md`、`execution-log.md`；确认 `82406c7820` 已是 `int_main` 当前 HEAD 祖先，`20260723_batch` linked worktree 已无未提交改动，删除临时截图导出产物后执行 `git worktree remove D:\ProjectPackage\Int\IntRuoyiWorktrees\20260723_batch\m` PASS；`git worktree list` 已不再包含 `20260723_batch`。经验沉淀门禁已复核，命中 `docs/worktree-memory.md` 既有 worktree closeout / dirty main / cleanup preview 门禁，无需新增长期经验文档。

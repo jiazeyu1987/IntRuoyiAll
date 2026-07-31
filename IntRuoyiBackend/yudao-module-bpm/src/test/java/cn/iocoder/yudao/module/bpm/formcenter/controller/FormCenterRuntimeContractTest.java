@@ -44,6 +44,13 @@ class FormCenterRuntimeContractTest {
         assertEquals("@ss.hasPermission('form:template:query')",
                 templatePool.getAnnotation(PreAuthorize.class).value());
 
+        Method templateVersion = FormCenterController.class.getDeclaredMethod("getTemplateVersion",
+                Long.class, String.class);
+        assertArrayEquals(new String[]{"/templates/{templateId}/versions/{versionNo}"},
+                templateVersion.getAnnotation(GetMapping.class).value());
+        assertEquals("@ss.hasPermission('form:template:query')",
+                templateVersion.getAnnotation(PreAuthorize.class).value());
+
         Method importDoc = FormCenterController.class.getDeclaredMethod("importDoc", FormCenterTemplateImportReqVO.class);
         assertArrayEquals(new String[]{"/templates/import-doc"}, importDoc.getAnnotation(PostMapping.class).value());
         assertEquals("@ss.hasPermission('form:template:create')",
@@ -235,10 +242,11 @@ class FormCenterRuntimeContractTest {
         assertArrayEquals(new Class[]{FormCenterException.class}, handler.getAnnotation(ExceptionHandler.class).value());
 
         CommonResult<?> result = new FormCenterExceptionAdvice().handleFormCenterException(new FormCenterException(
-                FormCenterErrorCode.FORM_POLICY_NOT_FOUND, "No published form policy matched action REPLAN"));
+                FormCenterErrorCode.FORM_POLICY_NOT_FOUND,
+                "No published business approval policy matched action REPLAN"));
 
         assertEquals(FormCenterErrorCode.FORM_POLICY_NOT_FOUND.getCode(), result.getCode());
-        assertEquals("No published form policy matched action REPLAN", result.getMsg());
+        assertEquals("No published business approval policy matched action REPLAN", result.getMsg());
     }
 
     @Test

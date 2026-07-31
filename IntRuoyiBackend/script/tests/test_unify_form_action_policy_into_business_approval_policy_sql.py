@@ -24,7 +24,8 @@ def test_unified_policy_migration_declares_release_metadata_and_fail_fast_guards
     assert "Unified policy migration requires bpm_form_action_policy" in sql
     assert "Unified policy migration requires bpm_business_approval_policy" in sql
     assert "Unified policy migration requires bpm_form_action_instance" in sql
-    assert "Cannot migrate form action policy with form slots into business approval policy" in sql
+    assert "ADD COLUMN `form_policy_type`" in sql
+    assert "ADD COLUMN `form_slots_json`" in sql
     assert "Unsupported form action approval mode for unified business approval policy" in sql
     assert "BPM_REQUIRED form action policy requires bpm_process_key before unified migration" in sql
     assert "Form action policy requires effect_executor_code before unified migration" in sql
@@ -39,7 +40,8 @@ def test_unified_policy_migration_copies_policy_rows_to_business_approval_table(
         r"`form_policy`.`data_domain`[\s\S]+`form_policy`.`system_code`[\s\S]+"
         r"`form_policy`.`object_type`[\s\S]+`form_policy`.`action_code`[\s\S]+"
         r"`form_policy`.`object_state`[\s\S]+`form_policy`.`approval_mode`[\s\S]+"
-        r"`form_policy`.`bpm_process_key`[\s\S]+`form_policy`.`effect_executor_code`",
+        r"`form_policy`.`bpm_process_key`[\s\S]+`form_policy`.`effect_executor_code`[\s\S]+"
+        r"`form_policy`.`policy_type`[\s\S]+`form_policy`.`slots_json`",
         sql,
         re.I,
     )

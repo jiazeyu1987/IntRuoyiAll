@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import heapq
 import json
-from collections import defaultdict, deque
+from collections import defaultdict
 from pathlib import Path
 
 
@@ -45,19 +46,20 @@ def _order_migrations_by_dependencies(migrations: list[dict[str, object]]) -> li
             edges[dependency_id].append(migration_id)
             indegree[migration_id] += 1
 
-    ready = deque(
-        migration_id
+    ready = [
+        (original_index[migration_id], migration_id)
         for migration_id, degree in sorted(indegree.items(), key=lambda item: original_index[item[0]])
         if degree == 0
-    )
+    ]
+    heapq.heapify(ready)
     ordered_ids: list[str] = []
     while ready:
-        migration_id = ready.popleft()
+        _, migration_id = heapq.heappop(ready)
         ordered_ids.append(migration_id)
         for child_id in sorted(edges.get(migration_id, []), key=lambda item: original_index[item]):
             indegree[child_id] -= 1
             if indegree[child_id] == 0:
-                ready.append(child_id)
+                heapq.heappush(ready, (original_index[child_id], child_id))
 
     if len(ordered_ids) != len(migrations):
         return migrations

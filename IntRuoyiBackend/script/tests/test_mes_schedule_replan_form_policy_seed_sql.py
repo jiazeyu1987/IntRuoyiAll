@@ -31,7 +31,8 @@ def test_mes_schedule_replan_approval_retire_declares_release_metadata_and_fail_
     assert "SET NAMES utf8mb4;" in sql
     assert "ensure_mes_schedule_replan_approval_retired" in sql
     assert "SIGNAL SQLSTATE '45000'" in sql
-    assert "bpm_form_action_policy" in sql
+    assert "bpm_business_approval_policy" in sql
+    assert "bpm_form_action_policy" not in sql
 
     upper_sql = sql.upper()
     assert "DROP TABLE" not in upper_sql
@@ -47,7 +48,7 @@ def test_mes_schedule_replan_approval_retire_disables_published_policy_without_d
     assert "'REPLAN'" in sql
     assert "'READY'" in sql
     assert "'MES_SCHEDULE_REPLAN'" in sql
-    assert "`status` = 'RETIRED'" in sql
+    assert "`status` = 'DISABLED'" in sql
     assert "`status` = 'PUBLISHED'" in sql
     assert "Manual replan is not approval-backed" in sql
 

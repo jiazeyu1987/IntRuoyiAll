@@ -38,6 +38,7 @@ class FormActionPolicyResolveServiceTest {
                 () -> service.resolve(baseContext().build()));
 
         assertEquals(FormCenterErrorCode.FORM_POLICY_NOT_FOUND, ex.getErrorCode());
+        assertTrue(ex.getMessage().contains("No published business approval policy matched action UPLOAD"));
     }
 
     @Test
@@ -66,6 +67,23 @@ class FormActionPolicyResolveServiceTest {
         assertFalse(resolution.requiresForm());
         assertTrue(resolution.requiresBpm());
         assertEquals("mes-edhr-approval-v1", resolution.getBpmProcessKey());
+    }
+
+    @Test
+    void resolveMatchesAllObjectStatePolicyForConcreteContextState() {
+        FormActionPolicyResolveService service = new FormActionPolicyResolveService(List.of(
+                basePolicy()
+                        .objectState("ALL")
+                        .policyType(FormPolicyType.NONE)
+                        .bpmProcessKey("dcc-controlled-file-approval")
+                        .slots(List.of())
+                        .build()));
+
+        FormActionResolution resolution = service.resolve(baseContext().objectState("ACTIVE").build());
+
+        assertEquals(FormPolicyType.NONE, resolution.getPolicyType());
+        assertTrue(resolution.requiresBpm());
+        assertEquals("dcc-controlled-file-approval", resolution.getBpmProcessKey());
     }
 
     @Test

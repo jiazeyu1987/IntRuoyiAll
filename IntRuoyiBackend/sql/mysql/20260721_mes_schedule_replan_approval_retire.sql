@@ -10,15 +10,15 @@ BEGIN
     SELECT 1
     FROM information_schema.tables
     WHERE table_schema = DATABASE()
-      AND table_name = 'bpm_form_action_policy'
+      AND table_name = 'bpm_business_approval_policy'
   ) THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'MES schedule replan approval retirement requires bpm_form_action_policy';
+      SET MESSAGE_TEXT = 'MES schedule replan approval retirement requires bpm_business_approval_policy';
   END IF;
 
-  UPDATE `bpm_form_action_policy`
+  UPDATE `bpm_business_approval_policy`
   SET
-    `status` = 'RETIRED',
+    `status` = 'DISABLED',
     `remark` = 'Manual replan is not approval-backed',
     `updater` = '1',
     `update_time` = NOW()
@@ -33,7 +33,7 @@ BEGIN
 
   IF EXISTS (
     SELECT 1
-    FROM `bpm_form_action_policy`
+    FROM `bpm_business_approval_policy`
     WHERE `system_code` = 'MES'
       AND `data_domain` = 'MES'
       AND `object_type` = 'SCHEDULE_REPLAN_SCOPE'

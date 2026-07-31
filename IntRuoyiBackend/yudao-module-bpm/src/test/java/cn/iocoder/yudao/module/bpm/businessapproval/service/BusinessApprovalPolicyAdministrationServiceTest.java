@@ -98,6 +98,19 @@ class BusinessApprovalPolicyAdministrationServiceTest extends BaseDbUnitTest {
     }
 
     @Test
+    void publishFormTemplateUpgradeDirectPolicyRespectsConfiguredDirectMode() {
+        BusinessApprovalPolicyRespVO respVO = policyService.savePolicy(
+                formTemplateUpgradeReq(BusinessApprovalPolicyMode.DIRECT));
+
+        policyService.publishPolicy(respVO.getId());
+
+        BusinessApprovalPolicyDO policyDO = policyMapper.selectById(respVO.getId());
+        assertEquals(BusinessApprovalPolicy.STATUS_PUBLISHED, policyDO.getStatus());
+        assertEquals(BusinessApprovalPolicyMode.DIRECT.name(), policyDO.getPolicyMode());
+        assertEquals(null, policyDO.getProcessDefinitionKey());
+    }
+
+    @Test
     void publishSignatureRequiredPolicyDoesNotRequireProcessDefinitionKey() {
         BusinessApprovalPolicyRespVO respVO = policyService.savePolicy(signatureRequiredReq());
 
@@ -192,6 +205,42 @@ class BusinessApprovalPolicyAdministrationServiceTest extends BaseDbUnitTest {
                 resolveService.resolve(BusinessApprovalPolicyResolveServiceTest.baseContext().build());
         assertEquals(BusinessApprovalPolicyMode.DIRECT, resolution.getMode());
         verifyPolicySwitchSignatureRecorded(newPolicy, BusinessApprovalPolicyMode.DIRECT);
+    }
+
+    @Test
+    void switchPublishedFormTemplateUpgradeBpmPolicyToDirectPublishesDirectPolicy() {
+        BusinessApprovalPolicyRespVO published = policyService.savePolicy(
+                formTemplateUpgradeReq(BusinessApprovalPolicyMode.BPM_REQUIRED));
+        policyService.publishPolicy(published.getId());
+
+        BusinessApprovalPolicyRespVO switched = policyService.switchPolicyMode(100L, published.getId(),
+                switchModeReq(BusinessApprovalPolicyMode.DIRECT));
+
+        BusinessApprovalPolicyDO oldPolicy = policyMapper.selectById(published.getId());
+        BusinessApprovalPolicyDO newPolicy = policyMapper.selectById(switched.getId());
+        assertEquals(BusinessApprovalPolicy.STATUS_DISABLED, oldPolicy.getStatus());
+        assertEquals(BusinessApprovalPolicy.STATUS_PUBLISHED, newPolicy.getStatus());
+        assertEquals(BusinessApprovalPolicyMode.DIRECT.name(), newPolicy.getPolicyMode());
+        assertEquals("form-template-upgrade-v1", newPolicy.getProcessDefinitionKey());
+        verifyPolicySwitchSignatureRecorded(newPolicy, BusinessApprovalPolicyMode.DIRECT);
+    }
+
+    @Test
+    void switchPublishedFormTemplateUpgradeDirectPolicyToBpmUsesExecutorProcessDefinitionKey() {
+        BusinessApprovalPolicyRespVO direct = policyService.savePolicy(
+                formTemplateUpgradeReq(BusinessApprovalPolicyMode.DIRECT));
+        policyService.publishPolicy(direct.getId());
+
+        BusinessApprovalPolicyRespVO switched = policyService.switchPolicyMode(100L, direct.getId(),
+                switchModeReq(BusinessApprovalPolicyMode.BPM_REQUIRED));
+
+        BusinessApprovalPolicyDO oldPolicy = policyMapper.selectById(direct.getId());
+        BusinessApprovalPolicyDO newPolicy = policyMapper.selectById(switched.getId());
+        assertEquals(BusinessApprovalPolicy.STATUS_DISABLED, oldPolicy.getStatus());
+        assertEquals(BusinessApprovalPolicy.STATUS_PUBLISHED, newPolicy.getStatus());
+        assertEquals(BusinessApprovalPolicyMode.BPM_REQUIRED.name(), newPolicy.getPolicyMode());
+        assertEquals("form-template-upgrade-v1", newPolicy.getProcessDefinitionKey());
+        verifyPolicySwitchSignatureRecorded(newPolicy, BusinessApprovalPolicyMode.BPM_REQUIRED);
     }
 
     @Test
@@ -306,7 +355,8 @@ class BusinessApprovalPolicyAdministrationServiceTest extends BaseDbUnitTest {
         assertEquals(ApprovalModuleCode.BPM, context.getModuleCode());
         assertEquals("BUSINESS_APPROVAL_POLICY_SWITCH", context.getSourceTaskType());
         assertEquals(String.valueOf(newPolicy.getId()), context.getSourceTaskId());
-        assertEquals("MES:ROUTE_VERSION:PUBLISH:READY_TO_PUBLISH", context.getBusinessKey());
+        assertEquals(newPolicy.getSystemCode() + ":" + newPolicy.getObjectType() + ":"
+                + newPolicy.getActionCode() + ":" + newPolicy.getObjectState(), context.getBusinessKey());
         assertEquals(null, context.getProcessInstanceId());
         assertEquals(ApprovalTaskReviewResult.APPROVE, context.getResult());
         assertEquals(targetMode.name(), context.getReason());
@@ -332,6 +382,21 @@ class BusinessApprovalPolicyAdministrationServiceTest extends BaseDbUnitTest {
         BusinessApprovalPolicySaveReqVO reqVO = baseReq();
         reqVO.setPolicyMode(BusinessApprovalPolicyMode.SIGNATURE_REQUIRED.name());
         reqVO.setProcessDefinitionKey(null);
+        return reqVO;
+    }
+
+    private BusinessApprovalPolicySaveReqVO formTemplateUpgradeReq(BusinessApprovalPolicyMode mode) {
+        BusinessApprovalPolicySaveReqVO reqVO = new BusinessApprovalPolicySaveReqVO();
+        reqVO.setDataDomain("FORM_CENTER");
+        reqVO.setSystemCode("FORM_CENTER");
+        reqVO.setObjectType("FORM_TEMPLATE");
+        reqVO.setActionCode("UPGRADE");
+        reqVO.setObjectState("DRAFT");
+        reqVO.setPolicyMode(mode.name());
+        reqVO.setProcessDefinitionKey(
+                mode == BusinessApprovalPolicyMode.BPM_REQUIRED ? "form-template-upgrade-v1" : null);
+        reqVO.setEffectExecutorCode("FORM_TEMPLATE_UPGRADE");
+        reqVO.setRemark("form template upgrade");
         return reqVO;
     }
 
@@ -366,6 +431,8 @@ class BusinessApprovalPolicyAdministrationServiceTest extends BaseDbUnitTest {
         BusinessApprovalEffectExecutorRegistry businessApprovalEffectExecutorRegistry() {
             return new BusinessApprovalEffectExecutorRegistry(List.of(
                     new RecordingExecutor("MES_ROUTE_VERSION_PUBLISH", "mes-route-version-approval-v1"),
+                    new RecordingExecutor("FORM_TEMPLATE_UPGRADE", "form-template-upgrade-v1"),
+                    new RecordingExecutor("FORM_TEMPLATE_OBSOLETE", "form-template-obsolete-v1"),
                     new RecordingExecutor("UNCONFIGURED_EXECUTOR")));
         }
 

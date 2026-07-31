@@ -42,7 +42,9 @@
     "archiveImage": "alpine:3.20"
   },
   "backup": {
+    "frequency": "DAILY",
     "schedule": "01:30",
+    "weekday": "MON",
     "localWorkspaceRoot": "D:\\IntRuoyi-BackupOps\\tmp",
     "keepDaysRemote": 30,
     "keepLastPoints": 5,

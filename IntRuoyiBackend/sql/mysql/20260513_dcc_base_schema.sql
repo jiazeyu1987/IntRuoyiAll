@@ -597,6 +597,7 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file_nas_transfer_task` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `operator_user_id` bigint NOT NULL,
   `template_category_id` bigint NOT NULL,
+  `dcc_project_code_id` bigint DEFAULT NULL COMMENT 'DCC project code selected for DCC submit',
   `product_master_id` bigint DEFAULT NULL COMMENT 'MDM product selected for DCC submit',
   `effective_date` date NOT NULL,
   `selected_nas_paths_json` longtext NOT NULL,

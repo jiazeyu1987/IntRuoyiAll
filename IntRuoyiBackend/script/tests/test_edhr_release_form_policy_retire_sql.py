@@ -32,8 +32,9 @@ def test_edhr_release_form_policy_retire_declares_metadata_and_fail_fast_guards(
     assert "SET NAMES utf8mb4;" in sql
     assert "ensure_edhr_release_form_policy_retired" in sql
     assert "SIGNAL SQLSTATE '45000'" in sql
-    assert "bpm_form_action_policy" in sql
-    assert "EDHR release policy retirement requires bpm_form_action_policy" in sql
+    assert "bpm_business_approval_policy" in sql
+    assert "EDHR release policy retirement requires bpm_business_approval_policy" in sql
+    assert "bpm_form_action_policy" not in sql
 
 
 def test_edhr_release_form_policy_retire_disables_published_release_policy_without_deleting_history() -> None:
@@ -44,10 +45,10 @@ def test_edhr_release_form_policy_retire_disables_published_release_policy_witho
     assert "'RELEASE'" in sql
     assert "'PRECHECK_PASSED'" in sql
     assert "'EDHR_RELEASE'" in sql
-    assert "`status` = 'RETIRED'" in sql
+    assert "`status` = 'DISABLED'" in sql
     assert "`status` = 'PUBLISHED'" in sql
     assert "owner electronic signature submit" in sql
-    assert "EDHR release must not keep a published form-center approval policy" in sql
+    assert "EDHR release must not keep a published business approval policy" in sql
 
 
 def test_edhr_release_form_policy_retire_is_idempotent_and_non_destructive() -> None:

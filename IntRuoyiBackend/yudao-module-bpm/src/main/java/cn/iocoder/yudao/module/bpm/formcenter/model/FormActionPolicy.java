@@ -8,6 +8,7 @@ import java.util.Objects;
 public class FormActionPolicy {
 
     public static final String STATUS_PUBLISHED = "PUBLISHED";
+    public static final String OBJECT_STATE_ALL = "ALL";
 
     private final Long policyId;
     private final Long tenantId;
@@ -67,7 +68,7 @@ public class FormActionPolicy {
                 && Objects.equals(systemCode, context.getSystemCode())
                 && Objects.equals(objectType, context.getObjectType())
                 && Objects.equals(actionCode, context.getActionCode())
-                && Objects.equals(objectState, context.getObjectState())
+                && (Objects.equals(objectState, context.getObjectState()) || OBJECT_STATE_ALL.equals(objectState))
                 && STATUS_PUBLISHED.equals(status);
     }
 

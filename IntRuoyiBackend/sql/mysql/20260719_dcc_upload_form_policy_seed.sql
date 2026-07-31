@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260717_bpm_form_center; type=data; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260719_business_approval_policy; type=data; riskLevel=medium
 SET NAMES utf8mb4;
 
 DROP PROCEDURE IF EXISTS ensure_dcc_upload_form_policy;
@@ -10,10 +10,10 @@ BEGIN
     SELECT 1
     FROM information_schema.tables
     WHERE table_schema = DATABASE()
-      AND table_name = 'bpm_form_action_policy'
+      AND table_name = 'bpm_business_approval_policy'
   ) THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'DCC upload form policy requires bpm_form_action_policy';
+      SET MESSAGE_TEXT = 'DCC upload form policy requires bpm_business_approval_policy';
   END IF;
 
   IF NOT EXISTS (
@@ -78,7 +78,7 @@ BEGIN
 
   IF EXISTS (
     SELECT 1
-    FROM `bpm_form_action_policy` AS `policy`
+    FROM `bpm_business_approval_policy` AS `policy`
     WHERE `policy`.`deleted` = b'0'
       AND `policy`.`data_domain` = 'DCC'
       AND `policy`.`system_code` = 'DCC'
@@ -87,28 +87,30 @@ BEGIN
       AND `policy`.`object_state` = 'DRAFT'
       AND `policy`.`status` = 'PUBLISHED'
       AND (
-        COALESCE(`policy`.`bpm_process_key`, '') <> 'dcc-controlled-file-approval'
+        COALESCE(`policy`.`policy_mode`, '') <> 'BPM_REQUIRED'
+        OR COALESCE(`policy`.`process_definition_key`, '') <> 'dcc-controlled-file-approval'
         OR COALESCE(`policy`.`effect_executor_code`, '') <> 'DCC_UPLOAD'
-        OR COALESCE(`policy`.`policy_type`, '') <> 'NONE'
-        OR COALESCE(`policy`.`slots_json`, '[]') <> '[]'
+        OR COALESCE(`policy`.`form_policy_type`, '') <> 'NONE'
+        OR COALESCE(`policy`.`form_slots_json`, '[]') <> '[]'
       )
   ) THEN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'DCC upload form policy conflict';
   END IF;
 
-  INSERT INTO `bpm_form_action_policy` (
+  INSERT INTO `bpm_business_approval_policy` (
     `tenant_id`,
     `data_domain`,
     `system_code`,
     `object_type`,
     `action_code`,
     `object_state`,
-    `policy_type`,
-    `bpm_process_key`,
+    `policy_mode`,
+    `process_definition_key`,
     `effect_executor_code`,
+    `form_policy_type`,
+    `form_slots_json`,
     `status`,
-    `slots_json`,
     `remark`,
     `creator`,
     `create_time`,
@@ -123,11 +125,12 @@ BEGIN
     'CONTROLLED_FILE',
     'UPLOAD',
     'DRAFT',
-    'NONE',
+    'BPM_REQUIRED',
     'dcc-controlled-file-approval',
     'DCC_UPLOAD',
-    'PUBLISHED',
+    'NONE',
     '[]',
+    'PUBLISHED',
     'DCC upload approval through form center',
     '1',
     NOW(),
@@ -141,7 +144,7 @@ BEGIN
   ) AS `tenant_scope`
   WHERE NOT EXISTS (
     SELECT 1
-    FROM `bpm_form_action_policy` AS `existing`
+    FROM `bpm_business_approval_policy` AS `existing`
     WHERE `existing`.`deleted` = b'0'
       AND `existing`.`tenant_id` = `tenant_scope`.`tenant_id`
       AND `existing`.`data_domain` = 'DCC'
@@ -154,7 +157,7 @@ BEGIN
 
   IF EXISTS (
     SELECT 1
-    FROM `bpm_form_action_policy`
+    FROM `bpm_business_approval_policy`
     WHERE `deleted` = b'0'
       AND `data_domain` = 'DCC'
       AND `system_code` = 'DCC'

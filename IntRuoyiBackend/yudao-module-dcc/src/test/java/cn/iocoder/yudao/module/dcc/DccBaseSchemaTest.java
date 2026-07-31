@@ -27,6 +27,8 @@ class DccBaseSchemaTest {
             "create_time", "update_time", "creator", "updater", "deleted", "tenant_id");
     private static final Map<String, List<String>> REQUIRED_FOUNDATION_COLUMNS = Map.ofEntries(
             Map.entry("dcc_file_category", List.of("description", "distribution_required", "training_required")),
+            Map.entry("dcc_file_category_match_rule", List.of(
+                    "category_id", "match_text", "match_type", "weight", "active", "remark")),
             Map.entry("dcc_file_type_taxonomy", List.of("parent_id", "level_no", "code", "name", "active", "sort",
                     "remark")),
             Map.entry("dcc_file_category_permission_rule", List.of(
@@ -621,6 +623,24 @@ class DccBaseSchemaTest {
     }
 
     @Test
+    void mysqlSchemaShouldPersistDccProjectCodeForNasTransferTasks() throws Exception {
+        Path projectDir = findProjectDir();
+        Path migrationFile = projectDir.resolve("sql/mysql/20260728_dcc_nas_transfer_project_code.sql");
+        Path baseSchemaFile = projectDir.resolve("sql/mysql/20260513_dcc_base_schema.sql");
+        Path testSchemaFile = projectDir.resolve("yudao-module-dcc/src/test/resources/sql/create_tables.sql");
+
+        assertTrue(Files.exists(migrationFile), "DCC NAS project-code migration must exist");
+        String migrationSchema = Files.readString(migrationFile);
+        assertSchemaIsNonDestructive(migrationSchema, "DCC NAS project-code migration");
+        assertSchemaHasColumns(migrationSchema, "dcc_controlled_file_nas_transfer_task",
+                List.of("dcc_project_code_id"));
+        assertSchemaHasColumns(Files.readString(baseSchemaFile),
+                "dcc_controlled_file_nas_transfer_task", List.of("dcc_project_code_id"));
+        assertSchemaHasColumns(Files.readString(testSchemaFile),
+                "dcc_controlled_file_nas_transfer_task", List.of("dcc_project_code_id"));
+    }
+
+    @Test
     void mysqlSchemaShouldSupportLocalFolderImportUploadProgressFields() throws Exception {
         Path projectDir = findProjectDir();
         Path migrationFile = projectDir.resolve("sql/mysql/20260614_dcc_nas_local_folder_large_import.sql");
@@ -687,6 +707,43 @@ class DccBaseSchemaTest {
         assertSchemaHasColumns(testSchema, "dcc_controlled_file_recognition_record",
                 List.of("controlled_file_id", "recognition_scope", "recognition_version",
                         "status", "batch_task_id"));
+    }
+
+    @Test
+    void mysqlSchemaShouldSupportDccFileCategoryMatchRules() throws Exception {
+        Path projectDir = findProjectDir();
+        Path schemaMigrationFile = projectDir.resolve("sql/mysql/20260731_dcc_file_category_match_rule.sql");
+        Path seedMigrationFile = projectDir.resolve("sql/mysql/20260731_dcc_file_category_match_rule_seed.sql");
+        Path testSchemaFile = projectDir.resolve("yudao-module-dcc/src/test/resources/sql/create_tables.sql");
+
+        assertTrue(Files.exists(schemaMigrationFile), "DCC file category match-rule schema migration must exist");
+        assertTrue(Files.exists(seedMigrationFile), "DCC file category match-rule seed migration must exist");
+
+        String schemaMigration = Files.readString(schemaMigrationFile);
+        String seedMigration = Files.readString(seedMigrationFile);
+        String testSchema = Files.readString(testSchemaFile);
+
+        assertSchemaIsNonDestructive(schemaMigration, "DCC file category match rule");
+        assertSchemaHasColumns(schemaMigration, "dcc_file_category_match_rule",
+                List.of("category_id", "match_text", "match_type", "weight", "active", "remark"));
+        assertTrue(schemaMigration.contains("uk_dcc_file_category_match_rule_unique"),
+                "DCC match-rule table must prevent duplicate active rule rows");
+        assertTrue(schemaMigration.contains("idx_dcc_file_category_match_rule_category"),
+                "DCC match-rule table must index category lookups");
+        assertSchemaIsNonDestructive(seedMigration, "DCC file category match rule seed");
+        assertTrue(seedMigration.contains("DCC_FILE_CATEGORY_MATCH_RULE_SEED_CATEGORY_MISSING"),
+                "DCC match-rule seed must fail fast when required categories are missing");
+        assertTrue(seedMigration.contains("DCC_FILE_CATEGORY_MATCH_RULE_SEED_INSERT_INCOMPLETE"),
+                "DCC match-rule seed must fail fast when rule insertion is incomplete");
+        assertTrue(seedMigration.contains("过程运行确认（OQ）报告"),
+                "DCC match-rule seed must include explicit OQ report rules");
+        assertTrue(seedMigration.contains("sldprt"),
+                "DCC match-rule seed must include SolidWorks part extension rules");
+        assertFalse(Pattern.compile("\\bUPDATE\\s+`?dcc_controlled_file\\b", Pattern.CASE_INSENSITIVE)
+                        .matcher(seedMigration).find(),
+                "DCC match-rule seed must not directly rewrite controlled-file category results");
+        assertSchemaHasColumns(testSchema, "dcc_file_category_match_rule",
+                List.of("category_id", "match_text", "match_type", "weight", "active", "remark"));
     }
 
     @Test

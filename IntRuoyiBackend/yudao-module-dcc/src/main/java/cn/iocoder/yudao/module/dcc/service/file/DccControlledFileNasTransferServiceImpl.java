@@ -21,9 +21,11 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryPermis
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryTrainingRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.directory.DccDirectoryAccessRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.directory.DccFileDirectoryDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasSourceDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileLocalFolderUploadChunkDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasTransferTaskDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasTransferTaskItemDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.route.DccCategoryApprovalRouteNodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccCategoryDirectoryBindingMapper;
@@ -33,18 +35,22 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryPermissionR
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryTrainingRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.directory.DccDirectoryAccessRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.directory.DccFileDirectoryMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasSourceMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileLocalFolderUploadChunkMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasTransferTaskItemMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasTransferTaskMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.route.DccCategoryApprovalRouteNodeMapper;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFileChangeTypeEnum;
 import cn.iocoder.yudao.module.dcc.enums.DccControlledFilePreviewKindEnum;
+import cn.iocoder.yudao.module.dcc.enums.DccProjectCodeStatusConstants;
 import cn.iocoder.yudao.module.dcc.service.permission.DccNasPermissionSnapshotCaptureService;
 import cn.iocoder.yudao.module.infra.controller.admin.file.vo.file.FileNasListRespVO;
 import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.infra.service.file.NasAclReadResult;
 import cn.iocoder.yudao.module.infra.service.file.NasBrowserService;
+import cn.iocoder.yudao.module.infra.service.file.NasSettingsService;
 import cn.iocoder.yudao.module.infra.service.file.NasFileReadResult;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -78,6 +84,11 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
+
+import static cn.iocoder.yudao.framework.common.exception.util.ServiceExceptionUtil.exception;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_DISABLED;
+import static cn.iocoder.yudao.module.dcc.enums.ErrorCodeConstants.PROJECT_CODE_NOT_EXISTS;
 
 @Service
 @Validated
@@ -146,9 +157,15 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
     @Resource
     private DccControlledFileNasTransferTaskItemMapper taskItemMapper;
     @Resource
+    private DccControlledFileNasSourceMapper nasSourceMapper;
+    @Resource
+    private DccProjectCodeMapper projectCodeMapper;
+    @Resource
     private DccControlledFileLocalFolderUploadChunkMapper uploadChunkMapper;
     @Resource
     private DccNasPermissionSnapshotCaptureService snapshotCaptureService;
+    @Resource
+    private NasSettingsService nasSettingsService;
     @Resource
     private PlatformTransactionManager transactionManager;
     @Value("${spring.servlet.multipart.location:${java.io.tmpdir}}")
@@ -159,6 +176,7 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
     @Override
     public DccControlledFileNasTransferRespVO transfer(Long userId, DccControlledFileNasTransferReqVO reqVO) {
         requireSelectedCategoryContext(reqVO.getTemplateCategoryId());
+        DccProjectCodeDO projectCode = resolveRequiredProjectCode(reqVO.getDccProjectCodeId());
         if (taskMapper.selectActiveTask() != null) {
             DccControlledFileNasTransferTaskDO activeTask = taskMapper.selectActiveTask();
             throw new IllegalStateException("nas transfer task already active: " + activeTask.getId());
@@ -167,7 +185,7 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
         if (collapsedRoots.isEmpty()) {
             throw new IllegalStateException("selected nas paths empty after normalization");
         }
-        Long taskId = createTask(userId, reqVO, collapsedRoots);
+        Long taskId = createTask(userId, reqVO, collapsedRoots, projectCode);
         triggerTaskAsync(TenantContextHolder.getRequiredTenantId());
         return getTask(userId, taskId);
     }
@@ -177,12 +195,13 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
                                                                DccControlledFileLocalFolderImportReqVO reqVO) {
         List<ValidatedLocalFolderPath> validatedPaths = validateLocalFolderPaths(reqVO);
         requireSelectedCategoryContext(reqVO.getTemplateCategoryId());
+        DccProjectCodeDO projectCode = resolveRequiredProjectCode(reqVO.getDccProjectCodeId());
         DccControlledFileNasTransferTaskDO activeTask = taskMapper.selectActiveTask();
         if (activeTask != null) {
             throw new IllegalStateException("nas transfer task already active: " + activeTask.getId());
         }
         List<LocalFolderFileEntry> fileEntries = buildLocalFolderFileEntries(reqVO.getFiles(), validatedPaths);
-        Long taskId = createLocalFolderTask(userId, reqVO, fileEntries);
+        Long taskId = createLocalFolderTask(userId, reqVO, fileEntries, projectCode);
         triggerTaskAsync(TenantContextHolder.getRequiredTenantId());
         return getTask(userId, taskId);
     }
@@ -191,6 +210,7 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
     public DccControlledFileNasTransferRespVO createLocalFolderImportSession(
             Long userId, DccControlledFileLocalFolderImportSessionCreateReqVO reqVO) {
         requireSelectedCategoryContext(reqVO.getTemplateCategoryId());
+        DccProjectCodeDO projectCode = resolveRequiredProjectCode(reqVO.getDccProjectCodeId());
         String rootDirectoryName = requireLocalFolderRootDirectoryName(reqVO.getRootDirectoryName());
         long expectedFileCount = requirePositiveCount(reqVO.getExpectedFileCount(), "expectedFileCount");
         long expectedTotalBytes = requireNonNegativeCount(reqVO.getExpectedTotalBytes(), "expectedTotalBytes");
@@ -199,6 +219,7 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
             if (Objects.equals(activeTask.getOperatorUserId(), userId)
                     && SOURCE_TYPE_LOCAL_FOLDER.equals(activeTask.getSourceType())
                     && TASK_STATUS_UPLOADING.equals(activeTask.getStatus())
+                    && Objects.equals(activeTask.getDccProjectCodeId(), projectCode.getId())
                     && Objects.equals(JsonUtils.parseArray(activeTask.getSelectedNasPathsJson(), String.class)
                     .stream().findFirst().orElse(null), rootDirectoryName)) {
                 return getTask(userId, activeTask.getId());
@@ -209,7 +230,8 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
             DccControlledFileNasTransferTaskDO task = DccControlledFileNasTransferTaskDO.builder()
                     .operatorUserId(userId)
                     .templateCategoryId(reqVO.getTemplateCategoryId())
-                    .productMasterId(reqVO.getProductMasterId())
+                    .dccProjectCodeId(projectCode.getId())
+                    .productMasterId(null)
                     .effectiveDate(reqVO.getEffectiveDate())
                     .selectedNasPathsJson(JsonUtils.toJsonString(List.of(rootDirectoryName)))
                     .sourceType(SOURCE_TYPE_LOCAL_FOLDER)
@@ -392,12 +414,14 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
         }
     }
 
-    private Long createTask(Long userId, DccControlledFileNasTransferReqVO reqVO, List<String> collapsedRoots) {
+    private Long createTask(Long userId, DccControlledFileNasTransferReqVO reqVO, List<String> collapsedRoots,
+                            DccProjectCodeDO projectCode) {
         return tx().execute(status -> {
             DccControlledFileNasTransferTaskDO task = DccControlledFileNasTransferTaskDO.builder()
                     .operatorUserId(userId)
                     .templateCategoryId(reqVO.getTemplateCategoryId())
-                    .productMasterId(reqVO.getProductMasterId())
+                    .dccProjectCodeId(projectCode.getId())
+                    .productMasterId(null)
                     .effectiveDate(reqVO.getEffectiveDate())
                     .selectedNasPathsJson(JsonUtils.toJsonString(collapsedRoots))
                     .sourceType(SOURCE_TYPE_NAS)
@@ -440,13 +464,15 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
 
     private Long createLocalFolderTask(Long userId,
                                        DccControlledFileLocalFolderImportReqVO reqVO,
-                                       List<LocalFolderFileEntry> fileEntries) {
+                                       List<LocalFolderFileEntry> fileEntries,
+                                       DccProjectCodeDO projectCode) {
         String rootDirectoryName = requireLocalFolderRootDirectoryName(reqVO.getRootDirectoryName());
         return tx().execute(status -> {
             DccControlledFileNasTransferTaskDO task = DccControlledFileNasTransferTaskDO.builder()
                     .operatorUserId(userId)
                     .templateCategoryId(reqVO.getTemplateCategoryId())
-                    .productMasterId(reqVO.getProductMasterId())
+                    .dccProjectCodeId(projectCode.getId())
+                    .productMasterId(null)
                     .effectiveDate(reqVO.getEffectiveDate())
                     .selectedNasPathsJson(JsonUtils.toJsonString(List.of(rootDirectoryName)))
                     .sourceType(SOURCE_TYPE_LOCAL_FOLDER)
@@ -1205,6 +1231,7 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
 
         DccControlledFilePreviewKindEnum previewKind = DccControlledFilePreviewKindEnum.resolve(
                 sourceFile.name(), sourceFile.contentType());
+        String nasShareName = nasSettingsService.getRequiredNasConfig().share();
         LocalDateTime now = LocalDateTime.now();
         try {
             tx().executeWithoutResult(status -> {
@@ -1228,7 +1255,8 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
                 DccControlledFileSubmitReqVO submitReqVO = new DccControlledFileSubmitReqVO();
                 submitReqVO.setCategoryId(latestParent.getResolvedCategoryId());
                 submitReqVO.setDirectoryId(latestParent.getResolvedDirectoryId());
-                submitReqVO.setProductMasterId(task.getProductMasterId());
+                submitReqVO.setProductMasterId(null);
+                submitReqVO.setDccProjectCodeId(task.getDccProjectCodeId());
                 submitReqVO.setOriginalFileId(originalFileId);
                 submitReqVO.setChangeType(DccControlledFileChangeTypeEnum.NEW.getCode());
                 submitReqVO.setFileName(sourceFile.name());
@@ -1236,7 +1264,18 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
                 submitReqVO.setVersionNo("V1.0");
                 submitReqVO.setEffectiveDate(task.getEffectiveDate());
                 submitReqVO.setRemark("NAS transfer source: " + item.getNasPath());
-                workflowService.submitControlledFileWithoutApproval(task.getOperatorUserId(), submitReqVO);
+                Long controlledFileId = workflowService.submitControlledFileWithoutApproval(
+                        task.getOperatorUserId(), submitReqVO);
+                String normalizedPath = DccNasPathUtils.normalizeRelativePath(item.getNasPath());
+                nasSourceMapper.insert(DccControlledFileNasSourceDO.builder()
+                        .controlledFileId(controlledFileId)
+                        .nasShareName(nasShareName)
+                        .normalizedRelativePath(normalizedPath)
+                        .pathHash(DccNasPathUtils.pathHash(nasShareName, normalizedPath))
+                        .sourceType(DccNasControlAuditServiceImpl.SOURCE_TYPE_NAS_TRANSFER)
+                        .sourceConfidence(DccNasControlAuditServiceImpl.SOURCE_CONFIDENCE_EXACT)
+                        .tenantId(TenantContextHolder.getRequiredTenantId())
+                        .build());
 
                 current.setStatus(ITEM_STATUS_COMPLETED);
                 current.setAttemptCount(incrementCount(current.getAttemptCount()));
@@ -1303,7 +1342,8 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
                 DccControlledFileSubmitReqVO submitReqVO = new DccControlledFileSubmitReqVO();
                 submitReqVO.setCategoryId(latestParent.getResolvedCategoryId());
                 submitReqVO.setDirectoryId(latestParent.getResolvedDirectoryId());
-                submitReqVO.setProductMasterId(task.getProductMasterId());
+                submitReqVO.setProductMasterId(null);
+                submitReqVO.setDccProjectCodeId(task.getDccProjectCodeId());
                 submitReqVO.setOriginalFileId(current.getSourceFileId());
                 submitReqVO.setChangeType(DccControlledFileChangeTypeEnum.NEW.getCode());
                 submitReqVO.setFileName(fileName);
@@ -1532,9 +1572,27 @@ public class DccControlledFileNasTransferServiceImpl implements DccControlledFil
         reqVO.setSelectedNasPaths(JsonUtils.parseArray(
                 StrUtil.blankToDefault(task.getSelectedNasPathsJson(), "[]"), String.class));
         reqVO.setTemplateCategoryId(task.getTemplateCategoryId());
-        reqVO.setProductMasterId(task.getProductMasterId());
+        reqVO.setDccProjectCodeId(task.getDccProjectCodeId());
+        reqVO.setProductMasterId(null);
         reqVO.setEffectiveDate(task.getEffectiveDate());
         return reqVO;
+    }
+
+    private DccProjectCodeDO resolveRequiredProjectCode(Long projectCodeId) {
+        if (projectCodeId == null) {
+            throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
+        }
+        DccProjectCodeDO projectCode = projectCodeMapper.selectById(projectCodeId);
+        if (projectCode == null) {
+            throw exception(PROJECT_CODE_NOT_EXISTS);
+        }
+        if (!DccProjectCodeStatusConstants.ENABLE.equals(projectCode.getStatus())) {
+            throw exception(PROJECT_CODE_DISABLED);
+        }
+        if (StrUtil.isBlank(projectCode.getProjectCode()) || StrUtil.isBlank(projectCode.getProjectName())) {
+            throw exception(CONTROLLED_FILE_SUBMIT_REQUIRED_METADATA_MISSING);
+        }
+        return projectCode;
     }
 
     private DccFileCategoryDO requireSelectedCategory(Long selectedCategoryId) {

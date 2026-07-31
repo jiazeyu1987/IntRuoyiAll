@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import json
 import os
 from pathlib import Path
 import re
@@ -85,6 +86,51 @@ def _invoke_release_package_directory_name(release_tag: str) -> subprocess.Compl
     )
 
 
+def _invoke_codex_summary_validator(
+    response: object,
+    facts: list[dict[str, str]],
+) -> subprocess.CompletedProcess[str]:
+    function_text = _extract_powershell_function(
+        read_publish_script(),
+        "ConvertTo-ValidatedReleaseCodexSummaryItems",
+    )
+    response_json = json.dumps(response, ensure_ascii=False)
+    facts_json = json.dumps(facts, ensure_ascii=False)
+    command = textwrap.dedent(
+        f"""
+        $ErrorActionPreference = 'Stop'
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+        function Fail([string]$Message) {{
+            throw $Message
+        }}
+        {function_text}
+        try {{
+            $response = @'
+{response_json}
+'@ | ConvertFrom-Json
+            $facts = @'
+{facts_json}
+'@ | ConvertFrom-Json
+            $items = @(ConvertTo-ValidatedReleaseCodexSummaryItems -Response $response -Facts @($facts) -MaxItems 10)
+            $items | ConvertTo-Json -Compress
+        }} catch {{
+            Write-Output $_.Exception.Message
+            exit 1
+        }}
+        """
+    )
+    encoded = base64.b64encode(command.encode("utf-16le")).decode("ascii")
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
 def test_only_one_publish_script_entrypoint_remains() -> None:
     publish_like = sorted(
         path.name
@@ -137,6 +183,88 @@ def test_publish_script_uses_configured_target_hosts_instead_of_hardcoded_enviro
     assert not re.search(r"172\.30\.30\.(57|58|59)", text)
 
 
+def test_release_change_set_uses_codex_plain_language_summary_from_previous_git_diff() -> None:
+    text = read_publish_script()
+
+    assert "function Get-PreviousReleaseManifestForGitChanges" in text
+    assert "function New-ReleaseGitChangeItems" in text
+    assert "function Get-ReleaseGitChangeFacts" in text
+    assert "function Invoke-ReleaseCodexSummary" in text
+    assert re.search(r"& git -C \$repoPath log", text)
+    assert "--numstat" in text
+    assert "$previousCommit..$currentCommit" in text
+    assert "summaryGenerator = 'codex'" in text
+    assert "--output-schema" in text
+    assert "--output-last-message" in text
+    assert "ConvertFrom-Json" in text
+    assert "plain-language" in text
+    assert r"[\u4e00-\u9fff]" in text
+    assert "previousReleaseTag" in text
+    assert "gitChanges = @($gitChangeSummary.items)" in text
+    assert "items = @($gitChangeSummary.items)" in text
+    assert "changes = @($gitChangeSummary.items)" in text
+    assert "[{0}] {1} {2}" not in text
+    assert "--pretty=format:%cI%x09%h%x09%s" not in text
+
+
+def test_release_change_set_fails_fast_without_codex_or_valid_plain_language_output() -> None:
+    text = read_publish_script()
+
+    assert "Codex CLI is required to generate release change summary" in text
+    assert "Codex CLI failed" in text
+    assert "Codex CLI timed out after $TimeoutSeconds seconds" in text
+    assert "Codex summary output must be valid JSON" in text
+    assert "Codex summary must contain between 1 and 10 items" in text
+    assert "Codex summary item must be plain Chinese" in text
+    assert "Codex summary must not expose raw commit identifiers" in text
+    assert "Do not fall back to raw Git subjects or hashes" in text
+
+
+def test_codex_summary_validator_accepts_plain_chinese_items_and_caps_at_ten() -> None:
+    result = _invoke_codex_summary_validator(
+        {"items": ["新增批次执行页面的填写人配置", "修复审批提交后状态显示不正确"]},
+        [{"subject": "feat: add filler configuration"}, {"subject": "fix: approval status"}],
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "新增批次执行页面的填写人配置" in result.stdout
+
+
+def test_codex_summary_validator_rejects_raw_hashes_and_non_chinese_items() -> None:
+    hash_result = _invoke_codex_summary_validator(
+        {"items": ["修复功能 abcdef1234567"]},
+        [{"subject": "fix: release summary"}],
+    )
+    english_result = _invoke_codex_summary_validator(
+        {"items": ["Fix the release summary"]},
+        [{"subject": "fix: release summary"}],
+    )
+
+    assert hash_result.returncode != 0
+    assert "raw commit identifiers" in hash_result.stdout
+    assert english_result.returncode != 0
+    assert "plain Chinese" in english_result.stdout
+
+
+def test_codex_summary_validator_rejects_more_than_ten_items() -> None:
+    result = _invoke_codex_summary_validator(
+        {"items": [f"第{i}项版本变化说明" for i in range(11)]},
+        [{"subject": "feat: many changes"}],
+    )
+
+    assert result.returncode != 0
+    assert "between 1 and 10 items" in result.stdout
+
+
+def test_release_info_json_is_written_before_frontend_docker_context() -> None:
+    text = read_publish_script()
+
+    assert "function Write-FrontendReleaseInfo" in text
+    assert "'release-info.json'" in text
+    assert "[System.IO.File]::WriteAllText($releaseInfoPath" in text
+    assert text.index("Write-FrontendReleaseInfo -PackageTag $ReleaseTag") < text.index("Info 'Preparing Docker build context from current worktree artifacts'")
+
+
 def test_smart_release_report_only_switch_and_env_are_explicit_without_changing_mode_enum() -> None:
     text = read_publish_script()
     param_block = text[text.index("param(") : text.index("$ErrorActionPreference")]
@@ -169,6 +297,24 @@ def test_build_release_smart_report_runs_validation_and_intake_after_manifest_be
     assert "-Mode', 'report-only'" in build_report_body
     assert "-OutputPath', $manifestValidationOutputPath" in build_report_body
     assert "-OutputDir', $intakeOutputDir" in build_report_body
+
+
+def test_build_release_writes_frontend_release_info_before_docker_context() -> None:
+    text = read_publish_script()
+
+    assert "function Write-FrontendReleaseInfo" in text
+    release_info_body = _extract_powershell_function(text, "Write-FrontendReleaseInfo")
+    assert "release-info.json" in release_info_body
+    assert "New-ReleaseSourceRepoManifestEntries" in release_info_body
+    assert "releaseTag = $PackageTag" in release_info_body
+    assert "publishScope = if ($SkipDatabaseSync -and $SkipMinioSync) { 'code-only' } else { 'with-data' }" in release_info_body
+    assert "includeOnlyOffice = [bool]$IncludeOnlyOffice" in release_info_body
+    assert "[System.IO.File]::WriteAllText($releaseInfoPath, $releaseInfoJson, [System.Text.UTF8Encoding]::new($false))" in release_info_body
+
+    write_release_info_index = text.index("Write-FrontendReleaseInfo -PackageTag $ReleaseTag")
+    docker_context_index = text.index("New-ReleaseDockerBuildContext `")
+    frontend_build_index = text.index("Invoke-FrontendViteBuild -FrontendDir $frontendDir")
+    assert frontend_build_index < write_release_info_index < docker_context_index
 
 
 def test_smart_release_report_only_keeps_legacy_publish_flow_unhooked_when_disabled() -> None:
@@ -519,7 +665,15 @@ def test_publish_script_resolves_paired_frontend_worktree_before_failing() -> No
     text = read_publish_script()
     path_resolution_block = text[text.index("$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path") : text.index("$defaultWebsiteRepo = 'D:\\ProjectPackage\\Website'")]
 
-    assert "$frontendDir = Join-Path $workspaceRoot 'yudao-ui-admin-vue3'" in path_resolution_block
+    current_frontend = "$currentFrontendDir = Join-Path $workspaceRoot 'IntRuoyiFronted'"
+    legacy_frontend = "$legacyFrontendDir = Join-Path $workspaceRoot 'yudao-ui-admin-vue3'"
+    frontend_selection = "$frontendDir = if (Test-Path -LiteralPath $currentFrontendDir) { $currentFrontendDir } else { $legacyFrontendDir }"
+
+    assert current_frontend in path_resolution_block
+    assert legacy_frontend in path_resolution_block
+    assert frontend_selection in path_resolution_block
+    assert path_resolution_block.index(current_frontend) < path_resolution_block.index(legacy_frontend)
+    assert path_resolution_block.index(legacy_frontend) < path_resolution_block.index(frontend_selection)
     assert "if (-not (Test-Path -LiteralPath $frontendDir)) {" in path_resolution_block
     assert "$worktreePortMapPath = Join-Path $scriptDir 'worktree-port-map.ps1'" in path_resolution_block
     assert ". $worktreePortMapPath" in path_resolution_block
@@ -796,7 +950,8 @@ def test_deploy_release_executes_only_preflight_apply_migrations() -> None:
     assert "function Invoke-ReleaseMigrationStateUpdate" in text
     assert "INSERT INTO infra_release_migration" in text
     assert "SKIPPED_ALREADY_APPLIED" in invoke_block
-    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan) -TargetEnvironment $Environment" in invoke_block
+    assert "$preflightApplyItems = @(Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan -PublishScope $releasePublishScope)" in invoke_block
+    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items $preflightApplyItems -TargetEnvironment $Environment" in invoke_block
     assert "Get-RequiredDatabaseSqlEntriesForEnvironment -TargetEnvironment $Environment" not in invoke_block
     assert "Invoke-ReleaseMigrationStateUpdate -Item $item -Status 'RUNNING'" in invoke_block
     assert "Invoke-ReleaseMigrationStateUpdate -Item $item -Status 'APPLIED'" in invoke_block
@@ -840,7 +995,19 @@ def test_deploy_release_executes_dcc_view_matrix_test_tenant_prereq_before_seed_
     assert "function Sort-RequiredDatabaseSqlApplyItems" in text
     assert "'20260624_dcc_view_matrix_test_tenant_prereq' = 10" in helper_block
     assert "'20260624_dcc_view_matrix_independent_seed' = 20" in helper_block
-    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items (Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan) -TargetEnvironment $Environment" in invoke_block
+    assert "$preflightApplyItems = @(Get-ReleasePreflightApplyItems -PreflightPlan $preflightPlan -PublishScope $releasePublishScope)" in invoke_block
+    assert "$applyItems = Sort-RequiredDatabaseSqlApplyItems -Items $preflightApplyItems -TargetEnvironment $Environment" in invoke_block
+
+
+def test_deploy_release_handles_empty_code_only_apply_queue_before_sorting() -> None:
+    text = read_publish_script()
+    invoke_start = text.index("function Invoke-RequiredDatabaseSqlScripts")
+    invoke_end = text.index("if ($Mode -eq 'mark-tested')", invoke_start)
+    invoke_block = text[invoke_start:invoke_end]
+
+    assert "$preflightApplyItems = @(Get-ReleasePreflightApplyItems" in invoke_block
+    assert "-Items (Get-ReleasePreflightApplyItems" not in invoke_block
+    assert "[AllowEmptyCollection()]" in _extract_powershell_function(text, "Sort-RequiredDatabaseSqlApplyItems")
 
 
 def test_deploy_release_preserves_preflight_dependency_order_for_non_priority_required_sql() -> None:
@@ -1014,7 +1181,11 @@ def test_deploy_checks_onlyoffice_container_can_reach_public_file_base_url() -> 
 
     assert "function Assert-RemoteOnlyOfficePublicFileBaseUrlReachable" in text
     assert "DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL must not use host.docker.internal" in text
-    assert "docker exec intruoyi-onlyoffice sh -lc" in text
+    assert "$healthUrlLiteral = ConvertTo-ShellSingleQuotedLiteral -Value $healthUrl" in text
+    assert "docker exec intruoyi-onlyoffice curl -fsS --connect-timeout 5 $healthUrlLiteral" in text
+    assert "docker exec intruoyi-onlyoffice sh -lc" not in _extract_powershell_function(
+        text, "Assert-RemoteOnlyOfficePublicFileBaseUrlReachable"
+    )
     assert "/actuator/health" in text
     readiness_start = text.index('if ($IncludeOnlyOffice) {\n    Wait-RemoteHttpOk -Url "http://127.0.0.1:$OnlyOfficeHostPort/healthcheck"')
     readiness_block = text[readiness_start:text.index("if ($publishWebsite)", readiness_start)]

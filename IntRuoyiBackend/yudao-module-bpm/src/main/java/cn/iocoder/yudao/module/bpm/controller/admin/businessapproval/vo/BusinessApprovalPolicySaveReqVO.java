@@ -39,6 +39,12 @@ public class BusinessApprovalPolicySaveReqVO {
     @NotBlank
     private String effectExecutorCode;
 
+    @Schema(description = "表单策略类型；无表单策略时为空")
+    private String formPolicyType;
+
+    @Schema(description = "表单槽位 JSON；无表单策略时为空")
+    private String formSlotsJson;
+
     @Schema(description = "备注")
     private String remark;
 

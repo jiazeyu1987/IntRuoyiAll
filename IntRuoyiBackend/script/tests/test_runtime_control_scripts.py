@@ -43,6 +43,11 @@ def test_local_restart_script_is_component_scoped_and_fail_fast():
     assert "$FrontendPort = [int]$PortContext.FrontendPort" in script
     assert "$BackendPort = [int]$PortContext.BackendPort" in script
     assert '"--server.port=$BackendPort"' in script
+    assert "$backendLogDir = Join-Path $RuntimeDir 'logs'" in script
+    assert "$backendLogFile = Join-Path $backendLogDir 'yudao-server.log'" in script
+    assert "New-Item -ItemType Directory -Force -Path $backendLogDir" in script
+    assert '"--logging.file.name=$backendLogFile"' in script
+    assert '"--yudao.runtime-control.storage-guard.log-dir=$backendLogDir"' in script
     assert "-pl yudao-server -am -DskipTests package" in script
     assert "backend-runtime-control-$timestamp.jar" in script
     assert "frontend-runtime-control-$timestamp.out.log" in script
@@ -107,6 +112,23 @@ def test_local_restart_backend_routes_mysql_and_redis_through_unshadowed_docker_
     assert "--spring.datasource.dynamic.datasource.slave.password=123456" in script
     assert "--spring.data.redis.host=$LocalDockerRuntimeHost" in script
     assert "LOCAL_DOCKER_PORT_SHADOWED" in script
+
+
+def test_local_restart_backend_defaults_to_tokenless_codex_runner_mode():
+    script = read_script("restart-int-ruoyi-local.ps1")
+
+    assert "$CodexTestRunnerTokenFile" not in script
+    assert "function Initialize-CodexTestRunnerToken" not in script
+    assert "[Security.Cryptography.RandomNumberGenerator]::Create()" not in script
+    assert "Codex Runner token file is empty" not in script
+
+    backend_block = script[script.index("function Start-Backend"):script.index("function Start-Website")]
+    assert "$runnerToken = Initialize-CodexTestRunnerToken" not in backend_block
+    assert "'CODEX_TEST_RUNNER_TOKEN'," not in backend_block
+    assert "Remove-Item -Path 'Env:\\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue" in backend_block
+    assert backend_block.index(
+        "Remove-Item -Path 'Env:\\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue"
+    ) < backend_block.index("& java @backendArgs")
 
 
 def test_local_restart_backend_protects_showroom_default_file_config_from_e2e_mutation():

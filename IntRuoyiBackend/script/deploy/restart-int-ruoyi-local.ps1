@@ -385,6 +385,22 @@ THEN 1 ELSE 0 END;
         ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260626_dcc_access_rule_manual_binding.sql'
     },
     [PSCustomObject]@{
+        Name = 'Business approval policy form slots schema'
+        ProbeSql = @'
+SELECT CASE WHEN (
+  SELECT COUNT(*)
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'bpm_business_approval_policy'
+    AND COLUMN_NAME IN (
+      'form_policy_type',
+      'form_slots_json'
+    )
+) = 2 THEN 1 ELSE 0 END;
+'@
+        ScriptPath = Join-Path $RepoRoot 'sql\mysql\20260721_form_action_policy_approval_mode.sql'
+    },
+    [PSCustomObject]@{
         Name = 'MES route version approval BPM user assignment seed'
         ProbeSql = @'
 SELECT CASE WHEN EXISTS (
@@ -937,6 +953,9 @@ function Start-Backend {
     }
     $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $runtimeJar = Join-Path $RuntimeDir "backend-runtime-control-$timestamp.jar"
+    $backendLogDir = Join-Path $RuntimeDir 'logs'
+    $backendLogFile = Join-Path $backendLogDir 'yudao-server.log'
+    New-Item -ItemType Directory -Force -Path $backendLogDir | Out-Null
     Copy-Item -LiteralPath $sourceJar -Destination $runtimeJar -Force
     Stop-Port $BackendPort
     $backendScript = @"
@@ -944,6 +963,7 @@ function Start-Backend {
 `$env:DCC_ONLYOFFICE_PUBLIC_FILE_BASE_URL = '$OnlyOfficePublicFileBaseUrl'
 `$env:DCC_SIGNATURE_EVIDENCE_HMAC_SECRET = '$DccSignatureEvidenceHmacSecret'
 `$env:DCC_SIGNATURE_EVIDENCE_KEY_VERSION = '$DccSignatureEvidenceKeyVersion'
+Remove-Item -Path 'Env:\CODEX_TEST_RUNNER_TOKEN' -ErrorAction SilentlyContinue
 `$backendArgs = @(
   "-jar"
   "$runtimeJar"
@@ -957,8 +977,10 @@ function Start-Backend {
   "--spring.datasource.dynamic.datasource.slave.password=123456"
   "--spring.data.redis.host=$LocalDockerRuntimeHost"
   "--spring.data.redis.port=26379"
+  "--logging.file.name=$backendLogFile"
   "--yudao.runtime-control.repo-root=$RepoRoot"
   "--yudao.runtime-control.state-dir=$RuntimeControlStateDir"
+  "--yudao.runtime-control.storage-guard.log-dir=$backendLogDir"
 )
 & java @backendArgs
 "@

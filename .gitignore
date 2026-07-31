@@ -25,9 +25,11 @@ output/
 .runtime/
 runtime/
 runtime-ops/
+.runtime/
 **/output/
 **/runtime/
 **/runtime-ops/
+**/.runtime/
 .playwright-cli/
 **/.playwright-cli/
 

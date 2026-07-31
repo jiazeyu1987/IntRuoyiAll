@@ -53,7 +53,7 @@ public class DccControlledFileAccessAuditService {
                 .accessEventId(command.accessEventId())
                 .accessEventCode(StrUtil.trim(command.accessEventCode()))
                 .controlledFileId(command.fileId())
-                .fileNumber(StrUtil.trim(command.fileNumber()))
+                .fileNumber(StrUtil.trimToEmpty(command.fileNumber()))
                 .fileVersionNo(StrUtil.trim(command.versionId()))
                 .userId(command.userId())
                 .userIdentifier(StrUtil.trim(command.userIdentifier()))
@@ -158,7 +158,6 @@ public class DccControlledFileAccessAuditService {
         requirePositive(command.accessEventId(), "accessEventId");
         requireNotBlank(command.accessEventCode(), "accessEventCode");
         requirePositive(command.fileId(), "fileId");
-        requireNotBlank(command.fileNumber(), "fileNumber");
         requireNotBlank(command.versionId(), "versionId");
         requirePositive(command.userId(), "userId");
         requireNotBlank(command.privacyMode(), "privacyMode");

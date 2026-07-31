@@ -146,6 +146,20 @@ def test_local_restart_applies_dcc_access_rule_manual_binding_migration() -> Non
     assert "COLUMN_NAME = 'access_rule_manually_bound'" in text
 
 
+def test_local_restart_applies_business_approval_policy_form_slots_schema_migration() -> None:
+    script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
+    text = script_path.read_text(encoding="utf-8")
+
+    assert "20260721_form_action_policy_approval_mode.sql" in text
+    assert "Business approval policy form slots schema" in text
+    assert "TABLE_NAME = 'bpm_business_approval_policy'" in text
+    assert "'form_policy_type'" in text
+    assert "'form_slots_json'" in text
+    assert text.index("20260721_form_action_policy_approval_mode.sql") < text.index(
+        "20260721_mes_route_version_publish_business_approval_policy_seed.sql"
+    )
+
+
 def test_local_restart_repairs_system_nas_menu_titles() -> None:
     script_path = REPO_ROOT / "script" / "deploy" / "restart-int-ruoyi-local.ps1"
     text = script_path.read_text(encoding="utf-8")

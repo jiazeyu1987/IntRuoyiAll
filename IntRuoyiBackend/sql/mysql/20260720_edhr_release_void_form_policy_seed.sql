@@ -1,4 +1,4 @@
--- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260717_bpm_form_center; type=data; riskLevel=medium
+-- release-migration: allowedEnvironments=test,backup,prod; dependsOn=20260719_business_approval_policy,20260610_mes_admin_edhr_approval_v1_seed,20260714_mes_edhr_batch_execution_void_bpm_seed; type=data; riskLevel=medium
 SET NAMES utf8mb4;
 
 DROP PROCEDURE IF EXISTS ensure_edhr_release_void_form_policy;
@@ -10,10 +10,10 @@ BEGIN
     SELECT 1
     FROM information_schema.tables
     WHERE table_schema = DATABASE()
-      AND table_name = 'bpm_form_action_policy'
+      AND table_name = 'bpm_business_approval_policy'
   ) THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'EDHR form policy requires bpm_form_action_policy';
+      SET MESSAGE_TEXT = 'EDHR form policy requires bpm_business_approval_policy';
   END IF;
 
   IF NOT EXISTS (
@@ -28,7 +28,7 @@ BEGIN
 
   IF EXISTS (
     SELECT 1
-    FROM `bpm_form_action_policy` AS `policy`
+    FROM `bpm_business_approval_policy` AS `policy`
     WHERE `policy`.`deleted` = b'0'
       AND `policy`.`data_domain` = 'MES'
       AND `policy`.`system_code` = 'MES'
@@ -37,11 +37,11 @@ BEGIN
       AND `policy`.`object_state` = 'PRECHECK_PASSED'
       AND `policy`.`status` = 'PUBLISHED'
       AND (
-        COALESCE(`policy`.`bpm_process_key`, '') <> 'mes-edhr-approval-v1'
+        COALESCE(`policy`.`policy_mode`, '') <> 'BPM_REQUIRED'
+        OR COALESCE(`policy`.`process_definition_key`, '') <> 'mes-edhr-approval-v1'
         OR COALESCE(`policy`.`effect_executor_code`, '') <> 'EDHR_RELEASE'
-        OR COALESCE(`policy`.`policy_type`, '') <> 'NONE'
-        OR COALESCE(`policy`.`approval_mode`, '') <> 'BPM_REQUIRED'
-        OR COALESCE(`policy`.`slots_json`, '[]') <> '[]'
+        OR COALESCE(`policy`.`form_policy_type`, '') <> 'NONE'
+        OR COALESCE(`policy`.`form_slots_json`, '[]') <> '[]'
       )
   ) THEN
     SIGNAL SQLSTATE '45000'
@@ -50,20 +50,20 @@ BEGIN
 
   IF EXISTS (
     SELECT 1
-    FROM `bpm_form_action_policy` AS `policy`
+    FROM `bpm_business_approval_policy` AS `policy`
     WHERE `policy`.`deleted` = b'0'
       AND `policy`.`data_domain` = 'MES'
       AND `policy`.`system_code` = 'MES'
       AND `policy`.`object_type` = 'EDHR_BATCH_EXECUTION'
       AND `policy`.`action_code` = 'VOID'
-      AND `policy`.`object_state` = 'CLOSED'
+      AND `policy`.`object_state` = 'ALL'
       AND `policy`.`status` = 'PUBLISHED'
       AND (
-        COALESCE(`policy`.`bpm_process_key`, '') <> 'mes-edhr-batch-execution-void-v1'
+        COALESCE(`policy`.`policy_mode`, '') <> 'BPM_REQUIRED'
+        OR COALESCE(`policy`.`process_definition_key`, '') <> 'mes-edhr-batch-execution-void-v1'
         OR COALESCE(`policy`.`effect_executor_code`, '') <> 'EDHR_BATCH_VOID'
-        OR COALESCE(`policy`.`policy_type`, '') <> 'NONE'
-        OR COALESCE(`policy`.`approval_mode`, '') <> 'BPM_REQUIRED'
-        OR COALESCE(`policy`.`slots_json`, '[]') <> '[]'
+        OR COALESCE(`policy`.`form_policy_type`, '') <> 'NONE'
+        OR COALESCE(`policy`.`form_slots_json`, '[]') <> '[]'
       )
   ) THEN
     SIGNAL SQLSTATE '45000'
@@ -103,19 +103,19 @@ BEGIN
       SET MESSAGE_TEXT = 'EDHR form policy requires release and void process definitions';
   END IF;
 
-  INSERT INTO `bpm_form_action_policy` (
+  INSERT INTO `bpm_business_approval_policy` (
     `tenant_id`,
     `data_domain`,
     `system_code`,
     `object_type`,
     `action_code`,
     `object_state`,
-    `policy_type`,
-    `approval_mode`,
-    `bpm_process_key`,
+    `policy_mode`,
+    `process_definition_key`,
     `effect_executor_code`,
+    `form_policy_type`,
+    `form_slots_json`,
     `status`,
-    `slots_json`,
     `remark`,
     `creator`,
     `create_time`,
@@ -130,12 +130,12 @@ BEGIN
     'EDHR_BATCH_EXECUTION',
     'RELEASE',
     'PRECHECK_PASSED',
-    'NONE',
     'BPM_REQUIRED',
     `source`.`release_process_key`,
     'EDHR_RELEASE',
-    'PUBLISHED',
+    'NONE',
     '[]',
+    'PUBLISHED',
     'eDHR release approval through form center',
     '1',
     NOW(),
@@ -145,7 +145,7 @@ BEGIN
   FROM `tmp_edhr_policy_source` AS `source`
   WHERE NOT EXISTS (
     SELECT 1
-    FROM `bpm_form_action_policy` AS `existing`
+    FROM `bpm_business_approval_policy` AS `existing`
     WHERE `existing`.`deleted` = b'0'
       AND `existing`.`tenant_id` = `source`.`tenant_id`
       AND `existing`.`data_domain` = 'MES'
@@ -156,19 +156,19 @@ BEGIN
       AND `existing`.`status` = 'PUBLISHED'
   );
 
-  INSERT INTO `bpm_form_action_policy` (
+  INSERT INTO `bpm_business_approval_policy` (
     `tenant_id`,
     `data_domain`,
     `system_code`,
     `object_type`,
     `action_code`,
     `object_state`,
-    `policy_type`,
-    `approval_mode`,
-    `bpm_process_key`,
+    `policy_mode`,
+    `process_definition_key`,
     `effect_executor_code`,
+    `form_policy_type`,
+    `form_slots_json`,
     `status`,
-    `slots_json`,
     `remark`,
     `creator`,
     `create_time`,
@@ -182,13 +182,13 @@ BEGIN
     'MES',
     'EDHR_BATCH_EXECUTION',
     'VOID',
-    'CLOSED',
-    'NONE',
+    'ALL',
     'BPM_REQUIRED',
     `source`.`void_process_key`,
     'EDHR_BATCH_VOID',
-    'PUBLISHED',
+    'NONE',
     '[]',
+    'PUBLISHED',
     'eDHR batch void approval through form center',
     '1',
     NOW(),
@@ -198,27 +198,27 @@ BEGIN
   FROM `tmp_edhr_policy_source` AS `source`
   WHERE NOT EXISTS (
     SELECT 1
-    FROM `bpm_form_action_policy` AS `existing`
+    FROM `bpm_business_approval_policy` AS `existing`
     WHERE `existing`.`deleted` = b'0'
       AND `existing`.`tenant_id` = `source`.`tenant_id`
       AND `existing`.`data_domain` = 'MES'
       AND `existing`.`system_code` = 'MES'
       AND `existing`.`object_type` = 'EDHR_BATCH_EXECUTION'
       AND `existing`.`action_code` = 'VOID'
-      AND `existing`.`object_state` = 'CLOSED'
+      AND `existing`.`object_state` = 'ALL'
       AND `existing`.`status` = 'PUBLISHED'
   );
 
   IF EXISTS (
     SELECT 1
-    FROM `bpm_form_action_policy`
+    FROM `bpm_business_approval_policy`
     WHERE `deleted` = b'0'
       AND `data_domain` = 'MES'
       AND `system_code` = 'MES'
       AND `object_type` = 'EDHR_BATCH_EXECUTION'
       AND (
         (`action_code` = 'RELEASE' AND `object_state` = 'PRECHECK_PASSED')
-        OR (`action_code` = 'VOID' AND `object_state` = 'CLOSED')
+        OR (`action_code` = 'VOID' AND `object_state` = 'ALL')
       )
       AND `status` = 'PUBLISHED'
     GROUP BY `tenant_id`, `action_code`, `object_state`
