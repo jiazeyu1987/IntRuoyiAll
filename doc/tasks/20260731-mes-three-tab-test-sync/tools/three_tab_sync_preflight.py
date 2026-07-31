@@ -104,10 +104,16 @@ def scalar_list(cmd, sql, label):
 
 
 def sql_in(values):
-    values = sorted({int(v) for v in values if v is not None})
+    values = sorted({str(v) for v in values if v is not None and str(v) != ""})
     if not values:
         return "(NULL)"
-    return "(" + ",".join(str(v) for v in values) + ")"
+    encoded = []
+    for value in values:
+        if re.fullmatch(r"-?\d+", value):
+            encoded.append(value)
+        else:
+            encoded.append("'" + value.replace("'", "''") + "'")
+    return "(" + ",".join(encoded) + ")"
 
 
 def active_where(alias=""):
@@ -293,7 +299,7 @@ def key_rows_sql(table, ids, columns):
 
 def table_map(cmd, table, ids, columns, label):
     result, warnings = rows(cmd, key_rows_sql(table, ids, columns), label)
-    return {int(row["id"]): row for row in result}, warnings
+    return {str(row["id"]): row for row in result}, warnings
 
 
 def collect_ids(cmd, label):
@@ -320,7 +326,7 @@ def dependency_ids(dep_rows):
         dep_type = row["dep_type"]
         dep_id = row["dep_id"]
         if dep_id and dep_id != "NULL":
-            grouped.setdefault(dep_type, set()).add(int(dep_id))
+            grouped.setdefault(dep_type, set()).add(str(dep_id))
     return {k: sorted(v) for k, v in grouped.items()}
 
 

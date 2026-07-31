@@ -29,16 +29,34 @@ class NasRecursiveScanServiceTest extends BaseMockitoUnitTest {
         NasConnectionConfig config = new NasConnectionConfig("nas.local", 445, "share", "", "user", "pwd");
         when(nasBrowserService.executeInSession(any(), any())).thenAnswer(invocation -> {
             NasBrowserService.NasSessionCallback<Void> callback = invocation.getArgument(1);
-            return callback.execute(path -> {
-                if ("1. QMS documents/blocked".equals(path)) {
-                    throw exception(FILE_NAS_READ_FAILED, "access denied: " + path);
+            return callback.execute(new NasBrowserService.NasSessionScope() {
+                @Override
+                public FileNasListRespVO listFiles(String path) {
+                    if ("1. QMS documents/blocked".equals(path)) {
+                        throw exception(FILE_NAS_READ_FAILED, "access denied: " + path);
+                    }
+                    if ("1. QMS documents".equals(path)) {
+                        return list(path,
+                                dir("blocked", "1. QMS documents/blocked"),
+                                file("visible.pdf", "1. QMS documents/visible.pdf", false, true));
+                    }
+                    throw new AssertionError("unexpected scan path: " + path);
                 }
-                if ("1. QMS documents".equals(path)) {
-                    return list(path,
-                            dir("blocked", "1. QMS documents/blocked"),
-                            file("visible.pdf", "1. QMS documents/visible.pdf", false, true));
+
+                @Override
+                public NasFileReadResult readFile(String path) {
+                    throw new UnsupportedOperationException();
                 }
-                throw new AssertionError("unexpected scan path: " + path);
+
+                @Override
+                public void writeFileTo(String path, java.io.OutputStream outputStream) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public NasAclReadResult readDirectoryAcl(String path) {
+                    throw new UnsupportedOperationException();
+                }
             });
         });
         List<String> files = new ArrayList<>();
@@ -69,8 +87,26 @@ class NasRecursiveScanServiceTest extends BaseMockitoUnitTest {
         NasConnectionConfig config = new NasConnectionConfig("nas.local", 445, "share", "", "user", "pwd");
         when(nasBrowserService.executeInSession(any(), any())).thenAnswer(invocation -> {
             NasBrowserService.NasSessionCallback<Void> callback = invocation.getArgument(1);
-            return callback.execute(path -> {
-                throw exception(FILE_NAS_READ_FAILED, "access denied: " + path);
+            return callback.execute(new NasBrowserService.NasSessionScope() {
+                @Override
+                public FileNasListRespVO listFiles(String path) {
+                    throw exception(FILE_NAS_READ_FAILED, "access denied: " + path);
+                }
+
+                @Override
+                public NasFileReadResult readFile(String path) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public void writeFileTo(String path, java.io.OutputStream outputStream) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public NasAclReadResult readDirectoryAcl(String path) {
+                    throw new UnsupportedOperationException();
+                }
             });
         });
 

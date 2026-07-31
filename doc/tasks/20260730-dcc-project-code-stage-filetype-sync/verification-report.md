@@ -15,14 +15,17 @@ BLOCKED。官方批量分类任务已执行并完成，但未满足 GREEN 条件
 - 官方任务 `35`：`COMPLETED`，`totalCount=14990`，`successCount=6292`，`failedCount=0`，`conflictCount=0`，`ambiguousCount=1207`，`unclassifiedCount=7491`。
 - 任务后复扫：项目代码 117 个，仍有候选项目 93 个、候选文件 8736 个，样本仍出现 `未分类 / 未分类文件类型`。
 - 已导出阻塞明细：`task-35-ambiguous-recognition-records.xlsx`、`task-35-unclassified-recognition-records.xlsx`；终态核验 JSON 为 `task-35-final-verification.json`。
+- 只读失败分析：`failure-analysis.md` 确认歧义导出 1207 条与任务计数一致，未识别导出 7366 条比任务计数少 125 条；主要歧义为 OQ/PQ 方案/报告与“工序卡/作业指导书”同分，主要未识别为图纸、零配件名、记录表、OQ/PQ 参数组等。
+- 源码核对：当前分类匹配只使用文件名、标题、文件编号对类别名称和内置别名打分，不使用目录阶段线索，且 `dcc_file_category` 无数据级别别名字段。
 
 ## Executed
 
 - 已调用 `POST /admin-api/dcc/controlled-files/batch-recognition/tasks` 创建任务 `35`。
 - 已轮询至终态并复扫候选影响面。
 - 已导出 `AMBIGUOUS` 与 `UNCLASSIFIED` 识别记录。
+- 已完成失败明细只读归因分析。
 - 未直接写 SQL、未修改角色、未跨租户搬运类别规则、未改代码、未使用 per-file API 批量绕过。
 
 ## Required Next Step
 
-若继续执行，需要基于导出的歧义/未识别明细补充正式类别匹配规则、拆解同分歧义类别或人工处理未识别文件；处理后再使用同一官方批量分类链路重跑并复查候选数为 0。
+若继续执行，需要先明确并授权正式修复路径：补充可维护文件类别匹配规则/别名能力，或由业务调整正式类别名称与文件元数据后再重跑。未经授权不应自动修改类别、文件元数据、SQL 或代码；处理后再使用同一官方批量分类链路重跑并复查候选数为 0。

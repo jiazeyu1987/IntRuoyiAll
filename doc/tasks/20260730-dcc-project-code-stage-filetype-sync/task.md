@@ -40,6 +40,14 @@ blocked
 - 已导出明细：`task-35-ambiguous-recognition-records.xlsx`、`task-35-unclassified-recognition-records.xlsx`，并保存终态核验证据 `task-35-final-verification.json`。
 - 未改用 SQL、未修改类别规则、未循环调用单文件 API、未把 `UNCLASSIFIED/AMBIGUOUS` 当作成功。
 
+## Failure Analysis
+
+- 2026-07-31 继续执行只读失败明细分析，输出 `failure-analysis.md`。
+- 歧义导出 1207 条，与任务计数一致；未识别导出 7366 条，比任务 `unclassifiedCount=7491` 少 125 条，正式修复前需复核导出接口口径。
+- 歧义集中在 OQ/PQ 方案/报告与“工序卡/作业指导书”同分；未识别集中在 `.pdf`、SolidWorks 图纸/零件、图纸、零配件名、记录表和 OQ/PQ 参数组。
+- 源码核对确认当前分类只使用文件名、标题、文件编号匹配启用类别名称和内置别名；不使用目录阶段线索，且 `dcc_file_category` 无数据级别别名字段。
+- 当前任务仍 blocked；下一步必须先获得正式规则/代码改造授权，不能在本计划内自动改名、修数或绕过。
+
 ## Authorization Scope
 
 用户已明确要求在测试服 `172.30.30.58` 实施该计划；不操作正式服、备用服或非本任务数据环境。
