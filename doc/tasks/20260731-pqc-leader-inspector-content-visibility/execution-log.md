@@ -24,6 +24,8 @@
 - CLEANUP: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260731-pqc-leader-inspector-content-visibility --mode preview` -> PASS, keep 3 files, delete none, blocked none, warnings none.
 - CLEANUP: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260731-pqc-leader-inspector-content-visibility --mode apply` -> PASS, deleted none.
 - EXPERIENCE: project-experience-consolidation -> PASS, existing `frontend-development` and `e2e-rules` gates cover this lesson; no new long-term experience document created.
+- COMMIT: `git commit -m "fix: show pqc inspector submissions to leaders"` -> PASS, commit `39bf462af`，仅包含本任务 5 个文件。
+- PUSH: `git push origin int_main` -> FAIL, GitHub 443 连接经 `127.0.0.1` 代理不可达，远端未同步。
 
 ## RED / GREEN Evidence
 
@@ -36,3 +38,4 @@
 
 - 初始工作区已有非本任务脏改动且分支领先远端；已做前线页面基线提交 `a9deae829`。
 - 基线后仍存在并行文档/经验文件改动；当前任务不触碰，最终提交/推送阶段需要选择性暂存本任务文件。
+- 当前任务实现提交已完成，但 `git push origin int_main` 因 `Failed to connect to github.com port 443 via 127.0.0.1` 失败；任务保持 `ready_for_closeout`，等待网络/代理恢复后推送。
