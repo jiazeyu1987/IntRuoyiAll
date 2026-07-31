@@ -9,7 +9,7 @@
 
 1. `completed` - 完成提交/推送前置规则读取、Git 状态识别和任务文档初始化。
 2. `completed` - 保存开始任务前已有脏改动基线提交，并记录 commit hash 与文件清单。
-3. `in_progress` - 执行提交前门禁检查、推送当前分支到 `origin`。
+3. `completed` - 执行提交前门禁检查、推送当前分支到 `origin`。
 4. `completed` - 完成收尾记录、清理预检和最终状态更新。
 
 ## Expected Verification
@@ -31,7 +31,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 

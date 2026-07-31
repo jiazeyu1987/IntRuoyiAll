@@ -15,9 +15,11 @@
 - 基线提交：`41b366fd chore: baseline pending frontend backend changes`。
 - cleanup preview：PASS，keep `task.md`、`execution-log.md`、`verification-report.md`，delete/blocked/warnings 均为 none。
 - cleanup apply：PASS，deleted_paths 为 none。
+- 本任务记录提交：`c71724a7 docs: record frontend backend commit task`。
+- `git push origin int_main`：PASS，远端从 `011999ef` 更新到 `c71724a7`。
+- 推送后 `git status --short --branch`：PASS，显示 `int_main...origin/int_main`，无 ahead。
 
-## Pending Final Evidence
+## Final Closeout
 
-- 本任务记录提交。
-- `git push origin int_main`。
-- 推送后 `git status --short --branch` 不再显示 ahead。
+- 当前任务状态更新为 `completed`。
+- 本节最终 closeout 记录将作为单独提交推送。

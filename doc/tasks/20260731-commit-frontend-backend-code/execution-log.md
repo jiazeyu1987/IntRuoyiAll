@@ -22,6 +22,9 @@
 - 基线提交：`41b366fd chore: baseline pending frontend backend changes`，保存任务开始前已有脏改动；提交后复扫仅剩本次任务文档未提交。
 - cleanup preview：`task_closeout.py --task-id 20260731-commit-frontend-backend-code --mode preview`，status `ready`，keep 三个核心任务文件，delete/blocked/warnings 均为 none。
 - cleanup apply：`task_closeout.py --task-id 20260731-commit-frontend-backend-code --mode apply`，status `applied`，deleted_paths 为 none。
+- 任务记录提交：`c71724a7 docs: record frontend backend commit task`，包含本任务 `task.md`、`execution-log.md`、`verification-report.md`。
+- 推送：`git push origin int_main` 成功，远端从 `011999ef` 更新到 `c71724a7`；推送后 `git status --short --branch` 显示 `int_main...origin/int_main`，无 ahead。
+- 最终状态：本次 closeout 更新将作为最终收尾记录单独提交并推送。
 
 ## Baseline Commit Files
 
@@ -53,6 +56,8 @@ A doc/tasks/20260731-restart-local-frontend-backend/verification-report.md
 - `git diff --cached --check`：PASS 后完成基线提交。
 - `git status --short --branch --untracked-files=all`：基线提交后显示 `int_main...origin/int_main [ahead 1]`，仅剩 `doc/tasks/20260731-commit-frontend-backend-code/` 未提交。
 - cleanup preview/apply：PASS，未删除任何文件。
+- `git push origin int_main`：PASS，`origin/int_main` 已同步到 `c71724a7`。
+- `git status --short --branch`：PASS，推送后无 ahead。
 
 ## Blockers
 
