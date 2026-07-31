@@ -518,7 +518,13 @@
 
     <div v-if="activePicker" class="frontline-picker" @click.self="closePicker">
       <section class="frontline-picker__card">
-        <h3>{{ activePicker === 'process' ? '选择工序' : '选择员工' }}</h3>
+        <h3>
+          {{
+            isPqcMode
+              ? activePicker === 'process' ? '选工序' : '选择员工'
+              : activePicker === 'process' ? '选择工序' : '选择员工'
+          }}
+        </h3>
         <div class="frontline-picker__options">
           <button
             v-for="option in pickerOptions"
@@ -530,7 +536,9 @@
             {{ option.label }}
           </button>
         </div>
-        <button class="frontline-picker__close" type="button" @click="closePicker">关闭</button>
+        <button class="frontline-picker__close" type="button" @click="closePicker">
+          {{ isPqcMode ? '返回' : '关闭' }}
+        </button>
       </section>
     </div>
   </section>
@@ -672,8 +680,8 @@ const deviceParameterDraft = reactive<Record<string, ProductionDeviceParameterDr
 const pqcDraft = reactive({
   inspectionType: 'PATROL' as InspectionType,
   patrolRound: 1,
-  inspectionQuantity: undefined as number | undefined,
-  scrapQuantity: undefined as number | undefined
+  inspectionQuantity: 30 as number | undefined,
+  scrapQuantity: 1 as number | undefined
 })
 
 const activePqcInspectionKey = ref<PqcInspectionItemKey>()
@@ -2387,8 +2395,12 @@ onMounted(async () => {
   .frontline-operator-top,
   .frontline-operator-top.is-pqc,
   .frontline-operator-main,
-  .frontline-device-grid,
-  .frontline-number-grid {
+  .frontline-production-quantity-panel.is-no-device .frontline-production-quantity-body,
+  .frontline-production-number-field,
+  .frontline-production-number-field.is-total,
+  .frontline-production-device-tabs,
+  .frontline-production-device-param,
+  .frontline-production-submit-bar {
     grid-template-columns: 1fr;
   }
 

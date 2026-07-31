@@ -60,20 +60,30 @@ assert.ok(employeeSwitchStart >= 0 && employeeSwitchEnd > employeeSwitchStart, '
 const employeeSwitchBlock = frontlinePanel.slice(employeeSwitchStart, employeeSwitchEnd)
 assert.doesNotMatch(employeeSwitchBlock, /context\.templateCode\s*=\s*templateCode/, 'employee switch must not silently change the current page UI mode.')
 assert.match(frontlinePanel, /selectedDeviceCards\.value\.slice\(0,\s*3\)/, 'production device cards must be limited to three devices.')
-assert.doesNotMatch(frontlinePanel, /el-tabs[\s\S]*设备/, 'production devices must not use tab layout.')
+assert.match(frontlinePanel, /frontline-production-device-tabs/, 'production devices must use the compact three-device selector from the approved HTML.')
 assert.match(frontlinePanel, /const switchableProcessOptions = computed/, 'process picker must define unique process options.')
 const processPickerBlock = frontlinePanel.match(/const pickerOptions = computed\([\s\S]*?\n}\)/)
 assert.ok(processPickerBlock, 'process picker options block must exist.')
 assert.match(processPickerBlock[0], /switchableProcessOptions\.value\.map/, 'process picker must use unique process options.')
 assert.doesNotMatch(processPickerBlock[0], /deviceState\.processOptions\.map/, 'multiple devices must not duplicate process choices.')
 
-const productionTemplate = frontlinePanel.match(/v-else[\s\S]*data-frontline-production-operator[\s\S]*?<footer class="frontline-submit-bar">/)
-assert.ok(productionTemplate, 'production operator block must exist.')
-for (const forbidden of ['生产工单', '工单', '生产订单']) {
-  assert.doesNotMatch(productionTemplate[0], new RegExp(forbidden), `production UI must not expose ${forbidden}.`)
+const productionStart = frontlinePanel.indexOf('data-frontline-production-operator')
+const productionEnd = frontlinePanel.indexOf('</footer>', productionStart)
+assert.ok(productionStart >= 0 && productionEnd > productionStart, 'production operator block must exist.')
+const productionTemplate = frontlinePanel.slice(productionStart, productionEnd)
+for (const required of ['工序', '员工', '主页', '完成数量', '损耗数量', '不良明细', '填设备', '压力', '时间', '重填', '提交']) {
+  assert.match(productionTemplate, new RegExp(required), `production UI must include ${required}.`)
 }
+for (const defectLabel of ['密封件划伤', '装配不到位', '外观磕碰', '尺寸超差', '泄漏', '压力异常', '其他不良']) {
+  assert.match(frontlinePanel, new RegExp(defectLabel), `production defect constants must include ${defectLabel}.`)
+}
+for (const forbidden of ['生产工单', '工单', '生产订单', '上工序输入数量']) {
+  assert.doesNotMatch(productionTemplate, new RegExp(forbidden), `production UI must not expose ${forbidden}.`)
+}
+assert.doesNotMatch(productionTemplate, />输出数量</, 'production UI must not expose the old output quantity wording.')
+assert.doesNotMatch(frontlinePanel, /frontline-no-device/, 'production UI must not show a no-device placeholder panel.')
 
-const pqcTemplate = frontlinePanel.match(/data-frontline-pqc-operator[\s\S]*?<footer class="frontline-submit-bar">/)
+const pqcTemplate = frontlinePanel.match(/data-frontline-pqc-operator[\s\S]*?<footer class="frontline-pqc-submit-bar">/)
 assert.ok(pqcTemplate, 'PQC operator block must exist.')
 for (const required of ['生产订单', '工序', '员工', '主页', '长度', '厘米', '外观', '密封', '压力', 'MPa', '首检', '巡检', '末检', '检验数量', '损耗数量']) {
   assert.match(pqcTemplate[0], new RegExp(required), `PQC UI must include ${required}.`)

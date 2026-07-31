@@ -38,6 +38,31 @@ assert.match(
   /getPqcProgressText[\s\S]*`已填 \$\{getPqcCompletedCount\(itemKey\)\}\/\$\{pqcInspectionQuantity\.value\}`/,
   'PQC inspection entries must render the target completed quantity text.'
 )
+assert.match(
+  source,
+  /inspectionQuantity:\s*30\s+as\s+number\s*\|\s*undefined/,
+  'PQC first viewport must match the target patrol default inspection quantity of 30.'
+)
+assert.match(
+  source,
+  /scrapQuantity:\s*1\s+as\s+number\s*\|\s*undefined/,
+  'PQC first viewport must match the target patrol default scrap quantity of 1.'
+)
+assert.match(
+  pqcTemplate,
+  /activePqcInspectionItem[\s\S]*pqcInspectionQuantity[\s\S]*件/,
+  'PQC piece dialog title must continue to use the current inspection quantity.'
+)
+assert.match(
+  source,
+  /activePicker === 'process' \? '选工序' : '选择员工'/,
+  'PQC process picker title must match the target text 选工序.'
+)
+assert.match(
+  source,
+  /isPqcMode \? '返回' : '关闭'/,
+  'PQC picker close action must match the target text 返回.'
+)
 
 assert.match(
   pqcTemplate,
