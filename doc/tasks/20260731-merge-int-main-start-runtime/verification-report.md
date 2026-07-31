@@ -30,6 +30,9 @@
 - Frontend entry -> PASS, `http://127.0.0.1:8041/` returned HTTP `200`.
 - Runtime Jar immutability -> PASS, a second Java 17 Maven package finished at `2026-07-31 18:44:51 +08:00`; backend stayed healthy and continued using the independent runtime Jar created before the rebuilt target Jar.
 - Branch runtime port guard -> PASS after final restart, `int_batch` remained on frontend `8041` and backend `48041`.
+- Implementation commit -> PASS, `179de5e0`.
+- Cleanup preview/apply -> PASS, only the task-owned `.runtime\20260731-merge-int-main-start-runtime` directory was deleted; all four required task records were kept.
+- Temporary recomputation worktree -> PASS, `D:\IntRuoyiWorktree\recompute-int-main-merge-20260731` was removed after its merge-tree evidence was committed; Git registration and physical path are both absent.
 
 ## Resolved Blocker Detail
 
