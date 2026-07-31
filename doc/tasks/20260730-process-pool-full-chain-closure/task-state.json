@@ -1,11 +1,14 @@
 {
   "task_id": "20260730-process-pool-full-chain-closure",
   "goal": "Close binding source, real frontline submit, PQC pool entry, FIFO orchestration, automatic review copy, team-leader workbench, and full E2E.",
-  "status": "ready_for_closeout",
-  "current_stage": "closeout",
+  "status": "blocked",
+  "current_stage": "closeout_blocked",
   "planner_review_status": "approved",
   "plan_review_status": "approved",
-  "blocking_prereqs": [],
+  "blocking_prereqs": [
+    "GitHub remote HTTPS connection reset blocks `git push -u origin codex/process-pool-full-chain-closure-20260730`.",
+    "Main workspace `E:\\IntRuoyi` is clean but `int_main...origin/int_main [ahead 5]`; automatic ff merge, cleanup apply, worktree removal, and completed status are blocked until origin synchronization is safe."
+  ],
   "iteration_counts": {
     "planner_revisions": 0,
     "plan_revisions": 0,
@@ -121,5 +124,5 @@
       "last_outcome": "GREEN: full real Playwright E2E passed with marker PPFC-1785436288416-51980; cleanup residuals zero"
     }
   ],
-  "updated_at": "2026-07-31T03:05:00+08:00"
+  "updated_at": "2026-07-31T08:26:42+08:00"
 }

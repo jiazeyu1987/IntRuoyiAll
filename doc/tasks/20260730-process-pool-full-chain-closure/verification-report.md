@@ -1,7 +1,7 @@
 # Verification Report
 
 ## Current Result
-- Status: PASS for implementation and required verification; task is `ready_for_closeout`.
+- Status: PASS for implementation and required verification; closeout is `blocked`.
 - Worktree: `D:\IntRuoyiWorktree\process-pool-full-chain-closure`.
 - Branch: `codex/process-pool-full-chain-closure-20260730`.
 - Runtime: `int_main slot=1`, frontend `8082`, backend `48082`.
@@ -67,7 +67,14 @@
 
 ## Remaining Risk
 - T6 execution happened while the task's authoritative date was `2026-07-30`; the local Windows/Docker/MySQL runtime persisted/displayed `2026-07-31`. This is recorded as an environment clock/date anomaly and was not hidden by business-code normalization.
-- Main workspace `E:\IntRuoyi` is currently dirty with concurrent task files outside this task. Fast-forward merge and worktree removal must wait until the main workspace is clean or the user authorizes an explicit handling path.
+- GitHub HTTPS access is currently failing with `Recv failure: Connection was reset`; the current task branch cannot be confirmed pushed while this persists.
+- Main workspace `E:\IntRuoyi` is currently clean but `int_main` remains ahead of `origin/int_main` by 5 commits. Fast-forward merge, cleanup apply, worktree removal, and completed status must wait until remote synchronization is safe.
+
+## Closeout Blockers
+- Local implementation commit exists: `79aaecd0 feat: close process pool frontline full chain`.
+- Runtime release check: task-owned frontend/backend listeners for `8082/48082` are stopped; current port scan returned no listeners.
+- Push blocker: `git push -u origin codex/process-pool-full-chain-closure-20260730` failed on 2026-07-31 with GitHub HTTPS connection reset.
+- Integration blocker: main workspace status is `## int_main...origin/int_main [ahead 5]`; no automatic merge/delete will proceed while the base branch is not synchronized.
 
 ## No-Fallback Check
 - Mock data used: no.

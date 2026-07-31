@@ -9,7 +9,7 @@
 - M3: 补齐一线生产和 PQC 页面真实提交，禁止 validate 后假成功。（completed）
 - M4: 补齐 PQC 入池、FIFO 按生产工单计划开始时间消费、审核副本自动规则。（completed）
 - M5: 补齐班组长工作台和完整真实 E2E。（completed）
-- M6: 完成验证、经验沉淀、提交、推送和 worktree 收尾。（ready_for_closeout）
+- M6: 完成验证、经验沉淀、提交、推送和 worktree 收尾。（blocked）
 
 ## Expected Verification
 - 后端目标 JUnit 覆盖绑定源、提交授权、PQC 入池、FIFO 生产工单排序、审核副本 clamp 规则。
@@ -19,7 +19,7 @@
 - 本任务提交并推送当前分支，若无法完成真实 E2E，记录精确前置阻塞。
 
 ## Current Status
-ready_for_closeout
+blocked
 
 ## Worktree
 - Path: `D:\IntRuoyiWorktree\process-pool-full-chain-closure`
@@ -47,4 +47,5 @@ ready_for_closeout
 - AC-01 至 AC-06：后端目标 JUnit、前端静态合同、TypeScript、迁移策略门禁均通过。
 - AC-07：真实 Playwright 全链路 PASS，marker `PPFC-1785436288416-51980`，证据位于 `IntRuoyiFronted/output/playwright/process-pool-full-chain-real-flow/PPFC-1785436288416-51980/`。
 - 真实链路结果：生产 `feedbackId=783 / recordbookEntryId=10 / eventId=16`，PQC `feedbackId=784 / recordbookEntryId=11 / eventId=17`，FIFO 先满足工单 `925936=20` 再满足 `925937=30`，审核副本 `reviewCopyId=7` 将 `50` clamp 为 `40`。
-- 收尾剩余：提交并推送当前分支、停止任务自有 `8082/48082` 进程、运行 cleanup preview/apply；主工作区 `E:\IntRuoyi` 目前存在并发任务脏改动，快进融合需阻塞到主工作区干净或获得新的明确处理授权。
+- 实现提交：`79aaecd0 feat: close process pool frontline full chain` 已在本地分支生成，任务自有运行态已停止，`8082/48082` 当前无监听。
+- 收尾阻塞：`git push -u origin codex/process-pool-full-chain-closure-20260730` 于 2026-07-31 仍因 GitHub HTTPS 连接重置失败；主工作区 `E:\IntRuoyi` 当前无脏文件但 `int_main...origin/int_main [ahead 5]`，远端未同步前不得自动快进融合、cleanup apply、删除 worktree 或标记 completed。
