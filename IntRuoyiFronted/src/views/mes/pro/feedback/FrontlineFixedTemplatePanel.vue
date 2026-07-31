@@ -334,72 +334,185 @@
         <button class="frontline-home-button" type="button" @click="handleHome">主页</button>
       </header>
 
-      <main class="frontline-operator-main">
-        <section class="frontline-work-panel">
+      <main
+        class="frontline-operator-main frontline-production-main"
+        :class="{ 'is-no-device': !visibleDeviceCards.length }"
+      >
+        <section
+          class="frontline-work-panel frontline-production-quantity-panel"
+          :class="{ 'is-no-device': !visibleDeviceCards.length }"
+          aria-label="数量与不良"
+        >
           <h3>填数量</h3>
-          <label class="frontline-production-field">
-            <span>上工序输入数量</span>
-            <el-input-number
-              v-model="productionDraft.previousProcessInputQuantity"
-              :min="0"
-              :step="1"
-              controls-position="right"
-            />
-            <em>个</em>
-          </label>
-          <label class="frontline-production-field">
-            <span>输出数量</span>
-            <el-input-number
-              v-model="productionDraft.outputQuantity"
-              :min="0"
-              :step="1"
-              controls-position="right"
-            />
-            <em>个</em>
-          </label>
-          <label class="frontline-production-field">
-            <span>损耗数量</span>
-            <el-input-number
-              v-model="productionDraft.scrapQuantity"
-              :min="0"
-              :step="1"
-              controls-position="right"
-            />
-            <em>个</em>
-          </label>
+          <div class="frontline-production-quantity-body">
+            <div class="frontline-production-quantity-fields">
+              <div class="frontline-production-number-field">
+                <label for="frontlineProductionOutputQuantity">完成数量</label>
+                <button
+                  type="button"
+                  aria-label="完成数量减少"
+                  @click="adjustProductionOutputQuantity(-1)"
+                >
+                  -
+                </button>
+                <input
+                  id="frontlineProductionOutputQuantity"
+                  :value="productionDraft.outputQuantity ?? ''"
+                  inputmode="numeric"
+                  @input="updateProductionOutputQuantity"
+                />
+                <button
+                  type="button"
+                  aria-label="完成数量增加"
+                  @click="adjustProductionOutputQuantity(1)"
+                >
+                  +
+                </button>
+                <span>件</span>
+              </div>
+
+              <div class="frontline-production-number-field is-total">
+                <label for="frontlineProductionScrapQuantity">损耗数量</label>
+                <input
+                  id="frontlineProductionScrapQuantity"
+                  :value="productionScrapQuantity"
+                  inputmode="numeric"
+                  readonly
+                />
+                <span>件</span>
+              </div>
+            </div>
+
+            <section class="frontline-production-defect-section" aria-label="不良明细">
+              <div class="frontline-production-defect-title">不良明细</div>
+              <div class="frontline-production-defect-grid">
+                <div
+                  v-for="defect in productionDefects"
+                  :key="defect.key"
+                  class="frontline-production-defect-card"
+                  :class="{ active: getProductionDefectQuantity(defect.key) > 0 }"
+                  :data-defect-key="defect.key"
+                >
+                  <span class="frontline-production-defect-name">{{ defect.label }}</span>
+                  <button
+                    type="button"
+                    class="frontline-production-defect-step"
+                    :aria-label="`${defect.label}减少`"
+                    @click="adjustProductionDefectQuantity(defect.key, -1)"
+                  >
+                    -
+                  </button>
+                  <input
+                    class="frontline-production-defect-qty"
+                    :value="getProductionDefectQuantity(defect.key)"
+                    inputmode="numeric"
+                    :aria-label="`${defect.label}数量`"
+                    @input="updateProductionDefectQuantity(defect.key, $event)"
+                  />
+                  <button
+                    type="button"
+                    class="frontline-production-defect-step"
+                    :aria-label="`${defect.label}增加`"
+                    @click="adjustProductionDefectQuantity(defect.key, 1)"
+                  >
+                    +
+                  </button>
+                  <span class="frontline-production-defect-unit">件</span>
+                </div>
+              </div>
+            </section>
+          </div>
         </section>
 
-        <section class="frontline-work-panel">
-          <h3>设备参数</h3>
-          <div v-if="visibleDeviceCards.length" class="frontline-device-grid">
-            <label
+        <section
+          v-if="visibleDeviceCards.length"
+          class="frontline-work-panel frontline-production-device-panel"
+          aria-label="设备"
+        >
+          <h3>填设备</h3>
+          <div class="frontline-production-device-tabs" role="tablist" aria-label="设备切换">
+            <button
               v-for="device in visibleDeviceCards"
               :key="device.key"
-              class="frontline-device-card"
+              type="button"
+              role="tab"
+              :aria-selected="device.key === selectedProductionDeviceKey"
+              :class="{ active: device.key === selectedProductionDeviceKey }"
+              @click="selectedProductionDeviceKey = device.key"
             >
-              <span>{{ device.label }}</span>
-              <el-input
-                v-model="deviceParameterDraft[device.key]"
-                placeholder="填参数"
-                clearable
-              />
-            </label>
+              {{ device.label }}
+            </button>
           </div>
-          <div v-else class="frontline-no-device">本工序无设备，直接填数量</div>
+          <div v-if="activeProductionDevice" class="frontline-production-device-current">
+            <div class="frontline-production-device-param">
+              <label for="frontlineProductionDevicePressure">压力</label>
+              <button
+                type="button"
+                aria-label="压力减少"
+                @click="adjustProductionDeviceParameter(activeProductionDevice.key, 'pressure', -1)"
+              >
+                -
+              </button>
+              <input
+                id="frontlineProductionDevicePressure"
+                :value="getProductionDeviceParameter(activeProductionDevice.key, 'pressure')"
+                inputmode="decimal"
+                @input="updateProductionDeviceParameter(activeProductionDevice.key, 'pressure', $event)"
+              />
+              <button
+                type="button"
+                aria-label="压力增加"
+                @click="adjustProductionDeviceParameter(activeProductionDevice.key, 'pressure', 1)"
+              >
+                +
+              </button>
+              <span>MPa</span>
+            </div>
+
+            <div class="frontline-production-device-param">
+              <label for="frontlineProductionDeviceTime">时间</label>
+              <button
+                type="button"
+                aria-label="时间减少"
+                @click="adjustProductionDeviceParameter(activeProductionDevice.key, 'time', -1)"
+              >
+                -
+              </button>
+              <input
+                id="frontlineProductionDeviceTime"
+                :value="getProductionDeviceParameter(activeProductionDevice.key, 'time')"
+                inputmode="numeric"
+                @input="updateProductionDeviceParameter(activeProductionDevice.key, 'time', $event)"
+              />
+              <button
+                type="button"
+                aria-label="时间增加"
+                @click="adjustProductionDeviceParameter(activeProductionDevice.key, 'time', 1)"
+              >
+                +
+              </button>
+              <span>秒</span>
+            </div>
+          </div>
         </section>
       </main>
 
-      <footer class="frontline-submit-bar">
-        <span>{{ statusText }}</span>
-        <el-button
-          type="primary"
-          size="large"
-          :loading="payloadLoading"
-          :disabled="isSubmitBlocked"
+      <footer class="frontline-production-submit-bar">
+        <button
+          class="frontline-production-reset-button"
+          type="button"
+          @click="handleResetProduction"
+        >
+          重填
+        </button>
+        <button
+          class="frontline-production-submit-button"
+          type="button"
+          :disabled="isSubmitBlocked || payloadLoading"
           @click="handleValidate"
         >
-          提交
-        </el-button>
+          {{ payloadLoading ? '提交中' : '提交' }}
+        </button>
       </footer>
     </div>
 
@@ -456,6 +569,7 @@ type InspectionType = 'FIRST' | 'PATROL' | 'FINAL'
 type PqcInspectionItemKey = 'length' | 'appearance' | 'seal' | 'pressure'
 type PqcChoiceResult = '合格' | '不合格'
 type PqcQuantityField = 'inspectionQuantity' | 'scrapQuantity'
+type ProductionDeviceParameterKey = 'pressure' | 'time'
 
 interface PqcInspectionItem {
   label: string
@@ -498,6 +612,19 @@ const pqcInspectionItems: Record<PqcInspectionItemKey, PqcInspectionItem> = {
 
 const pqcInspectionItemKeys = Object.keys(pqcInspectionItems) as PqcInspectionItemKey[]
 
+const productionDefects = [
+  { key: 'sealScratch', label: '密封件划伤' },
+  { key: 'assembly', label: '装配不到位' },
+  { key: 'appearance', label: '外观磕碰' },
+  { key: 'dimension', label: '尺寸超差' },
+  { key: 'leak', label: '泄漏' },
+  { key: 'pressure', label: '压力异常' },
+  { key: 'other', label: '其他不良' }
+] as const
+
+type ProductionDefectKey = (typeof productionDefects)[number]['key']
+type ProductionDeviceParameterDraft = Partial<Record<ProductionDeviceParameterKey, number | undefined>>
+
 const props = withDefaults(defineProps<{ mode?: 'production' | 'pqc' }>(), {
   mode: 'production'
 })
@@ -529,11 +656,18 @@ const draft = reactive<FrontlineTemplateDraft>({
 
 const productionDraft = reactive({
   previousProcessInputQuantity: undefined as number | undefined,
-  outputQuantity: undefined as number | undefined,
-  scrapQuantity: undefined as number | undefined
+  outputQuantity: undefined as number | undefined
 })
 
-const deviceParameterDraft = reactive<Record<string, string>>({})
+const productionDefectDraft = reactive(
+  productionDefects.reduce((draftValues, defect) => {
+    draftValues[defect.key] = 0
+    return draftValues
+  }, {} as Record<ProductionDefectKey, number>)
+)
+
+const selectedProductionDeviceKey = ref<string>()
+const deviceParameterDraft = reactive<Record<string, ProductionDeviceParameterDraft>>({})
 
 const pqcDraft = reactive({
   inspectionType: 'PATROL' as InspectionType,
@@ -555,6 +689,13 @@ const isPqcMode = computed(() => props.mode === 'pqc')
 const selectedProcessLabel = computed(() => formatProcessLabel(deviceState.selectedProcess))
 
 const selectedEmployeeLabel = computed(() => formatEmployeeLabel(deviceState.selectedEmployee))
+
+const productionScrapQuantity = computed(() =>
+  productionDefects.reduce(
+    (total, defect) => total + (productionDefectDraft[defect.key] || 0),
+    0
+  )
+)
 
 const pqcInspectionQuantity = computed(() =>
   normalizePqcQuantity(pqcDraft.inspectionQuantity)
@@ -643,6 +784,11 @@ const selectedDeviceCards = computed(() => {
 
 const visibleDeviceCards = computed(() => selectedDeviceCards.value.slice(0, 3))
 
+const activeProductionDevice = computed(() =>
+  visibleDeviceCards.value.find((device) => device.key === selectedProductionDeviceKey.value) ||
+  visibleDeviceCards.value[0]
+)
+
 const switchableProcessOptions = computed(() => {
   const seen = new Set<string>()
   return deviceState.processOptions.filter((process) => {
@@ -700,7 +846,21 @@ watch(
 )
 
 watch(
-  [productionDraft, selectedDeviceCards, deviceParameterDraft],
+  visibleDeviceCards,
+  (devices) => {
+    if (!devices.length) {
+      selectedProductionDeviceKey.value = undefined
+      return
+    }
+    if (!devices.some((device) => device.key === selectedProductionDeviceKey.value)) {
+      selectedProductionDeviceKey.value = devices[0].key
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  [productionDraft, selectedDeviceCards, deviceParameterDraft, productionDefectDraft],
   () => {
     if (!isPqcMode.value) {
       Object.assign(draft.fieldValues, buildProductionFieldValues())
@@ -708,6 +868,97 @@ watch(
   },
   { deep: true }
 )
+
+const normalizeProductionQuantity = (value: unknown) => {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) {
+    return 0
+  }
+  return Math.max(0, Math.trunc(parsed))
+}
+
+const normalizeProductionParameter = (value: unknown) => {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) {
+    return undefined
+  }
+  return Math.max(0, parsed)
+}
+
+const updateProductionOutputQuantity = (event: Event) => {
+  const value = (event.target as HTMLInputElement).value.trim()
+  productionDraft.outputQuantity = value === '' ? undefined : normalizeProductionQuantity(value)
+}
+
+const adjustProductionOutputQuantity = (delta: number) => {
+  productionDraft.outputQuantity = normalizeProductionQuantity(productionDraft.outputQuantity) + delta
+  if (productionDraft.outputQuantity < 0) {
+    productionDraft.outputQuantity = 0
+  }
+}
+
+const getProductionDefectQuantity = (defectKey: ProductionDefectKey) =>
+  productionDefectDraft[defectKey] || 0
+
+const updateProductionDefectQuantity = (
+  defectKey: ProductionDefectKey,
+  event: Event
+) => {
+  productionDefectDraft[defectKey] = normalizeProductionQuantity(
+    (event.target as HTMLInputElement).value
+  )
+}
+
+const adjustProductionDefectQuantity = (
+  defectKey: ProductionDefectKey,
+  delta: number
+) => {
+  productionDefectDraft[defectKey] = Math.max(
+    0,
+    getProductionDefectQuantity(defectKey) + delta
+  )
+}
+
+const ensureProductionDeviceParameters = (deviceKey: string) => {
+  if (!deviceParameterDraft[deviceKey]) {
+    deviceParameterDraft[deviceKey] = {}
+  }
+  return deviceParameterDraft[deviceKey]
+}
+
+const getProductionDeviceParameter = (
+  deviceKey: string,
+  parameterKey: ProductionDeviceParameterKey
+) => ensureProductionDeviceParameters(deviceKey)[parameterKey] ?? ''
+
+const updateProductionDeviceParameter = (
+  deviceKey: string,
+  parameterKey: ProductionDeviceParameterKey,
+  event: Event
+) => {
+  const value = (event.target as HTMLInputElement).value.trim()
+  ensureProductionDeviceParameters(deviceKey)[parameterKey] =
+    value === '' ? undefined : normalizeProductionParameter(value)
+}
+
+const adjustProductionDeviceParameter = (
+  deviceKey: string,
+  parameterKey: ProductionDeviceParameterKey,
+  delta: number
+) => {
+  const params = ensureProductionDeviceParameters(deviceKey)
+  params[parameterKey] = Math.max(0, Number(params[parameterKey] || 0) + delta)
+}
+
+const handleResetProduction = () => {
+  productionDraft.outputQuantity = undefined
+  for (const defect of productionDefects) {
+    productionDefectDraft[defect.key] = 0
+  }
+  for (const deviceKey of Object.keys(deviceParameterDraft)) {
+    delete deviceParameterDraft[deviceKey]
+  }
+}
 
 const normalizePqcQuantity = (value?: number) => {
   if (!Number.isFinite(value)) {
@@ -948,6 +1199,14 @@ const assertFormalPayloadContext = () => {
   }
 }
 
+const buildProductionDeviceParameterPayload = (deviceKey: string) => {
+  const params = deviceParameterDraft[deviceKey] || {}
+  return Object.fromEntries(
+    (Object.entries(params) as Array<[ProductionDeviceParameterKey, number | undefined]>)
+      .filter(([, value]) => value !== undefined)
+  )
+}
+
 const buildProductionFieldValues = () => ({
   [FRONTLINE_FIELD_CODES.PREVIOUS_PROCESS_INPUT_QUANTITY]:
     productionDraft.previousProcessInputQuantity,
@@ -955,10 +1214,13 @@ const buildProductionFieldValues = () => ({
     ? visibleDeviceCards.value.map((device) => device.label).join('、')
     : '无设备',
   [FRONTLINE_FIELD_CODES.DEVICE_PARAMETERS]: Object.fromEntries(
-    visibleDeviceCards.value.map((device) => [device.label, deviceParameterDraft[device.key] || ''])
+    visibleDeviceCards.value.map((device) => [
+      device.label,
+      buildProductionDeviceParameterPayload(device.key)
+    ])
   ),
   [FRONTLINE_FIELD_CODES.OUTPUT_QUANTITY]: productionDraft.outputQuantity,
-  [FRONTLINE_FIELD_CODES.SCRAP_QUANTITY]: productionDraft.scrapQuantity
+  [FRONTLINE_FIELD_CODES.SCRAP_QUANTITY]: productionScrapQuantity.value
 })
 
 const applyProcessToContext = (process: FrontlineDeviceRouteProcessVO) => {
@@ -973,6 +1235,9 @@ const hydrateContextFromRoute = () => {
   context.routeProcessId = firstRouteQueryNumber(['routeProcessId']) ?? context.routeProcessId
   context.processId = firstRouteQueryNumber(['processId']) ?? context.processId
   context.actualEmployeeId = firstRouteQueryNumber(['actualEmployeeId']) ?? context.actualEmployeeId
+  productionDraft.previousProcessInputQuantity =
+    firstRouteQueryNumber(['previousProcessInputQuantity', 'previousInputQuantity']) ??
+    productionDraft.previousProcessInputQuantity
   const queryTemplateCode = resolveTemplateCode(firstRouteQueryText(['templateCode', 'templateNo']))
   employeeTemplateCode.value = queryTemplateCode
   context.templateCode = expectedTemplateCode.value
@@ -1160,12 +1425,16 @@ onMounted(async () => {
 
 .frontline-operator-main {
   display: grid;
-  grid-template-columns: 780px minmax(0, 1fr);
+  grid-template-columns: 1050px minmax(0, 1fr);
   gap: 28px;
   min-height: 0;
 
   &.is-pqc {
     grid-template-columns: 780px minmax(0, 1fr);
+  }
+
+  &.frontline-production-main.is-no-device {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1187,70 +1456,356 @@ onMounted(async () => {
   }
 }
 
-.frontline-production-field {
+.frontline-production-quantity-panel {
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 16px;
+
+  &.is-no-device {
+    padding: 36px;
+  }
+}
+
+.frontline-production-quantity-body {
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 16px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.frontline-production-quantity-panel.is-no-device .frontline-production-quantity-body {
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: 680px minmax(0, 1fr);
+  gap: 36px;
+}
+
+.frontline-production-quantity-fields {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.frontline-production-quantity-panel.is-no-device .frontline-production-quantity-fields {
+  grid-template-rows: 108px 108px;
+  gap: 28px;
+  align-content: center;
+}
+
+.frontline-production-number-field {
+  display: grid;
+  grid-template-columns: 250px 82px minmax(190px, 1fr) 82px 50px;
+  gap: 16px;
   align-items: center;
   min-width: 0;
 
-  span {
-    font-weight: 900;
+  &.is-total {
+    grid-template-columns: 250px minmax(0, 1fr) 50px;
   }
 
-  em {
-    color: var(--frontline-muted);
-    font-style: normal;
-    font-weight: 900;
-  }
-}
-
-.frontline-production-field {
-  grid-template-columns: 250px minmax(0, 1fr) 50px;
-  gap: 16px;
-
-  span {
+  label {
     font-size: 36px;
+    font-weight: 900;
     line-height: 1.15;
   }
 
-  em {
-    font-size: 30px;
+  button,
+  input {
+    width: 100%;
+    height: 96px;
+    min-width: 0;
+    border: 3px solid var(--frontline-line);
+    border-radius: 18px;
+    background: #f8faf8;
+    color: var(--frontline-ink);
+    text-align: center;
+    font-weight: 900;
   }
-}
 
-.frontline-device-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
+  button {
+    padding: 0;
+    font-size: 50px;
+    cursor: pointer;
+  }
 
-.frontline-device-card {
-  display: grid;
-  gap: 16px;
-  min-width: 0;
-  padding: 20px;
-  border: 3px solid var(--frontline-line);
-  border-radius: 20px;
-  background: #f8faf8;
+  input {
+    font-size: 52px;
+
+    &[readonly] {
+      background: #eef3ef;
+    }
+  }
 
   span {
-    overflow: hidden;
     font-size: 34px;
-    font-weight: 900;
-    line-height: 1.1;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-weight: 800;
   }
 }
 
-.frontline-no-device {
+.frontline-production-quantity-panel.is-no-device .frontline-production-number-field {
+  grid-template-columns: 230px 86px minmax(150px, 1fr) 86px 60px;
+  gap: 18px;
+
+  &.is-total {
+    grid-template-columns: 230px minmax(0, 1fr) 60px;
+  }
+
+  label {
+    font-size: 40px;
+  }
+
+  button,
+  input {
+    height: 108px;
+    border-radius: 20px;
+  }
+
+  button {
+    font-size: 56px;
+  }
+
+  input {
+    font-size: 58px;
+  }
+
+  span {
+    font-size: 38px;
+    font-weight: 900;
+  }
+}
+
+.frontline-production-defect-section {
   display: grid;
-  place-items: center;
-  min-height: 240px;
-  border: 3px dashed var(--frontline-line);
-  border-radius: 20px;
-  color: var(--frontline-muted);
-  font-size: 40px;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.frontline-production-defect-title {
+  font-size: 32px;
   font-weight: 900;
+  line-height: 1;
+}
+
+.frontline-production-quantity-panel.is-no-device .frontline-production-defect-title {
+  font-size: 38px;
+}
+
+.frontline-production-defect-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  min-height: 0;
+}
+
+.frontline-production-quantity-panel.is-no-device .frontline-production-defect-grid {
+  gap: 12px;
+}
+
+.frontline-production-defect-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 58px 76px 58px 34px;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 10px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 16px;
+  background: #f8faf8;
+  color: var(--frontline-ink);
+  font-weight: 900;
+  text-align: left;
+
+  &.active {
+    border-color: #15815f;
+    background: #dff2ea;
+  }
+}
+
+.frontline-production-quantity-panel.is-no-device .frontline-production-defect-card {
+  grid-template-columns: minmax(0, 1fr) 66px 88px 66px 40px;
+  gap: 10px;
+  padding: 0 14px;
+  border-radius: 18px;
+}
+
+.frontline-production-defect-name {
+  min-width: 0;
+  font-size: 24px;
+  line-height: 1.15;
+}
+
+.frontline-production-quantity-panel.is-no-device .frontline-production-defect-name {
+  font-size: 28px;
+}
+
+.frontline-production-defect-step,
+.frontline-production-defect-qty {
+  width: 100%;
+  height: 54px;
+  min-width: 0;
+  border: 3px solid var(--frontline-line);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--frontline-ink);
+  text-align: center;
+  font-weight: 900;
+}
+
+.frontline-production-defect-step {
+  padding: 0;
+  font-size: 34px;
+  cursor: pointer;
+}
+
+.frontline-production-defect-qty {
+  font-size: 30px;
+}
+
+.frontline-production-defect-unit {
+  font-size: 24px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.frontline-production-quantity-panel.is-no-device {
+  .frontline-production-defect-step,
+  .frontline-production-defect-qty {
+    height: 64px;
+    border-radius: 14px;
+  }
+
+  .frontline-production-defect-step {
+    font-size: 40px;
+  }
+
+  .frontline-production-defect-qty {
+    font-size: 34px;
+  }
+
+  .frontline-production-defect-unit {
+    font-size: 28px;
+  }
+}
+
+.frontline-production-device-panel {
+  grid-template-rows: auto 98px minmax(0, 1fr);
+  gap: 18px;
+  overflow: hidden;
+}
+
+.frontline-production-device-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+
+  button {
+    min-width: 0;
+    height: 98px;
+    padding: 0 8px;
+    overflow: hidden;
+    border: 3px solid var(--frontline-line);
+    border-radius: 20px;
+    background: #f8faf8;
+    color: var(--frontline-ink);
+    font-size: 34px;
+    font-weight: 900;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+
+    &.active {
+      border-color: var(--frontline-dark);
+      background: var(--frontline-dark);
+      color: #ffffff;
+    }
+  }
+}
+
+.frontline-production-device-current {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+  min-width: 0;
+  min-height: 0;
+  padding: 26px;
+  border: 3px solid var(--frontline-line);
+  border-radius: 24px;
+  background: #fbfdfb;
+}
+
+.frontline-production-device-param {
+  display: grid;
+  grid-template-columns: 150px 82px minmax(0, 1fr) 82px 78px;
+  gap: 14px;
+  align-items: center;
+  min-width: 0;
+
+  label {
+    font-size: 38px;
+    font-weight: 900;
+  }
+
+  button,
+  input {
+    width: 100%;
+    height: 96px;
+    min-width: 0;
+    border: 3px solid var(--frontline-line);
+    border-radius: 16px;
+    background: #f8faf8;
+    color: var(--frontline-ink);
+    text-align: center;
+    font-weight: 900;
+  }
+
+  button {
+    padding: 0;
+    font-size: 50px;
+    cursor: pointer;
+  }
+
+  input {
+    font-size: 52px;
+  }
+
+  span {
+    font-size: 34px;
+    font-weight: 900;
+  }
+}
+
+.frontline-production-submit-bar {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 24px;
+}
+
+.frontline-production-reset-button,
+.frontline-production-submit-button {
+  border-radius: 28px;
+  font-size: 54px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.frontline-production-reset-button {
+  border: 3px solid var(--frontline-line);
+  background: #ffffff;
+  color: var(--frontline-ink);
+}
+
+.frontline-production-submit-button {
+  border: 0;
+  background: #15815f;
+  color: #ffffff;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+  }
 }
 
 .frontline-pqc-inspection-list {
