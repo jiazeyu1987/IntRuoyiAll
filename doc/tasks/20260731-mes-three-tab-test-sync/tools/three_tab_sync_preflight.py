@@ -165,7 +165,7 @@ def whitelist_count_sql():
         ("mes_pro_route_flow_config", "SELECT COUNT(*) FROM source_flow_configs"),
         ("mes_pro_route_flow_process_config", "SELECT COUNT(*) FROM source_flow_process_configs"),
         ("mes_pro_route_flow_process_batch_record", "SELECT COUNT(*) FROM mes_pro_route_flow_process_batch_record WHERE tenant_id=1 AND deleted=0 AND (route_flow_process_config_id IN (SELECT id FROM source_flow_process_configs) OR route_id IN (SELECT id FROM source_routes) OR route_process_id IN (SELECT id FROM source_route_processes))"),
-        ("mes_pro_route_schedule_config", "SELECT COUNT(*) FROM mes_pro_route_schedule_config WHERE tenant_id=1 AND deleted=0 AND (route_version_id IN (SELECT id FROM source_route_versions) OR route_process_id IN (SELECT id FROM source_route_processes))"),
+        ("mes_pro_route_schedule_config", "SELECT COUNT(*) FROM mes_pro_route_schedule_config WHERE tenant_id=1 AND deleted=0 AND route_process_id IN (SELECT id FROM source_route_processes)"),
         ("mes_pro_route_product", "SELECT COUNT(*) FROM mes_pro_route_product WHERE tenant_id=1 AND deleted=0 AND route_id IN (SELECT id FROM source_routes)"),
         ("mes_pro_route_product_bom", "SELECT COUNT(*) FROM mes_pro_route_product_bom WHERE tenant_id=1 AND deleted=0 AND route_id IN (SELECT id FROM source_routes)"),
         ("mes_pro_edhr_work_task_assignment_rule", "SELECT COUNT(*) FROM mes_pro_edhr_work_task_assignment_rule WHERE tenant_id=1 AND deleted=0 AND scope_type='ROUTE' AND task_type='RELEASE_APPROVE' AND scope_id IN (SELECT id FROM source_routes)"),
@@ -241,7 +241,7 @@ FROM (
 UNION ALL
 SELECT 'calendar_rule_id', CAST(dep_id AS CHAR)
 FROM (
-  SELECT calendar_rule_id AS dep_id FROM mes_pro_route_schedule_config WHERE tenant_id=1 AND deleted=0 AND (route_version_id IN (SELECT id FROM source_route_versions) OR route_process_id IN (SELECT id FROM source_route_processes))
+  SELECT calendar_rule_id AS dep_id FROM mes_pro_route_schedule_config WHERE tenant_id=1 AND deleted=0 AND route_process_id IN (SELECT id FROM source_route_processes)
   UNION SELECT calendar_rule_id FROM mes_pro_schedule_order_process WHERE tenant_id=1 AND deleted=0 AND schedule_order_id IN (SELECT id FROM source_schedule_orders)
 ) d WHERE dep_id IS NOT NULL AND dep_id <> 0
 UNION ALL

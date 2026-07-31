@@ -10,4 +10,12 @@
 - BDD: 精确替换 -> Given 依赖完整、schema 对齐、外部引用为零且备份成功 / When 执行同步 / Then 只替换白名单表中 `tenant_id=1` 的有效三页签数据，且白名单外数据 hash 不变。
 - BDD: 失败回滚 -> Given 数据替换事务中任一行数、主键、业务键或 hash 校验失败 / When 提交前校验执行 / Then 事务必须回滚并保留失败证据和恢复路径。
 - GREEN: experience-preflight -> PASS，已读取 `docs/experience-index.md` 并命中测试服发布、远端 MySQL、release migration、工艺路线导入完整性、排产数据包和 Git 并发基线门禁；适用摘要已补入 `task.md`。
-- RED: pending -> 尚未运行同步 preflight；预期当前测试服仍因缺失依赖和外部引用阻塞。
+- RED: `python -X utf8 doc/tasks/20260731-mes-three-tab-test-sync/tools/three_tab_sync_preflight.py` -> FAIL，expected reason: 测试服仍存在 schema 差异、缺失依赖和白名单外活动引用；脚本生成 `artifacts/preflight-report.json` 与 `artifacts/preflight-summary.md`。
+- Preflight scope: source whitelist total `2989` rows; target current whitelist total `1096` rows.
+- Source whitelist counts: process `65`, process_content `0`, route `3`, route_version `46`, route_process `63`, flow_edge `60`, flow_layout `63`, boundary_edge `8`, flow_config `4`, flow_process_config `77`, flow_process_batch_record `20`, route_schedule_config `63`, route_product `16`, route_product_bom `49`, release assignment rule `1`, schedule_order `40`, schedule_order_process `976`, schedule_diff `2`, schedule_daily_compare `0`, schedule_operation_log `1433`.
+- Blocker: schema -> target `mes_pro_route_version.route_snapshot_json` is `TEXT` not `MEDIUMTEXT`; target `mes_pro_schedule_order.promise_date` is `NOT NULL`; target `mes_pro_batch_record_report` is missing `form_definition_id` and `form_version_id`; source has route snapshots above target `TEXT` capacity.
+- Blocker: dependencies -> missing `bpm_form_template_version` IDs `27,32`; missing `mes_pro_edhr_permission_scope` 14 IDs; missing `mes_md_item.id=924005`; work orders required `40`, missing `33`, mismatched `5`; calendar rule `1` mismatched; workstation dependency mismatched; missing `system_users.id=910269`.
+- Blocker: external references -> target has `19` non-whitelist active reference groups, including machinery/process `129`, workstation/process `93`, feedback route/process/schedule refs, route legacy config refs, production task refs `663/664`, and task schedule extension refs `663`.
+- GREEN: zero-write-safety -> PASS，本轮仅执行本机 Docker MySQL 与测试服 SSH MySQL 只读查询；未执行 DELETE/INSERT/UPDATE、备份恢复、发布、服务重启或 Playwright 写入验证。
+- GREEN: project-experience-consolidation -> PASS，已将通用“三页签跨环境同步完整性门禁”合并到 `docs/database-rules.md`，并在 `docs/experience-index.md` 增加关键词路由；未新建长期经验文档。
+- STATUS: blocked，保持安全阻塞；解除上述依赖和外部引用前不得同步测试服三页签数据。

@@ -1,7 +1,7 @@
 # Three Tab Sync Preflight Summary
 
-- Generated: `2026-07-31T00:24:56.829921+00:00`
-- Source whitelist rows: `3391`
+- Generated: `2026-07-31T00:26:45.089516+00:00`
+- Source whitelist rows: `2989`
 - Target current whitelist rows: `1096`
 - Blockers: `13`
 

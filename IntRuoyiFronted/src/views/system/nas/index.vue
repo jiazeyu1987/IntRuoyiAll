@@ -96,6 +96,15 @@
               刷新目录
             </el-button>
             <el-button
+              type="danger"
+              plain
+              @click="handleStartControlAudit"
+              :loading="controlAuditDialog.loading"
+              v-if="canControlAuditPermission"
+            >
+              统计未受控文件
+            </el-button>
+            <el-button
               @click="handleToggleSelectionMode"
               :disabled="!directoryTree.length"
               v-hasPermi="['infra:nas:query']"
@@ -409,12 +418,66 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="controlAuditDialog.visible"
+      title="统计未受控文件"
+      width="720px"
+      destroy-on-close
+    >
+      <el-alert
+        v-if="controlAuditDialog.errorMessage"
+        type="error"
+        title="统计任务失败"
+        :description="controlAuditDialog.errorMessage"
+        show-icon
+        :closable="false"
+        class="mb-16px"
+      />
+      <div v-if="controlAuditDialog.result" class="rounded-[6px] border border-[#dbe3ef] bg-[#fafcff] p-12px">
+        <div class="mb-10px flex items-center justify-between gap-12px">
+          <div class="text-[14px] font-600 text-[#172033]">NAS 受控状态统计任务</div>
+          <el-tag :type="resolveControlAuditStatusType(controlAuditDialog.result.status)">
+            {{ resolveControlAuditStatusLabel(controlAuditDialog.result.status) }}
+          </el-tag>
+        </div>
+        <div class="grid grid-cols-1 gap-10px text-[13px] text-[#4b5563] md:grid-cols-2">
+          <div>任务编号：{{ controlAuditDialog.result.taskId }}</div>
+          <div>NAS 共享：{{ controlAuditDialog.result.nasShareName || '-' }}</div>
+          <div>当前扫描目录：{{ controlAuditDialog.result.currentPath || '-' }}</div>
+          <div>已扫描文件数：{{ controlAuditDialog.result.scannedFileCount }}</div>
+          <div>已跳过目录数：{{ controlAuditDialog.result.skippedDirectoryCount }}</div>
+          <div>未受控数量：{{ controlAuditDialog.result.notControlledFileCount }}</div>
+          <div>待确认数量：{{ controlAuditDialog.result.ambiguousFileCount }}</div>
+          <div>来源缺失数量：{{ controlAuditDialog.result.sourceMissingCount }}</div>
+          <div>无法扫描的文件数量：{{ controlAuditDialog.result.unscannedFileCountLabel || '未知' }}</div>
+          <div v-if="controlAuditDialog.result.completedAt">完成时间：{{ controlAuditDialog.result.completedAt }}</div>
+        </div>
+        <div class="mt-12px rounded-[6px] border border-[#dbe3ef] bg-white px-12px py-10px text-[12px] leading-[20px] text-[#4b5563]">
+          <div>固定扫描目录：1. QMS documents、2.DHF、3.DMR</div>
+          <div>遇到无权限子目录会跳过该目录及其子树，并在报告“跳过目录”工作表记录。</div>
+        </div>
+      </div>
+      <el-empty v-else description="尚未创建统计任务" />
+      <template #footer>
+        <el-button @click="controlAuditDialog.visible = false">关闭</el-button>
+        <el-button
+          type="primary"
+          :loading="controlAuditDialog.downloading"
+          :disabled="controlAuditDialog.result?.status !== 'COMPLETED'"
+          @click="handleDownloadControlAuditReport(false)"
+        >
+          重新下载报告
+        </el-button>
+      </template>
+    </el-dialog>
   </ContentWrap>
 </template>
 
 <script setup lang="ts">
 import { ElMessageBox, type ElTree } from 'element-plus'
 import { CardTitle } from '@/components/Card'
+import { downloadByData } from '@/utils/filt'
 import { getFileCategoryList, type ControlledFileCategoryVO } from '@/api/dcc/controlledFile/fileCategories'
 import NasPermissionRestorePanel from './components/NasPermissionRestorePanel.vue'
 import {
@@ -438,10 +501,14 @@ import {
   getNasConfig,
   saveNasConfig,
   listNasFiles,
+  startNasControlAudit,
+  getNasControlAuditTask,
+  downloadNasControlAuditReport,
   testNasConfig,
   type NasConfigVO,
   type NasFileItemVO,
-  type NasDirectoryTreeSkippedVO
+  type NasDirectoryTreeSkippedVO,
+  type NasControlAuditTaskRespVO
 } from '@/api/system/nas'
 import { checkPermi } from '@/utils/permission'
 
@@ -450,6 +517,7 @@ defineOptions({ name: 'SystemNasManagement' })
 const { t } = useI18n()
 const message = useMessage()
 const NAS_TRANSFER_LAST_TASK_ID_KEY = 'int-ruoyi:nas-transfer:last-task-id'
+const NAS_CONTROL_AUDIT_LAST_TASK_ID_KEY = 'int-ruoyi:nas-control-audit:last-task-id'
 const NAS_TRANSFER_CONFIRM_MODAL_CLASS = 'nas-transfer-confirm-message-box-overlay'
 const DCC_TEMPLATE_CATEGORY_DIRECTORY_REQUIRED_MESSAGE =
   '当前 DCC 模板类别未绑定受控目录，请先在 DCC 文件类别维护目录绑定'
@@ -507,6 +575,9 @@ const canTransferPermission = computed(
     checkPermi(['dcc:controlled-file:submit']) &&
     checkPermi(['dcc:controlled-file:directory:manage']) &&
     checkPermi(['dcc:controlled-file:category:manage'])
+)
+const canControlAuditPermission = computed(
+  () => checkPermi(['infra:nas:query']) && checkPermi(['dcc:controlled-file:query'])
 )
 const transferDialog = reactive<{
   visible: boolean

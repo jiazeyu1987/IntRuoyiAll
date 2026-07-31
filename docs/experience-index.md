@@ -251,6 +251,7 @@
 - Keywords: MES工序 系统异常, route-resource page code 500, Missing route, Missing item, route_product 孤儿关联, 资源池只读列表, 工艺路线资源读模型, 只读资源池引用完整性 -> `docs/database-rules.md#只读资源池引用完整性门禁`
 - Keywords: system_menu.name 中文菜单名, MySQL 客户端字符集, mojibake, HEX(name), UNHEX, utf8mb4, Docker mysql stdin, 动态菜单运行态乱码 -> `docs/database-rules.md#中文菜单名称-ascii-安全迁移门禁`
 - Keywords: 工艺路线导入导出, export-import-xlsx, import-workbook-xlsx, 工艺路线导入导出 Excel, 工序BOM 工序编码 不能为空, process_id=0, 工艺路线必须要有关键工序, key_flag=0, keyFlag=false, 缺关键工序, route-random-bom-seed, 跨租户路线导入, 删除测试租户路线后导入 -> `docs/database-rules.md#工艺路线跨租户导入导出数据包完整性门禁`
+- Keywords: MES 三页签同步, 工序设置同步, 工艺流程同步, 排产工单同步, 只同步这些页签, 其它不同步, schema 承载源数据, 白名单外活动引用, 目标同 ID 业务身份, route_snapshot_json MEDIUMTEXT, promise_date nullable, scheduleOrderId routeProcessId 快照身份 -> `docs/database-rules.md#mes-三页签跨环境同步完整性门禁`
 - Keywords: 个人工作台 系统异常, 待办任务加载失败, 隐藏任务状态, profile-workbench-task-visibility, hidden-keys, system_profile_workbench_task_visibility, 20260727_system_profile_workbench_task_visibility.sql -> `docs/database-rules.md#个人工作台隐藏任务状态迁移门禁`
 - Keywords: int_shedule local Docker dependencies, 23306, 26379, Docker MySQL Redis, branch local runtime dependency ports -> `docs/local-runtime.md#2026-07-25-分支本地运行复用-docker-依赖门禁`
 - Keywords: task-closeout status unknown, Current Status completed, cleanup preview apply, worktree Directory not empty -> `docs/release-build-preflight-lessons.md` and `E:\IntRuoyi\docs\worktree-memory.md`

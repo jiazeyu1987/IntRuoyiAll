@@ -30,6 +30,8 @@ BDD: 测试服全局文件分类同步 -> Given 测试服类别列表已有启�
 - 2026-07-31: 使用 `芋道源码/zhaohaichen` 执行官方批量分类任务 `35`；任务完成但出现 `ambiguousCount=1207`、`unclassifiedCount=7491`，未满足 GREEN。
 - 2026-07-31: 复扫项目代码候选仍为 8736 个，导出 `task-35-ambiguous-recognition-records.xlsx` 与 `task-35-unclassified-recognition-records.xlsx`，保存 `task-35-final-verification.json`。
 - 2026-07-31: 继续执行只读失败明细分析，新增 `failure-analysis.md`；确认歧义集中于 OQ/PQ 与“工序卡/作业指导书”同分，未识别集中于图纸/零配件/记录表/参数组等名称；源码核对显示当前规则只基于文件名、标题、文件编号匹配类别名和内置别名，不使用目录阶段线索。
+- 2026-07-31: 新增 `remediation-plan.md`，将下一轮正式修复限定为需额外授权的类别别名/评分规则改造；本任务不执行代码、SQL、类别改名或元数据批量写入。
+- 2026-07-31: 按项目经验沉淀规则做只读匹配检查，未找到合适的既有 DCC 批量分类长期经验文档；未获用户明确授权前不新建长期经验文档。
 
 ## Command Intent Log
 
@@ -39,6 +41,7 @@ BDD: 测试服全局文件分类同步 -> Given 测试服类别列表已有启�
 - done: 官方批量分类任务提交与轮询，使用 `recognitionType=FILE_CATEGORY`、`scope=GLOBAL`、`existingRecordPolicy=OVERWRITE_ALL`、`syncFileNameTitle=false`、`workerCount=5` 创建任务 `35`。
 - done: 异常明细导出，按任务 `35` 导出 `AMBIGUOUS` 与 `UNCLASSIFIED` 识别记录。
 - done: 失败明细只读归因分析，解析导出 Excel 和现有后端识别逻辑，未修改测试服数据、类别规则或代码。
+- done: 后续修复计划记录，仅作为任务内建议，不作为本任务授权范围内的实施动作。
 
 ## Blockers
 

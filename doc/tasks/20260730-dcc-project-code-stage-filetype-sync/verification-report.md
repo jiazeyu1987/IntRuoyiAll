@@ -17,6 +17,7 @@ BLOCKED。官方批量分类任务已执行并完成，但未满足 GREEN 条件
 - 已导出阻塞明细：`task-35-ambiguous-recognition-records.xlsx`、`task-35-unclassified-recognition-records.xlsx`；终态核验 JSON 为 `task-35-final-verification.json`。
 - 只读失败分析：`failure-analysis.md` 确认歧义导出 1207 条与任务计数一致，未识别导出 7366 条比任务计数少 125 条；主要歧义为 OQ/PQ 方案/报告与“工序卡/作业指导书”同分，主要未识别为图纸、零配件名、记录表、OQ/PQ 参数组等。
 - 源码核对：当前分类匹配只使用文件名、标题、文件编号对类别名称和内置别名打分，不使用目录阶段线索，且 `dcc_file_category` 无数据级别别名字段。
+- 后续方案：`remediation-plan.md` 记录需额外授权的类别别名/评分规则改造路径。
 
 ## Executed
 
@@ -24,6 +25,7 @@ BLOCKED。官方批量分类任务已执行并完成，但未满足 GREEN 条件
 - 已轮询至终态并复扫候选影响面。
 - 已导出 `AMBIGUOUS` 与 `UNCLASSIFIED` 识别记录。
 - 已完成失败明细只读归因分析。
+- 已记录后续正式修复建议。
 - 未直接写 SQL、未修改角色、未跨租户搬运类别规则、未改代码、未使用 per-file API 批量绕过。
 
 ## Required Next Step
