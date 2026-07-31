@@ -1,0 +1,31 @@
+{
+  "generated_at": "2026-07-31T01:20:51.348812+00:00",
+  "plan": "E:\\IntRuoyi\\doc\\tasks\\20260731-mes-three-tab-test-sync\\artifacts\\dependency-remap-plan.json",
+  "summary": "E:\\IntRuoyi\\doc\\tasks\\20260731-mes-three-tab-test-sync\\artifacts\\dependency-remap-summary.md",
+  "backup_tables": {
+    "mes_md_item": "mes_three_tab_dep_remap_backup_20260731012048_mes_md_item",
+    "system_users": "mes_three_tab_dep_remap_backup_20260731012048_system_users",
+    "mes_pro_work_order": "mes_three_tab_dep_remap_backup_20260731012048_mes_pro_work_order"
+  },
+  "postcheck": {
+    "mes_md_item": {
+      "missing": [],
+      "mismatched": []
+    },
+    "system_users": {
+      "missing": [],
+      "mismatched": []
+    },
+    "mes_pro_work_order": {
+      "missing": [],
+      "mismatched": []
+    }
+  },
+  "apply_stdout": "",
+  "warnings": [
+    "close - IO is still pending on closed socket. read:1, write:0, io:00000245AF725200",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000024C972A0940",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001522096BA80",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000020861379ED0"
+  ]
+}

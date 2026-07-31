@@ -324,10 +324,10 @@ def build_plan(precheck):
 def collect_business_key_duplicates(plan, source, warnings):
     usernames = sorted({row["username"] for row in source["system_users"].values() if row.get("username")})
     if usernames:
-        quoted = ",".join(mysql_string(value) for value in usernames)
+        quoted = ",".join(hex_string(value) for value in usernames)
         rows, warn = run(
             REMOTE_MYSQL,
-            f"SELECT id, username, nickname, tenant_id FROM system_users WHERE tenant_id={TENANT_ID} AND username IN ({quoted}) ORDER BY username, id",
+            f"SELECT id, username, nickname, tenant_id FROM system_users WHERE tenant_id={TENANT_ID} AND HEX(username) IN ({quoted}) ORDER BY username, id",
             "remote user business duplicate scan",
         )
         warnings.extend(warn)
@@ -335,10 +335,10 @@ def collect_business_key_duplicates(plan, source, warnings):
 
     item_codes = sorted({row["code"] for row in source["mes_md_item"].values() if row.get("code")})
     if item_codes:
-        quoted = ",".join(mysql_string(value) for value in item_codes)
+        quoted = ",".join(hex_string(value) for value in item_codes)
         rows, warn = run(
             REMOTE_MYSQL,
-            f"SELECT id, code, name, tenant_id FROM mes_md_item WHERE tenant_id={TENANT_ID} AND code IN ({quoted}) ORDER BY code, id",
+            f"SELECT id, code, name, tenant_id FROM mes_md_item WHERE tenant_id={TENANT_ID} AND HEX(code) IN ({quoted}) ORDER BY code, id",
             "remote item business duplicate scan",
         )
         warnings.extend(warn)
@@ -346,11 +346,11 @@ def collect_business_key_duplicates(plan, source, warnings):
 
     work_order_codes = sorted({row["code"] for row in source["mes_pro_work_order"].values() if row.get("code")})
     if work_order_codes:
-        quoted = ",".join(mysql_string(value) for value in work_order_codes)
+        quoted = ",".join(hex_string(value) for value in work_order_codes)
         rows, warn = run(
             REMOTE_MYSQL,
             "SELECT id, code, product_id, quantity, batch_code, tenant_id "
-            f"FROM mes_pro_work_order WHERE tenant_id={TENANT_ID} AND code IN ({quoted}) ORDER BY code, id",
+            f"FROM mes_pro_work_order WHERE tenant_id={TENANT_ID} AND HEX(code) IN ({quoted}) ORDER BY code, id",
             "remote work order business duplicate scan",
         )
         warnings.extend(warn)
@@ -362,6 +362,10 @@ def mysql_string(value):
         return "NULL"
     encoded = str(value).encode("utf-8").hex()
     return f"CONVERT(UNHEX('{encoded}') USING utf8mb4)"
+
+
+def hex_string(value):
+    return "'" + str(value).encode("utf-8").hex().upper() + "'"
 
 
 def sql_literal(value, dtype):
