@@ -6,7 +6,7 @@
 
 ## Non-goals
 
-- 不新增后端接口、数据库迁移或菜单 SQL。
+- 不新增前端专用后端接口、数据库迁移或菜单 SQL；后端仅补正式绑定来源实现。
 - 不引入静态 HTML/PNG 作为运行页面。
 - 不改生产报工、记录本、资源池正式后端契约。
 
@@ -64,6 +64,7 @@
 - GREEN: `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js` -> PASS。
 - GREEN: `pnpm ts:check` -> PASS。
 - GREEN: Playwright 本机只读打开两个新页签并保存 1920×1080 截图 -> PASS。
+- GREEN: `node tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` -> PASS，使用 `芋道源码/admin`、真实前端 `8083`、真实后端 `48083` 和任务自有正式夹具。
 
 ## Verification
 
@@ -75,9 +76,13 @@
   - `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js`
 - Type check passed: `pnpm ts:check`。
 - Real browser read-only checks passed on local `http://127.0.0.1:8081` with backend health `UP` at `http://127.0.0.1:48081/actuator/health`。
+- Real browser E2E passed on worktree slot `http://127.0.0.1:8083` with backend `http://127.0.0.1:48083`，覆盖三设备生产、无设备生产和 PQC 填写页面。
 - Screenshot artifacts:
   - `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs/production-fill-1920.png`
   - `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs/pqc-fill-1920.png`
+  - `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs-yudao-real/production-three-device-1920.png`
+  - `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs-yudao-real/production-no-device-1920.png`
+  - `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs-yudao-real/pqc-fill-1920.png`
 
 ## Accessibility And State Checks
 

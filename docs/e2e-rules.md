@@ -51,6 +51,15 @@
 - Forbidden action: 禁止强停并行 48081、随机换端口、只看 health 就宣称目标 Controller 已加载、用未配对的 frontend/backend URL 造成前端访问旧后端，或让融合后 E2E 脚本拒绝合法 `int_main 8081/48081` 主运行态。
 - Evidence: `doc/tasks/20260726-edhr-release-dossier-requirement-switches/execution-log.md`，48081 旧 jar 返回新增接口 404 后，使用 slot 5 的 8086/48086 成对 URL 完成真实 E2E；`doc/tasks/20260727-edhr-visual-fill-config-implementation/execution-log.md`，融合后先在 slot 2 通过，再修正脚本允许 `int_main 8081/48081` 并完成主端口真实 E2E。
 
+### Playwright 全新上下文登录导航竞争门禁
+
+- Trigger: 真实 E2E 登录阶段出现 `Execution context was destroyed, most likely because of a navigation`，脚本在首次打开登录页后执行 `page.evaluate(() => localStorage.clear())`，或登录页存在自动重定向。
+- Preflight check: `browser.newContext()` 创建的非持久化上下文默认没有上一轮 cookie、localStorage 或 sessionStorage；登录脚本应在首次导航前按需调用 `context.clearCookies()`，然后只导航一次登录页。若任务确需清理持久化 storage，必须使用受控持久化上下文并在应用加载前完成，不得在 Vue 路由已启动后清理。
+- Blocker: 首次 `page.goto()` 后页面正在自动跳转、`page.evaluate` 因执行上下文销毁失败、登录请求尚未发出，或通过捕获该异常继续执行时必须停止并修正登录前置顺序。
+- Verification: `node --check <real-e2e-script>` 通过后，使用官方登录身份和真实前后端 URL 重跑完整 Playwright 路径，必须得到登录接口成功、目标页面断言 PASS、任务自有 fixture 清理为 0。
+- Forbidden action: 禁止吞掉导航异常、循环重试登录掩盖脚本竞争、复用带未知登录态的持久化 profile、或把已生成的旧截图/旧 `result.json` 当成本轮 E2E PASS。
+- Evidence: `doc/tasks/20260730-edhr-frontline-fill-tabs/execution-log.md`，一线填写真实 E2E 在全新 context 的首次登录页导航后清 storage 触发执行上下文销毁，改为导航前清 cookie 且单次打开登录页后通过。
+
 ### Windows 换行与脚本行为同步
 
 - Trigger: 修改 `tests/e2e/*static.spec.js`、真实 `*.e2e.js` 脚本、Windows worktree 融合后出现静态合同在目标 worktree 自身失败、CRLF/LF 差异或废弃弹窗流程断言。

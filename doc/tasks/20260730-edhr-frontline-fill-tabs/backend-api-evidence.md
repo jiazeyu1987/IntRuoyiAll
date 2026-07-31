@@ -23,15 +23,14 @@
 
 ## BDD
 
-- Given a login user post is bound to enabled workstations and enabled route processes, when the process endpoint is opened, then only those route/workstation processes are returned.
-- Given one route process workstation has multiple machinery bindings, when context loads, then all devices are returned for that process.
-- Given one authorized workstation has no machinery binding, when context loads, then the process remains available with a null device.
-- Given the same route has different process workstations, when context loads, then each process receives only the device from its own workstation.
+- BDD: authorized route context -> Given a login user post is bound to enabled workstations and enabled route processes When the process endpoint is opened Then only those route/workstation processes are returned.
+- BDD: multiple devices -> Given one route process workstation has multiple machinery bindings When context loads Then all devices are returned for that process.
+- BDD: no-device process -> Given one authorized workstation has no machinery binding When context loads Then the process remains available with a null device.
+- BDD: workstation isolation -> Given the same route has different process workstations When context loads Then each process receives only the device from its own workstation.
 
 ## RED
 
-- `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test`
-- Result: FAIL at test compilation because `MesFrontlineWorkstationPostRouteBindingSource` does not exist.
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL at test compilation because `MesFrontlineWorkstationPostRouteBindingSource` did not exist.
 
 ## Required Services And Data
 
@@ -47,6 +46,19 @@
 ## Status
 
 - RED confirmed.
-- GREEN: targeted backend tests passed, 7 tests with no failures or errors.
+- GREEN: targeted backend tests passed, 12 tests with no failures, errors, or skipped tests.
 - Static frontend contract and TypeScript checks passed.
-- Real-path E2E pending runtime reload and local fixture setup.
+- Real-path E2E passed on registered worktree runtime `8083/48083` with task-owned fixture marker `CODX-EDHR-FRONTLINE-20260730`.
+- Fixture cleanup verified task-owned rows remaining at 0 for routes, processes, workstations, and machinery.
+
+## Verification
+
+- `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRouteProcessTemplateBindingSourceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineTemplateResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS。
+- `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- `node tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` -> PASS。
+- Fixture marker cleanup query -> route/process/workstation/machinery all 0。
+
+## Blockers
+
+- 无当前阻塞。
+- PQC 详细检验字段正式提交契约不在本任务范围，页面继续按正式 fail-fast 规则阻塞未承载字段的提交。
