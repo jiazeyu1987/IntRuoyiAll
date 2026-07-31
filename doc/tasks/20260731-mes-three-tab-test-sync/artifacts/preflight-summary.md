@@ -1,9 +1,10 @@
 # Three Tab Sync Preflight Summary
 
-- Generated: `2026-07-31T00:26:45.089516+00:00`
+- Generated: `2026-07-31T00:52:32.474469+00:00`
 - Source whitelist rows: `2989`
 - Target current whitelist rows: `1096`
-- Blockers: `13`
+- Authorized dependency sync scopes: `3`
+- Blockers: `11`
 
 ## Blockers
 - `schema`: target mes_pro_route_version.route_snapshot_json is not MEDIUMTEXT
@@ -13,9 +14,7 @@
 - `schema`: source route snapshots exceed target TEXT capacity
 - `dependency`: target dependency check failed for form_template_version_id
 - `dependency`: target dependency check failed for permission_scope_id
-- `dependency`: target dependency check failed for item_id
 - `dependency`: target dependency check failed for work_order_id
 - `dependency`: target dependency check failed for calendar_rule_id
 - `dependency`: target dependency check failed for workstation_id
-- `dependency`: target dependency check failed for user_id
 - `external_reference`: target has active non-whitelist references to rows that would be replaced

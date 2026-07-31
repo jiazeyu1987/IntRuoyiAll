@@ -19,3 +19,16 @@
 - GREEN: zero-write-safety -> PASS，本轮仅执行本机 Docker MySQL 与测试服 SSH MySQL 只读查询；未执行 DELETE/INSERT/UPDATE、备份恢复、发布、服务重启或 Playwright 写入验证。
 - GREEN: project-experience-consolidation -> PASS，已将通用“三页签跨环境同步完整性门禁”合并到 `docs/database-rules.md`，并在 `docs/experience-index.md` 增加关键词路由；未新建长期经验文档。
 - STATUS: blocked，保持安全阻塞；解除上述依赖和外部引用前不得同步测试服三页签数据。
+
+## 2026-07-31 Additional Dependency Authorization
+
+- USER INTENT: 用户明确授权把缺失的物料、用户、生产工单也同步到测试服务器芋道源码租户。
+- POLICY: 授权仅覆盖缺失 `mes_md_item`、`system_users`、`mes_pro_work_order` 依赖；不覆盖 schema 迁移、动态表单版本、权限范围、日历、工作站、白名单外引用清理、跨租户覆盖、跨租户删除或主键重映射。
+- BDD: 授权依赖同步边界 -> Given 用户只追加授权缺失物料、用户、生产工单 / When 预检发现其它依赖或 schema 阻塞 / Then 工具只能识别授权范围并继续阻塞未授权范围。
+- BDD: 全局主键冲突阻塞 -> Given 测试服其它租户已占用待插入依赖主键 / When 尝试按源 ID 插入到 `tenant_id=1` / Then 同步必须失败并保持目标租户零插入，不能覆盖其它租户或静默重映射。
+- GREEN: `python -X utf8 doc/tasks/20260731-mes-three-tab-test-sync/tools/three_tab_sync_preflight.py` -> PASS for authorization classification，预检识别授权依赖同步范围 `3` 类：`mes_md_item.id=924005`、`system_users.id=910269`、`mes_pro_work_order` 缺失 `33` 个 ID；整体仍 FAIL by design，剩余阻塞 `11` 项。
+- RED: `python -X utf8 doc/tasks/20260731-mes-three-tab-test-sync/tools/sync_authorized_missing_dependencies.py` -> FAIL，expected reason: 测试服存在全局主键冲突，按源 ID 插入授权缺失依赖会触发 `system_users.PRIMARY` duplicate key；事务未提交。
+- Verification: read-only target tenant postcheck -> PASS，测试服 `tenant_id=1` 中授权依赖仍为零插入：`mes_md_item=0`、`system_users=0`、`mes_pro_work_order=0`。
+- Verification: read-only cross-tenant PK scan -> PASS，`system_users.id=910269` 已存在于 `tenant_id=122`；`mes_pro_work_order` 授权缺失 ID 中 `925473/925477/925483/925671/925675/925685/925689/925693/925716/925721/925724/925729/925732` 已存在于 `tenant_id=122/162`。
+- Verification: read-only backup-table scan -> PASS，失败尝试创建的备份表 `mes_three_tab_dep_backup_20260731010102_mes_md_item`、`mes_three_tab_dep_backup_20260731010102_mes_pro_work_order`、`mes_three_tab_dep_backup_20260731010102_system_users` 均为 `0` 行。
+- STATUS: blocked，授权的缺失物料、用户、生产工单不能按源主键直接同步；主三页签同步仍未执行。

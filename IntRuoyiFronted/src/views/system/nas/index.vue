@@ -621,7 +621,22 @@ const transferDialog = reactive<{
     effectiveDate: ''
   }
 })
+const controlAuditDialog = reactive<{
+  visible: boolean
+  loading: boolean
+  downloading: boolean
+  errorMessage: string
+  result: NasControlAuditTaskRespVO | null
+}>({
+  visible: false,
+  loading: false,
+  downloading: false,
+  errorMessage: '',
+  result: null
+})
 let transferTaskPollingTimer: number | undefined
+let controlAuditPollingTimer: number | undefined
+const autoDownloadedControlAuditTaskIds = new Set<number>()
 const treeProps = {
   children: 'children',
   label: 'name',
@@ -1088,14 +1103,27 @@ const clearTransferTaskPolling = () => {
   }
 }
 
+const clearControlAuditPolling = () => {
+  if (controlAuditPollingTimer) {
+    window.clearTimeout(controlAuditPollingTimer)
+    controlAuditPollingTimer = undefined
+  }
+}
+
 const closeTransferDialogOnRouteLeave = () => {
   clearTransferTaskPolling()
+  clearControlAuditPolling()
   transferDialog.visible = false
+  controlAuditDialog.visible = false
   transferDialog.submitting = false
+  controlAuditDialog.loading = false
 }
 
 const isTransferTaskActive = (status?: string | null) =>
   ['UPLOADING', 'WAITING', 'RUNNING'].includes(status || '')
+
+const isControlAuditTaskActive = (status?: string | null) =>
+  ['WAITING', 'RUNNING'].includes(status || '')
 
 const persistLastTransferTaskId = (taskId?: number | null) => {
   if (typeof taskId !== 'number' || !Number.isSafeInteger(taskId) || taskId <= 0) {
@@ -1114,6 +1142,27 @@ const readLastTransferTaskId = () => {
   const taskId = Number(rawTaskId)
   if (!Number.isSafeInteger(taskId) || taskId <= 0) {
     throw new Error('最近 NAS 转移任务编号无效，请重新发起转移')
+  }
+  return taskId
+}
+
+const persistLastControlAuditTaskId = (taskId?: number | null) => {
+  if (typeof taskId !== 'number' || !Number.isSafeInteger(taskId) || taskId <= 0) {
+    throw new Error('NAS 受控统计任务编号无效，无法保存任务上下文')
+  }
+  localStorage.setItem(NAS_CONTROL_AUDIT_LAST_TASK_ID_KEY, String(taskId))
+}
+
+const clearLastControlAuditTaskId = () => {
+  localStorage.removeItem(NAS_CONTROL_AUDIT_LAST_TASK_ID_KEY)
+}
+
+const readLastControlAuditTaskId = () => {
+  const rawTaskId = localStorage.getItem(NAS_CONTROL_AUDIT_LAST_TASK_ID_KEY)
+  if (!rawTaskId) return undefined
+  const taskId = Number(rawTaskId)
+  if (!Number.isSafeInteger(taskId) || taskId <= 0) {
+    throw new Error('最近 NAS 受控统计任务编号无效，请重新发起统计')
   }
   return taskId
 }
@@ -1138,6 +1187,12 @@ const clearStaleNasTransferTask = () => {
   transferDialog.result = null
 }
 
+const clearStaleControlAuditTask = () => {
+  clearControlAuditPolling()
+  clearLastControlAuditTaskId()
+  controlAuditDialog.result = null
+}
+
 const applyTransferTaskResult = (result: ControlledFileNasTransferRespVO) => {
   persistLastTransferTaskId(result.taskId)
   transferDialog.sourceType = result.sourceType || 'NAS'
@@ -1159,6 +1214,148 @@ const resolveTransferTaskStatusType = (status?: string | null) => {
   if (status === 'COMPLETED') return 'success'
   if (status === 'FAILED') return 'danger'
   return 'warning'
+}
+
+const applyControlAuditTaskResult = (result: NasControlAuditTaskRespVO) => {
+  persistLastControlAuditTaskId(result.taskId)
+  controlAuditDialog.result = result
+  controlAuditDialog.errorMessage =
+    result.status === 'FAILED' ? result.failureReason || 'NAS 受控状态统计任务失败' : ''
+}
+
+const resolveControlAuditStatusLabel = (status?: string | null) => {
+  if (status === 'RUNNING') return '扫描中'
+  if (status === 'COMPLETED') return '已完成'
+  if (status === 'FAILED') return '已失败'
+  return '排队中'
+}
+
+const resolveControlAuditStatusType = (status?: string | null) => {
+  if (status === 'RUNNING') return 'primary'
+  if (status === 'COMPLETED') return 'success'
+  if (status === 'FAILED') return 'danger'
+  return 'warning'
+}
+
+const handleDownloadControlAuditReport = async (showSuccessMessage = true) => {
+  const task = controlAuditDialog.result
+  if (!task || task.status !== 'COMPLETED') {
+    throw new Error('NAS 受控状态统计报告尚未生成，无法下载')
+  }
+  controlAuditDialog.downloading = true
+  try {
+    const blob = await downloadNasControlAuditReport(task.taskId)
+    const fileName = task.reportFileName || `nas-control-audit-${task.taskId}.xlsx`
+    downloadByData(
+      blob,
+      fileName,
+      blob.type ||
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    if (showSuccessMessage) {
+      message.success('NAS 受控状态统计报告已下载')
+    }
+  } catch (error: any) {
+    controlAuditDialog.errorMessage = error?.message || 'NAS 受控状态统计报告下载失败'
+    throw error
+  } finally {
+    controlAuditDialog.downloading = false
+  }
+}
+
+const scheduleControlAuditPolling = (taskId?: number) => {
+  if (!taskId) return
+  clearControlAuditPolling()
+  controlAuditPollingTimer = window.setTimeout(async () => {
+    const previousStatus = controlAuditDialog.result?.status
+    try {
+      const result = await getNasControlAuditTask(taskId)
+      applyControlAuditTaskResult(result)
+      if (!isControlAuditTaskActive(result.status)) {
+        clearControlAuditPolling()
+        if (
+          isControlAuditTaskActive(previousStatus) &&
+          result.status === 'COMPLETED' &&
+          !autoDownloadedControlAuditTaskIds.has(result.taskId)
+        ) {
+          autoDownloadedControlAuditTaskIds.add(result.taskId)
+          await handleDownloadControlAuditReport(false)
+          message.success('NAS 受控状态统计完成，报告已自动下载')
+        }
+        return
+      }
+      scheduleControlAuditPolling(result.taskId)
+    } catch (error: any) {
+      clearControlAuditPolling()
+      const errorMessage = error?.message || 'NAS 受控状态统计任务状态获取失败'
+      if (
+        errorMessage.includes('nas control audit task not found') ||
+        errorMessage.includes('NAS 受控统计任务不存在') ||
+        errorMessage.includes('最近 NAS 受控统计任务编号无效')
+      ) {
+        clearStaleControlAuditTask()
+        controlAuditDialog.errorMessage = '最近 NAS 受控统计任务已不存在，请重新发起统计'
+        message.warning('最近 NAS 受控统计任务已不存在，请重新发起统计')
+        return
+      }
+      controlAuditDialog.errorMessage = errorMessage
+    }
+  }, 3000)
+}
+
+const confirmControlAuditBeforeStart = async () => {
+  const messageHtml = `
+    <div class="text-[13px] leading-[20px] text-[#374151]">
+      <div>即将统计 NAS 共享下固定三个目录：</div>
+      <ul class="mt-8px list-disc pl-18px">
+        <li>1. QMS documents</li>
+        <li>2.DHF</li>
+        <li>3.DMR</li>
+      </ul>
+      <div class="mt-8px text-[12px] text-[#92400e]">
+        遇到无权限子目录会跳过该目录及其子树，并在报告“跳过目录”工作表记录。
+      </div>
+      <div class="mt-4px text-[12px] text-[#4b5563]">扫描会在后台执行，完成后自动下载 Excel 报告。</div>
+    </div>
+  `
+  try {
+    await ElMessageBox.confirm(messageHtml, '统计未受控文件确认', {
+      confirmButtonText: '确认统计',
+      cancelButtonText: '取消',
+      type: 'warning',
+      modalClass: NAS_TRANSFER_CONFIRM_MODAL_CLASS,
+      dangerouslyUseHTMLString: true
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+const handleStartControlAudit = async () => {
+  if (!canControlAuditPermission.value) return
+  const confirmed = await confirmControlAuditBeforeStart()
+  if (!confirmed) return
+  controlAuditDialog.visible = true
+  controlAuditDialog.loading = true
+  controlAuditDialog.errorMessage = ''
+  try {
+    clearControlAuditPolling()
+    const result = await startNasControlAudit()
+    applyControlAuditTaskResult(result)
+    if (isControlAuditTaskActive(result.status)) {
+      scheduleControlAuditPolling(result.taskId)
+      return
+    }
+    if (result.status === 'COMPLETED') {
+      await handleDownloadControlAuditReport(false)
+      message.success('NAS 受控状态统计完成，报告已自动下载')
+    }
+  } catch (error: any) {
+    controlAuditDialog.errorMessage = error?.message || 'NAS 受控状态统计任务创建失败'
+  } finally {
+    controlAuditDialog.loading = false
+  }
 }
 
 const scheduleTransferTaskPolling = (taskId?: number) => {
@@ -1538,9 +1735,48 @@ const restoreLastTransferTask = async () => {
   }
 }
 
+const restoreLastControlAuditTask = async () => {
+  try {
+    const taskId = readLastControlAuditTaskId()
+    if (!taskId || controlAuditDialog.result) return
+    const result = await getNasControlAuditTask(taskId)
+    applyControlAuditTaskResult(result)
+    if (isControlAuditTaskActive(result.status)) {
+      controlAuditDialog.visible = true
+      scheduleControlAuditPolling(result.taskId)
+      return
+    }
+    if (result.status === 'FAILED') {
+      controlAuditDialog.visible = true
+      controlAuditDialog.errorMessage = result.failureReason || '最近 NAS 受控统计任务失败'
+      return
+    }
+    if (result.status === 'COMPLETED') {
+      controlAuditDialog.visible = true
+    }
+  } catch (error: any) {
+    clearControlAuditPolling()
+    const errorMessage = error?.message || '最近 NAS 受控统计任务恢复失败'
+    if (
+      errorMessage.includes('nas control audit task not found') ||
+      errorMessage.includes('NAS 受控统计任务不存在') ||
+      errorMessage.includes('最近 NAS 受控统计任务编号无效')
+    ) {
+      clearStaleControlAuditTask()
+      controlAuditDialog.visible = false
+      controlAuditDialog.errorMessage = ''
+      message.warning('最近 NAS 受控统计任务已不存在，请重新发起统计')
+      return
+    }
+    controlAuditDialog.visible = true
+    controlAuditDialog.errorMessage = errorMessage
+  }
+}
+
 onMounted(() => {
   getConfig()
   restoreLastTransferTask()
+  restoreLastControlAuditTask()
 })
 
 onBeforeRouteLeave(() => {
@@ -1550,6 +1786,7 @@ onBeforeRouteLeave(() => {
 
 onUnmounted(() => {
   clearTransferTaskPolling()
+  clearControlAuditPolling()
 })
 </script>
 

@@ -28,6 +28,9 @@ REMOTE_MYSQL_CMD = [
 
 TENANT_ID = 1
 
+AUTHORIZED_MISSING_DEP_TYPES = {"item_id", "user_id", "work_order_id"}
+AUTHORIZED_MISMATCH_DEP_TYPES = set()
+
 WHITELIST_TABLES = {
     "mes_pro_process",
     "mes_pro_process_content",
@@ -525,6 +528,7 @@ def main():
         ["id", "username", "nickname", "status", "deleted", "tenant_id"],
     ))
     report["dependency_checks"] = dependency_checks
+    report["authorized_dependency_sync_scope"] = []
 
     external_refs, warnings = external_ref_sql(remote_ids)
     report["warnings"].extend(warnings)
@@ -566,15 +570,33 @@ def main():
         })
 
     for check in dependency_checks:
-        if check["missing_ids"] or check["mismatch_count"]:
+        authorized_missing = (
+            check["dep_type"] in AUTHORIZED_MISSING_DEP_TYPES and check["missing_ids"]
+        )
+        authorized_mismatch = (
+            check["dep_type"] in AUTHORIZED_MISMATCH_DEP_TYPES and check["mismatch_count"]
+        )
+        if authorized_missing or authorized_mismatch:
+            report["authorized_dependency_sync_scope"].append({
+                "dep_type": check["dep_type"],
+                "table": check["table"],
+                "authorized_missing_ids": check["missing_ids"] if authorized_missing else [],
+                "authorized_mismatch_ids": [
+                    row["id"] for row in check["mismatched"]
+                ] if authorized_mismatch else [],
+                "note": "user authorized missing material/user/production work order dependency sync",
+            })
+        unauthorized_missing_ids = [] if authorized_missing else check["missing_ids"]
+        unauthorized_mismatch_count = 0 if authorized_mismatch else check["mismatch_count"]
+        if unauthorized_missing_ids or unauthorized_mismatch_count:
             report["blockers"].append({
                 "type": "dependency",
                 "message": f"target dependency check failed for {check['dep_type']}",
                 "table": check["table"],
                 "required_count": check["required_count"],
-                "missing_count": len(check["missing_ids"]),
-                "mismatch_count": check["mismatch_count"],
-                "missing_ids": check["missing_ids"][:50],
+                "missing_count": len(unauthorized_missing_ids),
+                "mismatch_count": unauthorized_mismatch_count,
+                "missing_ids": unauthorized_missing_ids[:50],
                 "mismatched": check["mismatched"][:10],
             })
 
@@ -595,6 +617,7 @@ def main():
         f"- Generated: `{report['generated_at']}`",
         f"- Source whitelist rows: `{sum(report['source_whitelist_counts'].values())}`",
         f"- Target current whitelist rows: `{sum(report['target_current_whitelist_counts'].values())}`",
+        f"- Authorized dependency sync scopes: `{len(report['authorized_dependency_sync_scope'])}`",
         f"- Blockers: `{len(report['blockers'])}`",
         "",
         "## Blockers",

@@ -1,28 +1,28 @@
 {
-  "generated_at": "2026-07-31T00:26:45.089516+00:00",
+  "generated_at": "2026-07-31T00:52:32.474469+00:00",
   "source": "local docker int-ruoyi-mysql / ruoyi-vue-pro / tenant_id=1",
   "target": "ssh root@172.30.30.58 / intruoyi-mysql / ruoyi-vue-pro / tenant_id=1",
   "warnings": [
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000025EB6512520",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001BF9FB9BC50",
-    "close - IO is still pending on closed socket. read:1, write:0, io:00000242B4A82C20",
-    "close - IO is still pending on closed socket. read:1, write:0, io:00000242D701C630",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000002142C2D2830",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001A05AD3FB90",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001E3269457E0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000002B48A073840",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001C6998571C0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001B36741A840",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000027C48043D10",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000020AFA83C530",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000021D59AF1A60",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001F514434980",
-    "close - IO is still pending on closed socket. read:1, write:0, io:00000211EBC62410",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000001D2E1906FE0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000016E61E56D60",
-    "close - IO is still pending on closed socket. read:1, write:0, io:0000027716C96180",
-    "close - IO is still pending on closed socket. read:1, write:0, io:000002628F61FAF0",
-    "close - IO is still pending on closed socket. read:1, write:0, io:00000192D3A2EA70"
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000025B3E8B6180",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001F004CD62C0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000013BA7B52000",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000024CA3FA78D0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000027F943561C0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000029FA0936C60",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000018B5B3449B0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001F46560A140",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001B2E65BB9A0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001EF2CFB61F0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000025F345B4270",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002743A4886B0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000001973C0690F0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000022891353D20",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002144CFC4410",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000018139BE1870",
+    "close - IO is still pending on closed socket. read:1, write:0, io:000002240EE30AB0",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000022DB2953A10",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000024E7A8E6030",
+    "close - IO is still pending on closed socket. read:1, write:0, io:0000020D75BC98D0"
   ],
   "blockers": [
     {
@@ -103,58 +103,12 @@
     },
     {
       "type": "dependency",
-      "message": "target dependency check failed for item_id",
-      "table": "mes_md_item",
-      "required_count": 23,
-      "missing_count": 1,
-      "mismatch_count": 0,
-      "missing_ids": [
-        "924005"
-      ],
-      "mismatched": []
-    },
-    {
-      "type": "dependency",
       "message": "target dependency check failed for work_order_id",
       "table": "mes_pro_work_order",
       "required_count": 40,
-      "missing_count": 33,
+      "missing_count": 0,
       "mismatch_count": 5,
-      "missing_ids": [
-        "925473",
-        "925477",
-        "925483",
-        "925671",
-        "925675",
-        "925685",
-        "925689",
-        "925693",
-        "925716",
-        "925721",
-        "925724",
-        "925729",
-        "925732",
-        "925809",
-        "925813",
-        "925816",
-        "925820",
-        "925825",
-        "925827",
-        "925828",
-        "925829",
-        "925830",
-        "925843",
-        "925850",
-        "925854",
-        "925858",
-        "925864",
-        "925865",
-        "925866",
-        "925867",
-        "925868",
-        "925874",
-        "925877"
-      ],
+      "missing_ids": [],
       "mismatched": [
         {
           "id": "925553",
@@ -298,18 +252,6 @@
           }
         }
       ]
-    },
-    {
-      "type": "dependency",
-      "message": "target dependency check failed for user_id",
-      "table": "system_users",
-      "required_count": 3,
-      "missing_count": 1,
-      "mismatch_count": 0,
-      "missing_ids": [
-        "910269"
-      ],
-      "mismatched": []
     },
     {
       "type": "external_reference",
@@ -932,6 +874,67 @@
       ],
       "mismatched": [],
       "mismatch_count": 0
+    }
+  ],
+  "authorized_dependency_sync_scope": [
+    {
+      "dep_type": "item_id",
+      "table": "mes_md_item",
+      "authorized_missing_ids": [
+        "924005"
+      ],
+      "authorized_mismatch_ids": [],
+      "note": "user authorized missing material/user/production work order dependency sync"
+    },
+    {
+      "dep_type": "work_order_id",
+      "table": "mes_pro_work_order",
+      "authorized_missing_ids": [
+        "925473",
+        "925477",
+        "925483",
+        "925671",
+        "925675",
+        "925685",
+        "925689",
+        "925693",
+        "925716",
+        "925721",
+        "925724",
+        "925729",
+        "925732",
+        "925809",
+        "925813",
+        "925816",
+        "925820",
+        "925825",
+        "925827",
+        "925828",
+        "925829",
+        "925830",
+        "925843",
+        "925850",
+        "925854",
+        "925858",
+        "925864",
+        "925865",
+        "925866",
+        "925867",
+        "925868",
+        "925874",
+        "925877"
+      ],
+      "authorized_mismatch_ids": [],
+      "note": "user authorized missing material/user/production work order dependency sync"
+    },
+    {
+      "dep_type": "user_id",
+      "table": "system_users",
+      "authorized_missing_ids": [
+        "910269"
+      ],
+      "authorized_mismatch_ids": [],
+      "note": "user authorized missing material/user/production work order dependency sync"
     }
   ],
   "target_external_active_refs": [

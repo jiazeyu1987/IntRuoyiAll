@@ -10,6 +10,7 @@ import cn.iocoder.yudao.module.dcc.dal.dataobject.directory.DccDirectoryAccessRu
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.directory.DccFileDirectoryDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileLocalFolderUploadChunkDO;
+import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasSourceDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasTransferTaskDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileNasTransferTaskItemDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
@@ -21,6 +22,7 @@ import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryTrainingRul
 import cn.iocoder.yudao.module.dcc.dal.mysql.directory.DccDirectoryAccessRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.directory.DccFileDirectoryMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileLocalFolderUploadChunkMapper;
+import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasSourceMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasTransferTaskItemMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileNasTransferTaskMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeMapper;
@@ -33,7 +35,9 @@ import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.infra.service.file.NasAclAce;
 import cn.iocoder.yudao.module.infra.service.file.NasAclReadResult;
 import cn.iocoder.yudao.module.infra.service.file.NasBrowserService;
+import cn.iocoder.yudao.module.infra.service.file.NasConnectionConfig;
 import cn.iocoder.yudao.module.infra.service.file.NasFileReadResult;
+import cn.iocoder.yudao.module.infra.service.file.NasSettingsService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -114,11 +118,15 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
     @Mock
     private DccControlledFileNasTransferTaskItemMapper taskItemMapper;
     @Mock
+    private DccControlledFileNasSourceMapper nasSourceMapper;
+    @Mock
     private DccProjectCodeMapper projectCodeMapper;
     @Mock
     private DccControlledFileLocalFolderUploadChunkMapper uploadChunkMapper;
     @Mock
     private DccNasPermissionSnapshotCaptureService snapshotCaptureService;
+    @Mock
+    private NasSettingsService nasSettingsService;
 
     @InjectMocks
     private DccControlledFileNasTransferServiceImpl transferService;
@@ -142,6 +150,8 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
                 .projectCode("PRJ-20260728")
                 .status(DccProjectCodeStatusConstants.ENABLE)
                 .build());
+        lenient().when(nasSettingsService.getRequiredNasConfig())
+                .thenReturn(new NasConnectionConfig("nas.local", 445, "quality", "", "user", "pwd"));
     }
 
     @AfterEach
@@ -1749,6 +1759,15 @@ class DccControlledFileNasTransferServiceTest extends BaseMockitoUnitTest {
         assertEquals(longFileName, submitReqVO.getFileName());
         assertTrue(submitReqVO.getFileNumber().length() <= 64);
         assertTrue(submitReqVO.getFileNumber().startsWith("指引导丝采购物资清单Finethrough"));
+        ArgumentCaptor<DccControlledFileNasSourceDO> nasSourceCaptor =
+                ArgumentCaptor.forClass(DccControlledFileNasSourceDO.class);
+        verify(nasSourceMapper).insert(nasSourceCaptor.capture());
+        DccControlledFileNasSourceDO nasSource = nasSourceCaptor.getValue();
+        assertEquals(6002L, nasSource.getControlledFileId());
+        assertEquals("quality", nasSource.getNasShareName());
+        assertEquals(longNasPath, nasSource.getNormalizedRelativePath());
+        assertEquals(DccNasControlAuditServiceImpl.SOURCE_TYPE_NAS_TRANSFER, nasSource.getSourceType());
+        assertEquals(DccNasControlAuditServiceImpl.SOURCE_CONFIDENCE_EXACT, nasSource.getSourceConfidence());
     }
 
     @Test
