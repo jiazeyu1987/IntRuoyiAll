@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[4]
 TASK_DIR = ROOT / "doc" / "tasks" / "20260731-mes-three-tab-test-sync"
 ARTIFACT_DIR = TASK_DIR / "artifacts"
+REMAP_PLAN_PATH = ARTIFACT_DIR / "dependency-remap-plan.json"
 
 LOCAL_MYSQL_CMD = [
     "docker",
@@ -29,7 +30,7 @@ REMOTE_MYSQL_CMD = [
 TENANT_ID = 1
 
 AUTHORIZED_MISSING_DEP_TYPES = {"item_id", "user_id", "work_order_id"}
-AUTHORIZED_MISMATCH_DEP_TYPES = set()
+AUTHORIZED_MISMATCH_DEP_TYPES = {"work_order_id"}
 
 WHITELIST_TABLES = {
     "mes_pro_process",
@@ -333,6 +334,25 @@ def dependency_ids(dep_rows):
     return {k: sorted(v) for k, v in grouped.items()}
 
 
+def load_dependency_remap_plan():
+    if not REMAP_PLAN_PATH.exists():
+        return {
+            "path": str(REMAP_PLAN_PATH),
+            "loaded": False,
+            "remaps": {},
+        }
+    plan = json.loads(REMAP_PLAN_PATH.read_text(encoding="utf-8"))
+    return {
+        "path": str(REMAP_PLAN_PATH),
+        "loaded": True,
+        "generated_at": plan.get("generated_at"),
+        "remaps": {
+            "user_id": {str(k): str(v) for k, v in plan.get("remap", {}).get("system_users", {}).items()},
+            "work_order_id": {str(k): str(v) for k, v in plan.get("remap", {}).get("mes_pro_work_order", {}).items()},
+        },
+    }
+
+
 def compare_maps(source_map, target_map, columns):
     missing = []
     mismatched = []
@@ -353,11 +373,33 @@ def compare_maps(source_map, target_map, columns):
     return missing, mismatched
 
 
-def check_dependency_table(report, dep_type, table, ids, columns):
+def check_dependency_table(report, dep_type, table, ids, columns, id_remap=None):
+    id_remap = {str(k): str(v) for k, v in (id_remap or {}).items()}
     source_map, warn = table_map(LOCAL_MYSQL_CMD, table, ids, columns, f"local:{table}")
-    target_map, warn2 = table_map(REMOTE_MYSQL_CMD, table, ids, columns, f"remote:{table}")
+    target_ids = sorted({id_remap.get(str(value), str(value)) for value in ids}, key=int)
+    target_map, warn2 = table_map(REMOTE_MYSQL_CMD, table, target_ids, columns, f"remote:{table}")
     report["warnings"].extend(warn + warn2)
-    missing, mismatched = compare_maps(source_map, target_map, [c for c in columns if c != "id"])
+    compare_columns = [c for c in columns if c != "id"]
+    missing = []
+    mismatched = []
+    remapped_ids = {}
+    for source_id, source_row in source_map.items():
+        target_id = id_remap.get(source_id, source_id)
+        if target_id != source_id:
+            remapped_ids[source_id] = target_id
+        target_row = target_map.get(target_id)
+        if not target_row:
+            missing.append(source_id)
+            continue
+        diffs = {}
+        for column in compare_columns:
+            if str(source_row.get(column, "")) != str(target_row.get(column, "")):
+                diffs[column] = {
+                    "source": source_row.get(column),
+                    "target": target_row.get(column),
+                }
+        if diffs:
+            mismatched.append({"id": source_id, "target_id": target_id, "diffs": diffs})
     return {
         "dep_type": dep_type,
         "table": table,
@@ -365,6 +407,7 @@ def check_dependency_table(report, dep_type, table, ids, columns):
         "missing_ids": missing,
         "mismatched": mismatched[:50],
         "mismatch_count": len(mismatched),
+        "remapped_ids": remapped_ids,
     }
 
 
@@ -448,6 +491,9 @@ def main():
     report["warnings"].extend(warnings)
     dep_ids = dependency_ids(dep_rows)
     report["source_dependency_ids"] = dep_ids
+    dependency_remap_plan = load_dependency_remap_plan()
+    report["dependency_remap_plan"] = dependency_remap_plan
+    dependency_remaps = dependency_remap_plan.get("remaps", {})
 
     local_ids, warnings = collect_ids(LOCAL_MYSQL_CMD, "local")
     report["warnings"].extend(warnings)
@@ -505,6 +551,7 @@ def main():
         "mes_pro_work_order",
         dep_ids.get("work_order_id", []),
         ["id", "code", "product_id", "quantity", "batch_code", "status", "deleted", "tenant_id"],
+        dependency_remaps.get("work_order_id"),
     ))
     dependency_checks.append(check_dependency_table(
         report,
@@ -526,6 +573,7 @@ def main():
         "system_users",
         dep_ids.get("user_id", []),
         ["id", "username", "nickname", "status", "deleted", "tenant_id"],
+        dependency_remaps.get("user_id"),
     ))
     report["dependency_checks"] = dependency_checks
     report["authorized_dependency_sync_scope"] = []
@@ -618,6 +666,9 @@ def main():
         f"- Source whitelist rows: `{sum(report['source_whitelist_counts'].values())}`",
         f"- Target current whitelist rows: `{sum(report['target_current_whitelist_counts'].values())}`",
         f"- Authorized dependency sync scopes: `{len(report['authorized_dependency_sync_scope'])}`",
+        f"- Dependency remap plan loaded: `{report['dependency_remap_plan']['loaded']}`",
+        f"- User remaps: `{len(report['dependency_remap_plan']['remaps'].get('user_id', {}))}`",
+        f"- Work order remaps: `{len(report['dependency_remap_plan']['remaps'].get('work_order_id', {}))}`",
         f"- Blockers: `{len(report['blockers'])}`",
         "",
         "## Blockers",
