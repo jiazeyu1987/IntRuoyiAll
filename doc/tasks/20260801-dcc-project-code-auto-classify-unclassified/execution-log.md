@@ -46,4 +46,6 @@
 ## Final Status
 
 - 2026-08-01：实现提交 `1f2fad46f fix: auto classify DCC unclassified associated files`，文件清单：`IntRuoyiFronted/package.json`、`ProjectCodeTabPanel.vue`、`dcc-project-code-associated-unclassified-auto-classify-static.spec.js`、`docs/frontend-development.md`、`docs/experience-index.md`。
-- 2026-08-01：任务状态更新为 `completed`；实现、验证和收尾清理均已完成。
+- 2026-08-01：收尾文档提交 `b3281e8b8 docs: close out DCC unclassified auto classify task`，文件清单：`task.md`、`execution-log.md`、`verification-report.md`。
+- 2026-08-01：`git push origin int_main` -> FAIL，GitHub HTTPS 通过全局代理 `127.0.0.1:7890` 连接失败；`Test-NetConnection 127.0.0.1 -Port 7890` -> False；`git -c http.https://github.com.proxy= ls-remote origin HEAD` -> FAIL，直连 Git HTTPS 超时；`ssh -T -o BatchMode=yes git@ssh.github.com -p 443` -> FAIL，当前公钥未授权。
+- 2026-08-01：任务状态改为 `blocked`；实现、验证、清理和本地提交完成，但远端推送未完成，需恢复 GitHub 代理端口或提供可用推送认证/网络后再推送并标记完成。

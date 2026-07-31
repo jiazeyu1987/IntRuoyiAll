@@ -35,3 +35,10 @@ Not run. This feature performs batch writes to controlled file metadata, and thi
 
 - `task-closeout-cleanup --mode preview` -> PASS，keep 为 `task.md`、`execution-log.md`、`verification-report.md`，delete 为临时 `frontend-feature-evidence.md`。
 - `task-closeout-cleanup --mode apply` -> PASS，临时 evidence 已删除，无 blocked/warnings。
+
+## Push Blocker
+
+- `git push origin int_main` -> FAIL：GitHub HTTPS 代理 `127.0.0.1:7890` 未监听。
+- `git -c http.https://github.com.proxy= ls-remote origin HEAD` -> FAIL：直连 Git HTTPS 超时。
+- `ssh -T -o BatchMode=yes git@ssh.github.com -p 443` -> FAIL：当前 SSH 公钥未被 GitHub 接受。
+- 影响：本地代码和任务记录已提交，但远端未同步；按项目规则任务状态保持 `blocked`，不能标记 completed。

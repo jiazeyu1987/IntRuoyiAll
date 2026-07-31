@@ -24,7 +24,11 @@
 
 ## Current Status
 
-completed
+blocked
+
+## Push Blocker
+
+- 2026-08-01：本地实现、验证、清理和提交已完成，但 `git push origin int_main` 被 GitHub 网络/代理前置条件阻塞。Git 全局配置 `http.https://github.com.proxy=http://127.0.0.1:7890`，该端口未监听；单次直连 Git HTTPS 超时；SSH 443 可达但当前公钥未授权。按项目规则，远端未同步前任务不得标记 completed。
 
 ## Applicable Experience Gates
 
