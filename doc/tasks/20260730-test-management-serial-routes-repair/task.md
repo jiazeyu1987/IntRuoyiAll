@@ -8,7 +8,7 @@
 
 - [x] M1: 复现并隔离 Runner/Codex CLI 首节点退出与超时根因
 - [x] M2: 建立失败回归测试并记录 RED
-- [ ] M3: 实施最小正式修复并记录 GREEN
+- [ ] M3: 实施最小正式修复并记录 GREEN（Runner 隔离、固定样本和 artifact 本地配置已补齐；等待运行态加载后复验）
 - [ ] M4: 通过真实页面完整复验 3 条串行路线并完成任务自有清理
 - [ ] M5: 完成经验沉淀、收尾校验、提交与推送
 
@@ -45,3 +45,11 @@ in_progress
 
 - output/playwright/20260730-test-management-serial-routes-repair/
 - doc/tasks/20260730-test-management-serial-routes-repair/tmp/
+
+## Cleanup Keep
+
+doc/tasks/20260730-test-management-serial-routes-repair/run-serial-routes-real-e2e.mjs
+
+## Current Blocker
+
+- 共享 `48081` 后端正在由独立 `20260731-restart-local-frontend-backend` 任务执行 full restart/package，当前 health 暂不可达；本任务不强停或接管并行任务，等待恢复后继续真实三路线复验。

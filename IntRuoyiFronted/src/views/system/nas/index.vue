@@ -1240,7 +1240,8 @@ const resolveControlAuditStatusType = (status?: string | null) => {
 const handleDownloadControlAuditReport = async (showSuccessMessage = true) => {
   const task = controlAuditDialog.result
   if (!task || task.status !== 'COMPLETED') {
-    throw new Error('NAS 受控状态统计报告尚未生成，无法下载')
+    controlAuditDialog.errorMessage = 'NAS 受控状态统计报告尚未生成，无法下载'
+    return false
   }
   controlAuditDialog.downloading = true
   try {
@@ -1255,9 +1256,10 @@ const handleDownloadControlAuditReport = async (showSuccessMessage = true) => {
     if (showSuccessMessage) {
       message.success('NAS 受控状态统计报告已下载')
     }
+    return true
   } catch (error: any) {
     controlAuditDialog.errorMessage = error?.message || 'NAS 受控状态统计报告下载失败'
-    throw error
+    return false
   } finally {
     controlAuditDialog.downloading = false
   }
@@ -1279,8 +1281,9 @@ const scheduleControlAuditPolling = (taskId?: number) => {
           !autoDownloadedControlAuditTaskIds.has(result.taskId)
         ) {
           autoDownloadedControlAuditTaskIds.add(result.taskId)
-          await handleDownloadControlAuditReport(false)
-          message.success('NAS 受控状态统计完成，报告已自动下载')
+          if (await handleDownloadControlAuditReport(false)) {
+            message.success('NAS 受控状态统计完成，报告已自动下载')
+          }
         }
         return
       }
@@ -1348,8 +1351,9 @@ const handleStartControlAudit = async () => {
       return
     }
     if (result.status === 'COMPLETED') {
-      await handleDownloadControlAuditReport(false)
-      message.success('NAS 受控状态统计完成，报告已自动下载')
+      if (await handleDownloadControlAuditReport(false)) {
+        message.success('NAS 受控状态统计完成，报告已自动下载')
+      }
     }
   } catch (error: any) {
     controlAuditDialog.errorMessage = error?.message || 'NAS 受控状态统计任务创建失败'
