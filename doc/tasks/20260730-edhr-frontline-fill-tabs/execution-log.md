@@ -119,7 +119,7 @@
 - REGRESSION: post-merge `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js` -> PASS。
 - GREEN: post-merge `node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` -> PASS。
 - REGRESSION: post-merge `pnpm ts:check` -> PASS。
-- Remote refresh retry: `git fetch origin int_main` -> FAIL，`Recv failure: Connection was reset`；`git -c http.version=HTTP/1.1 fetch origin int_main` 与 `git ls-remote origin refs/heads/int_main` 同样失败，暂无法确认远端是否已有后续修复。
+- Remote refresh retry: `git fetch origin int_main` 曾连续失败于 `Recv failure: Connection was reset`；最终重试 `git fetch origin int_main` -> PASS，`origin/int_main` 仍停在 `011999ef merge: sync origin int_main`，未发现后续修复提交。
 - Integration refresh: 当前临时集成分支 HEAD `c97d0f09` 已合入本地可见的 `origin/int_main` 后续内容。
 - GREEN: latest `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260731-edhr-frontline-clean-integration/int_main` uses `8084/48084`。
 - GREEN: latest `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
@@ -134,3 +134,4 @@
 - GREEN: `rg -n "依赖模块|DccProjectCodeServiceImplTest|testCompile" docs/worktree-memory.md` -> PASS。
 - GREEN: `rg -n "DccFileCategoryMatchRuleDO|Maven -am 依赖模块 testCompile|当前任务源码未改依赖模块不得跳过" docs/experience-index.md docs/worktree-memory.md` -> PASS。
 - GREEN: `git diff --check -- doc/tasks/20260730-edhr-frontline-fill-tabs/task.md doc/tasks/20260730-edhr-frontline-fill-tabs/execution-log.md doc/tasks/20260730-edhr-frontline-fill-tabs/verification-report.md docs/worktree-memory.md docs/experience-index.md` -> PASS。
+- Remote refresh final check: `git fetch origin int_main` -> PASS；`origin/int_main` 仍为 `011999ef merge: sync origin int_main`，远端暂无修复 DCC `testCompile` 缺失类的后续提交。
