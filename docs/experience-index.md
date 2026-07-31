@@ -102,7 +102,7 @@
 - Keywords: 主结果弹窗失败原因, result-dialog, 提交失败只显示状态, 保存失败原因可见, 发布失败原因可见, 大号结果弹框, failureReasonText, showFillActionResultDialog, toast 有原因但弹窗无原因 -> `docs/frontend-development.md#前端主结果弹窗失败原因可见门禁`
 - Keywords: 列表首屏成功后系统异常, 延迟辅助加载, 行级权限加载失败, listErrorMessage, permissionRuleErrorMessage, 批记录表单填写人规则加载失败, 辅助查询错误归属 -> `docs/frontend-development.md#前端延迟辅助加载错误归属门禁`
 - Keywords: DCC 上传类别权限, canUpload, Current user cannot access this controlled file, upload-preview, 文件类别下拉无上传权限, 类别级 UPLOAD 权限, DccControlledFileCategoryPermissionSupport -> `docs/frontend-development.md#dcc-上传类别权限投影门禁`
-- Keywords: DCC 基础条目关联文档, DCC项目代码关联文档, 三栏导航文件类型, fileTypeTaxonomyId, fileTypeLevel3, DCC 文件分类树, 技术文档阶段展开, 未分类文件类型 -> `docs/frontend-development.md#dcc-基础条目关联文档分类树门禁`
+- Keywords: DCC 基础条目关联文档, DCC项目代码关联文档, 三栏导航文件类型, fileTypeTaxonomyId, fileTypeLevel3, DCC 文件分类树, 技术文档阶段展开, 未分类文件类型, 按文件名归类未分类, 未分类自动归类 -> `docs/frontend-development.md#dcc-基础条目关联文档分类树门禁`
 - Keywords: 草稿保存后仍可修改, 保存草稿不提交发布, 保存后不可继续编辑, 立即提交发布弹窗, submit-publish, DRAFT 被保存推进审批, RouteEditPage handleSaved, promptRouteVersionSubmit -> `docs/frontend-development.md#前端草稿保存与提交发布解耦门禁`
 - Keywords: 当前模板未绑定批记录表单, 表单模板打开编辑填写, openSelectedTemplateWorkspace, isDesignerMode, FormTemplateDesignerWrapper, FormTemplateSimulatePage, simulationOnly, MdmFormCenterTemplateSimulate, /mdm/form-center/template/simulate, batchRecordBindingStatus, batchRecordReportId -> `docs/frontend-development.md#表单模板三按钮领域边界门禁`
 - Keywords: FormCenter 动态表单字段码, fieldCode, fieldIdentityMap, ActionFormPanel, EdhrExecutionTemplateEditableForm, 损耗单, 过程检验记录, FORM_TEMPLATE_VERSION, form_data_json, field6, 5:3, 页面输入框为空, 快照 JSON 有值, 动态表单单元格链接 -> `docs/frontend-development.md#formcenter-动态表单字段码渲染门禁`

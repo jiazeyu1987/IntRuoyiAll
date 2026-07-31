@@ -58,7 +58,14 @@
           plain
           data-testid="dcc-project-code-batch-ai-category"
           :loading="batchAiCategoryRunning"
-          :disabled="loading || exportLoading || previewLoading || confirmLoading || aiCategoryRunning"
+          :disabled="
+            loading ||
+            exportLoading ||
+            previewLoading ||
+            confirmLoading ||
+            aiCategoryRunning ||
+            unclassifiedAutoClassifyRunning
+          "
           @click="handleBatchAiCategoryProjectCodes"
         >
           <Icon icon="ep:magic-stick" class="mr-5px" />
@@ -511,10 +518,28 @@
             size="small"
             type="primary"
             :loading="aiCategoryRunning"
-            :disabled="!selectedProjectCode?.id || associatedFilesLoading || batchAiCategoryRunning"
+            :disabled="!selectedProjectCode?.id || associatedFilesLoading || batchAiCategoryRunning || unclassifiedAutoClassifyRunning"
             @click="handleAiCategoryAssociatedFiles"
           >
             AI分类
+          </el-button>
+          <el-button
+            v-if="canRunAssociatedNameAutoClassify"
+            data-testid="dcc-project-code-auto-classify-unclassified"
+            size="small"
+            type="primary"
+            plain
+            :loading="unclassifiedAutoClassifyRunning"
+            :disabled="
+              !selectedProjectCode?.id ||
+              associatedFilesLoading ||
+              aiCategoryRunning ||
+              batchAiCategoryRunning ||
+              associatedUnclassifiedFileCount === 0
+            "
+            @click="handleAutoClassifyUnclassifiedAssociatedFiles"
+          >
+            按文件名归类未分类
           </el-button>
           <el-button
             data-testid="dcc-project-code-assignment-open"
@@ -781,7 +806,9 @@ import {
   exportControlledFileRecognitionRecordExcel,
   getControlledFileBatchRecognitionTask,
   getLatestControlledFileBatchRecognitionTask,
+  updateControlledFileMetadata,
   type ControlledFileBatchRecognitionTaskRespVO,
+  type ControlledFileMetadataUpdateReqVO,
   type ControlledFileVO
 } from '@/api/dcc/controlledFile/workflow'
 import {
@@ -820,7 +847,9 @@ import {
 import { formatControlledFileDateTime } from '../../detail/presentation'
 import { openControlledFileViewer } from '../../shared/viewer-navigation'
 import {
+  DCC_TECHNICAL_DOCUMENT_ROOT_NAME,
   DCC_UNCLASSIFIED_TAXONOMY_STAGE,
+  type DccFileTypeTaxonomyStageTypeOption,
   buildDccFileTypeTaxonomyStageNameMap,
   buildDccFileTypeTaxonomyStageTypeNameMap,
   buildDccFileTypeTaxonomyStageTypeOptionsMap,
@@ -969,6 +998,7 @@ const selectedAssociatedTypeKey = ref('')
 const aiCategoryRunning = ref(false)
 const aiCategoryProcessed = ref(0)
 const aiCategoryTotal = ref(0)
+const unclassifiedAutoClassifyRunning = ref(false)
 const batchAiCategoryTask = ref<ControlledFileBatchRecognitionTaskRespVO | null>(null)
 const batchAiCategoryDismissedTaskId = ref<number | null>(null)
 const batchAiCategoryFailureExporting = ref(false)
@@ -1002,6 +1032,7 @@ const canRunAiCategory = computed(
     checkPermi(['dcc:project-code:update']) &&
     checkPermi(['dcc:controlled-file:update'])
 )
+const canRunAssociatedNameAutoClassify = computed(() => checkPermi(['dcc:controlled-file:update']))
 const canRunBatchAiCategory = computed(
   () => canRunAiCategory.value && checkRole(['doc_control'])
 )
@@ -1105,6 +1136,72 @@ const resolveAiCategoryErrorMessage = (error: unknown) => {
   return '未知后端错误'
 }
 const normalizeAssociatedLevel = (level: unknown) => String(level || '').trim()
+const normalizeAutoClassifyText = (value: unknown) =>
+  String(value || '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/\.[a-z0-9]{1,8}$/i, '')
+    .replace(/[\s_\-—–/\\()[\]{}【】（）《》<>.,，。:：;；!！?？"'“”‘’]+/g, '')
+    .trim()
+const splitAutoClassifyTokens = (value: unknown) => {
+  const normalized = normalizeAutoClassifyText(value)
+  const tokens = new Set<string>()
+  const words = normalized.match(/[a-z0-9]+|[\u4e00-\u9fa5]/gi) || []
+  for (const word of words) {
+    if (word) {
+      tokens.add(word)
+    }
+  }
+  for (const gramSize of [2, 3, 4]) {
+    for (let index = 0; index <= normalized.length - gramSize; index += 1) {
+      tokens.add(normalized.slice(index, index + gramSize))
+    }
+  }
+  return Array.from(tokens)
+}
+const autoClassifyTextSimilarityScore = (left: string, right: string) => {
+  if (!left || !right) {
+    return 0
+  }
+  if (left === right) {
+    return 1
+  }
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index)
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+    const current = [leftIndex]
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+      const substitutionCost = left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1
+      current[rightIndex] = Math.min(
+        current[rightIndex - 1] + 1,
+        previous[rightIndex] + 1,
+        previous[rightIndex - 1] + substitutionCost
+      )
+    }
+    previous.splice(0, previous.length, ...current)
+  }
+  return 1 - previous[right.length] / Math.max(left.length, right.length)
+}
+const autoClassifyTokenOverlapScore = (left: string, right: string) => {
+  const leftTokens = new Set(splitAutoClassifyTokens(left))
+  const rightTokens = splitAutoClassifyTokens(right)
+  if (leftTokens.size === 0 || rightTokens.length === 0) {
+    return 0
+  }
+  const matched = rightTokens.filter((token) => leftTokens.has(token)).length
+  return matched / rightTokens.length
+}
+const autoClassifySubstringScore = (left: string, right: string) => {
+  if (!left || !right) {
+    return 0
+  }
+  if (left.includes(right)) {
+    return 1
+  }
+  if (right.includes(left)) {
+    return left.length / right.length
+  }
+  return 0
+}
 const associatedTaxonomyStageRows = computed(() =>
   getDccFileTypeTaxonomyStageRows(fileTypeTaxonomies.value)
 )
@@ -1122,6 +1219,9 @@ const associatedTaxonomyStageTypeNameMap = computed(() =>
 )
 const associatedTaxonomyStageTypeOptionsMap = computed(() =>
   buildDccFileTypeTaxonomyStageTypeOptionsMap(fileTypeTaxonomies.value)
+)
+const associatedAutoClassifyTargetOptions = computed(() =>
+  Array.from(associatedTaxonomyStageTypeOptionsMap.value.values()).flat()
 )
 const resolveAssociatedStageKey = (file: ControlledFileVO) => {
   const stage = normalizeAssociatedLevel(file.fileTypeLevel2)
@@ -1143,6 +1243,77 @@ const resolveAssociatedTypeName = (file: ControlledFileVO) => {
     normalizeAssociatedLevel(file.fileTypeLevel3) ||
     DCC_PROJECT_CODE_UNCLASSIFIED_TYPE
   )
+}
+const isAssociatedFileUnclassified = (file: ControlledFileVO) =>
+  resolveAssociatedStageKey(file) === DCC_UNCLASSIFIED_TAXONOMY_STAGE ||
+  resolveAssociatedTypeName(file) === DCC_PROJECT_CODE_UNCLASSIFIED_TYPE
+const associatedUnclassifiedFiles = computed(() =>
+  associatedNavigationFiles.value.filter(isAssociatedFileUnclassified)
+)
+const associatedUnclassifiedFileCount = computed(() => associatedUnclassifiedFiles.value.length)
+const calculateAutoClassifySimilarity = (
+  file: ControlledFileVO,
+  target: DccFileTypeTaxonomyStageTypeOption
+) => {
+  const fileText = normalizeAutoClassifyText(
+    `${file.fileName || ''} ${file.title || ''} ${file.fileNumber || ''}`
+  )
+  const targetTypeText = normalizeAutoClassifyText(target.label)
+  const targetPathText = normalizeAutoClassifyText(`${target.stageName} ${target.label}`)
+  return (
+    autoClassifySubstringScore(fileText, targetTypeText) * 0.45 +
+    autoClassifyTextSimilarityScore(fileText, targetTypeText) * 0.25 +
+    autoClassifyTokenOverlapScore(fileText, targetTypeText) * 0.2 +
+    autoClassifyTokenOverlapScore(fileText, targetPathText) * 0.1
+  )
+}
+const resolveBestAssociatedAutoClassifyTarget = (
+  file: ControlledFileVO,
+  targetOptions: DccFileTypeTaxonomyStageTypeOption[]
+) => {
+  if (targetOptions.length === 0) {
+    return undefined
+  }
+  let bestTarget = targetOptions[0]
+  let bestScore = Number.NEGATIVE_INFINITY
+  for (const target of targetOptions) {
+    const score = calculateAutoClassifySimilarity(file, target)
+    if (score > bestScore) {
+      bestTarget = target
+      bestScore = score
+    }
+  }
+  return bestTarget
+}
+const buildDccAssociatedFileAutoClassifyPayload = (
+  file: ControlledFileVO,
+  target: DccFileTypeTaxonomyStageTypeOption
+): ControlledFileMetadataUpdateReqVO => {
+  const fileName = normalizeAssociatedLevel(file.fileName || file.title)
+  if (!fileName) {
+    throw new Error(`文件 ${file.id} 缺少文件名称，无法自动归类`)
+  }
+  if (!file.categoryId || !file.directoryId) {
+    throw new Error(`文件 ${fileName} 缺少文件类别或目录，无法保存分类`)
+  }
+  return {
+    changeReason: `按文件名相似度自动归类未分类文件：${target.stageName}/${target.label}`,
+    productMasterId: null,
+    productName: normalizeAssociatedLevel(selectedProjectCode.value?.projectName || file.productName) || undefined,
+    dccProjectCodeId: selectedProjectCode.value?.id || file.dccProjectCodeId || null,
+    needTraining: Boolean(file.needTraining),
+    fileTypeTaxonomyId: target.taxonomyId,
+    fileTypeLevel1: DCC_TECHNICAL_DOCUMENT_ROOT_NAME,
+    fileTypeLevel2: target.stageName,
+    fileTypeLevel3: target.label,
+    fileTypeLevel4: null,
+    fileTypeLevel5: null,
+    fileName,
+    productCode: normalizeAssociatedLevel(selectedProjectCode.value?.projectCode || file.productCode) || undefined,
+    fileNumber: normalizeAssociatedLevel(file.fileNumber) || null,
+    categoryId: file.categoryId,
+    directoryId: file.directoryId
+  }
 }
 const createAssociatedStageGroup = (stageKey: string, label = stageKey): AssociatedStageGroup => {
   const associatedStageTypeOptions = associatedTaxonomyStageTypeOptionsMap.value.get(stageKey) || []
@@ -1909,6 +2080,59 @@ const handleAiCategoryAssociatedFiles = async () => {
     await getAssociatedFiles()
   } finally {
     aiCategoryRunning.value = false
+  }
+}
+
+const handleAutoClassifyUnclassifiedAssociatedFiles = async () => {
+  const projectCodeId = selectedProjectCode.value?.id
+  if (!projectCodeId || unclassifiedAutoClassifyRunning.value || aiCategoryRunning.value || batchAiCategoryRunning.value) {
+    return
+  }
+  const filesToClassify = [...associatedUnclassifiedFiles.value]
+  if (filesToClassify.length === 0) {
+    message.info('当前产品没有未分类或未分类文件类型文件')
+    return
+  }
+  const targetOptions = associatedAutoClassifyTargetOptions.value
+  if (targetOptions.length === 0) {
+    message.error('没有可用于归类的正式文件类型，请先维护 DCC 文件分类树')
+    return
+  }
+  try {
+    await message.confirm(
+      `将按文件名相似度归类 ${filesToClassify.length} 份未分类文件，完成后不会保留在未分类或未分类文件类型中。是否继续？`,
+      '按文件名归类未分类'
+    )
+  } catch {
+    return
+  }
+
+  let processedCount = 0
+  unclassifiedAutoClassifyRunning.value = true
+  try {
+    for (const file of filesToClassify) {
+      const target = resolveBestAssociatedAutoClassifyTarget(file, targetOptions)
+      if (!target) {
+        throw new Error('没有可用于归类的正式文件类型，请先维护 DCC 文件分类树')
+      }
+      const payload = buildDccAssociatedFileAutoClassifyPayload(file, target)
+      await updateControlledFileMetadata(file.id, payload)
+      processedCount += 1
+    }
+    await getAssociatedFiles()
+    await getList()
+    if (associatedUnclassifiedFileCount.value > 0) {
+      throw new Error(`自动归类完成后仍有 ${associatedUnclassifiedFileCount.value} 份文件停留在未分类，请检查文件元数据`)
+    }
+    message.success(`已按文件名归类 ${processedCount} 份未分类文件`)
+  } catch (error) {
+    message.error(
+      `自动归类失败：已处理 ${processedCount}/${filesToClassify.length}，后端错误：${resolveAiCategoryErrorMessage(error)}`
+    )
+    await getAssociatedFiles()
+    throw error
+  } finally {
+    unclassifiedAutoClassifyRunning.value = false
   }
 }
 
