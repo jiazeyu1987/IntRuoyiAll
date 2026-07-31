@@ -5,11 +5,16 @@ import cn.hutool.core.util.StrUtil;
 import cn.iocoder.yudao.framework.common.util.json.JsonUtils;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProcessPoolReviewCopyDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProcessPoolReviewCopyFieldDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProcessPoolReviewCopyRuleDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolQuantityFragmentDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProcessPoolReviewCopyFieldMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProcessPoolReviewCopyMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProcessPoolReviewCopyRuleMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolQuantityFragmentMapper;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolReviewCopyFieldMappingDTO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolReviewCopyGenerateFromRulesReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolReviewCopyGenerateReqDTO;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.annotation.Resource;
@@ -42,6 +47,10 @@ public class MesProcessPoolReviewCopyServiceImpl implements MesProcessPoolReview
     @Resource
     private MesProcessPoolReviewCopyFieldMapper reviewCopyFieldMapper;
     @Resource
+    private MesProcessPoolReviewCopyRuleMapper reviewCopyRuleMapper;
+    @Resource
+    private MesProProcessPoolQuantityFragmentMapper quantityFragmentMapper;
+    @Resource
     private MesProcessPoolFifoAllocationService fifoAllocationService;
 
     @Override
@@ -63,6 +72,26 @@ public class MesProcessPoolReviewCopyServiceImpl implements MesProcessPoolReview
         return reviewCopy.getId();
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long generateAndSubmitReviewCopyFromRules(MesProcessPoolReviewCopyGenerateFromRulesReqDTO reqDTO) {
+        validateRuleRequest(reqDTO);
+        MesProProcessPoolEventDO event = requireEvent(reqDTO.getEventId());
+        List<MesProcessPoolReviewCopyRuleDO> rules = reviewCopyRuleMapper.selectEnabledListByContext(
+                event.getProcessId(), event.getDeviceId(), event.getTemplateType());
+        if (CollUtil.isEmpty(rules)) {
+            throw exception(PRO_PROCESS_POOL_REVIEW_COPY_FIELD_MAPPING_REQUIRED, "reviewCopyRules");
+        }
+        return generateAndSubmitReviewCopy(MesProcessPoolReviewCopyGenerateReqDTO.builder()
+                .eventId(reqDTO.getEventId())
+                .reviewerUserId(reqDTO.getReviewerUserId())
+                .reviewerSignatureId(reqDTO.getReviewerSignatureId())
+                .reviewerSignatureUserId(reqDTO.getReviewerSignatureUserId())
+                .reviewerSignatureSnapshot(reqDTO.getReviewerSignatureSnapshot())
+                .fieldMappings(toRuleMappings(event, rules))
+                .build());
+    }
+
     private void validateRequest(MesProcessPoolReviewCopyGenerateReqDTO reqDTO) {
         if (reqDTO == null || reqDTO.getEventId() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "eventId");
@@ -74,6 +103,70 @@ public class MesProcessPoolReviewCopyServiceImpl implements MesProcessPoolReview
                 || StrUtil.isBlank(reqDTO.getReviewerSignatureSnapshot())) {
             throw exception(PRO_PROCESS_POOL_REVIEW_COPY_REVIEWER_SIGNATURE_REQUIRED, "reviewerSignature");
         }
+    }
+
+    private void validateRuleRequest(MesProcessPoolReviewCopyGenerateFromRulesReqDTO reqDTO) {
+        if (reqDTO == null || reqDTO.getEventId() == null) {
+            throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "eventId");
+        }
+        if (reqDTO.getReviewerUserId() == null) {
+            throw exception(PRO_PROCESS_POOL_REVIEW_COPY_REVIEWER_SIGNATURE_REQUIRED, "reviewerUserId");
+        }
+        if (reqDTO.getReviewerSignatureId() == null || reqDTO.getReviewerSignatureUserId() == null
+                || StrUtil.isBlank(reqDTO.getReviewerSignatureSnapshot())) {
+            throw exception(PRO_PROCESS_POOL_REVIEW_COPY_REVIEWER_SIGNATURE_REQUIRED, "reviewerSignature");
+        }
+    }
+
+    private List<MesProcessPoolReviewCopyFieldMappingDTO> toRuleMappings(
+            MesProProcessPoolEventDO event, List<MesProcessPoolReviewCopyRuleDO> rules) {
+        List<MesProProcessPoolQuantityFragmentDO> fragments =
+                quantityFragmentMapper.selectListByEventId(event.getId());
+        return rules.stream()
+                .map(rule -> MesProcessPoolReviewCopyFieldMappingDTO.builder()
+                        .fieldCode(rule.getFieldCode())
+                        .fieldName(rule.getFieldName())
+                        .lowerLimit(rule.getLowerLimit())
+                        .upperLimit(rule.getUpperLimit())
+                        .valueType(rule.getValueType())
+                        .affectsAllocation(Boolean.TRUE.equals(rule.getAffectsAllocation()))
+                        .allocationField(resolveAllocationField(rule))
+                        .sourceQuantityFragmentId(resolveSourceQuantityFragmentId(rule, fragments))
+                        .templateFieldMetadataJson(rule.getTemplateFieldMetadataJson())
+                        .build())
+                .toList();
+    }
+
+    private MesProcessPoolFragmentOriginalField resolveAllocationField(MesProcessPoolReviewCopyRuleDO rule) {
+        if (!Boolean.TRUE.equals(rule.getAffectsAllocation())) {
+            return null;
+        }
+        if (StrUtil.isBlank(rule.getAllocationField())) {
+            throw exception(PRO_PROCESS_POOL_REVIEW_COPY_FIELD_MAPPING_REQUIRED, rule.getFieldCode());
+        }
+        try {
+            return MesProcessPoolFragmentOriginalField.valueOf(rule.getAllocationField());
+        } catch (IllegalArgumentException ex) {
+            throw exception(PRO_PROCESS_POOL_REVIEW_COPY_FIELD_MAPPING_REQUIRED, rule.getFieldCode());
+        }
+    }
+
+    private Long resolveSourceQuantityFragmentId(MesProcessPoolReviewCopyRuleDO rule,
+                                                 List<MesProProcessPoolQuantityFragmentDO> fragments) {
+        if (!Boolean.TRUE.equals(rule.getAffectsAllocation())) {
+            return null;
+        }
+        if (StrUtil.isBlank(rule.getSourceQuantityType())) {
+            throw exception(PRO_PROCESS_POOL_REVIEW_COPY_FIELD_MAPPING_REQUIRED, rule.getFieldCode());
+        }
+        List<MesProProcessPoolQuantityFragmentDO> matched = fragments.stream()
+                .filter(fragment -> Objects.equals(fragment.getSourceQuantityType(), rule.getSourceQuantityType()))
+                .toList();
+        if (matched.size() != 1) {
+            throw exception(PRO_PROCESS_POOL_REVIEW_COPY_FIELD_MAPPING_REQUIRED,
+                    rule.getFieldCode() + ".sourceQuantityType=" + rule.getSourceQuantityType());
+        }
+        return matched.get(0).getId();
     }
 
     private MesProProcessPoolEventDO requireEvent(Long eventId) {

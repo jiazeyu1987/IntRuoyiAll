@@ -33,4 +33,19 @@ public interface MesProcessPoolFifoAllocationLineMapper
                 sourceQuantityFragmentId);
     }
 
+    default List<MesProcessPoolFifoAllocationLineDO> selectListByTargetWorkOrderIdsAndRouteProcessIdForUpdate(
+            Collection<Long> targetWorkOrderIds, Long targetRouteProcessId) {
+        if (targetWorkOrderIds == null || targetWorkOrderIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolFifoAllocationLineDO>()
+                .in(MesProcessPoolFifoAllocationLineDO::getTargetWorkOrderId, targetWorkOrderIds)
+                .eq(MesProcessPoolFifoAllocationLineDO::getTargetRouteProcessId, targetRouteProcessId)
+                .eq(MesProcessPoolFifoAllocationLineDO::getAllocationStatus,
+                        MesProcessPoolFifoAllocationLineDO.STATUS_ALLOCATED)
+                .orderByAsc(MesProcessPoolFifoAllocationLineDO::getTargetWorkOrderId)
+                .orderByAsc(MesProcessPoolFifoAllocationLineDO::getId)
+                .last("FOR UPDATE"));
+    }
+
 }

@@ -1,9 +1,11 @@
 package cn.iocoder.yudao.module.mes.controller.admin.pro.processpool;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolReviewCopyGenerateFromRulesReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolReviewCopyGenerateSubmitReqVO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolReviewCopyService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolReviewCopyFieldMappingDTO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolReviewCopyGenerateFromRulesReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolReviewCopyGenerateReqDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,6 +37,20 @@ public class MesProcessPoolReviewCopyController {
     public CommonResult<Long> generateAndSubmit(
             @RequestBody @Valid ProcessPoolReviewCopyGenerateSubmitReqVO reqVO) {
         return success(reviewCopyService.generateAndSubmitReviewCopy(toDTO(reqVO)));
+    }
+
+    @PostMapping("/generate-submit-from-rules")
+    @Operation(summary = "按正式规则生成并提交工序池审核副本")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-review-copy:generate-submit')")
+    public CommonResult<Long> generateAndSubmitFromRules(
+            @RequestBody @Valid ProcessPoolReviewCopyGenerateFromRulesReqVO reqVO) {
+        return success(reviewCopyService.generateAndSubmitReviewCopyFromRules(MesProcessPoolReviewCopyGenerateFromRulesReqDTO.builder()
+                .eventId(reqVO.getEventId())
+                .reviewerUserId(reqVO.getReviewerUserId())
+                .reviewerSignatureId(reqVO.getReviewerSignatureId())
+                .reviewerSignatureUserId(reqVO.getReviewerSignatureUserId())
+                .reviewerSignatureSnapshot(reqVO.getReviewerSignatureSnapshot())
+                .build()));
     }
 
     private MesProcessPoolReviewCopyGenerateReqDTO toDTO(ProcessPoolReviewCopyGenerateSubmitReqVO reqVO) {

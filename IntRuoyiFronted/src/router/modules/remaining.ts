@@ -1929,6 +1929,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
         }
       },
       {
+        path: 'pro/process-pool/fifo-orchestration',
+        component: () => import('@/views/mes/pro/processpool/FifoOrchestrationPage.vue'),
+        name: 'MesProProcessPoolFifoOrchestration',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '工序池 FIFO 编排',
+          activeMenu: '/mes/pro/process-pool/fifo-orchestration',
+          permission: ['mes:pro-process-pool-fifo:allocate']
+        }
+      },
+      {
         path: 'pro/process-pool/review-copy',
         component: () => import('@/views/mes/pro/processpool/ReviewCopyPage.vue'),
         name: 'MesProProcessPoolReviewCopy',
@@ -1954,6 +1968,20 @@ const remainingRouter: AppRouteRecordRaw[] = [
           title: '工序池原始记录修改',
           activeMenu: '/mes/pro/process-pool/event-revision',
           permission: ['mes:pro-process-pool:event-revision:update']
+        }
+      },
+      {
+        path: 'pro/process-pool/team-leader-workbench',
+        component: () => import('@/views/mes/pro/processpool/TeamLeaderWorkbenchPage.vue'),
+        name: 'MesProProcessPoolTeamLeaderWorkbench',
+        meta: {
+          noCache: true,
+          hidden: true,
+          canTo: true,
+          icon: '',
+          title: '工序池班组长工作台',
+          activeMenu: '/mes/pro/process-pool/team-leader-workbench',
+          permission: ['mes:pro-process-pool-team-leader:query']
         }
       },
       {

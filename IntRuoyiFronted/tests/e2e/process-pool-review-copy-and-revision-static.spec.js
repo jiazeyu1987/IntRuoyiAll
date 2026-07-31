@@ -50,12 +50,14 @@ for (const token of [
 for (const token of [
   '审核副本处理',
   '生成并提交审核副本',
+  '按正式规则自动生成并提交',
   '工序池提交事件ID',
   '审核人用户ID',
   '审核签名ID',
   '审核签名快照JSON',
   '字段上下限映射JSON',
   'generateSubmitProcessPoolReviewCopy',
+  'generateSubmitProcessPoolReviewCopyFromRules',
   'parseJsonField',
   'JSON.parse',
   'resultReviewCopyId'

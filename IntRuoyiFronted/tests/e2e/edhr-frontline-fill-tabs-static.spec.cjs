@@ -3,7 +3,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const root = process.cwd()
-const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8')
+const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8').replace(/\r\n/g, '\n')
 const exists = (relativePath) => fs.existsSync(path.join(root, relativePath))
 
 const router = read('src/router/modules/remaining.ts')
@@ -23,6 +23,11 @@ const tabs = read(tabsPath)
 for (const tabName of ['批次执行', '历史批记录', '生产填写', 'PQC填写']) {
   assert.match(tabs, new RegExp(tabName), `eDHR batch tabs must include ${tabName}.`)
 }
+assert.match(
+  tabs,
+  /query:\s*\{\s*\.\.\.route\.query\s*\}/,
+  'eDHR batch tabs must preserve report-work query context when switching tabs.'
+)
 
 for (const route of [
   {
@@ -68,8 +73,11 @@ for (const forbidden of ['生产工单', '工单', '生产订单']) {
 
 const pqcTemplate = frontlinePanel.match(/data-frontline-pqc-operator[\s\S]*?<footer class="frontline-submit-bar">/)
 assert.ok(pqcTemplate, 'PQC operator block must exist.')
-for (const required of ['生产订单', '工序', '员工', '主页', '长度', '厘米', '外观', '密封', '压力', 'MPa', '首检', '巡检', '末检', '检验数量', '损耗数量']) {
+for (const required of ['生产订单', '工序', '员工', '主页', '长度', '厘米', '外观', '密封', '压力', 'MPa', '检验数量', '损耗数量']) {
   assert.match(pqcTemplate[0], new RegExp(required), `PQC UI must include ${required}.`)
+}
+for (const required of ['首检', '巡检', '末检']) {
+  assert.match(frontlinePanel, new RegExp(required), `PQC inspection options must include ${required}.`)
 }
 for (const forbidden of ['检验方法', '成功', '失败', '巡检摘要']) {
   assert.doesNotMatch(pqcTemplate[0], new RegExp(forbidden), `PQC UI must not show ${forbidden}.`)

@@ -3,6 +3,8 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.feedback;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineEmployeeCandidateRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineRouteProcessRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineSubmitContextReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineSubmitContextRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineSwitchEmployeeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineSwitchEmployeeRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineTemplateRespVO;
@@ -12,6 +14,7 @@ import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwi
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwitchResult;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwitchService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRouteProcessCandidate;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitContextService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineTemplateDescriptor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,6 +45,8 @@ public class MesFrontlineDeviceAccountController {
     private MesFrontlineDeviceAccountContextService contextService;
     @Resource
     private MesFrontlineEmployeeSwitchService employeeSwitchService;
+    @Resource
+    private MesFrontlineSubmitContextService submitContextService;
 
     @GetMapping("/processes")
     @Operation(summary = "获得设备账号可切换工序")
@@ -62,6 +67,14 @@ public class MesFrontlineDeviceAccountController {
         return success(contextService.listEmployeeCandidates(getLoginUserId(), routeId, routeProcessId, processId).stream()
                 .map(MesFrontlineDeviceAccountController::toEmployeeCandidateRespVO)
                 .toList());
+    }
+
+    @GetMapping("/submit-context")
+    @Operation(summary = "解析一线正式报工上下文")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
+    public CommonResult<MesFrontlineSubmitContextRespVO> resolveSubmitContext(
+            @Valid MesFrontlineSubmitContextReqVO reqVO) {
+        return success(submitContextService.resolve(getLoginUserId(), reqVO));
     }
 
     @PostMapping("/switch-employee")

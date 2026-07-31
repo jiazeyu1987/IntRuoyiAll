@@ -9,7 +9,7 @@
         pool_event.device_account_id AS loginUserId,
         NULL AS loginUserName,
         pool_event.actual_employee_id AS actualEmployeeUserId,
-        NULL AS actualEmployeeUserName,
+        actual_employee.nickname AS actualEmployeeUserName,
         pool_event.signature_user_id AS signatureEmployeeUserId,
         NULL AS signatureEmployeeUserName,
         pool_event.signature_id AS electronicSignatureId,
@@ -37,14 +37,59 @@
         CAST(pool_event.raw_payload AS CHAR) AS originalPayloadJson,
         pqc.inspection_result AS pqcResult,
         pqc.inspection_result AS pqcSummary,
-        NULL AS fifoAllocationStatus,
-        NULL AS fifoAllocationSummary,
+        COALESCE(fifo_allocation_summary.allocation_status, 'PENDING') AS fifoAllocationStatus,
+        CONCAT(
+            '已分配 ', COALESCE(fifo_allocation_summary.allocated_quantity, 0),
+            '，待分配 ', COALESCE(fifo_allocation_summary.pending_quantity, 0)
+        ) AS fifoAllocationSummary,
         COALESCE(review_copy_summary.review_status, 'PENDING') AS auditCopyStatus,
         CASE
             WHEN review_copy_summary.review_copy_count IS NULL THEN '审核副本待生成'
             ELSE CONCAT('审核副本已提交，字段 ', COALESCE(review_copy_summary.field_count, 0), ' 个')
         END AS auditCopySummary,
         COALESCE(revision_summary.summary, '原始记录暂无修改') AS modificationHistorySummary
+    </sql>
+
+    <sql id="TimelineEmployeeAndFifoJoins">
+        LEFT JOIN system_users actual_employee
+          ON actual_employee.id = pool_event.actual_employee_id
+         AND actual_employee.tenant_id = pool_event.tenant_id
+         AND actual_employee.deleted = 0
+        LEFT JOIN (
+            SELECT output_fragment.tenant_id,
+                   output_fragment.event_id AS source_event_id,
+                   CASE
+                       WHEN COALESCE(allocation_line_summary.allocated_quantity, 0) = 0 THEN 'PENDING'
+                       WHEN COALESCE(allocation_line_summary.allocated_quantity, 0)
+                                <![CDATA[<]]> SUM(output_fragment.total_quantity) THEN 'PARTIAL'
+                       ELSE 'ALLOCATED'
+                   END AS allocation_status,
+                   COALESCE(allocation_line_summary.allocated_quantity, 0) AS allocated_quantity,
+                   GREATEST(
+                       SUM(output_fragment.total_quantity)
+                           - COALESCE(allocation_line_summary.allocated_quantity, 0),
+                       0
+                   ) AS pending_quantity
+            FROM mes_pro_process_pool_quantity_fragment output_fragment
+            LEFT JOIN (
+                SELECT tenant_id,
+                       source_event_id,
+                       SUM(allocated_quantity) AS allocated_quantity
+                FROM mes_pro_process_pool_fifo_allocation_line
+                WHERE deleted = 0
+                  AND allocation_status = 'ALLOCATED'
+                GROUP BY tenant_id, source_event_id
+            ) allocation_line_summary
+              ON allocation_line_summary.tenant_id = output_fragment.tenant_id
+             AND allocation_line_summary.source_event_id = output_fragment.event_id
+            WHERE output_fragment.deleted = 0
+              AND output_fragment.source_quantity_type = 'OUTPUT'
+            GROUP BY output_fragment.tenant_id,
+                     output_fragment.event_id,
+                     allocation_line_summary.allocated_quantity
+        ) fifo_allocation_summary
+          ON fifo_allocation_summary.tenant_id = pool_event.tenant_id
+         AND fifo_allocation_summary.source_event_id = pool_event.id
     </sql>
 
     <sql id="TimelineFilters">
@@ -84,6 +129,7 @@
         <bind name="offset" value="(reqVO.pageNo - 1) * reqVO.pageSize"/>
         SELECT <include refid="TimelineColumns"/>
         FROM mes_pro_process_pool_event pool_event
+        <include refid="TimelineEmployeeAndFifoJoins"/>
         LEFT JOIN mes_pro_work_order work_order
           ON work_order.id = pool_event.work_order_id
          AND work_order.deleted = 0
@@ -135,6 +181,7 @@
     <select id="selectTimelineDetailById" resultType="cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.ProcessPoolTimelineEventReadDO">
         SELECT <include refid="TimelineColumns"/>
         FROM mes_pro_process_pool_event pool_event
+        <include refid="TimelineEmployeeAndFifoJoins"/>
         LEFT JOIN mes_pro_work_order work_order
           ON work_order.id = pool_event.work_order_id
          AND work_order.deleted = 0

@@ -1,0 +1,125 @@
+{
+  "task_id": "20260730-process-pool-full-chain-closure",
+  "goal": "Close binding source, real frontline submit, PQC pool entry, FIFO orchestration, automatic review copy, team-leader workbench, and full E2E.",
+  "status": "ready_for_closeout",
+  "current_stage": "closeout",
+  "planner_review_status": "approved",
+  "plan_review_status": "approved",
+  "blocking_prereqs": [],
+  "iteration_counts": {
+    "planner_revisions": 0,
+    "plan_revisions": 0,
+    "executor_loops": 0,
+    "test_loops": 0
+  },
+  "tasks": [
+    {
+      "task_id": "T1",
+      "title": "Binding source production implementations",
+      "status": "completed",
+      "dependency_ids": [],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes"
+      ],
+      "acceptance_ids": [
+        "AC-01"
+      ],
+      "owner_agent": "main",
+      "last_outcome": "GREEN: MesFrontlineBindingSourceSchemaTest passed"
+    },
+    {
+      "task_id": "T2",
+      "title": "Frontline real production/PQC submit",
+      "status": "completed",
+      "dependency_ids": [
+        "T1"
+      ],
+      "write_scope": [
+        "IntRuoyiFronted/src/views/mes/pro/feedback",
+        "IntRuoyiFronted/src/api/mes/pro/feedback",
+        "IntRuoyiBackend/yudao-module-mes"
+      ],
+      "acceptance_ids": [
+        "AC-02",
+        "AC-03"
+      ],
+      "owner_agent": "main",
+      "last_outcome": "GREEN: formal submit context resolver, frontend contracts, backend 16-test suite, and pnpm ts:check passed"
+    },
+    {
+      "task_id": "T3",
+      "title": "FIFO orchestration for production work orders",
+      "status": "completed",
+      "dependency_ids": [
+        "T2"
+      ],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes"
+      ],
+      "acceptance_ids": [
+        "AC-04"
+      ],
+      "owner_agent": "main",
+      "last_outcome": "GREEN: formal FIFO orchestration service and 12 focused FIFO tests passed"
+    },
+    {
+      "task_id": "T4",
+      "title": "Automatic review-copy rules",
+      "status": "completed",
+      "dependency_ids": [
+        "T2"
+      ],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes",
+        "IntRuoyiFronted/src/views/mes/pro/processpool"
+      ],
+      "acceptance_ids": [
+        "AC-05"
+      ],
+      "owner_agent": "main",
+      "last_outcome": "GREEN: automatic review-copy rule source and 14 focused tests passed"
+    },
+    {
+      "task_id": "T5",
+      "title": "Team-leader workbench",
+      "status": "completed",
+      "dependency_ids": [
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "write_scope": [
+        "IntRuoyiBackend/yudao-module-mes",
+        "IntRuoyiFronted/src/views/mes/pro/processpool",
+        "IntRuoyiFronted/src/router"
+      ],
+      "acceptance_ids": [
+        "AC-06"
+      ],
+      "owner_agent": "main",
+      "last_outcome": "GREEN: team-leader read-only workbench API/page/static contract, timeline regression, and pnpm ts:check passed"
+    },
+    {
+      "task_id": "T6",
+      "title": "Full-chain E2E",
+      "status": "completed",
+      "dependency_ids": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5"
+      ],
+      "write_scope": [
+        "IntRuoyiFronted/tests/e2e",
+        "doc/tasks/20260730-process-pool-full-chain-closure"
+      ],
+      "acceptance_ids": [
+        "AC-07"
+      ],
+      "owner_agent": "main",
+      "last_outcome": "GREEN: full real Playwright E2E passed with marker PPFC-1785436288416-51980; cleanup residuals zero"
+    }
+  ],
+  "updated_at": "2026-07-31T03:05:00+08:00"
+}

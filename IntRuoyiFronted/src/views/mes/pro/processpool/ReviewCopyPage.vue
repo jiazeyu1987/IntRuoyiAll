@@ -60,6 +60,10 @@
         </el-form-item>
 
         <div class="process-pool-write__actions">
+          <el-button :loading="submitLoading" @click="handleSubmitFromRules">
+            <Icon icon="ep:operation" class="mr-5px" />
+            按正式规则自动生成并提交
+          </el-button>
           <el-button type="primary" :loading="submitLoading" @click="handleSubmit">
             <Icon icon="ep:check" class="mr-5px" />
             生成并提交审核副本
@@ -73,8 +77,10 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
 import {
+  generateSubmitProcessPoolReviewCopyFromRules,
   generateSubmitProcessPoolReviewCopy,
   type ProcessPoolReviewCopyFieldMappingVO,
+  type ProcessPoolReviewCopyGenerateFromRulesReqVO,
   type ProcessPoolReviewCopyGenerateSubmitReqVO
 } from '@/api/mes/pro/processpool/reviewCopy'
 
@@ -148,6 +154,17 @@ const buildRequestPayload = (): ProcessPoolReviewCopyGenerateSubmitReqVO => {
   }
 }
 
+const buildRulesRequestPayload = (): ProcessPoolReviewCopyGenerateFromRulesReqVO => {
+  parseJsonField<Record<string, unknown>>(reviewForm.reviewerSignatureSnapshotJson, '审核签名快照JSON')
+  return {
+    eventId: requirePositiveNumber(reviewForm.eventId, '工序池提交事件ID'),
+    reviewerUserId: requirePositiveNumber(reviewForm.reviewerUserId, '审核人用户ID'),
+    reviewerSignatureId: requirePositiveNumber(reviewForm.reviewerSignatureId, '审核签名ID'),
+    reviewerSignatureUserId: requirePositiveNumber(reviewForm.reviewerSignatureUserId, '签名员工用户ID'),
+    reviewerSignatureSnapshot: reviewForm.reviewerSignatureSnapshotJson.trim()
+  }
+}
+
 const handleSubmit = async () => {
   submitLoading.value = true
   submitError.value = ''
@@ -157,6 +174,21 @@ const handleSubmit = async () => {
     ElMessage.success('审核副本已生成并提交')
   } catch (error) {
     submitError.value = resolveErrorMessage(error, '审核副本提交失败')
+    ElMessage.error(submitError.value)
+  } finally {
+    submitLoading.value = false
+  }
+}
+
+const handleSubmitFromRules = async () => {
+  submitLoading.value = true
+  submitError.value = ''
+  resultReviewCopyId.value = undefined
+  try {
+    resultReviewCopyId.value = await generateSubmitProcessPoolReviewCopyFromRules(buildRulesRequestPayload())
+    ElMessage.success('审核副本已按正式规则生成并提交')
+  } catch (error) {
+    submitError.value = resolveErrorMessage(error, '审核副本按规则提交失败')
     ElMessage.error(submitError.value)
   } finally {
     submitLoading.value = false

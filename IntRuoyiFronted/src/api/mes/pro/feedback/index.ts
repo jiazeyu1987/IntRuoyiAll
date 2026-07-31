@@ -128,8 +128,10 @@ export interface ProFrontlineFeedbackSubmitReqVO {
   recordbookPayload: ProFrontlineRecordbookPayloadReqVO
   processPoolContext: ProFrontlineProcessPoolContextReqVO
   actualEmployeeId: number
-  signatureId: number
-  signatureEmployeeId: number
+  signatureId?: number
+  signatureEmployeeId?: number
+  signaturePassword: string
+  signatureComment?: string
   rawPayload: Record<string, unknown>
 }
 
@@ -155,6 +157,32 @@ export interface FrontlineDeviceRouteProcessVO {
   workstationId: number
   workstationCode?: string
   workstationName?: string
+}
+
+export interface FrontlineSubmitContextReqVO {
+  taskId: number
+  routeId: number
+  routeProcessId: number
+  processId: number
+}
+
+export interface FrontlineSubmitContextRespVO {
+  workOrderId: number
+  workOrderCode?: string
+  workOrderName?: string
+  taskId: number
+  taskCode?: string
+  itemId: number
+  routeId: number
+  routeProcessId: number
+  processId: number
+  workstationId: number
+  deviceId: number
+  approveUserId: number
+  recordbookId: number
+  feedbackType: number
+  scheduledQuantity?: number
+  expireDate?: string | number | Date
 }
 
 export interface FrontlineEmployeeCandidateVO {
@@ -852,6 +880,13 @@ export const ProFeedbackApi = {
     return await request.post<FrontlineSwitchActualEmployeeRespVO>({
       url: `/mes/pro/feedback/frontline/device-account/switch-employee`,
       data
+    })
+  },
+  // 解析一线正式报工上下文
+  resolveFrontlineSubmitContext: async (params: FrontlineSubmitContextReqVO) => {
+    return await request.get<FrontlineSubmitContextRespVO>({
+      url: `/mes/pro/feedback/frontline/device-account/submit-context`,
+      params
     })
   },
   // 瀵煎叆绗笁鏂圭敓浜ф姤宸?Excel

@@ -22,6 +22,7 @@ const props = defineProps<{
 }>()
 
 const router = useRouter()
+const route = useRoute()
 
 const routeByTab: Record<EdhrBatchRecordTab, string> = {
   execution: '/mes/pro/feedback/edhr-batch-execution',
@@ -39,7 +40,7 @@ const handleTabChange = async (name: string | number) => {
   if (!nextPath) {
     throw new Error(`未知 eDHR 批记录页签：${String(name)}`)
   }
-  await router.push({ path: nextPath })
+  await router.push({ path: nextPath, query: { ...route.query } })
 }
 </script>
 

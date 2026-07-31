@@ -10,6 +10,10 @@
           <span>生产订单</span>
           <strong class="frontline-top-card__order">{{ productionOrderLabel }}</strong>
         </button>
+        <button class="frontline-top-card" type="button" @click="openTaskDialog">
+          <span>任务</span>
+          <strong>{{ selectedTaskLabel }}</strong>
+        </button>
         <button class="frontline-top-card" type="button" @click="openPicker('process')">
           <span>工序</span>
           <strong>{{ selectedProcessLabel }}</strong>
@@ -120,6 +124,10 @@
       data-frontline-production-operator
     >
       <header class="frontline-operator-top">
+        <button class="frontline-top-card" type="button" @click="openTaskDialog">
+          <span>任务</span>
+          <strong>{{ selectedTaskLabel }}</strong>
+        </button>
         <button class="frontline-top-card" type="button" @click="openPicker('process')">
           <span>工序</span>
           <strong>{{ selectedProcessLabel }}</strong>
@@ -200,6 +208,56 @@
       </footer>
     </div>
 
+    <el-dialog
+      v-model="signatureDialogVisible"
+      title="电子签名确认"
+      width="460px"
+      :close-on-click-modal="false"
+      data-frontline-submit-signature-dialog
+    >
+      <el-alert
+        title="提交后将同时写入报工、记录本和工序池，请使用实际员工电子签名密码。"
+        type="warning"
+        :closable="false"
+        show-icon
+      />
+      <el-form class="frontline-signature-form" label-width="110px">
+        <el-form-item label="签名员工">
+          <span>{{ selectedEmployeeLabel }}</span>
+        </el-form-item>
+        <el-form-item label="签名密码" required>
+          <el-input
+            v-model="signatureForm.password"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            placeholder="请输入电子签名密码"
+            @keyup.enter="submitWithSignature"
+          />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input
+            v-model="signatureForm.comment"
+            maxlength="200"
+            placeholder="可选，默认一线报工提交"
+          />
+        </el-form-item>
+      </el-form>
+      <el-alert
+        v-if="signatureError"
+        :title="signatureError"
+        type="error"
+        :closable="false"
+        show-icon
+      />
+      <template #footer>
+        <el-button @click="signatureDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="payloadLoading" @click="submitWithSignature">
+          确认提交
+        </el-button>
+      </template>
+    </el-dialog>
+
     <div v-if="activePicker" class="frontline-picker" @click.self="closePicker">
       <section class="frontline-picker__card">
         <h3>{{ activePicker === 'process' ? '选择工序' : '选择员工' }}</h3>
@@ -217,12 +275,20 @@
         <button class="frontline-picker__close" type="button" @click="closePicker">关闭</button>
       </section>
     </div>
+
+    <ProTaskSelectDialog
+      ref="taskDialogRef"
+      :multiple="false"
+      :statuses="frontlineTaskStatuses"
+      @selected="handleTaskSelected"
+    />
   </section>
 </template>
 
 <script setup lang="ts">
 import {
   FRONTLINE_FIELD_CODES,
+  FRONTLINE_PQC_RESULTS,
   FRONTLINE_TEMPLATE_CODES,
   FrontlineTemplateApi,
   type FrontlineTemplateCode,
@@ -231,8 +297,15 @@ import {
 } from '@/api/mes/pro/feedbackFrontlineTemplate'
 import type {
   FrontlineDeviceRouteProcessVO,
-  FrontlineEmployeeCandidateVO
+  FrontlineEmployeeCandidateVO,
+  FrontlineSubmitContextRespVO,
+  ProFrontlineFeedbackSubmitReqVO
 } from '@/api/mes/pro/feedback'
+import type { ProTaskVO } from '@/api/mes/pro/task'
+import { sameRouteQueryId } from '@/utils/routeQueryId'
+import { MesProTaskStatusEnum } from '@/views/mes/utils/constants'
+import { ProFeedbackApi } from '@/api/mes/pro/feedback'
+import ProTaskSelectDialog from '@/views/mes/pro/task/components/ProTaskSelectDialog.vue'
 import {
   buildFrontlineTemplatePayload,
   createFrontlineDefaultValues,
@@ -262,9 +335,20 @@ const route = useRoute()
 const catalog = ref<FrontlineTemplateDefinitionVO[]>([])
 const payloadLoading = ref(false)
 const payloadPreview = ref<FrontlineTemplatePayloadVO>()
+const submitResult = ref()
 const activePicker = ref<PickerType>()
+const contextLoading = ref(false)
 const deviceState = reactive(createFrontlineDeviceEmployeeState())
 const employeeTemplateCode = ref<FrontlineTemplateCode>()
+const deviceAccountUserId = ref<number>()
+const selectedTask = ref<ProTaskVO>()
+const routeTaskId = ref<number>()
+const submitContext = ref<FrontlineSubmitContextRespVO>()
+const submitContextError = ref('')
+const taskDialogRef = ref()
+const signatureDialogVisible = ref(false)
+const signatureError = ref('')
+const frontlineTaskStatuses = [MesProTaskStatusEnum.PREPARE, MesProTaskStatusEnum.IN_PROGRESS]
 
 const expectedTemplateCode = computed<FrontlineTemplateCode>(() =>
   props.mode === 'pqc'
@@ -299,6 +383,11 @@ const pqcDraft = reactive({
   scrapQuantity: undefined as number | undefined
 })
 
+const signatureForm = reactive({
+  password: '',
+  comment: ''
+})
+
 const inspectionTypeOptions: Array<{ value: InspectionType; label: string }> = [
   { value: 'FIRST', label: '首检' },
   { value: 'PATROL', label: '巡检' },
@@ -308,7 +397,10 @@ const inspectionTypeOptions: Array<{ value: InspectionType; label: string }> = [
 const patrolRounds = [1, 2, 3]
 
 const productionOrderLabel = computed(() =>
-  firstRouteQueryText(['productionOrderCode', 'workOrderCode', 'orderCode']) || '未选择订单'
+  submitContext.value?.workOrderCode ||
+  selectedTask.value?.workOrderCode ||
+  firstRouteQueryText(['productionOrderCode', 'workOrderCode', 'orderCode']) ||
+  '未选择订单'
 )
 
 const isPqcMode = computed(() => props.mode === 'pqc')
@@ -316,6 +408,19 @@ const isPqcMode = computed(() => props.mode === 'pqc')
 const selectedProcessLabel = computed(() => formatProcessLabel(deviceState.selectedProcess))
 
 const selectedEmployeeLabel = computed(() => formatEmployeeLabel(deviceState.selectedEmployee))
+
+const selectedTaskId = computed(() => selectedTask.value?.id ?? routeTaskId.value)
+
+const selectedTaskLabel = computed(() => {
+  if (selectedTask.value?.code) {
+    return selectedTask.value.code
+  }
+  const queryTaskCode = firstRouteQueryText(['taskCode', 'productionTaskCode'])
+  if (queryTaskCode) {
+    return queryTaskCode
+  }
+  return selectedTaskId.value ? `任务 ${selectedTaskId.value}` : '请选择'
+})
 
 const templateModeMismatch = computed(() =>
   Boolean(employeeTemplateCode.value && employeeTemplateCode.value !== expectedTemplateCode.value)
@@ -325,10 +430,35 @@ const templateBindingMissing = computed(() =>
   Boolean(deviceState.selectedEmployee && !employeeTemplateCode.value)
 )
 
+const formalSubmitContextMissingFields = computed(() => {
+  const missingFields: string[] = []
+  if (!submitContext.value?.workOrderId) {
+    missingFields.push('生产工单')
+  }
+  if (!submitContext.value?.taskId) {
+    missingFields.push('生产任务')
+  }
+  if (!submitContext.value?.itemId) {
+    missingFields.push('产品物料')
+  }
+  if (!submitContext.value?.approveUserId) {
+    missingFields.push('当前审批人')
+  }
+  if (!submitContext.value?.recordbookId) {
+    missingFields.push('记录本')
+  }
+  if (!submitContext.value?.feedbackType) {
+    missingFields.push('报工类型')
+  }
+  return missingFields
+})
+
 const isSubmitBlocked = computed(() =>
   payloadLoading.value ||
+  contextLoading.value ||
   templateModeMismatch.value ||
   templateBindingMissing.value ||
+  formalSubmitContextMissingFields.value.length > 0 ||
   !deviceState.selectedProcess ||
   !deviceState.selectedEmployee
 )
@@ -348,6 +478,15 @@ const statusText = computed(() => {
   }
   if (templateModeMismatch.value) {
     return `当前员工绑定的是${formatTemplateName(employeeTemplateCode.value)}，请切换${formatTemplateName(expectedTemplateCode.value)}员工`
+  }
+  if (contextLoading.value) {
+    return '正在解析任务上下文'
+  }
+  if (submitContextError.value) {
+    return submitContextError.value
+  }
+  if (formalSubmitContextMissingFields.value.length > 0) {
+    return `缺少${formalSubmitContextMissingFields.value.join('、')}，请从正式报工入口进入`
   }
   return '准备提交'
 })
@@ -446,6 +585,26 @@ const handleHome = () => {
   router.push('/')
 }
 
+const openTaskDialog = () => {
+  const selectedIds = selectedTaskId.value ? [selectedTaskId.value] : []
+  taskDialogRef.value?.open(
+    selectedIds,
+    submitContext.value?.workOrderId ?? selectedTask.value?.workOrderId ?? context.workOrderId,
+    deviceState.selectedProcess?.workstationId
+  )
+}
+
+const handleTaskSelected = async (rows: ProTaskVO[]) => {
+  const task = rows[0]
+  if (!task) {
+    return
+  }
+  selectedTask.value = task
+  routeTaskId.value = task.id
+  context.workOrderId = task.workOrderId
+  await resolveSubmitContext()
+}
+
 const handleSelectProcess = async (process: FrontlineDeviceRouteProcessVO) => {
   await selectFrontlineProcess(deviceState, process)
   applyProcessToContext(process)
@@ -454,11 +613,13 @@ const handleSelectProcess = async (process: FrontlineDeviceRouteProcessVO) => {
   if (firstEmployee) {
     await handleSelectEmployee(firstEmployee)
   }
+  await resolveSubmitContext()
   closePicker()
 }
 
 const handleSelectEmployee = async (employee: FrontlineEmployeeCandidateVO) => {
   const result = await switchFrontlineActualEmployee(deviceState, employee.userId)
+  deviceAccountUserId.value = result.loginUserId
   context.actualEmployeeId = result.actualEmployeeId
   const templateCode = resolveTemplateCode(result.template?.templateNo, result.template?.templateType)
   employeeTemplateCode.value = templateCode
@@ -476,19 +637,17 @@ const handleValidate = async () => {
     message.error(error.message)
     throw error
   }
-  if (isPqcMode.value) {
-    const error = new Error('PQC 详细检验内容尚未纳入正式模板字段，无法按正式 payload 提交。')
-    message.error(error.message)
-    throw error
-  }
-  Object.assign(draft.fieldValues, buildProductionFieldValues())
+  Object.assign(draft.fieldValues, isPqcMode.value ? buildPqcFieldValues() : buildProductionFieldValues())
   payloadLoading.value = true
   try {
     assertFormalPayloadContext()
     payloadPreview.value = await FrontlineTemplateApi.validatePayload(
       buildFrontlineTemplatePayload(context, draft.fieldValues)
     )
-    message.success('已提交')
+    signatureForm.password = ''
+    signatureForm.comment = ''
+    signatureError.value = ''
+    signatureDialogVisible.value = true
   } catch (error) {
     message.error(resolveErrorMessage(error))
     throw error
@@ -497,10 +656,33 @@ const handleValidate = async () => {
   }
 }
 
+const submitWithSignature = async () => {
+  const password = signatureForm.password.trim()
+  if (!password) {
+    signatureError.value = '电子签名密码不能为空。'
+    return
+  }
+  payloadLoading.value = true
+  signatureError.value = ''
+  try {
+    const req = buildFrontlineSubmitRequest(password)
+    submitResult.value = await ProFeedbackApi.frontlineSubmit(req)
+    signatureDialogVisible.value = false
+    message.success('已提交')
+  } catch (error) {
+    const errorMessage = resolveErrorMessage(error)
+    signatureError.value = errorMessage
+    message.error(errorMessage)
+    throw error
+  } finally {
+    payloadLoading.value = false
+  }
+}
+
 const assertFormalPayloadContext = () => {
-  const missingFields: string[] = []
-  if (!context.workOrderId) {
-    missingFields.push('订单上下文')
+  const missingFields = [...formalSubmitContextMissingFields.value]
+  if (!selectedTaskId.value) {
+    missingFields.push('任务')
   }
   if (!context.routeId) {
     missingFields.push('路线')
@@ -529,10 +711,159 @@ const buildProductionFieldValues = () => ({
   [FRONTLINE_FIELD_CODES.SCRAP_QUANTITY]: productionDraft.scrapQuantity
 })
 
+const buildPqcFieldValues = () => ({
+  [FRONTLINE_FIELD_CODES.PQC_RESULT]:
+    pqcDraft.appearanceQualified && pqcDraft.sealQualified
+      ? FRONTLINE_PQC_RESULTS.DETECTION_SUCCESS
+      : FRONTLINE_PQC_RESULTS.DETECTION_FAILED
+})
+
+const buildFrontlineSubmitRequest = (signaturePassword: string): ProFrontlineFeedbackSubmitReqVO => {
+  Object.assign(draft.fieldValues, isPqcMode.value ? buildPqcFieldValues() : buildProductionFieldValues())
+  const fieldValues = buildFrontlineTemplatePayload(context, draft.fieldValues).fieldValues
+  const process = requireSelectedProcess()
+  const formalContext = requireSubmitContext()
+  const workOrderId = requireNumber(formalContext.workOrderId, '生产工单')
+  const taskId = requireNumber(formalContext.taskId, '生产任务')
+  const itemId = requireNumber(formalContext.itemId, '产品物料')
+  const approveUserId = requireNumber(formalContext.approveUserId, '当前审批人')
+  const recordbookId = requireNumber(formalContext.recordbookId, '记录本')
+  const feedbackType = requireNumber(formalContext.feedbackType, '报工类型')
+  const currentDeviceAccountUserId = requireNumber(
+    deviceAccountUserId.value ?? firstRouteQueryNumber(['deviceAccountUserId', 'loginUserId']),
+    '设备账号'
+  )
+  const outputQuantity = isPqcMode.value ? pqcDraft.inspectionQuantity : productionDraft.outputQuantity
+  const lossQuantity = isPqcMode.value ? pqcDraft.scrapQuantity : productionDraft.scrapQuantity
+  const previousProcessInputQuantity = isPqcMode.value
+    ? pqcDraft.inspectionQuantity
+    : productionDraft.previousProcessInputQuantity
+  const equipmentParameters = isPqcMode.value ? buildPqcEquipmentParameters() : buildEquipmentParameters()
+  const submitKey = [
+    'frontline',
+    workOrderId,
+    taskId,
+    process.routeProcessId,
+    context.actualEmployeeId,
+    Date.now()
+  ].join('-')
+  const rawPayload = buildRawPayload(fieldValues, equipmentParameters)
+
+  return {
+    feedbackPayload: {
+      code: firstRouteQueryText(['feedbackCode']) || submitKey,
+      type: feedbackType,
+      workstationId: requireNumber(process.workstationId, '工作站'),
+      routeId: requireNumber(process.routeId, '路线'),
+      processId: requireNumber(process.processId, '工序'),
+      workOrderId,
+      taskId,
+      scheduleOrderId: firstRouteQueryNumber(['scheduleOrderId']),
+      scheduleOrderProcessId: firstRouteQueryNumber(['scheduleOrderProcessId']),
+      itemId,
+      expireDate: formalContext.expireDate ?? firstRouteQueryText(['expireDate']),
+      scheduledQuantity: formalContext.scheduledQuantity ?? firstRouteQueryNumber(['scheduledQuantity']),
+      outputQuantity: requireNumber(outputQuantity, isPqcMode.value ? '检验数量' : '输出数量'),
+      lossQuantity: requireNonNegativeNumber(lossQuantity, '损耗数量'),
+      laborScrapQuantity: undefined,
+      materialScrapQuantity: undefined,
+      otherScrapQuantity: undefined,
+      approveUserId,
+      remark: isPqcMode.value ? 'frontline PQC submit' : 'frontline production submit'
+    },
+    recordbookPayload: {
+      recordbookId,
+      entryTitle: isPqcMode.value ? 'PQC simplified original' : 'Production simplified original',
+      entryContent: rawPayload,
+      previousProcessInputQuantity: requireNumber(previousProcessInputQuantity, '上工序输入数量'),
+      equipmentParameters,
+      tagCodes: [isPqcMode.value ? 'FRONTLINE_PQC' : 'FRONTLINE_PRODUCTION'],
+      idempotencyKey: submitKey,
+      remark: isPqcMode.value ? 'PQC simplified original' : 'production simplified original'
+    },
+    processPoolContext: {
+      workOrderId,
+      taskId,
+      routeId: requireNumber(formalContext.routeId, '路线'),
+      routeProcessId: requireNumber(formalContext.routeProcessId, '路线工序'),
+      processId: requireNumber(formalContext.processId, '工序'),
+      workstationId: requireNumber(formalContext.workstationId, '工作站'),
+      deviceId: requireNumber(formalContext.deviceId, '设备'),
+      deviceAccountUserId: currentDeviceAccountUserId,
+      templateType: String(context.templateCode)
+    },
+    actualEmployeeId: requireNumber(context.actualEmployeeId, '实际员工'),
+    signaturePassword,
+    signatureComment: signatureForm.comment.trim() || '一线报工提交',
+    rawPayload
+  }
+}
+
+const buildEquipmentParameters = (): Record<string, unknown> =>
+  Object.fromEntries(
+    visibleDeviceCards.value.map((device) => [device.label, deviceParameterDraft[device.key] || ''])
+  )
+
+const buildPqcEquipmentParameters = (): Record<string, unknown> => ({
+  lengthCm: pqcDraft.lengthCm,
+  pressureMpa: pqcDraft.pressureMpa,
+  appearanceQualified: pqcDraft.appearanceQualified,
+  sealQualified: pqcDraft.sealQualified,
+  inspectionType: pqcDraft.inspectionType,
+  patrolRound: pqcDraft.inspectionType === 'PATROL' ? pqcDraft.patrolRound : undefined
+})
+
+const buildRawPayload = (
+  fieldValues: Record<string, unknown>,
+  equipmentParameters: Record<string, unknown>
+): Record<string, unknown> => ({
+  mode: props.mode,
+  templateType: context.templateCode,
+  ...fieldValues,
+  fieldValues,
+  previousProcessInputQuantity: productionDraft.previousProcessInputQuantity,
+  outputQuantity: productionDraft.outputQuantity,
+  scrapQuantity: productionDraft.scrapQuantity,
+  pqc: { ...pqcDraft },
+  equipmentParameters,
+  process: deviceState.selectedProcess,
+  employee: deviceState.selectedEmployee
+})
+
 const applyProcessToContext = (process: FrontlineDeviceRouteProcessVO) => {
   context.routeId = process.routeId
   context.routeProcessId = process.routeProcessId
   context.processId = process.processId
+  submitContext.value = undefined
+  submitContextError.value = ''
+}
+
+const requireSelectedProcess = () => {
+  if (!deviceState.selectedProcess) {
+    throw new Error('请选择工序。')
+  }
+  return deviceState.selectedProcess
+}
+
+const requireSubmitContext = () => {
+  if (!submitContext.value) {
+    throw new Error('缺少正式报工上下文，无法提交。')
+  }
+  return submitContext.value
+}
+
+const requireNumber = (value: number | undefined, label: string) => {
+  if (!Number.isFinite(value) || Number(value) <= 0) {
+    throw new Error(`缺少${label}，无法提交。`)
+  }
+  return Number(value)
+}
+
+const requireNonNegativeNumber = (value: number | undefined, label: string) => {
+  if (!Number.isFinite(value) || Number(value) < 0) {
+    throw new Error(`缺少或无效${label}，无法提交。`)
+  }
+  return Number(value)
 }
 
 const hydrateContextFromRoute = () => {
@@ -541,9 +872,40 @@ const hydrateContextFromRoute = () => {
   context.routeProcessId = firstRouteQueryNumber(['routeProcessId']) ?? context.routeProcessId
   context.processId = firstRouteQueryNumber(['processId']) ?? context.processId
   context.actualEmployeeId = firstRouteQueryNumber(['actualEmployeeId']) ?? context.actualEmployeeId
+  routeTaskId.value = firstRouteQueryNumber(['taskId']) ?? routeTaskId.value
   const queryTemplateCode = resolveTemplateCode(firstRouteQueryText(['templateCode', 'templateNo']))
   employeeTemplateCode.value = queryTemplateCode
   context.templateCode = expectedTemplateCode.value
+}
+
+const resolveSubmitContext = async () => {
+  const process = deviceState.selectedProcess
+  const taskId = selectedTaskId.value
+  if (!process || !taskId) {
+    submitContext.value = undefined
+    submitContextError.value = ''
+    return
+  }
+  contextLoading.value = true
+  submitContextError.value = ''
+  try {
+    const resolved = await ProFeedbackApi.resolveFrontlineSubmitContext({
+      taskId,
+      routeId: requireNumber(process.routeId, '路线'),
+      routeProcessId: requireNumber(process.routeProcessId, '路线工序'),
+      processId: requireNumber(process.processId, '工序')
+    })
+    submitContext.value = resolved
+    context.workOrderId = resolved.workOrderId
+    context.routeId = resolved.routeId
+    context.routeProcessId = resolved.routeProcessId
+    context.processId = resolved.processId
+  } catch (error) {
+    submitContext.value = undefined
+    submitContextError.value = resolveErrorMessage(error)
+  } finally {
+    contextLoading.value = false
+  }
 }
 
 const firstRouteQueryText = (keys: string[]) => {
@@ -590,9 +952,9 @@ const isSameProcess = (
   right?: FrontlineDeviceRouteProcessVO
 ) =>
   Boolean(left && right) &&
-  left.routeId === right.routeId &&
-  left.routeProcessId === right.routeProcessId &&
-  left.processId === right.processId
+  sameRouteQueryId(left.routeId, right.routeId) &&
+  sameRouteQueryId(left.routeProcessId, right.routeProcessId) &&
+  sameRouteQueryId(left.processId, right.processId)
 
 const formatProcessLabel = (process?: FrontlineDeviceRouteProcessVO) => {
   if (!process) {
@@ -630,12 +992,20 @@ onMounted(async () => {
   hydrateContextFromRoute()
   catalog.value = await FrontlineTemplateApi.getCatalog()
   await loadFrontlineDeviceProcesses(deviceState)
-  const firstProcess = deviceState.processOptions[0]
+  const firstProcess = findInitialProcess() ?? deviceState.processOptions[0]
   if (firstProcess) {
     await handleSelectProcess(firstProcess)
   }
   Object.assign(draft.fieldValues, buildProductionFieldValues())
 })
+
+const findInitialProcess = () =>
+  deviceState.processOptions.find((process) =>
+    (!context.routeId || sameRouteQueryId(process.routeId, context.routeId)) &&
+    (!context.routeProcessId ||
+      sameRouteQueryId(process.routeProcessId, context.routeProcessId)) &&
+    (!context.processId || sameRouteQueryId(process.processId, context.processId))
+  )
 </script>
 
 <style scoped lang="scss">
@@ -664,11 +1034,11 @@ onMounted(async () => {
 
 .frontline-operator-top {
   display: grid;
-  grid-template-columns: 1fr 1fr 240px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 20px;
 
   &.is-pqc {
-    grid-template-columns: 380px 520px 1fr 240px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 

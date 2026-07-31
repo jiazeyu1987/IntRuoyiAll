@@ -21,11 +21,28 @@ export interface ProcessPoolReviewCopyGenerateSubmitReqVO {
   fieldMappings: ProcessPoolReviewCopyFieldMappingVO[]
 }
 
+export interface ProcessPoolReviewCopyGenerateFromRulesReqVO {
+  eventId: number
+  reviewerUserId: number
+  reviewerSignatureId: number
+  reviewerSignatureUserId: number
+  reviewerSignatureSnapshot: string
+}
+
 export const generateSubmitProcessPoolReviewCopy = async (
   data: ProcessPoolReviewCopyGenerateSubmitReqVO
 ) => {
   return await request.post<number>({
     url: '/mes/pro/process-pool/review-copy/generate-submit',
+    data
+  })
+}
+
+export const generateSubmitProcessPoolReviewCopyFromRules = async (
+  data: ProcessPoolReviewCopyGenerateFromRulesReqVO
+) => {
+  return await request.post<number>({
+    url: '/mes/pro/process-pool/review-copy/generate-submit-from-rules',
     data
   })
 }

@@ -42,7 +42,7 @@ public class MesProFrontlineProcessPoolContextReqVO {
     @NotNull(message = "设备账号不能为空")
     private Long deviceAccountUserId;
 
-    @Schema(description = "模板类型", requiredMode = Schema.RequiredMode.REQUIRED, example = "PRODUCTION_SIMPLE")
+    @Schema(description = "模板类型", requiredMode = Schema.RequiredMode.REQUIRED, example = "PRODUCTION_SIMPLIFIED")
     @NotNull(message = "模板类型不能为空")
     private String templateType;
 

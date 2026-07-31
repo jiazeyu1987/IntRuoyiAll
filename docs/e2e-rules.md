@@ -70,6 +70,24 @@
 - Forbidden action: 禁止为了通过 E2E 删除目标页面断言、改成 API-only、等待无关菜单/标题文本、或把页面未渲染解释成接口已通过。
 - Evidence: `doc/tasks/20260729-edhr-parallel-start-process-highlight/verification-report.md`，真实脚本改为接口命中目标批次后等待工序组渲染，并断言三 个当前工序黄底。
 
+### 自动首刷与异步详情精确等待门禁
+
+- Trigger: 真实 Playwright 验证会在 `onMounted` 自动首刷的列表/工作台、提交筛选后的第二次查询、先显示抽屉外壳再异步加载详情的页面，或同一接口在一次路径中会返回多个不同业务对象。
+- Preflight check: 响应等待必须同时匹配 HTTP 方法、目标接口和本次操作的业务查询参数或目标对象 ID；拿到目标响应后，还必须等待响应对应的关键字段、状态或摘要真实渲染到当前可见页面/抽屉。
+- Blocker: 只按接口路径命中首个响应、筛选查询误收自动首刷结果、抽屉可见但目标详情响应未完成、目标对象 ID 不一致，或接口已返回但关键内容仍未渲染时必须失败并保留响应与截图。
+- Verification: 证据必须记录匹配的查询参数或对象 ID、目标响应业务码/总数/状态、可见页面中的对应业务文本，以及失败时的页面错误和截图；异步抽屉需同时证明详情 API 与可见内容一致。
+- Forbidden action: 禁止用固定等待时间、首个同路径响应、抽屉外壳可见、页面自动首刷结果或 API-only 读取替代目标筛选/详情的真实渲染断言。
+- Evidence: `doc/tasks/20260730-process-pool-full-chain-closure/verification-report.md`，班组长工作台响应按 `submitDate + employeeUserId` 精确匹配，详情按事件 ID 等待接口并等待员工、FIFO、审核副本内容渲染。
+
+### E2E 持久化标记与 DECIMAL 数值语义门禁
+
+- Trigger: 真实 E2E 使用任务标记核验 JSON/文本持久化内容，标记被嵌入设备参数或复合字符串，或 API/UI 展示数据库 `DECIMAL` 数量并可能带不同尾零 scale。
+- Preflight check: 先明确标记是独立 JSON 标量还是复合字符串的一部分；复合字符串必须使用转义后的包含匹配，不得用裸标记做精确 JSON scalar 搜索。`DECIMAL` 断言必须同时验证数值语义等价和 UI 精确渲染当前 API 返回摘要。
+- Blocker: 数据已包含 `<marker>-suffix` 但精确 scalar 搜索返回 0、只因 `50` 与 `50.000000` 尾零不同而失败、UI 文本与详情 API 返回摘要不一致，或为通过测试直接去除 scale/放宽为任意文本时必须停止。
+- Verification: 证据需包含持久化标记命中数、原始数值、修正数值、API 原始数量/摘要、数值等价断言和页面精确可见文本；修正匹配语义后必须重跑完整真实路径。
+- Forbidden action: 禁止用裸 marker 的精确 JSON scalar 搜索验证内嵌标记，禁止把字符串相等当作唯一 `DECIMAL` 语义，禁止在产品代码中截断尾零掩盖测试问题，也禁止忽略 API/UI 不一致。
+- Evidence: `doc/tasks/20260730-process-pool-full-chain-closure/verification-report.md`，记录本改用 `%<marker>%` 包含匹配，FIFO 摘要接受数值等价尾零并要求抽屉精确显示详情 API 返回值。
+
 ### Schema-backed E2E 迁移与字段可选态门禁
 
 - Trigger: 真实 E2E 验证新增 schema 字段支撑的页面能力、工作台上下文字段、单元格链接、字段矩阵、合成来源字段、`source_type`、`source_field_code`、`sourceFields`、或页面接口返回 `Unknown column` / `系统异常`。

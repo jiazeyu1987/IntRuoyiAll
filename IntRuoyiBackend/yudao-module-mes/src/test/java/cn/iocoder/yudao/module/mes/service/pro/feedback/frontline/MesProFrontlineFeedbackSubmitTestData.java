@@ -4,6 +4,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.Me
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineProcessPoolContextReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineRecordbookPayloadReqVO;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.template.FrontlineTemplateCodes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -25,15 +26,15 @@ final class MesProFrontlineFeedbackSubmitTestData {
         entryContent.put("operatorNote", "frontline original record");
 
         Map<String, Object> rawPayload = new LinkedHashMap<>();
-        rawPayload.put("templateType", "PRODUCTION_SIMPLE");
+        rawPayload.put("templateType", FrontlineTemplateCodes.PRODUCTION_SIMPLIFIED);
         rawPayload.put("previousProcessInputQuantity", new BigDecimal("120.000"));
         rawPayload.put("equipmentParameters", equipmentParameters);
         rawPayload.put("routePredecessorStatuses", Map.of("P10", "WAITING"));
 
         return new MesProFrontlineFeedbackSubmitReqVO()
                 .setActualEmployeeId(3001L)
-                .setSignatureId(4001L)
-                .setSignatureEmployeeId(3001L)
+                .setSignaturePassword("frontline-password")
+                .setSignatureComment("frontline submit")
                 .setFeedbackPayload(new MesProFrontlineFeedbackPayloadReqVO()
                         .setCode("FB-F2-001")
                         .setType(1)
@@ -72,7 +73,7 @@ final class MesProFrontlineFeedbackSubmitTestData {
                         .setWorkstationId(11L)
                         .setDeviceId(501L)
                         .setDeviceAccountUserId(9001L)
-                        .setTemplateType("PRODUCTION_SIMPLE"))
+                        .setTemplateType(FrontlineTemplateCodes.PRODUCTION_SIMPLIFIED))
                 .setRawPayload(rawPayload);
     }
 }

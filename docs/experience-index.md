@@ -125,6 +125,8 @@
 - Keywords: Windows CRLF 静态合同, static.spec.js 目标 worktree 自身失败, 真实 E2E 脚本与页面行为同步, 静态合同负向断言范围, 正则范围过宽, false positive, 废弃弹窗流程, 字段审计保存直连 API -> `docs/e2e-rules.md#静态合同与真实-e2e-同步门禁`
 - Keywords: 真实 E2E 阶段归因, full-chain 后续阶段失败, 目标阶段已保存, adminSave, 后续路线绑定断言失败, 不宣称 full-chain PASS, 阶段性证据字段 -> `docs/e2e-rules.md#真实-e2e-阶段归因门禁`
 - Keywords: 真实 E2E 页面加载判据, 批次执行详情, 页面批号等待超时, 内部执行号, 生产批号, 接口命中目标 ID, 工序组渲染, 样式 class 颜色断言, 无 MES 写请求 -> `docs/e2e-rules.md#真实-e2e-页面加载判据门禁`
+- Keywords: 自动首刷响应, onMounted 首次查询, 筛选查询误收首刷, submitDate employeeUserId, 异步抽屉外壳, 详情事件 ID, 详情响应后内容未渲染, 精确响应谓词 -> `docs/e2e-rules.md#自动首刷与异步详情精确等待门禁`
+- Keywords: JSON 内嵌标记, JSON_SEARCH 精确 scalar, marker suffix, 百分号包含匹配, DECIMAL 尾零, 50.000000, 数值语义等价, API UI 摘要一致 -> `docs/e2e-rules.md#e2e-持久化标记与-decimal-数值语义门禁`
 - Keywords: worktree E2E 成对 URL, int_main 主端口 E2E, 8081 48081, EDHR_RELEASE_DOSSIER_E2E_BASE_URL, EDHR_RELEASE_DOSSIER_E2E_BACKEND_URL, 同一 runtime slot, 48081 旧 jar, 8086 48086 -> `docs/e2e-rules.md#worktree--int_main-运行态-url-门禁`
 - Keywords: worktree 真实 E2E env, .env.local, VITE_APP_CAPTCHA_ENABLE=false, 登录页验证码已开启, slot 前端代理后端端口, 8088 48088 -> `docs/worktree-memory.md#worktree-真实-e2e-运行产物门禁`
 - Keywords: worktree 前端 vite 缺失, Command "vite" not found, cross-env is not recognized, node_modules .bin vite, node_modules .bin cross-env, pnpm ts:check worktree 依赖, pnpm install --frozen-lockfile, 不复制 node_modules -> `docs/worktree-memory.md#worktree-前端依赖启动门禁`

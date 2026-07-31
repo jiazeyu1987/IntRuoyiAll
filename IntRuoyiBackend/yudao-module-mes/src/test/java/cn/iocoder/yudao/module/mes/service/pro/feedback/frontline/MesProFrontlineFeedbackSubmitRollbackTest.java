@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.service.pro.feedback.MesProFeedbackService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineSubmitAuthorizationService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolEventService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,9 +31,13 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
     @Mock
     private MesProFrontlineRecordbookEntryService recordbookEntryService;
     @Mock
+    private MesProcessPoolEventService processPoolEventService;
+    @Mock
     private MesProcessPoolSubmitEventService processPoolSubmitEventService;
     @Mock
     private MesFrontlineSubmitAuthorizationService submitAuthorizationService;
+    @Mock
+    private MesFrontlineSubmitSignatureService submitSignatureService;
 
     private MesProFrontlineFeedbackSubmitService submitService;
 
@@ -41,8 +46,10 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
         submitService = new MesProFrontlineFeedbackSubmitServiceImpl(
                 feedbackService,
                 recordbookEntryService,
+                processPoolEventService,
                 processPoolSubmitEventService,
                 submitAuthorizationService,
+                submitSignatureService,
                 new MesProFrontlineFeedbackPayloadSplitter());
     }
 
@@ -63,6 +70,8 @@ class MesProFrontlineFeedbackSubmitRollbackTest {
                 .thenReturn(new MesProFrontlineRecordbookEntryResult(701L, 702L));
         when(processPoolSubmitEventService.createSubmitEvent(any()))
                 .thenThrow(new IllegalStateException("F1 process pool event service missing"));
+        when(submitSignatureService.recordSubmitSignature(3001L, "frontline-password", "frontline submit"))
+                .thenReturn(4001L);
 
         try (MockedStatic<SecurityFrameworkUtils> security = mockStatic(SecurityFrameworkUtils.class)) {
             security.when(SecurityFrameworkUtils::getLoginUserId).thenReturn(9001L);

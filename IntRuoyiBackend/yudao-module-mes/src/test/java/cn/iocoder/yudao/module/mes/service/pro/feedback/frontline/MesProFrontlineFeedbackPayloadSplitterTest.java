@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.MesProFeedbackSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.template.FrontlineTemplateCodes;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventCreateReqBO;
 import org.junit.jupiter.api.Test;
 
@@ -17,6 +18,7 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
     @Test
     void shouldSplitFeedbackQuantitiesAndRecordbookRawContent() {
         MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        reqVO.setSignatureId(4001L).setSignatureEmployeeId(3001L);
         LocalDateTime submittedAt = LocalDateTime.of(2026, 7, 30, 9, 10, 11);
 
         MesProFrontlineFeedbackSplitPayload splitPayload =
@@ -53,7 +55,7 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
         assertEquals(3001L, eventPayload.getActualEmployeeId());
         assertEquals(3001L, eventPayload.getSignatureEmployeeId());
         assertEquals(4001L, eventPayload.getSignatureId());
-        assertEquals("PRODUCTION_SIMPLE", eventPayload.getTemplateType());
+        assertEquals(FrontlineTemplateCodes.PRODUCTION_SIMPLIFIED, eventPayload.getTemplateType());
         assertEquals(new BigDecimal("100.500"), eventPayload.getOutputQuantity());
         assertEquals(new BigDecimal("2.500"), eventPayload.getLossQuantity());
         assertEquals(new BigDecimal("120.000"), eventPayload.getPreviousProcessInputQuantity());

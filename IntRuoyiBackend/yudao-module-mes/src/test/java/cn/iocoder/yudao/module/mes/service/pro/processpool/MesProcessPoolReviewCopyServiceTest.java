@@ -6,12 +6,17 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProcessPoolReviewCopyFieldDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProcessPoolFifoAllocationLineDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolEventDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProProcessPoolQuantityFragmentDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.MesProcessPoolReviewCopyRuleDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProcessPoolFifoAllocationLineMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProcessPoolReviewCopyFieldMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProcessPoolReviewCopyMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolEventMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProProcessPoolQuantityFragmentMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.MesProcessPoolReviewCopyRuleMapper;
 import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolReviewCopyFieldMappingDTO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolReviewCopyGenerateFromRulesReqDTO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.dto.MesProcessPoolReviewCopyGenerateReqDTO;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Test;
@@ -43,6 +48,12 @@ class MesProcessPoolReviewCopyServiceTest extends BaseDbUnitTest {
 
     @Resource
     private MesProcessPoolFifoAllocationLineMapper allocationLineMapper;
+
+    @Resource
+    private MesProcessPoolReviewCopyRuleMapper reviewCopyRuleMapper;
+
+    @Resource
+    private MesProProcessPoolQuantityFragmentMapper quantityFragmentMapper;
 
     @Test
     void shouldPreserveRawEventPayloadWhenGenerateReviewCopy() {
@@ -206,6 +217,91 @@ class MesProcessPoolReviewCopyServiceTest extends BaseDbUnitTest {
 
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_FIFO_ALLOCATED_FRAGMENT_LOCKED.getCode(), ex.getCode());
         assertEquals(0L, reviewCopyMapper.selectCount());
+    }
+
+    @Test
+    void shouldGenerateReviewCopyFromFormalRulesAndResolveOutputFragment() {
+        Long eventId = insertEvent("{\"outputQuantity\":50}");
+        MesProProcessPoolQuantityFragmentDO fragment = insertOutputFragment(eventId);
+        insertRule("outputQuantity", "输出数量", "20", "40", true, "OUTPUT");
+        Long reviewerUserId = randomLongId();
+
+        Long reviewCopyId = reviewCopyService.generateAndSubmitReviewCopyFromRules(
+                MesProcessPoolReviewCopyGenerateFromRulesReqDTO.builder()
+                        .eventId(eventId)
+                        .reviewerUserId(reviewerUserId)
+                        .reviewerSignatureId(randomLongId())
+                        .reviewerSignatureUserId(reviewerUserId)
+                        .reviewerSignatureSnapshot("{\"signature\":\"review-from-rules\"}")
+                        .build());
+
+        List<MesProcessPoolReviewCopyFieldDO> fields =
+                reviewCopyFieldMapper.selectListByReviewCopyId(reviewCopyId);
+        assertEquals(1, fields.size());
+        assertEquals(fragment.getId(), fields.get(0).getSourceQuantityFragmentId());
+        assertEquals("50", fields.get(0).getRawValue());
+        assertEquals("40", fields.get(0).getCorrectedValue());
+        assertEquals(MesProcessPoolReviewCopyFieldDO.RULE_CLAMP_TO_MAX, fields.get(0).getRuleType());
+    }
+
+    @Test
+    void shouldBlockAutomaticReviewCopyWhenFormalRulesAreMissing() {
+        Long eventId = insertEvent("{\"pressure\":50}");
+        Long reviewerUserId = randomLongId();
+
+        ServiceException ex = assertThrows(ServiceException.class,
+                () -> reviewCopyService.generateAndSubmitReviewCopyFromRules(
+                        MesProcessPoolReviewCopyGenerateFromRulesReqDTO.builder()
+                                .eventId(eventId)
+                                .reviewerUserId(reviewerUserId)
+                                .reviewerSignatureId(randomLongId())
+                                .reviewerSignatureUserId(reviewerUserId)
+                                .reviewerSignatureSnapshot("{\"signature\":\"review-from-rules\"}")
+                                .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REVIEW_COPY_FIELD_MAPPING_REQUIRED.getCode(), ex.getCode());
+        assertEquals(0L, reviewCopyMapper.selectCount());
+    }
+
+    private void insertRule(String fieldCode, String fieldName, String lowerLimit, String upperLimit,
+                            boolean affectsAllocation, String sourceQuantityType) {
+        reviewCopyRuleMapper.insert(MesProcessPoolReviewCopyRuleDO.builder()
+                .processId(50L)
+                .deviceId(70L)
+                .templateType("PRODUCTION_SIMPLE")
+                .fieldCode(fieldCode)
+                .fieldName(fieldName)
+                .lowerLimit(new BigDecimal(lowerLimit))
+                .upperLimit(new BigDecimal(upperLimit))
+                .valueType("DECIMAL")
+                .affectsAllocation(affectsAllocation)
+                .allocationField(affectsAllocation ? MesProcessPoolFragmentOriginalField.OUTPUT_QUANTITY.name() : null)
+                .sourceQuantityType(sourceQuantityType)
+                .templateFieldMetadataJson("{\"fieldCode\":\"" + fieldCode + "\"}")
+                .enabled(Boolean.TRUE)
+                .build());
+    }
+
+    private MesProProcessPoolQuantityFragmentDO insertOutputFragment(Long eventId) {
+        MesProProcessPoolQuantityFragmentDO fragment = MesProProcessPoolQuantityFragmentDO.builder()
+                .poolId(10L)
+                .eventId(eventId)
+                .workOrderId(20L)
+                .routeId(30L)
+                .routeProcessId(40L)
+                .processId(50L)
+                .sourceQuantityType("OUTPUT")
+                .qualityStatus("OUTPUT")
+                .totalQuantity(new BigDecimal("50"))
+                .allocatedQuantity(BigDecimal.ZERO)
+                .availableQuantity(new BigDecimal("50"))
+                .allocationStatus(MesProProcessPoolQuantityFragmentDO.ALLOCATION_STATUS_AVAILABLE)
+                .locked(Boolean.FALSE)
+                .rawPayload("{\"sourceQuantityType\":\"OUTPUT\"}")
+                .build();
+        quantityFragmentMapper.insert(fragment);
+        assertNotNull(fragment.getId());
+        return fragment;
     }
 
     private MesProcessPoolReviewCopyFieldDO generateSingleField(String rawPressure) {

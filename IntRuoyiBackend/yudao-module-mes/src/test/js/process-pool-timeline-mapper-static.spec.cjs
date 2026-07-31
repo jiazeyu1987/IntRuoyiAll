@@ -18,11 +18,19 @@ for (const required of [
   'pool_event.raw_payload',
   'pool_event.device_account_id AS loginUserId',
   'pool_event.actual_employee_id AS actualEmployeeUserId',
+  'actual_employee.nickname AS actualEmployeeUserName',
   'pool_event.signature_user_id AS signatureEmployeeUserId',
   'pool_event.signature_id AS electronicSignatureId',
   'pool_event.feedback_source_id AS sourceFeedbackId',
   'pool_event.recordbook_source_id AS sourceRecordbookEventId',
-  'mes_pro_process_pool_pqc_record'
+  'mes_pro_process_pool_pqc_record',
+  'system_users actual_employee',
+  'actual_employee.tenant_id = pool_event.tenant_id',
+  'mes_pro_process_pool_fifo_allocation_line',
+  'GROUP BY tenant_id, source_event_id',
+  "COALESCE(fifo_allocation_summary.allocation_status, 'PENDING') AS fifoAllocationStatus",
+  'fifo_allocation_summary.allocated_quantity',
+  'fifo_allocation_summary.pending_quantity'
 ]) {
   assert(source.includes(required), `时间轴 mapper 必须读取 F1 正式字段：${required}`)
 }
@@ -35,10 +43,18 @@ for (const forbidden of [
   'pool_event.electronic_signature_id',
   'pool_event.source_feedback_id',
   'pool_event.original_payload_json',
+  'NULL AS actualEmployeeUserName',
+  'NULL AS fifoAllocationStatus',
+  'NULL AS fifoAllocationSummary',
   'feedback_surplus_pool',
   'surplusPool'
 ]) {
   assert(!source.includes(forbidden), `时间轴 mapper 不得引用非 F1 工序池字段或余量池：${forbidden}`)
 }
+
+assert(
+  !/LEFT JOIN\s+mes_pro_process_pool_fifo_allocation_line\s+/i.test(source),
+  'FIFO 一对多分配明细必须先按租户和来源事件聚合，不能直接 JOIN 到时间轴主列表。'
+)
 
 console.log('PASS process-pool-timeline-mapper-static')
