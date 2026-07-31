@@ -10,7 +10,7 @@
 2. `completed` - 更新静态契约，先证明当前实现未从分类树阶段子节点构建文件类型列。
 3. `completed` - 实现分类树路径解析与关联文档三栏分组修复。
 4. `completed` - 运行目标静态契约、相邻回归和 TypeScript 检查。
-5. `in_progress` - 完成收尾记录、经验沉淀、提交与推送。
+5. `completed` - 完成收尾记录、经验沉淀、提交与推送。
 
 ## Expected Verification
 
@@ -24,7 +24,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 

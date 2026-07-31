@@ -30,6 +30,7 @@ PASS for local source-level implementation verification.
 - `RERUN: pnpm e2e:dcc:file-type-taxonomy-unified-list-template:static -> PASS`
 - `RERUN: pnpm ts:check -> PASS`
 - `RERUN: frontend-feature evidence validator, cleanup preview, experience-index lookup, and scoped git diff check -> PASS`
+- `CLEANUP APPLY: task-closeout-cleanup apply -> PASS, only task-owned frontend-feature-evidence.md was removed`
 
 ## Not Run
 

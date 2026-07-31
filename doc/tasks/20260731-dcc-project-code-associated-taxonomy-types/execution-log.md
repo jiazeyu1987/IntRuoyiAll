@@ -42,6 +42,8 @@
 - `RERUN: python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260731-dcc-project-code-associated-taxonomy-types --mode preview --json -> PASS`
 - `RERUN: rg -n "DCC 基础条目关联文档分类树门禁|fileTypeTaxonomyId|三栏导航文件类型" docs\experience-index.md docs\frontend-development.md -> PASS`
 - `RERUN: git diff --check -- <current task and experience files> -> PASS`
+- `GIT: implementation commit -> c8d5db607 fix: align DCC project associated file types with taxonomy`
+- `CLEANUP APPLY: python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260731-dcc-project-code-associated-taxonomy-types --mode apply --json -> PASS, deleted doc/tasks/20260731-dcc-project-code-associated-taxonomy-types/frontend-feature-evidence.md`
 
 ## Milestone Updates
 
@@ -49,6 +51,7 @@
 - 2026-07-31: Completed baseline commit, RED/GREEN static contract, implementation, adjacent regression, and TypeScript verification.
 - 2026-07-31: Completed frontend evidence validation, cleanup preview, and project experience consolidation before implementation commit.
 - 2026-07-31: Re-ran target/static regression contracts, `pnpm ts:check`, evidence validator, cleanup preview, experience-index lookup, and scoped `git diff --check`.
+- 2026-07-31: Created implementation commit `c8d5db607`, ran cleanup apply, deleted only the task-owned temporary frontend evidence file, and marked the task completed.
 
 ## Blockers
 
