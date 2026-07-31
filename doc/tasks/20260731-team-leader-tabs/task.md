@@ -13,7 +13,7 @@
 - [x] M1：补充 BDD 场景和聚焦静态契约，先得到 RED。
 - [x] M2：完成两个组长类型页签及 PQC 占位内容。
 - [x] M3：运行目标静态测试、类型检查和回归验证。
-- [x] M4：完成任务记录、收尾检查和最终状态更新。
+- [ ] M4：完成任务记录、收尾检查和最终状态更新。
 
 ## Expected Verification
 
@@ -24,7 +24,7 @@
 
 ## Current Status
 
-completed
+ready_for_closeout
 
 ## 设计约束检查
 

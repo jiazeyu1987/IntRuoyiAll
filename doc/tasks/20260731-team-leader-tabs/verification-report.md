@@ -2,7 +2,7 @@
 
 ## Current Result
 
-completed；生产组长与 PQC 组长一级页签已拆分，生产组长保留原功能，PQC 组长显示占位内容，验证和任务清理均已通过。
+ready_for_closeout；生产组长与 PQC 组长一级页签已拆分，验证和任务清理均已通过，但 GitHub 网络/本机代理不可用导致远端推送阻塞。
 
 ## Functional Evidence
 
@@ -41,4 +41,5 @@ completed；生产组长与 PQC 组长一级页签已拆分，生产组长保留
 
 ## Pending Verification
 
-- 无。
+- `git fetch origin int_main` 失败：无法通过 `127.0.0.1` 代理连接 GitHub `443`。
+- 待网络恢复后执行 `git push origin int_main`，并确认 `origin/int_main...HEAD` 不再显示本地 ahead。

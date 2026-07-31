@@ -35,7 +35,9 @@
 - Cleanup preview: `task_closeout.py --task-id 20260731-team-leader-tabs --mode preview` -> `status: ready`；keep 三个核心任务记录，delete 仅 `frontend-feature-evidence.md`，blocked/warnings 均为 `<none>`。
 - Cleanup apply: `task_closeout.py --task-id 20260731-team-leader-tabs --mode apply` -> `status: applied`；仅删除临时 `frontend-feature-evidence.md`。
 - Closeout record commit: `3b1f606cf docs: complete team leader tabs task`，包含三个保留任务记录和临时前端证据文件删除。
+- Final audit commit: `8196dce14 docs: record team leader tabs closeout commit`，记录首个收尾提交哈希。
+- Push preflight: `git fetch origin int_main` -> FAIL，GitHub `443` 经 `127.0.0.1` 连接失败；未执行 `git push origin int_main`。
 
 ## Current Blockers
 
-- 无。
+- GitHub 网络/本机代理不可用，无法 fetch/push `origin/int_main`；本地提交尚未同步远端，因此任务保持 `ready_for_closeout`。
