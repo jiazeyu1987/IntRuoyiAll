@@ -11,6 +11,8 @@ const RUNNER_TOKEN = process.env.CODEX_TEST_RUNNER_TOKEN || ''
 const MANAGEMENT_TENANT_ID = requiredEnv('CODEX_TEST_TENANT_ID')
 const FRONTEND_BASE_URL = requiredEnv('CODEX_TEST_FRONTEND_BASE_URL')
 const WORKING_DIRECTORY = process.env.CODEX_TEST_WORKDIR || process.cwd()
+const PROJECT_ROOT = process.env.CODEX_TEST_PROJECT_ROOT || WORKING_DIRECTORY
+const FRONTEND_PROJECT_ROOT = process.env.CODEX_TEST_FRONTEND_ROOT || process.cwd()
 const RUNNER_NAME = process.env.CODEX_TEST_RUNNER_NAME || `${os.hostname()}-codex-runner`
 const CODEX_COMMAND = process.env.CODEX_CLI_COMMAND || (process.platform === 'win32' ? 'codex.cmd' : 'codex')
 const LOOP = process.argv.includes('--loop')
@@ -19,10 +21,12 @@ const HEARTBEAT_INTERVAL_MS = Number(process.env.CODEX_TEST_HEARTBEAT_INTERVAL_M
 const CODEX_EXEC_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_TIMEOUT_MS || '600000')
 const CODEX_EXEC_READONLY_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_READONLY_TIMEOUT_MS || '120000')
 const CODEX_READONLY_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_READONLY_REASONING_EFFORT || 'medium'
-const CODEX_READONLY_IGNORE_RULES = process.env.CODEX_TEST_CODEX_READONLY_IGNORE_RULES !== 'false'
+const CODEX_MUTATING_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_MUTATING_REASONING_EFFORT || 'medium'
+const CODEX_IGNORE_RULES = process.env.CODEX_TEST_CODEX_IGNORE_RULES !== 'false'
 const CODEX_TEST_API_TIMEOUT_MS = Number(process.env.CODEX_TEST_API_TIMEOUT_MS || '30000')
 const CODEX_CHILD_SETTLE_TIMEOUT_MS = Number(process.env.CODEX_TEST_CHILD_SETTLE_TIMEOUT_MS || '5000')
 const COMPLETE_CASE_SUMMARY_MAX_LENGTH = 512
+const CODEX_FAILURE_DETAIL_MAX_LENGTH = 2400
 const RUNNER_HTTP_CONNECTION_HEADERS = { Connection: 'close' }
 const READONLY_TASK_PATTERN = /(只读|仅查看|只查看|查看|确认.{0,20}可见|不修改|不保存|不提交|read[- ]?only|view only)/i
 const NEGATED_WRITE_TASK_PATTERN = /(不修改|不新增|不创建|不编辑|不保存|不提交|不删除|不作废|不审批|不发布|不导入|不上传|不下载|不取消|不启用|不禁用|不清理|不复位|不生成|不填写|不签名|不写入)/gi
@@ -97,18 +101,37 @@ function spawnCodex(args) {
   return spawn(command, commandArgs, { stdio: ['pipe', 'pipe', 'pipe'] })
 }
 
-function codexReadOnlyExecutionArgs(task) {
-  if (!isReadOnlyTask(task)) {
-    return []
-  }
+function codexExecutionArgs(task) {
   const args = []
-  if (CODEX_READONLY_IGNORE_RULES) {
+  if (CODEX_IGNORE_RULES) {
     args.push('--ignore-rules')
   }
-  if (CODEX_READONLY_REASONING_EFFORT) {
-    args.push('-c', `model_reasoning_effort=${JSON.stringify(CODEX_READONLY_REASONING_EFFORT)}`)
+  args.push('--disable', 'remote_plugin')
+  const reasoningEffort = isReadOnlyTask(task)
+    ? CODEX_READONLY_REASONING_EFFORT
+    : CODEX_MUTATING_REASONING_EFFORT
+  if (reasoningEffort) {
+    args.push('-c', `model_reasoning_effort=${JSON.stringify(reasoningEffort)}`)
   }
   return args
+}
+
+function redactSensitiveText(value) {
+  return String(value || '')
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer <redacted>')
+    .replace(/(Authorization\s*[:=]\s*)[^\r\n]+/gi, '$1<redacted>')
+    .replace(/(Cookie\s*[:=]\s*)[^\r\n]+/gi, '$1<redacted>')
+    .replace(/sk-[A-Za-z0-9_-]+/g, '<redacted-api-key>')
+}
+
+function summarizeCodexFailure(stderrText) {
+  const sanitized = redactSensitiveText(stderrText)
+    .split(/\r?\n/)
+    .filter((line) => !/remote installed plugin bundle sync failed/.test(line))
+    .filter((line) => !/unknown feature key in config/.test(line))
+    .join('\n')
+    .trim()
+  return (sanitized || redactSensitiveText(stderrText)).slice(-CODEX_FAILURE_DETAIL_MAX_LENGTH)
 }
 
 function toPowerShellSingleQuoted(value) {
@@ -227,7 +250,7 @@ async function runCodexForTask(task, runnerSessionId) {
     '--skip-git-repo-check',
     '--dangerously-bypass-approvals-and-sandbox',
     '--ephemeral',
-    ...codexReadOnlyExecutionArgs(task),
+    ...codexExecutionArgs(task),
     '--output-last-message',
     outputFile,
     '-C',
@@ -298,7 +321,7 @@ async function runCodexForTask(task, runnerSessionId) {
     }
     const stderrText = Buffer.concat(stderr).toString('utf8')
     if (childResult.exitCode !== 0) {
-      throw new Error(`codex exec failed with exit ${childResult.exitCode}: ${stderrText}`)
+      throw new Error(`codex exec failed with exit ${childResult.exitCode}: ${summarizeCodexFailure(stderrText)}`)
     }
   } catch (error) {
     const stopResult = await stopChild()
@@ -331,10 +354,16 @@ function buildPrompt(task, codexExecTimeoutMs = resolveCodexExecTimeoutMs(task))
   return `You are executing an enterprise E2E test with Playwright.
 Use the real browser against ${FRONTEND_BASE_URL}. Do not use API-only shortcuts except read-only final verification.
 This task is classified as ${taskMode}.
+This is a browser execution task, not a repository development task.
+Do not create or modify repository files, task documents, source code, configuration, build outputs, Git state, commits, branches, or worktrees.
+Do not run project builds or project test suites.
+Use only task-owned temporary files under ${WORKING_DIRECTORY}.
+Playwright project root: ${FRONTEND_PROJECT_ROOT}
+Project guidance root: ${PROJECT_ROOT}
 Complete the browser verification and return the final JSON within ${executionBudgetSeconds} seconds.
 Do not ask for clarification. If login, selector, data, service, permission, or runtime prerequisites are missing, return a BLOCKED checkpoint result instead of waiting.
 For READ_ONLY tasks, do not click create, save, submit, delete, import, upload, approve, cancel, or any action that mutates business data.
-For READ_ONLY tasks, take the shortest browser path. Prefer one temporary Node.js Playwright script and finish once the listed checkpoints are observed. Do not create task docs, edit project files, run builds, or inspect unrelated source trees.
+For READ_ONLY tasks, take the shortest browser path. Prefer one temporary Node.js Playwright script and finish once the listed checkpoints are observed.
 Prefer the existing local Playwright/browser tooling from the frontend project, and read only the minimum local login/access guidance needed. Do not print passwords, tokens, Authorization headers, or cookies.
 Target tenant id: ${task.targetTenantId}
 Case: ${task.caseName}

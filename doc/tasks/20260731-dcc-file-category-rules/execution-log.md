@@ -26,3 +26,14 @@
 - Implementation commit: `23034852 feat: add DCC file category match rules`; file list verified with `git show --name-status --oneline -1`.
 - Cleanup preview: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260731-dcc-file-category-rules --mode preview -> BLOCKED`; delete candidates were only temporary evidence files (`backend-api-evidence.md`, `database-schema-evidence.md`, `migration-policy-gate.json`), keep list contained `task.md`, `execution-log.md`, `verification-report.md`.
 - Closeout blocker: current linked worktree cannot be fast-forward merged into `int_main` because branch lacks current `int_main` ancestry, and main worktree `E:\IntRuoyi` is dirty. Cleanup apply was not run and `--worktree-closeout off` was not used because that would bypass the worktree closeout gate.
+- User authorization: 用户授权先在主工作区做脏工作区基线提交，再继续 DCC 文件类别规则改造；另确认可以在干净 worktree/新任务环境继续。
+- Main baseline context before merge: 本轮继续前，`E:\IntRuoyi` 的并发脏状态已由用户授权保存为独立基线提交 `9bf0e44fc`、`762e237fe`、`0233269e2`、`30e5b5a8b`，随后本地 `int_main` 合入 `origin/int_main` 得到 `bb890184c`。本任务未回滚或删除这些并行改动。
+- Merge resolution: 在当前 worktree 执行 `git merge --no-edit int_main` 后出现 7 个 DCC 冲突文件；解析策略为保留当前任务的 fail-fast seed、`uk_dcc_file_category_match_rule_unique` 唯一键、`TINYINT` schema、无 match-rule 物理删除入口，并吸收主线的 `EXACT/PREFIX/SUFFIX` 匹配类型和 `idx_dcc_file_category_match_rule_type` 索引。
+- Hardening after merge: `DccProjectCodeServiceImpl` 现在对空 `matchType`、空 `matchText`、未知规则类型 fail fast；不默认成功、不直接修写 `dcc_controlled_file`，并避免在 `resolveAiCategoryTarget` 内重复查询 active rules。
+- `GREEN: mvn -pl yudao-module-dcc -am "-Dtest=DccProjectCodeServiceImplTest,DccBaseSchemaTest#mysqlSchemaShouldSupportDccFileCategoryMatchRules" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS after merge, BUILD SUCCESS; Tests run: 27, Failures: 0, Errors: 0, Skipped: 0.`
+- `GREEN: python -X utf8 -m pytest script/tests/test_dcc_file_category_match_rule_sql.py -q -> PASS after merge, 3 passed.`
+- Retry note: migration gate first rerun failed before policy evaluation because output path was incorrectly resolved under `IntRuoyiBackend\doc\...` and the directory did not exist; rerun used the repo-root task directory via `..\doc\...`.
+- `GREEN: python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output ..\doc\tasks\20260731-dcc-file-category-rules\migration-policy-gate-after-merge.json -> PASS, status=passed, migrationCount=402, includes merged mainline SQL plus DCC match-rule schema/seed.`
+- `GREEN: scripts\preflight\branch-runtime-port-guard.ps1 -> PASS, Branch runtime port guard passed for codex/20260731-dcc-file-category-rules/int_main: frontend 8085, backend 48085.`
+- `GREEN: git diff --check -> PASS after merge.`
+- Status: merge conflict resolution and post-merge verification complete; pending merge-resolution commit and push.

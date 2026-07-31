@@ -14,11 +14,17 @@
 - `GREEN: python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260731-dcc-file-category-rules/backend-api-evidence.md -> PASS.`
 - `GREEN: python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260731-dcc-file-category-rules/database-schema-evidence.md -> PASS.`
 - `GREEN: git diff --check -> PASS, only CRLF conversion warnings.`
+- `GREEN: mvn -pl yudao-module-dcc -am "-Dtest=DccProjectCodeServiceImplTest,DccBaseSchemaTest#mysqlSchemaShouldSupportDccFileCategoryMatchRules" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS after merging int_main, BUILD SUCCESS; Tests run: 27, Failures: 0, Errors: 0, Skipped: 0.`
+- `GREEN: python -X utf8 -m pytest script/tests/test_dcc_file_category_match_rule_sql.py -q -> PASS after merge, 3 passed.`
+- `GREEN: python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output ..\doc\tasks\20260731-dcc-file-category-rules\migration-policy-gate-after-merge.json -> PASS, status=passed, migrationCount=402.`
+- `GREEN: scripts\preflight\branch-runtime-port-guard.ps1 -> PASS, frontend 8085, backend 48085.`
+- `GREEN: git diff --check -> PASS after merge.`
 
 ## Acceptance
 
 - OQ/PQ configured high-weight rules now beat broad legacy aliases in the official classification service.
 - Component drawing extension rules now classify `sldprt` drawing files to `零配件图纸`.
+- Data-driven category rules support `CONTAINS/EXACT/PREFIX/SUFFIX/EXTENSION`, with blank text/type and unsupported type failing fast.
 - Existing ambiguous same-score behavior remains explicit rather than being silently forced to a default.
 - Seed migration fails fast on missing/ambiguous categories or incomplete rule insertion.
 - No direct SQL repair of `dcc_controlled_file` was introduced.
@@ -28,4 +34,5 @@
 
 - This task does not deploy to `172.30.30.58` and does not mutate test-server business data.
 - Applying the fix to the test server requires a later authorized deploy/migration and official batch-recognition run.
-- Closeout cleanup apply is blocked: current linked worktree cannot be fast-forward merged into `int_main`, and main worktree `E:\IntRuoyi` is dirty. Current task status remains `ready_for_closeout`.
+- Post-merge verification is complete; cleanup apply is pending after the merge-resolution commit/push and a fresh cleanup preview.
+- `doc/tasks/20260731-dcc-file-category-rules/migration-policy-gate-after-merge.json` is a temporary evidence artifact; PASS summary is retained here and in `execution-log.md`.

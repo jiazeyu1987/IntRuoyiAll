@@ -2,7 +2,7 @@
 
 ## Current Result
 
-completed；implementation verified, committed, pushed, ff-only merged into `int_main`, task runtime stopped, and linked worktree removed.
+completed；implementation verified, committed, pushed, ff-only merged into `int_main`, task runtime stopped, linked worktree removed, and `int_main` real Playwright E2E reverified on `8081/48081`.
 
 ## Evidence
 
@@ -36,6 +36,8 @@ completed；implementation verified, committed, pushed, ff-only merged into `int
 - Post-merge frontend static verification: `node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS。
 - Post-merge backend verification: F9/F10 Maven 定向测试 -> PASS，16 tests，0 failures，0 errors，`BUILD SUCCESS`。
 - Post-merge frontend type verification: `pnpm ts:check` -> PASS。
+- Post-merge int_main login preflight: 使用本机 Chrome 显式路径访问 `http://127.0.0.1:8081/mes/pro/process-pool/team-leader` -> PASS，登录 `芋道源码/admin`，页面展示 `工序池班组长工作台`。
+- Post-merge int_main real Playwright E2E: 登录 `芋道源码/admin`，访问 `/mes/pro/process-pool/team-leader`，切换 `提交看板/异常上报/班组维护/PQC 班组长`，`submission/page` 初始与 PQC 切换均 HTTP 200 且业务 `code=0`，无 console error、无 pageerror、无 MES 写请求；截图 `output\playwright\20260730-banzuzhang\team-leader-workbench-int-main-smoke.png`。
 
 ## Pending Verification
 

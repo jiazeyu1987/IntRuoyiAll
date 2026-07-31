@@ -18,6 +18,7 @@ $frontendRoot = Split-Path -Parent $PSScriptRoot
 $workspaceRoot = Split-Path -Parent $frontendRoot
 $runnerScript = Join-Path $PSScriptRoot 'codex-test-runner.mjs'
 $runtimeDir = Join-Path $workspaceRoot '.runtime\codex-test-runner'
+$runnerWorkdir = Join-Path $env:TEMP 'IntRuoyi-codex-test-runner-workspace'
 $stdoutLog = Join-Path $runtimeDir 'codex-runner.stdout.log'
 $stderrLog = Join-Path $runtimeDir 'codex-runner.stderr.log'
 $pidFile = Join-Path $runtimeDir 'codex-runner.pid'
@@ -64,6 +65,9 @@ Assert-HttpReachable -Url ($ApiBase -replace '/admin-api$', '/actuator/health') 
 if (-not (Test-Path -LiteralPath $runtimeDir)) {
     New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
 }
+if (-not (Test-Path -LiteralPath $runnerWorkdir)) {
+    New-Item -ItemType Directory -Force -Path $runnerWorkdir | Out-Null
+}
 
 $runnerToken = $env:CODEX_TEST_RUNNER_TOKEN
 if ([string]::IsNullOrWhiteSpace($runnerToken) -and -not [string]::IsNullOrWhiteSpace($TokenFile)) {
@@ -89,6 +93,8 @@ $oldEnv = @{
     CODEX_TEST_RUNNER_TOKEN = $env:CODEX_TEST_RUNNER_TOKEN
     CODEX_TEST_TENANT_ID = $env:CODEX_TEST_TENANT_ID
     CODEX_TEST_WORKDIR = $env:CODEX_TEST_WORKDIR
+    CODEX_TEST_PROJECT_ROOT = $env:CODEX_TEST_PROJECT_ROOT
+    CODEX_TEST_FRONTEND_ROOT = $env:CODEX_TEST_FRONTEND_ROOT
     CODEX_CLI_COMMAND = $env:CODEX_CLI_COMMAND
     CODEX_TEST_RUNNER_NAME = $env:CODEX_TEST_RUNNER_NAME
     CODEX_TEST_MAX_PARALLELISM = $env:CODEX_TEST_MAX_PARALLELISM
@@ -106,7 +112,9 @@ try {
         $env:CODEX_TEST_RUNNER_TOKEN = $runnerToken
     }
     $env:CODEX_TEST_TENANT_ID = $TenantId
-    $env:CODEX_TEST_WORKDIR = $workspaceRoot
+    $env:CODEX_TEST_WORKDIR = $runnerWorkdir
+    $env:CODEX_TEST_PROJECT_ROOT = $workspaceRoot
+    $env:CODEX_TEST_FRONTEND_ROOT = $frontendRoot
     $env:CODEX_CLI_COMMAND = $CodexCommand
     $env:CODEX_TEST_RUNNER_NAME = $RunnerName
     $env:CODEX_TEST_MAX_PARALLELISM = '1'

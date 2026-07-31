@@ -18,7 +18,7 @@ BEGIN
     `sort` int NOT NULL,
     `checkpoint_count` int NOT NULL,
     PRIMARY KEY (`tenant_id`, `name`)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
   INSERT INTO `tmp_dcc_codex_test_case_seed` (
     `tenant_id`, `name`, `project`, `method_text`, `test_data_text`, `default_execution_mode`,
@@ -191,7 +191,7 @@ BEGIN
     `severity` varchar(16) NOT NULL,
     `remark` varchar(512) NULL,
     PRIMARY KEY (`tenant_id`, `case_name`, `sort`)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
   INSERT INTO `tmp_dcc_codex_test_checkpoint_seed` (
     `tenant_id`, `case_name`, `sort`, `name`, `expected_text`, `severity`, `remark`

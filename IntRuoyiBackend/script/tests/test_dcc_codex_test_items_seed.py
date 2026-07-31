@@ -54,6 +54,12 @@ def normalized_sql() -> str:
     return read_sql().replace("`", "")
 
 
+def extract_block(sql: str, start: str, end: str) -> str:
+    assert start in sql, f"Missing block start: {start}"
+    assert end in sql, f"Missing block end: {end}"
+    return sql[sql.index(start) : sql.index(end)]
+
+
 def test_dcc_codex_test_items_seed_declares_release_contract() -> None:
     sql = read_sql()
 
@@ -91,6 +97,29 @@ def test_dcc_codex_test_items_seed_matches_test_management_contract() -> None:
     assert "'ENABLE'" in sql
     assert "parallel_safe" in sql
     assert "WHERE NOT EXISTS" in sql
+
+
+def test_dcc_codex_test_items_seed_temp_tables_match_target_text_collation() -> None:
+    sql = read_sql()
+
+    case_seed_table = extract_block(
+        sql,
+        "CREATE TEMPORARY TABLE `tmp_dcc_codex_test_case_seed`",
+        "INSERT INTO `tmp_dcc_codex_test_case_seed`",
+    )
+    checkpoint_seed_table = extract_block(
+        sql,
+        "CREATE TEMPORARY TABLE `tmp_dcc_codex_test_checkpoint_seed`",
+        "INSERT INTO `tmp_dcc_codex_test_checkpoint_seed`",
+    )
+
+    assert "COLLATE=utf8mb4_0900_ai_ci" in case_seed_table
+    assert "COLLATE=utf8mb4_0900_ai_ci" in checkpoint_seed_table
+    assert "utf8mb4_unicode_ci" not in case_seed_table + checkpoint_seed_table
+    assert "`existing`.`name` = `seed`.`name`" in sql
+    assert "`seed`.`name` = `target`.`name`" in sql
+    assert "`test_case`.`name` = `seed`.`case_name`" in sql
+    assert "`seed`.`case_name` = `test_case`.`name`" in sql
 
 
 def test_dcc_codex_test_items_seed_requires_real_paths_and_task_owned_data() -> None:

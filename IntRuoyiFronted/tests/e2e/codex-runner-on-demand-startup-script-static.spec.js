@@ -27,6 +27,16 @@ assert.match(
 )
 assert.match(
   starter,
+  /\$runnerWorkdir = Join-Path \$env:TEMP 'IntRuoyi-codex-test-runner-workspace'[\s\S]*New-Item -ItemType Directory -Force -Path \$runnerWorkdir/,
+  '按需 Runner 必须在仓库外创建固定隔离工作目录，避免业务测试加载仓库开发任务规则。'
+)
+assert.match(
+  starter,
+  /\$env:CODEX_TEST_WORKDIR = \$runnerWorkdir[\s\S]*\$env:CODEX_TEST_PROJECT_ROOT = \$workspaceRoot[\s\S]*\$env:CODEX_TEST_FRONTEND_ROOT = \$frontendRoot/,
+  'Runner 必须把隔离工作目录、项目指导根目录和 Playwright 工程根目录分别注入。'
+)
+assert.match(
+  starter,
   /\$env:CODEX_CLI_COMMAND = \$CodexCommand/,
   '启动脚本必须继续把 Codex CLI 命令注入 Runner 执行环境。'
 )

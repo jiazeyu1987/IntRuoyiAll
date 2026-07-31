@@ -28,6 +28,7 @@ def test_dcc_file_category_match_rule_schema_has_release_metadata_and_contract()
         "`active` TINYINT NOT NULL DEFAULT 1",
         "uk_dcc_file_category_match_rule_unique",
         "idx_dcc_file_category_match_rule_category",
+        "idx_dcc_file_category_match_rule_type",
     ]:
         assert token in sql, f"schema migration must include {token}"
 
@@ -64,3 +65,4 @@ def test_dcc_file_category_match_rule_test_schema_is_aligned() -> None:
     assert "CREATE TABLE IF NOT EXISTS `dcc_file_category_match_rule`" in sql
     assert "uk_dcc_file_category_match_rule_unique" in sql
     assert "idx_dcc_file_category_match_rule_category" in sql
+    assert "idx_dcc_file_category_match_rule_type" in sql

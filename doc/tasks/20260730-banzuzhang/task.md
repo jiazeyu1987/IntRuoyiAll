@@ -29,7 +29,7 @@
 
 ## Current Status
 
-completed；F9/F10 后端、前端、SQL 迁移门禁、静态验证、真实 Playwright 页面冒烟和经验沉淀均已完成。任务分支已推送到 `origin/codex/20260730-banzuzhang` 的 `4d6acc51`，cleanup preview 为 `ready`，随后 ff-only 合并到 `E:\IntRuoyi` 的 `int_main`。cleanup apply 已移除 Git worktree 登记；Windows 因本任务运行 Jar 被占用而未能删除物理目录，停止任务专属 PID `19088/36928`、释放 `48098/8098` 后已受控删除残留目录。`git worktree list` 不再包含本任务 worktree。
+completed；F9/F10 后端、前端、SQL 迁移门禁、静态验证、真实 Playwright 页面冒烟和经验沉淀均已完成。任务分支已推送到 `origin/codex/20260730-banzuzhang` 的 `4d6acc51`，cleanup preview 为 `ready`，随后 ff-only 合并到 `E:\IntRuoyi` 的 `int_main`。cleanup apply 已移除 Git worktree 登记；Windows 因本任务运行 Jar 被占用而未能删除物理目录，停止任务专属 PID `19088/36928`、释放 `48098/8098` 后已受控删除残留目录。`git worktree list` 不再包含本任务 worktree。融合后已在 `int_main` 主运行态 `8081/48081` 完成真实 Playwright E2E 复验。
 
 ## Worktree / Runtime
 

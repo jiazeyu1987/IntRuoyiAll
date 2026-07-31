@@ -86,6 +86,9 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
     private static final String UNCLASSIFIED_STAGE = "未分类";
     private static final String UNCLASSIFIED_FILE_TYPE = "未分类文件类型";
     private static final String CATEGORY_MATCH_TYPE_CONTAINS = "CONTAINS";
+    private static final String CATEGORY_MATCH_TYPE_EXACT = "EXACT";
+    private static final String CATEGORY_MATCH_TYPE_PREFIX = "PREFIX";
+    private static final String CATEGORY_MATCH_TYPE_SUFFIX = "SUFFIX";
     private static final String CATEGORY_MATCH_TYPE_EXTENSION = "EXTENSION";
     private static final String ASSIGNMENT_EXECUTE_PERMISSION = "dcc:project-code-assignment:execute";
     private static final String[] FULL_PROJECT_CODE_SCOPE_PERMISSIONS = {
@@ -549,23 +552,32 @@ public class DccProjectCodeServiceImpl implements DccProjectCodeService {
                                        List<String> rawFileMatchTexts) {
         String matchType = StrUtil.trimToNull(rule.getMatchType());
         if (matchType == null) {
-            matchType = CATEGORY_MATCH_TYPE_CONTAINS;
+            throw new IllegalStateException("DCC file category match rule has blank matchType: " + rule.getId());
         }
         matchType = matchType.toUpperCase(Locale.ROOT);
         return switch (matchType) {
-            case CATEGORY_MATCH_TYPE_CONTAINS -> categoryContainsRuleScore(rule, fileMatchTexts);
+            case CATEGORY_MATCH_TYPE_CONTAINS, CATEGORY_MATCH_TYPE_EXACT, CATEGORY_MATCH_TYPE_PREFIX,
+                    CATEGORY_MATCH_TYPE_SUFFIX -> categoryTextRuleScore(rule, fileMatchTexts, matchType);
             case CATEGORY_MATCH_TYPE_EXTENSION -> categoryExtensionRuleScore(rule, rawFileMatchTexts);
             default -> throw new IllegalStateException(
                     "Unsupported DCC file category match rule type: " + rule.getMatchType());
         };
     }
 
-    private int categoryContainsRuleScore(DccFileCategoryMatchRuleDO rule, List<String> fileMatchTexts) {
+    private int categoryTextRuleScore(DccFileCategoryMatchRuleDO rule, List<String> fileMatchTexts, String matchType) {
         String matchText = normalizeCategoryMatchText(rule.getMatchText());
         if (matchText == null) {
             throw new IllegalStateException("DCC file category match rule has blank matchText: " + rule.getId());
         }
-        return fileMatchTexts.stream().anyMatch(text -> text.contains(matchText))
+        boolean matched = switch (matchType) {
+            case CATEGORY_MATCH_TYPE_CONTAINS -> fileMatchTexts.stream().anyMatch(text -> text.contains(matchText));
+            case CATEGORY_MATCH_TYPE_EXACT -> fileMatchTexts.stream().anyMatch(text -> Objects.equals(text, matchText));
+            case CATEGORY_MATCH_TYPE_PREFIX -> fileMatchTexts.stream().anyMatch(text -> text.startsWith(matchText));
+            case CATEGORY_MATCH_TYPE_SUFFIX -> fileMatchTexts.stream().anyMatch(text -> text.endsWith(matchText));
+            default -> throw new IllegalStateException(
+                    "Unsupported DCC file category text match rule type: " + matchType);
+        };
+        return matched
                 ? categoryMatchRuleBaseScore(rule, matchText)
                 : 0;
     }

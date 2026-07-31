@@ -49,3 +49,110 @@
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，7 tests，0 failures，0 errors。
 - GREEN: `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
 - REGRESSION: `pnpm ts:check` -> PASS。
+- Implementation: 新增 `MesFrontlineRouteProcessTemplateBindingSource`，按路线工序 `check_flag` 返回 `PQC_SIMPLIFIED` 或 `PRODUCTION_SIMPLIFIED`，员工切换后仍保持当前页签固定模式并显式阻塞不匹配模板。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRouteProcessTemplateBindingSourceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineTemplateResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，12 tests，0 failures，0 errors，0 skipped。
+- GREEN: `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- GREEN: `node src/views/mes/pro/feedback/frontline-template-render.spec.cjs` -> PASS。
+- GREEN: `node src/views/mes/pro/feedback/frontline-template-switch.spec.cjs` -> PASS。
+- REGRESSION: `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js` -> PASS。
+- REGRESSION: `pnpm ts:check` -> PASS。
+- Real E2E preflight: registered worktree runtime slot `int_main slot 2` uses frontend `http://127.0.0.1:8083` and backend `http://127.0.0.1:48083`; backend health on `48083` -> HTTP 200。
+- Real E2E script hardening: `login(page)` removed second post-navigation storage clear that could race with Vue redirect in a fresh Playwright context; no product behavior changed。
+- GREEN: `node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` -> PASS。
+- GREEN: `node tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` with `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe`, `EDHR_FRONTLINE_E2E_BASE_URL=http://127.0.0.1:8083`, `EDHR_FRONTLINE_E2E_BACKEND_URL=http://127.0.0.1:48083` -> PASS，输出 `PASS: eDHR frontline fill tabs real E2E marker=CODX-EDHR-FRONTLINE-20260730 tenant=芋道源码 username=admin`。
+- Real E2E assertions: `生产填写` 三设备工序显示 3 个设备卡片并可输入参数；无设备工序显示“本工序无设备，直接填数量”；`PQC填写` 显示生产订单、工序、员工、主页和全部可输入检验字段；禁止文案 `生产工单/工单/检验方法/成功/失败/巡检摘要` 均未出现在对应区域。
+- Real E2E artifacts: `IntRuoyiFronted/output/playwright/20260730-edhr-frontline-fill-tabs-yudao-real/production-three-device-1920.png`；`production-no-device-1920.png`；`pqc-fill-1920.png`；`result.json`。
+- Fixture cleanup: marker `CODX-EDHR-FRONTLINE-20260730` 清理后 `mes_pro_route=0`、`mes_pro_process=0`、`mes_md_workstation=0`、`mes_dv_machinery=0`。
+- Runtime cleanup check: frontend port `8083` has no listener after the Start-Job Vite wrapper stopped; backend `48083` listener remains the task-owned worktree runtime jar at `output/runtime/edhr-frontline-e2e/backend-edhr-frontline-e2e-20260730.jar`。
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260730-edhr-frontline-fill-tabs/frontend-feature-evidence.md` -> PASS。
+- RED: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260730-edhr-frontline-fill-tabs/backend-api-evidence.md` -> FAIL，expected reason: evidence 缺少 validator 要求的显式 `BDD:`、`RED:`、`Verification`、`Blockers` 标记。
+- GREEN: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260730-edhr-frontline-fill-tabs/backend-api-evidence.md` -> PASS。
+- GREEN: experience-preflight -> PASS；`project-experience-consolidation` 将 `Execution context was destroyed` 登录竞争门禁合并到现有 `docs/e2e-rules.md`，并更新 `docs/experience-index.md` 路由，未新建长期经验文档。
+- Status update: implementation and required verification are complete; task status moved to `ready_for_closeout` pending selective commit, push, and closeout cleanup.
+- Git implementation commit: `2fea1fcd feat: add edhr frontline production and pqc runtime context`，20 个任务自有文件，未包含截图、运行日志、密码或其他任务文件。
+- GREEN: `git push -u origin codex/20260730-edhr-frontline-e2e-runtime` -> PASS；分支已跟踪同名 origin 分支，`git status --short --branch` 不再显示 ahead。
+- Runtime closeout: 复核后 `8083`、`48083` 均无本任务监听进程，无需停止额外服务。
+- BLOCKER: `python C:\Users\BJB110\.codex\skills\task-closeout-cleanup\scripts\task_closeout.py --task-id 20260730-edhr-frontline-fill-tabs --mode preview` -> BLOCKED；keep 为 `task.md`、`execution-log.md`、`verification-report.md`、`frontend-feature-evidence.md`、`backend-api-evidence.md`，delete `<none>`；原因是当前分支不能 fast-forward 合并到 `int_main`，且主 worktree `E:\IntRuoyi` 为脏状态。
+- Closeout decision: 不执行 cleanup apply，不触碰主 worktree 并行改动，不删除隔离 worktree；任务保持 `ready_for_closeout`。
+- User closeout request: 合并到 `int_main`，然后删除当前任务 worktree。
+- Main baseline: 主工作区并行任务文档已由独立提交 `d1e2e44d 基线: 保存并行任务文档改动` 保留，`E:\IntRuoyi` 恢复 clean。
+- Integration merge: `git merge --no-edit int_main` 初次产生两处本任务证据文档冲突；按语义保留功能分支已完成的 12 项测试、真实 E2E 和清理结果，未覆盖主线其它任务文件。
+- GREEN: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，功能分支使用登记槽位 `int_main slot 2`，端口 `8083/48083`。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRouteProcessTemplateBindingSourceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineTemplateResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，12 tests，0 failures，0 errors，0 skipped。
+- GREEN: `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- GREEN: `node src/views/mes/pro/feedback/frontline-template-render.spec.cjs` -> PASS。
+- GREEN: `node src/views/mes/pro/feedback/frontline-template-switch.spec.cjs` -> PASS。
+- REGRESSION: `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js` -> PASS。
+- GREEN: `node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` -> PASS。
+- REGRESSION: `pnpm ts:check` -> PASS。
+- Concurrent main preservation: 主工作区后续出现的并行任务提交与文档改动由独立主线提交 `2e2d1eb0`、`6bd7ba2a`、`ad5de3a1`、`7865feca`、`ff8ee179`、`aeb379d3` 保留，未覆盖或丢弃。
+- Integration sync: 功能分支继续合入最新 `int_main`，最终 HEAD `2e58c44d`；`git merge-base --is-ancestor int_main HEAD` -> PASS。
+- Integration scope check: `git diff --name-status 04603154..2e58c44d -- IntRuoyiBackend IntRuoyiFronted` -> empty，后续同步仅包含任务/经验文档，无需重复运行未受影响的产品测试。
+- GREEN: frontend feature evidence validator -> PASS。
+- GREEN: backend API evidence validator -> PASS。
+- Push preflight: branch runtime port guard -> PASS；新增 push 范围 100 MB 大对象扫描 -> PASS。
+- GREEN: `git push origin codex/20260730-edhr-frontline-e2e-runtime` -> PASS，远端功能分支更新到 `2e58c44d`。
+- Clean main integration decision: 本地 `E:\IntRuoyi` 的 `int_main` 继续包含无关 NAS/DCC 并行脏改动，目标 Maven 会被无关 DCC/NAS 编译缺口阻塞；按 `docs/worktree-memory.md#并行主工作区远端快进融合门禁`，本次改为从干净 `origin/int_main` commit `57112d97` 建立临时集成目录 `D:\IntRuoyiWorktree\20260731-edhr-frontline-clean-clone`。
+- Integration scope guard: 仅从干净功能集成点 `f63dc4c4` 移入本任务实现文件、测试、任务证据和新增 Playwright 登录竞争经验；保留 `origin/int_main` 已有 Codex Runner 经验段，未带入本地 NAS/DCC/Runner 并行改动。
+- Runtime slot registration: `pwsh -NoProfile -File scripts\runtime\reserve-worktree-slot.ps1 -Name 20260731-edhr-frontline-clean-clone -Path D:\IntRuoyiWorktree\20260731-edhr-frontline-clean-clone -Branch codex/20260731-edhr-frontline-clean-integration -Profile int_main -AsJson` -> PASS，slot `3`，frontend `8084`，backend `48084`。
+- RED: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> FAIL，expected reason: 临时集成目录未安装 Git hooks。
+- GREEN: `pwsh -NoProfile -File scripts\git\install-branch-runtime-hooks.ps1` -> PASS。
+- GREEN: `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260731-edhr-frontline-clean-integration/int_main` uses `8084/48084`。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRouteProcessTemplateBindingSourceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineTemplateResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，12 tests，0 failures，0 errors，0 skipped。
+- GREEN: `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- GREEN: `node src/views/mes/pro/feedback/frontline-template-render.spec.cjs` -> PASS。
+- GREEN: `node src/views/mes/pro/feedback/frontline-template-switch.spec.cjs` -> PASS。
+- REGRESSION: `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js` -> PASS。
+- GREEN: `node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` -> PASS。
+- Dependency preflight: `pnpm install --frozen-lockfile` in `IntRuoyiFronted` -> PASS，lockfile unchanged；installed local `node_modules` for this temporary integration clone only。
+- REGRESSION: `pnpm ts:check` -> PASS。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc/tasks/20260730-edhr-frontline-fill-tabs/frontend-feature-evidence.md` -> PASS。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260730-edhr-frontline-fill-tabs/backend-api-evidence.md` -> PASS。
+- Status update: clean integration verification passed; ready for selective commit and push to `origin/int_main` without local NAS/DCC changes.
+- Remote main refresh: `git fetch origin int_main` -> PASS，remote `origin/int_main` advanced to `b8251624 docs: record int_main merge closeout`，该提交仅新增 `doc/tasks/20260731-merge-int-main/*`。
+- Integration merge: `git merge --no-edit origin/int_main` -> PASS，merge commit `d7853210`，仅合入远端 merge closeout 任务文档。
+- GREEN: post-merge `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS。
+- GREEN: post-merge `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRouteProcessTemplateBindingSourceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineTemplateResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，12 tests，0 failures，0 errors，0 skipped。
+- GREEN: post-merge `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- GREEN: post-merge `node src/views/mes/pro/feedback/frontline-template-render.spec.cjs` -> PASS。
+- GREEN: post-merge `node src/views/mes/pro/feedback/frontline-template-switch.spec.cjs` -> PASS。
+- REGRESSION: post-merge `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js` -> PASS。
+- GREEN: post-merge `node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` -> PASS。
+- REGRESSION: post-merge `pnpm ts:check` -> PASS。
+- Remote refresh retry: `git fetch origin int_main` 曾连续失败于 `Recv failure: Connection was reset`；最终重试 `git fetch origin int_main` -> PASS，`origin/int_main` 仍停在 `011999ef merge: sync origin int_main`，未发现后续修复提交。
+- Integration refresh: 当前临时集成分支 HEAD `c97d0f09` 已合入本地可见的 `origin/int_main` 后续内容。
+- GREEN: latest `pwsh -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，`codex/20260731-edhr-frontline-clean-integration/int_main` uses `8084/48084`。
+- GREEN: latest `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- GREEN: latest `node src/views/mes/pro/feedback/frontline-template-render.spec.cjs` -> PASS。
+- GREEN: latest `node src/views/mes/pro/feedback/frontline-template-switch.spec.cjs` -> PASS。
+- REGRESSION: latest `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js` -> PASS。
+- GREEN: latest `node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` -> PASS。
+- REGRESSION: latest `pnpm ts:check` -> PASS。
+- BLOCKED: latest `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRouteProcessTemplateBindingSourceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineTemplateResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL before MES tests run。失败发生在无关依赖模块 `yudao-module-dcc` 的 `testCompile`：`DccProjectCodeServiceImplTest` 引用缺失的 `DccFileCategoryMatchRuleDO` 与 `DccFileCategoryMatchRuleMapper`。
+- Closeout blocker: 按 no-fallback 与必跑验证规则，不能跳过 DCC 依赖模块 testCompile、不能把 eDHR 变更推送到 `origin/int_main`、不能执行 cleanup apply，也不能删除原任务 worktree；需先等远端主线修复该 DCC 编译缺口并成功拉取，或由用户明确授权扩大范围处理 DCC。
+- Experience consolidation: 已按 `project-experience-consolidation` 规则把本次 “Maven -am 依赖模块 testCompile 失败也阻塞远端快进融合” 合并到现有 `docs/worktree-memory.md#并行主工作区远端快进融合门禁`，并在 `docs/experience-index.md` 增加 `DccFileCategoryMatchRuleDO`、`DccFileCategoryMatchRuleMapper`、`当前任务源码未改依赖模块不得跳过` 等关键词。
+- GREEN: `rg -n "依赖模块|DccProjectCodeServiceImplTest|testCompile" docs/worktree-memory.md` -> PASS。
+- GREEN: `rg -n "DccFileCategoryMatchRuleDO|Maven -am 依赖模块 testCompile|当前任务源码未改依赖模块不得跳过" docs/experience-index.md docs/worktree-memory.md` -> PASS。
+- GREEN: `git diff --check -- doc/tasks/20260730-edhr-frontline-fill-tabs/task.md doc/tasks/20260730-edhr-frontline-fill-tabs/execution-log.md doc/tasks/20260730-edhr-frontline-fill-tabs/verification-report.md docs/worktree-memory.md docs/experience-index.md` -> PASS。
+- Remote refresh final check: `git fetch origin int_main` -> PASS；`origin/int_main` 仍为 `011999ef merge: sync origin int_main`，远端暂无修复 DCC `testCompile` 缺失类的后续提交。
+- User continuation: 用户要求继续，授权当前线程继续处理阻塞项。
+- DCC unblock implementation: 新建任务 `doc/tasks/20260731-dcc-category-match-rule-compile-unblock/`，补齐 `dcc_file_category_match_rule` 正式表、DO、Mapper、测试 schema 和 DCC 项目代码分类服务读取链路。
+- GREEN: DCC unblock `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_dcc_file_category_match_rule_sql.py` -> PASS，2 passed。
+- GREEN: DCC unblock `mvn -pl yudao-module-dcc -am "-Dtest=DccProjectCodeServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，26 tests，0 failures，0 errors，0 skipped。
+- GREEN: blocker resolved `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRouteProcessTemplateBindingSourceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineTemplateResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，12 tests，0 failures，0 errors，0 skipped。
+- GREEN: post-unblock `node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs` -> PASS。
+- GREEN: post-unblock `node src/views/mes/pro/feedback/frontline-template-render.spec.cjs` -> PASS。
+- GREEN: post-unblock `node src/views/mes/pro/feedback/frontline-template-switch.spec.cjs` -> PASS。
+- REGRESSION: post-unblock `node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js` -> PASS。
+- GREEN: post-unblock `node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs` -> PASS。
+- REGRESSION: post-unblock `pnpm ts:check` -> PASS。
+- Status update: DCC 编译阻塞已正式解除；eDHR 任务状态恢复为 `ready_for_closeout`，等待提交、推送到 `int_main`、cleanup preview/apply 和 worktree 删除。
+- GREEN: implementation commit `560d4f34 fix: add dcc file category match rules` -> PASS；集成分支已推送到 `origin/codex/20260731-edhr-frontline-clean-integration`。
+- Remote refresh: `git -c http.sslBackend=schannel fetch --no-tags --filter=blob:none origin +refs/heads/int_main:refs/remotes/origin/int_main` -> PASS；`origin/int_main` 从 `011999ef` 更新到 `d1ffcef8`。
+- Merge: `git merge origin/int_main` -> PASS，merge commit `8a34cfe3`；未发生冲突。
+- GREEN: final merged SQL contract `python -X utf8 -m pytest IntRuoyiBackend\script\tests\test_dcc_file_category_match_rule_sql.py` -> PASS，2 passed。
+- GREEN: final merged DCC Maven `mvn -pl yudao-module-dcc -am "-Dtest=DccProjectCodeServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，23 tests，0 failures，0 errors，0 skipped。
+- GREEN: final merged eDHR Maven `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlineRouteProcessTemplateBindingSourceTest,MesFrontlineWorkstationPostRouteBindingSourceTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineTemplateResolverTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，12 tests，0 failures，0 errors，0 skipped。
+- GREEN: final merged frontend contracts and typecheck -> PASS：`node tests/e2e/edhr-frontline-fill-tabs-static.spec.cjs`、`node src/views/mes/pro/feedback/frontline-template-render.spec.cjs`、`node src/views/mes/pro/feedback/frontline-template-switch.spec.cjs`、`node tests/e2e/edhr-batch-execution-unified-list-template-static.spec.js`、`node --check tests/e2e/edhr-frontline-fill-tabs-real.e2e.cjs`、`pnpm ts:check`。
+- GREEN: `git -c http.sslBackend=schannel push origin HEAD:int_main` -> PASS；`origin/int_main` now points to `8a34cfe3`。
+- CLEANUP: `task-closeout-cleanup` preview/apply -> PASS；eDHR task kept `task.md`、`execution-log.md`、`verification-report.md`、`frontend-feature-evidence.md`、`backend-api-evidence.md`。

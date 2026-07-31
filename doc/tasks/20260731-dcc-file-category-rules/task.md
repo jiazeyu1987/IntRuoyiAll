@@ -69,4 +69,10 @@ ready_for_closeout
 - `GREEN: python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output doc\tasks\20260731-dcc-file-category-rules\migration-policy-gate.json -> PASS, status=passed, migrationCount=401.`
 - `GREEN: python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc/tasks/20260731-dcc-file-category-rules/backend-api-evidence.md -> PASS.`
 - `GREEN: python C:\Users\BJB110\.codex\skills\database-schema-delivery\scripts\validate_database_schema.py --evidence doc/tasks/20260731-dcc-file-category-rules/database-schema-evidence.md -> PASS.`
+- Merge resolution: 已将 `int_main` 合入当前分支并解析 DCC 规则冲突；保留 fail-fast seed、唯一键、无物理删除入口，并兼容 `CONTAINS/EXACT/PREFIX/SUFFIX/EXTENSION`。
+- `GREEN: mvn -pl yudao-module-dcc -am "-Dtest=DccProjectCodeServiceImplTest,DccBaseSchemaTest#mysqlSchemaShouldSupportDccFileCategoryMatchRules" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS after merge, BUILD SUCCESS; Tests run: 27, Failures: 0, Errors: 0, Skipped: 0.`
+- `GREEN: python -X utf8 -m pytest script/tests/test_dcc_file_category_match_rule_sql.py -q -> PASS after merge, 3 passed.`
+- `GREEN: python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output ..\doc\tasks\20260731-dcc-file-category-rules\migration-policy-gate-after-merge.json -> PASS, status=passed, migrationCount=402.`
+- `GREEN: scripts\preflight\branch-runtime-port-guard.ps1 -> PASS, frontend 8085, backend 48085.`
+- `GREEN: git diff --check -> PASS after merge.`
 - Experience consolidation: 已更新 `docs/database-rules.md#DCC 文件类别规则种子门禁` 与 `docs/experience-index.md` 路由。
