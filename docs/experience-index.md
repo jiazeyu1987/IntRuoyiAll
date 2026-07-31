@@ -107,6 +107,7 @@
 - Keywords: 前端静态合同旧仓路径, form-center-static, ruoyi-vue-pro/sql/mysql, IntRuoyiBackend/sql/mysql, ENOENT, 跨端 SQL 读取路径 -> `docs/frontend-development.md#前端静态合同仓库路径门禁`
 - Keywords: 聚合字段新增子项, 默认分类, 表单槽位, route-flow-graph-designer__node-form-count-badge, createEmptyRecordBinding, formSlotType MAIN, 新增后数字不变 -> `docs/frontend-development.md#前端聚合新增默认分类门禁`
 - Keywords: noTagsView, activeMenu, 隐藏路由顶部页签, 顶部 tab 切回列表, fullPath query 丢失, replaceActiveMenuView, restoreActiveMenuView, 流转关系图页签返回 -> `docs/frontend-development.md#前端隐藏路由顶部页签状态门禁`
+- Keywords: VueFlow, @vue-flow/core, smoothstep, MarkerType.ArrowClosed, vue-flow__pane intercepts pointer events, vue-flow__nodes intercepts pointer events, 只读关系图节点点击, 页面关系图, 批记录页面关系图, force click 禁止 -> `docs/frontend-development.md#前端-vueflow-只读图点击层级门禁`
 - Keywords: Element Plus 全屏弹框, requestFullscreen, :fullscreen, el-dialog append-to-body, body teleport, 最大化弹框遮挡, 保存草稿弹框, 提交执行签名弹框, result-dialog, fullscreen top layer -> `docs/frontend-development.md#element-plus-全屏弹框挂载门禁`
 - Keywords: 动态菜单页签重命名, 菜单名称改名, system_menu.name, 页面标题改名, 角色菜单树旧名称, 租户套餐菜单旧名称, 入口名称和业务对象文案区分, RouterSearch, 菜单搜索别名, 搜索旧关键词, router.getRoutes, 动态路由快照, MES工序 搜索 标准模板列表 -> `docs/frontend-development.md#动态菜单页签重命名门禁`
 - Keywords: route.query, route query ID, assistUserId, userId, workTaskId, batchTaskId, sameRouteQueryId, 字符串数字严格等于, active 高亮丢失, 切换后高亮旧对象 -> `docs/frontend-development.md#前端-route-query-id-比较门禁`

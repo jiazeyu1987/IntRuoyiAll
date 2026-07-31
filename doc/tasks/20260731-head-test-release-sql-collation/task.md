@@ -9,8 +9,8 @@
 - [x] 记录发布阻塞证据、BDD 场景和 RED 测试。
 - [x] 修复 seed SQL 的临时表/真实表字符列 collation 比较。
 - [x] 运行目标 SQL 契约测试和发布前迁移门禁。
-- [ ] 提交 task-owned 实现变更。
-- [ ] 创建新的 clean release worktree，构建新的 releaseTag。
+- [x] 提交 task-owned 实现变更。
+- [x] 创建新的 clean release worktree，构建新的 releaseTag。
 - [ ] 仅执行 `publish-test`，验证测试服真实运行态和运行控制台版本变更说明。
 - [ ] 沉淀可复用前置经验，完成 closeout。
 
@@ -56,3 +56,10 @@ in_progress
 
 - 2026-07-31：新增 `test_dcc_codex_test_items_seed_temp_tables_match_target_text_collation`，先复现旧 SQL 的 `utf8mb4_unicode_ci` 临时表问题，再将两个 seed 临时表改为 `utf8mb4_0900_ai_ci`。
 - 2026-07-31：目标 pytest 5 passed，全量 release migration policy gate 400 migrations passed；单文件 gate 不带依赖时按预期 fail-fast，不能作为本修复失败依据。
+- 2026-07-31：正式实现提交为 `b6370020247aac7fd27e25a9842601a992a816c7`，提交说明 `任务: 修复测试项种子排序规则`。
+- 2026-07-31：clean release worktree `D:\IntRuoyiWorktree\r260731b-release-app` 固定 detached HEAD `b6370020247aac7fd27e25a9842601a992a816c7`；候选 `release-20260731-sqlfix-head-test-r260731b-r2` 已构建成功，Manifest sourceRepos commit 一致且 `dirty=false`。
+- 2026-07-31：`r260731b-r2` publish-test 中原 DCC seed 已 APPLIED，但 `20260726_system_codex_smart_scheduling_test_items.sql` 因临时表默认 `utf8mb4_general_ci` 与真实表 `utf8mb4_0900_ai_ci` 比较失败；将继续从冻结 `b6370020` 创建独立修复 worktree，不引入主工作区后续提交。
+- 2026-07-31：独立修复 worktree `D:\IntRuoyiWorktree\r260731c-smart-seed-fix` 已完成 RED/GREEN/REGRESSION；目标 4 passed、两组 seed 9 passed、migration policy 400 passed，待提交修复并冻结新 release HEAD。
+- 2026-07-31：修复已提交为 `7b9d8c36f3aa19779277be1a2cddaa50789a3821`；提交前补齐 worktree 端口登记，profile=`int_main`、slot=`2`，提交后 clean。
+- 2026-07-31：新 detached release worktree `D:\IntRuoyiWorktree\r260731c-release-app` 已固定到 `7b9d8c36f3aa19779277be1a2cddaa50789a3821`；主前端 frozen-lockfile 安装退出码 `0`，`cross-env`/`vite`/`vue-tsc` 存在，worktree clean。
+- 2026-07-31：release worktree 内两组 seed 回归 `9 passed`、全量 migration policy `400 passed`；新候选固定为 `release-20260731-smartseed-sqlfix-head-test-r260731c-r1`。

@@ -64,8 +64,18 @@
 - `GREEN: python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence E:\IntRuoyi\doc\tasks\20260730-test-management-serial-routes-repair\bug-regression-evidence.md -> PASS`
 - `BLOCKED/WAIT: Invoke-RestMethod http://127.0.0.1:48081/actuator/health -> connection refused after Maven GREEN; shared int_main backend still not listening, so real page three-route execution remains blocked`
 
+## 2026-07-31 Resume After Local Restart
+
+- Runtime recovery: backend PID `8820` started from `E:\IntRuoyi\output\runtime\int_main\backend-runtime-control-20260731-144208.jar`; `http://127.0.0.1:48081/actuator/health` returned `UP`.
+- Frontend recovery: standard `restart-int-ruoyi-local.ps1 -Component frontend` eventually started Vite on `8081`; the first root request returned HTTP `200`.
+- Frontend blocker reproduction: subsequent real module requests (`/login?redirect=/index`, `/@vite/client`, `/src/main.ts`, and the target record page module) returned zero bytes and timed out. The Vite process remained alive with approximately `4476` handles; no frontend error was logged.
+- Frontend isolation evidence: a minimal Vite server using the same frontend root without project plugins returned HTTP `200`, proving the port and basic Vite runtime are usable. This was diagnostic only and was stopped; it was not used as the test runtime.
+- Execution safety: execution `40` remains the task-owned suspended batch from the previous run. No new execution was created, and no Runner was started while the real `测试记录` page was unavailable.
+- Blocker: continuing requires changing or bypassing the standard `VITE_OPTIMIZE_PROFILE=windows-safe` startup path. This is not authorized under the strict no-fallback policy; pause before using a non-standard frontend runtime.
+
 ## Blockers
 
 - 当前共享 `48081` 后端正在由独立 `20260731-restart-local-frontend-backend` 任务执行 full restart/package，health 暂不可达；本任务不得强停或接管该并行任务。
 - 待 `48081` 恢复后，需要确认新运行态已加载 `artifact-temp-dir` 配置，再重新从真实页面执行 3 条串行路线。
 - 2026-07-31 09:53 后复查：`48081` 仍拒绝连接；独立重启任务状态为 `blocked`，本任务未停止、重启或接管该任务进程。
+- 2026-07-31 17:16 复查：后端已恢复 `UP`，但标准前端页面模块请求持续零字节超时；最小 Vite 诊断服务通过后已停止。未获授权前不得切换前端优化/启动路径，执行 `40` 尚未通过真实页面取消。

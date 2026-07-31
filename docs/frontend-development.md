@@ -203,6 +203,15 @@
 - Forbidden action: 禁止通过取消隐藏路由、创建重复页签、localStorage 兜底、强制刷新、默认跳列表或吞掉路由错误掩盖状态丢失。
 - Evidence: 任务 `doc/tasks/20260727-route-flow-tab-return-state/`，路线流转关系图从顶部页签切走再返回时曾因“工艺流程”页签仍保存 `/mes/pro/route` 而回到路线列表。
 
+## 前端 VueFlow 只读图点击层级门禁
+
+- Trigger: 前端页面使用 `@vue-flow/core`、`VueFlow`、`smoothstep`、`MarkerType.ArrowClosed` 展示只读关系图、页面关系图、流程图、节点跳转图，且节点本身需要点击进入详情、填写页或其它路由。
+- Preflight check: 先区分图谱拖拽编辑和只读导航；只读导航图必须关闭不需要的 pane 拖拽，并确认 `.vue-flow__pane`、`.vue-flow__nodes` 不会覆盖节点点击，具体 `.vue-flow__node` 和节点内容仍可接收 pointer events。静态合同需锁定 `:pan-on-drag="false"` 或等价只读行为、节点稳定 `data-*` 选择器、边稳定证据选择器和禁止回退到手绘 SVG path。
+- Blocker: Playwright 点击节点时提示 `.vue-flow__pane` 或 `.vue-flow__nodes` intercepts pointer events、节点视觉可见但无法进入目标路由、为了让点击通过而开启假路由/坐标点击/API-only 验证、或只验证节点文本不验证节点真实点击时必须停止。
+- Verification: 运行目标静态合同、相邻页面合同、`pnpm ts:check`；真实 Playwright 必须从页面点击至少一个可路由节点并断言 URL 进入目标页面，同时统计写请求边界。
+- Forbidden action: 禁止用 `force: true`、坐标点击、隐藏 VueFlow pane、删除节点按钮、API-only 跳转或吞掉路由错误来冒充节点可点击。
+- Evidence: 任务 `doc/tasks/20260730-edhr-page-graph-tab/`，批记录页面关系图迁移到 VueFlow 后真实 E2E 首次失败于 `.vue-flow__pane/.vue-flow__nodes` 拦截 `production-fill` 节点点击，修正 pointer-events 后真实路由跳转通过。
+
 ## Element Plus 全屏弹框挂载门禁
 
 - Trigger: 页面局部区域使用浏览器 `requestFullscreen()` / `:fullscreen` 做最大化，同时局部区域内按钮会打开 `el-dialog`、`ElMessageBox`、下拉面板、签名框、保存结果框或提交确认框。

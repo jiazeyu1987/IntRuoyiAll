@@ -52,4 +52,4 @@ doc/tasks/20260730-test-management-serial-routes-repair/run-serial-routes-real-e
 
 ## Current Blocker
 
-- 共享 `48081` 后端正在由独立 `20260731-restart-local-frontend-backend` 任务执行 full restart/package，当前 health 暂不可达；本任务不强停或接管并行任务，等待恢复后继续真实三路线复验。
+- 后端已恢复 `UP`，但标准 `restart-int-ruoyi-local.ps1 -Component frontend` 启动的 Vite 在 `8081` 监听后，真实页面模块请求持续零字节超时。最小 Vite 诊断服务可返回 `200`，但不是本任务允许使用的正式运行态。执行 `40` 尚未通过真实“测试记录”页面取消；在用户明确授权改变 `VITE_OPTIMIZE_PROFILE=windows-safe` 启动路径前，不得切换非标准前端运行态或创建新批次。

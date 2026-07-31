@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CodexTestLocalConfigTest {
 
     private static final String RUNTIME_ARTIFACT_DIR =
-            "../output/runtime/${INTRUOYI_RUNTIME_PROFILE:int_main}/codex-test-artifacts";
+            "E:/IntRuoyi/output/runtime/${INTRUOYI_RUNTIME_PROFILE:int_main}/codex-test-artifacts";
     private static final String ARTIFACT_TEMP_DIR =
             "${CODEX_TEST_ARTIFACT_TEMP_DIR:${INTRUOYI_RUNTIME_ARTIFACT_DIR:" + RUNTIME_ARTIFACT_DIR + "}}";
     private static final String ARTIFACT_RETENTION_HOURS = "${CODEX_TEST_ARTIFACT_RETENTION_HOURS:24}";

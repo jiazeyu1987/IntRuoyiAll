@@ -45,6 +45,22 @@ assert.match(page, /页面关系图/, 'page must describe itself as a page relat
 assert.match(page, /不是工艺路线流转关系图/, 'page must distinguish itself from route process flow graph.')
 assert.match(page, /待接入/, 'page must visibly mark unavailable nodes as pending.')
 assert.match(page, /isDisabled/, 'page must model unavailable nodes as disabled, not fake routes.')
+assert.match(page, /edhr-page-graph-page__canvas/, 'page graph must use a flow-canvas container, not grouped cards.')
+assert.match(page, /from '@vue-flow\/core'/, 'page graph must reuse the existing VueFlow graph dependency.')
+assert.match(page, /<VueFlow/, 'page graph must render through VueFlow, matching MES route flow graph style.')
+assert.match(page, /edhr-page-graph-page__flow/, 'page graph must expose a VueFlow canvas class.')
+assert.match(page, /type:\s*'smoothstep'/, 'page graph edges must use smooth flow connectors.')
+assert.match(page, /MarkerType\.ArrowClosed/, 'page graph connectors must show arrow direction.')
+assert.match(page, /toFlowNode\(node\)/, 'page graph nodes must be positioned as flow nodes.')
+assert.match(page, /:pan-on-drag="false"/, 'read-only page graph must not let the VueFlow pane intercept node clicks.')
+assert.match(page, /vue-flow__pane[\s\S]*pointer-events:\s*none/, 'VueFlow pane must not block page-node click navigation.')
+assert.match(page, /vue-flow__nodes[\s\S]*pointer-events:\s*none/, 'VueFlow nodes container must not block page-node click navigation.')
+assert.match(page, /vue-flow__node \*\)[\s\S]*pointer-events:\s*auto/, 'VueFlow node contents must remain clickable.')
+assert.match(page, /edhr-page-graph-page__edge-registry/, 'page graph must retain stable edge selectors for E2E evidence.')
+assert.doesNotMatch(page, /edhr-page-graph-page__connections/, 'page graph must not use the old hand-drawn SVG connector layer.')
+assert.doesNotMatch(page, /data-edhr-page-edge-path/, 'page graph edges must come from VueFlow, not custom SVG path selectors.')
+assert.doesNotMatch(page, /resolveEdgePath/, 'page graph must not keep the legacy manual edge path builder.')
+assert.doesNotMatch(page, /edhr-page-graph-page__group/, 'page graph must not render the visual relationship as grouped card columns.')
 
 for (const nodeName of [
   '生产工单',
