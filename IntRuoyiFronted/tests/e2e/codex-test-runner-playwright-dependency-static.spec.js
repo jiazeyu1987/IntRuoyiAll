@@ -45,5 +45,20 @@ assert.match(
   /Navigation hints:[\s\S]*\$\{resolveNavigationHints\(task\)\}/,
   'Runner prompt 必须把正式页面导航提示传给 Codex 子任务。'
 )
+assert.match(
+  runner,
+  /Element Plus dialog\/drawer footer action buttons[\s\S]*entire visible dialog\/drawer or page[\s\S]*not only the field form scope/,
+  'Runner prompt 必须提醒子任务保存/确定等 footer 按钮可能不在字段表单 scope 内，必须在整个可见弹窗/抽屉或页面中定位。'
+)
+assert.match(
+  runner,
+  /page\.locator\('\.el-dialog__footer button, \.el-drawer__footer button'\)[\s\S]*filter\(\{ hasText: \/保存\|确定\|提交\//,
+  'Runner prompt 必须给出 Element Plus footer 保存按钮的确定性 Playwright selector。'
+)
+assert.match(
+  runner,
+  /field-selector list filters[\s\S]*visible selected field[\s\S]*路线编码[\s\S]*TN-ROUTE-BASIC-001/,
+  'Runner prompt 必须提醒子任务遇到字段选择器列表筛选时可按当前可见字段搜索，工艺路线固定样本应优先用路线编码。'
+)
 
 console.log('PASS: Codex runner Playwright dependency static contract')

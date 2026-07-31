@@ -7,11 +7,11 @@
 
 ## Milestones
 
-- [ ] 建立源数据基线：解析 Excel 中的 MES 工序清单、字段、数量和顺序。
-- [ ] 定位系统 MES 工序列表的数据来源、导入逻辑或种子数据。
-- [ ] 编写或更新回归测试，先证明当前系统列表与 Excel 不一致。
-- [ ] 实施最小正式修复，使系统数据与 Excel 完全一致。
-- [ ] 运行定向验证并记录 RED/GREEN/REGRESSION 证据。
+- [x] 建立源数据基线：解析 Excel 中的 MES 工序清单、字段、数量和顺序。
+- [x] 定位系统 MES 工序列表的数据来源、导入逻辑或种子数据。
+- [x] 编写或更新回归测试，先证明当前系统列表与 Excel 不一致。
+- [x] 实施最小正式修复，使系统数据与 Excel 完全一致。
+- [x] 运行定向验证并记录 RED/GREEN/REGRESSION 证据。
 - [ ] 收尾：更新验证报告、经验沉淀、cleanup、提交并推送。
 
 ## Expected Verification
@@ -34,8 +34,27 @@ in_progress
 ## Applicable Experience Gates
 
 - 已读取 `docs/experience-index.md`，命中方向：MES 工序、工艺路线 Excel 导入、数据库种子/基线数据、PowerShell 编码与任务收尾。
-- 待读取并摘录具体门禁：`docs/database-rules.md`、`docs/backend-development.md`、`docs/frontend-development.md`（按实际修改范围确认）。
+- 已按实际修改范围读取并执行：`docs/database-rules.md`、`docs/backend-development.md`、`docs/frontend-development.md`、`docs/task-closeout-rules.md`、`docs/powershell-memory.md`。
+
+## Completed Work
+
+- Excel 基线：`压力泵工序.xlsx` / `二代压力泵` 工作表，12 个原始列，Excel 行 2-33 为 32 条有效 MES 工序；行 34-36 仅有孤立产能值，已明确排除。
+- 根因修复：MES 工序页不再复用 `/mes/pro/route-resource/page` 路线资源聚合读模型，改为独立 `/mes/pro/mes-process/page` 只读目录。
+- 数据修复：新增 `mes_pro_mes_process_catalog` 与 `mes_pro_mes_process_catalog_machinery` 迁移种子，32 条目录数据按 Excel 原始列、源行号和顺序写入。
+- 租户修复：Excel 只读目录 DO 显式 `@TenantIgnore`，避免 `tenant_id=0` 源基线被当前业务租户过滤导致列表为空。
+- 前端修复：MES 工序列表展示 Excel 12 个原始列，保留 `/` 与空白原值，不提供新增、编辑、删除、导入、启停等维护入口。
+
+## Verification Evidence
+
+- GREEN: `node doc\tasks\mes-process-xlsx-sync-20260731\tools\parse-pressure-pump-xlsx.mjs` -> PASS，解析到 32 条有效行、3 条排除行。
+- GREEN: `node tests\e2e\mes-pro-mes-process-readonly-static.spec.js` -> PASS，校验页面、接口、权限、租户忽略、SQL 32 行全字段与 Excel 基线一致。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesProMesProcessServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> BUILD SUCCESS，1 test passed。
+- GREEN: `pnpm ts:check` -> PASS。
+- GREEN: `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output ..\doc\tasks\mes-process-xlsx-sync-20260731\migration-policy-gate.json` -> PASS，migrationCount=403。
+- NEW BUG: 2026-08-01 用户反馈运行态请求 `admin-api/mes/pro/mes-process/page` 返回“请求地址不存在”，旧验证尚未证明当前 48081 运行后端已加载新增 Controller，需要补充路由注册/运行态验证。
 
 ## Known Risks
 
 - 当前 `int_main` 工作区已有大量未提交改动且分支领先 `origin/int_main`，本任务不得覆盖或混入无关改动；若目标文件与既有改动冲突，需先阻塞确认。
+- 收尾提交/推送尚未执行：当前工作区仍存在多项非本任务脏改动与 `ahead 19`，本任务只更新任务自有文件与 MES 工序相关文件，未触碰无关并发任务文件。
+- Cleanup apply 未执行：cleanup preview 将 `C:\Users\BJB110\.cache\codex-runtimes\...node_modules` 等工作区外运行时依赖列入 delete，超出本任务清理范围。

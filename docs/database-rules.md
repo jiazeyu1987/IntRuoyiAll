@@ -29,6 +29,15 @@
 - Forbidden action: 禁止直接 SQL 删除业务关系来掩盖读模型缺陷，禁止 catch 后返回空页，禁止前端隐藏 toast，禁止用“未知路线/未知产品”等默认文案替代正式主数据完整性。
 - Evidence: `doc/tasks/20260730-mes-process-mapping-tab/bug-regression-evidence.md`。
 
+### 全局只读 Excel 种子租户边界门禁
+
+- Trigger: MES 工序、产品目录、标准只读目录、Excel/外部文件基线等全局只读种子写入 `tenant_id=0`，但页面在普通业务租户下读取。
+- Preflight check: 写全局只读种子前先确认读模型是否应跨租户共享；若种子固定 `tenant_id=0`，对应 DO 或表必须显式 `@TenantIgnore` / `ignore-tables`，并同步确认子表、明细表、分页 count 与 page 查询都不会被当前租户条件过滤。
+- Blocker: 主表忽略租户但子表未忽略、SQL 种子写 `tenant_id=0` 但 Mapper 仍受 `tenant_id=<当前租户>` 限制、只在 Mockito 单元测试通过但未覆盖租户过滤、或用复制多租户数据掩盖全局基线设计不清时必须停止。
+- Verification: 静态合同或 Mapper/集成测试必须同时断言全局只读目录 DO 的租户忽略、SQL 种子租户口径、32/固定行数等源文件基线、以及明细表不会被租户过滤；有运行态时再用业务租户真实页面/API 证明列表非空且行数一致。
+- Forbidden action: 禁止把 `tenant_id=0` 当作业务租户可见的默认值，禁止只改前端空状态或返回空页，禁止把全局目录改成按当前租户复制多份而不说明同步和一致性策略。
+- Evidence: `doc/tasks/mes-process-xlsx-sync-20260731/verification-report.md`。
+
 ### 数据修复临时表排序规则门禁
 
 - Trigger: 数据修复、测试项种子、菜单/权限补齐等 SQL 使用临时表、字面量或用户变量与真实表字符列做 `JOIN`、`=`、`NOT EXISTS` 比较，尤其包含中文名称、权限字符串、表单名称、测试项名称。

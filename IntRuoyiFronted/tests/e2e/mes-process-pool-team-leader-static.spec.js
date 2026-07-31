@@ -120,8 +120,10 @@ assert(
   page.includes('openCorrection') && page.includes('submitCorrection'),
   '组长检查列表必须提供修改不正确内容入口并提交正式修订。'
 )
+const reviewSubmissionCall =
+  page.match(/reviewTeamLeaderSubmission\(\{[\s\S]*?\}\)/)?.[0] || ''
 assert(
-  !/reviewTeamLeaderSubmission\(\{[\s\S]*afterPayload/.test(page),
+  !reviewSubmissionCall.includes('afterPayload'),
   '复核判定接口不得携带修正 payload，修改必须走 event-revision 正式日志链路。'
 )
 assert(

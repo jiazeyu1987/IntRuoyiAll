@@ -20,41 +20,497 @@ const catalogController = readOptional(
 const catalogService = readOptional(
   '../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/mesprocess/MesProMesProcessServiceImpl.java'
 )
+const catalogDo = readOptional(
+  '../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/dataobject/pro/mesprocess/MesProMesProcessCatalogDO.java'
+)
+const catalogMachineryDo = readOptional(
+  '../IntRuoyiBackend/yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/dal/dataobject/pro/mesprocess/MesProMesProcessCatalogMachineryDO.java'
+)
 
 const expectedRows = [
-  [2, '二代压力泵', '粗洗', 'B09393', '粗洗'],
-  [3, '二代压力泵', '精洗', 'B09353', '精洗'],
-  [4, '二代压力泵', '清洗', 'B09353', '清洗'],
-  [5, '二代压力泵', '烘干', 'B09041', '清洗'],
-  [6, '二代压力泵', '清洁', '/', '清洁'],
-  [7, '二代压力泵', '组装', 'B09340', '组装Ⅰ'],
-  [8, '二代压力泵', '编织管自动抽芯点胶', 'A03378/A03377', '/'],
-  [9, '二代压力泵', '点胶二代编织管表', 'A05059', '光固'],
-  [10, '二代压力泵', '硅化', 'B09026', '硅化Ⅱ'],
-  [11, '二代压力泵', '硅化胶塞环', '/', '硅化Ⅲ'],
-  [12, '二代压力泵', '螺杆硅化', '/', '硅化Ⅰ'],
-  [13, '二代压力泵', '组装后盖', '/', '组装Ⅱ'],
-  [14, '二代压力泵', '二代压力泵手柄耐压检测', '/', '/'],
-  [15, '二代压力泵', '压活塞', 'G01034', '/'],
-  [16, '二代压力泵', '套外套', '/', '/'],
-  [17, '二代压力泵', '目测二代异物', '/', '/'],
-  [18, '二代压力泵', '点胶二代压力泵', '/', '组装Ⅲ'],
-  [19, '二代压力泵', '二代压力泵负压检测', 'B09032/G01160', '检测'],
-  [20, '二代压力泵', '测二代压力泵全套', 'G01143', '检测'],
-  [21, '二代压力泵', '全检压力泵（内）', '/', '/'],
-  [22, '二代压力泵', '压力泵热合(顶头袋封口）', 'A05199/A05203', '单包装'],
-  [23, '二代压力泵', '压力泵热合（吸塑盒面纸热合）', 'A05048/A03274', '单包装'],
-  [24, '二代压力泵', '全检压力泵', '/', '/'],
-  [25, '二代压力泵', '贴条形码', 'G01235', '/'],
-  [26, '压力泵（硬吸塑）', 'W贴产品标签（大标签）', '/', '中包装'],
-  [27, '压力泵（硬吸塑）', 'W贴产品标签（小标签）', '/', '大包装'],
-  [28, '压力泵（硬吸塑）', '压力泵中盒（说明书）', '/', ''],
-  [29, '压力泵（硬吸塑）', 'W包装打包', 'G01248', ''],
-  [30, '压力泵（散装套袋）', '散装压力泵（套袋）', '/', ''],
-  [31, '压力泵（散装套袋）', 'W包装打包', '/', ''],
-  [32, '压力泵（散装不套袋）', '散装压力泵', '/', ''],
-  [33, '压力泵（散装不套袋）', 'W包装打包', '/', '']
+  {
+    sourceRowNo: 2,
+    productName: '二代压力泵',
+    sourceMachineryCodes: 'B09393',
+    mesProcessName: '粗洗',
+    sourceMachineryName: '超声波清洗机',
+    sourceMachineryQuantity: '1',
+    dailyCapacity10_5: '/',
+    dailyWorkerQuantity: '/',
+    mesProcessCode: '/',
+    processPrice: '/',
+    feedbackFlag: '/',
+    batchRecordFlag: '是',
+    batchRecordProcessName: '粗洗'
+  },
+  {
+    sourceRowNo: 3,
+    productName: '二代压力泵',
+    sourceMachineryCodes: 'B09353',
+    mesProcessName: '精洗',
+    sourceMachineryName: '超声波清洗机',
+    sourceMachineryQuantity: '1',
+    dailyCapacity10_5: '/',
+    dailyWorkerQuantity: '/',
+    mesProcessCode: '/',
+    processPrice: '/',
+    feedbackFlag: '/',
+    batchRecordFlag: '是',
+    batchRecordProcessName: '精洗'
+  },
+  {
+    sourceRowNo: 4,
+    productName: '二代压力泵',
+    sourceMachineryCodes: 'B09353',
+    mesProcessName: '清洗',
+    sourceMachineryName: '超声波清洗机',
+    sourceMachineryQuantity: '1',
+    dailyCapacity10_5: '/',
+    dailyWorkerQuantity: '/',
+    mesProcessCode: '/',
+    processPrice: '/',
+    feedbackFlag: '/',
+    batchRecordFlag: '是（两道合并）',
+    batchRecordProcessName: '清洗'
+  },
+  {
+    sourceRowNo: 5,
+    productName: '二代压力泵',
+    sourceMachineryCodes: 'B09041',
+    mesProcessName: '烘干',
+    sourceMachineryName: '箱型干燥机',
+    sourceMachineryQuantity: '1',
+    dailyCapacity10_5: '/',
+    dailyWorkerQuantity: '/',
+    mesProcessCode: '/',
+    processPrice: '/',
+    feedbackFlag: '/',
+    batchRecordFlag: '是（两道合并）',
+    batchRecordProcessName: '清洗'
+  },
+  {
+    sourceRowNo: 6,
+    productName: '二代压力泵',
+    sourceMachineryCodes: '/',
+    mesProcessName: '清洁',
+    sourceMachineryName: '无尘布/75%酒精',
+    sourceMachineryQuantity: '/',
+    dailyCapacity10_5: '/',
+    dailyWorkerQuantity: '/',
+    mesProcessCode: '/',
+    processPrice: '/',
+    feedbackFlag: '/',
+    batchRecordFlag: '是',
+    batchRecordProcessName: '清洁'
+  },
+  {
+    sourceRowNo: 7,
+    productName: '二代压力泵',
+    sourceMachineryCodes: 'B09340',
+    mesProcessName: '组装',
+    sourceMachineryName: '杠杆架自动组装机',
+    sourceMachineryQuantity: '1',
+    dailyCapacity10_5: '5800',
+    dailyWorkerQuantity: '/',
+    mesProcessCode: '/',
+    processPrice: '/',
+    feedbackFlag: '/',
+    batchRecordFlag: '是',
+    batchRecordProcessName: '组装Ⅰ'
+  },
+  {
+    sourceRowNo: 8,
+    productName: '二代压力泵',
+    sourceMachineryCodes: 'A03378/A03377',
+    mesProcessName: '编织管自动抽芯点胶',
+    sourceMachineryName: '编织管自动抽芯点胶',
+    sourceMachineryQuantity: '1',
+    dailyCapacity10_5: '7000',
+    dailyWorkerQuantity: '/',
+    mesProcessCode: '/',
+    processPrice: '/',
+    feedbackFlag: '/',
+    batchRecordFlag: '/',
+    batchRecordProcessName: '/'
+  },
+  {
+    sourceRowNo: 9,
+    productName: '二代压力泵',
+    sourceMachineryCodes: 'A05059',
+    mesProcessName: '点胶二代编织管表',
+    sourceMachineryName: '光固机',
+    sourceMachineryQuantity: '1',
+    dailyCapacity10_5: '3500',
+    dailyWorkerQuantity: '3',
+    mesProcessCode: 'Z1500',
+    processPrice: '0.2224',
+    feedbackFlag: '是',
+    batchRecordFlag: '是',
+    batchRecordProcessName: '光固'
+  },
+  {
+    sourceRowNo: 10,
+    productName: '二代压力泵',
+    sourceMachineryCodes: 'B09026',
+    mesProcessName: '硅化',
+    sourceMachineryName: '喷套筒',
+    sourceMachineryQuantity: '1',
+    dailyCapacity10_5: '9000',
+    dailyWorkerQuantity: '1',
+    mesProcessCode: 'Z1520',
+    processPrice: '0.0259',
+    feedbackFlag: '是',
+    batchRecordFlag: '是',
+    batchRecordProcessName: '硅化Ⅱ'
+  },
+  {
+    sourceRowNo: 11,
+    productName: '二代压力泵',
+    sourceMachineryCodes: '/',
+    mesProcessName: '硅化胶塞环',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '/',
+    dailyCapacity10_5: '/',
+    dailyWorkerQuantity: '/',
+    mesProcessCode: '/',
+    processPrice: '/',
+    feedbackFlag: '/',
+    batchRecordFlag: '是',
+    batchRecordProcessName: '硅化Ⅲ'
+  },
+  {
+    sourceRowNo: 12,
+    productName: '二代压力泵',
+    sourceMachineryCodes: '/',
+    mesProcessName: '螺杆硅化',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '/',
+    dailyCapacity10_5: '9000',
+    dailyWorkerQuantity: '1',
+    mesProcessCode: 'Z1530',
+    processPrice: '0.0259',
+    feedbackFlag: '是',
+    batchRecordFlag: '是',
+    batchRecordProcessName: '硅化Ⅰ'
+  },
+  {
+    sourceRowNo: 13,
+    productName: '二代压力泵',
+    sourceMachineryCodes: '/',
+    mesProcessName: '组装后盖',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '/',
+    dailyCapacity10_5: '4000',
+    dailyWorkerQuantity: '1',
+    mesProcessCode: 'Z1490',
+    processPrice: '0.0597',
+    feedbackFlag: '是',
+    batchRecordFlag: '是',
+    batchRecordProcessName: '组装Ⅱ'
+  },
+  {
+    sourceRowNo: 14,
+    productName: '二代压力泵',
+    sourceMachineryCodes: '/',
+    mesProcessName: '二代压力泵手柄耐压检测',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '/',
+    dailyCapacity10_5: '4200',
+    dailyWorkerQuantity: '1',
+    mesProcessCode: 'Z1570',
+    processPrice: '0.0738',
+    feedbackFlag: '是',
+    batchRecordFlag: '/',
+    batchRecordProcessName: '/'
+  },
+  {
+    sourceRowNo: 15,
+    productName: '二代压力泵',
+    sourceMachineryCodes: 'G01034',
+    mesProcessName: '压活塞',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '1',
+    dailyCapacity10_5: '10000',
+    dailyWorkerQuantity: '1',
+    mesProcessCode: 'Z1510',
+    processPrice: '0.0254',
+    feedbackFlag: '是',
+    batchRecordFlag: '/',
+    batchRecordProcessName: '/'
+  },
+  {
+    sourceRowNo: 16,
+    productName: '二代压力泵',
+    sourceMachineryCodes: '/',
+    mesProcessName: '套外套',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '/',
+    dailyCapacity10_5: '4000',
+    dailyWorkerQuantity: '1',
+    mesProcessCode: 'Z1650',
+    processPrice: '0.0701',
+    feedbackFlag: '是',
+    batchRecordFlag: '/',
+    batchRecordProcessName: '/'
+  },
+  {
+    sourceRowNo: 17,
+    productName: '二代压力泵',
+    sourceMachineryCodes: '/',
+    mesProcessName: '目测二代异物',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '/',
+    dailyCapacity10_5: '1900',
+    dailyWorkerQuantity: '1',
+    mesProcessCode: 'Z1550',
+    processPrice: '0.1911',
+    feedbackFlag: '是',
+    batchRecordFlag: '/',
+    batchRecordProcessName: '/'
+  },
+  {
+    sourceRowNo: 18,
+    productName: '二代压力泵',
+    sourceMachineryCodes: '/',
+    mesProcessName: '点胶二代压力泵',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '/',
+    dailyCapacity10_5: '4000',
+    dailyWorkerQuantity: '3',
+    mesProcessCode: 'Z1560',
+    processPrice: '0.2272',
+    feedbackFlag: '是',
+    batchRecordFlag: '是',
+    batchRecordProcessName: '组装Ⅲ'
+  },
+  {
+    sourceRowNo: 19,
+    productName: '二代压力泵',
+    sourceMachineryCodes: 'B09032/G01160',
+    mesProcessName: '二代压力泵负压检测',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '2',
+    dailyCapacity10_5: '4000',
+    dailyWorkerQuantity: '1',
+    mesProcessCode: 'Z1610',
+    processPrice: '0.0834',
+    feedbackFlag: '是',
+    batchRecordFlag: '是（两道合并）',
+    batchRecordProcessName: '检测'
+  },
+  {
+    sourceRowNo: 20,
+    productName: '二代压力泵',
+    sourceMachineryCodes: 'G01143',
+    mesProcessName: '测二代压力泵全套',
+    sourceMachineryName: '小气压检测',
+    sourceMachineryQuantity: '1',
+    dailyCapacity10_5: '2000',
+    dailyWorkerQuantity: '1',
+    mesProcessCode: 'Z1580',
+    processPrice: '0.1509',
+    feedbackFlag: '是',
+    batchRecordFlag: '是（两道合并）',
+    batchRecordProcessName: '检测'
+  },
+  {
+    sourceRowNo: 21,
+    productName: '二代压力泵',
+    sourceMachineryCodes: '/',
+    mesProcessName: '全检压力泵（内）',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '/',
+    dailyCapacity10_5: '2500',
+    dailyWorkerQuantity: '1',
+    mesProcessCode: 'Z1590',
+    processPrice: '0.1406',
+    feedbackFlag: '是',
+    batchRecordFlag: '/',
+    batchRecordProcessName: '/'
+  },
+  {
+    sourceRowNo: 22,
+    productName: '二代压力泵',
+    sourceMachineryCodes: 'A05199/A05203',
+    mesProcessName: '压力泵热合(顶头袋封口）',
+    sourceMachineryName: '封口热合机',
+    sourceMachineryQuantity: '2',
+    dailyCapacity10_5: '7600',
+    dailyWorkerQuantity: '8',
+    mesProcessCode: 'Z560',
+    processPrice: '0.3338',
+    feedbackFlag: '是',
+    batchRecordFlag: '是（两道合并）',
+    batchRecordProcessName: '单包装'
+  },
+  {
+    sourceRowNo: 23,
+    productName: '二代压力泵',
+    sourceMachineryCodes: 'A05048/A03274',
+    mesProcessName: '压力泵热合（吸塑盒面纸热合）',
+    sourceMachineryName: '封口热合机',
+    sourceMachineryQuantity: '2',
+    dailyCapacity10_5: '7600',
+    dailyWorkerQuantity: '8',
+    mesProcessCode: 'Z560',
+    processPrice: '0.3338',
+    feedbackFlag: '是',
+    batchRecordFlag: '是（两道合并）',
+    batchRecordProcessName: '单包装'
+  },
+  {
+    sourceRowNo: 24,
+    productName: '二代压力泵',
+    sourceMachineryCodes: '/',
+    mesProcessName: '全检压力泵',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '/',
+    dailyCapacity10_5: '3800',
+    dailyWorkerQuantity: '1',
+    mesProcessCode: 'Z5623',
+    processPrice: '0.0834',
+    feedbackFlag: '是',
+    batchRecordFlag: '/',
+    batchRecordProcessName: '/'
+  },
+  {
+    sourceRowNo: 25,
+    productName: '二代压力泵',
+    sourceMachineryCodes: 'G01235',
+    mesProcessName: '贴条形码',
+    sourceMachineryName: '贴标机',
+    sourceMachineryQuantity: '1',
+    dailyCapacity10_5: '10000',
+    dailyWorkerQuantity: '1',
+    mesProcessCode: 'Z6133',
+    processPrice: '0.0235',
+    feedbackFlag: '是',
+    batchRecordFlag: '/',
+    batchRecordProcessName: '/'
+  },
+  {
+    sourceRowNo: 26,
+    productName: '压力泵（硬吸塑）',
+    sourceMachineryCodes: '/',
+    mesProcessName: 'W贴产品标签（大标签）',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '/',
+    dailyCapacity10_5: '9581',
+    dailyWorkerQuantity: '',
+    mesProcessCode: '',
+    processPrice: '',
+    feedbackFlag: '',
+    batchRecordFlag: '',
+    batchRecordProcessName: '中包装'
+  },
+  {
+    sourceRowNo: 27,
+    productName: '压力泵（硬吸塑）',
+    sourceMachineryCodes: '/',
+    mesProcessName: 'W贴产品标签（小标签）',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '/',
+    dailyCapacity10_5: '37405',
+    dailyWorkerQuantity: '',
+    mesProcessCode: '',
+    processPrice: '',
+    feedbackFlag: '',
+    batchRecordFlag: '',
+    batchRecordProcessName: '大包装'
+  },
+  {
+    sourceRowNo: 28,
+    productName: '压力泵（硬吸塑）',
+    sourceMachineryCodes: '/',
+    mesProcessName: '压力泵中盒（说明书）',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '/',
+    dailyCapacity10_5: '3412',
+    dailyWorkerQuantity: '',
+    mesProcessCode: '',
+    processPrice: '',
+    feedbackFlag: '',
+    batchRecordFlag: '',
+    batchRecordProcessName: ''
+  },
+  {
+    sourceRowNo: 29,
+    productName: '压力泵（硬吸塑）',
+    sourceMachineryCodes: 'G01248',
+    mesProcessName: 'W包装打包',
+    sourceMachineryName: '包装线',
+    sourceMachineryQuantity: '1',
+    dailyCapacity10_5: '8180',
+    dailyWorkerQuantity: '',
+    mesProcessCode: '',
+    processPrice: '',
+    feedbackFlag: '',
+    batchRecordFlag: '',
+    batchRecordProcessName: ''
+  },
+  {
+    sourceRowNo: 30,
+    productName: '压力泵（散装套袋）',
+    sourceMachineryCodes: '/',
+    mesProcessName: '散装压力泵（套袋）',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '/',
+    dailyCapacity10_5: '1838',
+    dailyWorkerQuantity: '',
+    mesProcessCode: '',
+    processPrice: '',
+    feedbackFlag: '',
+    batchRecordFlag: '',
+    batchRecordProcessName: ''
+  },
+  {
+    sourceRowNo: 31,
+    productName: '压力泵（散装套袋）',
+    sourceMachineryCodes: '/',
+    mesProcessName: 'W包装打包',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '/',
+    dailyCapacity10_5: '20450',
+    dailyWorkerQuantity: '',
+    mesProcessCode: '',
+    processPrice: '',
+    feedbackFlag: '',
+    batchRecordFlag: '',
+    batchRecordProcessName: ''
+  },
+  {
+    sourceRowNo: 32,
+    productName: '压力泵（散装不套袋）',
+    sourceMachineryCodes: '/',
+    mesProcessName: '散装压力泵',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '/',
+    dailyCapacity10_5: '3937',
+    dailyWorkerQuantity: '',
+    mesProcessCode: '',
+    processPrice: '',
+    feedbackFlag: '',
+    batchRecordFlag: '',
+    batchRecordProcessName: ''
+  },
+  {
+    sourceRowNo: 33,
+    productName: '压力泵（散装不套袋）',
+    sourceMachineryCodes: '/',
+    mesProcessName: 'W包装打包',
+    sourceMachineryName: '/',
+    sourceMachineryQuantity: '/',
+    dailyCapacity10_5: '24540',
+    dailyWorkerQuantity: '',
+    mesProcessCode: '',
+    processPrice: '',
+    feedbackFlag: '',
+    batchRecordFlag: '',
+    batchRecordProcessName: ''
+  }
 ]
+
+const sqlString = (value) => `'${String(value).replace(/'/g, "''")}'`
 
 assert.ok(page.includes('【生产】MES工序'), '页面标题必须显示为 MES工序')
 assert.ok(
@@ -92,7 +548,9 @@ assert.ok(page.includes('formatSourceText'), '页面必须以源表原值展示 
 assert.ok(catalogController.includes('/mes/pro/mes-process'), '后端必须提供独立 MES 工序目录 Controller')
 assert.ok(catalogController.includes("'mes:pro-mes-process:query'"), '独立接口必须使用 MES工序查询权限')
 assert.ok(catalogService.includes('MesProMesProcessCatalogMapper'), '服务必须读取正式 MES 工序目录表')
-assert.ok(catalogService.includes('sourceRowNo'), '服务必须保留 Excel 源行号用于精确核对')
+assert.ok(catalogService.includes('getSourceRowNo'), '服务必须保留 Excel 源行号用于精确核对')
+assert.ok(catalogDo.includes('@TenantIgnore'), 'Excel 只读目录主表必须忽略租户过滤，避免 tenant_id=0 源基线在业务租户下不可见')
+assert.ok(catalogMachineryDo.includes('@TenantIgnore'), 'Excel 只读目录设备明细必须忽略租户过滤，避免明细表被当前租户条件过滤')
 assert.ok(catalogSql.includes('mes_pro_mes_process_catalog'), '迁移必须创建或填充 MES 工序目录主表')
 assert.ok(catalogSql.includes('mes_pro_mes_process_catalog_machinery'), '迁移必须拆分设备编码明细表')
 assert.equal(
@@ -104,15 +562,36 @@ assert.ok(!catalogSql.includes('source_row_no, 34'), '第 34 行孤立产能值�
 assert.ok(!catalogSql.includes('source_row_no, 35'), '第 35 行孤立产能值不得作为 MES 工序导入')
 assert.ok(!catalogSql.includes('source_row_no, 36'), '第 36 行孤立产能值不得作为 MES 工序导入')
 
-for (const [sourceRowNo, productName, processName, machineryCodes, batchRecordProcessName] of expectedRows) {
-  assert.ok(catalogSql.includes(`PUMP2-MES-${String(sourceRowNo - 1).padStart(4, '0')}`), `缺少目录编码：sourceRowNo=${sourceRowNo}`)
-  assert.ok(catalogSql.includes(`'${productName}'`), `缺少产品名称：${productName}`)
-  assert.ok(catalogSql.includes(`'${processName}'`), `缺少工序名称：${processName}`)
-  assert.ok(catalogSql.includes(`source_row_no=${sourceRowNo}`), `缺少源行号标记：${sourceRowNo}`)
-  assert.ok(catalogSql.includes(`'${machineryCodes}'`), `缺少源设备编码：${machineryCodes}`)
-  if (batchRecordProcessName) {
-    assert.ok(catalogSql.includes(`'${batchRecordProcessName}'`), `缺少批记录工序名称：${batchRecordProcessName}`)
-  }
+for (const [index, row] of expectedRows.entries()) {
+  const sourceId = 9003131001 + index
+  const sortNo = index + 1
+  const catalogCode = `PUMP2-MES-${String(sortNo).padStart(4, '0')}`
+  const expectedTuple = [
+    sourceId,
+    sqlString('压力泵工序.xlsx'),
+    sqlString('二代压力泵'),
+    row.sourceRowNo,
+    sortNo,
+    sqlString(catalogCode),
+    sqlString(row.productName),
+    sqlString(row.sourceMachineryCodes),
+    sqlString(row.mesProcessName),
+    sqlString(row.sourceMachineryName),
+    sqlString(row.sourceMachineryQuantity),
+    sqlString(row.dailyCapacity10_5),
+    sqlString(row.dailyWorkerQuantity),
+    sqlString(row.mesProcessCode),
+    sqlString(row.processPrice),
+    sqlString(row.feedbackFlag),
+    sqlString(row.batchRecordFlag),
+    sqlString(row.batchRecordProcessName),
+    sqlString('codex'),
+    sqlString('codex'),
+    "b'0'",
+    0
+  ].join(', ')
+  assert.ok(catalogSql.includes(`source_row_no=${row.sourceRowNo}`), `缺少源行号标记：${row.sourceRowNo}`)
+  assert.ok(catalogSql.includes(`(${expectedTuple})`), `SQL 种子与 Excel 第 ${row.sourceRowNo} 行 12 列原始值不一致`)
 }
 
 for (const machineryCode of ['B09032', 'G01160', 'A05199', 'A05203', 'A05048', 'A03274']) {

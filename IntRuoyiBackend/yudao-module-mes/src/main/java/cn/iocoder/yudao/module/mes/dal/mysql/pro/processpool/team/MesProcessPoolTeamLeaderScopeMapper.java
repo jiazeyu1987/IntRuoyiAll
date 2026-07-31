@@ -16,4 +16,12 @@ public interface MesProcessPoolTeamLeaderScopeMapper extends BaseMapperX<MesProc
                 .eqIfPresent(MesProcessPoolTeamLeaderScopeDO::getLeaderType, leaderType)
                 .eq(MesProcessPoolTeamLeaderScopeDO::getEnabled, Boolean.TRUE));
     }
+
+    default List<MesProcessPoolTeamLeaderScopeDO> selectActiveScopesByLeaderType(String leaderType) {
+        return selectList(new LambdaQueryWrapperX<MesProcessPoolTeamLeaderScopeDO>()
+                .eq(MesProcessPoolTeamLeaderScopeDO::getLeaderType, leaderType)
+                .eq(MesProcessPoolTeamLeaderScopeDO::getEnabled, Boolean.TRUE)
+                .orderByAsc(MesProcessPoolTeamLeaderScopeDO::getLeaderUserId)
+                .orderByAsc(MesProcessPoolTeamLeaderScopeDO::getEmployeeUserId));
+    }
 }

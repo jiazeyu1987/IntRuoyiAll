@@ -1030,6 +1030,18 @@ public interface ErrorCodeConstants {
             "提交设备/工作站上下文与授权工序不一致，submittedDeviceId={}, submittedWorkstationId={}, expectedDeviceId={}, expectedWorkstationId={}");
     ErrorCode PRO_FRONTLINE_TEMPLATE_MISMATCH = new ErrorCode(1_040_760_112,
             "提交模板编号与当前实际员工工序模板不一致：{}");
+    ErrorCode PRO_FRONTLINE_PQC_ACTIVE_ORDER_EMPTY = new ErrorCode(1_040_760_113,
+            "当前没有活跃订单，PQC 不能选择订单");
+    ErrorCode PRO_FRONTLINE_PQC_ACTIVE_ORDER_REQUIRED = new ErrorCode(1_040_760_114,
+            "PQC 选择的订单不是当前活跃订单，workOrderId={}, routeId={}");
+    ErrorCode PRO_FRONTLINE_PQC_ACTIVE_ORDER_ROUTE_REQUIRED = new ErrorCode(1_040_760_115,
+            "PQC 活跃订单缺少产品对应的正式工艺路线，workOrderId={}, productId={}, routeId={}");
+    ErrorCode PRO_FRONTLINE_PQC_ROUTE_PROCESS_EMPTY = new ErrorCode(1_040_760_116,
+            "PQC 活跃订单对应工艺路线没有可选工序，workOrderId={}, routeId={}");
+    ErrorCode PRO_FRONTLINE_PQC_PERSONNEL_EMPTY = new ErrorCode(1_040_760_117,
+            "PQC 员工和 PQC 组长来源为空，无法切换填写员工");
+    ErrorCode PRO_FRONTLINE_PQC_EMPLOYEE_NOT_BOUND = new ErrorCode(1_040_760_118,
+            "实际填写员工 {} 不属于 PQC 员工或 PQC 组长");
 
     // ========== MES 工序池审核副本（1-040-760-200） ==========
     ErrorCode PRO_PROCESS_POOL_REVIEW_COPY_FIELD_MAPPING_REQUIRED = new ErrorCode(1_040_760_200,

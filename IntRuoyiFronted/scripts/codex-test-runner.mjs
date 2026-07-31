@@ -416,6 +416,9 @@ Execution strategy: create one temporary Node.js Playwright script under ${WORKI
 Do not inspect the repository before the first browser attempt; inspect local source only if the browser path is blocked by selectors, routes, or prerequisite evidence.
 When the temporary script prints raw JSON with checkpointResults, return that JSON immediately.
 For Element Plus dialogs, click visible buttons by accessible role or exact visible text.
+Element Plus dialog/drawer footer action buttons such as save or confirm may be outside the field form scope; after filling fields, search the entire visible dialog/drawer or page for 保存/确定/提交, not only the field form scope.
+Use this deterministic Element Plus footer selector after filling a dialog or drawer: page.locator('.el-dialog__footer button, .el-drawer__footer button').filter({ hasText: /保存|确定|提交/ }).last().click().
+For field-selector list filters, first read the visible selected field label and use the matching identifier input instead of assuming a name field exists. On the 工艺路线 list, the default selected field is 路线编码; for the fixed basic-maintenance sample, search with route code TN-ROUTE-BASIC-001 before trying route name.
 Playwright project root: ${FRONTEND_PROJECT_ROOT}
 Project guidance root: ${PROJECT_ROOT}
 Playwright dependency note: temporary Node scripts can use require('playwright') because NODE_PATH includes ${FRONTEND_PROJECT_ROOT}/node_modules.
