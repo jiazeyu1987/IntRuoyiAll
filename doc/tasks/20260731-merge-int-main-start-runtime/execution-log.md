@@ -56,3 +56,6 @@
 - GREEN: task-closeout-apply -> PASS, deleted the task-owned `.runtime\20260731-merge-int-main-start-runtime` directory while the live services continued writing under `output\runtime\int_batch`.
 - BLOCKER: recompute-worktree-merge-abort -> `git merge --abort` could not reset four locally preserved ERP runtime files because the temporary recomputation index differed from its worktree.
 - GREEN: recompute-worktree-remove -> PASS, after the resolved merge tree and preserved ERP blob evidence were committed in the primary workspace, the task-owned `D:\IntRuoyiWorktree\recompute-int-main-merge-20260731` was removed with `git worktree remove --force`; the path no longer exists and is no longer registered.
+- GREEN: github-large-blob-preflight -> PASS, no blob larger than `100 MB` exists in `origin/int_batch..HEAD`.
+- GREEN: branch-push -> PASS, `git push origin int_batch` advanced the remote from `e321af17` to `a72cb6ed`.
+- GREEN: final-status -> PASS, the task is completed; final records are committed and pushed separately after this status update.

@@ -33,6 +33,8 @@
 - Implementation commit -> PASS, `179de5e0`.
 - Cleanup preview/apply -> PASS, only the task-owned `.runtime\20260731-merge-int-main-start-runtime` directory was deleted; all four required task records were kept.
 - Temporary recomputation worktree -> PASS, `D:\IntRuoyiWorktree\recompute-int-main-merge-20260731` was removed after its merge-tree evidence was committed; Git registration and physical path are both absent.
+- GitHub large-blob preflight -> PASS, no unpushed blob exceeded `100 MB`.
+- Push -> PASS, `origin/int_batch` advanced from `e321af17` to `a72cb6ed`; final completed-status commit is pushed immediately after creation.
 
 ## Resolved Blocker Detail
 
