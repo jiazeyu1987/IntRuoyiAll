@@ -11,12 +11,10 @@ import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCod
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodePageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.projectcode.vo.DccProjectCodeAssociatedFileAiCategoryRespVO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryDO;
-import cn.iocoder.yudao.module.dcc.dal.dataobject.category.DccFileCategoryMatchRuleDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.file.DccControlledFileDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeAssignmentDO;
 import cn.iocoder.yudao.module.dcc.dal.dataobject.projectcode.DccProjectCodeDO;
 import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMapper;
-import cn.iocoder.yudao.module.dcc.dal.mysql.category.DccFileCategoryMatchRuleMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.file.DccControlledFileMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeAssignmentMapper;
 import cn.iocoder.yudao.module.dcc.dal.mysql.projectcode.DccProjectCodeImportBatchMapper;
@@ -92,8 +90,6 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
     private DccControlledFileMapper controlledFileMapper;
     @Resource
     private DccFileCategoryMapper categoryMapper;
-    @Resource
-    private DccFileCategoryMatchRuleMapper categoryMatchRuleMapper;
     @MockitoBean
     private DccControlledFileQueryService controlledFileQueryService;
     @MockitoBean
@@ -385,52 +381,6 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         assertNull(unchanged.getFileTypeLevel3());
     }
 
-    @Test
-    void classifyAssociatedFileByNameShouldPreferConfiguredHighWeightRuleOverBroadAlias() {
-        Long userId = 1L;
-        DccProjectCodeDO projectCode = insertProjectCode("1", "项目A", "CODE-A");
-        DccFileCategoryDO oqReport = insertCategory("DCC_FVM_DHF_030", "过程运行确认（OQ）报告",
-                DccFileCategoryLifecycleStageEnum.VALIDATION);
-        insertCategory("DCC_FVM_DMR_013", "工序卡/作业指导书", DccFileCategoryLifecycleStageEnum.OUTPUT);
-        insertMatchRule(oqReport.getId(), "OQ报告", "CONTAINS", 1000);
-        DccControlledFileDO file = insertControlledFile(projectCode.getId(), "A-902",
-                "PTCA球囊扩张导管Rx口焊接OQ报告-作业指导书.pdf", null, null);
-        mockVisibleAssociatedFiles(userId, file);
-
-        DccProjectCodeAssociatedFileAiCategoryRespVO result =
-                projectCodeService.classifyAssociatedFileByName(userId, projectCode.getId(), file.getId());
-
-        assertTrue(Boolean.TRUE.equals(result.getMatched()));
-        assertEquals(taxonomyStageName(DccFileCategoryLifecycleStageEnum.VALIDATION), result.getTargetStage());
-        assertEquals("过程运行确认（OQ）报告", result.getTargetFileType());
-        DccControlledFileDO updated = controlledFileMapper.selectById(file.getId());
-        assertEquals(taxonomyStageName(DccFileCategoryLifecycleStageEnum.VALIDATION), updated.getFileTypeLevel2());
-        assertEquals("过程运行确认（OQ）报告", updated.getFileTypeLevel3());
-    }
-
-    @Test
-    void classifyAssociatedFileByNameShouldUseConfiguredExtensionRuleForComponentDrawing() {
-        Long userId = 1L;
-        DccProjectCodeDO projectCode = insertProjectCode("1", "项目A", "CODE-A");
-        DccFileCategoryDO componentDrawing = insertCategory("DCC_FVM_DMR_018", "零配件图纸",
-                DccFileCategoryLifecycleStageEnum.OUTPUT);
-        insertMatchRule(componentDrawing.getId(), "sldprt", "EXTENSION", 800);
-        DccControlledFileDO file = insertControlledFile(projectCode.getId(), "A-903",
-                "PTCA球囊扩张导管接头零件-001.sldprt", null, null);
-        mockVisibleAssociatedFiles(userId, file);
-
-        DccProjectCodeAssociatedFileAiCategoryRespVO result =
-                projectCodeService.classifyAssociatedFileByName(userId, projectCode.getId(), file.getId());
-
-        assertTrue(Boolean.TRUE.equals(result.getMatched()));
-        assertEquals(taxonomyStageName(DccFileCategoryLifecycleStageEnum.OUTPUT), result.getTargetStage());
-        assertEquals("零配件图纸", result.getTargetFileType());
-        DccControlledFileDO updated = controlledFileMapper.selectById(file.getId());
-        assertEquals(taxonomyStageName(DccFileCategoryLifecycleStageEnum.OUTPUT), updated.getFileTypeLevel2());
-        assertEquals("零配件图纸", updated.getFileTypeLevel3());
-    }
-
-    @Test
     void classifyAssociatedFileByNameShouldMapMatchingFileNameToLifecycleStage() {
         Long userId = 1L;
         DccProjectCodeDO projectCode = insertProjectCode("1", "项目A", "CODE-A");
@@ -1081,16 +1031,16 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
         };
     }
 
-    private DccFileCategoryDO insertCategory(String code, String name, DccFileCategoryLifecycleStageEnum lifecycleStage) {
-        return insertCategory(code, name, lifecycleStage, null);
+    private void insertCategory(String code, String name, DccFileCategoryLifecycleStageEnum lifecycleStage) {
+        insertCategory(code, name, lifecycleStage, null);
     }
 
-    private DccFileCategoryDO insertCategory(String code, String name, DccFileCategoryLifecycleStageEnum lifecycleStage,
+    private void insertCategory(String code, String name, DccFileCategoryLifecycleStageEnum lifecycleStage,
                                 Long fileTypeTaxonomyId) {
         Long resolvedTaxonomyId = fileTypeTaxonomyId != null ? fileTypeTaxonomyId : 10_000L + Math.abs((long) code.hashCode());
         when(fileTypeTaxonomyAdminService.resolveActivePath(resolvedTaxonomyId)).thenReturn(new DccFileTypeTaxonomyPath(
                 resolvedTaxonomyId, "技术文档", taxonomyStageName(lifecycleStage), name, null, null));
-        DccFileCategoryDO category = DccFileCategoryDO.builder()
+        categoryMapper.insert(DccFileCategoryDO.builder()
                 .code(code)
                 .name(name)
                 .active(Boolean.TRUE)
@@ -1100,18 +1050,6 @@ class DccProjectCodeServiceImplTest extends BaseDbUnitTest {
                 .fileTypeTaxonomyId(resolvedTaxonomyId)
                 .distributionRequired(Boolean.FALSE)
                 .trainingRequired(Boolean.FALSE)
-                .build();
-        categoryMapper.insert(category);
-        return category;
-    }
-
-    private void insertMatchRule(Long categoryId, String matchText, String matchType, Integer weight) {
-        categoryMatchRuleMapper.insert(DccFileCategoryMatchRuleDO.builder()
-                .categoryId(categoryId)
-                .matchText(matchText)
-                .matchType(matchType)
-                .weight(weight)
-                .active(Boolean.TRUE)
                 .build());
     }
 

@@ -32,6 +32,7 @@
 - M3 progress: 已补充 Runner 统一执行参数、临时工作目录隔离和失败诊断尾部保留；静态 GREEN 已通过。
 - M3 progress: 真实页面创建工艺路线串行批次 `37` 后，首节点已不再创建仓库任务文档，但因后端缺少 `yudao.codex-test.artifact-temp-dir`，失败截图 artifact 上传被 fail-fast 拦截，批次 `37` 终态 `FAIL`。
 - M3 progress: 已新增 `CodexTestLocalConfigTest` 锁定本地 artifact 目录配置，并在 `application-local.yaml` 补齐 `artifact-temp-dir` 和 `artifact-retention-hours`。
+- M3 progress: 2026-07-31 复核发现 `CodexTestLocalConfigTest` 已存在但 `application-local.yaml` 实际缺少 artifact 配置；已重新补齐 `yudao.codex-test.artifact-temp-dir` 与 `artifact-retention-hours`，并完成静态断言与 Maven 定向回归。
 
 ## Verification Evidence
 
@@ -56,8 +57,15 @@
 - `BLOCKED/WAIT: mvn.cmd -pl yudao-server -Dtest=CodexTestLocalConfigTest test -> TIMEOUT after 180000ms with no surefire report; stopped only current task Maven PID 3952/82500 per Windows Maven timeout gate`
 - Real E2E preflight: `node doc\tasks\20260730-test-management-serial-routes-repair\run-serial-routes-real-e2e.mjs --preflight-only -> PASS` using explicit Chrome executable; page filtered all three route totals `4/6/4`, Runner session `95` online, `currentRunningCount=0`.
 - Real E2E partial: 页面顺序执行 `工艺路线节点闭环` -> execution `37`; final status `FAIL`, first case `BLOCKED` with `artifact 临时目录未配置`; remaining route cases correctly `BLOCKED` by serial predecessor failure.
+- `GREEN: rg -n -C 3 "artifact-temp-dir|artifact-retention-hours|codex-test" IntRuoyiBackend/yudao-server/src/main/resources/application-local.yaml -> PASS, local profile now contains Codex artifact temp dir and retention hours`
+- `GREEN: node stdin static config assertion -> PASS, application-local.yaml contains runtime-specific Codex artifact temp dir and retention hours`
+- `GREEN: git diff --check -- IntRuoyiBackend/yudao-server/src/main/resources/application-local.yaml -> PASS, only line-ending warning reported by Git`
+- `GREEN: mvn.cmd -pl yudao-server -Dtest=CodexTestLocalConfigTest test -> PASS, Tests run: 1, Failures: 0, Errors: 0, BUILD SUCCESS`
+- `GREEN: python C:\Users\BJB110\.codex\skills\bug-regression-fix-loop\scripts\validate_bug_regression.py --evidence E:\IntRuoyi\doc\tasks\20260730-test-management-serial-routes-repair\bug-regression-evidence.md -> PASS`
+- `BLOCKED/WAIT: Invoke-RestMethod http://127.0.0.1:48081/actuator/health -> connection refused after Maven GREEN; shared int_main backend still not listening, so real page three-route execution remains blocked`
 
 ## Blockers
 
 - 当前共享 `48081` 后端正在由独立 `20260731-restart-local-frontend-backend` 任务执行 full restart/package，health 暂不可达；本任务不得强停或接管该并行任务。
 - 待 `48081` 恢复后，需要确认新运行态已加载 `artifact-temp-dir` 配置，再重新从真实页面执行 3 条串行路线。
+- 2026-07-31 09:53 后复查：`48081` 仍拒绝连接；独立重启任务状态为 `blocked`，本任务未停止、重启或接管该任务进程。

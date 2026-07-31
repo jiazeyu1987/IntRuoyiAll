@@ -6,9 +6,9 @@
 
 ## Milestones
 
-- [ ] 读取并记录本地运行、任务收尾与适用经验门禁
-- [ ] 检查 `8081` / `48081` 端口当前占用与进程归属
-- [ ] 安全停止已确认归属的旧前后端进程
+- [x] 读取并记录本地运行、任务收尾与适用经验门禁
+- [x] 检查 `8081` / `48081` 端口当前占用与进程归属
+- [x] 安全停止已确认归属的旧后端进程
 - [ ] 启动后端 `48081` 与前端 `8081`
 - [ ] 验证后端 health 与前端 HTTP 可访问
 
@@ -26,7 +26,14 @@
 
 ## Current Status
 
-in_progress
+blocked
+
+## Blocker
+
+- 标准 full 重启脚本连续两次阻塞在后端 Maven 打包阶段：`mvn -pl yudao-server -am -DskipTests package` 均停在 `yudao-module-infra` 的 javac class 写入阶段。
+- `jcmd Thread.print` 显示 Maven JVM 主线程处于 `RUNNABLE`，调用栈停在 `sun.nio.ch.FileDispatcherImpl.write0` / `com.sun.tools.javac.jvm.ClassWriter.writeClass`，重复指向 Windows 文件写入阻塞。
+- 已停止本任务启动的卡住 Maven / 重启脚本进程，避免继续占用构建目录。
+- 当前 `48081` 未监听；`8081` 仍为重启前旧前端进程，full 脚本未执行到前端重启阶段。
 
 ## 设计约束检查
 

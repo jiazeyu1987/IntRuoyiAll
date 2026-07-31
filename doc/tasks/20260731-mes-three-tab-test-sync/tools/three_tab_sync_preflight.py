@@ -120,6 +120,13 @@ def sql_in(values):
     return "(" + ",".join(encoded) + ")"
 
 
+def id_sort_key(value):
+    text = str(value)
+    if re.fullmatch(r"-?\d+", text):
+        return (0, int(text))
+    return (1, text)
+
+
 def active_where(alias=""):
     prefix = f"{alias}." if alias else ""
     return f"{prefix}tenant_id = {TENANT_ID} AND {prefix}deleted = 0"
@@ -376,7 +383,7 @@ def compare_maps(source_map, target_map, columns):
 def check_dependency_table(report, dep_type, table, ids, columns, id_remap=None):
     id_remap = {str(k): str(v) for k, v in (id_remap or {}).items()}
     source_map, warn = table_map(LOCAL_MYSQL_CMD, table, ids, columns, f"local:{table}")
-    target_ids = sorted({id_remap.get(str(value), str(value)) for value in ids}, key=int)
+    target_ids = sorted({id_remap.get(str(value), str(value)) for value in ids}, key=id_sort_key)
     target_map, warn2 = table_map(REMOTE_MYSQL_CMD, table, target_ids, columns, f"remote:{table}")
     report["warnings"].extend(warn + warn2)
     compare_columns = [c for c in columns if c != "id"]

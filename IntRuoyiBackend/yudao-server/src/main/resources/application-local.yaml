@@ -280,6 +280,8 @@ yudao:
       open-ai-api-key: ${SHOWROOM_CODEX_IMAGE_OPENAI_API_KEY:}
       open-ai-base-url: ${SHOWROOM_CODEX_IMAGE_OPENAI_BASE_URL:}
   codex-test:
+    artifact-temp-dir: ${CODEX_TEST_ARTIFACT_TEMP_DIR:${INTRUOYI_RUNTIME_ARTIFACT_DIR:../output/runtime/${INTRUOYI_RUNTIME_PROFILE:int_main}/codex-test-artifacts}}
+    artifact-retention-hours: ${CODEX_TEST_ARTIFACT_RETENTION_HOURS:24}
     runner:
       token: ${CODEX_TEST_RUNNER_TOKEN:}
       heartbeat-timeout-seconds: ${CODEX_TEST_RUNNER_HEARTBEAT_TIMEOUT_SECONDS:60}

@@ -15,6 +15,7 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - 工艺路线首节点创建了 `doc/tasks/20260730-route-node-basic-maintenance-e2e/` 并执行 Git 基线提交；智能排产首节点创建了 `doc/tasks/20260730-smart-scheduling-workorder-admission-e2e/` 后达到 `600000ms` 超时。
 - 批记录首节点要求的 `E:\IntRuoyi\resource\批记录节点-解析样本.docx` 不存在。
 - 修复 Runner 隔离与固定样本后，从真实页面顺序执行 `工艺路线节点闭环` 创建批次 `37`；首节点不再触发仓库任务文档/Git 流程，但回写失败截图时被后端配置缺口阻断：`artifact 临时目录未配置`。
+- 2026-07-31 复核发现 artifact 配置回归测试已存在，但 `application-local.yaml` 实际未包含对应本地配置；补齐配置后，静态断言和 Maven 定向测试均通过。
 
 ## Root Cause
 
@@ -34,21 +35,27 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 
 ## RED
 
-- `node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js` -> FAIL，写入型任务没有独立推理预算和统一隔离策略。
-- `node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js` -> FAIL，Runner 工作目录仍为仓库根目录。
-- `node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js` -> FAIL，错误诊断未脱敏保留 stderr 尾部。
-- `node stdin static config assertion` -> FAIL，`application-local.yaml` 缺少 `yudao.codex-test.artifact-temp-dir`。
+- `RED: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> FAIL, expected reason: 写入型任务没有独立推理预算和统一隔离策略`
+- `RED: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> FAIL, expected reason: Runner 工作目录仍为仓库根目录`
+- `RED: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> FAIL, expected reason: 错误诊断未脱敏保留 stderr 尾部`
+- `RED: node stdin static config assertion -> FAIL, expected reason: application-local.yaml 缺少 yudao.codex-test.artifact-temp-dir`
 
 ## GREEN
 
-- `node --check scripts\codex-test-runner.mjs` -> PASS。
-- `node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js` -> PASS。
-- `node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js` -> PASS。
-- `node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js` -> PASS。
-- `node tests\e2e\codex-test-runner-http-client-static.spec.js` -> PASS。
-- `node tests\e2e\codex-test-runner-child-settlement-static.spec.js` -> PASS。
-- `node --check doc\tasks\20260730-test-management-serial-routes-repair\run-serial-routes-real-e2e.mjs` -> PASS。
-- `node stdin static config assertion` -> PASS，`application-local.yaml` 已包含运行态 artifact 临时目录和保留时长。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node --check doc\tasks\20260730-test-management-serial-routes-repair\run-serial-routes-real-e2e.mjs -> PASS`
+- `GREEN: node stdin static config assertion -> PASS, application-local.yaml 已包含运行态 artifact 临时目录和保留时长`
+- `GREEN: mvn.cmd -pl yudao-server -Dtest=CodexTestLocalConfigTest test -> PASS, Tests run: 1, Failures: 0, Errors: 0, BUILD SUCCESS`
+
+## Verification
+
+- `Verification: 真实 E2E preflight -> PASS, 三条节点串筛选数量为 4/6/4，Runner session 95 ONLINE/currentRunningCount=0`
+- `Verification: 真实 E2E partial -> BLOCKED, 工艺路线节点闭环 execution 37 因 artifact 临时目录未配置失败；该配置缺口已补齐但 48081 尚未恢复，不能继续页面复验`
 
 ## Risk And Regression Scope
 
@@ -58,4 +65,5 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 ## Blockers And Follow-up
 
 - 当前共享 `48081` 正由独立重启任务打包/重启，health 暂不可达；恢复前不能重新创建正式长运行批次。
-- Maven 定向 `CodexTestLocalConfigTest` 首次运行超时无 surefire 报告，待并行 Maven 释放后需复跑获得正式 JUnit GREEN。
+- Maven 定向 `CodexTestLocalConfigTest` 首次运行超时无 surefire 报告；2026-07-31 已复跑通过。
+- 当前 `48081` 仍拒绝连接；真实三路线复验需等待本地后端恢复并加载最新 `application-local.yaml`。

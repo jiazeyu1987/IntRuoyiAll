@@ -32,3 +32,24 @@
 - Verification: read-only cross-tenant PK scan -> PASS，`system_users.id=910269` 已存在于 `tenant_id=122`；`mes_pro_work_order` 授权缺失 ID 中 `925473/925477/925483/925671/925675/925685/925689/925693/925716/925721/925724/925729/925732` 已存在于 `tenant_id=122/162`。
 - Verification: read-only backup-table scan -> PASS，失败尝试创建的备份表 `mes_three_tab_dep_backup_20260731010102_mes_md_item`、`mes_three_tab_dep_backup_20260731010102_mes_pro_work_order`、`mes_three_tab_dep_backup_20260731010102_system_users` 均为 `0` 行。
 - STATUS: blocked，授权的缺失物料、用户、生产工单不能按源主键直接同步；主三页签同步仍未执行。
+
+## 2026-07-31 Deterministic Remap Dependency Sync
+
+- USER INTENT: 用户明确授权“确定性 ID 重映射”，给冲突用户/生产工单生成新 ID，并同步更新三页签包内所有引用。
+- POLICY: 仅对授权依赖执行确定性重映射；不覆盖、不删除、不复用其它租户冲突行，不把未授权表单版本、权限范围、日历、工作站或 schema 变更纳入本轮写入。
+- BDD: 确定性重映射 -> Given 源依赖 ID 在测试服全局或同租户业务身份冲突 / When 执行授权依赖同步 / Then 工具必须按目标当前最大 ID 后的稳定空闲区间生成新 ID，并保留映射证据。
+- BDD: 三页签引用映射预检 -> Given 源三页签包仍引用旧用户/生产工单 ID / When 重跑 preflight / Then 依赖校验必须按 `dependency-remap-plan.json` 映射到目标新 ID 后比对业务身份。
+- GREEN: `python -X utf8 -m py_compile doc\tasks\20260731-mes-three-tab-test-sync\tools\sync_authorized_missing_dependencies.py` -> PASS。
+- RED: `python -X utf8 doc\tasks\20260731-mes-three-tab-test-sync\tools\sync_authorized_missing_dependencies.py` -> FAIL，expected reason: 业务键扫描使用字符串 `IN` 触发目标列排序规则混用 `ERROR 1271 Illegal mix of collations`；失败发生在写入前，未生成计划且未插入数据。
+- GREEN: collation-safe business-key scan -> PASS，已改为 `HEX(username/code) IN (...)`，避免临时字符串排序规则参与比较。
+- GREEN: `python -X utf8 doc\tasks\20260731-mes-three-tab-test-sync\tools\sync_authorized_missing_dependencies.py` -> PASS，生成 `artifacts/dependency-remap-plan.json`、`artifacts/dependency-remap-summary.md`、`artifacts/authorized-dependency-sync-result.json`。
+- Remap result: `system_users.910269 -> 910293`；`mes_pro_work_order` 共 `18` 个重映射：`925473->925781`、`925477->925782`、`925483->925783`、`925553->925784`、`925671->925785`、`925675->925786`、`925685->925787`、`925689->925788`、`925693->925789`、`925698->925790`、`925704->925791`、`925710->925792`、`925711->925793`、`925716->925794`、`925721->925795`、`925724->925796`、`925729->925797`、`925732->925798`。
+- Dependency insert result: `mes_md_item` 保留源 ID 插入 `1` 条；`system_users` 重映射插入 `1` 条；`mes_pro_work_order` 重映射插入 `18` 条、保留源 ID 插入 `20` 条，另有 `2` 条目标已精确一致。
+- Backup evidence: 创建 `mes_three_tab_dep_remap_backup_20260731012048_mes_md_item`、`mes_three_tab_dep_remap_backup_20260731012048_system_users`、`mes_three_tab_dep_remap_backup_20260731012048_mes_pro_work_order`。
+- GREEN: dependency postcheck -> PASS，授权依赖在测试服 `tenant_id=1` 按源业务身份校验无 missing、无 mismatched。
+- GREEN: dependency sync idempotency -> PASS，复跑 `sync_authorized_missing_dependencies.py` 加载既有 `dependency-remap-plan.json`，`pending_insert_total=0`，未重新分配 ID、未重复插入，并在结果文件保留历史备份表名。
+- GREEN: `python -X utf8 -m py_compile doc\tasks\20260731-mes-three-tab-test-sync\tools\three_tab_sync_preflight.py` -> PASS。
+- GREEN: remap-aware preflight dependency section -> PASS，`item_id/user_id/work_order_id` 缺失与不一致均为 `0`，其中用户映射 `1` 个、生产工单映射 `18` 个。
+- RED: `python -X utf8 doc\tasks\20260731-mes-three-tab-test-sync\tools\three_tab_sync_preflight.py` -> FAIL by design，expected reason: 剩余 `10` 项阻塞仍未解决，主三页签白名单替换未执行。
+- Remaining blockers: schema `5` 项、缺失 `bpm_form_template_version` `2` 个、缺失 `mes_pro_edhr_permission_scope` `14` 个、`calendar_rule_id` 不一致、`workstation_id` 不一致、白名单外活动引用仍存在。
+- STATUS: blocked，授权依赖已同步完成；主三页签同步仍未执行。
