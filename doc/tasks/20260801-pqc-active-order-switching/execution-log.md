@@ -55,6 +55,18 @@ BDD: PQC leader review is consistent with inspector submissions -> Given PQC ins
 - GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260801-pqc-active-order-switching\frontend-feature-evidence.md` -> PASS.
 - GREEN: `git diff --check -- <task-owned implementation and doc files>` -> PASS, only CRLF conversion warnings.
 
+## 2026-08-01 Verification Refresh
+
+- GREEN: `node tests\e2e\mes-frontline-pqc-active-order-switching-static.spec.js` -> PASS.
+- GREEN: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260801-pqc-active-order-switching\backend-api-evidence.md` -> PASS.
+- GREEN: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260801-pqc-active-order-switching\frontend-feature-evidence.md` -> PASS.
+- GREEN: `pnpm ts:check` -> PASS.
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 5 tests, 0 failures, 0 errors.
+- REGRESSION: `node tests\e2e\mes-process-pool-team-leader-static.spec.js` -> PASS.
+- REGRESSION: `node tests\e2e\process-pool-review-copy-and-revision-static.spec.js` -> PASS.
+- REGRESSION: `node tests\e2e\process-pool-event-revision-api-static.spec.js` -> PASS.
+- REGRESSION: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesProcessPoolReviewCopyControllerTest,MesProcessPoolReviewCopyServiceTest,MesTeamLeaderSubmissionReviewServiceTest,MesProcessPoolEventRevisionControllerContractTest,MesProcessPoolEventRevisionServiceTest,MesProcessPoolPqcEventTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 38 tests, 0 failures, 0 errors.
+
 ## Experience Consolidation
 
 - Checked docs/*memory*.md, docs/experience-index.md, frontend/backend/database/E2E/PowerShell/closeout rules for matching long-term experience destinations.

@@ -57,6 +57,11 @@ assert.match(
 )
 assert.match(
   runner,
+  /custom footer rows[\s\S]*page\.locator\('button, \.el-button'\)[\s\S]*hasText: \/\^保存\$\|\^确定\$\|\^提交\$\/,
+  'Runner prompt 必须要求子任务在 Element Plus 标准 footer 缺失时继续定位可见自定义底部保存按钮。'
+)
+assert.match(
+  runner,
   /field-selector list filters[\s\S]*visible selected field[\s\S]*路线编码[\s\S]*TN-ROUTE-BASIC-001/,
   'Runner prompt 必须提醒子任务遇到字段选择器列表筛选时可按当前可见字段搜索，工艺路线固定样本应优先用路线编码。'
 )

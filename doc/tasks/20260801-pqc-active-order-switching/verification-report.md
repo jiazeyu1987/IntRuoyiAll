@@ -21,6 +21,18 @@ PASS: PQC 检验员切换订单、工序、员工来源已实现并通过定向�
 - PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> 10 tests.
 - PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolReviewCopyControllerTest,MesProcessPoolReviewCopyServiceTest,MesTeamLeaderSubmissionReviewServiceTest,MesProcessPoolEventRevisionControllerContractTest,MesProcessPoolEventRevisionServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> 26 tests.
 
+## 2026-08-01 Refresh
+
+- PASS: `node tests\e2e\mes-frontline-pqc-active-order-switching-static.spec.js`.
+- PASS: `python C:\Users\BJB110\.codex\skills\backend-api-delivery\scripts\validate_backend_api.py --evidence doc\tasks\20260801-pqc-active-order-switching\backend-api-evidence.md`.
+- PASS: `python C:\Users\BJB110\.codex\skills\frontend-feature-delivery\scripts\validate_frontend_feature.py --evidence doc\tasks\20260801-pqc-active-order-switching\frontend-feature-evidence.md`.
+- PASS: `pnpm ts:check`.
+- PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> 5 tests.
+- PASS: `node tests\e2e\mes-process-pool-team-leader-static.spec.js`.
+- PASS: `node tests\e2e\process-pool-review-copy-and-revision-static.spec.js`.
+- PASS: `node tests\e2e\process-pool-event-revision-api-static.spec.js`.
+- PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesFrontlineDeviceAccountContextServiceTest,MesFrontlineEmployeeSwitchServiceTest,MesProcessPoolReviewCopyControllerTest,MesProcessPoolReviewCopyServiceTest,MesTeamLeaderSubmissionReviewServiceTest,MesProcessPoolEventRevisionControllerContractTest,MesProcessPoolEventRevisionServiceTest,MesProcessPoolPqcEventTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> 38 tests.
+
 ## Scope Boundary
 
 - 本任务不修改生产组长活跃订单/FIFO 分配实现；只消费“活跃订单是 PQC 选择订单唯一来源”的口径。

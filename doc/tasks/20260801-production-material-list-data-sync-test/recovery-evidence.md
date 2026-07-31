@@ -8,7 +8,8 @@
 ## Backup Frequency And Retention
 
 - One task-owned pre-upsert backup snapshot.
-- Retention path and duration to be recorded after backup creation.
+- Backup path: `/var/lib/docker/intruoyi-data/runtime-data/task-backups/20260801-production-material-list-data-sync-test/mes_kingdee_production_material_list_before_20260801-005623.sql.gz`.
+- Retention duration: task-owned test-server backup retained until user confirms cleanup or the task is closed with a replacement retention decision.
 
 ## RTO And RPO
 
@@ -16,11 +17,14 @@
 
 ## Restore Procedure
 
-- Restore procedure will be recorded after backup format is selected and verified.
+- Restore target table from the gzip-compressed mysqldump after stopping any active conflicting sync/write task:
+  `gzip -dc <backup.sql.gz> | docker exec -i -e MYSQL_PWD=<redacted> intruoyi-mysql mysql -uroot ruoyi-vue-pro`
+- Secrets are not stored in this evidence file; use the test server runtime `.env` source for restore execution.
 
 ## Restore Test Evidence Or Blocker
 
-- Pending. A backup existence/hash/row-count check is required before write; full destructive restore test is not planned unless validation fails.
+- Backup existence/hash/gzip verification passed.
+- Full destructive restore test is not run because the target table has not yet been modified; if upsert proceeds and validation fails, restore execution becomes the next required step.
 
 ## Owners
 
@@ -29,5 +33,4 @@
 
 ## Blockers
 
-- Pending backup creation and verification.
-
+- Awaiting user confirmation on safe upsert linkage policy before any target data modification.

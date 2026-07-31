@@ -19,6 +19,8 @@
 - No write is allowed until local and remote schemas, tenant IDs, row counts, unique keys, and backup path are verified.
 - Upsert key must match the declared unique key: `tenant_id, source_bill_no, production_order_no, production_order_line_no, child_material_code`.
 - Existing target rows outside the confirmed source business-key range must not be deleted.
+- Directly copying local linkage IDs is unsafe because target master-data IDs do not align with local source IDs.
+- Recomputing linkage IDs by code is also unsafe without an explicit decision because target item/work-order codes include duplicates and some dependencies are missing.
 
 ## Rollback Or Recovery Plan
 
@@ -32,11 +34,13 @@
 
 ## RED Command And Expected Failure
 
-- Pending read-only preflight.
+- RED: safe-direct-upsert-preflight -> FAIL, expected reason: local `work_order_id`/`product_id`/`child_material_id`/`work_order_bom_id` do not align with target IDs, and target code-based remapping is ambiguous or incomplete.
 
 ## GREEN Command And Passing Result
 
-- Pending read-only preflight and upsert verification.
+- GREEN: local-remote-schema-readonly -> PASS, schema/unique-key hashes match.
+- GREEN: remote-target-backup -> PASS, backup file exists, `gzip -t` passes, SHA256 recorded.
+- GREEN: staging-load-verify -> PASS, staged source rows equal local count and hash, then staging table removed.
 
 ## Migration Verification
 
@@ -44,5 +48,4 @@
 
 ## Blockers
 
-- Pending read-only schema/tenant/count probe.
-
+- Awaiting user confirmation for the safe upsert policy: sync list-detail business fields while not copying invalid local linkage IDs; unresolved target linkage IDs remain null or existing target mappings are preserved.
