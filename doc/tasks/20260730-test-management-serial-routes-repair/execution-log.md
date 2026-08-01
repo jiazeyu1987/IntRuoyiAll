@@ -658,3 +658,18 @@
 - `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`
 - `GREEN: pnpm ts:check -> PASS`
 - Runtime status before real rerun: `http://127.0.0.1:8081/ -> HTTP 200`，`http://127.0.0.1:48081/actuator/health -> UP`，当前旧 Runner PID `624` 仍在运行但尚未加载新 harness prompt；下一步使用独立标准 Runner 重启命令加载新代码，再从真实页面重跑 3 条串行路线。
+- Runner restart: 使用独立 `start-codex-test-runner.ps1 -RestartExisting` 标准脚本重启，新 Runner PID `36008`，三路线 preflight 通过，筛选数量仍为 `4/6/4`。
+- Real E2E retry `116`: `工艺路线节点：基础维护` 已生成短场景脚本 `codex-route-basic-maintenance-harness.js`，文件大小 `4745` 字节，证明旧 `50-80KB` 重复 helper 生成瓶颈已消除；execution 终态仍为 `FAIL`，首节点结果为 `1 PASS, 0 FAIL, 3 BLOCKED`。checkpoint 2 阻塞：`The visible route row has no clickable 路线编码 link for TN-ROUTE-BASIC-001`；checkpoint 4 阻塞：`The 删除 row wrapper did not contain a Playwright Locator.` 后续节点按串行前置失败阻断。
+- Root cause update: 新 harness 的 `clickRouteRowAction()` 与 `findClickableCodeEntry()` 把 `{ row, locator, text }` 行包装对象误当成 Locator 本体；此外路线编码 link 在目标行局部找不到时缺少全页可见 link/button + 同视觉行兜底匹配。
+- `RED: node tests\e2e\codex-test-runner-short-script-harness-static.spec.js -> FAIL, expected reason: Playwright harness 处理表格行时未区分 Locator 本体和 { row, locator, text } 包装对象，且路线编码详情入口缺少全页可见 link/button 候选兜底。`
+- Fix: `IntRuoyiFronted/scripts/codex-test-playwright-harness.cjs` 新增 `resolveRowLocator()`，统一区分 Locator 本体、`rowEntry.row` 和 `rowEntry.locator`；`findClickableCodeEntry()` 先查目标行内候选，再从全页可见 `button.el-button.is-link/.el-button.is-link/a/[role=link]/button/span` 按 `routeCode` 和目标行 Y 坐标兜底匹配。
+- `GREEN: node --check scripts\codex-test-playwright-harness.cjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-short-script-harness-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-case-guidance-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`

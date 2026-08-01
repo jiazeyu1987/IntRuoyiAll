@@ -265,6 +265,18 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`
 - `GREEN: pnpm ts:check -> PASS`
+- `Verification: 真实 E2E execution 116 -> FAIL, 首节点已生成 4745 字节短场景脚本 codex-route-basic-maintenance-harness.js，证明旧 50-80KB 重复 helper 生成瓶颈已消除；新阻塞为 harness 把 { row, locator, text } 包装对象误当 Locator，导致详情编码 link 与删除动作定位失败`
+- `RED: node tests\e2e\codex-test-runner-short-script-harness-static.spec.js -> FAIL, expected reason: Playwright harness 处理表格行时未区分 Locator 本体和 { row, locator, text } 包装对象，且路线编码详情入口缺少全页可见 link/button 候选兜底`
+- `GREEN: node --check scripts\codex-test-playwright-harness.cjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-short-script-harness-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-case-guidance-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`
 
 ## Risk And Regression Scope
 

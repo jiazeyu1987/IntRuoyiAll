@@ -2722,11 +2722,14 @@ const loadApprovalDetail = async () => {
     syncStageProgress()
     return
   }
+  const canLoadApprovalDetail = Boolean(taskId) && checkPermi(['bpm:process-instance:query'])
   approvalLoading.value = true
   try {
     const [taskList, detail] = await Promise.all([
       TaskApi.getTaskListByProcessInstanceId(processInstanceId),
-      taskId ? ProcessInstanceApi.getApprovalDetail({ processInstanceId, taskId }) : Promise.resolve(null)
+      canLoadApprovalDetail
+        ? ProcessInstanceApi.getApprovalDetail({ processInstanceId, taskId })
+        : Promise.resolve(null)
     ])
     const normalizedTaskList = taskList as DccTaskLike[]
     approvalTaskList.value = normalizedTaskList

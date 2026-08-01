@@ -725,9 +725,18 @@ const applyApprovalQuickFilter = async () => {
 
 const BPM_PROCESS_DETAIL_ROUTE = '/bpm/process-instance/detail'
 const DCC_CONTROLLED_FILE_DETAIL_ROUTE_PREFIX = '/dcc/controlled-file/detail/'
+const DCC_APPROVAL_HANDLING_MODE = 'approval'
 
 const isBpmProcessDetailOnly = (row: ApprovalTaskSummaryVO) => {
   return row.moduleCode === 'BPM' && row.detailRoute === BPM_PROCESS_DETAIL_ROUTE
+}
+
+const isDccModuleHandlingAction = (row: ApprovalTaskSummaryVO) => {
+  const actions = row.availableActions || []
+  return queryParams.viewType === 'TODO'
+    && row.moduleCode === 'DCC'
+    && !row.businessDeleted
+    && actions.includes('PROCESS_IN_MODULE')
 }
 
 const resolveDccApprovalDetailLocation = (
@@ -737,7 +746,20 @@ const resolveDccApprovalDetailLocation = (
 ) => {
   const normalizedPath = String(path || '').trim()
   const nextQuery = { ...query }
+  const isDccModuleHandling = isDccModuleHandlingAction(row)
   if (row.moduleCode === 'DCC' && normalizedPath.startsWith(DCC_CONTROLLED_FILE_DETAIL_ROUTE_PREFIX)) {
+    if (isDccModuleHandling) {
+      return {
+        path: normalizedPath,
+        query: {
+          ...nextQuery,
+          handling: DCC_APPROVAL_HANDLING_MODE,
+          from: nextQuery.from || 'approval-center',
+          processInstanceId: nextQuery.processInstanceId || row.processInstanceId || '',
+          taskId: nextQuery.taskId || row.sourceTaskId || ''
+        }
+      }
+    }
     return {
       path: normalizedPath,
       query: {
@@ -778,6 +800,9 @@ const resolveDecisionActionLabel = (row: ApprovalTaskSummaryVO) => {
   }
   if (queryParams.viewType === 'TODO' && actions.includes('APPROVE_IN_MODULE')) {
     return '批准'
+  }
+  if (queryParams.viewType === 'TODO' && actions.includes('PROCESS_IN_MODULE')) {
+    return '处理'
   }
   return '详情'
 }

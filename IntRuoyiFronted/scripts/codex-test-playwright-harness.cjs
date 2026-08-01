@@ -799,8 +799,21 @@ function createCodexTestPlaywrightHarness(options = {}) {
     return messageText
   }
 
+  function resolveRowLocator(rowEntry) {
+    if (rowEntry && typeof rowEntry.locator === 'function') {
+      return rowEntry
+    }
+    if (rowEntry && rowEntry.row && typeof rowEntry.row.locator === 'function') {
+      return rowEntry.row
+    }
+    if (rowEntry && rowEntry.locator && typeof rowEntry.locator.locator === 'function') {
+      return rowEntry.locator
+    }
+    return null
+  }
+
   async function clickRouteRowAction(rowEntry, actionRegex, actionLabel) {
-    const rowLocator = rowEntry && rowEntry.locator ? rowEntry : rowEntry && rowEntry.row
+    const rowLocator = resolveRowLocator(rowEntry)
     if (!rowLocator || typeof rowLocator.locator !== 'function') {
       throw new EvidenceError('BLOCKED', `The ${actionLabel} row wrapper did not contain a Playwright Locator.`)
     }
@@ -1192,12 +1205,13 @@ function createCodexTestPlaywrightHarness(options = {}) {
   }
 
   async function findClickableCodeEntry(rowEntry, routeCode = fixedRouteCode) {
-    const rowLocator = rowEntry && rowEntry.locator ? rowEntry : rowEntry && rowEntry.row
+    const rowLocator = resolveRowLocator(rowEntry)
     if (!rowLocator || typeof rowLocator.locator !== 'function') {
       return null
     }
+    const rowBox = await rowLocator.boundingBox().catch(() => null)
     const codeCandidates = rowLocator.locator(
-      'button.el-button.is-link, .el-button.is-link, a, [role="link"], button'
+      'button.el-button.is-link, .el-button.is-link, a, [role="link"], button, span'
     )
     const codeCount = await codeCandidates.count().catch(() => 0)
     for (let codeIndex = 0; codeIndex < codeCount; codeIndex += 1) {
@@ -1209,6 +1223,56 @@ function createCodexTestPlaywrightHarness(options = {}) {
       if (codeText === normalizeText(routeCode) && await codeCandidate.isEnabled().catch(() => true)) {
         return codeCandidate
       }
+    }
+    const pageCandidates = browserPage.locator(
+      'button.el-button.is-link, .el-button.is-link, a, [role="link"], button, span'
+    )
+    const pageCandidateCount = await pageCandidates.count().catch(() => 0)
+    for (let codeIndex = 0; codeIndex < pageCandidateCount; codeIndex += 1) {
+      const codeCandidate = pageCandidates.nth(codeIndex)
+      if (!await codeCandidate.isVisible().catch(() => false)) {
+        continue
+      }
+      const codeText = normalizeText(await codeCandidate.innerText().catch(() => ''))
+      if (codeText !== normalizeText(routeCode)) {
+        continue
+      }
+      const resolvedHandle = await codeCandidate.evaluateHandle(
+        (nodeValue) => nodeValue.closest('button.el-button.is-link,.el-button.is-link,a,[role="link"],button') || nodeValue
+      ).catch(() => null)
+      const resolvedElement = resolvedHandle ? resolvedHandle.asElement() : null
+      if (!resolvedElement) {
+        if (resolvedHandle) {
+          await resolvedHandle.dispose().catch(() => {})
+        }
+        continue
+      }
+      const resolvedState = await resolvedElement.evaluate((elementValue) => {
+        const elementStyle = window.getComputedStyle(elementValue)
+        const elementRect = elementValue.getBoundingClientRect()
+        return {
+          disabled: Boolean(elementValue.disabled),
+          ariaDisabled: elementValue.getAttribute('aria-disabled') || '',
+          visible: elementRect.width > 0
+            && elementRect.height > 0
+            && elementStyle.visibility !== 'hidden'
+            && elementStyle.display !== 'none',
+          centerY: elementRect.top + (elementRect.height / 2)
+        }
+      }).catch(() => null)
+      if (!resolvedState || !resolvedState.visible || resolvedState.disabled || resolvedState.ariaDisabled === 'true') {
+        await resolvedElement.dispose().catch(() => {})
+        continue
+      }
+      if (rowBox) {
+        const targetCenterY = rowBox.y + (rowBox.height / 2)
+        const sameVisualRow = Math.abs(resolvedState.centerY - targetCenterY) <= Math.max(18, rowBox.height / 2)
+        if (!sameVisualRow) {
+          await resolvedElement.dispose().catch(() => {})
+          continue
+        }
+      }
+      return resolvedElement
     }
     return null
   }
@@ -1532,6 +1596,7 @@ function createCodexTestPlaywrightHarness(options = {}) {
     queryFixedRoute,
     waitForMessageBox,
     confirmVisibleMessageBox,
+    resolveRowLocator,
     clickRouteRowAction,
     deleteMatchedRoute,
     ensureFixedRouteAbsent,

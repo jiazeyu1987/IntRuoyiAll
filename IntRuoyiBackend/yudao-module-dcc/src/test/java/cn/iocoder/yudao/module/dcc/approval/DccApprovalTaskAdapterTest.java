@@ -94,7 +94,12 @@ class DccApprovalTaskAdapterTest {
         assertEquals(Boolean.FALSE, summary.getBusinessDeleted());
         assertEquals(Boolean.TRUE, summary.getRequiresSignature());
         assertEquals("/dcc/controlled-file/detail/6001", summary.getDetailRoute());
-        assertEquals(Map.of("viewer", "1", "from", "approval-center"), summary.getDetailQuery());
+        assertEquals(Map.of(
+                "handling", "approval",
+                "from", "approval-center",
+                "processInstanceId", "pi-1",
+                "taskId", "task-1"
+        ), summary.getDetailQuery());
 
         ArgumentCaptor<BpmTaskPageReqVO> captor = ArgumentCaptor.forClass(BpmTaskPageReqVO.class);
         verify(bpmTaskService).getTaskTodoPage(eq(100L), captor.capture());

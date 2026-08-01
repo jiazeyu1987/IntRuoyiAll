@@ -1,0 +1,31 @@
+{
+  "runId": "20260801181123",
+  "fileNumber": "CODX-DCC-REV-20260802-20260801181123",
+  "fileName": "Codex DCC 升版链路 20260801181123",
+  "baseUrl": "http://127.0.0.1:8081",
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "v1FilePath": "E:\\IntRuoyi\\resource\\批记录节点-解析样本.docx",
+  "v2FilePath": "E:\\IntRuoyi\\resource\\过程检验记录.docx",
+  "stampedPdfPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-upload-revision-e2e\\stamped-approval-sample.pdf",
+  "startedAt": "2026-08-01T18:11:23.741Z",
+  "phases": [
+    {
+      "phase": "upload-V1.0",
+      "username": "pengyunfeng",
+      "controlledFileId": "2054545668044070243",
+      "previewFileName": "批记录节点-解析样本.docx",
+      "previewKind": "OFFICE"
+    }
+  ],
+  "targetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "fileSizes": {
+    "v1": 37680,
+    "v2": 74170,
+    "stampedPdf": 658
+  },
+  "finishedAt": "2026-08-01T18:12:12.101Z",
+  "status": "BLOCKED",
+  "blocker": "locator.click: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: /审批通过|审核通过|批准通过|签名通过|处理回退/ }).first()\u001b[22m\n"
+}

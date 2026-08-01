@@ -1145,7 +1145,11 @@ const remainingRouter: AppRouteRecordRaw[] = [
         component: () => import('@/views/dcc/controlled-file/detail/index.vue'),
         name: 'DccControlledFileDetail',
         beforeEnter: (to) => {
-          if (String(to.query.viewer || '') === '1') {
+          const isApprovalHandling =
+            String(to.query.handling || '') === 'approval' &&
+            String(to.query.from || '') === 'approval-center' &&
+            Boolean(String(to.query.processInstanceId || '') || String(to.query.taskId || ''))
+          if (String(to.query.viewer || '') === '1' || isApprovalHandling) {
             return true
           }
           return { name: 'DccControlledFileBrowser' }

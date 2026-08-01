@@ -33,6 +33,24 @@
 - Forbidden action: 禁止新增虚假 script 包装静态测试冒充真实 E2E，禁止 API-only 替代页面路径，禁止把前端 API wrapper 存在宣称为页面入口已验收。
 - Evidence: `doc/tasks/20260730-process-pool-f5-f6-implementation/execution-log.md`。
 
+### DCC 文控审批处理入口门禁
+
+- Trigger: 验证 DCC 文控上传、上传审批、电子签名审批、升版发布、`DccControlledFileDetail`、`/approval-center?moduleCode=DCC`、`PROCESS_IN_MODULE` 或 `approve-task` 链路。
+- Preflight check: 浏览器审批前必须证明审批账号能从真实页面进入非只读处理态，并看到“审批阶段进度”、当前 `approvalTodoTask` 对应的签名按钮和目标写接口；同时核对 `DccControlledFileDetail.beforeEnter` 不会把非 viewer 处理态重定向到受控浏览。
+- Blocker: DCC 审批中心行只能打开 `viewer=1` 只读预览、非 viewer 详情被路由守卫重定向、页面未渲染签名按钮、只有 `approve-task` API wrapper 但无页面入口、或 BPM 原生行直接审批返回业务 `403` 时必须停止并记录 E2E BLOCKED。
+- Verification: 证据需包含审批中心 DCC 行、跳转后的实际 URL、详情页处理态控件、签名弹窗、`/dcc/controlled-files/{id}/approve-task` 响应、Flowable 当前任务和 DCC 文件状态；若 blocked，记录路由守卫源码行、页面实际落点和任务自有残留数据。
+- Forbidden action: 禁止用 BPM 原生审批行、直接 API、SQL 改状态、移除断言、绕开路由守卫或只读 viewer 截图冒充 DCC 审批完成。
+- Evidence: `doc/tasks/20260802-dcc-upload-revision-e2e/verification-report.md`，上传 V1 成功后发现 DCC 详情非 viewer 被重定向到受控浏览，viewer 模式不渲染审批卡片，完整上传升版 E2E 阻塞。
+
+### 规划型 E2E 前置与业务 RED 分离门禁
+
+- Trigger: 根据 Excel、PRD、开发文档或测试方案落地多里程碑功能，且后续里程碑需要提前建立 BDD/TDD/E2E gate。
+- Preflight check: M0 或首个前置里程碑必须先补齐计划中声明的 script、spec、真实前置检查和证据输出；只有脚本入口、测试文件、工作目录和命令解析均有效后，后续失败才可记录为业务 RED。
+- Blocker: 脚本缺失、测试文件缺失、命令无法解析、真实租户/账号/签名/任务数据缺失、正式 source map 未冻结时，必须记录为前置 blocker；不得把缺入口或缺环境写成业务 RED，也不得进入下一里程碑。
+- Verification: 证据需要同时记录“入口合同 PASS”“真实前置 BLOCKED 及当前缺口数量”“规划静态脚本业务 RED”，并在后续扩展 source gate 后同步清理旧口径，避免任务文档保留过期 blocker 数量或“脚本缺失”结论。
+- Forbidden action: 禁止为了制造 RED 临时写无效脚本、把静态合同当真实 E2E、在 M0 未通过时提前实现 M1-M6 生产代码，或用 API-only/默认值/占位成功绕过正式来源冻结。
+- Evidence: `doc/tasks/20260801-role-requirement-matrix-implementation/execution-log.md`，岗位需求分解矩阵 M0 将脚本缺失前置转为可执行入口合同，并把后续 M3/M4/M5 脚本固定为业务 RED。
+
 ### Playwright 浏览器可执行文件门禁
 
 - Trigger: `browserType.launch: Executable doesn't exist`、`npx playwright install` 提示、`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`、本机 Chrome/Edge 已安装但 Playwright 缓存浏览器缺失。

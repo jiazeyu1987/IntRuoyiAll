@@ -44,6 +44,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
     private static final String PROCESS_DEFINITION_KEY = "dcc-controlled-file-approval";
     private static final String SOURCE_TASK_TYPE = "DCC_CONTROLLED_FILE_TASK";
     private static final String APPROVAL_CENTER_VIEWER_FROM = "approval-center";
+    private static final String APPROVAL_CENTER_HANDLING_MODE = "approval";
     private static final Set<ApprovalTaskViewType> SUPPORTED_VIEWS = Set.of(
             ApprovalTaskViewType.TODO,
             ApprovalTaskViewType.DONE
@@ -207,7 +208,7 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
                 .taskCreatedAt(toLocalDateTime(task.getCreateTime()))
                 .requiresSignature(Boolean.TRUE)
                 .detailRoute("/dcc/controlled-file/detail/" + businessKey)
-                .detailQuery(approvalCenterViewerDetailQuery())
+                .detailQuery(approvalCenterHandlingDetailQuery(task))
                 .availableActions(Set.of("PROCESS_IN_MODULE"))
                 .capabilities(CAPABILITIES)
                 .build();
@@ -285,6 +286,17 @@ public class DccApprovalTaskAdapter implements ApprovalTaskProvider {
         Map<String, String> query = new LinkedHashMap<>();
         query.put("viewer", "1");
         query.put("from", APPROVAL_CENTER_VIEWER_FROM);
+        return query;
+    }
+
+    private static Map<String, String> approvalCenterHandlingDetailQuery(Task task) {
+        Map<String, String> query = new LinkedHashMap<>();
+        query.put("handling", APPROVAL_CENTER_HANDLING_MODE);
+        query.put("from", APPROVAL_CENTER_VIEWER_FROM);
+        query.put("processInstanceId", requireText(task.getProcessInstanceId(),
+                "APPROVAL_PROCESS_INSTANCE_REQUIRED: DCC handling route requires process instance id"));
+        query.put("taskId", requireText(task.getId(),
+                "APPROVAL_TASK_ID_REQUIRED: DCC handling route requires task id"));
         return query;
     }
 

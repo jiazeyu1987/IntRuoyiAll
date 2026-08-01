@@ -20,6 +20,18 @@ assert.match(
   'Playwright harness 必须导出 createCodexTestPlaywrightHarness，供临时场景脚本直接 require。'
 )
 
+assert.match(
+  harnessSource,
+  /typeof\s+rowEntry\.locator\s*===\s*'function'[\s\S]*rowEntry\.row[\s\S]*rowEntry\.locator/s,
+  'Playwright harness 处理表格行时必须区分 Locator 本体和 { row, locator, text } 包装对象，不能把包装对象误当 Locator。'
+)
+
+assert.match(
+  harnessSource,
+  /findClickableCodeEntry[\s\S]*browserPage\.locator\([\s\S]*button\.el-button\.is-link[\s\S]*\[role="link"\][\s\S]*routeCode/s,
+  'Playwright harness 打开路线详情时必须在目标行找不到编码 link 后，从全页可见 link/button 候选按 routeCode 兜底匹配。'
+)
+
 for (const helperName of [
   'captureScreenshot',
   'recordCheckpoint',

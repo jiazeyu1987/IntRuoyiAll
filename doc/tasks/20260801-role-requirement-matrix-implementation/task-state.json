@@ -1,0 +1,114 @@
+{
+  "status": "blocked",
+  "currentMilestone": "M0",
+  "deliveryPolicy": {
+    "gitPushRequired": false,
+    "overrideDate": "2026-08-01",
+    "overrideReason": "User explicitly requested no git push for this run"
+  },
+  "planningPackage": "doc/tasks/20260801-role-requirement-matrix-excel",
+  "sourceWorkbook": "C:/Users/BJB110/Desktop/文档/职责/岗位需求分解矩阵.xlsx",
+  "baselineDirtyWorkspaceCommit": "baf59590f",
+  "strictTddSequence": [
+    "PLANNED",
+    "BDD_APPROVED",
+    "TEST_ADDED",
+    "RED_VALID",
+    "IMPLEMENTING",
+    "GREEN",
+    "REFACTORED",
+    "REGRESSION_PASS",
+    "E2E_PASS",
+    "ACCEPTED"
+  ],
+  "milestones": [
+    {
+      "id": "M0",
+      "title": "契约、术语、权威来源和 E2E 前置冻结",
+      "status": "blocked",
+      "blockingPrereqs": [
+        "Unified activeOrderId service/schema is not available yet.",
+        "PQC still reads mes_pro_process_pool active rows.",
+        "PQC submit still depends on selectActiveByWorkOrderRouteProcess and the frontend still hardcodes PQC items/defaults.",
+        "ERP transfer/shipment/replenishment/return/batch source relation is not confirmed.",
+        "QA regulation ownership and PQC task model are not confirmed.",
+        "role-requirement-matrix real E2E preflight script exists and now reports 31 SOURCE blockers; authorized local tenant/accounts/signatures/sample fixtures are present with no ENV/RUNTIME blocker."
+      ]
+    },
+    {
+      "id": "M1",
+      "title": "权威活跃订单与增量模型",
+      "status": "blocked",
+      "blockedBy": [
+        "M0"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "生产事实、系数分配与正式批记录",
+      "status": "blocked",
+      "blockedBy": [
+        "M1"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "QA 规程与 PQC 闭环",
+      "status": "blocked",
+      "blockedBy": [
+        "M1"
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "调拨、异常、完整性与放行",
+      "status": "blocked",
+      "blockedBy": [
+        "M2",
+        "M3"
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "日结、范围、权限、审计与快照",
+      "status": "blocked",
+      "blockedBy": [
+        "M4"
+      ]
+    },
+    {
+      "id": "M6",
+      "title": "迁移、并发、性能、真实 E2E 与上线验收",
+      "status": "blocked",
+      "blockedBy": [
+        "M5"
+      ]
+    }
+  ],
+  "acceptance": {
+    "total": 62,
+    "accepted": 0,
+    "blocked": 62
+  },
+  "blockers": [
+    "M0 source map is BLOCKED because active order is still leader-scoped and PQC still reads mes_pro_process_pool active rows.",
+    "PQC submit still depends on the latest mes_pro_process_pool production event and the PQC frontend still hardcodes inspection items, PATROL, and quantity 30.",
+    "Formal ERP transfer/shipment/replenishment/return/batch relation source is not confirmed.",
+    "QA regulation ownership, PQC task/regulation version/piece detail model, and eDHR release source adapters are not confirmed.",
+    "role-requirement-matrix real E2E preflight script exists and reports 31 SOURCE blockers, including ERP relation, QA/PQC model gaps, PQC submit event dependency, frontend hardcoded PQC defaults, activeOrder production coefficient snapshot gaps, batch-record MAIN slot default risks, and eDHR release source gaps; M3/M4/M5 planned static scripts now exist and currently fail with business RED.",
+    "Authorized local tenant, six role accounts, permissions, electronic signatures, pressure pump route, work order/transfer fixtures, and QC/IPQC fixture data are confirmed for M0 preflight; these fixtures do not solve formal activeOrderId or QA regulation source models."
+  ],
+  "artifacts": {
+    "task": "doc/tasks/20260801-role-requirement-matrix-implementation/task.md",
+    "executionLog": "doc/tasks/20260801-role-requirement-matrix-implementation/execution-log.md",
+    "verificationReport": "doc/tasks/20260801-role-requirement-matrix-implementation/verification-report.md",
+    "sourceMap": "doc/tasks/20260801-role-requirement-matrix-implementation/source-map.md",
+    "m0Preflight": "doc/tasks/20260801-role-requirement-matrix-implementation/m0-preflight.md",
+    "m0TestData": "doc/tasks/20260801-role-requirement-matrix-implementation/m0-test-data.md",
+    "testReport": "doc/tasks/20260801-role-requirement-matrix-implementation/test-report.md",
+    "databaseSchemaEvidence": "doc/tasks/20260801-role-requirement-matrix-implementation/database-schema-evidence.md",
+    "realE2eEvidence": "doc/tasks/20260801-role-requirement-matrix-implementation/role-requirement-matrix-real-e2e-evidence.md",
+    "realE2eResult": "IntRuoyiFronted/test-results/role-requirement-matrix-real-flow/result.json"
+  },
+  "updatedAt": "2026-08-02"
+}
