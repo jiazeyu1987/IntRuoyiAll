@@ -197,6 +197,8 @@
 - Final state: `task.md` is `completed`; `task-state.json.planningPackageStatus` is `completed`; implementation `task-state.json.status` remains `planned`.
 - Final cleanup preview after apply -> PASS: seven formal files remain in keep, delete/blocked/warnings are empty.
 - Concurrent rescan: `doc/tasks/20260801-third-party-feedback-import-list-progress/{task.md,execution-log.md,verification-report.md}` changed after the planning commit; these unrelated concurrent files remain unstaged and untouched.
+- Closeout commit: `54b841d51` (`docs: complete role requirement matrix planning task`), containing only final status and closeout records for this task.
+- Post-closeout rescan: the only remaining worktree changes belong to `20260801-third-party-feedback-import-list-progress`; no current-task file remains dirty before recording this commit hash.
 - Git boundary: 进入本次写入前，`int_main...origin/int_main [ahead 1]` 且存在 unrelated untracked `doc/tasks/20260801-dcc-list-auto-classify-local-e2e/*`；本次未触碰并行任务文件，未执行提交或推送。
 - Experience: 已读取 `project-experience-consolidation` 技能；本次属于一次性业务开发计划落档，没有新增通用工程经验或可前置门禁，不新增长期经验文档。
 
