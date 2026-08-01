@@ -265,4 +265,14 @@
 - GREEN: `git diff --check -- doc/tasks/20260801-role-requirement-matrix-excel` -> PASS，无 whitespace error；仅有仓库 LF/CRLF 提示。
 - Experience: 已执行 `project-experience-consolidation` 路由检查；严格 BDD/TDD、No-tests 不算 RED、真实 E2E 和任务清理门禁已有 `AGENTS.md`、`docs/task-closeout-rules.md`、`docs/e2e-rules.md` 等正式规则承载，本次 62 项业务测试矩阵属于任务内规划，不新增长期经验文档。
 - Cleanup preview: `task_closeout.py --task-id 20260801-role-requirement-matrix-excel --mode preview` -> PASS，11 个正式 Markdown/JSON 文件全部在 keep，delete/blocked/warnings 均为空。
-- Cleanup apply: 未执行。当前任务仍因 GitHub HTTPS 443 推送阻塞而保持 `blocked`，不得为了清理把状态伪装为 `ready_for_closeout` 或 `completed`。
+
+### Planning Commit And Push Blocker Recovery
+
+- Strict BDD/TDD planning commit: `5f5ee5fc9` (`docs: add strict BDD TDD coverage for role matrix`)。
+- Commit files: `development-plan.md`、`test-plan.md`、`task.md`、`task-state.json`、`execution-log.md`、`verification-report.md` 和四份 `docs/acceptance/` 文档，共 10 个文件。
+- Post-commit rescan: 当前任务文件无残余改动；并行前端 Runner、`20260730-test-management-serial-routes-repair` 和 `20260801-third-party-feedback-import-list-progress` 改动保持未暂存。
+- GREEN: `git ls-remote origin HEAD` -> PASS，返回远端 HEAD `184659363eebaefc14ef5178012748ed342898ab`，此前 GitHub HTTPS 443 blocker 已解除。
+- Status transition: 当前文档任务从 `blocked` 更新为 `ready_for_closeout`，等待 cleanup apply、收尾记录提交和最终 push。
+- Cleanup preview after ready state -> PASS，11 个正式文件全部 keep，delete/blocked/warnings 均为空。
+- Cleanup apply -> PASS，11 个正式文件全部 keep，deleted_paths/blocked/warnings 均为空；主工作区未执行 worktree merge/remove。
+- Delivery gate: 保持 `ready_for_closeout`，先提交并推送当前收尾证据；远端同步成功后才允许标记 `completed`。
