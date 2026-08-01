@@ -84,6 +84,12 @@
 - Command: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest,MesFrontlineRuntimeConfigControllerTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineRuntimeConfigServiceTest,MesTeamLeaderActiveOrderServiceTest,MesTeamLeaderRuntimeConfigServiceTest,MesTeamLeaderReportConfirmationServiceTest,MesTeamLeaderFifoAllocationServiceTest,MesTeamLeaderOrderProcessCompletionServiceTest,MesTeamLeaderBatchRecordBackfillServiceTest,MesProFrontlineFeedbackPayloadSplitterTest,MesProBatchRecordCellLinkServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, tests run: 47, failures: 0, errors: 0, skipped: 0.
 - Remaining scope: P6 已完成；后续仅剩任务收尾、提交推送和按门禁融合 `int_main`。
 
+## P6 Resume Recheck
+
+- Command: `pnpm --dir IntRuoyiFronted e2e:team-leader-workbench:real` -> PASS after password-only environment injection; `p6-real-e2e-evidence.md` now shows `Status: PASS` and eventId=`23`.
+- Cleanup: final task-owned residue check -> PASS，`active_order`、`employee_binding`、`process_device`、`parameter_rule`、`defect_reason`、`event`、`feedback`、`allocation`、`completion`、`recordbook_entry` 均为 `0`，设备 `980005` 恢复 `REPAIRING` 且 enabled。
+- Governance: append-only batch-record field audit item for executionId=`1607` remains by design and was not force-deleted.
+
 ## Final Verdict
 
 - Outcome: P6 real E2E and regression verification passed; ready for closeout / integration gates.

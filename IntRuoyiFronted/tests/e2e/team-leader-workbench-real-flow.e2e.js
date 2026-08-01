@@ -78,7 +78,6 @@ function collectConfig() {
     feedbackType: numberEnv('TLW_FEEDBACK_TYPE'),
     submitDate: envValue('TLW_SUBMIT_DATE'),
     outputQuantity: numberEnv('TLW_OUTPUT_QUANTITY') || 80,
-    previousProcessInputQuantity: numberEnv('TLW_PREVIOUS_PROCESS_INPUT_QUANTITY') || 120,
     parameterLowerLimit: numberEnv('TLW_PARAMETER_LOWER_LIMIT') || 10,
     parameterUpperLimit: numberEnv('TLW_PARAMETER_UPPER_LIMIT') || 20,
     parameterDefaultValue: numberEnv('TLW_PARAMETER_DEFAULT_VALUE') || 15,
@@ -420,8 +419,7 @@ async function submitEmployeeReport(page, config, steps) {
     approveUserId: String(config.approveUserId),
     recordbookId: String(config.recordbookId),
     signatureId: String(config.signatureId),
-    signatureEmployeeId: String(config.signatureEmployeeId),
-    previousProcessInputQuantity: String(config.previousProcessInputQuantity)
+    signatureEmployeeId: String(config.signatureEmployeeId)
   })
   await page.goto(`${config.frontendUrl}${PRODUCTION_FILL_ROUTE}?${query.toString()}`, {
     waitUntil: 'networkidle'

@@ -122,16 +122,48 @@
         </el-table-column>
         <el-table-column label="提交内容" min-width="220">
           <template #default="{ row }">
-            {{ row.submittedSummary || row.pqcSummary || '--' }}
+            <div
+              v-if="isPqcSubmissionRow(row)"
+              class="team-leader-workbench__pqc-content"
+              data-pqc-leader-submission-content
+            >
+              <div
+                v-for="item in resolvePqcSubmissionContentItems(row)"
+                :key="item.key"
+                class="team-leader-workbench__pqc-content-item"
+                :data-pqc-leader-submission-entry="item.key"
+              >
+                <span class="team-leader-workbench__pqc-content-label">{{ item.label }}</span>
+                <span class="team-leader-workbench__pqc-content-value">{{ item.valueText }}</span>
+              </div>
+            </div>
+            <template v-else>{{ resolveProductionSubmissionSummary(row) }}</template>
           </template>
         </el-table-column>
         <el-table-column label="审核副本" min-width="130">
           <template #default="{ row }">{{ row.auditCopyStatus || '--' }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="复核判定" min-width="190">
+          <template #default="{ row }">
+            <div class="team-leader-workbench__review-log" data-team-leader-review-log>
+              <el-tag :type="resolveSubmissionReviewTagType(row.submissionReviewStatus)" effect="plain">
+                {{ resolveSubmissionReviewStatusText(row.submissionReviewStatus) }}
+              </el-tag>
+              <span v-if="row.submissionReviewRemark" class="team-leader-workbench__review-text">
+                {{ row.submissionReviewRemark }}
+              </span>
+              <span v-if="row.submissionReviewedAt" class="team-leader-workbench__review-meta">
+                复核人 {{ row.submissionReviewLeaderUserId || '--' }} ·
+                {{ formatDateTime(row.submissionReviewedAt) }}
+              </span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="270" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDetail(row)">详情</el-button>
             <el-button link type="success" @click="openReview(row)">复核</el-button>
+            <el-button link type="warning" @click="openCorrection(row)">修正</el-button>
             <el-button v-if="isProductionLeader" link type="warning" @click="prefillAbnormal(row)">
               标记异常
             </el-button>
@@ -482,15 +514,38 @@
             </el-table>
           </el-descriptions-item>
         </el-descriptions>
+        <div
+          v-if="detail && isPqcSubmissionRow(detail)"
+          class="team-leader-workbench__submission-log"
+          data-pqc-submission-log
+        >
+          <div class="team-leader-workbench__submission-log-title">PQC提交日志</div>
+          <el-descriptions :column="1" border>
+            <el-descriptions-item label="提交事件编号">
+              {{ detail.id || '--' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="PQC检验员">
+              {{ detail.actualEmployeeUserName || detail.actualEmployeeUserId || '--' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="服务端提交时间">
+              {{ formatDateTime(detail.submittedAt) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="原始提交内容">
+              <pre class="team-leader-workbench__payload">{{
+                detail.originalPayloadJson || '--'
+              }}</pre>
+            </el-descriptions-item>
+          </el-descriptions>
+        </div>
       </div>
     </el-drawer>
 
     <el-dialog v-model="reviewVisible" title="复核员工提交" width="760px">
       <el-form :model="reviewForm" label-width="92px">
-        <el-form-item label="复核结果">
+        <el-form-item label="判定结果">
           <el-select v-model="reviewForm.reviewStatus">
-            <el-option label="通过" value="APPROVED" />
-            <el-option label="退回" value="REJECTED" />
+            <el-option label="正确" value="APPROVED" />
+            <el-option label="不正确" value="REJECTED" />
           </el-select>
         </el-form-item>
         <el-form-item label="复核说明">
@@ -579,6 +634,87 @@
         >
       </template>
     </el-dialog>
+
+    <el-dialog v-model="correctionVisible" title="修正不正确内容" width="760px" destroy-on-close>
+      <el-alert
+        title="修正将调用原始记录修改接口，系统会记录修改前、修改后、原因、修改人、签名和字段差异日志。"
+        type="warning"
+        :closable="false"
+        show-icon
+      />
+      <el-form class="team-leader-workbench__correction-form" :model="correctionForm" label-width="150px">
+        <el-form-item label="提交事件编号">
+          <el-input-number
+            v-model="correctionForm.eventId"
+            :min="1"
+            :controls="false"
+            disabled
+            class="team-leader-workbench__number"
+          />
+        </el-form-item>
+        <el-form-item label="修改原因">
+          <el-input v-model="correctionForm.changeReason" maxlength="500" show-word-limit />
+        </el-form-item>
+        <el-row :gutter="12">
+          <el-col :xs="24" :md="8">
+            <el-form-item label="修改人用户ID">
+              <el-input-number
+                v-model="correctionForm.modifiedByUserId"
+                :min="1"
+                :controls="false"
+                class="team-leader-workbench__number"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :md="8">
+            <el-form-item label="修正签名ID">
+              <el-input-number
+                v-model="correctionForm.revisionSignatureId"
+                :min="1"
+                :controls="false"
+                class="team-leader-workbench__number"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :md="8">
+            <el-form-item label="签名用户ID">
+              <el-input-number
+                v-model="correctionForm.revisionSignatureUserId"
+                :min="1"
+                :controls="false"
+                class="team-leader-workbench__number"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="修改后payload JSON">
+          <el-input v-model="correctionForm.afterPayloadJson" type="textarea" :rows="8" resize="vertical" />
+        </el-form-item>
+        <el-form-item label="修正签名快照JSON">
+          <el-input
+            v-model="correctionForm.revisionSignatureSnapshotJson"
+            type="textarea"
+            :rows="4"
+            resize="vertical"
+          />
+        </el-form-item>
+        <el-form-item label="字段变更JSON">
+          <el-input
+            v-model="correctionForm.changedFieldsJson"
+            type="textarea"
+            :rows="8"
+            resize="vertical"
+            placeholder="请输入非空数组，逐项记录 fieldCode/fieldName/beforeValue/afterValue/affectsQuantityFragment/originalField"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="correctionVisible = false">取消</el-button>
+        <el-button type="primary" :loading="correctionSubmitting" @click="submitCorrection">
+          提交修正并记录日志
+        </el-button>
+      </template>
+    </el-dialog>
 </template>
 
 <script setup lang="ts">
@@ -609,6 +745,10 @@ import type {
   ProcessPoolTimelineDetailVO,
   ProcessPoolTimelineEventVO
 } from '@/api/mes/pro/processpool'
+import {
+  updateProcessPoolOriginalRecord,
+  type ProcessPoolEventRevisionFieldChangeVO
+} from '@/api/mes/pro/processpool/eventRevision'
 import { formatDateTimeValue } from '@/utils/formatTime'
 
 defineOptions({ name: 'MesProProcessPoolTeamLeaderWorkbench' })
@@ -622,13 +762,16 @@ const reviewSubmitting = ref(false)
 const allocationPreviewLoading = ref(false)
 const abnormalSubmitting = ref(false)
 const maintenanceSubmitting = ref(false)
+const correctionSubmitting = ref(false)
 const detailVisible = ref(false)
 const reviewVisible = ref(false)
+const correctionVisible = ref(false)
 const loadError = ref('')
 const submissionTotal = ref(0)
 const submissionList = ref<ProcessPoolTimelineEventVO[]>([])
 const detail = ref<ProcessPoolTimelineDetailVO>()
 const reviewEvent = ref<ProcessPoolTimelineEventVO>()
+const correctionEvent = ref<ProcessPoolTimelineEventVO>()
 const activeOrderOptions = ref<TeamLeaderActiveOrderRespVO[]>([])
 const allocationRows = ref<TeamLeaderReportAllocationLine[]>([])
 const configuredDefectReasonOptions = ref<
@@ -666,6 +809,17 @@ const reviewForm = reactive({
   reviewStatus: 'APPROVED' as 'APPROVED' | 'REJECTED',
   allocationMode: 'FIFO' as 'FIFO' | 'MANUAL',
   reviewRemark: ''
+})
+
+const correctionForm = reactive({
+  eventId: undefined as number | undefined,
+  modifiedByUserId: undefined as number | undefined,
+  revisionSignatureId: undefined as number | undefined,
+  revisionSignatureUserId: undefined as number | undefined,
+  changeReason: '',
+  afterPayloadJson: '',
+  revisionSignatureSnapshotJson: '',
+  changedFieldsJson: ''
 })
 
 const abnormalForm = reactive({
@@ -837,6 +991,220 @@ const buildAllocationSubmitLines = (): TeamLeaderReportAllocationLine[] => {
   return lines
 }
 
+function parseJsonField<T>(value: string, label: string): T {
+  if (!value || !value.trim()) {
+    throw new Error(`${label}不能为空`)
+  }
+  try {
+    return JSON.parse(value) as T
+  } catch (error) {
+    throw new Error(`${label}必须是合法 JSON`)
+  }
+}
+
+const normalizePayloadJsonForCorrection = (payloadJson?: string) => {
+  const text = payloadJson?.trim()
+  if (!text) {
+    throw new Error('原始payload缺失，不能发起修正')
+  }
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2)
+  } catch (error) {
+    throw new Error('原始payload不是合法 JSON，不能发起修正')
+  }
+}
+
+type PqcSubmissionContentItemKey =
+  | 'inspectionOverview'
+  | 'length'
+  | 'appearance'
+  | 'seal'
+  | 'pressure'
+  | 'missing'
+
+interface PqcSubmissionContentDefinition {
+  key: PqcSubmissionContentItemKey
+  label: string
+  unit?: string
+}
+
+interface PqcSubmissionContentItem extends PqcSubmissionContentDefinition {
+  valueText: string
+}
+
+type PqcSubmissionPayloadRecord = Record<string, unknown>
+
+const PQC_SUBMISSION_CONTENT_DEFINITIONS: PqcSubmissionContentDefinition[] = [
+  { key: 'length', label: '长度', unit: '厘米' },
+  { key: 'appearance', label: '外观' },
+  { key: 'seal', label: '密封' },
+  { key: 'pressure', label: '压力', unit: 'MPa' }
+]
+
+const PQC_SUBMISSION_CONTENT_MISSING_ITEMS: PqcSubmissionContentItem[] = [
+  {
+    key: 'missing',
+    label: 'PQC明细',
+    valueText: 'PQC提交内容缺少正式明细'
+  }
+]
+
+const isRecord = (value: unknown): value is PqcSubmissionPayloadRecord =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const parsePqcOriginalPayload = (payloadJson?: string) => {
+  const text = payloadJson?.trim()
+  if (!text) {
+    return undefined
+  }
+  try {
+    const parsed = JSON.parse(text)
+    return isRecord(parsed) ? parsed : undefined
+  } catch (error) {
+    console.warn('PQC提交原始payload解析失败', error)
+    return undefined
+  }
+}
+
+const isPqcSubmissionRow = (row: ProcessPoolTimelineEventVO) =>
+  String(row.templateType || '').includes('PQC') || activeLeaderTab.value === 'PQC'
+
+const readPqcPayloadField = (payload: PqcSubmissionPayloadRecord, key: string) => {
+  const draft = isRecord(payload.pqcDraft) ? payload.pqcDraft : undefined
+  return draft?.[key] ?? payload[key]
+}
+
+const normalizePqcSubmittedValues = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item ?? '').trim()).filter(Boolean)
+  }
+  if (isRecord(value)) {
+    for (const nestedKey of ['values', 'pieceValues', 'results', 'value']) {
+      const nestedValues = normalizePqcSubmittedValues(value[nestedKey])
+      if (nestedValues.length) {
+        return nestedValues
+      }
+    }
+    return []
+  }
+  if (value === undefined || value === null) {
+    return []
+  }
+  const text = String(value).trim()
+  return text ? [text] : []
+}
+
+const findPqcItemCandidate = (
+  payload: PqcSubmissionPayloadRecord,
+  itemKey: PqcSubmissionContentItemKey
+) => {
+  for (const groupKey of ['pqcInspectionItems', 'pqcInspectionContent', 'inspectionItems']) {
+    const group = payload[groupKey]
+    if (isRecord(group) && group[itemKey] !== undefined) {
+      return group[itemKey]
+    }
+  }
+  const directKey = `${itemKey}Values`
+  if (payload[directKey] !== undefined) {
+    return payload[directKey]
+  }
+  if (payload[itemKey] !== undefined) {
+    return payload[itemKey]
+  }
+  const pieceValues = payload.pqcPieceValues
+  if (isRecord(pieceValues)) {
+    for (const [pieceKey, pieceValue] of Object.entries(pieceValues)) {
+      if (pieceKey === itemKey || pieceKey.endsWith(`:${itemKey}`)) {
+        return pieceValue
+      }
+    }
+  }
+  return undefined
+}
+
+const formatPqcSubmittedValues = (
+  definition: PqcSubmissionContentDefinition,
+  values: string[]
+) => {
+  if (!values.length) {
+    return '未填写'
+  }
+  return values
+    .map((value) =>
+      definition.unit && !value.endsWith(definition.unit)
+        ? `${value}${definition.unit}`
+        : value
+    )
+    .join('、')
+}
+
+const resolvePqcInspectionTypeText = (value: unknown) => {
+  if (value === 'FIRST') return '首检'
+  if (value === 'PATROL') return '巡检'
+  if (value === 'FINAL') return '末检'
+  return String(value ?? '').trim()
+}
+
+const resolvePqcSubmissionOverviewItem = (
+  payload: PqcSubmissionPayloadRecord
+): PqcSubmissionContentItem | undefined => {
+  const inspectionType = resolvePqcInspectionTypeText(readPqcPayloadField(payload, 'inspectionType'))
+  const patrolRound = readPqcPayloadField(payload, 'patrolRound')
+  const inspectionQuantity = readPqcPayloadField(payload, 'inspectionQuantity')
+  const scrapQuantity = readPqcPayloadField(payload, 'scrapQuantity')
+  const parts = [
+    inspectionType,
+    patrolRound ? `第${patrolRound}轮` : '',
+    inspectionQuantity ? `检验${inspectionQuantity}件` : '',
+    scrapQuantity ? `报废${scrapQuantity}件` : ''
+  ].filter(Boolean)
+  if (!parts.length) {
+    return undefined
+  }
+  return {
+    key: 'inspectionOverview',
+    label: '检验信息',
+    valueText: parts.join('，')
+  }
+}
+
+const resolvePqcSubmissionContentItems = (
+  row: ProcessPoolTimelineEventVO
+): PqcSubmissionContentItem[] => {
+  const payload = parsePqcOriginalPayload(row.originalPayloadJson)
+  if (!payload) {
+    return PQC_SUBMISSION_CONTENT_MISSING_ITEMS
+  }
+  const rootPayload = isRecord(payload.rawPayload) ? payload.rawPayload : payload
+  const contentItems = PQC_SUBMISSION_CONTENT_DEFINITIONS.map((definition) => {
+    const values = normalizePqcSubmittedValues(findPqcItemCandidate(rootPayload, definition.key))
+    return {
+      ...definition,
+      valueText: formatPqcSubmittedValues(definition, values)
+    }
+  })
+  if (contentItems.every((item) => item.valueText === '未填写')) {
+    return PQC_SUBMISSION_CONTENT_MISSING_ITEMS
+  }
+  const overviewItem = resolvePqcSubmissionOverviewItem(rootPayload)
+  return overviewItem ? [overviewItem, ...contentItems] : contentItems
+}
+
+const resolveProductionSubmissionSummary = (row: ProcessPoolTimelineEventVO) =>
+  row.submittedSummary || row.pqcSummary || '--'
+
+const resolveSubmissionReviewStatusText = (status?: string) => {
+  if (status === 'APPROVED') return '正确'
+  if (status === 'REJECTED') return '不正确'
+  return '待判定'
+}
+
+const resolveSubmissionReviewTagType = (status?: string) => {
+  if (status === 'APPROVED') return 'success'
+  if (status === 'REJECTED') return 'danger'
+  return 'info'
+}
+
 const buildSubmissionParams = (): TeamLeaderSubmissionPageReqVO => {
   if (!queryParams.submitDate) {
     throw new Error('提交日期不能为空')
@@ -966,6 +1334,73 @@ const submitReview = async () => {
     ElMessage.error(resolveErrorMessage(error, '复核提交失败'))
   } finally {
     reviewSubmitting.value = false
+  }
+}
+
+const openCorrection = (event: ProcessPoolTimelineEventVO) => {
+  try {
+    const eventId = requirePositiveNumber(event.id, '工序池提交事件编号不能为空')
+    correctionEvent.value = event
+    correctionForm.eventId = eventId
+    correctionForm.modifiedByUserId = undefined
+    correctionForm.revisionSignatureId = undefined
+    correctionForm.revisionSignatureUserId = undefined
+    correctionForm.changeReason = ''
+    correctionForm.afterPayloadJson = normalizePayloadJsonForCorrection(event.originalPayloadJson)
+    correctionForm.revisionSignatureSnapshotJson = ''
+    correctionForm.changedFieldsJson = ''
+    correctionVisible.value = true
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '原始记录修正入口打开失败'))
+  }
+}
+
+const buildCorrectionRequest = () => {
+  parseJsonField<Record<string, unknown>>(correctionForm.afterPayloadJson, '修改后payload JSON')
+  parseJsonField<Record<string, unknown>>(
+    correctionForm.revisionSignatureSnapshotJson,
+    '修正签名快照JSON'
+  )
+  const changedFields = parseJsonField<ProcessPoolEventRevisionFieldChangeVO[]>(
+    correctionForm.changedFieldsJson,
+    '字段变更JSON'
+  )
+  if (!Array.isArray(changedFields) || changedFields.length === 0) {
+    throw new Error('字段变更JSON必须是非空数组')
+  }
+  if (changedFields.some((item) => typeof item.affectsQuantityFragment !== 'boolean')) {
+    throw new Error('字段变更JSON中 affectsQuantityFragment 必须是 true 或 false')
+  }
+  if (!correctionForm.changeReason.trim()) {
+    throw new Error('修改原因不能为空')
+  }
+  return {
+    eventId: requirePositiveNumber(correctionForm.eventId, '工序池提交事件编号不能为空'),
+    afterPayload: correctionForm.afterPayloadJson.trim(),
+    changeReason: correctionForm.changeReason.trim(),
+    revisionSignatureId: requirePositiveNumber(correctionForm.revisionSignatureId, '修正签名ID不能为空'),
+    revisionSignatureUserId: requirePositiveNumber(
+      correctionForm.revisionSignatureUserId,
+      '签名用户ID不能为空'
+    ),
+    revisionSignatureSnapshot: correctionForm.revisionSignatureSnapshotJson.trim(),
+    modifiedByUserId: requirePositiveNumber(correctionForm.modifiedByUserId, '修改人用户ID不能为空'),
+    changedFields
+  }
+}
+
+const submitCorrection = async () => {
+  requirePositiveNumber(correctionEvent.value?.id, '工序池提交事件编号不能为空')
+  correctionSubmitting.value = true
+  try {
+    await updateProcessPoolOriginalRecord(buildCorrectionRequest())
+    ElMessage.success('修正已提交，修改日志已记录')
+    correctionVisible.value = false
+    await getSubmissionList()
+  } catch (error) {
+    ElMessage.error(resolveErrorMessage(error, '原始记录修正失败'))
+  } finally {
+    correctionSubmitting.value = false
   }
 }
 
@@ -1242,6 +1677,66 @@ onMounted(() => getSubmissionList())
   margin: 0;
   overflow: auto;
   white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.team-leader-workbench__review-log {
+  display: grid;
+  gap: 4px;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.team-leader-workbench__review-text,
+.team-leader-workbench__review-meta {
+  word-break: break-word;
+}
+
+.team-leader-workbench__review-meta {
+  color: #64748b;
+}
+
+.team-leader-workbench__submission-log {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.team-leader-workbench__submission-log-title {
+  color: #172033;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.team-leader-workbench__correction-form {
+  margin-top: 16px;
+}
+
+.team-leader-workbench__number {
+  width: 100%;
+}
+
+.team-leader-workbench__pqc-content {
+  display: grid;
+  gap: 4px;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.team-leader-workbench__pqc-content-item {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.team-leader-workbench__pqc-content-label {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.team-leader-workbench__pqc-content-value {
   word-break: break-word;
 }
 

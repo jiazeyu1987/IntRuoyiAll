@@ -205,6 +205,38 @@ public class AdminAuthServiceImplTest extends BaseDbUnitTest {
     }
 
     @Test
+    public void testLogin_successWithoutCaptchaVerificationWhenCaptchaEnabled() {
+        // 准备参数
+        AuthLoginReqVO reqVO = new AuthLoginReqVO();
+        reqVO.setUsername("test_username");
+        reqVO.setPassword("test_password");
+        reqVO.setCaptchaVerification(null);
+
+        // mock user 数据
+        AdminUserDO user = randomPojo(AdminUserDO.class, o -> o.setId(1L).setUsername("test_username")
+                .setPassword("test_password").setStatus(CommonStatusEnum.ENABLE.getStatus())
+                .setPasswordUpdateTime(LocalDateTime.now().minusDays(30)));
+        when(userService.getUserByUsername(eq("test_username"))).thenReturn(user);
+        // mock password 匹配
+        when(userService.isPasswordMatch(eq("test_password"), eq(user.getPassword()))).thenReturn(true);
+        // mock 缓存登录用户到 Redis
+        OAuth2AccessTokenDO accessTokenDO = randomPojo(OAuth2AccessTokenDO.class, o -> o.setUserId(1L)
+                .setUserType(UserTypeEnum.ADMIN.getValue()));
+        when(oauth2TokenService.createAccessToken(eq(1L), eq(UserTypeEnum.ADMIN.getValue()), eq("default"), isNull()))
+                .thenReturn(accessTokenDO);
+
+        // 调用，并校验
+        AuthLoginRespVO loginRespVO = authService.login(reqVO);
+        assertPojoEquals(accessTokenDO, loginRespVO);
+        verifyNoInteractions(captchaService);
+        verify(loginLogService).createLoginLog(
+                argThat(o -> o.getLogType().equals(LoginLogTypeEnum.LOGIN_USERNAME.getType())
+                        && o.getResult().equals(LoginResultEnum.SUCCESS.getResult())
+                        && o.getUserId().equals(user.getId()))
+        );
+    }
+
+    @Test
     public void testSendSmsCode() {
         // 准备参数
         String mobile = randomString();

@@ -50,17 +50,21 @@ export interface ProcessPoolTimelineEventVO {
   sourceRecordbookEntryId?: number
   sourceRecordbookEventId?: number
   submittedSummary?: string
+  originalPayloadJson?: string
   pqcResult?: string
   pqcSummary?: string
   fifoAllocationStatus?: string
   fifoAllocationSummary?: string
   auditCopyStatus?: string
   auditCopySummary?: string
+  submissionReviewStatus?: string
+  submissionReviewRemark?: string
+  submissionReviewLeaderUserId?: number
+  submissionReviewedAt?: string | number | Date
   modificationHistorySummary?: string
 }
 
 export interface ProcessPoolTimelineDetailVO extends ProcessPoolTimelineEventVO {
-  originalPayloadJson?: string
   readonlyActions?: ProcessPoolTimelineReadonlyActionsVO
 }
 

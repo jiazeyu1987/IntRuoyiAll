@@ -66,11 +66,10 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
     private ProcessPoolTimelineDetailRespVO toDetailRespVO(ProcessPoolTimelineEventReadDO event) {
         ProcessPoolTimelineDetailRespVO respVO = new ProcessPoolTimelineDetailRespVO();
         copyEventFields(event, respVO);
-        respVO.setOriginalPayloadJson(event.getOriginalPayloadJson())
-                .setReadonlyActions(new ProcessPoolTimelineDetailRespVO.ReadonlyActions()
-                        .setCanModifyOriginalRecord(false)
-                        .setCanGenerateAuditCopy(false)
-                        .setCanExecuteFifoAllocation(false));
+        respVO.setReadonlyActions(new ProcessPoolTimelineDetailRespVO.ReadonlyActions()
+                .setCanModifyOriginalRecord(false)
+                .setCanGenerateAuditCopy(false)
+                .setCanExecuteFifoAllocation(false));
         return respVO;
     }
 
@@ -106,12 +105,17 @@ public class ProcessPoolTimelineServiceImpl implements ProcessPoolTimelineServic
                 .setSourceRecordbookEntryId(event.getSourceRecordbookEntryId())
                 .setSourceRecordbookEventId(event.getSourceRecordbookEventId())
                 .setSubmittedSummary(event.getSubmittedSummary())
+                .setOriginalPayloadJson(event.getOriginalPayloadJson())
                 .setPqcResult(event.getPqcResult())
                 .setPqcSummary(event.getPqcSummary())
                 .setFifoAllocationStatus(event.getFifoAllocationStatus())
                 .setFifoAllocationSummary(event.getFifoAllocationSummary())
                 .setAuditCopyStatus(event.getAuditCopyStatus())
                 .setAuditCopySummary(event.getAuditCopySummary())
+                .setSubmissionReviewStatus(event.getSubmissionReviewStatus())
+                .setSubmissionReviewRemark(event.getSubmissionReviewRemark())
+                .setSubmissionReviewLeaderUserId(event.getSubmissionReviewLeaderUserId())
+                .setSubmissionReviewedAt(event.getSubmissionReviewedAt())
                 .setModificationHistorySummary(event.getModificationHistorySummary());
     }
 

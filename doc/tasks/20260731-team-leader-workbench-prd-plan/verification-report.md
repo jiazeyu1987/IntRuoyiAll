@@ -60,3 +60,10 @@
 - PASS: `task-state.json` 已改为引用保留证据，不再引用已删除的临时 evidence 文件。
 - PASS: 清理提交已完成：`3c5789190 chore: clean team leader workbench task evidence`。
 - BLOCKED: 融合 `int_main` 未执行；`E:\IntRuoyi` 主工作区仍存在并行未提交改动和输出文件，按 worktree 门禁不能执行 ff-only merge 或删除当前 worktree。
+
+## 2026-08-01 Resume Recheck Addendum
+
+- PASS: 用户补齐 `TLW_PASSWORD` 后复跑 `pnpm --dir IntRuoyiFronted e2e:team-leader-workbench:real` 通过，`p6-real-e2e-evidence.md` 已重写为 `Status: PASS`，本轮动态 eventId=`23`。
+- PASS: 复跑前后均完成任务自有数据清理；最终 `active_order`、`employee_binding`、`process_device`、`parameter_rule`、`defect_reason`、`event`、`feedback`、`allocation`、`completion`、`recordbook_entry` 均为 `0`，设备 `980005` 为 `REPAIRING` 且 enabled。
+- PASS: 密码仅作为临时进程环境变量注入，命令结束后删除；未写入任务文档、证据文件、提交信息或源码。
+- NOTE: 批记录字段审计明细受 append-only 治理保护，executionId=`1607` 的审计 item 保留 `1` 条；未强删或绕过审计保护，不影响任务运行数据清理结论。

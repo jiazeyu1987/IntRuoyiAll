@@ -8,7 +8,7 @@
 
 - [x] M1: 复现并隔离 Runner/Codex CLI 首节点退出与超时根因
 - [x] M2: 建立失败回归测试并记录 RED
-- [ ] M3: 实施最小正式修复并记录 GREEN（Runner 隔离、固定样本和 artifact 本地配置已补齐；等待运行态加载后复验）
+- [x] M3: 实施最小正式修复并记录 GREEN（Runner 隔离、固定样本、artifact 本地配置、本机浏览器 executablePath 注入、正式路由导航、Element Plus 弹窗/quick-filter/MessageBox/复制详情、路线编码 link button、quick-filter 路线名称不可见处理、删除/复位后表格 body 行级残留判断、复制绑定/版本发布源路线 RT000028 编码规则、复制弹窗“确认复制”业务按钮、版本发布候选草稿“删除草稿”收尾、版本发布“无打开候选”清理完成态、删除草稿 link-button 文本上溯与 disabled/loading 诊断、临时 Playwright 脚本全局 deadline 与超时前 BLOCKED JSON 回写、保存后弹窗关闭按钮不稳定处理、RouteForm inputValue、RouteForm 异步内容组件打开竞态、临时 Playwright 脚本 node --check 语法自检与 const/let 重复声明约束均已补齐）
 - [ ] M4: 通过真实页面完整复验 3 条串行路线并完成任务自有清理
 - [ ] M5: 完成经验沉淀、收尾校验、提交与推送
 
@@ -52,4 +52,4 @@ doc/tasks/20260730-test-management-serial-routes-repair/run-serial-routes-real-e
 
 ## Current Blocker
 
-- 后端已恢复 `UP`，但标准 `restart-int-ruoyi-local.ps1 -Component frontend` 启动的 Vite 在 `8081` 监听后，真实页面模块请求持续零字节超时。最小 Vite 诊断服务可返回 `200`，但不是本任务允许使用的正式运行态。执行 `40` 尚未通过真实“测试记录”页面取消；在用户明确授权改变 `VITE_OPTIMIZE_PROFILE=windows-safe` 启动路径前，不得切换非标准前端运行态或创建新批次。
+- 暂无已确认前置阻塞。execution 73 的 quick-filter `路线名称` 选项不可见阻塞、execution 74 的复制绑定源路线编码错配、execution 75 的保存后关闭按钮不稳定误报、execution 76 的临时 Playwright 脚本 `const modal` 重复声明语法失败、execution 77 的异步登录重定向后停留登录页、execution 78 的流转关系图 div 图谱误判为空、execution 79 的版本发布旧源路线样本、execution 80 的复制弹窗“确认复制”按钮误判、execution 81 的版本发布候选草稿“删除草稿”入口误判、execution 82 的可见“删除草稿”未按文本子节点上溯真实按钮且未区分 disabled/loading 的误判、execution 83 的删除成功后把 quick-filter 输入框值误判为表格残留、execution 84 的版本发布临时脚本无自带 deadline 导致 Codex 子进程 600 秒硬超时、execution 86 的版本工作台“无打开候选”完成态误判均已用静态合同修复。下一步重启 Runner 后从真实 `系统管理 > 测试管理` 页面复验 3 条串行路线。

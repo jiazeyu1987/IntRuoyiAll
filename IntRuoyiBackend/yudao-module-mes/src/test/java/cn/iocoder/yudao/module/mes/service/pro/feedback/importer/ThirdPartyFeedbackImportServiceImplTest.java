@@ -30,6 +30,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrd
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.task.MesProTaskMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
 import cn.iocoder.yudao.module.mes.enums.md.autocode.MesMdAutoCodeRuleCodeEnum;
+import cn.iocoder.yudao.module.mes.enums.pro.MesProFeedbackStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProRouteFlowConfigTypeEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProScheduleOrderStatusEnum;
 import cn.iocoder.yudao.module.mes.enums.pro.MesProTaskStatusEnum;
@@ -330,12 +331,23 @@ class ThirdPartyFeedbackImportServiceImplTest {
     }
 
     @Test
-    void importDirectWorkReportWorkbook_shouldApplyScheduleProgressWithoutCreatingFeedbackWhenEmployeeMissing() throws Exception {
+    void importDirectWorkReportWorkbook_shouldSkipWithoutDirectProgressWhenFeedbackUserMissing() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "李萍.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buildLiPingWorkbook());
         MesProWorkOrderDO workOrder = MesProWorkOrderDO.builder()
                 .id(100L).code("881MO093613").productId(1000L).build();
         MesMdItemDO item = MesMdItemDO.builder().id(1000L).code("3020110069").name("外鞘管组件").build();
+        MesProTaskDO task = MesProTaskDO.builder()
+                .id(300L)
+                .code("881MO093613-1-11")
+                .workOrderId(100L)
+                .workstationId(400L)
+                .routeId(500L)
+                .processId(2000L)
+                .itemId(1000L)
+                .quantity(new BigDecimal("300"))
+                .status(MesProTaskStatusEnum.IN_PROGRESS.getStatus())
+                .build();
         MesProScheduleOrderDO scheduleOrder = MesProScheduleOrderDO.builder()
                 .id(10L)
                 .code("SO-001")
@@ -362,52 +374,135 @@ class ThirdPartyFeedbackImportServiceImplTest {
         when(workOrderMapper.selectListByCodes(List.of("881MO093613"))).thenReturn(List.of(workOrder));
         when(itemMapper.selectListByIds(List.of(1000L))).thenReturn(List.of(item));
         when(scheduleOrderMapper.selectEffectiveListByWorkOrderIds(List.of(100L))).thenReturn(List.of(scheduleOrder));
-        when(scheduleOrderMapper.selectById(10L)).thenReturn(scheduleOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(List.of(10L))).thenReturn(List.of(scheduleOrderProcess));
-        when(scheduleOrderProcessMapper.selectListByScheduleOrderId(10L)).thenReturn(List.of(scheduleOrderProcess));
         when(processMapper.selectListByIds(List.of(2000L))).thenReturn(List.of(process));
+        when(taskScheduleExtMapper.selectListByScheduleOrderProcessIds(List.of(20L)))
+                .thenReturn(List.of(MesProTaskScheduleExtDO.builder().taskId(300L).scheduleOrderProcessId(20L).build()));
+        when(taskMapper.selectListByIds(List.of(300L))).thenReturn(List.of(task));
+        when(adminUserMapper.selectByUsername("A2020002")).thenReturn(null);
+
+        ThirdPartyFeedbackImportResult result = service.importDirectWorkReportWorkbook(file);
+
+        assertEquals(0, result.getImportedCount());
+        assertEquals(0, result.getPendingCount());
+        assertEquals(0, result.getSubmittedCount());
+        assertEquals(List.of(), result.getFeedbackCodes());
+        assertEquals(List.of(), result.getImportRecordIds());
+        assertEquals(List.of(), result.getDirectWorkReportDetails());
+        assertEquals(2, result.getSkippedRows());
+        assertEquals(1, result.getDirectWorkReportSkipWarnings().size());
+        ThirdPartyFeedbackImportResult.DirectWorkReportSkipWarning warning =
+                result.getDirectWorkReportSkipWarnings().get(0);
+        assertEquals("FEEDBACK_USER_NOT_FOUND", warning.getReasonCode());
+        assertEquals("A2020002", warning.getFeedbackUserCode());
+        assertEquals("881MO093613", warning.getWorkOrderCode());
+        assertEquals("Z2570", warning.getProcessCode());
+        verify(importRecordMapper, never()).insert(any(MesProFeedbackImportRecordDO.class));
+        verify(scheduleOrderProcessMapper, never()).updateProgress(anyLong(), any(), any(), any());
+        verify(feedbackService, never()).createFeedbackWithScheduleSnapshot(any());
+        verify(feedbackService, never()).submitFeedback(anyLong(), eq(true));
+    }
+
+    @Test
+    void importDirectWorkReportWorkbook_shouldCreateSubmittedFeedbackAndLinkImportRecordForMatchedRow() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "李萍.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buildLiPingWorkbook());
+        MesProWorkOrderDO workOrder = MesProWorkOrderDO.builder()
+                .id(100L).code("881MO093613").productId(1000L).build();
+        MesMdItemDO item = MesMdItemDO.builder().id(1000L).code("3020110069").name("外鞘管组件").build();
+        MesProTaskDO task = MesProTaskDO.builder()
+                .id(300L)
+                .code("881MO093613-1-11")
+                .workOrderId(100L)
+                .workstationId(400L)
+                .routeId(500L)
+                .processId(2000L)
+                .itemId(1000L)
+                .quantity(new BigDecimal("300"))
+                .status(MesProTaskStatusEnum.IN_PROGRESS.getStatus())
+                .build();
+        MesProScheduleOrderDO scheduleOrder = MesProScheduleOrderDO.builder()
+                .id(10L)
+                .code("SO-001")
+                .workOrderId(100L)
+                .routeId(500L)
+                .quantity(new BigDecimal("1000"))
+                .status(MesProScheduleOrderStatusEnum.IN_PROGRESS.getStatus())
+                .build();
+        MesProScheduleOrderProcessDO scheduleOrderProcess = MesProScheduleOrderProcessDO.builder()
+                .id(20L)
+                .scheduleOrderId(10L)
+                .routeProcessId(600L)
+                .processId(2000L)
+                .processCode("Z2570")
+                .processName("外鞘管组件包装")
+                .enabled(true)
+                .plannedQuantity(new BigDecimal("1000"))
+                .reportedQuantity(BigDecimal.ZERO.setScale(6))
+                .remainingQuantity(new BigDecimal("1000.000000"))
+                .progressPercent(BigDecimal.ZERO.setScale(6))
+                .build();
+        MesProProcessDO process = MesProProcessDO.builder().id(2000L).code("Z2570").name("外鞘管组件包装").build();
+        AdminUserDO feedbackUser = AdminUserDO.builder().id(1L).username("A2020002").nickname("李萍").build();
+        AdminUserDO approveUser = AdminUserDO.builder().id(2L).username("approval_liping").nickname("李萍").build();
+
+        when(workOrderMapper.selectListByCodes(List.of("881MO093613"))).thenReturn(List.of(workOrder));
+        when(itemMapper.selectListByIds(List.of(1000L))).thenReturn(List.of(item));
+        lenient().when(adminUserMapper.selectByUsername("A2020002")).thenReturn(feedbackUser);
+        lenient().when(adminUserMapper.selectByUsername("李萍")).thenReturn(null);
+        lenient().when(adminUserMapper.selectListByNicknamesExact(List.of("李萍"))).thenReturn(List.of(approveUser));
+        when(scheduleOrderMapper.selectEffectiveListByWorkOrderIds(List.of(100L))).thenReturn(List.of(scheduleOrder));
+        lenient().when(scheduleOrderMapper.selectById(10L)).thenReturn(scheduleOrder);
+        when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(List.of(10L))).thenReturn(List.of(scheduleOrderProcess));
+        lenient().when(scheduleOrderProcessMapper.selectListByScheduleOrderId(10L)).thenReturn(List.of(scheduleOrderProcess));
+        when(processMapper.selectListByIds(List.of(2000L))).thenReturn(List.of(process));
+        lenient().when(taskScheduleExtMapper.selectListByScheduleOrderProcessIds(List.of(20L)))
+                .thenReturn(List.of(MesProTaskScheduleExtDO.builder().taskId(300L).scheduleOrderProcessId(20L).build()));
+        lenient().when(taskMapper.selectListByIds(List.of(300L))).thenReturn(List.of(task));
+        lenient().when(autoCodeRecordService.generateAutoCode(MesMdAutoCodeRuleCodeEnum.PRO_FEEDBACK_CODE.getCode()))
+                .thenReturn("FB-001");
         doAnswer(invocation -> {
             MesProFeedbackImportRecordDO record = invocation.getArgument(0);
             record.setId(700L);
             return 1;
         }).when(importRecordMapper).insert(any(MesProFeedbackImportRecordDO.class));
-        when(importRecordMapper.selectAppliedDirectProgressListByScheduleOrderId(10L)).thenReturn(List.of(
-                MesProFeedbackImportRecordDO.builder()
-                        .id(700L)
+        lenient().when(feedbackService.createFeedbackWithScheduleSnapshot(any(MesProFeedbackSaveReqVO.class))).thenReturn(900L);
+        lenient().when(importRecordMapper.selectAppliedDirectProgressListByScheduleOrderId(10L)).thenReturn(List.of());
+        lenient().when(feedbackMapper.selectProgressListByScheduleOrderId(10L)).thenReturn(List.of(
+                MesProFeedbackDO.builder()
+                        .id(900L)
                         .scheduleOrderId(10L)
                         .scheduleOrderProcessId(20L)
-                        .progressSourceType(MesProFeedbackImportRecordDO.PROGRESS_SOURCE_TYPE_DIRECT_WORK_REPORT)
-                        .progressQuantity(new BigDecimal("213"))
-                        .build()
-        ));
-        when(feedbackMapper.selectProgressListByScheduleOrderId(10L)).thenReturn(List.of());
+                        .feedbackQuantity(new BigDecimal("213"))
+                        .status(MesProFeedbackStatusEnum.APPROVING.getStatus())
+                        .build()));
 
         ThirdPartyFeedbackImportResult result = service.importDirectWorkReportWorkbook(file);
 
         assertEquals(1, result.getImportedCount());
-        assertEquals(0, result.getPendingCount());
-        assertEquals(0, result.getSubmittedCount());
-        assertEquals(List.of(), result.getFeedbackCodes());
+        assertEquals(1, result.getSubmittedCount());
+        assertEquals(List.of("FB-001"), result.getFeedbackCodes());
         assertEquals(List.of(700L), result.getImportRecordIds());
-        assertEquals(1, result.getDirectWorkReportDetails().size());
         ThirdPartyFeedbackImportResult.DirectWorkReportDetail detail = result.getDirectWorkReportDetails().get(0);
-        assertEquals("SO-001", detail.getScheduleOrderCode());
-        assertEquals(new BigDecimal("213"), detail.getFeedbackQuantity());
-        assertEquals(BigDecimal.ZERO.setScale(6), detail.getBeforeReportedQuantity());
+        assertEquals("FB-001", detail.getFeedbackCode());
         assertEquals(new BigDecimal("213.000000"), detail.getAfterReportedQuantity());
-        assertEquals("DIRECT_PROGRESS_UPDATED", detail.getResultCode());
-        ArgumentCaptor<MesProFeedbackImportRecordDO> recordCaptor = ArgumentCaptor.forClass(MesProFeedbackImportRecordDO.class);
-        verify(importRecordMapper).insert(recordCaptor.capture());
-        assertEquals(0, new BigDecimal("213").compareTo(recordCaptor.getValue().getProgressQuantity()));
-        assertEquals(MesProFeedbackImportRecordDO.PROGRESS_SOURCE_TYPE_DIRECT_WORK_REPORT,
-                recordCaptor.getValue().getProgressSourceType());
-        verify(scheduleOrderProcessMapper).updateProgress(20L, new BigDecimal("213.000000"),
-                new BigDecimal("787.000000"), new BigDecimal("21.300000"));
-        verify(routeFlowConfigMapper, never()).selectByRouteIdAndUseType(500L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType());
-        verify(routeFlowProcessConfigMapper, never())
-                .selectByRouteProcessIdAndUseType(600L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType());
-        verify(feedbackService, never()).createFeedbackWithScheduleSnapshot(any());
-        verify(feedbackService, never()).submitFeedback(anyLong(), eq(true));
+        ArgumentCaptor<MesProFeedbackSaveReqVO> reqCaptor = ArgumentCaptor.forClass(MesProFeedbackSaveReqVO.class);
+        verify(feedbackService).createFeedbackWithScheduleSnapshot(reqCaptor.capture());
+        MesProFeedbackSaveReqVO req = reqCaptor.getValue();
+        assertEquals("FB-001", req.getCode());
+        assertEquals(100L, req.getWorkOrderId());
+        assertEquals(300L, req.getTaskId());
+        assertEquals(10L, req.getScheduleOrderId());
+        assertEquals(20L, req.getScheduleOrderProcessId());
+        assertEquals(1L, req.getFeedbackUserId());
+        assertEquals(2L, req.getApproveUserId());
+        assertEquals(0, new BigDecimal("213").compareTo(req.getFeedbackQuantity()));
+        verify(feedbackMapper).updateById(org.mockito.ArgumentMatchers.argThat((MesProFeedbackDO feedback) ->
+                Long.valueOf(900L).equals(feedback.getId()) && Long.valueOf(700L).equals(feedback.getSourceImportRecordId())));
+        verify(feedbackService).submitFeedback(900L, true);
+        verify(importRecordMapper).updateById(org.mockito.ArgumentMatchers.argThat((MesProFeedbackImportRecordDO record) ->
+                Long.valueOf(700L).equals(record.getId()) && Long.valueOf(900L).equals(record.getFeedbackId())
+                        && record.getProgressSourceType() == null && record.getProgressQuantity() == null));
     }
 
     @Test
@@ -439,48 +534,80 @@ class ThirdPartyFeedbackImportServiceImplTest {
                 .progressPercent(BigDecimal.ZERO.setScale(6))
                 .build();
         MesProProcessDO process = MesProProcessDO.builder().id(2000L).code("Z2570").name("外鞘管组件包装").build();
-        List<MesProFeedbackImportRecordDO> appliedDirectRecords = new java.util.ArrayList<>();
-        AtomicLong idSequence = new AtomicLong(700L);
+        MesProTaskDO task = MesProTaskDO.builder()
+                .id(300L)
+                .code("881MO093613-1-11")
+                .workOrderId(100L)
+                .workstationId(400L)
+                .routeId(500L)
+                .processId(2000L)
+                .itemId(1000L)
+                .quantity(new BigDecimal("300"))
+                .status(MesProTaskStatusEnum.IN_PROGRESS.getStatus())
+                .build();
+        AdminUserDO feedbackUser = AdminUserDO.builder().id(1L).username("A2020002").nickname("李萍").build();
+        AdminUserDO approveUser = AdminUserDO.builder().id(2L).username("approval_liping").nickname("李萍").build();
+        List<MesProFeedbackDO> formalFeedbacks = new java.util.ArrayList<>();
+        AtomicLong importRecordIdSequence = new AtomicLong(700L);
+        AtomicLong feedbackIdSequence = new AtomicLong(900L);
 
         when(workOrderMapper.selectListByCodes(List.of("881MO093613"))).thenReturn(List.of(workOrder));
         when(itemMapper.selectListByIds(List.of(1000L))).thenReturn(List.of(item));
+        when(adminUserMapper.selectByUsername("A2020002")).thenReturn(feedbackUser);
+        when(adminUserMapper.selectByUsername("李萍")).thenReturn(null);
+        when(adminUserMapper.selectListByNicknamesExact(List.of("李萍"))).thenReturn(List.of(approveUser));
         when(scheduleOrderMapper.selectEffectiveListByWorkOrderIds(List.of(100L))).thenReturn(List.of(scheduleOrder));
         when(scheduleOrderMapper.selectById(10L)).thenReturn(scheduleOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(List.of(10L))).thenReturn(List.of(scheduleOrderProcess));
         when(scheduleOrderProcessMapper.selectListByScheduleOrderId(10L)).thenReturn(List.of(scheduleOrderProcess));
         when(processMapper.selectListByIds(List.of(2000L))).thenReturn(List.of(process));
+        when(taskScheduleExtMapper.selectListByScheduleOrderProcessIds(List.of(20L)))
+                .thenReturn(List.of(MesProTaskScheduleExtDO.builder().taskId(300L).scheduleOrderProcessId(20L).build()));
+        when(taskMapper.selectListByIds(List.of(300L))).thenReturn(List.of(task));
+        when(autoCodeRecordService.generateAutoCode(MesMdAutoCodeRuleCodeEnum.PRO_FEEDBACK_CODE.getCode()))
+                .thenReturn("FB-001", "FB-002");
         doAnswer(invocation -> {
             MesProFeedbackImportRecordDO record = invocation.getArgument(0);
-            record.setId(idSequence.getAndIncrement());
-            appliedDirectRecords.add(record);
+            record.setId(importRecordIdSequence.getAndIncrement());
             return 1;
         }).when(importRecordMapper).insert(any(MesProFeedbackImportRecordDO.class));
-        when(importRecordMapper.selectAppliedDirectProgressListByScheduleOrderId(10L))
-                .thenAnswer(invocation -> List.copyOf(appliedDirectRecords));
-        when(feedbackMapper.selectProgressListByScheduleOrderId(10L)).thenReturn(List.of());
+        when(feedbackService.createFeedbackWithScheduleSnapshot(any(MesProFeedbackSaveReqVO.class)))
+                .thenAnswer(invocation -> {
+                    MesProFeedbackSaveReqVO req = invocation.getArgument(0);
+                    Long feedbackId = feedbackIdSequence.getAndIncrement();
+                    formalFeedbacks.add(MesProFeedbackDO.builder()
+                            .id(feedbackId)
+                            .scheduleOrderId(req.getScheduleOrderId())
+                            .scheduleOrderProcessId(req.getScheduleOrderProcessId())
+                            .feedbackQuantity(req.getFeedbackQuantity())
+                            .status(MesProFeedbackStatusEnum.APPROVING.getStatus())
+                            .build());
+                    return feedbackId;
+                });
+        when(importRecordMapper.selectAppliedDirectProgressListByScheduleOrderId(10L)).thenReturn(List.of());
+        when(feedbackMapper.selectProgressListByScheduleOrderId(10L))
+                .thenAnswer(invocation -> List.copyOf(formalFeedbacks));
 
         ThirdPartyFeedbackImportResult first = service.importDirectWorkReportWorkbook(file);
         ThirdPartyFeedbackImportResult second = service.importDirectWorkReportWorkbook(file);
 
         assertEquals(1, first.getImportedCount());
         assertEquals(1, second.getImportedCount());
-        assertEquals(0, first.getSubmittedCount());
-        assertEquals(0, second.getSubmittedCount());
-        assertEquals(List.of(), first.getFeedbackCodes());
-        assertEquals(List.of(), second.getFeedbackCodes());
+        assertEquals(1, first.getSubmittedCount());
+        assertEquals(1, second.getSubmittedCount());
+        assertEquals(List.of("FB-001"), first.getFeedbackCodes());
+        assertEquals(List.of("FB-002"), second.getFeedbackCodes());
         assertEquals(new BigDecimal("213.000000"),
                 first.getDirectWorkReportDetails().get(0).getAfterReportedQuantity());
         assertEquals(new BigDecimal("426.000000"),
                 second.getDirectWorkReportDetails().get(0).getAfterReportedQuantity());
-        verify(routeFlowConfigMapper, never()).selectByRouteIdAndUseType(500L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType());
-        verify(routeFlowProcessConfigMapper, never())
-                .selectByRouteProcessIdAndUseType(600L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType());
-        verify(feedbackService, never()).createFeedbackWithScheduleSnapshot(any());
-        verify(feedbackService, never()).submitFeedback(anyLong(), eq(true));
+        verify(feedbackService, times(2)).createFeedbackWithScheduleSnapshot(any(MesProFeedbackSaveReqVO.class));
+        verify(feedbackService).submitFeedback(900L, true);
+        verify(feedbackService).submitFeedback(901L, true);
     }
 
     @Test
-    void importDirectWorkReportWorkbook_shouldAllowOverRemainingQuantityAndReturnWarningDetail() throws Exception {
+    void importDirectWorkReportWorkbook_shouldSkipOverRemainingWithoutDirectProgress() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "李萍.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 buildLiPingWorkbookWithOutputQuantity(200));
@@ -513,40 +640,25 @@ class ThirdPartyFeedbackImportServiceImplTest {
         when(workOrderMapper.selectListByCodes(List.of("881MO093613"))).thenReturn(List.of(workOrder));
         when(itemMapper.selectListByIds(List.of(1000L))).thenReturn(List.of(item));
         when(scheduleOrderMapper.selectEffectiveListByWorkOrderIds(List.of(100L))).thenReturn(List.of(scheduleOrder));
-        when(scheduleOrderMapper.selectById(10L)).thenReturn(scheduleOrder);
         when(scheduleOrderProcessMapper.selectListByScheduleOrderIds(List.of(10L))).thenReturn(List.of(scheduleOrderProcess));
-        when(scheduleOrderProcessMapper.selectListByScheduleOrderId(10L)).thenReturn(List.of(scheduleOrderProcess));
         when(processMapper.selectListByIds(List.of(2000L))).thenReturn(List.of(process));
-        doAnswer(invocation -> {
-            MesProFeedbackImportRecordDO record = invocation.getArgument(0);
-            record.setId(700L);
-            return 1;
-        }).when(importRecordMapper).insert(any(MesProFeedbackImportRecordDO.class));
-        when(importRecordMapper.selectAppliedDirectProgressListByScheduleOrderId(10L)).thenReturn(List.of(
-                MesProFeedbackImportRecordDO.builder()
-                        .id(700L)
-                        .scheduleOrderId(10L)
-                        .scheduleOrderProcessId(20L)
-                        .progressSourceType(MesProFeedbackImportRecordDO.PROGRESS_SOURCE_TYPE_DIRECT_WORK_REPORT)
-                        .progressQuantity(new BigDecimal("200"))
-                        .build()
-        ));
-        when(feedbackMapper.selectProgressListByScheduleOrderId(10L)).thenReturn(List.of());
 
         ThirdPartyFeedbackImportResult result = service.importDirectWorkReportWorkbook(file);
 
-        assertEquals(1, result.getImportedCount());
+        assertEquals(0, result.getImportedCount());
         assertEquals(0, result.getSubmittedCount());
-        assertEquals(0, result.getDirectWorkReportSkipWarnings().size());
-        ThirdPartyFeedbackImportResult.DirectWorkReportDetail detail = result.getDirectWorkReportDetails().get(0);
-        assertEquals("OVER_REMAINING_QUANTITY", detail.getResultCode());
-        assertTrue(detail.getResultMessage().contains("超过当前剩余数量"));
-        assertEquals(new BigDecimal("200.000000"), detail.getAfterReportedQuantity());
-        verify(scheduleOrderProcessMapper).updateProgress(20L, new BigDecimal("200.000000"),
-                BigDecimal.ZERO.setScale(6), new BigDecimal("100.000000"));
-        verify(routeFlowConfigMapper, never()).selectByRouteIdAndUseType(500L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType());
-        verify(routeFlowProcessConfigMapper, never())
-                .selectByRouteProcessIdAndUseType(600L, MesProRouteFlowConfigTypeEnum.SCHEDULE.getType());
+        assertEquals(List.of(), result.getFeedbackCodes());
+        assertEquals(List.of(), result.getImportRecordIds());
+        assertEquals(List.of(), result.getDirectWorkReportDetails());
+        assertEquals(2, result.getSkippedRows());
+        assertEquals(1, result.getDirectWorkReportSkipWarnings().size());
+        ThirdPartyFeedbackImportResult.DirectWorkReportSkipWarning warning =
+                result.getDirectWorkReportSkipWarnings().get(0);
+        assertEquals("REMAINING_NOT_ENOUGH", warning.getReasonCode());
+        assertTrue(warning.getReason().contains("超过当前工序剩余数量"));
+        assertEquals(new BigDecimal("200"), warning.getFeedbackQuantity());
+        verify(importRecordMapper, never()).insert(any(MesProFeedbackImportRecordDO.class));
+        verify(scheduleOrderProcessMapper, never()).updateProgress(anyLong(), any(), any(), any());
         verify(feedbackService, never()).createFeedbackWithScheduleSnapshot(any());
     }
 

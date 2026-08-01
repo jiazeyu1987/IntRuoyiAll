@@ -26,7 +26,6 @@ final class MesProFrontlineFeedbackSubmitTestData {
 
         Map<String, Object> rawPayload = new LinkedHashMap<>();
         rawPayload.put("templateType", "PRODUCTION_SIMPLE");
-        rawPayload.put("previousProcessInputQuantity", new BigDecimal("120.000"));
         rawPayload.put("equipmentParameters", equipmentParameters);
         rawPayload.put("routePredecessorStatuses", Map.of("P10", "WAITING"));
 
@@ -58,7 +57,6 @@ final class MesProFrontlineFeedbackSubmitTestData {
                         .setRecordbookId(901L)
                         .setEntryTitle("F2 production original")
                         .setEntryContent(entryContent)
-                        .setPreviousProcessInputQuantity(new BigDecimal("120.000"))
                         .setEquipmentParameters(equipmentParameters)
                         .setTagCodes(List.of("F2-RAW"))
                         .setIdempotencyKey("F2-20260730-001")

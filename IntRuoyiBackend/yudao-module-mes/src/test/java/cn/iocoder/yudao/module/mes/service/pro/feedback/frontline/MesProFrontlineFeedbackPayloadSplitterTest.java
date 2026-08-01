@@ -1,10 +1,12 @@
 package cn.iocoder.yudao.module.mes.service.pro.feedback.frontline;
 
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.MesProFeedbackSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineRecordbookPayloadReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesProFrontlineFeedbackSubmitReqVO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventCreateReqBO;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -39,7 +41,7 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
         MesProFrontlineRecordbookEntryPayload recordbookPayload = splitPayload.getRecordbookEntryPayload();
         assertEquals(901L, recordbookPayload.getRecordbookId());
         Map<String, Object> content = recordbookPayload.getEntryContent();
-        assertEquals(new BigDecimal("120.000"), content.get("previousProcessInputQuantity"));
+        assertFalse(content.containsKey("previousProcessInputQuantity"));
         assertEquals(reqVO.getRecordbookPayload().getEquipmentParameters(), content.get("equipmentParameters"));
         assertEquals(reqVO.getRawPayload(), content.get("rawPayload"));
 
@@ -58,7 +60,6 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
         assertEquals("PRODUCTION_SIMPLE", eventPayload.getTemplateType());
         assertEquals(new BigDecimal("100.500"), eventPayload.getOutputQuantity());
         assertEquals(new BigDecimal("2.500"), eventPayload.getLossQuantity());
-        assertEquals(new BigDecimal("120.000"), eventPayload.getPreviousProcessInputQuantity());
         assertEquals(reqVO.getRecordbookPayload().getEquipmentParameters(), eventPayload.getEquipmentParameters());
         Map<String, Object> eventRawPayload = eventPayload.getRawPayload();
         assertEquals("PRODUCTION_SIMPLE", eventRawPayload.get("templateType"));
@@ -66,7 +67,7 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
         assertEquals(reqVO.getRecordbookPayload().getEquipmentParameters(), eventRawPayload.get("equipmentParameters"));
         assertEquals(new BigDecimal("100.500"), eventRawPayload.get("outputQuantity"));
         assertEquals(new BigDecimal("2.500"), eventRawPayload.get("lossQuantity"));
-        assertEquals(new BigDecimal("120.000"), eventRawPayload.get("previousProcessInputQuantity"));
+        assertFalse(eventRawPayload.containsKey("previousProcessInputQuantity"));
         assertEquals(new BigDecimal("50"), eventRawPayload.get("temperature"));
         assertEquals(new BigDecimal("10"), eventRawPayload.get("pressure"));
         assertEquals(submittedAt, eventPayload.getSubmittedAt());
@@ -89,5 +90,11 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
         Map<String, Object> eventRawPayload = eventPayload.getRawPayload();
         assertEquals(nestedParameters, eventRawPayload.get("equipmentParameters"));
         assertEquals(new BigDecimal("15"), eventRawPayload.get("TLW-20260731-PRESSURE"));
+    }
+
+    @Test
+    void recordbookPayloadContractShouldNotExposePreviousProcessInputQuantity() {
+        assertFalse(Arrays.stream(MesProFrontlineRecordbookPayloadReqVO.class.getDeclaredFields())
+                .anyMatch(field -> "previousProcessInputQuantity".equals(field.getName())));
     }
 }

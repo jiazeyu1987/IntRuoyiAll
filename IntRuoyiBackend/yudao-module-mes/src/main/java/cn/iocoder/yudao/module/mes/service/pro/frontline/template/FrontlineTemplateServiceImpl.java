@@ -28,7 +28,6 @@ public class FrontlineTemplateServiceImpl implements FrontlineTemplateService {
     private static final Set<String> CLIENT_TIME_FIELDS = Set.of("submitTime", "submittedAt", "feedbackTime");
 
     private static final List<FrontlineTemplateField> PRODUCTION_FIELDS = List.of(
-            field(FrontlineTemplateFieldCodes.PREVIOUS_PROCESS_INPUT_QUANTITY, "上工序输入数量", NUMBER),
             field(FrontlineTemplateFieldCodes.DEVICE, "设备", TEXT),
             field(FrontlineTemplateFieldCodes.DEVICE_PARAMETERS, "设备参数", OBJECT),
             field(FrontlineTemplateFieldCodes.OUTPUT_QUANTITY, "输出数量", NUMBER),

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -21,7 +22,7 @@ const HEARTBEAT_INTERVAL_MS = Number(process.env.CODEX_TEST_HEARTBEAT_INTERVAL_M
 const CODEX_EXEC_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_TIMEOUT_MS || '600000')
 const CODEX_EXEC_READONLY_TIMEOUT_MS = Number(process.env.CODEX_TEST_CODEX_READONLY_TIMEOUT_MS || '120000')
 const CODEX_READONLY_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_READONLY_REASONING_EFFORT || 'medium'
-const CODEX_MUTATING_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_MUTATING_REASONING_EFFORT || 'medium'
+const CODEX_MUTATING_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_MUTATING_REASONING_EFFORT || 'low'
 const CODEX_IGNORE_RULES = process.env.CODEX_TEST_CODEX_IGNORE_RULES !== 'false'
 const CODEX_TEST_API_TIMEOUT_MS = Number(process.env.CODEX_TEST_API_TIMEOUT_MS || '30000')
 const CODEX_CHILD_SETTLE_TIMEOUT_MS = Number(process.env.CODEX_TEST_CHILD_SETTLE_TIMEOUT_MS || '5000')
@@ -98,7 +99,60 @@ function spawnCodex(args) {
   const isWindowsCommandScript = process.platform === 'win32' && /\.(cmd|bat)$/i.test(CODEX_COMMAND)
   const command = isWindowsCommandScript ? 'cmd.exe' : CODEX_COMMAND
   const commandArgs = isWindowsCommandScript ? ['/d', '/s', '/c', CODEX_COMMAND, ...args] : args
-  return spawn(command, commandArgs, { stdio: ['pipe', 'pipe', 'pipe'] })
+  return spawn(command, commandArgs, {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      NODE_PATH: resolveFrontendNodePath(),
+      PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: resolveBrowserExecutablePath()
+    }
+  })
+}
+
+function resolveFrontendNodePath() {
+  const frontendNodeModules = path.join(FRONTEND_PROJECT_ROOT, 'node_modules')
+  const currentNodePath = process.env.NODE_PATH || ''
+  return [frontendNodeModules, currentNodePath].filter(Boolean).join(path.delimiter)
+}
+
+function resolveBrowserExecutablePath() {
+  const configuredPath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+  if (configuredPath) {
+    if (!existsSync(configuredPath)) {
+      throw new Error(`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH does not exist: ${configuredPath}`)
+    }
+    return configuredPath
+  }
+  const browserCandidates = [
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
+  ]
+  const browserExecutablePath = browserCandidates.find((candidate) => existsSync(candidate))
+  if (!browserExecutablePath) {
+    throw new Error('No local Chrome or Edge executable found for Playwright browser launch')
+  }
+  return browserExecutablePath
+}
+
+function resolveNavigationHints(task) {
+  const text = taskText(task)
+  const hints = [
+    'This frontend uses Vue history routes, not hash routes; do not navigate with /#/ paths.'
+  ]
+  if (/工艺路线|route/i.test(text)) {
+    hints.push('工艺路线 list page: /mes/pro/route (Vue history route; do not use /#/mes/route).')
+  }
+  if (/批记录|eDHR|edhr|batch record/i.test(text)) {
+    hints.push('批记录 execution list page: /mes/pro/feedback/edhr-batch-execution (Vue history route).')
+    hints.push('批记录表单配置 list page: /mes/pro/batch-record-form-list (Vue history route).')
+  }
+  if (/智能排产|排产|排程|schedule/i.test(text)) {
+    hints.push('智能排产 task list page: /mes/pro/task (Vue history route).')
+    hints.push('排程日历 page: /mes/pro/schedule-calendar (Vue history route).')
+  }
+  return hints.join('\n')
 }
 
 function codexExecutionArgs(task) {
@@ -358,8 +412,52 @@ This is a browser execution task, not a repository development task.
 Do not create or modify repository files, task documents, source code, configuration, build outputs, Git state, commits, branches, or worktrees.
 Do not run project builds or project test suites.
 Use only task-owned temporary files under ${WORKING_DIRECTORY}.
+Execution strategy: create one temporary Node.js Playwright script under ${WORKING_DIRECTORY}, run it with node, then return the final JSON.
+Before running the temporary Node.js Playwright script, run node --check <temporary-script-path>. This syntax check does not count as running the browser script. If node --check fails, fix the generated script before browser launch instead of running invalid JavaScript.
+Generated scripts must avoid redeclaring const or let identifiers in the same function or block. Do not reuse names such as modal, dialog, rows, values, result, or button for a second const/let declaration in the same scope; either assign to an existing let variable or use a unique name such as detailDialog, retryDialog, copiedRows, or tabVisibility. If a syntax error says Identifier '<name>' has already been declared, repair the duplicate declaration before executing the script.
+Do not inspect the repository before the first browser attempt; inspect local source only if the browser path is blocked by selectors, routes, or prerequisite evidence.
+When the temporary script prints raw JSON with checkpointResults, return that JSON immediately.
+Run the temporary Playwright script at most once before returning. If stdout contains raw JSON with checkpointResults, return that JSON verbatim immediately. Do not keep debugging, rerunning, or launching extra browsers after JSON is available.
+If the temporary script exits with a JSON result that contains FAIL or BLOCKED checkpoints, return that JSON as the business evidence instead of spending the remaining budget trying to repair the generated script.
+The temporary Playwright script must enforce its own overall deadline that is shorter than the remaining execution budget, for example const deadlineAt = Date.now() + Math.min(${Math.max(30000, executionBudgetSeconds * 1000 - 30000)}, 300000). It must race the main browser flow against that deadline and always print checkpointResults JSON before the Codex child timeout. If the deadline is reached, close the browser and return BLOCKED checkpoints for unfinished items instead of letting codex exec hit 600000ms. The deadline handler should include the current URL, current visible page text, and the last known phase/checkpoint in actualText, but it must not keep debugging or rerun the browser script.
+For Element Plus dialogs, click visible buttons by accessible role or exact visible text.
+Element Plus dialog/drawer footer action buttons such as save or confirm may be outside the field form scope; after filling fields, search the entire visible dialog/drawer or page for 保存/确定/提交, not only the field form scope.
+Element Plus button innerText may contain whitespace between Chinese characters, such as 保 存; use the whitespace-tolerant action regex /保\\s*存|确\\s*定|提\\s*交/ instead of exact /^保存$/ text.
+Business confirmation dialogs may use verb-specific primary buttons instead of generic save labels, for example 确认复制, 复制, 确认发布, 发布, 启用, 停用, 删除, 确认删除. Use a business action regex such as /保\\s*存|确\\s*定|提\\s*交|确\\s*认\\s*复\\s*制|复\\s*制|确\\s*认\\s*发\\s*布|发\\s*布|启\\s*用|停\\s*用|确\\s*认\\s*删\\s*除|删\\s*除/ and search the current visible dialog or drawer before any background row buttons.
+If a visible copy/edit dialog footer primary button is 确认复制, use the business action regex, not only /保存|确定|提交/. For copy dialogs, use page.locator('.el-dialog__footer button, .el-drawer__footer button').filter({ hasText: /保\\s*存|确\\s*定|提\\s*交|确\\s*认\\s*复\\s*制|复\\s*制/ }) before any page-wide fallback. Never declare "No visible enabled dialog save action" while a visible enabled 确认复制 button exists in the current dialog footer.
+When an Element Plus message box is visible, click the primary action only inside .el-message-box:visible or .el-overlay-message-box:visible. Do not include background page buttons in the same locator while a message box is visible. Use .el-message-box__btns button or .el-overlay-message-box button filtered by 确定/确认/删除, and prefer the visible primary button in that message box. If a click is intercepted by .el-overlay-message-box, re-scope to the visible message box and retry once.
+Use this deterministic Element Plus footer selector after filling a dialog or drawer: page.locator('.el-dialog__footer button, .el-drawer__footer button').filter({ hasText: /保\\s*存|确\\s*定|提\\s*交/ }).
+Some pages render save actions in custom footer rows instead of .el-dialog__footer or .el-drawer__footer; if the scoped footer selector has no visible candidate, locate the visible action across the current dialog/drawer or page with page.locator('button, .el-button').filter({ hasText: /保\\s*存|确\\s*定|提\\s*交/ }) before declaring the save button missing.
+Do not use locator.last() for save/confirm buttons because hidden duplicate buttons can appear after the visible action in DOM order. Iterate candidates and click the first visible enabled one, for example: const actionCandidates = page.locator('.el-dialog:visible button, .el-drawer:visible button, .el-overlay:visible button, button, .el-button').filter({ hasText: /保\\s*存|确\\s*定|提\\s*交/ }); const actionCount = await actionCandidates.count(); for (let i = 0; i < actionCount; i += 1) { const action = actionCandidates.nth(i); if (await action.isVisible().catch(() => false) && await action.isEnabled().catch(() => false)) { await action.scrollIntoViewIfNeeded().catch(() => {}); await action.click(); break; } }.
+Form inputs inside add/edit dialogs must be scoped to the currently visible .el-dialog or .el-drawer. Do not fill background list filter inputs after opening a dialog or drawer, even if the background field has a matching placeholder such as 路线编码. After filling required dialog fields, verify the dialog-scoped inputValue before clicking save; if the dialog-scoped 编码 input does not equal the fixed route code, keep filling the visible dialog input instead of clicking save.
+When filling Element Plus dialog fields, locate only .el-form-item containers for the exact label; do not search broad div, section, row, or column containers by hasText because a whole 基础信息 section can contain both 编码 and 名称. For 名称, the container text must include 名称 and must not also include 编码 or 基础信息 before filling the contained input. Prefer .el-form-item:visible filtered by exact label text, then fill the input inside that exact form item.
+After a successful save toast such as 新增成功 or 保存成功, some pages keep the add/edit dialog open and switch it into detail/edit tabs. In that case, close the still-open dialog or drawer before running a list search by clicking visible 关闭/返回 or the header close button. Do not treat a still-open post-save dialog as a failed save when the success toast is visible and required values remain present. If a post-save close button becomes detached or unstable, press Escape or click the header close once, then return to the list and verify the saved row by quick-filter before marking the checkpoint BLOCKED. If the list already shows the fixed route code/name after save, checkpoint 2 should pass even when closing the transient post-save dialog was flaky.
+Before clicking any list quick-filter 查询/搜索 button, assert that no .el-dialog, .el-drawer, or .el-overlay-dialog is still visible. If an Element Plus overlay is still visible, close it with the scoped footer 关闭/返回 button or header .el-dialog__headerbtn/.el-drawer__close-btn, then wait for .el-dialog:visible, .el-drawer:visible, .el-overlay-dialog:visible to disappear before retrying the list query. If a quick-filter 查询 click is intercepted by .el-overlay-dialog, close the overlay and retry the same quick-filter query once instead of returning BLOCKED immediately.
+For field-selector list filters, first read the visible selected field label and use the matching identifier input instead of assuming a name field exists. On the 工艺路线 list, the default selected field is 路线编码; for the fixed basic-maintenance sample, search with route code TN-ROUTE-BASIC-001 first. For fixed samples and cleanup/detail lookups, search by route code first and prefer staying on 路线编码 rather than switching to 路线名称.
+For 工艺路线复制绑定 fixed source route lookup, the current test-tenant source sample is RT000028 / 球囊扩张压力泵. when the selected quick-filter field is 路线编码, fill RT000028, never 球囊扩张压力泵. when searching by source route name, first confirm the selected field is 路线名称, then fill 球囊扩张压力泵 and verify the returned visible row still has route code RT000028. Do not report the fixed source route missing after submitting 球囊扩张压力泵 while the selected field remains 路线编码; that is a field/value mismatch, not missing data.
+For 工艺路线版本发布 fixed source route lookup, the current test-tenant source sample is also RT000028 / 球囊扩张压力泵; do not hardcode 按压式球囊扩充压力泵 as the only source route name. If older case text mentions 按压式球囊扩充压力泵, treat it as stale sample text and first locate the visible source row by route code RT000028, then verify the row text contains 球囊扩张压力泵 before copying.
+For 工艺路线版本发布 candidate cleanup, the visible cleanup action for a draft candidate row may be 删除草稿 rather than 取消候选. scope the click to the row/card that contains 草稿 or 候选版本, then click 删除草稿/取消候选/删除候选/作废候选/撤销候选 and confirm any Element Plus message box. Never report the candidate cleanup entry missing while a visible 删除草稿 action exists. After deleting the draft candidate, verify the candidate row no longer shows 草稿/待处理/待发布 before closing the version workspace and deleting the temporary test route.
+For 工艺路线版本发布 candidate cleanup completed state, if the version workspace shows 无打开候选 and no visible version row or card contains 草稿/待处理/待发布, treat the candidate cleanup as already complete. During checkpoint 4 cleanup, do not click 创建候选版本 when 无打开候选 is visible, because that recreates the draft you just cleaned. Also use the exact rule phrase: do not click 创建候选版本 during checkpoint 4 cleanup. Instead, close the version workspace and delete the temporary route from the list, then verify no visible table body row contains TN-ROUTE-VERSION-001 or 测试节点-工艺路线-版本发布.
+For Element Plus link-button cleanup actions such as 删除草稿, include text descendants such as span and then climb to the closest button/.el-button/[role="button"]/a action element before judging the action missing. A safe pattern is to scan visible elements matching button, .el-button, [role="button"], a, span with the cleanup text, resolve each candidate to closest('button,.el-button,[role="button"],a') || element, and scope it to the row/card whose ancestor text contains 草稿/候选版本/待处理/待发布. If the action text is visible but the resolved action is temporarily loading or disabled, wait up to 15 seconds for the action element to stop being [disabled], [aria-disabled="true"], .is-disabled, or .is-loading before clicking. If the page body contains 删除草稿 but the action never becomes enabled, return BLOCKED as visible but disabled/loading instead of entry missing, including the action class/disabled/aria-disabled state in actualText.
+For list search forms with a left field selector and a right text input, fill the right text input, not the left selector input. The left selector only chooses the field such as 路线编码/路线名称 and its inputValue may be truncated or empty; do not fail merely because the left selector inputValue is truncated or empty. After filling the right text input, click 查询/搜索 and judge success from the submitted table results.
+After deleting or resetting a route and re-running the quick-filter, judge absence only from visible table body rows such as .el-table__body-wrapper tbody tr.el-table__row or .unified-list-template__table-shell tbody tr. Do not search page.locator('body').innerText() for the route code/name because the quick-filter input still contains the submitted value and success toast/header text may remain visible. Table headers, quick-filter inputs, sidebar text, toast text, and No Data placeholders are not route rows. If no visible body row contains the fixed route code or name, treat No Data/empty table body as successful absence even when the page body still contains the submitted search value in the input.
+The selected field and the submitted value must match: if the left selector is 路线编码, fill the route code; if the visible field is 路线名称, fill the route name. Only switch to 路线名称 when that option is visible in the currently opened quick-filter dropdown. if 路线名称 is not visible, keep 路线编码 and search by route code instead of returning BLOCKED. Never submit route name text while the selected field remains 路线编码.
+Scope quick-filter interactions to the visible .table-quick-filter or .unified-list-template__quick-filter. Do not scan all page .el-select controls when determining the quick-filter field because unrelated dialogs and page filters may have other selected values. Read the selected field only from .table-quick-filter__field, fill the query text only inside .table-quick-filter__value, and click the 查询 button inside or nearest to the same quick-filter container. After switching 路线编码/路线名称, re-read .table-quick-filter__field before filling. Do not throw just because quick-filter option 路线名称 is unavailable; use the current visible field with the matching fixed code/name value. if the visible field is 路线名称, fill the route name, never the route code; if the visible field is 路线编码, fill the route code, never the route name.
+When the local login page appears, scope all login locators to .login-form and use the visible prefilled login form values or read VITE_APP_DEFAULT_LOGIN_* from the frontend .env files under the frontend project root. If a tenant select exists, select/fill it from .login-form .el-select using VITE_APP_DEFAULT_LOGIN_TENANT first. Fill the username only with .login-form input[placeholder="请输入用户名"] or .login-form input.el-input__inner:not([type="password"]):not([role="combobox"]); fill the password only with .login-form input[type="password"] or .login-form input[placeholder="请输入密码"]. Never fill login by using page.locator('input:visible').first(), and do not use locator.filter({ hasNot: page.locator('[type="password"]') }) to exclude password fields because that does not exclude the input element itself. After clicking 登录, wait for the /admin-api/system/auth/login POST response with business code 0, then wait for /admin-api/system/auth/get-permission-info and for the URL to leave /login. After the URL leaves /login, explicitly navigate back to the target history route such as /mes/pro/route before waiting for business controls; do not assume the redirect parameter completed the target navigation. Do not require INT_RUOYI_E2E_USERNAME or INT_RUOYI_E2E_PASSWORD for local IntRuoyi login. Never print passwords, tokens, cookies, Authorization headers, or raw credential values.
+After login and after every direct navigation to a target history route such as /mes/pro/route, wait up to 60 seconds for either target business controls or a visible .login-form / /login URL before using list helpers. If login appears after an initial target-route navigation, perform the scoped local login, then navigate to the target route again and wait for business controls; repeat this login-or-controls loop up to 2 times. Do not return "Already authenticated" only because .login-form was not visible in the first few seconds after route navigation, because the Vue app may still be asynchronously redirecting to /login. For target controls, require .table-quick-filter or .unified-list-template__quick-filter to be visible and, for list pages, require .el-table or .unified-list-template__table-shell to be visible. If the page remains on /login after successful login, or target controls still do not render after the second target-route navigation, capture a screenshot and return a BLOCKED checkpoint with current URL plus visible page text or console/network evidence; do not call quickFilter() before this page-ready wait.
+List query buttons may be labeled 查询 or 搜索; use page.getByRole('button', { name: /查询|搜索/ }) or page.locator('button, .el-button').filter({ hasText: /查询|搜索/ }) instead of searching only for 搜索.
+For generic 工艺路线 detail verification, use a visible 详情/查看 action only when that exact action exists; when the route list uses a 路线编码 column link as the only detail entry, click the route code link instead. For 工艺路线基础维护 detail verification on /mes/pro/route, the 路线编码 column link opens the RouteForm detail. Do not click operation-column 编辑 for this base detail check because operation-column 编辑 is production-config editing, not base detail. Do not click 版本 for base detail verification because it opens the version workspace and can fail with 工艺路线候选版本快照不完整 for newly-created routes.
+For 工艺路线复制绑定 detail verification, click the visible 路线编码 link inside the copied row, not a duplicate hidden fixed-column row, stale row, background action, or blank dialog entry. If the route-code link exists, do not fall back to 详情/查看 if the route-code link exists. After opening the dialog, the opened 工艺路线详情 dialog must show the copied route code and copied route name before checking tabs. Dialog placeholders such as 请输入编码 or 请输入名称 mean the wrong blank detail form was opened; close it and reopen from the visible copied row route-code link, then re-check that copied code/name are present before validating 基础信息、流转关系图、关联产品.
+For 工艺路线复制绑定 tab checks, do not declare 流转关系图 empty just because the active tab pane innerText is short or the left/right detail sidebars say 请选择工序查看详情 or 点击左侧字段查看明细. The route flow graph is rendered mostly with div nodes and CSS connectors, not necessarily canvas or svg. Treat 流转关系图 as visible when the tab shows .route-flow-graph-designer, .route-flow-graph-designer__canvas, .route-flow-graph-designer__node, [data-flow-node="route-process"], visible process node cards, connector lines, or the route name/current-version toolbar. A blank failure is valid only when the flow tab has no visible graph container, no route-process nodes/cards, no connector/flow canvas, and shows an actual empty state such as .el-empty/暂无数据.
+The route-code detail entry is the actual Element Plus link button, not the surrounding .cell table container. Do not include .cell as a clickable route-code candidate. For the copied-row route code, prefer button.el-button.is-link, .el-button.is-link, a, or [role="link"] filtered by the exact copied route code, scoped to the visible row and not the operation column. After clicking the code entry, assert that a 工艺路线详情 dialog opened; if no dialog opens, retry the real descendant link/button in the 路线编码 column before failing.
+RouteForm detail values may be stored in Element Plus input values rather than dialog innerText; do not fail detail verification only because modal.innerText contains labels such as 编码 生成 名称. For 工艺路线基础维护 and 工艺路线复制绑定 detail checks, read the exact .el-form-item 编码 and 名称 inputValue from the opened 工艺路线详情 dialog and compare with the fixed/copied route code/name. Do not read once and fail immediately when values are empty: after clicking a route-code link, wait for the /admin-api/mes/pro/route/get?id= response or poll the exact form-item input values for up to 30 seconds. Use DOM value reads from input.el-input__inner, input, or textarea inside the exact .el-form-item instead of relying on locator.inputValue() only. A safe helper pattern is: async function readRouteFormValue(modal, labelRegex, rejectRegex) { const items = modal.locator('.el-form-item'); const count = await items.count(); for (let i = 0; i < count; i += 1) { const item = items.nth(i); const label = ((await item.locator('.el-form-item__label').first().innerText().catch(() => '')) || '').replace(/\\s+/g, ''); const text = ((await item.innerText().catch(() => '')) || '').replace(/\\s+/g, ''); if (!labelRegex.test(label) && !labelRegex.test(text)) continue; if (rejectRegex && (rejectRegex.test(label) || rejectRegex.test(text))) continue; const input = item.locator('input.el-input__inner, input, textarea').first(); if (await input.count()) return await input.evaluate(el => el.value || el.getAttribute('value') || ''); } return ''; }. A safe wait is: for (let i = 0; i < 60; i += 1) { const code = await readRouteFormValue(modal, /编码|路线编码/); const name = await readRouteFormValue(modal, /名称|路线名称/, /编码|基础信息/); if (code === expectedCode && name === expectedName) break; await page.waitForTimeout(500); }. placeholder-only or empty input values after this wait mean the detail data has not loaded or the wrong blank form is open; close the blank dialog, return to the list, search the fixed/copied route again, and reopen from the real route-code link button, then repeat the same 30-second value wait before failing. If the expected code/name are visible in the background row while a blank RouteForm dialog is open, that is not sufficient; the opened dialog input values must match.
 Playwright project root: ${FRONTEND_PROJECT_ROOT}
 Project guidance root: ${PROJECT_ROOT}
+Playwright dependency note: temporary Node scripts can use require('playwright') because NODE_PATH includes ${FRONTEND_PROJECT_ROOT}/node_modules.
+Browser executable path: ${resolveBrowserExecutablePath()}
+Browser launch note: temporary Playwright scripts must launch with chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || '${resolveBrowserExecutablePath()}' }).
+Navigation hints:
+${resolveNavigationHints(task)}
 Complete the browser verification and return the final JSON within ${executionBudgetSeconds} seconds.
 Do not ask for clarification. If login, selector, data, service, permission, or runtime prerequisites are missing, return a BLOCKED checkpoint result instead of waiting.
 For READ_ONLY tasks, do not click create, save, submit, delete, import, upload, approve, cancel, or any action that mutates business data.

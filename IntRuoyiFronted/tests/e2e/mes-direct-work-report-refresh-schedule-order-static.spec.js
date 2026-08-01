@@ -5,17 +5,19 @@ const path = require('node:path')
 const frontendRoot = process.cwd()
 const feedbackPagePath = path.resolve(frontendRoot, 'src/views/mes/pro/feedback/index.vue')
 const scheduleOrderPagePath = path.resolve(frontendRoot, 'src/views/mes/pro/scheduleorder/index.vue')
+const scheduleEventsPath = path.resolve(frontendRoot, 'src/views/mes/pro/shared/scheduleEvents.ts')
 const importFormPath = path.resolve(
   frontendRoot,
   'src/views/mes/pro/feedback/ThirdPartyFeedbackImportForm.vue'
 )
 
-for (const filePath of [feedbackPagePath, scheduleOrderPagePath, importFormPath]) {
+for (const filePath of [feedbackPagePath, scheduleOrderPagePath, scheduleEventsPath, importFormPath]) {
   assert(fs.existsSync(filePath), `直接报工刷新相关文件必须存在：${filePath}`)
 }
 
 const feedbackPageSource = fs.readFileSync(feedbackPagePath, 'utf8')
 const scheduleOrderPageSource = fs.readFileSync(scheduleOrderPagePath, 'utf8')
+const scheduleEventsSource = fs.readFileSync(scheduleEventsPath, 'utf8')
 const importFormSource = fs.readFileSync(importFormPath, 'utf8')
 
 assert(
@@ -52,7 +54,7 @@ assert(
 )
 
 assert(
-  scheduleOrderPageSource.includes('interface MesScheduleOrderRefreshPayload')
+  scheduleEventsSource.includes('interface MesScheduleOrderRefreshPayload')
     && scheduleOrderPageSource.includes('shouldRefreshScheduleOrderList')
     && scheduleOrderPageSource.includes('payload?.scheduleOrderCodes')
     && scheduleOrderPageSource.includes('payload?.workOrderCodes')

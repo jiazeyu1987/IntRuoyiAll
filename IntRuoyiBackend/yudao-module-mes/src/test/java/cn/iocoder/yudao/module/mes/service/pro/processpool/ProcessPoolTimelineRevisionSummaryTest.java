@@ -23,4 +23,18 @@ class ProcessPoolTimelineRevisionSummaryTest {
         assertFalse(xml.contains("updateOriginalRecord("));
         assertFalse(xml.contains("createReviewCopy("));
     }
+
+    @Test
+    void timelineMapperReadsLatestSubmissionReviewAsAggregatedLog() throws Exception {
+        String xml = Files.readString(Path.of("src", "main", "resources", "mapper",
+                "pro", "processpool", "MesProProcessPoolTimelineReadMapper.xml"), StandardCharsets.UTF_8);
+
+        assertTrue(xml.contains("mes_pro_process_pool_submission_review"));
+        assertTrue(xml.contains("submissionReviewStatus"));
+        assertTrue(xml.contains("submissionReviewRemark"));
+        assertTrue(xml.contains("submissionReviewLeaderUserId"));
+        assertTrue(xml.contains("submissionReviewedAt"));
+        assertTrue(xml.contains("ROW_NUMBER()"));
+        assertFalse(xml.contains("reviewTeamLeaderSubmission("));
+    }
 }

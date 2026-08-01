@@ -189,6 +189,17 @@
 - Forbidden action: 禁止新增数据库迁移修历史数据、禁止把 `CLOSE` 规则复用为放行授权、禁止前端用“执行人/QA/放行员”掩盖未配置、禁止吞掉候选人解析异常。
 - Evidence: `doc/tasks/20260727-edhr-release-owner-from-end-config/verification-report.md`。
 
+## 第三方报工直报正式链路门禁
+
+### 导入成功必须落到正式报工而不是直接进度
+
+- Trigger: 第三方报工、李萍报工单、直接报工 Excel、`importDirectWorkReportWorkbook`、`DIRECT_WORK_REPORT`、导入结果弹框显示成功但正式报工列表无新增、排产进度疑似未增长。
+- Preflight check: 先确认导入成功路径是否创建 `MesProFeedbackDO`、设置 `sourceImportRecordId`、回写导入记录 `feedbackId`、调用正式提交服务，并由正式报工状态参与排产进度汇总。
+- Blocker: 若缺少报工人、审批人、唯一未完成任务、排产工序剩余数量或正式路线工序快照，不得写 `progressSourceType=DIRECT_WORK_REPORT` 伪造成功；必须返回结构化跳过原因或 fail fast。
+- Verification: 后端回归必须同时覆盖匹配行创建/提交正式报工、缺用户跳过、重复导入再次正式报工、超剩余跳过；前端静态合同需确认导入确认后刷新正式报工列表并广播受影响排产工单刷新 payload。
+- Forbidden action: 禁止用导入记录直接进度、前端假新增、默认成功、空列表刷新或 API-only 结果替代正式报工持久化链路。
+- Evidence: `doc/tasks/20260801-third-party-feedback-import-list-progress/verification-report.md`。
+
 ## 禁止做法
 
 - 禁止跨模块复制业务逻辑来绕过现有服务边界。

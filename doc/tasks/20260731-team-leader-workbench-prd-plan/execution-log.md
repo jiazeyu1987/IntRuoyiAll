@@ -228,3 +228,11 @@
 - Cleanup Preview: `task_closeout.py --task-id 20260731-team-leader-workbench-prd-plan --mode preview --worktree-closeout off` -> PASS，keep 为正式交付与保留证据，delete 仅为两个临时 evidence 文件，blocked/warnings 均为空。
 - Cleanup Apply: `task_closeout.py --task-id 20260731-team-leader-workbench-prd-plan --mode apply --worktree-closeout off` -> PASS，仅删除两个临时 evidence 文件；`task-state.json` 已改为引用保留证据。
 - Cleanup Commit: `3c5789190 chore: clean team leader workbench task evidence` -> PASS，提交文件清单为删除两个临时 evidence 文件，并更新 `execution-log.md`、`task-state.json`、`task.md`、`verification-report.md`。
+
+## 2026-08-01 P6 Resume Recheck Evidence
+
+- Security: 用户补齐 `TLW_PASSWORD` 后仅通过当前 PowerShell 进程环境变量注入，命令结束后删除环境变量；未把密码明文写入文档、证据文件、提交信息或源码。
+- Pre-E2E Cleanup: 只清理测试租户 `122`、任务前缀 `TLW-20260731-`、工单 `980007`、员工档案 `980014`、设备 `980005` 和记录本 `980010` 范围内的残留配置；清理后 `active_order`、`employee_binding`、`process_device`、`parameter_rule`、`defect_reason` 均为 `0`，设备 `980005` 恢复 `REPAIRING` 且 enabled。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:team-leader-workbench:real` -> PASS，真实 UI 登录、组长配置、员工正式填报、动态 eventId 发现、FIFO 自动分配、组长确认、订单工序完成和正式批记录回填均通过；`p6-real-e2e-evidence.md` 已重写为 `Status: PASS`，结果文件 eventId=`23`。
+- Post-E2E Cleanup: 真实 E2E 通过后再次事务清理任务自有运行数据 -> PASS，`active_order`、`employee_binding`、`process_device`、`parameter_rule`、`defect_reason`、`event`、`feedback`、`allocation`、`completion`、`recordbook_entry` 均为 `0`，设备 `980005` 恢复 `REPAIRING` 且 enabled。
+- Governance Note: 批记录字段审计明细受数据库 append-only 保护，executionId=`1607` 的审计 item 保留 `1` 条；未强删、未绕过审计保护，任务运行残留按既有 P6 清理口径已清零。

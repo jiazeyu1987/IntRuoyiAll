@@ -51,7 +51,6 @@ public class MesProFrontlineFeedbackPayloadSplitter {
         feedbackPayload.setRemark(feedback.getRemark());
 
         Map<String, Object> entryContent = new LinkedHashMap<>(recordbook.getEntryContent());
-        entryContent.put("previousProcessInputQuantity", recordbook.getPreviousProcessInputQuantity());
         entryContent.put("equipmentParameters", recordbook.getEquipmentParameters());
         entryContent.put("rawPayload", reqVO.getRawPayload());
         MesProFrontlineRecordbookEntryPayload recordbookEntryPayload = new MesProFrontlineRecordbookEntryPayload()
@@ -78,7 +77,6 @@ public class MesProFrontlineFeedbackPayloadSplitter {
                 .setTemplateType(context.getTemplateType())
                 .setOutputQuantity(feedback.getOutputQuantity())
                 .setLossQuantity(feedback.getLossQuantity())
-                .setPreviousProcessInputQuantity(recordbook.getPreviousProcessInputQuantity())
                 .setEquipmentParameters(recordbook.getEquipmentParameters())
                 .setRawPayload(processPoolRawPayload)
                 .setSubmittedAt(submittedAt);
@@ -94,11 +92,10 @@ public class MesProFrontlineFeedbackPayloadSplitter {
                                                            MesProFrontlineRecordbookPayloadReqVO recordbook) {
         Map<String, Object> payload = new LinkedHashMap<>();
         if (reqVO.getRawPayload() != null) {
-            payload.putAll(reqVO.getRawPayload());
+        payload.putAll(reqVO.getRawPayload());
         }
         payload.put("outputQuantity", feedback.getOutputQuantity());
         payload.put("lossQuantity", feedback.getLossQuantity());
-        payload.put("previousProcessInputQuantity", recordbook.getPreviousProcessInputQuantity());
         payload.put("equipmentParameters", recordbook.getEquipmentParameters());
         if (recordbook.getEquipmentParameters() != null) {
             recordbook.getEquipmentParameters().forEach((code, value) -> {

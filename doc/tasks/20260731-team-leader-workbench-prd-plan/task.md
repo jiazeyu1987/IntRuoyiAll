@@ -97,6 +97,7 @@ ready_for_closeout
 - 文档写入、P1-P6 实现、真实 E2E 与回归验证已完成。
 - P6 真实 Playwright 写入型 E2E 已通过：生产组长配置、员工正式报工、动态 eventId 发现、FIFO 自动分配、组长确认、订单工序完成和正式批记录回填均通过；证据见 `p6-real-e2e-evidence.md`。
 - P6 后置清理已完成：`TLW-20260731-` 任务自有活跃订单、绑定、参数规则、异常原因、事件、报工、分配、工序完成和记录本条目均已清理为 `0`，设备 `980005` 恢复 `REPAIRING` 且 enabled。
+- P6 复跑核验已完成：用户补齐密码后通过临时环境变量复跑 `pnpm --dir IntRuoyiFronted e2e:team-leader-workbench:real`，`p6-real-e2e-evidence.md` 已重写为 `Status: PASS`，本轮 eventId=`23`；批记录字段审计 append-only 记录按治理要求保留，未强删。
 - 前端静态合同、前端类型检查和后端定向回归已通过；后端回归最终覆盖 47 个测试，0 failures / 0 errors。
 - 密码仅通过运行时环境变量临时注入，未写入文档、日志、证据文件或提交信息。
 - 主实现提交已完成：`a67a7a305 feat: deliver team leader workbench flow`。

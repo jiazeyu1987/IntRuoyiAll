@@ -104,7 +104,6 @@ export interface ProFrontlineRecordbookPayloadReqVO {
   recordbookId: number
   entryTitle: string
   entryContent: Record<string, unknown>
-  previousProcessInputQuantity: number
   equipmentParameters: Record<string, unknown>
   tagCodes?: string[]
   idempotencyKey: string
@@ -149,12 +148,25 @@ export interface FrontlineDeviceRouteProcessVO {
   processCode?: string
   processName?: string
   sort?: number
-  deviceId: number
+  deviceId?: number | null
   deviceCode?: string
   deviceName?: string
-  workstationId: number
+  workstationId?: number | null
   workstationCode?: string
   workstationName?: string
+}
+
+export interface FrontlineActiveOrderVO {
+  workOrderId: number
+  workOrderCode?: string
+  workOrderName?: string
+  productId: number
+  productCode?: string
+  productName?: string
+  routeId: number
+  routeCode?: string
+  routeName?: string
+  latestSubmitTime?: string
 }
 
 export interface FrontlineEmployeeCandidateVO {
@@ -181,6 +193,25 @@ export interface FrontlineSwitchActualEmployeeReqVO {
   routeProcessId: number
   processId: number
   actualEmployeeId: number
+}
+
+export interface FrontlinePqcSwitchActualEmployeeReqVO extends FrontlineSwitchActualEmployeeReqVO {
+  workOrderId: number
+}
+
+export interface FrontlinePqcInspectionSubmitReqVO {
+  workOrderId: number
+  routeId: number
+  routeProcessId: number
+  processId: number
+  actualEmployeeId: number
+  signatureId: number
+  signatureEmployeeId: number
+  signatureSnapshot?: string
+  templateType: string
+  inspectionResult: string
+  rawPayload: Record<string, unknown>
+  clientSubmitTime?: string
 }
 
 export interface FrontlineSwitchActualEmployeeRespVO {
@@ -883,6 +914,22 @@ export const ProFeedbackApi = {
       url: `/mes/pro/feedback/frontline/device-account/processes`
     })
   },
+  // 获取 PQC 当前活跃订单
+  getFrontlinePqcActiveOrders: async () => {
+    return await request.get<FrontlineActiveOrderVO[]>({
+      url: `/mes/pro/feedback/frontline/device-account/pqc/active-orders`
+    })
+  },
+  // 获取 PQC 活跃订单对应工艺路线工序
+  getFrontlinePqcActiveOrderProcesses: async (params: {
+    workOrderId: number
+    routeId: number
+  }) => {
+    return await request.get<FrontlineDeviceRouteProcessVO[]>({
+      url: `/mes/pro/feedback/frontline/device-account/pqc/active-order/processes`,
+      params
+    })
+  },
   // 获取当前工序可切换员工
   getFrontlineEmployeeCandidates: async (params: {
     routeId: number
@@ -905,10 +952,30 @@ export const ProFeedbackApi = {
       params
     })
   },
+  // 获取 PQC 员工 + PQC 组长
+  getFrontlinePqcEmployeeCandidates: async () => {
+    return await request.get<FrontlineEmployeeCandidateVO[]>({
+      url: `/mes/pro/feedback/frontline/device-account/pqc/personnel`
+    })
+  },
   // 切换实际填写员工并重新加载当前模板
   switchFrontlineActualEmployee: async (data: FrontlineSwitchActualEmployeeReqVO) => {
     return await request.post<FrontlineSwitchActualEmployeeRespVO>({
       url: `/mes/pro/feedback/frontline/device-account/switch-employee`,
+      data
+    })
+  },
+  // PQC 切换实际填写员工并重新加载当前模板
+  switchFrontlinePqcActualEmployee: async (data: FrontlinePqcSwitchActualEmployeeReqVO) => {
+    return await request.post<FrontlineSwitchActualEmployeeRespVO>({
+      url: `/mes/pro/feedback/frontline/device-account/pqc/switch-employee`,
+      data
+    })
+  },
+  // PQC 检验提交到工序池
+  submitFrontlinePqcInspection: async (data: FrontlinePqcInspectionSubmitReqVO) => {
+    return await request.post<number>({
+      url: `/mes/pro/feedback/frontline/device-account/pqc/submit`,
       data
     })
   },

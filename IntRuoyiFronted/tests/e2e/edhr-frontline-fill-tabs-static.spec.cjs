@@ -59,8 +59,9 @@ const employeeSwitchEnd = frontlinePanel.indexOf('const handleValidate', employe
 assert.ok(employeeSwitchStart >= 0 && employeeSwitchEnd > employeeSwitchStart, 'employee switch handler must exist.')
 const employeeSwitchBlock = frontlinePanel.slice(employeeSwitchStart, employeeSwitchEnd)
 assert.doesNotMatch(employeeSwitchBlock, /context\.templateCode\s*=\s*templateCode/, 'employee switch must not silently change the current page UI mode.')
-assert.match(frontlinePanel, /selectedDeviceCards\.value\.slice\(0,\s*3\)/, 'production device cards must be limited to three devices.')
+assert.match(frontlinePanel, /visibleDeviceCards\s*=\s*computed\(\(\)\s*=>\s*configuredDeviceCards\.value\.slice\(0,\s*3\)\)/, 'production device cards must be limited to three devices.')
 assert.match(frontlinePanel, /frontline-production-device-tabs/, 'production devices must use the compact three-device selector from the approved HTML.')
+assert.doesNotMatch(frontlinePanel, /PREVIOUS_PROCESS_INPUT_QUANTITY|previousProcessInputQuantity|previousInputQuantity/, 'production payload must not include previous-process input quantity.')
 assert.match(frontlinePanel, /const switchableProcessOptions = computed/, 'process picker must define unique process options.')
 const processPickerBlock = frontlinePanel.match(/const pickerOptions = computed\([\s\S]*?\n}\)/)
 assert.ok(processPickerBlock, 'process picker options block must exist.')
@@ -71,12 +72,16 @@ const productionStart = frontlinePanel.indexOf('data-frontline-production-operat
 const productionEnd = frontlinePanel.indexOf('</footer>', productionStart)
 assert.ok(productionStart >= 0 && productionEnd > productionStart, 'production operator block must exist.')
 const productionTemplate = frontlinePanel.slice(productionStart, productionEnd)
-for (const required of ['工序', '员工', '主页', '完成数量', '损耗数量', '不良明细', '填设备', '压力', '时间', '重填', '提交']) {
+for (const required of ['工序', '员工', '主页', '完成数量', '损耗数量', '不良明细', '填设备', '重填', '提交']) {
   assert.match(productionTemplate, new RegExp(required), `production UI must include ${required}.`)
 }
-for (const defectLabel of ['密封件划伤', '装配不到位', '外观磕碰', '尺寸超差', '泄漏', '压力异常', '其他不良']) {
-  assert.match(frontlinePanel, new RegExp(defectLabel), `production defect constants must include ${defectLabel}.`)
-}
+assert.match(
+  productionTemplate,
+  /v-for="parameter in activeProductionDevice\.parameters"[\s\S]*parameter\.parameterName \|\| parameter\.parameterCode/,
+  'production UI must render device parameters from team leader runtime configuration instead of hard-coded labels.'
+)
+assert.match(frontlinePanel, /configuredDefectReasons\s*=\s*computed[\s\S]*runtimeConfig\?\.defectReasons/, 'production defect reasons must come from team leader runtime configuration.')
+assert.match(productionTemplate, /v-for="defect in configuredDefectReasons"/, 'production UI must render configured process defect reasons dynamically.')
 for (const forbidden of ['生产工单', '工单', '生产订单', '上工序输入数量']) {
   assert.doesNotMatch(productionTemplate, new RegExp(forbidden), `production UI must not expose ${forbidden}.`)
 }

@@ -65,7 +65,6 @@
   </ContentWrap>
 
   <ContentWrap v-if="activeTab === 'feedback'">
-    <FrontlineFixedTemplatePanel class="mb-12px" />
     <el-alert
       v-if="isApprovalReviewFilterActive"
       title="A5 审批职责：归属会按所选订单工序生成草稿正式报工；提交正式报工后回写排产进度；审批用于质量/合规确认，不再重复归属同一导入记录。"
@@ -475,7 +474,6 @@ import { MesProFeedbackStatusEnum } from '@/views/mes/utils/constants'
 import { useEmitt } from '@/hooks/web/useEmitt'
 import { checkPermi } from '@/utils/permission'
 import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'
-import FrontlineFixedTemplatePanel from './FrontlineFixedTemplatePanel.vue'
 import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'
 import {
   useTableQuickFilter,

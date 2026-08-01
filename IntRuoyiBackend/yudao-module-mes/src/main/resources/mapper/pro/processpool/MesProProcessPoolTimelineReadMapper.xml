@@ -44,6 +44,10 @@
             WHEN review_copy_summary.review_copy_count IS NULL THEN '审核副本待生成'
             ELSE CONCAT('审核副本已提交，字段 ', COALESCE(review_copy_summary.field_count, 0), ' 个')
         END AS auditCopySummary,
+        latest_submission_review.review_status AS submissionReviewStatus,
+        latest_submission_review.review_remark AS submissionReviewRemark,
+        latest_submission_review.leader_user_id AS submissionReviewLeaderUserId,
+        latest_submission_review.reviewed_at AS submissionReviewedAt,
         COALESCE(revision_summary.summary, '原始记录暂无修改') AS modificationHistorySummary
     </sql>
 
@@ -75,6 +79,34 @@
         <if test="reqVO.workOrderCode != null and reqVO.workOrderCode != ''">
             AND work_order.code LIKE CONCAT('%', #{reqVO.workOrderCode}, '%')
         </if>
+    </sql>
+
+    <sql id="LatestSubmissionReviewJoin">
+        LEFT JOIN (
+            SELECT tenant_id,
+                   event_id,
+                   leader_user_id,
+                   review_status,
+                   review_remark,
+                   reviewed_at
+            FROM (
+                SELECT review_log.tenant_id,
+                       review_log.event_id,
+                       review_log.leader_user_id,
+                       review_log.review_status,
+                       review_log.review_remark,
+                       review_log.reviewed_at,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY review_log.tenant_id, review_log.event_id
+                           ORDER BY review_log.reviewed_at DESC, review_log.id DESC
+                       ) AS review_rank
+                FROM mes_pro_process_pool_submission_review review_log
+                WHERE review_log.deleted = 0
+            ) ranked_review
+            WHERE ranked_review.review_rank = 1
+        ) latest_submission_review
+          ON latest_submission_review.event_id = pool_event.id
+         AND latest_submission_review.tenant_id = pool_event.tenant_id
     </sql>
 
     <select id="selectTimelineCount" resultType="java.lang.Long">
@@ -122,6 +154,7 @@
         ) review_copy_summary
           ON review_copy_summary.event_id = pool_event.id
          AND review_copy_summary.tenant_id = pool_event.tenant_id
+        <include refid="LatestSubmissionReviewJoin"/>
         LEFT JOIN (
             SELECT tenant_id,
                    event_id,
@@ -173,6 +206,7 @@
         ) review_copy_summary
           ON review_copy_summary.event_id = pool_event.id
          AND review_copy_summary.tenant_id = pool_event.tenant_id
+        <include refid="LatestSubmissionReviewJoin"/>
         LEFT JOIN (
             SELECT tenant_id,
                    event_id,

@@ -21,7 +21,7 @@
 
 ## Current Status
 
-completed
+ready_for_closeout
 
 ## 设计约束检查
 
@@ -44,3 +44,4 @@ completed
 
 - Cleanup preview/apply 已通过，保留 `task.md`、`execution-log.md`、`verification-report.md`，无删除项、无阻塞、无 warning。
 - 经验沉淀复核：本次“PQC 页签不能继续占位、静态合同不能冒充真实 E2E”的经验已由 `docs/frontend-development.md#前端静态契约隔离门禁` 和 `docs/e2e-rules.md#e2e-脚本入口存在性门禁` 覆盖，未新增长期经验文档。
+- Push blocker：`git push origin int_main` 失败，GitHub 443 连接经 `127.0.0.1` 代理不可达；本地提交已完成但远端未同步，因此任务不能标记为 completed。

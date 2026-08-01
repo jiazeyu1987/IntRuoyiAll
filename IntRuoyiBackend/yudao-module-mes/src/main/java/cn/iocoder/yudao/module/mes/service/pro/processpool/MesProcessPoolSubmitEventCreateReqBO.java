@@ -28,7 +28,6 @@ public class MesProcessPoolSubmitEventCreateReqBO {
     private String templateType;
     private BigDecimal outputQuantity;
     private BigDecimal lossQuantity;
-    private BigDecimal previousProcessInputQuantity;
     private Map<String, Object> equipmentParameters;
     private Map<String, Object> rawPayload;
     private LocalDateTime submittedAt;

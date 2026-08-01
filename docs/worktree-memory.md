@@ -118,6 +118,16 @@
 - Forbidden action: 禁止为了处理 `node_modules` 残留删除父级 worktree 根目录；禁止跳过进程和端口核验；禁止在 Git 注册仍存在时把 worktree 当普通目录强删。
 - Evidence: `doc/tasks/20260727-merge-remaining-worktrees/verification-report.md`，`codex-test-process-route` 在 Git 注册移除后残留前端依赖目录，确认无 `.git`、无目标进程和 8082/48082 监听后仅清理目标目录并复核不存在；`doc/tasks/20260730-worktree-prune-keep-banzuzhang/verification-report.md`，多个 worktree 的 pnpm `node_modules` 残留需先用空目录 `robocopy /MIR` 清空再删除空目录链。
 
+### 发布 release worktree 物理根复核门禁
+
+- Trigger: 仅测试服或三环境发布完成后清理临时 release worktree，尤其路径位于 `D:\ProjectPackage\Int\IntRuoyiWorktrees\r*\m`、`D:\IntRuoyiWorktree\r*-release-app` 或对应 state dir。
+- Preflight check: 分别在维护仓和主程序仓运行 `git worktree list --porcelain`，确认本轮 release 标识已无 Git 注册；再检查固定物理根、子目录和 state dir `Test-Path`；同时用进程命令行确认没有 Java/Node/PowerShell/Playwright 仍引用待删路径。
+- Blocker: Git 注册已删除但物理根仍存在、state dir 未删、路径不在本轮 allow-list、仍有归属不明进程引用、或残留目录中存在 `.git` 时必须停止，不得标记任务 `completed`。
+- Cleanup rule: 对确认属于本任务、无 Git 注册、无 `.git`、无进程引用的 ignored `node_modules` 残留，可用长路径安全删除或先清属性后删除；如果本地策略拒绝递归删除，改用同等 allow-list 和绝对路径边界校验的删除方式，不扩大到父目录或其他 release worktree。
+- Verification: closeout 记录必须同时包含 Git 注册不存在、物理根 `Test-Path=False`、state dir `Test-Path=False`、运行控制台已恢复稳定主路径且 health=`UP`。
+- Forbidden action: 禁止只凭 `git worktree list` 无记录判定清理完成；禁止删除其他 r260731a/b/c 等并发发布 worktree；禁止在运行控制台仍指向待删 worktree 时删除目录。
+- Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\doc\tasks\20260730-head-test-only-release\execution-log.md`，`r260731d` Git 注册已删但 ignored `node_modules` 物理目录残留，最终按固定 allow-list 删除并复核所有路径不存在。
+
 ## 删除操作顺序
 
 1. 阶段 1：目标确认

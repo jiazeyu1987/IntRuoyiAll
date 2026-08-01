@@ -89,6 +89,15 @@
 - Forbidden action: 禁止未经用户明确授权就执行历史重写、Git LFS 迁移、快照分支替代、force push 或删除远端历史。
 - Evidence: `D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md#2026-07-24-github-推送前历史大文件门禁`。
 
+### GitHub HTTPS 443 本地代理门禁
+
+- Trigger: `git push`、`git fetch`、`git ls-remote` 或 GitHub HTTPS remote 报 `Failed to connect to github.com port 443 via 127.0.0.1`、`Could not connect to server`、`Connection timed out`、`Recv failure: Connection was reset`。
+- Preflight check: 先运行 `git config --show-origin --get-regexp "^(http|https)\.(proxy|sslVerify|version|postBuffer)|^url\..*\.insteadOf$"`、`Test-NetConnection 127.0.0.1 -Port <proxyPort>`、`Test-NetConnection github.com -Port 443`；如果用户有 FlClash/Clash/VPN，再确认其配置端口和实际监听端口一致。
+- Blocker: Git 配置指向本地代理但代理端口未监听、GitHub HTTPS 直连 443 不通、代理客户端仅 helper 进程在线但核心未监听、或 SSH 443 可达但 GitHub 不接受当前 SSH key。
+- Verification: `git ls-remote origin HEAD` 成功返回 HEAD；若改用 SSH 443，必须先用 `ssh -T -o BatchMode=yes git@ssh.github.com -p 443` 验证账号认证成功，再改 remote 或 pushurl。
+- Forbidden action: 禁止把删除 Git proxy 当作修复，除非已证明 GitHub HTTPS 直连 443 可用；禁止静默切换到 SSH remote，除非当前 SSH key 已被 GitHub 接受；禁止把 helper 服务监听端口误当作 HTTP/SOCKS 代理端口。
+- Evidence: `doc\tasks\20260731-git-443-push-fix\execution-log.md`，GitHub HTTPS 直连失败、Git 全局代理指向 `127.0.0.1:7890` 但 FlClash 核心未监听，SSH 443 网络可达但公钥未授权。
+
 ## PowerShell 编排门禁
 
 ### PowerShell 命令编排

@@ -29,6 +29,15 @@
 - Forbidden action: 禁止直接 SQL 删除业务关系来掩盖读模型缺陷，禁止 catch 后返回空页，禁止前端隐藏 toast，禁止用“未知路线/未知产品”等默认文案替代正式主数据完整性。
 - Evidence: `doc/tasks/20260730-mes-process-mapping-tab/bug-regression-evidence.md`。
 
+### 全局只读 Excel 种子租户边界门禁
+
+- Trigger: MES 工序、产品目录、标准只读目录、Excel/外部文件基线等全局只读种子写入 `tenant_id=0`，但页面在普通业务租户下读取。
+- Preflight check: 写全局只读种子前先确认读模型是否应跨租户共享；若种子固定 `tenant_id=0`，对应 DO 或表必须显式 `@TenantIgnore` / `ignore-tables`，并同步确认子表、明细表、分页 count 与 page 查询都不会被当前租户条件过滤。
+- Blocker: 主表忽略租户但子表未忽略、SQL 种子写 `tenant_id=0` 但 Mapper 仍受 `tenant_id=<当前租户>` 限制、只在 Mockito 单元测试通过但未覆盖租户过滤、或用复制多租户数据掩盖全局基线设计不清时必须停止。
+- Verification: 静态合同或 Mapper/集成测试必须同时断言全局只读目录 DO 的租户忽略、SQL 种子租户口径、32/固定行数等源文件基线、以及明细表不会被租户过滤；有运行态时再用业务租户真实页面/API 证明列表非空且行数一致。
+- Forbidden action: 禁止把 `tenant_id=0` 当作业务租户可见的默认值，禁止只改前端空状态或返回空页，禁止把全局目录改成按当前租户复制多份而不说明同步和一致性策略。
+- Evidence: `doc/tasks/mes-process-xlsx-sync-20260731/verification-report.md`。
+
 ### 数据修复临时表排序规则门禁
 
 - Trigger: 数据修复、测试项种子、菜单/权限补齐等 SQL 使用临时表、字面量或用户变量与真实表字符列做 `JOIN`、`=`、`NOT EXISTS` 比较，尤其包含中文名称、权限字符串、表单名称、测试项名称。
@@ -100,6 +109,15 @@
 - Verification: 记录源/目标租户、白名单逐表行数、缺失/不一致依赖、白名单外引用表列计数、源关键快照容量、目标 schema 列类型、批记录报表元数据缺失数、备份恢复路径和零写入/事务回滚证据；写入后还必须比对行数、主键集合、业务键和显式列 hash，并用真实页面验证三页签列表接口不再返回 `系统异常`。
 - Forbidden action: 禁止用表单槽位 `formBindings` 补批记录表单、用当前路线重建历史排产快照、自动补默认日历/产能/用户/物料、随机重映射 ID、关闭外键、全库重置、API-only 伪验证或把依赖数据偷偷纳入“页签同步”。
 - Evidence: `doc/tasks/20260731-mes-three-tab-test-sync/verification-report.md`。
+
+### 生产用料清单跨环境白名单 upsert 门禁
+
+- Trigger: 将 `mes_kingdee_production_material_list`、生产用料清单、ERP 用料清单、白名单表级 upsert 或类似明细表从本机同步到测试服/其它租户。
+- Preflight check: 写入前必须只读核对源/目标 schema、唯一业务键、租户集合、目标原始行数、菜单/权限/同步任务前置，以及测试服备份；关联 ID 不得直接复制本地值，必须按目标租户和正式父表唯一解析；若同租户同生产工单编码存在多条未删除工单，必须按当前排程/任务实际引用的 `work_order_id` 与 PML 归属逐一拆分。
+- Blocker: 目标表缺列/缺唯一键、租户不匹配、备份失败、目标父表同编码不唯一、缺少同租户物料/工单/BOM、PML 挂在未排程重复工单而当前排程工单缺 PML、或生成跨租户 `product_id` / `child_material_id` / `work_order_id` / `work_order_bom_id` 时必须停止并修正；不得把跨租户 ID 视为已解析。
+- Verification: 写入后必须比对源/目标业务键总数、按租户行数、显式业务字段 hash、staging 表清理状态，并按目标租户复核 `work_order_id`、`product_id`、`child_material_id`、`work_order_bom_id` 均指向未删除正式父表；排程日历验证还必须覆盖当前月份接口，防止修完首个缺口后暴露下一张工单缺 PML；页面/API 验证需区分真实登录页 E2E、只读 API、token-bootstrap 页面渲染。
+- Forbidden action: 禁止复制本地自增 ID、跨租户引用物料主数据、用全库编码唯一替代同租户唯一、删除目标差异行、绕过备份、API-only 冒充页面验证、或在验证码阻塞时宣称登录页 E2E 通过。
+- Evidence: `doc/tasks/20260801-production-material-list-data-sync-test/verification-report.md`；`doc/tasks/20260801-fix-test-schedule-material-item-mapping/verification-report.md`。
 
 ## 租户和菜单权限
 

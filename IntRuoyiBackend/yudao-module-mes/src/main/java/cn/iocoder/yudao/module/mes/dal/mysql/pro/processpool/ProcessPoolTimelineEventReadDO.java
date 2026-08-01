@@ -47,6 +47,10 @@ public class ProcessPoolTimelineEventReadDO {
     private String fifoAllocationSummary;
     private String auditCopyStatus;
     private String auditCopySummary;
+    private String submissionReviewStatus;
+    private String submissionReviewRemark;
+    private Long submissionReviewLeaderUserId;
+    private LocalDateTime submissionReviewedAt;
     private String modificationHistorySummary;
 
 }

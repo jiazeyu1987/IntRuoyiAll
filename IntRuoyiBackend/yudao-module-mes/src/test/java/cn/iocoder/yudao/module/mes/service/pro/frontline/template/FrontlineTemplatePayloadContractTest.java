@@ -20,7 +20,6 @@ class FrontlineTemplatePayloadContractTest {
     @Test
     void shouldKeepRawOutOfLimitValuesWithoutTemplateStageClamping() {
         Map<String, Object> values = new LinkedHashMap<>();
-        values.put(FrontlineTemplateFieldCodes.PREVIOUS_PROCESS_INPUT_QUANTITY, new BigDecimal("10"));
         values.put(FrontlineTemplateFieldCodes.DEVICE, "EQ-01");
         values.put(FrontlineTemplateFieldCodes.DEVICE_PARAMETERS, Map.of("temperature", new BigDecimal("50")));
         values.put(FrontlineTemplateFieldCodes.OUTPUT_QUANTITY, new BigDecimal("12"));
@@ -44,7 +43,6 @@ class FrontlineTemplatePayloadContractTest {
                 new FrontlineTemplatePayloadCommand(
                         10L, 20L, 30L, 40L, 50L, FrontlineTemplateCodes.PRODUCTION_SIMPLIFIED,
                         Map.of(
-                                FrontlineTemplateFieldCodes.PREVIOUS_PROCESS_INPUT_QUANTITY, BigDecimal.ONE,
                                 FrontlineTemplateFieldCodes.DEVICE, "EQ-01",
                                 FrontlineTemplateFieldCodes.DEVICE_PARAMETERS, Map.of("temperature", new BigDecimal("50")),
                                 FrontlineTemplateFieldCodes.OUTPUT_QUANTITY, BigDecimal.ONE,
@@ -59,6 +57,21 @@ class FrontlineTemplatePayloadContractTest {
 
         assertEquals(PRO_FRONTLINE_TEMPLATE_SUBMIT_TIME_FORBIDDEN.getCode(), submitTime.getCode());
         assertEquals(PRO_FRONTLINE_TEMPLATE_FIELD_INVALID.getCode(), unknownField.getCode());
+    }
+
+    @Test
+    void shouldRejectPreviousProcessInputQuantityAsUnknownProductionField() {
+        ServiceException exception = assertThrows(ServiceException.class, () -> service.buildPayload(
+                new FrontlineTemplatePayloadCommand(
+                        10L, 20L, 30L, 40L, 50L, FrontlineTemplateCodes.PRODUCTION_SIMPLIFIED,
+                        Map.of(
+                                "PREVIOUS_PROCESS_INPUT_QUANTITY", BigDecimal.ONE,
+                                FrontlineTemplateFieldCodes.DEVICE, "EQ-01",
+                                FrontlineTemplateFieldCodes.DEVICE_PARAMETERS, Map.of("temperature", new BigDecimal("50")),
+                                FrontlineTemplateFieldCodes.OUTPUT_QUANTITY, BigDecimal.ONE,
+                                FrontlineTemplateFieldCodes.SCRAP_QUANTITY, BigDecimal.ZERO))));
+
+        assertEquals(PRO_FRONTLINE_TEMPLATE_FIELD_INVALID.getCode(), exception.getCode());
     }
 
     @Test
