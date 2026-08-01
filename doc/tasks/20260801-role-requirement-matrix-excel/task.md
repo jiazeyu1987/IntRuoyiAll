@@ -80,10 +80,11 @@
 - 当前任务 Markdown / JSON 均可用 UTF-8 读取，`git diff --check` 无 whitespace error。
 - 当前任务规划提交只包含本任务规划产物；并行脏改动按独立基线提交保存，生产代码、数据库、运行态和源 Excel 均不由本任务修改。
 - 收尾前执行 `project-experience-consolidation` 和 `task-closeout-cleanup` preview/apply。
+- 用户于 `2026-08-01` 明确“这次不用推送git”；本次完成门禁不再要求 `git push` 或 no-ahead，只要求本地任务提交、全部结构验证和 cleanup 通过。
 
 ## Blockers
 
-当前文档优化任务无 closeout blocker。`2026-08-01` cleanup apply 已通过，`git push origin int_main` 已把规划和 `ready_for_closeout` 证据推送至远端。
+当前文档优化任务无 closeout blocker。用户已明确取消本次 Git 推送门禁；本地分支领先远端是已知交付状态，不影响本次文档任务完成。
 
 以下是后续实施的 fail-fast 前置，不是本次文档优化的阻塞：
 
@@ -112,7 +113,7 @@
 - PASS：roadmap 结构校验、Excel 逐行对照、UTF-8/JSON、whitespace 和 cleanup preview/apply 均通过。
 - PASS：cleanup 只删除任务自有临时校验脚本；新增四份验收文档已进入 `Cleanup Keep`。
 - 本任务只完成规划包；`task-state.json.status` 继续保持 `planned`，M0-M6 生产实现尚未开始。
-- PASS：cleanup apply、收尾证据提交和 `git push origin int_main` 均已成功。
+- PASS：按用户明确范围，本次不再执行 Git 推送；本地提交、验证和 cleanup 均已完成。
 
 ## Current Status
 

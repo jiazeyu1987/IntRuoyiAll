@@ -29,6 +29,11 @@
   },
   "closeoutStatus": "completed",
   "closeoutBlocker": null,
+  "deliveryPolicy": {
+    "gitPushRequired": false,
+    "overrideDate": "2026-08-01",
+    "overrideReason": "User explicitly requested: 这次不用推送git"
+  },
   "sourceWorkbook": "C:/Users/BJB110/Desktop/文档/职责/岗位需求分解矩阵.xlsx",
   "baselineTask": "doc/tasks/20260731-team-leader-workbench-prd-plan",
   "branch": "int_main",

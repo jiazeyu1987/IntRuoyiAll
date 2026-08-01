@@ -78,6 +78,9 @@
 - GREEN: ahead-object scan -> 33 个 blob，最大 `106581` bytes，低于 GitHub 100 MB 限制。
 - GREEN: `git push origin int_main` -> PASS，远端更新到 `afef219c1`。
 - GREEN: final closeout commit -> `424333305`，只包含四个最终收尾记录。
+- RED: final push of `424333305` and `6b7cf6131` -> FAIL，`Recv failure: Connection was reset`。
+- RED: immediate `git ls-remote origin HEAD` -> FAIL，GitHub HTTPS 会话再次不可用。
+- SCOPE CHANGE: 用户明确要求“这次不用推送git”；本次取消 Git push/no-ahead 完成门禁，保留全部本地结构验证、cleanup 和任务提交门禁。
 - GREEN: custom plan coverage validator -> `62 requirements, 62 acceptance IDs, task-state JSON, UTF-8`。
 - GREEN: artifact-tool workbook/plan validator -> 主表 23、衍生表 39，任务名称、task-state、BDD 引用和追踪字段全部一致。
 - RED: 首次 `git diff --cached --check` 发现新增 `prd.md` 的 Given/When 行存在无语义行尾空格。
@@ -85,4 +88,4 @@
 
 ## Result
 
-PASS / COMPLETED。规划包和全覆盖测试方案已完成结构验证、cleanup 和远端交付，`planningPackageStatus=completed`、`testPlanningStatus=completed`、`closeoutStatus=completed`。该规划包可作为后续逐 AC 严格 BDD/TDD 实现任务的正式输入；`task-state.json.status` 保持 `planned`，M0-M6 生产实现尚未开始。
+LOCAL PASS / COMPLETED，GIT PUSH OMITTED BY USER。规划包和全覆盖测试方案已完成结构验证、cleanup 和本地提交，`planningPackageStatus=completed`、`testPlanningStatus=completed`、`closeoutStatus=completed`。用户明确取消本次 Git push/no-ahead 门禁；本地分支领先远端是已记录状态，不影响本次文档任务完成。`task-state.json.status` 保持 `planned`，M0-M6 生产实现尚未开始。

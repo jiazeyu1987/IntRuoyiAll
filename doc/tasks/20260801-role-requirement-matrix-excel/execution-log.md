@@ -287,3 +287,20 @@
 - Final closeout commit: `424333305` (`docs: complete role matrix BDD TDD planning closeout`)。
 - Final closeout commit files: `task.md`、`task-state.json`、`execution-log.md`、`verification-report.md`。
 - Post-closeout rescan: 当前任务文件无残余改动；新出现的并行 `ci-cd-evidence.md` 及其他并行任务/前端 Runner 改动保持未暂存。
+
+### Final Push Blocker Recurrence
+
+- RED: final `git push origin int_main` -> FAIL，`Recv failure: Connection was reset`。
+- RED: immediate `git ls-remote origin HEAD` -> FAIL，仍为 `Recv failure: Connection was reset`。
+- Unpushed commits at failure: `424333305`、`6b7cf6131`；远端仍停留在已成功推送的 `afef219c1`。
+- Impact: 本地分支仍领先 `origin/int_main`，任务状态从 `completed` 恢复为 `blocked`；规划质量验证和 cleanup 结果不受影响。
+- Recovery: 网络稳定后先运行 `git ls-remote origin HEAD`，再运行 `git push origin int_main`，最后确认 `git status --short --branch` 不再显示 ahead。
+
+### Acceptance Scope Change - No Git Push
+
+- User intent: 用户明确要求“这次不用推送git”。
+- Removed gate: 本次任务取消 `git push origin int_main` 和 no-ahead 作为完成条件，不再继续重试远端连接。
+- Retained gates: 62/62 AC-TC 覆盖、BDD/TDD acceptance validator、roadmap validator、UTF-8/JSON、whitespace、cleanup preview/apply、本地选择性提交。
+- Boundary: 该范围变更只适用于当前文档优化任务，不表示后续生产实现任务永久取消推送要求。
+- Result: 本地规划、测试方案、验证、cleanup 和任务提交均已完成；本地分支领先远端作为用户明确接受的状态记录，不再构成 blocker。
+- Status transition: 当前任务从 `blocked` 更新为 `completed`；`task-state.json.status` 仍为 `planned`，M0-M6 生产实现未开始。
