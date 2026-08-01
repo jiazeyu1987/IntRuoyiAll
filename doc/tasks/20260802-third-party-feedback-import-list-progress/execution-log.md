@@ -73,4 +73,15 @@
 ## Blockers
 
 - None for implementation or verification.
-- Closeout remaining: experience consolidation, cleanup preview/apply, selective commit, push, task runtime/process cleanup, and final task status update.
+- None for closeout after cleanup and final task status update; remote push evidence is reported in final summary.
+
+
+## Experience And Closeout Evidence
+
+- Experience consolidation: updated `docs/worktree-memory.md` with the paired worktree runtime gate for main `8081/48081` conflicts, and updated `docs/experience-index.md` with searchable keywords.
+- Experience verification: `rg -n "主工作区端口被并行任务占用|第三方报工真实 E2E|8090 48090" docs\experience-index.md docs\worktree-memory.md` -> PASS.
+- Branch runtime guard: `powershell -NoProfile -File scripts\preflight\branch-runtime-port-guard.ps1` in `D:\IntRuoyiWorktree\third-party-feedback-import-20260802` -> PASS, frontend `8090`, backend `48090`.
+- Implementation commit: `b8533d59a1 fix: persist direct feedback import progress`; staged files were backend importer, importer tests, task records, real E2E verifier, and experience docs.
+- Cleanup preview/apply in main workspace: `task_closeout.py --task-id 20260802-third-party-feedback-import-list-progress --mode preview/apply` -> PASS; kept task records and E2E verifier, deleted JSON evidence artifact and temporary patch/runtime class files.
+- Cleanup apply in task worktree: `task_closeout.py --task-id 20260802-third-party-feedback-import-list-progress --mode apply --worktree-closeout off` -> PASS; same keep/delete boundary, with worktree auto-merge deliberately off because main workspace has unrelated dirty changes.
+- Final status: completed after real E2E PASS, cleanup PASS, and task-owned implementation commit; push evidence is recorded in final assistant summary after remote update.

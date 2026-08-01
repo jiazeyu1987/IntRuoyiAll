@@ -11,7 +11,7 @@
 3. 定位根因并补充 RED 回归测试，证明导入成功未进入正式报工或未刷新正式列表/排产进度。`completed`
 4. 实施最小正式修复，不引入 fallback、默认成功或前端假新增。`completed`
 5. 运行后端/前端定向回归和真实 Playwright 导入验证，确认报工列表与排产工单进度正确。`completed`
-6. 更新验证报告、沉淀经验、清理任务自有临时产物，提交并推送。`in_progress`
+6. 更新验证报告、沉淀经验、清理任务自有临时产物，提交并推送。`completed`
 
 ## Expected Verification
 
@@ -39,13 +39,15 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Closeout Status
 
 - 本任务后端代码、目标回归、完整后端构建和真实 Playwright 导入验证已通过。
 - 由于主工作区 `48081` 仍由无关任务运行态占用，最终 E2E 在当前任务 worktree 的正式登记成对端口完成：前端 `8090`、后端 `48090`、slot `9`。
 - 真实导入结果：正式报工 `FB-000643` 出现在报工列表，排产工单 `SCH-881MO093613-20260707-0001` 进度更新为 `completedQuantity=4995`、`uncompletedQuantity=21005`、`progressPercent=19.211538`。
+- 实现与验证证据已提交到任务分支 `codex/third-party-feedback-import-20260802`，实现提交 `b8533d59a1`。
+- cleanup preview/apply 已执行并只删除本任务临时产物，保留 `task.md`、`execution-log.md`、`verification-report.md` 和真实 E2E 验证脚本。
 
 ## Cleanup Keep
 
