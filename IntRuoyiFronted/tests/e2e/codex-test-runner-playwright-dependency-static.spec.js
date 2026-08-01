@@ -264,6 +264,9 @@ assert.ok(
     runner.includes('Read the selected field only from .table-quick-filter__field') &&
     runner.includes('fill the query text only inside .table-quick-filter__value') &&
     runner.includes('After switching 路线编码/路线名称, re-read .table-quick-filter__field before filling') &&
+    runner.includes('After clicking 查询/搜索, do not read table body rows while an Element Plus loading mask or spinner is visible') &&
+    runner.includes('wait until .el-loading-mask is hidden or removed before judging rows') &&
+    runner.includes('If the submitted quick-filter value is TN-ROUTE-VERSION-001 but the visible row still contains RT000028, treat it as a stale loading row') &&
     runner.includes('Do not throw just because quick-filter option 路线名称 is unavailable') &&
     runner.includes('if the visible field is 路线名称, fill the route name, never the route code'),
   'Runner prompt 必须把 TableQuickFilter 定位限定到可见 quick-filter 容器，避免读取其它下拉导致字段和值错配。'

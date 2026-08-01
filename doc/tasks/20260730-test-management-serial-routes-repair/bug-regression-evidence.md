@@ -42,6 +42,7 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - 真实执行 `105` 证明 `工艺路线节点：基础维护` 和 `工艺路线节点：复制绑定` 均全检查点 PASS，版本发布已进入行内版本弹窗但第 2 检查点 FAIL。失败截图显示 `工艺路线版本` 弹窗正文已渲染，包含 `当前 ACTIVE：V1`、`创建候选版本` 和 `候选版本工作区`；生成脚本却把工作台文本读成 `版本`，因为它把列表行内 `data-testid="route-version-workspace"` 的 `版本` 按钮当成已打开的工作台容器。
 - 真实执行 `106` 证明版本工作台定位修复后，`工艺路线节点：基础维护` 全 PASS，但 `工艺路线节点：复制绑定` 第 3 检查点 BLOCKED：副本详情校验报 `matchedRow.locator is not a function`。生成脚本中的表格行 helper 返回 `{ row, text, index }` 包装对象，后续却直接调用 `matchedRow.locator(...)`，没有使用 `matchedRow.row.locator(...)`。
 - 真实执行 `107` 证明 `工艺路线节点：基础维护`、`复制绑定`、`版本发布` 三个节点均全检查点 PASS；第 4 个 `状态删除` 节点第 2 检查点 FAIL。失败截图显示启用时真实页面 toast 为 `请先添加组成工序`，说明生成脚本用新增空白路线做启停校验，违反工艺路线启用必须有组成工序的正式业务前置。
+- 真实执行 `108` 证明 `工艺路线节点：基础维护`、`复制绑定` 全检查点 PASS；`版本发布` 在复制保存后第 2 检查点 BLOCKED。失败截图显示 quick-filter 输入已是 `TN-ROUTE-VERSION-001`，但表格仍在 loading 且可见旧的源路线 `RT000028` 行，生成脚本过早读取旧 body row 并误判复制后的测试路线未命中。
 
 ## Root Cause
 
@@ -86,6 +87,7 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 39. Runner prompt 把 `[data-testid="route-version-workspace"]` 描述成可接受的版本工作台容器，但该 testid 实际在列表行操作列 `版本` 按钮上；生成脚本因此可能选择行内按钮作为 workspaceLocator，导致 workspace text 只有 `版本`，漏掉真正弹窗正文 `.route-version-workspace__body` 中的 `创建候选版本`。
 40. Runner prompt 未明确表格行 helper 可能返回 `{ row, text, index }` 包装对象；生成脚本把包装对象当成 Playwright Locator 直接调用 `matchedRow.locator(...)`，导致复制绑定详情校验在进入副本详情前被运行时异常阻断。
 41. Runner prompt 未要求状态删除节点使用完整源路线副本作为启停样本；生成脚本创建空白 `TN-ROUTE-STATUS-001` 后直接启用，触发正式业务校验 `请先添加组成工序`。状态删除节点应复制 `RT000028 / 球囊扩张压力泵`，确保路线有组成工序后再验证状态列开关和删除闭环。
+42. Runner prompt 未要求 quick-filter 查询后等待 Element Plus 表格 loading mask/spinner 消失；生成脚本在目标编码 `TN-ROUTE-VERSION-001` 已提交但表格仍加载时读取旧的 `RT000028` 行，误把 stale row 当成最终查询结果。
 
 ## Regression Test
 
@@ -142,6 +144,7 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 允许把行内 data-testid="route-version-workspace" 的 版本 按钮当成已打开工作台，没有要求等待 .route-version-workspace__body`
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未禁止把包含 row/text/index 的表格行包装对象直接当成 Playwright Locator，允许生成 matchedRow.locator is not a function`
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求状态删除节点通过复制完整源路线准备 TN-ROUTE-STATUS-001，允许创建空白路线后启用触发 请先添加组成工序`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求 quick-filter 查询后等待 Element Plus loading mask/spinner 消失，允许目标查询值为 TN-ROUTE-VERSION-001 时读取 stale RT000028 旧行`
 
 ## GREEN
 
@@ -191,6 +194,7 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes 工艺路线版本弹窗正文 .route-version-workspace__body as the workspace locator and rejects row button testid as workspace`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes row helper wrapper normalization via matchedRow.row before calling locator methods`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes status-delete setup by copying complete source route RT000028 and treating 请先添加组成工序 as invalid blank-route setup`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes quick-filter post-query wait for loading mask/spinner removal and stale RT000028 row handling after TN-ROUTE-VERSION-001 query`
 - `GREEN: node --check doc\tasks\20260730-test-management-serial-routes-repair\run-serial-routes-real-e2e.mjs -> PASS`
 - `GREEN: node stdin static config assertion -> PASS, application-local.yaml 已包含运行态 artifact 临时目录和保留时长`
 - `GREEN: mvn.cmd -pl yudao-server -Dtest=CodexTestLocalConfigTest test -> PASS, Tests run: 1, Failures: 0, Errors: 0, BUILD SUCCESS`
@@ -232,6 +236,7 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `Verification: 真实 E2E execution 105 -> FAIL, 基础维护和复制绑定均 PASS，版本发布已打开工艺路线版本弹窗但把行内 data-testid 按钮误当 workspace，导致创建候选版本 action unavailable；已补齐弹窗正文 .route-version-workspace__body 等待规则，待复跑真实页面`
 - `Verification: 真实 E2E execution 106 -> FAIL, 基础维护全 PASS；复制绑定第 3 检查点因 matchedRow 包装对象被当成 Locator 调用而 BLOCKED；已补齐 matchedRow.row 归一化规则，待复跑真实页面`
 - `Verification: 真实 E2E execution 107 -> FAIL, 工艺路线前三个节点均 PASS；状态删除节点启用空白路线时触发 请先添加组成工序；已补齐状态删除节点复制完整源路线 RT000028 的正式样本准备规则，待复跑真实页面`
+- `Verification: 真实 E2E execution 108 -> FAIL, 基础维护和复制绑定均 PASS；版本发布复制保存后在目标编码查询 loading 中读取 stale RT000028 旧行并误报未命中；已补齐 quick-filter 查询后等待 loading 消失规则，待复跑真实页面`
 
 ## Risk And Regression Scope
 

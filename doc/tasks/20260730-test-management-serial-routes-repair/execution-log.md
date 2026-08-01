@@ -100,6 +100,13 @@
 - Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求状态删除节点通过复制完整源路线 `RT000028 / 球囊扩张压力泵` 准备 `TN-ROUTE-STATUS-001`，明确禁止创建空白路线；若启用时出现 `请先添加组成工序`，判定为脚本/数据准备错误并重建完整副本，而不是报告业务状态开关损坏。同时要求等待 `/admin-api/mes/pro/route/update-status` HTTP 成功且业务 `code=0`，并只读取目标行开关状态。
 - `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+
+- Real E2E retry `108`: `工艺路线节点：基础维护`、`工艺路线节点：复制绑定` 均全检查点 PASS；`工艺路线节点：版本发布` 第 1 检查点 PASS，第 2 检查点 BLOCKED，后续 `状态删除` 按串行前置失败阻断。失败截图 `C:\Users\BJB110\AppData\Local\Temp\IntRuoyi-codex-test-runner-workspace\checkpoint-2-blocked-copy-1785579114436.png` 显示 quick-filter 输入已是 `TN-ROUTE-VERSION-001`，但表格仍在 loading 且保留源路线 `RT000028` 的旧行。
+- Root cause update: 版本发布复制后，生成脚本点击查询后只做短等待并立即读取 body row；Element Plus 表格 loading 时会保留旧查询行，因此脚本把源路线旧行当成目标查询结果，误报复制后的测试路线未命中。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求 quick-filter 查询后等待 Element Plus loading mask/spinner 消失，允许目标查询值为 TN-ROUTE-VERSION-001 时读取 stale RT000028 旧行`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求 quick-filter 点击 `查询/搜索` 后，在 `.el-loading-mask` 或 spinner 可见时不得读取表格 body 行，需等待 loading 消失并尽量等待本次 route page/list 请求；若提交值是 `TN-ROUTE-VERSION-001` 但可见行仍包含 `RT000028`，视为 stale loading row，继续等待或重跑目标 quick-filter，不得直接报复制缺失。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
 - Real execution `48`: browser executable blocker resolved; `工艺路线节点：基础维护` reached real browser execution but generated script failed to locate the current route list page. Checkpoint 1 actual text showed the browser remained on `个人中心 / 个人工作台`, while generated script only tried hash-style candidates such as `/#/mes/route`; source route evidence shows the official Vue history route is `/mes/pro/route`.
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt lacked official navigation hints for Vue history routes and 工艺路线 /mes/pro/route`
 - Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` now adds task-text navigation hints, states this frontend uses Vue history routes rather than hash routes, and provides official path hints for 工艺路线、批记录 and 智能排产 pages.

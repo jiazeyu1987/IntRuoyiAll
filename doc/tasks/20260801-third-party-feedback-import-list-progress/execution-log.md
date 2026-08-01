@@ -41,3 +41,5 @@
 - PUSH PREFLIGHT: `git ls-remote origin HEAD` -> FAIL，错误摘要：`Failed to connect to github.com port 443 via 127.0.0.1 after 2108 ms: Could not connect to server`。
 - PUSH PREFLIGHT: 清空 `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` 并覆盖 Git proxy 后执行 `git ls-remote origin HEAD` -> FAIL，错误摘要：`Failed to connect to github.com port 443 after 21088 ms: Could not connect to server`。
 - FINAL STATUS: task.md 已回退为 `ready_for_closeout`；实现、验证、cleanup 已完成，但 GitHub 连接/推送未完成，当前分支仍 ahead，不得标记 completed。
+- TEST RELEASE BASELINE: 已使用本轮专用 release worktree `D:\IntRuoyiWorktree\release-third-party-feedback-20260801`，HEAD=`710f8675747bee97973170fe69bab2eead7a32e6`，`git status --short --branch` -> clean detached HEAD；该提交已包含 `createFeedbackWithScheduleSnapshot` 正式报工修复。
+- TEST RELEASE DEPENDENCIES: `corepack pnpm@10.25.0 install --frozen-lockfile --reporter=append-only` in release worktree frontend -> PASS，用时约 3m43.5s，安装 1103 packages；warning 为 pnpm ignored build scripts（如 `esbuild`），若后续构建因此失败按发布前置门禁阻塞，不做静默降级。
