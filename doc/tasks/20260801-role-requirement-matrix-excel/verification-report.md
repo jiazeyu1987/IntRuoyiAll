@@ -1,92 +1,64 @@
-# Verification Report
+# 岗位需求分解矩阵规划包验证报告
 
 ## Scope
 
-修订岗位需求分解矩阵，使系统实现和操作路径复用当前真实系统模块，同时保持原有 8 列结构和业务化描述风格。
+验证 `doc/tasks/20260801-role-requirement-matrix-excel/` 是否已经把源 Excel 的全部目标转换为可实施、可测试、可追踪的增量开发包。本报告验证规划质量，不代表 M0-M6 已完成生产实现。
 
-## Output
+## Source Baseline
 
-- `E:\IntRuoyi\outputs\019fb812-d0e3-7f20-8895-31a209f54b2e\岗位需求分解矩阵_复用现有模块修订版.xlsx`
+- Workbook: `C:\Users\BJB110\Desktop\文档\职责\岗位需求分解矩阵.xlsx`
+- SHA256: `6A5674826D76AE4B5393806E9255187F3CB6B0AADA9D61E2701B9ACD41111D32`
+- Size: `22200` bytes
+- Last write: `2026-08-01 19:15:20`
+- 主表 `岗位需求分解矩阵`: 23 项，编号 `M01-M23`
+- 衍生表 `衍生需求`: 39 项，编号 `D01-D39`
 
-## Checks
+## Verified Artifacts
 
-- Workbook 可读取。
-- 主表 `岗位需求分解矩阵` 保持 27 行、8 列。
-- 修订行保持业务时间顺序，没有改变职位、任务主线和矩阵结构。
-- 系统入口改为复用：MES 生产工单、工序池班组长工作台、ERP 库存调拨或 MES 调拨单列表、一线 PQC 入口、电子批记录放行追溯。
-- 旧入口词检查通过：`生产组长工作台`、`PQC 工作台`、`PQC 组长工作台`、`物料调拨关联` 命中数均为 0。
+- `task.md`
+- `prd.md`
+- `development-plan.md`
+- `test-plan.md`
+- `task-state.json`
+
+## Coverage Verification
+
+- 62 项 Excel 需求全部进入 `Excel Traceability Matrix`，无缺号、重号或额外编号。
+- 62 项需求分别映射唯一 `AC-M01` 至 `AC-M23`、`AC-D01` 至 `AC-D39`。
+- Excel 的 62 个任务名称与追踪矩阵逐行一致；已将 `D06` 修正为源表原文“设备报修或禁用后的可选控制”。
+- 每项均包含一个里程碑、一个实施区域、一个 BDD 场景和非空可观察验收。
+- `task-state.json` 的验收 ID、需求 ID、任务名称和里程碑与追踪矩阵一致。
+- M1/RQ-01 只覆盖 `M01`、`M03-M04`；`M02` 正确归入 M4 调拨链路。
+
+## Design Verification
+
+- 复用已完成的 `20260731-team-leader-workbench-prd-plan`，计划只处理现有实现与 Excel 之间的差距。
+- `mes_pro_process_pool_active_order` 被定义为跨生产、PQC、调拨、批记录和放行的唯一活跃订单聚合；禁止保留两套活跃来源双读。
+- 原始生产报工按“工序事实优先”建模，订单/任务/工作站不再作为提交前置。
+- 工序目标数量使用 `ERP 固定数量 × 正式生产系数快照`；缺失或非正数时 fail fast，不默认 `1`。
+- 批记录回填覆盖全部员工、设备和多次报工，并要求确定性聚合和幂等，不使用代表事件。
+- QA 规程和 PQC 任务具备版本、类型、日期、班次、轮次、逐件明细、签名、复核和修订设计。
+- 固定检验项目、`PATROL`、数量 `30` 和损耗 `1` 被列为必须移除的现有差距。
+- 多调拨、分批发货、补料、退料、多物料和多批次追溯进入 M4。
+- 班组/PQC 日结、范围、权限、审计、历史快照和真实放行来源进入 M5/M6。
+- `工序开始`、正式逐工序 `批记录表单`、`formBindings` 三条链路保持独立。
+
+## Test And Failure-Path Verification
+
+- `test-plan.md` 包含 16 个 Given/When/Then 场景、RED/GREEN 规则、里程碑命令、真实 Playwright 路径、测试数据、并发、性能和清理。
+- 缺测试类、缺脚本、No tests 或运行前置缺失不允许冒充 RED。
+- 失败路径覆盖订单/路线冲突、调拨不足、系数缺失、设备禁用、超额分配、代表事件丢数、规程缺项、PQC 自我确认、签名不一致、权限越界、历史快照污染和放行占位成功。
+- 真实 E2E 必须从登录和菜单入口执行；API 仅用于最终只读核验及规则允许的任务数据清理。
+
+## Command Evidence
+
+- RED: roadmap validator 初次失败，原因是 `task.md` 缺少 `Blockers`。
+- GREEN: roadmap node development plan validator -> PASS。
+- GREEN: custom plan coverage validator -> `62 requirements, 62 acceptance IDs, task-state JSON, UTF-8`。
+- GREEN: artifact-tool workbook/plan validator -> 主表 23、衍生表 39，任务名称、task-state、BDD 引用和追踪字段全部一致。
+- RED: 首次 `git diff --cached --check` 发现新增 `prd.md` 的 Given/When 行存在无语义行尾空格。
+- GREEN: 清理并重新暂存后 `git diff --cached --check` -> PASS；七个正式规划/收尾文件无 whitespace error。
 
 ## Result
 
-PASS。
-
-
-## v2 Checks
-
-- Workbook 可读取。
-- 主表 `岗位需求分解矩阵` 保持 27 行、8 列。
-- 第 12 行已改为：开工检查由系统展示检查项和阻塞原因，生产班组长自行决定是否异常上报，系统不自动判断、不自动生成异常记录。
-- 第 21、22 行已改为：生产订单数量使用 ERP 下达后的固定产品数量，报工分配和进度更新不改变订单产品数量。
-
-## v2 Result
-
-PASS。
-
-## v3 Scope
-
-按用户要求，围绕主流程产生的衍生需求新增第二个 sheet `衍生需求`，覆盖职责目录中列出的班组基础维护、员工/设备/原因/负责范围、QA 规程、PQC 提交与复核、质量异常、日结和审计类需求。
-
-## v3 Output
-
-- `E:\IntRuoyi\outputs\019fb812-d0e3-7f20-8895-31a209f54b2e\岗位需求分解矩阵_复用现有模块修订版_v3.xlsx`
-
-## v3 Checks
-
-- Workbook 可读取。
-- 主表 `岗位需求分解矩阵` 保持 27 行、8 列。
-- 第二个 sheet `衍生需求` 为 43 行、8 列，列结构为：职位、衍生场景/任务、要干什么（需求）、系统怎么实现、输入什么、输出什么、怎么测试、怎么操作/来源。
-- 关键衍生需求抽查通过：员工添加/禁用、设备绑定、设备参数上下限、QA 检验规程、PQC 组长复核、电子签名、历史快照均已写入。
-- 表格运行库导入、区域检查、错误扫描和两个 sheet 渲染均通过；未发现公式错误文本。
-
-## v3 Result
-
-PASS。
-
-## Development Plan Scope
-
-按用户要求，将岗位需求分解矩阵中的主流程和衍生需求拆成开发任务表，写入 `development-plan.md`。文档要求第一阶段可并行开发，第二阶段及以后基于前序阶段逐步推进。
-
-## Development Plan Output
-
-- `E:\IntRuoyi\doc\tasks\20260801-role-requirement-matrix-excel\development-plan.md`
-
-## Development Plan Checks
-
-- UTF-8 读取通过。
-- 文档包含阶段总览、P1 可并行开发任务、P2 核心链路、P3 批记录与过程检验、P4 异常与放行、P5 完善型任务、P6 联调与上线准备。
-- P1 明确公共数据契约、订单状态机、活跃订单池、调拨关联、报工、班组基础维护、QA 规程、PQC、批记录正式绑定和权限基础可以并行推进。
-- P2-P6 明确依赖前序阶段，并列出每个任务的主要开发内容、输出物、依赖和验收。
-- `python -X utf8` 读取当前任务 4 个 Markdown 文件通过；`rg` 阶段标题检查通过；`git diff --check` 未发现 whitespace error。
-- 本次只修改当前任务文档，未修改生产代码、数据库、运行态、Excel 源文件或并行任务目录。
-
-## Development Plan Result
-
-PASS。由于当前工作区进入本次任务前已有 unrelated `ahead 1` 和 untracked 并行任务文档，本次未执行提交或推送，任务状态保留为 `ready_for_closeout`。
-
-## Development Plan Optimization Scope
-
-根据逻辑复核结果优化 `development-plan.md`，重点补强阶段依赖、调拨覆盖校验、PQC 跨天和数量变更、批记录字段映射顺序、异常处理责任以及 E2E 阻塞场景。
-
-## Development Plan Optimization Checks
-
-- P1 阶段已明确 `P1.1` 为先行门禁，`P1.2-P1.12` 才是可并行任务。
-- QA 规程配置已补充产品、工艺路线、路线版本、工序基础数据和正式批记录绑定依赖。
-- 调拨关联已补充多调拨单、分批发货、补料、退料、多批次和调拨覆盖明细。
-- PQC 任务生成与数量计算已补充跨天、班次、轮次、订单数量变更、规程版本变更和已提交记录锁定。
-- 批记录任务已调整为先定义字段映射和多次报工汇总规则，再执行回填。
-- 异常闭环已补充处理责任、处理入口、状态来源和解除条件。
-- P6 已扩展缺 SOP、缺生产系数、缺正式批记录绑定、调拨数量/批次不一致、PQC 跨天/数量变更、签名人与实际人员不一致等 E2E 场景。
-
-## Development Plan Optimization Result
-
-PASS。`python -X utf8` 读取通过，关键新增门禁与 E2E 场景检索通过，`git diff --check` 无 whitespace error。优化后文档更接近可执行开发规格，仍未修改生产代码、数据库、运行态或 Excel 源文件。
+PASS。规划包已达到 `ready_for_closeout`，可作为后续实现任务的正式输入；`task-state.json.status` 保持 `planned`，M0-M6 尚未实施。ERP/调拨正式来源、QA 所有权、双活跃来源迁移、质量异常/返工/报废/库存来源及真实 E2E 环境仍是后续里程碑的 fail-fast 前置。

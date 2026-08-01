@@ -102,6 +102,91 @@
 - Verified: `python -X utf8` 读取 `development-plan.md`、`task.md`、`execution-log.md`、`verification-report.md` 均成功。
 - Verified: `rg` 命中 P1-P6 阶段标题和 `Definition of Done`。
 - Verified: `git diff --check -- doc/tasks/20260801-role-requirement-matrix-excel` 无 whitespace error，仅提示 Git 将在触碰既有文件时按仓库设置处理 LF/CRLF。
+
+## Revision 2026-08-01 Full Gap-Driven Planning Package
+
+用户要求继续优化开发文档，使后续严格按文档开发后能够达到源 Excel 的完整目标。本次将原有阶段清单重构为一个差距驱动、可恢复、可逐项验收的规划包，不修改生产代码、数据库、运行态或源 Excel。
+
+- BDD: Excel 需求全量可追踪 -> Given 源 Excel 包含 23 项主需求和 39 项衍生需求 When 生成 PRD、开发计划、测试计划和任务状态 Then 62 项需求分别具有唯一 ID、里程碑、实施区域、BDD 和可观察验收。
+- BDD: 已交付能力增量收敛 -> Given `20260731-team-leader-workbench-prd-plan` 已完成生产组长基线 When 规划本节点 Then 复用既有能力，只补齐统一权威来源、正式契约和 Excel 缺口，不重复绿地建设。
+- BDD: 正式来源缺失即阻塞 -> Given ERP 调拨、QA 规程、生产系数、正式批记录绑定或放行来源未确认 When 后续进入对应里程碑 Then 任务 fail fast，不使用双读、默认值、代表事件、`formBindings` 或占位成功掩盖缺失。
+
+### Source Workbook Evidence
+
+- Source: `C:\Users\BJB110\Desktop\文档\职责\岗位需求分解矩阵.xlsx`
+- Sheet `岗位需求分解矩阵`: 23 项，编号 `M01-M23`。
+- Sheet `衍生需求`: 39 项，编号 `D01-D39`。
+- SHA256: `6A5674826D76AE4B5393806E9255187F3CB6B0AADA9D61E2701B9ACD41111D32`
+- Size: `22200` bytes。
+- Last write: `2026-08-01 19:15:20`。
+
+### Code-Gap Findings Used By The Plan
+
+- 生产组长使用 `mes_pro_process_pool_active_order`，PQC 仍从 `mes_pro_process_pool` 活跃行取数，跨角色尚无唯一活跃订单事实。
+- 当前生产报工仍要求订单、任务或工作站上下文，不符合“先记录工序生产事实，后由组长分配订单”。
+- 当前报工分配和工序完成使用固定订单数量，尚未使用 `ERP 固定数量 × 正式生产系数`。
+- 当前批记录回填只取一个代表事件/分配，无法完整覆盖多员工、多设备和多次报工。
+- 当前 PQC 依赖最新生产事件，数据模型缺规程版本、检验类型、业务日期、班次、轮次、逐件明细和复核状态。
+- 当前 PQC 页面仍固定检验项目、`PATROL`、数量 `30` 和损耗 `1`。
+- 当前设备配置允许独立创建班组设备，未强制从正式设备台账绑定。
+- 当前活跃订单缺多调拨、分批发货、补料、退料、多物料和多批次追溯。
+- 当前负责范围缺产线、设备和订单。
+- 当前 eDHR 放行的检验、偏差、返工、报废和库存检查仍以“来源未接入”阻塞，尚未接入正式来源。
+
+### Planning Decisions
+
+- `mes_pro_process_pool_active_order` 作为跨生产、PQC、调拨、批记录和放行的唯一活跃订单聚合；`mes_pro_process_pool` 只保留执行/事件投影。
+- 原始生产报工先记录工序事实，订单、任务和工作站不作为强制前置；确认后再由组长分配到权威活跃订单。
+- 工序目标量固定为 `ERP 固定订单数量 × 正式生产系数快照`；系数缺失或非正数时阻塞，不默认 `1`。
+- 批记录回填必须确定性汇总订单工序全部已确认分配及源报工，不使用代表事件。
+- QA 规程、PQC 任务、逐件明细、提交修订和复核均版本化；删除固定检验项目和固定数量。
+- `工序开始`、正式逐工序 `批记录表单`、`formBindings` 三条链路继续严格分离。
+- M1/RQ-01 覆盖修正为 `M01`、`M03-M04`；`M02` 只归入 M4 调拨链路。
+- `D06` 任务名称按 Excel 原文统一为“设备报修或禁用后的可选控制”。
+
+### RED / GREEN / Verification Evidence
+
+- RED: `python -X utf8 C:\Users\BJB110\.codex\skills\roadmap-node-dev-plan\scripts\validate_node_dev_plan.py --task-dir E:\IntRuoyi\doc\tasks\20260801-role-requirement-matrix-excel` -> FAIL，预期原因：初版 `task.md` 缺少 `Blockers`。
+- GREEN: 同一 roadmap validator 命令 -> PASS，五个规划文件和必需章节完整。
+- GREEN: `python -X utf8 validate-plan.py` -> PASS，62 个需求、62 个唯一验收 ID、`task-state.json` 和 UTF-8 校验通过。
+- GREEN: `node inspect-workbook.mjs` -> PASS，主表 23 项、衍生表 39 项，Excel 任务名称、追踪矩阵、任务状态、BDD 引用和必填追踪字段全部一致。
+- Pre-stage check: `git diff --check -- doc/tasks/20260801-role-requirement-matrix-excel` -> PASS for tracked files；当时尚未覆盖未跟踪的新增 PRD/test/state 文件。
+- Verified: `task-state.json.status` 保持 `planned`，`planningPackageStatus` 为 `ready_for_closeout`，未伪装为已实现。
+- Verified: 源 Excel 的 SHA256、大小和最后写入时间在本次规划校验前后保持一致。
+
+### Experience Consolidation
+
+- 已执行 `project-experience-consolidation` 路由检查。
+- 本次形成的是当前业务节点的一次性需求映射、差距结论和实施状态，不应写入长期经验文档。
+- 通用门禁已由 `docs/experience-index.md`、`docs/powershell-memory.md`、`docs/task-closeout-rules.md` 和现有领域规则覆盖，因此不新增长期经验文档。
+
+### Git Boundary Before Closeout
+
+- Branch: `int_main`。
+- Planning files are limited to `doc/tasks/20260801-role-requirement-matrix-excel/`.
+- Unrelated dirty files remain outside this task and must be preserved in a separate baseline commit:
+  - `IntRuoyiFronted/scripts/codex-test-runner.mjs`
+  - `IntRuoyiFronted/tests/e2e/codex-test-runner-playwright-dependency-static.spec.js`
+  - `doc/tasks/20260730-test-management-serial-routes-repair/execution-log.md`
+
+### Closeout Preview Evidence
+
+- First cleanup preview was stopped because the task-local `node_modules` junction resolved to the shared bundled dependency directory and was incorrectly classified as deletable.
+- Verified the path was a junction targeting `C:\Users\BJB110\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\node_modules`.
+- Removed only the task-local junction with `[System.IO.Directory]::Delete`; the shared `@oai/artifact-tool` dependency target remained intact.
+- Second cleanup preview -> PASS: keep list contains the seven required planning/closeout records; delete list contains only `inspect-workbook.mjs` and `validate-plan.py`; blocked/warnings are empty.
+
+### Baseline Commit Evidence
+
+- Baseline commit: `0f13bd89d` (`chore: baseline concurrent dirty work before role matrix closeout`).
+- Baseline files:
+  - `IntRuoyiFronted/scripts/codex-test-runner.mjs`
+  - `IntRuoyiFronted/tests/e2e/codex-test-runner-playwright-dependency-static.spec.js`
+  - `doc/tasks/20260730-test-management-serial-routes-repair/execution-log.md`
+- Post-commit rescan: current task files remain unstaged/uncaptured by the baseline; no staged files remain; branch is `int_main` and ahead only because of this baseline commit.
+- RED: `git diff --cached --check` -> FAIL，预期原因：新增 `prd.md` 的 Given/When 行包含 Markdown 行尾空格，之前的 tracked-only 检查未覆盖未跟踪文件。
+- Fix: 清除 PRD 中无语义的行尾空格并重新暂存。
+- GREEN: `git diff --cached --check` -> PASS，七个正式规划/收尾文件无 whitespace error。
 - Git boundary: 进入本次写入前，`int_main...origin/int_main [ahead 1]` 且存在 unrelated untracked `doc/tasks/20260801-dcc-list-auto-classify-local-e2e/*`；本次未触碰并行任务文件，未执行提交或推送。
 - Experience: 已读取 `project-experience-consolidation` 技能；本次属于一次性业务开发计划落档，没有新增通用工程经验或可前置门禁，不新增长期经验文档。
 

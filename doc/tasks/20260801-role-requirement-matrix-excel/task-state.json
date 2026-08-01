@@ -1,0 +1,523 @@
+{
+  "status": "planned",
+  "currentMilestone": "M0",
+  "planningPackageStatus": "ready_for_closeout",
+  "sourceWorkbook": "C:/Users/BJB110/Desktop/文档/职责/岗位需求分解矩阵.xlsx",
+  "baselineTask": "doc/tasks/20260731-team-leader-workbench-prd-plan",
+  "branch": "int_main",
+  "milestones": [
+    {
+      "id": "M0",
+      "title": "契约、术语和权威来源冻结",
+      "status": "pending",
+      "dependencies": []
+    },
+    {
+      "id": "M1",
+      "title": "权威活跃订单与增量模型",
+      "status": "pending",
+      "dependencies": [
+        "M0"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "生产事实、系数分配与正式批记录",
+      "status": "pending",
+      "dependencies": [
+        "M1"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "QA 规程与 PQC 闭环",
+      "status": "pending",
+      "dependencies": [
+        "M1"
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "调拨、异常、完整性与放行",
+      "status": "pending",
+      "dependencies": [
+        "M2",
+        "M3"
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "日结、范围、权限、审计与快照",
+      "status": "pending",
+      "dependencies": [
+        "M2",
+        "M3",
+        "M4"
+      ]
+    },
+    {
+      "id": "M6",
+      "title": "迁移、并发、真实 E2E 与上线验收",
+      "status": "pending",
+      "dependencies": [
+        "M1",
+        "M2",
+        "M3",
+        "M4",
+        "M5"
+      ]
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "AC-M01",
+      "requirementId": "M01",
+      "title": "确认生产订单",
+      "milestone": "M1",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M02",
+      "requirementId": "M02",
+      "title": "填写调拨申请单",
+      "milestone": "M4",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M03",
+      "requirementId": "M03",
+      "title": "同步 ERP 候选数据",
+      "milestone": "M1",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M04",
+      "requirementId": "M04",
+      "title": "加入活跃订单池",
+      "milestone": "M1",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M05",
+      "requirementId": "M05",
+      "title": "生成调拨单并发货",
+      "milestone": "M4",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M06",
+      "requirementId": "M06",
+      "title": "核对并解包到线边仓",
+      "milestone": "M4",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M07",
+      "requirementId": "M07",
+      "title": "关联调拨单",
+      "milestone": "M4",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M08",
+      "requirementId": "M08",
+      "title": "订单开工检查",
+      "milestone": "M4",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M09",
+      "requirementId": "M09",
+      "title": "维护检验规程",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M10",
+      "requirementId": "M10",
+      "title": "按 SOP 生产",
+      "milestone": "M2",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M11",
+      "requirementId": "M11",
+      "title": "生产报工",
+      "milestone": "M2",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M12",
+      "requirementId": "M12",
+      "title": "执行首检",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M13",
+      "requirementId": "M13",
+      "title": "执行上午巡检",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M14",
+      "requirementId": "M14",
+      "title": "执行下午巡检",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M15",
+      "requirementId": "M15",
+      "title": "执行末检",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M16",
+      "requirementId": "M16",
+      "title": "确认员工报工",
+      "milestone": "M2",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M17",
+      "requirementId": "M17",
+      "title": "分配报工到生产订单",
+      "milestone": "M2",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M18",
+      "requirementId": "M18",
+      "title": "更新生产订单进度",
+      "milestone": "M2",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M19",
+      "requirementId": "M19",
+      "title": "写入工序批记录表单",
+      "milestone": "M2",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M20",
+      "requirementId": "M20",
+      "title": "确认 PQC 检验单",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M21",
+      "requirementId": "M21",
+      "title": "汇集过程检验记录",
+      "milestone": "M4",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M22",
+      "requirementId": "M22",
+      "title": "检查批记录完整性",
+      "milestone": "M4",
+      "status": "pending"
+    },
+    {
+      "id": "AC-M23",
+      "requirementId": "M23",
+      "title": "审核并放行生产订单",
+      "milestone": "M4",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D01",
+      "requirementId": "D01",
+      "title": "添加本班组员工",
+      "milestone": "M5",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D02",
+      "requirementId": "D02",
+      "title": "禁用本班组员工",
+      "milestone": "M5",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D03",
+      "requirementId": "D03",
+      "title": "维护不良原因",
+      "milestone": "M5",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D04",
+      "requirementId": "D04",
+      "title": "维护损耗原因",
+      "milestone": "M5",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D05",
+      "requirementId": "D05",
+      "title": "绑定工序可用设备",
+      "milestone": "M5",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D06",
+      "requirementId": "D06",
+      "title": "设备报修或禁用后的可选控制",
+      "milestone": "M5",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D07",
+      "requirementId": "D07",
+      "title": "维护设备参数上下限",
+      "milestone": "M5",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D08",
+      "requirementId": "D08",
+      "title": "超限参数复核提醒",
+      "milestone": "M5",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D09",
+      "requirementId": "D09",
+      "title": "配置负责范围",
+      "milestone": "M5",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D10",
+      "requirementId": "D10",
+      "title": "班组基础维护审计",
+      "milestone": "M5",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D11",
+      "requirementId": "D11",
+      "title": "退回员工报工并保留修订记录",
+      "milestone": "M2",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D12",
+      "requirementId": "D12",
+      "title": "班组日结与未完成提醒",
+      "milestone": "M5",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D13",
+      "requirementId": "D13",
+      "title": "只读查看 PQC 状态",
+      "milestone": "M5",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D14",
+      "requirementId": "D14",
+      "title": "查看批记录进度",
+      "milestone": "M5",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D15",
+      "requirementId": "D15",
+      "title": "按产品/路线/版本/工序维护检验规程",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D16",
+      "requirementId": "D16",
+      "title": "查看工序基础信息",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D17",
+      "requirementId": "D17",
+      "title": "配置检验项目和标准",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D18",
+      "requirementId": "D18",
+      "title": "配置首检规则",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D19",
+      "requirementId": "D19",
+      "title": "配置上午/下午巡检规则",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D20",
+      "requirementId": "D20",
+      "title": "配置末检规则",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D21",
+      "requirementId": "D21",
+      "title": "保存草稿校验",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D22",
+      "requirementId": "D22",
+      "title": "检查检验规程完整性",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D23",
+      "requirementId": "D23",
+      "title": "发布或启用规程版本",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D24",
+      "requirementId": "D24",
+      "title": "选择活跃订单和路线工序",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D25",
+      "requirementId": "D25",
+      "title": "选择实际 PQC 人员",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D26",
+      "requirementId": "D26",
+      "title": "电子签名提交",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D27",
+      "requirementId": "D27",
+      "title": "逐件填写检验明细",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D28",
+      "requirementId": "D28",
+      "title": "填写不合格、损耗和失败原因",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D29",
+      "requirementId": "D29",
+      "title": "生成工序池 PQC 事件",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D30",
+      "requirementId": "D30",
+      "title": "处理 PQC 组长退回",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D31",
+      "requirementId": "D31",
+      "title": "缺失前置条件阻塞",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D32",
+      "requirementId": "D32",
+      "title": "筛选待确认检验提交",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D33",
+      "requirementId": "D33",
+      "title": "查看 PQC 提交详情",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D34",
+      "requirementId": "D34",
+      "title": "确认或退回检验提交",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D35",
+      "requirementId": "D35",
+      "title": "确认人与实际检验人隔离",
+      "milestone": "M3",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D36",
+      "requirementId": "D36",
+      "title": "跟进质量异常",
+      "milestone": "M4",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D37",
+      "requirementId": "D37",
+      "title": "确认过程检验记录汇集",
+      "milestone": "M4",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D38",
+      "requirementId": "D38",
+      "title": "过程检验闭环和日结提醒",
+      "milestone": "M5",
+      "status": "pending"
+    },
+    {
+      "id": "AC-D39",
+      "requirementId": "D39",
+      "title": "衍生配置不改写历史数据",
+      "milestone": "M5",
+      "status": "pending"
+    }
+  ],
+  "blockers": [
+    "未确认金蝶生产订单、调拨申请、调拨单、发货、补料、退料和物料批次的正式本地表/API。",
+    "未完成两套活跃订单来源的开放数据冲突盘点。",
+    "未冻结 QA 规程在 MES 或 QMS 的唯一所有权。",
+    "未确认质量异常、返工、报废和库存一致性的正式来源服务。",
+    "真实 E2E 的测试租户、角色账号、凭据、签名、运行态和 ERP 样本必须在执行前重新确认。"
+  ],
+  "artifacts": {
+    "task": "doc/tasks/20260801-role-requirement-matrix-excel/task.md",
+    "prd": "doc/tasks/20260801-role-requirement-matrix-excel/prd.md",
+    "developmentPlan": "doc/tasks/20260801-role-requirement-matrix-excel/development-plan.md",
+    "testPlan": "doc/tasks/20260801-role-requirement-matrix-excel/test-plan.md",
+    "executionLog": "doc/tasks/20260801-role-requirement-matrix-excel/execution-log.md",
+    "verificationReport": "doc/tasks/20260801-role-requirement-matrix-excel/verification-report.md"
+  },
+  "updatedAt": "2026-08-01"
+}
