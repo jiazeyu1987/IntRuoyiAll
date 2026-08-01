@@ -254,6 +254,7 @@
 - Keywords: 测试管理测试节点闭环, 自然语言测试方法, 业务可读目标, 固定样本, 前置复位, 清理恢复, 重复执行, 批记录节点 -> `docs/e2e-rules.md#测试管理测试节点闭环门禁`
 - Keywords: 测试管理 系统异常, codex-test-case/page code 500, system_codex_test_case.project, node_chain_name, node_chain_sort, node_chain_execution, 20260726_system_codex_test_case_project.sql, 20260727_system_codex_test_node_chain.sql, Codex 测试项分页缺字段 -> `docs/database-rules.md#测试管理-schema-迁移门禁`
 - Keywords: ERROR 1267, Illegal mix of collations, 临时表排序规则, 数据修复临时表, system_codex_test_case, utf8mb4_0900_ai_ci, 中文测试项种子 -> `docs/database-rules.md#数据修复临时表排序规则门禁`
+- Keywords: 20260726_system_codex_smart_scheduling_test_items, tmp_codex_smart_scheduling_case_seed, tmp_codex_smart_scheduling_checkpoint_seed, ensure_system_codex_smart_scheduling_test_items, utf8mb4_general_ci vs utf8mb4_0900_ai_ci -> `docs/database-rules.md#数据修复临时表排序规则门禁`
 - Keywords: 时间轴重复行, 一对多 JOIN, 审核副本多条重复展开, 列表 pageSize 被子表挤占, GROUP BY tenant_id event_id, read model 聚合 -> `docs/database-rules.md#一对多读模型聚合门禁`
 - Keywords: MES工序 系统异常, route-resource page code 500, Missing route, Missing item, route_product 孤儿关联, 资源池只读列表, 工艺路线资源读模型, 只读资源池引用完整性 -> `docs/database-rules.md#只读资源池引用完整性门禁`
 - Keywords: tenant_id=0 全局只读种子, TenantIgnore, ignore-tables, Excel 源基线, 只读 Excel 目录, 业务租户列表为空, 主表明细表租户过滤 -> `docs/database-rules.md#全局只读-excel-种子租户边界门禁`
