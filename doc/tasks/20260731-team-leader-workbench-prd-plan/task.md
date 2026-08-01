@@ -81,7 +81,7 @@
 
 ## Current Status
 
-blocked
+completed
 
 ## Cleanup Keep
 
@@ -105,4 +105,4 @@ blocked
 - 收尾清理提交已完成：`3c5789190 chore: clean team leader workbench task evidence`。
 - 融合回 `E:\IntRuoyi` 的 `int_main` 已完成：`codex/20260731_shengchanbanzuzhang` 是当前 `int_main` 祖先，`int_main` 合并后已通过静态合同、`pnpm --dir IntRuoyiFronted ts:check`、MES 定向 Maven 回归和分支端口门禁。
 - 主工作区并行 Runner 改动已按脏工作区基线规则单独提交：`00df27e68 chore: baseline serial routes runner workspace changes`，未混入生产组长任务收尾提交。
-- 最终状态阻塞在远端推送：feature branch 与 `int_main` 曾成功推送到 `8632f26da`，但最终完成提交 `c46980085` 后的 `git push origin int_main` 再次因 GitHub HTTPS connection reset 失败；本地仍 ahead，按项目规则不能标记 completed。
+- 最终远端推送已恢复：feature branch 与 `int_main` 已完成远端同步；生产组长实现、真实 E2E、`int_main` 融合、收尾记录和最终完成状态均已推送。

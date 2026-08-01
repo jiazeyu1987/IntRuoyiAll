@@ -273,3 +273,10 @@
 - BLOCKED: `git push origin int_main` -> FAIL, `Recv failure: Connection was reset`。
 - BLOCKED: `git ls-remote origin HEAD` before retry -> FAIL, `Recv failure: Connection was reset`；未继续伪造推送成功。
 - Result: remote already contains feature branch up to `008de0396` and `int_main` up to `8632f26da`, but final local closeout and later concurrent baseline commits remain ahead; task status must remain `blocked` until `git push origin int_main` succeeds and status no longer reports ahead.
+
+
+## 2026-08-01 Final Push Recovery Evidence
+
+- Push: `git push origin int_main` -> PASS，`8632f26da..2e8a02e65`，远端已包含先前本地 ahead 提交。
+- Completion Update: 任务状态从最终推送 blocker 更新为 `completed`，本次 closeout completion commit 将包含 `task.md`、`execution-log.md`、`verification-report.md`、`test-report.md` 和 `task-state.json`。
+- Result: feature branch 已在远端，`int_main` 已包含生产组长实现、真实 E2E 证据、融合验证和最终完成记录；后续只需推送本次 completion commit 并复核 no-ahead。
