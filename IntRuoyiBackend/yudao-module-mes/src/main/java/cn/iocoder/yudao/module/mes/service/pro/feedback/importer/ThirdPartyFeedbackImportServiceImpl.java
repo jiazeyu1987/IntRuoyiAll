@@ -6,6 +6,7 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.MesProFeedbackSaveReqVO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.md.item.MesMdItemDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.md.workstation.MesMdWorkstationDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.feedback.MesProFeedbackImportRecordDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.process.MesProProcessDO;
@@ -16,6 +17,7 @@ import cn.iocoder.yudao.module.mes.dal.dataobject.pro.scheduleorder.MesProSchedu
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.task.MesProTaskDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
 import cn.iocoder.yudao.module.mes.dal.mysql.md.item.MesMdItemMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.md.workstation.MesMdWorkstationMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.feedback.MesProFeedbackImportRecordMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.process.MesProProcessMapper;
@@ -98,6 +100,8 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
     private MesProWorkOrderMapper workOrderMapper;
     @Resource
     private MesMdItemMapper itemMapper;
+    @Resource
+    private MesMdWorkstationMapper workstationMapper;
     @Resource
     private MesProProcessMapper processMapper;
     @Resource
@@ -835,12 +839,18 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
         MesProRouteProcessDO routeProcess = routeProcessService.resolveFrozenRouteProcess(
                 target.scheduleOrderProcess().getRouteProcessId(), target.scheduleOrder().getRouteId(),
                 target.scheduleOrderProcess().getProcessId());
+        DirectWorkstationResolution workstationResolution = resolveDirectFeedbackWorkstation(task, routeProcess);
+        if (workstationResolution.workstationId() == null) {
+            return DirectFeedbackContext.skip(buildDirectWorkReportSkipWarning(row, target.workOrder(),
+                    target.scheduleOrder(), target.scheduleOrderProcess(), itemMap,
+                    workstationResolution.reasonCode(), workstationResolution.reason()));
+        }
         boolean checkFlag = Boolean.TRUE.equals(routeProcess.getCheckFlag());
         String feedbackCode = autoCodeRecordService.generateAutoCode(MesMdAutoCodeRuleCodeEnum.PRO_FEEDBACK_CODE.getCode());
         MesProFeedbackSaveReqVO req = new MesProFeedbackSaveReqVO();
         req.setCode(feedbackCode);
         req.setType(MesProFeedbackTypeEnum.SELF.getType());
-        req.setWorkstationId(task.getWorkstationId());
+        req.setWorkstationId(workstationResolution.workstationId());
         req.setRouteId(task.getRouteId());
         req.setProcessId(routeProcess.getProcessId());
         req.setWorkOrderId(task.getWorkOrderId());
@@ -886,7 +896,6 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
                 .filter(Objects::nonNull)
                 .filter(task -> !MesProTaskStatusEnum.isEndStatus(task.getStatus()))
                 .filter(task -> Objects.equals(task.getWorkOrderId(), target.scheduleOrder().getWorkOrderId()))
-                .filter(task -> task.getWorkstationId() != null)
                 .filter(task -> task.getRouteId() != null)
                 .filter(task -> task.getItemId() != null)
                 .filter(task -> task.getQuantity() != null)
@@ -902,6 +911,33 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
             return null;
         }
         return candidates.size() == 1 ? candidates.get(0) : null;
+    }
+
+    private DirectWorkstationResolution resolveDirectFeedbackWorkstation(MesProTaskDO task,
+                                                                         MesProRouteProcessDO routeProcess) {
+        if (task.getWorkstationId() != null) {
+            return DirectWorkstationResolution.success(task.getWorkstationId());
+        }
+        Long processId = routeProcess == null ? null : routeProcess.getProcessId();
+        if (processId == null) {
+            return DirectWorkstationResolution.fail("WORKSTATION_NOT_FOUND",
+                    "生产任务缺少工作站，且排产工序缺少正式工序，本行未生成正式报工。");
+        }
+        List<MesMdWorkstationDO> workstations = workstationMapper.selectListByProcessIds(List.of(processId));
+        List<MesMdWorkstationDO> candidates = workstations == null ? List.of() : workstations.stream()
+                .filter(Objects::nonNull)
+                .filter(workstation -> workstation.getId() != null)
+                .filter(workstation -> Objects.equals(workstation.getProcessId(), processId))
+                .toList();
+        if (candidates.size() == 1) {
+            return DirectWorkstationResolution.success(candidates.get(0).getId());
+        }
+        if (candidates.isEmpty()) {
+            return DirectWorkstationResolution.fail("WORKSTATION_NOT_FOUND",
+                    "生产任务缺少工作站，且工序没有唯一工作站配置，本行未生成正式报工。");
+        }
+        return DirectWorkstationResolution.fail("WORKSTATION_NOT_UNIQUE",
+                "生产任务缺少工作站，且工序存在多个工作站配置，无法唯一生成正式报工。");
     }
 
     private boolean matchesDirectFeedbackTaskProcess(MesProTaskDO task,
@@ -1023,7 +1059,6 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
                 scheduleOrderProcessMapper.selectListByScheduleOrderId(scheduleOrder.getId());
         Map<Long, BigDecimal> completedByProcessId = sumFeedbackProgressByScheduleOrderProcessId(
                 feedbackMapper.selectProgressListByScheduleOrderId(scheduleOrder.getId()));
-        mergeQuantity(completedByProcessId, sumDirectProgressByScheduleOrderProcessId(scheduleOrder.getId()));
         Map<Long, MesProScheduleOrderProcessDO> result = new LinkedHashMap<>();
         for (MesProScheduleOrderProcessDO process : processes) {
             BigDecimal plannedQuantity = normalizeQuantity(process.getPlannedQuantity());
@@ -1062,30 +1097,6 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
                     BigDecimal::add);
         }
         return result;
-    }
-
-    private Map<Long, BigDecimal> sumDirectProgressByScheduleOrderProcessId(Long scheduleOrderId) {
-        Map<Long, BigDecimal> result = new LinkedHashMap<>();
-        List<MesProFeedbackImportRecordDO> records =
-                importRecordMapper.selectAppliedDirectProgressListByScheduleOrderId(scheduleOrderId);
-        if (records == null) {
-            return result;
-        }
-        for (MesProFeedbackImportRecordDO record : records) {
-            if (record.getScheduleOrderProcessId() == null) {
-                continue;
-            }
-            result.merge(record.getScheduleOrderProcessId(), normalizeQuantity(record.getProgressQuantity()),
-                    BigDecimal::add);
-        }
-        return result;
-    }
-
-    private void mergeQuantity(Map<Long, BigDecimal> target, Map<Long, BigDecimal> source) {
-        if (source == null || source.isEmpty()) {
-            return;
-        }
-        source.forEach((key, value) -> target.merge(key, value, BigDecimal::add));
     }
 
     private MesProScheduleOrderProcessDO buildDirectProgressAfterSnapshot(MesProScheduleOrderProcessDO beforeProgress,
@@ -1241,6 +1252,19 @@ public class ThirdPartyFeedbackImportServiceImpl implements ThirdPartyFeedbackIm
 
         private static DirectFeedbackContext skip(ThirdPartyFeedbackImportResult.DirectWorkReportSkipWarning warning) {
             return new DirectFeedbackContext(null, null, warning);
+        }
+    }
+
+    private record DirectWorkstationResolution(Long workstationId,
+                                               String reasonCode,
+                                               String reason) {
+
+        private static DirectWorkstationResolution success(Long workstationId) {
+            return new DirectWorkstationResolution(workstationId, null, null);
+        }
+
+        private static DirectWorkstationResolution fail(String reasonCode, String reason) {
+            return new DirectWorkstationResolution(null, reasonCode, reason);
         }
     }
 
