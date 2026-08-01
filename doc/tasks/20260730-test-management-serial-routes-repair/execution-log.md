@@ -82,10 +82,24 @@
 - Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` now resolves a configured browser executable path first, then known local Chrome/Edge paths, passes `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` into `spawnCodex`, and instructs temporary Playwright scripts to launch with that executable path.
 - `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+
+- Real E2E retry `106`: `工艺路线节点：基础维护` 全 4 检查点 PASS；`工艺路线节点：复制绑定` 第 1、2、4 检查点 PASS，第 3 检查点 BLOCKED，actualText=`副本详情验证未通过：matchedRow.locator is not a function`；后续 `版本发布`、`状态删除` 按串行前置失败正确阻断。
+- Root cause update: 生成脚本中的表格行查找 helper 返回的是 `{ row, text, index }` 这类包装对象，但后续复制绑定详情校验直接调用 `matchedRow.locator(...)`，把包装对象误当 Playwright Locator，导致未进入副本详情页验证。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未禁止把包含 row/text/index 的表格行包装对象直接当成 Playwright Locator，允许生成 matchedRow.locator is not a function`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求当 row helper 返回 `{ row, text, index }` 或 `matchedRow` 包装对象时，只能在包装对象的 `row` 属性上调用 locator 方法；除非 `matchedRow` 本身就是 Playwright Locator，否则禁止 `matchedRow.locator(...)`，并给出 `matchedRow.row.locator(...)` / `rowLocator` 归一化写法。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+
+- Real E2E retry `107`: `工艺路线节点：基础维护`、`工艺路线节点：复制绑定`、`工艺路线节点：版本发布` 均全检查点 PASS；`工艺路线节点：状态删除` 第 1、4 检查点 PASS，第 2 检查点 FAIL，第 3 检查点 BLOCKED。失败截图 `C:\Users\BJB110\AppData\Local\Temp\IntRuoyi-codex-test-runner-workspace\1785577464276-2-FAIL.png` 显示真实页面 toast 为 `请先添加组成工序`。
+- Root cause update: 状态删除节点生成脚本用新增空白路线 `TN-ROUTE-STATUS-001` 做启停校验；空白路线没有组成工序，后端按正式业务规则拒绝启用。此节点要验证“状态启停与删除”，测试数据应和复制/版本节点一样来自完整源路线 `RT000028 / 球囊扩张压力泵`，不能用空白路线。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求状态删除节点通过复制完整源路线准备 TN-ROUTE-STATUS-001，允许创建空白路线后启用触发 请先添加组成工序`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求状态删除节点通过复制完整源路线 `RT000028 / 球囊扩张压力泵` 准备 `TN-ROUTE-STATUS-001`，明确禁止创建空白路线；若启用时出现 `请先添加组成工序`，判定为脚本/数据准备错误并重建完整副本，而不是报告业务状态开关损坏。同时要求等待 `/admin-api/mes/pro/route/update-status` HTTP 成功且业务 `code=0`，并只读取目标行开关状态。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
 - Real execution `48`: browser executable blocker resolved; `工艺路线节点：基础维护` reached real browser execution but generated script failed to locate the current route list page. Checkpoint 1 actual text showed the browser remained on `个人中心 / 个人工作台`, while generated script only tried hash-style candidates such as `/#/mes/route`; source route evidence shows the official Vue history route is `/mes/pro/route`.
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt lacked official navigation hints for Vue history routes and 工艺路线 /mes/pro/route`
 - Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` now adds task-text navigation hints, states this frontend uses Vue history routes rather than hash routes, and provides official path hints for 工艺路线、批记录 and 智能排产 pages.
@@ -547,5 +561,11 @@
 - Root cause update: 上轮残留固定路线被 checkpoint 1 命中后，生成脚本没有先执行行内 `删除`、确认 Element Plus MessageBox 并重新按路线编码查询到无可见 body 行，而是直接把残留存在记为 FAIL。
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求基础维护 checkpoint 1 命中固定路线时先删除确认并复查，允许直接 FAIL`
 - Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求 `工艺路线基础维护` checkpoint 1 若看到 `TN-ROUTE-BASIC-001`，必须先点击该行 `删除`、确认 MessageBox 并重新查询到无可见表格 body 行；只有尝试删除与确认后仍残留才允许 FAIL/BLOCKED。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- Real E2E retry `105`: `工艺路线节点：基础维护` 全 4 检查点 PASS；`工艺路线节点：复制绑定` 全 4 检查点 PASS；`工艺路线节点：版本发布` 第 1 检查点 PASS，第 2 检查点 FAIL，后续 `状态删除` 按串行前置失败阻断。actualText=`创建候选版本 action unavailable. workspace=版本`；失败截图 `C:\Users\BJB110\AppData\Local\Temp\IntRuoyi-codex-test-runner-workspace\route-version-cp2-candidate-not-visible-1785573901752.png` 显示真正的 `工艺路线版本` 弹窗正文已打开，包含 `当前 ACTIVE：V1`、`创建候选版本`、`候选版本工作区`、`无打开候选` 和 `V1 已生效 ACTIVE`。
+- Root cause update: 前端列表行操作列的 `版本` 按钮本身带有 `data-testid="route-version-workspace"`，生成脚本把这个行内按钮当作 workspaceLocator，导致 `workspace.innerText()` 只有 `版本`，没有读取真正的弹窗正文 `.route-version-workspace__body`。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 允许把行内 data-testid="route-version-workspace" 的 版本 按钮当成已打开工作台，没有要求等待 .route-version-workspace__body`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求版本发布打开工作台后不要把行内 `data-testid="route-version-workspace"` 按钮当作已打开工作台，必须把 workspace locator 限定到可见 `工艺路线版本` 弹窗正文 `.route-version-workspace__body` 或包含 `.route-version-workspace__summary` 的弹窗，并等待正文包含 `创建候选版本 / 候选版本工作区 / 当前 ACTIVE`。
 - `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`

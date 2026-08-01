@@ -39,6 +39,9 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - 真实执行 `102` 证明 `工艺路线节点：基础维护` 和 `工艺路线节点：复制绑定` 均全检查点 PASS；`工艺路线节点：版本发布` 第 1 检查点 PASS 后第 2 检查点 BLOCKED。页面已筛选到 `TN-ROUTE-VERSION-001` 行且操作列有 `版本`，但生成脚本全局点击 `/版\s*本/` 打开了页脚/全局 `版本变更说明 / 版本信息未生成` 覆盖层，导致真实 `route-version-workspace` 未打开。
 - 真实执行 `103` 证明 `工艺路线节点：基础维护` 第 1-3 检查点 PASS，第 4 检查点 BLOCKED：脚本已解析到目标行 `删除` 操作的真实按钮 `BUTTON.el-button--danger.is-link`，但仍报告 `action handle unavailable`，没有直接点击该有效 Element Plus link-style danger button。
 - 真实执行 `104` 证明上轮残留的 `TN-ROUTE-BASIC-001` 会在 checkpoint 1 复位阶段被命中；生成脚本没有先点击行内 `删除` 并确认到无结果，而是直接把“复位后仍有固定路线行”记为 FAIL，导致后续串行节点全部按前置失败阻断。
+- 真实执行 `105` 证明 `工艺路线节点：基础维护` 和 `工艺路线节点：复制绑定` 均全检查点 PASS，版本发布已进入行内版本弹窗但第 2 检查点 FAIL。失败截图显示 `工艺路线版本` 弹窗正文已渲染，包含 `当前 ACTIVE：V1`、`创建候选版本` 和 `候选版本工作区`；生成脚本却把工作台文本读成 `版本`，因为它把列表行内 `data-testid="route-version-workspace"` 的 `版本` 按钮当成已打开的工作台容器。
+- 真实执行 `106` 证明版本工作台定位修复后，`工艺路线节点：基础维护` 全 PASS，但 `工艺路线节点：复制绑定` 第 3 检查点 BLOCKED：副本详情校验报 `matchedRow.locator is not a function`。生成脚本中的表格行 helper 返回 `{ row, text, index }` 包装对象，后续却直接调用 `matchedRow.locator(...)`，没有使用 `matchedRow.row.locator(...)`。
+- 真实执行 `107` 证明 `工艺路线节点：基础维护`、`复制绑定`、`版本发布` 三个节点均全检查点 PASS；第 4 个 `状态删除` 节点第 2 检查点 FAIL。失败截图显示启用时真实页面 toast 为 `请先添加组成工序`，说明生成脚本用新增空白路线做启停校验，违反工艺路线启用必须有组成工序的正式业务前置。
 
 ## Root Cause
 
@@ -80,6 +83,9 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 36. Runner prompt 未要求版本发布打开工作台时必须限定到目标路线表格 body 行操作列/固定右列 `版本` 动作；生成脚本使用全局 `/版\s*本/` 点击时会误中页脚/全局 `版本信息` 入口，打开 `版本变更说明` 覆盖层而不是目标路线版本工作台。
 37. Runner prompt 未明确 `BUTTON.el-button--danger.is-link` 是有效行操作按钮；生成脚本在已经解析到目标删除按钮时仍可能把 danger/link-style class 当作 unavailable，而不是直接点击 resolved ElementHandle。
 38. Runner prompt 未要求 `工艺路线基础维护` checkpoint 1 在发现 `TN-ROUTE-BASIC-001` 残留时必须先执行行内删除、确认 Element Plus MessageBox 并重新按编码查询到无可见 body 行；因此脚本允许把“残留存在”直接作为 FAIL，而没有完成复位动作。
+39. Runner prompt 把 `[data-testid="route-version-workspace"]` 描述成可接受的版本工作台容器，但该 testid 实际在列表行操作列 `版本` 按钮上；生成脚本因此可能选择行内按钮作为 workspaceLocator，导致 workspace text 只有 `版本`，漏掉真正弹窗正文 `.route-version-workspace__body` 中的 `创建候选版本`。
+40. Runner prompt 未明确表格行 helper 可能返回 `{ row, text, index }` 包装对象；生成脚本把包装对象当成 Playwright Locator 直接调用 `matchedRow.locator(...)`，导致复制绑定详情校验在进入副本详情前被运行时异常阻断。
+41. Runner prompt 未要求状态删除节点使用完整源路线副本作为启停样本；生成脚本创建空白 `TN-ROUTE-STATUS-001` 后直接启用，触发正式业务校验 `请先添加组成工序`。状态删除节点应复制 `RT000028 / 球囊扩张压力泵`，确保路线有组成工序后再验证状态列开关和删除闭环。
 
 ## Regression Test
 
@@ -133,6 +139,9 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 必须要求版本工作台入口限定在目标路线表格行操作列，不能误点页脚/全局版本信息`
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未明确 BUTTON.el-button--danger.is-link 是有效行操作，允许生成脚本在已解析到删除按钮时仍报告 action handle unavailable`
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求基础维护 checkpoint 1 命中固定路线时先删除确认并复查，允许直接 FAIL`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 允许把行内 data-testid="route-version-workspace" 的 版本 按钮当成已打开工作台，没有要求等待 .route-version-workspace__body`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未禁止把包含 row/text/index 的表格行包装对象直接当成 Playwright Locator，允许生成 matchedRow.locator is not a function`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求状态删除节点通过复制完整源路线准备 TN-ROUTE-STATUS-001，允许创建空白路线后启用触发 请先添加组成工序`
 
 ## GREEN
 
@@ -179,6 +188,9 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes row-scoped 工艺路线版本发布 workspace entry and forbids global clickVisibleTextAction/page.getByText('版本')`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes BUTTON.el-button--danger.is-link as a valid resolved row action`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes 工艺路线基础维护 checkpoint 1 reset deleting stale TN-ROUTE-BASIC-001 before failing`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes 工艺路线版本弹窗正文 .route-version-workspace__body as the workspace locator and rejects row button testid as workspace`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes row helper wrapper normalization via matchedRow.row before calling locator methods`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes status-delete setup by copying complete source route RT000028 and treating 请先添加组成工序 as invalid blank-route setup`
 - `GREEN: node --check doc\tasks\20260730-test-management-serial-routes-repair\run-serial-routes-real-e2e.mjs -> PASS`
 - `GREEN: node stdin static config assertion -> PASS, application-local.yaml 已包含运行态 artifact 临时目录和保留时长`
 - `GREEN: mvn.cmd -pl yudao-server -Dtest=CodexTestLocalConfigTest test -> PASS, Tests run: 1, Failures: 0, Errors: 0, BUILD SUCCESS`
@@ -217,6 +229,9 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `Verification: 真实 E2E execution 102 -> FAIL, 工艺路线基础维护和复制绑定均全检查点 PASS；版本发布第 2 检查点误点全局版本信息覆盖层，未打开目标行版本工作台；已补齐目标行操作列/固定右列版本入口约束，待复跑真实页面`
 - `Verification: 真实 E2E execution 103 -> FAIL, 基础维护第 4 检查点已解析到 BUTTON.el-button--danger.is-link 删除按钮但误报 action handle unavailable；已补齐有效 danger link-button 直接点击规则，待复跑真实页面`
 - `Verification: 真实 E2E execution 104 -> FAIL, 基础维护 checkpoint 1 命中上轮残留 TN-ROUTE-BASIC-001 后未先执行删除确认复查而直接 FAIL；已补齐 checkpoint 1 reset 删除闭环规则，待复跑真实页面`
+- `Verification: 真实 E2E execution 105 -> FAIL, 基础维护和复制绑定均 PASS，版本发布已打开工艺路线版本弹窗但把行内 data-testid 按钮误当 workspace，导致创建候选版本 action unavailable；已补齐弹窗正文 .route-version-workspace__body 等待规则，待复跑真实页面`
+- `Verification: 真实 E2E execution 106 -> FAIL, 基础维护全 PASS；复制绑定第 3 检查点因 matchedRow 包装对象被当成 Locator 调用而 BLOCKED；已补齐 matchedRow.row 归一化规则，待复跑真实页面`
+- `Verification: 真实 E2E execution 107 -> FAIL, 工艺路线前三个节点均 PASS；状态删除节点启用空白路线时触发 请先添加组成工序；已补齐状态删除节点复制完整源路线 RT000028 的正式样本准备规则，待复跑真实页面`
 
 ## Risk And Regression Scope
 

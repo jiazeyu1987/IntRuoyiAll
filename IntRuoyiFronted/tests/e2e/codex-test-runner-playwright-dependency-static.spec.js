@@ -143,6 +143,9 @@ assert.ok(
     runner.includes('Do not call global clickVisibleTextAction') &&
     runner.includes('/版\\\\s*本/') &&
     runner.includes("page.getByText('版本')") &&
+    runner.includes('Do not treat the row operation button data-testid="route-version-workspace" as the opened workspace') &&
+    runner.includes('scope the workspace locator to the visible 工艺路线版本 dialog body .route-version-workspace__body') &&
+    runner.includes('wait until the dialog body contains 创建候选版本 or 候选版本工作区 or 当前 ACTIVE') &&
     runner.includes('If a 版本变更说明 or 版本信息未生成 overlay appears, close it and report BLOCKED as wrong global version-info action'),
   'Runner prompt 必须要求版本工作台入口限定在目标路线表格行操作列，不能误点页脚/全局版本信息。'
 )
@@ -192,10 +195,15 @@ assert.ok(
 )
 assert.ok(
   runner.includes('For 工艺路线状态删除 enable/disable verification') &&
-    runner.includes('the route list status control is the 状态 column el-switch, not an operation-column text button') &&
+    runner.includes('prepare TN-ROUTE-STATUS-001 by copying the complete source route RT000028 / 球囊扩张压力泵') &&
+    runner.includes('Do not create a blank route for the status-delete node') &&
+    runner.includes('If enabling shows 请先添加组成工序, that means the generated setup used an invalid blank route') &&
+    runner.includes('The route list status control is the 状态 column el-switch, not an operation-column text button') &&
     runner.includes('do not report 停用入口不可见 or 启用入口不可见 just because no text button exists') &&
     runner.includes('find its status-column .el-switch / [role="switch"] / .el-switch__core') &&
-    runner.includes('Judge enabled/disabled state from the switch checked state, aria-checked, .is-checked class, or active/inactive value') &&
+    runner.includes('wait for the /admin-api/mes/pro/route/update-status response with HTTP success and business code 0') &&
+    runner.includes('Judge enabled/disabled state from the target row switch checked state, aria-checked, .is-checked class, input checked value, or active/inactive value') &&
+    runner.includes('do not use the first switch in the table if it is not the TN-ROUTE-STATUS-001 row') &&
     runner.includes('If the switch starts inactive, click it to enable first'),
   'Runner prompt 必须要求状态删除节点通过状态列 el-switch 验证启停，不能只找操作列“停用/启用”文字按钮。'
 )
@@ -394,6 +402,13 @@ assert.ok(
     runner.includes('After clicking the code entry, assert that a 工艺路线详情 dialog opened') &&
     runner.includes('if no dialog opens, retry the real descendant link/button in the 路线编码 column before failing'),
   'Runner prompt 必须禁止把 Element Plus 表格 .cell 容器当成路线编码详情入口，必须点击真实 link/button 并确认详情弹窗打开。'
+)
+assert.ok(
+  runner.includes('When a row helper returns a wrapper object such as { row, text, index } or matchedRow') &&
+    runner.includes('call locator methods only on the wrapper row property') &&
+    runner.includes('Never call matchedRow.locator(...) unless matchedRow is already a Playwright Locator') &&
+    runner.includes('If matchedRow is a wrapper, use matchedRow.row.locator(...)'),
+  'Runner prompt 必须禁止把包含 row/text/index 的表格行包装对象直接当成 Playwright Locator，避免 matchedRow.locator is not a function。'
 )
 assert.ok(
   runner.includes('RouteForm detail values may be stored in Element Plus input values rather than dialog innerText') &&
