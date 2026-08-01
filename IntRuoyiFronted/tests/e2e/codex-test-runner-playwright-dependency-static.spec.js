@@ -434,4 +434,13 @@ assert.ok(
   'Runner prompt 必须要求 RouteForm 详情等待 route/get 或轮询 input DOM value，不能单次读取为空就失败。'
 )
 
+assert.ok(
+  runner.includes('Do not use locator.filter({ hasText: actionRegex }) with an anchored row-action regex as the only discovery path') &&
+    runner.includes('collect visible button/.el-button/[role="button"]/a/span candidates first, then test normalized innerText/textContent in Node with actionRegex.test(...)') &&
+    runner.includes('For the visible RT000028 source row, resolve the visible 复制 text/span to closest(\'button,.el-button,[role="button"],a\')') &&
+    runner.includes('match duplicated fixed-right actions by the target row Y-coordinate when the action is outside the same DOM tr') &&
+    runner.includes('Never return "复制 action unavailable: visible action text was not resolved to an enabled action element" before attempting the resolved enabled ElementHandle directly'),
+  'Runner prompt 必须规避 Element Plus 行操作按钮的锚定 hasText 正则漏匹配，并在 RT000028 可见行上直接解析、点击真实“复制”ElementHandle。'
+)
+
 console.log('PASS: Codex runner Playwright dependency static contract')

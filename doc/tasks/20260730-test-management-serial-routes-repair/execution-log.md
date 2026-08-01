@@ -50,6 +50,10 @@
 - `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+
+- `BDD: execution 112 可见源路线复制动作必须可点击 -> Given 测试租户工艺路线列表已按 RT000028 查询且可见业务行包含“复制”按钮，When 版本发布节点解析复制动作，Then 必须从可见 button/.el-button/[role=button]/a/span 候选读取并规范化 DOM 文本、上溯真实动作元素，必要时按固定右列与目标行 Y 坐标对齐后直接点击，不能在尝试真实 ElementHandle 前返回“复制入口不可用”`
+- Reproduction: 真实 Playwright 页面 `/mes/pro/route` 中，目标行可见 `BUTTON.el-button--primary.is-link`，`innerText/textContent=复制`；`row.locator('button').filter({ hasText: '复制' })`、`filter({ hasText: /复制/ })` 和 `getByText('复制', { exact: true })` 均命中 1 个元素，但 `filter({ hasText: /^复制$/ })` 与当前脚本的锚定动作正则均命中 0 个元素，导致 execution 112 在未尝试真实按钮点击前误报入口不可用。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 尚未禁止把锚定 actionRegex 的 locator.filter({ hasText }) 作为唯一发现路径，也未锁定 RT000028 可见“复制”文本的 DOM 文本校验、closest 动作上溯、固定右列 Y 坐标对齐和直接 ElementHandle 点击`
 - `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
 - `GREEN: node --check doc\tasks\20260730-test-management-serial-routes-repair\run-serial-routes-real-e2e.mjs -> PASS`
 - `RED: node stdin static config assertion -> FAIL, expected reason: application-local.yaml missing yudao.codex-test.artifact-temp-dir`
@@ -597,3 +601,19 @@
 - Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 新增 `CODEX_TEST_HEARTBEAT_API_TIMEOUT_MS`，默认 90000ms，并让 heartbeat 请求单独使用该 timeout；普通 Runner API 仍保留 30000ms fail-fast。
 - `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+
+- Real E2E retry `112`: `工艺路线节点：基础维护`、`工艺路线节点：复制绑定` 均全检查点 PASS；`工艺路线节点：版本发布` 第 1 检查点 PASS，第 2 检查点 BLOCKED，后续 `状态删除` 按串行前置失败阻断。actualText=`源路线已命中，但复制入口不可用。复制 action unavailable: visible action text was not resolved to an enabled action element`；目标行正文明确包含 `RT000028 球囊扩张压力泵 ... 产品 编辑 复制 版本 删除`。记录截图：`output/playwright/20260730-test-management-serial-routes-repair/112-工艺路线节点闭环-record.png`；失败 artifact id=`92`。
+- Root cause update: 真实 Playwright DOM 诊断确认目标行存在可见可用 `BUTTON.el-button--primary.is-link`，其 `innerText/textContent` 均为 `复制`。但 `row.locator('button').filter({ hasText: /^复制$/ })` 返回 0；字符串匹配、宽松正则和 `getByText('复制', { exact: true })` 均返回 1。生成脚本把锚定 `actionRegex` 的 `locator.filter({ hasText })` 作为唯一候选发现路径，因此在未尝试真实按钮 ElementHandle 前误报入口不可用。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 尚未禁止锚定 actionRegex 的 locator.filter({ hasText }) 唯一路径，也未锁定 RT000028 可见复制文本的 DOM 规范化匹配、closest 动作上溯、固定右列 Y 坐标对齐和直接 ElementHandle 点击`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求先枚举可见 `button/.el-button/[role=button]/a/span` 候选，再读取并规范化 `innerText/textContent` 后在 Node 中执行 `actionRegex.test(...)`；对 RT000028 可见源行将 `复制` 文本上溯到真实动作元素，必要时按固定右列与目标行 Y 坐标对齐，并在返回入口不可用前直接尝试已启用 ElementHandle。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`
+- Runtime recovery after local restart: `int-ruoyi-mysql` 与 `int-ruoyi-redis` 既有容器处于退出状态且 `23306/26379` 无端口冲突；仅启动这两个既有依赖后，运行标准 `restart-int-ruoyi-local.ps1 -Component full`。恢复结果：`8081` HTTP 200，`48081` health=`UP`，运行进程和稳定运行 Jar 均归属 `E:\IntRuoyi` 的 `int_main`；日志与任务文档未记录凭据。
+- Runner restart: `start-codex-test-runner.ps1` 启动 PID `31412`，后端分配 session `174`，heartbeat/claim 正常且空闲运行数为 0。
+- Real E2E preflight retry: 首次未设置 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` 时被缺失的 Playwright 默认浏览器缓存 fail-fast；改用已验证系统 Chrome 后，Vite 冷启动首次导航超过 30 秒。等待 Vite 完成首次编译后，`node ...\run-serial-routes-real-e2e.mjs --route 工艺路线节点闭环 --route 批记录节点闭环 --route 智能排产节点闭环 --preflight-only -> PASS`，三路线 UI/API 筛选数量一致为 `4/6/4`。
