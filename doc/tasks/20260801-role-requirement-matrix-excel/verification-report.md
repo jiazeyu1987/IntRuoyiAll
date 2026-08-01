@@ -61,4 +61,4 @@
 
 ## Result
 
-PASS。规划包已达到 `ready_for_closeout`，可作为后续实现任务的正式输入；`task-state.json.status` 保持 `planned`，M0-M6 尚未实施。ERP/调拨正式来源、QA 所有权、双活跃来源迁移、质量异常/返工/报废/库存来源及真实 E2E 环境仍是后续里程碑的 fail-fast 前置。
+PASS。规划包已完成验证与 cleanup，`planningPackageStatus=completed`，可作为后续实现任务的正式输入；`task-state.json.status` 保持 `planned`，M0-M6 尚未实施。ERP/调拨正式来源、QA 所有权、双活跃来源迁移、质量异常/返工/报废/库存来源及真实 E2E 环境仍是后续里程碑的 fail-fast 前置。

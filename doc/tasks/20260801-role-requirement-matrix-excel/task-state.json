@@ -1,7 +1,7 @@
 {
   "status": "planned",
   "currentMilestone": "M0",
-  "planningPackageStatus": "ready_for_closeout",
+  "planningPackageStatus": "completed",
   "sourceWorkbook": "C:/Users/BJB110/Desktop/文档/职责/岗位需求分解矩阵.xlsx",
   "baselineTask": "doc/tasks/20260731-team-leader-workbench-prd-plan",
   "branch": "int_main",

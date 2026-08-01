@@ -94,9 +94,17 @@
 - 实施任务必须先创建真实可执行测试，再记录行为型 RED；缺测试类、No tests 或缺运行前置不算有效 RED。
 - 共享 `int_main` 只允许精确暂存当前任务文件，不得使用 `git add -A` 混入并行任务。
 
+## Final Verification Result
+
+- PASS：源 Excel 的 23 项主需求和 39 项衍生需求均已形成唯一需求 ID、验收 ID、里程碑、实施区域、BDD 和可观察验收。
+- PASS：PRD、开发计划、测试计划和任务状态之间的任务名称、里程碑、BDD 与验收映射一致。
+- PASS：roadmap 结构校验、Excel 逐行对照、UTF-8/JSON、whitespace 和 cleanup preview/apply 均通过。
+- PASS：cleanup 只删除任务自有临时校验脚本，保留七个正式规划/收尾文件。
+- 本任务只完成规划包；`task-state.json.status` 继续保持 `planned`，M0-M6 生产实现尚未开始。
+
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
