@@ -28,8 +28,7 @@
           "evidence": [
             "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P1-Implementation-Evidence",
             "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P1",
-            "doc/tasks/20260731-team-leader-workbench-prd-plan/backend-api-evidence.md",
-            "doc/tasks/20260731-team-leader-workbench-prd-plan/database-schema-evidence.md"
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-Closeout-Gate-Evidence"
           ]
         },
         {
@@ -39,8 +38,7 @@
           "evidence": [
             "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P1-Implementation-Evidence",
             "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P1",
-            "doc/tasks/20260731-team-leader-workbench-prd-plan/backend-api-evidence.md",
-            "doc/tasks/20260731-team-leader-workbench-prd-plan/database-schema-evidence.md"
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-Closeout-Gate-Evidence"
           ]
         },
         {
@@ -50,8 +48,7 @@
           "evidence": [
             "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P1-Implementation-Evidence",
             "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P1",
-            "doc/tasks/20260731-team-leader-workbench-prd-plan/backend-api-evidence.md",
-            "doc/tasks/20260731-team-leader-workbench-prd-plan/database-schema-evidence.md"
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-Closeout-Gate-Evidence"
           ]
         },
         {
@@ -61,8 +58,7 @@
           "evidence": [
             "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P1-Implementation-Evidence",
             "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P1",
-            "doc/tasks/20260731-team-leader-workbench-prd-plan/backend-api-evidence.md",
-            "doc/tasks/20260731-team-leader-workbench-prd-plan/database-schema-evidence.md"
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-Closeout-Gate-Evidence"
           ]
         },
         {
@@ -72,16 +68,14 @@
           "evidence": [
             "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P1-Implementation-Evidence",
             "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P1",
-            "doc/tasks/20260731-team-leader-workbench-prd-plan/backend-api-evidence.md",
-            "doc/tasks/20260731-team-leader-workbench-prd-plan/database-schema-evidence.md"
+            "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-Closeout-Gate-Evidence"
           ]
         }
       ],
       "evidence": [
         "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-07-31-P1-Implementation-Evidence",
         "doc/tasks/20260731-team-leader-workbench-prd-plan/test-report.md#P1",
-        "doc/tasks/20260731-team-leader-workbench-prd-plan/backend-api-evidence.md",
-        "doc/tasks/20260731-team-leader-workbench-prd-plan/database-schema-evidence.md"
+        "doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md#2026-08-01-Closeout-Gate-Evidence"
       ],
       "notes": [
         "Mapped test topics require main-agent review.",

@@ -50,3 +50,12 @@
 - PASS: `PROCESS_POOL_REPORT` 来源边界已验证：通用 `batch-record-cell-link/prefill` 跳过该来源，生产组长批记录回填服务负责正式字段映射和写入。
 - PASS: 密码仅作为运行时环境变量临时注入，未写入任务文档、证据文件或提交信息。
 - RESULT: P6 真实写入型 E2E 与回归门禁已通过，可进入 closeout、提交推送和融合 `int_main` 的后续门禁。
+
+## 2026-08-01 Closeout Addendum
+
+- PASS: 主实现提交已完成：`a67a7a305 feat: deliver team leader workbench flow`。
+- PASS: `task_closeout.py --task-id 20260731-team-leader-workbench-prd-plan --mode preview --worktree-closeout off` 通过；keep 列表仅包含正式交付文档与保留证据，delete 列表仅包含 `backend-api-evidence.md`、`database-schema-evidence.md`，blocked/warnings 均为空。
+- PASS: 临时 evidence 的关键结论已归档到保留文件；P1 后端 API、权限、登录组长注入、无 fallback，以及 P1 additive schema、字段合同和 schema test 结论均保留在 `execution-log.md`。
+- PASS: `task_closeout.py --task-id 20260731-team-leader-workbench-prd-plan --mode apply --worktree-closeout off` 通过；仅删除上述两个临时 evidence 文件。
+- PASS: `task-state.json` 已改为引用保留证据，不再引用已删除的临时 evidence 文件。
+- BLOCKED: 融合 `int_main` 未执行；`E:\IntRuoyi` 主工作区仍存在并行未提交改动和输出文件，按 worktree 门禁不能执行 ff-only merge 或删除当前 worktree。

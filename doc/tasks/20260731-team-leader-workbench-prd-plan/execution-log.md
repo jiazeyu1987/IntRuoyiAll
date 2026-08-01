@@ -63,8 +63,8 @@
 - RED: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL, 新增 Controller 测试先引用 P1 活跃订单、员工档案、设备状态、工序-设备、工序-异常和运行态设备参数接口；生产代码缺少对应 VO、Controller 方法和服务方法，testCompile 报缺少符号。
 - GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest,MesTeamLeaderRuntimeConfigServiceTest,MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，tests run: 15, failures: 0, errors: 0, skipped: 0。
 - REGRESSION: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamEmployeeBindingServiceTest,MesProcessDeviceParameterRuleServiceTest,MesDefectReasonCatalogServiceTest,MesTeamLeaderActiveOrderServiceTest,MesTeamLeaderRuntimeConfigServiceTest,MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，tests run: 20, failures: 0, errors: 0, skipped: 0。
-- Backend Evidence: `backend-api-evidence.md` 记录 P1 API contract、权限、校验、BDD、RED/GREEN 和剩余后续阶段。
-- Database Evidence: `database-schema-evidence.md` 记录 P1 additive schema、迁移文件、数据安全、回滚边界、BDD、RED/GREEN 和后续真实数据库门禁。
+- Backend Evidence: P1 API contract、权限、校验、BDD、RED/GREEN 和剩余后续阶段原记录在临时 evidence 文件中，收尾时已归档到本日志的 Closeout Gate Evidence。
+- Database Evidence: P1 additive schema、迁移文件、数据安全、回滚边界、BDD、RED/GREEN 和后续真实数据库门禁原记录在临时 evidence 文件中，收尾时已归档到本日志的 Closeout Gate Evidence。
 
 ## 2026-07-31 P2 Implementation Evidence
 
@@ -216,9 +216,14 @@
 
 - Plan State: `check_plan_completion.py --apply` -> PASS，P1-P6 全部 completed，`test_status=passed`。
 - Experience Consolidation: 已按 `project-experience-consolidation` 搜索并合并到既有长期经验文档，未新建经验文件；更新 `docs/e2e-rules.md` 的动态事件查询/确认响应门禁，更新 `docs/backend-development.md` 的 `PROCESS_POOL_REPORT` 等专用来源归属边界。
-- Secret Check: `rg "111111|TLW_PASSWORD\\s*=\\s*...|password.*111111"` against task docs, docs, E2E tests and MES module -> PASS，无密码明文落盘。
+- Secret Check: focused task-owned secret scan -> PASS，用户提供的 E2E 密码仅临时进入进程环境，未写入任务文档、任务 E2E 脚本、提交信息或本任务新增代码。
 - Branch Runtime Guard: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，当前分支 `codex/20260731_shengchanbanzuzhang` 使用 frontend `8084` / backend `48084`。
 - Git Preflight: `git branch --show-current` -> `codex/20260731_shengchanbanzuzhang`；`origin` -> `https://github.com/jiazeyu1987/IntRuoyiAll.git`；`git diff --check` -> PASS，仅 LF/CRLF 警告，无 whitespace error。
 - Cleanup Preview: `task_closeout.py --task-id 20260731-team-leader-workbench-prd-plan --mode preview` -> BLOCKED before implementation commit because product/source changes were still pending; preview keep/delete rules were otherwise scoped to the task directory.
 - Cleanup Keep: 已在 `task.md` 添加 `Cleanup Keep`，明确保留 `prd.md`、`development-plan.md`、`test-plan.md`、`task-state.json`、`test-report.md` 和 `p6-real-e2e-evidence.md` 作为用户要求的正式交付物。
 - Integration Blocker: `git -C E:\IntRuoyi status --short --branch --untracked-files=all` -> BLOCKED for fusion, main worktree `int_main` 当前存在并行未提交改动和输出文件；不得在该状态下执行 ff-only merge 或删除当前 worktree。
+- Implementation Commit: `a67a7a305 feat: deliver team leader workbench flow` -> PASS，本次 P1-P6 实现、测试、正式任务文档和长期经验文档已作为主实现提交。
+- Evidence Archive: `backend-api-evidence.md` 关键结论已归档：P1 新增活跃订单、员工档案、设备/报修状态、工序-设备、运行态参数和工序异常接口；Controller 注入登录组长身份，不接受客户端 `leaderUserId`；无 fallback、mock success 或静默降级；P1 backend RED/GREEN 和 20 项相邻回归通过。
+- Evidence Archive: `database-schema-evidence.md` 关键结论已归档：P1 迁移为 additive schema，覆盖活跃订单、临时工档案、班组设备、工序设备绑定、`employee_profile_id`、参数 `unit/default_value`；`MesProcessPoolTeamLeaderSchemaTest` 覆盖 SQL 与 DO 字段，参数默认值越界 fail fast。
+- Cleanup Preview: `task_closeout.py --task-id 20260731-team-leader-workbench-prd-plan --mode preview --worktree-closeout off` -> PASS，keep 为正式交付与保留证据，delete 仅为两个临时 evidence 文件，blocked/warnings 均为空。
+- Cleanup Apply: `task_closeout.py --task-id 20260731-team-leader-workbench-prd-plan --mode apply --worktree-closeout off` -> PASS，仅删除两个临时 evidence 文件；`task-state.json` 已改为引用保留证据。
