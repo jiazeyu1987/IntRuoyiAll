@@ -276,3 +276,11 @@
 - Cleanup preview after ready state -> PASS，11 个正式文件全部 keep，delete/blocked/warnings 均为空。
 - Cleanup apply -> PASS，11 个正式文件全部 keep，deleted_paths/blocked/warnings 均为空；主工作区未执行 worktree merge/remove。
 - Delivery gate: 保持 `ready_for_closeout`，先提交并推送当前收尾证据；远端同步成功后才允许标记 `completed`。
+
+### Delivery Push And Completion
+
+- Ready-for-closeout commit: `afef219c1` (`docs: prepare role matrix BDD TDD closeout`)。
+- Ahead-object scan -> PASS，33 个待推送 blob，最大 `106581` bytes，低于 GitHub 100 MB 限制。
+- Branch runtime port guard -> PASS，`int_main` 前端 `8081`、后端 `48081`。
+- GREEN: `git push origin int_main` -> PASS，远端从 `184659363` 更新到 `afef219c1`。
+- Status transition: cleanup、验证和交付 push 均通过，当前文档优化任务更新为 `completed`；生产实现状态 `task-state.json.status` 继续保持 `planned`。

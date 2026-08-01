@@ -74,6 +74,9 @@
 - GREEN: cleanup apply -> 11 个正式文件全部 keep，deleted_paths/blocked/warnings 均为空。
 - GREEN: strict BDD/TDD planning commit -> `5f5ee5fc9`，只包含当前任务 10 个文档文件。
 - GREEN: `git ls-remote origin HEAD` -> PASS，GitHub HTTPS 会话恢复。
+- GREEN: ready-for-closeout commit -> `afef219c1`。
+- GREEN: ahead-object scan -> 33 个 blob，最大 `106581` bytes，低于 GitHub 100 MB 限制。
+- GREEN: `git push origin int_main` -> PASS，远端更新到 `afef219c1`。
 - GREEN: custom plan coverage validator -> `62 requirements, 62 acceptance IDs, task-state JSON, UTF-8`。
 - GREEN: artifact-tool workbook/plan validator -> 主表 23、衍生表 39，任务名称、task-state、BDD 引用和追踪字段全部一致。
 - RED: 首次 `git diff --cached --check` 发现新增 `prd.md` 的 Given/When 行存在无语义行尾空格。
@@ -81,4 +84,4 @@
 
 ## Result
 
-LOCAL PASS / READY FOR CLOSEOUT。规划包和全覆盖测试方案已完成结构验证，`planningPackageStatus=completed`、`testPlanningStatus=completed`，可作为后续逐 AC 严格 BDD/TDD 实现任务的正式输入；`task-state.json.status` 保持 `planned`，M0-M6 尚未实施。GitHub HTTPS 会话已恢复，当前等待 cleanup apply、收尾记录提交和最终 push。
+PASS / COMPLETED。规划包和全覆盖测试方案已完成结构验证、cleanup 和远端交付，`planningPackageStatus=completed`、`testPlanningStatus=completed`、`closeoutStatus=completed`。该规划包可作为后续逐 AC 严格 BDD/TDD 实现任务的正式输入；`task-state.json.status` 保持 `planned`，M0-M6 生产实现尚未开始。

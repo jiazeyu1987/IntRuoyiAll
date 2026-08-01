@@ -83,7 +83,7 @@
 
 ## Blockers
 
-当前文档优化任务无 closeout blocker。`2026-08-01` 已通过 `git ls-remote origin HEAD` 确认 GitHub HTTPS 会话恢复；最终状态仍需等待 cleanup apply、收尾记录提交、`git push origin int_main` 和 no-ahead 复核。
+当前文档优化任务无 closeout blocker。`2026-08-01` cleanup apply 已通过，`git push origin int_main` 已把规划和 `ready_for_closeout` 证据推送至远端。
 
 以下是后续实施的 fail-fast 前置，不是本次文档优化的阻塞：
 
@@ -112,11 +112,11 @@
 - PASS：roadmap 结构校验、Excel 逐行对照、UTF-8/JSON、whitespace 和 cleanup preview/apply 均通过。
 - PASS：cleanup 只删除任务自有临时校验脚本；新增四份验收文档已进入 `Cleanup Keep`。
 - 本任务只完成规划包；`task-state.json.status` 继续保持 `planned`，M0-M6 生产实现尚未开始。
-- READY：GitHub HTTPS 会话已恢复，进入 cleanup apply、收尾提交和最终 push 门禁。
+- PASS：cleanup apply、收尾证据提交和 `git push origin int_main` 均已成功。
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## 设计约束检查
 
