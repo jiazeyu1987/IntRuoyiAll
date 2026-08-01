@@ -5,6 +5,9 @@ DROP PROCEDURE IF EXISTS ensure_system_codex_smart_scheduling_test_items;
 DELIMITER //
 CREATE PROCEDURE ensure_system_codex_smart_scheduling_test_items()
 BEGIN
+  DECLARE v_expected_checkpoint_count INT DEFAULT 0;
+  DECLARE v_actual_checkpoint_count INT DEFAULT 0;
+
   IF NOT EXISTS (
     SELECT 1
       FROM information_schema.tables
@@ -34,7 +37,7 @@ BEGIN
     `status` varchar(16) NOT NULL,
     `sort` int NOT NULL,
     PRIMARY KEY (`case_name`)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
   INSERT INTO `tmp_codex_smart_scheduling_case_seed` (
     `case_name`, `project`, `method_text`, `test_data_text`, `default_execution_mode`, `parallel_safe`, `status`, `sort`
@@ -123,7 +126,7 @@ BEGIN
     `case_name` varchar(128) NOT NULL,
     `case_id` bigint NOT NULL,
     PRIMARY KEY (`case_name`)
-  ) ENGINE=Memory;
+  ) ENGINE=Memory DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
   INSERT INTO `tmp_codex_smart_scheduling_case_ids` (`case_name`, `case_id`)
   SELECT `seed`.`case_name`, `case_item`.`id`
@@ -146,7 +149,7 @@ BEGIN
     `severity` varchar(16) NOT NULL,
     `remark` varchar(512) NOT NULL,
     PRIMARY KEY (`case_name`, `checkpoint_sort`)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
   INSERT INTO `tmp_codex_smart_scheduling_checkpoint_seed` (
     `case_name`, `checkpoint_sort`, `checkpoint_name`, `expected_text`, `severity`, `remark`
@@ -291,16 +294,21 @@ BEGIN
          `checkpoint`.`updater` = 'codex',
          `checkpoint`.`update_time` = NOW();
 
-  IF (
-    SELECT COUNT(*)
-      FROM `tmp_codex_smart_scheduling_checkpoint_seed` AS `seed`
-      JOIN `tmp_codex_smart_scheduling_case_ids` AS `case_ids`
-        ON `case_ids`.`case_name` = `seed`.`case_name`
-      JOIN `system_codex_test_checkpoint` AS `checkpoint`
-        ON `checkpoint`.`case_id` = `case_ids`.`case_id`
-       AND `checkpoint`.`sort` = `seed`.`checkpoint_sort`
-       AND `checkpoint`.`deleted` = b'0'
-  ) <> (SELECT COUNT(*) FROM `tmp_codex_smart_scheduling_checkpoint_seed`) THEN
+  SELECT COUNT(*)
+    INTO v_expected_checkpoint_count
+    FROM `tmp_codex_smart_scheduling_checkpoint_seed`;
+
+  SELECT COUNT(*)
+    INTO v_actual_checkpoint_count
+    FROM `tmp_codex_smart_scheduling_checkpoint_seed` AS `seed`
+    JOIN `tmp_codex_smart_scheduling_case_ids` AS `case_ids`
+      ON `case_ids`.`case_name` = `seed`.`case_name`
+    JOIN `system_codex_test_checkpoint` AS `checkpoint`
+      ON `checkpoint`.`case_id` = `case_ids`.`case_id`
+     AND `checkpoint`.`sort` = `seed`.`checkpoint_sort`
+     AND `checkpoint`.`deleted` = b'0';
+
+  IF v_actual_checkpoint_count <> v_expected_checkpoint_count THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Codex smart scheduling checkpoint seed count mismatch';
   END IF;
 
