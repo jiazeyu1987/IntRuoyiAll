@@ -35,6 +35,11 @@
 - 2026-08-01：`task-closeout-cleanup preview` -> PASS，仅保留 `task.md`、`execution-log.md`、`verification-report.md`，无 delete、blocked 或 warning。
 - 2026-08-01：`task-closeout-cleanup apply` -> PASS，无删除项；一次性 Playwright 脚本已在前序 cleanup 中移除，本轮复核仅保留三份正式任务记录。
 - 2026-08-01：执行 `project-experience-consolidation`，将“目标链路与外部资源异常分开归因、不得全局忽略错误”的通用门禁合并到现有 `docs/e2e-rules.md`，并更新 `docs/experience-index.md` 路由。
+- 2026-08-01：`scripts/preflight/branch-runtime-port-guard.ps1` -> PASS，`int_main` 端口契约为前端 `8081`、后端 `48081`。
+- 2026-08-01：`git ls-remote origin HEAD` -> PASS，远端 HEAD 为 `545e9c4ae88e6b8e8d62387149c69ae8de92b1f5`。
+- 2026-08-01：目标文件 `git diff --check` -> PASS；经验索引关键词可定位到 `docs/e2e-rules.md#playwright-目标链路与外部资源异常归因门禁`。
+- 2026-08-01：首次选择性暂存遇到 `.git/index.lock`；核对时锁文件已消失，但检测到并行任务正在执行 `git commit` 与 `git-lfs post-commit`，未删除锁文件、未停止任何 Git 进程。
+- 2026-08-01：并行提交 `90ba1804a chore: baseline dirty workspace before role matrix plan refinement` 已将本任务三份记录及 `docs/e2e-rules.md`、`docs/experience-index.md` 混入其基线提交；按共享分支门禁保留该提交，不执行 amend/reset，后续仅选择性提交本任务剩余日志与最终状态。
 
 ## Final Status
 
