@@ -36,6 +36,8 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - 真实执行 `92` 证明登录与前两节点已恢复：`工艺路线节点：基础维护`、`工艺路线节点：复制绑定` 全检查点 PASS；`工艺路线节点：版本发布` 第 2 检查点 FAIL，页面实际显示 `V2 草稿`、`V1 已生效 ACTIVE`、`当前 ACTIVE`，但生成脚本只接受 `当前生效/生效版本/当前版本`，误报候选或当前生效说明缺失。
 - 真实执行 `93` 证明 `工艺路线节点：基础维护`、`复制绑定`、`版本发布` 已全检查点 PASS，进入第 4 个 `状态删除` 节点后第 2 检查点 BLOCKED。页面固定路线已创建，状态列可见灰色 `el-switch`，操作列只有 `产品/编辑/复制/版本/删除`；生成脚本只找操作列文字 `停用/启用`，误报停用入口不可见。
 - 真实执行 `94` 证明目标页实际上已经渲染筛选区、表格标题和数据行，但首节点仍全部 BLOCKED：生成脚本在 page-ready 判定中对未过滤的多匹配 locator 调用 `isVisible()`，命中隐藏副本后误报 `Target route controls did not render`。
+- 真实执行 `102` 证明 `工艺路线节点：基础维护` 和 `工艺路线节点：复制绑定` 均全检查点 PASS；`工艺路线节点：版本发布` 第 1 检查点 PASS 后第 2 检查点 BLOCKED。页面已筛选到 `TN-ROUTE-VERSION-001` 行且操作列有 `版本`，但生成脚本全局点击 `/版\s*本/` 打开了页脚/全局 `版本变更说明 / 版本信息未生成` 覆盖层，导致真实 `route-version-workspace` 未打开。
+- 真实执行 `103` 证明 `工艺路线节点：基础维护` 第 1-3 检查点 PASS，第 4 检查点 BLOCKED：脚本已解析到目标行 `删除` 操作的真实按钮 `BUTTON.el-button--danger.is-link`，但仍报告 `action handle unavailable`，没有直接点击该有效 Element Plus link-style danger button。
 
 ## Root Cause
 
@@ -74,6 +76,8 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 33. Runner prompt 的版本发布候选可见性判定只接受 `当前生效/生效版本/当前版本`，没有覆盖当前工作台真实文案 `V1 已生效 ACTIVE`、`当前 ACTIVE` 或 `ACTIVE`；因此生成脚本把已经可见的 V2 草稿候选与 V1 生效版本误判为缺失。
 34. Runner prompt 未说明工艺路线列表的启停入口是 `状态` 列 `el-switch`，不是操作列文字按钮。生成脚本只扫描 `停用/启用` 文本操作，且要求行文本出现状态文案，导致在仅显示开关的正式页面误判入口缺失。
 35. Runner prompt 未要求目标页 ready 判定使用 `:visible` 控件选择器或逐个候选检查；生成脚本对 `.table-quick-filter, .unified-list-template__quick-filter` 这类多匹配 locator 直接调用 `isVisible()`，可能被隐藏副本误导，即使页面正文已经有 `工艺流程`、`查询/新增`、表格列和数据行也返回 BLOCKED。
+36. Runner prompt 未要求版本发布打开工作台时必须限定到目标路线表格 body 行操作列/固定右列 `版本` 动作；生成脚本使用全局 `/版\s*本/` 点击时会误中页脚/全局 `版本信息` 入口，打开 `版本变更说明` 覆盖层而不是目标路线版本工作台。
+37. Runner prompt 未明确 `BUTTON.el-button--danger.is-link` 是有效行操作按钮；生成脚本在已经解析到目标删除按钮时仍可能把 danger/link-style class 当作 unavailable，而不是直接点击 resolved ElementHandle。
 
 ## Regression Test
 
@@ -124,6 +128,8 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `RED: 真实 E2E execution 94 -> FAIL, expected reason: 目标页已显示筛选区/表格/数据行，但生成脚本用未过滤 multi-locator isVisible 命中隐藏副本并误报 controls did not render`
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求删除草稿后等待确认框关闭、核对 /admin-api/mes/pro/route-version/cancel 请求或刷新证据，允许点击后仅轮询旧 workspace 文本并误报候选仍可见`
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未禁止把 ElementHandle 包装成 locator，允许生成脚本在可见行含 删除 时仍误报路线删除入口不可见`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 必须要求版本工作台入口限定在目标路线表格行操作列，不能误点页脚/全局版本信息`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未明确 BUTTON.el-button--danger.is-link 是有效行操作，允许生成脚本在已解析到删除按钮时仍报告 action handle unavailable`
 
 ## GREEN
 
@@ -167,6 +173,8 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes target route ready checks using :visible quick-filter/table locators or candidate iteration instead of unfiltered multi-locator isVisible`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes 删除草稿 candidate cleanup MessageBox hidden wait, cancel request/list-refresh evidence, and failure diagnostics with request/message-box state`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes Element Plus row operation link-buttons resolved from span text and clicked through direct ElementHandle without locator wrapping`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes row-scoped 工艺路线版本发布 workspace entry and forbids global clickVisibleTextAction/page.getByText('版本')`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes BUTTON.el-button--danger.is-link as a valid resolved row action`
 - `GREEN: node --check doc\tasks\20260730-test-management-serial-routes-repair\run-serial-routes-real-e2e.mjs -> PASS`
 - `GREEN: node stdin static config assertion -> PASS, application-local.yaml 已包含运行态 artifact 临时目录和保留时长`
 - `GREEN: mvn.cmd -pl yudao-server -Dtest=CodexTestLocalConfigTest test -> PASS, Tests run: 1, Failures: 0, Errors: 0, BUILD SUCCESS`
@@ -202,6 +210,8 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `Verification: 真实 E2E execution 92 -> FAIL, 工艺路线基础维护和复制绑定均全检查点 PASS；版本发布第 2 检查点实际页面含 V2 草稿、V1 已生效 ACTIVE、当前 ACTIVE，但误报当前生效说明缺失；已补齐版本候选可见性规则，待复跑真实页面`
 - `Verification: 真实 E2E execution 93 -> FAIL, 工艺路线前三个节点全部 PASS；状态删除第 2 检查点固定路线已创建但误报停用入口不可见，截图证明正式入口为状态列 el-switch；已补齐状态开关定位与启停状态判定规则，待复跑真实页面`
 - `Verification: 真实 E2E execution 94 -> FAIL, 首节点页面实际含工艺流程标题、查询/新增按钮、表格列和数据行，但误报 Target route controls did not render；已补齐 visible-only page-ready selector 规则，待复跑真实页面`
+- `Verification: 真实 E2E execution 102 -> FAIL, 工艺路线基础维护和复制绑定均全检查点 PASS；版本发布第 2 检查点误点全局版本信息覆盖层，未打开目标行版本工作台；已补齐目标行操作列/固定右列版本入口约束，待复跑真实页面`
+- `Verification: 真实 E2E execution 103 -> FAIL, 基础维护第 4 检查点已解析到 BUTTON.el-button--danger.is-link 删除按钮但误报 action handle unavailable；已补齐有效 danger link-button 直接点击规则，待复跑真实页面`
 
 ## Risk And Regression Scope
 

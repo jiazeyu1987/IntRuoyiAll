@@ -165,6 +165,12 @@
 - `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
+- Real E2E retry `103`: `工艺路线节点：基础维护` 第 1-3 检查点 PASS，第 4 检查点 BLOCKED，后续 `复制绑定 / 版本发布 / 状态删除` 按串行前置失败阻断。actualText=`删除入口不可见或不可点击；row=TN-ROUTE-BASIC-001 测试节点-工艺路线-基础维护 ... 产品 编辑 复制 版本 删除; action handle unavailable tag=BUTTON class=el-button el-button--danger is-link`。记录截图：`output/playwright/20260730-test-management-serial-routes-repair/103-工艺路线节点闭环-record.png`。
+- Root cause update: 脚本已经解析到目标行的真实 Element Plus 删除按钮 `BUTTON.el-button--danger.is-link`，但仍把 danger/link-style button 误判为不可用 handle，没有按 resolved ElementHandle 直接点击并进入 MessageBox 确认。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未明确 BUTTON.el-button--danger.is-link 是有效行操作，允许生成脚本在已解析到删除按钮时仍报告 action handle unavailable`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在明确 resolved `BUTTON.el-button--danger.is-link` 是有效 row action；当它可见且非 disabled/loading 时不得报告 `action handle unavailable`，必须按已解析 ElementHandle 直接点击。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
 - Real E2E retry `102`: `工艺路线节点：基础维护` 全 4 检查点 PASS；`工艺路线节点：复制绑定` 全 4 检查点 PASS；`工艺路线节点：版本发布` 第 1 检查点 PASS，第 2 检查点 BLOCKED：`版本工作台未打开`。页面文本显示列表中 `TN-ROUTE-VERSION-001` 行可见且操作列有 `版本`，但同时打开了全局 `版本变更说明 / 版本信息未生成` 覆盖层，actualText 包含 `Unexpected token '<', "<!DOCTYPE "... is not valid JSON`。记录截图：`output/playwright/20260730-test-management-serial-routes-repair/102-工艺路线节点闭环-record.png`。
 - Root cause update: 版本发布脚本在筛选到 `TN-ROUTE-VERSION-001` 后仍通过全局 `/版\s*本/` 文本点击打开了页脚/全局版本信息入口，而不是目标路线表格 body 行操作列的 `版本` 按钮，导致真正的 `route-version-workspace` 没有渲染。
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 必须要求版本工作台入口限定在目标路线表格行操作列，不能误点页脚/全局版本信息。`

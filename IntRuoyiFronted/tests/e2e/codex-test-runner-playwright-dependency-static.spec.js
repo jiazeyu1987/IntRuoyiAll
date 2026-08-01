@@ -172,6 +172,7 @@ assert.ok(
   runner.includes('For Element Plus row operation link-buttons such as 删除, 编辑, 复制, 版本, or 删除草稿') &&
     runner.includes("Do not wrap an ElementHandle from evaluateHandle/elementHandle in page.locator(':scope').locator(handle)") &&
     runner.includes('click the resolved ElementHandle directly') &&
+    runner.includes('A resolved BUTTON.el-button--danger.is-link is a valid row action') &&
     runner.includes('Never report a route delete entry missing while the visible row text contains 删除'),
   'Runner prompt 必须禁止把 ElementHandle 包装成 locator，并要求列表行“删除”等 link-button 直接点击 resolved ElementHandle。'
 )
