@@ -165,6 +165,13 @@
 - `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
+- Real E2E retry `102`: `工艺路线节点：基础维护` 全 4 检查点 PASS；`工艺路线节点：复制绑定` 全 4 检查点 PASS；`工艺路线节点：版本发布` 第 1 检查点 PASS，第 2 检查点 BLOCKED：`版本工作台未打开`。页面文本显示列表中 `TN-ROUTE-VERSION-001` 行可见且操作列有 `版本`，但同时打开了全局 `版本变更说明 / 版本信息未生成` 覆盖层，actualText 包含 `Unexpected token '<', "<!DOCTYPE "... is not valid JSON`。记录截图：`output/playwright/20260730-test-management-serial-routes-repair/102-工艺路线节点闭环-record.png`。
+- Root cause update: 版本发布脚本在筛选到 `TN-ROUTE-VERSION-001` 后仍通过全局 `/版\s*本/` 文本点击打开了页脚/全局版本信息入口，而不是目标路线表格 body 行操作列的 `版本` 按钮，导致真正的 `route-version-workspace` 没有渲染。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 必须要求版本工作台入口限定在目标路线表格行操作列，不能误点页脚/全局版本信息。`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 已要求版本发布打开工作台时只点击包含 `TN-ROUTE-VERSION-001` 的可见表格行操作列/固定右列 `版本` 动作，禁止全局 `clickVisibleTextAction(/版\\s*本/)` 或 `page.getByText('版本')`，并在出现 `版本变更说明` 或 `版本信息未生成` 覆盖层时关闭并报告错误全局动作。
+- Static contract fix: `IntRuoyiFronted/tests/e2e/codex-test-runner-playwright-dependency-static.spec.js` 将禁止全局版本点击的断言拆分为稳定源码片段，覆盖 `clickVisibleTextAction`、`/版\\\\s*本/` 和 `page.getByText('版本')`，避免 JS 字符串转义导致合同误失败。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
 
 - 2026-08-01 update: execution `100` 已证明版本发布第 4 检查点能点击可见 `删除草稿`，但点击/确认后仍显示 `草稿/待处理/待发布`。最新根因收敛为生成脚本未证明 Element Plus 确认框已关闭、`/admin-api/mes/pro/route-version/cancel` 是否发出/成功、以及版本列表是否刷新，因此无法区分确认按钮未生效、删除请求失败、请求未发出或刷新等待不足。
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求删除草稿后等待确认框关闭、核对 cancel 请求或刷新证据，允许点击后只轮询旧 workspace 文本并误报候选仍可见`

@@ -140,7 +140,9 @@ assert.ok(
 assert.ok(
   runner.includes('For 工艺路线版本发布 opening the version workspace') &&
     runner.includes('click only the visible operation-column/fixed-right row action named 版本 in the table body row containing TN-ROUTE-VERSION-001') &&
-    runner.includes("Do not call global clickVisibleTextAction(/版\\s*本/) or page.getByText('版本')") &&
+    runner.includes('Do not call global clickVisibleTextAction') &&
+    runner.includes('/版\\\\s*本/') &&
+    runner.includes("page.getByText('版本')") &&
     runner.includes('If a 版本变更说明 or 版本信息未生成 overlay appears, close it and report BLOCKED as wrong global version-info action'),
   'Runner prompt 必须要求版本工作台入口限定在目标路线表格行操作列，不能误点页脚/全局版本信息。'
 )
