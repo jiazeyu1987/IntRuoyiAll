@@ -87,3 +87,11 @@
 - BLOCKED: 串行重试失败：`git ls-remote origin HEAD` 返回 `TLS connect error: error:0A000126:SSL routines::unexpected eof while reading`，因此未继续执行 feature branch push 和 `int_main` push。
 - PASS: 推送前门禁已完成：GitHub 443 网络探测可达、Git 未配置本地代理、`origin/int_main..HEAD` 无超过 100 MB blob、`git diff --check` 无 whitespace error、分支端口门禁通过。
 - IMPACT: 本地 `int_main` 仍 ahead `origin/int_main`，feature branch 也未完成远端同步；按项目规则任务不能标记 `completed`，当前状态保持 `blocked`，等待 GitHub HTTPS 连接恢复后重新推送并核验不再 ahead。
+
+
+## 2026-08-01 Push Recovery Addendum
+
+- PASS: 远端恢复可达后，`git ls-remote origin HEAD` 返回远端 HEAD `7c7cce61ddf6ddd4c2d0dc2a8e002608a1f4a239`。
+- PASS: `git push origin codex/20260731_shengchanbanzuzhang:codex/20260731_shengchanbanzuzhang` 成功，远端 feature branch 从 `60784ff66` 更新到 `008de0396`。
+- PASS: `git push origin int_main` 成功，`origin/int_main` 从 `7c7cce61d` 更新到 `8632f26da`，包含生产组长融合、并行基线、融合验证和推送 blocker 记录。
+- RESULT: 远端同步阻塞已解除；完成状态记录在最终 closeout commit 中，并将在随后推送。

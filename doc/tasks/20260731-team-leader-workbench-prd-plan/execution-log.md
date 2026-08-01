@@ -257,3 +257,11 @@
 - BLOCKED: parallel push attempt failed: `git ls-remote origin HEAD` -> `Recv failure: Connection was reset`; `git push origin codex/20260731_shengchanbanzuzhang:codex/20260731_shengchanbanzuzhang` -> timeout after 300056 ms; `git push origin int_main` -> `Recv failure: Connection was reset`.
 - BLOCKED: sequential retry stopped at preflight: `git ls-remote origin HEAD` -> `TLS connect error: error:0A000126:SSL routines::unexpected eof while reading`; feature branch and `int_main` push were not retried after this failed precondition.
 - Result: implementation, E2E, cleanup, `int_main` fusion and local closeout commits are complete locally, but remote push is blocked by GitHub HTTPS connectivity; task remains `blocked` and must not be marked completed until both branches push and `git status --short --branch` no longer reports ahead.
+
+
+## 2026-08-01 Push Recovery Evidence
+
+- Recovery Check: `git ls-remote origin HEAD` -> PASS，远端 HEAD 返回 `7c7cce61ddf6ddd4c2d0dc2a8e002608a1f4a239`。
+- Push: `git push origin codex/20260731_shengchanbanzuzhang:codex/20260731_shengchanbanzuzhang` -> PASS，`60784ff66..008de0396`。
+- Push: `git push origin int_main` -> PASS，`7c7cce61d..8632f26da`。
+- Result: 先前 GitHub HTTPS reset/timeout blocker 已恢复；任务进入 final completion record commit and push。
