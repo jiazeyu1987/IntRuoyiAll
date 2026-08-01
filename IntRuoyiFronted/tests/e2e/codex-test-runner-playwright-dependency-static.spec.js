@@ -161,8 +161,10 @@ assert.ok(
     runner.includes('无打开候选') &&
     runner.includes('do not click 创建候选版本 during checkpoint 4 cleanup') &&
     runner.includes('close the version workspace and delete the temporary route') &&
-    runner.includes('treat the candidate cleanup as already complete'),
-  'Runner prompt 必须要求版本发布工作台显示“无打开候选”时视为候选清理已完成，不能继续找删除草稿或重新创建候选直到超时。'
+    runner.includes('treat the candidate cleanup as already complete') &&
+    runner.includes('Never report cleanup candidate action not visible when the workspace shows 无打开候选 and no visible version row/card contains 草稿/待处理/待发布') &&
+    runner.includes('checkpoint 4 should pass candidate cleanup as already complete in this state'),
+  'Runner prompt 必须要求版本发布工作台显示“无打开候选”时视为候选清理已完成，不能继续找删除草稿、报 cleanup candidate action not visible 或重新创建候选。'
 )
 assert.ok(
   runner.includes('For Element Plus link-button cleanup actions such as 删除草稿') &&
@@ -334,8 +336,10 @@ assert.ok(
   runner.includes('The temporary Playwright script must enforce its own overall deadline') &&
     runner.includes('race the main browser flow against that deadline') &&
     runner.includes('always print checkpointResults JSON before the Codex child timeout') &&
-    runner.includes('If the deadline is reached, close the browser and return BLOCKED checkpoints for unfinished items instead of letting codex exec hit the outer child timeout'),
-  'Runner prompt 必须要求临时 Playwright 脚本自带全局截止时间并在超时前输出 BLOCKED JSON，不能等 Codex 子进程 600 秒硬超时。'
+    runner.includes('If the deadline is reached, close the browser and return BLOCKED checkpoints for unfinished items instead of letting codex exec hit the outer child timeout') &&
+    runner.includes('After printing the deadline BLOCKED JSON, force the temporary Node process to exit with process.exit(0)') &&
+    runner.includes('do not leave an unresolved flowPromise or Playwright browser watcher alive after Promise.race resolves'),
+  'Runner prompt 必须要求临时 Playwright 脚本自带全局截止时间并在超时前输出 BLOCKED JSON 后强制退出，不能让未完成主流程/orphan 继续拖到 Codex exec 超时。'
 )
 assert.ok(
   runner.includes('Hard cap the temporary browser script deadline at 240000ms') &&

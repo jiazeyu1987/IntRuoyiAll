@@ -237,6 +237,14 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `Verification: 真实 E2E execution 106 -> FAIL, 基础维护全 PASS；复制绑定第 3 检查点因 matchedRow 包装对象被当成 Locator 调用而 BLOCKED；已补齐 matchedRow.row 归一化规则，待复跑真实页面`
 - `Verification: 真实 E2E execution 107 -> FAIL, 工艺路线前三个节点均 PASS；状态删除节点启用空白路线时触发 请先添加组成工序；已补齐状态删除节点复制完整源路线 RT000028 的正式样本准备规则，待复跑真实页面`
 - `Verification: 真实 E2E execution 108 -> FAIL, 基础维护和复制绑定均 PASS；版本发布复制保存后在目标编码查询 loading 中读取 stale RT000028 旧行并误报未命中；已补齐 quick-filter 查询后等待 loading 消失规则，待复跑真实页面`
+- `Verification: 真实 E2E execution 109 -> FAIL, 基础维护和复制绑定均 PASS；版本发布第 1-3 检查点 PASS，第 4 检查点工作台显示“无打开候选”且无草稿/待处理/待发布行，却误报 cleanup candidate action not visible；已补齐该完成态禁止报入口缺失并直接按候选清理完成推进的规则，待复跑真实页面`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未锁定 execution 109 的 cleanup candidate action not visible 误判`
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `Verification: 真实 E2E execution 110 -> FAIL, 工艺路线前三个节点 PASS；状态删除节点因 Codex exec timed out after 720000ms BLOCKED，Runner 无活动 execution 但任务临时 route-status-delete-e2e.js 仍残留 node/Chrome orphan`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求临时 Playwright 脚本 deadline 输出 BLOCKED JSON 后 process.exit(0)，允许未完成主流程/orphan 拖到 Codex exec timeout`
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
 
 ## Risk And Regression Scope
 

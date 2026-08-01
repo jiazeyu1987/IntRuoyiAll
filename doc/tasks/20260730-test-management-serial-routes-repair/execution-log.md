@@ -576,3 +576,17 @@
 - Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求版本发布打开工作台后不要把行内 `data-testid="route-version-workspace"` 按钮当作已打开工作台，必须把 workspace locator 限定到可见 `工艺路线版本` 弹窗正文 `.route-version-workspace__body` 或包含 `.route-version-workspace__summary` 的弹窗，并等待正文包含 `创建候选版本 / 候选版本工作区 / 当前 ACTIVE`。
 - `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+
+- Real E2E retry `109`: `工艺路线节点：基础维护`、`工艺路线节点：复制绑定` 均全检查点 PASS；`工艺路线节点：版本发布` 第 1-3 检查点 PASS，第 4 检查点 BLOCKED，actualText=`候选版本清理入口受阻：cleanup candidate action not visible; workspace=... 无打开候选 ... 暂无版本记录`；后续 `状态删除` 按串行前置失败阻断。记录摘要：`output/playwright/20260730-test-management-serial-routes-repair/serial-routes-summary.json`。
+- Root cause update: 版本工作台显示 `无打开候选` 且没有 `草稿/待处理/待发布` 行时，候选清理已经完成；生成脚本仍按“清理动作不可见”报 `cleanup candidate action not visible`，没有把该完成态直接作为 checkpoint 4 PASS 并继续关闭工作台、删除临时路线。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未锁定 109 的实际误判短语 cleanup candidate action not visible，允许无打开候选完成态被报成候选清理入口缺失`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在明确要求当工作台显示 `无打开候选` 且无 `草稿/待处理/待发布` 行时，绝不能报告 `cleanup candidate action not visible`，checkpoint 4 应将候选清理视为已完成并继续关闭工作台、删除 `TN-ROUTE-VERSION-001`。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+
+- Real E2E retry `110`: `工艺路线节点：基础维护`、`复制绑定`、`版本发布` 三个节点均全检查点 PASS；`状态删除` 节点 BLOCKED，execution 终态 `FAIL`，失败原因=`Codex Runner 执行失败：codex exec timed out after 720000ms`。只读复查同时确认 Runner `ONLINE/currentRunningCount=0`，无活动 execution。
+- Root cause update: 状态删除节点生成的临时脚本 `route-status-delete-e2e.js` 自带 240000ms deadline 和 `Promise.race`，但 deadline 分支打印 BLOCKED JSON 后没有强制结束未完成的 `flowPromise` / Playwright watcher；Runner 超时后本任务仍残留 task-owned orphan `node.exe route-status-delete-e2e.js` 和子 Chrome，已只停止该进程树。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求临时 Playwright 脚本 deadline 输出 BLOCKED JSON 后 process.exit(0)，允许未完成主流程/orphan 继续拖到 Codex exec timeout`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求临时 Playwright 脚本在 deadline 打印 BLOCKED JSON 后 `process.exit(0)`，不得在 `Promise.race` resolved 后留下未完成主流程或 Playwright browser watcher。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
