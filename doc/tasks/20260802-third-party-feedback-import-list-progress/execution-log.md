@@ -85,3 +85,5 @@
 - Cleanup preview/apply in main workspace: `task_closeout.py --task-id 20260802-third-party-feedback-import-list-progress --mode preview/apply` -> PASS; kept task records and E2E verifier, deleted JSON evidence artifact and temporary patch/runtime class files.
 - Cleanup apply in task worktree: `task_closeout.py --task-id 20260802-third-party-feedback-import-list-progress --mode apply --worktree-closeout off` -> PASS; same keep/delete boundary, with worktree auto-merge deliberately off because main workspace has unrelated dirty changes.
 - Final status: completed after real E2E PASS, cleanup PASS, and task-owned implementation commit; push evidence is recorded in final assistant summary after remote update.
+- Runtime cleanup: stopped task-owned backend PID `44852` and frontend PID `38528`; ports `48090` and `8090` no longer listen.
+- Worktree cleanup: retained `D:\IntRuoyiWorktree\third-party-feedback-import-20260802` because `codex/third-party-feedback-import-20260802` is pushed but not merged into `int_main`; slot `9` remains active per worktree rules and must not be released until the worktree is merged and removed.
