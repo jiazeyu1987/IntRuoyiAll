@@ -95,3 +95,10 @@
 - PASS: `git push origin codex/20260731_shengchanbanzuzhang:codex/20260731_shengchanbanzuzhang` 成功，远端 feature branch 从 `60784ff66` 更新到 `008de0396`。
 - PASS: `git push origin int_main` 成功，`origin/int_main` 从 `7c7cce61d` 更新到 `8632f26da`，包含生产组长融合、并行基线、融合验证和推送 blocker 记录。
 - RESULT: 远端同步阻塞已解除；完成状态记录在最终 closeout commit 中，并将在随后推送。
+
+
+## 2026-08-01 Final Push Blocker Addendum
+
+- BLOCKED: 最终完成记录提交 `c46980085 docs: complete team leader workbench closeout` 后，`git push origin int_main` 返回 `Recv failure: Connection was reset`。
+- BLOCKED: 串行复验 `git ls-remote origin HEAD` 同样返回 `Recv failure: Connection was reset`，未满足最终推送前置。
+- IMPACT: 本地 `int_main` 仍 ahead `origin/int_main`；任务实现、真实 E2E、融合验证和先前远端同步已完成，但最终 closeout 状态不能标记 `completed`，当前状态回退为 `blocked`，等待 GitHub HTTPS 恢复后推送本地 ahead commits。

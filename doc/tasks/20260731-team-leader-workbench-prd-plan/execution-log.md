@@ -265,3 +265,11 @@
 - Push: `git push origin codex/20260731_shengchanbanzuzhang:codex/20260731_shengchanbanzuzhang` -> PASS，`60784ff66..008de0396`。
 - Push: `git push origin int_main` -> PASS，`7c7cce61d..8632f26da`。
 - Result: 先前 GitHub HTTPS reset/timeout blocker 已恢复；任务进入 final completion record commit and push。
+
+
+## 2026-08-01 Final Push Blocker Evidence
+
+- Commit: `c46980085 docs: complete team leader workbench closeout` -> PASS locally, staged files only生产组长任务 closeout docs。
+- BLOCKED: `git push origin int_main` -> FAIL, `Recv failure: Connection was reset`。
+- BLOCKED: `git ls-remote origin HEAD` before retry -> FAIL, `Recv failure: Connection was reset`；未继续伪造推送成功。
+- Result: remote already contains feature branch up to `008de0396` and `int_main` up to `8632f26da`, but final local closeout and later concurrent baseline commits remain ahead; task status must remain `blocked` until `git push origin int_main` succeeds and status no longer reports ahead.
