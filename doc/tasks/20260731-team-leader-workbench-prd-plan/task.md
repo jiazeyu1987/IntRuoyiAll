@@ -81,7 +81,7 @@
 
 ## Current Status
 
-ready_for_closeout
+blocked
 
 ## Cleanup Keep
 
@@ -105,4 +105,4 @@ ready_for_closeout
 - 收尾清理提交已完成：`3c5789190 chore: clean team leader workbench task evidence`。
 - 融合回 `E:\IntRuoyi` 的 `int_main` 已完成：`codex/20260731_shengchanbanzuzhang` 是当前 `int_main` 祖先，`int_main` 合并后已通过静态合同、`pnpm --dir IntRuoyiFronted ts:check`、MES 定向 Maven 回归和分支端口门禁。
 - 主工作区并行 Runner 改动已按脏工作区基线规则单独提交：`00df27e68 chore: baseline serial routes runner workspace changes`，未混入生产组长任务收尾提交。
-- 当前仍保持 `ready_for_closeout`：实现、验证、任务清理和 `int_main` 融合验证已完成；剩余 final closeout commit、feature branch push、`int_main` push 与推送后状态核验。
+- 当前阻塞在远端推送：实现、验证、任务清理和 `int_main` 融合验证已完成；`git ls-remote origin HEAD`、feature branch push 与 `int_main` push 均因 GitHub HTTPS TLS/connection reset/timeout 失败，本地分支仍 ahead，按项目规则不能标记 completed。

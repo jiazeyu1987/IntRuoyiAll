@@ -79,3 +79,11 @@
 - PASS: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` 在 `int_main` 通过，frontend `8081` / backend `48081`。
 - PASS: `git diff --check` 仅报告 LF/CRLF 规范化警告，无 whitespace error。
 - RESULT: `int_main` 融合与合并后验证已通过；剩余 final closeout commit、feature branch push、`int_main` push 与推送后 ahead 状态核验。
+
+
+## 2026-08-01 Push Blocker Addendum
+
+- BLOCKED: 首轮并行推送失败：`git ls-remote origin HEAD` 返回 `Recv failure: Connection was reset`，feature branch push 返回 `Connection timed out after 300056 milliseconds`，`git push origin int_main` 返回 `Recv failure: Connection was reset`。
+- BLOCKED: 串行重试失败：`git ls-remote origin HEAD` 返回 `TLS connect error: error:0A000126:SSL routines::unexpected eof while reading`，因此未继续执行 feature branch push 和 `int_main` push。
+- PASS: 推送前门禁已完成：GitHub 443 网络探测可达、Git 未配置本地代理、`origin/int_main..HEAD` 无超过 100 MB blob、`git diff --check` 无 whitespace error、分支端口门禁通过。
+- IMPACT: 本地 `int_main` 仍 ahead `origin/int_main`，feature branch 也未完成远端同步；按项目规则任务不能标记 `completed`，当前状态保持 `blocked`，等待 GitHub HTTPS 连接恢复后重新推送并核验不再 ahead。

@@ -249,3 +249,11 @@
 - REGRESSION: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest,MesFrontlineRuntimeConfigControllerTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineRuntimeConfigServiceTest,MesTeamLeaderActiveOrderServiceTest,MesTeamLeaderRuntimeConfigServiceTest,MesTeamLeaderReportConfirmationServiceTest,MesTeamLeaderFifoAllocationServiceTest,MesTeamLeaderOrderProcessCompletionServiceTest,MesTeamLeaderBatchRecordBackfillServiceTest,MesProFrontlineFeedbackPayloadSplitterTest,MesProBatchRecordCellLinkServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，tests run: 48, failures: 0, errors: 0, skipped: 0。
 - Git Check: `git diff --check` -> PASS，仅 LF/CRLF 规范化警告，无 whitespace error。
 - Result: `int_main` 融合、合并后验证和并行 dirty workspace 基线均已完成；剩余 final closeout commit、feature branch push、`int_main` push 与推送后 ahead 状态核验。
+
+
+## 2026-08-01 Push Blocker Evidence
+
+- Push Preflight: `git status --short --branch` -> `int_main...origin/int_main [ahead 10]` before push attempts; `git config` only reports `http.version HTTP/1.1`; `Test-NetConnection github.com -Port 443` -> `TcpTestSucceeded=True`; `Test-NetConnection 127.0.0.1 -Port 7890` -> `False`; object scan for `origin/int_main..HEAD` -> PASS, no blob over 100 MB.
+- BLOCKED: parallel push attempt failed: `git ls-remote origin HEAD` -> `Recv failure: Connection was reset`; `git push origin codex/20260731_shengchanbanzuzhang:codex/20260731_shengchanbanzuzhang` -> timeout after 300056 ms; `git push origin int_main` -> `Recv failure: Connection was reset`.
+- BLOCKED: sequential retry stopped at preflight: `git ls-remote origin HEAD` -> `TLS connect error: error:0A000126:SSL routines::unexpected eof while reading`; feature branch and `int_main` push were not retried after this failed precondition.
+- Result: implementation, E2E, cleanup, `int_main` fusion and local closeout commits are complete locally, but remote push is blocked by GitHub HTTPS connectivity; task remains `blocked` and must not be marked completed until both branches push and `git status --short --branch` no longer reports ahead.
