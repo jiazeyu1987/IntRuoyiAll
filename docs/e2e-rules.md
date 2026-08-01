@@ -88,6 +88,15 @@
 - Forbidden action: 禁止为了通过 E2E 删除目标页面断言、改成 API-only、等待无关菜单/标题文本、或把页面未渲染解释成接口已通过。
 - Evidence: `doc/tasks/20260729-edhr-parallel-start-process-highlight/verification-report.md`，真实脚本改为接口命中目标批次后等待工序组渲染，并断言三 个当前工序黄底。
 
+### 真实 E2E 动态事件查询与确认响应门禁
+
+- Trigger: 真实 E2E 在页面写入后需要只读发现新生成事件、提交记录、分配记录、审计记录或其它运行态 ID，或确认按钮依赖后端写接口完成后继续断言。
+- Preflight check: 只读发现接口必须携带后端分页接口要求的完整查询条件，例如日期、租户、业务对象、提交编码或任务自有前缀；确认类动作必须等待对应写接口响应，断言 HTTP 成功且业务 `code=0`，再进入后续 UI 或只读核验。
+- Blocker: 只按列表默认条件查询导致接口 500、跨日/跨页误选、用外部预填 eventId 替代页面提交后动态发现、等待瞬时 toast 而未等待写接口响应，或确认接口业务码非 0 时必须停止。
+- Verification: 静态合同应锁定真实 E2E 对必填查询条件、动态 ID 占位符和确认接口响应断言的使用；真实 E2E 证据需记录动态发现的 ID、确认接口路径、业务响应校验和后置只读核验结果。
+- Forbidden action: 禁止把 toast 文案、列表第一行、硬编码事件 ID、API-only 写入、或忽略业务 `code` 的 HTTP 200 当作确认完成。
+- Evidence: `doc/tasks/20260731-team-leader-workbench-prd-plan/execution-log.md`，生产组长真实 E2E 事件发现补齐 `submitDate`，确认报工改为等待 allocation confirm 响应并断言业务码。
+
 ### Schema-backed E2E 迁移与字段可选态门禁
 
 - Trigger: 真实 E2E 验证新增 schema 字段支撑的页面能力、工作台上下文字段、单元格链接、字段矩阵、合成来源字段、`source_type`、`source_field_code`、`sourceFields`、或页面接口返回 `Unknown column` / `系统异常`。

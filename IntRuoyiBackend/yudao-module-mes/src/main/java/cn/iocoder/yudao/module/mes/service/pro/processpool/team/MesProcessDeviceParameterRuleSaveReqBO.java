@@ -17,7 +17,9 @@ public class MesProcessDeviceParameterRuleSaveReqBO {
     private Long deviceId;
     private String parameterCode;
     private String parameterName;
+    private String unit;
     private BigDecimal lowerLimit;
     private BigDecimal upperLimit;
+    private BigDecimal defaultValue;
     private String valueType;
 }

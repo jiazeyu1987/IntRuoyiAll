@@ -1056,6 +1056,42 @@ public interface ErrorCodeConstants {
             "不良原因缺少必填字段：{}");
     ErrorCode PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID = new ErrorCode(1_040_760_305,
             "设备参数上下限无效，下限不能大于上限：{}");
+    ErrorCode PRO_PROCESS_POOL_ACTIVE_ORDER_NOT_EXISTS = new ErrorCode(1_040_760_306,
+            "班组活跃订单不存在：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_EMPLOYEE_PROFILE_NOT_EXISTS = new ErrorCode(1_040_760_307,
+            "班组员工档案不存在或已禁用：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_DEVICE_NOT_EXISTS = new ErrorCode(1_040_760_308,
+            "班组设备不存在：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_DEVICE_UNAVAILABLE = new ErrorCode(1_040_760_309,
+            "班组设备当前不可用于新报工，设备编号：{}，状态：{}");
+    ErrorCode PRO_PROCESS_POOL_TEAM_DEVICE_STATUS_INVALID = new ErrorCode(1_040_760_310,
+            "班组设备状态无效：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_ACTIVE_ORDER_REQUIRED = new ErrorCode(1_040_760_311,
+            "报工确认分配必须使用当前班组活跃订单：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_TOTAL_MISMATCH = new ErrorCode(1_040_760_312,
+            "报工确认分配总数必须等于本次报工数量：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH = new ErrorCode(1_040_760_313,
+            "活跃订单当前工序剩余数量不足，无法确认分配：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_QUANTITY_REQUIRED = new ErrorCode(1_040_760_314,
+            "报工确认缺少有效报工数量：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_DUPLICATE = new ErrorCode(1_040_760_315,
+            "该员工报工已完成订单分配确认，禁止重复确认：{}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_MODE_INVALID = new ErrorCode(1_040_760_316,
+            "报工确认分配方式无效：{}");
+    ErrorCode PRO_PROCESS_POOL_BATCH_RECORD_BINDING_REQUIRED = new ErrorCode(1_040_760_317,
+            "订单工序完成缺少正式批记录绑定，routeProcessId={}");
+    ErrorCode PRO_PROCESS_POOL_BATCH_RECORD_FIELD_MAPPING_REQUIRED = new ErrorCode(1_040_760_318,
+            "订单工序完成缺少正式批记录字段映射，routeProcessId={}，batchRecordReportId={}，field={}");
+    ErrorCode PRO_PROCESS_POOL_BATCH_RECORD_SOURCE_VALUE_REQUIRED = new ErrorCode(1_040_760_319,
+            "订单工序完成批记录回填缺少报工来源值，eventId={}，field={}");
+    ErrorCode PRO_PROCESS_POOL_BATCH_RECORD_EXECUTION_REQUIRED = new ErrorCode(1_040_760_320,
+            "订单工序完成批记录回填缺少执行实例，batchRecordReportId={}");
+    ErrorCode PRO_PROCESS_POOL_REPORT_ALLOCATION_TRACE_REQUIRED = new ErrorCode(1_040_760_321,
+            "P6 只读核验缺少报工分配记录，eventId={}，workOrderId={}，routeProcessId={}，processId={}");
+    ErrorCode PRO_PROCESS_POOL_ORDER_PROCESS_COMPLETION_TRACE_REQUIRED = new ErrorCode(1_040_760_322,
+            "P6 只读核验缺少订单工序完成记录，workOrderId={}，routeProcessId={}，processId={}");
+    ErrorCode PRO_PROCESS_POOL_BATCH_RECORD_TRACE_REQUIRED = new ErrorCode(1_040_760_323,
+            "P6 只读核验缺少正式批记录回填证据，workOrderId={}，routeProcessId={}，processId={}");
 
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_ITEM_CODE_MISSING = new ErrorCode(1_040_107_004, "褰撳墠鐗╂枡/浜у搧缂栫爜缂哄け锛屾棤娉曟墽琛?ERP 鍚屾 BOM");
     ErrorCode MD_PRODUCT_BOM_ERP_SYNC_NOT_FOUND = new ErrorCode(1_040_107_005, "ERP 涓湭鎵惧埌鐗╂枡/浜у搧缂栫爜 {} 鐨勫凡瀹℃牳 BOM");

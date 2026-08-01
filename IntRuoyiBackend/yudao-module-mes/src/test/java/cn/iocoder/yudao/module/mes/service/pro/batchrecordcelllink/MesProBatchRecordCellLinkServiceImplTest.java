@@ -185,6 +185,47 @@ class MesProBatchRecordCellLinkServiceImplTest {
     }
 
     @Test
+    void getPrefill_skipsProcessPoolReportRulesBecauseTeamLeaderBackfillOwnsThem() {
+        MesProBatchRecordExecutionDO targetExecution = new MesProBatchRecordExecutionDO()
+                .setId(9011L)
+                .setWorkOrderId(1001L)
+                .setBatchRecordDefinitionId(2001L)
+                .setBatchRecordVersionId(3001L)
+                .setBatchRecordReportId("target-report")
+                .setBatchCode("BATCH-001")
+                .setCellValuesJson("[]");
+        MesProBatchRecordReportDO targetReport = new MesProBatchRecordReportDO()
+                .setReportId("target-report")
+                .setReportName("批次执行记录")
+                .setBatchRecordDefinitionId(2001L)
+                .setBatchRecordVersionId(3001L);
+        MesProBatchRecordCellLinkRuleDO rule = new MesProBatchRecordCellLinkRuleDO()
+                .setId(31L)
+                .setScopeType("ROUTE_VERSION")
+                .setScopeId(3001L)
+                .setSourceType("PROCESS_POOL_REPORT")
+                .setSourceFieldCode("TLW-20260731-PRESSURE")
+                .setSourceFieldName("压力")
+                .setTargetReportId("target-report")
+                .setTargetReportName("批次执行记录")
+                .setTargetRowIndex(11)
+                .setTargetColumnIndex(14)
+                .setTargetCellKey("11:14")
+                .setOverwritePolicy("ONLY_WHEN_EMPTY")
+                .setRuleVersion(7L);
+
+        when(executionMapper.selectById(9011L)).thenReturn(targetExecution);
+        when(reportMapper.selectByReportId("target-report")).thenReturn(targetReport);
+        when(ruleMapper.selectEnabledListByScopeAndTargetReport("ROUTE_VERSION", 3001L, "target-report"))
+                .thenReturn(List.of(rule));
+
+        BatchRecordCellLinkPrefillRespVO result = service.getPrefill(9011L, null);
+
+        assertEquals(0, result.getPrefills().size());
+        assertEquals(0, result.getConflicts().size());
+    }
+
+    @Test
     void getPrefill_resolvesProductionBatchCodeFromExecutionContextWhenWorkOrderBatchCodeEmpty() {
         MesProBatchRecordExecutionDO targetExecution = new MesProBatchRecordExecutionDO()
                 .setId(9002L)

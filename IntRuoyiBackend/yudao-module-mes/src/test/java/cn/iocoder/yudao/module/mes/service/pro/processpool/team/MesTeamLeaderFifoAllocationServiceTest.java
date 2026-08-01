@@ -1,0 +1,158 @@
+package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
+
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolReportAllocationDO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.workorder.MesProWorkOrderDO;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolActiveOrderMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolReportAllocationMapper;
+import cn.iocoder.yudao.module.mes.dal.mysql.pro.workorder.MesProWorkOrderMapper;
+import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class MesTeamLeaderFifoAllocationServiceTest {
+
+    @Mock
+    private MesProcessPoolActiveOrderMapper activeOrderMapper;
+    @Mock
+    private MesProWorkOrderMapper workOrderMapper;
+    @Mock
+    private MesProcessPoolReportAllocationMapper allocationMapper;
+
+    private MesTeamLeaderFifoAllocationService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new MesTeamLeaderFifoAllocationService(activeOrderMapper, workOrderMapper, allocationMapper);
+    }
+
+    @Test
+    void shouldPreviewByActiveOrderJoinedAtAndRemainingQuantity() {
+        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
+                activeOrder(8101L, 9001L, "2026-07-31T08:00:00"),
+                activeOrder(8102L, 9002L, "2026-07-31T09:00:00")));
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L, 9002L))).thenReturn(List.of(
+                workOrder(9001L, "WO-9001", "200"),
+                workOrder(9002L, "WO-9002", "200")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L, 9002L), 5001L, 6001L))
+                .thenReturn(List.of(allocation(9001L, "150"), allocation(9002L, "170")));
+
+        MesTeamLeaderReportAllocationPreview preview = service.previewFifoAllocation(
+                MesTeamLeaderFifoAllocationReqBO.builder()
+                        .leaderUserId(3001L)
+                        .eventId(1001L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .confirmQuantity(new BigDecimal("80"))
+                        .build());
+
+        assertEquals(2, preview.getLines().size());
+        assertEquals(8101L, preview.getLines().get(0).getActiveOrderId());
+        assertEquals(9001L, preview.getLines().get(0).getWorkOrderId());
+        assertAmount("50", preview.getLines().get(0).getAllocatedQuantity());
+        assertEquals(8102L, preview.getLines().get(1).getActiveOrderId());
+        assertEquals(9002L, preview.getLines().get(1).getWorkOrderId());
+        assertAmount("30", preview.getLines().get(1).getAllocatedQuantity());
+        assertAmount("80", preview.getTotalAllocatedQuantity());
+    }
+
+    @Test
+    void shouldUseStableWorkOrderIdSortWhenJoinedAtTies() {
+        LocalDateTime joinedAt = LocalDateTime.of(2026, 7, 31, 8, 0);
+        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
+                activeOrder(8102L, 9002L, joinedAt),
+                activeOrder(8101L, 9001L, joinedAt)));
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L, 9002L))).thenReturn(List.of(
+                workOrder(9001L, "WO-9001", "200"),
+                workOrder(9002L, "WO-9002", "200")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L, 9002L), 5001L, 6001L))
+                .thenReturn(List.of());
+
+        MesTeamLeaderReportAllocationPreview preview = service.previewFifoAllocation(
+                MesTeamLeaderFifoAllocationReqBO.builder()
+                        .leaderUserId(3001L)
+                        .eventId(1001L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .confirmQuantity(new BigDecimal("80"))
+                        .build());
+
+        assertEquals(List.of(9001L), preview.getLines().stream()
+                .map(MesTeamLeaderReportAllocationPreviewLine::getWorkOrderId)
+                .toList());
+        assertAmount("80", preview.getLines().get(0).getAllocatedQuantity());
+    }
+
+    @Test
+    void shouldBlockWhenActiveOrderRemainingQuantityIsNotEnough() {
+        when(activeOrderMapper.selectActiveListByLeader(3001L)).thenReturn(List.of(
+                activeOrder(8101L, 9001L, "2026-07-31T08:00:00")));
+        when(workOrderMapper.selectListByIdsForUpdate(List.of(9001L))).thenReturn(List.of(
+                workOrder(9001L, "WO-9001", "200")));
+        when(allocationMapper.selectListByWorkOrderIdsAndProcessForUpdate(List.of(9001L), 5001L, 6001L))
+                .thenReturn(List.of(allocation(9001L, "150")));
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.previewFifoAllocation(
+                MesTeamLeaderFifoAllocationReqBO.builder()
+                        .leaderUserId(3001L)
+                        .eventId(1001L)
+                        .routeProcessId(5001L)
+                        .processId(6001L)
+                        .confirmQuantity(new BigDecimal("80"))
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_REPORT_ALLOCATION_REMAINING_NOT_ENOUGH.getCode(),
+                ex.getCode());
+        verify(allocationMapper, never()).insertBatch(org.mockito.ArgumentMatchers.anyCollection());
+    }
+
+    private static MesProcessPoolActiveOrderDO activeOrder(Long id, Long workOrderId, String joinedAt) {
+        return activeOrder(id, workOrderId, LocalDateTime.parse(joinedAt));
+    }
+
+    private static MesProcessPoolActiveOrderDO activeOrder(Long id, Long workOrderId, LocalDateTime joinedAt) {
+        return MesProcessPoolActiveOrderDO.builder()
+                .id(id)
+                .leaderUserId(3001L)
+                .workOrderId(workOrderId)
+                .activeStatus("ACTIVE")
+                .joinedAt(joinedAt)
+                .build();
+    }
+
+    private static MesProWorkOrderDO workOrder(Long id, String code, String quantity) {
+        return MesProWorkOrderDO.builder()
+                .id(id)
+                .code(code)
+                .quantity(new BigDecimal(quantity))
+                .build();
+    }
+
+    private static MesProcessPoolReportAllocationDO allocation(Long workOrderId, String quantity) {
+        return MesProcessPoolReportAllocationDO.builder()
+                .workOrderId(workOrderId)
+                .routeProcessId(5001L)
+                .processId(6001L)
+                .allocatedQuantity(new BigDecimal(quantity))
+                .build();
+    }
+
+    private static void assertAmount(String expected, BigDecimal actual) {
+        assertEquals(0, new BigDecimal(expected).compareTo(actual));
+    }
+}

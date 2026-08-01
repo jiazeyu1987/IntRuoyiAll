@@ -161,6 +161,11 @@ export interface FrontlineEmployeeCandidateVO {
   userId: number
   username?: string
   nickname?: string
+  employeeProfileId?: number
+  systemUserId?: number
+  employeeCode?: string
+  employeeName?: string
+  employeeType?: string
 }
 
 export interface FrontlineTemplateVO {
@@ -186,6 +191,48 @@ export interface FrontlineSwitchActualEmployeeRespVO {
   processId: number
   extraVerificationRequired: boolean
   template: FrontlineTemplateVO
+}
+
+export interface FrontlineRuntimeEmployeeVO {
+  employeeProfileId: number
+  systemUserId?: number
+  employeeCode?: string
+  employeeName?: string
+  employeeType?: string
+}
+
+export interface FrontlineRuntimeDeviceParameterVO {
+  parameterCode: string
+  parameterName?: string
+  unit?: string
+  lowerLimit?: number | string
+  upperLimit?: number | string
+  defaultValue?: number | string
+  valueType?: string
+}
+
+export interface FrontlineRuntimeDeviceVO {
+  deviceId: number
+  deviceCode?: string
+  deviceName?: string
+  deviceStatus?: string
+  parameters: FrontlineRuntimeDeviceParameterVO[]
+}
+
+export interface FrontlineRuntimeDefectReasonVO {
+  reasonId: number
+  reasonType?: string
+  reasonCode: string
+  reasonName: string
+}
+
+export interface FrontlineRuntimeConfigVO {
+  routeId: number
+  routeProcessId: number
+  processId: number
+  employees: FrontlineRuntimeEmployeeVO[]
+  devices: FrontlineRuntimeDeviceVO[]
+  defectReasons: FrontlineRuntimeDefectReasonVO[]
 }
 
 export interface ThirdPartyFeedbackImportResultVO {
@@ -844,6 +891,17 @@ export const ProFeedbackApi = {
   }) => {
     return await request.get<FrontlineEmployeeCandidateVO[]>({
       url: `/mes/pro/feedback/frontline/device-account/employee-candidates`,
+      params
+    })
+  },
+  // 获取生产组长维护的员工填报运行态配置
+  getFrontlineRuntimeConfig: async (params: {
+    routeId: number
+    routeProcessId: number
+    processId: number
+  }) => {
+    return await request.get<FrontlineRuntimeConfigVO>({
+      url: `/mes/pro/feedback/frontline/device-account/runtime-config`,
       params
     })
   },

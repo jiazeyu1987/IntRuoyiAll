@@ -2,6 +2,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.feedback;
 
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineEmployeeCandidateRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineRuntimeConfigRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineRouteProcessRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineSwitchEmployeeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineSwitchEmployeeRespVO;
@@ -11,6 +12,8 @@ import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeCan
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwitchCommand;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwitchResult;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwitchService;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConfig;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRuntimeConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRouteProcessCandidate;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineTemplateDescriptor;
 import io.swagger.v3.oas.annotations.Operation;
@@ -42,6 +45,8 @@ public class MesFrontlineDeviceAccountController {
     private MesFrontlineDeviceAccountContextService contextService;
     @Resource
     private MesFrontlineEmployeeSwitchService employeeSwitchService;
+    @Resource
+    private MesFrontlineRuntimeConfigService runtimeConfigService;
 
     @GetMapping("/processes")
     @Operation(summary = "获得设备账号可切换工序")
@@ -62,6 +67,17 @@ public class MesFrontlineDeviceAccountController {
         return success(contextService.listEmployeeCandidates(getLoginUserId(), routeId, routeProcessId, processId).stream()
                 .map(MesFrontlineDeviceAccountController::toEmployeeCandidateRespVO)
                 .toList());
+    }
+
+    @GetMapping("/runtime-config")
+    @Operation(summary = "获得员工填报运行态配置")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:query')")
+    public CommonResult<MesFrontlineRuntimeConfigRespVO> getRuntimeConfig(
+            @RequestParam("routeId") @NotNull Long routeId,
+            @RequestParam("routeProcessId") @NotNull Long routeProcessId,
+            @RequestParam("processId") @NotNull Long processId) {
+        return success(toRuntimeConfigRespVO(runtimeConfigService.getRuntimeConfig(getLoginUserId(),
+                routeId, routeProcessId, processId)));
     }
 
     @PostMapping("/switch-employee")
@@ -99,6 +115,51 @@ public class MesFrontlineDeviceAccountController {
         respVO.setUserId(candidate.userId());
         respVO.setUsername(candidate.username());
         respVO.setNickname(candidate.nickname());
+        return respVO;
+    }
+
+    private static MesFrontlineRuntimeConfigRespVO toRuntimeConfigRespVO(MesFrontlineRuntimeConfig config) {
+        MesFrontlineRuntimeConfigRespVO respVO = new MesFrontlineRuntimeConfigRespVO();
+        respVO.setRouteId(config.routeId());
+        respVO.setRouteProcessId(config.routeProcessId());
+        respVO.setProcessId(config.processId());
+        respVO.setEmployees(config.employees().stream().map(employee -> {
+            MesFrontlineRuntimeConfigRespVO.Employee item = new MesFrontlineRuntimeConfigRespVO.Employee();
+            item.setEmployeeProfileId(employee.employeeProfileId());
+            item.setSystemUserId(employee.systemUserId());
+            item.setEmployeeCode(employee.employeeCode());
+            item.setEmployeeName(employee.employeeName());
+            item.setEmployeeType(employee.employeeType());
+            return item;
+        }).toList());
+        respVO.setDevices(config.devices().stream().map(device -> {
+            MesFrontlineRuntimeConfigRespVO.Device item = new MesFrontlineRuntimeConfigRespVO.Device();
+            item.setDeviceId(device.deviceId());
+            item.setDeviceCode(device.deviceCode());
+            item.setDeviceName(device.deviceName());
+            item.setDeviceStatus(device.deviceStatus());
+            item.setParameters(device.parameters().stream().map(parameter -> {
+                MesFrontlineRuntimeConfigRespVO.DeviceParameter parameterItem =
+                        new MesFrontlineRuntimeConfigRespVO.DeviceParameter();
+                parameterItem.setParameterCode(parameter.parameterCode());
+                parameterItem.setParameterName(parameter.parameterName());
+                parameterItem.setUnit(parameter.unit());
+                parameterItem.setLowerLimit(parameter.lowerLimit());
+                parameterItem.setUpperLimit(parameter.upperLimit());
+                parameterItem.setDefaultValue(parameter.defaultValue());
+                parameterItem.setValueType(parameter.valueType());
+                return parameterItem;
+            }).toList());
+            return item;
+        }).toList());
+        respVO.setDefectReasons(config.defectReasons().stream().map(reason -> {
+            MesFrontlineRuntimeConfigRespVO.DefectReason item = new MesFrontlineRuntimeConfigRespVO.DefectReason();
+            item.setReasonId(reason.reasonId());
+            item.setReasonType(reason.reasonType());
+            item.setReasonCode(reason.reasonCode());
+            item.setReasonName(reason.reasonName());
+            return item;
+        }).toList());
         return respVO;
     }
 

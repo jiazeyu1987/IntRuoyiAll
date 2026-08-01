@@ -3,22 +3,50 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.security.core.util.SecurityFrameworkUtils;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDeviceSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDeviceStatusUpdateReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDefectReasonSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamDeviceParameterRuleSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeBindingDisableReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeBindingSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamEmployeeProfileSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderAddReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRemoveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderActiveOrderRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderAllocationTraceRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderBatchRecordTraceRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderOrderProcessTraceRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderReportAllocationConfirmReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderReportAllocationLineReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderReportAllocationPreviewReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderReportAllocationPreviewRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderSubmissionPageReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamLeaderSubmissionReviewReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamProcessDefectReasonSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamProcessDeviceBindingSaveReqVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesTeamProcessEmployeeBindingSaveReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.team.vo.MesWorkOrderAbnormalReportReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineDetailRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.processpool.vo.ProcessPoolTimelineEventRespVO;
+import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDefectReasonCatalogService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesDefectReasonSaveReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProcessDeviceParameterRuleSaveReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesProcessDeviceParameterRuleService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeBindingService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderAddReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderRemoveReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderActiveOrderService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportAllocationLineReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportAllocationPreview;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportAllocationPreviewLine;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportAllocationPreviewReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportConfirmationReqBO;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderReportConfirmationService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderRuntimeConfigService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderSubmissionReviewReqBO;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderSubmissionReviewService;
+import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderTraceService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamLeaderWorkbenchService;
 import cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesWorkOrderAbnormalReportService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,6 +63,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
 
 @Tag(name = "管理后台 - MES 工序池班组长工作台")
@@ -49,19 +79,31 @@ public class MesProcessPoolTeamLeaderController {
     private final MesTeamEmployeeBindingService employeeBindingService;
     private final MesDefectReasonCatalogService defectReasonCatalogService;
     private final MesProcessDeviceParameterRuleService deviceParameterRuleService;
+    private final MesTeamLeaderActiveOrderService activeOrderService;
+    private final MesTeamLeaderReportConfirmationService reportConfirmationService;
+    private final MesTeamLeaderRuntimeConfigService runtimeConfigService;
+    private final MesTeamLeaderTraceService traceService;
 
     public MesProcessPoolTeamLeaderController(MesTeamLeaderWorkbenchService workbenchService,
                                               MesTeamLeaderSubmissionReviewService submissionReviewService,
                                               MesWorkOrderAbnormalReportService abnormalReportService,
                                               MesTeamEmployeeBindingService employeeBindingService,
                                               MesDefectReasonCatalogService defectReasonCatalogService,
-                                              MesProcessDeviceParameterRuleService deviceParameterRuleService) {
+                                              MesProcessDeviceParameterRuleService deviceParameterRuleService,
+                                              MesTeamLeaderActiveOrderService activeOrderService,
+                                              MesTeamLeaderReportConfirmationService reportConfirmationService,
+                                              MesTeamLeaderRuntimeConfigService runtimeConfigService,
+                                              MesTeamLeaderTraceService traceService) {
         this.workbenchService = workbenchService;
         this.submissionReviewService = submissionReviewService;
         this.abnormalReportService = abnormalReportService;
         this.employeeBindingService = employeeBindingService;
         this.defectReasonCatalogService = defectReasonCatalogService;
         this.deviceParameterRuleService = deviceParameterRuleService;
+        this.activeOrderService = activeOrderService;
+        this.reportConfirmationService = reportConfirmationService;
+        this.runtimeConfigService = runtimeConfigService;
+        this.traceService = traceService;
     }
 
     @GetMapping("/submission/page")
@@ -160,9 +202,240 @@ public class MesProcessPoolTeamLeaderController {
                 .deviceId(reqVO.getDeviceId())
                 .parameterCode(reqVO.getParameterCode())
                 .parameterName(reqVO.getParameterName())
+                .unit(reqVO.getUnit())
                 .lowerLimit(reqVO.getLowerLimit())
                 .upperLimit(reqVO.getUpperLimit())
+                .defaultValue(reqVO.getDefaultValue())
                 .valueType(reqVO.getValueType())
                 .build()));
+    }
+
+    @PostMapping("/active-order/add")
+    @Operation(summary = "加入生产组长活跃订单")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Long> addActiveOrder(@Valid @RequestBody MesTeamLeaderActiveOrderAddReqVO reqVO) {
+        return success(activeOrderService.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
+                .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
+                .workOrderId(reqVO.getWorkOrderId())
+                .build()));
+    }
+
+    @PutMapping("/active-order/remove")
+    @Operation(summary = "移除生产组长活跃订单")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Boolean> removeActiveOrder(@Valid @RequestBody MesTeamLeaderActiveOrderRemoveReqVO reqVO) {
+        activeOrderService.removeActiveOrder(MesTeamLeaderActiveOrderRemoveReqBO.builder()
+                .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
+                .activeOrderId(reqVO.getActiveOrderId())
+                .build());
+        return success(Boolean.TRUE);
+    }
+
+    @GetMapping("/active-order/list")
+    @Operation(summary = "查询生产组长活跃订单")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    public CommonResult<List<MesTeamLeaderActiveOrderRespVO>> getActiveOrderList() {
+        return success(activeOrderService.listActiveOrders(SecurityFrameworkUtils.getLoginUserId()).stream()
+                .map(MesProcessPoolTeamLeaderController::toActiveOrderRespVO)
+                .toList());
+    }
+
+    @PostMapping("/submission/allocation/preview-fifo")
+    @Operation(summary = "预览班组长报工 FIFO 分配")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:review')")
+    public CommonResult<MesTeamLeaderReportAllocationPreviewRespVO> previewReportFifoAllocation(
+            @Valid @RequestBody MesTeamLeaderReportAllocationPreviewReqVO reqVO) {
+        MesTeamLeaderReportAllocationPreview preview = reportConfirmationService.previewFifoAllocation(
+                MesTeamLeaderReportAllocationPreviewReqBO.builder()
+                        .eventId(reqVO.getEventId())
+                        .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
+                        .leaderType(reqVO.getLeaderType())
+                        .build());
+        return success(toReportAllocationPreviewRespVO(preview));
+    }
+
+    @PostMapping("/submission/allocation/confirm")
+    @Operation(summary = "确认班组长报工并保存活跃订单分配")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:review')")
+    public CommonResult<Long> confirmReportAllocation(
+            @Valid @RequestBody MesTeamLeaderReportAllocationConfirmReqVO reqVO) {
+        return success(reportConfirmationService.confirmSubmission(MesTeamLeaderReportConfirmationReqBO.builder()
+                .eventId(reqVO.getEventId())
+                .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
+                .leaderType(reqVO.getLeaderType())
+                .allocationMode(reqVO.getAllocationMode())
+                .reviewRemark(reqVO.getReviewRemark())
+                .allocations(reqVO.getAllocations().stream()
+                        .map(MesProcessPoolTeamLeaderController::toReportAllocationLineReqBO)
+                        .toList())
+                .build()));
+    }
+
+    @PostMapping("/employee-profile/create")
+    @Operation(summary = "新增班组员工档案")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Long> createEmployeeProfile(@Valid @RequestBody MesTeamEmployeeProfileSaveReqVO reqVO) {
+        return success(runtimeConfigService.createEmployee(
+                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamEmployeeProfileSaveReqBO.builder()
+                        .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
+                        .systemUserId(reqVO.getSystemUserId())
+                        .employeeCode(reqVO.getEmployeeCode())
+                        .employeeName(reqVO.getEmployeeName())
+                        .employeeType(reqVO.getEmployeeType())
+                        .build()));
+    }
+
+    @PostMapping("/process-employee-binding/save")
+    @Operation(summary = "保存班组工序员工绑定")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Long> saveProcessEmployeeBinding(
+            @Valid @RequestBody MesTeamProcessEmployeeBindingSaveReqVO reqVO) {
+        return success(runtimeConfigService.bindEmployeeToProcess(
+                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamProcessEmployeeBindingSaveReqBO.builder()
+                        .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
+                        .processId(reqVO.getProcessId())
+                        .employeeProfileId(reqVO.getEmployeeProfileId())
+                        .build()));
+    }
+
+    @PostMapping("/team-device/create")
+    @Operation(summary = "新增班组设备")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Long> createTeamDevice(@Valid @RequestBody MesTeamDeviceSaveReqVO reqVO) {
+        return success(runtimeConfigService.createDevice(
+                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamDeviceSaveReqBO.builder()
+                        .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
+                        .deviceCode(reqVO.getDeviceCode())
+                        .deviceName(reqVO.getDeviceName())
+                        .deviceStatus(reqVO.getDeviceStatus())
+                        .build()));
+    }
+
+    @PutMapping("/team-device/status/update")
+    @Operation(summary = "更新班组设备状态")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Boolean> updateTeamDeviceStatus(@Valid @RequestBody MesTeamDeviceStatusUpdateReqVO reqVO) {
+        runtimeConfigService.updateDeviceStatus(
+                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamDeviceStatusUpdateReqBO.builder()
+                        .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
+                        .deviceId(reqVO.getDeviceId())
+                        .deviceStatus(reqVO.getDeviceStatus())
+                        .build());
+        return success(Boolean.TRUE);
+    }
+
+    @PostMapping("/process-device-binding/save")
+    @Operation(summary = "保存班组工序设备绑定")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Long> saveProcessDeviceBinding(@Valid @RequestBody MesTeamProcessDeviceBindingSaveReqVO reqVO) {
+        return success(runtimeConfigService.bindDeviceToProcess(
+                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamProcessDeviceBindingSaveReqBO.builder()
+                        .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
+                        .processId(reqVO.getProcessId())
+                        .deviceId(reqVO.getDeviceId())
+                        .build()));
+    }
+
+    @PostMapping("/runtime-device-parameter-rule/save")
+    @Operation(summary = "保存班组运行态设备参数规则")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Long> saveRuntimeDeviceParameterRule(
+            @Valid @RequestBody MesTeamDeviceParameterRuleSaveReqVO reqVO) {
+        return success(runtimeConfigService.saveDeviceParameterRule(
+                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamDeviceParameterRuleSaveReqBO.builder()
+                        .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
+                        .routeProcessId(reqVO.getRouteProcessId())
+                        .processId(reqVO.getProcessId())
+                        .deviceId(reqVO.getDeviceId())
+                        .parameterCode(reqVO.getParameterCode())
+                        .parameterName(reqVO.getParameterName())
+                        .unit(reqVO.getUnit())
+                        .lowerLimit(reqVO.getLowerLimit())
+                        .upperLimit(reqVO.getUpperLimit())
+                        .defaultValue(reqVO.getDefaultValue())
+                        .valueType(reqVO.getValueType())
+                        .build()));
+    }
+
+    @PostMapping("/process-defect-reason/save")
+    @Operation(summary = "保存班组工序异常原因")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:maintain')")
+    public CommonResult<Long> saveProcessDefectReason(@Valid @RequestBody MesTeamProcessDefectReasonSaveReqVO reqVO) {
+        return success(runtimeConfigService.saveProcessDefectReason(
+                cn.iocoder.yudao.module.mes.service.pro.processpool.team.MesTeamProcessDefectReasonSaveReqBO.builder()
+                        .leaderUserId(SecurityFrameworkUtils.getLoginUserId())
+                        .routeProcessId(reqVO.getRouteProcessId())
+                        .processId(reqVO.getProcessId())
+                        .reasonType(reqVO.getReasonType())
+                        .reasonCode(reqVO.getReasonCode())
+                        .reasonName(reqVO.getReasonName())
+                        .build()));
+    }
+
+    @GetMapping("/submission/allocation/trace")
+    @Operation(summary = "P6 只读核验报工分配记录")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    public CommonResult<MesTeamLeaderAllocationTraceRespVO> getReportAllocationTrace(
+            @RequestParam("eventId") Long eventId,
+            @RequestParam("workOrderId") Long workOrderId,
+            @RequestParam("routeProcessId") Long routeProcessId,
+            @RequestParam("processId") Long processId) {
+        return success(traceService.getAllocationTrace(eventId, workOrderId, routeProcessId, processId));
+    }
+
+    @GetMapping("/order-process/trace")
+    @Operation(summary = "P6 只读核验订单工序完成状态")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    public CommonResult<MesTeamLeaderOrderProcessTraceRespVO> getOrderProcessTrace(
+            @RequestParam("workOrderId") Long workOrderId,
+            @RequestParam("routeProcessId") Long routeProcessId,
+            @RequestParam("processId") Long processId) {
+        return success(traceService.getOrderProcessTrace(workOrderId, routeProcessId, processId));
+    }
+
+    @GetMapping("/batch-record/trace")
+    @Operation(summary = "P6 只读核验正式批记录回填证据")
+    @PreAuthorize("@ss.hasPermission('mes:pro-process-pool-team-leader:query')")
+    public CommonResult<MesTeamLeaderBatchRecordTraceRespVO> getBatchRecordTrace(
+            @RequestParam("workOrderId") Long workOrderId,
+            @RequestParam("routeProcessId") Long routeProcessId,
+            @RequestParam("processId") Long processId) {
+        return success(traceService.getBatchRecordTrace(workOrderId, routeProcessId, processId));
+    }
+
+    private static MesTeamLeaderActiveOrderRespVO toActiveOrderRespVO(MesProcessPoolActiveOrderDO activeOrder) {
+        return new MesTeamLeaderActiveOrderRespVO()
+                .setId(activeOrder.getId())
+                .setWorkOrderId(activeOrder.getWorkOrderId())
+                .setActiveStatus(activeOrder.getActiveStatus())
+                .setJoinedAt(activeOrder.getJoinedAt())
+                .setRemovedAt(activeOrder.getRemovedAt());
+    }
+
+    private static MesTeamLeaderReportAllocationLineReqBO toReportAllocationLineReqBO(
+            MesTeamLeaderReportAllocationLineReqVO line) {
+        return MesTeamLeaderReportAllocationLineReqBO.builder()
+                .activeOrderId(line.getActiveOrderId())
+                .allocatedQuantity(line.getAllocatedQuantity())
+                .build();
+    }
+
+    private static MesTeamLeaderReportAllocationPreviewRespVO toReportAllocationPreviewRespVO(
+            MesTeamLeaderReportAllocationPreview preview) {
+        return new MesTeamLeaderReportAllocationPreviewRespVO()
+                .setTotalAllocatedQuantity(preview.getTotalAllocatedQuantity())
+                .setLines(preview.getLines().stream()
+                        .map(MesProcessPoolTeamLeaderController::toReportAllocationPreviewLineRespVO)
+                        .toList());
+    }
+
+    private static MesTeamLeaderReportAllocationPreviewRespVO.Line toReportAllocationPreviewLineRespVO(
+            MesTeamLeaderReportAllocationPreviewLine line) {
+        return new MesTeamLeaderReportAllocationPreviewRespVO.Line()
+                .setActiveOrderId(line.getActiveOrderId())
+                .setWorkOrderId(line.getWorkOrderId())
+                .setWorkOrderCode(line.getWorkOrderCode())
+                .setAllocatedQuantity(line.getAllocatedQuantity())
+                .setRemainingQuantityBeforeAllocation(line.getRemainingQuantityBeforeAllocation());
     }
 }

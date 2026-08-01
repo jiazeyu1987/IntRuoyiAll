@@ -2,6 +2,8 @@ import { ProFeedbackApi } from '@/api/mes/pro/feedback'
 import type {
   FrontlineDeviceRouteProcessVO,
   FrontlineEmployeeCandidateVO,
+  FrontlineRuntimeConfigVO,
+  FrontlineRuntimeEmployeeVO,
   FrontlineSwitchActualEmployeeReqVO,
   FrontlineSwitchActualEmployeeRespVO,
   FrontlineTemplateVO
@@ -12,6 +14,7 @@ export interface FrontlineDeviceEmployeeState {
   employeeOptions: FrontlineEmployeeCandidateVO[]
   selectedProcess?: FrontlineDeviceRouteProcessVO
   selectedEmployee?: FrontlineEmployeeCandidateVO
+  runtimeConfig?: FrontlineRuntimeConfigVO
   template?: FrontlineTemplateVO
   loadingProcesses: boolean
   loadingEmployees: boolean
@@ -67,17 +70,19 @@ export const selectFrontlineProcess = async (
   state.selectedProcess = process
   state.selectedEmployee = undefined
   state.template = undefined
+  state.runtimeConfig = undefined
   state.employeeOptions = []
   state.loadingEmployees = true
   state.lastError = undefined
   try {
-    const employees = await ProFeedbackApi.getFrontlineEmployeeCandidates({
+    const runtimeConfig = await ProFeedbackApi.getFrontlineRuntimeConfig({
       routeId: process.routeId,
       routeProcessId: process.routeProcessId,
       processId: process.processId
     })
-    state.employeeOptions = employees
-    return employees
+    state.runtimeConfig = runtimeConfig
+    state.employeeOptions = runtimeConfig.employees.map(toEmployeeCandidate)
+    return state.employeeOptions
   } catch (error) {
     state.lastError = resolveFrontlineErrorMessage(error)
     throw error
@@ -85,6 +90,17 @@ export const selectFrontlineProcess = async (
     state.loadingEmployees = false
   }
 }
+
+const toEmployeeCandidate = (employee: FrontlineRuntimeEmployeeVO): FrontlineEmployeeCandidateVO => ({
+  userId: employee.systemUserId || employee.employeeProfileId,
+  username: employee.employeeCode,
+  nickname: employee.employeeName,
+  employeeProfileId: employee.employeeProfileId,
+  systemUserId: employee.systemUserId,
+  employeeCode: employee.employeeCode,
+  employeeName: employee.employeeName,
+  employeeType: employee.employeeType
+})
 
 export const switchFrontlineActualEmployee = async (
   state: FrontlineDeviceEmployeeState,

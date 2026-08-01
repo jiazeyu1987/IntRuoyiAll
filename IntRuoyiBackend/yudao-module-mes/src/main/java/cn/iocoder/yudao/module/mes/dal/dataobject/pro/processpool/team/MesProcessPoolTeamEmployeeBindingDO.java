@@ -30,6 +30,7 @@ public class MesProcessPoolTeamEmployeeBindingDO extends TenantBaseDO {
 
     private Long leaderUserId;
     private Long processId;
+    private Long employeeProfileId;
     private Long employeeUserId;
     private Boolean enabled;
     private LocalDateTime disabledAt;

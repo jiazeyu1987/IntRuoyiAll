@@ -387,7 +387,7 @@
               <div class="frontline-production-defect-title">不良明细</div>
               <div class="frontline-production-defect-grid">
                 <div
-                  v-for="defect in productionDefects"
+                  v-for="defect in configuredDefectReasons"
                   :key="defect.key"
                   class="frontline-production-defect-card"
                   :class="{ active: getProductionDefectQuantity(defect.key) > 0 }"
@@ -444,54 +444,35 @@
             </button>
           </div>
           <div v-if="activeProductionDevice" class="frontline-production-device-current">
-            <div class="frontline-production-device-param">
-              <label for="frontlineProductionDevicePressure">压力</label>
+            <div
+              v-for="parameter in activeProductionDevice.parameters"
+              :key="parameter.parameterCode"
+              class="frontline-production-device-param"
+            >
+              <label :for="`frontlineProductionDeviceParameter-${parameter.parameterCode}`">
+                {{ parameter.parameterName || parameter.parameterCode }}
+              </label>
               <button
                 type="button"
-                aria-label="压力减少"
-                @click="adjustProductionDeviceParameter(activeProductionDevice.key, 'pressure', -1)"
+                :aria-label="`${parameter.parameterName || parameter.parameterCode}减少`"
+                @click="adjustProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode, -1)"
               >
                 -
               </button>
               <input
-                id="frontlineProductionDevicePressure"
-                :value="getProductionDeviceParameter(activeProductionDevice.key, 'pressure')"
+                :id="`frontlineProductionDeviceParameter-${parameter.parameterCode}`"
+                :value="getProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode)"
                 inputmode="decimal"
-                @input="updateProductionDeviceParameter(activeProductionDevice.key, 'pressure', $event)"
+                @input="updateProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode, $event)"
               />
               <button
                 type="button"
-                aria-label="压力增加"
-                @click="adjustProductionDeviceParameter(activeProductionDevice.key, 'pressure', 1)"
+                :aria-label="`${parameter.parameterName || parameter.parameterCode}增加`"
+                @click="adjustProductionDeviceParameter(activeProductionDevice.key, parameter.parameterCode, 1)"
               >
                 +
               </button>
-              <span>MPa</span>
-            </div>
-
-            <div class="frontline-production-device-param">
-              <label for="frontlineProductionDeviceTime">时间</label>
-              <button
-                type="button"
-                aria-label="时间减少"
-                @click="adjustProductionDeviceParameter(activeProductionDevice.key, 'time', -1)"
-              >
-                -
-              </button>
-              <input
-                id="frontlineProductionDeviceTime"
-                :value="getProductionDeviceParameter(activeProductionDevice.key, 'time')"
-                inputmode="numeric"
-                @input="updateProductionDeviceParameter(activeProductionDevice.key, 'time', $event)"
-              />
-              <button
-                type="button"
-                aria-label="时间增加"
-                @click="adjustProductionDeviceParameter(activeProductionDevice.key, 'time', 1)"
-              >
-                +
-              </button>
-              <span>秒</span>
+              <span>{{ parameter.unit || '' }}</span>
             </div>
           </div>
         </section>
@@ -553,10 +534,14 @@ import {
   type FrontlineTemplateDefinitionVO,
   type FrontlineTemplatePayloadVO
 } from '@/api/mes/pro/feedbackFrontlineTemplate'
+import { ProFeedbackApi } from '@/api/mes/pro/feedback'
 import type {
   FrontlineDeviceRouteProcessVO,
-  FrontlineEmployeeCandidateVO
+  FrontlineEmployeeCandidateVO,
+  FrontlineRuntimeDeviceParameterVO,
+  ProFrontlineFeedbackSubmitReqVO
 } from '@/api/mes/pro/feedback'
+import { useUserStore } from '@/store/modules/user'
 import {
   buildFrontlineTemplatePayload,
   createFrontlineDefaultValues,
@@ -577,7 +562,20 @@ type InspectionType = 'FIRST' | 'PATROL' | 'FINAL'
 type PqcInspectionItemKey = 'length' | 'appearance' | 'seal' | 'pressure'
 type PqcChoiceResult = '合格' | '不合格'
 type PqcQuantityField = 'inspectionQuantity' | 'scrapQuantity'
-type ProductionDeviceParameterKey = 'pressure' | 'time'
+type ProductionDefectKey = string
+type ProductionDeviceParameterKey = string
+type ProductionDeviceParameterDraft = Record<ProductionDeviceParameterKey, number | undefined>
+
+interface ProductionDefectOption {
+  key: ProductionDefectKey
+  label: string
+}
+
+interface ProductionDeviceCard {
+  key: string
+  label: string
+  parameters: FrontlineRuntimeDeviceParameterVO[]
+}
 
 interface PqcInspectionItem {
   label: string
@@ -620,19 +618,6 @@ const pqcInspectionItems: Record<PqcInspectionItemKey, PqcInspectionItem> = {
 
 const pqcInspectionItemKeys = Object.keys(pqcInspectionItems) as PqcInspectionItemKey[]
 
-const productionDefects = [
-  { key: 'sealScratch', label: '密封件划伤' },
-  { key: 'assembly', label: '装配不到位' },
-  { key: 'appearance', label: '外观磕碰' },
-  { key: 'dimension', label: '尺寸超差' },
-  { key: 'leak', label: '泄漏' },
-  { key: 'pressure', label: '压力异常' },
-  { key: 'other', label: '其他不良' }
-] as const
-
-type ProductionDefectKey = (typeof productionDefects)[number]['key']
-type ProductionDeviceParameterDraft = Partial<Record<ProductionDeviceParameterKey, number | undefined>>
-
 const props = withDefaults(defineProps<{ mode?: 'production' | 'pqc' }>(), {
   mode: 'production'
 })
@@ -640,6 +625,7 @@ const props = withDefaults(defineProps<{ mode?: 'production' | 'pqc' }>(), {
 const message = useMessage()
 const router = useRouter()
 const route = useRoute()
+const userStore = useUserStore()
 
 const catalog = ref<FrontlineTemplateDefinitionVO[]>([])
 const payloadLoading = ref(false)
@@ -667,12 +653,7 @@ const productionDraft = reactive({
   outputQuantity: undefined as number | undefined
 })
 
-const productionDefectDraft = reactive(
-  productionDefects.reduce((draftValues, defect) => {
-    draftValues[defect.key] = 0
-    return draftValues
-  }, {} as Record<ProductionDefectKey, number>)
-)
+const productionDefectDraft = reactive<Record<ProductionDefectKey, number>>({})
 
 const selectedProductionDeviceKey = ref<string>()
 const deviceParameterDraft = reactive<Record<string, ProductionDeviceParameterDraft>>({})
@@ -699,7 +680,7 @@ const selectedProcessLabel = computed(() => formatProcessLabel(deviceState.selec
 const selectedEmployeeLabel = computed(() => formatEmployeeLabel(deviceState.selectedEmployee))
 
 const productionScrapQuantity = computed(() =>
-  productionDefects.reduce(
+  configuredDefectReasons.value.reduce(
     (total, defect) => total + (productionDefectDraft[defect.key] || 0),
     0
   )
@@ -763,34 +744,24 @@ const statusText = computed(() => {
   return '准备提交'
 })
 
-const selectedDeviceCards = computed(() => {
-  const selected = deviceState.selectedProcess
-  if (!selected) {
-    return []
-  }
-  const sameProcessDevices = deviceState.processOptions.filter((process) =>
-    process.routeId === selected.routeId &&
-    process.routeProcessId === selected.routeProcessId &&
-    process.processId === selected.processId &&
-    Number(process.deviceId || 0) > 0
-  )
-  const seen = new Set<number>()
-  const cards: Array<{ key: string; label: string }> = []
-  for (const process of sameProcessDevices) {
-    const deviceId = Number(process.deviceId)
-    if (!Number.isFinite(deviceId) || deviceId <= 0 || seen.has(deviceId)) {
-      continue
-    }
-    seen.add(deviceId)
-    cards.push({
-      key: String(deviceId),
-      label: process.deviceName || process.deviceCode || `设备 ${cards.length + 1}`
-    })
-  }
-  return cards
-})
+const configuredDefectReasons = computed<ProductionDefectOption[]>(() =>
+  (deviceState.runtimeConfig?.defectReasons || []).map((reason) => ({
+    key: reason.reasonCode || String(reason.reasonId),
+    label: reason.reasonName || reason.reasonCode || `不良原因 ${reason.reasonId}`
+  }))
+)
 
-const visibleDeviceCards = computed(() => selectedDeviceCards.value.slice(0, 3))
+const configuredDeviceCards = computed<ProductionDeviceCard[]>(() =>
+  (deviceState.runtimeConfig?.devices || [])
+    .filter((device) => Number(device.deviceId || 0) > 0)
+    .map((device, index) => ({
+      key: String(device.deviceId),
+      label: device.deviceName || device.deviceCode || `设备 ${index + 1}`,
+      parameters: device.parameters || []
+    }))
+)
+
+const visibleDeviceCards = computed(() => configuredDeviceCards.value.slice(0, 3))
 
 const activeProductionDevice = computed(() =>
   visibleDeviceCards.value.find((device) => device.key === selectedProductionDeviceKey.value) ||
@@ -856,9 +827,29 @@ watch(
 watch(
   visibleDeviceCards,
   (devices) => {
+    const visibleKeys = new Set(devices.map((device) => device.key))
+    for (const deviceKey of Object.keys(deviceParameterDraft)) {
+      if (!visibleKeys.has(deviceKey)) {
+        delete deviceParameterDraft[deviceKey]
+      }
+    }
     if (!devices.length) {
       selectedProductionDeviceKey.value = undefined
       return
+    }
+    for (const device of devices) {
+      if (!deviceParameterDraft[device.key]) {
+        deviceParameterDraft[device.key] = {}
+      }
+      for (const parameter of device.parameters) {
+        if (!parameter.parameterCode) {
+          continue
+        }
+        const params = deviceParameterDraft[device.key]
+        if (params[parameter.parameterCode] === undefined && parameter.defaultValue !== undefined) {
+          params[parameter.parameterCode] = normalizeProductionParameter(parameter.defaultValue)
+        }
+      }
     }
     if (!devices.some((device) => device.key === selectedProductionDeviceKey.value)) {
       selectedProductionDeviceKey.value = devices[0].key
@@ -868,7 +859,25 @@ watch(
 )
 
 watch(
-  [productionDraft, selectedDeviceCards, deviceParameterDraft, productionDefectDraft],
+  configuredDefectReasons,
+  (defects) => {
+    const configuredKeys = new Set(defects.map((defect) => defect.key))
+    for (const key of Object.keys(productionDefectDraft)) {
+      if (!configuredKeys.has(key)) {
+        delete productionDefectDraft[key]
+      }
+    }
+    for (const defect of defects) {
+      if (productionDefectDraft[defect.key] === undefined) {
+        productionDefectDraft[defect.key] = 0
+      }
+    }
+  },
+  { immediate: true }
+)
+
+watch(
+  [productionDraft, configuredDeviceCards, deviceParameterDraft, productionDefectDraft],
   () => {
     if (!isPqcMode.value) {
       Object.assign(draft.fieldValues, buildProductionFieldValues())
@@ -885,7 +894,7 @@ const normalizeProductionQuantity = (value: unknown) => {
   return Math.max(0, Math.trunc(parsed))
 }
 
-const normalizeProductionParameter = (value: unknown) => {
+function normalizeProductionParameter(value: unknown) {
   const parsed = Number(value)
   if (!Number.isFinite(parsed)) {
     return undefined
@@ -960,7 +969,7 @@ const adjustProductionDeviceParameter = (
 
 const handleResetProduction = () => {
   productionDraft.outputQuantity = undefined
-  for (const defect of productionDefects) {
+  for (const defect of configuredDefectReasons.value) {
     productionDefectDraft[defect.key] = 0
   }
   for (const deviceKey of Object.keys(deviceParameterDraft)) {
@@ -1176,8 +1185,10 @@ const handleValidate = async () => {
   payloadLoading.value = true
   try {
     assertFormalPayloadContext()
-    payloadPreview.value = await FrontlineTemplateApi.validatePayload(
-      buildFrontlineTemplatePayload(context, draft.fieldValues)
+    const templatePayload = buildFrontlineTemplatePayload(context, draft.fieldValues)
+    payloadPreview.value = await FrontlineTemplateApi.validatePayload(templatePayload)
+    await ProFeedbackApi.frontlineSubmit(
+      buildFrontlineFormalSubmitPayload(payloadPreview.value)
     )
     message.success('已提交')
   } catch (error) {
@@ -1207,11 +1218,170 @@ const assertFormalPayloadContext = () => {
   }
 }
 
+interface FrontlineFormalSubmitContext {
+  feedbackCode?: string
+  feedbackType?: number
+  workOrderId?: number
+  taskId?: number
+  routeId?: number
+  routeProcessId?: number
+  processId?: number
+  workstationId?: number
+  deviceId?: number
+  deviceAccountUserId?: number
+  itemId?: number
+  approveUserId?: number
+  recordbookId?: number
+  signatureId?: number
+  signatureEmployeeId?: number
+  scheduleOrderId?: number
+  scheduleOrderProcessId?: number
+  scheduledQuantity?: number
+  expireDate?: string
+}
+
+const readFrontlineFormalSubmitContext = (): FrontlineFormalSubmitContext => {
+  const selectedProcess = deviceState.selectedProcess
+  return {
+    feedbackCode: firstRouteQueryText(['feedbackCode', 'feedbackNo', 'code']),
+    feedbackType: firstRouteQueryNumber(['feedbackType', 'type']),
+    workOrderId: context.workOrderId,
+    taskId: firstRouteQueryNumber(['taskId', 'productionTaskId']),
+    routeId: context.routeId,
+    routeProcessId: context.routeProcessId,
+    processId: context.processId,
+    workstationId: selectedProcess?.workstationId ?? firstRouteQueryNumber(['workstationId']),
+    deviceId: activeProductionDevice.value?.key
+      ? Number(activeProductionDevice.value.key)
+      : selectedProcess?.deviceId,
+    deviceAccountUserId: Number(userStore.getUser?.id || 0),
+    itemId: firstRouteQueryNumber(['itemId', 'productItemId']),
+    approveUserId: firstRouteQueryNumber(['approveUserId', 'teamLeaderUserId']),
+    recordbookId: firstRouteQueryNumber(['recordbookId', 'frontlineRecordbookId']),
+    signatureId: firstRouteQueryNumber(['signatureId']),
+    signatureEmployeeId: firstRouteQueryNumber(['signatureEmployeeId']),
+    scheduleOrderId: firstRouteQueryNumber(['scheduleOrderId']),
+    scheduleOrderProcessId: firstRouteQueryNumber(['scheduleOrderProcessId']),
+    scheduledQuantity: firstRouteQueryNumber(['scheduledQuantity']),
+    expireDate: firstRouteQueryText(['expireDate'])
+  }
+}
+
+const assertFrontlineFormalSubmitContext = (formalContext: FrontlineFormalSubmitContext) => {
+  const missingFields: string[] = []
+  const requiredFields: Array<[keyof FrontlineFormalSubmitContext, string]> = [
+    ['feedbackCode', '报工单编号'],
+    ['feedbackType', '报工类型'],
+    ['workOrderId', '订单上下文'],
+    ['taskId', '生产任务'],
+    ['routeId', '路线'],
+    ['routeProcessId', '路线工序'],
+    ['processId', '工序'],
+    ['workstationId', '工作站'],
+    ['deviceId', '设备'],
+    ['deviceAccountUserId', '设备账号'],
+    ['itemId', '产品物料'],
+    ['approveUserId', '班组长审批人'],
+    ['recordbookId', '记录本'],
+    ['signatureId', '签名'],
+    ['signatureEmployeeId', '签名员工']
+  ]
+  for (const [field, label] of requiredFields) {
+    const value = formalContext[field]
+    if (value === undefined || value === null || value === '' || Number(value) <= 0) {
+      missingFields.push(label)
+    }
+  }
+  if (!productionDraft.outputQuantity || productionDraft.outputQuantity <= 0) {
+    missingFields.push('产出数量')
+  }
+  if (
+    formalContext.signatureEmployeeId &&
+    context.actualEmployeeId &&
+    formalContext.signatureEmployeeId !== context.actualEmployeeId
+  ) {
+    throw new Error('签名员工必须等于实际填写员工，无法提交。')
+  }
+  if (missingFields.length) {
+    throw new Error(`缺少${missingFields.join('、')}，无法提交。`)
+  }
+}
+
+const buildFrontlineFormalSubmitPayload = (
+  rawPayload: FrontlineTemplatePayloadVO
+): ProFrontlineFeedbackSubmitReqVO => {
+  const formalContext = readFrontlineFormalSubmitContext()
+  assertFrontlineFormalSubmitContext(formalContext)
+  const equipmentParameters = Object.fromEntries(
+    visibleDeviceCards.value.map((device) => [
+      device.label,
+      buildProductionDeviceParameterPayload(device.key)
+    ])
+  )
+  return {
+    feedbackPayload: {
+      code: formalContext.feedbackCode!,
+      type: formalContext.feedbackType!,
+      workstationId: formalContext.workstationId!,
+      routeId: formalContext.routeId!,
+      processId: formalContext.processId!,
+      workOrderId: formalContext.workOrderId!,
+      taskId: formalContext.taskId!,
+      scheduleOrderId: formalContext.scheduleOrderId,
+      scheduleOrderProcessId: formalContext.scheduleOrderProcessId,
+      itemId: formalContext.itemId!,
+      expireDate: formalContext.expireDate,
+      scheduledQuantity: formalContext.scheduledQuantity,
+      outputQuantity: productionDraft.outputQuantity!,
+      lossQuantity: productionScrapQuantity.value,
+      laborScrapQuantity: productionScrapQuantity.value,
+      materialScrapQuantity: 0,
+      otherScrapQuantity: 0,
+      approveUserId: formalContext.approveUserId!,
+      remark: firstRouteQueryText(['feedbackRemark', 'remark'])
+    },
+    recordbookPayload: {
+      recordbookId: formalContext.recordbookId!,
+      entryTitle:
+        firstRouteQueryText(['recordbookEntryTitle']) ||
+        `一线报工-${formalContext.feedbackCode}`,
+      entryContent: {
+        fieldValues: { ...draft.fieldValues },
+        defects: { ...productionDefectDraft },
+        productionOrder: productionOrderLabel.value,
+        process: selectedProcessLabel.value,
+        employee: selectedEmployeeLabel.value
+      },
+      previousProcessInputQuantity: productionDraft.previousProcessInputQuantity || 0,
+      equipmentParameters,
+      tagCodes: [],
+      idempotencyKey:
+        firstRouteQueryText(['idempotencyKey']) ||
+        `frontline-submit-${formalContext.signatureId}`,
+      remark: firstRouteQueryText(['recordbookRemark'])
+    },
+    processPoolContext: {
+      workOrderId: formalContext.workOrderId!,
+      taskId: formalContext.taskId!,
+      routeId: formalContext.routeId!,
+      routeProcessId: formalContext.routeProcessId!,
+      processId: formalContext.processId!,
+      workstationId: formalContext.workstationId!,
+      deviceId: formalContext.deviceId!,
+      deviceAccountUserId: formalContext.deviceAccountUserId!,
+      templateType: context.templateCode || expectedTemplateCode.value
+    },
+    actualEmployeeId: context.actualEmployeeId!,
+    signatureId: formalContext.signatureId!,
+    signatureEmployeeId: formalContext.signatureEmployeeId!,
+    rawPayload: rawPayload as unknown as Record<string, unknown>
+  }
+}
+
 const buildProductionDeviceParameterPayload = (deviceKey: string) => {
   const params = deviceParameterDraft[deviceKey] || {}
   return Object.fromEntries(
-    (Object.entries(params) as Array<[ProductionDeviceParameterKey, number | undefined]>)
-      .filter(([, value]) => value !== undefined)
+    Object.entries(params).filter(([, value]) => value !== undefined)
   )
 }
 

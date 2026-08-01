@@ -60,6 +60,7 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
     private static final String FORM_TEMPLATE_REPORT_PREFIX = "FORMTPL:";
     private static final String SOURCE_TYPE_BATCH_RECORD_CELL = "BATCH_RECORD_CELL";
     private static final String SOURCE_TYPE_PRODUCTION_WORK_ORDER = "PRODUCTION_WORK_ORDER";
+    private static final String SOURCE_TYPE_PROCESS_POOL_REPORT = "PROCESS_POOL_REPORT";
     private static final String PRODUCTION_WORK_ORDER_SOURCE_REPORT_ID = "PRODUCTION_WORK_ORDER";
     private static final String PRODUCTION_WORK_ORDER_SOURCE_REPORT_NAME = "生产工单";
     private static final String WORK_ORDER_SOURCE_FIELD_BATCH_CODE = "batchCode";
@@ -318,6 +319,9 @@ public class MesProBatchRecordCellLinkServiceImpl implements MesProBatchRecordCe
         Map<String, MesProBatchRecordExecutionDO> sourceExecutionCache = new LinkedHashMap<>();
         Map<Long, Map<String, JSONObject>> sourceValueCache = new LinkedHashMap<>();
         for (MesProBatchRecordCellLinkRuleDO rule : rules) {
+            if (SOURCE_TYPE_PROCESS_POOL_REPORT.equals(StrUtil.trim(rule.getSourceType()))) {
+                continue;
+            }
             BatchRecordCellLinkPrefillItemVO item = basePrefillItem(rule);
             if (SOURCE_TYPE_PRODUCTION_WORK_ORDER.equals(normalizeSourceType(rule.getSourceType()))) {
                 Object sourceValue = resolveProductionWorkOrderFieldValue(targetExecution, rule);

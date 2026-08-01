@@ -39,8 +39,10 @@ public class MesProcessDeviceParameterRuleServiceImpl implements MesProcessDevic
                 .deviceId(reqBO.getDeviceId())
                 .parameterCode(reqBO.getParameterCode())
                 .parameterName(reqBO.getParameterName())
+                .unit(reqBO.getUnit())
                 .lowerLimit(reqBO.getLowerLimit())
                 .upperLimit(reqBO.getUpperLimit())
+                .defaultValue(reqBO.getDefaultValue())
                 .valueType(reqBO.getValueType())
                 .enabled(Boolean.TRUE)
                 .build();
@@ -57,6 +59,10 @@ public class MesProcessDeviceParameterRuleServiceImpl implements MesProcessDevic
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "deviceParameterRule");
         }
         if (reqBO.getLowerLimit().compareTo(reqBO.getUpperLimit()) > 0) {
+            throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, reqBO.getParameterCode());
+        }
+        if (reqBO.getDefaultValue() != null && (reqBO.getDefaultValue().compareTo(reqBO.getLowerLimit()) < 0
+                || reqBO.getDefaultValue().compareTo(reqBO.getUpperLimit()) > 0)) {
             throw exception(PRO_PROCESS_POOL_DEVICE_PARAMETER_LIMIT_INVALID, reqBO.getParameterCode());
         }
     }

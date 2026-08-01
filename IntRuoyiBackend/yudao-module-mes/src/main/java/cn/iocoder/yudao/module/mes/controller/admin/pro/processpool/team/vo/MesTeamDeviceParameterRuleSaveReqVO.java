@@ -31,6 +31,9 @@ public class MesTeamDeviceParameterRuleSaveReqVO {
     @Schema(description = "参数名称", example = "压力")
     private String parameterName;
 
+    @Schema(description = "参数单位", example = "MPa")
+    private String unit;
+
     @Schema(description = "下限", requiredMode = Schema.RequiredMode.REQUIRED, example = "20")
     @NotNull
     private BigDecimal lowerLimit;
@@ -38,6 +41,9 @@ public class MesTeamDeviceParameterRuleSaveReqVO {
     @Schema(description = "上限", requiredMode = Schema.RequiredMode.REQUIRED, example = "40")
     @NotNull
     private BigDecimal upperLimit;
+
+    @Schema(description = "默认值", example = "30")
+    private BigDecimal defaultValue;
 
     @Schema(description = "值类型", example = "DECIMAL")
     private String valueType;

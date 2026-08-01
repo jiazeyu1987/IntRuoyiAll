@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,6 +25,7 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
 
         MesProFeedbackSaveReqVO feedbackPayload = splitPayload.getFeedbackPayload();
         assertEquals(new BigDecimal("100.500"), feedbackPayload.getFeedbackQuantity());
+        assertEquals(new BigDecimal("98.000"), feedbackPayload.getQualifiedQuantity());
         assertEquals(new BigDecimal("2.500"), feedbackPayload.getUnqualifiedQuantity());
         assertEquals(new BigDecimal("1.000"), feedbackPayload.getLaborScrapQuantity());
         assertEquals(new BigDecimal("1.500"), feedbackPayload.getMaterialScrapQuantity());
@@ -58,7 +60,34 @@ class MesProFrontlineFeedbackPayloadSplitterTest {
         assertEquals(new BigDecimal("2.500"), eventPayload.getLossQuantity());
         assertEquals(new BigDecimal("120.000"), eventPayload.getPreviousProcessInputQuantity());
         assertEquals(reqVO.getRecordbookPayload().getEquipmentParameters(), eventPayload.getEquipmentParameters());
-        assertEquals(reqVO.getRawPayload(), eventPayload.getRawPayload());
+        Map<String, Object> eventRawPayload = eventPayload.getRawPayload();
+        assertEquals("PRODUCTION_SIMPLE", eventRawPayload.get("templateType"));
+        assertEquals(Map.of("P10", "WAITING"), eventRawPayload.get("routePredecessorStatuses"));
+        assertEquals(reqVO.getRecordbookPayload().getEquipmentParameters(), eventRawPayload.get("equipmentParameters"));
+        assertEquals(new BigDecimal("100.500"), eventRawPayload.get("outputQuantity"));
+        assertEquals(new BigDecimal("2.500"), eventRawPayload.get("lossQuantity"));
+        assertEquals(new BigDecimal("120.000"), eventRawPayload.get("previousProcessInputQuantity"));
+        assertEquals(new BigDecimal("50"), eventRawPayload.get("temperature"));
+        assertEquals(new BigDecimal("10"), eventRawPayload.get("pressure"));
         assertEquals(submittedAt, eventPayload.getSubmittedAt());
+    }
+
+    @Test
+    void shouldFlattenFrontendDeviceParameterMapIntoProcessPoolRawPayload() {
+        MesProFrontlineFeedbackSubmitReqVO reqVO = MesProFrontlineFeedbackSubmitTestData.buildSubmitReq();
+        Map<String, Object> nestedParameters = new LinkedHashMap<>();
+        nestedParameters.put("TLW Device", Map.of("TLW-20260731-PRESSURE", new BigDecimal("15")));
+        reqVO.getRecordbookPayload().setEquipmentParameters(nestedParameters);
+        reqVO.getRawPayload().clear();
+        reqVO.getRawPayload().put("templateType", "PRODUCTION_SIMPLE");
+        reqVO.getRawPayload().put("deviceParameters", nestedParameters);
+
+        MesProcessPoolSubmitEventCreateReqBO eventPayload =
+                new MesProFrontlineFeedbackPayloadSplitter().split(reqVO, 9001L,
+                        LocalDateTime.of(2026, 8, 1, 9, 10, 11)).getProcessPoolEventPayload();
+
+        Map<String, Object> eventRawPayload = eventPayload.getRawPayload();
+        assertEquals(nestedParameters, eventRawPayload.get("equipmentParameters"));
+        assertEquals(new BigDecimal("15"), eventRawPayload.get("TLW-20260731-PRESSURE"));
     }
 }

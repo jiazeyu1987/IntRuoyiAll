@@ -34,8 +34,10 @@ public class MesProcessPoolDeviceParameterRuleDO extends TenantBaseDO {
     private Long deviceId;
     private String parameterCode;
     private String parameterName;
+    private String unit;
     private BigDecimal lowerLimit;
     private BigDecimal upperLimit;
+    private BigDecimal defaultValue;
     private String valueType;
     private Boolean enabled;
 }

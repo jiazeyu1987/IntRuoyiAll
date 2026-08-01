@@ -56,6 +56,8 @@ class MesFrontlineEmployeeSwitchServiceTest {
     private MesMdWorkstationWorkerService workstationWorkerService;
     @Mock
     private AdminUserApi adminUserApi;
+    @Mock
+    private MesFrontlineRuntimeConfigService runtimeConfigService;
 
     private MesFrontlineDeviceAccountContextServiceImpl contextService;
     private MesFrontlineEmployeeSwitchServiceImpl employeeSwitchService;
@@ -65,7 +67,8 @@ class MesFrontlineEmployeeSwitchServiceTest {
         contextService = new MesFrontlineDeviceAccountContextServiceImpl(routeBindingSourceProvider, routeProcessMapper,
                 processService, workstationWorkerService, adminUserApi);
         MesFrontlineTemplateResolverImpl templateResolver = new MesFrontlineTemplateResolverImpl(templateBindingSourceProvider);
-        employeeSwitchService = new MesFrontlineEmployeeSwitchServiceImpl(contextService, templateResolver);
+        employeeSwitchService = new MesFrontlineEmployeeSwitchServiceImpl(contextService, templateResolver,
+                runtimeConfigService);
     }
 
     @Test
@@ -89,7 +92,7 @@ class MesFrontlineEmployeeSwitchServiceTest {
     @Test
     void shouldSwitchActualEmployeeWithoutChangingLoginAccountOrAddingSecondVerification() {
         givenBoundProcess();
-        givenEmployeeCandidates();
+        givenRuntimeConfigEmployee(8801L, 10001L, "Alice", "FORMAL");
         when(templateBindingSourceProvider.getIfAvailable()).thenReturn(templateBindingSource);
         when(templateBindingSource.findTemplate(any(MesFrontlineTemplateRequest.class))).thenReturn(
                 new MesFrontlineTemplateDescriptor("TPL-201-E1001", "BATCH_RECORD",
@@ -113,9 +116,28 @@ class MesFrontlineEmployeeSwitchServiceTest {
     }
 
     @Test
+    void shouldSwitchTemporaryEmployeeFromRuntimeConfigWithoutSystemUser() {
+        givenBoundProcess();
+        givenRuntimeConfigEmployee(8801L, null, "临时工甲", "TEMPORARY");
+        when(templateBindingSourceProvider.getIfAvailable()).thenReturn(templateBindingSource);
+        when(templateBindingSource.findTemplate(any(MesFrontlineTemplateRequest.class))).thenReturn(
+                new MesFrontlineTemplateDescriptor("TPL-201-TMP", "BATCH_RECORD",
+                        ROUTE_PROCESS_ID, PROCESS_ID, 8801L));
+
+        MesFrontlineEmployeeSwitchResult result = employeeSwitchService.switchActualEmployee(
+                new MesFrontlineEmployeeSwitchCommand(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID,
+                        PROCESS_ID, 8801L));
+
+        assertEquals(LOGIN_USER_ID, result.loginUserId());
+        assertEquals(8801L, result.actualEmployeeId());
+        assertFalse(result.extraVerificationRequired());
+        assertEquals("TPL-201-TMP", result.template().templateNo());
+    }
+
+    @Test
     void shouldRejectActualEmployeeOutsideCurrentProcessBinding() {
         givenBoundProcess();
-        givenEmployeeCandidates();
+        givenRuntimeConfigEmployee(8801L, 10001L, "Alice", "FORMAL");
 
         assertThrows(ServiceException.class, () -> employeeSwitchService.switchActualEmployee(
                 new MesFrontlineEmployeeSwitchCommand(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID,
@@ -149,6 +171,15 @@ class MesFrontlineEmployeeSwitchServiceTest {
                 MesMdWorkstationWorkerDO.builder().id(1L).workstationId(WORKSTATION_ID).postId(701L).build()));
         when(adminUserApi.getUserListByPostIds(Set.of(701L))).thenReturn(List.of(
                 enabledUser(10001L, "E1001", "Alice")));
+    }
+
+    private void givenRuntimeConfigEmployee(Long employeeProfileId, Long systemUserId, String employeeName,
+                                            String employeeType) {
+        when(runtimeConfigService.getRuntimeConfig(LOGIN_USER_ID, ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID))
+                .thenReturn(new MesFrontlineRuntimeConfig(ROUTE_ID, ROUTE_PROCESS_ID, PROCESS_ID,
+                        List.of(new MesFrontlineTeamEmployeeOption(employeeProfileId, systemUserId,
+                                systemUserId == null ? "TMP-001" : "E1001", employeeName, employeeType)),
+                        List.of(), List.of()));
     }
 
     private static AdminUserRespDTO enabledUser(Long id, String username, String nickname) {

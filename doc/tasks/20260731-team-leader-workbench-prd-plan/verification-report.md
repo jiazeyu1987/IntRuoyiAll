@@ -1,0 +1,52 @@
+# Verification Report
+
+## Scope
+
+验证本次任务文档已按 PRD、开发计划、测试计划写入，并满足项目任务文档结构与 UTF-8 读取要求。
+
+## Verification Commands
+
+- `python -X utf8 -c "<structural document check>"`
+- `python -X utf8 -c "<FIFO document check>"`
+- `rg -n "不设计自动智能分配算法|是否需要自动智能分配算法|设备保修|保修期管理" doc\tasks\20260731-team-leader-workbench-prd-plan -S`
+- `rg -n "报修|FIFO|手动分配|手动调整|MesTeamLeaderFifoAllocationServiceTest" doc\tasks\20260731-team-leader-workbench-prd-plan -S`
+- `git -C E:\IntRuoyi status --short --branch --untracked-files=all`
+
+## Results
+
+- PASS: UTF-8 读取成功，6 个任务文档均可按 UTF-8 读取。
+- PASS: 结构校验成功，`prd.md`、`development-plan.md`、`test-plan.md`、`task.md`、`execution-log.md`、`verification-report.md` 的必需章节均存在。
+- PASS: 已同步用户澄清：设备为“报修”，不是“保修”或保修期管理。
+- PASS: 已同步用户澄清：报工分配支持 FIFO 自动分配，同时允许手动分配或调整。
+- PASS: FIFO 已进入 PRD、开发计划、测试计划和执行日志；包含 `MesTeamLeaderFifoAllocationServiceTest` RED/GREEN、BDD 场景、剩余不足阻塞、稳定排序、手动调整校验。
+- PASS: 旧口径“不设计自动智能分配算法 / 是否需要自动智能分配算法”已移除；仅保留“不是保修或保修期管理”的澄清说明。
+- PASS: 本任务目录已新增 6 个文档文件。
+- BLOCKED: Git closeout 未执行；当前分支任务开始前已存在 `int_main...origin/int_main [ahead 12]`，并有并行前端源码改动和其它任务目录未提交。为避免混入非本任务改动，本次未提交、未推送。
+
+## Notes
+
+- 本任务为文档交付，不运行产品代码单元测试、前端类型检查或真实 E2E。
+- 当前分支存在任务开始前已有 ahead 与并行源码改动；本任务未提交或推送。
+
+## Full Delivery Readiness Addendum
+
+- PASS: 业务文档可作为开发基线，已覆盖报修、FIFO 自动分配、手动分配、活跃订单约束、配置驱动员工填报、订单工序完成和正式批记录回填。
+- PASS: 已修正开发计划和测试计划中的 worktree 路径约束，前端命令统一使用 `pnpm --dir IntRuoyiFronted ...`，避免误测 `E:\IntRuoyi` 主工作区。
+- PASS: 已补充 Test Entry Gate：每个 RED 前必须先新增或确认测试类、测试方法、静态合同脚本或 E2E spec；缺入口、No tests、空跑不得作为有效 RED/GREEN。
+- NOT VERIFIED: P1-P6 产品实现尚未完成，当前报告不能证明开发完成、E2E 通过或已融合 `int_main`。
+
+## 2026-08-01 P6 Verification Addendum
+
+- PASS: `init_or_resume_task.py` 与 `render_plan_status.py` 复核任务恢复到 P6；P1-P5 completed。
+- PASS: worktree runtime 可达：frontend `http://127.0.0.1:8084/` 返回 HTTP 200，backend `http://127.0.0.1:48084/actuator/health` 返回 UP。
+- PASS: 后端已重建并从独立运行副本 `output/runtime/team-leader-workbench-p6/yudao-server-exec-48084.jar` 启动，PID `37976`，避免 Maven package 覆盖运行中 target Jar。
+- PASS: `pnpm --dir IntRuoyiFronted test e2e:team-leader-workbench:static` 已覆盖 P6 证据路径、`submitDate` 事件查询、动态 eventId 发现、confirm 响应等待和 trace 路径占位符。
+- PASS: `pnpm --dir IntRuoyiFronted test e2e:team-leader-workbench:real:check` 通过，真实 E2E 脚本语法有效。
+- PASS: `pnpm --dir IntRuoyiFronted e2e:team-leader-workbench:real` 通过，真实页面闭环覆盖组长配置、员工填报、FIFO 自动分配、组长确认、订单工序完成和正式批记录回填；证据见 `p6-real-e2e-evidence.md`，eventId=`22`。
+- PASS: 真实 E2E 后任务自有数据已清理：`active_order`、`employee_binding`、`process_device`、`parameter_rule`、`defect_reason`、`event`、`feedback`、`allocation`、`completion`、`recordbook_entry` 均为 `0`，设备 `980005` 恢复 `REPAIRING` 且 enabled。
+- PASS: `pnpm --dir IntRuoyiFronted test e2e:frontline-formal-submit:static`、`e2e:frontline-team-config:static`、`e2e:team-leader-report-allocation:static` 均通过。
+- PASS: `pnpm --dir IntRuoyiFronted ts:check` 通过。
+- PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest,MesFrontlineRuntimeConfigControllerTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineRuntimeConfigServiceTest,MesTeamLeaderActiveOrderServiceTest,MesTeamLeaderRuntimeConfigServiceTest,MesTeamLeaderReportConfirmationServiceTest,MesTeamLeaderFifoAllocationServiceTest,MesTeamLeaderOrderProcessCompletionServiceTest,MesTeamLeaderBatchRecordBackfillServiceTest,MesProFrontlineFeedbackPayloadSplitterTest,MesProBatchRecordCellLinkServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` 通过，tests run: 47, failures: 0, errors: 0, skipped: 0。
+- PASS: `PROCESS_POOL_REPORT` 来源边界已验证：通用 `batch-record-cell-link/prefill` 跳过该来源，生产组长批记录回填服务负责正式字段映射和写入。
+- PASS: 密码仅作为运行时环境变量临时注入，未写入任务文档、证据文件或提交信息。
+- RESULT: P6 真实写入型 E2E 与回归门禁已通过，可进入 closeout、提交推送和融合 `int_main` 的后续门禁。

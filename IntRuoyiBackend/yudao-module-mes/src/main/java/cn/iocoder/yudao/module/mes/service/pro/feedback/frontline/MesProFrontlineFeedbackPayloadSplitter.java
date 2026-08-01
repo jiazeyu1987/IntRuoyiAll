@@ -8,6 +8,7 @@ import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.Me
 import cn.iocoder.yudao.module.mes.service.pro.processpool.MesProcessPoolSubmitEventCreateReqBO;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -36,7 +37,11 @@ public class MesProFrontlineFeedbackPayloadSplitter {
         feedbackPayload.setExpireDate(feedback.getExpireDate());
         feedbackPayload.setScheduledQuantity(feedback.getScheduledQuantity());
         feedbackPayload.setFeedbackQuantity(feedback.getOutputQuantity());
-        feedbackPayload.setUnqualifiedQuantity(feedback.getLossQuantity());
+        BigDecimal lossQuantity = feedback.getLossQuantity() == null ? BigDecimal.ZERO : feedback.getLossQuantity();
+        if (feedback.getOutputQuantity() != null) {
+            feedbackPayload.setQualifiedQuantity(feedback.getOutputQuantity().subtract(lossQuantity).max(BigDecimal.ZERO));
+        }
+        feedbackPayload.setUnqualifiedQuantity(lossQuantity);
         feedbackPayload.setLaborScrapQuantity(feedback.getLaborScrapQuantity());
         feedbackPayload.setMaterialScrapQuantity(feedback.getMaterialScrapQuantity());
         feedbackPayload.setOtherScrapQuantity(feedback.getOtherScrapQuantity());
@@ -57,6 +62,7 @@ public class MesProFrontlineFeedbackPayloadSplitter {
                 .setIdempotencyKey(recordbook.getIdempotencyKey())
                 .setRemark(recordbook.getRemark());
 
+        Map<String, Object> processPoolRawPayload = buildProcessPoolRawPayload(reqVO, feedback, recordbook);
         MesProcessPoolSubmitEventCreateReqBO eventPayload = new MesProcessPoolSubmitEventCreateReqBO()
                 .setWorkOrderId(context.getWorkOrderId())
                 .setTaskId(context.getTaskId())
@@ -74,13 +80,40 @@ public class MesProFrontlineFeedbackPayloadSplitter {
                 .setLossQuantity(feedback.getLossQuantity())
                 .setPreviousProcessInputQuantity(recordbook.getPreviousProcessInputQuantity())
                 .setEquipmentParameters(recordbook.getEquipmentParameters())
-                .setRawPayload(reqVO.getRawPayload())
+                .setRawPayload(processPoolRawPayload)
                 .setSubmittedAt(submittedAt);
 
         return new MesProFrontlineFeedbackSplitPayload()
                 .setFeedbackPayload(feedbackPayload)
                 .setRecordbookEntryPayload(recordbookEntryPayload)
                 .setProcessPoolEventPayload(eventPayload);
+    }
+
+    private Map<String, Object> buildProcessPoolRawPayload(MesProFrontlineFeedbackSubmitReqVO reqVO,
+                                                           MesProFrontlineFeedbackPayloadReqVO feedback,
+                                                           MesProFrontlineRecordbookPayloadReqVO recordbook) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        if (reqVO.getRawPayload() != null) {
+            payload.putAll(reqVO.getRawPayload());
+        }
+        payload.put("outputQuantity", feedback.getOutputQuantity());
+        payload.put("lossQuantity", feedback.getLossQuantity());
+        payload.put("previousProcessInputQuantity", recordbook.getPreviousProcessInputQuantity());
+        payload.put("equipmentParameters", recordbook.getEquipmentParameters());
+        if (recordbook.getEquipmentParameters() != null) {
+            recordbook.getEquipmentParameters().forEach((code, value) -> {
+                if (value instanceof Map<?, ?> nestedParameters) {
+                    nestedParameters.forEach((nestedCode, nestedValue) -> {
+                        if (nestedCode != null) {
+                            payload.put(String.valueOf(nestedCode), nestedValue);
+                        }
+                    });
+                } else if (code != null) {
+                    payload.put(code, value);
+                }
+            });
+        }
+        return payload;
     }
 
 }
