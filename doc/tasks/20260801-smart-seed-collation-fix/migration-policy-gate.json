@@ -5368,7 +5368,7 @@
     {
       "migrationId": "20260726_system_codex_smart_scheduling_test_items",
       "file": "sql/mysql/20260726_system_codex_smart_scheduling_test_items.sql",
-      "sha256": "fa31785e9e5dbf2e8f42364b484662aa59dfe28e5369e522a6ac9adc3771540d",
+      "sha256": "e633f8ac1a008d6a46ebf94190614f6632b9094d66bb8242818ec3b0a78d934c",
       "type": "seed",
       "allowedEnvironments": [
         "test",

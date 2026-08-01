@@ -4,6 +4,7 @@
 
 - User intent: 继续修复 `release-20260801-intmain-head-test-r260801a-r2` 测试服发布失败点。
 - BDD: Codex smart scheduling seed collation -> Given 目标库 `system_codex_test_case` / `system_codex_test_checkpoint` 文本列可能为 `utf8mb4_0900_ai_ci`, When required SQL 使用临时 seed 表写入和校验测试项, Then 所有与目标文本列比较的临时字符串列必须显式对齐目标 collation，避免 MySQL `ERROR 1267`。
+- BDD: Codex smart scheduling temporary table validation -> Given MySQL TEMPORARY TABLE 不能在单条语句中被外层查询和子查询重复读取, When required SQL 校验 checkpoint seed 写入数量, Then 预期数量和实际数量必须分语句写入变量后比较，避免 MySQL `ERROR 1137`。
 - BDD: No database fallback -> Given 发布 required SQL 在测试服失败, When 修复 seed SQL, Then 不修改测试库默认 collation、不手工更新 migration/lock、不复用失败 releaseTag，而是提交源码修复并重建新 releaseTag。
 - GREEN: task-preflight -> PASS, 已读取 `AGENTS.md`、`docs/database-rules.md`、`docs/backend-development.md`、`docs/powershell-encoding.md`、`docs/powershell-memory.md`、`docs/task-closeout-rules.md`、`docs/worktree-restrictions.md` 和 `docs/experience-index.md`。
 - GREEN: frozen-base-guard -> PASS, 原发布冻结主程序提交为 `9420210f7ad4fb2519c179458fae0e823d082b54`；最终修复 worktree `D:\IntRuoyiWorktree\r260801b-frozen-smartseed-fix` 从该提交创建，分支 `codex/20260801-smart-seed-collation-fix-frozen`，登记 `int_main slot=7`、前端 `8088`、后端 `48088`，只移植已验证的 SQL/test/经验修复。
@@ -14,6 +15,10 @@
 - GREEN: `python -X utf8 -m pytest script/tests/test_codex_smart_scheduling_test_items_seed.py -q` -> PASS, 4 passed。
 - GREEN: `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output D:\IntRuoyiWorktree\r260801b-frozen-smartseed-fix\doc\tasks\20260801-smart-seed-collation-fix\migration-policy-gate.json` -> PASS, status=`passed`, migrationCount=`403`，目标 migration `20260726_system_codex_smart_scheduling_test_items` SHA256=`fa31785e9e5dbf2e8f42364b484662aa59dfe28e5369e522a6ac9adc3771540d`。
 - GREEN: `python -X utf8 -m pytest script/tests/test_codex_smart_scheduling_test_items_seed.py script/tests/test_dcc_codex_test_items_seed.py script/tests/test_codex_test_case_project_migration.py -q` -> PASS, 11 passed。
+- RED: `python -X utf8 -m pytest script/tests/test_codex_smart_scheduling_test_items_seed.py -q` -> FAIL, expected reason: 新增 `test_smart_scheduling_test_items_seed_does_not_reopen_temporary_seed_table` 断言 checkpoint 数量校验不得使用 `) <> (SELECT COUNT(*) FROM tmp_codex_smart_scheduling_checkpoint_seed)`，当前 SQL 会触发 MySQL `ERROR 1137 Can't reopen table: 'seed'`。
+- GREEN: `python -X utf8 -m pytest script/tests/test_codex_smart_scheduling_test_items_seed.py -q` -> PASS, 5 passed。
+- GREEN: `python -X utf8 -m pytest script/tests/test_codex_smart_scheduling_test_items_seed.py script/tests/test_dcc_codex_test_items_seed.py script/tests/test_codex_test_case_project_migration.py -q` -> PASS, 12 passed。
+- GREEN: `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output D:\IntRuoyiWorktree\r260801b-frozen-smartseed-fix\doc\tasks\20260801-smart-seed-collation-fix\migration-policy-gate.json` -> PASS, status=`passed`, migrationCount=`403`，目标 migration `20260726_system_codex_smart_scheduling_test_items` SHA256=`e633f8ac1a008d6a46ebf94190614f6632b9094d66bb8242818ec3b0a78d934c`。
 
 ## Issues
 
@@ -64,3 +69,15 @@
 - 是否可前置检查：是。
 - 是否可自动化：是，脚本包装器先 `Set-Location` 到目标 repo root。
 - 下次如何避免：所有 worktree-local preflight 统一从目标 worktree 根目录执行，不跨仓绝对路径调用。
+
+### I005 MySQL TEMPORARY TABLE 在数量校验语句中被重复读取
+
+- 现象：`release-20260801-frozen-smartseed-fix-r260801b-r1` 执行 `20260726_system_codex_smart_scheduling_test_items.sql` 时，存储过程 line 313 失败，MySQL 返回 `ERROR 1137 (HY000): Can't reopen table: 'seed'`。
+- 阶段：测试服 `publish-test` required SQL 执行。
+- 影响：测试服发布失败，容器和运行态验证不得继续；失败 releaseTag 不得复用。
+- 原因判断：checkpoint 写入数量校验在同一 `IF` 表达式中外层查询读取 `tmp_codex_smart_scheduling_checkpoint_seed AS seed`，右侧子查询再次读取同一 TEMPORARY TABLE，触发 MySQL 临时表重开限制。
+- 处理动作：新增 RED 静态测试，禁止该 SQL 形态；将预期 checkpoint 数量和实际匹配数量分别 `SELECT COUNT(*) INTO` 变量，再用变量比较。
+- 结果：目标 pytest 5 passed，相邻 pytest 12 passed，migration policy gate PASS，新 SHA256=`e633f8ac1a008d6a46ebf94190614f6632b9094d66bb8242818ec3b0a78d934c`。
+- 是否可前置检查：是。
+- 是否可自动化：是，在 migration policy gate 或 SQL 静态扫描中加入 TEMPORARY TABLE 同语句重复读取检测。
+- 下次如何避免：required SQL 里对 TEMPORARY TABLE 做计数、差异或存在性校验时，避免同一语句内重复引用同一临时表；复杂校验拆为临时结果表或过程变量。

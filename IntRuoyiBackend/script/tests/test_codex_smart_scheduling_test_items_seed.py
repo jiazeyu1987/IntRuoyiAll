@@ -120,3 +120,11 @@ def test_smart_scheduling_test_items_seed_temp_tables_match_target_text_collatio
     assert "`case_item`.`name` = `seed`.`case_name`" in sql
     assert "`case_ids`.`case_name` = `seed`.`case_name`" in sql
     assert "`checkpoint`.`sort` = `seed`.`checkpoint_sort`" in sql
+
+
+def test_smart_scheduling_test_items_seed_does_not_reopen_temporary_seed_table() -> None:
+    sql = migration_text()
+
+    assert ") <> (SELECT COUNT(*) FROM `tmp_codex_smart_scheduling_checkpoint_seed`)" not in sql
+    assert "v_expected_checkpoint_count" in sql
+    assert "v_actual_checkpoint_count" in sql

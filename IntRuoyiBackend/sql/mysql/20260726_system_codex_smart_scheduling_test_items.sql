@@ -5,6 +5,9 @@ DROP PROCEDURE IF EXISTS ensure_system_codex_smart_scheduling_test_items;
 DELIMITER //
 CREATE PROCEDURE ensure_system_codex_smart_scheduling_test_items()
 BEGIN
+  DECLARE v_expected_checkpoint_count INT DEFAULT 0;
+  DECLARE v_actual_checkpoint_count INT DEFAULT 0;
+
   IF NOT EXISTS (
     SELECT 1
       FROM information_schema.tables
@@ -291,16 +294,21 @@ BEGIN
          `checkpoint`.`updater` = 'codex',
          `checkpoint`.`update_time` = NOW();
 
-  IF (
-    SELECT COUNT(*)
-      FROM `tmp_codex_smart_scheduling_checkpoint_seed` AS `seed`
-      JOIN `tmp_codex_smart_scheduling_case_ids` AS `case_ids`
-        ON `case_ids`.`case_name` = `seed`.`case_name`
-      JOIN `system_codex_test_checkpoint` AS `checkpoint`
-        ON `checkpoint`.`case_id` = `case_ids`.`case_id`
-       AND `checkpoint`.`sort` = `seed`.`checkpoint_sort`
-       AND `checkpoint`.`deleted` = b'0'
-  ) <> (SELECT COUNT(*) FROM `tmp_codex_smart_scheduling_checkpoint_seed`) THEN
+  SELECT COUNT(*)
+    INTO v_expected_checkpoint_count
+    FROM `tmp_codex_smart_scheduling_checkpoint_seed`;
+
+  SELECT COUNT(*)
+    INTO v_actual_checkpoint_count
+    FROM `tmp_codex_smart_scheduling_checkpoint_seed` AS `seed`
+    JOIN `tmp_codex_smart_scheduling_case_ids` AS `case_ids`
+      ON `case_ids`.`case_name` = `seed`.`case_name`
+    JOIN `system_codex_test_checkpoint` AS `checkpoint`
+      ON `checkpoint`.`case_id` = `case_ids`.`case_id`
+     AND `checkpoint`.`sort` = `seed`.`checkpoint_sort`
+     AND `checkpoint`.`deleted` = b'0';
+
+  IF v_actual_checkpoint_count <> v_expected_checkpoint_count THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Codex smart scheduling checkpoint seed count mismatch';
   END IF;
 
