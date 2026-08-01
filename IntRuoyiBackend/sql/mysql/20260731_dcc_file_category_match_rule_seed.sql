@@ -15,7 +15,7 @@ BEGIN
     `match_type` VARCHAR(32) NOT NULL,
     `weight` INT NOT NULL,
     PRIMARY KEY (`category_name`, `match_text`, `match_type`)
-  ) ENGINE=MEMORY;
+  ) ENGINE=MEMORY DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
   INSERT INTO `tmp_dcc_file_category_match_rule_seed` (
     `category_name`, `match_text`, `match_type`, `weight`
