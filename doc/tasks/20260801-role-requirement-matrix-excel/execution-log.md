@@ -284,3 +284,6 @@
 - Branch runtime port guard -> PASS，`int_main` 前端 `8081`、后端 `48081`。
 - GREEN: `git push origin int_main` -> PASS，远端从 `184659363` 更新到 `afef219c1`。
 - Status transition: cleanup、验证和交付 push 均通过，当前文档优化任务更新为 `completed`；生产实现状态 `task-state.json.status` 继续保持 `planned`。
+- Final closeout commit: `424333305` (`docs: complete role matrix BDD TDD planning closeout`)。
+- Final closeout commit files: `task.md`、`task-state.json`、`execution-log.md`、`verification-report.md`。
+- Post-closeout rescan: 当前任务文件无残余改动；新出现的并行 `ci-cd-evidence.md` 及其他并行任务/前端 Runner 改动保持未暂存。

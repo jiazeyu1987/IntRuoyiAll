@@ -77,6 +77,7 @@
 - GREEN: ready-for-closeout commit -> `afef219c1`。
 - GREEN: ahead-object scan -> 33 个 blob，最大 `106581` bytes，低于 GitHub 100 MB 限制。
 - GREEN: `git push origin int_main` -> PASS，远端更新到 `afef219c1`。
+- GREEN: final closeout commit -> `424333305`，只包含四个最终收尾记录。
 - GREEN: custom plan coverage validator -> `62 requirements, 62 acceptance IDs, task-state JSON, UTF-8`。
 - GREEN: artifact-tool workbook/plan validator -> 主表 23、衍生表 39，任务名称、task-state、BDD 引用和追踪字段全部一致。
 - RED: 首次 `git diff --cached --check` 发现新增 `prd.md` 的 Given/When 行存在无语义行尾空格。
