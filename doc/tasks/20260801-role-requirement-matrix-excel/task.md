@@ -77,6 +77,12 @@
 
 ## Blockers
 
+当前任务收尾阻塞：
+
+- `2026-08-01` GitHub HTTPS 不可用：`git ls-remote origin HEAD` 先后返回 `Recv failure: Connection was reset` 和 `Failed to connect to github.com port 443`；`curl --http1.1 https://github.com` 与命令级 Git HTTP/2 同样失败。
+- 影响：本地规划、验证、cleanup 和提交均已完成，但 `int_main` 仍领先 `origin/int_main`，因此任务不得标记 completed。
+- 解除条件：网络恢复后先执行 `git ls-remote origin HEAD`，再执行 `git push origin int_main`，最后确认 `git status --short --branch` 不再显示 ahead。
+
 以下是后续实施的 fail-fast 前置，不是本次文档优化的阻塞：
 
 - 必须确认金蝶生产订单、调拨申请、调拨单、发货、补料、退料和物料批次的正式本地表/API；未确认前不得编写猜测型关联。
@@ -101,10 +107,11 @@
 - PASS：roadmap 结构校验、Excel 逐行对照、UTF-8/JSON、whitespace 和 cleanup preview/apply 均通过。
 - PASS：cleanup 只删除任务自有临时校验脚本，保留七个正式规划/收尾文件。
 - 本任务只完成规划包；`task-state.json.status` 继续保持 `planned`，M0-M6 生产实现尚未开始。
+- BLOCKED：GitHub HTTPS 连接失败，本地提交尚未推送到 `origin/int_main`。
 
 ## Current Status
 
-completed
+blocked
 
 ## 设计约束检查
 

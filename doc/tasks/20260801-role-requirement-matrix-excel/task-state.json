@@ -2,6 +2,8 @@
   "status": "planned",
   "currentMilestone": "M0",
   "planningPackageStatus": "completed",
+  "closeoutStatus": "blocked",
+  "closeoutBlocker": "2026-08-01 GitHub HTTPS 443 session unavailable; local commits are not pushed to origin/int_main.",
   "sourceWorkbook": "C:/Users/BJB110/Desktop/文档/职责/岗位需求分解矩阵.xlsx",
   "baselineTask": "doc/tasks/20260731-team-leader-workbench-prd-plan",
   "branch": "int_main",
@@ -505,6 +507,7 @@
     }
   ],
   "blockers": [
+    "当前 closeout 阻塞：GitHub HTTPS 443 会话不可用，int_main 本地提交尚未推送到 origin/int_main。",
     "未确认金蝶生产订单、调拨申请、调拨单、发货、补料、退料和物料批次的正式本地表/API。",
     "未完成两套活跃订单来源的开放数据冲突盘点。",
     "未冻结 QA 规程在 MES 或 QMS 的唯一所有权。",

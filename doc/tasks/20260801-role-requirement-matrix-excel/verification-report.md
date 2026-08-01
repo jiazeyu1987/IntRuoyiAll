@@ -61,4 +61,4 @@
 
 ## Result
 
-PASS。规划包已完成验证与 cleanup，`planningPackageStatus=completed`，可作为后续实现任务的正式输入；`task-state.json.status` 保持 `planned`，M0-M6 尚未实施。ERP/调拨正式来源、QA 所有权、双活跃来源迁移、质量异常/返工/报废/库存来源及真实 E2E 环境仍是后续里程碑的 fail-fast 前置。
+LOCAL PASS / DELIVERY BLOCKED。规划包已完成验证与 cleanup，`planningPackageStatus=completed`，可作为后续实现任务的正式输入；`task-state.json.status` 保持 `planned`，M0-M6 尚未实施。由于 `2026-08-01` GitHub HTTPS 443 会话不可用，本地 `int_main` 提交尚未推送到 `origin/int_main`，当前任务收尾状态为 `blocked`。网络恢复并完成 push 前不得标记 completed。

@@ -199,6 +199,19 @@
 - Concurrent rescan: `doc/tasks/20260801-third-party-feedback-import-list-progress/{task.md,execution-log.md,verification-report.md}` changed after the planning commit; these unrelated concurrent files remain unstaged and untouched.
 - Closeout commit: `54b841d51` (`docs: complete role requirement matrix planning task`), containing only final status and closeout records for this task.
 - Post-closeout rescan: the only remaining worktree changes belong to `20260801-third-party-feedback-import-list-progress`; no current-task file remains dirty before recording this commit hash.
+
+### Push Blocker
+
+- Ahead-object scan -> PASS: 15 blobs, largest `106581` bytes, below GitHub's 100 MB limit.
+- Branch runtime port guard -> PASS for `int_main` frontend `8081` / backend `48081`.
+- Remote preflight attempt 1: `git ls-remote origin HEAD` -> FAIL, `Recv failure: Connection was reset`.
+- Network check: no Git `http.proxy` / `https.proxy` and no `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY`; Git config only forces `http.version=HTTP/1.1`.
+- Initial `Test-NetConnection github.com -Port 443` briefly returned true, but subsequent direct IP check timed out and reported TCP failure.
+- Remote preflight attempt 2: `git ls-remote origin HEAD` -> FAIL after about 21 seconds, `Could not connect to server`.
+- HTTP diagnostics: `curl.exe -I --http1.1 --max-time 30 https://github.com` and `git -c http.version=HTTP/2 ls-remote origin HEAD` both failed to connect.
+- No `git push` was executed because the required `ls-remote` preflight could not establish a GitHub HTTPS session.
+- Closeout impact: local commits `0f13bd89d`, `3fbbb49b9`, `54b841d51`, and `bb3d26a0c` remain ahead of `origin/int_main`; task status changed from `completed` to `blocked`.
+- Recovery: after network restoration, run `git ls-remote origin HEAD`, `git push origin int_main`, and verify `git status --short --branch` has no ahead state.
 - Git boundary: 进入本次写入前，`int_main...origin/int_main [ahead 1]` 且存在 unrelated untracked `doc/tasks/20260801-dcc-list-auto-classify-local-e2e/*`；本次未触碰并行任务文件，未执行提交或推送。
 - Experience: 已读取 `project-experience-consolidation` 技能；本次属于一次性业务开发计划落档，没有新增通用工程经验或可前置门禁，不新增长期经验文档。
 
