@@ -8,7 +8,7 @@
 
 - [x] M1: 复现并隔离 Runner/Codex CLI 首节点退出与超时根因
 - [x] M2: 建立失败回归测试并记录 RED
-- [x] M3: 实施最小正式修复并记录 GREEN（Runner 隔离、固定样本、artifact 本地配置、本机浏览器 executablePath 注入、正式路由导航、Element Plus 弹窗/quick-filter/MessageBox/复制详情、路线编码 link button、quick-filter 路线名称不可见处理、删除/复位后表格 body 行级残留判断、复制绑定/版本发布源路线 RT000028 编码规则、复制弹窗“确认复制”业务按钮、版本发布候选草稿“删除草稿”收尾、版本发布“无打开候选”清理完成态、删除草稿 link-button 文本上溯与 disabled/loading 诊断、临时 Playwright 脚本全局 deadline 与超时前 BLOCKED JSON 回写、保存后弹窗关闭按钮不稳定处理、RouteForm inputValue、RouteForm 异步内容组件打开竞态、临时 Playwright 脚本 node --check 语法自检与 const/let 重复声明约束、新增工艺路线弹窗 RouteFormContent 异步渲染等待、临时 browser-flow deadline 240000ms 硬上限、Element Plus 固定列删除草稿定位、登录表单默认值覆盖与登录响应 fail-fast、版本发布候选 V2 草稿与 V1 已生效/ACTIVE 可见性判定、状态删除节点状态列 el-switch 启停判定、目标页 ready 可见控件选择器均已补齐）
+- [x] M3: 实施最小正式修复并记录 GREEN（Runner 隔离、固定样本、artifact 本地配置、本机浏览器 executablePath 注入、正式路由导航、Element Plus 弹窗/quick-filter/MessageBox/复制详情、路线编码 link button、quick-filter 路线名称不可见处理、删除/复位后表格 body 行级残留判断、复制绑定/版本发布源路线 RT000028 编码规则、复制弹窗“确认复制”业务按钮、版本发布候选草稿“删除草稿”收尾、版本发布“无打开候选”清理完成态、删除草稿 link-button 文本上溯与 disabled/loading 诊断、临时 Playwright 脚本全局 deadline 与超时前 BLOCKED JSON 回写、保存后弹窗关闭按钮不稳定处理、RouteForm inputValue、RouteForm 异步内容组件打开竞态、临时 Playwright 脚本 node --check 语法自检与 const/let 重复声明约束、新增工艺路线弹窗 RouteFormContent 异步渲染等待、临时 browser-flow deadline 240000ms 硬上限、Element Plus 固定列删除草稿定位、登录表单默认值覆盖与登录响应 fail-fast、版本发布候选 V2 草稿与 V1 已生效/ACTIVE 可见性判定、状态删除节点状态列 el-switch 启停判定、目标页 ready 可见控件选择器、按节点专用 prompt 注入、短场景 Playwright harness 均已补齐）
 - [ ] M4: 通过真实页面完整复验 3 条串行路线并完成任务自有清理
 - [ ] M5: 完成经验沉淀、收尾校验、提交与推送
 

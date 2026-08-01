@@ -249,11 +249,27 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `RED: node tests\e2e\codex-test-runner-http-client-static.spec.js -> FAIL, expected reason: Runner heartbeat 客户端超时仍使用默认 30000ms，未覆盖后端 60 秒 heartbeat 窗口`
 - `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `Verification: 真实 E2E execution 115 -> FAIL, 首节点仍在 720000ms 超时且未生成新临时脚本；execution 114 的 69024 字节基础维护脚本直接运行 30 秒内 4/4 PASS，说明真实浏览器流程正常，主要耗时是 Codex 为每个节点重复生成完整独立 Playwright 脚本`
+- `BDD: Runner 复用公共 Playwright harness 生成短场景脚本 -> Given 测试管理按节点领取三条串行路线中的业务测试项, When Runner 构造 Codex 浏览器执行 prompt, Then Codex 子任务必须导入官方 Playwright harness，只编写 checkpoint 场景编排，不得在每个节点脚本中重复生成登录、deadline、截图、checkpoint、Element Plus 弹窗、quick-filter、行操作和路线表单 helper。`
+- `RED: node tests\e2e\codex-test-runner-short-script-harness-static.spec.js -> FAIL, expected reason: Runner 缺少 scripts/codex-test-playwright-harness.cjs，prompt 未要求导入官方 harness、限制短场景脚本、或禁止重复实现公共 helper`
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node --check scripts\codex-test-runner-guidance.mjs -> PASS`
+- `GREEN: node --check scripts\codex-test-playwright-harness.cjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-short-script-harness-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-case-guidance-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`
+- `GREEN: pnpm ts:check -> PASS`
 
 ## Risk And Regression Scope
 
 - 覆盖 Runner Codex 子进程隔离、失败诊断、子进程超时收敛、artifact 截图上传、本地后端运行态配置和三条正式串行路线。
-- 仍需在真实页面复跑三路线，确认 `artifact-temp-dir`、本机浏览器 executablePath 与正式 history 路由导航提示均不再阻断 Runner 回写。
+- 仍需在真实页面复跑三路线，确认 `artifact-temp-dir`、本机浏览器 executablePath、正式 history 路由导航提示、按节点提示词拆分和短场景 Playwright harness 均不再阻断 Runner 回写。
 
 ## Blockers And Follow-up
 

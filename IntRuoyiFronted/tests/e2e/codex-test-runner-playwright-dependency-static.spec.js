@@ -3,7 +3,10 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const root = path.resolve(__dirname, '../..')
-const runner = fs.readFileSync(path.join(root, 'scripts/codex-test-runner.mjs'), 'utf8')
+const runner = [
+  fs.readFileSync(path.join(root, 'scripts/codex-test-runner.mjs'), 'utf8'),
+  fs.readFileSync(path.join(root, 'scripts/codex-test-runner-guidance.mjs'), 'utf8')
+].join('\n')
 
 assert.match(
   runner,

@@ -31,6 +31,7 @@ in_progress
 - 适用经验：`docs/release-build-preflight-lessons.md#2026-07-19-release-migration-结构化字段与-dependsOn-后缀门禁`，近期 `20260718_mes_feedback_import_record_direct_progress.sql` 曾触发 release migration dependsOn 后缀门禁；本任务若新增或修改 SQL/迁移，必须按结构化 release-migration 元数据和 policy gate 执行。
 - 适用经验：`docs/database-rules.md#只读资源池引用完整性门禁`，报工映射/资源读模型不得用默认成功、空名称或前端隐藏掩盖正式主数据缺失。
 - 适用经验：`docs/test-release-preflight.md`，本轮为仅测试服 code-only 发布，必须使用冻结提交 release worktree，验证远端 `.env IMAGE_TAG`、实际镜像 tag、后端 health、前端 HTTP 和目标缺陷运行态。
+- 适用经验：`docs/release-build-preflight-lessons.md#2026-08-01-codex-ps1-标准输入宿主门禁`，Windows 上 npm `codex.ps1` 使用末尾 `-` 读取 stdin 时必须由 PowerShell 7 `pwsh.exe` 执行；缺少宿主、参数丢失或 Codex 非 0 必须阻塞，禁止手工补 manifest。
 
 ## 设计约束检查
 

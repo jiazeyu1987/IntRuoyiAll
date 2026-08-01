@@ -617,3 +617,44 @@
 - Runtime recovery after local restart: `int-ruoyi-mysql` 与 `int-ruoyi-redis` 既有容器处于退出状态且 `23306/26379` 无端口冲突；仅启动这两个既有依赖后，运行标准 `restart-int-ruoyi-local.ps1 -Component full`。恢复结果：`8081` HTTP 200，`48081` health=`UP`，运行进程和稳定运行 Jar 均归属 `E:\IntRuoyi` 的 `int_main`；日志与任务文档未记录凭据。
 - Runner restart: `start-codex-test-runner.ps1` 启动 PID `31412`，后端分配 session `174`，heartbeat/claim 正常且空闲运行数为 0。
 - Real E2E preflight retry: 首次未设置 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` 时被缺失的 Playwright 默认浏览器缓存 fail-fast；改用已验证系统 Chrome 后，Vite 冷启动首次导航超过 30 秒。等待 Vite 完成首次编译后，`node ...\run-serial-routes-real-e2e.mjs --route 工艺路线节点闭环 --route 批记录节点闭环 --route 智能排产节点闭环 --preflight-only -> PASS`，三路线 UI/API 筛选数量一致为 `4/6/4`。
+
+## 2026-08-01 Execution 113-114 Prompt Scope
+
+- `BDD: Runner 仅注入当前节点所需专用提示词 -> Given 测试管理依次领取工艺路线基础维护、复制绑定、版本发布、状态删除以及批记录和智能排产节点, When Runner 构造 Codex 浏览器执行 prompt, Then 每个节点只收到共用规则与本节点专用规则，基础维护不得携带复制绑定/版本发布/状态删除规则，批记录和智能排产不得携带任何工艺路线专用规则。`
+- Reproduction: execution `113` 使用默认 `360000ms` 时首节点 Codex 超时；execution `114` 使用 `720000ms` 后仍超时。execution `114` 于 `22:08:51` 开始，临时脚本直到 `22:18:13` 才写入，生成脚本 `int-ruoyi-route-basic-e2e-20260801.js` 为 `69024` 字节，导致只剩约 3 分钟浏览器执行预算。该脚本脱离 Codex 直接以正式 Chrome 和前端 Playwright 依赖运行时，30 秒内返回 4 个 PASS，证明浏览器流程本身可完成，主要耗时发生在过大的全量路线提示词和脚本生成阶段。
+- `RED: node tests\e2e\codex-test-runner-case-guidance-static.spec.js -> FAIL, expected reason: codex-test-runner-guidance.mjs 尚不存在，Runner 仍把全部工艺路线专用规则内联到每个节点 prompt。`
+- Fix: 新增 `IntRuoyiFronted/scripts/codex-test-runner-guidance.mjs`，将工艺路线共用规则与基础维护、复制绑定、版本发布、状态删除 4 组专用规则分离；`buildPrompt()` 仅通过 `resolveCaseSpecificGuidance(task)` 注入当前节点所需规则，批记录与智能排产节点不注入工艺路线规则。
+- Prompt size evidence: 原 `buildPrompt` 源码段约 `36398` 字符；拆分后共用段约 `12715` 字符，基础维护估算约 `23937`、复制绑定约 `25855`、版本发布约 `26849`、状态删除约 `22433`，批记录与智能排产约 `12715`。
+- `GREEN: node --check scripts\codex-test-runner-guidance.mjs && node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-case-guidance-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`
+- `GREEN: pnpm ts:check -> PASS, 184.9s`
+- Runner restart: 先确认旧 PID `32092` 无活动 execution；一次把归属检查与标准重启脚本写在同一长 PowerShell 命令时，脚本按命令行文本误匹配宿主并终止该命令，未停止前后端。随后使用独立标准脚本调用恢复，新 Runner PID `624`，三路线真实页面 preflight 再次 PASS，筛选数量仍为 `4/6/4`。
+
+## 2026-08-01 Execution 115 Short Scenario Harness
+
+- `BDD: Runner 复用公共 Playwright harness 生成短场景脚本 -> Given 测试管理按节点领取三条串行路线中的业务测试项, When Runner 构造 Codex 浏览器执行 prompt, Then Codex 子任务必须导入官方 Playwright harness，只编写 checkpoint 场景编排，不得在每个节点脚本中重复生成登录、deadline、截图、checkpoint、Element Plus 弹窗、quick-filter、行操作和路线表单 helper。`
+- Reproduction: execution `115` 从真实测试管理页面启动后首节点仍在 `720000ms` 后超时，期间没有生成新临时脚本；此前 execution `114` 已证明基础维护浏览器脚本脱离 Codex 可 30 秒内 4/4 PASS。根因更新为：即使按节点拆分提示词，Codex 仍会为每个节点重复生成约 `50-80KB` 完整独立 Playwright 脚本，脚本生成阶段吞掉执行预算；问题不在真实浏览器流程、provider、认证或本机运行态。
+- `RED: node tests\e2e\codex-test-runner-short-script-harness-static.spec.js -> FAIL, expected reason: Runner 缺少 scripts/codex-test-playwright-harness.cjs，prompt 未要求导入官方 harness、限制短场景脚本、或禁止重复实现公共 helper。`
+- Fix: 新增 `IntRuoyiFronted/scripts/codex-test-playwright-harness.cjs`，集中提供 `createCodexTestPlaywrightHarness()`、登录、deadline、截图、checkpoint、Element Plus MessageBox、quick-filter、行操作、路线弹窗表单和详情页 tab helper；`IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在把 `CODEX_TEST_PLAYWRIGHT_HARNESS_PATH` 传给 Codex 子进程，并在 prompt 中要求临时脚本 `require()` 官方 harness、保持 `<250` 行且 `<12000` 字节，只编排场景。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node --check scripts\codex-test-runner-guidance.mjs -> PASS`
+- `GREEN: node --check scripts\codex-test-playwright-harness.cjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-short-script-harness-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-case-guidance-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `GREEN: node -e "const h=require('./scripts/codex-test-playwright-harness.cjs'); if (typeof h.createCodexTestPlaywrightHarness !== 'function') process.exit(1); console.log('PASS: harness require')" -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`
+- `GREEN: pnpm ts:check -> PASS`
+- Runtime status before real rerun: `http://127.0.0.1:8081/ -> HTTP 200`，`http://127.0.0.1:48081/actuator/health -> UP`，当前旧 Runner PID `624` 仍在运行但尚未加载新 harness prompt；下一步使用独立标准 Runner 重启命令加载新代码，再从真实页面重跑 3 条串行路线。
