@@ -9,7 +9,7 @@
 - [x] 读取任务收尾规则和 PowerShell 编码规则。
 - [x] 确认目标目录存在、目标文件不存在。
 - [x] 写入生产员工职责文档。
-- [ ] 验证 UTF-8 读取和关键内容。
+- [x] 验证 UTF-8 读取和关键内容。
 
 ## Expected Verification
 
@@ -18,7 +18,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 

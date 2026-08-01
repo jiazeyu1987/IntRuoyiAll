@@ -17,8 +17,9 @@ BDD: 生产员工一天工作文档 -> Given 用户已确认当前“生产填�
 
 ## Verification
 
-- 待执行：UTF-8 读取目标文档。
-- 待执行：关键口径搜索验证。
+- `python -X utf8 -c "...生产员工.md..."` -> PASS，输出 `UTF8_READ_OK chars= 1160`。
+- `rg -n "生产填写|工序|员工|完成数量|不良明细|损耗数量|设备参数|班组长|PQC|放行" "C:\Users\BJB110\Desktop\文档\职责\生产员工.md"` -> PASS，关键口径均已覆盖。
+- `git diff --check -- doc/tasks/20260801-production-employee-daily-work-doc/task.md doc/tasks/20260801-production-employee-daily-work-doc/execution-log.md` -> PASS，无空白错误。
 
 ## Blockers
 
