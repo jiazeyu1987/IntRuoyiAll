@@ -58,4 +58,5 @@
 - PASS: 临时 evidence 的关键结论已归档到保留文件；P1 后端 API、权限、登录组长注入、无 fallback，以及 P1 additive schema、字段合同和 schema test 结论均保留在 `execution-log.md`。
 - PASS: `task_closeout.py --task-id 20260731-team-leader-workbench-prd-plan --mode apply --worktree-closeout off` 通过；仅删除上述两个临时 evidence 文件。
 - PASS: `task-state.json` 已改为引用保留证据，不再引用已删除的临时 evidence 文件。
+- PASS: 清理提交已完成：`3c5789190 chore: clean team leader workbench task evidence`。
 - BLOCKED: 融合 `int_main` 未执行；`E:\IntRuoyi` 主工作区仍存在并行未提交改动和输出文件，按 worktree 门禁不能执行 ff-only merge 或删除当前 worktree。

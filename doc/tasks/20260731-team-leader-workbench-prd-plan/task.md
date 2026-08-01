@@ -101,4 +101,5 @@ ready_for_closeout
 - 密码仅通过运行时环境变量临时注入，未写入文档、日志、证据文件或提交信息。
 - 主实现提交已完成：`a67a7a305 feat: deliver team leader workbench flow`。
 - `task-closeout-cleanup --worktree-closeout off` 已执行 preview/apply，删除 `backend-api-evidence.md`、`database-schema-evidence.md` 两个临时 evidence；核心结论已归档到 `execution-log.md` 和 `verification-report.md`。
+- 收尾清理提交已完成：`3c5789190 chore: clean team leader workbench task evidence`。
 - 当前仍保持 `ready_for_closeout`：实现、验证、任务清理和当前分支推送可完成；融合回 `E:\IntRuoyi` 的 `int_main` 被主工作区并行脏改动阻塞，不能在本轮强行 ff-only merge 或删除 worktree。

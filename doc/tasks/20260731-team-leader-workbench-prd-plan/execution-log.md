@@ -227,3 +227,4 @@
 - Evidence Archive: `database-schema-evidence.md` 关键结论已归档：P1 迁移为 additive schema，覆盖活跃订单、临时工档案、班组设备、工序设备绑定、`employee_profile_id`、参数 `unit/default_value`；`MesProcessPoolTeamLeaderSchemaTest` 覆盖 SQL 与 DO 字段，参数默认值越界 fail fast。
 - Cleanup Preview: `task_closeout.py --task-id 20260731-team-leader-workbench-prd-plan --mode preview --worktree-closeout off` -> PASS，keep 为正式交付与保留证据，delete 仅为两个临时 evidence 文件，blocked/warnings 均为空。
 - Cleanup Apply: `task_closeout.py --task-id 20260731-team-leader-workbench-prd-plan --mode apply --worktree-closeout off` -> PASS，仅删除两个临时 evidence 文件；`task-state.json` 已改为引用保留证据。
+- Cleanup Commit: `3c5789190 chore: clean team leader workbench task evidence` -> PASS，提交文件清单为删除两个临时 evidence 文件，并更新 `execution-log.md`、`task-state.json`、`task.md`、`verification-report.md`。
