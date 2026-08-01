@@ -8,7 +8,7 @@
 
 - [x] 记录当前 Git 分支、remote、工作区状态和适用门禁
 - [x] 诊断 HTTPS 443 连通性、Git 代理配置和推送失败原因
-- [ ] 执行最小范围修复并验证 remote 可访问
+- [x] 执行最小范围修复并验证 remote 可访问
 - [x] 记录验证证据、剩余阻塞和最终状态
 
 ## Expected Verification
@@ -20,7 +20,7 @@
 
 ## Current Status
 
-blocked
+completed
 
 ## Applicable Gates
 
@@ -28,17 +28,12 @@ blocked
 - 任务收尾：完成后记录验证证据；未能推送或缺凭据/网络时不得标记 completed。
 - GitHub 推送：推送前需确认 GitHub HTTPS 或 SSH 认证链路可用；网络、凭据或代理不可用时必须 fail fast。
 
-## Blocker
+## Resolution
 
-- GitHub HTTPS 直连 `github.com:443` 超时或连接失败。
-- Git 全局配置 `http.https://github.com.proxy=http://127.0.0.1:7890`，但本机 `127.0.0.1:7890` 没有代理服务监听。
-- FlClash 已启动，配置中 `mixed-port: 7890`，但核心仍未监听 7890，Git 通过代理继续失败。
-- `ssh.github.com:443` 和 `github.com:22` 网络可达，但当前 `C:\Users\BJB110\.ssh\id_rsa` 未被 GitHub 接受，SSH 推送会失败 `Permission denied (publickey)`。
-
-## Required User Action
-
-- 打开 FlClash，确认已选择可用节点并开启代理核心，使 `127.0.0.1:7890` 开始监听；或
-- 将 `C:\Users\BJB110\.ssh\id_rsa.pub` 添加到 GitHub 账号后，允许我改为 SSH 443 推送配置。
+- 2026-08-01 复查发现 `FlClashCore` 已监听 `127.0.0.1:7890`，显式代理 `git -c http.https://github.com.proxy=http://127.0.0.1:7890 ls-remote origin HEAD` 成功。
+- 已写入用户级 GitHub 专用代理配置：`http.https://github.com.proxy=http://127.0.0.1:7890`。
+- `git ls-remote origin HEAD` 和 `git push origin int_main` 均已通过；`int_main` 已推送到 `origin/int_main`。
+- `task-closeout-cleanup` preview/apply 均通过，无删除项、无阻塞、无警告。
 
 ## 设计约束检查
 

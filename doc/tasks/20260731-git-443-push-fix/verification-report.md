@@ -2,20 +2,21 @@
 
 ## Result
 
-blocked
+completed
 
 ## Evidence
 
-- `git status --short --branch` -> 当前分支 `int_main`，本地领先 `origin/int_main` 10 个提交，存在既有未提交改动。
+- `git status --short --branch` -> 当前分支 `int_main`，不再领先 `origin/int_main`；仍存在非本任务既有未提交改动，未触碰。
 - `git remote -v` -> `origin https://github.com/jiazeyu1987/IntRuoyiAll.git`。
-- `git config --show-origin --list` -> 全局 GitHub 专用代理为 `http://127.0.0.1:7890`。
-- `Test-NetConnection 127.0.0.1 -Port 7890` -> `TcpTestSucceeded: False`。
-- `git ls-remote origin HEAD` -> 失败，Git 无法通过 `127.0.0.1:7890` 连接 GitHub 443。
-- `git -c http.https://github.com.proxy= ls-remote origin HEAD` -> 失败，GitHub HTTPS 直连 443 不可用。
-- 启动 FlClash 后，`Get-NetTCPConnection` 仅发现 `FlClashHelperService` 监听 `127.0.0.1:47890`，未发现 `7890` 监听。
-- `ssh -T -o BatchMode=yes -o ConnectTimeout=10 git@ssh.github.com -p 443` -> 失败，当前 SSH key 未被 GitHub 接受。
+- `Get-NetTCPConnection -State Listen -LocalPort 7890` -> `FlClashCore` 监听 `127.0.0.1:7890`。
+- `git config --global --get "http.https://github.com.proxy"` -> `http://127.0.0.1:7890`。
+- `git -c http.https://github.com.proxy=http://127.0.0.1:7890 ls-remote origin HEAD` -> 成功返回 `afef219c17fc4187e8d5b0715dcf1a7cf690659b HEAD`。
+- `git ls-remote origin HEAD` -> 成功返回 `afef219c17fc4187e8d5b0715dcf1a7cf690659b HEAD`。
+- `git push origin int_main` -> 成功，`afef219c1..7a6dbbe96 int_main -> int_main`。
+- `task-closeout-cleanup --mode preview` -> 成功，delete/blocked/warnings 均为 `<none>`。
+- `task-closeout-cleanup --mode apply` -> 成功，deleted_paths 为 `<none>`。
 
-## Required Preconditions
+## Remaining Notes
 
-- FlClash 代理核心必须正常监听 `127.0.0.1:7890`；或
-- 当前机器的 SSH 公钥必须添加到 GitHub 后，改用 `ssh.github.com:443` 推送链路。
+- GitHub HTTPS 推送现在依赖 `FlClashCore` 持续监听 `127.0.0.1:7890`。
+- 工作区仍有其它任务的未提交改动；本次只修复 Git 代理推送链路并推送已有本地提交。
