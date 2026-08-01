@@ -40,3 +40,5 @@ verified_pending_release_rebuild
 - 2026-08-01：`release-20260801-frozen-smartseed-tempfix-r260801c-r1` 的 `publish-test` 已确认 `20260726_system_codex_smart_scheduling_test_items.sql` 通过，但在 `20260731_dcc_file_category_match_rule_seed.sql` line 131 触发 MySQL `ERROR 1267 Illegal mix of collations (utf8mb4_unicode_ci,IMPLICIT) and (utf8mb4_general_ci,IMPLICIT)`；operation 已失败并释放测试服发布锁，不能继续运行态验证。
 - 2026-08-01：新增 `script/tests/test_dcc_file_category_match_rule_seed_sql.py` 静态回归测试，先复现临时表缺少 `DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci` 的 RED 失败。
 - 2026-08-01：已最小修改 `20260731_dcc_file_category_match_rule_seed.sql` 的 MEMORY 临时表声明，目标测试、相邻 seed 测试、migration policy gate 和 `git diff --check` 均通过；等待提交后用新 releaseTag 重建。
+- 2026-08-01：`release-20260801-frozen-dcc-category-collation-r260801d-r1` 的 `publish-test` 再次失败，错误为 `utf8mb4_0900_ai_ci` 与 `utf8mb4_unicode_ci` 混用；只读确认真实目标列 `dcc_file_category.name=utf8mb4_unicode_ci`，`dcc_file_category_match_rule.match_text/match_type=utf8mb4_0900_ai_ci`。
+- 2026-08-01：已升级测试为列级 collation 断言，并将临时表 `category_name`、`match_text`、`match_type` 分别对齐真实目标列；目标测试、相邻 seed 测试、migration policy gate 和 `git diff --check` 均通过；等待提交后用新 releaseTag 重建。

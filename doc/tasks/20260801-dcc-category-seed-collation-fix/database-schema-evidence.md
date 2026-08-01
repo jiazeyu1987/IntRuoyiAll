@@ -22,19 +22,23 @@
 
 ## BDD Scenarios
 
-- BDD: DCC category match seed collation -> Given 目标表文本列使用 `utf8mb4_unicode_ci`, When required SQL 使用临时 seed 表比较分类名称、匹配文本和匹配类型, Then 临时表必须显式声明 `DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`。
+- BDD: DCC category match seed collation -> Given 目标表文本列分别使用 `dcc_file_category.name=utf8mb4_unicode_ci` 与 `dcc_file_category_match_rule.match_text/match_type=utf8mb4_0900_ai_ci`, When required SQL 使用临时 seed 表比较分类名称、匹配文本和匹配类型, Then 临时表必须按列显式声明对应 charset/collation。
 - BDD: No database fallback -> Given 发布 required SQL 在测试服失败, When 修复 seed SQL, Then 不修改数据库默认 collation、不手工更新 migration/lock、不复用失败 releaseTag。
 
 ## Changes
 
-- `20260731_dcc_file_category_match_rule_seed.sql` 的 `tmp_dcc_file_category_match_rule_seed` 临时表创建语句从 `ENGINE=MEMORY` 改为 `ENGINE=MEMORY DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`。
-- 新增 `script/tests/test_dcc_file_category_match_rule_seed_sql.py`，覆盖 release metadata、临时表 collation、关键 JOIN/比较表达式和必需业务 seed 词。
+- `20260731_dcc_file_category_match_rule_seed.sql` 的 `tmp_dcc_file_category_match_rule_seed` 临时表创建语句保留 `ENGINE=MEMORY DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`。
+- 将临时表 `category_name` 显式设为 `CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`，对齐 `dcc_file_category.name`。
+- 将临时表 `match_text` 与 `match_type` 显式设为 `CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci`，对齐 `dcc_file_category_match_rule.match_text/match_type`。
+- 新增并升级 `script/tests/test_dcc_file_category_match_rule_seed_sql.py`，覆盖 release metadata、列级临时表 collation、关键 JOIN/比较表达式和必需业务 seed 词。
 
 ## Migration
 
 - Migration tool: repository release migration policy gate over `sql/mysql`.
 - Migration verification command: `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output D:\IntRuoyiWorktree\r260801b-frozen-smartseed-fix\doc\tasks\20260801-dcc-category-seed-collation-fix\migration-policy-gate.json`。
 - Result: PASS，migrationCount=403，`20260731_dcc_file_category_match_rule_seed.sql` sha256=`7e2e3cd8880f35af99bab05f7dfd1aa2b394e2564e3bc80c89e689e53c8eaa97`。
+- Migration verification command r2: `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output D:\IntRuoyiWorktree\r260801b-frozen-smartseed-fix\doc\tasks\20260801-dcc-category-seed-collation-fix\migration-policy-gate-r2.json`。
+- Result r2: PASS，migrationCount=403，`20260731_dcc_file_category_match_rule_seed.sql` sha256=`cce2f95c5e2a5d84b24b2d05580010a2ef6ca0a018279e8a7f7d6a70ed649321`。
 
 ## Verification
 
@@ -42,6 +46,10 @@
 - GREEN: `python -X utf8 -m pytest script/tests/test_dcc_file_category_match_rule_seed_sql.py -q` -> PASS, 3 passed。
 - GREEN: `python -X utf8 -m pytest script/tests/test_dcc_file_category_match_rule_seed_sql.py script/tests/test_codex_smart_scheduling_test_items_seed.py -q` -> PASS, 8 passed。
 - GREEN: `git diff --check` -> PASS。
+- RED: r2 列级测试升级后，`python -X utf8 -m pytest script/tests/test_dcc_file_category_match_rule_seed_sql.py -q` -> FAIL，确认单表默认 collation 未覆盖 `match_text/match_type` 目标列。
+- GREEN: r2 列级修复后，`python -X utf8 -m pytest script/tests/test_dcc_file_category_match_rule_seed_sql.py -q` -> PASS, 3 passed。
+- GREEN: r2 相邻回归，`python -X utf8 -m pytest script/tests/test_dcc_file_category_match_rule_seed_sql.py script/tests/test_codex_smart_scheduling_test_items_seed.py -q` -> PASS, 8 passed。
+- GREEN: r2 `git diff --check` -> PASS。
 
 ## Blockers
 

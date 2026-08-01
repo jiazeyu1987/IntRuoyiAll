@@ -14,6 +14,13 @@
 - GREEN: `python -X utf8 -m pytest script/tests/test_dcc_file_category_match_rule_seed_sql.py script/tests/test_codex_smart_scheduling_test_items_seed.py -q` -> PASS, 8 passed。
 - GREEN: `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output D:\IntRuoyiWorktree\r260801b-frozen-smartseed-fix\doc\tasks\20260801-dcc-category-seed-collation-fix\migration-policy-gate.json` -> PASS, migrationCount=403，`20260731_dcc_file_category_match_rule_seed.sql` sha256=`7e2e3cd8880f35af99bab05f7dfd1aa2b394e2564e3bc80c89e689e53c8eaa97`。
 - GREEN: `git diff --check` -> PASS，Git 仅提示目标 SQL 下次触碰时 LF 会被替换为 CRLF，未发现 whitespace error。
+- RED: publish-test r260801d -> FAIL, `release-20260801-frozen-dcc-category-collation-r260801d-r1` 在 `20260731_dcc_file_category_match_rule_seed.sql` line 131 再次触发 MySQL `ERROR 1267`，本次为 `utf8mb4_0900_ai_ci` 与 `utf8mb4_unicode_ci` 混用；operation=`op-2026-08-01T073030255051500Z-ba55c7d7-75c5-404a-bfe2-1e8f8035a6a1`。
+- GREEN: live-column-collation-readonly -> PASS, 只读查询测试服目标列：`dcc_file_category.name=utf8mb4_unicode_ci`，`dcc_file_category_match_rule.match_text=utf8mb4_0900_ai_ci`，`dcc_file_category_match_rule.match_type=utf8mb4_0900_ai_ci`；未手工修改测试库。
+- RED: column-level-collation-test -> FAIL, `python -X utf8 -m pytest script/tests/test_dcc_file_category_match_rule_seed_sql.py -q` 复现当前 SQL 未对 `category_name`、`match_text`、`match_type` 分别声明目标列 collation，2 passed / 1 failed。
+- GREEN: column-level-collation-test -> PASS, `python -X utf8 -m pytest script/tests/test_dcc_file_category_match_rule_seed_sql.py -q` -> 3 passed。
+- GREEN: column-level-adjacent-regression -> PASS, `python -X utf8 -m pytest script/tests/test_dcc_file_category_match_rule_seed_sql.py script/tests/test_codex_smart_scheduling_test_items_seed.py -q` -> 8 passed。
+- GREEN: column-level-migration-policy-gate -> PASS, `python -X utf8 script\release\run-release-migration-policy-gate.py --sql-root sql\mysql --output D:\IntRuoyiWorktree\r260801b-frozen-smartseed-fix\doc\tasks\20260801-dcc-category-seed-collation-fix\migration-policy-gate-r2.json` -> PASS, migrationCount=403，`20260731_dcc_file_category_match_rule_seed.sql` sha256=`cce2f95c5e2a5d84b24b2d05580010a2ef6ca0a018279e8a7f7d6a70ed649321`。
+- GREEN: column-level-git-diff-check -> PASS, `git diff --check` 未发现 whitespace error。
 
 ## Issues
 
@@ -28,3 +35,15 @@
 - 是否可前置检查：是。
 - 是否可自动化：是，migration policy gate 可扫描 required SQL 中 MEMORY/TEMPORARY seed 表与真实文本列 JOIN 的 collation 声明。
 - 下次如何避免：所有 required SQL seed 临时表必须在创建语句中显式声明目标 collation，不依赖 MEMORY 引擎默认值。
+
+### I002 DCC 分类匹配规则 seed 单表级 collation 不足
+
+- 现象：`release-20260801-frozen-dcc-category-collation-r260801d-r1` 的 `publish-test` 再次在 `20260731_dcc_file_category_match_rule_seed.sql` line 131 失败，MySQL 返回 `ERROR 1267`，本次为 `utf8mb4_0900_ai_ci` 与 `utf8mb4_unicode_ci` 混用。
+- 阶段：测试服 `publish-test` required SQL 执行。
+- 影响：测试服发布失败，后续容器重建、健康检查、HTTP 页面和版本说明验证不得继续。
+- 原因判断：临时表只设置了表默认 `utf8mb4_unicode_ci`，能对齐 `dcc_file_category.name`，但 `dcc_file_category_match_rule.match_text/match_type` 真实目标列为 `utf8mb4_0900_ai_ci`，插入完整性校验中比较 `rule_record.match_text/type = seed.match_text/type` 仍会混用 collation。
+- 处理动作：只读查询真实列 collation；将静态测试升级为列级 collation 断言；将 `category_name` 显式设为 `utf8mb4_unicode_ci`，将 `match_text` 与 `match_type` 显式设为 `utf8mb4_0900_ai_ci`。
+- 结果：目标测试、相邻 seed 回归、migration policy gate 与 `git diff --check` 均通过，等待提交后重建新 releaseTag。
+- 是否可前置检查：是。
+- 是否可自动化：是，required SQL gate 应基于目标表每个参与比较的列读取真实 collation，而不是只看表默认或第一个 JOIN 列。
+- 下次如何避免：临时 seed 表与多个真实表文本列比较时，必须按列级目标 collation 建表或显式 `COLLATE` 比较；不得假设同一业务链路所有列使用同一 collation。

@@ -34,6 +34,18 @@ def test_dcc_file_category_match_rule_seed_temp_table_matches_target_collation()
         "INSERT INTO `tmp_dcc_file_category_match_rule_seed`",
     )
 
+    assert (
+        "`category_name` VARCHAR(128) CHARACTER SET utf8mb4 "
+        "COLLATE utf8mb4_unicode_ci NOT NULL"
+    ) in table_sql
+    assert (
+        "`match_text` VARCHAR(255) CHARACTER SET utf8mb4 "
+        "COLLATE utf8mb4_0900_ai_ci NOT NULL"
+    ) in table_sql
+    assert (
+        "`match_type` VARCHAR(32) CHARACTER SET utf8mb4 "
+        "COLLATE utf8mb4_0900_ai_ci NOT NULL"
+    ) in table_sql
     assert "DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci" in table_sql
     assert "seed.`category_name` = category.`name`" in sql
     assert "existing.`match_text` = seed.`match_text`" in sql
