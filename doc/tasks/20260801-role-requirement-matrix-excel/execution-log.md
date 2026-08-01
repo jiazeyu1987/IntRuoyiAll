@@ -232,3 +232,37 @@
 - Verified: `python -X utf8` 读取当前任务 4 个 Markdown 文件通过。
 - Verified: `rg` 命中 `P1.1 是 P1 的前置门禁`、`Cross-Stage Hard Gates`、`调拨覆盖门禁`、`PQC 粒度门禁`、`批记录绑定门禁`、`异常责任门禁` 和新增 E2E 场景。
 - Verified: `git diff --check -- doc/tasks/20260801-role-requirement-matrix-excel` 无 whitespace error，仅提示 Git 将在触碰既有文件时按仓库设置处理 LF/CRLF。
+
+## Revision 2026-08-01 Strict BDD + TDD Full-Coverage Test Package
+
+用户明确要求后续实现必须遵循 BDD + 严格 TDD，并提供覆盖源 Excel 全部目标的测试方案。
+
+- BDD: 62 项需求逐项测试覆盖 -> Given Excel 包含 23 项主需求和 39 项衍生需求 When 形成后续实现测试合同 Then 62 个 `AC-*` 各自拥有唯一 `TC-*`、正向断言、失败/边界断言、最低测试层级和可追踪证据。
+- BDD: 严格 TDD 状态门禁 -> Given 后续实现选择任一 `AC-*` When 开始开发 Then 必须依次完成 BDD_APPROVED、TEST_ADDED、RED_VALID、GREEN、REFACTOR、REGRESSION、适用真实 E2E 和 ACCEPTED，不允许先写生产代码后补测试。
+- BDD: 用户可见行为真实验收 -> Given 页面存在可见写行为 When 验收该行为 Then 必须同时通过后端业务测试和正式登录/菜单/页面的 Playwright E2E，API 只用于最终只读核验。
+
+### Structural RED
+
+- RED: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi\doc\tasks\20260801-role-requirement-matrix-excel` -> FAIL，预期原因：四份 `docs/acceptance/` 验收文档尚未创建。
+- RED: strict coverage audit -> FAIL，预期原因：原测试计划只显式列出 41 个 AC，另 21 个 AC 隐藏在范围表达中，且没有 62 条逐项 `TC-*` 矩阵。
+
+### Planning Changes
+
+- Added: `docs/acceptance/bdd-scenarios.md`，包含 16 个主业务场景、失败场景、边界场景、开放问题和测试 blocker。
+- Added: `docs/acceptance/tdd-plan.md`，固定逐 AC 的 TEST_ADDED、有效 RED、同命令 GREEN、REFACTOR、REGRESSION、真实 E2E 和证据格式。
+- Added: `docs/acceptance/e2e-plan.md`，定义六条真实用户路径、六类角色、页面步骤、只读 API 核验、控制台/日志检查和阻塞条件。
+- Added: `docs/acceptance/test-data.md`，覆盖正向、失败、边界、权限、并发、迁移、性能、快照和安全清理数据。
+- Updated: `development-plan.md`，新增严格交付状态机、测试层级、M1-M6 TDD 切片、证据与提交门禁。
+- Updated: `test-plan.md`，显式展开全部 AC 并新增 62 行验收测试矩阵，每行具备唯一 TC、正向断言和失败/边界断言。
+- Updated: `task-state.json`，机器可读记录严格 TDD 已启用以及 `62 requirements / 62 AC / 62 TC` 覆盖合同。
+
+### GREEN And Verification Evidence
+
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\bdd-tdd-acceptance-planner\scripts\validate_acceptance_plan.py --root E:\IntRuoyi\doc\tasks\20260801-role-requirement-matrix-excel` -> PASS。
+- GREEN: `python -X utf8 C:\Users\BJB110\.codex\skills\roadmap-node-dev-plan\scripts\validate_node_dev_plan.py --task-dir E:\IntRuoyi\doc\tasks\20260801-role-requirement-matrix-excel` -> PASS。
+- GREEN: strict coverage validator -> PASS，`62 requirements / 62 AC / 62 unique TC`，每行测试层级、正向断言、失败/边界断言非空，所有 UI 行均包含 E2E。
+- GREEN: UTF-8 and trailing whitespace validator -> PASS，当前任务 11 个 Markdown/JSON 文件均可按 UTF-8 读取且无行尾空格。
+- GREEN: `git diff --check -- doc/tasks/20260801-role-requirement-matrix-excel` -> PASS，无 whitespace error；仅有仓库 LF/CRLF 提示。
+- Experience: 已执行 `project-experience-consolidation` 路由检查；严格 BDD/TDD、No-tests 不算 RED、真实 E2E 和任务清理门禁已有 `AGENTS.md`、`docs/task-closeout-rules.md`、`docs/e2e-rules.md` 等正式规则承载，本次 62 项业务测试矩阵属于任务内规划，不新增长期经验文档。
+- Cleanup preview: `task_closeout.py --task-id 20260801-role-requirement-matrix-excel --mode preview` -> PASS，11 个正式 Markdown/JSON 文件全部在 keep，delete/blocked/warnings 均为空。
+- Cleanup apply: 未执行。当前任务仍因 GitHub HTTPS 443 推送阻塞而保持 `blocked`，不得为了清理把状态伪装为 `ready_for_closeout` 或 `completed`。

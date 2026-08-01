@@ -40,6 +40,73 @@
 | M5 日结、范围、权限、审计和快照 | 补齐班组配置、范围、日结、只读看板、历史快照和审计 | M2、M3、M4 | `D01-D10`、`D12-D14`、`D38-D39` | 角色权限和数据范围真实隔离；配置变更不改写历史；日结逐项解释未闭环 |
 | M6 迁移、并发与真实验收 | 完成迁移、性能、并发、真实 Playwright E2E、回归、清理和发布门禁 | M1-M5 | 全部 62 项 | 62 个 AC 全部通过；真实主链路、失败路径、权限、并发和清理证据齐全 |
 
+## Strict BDD + TDD Delivery Contract
+
+### Atomic Delivery Unit
+
+- 后续实现的最小交付单位是一个 `AC-*`，或一个仍能独立产生可观察 RED/GREEN 的更小行为切片。
+- 每个 AC 必须先在 `docs/acceptance/bdd-scenarios.md` 中确认 Given/When/Then，再进入测试编写。
+- 一个 BDD 场景可以覆盖多个 AC，但每个 AC 必须在 `test-plan.md` 的 62 项验收测试矩阵中拥有独立 `TC-*`、正向断言和失败/边界断言。
+- 禁止按“先完成整个 milestone，再统一补测试”的方式开发；milestone 内必须逐 AC 循环。
+
+### Mandatory Sequence
+
+每个 AC 只能按以下状态推进：
+
+`PLANNED -> BDD_APPROVED -> TEST_ADDED -> RED_VALID -> IMPLEMENTING -> GREEN -> REFACTORED -> REGRESSION_PASS -> E2E_PASS -> ACCEPTED`
+
+1. `BDD_APPROVED`：业务、产品和开发确认可观察 Given/When/Then、正式来源和非范围。
+2. `TEST_ADDED`：测试类/脚本已创建，测试运行器能发现，tests run 大于 `0`。
+3. `RED_VALID`：生产代码尚未修改，失败原因是目标业务行为缺失。
+4. `IMPLEMENTING`：只实现令当前 RED 通过的最小正式方案。
+5. `GREEN`：重跑同一命令通过，不得换成更弱测试。
+6. `REFACTORED`：在测试保护下清除重复、死分支、隐式 fallback 和跨层业务规则。
+7. `REGRESSION_PASS`：相邻模块、权限、租户、并发、迁移或快照回归通过。
+8. `E2E_PASS`：用户可见行为通过真实 Playwright 页面路径；纯 schema/迁移 AC 必须由其所属真实主链路间接覆盖。
+9. `ACCEPTED`：证据写入实施任务 `execution-log.md`，并关联测试报告、业务 ID 和清理结果。
+
+任何阶段失败都保持当前 AC 未完成；不得因为 milestone 其他 AC 通过而跳过。
+
+### Required Test Layers
+
+| 变更类型 | 最低测试层级 |
+|---|---|
+| 数据表、索引、唯一键、迁移 | Schema/Contract + Migration + Service/API + 所属真实 E2E |
+| 领域规则、状态机、数量和聚合 | Service Unit + API + Failure/Boundary + Concurrency（适用时） |
+| 页面渲染、输入和操作入口 | Frontend Static/Component + Type Check + Real Playwright |
+| 权限、范围和租户 | Backend Authorization + API Negative + Multi-role Real Playwright |
+| 历史快照、审计和版本 | Service/API + Snapshot/Audit + 配置变更后的 Real Playwright |
+| 列表、分页和性能 | Read-model Test + Query/Index Evidence + Pagination/Performance |
+| 放行和跨模块闭环 | Source Adapter + Completeness Service + API + Full Real E2E |
+
+单元测试或静态合同不能单独证明用户可见 AC；真实 E2E 也不能替代 schema、并发、迁移或服务级失败测试。
+
+### Milestone TDD Slices
+
+| 里程碑 | AC 切片 | 首批 RED | 必须完成的回归 |
+|---|---|---|---|
+| M1 | `AC-M01`、`AC-M03`、`AC-M04` | ERP 候选合同、唯一 activeOrderId、双来源迁移冲突 | 活跃订单、生产组长、PQC 上下文和 schema 回归 |
+| M2 | `AC-M10`、`AC-M11`、`AC-M16`、`AC-M17`、`AC-M18`、`AC-M19`、`AC-D11` | 无订单报工、修订链、系数 `3.0`、多事件聚合、并发回填 | 已交付生产组长工作台、正式报工和批记录回归 |
+| M3 | `AC-M09`、`AC-M12`、`AC-M13`、`AC-M14`、`AC-M15`、`AC-M20`、`AC-D15`、`AC-D16`、`AC-D17`、`AC-D18`、`AC-D19`、`AC-D20`、`AC-D21`、`AC-D22`、`AC-D23`、`AC-D24`、`AC-D25`、`AC-D26`、`AC-D27`、`AC-D28`、`AC-D29`、`AC-D30`、`AC-D31`、`AC-D32`、`AC-D33`、`AC-D34`、`AC-D35` | 规程发布缺项、301×5%=16、无生产事件 PQC、签名不一致、自我确认 | QA 版本、PQC 上下文、提交复核、过程检验和前端动态表单回归 |
+| M4 | `AC-M02`、`AC-M05`、`AC-M06`、`AC-M07`、`AC-M08`、`AC-M21`、`AC-M22`、`AC-M23`、`AC-D36`、`AC-D37` | 多调拨净额、开工缺项、未确认不汇集、真实放行来源 | 调拨、异常、过程检验、eDHR 完整性和放行回归 |
+| M5 | `AC-D01`、`AC-D02`、`AC-D03`、`AC-D04`、`AC-D05`、`AC-D06`、`AC-D07`、`AC-D08`、`AC-D09`、`AC-D10`、`AC-D12`、`AC-D13`、`AC-D14`、`AC-D38`、`AC-D39` | 正式设备绑定、范围后端拒绝、日结漏项、三配置分离、历史快照 | 班组配置、权限范围、只读看板、审计、分页和快照回归 |
+| M6 | 全部 62 个 AC | 迁移冲突、并发重复终态、权限越界、N+1、真实主链路缺口 | 全量定向回归、六角色真实 E2E、清理和发布门禁 |
+
+### Evidence And Commit Gate
+
+- 实施任务日志必须逐 AC 记录：
+  - `BDD: <AC-ID> -> Given/When/Then`
+  - `TEST_ADDED: <test> -> discovered, tests run > 0`
+  - `RED: <command> -> FAIL, <expected business reason>`
+  - `GREEN: <same command> -> PASS`
+  - `REFACTOR: <decision> -> no fallback/duplicate rule`
+  - `REGRESSION: <command> -> PASS`
+  - `E2E: <path> -> PASS`
+  - `ACCEPTED: <AC-ID> -> <evidence>`
+- 没有有效 RED、同命令 GREEN、相邻回归和适用 E2E 的生产代码不得提交。
+- 一个 milestone 只有在其全部 AC 状态为 `ACCEPTED` 且 blocker 为空时才能完成。
+- 详细 BDD、TDD、E2E 和测试数据方案位于 `docs/acceptance/`，`test-plan.md` 是 62 项统一验收索引。
+
 ## Implementation Steps
 
 ### M0 - Freeze Contracts and Baseline
@@ -263,12 +330,16 @@
 
 - 每个行为先创建能编译和执行的测试，再运行 RED。
 - 缺测试类、缺脚本、No tests、缺数据库/账号/运行服务不算有效 RED，只能记录为 blocker。
-- GREEN 只运行当前行为的最小测试；随后执行相邻模块回归。
+- GREEN 必须重跑同一 RED 命令；随后执行 REFACTOR、相邻模块 REGRESSION 和适用真实 E2E。
+- 每个 AC 必须在 `test-plan.md` 的验收测试矩阵中拥有独立 `TC-*`，不得只用 BDD 范围表达代替逐项测试。
+- 生产代码提交必须包含对应测试改动和 BDD/RED/GREEN/REFACTOR/REGRESSION 证据。
 - 测试类和脚本名称以下为计划新增项，不代表当前仓库已经存在。
 
 ### M0 Gate
 
 - 结构合同：62 个需求 ID、62 个 AC、16 个 BDD 场景和 M0-M6 映射完整。
+- 测试合同：62 个 AC、62 个唯一 `TC-*`、正向断言和失败/边界断言全部显式存在。
+- `bdd-tdd-acceptance-planner` 验证四份 `docs/acceptance/` 文档通过。
 - 静态搜索确认计划没有把 `formBindings`、`MAIN` 或 `工序开始` 写成正式批记录替代来源。
 - source map 中任何未知正式来源必须保持 blocker。
 
@@ -449,6 +520,8 @@ mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am "-Dtest=MesProcessPoolTe
 ## Definition of Done
 
 - 62 个需求和 62 个验收项全部完成并可从 Excel 行追踪到实现、测试和证据。
+- 62 个 AC 均按 BDD -> TEST_ADDED -> RED -> GREEN -> REFACTOR -> REGRESSION -> E2E -> ACCEPTED 完成。
+- 62 个唯一 `TC-*` 的正向和失败/边界断言全部通过，需求覆盖率为 `62/62`。
 - 生产、PQC、调拨、批记录和放行读取同一权威活跃订单。
 - 生产报工可先记录工序事实，订单归属由组长分配。
 - 目标数量按固定 ERP 数量乘正式生产系数，ERP 数量不变。

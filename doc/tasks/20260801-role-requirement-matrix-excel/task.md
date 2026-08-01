@@ -13,6 +13,8 @@
 - 复用 `doc/tasks/20260731-team-leader-workbench-prd-plan/` 已交付并验证的生产组长能力，只规划统一契约和缺失行为，不重复绿地建设。
 - 明确统一活跃订单、生产系数、ERP 调拨、QA 规程、PQC、正式批记录、异常和放行的数据来源及状态边界。
 - 形成 `prd.md`、`development-plan.md`、`test-plan.md` 和 `task-state.json`，供后续实现任务按 BDD + 严格 TDD 执行。
+- 为 62 个 `AC-*` 分别定义唯一 `TC-*`、正向断言、失败/边界断言和最低测试层级，禁止用范围表达或代码覆盖率替代逐项验收。
+- 形成 `docs/acceptance/bdd-scenarios.md`、`tdd-plan.md`、`e2e-plan.md` 和 `test-data.md`，固定 BDD、严格 TDD、真实 E2E 与测试数据合同。
 - 定义真实 Playwright 用户路径、正式测试数据、并发、迁移、审计、历史快照和任务自有数据清理门禁。
 
 ## Non-Scope
@@ -68,9 +70,13 @@
 ## Expected Verification
 
 - `validate_node_dev_plan.py` 对五个规划文件校验通过。
+- `validate_acceptance_plan.py` 对四个 `docs/acceptance/` 验收文档校验通过。
 - `development-plan.md` 的追踪矩阵中 `M01-M23`、`D01-D39` 各出现一次且无缺号、重号。
 - 每个需求都映射到唯一 `AC-Mxx` / `AC-Dxx`、一个里程碑、一个实施区域和一个 BDD 场景。
+- `test-plan.md` 的验收测试矩阵包含 62 个唯一 AC、62 个唯一 TC，且逐行具备非空测试层级、正向断言和失败/边界断言。
+- 用户可见写行为包含后端业务测试和真实 Playwright E2E；schema、迁移、并发、权限、租户、快照和性能具备对应低层测试。
 - `task-state.json` 可按 UTF-8 解析，包含 `status`、`currentMilestone`、`milestones`、`acceptance`。
+- `task-state.json` 机器可读记录严格 TDD 已启用、需求/AC/TC 均为 62、正向和失败/边界覆盖为强制门禁。
 - 当前任务 Markdown / JSON 均可用 UTF-8 读取，`git diff --check` 无 whitespace error。
 - 当前任务规划提交只包含本任务规划产物；并行脏改动按独立基线提交保存，生产代码、数据库、运行态和源 Excel 均不由本任务修改。
 - 收尾前执行 `project-experience-consolidation` 和 `task-closeout-cleanup` preview/apply。
@@ -104,8 +110,11 @@
 
 - PASS：源 Excel 的 23 项主需求和 39 项衍生需求均已形成唯一需求 ID、验收 ID、里程碑、实施区域、BDD 和可观察验收。
 - PASS：PRD、开发计划、测试计划和任务状态之间的任务名称、里程碑、BDD 与验收映射一致。
+- PASS：62 个 AC 均已配置唯一 TC、最低测试层级、正向断言和失败/边界断言；所有包含 UI 层的测试均同时要求真实 E2E。
+- PASS：严格 TDD 状态固定为 `BDD_APPROVED -> TEST_ADDED -> RED_VALID -> GREEN -> REFACTORED -> REGRESSION_PASS -> E2E_PASS -> ACCEPTED`，缺测试或 No tests 不算 RED。
+- PASS：四份 `docs/acceptance/` 验收文档和机器可读测试覆盖元数据已通过结构校验。
 - PASS：roadmap 结构校验、Excel 逐行对照、UTF-8/JSON、whitespace 和 cleanup preview/apply 均通过。
-- PASS：cleanup 只删除任务自有临时校验脚本，保留七个正式规划/收尾文件。
+- PASS：cleanup 只删除任务自有临时校验脚本；新增四份验收文档已进入 `Cleanup Keep`。
 - 本任务只完成规划包；`task-state.json.status` 继续保持 `planned`，M0-M6 生产实现尚未开始。
 - BLOCKED：GitHub HTTPS 连接失败，本地提交尚未推送到 `origin/int_main`。
 
@@ -125,3 +134,7 @@ blocked
 - doc/tasks/20260801-role-requirement-matrix-excel/development-plan.md
 - doc/tasks/20260801-role-requirement-matrix-excel/test-plan.md
 - doc/tasks/20260801-role-requirement-matrix-excel/task-state.json
+- doc/tasks/20260801-role-requirement-matrix-excel/docs/acceptance/bdd-scenarios.md
+- doc/tasks/20260801-role-requirement-matrix-excel/docs/acceptance/tdd-plan.md
+- doc/tasks/20260801-role-requirement-matrix-excel/docs/acceptance/e2e-plan.md
+- doc/tasks/20260801-role-requirement-matrix-excel/docs/acceptance/test-data.md

@@ -2,6 +2,31 @@
   "status": "planned",
   "currentMilestone": "M0",
   "planningPackageStatus": "completed",
+  "testPlanningStatus": "completed",
+  "strictTdd": {
+    "enabled": true,
+    "deliveryUnit": "AC",
+    "stateSequence": [
+      "PLANNED",
+      "BDD_APPROVED",
+      "TEST_ADDED",
+      "RED_VALID",
+      "IMPLEMENTING",
+      "GREEN",
+      "REFACTORED",
+      "REGRESSION_PASS",
+      "E2E_PASS",
+      "ACCEPTED"
+    ]
+  },
+  "testCoverage": {
+    "requirements": 62,
+    "acceptanceCriteria": 62,
+    "testCases": 62,
+    "positiveAssertionPerTestCaseRequired": true,
+    "failureOrBoundaryAssertionPerTestCaseRequired": true,
+    "realE2eForUserVisibleBehaviorRequired": true
+  },
   "closeoutStatus": "blocked",
   "closeoutBlocker": "2026-08-01 GitHub HTTPS 443 session unavailable; local commits are not pushed to origin/int_main.",
   "sourceWorkbook": "C:/Users/BJB110/Desktop/文档/职责/岗位需求分解矩阵.xlsx",
@@ -519,6 +544,10 @@
     "prd": "doc/tasks/20260801-role-requirement-matrix-excel/prd.md",
     "developmentPlan": "doc/tasks/20260801-role-requirement-matrix-excel/development-plan.md",
     "testPlan": "doc/tasks/20260801-role-requirement-matrix-excel/test-plan.md",
+    "bddScenarios": "doc/tasks/20260801-role-requirement-matrix-excel/docs/acceptance/bdd-scenarios.md",
+    "tddPlan": "doc/tasks/20260801-role-requirement-matrix-excel/docs/acceptance/tdd-plan.md",
+    "e2ePlan": "doc/tasks/20260801-role-requirement-matrix-excel/docs/acceptance/e2e-plan.md",
+    "testData": "doc/tasks/20260801-role-requirement-matrix-excel/docs/acceptance/test-data.md",
     "executionLog": "doc/tasks/20260801-role-requirement-matrix-excel/execution-log.md",
     "verificationReport": "doc/tasks/20260801-role-requirement-matrix-excel/verification-report.md"
   },
