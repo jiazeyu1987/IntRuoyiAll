@@ -18,4 +18,10 @@ BDD: 生产组长职责文档写入 -> Given 用户指定桌面职责目录和�
 
 ## Verification
 
-- 待执行。
+- `python -X utf8 -c "...生产组长.md..."` -> PASS，输出 `DUTY_DOC_UTF8_OK chars= 7741`。
+- `Get-Item -LiteralPath 'C:\Users\BJB110\Desktop\文档\职责\生产组长.md'` -> PASS，文件存在，大小 19288 字节。
+- `git diff --check -- doc/tasks/20260801-production-leader-desktop-duty-doc/task.md doc/tasks/20260801-production-leader-desktop-duty-doc/execution-log.md` -> PASS，无空白错误。
+
+
+- `task_closeout.py --task-id 20260801-production-leader-desktop-duty-doc --mode preview` -> PASS，无 delete、blocked、warnings。
+- `task_closeout.py --task-id 20260801-production-leader-desktop-duty-doc --mode apply` -> PASS，无删除项。

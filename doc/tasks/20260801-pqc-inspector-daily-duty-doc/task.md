@@ -9,8 +9,8 @@
 - [x] 创建任务目录和目标职责目录。
 - [x] 确认目标文件不存在，避免误覆盖。
 - [x] 核对产品需求文档技能、任务收尾规则、PowerShell UTF-8 规则和 PRD 结构参考。
-- [ ] 写入 PQC 检验员职责文档。
-- [ ] 执行 UTF-8 读取和关键口径验证。
+- [x] 写入 PQC 检验员职责文档。
+- [x] 执行 UTF-8 读取和关键口径验证。
 
 ## Expected Verification
 
@@ -20,7 +20,7 @@
 
 ## Current Status
 
-in_progress
+ready_for_closeout
 
 ## 设计约束检查
 

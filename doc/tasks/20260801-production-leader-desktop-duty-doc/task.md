@@ -8,8 +8,8 @@
 
 - [x] 读取任务收尾和 PowerShell UTF-8 规则。
 - [x] 确认目标目录存在且目标文件尚不存在。
-- [ ] 写入生产组长职责 Markdown 文件。
-- [ ] 验证 UTF-8 读取和关键口径。
+- [x] 写入生产组长职责 Markdown 文件。
+- [x] 验证 UTF-8 读取和关键口径。
 
 ## Expected Verification
 
@@ -18,7 +18,7 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## 设计约束检查
 

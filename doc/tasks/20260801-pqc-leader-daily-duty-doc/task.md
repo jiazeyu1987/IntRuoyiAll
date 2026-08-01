@@ -9,8 +9,8 @@
 - [x] 确认目标目录存在。
 - [x] 读取任务收尾和 PowerShell UTF-8 编码规则。
 - [x] 核对现有职责文档风格。
-- [ ] 写入 PQC 组长职责文档。
-- [ ] 验证 UTF-8 读取和关键内容覆盖。
+- [x] 写入 PQC 组长职责文档。
+- [x] 验证 UTF-8 读取和关键内容覆盖。
 
 ## Expected Verification
 
@@ -19,7 +19,7 @@
 
 ## Current Status
 
-in_progress
+completed
 
 ## 设计约束检查
 

@@ -20,9 +20,10 @@ BDD: PQC 检验员职责文档 -> Given 用户要求落地新一线 PQC 口径�
 
 ## Verification
 
-- 待执行：UTF-8 读取目标职责文档。
-- 待执行：关键口径搜索。
-- 待执行：任务记录空白检查。
+- GREEN: `Test-Path C:\Users\BJB110\Desktop\文档\职责\pqc检验员.md` -> PASS，目标文件存在。
+- GREEN: `python -X utf8 -c "...pqc检验员.md..."` -> PASS，输出 `TARGET_UTF8_AND_KEYWORDS_OK chars= 5146`。
+- GREEN: `rg -n "一线 PQC 检验入口|PQC 当日检验任务工作台|活跃订单|路线工序|实际 PQC 人员|逐件检验|工序池 PQC 事件|旧 IPQC|不作为未来 PQC 一天工作流主入口" C:\Users\BJB110\Desktop\文档\职责\pqc检验员.md` -> PASS，关键口径存在。
+- GREEN: `git diff --check -- doc/tasks/20260801-pqc-inspector-daily-duty-doc/task.md doc/tasks/20260801-pqc-inspector-daily-duty-doc/execution-log.md` -> PASS，无空白错误。
 
 ## Blockers
 

@@ -17,5 +17,10 @@ BDD: 写入 PQC 组长职责文档 -> Given 用户指定职责目录和文件名
 
 ## Verification
 
-- 待执行：UTF-8 读取目标文件。
-- 待执行：关键内容覆盖检查。
+- `python -X utf8 -c "...pqc组长.md..."` -> PASS，输出 `UTF8_READ_OK chars= 5479`。
+- `Get-Content -LiteralPath 'C:\Users\BJB110\Desktop\文档\职责\pqc组长.md' -Encoding utf8 | Select-Object -First 25` -> PASS，标题和开头内容可读。
+- `Get-Item -LiteralPath 'C:\Users\BJB110\Desktop\文档\职责\pqc组长.md'` -> PASS，文件存在，大小 `13929` 字节。
+- `project-experience-consolidation` 复核：本次仅生成职责说明文档，没有新增可复用工程经验，不新增长期经验文档。
+- `task_closeout.py --task-id 20260801-pqc-leader-daily-duty-doc --mode preview` -> PASS，delete `<none>`，blocked `<none>`，warnings `<none>`。
+- `task_closeout.py --task-id 20260801-pqc-leader-daily-duty-doc --mode apply` -> PASS，无删除项。
+- 最终读取 `C:\Users\BJB110\Desktop\文档\职责\pqc组长.md` -> PASS，标题为 `# PQC 组长未来一天的系统工作说明`，共 406 行。
