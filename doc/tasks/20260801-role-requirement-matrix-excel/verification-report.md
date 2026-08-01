@@ -51,3 +51,42 @@ PASS。
 ## v3 Result
 
 PASS。
+
+## Development Plan Scope
+
+按用户要求，将岗位需求分解矩阵中的主流程和衍生需求拆成开发任务表，写入 `development-plan.md`。文档要求第一阶段可并行开发，第二阶段及以后基于前序阶段逐步推进。
+
+## Development Plan Output
+
+- `E:\IntRuoyi\doc\tasks\20260801-role-requirement-matrix-excel\development-plan.md`
+
+## Development Plan Checks
+
+- UTF-8 读取通过。
+- 文档包含阶段总览、P1 可并行开发任务、P2 核心链路、P3 批记录与过程检验、P4 异常与放行、P5 完善型任务、P6 联调与上线准备。
+- P1 明确公共数据契约、订单状态机、活跃订单池、调拨关联、报工、班组基础维护、QA 规程、PQC、批记录正式绑定和权限基础可以并行推进。
+- P2-P6 明确依赖前序阶段，并列出每个任务的主要开发内容、输出物、依赖和验收。
+- `python -X utf8` 读取当前任务 4 个 Markdown 文件通过；`rg` 阶段标题检查通过；`git diff --check` 未发现 whitespace error。
+- 本次只修改当前任务文档，未修改生产代码、数据库、运行态、Excel 源文件或并行任务目录。
+
+## Development Plan Result
+
+PASS。由于当前工作区进入本次任务前已有 unrelated `ahead 1` 和 untracked 并行任务文档，本次未执行提交或推送，任务状态保留为 `ready_for_closeout`。
+
+## Development Plan Optimization Scope
+
+根据逻辑复核结果优化 `development-plan.md`，重点补强阶段依赖、调拨覆盖校验、PQC 跨天和数量变更、批记录字段映射顺序、异常处理责任以及 E2E 阻塞场景。
+
+## Development Plan Optimization Checks
+
+- P1 阶段已明确 `P1.1` 为先行门禁，`P1.2-P1.12` 才是可并行任务。
+- QA 规程配置已补充产品、工艺路线、路线版本、工序基础数据和正式批记录绑定依赖。
+- 调拨关联已补充多调拨单、分批发货、补料、退料、多批次和调拨覆盖明细。
+- PQC 任务生成与数量计算已补充跨天、班次、轮次、订单数量变更、规程版本变更和已提交记录锁定。
+- 批记录任务已调整为先定义字段映射和多次报工汇总规则，再执行回填。
+- 异常闭环已补充处理责任、处理入口、状态来源和解除条件。
+- P6 已扩展缺 SOP、缺生产系数、缺正式批记录绑定、调拨数量/批次不一致、PQC 跨天/数量变更、签名人与实际人员不一致等 E2E 场景。
+
+## Development Plan Optimization Result
+
+PASS。`python -X utf8` 读取通过，关键新增门禁与 E2E 场景检索通过，`git diff --check` 无 whitespace error。优化后文档更接近可执行开发规格，仍未修改生产代码、数据库、运行态或 Excel 源文件。

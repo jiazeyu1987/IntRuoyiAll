@@ -79,3 +79,46 @@
 - Verified: 关键衍生项命中 `添加本班组员工`、`禁用本班组员工`、`绑定工序可用设备`、`设备参数上下限`、`QA 检验规程`、`PQC 组长`、`电子签名`、`历史快照`。
 - Verified: 表格运行库可导入并渲染两个 sheet；错误扫描命中数为 0。
 - Experience: 本次只更新当前需求矩阵产物和任务证据，不新增长期经验文档。
+
+## Revision 2026-08-01 Development Plan
+
+用户要求把完整开发任务表写入开发文档，要求第一阶段是可并行开发的任务，第二阶段及以后是必须依赖前序阶段推进的任务。
+
+- BDD: 开发任务表写入 -> Given 已有岗位需求矩阵和 P1-P6 拆分口径 When 写入开发文档 Then 文档清楚标明 P1 可并行任务、P2-P6 依赖关系、输出物和验收标准。
+
+## Command / Verification Evidence Development Plan
+
+- Read: `docs/task-closeout-rules.md`
+- Read: `docs/powershell-encoding.md`
+- Read: `docs/experience-index.md`
+- Read: `docs/powershell-memory.md`
+- Checked: `git status --short --branch --untracked-files=all`
+- Wrote: `doc/tasks/20260801-role-requirement-matrix-excel/development-plan.md`
+- Updated: `doc/tasks/20260801-role-requirement-matrix-excel/task.md`
+- Updated: `doc/tasks/20260801-role-requirement-matrix-excel/execution-log.md`
+- Updated: `doc/tasks/20260801-role-requirement-matrix-excel/verification-report.md`
+- Verified: `development-plan.md` UTF-8 读取通过。
+- Verified: 文档包含 `P1 - 可并行开发任务`、`P2 - 核心链路任务`、`P3 - 批记录与过程检验汇集`、`P4 - 异常与放行闭环`、`P5 - 完善型任务`、`P6 - 联调与上线准备`。
+- Verified: `python -X utf8` 读取 `development-plan.md`、`task.md`、`execution-log.md`、`verification-report.md` 均成功。
+- Verified: `rg` 命中 P1-P6 阶段标题和 `Definition of Done`。
+- Verified: `git diff --check -- doc/tasks/20260801-role-requirement-matrix-excel` 无 whitespace error，仅提示 Git 将在触碰既有文件时按仓库设置处理 LF/CRLF。
+- Git boundary: 进入本次写入前，`int_main...origin/int_main [ahead 1]` 且存在 unrelated untracked `doc/tasks/20260801-dcc-list-auto-classify-local-e2e/*`；本次未触碰并行任务文件，未执行提交或推送。
+- Experience: 已读取 `project-experience-consolidation` 技能；本次属于一次性业务开发计划落档，没有新增通用工程经验或可前置门禁，不新增长期经验文档。
+
+## Revision 2026-08-01 Development Plan Optimization
+
+用户要求对开发文档进行优化。
+
+- BDD: 开发任务表逻辑优化 -> Given 开发计划已覆盖 P1-P6 When 根据逻辑复核补充依赖和验收边界 Then 计划明确 P1.1 前置、调拨覆盖、PQC 粒度、批记录映射、异常责任和 E2E 缺项场景，按计划开发更能满足 Excel 需求。
+
+## Command / Verification Evidence Development Plan Optimization
+
+- Checked: `rg` 定位 `development-plan.md` 中 P1/P2/P3/P4/P6 待优化行。
+- Checked: `git status --short --branch --untracked-files=all -- doc/tasks/...` 确认本次只涉及当前任务文档和既有 unrelated DCC 任务文档。
+- Updated: `doc/tasks/20260801-role-requirement-matrix-excel/development-plan.md`
+- Updated: `doc/tasks/20260801-role-requirement-matrix-excel/task.md`
+- Updated: `doc/tasks/20260801-role-requirement-matrix-excel/execution-log.md`
+- Updated: `doc/tasks/20260801-role-requirement-matrix-excel/verification-report.md`
+- Verified: `python -X utf8` 读取当前任务 4 个 Markdown 文件通过。
+- Verified: `rg` 命中 `P1.1 是 P1 的前置门禁`、`Cross-Stage Hard Gates`、`调拨覆盖门禁`、`PQC 粒度门禁`、`批记录绑定门禁`、`异常责任门禁` 和新增 E2E 场景。
+- Verified: `git diff --check -- doc/tasks/20260801-role-requirement-matrix-excel` 无 whitespace error，仅提示 Git 将在触碰既有文件时按仓库设置处理 LF/CRLF。

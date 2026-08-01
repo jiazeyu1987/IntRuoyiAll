@@ -42,6 +42,15 @@
 - Forbidden action: 禁止静默下载或切换未知浏览器缓存、禁止用 API-only 代替页面验证、禁止把 Playwright 浏览器缓存缺失冒充业务页面不可达。
 - Evidence: `doc/tasks/20260730-dcc-product-catalog-sort-real-e2e/verification-report.md`，D-Main 真实 E2E 使用本机 Chrome 完成 DCC 产品目录排序验证。
 
+### Playwright 目标链路与外部资源异常归因门禁
+
+- Trigger: Playwright 捕获到 `console error`、`requestfailed` 或非 2xx 响应，且失败 URL 包含外部头像、图片、CDN 或其它非本机资源。
+- Preflight check: 采集失败请求的完整 URL、状态码和资源类型；按本机前端、当前后端、目标业务 API 与目标读写接口定义目标链路。只有在确认外部 URL 不属于目标链路、未造成目标控件缺失且目标行为断言独立通过后，才允许将其单独记录为非目标链路异常；不得用域名白名单批量忽略错误。
+- Blocker: 任一本机或目标业务请求失败、出现未解释的 `pageerror`、外部资源失败导致目标页面或控件不可用、无法确认目标写请求数量，或失败请求归属不明确时必须停止。
+- Verification: 证据必须同时记录目标链路错误数、外部异常 URL 与状态码、`pageerror` 数量、目标 UI 断言和目标写请求数量；只读/取消确认路径必须明确证明写请求为 0。
+- Forbidden action: 禁止全局关闭 console/network 断言、忽略全部第三方域名、把页面 HTTP 200 当作目标功能通过，或省略外部异常证据。
+- Evidence: `doc/tasks/20260801-dcc-list-auto-classify-local-e2e/verification-report.md`，DCC 列表只读 E2E 将外部头像 502 与本机/DCC 目标链路分开归因，并证明目标链路错误数和 DCC 写请求数均为 0。
+
 ### Playwright 快照与 daemon 收尾门禁
 
 - Trigger: 使用 Playwright CLI / headed browser 验证登录页、发布控制台、版本变更说明或任何可能包含输入框内容的真实页面。

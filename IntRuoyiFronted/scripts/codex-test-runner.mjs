@@ -25,6 +25,7 @@ const CODEX_READONLY_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_READONLY_RE
 const CODEX_MUTATING_REASONING_EFFORT = process.env.CODEX_TEST_CODEX_MUTATING_REASONING_EFFORT || 'low'
 const CODEX_IGNORE_RULES = process.env.CODEX_TEST_CODEX_IGNORE_RULES !== 'false'
 const CODEX_TEST_API_TIMEOUT_MS = Number(process.env.CODEX_TEST_API_TIMEOUT_MS || '30000')
+const CODEX_TEST_HEARTBEAT_API_TIMEOUT_MS = Number(process.env.CODEX_TEST_HEARTBEAT_API_TIMEOUT_MS || '90000')
 const CODEX_CHILD_SETTLE_TIMEOUT_MS = Number(process.env.CODEX_TEST_CHILD_SETTLE_TIMEOUT_MS || '5000')
 const COMPLETE_CASE_SUMMARY_MAX_LENGTH = 512
 const CODEX_FAILURE_DETAIL_MAX_LENGTH = 2400
@@ -61,14 +62,14 @@ function runnerHeaders(extraHeaders = {}) {
   }
 }
 
-async function postJson(url, body) {
+async function postJson(url, body, options = {}) {
   const response = await requestWithTimeout(url, {
     method: 'POST',
     headers: runnerHeaders({
       'Content-Type': 'application/json'
     }),
     body: JSON.stringify(body)
-  })
+  }, options.timeoutMs)
   const payload = await response.json()
   if (!response.ok || payload.code !== 0) {
     throw new Error(`${url} failed: ${payload.msg || response.statusText}`)
@@ -76,9 +77,9 @@ async function postJson(url, body) {
   return payload.data
 }
 
-async function requestWithTimeout(url, options) {
+async function requestWithTimeout(url, options, timeoutMs = CODEX_TEST_API_TIMEOUT_MS) {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), CODEX_TEST_API_TIMEOUT_MS)
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
   try {
     return await fetch(`${API_BASE}${url}`, {
       ...options,
@@ -87,7 +88,7 @@ async function requestWithTimeout(url, options) {
     })
   } catch (error) {
     if (error?.name === 'AbortError') {
-      throw new Error(`${url} timed out after ${CODEX_TEST_API_TIMEOUT_MS}ms`)
+      throw new Error(`${url} timed out after ${timeoutMs}ms`)
     }
     throw error
   } finally {
@@ -274,7 +275,7 @@ async function heartbeat(runnerSessionId, runningExecutionCaseIds = []) {
   return await postJson('/system/codex-test-runner/heartbeat', {
     runnerSessionId,
     runningExecutionCaseIds
-  })
+  }, { timeoutMs: CODEX_TEST_HEARTBEAT_API_TIMEOUT_MS })
 }
 
 async function reportProgress(task, progress) {

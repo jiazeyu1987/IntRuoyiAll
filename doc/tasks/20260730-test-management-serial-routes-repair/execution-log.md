@@ -590,3 +590,10 @@
 - Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求临时 Playwright 脚本在 deadline 打印 BLOCKED JSON 后 `process.exit(0)`，不得在 `Promise.race` resolved 后留下未完成主流程或 Playwright browser watcher。
 - `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+
+- Real E2E retry `111`: 工艺路线首节点在执行中被 Runner 标记 BLOCKED，actualText=`Codex Runner 执行失败：/system/codex-test-runner/heartbeat timed out after 30000ms`，后续节点按前置失败阻断。后端日志显示对应 heartbeat 请求在后端 60 秒在线窗口内最终返回，但 Runner 客户端默认 30000ms 已先 abort，导致在线 Runner 被误判失败。
+- Root cause update: Runner 通用 API timeout 30 秒低于后端 Runner heartbeat 超时口径 60 秒；运行中后端短暂排队超过 30 秒但未超过后端在线窗口时，客户端会提前失败并把业务节点写成 BLOCKED。
+- `RED: node tests\e2e\codex-test-runner-http-client-static.spec.js -> FAIL, expected reason: Runner heartbeat 客户端超时仍使用默认 30000ms，未覆盖后端 60 秒 heartbeat 窗口`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 新增 `CODEX_TEST_HEARTBEAT_API_TIMEOUT_MS`，默认 90000ms，并让 heartbeat 请求单独使用该 timeout；普通 Runner API 仍保留 30000ms fail-fast。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`

@@ -245,6 +245,10 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求临时 Playwright 脚本 deadline 输出 BLOCKED JSON 后 process.exit(0)，允许未完成主流程/orphan 拖到 Codex exec timeout`
 - `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `Verification: 真实 E2E execution 111 -> FAIL, 首节点 heartbeat 请求后端排队超过 Runner 客户端 30000ms 但未超过后端 60s 在线窗口，被客户端提前 abort 后误写四个 BLOCKED 检查点`
+- `RED: node tests\e2e\codex-test-runner-http-client-static.spec.js -> FAIL, expected reason: Runner heartbeat 客户端超时仍使用默认 30000ms，未覆盖后端 60 秒 heartbeat 窗口`
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
 
 ## Risk And Regression Scope
 
