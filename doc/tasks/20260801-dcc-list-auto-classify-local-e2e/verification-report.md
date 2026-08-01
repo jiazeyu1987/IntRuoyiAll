@@ -30,6 +30,11 @@
 - `task-closeout-cleanup preview` -> PASS，仅保留三份正式任务记录，无删除、阻塞或警告。
 - `task-closeout-cleanup apply` -> PASS，无删除项。
 
+## Git Closeout
+
+- `0296d65bd docs: record DCC local E2E closeout preflight` -> PASS，仅提交本任务剩余日志。
+- `git push origin int_main` -> PASS，推送后本地分支与 `origin/int_main` 同步。
+
 ## Current Status
 
-Required local read-only E2E verification and cleanup passed; ready for selective commit and push.
+Completed.

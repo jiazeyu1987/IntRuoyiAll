@@ -40,7 +40,9 @@
 - 2026-08-01：目标文件 `git diff --check` -> PASS；经验索引关键词可定位到 `docs/e2e-rules.md#playwright-目标链路与外部资源异常归因门禁`。
 - 2026-08-01：首次选择性暂存遇到 `.git/index.lock`；核对时锁文件已消失，但检测到并行任务正在执行 `git commit` 与 `git-lfs post-commit`，未删除锁文件、未停止任何 Git 进程。
 - 2026-08-01：并行提交 `90ba1804a chore: baseline dirty workspace before role matrix plan refinement` 已将本任务三份记录及 `docs/e2e-rules.md`、`docs/experience-index.md` 混入其基线提交；按共享分支门禁保留该提交，不执行 amend/reset，后续仅选择性提交本任务剩余日志与最终状态。
+- 2026-08-01：本任务补充提交 `0296d65bd docs: record DCC local E2E closeout preflight` 仅包含本任务 `execution-log.md` 的预检与并行提交归因记录。
+- 2026-08-01：`git push origin int_main` -> PASS，远端由 `545e9c4ae` 前进到 `0296d65bd`；推送后 `git status --short --branch` 显示 `int_main...origin/int_main`，无 ahead。
 
 ## Final Status
 
-- Required local read-only E2E verification and cleanup passed; task remains `ready_for_closeout` pending selective commit and push.
+- Required local read-only E2E verification, cleanup, selective commit, and push passed; task status is `completed`.

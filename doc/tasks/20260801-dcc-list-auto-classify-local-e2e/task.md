@@ -11,7 +11,7 @@
 - [x] 确认本机前端 `8081`、后端 `48081` 运行态可用。
 - [x] 编写并运行 Playwright 只读/取消确认 E2E。
 - [x] 记录验证报告并完成 cleanup preview/apply。
-- [ ] 提交并推送本任务记录。
+- [x] 提交并推送本任务记录。
 
 ## Expected Verification
 
@@ -21,7 +21,7 @@
 
 ## Current Status
 
-ready_for_closeout
+completed
 
 ## Scope Boundary
 
