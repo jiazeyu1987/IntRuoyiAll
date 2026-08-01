@@ -28,7 +28,7 @@
         <el-button
           type="primary"
           plain
-          :disabled="batchAiCategoryRunning"
+          :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
           @click="openForm('create')"
           v-hasPermi="['dcc:project-code:create']"
         >
@@ -36,7 +36,28 @@
           新增项目代码
         </el-button>
         <el-button
-          :disabled="batchAiCategoryRunning"
+          v-if="canRunProjectCodeListNameAutoClassify"
+          type="primary"
+          plain
+          data-testid="dcc-project-code-list-auto-classify-unclassified"
+          :loading="listUnclassifiedAutoClassifyRunning"
+          :disabled="
+            loading ||
+            exportLoading ||
+            previewLoading ||
+            confirmLoading ||
+            aiCategoryRunning ||
+            batchAiCategoryRunning ||
+            listUnclassifiedAutoClassifyRunning ||
+            unclassifiedAutoClassifyRunning
+          "
+          @click="handleListAutoClassifyUnclassifiedProjectCodes"
+        >
+          <Icon icon="ep:magic-stick" class="mr-5px" />
+          按文件名归类未分类
+        </el-button>
+        <el-button
+          :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
           @click="openImportDialog"
           v-hasPermi="['dcc:project-code:import']"
         >
@@ -45,7 +66,7 @@
         </el-button>
         <el-button
           :loading="exportLoading"
-          :disabled="batchAiCategoryRunning"
+          :disabled="batchAiCategoryRunning || listUnclassifiedAutoClassifyRunning"
           @click="handleExport"
           v-hasPermi="['dcc:project-code:export']"
         >
@@ -64,6 +85,7 @@
             previewLoading ||
             confirmLoading ||
             aiCategoryRunning ||
+            listUnclassifiedAutoClassifyRunning ||
             unclassifiedAutoClassifyRunning
           "
           @click="handleBatchAiCategoryProjectCodes"
@@ -73,6 +95,24 @@
         </el-button>
       </template>
       <template #table="{ sortColumnAttrs, handleSortChange: handleTemplateSortChange }">
+        <div
+          v-if="listUnclassifiedAutoClassifyProgressVisible"
+          class="dcc-project-code-batch-ai-category-progress"
+          data-testid="dcc-project-code-list-auto-classify-progress"
+        >
+          <div class="dcc-project-code-batch-ai-category-progress-head">
+            <span>按文件名归类未分类进度</span>
+            <div class="dcc-project-code-batch-ai-category-progress-head-actions">
+              <span>
+                已处理项目 {{ listUnclassifiedAutoClassifyProcessedProjects }}/{{
+                  listUnclassifiedAutoClassifyTotalProjects
+                }}
+                ，已归类文件 {{ listUnclassifiedAutoClassifyProcessedFiles }} 份
+              </span>
+            </div>
+          </div>
+          <el-progress :percentage="listUnclassifiedAutoClassifyProgressPercent" :stroke-width="6" />
+        </div>
         <div
           v-if="batchAiCategoryProgressVisible"
           class="dcc-project-code-batch-ai-category-progress"
@@ -518,7 +558,13 @@
             size="small"
             type="primary"
             :loading="aiCategoryRunning"
-            :disabled="!selectedProjectCode?.id || associatedFilesLoading || batchAiCategoryRunning || unclassifiedAutoClassifyRunning"
+            :disabled="
+              !selectedProjectCode?.id ||
+              associatedFilesLoading ||
+              batchAiCategoryRunning ||
+              listUnclassifiedAutoClassifyRunning ||
+              unclassifiedAutoClassifyRunning
+            "
             @click="handleAiCategoryAssociatedFiles"
           >
             AI分类
@@ -535,6 +581,7 @@
               associatedFilesLoading ||
               aiCategoryRunning ||
               batchAiCategoryRunning ||
+              listUnclassifiedAutoClassifyRunning ||
               associatedUnclassifiedFileCount === 0
             "
             @click="handleAutoClassifyUnclassifiedAssociatedFiles"
@@ -889,6 +936,7 @@ type AssignmentUserOption = Pick<UserVO, 'id' | 'nickname' | 'username'> &
   Partial<Pick<UserVO, 'status' | 'disabled'>>
 
 const DCC_PROJECT_CODE_ASSOCIATED_NAVIGATION_PAGE_SIZE = 200
+const DCC_PROJECT_CODE_LIST_AUTO_CLASSIFY_PAGE_SIZE = 100
 const DCC_PROJECT_CODE_UNCLASSIFIED_TYPE = '未分类文件类型'
 const BATCH_AI_CATEGORY_POLL_INTERVAL_MS = 1000
 
@@ -999,6 +1047,10 @@ const aiCategoryRunning = ref(false)
 const aiCategoryProcessed = ref(0)
 const aiCategoryTotal = ref(0)
 const unclassifiedAutoClassifyRunning = ref(false)
+const listUnclassifiedAutoClassifyRunning = ref(false)
+const listUnclassifiedAutoClassifyTotalProjects = ref(0)
+const listUnclassifiedAutoClassifyProcessedProjects = ref(0)
+const listUnclassifiedAutoClassifyProcessedFiles = ref(0)
 const batchAiCategoryTask = ref<ControlledFileBatchRecognitionTaskRespVO | null>(null)
 const batchAiCategoryDismissedTaskId = ref<number | null>(null)
 const batchAiCategoryFailureExporting = ref(false)
@@ -1033,8 +1085,22 @@ const canRunAiCategory = computed(
     checkPermi(['dcc:controlled-file:update'])
 )
 const canRunAssociatedNameAutoClassify = computed(() => checkPermi(['dcc:controlled-file:update']))
+const canRunProjectCodeListNameAutoClassify = computed(
+  () => canRunAssociatedNameAutoClassify.value
+)
 const canRunBatchAiCategory = computed(
   () => canRunAiCategory.value && checkRole(['doc_control'])
+)
+const listUnclassifiedAutoClassifyProgressVisible = computed(
+  () => listUnclassifiedAutoClassifyRunning.value
+)
+const listUnclassifiedAutoClassifyProgressPercent = computed(() =>
+  listUnclassifiedAutoClassifyTotalProjects.value === 0
+    ? 0
+    : Math.floor(
+        (listUnclassifiedAutoClassifyProcessedProjects.value * 100) /
+          listUnclassifiedAutoClassifyTotalProjects.value
+      )
 )
 const batchAiCategoryRunning = computed(() =>
   ['WAITING', 'RUNNING'].includes(batchAiCategoryTask.value?.status || '')
@@ -1287,7 +1353,8 @@ const resolveBestAssociatedAutoClassifyTarget = (
 }
 const buildDccAssociatedFileAutoClassifyPayload = (
   file: ControlledFileVO,
-  target: DccFileTypeTaxonomyStageTypeOption
+  target: DccFileTypeTaxonomyStageTypeOption,
+  projectCode?: DccProjectCodeRespVO | null
 ): ControlledFileMetadataUpdateReqVO => {
   const fileName = normalizeAssociatedLevel(file.fileName || file.title)
   if (!fileName) {
@@ -1296,11 +1363,12 @@ const buildDccAssociatedFileAutoClassifyPayload = (
   if (!file.categoryId || !file.directoryId) {
     throw new Error(`文件 ${fileName} 缺少文件类别或目录，无法保存分类`)
   }
+  const ownerProjectCode = projectCode || selectedProjectCode.value
   return {
     changeReason: `按文件名相似度自动归类未分类文件：${target.stageName}/${target.label}`,
     productMasterId: null,
-    productName: normalizeAssociatedLevel(selectedProjectCode.value?.projectName || file.productName) || undefined,
-    dccProjectCodeId: selectedProjectCode.value?.id || file.dccProjectCodeId || null,
+    productName: normalizeAssociatedLevel(ownerProjectCode?.projectName || file.productName) || undefined,
+    dccProjectCodeId: ownerProjectCode?.id || file.dccProjectCodeId || null,
     needTraining: Boolean(file.needTraining),
     fileTypeTaxonomyId: target.taxonomyId,
     fileTypeLevel1: DCC_TECHNICAL_DOCUMENT_ROOT_NAME,
@@ -1309,7 +1377,7 @@ const buildDccAssociatedFileAutoClassifyPayload = (
     fileTypeLevel4: null,
     fileTypeLevel5: null,
     fileName,
-    productCode: normalizeAssociatedLevel(selectedProjectCode.value?.projectCode || file.productCode) || undefined,
+    productCode: normalizeAssociatedLevel(ownerProjectCode?.projectCode || file.productCode) || undefined,
     fileNumber: normalizeAssociatedLevel(file.fileNumber) || null,
     categoryId: file.categoryId,
     directoryId: file.directoryId
@@ -1533,6 +1601,24 @@ const getList = async () => {
   }
 }
 
+const fetchAllFilteredProjectCodes = async () => {
+  const fetchProjectCodePage = (pageNo: number) =>
+    getProjectCodePage({
+      ...queryParams,
+      pageNo,
+      pageSize: DCC_PROJECT_CODE_LIST_AUTO_CLASSIFY_PAGE_SIZE
+    })
+  const firstPage = await fetchProjectCodePage(1)
+  const projectCodes = [...firstPage.list]
+  const total = firstPage.total
+  const pageCount = Math.ceil(total / DCC_PROJECT_CODE_LIST_AUTO_CLASSIFY_PAGE_SIZE)
+  for (let pageNo = 2; pageNo <= pageCount; pageNo += 1) {
+    const data = await fetchProjectCodePage(pageNo)
+    projectCodes.push(...data.list)
+  }
+  return { projectCodes, total, pageCount }
+}
+
 const projectCodeQuickFilter = useTableQuickFilter(
   'dcc.projectCode.main',
   projectCodeQuickFilterDefinitions,
@@ -1751,6 +1837,25 @@ const getAssociatedFiles = async (
       associatedFilesLoading.value = false
     }
   }
+}
+
+const fetchProjectCodeAssociatedFiles = async (projectCodeId: number | string) => {
+  const associatedFiles: ControlledFileVO[] = []
+  const fetchAssociatedPage = (pageNo: number) =>
+    getProjectCodeControlledFilesPage(projectCodeId, {
+      pageNo,
+      pageSize: DCC_PROJECT_CODE_ASSOCIATED_NAVIGATION_PAGE_SIZE,
+      keyword: undefined,
+      status: undefined
+    })
+  const firstPage = await fetchAssociatedPage(1)
+  associatedFiles.push(...firstPage.list)
+  const pageCount = Math.ceil(firstPage.total / DCC_PROJECT_CODE_ASSOCIATED_NAVIGATION_PAGE_SIZE)
+  for (let pageNo = 2; pageNo <= pageCount; pageNo += 1) {
+    const data = await fetchAssociatedPage(pageNo)
+    associatedFiles.push(...data.list)
+  }
+  return associatedFiles
 }
 
 const loadAssociatedFilesForDetail = async (projectCodeId: number | string, requestToken: number) => {
@@ -2014,7 +2119,12 @@ const restoreLatestBatchAiCategoryTask = async () => {
 }
 
 const handleBatchAiCategoryProjectCodes = async () => {
-  if (!canRunBatchAiCategory.value || batchAiCategoryRunning.value || aiCategoryRunning.value) {
+  if (
+    !canRunBatchAiCategory.value ||
+    batchAiCategoryRunning.value ||
+    aiCategoryRunning.value ||
+    listUnclassifiedAutoClassifyRunning.value
+  ) {
     return
   }
   const task = await createControlledFileBatchRecognitionTask({
@@ -2037,7 +2147,12 @@ const handleBatchAiCategoryProjectCodes = async () => {
 
 const handleAiCategoryAssociatedFiles = async () => {
   const projectCodeId = selectedProjectCode.value?.id
-  if (!projectCodeId || aiCategoryRunning.value || batchAiCategoryRunning.value) {
+  if (
+    !projectCodeId ||
+    aiCategoryRunning.value ||
+    batchAiCategoryRunning.value ||
+    listUnclassifiedAutoClassifyRunning.value
+  ) {
     return
   }
   aiCategoryRunning.value = true
@@ -2083,9 +2198,111 @@ const handleAiCategoryAssociatedFiles = async () => {
   }
 }
 
+const autoClassifyUnclassifiedFilesForProjectCode = async (
+  projectCode: DccProjectCodeRespVO,
+  targetOptions: DccFileTypeTaxonomyStageTypeOption[]
+) => {
+  const associatedFiles = await fetchProjectCodeAssociatedFiles(projectCode.id)
+  const filesToClassify = associatedFiles.filter(isAssociatedFileUnclassified)
+  let processedFileCount = 0
+  for (const file of filesToClassify) {
+    const target = resolveBestAssociatedAutoClassifyTarget(file, targetOptions)
+    if (!target) {
+      throw new Error('没有可用于归类的正式文件类型，请先维护 DCC 文件分类树')
+    }
+    const payload = buildDccAssociatedFileAutoClassifyPayload(file, target, projectCode)
+    await updateControlledFileMetadata(file.id, payload)
+    processedFileCount += 1
+  }
+  if (processedFileCount > 0) {
+    const refreshedFiles = await fetchProjectCodeAssociatedFiles(projectCode.id)
+    const remainingCount = refreshedFiles.filter(isAssociatedFileUnclassified).length
+    if (remainingCount > 0) {
+      throw new Error(
+        `项目代码 ${projectCode.projectCode || projectCode.id} 自动归类后仍有 ${remainingCount} 份文件停留在未分类`
+      )
+    }
+  }
+  return processedFileCount
+}
+
+const resetListUnclassifiedAutoClassifyProgress = () => {
+  listUnclassifiedAutoClassifyTotalProjects.value = 0
+  listUnclassifiedAutoClassifyProcessedProjects.value = 0
+  listUnclassifiedAutoClassifyProcessedFiles.value = 0
+}
+
+const handleListAutoClassifyUnclassifiedProjectCodes = async () => {
+  if (
+    !canRunProjectCodeListNameAutoClassify.value ||
+    listUnclassifiedAutoClassifyRunning.value ||
+    aiCategoryRunning.value ||
+    batchAiCategoryRunning.value ||
+    unclassifiedAutoClassifyRunning.value
+  ) {
+    return
+  }
+  resetListUnclassifiedAutoClassifyProgress()
+  listUnclassifiedAutoClassifyRunning.value = true
+  try {
+    await loadFileTypeTaxonomies()
+    const targetOptions = associatedAutoClassifyTargetOptions.value
+    if (targetOptions.length === 0) {
+      message.error('没有可用于归类的正式文件类型，请先维护 DCC 文件分类树')
+      return
+    }
+    const { projectCodes, total } = await fetchAllFilteredProjectCodes()
+    listUnclassifiedAutoClassifyTotalProjects.value = total
+    if (projectCodes.length === 0) {
+      message.info('当前筛选条件下没有项目代码')
+      return
+    }
+    try {
+      await message.confirm(
+        `将按当前筛选条件处理 ${total} 个全部项目代码，包括未加载分页；系统会按文件名相似度归类每个项目代码下的未分类文件，不会只处理当前页。是否继续？`,
+        '按文件名归类未分类'
+      )
+    } catch (error) {
+      if (isCancelError(error)) {
+        return
+      }
+      throw error
+    }
+
+    for (const projectCode of projectCodes) {
+      const classifiedFileCount = await autoClassifyUnclassifiedFilesForProjectCode(
+        projectCode,
+        targetOptions
+      )
+      listUnclassifiedAutoClassifyProcessedFiles.value += classifiedFileCount
+      listUnclassifiedAutoClassifyProcessedProjects.value += 1
+    }
+    await getList()
+    if (detailDrawerVisible.value && selectedProjectCode.value?.id) {
+      await getAssociatedFiles()
+    }
+    message.success(
+      `已按当前筛选条件处理 ${listUnclassifiedAutoClassifyProcessedProjects.value} 个项目代码，归类 ${listUnclassifiedAutoClassifyProcessedFiles.value} 份未分类文件`
+    )
+  } catch (error) {
+    message.error(
+      `列表批量按文件名归类失败：已处理项目 ${listUnclassifiedAutoClassifyProcessedProjects.value}/${listUnclassifiedAutoClassifyTotalProjects.value}，已归类文件 ${listUnclassifiedAutoClassifyProcessedFiles.value} 份，后端错误：${resolveAiCategoryErrorMessage(error)}`
+    )
+    throw error
+  } finally {
+    listUnclassifiedAutoClassifyRunning.value = false
+  }
+}
+
 const handleAutoClassifyUnclassifiedAssociatedFiles = async () => {
   const projectCodeId = selectedProjectCode.value?.id
-  if (!projectCodeId || unclassifiedAutoClassifyRunning.value || aiCategoryRunning.value || batchAiCategoryRunning.value) {
+  if (
+    !projectCodeId ||
+    unclassifiedAutoClassifyRunning.value ||
+    aiCategoryRunning.value ||
+    batchAiCategoryRunning.value ||
+    listUnclassifiedAutoClassifyRunning.value
+  ) {
     return
   }
   const filesToClassify = [...associatedUnclassifiedFiles.value]

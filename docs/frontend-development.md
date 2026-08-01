@@ -141,12 +141,12 @@
 
 ## DCC 基础条目关联文档分类树门禁
 
-- Trigger: DCC 基础条目、项目代码、关联文档三栏导航、`fileTypeTaxonomyId`、`fileTypeLevel2/fileTypeLevel3`、中间“文件类型”列、DCC 文件分类树、技术文档阶段展开、未分类文件或“未分类文件类型”自动归类。
-- Preflight check: 先以 `DCC文件分类` 的正式树作为分类来源，按 `技术文档 / 阶段 / 文件类型` 解析阶段直接子分类；基础条目关联文件只能影响数量和右侧文件列表，不能反向决定中间列完整分类集合。若新增“按文件名归类未分类”能力，候选目标也必须来自同一正式分类树阶段直接子分类，并通过正式元数据保存接口写入 `fileTypeTaxonomyId` 与 `fileTypeLevel1/2/3`。
+- Trigger: DCC 基础条目、项目代码、关联文档三栏导航、`fileTypeTaxonomyId`、`fileTypeLevel2/fileTypeLevel3`、中间“文件类型”列、DCC 文件分类树、技术文档阶段展开、未分类文件或“未分类文件类型”自动归类、列表页按文件名批量归类。
+- Preflight check: 先以 `DCC文件分类` 的正式树作为分类来源，按 `技术文档 / 阶段 / 文件类型` 解析阶段直接子分类；基础条目关联文件只能影响数量和右侧文件列表，不能反向决定中间列完整分类集合。若新增“按文件名归类未分类”能力，候选目标也必须来自同一正式分类树阶段直接子分类，并通过正式元数据保存接口写入 `fileTypeTaxonomyId` 与 `fileTypeLevel1/2/3`。若入口位于列表页且用户要求处理全部项目代码，必须按当前筛选条件从第 1 页遍历到总页数，不能只处理当前页已加载行。
 - Blocker: 中间文件类型列只从当前关联文件的 `fileTypeLevel3` 动态生成、已配置但当前无文件的正式子分类不显示、`fileTypeTaxonomyId` 已能解析第三级却被归入“未分类文件类型”、用“未分类文件类型”替代正式子分类、自动归类把文件写回未分类桶、缺正式分类候选时仍猜测目标、或保存失败被吞掉时必须停止。
-- Verification: 聚焦静态合同必须断言分类 helper 同时提供阶段、阶段直接子分类和 taxonomy path 第三级解析；页面合同必须断言中间列先由阶段直接子分类预置，再按文件归组计数；自动归类合同必须断言按钮、未分类筛选、正式候选来源、确定性相似度、正式 metadata 更新接口和失败显式暴露；运行 `pnpm e2e:dcc:project-code-associated-three-column:static`、自动归类静态合同、相邻 DCC 文件分类静态合同和 `pnpm ts:check`。真实写入 E2E 只有在有批准的可写测试数据与清理责任时运行。
+- Verification: 聚焦静态合同必须断言分类 helper 同时提供阶段、阶段直接子分类和 taxonomy path 第三级解析；页面合同必须断言中间列先由阶段直接子分类预置，再按文件归组计数；自动归类合同必须断言按钮、未分类筛选、正式候选来源、确定性相似度、正式 metadata 更新接口和失败显式暴露；列表页批量归类合同还必须断言保留当前筛选条件、全分页拉取项目代码、逐项目全分页拉取关联文件和批处理进度/失败可见。运行 `pnpm e2e:dcc:project-code-associated-three-column:static`、自动归类静态合同、相邻 DCC 文件分类静态合同和 `pnpm ts:check`。真实写入 E2E 只有在有批准的可写测试数据与清理责任时运行。
 - Forbidden action: 禁止用 `fileTypeLevel3`、当前关联文件列表、默认 `MAIN`、空值回填、`formBindings`、前端硬编码文案或随机算法替代正式 DCC 文件分类树；禁止把无匹配、缺分类树或保存失败静默降级成未分类成功。
-- Evidence: 任务 `doc/tasks/20260731-dcc-project-code-associated-taxonomy-types/`，基础条目关联文档中间列旧实现按关联文件已有 `fileTypeLevel3` 生成，未与 DCC 文件分类阶段展开保持一致；任务 `doc/tasks/20260801-dcc-project-code-auto-classify-unclassified/`，未分类自动归类按钮复用正式分类树与 metadata 更新接口。
+- Evidence: 任务 `doc/tasks/20260731-dcc-project-code-associated-taxonomy-types/`，基础条目关联文档中间列旧实现按关联文件已有 `fileTypeLevel3` 生成，未与 DCC 文件分类阶段展开保持一致；任务 `doc/tasks/20260801-dcc-project-code-auto-classify-unclassified/`，未分类自动归类按钮复用正式分类树与 metadata 更新接口；任务 `doc/tasks/20260801-dcc-project-code-list-auto-classify-unclassified/`，列表页批量入口必须覆盖当前筛选条件下全部项目代码，包括未加载分页。
 
 ## 前端草稿保存与提交发布解耦门禁
 

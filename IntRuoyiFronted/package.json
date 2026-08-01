@@ -141,6 +141,7 @@
     "e2e:dcc:project-code-recognition:static": "node tests/e2e/dcc-project-code-recognition-static.spec.js",
     "e2e:dcc:project-code-associated-three-column:static": "node tests/e2e/dcc-project-code-associated-three-column-static.spec.js",
     "e2e:dcc:project-code-associated-unclassified-auto-classify:static": "node tests/e2e/dcc-project-code-associated-unclassified-auto-classify-static.spec.js",
+    "e2e:dcc:project-code-list-unclassified-auto-classify:static": "node tests/e2e/dcc-project-code-list-unclassified-auto-classify-static.spec.js",
     "e2e:dcc:project-code-ai-category-permission:static": "node tests/e2e/dcc-project-code-ai-category-permission-static.spec.js",
     "e2e:dcc:project-code-batch-ai-category:static": "node tests/e2e/dcc-project-code-batch-ai-category-static.spec.js",
     "e2e:dcc:project-code-basic-data:static": "node tests/e2e/dcc-project-code-basic-data-static.spec.js",
