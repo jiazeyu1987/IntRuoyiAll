@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.mes.controller.admin.pro.feedback;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineActiveOrderRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineEmployeeCandidateRespVO;
+import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcSubmitReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlinePqcSwitchEmployeeReqVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineRouteProcessRespVO;
 import cn.iocoder.yudao.module.mes.controller.admin.pro.feedback.vo.frontline.MesFrontlineSwitchEmployeeReqVO;
@@ -15,6 +16,7 @@ import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwi
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwitchResult;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineEmployeeSwitchService;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcContextService;
+import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlinePqcSubmitCommand;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineRouteProcessCandidate;
 import cn.iocoder.yudao.module.mes.service.pro.frontline.MesFrontlineTemplateDescriptor;
 import io.swagger.v3.oas.annotations.Operation;
@@ -119,6 +121,27 @@ public class MesFrontlineDeviceAccountController {
                 reqVO.getWorkOrderId(), reqVO.getRouteId(), reqVO.getRouteProcessId(),
                 reqVO.getProcessId(), reqVO.getActualEmployeeId());
         return success(toSwitchEmployeeRespVO(result));
+    }
+
+    @PostMapping("/pqc/submit")
+    @Operation(summary = "PQC 检验提交到工序池")
+    @PreAuthorize("@ss.hasPermission('mes:pro-feedback:create')")
+    public CommonResult<Long> submitPqcInspection(@Valid @RequestBody MesFrontlinePqcSubmitReqVO reqVO) {
+        return success(pqcContextService.submitPqcInspection(getLoginUserId(),
+                MesFrontlinePqcSubmitCommand.builder()
+                        .workOrderId(reqVO.getWorkOrderId())
+                        .routeId(reqVO.getRouteId())
+                        .routeProcessId(reqVO.getRouteProcessId())
+                        .processId(reqVO.getProcessId())
+                        .actualEmployeeId(reqVO.getActualEmployeeId())
+                        .signatureId(reqVO.getSignatureId())
+                        .signatureEmployeeId(reqVO.getSignatureEmployeeId())
+                        .signatureSnapshot(reqVO.getSignatureSnapshot())
+                        .templateType(reqVO.getTemplateType())
+                        .inspectionResult(reqVO.getInspectionResult())
+                        .rawPayload(reqVO.getRawPayload())
+                        .clientSubmitTime(reqVO.getClientSubmitTime())
+                        .build()));
     }
 
     private static MesFrontlineActiveOrderRespVO toActiveOrderRespVO(MesFrontlineActiveOrderCandidate candidate) {

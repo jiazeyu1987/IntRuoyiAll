@@ -294,6 +294,18 @@
               </button>
               <span>件</span>
             </div>
+            <div class="frontline-pqc-number-field is-signature">
+              <label for="frontlinePqcSignatureId">签名编号</label>
+              <input
+                id="frontlinePqcSignatureId"
+                :value="pqcSignatureId ?? ''"
+                type="number"
+                min="1"
+                inputmode="numeric"
+                @input="updatePqcSignatureId"
+              />
+              <span>ID</span>
+            </div>
           </div>
         </section>
       </main>
@@ -556,10 +568,12 @@ import {
   type FrontlineTemplateDefinitionVO,
   type FrontlineTemplatePayloadVO
 } from '@/api/mes/pro/feedbackFrontlineTemplate'
-import type {
-  FrontlineActiveOrderVO,
-  FrontlineDeviceRouteProcessVO,
-  FrontlineEmployeeCandidateVO
+import {
+  ProFeedbackApi,
+  type FrontlineActiveOrderVO,
+  type FrontlineDeviceRouteProcessVO,
+  type FrontlineEmployeeCandidateVO,
+  type FrontlinePqcInspectionSubmitReqVO
 } from '@/api/mes/pro/feedback'
 import {
   buildFrontlineTemplatePayload,
@@ -694,6 +708,7 @@ const pqcDraft = reactive({
 const activePqcInspectionKey = ref<PqcInspectionItemKey>()
 const pqcPieceDraftValues = ref<string[]>([])
 const pqcPieceValues = reactive<Record<string, string[]>>({})
+const pqcSignatureId = ref<number>()
 
 const isPqcMode = computed(() => props.mode === 'pqc')
 
@@ -752,6 +767,7 @@ const isSubmitBlocked = computed(() =>
   templateModeMismatch.value ||
   templateBindingMissing.value ||
   (isPqcMode.value && !deviceState.selectedActiveOrder) ||
+  (isPqcMode.value && !pqcSignatureId.value) ||
   !deviceState.selectedProcess ||
   !deviceState.selectedEmployee
 )
@@ -768,6 +784,9 @@ const statusText = computed(() => {
   }
   if (!deviceState.selectedEmployee) {
     return '请选择员工'
+  }
+  if (isPqcMode.value && !pqcSignatureId.value) {
+    return '请填写签名编号'
   }
   if (templateBindingMissing.value) {
     return '当前员工缺少一线填写模板'
@@ -1140,6 +1159,14 @@ const updatePqcQuantity = (field: PqcQuantityField, event: Event) => {
   pqcDraft[field] = inputValue === '' ? undefined : normalizePqcQuantity(Number(inputValue))
 }
 
+const updatePqcSignatureId = (event: Event) => {
+  const inputValue = (event.target as HTMLInputElement).value
+  const parsed = Number(inputValue)
+  pqcSignatureId.value = Number.isFinite(parsed) && parsed > 0
+    ? Math.trunc(parsed)
+    : undefined
+}
+
 const adjustPqcQuantity = (field: PqcQuantityField, delta: number) => {
   pqcDraft[field] = normalizePqcQuantity(pqcDraft[field]) + delta
   if (pqcDraft[field] < 0) {
@@ -1228,9 +1255,13 @@ const handleValidate = async () => {
   payloadLoading.value = true
   try {
     assertFormalPayloadContext()
-    payloadPreview.value = await FrontlineTemplateApi.validatePayload(
-      buildFrontlineTemplatePayload(context, draft.fieldValues)
-    )
+    const templatePayload = buildFrontlineTemplatePayload(context, draft.fieldValues)
+    payloadPreview.value = await FrontlineTemplateApi.validatePayload(templatePayload)
+    if (isPqcMode.value) {
+      await ProFeedbackApi.submitFrontlinePqcInspection(
+        buildPqcInspectionSubmitPayload(payloadPreview.value)
+      )
+    }
     message.success('已提交')
   } catch (error) {
     message.error(resolveErrorMessage(error))
@@ -1253,6 +1284,9 @@ const assertFormalPayloadContext = () => {
   }
   if (!context.actualEmployeeId) {
     missingFields.push('员工')
+  }
+  if (isPqcMode.value && !pqcSignatureId.value) {
+    missingFields.push('签名编号')
   }
   if (missingFields.length) {
     throw new Error(`缺少${missingFields.join('、')}，无法提交。`)
@@ -1285,6 +1319,74 @@ const buildPqcFieldValues = () => ({
   [FRONTLINE_FIELD_CODES.PQC_RESULT]: resolvePqcResult()
 })
 
+const buildPqcPieceValuesPayload = () => {
+  const values: Record<string, string[]> = {}
+  for (const itemKey of pqcInspectionItemKeys) {
+    values[itemKey] = getPqcStoredPieceValues(itemKey).slice(0, pqcInspectionQuantity.value)
+  }
+  for (const [stateKey, stateValues] of Object.entries(pqcPieceValues)) {
+    values[stateKey] = stateValues.slice()
+  }
+  return values
+}
+
+const buildPqcInspectionSubmitPayload = (
+  validatedPayload: FrontlineTemplatePayloadVO
+): FrontlinePqcInspectionSubmitReqVO => {
+  const activeOrder = deviceState.selectedActiveOrder
+  const process = deviceState.selectedProcess
+  const employee = deviceState.selectedEmployee
+  const actualEmployeeId = context.actualEmployeeId
+  const signatureId = pqcSignatureId.value
+  if (!activeOrder || !process || !employee || !actualEmployeeId || !signatureId) {
+    throw new Error('缺少PQC正式提交上下文，无法提交。')
+  }
+  const inspectionResult = resolvePqcResult()
+  return {
+    workOrderId: activeOrder.workOrderId,
+    routeId: process.routeId,
+    routeProcessId: process.routeProcessId,
+    processId: process.processId,
+    actualEmployeeId,
+    signatureId,
+    signatureEmployeeId: actualEmployeeId,
+    templateType: deviceState.template?.templateNo ||
+      employeeTemplateCode.value ||
+      context.templateCode ||
+      expectedTemplateCode.value,
+    inspectionResult,
+    rawPayload: {
+      pqcDraft: {
+        inspectionType: pqcDraft.inspectionType,
+        patrolRound: pqcDraft.patrolRound,
+        inspectionQuantity: normalizePqcQuantity(pqcDraft.inspectionQuantity),
+        scrapQuantity: normalizePqcQuantity(pqcDraft.scrapQuantity)
+      },
+      pqcPieceValues: buildPqcPieceValuesPayload(),
+      fieldValues: { ...draft.fieldValues },
+      inspectionResult,
+      selectedActiveOrder: { ...activeOrder },
+      selectedProcess: { ...process },
+      selectedEmployee: { ...employee },
+      templatePayload: validatedPayload
+    },
+    clientSubmitTime: formatLocalDateTime()
+  }
+}
+
+const formatLocalDateTime = (date = new Date()) => {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate())
+  ].join('-') + `T${[
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+    pad(date.getSeconds())
+  ].join(':')}`
+}
+
 const resolvePqcResult = () => {
   if (normalizePqcQuantity(pqcDraft.scrapQuantity) > 0) {
     return FRONTLINE_PQC_RESULTS.DETECTION_FAILED
@@ -1315,6 +1417,7 @@ const hydrateContextFromRoute = () => {
   context.routeProcessId = firstRouteQueryNumber(['routeProcessId']) ?? context.routeProcessId
   context.processId = firstRouteQueryNumber(['processId']) ?? context.processId
   context.actualEmployeeId = firstRouteQueryNumber(['actualEmployeeId']) ?? context.actualEmployeeId
+  pqcSignatureId.value = firstRouteQueryNumber(['signatureId']) ?? pqcSignatureId.value
   const queryTemplateCode = resolveTemplateCode(firstRouteQueryText(['templateCode', 'templateNo']))
   employeeTemplateCode.value = queryTemplateCode
   context.templateCode = expectedTemplateCode.value
@@ -2149,6 +2252,10 @@ onMounted(async () => {
     font-size: 30px;
     font-weight: 900;
   }
+}
+
+.frontline-pqc-number-field.is-signature {
+  grid-template-columns: 190px minmax(0, 1fr) 70px;
 }
 
 .frontline-pqc-submit-bar {

@@ -18,5 +18,6 @@ public interface MesFrontlinePqcContextService {
     MesFrontlineEmployeeSwitchResult switchPqcActualEmployee(Long loginUserId, Long workOrderId, Long routeId,
                                                              Long routeProcessId, Long processId,
                                                              Long actualEmployeeId);
-}
 
+    Long submitPqcInspection(Long loginUserId, MesFrontlinePqcSubmitCommand command);
+}

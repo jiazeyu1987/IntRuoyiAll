@@ -23,6 +23,20 @@ public interface MesProProcessPoolMapper extends BaseMapperX<MesProProcessPoolDO
                 .eq(MesProProcessPoolDO::getRouteId, routeId)
                 .eq(MesProProcessPoolDO::getPoolStatus, MesProProcessPoolDO.STATUS_ACTIVE)
                 .orderByDesc(MesProProcessPoolDO::getLatestSubmitTime)
+                .orderByDesc(MesProProcessPoolDO::getId)
+                .last("LIMIT 1"));
+    }
+
+    default MesProProcessPoolDO selectActiveByWorkOrderRouteProcess(Long workOrderId, Long routeId,
+                                                                    Long routeProcessId, Long processId) {
+        return selectOne(new LambdaQueryWrapperX<MesProProcessPoolDO>()
+                .eq(MesProProcessPoolDO::getWorkOrderId, workOrderId)
+                .eq(MesProProcessPoolDO::getRouteId, routeId)
+                .eq(MesProProcessPoolDO::getRouteProcessId, routeProcessId)
+                .eq(MesProProcessPoolDO::getProcessId, processId)
+                .eq(MesProProcessPoolDO::getPoolStatus, MesProProcessPoolDO.STATUS_ACTIVE)
+                .orderByDesc(MesProProcessPoolDO::getLatestSubmitTime)
+                .orderByDesc(MesProProcessPoolDO::getId)
                 .last("LIMIT 1"));
     }
 

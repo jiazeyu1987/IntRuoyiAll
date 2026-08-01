@@ -194,6 +194,21 @@ export interface FrontlinePqcSwitchActualEmployeeReqVO extends FrontlineSwitchAc
   workOrderId: number
 }
 
+export interface FrontlinePqcInspectionSubmitReqVO {
+  workOrderId: number
+  routeId: number
+  routeProcessId: number
+  processId: number
+  actualEmployeeId: number
+  signatureId: number
+  signatureEmployeeId: number
+  signatureSnapshot?: string
+  templateType: string
+  inspectionResult: string
+  rawPayload: Record<string, unknown>
+  clientSubmitTime?: string
+}
+
 export interface FrontlineSwitchActualEmployeeRespVO {
   loginUserId: number
   actualEmployeeId: number
@@ -896,6 +911,13 @@ export const ProFeedbackApi = {
   switchFrontlinePqcActualEmployee: async (data: FrontlinePqcSwitchActualEmployeeReqVO) => {
     return await request.post<FrontlineSwitchActualEmployeeRespVO>({
       url: `/mes/pro/feedback/frontline/device-account/pqc/switch-employee`,
+      data
+    })
+  },
+  // PQC 检验提交到工序池
+  submitFrontlinePqcInspection: async (data: FrontlinePqcInspectionSubmitReqVO) => {
+    return await request.post<number>({
+      url: `/mes/pro/feedback/frontline/device-account/pqc/submit`,
       data
     })
   },

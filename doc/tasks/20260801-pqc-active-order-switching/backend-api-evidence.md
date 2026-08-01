@@ -36,3 +36,12 @@ GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcContextServiceTest" 
 ## Blockers
 
 No backend implementation blocker remains. Commit/push closeout is blocked by unrelated concurrent dirty worktree and existing branch ahead state.
+## 2026-08-01 PQC Submit API Optimization
+
+- Scope: POST /mes/pro/feedback/frontline/device-account/pqc/submit and MesFrontlinePqcContextService.submitPqcInspection.
+- API contract: request requires workOrderId, routeId, routeProcessId, processId, actualEmployeeId, signatureId, signatureEmployeeId, templateType, inspectionResult, rawPayload, optional clientSubmitTime/signatureSnapshot.
+- Data contract: rawPayload is serialized into process-pool original payload and must include pqcDraft and pqcPieceValues from the inspector page.
+- Validation: active order/process/personnel/signature employee match are validated before persistence; latest active process-pool event must provide formal device, workstation, feedback source and recordbook source fields. No default source IDs are generated.
+- RED: node tests\e2e\mes-frontline-pqc-submit-to-leader-chain-static.spec.js -> FAIL before implementation because submit was validate-only.
+- GREEN: mvn -pl yudao-module-mes -am "-Dtest=MesFrontlinePqcContextServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test -> PASS, 6 tests.
+- Regression: process-pool PQC/team-leader/review-copy/event-revision backend suite -> PASS, 32 tests.

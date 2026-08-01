@@ -521,44 +521,81 @@ assert.ok(!page.includes('标准模板列表'), 'MES工序页面不得继续显�
 
 assert.equal(
   (page.match(/<ContentWrap>/g) || []).length,
-  2,
-  'MES工序页必须使用标准列表模板：查询区 ContentWrap + 列表区 ContentWrap'
+  1,
+  'MES工序页必须使用统一标准列表模板所在的单一 ContentWrap'
 )
-assert.ok(page.includes('<!-- 搜索工作栏 -->'), 'MES工序页必须保留标准搜索工作栏注释')
-assert.ok(page.includes('<!-- 列表 -->'), 'MES工序页必须保留标准列表区注释')
-assert.ok(page.includes('class="-mb-15px"'), '搜索表单必须使用标准列表模板的 -mb-15px 类')
+assert.ok(
+  page.includes("import UnifiedListTemplate from '@/components/UnifiedListTemplate/index.vue'"),
+  'MES工序页必须导入统一标准列表模板'
+)
+assert.ok(page.includes('<UnifiedListTemplate'), 'MES工序页必须使用 UnifiedListTemplate')
+assert.ok(page.includes('table-key="mes.pro.mesProcess.main"'), 'MES工序页必须使用稳定 tableKey')
+assert.ok(
+  page.includes("import { useUserTableColumns, type UserTableColumnDefinition } from '@/hooks/web/useUserTableColumns'"),
+  'MES工序页必须接入显示字段和列宽持久化 hook'
+)
+assert.ok(
+  page.includes("import { useTableQuickFilter, type TableQuickFilterDefinition } from '@/hooks/web/useTableQuickFilter'"),
+  'MES工序页必须接入标准快速过滤'
+)
+assert.ok(page.includes(':columns="mesProcessColumns"'), '标准模板必须绑定 MES工序显示字段配置')
+assert.ok(page.includes(':column-saving="mesProcessColumnSaving"'), '标准模板必须绑定列配置保存状态')
+assert.ok(page.includes('@column-change="saveMesProcessColumnConfig"'), '显示字段变化必须自动保存')
+assert.ok(page.includes('@column-reset="resetMesProcessColumnConfig"'), '显示字段重置必须接入列配置重置')
+assert.ok(page.includes('data-user-table-column-explicit'), '表格必须声明显式用户列配置标记')
+assert.ok(
+  page.includes('data-user-table-key="mes.pro.mesProcess.main"'),
+  '表格必须声明与模板一致的 data-user-table-key'
+)
+assert.ok(
+  page.includes('@header-dragend="handleMesProcessHeaderDragend"'),
+  '表头列宽拖拽必须持久化保存'
+)
+assert.ok(
+  page.includes("useUserTableColumns('mes.pro.mesProcess.main', mesProcessDefaultColumns)"),
+  'MES工序页必须用稳定 tableKey 保存显示字段和列宽'
+)
+assert.ok(
+  page.includes("useTableQuickFilter('mes.pro.mesProcess.main', mesProcessQuickFilterDefinitions, queryParams, getList)"),
+  'MES工序页必须用同一 tableKey 接入快速过滤'
+)
+assert.ok(
+  /const mesProcessQuickFilterDefinitions[\s\S]*key: 'keyword'[\s\S]*label: '关键词'[\s\S]*queryParamKey: 'keyword'/.test(page),
+  'MES工序关键词必须接入标准快速过滤'
+)
 assert.ok(page.includes(':stripe="true"'), '表格必须启用标准列表模板的 stripe 属性')
 assert.ok(
-  /<el-table[\s\S]*v-loading="loading"[\s\S]*:data="list"[\s\S]*:stripe="true"[\s\S]*:show-overflow-tooltip="true"/.test(
+  /<template #table[\s\S]*<el-table[\s\S]*data-user-table-key="mes\.pro\.mesProcess\.main"[\s\S]*:data="list"[\s\S]*border[\s\S]*:stripe="true"[\s\S]*:show-overflow-tooltip="true"[\s\S]*@header-dragend="handleMesProcessHeaderDragend"/.test(
     page
   ),
-  '表格必须使用标准 Element Plus 列表模板属性顺序'
+  '表格必须位于 UnifiedListTemplate 的 table 插槽并接入列宽拖拽'
 )
-assert.ok(
-  /<Pagination[\s\S]*:total="total"[\s\S]*v-model:page="queryParams\.pageNo"[\s\S]*v-model:limit="queryParams\.pageSize"[\s\S]*@pagination="getList"[\s\S]*\/>\s*<\/ContentWrap>/.test(
-    page
-  ),
-  '分页必须直接位于标准列表 ContentWrap 内'
-)
+assert.ok(!page.includes('<Pagination'), '分页必须由 UnifiedListTemplate 承载，不得页面内单独渲染')
 assert.ok(!page.includes('mes-process-page'), 'MES工序页不得保留自定义列表 wrapper 或 scoped 样式类')
 assert.ok(!page.includes('height="620"'), '标准列表模板不得使用自定义固定表格高度')
 assert.ok(!page.includes('<style scoped>'), '标准列表模板不得保留本页自定义 scoped 样式')
 
-for (const label of [
-  '产品名称',
-  '设备编码',
-  '工序名称',
-  '设备名称',
-  '设备数量',
-  '10.5小时日产能',
-  '日常工序人力',
-  '工序编码',
-  '工序单价',
-  '工序是否报工',
-  '工序是否形成批记录',
-  '批记录工序名称'
+for (const [key, label] of [
+  ['productName', '产品名称'],
+  ['sourceMachineryCodes', '设备编码'],
+  ['mesProcessName', '工序名称'],
+  ['sourceMachineryName', '设备名称'],
+  ['sourceMachineryQuantity', '设备数量'],
+  ['dailyCapacity10_5', '10.5小时日产能'],
+  ['dailyWorkerQuantity', '日常工序人力'],
+  ['mesProcessCode', '工序编码'],
+  ['processPrice', '工序单价'],
+  ['feedbackFlag', '工序是否报工'],
+  ['batchRecordFlag', '工序是否形成批记录'],
+  ['batchRecordProcessName', '批记录工序名称']
 ]) {
   assert.ok(page.includes(label), `MES工序只读页缺少 Excel 原始列：${label}`)
+  assert.ok(page.includes(`key: '${key}', label: '${label}'`), `默认列配置缺少：${label}`)
+  assert.ok(page.includes(`v-if="isMesProcessColumnVisible('${key}')"`), `列显示配置缺少：${label}`)
+  assert.ok(
+    page.includes(`:width="getMesProcessColumnWidthString('${key}'`),
+    `列宽配置缺少：${label}`
+  )
 }
 
 assert.ok(page.includes('MesProcessApi.getMesProcessPage'), '页面必须调用独立 MES 工序目录分页 API')

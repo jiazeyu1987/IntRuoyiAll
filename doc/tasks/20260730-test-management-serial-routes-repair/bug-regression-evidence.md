@@ -18,6 +18,17 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - 2026-07-31 复核发现 artifact 配置回归测试已存在，但 `application-local.yaml` 实际未包含对应本地配置；补齐配置后，静态断言和 Maven 定向测试均通过。
 - 最新真实执行 `47` 证明 Codex 子任务已经开始运行临时 Playwright 脚本，但脚本依赖默认 Playwright 浏览器缓存；本机缓存 `chromium_headless_shell-1223` 不存在，导致首节点 `BLOCKED`，后续串行节点按前置失败阻断。
 - 真实执行 `48` 证明浏览器 executablePath 阻塞已解除，但 Codex 临时脚本仍停在 `个人中心 / 个人工作台`；脚本只猜测了 `/#/mes/route` 等 hash 路由，未使用当前 Vue history 正式入口 `/mes/pro/route`。
+- 真实执行 `67` 证明 `工艺路线节点：基础维护` 已完整通过，`工艺路线节点：复制绑定` 能完成副本复位、复制和清理，但详情校验打开了空白 `工艺路线详情` 弹窗，字段显示 `请输入编码/请输入名称` 占位且没有加载副本编码/名称。
+- 真实执行 `68` 证明副本详情校验已能把问题归因为“详情未显示副本编码/名称”，但失败截图显示页面仍停留在副本列表；生成脚本点击了包裹文本的 `.cell` 表格容器，而不是触发 `openForm('detail', scope.row.id)` 的真实路线编码 `el-button link`。
+- 真实执行 `69` 证明首节点新增后列表唯一命中和清理闭环仍可完成，但详情校验只读取 `modal.innerText()`，没有读取 Element Plus 表单输入框 `inputValue`，导致把已有标签的 RouteForm 详情误判为空白详情。
+- 2026-08-01 诊断脚本复现副本详情真实卡点：列表 API 返回副本 `id` 且直接 `/mes/pro/route/get?id=...` 返回正确 code/name，但首次点击副本路线编码只打开父级 `工艺路线详情` 空表单，不触发详情请求；修复 RouteForm 异步内容组件等待后，同一真实页面点击触发 `route/get?id=922327` 且编码/名称 inputValue 正确。
+- 真实执行 `71` 证明 `工艺路线节点：基础维护` 全 4 检查点继续 PASS，但 `工艺路线节点：复制绑定` 在第 1 检查点前 BLOCKED：生成脚本停留在应用 splash/loading spinner 后直接调用 quickFilter，报 `visible quick filter not found`；截图显示尚未进入业务列表页。
+- 真实执行 `72` 证明 `.login-form` 和目标页 ready 约束已生效，生成脚本进入工艺路线列表并完成新增保存；但首节点第 2 检查点 BLOCKED：脚本点击路线编码后只等待弹窗出现，单次读取 RouteForm 编码/名称 inputValue 为 empty 就失败，未等待 `/admin-api/mes/pro/route/get?id=...` 或循环等待 Element Plus input DOM value。
+- 真实执行 `76` 证明前序业务卡点已越过到临时脚本生成阶段，但生成脚本在浏览器启动前被 Node 语法解析阻断：`SyntaxError: Identifier 'modal' has already been declared`，位置为临时脚本 `int_ruoyi_route_basic_e2e.js:561`。同一函数 `verifyCreatedDetail()` 内先声明 `const modal`，后续又重复声明 `const modal` 用于页签校验，导致脚本未启动浏览器即失败。
+- 真实执行 `77` 证明 `工艺路线节点：基础维护` 已全部 PASS；`工艺路线节点：复制绑定` 在进入工艺路线列表前 BLOCKED，actualText=`Route list controls did not render. URL=http://127.0.0.1:8081/login?redirect=/mes/pro/route ... 登录`。生成脚本在直接导航 `/mes/pro/route` 后只短暂检查 `.login-form`，过早返回“已登录或登录表单未显示”；随后 Vue 应用异步重定向到 `/login?redirect=/mes/pro/route`，导致脚本等待业务控件而不是执行登录。
+- 真实执行 `78` 证明登录卡点已解除且 `工艺路线节点：基础维护` 全 PASS；`工艺路线节点：复制绑定` 完成副本复位、复制、详情打开和副本清理，但第 3 检查点 FAIL：`详情页签内容为空：流转关系图`。失败截图显示 `流转关系图` 页签中路线标题、当前版本、工序节点卡片、连线和工具栏均可见，脚本因为只查 `.el-tab-pane:visible` 文本/canvas/svg，没有识别 `RouteFlowGraphDesigner` 的 div 节点和 CSS 连接线。
+- 真实执行 `80` 证明 `工艺路线节点：基础维护` 和 `工艺路线节点：复制绑定` 均已全检查点 PASS；`工艺路线节点：版本发布` 在复制生成版本测试路线时 BLOCKED：弹窗中编码/名称已正确填入，右下角 `确认复制` 主按钮可见，但生成脚本只按 `保存/确定/提交` 查找提交按钮，误报 `No visible enabled dialog save action`。
+- 真实执行 `81` 证明 `工艺路线节点：版本发布` 已越过复制和候选创建，第 1、2、3 检查点 PASS；第 4 检查点 BLOCKED：版本工作台中 V2 行状态为 `草稿`，操作列可见 `编辑 / 查看断项 / 提交发布 / 删除草稿`，但生成脚本只找 `取消候选版本/取消候选/放弃候选/删除候选/作废候选/撤销候选`，误报候选版本取消入口缺失。
 
 ## Root Cause
 
@@ -28,6 +39,27 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 5. 本地后端 `application-local.yaml` 配置了 Codex Runner 启动参数，但未配置 `yudao.codex-test.artifact-temp-dir`；当 Codex 返回失败截图 `screenshotPath` 时，Runner artifact 上传接口按设计 fail-fast，导致串行路线首节点 `BLOCKED`。
 6. Runner 只把前端 `node_modules` 传给隔离 Codex 子任务，没有同时传入本机正式 Chrome/Edge executablePath，也没有在 prompt 中要求临时 Playwright 脚本显式使用该路径；因此子任务在缺少 Playwright 浏览器缓存的本机上仍会调用默认缓存浏览器并失败。
 7. Runner prompt 没有把当前前端 history 路由和正式页面路径传给自然语言子任务；Codex 生成的脚本沿用 hash 路由猜测，导致真实页面导航失败后首节点 `BLOCKED`。
+8. Runner prompt 没有要求 Codex 子任务在临时 Playwright 脚本输出 `checkpointResults` 后立即返回；子任务继续自由调试，导致 Runner 边界达到 `600000ms` 超时。
+9. Runner prompt 没有限定 Element Plus 弹窗字段填充必须匹配精确 `.el-form-item` 标签，导致 `名称` 匹配到包含 `编码/名称` 的大块 `基础信息` 容器并填错输入框。
+10. Runner prompt 没有要求 `TableQuickFilter` 读取和填写必须限定在可见 `.table-quick-filter` / `.unified-list-template__quick-filter` 容器内，导致 post-save 验证把 `路线名称` 字段与 route code 值错配，列表返回 `No Data`。
+11. Runner prompt 没有区分 `工艺路线` 列表的基础详情入口和候选版本入口；`路线编码` 列链接才是 RouteForm 基础详情，操作列 `编辑` 是生产配置候选版本编辑，`版本` 是版本工作区。基础维护节点误用候选版本链路后触发 `工艺路线候选版本快照不完整`。
+12. Runner prompt 没有强制列表 quick-filter 查询前关闭仍可见的 Element Plus 弹窗/抽屉/overlay；保存后仍停留 `新增工艺路线` 弹窗时，脚本点击背景查询按钮被 `.el-overlay-dialog` 拦截。
+13. Runner prompt 没有要求 Element Plus MessageBox 打开时只在前景 `.el-message-box` / `.el-overlay-message-box` 内查找确认按钮；删除确认框打开后，脚本的全局 action locator 命中背景操作列按钮并被 `.el-overlay-message-box` 拦截。
+14. Runner prompt 没有要求 `工艺路线复制绑定` 详情校验在检查页签前先确认打开的 `工艺路线详情` 已加载副本编码和副本名称；在 Element Plus 固定列/重复 DOM 或空白详情入口场景下，生成脚本会把空白占位弹窗误判为页签缺失。
+15. Runner prompt 没有明确禁止把 Element Plus 表格 `.cell` 容器当成路线编码详情入口；`.cell` 不是交互控件，点击不会触发 `openForm('detail', scope.row.id)`，必须点击真实 `button.el-button.is-link` / `.el-button.is-link` / `a` / `[role="link"]`。
+16. Runner prompt 没有要求 RouteForm 详情读取精确 `.el-form-item` 编码/名称的 `inputValue`；Element Plus input 值不会可靠出现在 `modal.innerText()` 中，innerText-only 判断会把真实详情误判为空。
+17. `RouteForm.vue` 使用异步 `RouteFormContent`，父弹窗设置 `dialogVisible=true` 后只等待一个 `nextTick()` 并通过 `contentRef.value?.open(type, id)` 可选链调用；当子组件尚未挂载时调用被静默跳过，父标题显示“工艺路线详情”，但子组件仍处于默认 create 空表单状态，导致不发 `/mes/pro/route/get?id=...` 且详情 inputValue 为空。
+18. Runner prompt 对本机登录仍过于宽松，允许生成脚本用 `page.locator('input:visible').first()` 和 `filter({ hasNot: page.locator('[type="password"]') })` 填登录表单；这可能误填租户/用户名/密码字段。生成脚本还未强制等待目标 history 路由的 `.table-quick-filter` 与 `.el-table` 渲染完成，就调用 quickFilter，导致应用 splash/loading spinner 阶段被误判为业务 quick-filter 缺失。
+19. Runner prompt 虽要求读取 RouteForm `inputValue`，但没有禁止单次读取为空即失败，也没有要求点击路线编码后等待 `/admin-api/mes/pro/route/get?id=...` 或轮询 `input.el-input__inner/input/textarea` DOM value；生成脚本在 RouteForm 数据尚未完成灌入时把空值误判为详情失败。
+20. Runner prompt 对工艺路线 quick-filter 仍允许强制切换到 `路线名称`；当当前页面只稳定显示 `路线编码` 字段且 `路线名称` 选项不可见时，生成脚本会因 `quick-filter option 路线名称 not visible` 阻塞，而不是按固定路线编码继续查询、复位和清理。
+21. Runner prompt 未同步复制绑定固定源路线的当前正式编码；历史 `922067 / RT000006 / 球囊扩张压力泵` 已软删除，当前可用源路线是 `922119 / RT000028 / 球囊扩张压力泵`。生成脚本在字段仍为 `路线编码` 时填入源路线名称，误报源路线缺失。
+22. Runner prompt 未要求保存成功后的弹窗关闭按钮 detached/unstable 时先用列表结果确认保存是否已成功；生成脚本把 Element Plus transient close click 抖动误报为新增阻塞，尽管截图和列表已经显示固定路线 `TN-ROUTE-BASIC-001`。
+23. Runner prompt 未要求临时 Playwright 脚本执行前先运行 `node --check`，也未禁止同一函数/块作用域内重复声明 `const/let` 标识符；因此生成脚本重复声明 `const modal` 时直接进入 `node` 执行并在浏览器启动前失败。
+24. Runner prompt 未要求目标 history 路由加载时同时等待“业务控件或登录页”并循环处理登录；生成脚本只在直接导航后短暂检查登录表单，Vue 异步重定向稍后发生时已经误判为已登录，最终停留在 `/login?redirect=/mes/pro/route`。
+25. Runner prompt 未说明工艺路线 `流转关系图` 使用 div 节点卡片和 CSS 连接线渲染；生成脚本只按 active tab pane 文本、canvas 或 svg 判断内容，忽略 `.route-flow-graph-designer__node` / `[data-flow-node="route-process"]` 等真实图谱 DOM，误报图谱为空。
+26. Runner prompt 对复制弹窗提交按钮仍存在正则分裂：已提示业务确认按钮可能是 `确认复制`，但确定性 footer selector 和生成脚本 helper 仍只用 `/保存|确定|提交/`，导致版本发布复制弹窗中可见 `确认复制` 主按钮被漏掉；同时版本发布源路线仍允许硬编码旧名称 `按压式球囊扩充压力泵`，需要同步为当前正式源样本 `RT000028 / 球囊扩张压力泵`。
+27. Runner prompt 未同步版本工作台候选草稿的真实收尾入口；当前页面草稿候选行的正式清理动作是 `删除草稿`，生成脚本只找 `取消候选` 同义词，导致真实可见入口被漏掉并留下 `TN-ROUTE-VERSION-001` 测试路线待清理。
+28. Runner prompt 未同步版本工作台候选清理完成态；草稿删除后页面显示 `无打开候选` 且只剩 `创建候选版本`，这应代表候选清理已完成。生成脚本仍可能继续找 `删除草稿` 或重新创建候选，导致 Codex 子进程再次达到 `600000ms` 硬超时。
 
 ## Regression Test
 
@@ -36,6 +68,7 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `IntRuoyiFronted/tests/e2e/codex-test-runner-failure-diagnostics-static.spec.js`
 - `IntRuoyiBackend/yudao-server/src/test/java/cn/iocoder/yudao/server/CodexTestLocalConfigTest.java`
 - `IntRuoyiFronted/tests/e2e/codex-test-runner-playwright-dependency-static.spec.js`
+- `IntRuoyiFronted/tests/e2e/mes-route-form-async-open-static.spec.js`
 - `doc/tasks/20260730-test-management-serial-routes-repair/run-serial-routes-real-e2e.mjs`
 
 ## RED
@@ -46,6 +79,28 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `RED: node stdin static config assertion -> FAIL, expected reason: application-local.yaml 缺少 yudao.codex-test.artifact-temp-dir`
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner 未解析本机 Chrome/Edge executablePath，未传递 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH 给子任务`
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 缺少 Vue history 路由和工艺路线正式入口 /mes/pro/route`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 缺少 one-shot JSON return、工艺路线详情行级操作、精确 .el-form-item 填字段和 TableQuickFilter 作用域约束`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 没有区分 路线编码 基础详情链接和操作列 编辑/版本 候选版本入口`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 没有要求列表查询前关闭 Element Plus overlay 并等待遮罩消失`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 没有要求 MessageBox 确认按钮限定在前景系统提示框内`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 没有要求复制绑定详情校验先确认副本编码/名称，且空白占位详情需关闭后从可见副本行路线编码链接重开`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 允许把 .cell 表格容器当成路线编码点击候选，未要求点击真实 Element Plus link button 并确认详情弹窗打开`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 没有要求 RouteForm 详情读取编码/名称 inputValue，允许只用 modal.innerText 判断详情为空`
+- `RED: node tests\e2e\mes-route-form-async-open-static.spec.js -> FAIL, expected reason: RouteForm 缺少 waitForContentRef()，仍通过 contentRef.value?.open(type, id) 可选链跳过异步内容组件 open`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 缺少 .login-form 精确租户/用户名/密码定位与登录接口成功等待，也未要求进入 /mes/pro/route 后先等待 quick-filter/table 业务控件渲染`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求 RouteForm 详情等待 route/get 或轮询 input DOM value，允许单次读取为空即失败`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求路线名称选项不可见时保持路线编码并按 route code 查询，允许生成脚本因 quick-filter option 路线名称 not visible 阻塞`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求复制绑定固定源路线使用正式编码 RT000028，允许把源路线名称填入路线编码字段后误报源路线缺失`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求保存成功后关闭按钮 detached/unstable 时先返回列表并用 quick-filter 验证固定路线已保存，允许把已列表命中的新增结果误报为 BLOCKED`
+- `RED: 真实 E2E execution 76 -> FAIL, expected reason: 生成的临时 Playwright 脚本同一函数内重复声明 const modal，且 Runner prompt 未要求 node --check 语法自检或修复同作用域 const/let 重复声明`
+- `RED: 真实 E2E execution 77 -> FAIL, expected reason: 复制绑定节点在 Vue 异步重定向后停留 /login?redirect=/mes/pro/route，Runner prompt 未要求登录页/业务控件二选一循环等待和登录后重返目标路由`
+- `RED: 真实 E2E execution 78 -> FAIL, expected reason: 流转关系图页签已有可见 div 工序节点和连线，但生成脚本按 pane 文本/canvas/svg 误判为空`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求复制弹窗 footer 的“确认复制”按业务按钮点击，且未要求版本发布固定源样本使用 RT000028 / 球囊扩张压力泵`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求版本发布候选草稿用“删除草稿”收尾，允许生成脚本只查找“取消候选”后误报入口缺失`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求版本发布删除草稿按可见文本子节点上溯真实按钮，也未区分按钮禁用/加载与入口缺失`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求删除/复位后只用可见表格 body 行判断目标路线是否仍存在，允许把筛选输入框里的路线编码当成残留`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求临时 Playwright 脚本自带全局截止时间并在超时前输出 BLOCKED JSON，允许等 Codex 子进程 600 秒硬超时`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求版本发布工作台显示“无打开候选”时视为候选清理已完成，不能继续找删除草稿或重新创建候选直到超时`
 
 ## GREEN
 
@@ -57,6 +112,29 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes browser executablePath and official navigation hints`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes one-shot JSON return, exact Element Plus form-item fills, row action detail verification, and visible TableQuickFilter scoping`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes route-code detail link guidance and forbids operation-column 编辑/版本 for 工艺路线基础维护 base detail`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes pre-query Element Plus overlay close/wait/retry guidance`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes visible MessageBox-scoped primary action selection`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes copied-route detail code/name validation and blank placeholder detail reopen guidance`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes forbidding .cell route-code click candidates and requiring the actual Element Plus route-code link button plus 工艺路线详情 open assertion`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes RouteForm detail .el-form-item 编码/名称 inputValue verification instead of innerText-only blank judgment`
+- `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`
+- `GREEN: pnpm ts:check -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes .login-form scoped login selectors, /system/auth/login + permission-info waits, and target route quick-filter/table page-ready wait`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes RouteForm detail /mes/pro/route/get wait or 30-second exact form-item DOM value polling helper`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes keeping 路线编码 and route-code search when quick-filter option 路线名称 is unavailable`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes fixed source route RT000028 / 球囊扩张压力泵 and forbids submitting the source name into 路线编码`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes post-save detached/unstable close handling by verifying the saved fixed route in the list before marking BLOCKED`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes node --check before temporary Playwright script execution and forbids same-scope const/let redeclarations such as modal`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes post-login target-route navigation and login-or-business-controls loop for async /login redirects`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes RouteFlowGraphDesigner div node/CSS connector visibility criteria for 流转关系图 tab checks`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes 确认复制 footer business action selector and 工艺路线版本发布 source sample RT000028 / 球囊扩张压力泵`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes 工艺路线版本发布 candidate cleanup via visible 删除草稿 action`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes Element Plus link-button 删除草稿 visible text descendant climb, 15-second enabled wait, and visible-but-disabled/loading diagnostic`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes route delete/reset absence judged only from visible table body rows, not body text or quick-filter input values`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes temporary Playwright script overall deadline, main-flow race, browser close, and BLOCKED checkpoint JSON before Codex child timeout`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes 工艺路线版本发布 candidate cleanup completed state via 无打开候选 without clicking 创建候选版本 during checkpoint 4 cleanup`
 - `GREEN: node --check doc\tasks\20260730-test-management-serial-routes-repair\run-serial-routes-real-e2e.mjs -> PASS`
 - `GREEN: node stdin static config assertion -> PASS, application-local.yaml 已包含运行态 artifact 临时目录和保留时长`
 - `GREEN: mvn.cmd -pl yudao-server -Dtest=CodexTestLocalConfigTest test -> PASS, Tests run: 1, Failures: 0, Errors: 0, BUILD SUCCESS`
@@ -67,6 +145,24 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `Verification: 真实 E2E partial -> BLOCKED, 工艺路线节点闭环 execution 37 因 artifact 临时目录未配置失败；该配置缺口已补齐但 48081 尚未恢复，不能继续页面复验`
 - `Verification: Runner browser dependency static regression -> PASS, 子任务环境现在包含前端 Playwright 依赖与本机浏览器 executablePath prompt/环境变量`
 - `Verification: 真实 E2E execution 48 -> BLOCKED, 浏览器启动已正常但临时脚本未进入 /mes/pro/route；已用静态契约补齐正式导航提示，待复跑真实页面`
+- `Verification: 真实 E2E execution 67 -> FAIL, 工艺路线基础维护已 PASS，复制绑定打开空白工艺路线详情导致绑定信息可见 FAIL；已用静态契约补齐副本详情编码/名称确认与空白详情重开要求，待复跑真实页面`
+- `Verification: 真实 E2E execution 68 -> FAIL, 工艺路线基础维护已 PASS，复制绑定副本复位/复制/清理 PASS，但详情入口点击停留在列表；已用静态契约补齐真实路线编码 link button 点击要求，待复跑真实页面`
+- `Verification: 真实 E2E execution 69 -> FAIL, 工艺路线基础维护新增和清理 PASS，但详情校验 innerText-only 误判 inputValue 为空；已用静态契约补齐 RouteForm inputValue 校验，待复跑真实页面`
+- `Verification: node doc\tasks\20260730-test-management-serial-routes-repair\diagnose-route-copy-detail.mjs -> PASS, 修复前副本列表和详情 API 均有正确 id/code/name 但点击不触发 route/get；修复后真实页面点击副本路线编码触发 /admin-api/mes/pro/route/get?id=922327，详情 inputValue 为 TN-ROUTE-COPY-001 / 测试节点-工艺路线-复制绑定-副本`
+- `Verification: 真实 E2E execution 71 -> FAIL, 工艺路线基础维护全检查点 PASS；复制绑定 BLOCKED at checkpoint 1，actualText=浏览器执行阻塞：visible quick filter not found，失败截图为应用 splash/loading spinner；已补齐登录精确定位和目标页 ready 等待，待重启 Runner 后复跑真实页面`
+- `Verification: 真实 E2E execution 72 -> FAIL, 登录和目标页 ready 已生效；基础维护第 1 检查点 PASS，但第 2 检查点 BLOCKED，actualText=详情表单值不匹配，编码=空，名称=空；已补齐 RouteForm detail route/get 等待与 30 秒 DOM value 轮询 helper，待重启 Runner 后复跑真实页面`
+- `Verification: 真实 E2E execution 73 -> FAIL, 工艺路线基础维护第 1 检查点 BLOCKED，actualText=Unhandled browser execution error: quick-filter option 路线名称 not visible；已补齐路线名称选项不可见时保持路线编码并按 route code 查询，待重启 Runner 后复跑真实页面`
+- `Verification: 真实 E2E execution 74 -> FAIL, 工艺路线基础维护全 PASS；复制绑定第 1 检查点误报固定源路线缺失，真实 UI/API 只读诊断证明当前源路线为 922119 / RT000028 / 球囊扩张压力泵；已补齐固定源路线编码规则，待重启 Runner 后复跑真实页面`
+- `Verification: 真实 E2E execution 75 -> FAIL, 工艺路线基础维护第 2 检查点误报新增阻塞；截图证明固定路线已在列表命中，真实阻塞是保存成功后关闭按钮 detached/unstable；已补齐 post-save 列表确认规则，待重启 Runner 后复跑真实页面`
+- `Verification: 真实 E2E execution 76 -> FAIL, 临时 Playwright 脚本浏览器启动前语法失败：Identifier 'modal' has already been declared；已补齐 node --check 语法自检和同作用域 const/let 重复声明禁用规则，待重启 Runner 后复跑真实页面`
+- `Verification: 真实 E2E execution 77 -> FAIL, 工艺路线基础维护全 PASS；复制绑定停留 /login?redirect=/mes/pro/route 导致列表控件未渲染；已补齐登录后显式重返目标路由与登录页/业务控件循环等待规则，待重启 Runner 后复跑真实页面`
+- `Verification: 真实 E2E execution 78 -> FAIL, 工艺路线基础维护全 PASS；复制绑定副本复位、复制和清理 PASS，但流转关系图 div 图谱被误判为空；已补齐 RouteFlowGraphDesigner 节点/连线/版本标签可见性规则，待重启 Runner 后复跑真实页面`
+- `Verification: 真实 E2E execution 80 -> FAIL, 工艺路线基础维护与复制绑定均 PASS；版本发布复制弹窗已正确填入编码/名称但漏点“确认复制”主按钮，已补齐业务按钮选择器与版本发布源样本规则，待重启 Runner 后复跑真实页面`
+- `Verification: 真实 E2E execution 81 -> FAIL, 工艺路线基础维护与复制绑定均 PASS；版本发布第 1-3 检查点 PASS，第 4 检查点在草稿行“删除草稿”入口误判为缺失；已补齐删除草稿收尾规则，待重启 Runner 后复跑真实页面`
+- `Verification: 真实 E2E execution 82 -> FAIL, 工艺路线基础维护与复制绑定均 PASS；版本发布第 1-3 检查点 PASS，第 4 检查点页面正文和截图均显示“删除草稿”可见，但生成脚本仍按直接 button hasText/isEnabled 判断误报入口缺失；已补齐文本子节点上溯真实按钮与 disabled/loading 诊断规则，待重启 Runner 后复跑真实页面`
+- `Verification: 真实 E2E execution 83 -> FAIL, 工艺路线基础维护与复制绑定均 PASS；版本发布第 1 检查点截图显示删除成功且表格 No Data，但生成脚本把 quick-filter 输入框中的 TN-ROUTE-VERSION-001 当成删除后残留；已补齐删除/复位后只按可见表格 body 行判断残留的规则，待重启 Runner 后复跑真实页面`
+- `Verification: 真实 E2E execution 84 -> FAIL, 工艺路线基础维护与复制绑定均 PASS；版本发布节点未返回结构化检查点而是 Codex Runner 子进程 600000ms 硬超时；已补齐临时 Playwright 脚本自带 deadline 并超时前返回 BLOCKED JSON 的规则，待重启 Runner 后复跑真实页面`
+- `Verification: 真实 E2E execution 86 -> FAIL, 工艺路线基础维护与复制绑定均 PASS；版本发布截图显示候选清理后工作台处于“无打开候选”，但子任务仍未结构化返回并达到 600000ms；已补齐“无打开候选”即候选清理完成、checkpoint 4 不得点击“创建候选版本”的规则，待重启 Runner 后复跑真实页面`
 
 ## Risk And Regression Scope
 
@@ -75,4 +171,4 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 
 ## Blockers And Follow-up
 
-- 当前剩余工作是重启任务自有 Runner 并通过真实 `系统管理 > 测试管理` 页面复跑 3 条串行路线；不得用 API-only、静态合同或缓存浏览器下载替代最终页面证据。
+- 当前剩余工作是通过真实 `系统管理 > 测试管理` 页面复跑 3 条串行路线并到 `测试记录` 核对终态；不得用 API-only、静态合同或缓存浏览器下载替代最终页面证据。

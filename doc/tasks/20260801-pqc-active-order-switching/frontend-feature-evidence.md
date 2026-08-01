@@ -35,3 +35,13 @@ GREEN: `node tests\e2e\mes-frontline-pqc-active-order-switching-static.spec.js` 
 ## Blockers
 
 No frontend implementation blocker remains. Real browser E2E was not run because this request was verified through focused static contracts and unit tests without starting local services or creating write-type test data.
+## 2026-08-01 PQC Submit Feature Optimization
+
+- Feature goal: PQC submit is no longer validate-only; it persists through submitFrontlinePqcInspection before showing 已提交.
+- UI entry: FrontlineFixedTemplatePanel PQC mode now requires explicit signatureId input. Missing signatureId blocks submit; no default signature is generated.
+- API state: ProFeedbackApi.submitFrontlinePqcInspection posts to /mes/pro/feedback/frontline/device-account/pqc/submit.
+- Payload state: rawPayload includes pqcDraft, pqcPieceValues, fieldValues, inspectionResult, selected active order/process/employee and template payload preview.
+- RED: node tests\e2e\mes-frontline-pqc-submit-to-leader-chain-static.spec.js -> FAIL before implementation because handleValidate showed 已提交 after validatePayload only.
+- GREEN: node tests\e2e\mes-frontline-pqc-submit-to-leader-chain-static.spec.js -> PASS.
+- Verification: node tests\e2e\mes-frontline-pqc-active-order-switching-static.spec.js -> PASS; pnpm ts:check -> PASS; team-leader/review-copy/event-revision static contracts -> PASS.
+- Blocker: real write-type Playwright E2E was not run because local services/login/test write data were not prepared in this turn.
