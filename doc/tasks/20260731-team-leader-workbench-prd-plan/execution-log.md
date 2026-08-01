@@ -236,3 +236,16 @@
 - GREEN: `pnpm --dir IntRuoyiFronted e2e:team-leader-workbench:real` -> PASS，真实 UI 登录、组长配置、员工正式填报、动态 eventId 发现、FIFO 自动分配、组长确认、订单工序完成和正式批记录回填均通过；`p6-real-e2e-evidence.md` 已重写为 `Status: PASS`，结果文件 eventId=`23`。
 - Post-E2E Cleanup: 真实 E2E 通过后再次事务清理任务自有运行数据 -> PASS，`active_order`、`employee_binding`、`process_device`、`parameter_rule`、`defect_reason`、`event`、`feedback`、`allocation`、`completion`、`recordbook_entry` 均为 `0`，设备 `980005` 恢复 `REPAIRING` 且 enabled。
 - Governance Note: 批记录字段审计明细受数据库 append-only 保护，executionId=`1607` 的审计 item 保留 `1` 条；未强删、未绕过审计保护，任务运行残留按既有 P6 清理口径已清零。
+
+## 2026-08-01 int_main Fusion Verification Evidence
+
+- Plan Gate: `check_plan_completion.py --cwd E:\IntRuoyi --task-dir E:\IntRuoyi\doc\tasks\20260731-team-leader-workbench-prd-plan` -> PASS，返回 `complete=true`。
+- Git Fusion: `git merge-base --is-ancestor codex/20260731_shengchanbanzuzhang int_main` -> PASS，feature branch 已融合进当前 `int_main`；`int_main` HEAD at evidence time=`e566f41d0`，feature branch=`008de0396`，`origin/int_main`=`7c7cce61d`。
+- Dirty Workspace Baseline: 主工作区并行串行路线 Runner 改动已单独提交为 `00df27e68 chore: baseline serial routes runner workspace changes`；暂存文件仅为 `IntRuoyiFronted/scripts/codex-test-runner.mjs`、`IntRuoyiFronted/tests/e2e/codex-test-runner-playwright-dependency-static.spec.js`、`doc/tasks/20260730-test-management-serial-routes-repair/bug-regression-evidence.md`、`doc/tasks/20260730-test-management-serial-routes-repair/execution-log.md`，未混入生产组长任务收尾文件。
+- Security Check: 基线提交前对 staged diff 执行密码明文与运行参数敏感词扫描 -> PASS，无密码或敏感运行参数写入 staged diff。
+- Branch Runtime Guard: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS，当前 `int_main` 使用 frontend `8081` / backend `48081`。
+- REGRESSION: merged `int_main` static contracts -> PASS，已通过 `pnpm --dir IntRuoyiFronted test e2e:team-leader-workbench:static`、`frontline-formal-submit:static`、`frontline-team-config:static`、`team-leader-report-allocation:static`。
+- REGRESSION: `pnpm --dir IntRuoyiFronted ts:check` -> PASS on merged `int_main`。
+- REGRESSION: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest,MesFrontlineRuntimeConfigControllerTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineRuntimeConfigServiceTest,MesTeamLeaderActiveOrderServiceTest,MesTeamLeaderRuntimeConfigServiceTest,MesTeamLeaderReportConfirmationServiceTest,MesTeamLeaderFifoAllocationServiceTest,MesTeamLeaderOrderProcessCompletionServiceTest,MesTeamLeaderBatchRecordBackfillServiceTest,MesProFrontlineFeedbackPayloadSplitterTest,MesProBatchRecordCellLinkServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，tests run: 48, failures: 0, errors: 0, skipped: 0。
+- Git Check: `git diff --check` -> PASS，仅 LF/CRLF 规范化警告，无 whitespace error。
+- Result: `int_main` 融合、合并后验证和并行 dirty workspace 基线均已完成；剩余 final closeout commit、feature branch push、`int_main` push 与推送后 ahead 状态核验。

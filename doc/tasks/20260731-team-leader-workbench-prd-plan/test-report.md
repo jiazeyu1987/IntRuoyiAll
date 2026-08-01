@@ -90,6 +90,18 @@
 - Cleanup: final task-owned residue check -> PASS，`active_order`、`employee_binding`、`process_device`、`parameter_rule`、`defect_reason`、`event`、`feedback`、`allocation`、`completion`、`recordbook_entry` 均为 `0`，设备 `980005` 恢复 `REPAIRING` 且 enabled。
 - Governance: append-only batch-record field audit item for executionId=`1607` remains by design and was not force-deleted.
 
+## int_main Fusion Recheck
+
+- Command: `git merge-base --is-ancestor codex/20260731_shengchanbanzuzhang int_main` -> PASS，feature branch 已被当前 `int_main` 包含。
+- Command: `pnpm --dir IntRuoyiFronted test e2e:team-leader-workbench:static` -> PASS on merged `int_main`.
+- Command: `pnpm --dir IntRuoyiFronted test e2e:frontline-formal-submit:static` -> PASS on merged `int_main`.
+- Command: `pnpm --dir IntRuoyiFronted test e2e:frontline-team-config:static` -> PASS on merged `int_main`.
+- Command: `pnpm --dir IntRuoyiFronted test e2e:team-leader-report-allocation:static` -> PASS on merged `int_main`.
+- Command: `pnpm --dir IntRuoyiFronted ts:check` -> PASS on merged `int_main`.
+- Command: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest,MesFrontlineRuntimeConfigControllerTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineRuntimeConfigServiceTest,MesTeamLeaderActiveOrderServiceTest,MesTeamLeaderRuntimeConfigServiceTest,MesTeamLeaderReportConfirmationServiceTest,MesTeamLeaderFifoAllocationServiceTest,MesTeamLeaderOrderProcessCompletionServiceTest,MesTeamLeaderBatchRecordBackfillServiceTest,MesProFrontlineFeedbackPayloadSplitterTest,MesProBatchRecordCellLinkServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS on merged `int_main`, tests run: 48, failures: 0, errors: 0, skipped: 0.
+- Command: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` -> PASS on `int_main`, frontend `8081`, backend `48081`.
+- Baseline: unrelated serial routes Runner dirty workspace preserved separately as `00df27e68 chore: baseline serial routes runner workspace changes`.
+
 ## Final Verdict
 
-- Outcome: P6 real E2E and regression verification passed; ready for closeout / integration gates.
+- Outcome: P6 real E2E, regression verification, and merged `int_main` fusion recheck passed; ready for final closeout commit and push gates.

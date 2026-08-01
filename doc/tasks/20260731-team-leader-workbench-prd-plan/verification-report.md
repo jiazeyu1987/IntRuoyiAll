@@ -67,3 +67,15 @@
 - PASS: 复跑前后均完成任务自有数据清理；最终 `active_order`、`employee_binding`、`process_device`、`parameter_rule`、`defect_reason`、`event`、`feedback`、`allocation`、`completion`、`recordbook_entry` 均为 `0`，设备 `980005` 为 `REPAIRING` 且 enabled。
 - PASS: 密码仅作为临时进程环境变量注入，命令结束后删除；未写入任务文档、证据文件、提交信息或源码。
 - NOTE: 批记录字段审计明细受 append-only 治理保护，executionId=`1607` 的审计 item 保留 `1` 条；未强删或绕过审计保护，不影响任务运行数据清理结论。
+
+## 2026-08-01 int_main Fusion Verification Addendum
+
+- PASS: `git merge-base --is-ancestor codex/20260731_shengchanbanzuzhang int_main` 返回成功，生产组长 feature branch 已融合进当前 `int_main`。
+- PASS: `check_plan_completion.py --cwd E:\IntRuoyi --task-dir E:\IntRuoyi\doc\tasks\20260731-team-leader-workbench-prd-plan` 返回 `complete=true`，P1-P6 计划证据完整。
+- PASS: 主工作区并行 Runner 改动已按脏工作区基线单独保存：`00df27e68 chore: baseline serial routes runner workspace changes`；生产组长任务收尾仅包含本任务文档和 `task-state.json` 路径重定位。
+- PASS: 合并后 `int_main` 已通过前端静态合同批次：`team-leader-workbench:static`、`frontline-formal-submit:static`、`frontline-team-config:static`、`team-leader-report-allocation:static`。
+- PASS: `pnpm --dir IntRuoyiFronted ts:check` 在 `E:\IntRuoyi` 通过。
+- PASS: `mvn -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest,MesFrontlineRuntimeConfigControllerTest,MesFrontlineEmployeeSwitchServiceTest,MesFrontlineRuntimeConfigServiceTest,MesTeamLeaderActiveOrderServiceTest,MesTeamLeaderRuntimeConfigServiceTest,MesTeamLeaderReportConfirmationServiceTest,MesTeamLeaderFifoAllocationServiceTest,MesTeamLeaderOrderProcessCompletionServiceTest,MesTeamLeaderBatchRecordBackfillServiceTest,MesProFrontlineFeedbackPayloadSplitterTest,MesProBatchRecordCellLinkServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` 在 `E:\IntRuoyi\IntRuoyiBackend` 通过，tests run: 48, failures: 0, errors: 0, skipped: 0。
+- PASS: `powershell -ExecutionPolicy Bypass -File scripts\preflight\branch-runtime-port-guard.ps1` 在 `int_main` 通过，frontend `8081` / backend `48081`。
+- PASS: `git diff --check` 仅报告 LF/CRLF 规范化警告，无 whitespace error。
+- RESULT: `int_main` 融合与合并后验证已通过；剩余 final closeout commit、feature branch push、`int_main` push 与推送后 ahead 状态核验。

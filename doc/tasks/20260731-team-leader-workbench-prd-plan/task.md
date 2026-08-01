@@ -98,9 +98,11 @@ ready_for_closeout
 - P6 真实 Playwright 写入型 E2E 已通过：生产组长配置、员工正式报工、动态 eventId 发现、FIFO 自动分配、组长确认、订单工序完成和正式批记录回填均通过；证据见 `p6-real-e2e-evidence.md`。
 - P6 后置清理已完成：`TLW-20260731-` 任务自有活跃订单、绑定、参数规则、异常原因、事件、报工、分配、工序完成和记录本条目均已清理为 `0`，设备 `980005` 恢复 `REPAIRING` 且 enabled。
 - P6 复跑核验已完成：用户补齐密码后通过临时环境变量复跑 `pnpm --dir IntRuoyiFronted e2e:team-leader-workbench:real`，`p6-real-e2e-evidence.md` 已重写为 `Status: PASS`，本轮 eventId=`23`；批记录字段审计 append-only 记录按治理要求保留，未强删。
-- 前端静态合同、前端类型检查和后端定向回归已通过；后端回归最终覆盖 47 个测试，0 failures / 0 errors。
+- 前端静态合同、前端类型检查和后端定向回归已通过；合并后 `int_main` 定向后端回归最终覆盖 48 个测试，0 failures / 0 errors。
 - 密码仅通过运行时环境变量临时注入，未写入文档、日志、证据文件或提交信息。
 - 主实现提交已完成：`a67a7a305 feat: deliver team leader workbench flow`。
 - `task-closeout-cleanup --worktree-closeout off` 已执行 preview/apply，删除 `backend-api-evidence.md`、`database-schema-evidence.md` 两个临时 evidence；核心结论已归档到 `execution-log.md` 和 `verification-report.md`。
 - 收尾清理提交已完成：`3c5789190 chore: clean team leader workbench task evidence`。
-- 当前仍保持 `ready_for_closeout`：实现、验证、任务清理和当前分支推送可完成；融合回 `E:\IntRuoyi` 的 `int_main` 被主工作区并行脏改动阻塞，不能在本轮强行 ff-only merge 或删除 worktree。
+- 融合回 `E:\IntRuoyi` 的 `int_main` 已完成：`codex/20260731_shengchanbanzuzhang` 是当前 `int_main` 祖先，`int_main` 合并后已通过静态合同、`pnpm --dir IntRuoyiFronted ts:check`、MES 定向 Maven 回归和分支端口门禁。
+- 主工作区并行 Runner 改动已按脏工作区基线规则单独提交：`00df27e68 chore: baseline serial routes runner workspace changes`，未混入生产组长任务收尾提交。
+- 当前仍保持 `ready_for_closeout`：实现、验证、任务清理和 `int_main` 融合验证已完成；剩余 final closeout commit、feature branch push、`int_main` push 与推送后状态核验。
