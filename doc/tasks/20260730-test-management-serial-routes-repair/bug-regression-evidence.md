@@ -29,6 +29,13 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - 真实执行 `78` 证明登录卡点已解除且 `工艺路线节点：基础维护` 全 PASS；`工艺路线节点：复制绑定` 完成副本复位、复制、详情打开和副本清理，但第 3 检查点 FAIL：`详情页签内容为空：流转关系图`。失败截图显示 `流转关系图` 页签中路线标题、当前版本、工序节点卡片、连线和工具栏均可见，脚本因为只查 `.el-tab-pane:visible` 文本/canvas/svg，没有识别 `RouteFlowGraphDesigner` 的 div 节点和 CSS 连接线。
 - 真实执行 `80` 证明 `工艺路线节点：基础维护` 和 `工艺路线节点：复制绑定` 均已全检查点 PASS；`工艺路线节点：版本发布` 在复制生成版本测试路线时 BLOCKED：弹窗中编码/名称已正确填入，右下角 `确认复制` 主按钮可见，但生成脚本只按 `保存/确定/提交` 查找提交按钮，误报 `No visible enabled dialog save action`。
 - 真实执行 `81` 证明 `工艺路线节点：版本发布` 已越过复制和候选创建，第 1、2、3 检查点 PASS；第 4 检查点 BLOCKED：版本工作台中 V2 行状态为 `草稿`，操作列可见 `编辑 / 查看断项 / 提交发布 / 删除草稿`，但生成脚本只找 `取消候选版本/取消候选/放弃候选/删除候选/作废候选/撤销候选`，误报候选版本取消入口缺失。
+- 真实执行 `88` 证明本机重启后 Runner 可重新领取并进入工艺路线列表，`工艺路线节点：基础维护` 第 1 检查点 PASS；第 2 检查点 BLOCKED 于 `Unhandled error: form item not found for /编码|路线编码/; phase=checkpoint-2-add`。失败截图显示 `新增工艺路线` 弹窗壳已打开，但异步 `RouteFormContent` 表单项尚未渲染，生成脚本过早查找字段。
+- 真实执行 `89` 证明新增弹窗字段缺失阻塞解除后，首节点退回到外层 Runner `600000ms` 硬超时。最新生成脚本 `route-basic-maintenance-e2e.js` 在执行开始后约 5 分钟才写入，且脚本自身设置 `Math.min(560000, 540000)`，无法在剩余外层预算内回传 `checkpointResults`。
+- 真实执行 `90` 证明 `工艺路线节点：基础维护` 和 `工艺路线节点：复制绑定` 均全检查点 PASS，`工艺路线节点：版本发布` 第 1-3 检查点 PASS；第 4 检查点仍 BLOCKED，因为页面可见草稿候选和 `删除草稿` 操作，但生成脚本未能在 Element Plus 固定列拆分 DOM 中把可见 `删除草稿` 解析成可点击动作。
+- 真实执行 `91` 证明最新登录卡点仍会让首节点全部 BLOCKED：页面停留在 `http://127.0.0.1:8081/login?redirect=/mes/pro/route`，生成脚本未覆盖登录页旧值/空密码，也没有在登录接口缺失或业务码非 `0` 时 fail-fast，而是继续等待工艺路线业务控件。
+- 真实执行 `92` 证明登录与前两节点已恢复：`工艺路线节点：基础维护`、`工艺路线节点：复制绑定` 全检查点 PASS；`工艺路线节点：版本发布` 第 2 检查点 FAIL，页面实际显示 `V2 草稿`、`V1 已生效 ACTIVE`、`当前 ACTIVE`，但生成脚本只接受 `当前生效/生效版本/当前版本`，误报候选或当前生效说明缺失。
+- 真实执行 `93` 证明 `工艺路线节点：基础维护`、`复制绑定`、`版本发布` 已全检查点 PASS，进入第 4 个 `状态删除` 节点后第 2 检查点 BLOCKED。页面固定路线已创建，状态列可见灰色 `el-switch`，操作列只有 `产品/编辑/复制/版本/删除`；生成脚本只找操作列文字 `停用/启用`，误报停用入口不可见。
+- 真实执行 `94` 证明目标页实际上已经渲染筛选区、表格标题和数据行，但首节点仍全部 BLOCKED：生成脚本在 page-ready 判定中对未过滤的多匹配 locator 调用 `isVisible()`，命中隐藏副本后误报 `Target route controls did not render`。
 
 ## Root Cause
 
@@ -60,6 +67,13 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 26. Runner prompt 对复制弹窗提交按钮仍存在正则分裂：已提示业务确认按钮可能是 `确认复制`，但确定性 footer selector 和生成脚本 helper 仍只用 `/保存|确定|提交/`，导致版本发布复制弹窗中可见 `确认复制` 主按钮被漏掉；同时版本发布源路线仍允许硬编码旧名称 `按压式球囊扩充压力泵`，需要同步为当前正式源样本 `RT000028 / 球囊扩张压力泵`。
 27. Runner prompt 未同步版本工作台候选草稿的真实收尾入口；当前页面草稿候选行的正式清理动作是 `删除草稿`，生成脚本只找 `取消候选` 同义词，导致真实可见入口被漏掉并留下 `TN-ROUTE-VERSION-001` 测试路线待清理。
 28. Runner prompt 未同步版本工作台候选清理完成态；草稿删除后页面显示 `无打开候选` 且只剩 `创建候选版本`，这应代表候选清理已完成。生成脚本仍可能继续找 `删除草稿` 或重新创建候选，导致 Codex 子进程再次达到 `600000ms` 硬超时。
+29. Runner prompt 未要求点击 `新增工艺路线` 后等待可见弹窗内异步 `RouteFormContent` 和 `.el-form-item` 字段标签渲染完成；生成脚本在弹窗 shell 刚出现但内容尚未加载时立即查找 `编码/路线编码` 表单项，误报 `form item not found`。
+30. Runner prompt 将临时 Playwright 脚本 deadline 描述为基于完整 Codex exec timeout 的示例，没有强制短 browser-flow 上限；子任务生成脚本时已消耗数分钟，又把脚本 deadline 设为 `540000ms`，最终被外层 `600000ms` 硬超时截断，无法结构化回写。
+31. Runner prompt 虽要求 `删除草稿` 文本上溯真实按钮，但仍默认 `草稿` 状态和 `删除草稿` 操作在同一个 DOM 行/卡片内；Element Plus 固定列会拆分状态列与操作列，导致脚本看到 `删除草稿` 文本却误报无法解析到候选行可点击动作。
+32. Runner prompt 登录规则仍允许保留登录页旧残留值、只在输入框为空时填默认值，且没有强制缺省默认账号/密码或登录接口缺失时立即 BLOCKED；这会把真实登录失败伪装成目标页面未就绪。
+33. Runner prompt 的版本发布候选可见性判定只接受 `当前生效/生效版本/当前版本`，没有覆盖当前工作台真实文案 `V1 已生效 ACTIVE`、`当前 ACTIVE` 或 `ACTIVE`；因此生成脚本把已经可见的 V2 草稿候选与 V1 生效版本误判为缺失。
+34. Runner prompt 未说明工艺路线列表的启停入口是 `状态` 列 `el-switch`，不是操作列文字按钮。生成脚本只扫描 `停用/启用` 文本操作，且要求行文本出现状态文案，导致在仅显示开关的正式页面误判入口缺失。
+35. Runner prompt 未要求目标页 ready 判定使用 `:visible` 控件选择器或逐个候选检查；生成脚本对 `.table-quick-filter, .unified-list-template__quick-filter` 这类多匹配 locator 直接调用 `isVisible()`，可能被隐藏副本误导，即使页面正文已经有 `工艺流程`、`查询/新增`、表格列和数据行也返回 BLOCKED。
 
 ## Regression Test
 
@@ -101,6 +115,15 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求删除/复位后只用可见表格 body 行判断目标路线是否仍存在，允许把筛选输入框里的路线编码当成残留`
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求临时 Playwright 脚本自带全局截止时间并在超时前输出 BLOCKED JSON，允许等 Codex 子进程 600 秒硬超时`
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求版本发布工作台显示“无打开候选”时视为候选清理已完成，不能继续找删除草稿或重新创建候选直到超时`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求新增工艺路线弹窗等待 RouteFormContent 和表单项渲染完成后再填字段，允许弹窗壳已打开但内容异步加载时误报 form item not found`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 必须强制临时 Playwright 脚本 deadline <= 240000ms，不能按外层 600000ms 预算生成 540000/560000ms 后再被外层硬超时截断`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 必须覆盖 Element Plus 固定列拆分场景：草稿状态和删除草稿操作不在同一 DOM 行时仍要点击可见删除草稿`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 必须要求登录时覆盖旧残留值且密码为空时 fail-fast，不能空登录后继续等待目标页面`
+- `RED: 真实 E2E execution 92 -> FAIL, expected reason: 版本工作台已有 V2 草稿与 V1 已生效/ACTIVE，但生成脚本未把 已生效/ACTIVE 识别为当前生效版本标记`
+- `RED: 真实 E2E execution 93 -> FAIL, expected reason: 状态删除节点页面已有状态列 el-switch，但生成脚本只找操作列 停用/启用 文字按钮并误报入口不可见`
+- `RED: 真实 E2E execution 94 -> FAIL, expected reason: 目标页已显示筛选区/表格/数据行，但生成脚本用未过滤 multi-locator isVisible 命中隐藏副本并误报 controls did not render`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求删除草稿后等待确认框关闭、核对 /admin-api/mes/pro/route-version/cancel 请求或刷新证据，允许点击后仅轮询旧 workspace 文本并误报候选仍可见`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未禁止把 ElementHandle 包装成 locator，允许生成脚本在可见行含 删除 时仍误报路线删除入口不可见`
 
 ## GREEN
 
@@ -135,6 +158,15 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes route delete/reset absence judged only from visible table body rows, not body text or quick-filter input values`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes temporary Playwright script overall deadline, main-flow race, browser close, and BLOCKED checkpoint JSON before Codex child timeout`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes 工艺路线版本发布 candidate cleanup completed state via 无打开候选 without clicking 创建候选版本 during checkpoint 4 cleanup`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes 新增工艺路线 dialog waiting for .route-form-content and visible form-item labels before filling`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes hard-capping temporary browser script deadline at 240000ms instead of using the outer 600000ms budget`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes Element Plus fixed-column candidate cleanup where 草稿 and 删除草稿 are split across DOM tables`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes always overwriting .login-form username/password defaults, missing-default fail-fast, and login response code=0 gating before business-control waits`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes 工艺路线版本发布 candidate visibility accepting V2 草稿 plus V1 已生效 / 已生效 ACTIVE / 当前 ACTIVE / ACTIVE`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes 工艺路线状态删除 enable/disable verification through 状态 column el-switch / role=switch rather than operation-column text buttons`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes target route ready checks using :visible quick-filter/table locators or candidate iteration instead of unfiltered multi-locator isVisible`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes 删除草稿 candidate cleanup MessageBox hidden wait, cancel request/list-refresh evidence, and failure diagnostics with request/message-box state`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes Element Plus row operation link-buttons resolved from span text and clicked through direct ElementHandle without locator wrapping`
 - `GREEN: node --check doc\tasks\20260730-test-management-serial-routes-repair\run-serial-routes-real-e2e.mjs -> PASS`
 - `GREEN: node stdin static config assertion -> PASS, application-local.yaml 已包含运行态 artifact 临时目录和保留时长`
 - `GREEN: mvn.cmd -pl yudao-server -Dtest=CodexTestLocalConfigTest test -> PASS, Tests run: 1, Failures: 0, Errors: 0, BUILD SUCCESS`
@@ -163,6 +195,13 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `Verification: 真实 E2E execution 83 -> FAIL, 工艺路线基础维护与复制绑定均 PASS；版本发布第 1 检查点截图显示删除成功且表格 No Data，但生成脚本把 quick-filter 输入框中的 TN-ROUTE-VERSION-001 当成删除后残留；已补齐删除/复位后只按可见表格 body 行判断残留的规则，待重启 Runner 后复跑真实页面`
 - `Verification: 真实 E2E execution 84 -> FAIL, 工艺路线基础维护与复制绑定均 PASS；版本发布节点未返回结构化检查点而是 Codex Runner 子进程 600000ms 硬超时；已补齐临时 Playwright 脚本自带 deadline 并超时前返回 BLOCKED JSON 的规则，待重启 Runner 后复跑真实页面`
 - `Verification: 真实 E2E execution 86 -> FAIL, 工艺路线基础维护与复制绑定均 PASS；版本发布截图显示候选清理后工作台处于“无打开候选”，但子任务仍未结构化返回并达到 600000ms；已补齐“无打开候选”即候选清理完成、checkpoint 4 不得点击“创建候选版本”的规则，待重启 Runner 后复跑真实页面`
+- `Verification: 真实 E2E execution 88 -> FAIL, 工艺路线基础维护第 1 检查点 PASS；第 2 检查点在新增弹窗 shell 打开但 RouteFormContent 尚未渲染时误报 form item not found；已补齐新增工艺路线弹窗内容和表单项等待规则，待复跑真实页面`
+- `Verification: 真实 E2E execution 89 -> FAIL, 工艺路线基础维护首节点被 Codex 子进程 600000ms 硬超时截断；最新临时脚本生成耗时约 5 分钟且脚本 deadline 为 540000ms，已补齐临时 browser-flow deadline 240000ms 硬上限，待复跑真实页面`
+- `Verification: 真实 E2E execution 90 -> FAIL, 工艺路线基础维护和复制绑定均 PASS，版本发布第 1-3 检查点 PASS；第 4 检查点可见草稿候选和删除草稿但未能点击固定列操作，已补齐 Element Plus fixed-column 删除草稿定位规则，待复跑真实页面`
+- `Verification: 真实 E2E execution 91 -> FAIL, 工艺路线基础维护 4 个检查点均 BLOCKED，actualText=目标页面未就绪且停留 /login?redirect=/mes/pro/route；已补齐登录默认值覆盖、缺省输入 fail-fast 和登录响应 code=0 门禁，待复跑真实页面`
+- `Verification: 真实 E2E execution 92 -> FAIL, 工艺路线基础维护和复制绑定均全检查点 PASS；版本发布第 2 检查点实际页面含 V2 草稿、V1 已生效 ACTIVE、当前 ACTIVE，但误报当前生效说明缺失；已补齐版本候选可见性规则，待复跑真实页面`
+- `Verification: 真实 E2E execution 93 -> FAIL, 工艺路线前三个节点全部 PASS；状态删除第 2 检查点固定路线已创建但误报停用入口不可见，截图证明正式入口为状态列 el-switch；已补齐状态开关定位与启停状态判定规则，待复跑真实页面`
+- `Verification: 真实 E2E execution 94 -> FAIL, 首节点页面实际含工艺流程标题、查询/新增按钮、表格列和数据行，但误报 Target route controls did not render；已补齐 visible-only page-ready selector 规则，待复跑真实页面`
 
 ## Risk And Regression Scope
 

@@ -166,6 +166,128 @@
 - `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
 
+- 2026-08-01 update: execution `100` 已证明版本发布第 4 检查点能点击可见 `删除草稿`，但点击/确认后仍显示 `草稿/待处理/待发布`。最新根因收敛为生成脚本未证明 Element Plus 确认框已关闭、`/admin-api/mes/pro/route-version/cancel` 是否发出/成功、以及版本列表是否刷新，因此无法区分确认按钮未生效、删除请求失败、请求未发出或刷新等待不足。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求删除草稿后等待确认框关闭、核对 cancel 请求或刷新证据，允许点击后只轮询旧 workspace 文本并误报候选仍可见`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求 MessageBox 主按钮点击后等待同一 `.el-message-box/.el-overlay-message-box` 隐藏；版本发布 `删除草稿` 清理必须在点击/确认前布置 `/admin-api/mes/pro/route-version/cancel` 等待，并结合版本列表刷新或工作台变为 `无打开候选/no 草稿` 判定；失败时 `actualText` 必须包含 cancel 请求是否发出、HTTP/业务码、确认框文本和确认框是否消失。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+
+- Real E2E retry `101`: 从真实 `系统管理 > 测试管理` 页面启动 `工艺路线节点闭环`，首节点 `工艺路线节点：基础维护` 被外层 Codex 子进程 `360000ms` 超时阻断，后续节点按串行前置失败正确 BLOCKED。生成脚本文件 `route_basic_maintenance_e2e.js` 在超时边界才落盘；单独用 runner 等价 `NODE_PATH` 复跑脚本得到结构化 JSON：检查点 1/2/3 PASS，第 4 检查点 BLOCKED，actualText=`固定路线命中但删除入口不可见；rows=... 产品 编辑 复制 版本 删除`。
+- Root cause update: 本轮不是页面入口缺失，也不是基础维护新增/详情失败；生成脚本把 `span` 文本上溯后的 `ElementHandle` 错误包装为 `page.locator(':scope').locator(handle)`，导致可见行中已有 `删除` 文本仍被判断为删除入口不可见。外层 360 秒预算也不足以覆盖“Codex 生成脚本 + 240 秒 browser-flow deadline”，下一轮真实复跑需用环境变量扩大外层 `CODEX_TEST_CODEX_TIMEOUT_MS`，同时保留脚本内 240 秒业务 deadline。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未禁止把 ElementHandle 包装成 locator，允许生成脚本在可见行含 删除 时仍误报路线删除入口不可见`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求 Element Plus 行级 link-button（删除/编辑/复制/版本/删除草稿）包含 `span` 文本候选，上溯到真实 action 后直接点击 resolved `ElementHandle`，禁止 `page.locator(':scope').locator(handle)` 包装；可见行含 `删除` 但无法点击时必须输出 tag/class/disabled 状态。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`
+
+- Real E2E retry `94`: 首节点 `工艺路线节点：基础维护` 4 个检查点均 BLOCKED，actualText=`Target route controls did not render after login/navigation`。同一 actualText 的 visibleText 已显示 `工艺流程` 页面标题、`查询/新增` 按钮、表格列 `路线编码/路线名称/状态` 和数据行，说明页面已渲染而脚本 page-ready 判据误判。Record screenshot: `output/playwright/20260730-test-management-serial-routes-repair/94-工艺路线节点闭环-record.png`；failure screenshot: `C:\Users\BJB110\AppData\Local\Temp\IntRuoyi-codex-test-runner-workspace\blocked-1785559952081.png`。
+- Root cause update: 生成脚本对 `.table-quick-filter, .unified-list-template__quick-filter` 和 `.el-table, .unified-list-template__table-shell` 这类多匹配 locator 直接调用 `isVisible()`；当第一个匹配是隐藏副本时，即使真实可见控件已渲染也会误报目标页未就绪。
+- `RED: 真实 E2E execution 94 -> FAIL, expected reason: 目标页已显示筛选区/表格/数据行，但生成脚本用未过滤 multi-locator isVisible 命中隐藏副本并误报 controls did not render`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求目标页 ready 判定使用 `.table-quick-filter:visible`、`.unified-list-template__quick-filter:visible`、`.el-table:visible`、`.unified-list-template__table-shell:visible`，或逐个候选检查首个真正可见控件；页面正文已含标题、按钮、表头和数据行时不得继续返回 `Target route controls did not render`。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+
+- Real E2E retry `93`: `工艺路线节点：基础维护`、`工艺路线节点：复制绑定`、`工艺路线节点：版本发布` 全检查点 PASS；第 4 个 `工艺路线节点：状态删除` 第 1 检查点 PASS，第 2 检查点 BLOCKED，actualText=`固定路线已显示，但未找到可见可点击停用入口`。失败截图 `C:\Users\BJB110\AppData\Local\Temp\IntRuoyi-codex-test-runner-workspace\route-status-delete-cp2-disable-action-missing-1785559091347.png` 显示固定路线已创建，状态列为可见 `el-switch`，操作列只有 `产品/编辑/复制/版本/删除`。
+- Root cause update: 工艺路线列表启停入口是状态列 `el-switch`，不是操作列文字按钮；生成脚本只扫描 `停用/启用` 文本操作，且用行文本判断状态，因此在正式页面误报入口缺失。
+- `RED: 真实 E2E execution 93 -> FAIL, expected reason: 状态删除节点页面已有状态列 el-switch，但生成脚本只找操作列 停用/启用 文字按钮并误报入口不可见`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求状态删除节点定位固定路线行的状态列 `.el-switch` / `[role="switch"]` / `.el-switch__core`，点击开关并确认 Element Plus 消息框；状态以 switch checked/aria-checked/.is-checked/active-inactive value 判断，不再要求可见行文本 `启用/停用`。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+
+- Real E2E retry `89`: preflight PASS 后 `工艺路线节点闭环` execution `89` 启动，但首节点被 Runner 外层 `600000ms` 超时截断；生成的 `route-basic-maintenance-e2e.js` 在开始约 5 分钟后才写入，且脚本 deadline 仍为 `540000ms`。
+- Root cause update: Runner prompt 未强制临时 browser-flow 使用不可协商的 `240000ms` 上限，允许生成脚本把外层 600000ms 预算当作脚本内 deadline，导致无法在外层 kill 前结构化回写。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 必须强制临时 Playwright 脚本 deadline <= 240000ms，不能按外层 600000ms 预算生成 540000/560000ms 后再被外层硬超时截断`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求临时 Playwright 脚本硬上限 `240000ms`，禁止从完整 Codex exec timeout 派生 `300000/540000/560000ms`。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`
+- `GREEN: node --check doc\tasks\20260730-test-management-serial-routes-repair\run-serial-routes-real-e2e.mjs -> PASS`
+
+- Real E2E retry `90`: `工艺路线节点：基础维护`、`工艺路线节点：复制绑定` 全检查点 PASS；`工艺路线节点：版本发布` 第 1-3 检查点 PASS，第 4 检查点 BLOCKED。页面正文和截图显示 V2 为 `草稿` 且操作列可见 `删除草稿`，但生成脚本未能点击固定列中的可见删除动作。
+- Root cause update: Element Plus 固定列会把 `草稿` 状态列和 `删除草稿` 操作列渲染到不同 DOM table/row；脚本要求删除动作必须是同一候选行 descendant，导致误判可见动作不可点击。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 必须覆盖 Element Plus 固定列拆分场景：草稿状态和删除草稿操作不在同一 DOM 行时仍要点击可见删除草稿`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求版本工作台文本证明有草稿候选且同一可见工作台任意位置有 `删除草稿` 时，直接解析可见文本到最近按钮并点击，不再要求同一 `tr` descendant。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`
+
+- Real E2E retry `91`: `工艺路线节点：基础维护` 4 个检查点均 BLOCKED，actualText=`目标页面未就绪: url=http://127.0.0.1:8081/login?redirect=/mes/pro/route ... 登录`；生成脚本停留在登录页。
+- Root cause update: 生成脚本只在 username/password 输入框为空时填默认值，旧残留用户名或空密码可能被保留；登录响应缺失或业务码非 `0` 时还继续等待业务控件，把登录失败伪装成页面未就绪。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 必须要求登录时覆盖旧残留值且密码为空时 fail-fast，不能空登录后继续等待目标页面`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求本机登录始终用 `.env` 默认值覆盖 `.login-form` 用户名/密码，缺少默认值且可见输入为空时先 BLOCKED，且登录 POST 缺失或 code 非 0 时不得继续等业务控件。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`
+- `GREEN: node --check doc\tasks\20260730-test-management-serial-routes-repair\run-serial-routes-real-e2e.mjs -> PASS`
+
+- Real E2E retry `92`: `工艺路线节点：基础维护`、`工艺路线节点：复制绑定` 全检查点 PASS；`工艺路线节点：版本发布` 第 2 检查点 FAIL，actualText 显示版本工作台已有 `V2 草稿`、`V1 已生效 ACTIVE`、`当前 ACTIVE`，但脚本返回 `创建候选版本后页面缺少候选版本或当前生效版本说明`；后续 `状态删除` 被串行前置失败阻断。Record screenshot: `output/playwright/20260730-test-management-serial-routes-repair/92-工艺路线节点闭环-record.png`；failure screenshots: `C:\Users\BJB110\AppData\Local\Temp\IntRuoyi-codex-test-runner-workspace\route-version-cp2-candidate-not-visible.png` / `route-version-cp4-blocked.png`。
+- Root cause update: 版本发布候选可见性判定只接受 `当前生效/生效版本/当前版本`，没有覆盖当前页面真实文案 `V1 已生效 ACTIVE`、`当前 ACTIVE` 或 `ACTIVE`，导致把已有候选和当前生效版本误判为缺失。
+- `RED: 真实 E2E execution 92 -> FAIL, expected reason: 版本工作台已有 V2 草稿与 V1 已生效/ACTIVE，但生成脚本未把 已生效/ACTIVE 识别为当前生效版本标记`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求版本发布候选可见性在看到 `V2 草稿` 且任一 `V1 已生效 / 已生效 ACTIVE / 当前 ACTIVE / ACTIVE / 当前生效 / 生效版本 / 当前版本` 时判定 checkpoint 2 PASS，不得要求精确 `当前生效版本说明`。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+
+- Real E2E retry `91`: `工艺路线节点：基础维护` 首节点全部 4 个检查点 BLOCKED，actualText=`目标页面未就绪: url=http://127.0.0.1:8081/login?redirect=/mes/pro/route ... 登录`；生成脚本停在登录页，没有完成本机默认登录后返回 `/mes/pro/route`。
+- Root cause update: 生成脚本读取了 `.env` 默认登录来源，但只在 username/password 输入框为空时才填值；如果登录页有旧残留值、密码未填或登录响应缺失，脚本仍可能点击 `登录` 并继续等待业务控件，最终把登录失败表现成目标页面未就绪。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 必须要求登录时覆盖旧残留值且密码为空时 fail-fast，不能空登录后继续等待目标页面`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` now requires local login to always overwrite `.login-form` username/password with local default values before clicking `登录`, return BLOCKED before clicking if the local default username/password is missing and the visible input remains empty, and never continue waiting for business controls when `/admin-api/system/auth/login` is missing or not business `code=0`.
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`
+- `GREEN: node --check doc\tasks\20260730-test-management-serial-routes-repair\run-serial-routes-real-e2e.mjs -> PASS`
+- Real E2E retry `89`: preflight PASS and `工艺路线节点闭环` successfully started execution `89`, but first node `工艺路线节点：基础维护` was BLOCKED by outer Runner timeout: `Codex Runner 执行失败：codex exec timed out after 600000ms`. The latest generated temp script was `C:\Users\BJB110\AppData\Local\Temp\IntRuoyi-codex-test-runner-workspace\route-basic-maintenance-e2e.js`, last written at `2026-08-01 10:58:12`, after the batch started at `10:53:52`; it set `const deadlineAt = Date.now() + Math.min(560000, 540000)`, so even a correct script-side deadline could not fire and return JSON before the outer 10-minute child timeout.
+- Root cause update: Runner prompt described the script deadline as an example derived from the full Codex exec timeout, and the child generated a 540000ms browser-flow deadline after spending several minutes creating the script. The prompt did not state a non-negotiable short browser-flow hard cap, so the generated script could still be killed by the outer `600000ms` timeout before printing `checkpointResults`.
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 必须强制临时 Playwright 脚本 deadline <= 240000ms，不能按外层 600000ms 预算生成 540000/560000ms 后再被外层硬超时截断`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` now requires temporary Playwright scripts to hard cap the browser-flow deadline at `240000ms`, forbids computing it from the full Codex exec timeout, and explicitly bans generated values such as `300000/540000/560000ms`; the required pattern is `const scriptDeadlineMs = Math.min(240000, Math.max(30000, Number(process.env.CODEX_TEST_BROWSER_FLOW_TIMEOUT_MS || 240000)))`.
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`
+- `GREEN: node --check doc\tasks\20260730-test-management-serial-routes-repair\run-serial-routes-real-e2e.mjs -> PASS`
+- Real E2E retry `90`: `工艺路线节点：基础维护` 全 4 检查点 PASS；`工艺路线节点：复制绑定` 全 4 检查点 PASS；`工艺路线节点：版本发布` 第 1-3 检查点 PASS，第 4 检查点 BLOCKED。页面正文和截图显示候选 V2 为 `草稿` 且操作列可见 `删除草稿`，但生成脚本返回 `候选版本清理未完成` / `未能取消候选版本`，没有点击固定列里的可见 `删除草稿`。
+- Root cause update: Element Plus 表格固定列会把状态列的 `草稿` 和操作列的 `删除草稿` 渲染到不同 DOM table/row。生成脚本仍要求 `删除草稿` 是同一个候选 `tr/card` 的 descendant，导致它看到页面有 `删除草稿` 文本却无法解析为候选行可点击动作。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 必须覆盖 Element Plus 固定列拆分场景：草稿状态和删除草稿操作不在同一 DOM 行时仍要点击可见删除草稿`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` now states that Element Plus fixed columns may split `草稿` status and `删除草稿` action into separate DOM tables/rows; if the visible version workspace proves a draft candidate exists and any visible `删除草稿` action exists in that workspace, the script must resolve the visible text to its closest button/action and click it even when not a descendant of the same `tr`.
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`
+- `GREEN: node --check doc\tasks\20260730-test-management-serial-routes-repair\run-serial-routes-real-e2e.mjs -> PASS`
+
 - Real E2E retry `76`: 临时 Playwright 脚本在浏览器启动前失败，summary=`Temporary Playwright script failed before browser launch: SyntaxError: Identifier 'modal' has already been declared at int_ruoyi_route_basic_e2e.js:561.`。生成脚本 `verifyCreatedDetail()` 内先声明 `const modal`，随后又在同一函数作用域重复声明 `const modal` 校验页签，导致 Node 解析失败，没有执行任何浏览器动作。
 - `BDD: 临时 Playwright 脚本语法自检 -> Given Codex 子任务生成临时 Node.js Playwright 脚本, When 脚本存在同作用域 const/let 重复声明, Then 子任务必须先通过 node --check 发现并修复语法错误，再启动浏览器执行真实页面路径。`
 - `RED: 真实 E2E execution 76 -> FAIL, expected reason: 生成脚本同一函数内重复声明 const modal，Runner prompt 未要求 node --check 或修复同作用域 const/let 重复声明`
@@ -393,3 +515,18 @@
 - `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`
+- Runtime interruption: execution `87` was interrupted by an external local runtime restart at `2026-08-01 10:18`, which rebuilt/restarted `48081` while the route was running. The outer polling script exited with `fetch failed`; after runtime recovery, preflight found execution `87` still `RUNNING`.
+- Cleanup: `node doc\tasks\20260730-test-management-serial-routes-repair\cancel-active-execution-ui.mjs 87 -> PASS`; from the real `系统管理 > 测试记录` page, clicked row-level `取消`, then read-only verified status `CANCELED`. Screenshot: `output/playwright/20260730-test-management-serial-routes-repair/87-canceled-record.png`.
+- Real E2E retry `88`: `工艺路线节点：基础维护` 第 1 检查点 PASS；第 2 检查点 BLOCKED，actualText=`Unhandled error: form item not found for /编码|路线编码/; phase=checkpoint-2-add`。失败截图 `C:\Users\BJB110\AppData\Local\Temp\IntRuoyi-codex-test-runner-workspace\unhandled-error-1785551818729.png` 显示 `新增工艺路线` 弹窗壳已打开但只有标题/关闭按钮，`.route-form-content` 与字段表单项尚未渲染；背景仍显示旧 `TN-ROUTE-VERSION-001` 行，不能作为当前创建弹窗已准备好的证据。
+- Root cause update: Runner prompt 虽已要求弹窗字段限定在可见 `.el-dialog`，但没有要求点击 `新增工艺路线` 后等待异步 `RouteFormContent` 和 `.el-form-item` 标签渲染完成。生成脚本在弹窗 shell 刚出现时立即查找 `编码/路线编码` 表单项，导致把内容异步加载窗口误判为字段缺失。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求新增工艺路线弹窗等待 RouteFormContent 和表单项渲染完成后再填字段，允许弹窗壳已打开但内容异步加载时误报 form item not found`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求点击 `新增工艺路线` 后先等待可见 `新增工艺路线` 弹窗内 `.route-form-content`、`.el-form-item` 标签 `编码/路线编码` 与 `名称/路线名称` 或弹窗内 `请输入编码/请输入名称` 输入框渲染；弹窗 shell 可见但 `RouteFormContent` 仍加载时不得返回 `form item not found`，最多轮询 30 秒；填创建弹窗时忽略背景旧行文本如 `TN-ROUTE-VERSION-001`。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\mes-route-form-async-open-static.spec.js -> PASS`
+- `GREEN: node --check doc\tasks\20260730-test-management-serial-routes-repair\run-serial-routes-real-e2e.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-readonly-timeout-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-child-settlement-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
+- `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`

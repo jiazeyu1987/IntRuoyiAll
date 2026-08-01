@@ -12,6 +12,11 @@ assert.match(
 )
 assert.match(
   runner,
+  /const CODEX_EXEC_TIMEOUT_MS = Number\(process\.env\.CODEX_TEST_CODEX_TIMEOUT_MS \|\| '360000'\)/,
+  'Runner 写入型业务页面测试默认 Codex 外层预算必须收敛到 360 秒，避免临时脚本已超时却继续占满 600 秒。'
+)
+assert.match(
+  runner,
   /const CODEX_READONLY_REASONING_EFFORT = process\.env\.CODEX_TEST_CODEX_READONLY_REASONING_EFFORT \|\| 'medium'/,
   'Runner 只读任务必须默认使用中等推理预算，避免本机只读页面核验被全局 xhigh 配置拖到超时。'
 )
