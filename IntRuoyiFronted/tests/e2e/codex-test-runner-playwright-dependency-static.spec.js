@@ -231,6 +231,12 @@ assert.ok(
   'Runner prompt 必须要求子任务在字段选择器列表中填写右侧文本框，不能把左侧字段选择器当查询输入框。'
 )
 assert.ok(
+  runner.includes('For 工艺路线基础维护 checkpoint 1 reset') &&
+    runner.includes('if TN-ROUTE-BASIC-001 is visible before the test, click that row 删除 action, confirm the Element Plus message box, then re-query by route code until no visible table body row remains') &&
+    runner.includes('Never mark checkpoint 1 FAIL merely because a stale fixed route row exists before attempting the delete'),
+  'Runner prompt 必须要求基础维护 checkpoint 1 命中固定路线时先删除确认并复查，不能直接 FAIL。'
+)
+assert.ok(
     runner.includes('After deleting or resetting a route and re-running the quick-filter') &&
     runner.includes('judge absence only from visible table body rows') &&
     runner.includes("Do not search page.locator('body').innerText() for the route code/name because the quick-filter input still contains the submitted value") &&

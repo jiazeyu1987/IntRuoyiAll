@@ -38,6 +38,7 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - 真实执行 `94` 证明目标页实际上已经渲染筛选区、表格标题和数据行，但首节点仍全部 BLOCKED：生成脚本在 page-ready 判定中对未过滤的多匹配 locator 调用 `isVisible()`，命中隐藏副本后误报 `Target route controls did not render`。
 - 真实执行 `102` 证明 `工艺路线节点：基础维护` 和 `工艺路线节点：复制绑定` 均全检查点 PASS；`工艺路线节点：版本发布` 第 1 检查点 PASS 后第 2 检查点 BLOCKED。页面已筛选到 `TN-ROUTE-VERSION-001` 行且操作列有 `版本`，但生成脚本全局点击 `/版\s*本/` 打开了页脚/全局 `版本变更说明 / 版本信息未生成` 覆盖层，导致真实 `route-version-workspace` 未打开。
 - 真实执行 `103` 证明 `工艺路线节点：基础维护` 第 1-3 检查点 PASS，第 4 检查点 BLOCKED：脚本已解析到目标行 `删除` 操作的真实按钮 `BUTTON.el-button--danger.is-link`，但仍报告 `action handle unavailable`，没有直接点击该有效 Element Plus link-style danger button。
+- 真实执行 `104` 证明上轮残留的 `TN-ROUTE-BASIC-001` 会在 checkpoint 1 复位阶段被命中；生成脚本没有先点击行内 `删除` 并确认到无结果，而是直接把“复位后仍有固定路线行”记为 FAIL，导致后续串行节点全部按前置失败阻断。
 
 ## Root Cause
 
@@ -78,6 +79,7 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 35. Runner prompt 未要求目标页 ready 判定使用 `:visible` 控件选择器或逐个候选检查；生成脚本对 `.table-quick-filter, .unified-list-template__quick-filter` 这类多匹配 locator 直接调用 `isVisible()`，可能被隐藏副本误导，即使页面正文已经有 `工艺流程`、`查询/新增`、表格列和数据行也返回 BLOCKED。
 36. Runner prompt 未要求版本发布打开工作台时必须限定到目标路线表格 body 行操作列/固定右列 `版本` 动作；生成脚本使用全局 `/版\s*本/` 点击时会误中页脚/全局 `版本信息` 入口，打开 `版本变更说明` 覆盖层而不是目标路线版本工作台。
 37. Runner prompt 未明确 `BUTTON.el-button--danger.is-link` 是有效行操作按钮；生成脚本在已经解析到目标删除按钮时仍可能把 danger/link-style class 当作 unavailable，而不是直接点击 resolved ElementHandle。
+38. Runner prompt 未要求 `工艺路线基础维护` checkpoint 1 在发现 `TN-ROUTE-BASIC-001` 残留时必须先执行行内删除、确认 Element Plus MessageBox 并重新按编码查询到无可见 body 行；因此脚本允许把“残留存在”直接作为 FAIL，而没有完成复位动作。
 
 ## Regression Test
 
@@ -130,6 +132,7 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未禁止把 ElementHandle 包装成 locator，允许生成脚本在可见行含 删除 时仍误报路线删除入口不可见`
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 必须要求版本工作台入口限定在目标路线表格行操作列，不能误点页脚/全局版本信息`
 - `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未明确 BUTTON.el-button--danger.is-link 是有效行操作，允许生成脚本在已解析到删除按钮时仍报告 action handle unavailable`
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求基础维护 checkpoint 1 命中固定路线时先删除确认并复查，允许直接 FAIL`
 
 ## GREEN
 
@@ -175,6 +178,7 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes Element Plus row operation link-buttons resolved from span text and clicked through direct ElementHandle without locator wrapping`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes row-scoped 工艺路线版本发布 workspace entry and forbids global clickVisibleTextAction/page.getByText('版本')`
 - `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes BUTTON.el-button--danger.is-link as a valid resolved row action`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS, includes 工艺路线基础维护 checkpoint 1 reset deleting stale TN-ROUTE-BASIC-001 before failing`
 - `GREEN: node --check doc\tasks\20260730-test-management-serial-routes-repair\run-serial-routes-real-e2e.mjs -> PASS`
 - `GREEN: node stdin static config assertion -> PASS, application-local.yaml 已包含运行态 artifact 临时目录和保留时长`
 - `GREEN: mvn.cmd -pl yudao-server -Dtest=CodexTestLocalConfigTest test -> PASS, Tests run: 1, Failures: 0, Errors: 0, BUILD SUCCESS`
@@ -212,6 +216,7 @@ Runner 应在正式执行前验证 Codex CLI 可用性，并在真实页面发�
 - `Verification: 真实 E2E execution 94 -> FAIL, 首节点页面实际含工艺流程标题、查询/新增按钮、表格列和数据行，但误报 Target route controls did not render；已补齐 visible-only page-ready selector 规则，待复跑真实页面`
 - `Verification: 真实 E2E execution 102 -> FAIL, 工艺路线基础维护和复制绑定均全检查点 PASS；版本发布第 2 检查点误点全局版本信息覆盖层，未打开目标行版本工作台；已补齐目标行操作列/固定右列版本入口约束，待复跑真实页面`
 - `Verification: 真实 E2E execution 103 -> FAIL, 基础维护第 4 检查点已解析到 BUTTON.el-button--danger.is-link 删除按钮但误报 action handle unavailable；已补齐有效 danger link-button 直接点击规则，待复跑真实页面`
+- `Verification: 真实 E2E execution 104 -> FAIL, 基础维护 checkpoint 1 命中上轮残留 TN-ROUTE-BASIC-001 后未先执行删除确认复查而直接 FAIL；已补齐 checkpoint 1 reset 删除闭环规则，待复跑真实页面`
 
 ## Risk And Regression Scope
 

@@ -543,3 +543,9 @@
 - `GREEN: node tests\e2e\codex-test-runner-http-client-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-test-runner-failure-diagnostics-static.spec.js -> PASS`
 - `GREEN: node tests\e2e\codex-runner-on-demand-startup-script-static.spec.js -> PASS`
+- Real E2E retry `104`: `工艺路线节点：基础维护` 第 1 检查点 FAIL，后续 `复制绑定 / 版本发布 / 状态删除` 按串行前置失败阻断。actualText=`复位后仍有固定路线行: TN-ROUTE-BASIC-001 测试节点-工艺路线-基础维护 V1 无 2026-08-01 16:08:28 产品 编辑 复制 版本 删除`。记录截图：`output/playwright/20260730-test-management-serial-routes-repair/104-工艺路线节点闭环-record.png`。
+- Root cause update: 上轮残留固定路线被 checkpoint 1 命中后，生成脚本没有先执行行内 `删除`、确认 Element Plus MessageBox 并重新按路线编码查询到无可见 body 行，而是直接把残留存在记为 FAIL。
+- `RED: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> FAIL, expected reason: Runner prompt 未要求基础维护 checkpoint 1 命中固定路线时先删除确认并复查，允许直接 FAIL`
+- Fix: `IntRuoyiFronted/scripts/codex-test-runner.mjs` 现在要求 `工艺路线基础维护` checkpoint 1 若看到 `TN-ROUTE-BASIC-001`，必须先点击该行 `删除`、确认 MessageBox 并重新查询到无可见表格 body 行；只有尝试删除与确认后仍残留才允许 FAIL/BLOCKED。
+- `GREEN: node --check scripts\codex-test-runner.mjs -> PASS`
+- `GREEN: node tests\e2e\codex-test-runner-playwright-dependency-static.spec.js -> PASS`
