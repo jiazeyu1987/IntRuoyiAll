@@ -3266,6 +3266,7 @@ function New-ReleaseCodexSummarySchema {
 function New-ReleaseCodexSummaryPrompt {
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [array]$Facts,
         [Parameter(Mandatory = $true)]
         [string]$PreviousReleaseTag,
@@ -3358,6 +3359,7 @@ function ConvertTo-ValidatedReleaseCodexSummaryItems {
 function Invoke-ReleaseCodexSummary {
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [array]$Facts,
         [Parameter(Mandatory = $true)]
         [string]$PreviousReleaseTag,

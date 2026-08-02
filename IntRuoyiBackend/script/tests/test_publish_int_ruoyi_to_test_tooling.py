@@ -207,6 +207,37 @@ def _invoke_codex_command_resolver(configured_command: str) -> subprocess.Comple
     )
 
 
+def _invoke_empty_codex_summary() -> subprocess.CompletedProcess[str]:
+    function_text = _extract_powershell_function(read_publish_script(), "Invoke-ReleaseCodexSummary")
+    command = textwrap.dedent(
+        f"""
+        $ErrorActionPreference = 'Stop'
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+        function Fail([string]$Message) {{
+            throw $Message
+        }}
+        {function_text}
+        try {{
+            $summary = Invoke-ReleaseCodexSummary -Facts @() -PreviousReleaseTag 'previous' -CurrentReleaseTag 'current'
+            $summary | ConvertTo-Json -Compress
+        }} catch {{
+            Write-Output $_.Exception.Message
+            exit 1
+        }}
+        """
+    )
+    encoded = base64.b64encode(command.encode("utf-16le")).decode("ascii")
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
 def test_source_repo_identity_reads_ordered_dictionary_manifest_entries() -> None:
     result = _invoke_source_repo_identity_for_ordered_dictionary()
 
@@ -224,6 +255,15 @@ def test_codex_command_resolver_uses_native_cmd_when_configured_command_is_ps1(t
 
     assert result.returncode == 0
     assert Path(result.stdout.strip()) == cmd_path
+
+
+def test_codex_summary_accepts_empty_git_change_facts_without_cli_fallback() -> None:
+    result = _invoke_empty_codex_summary()
+
+    assert result.returncode == 0
+    summary = json.loads(result.stdout)
+    assert summary["summaryGenerator"] == "none"
+    assert summary["items"] is None or summary["items"] == []
 
 
 def test_only_one_publish_script_entrypoint_remains() -> None:

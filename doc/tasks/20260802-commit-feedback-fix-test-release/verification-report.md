@@ -11,4 +11,7 @@ IN PROGRESS
 - Release script fix verification: targeted RED reproduced `Get-ReleaseSourceRepoIdentity` failure for `[ordered]` sourceRepo entries; GREEN passed after `Get-ReleaseObjectPropertyText` gained `System.Collections.IDictionary` key support.
 - Invalid build evidence: `r260802d-r1` built backend/frontend but failed before manifest v1 when `Invoke-ReleaseCodexExec` tried to launch `codex.ps1` directly; source, manifest and change notes therefore cannot be confirmed.
 - Release script fix verification: targeted GREEN passed for Codex command resolver, sourceRepo identity, and release change-set tests after the resolver began preferring native `.cmd`/`.exe` commands over PowerShell shims.
-- Current blocker before publish: the second release script fix must be committed/pushed, then a fresh clean release worktree and new releaseTag must be used; failed `r260802c-r1/r2/r3` and `r260802d-r1` artifacts are invalid for publishing.
+- Invalid build evidence: `r260802e-r1` has local `manifest.json` but failed because direct script invocation omitted required NAS JSON; operation not successful, so it remains invalid.
+- Invalid build evidence: `r260802f-r1` failed before manifest v1 because empty Git change facts were rejected by PowerShell parameter binding.
+- Release script fix verification: targeted GREEN passed for empty Git change facts after `Invoke-ReleaseCodexSummary` and prompt generation allowed empty collections.
+- Current blocker before publish: the third release script fix must be committed/pushed, then a new releaseTag must be used; failed `r260802c-r1/r2/r3`, `r260802d-r1`, `r260802e-r1`, and `r260802f-r1` artifacts are invalid for publishing.
