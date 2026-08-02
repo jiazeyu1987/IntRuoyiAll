@@ -6,6 +6,10 @@
           <Icon icon="ep:back" class="mr-5px" />
           返回
         </el-button>
+        <el-tag type="info" effect="plain">只读预览态</el-tag>
+        <el-tag v-if="isCurrentActiveVersion" type="success" effect="dark">
+          当前有效版 / ACTIVE / {{ fileDetail?.versionNo || '-' }}
+        </el-tag>
         <el-button
           v-if="detailActionState.canDownload"
           type="primary"
@@ -44,6 +48,38 @@
             @open-dcc-project-code="openDccProjectCode"
             @edit="openMetadataDialog"
           />
+          <section data-testid="dcc-detail-controlled-browser-linkage" class="mt-12px">
+            <div class="detail-table-header mb-12px">
+              <div>
+                <div class="text-15px font-600">受控浏览入口</div>
+                <div class="mt-4px text-12px text-[var(--el-text-color-secondary)]">
+                  当前预览页展示最终受控浏览目录、发布文件和盖章文件落位。
+                </div>
+              </div>
+              <el-button type="primary" plain :disabled="!fileDetail" @click="openControlledBrowserLocation">
+                <Icon icon="ep:position" class="mr-5px" />
+                查看受控浏览当前有效版
+              </el-button>
+            </div>
+            <div class="controlled-browser-linkage-grid">
+              <div class="controlled-browser-linkage-card">
+                <div class="controlled-browser-linkage-card__label">最终目录路径</div>
+                <div class="controlled-browser-linkage-card__value">{{ controlledBrowserDirectoryPath }}</div>
+              </div>
+              <div class="controlled-browser-linkage-card">
+                <div class="controlled-browser-linkage-card__label">publishedFileId</div>
+                <div class="controlled-browser-linkage-card__value">{{ fileDetail?.publishedFileId || '-' }}</div>
+              </div>
+              <div class="controlled-browser-linkage-card">
+                <div class="controlled-browser-linkage-card__label">stampedFileId</div>
+                <div class="controlled-browser-linkage-card__value">{{ fileDetail?.stampedFileId || '-' }}</div>
+              </div>
+              <div class="controlled-browser-linkage-card">
+                <div class="controlled-browser-linkage-card__label">master 当前生效版本</div>
+                <div class="controlled-browser-linkage-card__value">{{ fileDetail?.currentActiveVersionNo || '-' }}</div>
+              </div>
+            </div>
+          </section>
         </aside>
       </div>
     </div>
@@ -60,6 +96,9 @@
             </el-tag>
             <el-tag v-if="fileDetail?.modifying" type="warning">修改中</el-tag>
             <el-tag v-if="fileDetail?.status === 'SUPERSEDED'" type="info">历史版</el-tag>
+            <el-tag v-if="isCurrentActiveVersion" type="success" effect="dark">
+              当前有效版 / ACTIVE / {{ fileDetail?.versionNo || '-' }}
+            </el-tag>
           </div>
           <div class="mt-8px flex flex-wrap items-center gap-10px text-13px text-[var(--el-text-color-secondary)]">
             <span>文件编号：{{ fileDetail?.fileNumber || '-' }}</span>
@@ -126,6 +165,17 @@
               <Icon icon="ep:download" class="mr-5px" />
               下载受控文件
             </el-button>
+            <el-button
+              v-if="detailActionState.canPrint"
+              v-hasPermi="['dcc:controlled-file:print']"
+              type="primary"
+              plain
+              :loading="controlledPrintDialog.submitting"
+              @click="openControlledPrintDialog"
+            >
+              <Icon icon="ep:printer" class="mr-5px" />
+              受控打印
+            </el-button>
           </div>
           <div class="detail-action-group detail-action-group--more" v-if="hasDetailMoreActions">
             <el-dropdown trigger="click" @command="handleDetailMoreCommand">
@@ -182,6 +232,12 @@
         class="detail-handling-summary"
         data-testid="dcc-detail-handling-summary"
       >
+        <div class="detail-handling-summary__item">
+          <div class="detail-handling-summary__label">页面模式</div>
+          <div class="detail-handling-summary__value">
+            {{ approvalTodoTask ? '待我审批/签名处理态' : '详情查看态' }}
+          </div>
+        </div>
         <div class="detail-handling-summary__item">
           <div class="detail-handling-summary__label">下一步</div>
           <div class="detail-handling-summary__value">
@@ -341,6 +397,52 @@
       />
     </ContentWrap>
 
+    <ContentWrap data-testid="dcc-detail-project-code-linkage" class="mt-16px">
+      <div class="detail-table-header mb-12px">
+        <div>
+          <div class="text-15px font-600">DCC 项目代码联动</div>
+          <div class="mt-4px text-12px text-[var(--el-text-color-secondary)]">
+            展示当前文件在 DCC 项目代码和文件分类树中的关联文档入口。
+          </div>
+        </div>
+        <div class="detail-project-code-linkage-actions">
+          <el-button
+            type="primary"
+            plain
+            :disabled="!fileDetail?.dccProjectCodeId"
+            @click="fileDetail?.dccProjectCodeId && openDccProjectCode(fileDetail.dccProjectCodeId)"
+          >
+            <Icon icon="ep:connection" class="mr-5px" />
+            关联文档入口
+          </el-button>
+          <el-button plain :disabled="!fileDetail" @click="openDccProjectCodeTrace">
+            <Icon icon="ep:document" class="mr-5px" />
+            修正追溯入口
+          </el-button>
+        </div>
+      </div>
+      <div class="detail-project-code-linkage-grid">
+        <div class="detail-project-code-linkage-card">
+          <div class="detail-project-code-linkage-card__label">当前 DCC 项目</div>
+          <div class="detail-project-code-linkage-card__value">{{ currentDccProjectCodeText }}</div>
+        </div>
+        <div class="detail-project-code-linkage-card">
+          <div class="detail-project-code-linkage-card__label">当前文件分类</div>
+          <div class="detail-project-code-linkage-card__value">{{ currentFileTypeTaxonomyText }}</div>
+        </div>
+        <div class="detail-project-code-linkage-card">
+          <div class="detail-project-code-linkage-card__label">关联文件 ID</div>
+          <div class="detail-project-code-linkage-card__value">{{ fileDetail?.id || '-' }}</div>
+        </div>
+        <div class="detail-project-code-linkage-card">
+          <div class="detail-project-code-linkage-card__label">关联文档定位</div>
+          <div class="detail-project-code-linkage-card__value">
+            {{ fileDetail?.dccProjectCodeId ? '可跳转并定位当前文件类型' : '未绑定 DCC 项目代码' }}
+          </div>
+        </div>
+      </div>
+    </ContentWrap>
+
     <ContentWrap data-testid="dcc-detail-controlled-browser-linkage" class="mt-16px">
       <div class="detail-table-header mb-12px">
         <div>
@@ -351,7 +453,7 @@
         </div>
         <el-button type="primary" plain :disabled="!fileDetail" @click="openControlledBrowserLocation">
           <Icon icon="ep:position" class="mr-5px" />
-          跳转受控浏览
+          查看受控浏览当前有效版
         </el-button>
       </div>
       <div class="controlled-browser-linkage-grid">
@@ -374,6 +476,42 @@
       </div>
     </ContentWrap>
 
+    <ContentWrap
+      v-if="isPublishCompletionSummaryVisible"
+      data-testid="dcc-detail-publish-completion-summary"
+      class="mt-16px"
+    >
+      <div class="detail-table-header mb-12px">
+        <div>
+          <div class="text-15px font-600">发布完成结果</div>
+          <div class="mt-4px text-12px text-[var(--el-text-color-secondary)]">
+            新版 ACTIVE · 旧版 SUPERSEDED · master 当前生效版本 · 受控浏览落位
+          </div>
+        </div>
+        <el-button type="primary" plain :disabled="!fileDetail" @click="openControlledBrowserLocation">
+          <Icon icon="ep:position" class="mr-5px" />
+          查看受控浏览当前有效版
+        </el-button>
+      </div>
+      <div class="publish-completion-summary-grid">
+        <div
+          v-for="item in publishCompletionSummaryItems"
+          :key="item.key"
+          class="publish-completion-summary-card"
+          :class="{ 'is-ok': item.ok, 'is-warning': !item.ok }"
+        >
+          <div class="publish-completion-summary-card__header">
+            <span>{{ item.label }}</span>
+            <el-tag size="small" :type="item.ok ? 'success' : 'warning'">
+              {{ item.ok ? '已确认' : '需核验' }}
+            </el-tag>
+          </div>
+          <div class="publish-completion-summary-card__value">{{ item.value }}</div>
+          <div class="publish-completion-summary-card__description">{{ item.description }}</div>
+        </div>
+      </div>
+    </ContentWrap>
+
     <ContentWrap v-loading="approvalLoading" class="mt-16px">
       <div class="mb-12px flex items-center justify-between gap-12px">
         <div class="text-15px font-600">审批阶段进度</div>
@@ -383,7 +521,7 @@
       </div>
       <div class="stage-grid">
         <div
-          v-for="stage in stageProgressList"
+          v-for="stage in displayStageProgressList"
           :key="stage.stageCode"
           class="stage-card"
           :class="{
@@ -401,6 +539,11 @@
           <div class="mt-4px text-13px text-[var(--el-text-color-secondary)]">
             {{ stage.sameLayerHint }}
           </div>
+          <div class="stage-card__meta">
+            <span>处理人：{{ formatStageProgressActors(stage) }}</span>
+            <span>处理时间：{{ formatStageProgressTime(stage) }}</span>
+            <span>签名状态：{{ formatStageSignatureStatus(stage) }}</span>
+          </div>
         </div>
       </div>
 
@@ -408,7 +551,7 @@
         v-if="approvalTodoTask"
         class="mt-16px rounded-8px border border-solid border-[var(--el-border-color)] p-16px"
       >
-        <div class="text-15px font-600">{{ approvalActionLabels.dialogTitle }}</div>
+        <div class="text-15px font-600">待我审批/签名处理态：{{ approvalActionLabels.dialogTitle }}</div>
         <div class="mt-6px text-13px text-[var(--el-text-color-secondary)]">
           当前任务：{{ approvalTodoTask.name || '-' }}
         </div>
@@ -569,6 +712,13 @@
         <el-table-column label="标题" min-width="220" prop="title" show-overflow-tooltip />
         <el-table-column label="文件编号" min-width="150" prop="fileNumber" />
         <el-table-column label="版本" align="center" width="100" prop="versionNo" />
+        <el-table-column label="升版原因/变更说明" min-width="220" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span data-testid="dcc-detail-version-history-change-reason">
+              {{ getVersionChangeReasonText(row) }}
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column label="发放方式" min-width="140">
           <template #default="{ row }">
             {{ getDistributionMediumLabel(row.distributionMedium) }}
@@ -719,6 +869,64 @@
       </el-table>
     </ContentWrap>
 
+    <ContentWrap data-testid="dcc-controlled-print-records">
+      <div class="detail-table-header mb-12px">
+        <div>
+          <div class="text-15px font-600">受控打印记录</div>
+          <div class="mt-4px text-12px text-[var(--el-text-color-secondary)]">
+            仅当前有效版本可登记受控打印，打印件需包含打印编号、文件编号、版本、打印人和打印时间。
+          </div>
+        </div>
+        <el-button
+          v-if="detailActionState.canPrint"
+          v-hasPermi="['dcc:controlled-file:print']"
+          type="primary"
+          plain
+          :loading="controlledPrintDialog.submitting"
+          @click="openControlledPrintDialog"
+        >
+          <Icon icon="ep:printer" class="mr-5px" />
+          受控打印
+        </el-button>
+      </div>
+      <el-alert
+        v-if="controlledPrintRecordsError"
+        type="error"
+        :title="controlledPrintRecordsError"
+        show-icon
+        :closable="false"
+        class="mb-12px"
+      />
+      <el-table
+        :data="controlledPrintRecords"
+        :loading="controlledPrintRecordsLoading"
+        empty-text="当前版本暂无受控打印记录"
+      >
+        <el-table-column label="打印编号" min-width="190" prop="printNo" show-overflow-tooltip />
+        <el-table-column label="文件编号" min-width="160" prop="fileNumber" show-overflow-tooltip />
+        <el-table-column label="版本" align="center" width="100" prop="versionNo" />
+        <el-table-column label="份数" align="center" width="90" prop="copies" />
+        <el-table-column label="打印用途" min-width="180" prop="purpose" show-overflow-tooltip />
+        <el-table-column label="接收部门" min-width="140" prop="receivingDepartment" show-overflow-tooltip />
+        <el-table-column label="使用位置" min-width="140" prop="useLocation" show-overflow-tooltip />
+        <el-table-column label="打印人" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.printUserName || userNameMap.get(row.printUserId) || `用户#${row.printUserId}` }}
+          </template>
+        </el-table-column>
+        <el-table-column label="打印时间" align="center" width="180">
+          <template #default="{ row }">
+            {{ formatControlledFileDateTime(row.printTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="审批/打印状态" align="center" width="150">
+          <template #default="{ row }">
+            <el-tag type="success">{{ getControlledPrintStatusLabel(row.approvalStatus) }}</el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+    </ContentWrap>
+
     <ContentWrap data-testid="dcc-detail-training-section">
       <div class="mb-12px flex items-center justify-between gap-12px">
         <div class="text-15px font-600">培训状态</div>
@@ -770,7 +978,7 @@
         <div>
           <div class="text-15px font-600">签核追溯</div>
           <div class="mt-4px text-12px text-[var(--el-text-color-secondary)]">
-            汇总上传人、四级审批人、签名时间、签名方式、证据状态、文件哈希和盖章文件。
+            汇总上传人、四级审批人、审批意见、签名时间、签名方式、证据状态、文件哈希和盖章/发布文件。
           </div>
         </div>
         <div class="detail-signature-tools">
@@ -787,11 +995,27 @@
       <el-table :data="signatureTraceRows" empty-text="暂无签核追溯记录">
         <el-table-column label="角色" min-width="120" prop="traceRole" />
         <el-table-column label="上传人 / 四级审批人" min-width="220" prop="actorName" show-overflow-tooltip />
+        <el-table-column label="审批意见" min-width="220" prop="approvalCommentText" show-overflow-tooltip />
         <el-table-column label="签名时间" align="center" width="180" prop="signedAtText" />
         <el-table-column label="签名方式" align="center" width="140" prop="signatureModeText" />
         <el-table-column label="证据状态" align="center" width="140" prop="evidenceStatusText" />
         <el-table-column label="文件哈希" min-width="160" prop="fileHashText" show-overflow-tooltip />
-        <el-table-column label="盖章文件" min-width="160" prop="stampedFileText" show-overflow-tooltip />
+        <el-table-column label="文件证据" min-width="260" prop="fileEvidenceText" show-overflow-tooltip>
+          <template #default="{ row }">
+            <div class="trace-file-evidence">
+              <span>{{ row.fileEvidenceText }}</span>
+              <el-button
+                v-if="row.hasFileEvidence"
+                link
+                type="primary"
+                data-testid="dcc-signature-trace-file-evidence"
+                @click="openTraceFileEvidence(row)"
+              >
+                查看盖章/发布文件
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
       </el-table>
     </ContentWrap>
 
@@ -1059,8 +1283,20 @@
         <el-descriptions-item label="签名含义">
           {{ actionDialogSignatureMeaning }}
         </el-descriptions-item>
+        <el-descriptions-item label="签名人">
+          {{ currentSignerLabel }}
+        </el-descriptions-item>
+        <el-descriptions-item label="签名动作">
+          {{ actionDialog.mode === 'reject' ? '驳回签名' : '通过签名' }}
+        </el-descriptions-item>
         <el-descriptions-item label="任务ID" :span="2">
           {{ approvalTodoTask?.id || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="提交后流转" :span="2">
+          {{ actionDialogSubmitFlowText }}
+        </el-descriptions-item>
+        <el-descriptions-item label="电子签名审计证据" :span="2">
+          本次签名会写入电子签名审计证据，包含签名人、节点、动作、时间、哈希与审计快照。
         </el-descriptions-item>
         <el-descriptions-item label="证据前置" :span="2">
           版本、源文件摘要、受控副本摘要状态
@@ -1632,7 +1868,7 @@
 
   <el-dialog
     v-model="previewInfoDialogs.version"
-    title="版本信息"
+    title="版本历史"
     data-testid="dcc-controlled-preview-version-dialog"
     width="980px"
     destroy-on-close
@@ -1645,6 +1881,13 @@
       <el-table-column label="标题" min-width="220" prop="title" show-overflow-tooltip />
       <el-table-column label="文件编号" min-width="150" prop="fileNumber" show-overflow-tooltip />
       <el-table-column label="版本" align="center" width="100" prop="versionNo" />
+      <el-table-column label="升版原因/变更说明" min-width="220" show-overflow-tooltip>
+        <template #default="{ row }">
+          <span data-testid="dcc-detail-version-history-change-reason">
+            {{ getVersionChangeReasonText(row) }}
+          </span>
+        </template>
+      </el-table-column>
       <el-table-column label="状态" align="center" width="120">
         <template #default="{ row }">
           <el-tag :type="getDetailStatusTagType(row.status)">
@@ -1700,6 +1943,7 @@ import {
   acknowledgeControlledFileTraining,
   approveExternalFileReviewTask,
   cleanupControlledFileUploadSession,
+  createControlledFilePrintRecord,
   createControlledFileUploadSessionId,
   createControlledFileSignTask,
   createDistributionRecipientSignTask,
@@ -1707,6 +1951,8 @@ import {
   deleteWithdrawnControlledFile,
   getControlledFile,
   getControlledFileAccessExplanation,
+  getControlledFilePrintHtml,
+  getControlledFilePrintRecords,
   getControlledFileUploadDirectoryTree,
   getPaperDistributionRecords,
   isControlledFileTaskPasswordInvalidError,
@@ -1730,6 +1976,8 @@ import {
   type ControlledFileDistributionMedium,
   type ControlledFileDistributionScopeVO,
   type ControlledFilePaperDistributionRecordVO,
+  type ControlledFilePrintCreateReqVO,
+  type ControlledFilePrintRecordVO,
   type ControlledFileAccessExplanationVO,
   type ControlledFileRouteSnapshotVO,
   type ControlledFileUploadDirectoryNodeVO,
@@ -2308,8 +2556,128 @@ const detailDangerActionLoading = computed(
     resubmitWithdrawnLoading.value ||
     retryStampLoading.value
 )
-const currentStage = computed(() => stageProgressList.value.find((item) => item.isCurrent))
+const originalReleaseApprovalStages: Array<{
+  stageCode: DccTaskStageProgress['stageCode']
+  stageName: string
+  stageOrder: number
+}> = [
+  { stageCode: 'DOC_CONTROL_REVIEW', stageName: '文控审核', stageOrder: 1 },
+  { stageCode: 'MATRIX_REVIEW', stageName: '会签审核', stageOrder: 2 },
+  { stageCode: 'MATRIX_APPROVAL', stageName: '会签批准', stageOrder: 3 },
+  { stageCode: 'DOC_CONTROL_APPROVAL', stageName: '文控批准', stageOrder: 4 }
+]
+
+const buildEmptyOriginalReleaseStage = (
+  stage: (typeof originalReleaseApprovalStages)[number]
+): DccTaskStageProgress => ({
+  ...stage,
+  totalCount: 0,
+  approvedCount: 0,
+  rejectedCount: 0,
+  runningCount: 0,
+  waitingCount: 0,
+  completionText: '0/0',
+  sameLayerHint: '待解析审批配置',
+  isCurrent: false,
+  isCompleted: false,
+  isPending: true
+})
+
+const displayStageProgressList = computed(() => {
+  const progressMap = new Map(stageProgressList.value.map((item) => [item.stageCode, item]))
+  return originalReleaseApprovalStages.map(
+    (stage) => progressMap.get(stage.stageCode) || buildEmptyOriginalReleaseStage(stage)
+  )
+})
+const currentStage = computed(() => displayStageProgressList.value.find((item) => item.isCurrent))
 const currentStageLabel = computed(() => currentStage.value?.stageName || '-')
+const isCurrentActiveVersion = computed(() => {
+  if (fileDetail.value?.status !== 'ACTIVE') {
+    return false
+  }
+  const activeVersionNo = String(fileDetail.value?.currentActiveVersionNo || '').trim()
+  const currentVersionNo = String(fileDetail.value?.versionNo || '').trim()
+  return !activeVersionNo || activeVersionNo === currentVersionNo
+})
+const currentSignerLabel = computed(() => {
+  const user = userStore.getUser
+  return user?.nickname || (user?.id ? `用户 #${user.id}` : '-')
+})
+const actionDialogSubmitFlowText = computed(() => {
+  if (actionDialog.mode === 'reject') {
+    return '提交后流转：当前节点驳回，流程回到发起人或按后端路线规则处理。'
+  }
+  return `提交后流转：${currentStageLabel.value}完成后进入下一审批节点；末级文控批准后文件发布为 ACTIVE。`
+})
+const getStageRouteSnapshot = (stage: DccTaskStageProgress) =>
+  fileDetail.value?.routeSnapshots?.find(
+    (snapshot) =>
+      snapshot.stageCode === stage.stageCode ||
+      (snapshot.stageOrder ?? snapshot.stageNo) === stage.stageOrder
+  )
+const getStageTasks = (stage: DccTaskStageProgress) =>
+  approvalTaskList.value.filter((task) => task.taskDefinitionKey === stage.stageCode)
+const readStageTaskField = (task: DccTaskLike, keys: string[]) => {
+  const record = task as DccTaskLike & Record<string, unknown>
+  for (const key of keys) {
+    const value = record[key]
+    if (value !== undefined && value !== null && value !== '') {
+      return value
+    }
+  }
+  return undefined
+}
+const formatStageProgressActors = (stage: DccTaskStageProgress) => {
+  const taskActorIds = getStageTasks(stage)
+    .map((task) => Number(task.assigneeUserId ?? task.assignee ?? task.assigneeUser?.id ?? task.ownerUser?.id))
+    .filter((id) => Number.isFinite(id) && id > 0)
+  const uniqueTaskActorIds = Array.from(new Set(taskActorIds))
+  if (uniqueTaskActorIds.length) {
+    return resolveUserNames(uniqueTaskActorIds)
+  }
+  return resolveUserNames(getStageRouteSnapshot(stage)?.resolvedUserIds || [])
+}
+const formatStageProgressTime = (stage: DccTaskStageProgress) => {
+  const timeValue = getStageTasks(stage)
+    .map((task) =>
+      readStageTaskField(task, ['endTime', 'finishTime', 'completeTime', 'updateTime', 'createTime'])
+    )
+    .find(Boolean)
+  return formatControlledFileDateTime(timeValue as string | number | Date | undefined)
+}
+const getStageSignatures = (stage: DccTaskStageProgress) =>
+  (fileDetail.value?.signatureSummaries || []).filter((signature) =>
+    String(signature.meaningCode || '').startsWith(stage.stageCode)
+  )
+const formatStageSignatureStatus = (stage: DccTaskStageProgress) => {
+  const signatureCount = getStageSignatures(stage).length
+  if (signatureCount > 0) {
+    return `${signatureCount} 条签名证据`
+  }
+  if (stage.isCompleted) {
+    return '已完成，签名证据待同步'
+  }
+  if (stage.isCurrent) {
+    return '待当前节点签名'
+  }
+  return '待进入节点'
+}
+const formatDetailPath = (items: Array<string | null | undefined>) => {
+  const parts = items.map((item) => item?.trim()).filter((item): item is string => Boolean(item))
+  return parts.length ? parts.join(' / ') : '-'
+}
+const currentDccProjectCodeText = computed(() =>
+  formatDetailPath([fileDetail.value?.productName, fileDetail.value?.productCode])
+)
+const currentFileTypeTaxonomyText = computed(() =>
+  formatDetailPath([
+    fileDetail.value?.fileTypeLevel1,
+    fileDetail.value?.fileTypeLevel2,
+    fileDetail.value?.fileTypeLevel3,
+    fileDetail.value?.fileTypeLevel4,
+    fileDetail.value?.fileTypeLevel5
+  ])
+)
 const controlledBrowserDirectoryPath = computed(() => {
   const directoryId = fileDetail.value?.directoryId
   if (!directoryId) {
@@ -2324,24 +2692,53 @@ const openControlledBrowserLocation = () => {
   window.open(buildControlledFileViewerPath(controlledFileId.value, 'controlled-browser', route.fullPath), '_blank')
 }
 
+const openTraceFileEvidence = (row: SignatureTraceRow) => {
+  if (!row.hasFileEvidence) {
+    message.warning('当前节点暂无盖章/发布文件证据。')
+    return
+  }
+  window.open(buildControlledFileViewerPath(controlledFileId.value, 'signature-trace', route.fullPath), '_blank')
+}
+
 interface SignatureTraceRow {
   traceRole: string
   actorName: string
+  approvalCommentText: string
   signedAtText: string
   signatureModeText: string
   evidenceStatusText: string
   fileHashText: string
-  stampedFileText: string
+  fileEvidenceText: string
+  hasFileEvidence: boolean
 }
+
+const formatSignatureTraceComment = (comment?: string | null) => {
+  const text = String(comment || '').trim()
+  return text || '-'
+}
+
+const buildSignatureTraceFileEvidenceText = () => {
+  const file = fileDetail.value
+  const evidenceParts = [
+    file?.publishedFileId ? `publishedFileId：${file.publishedFileId}` : '',
+    file?.stampedFileId ? `stampedFileId：${file.stampedFileId}` : ''
+  ].filter(Boolean)
+  return evidenceParts.length ? evidenceParts.join('；') : '-'
+}
+
+const hasSignatureTraceFileEvidence = () =>
+  Boolean(fileDetail.value?.publishedFileId || fileDetail.value?.stampedFileId)
 
 const buildSignatureTraceRow = (signature: ControlledFileSignatureSummaryVO): SignatureTraceRow => ({
   traceRole: '四级审批人',
   actorName: getSignatureActorSummary(signature, userNameMap.value),
+  approvalCommentText: formatSignatureTraceComment(signature.comment),
   signedAtText: formatControlledFileDateTime(signature.signedAt),
   signatureModeText: signature.signatureMode || signature.authenticationMethod || '-',
   evidenceStatusText: getSignatureEvidenceStatusLabel(signature.evidenceStatus),
   fileHashText: signature.controlledCopyHashShort || signature.sourceFileHashShort || signature.evidenceHashShort || '-',
-  stampedFileText: fileDetail.value?.stampedFileId ? String(fileDetail.value.stampedFileId) : '-'
+  fileEvidenceText: buildSignatureTraceFileEvidenceText(),
+  hasFileEvidence: hasSignatureTraceFileEvidence()
 })
 
 const signatureTraceRows = computed<SignatureTraceRow[]>(() => {
@@ -2354,11 +2751,13 @@ const signatureTraceRows = computed<SignatureTraceRow[]>(() => {
     rows.push({
       traceRole: '上传人',
       actorName: userNameMap.value.get(file.requesterId) || `用户#${file.requesterId}`,
+      approvalCommentText: '-',
       signedAtText: formatControlledFileDateTime(file.submittedTime),
       signatureModeText: '上传提交',
       evidenceStatusText: '-',
       fileHashText: '-',
-      stampedFileText: file.stampedFileId ? String(file.stampedFileId) : '-'
+      fileEvidenceText: buildSignatureTraceFileEvidenceText(),
+      hasFileEvidence: hasSignatureTraceFileEvidence()
     })
   }
   rows.push(...(fileDetail.value?.signatureSummaries || []).map(buildSignatureTraceRow))
@@ -2406,6 +2805,10 @@ const getVersionHistoryIdentityText = (version: ControlledFileVersionHistoryVO) 
   ].filter((item): item is string => Boolean(item))
   return identityParts.length ? identityParts.join(' · ') : `记录 #${version.id}`
 }
+const getVersionChangeReasonText = (version: ControlledFileVersionHistoryVO) => {
+  const remark = String(version.remark || '').trim()
+  return remark || '-'
+}
 const getSuccessorVersionSummary = (version: ControlledFileVersionHistoryVO) => {
   const successorId = Number(version.supersededByFileId || 0)
   if (!successorId) {
@@ -2414,6 +2817,72 @@ const getSuccessorVersionSummary = (version: ControlledFileVersionHistoryVO) => 
   const successor = versionHistoryById.value.get(successorId)
   return successor ? getVersionHistoryIdentityText(successor) : `后继记录缺失：#${successorId}`
 }
+const supersededPredecessorVersions = computed(() => {
+  const currentId = Number(fileDetail.value?.id || 0)
+  if (!currentId) {
+    return []
+  }
+  return (fileDetail.value?.versionHistory || []).filter(
+    (version) => version.status === 'SUPERSEDED' && Number(version.supersededByFileId || 0) === currentId
+  )
+})
+const isPublishCompletionSummaryVisible = computed(() => {
+  const file = fileDetail.value
+  if (!file || file.status !== 'ACTIVE') {
+    return false
+  }
+  return Boolean(
+    file.currentActiveVersionNo ||
+      file.publishedFileId ||
+      file.stampedFileId ||
+      supersededPredecessorVersions.value.length
+  )
+})
+const publishCompletionSummaryItems = computed(() => {
+  const file = fileDetail.value
+  if (!file) {
+    return []
+  }
+  const activeVersionNo = String(file.currentActiveVersionNo || '').trim()
+  const currentVersionNo = String(file.versionNo || '').trim()
+  const masterPointsToCurrent = Boolean(
+    file.status === 'ACTIVE' && (!activeVersionNo || activeVersionNo === currentVersionNo)
+  )
+  const predecessorText = supersededPredecessorVersions.value.length
+    ? supersededPredecessorVersions.value.map(getVersionHistoryIdentityText).join('；')
+    : '未发现被当前版本替换的旧版'
+  const browserLanded = Boolean(file.publishedFileId && file.stampedFileId)
+  return [
+    {
+      key: 'new-active',
+      label: '新版 ACTIVE',
+      value: `${currentVersionNo || '-'} / ${getDetailStatusLabel(file.status)}`,
+      description: '新版审批完成后已进入 ACTIVE 状态。',
+      ok: file.status === 'ACTIVE'
+    },
+    {
+      key: 'old-superseded',
+      label: '旧版 SUPERSEDED',
+      value: predecessorText,
+      description: '旧版通过 supersededByFileId 指向当前生效版本。',
+      ok: supersededPredecessorVersions.value.length > 0
+    },
+    {
+      key: 'master-current',
+      label: 'master 当前生效版本',
+      value: activeVersionNo ? `已指向 ${activeVersionNo}` : '详情未返回 master 当前版本号',
+      description: 'master 当前生效版本应与当前详情版本一致。',
+      ok: masterPointsToCurrent
+    },
+    {
+      key: 'controlled-browser-landed',
+      label: '受控浏览落位',
+      value: `目录：${controlledBrowserDirectoryPath.value}；publishedFileId：${file.publishedFileId || '-'}；stampedFileId：${file.stampedFileId || '-'}`,
+      description: '受控浏览最终目录、发布文件和盖章文件已在详情页可追溯。',
+      ok: browserLanded
+    }
+  ]
+})
 const getPreviewApprovalProgress = (snapshot: ControlledFileRouteSnapshotVO) =>
   stageProgressList.value.find(
     (item) =>
@@ -2783,7 +3252,7 @@ const loadDccSignatureEvidenceList = async () => {
   }
   if (!checkPermi(['dcc:controlled-file:signature:manage'])) {
     dccSignatureEvidenceError.value =
-      '当前账号缺少 DCC 电子签名管理权限，签名留痕无法加载；审批任务加载不受影响。'
+      '当前可查看签核追溯摘要；高级签名留痕需 DCC 电子签名管理权限。'
     dccSignatureEvidenceList.value = []
     dccSignatureEvidenceTotal.value = 0
     return
@@ -2983,9 +3452,39 @@ const handleRecognizeProjectCode = async () => {
 }
 
 const openDccProjectCode = (projectCodeId: number) => {
+  if (!fileDetail.value?.id) {
+    router.push({
+      path: '/mdm/project-code',
+      query: { projectCodeId: String(projectCodeId) }
+    })
+    return
+  }
   router.push({
     path: '/mdm/project-code',
-    query: { projectCodeId: String(projectCodeId) }
+    query: {
+      projectCodeId: String(projectCodeId),
+      associatedFocus: '1',
+      associatedFileId: String(fileDetail.value.id),
+      fileTypeTaxonomyId: fileDetail.value.fileTypeTaxonomyId
+        ? String(fileDetail.value.fileTypeTaxonomyId)
+        : undefined
+    }
+  })
+}
+
+const openDccProjectCodeTrace = () => {
+  if (!fileDetail.value?.id) {
+    return
+  }
+  router.push({
+    path: '/dcc/controlled-file/logs',
+    query: {
+      logType: 'PROJECT_CODE_CHANGE',
+      controlledFileId: String(fileDetail.value.id),
+      projectCodeId: fileDetail.value.dccProjectCodeId
+        ? String(fileDetail.value.dccProjectCodeId)
+        : undefined
+    }
   })
 }
 
@@ -4062,17 +4561,27 @@ const exportSignatureTrace = () => {
     message.warning('当前文件暂无可导出的签核追溯')
     return
   }
-  const headers = ['角色', '上传人/四级审批人', '签名时间', '签名方式', '证据状态', '文件哈希', '盖章文件']
+  const headers = [
+    '角色',
+    '上传人/四级审批人',
+    '审批意见',
+    '签名时间',
+    '签名方式',
+    '证据状态',
+    '文件哈希',
+    '文件证据'
+  ]
   const csvRows = [
     headers,
     ...signatureTraceRows.value.map((row) => [
       row.traceRole,
       row.actorName,
+      row.approvalCommentText,
       row.signedAtText,
       row.signatureModeText,
       row.evidenceStatusText,
       row.fileHashText,
-      row.stampedFileText
+      row.fileEvidenceText
     ])
   ]
   const csv = csvRows.map((row) => row.map(escapeCsvCell).join(',')).join('\r\n')
@@ -4090,11 +4599,12 @@ const buildSignatureTracePrintHtml = () => {
       (row) => `<tr>
         <td>${escapeReceiptHtml(row.traceRole)}</td>
         <td>${escapeReceiptHtml(row.actorName)}</td>
+        <td>${escapeReceiptHtml(row.approvalCommentText)}</td>
         <td>${escapeReceiptHtml(row.signedAtText)}</td>
         <td>${escapeReceiptHtml(row.signatureModeText)}</td>
         <td>${escapeReceiptHtml(row.evidenceStatusText)}</td>
         <td>${escapeReceiptHtml(row.fileHashText)}</td>
-        <td>${escapeReceiptHtml(row.stampedFileText)}</td>
+        <td>${escapeReceiptHtml(row.fileEvidenceText)}</td>
       </tr>`
     )
     .join('')
@@ -4118,11 +4628,12 @@ const buildSignatureTracePrintHtml = () => {
       <tr>
         <th>角色</th>
         <th>上传人 / 四级审批人</th>
+        <th>审批意见</th>
         <th>签名时间</th>
         <th>签名方式</th>
         <th>证据状态</th>
         <th>文件哈希</th>
-        <th>盖章文件</th>
+        <th>文件证据</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
@@ -4756,6 +5267,44 @@ watch(
   gap: 10px;
 }
 
+.detail-project-code-linkage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.detail-project-code-linkage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.detail-project-code-linkage-card {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #fafcff;
+}
+
+.detail-project-code-linkage-card__label {
+  margin-bottom: 4px;
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.detail-project-code-linkage-card__value {
+  overflow: hidden;
+  color: #172033;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .controlled-browser-linkage-card {
   min-width: 0;
   padding: 12px;
@@ -4779,6 +5328,66 @@ watch(
   line-height: 20px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.trace-file-evidence {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.publish-completion-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.publish-completion-summary-card {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #fafcff;
+}
+
+.publish-completion-summary-card.is-ok {
+  border-color: var(--el-color-success-light-5);
+  background: var(--el-color-success-light-9);
+}
+
+.publish-completion-summary-card.is-warning {
+  border-color: var(--el-color-warning-light-5);
+  background: var(--el-color-warning-light-9);
+}
+
+.publish-completion-summary-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.publish-completion-summary-card__value {
+  overflow: hidden;
+  margin-top: 6px;
+  color: #172033;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.publish-completion-summary-card__description {
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .detail-access-explanation {
@@ -5047,6 +5656,15 @@ watch(
   background: var(--el-color-success-light-9);
 }
 
+.stage-card__meta {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  color: var(--el-text-color-regular);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .signature-hash {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
   font-size: 12px;
@@ -5078,6 +5696,7 @@ watch(
   }
 
   .controlled-browser-linkage-grid,
+  .detail-project-code-linkage-grid,
   .detail-access-explanation__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

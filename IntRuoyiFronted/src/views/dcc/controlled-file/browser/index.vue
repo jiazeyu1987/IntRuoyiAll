@@ -305,7 +305,7 @@
               {{ categoryNameMap.get(row.categoryId) || '-' }}
             </template>
           </el-table-column>
-          <el-table-column v-if="isDccBrowserColumnVisible('versionSummary')" label="版本摘要" prop="versionSummary" :min-width="getDccBrowserColumnMinWidthString('versionSummary', 310)" v-bind="sortColumnAttrs('versionSummary')">
+          <el-table-column label="版本摘要" v-if="isDccBrowserColumnVisible('versionSummary')" prop="versionSummary" :min-width="getDccBrowserColumnMinWidthString('versionSummary', 310)" v-bind="sortColumnAttrs('versionSummary')">
             <template #default="{ row }">
               <div
                 v-for="summary in [
@@ -338,6 +338,9 @@
                     <el-tag :type="summary.versionKindTagType">
                       {{ summary.versionKindText }}
                     </el-tag>
+                    <el-tag v-if="summary.isCurrentActiveVersion" type="success" effect="dark">
+                      当前有效版 / ACTIVE / {{ summary.versionText }}
+                    </el-tag>
                     <el-tag v-if="summary.modifying" type="warning">修改中</el-tag>
                   </div>
                 </div>
@@ -348,12 +351,12 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column v-if="isDccBrowserColumnVisible('remark')" label="备注" prop="remark" :min-width="getDccBrowserColumnMinWidthString('remark', 220)" show-overflow-tooltip v-bind="sortColumnAttrs('remark')">
+          <el-table-column label="备注" v-if="isDccBrowserColumnVisible('remark')" prop="remark" :min-width="getDccBrowserColumnMinWidthString('remark', 220)" show-overflow-tooltip v-bind="sortColumnAttrs('remark')">
             <template #default="{ row }">
               {{ getSelectedVersion(row).remark || '-' }}
             </template>
           </el-table-column>
-          <el-table-column v-if="isDccBrowserColumnVisible('operation')" label="操作" prop="operation" align="center" fixed="right" :width="getDccBrowserColumnWidthString('operation', 260)">
+          <el-table-column v-if="isDccBrowserColumnVisible('operation')" label="操作" prop="operation" align="center" fixed="right" :width="getDccBrowserColumnWidthString('operation', 320)">
             <template #default="{ row }">
               <div class="browser-row-actions">
                 <el-button
@@ -372,6 +375,15 @@
                   @click="openDownload(getSelectedVersion(row).id)"
                 >
                   下载
+                </el-button>
+                <el-button
+                  v-if="getBrowserRowActionState(getSelectedVersion(row)).canPrint"
+                  v-hasPermi="['dcc:controlled-file:print']"
+                  link
+                  type="primary"
+                  @click="openControlledPrintDialog(getSelectedVersion(row))"
+                >
+                  受控打印
                 </el-button>
                 <el-dropdown
                   v-if="hasBrowserMoreActions(row)"
@@ -878,7 +890,7 @@ import {
   type TableQuickFilterDefinition
 } from '@/hooks/web/useTableQuickFilter'
 import { useUserStore } from '@/store/modules/user'
-import { openControlledFileViewer } from '../shared/viewer-navigation'
+import { openControlledFileTraceability } from '../shared/viewer-navigation'
 import {
   hasDccControlledFileActionProjection,
   isDccControlledFileActionUnlocked
@@ -923,7 +935,7 @@ const dccBrowserDefaultColumns: UserTableColumnDefinition[] = [
   { key: 'category', label: '类别', minWidth: 160, visible: false },
   { key: 'versionSummary', label: '版本摘要', minWidth: 310, visible: false },
   { key: 'remark', label: '备注', minWidth: 220, visible: false },
-  { key: 'operation', label: '操作', width: 260, hideable: false, business: false }
+  { key: 'operation', label: '操作', width: 320, hideable: false, business: false }
 ]
 const dccBrowserQueryInputFields = ['keyword', 'status', 'categoryId']
 const {
@@ -1047,7 +1059,7 @@ type ControlledFileBrowserRow = ControlledFileVO & {
 }
 
 type ControlledFileBrowserVersion = ControlledFileVersionHistoryVO &
-  Pick<ControlledFileVO, 'actionProjection'>
+  Pick<ControlledFileVO, 'actionProjection' | 'canPreview' | 'canDownload' | 'canPrint'>
 
 type ControlledFileDirectoryNode = ControlledFileDirectoryVO & {
   leaf?: boolean
@@ -1247,6 +1259,7 @@ const buildCurrentVersionOption = (row: ControlledFileVO): ControlledFileBrowser
   remark: row.remark,
   canPreview: row.canPreview,
   canDownload: row.canDownload,
+  canPrint: row.canPrint,
   modifying: row.modifying,
   actionProjection: row.actionProjection
 })
@@ -1307,7 +1320,7 @@ const hasBrowserMoreActions = (row: ControlledFileBrowserRow) =>
 
 const hasBrowserRowActions = (row: ControlledFileBrowserRow) => {
   const actionState = getBrowserRowActionState(getSelectedVersion(row))
-  return actionState.canPreview || actionState.canDownload || hasBrowserMoreActions(row)
+  return actionState.canPreview || actionState.canDownload || actionState.canPrint || hasBrowserMoreActions(row)
 }
 
 const getBrowserRowActionBlockReason = (row: ControlledFileBrowserRow) => {
@@ -2569,7 +2582,22 @@ const openPreview = (id: number | string) => {
 }
 
 const openDetail = (id: number | string) => {
-  openControlledFileViewer(router, route, id, 'browser')
+  openControlledFileTraceability(router, route, id, 'browser')
+}
+
+const openControlledPrintDialog = (file: ControlledFileBrowserVersion) => {
+  const normalizedId = String(file?.id || '').trim()
+  if (!normalizedId) {
+    message.error('受控打印缺少文件 ID，无法打开打印申请。')
+    return
+  }
+  const query = new URLSearchParams({
+    traceability: '1',
+    from: 'browser',
+    controlledPrint: '1',
+    returnTo: encodeURIComponent(buildBrowserReturnPath())
+  })
+  router.push(`/dcc/controlled-file/detail/${normalizedId}?${query.toString()}`)
 }
 
 const copyFileNumber = async (fileNumber?: string) => {

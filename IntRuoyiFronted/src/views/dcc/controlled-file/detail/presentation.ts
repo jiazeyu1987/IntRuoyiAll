@@ -31,6 +31,7 @@ type DetailDateValue = string | number | Date | readonly number[] | null | undef
 export interface ControlledFileDetailActionState {
   canPreview: boolean
   canDownload: boolean
+  canPrint: boolean
   canObsolete: boolean
   canPublish: boolean
   canManualRelease: boolean
@@ -76,6 +77,7 @@ type DetailActionReadableState = Pick<
   | 'status'
   | 'canPreview'
   | 'canDownload'
+  | 'canPrint'
   | 'canObsolete'
   | 'canPublish'
   | 'canManualRelease'
@@ -85,6 +87,7 @@ type DetailActionReadableState = Pick<
 export type DccDetailProjectionAction =
   | 'PREVIEW'
   | 'DOWNLOAD'
+  | 'PRINT'
   | 'OBSOLETE'
   | 'PUBLISH'
   | 'MANUAL_RELEASE'
@@ -93,6 +96,7 @@ export type DccDetailProjectionAction =
 const DCC_DETAIL_PROJECTION_LABELS: Record<DccDetailProjectionAction, string> = {
   PREVIEW: '预览受控文件',
   DOWNLOAD: '下载受控文件',
+  PRINT: '受控打印',
   OBSOLETE: '作废当前版本',
   PUBLISH: '发布申请',
   MANUAL_RELEASE: '正式下发',
@@ -105,6 +109,7 @@ const DCC_DETAIL_PROJECTION_FIELDS: Record<
 > = {
   PREVIEW: 'canPreview',
   DOWNLOAD: 'canDownload',
+  PRINT: 'canPrint',
   OBSOLETE: 'canObsolete',
   PUBLISH: 'canPublish',
   MANUAL_RELEASE: 'canManualRelease',
@@ -242,6 +247,7 @@ export const getDetailActionState = (
   const projectionStates = {
     PREVIEW: resolveDccDetailActionProjection(detail, 'PREVIEW'),
     DOWNLOAD: resolveDccDetailActionProjection(detail, 'DOWNLOAD'),
+    PRINT: resolveDccDetailActionProjection(detail, 'PRINT'),
     OBSOLETE: resolveDccDetailActionProjection(detail, 'OBSOLETE'),
     PUBLISH: resolveDccDetailActionProjection(detail, 'PUBLISH'),
     MANUAL_RELEASE: resolveDccDetailActionProjection(detail, 'MANUAL_RELEASE'),
@@ -254,6 +260,7 @@ export const getDetailActionState = (
   return {
     canPreview: projectionStates.PREVIEW.allowed,
     canDownload: projectionStates.DOWNLOAD.allowed,
+    canPrint: projectionStates.PRINT.allowed,
     canObsolete: projectionStates.OBSOLETE.allowed,
     canPublish: projectionStates.PUBLISH.allowed,
     canManualRelease: projectionStates.MANUAL_RELEASE.allowed,

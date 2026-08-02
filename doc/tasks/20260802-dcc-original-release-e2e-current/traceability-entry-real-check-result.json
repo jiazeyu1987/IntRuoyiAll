@@ -1,0 +1,95 @@
+{
+  "status": "PASS",
+  "runId": "20260802102108-trace-fields-final4",
+  "baseUrl": "http://127.0.0.1:8081",
+  "fileNumber": "CODX-DCC-ORIG-20260802101521",
+  "controlledFileId": "2054545668044070287",
+  "processInstanceId": "16e8802b-8e5b-11f1-93ff-00155d2984a0",
+  "username": "wangsiyu",
+  "startedAt": "2026-08-02T10:30:56.456Z",
+  "checks": [
+    {
+      "name": "controlled-browser-file-number-entry",
+      "path": "/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-ORIG-20260802101521&pageNo=1&pageSize=20",
+      "browserTotal": 1,
+      "matchedRows": 1,
+      "finalUrl": "/dcc/controlled-file/detail/2054545668044070287?traceability=1&from=browser&returnTo=%252Fdcc%252Fcontrolled-file%252Fbrowser%253Fscope%253Dglobal%2526keyword%253DCODX-DCC-ORIG-20260802101521%2526pageNo%253D1%2526pageSize%253D20",
+      "viewerMode": false,
+      "traceSectionVisible": true,
+      "viewerPaneVisible": false,
+      "hasSignatureTraceText": true,
+      "traceabilityAssertions": {
+        "signatureSectionVisible": true,
+        "exportButtonEnabled": true,
+        "printButtonEnabled": true,
+        "traceTextSample": "签核追溯 汇总上传人、四级审批人、签名时间、签名方式、证据状态、文件哈希和盖章文件。 导出 打印 角色 上传人 / 四级审批人 签名时间 签名方式 证据状态 文件哈希 盖章文件 上传人 彭云凤 (pengyunfeng) 2026-08-02 18:15:30 上传提交 - - 9198354916366 四级审批人 赵海辰 2026-08-02 18:15:36 PASSWORD 已校验 a8e02bcf2e1e 9198354916366 四级审批人 赵杰 2026-08-02 18:15:42 PASSWORD 已校验 5f21347c67b0 9198354916366 四级审批人 赵明玉 2026-08-02 18:15:48 PASSWORD 已校验 c726be0e39ac 9198354916366 四级审批人 王思雨 2026-08-02 18:15:56 PASSWORD 已校验 1ce0d9220a7b 9198354916366",
+        "signatureTextSample": "签名留痕 常用视图默认显示签名业务字段，Hash 证据可在高级视图查看。 快速过滤 版本 包含 查询 显示字段 重置列 常用视图 高级视图 当前账号缺少 DCC 电子签名管理权限，签名留痕无法加载；审批任务加载不受影响。 版本 签名人 部门/岗位 角色 动作 签名含义 签名目的 受控副本 证据状态 签名意见 签名时间 暂无签名记录",
+        "signatureAdvancedTextSample": "签名留痕 高级视图显示签名方式和 Hash 证据。 快速过滤 版本 包含 查询 显示字段 重置列 常用视图 高级视图 当前账号缺少 DCC 电子签名管理权限，签名留痕无法加载；审批任务加载不受影响。 版本 签名人 部门/岗位 角色 动作 签名含义 签名目的 权限依据 签名方式 源文件 hash 受控副本 副本 hash 证据状态 证据 hash 签名意见 签名时间 暂无签名记录",
+        "lifecycleTimelineVisible": true,
+        "lifecycleTextSample": "审批通过 审批 2026-08-02 18:15:56 审批流程已完成。 受控副本生成 发布 2026-08-02 18:15:56 版本 V1.0 受控副本已生成。 正式发布 发布 2026-08-02 18:15:56 版本 V1.0 已发布。 电子签名 签名 2026-08-02 18:15:56 文控批准通过 · 审批通过 · E2E V1.0 文控批准 同意 20260802101521 责任人：王思雨 电子签名 签名 2026-08-02 18:15:48 会签批准通过 · 审批通过 · E2E V1.0 会签批准 同意 20260802101521 责任人：赵明玉 电子签名 签名 2026-08-02 18:15:42 会签审核通过 · 审批通过 · E2E V1.0 会签审核 同意 20260802101521 责任人：赵杰 电子签名 签名 2026-08-02 18:15:36 文控审核通过 · 审批通过 · E2E V1.0 文控审核 同意 20260802101521 责任人：赵海辰 提交申请 提交 2026-08-02 18:15:30 CODX-DCC-ORIG-20260802101521 版本 V1.0 已提交。 责任人：彭云凤 (pengyunfeng) 版本生效 生效 2026-08-02 版本 V1.0 生效。",
+        "exportedCsv": {
+          "attempted": true,
+          "downloaded": true,
+          "fileName": "DCC签核追溯-CODX-DCC-ORIG-20260802101521.csv",
+          "path": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-original-release-e2e-current\\signature-trace-export-20260802102108-trace-fields-final4.csv",
+          "textSample": "\"角色\",\"上传人/四级审批人\",\"签名时间\",\"签名方式\",\"证据状态\",\"文件哈希\",\"盖章文件\" \"上传人\",\"彭云凤 (pengyunfeng)\",\"2026-08-02 18:15:30\",\"上传提交\",\"-\",\"-\",\"9198354916366\" \"四级审批人\",\"赵海辰\",\"2026-08-02 18:15:36\",\"PASSWORD\",\"已校验\",\"a8e02bcf2e1e\",\"9198354916366\" \"四级审批人\",\"赵杰\",\"2026-08-02 18:15:42\",\"PASSWORD\",\"已校验\",\"5f21347c67b0\",\"9198354916366\" \"四级审批人\",\"赵明玉\",\"2026-08-02 18:15:48\",\"PASSWORD\",\"已校验\",\"c726be0e39ac\",\"9198354916366\" \"四级审批人\",\"王思雨\",\"2026-08-02 18:15:56\",\"PASSWORD\",\"已校验\",\"1ce0d9220a7b\",\"9198354916366\"",
+          "missingTokens": []
+        },
+        "missingTraceTokens": [],
+        "missingSignatureTokens": [],
+        "missingLifecycleCommentTokens": [],
+        "missingAdvancedSignatureTokens": [],
+        "missingFileEvidenceTokens": [],
+        "pass": true
+      },
+      "previewDetailHasCurrentVersion": false,
+      "previewDetailTextSample": "",
+      "approvalDialog": {
+        "buttonVisible": false,
+        "dialogVisible": false,
+        "hasApprovalMatrixTitle": false,
+        "hasApproverNames": false,
+        "textSample": ""
+      },
+      "versionDialog": {
+        "buttonVisible": false,
+        "dialogVisible": false,
+        "hasFileNumber": false,
+        "hasVersion": false,
+        "textSample": ""
+      },
+      "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-original-release-e2e-current\\traceability-entry-browser-20260802102108-trace-fields-final4.png"
+    },
+    {
+      "name": "controlled-file-operation-log-page",
+      "path": "/dcc/controlled-file/logs?keyword=CODX-DCC-ORIG-20260802101521&controlledFileId=2054545668044070287",
+      "responseStatus": 200,
+      "responseCode": 0,
+      "responseMessage": "",
+      "total": 0,
+      "rowVisible": false,
+      "hasNoPermissionText": false,
+      "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-original-release-e2e-current\\traceability-entry-logs-20260802102108-trace-fields-final4.png"
+    }
+  ],
+  "targetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "dccWriteRequests": [],
+  "blockedReason": "",
+  "summary": {
+    "browserEntryViewerMode": false,
+    "browserEntryTraceVisible": true,
+    "browserTraceabilityFieldPass": true,
+    "operationLogPass": true,
+    "operationLogResponseCode": 0,
+    "noUnexpectedErrors": true,
+    "browserMissingTraceTokens": [],
+    "browserMissingSignatureTokens": [],
+    "browserMissingAdvancedSignatureTokens": [],
+    "browserMissingFileEvidenceTokens": [],
+    "browserExportDownloaded": true,
+    "dccWriteRequests": 0
+  },
+  "finishedAt": "2026-08-02T10:31:39.709Z"
+}

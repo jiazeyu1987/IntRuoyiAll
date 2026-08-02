@@ -42,10 +42,10 @@
 
 - Trigger: 数据修复、测试项种子、菜单/权限补齐等 SQL 使用临时表、字面量或用户变量与真实表字符列做 `JOIN`、`=`、`NOT EXISTS` 比较，尤其包含中文名称、权限字符串、表单名称、测试项名称。
 - Preflight check: 写入前用 `information_schema.COLUMNS` 核对目标字符列 `COLLATION_NAME`；临时表字符串列必须声明与目标列一致的 `CHARACTER SET` 和 `COLLATE`，或在比较表达式上显式 `COLLATE` 到目标列排序规则。
-- Blocker: MySQL 报 `ERROR 1267 Illegal mix of collations`，或发现临时字符串列与目标字符列排序规则不一致时必须停止并回滚当前事务。
-- Verification: 重试前先确认失败事务未提交；修复后记录命中行数、目标行数、字段排序规则和关键文本扫描结果。
+- Blocker: MySQL 报 `ERROR 1267 Illegal mix of collations`，或发现临时字符串列与目标字符列排序规则不一致时必须停止并回滚当前事务；MySQL 报 `ERROR 1137 Can't reopen table` 时也必须停止，不能把已提交前后的汇总 SELECT 当作成功证据。
+- Verification: 重试前先确认失败事务未提交；修复后记录命中行数、目标行数、字段排序规则和关键文本扫描结果；同一事务内需要多次统计同一临时表时，先 `SELECT COUNT(*) INTO` 过程变量，或拆成多条不重复打开同一临时表的语句。
 - Forbidden action: 禁止修改数据库默认排序规则、手改真实表排序规则、扩大 `WHERE` 范围、拆掉精确租户/删除标记条件，或把失败事务当作成功继续执行。
-- Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`；`doc/tasks/20260801-smart-seed-collation-fix/verification-report.md`，`20260726_system_codex_smart_scheduling_test_items.sql` 的 `tmp_codex_smart_scheduling_*` 临时表必须显式 `COLLATE=utf8mb4_0900_ai_ci`，防止 `utf8mb4_general_ci` / `utf8mb4_0900_ai_ci` 混用。
+- Evidence: `doc/tasks/20260727-test-management-deterministic-closed-loop/execution-log.md`；`doc/tasks/20260801-smart-seed-collation-fix/verification-report.md`；`doc/tasks/20260802-test-server-replan-protected-task-workstation/execution-log.md`，`20260726_system_codex_smart_scheduling_test_items.sql` 的 `tmp_codex_smart_scheduling_*` 临时表必须显式 `COLLATE=utf8mb4_0900_ai_ci`，防止 `utf8mb4_general_ci` / `utf8mb4_0900_ai_ci` 混用。
 
 ### DCC 文件类别规则种子门禁
 

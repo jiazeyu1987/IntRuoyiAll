@@ -10,6 +10,10 @@ const BACKEND_ROOT = path.resolve(WORKSPACE_ROOT, 'IntRuoyiBackend')
 const TASK_DIR = path.resolve(WORKSPACE_ROOT, 'doc/tasks', TASK_ID)
 const RESULT_DIR = path.resolve(FRONTEND_ROOT, 'test-results', 'role-requirement-matrix-real-flow')
 const EVIDENCE_FILE = path.resolve(TASK_DIR, 'role-requirement-matrix-real-e2e-evidence.md')
+const TEST_PLAN_PATH = path.resolve(
+  WORKSPACE_ROOT,
+  'doc/tasks/20260801-role-requirement-matrix-excel/test-plan.md'
+)
 
 const ACTIVE_ORDER_DO = path.resolve(
   BACKEND_ROOT,
@@ -30,6 +34,10 @@ const ACTIVE_ORDER_PROCESS_SNAPSHOT_DO = path.resolve(
 const ACTIVE_ORDER_PROCESS_SNAPSHOT_SQL = path.resolve(
   BACKEND_ROOT,
   'sql/mysql/20260802_mes_process_pool_active_order_process_snapshot.sql'
+)
+const ACTIVE_ORDER_TRANSFER_TRACE_SQL = path.resolve(
+  BACKEND_ROOT,
+  'sql/mysql/20260802_mes_process_pool_active_order_transfer_trace.sql'
 )
 const PQC_CONTEXT_SERVICE = path.resolve(
   BACKEND_ROOT,
@@ -90,6 +98,8 @@ const REQUIRED_ENV = [
   ['RRM_PQC_LEADER_PASSWORD', 'PQC 组长密码，通过环境变量注入，不写入证据。'],
   ['RRM_RELEASE_OWNER_USERNAME', '放行负责人账号标签。'],
   ['RRM_RELEASE_OWNER_PASSWORD', '放行负责人密码，通过环境变量注入，不写入证据。'],
+  ['RRM_UNAUTHORIZED_USERNAME', '错误角色账号标签，用于证明活跃订单写入权限隔离。'],
+  ['RRM_UNAUTHORIZED_PASSWORD', '错误角色密码，通过环境变量注入，不写入证据。'],
   ['RRM_SIGNATURE_IDS_JSON', '六类角色正式电子签名 ID 映射 JSON。'],
   ['RRM_PRODUCTION_ORDER_ID', '任务专用 ERP/MES 生产订单 ID。'],
   ['RRM_PRODUCTION_ORDER_CODE', `任务专用生产订单编码，建议以 ${DATA_PREFIX} 开头。`],
@@ -111,9 +121,74 @@ const ROLE_CONFIGS = [
   ['releaseOwner', 'RRM_RELEASE_OWNER_USERNAME', 'RRM_RELEASE_OWNER_PASSWORD', '/mes/pro/feedback/edhr-release']
 ]
 
+const M6_REAL_FLOW_PHASES = [
+  {
+    key: 'productionLeaderWorkbench',
+    roleKey: 'productionLeader',
+    label: '生产组长工作台与日结/分配表面',
+    targetPath: '/mes/pro/process-pool/team-leader',
+    selectors: [
+      '[data-team-leader-report-workbench]',
+      '[data-team-leader-config-center]',
+      '[data-team-leader-active-order-config]',
+      '[data-role-matrix-daily-close]'
+    ],
+    actionKey: 'joinActiveOrder',
+    acceptanceIds: ['AC-M04', 'AC-M16', 'AC-M17', 'AC-M18', 'AC-D09', 'AC-D12', 'AC-D14', 'AC-D38']
+  },
+  {
+    key: 'pqcLeaderWorkbench',
+    roleKey: 'pqcLeader',
+    label: 'PQC 组长复核表面',
+    targetPath: '/mes/pro/process-pool/team-leader',
+    tabText: 'PQC 组长',
+    selectors: [
+      '[data-team-leader-type-tabs]',
+      '[data-team-leader-report-workbench]',
+      '[data-role-matrix-daily-close]'
+    ],
+    acceptanceIds: ['AC-M20', 'AC-D30', 'AC-D32', 'AC-D33', 'AC-D34', 'AC-D35', 'AC-D37']
+  },
+  {
+    key: 'productionEmployeeEntry',
+    roleKey: 'productionEmployee',
+    label: '生产员工入口登录与前端应用加载',
+    targetPath: '/index',
+    selectors: ['#app'],
+    acceptanceIds: ['AC-M10', 'AC-M11']
+  },
+  {
+    key: 'pqcInspectorEntry',
+    roleKey: 'pqcInspector',
+    label: 'PQC 检验员入口登录与前端应用加载',
+    targetPath: '/index',
+    selectors: ['#app'],
+    actionKey: 'verifyPqcActiveOrderReadOnly',
+    acceptanceIds: ['AC-M12', 'AC-M13', 'AC-M14', 'AC-M15', 'AC-D24', 'AC-D25', 'AC-D26', 'AC-D27', 'AC-D28', 'AC-D29', 'AC-D31']
+  },
+  {
+    key: 'qaRegulationEntry',
+    roleKey: 'qa',
+    label: 'QA 规程维护入口',
+    targetPath: '/mes/qc/template',
+    selectors: ['#app'],
+    acceptanceIds: ['AC-M09', 'AC-D15', 'AC-D16', 'AC-D17', 'AC-D18', 'AC-D19', 'AC-D20', 'AC-D21', 'AC-D22', 'AC-D23']
+  },
+  {
+    key: 'releaseOwnerEntry',
+    roleKey: 'releaseOwner',
+    label: '放行负责人入口',
+    targetPath: '/mes/pro/feedback/edhr-release',
+    selectors: ['#app'],
+    actionKey: 'verifyActiveOrderUnauthorizedMutationBlocked',
+    acceptanceIds: ['AC-M22', 'AC-M23']
+  }
+]
+
 const FORBIDDEN_TENANT_FRAGMENTS = ['prod', 'production', '正式', '生产', '芋道源码', 'admin']
 const LOCAL_BASELINE_TENANT_AUTHORIZATION = 'USER_APPROVED_YUDAO_SOURCE_20260802'
 const SENSITIVE_KEY_PATTERN = /PASSWORD|TOKEN|SECRET|SIGNATURE_IDS_JSON/i
+const ACTIVE_ORDER_MAINTAIN_PERMISSION = 'mes:pro-process-pool-team-leader:maintain'
 
 function parseArgs(argv) {
   return {
@@ -154,6 +229,15 @@ function collectConfig() {
     dataPrefix: envValue('RRM_DATA_PREFIX') || DATA_PREFIX,
     headed: process.env.RRM_HEADED === '1',
     browserPath: envValue('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'),
+    workOrderId: Number(envValue('RRM_PRODUCTION_ORDER_ID')),
+    routeId: Number(envValue('RRM_ROUTE_ID')),
+    routeVersionId: Number(envValue('RRM_ROUTE_VERSION_ID')),
+    qaRegulationVersionId: Number(envValue('RRM_QA_REGULATION_VERSION_ID')),
+    unauthorizedActor: {
+      username: envValue('RRM_UNAUTHORIZED_USERNAME'),
+      password: envValue('RRM_UNAUTHORIZED_PASSWORD'),
+      targetPath: '/index'
+    },
     roles: Object.fromEntries(
       ROLE_CONFIGS.map(([roleKey, usernameKey, passwordKey, targetPath]) => [
         roleKey,
@@ -222,6 +306,18 @@ function collectEnvBlockers(config) {
       category: 'ENV',
       description: '前后端 URL 必须成对使用 int_main 8081/48081，或同一 worktree slot 的 8082-8100/48082-48100。'
     })
+  }
+
+  if (config.unauthorizedActor.username) {
+    const matchedRole = Object.entries(config.roles)
+      .find(([, role]) => role.username === config.unauthorizedActor.username)
+    if (matchedRole) {
+      blockers.push({
+        key: 'RRM_UNAUTHORIZED_USERNAME',
+        category: 'ENV',
+        description: `错误角色夹具不能复用业务角色 ${matchedRole[0]}；必须使用不含活跃订单维护权限的独立账号。`
+      })
+    }
   }
 
   return blockers
@@ -328,6 +424,7 @@ function collectErpRelationBlockers() {
   const mesBaseSchema = readText(MES_BASE_SCHEMA)
   const kingdeeMaterialSql = readText(KINGDEE_MATERIAL_LIST_SQL)
   const activeOrderSql = readText(ACTIVE_ORDER_SQL)
+  const activeOrderTransferTraceSql = readText(ACTIVE_ORDER_TRANSFER_TRACE_SQL)
 
   for (const tableName of [
     'mes_kingdee_production_material_list',
@@ -353,7 +450,10 @@ function collectErpRelationBlockers() {
     ['activeOrderBatchTraceSource', /active_order.*batch|batch.*active_order|active_order.*material_stock|material_stock.*active_order/i, '缺少 activeOrderId 与物料批次/库存追溯的正式关系源。']
   ]) {
     const [key, pattern, description] = relation
-    if (!pattern.test(activeOrderSql) && !pattern.test(mesBaseSchema) && !pattern.test(kingdeeMaterialSql)) {
+    if (!pattern.test(activeOrderSql)
+        && !pattern.test(mesBaseSchema)
+        && !pattern.test(kingdeeMaterialSql)
+        && !pattern.test(activeOrderTransferTraceSql)) {
       blockers.push({
         key,
         category: 'SOURCE',
@@ -526,13 +626,31 @@ function collectBatchRecordBindingBlockers() {
       description: '工艺路线前端 normalizeRecordBindingSlotType 对缺失槽位默认 MAIN，存在把 formBindings/旧字段误归为批记录表单的风险。'
     })
   }
-  if (/const\s+getRouteNodeBatchRecordForms[\s\S]{0,300}getRouteNodeLegacyBatchRecords/.test(routeDesignerSource)
-      && routeDesignerSource.includes('batchRecordFormNames')
-      && routeDesignerSource.includes('formBindings')) {
+  const batchRecordValueBlock = routeDesignerSource.match(
+    /const buildBatchRecordFormValue = \(\) => \{([\s\S]*?)\n\}/
+  )
+  const batchRecordLinksBlock = routeDesignerSource.match(
+    /const buildBatchRecordFormLinks = \(\): ProcessDetailLinkItem\[\] =>([\s\S]*?)\n\n/
+  )
+  const batchRecordNodeStatusBlock = routeDesignerSource.match(
+    /const isRouteNodeBatchRecordFormConfigured = \(node: RouteFlowNodeVO\) =>([\s\S]*?)\n\n/
+  )
+  const batchRecordSeparated = Boolean(
+    batchRecordValueBlock
+      && batchRecordLinksBlock
+      && batchRecordNodeStatusBlock
+      && /getSelectedBatchRecordForms\(\)/.test(batchRecordValueBlock[1])
+      && /getSelectedBatchRecordForms\(\)/.test(batchRecordLinksBlock[1])
+      && /getRouteNodeBatchRecordForms\(node\)/.test(batchRecordNodeStatusBlock[1])
+      && !/selectedRecordBindings|getRecordBindingsBySlotType|formBindings/.test(batchRecordValueBlock[1])
+      && !/selectedRecordBindings|getRecordBindingsBySlotType|formBindings/.test(batchRecordLinksBlock[1])
+      && !/getRouteNodeBatchRecordBindings\(node\)|formBindings/.test(batchRecordNodeStatusBlock[1])
+  )
+  if (!batchRecordSeparated) {
     blockers.push({
       key: 'batchRecordFormNamesFormBindingsSeparation',
       category: 'SOURCE',
-      description: '批记录表单字段和 formBindings 同屏存在，M0 尚未用真实 E2E 证明二者不会互相替代。'
+      description: '批记录表单字段和 formBindings 同屏存在，尚未证明二者使用独立 value/link/border 来源。'
     })
   }
   if (/resolveRouteFormSlotType[\s\S]{0,180}blankToDefault[\s\S]{0,80}FORM_SLOT_MAIN/.test(edhrBatchExecutionSource)) {
@@ -560,6 +678,102 @@ function loadPlaywright() {
     return require('playwright')
   } catch (error) {
     failFast('缺少 Playwright runtime；请先在 IntRuoyiFronted 执行 pnpm install。')
+  }
+}
+
+function canProbeActiveOrderRuntime(config) {
+  return Boolean(
+    config.backendUrl
+    && config.tenant
+    && config.roles.productionLeader.username
+    && config.roles.productionLeader.password
+  )
+}
+
+async function readJsonResponse(response, label) {
+  const text = await response.text()
+  try {
+    return text ? JSON.parse(text) : {}
+  } catch (error) {
+    throw new Error(`${label} 返回非 JSON 响应：${error.message}`)
+  }
+}
+
+function isBusinessSuccess(body) {
+  return body && (body.code === 0 || body.code === 200)
+}
+
+function responseMessage(body) {
+  if (!body || typeof body !== 'object') return 'empty response'
+  return body.msg || body.message || body.error || `code=${body.code}`
+}
+
+async function fetchBusinessJson(url, options, label) {
+  const response = await fetch(url, {
+    ...options,
+    signal: AbortSignal.timeout(options.timeoutMs || 15000)
+  })
+  const body = await readJsonResponse(response, label)
+  if (!response.ok || !isBusinessSuccess(body)) {
+    throw new Error(`${label} 失败，HTTP=${response.status}，业务=${responseMessage(body)}`)
+  }
+  return body
+}
+
+async function probeActiveOrderListRuntime(config) {
+  if (!canProbeActiveOrderRuntime(config)) return []
+  try {
+    const tenantUrl = new URL('/admin-api/system/tenant/get-id-by-name', config.backendUrl)
+    tenantUrl.searchParams.set('name', config.tenant)
+    const tenantBody = await fetchBusinessJson(tenantUrl, {}, '租户解析')
+    const tenantId = Number(tenantBody.data)
+    if (!Number.isFinite(tenantId) || tenantId <= 0) {
+      throw new Error('租户解析失败，未返回有效 tenant-id。')
+    }
+
+    const loginBody = await fetchBusinessJson(new URL('/admin-api/system/auth/login', config.backendUrl), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'tenant-id': String(tenantId)
+      },
+      body: JSON.stringify({
+        username: config.roles.productionLeader.username,
+        password: config.roles.productionLeader.password
+      })
+    }, '生产组长 API 登录')
+    const accessToken = loginBody.data?.accessToken || loginBody.data?.access_token || loginBody.data?.token
+    if (!accessToken) {
+      throw new Error('生产组长 API 登录成功但未返回 accessToken。')
+    }
+
+    const listBody = await fetchBusinessJson(
+      new URL('/admin-api/mes/pro/process-pool/team-leader/active-order/list', config.backendUrl),
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'tenant-id': String(tenantId)
+        }
+      },
+      'activeOrderListRuntime'
+    )
+    const rows = Array.isArray(listBody.data) ? listBody.data : []
+    const fixtureRows = rows.filter((row) => Number(row.workOrderId) === Number(config.workOrderId))
+    for (const row of fixtureRows) {
+      for (const field of ['routeId', 'routeVersionId', 'erpFixedQuantitySnapshot', 'businessStatus']) {
+        if (row[field] === null || row[field] === undefined || row[field] === '') {
+          throw new Error(`activeOrderListRuntime 返回测试工单 ${config.workOrderId}，但缺少 ${field}。`)
+        }
+      }
+    }
+    return []
+  } catch (error) {
+    return [{
+      key: 'activeOrderListRuntime',
+      category: 'RUNTIME',
+      description: `登录态活跃订单列表接口运行态前置失败：${error.message}；需先应用 M1/M2/M4 正式迁移并补齐任务夹具的排产/活跃订单快照。`
+    }]
   }
 }
 
@@ -614,6 +828,8 @@ async function collectRuntimeBlockers(config) {
     })
   }
 
+  blockers.push(...(await probeActiveOrderListRuntime(config)))
+
   return blockers
 }
 
@@ -639,12 +855,126 @@ function collectMilestoneBlockers() {
   }]
 }
 
+function loadAcceptanceMatrix() {
+  const testPlan = readText(TEST_PLAN_PATH)
+  const matrixMatch = testPlan.match(/<!-- ACCEPTANCE_TEST_MATRIX_START -->([\s\S]*?)<!-- ACCEPTANCE_TEST_MATRIX_END -->/)
+  if (!matrixMatch) {
+    failFast('测试计划缺少 ACCEPTANCE_TEST_MATRIX，不能构建 M6 AC 覆盖账本。')
+  }
+  const rows = matrixMatch[1]
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => /^\| AC-[MD]\d+ \|/.test(line))
+    .map((line) => line
+      .slice(1, -1)
+      .split('|')
+      .map((cell) => cell.trim().replace(/^`|`$/g, '')))
+    .map(([ac, bdd, testCase, layers, positiveAssertion, failureAssertion]) => ({
+      ac,
+      bdd,
+      testCase,
+      layers,
+      positiveAssertion,
+      failureAssertion
+    }))
+  const uniqueAcIds = new Set(rows.map((row) => row.ac))
+  if (rows.length !== 62 || uniqueAcIds.size !== 62) {
+    failFast(`测试计划 AC 矩阵必须为 62 项且唯一，当前 rows=${rows.length}, unique=${uniqueAcIds.size}。`)
+  }
+  return rows
+}
+
+function buildAcceptanceCoverage(acceptanceMatrix, phaseEvidence, actionEvidence = []) {
+  const phaseByAc = new Map()
+  for (const phase of phaseEvidence.filter((item) => item.status === 'PASS')) {
+    for (const ac of phase.acceptanceIds || []) {
+      if (!phaseByAc.has(ac)) {
+        phaseByAc.set(ac, [])
+      }
+      phaseByAc.get(ac).push(phase.key)
+    }
+  }
+  const actionByAc = new Map()
+  for (const action of actionEvidence.filter((item) => item.status === 'PASS')) {
+    for (const ac of action.acceptanceIds || []) {
+      if (!actionByAc.has(ac)) {
+        actionByAc.set(ac, [])
+      }
+      actionByAc.get(ac).push(action.key)
+    }
+  }
+  const rows = acceptanceMatrix.map((item) => {
+    const phaseKeys = phaseByAc.get(item.ac) || []
+    const actionKeys = actionByAc.get(item.ac) || []
+    return {
+      ...item,
+      status: actionKeys.length
+        ? 'ACTION_OBSERVED_NEEDS_FAILURE_E2E'
+        : (phaseKeys.length ? 'SURFACE_OBSERVED_NEEDS_ACTION_E2E' : 'UNCOVERED_BY_REAL_E2E'),
+      phaseKeys,
+      actionKeys
+    }
+  })
+  return {
+    total: rows.length,
+    accepted: rows.filter((row) => row.status === 'ACCEPTED').length,
+    actionObserved: rows.filter((row) => row.status === 'ACTION_OBSERVED_NEEDS_FAILURE_E2E').length,
+    surfaceObserved: rows.filter((row) => row.status === 'SURFACE_OBSERVED_NEEDS_ACTION_E2E').length,
+    uncovered: rows.filter((row) => row.status === 'UNCOVERED_BY_REAL_E2E').length,
+    pending: rows.filter((row) => row.status !== 'ACCEPTED').length,
+    rows
+  }
+}
+
+function assertAcceptanceCoverage(acceptanceCoverage) {
+  const blockers = []
+  if (acceptanceCoverage.total !== 62) {
+    blockers.push({
+      key: 'acceptanceMatrix',
+      category: 'E2E_COVERAGE',
+      description: `M6 必须加载 62 个 AC，当前为 ${acceptanceCoverage.total}。`
+    })
+  }
+  for (const row of acceptanceCoverage.rows) {
+    if (row.status !== 'ACCEPTED') {
+      const evidenceParts = []
+      if (row.phaseKeys.length) evidenceParts.push(`已观察页面阶段：${row.phaseKeys.join(', ')}`)
+      if (row.actionKeys?.length) evidenceParts.push(`已执行真实动作：${row.actionKeys.join(', ')}`)
+      const phaseText = evidenceParts.length ? evidenceParts.join('；') : '尚无真实页面阶段覆盖'
+      blockers.push({
+        key: row.ac,
+        category: 'E2E_COVERAGE',
+        description: `${row.testCase} 仍未达到真实动作/失败路径/只读核验 ACCEPTED；${phaseText}。`
+      })
+    }
+  }
+  return blockers
+}
+
+function buildActionBlockers(actionEvidence) {
+  return actionEvidence
+    .filter((action) => action.status === 'BLOCKED')
+    .map((action) => ({
+      key: action.key,
+      category: action.category || 'E2E_PERMISSION',
+      description: action.description || `${action.label} 尚未满足 M6 权限隔离验收。`
+    }))
+}
+
 function redactConfig(config) {
   const redacted = {
     frontendUrl: config.frontendUrl,
     backendUrl: config.backendUrl,
     tenant: config.tenant,
     dataPrefix: config.dataPrefix,
+    workOrderId: config.workOrderId,
+    routeId: config.routeId,
+    routeVersionId: config.routeVersionId,
+    qaRegulationVersionId: config.qaRegulationVersionId,
+    unauthorizedActor: {
+      username: config.unauthorizedActor?.username || '',
+      password: config.unauthorizedActor?.password ? '<redacted>' : ''
+    },
     roles: {}
   }
   for (const [roleKey, role] of Object.entries(config.roles)) {
@@ -677,19 +1007,42 @@ function writeEvidence(result) {
     ''
   ]
   if (blockers.length) {
-    lines.push(`- BLOCKED: ${blockers.length} prerequisite blockers remain.`)
+    lines.push(`- BLOCKED: ${blockers.length} blockers remain.`)
     for (const blocker of blockers) {
       lines.push(`- ${blocker.category}:${blocker.key} -> ${blocker.description}`)
     }
   } else {
-    lines.push('- PASS: preflight prerequisites are present.')
+    lines.push('- PASS: preflight prerequisites and full AC coverage are present.')
   }
-  lines.push('')
+  if (Array.isArray(result.phaseEvidence) && result.phaseEvidence.length) {
+    lines.push('', '## Phase Evidence', '')
+    for (const phase of result.phaseEvidence) {
+      lines.push(`- ${phase.status}: ${phase.key} -> ${phase.label}; role=${phase.roleKey}; selectors=${phase.selectors.join(', ')}`)
+    }
+  }
+  if (Array.isArray(result.actionEvidence) && result.actionEvidence.length) {
+    lines.push('', '## Action Evidence', '')
+    for (const action of result.actionEvidence) {
+      lines.push(`- ${action.status}: ${action.key} -> ${action.label}; role=${action.roleKey}; acceptance=${action.acceptanceIds.join(', ')}`)
+    }
+  }
+  if (result.acceptanceCoverage) {
+    lines.push('', '## Acceptance Coverage', '')
+    lines.push(`- Total: ${result.acceptanceCoverage.total}`)
+    lines.push(`- Accepted: ${result.acceptanceCoverage.accepted}`)
+    lines.push(`- Action Observed: ${result.acceptanceCoverage.actionObserved}`)
+    lines.push(`- Surface Observed: ${result.acceptanceCoverage.surfaceObserved}`)
+    lines.push(`- Uncovered: ${result.acceptanceCoverage.uncovered}`)
+    lines.push(`- Pending: ${result.acceptanceCoverage.pending}`)
+    for (const row of result.acceptanceCoverage.rows) {
+      lines.push(`- ${row.ac}/${row.testCase}: ${row.status}; phases=${row.phaseKeys.join(', ') || '--'}; actions=${row.actionKeys?.join(', ') || '--'}`)
+    }
+  }
   fs.writeFileSync(EVIDENCE_FILE, `${lines.join('\n')}\n`, 'utf8')
 }
 
 function printBlockers(blockers) {
-  console.error(`BLOCKED: ${blockers.length} prerequisite blockers remain.`)
+  console.error(`BLOCKED: ${blockers.length} blockers remain.`)
   for (const blocker of blockers) {
     console.error(`- ${blocker.category}:${blocker.key} -> ${blocker.description}`)
   }
@@ -729,6 +1082,107 @@ async function fillFirstVisible(locator, value, label) {
   failFast(`缺少可填写登录控件：${label}`)
 }
 
+async function fillFormItem(section, label, value) {
+  const item = section.locator('.el-form-item', { hasText: label }).first()
+  await item.waitFor({ state: 'visible', timeout: 30000 })
+  await fillFirstVisible(item.locator('input'), String(value), label)
+}
+
+function formForAction(section, actionText) {
+  return section.getByRole('button', { name: actionText }).first()
+    .locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " el-form ")][1]')
+}
+
+async function fillFormItemForAction(section, actionText, label, value) {
+  await fillFormItem(formForAction(section, actionText), label, value)
+}
+
+async function clickButtonAndWaitForSuccess(section, text, endpointFragment) {
+  const page = section.page()
+  const responsePromise = page.waitForResponse((response) =>
+    response.url().includes(endpointFragment)
+      && ['POST', 'PUT', 'DELETE'].includes(response.request().method())
+  , { timeout: 30000 })
+  await section.getByRole('button', { name: text }).click()
+  const response = await responsePromise
+  assert.ok(response.ok(), `${text} 写入接口 HTTP 失败：${response.status()}`)
+  const body = await response.json()
+  assert.equal(body.code, 0, `${text} 写入接口业务失败：${body.msg || body.message || 'unknown'}`)
+  return body.data
+}
+
+async function clickButtonAndWaitForBusinessFailure(section, text, endpointFragment) {
+  const page = section.page()
+  const responsePromise = page.waitForResponse((response) =>
+    response.url().includes(endpointFragment)
+      && ['POST', 'PUT', 'DELETE'].includes(response.request().method())
+  , { timeout: 30000 })
+  await section.getByRole('button', { name: text }).click()
+  const response = await responsePromise
+  assert.ok(response.ok(), `${text} 失败路径接口 HTTP 异常：${response.status()}`)
+  const body = await response.json()
+  assert.notEqual(body.code, 0, `${text} 失败路径不能返回业务成功。`)
+  assert.notEqual(body.code, 200, `${text} 失败路径不能返回兼容成功码。`)
+  return body
+}
+
+async function parseJsonResponse(response, label) {
+  assert.ok(response.ok(), `${label} HTTP 失败：${response.status()}`)
+  const body = await response.json()
+  assert.equal(body.code, 0, `${label} 业务失败：${body.msg || body.message || 'unknown'}`)
+  return body.data
+}
+
+async function fetchWithPageAuth(page, endpoint, options = {}) {
+  return page.evaluate(async ({ endpoint: requestEndpoint, options: requestOptions }) => {
+    const readCacheValue = (key) => {
+      const raw = window.localStorage.getItem(key)
+      if (!raw) return undefined
+      const item = JSON.parse(raw)
+      return JSON.parse(item.v)
+    }
+    const token = readCacheValue('ACCESS_TOKEN')
+    const tenantId = readCacheValue('tenantId')
+    const response = await window.fetch(requestEndpoint, {
+      method: requestOptions.method || 'GET',
+      headers: {
+        ...(requestOptions.headers || {}),
+        Authorization: `Bearer ${token}`,
+        'tenant-id': String(tenantId)
+      },
+      body: requestOptions.body
+    })
+    let body = null
+    try {
+      body = await response.json()
+    } catch (error) {
+      body = { code: 'NON_JSON', message: error.message }
+    }
+    return {
+      ok: response.ok,
+      status: response.status,
+      body
+    }
+  }, { endpoint, options })
+}
+
+async function getCurrentPermissionInfo(page) {
+  const result = await fetchWithPageAuth(page, '/admin-api/system/auth/get-permission-info')
+  assert.ok(result.ok, `当前角色权限信息 HTTP 失败：${result.status}`)
+  assert.equal(result.body.code, 0, `当前角色权限信息业务失败：${responseMessage(result.body)}`)
+  return result.body.data || {}
+}
+
+function extractPermissions(permissionInfo) {
+  if (Array.isArray(permissionInfo.permissions)) return permissionInfo.permissions
+  if (Array.isArray(permissionInfo.permissionList)) return permissionInfo.permissionList
+  return []
+}
+
+function hasActiveOrderMaintainPermission(permissions) {
+  return permissions.includes('*:*:*') || permissions.includes(ACTIVE_ORDER_MAINTAIN_PERMISSION)
+}
+
 async function login(page, config, roleKey, role) {
   const loginUrl = new URL('/login', config.frontendUrl)
   loginUrl.searchParams.set('redirect', '/index')
@@ -751,12 +1205,461 @@ async function login(page, config, roleKey, role) {
   const responsePromise = page.waitForResponse(
     (response) => response.url().includes('/admin-api/system/auth/login') && response.request().method() === 'POST',
     { timeout: 90000 }
-  )
+  ).catch((error) => ({ loginResponseTimeout: error }))
   await form.getByRole('button', { name: /^登录$/ }).click()
   const response = await responsePromise
+  if (response.loginResponseTimeout) {
+    failFast(`${roleKey} 登录未捕获登录接口响应：${response.loginResponseTimeout.message}`, [{
+      key: 'loginResponseTimeout',
+      category: 'E2E_RUNTIME',
+      description: `${roleKey} 登录页已提交但 90 秒内未捕获 /system/auth/login 响应；需检查前端会话、后端登录链路或本机运行态请求阻塞。`
+    }])
+  }
   const body = await response.json()
   assert.ok(response.ok(), `${roleKey} 登录 HTTP 失败：${response.status()}`)
   assert.ok(body.code === 0 || body.code === 200, `${roleKey} 登录业务失败：${body.msg || body.code}`)
+}
+
+function findTargetActiveOrder(rows, config) {
+  return rows.find((row) =>
+    Number(row.workOrderId) === Number(config.workOrderId)
+      && Number(row.routeId) === Number(config.routeId)
+  )
+}
+
+async function reloadActiveOrderRows(page) {
+  const result = await page.evaluate(async () => {
+    const readCacheValue = (key) => {
+      const raw = window.localStorage.getItem(key)
+      if (!raw) return undefined
+      const item = JSON.parse(raw)
+      return JSON.parse(item.v)
+    }
+    const token = readCacheValue('ACCESS_TOKEN')
+    const tenantId = readCacheValue('tenantId')
+    const response = await window.fetch('/admin-api/mes/pro/process-pool/team-leader/active-order/list', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'tenant-id': String(tenantId)
+      }
+    })
+    return {
+      ok: response.ok,
+      status: response.status,
+      body: await response.json()
+    }
+  })
+  assert.ok(result.ok, `活跃订单列表失败路径复核 HTTP 失败：${result.status}`)
+  assert.equal(result.body.code, 0, `活跃订单列表失败路径复核业务失败：${result.body.msg || result.body.message || 'unknown'}`)
+  return result.body.data
+}
+
+async function performActiveOrderJoin(page, config) {
+  const section = page.locator('[data-team-leader-active-order-config]').first()
+  await fillFormItemForAction(section, '加入活跃订单', '生产订单ID', config.workOrderId)
+  await fillFormItemForAction(section, '加入活跃订单', '路线ID', config.routeId)
+  await fillFormItemForAction(section, '加入活跃订单', '路线版本ID', config.routeVersionId)
+  const listResponsePromise = page.waitForResponse((response) =>
+    response.url().includes('/mes/pro/process-pool/team-leader/active-order/list')
+      && response.request().method() === 'GET'
+  , { timeout: 30000 }).catch((error) => ({ activeOrderListResponseError: error }))
+  const activeOrderId = await clickButtonAndWaitForSuccess(
+    section,
+    '加入活跃订单',
+    '/mes/pro/process-pool/team-leader/active-order/add'
+  )
+  const listResponse = await listResponsePromise
+  if (listResponse.activeOrderListResponseError) {
+    failFast(`加入活跃订单后未捕获到活跃订单列表刷新响应：${listResponse.activeOrderListResponseError.message}`, [{
+      key: 'activeOrderListResponseError',
+      category: 'E2E',
+      description: '真实页面加入活跃订单后必须刷新并返回同一 activeOrderId，不能让页面关闭或响应缺失变成未结构化异常。'
+    }])
+  }
+  assert.ok(listResponse.ok(), `活跃订单列表刷新 HTTP 失败：${listResponse.status()}`)
+  const listBody = await listResponse.json()
+  assert.equal(listBody.code, 0, `活跃订单列表刷新业务失败：${listBody.msg || listBody.message || 'unknown'}`)
+  const rows = Array.isArray(listBody.data) ? listBody.data : []
+  assert.ok(
+    rows.some((row) => Number(row.id) === Number(activeOrderId) && Number(row.workOrderId) === Number(config.workOrderId)),
+    '加入活跃订单后，刷新列表必须返回同一 activeOrderId 和 workOrderId。'
+  )
+  return {
+    key: 'joinActiveOrder',
+    label: '生产组长通过真实页面加入带路线版本的活跃订单',
+    roleKey: 'productionLeader',
+    status: 'PASS',
+    acceptanceIds: ['AC-M04'],
+    activeOrderId,
+    workOrderId: config.workOrderId,
+    routeId: config.routeId,
+    routeVersionId: config.routeVersionId
+  }
+}
+
+async function verifyActiveOrderConflictRouteFailure(page, config, joinEvidence) {
+  const conflictRouteId = config.routeId + 1
+  const section = page.locator('[data-team-leader-active-order-config]').first()
+  await fillFormItemForAction(section, '加入活跃订单', '生产订单ID', config.workOrderId)
+  await fillFormItemForAction(section, '加入活跃订单', '路线ID', conflictRouteId)
+  await fillFormItemForAction(section, '加入活跃订单', '路线版本ID', config.routeVersionId)
+  const body = await clickButtonAndWaitForBusinessFailure(
+    section,
+    '加入活跃订单',
+    '/mes/pro/process-pool/team-leader/active-order/add'
+  )
+  const messageText = body.msg || body.message || ''
+  assert.match(messageText, /活跃订单|工序|路线|目标数量|快照/, '冲突路线必须返回可诊断的业务失败原因。')
+  await page.locator('.el-message, .el-notification').filter({
+    hasText: /活跃订单|工序|路线|目标数量|快照/
+  }).first().waitFor({ state: 'visible', timeout: 10000 })
+  const rows = await reloadActiveOrderRows(page)
+  assert.ok(Array.isArray(rows), '冲突路线失败后活跃订单列表必须仍可读取。')
+  assert.ok(
+    rows.some((row) => Number(row.id) === Number(joinEvidence.activeOrderId)
+      && Number(row.workOrderId) === Number(config.workOrderId)
+      && Number(row.routeId) === Number(config.routeId)),
+    '冲突路线失败后必须保留原合法 activeOrderId。'
+  )
+  assert.ok(
+    !rows.some((row) => Number(row.workOrderId) === Number(config.workOrderId)
+      && Number(row.routeId) === Number(conflictRouteId)
+      && Number(row.routeVersionId) === Number(config.routeVersionId)),
+    '冲突路线失败路径不得新增错误路线的 activeOrder。'
+  )
+  return {
+    key: 'activeOrderConflictRouteRejected',
+    label: '生产组长通过真实页面提交冲突路线并被 fail-fast 拒绝',
+    roleKey: 'productionLeader',
+    status: 'PASS',
+    acceptanceIds: ['AC-M04'],
+    activeOrderId: joinEvidence.activeOrderId,
+    workOrderId: config.workOrderId,
+    expectedRouteId: config.routeId,
+    rejectedRouteId: conflictRouteId,
+    routeVersionId: config.routeVersionId,
+    responseCode: body.code,
+    responseMessage: messageText
+  }
+}
+
+async function verifyPqcActiveOrderReadOnly(page, config, actionEvidence) {
+  const joinEvidence = actionEvidence.find((item) => item.key === 'joinActiveOrder' && item.status === 'PASS')
+  if (!joinEvidence?.activeOrderId) {
+    failFast('PQC 跨角色只读核验前缺少生产组长 joinActiveOrder 动作证据。', [{
+      key: 'activeOrderCrossRolePrereq',
+      category: 'E2E',
+      description: '必须先由生产组长通过真实页面加入活跃订单，再用 PQC 页面只读核验同一 activeOrderId。'
+    }])
+  }
+
+  const targetUrl = new URL('/mes/pro/feedback/edhr-batch-pqc-fill', config.frontendUrl)
+  targetUrl.searchParams.set('workOrderId', String(config.workOrderId))
+  targetUrl.searchParams.set('routeId', String(config.routeId))
+  const activeOrdersResponsePromise = page.waitForResponse((response) =>
+    response.url().includes('/mes/pro/feedback/frontline/device-account/pqc/active-orders')
+      && response.request().method() === 'GET'
+  , { timeout: 60000 }).catch((error) => ({ pqcActiveOrderResponseError: error }))
+  const processResponsePromise = page.waitForResponse((response) =>
+    response.url().includes('/mes/pro/feedback/frontline/device-account/pqc/active-order/processes')
+      && response.request().method() === 'GET'
+      && response.url().includes(`workOrderId=${config.workOrderId}`)
+      && response.url().includes(`routeId=${config.routeId}`)
+  , { timeout: 60000 }).catch((error) => ({ pqcProcessResponseError: error }))
+  await page.goto(targetUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 90000 })
+  await page.locator('[data-frontline-pqc-operator]').first().waitFor({ state: 'visible', timeout: 60000 })
+  const activeOrdersResponse = await activeOrdersResponsePromise
+  if (activeOrdersResponse.pqcActiveOrderResponseError) {
+    failFast(`PQC 页面未读取活跃订单只读列表：${activeOrdersResponse.pqcActiveOrderResponseError.message}`, [{
+      key: 'activeOrderCrossRoleReadOnly',
+      category: 'E2E',
+      description: 'PQC 检验员页面必须通过真实只读接口读取活跃订单，不能用 API-only 或默认空列表替代。'
+    }])
+  }
+  const activeOrders = await parseJsonResponse(activeOrdersResponse, 'PQC 活跃订单只读列表')
+  assert.ok(Array.isArray(activeOrders), 'PQC 活跃订单只读列表必须返回数组。')
+  const activeOrder = findTargetActiveOrder(activeOrders, config)
+  assert.ok(activeOrder, 'PQC 活跃订单只读列表必须包含生产组长加入的同一工单和路线。')
+
+  const processResponse = await processResponsePromise
+  if (processResponse.pqcProcessResponseError) {
+    failFast(`PQC 页面未读取目标活跃订单工序只读列表：${processResponse.pqcProcessResponseError.message}`, [{
+      key: 'activeOrderCrossRoleReadOnly',
+      category: 'E2E',
+      description: 'PQC 检验员页面必须按目标工单和路线读取工序快照，并返回同一 activeOrderId。'
+    }])
+  }
+  const processes = await parseJsonResponse(processResponse, 'PQC 活跃订单工序只读列表')
+  assert.ok(Array.isArray(processes), 'PQC 活跃订单工序只读列表必须返回数组。')
+  assert.ok(
+    processes.some((process) => Number(process.activeOrderId) === Number(joinEvidence.activeOrderId)),
+    'PQC 活跃订单工序只读列表必须返回与生产组长加入结果一致的 activeOrderId。'
+  )
+
+  return {
+    key: 'activeOrderCrossRoleReadOnly',
+    label: 'PQC 检验员通过真实页面只读同一 activeOrderId',
+    roleKey: 'pqcInspector',
+    status: 'PASS',
+    acceptanceIds: ['AC-M04', 'AC-D13', 'AC-D24'],
+    activeOrderId: joinEvidence.activeOrderId,
+    workOrderId: config.workOrderId,
+    routeId: config.routeId,
+    sourceActionKey: joinEvidence.key
+  }
+}
+
+async function loadPqcProcessesViaAuth(page, config, label) {
+  const endpoint = `/admin-api/mes/pro/feedback/frontline/device-account/pqc/active-order/processes?workOrderId=${encodeURIComponent(config.workOrderId)}&routeId=${encodeURIComponent(config.routeId)}`
+  const result = await fetchWithPageAuth(page, endpoint)
+  assert.ok(result.ok, `${label} HTTP 失败：${result.status}`)
+  assert.equal(result.body?.code, 0, `${label} 业务失败：${responseMessage(result.body)}`)
+  assert.ok(Array.isArray(result.body.data), `${label} 必须返回数组。`)
+  return result.body.data
+}
+
+async function verifyPqcRegulationItemsRendered(page, config, actionEvidence) {
+  const joinEvidence = actionEvidence.find((item) => item.key === 'joinActiveOrder' && item.status === 'PASS')
+  const readOnlyEvidence = actionEvidence.find((item) => item.key === 'activeOrderCrossRoleReadOnly' && item.status === 'PASS')
+  if (!joinEvidence?.activeOrderId || !readOnlyEvidence) {
+    return {
+      key: 'pqcRegulationItemsRendered',
+      label: 'PQC 页面按已发布 QA 规程渲染检验项目',
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_QA_REGULATION',
+      acceptanceIds: ['AC-D17', 'AC-D19', 'AC-D24', 'AC-D31'],
+      description: 'PQC 规程项目渲染核验前缺少 activeOrder 或跨角色只读动作证据，不能证明页面读取正式 QA 规程快照。'
+    }
+  }
+
+  const processes = await loadPqcProcessesViaAuth(page, config, 'PQC 已发布规程项目只读列表')
+  const matchingProcesses = processes.filter((process) =>
+    Number(process.activeOrderId) === Number(joinEvidence.activeOrderId)
+      && Number(process.regulationVersionId) > 0
+      && Number(process.pqcTaskId) > 0
+      && Array.isArray(process.inspectionItems)
+      && process.inspectionItems.length > 0
+  )
+  if (!matchingProcesses.length) {
+    return {
+      key: 'pqcRegulationItemsRendered',
+      label: 'PQC 页面按已发布 QA 规程渲染检验项目',
+      roleKey: 'pqcInspector',
+      status: 'BLOCKED',
+      category: 'E2E_QA_REGULATION',
+      acceptanceIds: ['AC-D17', 'AC-D19', 'AC-D24', 'AC-D31'],
+      activeOrderId: joinEvidence.activeOrderId,
+      processCount: processes.length,
+      description: 'PQC 工序列表没有返回带 regulationVersionId、pqcTaskId 和 inspectionItems 的正式规程快照；不能证明页面按 QA 规程动态渲染。'
+    }
+  }
+
+  const invalidItem = matchingProcesses
+    .flatMap((process) => process.inspectionItems.map((item) => ({ process, item })))
+    .find(({ item }) => !item.itemCode || !item.itemName || !item.inspectionMethod || !item.standardText || !item.resultType)
+  assert.equal(invalidItem, undefined, 'PQC 检验项目必须包含项目编码、名称、方法、标准和结果类型。')
+
+  const itemCount = matchingProcesses.reduce((sum, process) => sum + process.inspectionItems.length, 0)
+  const inspectionTypes = [...new Set(matchingProcesses.map((process) => process.inspectionType).filter(Boolean))]
+  const regulationVersionIds = [...new Set(matchingProcesses.map((process) => process.regulationVersionId))]
+  const configuredVersionId = Number(config.qaRegulationVersionId)
+  const configuredVersionObserved = Number.isFinite(configuredVersionId) && configuredVersionId > 0
+    ? regulationVersionIds.some((versionId) => Number(versionId) === configuredVersionId)
+    : false
+  const plannedQuantities = matchingProcesses
+    .map((process) => Number(process.plannedInspectionQuantity))
+    .filter((value) => Number.isFinite(value) && value > 0)
+  assert.ok(plannedQuantities.length > 0, 'PQC 任务必须带出大于 0 的计划检验数量。')
+
+  return {
+    key: 'pqcRegulationItemsRendered',
+    label: 'PQC 页面按已发布 QA 规程渲染检验项目',
+    roleKey: 'pqcInspector',
+    status: 'PASS',
+    acceptanceIds: ['AC-D17', 'AC-D19', 'AC-D24', 'AC-D31'],
+    activeOrderId: joinEvidence.activeOrderId,
+    processCount: matchingProcesses.length,
+    itemCount,
+    inspectionTypes,
+    regulationVersionIds,
+    configuredVersionId,
+    configuredVersionObserved,
+    plannedQuantities
+  }
+}
+
+async function verifyActiveOrderUnauthorizedMutationBlocked(page, config, actionEvidence) {
+  const joinEvidence = actionEvidence.find((item) => item.key === 'joinActiveOrder' && item.status === 'PASS')
+  if (!joinEvidence?.activeOrderId) {
+    return {
+      key: 'activeOrderUnauthorizedMutationBlocked',
+      label: '错误角色活跃订单写入权限隔离',
+      roleKey: 'unauthorizedActor',
+      status: 'BLOCKED',
+      category: 'E2E_PERMISSION',
+      acceptanceIds: ['AC-M04', 'AC-D09', 'AC-D13'],
+      description: '权限隔离核验前缺少生产组长 joinActiveOrder 动作证据，不能证明错误角色无法复用同一 activeOrderId。'
+    }
+  }
+
+  const unauthorizedActor = config.unauthorizedActor || {}
+  if (!unauthorizedActor.username || !unauthorizedActor.password) {
+    return {
+      key: 'activeOrderUnauthorizedMutationBlocked',
+      label: '错误角色活跃订单写入权限隔离',
+      roleKey: 'unauthorizedActor',
+      status: 'BLOCKED',
+      category: 'E2E_PERMISSION',
+      acceptanceIds: ['AC-M04', 'AC-D09', 'AC-D13'],
+      activeOrderId: joinEvidence.activeOrderId,
+      description: '缺少 RRM_UNAUTHORIZED_USERNAME / RRM_UNAUTHORIZED_PASSWORD，不能执行错误角色真实登录与后端写入拒绝核验。'
+    }
+  }
+
+  const browser = page.context().browser()
+  assert.ok(browser, '错误角色权限隔离必须能创建独立浏览器上下文。')
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'zh-CN' })
+  const unauthorizedPage = await context.newPage()
+  try {
+    await login(unauthorizedPage, config, 'unauthorizedActor', unauthorizedActor)
+    const permissionInfo = await getCurrentPermissionInfo(unauthorizedPage)
+    const permissions = extractPermissions(permissionInfo)
+    if (hasActiveOrderMaintainPermission(permissions)) {
+      const blockedPermission = permissions.includes('*:*:*') ? '*:*:*' : ACTIVE_ORDER_MAINTAIN_PERMISSION
+      return {
+        key: 'activeOrderUnauthorizedMutationBlocked',
+        label: '错误角色活跃订单写入权限隔离',
+        roleKey: 'unauthorizedActor',
+        status: 'BLOCKED',
+        category: 'E2E_PERMISSION',
+        acceptanceIds: ['AC-M04', 'AC-D09', 'AC-D13'],
+        activeOrderId: joinEvidence.activeOrderId,
+        blockedPermission,
+        username: unauthorizedActor.username,
+        description: `当前错误角色夹具 ${unauthorizedActor.username} 仍具备 ${blockedPermission}，无法证明错误角色会被后端拒绝；需改为不含活跃订单维护权限的正式角色夹具后再执行写入拒绝核验。`
+      }
+    }
+
+    const targetUrl = new URL('/mes/pro/process-pool/team-leader', config.frontendUrl)
+    await unauthorizedPage.goto(targetUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 90000 })
+    await unauthorizedPage.locator('#app').waitFor({ state: 'visible', timeout: 60000 })
+    assert.equal(
+      await unauthorizedPage.locator('[data-team-leader-active-order-config]').count(),
+      0,
+      '错误角色不应看到活跃订单维护表单。'
+    )
+
+    const result = await fetchWithPageAuth(unauthorizedPage, '/admin-api/mes/pro/process-pool/team-leader/active-order/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workOrderId: config.workOrderId,
+        routeId: config.routeId,
+        routeVersionId: config.routeVersionId
+      })
+    })
+    assert.ok(
+      !result.ok || !isBusinessSuccess(result.body),
+      '错误角色调用活跃订单写入接口必须被后端拒绝，不能返回业务成功。'
+    )
+    return {
+      key: 'activeOrderUnauthorizedMutationBlocked',
+      label: '错误角色活跃订单写入权限隔离',
+      roleKey: 'unauthorizedActor',
+      status: 'PASS',
+      acceptanceIds: ['AC-M04', 'AC-D09', 'AC-D13'],
+      activeOrderId: joinEvidence.activeOrderId,
+      username: unauthorizedActor.username,
+      responseStatus: result.status,
+      responseCode: result.body?.code,
+      responseMessage: responseMessage(result.body)
+    }
+  } finally {
+    await context.close()
+  }
+}
+
+async function verifyActiveOrderCleanupTraceability(page, config, joinEvidence) {
+  if (!joinEvidence?.activeOrderId) {
+    return {
+      key: 'activeOrderCleanupDeferred',
+      label: '活跃订单清理闭环风险记录',
+      roleKey: 'productionLeader',
+      status: 'BLOCKED',
+      category: 'E2E_CLEANUP',
+      acceptanceIds: ['AC-M04'],
+      description: '清理核验前缺少生产组长 joinActiveOrder 动作证据，不能判断任务夹具是否可安全删除。'
+    }
+  }
+
+  const rows = await reloadActiveOrderRows(page)
+  const activeOrder = rows.find((row) => Number(row.id) === Number(joinEvidence.activeOrderId))
+  assert.ok(activeOrder, '清理闭环必须能重新定位本轮 activeOrderId。')
+  assert.equal(Number(activeOrder.workOrderId), Number(config.workOrderId), '清理闭环定位到的 activeOrder 必须属于任务工单。')
+  assert.equal(Number(activeOrder.routeId), Number(config.routeId), '清理闭环定位到的 activeOrder 必须属于任务路线。')
+  assert.equal(Number(activeOrder.routeVersionId), Number(config.routeVersionId), '清理闭环定位到的 activeOrder 必须属于任务路线版本。')
+
+  return {
+    key: 'activeOrderCleanupDeferred',
+    label: '活跃订单清理闭环风险记录',
+    roleKey: 'productionLeader',
+    status: 'BLOCKED',
+    category: 'E2E_CLEANUP',
+    acceptanceIds: ['AC-M04'],
+    activeOrderId: joinEvidence.activeOrderId,
+    workOrderId: config.workOrderId,
+    routeId: config.routeId,
+    routeVersionId: config.routeVersionId,
+    description: '本轮 activeOrderId 仍是 M6 后续真实 E2E 共享夹具；直接移除会破坏 PQC、放行、日结和后续验证链路。需要一次性可重建夹具或明确清理窗口后再执行删除验证。'
+  }
+}
+
+async function verifyRealFlowPhase(page, config, phase) {
+  await page.goto(new URL(phase.targetPath, config.frontendUrl).toString(), {
+    waitUntil: 'domcontentloaded',
+    timeout: 90000
+  })
+  assert.ok(!page.url().includes('/login'), `${phase.label} 被重定向到登录页，角色权限或会话无效。`)
+  if (phase.tabText) {
+    const tab = page.getByRole('tab', { name: phase.tabText }).first()
+    await tab.waitFor({ state: 'visible', timeout: 60000 })
+    await tab.click()
+  }
+  const selectorEvidence = []
+  for (const selector of phase.selectors) {
+    const locator = page.locator(selector).first()
+    await locator.waitFor({ state: 'visible', timeout: 60000 })
+    selectorEvidence.push(selector)
+  }
+  return {
+    key: phase.key,
+    label: phase.label,
+    roleKey: phase.roleKey,
+    targetPath: phase.targetPath,
+    status: 'PASS',
+    selectors: selectorEvidence,
+    acceptanceIds: phase.acceptanceIds
+  }
+}
+
+async function runPhaseAction(page, config, phase, actionEvidence) {
+  if (phase.actionKey === 'joinActiveOrder') {
+    const joinEvidence = await performActiveOrderJoin(page, config)
+    const conflictRouteEvidence = await verifyActiveOrderConflictRouteFailure(page, config, joinEvidence)
+    const cleanupEvidence = await verifyActiveOrderCleanupTraceability(page, config, joinEvidence)
+    return [joinEvidence, conflictRouteEvidence, cleanupEvidence]
+  }
+  if (phase.actionKey === 'verifyPqcActiveOrderReadOnly') {
+    const readOnlyEvidence = await verifyPqcActiveOrderReadOnly(page, config, actionEvidence)
+    const regulationEvidence = await verifyPqcRegulationItemsRendered(page, config, [...actionEvidence, readOnlyEvidence])
+    return [readOnlyEvidence, regulationEvidence]
+  }
+  if (phase.actionKey === 'verifyActiveOrderUnauthorizedMutationBlocked') {
+    return verifyActiveOrderUnauthorizedMutationBlocked(page, config, actionEvidence)
+  }
+  return undefined
 }
 
 async function runRealFlow(config) {
@@ -781,16 +1684,31 @@ async function runRealFlow(config) {
     headless: !config.headed,
     executablePath: resolveBrowserExecutable(config) || undefined
   })
+  const acceptanceMatrix = loadAcceptanceMatrix()
+  const phaseEvidence = []
+  const actionEvidence = []
   try {
     for (const [roleKey] of ROLE_CONFIGS) {
       const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'zh-CN' })
       const page = await context.newPage()
       try {
         await login(page, config, roleKey, config.roles[roleKey])
-        await page.goto(new URL(config.roles[roleKey].targetPath, config.frontendUrl).toString(), {
-          waitUntil: 'domcontentloaded',
-          timeout: 90000
-        })
+        const phases = M6_REAL_FLOW_PHASES.filter((phase) => phase.roleKey === roleKey)
+        if (!phases.length) {
+          await page.goto(new URL(config.roles[roleKey].targetPath, config.frontendUrl).toString(), {
+            waitUntil: 'domcontentloaded',
+            timeout: 90000
+          })
+        }
+        for (const phase of phases) {
+          phaseEvidence.push(await verifyRealFlowPhase(page, config, phase))
+          const action = await runPhaseAction(page, config, phase, actionEvidence)
+          if (action) {
+            for (const item of Array.isArray(action) ? action : [action]) {
+              actionEvidence.push(item)
+            }
+          }
+        }
       } finally {
         await context.close()
       }
@@ -799,7 +1717,25 @@ async function runRealFlow(config) {
     await browser.close()
   }
 
-  failFast('M6 全链路真实 E2E 尚未实现；完成 M1-M5 ACCEPTED 后必须扩展本脚本覆盖 62 个 AC。')
+  const acceptanceCoverage = buildAcceptanceCoverage(acceptanceMatrix, phaseEvidence, actionEvidence)
+  const coverageBlockers = assertAcceptanceCoverage(acceptanceCoverage)
+  const actionBlockers = buildActionBlockers(actionEvidence)
+  const result = {
+    status: coverageBlockers.length || actionBlockers.length ? 'BLOCKED' : 'PASS',
+    mode: 'real',
+    config: redactConfig(config),
+    phaseEvidence,
+    actionEvidence,
+    acceptanceCoverage,
+    blockers: [...actionBlockers, ...coverageBlockers]
+  }
+  writeEvidence(result)
+  if (result.blockers.length) {
+    printBlockers(result.blockers)
+    process.exitCode = 2
+    return
+  }
+  console.log('PASS role-requirement-matrix full real E2E')
 }
 
 async function main() {

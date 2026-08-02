@@ -13,6 +13,7 @@ export const DCC_CONTROLLED_FILE_ACTIONS = [
   'VIEW',
   'PREVIEW',
   'DOWNLOAD',
+  'PRINT',
   'WITHDRAW',
   'OBSOLETE',
   'PUBLISH',
@@ -269,6 +270,38 @@ export interface ControlledFileDownloadResult {
 
 export interface ControlledFileDownloadOptions {
   nonControlledWarningConfirmed?: boolean
+}
+
+export interface ControlledFilePrintCreateReqVO {
+  purpose: string
+  copies: number
+  receivingDepartment: string
+  useLocation: string
+}
+
+export interface ControlledFilePrintRecordVO {
+  id: number
+  controlledFileId: number
+  fileNumber: string
+  versionNo: string
+  printNo: string
+  purpose: string
+  copies: number
+  receivingDepartment: string
+  useLocation: string
+  printUserId: number
+  printUserName?: string | null
+  printTime: string
+  approvalStatus: string
+  approvalUserId?: number | null
+  approvalUserName?: string | null
+  approvalTime?: string | null
+}
+
+export interface ControlledFilePrintHtmlVO {
+  printRecordId: number
+  printNo: string
+  html: string
 }
 
 export interface ControlledFileRoutePreviewReqVO {
@@ -557,6 +590,7 @@ export interface ControlledFileVO {
   finalizationError?: string
   canPreview?: boolean
   canDownload?: boolean
+  canPrint?: boolean
   accessExplanation?: ControlledFileAccessExplanationVO
   canObsolete?: boolean
   canPublish?: boolean
@@ -1801,6 +1835,29 @@ export const retryControlledFileStamp = async (id: number | string) => {
 
 export const manualReleaseControlledFile = async (id: number | string): Promise<boolean> => {
   return await request.post({ url: `/dcc/controlled-files/${id}/manual-release` })
+}
+
+export const createControlledFilePrintRecord = async (
+  id: number | string,
+  data: ControlledFilePrintCreateReqVO
+): Promise<ControlledFilePrintRecordVO> => {
+  return await request.post({ url: `/dcc/controlled-files/${id}/controlled-print`, data })
+}
+
+export const getControlledFilePrintRecords = async (
+  id: number | string
+): Promise<ControlledFilePrintRecordVO[]> => {
+  return await request.get({ url: `/dcc/controlled-files/${id}/controlled-print/records` })
+}
+
+export const getControlledFilePrintHtml = async (
+  id: number | string,
+  printRecordId: number | string
+): Promise<ControlledFilePrintHtmlVO> => {
+  return await request.get({
+    url: `/dcc/controlled-files/${id}/controlled-print/print-html`,
+    params: { printRecordId }
+  })
 }
 
 export const getAxiosHeader = (headers: AxiosResponse['headers'], headerName: string): unknown => {

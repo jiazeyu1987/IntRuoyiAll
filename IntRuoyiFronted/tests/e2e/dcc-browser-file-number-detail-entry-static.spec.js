@@ -35,7 +35,7 @@ assert.match(
 assert.match(
   fileNumberColumn,
   /@click="openDetail\(getSelectedVersion\(row\)\.id\)"/,
-  'browser file number link must open the currently selected version viewer'
+  'browser file number link must open the currently selected version traceability detail'
 )
 assert.match(
   fileNumberColumn,
@@ -69,10 +69,20 @@ assert.match(actionColumn, /暂无可用操作/, 'browser action column must ren
 
 assert.match(
   browserPage,
-  /openControlledFileViewer\(router,\s*route,\s*id,\s*'browser'\)/,
-  'browser openDetail must route to the shared controlled file viewer helper'
+  /openControlledFileTraceability\(router,\s*route,\s*id,\s*'browser'\)/,
+  'browser openDetail must route to the shared controlled file traceability helper'
 )
 assert.doesNotMatch(browserPage, /name:\s*'DccControlledFileDetail'/, 'browser file number link must not route to the normal detail page')
+assert.doesNotMatch(
+  browserPage,
+  /openControlledFileViewer\(router,\s*route,\s*id,\s*'browser'\)/,
+  'browser file number link must not open viewer mode because viewer hides signature traceability'
+)
+assert.match(
+  browserPage,
+  /buildControlledFileViewerPath\(id,\s*'browser',\s*buildBrowserReturnPath\(\)\)/,
+  'browser preview action must keep using the protected viewer path'
+)
 assert.match(
   browserPage,
   /const hasBrowserRowActions = \(row: ControlledFileBrowserRow\) =>/,

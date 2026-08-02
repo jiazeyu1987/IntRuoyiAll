@@ -8,13 +8,13 @@
 
 - 新实现任务目录独立于规划任务目录；规划目录作为权威输入。本轮因用户明确调整 M0 gate，同步更新规划包中的 M0 Gate 定义。
 - 严格按 `M0 -> M1 -> M2 -> M3 -> M4 -> M5 -> M6` 推进。
-- 当前 M0 已按用户批准的新口径 accepted：M0 只负责识别、结构化冻结并归属 SOURCE blocker；M1 activeOrderId 权威模型切片、M2 生产系数/计划数量快照切片和 M3 QA/PQC 切片均已按 RED/GREEN、静态合同和 `real:check` 验证准出，当前里程碑切换到 M4。
+- 当前 M0 已按用户批准的新口径 accepted：M0 只负责识别、结构化冻结并归属 SOURCE blocker；M1 activeOrderId 权威模型切片、M2 生产系数/计划数量快照切片、M3 QA/PQC 切片、M4 调拨/放行来源切片、M5 日结/范围/路线配置切片已按 RED/GREEN、静态合同、目标 Maven 和 `real:check` 验证准出；当前进入 M6。
 - 只有当前里程碑全部 AC 达到 `ACCEPTED`，且对应真实 Playwright E2E 或 E2E 前置检查通过，才允许进入下一里程碑。
 - 本次按用户明确要求不执行 `git push`；如后续需要提交，只允许本地提交和本地验证。
 
 ## Non-Scope
 
-- 不跨里程碑提前实现 M5-M6 生产代码；M4 只能围绕调拨、发货、补退料、批次追溯、开工检查、放行来源和完整性按 BDD + 严格 TDD 推进。本次状态同步不启动 M4 生产代码。
+- 不在 M6 完成前宣称 Excel 目标全部完成；M6 只能围绕迁移、并发、性能、真实 E2E、清理和上线验收门禁按 BDD + 严格 TDD 推进。
 - 不在缺少正式来源、测试账号、运行服务、数据库、Redis、电子签名或真实样本时用 mock、默认值、API-only、静态合同或截图替代真实 E2E。
 - 不引入 fallback、双读、兼容 shim、默认生产系数 `1`、默认订单、默认人员、默认数量、默认合格或占位成功。
 - 不使用 `formBindings`、`MAIN` 槽位或 `工序开始` 替代正式逐工序批记录绑定。
@@ -25,8 +25,8 @@
 - [x] M1：权威活跃订单与增量模型。
 - [x] M2：生产事实、系数分配与正式批记录。
 - [x] M3：QA 规程与 PQC 闭环。
-- [ ] M4：调拨、异常、完整性与放行。
-- [ ] M5：日结、范围、权限、审计与快照。
+- [x] M4：调拨、异常、完整性与放行。
+- [x] M5：日结、范围、权限、审计与快照。
 - [ ] M6：迁移、并发、性能、真实 E2E 与上线验收。
 
 ## Expected Verification
@@ -34,7 +34,7 @@
 - M0 source map 明确 ERP 订单、调拨、发货、补料、退料、批次、QA 规程、生产系数、正式批记录绑定、异常、返工、报废、库存、签名、租户、角色和运行服务的正式来源或 blocker。
 - BDD/TDD acceptance validator 对规划包通过。
 - Roadmap validator 对规划包通过。
-- 当前实现任务 `task-state.json` 可按 UTF-8 解析，M0/M1/M2/M3 accepted、M4 in_progress 和 blocker 归属状态明确。
+- 当前实现任务 `task-state.json` 可按 UTF-8 解析，M0/M1/M2/M3/M4/M5 accepted、M6 in_progress 和后续验收状态明确。
 - 真实 E2E 前置检查覆盖前端、后端、数据库、Redis、浏览器、登录页、角色账号、权限、电子签名和任务数据来源；M0 准出要求 ENV/RUNTIME blocker 为 0，SOURCE blocker 必须全部结构化冻结并归属到 M1-M5。
 - 当前任务 Markdown/JSON 均可 UTF-8 读取，`git diff --check` 无 whitespace error。
 - 本次不执行 `git push`；如后续需要提交，只允许本地提交。
@@ -45,7 +45,7 @@ in_progress
 
 ## Current Milestone
 
-M4
+M6
 
 ## Milestone Boundary Guard
 
@@ -53,18 +53,26 @@ M4
 - M1 已按当前 activeOrderId source gate 准出：RRM-BLK-001..007 均由代码、迁移、服务测试和 `real:check` 验证关闭。
 - M2 已按 production coefficient snapshots source gate 准出：RRM-BLK-026..028 均由代码、迁移、服务测试、静态合同和 `real:check` 验证关闭。
 - M3 已按 QA/PQC source gate 准出：RRM-BLK-017..025 均由 QA 规程/PQC 任务 schema、服务测试、前端动态渲染静态合同、类型检查和 `real:check` 验证关闭。
-- 当前主线程允许进入 M4；M4 只允许处理 RRM-BLK-008..016 对应的调拨、发货、补退料、批次追溯、过程检验聚合和 eDHR 放行来源切片。
-- `blocker-inventory.md`、`source-map.md`、`verification-report.md` 中出现的 M5-M6 只表示 blocker 归属、后续解决方向或未来 RED/GREEN 验证入口，不表示当前主线程已进入对应里程碑。
-- 在 M4 未达到 GREEN/REGRESSION/E2E 证据前，不得新增 M5-M6 生产代码、不得把 M5-M6 AC 标记为 GREEN/ACCEPTED。
+- M4 已按 transfer/release source gate 准出：RRM-BLK-008..016 均由调拨追溯 schema/service、放行完整性来源适配器、既有放行服务回归和 `real:check` 验证关闭。
+- M5 route configuration separation source gate 子项准出：RRM-BLK-029..031 均由工艺路线前端静态合同、eDHR 后端运行态解析器、后端 compile、前端回归和 `real:check` 验证关闭。
+- M5 日结/范围静态门禁已 GREEN：班组长工作台提供可见日结待处理面，scope 模型包含工位、生产线、设备和订单范围。
+- M5 后端目标 Maven 已 GREEN：`mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderScopeServiceTest,MesProcessPoolTeamLeaderSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` 通过，7 tests、0 failures/errors、BUILD SUCCESS。
+- M6 当前进行中：只允许处理迁移、并发、性能、全量真实 E2E、任务数据清理和上线/readiness gate；不得把 M6 未验证项提前标记为 ACCEPTED。
+- M6 AC-M04 当前只达到部分动作和后端失败路径证据：真实页面 `joinActiveOrder` 已返回 `activeOrderId=12`，真实页面 `activeOrderConflictRouteRejected` 已证明错误路线 fail-fast 且不新增错误 activeOrder，真实页面 `activeOrderCrossRoleReadOnly` 已证明 PQC 只读读取同一 activeOrderId，专用错误角色 `aoteman` 已证明活跃订单写入被拒绝，清理追溯门禁已结构化为 `activeOrderCleanupDeferred`，后端重复加入、并发唯一键和冲突路线前置拒绝单测已 GREEN；但 activeOrderId 仍是后续 M6 共享夹具，AC-M04 仍缺正式清理窗口/可重建夹具和 M6 迁移/性能/上线门禁，不得标记为 `ACCEPTED`。
+- `blocker-inventory.md`、`source-map.md`、`verification-report.md` 中出现的 M6 只表示当前待验收范围，不表示 Excel 全量目标已完成。
+- 在 M6 未达到 GREEN/REGRESSION/E2E/launch gate 证据前，不得把 62 项 AC 或最终 Excel 目标标记为完成。
 
 ## Blockers
 
-- M0 source map 已完成并 accepted：31 个 SOURCE blocker 已结构化冻结到 `blocker-inventory.md`，其中 M1 已验证关闭 7 个、M2 已验证关闭 3 个、M3 已验证关闭 9 个；当前真实预检剩余 12 个 SOURCE blocker，无 ENV/RUNTIME blocker。
+- M0 source map 已完成并 accepted：31 个 SOURCE blocker 已结构化冻结到 `blocker-inventory.md`，其中 M1 已验证关闭 7 个、M2 已验证关闭 3 个、M3 已验证关闭 9 个、M4 已验证关闭 9 个、M5 已验证关闭 3 个；当前真实预检无 SOURCE/ENV/RUNTIME blocker。
 - M1 已验证关闭：RRM-BLK-001..007 已通过 active order schema/migration/service/controller/PQC source switch 代码和 `real:check` 清零。
 - M2 已验证关闭：RRM-BLK-026..028 已通过 active order process snapshot schema、目标数量服务、分配/完成链路和自动排产 fail-fast 代码清零。
 - M3 已验证关闭：RRM-BLK-017..025 已通过 QA 规程版本、PQC task、逐件明细、提交来源和前端动态渲染代码与 `real:check` 清零。
-- M4 当前 blocker：RRM-BLK-008..016，调拨/发货/补退料/批次关系和放行检验、偏差、返工、报废、库存真实来源仍待正式接入。
-- M5 后续 blocker：RRM-BLK-029..031，正式批记录绑定与 `formBindings` / 默认 `MAIN` / `工序开始` 的分离仍需真实路径证明和实现约束。
+- M4 已验证关闭：RRM-BLK-008..016 已通过 activeOrderId 调拨/发货/补退料/批次追溯 schema、放行检验/偏差/返工/报废/库存来源适配器、Maven 回归、静态合同和 `real:check` 清零。
+- M5 子项已验证关闭：RRM-BLK-029..031 已通过正式批记录绑定与 `formBindings` / 默认 `MAIN` / `工序开始` 分离代码、静态合同、后端 compile 和 `real:check` 清零。
+- M5 日结/范围静态已验证：`pnpm --dir IntRuoyiFronted e2e:role-matrix-daily-close-scope:static` PASS。
+- M5 后端目标 Maven 已验证：`mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderScopeServiceTest,MesProcessPoolTeamLeaderSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` PASS，7 tests、0 failures/errors、BUILD SUCCESS。
+- M6 当前待办：迁移、并发、性能、全量真实 E2E、清理和上线验收门禁仍未完成；AC-M04 已有 `joinActiveOrder`、`activeOrderConflictRouteRejected`、`activeOrderCrossRoleReadOnly`、`activeOrderUnauthorizedMutationBlocked` 四个真实 PASS 动作证据和 `activeOrderCleanupDeferred` 清理 BLOCKED 证据，后端重复/并发/冲突路线单测 GREEN，但仍不能宣称 Excel 全量目标完成。
 - 本地 M0 夹具不等于正式来源实现：QC/IPQC 模板和从 `过程检验记录 V3.0` 逆推的临时 QA 模板不是正式 QA 规程版本模型，工单/调拨夹具不是 activeOrderId 关系源。
 
 ## M0 Evidence
@@ -107,6 +115,32 @@ M4
 - `verification-report.md`
 - `role-requirement-matrix-real-e2e-evidence.md`
 
+## M4 Evidence
+
+- `backend-api-evidence.md`
+- `database-schema-evidence.md`
+- `execution-log.md`
+- `test-report.md`
+- `verification-report.md`
+- `role-requirement-matrix-real-e2e-evidence.md`
+
+## M5 Evidence
+
+- `execution-log.md`
+- `test-report.md`
+- `verification-report.md`
+- `blocker-inventory.md`
+- `source-map.md`
+- `role-requirement-matrix-real-e2e-evidence.md`
+
+## M6 Evidence
+
+- `execution-log.md`
+- `test-report.md`
+- `verification-report.md`
+- `role-requirement-matrix-real-e2e-evidence.md`
+- `IntRuoyiFronted/test-results/role-requirement-matrix-real-flow/result.json`
+
 ## Applicable Gate Summary
 
 - 严格 TDD 状态链：`PLANNED -> BDD_APPROVED -> TEST_ADDED -> RED_VALID -> IMPLEMENTING -> GREEN -> REFACTORED -> REGRESSION_PASS -> E2E_PASS -> ACCEPTED`。
@@ -117,5 +151,5 @@ M4
 ## 设计约束检查
 
 - `是否引入 fallback/降级/吞异常`：否；`real:check` 对缺正式来源保持 fail-fast / BLOCKED，不返回默认成功。
-- `是否从根因和长期维护角度解决`：是，按规划包先冻结正式来源、source map、真实 E2E 前置和 blocker，再按 AC / TC 逐项进入后续里程碑。
+- `是否从根因和长期维护角度解决`：是，按规划包先冻结正式来源、source map、真实 E2E 前置和 blocker，再按 AC / TC 逐项进入后续里程碑；M6 仍需完成全量验收门禁。
 - `是否存在临时补丁或绕过`：否；当前 `m0-derived-qa-regulation.md` 和本机工单/调拨/签名数据仅是 M0 预检夹具，明确不替代 activeOrderId、QA 规程版本、PQC 任务或 ERP 关系正式模型。

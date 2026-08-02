@@ -28,6 +28,9 @@ import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileNas
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileObsoleteReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePageReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePreviewMetadataRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePrintCreateReqVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePrintHtmlRespVO;
+import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePrintRecordRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileProjectCodeRecognitionRespVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFilePublishReqVO;
 import cn.iocoder.yudao.module.dcc.controller.admin.file.vo.DccControlledFileRecognitionMigrationImportPreviewRespVO;
@@ -64,6 +67,7 @@ import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileBatchRecognitio
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileNasTransferService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileProjectCodeRecognitionService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFilePublishService;
+import cn.iocoder.yudao.module.dcc.service.file.DccControlledFilePrintService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileUploadService;
 import cn.iocoder.yudao.module.dcc.service.file.DccControlledFileWorkflowService;
 import cn.iocoder.yudao.module.dcc.service.file.DccDmrSheetExportService;
@@ -155,6 +159,8 @@ public class DccControlledFileController {
     private DccControlledFileNasTransferService nasTransferService;
     @Resource
     private DccApprovalPrintTemplateService approvalPrintTemplateService;
+    @Resource
+    private DccControlledFilePrintService controlledFilePrintService;
     @Resource
     private DccUploadTicketService uploadTicketService;
     @Resource
@@ -653,6 +659,32 @@ public class DccControlledFileController {
     public CommonResult<Boolean> releaseManualDistribution(@PathVariable("id") Long id) {
         finalizationService.releaseManualDistribution(getLoginUserId(), id);
         return success(true);
+    }
+
+    @PostMapping("/{id:\\d+}/controlled-print")
+    @Operation(summary = "Create one controlled print record")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:print')")
+    public CommonResult<DccControlledFilePrintRecordRespVO> createControlledPrint(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody DccControlledFilePrintCreateReqVO reqVO) {
+        return success(controlledFilePrintService.createPrintRecord(getLoginUserId(), id, reqVO));
+    }
+
+    @GetMapping("/{id:\\d+}/controlled-print/records")
+    @Operation(summary = "List controlled print records")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:print')")
+    public CommonResult<List<DccControlledFilePrintRecordRespVO>> getControlledPrintRecords(
+            @PathVariable("id") Long id) {
+        return success(controlledFilePrintService.getPrintRecords(getLoginUserId(), id));
+    }
+
+    @GetMapping("/{id:\\d+}/controlled-print/print-html")
+    @Operation(summary = "Build controlled print HTML with traceable metadata")
+    @PreAuthorize("@ss.hasPermission('dcc:controlled-file:print')")
+    public CommonResult<DccControlledFilePrintHtmlRespVO> getControlledPrintHtml(
+            @PathVariable("id") Long id,
+            @RequestParam("printRecordId") Long printRecordId) {
+        return success(controlledFilePrintService.getPrintHtml(getLoginUserId(), id, printRecordId));
     }
 
     @GetMapping("/{id:\\d+}/preview")

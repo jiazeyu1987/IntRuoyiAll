@@ -1,5 +1,6 @@
 package cn.iocoder.yudao.module.mes.service.pro.processpool.team;
 
+import cn.iocoder.yudao.framework.common.exception.ServiceException;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolActiveOrderProcessSnapshotDO;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditDO;
@@ -11,6 +12,7 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPoolTeamMaintenanceAuditMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
+import cn.iocoder.yudao.module.mes.enums.ErrorCodeConstants;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DuplicateKeyException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -26,7 +29,9 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -107,6 +112,100 @@ class MesTeamLeaderActiveOrderServiceTest {
         assertSnapshot(snapshots.get(0), 8101L, 9001L, 922119L, 448L, 928609L, 6001L, "200", "3.000000", "600.000000");
         assertSnapshot(snapshots.get(1), 8101L, 9001L, 922119L, 448L, 928610L, 6002L, "200", "2.000000", "400.000000");
         verify(auditMapper).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void shouldReturnExistingActiveOrderWhenSameWorkOrderRouteVersionAlreadyActive() {
+        when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(9001L, 922119L, 448L))
+                .thenReturn(MesProcessPoolActiveOrderDO.builder()
+                        .id(8101L)
+                        .leaderUserId(3001L)
+                        .workOrderId(9001L)
+                        .routeId(922119L)
+                        .routeVersionId(448L)
+                        .activeStatus("ACTIVE")
+                        .businessStatus("ACTIVE")
+                        .build());
+
+        Long activeOrderId = service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .routeId(922119L)
+                .routeVersionId(448L)
+                .build());
+
+        assertEquals(8101L, activeOrderId);
+        verify(activeOrderMapper).selectActiveByWorkOrderRouteVersion(9001L, 922119L, 448L);
+        verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
+        verify(processSnapshotMapper, never()).insertBatch(any());
+        verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void shouldReturnExistingActiveOrderWhenConcurrentInsertHitsUniqueKey() {
+        MesProcessPoolActiveOrderDO existing = MesProcessPoolActiveOrderDO.builder()
+                .id(8102L)
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .routeId(922119L)
+                .routeVersionId(448L)
+                .activeStatus("ACTIVE")
+                .businessStatus("ACTIVE")
+                .build();
+        when(activeOrderMapper.selectActiveByWorkOrderRouteVersion(9001L, 922119L, 448L))
+                .thenReturn(null, existing);
+        when(workOrderService.validateWorkOrderExists(9001L)).thenReturn(MesProWorkOrderDO.builder()
+                .id(9001L)
+                .code("WO-9001")
+                .quantity(new BigDecimal("200"))
+                .build());
+        when(scheduleOrderMapper.selectEffectiveByWorkOrderId(9001L)).thenReturn(MesProScheduleOrderDO.builder()
+                .id(7701L)
+                .workOrderId(9001L)
+                .routeId(922119L)
+                .routeVersionId(448L)
+                .build());
+        when(activeOrderMapper.insert(any(MesProcessPoolActiveOrderDO.class)))
+                .thenThrow(new DuplicateKeyException("uk_mes_pp_active_order"));
+
+        Long activeOrderId = service.addActiveOrder(MesTeamLeaderActiveOrderAddReqBO.builder()
+                .leaderUserId(3001L)
+                .workOrderId(9001L)
+                .routeId(922119L)
+                .routeVersionId(448L)
+                .build());
+
+        assertEquals(8102L, activeOrderId);
+        verify(processSnapshotMapper, never()).insertBatch(any());
+        verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
+    }
+
+    @Test
+    void shouldRejectConflictingRouteBeforeInsertingActiveOrder() {
+        when(workOrderService.validateWorkOrderExists(9001L)).thenReturn(MesProWorkOrderDO.builder()
+                .id(9001L)
+                .code("WO-9001")
+                .quantity(new BigDecimal("200"))
+                .build());
+        when(scheduleOrderMapper.selectEffectiveByWorkOrderId(9001L)).thenReturn(MesProScheduleOrderDO.builder()
+                .id(7701L)
+                .workOrderId(9001L)
+                .routeId(922119L)
+                .routeVersionId(448L)
+                .build());
+
+        ServiceException ex = assertThrows(ServiceException.class, () -> service.addActiveOrder(
+                MesTeamLeaderActiveOrderAddReqBO.builder()
+                        .leaderUserId(3001L)
+                        .workOrderId(9001L)
+                        .routeId(922120L)
+                        .routeVersionId(449L)
+                        .build()));
+
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED.getCode(), ex.getCode());
+        verify(activeOrderMapper, never()).insert(any(MesProcessPoolActiveOrderDO.class));
+        verify(processSnapshotMapper, never()).insertBatch(any());
+        verify(auditMapper, never()).insert(any(MesProcessPoolTeamMaintenanceAuditDO.class));
     }
 
     @Test

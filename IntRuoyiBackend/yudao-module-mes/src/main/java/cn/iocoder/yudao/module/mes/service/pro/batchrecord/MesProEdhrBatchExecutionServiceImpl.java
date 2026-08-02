@@ -4701,7 +4701,11 @@ public class MesProEdhrBatchExecutionServiceImpl implements MesProEdhrBatchExecu
     }
 
     private String resolveRouteFormSlotType(String formSlotType) {
-        return StrUtil.blankToDefault(StrUtil.trim(formSlotType), FORM_SLOT_MAIN);
+        String trimmed = StrUtil.trim(formSlotType);
+        if (StrUtil.isBlank(trimmed) || !ROUTE_FORM_SLOT_TYPES.contains(trimmed)) {
+            throw exception(PRO_EDHR_BATCH_EXECUTION_DEFAULT_REPORT_REQUIRED);
+        }
+        return trimmed;
     }
 
     private Boolean resolveRouteRecordbookEnabled(Boolean recordbookEnabled, String recordCategory) {

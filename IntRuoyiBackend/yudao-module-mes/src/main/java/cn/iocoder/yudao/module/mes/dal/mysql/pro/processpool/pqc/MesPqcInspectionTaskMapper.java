@@ -5,6 +5,8 @@ import cn.iocoder.yudao.framework.mybatis.core.query.LambdaQueryWrapperX;
 import cn.iocoder.yudao.module.mes.dal.dataobject.pro.processpool.pqc.MesPqcInspectionTaskDO;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.util.List;
+
 @Mapper
 public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspectionTaskDO> {
 
@@ -19,5 +21,14 @@ public interface MesPqcInspectionTaskMapper extends BaseMapperX<MesPqcInspection
                 .orderByAsc(MesPqcInspectionTaskDO::getInspectionType)
                 .orderByAsc(MesPqcInspectionTaskDO::getRoundNo)
                 .last("LIMIT 1"));
+    }
+
+    default List<MesPqcInspectionTaskDO> selectListByActiveOrderId(Long activeOrderId) {
+        return selectList(new LambdaQueryWrapperX<MesPqcInspectionTaskDO>()
+                .eq(MesPqcInspectionTaskDO::getActiveOrderId, activeOrderId)
+                .orderByAsc(MesPqcInspectionTaskDO::getBusinessDate)
+                .orderByAsc(MesPqcInspectionTaskDO::getInspectionType)
+                .orderByAsc(MesPqcInspectionTaskDO::getRoundNo)
+                .orderByAsc(MesPqcInspectionTaskDO::getId));
     }
 }

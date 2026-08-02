@@ -37,6 +37,14 @@
               :value="project.id"
             />
           </el-select>
+          <el-alert
+            v-if="projectCodeOptionsError"
+            class="mt-8px !w-560px"
+            type="warning"
+            :closable="false"
+            show-icon
+            :title="projectCodeOptionsError"
+          />
         </el-form-item>
         <el-form-item v-if="!isExternalReview" label="文件分类" prop="fileTypeTaxonomyId">
           <div class="w-full">
@@ -54,29 +62,47 @@
             <div v-if="selectedFileTypeTaxonomyPathLabel" class="mt-6px text-12px text-[var(--el-text-color-secondary)]">
               {{ selectedFileTypeTaxonomyPathLabel }}
             </div>
+            <el-alert
+              v-if="fileTypeTaxonomyOptionsError"
+              class="mt-8px !w-560px"
+              type="warning"
+              :closable="false"
+              show-icon
+              :title="fileTypeTaxonomyOptionsError"
+            />
           </div>
         </el-form-item>
         <el-form-item label="文件类别" prop="categoryId">
-          <el-select
-            v-model="formData.categoryId"
-            class="!w-360px"
-            clearable
-            filterable
-            placeholder="请选择文件类别"
-            @change="handleCategoryChange"
-          >
-            <el-option
-              v-for="item in availableCategories"
-              :key="item.id"
-              :label="item.name"
-              :value="item.id as number"
+          <div class="w-full">
+            <el-select
+              v-model="formData.categoryId"
+              class="!w-360px"
+              clearable
+              filterable
+              placeholder="请选择文件类别"
+              @change="handleCategoryChange"
+            >
+              <el-option
+                v-for="item in availableCategories"
+                :key="item.id"
+                :label="item.name"
+                :value="item.id as number"
+              />
+              <template #empty>
+                <div class="px-12px py-8px text-12px text-[var(--el-text-color-secondary)]">
+                  当前没有可上传文件类别
+                </div>
+              </template>
+            </el-select>
+            <el-alert
+              v-if="categoryPermissionPreflightMessage"
+              class="mt-8px !w-560px"
+              type="warning"
+              :closable="false"
+              show-icon
+              :title="categoryPermissionPreflightMessage"
             />
-            <template #empty>
-              <div class="px-12px py-8px text-12px text-[var(--el-text-color-secondary)]">
-                暂无已绑定提交目录的文件类别
-              </div>
-            </template>
-          </el-select>
+          </div>
         </el-form-item>
         <el-form-item v-if="uploadDirectoryTree" label="提交目录" prop="directoryId">
           <div class="w-full">
@@ -169,6 +195,14 @@
                 type="warning"
                 show-icon
               />
+              <el-alert
+                v-if="isRequestedVersionDuplicate"
+                class="mt-8px"
+                :closable="false"
+                :title="versionDuplicatePreflightMessage"
+                type="error"
+                show-icon
+              />
               <div class="mt-4px text-[var(--el-text-color-secondary)]">
                 原版本路径：{{ currentVersionInfo.originalFilePath || '-' }}
               </div>
@@ -180,7 +214,7 @@
               </div>
             </template>
             <template v-else>
-              未查询到同编号现行版本，将按新建规则校验。
+              未查询到同编号现行版本，将创建新的 master 主档，并按新建规则校验。
             </template>
           </div>
         </el-form-item>
@@ -266,6 +300,15 @@
                 </div>
               </template>
             </el-upload>
+            <el-alert
+              v-if="uploadPreviewError"
+              data-testid="dcc-upload-preview-error"
+              class="mt-12px"
+              type="error"
+              :closable="false"
+              show-icon
+              :title="uploadPreviewError"
+            />
             <div
               v-if="previewUpload"
               class="mt-12px rounded-8px border border-[var(--el-border-color-light)] bg-[#fafcff] px-12px py-10px text-13px"
@@ -409,6 +452,7 @@ import {
   EDITABLE_SOURCE_MESSAGE,
   formatPreviewFileSize,
   resolveUploadErrorMessage,
+  resolveUploadPreviewErrorMessage,
   isDccProductRequiredForCategoryCode,
   validateDrawingPdfUpload,
   validateControlledFileSelection,
@@ -447,6 +491,7 @@ const drawingPdfFileList = ref<UploadUserFile[]>([])
 const previewUpload = ref<ControlledFileUploadRespVO>()
 const drawingPdfUpload = ref<ControlledFileUploadRespVO>()
 const previewFileBlob = ref<File | null>(null)
+const uploadPreviewError = ref('')
 const submitLoading = ref(false)
 const uploadPreviewLoading = ref(false)
 const uploadDrawingPdfLoading = ref(false)
@@ -454,6 +499,9 @@ const uploadNameOptionsLoading = ref(false)
 const currentVersionLookupLoading = ref(false)
 const projectCodeOptionsLoading = ref(false)
 const fileTypeTaxonomiesLoading = ref(false)
+const projectCodeOptionsError = ref('')
+const fileTypeTaxonomyOptionsError = ref('')
+const categoryOptionsError = ref('')
 const selectedHistoryVersion = ref('')
 const selectedHistoryFileName = ref('')
 const uploadSessionId = createControlledFileUploadSessionId()
@@ -496,6 +544,15 @@ const availableCategories = computed(() =>
     (category) => category.active && Boolean(category.directoryId) && category.canUpload !== false
   )
 )
+const categoryPermissionPreflightMessage = computed(() => {
+  if (categoryOptionsError.value) {
+    return categoryOptionsError.value
+  }
+  if (!categories.value.length || !availableCategories.value.length) {
+    return '当前没有可上传文件类别：请确认分类已启用、已绑定提交目录，并授予当前账号文件类别 UPLOAD 权限。'
+  }
+  return ''
+})
 const selectedCategoryDirectoryBound = computed(() => Boolean(selectedCategory.value?.directoryId))
 const isProductRequiredForSelectedCategory = computed(() =>
   isDccProductRequiredForCategoryCode(selectedCategory.value?.code)
@@ -712,6 +769,7 @@ const resetSelectedPreview = () => {
   previewUpload.value = undefined
   fileList.value = []
   previewFileBlob.value = null
+  uploadPreviewError.value = ''
 }
 
 const resetDrawingPdfUpload = () => {
@@ -756,6 +814,7 @@ const buildUploadPreviewContext = () => {
 
 const loadProjectCodeOptions = async (keyword = '') => {
   projectCodeOptionsLoading.value = true
+  projectCodeOptionsError.value = ''
   try {
     const page = await getProjectCodePage({
       pageNo: 1,
@@ -766,7 +825,11 @@ const loadProjectCodeOptions = async (keyword = '') => {
     projectCodeOptions.value = page.list || []
   } catch (error) {
     projectCodeOptions.value = []
-    message.error(resolveUploadErrorMessage(error, 'DCC 项目加载失败，请查看错误提示后重试'))
+    const errorMessage = resolveUploadErrorMessage(error, 'DCC 项目候选加载失败，请确认项目代码权限或联系文控管理员。')
+    projectCodeOptionsError.value = errorMessage.includes('DCC 项目候选加载失败')
+      ? errorMessage
+      : `DCC 项目候选加载失败：${errorMessage}`
+    message.error(projectCodeOptionsError.value)
   } finally {
     projectCodeOptionsLoading.value = false
   }
@@ -781,11 +844,16 @@ const handleProjectCodeOptionsVisibleChange = async (visible: boolean) => {
 
 const loadFileTypeTaxonomies = async () => {
   fileTypeTaxonomiesLoading.value = true
+  fileTypeTaxonomyOptionsError.value = ''
   try {
     fileTypeTaxonomies.value = await getFileTypeTaxonomyList()
   } catch (error) {
     fileTypeTaxonomies.value = []
-    message.error(resolveUploadErrorMessage(error, '文件分类加载失败，请查看错误提示后重试'))
+    const errorMessage = resolveUploadErrorMessage(error, '文件分类候选加载失败，请确认文件类型权限或联系文控管理员。')
+    fileTypeTaxonomyOptionsError.value = errorMessage.includes('文件分类候选加载失败')
+      ? errorMessage
+      : `文件分类候选加载失败：${errorMessage}`
+    message.error(fileTypeTaxonomyOptionsError.value)
   } finally {
     fileTypeTaxonomiesLoading.value = false
   }
@@ -866,12 +934,22 @@ const applyDccProjectCodeProductNumber = () => {
 }
 
 const loadBaseData = async () => {
-  const [categoryList] = await Promise.all([
-    getFileCategoryList(),
-    loadFileTypeTaxonomies(),
-    loadProjectCodeOptions()
-  ])
-  categories.value = categoryList.filter((item) => item.active)
+  categoryOptionsError.value = ''
+  try {
+    const [categoryList] = await Promise.all([
+      getFileCategoryList(),
+      loadFileTypeTaxonomies(),
+      loadProjectCodeOptions()
+    ])
+    categories.value = categoryList.filter((item) => item.active)
+  } catch (error) {
+    categories.value = []
+    const errorMessage = resolveUploadErrorMessage(error, '文件类别候选加载失败，请确认分类权限或联系文控管理员。')
+    categoryOptionsError.value = errorMessage.includes('文件类别候选加载失败')
+      ? errorMessage
+      : `文件类别候选加载失败：${errorMessage}`
+    message.error(categoryOptionsError.value)
+  }
 }
 
 const loadUploadNameOptions = async (dccProjectCodeId: number, fileTypeTaxonomyId: number) => {
@@ -967,6 +1045,15 @@ const isRequestedVersionDuplicate = computed(() => {
   const requestedVersionNo = normalizePreflightVersionNo(formData.versionNo)
   return Boolean(currentVersionInfo.value?.matched && currentVersionNo && requestedVersionNo && currentVersionNo === requestedVersionNo)
 })
+const versionDuplicatePreflightMessage = computed(() => {
+  if (!isRequestedVersionDuplicate.value) {
+    return ''
+  }
+  if (normalizePreflightVersionNo(formData.versionNo) === 'V1.0') {
+    return '文件编号已存在，不能重复创建 V1.0 原版，请改用升版流程或更换文件编号。'
+  }
+  return `文件编号 ${formData.fileNumber.trim()} 的版本 ${formData.versionNo.trim()} 已存在，请调整升版版本号。`
+})
 
 const approvalChainPreflightText = computed(() => {
   const approvalPositionIds = selectedCategory.value?.approvalPositionIds || []
@@ -990,7 +1077,7 @@ const uploadPreflightChecks = computed<UploadPreflightCheck[]>(() => {
   const versionDescription = currentVersionLookupLoading.value
     ? '正在校验文件编号和版本，请等待结果后再提交。'
     : isRequestedVersionDuplicate.value
-      ? `文件编号 ${formData.fileNumber.trim()} 的版本 ${formData.versionNo.trim()} 已存在，请调整升版版本号。`
+      ? versionDuplicatePreflightMessage.value
       : currentVersionProjectionBlockReason.value
         ? currentVersionProjectionBlockReason.value
         : currentVersionInfo.value?.modifying
@@ -1162,9 +1249,11 @@ const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
   )
 
   if (!validation.valid) {
-    message.error(validation.message || '文件校验失败')
+    const errorMessage = validation.message || '文件校验失败'
     uploadRef.value?.clearFiles()
     resetSelectedPreview()
+    uploadPreviewError.value = errorMessage
+    message.error(errorMessage)
     return
   }
   if (!file.raw) {
@@ -1172,6 +1261,7 @@ const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
   }
 
   clearSubmitFieldErrors(submitFieldErrors)
+  uploadPreviewError.value = ''
   fileList.value = uploadFiles.slice(-1)
   previewUpload.value = undefined
   previewFileBlob.value = file.raw as File
@@ -1186,7 +1276,8 @@ const handleFileChange: UploadProps['onChange'] = async (file, uploadFiles) => {
   } catch (error) {
     previewUpload.value = undefined
     previewFileBlob.value = null
-    message.error(resolveUploadErrorMessage(error, '文件预览上传失败，请查看错误提示后重试'))
+    uploadPreviewError.value = resolveUploadPreviewErrorMessage(error, '文件预览上传失败，请查看错误提示后重试')
+    message.error(uploadPreviewError.value)
   } finally {
     uploadPreviewLoading.value = false
   }
@@ -1215,9 +1306,11 @@ const handleDrawingPdfChange: UploadProps['onChange'] = async (file, uploadFiles
   )
 
   if (!validation.valid) {
-    message.error(validation.message || '图纸 PDF 校验失败')
+    const errorMessage = validation.message || '图纸 PDF 校验失败'
     drawingPdfUploadRef.value?.clearFiles()
     resetDrawingPdfUpload()
+    uploadPreviewError.value = errorMessage
+    message.error(errorMessage)
     return
   }
   if (!file.raw) {
@@ -1225,12 +1318,15 @@ const handleDrawingPdfChange: UploadProps['onChange'] = async (file, uploadFiles
   }
   const isPdf = file.raw.type === 'application/pdf' || /\.pdf$/i.test(file.name)
   if (!isPdf) {
-    message.error('图纸文件必须上传 PDF 格式')
+    const errorMessage = '文件格式不受支持：图纸文件必须上传 PDF 格式'
     drawingPdfUploadRef.value?.clearFiles()
     resetDrawingPdfUpload()
+    uploadPreviewError.value = errorMessage
+    message.error(errorMessage)
     return
   }
 
+  uploadPreviewError.value = ''
   drawingPdfFileList.value = uploadFiles.slice(-1)
   drawingPdfUpload.value = undefined
   uploadDrawingPdfLoading.value = true
@@ -1242,7 +1338,8 @@ const handleDrawingPdfChange: UploadProps['onChange'] = async (file, uploadFiles
     )
   } catch (error) {
     drawingPdfUpload.value = undefined
-    message.error(resolveUploadErrorMessage(error, '图纸 PDF 上传失败，请查看错误提示后重试'))
+    uploadPreviewError.value = resolveUploadPreviewErrorMessage(error, '图纸 PDF 上传失败，请查看错误提示后重试')
+    message.error(uploadPreviewError.value)
   } finally {
     uploadDrawingPdfLoading.value = false
   }
@@ -1271,6 +1368,11 @@ const submitForm = async () => {
   }
   if (currentVersionInfo.value?.modifying) {
     message.warning('同编号文件已有未完成流程，当前不可重复提交')
+    return
+  }
+  if (isRequestedVersionDuplicate.value) {
+    submitFieldErrors.versionNo = versionDuplicatePreflightMessage.value
+    message.warning(versionDuplicatePreflightMessage.value)
     return
   }
   if (!isExternalReview.value && formData.changeType === 'REVISION' && !formData.revisionTargetControlledFileId) {

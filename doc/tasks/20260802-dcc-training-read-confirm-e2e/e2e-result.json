@@ -1,0 +1,111 @@
+{
+  "status": "PASS_WITH_ACTIVE_RELEASE_BLOCKED",
+  "finishedAt": "2026-08-02T11:34:11.057Z",
+  "fileId": "2054545668044070281",
+  "fileNumber": "CODX-DCC-TRAIN-20260802093955",
+  "versionNo": "V1.0",
+  "trainingReadConfirmation": "PASS",
+  "finalActiveRelease": "BLOCKED",
+  "currentFileStatus": "PENDING_MANUAL_DISTRIBUTION",
+  "needTraining": 1,
+  "trainingRecipients": [
+    {
+      "username": "chenchen",
+      "userId": "885",
+      "accumulatedViewSeconds": 748,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 19:25:34"
+    },
+    {
+      "username": "sunrongrong",
+      "userId": "937",
+      "accumulatedViewSeconds": 725,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 19:25:54"
+    },
+    {
+      "username": "liuru",
+      "userId": "957",
+      "accumulatedViewSeconds": 663,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 19:26:54"
+    },
+    {
+      "username": "zhaojie",
+      "userId": "1074",
+      "accumulatedViewSeconds": 628,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 19:23:42"
+    },
+    {
+      "username": "xuejianxia",
+      "userId": "1194",
+      "accumulatedViewSeconds": 709,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 19:25:44"
+    },
+    {
+      "username": "tengweihua",
+      "userId": "1354",
+      "accumulatedViewSeconds": 666,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 19:26:54"
+    },
+    {
+      "username": "shihaisong",
+      "userId": "1453",
+      "accumulatedViewSeconds": 616,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 19:27:44"
+    },
+    {
+      "username": "malingling",
+      "userId": "1499",
+      "accumulatedViewSeconds": 666,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 19:26:54"
+    },
+    {
+      "username": "zhaomingyu",
+      "userId": "424",
+      "accumulatedViewSeconds": 625,
+      "requiredViewSeconds": 600,
+      "acknowledgedAt": "2026-08-02 18:37:37"
+    }
+  ],
+  "unacknowledged": [],
+  "trainingStatuses": [
+    {
+      "id": "108",
+      "status": "ACKNOWLEDGED",
+      "departmentId": "339",
+      "departmentName": "生产计划"
+    },
+    {
+      "id": "109",
+      "status": "ACKNOWLEDGED",
+      "departmentId": "253",
+      "departmentName": "质量体系部"
+    }
+  ],
+  "activeReleaseBlocker": {
+    "reason": "non-admin DCC account lacks category DISTRIBUTE permission",
+    "candidateAccount": "wangsiyu",
+    "distributeRules": [
+      {
+        "id": "2546",
+        "active": 1,
+        "scopeType": "GLOBAL",
+        "subjectId": "1",
+        "actionType": "DISTRIBUTE",
+        "subjectType": "USER"
+      }
+    ],
+    "manualReleaseButtonVisible": false
+  },
+  "evidence": {
+    "finalDb": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\final-readonly-db-verification-after-permission-grant.json",
+    "managerPage": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\manager-after-all-ack-page-evidence.json",
+    "verificationReport": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\verification-report.md"
+  }
+}

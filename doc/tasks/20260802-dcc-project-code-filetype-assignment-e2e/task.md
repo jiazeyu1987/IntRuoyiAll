@@ -7,10 +7,10 @@
 ## Milestones
 
 - [x] 建立任务目录与 BDD/验证门禁
-- [ ] 定位可用本机运行态、测试租户账号、项目代码、受控文件和 5 个文件类型
-- [ ] 通过真实前端路径修改已有文件元数据
-- [ ] 在 DCC 项目代码 item 详情中验证文件类型同步
-- [ ] 记录验证报告、阻塞或残留风险
+- [x] 定位可用本机运行态、测试租户账号、项目代码、受控文件和 5 个文件类型
+- [x] 通过真实前端路径修改已有文件元数据
+- [x] 在 DCC 项目代码 item 详情中验证文件类型同步
+- [x] 记录验证报告、阻塞或残留风险
 
 ## Expected Verification
 
@@ -32,6 +32,10 @@
 - `是否从根因和长期维护角度解决`：本任务只做验证，不改生产代码；若发现同步失败，记录真实失败点。
 - `是否存在临时补丁或绕过`：否。
 
+## Cleanup Keep
+
+doc/tasks/20260802-dcc-project-code-filetype-assignment-e2e/dcc-project-code-filetype-assignment-e2e.cjs
+
 ## Current Status
 
-in_progress
+ready_for_closeout

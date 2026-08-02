@@ -1,0 +1,16 @@
+{
+  "fileNumber": "CODX-DCC-REV-20260802-20260801193848",
+  "browserUrl": "http://127.0.0.1:8081/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-REV-20260802-20260801193848&pageNo=1&pageSize=20",
+  "total": 1,
+  "rows": [
+    {
+      "id": "2054545668044070261",
+      "fileNumber": "CODX-DCC-REV-20260802-20260801193848",
+      "versionNo": "V2.0",
+      "status": "ACTIVE"
+    }
+  ],
+  "body": "瑛泰管理系统\n个人中心\n0\n审批中心\n4\n电子签名\n文控中心\n文档目录\n文控权限\n上传审批\n文件上传\n受控浏览\n文控日志\n基础数据\n系统管理\n版本信息未生成\n文控中心\n/\n受控浏览\n请输入菜单内容\n王思雨\n受控浏览\n刷新\n质量管理\n快速过滤\n全文关键字\n包含\n查询\n当前目录\n全域\n高级\n显示字段\n文件名称\n\t\n文件编号\n\t\n操作\nCodex DCC 升版链路 20260801193848\n\t\nCODX-DCC-REV-20260802-20260801193848\n\t\n预览\n下载\n共 1 条\n20条/页\n1\n前往\n页\nCopyright ©2026 瑛泰管理系统",
+  "v1Visible": false,
+  "v2Visible": true
+}

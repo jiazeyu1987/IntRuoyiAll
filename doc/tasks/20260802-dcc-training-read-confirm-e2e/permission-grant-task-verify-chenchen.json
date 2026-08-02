@@ -1,0 +1,36 @@
+{
+  "status": "PASS",
+  "checkedAt": "2026-08-02T10:52:38.326Z",
+  "username": "chenchen",
+  "progressId": "1028",
+  "fileNumber": "CODX-DCC-TRAIN-20260802093955",
+  "versionNoVisible": true,
+  "titleVisible": true,
+  "sessionTimingVisible": true,
+  "hasTrainingMinePermission": true,
+  "task": {
+    "progressId": 1028,
+    "controlledFileId": "2054545668044070281",
+    "categoryId": 906104,
+    "fileName": "Codex DCC 培训阅读确认 20260802093955",
+    "title": "Codex DCC 培训阅读确认 20260802093955",
+    "fileNumber": "CODX-DCC-TRAIN-20260802093955",
+    "versionNo": "V1.0",
+    "fileStatus": "TRAINING_IN_PROGRESS",
+    "userId": 885,
+    "departmentIds": [
+      339
+    ],
+    "requiredViewSeconds": 600,
+    "accumulatedViewSeconds": 0,
+    "eligibleToAcknowledge": false,
+    "firstViewedAt": null,
+    "lastViewedAt": null,
+    "acknowledgedAt": null,
+    "publishedTime": null,
+    "status": "PENDING_VIEW"
+  },
+  "apiProbeStatus": 200,
+  "apiProbeCode": 0,
+  "screenshotPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-training-read-confirm-e2e\\permission-grant-training-task-chenchen-CODX-DCC-TRAIN-20260802093955.png"
+}

@@ -35,7 +35,7 @@
           :data="list"
           border
           :stripe="true"
-          empty-text="当前暂无文控日志"
+          :empty-text="controlledFileLogEmptyText"
           :show-overflow-tooltip="true"
           row-key="id"
           @header-dragend="handleLogHeaderDragend"
@@ -300,6 +300,12 @@ const list = ref<DccControlledFileLogRespVO[]>([])
 const loadError = ref('')
 const detailVisible = ref(false)
 const currentLog = ref<DccControlledFileLogRespVO>()
+
+const controlledFileLogEmptyText = computed(() =>
+  queryParams.controlledFileId
+    ? '暂无操作日志，签核证据请见签核追溯/生命周期。'
+    : '当前暂无文控日志'
+)
 
 const logQuickFilterDefinitions = computed<TableQuickFilterDefinition[]>(() => [
   {

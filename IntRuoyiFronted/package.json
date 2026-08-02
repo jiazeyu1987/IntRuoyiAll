@@ -93,6 +93,7 @@
     "e2e:dcc:detail-lifecycle-timeline:static": "node tests/e2e/dcc-detail-lifecycle-timeline-static.spec.js",
     "e2e:dcc:detail-route-snapshot-summary:static": "node tests/e2e/dcc-detail-route-snapshot-summary-static.spec.js",
     "e2e:dcc:detail-version-successor-summary:static": "node tests/e2e/dcc-detail-version-successor-summary-static.spec.js",
+    "e2e:dcc:revision-publish-ux-final:static": "node tests/e2e/dcc-revision-publish-ux-final-static.spec.cjs",
     "e2e:dcc:list-detail-entry:static": "node tests/e2e/dcc-list-detail-entry-static.spec.js",
     "e2e:dcc:audit-default-usability:static": "node tests/e2e/dcc-audit-default-usability-static.spec.js",
     "e2e:dcc:audit-standard-list:static": "node tests/e2e/dcc-audit-standard-list-template-static.spec.js",
@@ -160,6 +161,7 @@
     "e2e:dcc:file-type-taxonomy-tree-display:static": "node tests/e2e/dcc-file-type-taxonomy-tree-display-static.spec.js",
     "e2e:dcc:file-type-taxonomy-unified-list-template:static": "node tests/e2e/dcc-file-type-taxonomy-unified-list-template-static.spec.js",
     "e2e:dcc:metadata-file-number-optional:static": "node tests/e2e/dcc-metadata-file-number-optional-static.spec.js",
+    "e2e:dcc:metadata-linkage-ux:static": "node tests/e2e/dcc-controlled-file-metadata-linkage-ux-static.spec.cjs",
     "e2e:dcc:basic-data-product-catalog:static": "node tests/e2e/dcc-basic-data-product-catalog-static.spec.js",
     "e2e:dcc:product-catalog-source-options:static": "node scripts/dcc-product-catalog-source-options.test.mjs",
     "e2e:dcc:basic-data-global-submenu:static": "node tests/e2e/dcc-basic-data-global-submenu-static.spec.js",
@@ -242,6 +244,8 @@
     "e2e:edhr:version-governance-removed:static": "node tests/e2e/edhr-version-governance-removed-static.spec.js",
     "e2e:edhr:release:check": "node scripts/edhr-release-e2e-coverage-gate.mjs --check",
     "e2e:edhr:release": "node scripts/edhr-release-e2e-coverage-gate.mjs --run-real",
+    "e2e:edhr:release-dossier-requirement:check": "node tests/e2e/edhr-release-dossier-requirement-setting-static.spec.js",
+    "e2e:edhr:release-dossier-requirement": "node tests/e2e/edhr-release-dossier-requirement-setting-real.e2e.js",
     "e2e:unified-list-template-sort:static": "node tests/e2e/unified-list-template-sort-static.spec.js",
     "e2e:unified-list-template-all-sortable:static": "node tests/e2e/unified-list-template-all-headers-sortable-static.spec.js",
     "e2e:approval-center:standard-list:static": "node tests/e2e/approval-center-standard-list-template-static.spec.js",
@@ -249,7 +253,8 @@
     "e2e:dcc:controlled-file-logs:real": "node tests/e2e/dcc-controlled-file-logs-real.e2e.js",
     "e2e:dcc:loss-order-form-center:static": "node tests/e2e/dcc-loss-order-form-center-chain-static.spec.js",
     "e2e:dcc:loss-order-form-center:check": "node tests/e2e/dcc-loss-order-form-center-chain-static.spec.js",
-    "e2e:dcc:loss-order-form-center": "node ../scripts/dcc-loss-order-form-center-e2e-chain.mjs"
+    "e2e:dcc:loss-order-form-center": "node ../scripts/dcc-loss-order-form-center-e2e-chain.mjs",
+    "e2e:role-matrix-route-config-separation:static": "node tests/e2e/role-matrix-route-config-separation-static.spec.cjs"
   },
   "dependencies": {
     "@element-plus/icons-vue": "2.3.2",

@@ -1,7 +1,7 @@
 # 岗位需求分解矩阵真实 E2E 前置证据
 
 - Task ID: `20260801-role-requirement-matrix-implementation`
-- Generated At: `2026-08-02T04:12:50.031Z`
+- Generated At: `2026-08-02T11:39:39.475Z`
 - Status: `BLOCKED`
 - Frontend: `http://127.0.0.1:8081`
 - Backend: `http://127.0.0.1:48081`
@@ -10,17 +10,156 @@
 
 ## Result
 
-- BLOCKED: 12 prerequisite blockers remain.
-- M3 gate note: RRM-BLK-017..025 no longer appear; remaining SOURCE blockers belong to M4/M5.
-- SOURCE:CHECK_INSPECTION_RESULT -> CHECK_INSPECTION_RESULT 仍由 buildSourceNotIntegratedItem 生成，放行正式来源未接入。
-- SOURCE:CHECK_DEVIATION_CLOSED -> CHECK_DEVIATION_CLOSED 仍由 buildSourceNotIntegratedItem 生成，放行正式来源未接入。
-- SOURCE:CHECK_REWORK_CLOSED -> CHECK_REWORK_CLOSED 仍由 buildSourceNotIntegratedItem 生成，放行正式来源未接入。
-- SOURCE:CHECK_SCRAP_RECORDED -> CHECK_SCRAP_RECORDED 仍由 buildSourceNotIntegratedItem 生成，放行正式来源未接入。
-- SOURCE:CHECK_INVENTORY_CONSISTENCY -> CHECK_INVENTORY_CONSISTENCY 仍由 buildSourceNotIntegratedItem 生成，放行正式来源未接入。
-- SOURCE:activeOrderTransferRelation -> 缺少 activeOrderId 与调拨头/行的正式关系表或迁移。
-- SOURCE:activeOrderShipmentSource -> 缺少 activeOrderId 与发货/交付事实的正式关系源。
-- SOURCE:activeOrderReplenishmentReturnSource -> 缺少 activeOrderId 与补料/退料事实的正式关系源。
-- SOURCE:activeOrderBatchTraceSource -> 缺少 activeOrderId 与物料批次/库存追溯的正式关系源。
-- SOURCE:normalizeRecordBindingSlotTypeDefaultMain -> 工艺路线前端 normalizeRecordBindingSlotType 对缺失槽位默认 MAIN，存在把 formBindings/旧字段误归为批记录表单的风险。
-- SOURCE:batchRecordFormNamesFormBindingsSeparation -> 批记录表单字段和 formBindings 同屏存在，M0 尚未用真实 E2E 证明二者不会互相替代。
-- SOURCE:edhrRuntimeDefaultMainSlot -> eDHR 运行态仍在缺失 formSlotType 时默认 MAIN，正式批记录绑定缺失时应 fail-fast。
+- BLOCKED: 63 blockers remain.
+- E2E_CLEANUP:activeOrderCleanupDeferred -> 本轮 activeOrderId 仍是 M6 后续真实 E2E 共享夹具；直接移除会破坏 PQC、放行、日结和后续验证链路。需要一次性可重建夹具或明确清理窗口后再执行删除验证。
+- E2E_COVERAGE:AC-M01 -> TC-M01 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-M02 -> TC-M02 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-M03 -> TC-M03 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-M04 -> TC-M04 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：productionLeaderWorkbench；已执行真实动作：joinActiveOrder, activeOrderConflictRouteRejected, activeOrderCrossRoleReadOnly, activeOrderUnauthorizedMutationBlocked。
+- E2E_COVERAGE:AC-M05 -> TC-M05 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-M06 -> TC-M06 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-M07 -> TC-M07 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-M08 -> TC-M08 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-M09 -> TC-M09 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：qaRegulationEntry。
+- E2E_COVERAGE:AC-M10 -> TC-M10 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：productionEmployeeEntry。
+- E2E_COVERAGE:AC-M11 -> TC-M11 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：productionEmployeeEntry。
+- E2E_COVERAGE:AC-M12 -> TC-M12 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry。
+- E2E_COVERAGE:AC-M13 -> TC-M13 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry。
+- E2E_COVERAGE:AC-M14 -> TC-M14 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry。
+- E2E_COVERAGE:AC-M15 -> TC-M15 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry。
+- E2E_COVERAGE:AC-M16 -> TC-M16 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：productionLeaderWorkbench。
+- E2E_COVERAGE:AC-M17 -> TC-M17 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：productionLeaderWorkbench。
+- E2E_COVERAGE:AC-M18 -> TC-M18 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：productionLeaderWorkbench。
+- E2E_COVERAGE:AC-M19 -> TC-M19 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-M20 -> TC-M20 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
+- E2E_COVERAGE:AC-M21 -> TC-M21 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-M22 -> TC-M22 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：releaseOwnerEntry。
+- E2E_COVERAGE:AC-M23 -> TC-M23 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：releaseOwnerEntry。
+- E2E_COVERAGE:AC-D01 -> TC-D01 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-D02 -> TC-D02 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-D03 -> TC-D03 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-D04 -> TC-D04 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-D05 -> TC-D05 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-D06 -> TC-D06 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-D07 -> TC-D07 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-D08 -> TC-D08 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-D09 -> TC-D09 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：productionLeaderWorkbench；已执行真实动作：activeOrderUnauthorizedMutationBlocked。
+- E2E_COVERAGE:AC-D10 -> TC-D10 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-D11 -> TC-D11 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-D12 -> TC-D12 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：productionLeaderWorkbench。
+- E2E_COVERAGE:AC-D13 -> TC-D13 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已执行真实动作：activeOrderCrossRoleReadOnly, activeOrderUnauthorizedMutationBlocked。
+- E2E_COVERAGE:AC-D14 -> TC-D14 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：productionLeaderWorkbench。
+- E2E_COVERAGE:AC-D15 -> TC-D15 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：qaRegulationEntry。
+- E2E_COVERAGE:AC-D16 -> TC-D16 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：qaRegulationEntry。
+- E2E_COVERAGE:AC-D17 -> TC-D17 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：qaRegulationEntry；已执行真实动作：pqcRegulationItemsRendered。
+- E2E_COVERAGE:AC-D18 -> TC-D18 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：qaRegulationEntry。
+- E2E_COVERAGE:AC-D19 -> TC-D19 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：qaRegulationEntry；已执行真实动作：pqcRegulationItemsRendered。
+- E2E_COVERAGE:AC-D20 -> TC-D20 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：qaRegulationEntry。
+- E2E_COVERAGE:AC-D21 -> TC-D21 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：qaRegulationEntry。
+- E2E_COVERAGE:AC-D22 -> TC-D22 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：qaRegulationEntry。
+- E2E_COVERAGE:AC-D23 -> TC-D23 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：qaRegulationEntry。
+- E2E_COVERAGE:AC-D24 -> TC-D24 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry；已执行真实动作：activeOrderCrossRoleReadOnly, pqcRegulationItemsRendered。
+- E2E_COVERAGE:AC-D25 -> TC-D25 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry。
+- E2E_COVERAGE:AC-D26 -> TC-D26 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry。
+- E2E_COVERAGE:AC-D27 -> TC-D27 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry。
+- E2E_COVERAGE:AC-D28 -> TC-D28 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry。
+- E2E_COVERAGE:AC-D29 -> TC-D29 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry。
+- E2E_COVERAGE:AC-D30 -> TC-D30 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
+- E2E_COVERAGE:AC-D31 -> TC-D31 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcInspectorEntry；已执行真实动作：pqcRegulationItemsRendered。
+- E2E_COVERAGE:AC-D32 -> TC-D32 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
+- E2E_COVERAGE:AC-D33 -> TC-D33 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
+- E2E_COVERAGE:AC-D34 -> TC-D34 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
+- E2E_COVERAGE:AC-D35 -> TC-D35 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
+- E2E_COVERAGE:AC-D36 -> TC-D36 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+- E2E_COVERAGE:AC-D37 -> TC-D37 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：pqcLeaderWorkbench。
+- E2E_COVERAGE:AC-D38 -> TC-D38 仍未达到真实动作/失败路径/只读核验 ACCEPTED；已观察页面阶段：productionLeaderWorkbench。
+- E2E_COVERAGE:AC-D39 -> TC-D39 仍未达到真实动作/失败路径/只读核验 ACCEPTED；尚无真实页面阶段覆盖。
+
+## Phase Evidence
+
+- PASS: productionEmployeeEntry -> 生产员工入口登录与前端应用加载; role=productionEmployee; selectors=#app
+- PASS: productionLeaderWorkbench -> 生产组长工作台与日结/分配表面; role=productionLeader; selectors=[data-team-leader-report-workbench], [data-team-leader-config-center], [data-team-leader-active-order-config], [data-role-matrix-daily-close]
+- PASS: qaRegulationEntry -> QA 规程维护入口; role=qa; selectors=#app
+- PASS: pqcInspectorEntry -> PQC 检验员入口登录与前端应用加载; role=pqcInspector; selectors=#app
+- PASS: pqcLeaderWorkbench -> PQC 组长复核表面; role=pqcLeader; selectors=[data-team-leader-type-tabs], [data-team-leader-report-workbench], [data-role-matrix-daily-close]
+- PASS: releaseOwnerEntry -> 放行负责人入口; role=releaseOwner; selectors=#app
+
+## Action Evidence
+
+- PASS: joinActiveOrder -> 生产组长通过真实页面加入带路线版本的活跃订单; role=productionLeader; acceptance=AC-M04
+- PASS: activeOrderConflictRouteRejected -> 生产组长通过真实页面提交冲突路线并被 fail-fast 拒绝; role=productionLeader; acceptance=AC-M04
+- BLOCKED: activeOrderCleanupDeferred -> 活跃订单清理闭环风险记录; role=productionLeader; acceptance=AC-M04
+- PASS: activeOrderCrossRoleReadOnly -> PQC 检验员通过真实页面只读同一 activeOrderId; role=pqcInspector; acceptance=AC-M04, AC-D13, AC-D24
+- PASS: pqcRegulationItemsRendered -> PQC 页面按已发布 QA 规程渲染检验项目; role=pqcInspector; acceptance=AC-D17, AC-D19, AC-D24, AC-D31
+- PASS: activeOrderUnauthorizedMutationBlocked -> 错误角色活跃订单写入权限隔离; role=unauthorizedActor; acceptance=AC-M04, AC-D09, AC-D13
+
+## Acceptance Coverage
+
+- Total: 62
+- Accepted: 0
+- Action Observed: 7
+- Surface Observed: 34
+- Uncovered: 21
+- Pending: 62
+- AC-M01/TC-M01: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-M02/TC-M02: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-M03/TC-M03: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-M04/TC-M04: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=productionLeaderWorkbench; actions=joinActiveOrder, activeOrderConflictRouteRejected, activeOrderCrossRoleReadOnly, activeOrderUnauthorizedMutationBlocked
+- AC-M05/TC-M05: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-M06/TC-M06: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-M07/TC-M07: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-M08/TC-M08: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-M09/TC-M09: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=qaRegulationEntry; actions=--
+- AC-M10/TC-M10: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=productionEmployeeEntry; actions=--
+- AC-M11/TC-M11: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=productionEmployeeEntry; actions=--
+- AC-M12/TC-M12: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcInspectorEntry; actions=--
+- AC-M13/TC-M13: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcInspectorEntry; actions=--
+- AC-M14/TC-M14: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcInspectorEntry; actions=--
+- AC-M15/TC-M15: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcInspectorEntry; actions=--
+- AC-M16/TC-M16: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=productionLeaderWorkbench; actions=--
+- AC-M17/TC-M17: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=productionLeaderWorkbench; actions=--
+- AC-M18/TC-M18: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=productionLeaderWorkbench; actions=--
+- AC-M19/TC-M19: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-M20/TC-M20: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
+- AC-M21/TC-M21: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-M22/TC-M22: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=releaseOwnerEntry; actions=--
+- AC-M23/TC-M23: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=releaseOwnerEntry; actions=--
+- AC-D01/TC-D01: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-D02/TC-D02: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-D03/TC-D03: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-D04/TC-D04: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-D05/TC-D05: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-D06/TC-D06: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-D07/TC-D07: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-D08/TC-D08: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-D09/TC-D09: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=productionLeaderWorkbench; actions=activeOrderUnauthorizedMutationBlocked
+- AC-D10/TC-D10: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-D11/TC-D11: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-D12/TC-D12: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=productionLeaderWorkbench; actions=--
+- AC-D13/TC-D13: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=--; actions=activeOrderCrossRoleReadOnly, activeOrderUnauthorizedMutationBlocked
+- AC-D14/TC-D14: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=productionLeaderWorkbench; actions=--
+- AC-D15/TC-D15: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=qaRegulationEntry; actions=--
+- AC-D16/TC-D16: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=qaRegulationEntry; actions=--
+- AC-D17/TC-D17: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=qaRegulationEntry; actions=pqcRegulationItemsRendered
+- AC-D18/TC-D18: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=qaRegulationEntry; actions=--
+- AC-D19/TC-D19: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=qaRegulationEntry; actions=pqcRegulationItemsRendered
+- AC-D20/TC-D20: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=qaRegulationEntry; actions=--
+- AC-D21/TC-D21: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=qaRegulationEntry; actions=--
+- AC-D22/TC-D22: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=qaRegulationEntry; actions=--
+- AC-D23/TC-D23: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=qaRegulationEntry; actions=--
+- AC-D24/TC-D24: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcInspectorEntry; actions=activeOrderCrossRoleReadOnly, pqcRegulationItemsRendered
+- AC-D25/TC-D25: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcInspectorEntry; actions=--
+- AC-D26/TC-D26: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcInspectorEntry; actions=--
+- AC-D27/TC-D27: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcInspectorEntry; actions=--
+- AC-D28/TC-D28: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcInspectorEntry; actions=--
+- AC-D29/TC-D29: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcInspectorEntry; actions=--
+- AC-D30/TC-D30: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
+- AC-D31/TC-D31: ACTION_OBSERVED_NEEDS_FAILURE_E2E; phases=pqcInspectorEntry; actions=pqcRegulationItemsRendered
+- AC-D32/TC-D32: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
+- AC-D33/TC-D33: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
+- AC-D34/TC-D34: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
+- AC-D35/TC-D35: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
+- AC-D36/TC-D36: UNCOVERED_BY_REAL_E2E; phases=--; actions=--
+- AC-D37/TC-D37: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=pqcLeaderWorkbench; actions=--
+- AC-D38/TC-D38: SURFACE_OBSERVED_NEEDS_ACTION_E2E; phases=productionLeaderWorkbench; actions=--
+- AC-D39/TC-D39: UNCOVERED_BY_REAL_E2E; phases=--; actions=--

@@ -273,5 +273,9 @@ public interface ErrorCodeConstants {
     ErrorCode FILE_TYPE_TAXONOMY_PARENT_CHANGE_FORBIDDEN = new ErrorCode(1_080_000_187,
             "DCC file type taxonomy parent cannot be changed");
     ErrorCode PROJECT_CODE_DISABLED = new ErrorCode(1_080_000_188, "DCC project code is disabled");
+    ErrorCode CONTROLLED_FILE_PRINT_NOT_ALLOWED = new ErrorCode(1_080_000_189,
+            "Current controlled file cannot be printed as a controlled copy");
+    ErrorCode CONTROLLED_FILE_PRINT_REQUIRED_FIELD_MISSING = new ErrorCode(1_080_000_190,
+            "Controlled print request is missing required print fields");
 
 }

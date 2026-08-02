@@ -232,3 +232,56 @@ GREEN: `pnpm e2e:role-requirement-matrix:real:check` with redacted password env 
 
 - RRM-BLK-017..025 are resolved by M3 schema/service/frontend source-switch work.
 - Remaining schema/source blockers are downstream: M4 owns transfer/release relation gaps, and M5 owns route configuration separation gaps.
+
+## M4 ActiveOrder Transfer Trace Schema
+
+### Data
+
+- Entity: `mes_pro_process_pool_active_order_transfer_trace`.
+- Goal: provide a formal activeOrderId relation source for transfer, shipment, replenishment, return, batch/material stock trace, scrap, and rework facts.
+- Added persistence model: `MesProcessPoolActiveOrderTransferTraceDO` with active order, work order, route, route version, source type, direction, transfer/line/detail IDs, material stock, batch, item, quantity, source object, status, occurrence time, idempotency key, and source snapshot JSON.
+- Added mapper and service: `MesProcessPoolActiveOrderTransferTraceMapper` and `MesActiveOrderTransferTraceService`.
+
+### Migration
+
+- Migration file: `IntRuoyiBackend/sql/mysql/20260802_mes_process_pool_active_order_transfer_trace.sql`.
+- Migration tool: release SQL migration file under the standard backend `sql/mysql` directory.
+- Schema creates tenant-scoped idempotency uniqueness on `(tenant_id, idempotency_key, deleted)`.
+- Schema creates lookup indexes for active order source type/direction, shipment source status, replenishment/return direction, source object, and batch/material stock trace.
+
+### Safety
+
+- No running database data repair was executed in this slice.
+- Existing WMS transfer/material stock rows are not guessed into activeOrderId relations by migration; formal trace rows must be created by an explicit source binding path.
+- Release completeness checks fail fast or return explicit NOT_APPLICABLE/BLOCKER when the active order or trace source is missing; the implementation does not default material coverage, inventory consistency, scrap, rework, or inspection result to PASS.
+- No fallback, mock success, default active order, default stock, default source status, or silent downgrade was introduced.
+
+### Rollback
+
+- Rollback strategy is migration-level: restore from the pre-migration database backup or revert the M4 migration before applying to shared environments.
+- Application code intentionally does not include a runtime fallback from M4 trace sources to bare WMS tables or work-order-only lookup.
+
+### BDD
+
+- BDD: M4 transfer trace schema -> Given a pressure-pump active order has transfer, shipment, replenishment, return, and batch stock facts When start-check or release completeness needs material trace Then the system reads tenant-scoped activeOrderId trace rows and fails fast if the trace source is missing.
+
+### RED
+
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-matrix-transfer-start-check:static` -> FAIL, expected reason: missing formal activeOrderId transfer relation source.
+- RED: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesActiveOrderTransferTraceSchemaTest,MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL/timeout during first run, expected reason: M4 schema/adapter missing before implementation and generated `target\classes` corruption blocked Maven completion.
+
+### GREEN
+
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesActiveOrderTransferTraceSchemaTest,MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` from `IntRuoyiBackend` -> PASS, 21 tests.
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-matrix-transfer-start-check:static` -> PASS.
+
+### Verification
+
+- Verification: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS.
+- Verification: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS.
+- Verification: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> EXPECTED_BLOCKED_FOR_M5 with 3 SOURCE blockers, 0 ENV blockers, 0 RUNTIME blockers; `activeOrderTransferRelation`, `activeOrderShipmentSource`, `activeOrderReplenishmentReturnSource`, and `activeOrderBatchTraceSource` no longer appear.
+
+### Blockers
+
+- RRM-BLK-008..016 are resolved by M4 schema/service/release-source work.
+- Remaining schema/source blockers are downstream: M5 owns route configuration separation blockers RRM-BLK-029..031.

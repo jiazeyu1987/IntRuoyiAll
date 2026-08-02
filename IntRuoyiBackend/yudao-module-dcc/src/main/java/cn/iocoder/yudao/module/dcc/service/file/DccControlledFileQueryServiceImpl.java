@@ -150,6 +150,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
     private static final String ACTION_VIEW = "VIEW";
     private static final String ACTION_PREVIEW = "PREVIEW";
     private static final String ACTION_DOWNLOAD = "DOWNLOAD";
+    private static final String ACTION_PRINT = "PRINT";
     private static final String ACTION_WITHDRAW = "WITHDRAW";
     private static final String ACTION_OBSOLETE = "OBSOLETE";
     private static final String ACTION_MANUAL_RELEASE = "MANUAL_RELEASE";
@@ -1388,6 +1389,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 hasDirectoryManagementPermission));
         DccDownloadPolicyDecision downloadDecision = decideDownloadBinary(userId, file, hasDirectoryManagementPermission);
         respVO.setCanDownload(downloadDecision.allowed());
+        respVO.setCanPrint(canPrintControlledFile(userId, file));
         respVO.setAccessExplanation(buildAccessExplanation(userId, file, hasDirectoryManagementPermission,
                 respVO.getCanPreview(), downloadDecision));
         respVO.setSystemRecordDownloadOpen(Boolean.FALSE);
@@ -1420,7 +1422,8 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                         && !DccControlledFileTrainingStatusEnum.ACKNOWLEDGED.getCode().equals(assignment.getStatus())
                         && Boolean.TRUE.equals(assignment.getEligibleToAcknowledge())));
         respVO.setActionProjection(buildActionProjection(userId, file, respVO.getCanPreview(), respVO.getCanDownload(),
-                respVO.getCanObsolete(), respVO.getCanManualRelease(), respVO.getHasPendingTrainingAcknowledgement()));
+                respVO.getCanPrint(), respVO.getCanObsolete(), respVO.getCanManualRelease(),
+                respVO.getHasPendingTrainingAcknowledgement()));
         respVO.setRouteSnapshots(includeRouteSnapshots
                 ? convertList(routeSnapshotMapper.selectListByControlledFileId(file.getId()), this::toSnapshotRespVO)
                 : List.of());
@@ -1483,6 +1486,7 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
                 hasDirectoryManagementPermission, currentViewMatrixAccessByCategory));
         DccDownloadPolicyDecision downloadDecision = decideDownloadBinary(userId, file, hasDirectoryManagementPermission);
         respVO.setCanDownload(downloadDecision.allowed());
+        respVO.setCanPrint(canPrintControlledFile(userId, file));
         respVO.setAccessExplanation(buildAccessExplanation(userId, file, hasDirectoryManagementPermission,
                 respVO.getCanPreview(), downloadDecision, currentViewMatrixAccessByCategory));
         respVO.setSystemRecordDownloadOpen(Boolean.FALSE);
@@ -1500,13 +1504,15 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         respVO.setVersionHistory(buildVersionHistory(userId, file, chainFiles, hasDirectoryManagementPermission,
                 currentViewMatrixAccessByCategory));
         respVO.setActionProjection(buildActionProjection(userId, file, respVO.getCanPreview(), respVO.getCanDownload(),
-                respVO.getCanObsolete(), respVO.getCanManualRelease(), respVO.getHasPendingTrainingAcknowledgement()));
+                respVO.getCanPrint(), respVO.getCanObsolete(), respVO.getCanManualRelease(),
+                respVO.getHasPendingTrainingAcknowledgement()));
         return respVO;
     }
 
     private DccControlledFileActionProjectionRespVO buildActionProjection(Long userId, DccControlledFileDO file,
                                                                           Boolean canPreview,
                                                                           Boolean canDownload,
+                                                                          Boolean canPrint,
                                                                           Boolean canObsolete,
                                                                           Boolean canManualRelease,
                                                                           Boolean hasPendingTrainingAcknowledgement) {
@@ -1525,6 +1531,9 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
 
         if (active || superseded) {
             addBinaryActions(allowedActions, canPreview, canDownload);
+        }
+        if (active && Boolean.TRUE.equals(canPrint)) {
+            allowedActions.add(ACTION_PRINT);
         }
         if (active && Boolean.TRUE.equals(canObsolete) && !obsoleteApprovalPending) {
             allowedActions.add(ACTION_OBSOLETE);
@@ -1591,6 +1600,25 @@ public class DccControlledFileQueryServiceImpl implements DccControlledFileQuery
         if (Boolean.TRUE.equals(canDownload)) {
             allowedActions.add(ACTION_DOWNLOAD);
         }
+    }
+
+    private boolean canPrintControlledFile(Long userId, DccControlledFileDO file) {
+        if (file == null || userId == null) {
+            return false;
+        }
+        if (!DccControlledFileStatusEnum.ACTIVE.getStatus().equals(file.getStatus())) {
+            return false;
+        }
+        if (file.getPublishedFileId() == null && file.getStampedFileId() == null) {
+            return false;
+        }
+        if (!permissionSupport.hasCategoryPermission(file.getCategoryId(), userId,
+                DccFileCategoryPermissionActionEnum.PRINT)) {
+            return false;
+        }
+        DccControlledFileMasterDO master = file.getMasterId() == null ? null
+                : controlledFileMasterMapper.selectById(file.getMasterId());
+        return master != null && Objects.equals(master.getCurrentActiveControlledFileId(), file.getId());
     }
 
     private boolean isOpenCandidateActionStatus(String status) {

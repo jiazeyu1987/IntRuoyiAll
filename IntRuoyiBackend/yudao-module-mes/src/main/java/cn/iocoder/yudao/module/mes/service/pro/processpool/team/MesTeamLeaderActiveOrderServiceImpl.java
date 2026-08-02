@@ -10,7 +10,9 @@ import cn.iocoder.yudao.module.mes.dal.mysql.pro.processpool.team.MesProcessPool
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderMapper;
 import cn.iocoder.yudao.module.mes.dal.mysql.pro.scheduleorder.MesProScheduleOrderProcessMapper;
 import cn.iocoder.yudao.module.mes.service.pro.workorder.MesProWorkOrderService;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
 import java.math.BigDecimal;
@@ -53,15 +55,21 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long addActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getWorkOrderId() == null
                 || reqBO.getRouteId() == null || reqBO.getRouteVersionId() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrder");
         }
+        MesProcessPoolActiveOrderDO existing = selectExistingActiveOrder(reqBO);
+        if (existing != null) {
+            return existing.getId();
+        }
         BigDecimal erpFixedQuantity = workOrderService.validateWorkOrderExists(reqBO.getWorkOrderId()).getQuantity();
         if (erpFixedQuantity == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "activeOrder.erpFixedQuantitySnapshot");
         }
+        MesProScheduleOrderDO scheduleOrder = requireMatchingScheduleOrder(reqBO);
         MesProcessPoolActiveOrderDO activeOrder = MesProcessPoolActiveOrderDO.builder()
                 .leaderUserId(reqBO.getLeaderUserId())
                 .workOrderId(reqBO.getWorkOrderId())
@@ -73,14 +81,23 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 .joinedAt(LocalDateTime.now())
                 .version(0)
                 .build();
-        activeOrderMapper.insert(activeOrder);
-        insertProcessSnapshots(activeOrder, erpFixedQuantity);
+        try {
+            activeOrderMapper.insert(activeOrder);
+        } catch (DuplicateKeyException ex) {
+            MesProcessPoolActiveOrderDO concurrentlyAdded = selectExistingActiveOrder(reqBO);
+            if (concurrentlyAdded != null) {
+                return concurrentlyAdded.getId();
+            }
+            throw ex;
+        }
+        insertProcessSnapshots(activeOrder, erpFixedQuantity, scheduleOrder);
         TeamMaintenanceAuditSupport.insertAudit(auditMapper, reqBO.getLeaderUserId(), "ADD_ACTIVE_ORDER",
                 "ACTIVE_ORDER", activeOrder.getId(), null, activeOrder.toString());
         return activeOrder.getId();
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void removeActiveOrder(MesTeamLeaderActiveOrderRemoveReqBO reqBO) {
         if (reqBO == null || reqBO.getLeaderUserId() == null || reqBO.getActiveOrderId() == null) {
             throw exception(PRO_PROCESS_POOL_EVENT_CONTEXT_REQUIRED, "removeActiveOrder");
@@ -101,6 +118,11 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
                 "ACTIVE_ORDER", activeOrder.getId(), activeOrder.toString(), update.toString());
     }
 
+    private MesProcessPoolActiveOrderDO selectExistingActiveOrder(MesTeamLeaderActiveOrderAddReqBO reqBO) {
+        return activeOrderMapper.selectActiveByWorkOrderRouteVersion(reqBO.getWorkOrderId(), reqBO.getRouteId(),
+                reqBO.getRouteVersionId());
+    }
+
     @Override
     public List<MesProcessPoolActiveOrderDO> listActiveOrders(Long leaderUserId) {
         if (leaderUserId == null) {
@@ -109,13 +131,18 @@ public class MesTeamLeaderActiveOrderServiceImpl implements MesTeamLeaderActiveO
         return activeOrderMapper.selectActiveListByLeader(leaderUserId);
     }
 
-    private void insertProcessSnapshots(MesProcessPoolActiveOrderDO activeOrder, BigDecimal erpFixedQuantity) {
-        MesProScheduleOrderDO scheduleOrder = scheduleOrderMapper.selectEffectiveByWorkOrderId(activeOrder.getWorkOrderId());
+    private MesProScheduleOrderDO requireMatchingScheduleOrder(MesTeamLeaderActiveOrderAddReqBO reqBO) {
+        MesProScheduleOrderDO scheduleOrder = scheduleOrderMapper.selectEffectiveByWorkOrderId(reqBO.getWorkOrderId());
         if (scheduleOrder == null || scheduleOrder.getId() == null
-                || !Objects.equals(scheduleOrder.getRouteId(), activeOrder.getRouteId())
-                || !Objects.equals(scheduleOrder.getRouteVersionId(), activeOrder.getRouteVersionId())) {
-            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, activeOrder.getId());
+                || !Objects.equals(scheduleOrder.getRouteId(), reqBO.getRouteId())
+                || !Objects.equals(scheduleOrder.getRouteVersionId(), reqBO.getRouteVersionId())) {
+            throw exception(PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED, reqBO.getWorkOrderId());
         }
+        return scheduleOrder;
+    }
+
+    private void insertProcessSnapshots(MesProcessPoolActiveOrderDO activeOrder, BigDecimal erpFixedQuantity,
+                                        MesProScheduleOrderDO scheduleOrder) {
         List<MesProcessPoolActiveOrderProcessSnapshotDO> snapshots = scheduleOrderProcessMapper
                 .selectListByScheduleOrderId(scheduleOrder.getId())
                 .stream()

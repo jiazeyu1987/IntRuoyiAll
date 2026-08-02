@@ -673,6 +673,7 @@
               <el-table
                 :data="selectedAssociatedPagedFiles"
                 :show-overflow-tooltip="true"
+                :row-class-name="resolveAssociatedFileRowClassName"
                 @selection-change="handleAssociatedFileSelectionChange"
               >
                 <el-table-column type="selection" width="48" />
@@ -681,6 +682,15 @@
                     <el-link type="primary" @click="openControlledFileDetail(row)">
                       {{ row.fileName || row.title || '-' }}
                     </el-link>
+                    <el-tag
+                      v-if="isAssociatedRouteFocus(row)"
+                      class="ml-6px"
+                      data-testid="dcc-project-code-associated-route-focus"
+                      size="small"
+                      type="success"
+                    >
+                      当前联动
+                    </el-tag>
                   </template>
                 </el-table-column>
                 <el-table-column label="文件编号" prop="fileNumber" min-width="280" />
@@ -1043,6 +1053,7 @@ const assignmentRecordsTotal = ref(0)
 const selectedAssociatedFileIds = ref<Array<number | string>>([])
 const selectedAssociatedStageKey = ref('')
 const selectedAssociatedTypeKey = ref('')
+const focusedAssociatedFileId = ref<number | null>(null)
 const aiCategoryRunning = ref(false)
 const aiCategoryProcessed = ref(0)
 const aiCategoryTotal = ref(0)
@@ -1495,6 +1506,52 @@ const selectAssociatedType = (typeKey: string) => {
   selectedAssociatedFileIds.value = []
   resetAssociatedFilePage()
 }
+
+const isSameAssociatedFileId = (file: ControlledFileVO, fileId?: number | null) =>
+  Boolean(fileId && Number(file.id) === Number(fileId))
+
+const isAssociatedRouteFocus = (row: ControlledFileVO) =>
+  isSameAssociatedFileId(row, focusedAssociatedFileId.value)
+
+const resolveAssociatedFileRowClassName = ({ row }: { row: ControlledFileVO }) =>
+  isAssociatedRouteFocus(row) ? 'is-associated-route-focus' : ''
+
+const resolveAssociatedRouteFocusFile = () => {
+  const associatedFileId = resolveQueryAssociatedFileId()
+  if (associatedFileId) {
+    return associatedNavigationFiles.value.find((file) => isSameAssociatedFileId(file, associatedFileId))
+  }
+  const taxonomyId = resolveQueryAssociatedTaxonomyId()
+  if (taxonomyId) {
+    return associatedNavigationFiles.value.find((file) => Number(file.fileTypeTaxonomyId) === taxonomyId)
+  }
+  return undefined
+}
+
+const applyAssociatedRouteFocus = () => {
+  const associatedFocus = route.query.associatedFocus
+  const associatedFileId = resolveQueryAssociatedFileId()
+  const taxonomyId = resolveQueryAssociatedTaxonomyId()
+  if (!associatedFocus && !associatedFileId && !taxonomyId) {
+    focusedAssociatedFileId.value = null
+    return false
+  }
+  focusedAssociatedFileId.value = associatedFileId ?? null
+  const targetFile = resolveAssociatedRouteFocusFile()
+  if (!targetFile) {
+    return false
+  }
+  selectedAssociatedStageKey.value = resolveAssociatedStageKey(targetFile)
+  selectedAssociatedTypeKey.value = resolveAssociatedTypeName(targetFile)
+  resetAssociatedFilePage()
+  const files = selectedAssociatedTypeGroup.value?.files || []
+  const focusedIndex = files.findIndex((file) => isSameAssociatedFileId(file, associatedFileId))
+  if (focusedIndex >= 0) {
+    associatedFilePage.pageNo = Math.floor(focusedIndex / associatedFilePage.pageSize) + 1
+  }
+  handleAssociatedFilePagination()
+  return true
+}
 const formData = ref<DccProjectCodeUpdateReqVO>({
   id: 0,
   docControlNo: '',
@@ -1532,6 +1589,22 @@ const queryParams = reactive<DccProjectCodePageQuery>({
 
 const resolveQueryProjectCodeId = () =>
   Array.isArray(route.query.projectCodeId) ? route.query.projectCodeId[0] : route.query.projectCodeId
+
+const resolveQueryAssociatedFileId = () => {
+  const raw = Array.isArray(route.query.associatedFileId)
+    ? route.query.associatedFileId[0]
+    : route.query.associatedFileId
+  const value = Number(raw)
+  return Number.isFinite(value) && value > 0 ? value : undefined
+}
+
+const resolveQueryAssociatedTaxonomyId = () => {
+  const raw = Array.isArray(route.query.fileTypeTaxonomyId)
+    ? route.query.fileTypeTaxonomyId[0]
+    : route.query.fileTypeTaxonomyId
+  const value = Number(raw)
+  return Number.isFinite(value) && value > 0 ? value : undefined
+}
 
 const resetFormData = () => {
   formData.value = {
@@ -1831,7 +1904,9 @@ const getAssociatedFiles = async (
     associatedNavigationFiles.value = navigationFiles
     associatedFilesTotal.value = total
     resetAssociatedFilePage()
-    ensureAssociatedSelection()
+    if (!applyAssociatedRouteFocus()) {
+      ensureAssociatedSelection()
+    }
   } finally {
     if (canApplyDetailResult()) {
       associatedFilesLoading.value = false
@@ -2463,6 +2538,17 @@ watch(
     await syncDetailFromRoute()
   }
 )
+
+watch(
+  () => [route.query.associatedFocus, route.query.associatedFileId, route.query.fileTypeTaxonomyId],
+  () => {
+    if (detailDrawerVisible.value) {
+      if (!applyAssociatedRouteFocus()) {
+        ensureAssociatedSelection()
+      }
+    }
+  }
+)
 </script>
 
 <style scoped>
@@ -2682,6 +2768,10 @@ watch(
   color: #1677ff;
   background: #eef6ff;
   border-color: #1677ff;
+}
+
+.dcc-project-code-associated-file-table :deep(.is-associated-route-focus > td) {
+  background: #f0f9eb !important;
 }
 
 .dcc-project-code-associated-item-label {

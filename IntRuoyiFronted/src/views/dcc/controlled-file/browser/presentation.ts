@@ -17,6 +17,7 @@ type BrowserRowReadableState = {
   status?: string
   canPreview?: boolean
   canDownload?: boolean
+  canPrint?: boolean
   actionProjection?: DccControlledFileActionProjectionVO | null
 }
 
@@ -44,7 +45,8 @@ export const getBrowserVersionSummary = (
   isLatestVersionSelected: boolean,
   isSelectedVersionModifying: boolean
 ) => {
-  const versionKindText = isLatestVersionSelected ? '最新版' : '历史版'
+  const isCurrentActiveVersion = isLatestVersionSelected && version.status === 'ACTIVE'
+  const versionKindText = isCurrentActiveVersion ? '当前有效版' : isLatestVersionSelected ? '最新版' : '历史版'
   const versionKindTagType: DccControlledFileTagType = isLatestVersionSelected ? 'success' : 'info'
 
   return {
@@ -53,6 +55,7 @@ export const getBrowserVersionSummary = (
     statusTagType: getBrowserStatusTagType(version.status),
     versionKindText,
     versionKindTagType,
+    isCurrentActiveVersion,
     modifying: Boolean(isSelectedVersionModifying || version.modifying),
     effectiveText: `生效：${version.effectiveDate || '-'}`,
     publishedText: `发布：${version.publishedTime || '-'}`
@@ -64,6 +67,7 @@ export const getBrowserRowActionState = (row: BrowserRowReadableState) => {
   return {
     canPreview: isDccControlledFileActionAllowed(row, 'PREVIEW'),
     canDownload: isDccControlledFileActionAllowed(row, 'DOWNLOAD'),
+    canPrint: isDccControlledFileActionAllowed(row, 'PRINT'),
     projectionMissing: !hasProjection,
     actionReadonlyReason: hasProjection
       ? resolveDccActionProjectionReadonlyReason(row, '后端动作投影未放行浏览页操作。')

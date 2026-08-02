@@ -1261,16 +1261,33 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
         Map<Long, MesMdWorkstationCapacityMetrics> metricsByWorkstationId =
                 loadLatestPublishedCapacityMetrics(configByRouteProcessId, workstationByRouteProcessId);
         Map<Long, LatestPublishedCapacitySnapshot> result = new LinkedHashMap<>();
+        boolean unboundWorkbenchShiftHoursResolved = false;
+        BigDecimal unboundWorkbenchShiftHours = null;
         for (Map.Entry<Long, MesProRouteScheduleConfigDO> entry : configByRouteProcessId.entrySet()) {
             MesProRouteProcessDO routeProcess = routeProcessById.get(entry.getKey());
             MesMdWorkstationDO workstation = workstationByRouteProcessId.get(entry.getKey());
+            if (shouldUseWorkbenchShiftHoursForUnboundRouteProcess(entry.getValue(), routeProcess, workstation)
+                    && !unboundWorkbenchShiftHoursResolved) {
+                unboundWorkbenchShiftHours = resolveUnifiedWorkbenchShiftHoursOrNull(routeProcess);
+                unboundWorkbenchShiftHoursResolved = true;
+            }
             MesMdWorkstationCapacityMetrics metrics = workstation == null
                     ? null : metricsByWorkstationId.get(workstation.getId());
             result.put(entry.getKey(), buildLatestPublishedCapacitySnapshot(
                     entry.getValue(), routeProcess, workstation, metrics,
-                    scheduleOrderProcessByRouteProcessId.get(entry.getKey())));
+                    unboundWorkbenchShiftHours));
         }
         return result;
+    }
+
+    private boolean shouldUseWorkbenchShiftHoursForUnboundRouteProcess(MesProRouteScheduleConfigDO config,
+                                                                       MesProRouteProcessDO routeProcess,
+                                                                       MesMdWorkstationDO workstation) {
+        return workstation == null
+                && routeProcess != null
+                && routeProcess.getWorkstationId() == null
+                && config != null
+                && MesProScheduleCapacityModeEnum.isManualOverrideLike(config.getCapacityMode());
     }
 
     private Map<Long, MesMdWorkstationDO> loadLatestPublishedWorkstationByRouteProcessId(
@@ -1369,11 +1386,11 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
             MesProRouteProcessDO routeProcess,
             MesMdWorkstationDO workstation,
             MesMdWorkstationCapacityMetrics metrics,
-            MesProScheduleOrderProcessDO scheduleOrderProcess) {
+            BigDecimal unboundWorkbenchShiftHours) {
         if (config == null || routeProcess == null) {
             throw exception(PRO_AUTO_SCHEDULE_WORKSTATION_REQUIRED);
         }
-        BigDecimal shiftHours = requireLatestPublishedShiftHours(routeProcess, workstation, scheduleOrderProcess);
+        BigDecimal shiftHours = requireLatestPublishedShiftHours(routeProcess, workstation, unboundWorkbenchShiftHours);
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("routeScheduleConfigId", config.getId());
         payload.put("routeProcessId", routeProcess.getId());
@@ -1426,17 +1443,49 @@ public class MesProAutoScheduleServiceImpl implements MesProAutoScheduleService 
 
     private BigDecimal requireLatestPublishedShiftHours(MesProRouteProcessDO routeProcess,
                                                         MesMdWorkstationDO workstation,
-                                                        MesProScheduleOrderProcessDO scheduleOrderProcess) {
-        BigDecimal shiftHours = workstation != null ? workstation.getShiftHours() : null;
-        if ((shiftHours == null || shiftHours.compareTo(BigDecimal.ZERO) <= 0)
-                && scheduleOrderProcess != null) {
-            shiftHours = scheduleOrderProcess.getShiftHours();
+                                                        BigDecimal unboundWorkbenchShiftHours) {
+        if (workstation != null) {
+            BigDecimal shiftHours = normalizePositiveShiftHours(workstation.getShiftHours());
+            if (shiftHours == null) {
+                throw exception(PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED, routeProcess.getId(), workstation.getId());
+            }
+            return shiftHours;
         }
-        if (shiftHours == null || shiftHours.compareTo(BigDecimal.ZERO) <= 0) {
-            throw exception(PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED, routeProcess.getId(),
-                    workstation == null ? null : workstation.getId());
+        BigDecimal shiftHours = normalizePositiveShiftHours(unboundWorkbenchShiftHours);
+        if (shiftHours == null) {
+            throw exception(PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED, routeProcess.getId(), null);
         }
         return shiftHours;
+    }
+
+    private BigDecimal resolveUnifiedWorkbenchShiftHoursOrNull(MesProRouteProcessDO routeProcess) {
+        List<MesMdWorkstationDO> workstations = ObjUtil.defaultIfNull(
+                workstationMapper.selectListForShiftHours(), Collections.emptyList());
+        if (CollUtil.isEmpty(workstations)) {
+            return null;
+        }
+        BigDecimal unifiedShiftHours = null;
+        for (MesMdWorkstationDO workstation : workstations) {
+            BigDecimal shiftHours = normalizePositiveShiftHours(workstation == null ? null : workstation.getShiftHours());
+            Long workstationId = workstation == null ? null : workstation.getId();
+            if (shiftHours == null) {
+                throw exception(PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED,
+                        routeProcess == null ? null : routeProcess.getId(), workstationId);
+            }
+            if (unifiedShiftHours == null) {
+                unifiedShiftHours = shiftHours;
+                continue;
+            }
+            if (unifiedShiftHours.compareTo(shiftHours) != 0) {
+                throw exception(PRO_SCHEDULE_ORDER_SHIFT_HOURS_REQUIRED,
+                        routeProcess == null ? null : routeProcess.getId(), workstationId);
+            }
+        }
+        return unifiedShiftHours;
+    }
+
+    private BigDecimal normalizePositiveShiftHours(BigDecimal shiftHours) {
+        return shiftHours == null || shiftHours.compareTo(BigDecimal.ZERO) <= 0 ? null : shiftHours;
     }
 
     private MesMdWorkstationCapacityMetrics requireLatestPublishedCapacityMetrics(

@@ -74,6 +74,8 @@ for (const token of [
   'RRM_PQC_INSPECTOR_USERNAME',
   'RRM_PQC_LEADER_USERNAME',
   'RRM_RELEASE_OWNER_USERNAME',
+  'RRM_UNAUTHORIZED_USERNAME',
+  'RRM_UNAUTHORIZED_PASSWORD',
   'RRM_SIGNATURE_IDS_JSON',
   'RRM_PRODUCTION_ORDER_ID',
   'RRM_TRANSFER_IDS'
@@ -117,6 +119,38 @@ for (const token of [
   'PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH',
   'chromium.launch',
   '/login',
+  'loadAcceptanceMatrix',
+  'M6_REAL_FLOW_PHASES',
+  'buildAcceptanceCoverage',
+  'assertAcceptanceCoverage',
+  'acceptanceCoverage',
+  'phaseEvidence',
+  'performActiveOrderJoin',
+  'verifyActiveOrderConflictRouteFailure',
+  'activeOrderConflictRouteRejected',
+  'verifyPqcActiveOrderReadOnly',
+  'activeOrderCrossRoleReadOnly',
+  'verifyPqcRegulationItemsRendered',
+  'pqcRegulationItemsRendered',
+  'verifyActiveOrderUnauthorizedMutationBlocked',
+  'activeOrderUnauthorizedMutationBlocked',
+  'unauthorizedActor',
+  'verifyActiveOrderCleanupTraceability',
+  'activeOrderCleanupDeferred',
+  '/system/auth/get-permission-info',
+  'actionEvidence',
+  'probeActiveOrderListRuntime',
+  'activeOrderListRuntime',
+  '/system/tenant/get-id-by-name',
+  '/system/auth/login',
+  'loginResponseTimeout',
+  '/mes/pro/process-pool/team-leader/active-order/list',
+  'tenant-id',
+  'Authorization',
+  '/mes/pro/process-pool/team-leader/active-order/add',
+  '/mes/pro/feedback/edhr-batch-pqc-fill',
+  '/mes/pro/feedback/frontline/device-account/pqc/active-orders',
+  '/mes/pro/feedback/frontline/device-account/pqc/active-order/processes',
   'writeEvidence',
   'failFast'
 ]) {
@@ -126,5 +160,20 @@ for (const token of [
 const forbiddenSuccessPattern = new RegExp(['mo' + 'ck', 'placeholder suc' + 'cess', 'default suc' + 'cess'].join('|'), 'i')
 assert.doesNotMatch(source, forbiddenSuccessPattern, 'real E2E must not contain fake success paths.')
 assert.doesNotMatch(source, /catch\s*\(\s*[^)]*\s*\)\s*\{\s*\}/, 'real E2E must not swallow exceptions.')
+assert.doesNotMatch(
+  source,
+  /M6 全链路真实 E2E 尚未实现/,
+  'M6 real E2E must report structured AC coverage blockers instead of a generic not-implemented placeholder.'
+)
+assert.match(
+  source,
+  /const\s+listResponsePromise\s*=\s*page\.waitForResponse[\s\S]{0,300}\.catch\(/,
+  'active-order join must catch the list refresh wait so a failed write or closed page cannot become an unstructured rejection.'
+)
+assert.match(
+  source,
+  /activeOrderListResponseError/,
+  'active-order join must convert list refresh wait failures into structured E2E evidence.'
+)
 
 console.log('PASS role-requirement-matrix preflight static contract')

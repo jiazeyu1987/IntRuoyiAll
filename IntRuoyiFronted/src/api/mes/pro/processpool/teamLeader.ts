@@ -60,6 +60,8 @@ export interface TeamDeviceParameterRuleSaveReqVO {
 
 export interface TeamLeaderActiveOrderAddReqVO {
   workOrderId: number
+  routeId: number
+  routeVersionId: number
 }
 
 export interface TeamLeaderActiveOrderRemoveReqVO {

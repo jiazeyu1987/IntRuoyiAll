@@ -28,6 +28,9 @@ public class MesProcessPoolTeamLeaderScopeDO extends TenantBaseDO {
     public static final String SCOPE_TYPE_EMPLOYEE = "EMPLOYEE";
     public static final String SCOPE_TYPE_PROCESS = "PROCESS";
     public static final String SCOPE_TYPE_WORKSTATION = "WORKSTATION";
+    public static final String SCOPE_TYPE_PRODUCTION_LINE = "PRODUCTION_LINE";
+    public static final String SCOPE_TYPE_EQUIPMENT = "EQUIPMENT";
+    public static final String SCOPE_TYPE_ORDER = "ORDER";
 
     @TableId
     private Long id;
@@ -38,5 +41,8 @@ public class MesProcessPoolTeamLeaderScopeDO extends TenantBaseDO {
     private Long employeeUserId;
     private Long processId;
     private Long workstationId;
+    private Long productionLineId;
+    private Long equipmentId;
+    private Long workOrderId;
     private Boolean enabled;
 }

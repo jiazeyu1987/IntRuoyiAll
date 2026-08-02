@@ -5,10 +5,13 @@ CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_team_leader_scope` (
     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '编号',
     `leader_user_id` bigint NOT NULL COMMENT '班组长用户ID',
     `leader_type` varchar(32) NOT NULL COMMENT '班组长类型：PRODUCTION/PQC',
-    `scope_type` varchar(32) NOT NULL COMMENT '负责范围类型：EMPLOYEE/PROCESS/WORKSTATION',
+    `scope_type` varchar(32) NOT NULL COMMENT '负责范围类型：EMPLOYEE/PROCESS/WORKSTATION/PRODUCTION_LINE/EQUIPMENT/ORDER',
     `employee_user_id` bigint DEFAULT NULL COMMENT '负责员工用户ID',
     `process_id` bigint DEFAULT NULL COMMENT '负责工序ID',
     `workstation_id` bigint DEFAULT NULL COMMENT '负责工作站ID',
+    `production_line_id` bigint DEFAULT NULL COMMENT '负责生产线ID',
+    `equipment_id` bigint DEFAULT NULL COMMENT '负责设备ID',
+    `work_order_id` bigint DEFAULT NULL COMMENT '负责生产订单ID',
     `enabled` bit(1) NOT NULL DEFAULT b'1' COMMENT '是否启用',
     `remark` varchar(500) DEFAULT NULL COMMENT '备注',
     `creator` varchar(64) DEFAULT '' COMMENT '创建者',
@@ -20,7 +23,10 @@ CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_team_leader_scope` (
     PRIMARY KEY (`id`),
     KEY `idx_mes_pp_tl_scope_employee` (`tenant_id`, `leader_user_id`, `employee_user_id`),
     KEY `idx_mes_pp_tl_scope_process` (`tenant_id`, `leader_user_id`, `process_id`),
-    KEY `idx_mes_pp_tl_scope_workstation` (`tenant_id`, `leader_user_id`, `workstation_id`)
+    KEY `idx_mes_pp_tl_scope_workstation` (`tenant_id`, `leader_user_id`, `workstation_id`),
+    KEY `idx_mes_pp_tl_scope_line` (`tenant_id`, `leader_user_id`, `production_line_id`),
+    KEY `idx_mes_pp_tl_scope_equipment` (`tenant_id`, `leader_user_id`, `equipment_id`),
+    KEY `idx_mes_pp_tl_scope_order` (`tenant_id`, `leader_user_id`, `work_order_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='MES 工序池班组长负责范围';
 
 CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_submission_review` (

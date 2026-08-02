@@ -123,6 +123,24 @@ PORT_CONTRACT_VERSION: 2026-07-26-branch-runtime-v3
 - Forbidden action: 禁止把浏览器用的 OnlyOffice `base-url` 改成 `host.docker.internal`；禁止用 API-only 成功或未登录 `401` 冒充 OnlyOffice 容器已能下载文件；禁止修改测试服/生产配置来修复本地 Docker 网络问题。
 - Evidence: `doc/tasks/20260727-local-onlyoffice-download-failed/verification-report.md`。
 
+## 2026-08-02 本机 Docker 开机自启门禁
+
+- Trigger: 调整本机 Docker 开机自启、Docker Desktop 自动恢复容器、`docker update --restart`、清理非项目 Docker 运行项。
+- Preflight check: 先用 `docker inspect` 记录容器名、镜像、Compose project/service、restart policy 和状态；只允许与 IntRuoyi 明确相关的容器或已记录的本地依赖保留自启策略。
+- Blocker: 容器归属不明、Compose project 不属于 IntRuoyi/Yudao/已记录依赖、或无关容器 restart policy 不是 `no` 时必须阻塞自启合规结论。
+- Verification: `docker inspect` 复查所有本机容器，非 IntRuoyi 容器的 `HostConfig.RestartPolicy.Name` 必须为 `no`；记录未停止、未删除、未重建容器。
+- Forbidden action: 禁止通过停止、删除、重建容器来冒充禁用自启；禁止让 `docker_ragflow` 等无关栈保留 `always`、`unless-stopped` 或 `on-failure` 自启策略。
+- Evidence: `doc/tasks/20260802-docker-autostart-policy/verification-report.md`。
+
+## 2026-08-02 DCC 上传预览本机 MinIO 前置门禁
+
+- Trigger: DCC 原版上传、上传升版、`/admin-api/dcc/controlled-files/upload-preview`、`SdkClientException`、`Connect to 127.0.0.1:9000 failed: Connection refused`、`docker-minio-1`。
+- Preflight check: 跑 DCC 写入型上传 E2E 前，先确认 `docker-minio-1` 正在运行且 healthy，`http://127.0.0.1:9000/minio/health/ready` 返回 HTTP 200，`/data/yudao` bucket 目录存在；同时确认后端文件配置 endpoint 指向 `http://127.0.0.1:9000`、bucket 为 `yudao`，不得输出 access key 或 secret。
+- Blocker: MinIO 容器未运行、9000 未监听、ready health 非 200、bucket 缺失、后端 `48081` 未 UP，或标准 backend 重启仍在 Maven package 阶段时必须停止 DCC 完整链路结论。
+- Verification: MinIO ready 200、后端 health `UP`、前端 8081 HTTP 200 后，再用 Playwright 真实页面跑到 `upload-preview`，目标请求无 500，结果 JSON 中 `targetNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`。
+- Forbidden action: 禁止用 API-only 上传、SQL 改状态、mock 文件服务、切换存储实现、复用历史会话或复用半失败文件号冒充上传链路恢复；禁止在共享 Maven package 正在运行时抢占启动后端或强停未知进程。
+- Evidence: `doc/tasks/20260802-dcc-minio-object-storage-runtime/verification-report.md`。
+
 ## 2026-07-27 本地后端标准输出阻塞与日志目录门禁
 
 - Trigger: 本地后端 health 为 `UP`，但登录、租户查询或业务 API 长时间无响应；线程栈集中阻塞在 Logback `OutputStreamAppender`；或 task-closeout 无法删除仍被 Java 进程占用的 stdout/stderr 日志。

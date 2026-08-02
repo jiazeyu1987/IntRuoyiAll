@@ -14,7 +14,27 @@
 ## Verification Evidence
 
 - GREEN: task bootstrap -> PASS, task directory created and applicable E2E/database/frontend gates recorded.
+- GREEN: runtime preflight -> PASS, local `int_main` frontend `http://127.0.0.1:8081` returned HTTP 200 and backend `http://127.0.0.1:48081/actuator/health` returned `UP`; Docker MySQL/Redis dependencies were available on the documented local ports.
+- GREEN: permission precondition -> PASS, non-admin user `wangsiyu` in tenant `芋道源码` had `doc_control` role binding in `system_user_role`; stale Redis key `user_role_ids:910250` was deleted before the final run so backend `hasAnyRoles(userId,'doc_control')` used current DB role data.
+- GREEN: `node --check doc\tasks\20260802-dcc-project-code-filetype-assignment-e2e\dcc-project-code-filetype-assignment-e2e.cjs` -> PASS.
+- GREEN: `node doc\tasks\20260802-dcc-project-code-filetype-assignment-e2e\dcc-project-code-filetype-assignment-e2e.cjs` -> PASS, Playwright used real frontend pages to edit controlled file metadata five times and verify the DCC project-code detail associated-document type grouping after each save.
+- GREEN: final read-only DB check -> PASS, controlled file `2054545668044070264` restored to original project code id `234`, original file type taxonomy id `102`, status `ACTIVE`.
+- GREEN: `python C:\Users\BJB110\.codex\skills\quality-assurance-test-suite\scripts\validate_quality_assurance.py --evidence doc\tasks\20260802-dcc-project-code-filetype-assignment-e2e\verification-report.md` -> PASS, quality assurance evidence is valid.
+- GREEN: sensitive scan for literal password/token markers in the task directory -> PASS, no matches for the configured secret patterns.
+- GREEN: project experience consolidation -> PASS, merged reusable DCC project-code associated-document E2E and `user_role_ids` cache preflight lesson into `docs/frontend-development.md#DCC 基础条目关联文档分类树门禁` and `docs/experience-index.md`.
+- GREEN: `rg -n "Only doc control|user_role_ids|doc_control 缓存刷新" docs\frontend-development.md docs\experience-index.md` -> PASS, new experience keywords resolve to the updated long-term gate.
+- GREEN: `git diff --check -- docs/frontend-development.md docs/experience-index.md doc/tasks/20260802-dcc-project-code-filetype-assignment-e2e/...` -> PASS, no whitespace errors.
+
+## Final E2E Data
+
+- Account: `wangsiyu`, non-admin, tenant `芋道源码`.
+- Source project: `HGGW` / id `234`; target project: `IMC` / id `217`.
+- Controlled file: `2054545668044070264`, file number `CODX-DCC-REV-20260802-20260802034644`.
+- Verified target file types: `技术文档 / 清单 / DHF文件清单`; `技术文档 / 设计和开发策划阶段 / 市场调研报告`; `技术文档 / 设计和开发策划阶段 / 技术调研报告`; `技术文档 / 设计和开发策划阶段 / 注册和临床路径分析报告`; `技术文档 / 设计和开发策划阶段 / 项目可行性分析报告`.
+- Restore: Playwright restored the file through the same metadata dialog to `HGGW` and `技术文档 / 设计和开发输出阶段 / 来料/过程/成品检验规范`.
+- Network notes: the result JSON records navigation-related `ERR_ABORTED` GETs, including external Baidu analytics and local GETs canceled during route changes; target metadata PUT responses and project-code associated-doc read assertions passed, and `pageErrors` was empty.
+- Local artifacts: `e2e-result.json` and `e2e-progress.log` kept as task evidence; old text debug artifact removed, ignored screenshot artifact remains outside tracked task evidence.
 
 ## Blockers
 
-- None yet.
+- Resolved: the first successful edit-button access still failed on backend metadata PUT because `user_role_ids:910250` cached stale role ids; after deleting only that user-role cache key, the same non-admin account completed the full E2E chain.

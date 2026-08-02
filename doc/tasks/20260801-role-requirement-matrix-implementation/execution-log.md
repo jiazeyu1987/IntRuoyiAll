@@ -442,3 +442,181 @@
 
 - BDD: M4 transfer trace and start check -> Given M1-M3 已 accepted 且 activeOrderId 是统一订单身份 When 一个活跃订单存在发货、补料、退料和多批次调拨事实 Then 系统必须用正式 activeOrderId 关系表追溯 transfer/shipment/replenishment/return/batch/material stock 来源，缺来源时保持阻塞而不是按单号或默认库存通过。
 - BDD: M4 release completeness source checks -> Given eDHR 放行预检需要检验、偏差、返工、报废和库存五类来源 When 执行放行预检 Then 五项必须通过正式 source adapter 生成 PASS/BLOCKER/NOT_APPLICABLE，不得继续由 `buildSourceNotIntegratedItem` 占位，也不得把来源缺失改为默认 PASS。
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-matrix-transfer-start-check:static` -> FAIL，expected reason: 缺少 activeOrderId 到调拨/发货/补料/退料/批次库存的正式关系源，M4 静态合同仍能识别 RRM-BLK-013..016。
+- RED: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesActiveOrderTransferTraceSchemaTest,MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL/TIMEOUT，expected reason: M4 schema/source adapter 尚未实现，且一次 generated `target\classes` 诊断输出损坏导致标准 Maven 不能完成；该诊断不作为 GREEN。
+- RED: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesActiveOrderTransferTraceSchemaTest,MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` -> FAIL，expected reason: 既有 `service/pro/batchrecord/MesProEdhrReleaseServiceImplTest` 缺少新引入的 `MesOrderReleaseCompletenessService` bean / mock。
+- IMPLEMENTING: 新增 `mes_pro_process_pool_active_order_transfer_trace` migration、DO、Mapper 和 `MesActiveOrderTransferTraceService`；新增 `MesOrderReleaseCompletenessService` 五类正式来源适配方法；`MesProEdhrReleaseServiceImpl` 放行预检改为调用正式 adapter；既有放行服务测试显式 mock 新依赖。
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesActiveOrderTransferTraceSchemaTest,MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` from `IntRuoyiBackend` -> PASS，21 tests，0 failures/errors。
+- GREEN: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesActiveOrderTransferTraceSchemaTest,MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` -> PASS，21 tests，0 failures/errors。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-matrix-transfer-start-check:static` -> PASS。
+- REGRESSION: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- REGRESSION: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> EXPECTED_BLOCKED_FOR_M5，3 SOURCE / 0 ENV / 0 RUNTIME；RRM-BLK-008..016 不再出现在 `result.json`，剩余 SOURCE 为 RRM-BLK-029..031。
+- TASK_DOCS: `task-state.json`、`task.md`、`blocker-inventory.md`、`source-map.md`、`backend-api-evidence.md`、`database-schema-evidence.md`、`role-requirement-matrix-real-e2e-evidence.md` -> UPDATED，M4 标记为 accepted，当前里程碑切换到 M5。
+- TOOLING_NOTE: `development-plan-delivery` 通用脚本要求 `development-plan.md/prd.md/test-plan.md` 与当前 task-dir 同目录；本任务历史结构将规划包放在 `doc/tasks/20260801-role-requirement-matrix-excel`，实现包用 `planningPackage` 字段引用，因此脚本预检失败只记录为工具适配证据，不解除或阻塞 M5 业务门禁。
+- Decision: M4 transfer/release source gate accepted；当前可以进入 M5 route batch-record/formBindings separation 切片，但不得越级实现 M6；本轮仍不执行 `git push`。
+
+## M5 - Route Batch-record And FormBindings Separation
+
+- BDD: M5 route configuration separation -> Given 工艺路线同一工序同时存在“工序开始”、正式逐工序批记录绑定和 `formBindings` 表单槽位 When 前端字段明细、节点状态、保存/复制和 eDHR 运行态创建任务 Then `batchRecordFormNames` 只能来自正式批记录绑定，`formBindings` 只能作为表单槽位，缺少 `formSlotType` 必须 fail-fast，不得默认 `MAIN` 或用工序开始配置替代。
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-matrix-route-config-separation:static` -> FAIL，expected reason: `normalizeRecordBindingSlotType` 对缺失槽位默认 `MAIN`，且运行态存在缺失槽位被当作正式批记录的风险。
+- IMPLEMENTING: `RouteFlowGraphDesigner.vue` 移除缺槽位默认 `MAIN`，新增/使用显式 `resolveRecordBindingSlotType` / `requireRecordBindingSlotType`；共享 key、附加表单数量、保存和复制链路不再伪造 `MAIN`。`MesProEdhrBatchExecutionServiceImpl.resolveRouteFormSlotType` 对空值或非法槽位 fail-fast，不再 `blankToDefault(..., FORM_SLOT_MAIN)`。
+- IMPLEMENTING: `role-requirement-matrix-real-flow.e2e.js` 将粗粒度存在性检查收敛为 value/link/border 三类分离检查，证明 `batchRecordFormNames` 与 `formBindings` 同屏存在但互不替代。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-matrix-route-config-separation:static` -> PASS。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-matrix-route-config-separation-static.spec.cjs` -> PASS。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `mvn -pl yudao-module-mes -am "-DskipTests" compile` from `IntRuoyiBackend` -> PASS，reactor BUILD SUCCESS，`yudao-module-mes` 编译通过。
+- REGRESSION: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- REGRESSION: `pnpm --dir IntRuoyiFronted ts:check` -> PASS。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> PASS，0 SOURCE / 0 ENV / 0 RUNTIME；RRM-BLK-029..031 不再出现在 `result.json`。
+- TOOLING_NOTE: targeted `MesProEdhrBatchExecutionServiceTest` Maven run exceeded the earlier timeout while still in Java compile; PID 33048/32784 was confirmed task-owned by command line, diagnosed with `jcmd`, then stopped. No test PASS is claimed from that timed-out command; M5 backend acceptance uses the focused static contract plus standard backend compile and real:check PASS.
+- TASK_DOCS: `task-state.json`、`task.md`、`blocker-inventory.md`、`source-map.md`、`test-report.md`、`verification-report.md`、`role-requirement-matrix-real-e2e-evidence.md` -> UPDATED，M5 标记为 accepted，当前里程碑切换到 M6。
+- Decision: M5 route configuration separation source gate accepted；当前可以进入 M6 migration/concurrency/performance/full-real-E2E gate；本轮仍不执行 `git push`。
+
+## M5 - Daily Close And Scope Coverage Recheck
+
+- BDD: M5 daily-close unresolved item surface -> Given M5 不仅包含路线三类配置分离，还包含日结、范围、权限、审计与快照 When 班组长工作台加载当前提交列表、活跃订单和错误状态 Then 页面必须提供可见“日结”待处理面，按真实页面状态暴露待复核、异常和加载阻塞，不能用默认成功或隐藏空白替代。
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-matrix-daily-close-scope:static` -> FAIL，expected reason: `TeamLeaderWorkbenchPage.vue` 缺少 `data-role-matrix-daily-close` / `dailyClose` / `日结` 可见面，M5 不能作为整体 accepted。
+- TASK_DOCS: `task-state.json`、`task.md` -> UPDATED，当前里程碑从 M6 退回 M5，M6 改为 pending / blocked by M5 daily-close/scope gate。
+- BDD: M5 extended scope authority -> Given 班组长负责范围不只包含员工、工序和工位 When 日结、维护和范围授权判断读取 scope model Then 系统必须显式表达生产线、设备和订单 scope，并对缺失授权 fail-fast，不能默认扩大到全局范围。
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-matrix-daily-close-scope:static` -> FAIL，expected reason: `SCOPE_TYPE_PRODUCTION_LINE` 缺失，scope model 只覆盖员工、工序、工位。
+- RED: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderScopeServiceTest,MesProcessPoolTeamLeaderSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，expected reason: 新增范围测试先失败于缺 `assertCanMaintainProductionLine` / `assertCanMaintainEquipment` / `assertCanMaintainOrder` 和 `SCOPE_TYPE_PRODUCTION_LINE` / `SCOPE_TYPE_EQUIPMENT` / `SCOPE_TYPE_ORDER`。
+- IMPLEMENTING: `TeamLeaderWorkbenchPage.vue` 新增 `data-role-matrix-daily-close` 日结待处理看板，按真实 `submissionList`、`activeOrderOptions` 和 `loadError` 展示待复核、复核不正确、活跃订单和加载阻塞；不返回默认成功。
+- IMPLEMENTING: `MesProcessPoolTeamLeaderScopeDO` / `MesTeamLeaderScopeService` / `MesTeamLeaderScopeServiceImpl` / `20260730_mes_process_pool_team_leader.sql` / `20260802_mes_process_pool_team_leader_scope_extended.sql` 增加 `PRODUCTION_LINE`、`EQUIPMENT`、`ORDER` 三类 scope 字段、索引和显式断言入口。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-matrix-daily-close-scope:static` -> PASS。
+- REGRESSION: `pnpm --dir IntRuoyiFronted ts:check` -> PASS。
+- REGRESSION: `pnpm --dir IntRuoyiFronted e2e:role-matrix-route-config-separation:static` -> PASS。
+- REGRESSION: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- REGRESSION: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- BLOCKED: standard targeted Maven rerun remained task-owned but timed out in `WinNTFileSystem.delete0` / `IncrementalBuildHelper.beforeRebuildExecution`; PID 616 / 34648 were confirmed task-owned and stopped. Non-incremental verification then failed before target tests on unrelated existing sources: `ProcessPoolReviewCopyGenerateSubmitReqVO.FieldMapping`, `ProcessPoolTimelineDetailRespVO.ReadonlyActions`, `MesWmMiscReceiptStatusEnum` Lombok constructor/getter errors. No Maven GREEN is claimed for the backend scope slice.
+- TASK_DOCS: `task-state.json`、`task.md`、`test-report.md`、`verification-report.md` -> UPDATED，M5 remains `in_progress` / M6 remains `pending` until backend verification blocker is cleared；本轮仍不执行 `git push`。
+
+## M5 - Backend Verification Recovered And Accepted
+
+- GREEN: `mvn -pl yudao-module-mes -am "-Dtest=MesTeamLeaderScopeServiceTest,MesProcessPoolTeamLeaderSchemaTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，7 tests，0 failures/errors，BUILD SUCCESS。
+- TASK_DOCS: `task-state.json`、`task.md`、`test-report.md`、`verification-report.md` -> UPDATED，M5 标记为 accepted，当前里程碑切换到 M6。
+- Decision: M5 daily-close/scope/backend target gates accepted；当前可以进入 M6 migration/concurrency/performance/full-real-E2E gate；本轮仍不执行 `git push`。
+
+## M6 - Full Validation Entry Gate
+
+- BDD: M6 full validation gate -> Given M0-M5 已 accepted 且 `real:check` 前置齐全 When 执行迁移、并发、性能、release 覆盖和真实 Playwright 全链路验证 Then M6 必须暴露所有剩余 blocker，不能把静态合同、API-only 或登录预检冒充 62 AC 全链路通过。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` with authorized local fixture env -> PASS，真实前置齐全且凭据未写入证据。
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` -> BLOCKED，expected reason: 脚本仍 fail-fast 报告 “M6 全链路真实 E2E 尚未实现；完成 M1-M5 ACCEPTED 后必须扩展本脚本覆盖 62 个 AC。”
+- REGRESSION: `pnpm --dir IntRuoyiFronted e2e:team-leader-workbench:static` -> PASS。
+- REGRESSION: `pnpm --dir IntRuoyiFronted e2e:frontline-formal-submit:static` -> PASS。
+- REGRESSION: `pnpm --dir IntRuoyiFronted e2e:frontline-team-config:static` -> PASS。
+- REGRESSION: `pnpm --dir IntRuoyiFronted e2e:team-leader-report-allocation:static` -> PASS。
+- RED: `pnpm --dir IntRuoyiFronted e2e:edhr:release:check` -> FAIL，expected reason: `src/api/mes/pro/edhr/releaseDossierRequirementSetting.ts` was not covered by the release coverage matrix.
+- IMPLEMENTING: `package.json` 新增 `e2e:edhr:release-dossier-requirement:check` / `e2e:edhr:release-dossier-requirement`；`edhr-release-e2e-coverage-gate.mjs` 新增 `release-dossier-requirement/setting` feature，绑定既有 API、Profile 配置页、release check presentation、真实 E2E 和根任务证据。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:edhr:release-dossier-requirement:check` -> PASS。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\edhr-release-dossier-requirement-setting-real.e2e.js` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:edhr:release:check` -> PASS，features=15，checkScripts=12，syntaxFiles=12。
+- REGRESSION: `pnpm --dir IntRuoyiFronted ts:check` -> PASS。
+- REGRESSION: `mvn -f IntRuoyiBackend/pom.xml -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest,MesFrontlineRuntimeConfigControllerTest,MesFrontlineRuntimeConfigServiceTest,MesTeamLeaderActiveOrderServiceTest,MesTeamLeaderRuntimeConfigServiceTest,MesTeamLeaderReportConfirmationServiceTest,MesTeamLeaderFifoAllocationServiceTest,MesTeamLeaderOrderProcessCompletionServiceTest,MesTeamLeaderBatchRecordBackfillServiceTest,MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，58 tests，0 failures/errors，BUILD SUCCESS。
+- REGRESSION: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- REGRESSION: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- BLOCKER: M6 full real E2E -> 当前脚本只证明前置和六角色登录导航能力，尚未实现 62 AC 全链路页面动作、失败路径、权限隔离、并发/性能数据、清理和 launch/readiness 证据；M6 保持 `in_progress`。
+
+## M6 - Real E2E Coverage Ledger Slice
+
+- BDD: M6 structured AC coverage ledger -> Given M6 必须证明 62 个 AC 的真实页面动作、失败路径和只读核验 When 真实 E2E 仍无法一次性完成全部业务动作 Then 脚本必须从测试计划加载 62 AC，记录已观察页面阶段，并把未达到 ACCEPTED 的 AC 逐项结构化为 blocker，不能再用泛化“未实现”占位。
+- TEST_ADDED: `role-requirement-matrix-preflight-static.spec.cjs` -> 扩展静态合同，要求真实 E2E 脚本包含 `loadAcceptanceMatrix`、`M6_REAL_FLOW_PHASES`、`buildAcceptanceCoverage`、`assertAcceptanceCoverage`、`acceptanceCoverage`、`phaseEvidence`，并禁止保留泛化 “M6 全链路真实 E2E 尚未实现” 占位。
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> FAIL，expected reason: `role-requirement-matrix-real-flow.e2e.js` 缺少 `loadAcceptanceMatrix` 和 M6 AC coverage ledger。
+- IMPLEMENTING: `role-requirement-matrix-real-flow.e2e.js` 新增从 `test-plan.md` 解析 62 AC、六角色 M6 页面阶段表面检查、coverage ledger、结构化 `E2E_COVERAGE` blocker 和 evidence 输出；删除末尾泛化未实现 fail-fast。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- REGRESSION: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> PASS，0 SOURCE / 0 ENV / 0 RUNTIME。
+- RED: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` first rerun -> FAIL，expected reason: 入口级阶段错误地等待隐藏复核弹窗控件 `data-team-leader-fifo-allocation`。
+- IMPLEMENTING: 将当前切片的真实阶段判据收敛为稳定入口级可见区域；PQC 组长阶段先点击 `PQC 组长` 页签，再等待工作台和日结入口，后续写动作另行作为独立 M6 RED/GREEN。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` -> STRUCTURED_BLOCKED，exit 2；六角色入口/页面阶段均执行，`phaseEvidence=6`，`surfaceObserved=40`，`uncovered=22`，`pending=62`，`blockers=62`，结果已写入 `IntRuoyiFronted/test-results/role-requirement-matrix-real-flow/result.json` 和 `role-requirement-matrix-real-e2e-evidence.md`。
+- Decision: M6 仍保持 `in_progress`；本轮只完成真实 E2E coverage ledger 和入口阶段证据，未把任何 AC 标记为 full ACCEPTED，后续继续按 AC 切片补真实动作、失败路径、并发/性能和清理证据。
+
+## M6 - AC-M04 Active Order Join Idempotency And Action Evidence
+
+- BDD: AC-M04 activeOrderId duplicate join idempotency -> Given 球囊扩张压力泵路线 v21 的授权工单已经存在统一 activeOrderId When 生产组长再次通过真实页面加入同一 `workOrderId + routeId + routeVersionId` Then 系统必须返回同一个 activeOrderId，重复加入和并发唯一键竞争不得报“系统异常”，且不得重复插入快照或审计。
+- RED: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` -> FAIL，expected reason: `joinActiveOrder` 真实页面动作命中 `uk_mes_pp_active_order` 重复活跃订单唯一键后返回“系统异常”，AC-M04 重复加入失败路径未被幂等处理。
+- TEST_ADDED: `MesTeamLeaderActiveOrderServiceTest` -> 新增同一 `workOrderId/routeId/routeVersionId` 已活跃时直接返回既有 activeOrderId 的测试，并新增 `DuplicateKeyException` 并发竞争后重新读取既有 activeOrderId 的测试。
+- RED: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，expected reason: `MesTeamLeaderActiveOrderServiceImpl.addActiveOrder(...)` 尚未先查既有活跃订单，也未在唯一键竞争后重新读取同一 activeOrderId。
+- IMPLEMENTING: `MesProcessPoolActiveOrderMapper` 新增 `selectActiveByWorkOrderRouteVersion(...)`；`MesTeamLeaderActiveOrderServiceImpl.addActiveOrder(...)` 改为先读既有 activeOrderId，插入遇到 `DuplicateKeyException` 时重新读取同一业务键，仍然 fail-fast 抛出真实异常；既有记录路径不写重复快照和审计。
+- IMPLEMENTING: `role-requirement-matrix-real-flow.e2e.js` 将活跃订单列表刷新失败记录为结构化 `activeOrderListResponseError` blocker，避免真实页面动作后的列表等待失败被吞成非结构化异常。
+- GREEN: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，5 tests，0 failures/errors，BUILD SUCCESS。
+- REGRESSION: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- REGRESSION: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- REGRESSION: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest,MesFrontlineRuntimeConfigControllerTest,MesFrontlineRuntimeConfigServiceTest,MesTeamLeaderActiveOrderServiceTest,MesTeamLeaderRuntimeConfigServiceTest,MesTeamLeaderReportConfirmationServiceTest,MesTeamLeaderFifoAllocationServiceTest,MesTeamLeaderOrderProcessCompletionServiceTest,MesTeamLeaderBatchRecordBackfillServiceTest,MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，60 tests，0 failures/errors，BUILD SUCCESS。
+- RUNTIME: int_main backend restored on `backend-runtime-control-20260802-170535.jar`; `/actuator/health` -> `UP`；authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> PASS，0 SOURCE / 0 ENV / 0 RUNTIME。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` -> STRUCTURED_BLOCKED，exit 2；`joinActiveOrder` action evidence PASS，`activeOrderId=12`、`workOrderId=980008`、`routeId=922119`、`routeVersionId=448`；coverage ledger 为 `total=62`、`accepted=0`、`actionObserved=1`、`surfaceObserved=39`、`uncovered=22`、`pending=62`、`blockers=62`。
+- Decision: AC-M04 现在具备真实页面动作证据和后端幂等/并发唯一键 GREEN，但仍不是 `ACCEPTED`；还缺 AC-M04 的冲突路线失败路径、跨角色只读核验、权限隔离和完整清理证据。M6 保持 `in_progress`，62 个 AC 仍按 `E2E_COVERAGE` blocker 逐项推进。
+
+## M6 - AC-M04 Conflicting Route Fail-fast Slice
+
+- BDD: AC-M04 conflicting route fail-fast -> Given 一个生产工单已经由正式排产绑定到路线和路线版本 When 生产组长请求把同一工单加入另一个 `routeId/routeVersionId` Then 系统必须在插入活跃订单前 fail-fast，不能先写入 active order 后再依赖事务回滚或后续快照失败掩盖冲突。
+- TEST_ADDED: `MesTeamLeaderActiveOrderServiceTest#shouldRejectConflictingRouteBeforeInsertingActiveOrder` -> 覆盖同一工单请求错误路线版本时抛出 `PRO_PROCESS_POOL_ORDER_PROCESS_TARGET_REQUIRED`，并断言不调用 active order insert、process snapshot insert 和 audit insert。
+- RED: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL，expected reason: 服务在发现排产路线不匹配前已经调用 `activeOrderMapper.insert(...)`。
+- IMPLEMENTING: `MesTeamLeaderActiveOrderServiceImpl.addActiveOrder(...)` 将正式排产路线/路线版本校验前移到 active order insert 之前；同路线重复加入仍直接返回既有 activeOrderId，并发唯一键竞争仍重新读取既有 activeOrderId，不新增 fallback。
+- GREEN_RETRY: same Maven command first rerun -> TIMEOUT/FAIL evidence found in surefire report，expected reason: 新前置校验要求并发唯一键测试提供匹配排产路线夹具；未宣称 GREEN。
+- TEST_FIXTURE: `MesTeamLeaderActiveOrderServiceTest#shouldReturnExistingActiveOrderWhenConcurrentInsertHitsUniqueKey` -> 补齐匹配 `MesProScheduleOrderDO` 夹具，保持并发唯一键语义不变。
+- GREEN: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesTeamLeaderActiveOrderServiceTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，6 tests，0 failures/errors，BUILD SUCCESS。
+- REGRESSION: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesProcessPoolTeamLeaderControllerTest,MesProcessPoolTeamLeaderSchemaTest,MesFrontlineRuntimeConfigControllerTest,MesFrontlineRuntimeConfigServiceTest,MesTeamLeaderActiveOrderServiceTest,MesTeamLeaderRuntimeConfigServiceTest,MesTeamLeaderReportConfirmationServiceTest,MesTeamLeaderFifoAllocationServiceTest,MesTeamLeaderOrderProcessCompletionServiceTest,MesTeamLeaderBatchRecordBackfillServiceTest,MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS，61 tests，0 failures/errors，BUILD SUCCESS。
+- Decision: AC-M04 现在具备后端重复加入、并发唯一键和冲突路线前置拒绝证据，但仍缺真实页面冲突路线失败路径、跨角色只读核验、权限隔离、清理和 M6 性能/上线门禁；M6 继续保持 `in_progress`，不执行 `git push`。
+
+## M6 - AC-M04 Real Page Conflict Route And Cross-role Evidence
+
+- BDD: AC-M04 real-page conflict route and cross-role read-only -> Given 生产组长已通过真实页面加入球囊扩张压力泵路线 v21 的活跃订单 When 同一页面再提交错误路线并由 PQC 检验员打开只读 PQC 页面 Then 错误路线必须以真实业务错误 fail-fast 且不新增 activeOrder，PQC 必须只读看到同一 activeOrderId。
+- TEST_ADDED: `IntRuoyiFronted/tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> 要求真实 E2E 脚本包含 `verifyActiveOrderConflictRouteFailure` 和 `activeOrderConflictRouteRejected`，防止只保留后端单测而缺真实页面失败路径。
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> FAIL，expected reason: `role-requirement-matrix-real-flow.e2e.js` 缺少 `verifyActiveOrderConflictRouteFailure`。
+- IMPLEMENTING: `role-requirement-matrix-real-flow.e2e.js` 新增生产组长页面冲突路线提交、业务失败响应断言、页面错误提示断言和登录态只读列表复核；生产组长阶段现在记录 `joinActiveOrder` 与 `activeOrderConflictRouteRejected` 两个 action evidence。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- RED: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` first rerun -> FAILED，expected reason: 冲突路线失败后脚本依赖 `page.reload()` 捕获活跃订单列表刷新，真实页面未稳定触发该列表响应，导致未结构化 timeout。
+- IMPLEMENTING: 将冲突路线后的复核改为使用当前页面登录态令牌发起只读 `/admin-api/mes/pro/process-pool/team-leader/active-order/list`，仅用于最终状态核验，不替代真实页面提交动作。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> PASS，真实前置仍为 0 SOURCE / 0 ENV / 0 RUNTIME blocker。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` -> STRUCTURED_BLOCKED，exit 2；`phaseEvidence=6`、`actionEvidence=3`、`actionKeys=joinActiveOrder, activeOrderConflictRouteRejected, activeOrderCrossRoleReadOnly`、`actionObserved=3`、`surfaceObserved=38`、`uncovered=21`、`pending=62`、`blockers=62`。
+- Decision: AC-M04 现在已有真实页面成功加入、真实页面冲突路线失败路径、PQC 跨角色只读核验和后端重复/并发/冲突路线单测证据；仍未 `ACCEPTED`，因为权限隔离、清理闭环以及 M6 migration/performance/launch gates 尚未完成；本轮仍不执行 `git push`。
+
+## M6 - AC-M04 Permission Isolation Fixture Gate
+
+- BDD: AC-M04 unauthorized active-order mutation isolation -> Given 生产组长已通过真实页面加入球囊扩张压力泵路线 v21 的活跃订单 When 放行负责人等错误角色尝试进入活跃订单维护或调用活跃订单写入 Then 页面不得暴露维护表单，后端必须拒绝写入；若测试账号仍具备通配或维护权限，必须结构化阻塞且不得执行破坏性写入探测。
+- TEST_ADDED: `IntRuoyiFronted/tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> 要求真实 E2E 脚本包含 `verifyActiveOrderUnauthorizedMutationBlocked`、`activeOrderUnauthorizedMutationBlocked` 和 `/system/auth/get-permission-info`，防止权限隔离只停留在口头 blocker。
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> FAIL，expected reason: `role-requirement-matrix-real-flow.e2e.js` 缺少 `verifyActiveOrderUnauthorizedMutationBlocked`。
+- IMPLEMENTING: `role-requirement-matrix-real-flow.e2e.js` 新增当前页面会话权限读取、错误角色权限隔离动作和 `E2E_PERMISSION` action blocker；若账号含 `*:*:*` 或 `mes:pro-process-pool-team-leader:maintain`，直接记录 `BLOCKED`，不发起活跃订单写请求，避免污染共享夹具。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> PASS，真实前置仍为 0 SOURCE / 0 ENV / 0 RUNTIME blocker。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` -> STRUCTURED_BLOCKED；pnpm lifecycle non-zero wrapping script exit 2；`phaseEvidence=6`、`actionEvidence=4`、`actionKeys=joinActiveOrder, activeOrderConflictRouteRejected, activeOrderCrossRoleReadOnly, activeOrderUnauthorizedMutationBlocked`、`activeOrderUnauthorizedMutationBlocked=BLOCKED/E2E_PERMISSION`、`blockedPermission=mes:pro-process-pool-team-leader:maintain`、`actionObserved=3`、`surfaceObserved=38`、`uncovered=21`、`pending=62`、`blockers=63`。
+- Decision: AC-M04 权限隔离现在具备可执行门禁和结构化 blocker；当前 `releaseOwner` 账号仍具备活跃订单维护权限，不能证明错误角色会被后端拒绝。需要调整本机测试角色夹具为不含 `mes:pro-process-pool-team-leader:maintain` / `*:*:*` 的正式错误角色后，才能继续执行写入拒绝核验；本轮仍不执行 `git push`。
+
+## M6 - AC-M04 Cleanup Traceability And Structured Runtime Blockers
+
+- BDD: AC-M04 active-order cleanup traceability -> Given 生产组长已通过真实页面加入球囊扩张压力泵路线 v21 的任务活跃订单 When M6 真实 E2E 进入清理判断 Then 脚本必须先重新定位同一个 `activeOrderId + workOrderId + routeId + routeVersionId`，并在无法安全清理共享夹具时记录结构化 cleanup blocker，不能静默删除或遗漏清理风险。
+- TEST_ADDED: `IntRuoyiFronted/tests/e2e/role-requirement-matrix-preflight-static.spec.cjs` -> 要求真实 E2E 脚本包含 `verifyActiveOrderCleanupTraceability` 和 `activeOrderCleanupDeferred`，防止 AC-M04 只记录加入/冲突/权限而缺少任务数据清理门禁。
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> FAIL，expected reason: `role-requirement-matrix-real-flow.e2e.js` 缺少 `verifyActiveOrderCleanupTraceability`。
+- IMPLEMENTING: `role-requirement-matrix-real-flow.e2e.js` 新增 activeOrder 清理追溯检查，先通过登录态只读列表重新定位本轮 activeOrder，再将共享 M6 夹具清理窗口缺失记录为 `activeOrderCleanupDeferred / E2E_CLEANUP`；同时将登录接口响应等待超时归入 `loginResponseTimeout` fail-fast 详情，避免非结构化 FAILED。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` -> STRUCTURED_BLOCKED；pnpm lifecycle non-zero wrapping script exit 2；`phaseEvidence=6`、`actionEvidence=5`、`actionKeys=joinActiveOrder, activeOrderConflictRouteRejected, activeOrderCleanupDeferred, activeOrderCrossRoleReadOnly, activeOrderUnauthorizedMutationBlocked`、`activeOrderCleanupDeferred=BLOCKED/E2E_CLEANUP`、`activeOrderUnauthorizedMutationBlocked=BLOCKED/E2E_PERMISSION`、`actionObserved=3`、`surfaceObserved=38`、`uncovered=21`、`pending=62`、`blockers=64`。
+- Decision: AC-M04 清理风险已变成可追溯结构化 blocker；当前 activeOrderId 仍是 PQC、放行、日结和后续 M6 验证共享夹具，不能直接删除。AC-M04 仍未 `ACCEPTED`，还缺非维护权限错误角色写入拒绝、清理窗口/可重建夹具，以及 M6 migration/performance/launch gates；本轮仍不执行 `git push`。
+
+## M6 - AC-M04 Dedicated Unauthorized Actor PASS
+
+- BDD: AC-M04 dedicated unauthorized actor -> Given 六个业务角色账号需要继续保留其业务入口能力 When 校验错误角色活跃订单写入隔离 Then 真实 E2E 必须使用独立 `unauthorizedActor` 登录态执行后端写入拒绝探测，不能把放行负责人账号降权来换取权限测试通过。
+- TEST_ADDED: `role-requirement-matrix-preflight-static.spec.cjs` -> 要求真实 E2E 脚本包含 `RRM_UNAUTHORIZED_USERNAME`、`RRM_UNAUTHORIZED_PASSWORD` 和 `unauthorizedActor`，防止继续复用 releaseOwner 作为错误角色。
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> FAIL，expected reason: `role-requirement-matrix-real-flow.e2e.js` 缺少 `RRM_UNAUTHORIZED_USERNAME`。
+- IMPLEMENTING: `role-requirement-matrix-real-flow.e2e.js` 新增专用错误角色环境变量、配置脱敏和复用业务角色的 fail-fast；`verifyActiveOrderUnauthorizedMutationBlocked` 改为使用独立浏览器上下文登录 `unauthorizedActor` 后读取权限、验证页面不暴露维护表单并调用后端写入接口确认拒绝。
+- RED: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` first run with `aoteman` -> FAILED，expected reason: 在 releaseOwner 已登录页面内二次登录会被已有 token 自动跳转，脚本等待 login form 超时。
+- IMPLEMENTING: 错误角色验证改为 `page.context().browser().newContext(...)` 创建独立浏览器上下文，避免同页已有登录态干扰。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` with `RRM_UNAUTHORIZED_USERNAME=aoteman` -> PASS，0 SOURCE / 0 ENV / 0 RUNTIME。
+- E2E: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real` with `RRM_UNAUTHORIZED_USERNAME=aoteman` -> STRUCTURED_BLOCKED；pnpm lifecycle non-zero wrapping script exit 2；`phaseEvidence=6`、`actionEvidence=5`、`activeOrderUnauthorizedMutationBlocked=PASS`、`activeOrderCleanupDeferred=BLOCKED/E2E_CLEANUP`、`actionObserved=4`、`surfaceObserved=37`、`uncovered=21`、`pending=62`、`blockers=63`。
+- Decision: AC-M04 权限隔离动作已由专用非维护权限账号 `aoteman` 真实验证 PASS；`E2E_PERMISSION` blocker 已清除。AC-M04 仍未 `ACCEPTED`，因为 activeOrder 清理仍 deferred，且 62 AC 仍需完整真实动作、失败路径、只读核验、迁移、性能和上线门禁；本轮仍不执行 `git push`。
+
+## M6 - Report Sync And Structural Verification
+
+- IMPLEMENTING: 同步 `test-report.md` 与 `verification-report.md` 当前结论：`activeOrderUnauthorizedMutationBlocked=PASS`、`activeOrderCleanupDeferred=BLOCKED/E2E_CLEANUP`、`actionObserved=4`、`surfaceObserved=37`、`pending=62`、`blockers=63`。
+- GREEN: `python -X utf8 -c "...json.loads(...task-state.json/result.json)..."` -> PASS，`task-state.json` 与 `result.json` 均可 UTF-8 JSON 解析。
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS。
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS。
+- GREEN: `git diff --check -- <M6 touched files>` -> PASS，仅输出 LF/CRLF 工作区提示，无 whitespace error。
+- BLOCKER_RECORDED: `development-plan-delivery` 脚本不适配当前实现任务目录；该目录没有 `development-plan.md/prd.md/test-plan.md`，当前任务继续以 `task.md/task-state.json/execution-log.md` 为 M0-M6 执行来源，不跳过 M6 gate。

@@ -178,6 +178,54 @@
       />
     </ContentWrap>
 
+    <ContentWrap data-role-matrix-daily-close>
+      <div class="team-leader-workbench__section-head">
+        <div>
+          <div class="team-leader-workbench__section-title">日结待处理看板</div>
+          <div class="team-leader-workbench__hint">
+            汇总当前筛选范围内真实报工、复核和活跃订单状态，日结前未关闭项必须先处理。
+          </div>
+        </div>
+        <el-tag :type="dailyCloseStatusType" effect="dark" data-role-matrix-daily-close-status>
+          {{ dailyCloseStatusText }}
+        </el-tag>
+      </div>
+      <div class="team-leader-workbench__daily-close-grid" data-role-matrix-daily-close-summary>
+        <el-card
+          v-for="item in dailyCloseSummaryCards"
+          :key="item.key"
+          shadow="never"
+          class="team-leader-workbench__daily-close-card"
+          :data-role-matrix-daily-close-card="item.key"
+        >
+          <div class="team-leader-workbench__daily-close-label">{{ item.label }}</div>
+          <div class="team-leader-workbench__daily-close-value">{{ item.value }}</div>
+          <div class="team-leader-workbench__daily-close-hint">{{ item.hint }}</div>
+        </el-card>
+      </div>
+      <el-alert
+        v-if="loadError"
+        :title="`日结阻塞：${loadError}`"
+        type="error"
+        :closable="false"
+        show-icon
+      />
+      <el-alert
+        v-else-if="dailyCloseOpenItemCount > 0"
+        :title="`日结前仍有 ${dailyCloseOpenItemCount} 项待处理，请先完成复核或异常闭环。`"
+        type="warning"
+        :closable="false"
+        show-icon
+      />
+      <el-alert
+        v-else
+        title="当前筛选范围没有未关闭项，可进入后续日结核对。"
+        type="success"
+        :closable="false"
+        show-icon
+      />
+    </ContentWrap>
+
     <ContentWrap v-if="isProductionLeader" data-team-leader-abnormal-report>
       <div class="team-leader-workbench__section-head">
         <div>
@@ -263,6 +311,12 @@
           <el-form :model="activeOrderForm" label-width="98px">
             <el-form-item label="生产订单ID">
               <el-input-number v-model="activeOrderForm.workOrderId" :min="1" :controls="false" />
+            </el-form-item>
+            <el-form-item label="路线ID" data-team-leader-active-order-route-id>
+              <el-input-number v-model="activeOrderForm.routeId" :min="1" :controls="false" />
+            </el-form-item>
+            <el-form-item label="路线版本ID" data-team-leader-active-order-route-version-id>
+              <el-input-number v-model="activeOrderForm.routeVersionId" :min="1" :controls="false" />
             </el-form-item>
             <el-form-item>
               <el-button type="primary" :loading="maintenanceSubmitting" @click="submitAddActiveOrder">
@@ -791,6 +845,51 @@ const employeeDetailLabel = computed(() =>
 const detailDrawerTitle = computed(() =>
   activeLeaderTab.value === 'PQC' ? 'PQC检验员提交详情' : '员工提交详情'
 )
+const dailyClosePendingReviewCount = computed(
+  () =>
+    submissionList.value.filter(
+      (row) => !row.submissionReviewStatus || row.submissionReviewStatus === 'PENDING'
+    ).length
+)
+const dailyCloseRejectedCount = computed(
+  () => submissionList.value.filter((row) => row.submissionReviewStatus === 'REJECTED').length
+)
+const dailyCloseOpenItemCount = computed(
+  () => dailyClosePendingReviewCount.value + dailyCloseRejectedCount.value + (loadError.value ? 1 : 0)
+)
+const dailyCloseStatusType = computed(() =>
+  loadError.value || dailyCloseOpenItemCount.value > 0 ? 'warning' : 'success'
+)
+const dailyCloseStatusText = computed(() => {
+  if (loadError.value) return '加载阻塞'
+  return dailyCloseOpenItemCount.value > 0 ? '待处理' : '可日结'
+})
+const dailyCloseSummaryCards = computed(() => [
+  {
+    key: 'pending-review',
+    label: '待复核提交',
+    value: dailyClosePendingReviewCount.value,
+    hint: '来自当前筛选提交列表，未判定记录不得日结'
+  },
+  {
+    key: 'rejected-review',
+    label: '复核不正确',
+    value: dailyCloseRejectedCount.value,
+    hint: '复核退回后需先修正或重新确认'
+  },
+  {
+    key: 'active-orders',
+    label: '活跃订单',
+    value: activeOrderOptions.value.length,
+    hint: '来自活跃订单池，日结前需确认分配与异常状态'
+  },
+  {
+    key: 'load-blocker',
+    label: '加载阻塞',
+    value: loadError.value ? 1 : 0,
+    hint: loadError.value || '当前看板数据已加载'
+  }
+])
 
 const queryParams = reactive<TeamLeaderSubmissionPageReqVO>({
   pageNo: 1,
@@ -833,7 +932,9 @@ const abnormalForm = reactive({
 })
 
 const activeOrderForm = reactive({
-  workOrderId: undefined as number | undefined
+  workOrderId: undefined as number | undefined,
+  routeId: undefined as number | undefined,
+  routeVersionId: undefined as number | undefined
 })
 
 const activeOrderRemoveForm = reactive({
@@ -1470,7 +1571,9 @@ const submitAddActiveOrder = async () => {
   maintenanceSubmitting.value = true
   try {
     await addTeamLeaderActiveOrder({
-      workOrderId: requirePositiveNumber(activeOrderForm.workOrderId, '生产订单ID不能为空')
+      workOrderId: requirePositiveNumber(activeOrderForm.workOrderId, '生产订单ID不能为空'),
+      routeId: requirePositiveNumber(activeOrderForm.routeId, '路线ID不能为空'),
+      routeVersionId: requirePositiveNumber(activeOrderForm.routeVersionId, '路线版本ID不能为空')
     })
     ElMessage.success('活跃订单已加入')
     await loadActiveOrders()
@@ -1672,6 +1775,38 @@ onMounted(() => getSubmissionList())
   gap: 16px;
 }
 
+.team-leader-workbench__daily-close-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.team-leader-workbench__daily-close-card {
+  border-color: #d9e2f1;
+}
+
+.team-leader-workbench__daily-close-label {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.team-leader-workbench__daily-close-value {
+  margin-top: 6px;
+  color: #172033;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.team-leader-workbench__daily-close-hint {
+  margin-top: 8px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .team-leader-workbench__payload {
   max-height: 260px;
   margin: 0;
@@ -1741,7 +1876,8 @@ onMounted(() => getSubmissionList())
 }
 
 @media (max-width: 1180px) {
-  .team-leader-workbench__maintenance-grid {
+  .team-leader-workbench__maintenance-grid,
+  .team-leader-workbench__daily-close-grid {
     grid-template-columns: 1fr;
   }
 }

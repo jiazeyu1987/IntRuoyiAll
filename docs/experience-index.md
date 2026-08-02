@@ -63,10 +63,11 @@
 - Keywords: PowerShell 字面管道字符, TypeScript 类型联合, command string pipe, apply_patch ACL, 文件长度变 0, PowerShell 写入超时截断, Set-Content 写源码, 反引号 r n 字面量, import 追加非法字符 -> `docs/powershell-memory.md#powershell-命令文本管道字符门禁`
 - Keywords: 静态合同缩进定位, Vue SFC 弹框块定位, el-dialog class 回找, CRLF LF, source.indexOf 精确缩进失败 -> `docs/e2e-rules.md#windows-换行与脚本行为同步`
 - Keywords: pnpm test:e2e 缺失, ERR_PNPM_NO_SCRIPT, named target unknown, process-pool-review-copy-and-revision.spec.ts, E2E 脚本入口缺失, 静态合同不能冒充真实 E2E, 写入型用户路径页面入口缺失, 只有 API wrapper 不能算页面验收 -> `docs/e2e-rules.md#e2e-脚本入口存在性门禁`
-- Keywords: DCC 文控审批, DCC 原版上传, DCC 新文件上传, DCC 上传升版, DccControlledFileDetail, viewer=1, 只读 viewer, PROCESS_IN_MODULE, approve-task, approval-center moduleCode DCC, BPM 原生审批 403, 非 viewer 重定向受控浏览, DCC_PUBLISH, 发布申请, form:instance:create, form:instance:submit, system:user:query, UserSelectV2, APPROVE_USER_SELECT, 下一个任务的审批人未配置 -> `docs/e2e-rules.md#dcc-文控审批处理入口门禁`
+- Keywords: DCC 文控审批, DCC 原版上传, DCC 新文件上传, DCC 上传升版, DCC 文件作废, DCC 文件废止, 作废不走审批, 升版本老版本自动作废, 旧版自动失效, OBSOLETE, SUPERSEDED, DccControlledFileDetail, viewer=1, traceability=1, from=browser, 只读 viewer, viewer 发布链路, 最终目录路径, publishedFileId, stampedFileId, PROCESS_IN_MODULE, approve-task, approval-center moduleCode DCC, BPM 原生审批 403, 非 viewer 重定向受控浏览, DCC_PUBLISH, 发布申请, form:instance:create, form:instance:submit, system:user:query, UserSelectV2, APPROVE_USER_SELECT, 下一个任务的审批人未配置 -> `docs/e2e-rules.md#dcc-文控审批处理入口门禁`
 - Keywords: Playwright Executable doesn't exist, npx playwright install, PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, Chrome 可执行文件, Edge 可执行文件, 浏览器缓存缺失, login-preflight 浏览器路径 -> `docs/e2e-rules.md#playwright-浏览器可执行文件门禁`
 - Keywords: Playwright 外部头像 502, 外部资源异常, 非目标链路异常, targetBadResponseCount, target write request count, requestfailed 归因, 目标链路错误数, DCC 写请求为 0 -> `docs/e2e-rules.md#playwright-目标链路与外部资源异常归因门禁`
 - Keywords: Playwright CLI daemon residual, cliDaemon.js, .playwright-cli page snapshot, page-*.yml, output/playwright task directory lock, 登录页预填字段快照, stop task-owned daemon only -> `docs/e2e-rules.md#playwright-快照与-daemon-收尾门禁`
+- Keywords: e2e-result 被覆盖, verification-report 被覆盖, final-readonly-db-verification 被覆盖, 主链路 PASS 被扩展诊断覆盖, viewer linkage 可选断言, traceability 可选诊断, DCC 原版发布 resume 覆盖结果, 同任务目录多个 Playwright 脚本共享结果文件 -> `docs/e2e-rules.md#真实-e2e-主链路与扩展诊断产物隔离门禁`
 - Keywords: PowerShell Maven -D, -Dsurefire.failIfNoSpecifiedTests, -Dtest, Unknown lifecycle phase, 目标 JUnit 加引号 -> `docs/powershell-memory.md#powershell-maven--d-参数引号门禁`
 - Keywords: IncrementalBuildHelper.beforeRebuildExecution, WinNTFileSystem.delete0, Windows Maven 增量输出删除卡住, Maven 无 surefire 报告, 仅停止任务自有 Maven PID -> `docs/backend-development.md#2026-07-27-windows-maven-增量输出删除卡住门禁`
 - Keywords: 共享分支并发基线提交, concurrent baseline commit, 最近提交不是当前任务, git show --name-status -1 包含当前任务文件, 当前任务改动被基线吞入, 严格任务独立提交 -> `docs/powershell-memory.md#共享分支并发基线提交门禁`
@@ -84,6 +85,7 @@
 - release-migration dependsOn 缺失 / SQL 元数据依赖不存在 / migration policy gate：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
 - DCC 分类 lifecycle_stage / NOT NULL 迁移 / required SQL 空值 / deleted=1 历史归档行：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
 - Keywords: DCC 项目代码文件分类, dcc_file_category_match_rule, OQ/PQ, 零配件图纸, 文件类别规则 seed, AMBIGUOUS, UNCLASSIFIED, seed 插入 0 行, 直接 SQL 修 dcc_controlled_file 禁止 -> `docs/database-rules.md#dcc-文件类别规则种子门禁`
+- Keywords: DCC 升版发布 UX, 版本历史, 版本信息, 升版原因, 变更说明, 发布完成结果, V1 已失效, V2 已生效, master 已切换, 受控浏览已落位, publishedFileId, stampedFileId, BPM markers pageerror, 只读复验目标写请求为 0 -> `docs/e2e-rules.md#dcc-升版发布-ux-闭环门禁`
 - 测试服远端 MySQL 查询 / ruoyi-vue-pro 业务库 / 容器内 MYSQL_ROOT_PASSWORD / SSH 多层引号：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
 - runtime-control.local.yaml / repo-root / frontend-root / 临时发布 worktree / 控制台健康检查：`D:\ProjectPackage\Int\IntRuoyiMaintance\docs\release-build-preflight-lessons.md`
 - 发布 / 备份 / 恢复 / 服务器容量：`E:\IntRuoyi\docs\release-backup-restore.md`
@@ -93,6 +95,7 @@
 - 前端页面 / 表格 / 样式：`D:\ProjectPackage\Int\IntPP\FRONTEND_STYLE.md`
 - Keywords: Vite import-analysis Failed to resolve import / controlled-file/logs/index.vue / 前端源码 logs 目录被 .gitignore logs/ 忽略 / git check-ignore -> `docs/frontend-development.md#前端源码目录与-gitignore-门禁`
 - Keywords: 既有大契约先失败, 最小静态契约, 专用 static.spec.js, 当前需求 RED/GREEN, 无关 ts:check blocker -> `docs/frontend-development.md#前端静态契约隔离门禁`
+- Keywords: BPMN marker, BPM marker, canvas.addMarker, canvas.removeMarker, elementRegistry.get, Cannot read properties of undefined reading markers, 流程图高亮不完整, 审批流程图节点缺失 -> `docs/frontend-development.md#前端-bpmn-marker-高亮完整性门禁`
 - Keywords: 表头排序, Element Plus sort-change, UnifiedListTemplate sortState, sortColumnAttrs, 服务端分页排序, sortField, sortOrder, 空单元格排序, 降序空值最后, Mapper 白名单排序, 空值标记表达式 -> `docs/frontend-development.md#前端服务端分页排序链路门禁`
 - Keywords: 截图字号调整, 文字大小, 字号, 放大 2 倍, 缩小一半, 卡片内文字, Element Plus 泛选择器, 先改静态契约 RED, 字号静态契约 -> `docs/frontend-development.md#前端截图字号调整静态契约门禁`
 - Keywords: 只显示, 仅展示, 有效历史, 已生效历史版本, 版本列表, 状态列表, 候选版本, 取消的不显示, effective-only, ACTIVE SUPERSEDED, DRAFT CANCELLED, 只排除一个状态, `!== 'CANCELLED'` -> `docs/frontend-development.md#前端列表状态口径完整性门禁`
@@ -104,7 +107,7 @@
 - Keywords: 主结果弹窗失败原因, result-dialog, 提交失败只显示状态, 保存失败原因可见, 发布失败原因可见, 大号结果弹框, failureReasonText, showFillActionResultDialog, toast 有原因但弹窗无原因 -> `docs/frontend-development.md#前端主结果弹窗失败原因可见门禁`
 - Keywords: 列表首屏成功后系统异常, 延迟辅助加载, 行级权限加载失败, listErrorMessage, permissionRuleErrorMessage, 批记录表单填写人规则加载失败, 辅助查询错误归属 -> `docs/frontend-development.md#前端延迟辅助加载错误归属门禁`
 - Keywords: DCC 上传类别权限, canUpload, Current user cannot access this controlled file, upload-preview, 文件类别下拉无上传权限, 类别级 UPLOAD 权限, DccControlledFileCategoryPermissionSupport -> `docs/frontend-development.md#dcc-上传类别权限投影门禁`
-- Keywords: DCC 基础条目关联文档, DCC项目代码关联文档, 三栏导航文件类型, fileTypeTaxonomyId, fileTypeLevel3, DCC 文件分类树, 技术文档阶段展开, 未分类文件类型, 按文件名归类未分类, 未分类自动归类, 列表页按文件名批量归类, 未加载分页 -> `docs/frontend-development.md#dcc-基础条目关联文档分类树门禁`
+- Keywords: DCC 基础条目关联文档, DCC项目代码关联文档, 三栏导航文件类型, fileTypeTaxonomyId, fileTypeLevel3, DCC 文件分类树, 技术文档阶段展开, 未分类文件类型, 按文件名归类未分类, 未分类自动归类, 列表页按文件名批量归类, 未加载分页, 受控文件元数据修改, Only doc control can update controlled file metadata, user_role_ids 角色缓存, doc_control 缓存刷新 -> `docs/frontend-development.md#dcc-基础条目关联文档分类树门禁`
 - Keywords: 草稿保存后仍可修改, 保存草稿不提交发布, 保存后不可继续编辑, 立即提交发布弹窗, submit-publish, DRAFT 被保存推进审批, RouteEditPage handleSaved, promptRouteVersionSubmit -> `docs/frontend-development.md#前端草稿保存与提交发布解耦门禁`
 - Keywords: 当前模板未绑定批记录表单, 表单模板打开编辑填写, openSelectedTemplateWorkspace, isDesignerMode, FormTemplateDesignerWrapper, FormTemplateSimulatePage, simulationOnly, MdmFormCenterTemplateSimulate, /mdm/form-center/template/simulate, batchRecordBindingStatus, batchRecordReportId -> `docs/frontend-development.md#表单模板三按钮领域边界门禁`
 - Keywords: FormCenter 动态表单字段码, fieldCode, fieldIdentityMap, ActionFormPanel, EdhrExecutionTemplateEditableForm, 损耗单, 过程检验记录, FORM_TEMPLATE_VERSION, form_data_json, field6, 5:3, 页面输入框为空, 快照 JSON 有值, 动态表单单元格链接 -> `docs/frontend-development.md#formcenter-动态表单字段码渲染门禁`
@@ -258,6 +261,7 @@
 - Keywords: 测试管理 系统异常, codex-test-case/page code 500, system_codex_test_case.project, node_chain_name, node_chain_sort, node_chain_execution, 20260726_system_codex_test_case_project.sql, 20260727_system_codex_test_node_chain.sql, Codex 测试项分页缺字段 -> `docs/database-rules.md#测试管理-schema-迁移门禁`
 - Keywords: ERROR 1267, Illegal mix of collations, 临时表排序规则, 数据修复临时表, system_codex_test_case, utf8mb4_0900_ai_ci, 中文测试项种子 -> `docs/database-rules.md#数据修复临时表排序规则门禁`
 - Keywords: 20260726_system_codex_smart_scheduling_test_items, tmp_codex_smart_scheduling_case_seed, tmp_codex_smart_scheduling_checkpoint_seed, ensure_system_codex_smart_scheduling_test_items, utf8mb4_general_ci vs utf8mb4_0900_ai_ci -> `docs/database-rules.md#数据修复临时表排序规则门禁`
+- Keywords: ERROR 1137, Can't reopen table, 临时表重复读取, SELECT COUNT INTO, 数据修复事务, 工作站资源同步 -> `docs/database-rules.md#数据修复临时表排序规则门禁`
 - Keywords: 时间轴重复行, 一对多 JOIN, 审核副本多条重复展开, 列表 pageSize 被子表挤占, GROUP BY tenant_id event_id, read model 聚合 -> `docs/database-rules.md#一对多读模型聚合门禁`
 - Keywords: MES工序 系统异常, route-resource page code 500, Missing route, Missing item, route_product 孤儿关联, 资源池只读列表, 工艺路线资源读模型, 只读资源池引用完整性 -> `docs/database-rules.md#只读资源池引用完整性门禁`
 - Keywords: tenant_id=0 全局只读种子, TenantIgnore, ignore-tables, Excel 源基线, 只读 Excel 目录, 业务租户列表为空, 主表明细表租户过滤 -> `docs/database-rules.md#全局只读-excel-种子租户边界门禁`
@@ -267,6 +271,7 @@
 - Keywords: 生产用料清单同步, ERP 用料清单, mes_kingdee_production_material_list, 白名单表级 upsert, 跨环境数据同步, 跨租户物料 ID, child_material_id 跨租户, product_id 跨租户, 重复工单编码, 当前排程工单缺PML, 排程工单缺少生产用料清单, staging 表清理, token-bootstrap 页面渲染 -> `docs/database-rules.md#生产用料清单跨环境白名单-upsert-门禁`
 - Keywords: 个人工作台 系统异常, 待办任务加载失败, 隐藏任务状态, profile-workbench-task-visibility, hidden-keys, system_profile_workbench_task_visibility, 20260727_system_profile_workbench_task_visibility.sql -> `docs/database-rules.md#个人工作台隐藏任务状态迁移门禁`
 - Keywords: int_shedule local Docker dependencies, 23306, 26379, Docker MySQL Redis, branch local runtime dependency ports -> `docs/local-runtime.md#2026-07-25-分支本地运行复用-docker-依赖门禁`
+- Keywords: DCC upload-preview, DCC 原版上传预览, DCC 上传升版预览, docker-minio-1, MinIO 9000, SdkClientException, Connect to 127.0.0.1:9000 failed, Connection refused, yudao bucket, upload-preview targetNetworkFailures -> `docs/local-runtime.md#2026-08-02-dcc-上传预览本机-minio-前置门禁`
 - Keywords: task-closeout status unknown, Current Status completed, cleanup preview apply, worktree Directory not empty -> `docs/release-build-preflight-lessons.md` and `E:\IntRuoyi\docs\worktree-memory.md`
 - Keywords: task-closeout runtime log lock, PermissionError WinError 32, runtime-control-main err log, long-running process log under task dir -> `docs/release-build-preflight-lessons.md#2026-07-13-task-closeout-长运行进程日志目录门禁`
 - Keywords: 验收范围变更, 完成门禁变更, 取消全量回归, MES 全量测试不作为门禁, 只跑定向测试, 开发文档和测试计划列出的内容, Expected Verification, 不把未运行全量写成通过 -> `docs/task-closeout-rules.md#验收范围变更门禁`
@@ -281,7 +286,7 @@
 - Keywords: 20260718_system_entitlement_management, system_entitlement_policy, system entitlement migration metadata, missing release-migration metadata, system entitlement policy SQL -> `docs/release-build-preflight-lessons.md#2026-07-19-system-entitlement-迁移元数据门禁`
 - Keywords: unknown release-migration metadata key, dependsOn missing migration, invalid type, schema,menu, .sql dependsOn suffix, 20260715_mes_schedule_capacity_mode_unification, 20260717_mes_route_process_workstation_binding, 20260717_mes_edhr_filler_minimal_permissions, 20260717_bpm_form_center, 20260718_mes_feedback_import_record_direct_progress -> `docs/release-build-preflight-lessons.md#2026-07-19-release-migration-结构化字段与-dependson-后缀门禁`
 - Keywords: setReleaseActionLocked, getWorkTaskId, setBatchRecordVersionNo, withdrawVoidBatchExecution, updateApprovalFieldsToDraft, MesProBatchRecordParsedCell, isReviewedCellRule, getCellRuleSource, @Override 签名漂移, MES companion contract, yudao-module-mes compilation failure -> `docs/release-build-preflight-lessons.md#2026-07-19-build-release-mes-companion-contract-编译门禁`
-- Keywords: 第三方报工, 李萍报工单, 直接报工 Excel, importDirectWorkReportWorkbook, DIRECT_WORK_REPORT, 正式报工列表无新增, sourceImportRecordId, feedbackId, 排产进度疑似未增长, 超剩余跳过, 缺报工人跳过 -> `docs/backend-development.md#第三方报工直报正式链路门禁`
+- Keywords: 第三方报工, 李萍报工单, 直接报工 Excel, importDirectWorkReportWorkbook, DIRECT_WORK_REPORT, 正式报工列表无新增, sourceImportRecordId, feedbackId, 排产进度疑似未增长, 超剩余跳过, 缺报工人跳过, 受保护任务未绑定工作站, 受保护任务未绑定产线, 第三方报工后手动重排, 排产员工作台班次产能为0, 当前process_id工作站, 工作站设备绑定, mes_dv_machinery_process, mes_pro_task_schedule_ext, mes_pro_schedule_order_process历史快照, 重排任务资源验证, calendarContextToken -> `docs/backend-development.md#第三方报工直报正式链路门禁`
 - Keywords: withdrawVoidBatchExecution frontend export, edhr change API missing export, RollupError not exported, BatchExecutionListPage import change.ts -> `docs/release-build-preflight-lessons.md#2026-07-19-frontend-edhr-companion-api-export-门禁`
 - Keywords: frontend build:test timeout, vite-plugin-progress EEXIST, node_modules .progress, .progress.json, dist cleanup, dist-test cleanup, residual node vite esbuild pnpm process -> `docs/release-build-preflight-lessons.md#2026-07-23-frontend-buildtest-vite-progress-cache-门禁`
 - Keywords: ERROR 1267, Illegal mix of collations, utf8mb4_unicode_ci, utf8mb4_general_ci, 20260717_mes_edhr_filler_minimal_permissions, tmp_edhr_filler_required_permission, system_entitlement_policy no-op -> `docs/release-build-preflight-lessons.md#2026-07-19-publish-test-required-sql-collation-门禁`

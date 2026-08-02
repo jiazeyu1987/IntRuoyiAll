@@ -1,0 +1,44 @@
+{
+  "fileNumber": "CODX-DCC-DIST-REC-DISTREC20260802173908",
+  "actor": "wangsiyu",
+  "paperRecipient": "panhaitao",
+  "startedAt": "2026-08-02T09:55:41.498Z",
+  "pagePaths": [],
+  "actions": [],
+  "browserVerification": null,
+  "finalReadonlyDb": null,
+  "targetNetworkFailures": [
+    {
+      "method": "GET",
+      "status": 500,
+      "url": "http://127.0.0.1:8081/admin-api/system/tenant/get-by-website?website=127.0.0.1:8081"
+    },
+    {
+      "method": "GET",
+      "status": 500,
+      "url": "http://127.0.0.1:8081/admin-api/system/tenant/get-by-website?website=127.0.0.1:8081"
+    },
+    {
+      "method": "GET",
+      "status": 500,
+      "url": "http://127.0.0.1:8081/admin-api/system/tenant/get-id-by-name?name=%E8%8A%8B%E9%81%93%E6%BA%90%E7%A0%81"
+    },
+    {
+      "method": "GET",
+      "status": 500,
+      "url": "http://127.0.0.1:8081/admin-api/system/tenant/get-id-by-name?name=%E8%8A%8B%E9%81%93%E6%BA%90%E7%A0%81"
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+    "Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+  ],
+  "pageErrors": [
+    "AxiosError",
+    "AxiosError"
+  ],
+  "status": "ERROR",
+  "error": "page.waitForResponse: Timeout 60000ms exceeded while waiting for event \"response\"\n    at login ([stdin]:17:795)\n    at async main ([stdin]:25:1199)"
+}

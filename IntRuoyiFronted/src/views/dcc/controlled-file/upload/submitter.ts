@@ -188,6 +188,82 @@ export const resolveUploadErrorMessage = (error: unknown, fallback: string) => {
   return fallback
 }
 
+const readErrorField = (source: unknown, key: string): unknown => {
+  if (!source || typeof source !== 'object') {
+    return undefined
+  }
+  return (source as Record<string, unknown>)[key]
+}
+
+const resolveNestedUploadErrorText = (error: unknown): string => {
+  const candidates = [
+    error,
+    readErrorField(error, 'response'),
+    readErrorField(readErrorField(error, 'response'), 'data'),
+    readErrorField(error, 'data')
+  ]
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue
+    }
+    if (typeof candidate === 'string' && candidate.trim() && candidate !== 'error') {
+      return candidate.trim()
+    }
+    if (candidate instanceof Error && candidate.message && candidate.message !== 'error') {
+      return candidate.message.trim()
+    }
+    for (const key of ['msg', 'message', 'error', 'detail']) {
+      const value = readErrorField(candidate, key)
+      if (typeof value === 'string' && value.trim() && value !== 'error') {
+        return value.trim()
+      }
+    }
+  }
+  return ''
+}
+
+const appendUploadPreviewErrorDetail = (message: string, detail: string) => {
+  const normalizedDetail = detail.trim()
+  if (!normalizedDetail || normalizedDetail === message || normalizedDetail.includes(message)) {
+    return message
+  }
+  return `${message} 原始错误：${normalizedDetail}`
+}
+
+export const resolveUploadPreviewErrorMessage = (error: unknown, fallback: string) => {
+  const rawMessage = resolveNestedUploadErrorText(error) || resolveUploadErrorMessage(error, fallback)
+  const normalized = rawMessage.toLowerCase()
+  if (
+    /minio|object\s*storage|对象存储|文件存储|bucket|s3|oss|putobject|getobject|connection refused|econnrefused|9000/.test(
+      normalized
+    )
+  ) {
+    return appendUploadPreviewErrorDetail(
+      '文件存储服务不可用：请联系平台/运维检查 MinIO 或对象存储服务，本次预览不会继续。',
+      rawMessage
+    )
+  }
+  if (/unsupported|format|extension|mime|content\s*type|文件格式|格式不支持|不支持的文件|扩展名/.test(normalized)) {
+    return appendUploadPreviewErrorDetail(
+      '文件格式不受支持：请按页面允许的 Office、图纸源文件或 PDF 格式重新选择文件。',
+      rawMessage
+    )
+  }
+  if (/403|forbidden|permission|access denied|canupload|无权限|没有该操作权限|没有文件类别上传权限|不可访问/.test(normalized)) {
+    return appendUploadPreviewErrorDetail(
+      '没有文件类别上传权限：请联系文控管理员补齐该分类的 UPLOAD 权限后再上传。',
+      rawMessage
+    )
+  }
+  if (/duplicate|exists|already exists|唯一|重复|已存在|file\s*number|文件编号/.test(normalized)) {
+    return appendUploadPreviewErrorDetail(
+      '文件编号已存在：请先调整文件编号或改走升版流程，再提交审批。',
+      rawMessage
+    )
+  }
+  return rawMessage || fallback
+}
+
 export const buildSubmitFailureFeedback = (
   error: unknown,
   fallback: string

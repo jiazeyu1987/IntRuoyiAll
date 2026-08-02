@@ -59,6 +59,9 @@ class MesProEdhrReleaseServiceImplTest {
         if ("yudao-module-mes".equals(cwd.getFileName().toString())) {
             return cwd.getParent().resolve(relative);
         }
-        return cwd.resolve(relative);
+        if ("IntRuoyiBackend".equals(cwd.getFileName().toString())) {
+            return cwd.resolve(relative);
+        }
+        return cwd.resolve("IntRuoyiBackend").resolve(relative);
     }
 }

@@ -1,0 +1,94 @@
+{
+  "runId": "20260802093307",
+  "fileNumber": "CODX-DCC-TRAIN-20260802093307",
+  "fileName": "Codex DCC 培训阅读确认 20260802093307",
+  "baseUrl": "http://127.0.0.1:8081",
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "v1FilePath": "E:\\IntRuoyi\\resource\\批记录节点-解析样本.docx",
+  "stampedPdfPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-upload-revision-e2e\\stamped-approval-sample.pdf",
+  "startedAt": "2026-08-02T09:33:08.094Z",
+  "phases": [
+    {
+      "phase": "upload-V1.0",
+      "username": "pengyunfeng",
+      "controlledFileId": "2054545668044070275",
+      "previewFileName": "批记录节点-解析样本.docx",
+      "previewKind": "OFFICE"
+    },
+    {
+      "phase": "approve-V1.0",
+      "username": "zhaohaichen",
+      "role": "文控审核",
+      "userId": 376,
+      "approvalOpinion": "E2E V1.0 文控审核 同意 20260802093307"
+    },
+    {
+      "phase": "approve-V1.0",
+      "username": "zhaojie",
+      "role": "会签审核",
+      "userId": 1074,
+      "approvalOpinion": "E2E V1.0 会签审核 同意 20260802093307"
+    },
+    {
+      "phase": "approve-V1.0",
+      "username": "zhaomingyu",
+      "role": "会签批准",
+      "userId": 424,
+      "approvalOpinion": "E2E V1.0 会签批准 同意 20260802093307"
+    }
+  ],
+  "targetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "accountProfiles": {
+    "uploader": {
+      "id": 151,
+      "nickname": "彭云凤",
+      "username": "pengyunfeng"
+    },
+    "publishApplicant": {
+      "username": "wangsiyu",
+      "userId": 910250,
+      "nickname": "王思雨"
+    },
+    "limitedViewer": {
+      "username": "wangxin",
+      "role": "低权限受控浏览负向验证",
+      "userId": 810,
+      "nickname": "王歆"
+    },
+    "approvers": [
+      {
+        "username": "zhaohaichen",
+        "role": "文控审核",
+        "userId": 376,
+        "nickname": "赵海辰"
+      },
+      {
+        "username": "zhaojie",
+        "role": "会签审核",
+        "userId": 1074,
+        "nickname": "赵杰"
+      },
+      {
+        "username": "zhaomingyu",
+        "role": "会签批准",
+        "userId": 424,
+        "nickname": "赵明玉"
+      },
+      {
+        "username": "wangsiyu",
+        "role": "文控批准",
+        "userId": 910250,
+        "nickname": "王思雨"
+      }
+    ]
+  },
+  "fileSizes": {
+    "v1": 37680,
+    "stampedPdf": 658
+  },
+  "finishedAt": "2026-08-02T09:33:44.304Z",
+  "status": "BLOCKED",
+  "blocker": "approve V1.0 wangsiyu business failed, code=1080000024, msg=Current user cannot act on this controlled file task"
+}

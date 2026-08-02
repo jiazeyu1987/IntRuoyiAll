@@ -24,6 +24,15 @@
 - Password status: six accounts were reset to the user-specified shared test password; value is intentionally not repeated in task documents.
 - Permission note: `super_admin` was added as a local M0 test expansion to unblock menu/login coverage. Existing role `approval_center_entry` was preserved.
 
+## M6 Unauthorized Permission Fixture
+
+| Fixture Slot | User ID | Username | Nickname | Local Test Permission |
+|---|---:|---|---|---|
+| unauthorizedActor | 910272 | aoteman | 芋艿1 | approval_center_entry |
+
+- Password status: existing account `aoteman` was verified to log in with the user-specified shared local test password; value is intentionally not repeated in task documents.
+- Permission note: `aoteman` does not have `super_admin`, `*:*:*`, or `mes:pro-process-pool-team-leader:maintain`; it is used only to prove wrong-role active-order mutation rejection and does not replace the six business role accounts.
+
 ## Electronic Signature Fixtures
 
 | Role Slot | User ID | Signature Image ID | Authorization State |

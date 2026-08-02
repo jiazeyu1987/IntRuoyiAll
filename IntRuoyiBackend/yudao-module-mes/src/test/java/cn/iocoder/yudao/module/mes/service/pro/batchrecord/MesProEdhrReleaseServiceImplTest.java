@@ -99,10 +99,13 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
     private FormActionInstanceMapper formActionInstanceMapper;
     @MockitoBean
     private MesProEdhrReleaseDossierRequirementSettingService dossierRequirementSettingService;
+    @MockitoBean
+    private MesOrderReleaseCompletenessService releaseCompletenessService;
 
     @BeforeEach
     void setUpDossierRequirementDefaults() {
         mockDossierRequirementState(false, false, false, false, "dossier-hash-all-false");
+        mockReleaseCompletenessSourcesAsNotApplicable();
         when(adminUserApi.getUser(any())).thenAnswer(invocation -> {
             Long userId = invocation.getArgument(0);
             return user(userId, "用户" + userId);
@@ -720,6 +723,32 @@ class MesProEdhrReleaseServiceImplTest extends BaseDbUnitTest {
                         finishedReportRequired,
                         finishedRecordRequired,
                         configHash));
+    }
+
+    private void mockReleaseCompletenessSourcesAsNotApplicable() {
+        when(releaseCompletenessService.evaluateInspectionResult(any()))
+                .thenReturn(notApplicableSource(MesProEdhrReleaseServiceImpl.CHECK_INSPECTION_RESULT,
+                        "检验结果检查", "INSPECTION", "QMS"));
+        when(releaseCompletenessService.evaluateDeviationClosed(any()))
+                .thenReturn(notApplicableSource(MesProEdhrReleaseServiceImpl.CHECK_DEVIATION_CLOSED,
+                        "偏差关闭检查", "DEVIATION", "QMS"));
+        when(releaseCompletenessService.evaluateReworkClosed(any()))
+                .thenReturn(notApplicableSource(MesProEdhrReleaseServiceImpl.CHECK_REWORK_CLOSED,
+                        "返工完成检查", "REWORK", "MES"));
+        when(releaseCompletenessService.evaluateScrapRecorded(any()))
+                .thenReturn(notApplicableSource(MesProEdhrReleaseServiceImpl.CHECK_SCRAP_RECORDED,
+                        "报废记录检查", "SCRAP", "MES"));
+        when(releaseCompletenessService.evaluateInventoryConsistency(any()))
+                .thenReturn(notApplicableSource(MesProEdhrReleaseServiceImpl.CHECK_INVENTORY_CONSISTENCY,
+                        "库存一致性检查", "INVENTORY", "WMS"));
+    }
+
+    private MesOrderReleaseCompletenessCheck notApplicableSource(String checkCode, String checkName,
+                                                                String category, String module) {
+        return new MesOrderReleaseCompletenessCheck(checkCode, checkName, category,
+                MesProEdhrReleaseServiceImpl.CHECK_RESULT_NOT_APPLICABLE, "INFO", module,
+                "EDHR_BATCH_EXECUTION", "test", "test",
+                "该老用例不覆盖 M4 外部来源适配器", "无需处理");
     }
 
     private MesProEdhrReleaseCheckItemDO selectCheckItem(Long releaseTransactionId, String checkCode) {

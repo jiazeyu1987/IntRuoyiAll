@@ -2298,7 +2298,7 @@ const openRecordBindingTargetLink = async (binding: RouteFlowRecordBinding) => {
     path: '/mes/pro/batch-record-form-list',
     query: {
       formTemplateId: String(binding.formTemplateId),
-      formSlotType: normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey)
+      formSlotType: requireRecordBindingSlotType(binding)
     }
   })
 }
@@ -2520,12 +2520,8 @@ const isRecordBindingSlotType = (value?: string | null): value is ProRouteFlowFo
 const normalizeRecordBindingSlotType = (
   formSlotType?: string | null,
   formBindingKey?: string | null
-): ProRouteFlowFormSlotType => {
-  const normalizedFormSlotType = normalizeNullableText(formSlotType)
-  if (isRecordBindingSlotType(normalizedFormSlotType)) return normalizedFormSlotType
-  const normalizedBindingKey = normalizeNullableText(formBindingKey)
-  if (isRecordBindingSlotType(normalizedBindingKey)) return normalizedBindingKey
-  return 'MAIN'
+): ProRouteFlowFormSlotType | undefined => {
+  return resolveRecordBindingSlotType(formSlotType, formBindingKey)
 }
 
 const resolveRecordBindingSlotType = (
@@ -2537,6 +2533,18 @@ const resolveRecordBindingSlotType = (
   const normalizedBindingKey = normalizeNullableText(formBindingKey)
   if (isRecordBindingSlotType(normalizedBindingKey)) return normalizedBindingKey
   return undefined
+}
+
+const requireRecordBindingSlotType = (
+  binding: Pick<RouteFlowRecordBinding, 'formSlotType' | 'formBindingKey'>
+): ProRouteFlowFormSlotType => {
+  const formSlotType = resolveRecordBindingSlotType(binding.formSlotType, binding.formBindingKey)
+  if (!formSlotType) {
+    throw new Error(
+      `表单槽位绑定缺少显式槽位类型：formBindingKey=${binding.formBindingKey || '-'}`
+    )
+  }
+  return formSlotType
 }
 
 const requireLegacyBatchRecordSlotType = (
@@ -2567,7 +2575,8 @@ const buildSharedRecordBindingKey = (
 ) => {
   const formTemplateId = Number(binding.formTemplateId || 0)
   if (!Number.isFinite(formTemplateId) || formTemplateId <= 0) return null
-  const formSlotType = normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey)
+  const formSlotType = resolveRecordBindingSlotType(binding.formSlotType, binding.formBindingKey)
+  if (!formSlotType) return null
   return `${formSlotType}_${formTemplateId}`
 }
 
@@ -2578,8 +2587,8 @@ const createLocalFormBindingKey = () => `FORM_BINDING_${Date.now()}_${localFormB
 const resolveNextAdditionalRecordBindingSlotType = (): ProRouteFlowFormSlotType => {
   const usedSlotTypes = new Set(
     selectedRecordBindings.value
-      .map((binding) => normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey))
-      .filter((slot) => slot !== 'MAIN')
+      .map((binding) => resolveRecordBindingSlotType(binding.formSlotType, binding.formBindingKey))
+      .filter((slot): slot is ProRouteFlowFormSlotType => Boolean(slot) && slot !== 'MAIN')
   )
   return (
     ADDITIONAL_RECORD_BINDING_SLOT_TYPES.find((slot) => !usedSlotTypes.has(slot)) ||
@@ -2610,7 +2619,8 @@ const normalizeFormBinding = (
 ): RouteFlowRecordBinding | undefined => {
   const formTemplateId = Number(report.formTemplateId)
   if (!Number.isFinite(formTemplateId) || formTemplateId <= 0) return undefined
-  const formSlotType = normalizeRecordBindingSlotType(report.formSlotType, report.formBindingKey)
+  const formSlotType = resolveRecordBindingSlotType(report.formSlotType, report.formBindingKey)
+  if (!formSlotType) return undefined
   const formBindingKey = normalizeNullableText(report.formBindingKey) || `FORM_BINDING_${index + 1}`
   const instanceScope = normalizeRecordBindingInstanceScope(report.instanceScope)
   return {
@@ -2700,9 +2710,10 @@ const getRouteNodeLegacyBatchRecords = (node: RouteFlowNodeVO): RouteFlowLegacyB
 }
 
 const getRouteNodeAdditionalFormCount = (node: RouteFlowNodeVO) => {
-  return getRouteNodeBatchRecordBindings(node).filter(
-    (binding) => normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey) !== 'MAIN'
-  ).length
+  return getRouteNodeBatchRecordBindings(node).filter((binding) => {
+    const formSlotType = resolveRecordBindingSlotType(binding.formSlotType, binding.formBindingKey)
+    return Boolean(formSlotType) && formSlotType !== 'MAIN'
+  }).length
 }
 
 const isRouteNodeFormSlotConfigured = (node: RouteFlowNodeVO) =>
@@ -3479,10 +3490,7 @@ const copyRecordBindingForSelectedProcess = (
   index: number
 ): RouteFlowRecordBinding => {
   const formBindingKey = createLocalFormBindingKey()
-  const formSlotType = normalizeRecordBindingSlotType(
-    sourceBinding.formSlotType,
-    sourceBinding.formBindingKey
-  )
+  const formSlotType = requireRecordBindingSlotType(sourceBinding)
   const formTemplateId = Number(sourceBinding.formTemplateId || 0)
   const normalizedFormTemplateId =
     Number.isFinite(formTemplateId) && formTemplateId > 0 ? formTemplateId : null
@@ -4382,7 +4390,7 @@ const buildSelectedProcessAttributesDraftSnapshot = (draft: SelectedProcessAttri
       const instanceScope = normalizeRecordBindingInstanceScope(binding.instanceScope)
       return {
         formBindingKey: binding.formBindingKey || createLocalFormBindingKey(),
-        formSlotType: normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey),
+        formSlotType: requireRecordBindingSlotType(binding),
         formTemplateId: binding.formTemplateId || null,
         formTemplateName: binding.formTemplateName || null,
         instanceScope,
@@ -4648,7 +4656,7 @@ const buildFormBindingSaveRows = (
       const instanceScope = normalizeRecordBindingInstanceScope(binding.instanceScope)
       return {
         formBindingKey: binding.formBindingKey || createLocalFormBindingKey(),
-        formSlotType: normalizeRecordBindingSlotType(binding.formSlotType, binding.formBindingKey),
+        formSlotType: requireRecordBindingSlotType(binding),
         formTemplateId: Number(binding.formTemplateId),
         formTemplateName: binding.formTemplateName || null,
         instanceScope: instanceScope,

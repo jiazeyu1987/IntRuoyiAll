@@ -1,6 +1,6 @@
 {
   "status": "in_progress",
-  "currentMilestone": "M4",
+  "currentMilestone": "M6",
   "deliveryPolicy": {
     "gitPushRequired": false,
     "overrideDate": "2026-08-01",
@@ -100,7 +100,8 @@
     {
       "id": "M4",
       "title": "调拨、异常、完整性与放行",
-      "status": "in_progress",
+      "status": "accepted",
+      "acceptedAt": "2026-08-02",
       "activeSlice": "M4 transfer/release source model",
       "sourceBlockersToResolve": [
         "RRM-BLK-008",
@@ -112,38 +113,81 @@
         "RRM-BLK-014",
         "RRM-BLK-015",
         "RRM-BLK-016"
+      ],
+      "evidence": [
+        "M4 RED captured missing activeOrder transfer trace schema and release completeness source adapter contracts.",
+        "M4 GREEN targeted Maven suite passed from backend root: MesActiveOrderTransferTraceSchemaTest, root MesProEdhrReleaseServiceImplTest, and existing service/pro/batchrecord MesProEdhrReleaseServiceImplTest, 21 tests, 0 failures/errors.",
+        "M4 frontend/static regression passed: transfer/start-check static, real-flow script syntax, and preflight static.",
+        "Authorized real:check dropped from 12 SOURCE blockers to 3 SOURCE blockers, clearing RRM-BLK-008..016 with no ENV/RUNTIME blockers."
       ]
     },
     {
       "id": "M5",
       "title": "日结、范围、权限、审计与快照",
-      "status": "blocked",
-      "blockedBy": [
-        "M4"
+      "status": "accepted",
+      "acceptedAt": "2026-08-02",
+      "activeSlice": "M5 daily-close, scope authority, and route configuration separation",
+      "sourceBlockersToResolve": [
+        "RRM-BLK-029",
+        "RRM-BLK-030",
+        "RRM-BLK-031"
+      ],
+      "evidence": [
+        "M5 RED captured route configuration separation gaps: missing slot metadata defaulted to MAIN and batchRecordFormNames/formBindings separation lacked focused proof.",
+        "M5 GREEN focused static contract passed: role-matrix route config separation validates frontend and backend runtime no longer default missing formSlotType to MAIN.",
+        "M5 regression passed: backend compile, frontend ts:check, preflight static, real-flow syntax checks, and authorized real:check.",
+        "Authorized real:check now returns PASS with no SOURCE, ENV, or RUNTIME blockers, clearing RRM-BLK-029..031.",
+        "M5 daily-close/scope static gate was RED because TeamLeaderWorkbenchPage.vue lacked a visible daily-close surface for unresolved items.",
+        "M5 daily-close/scope static gate is now GREEN: visible daily-close surface exists, scope model includes WORKSTATION / PRODUCTION_LINE / EQUIPMENT / ORDER, and route separation remains explicit.",
+        "M5 backend targeted Maven GREEN passed: mvn -pl yudao-module-mes -am \"-Dtest=MesTeamLeaderScopeServiceTest,MesProcessPoolTeamLeaderSchemaTest\" \"-Dsurefire.failIfNoSpecifiedTests=false\" test, 7 tests, 0 failures/errors, BUILD SUCCESS."
       ]
     },
     {
       "id": "M6",
       "title": "迁移、并发、性能、真实 E2E 与上线验收",
-      "status": "blocked",
-      "blockedBy": [
-        "M5"
+      "status": "in_progress",
+      "activeSlice": "M6 full validation, migration, concurrency, performance, and launch gate",
+      "evidence": [
+        "M6 real E2E preflight PASS: pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check completed with authorized local tenant, six role accounts, route/work-order/transfer fixtures, and redacted credentials.",
+        "M6 real E2E initial RED/BLOCKED: pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real exited 2 because the script still fail-fast reported full-chain 62 AC coverage was not implemented.",
+        "M6 frontend static regression PASS: team-leader-workbench, frontline-formal-submit, frontline-team-config, team-leader-report-allocation, role-requirement-matrix preflight, real-flow syntax, and ts:check.",
+        "M6 eDHR release coverage gate RED then GREEN: initial check failed on uncovered releaseDossierRequirementSetting API; package scripts and coverage matrix now include the existing static/real dossier requirement E2E, and e2e:edhr:release:check passes with 15 features.",
+        "M6 backend targeted regression PASS: planned yudao-module-mes Maven suite passed, 58 tests, 0 failures/errors, BUILD SUCCESS.",
+        "M6 coverage ledger GREEN: role-requirement-matrix preflight static contract now requires loadAcceptanceMatrix, M6_REAL_FLOW_PHASES, buildAcceptanceCoverage, assertAcceptanceCoverage, acceptanceCoverage, and phaseEvidence; node syntax check passes.",
+        "M6 real E2E structured BLOCKED: authorized full real run now loads 62 AC from test-plan, executes 6 role/page phase checks, writes phaseEvidence=6, surfaceObserved=40, uncovered=22, pending=62, blockers=62, and no longer uses a generic not-implemented placeholder.",
+        "M6 active-order runtime preflight restored after applying official M1-M5 migrations, local task-owned backfill fixtures, rebuilding yudao-server, and restarting int_main on backend-runtime-control-20260802-170535.jar; health is UP and real:check is PASS.",
+        "M6 AC-M04 duplicate active-order join RED/GREEN complete: real E2E first failed on duplicate active order unique-key system error, then MesTeamLeaderActiveOrderServiceTest added existing-key and concurrent DuplicateKeyException cases, and GREEN passed with 5 tests.",
+        "M6 full real E2E rerun is STRUCTURED_BLOCKED, not FAILED: joinActiveOrder / activeOrderConflictRouteRejected / activeOrderCrossRoleReadOnly action evidence now PASS for activeOrderId=12 / workOrderId=980008 / routeId=922119 / routeVersionId=448, while 62 AC remain E2E_COVERAGE blockers until complete real actions, failure paths, permission isolation, cleanup, and performance/concurrency gates are complete.",
+        "M6 regression after AC-M04 slice PASS: preflight static PASS, real-flow syntax PASS, planned backend Maven suite PASS with 60 tests, 0 failures/errors, BUILD SUCCESS.",
+        "M6 AC-M04 conflict-route fail-fast RED/GREEN complete: service test first proved activeOrder insert happened before route mismatch was rejected, then route/schedule validation moved before insert and MesTeamLeaderActiveOrderServiceTest passed with 6 tests.",
+        "M6 backend regression after AC-M04 conflict-route slice PASS: planned yudao-module-mes Maven suite passed with 61 tests, 0 failures/errors, BUILD SUCCESS.",
+        "M6 AC-M04 real-page conflict-route RED/GREEN complete: preflight static first failed because the real E2E script lacked verifyActiveOrderConflictRouteFailure, then the script added real page conflicting-route submission and activeOrderConflictRouteRejected action evidence.",
+        "M6 AC-M04 real-page rerun first failed on an unstructured page.reload list-response timeout; the script now uses current page login-state read-only active-order list verification after the real page failure action.",
+        "M6 full real E2E rerun remains STRUCTURED_BLOCKED, not FAILED: phaseEvidence=6, actionEvidence=3, actionKeys=joinActiveOrder/activeOrderConflictRouteRejected/activeOrderCrossRoleReadOnly, actionObserved=3, surfaceObserved=38, uncovered=21, pending=62, blockers=62.",
+        "M6 AC-M04 permission isolation gate RED/GREEN complete at script level: preflight static first failed on missing verifyActiveOrderUnauthorizedMutationBlocked, then real-flow added current-session permission probing, non-destructive blocked action evidence, and E2E_PERMISSION blocker aggregation.",
+        "M6 AC-M04 cleanup traceability gate RED/GREEN complete at script level: preflight static first failed on missing verifyActiveOrderCleanupTraceability, then real-flow added activeOrderCleanupDeferred evidence and E2E_CLEANUP blocker aggregation.",
+        "M6 AC-M04 dedicated unauthorized actor gate RED/GREEN complete: preflight static first failed on missing RRM_UNAUTHORIZED_USERNAME, then real-flow added unauthorizedActor env/config/redaction and independent browser-context login for wrong-role mutation probing.",
+        "M6 full real E2E rerun remains STRUCTURED_BLOCKED: phaseEvidence=6, actionEvidence=5 with activeOrderUnauthorizedMutationBlocked=PASS and activeOrderCleanupDeferred=BLOCKED, actionObserved=4, surfaceObserved=37, uncovered=21, pending=62, blockers=63; unauthorized actor aoteman proves wrong-role active-order mutation is rejected, while activeOrderId remains a shared downstream M6 fixture."
       ]
     }
   ],
   "acceptance": {
     "total": 62,
-    "accepted": 19,
-    "blocked": 12,
-    "pending": 31
+    "accepted": 0,
+    "blocked": 62,
+    "pending": 62
   },
   "blockers": [
-    "12 SOURCE blockers remain open and must be cleared by their owner milestones M4-M5; M0, M1, M2, and M3 source gates are accepted under the current task gate.",
+    "No SOURCE, ENV, or RUNTIME blockers remain in the latest authorized real:check; M0-M5 source gates are accepted under the current task gate.",
     "M1 activeOrderId authority blockers RRM-BLK-001..007 are RESOLVED_VERIFIED by targeted Maven tests and authorized real:check.",
     "M2 production coefficient / planned quantity blockers RRM-BLK-026..028 are RESOLVED_VERIFIED by targeted Maven tests, static preflight, and authorized real:check.",
     "M3 QA/PQC blockers RRM-BLK-017..025 are RESOLVED_VERIFIED by targeted Maven tests, frontend static/type checks, and authorized real:check.",
-    "M4 is now the current milestone and owns transfer, shipment, replenishment/return, batch trace, and release source blockers RRM-BLK-008..016; this state update does not start M4 implementation.",
-    "M5 remains blocked by M4 and owns route configuration separation blockers RRM-BLK-029..031 plus later daily close / scope work.",
+    "M4 transfer/release blockers RRM-BLK-008..016 are RESOLVED_VERIFIED by targeted Maven tests, frontend static checks, and authorized real:check.",
+    "M5 route configuration separation blockers RRM-BLK-029..031 are RESOLVED_VERIFIED by focused static contract, backend compile, frontend regression, and authorized real:check.",
+    "M5 daily-close/scope/backend target gates are RESOLVED_VERIFIED by static contracts and targeted Maven tests.",
+    "M6 is current and still must complete migration, concurrency, performance, full real E2E, cleanup, and launch/readiness gates before the Excel goal can be called complete.",
+    "M6 current blocker: role-requirement-matrix real flow script now has a 62 AC coverage ledger, six role/page phase evidence, AC-M04 joinActiveOrder / activeOrderConflictRouteRejected / activeOrderCrossRoleReadOnly / activeOrderUnauthorizedMutationBlocked PASS action evidence, and activeOrderCleanupDeferred BLOCKED action evidence; backend AC-M04 duplicate/concurrent/conflict-route paths are GREEN, but all 62 AC remain E2E_COVERAGE blockers until each has complete real page actions, failure paths, permissions, read-only verification, cleanup, and applicable concurrency/performance proof.",
+    "M6 permission fixture blocker is RESOLVED_VERIFIED: dedicated unauthorized actor aoteman logs in with the user-approved local test password and has no active-order maintain permission, so activeOrderUnauthorizedMutationBlocked now PASSes without downgrading the releaseOwner role.",
     "Authorized local tenant, six role accounts, permissions, electronic signatures, pressure pump route, work order/transfer fixtures, QC/IPQC fixture data, and derived temporary QA regulation fixture are confirmed for M0 preflight; these fixtures do not solve formal activeOrderId or QA regulation source models."
   ],
   "artifacts": {

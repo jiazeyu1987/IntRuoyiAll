@@ -1,0 +1,15 @@
+{
+  "status": "BLOCKED",
+  "baseUrl": "http://127.0.0.1:8081",
+  "fileNumber": "CODX-DCC-ORIG-20260802090903",
+  "fileName": "Codex DCC 原版上传链路 20260802090903",
+  "controlledFileId": "2054545668044070270",
+  "username": "wangsiyu",
+  "startedAt": "2026-08-02T09:14:09.485Z",
+  "dccWriteRequests": [],
+  "targetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "blocker": "detail id mismatch\n+ actual - expected\n\n+ 'undefined'\n- '2054545668044070270'\n",
+  "finishedAt": "2026-08-02T09:14:15.610Z"
+}

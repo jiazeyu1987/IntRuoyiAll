@@ -81,6 +81,18 @@
                   </div>
                   <div class="approval-center__muted">{{ row.businessCode || row.businessKey || row.sourceTaskId || '--' }}</div>
                   <div
+                    v-if="row.moduleCode === 'DCC'"
+                    class="approval-center__dcc-key-fields"
+                    data-testid="approval-center-dcc-key-fields"
+                  >
+                    <span
+                      v-for="field in resolveDccKeyFields(row)"
+                      :key="field.label"
+                    >
+                      {{ field.label }}：{{ field.value }}
+                    </span>
+                  </div>
+                  <div
                     v-if="row.moduleCode === 'DCC' && row.businessContextTags?.length"
                     class="approval-center__dcc-context"
                     data-testid="approval-center-dcc-business-context"
@@ -955,6 +967,37 @@ const resolveModuleName = (moduleCode: ApprovalModuleCode) => {
 const resolveReviewerLabel = (row: ApprovalTaskSummaryVO) =>
   row.assigneeUserName || (row.assigneeUserId ? `用户 #${row.assigneeUserId}` : '--')
 
+const normalizeDccContextTag = (tag: string) => tag.replace(/^[^:：]+[:：]\s*/, '').trim()
+
+const findDccContextTagValue = (row: ApprovalTaskSummaryVO, patterns: RegExp[]) => {
+  const tags = row.businessContextTags || []
+  const matchedTag = tags.find((tag) => patterns.some((pattern) => pattern.test(tag)))
+  return matchedTag ? normalizeDccContextTag(matchedTag) || matchedTag : '--'
+}
+
+const resolveDccKeyFields = (row: ApprovalTaskSummaryVO) => [
+  {
+    label: '文件编号',
+    value: row.businessCode || row.businessKey || row.sourceTaskId || '--'
+  },
+  {
+    label: '版本',
+    value: findDccContextTagValue(row, [/版本|version/i, /^v\d+(?:\.\d+)?$/i])
+  },
+  {
+    label: '文件类型',
+    value: findDccContextTagValue(row, [/文件类型|文件分类|类型|分类/])
+  },
+  {
+    label: '当前审批节点',
+    value: row.currentNodeName || row.currentNodeCode || '--'
+  },
+  {
+    label: '申请人',
+    value: row.initiatorUserId ? `用户 #${row.initiatorUserId}` : '--'
+  }
+]
+
 const resolveNodeSubLabel = (row: ApprovalTaskSummaryVO) => {
   const reviewerLabel = resolveReviewerLabel(row)
   return reviewerLabel !== '--' ? `审核人：${reviewerLabel}` : row.businessStatus || '--'
@@ -1141,6 +1184,16 @@ watch(
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 6px;
+}
+
+.approval-center__dcc-key-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 6px;
+  color: #334155;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .approval-center__remark {

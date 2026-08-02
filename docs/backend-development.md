@@ -193,12 +193,12 @@
 
 ### 导入成功必须落到正式报工而不是直接进度
 
-- Trigger: 第三方报工、李萍报工单、直接报工 Excel、`importDirectWorkReportWorkbook`、`DIRECT_WORK_REPORT`、导入结果弹框显示成功但正式报工列表无新增、排产进度疑似未增长。
-- Preflight check: 先确认导入成功路径是否创建 `MesProFeedbackDO`、设置 `sourceImportRecordId`、回写导入记录 `feedbackId`、调用正式提交服务，并由正式报工状态参与排产进度汇总。
-- Blocker: 若缺少报工人、审批人、唯一未完成任务、排产工序剩余数量或正式路线工序快照，不得写 `progressSourceType=DIRECT_WORK_REPORT` 伪造成功；必须返回结构化跳过原因或 fail fast。
-- Verification: 后端回归必须同时覆盖匹配行创建/提交正式报工、缺用户跳过、重复导入再次正式报工、超剩余跳过；前端静态合同需确认导入确认后刷新正式报工列表并广播受影响排产工单刷新 payload。
+- Trigger: 第三方报工、李萍报工单、直接报工 Excel、`importDirectWorkReportWorkbook`、`DIRECT_WORK_REPORT`、导入结果弹框显示成功但正式报工列表无新增、排产进度疑似未增长、排产员工作台工序列表班次产能为 0。
+- Preflight check: 先确认导入成功路径是否创建 `MesProFeedbackDO`、设置 `sourceImportRecordId`、回写导入记录 `feedbackId`、调用正式提交服务，并由正式报工状态参与排产进度汇总；导入后若该任务会被重排保护，还必须核对 `mes_pro_task.workstation_id` 已指向正式报工工作站，且该工作站能解析启用产线；若工作台班次产能为 0，必须按当前路线工序 `process_id` 核对启用未删除工作站、`shift_hours`、工作站设备绑定和 `mes_dv_machinery_process` 小时产能，而不是只按工序编码找旧工作站；手动重排后验证资源落库时，必须通过 `mes_pro_task_schedule_ext.schedule_order_id -> mes_pro_task.workstation_id` 核对实际任务资源，不能只看可能未回写的历史 `mes_pro_schedule_order_process.workstation_id` 快照。
+- Blocker: 若缺少报工人、审批人、唯一未完成任务、排产工序剩余数量、正式路线工序快照、受保护任务工作站、工作站产线、当前 `process_id` 工作站、工作站班次小时或设备工序产能，不得写 `progressSourceType=DIRECT_WORK_REPORT` 或直接改进度/班次产能伪造成功；必须返回结构化跳过原因或 fail fast。
+- Verification: 后端回归必须同时覆盖匹配行创建/提交正式报工、缺用户跳过、重复导入再次正式报工、超剩余跳过、导入后受保护任务可参与重排；前端静态合同需确认导入确认后刷新正式报工列表并广播受影响排产工单刷新 payload，真实 E2E 需至少覆盖一次第三方报工导入后的手动重排预览或应用；跨环境补工作站数据后必须复验工作台目标工序 `shiftCapacityTotal` 为非 0 且资源链路行数可追溯；重排应用后必须记录排产工单计划时间、`mes_pro_task_schedule_ext` 任务数、空/失效工作站数、覆盖工作站数和最近一次重排快照。
 - Forbidden action: 禁止用导入记录直接进度、前端假新增、默认成功、空列表刷新或 API-only 结果替代正式报工持久化链路。
-- Evidence: `doc/tasks/20260801-third-party-feedback-import-list-progress/verification-report.md`。
+- Evidence: `doc/tasks/20260801-third-party-feedback-import-list-progress/verification-report.md`；`doc/tasks/20260802-test-server-replan-protected-task-workstation/verification-report.md`；`doc/tasks/20260802-test-server-replan-shift-hours-duration/verification-report.md`。
 
 ## 禁止做法
 

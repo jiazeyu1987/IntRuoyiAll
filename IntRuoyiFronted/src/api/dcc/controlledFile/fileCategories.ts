@@ -38,6 +38,7 @@ export type ControlledFileCategoryPermissionAction =
   | 'VIEW'
   | 'UPLOAD'
   | 'DOWNLOAD'
+  | 'PRINT'
   | 'OBSOLETE'
   | 'REVIEW'
   | 'APPROVE'

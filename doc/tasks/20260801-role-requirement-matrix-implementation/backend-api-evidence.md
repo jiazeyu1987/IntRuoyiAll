@@ -146,3 +146,54 @@
 - RRM-BLK-017..025 are resolved by M3 QA/PQC schema, service, controller/VO, frontend dynamic rendering, and source-gate work.
 - Remaining blockers are downstream: M4 owns RRM-BLK-008..016, and M5 owns RRM-BLK-029..031.
 - Full real Playwright E2E is still blocked by downstream SOURCE blockers and must not be reported as PASS.
+
+## M4 Transfer Trace And Release Source Scope
+
+- Milestone slice: M4 transfer/release source model.
+- Service/API scope: activeOrderId transfer trace read model and eDHR release completeness source adapter.
+- Owned backend paths: `MesProcessPoolActiveOrderTransferTraceDO`, `MesProcessPoolActiveOrderTransferTraceMapper`, `MesActiveOrderTransferTraceService`, `MesOrderReleaseCompletenessService`, `MesOrderReleaseCompletenessServiceImpl`, `MesProEdhrReleaseServiceImpl`, `MesPqcInspectionTaskMapper`, `MesProcessPoolWorkOrderAbnormalMapper`, and targeted tests.
+
+## M4 Contract
+
+- Active order transfer trace must bind active order, work order, route, route version, source type, direction, transfer/line/detail IDs, material stock, batch, item, quantity, source object, status, occurrence time, idempotency key, and source snapshot.
+- Trace source types must cover `TRANSFER`, `SHIPMENT`, `REPLENISHMENT`, `RETURN`, `BATCH_TRACE`, `SCRAP`, and `REWORK`.
+- Release precheck must call a formal completeness service for inspection result, deviation closed, rework closed, scrap recorded, and inventory consistency.
+- Missing active order, missing PQC task, open abnormalities, open rework/scrap traces, missing material trace, frozen stock, or negative stock must produce explicit source checks; no default PASS or source-not-integrated placeholder is allowed for M4 checks.
+- Existing release service tests must keep old non-M4 cases scoped by mocking the new source adapter as NOT_APPLICABLE, not by removing the dependency or swallowing missing beans.
+
+## M4 Validation
+
+- `MesActiveOrderTransferTraceSchemaTest` validates active order transfer trace table, fields, mapper, service, source types, and migration key shape.
+- Root `MesProEdhrReleaseServiceImplTest` validates M4 release checks no longer use `buildSourceNotIntegratedItem` and the source adapter exposes all five methods.
+- Existing `service/pro/batchrecord/MesProEdhrReleaseServiceImplTest` validates prior release behaviors still pass with the new source adapter dependency mocked explicitly.
+- `role-requirement-matrix-real-flow.e2e.js --check` validates RRM-BLK-008..016 are removed from current SOURCE blockers.
+
+## M4 BDD
+
+- BDD: M4 transfer trace and start check -> Given M1-M3 are accepted and activeOrderId is the unified order identity When an active order has transfer, shipment, replenishment, return, and batch/material stock facts Then the system must trace those facts through formal activeOrderId relations and keep missing sources blocked.
+- BDD: M4 release completeness source checks -> Given eDHR release precheck needs inspection, deviation, rework, scrap, and inventory checks When release precheck runs Then those checks must come from formal source adapters and must not use source-not-integrated placeholders or default PASS.
+
+## M4 RED
+
+- RED: `pnpm --dir IntRuoyiFronted e2e:role-matrix-transfer-start-check:static` -> FAIL, expected reason: missing formal activeOrderId transfer relation source.
+- RED: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesActiveOrderTransferTraceSchemaTest,MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> FAIL/timeout during first run, expected reason: missing M4 schema/adapter before implementation and then corrupted `target\classes` generated output blocked standard Maven from completing.
+- RED: `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesActiveOrderTransferTraceSchemaTest,MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` -> FAIL, expected reason: existing release service Spring test lacked the newly required `MesOrderReleaseCompletenessService` bean.
+
+## M4 GREEN
+
+- GREEN: standard Maven from backend root -> `mvn -pl yudao-module-mes -am "-Dtest=MesActiveOrderTransferTraceSchemaTest,MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" test` -> PASS, 21 tests, 0 failures/errors.
+- GREEN: no-fork Maven diagnostic -> `mvn -f IntRuoyiBackend\pom.xml -pl yudao-module-mes -am "-Dtest=MesActiveOrderTransferTraceSchemaTest,MesProEdhrReleaseServiceImplTest" "-Dsurefire.failIfNoSpecifiedTests=false" "-DforkCount=0" test` -> PASS, 21 tests, 0 failures/errors.
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-matrix-transfer-start-check:static` -> PASS.
+- GREEN: `node --check IntRuoyiFronted\tests\e2e\role-requirement-matrix-real-flow.e2e.js` -> PASS.
+- GREEN: `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:preflight:static` -> PASS.
+
+## M4 Verification
+
+- Verification: authorized `pnpm --dir IntRuoyiFronted e2e:role-requirement-matrix:real:check` -> EXPECTED_BLOCKED_FOR_M5 with 3 SOURCE blockers, 0 ENV blockers, 0 RUNTIME blockers; RRM-BLK-008..016 no longer appear.
+- Verification: no plaintext passwords are recorded; command evidence uses in-process environment variables and result artifacts redact passwords.
+
+## M4 Blockers
+
+- RRM-BLK-008..016 are resolved by M4 transfer trace schema, source adapter, release service integration, static contract, Maven regression, and real source-gate work.
+- Remaining blockers are downstream: M5 owns RRM-BLK-029..031 route batch-record/formBindings/default MAIN separation.
+- Full real Playwright E2E is still blocked by downstream M5 SOURCE blockers and must not be reported as PASS.

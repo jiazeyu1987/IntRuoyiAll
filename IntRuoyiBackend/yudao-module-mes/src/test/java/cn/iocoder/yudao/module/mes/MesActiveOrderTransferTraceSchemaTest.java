@@ -52,7 +52,7 @@ class MesActiveOrderTransferTraceSchemaTest {
                 "sql/mysql/20260802_mes_process_pool_active_order_transfer_trace.sql"), StandardCharsets.UTF_8);
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_active_order_transfer_trace`"));
         assertTrue(sql.contains("`active_order_id` bigint NOT NULL COMMENT '统一活跃订单ID'"));
-        assertTrue(sql.contains("`source_type` varchar(32) NOT NULL COMMENT '来源类型：TRANSFER/SHIPMENT/REPLENISHMENT/RETURN/BATCH_TRACE'"));
+        assertTrue(sql.contains("`source_type` varchar(32) NOT NULL COMMENT '来源类型：TRANSFER/SHIPMENT/REPLENISHMENT/RETURN/BATCH_TRACE/SCRAP/REWORK'"));
         assertTrue(sql.contains("`material_stock_id` bigint DEFAULT NULL COMMENT '库存台账ID'"));
         assertTrue(sql.contains("UNIQUE KEY `uk_mes_pp_active_order_transfer_trace`"));
     }
@@ -71,6 +71,9 @@ class MesActiveOrderTransferTraceSchemaTest {
         if ("yudao-module-mes".equals(cwd.getFileName().toString())) {
             return cwd.getParent().resolve(relative);
         }
-        return cwd.resolve(relative);
+        if ("IntRuoyiBackend".equals(cwd.getFileName().toString())) {
+            return cwd.resolve(relative);
+        }
+        return cwd.resolve("IntRuoyiBackend").resolve(relative);
     }
 }

@@ -96,6 +96,9 @@ class MesProcessPoolTeamLeaderSchemaTest {
         assertField(MesProcessPoolTeamLeaderScopeDO.class, "employeeUserId", Long.class);
         assertField(MesProcessPoolTeamLeaderScopeDO.class, "processId", Long.class);
         assertField(MesProcessPoolTeamLeaderScopeDO.class, "workstationId", Long.class);
+        assertField(MesProcessPoolTeamLeaderScopeDO.class, "productionLineId", Long.class);
+        assertField(MesProcessPoolTeamLeaderScopeDO.class, "equipmentId", Long.class);
+        assertField(MesProcessPoolTeamLeaderScopeDO.class, "workOrderId", Long.class);
         assertField(MesProcessPoolTeamLeaderScopeDO.class, "enabled", Boolean.class);
 
         assertField(MesProcessPoolSubmissionReviewDO.class, "eventId", Long.class);
@@ -203,6 +206,10 @@ class MesProcessPoolTeamLeaderSchemaTest {
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_defect_reason`"));
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_device_parameter_rule`"));
         assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `mes_pro_process_pool_team_maintenance_audit`"));
+        assertTrue(sql.contains("负责范围类型：EMPLOYEE/PROCESS/WORKSTATION/PRODUCTION_LINE/EQUIPMENT/ORDER"));
+        assertTrue(sql.contains("`production_line_id` bigint DEFAULT NULL COMMENT '负责生产线ID'"));
+        assertTrue(sql.contains("`equipment_id` bigint DEFAULT NULL COMMENT '负责设备ID'"));
+        assertTrue(sql.contains("`work_order_id` bigint DEFAULT NULL COMMENT '负责生产订单ID'"));
         assertTrue(sql.contains("KEY `idx_mes_pp_tl_scope_employee` (`tenant_id`, `leader_user_id`, `employee_user_id`)"));
         assertTrue(sql.contains("KEY `idx_mes_pp_review_event` (`tenant_id`, `event_id`)"));
         assertTrue(sql.contains("KEY `idx_mes_pp_abnormal_work_order` (`tenant_id`, `work_order_id`, `report_status`)"));

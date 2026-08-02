@@ -59,6 +59,7 @@ public class DccControlledFileRespVO {
     private String finalizationError;
     private Boolean canPreview;
     private Boolean canDownload;
+    private Boolean canPrint;
     private DccControlledFileAccessExplanationRespVO accessExplanation;
     private Boolean systemRecordDownloadOpen;
     private Boolean modifying;

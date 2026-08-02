@@ -65,6 +65,26 @@ class MesTeamLeaderScopeServiceTest {
         assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED.getCode(), ex.getCode());
     }
 
+    @Test
+    void shouldAllowExtendedMaintenanceScopesOnlyInsideExplicitScope() {
+        when(scopeMapper.selectActiveScopesByLeader(100L, null))
+                .thenReturn(List.of(productionLineScope(7001L), equipmentScope(8001L), orderScope(9001L)));
+
+        service.assertCanMaintainProductionLine(100L, 7001L);
+        service.assertCanMaintainEquipment(100L, 8001L);
+        service.assertCanMaintainOrder(100L, 9001L);
+
+        ServiceException lineDenied = assertThrows(ServiceException.class,
+                () -> service.assertCanMaintainProductionLine(100L, 7002L));
+        ServiceException equipmentDenied = assertThrows(ServiceException.class,
+                () -> service.assertCanMaintainEquipment(100L, 8002L));
+        ServiceException orderDenied = assertThrows(ServiceException.class,
+                () -> service.assertCanMaintainOrder(100L, 9002L));
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED.getCode(), lineDenied.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED.getCode(), equipmentDenied.getCode());
+        assertEquals(ErrorCodeConstants.PRO_PROCESS_POOL_TEAM_SCOPE_DENIED.getCode(), orderDenied.getCode());
+    }
+
     private static MesProcessPoolTeamLeaderScopeDO employeeScope(Long employeeUserId) {
         return MesProcessPoolTeamLeaderScopeDO.builder()
                 .leaderUserId(100L)
@@ -81,6 +101,36 @@ class MesTeamLeaderScopeServiceTest {
                 .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
                 .scopeType(MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_PROCESS)
                 .processId(processId)
+                .enabled(Boolean.TRUE)
+                .build();
+    }
+
+    private static MesProcessPoolTeamLeaderScopeDO productionLineScope(Long productionLineId) {
+        return MesProcessPoolTeamLeaderScopeDO.builder()
+                .leaderUserId(100L)
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                .scopeType(MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_PRODUCTION_LINE)
+                .productionLineId(productionLineId)
+                .enabled(Boolean.TRUE)
+                .build();
+    }
+
+    private static MesProcessPoolTeamLeaderScopeDO equipmentScope(Long equipmentId) {
+        return MesProcessPoolTeamLeaderScopeDO.builder()
+                .leaderUserId(100L)
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                .scopeType(MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_EQUIPMENT)
+                .equipmentId(equipmentId)
+                .enabled(Boolean.TRUE)
+                .build();
+    }
+
+    private static MesProcessPoolTeamLeaderScopeDO orderScope(Long workOrderId) {
+        return MesProcessPoolTeamLeaderScopeDO.builder()
+                .leaderUserId(100L)
+                .leaderType(MesProcessPoolTeamLeaderScopeDO.LEADER_TYPE_PRODUCTION)
+                .scopeType(MesProcessPoolTeamLeaderScopeDO.SCOPE_TYPE_ORDER)
+                .workOrderId(workOrderId)
                 .enabled(Boolean.TRUE)
                 .build();
     }

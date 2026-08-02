@@ -40,6 +40,15 @@
 - Forbidden action: 禁止修改无关大契约来绕过历史失败；禁止把无关 `ts:check` blocker 当成本任务通过证据；禁止跳过当前需求的最小 RED/GREEN。
 - Evidence: 任务 `doc/tasks/20260726-release-action-error-autohide/`，既有 eDHR 大契约先失败于历史模型断言，本任务改用 `edhr-release-action-error-autohide-static.spec.js` 隔离 5 秒自动隐藏行为。
 
+## 前端 BPMN marker 高亮完整性门禁
+
+- Trigger: BPMN/BPM 流程图、审批流程图、`canvas.addMarker`、`canvas.removeMarker`、`elementRegistry.get`、`Cannot read properties of undefined (reading 'markers')`、节点高亮、节点缺失。
+- Preflight check: 对后端或流程实例返回的每个高亮节点 ID，必须先通过 `elementRegistry.get(id)` 确认当前 BPMN XML 中存在该元素，再调用 `canvas.addMarker/removeMarker`；缺失节点必须聚合成页面可见警告或明确错误归属。
+- Blocker: 任一 marker 操作直接对未经校验的 ID 调用、缺失节点被静默忽略、页面只在控制台报错但用户不可见、或静态契约无法证明缺失节点不会触发 `markers` pageerror 时，不得宣称流程图稳定性修复完成。
+- Verification: 聚焦静态契约必须断言安全 marker helper、`elementRegistry.get` 校验、可见 warning `data-testid`、无直接未校验 `canvas.addMarker/removeMarker`；涉及 Vue/TS 时运行 `pnpm ts:check`。
+- Forbidden action: 禁止用 try/catch 吞掉 `markers` 异常、禁止隐藏流程图或禁用全部高亮冒充修复、禁止把 BPMN XML 与审批任务节点不一致解释为前端无责任而不提示用户。
+- Evidence: 任务 `doc/tasks/20260802-dcc-revision-ux-final-fixes/`，DCC 升版发布审批页 BPM 流程图 marker 节点缺失需显示“流程图高亮不完整”并避免 pageerror。
+
 ## 前端服务端分页排序链路门禁
 
 - Trigger: Element Plus 表格、统一列表模板、分页列表、`sort-change`、`sortColumnAttrs`、表头排序按钮、空单元格排序、跨页排序。
@@ -141,12 +150,12 @@
 
 ## DCC 基础条目关联文档分类树门禁
 
-- Trigger: DCC 基础条目、项目代码、关联文档三栏导航、`fileTypeTaxonomyId`、`fileTypeLevel2/fileTypeLevel3`、中间“文件类型”列、DCC 文件分类树、技术文档阶段展开、未分类文件或“未分类文件类型”自动归类、列表页按文件名批量归类。
-- Preflight check: 先以 `DCC文件分类` 的正式树作为分类来源，按 `技术文档 / 阶段 / 文件类型` 解析阶段直接子分类；基础条目关联文件只能影响数量和右侧文件列表，不能反向决定中间列完整分类集合。若新增“按文件名归类未分类”能力，候选目标也必须来自同一正式分类树阶段直接子分类，并通过正式元数据保存接口写入 `fileTypeTaxonomyId` 与 `fileTypeLevel1/2/3`。若入口位于列表页且用户要求处理全部项目代码，必须按当前筛选条件从第 1 页遍历到总页数，不能只处理当前页已加载行。
-- Blocker: 中间文件类型列只从当前关联文件的 `fileTypeLevel3` 动态生成、已配置但当前无文件的正式子分类不显示、`fileTypeTaxonomyId` 已能解析第三级却被归入“未分类文件类型”、用“未分类文件类型”替代正式子分类、自动归类把文件写回未分类桶、缺正式分类候选时仍猜测目标、或保存失败被吞掉时必须停止。
-- Verification: 聚焦静态合同必须断言分类 helper 同时提供阶段、阶段直接子分类和 taxonomy path 第三级解析；页面合同必须断言中间列先由阶段直接子分类预置，再按文件归组计数；自动归类合同必须断言按钮、未分类筛选、正式候选来源、确定性相似度、正式 metadata 更新接口和失败显式暴露；列表页批量归类合同还必须断言保留当前筛选条件、全分页拉取项目代码、逐项目全分页拉取关联文件和批处理进度/失败可见。运行 `pnpm e2e:dcc:project-code-associated-three-column:static`、自动归类静态合同、相邻 DCC 文件分类静态合同和 `pnpm ts:check`。真实写入 E2E 只有在有批准的可写测试数据与清理责任时运行。
+- Trigger: DCC 基础条目、项目代码、关联文档三栏导航、`fileTypeTaxonomyId`、`fileTypeLevel2/fileTypeLevel3`、中间“文件类型”列、DCC 文件分类树、技术文档阶段展开、未分类文件或“未分类文件类型”自动归类、列表页按文件名批量归类、受控文件元数据修改后项目代码详情同步、`user_role_ids` 角色缓存。
+- Preflight check: 先以 `DCC文件分类` 的正式树作为分类来源，按 `技术文档 / 阶段 / 文件类型` 解析阶段直接子分类；基础条目关联文件只能影响数量和右侧文件列表，不能反向决定中间列完整分类集合。若新增“按文件名归类未分类”能力，候选目标也必须来自同一正式分类树阶段直接子分类，并通过正式元数据保存接口写入 `fileTypeTaxonomyId` 与 `fileTypeLevel1/2/3`。若入口位于列表页且用户要求处理全部项目代码，必须按当前筛选条件从第 1 页遍历到总页数，不能只处理当前页已加载行。若真实 E2E 要用非 admin 文控账号写入元数据，除确认 `get-permission-info` 返回角色外，还必须确认后端 `PermissionService.hasAnyRoles` 使用的 `user_role_ids:{userId}` 缓存已刷新；直接补 DB 角色后需删除精确用户缓存或走正式角色分配接口触发缓存清理。
+- Blocker: 中间文件类型列只从当前关联文件的 `fileTypeLevel3` 动态生成、已配置但当前无文件的正式子分类不显示、`fileTypeTaxonomyId` 已能解析第三级却被归入“未分类文件类型”、用“未分类文件类型”替代正式子分类、自动归类把文件写回未分类桶、缺正式分类候选时仍猜测目标、保存失败被吞掉、或 metadata PUT 返回 `Only doc control can update controlled file metadata` 且未核对 `user_role_ids:{userId}` 缓存时必须停止。
+- Verification: 聚焦静态合同必须断言分类 helper 同时提供阶段、阶段直接子分类和 taxonomy path 第三级解析；页面合同必须断言中间列先由阶段直接子分类预置，再按文件归组计数；自动归类合同必须断言按钮、未分类筛选、正式候选来源、确定性相似度、正式 metadata 更新接口和失败显式暴露；列表页批量归类合同还必须断言保留当前筛选条件、全分页拉取项目代码、逐项目全分页拉取关联文件和批处理进度/失败可见。运行 `pnpm e2e:dcc:project-code-associated-three-column:static`、自动归类静态合同、相邻 DCC 文件分类静态合同和 `pnpm ts:check`。真实写入 E2E 只有在有批准的可写测试数据与清理责任时运行；写入 E2E 必须在每次 metadata PUT 后进入目标项目代码详情三栏，按阶段和文件类型可见文本断言目标文件出现，并最终恢复原项目与原文件类型。
 - Forbidden action: 禁止用 `fileTypeLevel3`、当前关联文件列表、默认 `MAIN`、空值回填、`formBindings`、前端硬编码文案或随机算法替代正式 DCC 文件分类树；禁止把无匹配、缺分类树或保存失败静默降级成未分类成功。
-- Evidence: 任务 `doc/tasks/20260731-dcc-project-code-associated-taxonomy-types/`，基础条目关联文档中间列旧实现按关联文件已有 `fileTypeLevel3` 生成，未与 DCC 文件分类阶段展开保持一致；任务 `doc/tasks/20260801-dcc-project-code-auto-classify-unclassified/`，未分类自动归类按钮复用正式分类树与 metadata 更新接口；任务 `doc/tasks/20260801-dcc-project-code-list-auto-classify-unclassified/`，列表页批量入口必须覆盖当前筛选条件下全部项目代码，包括未加载分页。
+- Evidence: 任务 `doc/tasks/20260731-dcc-project-code-associated-taxonomy-types/`，基础条目关联文档中间列旧实现按关联文件已有 `fileTypeLevel3` 生成，未与 DCC 文件分类阶段展开保持一致；任务 `doc/tasks/20260801-dcc-project-code-auto-classify-unclassified/`，未分类自动归类按钮复用正式分类树与 metadata 更新接口；任务 `doc/tasks/20260801-dcc-project-code-list-auto-classify-unclassified/`，列表页批量入口必须覆盖当前筛选条件下全部项目代码，包括未加载分页；任务 `doc/tasks/20260802-dcc-project-code-filetype-assignment-e2e/verification-report.md`，非 admin 文控账号通过真实页面 5 次修改已有文件到目标 DCC 项目代码和不同正式文件类型，并在项目代码详情三栏逐次验证同步，发现直接补 DB 角色后必须刷新 `user_role_ids:{userId}` 缓存。
 
 ## 前端草稿保存与提交发布解耦门禁
 

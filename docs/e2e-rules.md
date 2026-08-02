@@ -35,12 +35,21 @@
 
 ### DCC 文控审批处理入口门禁
 
-- Trigger: 验证 DCC 文控上传、原版上传、上传审批、电子签名审批、升版发布、发布申请、`DccControlledFileDetail`、`/approval-center?moduleCode=DCC`、`PROCESS_IN_MODULE`、`approve-task`、`DCC_PUBLISH` 或 `APPROVE_USER_SELECT` 链路。
-- Preflight check: 浏览器审批前必须证明审批账号能从真实页面进入非只读处理态，并看到“审批阶段进度”、当前 `approvalTodoTask` 对应的签名按钮和目标写接口；同时核对 `DccControlledFileDetail.beforeEnter` 不会把非 viewer 处理态重定向到受控浏览。发布申请前还必须核对发布申请人拥有 `form:instance:create`、`form:instance:submit`、`system:user:query` 和用户选择弹窗所需的用户查询权限；发布 BPM 审批如果后续节点是 `APPROVE_USER_SELECT`，必须在 BPM 流程详情页等待 `/bpm/process-instance/get-next-approval-nodes` 返回并选择下一节点审批人。
-- Blocker: DCC 审批中心行只能打开 `viewer=1` 只读预览、非 viewer 详情被路由守卫重定向、页面未渲染签名按钮、只有 `approve-task` API wrapper 但无页面入口、BPM 原生行直接审批返回业务 `403`、发布申请弹窗提示缺审批人、用户选择弹窗因缺 `system:user:query` 报无权限、或 BPM 发布审批返回“下一个任务的审批人未配置”时必须停止并记录 E2E BLOCKED。
-- Verification: 证据需包含审批中心 DCC 行、跳转后的实际 URL、详情页处理态控件、签名弹窗、`/dcc/controlled-files/{id}/approve-task` 响应、Flowable 当前任务和 DCC 文件状态；原版上传链路还需包含同一 `file_number` 仅一条 V1.0 `NEW` 文件、状态 `ACTIVE`、master 当前生效版本指向该 V1.0、上传审批完成任务数不少于 4，且不存在升版/修订行；发布链路还需包含 `bpm_form_action_instance.status=EFFECTIVE`、发布 BPM 完成任务数、V1 `SUPERSEDED`、V2 `ACTIVE`、master 当前生效版本指向 V2。若 blocked，记录路由守卫源码行、页面实际落点和任务自有残留数据。
-- Forbidden action: 禁止用 BPM 原生审批行替代 DCC 上传审批、直接 API、SQL 改状态、移除断言、绕开路由守卫、只读 viewer 截图、跳过发布申请审批人选择、或把发布 BPM 审批人的 `APPROVE_USER_SELECT` 通过默认值/空值冒充配置完成。
-- Evidence: `doc/tasks/20260802-dcc-upload-revision-e2e/verification-report.md`，DCC 上传升版 E2E 先暴露处理态、发布申请权限和 BPM 下一审批人选择缺口，补齐非 admin 角色权限并改为真实 DCC/BPM 页面路径后完成完整链路验证；`doc/tasks/20260802-dcc-upload-original-e2e/verification-report.md`，DCC 原版上传 E2E 验证 V1.0 `NEW` 文件审批后直接 `ACTIVE`，master 指向原版且无升版行。
+- Trigger: 验证 DCC 文控上传、原版上传、上传审批、电子签名审批、升版发布、发布申请、文件作废/废止、旧版自动失效、`OBSOLETE`、`SUPERSEDED`、`DccControlledFileDetail`、`/approval-center?moduleCode=DCC`、`PROCESS_IN_MODULE`、`approve-task`、`DCC_PUBLISH` 或 `APPROVE_USER_SELECT` 链路。
+- Preflight check: 浏览器审批前必须证明审批账号能从真实页面进入非只读处理态，并看到“审批阶段进度”、当前 `approvalTodoTask` 对应的签名按钮和目标写接口；同时核对 `DccControlledFileDetail.beforeEnter` 不会把非 viewer 处理态重定向到受控浏览。遇到 DCC “作废/废止”需求时，必须先确认用户要的是手动当前版本作废审批链路，还是升版发布后旧版本自动失效链路；若用户提到“升版本”“老版本自动作废/失效”“不走审批”，验收口径是旧 V1 `SUPERSEDED`、新 V2 `ACTIVE`、master 当前有效版本指向 V2，不要求创建 `OBSOLETE` 审批。发布申请前还必须核对发布申请人拥有 `form:instance:create`、`form:instance:submit`、`system:user:query` 和用户选择弹窗所需的用户查询权限；发布 BPM 审批如果后续节点是 `APPROVE_USER_SELECT`，必须在 BPM 流程详情页等待 `/bpm/process-instance/get-next-approval-nodes` 返回并选择下一节点审批人。受控浏览 viewer 模式的版本追溯入口是 `data-testid="dcc-controlled-preview-version-button"` 打开的版本信息弹窗，变更原因显示在详情基础信息的“提交备注”；受控浏览 traceability 模式是 `/dcc/controlled-file/detail/{id}?traceability=1&from=browser` 的追溯详情页，需验证内嵌“版本历史”表与升版原因；viewer 模式还必须渲染当前有效版的最终目录路径、`publishedFileId`、`stampedFileId` 或等价发布文件信息，不能只在非 viewer 详情路径展示该 linkage 卡片。脚本等待详情接口时必须精确匹配 `/admin-api/dcc/controlled-files/{id}` 的 pathname，避免误抓 `/preview`、`/preview-metadata`、`/access-explanation` 等同 ID 子接口。
+- Blocker: DCC 审批中心行只能打开 `viewer=1` 只读预览、非 viewer 详情被路由守卫重定向、页面未渲染签名按钮、只有 `approve-task` API wrapper 但无页面入口、BPM 原生行直接审批返回业务 `403`、发布申请弹窗提示缺审批人、用户选择弹窗因缺 `system:user:query` 报无权限、或 BPM 发布审批返回“下一个任务的审批人未配置”时必须停止并记录 E2E BLOCKED。若用户明确要求手动作废审批链路但运行态缺少已发布 `DCC / DCC / CONTROLLED_FILE / OBSOLETE` 业务审批策略，也必须记录 BLOCKED；若用户明确要求升版自动失效链路，则缺手动作废策略不能阻塞该链路验收。
+- Verification: 证据需包含审批中心 DCC 行、跳转后的实际 URL、详情页处理态控件、签名弹窗、`/dcc/controlled-files/{id}/approve-task` 响应、Flowable 当前任务和 DCC 文件状态；原版上传链路还需包含同一 `file_number` 仅一条 V1.0 `NEW` 文件、状态 `ACTIVE`、master 当前生效版本指向该 V1.0、上传审批完成任务数不少于 4，且不存在升版/修订行；发布/升版自动失效链路还需包含 `bpm_form_action_instance.status=EFFECTIVE`、发布 BPM 完成任务数、旧版本 V1 `SUPERSEDED`、新版本 V2 `ACTIVE`、master 当前生效版本指向 V2、V1 successor 指向 V2；受控浏览链路还需包含 ACTIVE browser-page 只返回/默认打开 V2、V1 不作为当前有效行返回、viewer 版本信息弹窗或 traceability 详情内嵌版本历史可见 V1/V2、详情提交备注/升版原因可见、viewer 页面可见最终目录路径以及 published/stamped 文件 ID。若 blocked，记录路由守卫源码行、页面实际落点、viewer/traceability 模板缺口和任务自有残留数据。
+- Forbidden action: 禁止用 BPM 原生审批行替代 DCC 上传审批、直接 API、SQL 改状态、移除断言、绕开路由守卫、只读 viewer 截图、跳过发布申请审批人选择、或把发布 BPM 审批人的 `APPROVE_USER_SELECT` 通过默认值/空值冒充配置完成。禁止把升版后的旧版 `SUPERSEDED` 误判为必须走 `OBSOLETE` 审批；禁止在用户明确要求升版自动作废/失效时，继续用缺手动作废审批策略作为当前链路失败结论。
+- Evidence: `doc/tasks/20260802-dcc-upload-revision-e2e/verification-report.md`，DCC 上传升版 E2E 先暴露处理态、发布申请权限和 BPM 下一审批人选择缺口，补齐非 admin 角色权限并改为真实 DCC/BPM 页面路径后完成完整链路验证；`doc/tasks/20260802-dcc-upload-original-e2e/verification-report.md`，DCC 原版上传 E2E 验证 V1.0 `NEW` 文件审批后直接 `ACTIVE`，master 指向原版且无升版行；`doc/tasks/20260802-dcc-controlled-file-obsolete-e2e/verification-report.md`，DCC “作废/废止”需求经用户澄清后按升版自动失效链路验收，真实 Playwright 证明 V1 `SUPERSEDED`、V2 `ACTIVE`、master 指向 V2、受控浏览不再返回 V1 当前有效行，手动作废 OBSOLETE 策略缺失仅作为非当前链路 blocker 记录。
+
+### DCC 升版发布 UX 闭环门禁
+
+- Trigger: DCC 升版/修订发布、版本历史、升版原因、变更说明、发布完成结果、master 当前版本、受控浏览落位、BPM `markers` pageerror 或只读复验已完成发布链路。
+- Preflight check: 若复用既有已发布升版数据做只读复验，必须记录数据来源、只读范围、非 admin 账号和目标写请求数为 0；同时区分受控浏览行的“预览”viewer 路径与文件编号追溯详情路径。静态合同必须先锁定版本历史标题、升版原因/变更说明列、发布完成结果摘要和 BPM marker 安全 helper；真实页面复验必须分别打开 V2 追溯详情、受控浏览 viewer 版本历史弹窗和 BPM 流程图。
+- Blocker: 只用 API/DB 证明状态、只截图详情页但未打开受控浏览 viewer、版本历史弹窗仍叫“版本信息”、版本历史表只显示 V1/V2 但看不到升版原因/变更说明、发布完成摘要无法同时证明旧版失效/新版生效/master 切换/受控浏览落位、BPM 流程图仍出现未解释 `pageerror`、或只读复验无法证明目标写请求为 0 时必须停止。
+- Verification: 证据至少包含聚焦静态契约 PASS、真实 Playwright result JSON、发布完成摘要截图、受控浏览版本历史弹窗截图、BPM 流程图截图、`pageErrors=[]`、目标 DCC 写请求为 0，以及最终报告中的 V1/V2 ID、master 当前版本、受控浏览 published/stamped 文件 ID。
+- Forbidden action: 禁止用 admin、API-only、SQL 状态修改、旧 result 覆盖、本轮未打开的旧截图、忽略 `markers` pageerror、隐藏流程图高亮、删除版本历史断言或把只读 traceability 路径冒充 viewer 受控浏览落位。
+- Evidence: `doc/tasks/20260802-dcc-revision-ux-final-fixes/verification-report.md`，DCC 升版发布 UX 三项缺口通过聚焦静态契约和真实只读 Playwright 复验证明：发布完成摘要、受控浏览版本历史弹窗、BPM marker pageerror 均闭环，且目标写请求为 0。
 
 ### 规划型 E2E 前置与业务 RED 分离门禁
 
@@ -115,6 +124,15 @@
 - Forbidden action: 禁止删除后续断言来制造整条 PASS；禁止把目标阶段通过冒充 full-chain 通过；禁止在失败后遗漏共享配置恢复或任务自有数据清理。
 - Evidence: `doc/tasks/20260728-assist-role-responsibility-mode/verification-report.md`，填写配置保存阶段已返回 `adminSave.assistRowCount/assignmentCount`，后续路线绑定断言失败并完成配置恢复和路线清理。
 
+### 真实 E2E 主链路与扩展诊断产物隔离门禁
+
+- Trigger: 同一任务目录内同时运行主验收链路、resume 复核、权限负向验证、traceability/viewer linkage/诊断脚本，或多个脚本默认写同一个 `e2e-result.json`、`verification-report.md`、`final-readonly-db-verification.json`。
+- Preflight check: 运行前必须明确本轮用户要求的主链路范围与可选扩展断言边界；主链路结果文件、扩展诊断结果文件和固定最终证据文件必须使用不同路径，或在脚本启动前确认无同任务目录写入进程会覆盖默认结果。扩展断言必须通过显式 opt-in 环境变量开启，默认不得影响主链路验收结论。
+- Blocker: 若扩展诊断脚本仍在运行、默认结果文件被其它进程改写、可选断言失败覆盖主链路 PASS、报告中的文件号/状态与最新主链路结果不一致，必须停止收尾并恢复到清晰的主链路证据；不得把被扩展诊断覆盖的 `BLOCKED` 或旧文件号当作当前验收结论。
+- Verification: 收尾前延迟复查一次结果文件和任务文档，记录无当前任务脚本进程、默认结果和固定最终结果均为预期状态，且 `verification-report.md`、`task.md`、`execution-log.md` 的文件编号、文件 ID、master ID、状态和浏览路径一致。
+- Forbidden action: 禁止多个并行 Playwright 脚本共享同一个最终结果路径；禁止扩展诊断失败后直接改口主场景 BLOCKED 或 PASS；禁止用旧 resume 结果覆盖新建任务文件；禁止把可选 viewer linkage、签核追溯、权限负向验证混入用户明确限定的主验收范围。
+- Evidence: `doc/tasks/20260802-dcc-original-release-e2e-current/execution-log.md`，DCC 原版发布主链路 PASS 后，可选 viewer linkage / traceability 诊断多次覆盖默认结果和报告，最终通过显式关闭扩展断言、固定主链路结果文件并延迟复查结果稳定性收口。
+
 ### 真实 E2E 页面加载判据门禁
 
 - Trigger: 真实 Playwright 验证只读详情页、批次执行详情、当前工序高亮、页面顶部批号/执行号/标题文案可能与接口字段不一致。
@@ -123,6 +141,15 @@
 - Verification: 证据需包含目标接口 ID、目标页面控件状态、截图路径、关键样式/交互断言和 MES 写请求数；修正等待条件后必须重跑真实 Playwright。
 - Forbidden action: 禁止为了通过 E2E 删除目标页面断言、改成 API-only、等待无关菜单/标题文本、或把页面未渲染解释成接口已通过。
 - Evidence: `doc/tasks/20260729-edhr-parallel-start-process-highlight/verification-report.md`，真实脚本改为接口命中目标批次后等待工序组渲染，并断言三 个当前工序黄底。
+
+### 真实 E2E 用户列配置与列表可见性门禁
+
+- Trigger: 真实 Playwright 验证报工列表、排产工单、统一列表模板或任何支持用户自定义显示字段的表格，尤其默认用户列配置可能隐藏单据编号、报工单号、内部 ID 或状态列。
+- Preflight check: 列表断言前先确认当前用户实际可见列；若目标编号列被隐藏，必须改用页面可见的业务唯一组合（如工序编码、人员工号、数量、来源生产工单号、进度文本）证明列表更新，并用 DB 或只读 API 复核隐藏编号与正式记录绑定。
+- Blocker: 页面已显示目标业务行但脚本只因隐藏编号列缺失而失败时，不得判定产品失败；若可见业务组合也不足以唯一证明目标行，必须记录当前可见列并补充只读后置核验。
+- Verification: 证据需同时包含真实页面可见字段断言、隐藏编号的只读 DB/API 绑定证据、目标页面路由和当前用户列配置影响说明。
+- Forbidden action: 禁止把用户列配置隐藏导致的编号不可见写成业务未更新；禁止为通过 E2E 强行重置用户列配置、改用 API-only 替代页面列表、或断言不可见列文本。
+- Evidence: `doc/tasks/20260802-test-server-feedback-import-not-working/verification-report.md`，报工列表当前列配置未显示报工单号，但页面显示 5 条导入明细，DB 复核 `FB-000157` 至 `FB-000161` 与导入记录绑定，排产工单页面 `/mes/pro/schedule-order` 显示目标工单进度。
 
 ### 真实 E2E 动态事件查询与确认响应门禁
 

@@ -7,6 +7,10 @@ const backendRoot = path.resolve(workspaceRoot, 'IntRuoyiBackend')
 
 const schemaPath = path.join(backendRoot, 'sql/mysql/20260512_mes_base_schema.sql')
 const activeOrderSqlPath = path.join(backendRoot, 'sql/mysql/20260731_mes_process_pool_team_leader_p1_runtime_config.sql')
+const activeOrderTransferTraceSqlPath = path.join(
+  backendRoot,
+  'sql/mysql/20260802_mes_process_pool_active_order_transfer_trace.sql'
+)
 const releaseServicePath = path.join(
   backendRoot,
   'yudao-module-mes/src/main/java/cn/iocoder/yudao/module/mes/service/pro/batchrecord/MesProEdhrReleaseServiceImpl.java'
@@ -14,8 +18,9 @@ const releaseServicePath = path.join(
 
 const schemaSource = fs.readFileSync(schemaPath, 'utf8')
 const activeOrderSql = fs.readFileSync(activeOrderSqlPath, 'utf8')
+const activeOrderTransferTraceSql = fs.readFileSync(activeOrderTransferTraceSqlPath, 'utf8')
 const releaseSource = fs.readFileSync(releaseServicePath, 'utf8')
-const sourceBundle = `${schemaSource}\n${activeOrderSql}`
+const sourceBundle = `${schemaSource}\n${activeOrderSql}\n${activeOrderTransferTraceSql}`
 
 assert.match(
   sourceBundle,

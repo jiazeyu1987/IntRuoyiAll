@@ -368,6 +368,33 @@ CREATE TABLE IF NOT EXISTS `dcc_controlled_file` (
   KEY `idx_dcc_controlled_file_type_level` (`tenant_id`, `file_type_level1`, `file_type_level2`)
 );
 
+CREATE TABLE IF NOT EXISTS `dcc_controlled_file_print_record` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `controlled_file_id` BIGINT NOT NULL,
+  `file_number` VARCHAR(64) NOT NULL,
+  `version_no` VARCHAR(64) NOT NULL,
+  `print_no` VARCHAR(64) NOT NULL,
+  `purpose` VARCHAR(255) NOT NULL,
+  `copies` INT NOT NULL,
+  `receiving_department` VARCHAR(128) NOT NULL,
+  `use_location` VARCHAR(128) NOT NULL,
+  `print_user_id` BIGINT NOT NULL,
+  `print_user_name` VARCHAR(128) NULL,
+  `print_time` DATETIME NOT NULL,
+  `approval_status` VARCHAR(32) NOT NULL,
+  `approval_user_id` BIGINT NULL,
+  `approval_user_name` VARCHAR(128) NULL,
+  `approval_time` DATETIME NULL,
+  `tenant_id` BIGINT NOT NULL DEFAULT 0,
+  `create_time` DATETIME NULL,
+  `update_time` DATETIME NULL,
+  `creator` VARCHAR(64) NULL,
+  `updater` VARCHAR(64) NULL,
+  `deleted` TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `uk_dcc_controlled_print_no` UNIQUE (`tenant_id`, `print_no`, `deleted`)
+);
+
 CREATE TABLE IF NOT EXISTS `dcc_controlled_file_route_snapshot` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `controlled_file_id` BIGINT NOT NULL,

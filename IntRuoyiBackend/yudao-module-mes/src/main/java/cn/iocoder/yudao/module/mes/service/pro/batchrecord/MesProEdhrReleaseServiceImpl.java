@@ -154,6 +154,8 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
     private MesProEdhrReleaseDossierRequirementSettingService dossierRequirementSettingService;
     @Resource
     private MesProEdhrCandidateResolver candidateResolver;
+    @Resource
+    private MesOrderReleaseCompletenessService releaseCompletenessService;
 
     @Override
     public PageResult<MesProEdhrReleaseRespVO> getPage(MesProEdhrReleasePageReqVO reqVO) {
@@ -648,26 +650,27 @@ public class MesProEdhrReleaseServiceImpl implements MesProEdhrReleaseService {
                         MesProEdhrBatchExecutionServiceImpl.NODE_TYPE_FINISHED_PRODUCT_INSPECTION_RECORD,
                         CHECK_DOSSIER_FINISHED_PRODUCT_INSPECTION_RECORD, "成品检记录",
                         "成品检记录限制"),
-                buildSourceNotIntegratedItem(releaseTransactionId, batch, checkedAt, CHECK_INSPECTION_RESULT,
-                        "检验结果检查", "INSPECTION", MODULE_QMS,
-                        "未接入当前批次/SN 的 IQC/IPQC/OQC/RQC 合格记录来源",
-                        "补齐检验记录接口或配置检验来源后重新预检"),
-                buildSourceNotIntegratedItem(releaseTransactionId, batch, checkedAt, CHECK_DEVIATION_CLOSED,
-                        "偏差关闭检查", "DEVIATION", MODULE_QMS,
-                        "未接入当前批次/SN 的偏差关闭状态来源",
-                        "确认偏差记录已关闭并接入偏差查询后重新预检"),
-                buildSourceNotIntegratedItem(releaseTransactionId, batch, checkedAt, CHECK_REWORK_CLOSED,
-                        "返工完成检查", "REWORK", MODULE_MES,
-                        "未接入当前批次/SN 的返工审批与完成记录来源",
-                        "补齐返工记录和审批状态后重新预检"),
-                buildSourceNotIntegratedItem(releaseTransactionId, batch, checkedAt, CHECK_SCRAP_RECORDED,
-                        "报废记录检查", "SCRAP", MODULE_MES,
-                        "未接入当前批次/SN 的报废记录来源",
-                        "确认报废记录齐套或明确无报废后重新预检"),
-                buildSourceNotIntegratedItem(releaseTransactionId, batch, checkedAt, CHECK_INVENTORY_CONSISTENCY,
-                        "库存一致性检查", "INVENTORY", MODULE_WMS,
-                        "未接入当前批次/SN 的库存数量、状态和质量状态来源",
-                        "接入库存记录并确认放行数量、批次/SN 与库存状态一致"));
+                buildCompletenessSourceItem(releaseTransactionId, batch, checkedAt,
+                        releaseCompletenessService.evaluateInspectionResult(batch)),
+                buildCompletenessSourceItem(releaseTransactionId, batch, checkedAt,
+                        releaseCompletenessService.evaluateDeviationClosed(batch)),
+                buildCompletenessSourceItem(releaseTransactionId, batch, checkedAt,
+                        releaseCompletenessService.evaluateReworkClosed(batch)),
+                buildCompletenessSourceItem(releaseTransactionId, batch, checkedAt,
+                        releaseCompletenessService.evaluateScrapRecorded(batch)),
+                buildCompletenessSourceItem(releaseTransactionId, batch, checkedAt,
+                        releaseCompletenessService.evaluateInventoryConsistency(batch)));
+    }
+
+    private MesProEdhrReleaseCheckItemDO buildCompletenessSourceItem(Long releaseTransactionId,
+                                                                     MesProEdhrBatchExecutionDO batch,
+                                                                     LocalDateTime checkedAt,
+                                                                     MesOrderReleaseCompletenessCheck sourceCheck) {
+        return buildItem(releaseTransactionId, batch, checkedAt, sourceCheck.checkCode(),
+                sourceCheck.checkCategory(), sourceCheck.checkName(), sourceCheck.checkResult(),
+                sourceCheck.severity(), sourceCheck.responsibilityModule(), sourceCheck.sourceObjectType(),
+                sourceCheck.sourceObjectId(), sourceCheck.sourceObjectCode(), sourceCheck.failureReason(),
+                sourceCheck.remediationSuggestion());
     }
 
     private MesProEdhrReleaseCheckItemDO buildDossierRequirementItem(Long releaseTransactionId,
