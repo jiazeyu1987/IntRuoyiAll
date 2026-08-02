@@ -2884,3 +2884,6 @@
 2026-07-24T11:43:24+08:00	20260724-push-maintenance-github	BLOCKED	GitHub pre-receive hook 拒绝推送：已提交历史中的 doc/tasks/20260709-codeonly-three-env-head-release/evidence/build-release-v5-result.json 为 372.63 MB，超过 GitHub 100 MB 单文件限制；未执行历史重写、Git LFS 迁移、强推或快照分支 fallback。
 2026-07-24T11:43:24+08:00	20260724-push-maintenance-github	AUTHORIZATION	用户选择推荐方案并要求“按照最合适的方式进行”；授权在隔离克隆中重写历史移除 GitHub 超限文件后推送清理后的 int_main。
 2026-07-24T13:27:22+08:00	20260724-push-maintenance-github	RESULT	PASS: 隔离克隆使用 `git filter-branch` 从历史移除 GitHub 超限文件，清理后 int_main 可达 blob 扫描无超过 100 MB 的对象；推送到 GitHub 成功，远端 `refs/heads/int_main` 已由 `git ls-remote` 实时验证。
+2026-08-02T14:05:00+08:00	20260802-commit-feedback-fix-test-release	REQUEST	用户在 Codex 重启后要求继续：提交 `E:\IntRuoyi` 前后端代码，确认第三方报工修复进入下一次发布 worktree，并仅发布到测试服务器。
+2026-08-02T14:05:00+08:00	20260802-commit-feedback-fix-test-release	COMMAND_INTENT	接续既有任务文档，复核 dirty 主工作区、已冻结提交、release worktree 和 `r260802c-r1/r2/r3` 失败证据；只修复发布脚本 manifest sourceRepos 读取问题，不暂存并发脏文件。
+2026-08-02T14:12:00+08:00	20260802-commit-feedback-fix-test-release	RESULT	RED/GREEN: 新增发布脚本合同测试复现 `[ordered]` sourceRepo 无法读取 `pathRole` 的失败；修复 `Get-ReleaseObjectPropertyText` 支持 `System.Collections.IDictionary` 后，`source_repo_identity` 与 manifest/release-info 相关 pytest 通过。下一步提交推送后用新 clean worktree 和新 releaseTag 重建。

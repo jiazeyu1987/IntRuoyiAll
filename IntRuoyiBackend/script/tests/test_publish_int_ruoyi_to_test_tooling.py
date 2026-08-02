@@ -131,6 +131,52 @@ def _invoke_codex_summary_validator(
     )
 
 
+def _invoke_source_repo_identity_for_ordered_dictionary() -> subprocess.CompletedProcess[str]:
+    text = read_publish_script()
+    property_function = _extract_powershell_function(text, "Get-ReleaseObjectPropertyText")
+    identity_function = _extract_powershell_function(text, "Get-ReleaseSourceRepoIdentity")
+    command = textwrap.dedent(
+        f"""
+        $ErrorActionPreference = 'Stop'
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+        function Fail([string]$Message) {{
+            throw $Message
+        }}
+        {property_function}
+        {identity_function}
+        try {{
+            $repo = [ordered]@{{
+                name = 'ruoyi-vue-pro'
+                pathRole = 'backend'
+                commit = 'abc123'
+            }}
+            $identity = Get-ReleaseSourceRepoIdentity -Repo $repo
+            Write-Output $identity
+        }} catch {{
+            Write-Output $_.Exception.Message
+            exit 1
+        }}
+        """
+    )
+    encoded = base64.b64encode(command.encode("utf-16le")).decode("ascii")
+    return subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+
+def test_source_repo_identity_reads_ordered_dictionary_manifest_entries() -> None:
+    result = _invoke_source_repo_identity_for_ordered_dictionary()
+
+    assert result.returncode == 0
+    assert result.stdout.strip() == "backend"
+
+
 def test_only_one_publish_script_entrypoint_remains() -> None:
     publish_like = sorted(
         path.name

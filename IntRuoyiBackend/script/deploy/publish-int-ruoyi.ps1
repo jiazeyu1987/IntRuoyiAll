@@ -2907,10 +2907,22 @@ function Get-ReleaseObjectPropertyText {
     )
 
     $property = $Object.PSObject.Properties[$PropertyName]
-    if ($null -eq $property -or $null -eq $property.Value) {
-        return ''
+    if ($null -ne $property) {
+        if ($null -eq $property.Value) {
+            return ''
+        }
+        return ([string]$property.Value).Trim()
     }
-    return ([string]$property.Value).Trim()
+
+    if ($Object -is [System.Collections.IDictionary] -and $Object.Contains($PropertyName)) {
+        $value = $Object[$PropertyName]
+        if ($null -eq $value) {
+            return ''
+        }
+        return ([string]$value).Trim()
+    }
+
+    return ''
 }
 
 function Get-ReleaseManifestCreatedAt {

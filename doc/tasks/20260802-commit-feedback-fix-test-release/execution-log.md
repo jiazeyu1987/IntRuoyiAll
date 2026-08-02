@@ -1,0 +1,35 @@
+# 提交第三方报工修复并重新发布测试服执行日志
+
+## BDD
+
+- BDD: Release source contains feedback fix -> Given test server currently runs `release-20260802-intmain-head-test-r260802b-r1` from commit `b99246f58` without the direct feedback workstation fix, When the next release worktree is created, Then its HEAD and source file must contain `DirectWorkstationResolution` / `resolveDirectFeedbackWorkstation`.
+- BDD: Test-only deployment -> Given the user authorizes publishing to the test server, When the new release package is deployed, Then only the test server receives the release and no production or backup promotion action runs.
+- BDD: Real feedback import validation -> Given the test server has the new release, When `李萍.xlsx` is imported through the real frontend path, Then formal feedback appears and schedule progress updates.
+
+## Command Evidence
+
+- GREEN: startup-preflight -> PASS, task document created before commit/build/release/server modification.
+- GREEN: rule-read -> PASS, read `AGENTS.md`, `docs/task-closeout-rules.md`, `docs/worktree-restrictions.md`, `docs/release-backup-restore.md`, `docs/server-access.md`, `docs/powershell-encoding.md`, `docs/powershell-memory.md`, `docs/backend-development.md`, `docs/frontend-development.md`, `docs/e2e-rules.md`, `docs/database-rules.md`, and matched experience entries for dirty baseline, third-party feedback, worktree release, and test-server deploy.
+- GREEN: experience-preflight -> PASS, re-read `docs/experience-index.md`, `docs/test-release-preflight.md`, `docs/release-build-preflight-lessons.md`, `E:\IntRuoyi\docs\release-backup-restore.md`, `E:\IntRuoyi\docs\server-access.md`, `E:\IntRuoyi\docs\worktree-memory.md`, `E:\IntRuoyi\docs\powershell-memory.md`, and `E:\IntRuoyi\docs\backend-development.md#第三方报工直报正式链路门禁`; high-risk release/server actions remain blocked until a new clean worktree build has valid manifest evidence.
+- GREEN: bug-cause-confirmed -> PASS, test server r260802b release-info source commit is `b99246f58`; fix commit `b8533d59a` is not an ancestor of `HEAD`, `origin/int_main`, or `b99246f58`; working tree contains the fix symbols.
+- GREEN: baseline-commit -> PASS, committed then-current dirty workspace to `d6d0e7b9ea45e37001e95c5f761af9df815890f1` and pushed to `origin/int_main`; later dirty files are concurrent/unrelated and are not staged for this release-script fix.
+- GREEN: release-worktree-source -> PASS, created clean release worktree `D:\ProjectPackage\Int\IntRuoyiWorktrees\r260802-feedback-fix-test\app` at `d6d0e7b9ea45e37001e95c5f761af9df815890f1`; `git status --short --branch` was clean and HEAD contained `DirectWorkstationResolution` / `resolveDirectFeedbackWorkstation`.
+- RED: `python -m pytest IntRuoyiBackend\script\tests\test_publish_int_ruoyi_to_test_tooling.py -k source_repo_identity -q` -> FAIL, `[ordered]` sourceRepo entries returned by `New-ReleaseSourceRepoEntry` could not be read through `PSObject.Properties`, causing `Get-ReleaseSourceRepoIdentity` to throw `Release source repo entry must include pathRole or name before git change comparison`.
+- GREEN: `python -m pytest IntRuoyiBackend\script\tests\test_publish_int_ruoyi_to_test_tooling.py -k source_repo_identity -q` -> PASS, `Get-ReleaseObjectPropertyText` now reads both normal object properties and `System.Collections.IDictionary` keys.
+- GREEN: `python -m pytest IntRuoyiBackend\script\tests\test_publish_int_ruoyi_to_test_tooling.py -k "source_repo_identity or publish_script_writes_manifest_v1_release_contract or build_release_writes_frontend_release_info" -q` -> PASS, manifest v1 and frontend release-info contract tests still pass.
+- GREEN: `git diff --check -- IntRuoyiBackend/script/deploy/publish-int-ruoyi.ps1 IntRuoyiBackend/script/tests/test_publish_int_ruoyi_to_test_tooling.py` -> PASS, only CRLF normalization warnings were reported.
+
+## Issue Log
+
+| ID | Phenomenon | Stage | Impact | Cause Judgment | Action | Result | Preflight? | Automatable? | Next Avoidance |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| P001 | `release-20260802-feedback-fix-test-r260802c-r1` local cache directory existed with only `required-sql` and no manifest/image tar | build-release | Cannot prove artifact source or publish it | Abandoned half package from interrupted/failed build | Marked releaseTag invalid and kept only as evidence | Not used for publish | Yes | Yes | Fail fast when package lacks `manifest.json`, `release-manifest.json`, or image tar |
+| P002 | `release-20260802-feedback-fix-test-r260802c-r2` backend built but frontend failed with missing Vite CLI | build-release | No valid package; cannot continue to publish | Fresh release worktree did not restore frontend dependencies | Ran `corepack pnpm@10.25.0 install --frozen-lockfile` in the release worktree frontend | Vite became available; new tag required | Yes | Yes | Check `node_modules\vite\bin\vite.js` or run frozen install before build |
+| P003 | `release-20260802-feedback-fix-test-r260802c-r3` built backend/frontend but failed before manifest v1 with `Release source repo entry must include pathRole or name before git change comparison` | manifest generation | No `manifest.json`; source commit/change notes cannot be proven | `[ordered]` sourceRepo entries were dictionaries; `Get-ReleaseObjectPropertyText` only read `PSObject.Properties` | Added RED/GREEN pytest and fixed dictionary key handling | Targeted tests PASS; must commit and rebuild new releaseTag | Yes | Yes | Manifest contract tests must execute before publishing; any missing manifest invalidates package |
+
+## Progress
+
+- Start: user requested committing current front/backend code, confirming the fix is included in the next release worktree, and publishing only to the test server.
+- 2026-08-02 12:31: baseline commit `d6d0e7b9e` pushed; release worktree `r260802-feedback-fix-test\app` froze that commit.
+- 2026-08-02 13:49: `r260802c-r3` reached frontend build success but stopped before valid manifest; package marked invalid.
+- 2026-08-02 after restart: release script root cause fixed locally with regression coverage; next step is selective commit/push, then create a fresh clean release worktree from the new HEAD.
