@@ -12,6 +12,8 @@
 - Type Check: PASS
 - Real Playwright E2E: PASS for task-owned original upload, wrong-password diagnostic, four-level approval/signature, publish ACTIVE, low-permission prompt, and traceability.
 - DCC write requests during final E2E: 0
+- Latest full E2E re-verification: PASS, `traceability-ux-real-e2e-result-20260802142044.json`.
+- Latest runtime: clean build jar `output/runtime/int_main/backend/yudao-server-exec-20260802-220742.jar`, SHA256 `81D5AF927797043FAAA68D065865B3738A8785B668A4E17C4675275AA8319E4F`, health `UP` on `48081`.
 - Password literal scan: `NO_PASSWORD_LITERAL_FOUND`
 - Closeout cleanup: PASS for task-owned duplicate evidence cleanup.
 - Git closeout: PASS, commit `a88d00bda` pushed to `origin/int_main`.
@@ -20,11 +22,11 @@
 
 | Item | Result | Evidence |
 | --- | --- | --- |
-| 签名留痕权限提示业务化 | PASS | `zhaojie` 非 admin、无高级签名管理权限，`traceability-ux-permission-prompt-20260802120622.png` 显示业务化提示，旧提示不可见。 |
-| 操作日志空态闭环 | PASS | `traceability-ux-operation-logs-20260802120622.png`；接口 `code=0,total=0`，页面显示“暂无操作日志，签核证据请见签核追溯/生命周期。” |
-| 审批意见与签名证据合并展示 | PASS | `traceability-ux-detail-20260802120622.png`；追溯行展示审批意见、签名时间、签名方式、证据状态、hash、文件证据。 |
-| 发布/盖章文件可点击验证 | PASS | `traceability-ux-file-evidence-viewer-20260802120622.png`；按钮打开 `viewer=1&from=signature-trace` 受控预览页。 |
-| 导出/打印入口和内容字段 | PASS | `signature-trace-ux-export-20260802120622.csv` 包含审批意见、文件证据、文件 hash、签名人和签名时间；打印按钮启用。 |
+| 签名留痕权限提示业务化 | PASS | `zhaojie` 非 admin、无高级签名管理权限，`traceability-ux-permission-prompt-20260802142044.png` 显示业务化提示，旧提示不可见。 |
+| 操作日志空态闭环 | PASS | `traceability-ux-operation-logs-20260802142044.png`；接口 `code=0,total=0`，页面显示“暂无操作日志，签核证据请见签核追溯/生命周期。” |
+| 审批意见与签名证据合并展示 | PASS | `traceability-ux-detail-20260802142044.png`；追溯行展示审批意见、签名时间、签名方式、证据状态、hash、文件证据。 |
+| 发布/盖章文件可点击验证 | PASS | `traceability-ux-file-evidence-viewer-20260802142044.png`；按钮打开 `viewer=1&from=signature-trace` 受控预览页。 |
+| 导出/打印入口和内容字段 | PASS | `signature-trace-ux-export-20260802142044.csv` 包含审批意见、文件证据、文件 hash、签名人和签名时间；打印按钮启用。 |
 | 签名失败诊断可操作 | PASS | `dcc-original-release-wrong-password-20260802115503.json` 记录 `zhaohaichen` 错误密码响应 `1080000022` 且页面诊断四项 token 可见。 |
 | 详情页渲染安全 | PASS | `node tests/e2e/dcc-detail-approval-render-safety-static.spec.js` 确认签核详情页无 `})const openControlledBrowserLocation` 拼接语法回归，审批弹窗状态均显式初始化。 |
 
@@ -54,6 +56,7 @@
 ## Verification Commands
 
 - `node tests/e2e/dcc-traceability-ux-static.spec.js` -> PASS
+- `node tests/e2e/dcc-traceability-ux-static.spec.js` -> initial re-verification FAIL on stale label contract, then PASS after updating expected label to `盖章文件 / 发布文件证据`.
 - `pnpm ts:check` -> PASS
 - `node tests/e2e/dcc-controlled-file-logs-static.spec.js` -> PASS
 - `node tests/e2e/dcc-browser-file-number-detail-entry-static.spec.js` -> PASS
@@ -61,5 +64,15 @@
 - `node tests/e2e/dcc-detail-approval-render-safety-static.spec.js` -> PASS
 - `node doc/tasks/20260802-dcc-traceability-ux-fixes/dcc-original-release-with-wrong-password-e2e.cjs` -> PASS
 - `node doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-real-e2e.cjs` -> PASS (`traceability-ux-real-e2e-result-20260802120622.json`)
+- `mvn.cmd -pl yudao-module-dcc -Dtest=DccControlledFileLogQueryServiceTest test` -> PASS, confirms current source handles project-code change records with missing assignment/project-code without NPE.
+- `mvn.cmd -pl yudao-server -am -DskipTests clean package` -> PASS, refreshes executable jar and removes stale runtime class artifacts.
+- `node doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-real-e2e.cjs` -> PASS (`traceability-ux-real-e2e-result-20260802141029.json`), `targetNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`, `dccWriteRequests=[]`.
+- `node doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-real-e2e.cjs` with `DCC_E2E_SOURCE_RESULT_PATH` set to task-owned wrong-password result -> PASS (`traceability-ux-real-e2e-result-20260802142044.json`), `targetNetworkFailures=[]`, `consoleErrors=[]`, `pageErrors=[]`, `dccWriteRequests=[]`, `signatureFailureDiagnosticStatus=PASS`.
 - `task-closeout-cleanup --mode preview/apply` -> PASS, `blocked=<none>`, `warnings=<none>`，仅清理旧轮次重复证据。
 - `git -c http.https://github.com.proxy= push origin int_main` -> PASS, `a88d00bda` pushed.
+
+## Resolved Re-Verification Blocker
+
+- First re-run `traceability-ux-real-e2e-result-20260802132801.json` failed only on operation-log empty-state because the active backend was an older runtime jar returning `code=500` from `/admin-api/dcc/controlled-file-logs/page`.
+- Root cause evidence was a stale runtime hitting `DccControlledFileLogQueryServiceImpl.toProjectCodeChangeCandidate` NPE; current source and `DccControlledFileLogQueryServiceTest#getLogPage_handlesProjectCodeChangeWithMissingAssignmentAndProjectCode` already cover the null case.
+- Resolution was runtime hygiene, not API/SQL data repair: clean package, start independent clean-build jar, health `UP`, then real Playwright E2E PASS.

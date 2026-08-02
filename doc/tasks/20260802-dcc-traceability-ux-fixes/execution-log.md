@@ -71,6 +71,30 @@
 - 签名失败诊断真实错误密码：PASS。`zhaohaichen` 首节点错误密码响应 `1080000022`，页面显示“签名失败原因 / 当前密码错误 / 处理建议 / 责任入口”，随后正确密码继续主链路。
 - 低权限权限提示真实触发：PASS。`zhaojie` 无高级签名管理权限，能看到目标文件并进入追溯详情，页面显示业务化权限提示且旧误导文案不可见。
 
+## Full Re-Verification 2026-08-02 22:11
+
+- BDD: 五项签核追溯 UX 复验 -> Given 任务自有文件 `CODX-DCC-TRACE-DIAG-20260802115503` 已通过真实页面完成原版发布、四级审批签名和错误密码诊断 When 非 admin 查看账号从受控浏览进入详情、操作日志和文件证据预览 Then 页面同时证明业务化权限提示、操作日志空态闭环、审批意见+签名证据合并、盖章/发布文件可点击、签名失败诊断可见。
+- RED: `node tests/e2e/dcc-traceability-ux-static.spec.js` -> FAIL，期望失败原因：静态合同仍断言旧列名 `文件证据`，当前页面正式列名为 `盖章文件 / 发布文件证据`。
+- GREEN: `node tests/e2e/dcc-traceability-ux-static.spec.js` -> PASS，静态合同同步当前页面列名。
+- GREEN: `node tests/e2e/dcc-detail-approval-render-safety-static.spec.js` -> PASS。
+- GREEN: `mvn.cmd -pl yudao-module-dcc -Dtest=DccControlledFileLogQueryServiceTest test` -> PASS，3 tests / 0 failures / 0 errors；确认当前源码能处理缺 assignment/project-code 的项目代码变更日志，不触发文控日志 NPE。
+- BLOCKED: `node doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-real-e2e.cjs` -> `traceability-ux-real-e2e-result-20260802132801.json` FAIL，影响：操作日志空态闭环未通过；页面显示空态指引但日志接口返回 `code=500` 并出现系统异常。
+- Blocker root cause: 48081 当时运行旧 runtime jar，命中文控日志聚合旧 NPE；没有使用 API/SQL 造数据或改状态。
+- GREEN: `mvn.cmd -pl yudao-server -am -DskipTests clean package` -> PASS，重新生成 `yudao-server-exec.jar`，清理旧 class/jar 污染。
+- GREEN: clean build runtime -> 独立 jar `output/runtime/int_main/backend/yudao-server-exec-20260802-220742.jar` 启动，SHA256 `81D5AF927797043FAAA68D065865B3738A8785B668A4E17C4675275AA8319E4F`，health `UP` on 48081。
+- GREEN: `node doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-real-e2e.cjs` -> `traceability-ux-real-e2e-result-20260802141029.json` PASS；`targetNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`、`dccWriteRequests=[]`。
+- Evidence: `traceability-ux-detail-20260802141029.png`、`traceability-ux-file-evidence-viewer-20260802141029.png`、`traceability-ux-operation-logs-20260802141029.png`、`traceability-ux-permission-prompt-20260802141029.png`、`signature-trace-ux-export-20260802141029.csv`。
+
+## Full Re-Verification 2026-08-02 22:20
+
+- BDD: 五项签核追溯 UX 完整复验 -> Given 任务自有文件 `CODX-DCC-TRACE-DIAG-20260802115503` 已通过真实页面完成原版发布、四级审批签名和错误密码诊断 When 显式使用该错误密码诊断结果作为追溯复验源 Then 页面同时证明业务化权限提示、操作日志空态闭环、审批意见+签名证据合并、盖章/发布文件可点击、签名失败诊断可见。
+- GREEN: frontend `http://127.0.0.1:8081/login?redirect=/index` -> HTTP 200；backend `http://127.0.0.1:48081/actuator/health` -> `{"status":"UP"}`。
+- GREEN: `node tests/e2e/dcc-traceability-ux-static.spec.js` -> PASS。
+- GREEN: `node tests/e2e/dcc-detail-approval-render-safety-static.spec.js` -> PASS。
+- NOTE: `traceability-ux-real-e2e-result-20260802141849.json` used the default original-release source and correctly marked `signatureFailureDiagnosticStatus=BLOCKED` because that ACTIVE file no longer had a pending signature button; it was not used as final evidence.
+- GREEN: `node doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-real-e2e.cjs` with `DCC_E2E_SOURCE_RESULT_PATH=doc/tasks/20260802-dcc-traceability-ux-fixes/dcc-original-release-wrong-password-20260802115503.json` -> `traceability-ux-real-e2e-result-20260802142044.json` PASS；`targetNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`、`dccWriteRequests=[]`、`signatureFailureDiagnosticStatus=PASS`。
+- Evidence: `traceability-ux-detail-20260802142044.png`、`traceability-ux-file-evidence-viewer-20260802142044.png`、`traceability-ux-operation-logs-20260802142044.png`、`traceability-ux-permission-prompt-20260802142044.png`、`signature-trace-ux-export-20260802142044.csv`。
+
 ## Secret Handling
 
 - Password injection command used environment variable only.

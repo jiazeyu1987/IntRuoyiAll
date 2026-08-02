@@ -28,10 +28,15 @@ completed
 
 - Static RED: `node tests/e2e/dcc-traceability-ux-static.spec.js` -> FAIL，原因为权限提示未业务化。
 - Static GREEN: `node tests/e2e/dcc-traceability-ux-static.spec.js` -> PASS。
+- Re-verification static RED: `node tests/e2e/dcc-traceability-ux-static.spec.js` -> FAIL，原因为静态合同仍断言旧列名 `文件证据`，当前页面正式列名为 `盖章文件 / 发布文件证据`。
+- Re-verification static GREEN: `node tests/e2e/dcc-traceability-ux-static.spec.js` -> PASS，静态合同已同步当前页面业务列名。
 - Type check: `pnpm ts:check` -> PASS。
 - Regression: 文控日志、受控浏览详情入口、详情退休路由、签核追溯 UX 静态合同、详情页渲染安全静态合同 -> PASS。
 - Real E2E create/sign/publish: `dcc-original-release-wrong-password-20260802115503.json` -> status PASS。
 - Real E2E traceability: `traceability-ux-real-e2e-result-20260802120622.json` -> status PASS，`dccWriteRequests=[]`。
+- Real E2E re-verification: `traceability-ux-real-e2e-result-20260802141029.json` -> status PASS，五项 UX 页面断言全部通过，`targetNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`、`dccWriteRequests=[]`。
+- Latest full E2E re-verification: `traceability-ux-real-e2e-result-20260802142044.json` -> status PASS，显式复用任务自有错误密码诊断源结果，签名失败诊断、低权限提示、操作日志空态、审批意见+签名证据、盖章/发布文件可点击均通过，`targetNetworkFailures=[]`、`consoleErrors=[]`、`pageErrors=[]`、`dccWriteRequests=[]`。
+- Runtime re-verification: 先发现 `traceability-ux-real-e2e-result-20260802132801.json` 因旧后端 runtime jar 命中文控日志 NPE 返回 `code=500`；源码已有空值保护，执行 `mvn.cmd -pl yudao-server -am -DskipTests clean package` 后以独立 jar `output/runtime/int_main/backend/yudao-server-exec-20260802-220742.jar` 启动，health `UP` 后复验 PASS。
 - Closeout cleanup: preview/apply -> PASS，`blocked=<none>`，`warnings=<none>`，仅清理旧轮次重复证据并保留最终脚本/JSON/截图/CSV。
 - Git closeout: commit `a88d00bda` 已提交并推送到 `origin/int_main`；推送前 `branch-runtime-port-guard.ps1` PASS。
 - Task-owned controlled file: `CODX-DCC-TRACE-DIAG-20260802115503` / `2054545668044070299` / `V1.0` / `ACTIVE`。
@@ -62,6 +67,18 @@ completed
 - doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-file-evidence-viewer-20260802120622.png
 - doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-operation-logs-20260802120622.png
 - doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-permission-prompt-20260802120622.png
+- doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-real-e2e-result-20260802141029.json
+- doc/tasks/20260802-dcc-traceability-ux-fixes/signature-trace-ux-export-20260802141029.csv
+- doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-detail-20260802141029.png
+- doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-file-evidence-viewer-20260802141029.png
+- doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-operation-logs-20260802141029.png
+- doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-permission-prompt-20260802141029.png
+- doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-real-e2e-result-20260802142044.json
+- doc/tasks/20260802-dcc-traceability-ux-fixes/signature-trace-ux-export-20260802142044.csv
+- doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-detail-20260802142044.png
+- doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-file-evidence-viewer-20260802142044.png
+- doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-operation-logs-20260802142044.png
+- doc/tasks/20260802-dcc-traceability-ux-fixes/traceability-ux-permission-prompt-20260802142044.png
 
 ## Experience Consolidation
 

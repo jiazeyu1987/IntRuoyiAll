@@ -52,7 +52,7 @@ assert.match(signatureTraceSection, /prop="approvalCommentText"/, '签核追溯�
 assert.match(detailPage, /approvalCommentText:\s*formatSignatureTraceComment/, '签核追溯行必须从签名意见生成审批意见展示值')
 assert.match(detailPage, /'审批意见'/, '签核追溯导出/打印必须包含审批意见字段')
 
-assert.match(signatureTraceSection, /label="文件证据"/, '签核追溯表必须展示文件证据操作列')
+assert.match(signatureTraceSection, /label="盖章文件 \/ 发布文件证据"/, '签核追溯表必须展示盖章/发布文件证据操作列')
 assert.match(signatureTraceSection, /data-testid="dcc-signature-trace-file-evidence"/, '文件证据入口必须有稳定测试标识')
 assert.match(detailPage, /openTraceFileEvidence/, '发布/盖章文件证据必须提供可点击查看动作')
 assert.match(detailPage, /查看盖章\/发布文件/, '发布/盖章文件证据按钮必须用业务化文案')

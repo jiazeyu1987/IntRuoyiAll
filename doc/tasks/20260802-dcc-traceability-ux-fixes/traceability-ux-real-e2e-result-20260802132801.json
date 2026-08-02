@@ -1,0 +1,107 @@
+{
+  "status": "FAIL",
+  "runId": "20260802132801",
+  "baseUrl": "http://127.0.0.1:8081",
+  "fileNumber": "CODX-DCC-TRACE-DIAG-20260802115503",
+  "controlledFileId": "2054545668044070299",
+  "sourceResultPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-traceability-ux-fixes\\dcc-original-release-wrong-password-20260802115503.json",
+  "username": "wangsiyu",
+  "startedAt": "2026-08-02T13:28:01.819Z",
+  "checks": [
+    {
+      "name": "traceability-ux-detail-page",
+      "path": "/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-TRACE-DIAG-20260802115503&pageNo=1&pageSize=20",
+      "browserResponseCode": 0,
+      "matchedRows": 1,
+      "finalUrl": "/dcc/controlled-file/detail/2054545668044070299?traceability=1&from=browser&returnTo=%252Fdcc%252Fcontrolled-file%252Fbrowser%253Fscope%253Dglobal%2526keyword%253DCODX-DCC-TRACE-DIAG-20260802115503%2526pageNo%253D1%2526pageSize%253D20",
+      "traceTextSample": "签核追溯 汇总上传人、四级审批人、审批意见、签名时间、签名方式、证据状态、文件哈希和盖章/发布文件。 导出 打印 角色 上传人 / 四级审批人 审批意见 签名时间 签名方式 证据状态 文件哈希 盖章文件 / 发布文件证据 上传人 用户#151 - 2026-08-02 19:55:13 上传提交 - - publishedFileId：9198354916368；stampedFileId：9198354916368 查看盖章/发布文件 四级审批人 赵海辰 E2E V1.0 文控审核 同意 20260802115503 2026-08-02 19:55:19 PASSWORD 已校验 292ae2db15a5 publishedFileId：9198354916368；stampedFileId：9198354916368 查看盖章/发布文件 四级审批人 赵杰 E2E V1.0 会签审核 同意 20260802115503 2026-08-02 19:55:27 PASSWORD 已校验 193a80a1e82d publishedFileId：9198354916368；stampedFileId：9198354916368 查看盖章/发布文件 四级审批人 赵明玉 E2E V1.0 会签批准 同意 20260802115503 2026-08-02 19:55:33 PASSWORD 已校验 932f13991a16 publishedFileId：9198354916368；stampedFileId：9198354916368 查看盖章/发布文件 四级审批人 王思雨 E2E V1.0 文控批准 同意 20260802115503 2026-08-02 19:55:43 PASSWORD 已校验 be42bf5eb372 publishedFileId：9198354916368；stampedFileId：9198354916368 查看盖章/发布文件",
+      "signatureTextSample": "签名留痕 常用视图默认显示签名业务字段，Hash 证据可在高级视图查看。 快速过滤 版本 包含 查询 显示字段 重置列 常用视图 高级视图 版本 签名人 部门/岗位 角色 动作 签名含义 签名目的 受控副本 证据状态 签名意见 签名时间 暂无签名记录",
+      "bodyTextSample": "瑛泰管理系统 个人中心 0 审批中心 8 电子签名 文控中心 文档目录 文控权限 上传审批 文件上传 受控浏览 文控日志 基础数据 系统管理 版本信息未生成 文控中心 / 受控浏览 请输入菜单内容 王思雨 受控浏览 受控文件详情 Codex DCC 签核追溯诊断 20260802115503 现行 当前有效版 / ACTIVE / V1.0 文件编号：CODX-DCC-TRACE-DIAG-20260802115503 版本：V1.0 生效日期：2026-08-02 返回 预览受控文件 下载受控文件 更多 页面模式 详情查看态 下一步 可查看和下载现行版 责任面 责任：使用部门 当前阶段 - 阻塞原因 - 受控打印动作投影缺失，已阻止操作，请刷新后重试或联系管理员确认后端投影。 DCC 项目代码联动 展示当前文件在 DCC 项目代码和文件分类树中的关联文档入口。 关联文档入口 修正追溯入口 当前 DCC 项目 一次性使用亲水涂层导丝 / HGGW 当前文件分类 技术文档 / 设计和开发输出阶段 / 来料/过程/成品检验规范 关联文件 ID 2054545668044070299 关联文档定位 可跳转并定位当前文件类型 受控浏览入口 原版审批生效后展示最终受控浏览目录、发布文件和盖章文件落位。 查看受控浏览当前有效版 最终目录路径 - 发布文件 发布文件：已生成并可用于受控预览 高级信息：publishedFileId 9198354916368 盖章文件 盖章文件：已生成，预览优先打开盖章版本 高级信息：stampedFileId 9198354916368 当前有效版来源（master 当前生效版本） master 当前生效版本 V1.0 高级信息：currentActiveVersionNo V1.0 发布完成结果 新版 ACTIVE · 旧版 SUPERSEDED ·",
+      "traceMissingTokens": [],
+      "signaturePermissionPrompt": {
+        "friendlyPromptVisible": false,
+        "oldPromptVisible": false,
+        "status": "NOT_APPLICABLE_CURRENT_ACCOUNT_HAS_ADVANCED_ACCESS"
+      },
+      "exportButtonEnabled": true,
+      "printButtonEnabled": true,
+      "exportedCsv": {
+        "attempted": true,
+        "downloaded": true,
+        "fileName": "DCC签核追溯-CODX-DCC-TRACE-DIAG-20260802115503.csv",
+        "path": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-traceability-ux-fixes\\signature-trace-ux-export-20260802132801.csv",
+        "textSample": "\"角色\",\"上传人/四级审批人\",\"审批意见\",\"签名时间\",\"签名方式\",\"证据状态\",\"文件哈希\",\"文件证据\" \"上传人\",\"彭云凤 (pengyunfeng)\",\"-\",\"2026-08-02 19:55:13\",\"上传提交\",\"-\",\"-\",\"publishedFileId：9198354916368；stampedFileId：9198354916368\" \"四级审批人\",\"赵海辰\",\"E2E V1.0 文控审核 同意 20260802115503\",\"2026-08-02 19:55:19\",\"PASSWORD\",\"已校验\",\"292ae2db15a5\",\"publishedFileId：9198354916368；stampedFileId：9198354916368\" \"四级审批人\",\"赵杰\",\"E2E V1.0 会签审核 同意 20260802115503\",\"2026-08-02 19:55:27\",\"PASSWORD\",\"已校验\",\"193a80a1e82d\",\"publishedFileId：9198354916368；stampedFileId：9198354916368\" \"四级审批人\",\"赵明玉\",\"E2E V1.0 会签批准 同意 20260802115503\",\"2026-08-02 19:55:33\",\"PASSWORD\",\"已校验\",\"932f13991a16\",\"publishedFileId：9198354916368；stampedFileId：9198354916368\" \"四级审批人\",\"王思雨\",\"E2E V1.0 文控批准 同意 20260802115503\",\"2026-08-02 19:55:43\",\"PASSWORD\",\"已校验\",\"be42bf5eb372\",\"publishedFileId：9198354916368；stampedFileId：9198354916368\"",
+        "missingTokens": []
+      },
+      "fileEvidence": {
+        "buttonVisible": true,
+        "popupOpened": true,
+        "viewerUrl": "http://127.0.0.1:8081/dcc/controlled-file/detail/2054545668044070299?viewer=1&from=signature-trace&returnTo=/dcc/controlled-file/detail/2054545668044070299?traceability=1%26from=browser%26returnTo=%25252Fdcc%25252Fcontrolled-file%25252Fbrowser%25253Fscope%25253Dglobal%252526keyword%25253DCODX-DCC-TRACE-DIAG-20260802115503%252526pageNo%25253D1%252526pageSize%25253D20",
+        "viewerVisible": true,
+        "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-traceability-ux-fixes\\traceability-ux-file-evidence-viewer-20260802132801.png"
+      },
+      "readonlyApiVerification": {
+        "responseStatus": 200,
+        "responseCode": 0,
+        "idMatches": true,
+        "fileNumberMatches": true,
+        "versionMatches": true,
+        "statusMatches": true,
+        "publishedFileIdMatches": true,
+        "stampedFileIdMatches": true,
+        "signatureCountMatches": true,
+        "signatureCommentMissing": []
+      },
+      "signatureFailureDiagnostic": {
+        "status": "PASS",
+        "username": "zhaohaichen",
+        "role": "文控审核",
+        "responseCode": 1080000022,
+        "uiTokensVisible": true,
+        "sourceResultPath": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-traceability-ux-fixes\\dcc-original-release-wrong-password-20260802115503.json"
+      },
+      "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-traceability-ux-fixes\\traceability-ux-detail-20260802132801.png",
+      "pass": true
+    },
+    {
+      "name": "operation-log-empty-state",
+      "path": "/dcc/controlled-file/logs?keyword=CODX-DCC-TRACE-DIAG-20260802115503&controlledFileId=2054545668044070299",
+      "responseStatus": 200,
+      "responseCode": 500,
+      "total": null,
+      "rowVisible": false,
+      "emptyGuidanceVisible": true,
+      "hasNoPermissionText": false,
+      "textSample": "瑛泰管理系统 个人中心 0 审批中心 8 电子签名 文控中心 文档目录 文控权限 上传审批 文件上传 受控浏览 文控日志 基础数据 系统管理 版本信息未生成 文控中心 / 文控日志 请输入菜单内容 王思雨 文控日志 快速过滤 关键字 包含 查询 显示字段 系统异常 发生时间 日志类型 动作 文件编号 文件名称 操作人 关联对象 摘要 结果 操作 暂无操作日志，签核证据请见签核追溯/生命周期。 Copyright ©2026 瑛泰管理系统 系统异常 系统异常",
+      "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-traceability-ux-fixes\\traceability-ux-operation-logs-20260802132801.png",
+      "pass": false
+    },
+    {
+      "name": "signature-permission-business-copy",
+      "username": "zhaojie",
+      "path": "/dcc/controlled-file/browser?scope=global&keyword=CODX-DCC-TRACE-DIAG-20260802115503&pageNo=1&pageSize=20",
+      "status": "PASS",
+      "entryAction": "file-number-detail-link",
+      "matchedRows": 1,
+      "traceSectionVisible": true,
+      "friendlyPromptVisible": true,
+      "oldPromptVisible": false,
+      "textSample": "瑛泰管理系统 个人中心 937 审批中心 6 电子签名 文控中心 文档目录 文控权限 上传审批 文件上传 受控浏览 文控日志 基础数据 MES 系统 系统管理 版本信息未生成 文控中心 / 受控浏览 请输入菜单内容 赵杰 受控浏览 受控文件详情 Codex DCC 签核追溯诊断 20260802115503 现行 当前有效版 / ACTIVE / V1.0 文件编号：CODX-DCC-TRACE-DIAG-20260802115503 版本：V1.0 生效日期：2026-08-02 返回 预览受控文件 下载受控文件 更多 页面模式 详情查看态 下一步 可查看和下载现行版 责任面 责任：使用部门 当前阶段 - 阻塞原因 - 受控打印动作投影缺失，已阻止操作，请刷新后重试或联系管理员确认后端投影。 查阅权限说明 详情 目录管理员：目录管理员 已发布查看 目录管理员：目录管理员 待审原件 - 下载 下载策略：下载权限由独立下载策略服务放行 DCC 项目代码联动 展示当前文件在 DCC 项目代码和文件分类树中的关联文档入口。 关联文档入口 修正追溯入口 当前 DCC 项目 一次性使用亲水涂层导丝 / HGGW 当前文件分类 技术文档 / 设计和开发输出阶段 / 来料/过程/成品检验规范 关联文件 ID 2054545668044070299 关联文档定位 可跳转并定位当前文件类型 受控浏览入口 原版审批生效后展示最终受控浏览目录、发布文件和盖章文件落位。 查看受控浏览当前有效版 最终目录路径 4.Ohter 发布文件 发布文件：已生成并可用于受控预览 高级信息：publishedFileId 9198354916368 盖章文件 盖章文件：已生成，预览优先打开盖章版本 高级信息：stampedFileId 9198354916368 当前有效版来源（master 当前生效版本） master 当前生效版本 V1.0 高级信息：currentActiveVersionNo V1.0 发布完成结果 新版 ACTIVE · 旧版 SUPERSEDED · master 当前生效版本 · 受控浏览落位 · 可见范围说明 查看受控浏览当前有效版 新版 ACTIVE 已确认 V1.0 / 现行 新版审批完成后已进入 ACTIVE 状态。 旧版 SUPERSEDED 需核验 未发现被当前版本替换的旧版 旧版通过 supersededByFileId 指向当前生效版本。 master 当前生效版本 已确认 已指向 V1.0 master 当前生效版本应与当前详情版本一致。 受控浏览落位 已确认 目录：4.Ohter；publishedFileId：9198354916368；stampedFileId：9198354916368 受控浏览最终目录、发布文件和盖章文件已在详情页可追溯",
+      "screenshot": "E:\\IntRuoyi\\doc\\tasks\\20260802-dcc-traceability-ux-fixes\\traceability-ux-permission-prompt-20260802132801.png",
+      "pass": true,
+      "detailResponseStatus": 200,
+      "detailResponseCode": 0
+    }
+  ],
+  "targetNetworkFailures": [],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "dccWriteRequests": [],
+  "summary": {
+    "allChecksPass": false,
+    "noUnexpectedErrors": true,
+    "dccWriteRequests": 0,
+    "signatureFailureDiagnosticStatus": "PASS"
+  },
+  "finishedAt": "2026-08-02T13:28:17.356Z"
+}
